@@ -2747,6 +2747,9 @@ t("item ID opaco: markup SVG/HTML codificato e lookup senza selector interpolato
   const markup = A.itemMarkup(it);
   ok(markup.includes("data-id=\"audit&quot; data-audit-marker=&quot;present\""), "ID codificato nell'attributo");
   ok(!markup.includes('" data-audit-marker="'), "nessun secondo attributo iniettato");
+  /* il contenitore del nome (livello #layLbl) porta lo stesso ID: anche lì codificato */
+  A._lblSink = []; A.itemMarkup(it); const lb = A._lblSink.join(""); A._lblSink = null;
+  ok(lb.includes('data-for="audit&quot; data-audit-marker=&quot;present"') && !lb.includes('" data-audit-marker="'), "ID codificato anche nel contenitore del nome");
   const dot = A.sectionDotMarkup({ id, type: "cantante", x: 20, y: 30, rot: 0, w: 90, d: 90, label: "Voce" });
   ok(dot.includes("data-id=\"audit&quot; data-audit-marker=&quot;present\""), "section dot codificato");
   const oldSvg = A.svg;
@@ -2755,6 +2758,8 @@ t("item ID opaco: markup SVG/HTML codificato e lookup senza selector interpolato
   let scans = 0;
   try {
     A.svg = { querySelectorAll: (selector) => {
+      /* dal 25/09 l'indice raccoglie anche i nomi (#layLbl): un secondo selettore, anch'esso statico */
+      if (selector === ".item-lbls[data-for]") return [];
       eq(selector, ".item[data-id]", "selector statico");
       scans++;
       return [{ getAttribute: () => "other" }, expected];
@@ -8163,6 +8168,39 @@ t("l'audit dice la gravità a parole, e non dice «pronto» a un palco vuoto", (
 t("da tastiera si entra nel pannello proprietà (Invio) e si torna al palco (Esc)", () => {
   ok(/if\(e\.key==="Enter" && document\.activeElement===_svg && sel/.test(appjs) && /_primo\.focus\(\)/.test(appjs), "Invio sul palco non porta al pannello proprietà");
   ok(/if\(e\.key==="Escape" && sel && [^\n]*closest\("#props"\)\)\{\s*e\.preventDefault\(\); _svg\.focus\(\);/.test(appjs), "Esc dal pannello non riporta al palco");
+});
+
+/* Revisione 25/09: dentro il gruppo dell'elemento il nome finiva sotto a chi veniva dopo nell'ordine
+   (Orchestra 5 nomi coperti su 21, Band 5 su 11, Coro 6). Nella scena i nomi vanno in #layLbl, sopra
+   tutti gli elementi; fuori dalla scena (miniature) restano nel gruppo. */
+t("nella scena i nomi stanno sopra tutti gli elementi", () => {
+  reset();
+  const a = add("cantante", 300, 300), b = add("wedge", 300, 380); a.label = "Voce A"; b.label = "Mix 1";
+  const sc = A.sceneMarkup();
+  const iItems = sc.indexOf('<g id="layItems">'), iLbl = sc.indexOf('<g id="layLbl"');
+  ok(iItems > -1 && iLbl > iItems, "il livello dei nomi deve venire DOPO quello degli elementi");
+  const items = sc.slice(iItems, iLbl), lbls = sc.slice(iLbl);
+  ok(!/class="lbl"/.test(items), "un nome è rimasto dentro il gruppo del suo elemento");
+  ok(/>Voce A</.test(lbls) && />Mix 1</.test(lbls), "i nomi non sono nel livello sopra");
+  ok(/<g id="layLbl" style="pointer-events:none">/.test(sc), "il livello dei nomi deve lasciar passare i clic all'elemento sotto");
+  ok(/class="item-lbls[^"]*" data-for="[^"]+" transform="translate\(300 300\)"><g transform="rotate\(0\)">/.test(lbls), "il nome deve avere la stessa traslazione e rotazione del suo elemento");
+  ok(/>Voce A</.test(A.itemMarkup(a)), "fuori dalla scena (miniature, anteprime) il nome resta nel gruppo");
+});
+t("trascinare e ruotare spostano anche il nome, che sta in un altro livello", () => {
+  /* nel sandbox il DOM non si muove: si controlla che ogni aggiornamento parziale chiami syncItemLbl */
+  ok(/if\(g\) g\.setAttribute\("transform","translate\("\+it\.x\+" "\+it\.y\+"\)"\);\s*syncItemLbl\(it\);/.test(appjs), "trascinando, il nome resta indietro");
+  ok(/gi\.setAttribute\("transform","rotate\("\+it\.rot\+"\)"\); \}\s*syncItemLbl\(it\); \}\);/.test(appjs), "ruotando un gruppo, il nome resta indietro");
+  ok(/function rotateItemNode\(it\)\{[^\n]*syncItemLbl\(it\)/.test(appjs), "ruotando un elemento, il nome resta indietro");
+  ok(/function redrawItemNode\(it\)\{[\s\S]{0,400}_lblSink=\[\]/.test(appjs), "ridisegnando un elemento, il nome finirebbe doppio");
+});
+t("il nome del musicista non si ripete sulla sua spia", () => {
+  reset();
+  const m = add("bassstand", 300, 300), w = add("wedge", 300, 392); m.label = "Basso"; w.label = "Basso";
+  ok(A.nomeGiaSullaSpia(m), "spia con lo stesso nome a 92 cm: il nome del musicista va tolto");
+  const lbls = A.sceneMarkup().split('<g id="layLbl"')[1];
+  eq((lbls.match(/>Basso</g) || []).length, 1, "«Basso» deve comparire una volta sola");
+  w.label = "Mix basso"; ok(!A.nomeGiaSullaSpia(m), "con un nome diverso la spia non toglie niente");
+  w.label = "Basso"; w.y = 600; ok(!A.nomeGiaSullaSpia(m), "una spia lontana non è la sua");
 });
 
 console.log("\n— L'anteprima non deve vestire l'app (segnalazione 10/09) —");

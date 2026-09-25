@@ -5972,8 +5972,22 @@ function riserDimSide(it){
   ["bottom","top","right","left"].forEach(function(k){ if(m[k]>bv+1){ bv=m[k]; best=k; } });
   return best;
 }
+/* Il musicista con la SUA spia davanti, che porta lo stesso nome: il nome del musicista cade proprio
+   sulla spia e quello della spia subito sotto — «Basso» due volte. Finché i nomi stavano dentro il
+   gruppo dell'elemento, quello del musicista finiva nascosto sotto la spia e il problema non si
+   vedeva; col livello dei nomi sopra tutto (revisione 25/09) se ne scrive uno solo, quello della spia,
+   che sta sotto il gruppo. Solo se la spia è sua, vicina (entro 1,2 m) e con lo stesso nome. */
+function nomeGiaSullaSpia(it){
+  var nome=String((it && it.label)||"").trim(); if(!nome || it.type==="wedge") return false;
+  /* la sua spia: quella collegata (ascoltoId) o, nei modelli, una spia col suo stesso nome a meno di 1,2 m */
+  return (state.items||[]).some(function(a){
+    return a.type==="wedge" && a.id!==it.id && String(a.label||"").trim()===nome
+      && (a.id===it.ascoltoId || Math.hypot((a.x||0)-(it.x||0), (a.y||0)-(it.y||0)) <= 120);
+  });
+}
 function itemMarkup(it){
   var t = itemTypeDef(it); if(!t) return '';
+  var lb='';   /* i NOMI: nella scena vanno nel livello sopra tutto (#layLbl), vedi _lblSink */
   _lucettaOn = (it.lucetta===true);   /* lucetta leggio: valida per tutti i leggioGlyph disegnati da questo elemento (draw + accessori) */
   var hw = Math.max(it.w,70)/2 + 8, hd = Math.max(it.d,30)/2 + 8;   /* area di click generosa */
   var bw = it.w/2 + 6, bh = it.d/2 + 6;                             /* riquadro selezione aderente all'ingombro reale */
@@ -6031,7 +6045,7 @@ function itemMarkup(it){
     else if(rside==="bottom"){ rdy=(it.d/2)+roff+9; }
     else if(rside==="left"){ rdx=-(it.w/2)-roff; ranc='middle'; rtr=' transform="rotate(-90 '+rdx+' 0)"'; }   /* ruotata, legge lungo il lato sx */
     else { rdx=(it.w/2)+roff; ranc='middle'; rtr=' transform="rotate(90 '+rdx+' 0)"'; }                       /* ruotata, lato dx */
-    s += '<text class="lbl sub" x="'+rdx+'" y="'+rdy+'" text-anchor="'+ranc+'"'+rtr+'>'+dimT+'</text>';
+    lb += '<text class="lbl sub" x="'+rdx+'" y="'+rdy+'" text-anchor="'+ranc+'"'+rtr+'>'+dimT+'</text>';
   }
   var _hid = (it.labelMode==='hidden');
   var fsz0 = _hid ? 0 : ((it.lblSize==null) ? 14 : it.lblSize);   /* 0 = nascosta; 'hidden' = nome nascosto per questo elemento */
@@ -6087,8 +6101,8 @@ function itemMarkup(it){
       var dc=sepCfg(it), dhalf=(it.sep || (dc&&dc.sep) || DEFAULT_SEP)/2;
       var lx=Math.max(dhalf, 40, fszK*1.4);     /* sotto ciascuno strumento; min cresce col font per non sovrapporre */
       var tilt=12;                              /* le sedute della doppia convergono di ±12°: l'etichetta segue lo schienale */
-      if(_t1) s += '<text class="lbl" x="'+(-lx)+'" y="'+ly+'" transform="rotate('+(_sceneRuota ? _rc : -tilt)+' '+(-lx)+' '+ly+')"'+fst+'>'+esc(_t1)+'</text>';
-      if(_t2) s += '<text class="lbl" x="'+lx+'" y="'+ly+'" transform="rotate('+(_sceneRuota ? _rc : tilt)+' '+lx+' '+ly+')"'+fst+'>'+esc(_t2)+'</text>';
+      if(_t1) lb += '<text class="lbl" x="'+(-lx)+'" y="'+ly+'" transform="rotate('+(_sceneRuota ? _rc : -tilt)+' '+(-lx)+' '+ly+')"'+fst+'>'+esc(_t1)+'</text>';
+      if(_t2) lb += '<text class="lbl" x="'+lx+'" y="'+ly+'" transform="rotate('+(_sceneRuota ? _rc : tilt)+' '+lx+' '+ly+')"'+fst+'>'+esc(_t2)+'</text>';
     } else if(_t1){
       /* DI generata da uno strumento (audit 27/07): il suo posto è sotto lo strumento, quindi la sua
          etichetta finiva nella stessa colonna di quella dello strumento e ci si stampava sopra —
@@ -6096,17 +6110,17 @@ function itemMarkup(it){
          esce di lato, dove non c'è nient'altro. */
       /* 18 e non 7: a 7 la prima lettera nasceva addosso al bordo della DI e il contorno del disegno
          si leggeva come parte del nome («⊏DI 1»). */
-      if(it.diFor) s += '<text class="lbl" x="'+(it.w/2+18)+'" y="'+(fszK*0.36+_nudge)+'" text-anchor="start"'+(_sceneRuota ? ' transform="rotate('+_rc+' '+(it.w/2+18)+' '+(fszK*0.36+_nudge)+')"' : '')+fst+'>'+esc(_t1)+noteDot(it)+'</text>';
-      else s += '<text class="lbl"'+_xy+_rot+_fstR+'>'+esc(_t1)+noteDot(it)+'</text>';
+      if(it.diFor) lb += '<text class="lbl" x="'+(it.w/2+18)+'" y="'+(fszK*0.36+_nudge)+'" text-anchor="start"'+(_sceneRuota ? ' transform="rotate('+_rc+' '+(it.w/2+18)+' '+(fszK*0.36+_nudge)+')"' : '')+fst+'>'+esc(_t1)+noteDot(it)+'</text>';
+      else if(!nomeGiaSullaSpia(it)) lb += '<text class="lbl"'+_xy+_rot+_fstR+'>'+esc(_t1)+noteDot(it)+'</text>';
     } else if(noteOf(it)){
       /* elementi che nascono anonimi (pedane, zone): senza questo ramo la loro nota non avrebbe
          alcun segno sul disegno, e resterebbe scritta solo in una lista che nessuno sa di aprire. */
-      s += '<text class="lbl"'+_xy+_rot+_fstR+'>'+noteDot(it).replace(" •","•")+'</text>';
+      lb += '<text class="lbl"'+_xy+_rot+_fstR+'>'+noteDot(it).replace(" •","•")+'</text>';
     }
     /* MONTAGGIO: «stativo 2,5 m» sotto il nome. È il dato che chi allestisce viene a cercare, e a
        terra non si scrive niente — l'assenza vuol dire «poggiato», che è il caso normale. */
     var _mn = mountNote(it);
-    if(_mn) s += '<text class="lbl sub"'+(_sceneRuota ? _xy+' dy="'+(fszK*1.1)+'"' : ' y="'+(ly+fszK*0.95)+'"')+_rot+' style="font-size:'+(fsz*0.8)+'px'+(_sceneRuota ? ';text-anchor:middle;dominant-baseline:hanging' : '')+'">'+esc(_mn)+'</text>';
+    if(_mn) lb += '<text class="lbl sub"'+(_sceneRuota ? _xy+' dy="'+(fszK*1.1)+'"' : ' y="'+(ly+fszK*0.95)+'"')+_rot+' style="font-size:'+(fsz*0.8)+'px'+(_sceneRuota ? ';text-anchor:middle;dominant-baseline:hanging' : '')+'">'+esc(_mn)+'</text>';
   }
   /* coperture (gazebo/tende): UNA etichetta = nome + dimensione automatica, sul lato scelto (Sopra/Sotto/Sx/Dx) */
   if(GAZ_TYPES[it.type] && it.labelMode!=='hidden'){
@@ -6117,12 +6131,19 @@ function itemMarkup(it){
       else if(gzs==='bottom'){ gdy=(it.d/2)+goff+gzsz*0.6; }
       else if(gzs==='left'){ gdx=-(it.w/2)-goff; gtr=' transform="rotate(-90 '+gdx+' 0)"'; }
       else { gdx=(it.w/2)+goff; gtr=' transform="rotate(90 '+gdx+' 0)"'; }
-      s += '<text class="lbl" x="'+gdx+'" y="'+gdy+'" text-anchor="middle" style="font-size:'+gzsz+'px"'+gtr+'>'+esc(gzT)+'</text>';
+      lb += '<text class="lbl" x="'+gdx+'" y="'+gdy+'" text-anchor="middle" style="font-size:'+gzsz+'px"'+gtr+'>'+esc(gzT)+'</text>';
     }
   }
   /* Le MANIGLIE dell'elemento selezionato NON stanno qui: vivono nel layer sopra tutto
      (selHandlesMarkup / layHandles). Dentro il gruppo dell'elemento finivano sotto al disegno
      di chi viene dopo nell'ordine — due pedane vicine e il lucchetto di quella «sotto» spariva. */
+  /* NOMI SOPRA TUTTO (revisione 25/09). Dentro il gruppo dell'elemento il nome finiva sotto a chi viene
+     dopo nell'ordine: il leggio della fila dietro sui primi violini, la spia sul nome del musicista (Band 5
+     nomi coperti su 11, Coro 6, Orchestra 5 su 21). Nella scena i nomi vanno nel livello #layLbl, con la
+     stessa traslazione e rotazione dell'elemento; chi chiama itemMarkup fuori dalla scena (miniature,
+     anteprime) li ritrova dentro il gruppo come prima. */
+  if(_lblSink){ if(lb) _lblSink.push('<g class="item-lbls'+(isOut?' nofloor':'')+(selSet[it.id]?' selected':'')+'" data-for="'+attrId+'" transform="translate('+it.x+' '+it.y+')"><g transform="rotate('+(it.rot||0)+')">'+lb+'</g></g>'); }
+  else s += lb;
   s += '</g>';
   s += '</g>';
   return s;
@@ -9945,7 +9966,7 @@ function sceneMarkup(opts){
   var soloSplit = anySolo();
   /* itemEyeShown è ora una funzione di modulo (sopra): la stessa regola serve anche al marquee.
      Il perimetro del palco (layStage) non si spegne mai: è il foglio, non un layer. */
-  var items='', zones='', bgItems='';
+  var items='', zones='', bgItems='', lbls='', bgLbls='';
   var _racks={}; (state.items||[]).forEach(function(x){ if(x.type==="rack") _racks[x.id]=x; });
   if(!coverLayerUI.vis && !(state.items||[]).some(isCover)) coverLayerUI.vis=true;   /* niente coperture → riporta la vista a visibile (evita che una nuova copertura nasca nascosta) */
   sortedItems().forEach(function(it){
@@ -9953,20 +9974,24 @@ function sceneMarkup(opts){
     if(isCover(it) && !coverLayerUI.vis && !soloOn("cover")) return;   /* layer Coperture, occhio OFF: nascoste sul canvas (niente disegno né area-click) — restano in PDF/salvataggio */
     if(it.type==="miczone"){ zones += itemMarkup(it); return; }
     var _dotId=techDotSoloId();
+    _lblSink=[];
     var m=(_dotId && itemInSoloLayer(it) && techDotItem(it, _dotId)) ? sectionDotMarkup(it) : itemMarkup(it);   /* layer tecnici: musicisti (audio) / carichi (power) → punti sezione */
+    var _lbm=_lblSink.join(''); _lblSink=null;
     var showAttr=(anySolo() || itemEyeShown(it)) ? '' : ' display="none"';   /* sotto solo: tutto visibile, il fade lo fa lo split */
+    if(_lbm && !isCover(it)) _lbm=_lbm.replace('<g class="item-lbls','<g'+showAttr+' class="item-lbls');
     if(musLayerItem(it.type)) m='<g class="mus-item"'+showAttr+'>'+m+'</g>';   /* classi per i lock (body.mus-lock ecc.) */
     else if(isCover(it)) m='<g class="cover-item">'+m+'</g>';
     else if(TYPES[it.type] && TYPES[it.type].riser) m='<g class="riser-item"'+showAttr+'>'+m+'</g>';   /* pedane: parte del palco, si toccano solo in modalità "Palco e pedane" */
     else m='<g class="st-item"'+showAttr+'>'+m+'</g>';
-    if(soloSplit && !itemInSoloLayer(it)){ if(layerSoloMode==="iso") return; bgItems += m; }   /* S = isolamento: il resto sparisce */
-    else items += m;
+    if(soloSplit && !itemInSoloLayer(it)){ if(layerSoloMode==="iso") return; bgItems += m; bgLbls += _lbm; }   /* S = isolamento: il resto sparisce */
+    else { items += m; lbls += _lbm; }
   });
   /* .42 e non .15 (SP-06, 06/09): a .15 il contesto era un fantasma, e «fuoco» finiva per somigliare
      a «isolamento» — cioè il bottone S non distingueva più niente da quello che faceva già il clic
      sulla riga. Misurato a video: a .42 le spie si leggono ancora, coi loro nomi, e restano
      chiaramente dietro ai punti del layer su cui si sta lavorando. */
   if(soloSplit && bgItems) items = '<g class="solo-bg" style="opacity:.42">'+bgItems+'</g>'+items;
+  if(soloSplit && bgLbls) lbls = '<g class="solo-bg" style="opacity:.42">'+bgLbls+'</g>'+lbls;
   /* vis dei layer meta INCORPORATA nel markup: render() è chiamato ovunque e un gruppo "nudo"
      perderebbe lo stato a ogni ridisegno (bug 14/07). In solo il layer in solo va a piena resa. */
   var mzShown=layerShown("miczone");
@@ -9977,6 +10002,7 @@ function sceneMarkup(opts){
          '<g id="layStage">'+stageLayerMarkup()+'</g>'+
          '<g id="layMicZones"'+mzAttr+'>'+zones+'</g>'+
          '<g id="layItems">'+items+'</g>'+
+         '<g id="layLbl" style="pointer-events:none">'+lbls+'</g>'+   /* i nomi sopra tutti gli elementi (revisione 25/09); trasparenti ai clic */
          (function(){ var m=(opts && opts.espandi) ? '' : orcSeatsMarkup(); return m ? '<g id="layOrcSeats">'+m+'</g>' : ''; })()+   /* Orchestre: chi c'è sul posto (solo schermo, solo staff); in stampa/export il layer non esiste */
          '<g id="layOverlay">'+overlayLayerMarkup()+'</g>'+
          '<g id="layHandles">'+selHandlesMarkup()+'</g>';   /* ULTIMO: le maniglie di ciò che è selezionato stanno sopra a tutto (anche ai blocchi del palco) */
@@ -10004,15 +10030,32 @@ function redrawSelHandles(){
 }
 /* Indice DOM per ID opachi: evita sia selector costruiti con dati del documento sia scansioni O(n)
    per ogni elemento durante drag/rotate di gruppi grandi. Ricostruito dopo ogni render completo. */
-var itemNodeIndex=new Map();
+var itemNodeIndex=new Map(), itemLblIndex=new Map();
+var _lblSink=null;   /* attivo solo mentre la scena disegna un elemento: raccoglie il suo nome per #layLbl */
 function reindexItemNodes(){
-  itemNodeIndex=new Map();
+  itemNodeIndex=new Map(); itemLblIndex=new Map();
   var nodes=svg.querySelectorAll(".item[data-id]");
   for(var i=0;i<nodes.length;i++){
     var key=nodes[i].getAttribute("data-id");
     if(!itemNodeIndex.has(key)) itemNodeIndex.set(key,nodes[i]);
   }
+  var lbs=svg.querySelectorAll(".item-lbls[data-for]");
+  for(var j=0;j<lbs.length;j++){ var k2=lbs[j].getAttribute("data-for"); if(!itemLblIndex.has(k2)) itemLblIndex.set(k2,lbs[j]); }
 }
+function itemLblNode(id){
+  var wanted=String(id), n=itemLblIndex.get(wanted);
+  if(n && n.parentNode) return n;
+  reindexItemNodes();
+  return itemLblIndex.get(wanted)||null;
+}
+/* il nome sta in un altro livello: negli aggiornamenti parziali (trascina, ruota) va spostato insieme */
+function syncItemLbl(it){
+  var n=itemLblNode(it.id); if(!n) return;
+  n.setAttribute("transform","translate("+it.x+" "+it.y+")");
+  var gi=n.firstElementChild; if(gi) gi.setAttribute("transform","rotate("+(it.rot||0)+")");
+}
+/* visibilità del nome = quella del suo elemento (occhio del layer), come in sceneMarkup */
+function lblShowAttr(it){ return isCover(it) ? '' : ((anySolo() || itemEyeShown(it)) ? '' : ' display="none"'); }
 function render(){
   pruneSolo();   /* niente solo fantasma su layer disattivati */
   diSyncAll();   /* gli accessori legati (DI) seguono il loro strumento: posizione da offset locale + rotazione */
@@ -10055,12 +10098,20 @@ function itemNode(id){
   reindexItemNodes();
   return itemNodeIndex.get(wanted)||null;
 }
-function rotateItemNode(it){ var n=itemNode(it.id), inner=n&&n.firstElementChild; if(inner){ inner.setAttribute("transform","rotate("+(it.rot||0)+")"); redrawSelHandles(); renderProps(); } else render(); }
+function rotateItemNode(it){ var n=itemNode(it.id), inner=n&&n.firstElementChild; if(inner){ inner.setAttribute("transform","rotate("+(it.rot||0)+")"); syncItemLbl(it); redrawSelHandles(); renderProps(); } else render(); }
 function redrawItemNode(it){
   var n=itemNode(it.id); if(!n || !n.parentNode){ render(); return; }
-  var tmp=document.createElementNS("http://www.w3.org/2000/svg","svg"); tmp.innerHTML=itemMarkup(it);   /* parsing in namespace SVG (come svg.innerHTML) */
+  _lblSink=[]; var _mk=itemMarkup(it), _lb=_lblSink; _lblSink=null;   /* il nome va nel suo livello, non nel gruppo */
+  var tmp=document.createElementNS("http://www.w3.org/2000/svg","svg"); tmp.innerHTML=_mk;   /* parsing in namespace SVG (come svg.innerHTML) */
   var nw=tmp.firstElementChild;
-  if(nw){ n.parentNode.replaceChild(nw, n); itemNodeIndex.set(String(it.id),nw); redrawSelHandles(); renderProps(); } else render();
+  if(nw){ n.parentNode.replaceChild(nw, n); itemNodeIndex.set(String(it.id),nw);
+    var oldL=itemLblNode(it.id), lay=document.getElementById("layLbl"), nwL=null;
+    if(_lb.length){ var tl=document.createElementNS("http://www.w3.org/2000/svg","svg"); tl.innerHTML=_lb[0].replace('<g class="item-lbls','<g'+lblShowAttr(it)+' class="item-lbls'); nwL=tl.firstElementChild; }
+    if(oldL && nwL) oldL.parentNode.replaceChild(nwL, oldL);
+    else if(oldL) oldL.parentNode.removeChild(oldL);
+    else if(nwL && lay) lay.appendChild(nwL);
+    if(nwL) itemLblIndex.set(String(it.id), nwL); else itemLblIndex.delete(String(it.id));
+    redrawSelHandles(); renderProps(); } else render();
 }
 
 /* ============ PANNELLO PROPRIETÀ ============ */
@@ -14025,9 +14076,13 @@ function cabHoverTip(e){
   __cabTip.style.left=Math.min(e.clientX+14, window.innerWidth-260)+"px";
   __cabTip.style.top=Math.max(8, e.clientY-34)+"px";
 }
+var _hovLbl=null;   /* il nome dell'elemento sotto il puntatore: in «nomi nascosti» si mostra (prima bastava .item:hover) */
 svg.addEventListener("pointerover", function(e){
   if(isMobile() || drag) return;
   var g=e.target.closest ? e.target.closest(".item") : null;
+  var _nl=g ? itemLblNode(g.getAttribute("data-id")) : null;
+  if(_hovLbl && _hovLbl!==_nl) _hovLbl.classList.remove("hov");
+  if(_nl) _nl.classList.add("hov"); _hovLbl=_nl;
   cabFocus(g ? g.getAttribute("data-id") : null);
   cabHoverTip(e);
 });
@@ -14538,6 +14593,7 @@ svg.addEventListener("pointermove", function(e){
       }
       var g=itemNode(it.id);
       if(g) g.setAttribute("transform","translate("+it.x+" "+it.y+")");
+      syncItemLbl(it);   /* il nome sta in #layLbl: segue a mano */
     });
     redrawSelHandles();   /* le maniglie stanno in un layer a parte: seguono l'elemento solo se le ridisegni */
   } else if(drag.mode==="rotate"){
@@ -14555,7 +14611,8 @@ svg.addEventListener("pointermove", function(e){
       /* R-b1 (audit): aggiornamento parziale come item/rotate invece di render() pieno per frame →
          niente scatti ruotando selezioni grandi (render pieno solo al rilascio, pointerup grouprot 6497). */
       var g=itemNode(it.id);
-      if(g){ g.setAttribute("transform","translate("+it.x+" "+it.y+")"); var gi=g.firstElementChild; if(gi) gi.setAttribute("transform","rotate("+it.rot+")"); } });
+      if(g){ g.setAttribute("transform","translate("+it.x+" "+it.y+")"); var gi=g.firstElementChild; if(gi) gi.setAttribute("transform","rotate("+it.rot+")"); }
+      syncItemLbl(it); });
     drag.moved=true;
   } else if(drag.mode==="mzmic"){           /* ZONA: trascina il pallino del microfono (frame locale, considera la rotazione) */
     sp=svgPoint(e); var zmit=state.items.find(function(i){ return i.id===drag.id; });
@@ -16252,17 +16309,20 @@ function buildOrchCameraOut(){
    incontra più spesso, e nessuna formazione lo copriva: buildOrchBandOut mette una band rock DAVANTI
    a un'orchestra da camera, che è un'altra cosa.
    Le etichette sono di ruolo, mai di persona (regola sul repo pubblico). */
+/* dal fondo verso il pubblico, come buildOrchestraOrdinata (revisione 25/09): la fila dietro si disegna
+   prima e non copre i nomi di quella davanti. Stabile a pari y. */
+function perFile(out){ return out.map(function(o,i){ return {o:o,i:i}; }).sort(function(p,q){ return (p.o.y-q.o.y) || (p.i-q.i); }).map(function(p){ return p.o; }); }
 function buildOrchestraPopOut(){
-  return [
+  return perFile([
     /* — fondo: ottoni sulla pedana alta (40 cm). 25/09: 25 cm più indietro, i nomi dei corni si scrivevano sul suo bordo — */
-    {type:"pedana", x:175, y:-760, w:600, d:100, h:40, label:""},   /* 25/09: senza nome, come negli altri modelli — «Pedana ottoni» si scriveva sopra i nomi dei corni */
+    {type:"pedana", x:175, y:-760, w:600, d:100, h:40, label:"", dimSide:"left"},   /* 25/09: senza nome, come negli altri modelli — «Pedana ottoni» si scriveva sopra i nomi dei corni */
     {type:"tromba",   x:-72, y:-770, label:"Tromba 1"},
     {type:"tromba",   x:48,  y:-770, label:"Tromba 2"},
     {type:"trombone", x:168, y:-770, label:"Trombone 1"},
     {type:"trombone", x:288, y:-770, label:"Trombone 2"},
     {type:"trombone", x:408, y:-770, label:"Trombone 3"},
     /* — pedana bassa (20 cm): corni, clarinetti, fagotti — */
-    {type:"pedana", x:175, y:-610, w:600, d:100, h:20, label:""},   /* idem: «Pedana legni» copriva Oboe 1 e Oboe 2 */
+    {type:"pedana", x:175, y:-610, w:600, d:100, h:20, label:"", dimSide:"left"},   /* 25/09: la misura sotto la pedana finiva sui nomi di clarinetti e oboi — a sinistra c'è spazio fino alla tastiera */   /* idem: «Pedana legni» copriva Oboe 1 e Oboe 2 */
     {type:"corno",      x:-77, y:-617, label:"Corno 1"},
     {type:"corno",      x:23,  y:-617, label:"Corno 2"},
     {type:"clarinetto", x:123, y:-617, label:"Clarinetto 1"},
@@ -16295,7 +16355,7 @@ function buildOrchestraPopOut(){
     {type:"direttore", x:0, y:-100, label:"Direttore"},
     /* — accesso al palco — */
     {type:"scala", x:-450, y:-850, rot:0, label:"Scala"}   /* 25/09: rot 0 e non 180 — a 180 l'etichetta usciva capovolta (stesso difetto già tolto dal coro) */
-  ];
+  ]);
 }
 function buildOrchCoroOut(){
   var out=buildOrchestraOut(presetCounts("ridotta"));
@@ -18375,7 +18435,11 @@ function buildOrchestraOrdinata(c){
   });
   out.push({type:"podio", x:0, y:0, label:"Direttore"});
   out.push({type:"direttore", x:0, y:0, rot:180, label:""});   /* rivolto all'orchestra; il nome sta sul podio */
-  return out;
+  /* dal fondo verso il pubblico (revisione 25/09): a parità di livello si disegna in ordine d'inserimento,
+     e il nome di un leggio sta dalla parte del fondo — il leggio della fila dietro, inserito dopo, lo
+     copriva (5 nomi su 21: Vl I 1-2, Vl II 1-2, Vc 1). Ordinando per y crescente la fila dietro si
+     disegna prima e i nomi davanti le passano sopra. Ordinamento stabile: a pari y resta l'ordine. */
+  return out.map(function(o,i){ return {o:o,i:i}; }).sort(function(p,q){ return (p.o.y-q.o.y) || (p.i-q.i); }).map(function(p){ return p.o; });
 }
 /* CONFERENZA (24/09). Il podio col relatore (lavalier per quando si muove, collo d'oca del podio come
    riserva), il tavolo del panel con il moderatore (palmare) e tre relatori seduti col microfono da
