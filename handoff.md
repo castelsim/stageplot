@@ -1,10 +1,24 @@
-# STATO AL 24/09/2026 — da leggere prima di tutto
+# STATO AL 25/09/2026 — da leggere prima di tutto
 
-Tutto in produzione, nessuna PR aperta. Test: 1170 editor · 124 Orchestre · 137 Deno.
+Tutto in produzione, nessuna PR aperta. Test: 1205 editor · 124 Orchestre · 137 Deno.
 Regole di lavoro aggiornate in `AGENTS.md` (§3, §4, §8). Le sessioni fra fine luglio e settembre non
 sono state scritte qui: la loro storia sta nei messaggi di commit e nelle PR (#98-#210).
 
 ## Settembre in una pagina (PR su `main`)
+
+- **25/09 — Revisione a 8 aspetti, tutte le 7 azioni** (#215, in produzione, 1205 editor + 124 Orchestre).
+  Nomi: livello `#layLbl` sopra gli elementi (`_lblSink`, `syncItemLbl`), corpo minimo a schermo `--lblK`,
+  soglia nomi 30 px/m, `nomeGiaSullaSpia`; a schermo le rotazioni dei nomi sono `rotate(a)` al centro
+  (`lblRotazioniAlCentro`, solo con `_lblSchermo`: l'export tiene `rotate(a cx cy)`), se no nella vista girata
+  del telefono i nomi finivano lontani. PDF: `dataDocumento()`, `pdfTextK` costante da 1:80, avviso
+  «Channel list non inclusa — Aggiungi» (`pdfAvvisoIngressi`, sopra «Altre opzioni»), `state.pdfEsportato`
+  {at, firma} con impronta sullo stato normalizzato a chiavi ordinate (`firmaPdf`). Una sola channel list
+  fuori dalla consulenza (`autoInputs` da `patchList`). `CAMPI_DOCUMENTO` (titolo, luogo, data, contatti,
+  tipoEvento, pdfHeader) propagati a tutte le varianti in `syncActiveVariant`. Autosave cloud:
+  `hasMeaningfulDocument(true)` ignora le sole misure del palco. Ricerca: `qaPrimo`/`qaCede` anche per voce
+  di catalogo, voci Channel list / Monitor list / Nuova variante (`apriListaDaRicerca`), Invio = primo
+  risultato. Copia da link: `sessionStorage copiaDi:<token>`, «Apri la copia». Nomi liste: «Channel list»,
+  «Monitor list» ovunque. «Annulla»/«Chiudi» rossi restano (scelta di Simone, c'è il test).
 
 - **25/09 — Batteria componibile dal pannello** (segnalazione di un utente): tolto `COMP.batteria.reduced`, tom/piatti/doppia cassa/mancino in Accessori anche in Base; `drumChansFor(it)`: «Completa» = un mic per pezzo (kit di partenza 2 tom + floor → **9 canali**, prima 8 fissi); `MIKING[t].chans(m, it)` riceve l'elemento; «⇱ Dividi in pezzi singoli».
 
