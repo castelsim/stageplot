@@ -8193,6 +8193,11 @@ t("trascinare e ruotare spostano anche il nome, che sta in un altro livello", ()
   ok(/function rotateItemNode\(it\)\{[^\n]*syncItemLbl\(it\)/.test(appjs), "ruotando un elemento, il nome resta indietro");
   ok(/function redrawItemNode\(it\)\{[\s\S]{0,400}_lblSink=\[\]/.test(appjs), "ridisegnando un elemento, il nome finirebbe doppio");
 });
+t("a schermo i nomi non scendono sotto 9 px, e non spariscono su un portatile", () => {
+  ok(/svg\.style\.setProperty\("--lblK", Math\.max\(1, 9\/\(14\*ppm\/100\)\)/.test(appjs), "manca il corpo minimo a schermo");
+  ok(/#svg #layLbl text\.lbl\{[^}]*scale:var\(--lblK,1\)/.test(stylesCss), "il corpo minimo deve valere solo nel palco dell'editor (#svg), non nel PDF");
+  ok(/nMode==='auto' && ppm<30\)/.test(appjs), "la soglia dei nomi nascosti è tornata sopra 30 px/m: il Band a 1280 (44 px/m) nasce senza nomi");
+});
 t("il nome del musicista non si ripete sulla sua spia", () => {
   reset();
   const m = add("bassstand", 300, 300), w = add("wedge", 300, 392); m.label = "Basso"; w.label = "Basso";
