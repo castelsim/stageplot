@@ -16581,7 +16581,7 @@ function detachCloudDoc(epochAlreadyChanged){
   try{ localStorage.removeItem(LS_KEY+"_cloudid"); localStorage.removeItem(LS_KEY+"_cloudrev"); }catch(_e){}
   try{ if(window.__cloud && window.__cloud.setCurrentId) window.__cloud.setCurrentId(null); }catch(_e){}
 }
-function stateHasMeaningfulWork(s){
+function stateHasMeaningfulWork(s, ignoraPalco){
   if(!s || typeof s!=="object") return false;
   if(String(s.titolo||"").trim() || String(s.luogo||"").trim() || String(s.techContact||"").trim()) return true;
   if(["items","inputs","outputs","contacts","zones"].some(function(k){ return Array.isArray(s[k])&&s[k].length; })) return true;
@@ -16591,6 +16591,7 @@ function stateHasMeaningfulWork(s){
   if(s.cab&&s.cab.manual&&Object.keys(s.cab.manual).length) return true;
   if(s.elec&&((s.elec.manual&&Object.keys(s.elec.manual).length)||(s.elec.uplinks&&Object.keys(s.elec.uplinks).length))) return true;
   if(s.mond&&s.mond.manual&&Object.keys(s.mond.manual).length) return true;
+  if(ignoraPalco) return false;
   var st=s.stage||{}, blocks=Array.isArray(st.blocks)?st.blocks:[];
   return Number(st.w)!==1200 || Number(st.d)!==800 || blocks.length!==1 ||
     Number(blocks[0]&&blocks[0].x)!==0 || Number(blocks[0]&&blocks[0].y)!==0 ||
@@ -16605,11 +16606,15 @@ var DOC_EXTRA_SERVIZIO={shareOpts:1};
 function docExtraHasWork(){
   return Object.keys(DOC_EXTRA||{}).some(function(k){ return !DOC_EXTRA_SERVIZIO[k]; });
 }
-function hasMeaningfulDocument(){
+/* ignoraPalco: le sole misure del palco non bastano (solo per l'autosave nel cloud: revisione 25/09,
+   i gusci «Senza titolo» rimasti nell'elenco avevano il palco ridimensionato e nient'altro, perché
+   la finestra delle misure compare a ogni progetto nuovo). Per le conferme di sovrascrittura resta
+   lavoro da proteggere. */
+function hasMeaningfulDocument(ignoraPalco){
   try{
     syncActiveVariant();
     if(docExtraHasWork() || VARIANTS.length>1) return true;
-    return VARIANTS.some(function(v){ return stateHasMeaningfulWork(v&&v.state); });
+    return VARIANTS.some(function(v){ return stateHasMeaningfulWork(v&&v.state, ignoraPalco); });
   }catch(e){ return true; }   /* se non riusciamo a classificare il documento, trattalo come lavoro da proteggere */
 }
 /* Copia completa su file (documento intero, planimetria inclusa): stessa sostanza dell'export dal
@@ -28371,7 +28376,7 @@ function maybeAskStageSize(explicit){
        27/07 — sei «Senza titolo» accumulati in un pomeriggio, indistinguibili tra loro). Appena si
        posa qualcosa, il salvataggio successivo crea la riga. Il salvataggio ESPLICITO crea sempre:
        se l'utente preme Salva, il progetto lo vuole anche vuoto. */
-    if(silent && !cloudCurrentId && typeof hasMeaningfulDocument==="function" && !hasMeaningfulDocument()){
+    if(silent && !cloudCurrentId && typeof hasMeaningfulDocument==="function" && !hasMeaningfulDocument(true)){
       try{ setDocState("local"); }catch(_e){}   /* «Salvato sul dispositivo»: è la verità finché è vuoto */
       done(null, "empty"); return;
     }

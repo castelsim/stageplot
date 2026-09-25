@@ -7006,6 +7006,15 @@ t("applyStageSize: rettangolo singolo centrato con le misure (m→cm)", () => {
   ok(!A.state.stage._provisional);
 });
 t("applyStageSize provvisorio: marca _provisional (dimensioni da confermare)", () => { reset(); A.applyStageSize(8, 6, true); ok(A.state.stage._provisional === true); });
+/* Revisione 25/09: i gusci «Senza titolo» nel cloud avevano solo il palco ridimensionato. */
+t("l'autosave nel cloud non crea un progetto con le sole misure del palco", () => {
+  reset(); A.applyStageSize(9, 5, false);
+  ok(A.hasMeaningfulDocument() === true, "per le conferme di sovrascrittura il palco misurato resta lavoro");
+  ok(A.hasMeaningfulDocument(true) === false, "per l'autosave le sole misure non sono un progetto");
+  add("cantante", 300, 300);
+  ok(A.hasMeaningfulDocument(true) === true, "con un elemento il progetto va salvato");
+  ok(/if\(silent && !cloudCurrentId && typeof hasMeaningfulDocument==="function" && !hasMeaningfulDocument\(true\)\)/.test(appjs), "l'autosave deve ignorare le misure");
+});
 t("stateHasMeaningfulWork: false su default, true dopo un palco custom", () => {
   reset(); ok(A.stateHasMeaningfulWork(A.state) === false); A.applyStageSize(9, 5, false); ok(A.stateHasMeaningfulWork(A.state) === true);
 });
