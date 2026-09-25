@@ -1017,7 +1017,7 @@
       <div class="prop-card__head">Microfonazione panoramica</div>
       <input aria-label="Microfono della zona" type="text" id="grpZoneMic" placeholder="Microfono (vuoto = inferito, es. KM184)" maxlength="24" data-micac="1" autocomplete="off" autocorrect="off" spellcheck="false" data-lpignore="true" data-1p-ignore="" data-form-type="other">
       <button class="btn" id="bGrpZone" style="width:100%;margin-top:6px">Crea zona microfonazione</button>
-      <div class="prop-hint">L'area coprirà gli elementi selezionati e diventerà 1 canale nella input list.</div>
+      <div class="prop-hint">L'area coprirà gli elementi selezionati e diventerà 1 canale nella channel list.</div>
     </div>
     <div id="grpLblWrap" style="display:none;margin-bottom:8px">
       <label for="grpLblSize" style="display:flex;justify-content:space-between;align-items:baseline">Dimensione etichetta (tutti) <span id="grpLblSizeVal" style="color:var(--text);font-weight:600">14</span></label>
@@ -1141,8 +1141,8 @@
     <div id="patchSec" style="display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
       <div class="cab-sechead" id="patchSecHead">
         <span class="caret" id="patchCaret">▾</span>
-        <span class="cab-sectitle"><b>Input list</b></span>
-        <button type="button" class="cab-trash" id="patchTrash" title="Chiudi l'input list" aria-label="Chiudi l'input list"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>
+        <span class="cab-sectitle"><b>Channel list</b></span>
+        <button type="button" class="cab-trash" id="patchTrash" title="Chiudi la channel list" aria-label="Chiudi la channel list"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v6M14 11v6"/></svg></button>
       </div>
       <div id="patchBody" style="margin-top:8px">
         <div id="patchSummary" hidden></div>
@@ -1719,7 +1719,7 @@
       <div class="wl-steps">
         <div class="wl-step"><b>1</b><span><span class="wl-desk"><strong>Cerca</strong> lo strumento nel catalogo a sinistra, o aprilo per categoria: un clic lo posa sul palco</span><span class="wl-mob"><strong>Tocca «Aggiungi»</strong> e scegli gli elementi dal catalogo</span></span></div>
         <div class="wl-step"><b>2</b><span><strong>Tutto è in scala</strong>: misure e proporzioni reali, come dal vivo</span></div>
-        <div class="wl-step"><b>3</b><span><strong>Esporta il rider in PDF</strong>: stage plot in scala + lista ingressi, monitor e carichi</span></div>
+        <div class="wl-step"><b>3</b><span><strong>Esporta il rider in PDF</strong>: stage plot in scala + channel list, monitor list e carichi</span></div>
       </div>
       <div class="wl-mods-lbl">oppure parti da un modello</div>
       <div class="wl-mods" id="wlMods"></div>
@@ -5095,7 +5095,25 @@ function ensureVariants(){ if(!VARIANTS.length){ var id=newVarId(); VARIANTS=[{i
   else if(!activeVarObj()){ activeVar=VARIANTS[0].id; } }
 function nextVariantName(){ var n=0; VARIANTS.forEach(function(v){ var m=/^Variante\s+(\d+)$/.exec(v.name||""); if(m) n=Math.max(n, +m[1]); }); return "Variante "+(n+1||VARIANTS.length+1); }
 /* congela lo state vivo nella slot della variante attiva (snapshot piatto, immagine planimetria strippata) */
-function syncActiveVariant(){ ensureVariants(); var v=activeVarObj(); if(v){ cacheVenueImg(state&&state.venue,v.id); v.state=JSON.parse(stateToJSON()); } }
+/* Campi del DOCUMENTO, non della scena (revisione 25/09): titolo, luogo, data, contatti e tipo di
+   evento sono gli stessi per tutte le varianti. Vivevano in ogni variante, e cambiarli in una
+   lasciava le altre col vecchio valore: nel database 3 progetti su 8 con più varianti avevano
+   titoli diversi fra le varianti, tutti per sbaglio (la «(copia)» rinominava solo la prima); luogo,
+   data e contatti non erano mai diversi. Restano nello stato di ogni variante — lo schema e i file
+   già salvati non cambiano — ma a ogni sincronizzazione quelli della variante attiva si scrivono
+   nelle altre. */
+var CAMPI_DOCUMENTO=["titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader"];
+function propagaCampiDocumento(v){
+  var src=v&&v.state; if(!src) return;
+  VARIANTS.forEach(function(o){
+    if(o===v || !o.state) return;
+    CAMPI_DOCUMENTO.forEach(function(k){
+      if(src[k]===undefined) delete o.state[k];
+      else o.state[k]=JSON.parse(JSON.stringify(src[k]));
+    });
+  });
+}
+function syncActiveVariant(){ ensureVariants(); var v=activeVarObj(); if(v){ cacheVenueImg(state&&state.venue,v.id); v.state=JSON.parse(stateToJSON()); propagaCampiDocumento(v); } }
 function documentEnvelope(active,variants,extra){
   var out={}; Object.keys(extra||DOC_EXTRA||{}).forEach(function(k){ out[k]=(extra||DOC_EXTRA)[k]; });
   out._doc=1; out.active=active; out.variants=variants; return out;
@@ -9085,7 +9103,7 @@ function autoConnectNeeds(id){
     var srcOut=items.filter(function(it){ return OUT_SET[it.type]!=null && it.type!=="monmix"; }).length;
     if(id==="cabin" && !srcIn) return {title:"Non c'è ancora niente da collegare",
       msg:"Il cablaggio degli ingressi parte dagli strumenti e dalle voci sul palco: al momento non ce ne sono.",
-      steps:["Aggiungi strumenti, voci o microfoni dal catalogo","Poi collega i canali dalla Input list, col fulmine \u26a1 sulla riga"]};
+      steps:["Aggiungi strumenti, voci o microfoni dal catalogo","Poi collega i canali dalla Channel list, col fulmine \u26a1 sulla riga"]};
     if(id==="cabout" && !srcOut) return {title:"Non ci sono ascolti da collegare",
       msg:"Le uscite collegano monitor, spie e sidefill alla stage box: al momento non ce ne sono sul palco.",
       steps:["Aggiungi wedge, in-ear o sidefill dal catalogo","Poi collega ogni monitor dalla Monitor list, col fulmine \u26a1 sulla riga"]};
@@ -17448,7 +17466,7 @@ function askThenRun(hasContent, title, message, confirmText, run){
     .then(function(ok){ if(ok) run(); });
 }
 document.getElementById("inClear").addEventListener("click", function(){
-  askThenRun(state.inputs.length, "Svuotare la input list?", "Le righe vengono cancellate. Puoi rigenerarle dai mic e dalle DI sul palco con «Auto».", "Svuota",
+  askThenRun(state.inputs.length, "Svuotare la channel list?", "Le righe vengono cancellate. Puoi rigenerarle dai mic e dalle DI sul palco con «Auto».", "Svuota",
     function(){ state.inputs=[]; save(); renderChannels(); });
 });
 document.getElementById("outClear").addEventListener("click", function(){
@@ -17456,7 +17474,7 @@ document.getElementById("outClear").addEventListener("click", function(){
     function(){ state.outputs=[]; save(); renderChannels(); });
 });
 document.getElementById("inAuto").addEventListener("click", function(e){ e.stopPropagation();
-  askThenRun(state.inputs.some(function(r){return r.src||r.mic;}), "Rigenerare la input list?",
+  askThenRun(state.inputs.some(function(r){return r.src||r.mic;}), "Rigenerare la channel list?",
     "Viene ricostruita dai mic e dalle DI sul palco, e sostituisce quella attuale.", "Rigenera",
     function(){ autoInputs(); ensureClOpen("in"); });
 });
@@ -26348,7 +26366,7 @@ function patchListPdf(shared){
     if(shared) doc.addPage("a4","portrait");
     var M=16, y=22, cols=[M, M+10, M+62, M+100, M+136, M+158];   /* #, SORGENTE, FOH, MIC/DI, ASTA, PATCH */
     doc.setFillColor("#0d9488"); doc.rect(0,0,210,14,"F");
-    doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Input list", M, 9);
+    doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Channel list", M, 9);
     doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.text((state.titolo||"")+(state.luogo?" — "+state.luogo:""), M, y); y+=8; }
     doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
@@ -27570,7 +27588,7 @@ function pdfListConfig(){
             {h:"Colore",f:function(r){return r.color||"—";},warn:function(r){return !r.color;}},
             {h:"Posizione",f:function(r){return r.pos||"—";}},
             {h:"Sul palco",num:1,f:function(r){return r.shown?String(r.shown):"—";}}] },
-    inputlist:{ title:"Input list", color:"#0d9488", data:(typeof patchList==="function"?patchList:null),
+    inputlist:{ title:"Channel list", color:"#0d9488", data:(typeof patchList==="function"?patchList:null),
       sub:function(d){ return d.R&&d.R.boxes?("Stage box: "+d.R.boxes.map(function(b){return b.letter;}).join(", ")):""; },
       /* Il numero DEVE essere quello che il fonico troverà al banco: col FOH disponibile (più stage
          box, o un Device ID) è il canale FOH, esattamente come in patchListPdf e nel CSV. Qui si
@@ -28855,8 +28873,8 @@ function pdfChannelPage(doc, L, paperKey){
       if(hasResp) pages.push({key:"responsabilita", label:"Responsabilità (produzione)"});
     } }catch(_e){}
     var Rc=(typeof cabResult==="function")?cabResult(true):{totIn:0,mixes:[]};
-    if(Rc.totIn){ pages.push({key:"inputlist", label:"Lista ingressi"}); }
-    if((typeof monitorList==="function") && monitorList().rows.length){ pages.push({key:"monitorlist", label:"Lista monitor"}); }
+    if(Rc.totIn){ pages.push({key:"inputlist", label:"Channel list"}); }
+    if((typeof monitorList==="function") && monitorList().rows.length){ pages.push({key:"monitorlist", label:"Monitor list"}); }
     var Re=(typeof elecResult==="function")?elecResult(true):{loads:[]};
     if(Re.loads && Re.loads.length){ pages.push({key:"loadlist", label:"Lista carichi elettrici"}); }
     try{ if((Re.loadLinks||[]).length) pages.push({key:"eleclines", label:"Alimentazioni (linee del distro)"}); }catch(_e){}

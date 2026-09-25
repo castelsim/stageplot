@@ -1176,7 +1176,7 @@ t("pagine tecniche: l'elenco spuntato viene riordinato come sarà stampato", () 
     { key: "view-luci", label: "Vista: Luci" },
     { key: "racklist", label: "Lista rack" },
     { key: "lightslist", label: "Lista luci" },
-    { key: "inputlist", label: "Lista ingressi" },
+    { key: "inputlist", label: "Channel list" },
   ];
   eq(A.pdfSortTechPages(pagine).map((p) => p.key),
     ["view-cabin", "view-luci", "inputlist", "lightslist", "racklist"],
@@ -1272,6 +1272,29 @@ function docConScene(A, scene, extra) {
   if (extra) Object.keys(extra).forEach((k) => { doc[k] = extra[k]; });
   return doc;
 }
+/* Revisione 25/09: titolo, luogo, data e contatti sono del documento. Cambiati in una scena, le
+   altre restavano indietro (3 progetti su 8 con più scene nel database). */
+t("titolo, luogo, data e contatti valgono per tutte le varianti", () => {
+  const before = A.docToJSON();
+  try {
+    A.loadDoc(docConScene(A, [{ id: "s1" }, { id: "s2" }]));
+    A.state.titolo = "Concerto di Natale"; A.state.luogo = "Duomo"; A.state.evDate = "2026-12-24";
+    A.state.contacts = [{ role: "Fonico", name: "Anna", contact: "a@example.test", note: "" }];
+    A.switchVariant("s2");
+    eq(A.state.titolo, "Concerto di Natale", "il titolo segue nella variante 2");
+    eq(A.state.luogo, "Duomo"); eq(A.state.evDate, "2026-12-24");
+    eq(A.state.contacts[0].name, "Anna", "i contatti seguono");
+    A.state.titolo = "Concerto di Natale 2026";
+    A.createVariant();
+    ok(A.VARIANTS.every((v) => v.state.titolo === "Concerto di Natale 2026"), "tutte le varianti hanno l'ultimo titolo");
+    A.state.items.push({ id: "solo-qui", type: "cantante", x: 100, y: 100, w: 70, d: 90 });
+    A.syncActiveVariant();
+    eq(A.VARIANTS.filter((v) => v.state.items.some((i) => i.id === "solo-qui")).length, 1, "il palco resta della sua variante");
+    const vecchio = docConScene(A, [{ id: "s1" }, { id: "s2" }]);   /* titoli diversi, come nei progetti salvati */
+    A.loadDoc(vecchio); A.syncActiveVariant();
+    ok(A.VARIANTS.every((v) => v.state.titolo === "s1"), "un documento vecchio si allinea alla variante aperta");
+  } finally { A.loadDoc(JSON.parse(before)); }
+});
 t("permessi del link: sono del documento, non della scena attiva", () => {
   const before = A.docToJSON();
   try {
@@ -2519,7 +2542,7 @@ t("sorgente + wedge → Monitor list disponibile", () => {
 t("listPreviewHtml('inputlist') → tabella HTML con dati reali", () => {
   reset(); A.state.cab.on = true; add("astamic", 400, 400); A.__cabRes = null;
   const h = A.listPreviewHtml("inputlist");
-  ok(h && /pdf-list-tbl/.test(h) && /Input list/.test(h), "html: " + String(h).slice(0, 90));
+  ok(h && /pdf-list-tbl/.test(h) && /Channel list/.test(h), "html: " + String(h).slice(0, 90));
 });
 
 console.log("\nMusicisti illustrati (icone top-down) — cablaggio tecnico:");
@@ -2662,7 +2685,8 @@ t("switchVariant: congela l'attiva e ripristina la target (modifiche indipendent
     { id: "vB", name: "Ridotta", state: { titolo: "Ridotta", items: [], inputs: [], outputs: [] } } ] });
   A.state.titolo = "Piena EDIT"; add("batteria", 400, 400);
   A.switchVariant("vB");
-  eq(A.activeVar, "vB"); eq(A.state.titolo, "Ridotta"); eq(A.state.items.length, 0, "vB non eredita gli item di vA");
+  eq(A.activeVar, "vB"); eq(A.state.items.length, 0, "vB non eredita gli item di vA");
+  eq(A.state.titolo, "Piena EDIT", "il titolo è del documento (25/09): segue in tutte le varianti");
   A.switchVariant("vA");
   eq(A.state.titolo, "Piena EDIT", "modifica di vA congelata"); eq(A.state.items.length, 1, "item di vA preservato");
 });
@@ -2682,10 +2706,11 @@ t("deleteVariant: guardia — non elimina l'ultima variante", () => {
 });
 t("deleteVariant: elimina l'attiva → passa a un'altra", () => {
   A.loadDoc({ _doc: 1, active: "vB", variants: [
-    { id: "vA", name: "Piena", state: { titolo: "Piena", items: [], inputs: [], outputs: [] } },
+    { id: "vA", name: "Piena", state: { titolo: "Piena", items: [{ id: "solo-vA", type: "cantante", x: 100, y: 100, w: 70, d: 90 }], inputs: [], outputs: [] } },
     { id: "vB", name: "Ridotta", state: { titolo: "Ridotta", items: [], inputs: [], outputs: [] } } ] });
   A.deleteVariant("vB");
-  eq(A.VARIANTS.length, 1); eq(A.VARIANTS[0].id, "vA"); eq(A.activeVar, "vA"); eq(A.state.titolo, "Piena");
+  eq(A.VARIANTS.length, 1); eq(A.VARIANTS[0].id, "vA"); eq(A.activeVar, "vA");
+  ok(A.state.items.some((i) => i.id === "solo-vA"), "si passa al palco di vA");
 });
 t("renameVariant: aggiorna il nome nel doc", () => {
   A.loadDoc({ _doc: 1, active: "vA", variants: [
@@ -5036,6 +5061,16 @@ t("le 3 varianti di stage box restano tutte raggiungibili con una parola sola", 
 t("ranking: il nome batte l'alias ('tastiera' → Tastiera prima)", () => {
   const r = A.__qaSearch("tastiera"); ok(r.length > 0);
   ok(A._deacc(r[0].nome).indexOf("tastiera") > -1, "primo risultato non sul nome: " + r[0].nome);
+});
+/* Revisione 25/09: la stessa lista si chiamava Input list, Lista ingressi e Channel list a seconda di
+   dove la si guardava (pannello, pagine del PDF, ricerca). Un nome solo per lista. */
+t("le liste hanno un nome solo: Channel list e Monitor list", () => {
+  const vis = (appjs + "\n" + readFileSync(join(root, "app/index.html"), "utf8").replace(/<!--[\s\S]*?-->/g, "")).split("\n").map((l) => l.replace(/\/\*.*?\*\//g, "")).filter((l) => !/^\s*(\/\*|\*|\/\/)/.test(l)).join("\n");
+  for (const vecchio of [/"[^"\n]*\bInput list\b[^"\n]*"/, /"[^"\n]*\binput list\b(?! lista)[^"\n]*"/, /"Lista ingressi"/, /"Lista monitor"/, /<b>Input list<\/b>/, /Chiudi l'input list/]) {
+    const m = vis.match(vecchio);
+    ok(!m || /kw:|channel list input list/.test(m[0]), "nome vecchio ancora visibile: " + (m && m[0]));
+  }
+  ok(/pages\.push\(\{key:"inputlist", label:"Channel list"\}\)/.test(appjs) && /pages\.push\(\{key:"monitorlist", label:"Monitor list"\}\)/.test(appjs), "pagine del PDF");
 });
 /* Revisione 25/09: le ricerche degli utenti che davano il risultato sbagliato per primo o niente. */
 t("ricerca: voce e cantante al cantante, basso al bassista", () => {
