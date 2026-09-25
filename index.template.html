@@ -5661,8 +5661,9 @@ function clearVenueImg(){
    nasce da un elemento del palco lo ricorda in `linked_item_id`. Quando l'elemento se ne va —
    cancellato, sostituito, variante svuotata e rifatta — la riga restava: 7 su 14 in «Stevie Biondi
    Trio», 57 su 94 in «morricone 99», e 94 su 94 nelle sue varianti di sole luci e sedie. Non erano
-   innocue: la Input list le mostra, e finiscono nella tabella del PNG esportato e nel PDF della
-   consulenza — un kick e un rullante nel foglio di un palco che una batteria non ce l'ha.
+   innocue: la lista manuale le mostra e finiscono nel PDF della consulenza — un kick e un rullante
+   nel foglio di un palco che una batteria non ce l'ha. (Il PNG vero non ha la tabella canali:
+   buildExportSvg serve solo alla pagina di QA ?export=1 — corretto il 25/09 dalla revisione.)
    Si toglie SOLO la riga che punta a un elemento che non c'è più. Una riga senza `linked_item_id`
    è scritta a mano dal fonico: non è orfana, resta. Ritorna quante righe ha tolto. */
 function dropOrphanRows(s){
@@ -11192,7 +11193,8 @@ function auditEngine(){
   /* "Mixer FOH non specificato" rimosso: il mixer è un dato opzionale (per ora fuori dal pannello) */
   /* T1 — controlli residui: la lista derivata previene già doppioni/numerazione/48V-default; qui gli errori che
      l'utente può ancora introdurre nella channel list MANUALE (state.inputs) o dimenticando frequenze/monitor. */
-  var badP48=(state.inputs||[]).filter(function(r){ return r && r.p48 && r.src && String(r.src).trim() && r.mic && String(r.mic).trim() && !micInfo(r.mic).p48; });
+  var _manuale=window.__consultMode ? (state.inputs||[]) : [];   /* revisione 25/09: fuori dalla consulenza il documento consegnato usa i canali ricavati; la lista manuale non va giudicata al loro posto */
+  var badP48=_manuale.filter(function(r){ return r && r.p48 && r.src && String(r.src).trim() && r.mic && String(r.mic).trim() && !micInfo(r.mic).p48; });
   if(badP48.length) add("warn", badP48.length+(badP48.length===1?" canale ha":" canali hanno")+" il +48V su un mic/DI che non lo richiede (dinamico o wireless).","Audio","Il phantom è inutile e su alcuni radiomicrofoni può essere dannoso: rimuovilo.",{label:"Togli 48V",run:auditFix48V});
   /* EQUIPMENT INTELLIGENCE: ribbon PASSIVO dal modello (es. Royer R-121, dato ribbon_danger dal datasheet)
      → il +48V può danneggiare il nastro. Promemoria forte, indipendente dalla channel list. */
@@ -11213,7 +11215,7 @@ function auditEngine(){
         "Il phantom su un microfono a nastro passivo puo' danneggiare il nastro: spegni il 48V su questa riga.",
         {label:"Apri Channel list",run:auditFixOpenChan}, "rib48:"+r.key); });
   }catch(e){ /* motore cablaggio non pronto: l'audit non deve mai far cadere il pannello */ }
-  var noMic=(state.inputs||[]).filter(function(r){ return r && r.src && String(r.src).trim() && !(r.mic && String(r.mic).trim()); });
+  var noMic=_manuale.filter(function(r){ return r && r.src && String(r.src).trim() && !(r.mic && String(r.mic).trim()); });
   if(noMic.length) add("warn", noMic.length+(noMic.length===1?" ingresso è":" ingressi sono")+" senza mic/DI assegnato.","Audio","Ogni sorgente audio ha bisogno di un mic o di una DI: completa la channel list.",{label:"Apri Channel list",run:auditFixOpenChan});
   /* L8 (casi reali, 15/07) — il cantante non genera canali da solo → senza un mic voce
      entro ~1,5 m la voce sparisce IN SILENZIO dalla channel list (nei casi reali analizzati mancavano fino a 11 canali voce).
@@ -11265,7 +11267,7 @@ function auditEngine(){
      "corno 2"» in una variante fatta di sole luci, dove un corno non c'e'.
      Una riga SENZA `linked_item_id` invece e' scritta a mano dal fonico: non e' orfana, e resta. */
   var _vivo=function(r){ return !r || !r.linked_item_id || (state.items||[]).some(function(it){ return it.id===r.linked_item_id; }); };
-  var _righe=(state.inputs||[]).filter(_vivo);
+  var _righe=_manuale.filter(_vivo);
   if(_righe.some(function(r){ return r && r.src && String(r.src).trim(); }))
     _righe.forEach(function(r){ var k=String((r&&r.src)||"").trim(); if(k) chNames.push(k); });
   else items.forEach(function(it){ (cabItemInputs(it)||[]).forEach(function(ch){ var k=String(ch.name||"").trim(); if(k) chNames.push(k); }); });
@@ -24044,41 +24046,19 @@ function clBank(type){
 }
 /* La conferma di sovrascrittura vive nei click handler (#inAuto/#outAuto) via confirmDialog: qui dentro
    era un confirm() NATIVO, e al secondo click bloccava del tutto la finestra (audit 27/07). */
-function autoInputs(silent){   /* silent=true (dall'apertura Esporta): genera in memoria SENZA salvare — M-04 */
+function autoInputs(silent){   /* silent=true: genera in memoria SENZA salvare — M-04 */
+  /* Revisione 25/09: dalla STESSA fonte del PDF e del CSV (patchList), non da una logica sua. Il
+     vecchio generatore contava diverso: Coro 33 righe (un SM58 per corista in panoramica, microfoni
+     che non esistono) contro 5 canali veri; Conferenza senza Relatore e Moderatore; Band e Acustico
+     senza «Voce». «Auto» ora dà la lista che il service riceve, con i mic scelti nella channel list. */
   var rows=[];
-  function linkTo(row,it,compId){ row.linked_item_id=it.id; if(compId) row.linked_component_id=compId; return row; }
-  /* M3: ordina gli strumenti per banco (stabile: parità → ordine di inserimento) prima di numerare i canali */
-  var ordered = state.items.map(function(it,idx){ return {it:it, idx:idx}; })
-    .sort(function(a,b){ return (clBank(a.it.type)-clBank(b.it.type)) || (a.idx-b.idx); })
-    .map(function(o){ return o.it; });
-  ordered.forEach(function(it){
-    var t=TYPES[it.type]; if(!t) return;
-    if(it.type!=="miczone" && itemInMicZone(it) && !effOwnMic(it)) return;   /* coperto da una zona (effOwnMic = ownMic esplicito o default close-obligato) */
-    if(it.type==="miczone"){ rows.push(linkTo(rowFromMic(micZoneLabel(it), micZoneMic(it)),it)); return; }
-    if(it.type==="coppiast"){
-      rows.push(linkTo(rowFromMic(labelPrefix(it,"L"),"KM184"),it,"mic_L"));
-      rows.push(linkTo(rowFromMic(labelPrefix(it,"R"),"KM184"),it,"mic_R"));
-      return;
-    }
-    if(MIKING[it.type]){   /* microfonazione scelta (archi/cori/fiati): panoramico può dare 0 canali */
-      MIKING[it.type].chans(it.miking||MIKING[it.type].def, it).forEach(function(k){
-        rows.push(linkTo(rowFromMic(k[0]?labelPrefix(it,k[0]):(it.label||t.nome), k[1]),it));
-      });
-      return;
-    }
-    if(IN_MULTI[it.type]){
-      inMultiList(it).forEach(function(k){
-        rows.push(linkTo(rowFromMic(labelPrefix(it,k[0]), k[1], k[2], k[3], k[4]),it));
-      });
-      return;
-    }
-    if(it.type==="distereo"){
-      rows.push(linkTo(rowFromMic(labelPrefix(it,"L"),"DI"),it));
-      rows.push(linkTo(rowFromMic(labelPrefix(it,"R"),"DI"),it));
-      return;
-    }
-    if(IN_SRC[it.type]!=null){ rows.push(linkTo(rowFromMic(it.label || t.nome, IN_SRC[it.type]),it)); }
-  });
+  try{
+    patchList().rows.forEach(function(r){
+      var row=rowFromMic(r.name, r.micOff ? "" : r.mic, r.stand||"", !!r.p48, "");
+      if(r.itemId!=null && r.itemId!=="") row.linked_item_id=r.itemId;
+      rows.push(row);
+    });
+  }catch(e){}
   state.inputs=rows; if(!silent) save(); renderChannels();
 }
 function autoOutputs(silent){   /* silent=true dall'apertura Esporta: niente save — M-04 (conferma nel click) */
@@ -25339,8 +25319,15 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
       /* C (ciclo primo-PDF-completo): se la channel list è VUOTA, generala dagli strumenti sul palco
          (instrument-driven, come "Auto" — NON attiva il cablaggio/cavi). Così il PDF non esce mai senza
          input/monitor list. Una lista già compilata a mano non viene toccata (autoInputs esce se piena). */
-      try{ if(!state.inputs.length) autoInputs(true); }catch(e){}   /* M-04: genera per l'anteprima SENZA salvare (niente persistenza silenziosa all'apertura) */
-      try{ if(!state.outputs.length) autoOutputs(true); }catch(e){}
+      /* Revisione 25/09: SOLO in consulenza. Fuori, le pagine del PDF e il CSV leggono le liste ricavate
+         (patchList/monitorList): qui si riempiva la lista MANUALE, il primo save() la salvava di nascosto
+         e da quel momento restava ferma — e l'audit dei doppioni leggeva lei invece del palco (due
+         «Chitarra» davano l'avviso prima di aprire Esporta, e niente dopo). In consulenza la lista
+         manuale È la fonte del PDF: lì generarla serve ancora. */
+      if(window.__consultMode){
+        try{ if(!state.inputs.length) autoInputs(true); }catch(e){}   /* M-04: genera per l'anteprima SENZA salvare */
+        try{ if(!state.outputs.length) autoOutputs(true); }catch(e){}
+      }
       preloadRespData();
     }
     renderFramePanel(); render();
