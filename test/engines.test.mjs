@@ -80,6 +80,7 @@ function throws(fn, code) {
   throw new Error("eccezione attesa" + (code ? " (" + code + ")" : ""));
 }
 function reset() {
+  A.__consultMode = false;   /* revisione 25/09: la lista manuale conta solo in consulenza; un test che la accende non deve sporcare i successivi */
   A.state.items = []; A.state.inputs = []; A.state.outputs = []; A.state.contacts = []; A.state.rider = {};
   A.state.status = "bozza"; A.state.approval = { by: "", at: "" };
   A.state.lookDefault = "illustrato";   /* «Postazione» = default del progetto (senza questo, un test che lo lascia su «Strumento solo» inquina i successivi) */
@@ -2181,7 +2182,7 @@ t("i rilievi usano categorie che esistono davvero", () => {
 });
 
 t("48V forzato su mic dinamico (SM58) → avviso", () => {
-  reset(); add("astamic", 400, 400);
+  reset(); A.__consultMode = true;   /* la lista manuale (state.inputs) è la fonte del documento solo in consulenza */ add("astamic", 400, 400);
   A.state.inputs = [{ src: "Voce", mic: "SM58", p48: true }];
   ok(hasMsg(/48V/), "atteso avviso 48V; findings: " + auditMsgs().join(" | "));
 });
@@ -2191,7 +2192,7 @@ t("48V su condensatore (KM184) → nessun avviso 48V", () => {
   ok(!hasMsg(/48V/), "48V atteso corretto (condensatore); findings: " + auditMsgs().join(" | "));
 });
 t("ingresso manuale con sorgente ma senza mic/DI → avviso", () => {
-  reset(); add("astamic", 400, 400);
+  reset(); A.__consultMode = true;   /* la lista manuale (state.inputs) è la fonte del documento solo in consulenza */ add("astamic", 400, 400);
   A.state.inputs = [{ src: "Chitarra", mic: "" }];
   ok(hasMsg(/senza mic/), "findings: " + auditMsgs().join(" | "));
 });
@@ -3061,7 +3062,7 @@ t("audit B4: spare dichiarato nel nome → nessun avviso doppione", () => {
   ok(!hasMsg(/si chiamano|compaiono più volte/), "findings: " + auditMsgs().join(" | "));
 });
 t("audit B4: doppione nella lista manuale (state.inputs) → avviso", () => {
-  reset(); add("astamic", 300, 300);
+  reset(); A.__consultMode = true;   /* la lista manuale (state.inputs) è la fonte del documento solo in consulenza */ add("astamic", 300, 300);
   A.state.inputs = [{ src: "VOX LEAD 1", mic: "935" }, { src: "VOX LEAD 1", mic: "SM58" }];
   ok(hasMsg(/si chiamano|compaiono più volte/), "findings: " + auditMsgs().join(" | "));
 });
@@ -7977,7 +7978,7 @@ console.log("\n— L'audit non parla di canali che non ci sono —");
    sole luci avvisava «2 canali si chiamano "corno 2": patch ambiguo per il service» — un corno
    che sul palco non c'e'. Misurato: 1 avviso falso e 6 punti di punteggio in meno per variante. */
 t("i nomi dei canali si contano solo su quelli che stanno sul palco", () => {
-  reset();
+  reset(); A.__consultMode = true;   /* la lista manuale (state.inputs) è la fonte del documento solo in consulenza */
   const a = add("cantante", 100, 100), b = add("cantante", 300, 100);
   /* due righe manuali omonime, ma una punta a un elemento che non esiste piu' */
   A.state.inputs = [
@@ -8049,7 +8050,7 @@ t("togliere un elemento da un'altra strada (monitor cambiato) non lascia righe a
 t("le righe scritte a mano, senza elemento, restano valide", () => {
   /* Una riga senza `linked_item_id` e' una riga che il fonico ha scritto lui: non e' orfana,
      e' semplicemente non collegata a niente sul palco. Non va tolta. */
-  reset();
+  reset(); A.__consultMode = true;   /* la lista manuale (state.inputs) è la fonte del documento solo in consulenza */
   add("cantante", 100, 100);
   A.state.inputs = [
     { src: "Talkback", mic: "SM58" },
@@ -8058,6 +8059,35 @@ t("le righe scritte a mano, senza elemento, restano valide", () => {
   A.__cabRes = null;
   ok(A.auditEngine().findings.some((x) => /si chiamano/.test(x.msg || "")),
      "due righe manuali omonime devono continuare a fare avviso");
+});
+
+/* Revisione 25/09 (agente funzionamento e logica). Aprire Esporta riempiva la lista MANUALE con un
+   generatore suo, il primo save() la salvava, e da lì l'audit dei doppioni leggeva lei invece del palco:
+   due «Chitarra» davano l'avviso prima di aprire Esporta e nessun avviso dopo. */
+t("fuori dalla consulenza, una lista manuale vecchia non zittisce l'avviso sui doppioni veri", () => {
+  reset();
+  const g1 = add("gtstand", 300, 300), g2 = add("gtstand", 700, 300);
+  g1.label = "Chitarra"; g2.label = "Chitarra"; A.__cabRes = null;
+  ok(hasMsg(/si chiamano|compaiono più volte/), "premessa: due chitarre omonime devono dare l'avviso");
+  A.state.inputs = [{ src: "Chitarra A", mic: "SM57", linked_item_id: g1.id }, { src: "Chitarra B", mic: "SM57", linked_item_id: g2.id }];
+  A.__cabRes = null;
+  ok(hasMsg(/si chiamano|compaiono più volte/), "con una lista manuale diversa dal palco l'avviso sui doppioni veri sparisce");
+});
+t("aprire Esporta fuori dalla consulenza non riempie la lista manuale", () => {
+  const i = appjs.indexOf('getElementById("bHdrPdf").addEventListener("click"');
+  const corpo = appjs.slice(i, i + 2600);
+  ok(/if\(window\.__consultMode\)\{\s*try\{ if\(!state\.inputs\.length\) autoInputs\(true\);/.test(corpo), "la generazione della lista manuale all'apertura di Esporta non è più limitata alla consulenza");
+});
+t("«Auto» genera la stessa lista che va nel PDF", () => {
+  for (const m of ["coro", "conferenza", "band"]) {
+    reset();
+    const fd = A.formationData(m);
+    A.state.items = JSON.parse(JSON.stringify(fd.out)).map((it, k) => Object.assign({ id: "i" + (k + 1) }, it));
+    A.__cabRes = null;
+    A.autoInputs(true);
+    const pdf = A.patchList().rows.map((r) => r.name);
+    eq(A.state.inputs.map((r) => r.src), pdf, m + ": la lista di «Auto» non coincide con quella del PDF");
+  }
 });
 
 console.log("\n— L'anteprima non deve vestire l'app (segnalazione 10/09) —");
