@@ -3420,3 +3420,8 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
 .mpv-tec{fill:#c7d7f5;stroke:#3b6fd4;stroke-width:4}
 .mpv-alt{fill:var(--n-100);stroke:var(--n-500);stroke-width:3}
 @media (max-width:880px){ #mpMods .mp-prev{height:78px} }
+
+/* Lista ingressi lasciata fuori dal PDF (revisione 25/09) */
+.pdf-inmissing{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0 2px;padding:6px 8px;border-radius:8px;background:var(--warning-bg);border:1px solid var(--warning-border);color:var(--text);font-size:13px}
+.pdf-inmissing[hidden]{display:none}
+.pdf-inmissing .btn{min-height:32px;padding:4px 12px}

@@ -7006,6 +7006,13 @@ t("applyStageSize: rettangolo singolo centrato con le misure (m→cm)", () => {
   ok(!A.state.stage._provisional);
 });
 t("applyStageSize provvisorio: marca _provisional (dimensioni da confermare)", () => { reset(); A.applyStageSize(8, 6, true); ok(A.state.stage._provisional === true); });
+/* Revisione 25/09: il PDF «solo palco» lasciava fuori la channel list senza dirlo. */
+t("Esporta avvisa se la channel list resta fuori dal PDF", () => {
+  const f = appjs.slice(appjs.indexOf("function pdfAvvisoIngressi(){"), appjs.indexOf("function pdfRenderPills(){"));
+  ok(/var mostra=disp && n>0 && !_pdfPillSel\.inputlist;/.test(f), "l'avviso compare solo se la lista esiste e non è scelta");
+  ok(/_pdfPillSel\.inputlist=true; pdfRenderPills\(\); pdfUpdateTechNote\(\);/.test(f), "«Aggiungi» deve mettere la lista nel PDF");
+  ok(/pdfAvvisoIngressi\(\);\s*renderPreview\(\);/.test(appjs), "l'avviso va aggiornato a ogni cambio di pagine");
+});
 /* Revisione 25/09: i gusci «Senza titolo» nel cloud avevano solo il palco ridimensionato. */
 t("l'autosave nel cloud non crea un progetto con le sole misure del palco", () => {
   reset(); A.applyStageSize(9, 5, false);
