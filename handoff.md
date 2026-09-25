@@ -6,6 +6,8 @@ sono state scritte qui: la loro storia sta nei messaggi di commit e nelle PR (#9
 
 ## Settembre in una pagina (PR su `main`)
 
+- **25/09 — Batteria componibile dal pannello** (segnalazione di un utente): tolto `COMP.batteria.reduced`, tom/piatti/doppia cassa/mancino in Accessori anche in Base; `drumChansFor(it)`: «Completa» = un mic per pezzo (kit di partenza 2 tom + floor → **9 canali**, prima 8 fissi); `MIKING[t].chans(m, it)` riceve l'elemento; «⇱ Dividi in pezzi singoli».
+
 - **25/09 — Dai progetti scelti come esempio** (branch `esempi-utenti`, 4 commit, 1180 test). Simone ha scelto 12
   progetti dalla galleria; analisi in `../analisi/esempi-2026-09-24.md` (fuori dal repo). `dropOrphanRows()`: le righe
   di input/monitor con `linked_item_id` verso un elemento che non c'è più si tolgono all'apertura (`normalizeState`),
