@@ -8090,6 +8090,23 @@ t("«Auto» genera la stessa lista che va nel PDF", () => {
   }
 });
 
+/* Revisione 25/09: l'avviso «due ampli» leggeva `it.miking`, che la migrazione alla catena cancella —
+   valeva sempre «ampli». Un basso solo linea accanto al suo ampli risultava «col microfono sull'ampli»,
+   e togliere l'ampli dalla catena (il rimedio suggerito) non spegneva l'avviso. */
+t("avviso «due ampli»: si basa sulla catena d'uscita, e si spegne seguendo il rimedio", () => {
+  const dueAmpli = () => A.auditEngine().findings.filter((f) => /microfono sull'ampli/.test(f.msg || ""));
+  reset();
+  const g = add("gtstand", 300, 300); add("comboamp", 380, 300);
+  const b = add("bassstand", 800, 300); add("bassamp", 880, 300);
+  A.__cabRes = null;
+  const f = dueAmpli();
+  eq(f.length, 1, "atteso un avviso");
+  ok(/Una postazione/.test(f[0].msg), "il basso solo linea non ha il microfono sull'ampli: " + f[0].msg);
+  eq(f[0].rule, "dueampli", "la regola deve avere la sua chiave, non finire nell'azione");
+  A.chainToggle(g, "ampmic"); A.__cabRes = null;
+  eq(dueAmpli().length, 0, "spento il mic sull'ampli dalla catena, l'avviso deve sparire");
+});
+
 console.log("\n— L'anteprima non deve vestire l'app (segnalazione 10/09) —");
 
 /* Segnalato da Simone: «quando vado a esportare le scritte dell'interfaccia si ingrandiscono»,
