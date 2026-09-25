@@ -8107,6 +8107,22 @@ t("avviso «due ampli»: si basa sulla catena d'uscita, e si spegne seguendo il 
   eq(dueAmpli().length, 0, "spento il mic sull'ampli dalla catena, l'avviso deve sparire");
 });
 
+/* Revisione 25/09: il PDF stampava sempre il giorno dell'esportazione, mai quello dell'evento —
+   «Teatro Prova · 24/09/2026» per un evento del 15/10 alle 21:30. */
+t("i documenti portano la data e l'ora dell'evento, se ci sono", () => {
+  reset();
+  A.state.evDate = "2026-10-15"; A.state.evTime = "21:30";
+  eq(A.dataDocumento(), "15/10/2026 · 21:30", "data dell'evento");
+  A.state.evTime = "";
+  eq(A.dataDocumento(), "15/10/2026", "senza ora");
+  A.state.evDate = "";
+  eq(A.dataDocumento(), new Date().toLocaleDateString("it-IT"), "senza data dell'evento resta quella di oggi");
+  const i = appjs.indexOf("function dataDocumento(){");
+  const fuori = (appjs.slice(0, i) + appjs.slice(appjs.indexOf("}", appjs.indexOf("return new Date().toLocaleDateString", i)) ))
+    .split("\n").filter((r) => /doc\.text\(new Date\(\)\.toLocaleDateString|sub\.push\(new Date\(\)\.toLocaleDateString|pdf-list-date">'\+esc\(new Date/.test(r));
+  eq(fuori.length, 0, "restano pagine del PDF con la data dell'esportazione");
+});
+
 console.log("\n— L'anteprima non deve vestire l'app (segnalazione 10/09) —");
 
 /* Segnalato da Simone: «quando vado a esportare le scritte dell'interfaccia si ingrandiscono»,
