@@ -9228,14 +9228,16 @@ function auditEngine(){
   var AMPLI_STAND={gtstand:"chitarra", bassstand:"basso"}, AMPLI_REALI={comboamp:1, stack:1, bassamp:1, keysamp:1, leslie:1};
   var _doppioAmpli=items.filter(function(it){
     if(!AMPLI_STAND[it.type]) return false;
-    var mk=micModeOf?null:null; var m=(it.miking||"ampli");
-    if(String(m).indexOf("ampli")<0) return false;             /* la postazione non porta il mic sul cono */
+    /* revisione 25/09: si legge la CATENA d'uscita. `it.miking` lo cancella chainMigrate, quindi valeva
+       sempre «ampli»: un basso solo linea/DI accanto al suo ampli risultava «col microfono sull'ampli»,
+       e togliere l'ampli dalla catena (il rimedio) non spegneva l'avviso. */
+    if(!(typeof chainOf==="function" && chainOf(it).ampMic)) return false;   /* la postazione non porta il mic sul cono */
     return items.some(function(a){ return AMPLI_REALI[a.type] && Math.hypot(a.x-it.x, a.y-it.y)<200; });
   });
   if(_doppioAmpli.length) add("warn", _doppioAmpli.length===1
       ? "Una postazione «"+(TYPES[_doppioAmpli[0].type].nome)+"» ha già il microfono sull'ampli e accanto c'è un ampli dal catalogo: in lista escono due canali per lo stesso strumento."
       : _doppioAmpli.length+" postazioni hanno il microfono sull'ampli con un altro ampli accanto: in lista escono due canali per lo stesso strumento.",
-    "Audio","Se l'ampli è uno solo: sul pannello della postazione scegli «DI» al posto di «Mic ampli», oppure togli l'ampli del catalogo. Se sono due davvero, rinominali (es. «Gtr ampli A» / «Gtr ampli B»).","dueampli");
+    "Audio","Se l'ampli è uno solo: nella catena della postazione spegni il «mic» sull'ampli, oppure togli l'ampli del catalogo. Se sono due davvero, rinominali (es. «Gtr ampli A» / «Gtr ampli B»).",null,"dueampli");   /* 25/09: «dueampli» finiva come azione, non come regola */
   /* B4 (casi reali) — due canali con lo STESSO nome = probabile doppione non dichiarato (visto davvero:
      la stessa voce microfonata due volte, senza nota). Lista manuale se presente,
      altrimenti quella derivata dagli elementi. */
