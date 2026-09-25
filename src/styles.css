@@ -235,12 +235,16 @@
   body.dark .avatar-btn{background:#222b38;border-color:#314046;color:#e5e7eb}
   body.dark .avatar-btn.logged{background:var(--accent);border-color:var(--accent);color:#fff}
   .doc-chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;border-radius:999px;
-    padding:3px 9px;white-space:nowrap;border:1px solid var(--border);color:var(--text-2);background:var(--surface-raised);flex:0 0 auto;cursor:default}
-  .doc-chip svg{width:12px;height:12px}
+    padding:3px 9px;white-space:nowrap;border:1px solid var(--border);color:var(--text-2);background:var(--surface-raised);flex:0 1 auto;min-width:28px;cursor:default;
+    max-width:260px;overflow:hidden;text-overflow:ellipsis}   /* 25/09: una pastiglia lunga allargava la barra fino a coprire Annulla, Ripeti e Adatta; la frase intera resta nel title */
+  .doc-chip svg{width:12px;height:12px;flex:0 0 auto}
+  .doc-chip .dc-t{min-width:0;overflow:hidden;text-overflow:ellipsis}
   .doc-chip.on{color:var(--success);background:var(--success-bg);border-color:var(--success-border)}
   .doc-chip.warn{color:var(--warning);background:var(--warning-bg);border-color:var(--warning-border);cursor:pointer}
-  .doc-chip.nudge{cursor:pointer}   /* da non collegati porta al login (15/09) */
-  .doc-chip.nudge:hover{color:var(--accent-strong);border-color:var(--accent)}
+  /* «invito» e non «nudge»: .nudge è il riquadro Produzione dell'Esporta (margine 12, padding 8×11, 12 px, blu) e la
+     pastiglia lo ereditava tutto — 398×33 px nella barra, che sbordava di 378 px a 1512 (revisione 25/09) */
+  .doc-chip.invito{cursor:pointer}   /* da non collegati porta al login (15/09) */
+  .doc-chip.invito:hover{color:var(--accent-strong);border-color:var(--accent)}
   /* Condivisione senza account: l'invito ad accedere, sotto il testo della copia (15/09) */
   #shareIntroTxt .share-login{margin-top:6px;padding:0;border:0;background:none;font:600 12px var(--font-ui);color:var(--accent-strong);
     text-decoration:underline;text-underline-offset:2px;text-align:left;cursor:pointer}
