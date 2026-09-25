@@ -29306,6 +29306,7 @@ function gallery(){
     var cp=document.getElementById("viewCopy"); if(!cp) return;
     cp.hidden = !!(state.shareOpts && state.shareOpts.copy===false);   /* copia disattivabile dal proprietario */
     cp.addEventListener("click", function(){
+      var giaCopia=cp.getAttribute("data-copia"); if(giaCopia && window.__apriCopia){ window.__apriCopia(giaCopia); return; }   /* dopo la copia il pulsante apre quella */
       var C=window.__cloud;
       if(C && C.user()){
         if(C.copySharedToken) C.copySharedToken(token);   /* INSERT remoto isolato: non tocca binding/mirror/slot locale */
@@ -30296,7 +30297,7 @@ function maybeAskStageSize(explicit){
          è appena successo — e «OK» chiude e basta. Prima c'era solo «Annulla»: chi voleva davvero
          eliminare non aveva niente da premere e restava a guardare il messaggio finché spariva. */
       var b=document.createElement("button");
-      b.type="button"; b.className="toast-act toast-undo"; b.textContent=azione.label||"Annulla";
+      b.type="button"; b.className="toast-act "+(azione.neutra?"toast-go":"toast-undo"); b.textContent=azione.label||"Annulla";   /* neutra: un'azione che porta avanti («Apri la copia»), non rossa come chi disfa */
       b.addEventListener("click", function(){ toastEl.hidden=true; if(toastT) clearTimeout(toastT); azione.run(); });
       toastEl.appendChild(b);
       var ok=document.createElement("button");
@@ -30600,9 +30601,19 @@ function maybeAskStageSize(explicit){
     } catch(e){ if(!saved){ saved=true; doSave(null); } }
   }
 
+  /* apre la copia nell'editor con /app/?p=<id>: la stessa strada di Orchestre, con tutte le protezioni di openProject */
+  function apriCopia(id){ if(!/^[0-9a-f-]{36}$/i.test(String(id||""))) return; location.href="/app/?p="+encodeURIComponent(id); }
+  function segnaCopiaFatta(id){ var cp=document.getElementById("viewCopy"); if(cp){ cp.textContent="Apri la copia"; cp.setAttribute("data-copia", id); } }
+  try{ window.__apriCopia=apriCopia; }catch(e){}
   function completeCopyFromToken(token){
     var copyUserId=cloudUser&&cloudUser.id, copyAuth=authGeneration;
     if(!copyUserId){ toast("Accedi per completare la copia.",true); return; }
+    var giaFatta=null; try{ giaFatta=sessionStorage.getItem("copiaDi:"+token); }catch(e){}
+    if(giaFatta){   /* seconda pressione sullo stesso link: niente doppione, si offre quella già fatta */
+      try{ sessionStorage.removeItem("copyFromToken"); }catch(e){}
+      toast("Hai già una copia di questo progetto nel tuo account.", false, {label:"Apri la copia", neutra:true, run:function(){ apriCopia(giaFatta); }});
+      segnaCopiaFatta(giaFatta); return;
+    }
     fetch(SUPABASE_URL+"/functions/v1/get-shared-project?token="+encodeURIComponent(token))
       .then(function(r){ return r.json(); })
       .then(function(d){
@@ -30630,7 +30641,13 @@ function maybeAskStageSize(explicit){
           if(!authStill(copyUserId,copyAuth)) return;
           if(r.error||!r.data||!r.data.id){ toast("Impossibile creare la copia. Riproveremo al prossimo accesso.",true); return; }
           try{ sessionStorage.removeItem("copyFromToken"); }catch(e){}   /* non ritentare un insert già riuscito */
-          toast("✓ Copia creata nel cloud. Il progetto locale corrente è rimasto aperto.");
+          try{ sessionStorage.setItem("copiaDi:"+token, r.data.id); }catch(e){}
+          /* Revisione 25/09: prima diceva solo «il progetto locale è rimasto aperto» e lasciava la pagina com'era;
+             chi voleva lavorare sulla copia ripremeva il pulsante — 5 copie in 6 minuti, dato reale. La copia NON
+             si apre da sola (l'unico slot locale può avere modifiche non ancora nel cloud, vedi sopra): si offre
+             di aprirla, e il pulsante diventa «Apri la copia». */
+          toast("✓ Copia creata nel tuo account.", false, {label:"Apri la copia", neutra:true, run:function(){ apriCopia(r.data.id); }});
+          segnaCopiaFatta(r.data.id);
           loadProjects();
         }, function(){ if(authStill(copyUserId,copyAuth)) toast("Impossibile creare la copia. Riproveremo al prossimo accesso.",true); });
       })

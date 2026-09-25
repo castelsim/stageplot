@@ -8208,6 +8208,17 @@ t("il nome del musicista non si ripete sulla sua spia", () => {
   w.label = "Basso"; w.y = 600; ok(!A.nomeGiaSullaSpia(m), "una spia lontana non è la sua");
 });
 
+/* Revisione 25/09: «Crea una copia» dal link creava la copia e lasciava la pagina com'era — chi voleva
+   lavorarci ripremeva il pulsante: 5 copie dello stesso progetto in 6 minuti (dato reale). */
+t("la copia da link si offre di aprirsi e non si duplica", () => {
+  const f = appjs.slice(appjs.indexOf("function completeCopyFromToken(token){"), appjs.indexOf("function loadProjects(){"));
+  ok(/giaFatta=sessionStorage\.getItem\("copiaDi:"\+token\)/.test(f) && /if\(giaFatta\)\{[\s\S]{0,300}toast\("Hai già una copia/.test(f), "un secondo clic crea un'altra copia invece di offrire quella fatta");
+  ok(/sessionStorage\.setItem\("copiaDi:"\+token, r\.data\.id\)/.test(f), "la copia fatta non viene ricordata");
+  ok(/label:"Apri la copia", neutra:true, run:function\(\)\{ apriCopia\(r\.data\.id\); \}/.test(f), "il messaggio non offre di aprire la copia");
+  ok(/function apriCopia\(id\)\{[^\n]*location\.href="\/app\/\?p="\+encodeURIComponent\(id\)/.test(appjs), "la copia si apre con /app/?p= (le protezioni di openProject)");
+  ok(/var giaCopia=cp\.getAttribute\("data-copia"\); if\(giaCopia && window\.__apriCopia\)/.test(appjs), "dopo la copia il pulsante del link deve aprirla, non rifarla");
+});
+
 console.log("\n— L'anteprima non deve vestire l'app (segnalazione 10/09) —");
 
 /* Segnalato da Simone: «quando vado a esportare le scritte dell'interfaccia si ingrandiscono»,
@@ -14394,7 +14405,7 @@ t("il messaggio dopo un'eliminazione ha due bottoni, non uno", () => {
      annulla, secondo me dovrebbe esserci anche l'ok oltre che l'annulla e l'annulla dovrebbe essere
      in rosso». Prima c'era solo «Annulla»: chi voleva davvero eliminare non aveva niente da
      premere e restava a guardare il messaggio finché spariva da solo. */
-  ok(/b\.className="toast-act toast-undo"/.test(appjs), "«Annulla» c'e' ancora");
+  ok(/b\.className="toast-act "\+\(azione\.neutra\?"toast-go":"toast-undo"\)/.test(appjs), "«Annulla» c'e' ancora (rosso, salvo le azioni neutre come «Apri la copia», dal 25/09)");
   ok(/ok\.className="toast-act toast-ok"; ok\.textContent="OK"/.test(appjs), "e adesso c'e' anche «OK»");
   ok(/ok\.addEventListener\("click", function\(\)\{ toastEl\.hidden=true;[^}]*\}\)/.test(appjs),
      "che chiude e basta, senza disfare niente");
