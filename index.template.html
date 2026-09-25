@@ -28821,7 +28821,26 @@ function pdfChannelPage(doc, L, paperKey){
     if(note){ var n=Object.keys(window.__pdfPages).length;
       note.textContent = n ? ("PDF: 1 pagina palco + "+n+" pagin"+(n===1?"a":"e")+" tecnic"+(n===1?"a":"he")+".")
                            : "Solo palco (1 pagina). Aggiungi qui sopra le pagine tecniche da allegare."; }
+    pdfAvvisoIngressi();
     renderPreview();   /* le pagine spuntate compaiono subito nell'anteprima */
+  }
+  /* Revisione 25/09: chi esporta il PDF «solo palco» lascia fuori la lista ingressi senza saperlo — ed
+     è il foglio che il service chiede per primo. Le pagine restano spente per scelta (16/08): qui si
+     dice solo cosa manca, con il comando per metterla. */
+  function pdfAvvisoIngressi(){
+    var host=document.getElementById("pdfPills"); if(!host) return;
+    var el=document.getElementById("pdfInMissing");
+    var disp=_pdfTechPages.some(function(p){ return p.key==="inputlist"; });
+    var n=0; try{ n=(typeof cabResult==="function")?(cabResult(true).totIn||0):0; }catch(_e){}
+    var mostra=disp && n>0 && !_pdfPillSel.inputlist;
+    if(!mostra){ if(el) el.hidden=true; return; }
+    if(!el){ el=document.createElement("div"); el.id="pdfInMissing"; el.className="pdf-inmissing";
+      var hint=document.getElementById("pdfPillsHint"); host.parentNode.insertBefore(el, (hint||host).nextSibling); }
+    el.innerHTML=""; el.hidden=false;
+    var sp=document.createElement("span"); sp.textContent="Channel list ("+n+" canal"+(n===1?"e":"i")+") non inclusa.";
+    var b=document.createElement("button"); b.type="button"; b.className="btn"; b.textContent="Aggiungi";
+    b.addEventListener("click", function(){ _pdfPillSel.inputlist=true; pdfRenderPills(); pdfUpdateTechNote(); });
+    el.appendChild(sp); el.appendChild(b);
   }
   function pdfRenderPills(){
     /* Pagine come pillole: TUTTE le disponibili (attivate dagli elementi del progetto) sono visibili —
