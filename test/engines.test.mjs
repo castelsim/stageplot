@@ -5090,6 +5090,11 @@ t("anteprima grande: le stesse azioni della riga, che premono quelle vere", () =
   ok(/\} else if\(cls!=="cloudLock"\) chiudiAnteprima\(true\);\s*if\(ancora\) ancora\.click\(\);/.test(g), "preme il pulsante vero (stesse conferme); chiude l'anteprima tranne per Blocca ed Elimina, la cui conferma sta sopra");
   ok(/class="cp-azioni"><button type="button" class="btn primary cp-apri">Apri<\/button><span class="cp-icone"><\/span>/.test(appjs), "Apri e icone nello stesso ordine della riga");
 });
+t("Duplica apre la copia nell'editor", () => {
+  const f = appjs.slice(appjs.indexOf("function dupProject(id){"), appjs.indexOf("function renameProject(id){"));
+  ok(/\.insert\(\{[^}]*\}\)\.select\("id"\)\.single\(\)/.test(f), "l'inserimento restituisce l'id della copia");
+  ok(/if\(nuovo && \/\^\[0-9a-f-\]\{36\}\$\/i\.test\(String\(nuovo\)\)\) openProject\(nuovo\);/.test(f), "e la copia si apre con la strada di «Apri»");
+});
 t("anteprima grande: eliminato un progetto, si passa al successivo", () => {
   ok(/if\(cls==="cloudDel"\)\{\s*var ids=cloudProjects\.map\(function\(p\)\{ return p\.id; \}\), k=ids\.indexOf\(id\);\s*ov\.__dopo = ids\[k\+1\] \|\| ids\[k-1\] \|\| null;/.test(appjs), "Elimina non chiude: ricorda il successivo (o il precedente se era l'ultimo)");
   ok(/else if\(c\(pv\.__dopo\)\)\{ var dopo=pv\.__dopo; pv\.__dopo=null; apriAnteprima\(dopo\); \}/.test(appjs), "a eliminazione fatta l'anteprima mostra il successivo");

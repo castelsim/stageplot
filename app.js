@@ -28928,11 +28928,16 @@ function maybeAskStageSize(explicit){
       if(!authStill(requestUser,requestAuth)) return;
       if(r.error || !r.data){ toast("Duplicazione non riuscita.", true); return; }
       var t=(((r.data.title||"Senza titolo")+" — copia")).slice(0,120);
-      sb.from("stageplot_projects").insert({ user_id:requestUser, schema_version:SCHEMA_VERSION, title:t, data:r.data.data, venue_image:r.data.venue_image||null }).then(function(w){   /* la copia tiene la planimetria */
+      sb.from("stageplot_projects").insert({ user_id:requestUser, schema_version:SCHEMA_VERSION, title:t, data:r.data.data, venue_image:r.data.venue_image||null }).select("id").single().then(function(w){   /* la copia tiene la planimetria */
         if(!authStill(requestUser,requestAuth)) return;
         if(w.error){ toast("Duplicazione non riuscita: "+w.error.message, true); return; }
         toast("Copia creata: "+t);
         loadProjects();
+        /* …e si apre (26/09, Simone: «se faccio duplica si deve aprire in automatico»). Chi duplica lo fa
+           per lavorare sulla copia: la si apre con la stessa strada di «Apri», che salva prima il
+           progetto in corso e chiude la finestra. Senza id (risposta anomala) resta nell'elenco. */
+        var nuovo=w.data && w.data.id;
+        if(nuovo && /^[0-9a-f-]{36}$/i.test(String(nuovo))) openProject(nuovo);
       });
     });
   }
