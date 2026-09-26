@@ -16276,8 +16276,9 @@ t("la vista si ricarica quando cambia il progetto cloud e mai senza sessione", (
   ok((appjs.match(/orcSeatsSync\(\)/g) || []).length >= 5, "apertura, salvataggio nuovo, setCurrentId, avvio, cambio sessione");
 });
 
-t("«Richiedi musicisti» nascosto nella barra in alto (26/09, da rivedere)", () => {
-  ok(/#bRichiedi\{display:none!important\}/.test(stylesCss), "il pulsante in alto a destra non si vede");
+t("«Richiedi musicisti» nascosto ovunque (26/09, da rivedere)", () => {
+  ok(/#bRichiedi,#mactRichiedi\{display:none!important\}/.test(stylesCss), "né in alto a destra né nel menu del telefono");
+  ok(/var RICHIEDI_MUSICISTI=false;/.test(appjs) && /if\(RICHIEDI_MUSICISTI\) oa\.appendChild\(mkA\(orcRichiediLink/.test(appjs), "né nel pannello Produzione");
 });
 t("«Richiedi musicisti»: il pulsante c'è e porta con sé il progetto salvato", () => {
   const html = readFileSync(join(root, "app/index.html"), "utf8");
