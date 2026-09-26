@@ -3432,3 +3432,33 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
 .pdf-inmissing[hidden]{display:none}
 .pdf-inmissing .btn{min-height:32px;padding:4px 12px}
 #pdfUltimo.vecchio{color:var(--warning);font-weight:600}
+
+/* Anteprima dei progetti nell'elenco «I tuoi progetti» (26/09, variante A) */
+.cloudTitolo{font-weight:600;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere;line-height:1.3}   /* con la miniatura la riga è più stretta: due righe invece di «Copia di UNI…» */
+.cloudThumb{flex:0 0 auto;width:64px;height:46px;padding:0;border:1px solid var(--border);border-radius:6px;background:#fff;cursor:zoom-in;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.cloudThumb img{width:100%;height:100%;object-fit:contain;display:block}
+.cloudThumb img:not([src]){display:none}
+.cloudThumb.attesa{background:var(--surface-raised);cursor:default}
+.cloudThumb.vuota{background:var(--surface-raised);cursor:default;border-style:dashed}
+.cloudThumb.vuota span{font-size:9px;line-height:1.15;color:var(--text-3);text-align:center;padding:2px}
+.cloudThumb:focus-visible{outline:2px solid var(--focus-ring,var(--accent));outline-offset:2px}
+#cloudPrev{position:fixed;inset:0;z-index:210;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:18px}
+#cloudPrev[hidden]{display:none}
+#cloudPrev .cp-box{background:var(--surface);color:var(--text);width:100%;max-width:560px;max-height:88vh;display:flex;flex-direction:column;border-radius:var(--r-xl);box-shadow:var(--elev-4);padding:16px;font-family:var(--font-ui)}
+#cloudPrev .cp-img{flex:1 1 auto;min-height:0;border:1px solid var(--border);border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden}
+#cloudPrev .cp-img img{width:100%;height:100%;max-height:60vh;object-fit:contain;display:block}
+#cloudPrev .cp-vuota{display:none;color:#6b7280;padding:40px 16px;text-align:center;font-size:14px}
+#cloudPrev.senza .cp-img img{display:none}
+#cloudPrev.senza .cp-vuota{display:block}
+#cloudPrev .cp-info{margin-top:10px;min-width:0}
+#cloudPrev .cp-t{display:block;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#cloudPrev .cp-m{font-size:13px;color:var(--text-2)}
+#cloudPrev .cp-az{display:flex;gap:8px;align-items:center;margin-top:12px}
+#cloudPrev .cp-nav{min-width:44px;font-size:18px}
+/* Telefono: miniatura + titolo sulla prima riga, i comandi sotto a destra. Tutti insieme su 390 px
+   lasciavano al titolo tre lettere («Cor o…») e la data finiva sotto il pulsante Apri. */
+@media (max-width:560px){
+  .cloudRiga{flex-wrap:wrap;row-gap:6px}
+  .cloudRiga .cloudTesto{flex:1 1 calc(100% - 80px)!important}
+  .cloudRiga .cloudOpen{margin-left:auto}
+}
