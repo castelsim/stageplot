@@ -5083,6 +5083,13 @@ t("a schermo i nomi ruotati girano attorno al proprio centro, nell'export no", (
   ok(/#svg #layLbl text\.lbl\{transform-box:fill-box;transform-origin:center/.test(stylesCss), "il CSS che rende necessaria la regola");
 });
 /* 26/09: anteprima dei progetti nell'elenco «I tuoi progetti» (variante A scelta sui mockup). */
+t("anteprima grande: le stesse azioni della riga, che premono quelle vere", () => {
+  const g = appjs.slice(appjs.indexOf("function apriAnteprima(id, daChi){"), appjs.indexOf("function passaAnteprima(d){"));
+  ok(/\["cloudRename","cloudDup","cloudShareRow","cloudLock","cloudDel"\]\.forEach/.test(g), "rinomina, duplica, condividi, blocca, elimina");
+  ok(/vero\.cloneNode\(true\)/.test(g) && /copia\.removeAttribute\("data-id"\)/.test(g), "copia del pulsante della riga, senza farne un secondo bersaglio per i gestori della lista");
+  ok(/chiudiAnteprima\(true\); if\(ancora\) ancora\.click\(\);/.test(g), "chiude l'anteprima e preme il pulsante vero: stesse conferme, nessuna finestra sotto");
+  ok(/class="cp-azioni"><button type="button" class="btn primary cp-apri">Apri<\/button><span class="cp-icone"><\/span>/.test(appjs), "Apri e icone nello stesso ordine della riga");
+});
 t("elenco progetti: miniature leggere, sicure, e anteprima grande", () => {
   const f = appjs.slice(appjs.indexOf("function loadProjects(){"), appjs.indexOf("function openProject(id){"));
   ok(/select\("id,title,updated_at,share_token,is_locked"\)/.test(f) && !/thumbnail/.test(f), "la lista resta leggera: niente immagini nella query dell'elenco");

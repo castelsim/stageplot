@@ -28528,7 +28528,8 @@ function maybeAskStageSize(explicit){
       ov.innerHTML='<div class="cp-box"><div class="cp-img"><img alt=""><span class="cp-vuota">Questo progetto non ha ancora un\'anteprima: si crea al primo salvataggio.</span></div>'+
         '<div class="cp-info"><b class="cp-t"></b><span class="cp-m"></span></div>'+
         '<div class="cp-az"><button type="button" class="btn cp-nav" data-d="-1" aria-label="Progetto precedente">‹</button><button type="button" class="btn cp-nav" data-d="1" aria-label="Progetto successivo">›</button>'+
-        '<span style="flex:1"></span><button type="button" class="btn cp-chiudi">Chiudi</button><button type="button" class="btn primary cp-apri">Apri</button></div></div>';
+        '<span style="flex:1"></span><button type="button" class="btn cp-chiudi">Chiudi</button></div>'+
+        '<div class="cp-azioni"><button type="button" class="btn primary cp-apri">Apri</button><span class="cp-icone"></span></div></div>';
       document.body.appendChild(ov);
       ov.addEventListener("click", function(e){ if(e.target===ov) chiudiAnteprima(); });
       ov.querySelector(".cp-chiudi").addEventListener("click", chiudiAnteprima);
@@ -28549,6 +28550,19 @@ function maybeAskStageSize(explicit){
     var chiave=id+"|"+p.updated_at, meta=ov.querySelector(".cp-m");
     meta.textContent=fmtDate(p.updated_at)+(contiAnteprima[chiave] ? " · "+contiAnteprima[chiave] : "");
     var solo=cloudProjects.length<2; Array.prototype.forEach.call(ov.querySelectorAll(".cp-nav"), function(b){ b.hidden=solo; });
+    /* Le stesse azioni della riga (26/09, Simone): rinomina, duplica, condividi, blocca, elimina. Non
+       si riscrivono: si copia il pulsante della riga (titolo, stato del blocco, colore) e il clic chiude
+       l'anteprima e preme quello vero — le conferme e le finestre sono le stesse, e nessuna resta sotto. */
+    var icone=ov.querySelector(".cp-icone"); icone.innerHTML="";
+    ["cloudRename","cloudDup","cloudShareRow","cloudLock","cloudDel"].forEach(function(cls){
+      var vero=bodyEl && bodyEl.querySelector("."+cls+'[data-id="'+id+'"]'); if(!vero) return;
+      var copia=vero.cloneNode(true); copia.classList.remove(cls); copia.classList.add("cp-az-ico"); copia.removeAttribute("data-id");
+      copia.addEventListener("click", function(){
+        var ancora=bodyEl && bodyEl.querySelector("."+cls+'[data-id="'+id+'"]');
+        chiudiAnteprima(true); if(ancora) ancora.click();
+      });
+      icone.appendChild(copia);
+    });
     ov.hidden=false;
     ov.querySelector(".cp-apri").focus();
     /* varianti ed elementi: servono i dati del progetto, quindi solo per quello che si guarda */
