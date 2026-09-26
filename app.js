@@ -28408,7 +28408,7 @@ function maybeAskStageSize(explicit){
   }
   function modalOpen(){ return modalEl && modalEl.style.display!=="none"; }
   function openModal(){ if(!modalEl) return; modalEl.style.display="flex"; renderModal(); if(cloudUser) loadProjects(); }
-  function closeModal(){ if(modalEl) modalEl.style.display="none"; }
+  function closeModal(){ if(modalEl) modalEl.style.display="none"; var pv=document.getElementById("cloudPrev"); if(pv) pv.hidden=true; }
 
   function renderModal(){
     if(!bodyEl) return;
@@ -28431,9 +28431,10 @@ function maybeAskStageSize(explicit){
     if(cloudProjects.length){
       rows=cloudProjects.map(function(p){
         var cur = p.id===cloudCurrentId, pid=esc(p.id);
-        return '<div style="display:flex;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--border)">'+
-          '<div style="flex:1;min-width:0">'+
-            '<div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(p.title)+(cur?' <span style="color:var(--success);font-weight:500">• aperto</span>':'')+'</div>'+
+        return '<div class="cloudRiga" style="display:flex;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--border)">'+
+          '<button type="button" class="cloudThumb attesa" data-id="'+pid+'" aria-label="Anteprima di '+esc(p.title||"Senza titolo")+'"><img alt=""></button>'+
+          '<div class="cloudTesto" style="flex:1;min-width:0">'+
+            '<div class="cloudTitolo">'+esc(p.title)+(cur?' <span style="color:var(--success);font-weight:500">• aperto</span>':'')+'</div>'+
             '<div style="font-size:12px;color:var(--text-3)">'+esc(fmtDate(p.updated_at))+'</div>'+
           '</div>'+
           '<button class="cloudOpen" data-id="'+pid+'" style="border:1px solid var(--border-strong);background:var(--surface);color:var(--text);border-radius:7px;padding:6px 11px;font-weight:600;cursor:pointer">Apri</button>'+
@@ -28473,7 +28474,103 @@ function maybeAskStageSize(explicit){
     Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudDup"), function(b){ b.addEventListener("click", function(){ dupProject(b.getAttribute("data-id")); }); });
     Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudShareRow"), function(b){ b.addEventListener("click", function(){ shareRow(b.getAttribute("data-id")); }); });
     Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudLock"), function(b){ b.addEventListener("click", function(){ toggleLock(b.getAttribute("data-id"), b.getAttribute("data-locked")==="1"); }); });
+    Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudThumb"), function(b){ b.addEventListener("click", function(){ if(!b.classList.contains("vuota")) apriAnteprima(b.getAttribute("data-id"), b); }); });
+    applicaMiniature(); caricaMiniature();
   }
+
+  /* ===== ANTEPRIMA DEI PROGETTI (26/09, variante A scelta da Simone sui mockup) =====
+     Con molti progetti e titoli come «Senza titolo» o «3 ottobre 2026» l'elenco non diceva cosa
+     fossero: bisognava aprirli uno per uno. L'immagine esiste già: l'app la salva a ogni salvataggio
+     (colonna `thumbnail`, 20-45 KB, la variante attiva). L'elenco resta leggero come prima — la
+     query della lista non la chiede — e le miniature arrivano DOPO, a gruppi di 6, solo a finestra
+     aperta; si ricordano per id e data di modifica, quindi riaprendo la finestra non si riscaricano.
+     Le copie nascono senza immagine (`thumbnail:null`): lo si dice invece di lasciare un buco. */
+  var miniature={}, miniatureInCorso=false;   /* id -> {u:updated_at, src:dataURL|null} */
+  function miniaturaValida(s){ return (typeof s==="string" && /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+\/=]+$/.test(s)) ? s : null; }
+  function miniaturaAggiornata(p){ var m=miniature[p.id]; return !!m && m.u===p.updated_at; }
+  function applicaMiniature(){
+    if(!bodyEl) return;
+    Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudThumb"), function(b){
+      var id=b.getAttribute("data-id"), p=cloudProjects.filter(function(x){ return x.id===id; })[0], m=miniature[id], img=b.querySelector("img");
+      if(!p || !m || !miniaturaAggiornata(p)) return;   /* ancora in arrivo: resta il riquadro grigio */
+      b.classList.remove("attesa");
+      if(m.src){ if(img && img.getAttribute("src")!==m.src) img.setAttribute("src", m.src); b.classList.remove("vuota"); b.title="Anteprima"; }
+      else { b.classList.add("vuota"); if(img) img.removeAttribute("src"); b.textContent=""; b.appendChild(document.createElement("img"));
+        b.insertAdjacentHTML("beforeend",'<span>anteprima al primo salvataggio</span>'); b.title="Nessuna anteprima: si crea al primo salvataggio del progetto"; b.setAttribute("aria-disabled","true"); }
+    });
+  }
+  function caricaMiniature(){
+    if(!sb || !cloudUser || !modalOpen() || miniatureInCorso) return;
+    var mancano=cloudProjects.filter(function(p){ return !miniaturaAggiornata(p); });
+    if(!mancano.length) return;
+    miniatureInCorso=true;
+    var reqUser=cloudUser.id, reqAuth=authGeneration;
+    (function giro(i){
+      var parte=mancano.slice(i,i+6);
+      if(!parte.length || !modalOpen() || !authStill(reqUser,reqAuth)){ miniatureInCorso=false; return; }
+      sb.from("stageplot_projects").select("id,thumbnail").in("id", parte.map(function(p){ return p.id; })).then(function(r){
+        if(!authStill(reqUser,reqAuth)){ miniatureInCorso=false; return; }
+        if(r.error){ miniatureInCorso=false; return; }   /* niente miniature: l'elenco funziona come prima */
+        var arrivate={}; (r.data||[]).forEach(function(x){ arrivate[x.id]=miniaturaValida(x.thumbnail); });
+        parte.forEach(function(p){ miniature[p.id]={u:p.updated_at, src:arrivate[p.id]||null}; });
+        applicaMiniature(); giro(i+6);
+      }, function(){ miniatureInCorso=false; });
+    })(0);
+  }
+  var contiAnteprima={};   /* id|updated_at -> "2 varianti · 31 elementi" */
+  function apriAnteprima(id, daChi){
+    var ov=document.getElementById("cloudPrev");
+    if(!ov){
+      ov=document.createElement("div"); ov.id="cloudPrev"; ov.setAttribute("role","dialog"); ov.setAttribute("aria-modal","true"); ov.setAttribute("aria-label","Anteprima del progetto");
+      ov.innerHTML='<div class="cp-box"><div class="cp-img"><img alt=""><span class="cp-vuota">Questo progetto non ha ancora un\'anteprima: si crea al primo salvataggio.</span></div>'+
+        '<div class="cp-info"><b class="cp-t"></b><span class="cp-m"></span></div>'+
+        '<div class="cp-az"><button type="button" class="btn cp-nav" data-d="-1" aria-label="Progetto precedente">‹</button><button type="button" class="btn cp-nav" data-d="1" aria-label="Progetto successivo">›</button>'+
+        '<span style="flex:1"></span><button type="button" class="btn cp-chiudi">Chiudi</button><button type="button" class="btn primary cp-apri">Apri</button></div></div>';
+      document.body.appendChild(ov);
+      ov.addEventListener("click", function(e){ if(e.target===ov) chiudiAnteprima(); });
+      ov.querySelector(".cp-chiudi").addEventListener("click", chiudiAnteprima);
+      ov.querySelector(".cp-apri").addEventListener("click", function(){ var pid=ov.getAttribute("data-id"); chiudiAnteprima(true); openProject(pid); });
+      Array.prototype.forEach.call(ov.querySelectorAll(".cp-nav"), function(b){ b.addEventListener("click", function(){ passaAnteprima(+b.getAttribute("data-d")); }); });
+      ov.addEventListener("keydown", function(e){
+        if(e.key==="Escape"){ e.preventDefault(); e.stopPropagation(); chiudiAnteprima(); }   /* solo l'anteprima: l'elenco resta aperto */
+        else if(e.key==="ArrowRight"){ e.preventDefault(); passaAnteprima(1); }
+        else if(e.key==="ArrowLeft"){ e.preventDefault(); passaAnteprima(-1); }
+      });
+    }
+    if(daChi) ov.__daChi=daChi;
+    var p=cloudProjects.filter(function(x){ return x.id===id; })[0]; if(!p) return;
+    var m=miniature[id], img=ov.querySelector(".cp-img img");
+    ov.setAttribute("data-id", id);
+    if(m && m.src){ img.setAttribute("src", m.src); ov.classList.remove("senza"); } else { img.removeAttribute("src"); ov.classList.add("senza"); }
+    ov.querySelector(".cp-t").textContent=p.title||"Senza titolo";
+    var chiave=id+"|"+p.updated_at, meta=ov.querySelector(".cp-m");
+    meta.textContent=fmtDate(p.updated_at)+(contiAnteprima[chiave] ? " · "+contiAnteprima[chiave] : "");
+    var solo=cloudProjects.length<2; Array.prototype.forEach.call(ov.querySelectorAll(".cp-nav"), function(b){ b.hidden=solo; });
+    ov.hidden=false;
+    ov.querySelector(".cp-apri").focus();
+    /* varianti ed elementi: servono i dati del progetto, quindi solo per quello che si guarda */
+    if(!contiAnteprima[chiave] && sb && cloudUser){
+      var reqUser=cloudUser.id, reqAuth=authGeneration;
+      sb.from("stageplot_projects").select("data").eq("id",id).single().then(function(r){
+        if(!authStill(reqUser,reqAuth) || r.error || !r.data) return;
+        var d=r.data.data||{}, vv=(d && Array.isArray(d.variants)) ? d.variants.map(function(v){ return (v&&v.state)||{}; }) : [d];
+        var nEl=vv.reduce(function(s,st){ return s+((st&&Array.isArray(st.items))?st.items.length:0); },0);
+        contiAnteprima[chiave]=vv.length+(vv.length===1?" variante":" varianti")+" · "+nEl+(nEl===1?" elemento":" elementi");
+        if(!ov.hidden && ov.getAttribute("data-id")===id) meta.textContent=fmtDate(p.updated_at)+" · "+contiAnteprima[chiave];
+      });
+    }
+  }
+  function passaAnteprima(d){
+    var ov=document.getElementById("cloudPrev"); if(!ov || !cloudProjects.length) return;
+    var ids=cloudProjects.map(function(p){ return p.id; }), i=ids.indexOf(ov.getAttribute("data-id"));
+    apriAnteprima(ids[(i+d+ids.length)%ids.length]);
+  }
+  function chiudiAnteprima(perAprire){
+    var ov=document.getElementById("cloudPrev"); if(!ov) return;
+    ov.hidden=true;
+    if(!perAprire && ov.__daChi && document.body.contains(ov.__daChi)) ov.__daChi.focus();   /* il fuoco torna alla miniatura da cui si era partiti */
+  }
+  try{ window.__cloudAnteprima={ valida:miniaturaValida, apri:apriAnteprima, chiudi:chiudiAnteprima }; }catch(e){}
 
   function signIn(){
     if(!sb) return;
