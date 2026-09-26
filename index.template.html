@@ -30602,6 +30602,11 @@ function maybeAskStageSize(explicit){
     Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudLock"), function(b){ b.addEventListener("click", function(){ toggleLock(b.getAttribute("data-id"), b.getAttribute("data-locked")==="1"); }); });
     Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudThumb"), function(b){ b.addEventListener("click", function(){ if(!b.classList.contains("vuota")) apriAnteprima(b.getAttribute("data-id"), b); }); });
     applicaMiniature(); caricaMiniature();
+    /* anteprima aperta sopra la lista ridisegnata (es. dopo Blocca): si aggiorna, o si chiude se il
+       progetto non c'è più */
+    var pv=document.getElementById("cloudPrev");
+    if(pv && !pv.hidden){ var pvId=pv.getAttribute("data-id");
+      if(cloudProjects.some(function(p){ return p.id===pvId; })) apriAnteprima(pvId, null, true); else chiudiAnteprima(true); }
   }
 
   /* ===== ANTEPRIMA DEI PROGETTI (26/09, variante A scelta da Simone sui mockup) =====
@@ -30644,7 +30649,7 @@ function maybeAskStageSize(explicit){
     })(0);
   }
   var contiAnteprima={};   /* id|updated_at -> "2 varianti · 31 elementi" */
-  function apriAnteprima(id, daChi){
+  function apriAnteprima(id, daChi, senzaFuoco){
     var ov=document.getElementById("cloudPrev");
     if(!ov){
       ov=document.createElement("div"); ov.id="cloudPrev"; ov.setAttribute("role","dialog"); ov.setAttribute("aria-modal","true"); ov.setAttribute("aria-label","Anteprima del progetto");
@@ -30682,12 +30687,15 @@ function maybeAskStageSize(explicit){
       var copia=vero.cloneNode(true); copia.classList.remove(cls); copia.classList.add("cp-az-ico"); copia.removeAttribute("data-id");
       copia.addEventListener("click", function(){
         var ancora=bodyEl && bodyEl.querySelector("."+cls+'[data-id="'+id+'"]');
-        chiudiAnteprima(true); if(ancora) ancora.click();
+        /* Blocca/Sblocca resta qui (26/09, Simone): la conferma sta sopra l'anteprima (#confirmModal
+           z 300) e a blocco fatto la lista si ridisegna e aggiorna anche il lucchetto qui sotto. */
+        if(cls!=="cloudLock") chiudiAnteprima(true);
+        if(ancora) ancora.click();
       });
       icone.appendChild(copia);
     });
     ov.hidden=false;
-    ov.querySelector(".cp-apri").focus();
+    if(!senzaFuoco) ov.querySelector(".cp-apri").focus();
     /* varianti ed elementi: servono i dati del progetto, quindi solo per quello che si guarda */
     if(!contiAnteprima[chiave] && sb && cloudUser){
       var reqUser=cloudUser.id, reqAuth=authGeneration;
