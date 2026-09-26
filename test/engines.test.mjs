@@ -16557,7 +16557,7 @@ t("dividere uno strumento non riempie il palco di nomi: restano, ma nascosti", (
 t("il riquadro di selezione sta sul disegno vero, con il tratto costante a schermo", () => {
   /* 26/09 — Simone: «il contorno verde dovrebbe adattarsi in modo dinamico allo zoom ed essere il più aderente possibile» */
   ok(/\.selbox\{vector-effect:non-scaling-stroke\}/.test(stylesCss), "tratto costante a ogni zoom");
-  const f = appjs.slice(appjs.indexOf("function aderisciSelezione(){"), appjs.indexOf("function aderisciSelezionePresto"));
+  const f = appjs.slice(appjs.indexOf("function aderisciRiquadro(node){"), appjs.indexOf("function aderisciSelezionePresto"));
   ok(/rg\.getBBox\(\)/.test(f) && /var pad=hSize\(4\)/.test(f), "misura il disegno e gli sta a 4 px di schermo");
   ok(/hit\.setAttribute\("display","none"\); box\.setAttribute\("display","none"\);/.test(f), "senza contare l'area di clic e il riquadro stesso");
   ok(/for\(var ci=0;ci<nc;ci\+\+\)/.test(f), "scorre i figli con un tetto (nel DOM finto dei test un ciclo aperto non finiva)");
@@ -16575,6 +16575,14 @@ t("la maniglia di rotazione resta della stessa misura a ogni zoom", () => {
   ["rh-knob", "rh-ico", "lk-knob", "lk-arc"].forEach((k) => ok(r && r[1].indexOf("." + k) > -1, k + " compreso"));
   const h = appjs.slice(appjs.indexOf("function selHandlesMarkup(){"), appjs.indexOf("function selHandlesMarkup(){") + 1800);
   ok(/knob=7\*_k/.test(h) && /cmPerPx\(\)/.test(h), "e le misure della maniglia sono in pixel di schermo");
+});
+
+t("il riquadro del passaggio del mouse è stretto come quello della selezione", () => {
+  /* 26/09 — Simone: «se ci passo solo sopra è più grande di quando seleziono l'oggetto» */
+  const m = appjs.slice(appjs.indexOf('svg.addEventListener("mouseover"'), appjs.indexOf('svg.addEventListener("mouseover"') + 300);
+  ok(/closest\("\.item"\)/.test(m) && /aderisciRiquadro\(n\)/.test(m), "passando sopra un elemento il suo riquadro si stringe sul disegno");
+  ok(/getAttribute\("data-fit"\)!=="1"/.test(m), "una volta per elemento, non a ogni movimento");
+  ok(/ids\.forEach\(function\(id\)\{ var f=aderisciRiquadro\(itemNodeIndex\.get\(id\)\)/.test(appjs), "la selezione usa la stessa misura");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
