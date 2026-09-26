@@ -1,10 +1,17 @@
 # STATO AL 25/09/2026 — da leggere prima di tutto
 
-Tutto in produzione, nessuna PR aperta. Test: 1205 editor · 124 Orchestre · 137 Deno.
+Tutto in produzione, nessuna PR aperta. Test: 1210 editor · 124 Orchestre · 137 Deno.
 Regole di lavoro aggiornate in `AGENTS.md` (§3, §4, §8). Le sessioni fra fine luglio e settembre non
 sono state scritte qui: la loro storia sta nei messaggi di commit e nelle PR (#98-#210).
 
 ## Settembre in una pagina (PR su `main`)
+
+- **26/09 — Anteprima dei progetti** (#219, in produzione, 1210 editor). In «I tuoi progetti» miniatura su ogni
+  riga (`thumbnail` già salvata a ogni salvataggio) caricata dopo la lista, a gruppi di 6, solo a finestra aperta,
+  cache per `updated_at` (`miniature`, `caricaMiniature`, `applicaMiniature`); formato controllato da
+  `miniaturaValida` (solo data URL JPEG/PNG/WebP). Clic → `#cloudPrev` con varianti/elementi letti al volo,
+  ‹ ›, Esc che chiude solo l'anteprima. Copie senza immagine: «anteprima al primo salvataggio». Finestra 520 px,
+  `.cloudRiga` a due livelli sotto 560 px. Mockup scelti in `docs/mockup/anteprima/` (locale).
 
 - **26/09 — Riquadro del passaggio del mouse stretto come quello della selezione**: `aderisciRiquadro(node)` (una misura sola) chiamata da `aderisciSelezione` e da un `mouseover` sul palco, una volta per nodo (`data-fit`).
 
