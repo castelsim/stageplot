@@ -28253,13 +28253,16 @@ function renderProdHub(){
     var oa=orc.querySelector(".pd-assign"), olink=orcOrganicoLink(logged&&pid?pid:null);
     var mkA=function(href,label,primary){ var a=document.createElement("a"); a.className="btn"+(primary?" primary":""); a.style.cssText="width:auto;margin:0 8px 0 0;padding:0 14px;min-height:44px;display:inline-flex;align-items:center"; a.href=href; a.textContent=label; return a; };
     /* chi compra i musicisti non ha un'organizzazione: per lui la porta è la richiesta, non l'organico */
-    oa.appendChild(mkA(orcRichiediLink(logged&&pid?pid:null), "Richiedi musicisti \u2192", !olink));
+    /* «Richiedi musicisti» nascosto dal 26/09 (Simone: «quel ramo del progetto va rivisto bene»):
+       si rimette con RICHIEDI_MUSICISTI=true, insieme alle due righe CSS di #bRichiedi e #mactRichiedi. */
+    if(RICHIEDI_MUSICISTI) oa.appendChild(mkA(orcRichiediLink(logged&&pid?pid:null), "Richiedi musicisti \u2192", !olink));
     if(olink) oa.appendChild(mkA(olink, "Organico e convocazioni \u2192", false));
-    if(!olink) oa.appendChild(document.createElement("br"));
+    if(!olink && RICHIEDI_MUSICISTI) oa.appendChild(document.createElement("br"));
     if(!olink) oa.appendChild(el2('<span class="pd-hint">Se gestisci tu l\u2019organico: '+(logged?"salva il progetto nel cloud":"accedi e salva il progetto nel cloud")+' per collegarlo a una produzione di Orchestre.</span>'));
   }
 }
 var DEPT_ROLES=["Capo reparto","Tecnico","Assistente","Runner"];
+var RICHIEDI_MUSICISTI=false;   /* 26/09: la richiesta di musicisti è nascosta ovunque finché quel ramo non è rivisto */
 /* Decisione 4A: pannello Responsabile dell'elemento — eredita dal reparto o eccezione sul singolo.
    Eccezione salvata account-only riusando dept_assign con dept_key "el:<itemId>" (nessuna nuova tabella). */
 function renderRespField(it){
