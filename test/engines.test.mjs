@@ -5087,8 +5087,13 @@ t("anteprima grande: le stesse azioni della riga, che premono quelle vere", () =
   const g = appjs.slice(appjs.indexOf("function apriAnteprima(id, daChi, senzaFuoco){"), appjs.indexOf("function passaAnteprima(d){"));
   ok(/\["cloudRename","cloudDup","cloudShareRow","cloudLock","cloudDel"\]\.forEach/.test(g), "rinomina, duplica, condividi, blocca, elimina");
   ok(/vero\.cloneNode\(true\)/.test(g) && /copia\.removeAttribute\("data-id"\)/.test(g), "copia del pulsante della riga, senza farne un secondo bersaglio per i gestori della lista");
-  ok(/if\(cls!=="cloudLock"\) chiudiAnteprima\(true\);\s*if\(ancora\) ancora\.click\(\);/.test(g), "preme il pulsante vero (stesse conferme); chiude l'anteprima tranne per Blocca, la cui conferma sta sopra");
+  ok(/\} else if\(cls!=="cloudLock"\) chiudiAnteprima\(true\);\s*if\(ancora\) ancora\.click\(\);/.test(g), "preme il pulsante vero (stesse conferme); chiude l'anteprima tranne per Blocca ed Elimina, la cui conferma sta sopra");
   ok(/class="cp-azioni"><button type="button" class="btn primary cp-apri">Apri<\/button><span class="cp-icone"><\/span>/.test(appjs), "Apri e icone nello stesso ordine della riga");
+});
+t("anteprima grande: eliminato un progetto, si passa al successivo", () => {
+  ok(/if\(cls==="cloudDel"\)\{\s*var ids=cloudProjects\.map\(function\(p\)\{ return p\.id; \}\), k=ids\.indexOf\(id\);\s*ov\.__dopo = ids\[k\+1\] \|\| ids\[k-1\] \|\| null;/.test(appjs), "Elimina non chiude: ricorda il successivo (o il precedente se era l'ultimo)");
+  ok(/else if\(c\(pv\.__dopo\)\)\{ var dopo=pv\.__dopo; pv\.__dopo=null; apriAnteprima\(dopo\); \}/.test(appjs), "a eliminazione fatta l'anteprima mostra il successivo");
+  ok(/else chiudiAnteprima\(true\); \}/.test(appjs), "se non resta niente si chiude");
 });
 t("anteprima grande: blocca resta nella finestra, misura fissa", () => {
   ok(/if\(cls!=="cloudLock"\) chiudiAnteprima\(true\);/.test(appjs), "Blocca/Sblocca non chiude l'anteprima");

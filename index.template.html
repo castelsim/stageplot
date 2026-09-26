@@ -30606,7 +30606,10 @@ function maybeAskStageSize(explicit){
        progetto non c'è più */
     var pv=document.getElementById("cloudPrev");
     if(pv && !pv.hidden){ var pvId=pv.getAttribute("data-id");
-      if(cloudProjects.some(function(p){ return p.id===pvId; })) apriAnteprima(pvId, null, true); else chiudiAnteprima(true); }
+      var c=function(i){ return !!i && cloudProjects.some(function(p){ return p.id===i; }); };
+      if(c(pvId)) apriAnteprima(pvId, null, true);
+      else if(c(pv.__dopo)){ var dopo=pv.__dopo; pv.__dopo=null; apriAnteprima(dopo); }   /* eliminato: si passa al successivo */
+      else chiudiAnteprima(true); }
   }
 
   /* ===== ANTEPRIMA DEI PROGETTI (26/09, variante A scelta da Simone sui mockup) =====
@@ -30689,7 +30692,12 @@ function maybeAskStageSize(explicit){
         var ancora=bodyEl && bodyEl.querySelector("."+cls+'[data-id="'+id+'"]');
         /* Blocca/Sblocca resta qui (26/09, Simone): la conferma sta sopra l'anteprima (#confirmModal
            z 300) e a blocco fatto la lista si ridisegna e aggiorna anche il lucchetto qui sotto. */
-        if(cls!=="cloudLock") chiudiAnteprima(true);
+        /* …e anche Elimina (26/09, Simone: «deve passare al successivo»): la conferma sta sopra;
+           se il progetto sparisce dall'elenco l'anteprima mostra quello che veniva dopo. */
+        if(cls==="cloudDel"){
+          var ids=cloudProjects.map(function(p){ return p.id; }), k=ids.indexOf(id);
+          ov.__dopo = ids[k+1] || ids[k-1] || null;
+        } else if(cls!=="cloudLock") chiudiAnteprima(true);
         if(ancora) ancora.click();
       });
       icone.appendChild(copia);
