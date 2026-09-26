@@ -629,6 +629,10 @@
   .rot-handle .rh-line{stroke:var(--accent);stroke-width:2}
   .rot-handle .rh-knob{fill:#fff;stroke:var(--accent);stroke-width:2.5}
   .rot-handle .rh-ico{fill:none;stroke:var(--accent);stroke-width:2;stroke-linecap:round}
+  /* 26/09 (Simone: «il simbolo per ruotare deve essere coerente con lo zoom»): la maniglia ha misure a
+     schermo (hSize), ma questi spessori sono in centimetri di palco e il CSS vince sugli attributi —
+     zoomando il gambo e il cerchio ingrossavano. Tratti costanti a schermo, come il riquadro. */
+  .rot-handle .rh-line,.rot-handle .rh-knob,.rot-handle .rh-ico,.lock-handle .lk-knob,.lock-handle .lk-arc,.mz-mid,.mz-plus{vector-effect:non-scaling-stroke}
   .rot-handle .rh-hit{fill:transparent}
   /* ZONA microfono panoramico: maniglie sui vertici del poligono + midpoint per aggiungere */
   .mz-vtx{fill:#8b5cf6;stroke:#fff;cursor:grab}
