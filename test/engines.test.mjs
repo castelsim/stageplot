@@ -5084,10 +5084,10 @@ t("a schermo i nomi ruotati girano attorno al proprio centro, nell'export no", (
 });
 /* 26/09: anteprima dei progetti nell'elenco «I tuoi progetti» (variante A scelta sui mockup). */
 t("anteprima grande: le stesse azioni della riga, che premono quelle vere", () => {
-  const g = appjs.slice(appjs.indexOf("function apriAnteprima(id, daChi){"), appjs.indexOf("function passaAnteprima(d){"));
+  const g = appjs.slice(appjs.indexOf("function apriAnteprima(id, daChi, senzaFuoco){"), appjs.indexOf("function passaAnteprima(d){"));
   ok(/\["cloudRename","cloudDup","cloudShareRow","cloudLock","cloudDel"\]\.forEach/.test(g), "rinomina, duplica, condividi, blocca, elimina");
   ok(/vero\.cloneNode\(true\)/.test(g) && /copia\.removeAttribute\("data-id"\)/.test(g), "copia del pulsante della riga, senza farne un secondo bersaglio per i gestori della lista");
-  ok(/chiudiAnteprima\(true\); if\(ancora\) ancora\.click\(\);/.test(g), "chiude l'anteprima e preme il pulsante vero: stesse conferme, nessuna finestra sotto");
+  ok(/if\(cls!=="cloudLock"\) chiudiAnteprima\(true\);\s*if\(ancora\) ancora\.click\(\);/.test(g), "preme il pulsante vero (stesse conferme); chiude l'anteprima tranne per Blocca, la cui conferma sta sopra");
   ok(/class="cp-azioni"><button type="button" class="btn primary cp-apri">Apri<\/button><span class="cp-icone"><\/span>/.test(appjs), "Apri e icone nello stesso ordine della riga");
 });
 t("anteprima grande: blocca resta nella finestra, misura fissa", () => {
