@@ -5090,6 +5090,12 @@ t("anteprima grande: le stesse azioni della riga, che premono quelle vere", () =
   ok(/chiudiAnteprima\(true\); if\(ancora\) ancora\.click\(\);/.test(g), "chiude l'anteprima e preme il pulsante vero: stesse conferme, nessuna finestra sotto");
   ok(/class="cp-azioni"><button type="button" class="btn primary cp-apri">Apri<\/button><span class="cp-icone"><\/span>/.test(appjs), "Apri e icone nello stesso ordine della riga");
 });
+t("anteprima grande: blocca resta nella finestra, misura fissa", () => {
+  ok(/if\(cls!=="cloudLock"\) chiudiAnteprima\(true\);/.test(appjs), "Blocca/Sblocca non chiude l'anteprima");
+  ok(/if\(pv && !pv\.hidden\)\{ var pvId=pv\.getAttribute\("data-id"\);[\s\S]{0,160}apriAnteprima\(pvId, null, true\)/.test(appjs), "a lista ridisegnata l'anteprima si aggiorna (lucchetto nuovo) senza rubare il fuoco");
+  ok(/#cloudPrev \.cp-box\{[^}]*height:min\(600px,88vh\)/.test(stylesCss), "altezza fissa: i pulsanti non si spostano da un progetto all'altro");
+  ok(/#confirmModal\{z-index:300\}/.test(stylesCss) && /#cloudPrev\{position:fixed;inset:0;z-index:210/.test(stylesCss), "la conferma del blocco sta sopra l'anteprima");
+});
 t("elenco progetti: miniature leggere, sicure, e anteprima grande", () => {
   const f = appjs.slice(appjs.indexOf("function loadProjects(){"), appjs.indexOf("function openProject(id){"));
   ok(/select\("id,title,updated_at,share_token,is_locked"\)/.test(f) && !/thumbnail/.test(f), "la lista resta leggera: niente immagini nella query dell'elenco");
