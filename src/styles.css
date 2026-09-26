@@ -138,7 +138,7 @@
   header .hdr-corto{display:none}
   #helpMenu .mi-tema{display:none}
   body.ev-conferenza #bRichiedi, body.ev-conferenza #mactRichiedi{display:none}   /* 24/09: in una conferenza non si cercano musicisti */
-  #bRichiedi{display:none!important}   /* 26/09, Simone: «in alto a destra nascondi richiedi musicisti, quel ramo del progetto va rivisto bene». Il pulsante resta nel markup: si rimette togliendo questa riga */
+  #bRichiedi,#mactRichiedi{display:none!important}   /* 26/09, Simone: «in alto a destra nascondi richiedi musicisti, quel ramo del progetto va rivisto bene». Il pulsante resta nel markup: si rimette togliendo questa riga */
   /* «Esporta» resta scritto a ogni larghezza (decisione più sotto): cedono gli altri */
   @media (min-width:881px) and (max-width:1680px){ header input#titolo{max-width:170px} #bFit .hdr-lbl{display:none} }
   @media (min-width:881px) and (max-width:1600px){ #bRichiedi .hdr-lungo, #evChip .hdr-lbl{display:none} #bRichiedi .hdr-corto{display:inline} }
