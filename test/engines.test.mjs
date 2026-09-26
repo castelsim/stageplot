@@ -14908,7 +14908,7 @@ t("sul telefono il palco largo si gira, e il documento resta dritto", () => {
 t("col pizzico la vista resta dove la si lascia, e una mappa dice dove si e'", () => {
   /* 13/09 — «B col pizzico». Il pizzico c'era, ma dopo ogni ritocco — e dopo ogni trascinamento del
      palco — ensureVisible rifaceva tutto il palco: ingrandire serviva per un gesto solo. */
-  ok(/vistaUtente=true; syncMinimap\(\);   \/\* B:/.test(appjs), "il pizzico rende la vista dell'utente");
+  ok(/vistaUtente=true; syncMinimap\(\);( aderisciSelezionePresto\(\);)?   \/\* B:/.test(appjs), "il pizzico rende la vista dell'utente");   /* 26/09: dopo il pizzico si rimisura anche la selezione */
   ok(/if\(Math\.hypot\(e\.clientX-drag\.px, e\.clientY-drag\.py\)>4\)\{ vistaUtente=true; syncMinimap\(\); \}/.test(appjs), "anche trascinare il palco, ma non un tocco fermo");
   ok(/function fitTo\(x0,y0,x1,y1\)\{ fitVb\(x0,y0,x1,y1\); vistaUtente=false; render\(\); \}/.test(appjs), "«Adatta» la restituisce");
   /* pizzico e rotella muovono vb: devono ragionare nella VISTA, non nel palco, o con la vista girata lo zoom scappa di lato */
@@ -16538,6 +16538,34 @@ t("il kit di batteria si compone dal pannello, e i microfoni seguono i pezzi", (
   const html = readFileSync(join(root, "app/index.html"), "utf8");
   ok(/id="pDivide"[^>]*>⇱ Dividi in pezzi singoli</.test(html), "«Dividi» dice cosa fa");
   ok(/\["full","Completa \(un mic per pezzo\)"\]/.test(appjs), "e la microfonazione dice cosa fa");
+});
+
+t("dividere uno strumento non riempie il palco di nomi: restano, ma nascosti", () => {
+  /* 26/09 — Simone: «quando si dividono gli strumenti i nomi vanno tolti in automatico e se l'utente li vuole li rimette» */
+  reset();
+  const b = add("batteria", 400, 400); A.selectOne(b.id);
+  A.explodeComposite();
+  const pezzi = A.state.items.filter((i) => i.grp);
+  ok(pezzi.length >= 6, "il kit è diviso in pezzi: " + pezzi.length);
+  const conNome = pezzi.filter((i) => i.label);
+  ok(conNome.length > 0 && conNome.every((i) => i.labelMode === "hidden"), "i pezzi col nome lo tengono nascosto");
+  ok(A.cabItemInputs(conNome.find((i) => i.type !== "stoolR") || conNome[0]).length >= 0, "e il nome resta per i canali");
+  const g = appjs.slice(appjs.indexOf("function explodeGuitar("), appjs.indexOf("function explodeGuitar(") + 2500);
+  ok(/if\(ni\.label && pc\.type!==it\.type\) ni\.labelMode="hidden";/.test(g), "chitarra: ampli e pedaliera senza nome, la chitarra tiene il suo");
+});
+
+t("il riquadro di selezione sta sul disegno vero, con il tratto costante a schermo", () => {
+  /* 26/09 — Simone: «il contorno verde dovrebbe adattarsi in modo dinamico allo zoom ed essere il più aderente possibile» */
+  ok(/\.selbox\{vector-effect:non-scaling-stroke\}/.test(stylesCss), "tratto costante a ogni zoom");
+  const f = appjs.slice(appjs.indexOf("function aderisciSelezione(){"), appjs.indexOf("function aderisciSelezionePresto"));
+  ok(/rg\.getBBox\(\)/.test(f) && /var pad=hSize\(4\)/.test(f), "misura il disegno e gli sta a 4 px di schermo");
+  ok(/hit\.setAttribute\("display","none"\); box\.setAttribute\("display","none"\);/.test(f), "senza contare l'area di clic e il riquadro stesso");
+  ok(/for\(var ci=0;ci<nc;ci\+\+\)/.test(f), "scorre i figli con un tetto (nel DOM finto dei test un ciclo aperto non finiva)");
+  const r = appjs.slice(appjs.indexOf("function render(){"), appjs.indexOf("function render(){") + 1500);
+  ok(/reindexItemNodes\(\);\s*aderisciSelezione\(\);/.test(r), "dopo ogni ridisegno");
+  ok((appjs.match(/syncMinimap\(\); aderisciSelezionePresto\(\);/g) || []).length === 2, "e dopo zoom e pizzico");
+  const h = appjs.slice(appjs.indexOf("function selHandlesMarkup(){"), appjs.indexOf("function selHandlesMarkup(){") + 1800);
+  ok(/topY=_fit \? _fit\.y1 : -bh/.test(h) && /ky=topY-hSize\(22\)/.test(h), "la maniglia di rotazione sta sul bordo del riquadro nuovo");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
