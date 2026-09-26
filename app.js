@@ -3266,6 +3266,7 @@ function switchVariant(id){
 function createVariant(name){
   syncActiveVariant(); var src=activeVarObj(); if(!src) return null;
   var copy=JSON.parse(JSON.stringify(src.state)); var id=newVarId();
+  delete copy.pdfEsportato;   /* una variante nuova non è mai stata esportata */
   VARIANTS.push({ id:id, name:(name||nextVariantName()), state:copy });
   if(venueImgCache[src.id]) venueImgCache[id]=Object.assign({},venueImgCache[src.id]);
   activeVar=id; applyVariantState(copy,true,id);
@@ -6006,6 +6007,7 @@ function nomeGiaSullaSpia(it){
   /* la sua spia: quella collegata (ascoltoId) o, nei modelli, una spia col suo stesso nome a meno di 1,2 m */
   return (state.items||[]).some(function(a){
     return a.type==="wedge" && a.id!==it.id && String(a.label||"").trim()===nome
+      && a.labelMode!=="hidden" && lblSizeOf(a)>0   /* il nome deve vedersi DAVVERO sulla spia, o il musicista resta senza (revisione 26/09) */
       && (a.id===it.ascoltoId || Math.hypot((a.x||0)-(it.x||0), (a.y||0)-(it.y||0)) <= 120);
   });
 }
@@ -6166,7 +6168,7 @@ function itemMarkup(it){
      nomi coperti su 11, Coro 6, Orchestra 5 su 21). Nella scena i nomi vanno nel livello #layLbl, con la
      stessa traslazione e rotazione dell'elemento; chi chiama itemMarkup fuori dalla scena (miniature,
      anteprime) li ritrova dentro il gruppo come prima. */
-  if(_lblSink){ if(lb) _lblSink.push('<g class="item-lbls'+(isOut?' nofloor':'')+(selSet[it.id]?' selected':'')+'" data-for="'+attrId+'" transform="translate('+it.x+' '+it.y+')"><g transform="rotate('+(it.rot||0)+')">'+(_lblSchermo ? lblRotazioniAlCentro(lb) : lb)+'</g></g>'); }
+  if(_lblSink){ if(lb) _lblSink.push('<g class="item-lbls'+(isOut?' nofloor':'')+(selSet[it.id]?' selected':'')+'" data-for="'+attrId+'" transform="translate('+it.x+' '+it.y+')"><g transform="rotate('+(it.rot||0)+')">'+(_lblSchermo ? lblScalaAttorno(lb) : lb)+'</g></g>'); }
   else s += lb;
   s += '</g>';
   s += '</g>';
@@ -10000,9 +10002,9 @@ function sceneMarkup(opts){
     if(isCover(it) && !coverLayerUI.vis && !soloOn("cover")) return;   /* layer Coperture, occhio OFF: nascoste sul canvas (niente disegno né area-click) — restano in PDF/salvataggio */
     if(it.type==="miczone"){ zones += itemMarkup(it); return; }
     var _dotId=techDotSoloId();
-    _lblSink=[];
-    var m=(_dotId && itemInSoloLayer(it) && techDotItem(it, _dotId)) ? sectionDotMarkup(it) : itemMarkup(it);   /* layer tecnici: musicisti (audio) / carichi (power) → punti sezione */
-    var _lbm=_lblSink.join(''); _lblSink=null;
+    _lblSink=[]; var m, _lbm;
+    try{ m=(_dotId && itemInSoloLayer(it) && techDotItem(it, _dotId)) ? sectionDotMarkup(it) : itemMarkup(it);   /* layer tecnici: musicisti (audio) / carichi (power) → punti sezione */
+         _lbm=_lblSink.join(''); } finally { _lblSink=null; }   /* mai un raccoglitore rimasto aperto: l'export ci perderebbe i nomi */
     var showAttr=(anySolo() || itemEyeShown(it)) ? '' : ' display="none"';   /* sotto solo: tutto visibile, il fade lo fa lo split */
     if(_lbm && !isCover(it)) _lbm=_lbm.replace('<g class="item-lbls','<g'+showAttr+' class="item-lbls');
     if(musLayerItem(it.type)) m='<g class="mus-item"'+showAttr+'>'+m+'</g>';   /* classi per i lock (body.mus-lock ecc.) */
@@ -10104,13 +10106,29 @@ function redrawSelHandles(){
    per ogni elemento durante drag/rotate di gruppi grandi. Ricostruito dopo ogni render completo. */
 var itemNodeIndex=new Map(), itemLblIndex=new Map();
 var _lblSink=null;   /* attivo solo mentre la scena disegna un elemento: raccoglie il suo nome per #layLbl */
-/* A SCHERMO i nomi hanno il corpo minimo via CSS (`scale` con origine al centro del testo, --lblK).
-   Quell'origine vale anche per il `transform` scritto sul testo: `rotate(a cx cy)` girerebbe attorno a
-   un punto spostato, e nella vista girata del telefono — dove ogni nome è ruotato per stare dritto —
-   i nomi finivano a mezzo elemento di distanza. A schermo quindi il testo ruota attorno al proprio
-   centro (`rotate(a)`, con l'origine del CSS); nell'export, che non ha quel CSS, resta com'era. */
+/* A SCHERMO i nomi hanno un corpo minimo (--lblK, vedi aggiornaNomiZoom). Si ingrandisce il GRUPPO
+   delle scritte di un elemento attorno all'ancora del suo nome, non ogni testo attorno al suo centro
+   (revisione 26/09): così il nome e la riga sotto (montaggio, «stativo 2,5 m») crescono insieme e
+   restano uno sotto l'altro, e le rotazioni scritte sui testi — la vista girata del telefono ruota ogni
+   nome attorno a un perno comune — restano quelle originali. Il 25/09 lo si faceva testo per testo con
+   origine al centro, e l'origine spostava anche i perni delle rotazioni. Nell'export niente di questo. */
 var _lblSchermo=false;
-function lblRotazioniAlCentro(s){ return s.replace(/transform="rotate\((-?[\d.e+-]+) -?[\d.e+-]+ -?[\d.e+-]+\)"/g, 'transform="rotate($1)"'); }
+function lblScalaAttorno(s){
+  var t=s.match(/<text\b[^>]*>/); if(!t) return s;
+  var mx=t[0].match(/\sx="(-?[\d.e+-]+)"/), my=t[0].match(/\sy="(-?[\d.e+-]+)"/);
+  var ax=mx?+mx[1]:0, ay=my?+my[1]:0; if(!isFinite(ax)) ax=0; if(!isFinite(ay)) ay=0;
+  return '<g class="lblk" style="transform-origin:'+ax+'px '+ay+'px">'+s+'</g>';
+}
+/* ppm, nomi nascosti da lontano e corpo minimo: dipendono solo dallo zoom, quindi vanno aggiornati anche
+   da rotella e pizzico, che cambiano la viewBox senza passare da render() (revisione 26/09: dopo un
+   pizzico i nomi restavano ingranditi 2,6 volte e si coprivano). */
+function aggiornaNomiZoom(){
+  var ppm = svg.clientWidth / vb.w * 100;
+  var nMode = state.namesMode||'auto';
+  svg.classList.toggle("names-hidden", nMode==='off' || (nMode==='auto' && ppm<30));
+  try{ svg.style.setProperty("--lblK", Math.max(1, 9/(14*ppm/100)).toFixed(3)); }catch(e){}
+  return ppm;
+}
 function reindexItemNodes(){
   itemNodeIndex=new Map(); itemLblIndex=new Map();
   var nodes=svg.querySelectorAll(".item[data-id]");
@@ -10124,8 +10142,11 @@ function reindexItemNodes(){
 function itemLblNode(id){
   var wanted=String(id), n=itemLblIndex.get(wanted);
   if(n && n.parentNode) return n;
+  if(n===null) return null;   /* già cercato: questo elemento non ha nome (niente due querySelectorAll a ogni pointermove) */
   reindexItemNodes();
-  return itemLblIndex.get(wanted)||null;
+  n=itemLblIndex.get(wanted);
+  if(!n) itemLblIndex.set(wanted, null);
+  return n||null;
 }
 /* il nome sta in un altro livello: negli aggiornamenti parziali (trascina, ruota) va spostato insieme */
 function syncItemLbl(it){
@@ -10156,16 +10177,14 @@ function render(){
   renderVistaBanner();   /* SP-06: la vista attiva si dichiara, e si annulla con un comando che si vede */
   funzRenderAvviso();   /* il progetto usa funzioni spente: lo si dice (14/09) */
   syncVistaRuotata();   /* telefono: l'avviso della vista ruotata e la mappa */
-  var ppm = svg.clientWidth / vb.w * 100;
-  var nMode = state.namesMode||'auto';   /* K anti-confusione: nomi nascosti da lontano (auto) o forzati sì/no */
-  /* 46 → 30 px/m (revisione 25/09): col corpo minimo qui sotto i nomi si leggono anche da più lontano, e a 46
-     il Band aperto su un portatile da 1280 (44 px/m) nasceva senza nemmeno un nome sul palco */
-  svg.classList.toggle("names-hidden", nMode==='off' || (nMode==='auto' && ppm<30));
+  /* K anti-confusione: nomi nascosti da lontano (auto) o forzati sì/no. 46 → 30 px/m (revisione 25/09): col
+     corpo minimo i nomi si leggono anche da più lontano, e a 46 il Band aperto su un portatile da 1280
+     (44 px/m) nasceva senza nemmeno un nome sul palco */
+  var ppm = aggiornaNomiZoom();
   /* CORPO MINIMO A SCHERMO (revisione 25/09): i nomi sono 14 cm di palco, e a zoom «adatta» uscivano a
      6–8 px — il testo più piccolo della schermata, ed è il contenuto principale. Solo qui, nel palco
      dell'editor, si ingrandiscono attorno al loro centro fino a 9 px; il testo in sé non cambia, quindi
      PDF e PNG (che hanno un loro SVG e la loro scala, pdfTextK) restano come sono. */
-  try{ svg.style.setProperty("--lblK", Math.max(1, 9/(14*ppm/100)).toFixed(3)); }catch(e){}
   document.getElementById("scaleInfo").textContent =
     "palco "+(state.stage.w/100)+"×"+(state.stage.d/100)+" m"+stageHeightNote()+" · zoom "+ppm.toFixed(0)+" px/m";
   /* sp_onboarded = "ha già piazzato qualcosa almeno una volta": tiene spenta la finestra di benvenuto */
@@ -10188,7 +10207,7 @@ function itemNode(id){
 function rotateItemNode(it){ var n=itemNode(it.id), inner=n&&n.firstElementChild; if(inner){ inner.setAttribute("transform","rotate("+(it.rot||0)+")"); syncItemLbl(it); redrawSelHandles(); renderProps(); } else render(); }
 function redrawItemNode(it){
   var n=itemNode(it.id); if(!n || !n.parentNode){ render(); return; }
-  _lblSchermo=true; _lblSink=[]; var _mk=itemMarkup(it), _lb=_lblSink; _lblSink=null;   /* il nome va nel suo livello, non nel gruppo */
+  _lblSchermo=true; _lblSink=[]; var _mk, _lb; try{ _mk=itemMarkup(it); _lb=_lblSink; } finally { _lblSink=null; }   /* il nome va nel suo livello, non nel gruppo */
   var tmp=document.createElementNS("http://www.w3.org/2000/svg","svg"); tmp.innerHTML=_mk;   /* parsing in namespace SVG (come svg.innerHTML) */
   var nw=tmp.firstElementChild;
   if(nw){ n.parentNode.replaceChild(nw, n); itemNodeIndex.set(String(it.id),nw);
@@ -14198,6 +14217,7 @@ function cabHoverTip(e){
   __cabTip.style.top=Math.max(8, e.clientY-34)+"px";
 }
 var _hovLbl=null;   /* il nome dell'elemento sotto il puntatore: in «nomi nascosti» si mostra (prima bastava .item:hover) */
+svg.addEventListener("pointerleave", function(){ if(_hovLbl){ _hovLbl.classList.remove("hov"); _hovLbl=null; } });   /* uscendo dal palco direttamente da un elemento il nome restava acceso */
 svg.addEventListener("pointerover", function(e){
   if(isMobile() || drag) return;
   var g=e.target.closest ? e.target.closest(".item") : null;
@@ -14620,7 +14640,7 @@ svg.addEventListener("pointermove", function(e){
     vb.w=nw; vb.h=nh;
     vb.x=pinch.mid0.x - (mx-rect.left)/rect.width*nw;
     vb.y=pinch.mid0.y - (my-rect.top)/rect.height*nh;
-    svg.setAttribute("viewBox", vb.x+" "+vb.y+" "+vb.w+" "+vb.h);
+    svg.setAttribute("viewBox", vb.x+" "+vb.y+" "+vb.w+" "+vb.h); aggiornaNomiZoom();
     vistaUtente=true; syncMinimap(); aderisciSelezionePresto();   /* B: da qui la vista è dell'utente, e resta dove la lascia */
     return;
   }
@@ -15155,7 +15175,7 @@ svg.addEventListener("wheel", function(e){
   if(Math.abs(nw-vb.w)<0.5) return;
   f=nw/vb.w;
   vb.x = sp.x-(sp.x-vb.x)*f; vb.y = sp.y-(sp.y-vb.y)*f; vb.w*=f; vb.h*=f;
-  svg.setAttribute("viewBox", vb.x+" "+vb.y+" "+vb.w+" "+vb.h);
+  svg.setAttribute("viewBox", vb.x+" "+vb.y+" "+vb.w+" "+vb.h); aggiornaNomiZoom();
   vistaUtente=true; syncMinimap(); aderisciSelezionePresto();
 }, {passive:false});
 /* drag-and-drop dal catalogo: rilascia l'elemento dove vuoi sul palco (desktop) */
@@ -24194,17 +24214,24 @@ function stageSceneSvg(cropVb, opts){
      monitor/mixerini; la vista "elec" include i CARICHI (wattOf>0), come chiesto da Simone */
   function isAudioTech(it){ return layerFgItem("cabin",it) || layerFgItem("cabout",it) || layerFgItem("mond",it); }
   var fgItems='', bgItems='', zoneItems='';
+  /* I nomi SOPRA gli elementi anche nel PDF e nel PNG (revisione 26/09): come a schermo, ognuno va nel
+     suo livello dopo tutti gli elementi, o il leggio o la spia disegnati dopo lo coprono sul foglio.
+     Nomi del contesto sfumato con il contesto, nomi a fuoco sopra tutto. Niente scala dello schermo. */
+  var fgLbls='', bgLbls='', _keepSchermo=_lblSchermo; _lblSchermo=false;
+  try{
   sortedItems().forEach(function(it){
     if(it.type==="miczone"){ zoneItems+=itemMarkup(it); return; }
-    var m=itemMarkup(it);
-    if(!focus || focus==="clean"){ fgItems+=m; return; }
-    if(focus==="cabaudio" && isAudioTech(it)) fgItems+=m;
-    else if(focus==="cabin" && layerFgItem("cabin",it)) fgItems+=m;     /* 1 pagina per layer (17/07) */
-    else if(focus==="cabout" && layerFgItem("cabout",it)) fgItems+=m;
-    else if(focus==="mond" && layerFgItem("mond",it)) fgItems+=m;
-    else if(focus==="elec" && layerFgItem("elec",it)) fgItems+=m;
-    else bgItems+=m;
+    _lblSink=[]; var m, lb;
+    try{ m=itemMarkup(it); lb=_lblSink.join(''); } finally { _lblSink=null; }
+    var fg = (!focus || focus==="clean") ||
+      (focus==="cabaudio" && isAudioTech(it)) ||
+      (focus==="cabin" && layerFgItem("cabin",it)) ||     /* 1 pagina per layer (17/07) */
+      (focus==="cabout" && layerFgItem("cabout",it)) ||
+      (focus==="mond" && layerFgItem("mond",it)) ||
+      (focus==="elec" && layerFgItem("elec",it));
+    if(fg){ fgItems+=m; fgLbls+=lb; } else { bgItems+=m; bgLbls+=lb; }
   });
+  } finally { _lblSchermo=_keepSchermo; }
   sel=keep; selSet=keepSet;
   var css=document.querySelector("style").textContent.replace(/\/\*[\s\S]*?\*\//g,"");   /* via i commenti: un '<' in un commento romperebbe l'SVG */
   var hasVenue = state.venue && state.venue.enabled!==false && state.venue._dataUrl;
@@ -24244,16 +24271,16 @@ function stageSceneSvg(cropVb, opts){
      B/N; a 0.3 resta orientabile ma chiaramente secondario; oltre 0.35 competerebbe col layer a fuoco. */
   var FADE="0.3";
   var showZones = (focus===null || focus==="sectionmic");   /* le zone si vedono solo nella scena piena o nella loro pagina-vista */
-  var bgGroup = bgItems ? '<g style="opacity:'+FADE+'">'+bgItems+'</g>' : '';
+  var bgGroup = bgItems ? '<g style="opacity:'+FADE+'">'+bgItems+bgLbls+'</g>' : '';
   /* zoneGroup nel ramo else è mostrato SOLO per focus===null (export PNG/legacy) → zone a resa naturale, nessuna opacità forzata */
   var zoneGroup = showZones && zoneItems ? '<g id="layMicZones">'+zoneItems+'</g>' : '';
   /* z-order: pavimento → zone(sfondo) → elementi sfumati → elementi a fuoco → overlay */
   var body;
   if(focus==="sectionmic"){
     /* qui le zone sono il soggetto (piena resa), tutto il palco sfuma */
-    body = stageFloorMarkup()+dims+zones+'<g style="opacity:'+FADE+'">'+bgItems+fgItems+'</g>'+'<g id="layMicZones">'+zoneItems+'</g>';
+    body = stageFloorMarkup()+dims+zones+'<g style="opacity:'+FADE+'">'+bgItems+fgItems+bgLbls+fgLbls+'</g>'+'<g id="layMicZones">'+zoneItems+'</g>';
   } else {
-    body = stageFloorMarkup()+dims+zones+zoneGroup+bgGroup+fgItems+audioCab+elecCab;
+    body = stageFloorMarkup()+dims+zones+zoneGroup+bgGroup+fgItems+fgLbls+audioCab+elecCab;
   }
   window.__scenePrint=_keepPrint;   /* fine del disegno per la stampa: si torna alle regole dello schermo */
   window.__sceneTextK=_keepK; window.__lblNudge=_keepNudge;
@@ -26511,6 +26538,12 @@ function buildPdfDoc(paperKey, N, orient, header){
    monitor non ha modo di sapere se il foglio in giro è ancora quello giusto. All'export si scrive
    quando e un'impronta dello stato; alla riapertura di Esporta si confronta. L'impronta esclude la
    nota stessa, così scriverla non la rende subito «vecchia». Una per variante: il PDF è della variante. */
+/* le copie (Duplica, copia da link) non ereditano la nota «Ultimo PDF»: non sono mai state esportate */
+function senzaNotaPdf(doc){
+  try{ var vv=(doc && Array.isArray(doc.variants)) ? doc.variants.map(function(v){ return v&&v.state; }) : [doc];
+    vv.forEach(function(s){ if(s && typeof s==="object") delete s.pdfEsportato; }); }catch(e){}
+  return doc;
+}
 function firmaPdf(s){
   /* Sulla forma NORMALIZZATA e a chiavi ordinate: riaprire il progetto (normalizeState aggiunge i
      campi mancanti, in coda) cambia l'ordine delle chiavi ma non il contenuto, e non è una modifica. */
@@ -26529,7 +26562,11 @@ function segnaPdfEsportato(){
     dropOrphanRows(state);   /* lo fa save(): va fatto prima dell'impronta, o la nota nasce già vecchia */
     state.pdfEsportato={at:new Date().toISOString()};
     state.pdfEsportato.firma=firmaPdf(state);
-    save();
+    /* come save() ma SENZA recordHistory (revisione 26/09): l'export non è una modifica, e un passo di
+       Annulla vuoto — che toglie solo questa nota — svuotava anche Ripeti */
+    if(window.scheduleCloudAutosave) scheduleCloudAutosave();
+    persistLocalState();
+    if(window.__consultDirty) window.__consultDirty();
   }catch(_e){}
 }
 function pdfUltimoTesto(s){
@@ -28518,7 +28555,13 @@ function maybeAskStageSize(explicit){
     var reqUser=cloudUser.id, reqAuth=authGeneration;
     (function giro(i){
       var parte=mancano.slice(i,i+6);
-      if(!parte.length || !modalOpen() || !authStill(reqUser,reqAuth)){ miniatureInCorso=false; return; }
+      if(!parte.length || !modalOpen() || !authStill(reqUser,reqAuth)){
+        miniatureInCorso=false;
+        /* l'elenco può essere cambiato durante il giro (Blocca, Rinomina, seconda apertura): le righe
+           cambiate restavano grigie fino al ridisegno dopo (revisione 26/09). Si converge: un secondo
+           giro scarica solo quelle, e se non manca niente non parte. */
+        if(!parte.length && modalOpen() && authStill(reqUser,reqAuth)) setTimeout(caricaMiniature, 0);
+        return; }
       sb.from("stageplot_projects").select("id,thumbnail").in("id", parte.map(function(p){ return p.id; })).then(function(r){
         if(!authStill(reqUser,reqAuth)){ miniatureInCorso=false; return; }
         if(r.error){ miniatureInCorso=false; return; }   /* niente miniature: l'elenco funziona come prima */
@@ -28809,7 +28852,14 @@ function maybeAskStageSize(explicit){
   function completeCopyFromToken(token){
     var copyUserId=cloudUser&&cloudUser.id, copyAuth=authGeneration;
     if(!copyUserId){ toast("Accedi per completare la copia.",true); return; }
-    var giaFatta=null; try{ giaFatta=sessionStorage.getItem("copiaDi:"+token); }catch(e){}
+    /* la chiave è per ACCOUNT (revisione 26/09: cambiando account nella stessa scheda il secondo si sentiva
+       dire «hai già una copia» di una copia che non era sua); e se quella copia nel frattempo è stata
+       eliminata, si ricopia invece di offrire un progetto che non c'è più */
+    var chiaveCopia="copiaDi:"+copyUserId+":"+token;
+    var giaFatta=null; try{ giaFatta=sessionStorage.getItem(chiaveCopia); }catch(e){}
+    if(giaFatta && cloudProjectsStato==="letta" && !cloudProjects.some(function(p){ return p.id===giaFatta; })){
+      try{ sessionStorage.removeItem(chiaveCopia); }catch(e){} giaFatta=null;
+    }
     if(giaFatta){   /* seconda pressione sullo stesso link: niente doppione, si offre quella già fatta */
       try{ sessionStorage.removeItem("copyFromToken"); }catch(e){}
       toast("Hai già una copia di questo progetto nel tuo account.", false, {label:"Apri la copia", neutra:true, run:function(){ apriCopia(giaFatta); }});
@@ -28832,6 +28882,7 @@ function maybeAskStageSize(explicit){
           var active=prepared.variants.filter(function(v){ return v.id===prepared.active; })[0];
           if(active) active.state.titolo=copyTitle;
           copyData=JSON.parse(JSON.stringify(documentEnvelope(prepared.active,prepared.variants,prepared.extra),stateReplacer));
+          if(typeof senzaNotaPdf==="function") senzaNotaPdf(copyData);   /* la copia non è mai stata esportata */
           /* Progetti legacy: se la colonna dedicata è vuota, recupera le bitmap ancora inline nel blob. */
           copyVenue=safeVenueImageField(d.venue_image,venueImageBundleFromVariants(prepared.variants,prepared.active),prepared.active);
         }catch(e){ toast("Copia non valida.", true); return; }
@@ -28842,7 +28893,7 @@ function maybeAskStageSize(explicit){
           if(!authStill(copyUserId,copyAuth)) return;
           if(r.error||!r.data||!r.data.id){ toast("Impossibile creare la copia. Riproveremo al prossimo accesso.",true); return; }
           try{ sessionStorage.removeItem("copyFromToken"); }catch(e){}   /* non ritentare un insert già riuscito */
-          try{ sessionStorage.setItem("copiaDi:"+token, r.data.id); }catch(e){}
+          try{ sessionStorage.setItem(chiaveCopia, r.data.id); }catch(e){}
           /* Revisione 25/09: prima diceva solo «il progetto locale è rimasto aperto» e lasciava la pagina com'era;
              chi voleva lavorare sulla copia ripremeva il pulsante — 5 copie in 6 minuti, dato reale. La copia NON
              si apre da sola (l'unico slot locale può avere modifiche non ancora nel cloud, vedi sopra): si offre
@@ -28924,11 +28975,23 @@ function maybeAskStageSize(explicit){
   function dupProject(id){
     if(!sb || !cloudUser) return;
     var requestUser=cloudUser.id, requestAuth=authGeneration;
+    /* Il progetto APERTO si salva prima di copiarlo (revisione 26/09): la copia si apre subito, e chi aveva
+       modificato da meno di 10 s (l'autosave) si ritrovava a lavorare su una copia senza le ultime modifiche. */
+    if(id===cloudCurrentId && typeof window.flushCloudAutosave==="function" && !window.__projLocked){
+      try{ if(typeof save==="function") save(); }catch(e){}
+      window.flushCloudAutosave(function(ok){
+        if(!authStill(requestUser,requestAuth)) return;
+        if(ok) leggiECopia(); else toast("Duplicazione sospesa: il salvataggio in corso non è concluso. Riprova.",true);
+      });
+      return;
+    }
+    leggiECopia();
+    function leggiECopia(){
     sb.from("stageplot_projects").select("data,title,venue_image").eq("id",id).single().then(function(r){
       if(!authStill(requestUser,requestAuth)) return;
       if(r.error || !r.data){ toast("Duplicazione non riuscita.", true); return; }
       var t=(((r.data.title||"Senza titolo")+" — copia")).slice(0,120);
-      sb.from("stageplot_projects").insert({ user_id:requestUser, schema_version:SCHEMA_VERSION, title:t, data:r.data.data, venue_image:r.data.venue_image||null }).select("id").single().then(function(w){   /* la copia tiene la planimetria */
+      sb.from("stageplot_projects").insert({ user_id:requestUser, schema_version:SCHEMA_VERSION, title:t, data:(typeof senzaNotaPdf==="function"?senzaNotaPdf(r.data.data):r.data.data), venue_image:r.data.venue_image||null }).select("id").single().then(function(w){   /* la copia tiene la planimetria */
         if(!authStill(requestUser,requestAuth)) return;
         if(w.error){ toast("Duplicazione non riuscita: "+w.error.message, true); return; }
         toast("Copia creata: "+t);
@@ -28940,6 +29003,7 @@ function maybeAskStageSize(explicit){
         if(nuovo && /^[0-9a-f-]{36}$/i.test(String(nuovo))) openProject(nuovo);
       });
     });
+    }
   }
   /* Rinomina un progetto dalla lista "I miei progetti" (Simone 14/07): modale custom (niente prompt nativo),
      update del solo title su Supabase; se è il progetto aperto aggiorna anche il titolo in UI. */
