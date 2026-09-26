@@ -1,10 +1,19 @@
 # STATO AL 25/09/2026 — da leggere prima di tutto
 
-Tutto in produzione, nessuna PR aperta. Test: 1210 editor · 124 Orchestre · 137 Deno.
+Tutto in produzione, nessuna PR aperta. Test: 1218 editor · 124 Orchestre · 137 Deno.
 Regole di lavoro aggiornate in `AGENTS.md` (§3, §4, §8). Le sessioni fra fine luglio e settembre non
 sono state scritte qui: la loro storia sta nei messaggi di commit e nelle PR (#98-#210).
 
 ## Settembre in una pagina (PR su `main`)
+
+- **26/09 sera — Anteprima completata e revisione a tappeto** (#220-#227, in produzione, 1218 editor). «Richiedi
+  musicisti» nascosto ovunque (`#bRichiedi,#mactRichiedi{display:none!important}`, `RICHIEDI_MUSICISTI=false`).
+  Anteprima progetti: azioni della riga clonate nella finestra (Blocca ed Elimina restano, `__dopo` = successivo),
+  misura fissa, Duplica apre la copia (salvando prima il progetto aperto). Revisione dei cambi 25-26/09, 13 punti
+  corretti in #227: `aggiornaNomiZoom` (rotella/pizzico), nomi sopra anche in PDF/PNG (`fgLbls`/`bgLbls` in
+  stageSceneSvg), scala dei nomi per gruppo attorno all'ancora (`lblScalaAttorno`, `.lblk`; tolto
+  `lblRotazioniAlCentro`), nota PDF senza recordHistory e non ereditata (`senzaNotaPdf`), copia da link per account.
+  Presidio (fuori repo): notifica rotta in zsh (`PROBLEMI[0]`) corretta, copia locale portata avanti in fast-forward.
 
 - **26/09 — Anteprima dei progetti** (#219, in produzione, 1210 editor). In «I tuoi progetti» miniatura su ogni
   riga (`thumbnail` già salvata a ogni salvataggio) caricata dopo la lista, a gruppi di 6, solo a finestra aperta,
