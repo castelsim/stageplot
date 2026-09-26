@@ -16568,5 +16568,14 @@ t("il riquadro di selezione sta sul disegno vero, con il tratto costante a scher
   ok(/topY=_fit \? _fit\.y1 : -bh/.test(h) && /ky=topY-hSize\(22\)/.test(h), "la maniglia di rotazione sta sul bordo del riquadro nuovo");
 });
 
+t("la maniglia di rotazione resta della stessa misura a ogni zoom", () => {
+  /* 26/09 — Simone: «il simbolo per prendere e ruotare deve essere dinamico e coerente con lo zoom» */
+  const r = stylesCss.match(/([^\n{}]*\.rot-handle \.rh-line[^\n{}]*)\{vector-effect:non-scaling-stroke\}/);
+  ok(r, "i tratti della maniglia non scalano con lo zoom");
+  ["rh-knob", "rh-ico", "lk-knob", "lk-arc"].forEach((k) => ok(r && r[1].indexOf("." + k) > -1, k + " compreso"));
+  const h = appjs.slice(appjs.indexOf("function selHandlesMarkup(){"), appjs.indexOf("function selHandlesMarkup(){") + 1800);
+  ok(/knob=7\*_k/.test(h) && /cmPerPx\(\)/.test(h), "e le misure della maniglia sono in pixel di schermo");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
