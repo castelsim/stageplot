@@ -3456,6 +3456,9 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
 #cloudPrev .cp-m{font-size:13px;color:var(--text-2)}
 #cloudPrev .cp-az{display:flex;gap:8px;align-items:center;margin-top:12px}
 #cloudPrev .cp-nav{min-width:44px;font-size:18px}
+#cloudPrev .cp-azioni{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+#cloudPrev .cp-icone{display:inline-flex;align-items:center;gap:4px}
+#cloudPrev .cp-az-ico{min-width:36px;min-height:36px;justify-content:center}
 /* Telefono: miniatura + titolo sulla prima riga, i comandi sotto a destra. Tutti insieme su 390 px
    lasciavano al titolo tre lettere («Cor o…») e la data finiva sotto il pulsante Apri. */
 @media (max-width:560px){
