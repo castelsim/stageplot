@@ -2700,6 +2700,7 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   #pDivide:hover,#pGtrSplit:hover,#pCompSplit:hover,#pSplit:hover,#grpUngroup:hover{background:var(--accent-strong)}
   /* Selezione canvas: outline piena, staccata (il rect è espanso via JS) */
   .item.selected .selbox{stroke:var(--accent);stroke-width:2;stroke-dasharray:none;fill:none}
+  .selbox{vector-effect:non-scaling-stroke}   /* 26/09: il tratto della selezione resta 2 px a ogni zoom */
 
   /* ═══ Panel refine (04/07): configuratore in alto per i COMP, stepper compatti, respiro ═══ */
   #props{padding:16px;overflow-x:hidden}   /* con overflow-y:auto la x diventa auto: bastava una riga larga per far comparire lo scorrimento laterale */

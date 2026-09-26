@@ -423,6 +423,7 @@ function explodeGuitar(){
             rot:((it.rot||0)+(pc.rot||0)), w:T.w, d:T.d, label:pc.label||""};
     if(T.riser) ni.h=T.h||40;
     if(pc.extra) Object.keys(pc.extra).forEach(function(k){ ni[k]=pc.extra[k]; });
+    if(ni.label && pc.type!==it.type) ni.labelMode="hidden";   /* ampli e pedaliera staccati: nome nascosto (26/09); la chitarra tiene il suo */
     made.push(ni);
   });
   if(made.length<2) return;
@@ -6193,12 +6194,13 @@ function selHandlesMarkup(){
   if(!itemLiveOnStage(it)) return '';                     /* elemento non disegnato o non manovrabile: niente maniglie sospese nel vuoto */
   var attrId=esc(it.id);
   var bw = it.w/2 + 6, bh = it.d/2 + 6;                   /* stesso riquadro aderente del selbox: le maniglie ci stanno sopra */
+  var _fit=_selFit[it.id], topY=_fit ? _fit.y1 : -bh;     /* bordo alto del riquadro misurato sul disegno (26/09) */
   var s='';
   /* maniglia di rotazione: appare sopra l'elemento quando è l'unico selezionato */
   if((stageEdit ? isRiser(it) : true) && itemEditable(it)){   /* in modalità palco le maniglie sono per le pedane, fuori per tutto il resto; col lucchetto chiuso non si ruota */
-    var _k=cmPerPx(), knob=7*_k, ky=-(bh+hSize(22));
+    var _k=cmPerPx(), knob=7*_k, ky=topY-hSize(22);
     s += '<g class="rot-handle" data-id="'+attrId+'">'+
-         '<line class="rh-line" x1="0" y1="'+(-bh)+'" x2="0" y2="'+(ky+knob)+'" stroke-width="'+(1.5*_k)+'"/>'+
+         '<line class="rh-line" x1="0" y1="'+topY+'" x2="0" y2="'+(ky+knob)+'" stroke-width="'+(1.5*_k)+'"/>'+
          '<circle class="rh-hit" cx="0" cy="'+ky+'" r="'+(14*_k)+'"/>'+
          '<circle class="rh-knob" cx="0" cy="'+ky+'" r="'+knob+'" stroke-width="'+(1.8*_k)+'"/>'+
          '<path class="rh-ico" d="M '+(-2.7*_k)+' '+(ky-0.4*_k)+' A '+(3*_k)+' '+(3*_k)+' 0 1 1 '+(-2.7*_k)+' '+(ky+1.2*_k)+'" stroke-width="'+(1.5*_k)+'"/>'+
@@ -6210,7 +6212,7 @@ function selHandlesMarkup(){
      non si allunga, non si ruota — e il doppio clic ci passa attraverso: si apre la ricerca rapida,
      per posare un elemento SOPRA. */
   if(isLockable(it)){
-    var _lk=cmPerPx(), lky=-(bh+hSize(22)), lkx=hSize(21), lknob=7*_lk, _lknm=lockNameOf(it);
+    var _lk=cmPerPx(), lky=topY-hSize(22), lkx=hSize(21), lknob=7*_lk, _lknm=lockNameOf(it);
     s += '<g class="lock-handle'+(it.locked?" on":"")+'" data-id="'+attrId+'" role="button" tabindex="0" aria-pressed="'+(it.locked?"true":"false")+'" aria-label="'+(it.locked?"Sblocca ":"Blocca ")+_lknm+'">'+
          '<circle class="lk-hit" cx="'+lkx+'" cy="'+lky+'" r="'+(13*_lk)+'"/>'+
          '<circle class="lk-knob" cx="'+lkx+'" cy="'+lky+'" r="'+lknob+'" stroke-width="'+(1.8*_lk)+'"/>'+
@@ -10046,6 +10048,42 @@ function redrawStageLayers(){
   setSvgInner(lo, overlayLayerMarkup());
   redrawSelHandles();
 }
+/* RIQUADRO DI SELEZIONE ADERENTE (26/09, Simone: «il contorno verde dovrebbe adattarsi allo zoom ed essere
+   il più aderente possibile agli oggetti»). Prima era l'ingombro di catalogo + 9 cm, in centimetri di palco:
+   largo il doppio del disegno su un'asta giraffa, e sempre più spesso zoomando. Ora, dopo ogni ridisegno,
+   si misura il disegno vero (getBBox del gruppo, senza l'area di clic) e il riquadro gli sta a 4 px;
+   il tratto è costante a schermo (vector-effect in CSS). La maniglia di rotazione sale sul bordo nuovo. */
+var _selFit=Object.create(null);
+function aderisciSelezione(){
+  var ids=Object.keys(selSet||{}).filter(function(k){ return selSet[k]; });
+  var nuovo=Object.create(null);
+  if(ids.length && ids.length<=40){
+    var pad=hSize(4), rr=hSize(6);
+    ids.forEach(function(id){
+      var node=itemNodeIndex.get(id), rg=node && node.firstElementChild; if(!rg) return;
+      var box=null, hit=null;
+      var ch=rg.children||[], nc=Math.min(ch.length|0, 400);   /* per indice, con tetto: mai un ciclo aperto */
+      for(var ci=0;ci<nc;ci++){ var c=ch[ci], cl=(c&&c.getAttribute&&c.getAttribute("class"))||""; if(cl==="selbox") box=c; else if(cl==="hit") hit=c; }
+      if(!box) return;
+      var dh=hit&&hit.getAttribute("display"), db=box.getAttribute("display"), b=null;
+      if(hit) hit.setAttribute("display","none"); box.setAttribute("display","none");
+      try{ b=rg.getBBox(); }catch(e){ b=null; }
+      if(hit){ if(dh==null) hit.removeAttribute("display"); else hit.setAttribute("display",dh); }
+      if(db==null) box.removeAttribute("display"); else box.setAttribute("display",db);
+      if(!b || !(b.width>0) || !(b.height>0)) return;
+      var f={x1:b.x-pad, y1:b.y-pad, x2:b.x+b.width+pad, y2:b.y+b.height+pad};
+      box.setAttribute("x",f.x1); box.setAttribute("y",f.y1);
+      box.setAttribute("width",f.x2-f.x1); box.setAttribute("height",f.y2-f.y1); box.setAttribute("rx",rr);
+      nuovo[id]=f;
+    });
+  }
+  _selFit=nuovo;
+}
+var _refitRaf=0;
+function aderisciSelezionePresto(){   /* dopo zoom e pizzico, che cambiano la scala senza ridisegnare */
+  if(_refitRaf) return;
+  _refitRaf=requestAnimationFrame(function(){ _refitRaf=0; aderisciSelezione(); redrawSelHandles(); });
+}
 /* Le maniglie vivono fuori dal gruppo dell'elemento: ogni aggiornamento parziale (sposta, ruota,
    allunga) deve rigenerarle, altrimenti restano indietro rispetto all'elemento che seguono. */
 function redrawSelHandles(){
@@ -10100,6 +10138,7 @@ function render(){
   var _scena; try{ _scena=sceneMarkup(); } finally { _sceneRuota=0; }
   svg.innerHTML = viewRot ? '<g id="vrot" transform="rotate(-90)">'+_scena+'</g>' : _scena;
   reindexItemNodes();
+  aderisciSelezione(); for(var _fk in _selFit){ redrawSelHandles(); break; }   /* il riquadro sul disegno vero, e la maniglia sul riquadro (solo se c'è qualcosa di misurato) */
   renderProps();
   renderAccessoriCount();
   renderVenuePanel();
@@ -11334,6 +11373,9 @@ function explodeComposite(){ primaDiAgire();
     var T=TYPES[pc.type]; if(!T) return;
     var wx=it.x+(pc.dx*c - pc.dy*s), wy=it.y+(pc.dx*s + pc.dy*c);
     var ni={id:uid(), type:pc.type, x:Math.round(wx), y:Math.round(wy), rot:it.rot||0, w:T.w, d:T.d, label:pc.label||"", grp:gid};
+    /* 26/09 (Simone): «quando si dividono gli strumenti i nomi vanno tolti in automatico». Il nome resta
+       — è il nome del canale — ma nascosto sul disegno; chi lo vuole lo rimette da Etichetta. */
+    if(ni.label) ni.labelMode="hidden";
     if(T.riser) ni.h=T.h||40;
     if(pc.extra) Object.keys(pc.extra).forEach(function(k){ ni[k]=pc.extra[k]; });
     made.push(ni);
@@ -14569,7 +14611,7 @@ svg.addEventListener("pointermove", function(e){
     vb.x=pinch.mid0.x - (mx-rect.left)/rect.width*nw;
     vb.y=pinch.mid0.y - (my-rect.top)/rect.height*nh;
     svg.setAttribute("viewBox", vb.x+" "+vb.y+" "+vb.w+" "+vb.h);
-    vistaUtente=true; syncMinimap();   /* B: da qui la vista è dell'utente, e resta dove la lascia */
+    vistaUtente=true; syncMinimap(); aderisciSelezionePresto();   /* B: da qui la vista è dell'utente, e resta dove la lascia */
     return;
   }
   if(!drag) return;
@@ -15104,7 +15146,7 @@ svg.addEventListener("wheel", function(e){
   f=nw/vb.w;
   vb.x = sp.x-(sp.x-vb.x)*f; vb.y = sp.y-(sp.y-vb.y)*f; vb.w*=f; vb.h*=f;
   svg.setAttribute("viewBox", vb.x+" "+vb.y+" "+vb.w+" "+vb.h);
-  vistaUtente=true; syncMinimap();
+  vistaUtente=true; syncMinimap(); aderisciSelezionePresto();
 }, {passive:false});
 /* drag-and-drop dal catalogo: rilascia l'elemento dove vuoi sul palco (desktop) */
 svg.addEventListener("dragover", function(e){
