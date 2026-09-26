@@ -5074,13 +5074,33 @@ t("le liste hanno un nome solo: Channel list e Monitor list", () => {
 });
 /* Revisione 25/09: col corpo minimo via CSS (origine al centro del testo) i nomi ruotati con
    rotate(a cx cy) giravano attorno a un punto spostato: nella vista girata del telefono finivano lontani. */
-t("a schermo i nomi ruotati girano attorno al proprio centro, nell'export no", () => {
-  eq(A.lblRotazioniAlCentro('<text transform="rotate(90 12.5 -3)">x</text><text transform="rotate(-8 -20 44)">y</text>'),
-     '<text transform="rotate(90)">x</text><text transform="rotate(-8)">y</text>');
-  ok(/_lblSchermo = !\(opts && opts\.espandi\);/.test(appjs), "l'export (espandi) tiene le rotazioni com'erano");
-  ok(/\(_lblSchermo \? lblRotazioniAlCentro\(lb\) : lb\)/.test(appjs), "il livello dei nomi a schermo usa la rotazione al centro");
-  ok(/_lblSchermo=true; _lblSink=\[\];/.test(appjs), "anche il ridisegno del singolo elemento (trascinamento) è a schermo");
-  ok(/#svg #layLbl text\.lbl\{transform-box:fill-box;transform-origin:center/.test(stylesCss), "il CSS che rende necessaria la regola");
+/* Revisione 26/09: il gruppo delle scritte cresce attorno all'ancora del nome, non ogni testo attorno al
+   suo centro — che spostava i perni delle rotazioni (vista girata) e staccava la riga del montaggio. */
+t("a schermo i nomi crescono attorno all'ancora del nome, con le rotazioni originali", () => {
+  eq(A.lblScalaAttorno('<text class="lbl" x="12.5" y="-3" transform="rotate(90 12.5 -3)">x</text><text class="lbl sub" x="12.5" y="-3" dy="16" transform="rotate(90 12.5 -3)">y</text>'),
+     '<g class="lblk" style="transform-origin:12.5px -3px"><text class="lbl" x="12.5" y="-3" transform="rotate(90 12.5 -3)">x</text><text class="lbl sub" x="12.5" y="-3" dy="16" transform="rotate(90 12.5 -3)">y</text></g>');
+  eq(A.lblScalaAttorno('<text class="lbl" y="60">Basso</text>'), '<g class="lblk" style="transform-origin:0px 60px"><text class="lbl" y="60">Basso</text></g>', "senza x l'ancora è 0");
+  ok(/_lblSchermo = !\(opts && opts\.espandi\);/.test(appjs), "l'export (espandi) non si ingrandisce");
+  ok(/\(_lblSchermo \? lblScalaAttorno\(lb\) : lb\)/.test(appjs), "il livello dei nomi a schermo si ingrandisce per gruppo");
+  ok(!/transform-box:fill-box;transform-origin:center;scale:var\(--lblK/.test(stylesCss), "niente più scala testo per testo al centro");
+});
+/* Revisione 26/09: rotella e pizzico cambiano la viewBox senza render(): nomi della misura sbagliata. */
+t("rotella e pizzico aggiornano il corpo dei nomi", () => {
+  const n = (appjs.match(/svg\.setAttribute\("viewBox", vb\.x\+" "\+vb\.y\+" "\+vb\.w\+" "\+vb\.h\); aggiornaNomiZoom\(\);/g) || []).length;
+  ok(n >= 2, "pizzico e rotella chiamano aggiornaNomiZoom (trovati " + n + ")");
+  ok(/var ppm = aggiornaNomiZoom\(\);/.test(appjs), "render usa la stessa funzione");
+});
+/* Revisione 26/09: nel PDF i nomi restavano dentro il gruppo di ogni elemento, coperti da chi veniva dopo. */
+t("nel PDF e nel PNG i nomi stanno sopra gli elementi", () => {
+  reset();
+  const m = add("bassstand", 300, 300); m.label = "Basso";
+  add("leggio", 300, 330);
+  const svg = A.stageSceneSvg ? null : null;
+  const f = appjs.slice(appjs.indexOf("var fgLbls='', bgLbls=''"), appjs.indexOf("window.__scenePrint=_keepPrint;"));
+  ok(/try\{ m=itemMarkup\(it\); lb=_lblSink\.join\(''\); \} finally \{ _lblSink=null; \}/.test(f), "i nomi vengono raccolti a parte");
+  ok(/fgItems\+fgLbls\+audioCab/.test(f), "e disegnati dopo tutti gli elementi a fuoco");
+  ok(/bgItems\+bgLbls\+'<\/g>'/.test(f), "i nomi del contesto sfumano col contesto");
+  ok(/_lblSchermo=false;/.test(f), "nel PDF nessuna scala dello schermo");
 });
 /* 26/09: anteprima dei progetti nell'elenco «I tuoi progetti» (variante A scelta sui mockup). */
 t("anteprima grande: le stesse azioni della riga, che premono quelle vere", () => {
@@ -8346,8 +8366,25 @@ t("trascinare e ruotare spostano anche il nome, che sta in un altro livello", ()
 });
 t("a schermo i nomi non scendono sotto 9 px, e non spariscono su un portatile", () => {
   ok(/svg\.style\.setProperty\("--lblK", Math\.max\(1, 9\/\(14\*ppm\/100\)\)/.test(appjs), "manca il corpo minimo a schermo");
-  ok(/#svg #layLbl text\.lbl\{[^}]*scale:var\(--lblK,1\)/.test(stylesCss), "il corpo minimo deve valere solo nel palco dell'editor (#svg), non nel PDF");
+  ok(/#svg #layLbl \.lblk\{scale:var\(--lblK,1\)\}/.test(stylesCss), "il corpo minimo deve valere solo nel palco dell'editor (#svg), non nel PDF");
   ok(/nMode==='auto' && ppm<30\)/.test(appjs), "la soglia dei nomi nascosti è tornata sopra 30 px/m: il Band a 1280 (44 px/m) nasce senza nomi");
+});
+t("revisione 26/09: spia col nome nascosto, nota PDF, Duplica, miniature", () => {
+  reset();
+  const m = add("bassstand", 300, 300), w = add("wedge", 300, 392); m.label = "Basso"; w.label = "Basso";
+  w.labelMode = "hidden"; ok(!A.nomeGiaSullaSpia(m), "se il nome della spia è nascosto, il musicista tiene il suo");
+  w.labelMode = undefined; w.lblSize = 0; ok(!A.nomeGiaSullaSpia(m), "anche con corpo 0");
+  const seg = appjs.slice(appjs.indexOf("function segnaPdfEsportato(){"), appjs.indexOf("function pdfUltimoTesto("));
+  ok(!/[;{]\s*save\(\);/.test(seg) && /persistLocalState\(\)/.test(seg), "l'export salva la nota senza creare un passo di Annulla");
+  ok(/delete copy\.pdfEsportato;/.test(appjs), "una variante nuova non eredita «Ultimo PDF»");
+  const d = { variants: [{ state: { pdfEsportato: { at: "x", firma: "y" }, items: [] } }] };
+  A.senzaNotaPdf(d); ok(!d.variants[0].state.pdfEsportato, "Duplica e copia da link tolgono la nota");
+  const dup = appjs.slice(appjs.indexOf("function dupProject(id){"), appjs.indexOf("function renameProject(id){"));
+  ok(/if\(id===cloudCurrentId && typeof window\.flushCloudAutosave==="function"[\s\S]{0,200}window\.flushCloudAutosave\(function\(ok\)\{[\s\S]{0,120}if\(ok\) leggiECopia\(\)/.test(dup), "il progetto aperto si salva prima di copiarlo");
+  ok(/if\(!parte\.length && modalOpen\(\) && authStill\(reqUser,reqAuth\)\) setTimeout\(caricaMiniature, 0\);/.test(appjs), "a giro finito le miniature cambiate si ricaricano");
+  ok(/svg\.addEventListener\("pointerleave", function\(\)\{ if\(_hovLbl\)/.test(appjs), "uscendo dal palco il nome evidenziato si spegne");
+  ok(/body\.stage-edit #layLbl\{opacity:\.35\}/.test(stylesCss), "in «Palco e pedane» i nomi si attenuano con gli elementi");
+  ok(/if\(n===null\) return null;/.test(appjs), "l'indice dei nomi non si ricostruisce a ogni evento per chi non ha nome");
 });
 t("il nome del musicista non si ripete sulla sua spia", () => {
   reset();
@@ -8363,8 +8400,10 @@ t("il nome del musicista non si ripete sulla sua spia", () => {
    lavorarci ripremeva il pulsante: 5 copie dello stesso progetto in 6 minuti (dato reale). */
 t("la copia da link si offre di aprirsi e non si duplica", () => {
   const f = appjs.slice(appjs.indexOf("function completeCopyFromToken(token){"), appjs.indexOf("function loadProjects(){"));
-  ok(/giaFatta=sessionStorage\.getItem\("copiaDi:"\+token\)/.test(f) && /if\(giaFatta\)\{[\s\S]{0,300}toast\("Hai già una copia/.test(f), "un secondo clic crea un'altra copia invece di offrire quella fatta");
-  ok(/sessionStorage\.setItem\("copiaDi:"\+token, r\.data\.id\)/.test(f), "la copia fatta non viene ricordata");
+  ok(/var chiaveCopia="copiaDi:"\+copyUserId\+":"\+token;/.test(f), "la copia fatta si ricorda per account");
+  ok(/giaFatta=sessionStorage\.getItem\(chiaveCopia\)/.test(f) && /if\(giaFatta\)\{[\s\S]{0,300}toast\("Hai già una copia/.test(f), "un secondo clic crea un'altra copia invece di offrire quella fatta");
+  ok(/!cloudProjects\.some\(function\(p\)\{ return p\.id===giaFatta; \}\)/.test(f), "se la copia è stata eliminata si può ricopiare");
+  ok(/sessionStorage\.setItem\(chiaveCopia, r\.data\.id\)/.test(f), "la copia fatta non viene ricordata");
   ok(/label:"Apri la copia", neutra:true, run:function\(\)\{ apriCopia\(r\.data\.id\); \}/.test(f), "il messaggio non offre di aprire la copia");
   ok(/function apriCopia\(id\)\{[^\n]*location\.href="\/app\/\?p="\+encodeURIComponent\(id\)/.test(appjs), "la copia si apre con /app/?p= (le protezioni di openProject)");
   ok(/var giaCopia=cp\.getAttribute\("data-copia"\); if\(giaCopia && window\.__apriCopia\)/.test(appjs), "dopo la copia il pulsante del link deve aprirla, non rifarla");

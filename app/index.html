@@ -682,6 +682,7 @@
      palco. (Il commento di prima diceva che erano «le uniche a rispondere»: non è mai stato vero,
      `pointer-events` non viene ripristinato da nessuna parte. Corretto il 02/09.) */
   body.stage-edit .item{opacity:.35;pointer-events:none}
+  body.stage-edit #layLbl{opacity:.35}   /* i nomi stanno in un livello loro (25/09): si attenuano con gli elementi */
   /* La pedana è un elemento come gli altri (27/07): niente blocco fuori dalla modalità palco. In
      modalità palco resta visibile e attenuata come il resto, perché lì si lavora la forma del palco. */
   body.stage-edit .riser-item .item{opacity:.5}
@@ -1477,7 +1478,7 @@ svg.names-hidden .orc-name{display:none}
   svg.names-hidden .item .lbl:not(.sub){display:none}
   svg.names-hidden .item.selected .lbl,svg.names-hidden .item:hover .lbl{display:inline}
   /* dal 25/09 i nomi stanno nel livello #layLbl, fuori dal gruppo dell'elemento: stesse regole sul contenitore del nome */
-  #svg #layLbl text.lbl{transform-box:fill-box;transform-origin:center;scale:var(--lblK,1)}   /* corpo minimo a schermo: vedi render() */
+  #svg #layLbl .lblk{scale:var(--lblK,1)}   /* corpo minimo a schermo: il gruppo delle scritte di un elemento cresce attorno all'ancora del nome (lblScalaAttorno, aggiornaNomiZoom) */
   svg.names-hidden .item-lbls .lbl:not(.sub){display:none}
   svg.names-hidden .item-lbls.selected .lbl,svg.names-hidden .item-lbls.hov .lbl{display:inline}
   .lbl.big{font-size:42px;font-weight:800;letter-spacing:2px;fill:#374151;stroke-width:5}
