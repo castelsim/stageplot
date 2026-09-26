@@ -6,6 +6,8 @@ sono state scritte qui: la loro storia sta nei messaggi di commit e nelle PR (#9
 
 ## Settembre in una pagina (PR su `main`)
 
+- **26/09 — Riquadro del passaggio del mouse stretto come quello della selezione**: `aderisciRiquadro(node)` (una misura sola) chiamata da `aderisciSelezione` e da un `mouseover` sul palco, una volta per nodo (`data-fit`).
+
 - **26/09 — Maniglia di rotazione costante allo zoom** (segnalazione di Simone): i tratti della maniglia e del lucchetto avevano `stroke-width` in CSS in cm di palco (vince sull'attributo `hSize`); ora `vector-effect:non-scaling-stroke`.
 
 - **26/09 — Due segnalazioni di Simone.** Divisione degli strumenti: i pezzi tengono il nome (canali) ma con `labelMode:"hidden"` (compositi; nella chitarra solo ampli e pedaliera). Selezione: `aderisciSelezione()` dopo ogni render e dopo zoom/pizzico misura il disegno (`getBBox` senza `.hit`) e ci stringe il `.selbox` a 4 px di schermo; `vector-effect:non-scaling-stroke`; la maniglia di rotazione sta sul bordo misurato (`_selFit`). ⚠️ Nel DOM finto dei test `nextElementSibling` e `firstChild` non finiscono mai: scorrere per indice con tetto, e non chiamare `setSvgInner` a vuoto da `render`.
