@@ -5082,6 +5082,26 @@ t("a schermo i nomi ruotati girano attorno al proprio centro, nell'export no", (
   ok(/_lblSchermo=true; _lblSink=\[\];/.test(appjs), "anche il ridisegno del singolo elemento (trascinamento) è a schermo");
   ok(/#svg #layLbl text\.lbl\{transform-box:fill-box;transform-origin:center/.test(stylesCss), "il CSS che rende necessaria la regola");
 });
+/* 26/09: anteprima dei progetti nell'elenco «I tuoi progetti» (variante A scelta sui mockup). */
+t("elenco progetti: miniature leggere, sicure, e anteprima grande", () => {
+  const f = appjs.slice(appjs.indexOf("function loadProjects(){"), appjs.indexOf("function openProject(id){"));
+  ok(/select\("id,title,updated_at,share_token,is_locked"\)/.test(f) && !/thumbnail/.test(f), "la lista resta leggera: niente immagini nella query dell'elenco");
+  const g = appjs.slice(appjs.indexOf("var miniature={}, miniatureInCorso=false;"), appjs.indexOf("try{ window.__cloudAnteprima="));
+  ok(/mancano\.slice\(i,i\+6\)/.test(g) && /select\("id,thumbnail"\)\.in\("id"/.test(g), "le miniature arrivano dopo, a gruppi di 6");
+  ok(/!modalOpen\(\)/.test(g), "e solo a finestra aperta");
+  ok(/m\.u===p\.updated_at/.test(g), "si riscaricano solo se il progetto è cambiato");
+  const m = g.match(/function miniaturaValida\(s\)\{ return \(typeof s==="string" && (\/.*?\/)\.test\(s\)\)/);
+  ok(m, "c'è il controllo del formato dell'immagine");
+  const re = eval(m[1]);
+  ok(re.test("data:image/jpeg;base64,AAAA+/=="), "un JPEG vero passa");
+  for (const cattiva of ['data:image/svg+xml;base64,PHN2Zz4=', 'javascript:alert(1)', 'data:image/jpeg;base64,AA" onerror="x', 'https://example.test/a.jpg'])
+    ok(!re.test(cattiva), "rifiutata: " + cattiva);
+  ok(/anteprima al primo salvataggio/.test(g), "le copie senza immagine lo dicono");
+  ok(/if\(e\.key==="Escape"\)\{ e\.preventDefault\(\); e\.stopPropagation\(\); chiudiAnteprima\(\); \}/.test(g), "Esc chiude l'anteprima, non l'elenco");
+  ok(/function closeModal\(\)\{[^}]*cloudPrev[^}]*hidden=true/.test(appjs), "chiudendo l'elenco si chiude anche l'anteprima");
+  ok(/chiudiAnteprima\(true\); openProject\(pid\);/.test(g), "«Apri» apre il progetto con la strada di sempre");
+  ok(/class="cloudThumb attesa" data-id="'\+pid\+'" aria-label="Anteprima di '\+esc\(/.test(appjs), "la miniatura è un pulsante con il nome del progetto, testo passato da esc()");
+});
 /* Revisione 25/09: la home prometteva «otto formazioni», con un «tributo» che nell'app non c'è. */
 t("la home conta i modelli che la vetrina ha davvero", () => {
   const m = appjs.match(/var START_MODELS = (\[[^;]*\]);/);
