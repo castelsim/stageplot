@@ -3523,18 +3523,19 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
 .cloudThumb:focus-visible{outline:2px solid var(--focus-ring,var(--accent));outline-offset:2px}
 #cloudPrev{position:fixed;inset:0;z-index:210;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:18px}
 #cloudPrev[hidden]{display:none}
-#cloudPrev .cp-box{background:var(--surface);color:var(--text);width:100%;max-width:560px;max-height:88vh;display:flex;flex-direction:column;border-radius:var(--r-xl);box-shadow:var(--elev-4);padding:16px;font-family:var(--font-ui)}
+#cloudPrev .cp-box{background:var(--surface);color:var(--text);width:100%;max-width:560px;height:min(600px,88vh);   /* dimensione FISSA (26/09, Simone): passando da un progetto all'altro i pulsanti restano allo stesso posto */
+  display:flex;flex-direction:column;border-radius:var(--r-xl);box-shadow:var(--elev-4);padding:16px;font-family:var(--font-ui)}
 #cloudPrev .cp-img{flex:1 1 auto;min-height:0;border:1px solid var(--border);border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden}
-#cloudPrev .cp-img img{width:100%;height:100%;max-height:60vh;object-fit:contain;display:block}
+#cloudPrev .cp-img img{width:100%;height:100%;object-fit:contain;display:block}
 #cloudPrev .cp-vuota{display:none;color:#6b7280;padding:40px 16px;text-align:center;font-size:14px}
 #cloudPrev.senza .cp-img img{display:none}
 #cloudPrev.senza .cp-vuota{display:block}
-#cloudPrev .cp-info{margin-top:10px;min-width:0}
+#cloudPrev .cp-info{flex:0 0 auto;margin-top:10px;min-width:0}
 #cloudPrev .cp-t{display:block;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#cloudPrev .cp-m{font-size:13px;color:var(--text-2)}
-#cloudPrev .cp-az{display:flex;gap:8px;align-items:center;margin-top:12px}
+#cloudPrev .cp-m{display:block;font-size:13px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#cloudPrev .cp-az{flex:0 0 auto;display:flex;gap:8px;align-items:center;margin-top:12px}
 #cloudPrev .cp-nav{min-width:44px;font-size:18px}
-#cloudPrev .cp-azioni{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
+#cloudPrev .cp-azioni{flex:0 0 auto;display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
 #cloudPrev .cp-icone{display:inline-flex;align-items:center;gap:4px}
 #cloudPrev .cp-az-ico{min-width:36px;min-height:36px;justify-content:center}
 /* Telefono: miniatura + titolo sulla prima riga, i comandi sotto a destra. Tutti insieme su 390 px
