@@ -12075,31 +12075,41 @@ function redrawStageLayers(){
    si misura il disegno vero (getBBox del gruppo, senza l'area di clic) e il riquadro gli sta a 4 px;
    il tratto è costante a schermo (vector-effect in CSS). La maniglia di rotazione sale sul bordo nuovo. */
 var _selFit=Object.create(null);
+/* Stringe il riquadro di un elemento sul suo disegno. Restituisce il riquadro misurato, o null. */
+function aderisciRiquadro(node){
+  var rg=node && node.firstElementChild; if(!rg) return null;
+  var box=null, hit=null;
+  var ch=rg.children||[], nc=Math.min(ch.length|0, 400);   /* per indice, con tetto: mai un ciclo aperto */
+  for(var ci=0;ci<nc;ci++){ var c=ch[ci], cl=(c&&c.getAttribute&&c.getAttribute("class"))||""; if(cl==="selbox") box=c; else if(cl==="hit") hit=c; }
+  if(!box) return null;
+  var dh=hit&&hit.getAttribute("display"), db=box.getAttribute("display"), b=null;
+  if(hit) hit.setAttribute("display","none"); box.setAttribute("display","none");
+  try{ b=rg.getBBox(); }catch(e){ b=null; }
+  if(hit){ if(dh==null) hit.removeAttribute("display"); else hit.setAttribute("display",dh); }
+  if(db==null) box.removeAttribute("display"); else box.setAttribute("display",db);
+  if(!b || !(b.width>0) || !(b.height>0)) return null;
+  var pad=hSize(4), f={x1:b.x-pad, y1:b.y-pad, x2:b.x+b.width+pad, y2:b.y+b.height+pad};
+  box.setAttribute("x",f.x1); box.setAttribute("y",f.y1);
+  box.setAttribute("width",f.x2-f.x1); box.setAttribute("height",f.y2-f.y1); box.setAttribute("rx",hSize(6));
+  node.setAttribute("data-fit","1");
+  return f;
+}
 function aderisciSelezione(){
   var ids=Object.keys(selSet||{}).filter(function(k){ return selSet[k]; });
   var nuovo=Object.create(null);
   if(ids.length && ids.length<=40){
-    var pad=hSize(4), rr=hSize(6);
-    ids.forEach(function(id){
-      var node=itemNodeIndex.get(id), rg=node && node.firstElementChild; if(!rg) return;
-      var box=null, hit=null;
-      var ch=rg.children||[], nc=Math.min(ch.length|0, 400);   /* per indice, con tetto: mai un ciclo aperto */
-      for(var ci=0;ci<nc;ci++){ var c=ch[ci], cl=(c&&c.getAttribute&&c.getAttribute("class"))||""; if(cl==="selbox") box=c; else if(cl==="hit") hit=c; }
-      if(!box) return;
-      var dh=hit&&hit.getAttribute("display"), db=box.getAttribute("display"), b=null;
-      if(hit) hit.setAttribute("display","none"); box.setAttribute("display","none");
-      try{ b=rg.getBBox(); }catch(e){ b=null; }
-      if(hit){ if(dh==null) hit.removeAttribute("display"); else hit.setAttribute("display",dh); }
-      if(db==null) box.removeAttribute("display"); else box.setAttribute("display",db);
-      if(!b || !(b.width>0) || !(b.height>0)) return;
-      var f={x1:b.x-pad, y1:b.y-pad, x2:b.x+b.width+pad, y2:b.y+b.height+pad};
-      box.setAttribute("x",f.x1); box.setAttribute("y",f.y1);
-      box.setAttribute("width",f.x2-f.x1); box.setAttribute("height",f.y2-f.y1); box.setAttribute("rx",rr);
-      nuovo[id]=f;
-    });
+    ids.forEach(function(id){ var f=aderisciRiquadro(itemNodeIndex.get(id)); if(f) nuovo[id]=f; });
   }
   _selFit=nuovo;
 }
+/* Il riquadro tratteggiato del passaggio del mouse è lo stesso rettangolo: si stringe al primo passaggio,
+   così non è più largo di quello verde della selezione (26/09, Simone: «se ci passo solo sopra è più
+   grande di quando seleziono l'oggetto»). Uno alla volta, solo quello sotto il mouse: niente costo sul
+   palco pieno. Il segno data-fit sparisce da solo al ridisegno, che rifà i nodi. */
+if(typeof svg!=="undefined" && svg && svg.addEventListener) svg.addEventListener("mouseover", function(e){
+  var n=e.target && e.target.closest ? e.target.closest(".item") : null;
+  if(n && n.getAttribute("data-fit")!=="1") aderisciRiquadro(n);
+});
 var _refitRaf=0;
 function aderisciSelezionePresto(){   /* dopo zoom e pizzico, che cambiano la scala senza ridisegnare */
   if(_refitRaf) return;
