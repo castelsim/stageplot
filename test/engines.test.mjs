@@ -11995,6 +11995,80 @@ t("l'autore è un'entità collegabile, non un nome scritto", () => {
   ok(f["@id"].indexOf("simonecastellan.com/#person") > -1, "e punta all'entità canonica sul suo sito");
 });
 
+t("la home dice a Google di cosa parla: le parole che si cercano stanno nel title e nell'H1", () => {
+  /* STORIA (27/09, dati Search Console a 90 giorni). Il title della home ha perso le parole chiave in
+     tre passaggi, ognuno ragionevole da solo: «Stage Plot Gratis in Italiano — Editor Online in Scala»
+     (luglio) → «stage plot, scheda tecnica e rider da un disegno solo» (08/08) → «disegna il palco, il
+     rider si costruisce da solo» (09/08) → «disegna il palco in scala, il rider esce con lui» (22/08).
+     Alla fine non c'era più né «stage plot» né «scheda tecnica»: per «stage plot online gratis» la
+     home era in posizione 68, per «scheda tecnica band» 85 — le due cose che l'editor è.
+     Il marchio nel title non serve: Google mostra già il nome del sito sopra il risultato. */
+  const title = (landing.match(/<title>([^<]*)<\/title>/) || [])[1] || "";
+  for (const k of ["stage plot", "scheda tecnica", "online", "gratis"])
+    ok(title.toLowerCase().includes(k), "il title della home contiene «" + k + "»: " + title);
+  const h1 = ((landing.match(/<h1[^>]*>([\s\S]*?)<\/h1>/) || [])[1] || "").replace(/<[^>]*>/g, " ").toLowerCase();
+  ok(h1.includes("stage plot") && h1.includes("scheda tecnica"), "e l'H1 le porta anche lui: " + h1.trim());
+  const desc = (landing.match(/<meta name="description" content="([^"]*)"/) || [])[1] || "";
+  ok(/stage plot/i.test(desc) && /scheda tecnica/i.test(desc) && /rider tecnico/i.test(desc),
+    "la description nomina stage plot, scheda tecnica e rider tecnico: " + desc);
+  /* nei titoli l'autore è un sound engineer, mai «fonico» (decisione di Simone) */
+  const titoli = [...landing.matchAll(/<h[1-3][^>]*>([\s\S]*?)<\/h[1-3]>/g)].map((m) => m[1]);
+  eq(titoli.filter((x) => /fonico/i.test(x)), [], "nessun titolo della home dice «fonico»");
+});
+
+t("le domande della home sono le stesse a video e nello schema", () => {
+  /* 27/09: tre domande su sei erano scritte in modo diverso nei due posti («È davvero gratis?» a video,
+     «StagePlot è davvero gratis?» nel JSON-LD). Sulle guide la regola c'era già; sulla home no. */
+  const ld = JSON.parse((landing.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/) || [])[1]);
+  const inLd = ld["@graph"].find((n) => n["@type"] === "FAQPage").mainEntity.map((q) => q.name);
+  const i = landing.indexOf('id="domande"');
+  const sez = landing.slice(i, landing.indexOf("</section>", i));
+  const visibili = [...sez.matchAll(/<h3>([^<]*)<\/h3>/g)].map((m) => m[1]);
+  eq(visibili, inLd, "stesse domande, stesso ordine");
+});
+
+t("llms.txt e la home elencano gli stessi modelli pronti", () => {
+  /* 27/09: llms.txt diceva «8 formazioni» col tributo e senza la conferenza, la home sette. È il testo
+     che gli assistenti AI leggono per primo: avrebbero promesso un modello che non c'è più. */
+  const l = readFileSync(join(root, "llms.txt"), "utf8");
+  const dallaHome = ((landing.match(/Sette modelli pronti: ([^.<]*)\./) || [])[1] || "").split(/,\s*/).map((x) => x.trim());
+  ok(dallaHome.length === 7, "la home elenca sette modelli: " + dallaHome.join(", "));
+  const riga = (l.match(/Modelli pronti: (\d+) [^(]*\(([^)]*)\)/) || []);
+  ok(riga.length, "llms.txt ha la riga dei modelli pronti");
+  eq(Number(riga[1]), dallaHome.length, "llms.txt dice quanti sono");
+  eq(riga[2].split(/,\s*/).map((x) => x.trim()), dallaHome, "e quali sono");
+});
+
+t("nessuna pagina vende su consulenza quello che l'editor fa gratis", () => {
+  /* 27/09: llms.txt era stato corretto il 10/08, le guide no. Tre pagine dicevano ancora che «la
+     channel list completa» e «il rider completo» sono «su consulenza», cioè a pagamento — mentre
+     l'editor li genera dal disegno. Chi legge la guida (e l'AI che la riassume) capiva il contrario. */
+  const pagine = readdirSync(root, { recursive: true, withFileTypes: true })
+    .filter((d) => d.isFile() && d.name === "index.html")
+    .map((d) => join(d.parentPath || d.path, d.name))
+    .filter((p) => pubblicata(p.slice(root.length)) && !/[\\/]app[\\/]|[\\/]orchestre[\\/]/.test(p.slice(root.length)));
+  const sbagliate = [];
+  for (const p of pagine) {
+    const t = readFileSync(p, "utf8").replace(/<[^>]*>/g, "");
+    if (/(rider|channel list) complet[oa][^.]{0,60}consulenza/i.test(t)) sbagliate.push(p.slice(root.length));
+  }
+  eq(sbagliate, [], "pagine che dicono channel list o rider «completi» solo su consulenza");
+});
+
+t("tutte le pagine dichiarano lo stesso editore della home", () => {
+  /* 27/09: 21 pagine Article avevano un publisher «StagePlot» senza @id: per chi legge i dati
+     strutturati era un'organizzazione diversa da quella della home, che ha fondatore e profili. */
+  const pagine = readdirSync(root, { recursive: true, withFileTypes: true })
+    .filter((d) => d.isFile() && d.name === "index.html")
+    .map((d) => join(d.parentPath || d.path, d.name))
+    .filter((p) => pubblicata(p.slice(root.length)));
+  const scollegate = pagine.filter((p) => {
+    const h = readFileSync(p, "utf8");
+    return /"publisher":\{"@type":"Organization"(?!,"@id":"https:\/\/stageplot\.it\/#org")/.test(h);
+  }).map((p) => p.slice(root.length));
+  eq(scollegate, [], "pagine col publisher non collegato a https://stageplot.it/#org");
+});
+
 t("llms.txt racconta il prodotto di oggi, non quello di due versioni fa", () => {
   /* Il file è la versione che le AI leggono per prima. Diceva ancora che il rider completo si
      ottiene «su consulenza», mentre l'editor lo genera da solo: un LLM avrebbe riferito quello. */
