@@ -16671,5 +16671,15 @@ t("il riquadro del passaggio del mouse è stretto come quello della selezione", 
   ok(/ids\.forEach\(function\(id\)\{ var f=aderisciRiquadro\(itemNodeIndex\.get\(id\)\)/.test(appjs), "la selezione usa la stessa misura");
 });
 
+t("un login si conta solo quando si torna da un accesso, non a ogni ricarica", () => {
+  /* 27/09 — nei dati reali 88 login su 113 aperture, una sessione con 34: SIGNED_IN arriva anche per la
+     sessione già salvata, e prima di getSession() «nessuna sessione al boot» era ancora vero */
+  const m = appjs.match(/if\(ev==="SIGNED_IN" && cloudUser && !loginTracked && ([^)]*)\)\{ loginTracked=true; window\.__sendEvent\(\{event:"login_success"/);
+  ok(m, "c'è il punto che conta il login");
+  eq(m && m[1], "oauthReturn", "e conta solo al ritorno da un accesso");
+  ok(/var oauthReturn=\/\[\?&#\]\(code\|access_token\)=\/\.test\(location\.href\);/.test(appjs) && /if\(accessoAppenaFatto\) oauthReturn=true;/.test(appjs),
+    "ritorno = ?code= del vecchio accesso, oppure il segno lasciato da /accedi/google/");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

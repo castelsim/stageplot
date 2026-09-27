@@ -29627,7 +29627,11 @@ function maybeAskStageSize(explicit){
     sb.auth.onAuthStateChange(function(ev, session){
       setCloudUser(session?session.user:null);
       window.__cloudAuthResolved=true;
-      if(ev==="SIGNED_IN" && cloudUser && !loginTracked && !hadSessionAtBoot){ loginTracked=true; window.__sendEvent({event:"login_success",props:{}}); }
+      /* 27/09: login_success solo al RITORNO da un accesso (oauthReturn: ?code= o /accedi/google/). Prima bastava
+         «nessuna sessione al boot», ma supabase-js emette SIGNED_IN anche per una sessione già salvata, spesso
+         prima che getSession() risponda: ogni ricarica di chi era già dentro contava un login (88 login su 113
+         aperture reali in 30 giorni; una sessione ne aveva 34). */
+      if(ev==="SIGNED_IN" && cloudUser && !loginTracked && oauthReturn){ loginTracked=true; window.__sendEvent({event:"login_success",props:{}}); }
       window.__flushEvents();
       if(cloudUser && !cloudCurrentId && window.__bootCloudId) cloudCurrentId=window.__bootCloudId;   /* riaggancio dopo un re-login nella stessa sessione */
       if(cloudUser && orcOpen){ var _oid2=orcOpen; orcOpen=null; try{ sessionStorage.removeItem("orcOpenProject"); }catch(e){} openProject(_oid2); }
