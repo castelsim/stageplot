@@ -12039,6 +12039,36 @@ t("llms.txt e la home elencano gli stessi modelli pronti", () => {
   eq(riga[2].split(/,\s*/).map((x) => x.trim()), dallaHome, "e quali sono");
 });
 
+t("nessuna pagina vende su consulenza quello che l'editor fa gratis", () => {
+  /* 27/09: llms.txt era stato corretto il 10/08, le guide no. Tre pagine dicevano ancora che «la
+     channel list completa» e «il rider completo» sono «su consulenza», cioè a pagamento — mentre
+     l'editor li genera dal disegno. Chi legge la guida (e l'AI che la riassume) capiva il contrario. */
+  const pagine = readdirSync(root, { recursive: true, withFileTypes: true })
+    .filter((d) => d.isFile() && d.name === "index.html")
+    .map((d) => join(d.parentPath || d.path, d.name))
+    .filter((p) => pubblicata(p.slice(root.length)) && !/[\\/]app[\\/]|[\\/]orchestre[\\/]/.test(p.slice(root.length)));
+  const sbagliate = [];
+  for (const p of pagine) {
+    const t = readFileSync(p, "utf8").replace(/<[^>]*>/g, "");
+    if (/(rider|channel list) complet[oa][^.]{0,60}consulenza/i.test(t)) sbagliate.push(p.slice(root.length));
+  }
+  eq(sbagliate, [], "pagine che dicono channel list o rider «completi» solo su consulenza");
+});
+
+t("tutte le pagine dichiarano lo stesso editore della home", () => {
+  /* 27/09: 21 pagine Article avevano un publisher «StagePlot» senza @id: per chi legge i dati
+     strutturati era un'organizzazione diversa da quella della home, che ha fondatore e profili. */
+  const pagine = readdirSync(root, { recursive: true, withFileTypes: true })
+    .filter((d) => d.isFile() && d.name === "index.html")
+    .map((d) => join(d.parentPath || d.path, d.name))
+    .filter((p) => pubblicata(p.slice(root.length)));
+  const scollegate = pagine.filter((p) => {
+    const h = readFileSync(p, "utf8");
+    return /"publisher":\{"@type":"Organization"(?!,"@id":"https:\/\/stageplot\.it\/#org")/.test(h);
+  }).map((p) => p.slice(root.length));
+  eq(scollegate, [], "pagine col publisher non collegato a https://stageplot.it/#org");
+});
+
 t("llms.txt racconta il prodotto di oggi, non quello di due versioni fa", () => {
   /* Il file è la versione che le AI leggono per prima. Diceva ancora che il rider completo si
      ottiene «su consulenza», mentre l'editor lo genera da solo: un LLM avrebbe riferito quello. */
