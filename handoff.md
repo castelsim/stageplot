@@ -6,6 +6,12 @@ sono state scritte qui: la loro storia sta nei messaggi di commit e nelle PR (#9
 
 ## Settembre in una pagina (PR su `main`)
 
+- **27/09 — Collaudo sui progetti veri** (#231): `test/collaudo.test.mjs` + `test/sandbox.mjs`. Apre 30 progetti
+  reali anonimizzati (cartella privata `collaudo/` accanto al repo, NON versionata) e confronta per scena canali,
+  monitor, RF, avvisi (per regola, non per testo), totali con metri di cavo, più il giro salva-riapri. In CI
+  «SALTATO»: va lanciato in locale prima di ogni merge (AGENTS.md §4). ⚠️ Nel sandbox `importProject` si
+  blocca: usare `loadDoc` + `switchVariant`. Idea dal playbook Anthropic «AI-Native SDLC» (20-50 casi reali).
+
 - **27/09 — Home e SEO** (#228, in produzione): title della home «Stage plot online gratis, in scala: scheda tecnica e
   rider» (dal 22/08 aveva perso «stage plot» e «scheda tecnica»); H1/H2/FAQ/llms.txt con le parole che si cercano,
   presidiati da test. Prossime leve: PDF d'esempio scaricabile sulla guida rider-tecnico, presenza fuori dal sito.
