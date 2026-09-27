@@ -45,6 +45,11 @@ right-sized per la realtà del progetto, non un framework enterprise. Leggilo pr
    si rimette e la base torna verde. Un test che resta verde sul codice rotto non protegge niente.
 4. Le suite: `node build.mjs --check` · `node test/engines.test.mjs` · `node --test orchestre/test/*.test.mjs`
    · `deno test --lock=deno.lock --frozen supabase/functions/_shared/*.test.ts`.
+   · **`node test/collaudo.test.mjs`** (dal 27/09): apre 30 progetti veri anonimizzati e confronta, scena per
+   scena, canali, monitor, RF, avvisi e totali con l'atteso, più il giro salva-riapri. I progetti NON sono nel
+   repo (pubblico): stanno nella cartella privata `collaudo/` accanto al repo; senza di essa il test dice
+   «SALTATO» ed esce 0, quindi in CI non gira: **va lanciato in locale prima di ogni merge**. Se fallisce,
+   leggere la differenza: se è un errore si corregge il codice; se è voluta, `--aggiorna` e il perché nel commit.
 5. **Scelte visive e flussi: guardarli nel browser** su un server locale (`python3 -m http.server <porta>`),
    con una **porta nuova a ogni prova** (il service worker serve il codice vecchio) oppure con
    unregister del SW + `caches.delete()`.
@@ -111,4 +116,6 @@ I prossimi moduli previsti (vedi piano): `src/` per canvas, objects, data/serial
 - **Edge Function**: non rispondere prima di aver letto il corpo della richiesta (causa 503 dopo due minuti).
 - **Prove multi-browser**: Playwright (Chromium, WebKit, Firefox) su una copia `git archive origin/main`
   servita in locale, con la rete verso l'esterno bloccata (`ctx.route`) per non toccare dati veri.
-
+- **Sandbox dei test e progetti interi**: `importProject()` nel sandbox si blocca (flusso cloud/autosave);
+  per aprire un progetto salvato usare `loadDoc(JSON)` e `switchVariant(id)` per le scene (vedi
+  `test/sandbox.mjs`, `test/collaudo.test.mjs`).
