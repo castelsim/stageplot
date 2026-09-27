@@ -1,10 +1,17 @@
-# STATO AL 25/09/2026 — da leggere prima di tutto
+# STATO AL 27/09/2026 — da leggere prima di tutto
 
-Tutto in produzione, nessuna PR aperta. Test: 1218 editor · 124 Orchestre · 137 Deno.
+Tutto in produzione, nessuna PR aperta. Test: 1224 editor · 124 Orchestre · 137 Deno.
 Regole di lavoro aggiornate in `AGENTS.md` (§3, §4, §8). Le sessioni fra fine luglio e settembre non
 sono state scritte qui: la loro storia sta nei messaggi di commit e nelle PR (#98-#210).
 
 ## Settembre in una pagina (PR su `main`)
+
+- **27/09 — Home e SEO** (#228, in produzione): title della home «Stage plot online gratis, in scala: scheda tecnica e
+  rider» (dal 22/08 aveva perso «stage plot» e «scheda tecnica»); H1/H2/FAQ/llms.txt con le parole che si cercano,
+  presidiati da test. Prossime leve: PDF d'esempio scaricabile sulla guida rider-tecnico, presenza fuori dal sito.
+
+- **27/09 — Login contati giusti** (#229): `login_success` solo al ritorno da un accesso (`oauthReturn`), non a ogni
+  ricarica (erano 88 su 113 aperture in 30 giorni). Il rapporto del lunedì (fuori repo) ha la sezione «0. Il percorso».
 
 - **26/09 sera — Anteprima completata e revisione a tappeto** (#220-#227, in produzione, 1218 editor). «Richiedi
   musicisti» nascosto ovunque (`#bRichiedi,#mactRichiedi{display:none!important}`, `RICHIEDI_MUSICISTI=false`).
