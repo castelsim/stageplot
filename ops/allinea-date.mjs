@@ -60,9 +60,19 @@ function dataGit(rel) {
        l'immagine vecchia dalla loro cache. Ma quel bump non riscrive una riga della guida, e la
        byline è la data che LEGGE IL VISITATORE: portarla a oggi gli direbbe che il testo è nuovo
        quando non lo è. (10/09: il primo bump di questo tipo dopo l'arrivo della byline.) */
+    /* E per i ritocchi ai soli dati strutturati che il lettore non vede (27/09: il publisher delle
+       pagine collegato all'organizzazione della home con un @id). Lì la riga cambiata è quella del
+       JSON-LD, lunga e piena di testo: non si riconosce con una regex, quindi si confronta la riga
+       tolta e quella messa DOPO aver cancellato il ritocco. Se tornano uguali, il testo non è cambiato. */
+    const ritocchi = [/"@id":"https:\/\/stageplot\.it\/#org","url":"https:\/\/stageplot\.it\/",/g];
+    const senzaRitocchi = (l) => ritocchi.reduce((x, re) => x.replace(re, ""), l.slice(1));
+    const tolte = new Set(righe.filter((l) => l[0] === "-").map(senzaRitocchi));
+    const soloRitocco = (l) => l[0] === "+" && l !== "+" + senzaRitocchi(l) && tolte.has(senzaRitocchi(l));
+    const messe = new Set(righe.filter(soloRitocco).map(senzaRitocchi));
     const soloDate = righe.length > 0 && righe.every((l) =>
       /dateModified|<lastmod>|aggiornat[oa] (?:il |l')\d{2}\/\d{2}\/\d{4}/.test(l) ||
-      /preview\.png\?v=\d+/.test(l));
+      /preview\.png\?v=\d+/.test(l) ||
+      soloRitocco(l) || (l[0] === "-" && messe.has(senzaRitocchi(l))));
     if (!soloDate) return data;          /* questo commit ha toccato il contenuto: è la data buona */
   }
   return (storia[0] || "").split(" ")[1] || null;

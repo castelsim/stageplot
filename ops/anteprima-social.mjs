@@ -38,7 +38,9 @@ export function datiDallaLanding(landing) {
   };
 
   /* Il titolo e' l'H1, spezzato dove lo spezza la pagina: «Disegna il palco.» + «in scala.» */
-  const h1 = scava(/<h1[^>]*>([\s\S]*?)<\/h1>/, "l'H1")[1];
+  /* Dal 27/09 l'H1 porta dentro anche il kicker con le parole chiave: nell'immagine il kicker ha già
+     la sua riga sopra il titolo, quindi qui si scarta. */
+  const h1 = scava(/<h1[^>]*>([\s\S]*?)<\/h1>/, "l'H1")[1].replace(/<span class="kicker">[\s\S]*?<\/span>/, "");
   const righe = h1.split(/<br\s*\/?>/i).map((x) => x.replace(/<[^>]*>/g, "").trim()).filter(Boolean);
 
   /* La promessa: la prima frase del sottotitolo dell'hero, col suo grassetto */
