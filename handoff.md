@@ -12,6 +12,9 @@ sono state scritte qui: la loro storia sta nei messaggi di commit e nelle PR (#9
   `orc_musicians` (test `rls-collegamenti`, mutazione provata in CI). `main` ora vieta force-push e cancellazione.
   ⚠️ Nei commenti niente titoli di progetti degli utenti (li avevo messi il 25/09). Restano: tetti per account,
   jsPDF 3.x, cronologia di luglio (vedi `_STATO.md`).
+  Poi #236 (0071): tetti per account su progetti ed eventi. ⚠️ Un trigger che CONTA righe di una tabella che
+  l'utente non può leggere (analytics_events) deve essere SECURITY DEFINER e leggere il ruolo dal JWT: con i
+  permessi dell'utente conta 0 e il tetto non scatta. ⚠️ `rest()` dei test accetta `prefer: "return=minimal"`.
 
 - **27/09 — Collaudo sui progetti veri** (#231): `test/collaudo.test.mjs` + `test/sandbox.mjs`. Apre 30 progetti
   reali anonimizzati (cartella privata `collaudo/` accanto al repo, NON versionata) e confronta per scena canali,
