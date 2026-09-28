@@ -1,5 +1,5 @@
 // supabase/functions/submit-feedback/index.ts
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient } from "jsr:@supabase/supabase-js@2.108.2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { validateFeedback } from "../_shared/feedback-validation.ts";
 import { buildFeedbackEmail, feedbackAttachment } from "../_shared/feedback-prompt.ts";

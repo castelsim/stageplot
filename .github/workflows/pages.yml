@@ -17,10 +17,10 @@ on:
   push:
     branches: [ main ]
 
+# Il job build fa girare i test: legge e basta. I permessi di pubblicazione servono solo a deploy
+# (verifica di sicurezza 28/09).
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: pages
@@ -70,7 +70,7 @@ jobs:
       - name: Prepara la cartella pubblica (allowlist)
         run: |
           mkdir -p _site
-          rsync -a --exclude='.DS_Store' --exclude='README.md' \
+          rsync -a --exclude='.DS_Store' --exclude='README.md' --exclude='orchestre/test/' --exclude='orchestre/demo/' \
             .nojekyll 404.html CNAME LICENSE \
             index.html app app.js icons.js sw.js manifest.webmanifest \
             robots.txt sitemap.xml llms.txt \
@@ -87,6 +87,9 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

@@ -7,10 +7,16 @@
 // La porta che la migration 0026 aveva chiuso resta chiusa: il browser NON scrive nel database.
 // Scrive questa funzione, con la service key, dopo aver ricondotto tutto a un elenco chiuso.
 
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient } from "jsr:@supabase/supabase-js@2.108.2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { validaColpo } from "../_shared/landing-metrics.ts";
 import { serviceRoleKey } from "../_shared/service-role-key.ts";
+import { clientIp } from "../_shared/feedback-limits.ts";
+
+const TETTO_GLOBALE_ORA = 3000;
+/** Il contatore globale usa la stessa tabella dei limiti per IP: la funzione accetta solo impronte di
+ *  64 caratteri esadecimali, e questa non può essere l'impronta di nessun IP reale. */
+const CHIAVE_GLOBALE = "0".repeat(64);
 
 /** Un contatore non deve MAI disturbare la pagina: qualunque cosa vada storta, esce 204. */
 function fine(status = 204) {
@@ -38,14 +44,25 @@ Deno.serve(async (req) => {
 
     // Rate limit sull'impronta dell'IP (mai l'IP). Generoso: una persona che naviga fa una visita
     // e qualche clic; 120 in un'ora è oltre qualunque uso umano e taglia lo spam grossolano.
-    const ip = (req.headers.get("x-forwarded-for") || "").split(",")[0].trim();
+    // L'IP si legge come in submit-feedback (clientIp): prima le intestazioni che mette il proxy, poi
+    // x-forwarded-for. Prima si prendeva il primo valore di x-forwarded-for, che scrive il client:
+    // con un IP inventato a ogni colpo il limite non scattava mai (verifica di sicurezza 28/09).
+    const ip = clientIp(req.headers);
     const salt = Deno.env.get("LANDING_IP_SALT") || "";
+    if (!salt) console.error("throttle landing: LANDING_IP_SALT assente, limite per IP spento");
     if (ip && salt) {
       const { data: n, error } = await supabase.rpc("landing_throttle_hit", {
         p_ip_hash: await impronta(ip, salt),
       });
       if (error) console.error("throttle landing:", error.message);
       else if (typeof n === "number" && n > 120) return fine(429);
+    }
+    // Tetto globale: anche cambiando IP, oltre questa soglia oraria i contatori non si muovono.
+    // Oggi la home fa qualche decina di visite al giorno: 3000 l'ora è cento volte tanto.
+    {
+      const { data: tot, error } = await supabase.rpc("landing_throttle_hit", { p_ip_hash: CHIAVE_GLOBALE });
+      if (error) console.error("throttle globale landing:", error.message);
+      else if (typeof tot === "number" && tot > TETTO_GLOBALE_ORA) return fine(429);
     }
 
     const { error } = await supabase.rpc("landing_counter_hit", {

@@ -12,7 +12,7 @@
 // spedire email a nome di una società.
 //
 // Cosa manda: descrizione e totali. Cachet, margine e note non vengono nemmeno letti dal database.
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient } from "jsr:@supabase/supabase-js@2.108.2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { serviceRoleKey } from "../_shared/service-role-key.ts";
 import { sendEmail } from "../_shared/email.ts";
