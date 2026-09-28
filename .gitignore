@@ -24,3 +24,7 @@ supabase/.branches/
 
 # env locale delle Edge Function (segreti di prova): mai nel repo
 supabase/functions/.env
+
+# Collaudo sui progetti veri: i progetti (anche anonimizzati) sono degli utenti e stanno FUORI dal
+# repo, in COWORK/STAGEPLOT/collaudo. Una copia qui dentro non deve poter finire in un commit (28/09).
+collaudo/

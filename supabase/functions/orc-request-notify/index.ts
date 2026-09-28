@@ -11,7 +11,7 @@
 // Chi può chiamarla: solo chi ha mandato quella richiesta. Il JWT lo verifica Supabase (verify_jwt), e qui
 // si controlla comunque che la riga sia sua: un utente autenticato non deve poter far spedire le richieste
 // degli altri.
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient } from "jsr:@supabase/supabase-js@2.108.2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { serviceRoleKey } from "../_shared/service-role-key.ts";
 import { sendEmail } from "../_shared/email.ts";

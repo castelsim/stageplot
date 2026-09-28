@@ -1029,7 +1029,7 @@ function heavyVenue(kb) {
 }
 t("punto di recupero: la planimetria già in archivio si referenzia, non si riduplica", () => {
   withVenueStore(A, 200 * 1024, ({ store }) => {
-    A.loadDoc({ _v: A.SCHEMA_VERSION, titolo: "noale morricone", venue: heavyVenue(150),
+    A.loadDoc({ _v: A.SCHEMA_VERSION, titolo: "Orchestra di prova", venue: heavyVenue(150),
       items: [{ id: "a", type: "cantante" }], inputs: [], outputs: [] });
     eq(A.persistLocalState(), true, "documento e planimetria persistiti");
     const venueKeys = [...store.keys()].filter((k) => k.startsWith(A.LS_KEY_VENUE + "."));
@@ -8145,7 +8145,7 @@ t("compare solo quando c'e' qualcosa da togliere", () => {
 
 console.log("\n— L'audit non parla di canali che non ci sono —");
 
-/* Trovato guardando morricone 99 (10/09). La channel list MANUALE (`state.inputs`) e' salvata per
+/* Trovato guardando un'orchestra pop (10/09). La channel list MANUALE (`state.inputs`) e' salvata per
    VARIANTE, e le sue righe puntano all'elemento sul palco con `linked_item_id`. Se l'elemento
    sparisce — cancellato, o perche' la variante e' stata svuotata e rifatta con altro — la riga
    resta: 94 righe su 94 orfane nelle due varianti «luci» e «sedie» di quel progetto.
@@ -8176,7 +8176,7 @@ t("i nomi dei canali si contano solo su quelli che stanno sul palco", () => {
 
 /* 25/09 — dai 12 progetti che Simone ha scelto come esempio. Il filtro qui sopra toglieva l'avviso
    falso, ma le righe restavano nel documento: la Input list le mostra e finiscono nella tabella del
-   PNG e nel PDF della consulenza. «Stevie Biondi Trio» ne aveva 7 su 14, «morricone 99» 57 su 94. */
+   PNG e nel PDF della consulenza. un trio acustico ne aveva 7 su 14, un'orchestra pop 57 su 94. */
 t("cancellato un elemento, i suoi canali se ne vanno; l'Annulla li riporta", () => {
   reset();
   const voce = add("cantante", 100, 100), mon = add("wedge", 100, 250), resta = add("cantante", 400, 100);
@@ -8412,7 +8412,7 @@ t("la copia da link si offre di aprirsi e non si duplica", () => {
 console.log("\n— L'anteprima non deve vestire l'app (segnalazione 10/09) —");
 
 /* Segnalato da Simone: «quando vado a esportare le scritte dell'interfaccia si ingrandiscono»,
-   e succedeva SOLO col progetto morricone 99, su Mac diversi.
+   e succedeva SOLO col progetto un'orchestra pop, su Mac diversi.
    CAUSA, misurata: `stageSceneSvg` incorpora nell'SVG un <style> con l'INTERO foglio di stile
    dell'app (`document.querySelector("style").textContent`) e ne moltiplica ogni `font-size` per
    `pdfTextK(N)`, perche' sul foglio il testo deve tenere una dimensione fisica costante a
@@ -8420,7 +8420,7 @@ console.log("\n— L'anteprima non deve vestire l'app (segnalazione 10/09) —")
    dentro un <svg> inline NON e' confinato all'SVG: e' un foglio di stile del documento, e
    arrivando dopo vince a parita' di specificita'. Risultato: `#props label` da 12 px a 30,
    `header input.hdr-name` da 14 a 35 — tutta l'interfaccia.
-   Non era morricone 99 ad avere qualcosa di strano: era il primo palco cosi' grande da uscire a
+   Non era un'orchestra pop ad avere qualcosa di strano: era il primo palco cosi' grande da uscire a
    1:200. Con CORPO_RIF=80 il fattore e' N/80, quindi ×2,5 a 1:200 — e ×1,25 gia' a 1:100.
    Gli altri tre punti che usano stageSceneSvg (PDF vettoriale, PNG, miniatura) lo mettono in uno
    SHADOW ROOT: li' il <style> resta dentro. Mancava solo l'anteprima. */
@@ -16753,6 +16753,34 @@ t("un login si conta solo quando si torna da un accesso, non a ogni ricarica", (
   eq(m && m[1], "oauthReturn", "e conta solo al ritorno da un accesso");
   ok(/var oauthReturn=\/\[\?&#\]\(code\|access_token\)=\/\.test\(location\.href\);/.test(appjs) && /if\(accessoAppenaFatto\) oauthReturn=true;/.test(appjs),
     "ritorno = ?code= del vecchio accesso, oppure il segno lasciato da /accedi/google/");
+});
+
+t("il limite della landing non si aggira con un IP inventato, e c'è un tetto globale", () => {
+  /* 28/09, verifica di sicurezza: si prendeva il primo valore di x-forwarded-for, che scrive il client —
+     con un IP falso a ogni colpo si gonfiavano senza fine i contatori su cui si decide il marketing */
+  const src = readFileSync(join(root, "supabase/functions/track-landing/index.ts"), "utf8");
+  ok(/const ip = clientIp\(req\.headers\);/.test(src), "l'IP si legge con clientIp, come in submit-feedback");
+  ok(!/get\("x-forwarded-for"\)/.test(src), "e non direttamente da x-forwarded-for");
+  ok(/p_ip_hash: CHIAVE_GLOBALE/.test(src) && /tot > TETTO_GLOBALE_ORA\) return fine\(429\)/.test(src), "oltre il tetto orario globale non si conta più");
+  ok(/const CHIAVE_GLOBALE = "0"\.repeat\(64\);/.test(src), "la chiave globale ha la forma che la funzione del database accetta");
+});
+
+t("nessuna Edge Function importa supabase-js senza versione esatta", () => {
+  /* 28/09, verifica di sicurezza: con «@2» al deploy entra l'ultima 2.x, mai collaudata qui */
+  const dir = join(root, "supabase/functions");
+  const liberi = readdirSync(dir).filter((d) => existsSync(join(dir, d, "index.ts")))
+    .filter((d) => /supabase-js@2["']/.test(readFileSync(join(dir, d, "index.ts"), "utf8")));
+  eq(liberi, [], "funzioni con supabase-js@2 senza versione");
+});
+
+t("il deploy non pubblica i test e i dati demo di Orchestre, e build non ha i permessi di pubblicazione", () => {
+  /* 28/09, verifica di sicurezza: stageplot.it/orchestre/test/… e /orchestre/demo/… rispondevano 200 */
+  const wf = readFileSync(join(root, ".github/workflows/pages.yml"), "utf8");
+  ok(/--exclude='orchestre\/test\/'/.test(wf) && /--exclude='orchestre\/demo\/'/.test(wf), "test e demo esclusi dalla copia pubblica");
+  const cima = wf.slice(wf.indexOf("\npermissions:"), wf.indexOf("\njobs:"));
+  ok(!/pages: write|id-token: write/.test(cima), "i permessi di pubblicazione non valgono per tutti i job");
+  const dep = wf.slice(wf.indexOf("\n  deploy:"));
+  ok(/permissions:\s*\n\s*pages: write\s*\n\s*id-token: write/.test(dep), "li ha solo deploy");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");

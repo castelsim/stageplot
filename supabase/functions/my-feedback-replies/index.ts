@@ -15,7 +15,7 @@
 // La tabella `feedback` ha RLS senza policy: al database si arriva solo con la service_role. Perciò
 // la function fa lei il controllo di identità, e per la scrittura chiama una funzione SQL che ha il
 // permesso scritto dentro (feedback_segna_risposta_letta: solo la propria riga, solo quella colonna).
-import { createClient } from "jsr:@supabase/supabase-js@2";
+import { createClient } from "jsr:@supabase/supabase-js@2.108.2";
 import { corsHeaders } from "../_shared/cors.ts";
 import { serviceRoleKey } from "../_shared/service-role-key.ts";
 import { risposteDaMostrare } from "../_shared/feedback-replies.ts";
