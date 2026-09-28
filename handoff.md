@@ -6,6 +6,13 @@ sono state scritte qui: la loro storia sta nei messaggi di commit e nelle PR (#9
 
 ## Settembre in una pagina (PR su `main`)
 
+- **28/09 — Verifica di sicurezza** (#233, #234): track-landing con `clientIp()` e tetto globale; supabase-js
+  fissato a 2.108.2 ovunque (test); `orchestre/test` e `orchestre/demo` fuori dal deploy; permessi di pubblicazione
+  solo al job deploy; migrazione 0070: dal ruolo `authenticated` non si scrivono `user_id`/`profile_id` di
+  `orc_musicians` (test `rls-collegamenti`, mutazione provata in CI). `main` ora vieta force-push e cancellazione.
+  ⚠️ Nei commenti niente titoli di progetti degli utenti (li avevo messi il 25/09). Restano: tetti per account,
+  jsPDF 3.x, cronologia di luglio (vedi `_STATO.md`).
+
 - **27/09 — Collaudo sui progetti veri** (#231): `test/collaudo.test.mjs` + `test/sandbox.mjs`. Apre 30 progetti
   reali anonimizzati (cartella privata `collaudo/` accanto al repo, NON versionata) e confronta per scena canali,
   monitor, RF, avvisi (per regola, non per testo), totali con metri di cavo, più il giro salva-riapri. In CI
