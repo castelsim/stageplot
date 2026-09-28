@@ -51,11 +51,16 @@ grant insert on public.analytics_events to authenticated;
 
 -- eventi analytics per account e per ora (oggi il massimo è 57). Oltre, il browser non se ne accorge:
 -- l'invio degli eventi non aspetta risposta, e un evento perso non rompe niente.
+-- SECURITY DEFINER: gli utenti non leggono gli eventi (nessuna policy di lettura), quindi un conteggio fatto
+-- con i LORO permessi vedrebbe sempre 0 e il tetto non scatterebbe mai (visto nel workflow RLS, 28/09).
+-- Dentro una funzione definer current_user è il proprietario: chi scrive si legge dal JWT della richiesta.
 create or replace function public.analytics_events_quota()
-returns trigger language plpgsql set search_path = public as $$
+returns trigger language plpgsql security definer set search_path = public as $$
 declare n int;
 begin
-  if current_user <> 'authenticated' then return new; end if;
+  if coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'role', '') <> 'authenticated' then
+    return new;
+  end if;
   select count(*) into n from (
     select 1 from public.analytics_events e
     where e.user_id = new.user_id and e.created_at > now() - interval '1 hour' limit 600
