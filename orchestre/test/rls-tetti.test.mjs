@@ -45,9 +45,10 @@ run("progetti per account: si arriva a 500, il 501° no; un altro account non ne
 
 run("eventi: 600 in un'ora sì, il 601° no; un altro account non ne risente", async () => {
   const ev = (u, n) => Array.from({ length: n }, () => ({ event: "app_open", user_id: u, props: {} }));
-  const r = await rest(env, T.a, "analytics_events", { method: "POST", body: ev(U.a, 600) });
+  const scrivi = (t, body) => rest(env, t, "analytics_events", { method: "POST", body, prefer: "return=minimal" });
+  const r = await scrivi(T.a, ev(U.a, 600));
   assert.ok(r.ok, JSON.stringify(r.d).slice(0, 200));
-  const no = await rest(env, T.a, "analytics_events", { method: "POST", body: ev(U.a, 1) });
+  const no = await scrivi(T.a, ev(U.a, 1));
   assert.equal(codice(no), "54000", JSON.stringify(no.d).slice(0, 200));
-  assert.ok((await rest(env, T.b, "analytics_events", { method: "POST", body: ev(U.b, 1) })).ok, "l'altro account scrive");
+  assert.ok((await scrivi(T.b, ev(U.b, 1))).ok, "l'altro account scrive");
 });
