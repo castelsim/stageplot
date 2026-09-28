@@ -43,6 +43,12 @@ drop trigger if exists stageplot_projects_quota_trg on public.stageplot_projects
 create trigger stageplot_projects_quota_trg before insert on public.stageplot_projects
   for each row execute function public.stageplot_projects_quota();
 
+-- Il permesso di scrivere eventi, dichiarato: la tabella è nata (0009) quando Supabase lo dava da solo a
+-- «authenticated», e in produzione c'è (899 eventi scritti da utenti collegati). I database nuovi non lo
+-- danno più, e il workflow RLS lo ha mostrato (28/09). Il filtro vero resta la policy di 0035: eventi e
+-- proprietà in elenco chiuso, user_id = auth.uid(). Nessuna lettura per gli utenti.
+grant insert on public.analytics_events to authenticated;
+
 -- eventi analytics per account e per ora (oggi il massimo è 57). Oltre, il browser non se ne accorge:
 -- l'invio degli eventi non aspetta risposta, e un evento perso non rompe niente.
 create or replace function public.analytics_events_quota()
