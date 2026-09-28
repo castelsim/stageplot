@@ -1005,7 +1005,7 @@ function withVenueStore(A, cap, body) {
       },
       removeItem: (key) => store.delete(key),
     };
-    A.__cloud = { currentId: () => "prj-noale", currentRev: () => "rev-1", user: () => null };
+    A.__cloud = { currentId: () => "prj-prova-grande", currentRev: () => "rev-1", user: () => null };
     A.document = { body: { classList: { contains: () => false } }, getElementById: () => null };
     A.__consultMode = false; A.__localConflict = false; A.__localStorageUnavailable = false;
     A.__bootVenueUnavailable = false; A.__docLoadBlocked = null;
