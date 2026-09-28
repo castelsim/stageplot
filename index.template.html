@@ -5680,8 +5680,8 @@ function clearVenueImg(){
 }
 /* RIGHE ORFANE (25/09, dai progetti scelti come esempio). Ogni riga della input/monitor list che
    nasce da un elemento del palco lo ricorda in `linked_item_id`. Quando l'elemento se ne va —
-   cancellato, sostituito, variante svuotata e rifatta — la riga restava: 7 su 14 in «Stevie Biondi
-   Trio», 57 su 94 in «morricone 99», e 94 su 94 nelle sue varianti di sole luci e sedie. Non erano
+   cancellato, sostituito, variante svuotata e rifatta — la riga restava: 7 su 14 in un trio
+   acustico, 57 su 94 in un'orchestra pop, e 94 su 94 nelle sue varianti di sole luci e sedie. Non erano
    innocue: la lista manuale le mostra e finiscono nel PDF della consulenza — un kick e un rullante
    nel foglio di un palco che una batteria non ce l'ha. (Il PNG vero non ha la tabella canali:
    buildExportSvg serve solo alla pagina di QA ?export=1 — corretto il 25/09 dalla revisione.)
@@ -11282,7 +11282,7 @@ function auditEngine(){
      dichiarato di non avere un microfono suo: lo riprendono aste d'insieme o una zona. Qui sopra lo
      si escludeva dando per scontato che ci fossero — «Pooh History – Treviso» ha 50 coristi in
      panoramica, nessuna zona e nessun microfono d'insieme: nella channel list consegnata il coro
-     non ha nemmeno un canale, in silenzio. In «morricone 99» 16 su 30 stanno fuori dalle sue due zone.
+     non ha nemmeno un canale, in silenzio. In un'orchestra pop 16 su 30 stanno fuori dalle sue due zone.
      Ripreso = dentro una zona, oppure con un microfono d'insieme entro 4,5 m (un overhead da coro
      copre più file; oltre, è un microfono di qualcos'altro). */
   var AUDIT_ENSEMBLE_MICS={micchoir:1,micover:1,giraffa:1,astagigante:1,coppiast:1,astamic:1};
@@ -28809,7 +28809,7 @@ function pdfChannelPage(doc, L, paperKey){
      di specificità. A 1:200 `#props label` passava da 12 px a 30 e `header input.hdr-name` da 14
      a 35 — si ingrandiva tutta l'interfaccia, non l'anteprima. Con CORPO_RIF=80 il fattore è
      N/80: succede già a 1:100 (×1,25), ma si vede quando il palco è grande abbastanza da uscire a
-     1:200 o meno. (Segnalato il 10/09: «succede solo con morricone 99» — non era il progetto,
+     1:200 o meno. (Segnalato il 10/09: «succede solo con un'orchestra pop» — non era il progetto,
      era la sua scala.)
      Gli altri tre punti che usano `stageSceneSvg` — PDF vettoriale, PNG, miniatura — lo mettono
      già in uno SHADOW ROOT, dove il `<style>` resta dentro. Mancava solo l'anteprima.
