@@ -49,10 +49,11 @@ export async function login(env, email, password = "Prova-1234!") {
 }
 
 /* Chiamata PostgREST con il token dato. Per l'anonimo passare env.ANON_KEY come token. */
-export async function rest(env, token, path, { method = "GET", body } = {}) {
+/* prefer: "return=minimal" per le tabelle in sola scrittura (analytics_events: chi scrive non legge, come nell'app) */
+export async function rest(env, token, path, { method = "GET", body, prefer = "return=representation" } = {}) {
   const r = await fetch(env.API_URL + "/rest/v1/" + path, {
     method,
-    headers: { apikey: env.ANON_KEY, Authorization: "Bearer " + token, "Content-Type": "application/json", Prefer: "return=representation" },
+    headers: { apikey: env.ANON_KEY, Authorization: "Bearer " + token, "Content-Type": "application/json", Prefer: prefer },
     body: body ? JSON.stringify(body) : undefined,
   });
   return { ok: r.ok, status: r.status, d: await json(r) };
