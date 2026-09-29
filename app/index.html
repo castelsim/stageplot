@@ -3959,6 +3959,8 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
   <div class="sec" id="selProps" hidden>
     <h3 id="selNome">Elemento</h3>
     <button type="button" class="btn solo-ped" id="pSoloPed" style="display:none" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg><span>Solo pedane</span></button>
+    <!-- 29/09 (Simone): di partenza la pedana si sposta da sola; acceso, chi ci sta sopra la segue. Vedi pedanaAgganciata(). -->
+    <div id="pAggWrap" class="agg-ped" style="display:none"><label class="chk" title="Acceso: spostando la pedana si spostano anche i musicisti e gli strumenti che ci stanno sopra, e Duplica e Copia li copiano con lei. Spento: si sposta solo la pedana, il resto rimane dov'è."><input type="checkbox" id="pAgg"> <span>Aggancia gli elementi alla pedana <small class="lbl-note">— spostandola, chi ci sta sopra la segue</small></span></label></div>
     <div id="pLookWrap" style="display:none;margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px">
         <label style="font-size:12px;color:var(--text-2);margin:0">Disegna come</label>
@@ -4247,7 +4249,6 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
       </select>
     </div>
     <div id="pKeysWrap" style="display:none"><label class="chk"><input type="checkbox" id="pPanca"> Sgabello</label></div>
-    <div id="pRiserSoloWrap" style="display:none"><label class="chk"><input type="checkbox" id="pRiserSolo"> Sposta solo la pedana <small class="lbl-note">— quello che c'è sopra resta dov'è</small></label></div>
     <div id="pSgabWrap" style="display:none"><label for="pSgabTipo">Tipo di sgabello <small class="lbl-note">— per il pianoforte c'è la «Panchetta piano»</small></label><select id="pSgabTipo"></select></div>
     <div id="pLeggioGenWrap" style="display:none"><label class="chk"><input type="checkbox" id="pLeggioGen"> Leggio</label></div>
     <div id="pLucettaWrap" style="display:none"><label class="chk"><input type="checkbox" id="pLucetta"> Lucetta leggio</label></div>
@@ -4504,6 +4505,7 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
   <div class="sec" id="groupProps" hidden>
     <h3 id="grpNome">Selezione</h3>
     <button type="button" class="btn solo-ped" id="grpSoloPed" style="display:none" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg><span>Solo pedane</span></button>
+    <div id="grpAggWrap" class="agg-ped" style="display:none"><label class="chk" title="Acceso: spostando una pedana si spostano anche i musicisti e gli strumenti che ci stanno sopra, e Duplica e Copia li copiano con lei. Spento: si sposta solo la pedana, il resto rimane dov'è. Vale per tutte le pedane selezionate."><input type="checkbox" id="grpAgg"> <span>Aggancia gli elementi alle pedane <small class="lbl-note">— spostandole, chi ci sta sopra le segue</small></span></label></div>
     <div id="grpOpts" style="display:none;margin-bottom:8px">
       <div class="hint" style="font-size:11px;color:var(--text-3);margin-bottom:4px">Applica a tutti gli elementi selezionati:</div>
       <label class="chk" id="grpSediaWrap"><input type="checkbox" id="grpSedia"> Sedia</label>
