@@ -5081,7 +5081,7 @@ t("a schermo i nomi crescono attorno all'ancora del nome, con le rotazioni origi
      '<g class="lblk" style="transform-origin:12.5px -3px"><text class="lbl" x="12.5" y="-3" transform="rotate(90 12.5 -3)">x</text><text class="lbl sub" x="12.5" y="-3" dy="16" transform="rotate(90 12.5 -3)">y</text></g>');
   eq(A.lblScalaAttorno('<text class="lbl" y="60">Basso</text>'), '<g class="lblk" style="transform-origin:0px 60px"><text class="lbl" y="60">Basso</text></g>', "senza x l'ancora è 0");
   ok(/_lblSchermo = !\(opts && opts\.espandi\);/.test(appjs), "l'export (espandi) non si ingrandisce");
-  ok(/\(_lblSchermo \? lblScalaAttorno\(lb\) : lb\)/.test(appjs), "il livello dei nomi a schermo si ingrandisce per gruppo");
+  ok(/\(_lblSchermo \? lblScalaAttorno\(lb, _lblOrig\) : lb\)/.test(appjs), "il livello dei nomi a schermo si ingrandisce per gruppo");
   ok(!/transform-box:fill-box;transform-origin:center;scale:var\(--lblK/.test(stylesCss), "niente più scala testo per testo al centro");
 });
 /* Revisione 26/09: rotella e pizzico cambiano la viewBox senza render(): nomi della misura sbagliata. */
@@ -8020,7 +8020,7 @@ t("le opzioni tipografiche non stanno davanti al lavoro", () => {
      Dimensione, distanza, allineamento e colore del testo sono l'ASPETTO del nome, non la sua
      identita': stanno col disegno, in fondo, non nel primo gruppo del pannello. */
   const g = gruppiProps();
-  const TIPO = ["pLblSizeWrap", "pLblDistWrap", "pAlignWrap", "pTxtColorWrap", "pLblPosWrap"];
+  const TIPO = ["pLblSizeWrap", "pAlignWrap", "pTxtColorWrap", "pLblPosWrap"];
   const et = g.filter((x) => x.titolo === "Etichetta")[0];
   ok(et, "il gruppo Etichetta non c'e' piu'");
   TIPO.forEach((id) => ok(et.ids.indexOf(id) < 0, id + " sta ancora nel primo gruppo del pannello"));
@@ -10931,26 +10931,205 @@ t("ogni scheda del registro porta la sua fonte", () => {
   });
 });
 
-// ── DISTANZA DEL NOME DALL'ELEMENTO (31/07) ────────────────────────────────────────────────────
-// Simone: «stessa interfaccia della dimensione etichetta, ma per la distanza dallo strumento».
-// Misurata in cm reali dal bordo. Era 9, e a 9 il disegno di quel che sta sotto (la DI generata da
-// uno strumento) spuntava in mezzo alle parole del nome: dal 07/08 il default è 22.
-console.log("\n— Distanza del nome —");
+// ── IL NOME A FILO DEL DISEGNO (29/09) ─────────────────────────────────────────────────────────
+// Simone (segnalazione 114cfd80): «il parametro distanza è parecchio inutile perché le etichette
+// dovrebbero sempre essere molto vicine e leggibili». Lo slider «Distanza» (31/07) contava dal
+// footprint: a 0 il nome della voce stava 10 cm DENTRO il suo leggio, al default (22) i violini lo
+// avevano a 27 cm dal disegno. Ora il nome si stacca dal disegno MISURATO (misuraArte) di un terzo di
+// lettera. Nel sandbox non c'è un SVG: misuraArte si sostituisce con un finto che restituisce il riquadro.
+console.log("\n— Il nome a filo del disegno —");
 
-t("il default stacca il nome dal disegno e non si scrive nel documento", () => {
-  reset();
-  const it = add("wedge", 400, 300);
-  eq(A.lblDistOf(it), 22, "22 cm dal bordo");
-  eq(it.lblDist, undefined, "e la chiave non c'è: chi ha scelto la sua distanza se la tiene");
+const ARTE_VERA = A.misuraArte;
+const TEMPLATE_29_09 = readFileSync(join(root, "index.template.html"), "utf8");
+function conArte(box, fn) {   /* il disegno «misura» box per tutta la durata di fn */
+  A.misuraArte = () => box; A._arteDi = null;
+  try { return fn(); } finally { A.misuraArte = ARTE_VERA; A._arteDi = null; }
+}
+const yNome = (svg) => { const m = svg.match(/<text class="lbl" y="([\d.-]+)"/); return m ? +m[1] : null; };
+
+t("lo slider «Distanza» non c'è più, né nel pannello né nel codice", () => {
+  ok(TEMPLATE_29_09.indexOf('id="pLblDist"') < 0 && TEMPLATE_29_09.indexOf('id="pLblDistWrap"') < 0, "lo slider è ancora nel pannello");
+  ok(TEMPLATE_29_09.indexOf('id="pLblSize"') > -1, "…ma Dimensione deve restare");
+  eq(typeof A.lblDistOf, "undefined", "lblDistOf esiste ancora: qualcuno può rileggere la distanza");
+  ok(!/\blblDist\b/.test(appjs.replace(/\/\*[\s\S]*?\*\//g, "").replace(/if\(it\.lblDist!=null\) delete it\.lblDist;/, "")),
+     "il codice legge o scrive ancora lblDist fuori dalla migrazione");
 });
 
-t("la distanza si legge, si limita e regge i valori sballati", () => {
+t("un progetto salvato con una distanza si riapre col nome vicino, e la chiave sparisce", () => {
+  const s2 = A.normalizeState({ _v: 5, items: [
+    { id: "d1", type: "wedge", x: 100, y: 100, lblDist: 40 },
+    { id: "d2", type: "wedge", x: 300, y: 100, lblDist: "x" },
+    { id: "d3", type: "wedge", x: 500, y: 100 },
+  ], stage: { w: 1200, d: 800 } });
+  s2.items.forEach((it) => eq(it.lblDist, undefined, it.id + ": la chiave vecchia è rimasta nel documento"));
+  const ia = A.sanitizeItems([{ id: "a1", type: "wedge", x: 100, y: 100, lblDist: 40 }]);
+  eq(ia[0].lblDist, undefined, "anche il JSON dell'assistente la perde");
+});
+
+t("la distanza vecchia rimasta in memoria non sposta il nome", () => {
   reset();
   const it = add("wedge", 400, 300);
-  it.lblDist = 40; eq(A.lblDistOf(it), 40, "40 cm");
-  it.lblDist = 999; eq(A.lblDistOf(it), 80, "il massimo è 80");
-  it.lblDist = -5; eq(A.lblDistOf(it), 0, "sotto zero non si va");
-  it.lblDist = "boh"; eq(A.lblDistOf(it), 22, "un valore non numerico torna al default");
+  const y0 = yNome(A.itemMarkup(it));
+  it.lblDist = 80;
+  eq(yNome(A.itemMarkup(it)), y0, "con lblDist=80 il nome si è mosso");
+  delete it.lblDist;
+});
+
+t("il nome sta a filo del disegno misurato, non del footprint", () => {
+  reset();
+  const it = add("wedge", 400, 300); it.lblSize = 14;
+  /* un disegno che sporge 70 cm sotto il centro (il footprint del wedge ne dichiara meno della metà) */
+  const y = conArte({ x0: -30, y0: -22, x1: 30, y1: 70 }, () => yNome(A.itemMarkup(it)));
+  const cima = y - 14 * 0.72;   /* dove arrivano le maiuscole */
+  ok(cima > 70, "il nome entra nel disegno: cima delle lettere a " + cima.toFixed(1) + ", disegno fino a 70");
+  ok(cima < 70 + 7, "il nome è lontano dal disegno: " + (cima - 70).toFixed(1) + " cm");
+  /* e segue il disegno: più sporge, più scende, di altrettanto */
+  const y2 = conArte({ x0: -30, y0: -22, x1: 30, y1: 110 }, () => yNome(A.itemMarkup(it)));
+  eq(Math.round(y2 - y), 40, "il nome non segue il disegno");
+});
+
+t("sopra lo schienale: il nome sta a filo della sedia misurata", () => {
+  reset();
+  const it = add("vlnpost", 400, 300); it.lblSize = 11;
+  ok(A.lblSopraDi(it), "la postazione con la sedia porta il nome sopra");
+  const y = conArte({ x0: -50, y0: -60, x1: 50, y1: 55 }, () => yNome(A.itemMarkup(it)));
+  const fondo = y + 11 * 0.25;   /* le discendenti */
+  ok(fondo < -60, "il nome entra nello schienale: fondo a " + fondo.toFixed(1));
+  ok(fondo > -60 - 7, "il nome è lontano dallo schienale: " + (-60 - fondo).toFixed(1) + " cm");
+});
+
+t("senza un SVG da misurare vale la stima: footprint, sgabello, schienale", () => {
+  reset();
+  const w = add("wedge", 400, 300); w.lblSize = 14;
+  eq(A.arteStimata(w).y1, w.d / 2, "wedge: il footprint");
+  const k = add("stagepiano", 800, 300);
+  eq(A.arteStimata(k).y1, k.d / 2 + 36, "piano con lo sgabello");
+  ok(A.arteStimata(add("vlnpost", 400, 600)).y0 <= -43.5, "la sedia della postazione");
+  const y = yNome(A.itemMarkup(w));
+  eq(Math.round((y - (w.d / 2 + A.lblStacco(14) + 14 * 0.72)) * 10), 0, "il wedge senza misura: " + y);
+});
+
+t("il nome dello strumento scavalca la sua DI, ma solo se la DI gli sta davanti", () => {
+  reset();
+  const g = add("gtacustica", 400, 300); g.lblSize = 14; g.label = "Chitarra acustica 1";
+  g.w = 60; g.d = 60;   /* nel sandbox l'illustrazione non ha misure: le si dà quelle vere, da cui dipende il posto della DI */
+  const vecchia = A.diLinked(g); if (vecchia) { A.state.items = A.state.items.filter((x) => x !== vecchia); delete g.diId; delete g.diOff; }
+  A.diApply(g);
+  const di = A.diLinked(g);
+  ok(di, "la chitarra acustica non ha generato la DI: il test non prova niente");
+  const arte = { x0: -40, y0: -40, x1: 40, y1: g.d / 2 };
+  const fondoDi = g.diOff[1] + di.d / 2;
+  const y = conArte(arte, () => yNome(A.itemMarkup(g)));
+  ok(y - 14 * 0.72 > fondoDi, "il nome passa sopra la DI: cima " + (y - 14 * 0.72).toFixed(1) + " contro fondo DI " + fondoDi);
+  /* trascinata lontano, la DI non tira più giù il nome */
+  g.diOff = [400, 0];
+  const y2 = conArte(arte, () => yNome(A.itemMarkup(g)));
+  ok(y2 - 14 * 0.72 < arte.y1 + 7, "con la DI lontana il nome resta a filo: " + y2);
+});
+
+t("la postazione doppia scosta i nomi inclinati di quanto sale il capo interno", () => {
+  reset();
+  const it = add("vln1x2", 400, 300); it.lblSize = 14;
+  const svg = conArte({ x0: -80, y0: -60, x1: 80, y1: 50 }, () => A.itemMarkup(it));
+  const ys = (svg.match(/<text class="lbl" x="[\d.-]+" y="([\d.-]+)" transform="rotate\(-?12 /g) || []).map((m) => +m.match(/y="([\d.-]+)"/)[1]);
+  eq(ys.length, 2, "i due nomi inclinati");
+  const piatto = 50 + A.lblStacco(14) + 14 * 0.72;
+  const sale = A.lblTextW(it.label, 14) / 2 * Math.sin(12 * Math.PI / 180);
+  ok(sale > 2, "il nome è troppo corto per provare qualcosa");
+  ok(ys[0] >= piatto + sale - 0.5, "il capo interno del nome entra nel disegno: y=" + ys[0] + " contro " + (piatto + sale).toFixed(1));
+});
+
+t("al telefono (vista girata) il nome sta a filo del disegno nella direzione dello schermo", () => {
+  reset();
+  const it = add("wedge", 400, 300); it.lblSize = 14; it.rot = 0;
+  const prima = A._sceneRuota; A._sceneRuota = -90;
+  try {
+    const svg = conArte({ x0: -50, y0: -22, x1: 30, y1: 22 }, () => A.itemMarkup(it));
+    const m = svg.match(/<text class="lbl" x="([\d.-]+)" y="([\d.-]+)" transform="rotate/);
+    ok(m, "il nome girato non c'è");
+    /* rot 0, vista a −90°: «sotto sullo schermo» è −x dell'elemento, dove il disegno arriva a −50 */
+    eq(+m[1], -Math.round((50 + A.lblStacco(14)) * 10) / 10, "x del nome girato");
+  } finally { A._sceneRuota = prima; }
+});
+
+t("a schermo il nome cresce attorno al bordo del disegno, non alla sua baseline", () => {
+  reset();
+  const it = add("wedge", 400, 300); it.lblSize = 14;
+  eq(A.lblScalaAttorno('<text class="lbl" y="60">B</text>', [0, 40]), '<g class="lblk" style="transform-origin:0px 40px"><text class="lbl" y="60">B</text></g>', "il perno passato vince");
+  const pS = A._lblSchermo, pK = A._lblSink;
+  A._lblSchermo = true; A._lblSink = [];
+  try {
+    conArte({ x0: -30, y0: -22, x1: 30, y1: 70 }, () => A.itemMarkup(it));
+    const g = A._lblSink.join("");
+    ok(/transform-origin:0px 70px/.test(g), "il gruppo del nome non cresce dal bordo del disegno: " + g.slice(0, 160));
+  } finally { A._lblSchermo = pS; A._lblSink = pK; }
+});
+
+// ── AL TELEFONO I NOMI CEDONO IL POSTO (29/09, v2) ─────────────────────────────────────────────
+// Col nome a filo del disegno e il corpo minimo ingrandito 2,3× al telefono, sul progetto di collaudo 25
+// 87 coppie di nomi si accavallavano. nomiCedono (a schermo, solo telefono) nasconde chi toccherebbe un
+// nome già mostrato o — quando il corpo minimo ingrandisce — il disegno di un altro elemento.
+console.log("\n— Al telefono i nomi cedono il posto —");
+const rett = (l, t, r, b) => [[l, t], [r, t], [r, b], [l, b]];
+const girato = (cx, cy, w, h, gradi) => { const a = gradi * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+  return [[-w / 2, -h / 2], [w / 2, -h / 2], [w / 2, h / 2], [-w / 2, h / 2]].map(([x, y]) => [cx + x * c - y * s, cy + x * s + y * c]); };
+
+t("due nomi che si toccano: il secondo in ordine di lettura cede", () => {
+  const via = A.nomiDaNascondere([
+    { id: "b", quads: [rett(10, 20, 60, 30)] },
+    { id: "a", quads: [rett(0, 10, 50, 22)] },
+    { id: "c", quads: [rett(200, 10, 250, 22)] },
+  ], []);
+  eq(JSON.stringify(Object.keys(via).sort()), '["b"]', "cede chi viene dopo, e solo lui");
+});
+
+t("il nome dell'elemento selezionato si vede sempre e prende il posto per primo", () => {
+  const via = A.nomiDaNascondere([
+    { id: "a", quads: [rett(0, 10, 50, 22)] },
+    { id: "sel", sel: true, quads: [rett(10, 20, 60, 30)] },
+  ], []);
+  ok(!via.sel, "il selezionato è stato nascosto");
+  ok(via.a, "chi tocca il selezionato non cede, anche se viene prima in ordine di lettura");
+  ok(!A.nomiDaNascondere([{ id: "s", sel: true, quads: [rett(0, 0, 40, 10)] }], [{ id: "x", quad: rett(0, 0, 100, 100) }]).s,
+     "il selezionato sopra un disegno altrui deve restare");
+});
+
+t("un nome sopra il disegno di un ALTRO elemento cede; sopra il suo no", () => {
+  const nome = { id: "v1", quads: [rett(0, 0, 40, 10)] };
+  ok(A.nomiDaNascondere([nome], [{ id: "v2", quad: rett(20, 5, 80, 60) }]).v1, "sopra il disegno del vicino è rimasto");
+  ok(!A.nomiDaNascondere([nome], [{ id: "v1", quad: rett(20, 5, 80, 60) }]).v1, "il proprio disegno non conta");
+  ok(!A.nomiDaNascondere([nome], [{ id: "v2", quad: rett(40.5, 0, 80, 60) }]).v1, "sfiorarsi non conta");
+});
+
+t("i nomi girati si confrontano inclinati, non col riquadro dritto", () => {
+  /* due scritte a 45°, parallele e staccate: i riquadri dritti si sovrappongono, le scritte no */
+  const a = { id: "a", quads: [girato(100, 100, 80, 10, 45)] }, b = { id: "b", quads: [girato(115, 85, 80, 10, 45)] };
+  ok(!A.quadSiToccano(a.quads[0], b.quads[0], 0), "scritte parallele staccate date per sovrapposte");
+  eq(Object.keys(A.nomiDaNascondere([a, b], [])).length, 0, "un nome girato è sparito per il riquadro dritto");
+  ok(A.quadSiToccano(girato(100, 100, 80, 10, 45), girato(100, 100, 80, 10, -45), 0), "due scritte incrociate non si toccano?");
+});
+
+t("la passata sta a schermo, solo al telefono, e i disegni contano solo col corpo ingrandito", () => {
+  const f = appjs.slice(appjs.indexOf("function aggiornaNomiZoom(){"), appjs.indexOf("function reindexItemNodes(){"));
+  ok(/nomiCedono\(\);\s*return ppm;/.test(f), "aggiornaNomiZoom (render, rotella, pizzico) non chiama la passata");
+  const c = appjs.slice(appjs.indexOf("function nomiCedono(){"), appjs.indexOf("function reindexItemNodes(){"));
+  ok(/var attivo=isMobile\(\) && !svg\.classList\.contains\("names-hidden"\);/.test(c), "la passata non è ristretta al telefono");
+  ok(/if\(K>1\.001\) \(state\.items\|\|\[\]\)\.forEach/.test(c), "i disegni contano anche a corpo pieno");
+  ok(/#svg #layLbl \.item-lbls\.lbl-cede\{visibility:hidden\}/.test(stylesCss), "manca la regola che nasconde il nome che cede");
+  ok(/\.lbl-cede\.selected/.test(stylesCss), "il selezionato deve vedersi anche se cede");
+});
+
+t("la misura del disegno non si rifà per il contatore di libIcon", () => {
+  /* «L772_musTrombone_cls-1» cambia a ogni render: la cache non prendeva mai le postazioni illustrate
+     (38 misure su 93 a ogni render del collaudo 25, 204 ms invece di 80) */
+  const prima = A._arteCache; A._arteCache = null;
+  try {
+    A.misuraArte('<g class="L5_musTromba_cls-1"/>');
+    A.misuraArte('<g class="L977_musTromba_cls-1"/>');
+    eq(A._arteCache.size, 1, "lo stesso disegno misurato due volte");
+    A.misuraArte('<g class="L5_musViola_cls-1"/>');
+    eq(A._arteCache.size, 2, "disegni diversi confusi");
+  } finally { A._arteCache = prima; }
 });
 
 // ── DOVE NASCE UN ELEMENTO POSATO DAL CATALOGO (11/08) ─────────────────────────────────────────
@@ -10964,7 +11143,7 @@ t("la striscia del nome è ingombro: sotto per un wedge, sopra per chi ha la sed
   reset();
   const w = add("wedge", 400, 300);
   const bw = A.lblBandOf(w);
-  ok(bw.sotto >= A.lblDistOf(w), "sotto il wedge si tiene almeno la distanza del nome: " + bw.sotto);
+  ok(bw.sotto >= A.lblStacco(14) + 14, "sotto il wedge si tiene lo stacco e il nome: " + bw.sotto);
   eq(bw.sopra, 0, "e niente sopra");
   const g = add("vlnpost", 900, 300);   /* postazione d'orchestra: nasce con la sedia */
   const bg = A.lblBandOf(g);
@@ -10982,7 +11161,7 @@ t("su un palco stretto il posto si cerca oltre la striscia del nome, non a ridos
   A.state.stage = { w: 260, d: 1400, blocks: [{ x: 0, y: 0, w: 260, d: 1400 }] };
   const a = add("wedge", 130, 300);
   const banda = A.lblBandOf(a).sotto;
-  ok(banda > 20, "il wedge porta il nome sotto di sé: " + banda);
+  ok(banda > 15, "il wedge porta il nome sotto di sé: " + banda);   /* dal 29/09 il nome è a filo: ~20 cm, non più ~37 */
   const p = A.findFreeSpotFor({ type: "wedge", w: a.w, d: a.d }, 130, 300);
   const dy = Math.abs(p.y - a.y);
   ok(dy >= a.d + banda, "il secondo sta oltre la striscia del nome del primo (" + Math.round(dy) + " cm ≥ " + Math.round(a.d + banda) + ")");
@@ -10999,35 +11178,6 @@ t("la posa automatica non manda nessuno fuori dal palco", () => {
   const fuori = A.state.items.filter((o) => o.x - o.w / 2 < 0 || o.x + o.w / 2 > A.state.stage.w
     || o.y - o.d / 2 < 0 || o.y + o.d / 2 > A.state.stage.d);
   eq(fuori.length, 0, "nessuno nasce fuori dal palco: " + fuori.map((o) => o.label || o.type).join(", "));
-});
-
-t("una nota altrui con distanza fuori scala viene riportata nei limiti", () => {
-  const s = A.normalizeState({ _v: 5, items: [
-    { id: "d1", type: "wedge", x: 100, y: 100, lblDist: 5000 },
-    { id: "d2", type: "wedge", x: 200, y: 100, lblDist: "x" },
-  ], stage: { w: 1200, d: 800 } });
-  eq(s.items[0].lblDist, 80, "tagliata a 80");
-  eq(s.items[1].lblDist, undefined, "il non-numero viene buttato");
-});
-
-t("«applica a tutti» vede solo gli elementi dello stesso tipo con distanza diversa", () => {
-  reset();
-  const a = add("wedge", 200, 300), b = add("wedge", 400, 300), c = add("wedge", 600, 300);
-  add("sedia", 800, 300);                                  // altro tipo: non c'entra
-  eq(A.lblDistSiblings(a).length, 0, "all'inizio sono tutti uguali: niente da chiedere");
-  a.lblDist = 30;
-  eq(A.lblDistSiblings(a).length, 2, "ora gli altri due sono diversi");
-  b.lblDist = 30; c.lblDist = 30;
-  eq(A.lblDistSiblings(a).length, 0, "allineati, la domanda decade");
-});
-
-t("la distanza segue l'elemento quando lo si duplica", () => {
-  reset();
-  const it = add("quinta", 300, 300); it.lblDist = 35; it.label = "Quinta";
-  A.selectOne(it.id); A.duplicateSel();
-  const copia = A.state.items.filter((x) => x.type === "quinta" && x.id !== it.id)[0];
-  ok(copia, "la copia c'è");
-  eq(A.lblDistOf(copia), 35, "e porta con sé la distanza");
 });
 
 // ── CIABATTE ELETTRICHE (31/07) ────────────────────────────────────────────────────────────────
@@ -12364,11 +12514,6 @@ t("lo sbraccio del nome cresce col corpo con cui verrà stampato", () => {
   /* il nome sta staccato dall-elemento di una quantità che dipende dall-altezza delle lettere:
      ingrandire il testo a coordinata già scritta lo faceva scendere SOPRA l-elemento */
   ok(y(2) > y(1), "col testo doppio il nome deve stare più in basso, non nello stesso posto");
-  /* ma la distanza scelta dall-utente è in centimetri reali di palco e non si tocca */
-  const d0 = A.lblDistOf(it), prima = y(1);
-  it.lblDist = d0 + 20;
-  eq(Math.round(y(1) - prima), 20, "i cm scelti a mano valgono tali e quali");
-  it.lblDist = d0;
 });
 
 t("il disegno vero usa il corpo stampato e lo spostamento, non solo il calcolo di prova", () => {
@@ -17137,19 +17282,25 @@ t("Solo pedane: dal pannello della pedana si vedono e si prendono solo le pedane
   A.soloPedane(true);
   eq(A.soloOn("pedane"), true, "acceso");
   eq(A.itemPickable(p2), true, "l'altra pedana (anche del coro) si prende");
-  eq(A.itemPickable(v), false, "il resto no");
+  eq(A.itemPickable(v), false, "il riquadro il resto non lo prende");
+  /* dal 29/09 sera il contesto si prende col clic (e prenderlo spegne la vista): prima «non si prendeva» */
+  eq(A.itemPickable(v, { esce: true }), true, "il clic sì");
   eq(A.itemLiveOnStage(v), false, "niente maniglie sul resto");
   const mk = A.sceneMarkup();
-  ok(/<g class="solo-bg" style="opacity:\.15">/.test(mk), "il resto attenuato al 15%, non al .42 dei layer");
-  ok(/mus-item/.test(mk.split('class="solo-bg"')[1] || ""), "il musicista sta nel contesto sfumato");
+  /* classe «solo-bg solo-prende»: il contesto delle pedane si prende col clic (prima solo «solo-bg») */
+  ok(/<g class="solo-bg solo-prende" style="opacity:\.15">/.test(mk), "il resto attenuato al 15%, non al .42 dei layer");
+  ok(/mus-item/.test(mk.split('class="solo-bg')[1] || ""), "il musicista sta nel contesto sfumato");
   const keepSolo = A.layerSoloUI; A.layerSoloUI = { stage: true };
   ok(/<g class="solo-bg" style="opacity:\.42">/.test(A.sceneMarkup()), "il solo del Palco resta a .42");
   A.layerSoloUI = keepSolo;
   A.pruneSolo();
   eq(A.soloOn("pedane"), true, "con la pedana ancora selezionata resta acceso a ogni render");
+  /* dal 29/09 sera la vista vale solo per selezioni di SOLE pedane: una mista la spegne (prima la teneva) */
   A.selSet = {}; A.selSet[p1.id] = true; A.selSet[v.id] = true; A.sel = p1.id;
+  eq(A.soloPedaneDisponibile(), false, "pedana + musicista: il comando non c'è");
   A.pruneSolo();
-  eq(A.soloOn("pedane"), true, "una selezione che contiene una pedana lo tiene");
+  eq(A.soloOn("pedane"), false, "e una selezione mista lo spegne");
+  A.selectOne(p1.id); A.soloPedane(true);
   eq(A.undoStack.length, undo0, "annulla/ripeti non ne sono toccati");
   ok(!/pedane/.test(JSON.stringify(A.state)), "è una vista: non finisce nel progetto");
   /* export: il PDF disegna il progetto, non la vista (i cavi seguono il solo attraverso layerShown) */
@@ -17159,7 +17310,7 @@ t("Solo pedane: dal pannello della pedana si vedono e si prendono solo le pedane
   eq(soloNelPdf, false, "nel PDF nessun solo attivo");
   eq(A.soloOn("pedane"), true, "e dopo l'export il solo è ancora lì");
   const png = A.buildExportSvg().svgStr;
-  ok(/<g id="layItems">/.test(png) && !/class="solo-bg"/.test(png), "il PNG esce senza sfumatura");
+  ok(/<g id="layItems">/.test(png) && !/class="solo-bg/.test(png), "il PNG esce senza sfumatura");
   eq(A.soloOn("pedane"), true, "e anche dopo il PNG il solo è ancora lì");
   /* si spegne da solo: altro tipo selezionato, deselezione, Esc */
   A.selectOne(v.id); A.pruneSolo();
@@ -17172,6 +17323,151 @@ t("Solo pedane: dal pannello della pedana si vedono e si prendono solo le pedane
   eq(A.anySolo(), false, "di nuovo il comando: spento");
   A.layerSoloUI = {}; A.clearSelection();
 });
+
+/* ===== Solo pedane automatico (29/09 sera, Simone: «se seleziono una pedana vedo gli elementi in trasparenza
+   e mi piace, vorrei vedere in trasparenza anche quelli sopra la pedana mentre adesso sono sotto. vorrei che
+   l'opzione visibilità solo pedane si attivasse in automatico nel momento in cui seleziono una pedana») ===== */
+function conSoloPedAuto(fn, classi) {
+  const oldDoc = A.document, oldLock = A.__projLocked;
+  /* il DOM finto dice «sì» a ogni classList.contains (sarebbe sempre sola lettura): qui risponde solo per le
+     classi date, e il resto passa al DOM finto di sempre (render, addItem) */
+  const cl = new Proxy({}, { get: (t, k) => (k === "contains" ? (c) => !!(classi && classi[c]) : oldDoc.body.classList[k]) });
+  const body = new Proxy({}, { get: (t, k) => (k === "classList" ? cl : oldDoc.body[k]) });
+  A.document = new Proxy({}, { get: (t, k) => (k === "body" ? body : oldDoc[k]) });
+  A.layerSoloUI = {}; A.layerAccOpen = null; A.soloPedFirma = null; A.soloPedGesto = false; A.__projLocked = false;
+  try { fn(); } finally {
+    A.document = oldDoc; A.__projLocked = oldLock; A.layerSoloUI = {}; A.layerAccOpen = null;
+    A.clearSelection(); A.soloPedFirma = null; A.soloPedGesto = false;
+  }
+}
+/* la mano sceglie: è quello che fanno clic, tocco, riquadro ed elenco prima del loro render() */
+function scegli(ids) {
+  A.selSet = {}; ids.forEach((id) => { A.selSet[id] = true; }); A.sel = ids[ids.length - 1] || null;
+  A.soloPedGesto = true; A.soloPedaneAuto(); A.pruneSolo();
+}
+const idsOrd = (arr) => arr.map((i) => i.id).sort();
+
+t("Solo pedane automatico: si accende quando la mano seleziona SOLO pedane, non col codice né con selezioni miste", () => conSoloPedAuto(() => {
+  reset();
+  const p1 = add("pedana", 300, 300), p2 = add("pedanacoro", 700, 300), v = add("vlnpost", 300, 300);
+  A.layerSoloUI = {}; A.soloPedFirma = null;
+  scegli([p1.id]);
+  eq(A.soloOn("pedane"), true, "clic su una pedana: acceso da solo");
+  scegli([p1.id, p2.id]);
+  eq(A.soloOn("pedane"), true, "due pedane (shift o riquadro): resta acceso");
+  scegli([p1.id, v.id]);
+  eq(A.soloOn("pedane"), false, "pedana + musicista: spento");
+  scegli([v.id]);
+  eq(A.soloOn("pedane"), false, "solo il musicista: niente");
+  scegli([]);
+  /* dal codice (Duplica, Incolla, aggiunta dal catalogo, Annulla): niente gesto, niente vista */
+  A.selectOne(p2.id); A.soloPedaneAuto(); A.pruneSolo();
+  eq(A.soloOn("pedane"), false, "selezione dal codice: non si accende");
+  scegli([]);
+  /* il render lo chiama davvero, prima di pruneSolo; i gesti della mano alzano la bandierina */
+  ok(/function render\(\)\{\s*soloPedaneAuto\(\);[^\n]*\n\s*pruneSolo\(\);/.test(appjs), "render() → soloPedaneAuto() → pruneSolo()");
+  ok(/if\(!selSet\[id\]\)\{ selectClick\(id\); soloPedGesto=true; \}/.test(appjs), "clic sul disegno");
+  ok(/toggleSelId\(id\); soloPedGesto=true; render\(\);/.test(appjs), "shift+clic");
+  ok(/selectClick\(nid\); soloPedGesto=true; render\(\);/.test(appjs), "clic ripetuto (cicloSotto)");
+  ok(/selSet\[it\.id\]=true; sel=it\.id; \}\s*\}\);\s*soloPedGesto=true;/.test(appjs), "riquadro");
+  ok(/selectClick\(g\.getAttribute\("data-go"\)\); closeAll\(\); soloPedGesto=true;/.test(appjs), "nome nell'elenco del telefono");
+  eq((appjs.match(/soloPedGesto=true/g) || []).length, 5, "e nessun altro: le selezioni dal codice non accendono niente");
+}));
+
+t("Solo pedane automatico: niente nelle viste di sola lettura né sopra una vista dei layer scelta a mano", () => {
+  reset();
+  const p1 = add("pedana", 300, 300);
+  [["viewmode", "link ?view="], ["consult-viewer", "cliente in consulenza"]].forEach(([c, nome]) => conSoloPedAuto(() => {
+    scegli([p1.id]);
+    eq(A.soloOn("pedane"), false, nome + ": non si accende");
+  }, { [c]: true }));
+  conSoloPedAuto(() => {
+    A.__projLocked = true;
+    scegli([p1.id]);
+    eq(A.soloOn("pedane"), false, "progetto bloccato: non si accende");
+  });
+  conSoloPedAuto(() => {
+    A.layerAccOpen = "stage"; A.layerSoloUI = { stage: true };
+    scegli([p1.id]);
+    eq(JSON.stringify(A.layerSoloUI), '{"stage":true}', "vista Palco aperta: resta quella, non diventa «Solo pedane»");
+  });
+  conSoloPedAuto(() => {
+    scegli([p1.id]);
+    eq(A.soloOn("pedane"), true, "e fuori da quei casi sì (controprova)");
+  });
+});
+
+t("Solo pedane automatico: spento l'occhio resta spento per QUELLA selezione; riselezionando si riaccende", () => conSoloPedAuto(() => {
+  reset();
+  const p1 = add("pedana", 300, 300), p2 = add("pedana", 700, 300);
+  scegli([p1.id]);
+  eq(A.soloOn("pedane"), true, "premessa: acceso");
+  A.soloPedane(false);
+  A.soloPedGesto = true; A.soloPedaneAuto(); A.pruneSolo();   /* un altro clic sulla stessa pedana già presa */
+  eq(A.soloOn("pedane"), false, "occhio spento: la stessa selezione non lo riaccende");
+  A.soloPedaneAuto(); A.soloPedaneAuto();   /* i render che seguono */
+  eq(A.soloOn("pedane"), false, "neanche i render dopo");
+  scegli([]);   /* clic sul vuoto */
+  scegli([p1.id]);
+  eq(A.soloOn("pedane"), true, "deselezionata e ripresa: si riaccende");
+  A.exitListMode();   /* «Mostra tutto il palco» del banner, o Esc */
+  A.soloPedGesto = true; A.soloPedaneAuto(); A.pruneSolo();
+  eq(A.soloOn("pedane"), false, "«Mostra tutto il palco» vale come l'occhio");
+  scegli([p2.id]);
+  eq(A.soloOn("pedane"), true, "un'altra pedana è un'altra selezione: si riaccende");
+}));
+
+t("Solo pedane automatico: un clic su un elemento sfumato lo prende subito e spegne la vista", () => conSoloPedAuto(() => {
+  reset();
+  const ped = add("pedana", 300, 300), v = add("vlnpost", 300, 300);
+  scegli([ped.id]);
+  eq(A.soloOn("pedane"), true, "premessa: acceso");
+  /* clic fermo sul violinista che sta sopra la pedana presa: il ciclo passa a lui (un clic, non due) */
+  A.soloPedGesto = false;
+  ok(A.cicloSotto({ id: ped.id, ids: [v.id, ped.id] }), "lo sfumato si prende");
+  eq(A.selIds(), [v.id], "preso il violinista");
+  A.soloPedaneAuto(); A.pruneSolo();
+  eq(A.soloOn("pedane"), false, "e la vista si è spenta");
+  /* nel disegno lo sfumato delle pedane prende il puntatore, quello dei layer no */
+  scegli([ped.id]);
+  ok(/<g class="solo-bg solo-prende"[^>]*>(?:(?!<g class="solo-bg)[\s\S])*data-id="/.test(A.sceneMarkup()), "contesto delle pedane: classe solo-prende");
+  ok(/\.solo-bg:not\(\.solo-prende\)\{ pointer-events:none; \}/.test(stylesCss), "CSS: solo lo sfumato dei layer è trasparente al puntatore");
+  ok(!/\.solo-prende\{[^}]*pointer-events:auto/.test(stylesCss), "e senza un auto che scavalcherebbe il lucchetto del Palco");
+  A.layerSoloUI = { stage: true };
+  ok(!/solo-prende/.test(A.sceneMarkup()), "i solo dei layer: il contesto non si prende, come prima");
+}));
+
+t("Solo pedane: chi sta sopra una pedana si disegna SOPRA la pedana, sfumato; aggancio e export invariati", () => conSoloPedAuto(() => {
+  reset();
+  const ped = add("pedana", 300, 300), v = add("vlnpost", 300, 300), fuori = add("vlnpost", 900, 600);
+  ok(A.itemsOnRiser(ped).indexOf(v) > -1, "premessa: il violinista sta sulla pedana");
+  const lay = (mk) => mk.slice(mk.indexOf('<g id="layItems">'), mk.indexOf('<g id="layLbl"'));
+  const pos = (mk, it) => lay(mk).indexOf('data-id="' + it.id + '"');
+  const normale = A.sceneMarkup();
+  ok(pos(normale, ped) > -1 && pos(normale, ped) < pos(normale, v), "premessa: sul palco normale la pedana sta sotto il violinista");
+  scegli([ped.id]);
+  const mk = A.sceneMarkup();
+  ok(pos(mk, ped) > -1 && pos(mk, ped) < pos(mk, v), "Solo pedane: il violinista è disegnato dopo (sopra) la pedana");
+  const dopo = lay(mk).slice(pos(mk, ped));
+  ok(/<g class="solo-bg solo-prende" style="opacity:\.15">/.test(dopo) && dopo.indexOf('data-id="' + v.id + '"') > dopo.indexOf("solo-prende"), "…ed è sfumato al 15%");
+  const prima = lay(mk).slice(0, pos(mk, ped));
+  ok(prima.indexOf('data-id="' + v.id + '"') < 0 && prima.indexOf('data-id="' + fuori.id + '"') < 0, "niente musicisti sotto la pedana");
+  /* i layer restano come prima: tutto il contesto sotto, in un gruppo solo */
+  A.layerSoloUI = { stage: true };
+  const st = A.sceneMarkup();
+  ok(lay(st).indexOf('data-id="' + v.id + '"') < pos(st, ped), "solo del Palco: il contesto resta sotto");
+  eq((lay(st).match(/class="solo-bg/g) || []).length, 1, "in un gruppo solo");
+  A.layerSoloUI = { pedane: true };
+  /* aggancio: chi sta sopra segue la pedana (stesso motore, la vista non lo tocca) */
+  ped.aggancia = true;
+  eq(idsOrd(A.caricoDellePedane([ped])), idsOrd([ped, v]), "agganciata: il violinista la segue anche con la vista accesa");
+  delete ped.aggancia;
+  /* export: identico con e senza la vista */
+  const conVista = A.buildExportSvg().svgStr;
+  eq(A.soloOn("pedane"), true, "premessa: la vista è ancora accesa dopo il PNG");
+  A.layerSoloUI = {};
+  eq(conVista, A.buildExportSvg().svgStr, "il PNG è lo stesso con e senza «Solo pedane»");
+}));
 
 t("Solo pedane: il comando c'è nei tre pannelli, con l'occhio e 44 px col dito", () => {
   const html = readFileSync(join(root, "index.template.html"), "utf8");
