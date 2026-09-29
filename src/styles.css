@@ -1805,6 +1805,8 @@ svg.names-hidden .orc-name{display:none}
   .ss-inwrap i{position:absolute;right:11px;font-style:normal;font-size:13px;font-weight:600;color:var(--text-3);pointer-events:none}
   .ss-err{margin:10px 0 0;font-size:13px;font-weight:600;color:var(--danger);line-height:var(--lh-snug)}
   .ss-foot{margin-top:16px}
+  .ap-scena{display:flex;align-items:center;gap:8px;min-height:44px;margin:10px 0 0;font-size:14px;color:var(--text);cursor:pointer}
+  .ap-scena input{accent-color:var(--accent);width:18px;height:18px;margin:0}
   .wl-ghost{appearance:none;background:var(--surface);border:1px solid var(--border);color:var(--text-2);border-radius:10px;padding:9px 14px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:background var(--dur-fast),color var(--dur-fast)}
   .wl-ghost:hover{background:var(--accent-tint);color:var(--accent)}
   body.dark .ss-inwrap input{background:#141a1d;border-color:#2a3138}
@@ -3114,6 +3116,22 @@ body.dark .ask-all .btn{background:transparent}
   .lite-btn{width:44px;height:44px}
   #props .btn.cnt-b{width:44px;height:44px;min-width:44px}   /* i +/− dei contatori: si premono a ripetizione */
 }
+/* SOLO PEDANE (29/09, Simone) — il comando compare nel pannello solo con una pedana selezionata.
+   Occhio + parola; acceso = ambra, lo stesso segno del solo dei layer. Sul telefono sta nella testa
+   del foglio (#mPeek) come quinta azione: il pannello vero lo ripeterebbe due volte. */
+#props .solo-ped{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin:0 0 10px;font-size:12px;font-weight:600}
+#props .solo-ped svg{width:16px;height:16px;flex:0 0 auto}
+#props .solo-ped.on{background:#fde68a;border-color:#f59e0b;color:#92400e}
+body.dark #props .solo-ped.on{background:#78350f;border-color:#b45309;color:#fbbf24}
+@media (pointer:coarse){ #props .solo-ped{min-height:44px} }
+@media (max-width:880px){
+  body.m-has-sel #props .solo-ped{display:none!important}
+  body.ped-sel #mPeek .mpk-acts{grid-template-columns:repeat(5,minmax(0,1fr))}
+  #mPeek .mpk-acts .mpk-solo{line-height:1.1;text-align:center}
+  #mPeek .mpk-acts .mpk-solo.on{background:#fde68a;border-color:#f59e0b;color:#92400e}
+  body.dark #mPeek .mpk-acts .mpk-solo.on{background:#78350f;border-color:#b45309;color:#fbbf24}
+}
+
 
 /* ── BARRA ALTA, MENU E PANNELLI DEL TELEFONO (13/09) ─────────────────────────────────────────────
    Simone: «analizza la versione mobile e prova a farmi dei mockup», poi «procedi con tutte».

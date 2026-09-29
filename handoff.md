@@ -6,6 +6,13 @@ sono state scritte qui: la loro storia sta nei messaggi di commit e nelle PR (#9
 
 ## Settembre in una pagina (PR su `main`)
 
+- **29/09 — «Solo pedane»** (ramo `solo-pedane`, segnalazione di Simone). Con una pedana nella selezione il
+  pannello (`#pSoloPed`, `#grpSoloPed`; sul telefono `#mPeekSolo`, quinta azione della testa) ha l'occhio «Solo
+  pedane»: è la voce `pedane` di `layerSoloUI` (`layerFgItem` → `isRiser`), non un meccanismo nuovo. Contesto al 15%
+  (`_bgOp`; i layer restano a .42), non si prende; si spegne in `pruneSolo` quando la selezione non ha più pedane,
+  con Esc e col clic sul vuoto. `stageSceneSvg`/`buildExportSvg` girano dentro `senzaSoloPedane`: il PDF/PNG non
+  lo vede (col solo acceso il PDF perdeva i cavi, `layerShown` segue il solo). Non salvato, niente undo.
+
 - **29/09 — Revisione a 8 aspetti, azioni 1-4** (#238). 48V: `cabSetMic` azzera `m.p48` al cambio microfono;
   regola audit `p48no`/`p48si` sulle righe forzate a mano (`auditFixP48Auto`). Monitor: `_personali` (hearback/IEM)
   nella regola `nomon`. PDF: `pdfCredit` scrive «pag N/M»; 8 `trow` ripetono l'intestazione (`_testaTab`);
