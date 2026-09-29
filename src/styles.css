@@ -2096,6 +2096,9 @@ svg.names-hidden .orc-name{display:none}
   body.dark .btn{background:#222b38;color:#e5e7eb}
   body.dark .btn:hover{background:#2c3848}
   /* le varianti vanno ri-dichiarate in dark: `body.dark .btn` (0,2,1) batte `.btn.primary` (0,2,0) */
+  /* «Crea il palco» (.wl-cta) non è un .btn: senza questa riga in scuro restava bianco su #5eead4 = 1,48:1,
+     invisibile, sul primo pulsante del percorso (revisione 28/09) */
+  body.dark .wl-cta{background:#0b7a70;color:#fff}
   body.dark .btn.primary{background:#0b7a70;color:#fff}   /* teal scuro: testo bianco 5,21:1. Era var(--accent) col testo #e5e7eb = 3,02:1 su Crea il palco, Condividi, Report PDF (revisione 25/09) */
   body.dark .btn.primary:hover{background:#096a61}   /* --accent-strong in scuro è chiaro: da sfondo renderebbe illeggibile il testo bianco */
   body.dark .btn.danger{background:#3a1d1f;color:#fca5a5}

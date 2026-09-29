@@ -9214,7 +9214,10 @@ function auditEngine(){
      corrente. Il documento consegnato diceva risolto un impianto inesistente (06/08). */
   if((Re.distros||[]).length && !(Re.feeds||[]).length && Re.totW>AUDIT_MIN_W)
     add("err","I quadri sul palco non hanno alimentazione a monte: la Lista carichi esce come se tutto fosse alimentato.","Elettrico","Collega il quadro alla presa di rete o al generatore, e le ciabatte al quadro: trascina il pallino ambra del distro sulla sorgente.",null,"nofeed");
-  if(audioSrc>AUDIT_MIN_CH && monitors===0 && !eventoConferenza()) add("warn","Nessun monitor sul palco: i musicisti non si sentono.","Monitor","Aggiungi wedge o IEM dal catalogo Monitor da palco.",{label:"Aggiungi wedge",run:auditFixAddWedge},"nomon");
+  /* I personal mixer (hearback) non sono mandate della console: prima non contavano, e un'orchestra con 19
+     personal mixer si sentiva dire «Nessun monitor sul palco» con il pulsante per aggiungere un wedge (revisione 28/09) */
+  var _personali=items.some(function(it){ return it.type==="hearback"||it.type==="iem"; });
+  if(audioSrc>AUDIT_MIN_CH && monitors===0 && !_personali && !eventoConferenza()) add("warn","Nessun monitor sul palco: i musicisti non si sentono.","Monitor","Aggiungi wedge o IEM dal catalogo Monitor da palco.",{label:"Aggiungi wedge",run:auditFixAddWedge},"nomon");
   /* L6 — prontezza a livello RIDER: un documento consegnabile ha titolo e console dichiarata.
      (Il luogo NO: un rider di band è tipicamente valido per tutte le date.) */
   if(items.length && !String(state.titolo||"").trim()) add("warn","Il progetto non ha un titolo: è l'intestazione del"+(eventoConferenza()?"la scheda tecnica.":" rider."),"Rider","Dai un nome al progetto (in alto): finisce nel PDF e nell'oggetto della mail di condivisione.",{label:"Scrivi il titolo",run:auditFixFocusTitle});
@@ -9243,6 +9246,28 @@ function auditEngine(){
         "Il phantom su un microfono a nastro passivo può danneggiare il nastro: spegni il 48V su questa riga.",
         {label:"Apri Channel list",run:auditFixOpenChan}, "rib48:"+r.key); });
   }catch(e){ /* motore cablaggio non pronto: l'audit non deve mai far cadere il pannello */ }
+  /* PHANTOM MESSO A MANO CHE CONTRADDICE IL MICROFONO (revisione 28/09). Il 48V si può forzare riga per riga,
+     e la scelta restava anche cambiando microfono: un condensatore senza phantom (muto al soundcheck) o un
+     48V su un dinamico finivano nel rider come se fossero giusti, senza nessun avviso (progetto vero: SM81 e
+     KM184 senza 48V). Si guardano solo le righe forzate a mano e i microfoni che il catalogo conosce; le DI
+     e i nastri passivi hanno già le loro regole. */
+  try{
+    var p48No=[], p48Si=[];
+    (patchList().rows||[]).forEach(function(r){
+      if(!r || r.reserved || r.p48Auto || !r.mic || /\bDI\b/.test(r.mic)) return;
+      var info=MIC_DEFAULTS[r.mic] || micNormIndex()[_micFlatKey(r.mic)];
+      if(!info) return;
+      var d=MIC_DB[r.mic]; if(d && d.type==="nastro" && !d.p48) return;
+      if(info.p48 && !r.p48) p48No.push(r); else if(!info.p48 && r.p48) p48Si.push(r);
+    });
+    var elenco=function(L){ return L.slice(0,4).map(function(r){ return r.n+" ("+r.mic+")"; }).join(", ")+(L.length>4?"…":""); };
+    if(p48No.length) add("warn", (p48No.length===1?"Il canale ":"I canali ")+elenco(p48No)+(p48No.length===1?" è un condensatore senza +48V":" sono condensatori senza +48V")+": al soundcheck non suonano.","Audio",
+      "Il 48V è stato spento a mano. Se non è voluto, riportalo a quello del microfono.",
+      {label:"Riporta il 48V al microfono",run:function(){ auditFixP48Auto(p48No); }}, "p48no");
+    if(p48Si.length) add("warn", "+48V acceso a mano "+(p48Si.length===1?"sul canale ":"sui canali ")+elenco(p48Si)+", che non lo richied"+(p48Si.length===1?"e":"ono")+".","Audio",
+      "Su un dinamico è inutile, su alcuni radiomicrofoni può fare danni. Se non è voluto, riportalo a quello del microfono.",
+      {label:"Riporta il 48V al microfono",run:function(){ auditFixP48Auto(p48Si); }}, "p48si");
+  }catch(e){ /* motore cablaggio non pronto */ }
   var noMic=_manuale.filter(function(r){ return r && r.src && String(r.src).trim() && !(r.mic && String(r.mic).trim()); });
   if(noMic.length) add("warn", noMic.length+(noMic.length===1?" ingresso è":" ingressi sono")+" senza mic/DI assegnato.","Audio","Ogni sorgente audio ha bisogno di un mic o di una DI: completa la channel list.",{label:"Apri Channel list",run:auditFixOpenChan});
   /* L8 (casi reali, 15/07) — il cantante non genera canali da solo → senza un mic voce
@@ -9609,6 +9634,7 @@ function auditFixOpenContacts(){   /* «Contatti e ruoli» sta nel pannello Chan
   if(typeof chanEdit!=="undefined" && !chanEdit && typeof toggleChan==="function") toggleChan();
   setTimeout(function(){ var el=document.getElementById("contactRows"); if(el && el.scrollIntoView) try{ el.scrollIntoView({block:"center"}); }catch(e){} }, 60);
 }
+function auditFixP48Auto(rows){ (rows||[]).forEach(function(r){ var m=cabManual(r.key); delete m.p48; }); __cabRes=null; save(); render(); }
 function auditFixOpenChan(){ var b=document.getElementById("bChanList"); if(b) b.click(); }   /* T1: apre la channel list per completare i mic mancanti */
 /* PALCO VUOTO: dire cosa fare (01/09). Chiudendo il benvenuto senza scegliere un modello si resta
    davanti a un rettangolo con scritto FONDO PALCO e PUBBLICO, e nient'altro: il catalogo e' li' a
@@ -20290,7 +20316,12 @@ function cabUnlinkOne(key){
 }
 function cabMicToggle(key){ var m=cabManual(key); m.micOff=!m.micOff; if(m.micOff) delete m.mic; __cabRes=null; save(); render(); }
 /* Input list: cambia il microfono/tipo di un canale (testo libero: "SM58", "DI", "Line"…). Vuoto = togli il mic. */
-function cabSetMic(key, v){ var m=cabManual(key); v=String(v||"").trim(); if(v){ m.mic=v.slice(0,24); m.micOff=false; } else { delete m.mic; m.micOff=true; } __cabRes=null; save(); render(); }
+/* Cambiando microfono il 48V forzato a mano si azzera e torna quello del microfono nuovo (revisione 28/09):
+   restava quello di prima, e un KM184 messo al posto di un SM58 usciva senza phantom. */
+function cabSetMic(key, v){ var m=cabManual(key); v=String(v||"").trim(); var prima=m.mic;
+  if(v){ m.mic=v.slice(0,24); m.micOff=false; } else { delete m.mic; m.micOff=true; }
+  if(m.mic!==prima) delete m.p48;
+  __cabRes=null; save(); render(); }
 /* Riordino manuale delle liste: ordine salvato come sequenza di chiavi; # rinumerato per posizione. */
 function _listMove(cur, id, dir, apply){
   var i=cur.indexOf(id), j=i+dir; if(i<0||j<0||j>=cur.length) return;

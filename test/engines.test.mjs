@@ -16606,7 +16606,7 @@ t("il progetto sa se è una conferenza, e il PDF parla da conferenza", () => {
   ok(/doc\.text\(eventoConferenza\(\) \? "SCHEDA TECNICA EVENTO" : "STAGE PLOT — Rider tecnico"/.test(appjs), "l'intestazione del PDF");
   eq((appjs.match(/key:"rider", (title|label):nomeDocumento\(\)/g) || []).length, 2, "il nome della pagina, nell'export e nel link");
   ok(/body\.ev-conferenza #bRichiedi, body\.ev-conferenza #mactRichiedi\{display:none\}/.test(stylesCss), "niente «Richiedi musicisti»");
-  ok(/monitors===0 && !eventoConferenza\(\)\) add\("warn","Nessun monitor sul palco/.test(appjs), "niente «i musicisti non si sentono»");
+  ok(/monitors===0 && !_personali && !eventoConferenza\(\)\) add\("warn","Nessun monitor sul palco/.test(appjs), "niente «i musicisti non si sentono»");
   const s0 = A.state.tipoEvento;
   try {
     A.state.tipoEvento = "conferenza";
@@ -16753,6 +16753,54 @@ t("un login si conta solo quando si torna da un accesso, non a ogni ricarica", (
   eq(m && m[1], "oauthReturn", "e conta solo al ritorno da un accesso");
   ok(/var oauthReturn=\/\[\?&#\]\(code\|access_token\)=\/\.test\(location\.href\);/.test(appjs) && /if\(accessoAppenaFatto\) oauthReturn=true;/.test(appjs),
     "ritorno = ?code= del vecchio accesso, oppure il segno lasciato da /accedi/google/");
+});
+
+t("con i personal mixer sul palco non esce «Nessun monitor sul palco»", () => {
+  /* revisione 28/09: due orchestre vere con 19 hearback si sentivano dire che i musicisti non si sentono,
+     con il pulsante per aggiungere un wedge. I personal mixer non sono mandate della console. */
+  reset(); for (let i = 0; i < 6; i++) add("cantante", 200 + i * 80, 300);
+  ok(hasMsg(/Nessun monitor sul palco/), "senza monitor l'avviso c'è (controllo positivo)");
+  add("hearback", 300, 400);
+  ok(!hasMsg(/Nessun monitor sul palco/), "con un personal mixer tace; findings: " + auditMsgs().join(" | "));
+});
+
+t("il 48V messo a mano che contraddice il microfono si vede, e cambiando microfono si riallinea", () => {
+  /* revisione 28/09: il phantom forzato a mano restava anche cambiando microfono, e fuori dalla
+     consulenza nessun controllo lo guardava: un condensatore muto al soundcheck finiva nel rider. */
+  reset(); add("cantante", 300, 300);
+  const riga = () => A.patchList().rows.find((r) => /SM58|KM184/.test(r.mic));
+  const r0 = riga(); ok(r0 && r0.mic === "SM58" && !r0.p48, "la voce nasce con SM58 senza 48V");
+  ok(!hasMsg(/\+48V acceso a mano|senza \+48V/), "all'inizio nessun avviso");
+  A.cabSetP48(r0.key, true);
+  ok(hasMsg(/\+48V acceso a mano sul canale 1 \(SM58\)/), "48V a mano su un dinamico: avviso; findings: " + auditMsgs().join(" | "));
+  A.cabSetMic(r0.key, "KM184");
+  const r1 = riga(); ok(r1.mic === "KM184" && r1.p48 && r1.p48Auto, "cambiando microfono il 48V torna quello del microfono");
+  ok(!hasMsg(/\+48V acceso a mano|senza \+48V/), "e l'avviso sparisce");
+  A.cabSetP48(r1.key, false);
+  const f = A.auditEngine().findings.find((x) => x.rule === "p48no");
+  ok(f && /condensatore senza \+48V/.test(f.msg) && f.lvl === "warn", "condensatore spento a mano: avviso");
+  f.act.run();
+  const r2 = riga(); ok(r2.p48 && r2.p48Auto, "il pulsante riporta il 48V a quello del microfono");
+  ok(!hasMsg(/senza \+48V/), "e l'avviso se ne va");
+  A.cabSetMic(r2.key, "SM58"); A.cabSetMic(r2.key, "SM58");
+  ok(!riga().p48, "rimettere lo stesso microfono non cambia niente");
+});
+
+t("«fonico» non definisce più Simone nelle pagine pubbliche", () => {
+  /* 25/08, Simone: sound engineer, non «fonico». La consulenza era stata corretta, le guide no (revisione
+     28/09: 23 bio e 21 pulsanti). «Fonico» come nome del mestiere nelle guide resta. */
+  const pagine = [];
+  const giro = (dir) => { for (const n of readdirSync(join(root, dir))) { const p = join(dir, n); if (statSync(join(root, p)).isDirectory()) giro(p); else if (n.endsWith(".html") && pubblicata(p)) pagine.push(p); } };
+  ["guida", "stage-plot", "consulenza"].forEach(giro);
+  ok(pagine.length > 20, "trovate le pagine pubbliche: " + pagine.length);
+  const male = pagine.filter((p) => /Fonico per spettacoli|revisionare da un fonico/.test(readFileSync(join(root, p), "utf8")));
+  eq(male, [], "pagine che chiamano Simone «fonico»");
+  ok(/Sound engineer per spettacoli dal vivo/.test(readFileSync(join(root, "ops/genera-catalogo-mic.mjs"), "utf8")), "e il generatore non lo rimette");
+});
+
+t("«Crea il palco» si legge anche in tema scuro", () => {
+  /* revisione 28/09: in scuro --accent-strong diventa chiaro e il bottone era bianco su #5eead4 = 1,48:1 */
+  ok(/body\.dark \.wl-cta\{background:#0b7a70;color:#fff\}/.test(stylesCss), "in scuro il bottone ha lo sfondo scuro");
 });
 
 t("il limite della landing non si aggira con un IP inventato, e c'è un tetto globale", () => {
