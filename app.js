@@ -6527,7 +6527,10 @@ var _arteDi=null;   /* ultimo riquadro misurato per elemento: lo leggono lblRect
 function misuraArte(markup){
   if(!markup) return null;
   if(!_arteCache) _arteCache=new Map();
-  if(_arteCache.has(markup)) return _arteCache.get(markup);
+  /* la chiave senza il contatore di libIcon («L772_musTrombone_cls-1»): cambia a ogni render e la cache non
+     prendeva mai le postazioni illustrate — 38 misure su 93 a ogni render, 200 ms invece di 80 (29/09) */
+  var chiave=markup.replace(/\bL\d+_/g,"L_");
+  if(_arteCache.has(chiave)) return _arteCache.get(chiave);
   var b=null;
   try{
     if(!_arteSvg || !_arteSvg.isConnected){
@@ -6546,7 +6549,7 @@ function misuraArte(markup){
     _arteSvg.innerHTML="";   /* niente doppioni di id (gradienti, clip) nel documento */
   }catch(e){ return null; }   /* niente documento (boot, sandbox): non si ricorda, si riprova */
   if(_arteCache.size>800) _arteCache.clear();
-  _arteCache.set(markup, b);
+  _arteCache.set(chiave, b);
   return b;
 }
 /* stima senza SVG: il footprint, più quel che si sa sporgere */
@@ -10750,7 +10753,87 @@ function aggiornaNomiZoom(){
   var nMode = state.namesMode||'auto';
   svg.classList.toggle("names-hidden", nMode==='off' || (nMode==='auto' && ppm<30));
   try{ svg.style.setProperty("--lblK", Math.max(1, 9/(14*ppm/100)).toFixed(3)); }catch(e){}
+  nomiCedono();
   return ppm;
+}
+/* NOMI CHE CEDONO IL POSTO (29/09, telefono). Col nome a filo del disegno, al telefono il corpo minimo
+   (--lblK, fino a 2,3× sul palco intero) faceva crescere ogni nome fin sopra i vicini: «Voce 1Voce 1Voce…»
+   in fila, «ViViola 3», i violini verticali uno sull'altro (sul progetto di collaudo 25, nomi accesi: 87 coppie
+   di nomi sovrapposte; su main 66, in parte nascoste sotto i disegni). Ora, a schermo e solo sul telefono,
+   un nome che toccherebbe un nome già mostrato o il disegno di un ALTRO elemento si nasconde
+   (visibility: il suo riquadro resta misurabile); ingrandendo la vista il corpo minimo cala e i nomi
+   ricompaiono. A corpo pieno (--lblK 1) vale solo nome contro nome: su un palco fitto due nomi si toccano anche
+   senza ingrandimento, e sul telefono non c'è il passaggio del mouse per leggerli. Il nome dell'elemento
+   selezionato si vede sempre, ed è il primo a prendere il posto. Sul computer non cambia niente.
+   Si misurano i riquadri veri a schermo (scala compresa), non lblRectOf: quella stima vale solo per i nomi
+   dritti scritti sotto, e qui ci sono violini girati, nomi sopra lo schienale e doppie. PDF e PNG non
+   passano di qui. */
+/* La scelta, pura (la prova la suite). Ogni nome è una lista di quadrilateri a schermo (uno per testo): i
+   nomi girati con l'elemento restano inclinati, e il loro riquadro dritto coprirebbe il doppio — con i
+   riquadri dritti a 2× i violini girati sparivano tutti. Ogni ostacolo è il disegno di un elemento, anch'esso
+   un quadrilatero girato. Torna gli id da nascondere. Chi viene prima tiene il posto: selezionati, poi in
+   ordine di lettura (dall'alto, da sinistra). */
+function quadSiToccano(p, q, m){   /* separazione degli assi (poligoni convessi); m>0 allarga, m<0 stringe */
+  var polys=[p,q];
+  for(var k=0;k<2;k++){ var P=polys[k];
+    for(var i=0;i<P.length;i++){
+      var a=P[i], b=P[(i+1)%P.length], nx=-(b[1]-a[1]), ny=b[0]-a[0], L=Math.hypot(nx,ny); if(!(L>0)) continue;
+      nx/=L; ny/=L;
+      var pm=1e18, pM=-1e18, qm=1e18, qM=-1e18, j, v;
+      for(j=0;j<p.length;j++){ v=p[j][0]*nx+p[j][1]*ny; if(v<pm) pm=v; if(v>pM) pM=v; }
+      for(j=0;j<q.length;j++){ v=q[j][0]*nx+q[j][1]*ny; if(v<qm) qm=v; if(v>qM) qM=v; }
+      if(pM+m <= qm || qM+m <= pm) return false;
+    }
+  }
+  return true;
+}
+function nomiDaNascondere(nomi, ostacoli){
+  function cima(n){ var t=1e18, l=1e18; n.quads.forEach(function(Q){ Q.forEach(function(c){ if(c[1]<t) t=c[1]; if(c[0]<l) l=c[0]; }); }); return {n:n, t:t, l:l}; }
+  var ord=nomi.map(cima).sort(function(a,b){ return ((b.n.sel?1:0)-(a.n.sel?1:0)) || (a.t-b.t) || (a.l-b.l) || String(a.n.id).localeCompare(String(b.n.id)); });
+  var tenuti=[], via={};
+  function urta(n, quads, m){ for(var i=0;i<n.quads.length;i++) for(var j=0;j<quads.length;j++) if(quadSiToccano(n.quads[i], quads[j], m)) return true; return false; }
+  ord.forEach(function(x){ var n=x.n;
+    if(!n.sel){
+      for(var i=0;i<tenuti.length;i++) if(urta(n, tenuti[i].quads, 1)){ via[n.id]=true; return; }
+      for(var j=0;j<ostacoli.length;j++){ var o=ostacoli[j];
+        if(String(o.id)!==String(n.id) && urta(n, [o.quad], -1)){ via[n.id]=true; return; } }   /* −1: sfiorarsi non conta */
+    }
+    tenuti.push(n);
+  });
+  return via;
+}
+function nomiCedono(){
+  var lay=document.getElementById("layLbl"); if(!lay || !lay.querySelectorAll) return;
+  var gs=lay.querySelectorAll(".item-lbls"), n=gs.length|0, i;
+  var attivo=isMobile() && !svg.classList.contains("names-hidden");   /* solo telefono: il computer resta com'era */
+  if(!attivo){ for(i=0;i<n;i++) if(gs[i].classList.contains("lbl-cede")) gs[i].classList.remove("lbl-cede"); return; }
+  var primo=svg.querySelector(".item[data-id]"), M=primo && primo.parentNode && primo.parentNode.getScreenCTM ? primo.parentNode.getScreenCTM() : null;
+  if(!M) return;
+  function aSchermo(T, x, y){ return [T.a*x+T.c*y+T.e, T.b*x+T.d*y+T.f]; }
+  var ost=[];
+  /* I DISEGNI degli altri contano solo quando il corpo minimo ingrandisce: è l'ingrandimento che spinge il
+     nome sul vicino. A corpo pieno il nome sta dove lo mette lblBaseY, e il riquadro di un'illustrazione
+     (angoli vuoti compresi, girato col musicista) è troppo largo: a 4× spariva metà dei fiati e dei violini
+     in posti liberi. Lì conta solo nome contro nome. */
+  var K=parseFloat(svg.style.getPropertyValue("--lblK"))||1;
+  if(K>1.001) (state.items||[]).forEach(function(it){
+    var b=_arteDi && _arteDi[it.id];
+    if(!b || isRiser(it) || it.type==="miczone" || GAZ_TYPES[it.type]) return;   /* pedane e coperture sono il pavimento: ci si scrive sopra */
+    var a=(it.rot||0)*Math.PI/180, c=Math.cos(a), s=Math.sin(a);
+    ost.push({id:it.id, quad:[[b.x0,b.y0],[b.x1,b.y0],[b.x1,b.y1],[b.x0,b.y1]].map(function(p){
+      return aSchermo(M, it.x+p[0]*c-p[1]*s, it.y+p[0]*s+p[1]*c); })});
+  });
+  var nomi=[];
+  for(i=0;i<n;i++){
+    var g=gs[i], id=g.getAttribute("data-for"), quads=[], ts=g.querySelectorAll("text");
+    for(var k=0;k<ts.length;k++){
+      var bb=ts[k].getBBox(), T=ts[k].getScreenCTM(); if(!T || !(bb.width>0)) continue;
+      quads.push([aSchermo(T,bb.x,bb.y), aSchermo(T,bb.x+bb.width,bb.y), aSchermo(T,bb.x+bb.width,bb.y+bb.height), aSchermo(T,bb.x,bb.y+bb.height)]);
+    }
+    if(quads.length) nomi.push({g:g, id:id, sel:!!(selSet && selSet[id]), quads:quads});
+  }
+  var via=nomiDaNascondere(nomi, ost);
+  nomi.forEach(function(x){ x.g.classList.toggle("lbl-cede", !!via[x.id]); });
 }
 function reindexItemNodes(){
   itemNodeIndex=new Map(); itemLblIndex=new Map();

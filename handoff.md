@@ -18,6 +18,15 @@ sono state scritte qui: la loro storia sta nei messaggi di commit e nelle PR (#9
   Migrazione: `lblDist` si butta in `normalizeLoadedItems` e `sanitizeItems` non la copia. Nel sandbox niente
   SVG → `arteStimata` (footprint + sgabello + asta + schienale 43,5). Non provato: Safari/Firefox (getBBox su SVG
   nascosto); con l'elemento selezionato la maniglia di rotazione sfiora il nome sopra lo schienale.
+  **v2, telefono**: col corpo minimo (2,3× sul palco intero) i nomi a filo si accavallavano (collaudo 25, nomi
+  accesi: 87 coppie). `nomiCedono` (da `aggiornaNomiZoom`: render, rotella, pizzico), SOLO se `isMobile()`:
+  un nome che tocca un nome già mostrato — o, con `--lblK`>1, il disegno di un altro elemento (`_arteDi`) — prende
+  `.lbl-cede` (visibility:hidden); selezionato sempre visibile e per primo. Quadrilateri veri (getBBox +
+  getScreenCTM, girati) e separazione degli assi (`quadSiToccano`, `nomiDaNascondere` pura). Collaudo 25 al
+  telefono: insieme 7 nomi visibili e 0 sovrapposti; 2× 50; 4× 81 su 92. ⚠️ Anche trovato: la cache di
+  `misuraArte` non prendeva mai le postazioni illustrate (contatore `L772_` di libIcon nel markup): render
+  204 ms → 83 (main 79). ⚠️ Desktop NON toccato, ma sul collaudo 25 i nomi vicini fanno 20 coppie sovrapposte
+  contro 5 di main (a 2×: 13 contro 2): la stessa passata sul computer è un cambio di una riga (`attivo`).
 
 - **29/09 — Pedane sganciate** (ramo `pedane-sganciate`, richiesta di Simone: «se sposto la pedana, gli elementi
   devono rimanere dove sono … opzione snap elementi con pedane … di default spenta»). Di partenza trascinare
