@@ -10687,8 +10687,8 @@ function renderProps(){
   updateHeaderStage();
   var n = selIds().length, grp = document.getElementById("groupProps");
   var _selOne = n===1 ? getSel() : null;
-  document.body.classList.toggle("riser-sel", !!(_selOne && isRiser(_selOne)));
-  aggiornaSoloPedane();   /* il comando «Solo pedane» c'è solo con una pedana nella selezione */   /* pedana selezionata: in modalità palco il suo pannello resta visibile */
+  document.body.classList.toggle("riser-sel", !!(_selOne && isRiser(_selOne)));   /* pedana selezionata: in modalità palco il suo pannello resta visibile */
+  aggiornaSoloPedane();   /* il comando «Solo pedane» c'è solo con una pedana nella selezione */
   document.body.classList.toggle("m-has-sel", n>0);   /* mobile: pannello = elemento vs channel list */
   document.body.classList.toggle("m-multi", n>1);     /* mobile: peek senza azioni singole */
   if(n===0) document.body.classList.remove("props-expanded");  /* deselezione = specifiche di nuovo a scomparsa */
