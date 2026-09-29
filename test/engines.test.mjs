@@ -17137,19 +17137,25 @@ t("Solo pedane: dal pannello della pedana si vedono e si prendono solo le pedane
   A.soloPedane(true);
   eq(A.soloOn("pedane"), true, "acceso");
   eq(A.itemPickable(p2), true, "l'altra pedana (anche del coro) si prende");
-  eq(A.itemPickable(v), false, "il resto no");
+  eq(A.itemPickable(v), false, "il riquadro il resto non lo prende");
+  /* dal 29/09 sera il contesto si prende col clic (e prenderlo spegne la vista): prima «non si prendeva» */
+  eq(A.itemPickable(v, { esce: true }), true, "il clic sì");
   eq(A.itemLiveOnStage(v), false, "niente maniglie sul resto");
   const mk = A.sceneMarkup();
-  ok(/<g class="solo-bg" style="opacity:\.15">/.test(mk), "il resto attenuato al 15%, non al .42 dei layer");
-  ok(/mus-item/.test(mk.split('class="solo-bg"')[1] || ""), "il musicista sta nel contesto sfumato");
+  /* classe «solo-bg solo-prende»: il contesto delle pedane si prende col clic (prima solo «solo-bg») */
+  ok(/<g class="solo-bg solo-prende" style="opacity:\.15">/.test(mk), "il resto attenuato al 15%, non al .42 dei layer");
+  ok(/mus-item/.test(mk.split('class="solo-bg')[1] || ""), "il musicista sta nel contesto sfumato");
   const keepSolo = A.layerSoloUI; A.layerSoloUI = { stage: true };
   ok(/<g class="solo-bg" style="opacity:\.42">/.test(A.sceneMarkup()), "il solo del Palco resta a .42");
   A.layerSoloUI = keepSolo;
   A.pruneSolo();
   eq(A.soloOn("pedane"), true, "con la pedana ancora selezionata resta acceso a ogni render");
+  /* dal 29/09 sera la vista vale solo per selezioni di SOLE pedane: una mista la spegne (prima la teneva) */
   A.selSet = {}; A.selSet[p1.id] = true; A.selSet[v.id] = true; A.sel = p1.id;
+  eq(A.soloPedaneDisponibile(), false, "pedana + musicista: il comando non c'è");
   A.pruneSolo();
-  eq(A.soloOn("pedane"), true, "una selezione che contiene una pedana lo tiene");
+  eq(A.soloOn("pedane"), false, "e una selezione mista lo spegne");
+  A.selectOne(p1.id); A.soloPedane(true);
   eq(A.undoStack.length, undo0, "annulla/ripeti non ne sono toccati");
   ok(!/pedane/.test(JSON.stringify(A.state)), "è una vista: non finisce nel progetto");
   /* export: il PDF disegna il progetto, non la vista (i cavi seguono il solo attraverso layerShown) */
@@ -17159,7 +17165,7 @@ t("Solo pedane: dal pannello della pedana si vedono e si prendono solo le pedane
   eq(soloNelPdf, false, "nel PDF nessun solo attivo");
   eq(A.soloOn("pedane"), true, "e dopo l'export il solo è ancora lì");
   const png = A.buildExportSvg().svgStr;
-  ok(/<g id="layItems">/.test(png) && !/class="solo-bg"/.test(png), "il PNG esce senza sfumatura");
+  ok(/<g id="layItems">/.test(png) && !/class="solo-bg/.test(png), "il PNG esce senza sfumatura");
   eq(A.soloOn("pedane"), true, "e anche dopo il PNG il solo è ancora lì");
   /* si spegne da solo: altro tipo selezionato, deselezione, Esc */
   A.selectOne(v.id); A.pruneSolo();
@@ -17172,6 +17178,151 @@ t("Solo pedane: dal pannello della pedana si vedono e si prendono solo le pedane
   eq(A.anySolo(), false, "di nuovo il comando: spento");
   A.layerSoloUI = {}; A.clearSelection();
 });
+
+/* ===== Solo pedane automatico (29/09 sera, Simone: «se seleziono una pedana vedo gli elementi in trasparenza
+   e mi piace, vorrei vedere in trasparenza anche quelli sopra la pedana mentre adesso sono sotto. vorrei che
+   l'opzione visibilità solo pedane si attivasse in automatico nel momento in cui seleziono una pedana») ===== */
+function conSoloPedAuto(fn, classi) {
+  const oldDoc = A.document, oldLock = A.__projLocked;
+  /* il DOM finto dice «sì» a ogni classList.contains (sarebbe sempre sola lettura): qui risponde solo per le
+     classi date, e il resto passa al DOM finto di sempre (render, addItem) */
+  const cl = new Proxy({}, { get: (t, k) => (k === "contains" ? (c) => !!(classi && classi[c]) : oldDoc.body.classList[k]) });
+  const body = new Proxy({}, { get: (t, k) => (k === "classList" ? cl : oldDoc.body[k]) });
+  A.document = new Proxy({}, { get: (t, k) => (k === "body" ? body : oldDoc[k]) });
+  A.layerSoloUI = {}; A.layerAccOpen = null; A.soloPedFirma = null; A.soloPedGesto = false; A.__projLocked = false;
+  try { fn(); } finally {
+    A.document = oldDoc; A.__projLocked = oldLock; A.layerSoloUI = {}; A.layerAccOpen = null;
+    A.clearSelection(); A.soloPedFirma = null; A.soloPedGesto = false;
+  }
+}
+/* la mano sceglie: è quello che fanno clic, tocco, riquadro ed elenco prima del loro render() */
+function scegli(ids) {
+  A.selSet = {}; ids.forEach((id) => { A.selSet[id] = true; }); A.sel = ids[ids.length - 1] || null;
+  A.soloPedGesto = true; A.soloPedaneAuto(); A.pruneSolo();
+}
+const idsOrd = (arr) => arr.map((i) => i.id).sort();
+
+t("Solo pedane automatico: si accende quando la mano seleziona SOLO pedane, non col codice né con selezioni miste", () => conSoloPedAuto(() => {
+  reset();
+  const p1 = add("pedana", 300, 300), p2 = add("pedanacoro", 700, 300), v = add("vlnpost", 300, 300);
+  A.layerSoloUI = {}; A.soloPedFirma = null;
+  scegli([p1.id]);
+  eq(A.soloOn("pedane"), true, "clic su una pedana: acceso da solo");
+  scegli([p1.id, p2.id]);
+  eq(A.soloOn("pedane"), true, "due pedane (shift o riquadro): resta acceso");
+  scegli([p1.id, v.id]);
+  eq(A.soloOn("pedane"), false, "pedana + musicista: spento");
+  scegli([v.id]);
+  eq(A.soloOn("pedane"), false, "solo il musicista: niente");
+  scegli([]);
+  /* dal codice (Duplica, Incolla, aggiunta dal catalogo, Annulla): niente gesto, niente vista */
+  A.selectOne(p2.id); A.soloPedaneAuto(); A.pruneSolo();
+  eq(A.soloOn("pedane"), false, "selezione dal codice: non si accende");
+  scegli([]);
+  /* il render lo chiama davvero, prima di pruneSolo; i gesti della mano alzano la bandierina */
+  ok(/function render\(\)\{\s*soloPedaneAuto\(\);[^\n]*\n\s*pruneSolo\(\);/.test(appjs), "render() → soloPedaneAuto() → pruneSolo()");
+  ok(/if\(!selSet\[id\]\)\{ selectClick\(id\); soloPedGesto=true; \}/.test(appjs), "clic sul disegno");
+  ok(/toggleSelId\(id\); soloPedGesto=true; render\(\);/.test(appjs), "shift+clic");
+  ok(/selectClick\(nid\); soloPedGesto=true; render\(\);/.test(appjs), "clic ripetuto (cicloSotto)");
+  ok(/selSet\[it\.id\]=true; sel=it\.id; \}\s*\}\);\s*soloPedGesto=true;/.test(appjs), "riquadro");
+  ok(/selectClick\(g\.getAttribute\("data-go"\)\); closeAll\(\); soloPedGesto=true;/.test(appjs), "nome nell'elenco del telefono");
+  eq((appjs.match(/soloPedGesto=true/g) || []).length, 5, "e nessun altro: le selezioni dal codice non accendono niente");
+}));
+
+t("Solo pedane automatico: niente nelle viste di sola lettura né sopra una vista dei layer scelta a mano", () => {
+  reset();
+  const p1 = add("pedana", 300, 300);
+  [["viewmode", "link ?view="], ["consult-viewer", "cliente in consulenza"]].forEach(([c, nome]) => conSoloPedAuto(() => {
+    scegli([p1.id]);
+    eq(A.soloOn("pedane"), false, nome + ": non si accende");
+  }, { [c]: true }));
+  conSoloPedAuto(() => {
+    A.__projLocked = true;
+    scegli([p1.id]);
+    eq(A.soloOn("pedane"), false, "progetto bloccato: non si accende");
+  });
+  conSoloPedAuto(() => {
+    A.layerAccOpen = "stage"; A.layerSoloUI = { stage: true };
+    scegli([p1.id]);
+    eq(JSON.stringify(A.layerSoloUI), '{"stage":true}', "vista Palco aperta: resta quella, non diventa «Solo pedane»");
+  });
+  conSoloPedAuto(() => {
+    scegli([p1.id]);
+    eq(A.soloOn("pedane"), true, "e fuori da quei casi sì (controprova)");
+  });
+});
+
+t("Solo pedane automatico: spento l'occhio resta spento per QUELLA selezione; riselezionando si riaccende", () => conSoloPedAuto(() => {
+  reset();
+  const p1 = add("pedana", 300, 300), p2 = add("pedana", 700, 300);
+  scegli([p1.id]);
+  eq(A.soloOn("pedane"), true, "premessa: acceso");
+  A.soloPedane(false);
+  A.soloPedGesto = true; A.soloPedaneAuto(); A.pruneSolo();   /* un altro clic sulla stessa pedana già presa */
+  eq(A.soloOn("pedane"), false, "occhio spento: la stessa selezione non lo riaccende");
+  A.soloPedaneAuto(); A.soloPedaneAuto();   /* i render che seguono */
+  eq(A.soloOn("pedane"), false, "neanche i render dopo");
+  scegli([]);   /* clic sul vuoto */
+  scegli([p1.id]);
+  eq(A.soloOn("pedane"), true, "deselezionata e ripresa: si riaccende");
+  A.exitListMode();   /* «Mostra tutto il palco» del banner, o Esc */
+  A.soloPedGesto = true; A.soloPedaneAuto(); A.pruneSolo();
+  eq(A.soloOn("pedane"), false, "«Mostra tutto il palco» vale come l'occhio");
+  scegli([p2.id]);
+  eq(A.soloOn("pedane"), true, "un'altra pedana è un'altra selezione: si riaccende");
+}));
+
+t("Solo pedane automatico: un clic su un elemento sfumato lo prende subito e spegne la vista", () => conSoloPedAuto(() => {
+  reset();
+  const ped = add("pedana", 300, 300), v = add("vlnpost", 300, 300);
+  scegli([ped.id]);
+  eq(A.soloOn("pedane"), true, "premessa: acceso");
+  /* clic fermo sul violinista che sta sopra la pedana presa: il ciclo passa a lui (un clic, non due) */
+  A.soloPedGesto = false;
+  ok(A.cicloSotto({ id: ped.id, ids: [v.id, ped.id] }), "lo sfumato si prende");
+  eq(A.selIds(), [v.id], "preso il violinista");
+  A.soloPedaneAuto(); A.pruneSolo();
+  eq(A.soloOn("pedane"), false, "e la vista si è spenta");
+  /* nel disegno lo sfumato delle pedane prende il puntatore, quello dei layer no */
+  scegli([ped.id]);
+  ok(/<g class="solo-bg solo-prende"[^>]*>(?:(?!<g class="solo-bg)[\s\S])*data-id="/.test(A.sceneMarkup()), "contesto delle pedane: classe solo-prende");
+  ok(/\.solo-bg:not\(\.solo-prende\)\{ pointer-events:none; \}/.test(stylesCss), "CSS: solo lo sfumato dei layer è trasparente al puntatore");
+  ok(!/\.solo-prende\{[^}]*pointer-events:auto/.test(stylesCss), "e senza un auto che scavalcherebbe il lucchetto del Palco");
+  A.layerSoloUI = { stage: true };
+  ok(!/solo-prende/.test(A.sceneMarkup()), "i solo dei layer: il contesto non si prende, come prima");
+}));
+
+t("Solo pedane: chi sta sopra una pedana si disegna SOPRA la pedana, sfumato; aggancio e export invariati", () => conSoloPedAuto(() => {
+  reset();
+  const ped = add("pedana", 300, 300), v = add("vlnpost", 300, 300), fuori = add("vlnpost", 900, 600);
+  ok(A.itemsOnRiser(ped).indexOf(v) > -1, "premessa: il violinista sta sulla pedana");
+  const lay = (mk) => mk.slice(mk.indexOf('<g id="layItems">'), mk.indexOf('<g id="layLbl"'));
+  const pos = (mk, it) => lay(mk).indexOf('data-id="' + it.id + '"');
+  const normale = A.sceneMarkup();
+  ok(pos(normale, ped) > -1 && pos(normale, ped) < pos(normale, v), "premessa: sul palco normale la pedana sta sotto il violinista");
+  scegli([ped.id]);
+  const mk = A.sceneMarkup();
+  ok(pos(mk, ped) > -1 && pos(mk, ped) < pos(mk, v), "Solo pedane: il violinista è disegnato dopo (sopra) la pedana");
+  const dopo = lay(mk).slice(pos(mk, ped));
+  ok(/<g class="solo-bg solo-prende" style="opacity:\.15">/.test(dopo) && dopo.indexOf('data-id="' + v.id + '"') > dopo.indexOf("solo-prende"), "…ed è sfumato al 15%");
+  const prima = lay(mk).slice(0, pos(mk, ped));
+  ok(prima.indexOf('data-id="' + v.id + '"') < 0 && prima.indexOf('data-id="' + fuori.id + '"') < 0, "niente musicisti sotto la pedana");
+  /* i layer restano come prima: tutto il contesto sotto, in un gruppo solo */
+  A.layerSoloUI = { stage: true };
+  const st = A.sceneMarkup();
+  ok(lay(st).indexOf('data-id="' + v.id + '"') < pos(st, ped), "solo del Palco: il contesto resta sotto");
+  eq((lay(st).match(/class="solo-bg/g) || []).length, 1, "in un gruppo solo");
+  A.layerSoloUI = { pedane: true };
+  /* aggancio: chi sta sopra segue la pedana (stesso motore, la vista non lo tocca) */
+  ped.aggancia = true;
+  eq(idsOrd(A.caricoDellePedane([ped])), idsOrd([ped, v]), "agganciata: il violinista la segue anche con la vista accesa");
+  delete ped.aggancia;
+  /* export: identico con e senza la vista */
+  const conVista = A.buildExportSvg().svgStr;
+  eq(A.soloOn("pedane"), true, "premessa: la vista è ancora accesa dopo il PNG");
+  A.layerSoloUI = {};
+  eq(conVista, A.buildExportSvg().svgStr, "il PNG è lo stesso con e senza «Solo pedane»");
+}));
 
 t("Solo pedane: il comando c'è nei tre pannelli, con l'occhio e 44 px col dito", () => {
   const html = readFileSync(join(root, "index.template.html"), "utf8");
