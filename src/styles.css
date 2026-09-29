@@ -1805,6 +1805,8 @@ svg.names-hidden .orc-name{display:none}
   .ss-inwrap i{position:absolute;right:11px;font-style:normal;font-size:13px;font-weight:600;color:var(--text-3);pointer-events:none}
   .ss-err{margin:10px 0 0;font-size:13px;font-weight:600;color:var(--danger);line-height:var(--lh-snug)}
   .ss-foot{margin-top:16px}
+  .ap-scena{display:flex;align-items:center;gap:8px;min-height:44px;margin:10px 0 0;font-size:14px;color:var(--text);cursor:pointer}
+  .ap-scena input{accent-color:var(--accent);width:18px;height:18px;margin:0}
   .wl-ghost{appearance:none;background:var(--surface);border:1px solid var(--border);color:var(--text-2);border-radius:10px;padding:9px 14px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:background var(--dur-fast),color var(--dur-fast)}
   .wl-ghost:hover{background:var(--accent-tint);color:var(--accent)}
   body.dark .ss-inwrap input{background:#141a1d;border-color:#2a3138}
