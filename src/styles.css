@@ -1405,6 +1405,9 @@ svg.names-hidden .orc-name{display:none}
   #svg #layLbl .lblk{scale:var(--lblK,1)}   /* corpo minimo a schermo: il gruppo delle scritte di un elemento cresce attorno all'ancora del nome (lblScalaAttorno, aggiornaNomiZoom) */
   svg.names-hidden .item-lbls .lbl:not(.sub){display:none}
   svg.names-hidden .item-lbls.selected .lbl,svg.names-hidden .item-lbls.hov .lbl{display:inline}
+  /* telefono: il nome che finirebbe sopra un altro nome o un altro disegno cede il posto (nomiCedono, 29/09) */
+  #svg #layLbl .item-lbls.lbl-cede{visibility:hidden}
+  #svg #layLbl .item-lbls.lbl-cede.selected,#svg #layLbl .item-lbls.lbl-cede.hov{visibility:visible}
   .lbl.big{font-size:42px;font-weight:800;letter-spacing:2px;fill:#374151;stroke-width:5}
   /* Testo libero (box di testo): righe con wrapping; il fill (colore) è inline per-elemento.
      Alone bianco leggero come le etichette per restare leggibile sopra la griglia; sempre visibile

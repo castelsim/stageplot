@@ -510,18 +510,9 @@
       <span id="pLblSizeAllMsg"></span>
       <button type="button" class="btn" id="pLblSizeAllYes">Applica a tutte</button>
     </div>
-    <!-- DISTANZA del nome dall'elemento, in cm reali dal bordo (31/07). Stessa meccanica della
-         dimensione, «Applica a tutte» compreso: su un palco fitto il nome finisce addosso a quello
-         accanto, e l'unico rimedio era spostare l'elemento. -->
-    <div id="pLblDistWrap" class="sldrow">
-      <label for="pLblDist">Distanza</label>
-      <input type="range" id="pLblDist" min="0" max="80" step="1">
-      <output id="pLblDistVal">9</output>
-    </div>
-    <div id="pLblDistAll" class="ask-all" hidden>
-      <span id="pLblDistAllMsg"></span>
-      <button type="button" class="btn" id="pLblDistAllYes">Applica a tutte</button>
-    </div>
+    <!-- La DISTANZA del nome dall'elemento (slider dal 31/07) non c'è più dal 29/09: il nome sta sempre a
+         filo del disegno, misurato (lblBaseY). Simone: «le etichette dovrebbero sempre essere molto vicine
+         e leggibili». -->
     <!-- NOTA sull'elemento (30/07): quello che il disegno non dice — «shaker, claves, güiro»,
          «ampli fornito dalla band», «da accordare». Sul palco resta un puntino accanto al nome:
          una nota che non si vede è una nota che nessuno legge. Il testo esce nella lista Note. -->
@@ -7456,7 +7447,11 @@ function normalizeLoadedItems(arr){
       if(it[k]==null) return; n=Number(it[k]); if(isFinite(n)) it[k]=n; else delete it[k];
     });
     if(it.lblSize!=null){ n=Number(it.lblSize); if(isFinite(n)) it.lblSize=Math.max(0,Math.min(lblSizeMax(it.type),n)); else delete it.lblSize; }
-    if(it.lblDist!=null){ n=Number(it.lblDist); if(isFinite(n)) it.lblDist=Math.max(0,Math.min(80,n)); else delete it.lblDist; }
+    /* MIGRAZIONE 29/09: la distanza del nome scelta a mano (lblDist, 0-80 cm dal footprint) non esiste più:
+       il nome sta a filo del disegno misurato (lblBaseY). La chiave vecchia si butta qui, all'apertura,
+       così un progetto salvato con «Distanza 40» si riapre col nome vicino e al primo salvataggio la
+       chiave sparisce dal file. Niente da convertire: nessun valore vecchio diceva qualcosa sul disegno. */
+    if(it.lblDist!=null) delete it.lblDist;
     if(it.opacity!=null){ n=Number(it.opacity); if(isFinite(n)) it.opacity=Math.max(0,Math.min(100,n)); else delete it.opacity; }
     if(it.pts!=null){
       if(Array.isArray(it.pts) && it.pts.length>=3 && it.pts.every(function(p){ return Array.isArray(p)&&p.length>=2&&isFinite(+p[0])&&isFinite(+p[1]); }))
@@ -7883,7 +7878,7 @@ function sanitizeItems(arr){
     if(t.riser) it.h=(o.h!=null?+o.h:(t.h||40));
     else if(isCover(it) && o.h!=null) it.h=+o.h;   /* coperture: h opzionale (luce sotto); se assente = default coverH() */
     if(Object.prototype.hasOwnProperty.call(COMP,o.type)) it.parts=o.parts?compClone(o.parts):compClone(COMP[o.type].defParts);
-    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","podio","sgab","grp","distOf","distType","aggancia","dimSide","lblSize","lblDist","plCh","dvsPro","dvsNet","dvsSr","dvsLat","ifaceId","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
+    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","podio","sgab","grp","distOf","distType","aggancia","dimSide","lblSize","plCh","dvsPro","dvsNet","dvsSr","dvsLat","ifaceId","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
     if(it.type==="dimono"){   /* DI box: normalizza gli assi + footprint (migra il vecchio diLook del selettore) */
       if(it.diLook){ if(it.diLook==="stereo") it.diCh=it.diCh||"stereo"; else if(it.diLook==="rack") it.diCh=it.diCh||"multi"; else if(it.diLook==="attiva") it.diType=it.diType||"attiva"; else if(it.diLook==="schema") it.diSchema=true; delete it.diLook; }
       if(!DI_CH_LABEL[it.diCh]) it.diCh="mono"; if(it.diType!=="attiva") it.diType="passiva"; if(it.diMultiCh!==6) it.diMultiCh=8;
@@ -8618,6 +8613,84 @@ function nomeGiaSullaSpia(it){
       && (a.id===it.ascoltoId || Math.hypot((a.x||0)-(it.x||0), (a.y||0)-(it.y||0)) <= 120);
   });
 }
+/* ============ IL NOME A FILO DEL DISEGNO (29/09) ============
+   Simone (segnalazione 114cfd80): «il parametro distanza è parecchio inutile perché le etichette
+   dovrebbero sempre essere molto vicine e leggibili». Aveva ragione due volte:
+   - la distanza si contava dal FOOTPRINT, non dal disegno. Il leggio del corista sporge sotto il footprint,
+     la sedia di una postazione d'archi sopra: a «Distanza 0» il nome della voce finiva 10 cm DENTRO il suo
+     leggio, quello del violoncello 4 cm dentro lo schienale; e al default (22 cm) i violini avevano il nome
+     a 27 cm dal disegno, la voce con l'asta a 48. Nessun valore dello slider andava bene per tutti;
+     misure nel browser in handoff.md, 29/09.
+   - quindi ognuno spostava lo slider a mano, elemento per elemento, per rimediare a un difetto del calcolo.
+   Ora il nome si stacca dal disegno VERO: dopo aver composto l'arte dell'elemento se ne misura il riquadro
+   (getBBox su un SVG nascosto, una volta per ogni disegno diverso: 50 coristi uguali = una misura) e il
+   nome gli sta a un terzo di lettera (almeno 3 cm). Lo slider «Distanza» non c'è più; la vecchia chiave
+   `lblDist` dei progetti salvati si butta all'apertura (normalizeLoadedItems, e sanitizeItems non la copia più): quei nomi tornano vicini.
+   Dove non c'è un SVG da misurare (sandbox dei test) si usa la stima di prima: footprint + sgabello +
+   base dell'asta, schienale a 43,5 cm dal centro. */
+var _arteCache=null, _arteSvg=null;
+var _arteDi=null;   /* ultimo riquadro misurato per elemento: lo leggono lblRectOf/lblBandOf, che lavorano fuori dal disegno */
+function misuraArte(markup){
+  if(!markup) return null;
+  if(!_arteCache) _arteCache=new Map();
+  /* la chiave senza il contatore di libIcon («L772_musTrombone_cls-1»): cambia a ogni render e la cache non
+     prendeva mai le postazioni illustrate — 38 misure su 93 a ogni render, 200 ms invece di 80 (29/09) */
+  var chiave=markup.replace(/\bL\d+_/g,"L_");
+  if(_arteCache.has(chiave)) return _arteCache.get(chiave);
+  var b=null;
+  try{
+    if(!_arteSvg || !_arteSvg.isConnected){
+      _arteSvg=document.createElementNS("http://www.w3.org/2000/svg","svg");
+      _arteSvg.setAttribute("aria-hidden","true");
+      _arteSvg.setAttribute("style","position:absolute;left:-9999px;top:0;width:10px;height:10px;visibility:hidden;pointer-events:none");
+      document.body.appendChild(_arteSvg);
+    }
+    /* a video le illustrazioni sono <use> verso <defs id="sceneArt">, che però entra nel documento DOPO
+       la composizione: un wedge nuovo misurava zero. Qui si misura il disegno espanso. */
+    var espanso=_sceneArt ? markup.replace(/<use href="#sa_([^"]+)"\/>/g, function(m,k){ return _sceneArt[k] ? '<g>'+_sceneArt[k]+'</g>' : m; }) : markup;
+    _arteSvg.innerHTML='<g>'+espanso+'</g>';
+    var r=_arteSvg.firstChild.getBBox();
+    if(r && typeof r.y==="number" && typeof r.height==="number" && isFinite(r.y) && r.height>0 && r.width>0)
+      b={x0:r.x, y0:r.y, x1:r.x+r.width, y1:r.y+r.height};
+    _arteSvg.innerHTML="";   /* niente doppioni di id (gradienti, clip) nel documento */
+  }catch(e){ return null; }   /* niente documento (boot, sandbox): non si ricorda, si riprova */
+  if(_arteCache.size>800) _arteCache.clear();
+  _arteCache.set(chiave, b);
+  return b;
+}
+/* stima senza SVG: il footprint, più quel che si sa sporgere */
+function arteStimata(it){
+  var w=+it.w||0, d=+it.d||0, sotto=d/2, sopra=-d/2;
+  if(KEYS_BENCH[it.type] && it.panca!==false) sotto+=36;   /* sgabello */
+  if(VOCE[it.type]){ var mm=micModeOf(it); if(mm==="tonda"||mm==="giraffa") sotto+=26; }   /* base dell'asta */
+  if(lblSopraDi(it)) sopra=Math.min(sopra, -43.5);   /* schienale della sedia */
+  return {x0:-w/2, y0:sopra, x1:w/2, y1:sotto};
+}
+function arteDi(it){ var m=it && _arteDi && _arteDi[it.id]; return m || arteStimata(it); }
+/* le postazioni con la sedia portano il nome SOPRA lo schienale (davanti c'è il leggio) */
+function lblSopraDi(it){ return !!POSTAZ[it.type] && optSedia(it) && it.lblAbove!==false; }
+/* lo stacco fra disegno e lettere: un terzo di lettera, mai meno di 3 cm */
+function lblStacco(fszK){ return Math.max(3, fszK*0.3); }
+/* La DI generata da uno strumento gli sta davanti, di lato (diDefaultOff): è parte di ciò che il nome deve
+   scavalcare — a filo dello strumento, «Chitarra acustica 1» si scriveva sopra la scatola (P2-01, 27/07).
+   Conta solo se cade davvero nella striscia del nome; trascinata lontano non lo spinge più giù. */
+function lblArteConDi(it, ext, fszK){
+  if(!it || !it.diId || lblSopraDi(it)) return ext;
+  var di=diLinked(it); if(!di) return ext;
+  var off=(Array.isArray(it.diOff)&&it.diOff.length===2) ? it.diOff : diDefaultOff(it);
+  var dw=(+di.w||20)/2+2, dd=(+di.d||20)/2+2;
+  var semi=lblTextW(lblText(it.label, it, true), fszK)/2;
+  var fondo=ext.y1+lblStacco(fszK)+fszK;
+  if(off[0]-dw < semi && off[0]+dw > -semi && off[1]-dd < fondo && off[1]+dd > ext.y1)
+    return {x0:ext.x0, y0:ext.y0, x1:ext.x1, y1:Math.max(ext.y1, off[1]+dd)};
+  return ext;
+}
+/* baseline del nome, nel frame dell'elemento (non ruotato) */
+function lblBaseY(it, fszK, ext){
+  ext=lblArteConDi(it, ext||arteDi(it), fszK);
+  var g=lblStacco(fszK);
+  return lblSopraDi(it) ? (ext.y0 - g - fszK*0.25) : (ext.y1 + g + fszK*0.72);
+}
 function itemMarkup(it){
   var t = itemTypeDef(it); if(!t) return '';
   var lb='';   /* i NOMI: nella scena vanno nel livello sopra tutto (#layLbl), vedi _lblSink */
@@ -8629,7 +8702,8 @@ function itemMarkup(it){
   var s = '<g class="item'+(isOut?' nofloor':'')+(selSet[it.id]?' selected':'')+'" data-id="'+attrId+'" transform="translate('+it.x+' '+it.y+')">';
   s += '<g transform="rotate('+(it.rot||0)+')">';
   s += '<rect class="hit" x="'+(-hw)+'" y="'+(-hd)+'" width="'+(2*hw)+'" height="'+(2*hd)+'"/>';
-  if(it.type!=="miczone") s += '<rect class="selbox" x="'+(-bw-3)+'" y="'+(-bh-3)+'" width="'+(2*bw+6)+'" height="'+(2*bh+6)+'" rx="10"/>';   /* DS v2.2: outline aderente e arrotondata come il prototipo — le zone mic NIENTE box (il poligono tratteggiato + vertici bastano, Simone 14/07) */
+  if(it.type!=="miczone") s += '<rect class="selbox" x="'+(-bw-3)+'" y="'+(-bh-3)+'" width="'+(2*bw+6)+'" height="'+(2*bh+6)+'" rx="10"/>';
+  var _arteDa = s.length;   /* da qui in poi è il DISEGNO: lo si misura per mettere il nome a filo (lblBaseY) */   /* DS v2.2: outline aderente e arrotondata come il prototipo — le zone mic NIENTE box (il poligono tratteggiato + vertici bastano, Simone 14/07) */
   /* MODIFICATORE (softbox &co.): l'ingombro in pianta è suo, ma l'apparecchio va disegnato con le
      SUE misure, arretrato di mezza sporgenza — altrimenti i draw dei nove userebbero un it.w/it.d
      gonfiati e si stirerebbero. Lo stativo segue il corpo, non il softbox. */
@@ -8680,6 +8754,7 @@ function itemMarkup(it){
     else { rdx=(it.w/2)+roff; ranc='middle'; rtr=' transform="rotate(90 '+rdx+' 0)"'; }                       /* ruotata, lato dx */
     lb += '<text class="lbl sub" x="'+rdx+'" y="'+rdy+'" text-anchor="'+ranc+'"'+rtr+'>'+dimT+'</text>';
   }
+  var _lblOrig = null;   /* perno del corpo minimo a schermo (lblScalaAttorno): null = l'ancora del primo testo */
   var _hid = (it.labelMode==='hidden');
   var fsz0 = _hid ? 0 : ((it.lblSize==null) ? 14 : it.lblSize);   /* 0 = nascosta; 'hidden' = nome nascosto per questo elemento */
   if(!t.innerLabel && !GAZ_TYPES[it.type] && fsz0>0){   /* coperture: etichetta unica gestita a parte (nome+dim, lato scelto) */
@@ -8690,23 +8765,24 @@ function itemMarkup(it){
        dentro render() (`_sceneRuota`): nel PDF e nel PNG i nomi restano come sono sempre stati. */
     var _rc = _sceneRuota ? (_sceneRuota - (it.rot||0)) : 0;
     /* postazioni con sedia: etichetta sopra allo schienale di default (ruota con l'elemento) */
-    var lblAbove = !!POSTAZ[it.type] && optSedia(it) && it.lblAbove !== false;
-    var benchExtra = (KEYS_BENCH[it.type] && it.panca!==false) ? 36 : 0;   /* piano/tastiere con sgabello: nome sotto lo sgabello, non sopra */
-    /* Voci con microfono su asta: la base dell'asta sporge sotto il footprint, e il nome ci finiva
-       sopra (audit 27/07, emerso quando le voci hanno smesso di nascere anonime). */
-    if(VOCE[it.type]){ var _mm=micModeOf(it); if(_mm==="tonda"||_mm==="giraffa") benchExtra += 26; }
-    /* 9 cm dal bordo è il default storico (superano il selbox, così il testo non ci finisce dentro);
-       da qui in poi lo decide l'utente, in cm reali. Sopra la sedia la distanza si applica in su. */
-    var _ld = lblDistOf(it);
+    var lblAbove = lblSopraDi(it);
+    /* IL NOME A FILO DEL DISEGNO (29/09, vedi lblBaseY): si misura il disegno appena composto — sgabello,
+       base dell'asta, leggio, sedia compresi — invece di indovinarne le sporgenze dal footprint. */
+    var _ext = misuraArte(s.slice(_arteDa));
+    if(_ext){ if(!_arteDi) _arteDi=Object.create(null); _arteDi[it.id]=_ext; } else _ext=arteStimata(it);
     /* Corpo con cui il testo verrà davvero STAMPATO: a schermo K vale 1, nel PDF cresce con la scala
-       (pdfTextK). Tutto ciò che dipende dall'altezza delle lettere — lo stacco dal bordo, la riga del
+       (pdfTextK). Tutto ciò che dipende dall'altezza delle lettere — lo stacco dal disegno, la riga del
        montaggio sotto, la colonna della doppia postazione — va calcolato su questo, non sul corpo
-       nominale: se no il testo ingrandito scende sopra l'elemento che dovrebbe nominare.
-       La distanza scelta dall'utente (_ld) NON si tocca: è una misura in centimetri reali di palco,
-       e deve restare quella a ogni scala. Cresce solo la parte che è "alta quanto una lettera". */
+       nominale: se no il testo ingrandito scende sopra l'elemento che dovrebbe nominare. */
     var K = (window.__sceneTextK>0 ? window.__sceneTextK : 1);
     var fszK = fsz*K;
-    var ly  = lblAbove ? -52.5 - fszK*0.35 - (_ld-9) : it.d/2 + _ld + fszK*0.72 + benchExtra;
+    var _mn = mountNote(it);
+    var ly  = lblBaseY(it, fszK, _ext);
+    if(lblAbove && _mn) ly -= fszK*0.95;   /* sopra, la riga del montaggio sta fra il nome e il disegno */
+    /* a schermo i nomi crescono col corpo minimo (lblScalaAttorno): attorno al bordo del DISEGNO, così
+       ingrandendo si allontanano invece di finirci sopra */
+    var _extD = lblArteConDi(it, _ext, fszK);
+    var _orY = lblAbove ? _extD.y0 : _extD.y1;
     /* e se questo nome finisce addosso a quello del vicino, scende (solo in stampa: lblNudges).
        Vale anche per la DI, che scrive di lato su un ramo suo: è proprio la coppia che si scontra
        più spesso — lo strumento e la DI che genera stanno a mezzo metro l'uno dall'altra. */
@@ -8723,8 +8799,17 @@ function itemMarkup(it){
        stampavano uno sull'altro («rra 1Chitarra 1»). Sotto, sullo schermo, c'è il lato del palco, dove
        i musicisti sono distanti. Il punto sotto l'elemento di R sullo schermo, nelle coordinate
        dell'elemento: (−R·cos rot, R·sin rot). */
-    var _rr = (it.rot||0)*Math.PI/180, _Rd = Math.max(+it.w||0, +it.d||0)/2 + Math.max(6, _ld);
-    var _lxR = Math.round(-_Rd*Math.cos(_rr)*10)/10, _lyR = Math.round(_Rd*Math.sin(_rr)*10)/10;
+    /* Quanto dista, in quella direzione, il bordo del disegno: il punto più sporgente del riquadro misurato
+       (funzione di supporto). Prima era mezzo lato più lungo + la distanza, cioè un cerchio attorno al
+       footprint: largo di lato, e dentro il leggio davanti. */
+    var _rr = (it.rot||0)*Math.PI/180, _ux = -Math.cos(_rr), _uy = Math.sin(_rr);
+    var _Rd = Math.max(_extD.x0*_ux, _extD.x1*_ux) + Math.max(_extD.y0*_uy, _extD.y1*_uy);
+    var _lxR = Math.round(_ux*(_Rd+lblStacco(fszK))*10)/10, _lyR = Math.round(_uy*(_Rd+lblStacco(fszK))*10)/10;
+    if(_sceneRuota){ _orY = Math.round(_uy*_Rd*10)/10; }
+    var _orX = _sceneRuota ? Math.round(_ux*_Rd*10)/10 : 0;
+    /* la DI scrive di lato, la pedana ha la quota sopra, la doppia girata al telefono mette i due nomi in
+       colonna attorno al primo: loro restano come prima */
+    if(!it.diFor && !t.riser && !(_sceneRuota && (it.doppia===true || DOUBLE_TYPES[it.type]))) _lblOrig = [_orX, _orY];
     var _xy = _sceneRuota ? ' x="'+_lxR+'" y="'+_lyR+'"' : ' y="'+ly+'"';
     var _rot = _sceneRuota ? ' transform="rotate('+_rc+' '+_lxR+' '+_lyR+')"' : '';
     var _fstR = _sceneRuota ? ' style="font-size:'+fsz+'px;text-anchor:middle;dominant-baseline:hanging"' : fst;
@@ -8734,6 +8819,9 @@ function itemMarkup(it){
       var dc=sepCfg(it), dhalf=(it.sep || (dc&&dc.sep) || DEFAULT_SEP)/2;
       var lx=Math.max(dhalf, 40, fszK*1.4);     /* sotto ciascuno strumento; min cresce col font per non sovrapporre */
       var tilt=12;                              /* le sedute della doppia convergono di ±12°: l'etichetta segue lo schienale */
+      /* inclinato, il capo interno del nome sale verso il disegno di mezza parola × sen 12°: a filo del
+         disegno (29/09) lo si scosta di altrettanto, o «Violini I 1» entrava nel leggio */
+      if(!_sceneRuota){ var _tc=Math.max(lblTextW(_t1, fszK), lblTextW(_t2, fszK))/2*Math.sin(tilt*Math.PI/180); ly += lblAbove ? -_tc : _tc; }
       if(_t1) lb += '<text class="lbl" x="'+(-lx)+'" y="'+ly+'" transform="rotate('+(_sceneRuota ? _rc : -tilt)+' '+(-lx)+' '+ly+')"'+fst+'>'+esc(_t1)+'</text>';
       if(_t2) lb += '<text class="lbl" x="'+lx+'" y="'+ly+'" transform="rotate('+(_sceneRuota ? _rc : tilt)+' '+lx+' '+ly+')"'+fst+'>'+esc(_t2)+'</text>';
     } else if(_t1){
@@ -8752,7 +8840,6 @@ function itemMarkup(it){
     }
     /* MONTAGGIO: «stativo 2,5 m» sotto il nome. È il dato che chi allestisce viene a cercare, e a
        terra non si scrive niente — l'assenza vuol dire «poggiato», che è il caso normale. */
-    var _mn = mountNote(it);
     if(_mn) lb += '<text class="lbl sub"'+(_sceneRuota ? _xy+' dy="'+(fszK*1.1)+'"' : ' y="'+(ly+fszK*0.95)+'"')+_rot+' style="font-size:'+(fsz*0.8)+'px'+(_sceneRuota ? ';text-anchor:middle;dominant-baseline:hanging' : '')+'">'+esc(_mn)+'</text>';
   }
   /* coperture (gazebo/tende): UNA etichetta = nome + dimensione automatica, sul lato scelto (Sopra/Sotto/Sx/Dx) */
@@ -8775,7 +8862,7 @@ function itemMarkup(it){
      nomi coperti su 11, Coro 6, Orchestra 5 su 21). Nella scena i nomi vanno nel livello #layLbl, con la
      stessa traslazione e rotazione dell'elemento; chi chiama itemMarkup fuori dalla scena (miniature,
      anteprime) li ritrova dentro il gruppo come prima. */
-  if(_lblSink){ if(lb) _lblSink.push('<g class="item-lbls'+(isOut?' nofloor':'')+(selSet[it.id]?' selected':'')+'" data-for="'+attrId+'" transform="translate('+it.x+' '+it.y+')"><g transform="rotate('+(it.rot||0)+')">'+(_lblSchermo ? lblScalaAttorno(lb) : lb)+'</g></g>'); }
+  if(_lblSink){ if(lb) _lblSink.push('<g class="item-lbls'+(isOut?' nofloor':'')+(selSet[it.id]?' selected':'')+'" data-for="'+attrId+'" transform="translate('+it.x+' '+it.y+')"><g transform="rotate('+(it.rot||0)+')">'+(_lblSchermo ? lblScalaAttorno(lb, _lblOrig) : lb)+'</g></g>'); }
   else s += lb;
   s += '</g>';
   s += '</g>';
@@ -12770,10 +12857,14 @@ var _lblSink=null;   /* attivo solo mentre la scena disegna un elemento: raccogl
    nome attorno a un perno comune — restano quelle originali. Il 25/09 lo si faceva testo per testo con
    origine al centro, e l'origine spostava anche i perni delle rotazioni. Nell'export niente di questo. */
 var _lblSchermo=false;
-function lblScalaAttorno(s){
+function lblScalaAttorno(s, orig){
   var t=s.match(/<text\b[^>]*>/); if(!t) return s;
   var mx=t[0].match(/\sx="(-?[\d.e+-]+)"/), my=t[0].match(/\sy="(-?[\d.e+-]+)"/);
   var ax=mx?+mx[1]:0, ay=my?+my[1]:0; if(!isFinite(ax)) ax=0; if(!isFinite(ay)) ay=0;
+  /* 29/09: il nome sta a filo del disegno, e crescere attorno alla sua baseline lo faceva salire SUL
+     disegno (al telefono il corpo minimo raddoppia le lettere). Chi passa il perno cresce attorno al
+     bordo del disegno, e allontanandosi mantiene lo stacco in proporzione. */
+  if(orig && isFinite(orig[0]) && isFinite(orig[1])){ ax=orig[0]; ay=orig[1]; }
   return '<g class="lblk" style="transform-origin:'+ax+'px '+ay+'px">'+s+'</g>';
 }
 /* ppm, nomi nascosti da lontano e corpo minimo: dipendono solo dallo zoom, quindi vanno aggiornati anche
@@ -12784,7 +12875,87 @@ function aggiornaNomiZoom(){
   var nMode = state.namesMode||'auto';
   svg.classList.toggle("names-hidden", nMode==='off' || (nMode==='auto' && ppm<30));
   try{ svg.style.setProperty("--lblK", Math.max(1, 9/(14*ppm/100)).toFixed(3)); }catch(e){}
+  nomiCedono();
   return ppm;
+}
+/* NOMI CHE CEDONO IL POSTO (29/09, telefono). Col nome a filo del disegno, al telefono il corpo minimo
+   (--lblK, fino a 2,3× sul palco intero) faceva crescere ogni nome fin sopra i vicini: «Voce 1Voce 1Voce…»
+   in fila, «ViViola 3», i violini verticali uno sull'altro (sul progetto di collaudo 25, nomi accesi: 87 coppie
+   di nomi sovrapposte; su main 66, in parte nascoste sotto i disegni). Ora, a schermo e solo sul telefono,
+   un nome che toccherebbe un nome già mostrato o il disegno di un ALTRO elemento si nasconde
+   (visibility: il suo riquadro resta misurabile); ingrandendo la vista il corpo minimo cala e i nomi
+   ricompaiono. A corpo pieno (--lblK 1) vale solo nome contro nome: su un palco fitto due nomi si toccano anche
+   senza ingrandimento, e sul telefono non c'è il passaggio del mouse per leggerli. Il nome dell'elemento
+   selezionato si vede sempre, ed è il primo a prendere il posto. Sul computer non cambia niente.
+   Si misurano i riquadri veri a schermo (scala compresa), non lblRectOf: quella stima vale solo per i nomi
+   dritti scritti sotto, e qui ci sono violini girati, nomi sopra lo schienale e doppie. PDF e PNG non
+   passano di qui. */
+/* La scelta, pura (la prova la suite). Ogni nome è una lista di quadrilateri a schermo (uno per testo): i
+   nomi girati con l'elemento restano inclinati, e il loro riquadro dritto coprirebbe il doppio — con i
+   riquadri dritti a 2× i violini girati sparivano tutti. Ogni ostacolo è il disegno di un elemento, anch'esso
+   un quadrilatero girato. Torna gli id da nascondere. Chi viene prima tiene il posto: selezionati, poi in
+   ordine di lettura (dall'alto, da sinistra). */
+function quadSiToccano(p, q, m){   /* separazione degli assi (poligoni convessi); m>0 allarga, m<0 stringe */
+  var polys=[p,q];
+  for(var k=0;k<2;k++){ var P=polys[k];
+    for(var i=0;i<P.length;i++){
+      var a=P[i], b=P[(i+1)%P.length], nx=-(b[1]-a[1]), ny=b[0]-a[0], L=Math.hypot(nx,ny); if(!(L>0)) continue;
+      nx/=L; ny/=L;
+      var pm=1e18, pM=-1e18, qm=1e18, qM=-1e18, j, v;
+      for(j=0;j<p.length;j++){ v=p[j][0]*nx+p[j][1]*ny; if(v<pm) pm=v; if(v>pM) pM=v; }
+      for(j=0;j<q.length;j++){ v=q[j][0]*nx+q[j][1]*ny; if(v<qm) qm=v; if(v>qM) qM=v; }
+      if(pM+m <= qm || qM+m <= pm) return false;
+    }
+  }
+  return true;
+}
+function nomiDaNascondere(nomi, ostacoli){
+  function cima(n){ var t=1e18, l=1e18; n.quads.forEach(function(Q){ Q.forEach(function(c){ if(c[1]<t) t=c[1]; if(c[0]<l) l=c[0]; }); }); return {n:n, t:t, l:l}; }
+  var ord=nomi.map(cima).sort(function(a,b){ return ((b.n.sel?1:0)-(a.n.sel?1:0)) || (a.t-b.t) || (a.l-b.l) || String(a.n.id).localeCompare(String(b.n.id)); });
+  var tenuti=[], via={};
+  function urta(n, quads, m){ for(var i=0;i<n.quads.length;i++) for(var j=0;j<quads.length;j++) if(quadSiToccano(n.quads[i], quads[j], m)) return true; return false; }
+  ord.forEach(function(x){ var n=x.n;
+    if(!n.sel){
+      for(var i=0;i<tenuti.length;i++) if(urta(n, tenuti[i].quads, 1)){ via[n.id]=true; return; }
+      for(var j=0;j<ostacoli.length;j++){ var o=ostacoli[j];
+        if(String(o.id)!==String(n.id) && urta(n, [o.quad], -1)){ via[n.id]=true; return; } }   /* −1: sfiorarsi non conta */
+    }
+    tenuti.push(n);
+  });
+  return via;
+}
+function nomiCedono(){
+  var lay=document.getElementById("layLbl"); if(!lay || !lay.querySelectorAll) return;
+  var gs=lay.querySelectorAll(".item-lbls"), n=gs.length|0, i;
+  var attivo=isMobile() && !svg.classList.contains("names-hidden");   /* solo telefono: il computer resta com'era */
+  if(!attivo){ for(i=0;i<n;i++) if(gs[i].classList.contains("lbl-cede")) gs[i].classList.remove("lbl-cede"); return; }
+  var M=lay.getScreenCTM ? lay.getScreenCTM() : null;   /* #layLbl ha le coordinate del palco (i nomi vi stanno a translate(x y)), qualunque gruppo del solo ci sia fra gli elementi */
+  if(!M) return;
+  function aSchermo(T, x, y){ return [T.a*x+T.c*y+T.e, T.b*x+T.d*y+T.f]; }
+  var ost=[];
+  /* I DISEGNI degli altri contano solo quando il corpo minimo ingrandisce: è l'ingrandimento che spinge il
+     nome sul vicino. A corpo pieno il nome sta dove lo mette lblBaseY, e il riquadro di un'illustrazione
+     (angoli vuoti compresi, girato col musicista) è troppo largo: a 4× spariva metà dei fiati e dei violini
+     in posti liberi. Lì conta solo nome contro nome. */
+  var K=parseFloat(svg.style.getPropertyValue("--lblK"))||1;
+  if(K>1.001) (state.items||[]).forEach(function(it){
+    var b=_arteDi && _arteDi[it.id];
+    if(!b || isRiser(it) || it.type==="miczone" || GAZ_TYPES[it.type]) return;   /* pedane e coperture sono il pavimento: ci si scrive sopra */
+    var a=(it.rot||0)*Math.PI/180, c=Math.cos(a), s=Math.sin(a);
+    ost.push({id:it.id, quad:[[b.x0,b.y0],[b.x1,b.y0],[b.x1,b.y1],[b.x0,b.y1]].map(function(p){
+      return aSchermo(M, it.x+p[0]*c-p[1]*s, it.y+p[0]*s+p[1]*c); })});
+  });
+  var nomi=[];
+  for(i=0;i<n;i++){
+    var g=gs[i], id=g.getAttribute("data-for"), quads=[], ts=g.querySelectorAll("text");
+    for(var k=0;k<ts.length;k++){
+      var bb=ts[k].getBBox(), T=ts[k].getScreenCTM(); if(!T || !(bb.width>0)) continue;
+      quads.push([aSchermo(T,bb.x,bb.y), aSchermo(T,bb.x+bb.width,bb.y), aSchermo(T,bb.x+bb.width,bb.y+bb.height), aSchermo(T,bb.x,bb.y+bb.height)]);
+    }
+    if(quads.length) nomi.push({g:g, id:id, sel:!!(selSet && selSet[id]), quads:quads});
+  }
+  var via=nomiDaNascondere(nomi, ost);
+  nomi.forEach(function(x){ x.g.classList.toggle("lbl-cede", !!via[x.id]); });
 }
 function reindexItemNodes(){
   itemNodeIndex=new Map(); itemLblIndex=new Map();
@@ -13744,11 +13915,7 @@ function renderProps(){
   var lblv=(it.lblSize==null?14:it.lblSize);
   document.getElementById("pLblSize").value = lblv;
   document.getElementById("pLblSizeVal").textContent = lblv;
-  var lbld=lblDistOf(it);
-  document.getElementById("pLblDist").value = lbld;
-  document.getElementById("pLblDistVal").textContent = lbld;
   if(typeof renderLblSizeAsk==="function") renderLblSizeAsk();   /* la domanda «anche alle altre?» vive quanto la selezione che l'ha originata */
-  if(typeof renderLblDistAsk==="function") renderLblDistAsk();
   var _lm = it.labelMode||"full";   /* modalità nome per-elemento (default = nome intero) */
   document.getElementById("pLblFull").className   = "btn"+(_lm==="full"?" primary":"");
   document.getElementById("pLblAbbr").className   = "btn"+(_lm==="abbr"?" primary":"");
@@ -14170,13 +14337,6 @@ document.getElementById("pLblSize").addEventListener("change", function(){ var i
    esistono altri elementi dello stesso tipo con una dimensione diversa da quella appena scelta. */
 var _lblSizeAsk=null;   /* id dell'elemento su cui si è appena cambiata la dimensione: runtime, non si salva */
 function lblSizeOf(it){ return (it && it.lblSize!=null) ? +it.lblSize : 14; }
-/* cm dal bordo dell'elemento. Era 9, e a 9 il nome finiva addosso a quel che gli sta sotto: la DI
-   generata da uno strumento sporge proprio lì, e il suo disegno spuntava IN MEZZO alle parole
-   («Chitarra|acustica 1» — P2-01 dell'audit 27/07). Il testo era già disegnato sopra, con il suo
-   alone: il difetto non era l'ordine di disegno, era la distanza. Chi ha già scelto la sua distanza
-   tiene la propria: lblDist salvato vince sempre su questo default. */
-var LBL_DIST_DEF=22;
-function lblDistOf(it){ var v=(it && it.lblDist!=null) ? +it.lblDist : LBL_DIST_DEF; return isFinite(v) ? Math.max(0, Math.min(80, v)) : LBL_DIST_DEF; }
 function lblSizeSiblings(it){
   if(!it || !TYPES[it.type]) return [];
   var v=lblSizeOf(it);
@@ -14201,23 +14361,6 @@ document.getElementById("pLblSizeAllYes").addEventListener("click", function(){
   _lblSizeAsk=null; render(); save(); renderProps();
   if(typeof toast==="function") toast("Dimensione "+v+" applicata a "+n+" element"+(n===1?"o":"i")+".");
 });
-/* DISTANZA del nome: stessa meccanica della dimensione, domanda «a tutte?» compresa. */
-var _lblDistAsk=null;
-function lblDistSiblings(it){
-  if(!it || !TYPES[it.type]) return [];
-  var v=lblDistOf(it);
-  return (state.items||[]).filter(function(o){ return o!==it && o.type===it.type && lblDistOf(o)!==v; });
-}
-function renderLblDistAsk(){
-  var row=document.getElementById("pLblDistAll"); if(!row) return;
-  var it=getSel(), altri=(it && _lblDistAsk===it.id) ? lblDistSiblings(it) : [];
-  row.hidden = !altri.length;
-  if(!altri.length) return;
-  document.getElementById("pLblDistAllMsg").textContent =
-    altri.length===1 ? "Un altro elemento come questo ha il nome a un'altra distanza."
-                     : ("Altri "+altri.length+" elementi come questo hanno il nome a un'altra distanza.");
-  document.getElementById("pLblDistAllYes").textContent = altri.length===1 ? "Applica anche a quello" : "Applica a tutti";
-}
 (function(){   /* Dante Virtual Soundcard: licenza, rete e frequenza cambiano il tetto dei canali */
   var pro=document.getElementById("pDvsPro");
   if(pro) pro.addEventListener("change", function(){ mutSel(function(x){ if(pro.checked) x.dvsPro=true; else delete x.dvsPro; }); renderProps(); });
@@ -14231,21 +14374,6 @@ function renderLblDistAsk(){
     });
   });
 })();
-document.getElementById("pLblDist").addEventListener("input", function(){
-  var v=+document.getElementById("pLblDist").value;
-  document.getElementById("pLblDistVal").textContent=v;
-  var it=getSel(); if(!it) return;
-  if(v===LBL_DIST_DEF) delete it.lblDist; else it.lblDist=v;   /* il default non si memorizza */
-  redrawItemNode(it); saveSoon();
-});
-document.getElementById("pLblDist").addEventListener("change", function(){ var it=getSel(); if(it){ _lblDistAsk=it.id; render(); save(); renderLblDistAsk(); } });
-document.getElementById("pLblDistAllYes").addEventListener("click", function(){
-  var it=getSel(); if(!it) return;
-  var v=lblDistOf(it), altri=lblDistSiblings(it), n=altri.length;
-  altri.forEach(function(o){ if(v===LBL_DIST_DEF) delete o.lblDist; else o.lblDist=v; });
-  _lblDistAsk=null; render(); save(); renderProps();
-  if(typeof toast==="function") toast("Distanza "+v+" cm applicata a "+n+" element"+(n===1?"o":"i")+".");
-});
 (function(){   /* allineamento del testo (testo libero e forma) */
   var w=document.getElementById("pAlignWrap"); if(!w) return;
   w.addEventListener("click", function(e){
@@ -14928,7 +15056,7 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
   group("Dettagli tecnici", null, ["pIfaceWrap","pCompIfaceWrap","pModelWrap","pLocInWrap","pUsoWrap","pBmWrap","pLmWrap","pModWrap","pWattWrap","pRfWrap","pPmWrap"]);   /* la richiesta di setup NON e' un dettaglio tecnico: e' un'azione verso una persona, e sta con la persona */
   group("Nota", "quello che il disegno non dice", ["pNoteWrap"]);
   group("Disegno", null, ["pLookWrap","pDims","pDimSideWrap","pShapeWrap","pRotRow",
-        "pLblSizeWrap","pLblSizeAll","pLblDistWrap","pLblDistAll","pAlignWrap","pTxtColorWrap","pLblPosWrap"]);
+        "pLblSizeWrap","pLblSizeAll","pAlignWrap","pTxtColorWrap","pLblPosWrap"]);
 
   /* ── TELEFONO: le cose da scrivania stanno dietro un bottone (02/09, Simone: «da telefono
      dev'essere possibile inserire icone ed esportare in modo semplice, senza tutte le opzioni
@@ -16062,15 +16190,14 @@ function lblRectOf(it, K){
   if(t.innerLabel || GAZ_TYPES[it.type]) return null;
   if(it.doppia===true || DOUBLE_TYPES[it.type]) return null;
   if(it.rot) return null;
-  if(!!POSTAZ[it.type] && optSedia(it) && it.lblAbove!==false) return null;
+  if(lblSopraDi(it)) return null;
   var txt=lblText(it.label, it, true); if(!txt) return null;
   var fsz=lblSizeOf(it); if(!(fsz>0)) return null;
   var fszK=fsz*(K>0?K:1);
-  var extra=(KEYS_BENCH[it.type] && it.panca!==false) ? 36 : 0;
-  if(VOCE[it.type]){ var mm=micModeOf(it); if(mm==="tonda"||mm==="giraffa") extra+=26; }
   var w=lblTextW(txt, fszK);
-  /* la DI generata da uno strumento scrive di lato, non sotto: il suo riquadro parte dal bordo destro */
-  var by = it.diFor ? (it.y + fszK*0.36) : (it.y + it.d/2 + lblDistOf(it) + fszK*0.72 + extra);
+  /* la DI generata da uno strumento scrive di lato, non sotto: il suo riquadro parte dal bordo destro.
+     Gli altri: la STESSA baseline del disegno (lblBaseY), non una formula ripetuta. */
+  var by = it.diFor ? (it.y + fszK*0.36) : (it.y + lblBaseY(it, fszK));
   var cx = it.diFor ? (it.x + it.w/2 + 18 + w/2) : it.x;
   return {id:it.id, x0:cx-w/2, x1:cx+w/2, y0:by-fszK*0.8, y1:by+fszK*0.2, h:fszK};
 }
@@ -16110,11 +16237,10 @@ function lblBandOf(it){
   if(!lblText(it.label, it, true) && !lblText(it.label2, it, false)) return vuoto;   /* senza nome non c'è niente da proteggere */
   var fsz=(it.lblSize==null) ? 14 : (+it.lblSize||14);
   if(!(fsz>0)) return vuoto;
-  var ld=lblDistOf(it);
-  if(!!POSTAZ[it.type] && optSedia(it) && it.lblAbove!==false) return {sopra:Math.max(0, 52.5+(ld-9)+fsz*1.1-it.d/2), sotto:0};
-  var extra=(KEYS_BENCH[it.type] && it.panca!==false) ? 36 : 0;   /* sgabello */
-  if(VOCE[it.type]){ var mm=micModeOf(it); if(mm==="tonda"||mm==="giraffa") extra+=26; }   /* base dell'asta */
-  return {sopra:0, sotto:ld+fsz*1.1+extra};
+  /* la striscia va dal bordo del footprint fin oltre le lettere, con la baseline vera (lblBaseY) */
+  var ly=lblBaseY(it, fsz);
+  if(lblSopraDi(it)) return {sopra:Math.max(0, -ly+fsz*0.85-it.d/2), sotto:0};
+  return {sopra:0, sotto:Math.max(0, ly+fsz*0.38-it.d/2)};
 }
 /* Posto libero per un elemento NUOVO, nome compreso — suo e di chi c'è già. Vale solo per la POSA
    automatica (catalogo, ricerca rapida, correzioni dell'audit): il TRASCINAMENTO resta libero di
@@ -30651,7 +30777,8 @@ function orcSeatsMarkup(){
   var out="";
   (state.items||[]).forEach(function(it){
     var rows=orcSeatsFor(it); if(!rows) return;
-    var y0=(it.d||60)/2+(typeof lblDistOf==="function"?lblDistOf(it):9)+30;
+    /* sotto il nome se il nome è sotto, sotto il disegno se il nome sta sopra lo schienale */
+    var _ea=arteDi(it), y0=lblSopraDi(it) ? (_ea.y1+lblStacco(14)+12) : (lblBaseY(it, lblSizeOf(it)||14)+18);
     out+='<g class="orc-seat" transform="translate('+it.x+' '+it.y+')">';
     rows.forEach(function(r,i){ out+='<text class="orc-name '+orcSeatClass(r)+'" y="'+(y0+i*15)+'">'+esc(orcSeatLine(r))+'</text>'; });
     out+='</g>';
