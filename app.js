@@ -3657,6 +3657,7 @@ window.addEventListener("storage",function(e){
    | stageplot_v1_venue, stageplot_v1_venue.*| local   | CANCELLA   | planimetrie del progetto (immagini)
    | stageplot_versions                      | local   | CANCELLA   | punti di ripristino = copie intere dei progetti
    | sb-*-auth-token*                        | local   | CANCELLA   | sessione Supabase (la toglie già signOut: qui per sicurezza)
+   | sp_founder                              | local   | CANCELLA   | «questo browser è di Simone»: la landing non lo conta (29/09); legato all'account
    | sp_uscita                               | local   | (segnale)  | avvisa le altre schede; si scrive e si toglie subito
    | cloudReopen, copyFromToken              | session | CANCELLA   | azioni in sospeso legate all'account
    | orcOpenProject, copiaDi:<utente>:<link> | session | CANCELLA   | progetto Orchestre da aprire, copie già fatte da un link
@@ -3683,7 +3684,7 @@ function uscitaChiaveDaCancellare(k, area){
       k==="sp_sid" || k==="sp_accesso_google" || k==="sp_google_accesso";
   }
   if(USCITA_TIENI_LOCAL[k]) return false;
-  return k===LS_KEY || k.indexOf(LS_KEY+"_")===0 || k===VER_KEY || /^sb-.+-auth-token/.test(k) || k===USCITA_SEGNALE;
+  return k===LS_KEY || k.indexOf(LS_KEY+"_")===0 || k===VER_KEY || /^sb-.+-auth-token/.test(k) || k===USCITA_SEGNALE || k==="sp_founder";
 }
 function uscitaChiavi(st){
   var ks=[]; if(!st) return ks;
@@ -29521,6 +29522,11 @@ function maybeAskStageSize(explicit){
          Ora si confronta l'id dell'account: identifica la stessa persona, ma non è un recapito —
          non si può scrivere a un UUID, e senza password non apre niente. */
       props.founder = !!(cloudUser && cloudUser.id === FOUNDER_ID);   /* filtrabili con props->>'founder' nelle metriche, senza perdere il dato */
+      /* 29/09: la landing non ha login e contava anche lui — delle 9 aperture da «Prova un palco già
+         pronto» dal 30/08, 8 erano sue. Stesso dominio, stesso localStorage: qui si lascia un segno che
+         la landing legge per non contare quel browser. Nessun dato personale, solo «1». Si toglie se
+         nello stesso browser entra qualcun altro. */
+      try{ if(props.founder) localStorage.setItem("sp_founder","1"); else if(cloudUser) localStorage.removeItem("sp_founder"); }catch(_e){}
       /* Nessun endpoint INSERT anonimo: evita spam/bulk write sul database pubblico.
          Gli eventi pre-login restano solo in memoria e vengono scartati se l'utente non accede. */
       if(!sb || !cloudUser) return;

@@ -148,7 +148,7 @@ addEventListener("hashchange", go);})();</script>
       "about": { "@id": "https://stageplot.it/#app" },
       "primaryImageOfPage": { "@type": "ImageObject", "url": "https://stageplot.it/img/editor.jpg", "width": 1400, "height": 643 },
       "datePublished": "2026-08-08",
-      "dateModified": "2026-09-27"
+      "dateModified": "2026-09-29"
     },
     {
       "@type": "FAQPage",
@@ -371,7 +371,7 @@ addEventListener("hashchange", go);})();</script>
   .ba-divider::after{content:"⇄";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
     background:var(--teal);color:#04211d;font-size:16px;line-height:1;font-weight:700;
     padding:8px 10px;border-radius:999px;white-space:nowrap}
-  .ba-range{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:ew-resize;z-index:4;margin:0;touch-action:none}
+  .ba-range{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:ew-resize;z-index:4;margin:0;touch-action:pan-y}
   .ba-tag{position:absolute;top:14px;font-family:var(--mono);font-size:11px;letter-spacing:.14em;padding:6px 12px;border-radius:999px;z-index:2}
   .ba-tag.prima{left:14px;background:rgba(58,52,40,.85);color:#efe8d6}
   .ba-tag.dopo{right:14px;background:rgba(20,184,166,.15);border:1px solid var(--teal-d);color:var(--teal-l)}
@@ -1789,6 +1789,10 @@ addEventListener("hashchange", go);})();</script>
   try{
     if (location.hostname !== "stageplot.it") return;                    /* in locale non si conta */
     if (navigator.doNotTrack === "1" || window.doNotTrack === "1") return;
+    /* 29/09: chi sviluppa il sito non si conta. Il segno lo scrive l'editor (stesso dominio) quando
+       l'account collegato è il suo: senza, delle aperture da «Prova un palco già pronto» dal 30/08
+       otto su nove erano sue, e ogni confronto fra i pulsanti misurava lui. */
+    try{ if (localStorage.getItem("sp_founder") === "1") return; }catch(e){}
     var API = "https://vsodplqkuvnsdiikvmjb.supabase.co/functions/v1/track-landing";
 
     function manda(event, source){
