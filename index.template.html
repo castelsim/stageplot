@@ -30661,6 +30661,11 @@ function maybeAskStageSize(explicit){
          Ora si confronta l'id dell'account: identifica la stessa persona, ma non è un recapito —
          non si può scrivere a un UUID, e senza password non apre niente. */
       props.founder = !!(cloudUser && cloudUser.id === FOUNDER_ID);   /* filtrabili con props->>'founder' nelle metriche, senza perdere il dato */
+      /* 29/09: la landing non ha login e contava anche lui — delle 9 aperture da «Prova un palco già
+         pronto» dal 30/08, 8 erano sue. Stesso dominio, stesso localStorage: qui si lascia un segno che
+         la landing legge per non contare quel browser. Nessun dato personale, solo «1». Si toglie se
+         nello stesso browser entra qualcun altro. */
+      try{ if(props.founder) localStorage.setItem("sp_founder","1"); else if(cloudUser) localStorage.removeItem("sp_founder"); }catch(_e){}
       /* Nessun endpoint INSERT anonimo: evita spam/bulk write sul database pubblico.
          Gli eventi pre-login restano solo in memoria e vengono scartati se l'utente non accede. */
       if(!sb || !cloudUser) return;
