@@ -3491,3 +3491,8 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
   .cloudRiga .cloudTesto{flex:1 1 calc(100% - 80px)!important}
   .cloudRiga .cloudOpen{margin-left:auto}
 }
+/* Invito ad accedere al posto del progetto (29/09, uscita pulita): con l'invito aperto la pagina non
+   mostra niente del progetto dietro — restano visibili solo le finestre, il messaggio e le conferme.
+   `visibility` e non `display`: il palco tiene le sue misure e alla chiusura fit() non riparte da zero. */
+body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:hidden}
+@media (min-width:881px){ #accessoInvito .wl-foot button{white-space:nowrap} }   /* due bottoni su una riga: a capo sembravano quattro */

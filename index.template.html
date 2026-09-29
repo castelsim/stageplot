@@ -1807,6 +1807,25 @@
   </div>
 </div>
 
+<!-- Invito ad accedere AL POSTO del progetto (29/09, Simone): dopo l'uscita dall'account, o al boot quando
+     c'è un progetto dell'account ma la sessione non c'è più. Stessi pezzi del benvenuto e di #loginPrompt.
+     Testi e comportamento: mostraInvitoAccesso() / «USCITA PULITA». -->
+<div class="modal" id="accessoInvito" hidden>
+  <div class="wl-card" role="dialog" aria-modal="true" aria-labelledby="aiTitle">
+    <div class="wl-head">
+      <span class="wl-badge" id="aiBadge">Account</span>
+      <div class="wl-title" id="aiTitle">Sei uscito dal tuo account</div>
+      <div class="wl-tag" id="aiTag">I tuoi progetti sono al sicuro online. Accedi con Google per ritrovarli.</div>
+    </div>
+    <div class="wl-body">
+      <div class="wl-foot">
+        <button type="button" class="wl-ghost" id="aiSenza">Continua senza account</button>
+        <button type="button" class="wl-cta" id="aiAccedi">Accedi con Google</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- «Nuovo…» (13/08): una finestra sola al posto di due voci di menu. Prima si sceglieva PRIMA
      («Nuovo» o «Nuovo da modello…») e si scopriva solo dopo cosa comportava; ora la scelta è qui,
      con le due strade una accanto all'altra. -->
@@ -5661,6 +5680,172 @@ window.addEventListener("storage",function(e){
   var incoming=localRevisionFromRaw(e.newValue);
   if(localExpectedRevision!=null && incoming!==localExpectedRevision) markLocalConflict();
 });
+/* ===== USCITA PULITA (29/09, Simone) =====
+   «Sono uscito dall'account ma vedo ancora il progetto aperto. Dovrebbe esserci qualcosa che invita al
+   login, non il progetto precedente aperto. Immagina che io faccia il login sul computer di un'altra
+   persona per lavorare.» Fino a oggi l'uscita staccava il documento dal cloud e lo LASCIAVA nel browser
+   («Il progetto resta su questo dispositivo»): era una scelta voluta, e Simone la CAMBIA. Ora uscire vuol
+   dire: prima si mette online quello che manca (o si chiede), poi si cancella dal browser tutto ciò che
+   contiene progetti o dati dell'account, e al posto del progetto compare l'invito ad accedere.
+
+   INVENTARIO delle chiavi che l'app scrive (grep di localStorage/sessionStorage.setItem, 29/09):
+   | chiave                                  | dove    | all'uscita | perché
+   | stageplot_v1                            | local   | CANCELLA   | il documento di lavoro (tutte le scene)
+   | stageplot_v1_cloudid / _cloudrev        | local   | CANCELLA   | aggancio al progetto dell'account
+   | stageplot_v1_venue, stageplot_v1_venue.*| local   | CANCELLA   | planimetrie del progetto (immagini)
+   | stageplot_versions                      | local   | CANCELLA   | punti di ripristino = copie intere dei progetti
+   | sb-*-auth-token*                        | local   | CANCELLA   | sessione Supabase (la toglie già signOut: qui per sicurezza)
+   | sp_uscita                               | local   | (segnale)  | avvisa le altre schede; si scrive e si toglie subito
+   | cloudReopen, copyFromToken              | session | CANCELLA   | azioni in sospeso legate all'account
+   | orcOpenProject, copiaDi:<utente>:<link> | session | CANCELLA   | progetto Orchestre da aprire, copie già fatte da un link
+   | sp_sid, sp_accesso_google               | session | CANCELLA   | sessione delle statistiche (legata all'utente), segno del login
+   | sp_google_accesso                       | session | CANCELLA   | stato dell'accesso Google in corso (accedi/google/avvio.js)
+   | sp_loginPrompt                          | session | tieni      | «invito già mostrato in questa sessione»: interfaccia
+   | stageplot_theme                         | local   | tieni      | tema chiaro/scuro
+   | sp_welcome, sp_onboarded, sp_dragHint   | local   | tieni      | benvenuto e suggerimenti già visti
+   | sp_funzioni (+ vecchia sp_props_pro)    | local   | tieni      | funzioni avanzate (preferenza, sta anche nell'account)
+   | sp_catRecenti                           | local   | tieni      | recenti del catalogo: nomi di strumenti, non progetti
+   | sp_advListe, sp_assPos, sp_noAssunzioni,| local   | tieni      | preferenze di pannelli e viste
+   | sp_rail, sp_vistaRuotata                |         |            |
+   La rubrica NON è nel browser: sta nell'account (window.__cloud.rubrica, cache solo in memoria).
+   Una chiave nuova va aggiunta qui: il test «ogni chiave scritta dall'app è classificata» la cerca. */
+var USCITA_SEGNALE="sp_uscita";
+var USCITA_TIENI_LOCAL={stageplot_theme:1, sp_welcome:1, sp_onboarded:1, sp_dragHint:1, sp_funzioni:1, sp_props_pro:1,
+  sp_catRecenti:1, sp_advListe:1, sp_assPos:1, sp_noAssunzioni:1, sp_rail:1, sp_vistaRuotata:1};
+var USCITA_TIENI_SESSION={sp_loginPrompt:1};
+function uscitaChiaveDaCancellare(k, area){
+  k=String(k||"");
+  if(area==="session"){
+    if(USCITA_TIENI_SESSION[k]) return false;
+    return k==="cloudReopen" || k==="copyFromToken" || k==="orcOpenProject" || k.indexOf("copiaDi:")===0 ||
+      k==="sp_sid" || k==="sp_accesso_google" || k==="sp_google_accesso";
+  }
+  if(USCITA_TIENI_LOCAL[k]) return false;
+  return k===LS_KEY || k.indexOf(LS_KEY+"_")===0 || k===VER_KEY || /^sb-.+-auth-token/.test(k) || k===USCITA_SEGNALE;
+}
+function uscitaChiavi(st){
+  var ks=[]; if(!st) return ks;
+  try{ var n=st.length; for(var i=0;i<n&&i<5000;i++){ var k=st.key(i); if(k!=null) ks.push(k); } }catch(e){}
+  return ks;
+}
+/* Lo stato in memoria torna quello di un progetto vuoto, senza passare da save(): niente punto di
+   ripristino (conterrebbe il progetto che si sta togliendo) e niente scrittura locale. */
+function azzeraMemoriaDocumento(){
+  commitPreparedDoc(prepareDoc({titolo:"",luogo:"",stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]},items:[],inputs:[],outputs:[]}));
+  window.__docLoadBlocked=null; window.__docLoadBlockedRaw=null;
+  window.__localConflict=false; localConflictWarned=false;
+  detachCloudDoc(true);
+  if(window.__markCloudClean) window.__markCloudClean();
+  resetHistory(); sel=null; selSet={}; clearVenueImg();
+  try{
+    if(typeof renderVariantBar==="function") renderVariantBar();
+    if(typeof resetMetaLayersUI==="function") resetMetaLayersUI();
+    stageEdit=false; selBlock=null; eventoEdit=false;
+    renderStagePanel(); renderEventoPanel(); clearSelection(); setEventInputs(); renderChannels();
+    if(typeof resetCatalogView==="function") resetCatalogView();
+    render(); fit();
+  }catch(e){}
+}
+/* Cancella dal browser i dati dell'account (tabella sopra) e azzera la memoria. Restituisce le chiavi tolte.
+   `ls`/`ss` si possono passare (test); di norma sono quelli del browser. */
+function pulisciDatiAccount(ls, ss){
+  try{ if(!ls) ls=window.localStorage; }catch(e){ ls=null; }
+  try{ if(!ss) ss=window.sessionStorage; }catch(e){ ss=null; }
+  azzeraMemoriaDocumento();
+  var tolte=[];
+  /* prima il segnale per le altre schede, poi le chiavi: così l'altra scheda si azzera PRIMA di vedere
+     sparire il documento, e non lo scambia per un conflitto fra schede */
+  try{ if(ls){ ls.setItem(USCITA_SEGNALE, String(Date.now())); ls.removeItem(USCITA_SEGNALE); } }catch(e){}
+  [[ls,"local"],[ss,"session"]].forEach(function(p){
+    uscitaChiavi(p[0]).forEach(function(k){
+      if(!uscitaChiaveDaCancellare(k,p[1])) return;
+      try{ p[0].removeItem(k); tolte.push(k); }catch(e){}
+    });
+  });
+  localStorageIdentity=ls; localExpectedRevision="";   /* il documento non c'è più: «vuoto» è la revisione attesa */
+  window.__localStorageUnavailable=false; __localSaveWarned=false;
+  return tolte;
+}
+/* Prima di uscire, niente lavoro perso: se il cloud è indietro si salva ORA; se non riesce (rete, tempo
+   scaduto: fetchConTempo) si chiede. cb(true) = si può uscire, cb(false) = si resta. */
+function preparaUscita(cb){
+  var chiedi=function(msg){
+    if(typeof window.confirmDialog!=="function"){ cb(false); return; }
+    window.confirmDialog({icon:"warn", title:"Uscire dall'account?", message:msg,
+      confirmText:"Esci comunque", cancelText:"Resta"}).then(function(ok){ cb(!!ok); });
+  };
+  /* documento che questa versione non sa aprire: è l'unica copia (resilienza 17/09), la si scarica prima */
+  if(window.__docLoadBlocked){
+    if(typeof window.confirmDialog!=="function"){ cb(false); return; }
+    window.confirmDialog({icon:"warn", title:"Uscire dall'account?",
+      message:"Il progetto salvato su questo computer non si apre con questa versione e uscendo verrebbe cancellato. Scarica una copia prima di uscire.",
+      confirmText:"Scarica una copia ed esci", cancelText:"Resta"}).then(function(ok){
+        if(!ok){ cb(false); return; }
+        cb(!!scaricaOriginaleBloccato());
+      });
+    return;
+  }
+  try{ if(!window.__projLocked && !foreignDoc() && typeof save==="function") save(); }catch(e){}   /* l'ultimo carattere scritto entra nel salvataggio */
+  var serve=!!(window.__cloudNeedsFlush && window.__cloudNeedsFlush());
+  if(!serve){ cb(true); return; }
+  var msg="Le ultime modifiche non sono ancora online. Se esci ora restano solo su questo computer e verranno cancellate.";
+  if(typeof window.flushCloudAutosave!=="function"){ chiedi(msg); return; }
+  if(window.__toast) window.__toast("Salvo le ultime modifiche online…");
+  window.flushCloudAutosave(function(ok){ if(ok) cb(true); else chiedi(msg); });
+}
+/* L'invito ad accedere AL POSTO del progetto: finestra #accessoInvito (stessi pezzi del benvenuto) e
+   il resto della pagina nascosto (body.accesso-invito). modo "uscita" = appena usciti; "scaduta" = al
+   boot c'è un progetto dell'account ma nessuna sessione: il progetto resta nel browser (accedendo si
+   ritrova, anche con le modifiche non ancora online) ma non si mostra. */
+function mostraInvitoAccesso(modo){
+  window.__invitoAccesso=modo||"uscita";
+  var m=document.getElementById("accessoInvito"); if(!m) return;
+  var scad=window.__invitoAccesso==="scaduta";
+  var t=document.getElementById("aiTitle"), g=document.getElementById("aiTag"), b=document.getElementById("aiBadge");
+  if(b) b.textContent=scad?"Sessione scaduta":"Account";
+  if(t) t.textContent=scad?"Accedi per ritrovare il tuo progetto":"Sei uscito dal tuo account";
+  if(g) g.textContent=scad?"Il progetto aperto l'ultima volta è salvato nel tuo account: accedi con Google e lo ritrovi com'era.":"I tuoi progetti sono al sicuro online. Accedi con Google per ritrovarli.";
+  try{ document.body.classList.add("accesso-invito"); }catch(e){}
+  m.hidden=false;
+  try{ var a=document.getElementById("aiAccedi"); if(a) a.focus(); }catch(e){}
+}
+function chiudiInvitoAccesso(){
+  window.__invitoAccesso=null;
+  try{ document.body.classList.remove("accesso-invito"); }catch(e){}
+  var m=document.getElementById("accessoInvito"); if(m) m.hidden=true;
+  try{ if(typeof fit==="function") fit(); }catch(e){}
+}
+/* Al boot: un documento agganciato a un progetto dell'account (_cloudid) senza sessione valida non si mostra.
+   Il documento SENZA _cloudid è di chi lavora senza account: resta com'è. rientro = ritorno dal login
+   (?code= o /accedi/google/): la sessione arriva un attimo dopo, e lì non si nasconde niente. */
+function invitoAlBoot(haSessione, rientro){
+  if(haSessione || rientro || !window.__bootCloudId) return false;
+  if(foreignDoc() || /[?&](view|export)=/.test((window.location&&location.search)||"")) return false;
+  if(window.__invitoAccesso) return true;
+  mostraInvitoAccesso("scaduta"); return true;
+}
+/* SENZA RETE non è «sessione scaduta». Con il token scaduto supabase-js 2.110 prova a rinnovarlo; se la rete
+   non c'è (o fetchConTempo scade) risponde session:null con AuthRetryableFetchError e LASCIA la sessione
+   salvata: chi lavora in un locale senza campo deve poter continuare, e l'invito non va mostrato. Una
+   sessione revocata (uscita da un altro dispositivo) risponde invece con un errore del server, e lì sì. */
+function sessioneNonRaggiungibile(err){ return !!(err && (err.name==="AuthRetryableFetchError" || err.status===0)); }
+/* Un'altra scheda è uscita dall'account: questa smette di mostrare il progetto (le chiavi le ha già tolte lei). */
+function uscitaDaAltraScheda(){
+  if(foreignDoc()) return false;
+  azzeraMemoriaDocumento();
+  localExpectedRevision="";
+  mostraInvitoAccesso("uscita");
+  return true;
+}
+window.addEventListener("storage",function(e){ if(e && e.key===USCITA_SEGNALE && e.newValue) uscitaDaAltraScheda(); });
+/* Con l'invito aperto le scorciatoie da tastiera non toccano il progetto nascosto dietro */
+document.addEventListener("keydown",function(e){
+  if(!window.__invitoAccesso) return;
+  var t=e.target, dentro=t&&t.closest&&t.closest("#accessoInvito,#confirmModal");
+  if(!dentro) e.stopImmediatePropagation();
+},true);
+window.__uscita={preparaUscita:preparaUscita, pulisci:pulisciDatiAccount, mostra:mostraInvitoAccesso, chiudi:chiudiInvitoAccesso,
+  alBoot:invitoAlBoot, altraScheda:uscitaDaAltraScheda, daCancellare:uscitaChiaveDaCancellare};
 window.addEventListener("beforeunload",function(e){
   /* TRE modi diversi di finire con il lavoro solo in RAM: il conflitto fra schede, l'archivio del
      browser pieno, e il documento salvato che questa versione non sa aprire. La guardia nasceva per
@@ -31297,12 +31482,42 @@ function maybeAskStageSize(explicit){
         .then(function(r){ if(r && r.error){ toast("Accesso non riuscito: "+r.error.message, true); } });
     });
   }
+  /* Uscita (29/09, Simone cambia la scelta di prima): fino a oggi qui si staccava il documento dal cloud
+     e lo si LASCIAVA nel browser («Disconnesso. Il progetto resta su questo dispositivo.»). Sul computer di
+     un altro voleva dire lasciargli il progetto aperto. Ora: salvataggio online di quello che manca (o
+     conferma), uscita, pulizia del browser e invito ad accedere — vedi «USCITA PULITA». */
   function signOut(){
     if(!sb) return;
-    sb.auth.signOut().then(function(){
-      detachCloudDoc();   /* non trasferire ID/revisione del vecchio account a un login successivo sullo stesso browser */
-      if(window.__markCloudClean) window.__markCloudClean();
-      persistLocalState(); toast("Disconnesso. Il progetto resta su questo dispositivo.");
+    preparaUscita(function(ok){
+      if(!ok) return;
+      var fatto=false;
+      function fine(){
+        if(fatto) return; fatto=true;
+        closeModal();
+        try{ var ct=document.getElementById("cloudToast"); if(ct) ct.hidden=true; }catch(e){}   /* «Salvo le ultime modifiche online…» non vale più */
+        pulisciDatiAccount();
+        mostraInvitoAccesso("uscita");
+      }
+      /* senza rete signOut() risponde con un errore e la sessione resterebbe nel browser: allora la si
+         toglie solo qui (scope "local"), che non chiede niente al server */
+      function soloQui(){ try{ sb.auth.signOut({scope:"local"}).then(fine, fine); }catch(e){ fine(); } }
+      sb.auth.signOut().then(function(r){ if(r && r.error) soloQui(); else fine(); }, soloQui);
+    });
+  }
+  function bindInvitoAccesso(){
+    var a=document.getElementById("aiAccedi"), s=document.getElementById("aiSenza");
+    if(a) a.addEventListener("click", function(){ if(sb) signIn(); });
+    if(s) s.addEventListener("click", function(){
+      function via(){ chiudiInvitoAccesso(); if(typeof maybeAskStageSize==="function") maybeAskStageSize(true); }
+      if(window.__invitoAccesso!=="scaduta"){ via(); return; }
+      /* sessione scaduta: il progetto dell'account è ancora nel browser; senza account non si mostra, si toglie */
+      var pend=window.__bootCloudPending===true;
+      (pend && typeof window.confirmDialog==="function" ? window.confirmDialog({icon:"warn", title:"Iniziare senza account?",
+        message:"Le ultime modifiche del progetto dell'account non sono ancora online. Se inizi senza account restano solo su questo computer e verranno cancellate.",
+        confirmText:"Inizia comunque", cancelText:"Resta"}) : Promise.resolve(true)).then(function(ok){
+          if(!ok) return;
+          pulisciDatiAccount(); via();
+        });
     });
   }
 
@@ -32238,9 +32453,27 @@ function maybeAskStageSize(explicit){
     var orcOpen=(typeof orcProjectParam==="function")?orcProjectParam(location.search):null;
     if(orcOpen){ try{ history.replaceState(null,"",location.pathname+location.hash); }catch(e){} }
     else { try{ orcOpen=sessionStorage.getItem("orcOpenProject")||null; }catch(e){} }
+    bindInvitoAccesso();
+    /* Sessione scaduta (29/09): progetto dell'account nel browser ma nessuna sessione. Se nel browser non c'è
+       nemmeno la chiave della sessione lo si sa SUBITO, e il progetto non compare neanche per un istante;
+       altrimenti si aspetta getSession (un token scaduto si rinnova, o sparisce). Chi torna dal login
+       (oauthReturn) non si tocca: la sessione arriva un attimo dopo. */
+    var copyTok0=null; try{ copyTok0=sessionStorage.getItem("copyFromToken"); }catch(e){}
+    var senzaInvito=!!(orcOpen||copyTok0);   /* questi due aprono già la finestra dell'accesso da sé */
+    function haChiaveSessione(){
+      try{ for(var i=0;i<localStorage.length&&i<5000;i++){ if(/^sb-.+-auth-token$/.test(localStorage.key(i)||"")) return true; } }catch(e){ return true; }
+      return false;
+    }
+    if(!senzaInvito && !haChiaveSessione()) invitoAlBoot(false, oauthReturn);
     sb.auth.getSession().then(function(r){
       setCloudUser((r && r.data && r.data.session)?r.data.session.user:null);
       window.__cloudAuthResolved=true;
+      if(cloudUser){ if(window.__invitoAccesso==="scaduta") chiudiInvitoAccesso(); }
+      /* SENZA RETE non è «sessione scaduta»: vedi sessioneNonRaggiungibile */
+      else if(!senzaInvito && !sessioneNonRaggiungibile(r && r.error)){
+        if(!oauthReturn) invitoAlBoot(false, false);
+        else setTimeout(function(){ if(!cloudUser) invitoAlBoot(false, false); }, 8000);   /* accesso non andato a buon fine */
+      }
       if(!oauthReturn) hadSessionAtBoot=!!cloudUser;
       if(accessoAppenaFatto && cloudUser && !loginTracked){ loginTracked=true; window.__sendEvent({event:"login_success",props:{}}); }
       updateBtn();
@@ -32271,6 +32504,7 @@ function maybeAskStageSize(explicit){
       if(ev==="SIGNED_IN" && cloudUser && !loginTracked && oauthReturn){ loginTracked=true; window.__sendEvent({event:"login_success",props:{}}); }
       window.__flushEvents();
       if(cloudUser && !cloudCurrentId && window.__bootCloudId) cloudCurrentId=window.__bootCloudId;   /* riaggancio dopo un re-login nella stessa sessione */
+      if(cloudUser && window.__invitoAccesso) chiudiInvitoAccesso();   /* accesso fatto (anche da un'altra scheda): l'invito non serve più */
       if(cloudUser && orcOpen){ var _oid2=orcOpen; orcOpen=null; try{ sessionStorage.removeItem("orcOpenProject"); }catch(e){} openProject(_oid2); }
       orcSeatsSync();
       updateBtn();
