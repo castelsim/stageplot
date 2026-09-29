@@ -17554,6 +17554,44 @@ t("adatta palco: in una nuova scena l'originale resta intatto e basta un Annulla
   reset();
 });
 
+t("adatta palco: Annulla toglie la scena nuova e torna a quella di partenza, Ripeti la rimette", () => {
+  /* 29/09, Simone: «correggi anche l'annulla di adatta». Prima Annulla lasciava la scena «Palco 7 × 6 m» col
+     palco di partenza dentro: nome di una misura, contenuto di un'altra. */
+  reset();
+  add("leggio", 200, 300); add("leggio", 1000, 300);
+  A.save(); A.resetHistory();
+  const partenza = A.activeVar;
+  A.adattaPalcoApplica(700, 600, true);
+  const nuova = A.activeVar;
+  ok(nuova !== partenza, "si lavora nella scena nuova");
+  const sync = A.syncHistoryButtons; let visto = null;
+  A.syncHistoryButtons = function () { visto = A.ripetiDisponibile(); return sync.apply(this, arguments); };
+  try { A.undo(); } finally { A.syncHistoryButtons = sync; }
+  eq([A.VARIANTS.length, A.activeVar, A.state.stage.w], [1, partenza, 1200], "Annulla: scena tolta, di nuovo nella scena di partenza");
+  ok(!A.VARIANTS.some((v) => v.id === nuova), "la scena nuova non c'è più");
+  eq(visto, true, "i bottoni si aggiornano con Ripeti disponibile (nel browser restava spento)");
+  A.redo();
+  eq([A.VARIANTS.length, A.activeVar, A.state.stage.w, A.VARIANTS[1].name], [2, nuova, 700, "Palco 7 × 6 m"], "Ripeti: scena rimessa, con il palco adattato");
+  A.undo();
+  eq([A.VARIANTS.length, A.activeVar], [1, partenza], "e Annulla la toglie di nuovo");
+  /* dopo altro lavoro nella scena nuova, Annulla disfa quel lavoro e la scena resta */
+  A.adattaPalcoApplica(700, 600, true);
+  const it = A.state.items[0]; it.x += 50; A.save();
+  A.undo();
+  eq(A.VARIANTS.length, 2, "Annulla disfa lo spostamento, la scena resta");
+  A.undo();
+  eq([A.VARIANTS.length, A.activeVar], [1, partenza], "l'Annulla dopo è quello di Adatta: scena tolta");
+  /* toccata la scena di partenza, Ripeti non rimette più la scena */
+  A.state.items[0].x += 30; A.save();
+  A.redo();
+  eq(A.VARIANTS.length, 1, "Ripeti non la rimette sopra un lavoro nuovo");
+  /* Adatta nella stessa scena: Annulla normale */
+  A.adattaPalcoApplica(700, 600, false);
+  A.undo();
+  eq([A.VARIANTS.length, A.state.stage.w], [1, 1200], "stessa scena: Annulla riporta il palco");
+  reset();
+});
+
 t("adatta palco: il pannello «Forma del palco» aperto si ridisegna dopo Adatta e dopo Annulla", () => {
   /* 29/09, prova nel browser sul progetto di Simone: palco 10 × 10 applicato, il pannello diceva ancora 12 × 13
      e le pedane con le misure di prima. Si scrive solo all'apertura: chi cambia il palco da fuori lo ridisegna. */
@@ -17581,7 +17619,96 @@ t("adatta palco: il comando sta nella «Forma del palco» e la nuova scena è la
   ok(/id="bAdattaPalco"/.test(pan), "bottone nel pannello Forma del palco");
   ok(/<input type="checkbox" id="apScena" checked>/.test(tpl), "«In una nuova scena» spuntato di partenza");
   ok(/R=adattaPalcoApplica\(W, D, nuova\)/.test(appjs), "la finestra applica con la scelta della scena");
-  ok(/run:function\(\)\{ undo\(\); adattaPalcoApplica\(msg\.allargaW, msg\.allargaD, false\); \}/.test(appjs), "«Usa un palco…» annulla e rifà sul palco proposto");
+  ok(/run:function\(\)\{ undo\(\); adattaPalcoApplica\(msg\.allargaW, msg\.allargaD, nuova\); \}/.test(appjs), "«Usa un palco…» annulla e rifà sul palco proposto, con la stessa scelta della scena");
+});
+
+/* ===== Distanza tra i 2 su più postazioni (29/09, segnalazione di Simone: «se seleziono molteplici postazioni a 2
+   devo poter regolare la distanza dei musicisti in simultanea delle postazioni a 2 selezionate») ===== */
+function orchestraA2() {
+  reset();
+  const v1 = add("vlnpost", 200, 300, { doppia: true, sep: 90, vsec: 1 });
+  const v2 = add("vlnpost", 450, 300, { doppia: true, sep: 120, vsec: 1 });
+  const vc = add("violoncello", 700, 300, { doppia: true, sep: 110 });
+  const cx = add("cellix2", 950, 300, { sep: 110 });
+  const vs = add("vlnpost", 200, 550, { vsec: 2 });   /* singola: non è una postazione a 2 */
+  const we = add("wedge", 450, 550);
+  [v1, v2, vc, cx].forEach((it) => { it.w = A.sepToW(A.sepCfg(it), it.sep); });
+  return { v1, v2, vc, cx, vs, we };
+}
+function selezionaTutti(its) { A.clearSelection(); its.forEach((it) => { A.selSet[it.id] = true; A.sel = it.id; }); }
+
+t("postazioni a 2: sono le doppie di POSTAZ e i tipi ×2, non le singole né gli altri elementi", () => {
+  const o = orchestraA2();
+  eq(A.sepPostazioni([o.v1, o.v2, o.vc, o.cx, o.vs, o.we]).map((it) => it.id), [o.v1.id, o.v2.id, o.vc.id, o.cx.id]);
+  eq(A.sepStato([o.vs, o.we]), null, "senza postazioni a 2 il cursore non c'è");
+  reset();
+});
+
+t("postazioni a 2 selezionate: la stessa distanza a tutte, gli altri elementi intatti, un solo Annulla", () => {
+  const o = orchestraA2();
+  A.save(); A.resetHistory();
+  const altri = JSON.stringify([o.vs, o.we]);
+  selezionaTutti([o.v1, o.v2, o.vc, o.cx, o.vs, o.we]);
+  /* trascinamento: tre tacche senza salvare, poi il rilascio */
+  A.grpSepApply(false, 100); A.grpSepApply(false, 130);
+  eq(A.undoStack.length, 0, "durante il trascinamento nessun passo di Annulla");
+  A.grpSepApply(true, 150);
+  const id2 = (it) => A.state.items.find((x) => x.id === it.id);
+  eq([o.v1, o.v2, o.vc, o.cx].map((it) => id2(it).sep), [150, 150, 150, 150], "tutte a 150 cm");
+  eq(id2(o.v1).w, A.sepToW(A.POSTAZ.vlnpost, 150), "la larghezza segue la distanza (vlnpost)");
+  eq(id2(o.cx).w, A.sepToW(A.DOUBLE_TYPES.cellix2, 150), "e anche per i tipi ×2");
+  eq(JSON.stringify([id2(o.vs), id2(o.we)]), altri, "violino singolo e wedge non cambiano");
+  eq(A.undoStack.length, 1, "un solo passo di Annulla");
+  A.undo();
+  eq([o.v1, o.v2, o.vc, o.cx].map((it) => id2(it).sep), [90, 120, 110, 110], "Annulla riporta le distanze di prima, tutte insieme");
+  reset();
+});
+
+t("postazioni a 2 fuori dalla selezione non si toccano; ognuna rispetta il suo minimo", () => {
+  const o = orchestraA2();
+  const cb = add("contrabbasso", 1100, 550, { doppia: true, sep: 160 });
+  selezionaTutti([o.v1, cb]);
+  A.grpSepApply(true, 70);
+  eq([o.v1.sep, cb.sep], [70, A.minSepOf(cb)], "il violino va a 70, il contrabbasso si ferma al suo minimo (100)");
+  eq([o.v2.sep, o.vc.sep], [120, 110], "le postazioni a 2 non selezionate restano come sono");
+  const st = A.sepStato([o.v1, cb]);
+  eq([st.min, st.misto], [65, true], "il cursore parte dal minimo più basso; restano diverse per via del minimo");
+  reset();
+});
+
+t("postazioni a 2: stato misto → «diversi», poi uguali → centimetri", () => {
+  const o = orchestraA2();
+  const sel = [o.v1, o.v2, o.we];
+  let st = A.sepStato(sel);
+  eq([st.n, st.altri, st.lo, st.hi, st.misto], [2, 1, 90, 120, true], "90 e 120: miste");
+  let sc = A.grpSepScritta(st);
+  eq(sc.val, "diversi", "al posto dei centimetri");
+  ok(/da 90 a 120 cm/.test(sc.nota) && /L'altro elemento selezionato resta com'è/.test(sc.nota), sc.nota);
+  A.sepApplica(sel, 105);
+  st = A.sepStato(sel); sc = A.grpSepScritta(st);
+  eq([st.misto, sc.val], [false, "105 cm"], "uguali: i centimetri");
+  ok(/le 2 postazioni a 2 selezionate/.test(sc.nota), sc.nota);
+  reset();
+});
+
+t("postazioni a 2: la distanza nuova si vede nel disegno", () => {
+  const o = orchestraA2();
+  ok(A.itemMarkup(o.v1).indexOf("translate(45,0)") > -1, "a 90 cm i due violinisti stanno a ±45");
+  A.sepApplica([o.v1], 150);
+  const m = A.itemMarkup(o.v1);
+  ok(m.indexOf("translate(75,0)") > -1 && m.indexOf("translate(-75,0)") > -1, "a 150 cm stanno a ±75");
+  reset();
+});
+
+t("postazioni a 2: il cursore sta nel pannello di gruppo, si salva al rilascio, 44 px sul telefono", () => {
+  const tpl = readFileSync(join(root, "index.template.html"), "utf8");
+  const grp = tpl.slice(tpl.indexOf('<div class="sec" id="groupProps"'), tpl.indexOf('id="grpSbWrap"'));
+  ok(/<input type="range" id="grpSep" min="65" max="300" step="5"/.test(grp), "cursore come quello singolo, nel pannello di gruppo");
+  ok(/<output id="grpSepVal"/.test(grp) && /id="grpSepHint"/.test(grp), "centimetri o «diversi», e la nota");
+  ok(/grpSepTrascina=true;[\s\S]{0,200}grpSepApply\(false\);\s*\}\);/.test(appjs), "mentre si trascina: ridisegna senza salvare");
+  ok(/getElementById\("grpSep"\)\.addEventListener\("change", function\(\)\{ grpSepApply\(true\); \}\);/.test(appjs), "al rilascio: un salvataggio");
+  ok(/grpSepRender\(its\);/.test(appjs), "renderProps lo mostra con la selezione multipla");
+  ok(/@media \(max-width:880px\)\{ #props #groupProps #grpSep\{min-height:44px\} \}/.test(stylesCss), "44 px sul telefono");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");

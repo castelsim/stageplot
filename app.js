@@ -3282,10 +3282,10 @@ function commitPreparedDoc(prepared){
 /* carica un documento parsato (doc o legacy piatto) in VARIANTS + `state` vivo. Non fa render/persist (lo fa chi chiama). */
 function loadDoc(parsed){ commitPreparedDoc(prepareDoc(parsed)); }
 /* cambia variante attiva: congela l'attuale, carica la target. Reset undo (per-variante). */
-function switchVariant(id){
+function switchVariant(id, senzaSync){   /* senzaSync: la scena attiva è appena stata tolta (Annulla di «Adatta») e non va riscritta */
   if(id===activeVar) return; var target=null; for(var i=0;i<VARIANTS.length;i++){ if(VARIANTS[i].id===id) target=VARIANTS[i]; }
   if(!target || !target.state) return;
-  syncActiveVariant(); activeVar=id; applyVariantState(target.state,true,id);
+  if(!senzaSync) syncActiveVariant(); activeVar=id; applyVariantState(target.state,true,id);
   ensureItemIds(); clearSelection(); if(typeof setEventInputs==="function") setEventInputs();
   resetHistory();
   persistLocalState(); if(window.scheduleCloudAutosave) scheduleCloudAutosave();
@@ -4199,7 +4199,7 @@ function syncHistoryButtons(){
      premibili con la cronologia vuota, e premerli non faceva niente — l'unico posto dove la
      cronologia è vuota davvero è appena dopo aver ricaricato un progetto, cioè il momento in cui
      uno ci prova. (segnalazione 10/09) */
-  var vuotoU=!undoStack.length, vuotoR=!redoStack.length;
+  var vuotoU=!undoStack.length, vuotoR=!ripetiDisponibile();
   ["bUndo","mUndo"].forEach(function(id){ var e=document.getElementById(id); if(e) e.disabled=vuotoU; });
   ["bRedo","mRedo"].forEach(function(id){ var e=document.getElementById(id); if(e) e.disabled=vuotoR; });
 }
@@ -4251,8 +4251,42 @@ function pannelloPalcoAggiornato(){
 }
 /* applyRemoteState RIMOSSA (14/08): la collaborazione live non passa più di qui — lo stato
    arriva dall'Edge Function e lo applica importProject(). Era rimasta indietro di un'architettura. */
-function undo(){ flushHistorySoon(); if(!undoStack.length) return; redoStack.push(lastSnap); applyHistory(undoStack.pop()); pruneVenueHistoryAssets(); syncHistoryButtons(); }
-function redo(){ flushHistorySoon(); if(!redoStack.length) return; undoStack.push(lastSnap); applyHistory(redoStack.pop()); pruneVenueHistoryAssets(); syncHistoryButtons(); }
+function undo(){ flushHistorySoon(); if(adattaAnnullaScena()) return; if(!undoStack.length) return; redoStack.push(lastSnap); applyHistory(undoStack.pop()); pruneVenueHistoryAssets(); syncHistoryButtons(); }
+function redo(){ flushHistorySoon(); if(adattaRifaiScena()) return; if(!redoStack.length) return; undoStack.push(lastSnap); applyHistory(redoStack.pop()); pruneVenueHistoryAssets(); syncHistoryButtons(); }
+/* ANNULLA DI «ADATTA» IN UNA SCENA NUOVA (29/09, Simone: «correggi anche l'annulla di adatta»). La cronologia
+   è per scena: Adatta crea la scena «Palco 10 × 10 m» (createVariant azzera la cronologia) e ci salva UN passo.
+   Annullarlo riportava quella scena al palco di partenza lasciandola in piedi, col nome della misura nuova e il
+   contenuto di prima. Ora l'Annulla che disfa proprio quel passo toglie la scena e torna a quella di partenza;
+   Ripeti la rimette. Vale solo finché nella scena nuova non si è fatto altro (passi === quelli lasciati da
+   Adatta) e, per Ripeti, finché nella scena di partenza non si è toccato niente (switchVariant azzera la
+   cronologia: undoStack vuoto). Niente punto di ripristino: la scena è nata un attimo fa da una copia. */
+var adattaScena=null, adattaRifai=null;
+/* Ripeti c'è con la cronologia della scena, o per rimettere la scena di «Adatta» appena tolta (adattaRifaiScena) */
+function ripetiDisponibile(){ return redoStack.length>0 || !!(adattaRifai && activeVar===adattaRifai.da && !undoStack.length); }
+function adattaAnnullaScena(){
+  var A=adattaScena; if(!A || activeVar!==A.id || undoStack.length!==A.passi) return false;
+  var idx=-1; for(var i=0;i<VARIANTS.length;i++){ if(VARIANTS[i].id===A.id) idx=i; }
+  var da=null; for(var j=0;j<VARIANTS.length;j++){ if(VARIANTS[j].id===A.da) da=VARIANTS[j]; }
+  if(idx<0 || !da || VARIANTS.length<2){ adattaScena=null; return false; }
+  syncActiveVariant();
+  var tolta=VARIANTS.splice(idx,1)[0], img=venueImgCache[tolta.id];
+  delete venueImgCache[tolta.id];
+  switchVariant(A.da, true);   /* senza risincronizzare: scriverebbe la scena tolta sopra quella di partenza */
+  adattaScena=null; adattaRifai={ v:tolta, idx:idx, da:A.da, img:img, passi:A.passi };
+  syncHistoryButtons();   /* switchVariant li ha aggiornati PRIMA che ci fosse adattaRifai: Ripeti restava spento */
+  if(window.__toast) window.__toast("Annullato: tolta la scena «"+(tolta.name||"")+"».");
+  return true;
+}
+function adattaRifaiScena(){
+  var R=adattaRifai; if(!R || activeVar!==R.da || undoStack.length || redoStack.length) return false;
+  syncActiveVariant();
+  VARIANTS.splice(Math.min(R.idx, VARIANTS.length), 0, R.v);
+  if(R.img) venueImgCache[R.v.id]=R.img;
+  switchVariant(R.v.id);
+  adattaRifai=null; adattaScena={ id:R.v.id, da:R.da, passi:undoStack.length };
+  syncHistoryButtons();
+  return true;
+}
 /* ===== Importa progetto da file .json (annullabile) ===== */
 function activatePreparedProject(prepared, opts){
   opts=opts||{};
@@ -6059,6 +6093,7 @@ function adattaPalcoCalcola(items, W0, D0, W, D){
    Un solo save() = un solo passo di Annulla. */
 function adattaPalcoApplica(W, D, nuovaScena){
   W=Math.max(100,Math.round(W)); D=Math.max(100,Math.round(D));
+  var daScena=activeVar;
   if(nuovaScena && typeof createVariant==="function") createVariant("Palco "+adattaM(W)+" × "+adattaM(D)+" m");
   var W0=state.stage.w, D0=state.stage.d;
   var R=adattaPalcoCalcola(state.items, W0, D0, W, D);
@@ -6069,6 +6104,8 @@ function adattaPalcoApplica(W, D, nuovaScena){
   if(state.printFrame) state.printFrame=null;   /* l'area di stampa era misurata sul palco di prima */
   __cabRes=null; __elecRes=null; __mondRes=null;
   save(); render();
+  adattaScena = (nuovaScena && activeVar!==daScena) ? { id:activeVar, da:daScena, passi:undoStack.length } : null;
+  adattaRifai = null;
   pannelloPalcoAggiornato();   /* il pannello «Forma del palco» è aperto: diceva ancora 12 × 13 (29/09) */
   if(typeof fit==="function") fit();
   if(nuovaScena && typeof renderVariantBar==="function") renderVariantBar();
@@ -6107,7 +6144,7 @@ function showAdattaPalco(){
     if(!msg.allargaW){ showToast(msg.testo); return; }
     guideDialog({ title:msg.titolo, msg:msg.testo+" Si annulla con un solo Annulla.", okLabel:"Tengo così",
       action:{ label:"Usa un palco "+adattaM(msg.allargaW)+" × "+adattaM(msg.allargaD)+" m",
-        run:function(){ undo(); adattaPalcoApplica(msg.allargaW, msg.allargaD, false); } } });
+        run:function(){ undo(); adattaPalcoApplica(msg.allargaW, msg.allargaD, nuova); } } });   /* in scena nuova: Annulla la toglie, e se ne fa una col nome della misura giusta */
   }
   document.getElementById("apGo").addEventListener("click", vai);
   document.getElementById("apNo").addEventListener("click", chiudi);
@@ -11344,6 +11381,7 @@ function renderProps(){
     document.getElementById("grpLeggioWrap").style.display = allLeggio ? "" : "none";
     if(allSedia) document.getElementById("grpSedia").checked = its.every(function(it){ return optSedia(it); });
     if(allLeggio) document.getElementById("grpLeggio").checked = its.every(function(it){ return it.leggio!==false; });
+    grpSepRender(its);   /* distanza tra i 2, se nella selezione ci sono postazioni a 2 */
     /* --- batch STAGE BOX (Simone 21/07): input/uscite/modello per TUTTE le box selezionate insieme --- */
     var gsb=document.getElementById("grpSbWrap");
     if(gsb){ var boxes=its.filter(cabIsBox);
@@ -12458,6 +12496,63 @@ document.getElementById("pSep").addEventListener("input", function(){
   applySep(false);
 });
 document.getElementById("pSep").addEventListener("change", function(){ applySep(true); });
+/* ===== DISTANZA TRA I 2 SU PIÙ POSTAZIONI (29/09, segnalazione di Simone: «se seleziono molteplici
+   postazioni a 2 devo poter regolare la distanza dei musicisti in simultanea»). Postazione a 2 = quella
+   che ha `sepCfg`: un tipo di POSTAZ con `doppia` (vlnpost, violapost, violoncello, contrabbasso, fiati…)
+   o un tipo ×2 del generatore (DOUBLE_TYPES). La proprietà è `it.sep` (cm fra i due musicisti), da cui
+   segue la larghezza `it.w`: le stesse regole del cursore singolo (`applySep`), minimo di ogni tipo
+   compreso (il contrabbasso non scende sotto 100 anche se il cursore va a 65). Gli altri elementi della
+   selezione non si toccano. Un solo passo di Annulla: durante il trascinamento si ridisegna senza
+   salvare, al rilascio (`change`) un solo `save()`. */
+function sepVal(it){ return Math.max(minSepOf(it), it.sep || defSepOf(it)); }   /* quello che mostra il cursore singolo */
+function sepPostazioni(its){ return (its||[]).filter(function(it){ return !!sepCfg(it); }); }
+/* stato del cursore di gruppo: null se non c'è nessuna postazione a 2; `misto` se le distanze non sono uguali */
+function sepStato(its){
+  var ps=sepPostazioni(its); if(!ps.length) return null;
+  var vals=ps.map(sepVal), lo=Math.min.apply(null, vals), hi=Math.max.apply(null, vals);
+  return { n:ps.length, altri:(its||[]).length-ps.length, min:Math.min.apply(null, ps.map(minSepOf)), lo:lo, hi:hi, misto:lo!==hi };
+}
+/* la stessa distanza a tutte le postazioni a 2 di `its` (ognuna col suo minimo); restituisce quante ne ha toccate */
+function sepApplica(its, v){
+  var ps=sepPostazioni(its);
+  ps.forEach(function(it){ var cfg=sepCfg(it);
+    it.sep=Math.max(minSepOf(it), Math.min(300, Math.round(+v)||minSepOf(it)));
+    it.w=sepToW(cfg, it.sep); });
+  return ps.length;
+}
+var grpSepTrascina=false;   /* mentre il cursore si muove, renderProps non gli riscrive valore e scritta */
+function grpSepRender(its){
+  var w=document.getElementById("grpSepWrap"); if(!w) return;
+  var st=sepStato(its); w.style.display = st ? "block" : "none";
+  if(!st || grpSepTrascina) return;
+  var r=document.getElementById("grpSep"), o=document.getElementById("grpSepVal"), h=document.getElementById("grpSepHint");
+  r.min=st.min; r.value=st.lo;
+  r.classList.toggle("misto", st.misto);
+  var sc=grpSepScritta(st);
+  if(o) o.textContent=sc.val; if(h) h.textContent=sc.nota;
+}
+/* le parole del cursore di gruppo: i centimetri o «diversi», e a chi si applica */
+function grpSepScritta(st){
+  var chi = st.n===1 ? "l'unica postazione a 2 selezionata" : "le "+st.n+" postazioni a 2 selezionate";
+  return { val: st.misto ? "diversi" : st.lo+" cm",
+    nota: (st.misto ? "Distanze diverse, da "+st.lo+" a "+st.hi+" cm: muovendo il cursore diventano tutte uguali. " : "Vale per "+chi+". ")
+      + (st.altri ? (st.altri===1 ? "L'altro elemento selezionato resta com'è." : "Gli altri "+st.altri+" elementi selezionati restano come sono.") : "") };
+}
+function grpSepApply(doSave, val){   /* val: dai test; dall'interfaccia è il valore del cursore */
+  primaDiAgire();   /* un nome ancora in digitazione chiude il suo passo prima: non finisce nello stesso Annulla */
+  var v = val!=null ? +val : +document.getElementById("grpSep").value;
+  if(doSave) grpSepTrascina=false;
+  if(!sepApplica(selItems(), v)) return;
+  if(doSave) __cabRes=null;
+  render();   /* render → renderProps → grpSepRender: al rilascio riscrive stato e «diversi» */
+  if(doSave) save();
+}
+document.getElementById("grpSep").addEventListener("input", function(){
+  grpSepTrascina=true; this.classList.remove("misto");
+  var o=document.getElementById("grpSepVal"); if(o) o.textContent=(this.value||"")+" cm";   /* il numero segue il cursore */
+  grpSepApply(false);
+});
+document.getElementById("grpSep").addEventListener("change", function(){ grpSepApply(true); });
 document.getElementById("pDonna").addEventListener("change", function(){ var c=document.getElementById("pDonna").checked; mutSelAll(function(it){ it.donna=c; }); });
 document.getElementById("pMicMode").addEventListener("change", function(){ var v=this.value; mutSelAll(function(it){ it.micMode=v; delete it.mano; delete it.nomic; if(it.type==="cantante") it.d=cantanteDepth(it); }); __cabRes=null; render(); });
 document.getElementById("pLeggioV").addEventListener("change", function(){ mutSel(function(it){
