@@ -124,3 +124,10 @@ I prossimi moduli previsti (vedi piano): `src/` per canvas, objects, data/serial
   (revisione del 28/09). Nel sandbox Node va bene per leggere, non per aggiungere elementi.
 - **«Annulla» dell'Esporta e «Chiudi» di Condividi sono rossi per scelta di Simone** (test «i bottoni che chiudono
   senza fare niente sono rossi»): una revisione che li trova «incoerenti con Elimina» non li cambia.
+- **`getSession()` con `session:null` NON vuol dire «uscito»** (29/09): con il token scaduto e senza rete,
+  supabase-js 2.110 risponde `session:null` + `AuthRetryableFetchError` e LASCIA la sessione salvata. Chi decide
+  «nessuna sessione → nascondo il progetto» deve prima guardare l'errore (`sessioneNonRaggiungibile`), o chiude
+  fuori chi lavora in un locale senza campo. Una sessione revocata risponde con un errore del server: quella sì.
+- **Una chiave nuova in localStorage/sessionStorage va classificata** nella tabella «USCITA PULITA»
+  (`USCITA_TIENI_*` / `uscitaChiaveDaCancellare`): un test legge ogni `setItem` e fallisce se non c'è. Se contiene
+  progetti o dati dell'account si cancella all'uscita; se è una preferenza si tiene.
