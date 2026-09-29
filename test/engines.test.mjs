@@ -16871,6 +16871,38 @@ t("PDF: se i nomi escono illeggibili e l'A3 li rende leggibili, l'Esporta lo dic
   ok(/id=\\"pdfToA3\\">Passa ad A3</.test(appjs), "e il pulsante porta all'A3");
 });
 
+t("dopo il PDF c'è il passo successivo: mandare il link al service", () => {
+  /* revisione 28/09: la finestra si chiudeva da sola dopo 1,4 s e il percorso finiva lì (7 export, 2 condivisioni) */
+  const i = appjs.indexOf('track("export",{format:"pdf"});'); ok(i > 0, "trovato il punto di fine export");
+  const dopo = appjs.slice(i, i + 1400);
+  ok(!/setTimeout\(function\(\)\{ document\.getElementById\("pdfModal"\)\.hidden=true/.test(dopo), "la finestra non si chiude più da sola");
+  ok(/_ponte\.id="pdfPonte"/.test(dopo) && /Manda anche il link al service/.test(dopo), "c'è il pulsante del passo successivo");
+  ok(/getElementById\("bShareHdr"\); if\(sh\) sh\.click\(\)/.test(dopo), "e apre la condivisione");
+  ok(/_chiudi\.textContent="Chiudi"/.test(dopo) && /maybeLoginNudge\(\);/.test(dopo), "«Annulla» diventa «Chiudi», e il promemoria dell'accesso resta");
+  ok(/function _pdfExportModalCore\(\)\{ modal\.hidden=false; prevIdx=0;\s*var _ann=document\.getElementById\("pdfCancel"\); if\(_ann\) _ann\.textContent="Annulla";/.test(appjs), "riaprendo l'Esporta torna «Annulla»");
+});
+
+t("senza accesso: il QR dice perché non si fa e come ottenerlo, l'email non tronca il link", () => {
+  /* revisione 28/09: sui 30 progetti veri il link senza accesso va da 1.900 a 15.000 caratteri: QR sempre
+     rifiutato con «Stage troppo complesso», e il mailto oltre i 2.000 caratteri in 29 casi su 30 */
+  ok(/Senza accesso il link contiene tutto il palco: è troppo lungo per un QR\./.test(appjs), "il perché");
+  ok(/qa\.id="shareQrLogin"/.test(appjs) && /Accedi: il link diventa corto e il QR funziona/.test(appjs), "e il rimedio, con l'accesso");
+  ok(/#shareQrWarn \.share-login\{/.test(stylesCss.replace(/#shareIntroTxt \.share-login, /g, "")), "con lo stesso aspetto del link dell'altro invito");
+  ok(/var MAILTO_MAX = 1800;/.test(appjs), "soglia dell'email");
+  ok(/var lungo=urlEl\.value\.length>MAILTO_MAX;\s*if\(lungo\) copy\(\);/.test(appjs), "oltre, il link va negli appunti");
+  ok(/Il link è lungo: l'ho copiato negli appunti\. Incollalo qui\./.test(appjs), "e la mail lo dice");
+});
+
+t("«Condividi» è scritto nella barra quando c'è posto", () => {
+  /* revisione 28/09: fra 881 e 1480 px (1280 e MacBook Air compresi) era solo un'icona, e il suo title
+     prometteva «Scarica PDF» che nella finestra non c'è */
+  ok(/@media \(min-width:881px\) and \(max-width:1480px\)\{ header\.cond-si #bShareHdr \.hdr-lbl\{display:inline\} \}/.test(stylesCss), "la regola che la rimostra");
+  ok(stylesCss.indexOf("header.cond-si #bShareHdr .hdr-lbl") > stylesCss.indexOf("#bShareHdr .hdr-lbl, .vtab-add .hdr-lbl{display:none}"), "e viene dopo quella che la nasconde");
+  ok(/function adattaCondividi\(\)\{[^}]*h\.classList\.add\("cond-si"\);\s*if\(h\.scrollWidth>h\.clientWidth\+1\) h\.classList\.remove\("cond-si"\);/.test(appjs), "si toglie solo se la barra trabocca");
+  ok(/function renderVariantBar\(\)\{\s*setTimeout\(adattaCondividi, 0\);/.test(appjs), "si rimisura quando cambiano le scene");
+  ok(!/contiene anche Scarica PDF/.test(readFileSync(join(root, "app/index.html"), "utf8")), "il title non promette più «Scarica PDF»");
+});
+
 t("il limite della landing non si aggira con un IP inventato, e c'è un tetto globale", () => {
   /* 28/09, verifica di sicurezza: si prendeva il primo valore di x-forwarded-for, che scrive il client —
      con un IP falso a ogni colpo si gonfiavano senza fine i contatori su cui si decide il marketing */

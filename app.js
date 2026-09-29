@@ -3307,7 +3307,18 @@ function deleteVariant(id){ if(VARIANTS.length<=1) return false;   /* guardia: m
   render(); renderChannels(); fit(); renderVariantBar(); return true; }
 /* Barra varianti: il viewer resta sulla sola variante pubblicata; il consulente editor deve invece
    poter navigare e salvare tutte le varianti del documento completo. */
+/* «CONDIVIDI» SCRITTO QUANDO C'È SPAZIO (revisione 28/09). Fra 881 e 1480 px — il 1280 e il MacBook Air
+   compresi — il bottone era solo un'icona: la tappa più stretta del percorso (7 export, 2 condivisioni a
+   settimana) passava da un disegno. Con una o due scene la scritta ci sta; con tre o più la barra trabocca
+   già: lì resta l'icona. Si misura invece di indovinare. */
+function adattaCondividi(){
+  var h=document.querySelector("header"); if(!h || !h.classList) return;
+  h.classList.add("cond-si");
+  if(h.scrollWidth>h.clientWidth+1) h.classList.remove("cond-si");
+}
+window.addEventListener("resize", function(){ setTimeout(adattaCondividi, 0); });
 function renderVariantBar(){
+  setTimeout(adattaCondividi, 0);
   renderVariantMobile();
   var bar=document.getElementById("variantBar"); if(!bar) return;
   /* sempre in vista, anche con una variante sola (14/09): si vede che esistono. Mai in viewer. */
@@ -23429,6 +23440,7 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
   }
   var shareTargetId = null;   /* progetto attualmente mostrato nella modale Condividi (per la revoca) */
   var qrTooBig = false;       /* URL troppo lungo per un QR leggibile */
+  var MAILTO_MAX = 1800;      /* oltre, un link nel mailto rischia il taglio (limite pratico dei client ~2.000) */
   var qrSeq = 0;              /* progressivo delle richieste QR (guardia anti-race) */
   var shareRequestSeq = 0;    /* copre l'intera pipeline save → token → URL */
   function shareRequestCurrent(seq,id){
@@ -23651,7 +23663,18 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     var open=(wrap.style.display==="none"||!wrap.style.display);
     wrap.style.display=open?"block":"none";
     qb.textContent=open?"Nascondi QR":"Mostra QR";
-    if(open && qrTooBig){ document.getElementById("shareQrWarn").style.display="block"; }
+    if(open && qrTooBig){ var qw=document.getElementById("shareQrWarn"); qw.style.display="block";
+      /* revisione 28/09: senza accesso il link porta dentro tutto il palco (da 1.900 a 15.000 caratteri sui
+         progetti veri) e il QR non riusciva MAI. Con l'accesso il link è corto: il QR funziona. */
+      var anonimo=!(window.__cloud && window.__cloud.user && window.__cloud.user());
+      if(anonimo){
+        qw.innerHTML="Senza accesso il link contiene tutto il palco: è troppo lungo per un QR.<br>";
+        var qa=document.createElement("button"); qa.type="button"; qa.className="share-login"; qa.id="shareQrLogin";
+        qa.textContent="Accedi: il link diventa corto e il QR funziona";
+        qa.addEventListener("click", function(){ var c=document.getElementById("shareClose"); if(c) c.click(); var b=document.getElementById("bCloud"); if(b) b.click(); });
+        qw.appendChild(qa); qw.appendChild(document.createTextNode(" · intanto usa Copia"));
+      } else qw.innerHTML="Stage troppo complesso per il QR<br>Usa il pulsante <b>Copia</b>";
+    }
   }); })();
   (function(){ var ub=document.getElementById("shareUnshare"); if(ub) ub.addEventListener("click", function(){
     var C=window.__cloud; if(!C || !shareTargetId) return;
@@ -23666,7 +23689,11 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
   }); })();
   document.getElementById("shareEmail").addEventListener("click", function(){
     var a=document.createElement('a');
-    a.href="mailto:?subject="+encodeURIComponent(shareText())+"&body="+encodeURIComponent(shareText()+"\n\n"+urlEl.value);
+    /* revisione 28/09: il mailto con il link intero superava i 2.000 caratteri in 29 progetti veri su 30, e i
+       programmi di posta lo troncano. Sopra la soglia il link va negli appunti e la mail dice di incollarlo. */
+    var lungo=urlEl.value.length>MAILTO_MAX;
+    if(lungo) copy();
+    a.href="mailto:?subject="+encodeURIComponent(shareText())+"&body="+encodeURIComponent(shareText()+"\n\n"+(lungo?"(Il link è lungo: l'ho copiato negli appunti. Incollalo qui.)":urlEl.value));
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
   });
   document.getElementById("shareWa").addEventListener("click", function(){
@@ -26691,7 +26718,17 @@ function exportPdf(paperKey, scaleSel, orient, header){
     info.textContent=(_avvisi.length?"⚠ ":"✓ ")+"PDF scaricato ("+paperKey.toUpperCase()+" "+oTxt+", scala 1:"+N+")"+
       (_avvisi.length?" — "+_avvisi.join(" · ")+".":".");
     window.__pdfScope="full";   /* riporta al default */
-    track("export",{format:"pdf"}); setTimeout(function(){ document.getElementById("pdfModal").hidden=true; maybeLoginNudge(); }, 1400);
+    track("export",{format:"pdf"});
+    /* IL PONTE VERSO LA CONDIVISIONE (revisione 28/09). La finestra si chiudeva da sola dopo 1,4 s e il
+       percorso finiva lì: 7 export a settimana, 2 condivisioni. Ora resta aperta sul «✓ PDF scaricato» con
+       il passo successivo a portata di clic; chi non ha fatto l'accesso trova nella condivisione l'invito
+       che spiega cosa guadagna (link corto, sempre aggiornato). */
+    var _ponte=document.createElement("button"); _ponte.type="button"; _ponte.id="pdfPonte"; _ponte.className="btn tint";
+    _ponte.textContent="Manda anche il link al service";
+    _ponte.addEventListener("click", function(){ document.getElementById("pdfModal").hidden=true; var sh=document.getElementById("bShareHdr"); if(sh) sh.click(); });
+    info.appendChild(document.createElement("br")); info.appendChild(_ponte);
+    var _chiudi=document.getElementById("pdfCancel"); if(_chiudi) _chiudi.textContent="Chiudi";
+    maybeLoginNudge();
   }).catch(function(e){
     info.className="mstatus err"; info.textContent="Errore: "+(e&&e.message||e); window.__pdfScope="full";
   });
@@ -27287,6 +27324,7 @@ function pdfChannelPage(doc, L, paperKey){
     if(cs) cs.addEventListener("click", function(){ if(window.openCsvExport){ modal.hidden=true; window.openCsvExport(); } });
   })();
   function _pdfExportModalCore(){ modal.hidden=false; prevIdx=0;
+    var _ann=document.getElementById("pdfCancel"); if(_ann) _ann.textContent="Annulla";   /* dopo un export era diventato «Chiudi» */
     /* Il nome del progetto si rilegge dallo STATO ogni volta che la finestra si apre. Un modello
        scrive state.titolo («Band pop/rock») e l'header lo mostrava, ma questo campo restava vuoto e
        la riga sotto prometteva «stage-plot.pdf»: due verità nella stessa schermata. Chi imposta il

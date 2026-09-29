@@ -119,3 +119,8 @@ I prossimi moduli previsti (vedi piano): `src/` per canvas, objects, data/serial
 - **Sandbox dei test e progetti interi**: `importProject()` nel sandbox si blocca (flusso cloud/autosave);
   per aprire un progetto salvato usare `loadDoc(JSON)` e `switchVariant(id)` per le scene (vedi
   `test/sandbox.mjs`, `test/collaudo.test.mjs`).
+- **Aprire un progetto nel browser dei test**: `loadDoc(json)` da console non riallinea gli id (`ensureItemIds`):
+  un `addItem` dopo crea id già esistenti e l'annulla sembra rotto. Usare `importProject(testo)`, come l'app
+  (revisione del 28/09). Nel sandbox Node va bene per leggere, non per aggiungere elementi.
+- **«Annulla» dell'Esporta e «Chiudi» di Condividi sono rossi per scelta di Simone** (test «i bottoni che chiudono
+  senza fare niente sono rossi»): una revisione che li trova «incoerenti con Elimina» non li cambia.
