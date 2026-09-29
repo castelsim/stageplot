@@ -16803,6 +16803,74 @@ t("«Crea il palco» si legge anche in tema scuro", () => {
   ok(/body\.dark \.wl-cta\{background:#0b7a70;color:#fff\}/.test(stylesCss), "in scuro il bottone ha lo sfondo scuro");
 });
 
+/* un finto jsPDF che registra i testi: basta per le funzioni che scrivono intestazioni e piè di pagina */
+function docFinto(pagine, larghezzaMm) {
+  const testi = [];
+  return { testi, getNumberOfPages: () => pagine, setPage: (i) => { testi.push({ pagina: i }); },
+    internal: { pageSize: { getWidth: () => larghezzaMm || 210, getHeight: () => 297 } },
+    setFont() {}, setFontSize() {}, setTextColor() {},
+    text: (t, x, y, o) => testi.push({ t: String(t), x, y, o }),
+    /* 1 carattere ≈ 2,1 mm a 12 pt: abbastanza per decidere se va a capo */
+    splitTextToSize: (t, w) => { const max = Math.floor(w / 2.1), out = []; let r = "";
+      String(t).split(" ").forEach((p) => { if ((r + " " + p).trim().length > max && r) { out.push(r); r = p; } else r = (r + " " + p).trim(); });
+      if (r) out.push(r); return out; } };
+}
+
+t("PDF: numero di pagina su ogni foglio quando i fogli sono più d'uno", () => {
+  /* revisione 28/09: su 30 pagine controllate nessuna era numerata */
+  const d3 = docFinto(3); A.pdfCredit(d3);
+  eq(d3.testi.filter((x) => /^pag \d+\/3$/.test(x.t || "")).map((x) => x.t), ["pag 1/3", "pag 2/3", "pag 3/3"], "pag N/M su tutte");
+  ok(d3.testi.filter((x) => x.t === "Creato con stageplot.it").length === 3, "e il credito resta");
+  const d1 = docFinto(1); A.pdfCredit(d1);
+  ok(!d1.testi.some((x) => /^pag /.test(x.t || "")), "un foglio solo non si numera");
+});
+
+t("PDF: «titolo — luogo» va a capo invece di uscire dal foglio", () => {
+  /* revisione 28/09: 131 caratteri a 12 pt finivano oltre il bordo dell'A4 e il luogo si perdeva */
+  const s0 = { t: A.state.titolo, l: A.state.luogo };
+  try {
+    A.state.titolo = "Concerto sinfonico di fine stagione con coro e solisti ospiti per la rassegna estiva";
+    A.state.luogo = "Teatro Comunale di una città con un nome lungo, piazza principale";
+    const d = docFinto(1); const y = A.pdfTitoloLuogo(d, 16, 30, 8);
+    const righe = d.testi.filter((x) => x.t);
+    ok(righe.length >= 2, "va su più righe");
+    ok(righe.some((x) => x.t.indexOf("Teatro Comunale") === 0), "il luogo ha una riga sua, che comincia col luogo");
+    ok(righe.every((x) => x.t.length * 2.1 <= 210 - 32 + 0.01), "nessuna riga più larga del foglio");
+    ok(y > 30 + 8, "e la y scende di quanto serve");
+    A.state.titolo = "Band"; A.state.luogo = "Bassano";
+    const d2 = docFinto(1); eq(A.pdfTitoloLuogo(d2, 16, 30, 8), 38, "corto: una riga, come prima");
+    eq(d2.testi.map((x) => x.t), ["Band — Bassano"]);
+  } finally { A.state.titolo = s0.t; A.state.luogo = s0.l; }
+});
+
+t("PDF: le tabelle ripetono l'intestazione delle colonne sulle pagine di seguito", () => {
+  /* revisione 28/09: i canali 48-63 di un'orchestra vera finivano su un foglio senza «# SORGENTE MIC/DI…» */
+  const defs = appjs.match(/function trow\([^)]*\)\{ if\(y>286\)\{ doc\.addPage\(\); y=18;[^}]*\}/g) || [];
+  /* 8 tabelle hanno una riga di intestazione; due (quadri elettrici, patch delle stage box) sono elenchi a
+     blocchi con i titoli dentro il blocco: lì non c'è una riga di colonne da ripetere */
+  const conRipresa = defs.filter((d) => /if\(_testaTab\)\{ var _t=_testaTab; _testaTab=null; _t\(\); _testaTab=_t; \}/.test(d));
+  ok(conRipresa.length >= 8, "tabelle che ridisegnano l'intestazione dopo addPage: " + conRipresa.length + " su " + defs.length);
+  eq((appjs.match(/_testa\(\); _testaTab=_testa;/g) || []).length, conRipresa.length, "e ognuna l'ha registrata");
+  ok(/function _testa\(\)\{ trow\("#","SORGENTE","FOH","MIC \/ DI","ASTA","PATCH", true, "#0d9488"\);/.test(appjs), "la channel list compresa");
+});
+
+t("PDF: se i nomi escono illeggibili e l'A3 li rende leggibili, l'Esporta lo dice", () => {
+  /* revisione 28/09: nei PDF veri 35 nomi su 35 sotto 7 pt in A4. Da 1:80 in su escono a 1,75 mm ≈ 5 pt. */
+  ok(Math.abs(A.pdfNomiPt(100) - 4.96) < 0.05, "1:100 → 5 pt: " + A.pdfNomiPt(100));
+  ok(Math.abs(A.pdfNomiPt(50) - 7.94) < 0.05, "1:50 → 7,9 pt");
+  const s0 = JSON.stringify(A.state.stage);
+  try {
+    A.state.stage = { w: 1000, d: 700, blocks: [{ x: 0, y: 0, w: 1000, d: 700 }] };   /* 10×7 m: A4 a 1:100, A3 a 1:50 */
+    const c = A.pdfConsiglioA3("a4", "auto", "");
+    ok(c && c.pt < 6 && c.ptA3 >= 7, "10×7 m: da A4 si consiglia l'A3 (" + JSON.stringify(c) + ")");
+    eq(A.pdfConsiglioA3("a4", "100", ""), null, "con una scala fissa il foglio non cambia i nomi: niente consiglio");
+    eq(A.pdfConsiglioA3("a3", "auto", ""), null, "già in A3: niente consiglio");
+    A.state.stage = { w: 3147, d: 2212, blocks: [{ x: 0, y: 0, w: 3147, d: 2212 }] };   /* 31×22 m: anche in A3 resta a 5 pt */
+    eq(A.pdfConsiglioA3("a4", "auto", ""), null, "se l'A3 non aiuta, il consiglio non si dà");
+  } finally { A.state.stage = JSON.parse(s0); }
+  ok(/id=\\"pdfToA3\\">Passa ad A3</.test(appjs), "e il pulsante porta all'A3");
+});
+
 t("il limite della landing non si aggira con un IP inventato, e c'è un tetto globale", () => {
   /* 28/09, verifica di sicurezza: si prendeva il primo valore di x-forwarded-for, che scrive il client —
      con un IP falso a ogni colpo si gonfiavano senza fine i contatori su cui si decide il marketing */
