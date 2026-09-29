@@ -12383,6 +12383,45 @@ t("il beacon parte davvero: text/plain, non application/json", () => {
   ok(/sessionStorage/.test(blocco), "una visita per sessione, non una per ricarica");
 });
 
+t("il contatore della landing non conta chi sviluppa il sito, e conta tutti gli altri", () => {
+  /* 29/09: la landing non ha login e contava anche Simone. Dal 30/08, delle 9 aperture dell'editor
+     arrivate da «Prova un palco già pronto», 8 erano sue: ogni confronto fra i pulsanti misurava lui.
+     L'editor lascia un segno nel localStorage (stesso dominio) quando l'account è il suo; qui si
+     esegue lo script VERO della landing e si conta quante chiamate partono, con e senza il segno. */
+  const i = landing.indexOf("CONTATORE DELLA LANDING");
+  const js = (landing.slice(i).match(/<script>([\s\S]*?)<\/script>/) || [])[1] || "";
+  ok(js.indexOf("track-landing") > -1, "trovato lo script del contatore");
+  const giro = (conSegno) => {
+    let chiamate = 0;
+    const archivio = conSegno ? { sp_founder: "1" } : {};
+    const ctx = {
+      location: { hostname: "stageplot.it" },
+      navigator: { doNotTrack: "0", sendBeacon: () => { chiamate++; return true; } },
+      window: {}, Blob: function () {}, URL, JSON, fetch: () => { chiamate++; },
+      document: { referrer: "", addEventListener: () => {} },
+      localStorage: { getItem: (k) => archivio[k] ?? null },
+      sessionStorage: { getItem: () => null, setItem: () => {} },
+    };
+    vm.runInNewContext(js, ctx);
+    return chiamate;
+  };
+  eq(giro(false), 1, "un visitatore qualunque: la visita si conta");
+  eq(giro(true), 0, "il browser di chi sviluppa: nessuna chiamata");
+  /* e l'editor il segno lo scrive davvero, dove decide se l'evento è del fondatore */
+  ok(/props\.founder\)\s*localStorage\.setItem\("sp_founder","1"\)/.test(appjs), "l'editor lascia il segno quando l'account è quello di chi sviluppa");
+  ok(/localStorage\.removeItem\("sp_founder"\)/.test(appjs), "e lo toglie se nello stesso browser entra qualcun altro");
+  /* uscita pulita (#246): il segno è legato all'account, all'uscita si toglie con gli altri dati dell'account */
+  eq(A.uscitaChiaveDaCancellare("sp_founder", "local"), true, "all'uscita dall'account il segno si cancella");
+});
+
+t("sul telefono il riquadro prima/dopo non blocca lo scorrimento della pagina", () => {
+  /* 29/09, misurato sulla landing viva a 390 px: il cursore invisibile copre 340×338 px con
+     touch-action:none — chi ci appoggia il pollice per scendere sposta il confronto e la pagina resta
+     ferma. pan-y lascia lo scorrimento verticale alla pagina e il trascinamento orizzontale al cursore. */
+  const regola = (landing.match(/\.ba-range\{[^}]*\}/) || [""])[0];
+  ok(/touch-action:pan-y/.test(regola), "il cursore lascia scorrere in verticale: " + regola);
+});
+
 t("gli ingressi verso l'editor sono gli stessi in pagina, nel codice e nel database", () => {
   /* Tre elenchi che devono coincidere. Se in pagina nasce un from= che il database non conosce,
      il CHECK rifiuta la riga e quel clic sparisce senza un errore visibile da nessuna parte:
