@@ -3551,6 +3551,10 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
   .cloudRiga .cloudTesto{flex:1 1 calc(100% - 80px)!important}
   .cloudRiga .cloudOpen{margin-left:auto}
 }
+/* Invito ad accedere al posto del progetto (29/09, uscita pulita): con l'invito aperto la pagina non
+   mostra niente del progetto dietro — restano visibili solo le finestre, il messaggio e le conferme.
+   `visibility` e non `display`: il palco tiene le sue misure e alla chiusura fit() non riparte da zero. */
+body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:hidden}
 </style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->
 <script async src="/icons.js"></script>
@@ -5250,6 +5254,25 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
       <div class="wl-foot">
         <button type="button" class="wl-skip" id="lpSkip">Continua senza account</button>
         <button type="button" class="wl-cta" id="lpLogin">Accedi con Google</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Invito ad accedere AL POSTO del progetto (29/09, Simone): dopo l'uscita dall'account, o al boot quando
+     c'è un progetto dell'account ma la sessione non c'è più. Stessi pezzi del benvenuto e di #loginPrompt.
+     Testi e comportamento: mostraInvitoAccesso() / «USCITA PULITA». -->
+<div class="modal" id="accessoInvito" hidden>
+  <div class="wl-card" role="dialog" aria-modal="true" aria-labelledby="aiTitle">
+    <div class="wl-head">
+      <span class="wl-badge" id="aiBadge">Account</span>
+      <div class="wl-title" id="aiTitle">Sei uscito dal tuo account</div>
+      <div class="wl-tag" id="aiTag">I tuoi progetti sono al sicuro online. Accedi con Google per ritrovarli.</div>
+    </div>
+    <div class="wl-body">
+      <div class="wl-foot">
+        <button type="button" class="wl-ghost" id="aiSenza">Inizia un progetto senza account</button>
+        <button type="button" class="wl-cta" id="aiAccedi">Accedi con Google</button>
       </div>
     </div>
   </div>
