@@ -16983,5 +16983,127 @@ t("il deploy non pubblica i test e i dati demo di Orchestre, e build non ha i pe
   ok(/permissions:\s*\n\s*pages: write\s*\n\s*id-token: write/.test(dep), "li ha solo deploy");
 });
 
+/* ===== Adatta a un palco di misura diversa (29/09, richiesta di Simone: stessa formazione, altro palco) ===== */
+function orchestrina(opts) {
+  /* due sezioni da 4 leggii (80×100) con un corridoio di 4 m in mezzo, una seconda fila, il direttore davanti al centro */
+  const o = opts || {}, its = [];
+  let k = 0; const id = () => "ad" + (++k);
+  [100, 190, 280, 370, 830, 920, 1010, 1100].forEach((x) => its.push({ id: id(), type: "leggio", x, y: 300, w: 80, d: 100, rot: 0 }));
+  [150, 250, 950, 1050].forEach((x) => its.push({ id: id(), type: "leggio", x, y: 450, w: 80, d: 100, rot: 0 }));
+  its.push({ id: id(), type: "direttore", x: 600, y: 700, w: 120, d: 120, rot: 0 });
+  if (o.foh) its.push({ id: "fohX", type: "foh", x: 600, y: 1100, w: 200, d: 120, rot: 0 });
+  return its;
+}
+function sovrappostiVeri(its, pos) {   /* stessa geometria dell'app: rettangoli ruotati (Minkowski) */
+  let n = 0;
+  for (let i = 0; i < its.length; i++) for (let j = i + 1; j < its.length; j++) {
+    const a = its[i], b = its[j]; if (A.isRiser(a) || A.isRiser(b)) continue;
+    const P = A.adattaMinkowski(A.adattaAngoli(b), A.adattaAngoli(a).map((p) => [-p[0], -p[1]]));
+    const dx = pos[b.id].x - pos[a.id].x, dy = pos[b.id].y - pos[a.id].y;
+    const sx = A.adattaTaglio(P, 0, dy), sy = A.adattaTaglio(P, 1, dx);
+    if (sx && sy && dx > sx[0] + 2 && dx < sx[1] - 2 && dy > sy[0] + 2 && dy < sy[1] - 2) n++;
+  }
+  return n;
+}
+
+t("adatta palco: su un palco più stretto si stringe prima il corridoio, le file restano file, il direttore resta davanti al centro", () => {
+  const its = orchestrina(), R = A.adattaPalcoCalcola(its, 1200, 800, 800, 800), p = (i) => R.pos[its[i].id];
+  ok(R.ciSta && R.comodo, "ci sta comodo: " + JSON.stringify({ ciSta: R.ciSta, comodo: R.comodo, stretta: R.stretta }));
+  eq(sovrappostiVeri(its, R.pos), 0, "nessuna sovrapposizione");
+  /* dentro una sezione i leggii restano a 90 cm (10 cm d'aria c'erano già), il corridoio paga tutto */
+  eq([p(1).x - p(0).x, p(2).x - p(1).x, p(3).x - p(2).x], [90, 90, 90], "sezione sinistra intatta");
+  eq([p(5).x - p(4).x, p(6).x - p(5).x, p(7).x - p(6).x], [90, 90, 90], "sezione destra intatta");
+  ok(p(4).x - p(3).x < 460 && p(4).x - p(3).x >= 90, "corridoio stretto: " + (p(4).x - p(3).x));
+  /* ordine e file */
+  for (let i = 1; i < 8; i++) ok(p(i).x > p(i - 1).x, "ordine sinistra→destra in prima fila");
+  eq(new Set(its.slice(0, 8).map((_, i) => p(i).y)).size, 1, "la prima fila resta una fila");
+  eq(new Set(its.slice(8, 12).map((_, i) => p(8 + i).y)).size, 1, "la seconda fila resta una fila");
+  ok(p(8).y > p(0).y && p(12).y > p(8).y, "fondo resta fondo, il direttore resta davanti");
+  ok(Math.abs(p(12).x - 400) <= 40, "direttore al centro: " + p(12).x);
+  its.forEach((it) => { const q = R.pos[it.id]; ok(q.x - 40 >= 0 && q.x + 40 <= 800, "dentro il palco: " + it.id + " " + q.x); });
+});
+
+t("adatta palco: in profondità le file si avvicinano senza sovrapporsi e restano file anche se uno ha qualcosa dietro", () => {
+  /* tre file da tre leggii (100 cm di profondità) a 2 m l'una dall'altra; dietro al leggio centrale della
+     seconda fila c'è un ampli: stringendo, l'ampli spinge avanti il suo leggio, e con lui tutta la fila */
+  const its = [];
+  [150, 350, 550].forEach((y, r) => [300, 500, 700].forEach((x, c) => its.push({ id: "f" + r + c, type: "leggio", x, y, w: 80, d: 100, rot: 0 })));
+  its.push({ id: "amp", type: "leggio", x: 500, y: 250, w: 80, d: 100, rot: 0 });
+  const R = A.adattaPalcoCalcola(its, 1000, 800, 1000, 480);
+  ok(R.ciSta, "ci sta: " + JSON.stringify({ ciSta: R.ciSta, stretta: R.stretta, serveMinD: R.serveMinD }));
+  eq(sovrappostiVeri(its, R.pos), 0, "nessuna fila sopra l'altra");
+  [0, 1, 2].forEach((r) => eq(new Set([0, 1, 2].map((c) => R.pos["f" + r + c].y)).size, 1, "la fila " + r + " resta una fila"));
+  ok(R.pos.f00.y < R.pos.amp.y && R.pos.amp.y < R.pos.f10.y && R.pos.f10.y < R.pos.f20.y, "ordine fondo→fronte");
+});
+
+t("adatta palco: se non ci sta lo dice, non sovrappone e dice quanto servirebbe", () => {
+  const its = []; for (let i = 0; i < 20; i++) its.push({ id: "r" + i, type: "leggio", x: 60 + i * 110, y: 200, w: 100, d: 100, rot: 0 });
+  const R = A.adattaPalcoCalcola(its, 2300, 600, 1000, 600);
+  ok(!R.ciSta, "non ci sta");
+  eq(sovrappostiVeri(its, R.pos), 0, "anche stretti al massimo, nessuno sopra un altro");
+  ok(R.sbordano > 0, "dice quanti escono dal bordo: " + R.sbordano);
+  ok(R.serveMinW >= 1400 && R.serveMinW <= 1500, "servirebbe almeno ~14-15 m: " + R.serveMinW);
+  ok(R.serveW >= 2200, "con le distanze di prima quasi 23 m: " + R.serveW);
+  const xs = its.map((it) => R.pos[it.id].x); ok(xs.every((x, i) => !i || x > xs[i - 1]), "ordine mantenuto");
+  ok(Math.abs((xs[0] + xs[19]) / 2 - 500) <= 5, "sborda uguale ai due lati");
+  const m = A.adattaPalcoMessaggio(R, 1000, 600);
+  ok(/Non ci sta/.test(m.titolo) && /servirebbe almeno 1[45](,\d)? × 6 m/.test(m.testo) && /escono dal bordo/.test(m.testo), m.testo);
+  eq([m.allargaW, m.allargaD], [R.serveMinW, R.serveMinD], "la finestra propone il palco minimo");
+});
+
+t("adatta palco: la pedana segue chi ci sta sopra e si accorcia; la FOH resta alla sua distanza dal palco", () => {
+  const its = [{ id: "ped", type: "pedana", x: 600, y: 100, w: 1200, d: 200, rot: 0 }];
+  for (let i = 0; i < 12; i++) its.push({ id: "c" + i, type: "corista", x: 50 + i * 100, y: 100, w: 70, d: 88, rot: 0 });
+  its.push({ id: "fohX", type: "foh", x: 600, y: 1100, w: 200, d: 120, rot: 0 });
+  const R = A.adattaPalcoCalcola(its, 1200, 800, 950, 700), pd = R.pos.ped;
+  ok(pd.w != null && pd.w <= 950 && pd.w < 1200, "pedana più corta: " + pd.w);
+  ok(pd.d >= 180 && pd.d <= 200, "profondità della pedana quasi intatta (al massimo rientra nel palco): " + pd.d);
+  for (let i = 0; i < 12; i++) { const c = R.pos["c" + i]; ok(c.x >= pd.x - pd.w / 2 && c.x <= pd.x + pd.w / 2, "corista " + i + " sopra la pedana"); }
+  eq(sovrappostiVeri(its, R.pos), 0, "coristi senza sovrapposizioni");
+  eq(R.pos.fohX.y, 1000, "FOH a 3 m dal fronte come prima (1100-800 → 700+300)");
+});
+
+t("adatta palco: violini ruotati si stringono sulla geometria vera, senza sovrapporsi", () => {
+  /* col rettangolo che contiene il violino ruotato (2,1 m invece di 1,75) la sezione risultava già
+     sovrapposta e non si stringeva più: è quello che succedeva sul progetto d'esempio di Simone */
+  /* sei violini a 30°: accostati sulla geometria vera servono 5×202+209 = 12,19 m, col rettangolo contenitore 12,54 */
+  const its = []; for (let i = 0; i < 6; i++) its.push({ id: "v" + i, type: "vlnpost", x: 120 + i * 230, y: 300, w: 175, d: 115, rot: 330 });
+  const R = A.adattaPalcoCalcola(its, 1400, 600, 1230, 600);
+  ok(R.ciSta && R.stretta === 0, "ci stanno senza stringere: " + JSON.stringify({ ciSta: R.ciSta, stretta: R.stretta, sbordano: R.sbordano }));
+  eq(sovrappostiVeri(its, R.pos), 0, "nessuna sovrapposizione vera");
+});
+
+t("adatta palco: in una nuova scena l'originale resta intatto e basta un Annulla", () => {
+  reset();
+  const a = add("leggio", 200, 300), b = add("leggio", 1000, 300);
+  A.save(); A.resetHistory();
+  const R = A.adattaPalcoApplica(700, 600, true);
+  ok(R.ciSta, "ci sta");
+  eq(A.VARIANTS.length, 2, "una scena in più");
+  eq(A.VARIANTS[1].name, "Palco 7 × 6 m", "nome della scena nuova");
+  eq([A.state.stage.w, A.state.stage.d], [700, 600], "palco nuovo nella scena nuova");
+  A.syncActiveVariant();
+  const orig = A.VARIANTS[0].state;
+  eq([orig.stage.w, orig.stage.d], [1200, 800], "la scena di partenza ha ancora il suo palco");
+  eq(orig.items.map((it) => it.x), [200, 1000], "e i suoi elementi dov'erano");
+  eq(A.undoStack.length, 1, "un solo passo di Annulla");
+  A.undo();
+  eq([A.state.stage.w, A.state.items.find((it) => it.id === b.id).x], [1200, 1000], "Annulla riporta la scena com'era");
+  reset();
+  add("leggio", 200, 300); A.save(); A.resetHistory();
+  A.adattaPalcoApplica(700, 600, false);
+  eq([A.VARIANTS.length, A.undoStack.length], [1, 1], "in questa scena: nessuna scena nuova, un passo di Annulla");
+  reset();
+});
+
+t("adatta palco: il comando sta nella «Forma del palco» e la nuova scena è la scelta di partenza", () => {
+  const tpl = readFileSync(join(root, "index.template.html"), "utf8");
+  const pan = tpl.slice(tpl.indexOf('<div class="sec" id="stageEditPanel"'), tpl.indexOf('<div id="venueSec"'));
+  ok(/id="bAdattaPalco"/.test(pan), "bottone nel pannello Forma del palco");
+  ok(/<input type="checkbox" id="apScena" checked>/.test(tpl), "«In una nuova scena» spuntato di partenza");
+  ok(/R=adattaPalcoApplica\(W, D, nuova\)/.test(appjs), "la finestra applica con la scelta della scena");
+  ok(/run:function\(\)\{ undo\(\); adattaPalcoApplica\(msg\.allargaW, msg\.allargaD, false\); \}/.test(appjs), "«Usa un palco…» annulla e rifà sul palco proposto");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
