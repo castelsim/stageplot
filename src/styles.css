@@ -3496,3 +3496,8 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
    `visibility` e non `display`: il palco tiene le sue misure e alla chiusura fit() non riparte da zero. */
 body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:hidden}
 @media (min-width:881px){ #accessoInvito .wl-foot button{white-space:nowrap} }   /* due bottoni su una riga: a capo sembravano quattro */
+
+/* Distanza tra i 2 su più postazioni (29/09): con distanze diverse il cursore è sbiadito e al posto dei
+   centimetri dice «diversi»; sul telefono il cursore è un bersaglio da 44 px. */
+#props #groupProps #grpSep.misto{opacity:.45}
+@media (max-width:880px){ #props #groupProps #grpSep{min-height:44px} }
