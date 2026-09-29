@@ -3938,6 +3938,35 @@ t("pdfHeaderPropose: salvato > contatto primario > vuoto", () => {
   eq(A.pdfHeaderPropose(A.state, null), "", "senza nulla: vuoto");
 });
 
+t("progetto da link: il cartiglio non prende il nome di chi guarda, e il titolo è quello attuale", () => {
+  /* 29/09, Simone: «quando la persona stampa il pdf che nome esce in basso a sinistra?». Due difetti:
+     (1) senza riferimento condiviso si ripiegava sull'account di CHI ESPORTA (il service al posto della band);
+     (2) il titolo era quello rimasto dentro il file: la rinomina da «I miei progetti» scrive solo la colonna. */
+  reset();
+  const acct = { role: "", name: "Service Rossi", contact: "service@esempio.it" };
+  A.state.pdfHeader = ""; A.state.contacts = []; delete A.state.pdfHeaderOff;
+  const altrui = A.foreignDoc;
+  try {
+    A.foreignDoc = () => true;
+    eq(A.pdfHeaderPropose(A.state, acct), "", "link altrui: niente nome dell'account di chi guarda");
+    A.state.pdfHeader = "Fonico: Simone · +39 000";
+    eq(A.pdfHeaderPropose(A.state, acct), "Fonico: Simone · +39 000", "il riferimento condiviso dal proprietario resta");
+    A.state.pdfHeader = "";
+    A.foreignDoc = () => false;
+    eq(A.pdfHeaderPropose(A.state, acct), "Service Rossi · service@esempio.it", "progetto proprio: l'account resta la proposta");
+  } finally { A.foreignDoc = altrui; }
+  A.state.titolo = "Nome vecchio nel file";
+  A.titoloDelLink({ title: "Pooh History 10x10", data: {} });
+  eq(A.state.titolo, "Pooh History 10x10", "il titolo della colonna vince su quello nel file");
+  A.titoloDelLink({ title: "   ", data: {} });
+  eq(A.state.titolo, "Pooh History 10x10", "colonna vuota: resta quello che c'è");
+  const f1 = appjs.slice(appjs.indexOf("function startSharedProject(token, d){"), appjs.indexOf("function startSharedProject(token, d){") + 500);
+  ok(/importProject\(JSON\.stringify\(d\.data\)[^;]*;\s*titoloDelLink\(d\);/.test(f1), "link di sola visione: titolo applicato dopo l'import");
+  const f2 = appjs.slice(appjs.indexOf("function startSession(sb, token, d, isEditor){"), appjs.indexOf("function startSession(sb, token, d, isEditor){") + 900);
+  ok(/importProject\(JSON\.stringify\(d\.data\)[^;]*;\s*titoloDelLink\(d\);/.test(f2), "consulenza: titolo applicato dopo l'import");
+  reset();
+});
+
 t("mond: il cavo segue il mixerino quando lo si sposta (cache invalidata)", () => {
   reset(); A.state.mond.on = true;
   const m = add("hearback", 300, 300), h = add("mixhub", 600, 300);
