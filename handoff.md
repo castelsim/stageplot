@@ -25,6 +25,45 @@ sono state scritte qui: la loro storia sta nei messaggi di commit e nelle PR (#9
   ⚠️ Già prima: esportare il PDF scrive `production` nello stato con un passo di Annulla, quindi dopo un export il
   primo Annulla disfa quello e non Adatta.
 
+- **29/09 — Nomi a filo del disegno, via lo slider «Distanza»** (ramo `etichette-vicine`, segnalazione 114cfd80:
+  «il parametro distanza è parecchio inutile perché le etichette dovrebbero sempre essere molto vicine»). La
+  distanza contava dal FOOTPRINT: a 0 la voce aveva il nome 10 cm dentro il leggio, a 22 (default) i violini a
+  27 cm; 11 progetti su 30 del collaudo avevano `lblDist` a mano, 874 elementi a 0. Ora `itemMarkup` misura il
+  disegno appena composto (`misuraArte`: getBBox su un SVG nascosto, cache per markup, `<use>` delle illustrazioni
+  espansi) e `lblBaseY` mette il nome a `lblStacco` = max(3 cm, ⅓ di lettera); sopra lo schienale idem. Scavalca
+  la DI dello strumento solo se gli sta davanti (`lblArteConDi`); doppie scostate dell'inclinazione; al telefono
+  (vista girata) funzione di supporto del riquadro; il corpo minimo a schermo cresce attorno al bordo del disegno
+  (`lblScalaAttorno(lb, _lblOrig)`), prima attorno alla baseline → al telefono 63 nomi su 73 finivano sul disegno.
+  Migrazione: `lblDist` si butta in `normalizeLoadedItems` e `sanitizeItems` non la copia. Nel sandbox niente
+  SVG → `arteStimata` (footprint + sgabello + asta + schienale 43,5). Non provato: Safari/Firefox (getBBox su SVG
+  nascosto); con l'elemento selezionato la maniglia di rotazione sfiora il nome sopra lo schienale.
+  **v2, telefono**: col corpo minimo (2,3× sul palco intero) i nomi a filo si accavallavano (collaudo 25, nomi
+  accesi: 87 coppie). `nomiCedono` (da `aggiornaNomiZoom`: render, rotella, pizzico), SOLO se `isMobile()`:
+  un nome che tocca un nome già mostrato — o, con `--lblK`>1, il disegno di un altro elemento (`_arteDi`) — prende
+  `.lbl-cede` (visibility:hidden); selezionato sempre visibile e per primo. Quadrilateri veri (getBBox +
+  getScreenCTM, girati) e separazione degli assi (`quadSiToccano`, `nomiDaNascondere` pura). Collaudo 25 al
+  telefono: insieme 7 nomi visibili e 0 sovrapposti; 2× 50; 4× 81 su 92. ⚠️ Anche trovato: la cache di
+  `misuraArte` non prendeva mai le postazioni illustrate (contatore `L772_` di libIcon nel markup): render
+  204 ms → 83 (main 79). ⚠️ Desktop NON toccato, ma sul collaudo 25 i nomi vicini fanno 20 coppie sovrapposte
+  contro 5 di main (a 2×: 13 contro 2): la stessa passata sul computer è un cambio di una riga (`attivo`).
+
+- **29/09 — «Solo pedane» automatico, chi sta sopra si vede sopra** (ramo `solo-pedane-auto`, richiesta di Simone:
+  «vorrei vedere in trasparenza anche quelli sopra la pedana mentre adesso sono sotto … che l'opzione si attivasse
+  in automatico nel momento in cui seleziono una pedana»). La vista vale solo con una selezione di SOLE pedane
+  (`soloPedaneDisponibile` = tutte pedane: una selezione mista la spegne in `pruneSolo` e nasconde l'occhio).
+  Si accende da sola in `soloPedaneAuto()` (chiamata in testa a `render()`) quando la MANO ha scelto: la bandierina
+  `soloPedGesto` la alzano solo clic/tocco sul disegno, shift+clic, clic ripetuto (`cicloSotto`), riquadro e nome
+  dell'elenco del telefono (un test conta 5 punti). Duplica, Incolla, catalogo, Annulla, tastiera: niente. Mai in
+  `viewmode`, `consult-viewer`, `__projLocked`, né sopra una vista dei layer aperta a mano. `soloPedFirma` = ids
+  della selezione già decisa: spento l'occhio (o «Mostra tutto il palco») resta spento per quella selezione; una
+  selezione non di sole pedane la azzera, riprendendo la pedana si riaccende. Disegno (`sceneMarkup`, solo l'ordine
+  dei gruppi del solo): per le pedane il contesto resta nell'ordine di `sortedItems`, a sequenze in gruppi
+  `solo-bg solo-prende` (.15) → chi sta sopra la pedana è sopra, sfumato; i layer come prima (tutto sotto). Il
+  contesto delle pedane SI PRENDE (`.solo-bg:not(.solo-prende)` in CSS, niente `auto` che scavalcherebbe il
+  lucchetto del Palco): un clic lo seleziona e spegne la vista; sulla pedana già presa vince lei (regola del 16/09)
+  e il clic fermo passa a chi sta sopra (`itemPickable(it,{esce:true})`). Il riquadro prende solo le pedane.
+  `soloMostra`: nella vista pedane l'occhio chiuso dei Musicisti li nasconde anche nel contesto. Export invariati.
+
 - **29/09 — Distanza tra i 2 su più postazioni** (ramo `postazioni-distanza`, segnalazione di Simone c0bd4c7b:
   «se seleziono molteplici postazioni a 2 devo poter regolare la distanza… in simultanea»). Postazione a 2 = ha
   `sepCfg`: tipo di `POSTAZ` con `doppia` (archi, fiati, sax) o tipo ×2 di `DOUBLE_TYPES`; la proprietà è `it.sep`

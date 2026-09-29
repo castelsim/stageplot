@@ -1405,6 +1405,9 @@ svg.names-hidden .orc-name{display:none}
   #svg #layLbl .lblk{scale:var(--lblK,1)}   /* corpo minimo a schermo: il gruppo delle scritte di un elemento cresce attorno all'ancora del nome (lblScalaAttorno, aggiornaNomiZoom) */
   svg.names-hidden .item-lbls .lbl:not(.sub){display:none}
   svg.names-hidden .item-lbls.selected .lbl,svg.names-hidden .item-lbls.hov .lbl{display:inline}
+  /* telefono: il nome che finirebbe sopra un altro nome o un altro disegno cede il posto (nomiCedono, 29/09) */
+  #svg #layLbl .item-lbls.lbl-cede{visibility:hidden}
+  #svg #layLbl .item-lbls.lbl-cede.selected,#svg #layLbl .item-lbls.lbl-cede.hov{visibility:visible}
   .lbl.big{font-size:42px;font-weight:800;letter-spacing:2px;fill:#374151;stroke-width:5}
   /* Testo libero (box di testo): righe con wrapping; il fill (colore) è inline per-elemento.
      Alone bianco leggero come le etichette per restare leggibile sopra la griglia; sempre visibile
@@ -2348,8 +2351,10 @@ body.proj-ro .venue-img { pointer-events: none !important; }
 body.stage-lock #layItems{ pointer-events:none; }
 /* Layer "Section Mic" bloccato: le zone non intercettano il puntatore */
 body.miczone-lock #layMicZones{ pointer-events:none; }
-/* SOLO operativo: il contesto sfumato non è nemmeno cliccabile — si lavora solo sul layer in solo */
-.solo-bg{ pointer-events:none; }
+/* SOLO operativo: il contesto sfumato non è nemmeno cliccabile — si lavora solo sul layer in solo.
+   Tranne «Solo pedane» (29/09): lì il contesto si prende col clic, e prenderlo spegne la vista. Con :not e
+   non con un pointer-events:auto, che scavalcherebbe il lucchetto del Palco (#layItems) ereditato. */
+.solo-bg:not(.solo-prende){ pointer-events:none; }
 #lockBar { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); z-index: 211;
   display: flex; align-items: center; gap: 14px; background: #7c4a12; color: #fff; padding: 9px 15px;
   border-radius: 999px; font: 13px/1.3 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
