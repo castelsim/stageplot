@@ -3114,6 +3114,22 @@ body.dark .ask-all .btn{background:transparent}
   .lite-btn{width:44px;height:44px}
   #props .btn.cnt-b{width:44px;height:44px;min-width:44px}   /* i +/− dei contatori: si premono a ripetizione */
 }
+/* SOLO PEDANE (29/09, Simone) — il comando compare nel pannello solo con una pedana selezionata.
+   Occhio + parola; acceso = ambra, lo stesso segno del solo dei layer. Sul telefono sta nella testa
+   del foglio (#mPeek) come quinta azione: il pannello vero lo ripeterebbe due volte. */
+#props .solo-ped{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin:0 0 10px;font-size:12px;font-weight:600}
+#props .solo-ped svg{width:16px;height:16px;flex:0 0 auto}
+#props .solo-ped.on{background:#fde68a;border-color:#f59e0b;color:#92400e}
+body.dark #props .solo-ped.on{background:#78350f;border-color:#b45309;color:#fbbf24}
+@media (pointer:coarse){ #props .solo-ped{min-height:44px} }
+@media (max-width:880px){
+  body.m-has-sel #props .solo-ped{display:none!important}
+  body.ped-sel #mPeek .mpk-acts{grid-template-columns:repeat(5,minmax(0,1fr))}
+  #mPeek .mpk-acts .mpk-solo{line-height:1.1;text-align:center}
+  #mPeek .mpk-acts .mpk-solo.on{background:#fde68a;border-color:#f59e0b;color:#92400e}
+  body.dark #mPeek .mpk-acts .mpk-solo.on{background:#78350f;border-color:#b45309;color:#fbbf24}
+}
+
 
 /* ── BARRA ALTA, MENU E PANNELLI DEL TELEFONO (13/09) ─────────────────────────────────────────────
    Simone: «analizza la versione mobile e prova a farmi dei mockup», poi «procedi con tutte».
@@ -3473,3 +3489,4 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
   .cloudRiga .cloudTesto{flex:1 1 calc(100% - 80px)!important}
   .cloudRiga .cloudOpen{margin-left:auto}
 }
+
