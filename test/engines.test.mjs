@@ -16983,5 +16983,138 @@ t("il deploy non pubblica i test e i dati demo di Orchestre, e build non ha i pe
   ok(/permissions:\s*\n\s*pages: write\s*\n\s*id-token: write/.test(dep), "li ha solo deploy");
 });
 
+/* ===== USCITA PULITA (29/09, Simone): «sono uscito dall'account ma vedo ancora il progetto aperto» ===== */
+function mappaStorage(init) {
+  const m = new Map(Object.entries(init || {}));
+  return { get length() { return m.size; }, key: (i) => [...m.keys()][i] ?? null,
+    getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => { m.set(k, String(v)); },
+    removeItem: (k) => { m.delete(k); }, chiavi: () => [...m.keys()].sort() };
+}
+/* Il DOM finto gira all'infinito su alcuni percorsi: per queste prove render & c. non servono */
+function conUscitaSandbox(fn) {
+  const nomi = ["render", "fit", "renderStagePanel", "renderEventoPanel", "setEventInputs", "renderChannels",
+    "resetCatalogView", "renderVariantBar", "resetMetaLayersUI", "save"];
+  const vecchi = {}; nomi.forEach((n) => { vecchi[n] = A[n]; A[n] = function () {}; });
+  const old = { storage: A.localStorage, document: A.document, cloud: A.__cloud, consult: A.__consultMode,
+    invito: A.__invitoAccesso, flush: A.flushCloudAutosave, needs: A.__cloudNeedsFlush, conf: A.confirmDialog,
+    blocked: A.__docLoadBlocked, locked: A.__projLocked, doc: A.docToJSON(), toast: A.__toast };
+  A.__consultMode = false; A.__docLoadBlocked = null; A.__projLocked = false; A.__invitoAccesso = null; A.__toast = () => {};
+  A.document = { body: { classList: { contains: () => false, add() {}, remove() {} } }, getElementById: () => null };
+  A.__cloud = { setCurrentId() {}, currentId: () => null, currentRev: () => null, user: () => null };
+  try { return fn(); } finally {
+    nomi.forEach((n) => { A[n] = vecchi[n]; });
+    A.localStorage = old.storage; A.document = old.document; A.__cloud = old.cloud; A.__consultMode = old.consult;
+    A.__invitoAccesso = old.invito; A.flushCloudAutosave = old.flush; A.__cloudNeedsFlush = old.needs; A.confirmDialog = old.conf;
+    A.__docLoadBlocked = old.blocked; A.__projLocked = old.locked; A.__toast = old.toast;
+    A.localExpectedRevision = null; A.__localConflict = false;
+    A.loadDoc(JSON.parse(old.doc));
+  }
+}
+/* «then» sincrono: il runner di questa suite non aspetta le promesse */
+const risposta = (v) => ({ then: (f) => f(v) });
+
+t("uscita: ogni chiave che l'app scrive nel browser è classificata (cancella o tieni)", () => {
+  const src = readFileSync(join(root, "index.template.html"), "utf8") + readFileSync(join(root, "accedi/google/avvio.js"), "utf8");
+  const scritte = new Set();
+  for (const m of src.matchAll(/(local|session)Storage\.setItem\(\s*"([^"]+)"/g)) scritte.add(m[1] + ":" + m[2]);
+  scritte.add("session:" + (/var CHIAVE = "([^"]+)"/.exec(src) || [])[1]);   /* accedi/google */
+  const tieniL = A.USCITA_TIENI_LOCAL, tieniS = A.USCITA_TIENI_SESSION;
+  const orfane = [...scritte].filter((s) => { const [area, k] = s.split(":");
+    return !(area === "local" ? tieniL[k] : tieniS[k]) && !A.uscitaChiaveDaCancellare(k, area); });
+  eq(orfane, [], "chiavi scritte dall'app ma assenti dalla tabella dell'uscita");
+  ok(scritte.size >= 15, "l'inventario trova le chiavi (" + scritte.size + ")");
+  /* le chiavi scritte con una costante */
+  ["stageplot_v1", "stageplot_v1_cloudid", "stageplot_v1_cloudrev", "stageplot_v1_venue", "stageplot_v1_venue.abc_123", "stageplot_versions",
+    "sb-vsodplqkuvnsdiikvmjb-auth-token"].forEach((k) => ok(A.uscitaChiaveDaCancellare(k, "local"), k + " si cancella"));
+  ok(A.uscitaChiaveDaCancellare("copiaDi:u1:tok", "session"), "copie da link: si cancellano");
+  ok(!A.uscitaChiaveDaCancellare(A.CAT_RECENTI_KEY, "local"), "i recenti del catalogo restano");
+});
+
+t("uscita: si cancellano documento, planimetrie, ripristini, sessione; restano le preferenze", () => conUscitaSandbox(() => {
+  const ls = mappaStorage({
+    stageplot_v1: JSON.stringify({ titolo: "Progetto dell'account", _local: { cloudId: "p-1" } }),
+    stageplot_v1_cloudid: "p-1", stageplot_v1_cloudrev: "r-1", "stageplot_v1_venue.h_1": "{}", stageplot_versions: "[{}]",
+    "sb-vsodplqkuvnsdiikvmjb-auth-token": "{}", "sb-vsodplqkuvnsdiikvmjb-auth-token-code-verifier": "x",
+    stageplot_theme: "dark", sp_welcome: "1", sp_onboarded: "1", sp_funzioni: "{}", sp_catRecenti: "[]", sp_rail: "1", sp_dragHint: "1",
+  });
+  const ss = mappaStorage({ cloudReopen: "1", copyFromToken: "t", orcOpenProject: "o", "copiaDi:u:t": "x", sp_sid: "s",
+    sp_google_accesso: "{}", sp_loginPrompt: "1" });
+  A.localStorage = ls;
+  A.loadDoc({ titolo: "Progetto dell'account", items: [], inputs: [], outputs: [] });
+  A.__bootCloudId = "p-1";
+  A.pulisciDatiAccount(ls, ss);
+  eq(ls.chiavi(), ["sp_catRecenti", "sp_dragHint", "sp_funzioni", "sp_onboarded", "sp_rail", "sp_welcome", "stageplot_theme"], "localStorage dopo l'uscita");
+  eq(ss.chiavi(), ["sp_loginPrompt"], "sessionStorage dopo l'uscita");
+  eq(A.state.titolo, "", "in memoria il progetto è vuoto");
+  eq(A.undoStack.length, 0, "cronologia annulla vuota");
+  eq(A.__bootCloudId, null, "nessun progetto dell'account agganciato");
+  eq(A.localExpectedRevision, "", "il documento sparito non diventa un conflitto fra schede");
+}));
+
+t("uscita: prima si salva online quello che manca; se non si può, si chiede (Resta / Esci comunque)", () => conUscitaSandbox(() => {
+  let flush = 0, esito;
+  const chieste = [];
+  A.confirmDialog = (o) => { chieste.push(o); return risposta(false); };
+  /* niente in sospeso: si esce subito, senza flush né domande */
+  A.__cloudNeedsFlush = () => false; A.flushCloudAutosave = () => { flush++; };
+  A.preparaUscita((ok) => { esito = ok; });
+  eq([esito, flush, chieste.length], [true, 0, 0], "niente in sospeso");
+  /* in sospeso e il salvataggio riesce: si esce, nessuna domanda */
+  A.__cloudNeedsFlush = () => true; A.flushCloudAutosave = (done) => { flush++; done(true); };
+  A.preparaUscita((ok) => { esito = ok; });
+  eq([esito, flush, chieste.length], [true, 1, 0], "flush prima dell'uscita");
+  /* il salvataggio non riesce (rete, tempo scaduto): conferma dell'app; «Resta» → non si esce */
+  A.flushCloudAutosave = (done) => { flush++; done(false); };
+  A.preparaUscita((ok) => { esito = ok; });
+  eq([esito, flush, chieste.length], [false, 2, 1], "Resta");
+  ok(/non sono ancora online/.test(chieste[0].message) && /verranno cancellate/.test(chieste[0].message), "il messaggio dice cosa si perde");
+  eq([chieste[0].confirmText, chieste[0].cancelText], ["Esci comunque", "Resta"], "i due bottoni");
+  A.confirmDialog = (o) => { chieste.push(o); return risposta(true); };
+  A.preparaUscita((ok) => { esito = ok; });
+  eq(esito, true, "Esci comunque");
+}));
+
+t("uscita: signOut passa da preparaUscita, pulisce e mostra l'invito (non più «il progetto resta»)", () => {
+  const src = readFileSync(join(root, "index.template.html"), "utf8");
+  const so = src.slice(src.indexOf("  function signOut(){"), src.indexOf("  function bindInvitoAccesso(){"));
+  ok(/preparaUscita\(function\(ok\)\{\s*if\(!ok\) return;/.test(so), "si esce solo dopo il via libera");
+  ok(/pulisciDatiAccount\(\);\s*mostraInvitoAccesso\("uscita"\);/.test(so), "pulizia e invito");
+  ok(/scope:"local"/.test(so), "senza rete la sessione si toglie comunque dal browser");
+  ok(!/toast\("Disconnesso\. Il progetto resta/.test(src), "il vecchio messaggio non c'è più");
+  ok(/<div class="modal" id="accessoInvito" hidden>[\s\S]*?id="aiSenza">Inizia un progetto senza account<[\s\S]*?class="wl-cta" id="aiAccedi">Accedi con Google</.test(src), "invito con i pezzi del benvenuto");
+  ok(/body\.accesso-invito > :not\(\.modal\)/.test(stylesCss), "con l'invito il progetto dietro non si vede");
+});
+
+t("uscita: al boot un progetto dell'account senza sessione non si mostra; quello locale sì", () => conUscitaSandbox(() => {
+  const docCloud = JSON.stringify({ titolo: "Progetto dell'account", items: [], inputs: [], outputs: [], _local: { cloudId: "p-1", cloudRev: "r-1" } });
+  let ls = mappaStorage({ stageplot_v1: docCloud });
+  A.localStorage = ls; A.load();
+  eq(A.__bootCloudId, "p-1", "documento agganciato");
+  eq(A.invitoAlBoot(true, false), false, "con la sessione il progetto si vede");
+  eq(A.invitoAlBoot(false, true), false, "chi torna dal login non viene fermato");
+  eq(A.__invitoAccesso, null, "nessun invito finora");
+  eq(A.invitoAlBoot(false, false), true, "senza sessione: invito");
+  eq(A.__invitoAccesso, "scaduta", "invito della sessione scaduta");
+  ok(ls.getItem("stageplot_v1"), "il progetto resta nel browser: accedendo si ritrova");
+  A.__invitoAccesso = null;
+  /* chi lavora SENZA account: documento senza _cloudid */
+  ls = mappaStorage({ stageplot_v1: JSON.stringify({ titolo: "Palco senza account", items: [], inputs: [], outputs: [] }) });
+  A.localStorage = ls; A.load();
+  eq(A.__bootCloudId, null, "nessun aggancio");
+  eq(A.invitoAlBoot(false, false), false, "nessun invito");
+  eq([A.__invitoAccesso, A.state.titolo], [null, "Palco senza account"], "progetto locale intatto");
+  /* il codice di avvio lo chiama davvero, e aspetta chi torna dal login */
+  const src = readFileSync(join(root, "index.template.html"), "utf8");
+  ok(/if\(!senzaInvito && !haChiaveSessione\(\)\) invitoAlBoot\(false, oauthReturn\);/.test(src), "subito, se la sessione non c'è proprio");
+  ok(/else if\(!senzaInvito\)\{\s*if\(!oauthReturn\) invitoAlBoot\(false, false\);/.test(src), "dopo getSession");
+}));
+
+t("uscita: l'altra scheda smette di mostrare il progetto al segnale", () => conUscitaSandbox(() => {
+  A.loadDoc({ titolo: "Stesso progetto", items: [], inputs: [], outputs: [] });
+  A.__bootCloudId = "p-1";
+  eq(A.uscitaDaAltraScheda(), true, "gestito");
+  eq([A.state.titolo, A.__bootCloudId, A.__invitoAccesso, A.localExpectedRevision], ["", null, "uscita", ""], "vuoto, staccato, invito");
+}));
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
