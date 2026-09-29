@@ -6,6 +6,19 @@ sono state scritte qui: la loro storia sta nei messaggi di commit e nelle PR (#9
 
 ## Settembre in una pagina (PR su `main`)
 
+- **29/09 — Nomi a filo del disegno, via lo slider «Distanza»** (ramo `etichette-vicine`, segnalazione 114cfd80:
+  «il parametro distanza è parecchio inutile perché le etichette dovrebbero sempre essere molto vicine»). La
+  distanza contava dal FOOTPRINT: a 0 la voce aveva il nome 10 cm dentro il leggio, a 22 (default) i violini a
+  27 cm; 11 progetti su 30 del collaudo avevano `lblDist` a mano, 874 elementi a 0. Ora `itemMarkup` misura il
+  disegno appena composto (`misuraArte`: getBBox su un SVG nascosto, cache per markup, `<use>` delle illustrazioni
+  espansi) e `lblBaseY` mette il nome a `lblStacco` = max(3 cm, ⅓ di lettera); sopra lo schienale idem. Scavalca
+  la DI dello strumento solo se gli sta davanti (`lblArteConDi`); doppie scostate dell'inclinazione; al telefono
+  (vista girata) funzione di supporto del riquadro; il corpo minimo a schermo cresce attorno al bordo del disegno
+  (`lblScalaAttorno(lb, _lblOrig)`), prima attorno alla baseline → al telefono 63 nomi su 73 finivano sul disegno.
+  Migrazione: `lblDist` si butta in `normalizeLoadedItems` e `sanitizeItems` non la copia. Nel sandbox niente
+  SVG → `arteStimata` (footprint + sgabello + asta + schienale 43,5). Non provato: Safari/Firefox (getBBox su SVG
+  nascosto); con l'elemento selezionato la maniglia di rotazione sfiora il nome sopra lo schienale.
+
 - **29/09 — Uscita pulita** (#246, richiesta di Simone: «immagina che io faccia il login sul computer di un'altra
   persona»). `signOut()`: `preparaUscita` (salva online o chiede «Resta / Esci comunque») → `sb.auth.signOut()`
   (senza rete `scope:"local"`) → `pulisciDatiAccount` (tabella chiavi nel blocco «USCITA PULITA») → invito
