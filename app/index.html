@@ -1483,6 +1483,9 @@ svg.names-hidden .orc-name{display:none}
   #svg #layLbl .lblk{scale:var(--lblK,1)}   /* corpo minimo a schermo: il gruppo delle scritte di un elemento cresce attorno all'ancora del nome (lblScalaAttorno, aggiornaNomiZoom) */
   svg.names-hidden .item-lbls .lbl:not(.sub){display:none}
   svg.names-hidden .item-lbls.selected .lbl,svg.names-hidden .item-lbls.hov .lbl{display:inline}
+  /* telefono: il nome che finirebbe sopra un altro nome o un altro disegno cede il posto (nomiCedono, 29/09) */
+  #svg #layLbl .item-lbls.lbl-cede{visibility:hidden}
+  #svg #layLbl .item-lbls.lbl-cede.selected,#svg #layLbl .item-lbls.lbl-cede.hov{visibility:visible}
   .lbl.big{font-size:42px;font-weight:800;letter-spacing:2px;fill:#374151;stroke-width:5}
   /* Testo libero (box di testo): righe con wrapping; il fill (colore) è inline per-elemento.
      Alone bianco leggero come le etichette per restare leggibile sopra la griglia; sempre visibile
@@ -1883,6 +1886,8 @@ svg.names-hidden .orc-name{display:none}
   .ss-inwrap i{position:absolute;right:11px;font-style:normal;font-size:13px;font-weight:600;color:var(--text-3);pointer-events:none}
   .ss-err{margin:10px 0 0;font-size:13px;font-weight:600;color:var(--danger);line-height:var(--lh-snug)}
   .ss-foot{margin-top:16px}
+  .ap-scena{display:flex;align-items:center;gap:8px;min-height:44px;margin:10px 0 0;font-size:14px;color:var(--text);cursor:pointer}
+  .ap-scena input{accent-color:var(--accent);width:18px;height:18px;margin:0}
   .wl-ghost{appearance:none;background:var(--surface);border:1px solid var(--border);color:var(--text-2);border-radius:10px;padding:9px 14px;font:inherit;font-size:13px;font-weight:600;cursor:pointer;transition:background var(--dur-fast),color var(--dur-fast)}
   .wl-ghost:hover{background:var(--accent-tint);color:var(--accent)}
   body.dark .ss-inwrap input{background:#141a1d;border-color:#2a3138}
@@ -2424,8 +2429,10 @@ body.proj-ro .venue-img { pointer-events: none !important; }
 body.stage-lock #layItems{ pointer-events:none; }
 /* Layer "Section Mic" bloccato: le zone non intercettano il puntatore */
 body.miczone-lock #layMicZones{ pointer-events:none; }
-/* SOLO operativo: il contesto sfumato non è nemmeno cliccabile — si lavora solo sul layer in solo */
-.solo-bg{ pointer-events:none; }
+/* SOLO operativo: il contesto sfumato non è nemmeno cliccabile — si lavora solo sul layer in solo.
+   Tranne «Solo pedane» (29/09): lì il contesto si prende col clic, e prenderlo spegne la vista. Con :not e
+   non con un pointer-events:auto, che scavalcherebbe il lucchetto del Palco (#layItems) ereditato. */
+.solo-bg:not(.solo-prende){ pointer-events:none; }
 #lockBar { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); z-index: 211;
   display: flex; align-items: center; gap: 14px; background: #7c4a12; color: #fff; padding: 9px 15px;
   border-radius: 999px; font: 13px/1.3 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
@@ -2909,6 +2916,9 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
    finestra guida restano mezzi bersagli — compresi «Segnalazione inviata» e la guida del
    cablaggio, cioe' i punti in cui si sbaglia meno volentieri. Misurato l'02/09. */
 @media (pointer:coarse){ .guide-actions .btn{min-height:44px} }
+/* casella di una finestra-guida (o.scelta): l'avvertenza di «Adatta», 29/09. 44 px: si spunta anche col dito */
+.guide-scelta{display:flex;align-items:center;gap:8px;min-height:44px;margin:12px 0 0;font-size:14px;line-height:1.4;color:var(--text);cursor:pointer}
+.guide-scelta input{margin:0}   /* l'interruttore di tutta l'app (DS v2.1): niente misure proprie, o esce mezzo tondo */
 
 /* Blocco "Uscita" del pannello: i due tipi di uscita (jack/XLR) come coppia segmentata.
    Riusa .adv-btn del design system — niente stili inline (regola Simone). */
@@ -3192,6 +3202,22 @@ body.dark .ask-all .btn{background:transparent}
   .lite-btn{width:44px;height:44px}
   #props .btn.cnt-b{width:44px;height:44px;min-width:44px}   /* i +/− dei contatori: si premono a ripetizione */
 }
+/* SOLO PEDANE (29/09, Simone) — il comando compare nel pannello solo con una pedana selezionata.
+   Occhio + parola; acceso = ambra, lo stesso segno del solo dei layer. Sul telefono sta nella testa
+   del foglio (#mPeek) come quinta azione: il pannello vero lo ripeterebbe due volte. */
+#props .solo-ped{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin:0 0 10px;font-size:12px;font-weight:600}
+#props .solo-ped svg{width:16px;height:16px;flex:0 0 auto}
+#props .solo-ped.on{background:#fde68a;border-color:#f59e0b;color:#92400e}
+body.dark #props .solo-ped.on{background:#78350f;border-color:#b45309;color:#fbbf24}
+@media (pointer:coarse){ #props .solo-ped{min-height:44px} }
+@media (max-width:880px){
+  body.m-has-sel #props .solo-ped{display:none!important}
+  body.ped-sel #mPeek .mpk-acts{grid-template-columns:repeat(5,minmax(0,1fr))}
+  #mPeek .mpk-acts .mpk-solo{line-height:1.1;text-align:center}
+  #mPeek .mpk-acts .mpk-solo.on{background:#fde68a;border-color:#f59e0b;color:#92400e}
+  body.dark #mPeek .mpk-acts .mpk-solo.on{background:#78350f;border-color:#b45309;color:#fbbf24}
+}
+
 
 /* ── BARRA ALTA, MENU E PANNELLI DEL TELEFONO (13/09) ─────────────────────────────────────────────
    Simone: «analizza la versione mobile e prova a farmi dei mockup», poi «procedi con tutte».
@@ -3551,6 +3577,16 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
   .cloudRiga .cloudTesto{flex:1 1 calc(100% - 80px)!important}
   .cloudRiga .cloudOpen{margin-left:auto}
 }
+/* Invito ad accedere al posto del progetto (29/09, uscita pulita): con l'invito aperto la pagina non
+   mostra niente del progetto dietro — restano visibili solo le finestre, il messaggio e le conferme.
+   `visibility` e non `display`: il palco tiene le sue misure e alla chiusura fit() non riparte da zero. */
+body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:hidden}
+@media (min-width:881px){ #accessoInvito .wl-foot button{white-space:nowrap} }   /* due bottoni su una riga: a capo sembravano quattro */
+
+/* Distanza tra i 2 su più postazioni (29/09): con distanze diverse il cursore è sbiadito e al posto dei
+   centimetri dice «diversi»; sul telefono il cursore è un bersaglio da 44 px. */
+#props #groupProps #grpSep.misto{opacity:.45}
+@media (max-width:880px){ #props #groupProps #grpSep{min-height:44px} }
 </style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->
 <script async src="/icons.js"></script>
@@ -3843,6 +3879,8 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
     <!-- Il bottone che apre semicerchio, altezza e lato curvo: sul telefono il CSS li nasconde
          dietro `f-opzioni`, e qui dentro non c'era niente da premere per accenderla. (02/09) -->
     <button class="btn adv-mob" type="button" id="stageAdvMob">Opzioni tecniche</button>
+    <!-- «Stessa formazione, altro palco» (29/09): qui perché è la stessa domanda delle misure. -->
+    <button class="btn" type="button" id="bAdattaPalco" style="width:100%;margin-top:11px" title="Stessa formazione e stesse posizioni su un palco di misura diversa">Adatta a un altro palco…</button>
     <button class="btn primary" id="bStageDone" style="width:100%;margin-top:11px">Fatto</button>
     </div>
     <div id="venueSec" hidden>
@@ -3928,6 +3966,9 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
   </div>
   <div class="sec" id="selProps" hidden>
     <h3 id="selNome">Elemento</h3>
+    <button type="button" class="btn solo-ped" id="pSoloPed" style="display:none" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg><span>Solo pedane</span></button>
+    <!-- 29/09 (Simone): di partenza la pedana si sposta da sola; acceso, chi ci sta sopra la segue. Vedi pedanaAgganciata(). -->
+    <div id="pAggWrap" class="agg-ped" style="display:none"><label class="chk" title="Acceso: spostando la pedana si spostano anche i musicisti e gli strumenti che ci stanno sopra, e Duplica e Copia li copiano con lei. Spento: si sposta solo la pedana, il resto rimane dov'è."><input type="checkbox" id="pAgg"> <span>Aggancia gli elementi alla pedana <small class="lbl-note">— spostandola, chi ci sta sopra la segue</small></span></label></div>
     <div id="pLookWrap" style="display:none;margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px">
         <label style="font-size:12px;color:var(--text-2);margin:0">Disegna come</label>
@@ -3980,18 +4021,9 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
       <span id="pLblSizeAllMsg"></span>
       <button type="button" class="btn" id="pLblSizeAllYes">Applica a tutte</button>
     </div>
-    <!-- DISTANZA del nome dall'elemento, in cm reali dal bordo (31/07). Stessa meccanica della
-         dimensione, «Applica a tutte» compreso: su un palco fitto il nome finisce addosso a quello
-         accanto, e l'unico rimedio era spostare l'elemento. -->
-    <div id="pLblDistWrap" class="sldrow">
-      <label for="pLblDist">Distanza</label>
-      <input type="range" id="pLblDist" min="0" max="80" step="1">
-      <output id="pLblDistVal">9</output>
-    </div>
-    <div id="pLblDistAll" class="ask-all" hidden>
-      <span id="pLblDistAllMsg"></span>
-      <button type="button" class="btn" id="pLblDistAllYes">Applica a tutte</button>
-    </div>
+    <!-- La DISTANZA del nome dall'elemento (slider dal 31/07) non c'è più dal 29/09: il nome sta sempre a
+         filo del disegno, misurato (lblBaseY). Simone: «le etichette dovrebbero sempre essere molto vicine
+         e leggibili». -->
     <!-- NOTA sull'elemento (30/07): quello che il disegno non dice — «shaker, claves, güiro»,
          «ampli fornito dalla band», «da accordare». Sul palco resta un puntino accanto al nome:
          una nota che non si vede è una nota che nessuno legge. Il testo esce nella lista Note. -->
@@ -4216,7 +4248,6 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
       </select>
     </div>
     <div id="pKeysWrap" style="display:none"><label class="chk"><input type="checkbox" id="pPanca"> Sgabello</label></div>
-    <div id="pRiserSoloWrap" style="display:none"><label class="chk"><input type="checkbox" id="pRiserSolo"> Sposta solo la pedana <small class="lbl-note">— quello che c'è sopra resta dov'è</small></label></div>
     <div id="pSgabWrap" style="display:none"><label for="pSgabTipo">Tipo di sgabello <small class="lbl-note">— per il pianoforte c'è la «Panchetta piano»</small></label><select id="pSgabTipo"></select></div>
     <div id="pLeggioGenWrap" style="display:none"><label class="chk"><input type="checkbox" id="pLeggioGen"> Leggio</label></div>
     <div id="pLucettaWrap" style="display:none"><label class="chk"><input type="checkbox" id="pLucetta"> Lucetta leggio</label></div>
@@ -4472,10 +4503,20 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
   </div>
   <div class="sec" id="groupProps" hidden>
     <h3 id="grpNome">Selezione</h3>
+    <button type="button" class="btn solo-ped" id="grpSoloPed" style="display:none" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg><span>Solo pedane</span></button>
+    <div id="grpAggWrap" class="agg-ped" style="display:none"><label class="chk" title="Acceso: spostando una pedana si spostano anche i musicisti e gli strumenti che ci stanno sopra, e Duplica e Copia li copiano con lei. Spento: si sposta solo la pedana, il resto rimane dov'è. Vale per tutte le pedane selezionate."><input type="checkbox" id="grpAgg"> <span>Aggancia gli elementi alle pedane <small class="lbl-note">— spostandole, chi ci sta sopra le segue</small></span></label></div>
     <div id="grpOpts" style="display:none;margin-bottom:8px">
       <div class="hint" style="font-size:11px;color:var(--text-3);margin-bottom:4px">Applica a tutti gli elementi selezionati:</div>
       <label class="chk" id="grpSediaWrap"><input type="checkbox" id="grpSedia"> Sedia</label>
       <label class="chk" id="grpLeggioWrap"><input type="checkbox" id="grpLeggio"> Leggio</label>
+    </div>
+    <!-- Distanza tra i 2 per TUTTE le postazioni a 2 selezionate (29/09, segnalazione di Simone): lo stesso
+         cursore del pannello singolo. Valori diversi → «diversi» al posto dei centimetri. -->
+    <div id="grpSepWrap" style="display:none;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><label for="grpSep">Distanza tra i 2</label>
+        <output id="grpSepVal" for="grpSep" style="color:var(--text);font-weight:600">90 cm</output></div>
+      <input type="range" id="grpSep" min="65" max="300" step="5" style="width:100%;padding:0">
+      <div class="prop-hint" id="grpSepHint"></div>
     </div>
     <div id="grpSbWrap" class="prop-card" style="display:none">
       <div class="prop-card__head">Stage box selezionate <span id="grpSbN" class="muted"></span></div>
@@ -4783,6 +4824,7 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
     <button type="button" class="mpk-dup" id="mPeekDup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Duplica</button>
     <button type="button" class="mpk-copy" id="mPeekCopy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="3" width="13" height="15" rx="2"/><path d="M4 7v12a2 2 0 0 0 2 2h9"/></svg>Copia</button>
     <button type="button" class="mpk-del" id="mPeekDel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Elimina</button>
+    <button type="button" class="mpk-solo" id="mPeekSolo" style="display:none" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>Solo pedane</button>
   </div>
 </div>
 
@@ -5237,6 +5279,28 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
   </div>
 </div>
 
+<!-- Adatta a un palco di misura diversa (29/09): stessa formazione e posizioni relative, palco nuovo. -->
+<div class="modal" id="adattaPalco" hidden>
+  <div class="wl-card" role="dialog" aria-modal="true" aria-labelledby="apTitle">
+    <div class="wl-head">
+      <div class="wl-title" id="apTitle">Adatta a un palco di misura diversa</div>
+      <div class="wl-tag">Stessa formazione e stesse posizioni: chi è a sinistra resta a sinistra, il fondo resta in fondo, le file restano file. Se il palco è più piccolo si stringono prima i corridoi vuoti, poi gli elementi; pedane e praticabili seguono chi ci sta sopra.</div>
+    </div>
+    <div class="wl-body">
+      <div class="ss-fields">
+        <label class="ss-field"><span>Larghezza</span><span class="ss-inwrap"><input type="text" inputmode="decimal" id="apW" autocomplete="off" aria-describedby="apErr"><i>m</i></span></label>
+        <label class="ss-field"><span>Profondità</span><span class="ss-inwrap"><input type="text" inputmode="decimal" id="apD" autocomplete="off" aria-describedby="apErr"><i>m</i></span></label>
+      </div>
+      <label class="ap-scena"><input type="checkbox" id="apScena" checked> In una nuova scena: questa resta com'è</label>
+      <div class="ss-err" id="apErr" role="alert" hidden></div>
+      <div class="wl-foot ss-foot">
+        <button type="button" class="wl-ghost" id="apNo">Annulla</button>
+        <button type="button" class="wl-cta" id="apGo">Adatta</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Picker "Nuovo da modello" (menu File): parti da una formazione pronta. -->
 <!-- Popup login al salvataggio esplicito senza account (una volta a sessione, non bloccante): il lavoro è già salvato in locale, invita al cloud a valore. -->
 <div class="modal" id="loginPrompt" hidden>
@@ -5250,6 +5314,25 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
       <div class="wl-foot">
         <button type="button" class="wl-skip" id="lpSkip">Continua senza account</button>
         <button type="button" class="wl-cta" id="lpLogin">Accedi con Google</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Invito ad accedere AL POSTO del progetto (29/09, Simone): dopo l'uscita dall'account, o al boot quando
+     c'è un progetto dell'account ma la sessione non c'è più. Stessi pezzi del benvenuto e di #loginPrompt.
+     Testi e comportamento: mostraInvitoAccesso() / «USCITA PULITA». -->
+<div class="modal" id="accessoInvito" hidden>
+  <div class="wl-card" role="dialog" aria-modal="true" aria-labelledby="aiTitle">
+    <div class="wl-head">
+      <span class="wl-badge" id="aiBadge">Account</span>
+      <div class="wl-title" id="aiTitle">Sei uscito dal tuo account</div>
+      <div class="wl-tag" id="aiTag">I tuoi progetti sono al sicuro online. Accedi con Google per ritrovarli.</div>
+    </div>
+    <div class="wl-body">
+      <div class="wl-foot">
+        <button type="button" class="wl-ghost" id="aiSenza">Continua senza account</button>
+        <button type="button" class="wl-cta" id="aiAccedi">Accedi con Google</button>
       </div>
     </div>
   </div>

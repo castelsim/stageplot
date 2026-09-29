@@ -3938,6 +3938,35 @@ t("pdfHeaderPropose: salvato > contatto primario > vuoto", () => {
   eq(A.pdfHeaderPropose(A.state, null), "", "senza nulla: vuoto");
 });
 
+t("progetto da link: il cartiglio non prende il nome di chi guarda, e il titolo è quello attuale", () => {
+  /* 29/09, Simone: «quando la persona stampa il pdf che nome esce in basso a sinistra?». Due difetti:
+     (1) senza riferimento condiviso si ripiegava sull'account di CHI ESPORTA (il service al posto della band);
+     (2) il titolo era quello rimasto dentro il file: la rinomina da «I miei progetti» scrive solo la colonna. */
+  reset();
+  const acct = { role: "", name: "Service Rossi", contact: "service@esempio.it" };
+  A.state.pdfHeader = ""; A.state.contacts = []; delete A.state.pdfHeaderOff;
+  const altrui = A.foreignDoc;
+  try {
+    A.foreignDoc = () => true;
+    eq(A.pdfHeaderPropose(A.state, acct), "", "link altrui: niente nome dell'account di chi guarda");
+    A.state.pdfHeader = "Fonico: Simone · +39 000";
+    eq(A.pdfHeaderPropose(A.state, acct), "Fonico: Simone · +39 000", "il riferimento condiviso dal proprietario resta");
+    A.state.pdfHeader = "";
+    A.foreignDoc = () => false;
+    eq(A.pdfHeaderPropose(A.state, acct), "Service Rossi · service@esempio.it", "progetto proprio: l'account resta la proposta");
+  } finally { A.foreignDoc = altrui; }
+  A.state.titolo = "Nome vecchio nel file";
+  A.titoloDelLink({ title: "Pooh History 10x10", data: {} });
+  eq(A.state.titolo, "Pooh History 10x10", "il titolo della colonna vince su quello nel file");
+  A.titoloDelLink({ title: "   ", data: {} });
+  eq(A.state.titolo, "Pooh History 10x10", "colonna vuota: resta quello che c'è");
+  const f1 = appjs.slice(appjs.indexOf("function startSharedProject(token, d){"), appjs.indexOf("function startSharedProject(token, d){") + 500);
+  ok(/importProject\(JSON\.stringify\(d\.data\)[^;]*;\s*titoloDelLink\(d\);/.test(f1), "link di sola visione: titolo applicato dopo l'import");
+  const f2 = appjs.slice(appjs.indexOf("function startSession(sb, token, d, isEditor){"), appjs.indexOf("function startSession(sb, token, d, isEditor){") + 900);
+  ok(/importProject\(JSON\.stringify\(d\.data\)[^;]*;\s*titoloDelLink\(d\);/.test(f2), "consulenza: titolo applicato dopo l'import");
+  reset();
+});
+
 t("mond: il cavo segue il mixerino quando lo si sposta (cache invalidata)", () => {
   reset(); A.state.mond.on = true;
   const m = add("hearback", 300, 300), h = add("mixhub", 600, 300);
@@ -5081,7 +5110,7 @@ t("a schermo i nomi crescono attorno all'ancora del nome, con le rotazioni origi
      '<g class="lblk" style="transform-origin:12.5px -3px"><text class="lbl" x="12.5" y="-3" transform="rotate(90 12.5 -3)">x</text><text class="lbl sub" x="12.5" y="-3" dy="16" transform="rotate(90 12.5 -3)">y</text></g>');
   eq(A.lblScalaAttorno('<text class="lbl" y="60">Basso</text>'), '<g class="lblk" style="transform-origin:0px 60px"><text class="lbl" y="60">Basso</text></g>', "senza x l'ancora è 0");
   ok(/_lblSchermo = !\(opts && opts\.espandi\);/.test(appjs), "l'export (espandi) non si ingrandisce");
-  ok(/\(_lblSchermo \? lblScalaAttorno\(lb\) : lb\)/.test(appjs), "il livello dei nomi a schermo si ingrandisce per gruppo");
+  ok(/\(_lblSchermo \? lblScalaAttorno\(lb, _lblOrig\) : lb\)/.test(appjs), "il livello dei nomi a schermo si ingrandisce per gruppo");
   ok(!/transform-box:fill-box;transform-origin:center;scale:var\(--lblK/.test(stylesCss), "niente più scala testo per testo al centro");
 });
 /* Revisione 26/09: rotella e pizzico cambiano la viewBox senza render(): nomi della misura sbagliata. */
@@ -5722,12 +5751,10 @@ t("pedane coperte: il clic ripetuto passa a quello sotto, e la pedana si sposta 
   /* presa col clic ripetuto, la pedana si trascina anche dal punto coperto (visto provando nel browser) */
   ok(/if\(g && !e\.shiftKey && sel && !selSet\[g\.getAttribute\("data-id"\)\] && document\.elementsFromPoint\)\{/.test(appjs)
      && /if\(_selSotto\) g=_selSotto;/.test(appjs), "l'elemento selezionato vince anche se coperto");
-  /* Sposta solo la pedana */
-  ok(/if\(TYPES\[it\.type\] && TYPES\[it\.type\]\.riser && !pedanaSola\)\{/.test(appjs), "acceso, la pedana non porta il carico");
-  eq(A.pedanaSola, false, "parte spento, e non si salva");
+  /* «Sposta solo la pedana» (16/09) non c'è più: dal 29/09 la pedana si sposta da sola DI PARTENZA e
+     l'aggancio si accende per pedana (test «pedane sganciate» più sotto). */
   const html = readFileSync(join(root, "app/index.html"), "utf8");
-  ok(/id="pRiserSolo"/.test(html) && /"pSgabWrap","pRiserSoloWrap"/.test(appjs), "l'interruttore sta negli Accessori della pedana");
-  ok(/rsw\.style\.display = t\.riser \? "block" : "none";/.test(appjs), "e si vede solo sulle pedane");
+  ok(!/id="pRiserSolo"/.test(html) && !/pRiserSoloWrap/.test(appjs) && !/pedanaSola\s*=/.test(appjs), "il vecchio interruttore è tolto: un solo comando per la stessa cosa");
 });
 
 t("la scelta del modello mostra la pianta di ogni modello, senza toccare il progetto aperto", () => {
@@ -8022,7 +8049,7 @@ t("le opzioni tipografiche non stanno davanti al lavoro", () => {
      Dimensione, distanza, allineamento e colore del testo sono l'ASPETTO del nome, non la sua
      identita': stanno col disegno, in fondo, non nel primo gruppo del pannello. */
   const g = gruppiProps();
-  const TIPO = ["pLblSizeWrap", "pLblDistWrap", "pAlignWrap", "pTxtColorWrap", "pLblPosWrap"];
+  const TIPO = ["pLblSizeWrap", "pAlignWrap", "pTxtColorWrap", "pLblPosWrap"];
   const et = g.filter((x) => x.titolo === "Etichetta")[0];
   ok(et, "il gruppo Etichetta non c'e' piu'");
   TIPO.forEach((id) => ok(et.ids.indexOf(id) < 0, id + " sta ancora nel primo gruppo del pannello"));
@@ -8640,7 +8667,9 @@ t("uscire dalla vista e' un comando che si vede", () => {
 t("il contesto sfumato resta leggibile: «fuoco» non e' «isolamento»", () => {
   /* A .15 il contesto era invisibile, quindi il fuoco somigliava all'isolamento e il bottone S non
      distingueva piu' niente da quello che faceva gia' il clic sulla riga. */
-  ok(/class="solo-bg" style="opacity:\.42"/.test(appjs), "l'opacita' del contesto non e' quella misurata a video");
+  /* 29/09: la sola eccezione e' «Solo pedane» (.15, il contesto e' solo un riferimento): i layer restano a .42 */
+  ok(/var _bgOp = soloOn\("pedane"\) \? "\.15" : "\.42";/.test(appjs) && /class="solo-bg" style="opacity:'\+_bgOp\+'"/.test(appjs),
+     "l'opacita' del contesto non e' quella misurata a video");
   eq(appjs.indexOf('class="solo-bg" style="opacity:.15"'), -1, "e' tornata l'opacita' che rendeva il contesto un fantasma");
   ok(/layerSoloMode==="iso"\) return;/.test(appjs), "…e l'isolamento deve restare quello che il contesto lo toglie del tutto");
 });
@@ -10931,26 +10960,209 @@ t("ogni scheda del registro porta la sua fonte", () => {
   });
 });
 
-// ── DISTANZA DEL NOME DALL'ELEMENTO (31/07) ────────────────────────────────────────────────────
-// Simone: «stessa interfaccia della dimensione etichetta, ma per la distanza dallo strumento».
-// Misurata in cm reali dal bordo. Era 9, e a 9 il disegno di quel che sta sotto (la DI generata da
-// uno strumento) spuntava in mezzo alle parole del nome: dal 07/08 il default è 22.
-console.log("\n— Distanza del nome —");
+// ── IL NOME A FILO DEL DISEGNO (29/09) ─────────────────────────────────────────────────────────
+// Simone (segnalazione 114cfd80): «il parametro distanza è parecchio inutile perché le etichette
+// dovrebbero sempre essere molto vicine e leggibili». Lo slider «Distanza» (31/07) contava dal
+// footprint: a 0 il nome della voce stava 10 cm DENTRO il suo leggio, al default (22) i violini lo
+// avevano a 27 cm dal disegno. Ora il nome si stacca dal disegno MISURATO (misuraArte) di un terzo di
+// lettera. Nel sandbox non c'è un SVG: misuraArte si sostituisce con un finto che restituisce il riquadro.
+console.log("\n— Il nome a filo del disegno —");
 
-t("il default stacca il nome dal disegno e non si scrive nel documento", () => {
-  reset();
-  const it = add("wedge", 400, 300);
-  eq(A.lblDistOf(it), 22, "22 cm dal bordo");
-  eq(it.lblDist, undefined, "e la chiave non c'è: chi ha scelto la sua distanza se la tiene");
+const ARTE_VERA = A.misuraArte;
+const TEMPLATE_29_09 = readFileSync(join(root, "index.template.html"), "utf8");
+function conArte(box, fn) {   /* il disegno «misura» box per tutta la durata di fn */
+  A.misuraArte = () => box; A._arteDi = null;
+  try { return fn(); } finally { A.misuraArte = ARTE_VERA; A._arteDi = null; }
+}
+const yNome = (svg) => { const m = svg.match(/<text class="lbl" y="([\d.-]+)"/); return m ? +m[1] : null; };
+
+t("lo slider «Distanza» non c'è più, né nel pannello né nel codice", () => {
+  ok(TEMPLATE_29_09.indexOf('id="pLblDist"') < 0 && TEMPLATE_29_09.indexOf('id="pLblDistWrap"') < 0, "lo slider è ancora nel pannello");
+  ok(TEMPLATE_29_09.indexOf('id="pLblSize"') > -1, "…ma Dimensione deve restare");
+  eq(typeof A.lblDistOf, "undefined", "lblDistOf esiste ancora: qualcuno può rileggere la distanza");
+  ok(!/\blblDist\b/.test(appjs.replace(/\/\*[\s\S]*?\*\//g, "").replace(/if\(it\.lblDist!=null\) delete it\.lblDist;/, "")),
+     "il codice legge o scrive ancora lblDist fuori dalla migrazione");
 });
 
-t("la distanza si legge, si limita e regge i valori sballati", () => {
+t("un progetto salvato con una distanza si riapre col nome vicino, e la chiave sparisce", () => {
+  const s2 = A.normalizeState({ _v: 5, items: [
+    { id: "d1", type: "wedge", x: 100, y: 100, lblDist: 40 },
+    { id: "d2", type: "wedge", x: 300, y: 100, lblDist: "x" },
+    { id: "d3", type: "wedge", x: 500, y: 100 },
+  ], stage: { w: 1200, d: 800 } });
+  s2.items.forEach((it) => eq(it.lblDist, undefined, it.id + ": la chiave vecchia è rimasta nel documento"));
+  const ia = A.sanitizeItems([{ id: "a1", type: "wedge", x: 100, y: 100, lblDist: 40 }]);
+  eq(ia[0].lblDist, undefined, "anche il JSON dell'assistente la perde");
+});
+
+t("la distanza vecchia rimasta in memoria non sposta il nome", () => {
   reset();
   const it = add("wedge", 400, 300);
-  it.lblDist = 40; eq(A.lblDistOf(it), 40, "40 cm");
-  it.lblDist = 999; eq(A.lblDistOf(it), 80, "il massimo è 80");
-  it.lblDist = -5; eq(A.lblDistOf(it), 0, "sotto zero non si va");
-  it.lblDist = "boh"; eq(A.lblDistOf(it), 22, "un valore non numerico torna al default");
+  const y0 = yNome(A.itemMarkup(it));
+  it.lblDist = 80;
+  eq(yNome(A.itemMarkup(it)), y0, "con lblDist=80 il nome si è mosso");
+  delete it.lblDist;
+});
+
+t("il nome sta a filo del disegno misurato, non del footprint", () => {
+  reset();
+  const it = add("wedge", 400, 300); it.lblSize = 14;
+  /* un disegno che sporge 70 cm sotto il centro (il footprint del wedge ne dichiara meno della metà) */
+  const y = conArte({ x0: -30, y0: -22, x1: 30, y1: 70 }, () => yNome(A.itemMarkup(it)));
+  const cima = y - 14 * 0.72;   /* dove arrivano le maiuscole */
+  ok(cima > 70, "il nome entra nel disegno: cima delle lettere a " + cima.toFixed(1) + ", disegno fino a 70");
+  ok(cima < 70 + 7, "il nome è lontano dal disegno: " + (cima - 70).toFixed(1) + " cm");
+  /* e segue il disegno: più sporge, più scende, di altrettanto */
+  const y2 = conArte({ x0: -30, y0: -22, x1: 30, y1: 110 }, () => yNome(A.itemMarkup(it)));
+  eq(Math.round(y2 - y), 40, "il nome non segue il disegno");
+});
+
+t("sopra lo schienale: il nome sta a filo della sedia misurata", () => {
+  reset();
+  const it = add("vlnpost", 400, 300); it.lblSize = 11;
+  ok(A.lblSopraDi(it), "la postazione con la sedia porta il nome sopra");
+  const y = conArte({ x0: -50, y0: -60, x1: 50, y1: 55 }, () => yNome(A.itemMarkup(it)));
+  const fondo = y + 11 * 0.25;   /* le discendenti */
+  ok(fondo < -60, "il nome entra nello schienale: fondo a " + fondo.toFixed(1));
+  ok(fondo > -60 - 7, "il nome è lontano dallo schienale: " + (-60 - fondo).toFixed(1) + " cm");
+});
+
+t("senza un SVG da misurare vale la stima: footprint, sgabello, schienale", () => {
+  reset();
+  const w = add("wedge", 400, 300); w.lblSize = 14;
+  eq(A.arteStimata(w).y1, w.d / 2, "wedge: il footprint");
+  const k = add("stagepiano", 800, 300);
+  eq(A.arteStimata(k).y1, k.d / 2 + 36, "piano con lo sgabello");
+  ok(A.arteStimata(add("vlnpost", 400, 600)).y0 <= -43.5, "la sedia della postazione");
+  const y = yNome(A.itemMarkup(w));
+  eq(Math.round((y - (w.d / 2 + A.lblStacco(14) + 14 * 0.72)) * 10), 0, "il wedge senza misura: " + y);
+});
+
+t("il nome dello strumento scavalca la sua DI, ma solo se la DI gli sta davanti", () => {
+  reset();
+  const g = add("gtacustica", 400, 300); g.lblSize = 14; g.label = "Chitarra acustica 1";
+  g.w = 60; g.d = 60;   /* nel sandbox l'illustrazione non ha misure: le si dà quelle vere, da cui dipende il posto della DI */
+  const vecchia = A.diLinked(g); if (vecchia) { A.state.items = A.state.items.filter((x) => x !== vecchia); delete g.diId; delete g.diOff; }
+  A.diApply(g);
+  const di = A.diLinked(g);
+  ok(di, "la chitarra acustica non ha generato la DI: il test non prova niente");
+  const arte = { x0: -40, y0: -40, x1: 40, y1: g.d / 2 };
+  const fondoDi = g.diOff[1] + di.d / 2;
+  const y = conArte(arte, () => yNome(A.itemMarkup(g)));
+  ok(y - 14 * 0.72 > fondoDi, "il nome passa sopra la DI: cima " + (y - 14 * 0.72).toFixed(1) + " contro fondo DI " + fondoDi);
+  /* trascinata lontano, la DI non tira più giù il nome */
+  g.diOff = [400, 0];
+  const y2 = conArte(arte, () => yNome(A.itemMarkup(g)));
+  ok(y2 - 14 * 0.72 < arte.y1 + 7, "con la DI lontana il nome resta a filo: " + y2);
+});
+
+t("la postazione doppia scosta i nomi inclinati di quanto sale il capo interno", () => {
+  reset();
+  const it = add("vln1x2", 400, 300); it.lblSize = 14;
+  const svg = conArte({ x0: -80, y0: -60, x1: 80, y1: 50 }, () => A.itemMarkup(it));
+  const ys = (svg.match(/<text class="lbl" x="[\d.-]+" y="([\d.-]+)" transform="rotate\(-?12 /g) || []).map((m) => +m.match(/y="([\d.-]+)"/)[1]);
+  eq(ys.length, 2, "i due nomi inclinati");
+  const piatto = 50 + A.lblStacco(14) + 14 * 0.72;
+  const sale = A.lblTextW(it.label, 14) / 2 * Math.sin(12 * Math.PI / 180);
+  ok(sale > 2, "il nome è troppo corto per provare qualcosa");
+  ok(ys[0] >= piatto + sale - 0.5, "il capo interno del nome entra nel disegno: y=" + ys[0] + " contro " + (piatto + sale).toFixed(1));
+});
+
+t("al telefono (vista girata) il nome sta a filo del disegno nella direzione dello schermo", () => {
+  reset();
+  const it = add("wedge", 400, 300); it.lblSize = 14; it.rot = 0;
+  const prima = A._sceneRuota; A._sceneRuota = -90;
+  try {
+    const svg = conArte({ x0: -50, y0: -22, x1: 30, y1: 22 }, () => A.itemMarkup(it));
+    const m = svg.match(/<text class="lbl" x="([\d.-]+)" y="([\d.-]+)" transform="rotate/);
+    ok(m, "il nome girato non c'è");
+    /* rot 0, vista a −90°: «sotto sullo schermo» è −x dell'elemento, dove il disegno arriva a −50 */
+    eq(+m[1], -Math.round((50 + A.lblStacco(14)) * 10) / 10, "x del nome girato");
+  } finally { A._sceneRuota = prima; }
+});
+
+t("a schermo il nome cresce attorno al bordo del disegno, non alla sua baseline", () => {
+  reset();
+  const it = add("wedge", 400, 300); it.lblSize = 14;
+  eq(A.lblScalaAttorno('<text class="lbl" y="60">B</text>', [0, 40]), '<g class="lblk" style="transform-origin:0px 40px"><text class="lbl" y="60">B</text></g>', "il perno passato vince");
+  const pS = A._lblSchermo, pK = A._lblSink;
+  A._lblSchermo = true; A._lblSink = [];
+  try {
+    conArte({ x0: -30, y0: -22, x1: 30, y1: 70 }, () => A.itemMarkup(it));
+    const g = A._lblSink.join("");
+    ok(/transform-origin:0px 70px/.test(g), "il gruppo del nome non cresce dal bordo del disegno: " + g.slice(0, 160));
+  } finally { A._lblSchermo = pS; A._lblSink = pK; }
+});
+
+// ── AL TELEFONO I NOMI CEDONO IL POSTO (29/09, v2) ─────────────────────────────────────────────
+// Col nome a filo del disegno e il corpo minimo ingrandito 2,3× al telefono, sul progetto di collaudo 25
+// 87 coppie di nomi si accavallavano. nomiCedono (a schermo, solo telefono) nasconde chi toccherebbe un
+// nome già mostrato o — quando il corpo minimo ingrandisce — il disegno di un altro elemento.
+console.log("\n— Al telefono i nomi cedono il posto —");
+const rett = (l, t, r, b) => [[l, t], [r, t], [r, b], [l, b]];
+const girato = (cx, cy, w, h, gradi) => { const a = gradi * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+  return [[-w / 2, -h / 2], [w / 2, -h / 2], [w / 2, h / 2], [-w / 2, h / 2]].map(([x, y]) => [cx + x * c - y * s, cy + x * s + y * c]); };
+
+t("due nomi che si toccano: il secondo in ordine di lettura cede", () => {
+  const via = A.nomiDaNascondere([
+    { id: "b", quads: [rett(10, 20, 60, 30)] },
+    { id: "a", quads: [rett(0, 10, 50, 22)] },
+    { id: "c", quads: [rett(200, 10, 250, 22)] },
+  ], []);
+  eq(JSON.stringify(Object.keys(via).sort()), '["b"]', "cede chi viene dopo, e solo lui");
+});
+
+t("il nome dell'elemento selezionato si vede sempre e prende il posto per primo", () => {
+  const via = A.nomiDaNascondere([
+    { id: "a", quads: [rett(0, 10, 50, 22)] },
+    { id: "sel", sel: true, quads: [rett(10, 20, 60, 30)] },
+  ], []);
+  ok(!via.sel, "il selezionato è stato nascosto");
+  ok(via.a, "chi tocca il selezionato non cede, anche se viene prima in ordine di lettura");
+  ok(!A.nomiDaNascondere([{ id: "s", sel: true, quads: [rett(0, 0, 40, 10)] }], [{ id: "x", quad: rett(0, 0, 100, 100) }]).s,
+     "il selezionato sopra un disegno altrui deve restare");
+});
+
+t("un nome sopra il disegno di un ALTRO elemento cede; sopra il suo no", () => {
+  const nome = { id: "v1", quads: [rett(0, 0, 40, 10)] };
+  ok(A.nomiDaNascondere([nome], [{ id: "v2", quad: rett(20, 5, 80, 60) }]).v1, "sopra il disegno del vicino è rimasto");
+  ok(!A.nomiDaNascondere([nome], [{ id: "v1", quad: rett(20, 5, 80, 60) }]).v1, "il proprio disegno non conta");
+  ok(!A.nomiDaNascondere([nome], [{ id: "v2", quad: rett(40.5, 0, 80, 60) }]).v1, "sfiorarsi non conta");
+});
+
+t("i nomi girati si confrontano inclinati, non col riquadro dritto", () => {
+  /* due scritte a 45°, parallele e staccate: i riquadri dritti si sovrappongono, le scritte no */
+  const a = { id: "a", quads: [girato(100, 100, 80, 10, 45)] }, b = { id: "b", quads: [girato(115, 85, 80, 10, 45)] };
+  ok(!A.quadSiToccano(a.quads[0], b.quads[0], 0), "scritte parallele staccate date per sovrapposte");
+  eq(Object.keys(A.nomiDaNascondere([a, b], [])).length, 0, "un nome girato è sparito per il riquadro dritto");
+  ok(A.quadSiToccano(girato(100, 100, 80, 10, 45), girato(100, 100, 80, 10, -45), 0), "due scritte incrociate non si toccano?");
+});
+
+t("la passata sta a schermo, al telefono e al computer, e i disegni contano solo col corpo ingrandito", () => {
+  const f = appjs.slice(appjs.indexOf("function aggiornaNomiZoom(){"), appjs.indexOf("function reindexItemNodes(){"));
+  ok(/nomiCedono\(\);\s*return ppm;/.test(f), "aggiornaNomiZoom (render, rotella, pizzico) non chiama la passata");
+  const c = appjs.slice(appjs.indexOf("function nomiCedono(){"), appjs.indexOf("function reindexItemNodes(){"));
+  /* 29/09, Simone sul computer: «2, come sul telefono» — i nomi che si toccano cedono anche lì (prima: isMobile() && …) */
+  ok(/var attivo=!svg\.classList\.contains\("names-hidden"\);/.test(c), "la passata vale anche al computer");
+  ok(!/function nomiCedono\(\)\{[\s\S]{0,400}isMobile\(\)/.test(c), "nessuna restrizione al telefono");
+  const tutte = appjs.split("lbl-cede").length - 1, nellaPassata = c.split("lbl-cede").length - 1;
+  eq(tutte, nellaPassata, "«lbl-cede» esiste solo nella passata a schermo: PDF e PNG non nascondono nomi");
+  ok(/if\(K>1\.001\) \(state\.items\|\|\[\]\)\.forEach/.test(c), "i disegni contano anche a corpo pieno");
+  ok(/#svg #layLbl \.item-lbls\.lbl-cede\{visibility:hidden\}/.test(stylesCss), "manca la regola che nasconde il nome che cede");
+  ok(/\.lbl-cede\.selected/.test(stylesCss), "il selezionato deve vedersi anche se cede");
+});
+
+t("la misura del disegno non si rifà per il contatore di libIcon", () => {
+  /* «L772_musTrombone_cls-1» cambia a ogni render: la cache non prendeva mai le postazioni illustrate
+     (38 misure su 93 a ogni render del collaudo 25, 204 ms invece di 80) */
+  const prima = A._arteCache; A._arteCache = null;
+  try {
+    A.misuraArte('<g class="L5_musTromba_cls-1"/>');
+    A.misuraArte('<g class="L977_musTromba_cls-1"/>');
+    eq(A._arteCache.size, 1, "lo stesso disegno misurato due volte");
+    A.misuraArte('<g class="L5_musViola_cls-1"/>');
+    eq(A._arteCache.size, 2, "disegni diversi confusi");
+  } finally { A._arteCache = prima; }
 });
 
 // ── DOVE NASCE UN ELEMENTO POSATO DAL CATALOGO (11/08) ─────────────────────────────────────────
@@ -10964,7 +11176,7 @@ t("la striscia del nome è ingombro: sotto per un wedge, sopra per chi ha la sed
   reset();
   const w = add("wedge", 400, 300);
   const bw = A.lblBandOf(w);
-  ok(bw.sotto >= A.lblDistOf(w), "sotto il wedge si tiene almeno la distanza del nome: " + bw.sotto);
+  ok(bw.sotto >= A.lblStacco(14) + 14, "sotto il wedge si tiene lo stacco e il nome: " + bw.sotto);
   eq(bw.sopra, 0, "e niente sopra");
   const g = add("vlnpost", 900, 300);   /* postazione d'orchestra: nasce con la sedia */
   const bg = A.lblBandOf(g);
@@ -10982,7 +11194,7 @@ t("su un palco stretto il posto si cerca oltre la striscia del nome, non a ridos
   A.state.stage = { w: 260, d: 1400, blocks: [{ x: 0, y: 0, w: 260, d: 1400 }] };
   const a = add("wedge", 130, 300);
   const banda = A.lblBandOf(a).sotto;
-  ok(banda > 20, "il wedge porta il nome sotto di sé: " + banda);
+  ok(banda > 15, "il wedge porta il nome sotto di sé: " + banda);   /* dal 29/09 il nome è a filo: ~20 cm, non più ~37 */
   const p = A.findFreeSpotFor({ type: "wedge", w: a.w, d: a.d }, 130, 300);
   const dy = Math.abs(p.y - a.y);
   ok(dy >= a.d + banda, "il secondo sta oltre la striscia del nome del primo (" + Math.round(dy) + " cm ≥ " + Math.round(a.d + banda) + ")");
@@ -10999,35 +11211,6 @@ t("la posa automatica non manda nessuno fuori dal palco", () => {
   const fuori = A.state.items.filter((o) => o.x - o.w / 2 < 0 || o.x + o.w / 2 > A.state.stage.w
     || o.y - o.d / 2 < 0 || o.y + o.d / 2 > A.state.stage.d);
   eq(fuori.length, 0, "nessuno nasce fuori dal palco: " + fuori.map((o) => o.label || o.type).join(", "));
-});
-
-t("una nota altrui con distanza fuori scala viene riportata nei limiti", () => {
-  const s = A.normalizeState({ _v: 5, items: [
-    { id: "d1", type: "wedge", x: 100, y: 100, lblDist: 5000 },
-    { id: "d2", type: "wedge", x: 200, y: 100, lblDist: "x" },
-  ], stage: { w: 1200, d: 800 } });
-  eq(s.items[0].lblDist, 80, "tagliata a 80");
-  eq(s.items[1].lblDist, undefined, "il non-numero viene buttato");
-});
-
-t("«applica a tutti» vede solo gli elementi dello stesso tipo con distanza diversa", () => {
-  reset();
-  const a = add("wedge", 200, 300), b = add("wedge", 400, 300), c = add("wedge", 600, 300);
-  add("sedia", 800, 300);                                  // altro tipo: non c'entra
-  eq(A.lblDistSiblings(a).length, 0, "all'inizio sono tutti uguali: niente da chiedere");
-  a.lblDist = 30;
-  eq(A.lblDistSiblings(a).length, 2, "ora gli altri due sono diversi");
-  b.lblDist = 30; c.lblDist = 30;
-  eq(A.lblDistSiblings(a).length, 0, "allineati, la domanda decade");
-});
-
-t("la distanza segue l'elemento quando lo si duplica", () => {
-  reset();
-  const it = add("quinta", 300, 300); it.lblDist = 35; it.label = "Quinta";
-  A.selectOne(it.id); A.duplicateSel();
-  const copia = A.state.items.filter((x) => x.type === "quinta" && x.id !== it.id)[0];
-  ok(copia, "la copia c'è");
-  eq(A.lblDistOf(copia), 35, "e porta con sé la distanza");
 });
 
 // ── CIABATTE ELETTRICHE (31/07) ────────────────────────────────────────────────────────────────
@@ -12401,11 +12584,6 @@ t("lo sbraccio del nome cresce col corpo con cui verrà stampato", () => {
   /* il nome sta staccato dall-elemento di una quantità che dipende dall-altezza delle lettere:
      ingrandire il testo a coordinata già scritta lo faceva scendere SOPRA l-elemento */
   ok(y(2) > y(1), "col testo doppio il nome deve stare più in basso, non nello stesso posto");
-  /* ma la distanza scelta dall-utente è in centimetri reali di palco e non si tocca */
-  const d0 = A.lblDistOf(it), prima = y(1);
-  it.lblDist = d0 + 20;
-  eq(Math.round(y(1) - prima), 20, "i cm scelti a mano valgono tali e quali");
-  it.lblDist = d0;
 });
 
 t("il disegno vero usa il corpo stampato e lo spostamento, non solo il calcolo di prova", () => {
@@ -16956,6 +17134,42 @@ t("l'Esporta dice quando il coro non ha canali, e li aggiunge con un clic", () =
   ok(/fix\.id="pdfCoroFix"[^]*?auditFixChoirMics\(coristiSenzaRipresa\(\)\);\s*renderCoroMuto\(\);\s*if\(typeof pdfRefreshPages==="function"\) pdfRefreshPages\(\);/.test(appjs), "il pulsante aggiunge i microfoni e ricalcola pagine e avviso");
 });
 
+/* 29/09, Simone: «spesso quando vado in File, nei miei progetti, si blocca». Le richieste a Supabase non avevano un
+   tempo massimo: una sola appesa (Mac che si riaddormenta, rete che cambia) fermava lista, «Apri» e salvataggio.
+   Il sandbox ha i timer finti: la funzione si estrae dal codice vero e si prova con timer veri. */
+const esitoTempo = await (async () => {
+  const i = appjs.indexOf("var CLOUD_TEMPO_LETTURA="), j = appjs.indexOf("window.fetchConTempo=fetchConTempo;");
+  if (i < 0 || j < 0) return { trovata: false };
+  const ctx = { setTimeout, clearTimeout, AbortController, console: { warn() {} }, Error, String, Math, Date };
+  ctx.window = ctx; vm.createContext(ctx);
+  vm.runInContext(appjs.slice(i, j) + "\nthis.fetchConTempo=fetchConTempo;", ctx);
+  const maiRisponde = (u, o) => new Promise((ok, no) => { o.signal.addEventListener("abort", () => no(Object.assign(new Error("aborted"), { name: "AbortError" }))); });
+  const risponde = (u, o) => Promise.resolve({ ok: true, url: u, metodo: o.method || "GET", segnale: !!o.signal });
+  const out = { trovata: true };
+  const t0 = Date.now();
+  const tetto = (pr) => Promise.race([pr, new Promise((ok, no) => setTimeout(() => no({ name: "APPESA PER SEMPRE" }), 1500))]);   /* se il limite sparisse, la prova fallisce invece di restare ferma */
+  try { await tetto(ctx.fetchConTempo("https://x.supabase.co/rest/v1/stageplot_projects?select=id", {}, maiRisponde, 40)); out.appesa = "risolta?!"; }
+  catch (e) { out.appesa = e.name; out.dopoMs = Date.now() - t0; }
+  out.stallo = (ctx.__cloudStalli || [])[0];
+  out.buona = await ctx.fetchConTempo("https://x.supabase.co/rest/v1/p", { method: "PATCH" }, risponde, 40);
+  const esterno = new AbortController(); const p = ctx.fetchConTempo("u", { signal: esterno.signal }, maiRisponde, 5000); esterno.abort();
+  try { await tetto(p); out.annullata = "risolta?!"; } catch (e) { out.annullata = e.name; }
+  out.stalliDopoAnnullo = (ctx.__cloudStalli || []).length;
+  return out;
+})();
+
+t("nessuna richiesta al server resta appesa per sempre: scade, lo dice, e lascia lavorare i messaggi di errore", () => {
+  ok(esitoTempo.trovata, "fetchConTempo è nel codice");
+  eq(esitoTempo.appesa, "TimeoutError", "una richiesta che non risponde mai finisce in errore");
+  ok(esitoTempo.dopoMs >= 35 && esitoTempo.dopoMs < 1000, "allo scadere del tempo, non prima e non dopo: " + esitoTempo.dopoMs + " ms");
+  ok(esitoTempo.stallo && esitoTempo.stallo.dove === "/rest/v1/stageplot_projects" && esitoTempo.stallo.metodo === "GET", "e lo stallo resta scritto, senza host né parametri: " + JSON.stringify(esitoTempo.stallo));
+  ok(esitoTempo.buona && esitoTempo.buona.ok && esitoTempo.buona.metodo === "PATCH" && esitoTempo.buona.segnale, "una richiesta che risponde passa intatta");
+  eq(esitoTempo.annullata, "AbortError", "se chi chiama annulla, l'annullo arriva");
+  eq(esitoTempo.stalliDopoAnnullo, 1, "e un annullo non è contato come stallo");
+  ok(/var CLOUD_TEMPO_LETTURA=20000, CLOUD_TEMPO_SCRITTURA=60000;/.test(appjs), "letture 20 s, scritture 60 s");
+  eq((appjs.match(/global:\{ fetch:function\(u,o\)\{ return fetchConTempo\(u,o\); \} \}/g) || []).length, 2, "tutti e due i collegamenti a Supabase dell'editor la usano");
+});
+
 t("il limite della landing non si aggira con un IP inventato, e c'è un tetto globale", () => {
   /* 28/09, verifica di sicurezza: si prendeva il primo valore di x-forwarded-for, che scrive il client —
      con un IP falso a ogni colpo si gonfiavano senza fine i contatori su cui si decide il marketing */
@@ -16982,6 +17196,899 @@ t("il deploy non pubblica i test e i dati demo di Orchestre, e build non ha i pe
   ok(!/pages: write|id-token: write/.test(cima), "i permessi di pubblicazione non valgono per tutti i job");
   const dep = wf.slice(wf.indexOf("\n  deploy:"));
   ok(/permissions:\s*\n\s*pages: write\s*\n\s*id-token: write/.test(dep), "li ha solo deploy");
+});
+
+/* ===== USCITA PULITA (29/09, Simone): «sono uscito dall'account ma vedo ancora il progetto aperto» ===== */
+function mappaStorage(init) {
+  const m = new Map(Object.entries(init || {}));
+  return { get length() { return m.size; }, key: (i) => [...m.keys()][i] ?? null,
+    getItem: (k) => (m.has(k) ? m.get(k) : null), setItem: (k, v) => { m.set(k, String(v)); },
+    removeItem: (k) => { m.delete(k); }, chiavi: () => [...m.keys()].sort() };
+}
+/* Il DOM finto gira all'infinito su alcuni percorsi: per queste prove render & c. non servono */
+function conUscitaSandbox(fn) {
+  const nomi = ["render", "fit", "renderStagePanel", "renderEventoPanel", "setEventInputs", "renderChannels",
+    "resetCatalogView", "renderVariantBar", "resetMetaLayersUI", "save"];
+  const vecchi = {}; nomi.forEach((n) => { vecchi[n] = A[n]; A[n] = function () {}; });
+  const old = { storage: A.localStorage, document: A.document, cloud: A.__cloud, consult: A.__consultMode,
+    invito: A.__invitoAccesso, flush: A.flushCloudAutosave, needs: A.__cloudNeedsFlush, conf: A.confirmDialog,
+    blocked: A.__docLoadBlocked, locked: A.__projLocked, doc: A.docToJSON(), toast: A.__toast };
+  A.__consultMode = false; A.__docLoadBlocked = null; A.__projLocked = false; A.__invitoAccesso = null; A.__toast = () => {};
+  A.document = { body: { classList: { contains: () => false, add() {}, remove() {} } }, getElementById: () => null };
+  A.__cloud = { setCurrentId() {}, currentId: () => null, currentRev: () => null, user: () => null };
+  try { return fn(); } finally {
+    nomi.forEach((n) => { A[n] = vecchi[n]; });
+    A.localStorage = old.storage; A.document = old.document; A.__cloud = old.cloud; A.__consultMode = old.consult;
+    A.__invitoAccesso = old.invito; A.flushCloudAutosave = old.flush; A.__cloudNeedsFlush = old.needs; A.confirmDialog = old.conf;
+    A.__docLoadBlocked = old.blocked; A.__projLocked = old.locked; A.__toast = old.toast;
+    A.localExpectedRevision = null; A.__localConflict = false;
+    A.loadDoc(JSON.parse(old.doc));
+  }
+}
+/* «then» sincrono: il runner di questa suite non aspetta le promesse */
+const risposta = (v) => ({ then: (f) => f(v) });
+
+t("uscita: ogni chiave che l'app scrive nel browser è classificata (cancella o tieni)", () => {
+  const src = readFileSync(join(root, "index.template.html"), "utf8") + readFileSync(join(root, "accedi/google/avvio.js"), "utf8");
+  const scritte = new Set();
+  for (const m of src.matchAll(/(local|session)Storage\.setItem\(\s*"([^"]+)"/g)) scritte.add(m[1] + ":" + m[2]);
+  scritte.add("session:" + (/var CHIAVE = "([^"]+)"/.exec(src) || [])[1]);   /* accedi/google */
+  const tieniL = A.USCITA_TIENI_LOCAL, tieniS = A.USCITA_TIENI_SESSION;
+  const orfane = [...scritte].filter((s) => { const [area, k] = s.split(":");
+    return !(area === "local" ? tieniL[k] : tieniS[k]) && !A.uscitaChiaveDaCancellare(k, area); });
+  eq(orfane, [], "chiavi scritte dall'app ma assenti dalla tabella dell'uscita");
+  ok(scritte.size >= 15, "l'inventario trova le chiavi (" + scritte.size + ")");
+  /* le chiavi scritte con una costante */
+  ["stageplot_v1", "stageplot_v1_cloudid", "stageplot_v1_cloudrev", "stageplot_v1_venue", "stageplot_v1_venue.abc_123", "stageplot_versions",
+    "sb-vsodplqkuvnsdiikvmjb-auth-token"].forEach((k) => ok(A.uscitaChiaveDaCancellare(k, "local"), k + " si cancella"));
+  ok(A.uscitaChiaveDaCancellare("copiaDi:u1:tok", "session"), "copie da link: si cancellano");
+  ok(!A.uscitaChiaveDaCancellare(A.CAT_RECENTI_KEY, "local"), "i recenti del catalogo restano");
+});
+
+t("uscita: si cancellano documento, planimetrie, ripristini, sessione; restano le preferenze", () => conUscitaSandbox(() => {
+  const ls = mappaStorage({
+    stageplot_v1: JSON.stringify({ titolo: "Progetto dell'account", _local: { cloudId: "p-1" } }),
+    stageplot_v1_cloudid: "p-1", stageplot_v1_cloudrev: "r-1", "stageplot_v1_venue.h_1": "{}", stageplot_versions: "[{}]",
+    "sb-vsodplqkuvnsdiikvmjb-auth-token": "{}", "sb-vsodplqkuvnsdiikvmjb-auth-token-code-verifier": "x",
+    stageplot_theme: "dark", sp_welcome: "1", sp_onboarded: "1", sp_funzioni: "{}", sp_catRecenti: "[]", sp_rail: "1", sp_dragHint: "1",
+  });
+  const ss = mappaStorage({ cloudReopen: "1", copyFromToken: "t", orcOpenProject: "o", "copiaDi:u:t": "x", sp_sid: "s",
+    sp_google_accesso: "{}", sp_loginPrompt: "1" });
+  A.localStorage = ls;
+  A.loadDoc({ titolo: "Progetto dell'account", items: [], inputs: [], outputs: [] });
+  A.__bootCloudId = "p-1";
+  A.pulisciDatiAccount(ls, ss);
+  eq(ls.chiavi(), ["sp_catRecenti", "sp_dragHint", "sp_funzioni", "sp_onboarded", "sp_rail", "sp_welcome", "stageplot_theme"], "localStorage dopo l'uscita");
+  eq(ss.chiavi(), ["sp_loginPrompt"], "sessionStorage dopo l'uscita");
+  eq(A.state.titolo, "", "in memoria il progetto è vuoto");
+  eq(A.undoStack.length, 0, "cronologia annulla vuota");
+  eq(A.__bootCloudId, null, "nessun progetto dell'account agganciato");
+  eq(A.localExpectedRevision, "", "il documento sparito non diventa un conflitto fra schede");
+}));
+
+t("uscita: prima si salva online quello che manca; se non si può, si chiede (Resta / Esci comunque)", () => conUscitaSandbox(() => {
+  let flush = 0, esito;
+  const chieste = [];
+  A.confirmDialog = (o) => { chieste.push(o); return risposta(false); };
+  /* niente in sospeso: si esce subito, senza flush né domande */
+  A.__cloudNeedsFlush = () => false; A.flushCloudAutosave = () => { flush++; };
+  A.preparaUscita((ok) => { esito = ok; });
+  eq([esito, flush, chieste.length], [true, 0, 0], "niente in sospeso");
+  /* in sospeso e il salvataggio riesce: si esce, nessuna domanda */
+  A.__cloudNeedsFlush = () => true; A.flushCloudAutosave = (done) => { flush++; done(true); };
+  A.preparaUscita((ok) => { esito = ok; });
+  eq([esito, flush, chieste.length], [true, 1, 0], "flush prima dell'uscita");
+  /* il salvataggio non riesce (rete, tempo scaduto): conferma dell'app; «Resta» → non si esce */
+  A.flushCloudAutosave = (done) => { flush++; done(false); };
+  A.preparaUscita((ok) => { esito = ok; });
+  eq([esito, flush, chieste.length], [false, 2, 1], "Resta");
+  ok(/non sono ancora online/.test(chieste[0].message) && /verranno cancellate/.test(chieste[0].message), "il messaggio dice cosa si perde");
+  eq([chieste[0].confirmText, chieste[0].cancelText], ["Esci comunque", "Resta"], "i due bottoni");
+  A.confirmDialog = (o) => { chieste.push(o); return risposta(true); };
+  A.preparaUscita((ok) => { esito = ok; });
+  eq(esito, true, "Esci comunque");
+}));
+
+t("uscita: signOut passa da preparaUscita, pulisce e mostra l'invito (non più «il progetto resta»)", () => {
+  const src = readFileSync(join(root, "index.template.html"), "utf8");
+  const so = src.slice(src.indexOf("  function signOut(){"), src.indexOf("  function bindInvitoAccesso(){"));
+  ok(/preparaUscita\(function\(ok\)\{\s*if\(!ok\) return;/.test(so), "si esce solo dopo il via libera");
+  ok(/pulisciDatiAccount\(\);\s*mostraInvitoAccesso\("uscita"\);/.test(so), "pulizia e invito");
+  ok(/scope:"local"/.test(so), "senza rete la sessione si toglie comunque dal browser");
+  ok(!/toast\("Disconnesso\. Il progetto resta/.test(src), "il vecchio messaggio non c'è più");
+  ok(/<div class="modal" id="accessoInvito" hidden>[\s\S]*?id="aiSenza">Continua senza account<[\s\S]*?class="wl-cta" id="aiAccedi">Accedi con Google</.test(src), "invito con i pezzi del benvenuto");
+  ok(/body\.accesso-invito > :not\(\.modal\)/.test(stylesCss), "con l'invito il progetto dietro non si vede");
+});
+
+t("uscita: al boot un progetto dell'account senza sessione non si mostra; quello locale sì", () => conUscitaSandbox(() => {
+  const docCloud = JSON.stringify({ titolo: "Progetto dell'account", items: [], inputs: [], outputs: [], _local: { cloudId: "p-1", cloudRev: "r-1" } });
+  let ls = mappaStorage({ stageplot_v1: docCloud });
+  A.localStorage = ls; A.load();
+  eq(A.__bootCloudId, "p-1", "documento agganciato");
+  eq(A.invitoAlBoot(true, false), false, "con la sessione il progetto si vede");
+  eq(A.invitoAlBoot(false, true), false, "chi torna dal login non viene fermato");
+  eq(A.__invitoAccesso, null, "nessun invito finora");
+  eq(A.invitoAlBoot(false, false), true, "senza sessione: invito");
+  eq(A.__invitoAccesso, "scaduta", "invito della sessione scaduta");
+  ok(ls.getItem("stageplot_v1"), "il progetto resta nel browser: accedendo si ritrova");
+  A.__invitoAccesso = null;
+  /* chi lavora SENZA account: documento senza _cloudid */
+  ls = mappaStorage({ stageplot_v1: JSON.stringify({ titolo: "Palco senza account", items: [], inputs: [], outputs: [] }) });
+  A.localStorage = ls; A.load();
+  eq(A.__bootCloudId, null, "nessun aggancio");
+  eq(A.invitoAlBoot(false, false), false, "nessun invito");
+  eq([A.__invitoAccesso, A.state.titolo], [null, "Palco senza account"], "progetto locale intatto");
+  /* il codice di avvio lo chiama davvero, e aspetta chi torna dal login */
+  const src = readFileSync(join(root, "index.template.html"), "utf8");
+  ok(/if\(!senzaInvito && !haChiaveSessione\(\)\) invitoAlBoot\(false, oauthReturn\);/.test(src), "subito, se la sessione non c'è proprio");
+  /* senza rete supabase-js risponde session:null CON errore (token scaduto non rinnovabile): non è un'uscita,
+     chi lavora in un locale senza campo deve poter continuare */
+  ok(/else if\(!senzaInvito && !sessioneNonRaggiungibile\(r && r\.error\)\)\{\s*if\(!oauthReturn\) invitoAlBoot\(false, false\);/.test(src), "dopo getSession, solo se il server ha risposto");
+  eq(A.sessioneNonRaggiungibile({ name: "AuthRetryableFetchError", status: 0 }), true, "senza rete: il progetto resta");
+  eq(A.sessioneNonRaggiungibile({ name: "AuthApiError", status: 400, code: "refresh_token_not_found" }), false, "sessione revocata: invito");
+  eq(A.sessioneNonRaggiungibile(null), false, "nessun errore e nessuna sessione: invito");
+}));
+
+t("uscita: l'altra scheda smette di mostrare il progetto al segnale", () => conUscitaSandbox(() => {
+  A.loadDoc({ titolo: "Stesso progetto", items: [], inputs: [], outputs: [] });
+  A.__bootCloudId = "p-1";
+  eq(A.uscitaDaAltraScheda(), true, "gestito");
+  eq([A.state.titolo, A.__bootCloudId, A.__invitoAccesso, A.localExpectedRevision], ["", null, "uscita", ""], "vuoto, staccato, invito");
+}));
+
+t("Solo pedane: dal pannello della pedana si vedono e si prendono solo le pedane, finché una è selezionata", () => {
+  /* 29/09 — Simone: «se seleziono una pedana sulla destra deve esserci un simbolo visibilità … vedere solo
+     le pedane e modificarle a piacimento, poi quando la deseleziona si disattiva anche la modalità solo» */
+  reset();
+  const p1 = add("pedana", 300, 300), p2 = add("pedanacoro", 700, 300), v = add("vlnpost", 450, 520);
+  A.layerSoloUI = {}; A.layerAccOpen = null;
+  A.selectOne(v.id);
+  eq(A.soloPedaneDisponibile(), false, "col musicista selezionato il comando non c'è");
+  A.soloPedane(true);
+  eq(A.soloOn("pedane"), false, "e non si accende");
+  A.selectOne(p1.id);
+  eq(A.soloPedaneDisponibile(), true, "con la pedana selezionata sì");
+  const undo0 = A.undoStack.length;
+  A.soloPedane(true);
+  eq(A.soloOn("pedane"), true, "acceso");
+  eq(A.itemPickable(p2), true, "l'altra pedana (anche del coro) si prende");
+  eq(A.itemPickable(v), false, "il riquadro il resto non lo prende");
+  /* dal 29/09 sera il contesto si prende col clic (e prenderlo spegne la vista): prima «non si prendeva» */
+  eq(A.itemPickable(v, { esce: true }), true, "il clic sì");
+  eq(A.itemLiveOnStage(v), false, "niente maniglie sul resto");
+  const mk = A.sceneMarkup();
+  /* classe «solo-bg solo-prende»: il contesto delle pedane si prende col clic (prima solo «solo-bg») */
+  ok(/<g class="solo-bg solo-prende" style="opacity:\.15">/.test(mk), "il resto attenuato al 15%, non al .42 dei layer");
+  ok(/mus-item/.test(mk.split('class="solo-bg')[1] || ""), "il musicista sta nel contesto sfumato");
+  const keepSolo = A.layerSoloUI; A.layerSoloUI = { stage: true };
+  ok(/<g class="solo-bg" style="opacity:\.42">/.test(A.sceneMarkup()), "il solo del Palco resta a .42");
+  A.layerSoloUI = keepSolo;
+  A.pruneSolo();
+  eq(A.soloOn("pedane"), true, "con la pedana ancora selezionata resta acceso a ogni render");
+  /* dal 29/09 sera la vista vale solo per selezioni di SOLE pedane: una mista la spegne (prima la teneva) */
+  A.selSet = {}; A.selSet[p1.id] = true; A.selSet[v.id] = true; A.sel = p1.id;
+  eq(A.soloPedaneDisponibile(), false, "pedana + musicista: il comando non c'è");
+  A.pruneSolo();
+  eq(A.soloOn("pedane"), false, "e una selezione mista lo spegne");
+  A.selectOne(p1.id); A.soloPedane(true);
+  eq(A.undoStack.length, undo0, "annulla/ripeti non ne sono toccati");
+  ok(!/pedane/.test(JSON.stringify(A.state)), "è una vista: non finisce nel progetto");
+  /* export: il PDF disegna il progetto, non la vista (i cavi seguono il solo attraverso layerShown) */
+  const orig = A.cablingMarkup; let soloNelPdf = null;
+  A.cablingMarkup = function () { soloNelPdf = A.anySolo(); return ""; };
+  try { A.stageSceneSvg(null, {}); } finally { A.cablingMarkup = orig; }
+  eq(soloNelPdf, false, "nel PDF nessun solo attivo");
+  eq(A.soloOn("pedane"), true, "e dopo l'export il solo è ancora lì");
+  const png = A.buildExportSvg().svgStr;
+  ok(/<g id="layItems">/.test(png) && !/class="solo-bg/.test(png), "il PNG esce senza sfumatura");
+  eq(A.soloOn("pedane"), true, "e anche dopo il PNG il solo è ancora lì");
+  /* si spegne da solo: altro tipo selezionato, deselezione, Esc */
+  A.selectOne(v.id); A.pruneSolo();
+  eq(A.soloOn("pedane"), false, "selezionato il musicista: spento");
+  A.selectOne(p1.id); A.soloPedane(true); A.clearSelection(); A.pruneSolo();
+  eq(A.soloOn("pedane"), false, "deselezionata la pedana: spento");
+  A.selectOne(p1.id); A.soloPedane(true); A.exitListMode();
+  eq(A.soloOn("pedane"), false, "Esc (exitListMode): spento");
+  A.soloPedane(true); A.soloPedane(false);
+  eq(A.anySolo(), false, "di nuovo il comando: spento");
+  A.layerSoloUI = {}; A.clearSelection();
+});
+
+/* ===== Solo pedane automatico (29/09 sera, Simone: «se seleziono una pedana vedo gli elementi in trasparenza
+   e mi piace, vorrei vedere in trasparenza anche quelli sopra la pedana mentre adesso sono sotto. vorrei che
+   l'opzione visibilità solo pedane si attivasse in automatico nel momento in cui seleziono una pedana») ===== */
+function conSoloPedAuto(fn, classi) {
+  const oldDoc = A.document, oldLock = A.__projLocked;
+  /* il DOM finto dice «sì» a ogni classList.contains (sarebbe sempre sola lettura): qui risponde solo per le
+     classi date, e il resto passa al DOM finto di sempre (render, addItem) */
+  const cl = new Proxy({}, { get: (t, k) => (k === "contains" ? (c) => !!(classi && classi[c]) : oldDoc.body.classList[k]) });
+  const body = new Proxy({}, { get: (t, k) => (k === "classList" ? cl : oldDoc.body[k]) });
+  A.document = new Proxy({}, { get: (t, k) => (k === "body" ? body : oldDoc[k]) });
+  A.layerSoloUI = {}; A.layerAccOpen = null; A.soloPedFirma = null; A.soloPedGesto = false; A.__projLocked = false;
+  try { fn(); } finally {
+    A.document = oldDoc; A.__projLocked = oldLock; A.layerSoloUI = {}; A.layerAccOpen = null;
+    A.clearSelection(); A.soloPedFirma = null; A.soloPedGesto = false;
+  }
+}
+/* la mano sceglie: è quello che fanno clic, tocco, riquadro ed elenco prima del loro render() */
+function scegli(ids) {
+  A.selSet = {}; ids.forEach((id) => { A.selSet[id] = true; }); A.sel = ids[ids.length - 1] || null;
+  A.soloPedGesto = true; A.soloPedaneAuto(); A.pruneSolo();
+}
+const idsOrd = (arr) => arr.map((i) => i.id).sort();
+
+t("Solo pedane automatico: si accende quando la mano seleziona SOLO pedane, non col codice né con selezioni miste", () => conSoloPedAuto(() => {
+  reset();
+  const p1 = add("pedana", 300, 300), p2 = add("pedanacoro", 700, 300), v = add("vlnpost", 300, 300);
+  A.layerSoloUI = {}; A.soloPedFirma = null;
+  scegli([p1.id]);
+  eq(A.soloOn("pedane"), true, "clic su una pedana: acceso da solo");
+  scegli([p1.id, p2.id]);
+  eq(A.soloOn("pedane"), true, "due pedane (shift o riquadro): resta acceso");
+  scegli([p1.id, v.id]);
+  eq(A.soloOn("pedane"), false, "pedana + musicista: spento");
+  scegli([v.id]);
+  eq(A.soloOn("pedane"), false, "solo il musicista: niente");
+  scegli([]);
+  /* dal codice (Duplica, Incolla, aggiunta dal catalogo, Annulla): niente gesto, niente vista */
+  A.selectOne(p2.id); A.soloPedaneAuto(); A.pruneSolo();
+  eq(A.soloOn("pedane"), false, "selezione dal codice: non si accende");
+  scegli([]);
+  /* il render lo chiama davvero, prima di pruneSolo; i gesti della mano alzano la bandierina */
+  ok(/function render\(\)\{\s*soloPedaneAuto\(\);[^\n]*\n\s*pruneSolo\(\);/.test(appjs), "render() → soloPedaneAuto() → pruneSolo()");
+  ok(/if\(!selSet\[id\]\)\{ selectClick\(id\); soloPedGesto=true; \}/.test(appjs), "clic sul disegno");
+  ok(/toggleSelId\(id\); soloPedGesto=true; render\(\);/.test(appjs), "shift+clic");
+  ok(/selectClick\(nid\); soloPedGesto=true; render\(\);/.test(appjs), "clic ripetuto (cicloSotto)");
+  ok(/selSet\[it\.id\]=true; sel=it\.id; \}\s*\}\);\s*soloPedGesto=true;/.test(appjs), "riquadro");
+  ok(/selectClick\(g\.getAttribute\("data-go"\)\); closeAll\(\); soloPedGesto=true;/.test(appjs), "nome nell'elenco del telefono");
+  eq((appjs.match(/soloPedGesto=true/g) || []).length, 5, "e nessun altro: le selezioni dal codice non accendono niente");
+}));
+
+t("Solo pedane automatico: niente nelle viste di sola lettura né sopra una vista dei layer scelta a mano", () => {
+  reset();
+  const p1 = add("pedana", 300, 300);
+  [["viewmode", "link ?view="], ["consult-viewer", "cliente in consulenza"]].forEach(([c, nome]) => conSoloPedAuto(() => {
+    scegli([p1.id]);
+    eq(A.soloOn("pedane"), false, nome + ": non si accende");
+  }, { [c]: true }));
+  conSoloPedAuto(() => {
+    A.__projLocked = true;
+    scegli([p1.id]);
+    eq(A.soloOn("pedane"), false, "progetto bloccato: non si accende");
+  });
+  conSoloPedAuto(() => {
+    A.layerAccOpen = "stage"; A.layerSoloUI = { stage: true };
+    scegli([p1.id]);
+    eq(JSON.stringify(A.layerSoloUI), '{"stage":true}', "vista Palco aperta: resta quella, non diventa «Solo pedane»");
+  });
+  conSoloPedAuto(() => {
+    scegli([p1.id]);
+    eq(A.soloOn("pedane"), true, "e fuori da quei casi sì (controprova)");
+  });
+});
+
+t("Solo pedane automatico: spento l'occhio resta spento per QUELLA selezione; riselezionando si riaccende", () => conSoloPedAuto(() => {
+  reset();
+  const p1 = add("pedana", 300, 300), p2 = add("pedana", 700, 300);
+  scegli([p1.id]);
+  eq(A.soloOn("pedane"), true, "premessa: acceso");
+  A.soloPedane(false);
+  A.soloPedGesto = true; A.soloPedaneAuto(); A.pruneSolo();   /* un altro clic sulla stessa pedana già presa */
+  eq(A.soloOn("pedane"), false, "occhio spento: la stessa selezione non lo riaccende");
+  A.soloPedaneAuto(); A.soloPedaneAuto();   /* i render che seguono */
+  eq(A.soloOn("pedane"), false, "neanche i render dopo");
+  scegli([]);   /* clic sul vuoto */
+  scegli([p1.id]);
+  eq(A.soloOn("pedane"), true, "deselezionata e ripresa: si riaccende");
+  A.exitListMode();   /* «Mostra tutto il palco» del banner, o Esc */
+  A.soloPedGesto = true; A.soloPedaneAuto(); A.pruneSolo();
+  eq(A.soloOn("pedane"), false, "«Mostra tutto il palco» vale come l'occhio");
+  scegli([p2.id]);
+  eq(A.soloOn("pedane"), true, "un'altra pedana è un'altra selezione: si riaccende");
+}));
+
+t("Solo pedane automatico: un clic su un elemento sfumato lo prende subito e spegne la vista", () => conSoloPedAuto(() => {
+  reset();
+  const ped = add("pedana", 300, 300), v = add("vlnpost", 300, 300);
+  scegli([ped.id]);
+  eq(A.soloOn("pedane"), true, "premessa: acceso");
+  /* clic fermo sul violinista che sta sopra la pedana presa: il ciclo passa a lui (un clic, non due) */
+  A.soloPedGesto = false;
+  ok(A.cicloSotto({ id: ped.id, ids: [v.id, ped.id] }), "lo sfumato si prende");
+  eq(A.selIds(), [v.id], "preso il violinista");
+  A.soloPedaneAuto(); A.pruneSolo();
+  eq(A.soloOn("pedane"), false, "e la vista si è spenta");
+  /* nel disegno lo sfumato delle pedane prende il puntatore, quello dei layer no */
+  scegli([ped.id]);
+  ok(/<g class="solo-bg solo-prende"[^>]*>(?:(?!<g class="solo-bg)[\s\S])*data-id="/.test(A.sceneMarkup()), "contesto delle pedane: classe solo-prende");
+  ok(/\.solo-bg:not\(\.solo-prende\)\{ pointer-events:none; \}/.test(stylesCss), "CSS: solo lo sfumato dei layer è trasparente al puntatore");
+  ok(!/\.solo-prende\{[^}]*pointer-events:auto/.test(stylesCss), "e senza un auto che scavalcherebbe il lucchetto del Palco");
+  A.layerSoloUI = { stage: true };
+  ok(!/solo-prende/.test(A.sceneMarkup()), "i solo dei layer: il contesto non si prende, come prima");
+}));
+
+t("Solo pedane: chi sta sopra una pedana si disegna SOPRA la pedana, sfumato; aggancio e export invariati", () => conSoloPedAuto(() => {
+  reset();
+  const ped = add("pedana", 300, 300), v = add("vlnpost", 300, 300), fuori = add("vlnpost", 900, 600);
+  ok(A.itemsOnRiser(ped).indexOf(v) > -1, "premessa: il violinista sta sulla pedana");
+  const lay = (mk) => mk.slice(mk.indexOf('<g id="layItems">'), mk.indexOf('<g id="layLbl"'));
+  const pos = (mk, it) => lay(mk).indexOf('data-id="' + it.id + '"');
+  const normale = A.sceneMarkup();
+  ok(pos(normale, ped) > -1 && pos(normale, ped) < pos(normale, v), "premessa: sul palco normale la pedana sta sotto il violinista");
+  scegli([ped.id]);
+  const mk = A.sceneMarkup();
+  ok(pos(mk, ped) > -1 && pos(mk, ped) < pos(mk, v), "Solo pedane: il violinista è disegnato dopo (sopra) la pedana");
+  const dopo = lay(mk).slice(pos(mk, ped));
+  ok(/<g class="solo-bg solo-prende" style="opacity:\.15">/.test(dopo) && dopo.indexOf('data-id="' + v.id + '"') > dopo.indexOf("solo-prende"), "…ed è sfumato al 15%");
+  const prima = lay(mk).slice(0, pos(mk, ped));
+  ok(prima.indexOf('data-id="' + v.id + '"') < 0 && prima.indexOf('data-id="' + fuori.id + '"') < 0, "niente musicisti sotto la pedana");
+  /* i layer restano come prima: tutto il contesto sotto, in un gruppo solo */
+  A.layerSoloUI = { stage: true };
+  const st = A.sceneMarkup();
+  ok(lay(st).indexOf('data-id="' + v.id + '"') < pos(st, ped), "solo del Palco: il contesto resta sotto");
+  eq((lay(st).match(/class="solo-bg/g) || []).length, 1, "in un gruppo solo");
+  A.layerSoloUI = { pedane: true };
+  /* aggancio: chi sta sopra segue la pedana (stesso motore, la vista non lo tocca) */
+  ped.aggancia = true;
+  eq(idsOrd(A.caricoDellePedane([ped])), idsOrd([ped, v]), "agganciata: il violinista la segue anche con la vista accesa");
+  delete ped.aggancia;
+  /* export: identico con e senza la vista */
+  const conVista = A.buildExportSvg().svgStr;
+  eq(A.soloOn("pedane"), true, "premessa: la vista è ancora accesa dopo il PNG");
+  A.layerSoloUI = {};
+  eq(conVista, A.buildExportSvg().svgStr, "il PNG è lo stesso con e senza «Solo pedane»");
+}));
+
+t("Solo pedane: il comando c'è nei tre pannelli, con l'occhio e 44 px col dito", () => {
+  const html = readFileSync(join(root, "index.template.html"), "utf8");
+  ["pSoloPed", "grpSoloPed", "mPeekSolo"].forEach((id) => {
+    const m = html.match(new RegExp('<button[^>]*id="' + id + '"[^>]*>[\\s\\S]*?</button>'));
+    ok(m && /M1 12s4-7 11-7/.test(m[0]) && /Solo pedane/.test(m[0]), id + ": occhio e «Solo pedane»");
+  });
+  const css = readFileSync(join(root, "src/styles.css"), "utf8");
+  ok(/@media \(pointer:coarse\)\{ #props \.solo-ped\{min-height:44px\} \}/.test(css), "44 px col dito nel pannello");
+  ok(/body\.ped-sel #mPeek \.mpk-acts\{grid-template-columns:repeat\(5/.test(css), "sul telefono quinta azione della testa (52 px)");
+});
+
+/* ===== Pedane sganciate (29/09, Simone: «se sposto la pedana, gli elementi devono rimanere dove sono …
+   lo mettiamo come opzione (snap con pedana) … di default sarà spenta») ===== */
+const idsOf = (arr) => arr.map((i) => i.id).sort();
+t("pedane sganciate: spostata la pedana, chi ci sta sopra resta dov'è; agganciata, la segue", () => {
+  reset();
+  const ped = add("pedana", 600, 400), voce = add("corista", 600, 400), fuori = add("corista", 1000, 400);
+  ok(A.isRiser(ped) && A.itemsOnRiser(ped).indexOf(voce) > -1 && A.itemsOnRiser(ped).indexOf(fuori) === -1, "premessa: il corista è sopra, l'altro fuori");
+  eq(ped.aggancia, undefined, "una pedana nuova nasce sganciata");
+  eq(idsOf(A.caricoDellePedane([ped])), [ped.id], "sganciata: il trascinamento sposta solo la pedana");
+  ped.aggancia = true;
+  eq(idsOf(A.caricoDellePedane([ped])), idsOf([ped, voce]), "agganciata: la segue chi ci sta sopra, non chi sta fuori");
+  eq(idsOf(A.caricoDellePedane([voce])), [voce.id], "preso il corista, la pedana non viene con lui");
+  ped.aggancia = "sì";
+  eq(idsOf(A.caricoDellePedane([ped])), [ped.id], "solo `true` aggancia: un valore strano da un file non accende niente");
+  /* il trascinamento vero (mouse e dito: stesso pointerdown) passa di qui, e non c'è altro aggancio */
+  ok(/var moving=selItems\(\)\.slice\(\)\.filter\(itemEditable\);[\s\S]{0,400}caricoDellePedane\(moving\);\s*\/\*[^\n]*\n\s*drag = \{mode:"item"/.test(appjs), "il trascinamento usa caricoDellePedane");
+  eq((appjs.match(/itemsOnRiser\(it\)\.forEach/g) || []).length, 3, "itemsOnRiser trasporta solo in tre posti: trascinamento, Duplica, Copia");
+});
+
+t("pedane sganciate: l'interruttore scrive sulla pedana, entra in Annulla e si salva nel progetto", () => {
+  reset();
+  const ped = add("pedana", 600, 400), voce = add("corista", 600, 400);
+  A.selectOne(voce.id); A.agganciaPedane(true);
+  eq(ped.aggancia, undefined, "col solo corista selezionato non tocca niente");
+  A.selectOne(ped.id);
+  const undo0 = A.undoStack.length;
+  A.agganciaPedane(true);
+  eq(ped.aggancia, true, "acceso: aggancia:true sulla pedana");
+  ok(A.undoStack.length > undo0, "è un passo di Annulla");
+  A.agganciaPedane(false);
+  ok(!("aggancia" in ped), "spento: la chiave sparisce, il file resta com'era");
+  /* per pedana: nella selezione di gruppo vale per tutte le pedane selezionate, non per gli altri */
+  const p2 = add("pedanacoro", 200, 400);
+  A.selSet = {}; [ped.id, p2.id, voce.id].forEach((k) => { A.selSet[k] = true; }); A.sel = ped.id;
+  A.agganciaPedane(true);
+  eq([ped.aggancia, p2.aggancia, voce.aggancia], [true, true, undefined], "tutte le pedane selezionate, il corista no");
+  /* salvato nel progetto e riaperto: resta agganciata */
+  A.selSet = {}; A.sel = null; p2.aggancia = undefined; delete p2.aggancia;
+  A.loadDoc(JSON.parse(A.docToJSON()));
+  const pr = A.state.items.find((i) => i.id === ped.id), vr = A.state.items.find((i) => i.id === voce.id);
+  eq(pr.aggancia, true, "riaperto, l'aggancio c'è ancora");
+  eq(idsOf(A.caricoDellePedane([pr])), idsOf([pr, vr]), "e porta ancora chi ci sta sopra");
+  eq(A.sanitizeItems([{ type: "pedana", x: 0, y: 0, w: 200, d: 200, aggancia: true }])[0].aggancia, true, "anche da un JSON generato");
+});
+
+t("pedane sganciate: un progetto salvato prima di oggi si apre sganciato", () => {
+  /* Il vecchio «Sposta solo la pedana» era una variabile globale mai salvata: nei file non c'è nessuna
+     scelta da tradurre, e nessuna variabile deve poter rimettere l'aggancio a tutti. */
+  reset();
+  A.loadDoc({ _v: A.SCHEMA_VERSION, titolo: "prima del 29/09", inputs: [], outputs: [], items: [
+    { id: "pv", type: "pedana", x: 600, y: 400, w: 240, d: 200, h: 40, rot: 0, label: "" },
+    { id: "bv", type: "batteria", x: 600, y: 400, rot: 0, label: "Batteria" },
+    { id: "cv", type: "corista", x: 560, y: 380, rot: 0, label: "Coro" }] });
+  const pv = A.state.items.find((i) => i.id === "pv");
+  eq(idsOf(A.caricoDellePedane([pv])), ["pv"], "la pedana di un progetto vecchio si sposta da sola");
+  eq(typeof A.pedanaSola, "undefined", "il vecchio interruttore globale non esiste più");
+  reset();
+});
+
+t("pedane sganciate: Duplica e Copia copiano solo la pedana; agganciata, anche chi ci sta sopra (in blocco)", () => {
+  reset();
+  const ped = add("pedana", 600, 400), voce = add("corista", 600, 400);
+  A.selectOne(ped.id); A.duplicateSel();
+  let nuovi = A.state.items.filter((i) => i.id !== ped.id && i.id !== voce.id);
+  eq(nuovi.map((i) => i.type), ["pedana"], "sganciata: Duplica fa una pedana sola");
+  eq(nuovi[0].grp, undefined, "e non la chiude in un blocco");
+  ped.aggancia = true;
+  A.state.items = [ped, voce];
+  A.selectOne(ped.id); A.duplicateSel();
+  nuovi = A.state.items.filter((i) => i.id !== ped.id && i.id !== voce.id);
+  eq(nuovi.map((i) => i.type).sort(), ["corista", "pedana"], "agganciata: pedana e corista");
+  ok(nuovi[0].grp && nuovi[0].grp === nuovi[1].grp, "in un blocco, così la copia non si porta via l'originale che ha sotto");
+  eq(nuovi.find((i) => i.type === "pedana").aggancia, true, "la copia resta agganciata");
+  /* Copia / Incolla: stessa regola */
+  delete ped.aggancia; A.state.items = [ped, voce];
+  A.selectOne(ped.id); A.copySel(); A.pasteClip();
+  nuovi = A.state.items.filter((i) => i.id !== ped.id && i.id !== voce.id);
+  eq(nuovi.map((i) => i.type), ["pedana"], "sganciata: Incolla fa una pedana sola");
+  eq(nuovi[0].grp, undefined, "senza blocco");
+  ped.aggancia = true; A.state.items = [ped, voce];
+  A.selectOne(ped.id); A.copySel(); A.pasteClip();
+  nuovi = A.state.items.filter((i) => i.id !== ped.id && i.id !== voce.id);
+  eq(nuovi.map((i) => i.type).sort(), ["corista", "pedana"], "agganciata: Incolla porta anche il corista");
+  ok(nuovi[0].grp && nuovi[0].grp === nuovi[1].grp, "in blocco");
+  reset();
+});
+
+t("pedane sganciate: il comando c'è solo con una pedana nella selezione, sotto «Solo pedane»", () => {
+  reset();
+  const ped = add("pedana", 600, 400), p2 = add("pedana", 200, 400), voce = add("corista", 600, 400);
+  const el = {}; ["pAgg", "grpAgg"].forEach((k) => { el[k] = { checked: false, indeterminate: false }; el[k + "Wrap"] = { style: { display: "none" } }; });
+  const docPrima = A.document;
+  A.document = { getElementById: (k) => el[k] || null };
+  const sel = (ids) => { A.selSet = {}; ids.forEach((k) => { A.selSet[k.id] = true; }); A.sel = ids.length ? ids[0].id : null; };
+  try {
+    sel([voce]); A.aggiornaAgganciaPedane();
+    eq([el.pAggWrap.style.display, el.grpAggWrap.style.display], ["none", "none"], "col solo corista non c'è");
+    sel([ped]); A.aggiornaAgganciaPedane();
+    eq([el.pAggWrap.style.display, el.pAgg.checked, el.pAgg.indeterminate], ["", false, false], "con la pedana c'è, spento");
+    ped.aggancia = true; A.aggiornaAgganciaPedane();
+    eq(el.pAgg.checked, true, "e dice lo stato della pedana");
+    sel([ped, p2, voce]); A.aggiornaAgganciaPedane();
+    eq([el.grpAggWrap.style.display, el.grpAgg.checked, el.grpAgg.indeterminate], ["", false, true], "due pedane, una sola agganciata: stato misto");
+  } finally { A.document = docPrima; A.selSet = {}; A.sel = null; }
+  ok(/aggiornaSoloPedane\(\);[^\n]*\n\s*aggiornaAgganciaPedane\(\);/.test(appjs), "si aggiorna a ogni render, insieme a «Solo pedane»");
+  const tpl = readFileSync(join(root, "index.template.html"), "utf8");
+  ok(/id="pSoloPed"[\s\S]*?<\/button>\s*<!--[^\n]*-->\s*<div id="pAggWrap"[^>]*style="display:none"><label class="chk" title="[^"]+"><input type="checkbox" id="pAgg"> <span>Aggancia gli elementi alla pedana/.test(tpl), "pannello dell'elemento: subito sotto «Solo pedane», spento e nascosto di partenza");
+  ok(/id="grpSoloPed"[\s\S]*?<\/button>\s*<div id="grpAggWrap"[^>]*style="display:none"><label class="chk" title="[^"]+"><input type="checkbox" id="grpAgg"> <span>Aggancia gli elementi alle pedane/.test(tpl), "pannello della selezione: idem");
+  ok(!/snap/i.test((tpl.match(/<div id="(?:p|grp)AggWrap"[\s\S]*?<\/div>/g) || []).join("")), "niente gergo nel testo");
+  reset();
+});
+
+/* ===== Adatta a un palco di misura diversa (29/09, richiesta di Simone: stessa formazione, altro palco) ===== */
+function orchestrina(opts) {
+  /* due sezioni da 4 leggii (80×100) con un corridoio di 4 m in mezzo, una seconda fila, il direttore davanti al centro */
+  const o = opts || {}, its = [];
+  let k = 0; const id = () => "ad" + (++k);
+  [100, 190, 280, 370, 830, 920, 1010, 1100].forEach((x) => its.push({ id: id(), type: "leggio", x, y: 300, w: 80, d: 100, rot: 0 }));
+  [150, 250, 950, 1050].forEach((x) => its.push({ id: id(), type: "leggio", x, y: 450, w: 80, d: 100, rot: 0 }));
+  its.push({ id: id(), type: "direttore", x: 600, y: 700, w: 120, d: 120, rot: 0 });
+  if (o.foh) its.push({ id: "fohX", type: "foh", x: 600, y: 1100, w: 200, d: 120, rot: 0 });
+  return its;
+}
+function sovrappostiVeri(its, pos) {   /* stessa geometria dell'app: rettangoli ruotati (Minkowski) */
+  let n = 0;
+  for (let i = 0; i < its.length; i++) for (let j = i + 1; j < its.length; j++) {
+    const a = its[i], b = its[j]; if (A.isRiser(a) || A.isRiser(b)) continue;
+    const P = A.adattaMinkowski(A.adattaAngoli(b), A.adattaAngoli(a).map((p) => [-p[0], -p[1]]));
+    const dx = pos[b.id].x - pos[a.id].x, dy = pos[b.id].y - pos[a.id].y;
+    const sx = A.adattaTaglio(P, 0, dy), sy = A.adattaTaglio(P, 1, dx);
+    if (sx && sy && dx > sx[0] + 2 && dx < sx[1] - 2 && dy > sy[0] + 2 && dy < sy[1] - 2) n++;
+  }
+  return n;
+}
+
+t("adatta palco: su un palco più stretto si stringe prima il corridoio, le file restano file, il direttore resta davanti al centro", () => {
+  const its = orchestrina(), R = A.adattaPalcoCalcola(its, 1200, 800, 800, 800), p = (i) => R.pos[its[i].id];
+  ok(R.ciSta && R.comodo, "ci sta comodo: " + JSON.stringify({ ciSta: R.ciSta, comodo: R.comodo, stretta: R.stretta }));
+  eq(sovrappostiVeri(its, R.pos), 0, "nessuna sovrapposizione");
+  /* dentro una sezione i leggii restano a 90 cm (10 cm d'aria c'erano già), il corridoio paga tutto */
+  eq([p(1).x - p(0).x, p(2).x - p(1).x, p(3).x - p(2).x], [90, 90, 90], "sezione sinistra intatta");
+  eq([p(5).x - p(4).x, p(6).x - p(5).x, p(7).x - p(6).x], [90, 90, 90], "sezione destra intatta");
+  ok(p(4).x - p(3).x < 460 && p(4).x - p(3).x >= 90, "corridoio stretto: " + (p(4).x - p(3).x));
+  /* ordine e file */
+  for (let i = 1; i < 8; i++) ok(p(i).x > p(i - 1).x, "ordine sinistra→destra in prima fila");
+  eq(new Set(its.slice(0, 8).map((_, i) => p(i).y)).size, 1, "la prima fila resta una fila");
+  eq(new Set(its.slice(8, 12).map((_, i) => p(8 + i).y)).size, 1, "la seconda fila resta una fila");
+  ok(p(8).y > p(0).y && p(12).y > p(8).y, "fondo resta fondo, il direttore resta davanti");
+  ok(Math.abs(p(12).x - 400) <= 40, "direttore al centro: " + p(12).x);
+  its.forEach((it) => { const q = R.pos[it.id]; ok(q.x - 40 >= 0 && q.x + 40 <= 800, "dentro il palco: " + it.id + " " + q.x); });
+});
+
+t("adatta palco: in profondità le file si avvicinano senza sovrapporsi e restano file anche se uno ha qualcosa dietro", () => {
+  /* tre file da tre leggii (100 cm di profondità) a 2 m l'una dall'altra; dietro al leggio centrale della
+     seconda fila c'è un ampli: stringendo, l'ampli spinge avanti il suo leggio, e con lui tutta la fila */
+  const its = [];
+  [150, 350, 550].forEach((y, r) => [300, 500, 700].forEach((x, c) => its.push({ id: "f" + r + c, type: "leggio", x, y, w: 80, d: 100, rot: 0 })));
+  its.push({ id: "amp", type: "leggio", x: 500, y: 250, w: 80, d: 100, rot: 0 });
+  const R = A.adattaPalcoCalcola(its, 1000, 800, 1000, 480);
+  ok(R.ciSta, "ci sta: " + JSON.stringify({ ciSta: R.ciSta, stretta: R.stretta, serveMinD: R.serveMinD }));
+  eq(sovrappostiVeri(its, R.pos), 0, "nessuna fila sopra l'altra");
+  [0, 1, 2].forEach((r) => eq(new Set([0, 1, 2].map((c) => R.pos["f" + r + c].y)).size, 1, "la fila " + r + " resta una fila"));
+  ok(R.pos.f00.y < R.pos.amp.y && R.pos.amp.y < R.pos.f10.y && R.pos.f10.y < R.pos.f20.y, "ordine fondo→fronte");
+});
+
+t("adatta palco: se non ci sta lo dice, non sovrappone e dice quanto servirebbe", () => {
+  const its = []; for (let i = 0; i < 20; i++) its.push({ id: "r" + i, type: "leggio", x: 60 + i * 110, y: 200, w: 100, d: 100, rot: 0 });
+  const R = A.adattaPalcoCalcola(its, 2300, 600, 1000, 600);
+  ok(!R.ciSta, "non ci sta");
+  eq(sovrappostiVeri(its, R.pos), 0, "anche stretti al massimo, nessuno sopra un altro");
+  ok(R.sbordano > 0, "dice quanti escono dal bordo: " + R.sbordano);
+  ok(R.serveMinW >= 1400 && R.serveMinW <= 1500, "servirebbe almeno ~14-15 m: " + R.serveMinW);
+  ok(R.serveW >= 2200, "con le distanze di prima quasi 23 m: " + R.serveW);
+  const xs = its.map((it) => R.pos[it.id].x); ok(xs.every((x, i) => !i || x > xs[i - 1]), "ordine mantenuto");
+  ok(Math.abs((xs[0] + xs[19]) / 2 - 500) <= 5, "sborda uguale ai due lati");
+  const m = A.adattaPalcoMessaggio(R, 1000, 600);
+  ok(/Non ci sta/.test(m.titolo) && /servirebbe almeno 1[45](,\d)? × 6 m/.test(m.testo) && /escono dal bordo/.test(m.testo), m.testo);
+  eq([m.allargaW, m.allargaD], [R.serveMinW, R.serveMinD], "la finestra propone il palco minimo");
+});
+
+t("adatta palco: la pedana segue chi ci sta sopra e si accorcia; la FOH resta alla sua distanza dal palco", () => {
+  const its = [{ id: "ped", type: "pedana", x: 600, y: 100, w: 1200, d: 200, rot: 0 }];
+  for (let i = 0; i < 12; i++) its.push({ id: "c" + i, type: "corista", x: 50 + i * 100, y: 100, w: 70, d: 88, rot: 0 });
+  its.push({ id: "fohX", type: "foh", x: 600, y: 1100, w: 200, d: 120, rot: 0 });
+  const R = A.adattaPalcoCalcola(its, 1200, 800, 950, 700), pd = R.pos.ped;
+  ok(pd.w != null && pd.w <= 950 && pd.w < 1200, "pedana più corta: " + pd.w);
+  ok(pd.d >= 180 && pd.d <= 200, "profondità della pedana quasi intatta (al massimo rientra nel palco): " + pd.d);
+  for (let i = 0; i < 12; i++) { const c = R.pos["c" + i]; ok(c.x >= pd.x - pd.w / 2 && c.x <= pd.x + pd.w / 2, "corista " + i + " sopra la pedana"); }
+  eq(sovrappostiVeri(its, R.pos), 0, "coristi senza sovrapposizioni");
+  eq(R.pos.fohX.y, 1000, "FOH a 3 m dal fronte come prima (1100-800 → 700+300)");
+});
+
+t("adatta palco: violini ruotati si stringono sulla geometria vera, senza sovrapporsi", () => {
+  /* col rettangolo che contiene il violino ruotato (2,1 m invece di 1,75) la sezione risultava già
+     sovrapposta e non si stringeva più: è quello che succedeva sul progetto d'esempio di Simone */
+  /* sei violini a 30°: accostati sulla geometria vera servono 5×202+209 = 12,19 m, col rettangolo contenitore 12,54 */
+  const its = []; for (let i = 0; i < 6; i++) its.push({ id: "v" + i, type: "vlnpost", x: 120 + i * 230, y: 300, w: 175, d: 115, rot: 330 });
+  const R = A.adattaPalcoCalcola(its, 1400, 600, 1230, 600);
+  ok(R.ciSta && R.stretta === 0, "ci stanno senza stringere: " + JSON.stringify({ ciSta: R.ciSta, stretta: R.stretta, sbordano: R.sbordano }));
+  eq(sovrappostiVeri(its, R.pos), 0, "nessuna sovrapposizione vera");
+});
+
+t("adatta palco: in una nuova scena l'originale resta intatto e basta un Annulla", () => {
+  reset();
+  const a = add("leggio", 200, 300), b = add("leggio", 1000, 300);
+  A.save(); A.resetHistory();
+  const R = A.adattaPalcoApplica(700, 600, true);
+  ok(R.ciSta, "ci sta");
+  eq(A.VARIANTS.length, 2, "una scena in più");
+  eq(A.VARIANTS[1].name, "Palco 7 × 6 m", "nome della scena nuova");
+  eq([A.state.stage.w, A.state.stage.d], [700, 600], "palco nuovo nella scena nuova");
+  A.syncActiveVariant();
+  const orig = A.VARIANTS[0].state;
+  eq([orig.stage.w, orig.stage.d], [1200, 800], "la scena di partenza ha ancora il suo palco");
+  eq(orig.items.map((it) => it.x), [200, 1000], "e i suoi elementi dov'erano");
+  eq(A.undoStack.length, 1, "un solo passo di Annulla");
+  A.undo();
+  eq([A.state.stage.w, A.state.items.find((it) => it.id === b.id).x], [1200, 1000], "Annulla riporta la scena com'era");
+  reset();
+  add("leggio", 200, 300); A.save(); A.resetHistory();
+  A.adattaPalcoApplica(700, 600, false);
+  eq([A.VARIANTS.length, A.undoStack.length], [1, 1], "in questa scena: nessuna scena nuova, un passo di Annulla");
+  reset();
+});
+
+t("adatta palco: Annulla toglie la scena nuova e torna a quella di partenza, Ripeti la rimette", () => {
+  /* 29/09, Simone: «correggi anche l'annulla di adatta». Prima Annulla lasciava la scena «Palco 7 × 6 m» col
+     palco di partenza dentro: nome di una misura, contenuto di un'altra. */
+  reset();
+  add("leggio", 200, 300); add("leggio", 1000, 300);
+  A.save(); A.resetHistory();
+  const partenza = A.activeVar;
+  A.adattaPalcoApplica(700, 600, true);
+  const nuova = A.activeVar;
+  ok(nuova !== partenza, "si lavora nella scena nuova");
+  const sync = A.syncHistoryButtons; let visto = null;
+  A.syncHistoryButtons = function () { visto = A.ripetiDisponibile(); return sync.apply(this, arguments); };
+  try { A.undo(); } finally { A.syncHistoryButtons = sync; }
+  eq([A.VARIANTS.length, A.activeVar, A.state.stage.w], [1, partenza, 1200], "Annulla: scena tolta, di nuovo nella scena di partenza");
+  ok(!A.VARIANTS.some((v) => v.id === nuova), "la scena nuova non c'è più");
+  eq(visto, true, "i bottoni si aggiornano con Ripeti disponibile (nel browser restava spento)");
+  A.redo();
+  eq([A.VARIANTS.length, A.activeVar, A.state.stage.w, A.VARIANTS[1].name], [2, nuova, 700, "Palco 7 × 6 m"], "Ripeti: scena rimessa, con il palco adattato");
+  A.undo();
+  eq([A.VARIANTS.length, A.activeVar], [1, partenza], "e Annulla la toglie di nuovo");
+  /* dopo altro lavoro nella scena nuova, Annulla disfa quel lavoro e la scena resta */
+  A.adattaPalcoApplica(700, 600, true);
+  const it = A.state.items[0]; it.x += 50; A.save();
+  A.undo();
+  eq(A.VARIANTS.length, 2, "Annulla disfa lo spostamento, la scena resta");
+  A.undo();
+  eq([A.VARIANTS.length, A.activeVar], [1, partenza], "l'Annulla dopo è quello di Adatta: scena tolta");
+  /* toccata la scena di partenza, Ripeti non rimette più la scena */
+  A.state.items[0].x += 30; A.save();
+  A.redo();
+  eq(A.VARIANTS.length, 1, "Ripeti non la rimette sopra un lavoro nuovo");
+  /* Adatta nella stessa scena: Annulla normale */
+  A.adattaPalcoApplica(700, 600, false);
+  A.undo();
+  eq([A.VARIANTS.length, A.state.stage.w], [1, 1200], "stessa scena: Annulla riporta il palco");
+  reset();
+});
+
+t("adatta palco: il pannello «Forma del palco» aperto si ridisegna dopo Adatta e dopo Annulla", () => {
+  /* 29/09, prova nel browser sul progetto di Simone: palco 10 × 10 applicato, il pannello diceva ancora 12 × 13
+     e le pedane con le misure di prima. Si scrive solo all'apertura: chi cambia il palco da fuori lo ridisegna. */
+  reset();
+  add("leggio", 200, 300); add("leggio", 1000, 300);
+  A.save(); A.resetHistory();
+  const vero = A.renderStagePanel; let volte = 0;
+  A.renderStagePanel = function () { volte++; };
+  try {
+    A.stageEdit = true; A.selBlock = 3;
+    A.adattaPalcoApplica(700, 600, false);
+    ok(volte >= 1, "dopo Adatta");
+    eq(A.selBlock, null, "il blocco selezionato che non c'è più si toglie");
+    volte = 0; A.undo();
+    ok(volte >= 1, "dopo Annulla");
+    A.stageEdit = false; volte = 0; A.undo(); A.adattaPalcoApplica(700, 600, false);
+    eq(volte, 0, "pannello chiuso: niente da ridisegnare");
+  } finally { A.renderStagePanel = vero; A.stageEdit = false; A.selBlock = null; }
+  reset();
+});
+
+t("adatta palco: il comando sta nella «Forma del palco» e la nuova scena è la scelta di partenza", () => {
+  const tpl = readFileSync(join(root, "index.template.html"), "utf8");
+  const pan = tpl.slice(tpl.indexOf('<div class="sec" id="stageEditPanel"'), tpl.indexOf('<div id="venueSec"'));
+  ok(/id="bAdattaPalco"/.test(pan), "bottone nel pannello Forma del palco");
+  ok(/<input type="checkbox" id="apScena" checked>/.test(tpl), "«In una nuova scena» spuntato di partenza");
+  ok(/R=adattaPalcoApplica\(W, D, nuova\)/.test(appjs), "la finestra applica con la scelta della scena");
+  ok(/run:function\(\)\{ undo\(\); adattaPalcoApplica\(msg\.allargaW, msg\.allargaD, nuova\); \}/.test(appjs), "«Usa un palco…» annulla e rifà sul palco proposto, con la stessa scelta della scena");
+});
+
+/* ===== Avvertenza «palco adattato» (29/09, Simone: «l'avvertenza è un'opzione e decide l'utente che crea lo
+   stageplot se inserirla»). 12 × 8 → 5,5 × 8: l'orchestrina ci sta stringendo del 20%. ===== */
+function avvPalco(nuova) {
+  reset();
+  orchestrina().forEach((it) => A.state.items.push(it));
+  A.save(); A.resetHistory();
+  const R = A.adattaPalcoApplica(550, 800, nuova);
+  const vero = A.guideDialog; let o = null;
+  A.guideDialog = function (x) { o = x; return null; };
+  try { A.adattaPalcoFinestra(R, 550, 800, nuova); } finally { A.guideDialog = vero; }
+  return { R, o };
+}
+const avvertenze = () => A.state.items.filter((it) => it.avvertenza === "adatta");
+/* Dove finisce il testo SUL FOGLIO: nel PDF a 1:100 i corpi crescono di K (scaleSvgFonts), il box no. */
+function avvIngombroCarta(it, K) {
+  const f = it.lblSize, righe = A.wrapTextLines(it.label, it.w - 16, f), lunga = Math.max(...righe.map((r) => r.length));
+  const larga = lunga * f * 0.56 * K + 16, top = it.y - it.d / 2;
+  return { x0: it.x - larga / 2, x1: it.x + larga / 2, y0: top + 8 + 0.85 * f - 0.72 * K * f, y1: top + 8 + 0.85 * f + 1.25 * f * (righe.length - 1) + 0.22 * K * f, righe: righe.length };
+}
+function avvSopra(q, altri) {   /* elementi (ingombro ruotato) sotto il testo */
+  return altri.filter((it) => {
+    const t = A.TYPES[it.type] || {}, a = (it.rot || 0) * Math.PI / 180, c = Math.abs(Math.cos(a)), s = Math.abs(Math.sin(a));
+    const w = it.w || t.w, d = it.d || t.d, hw = (w * c + d * s) / 2, hd = (w * s + d * c) / 2;
+    return it.x - hw < q.x1 && q.x0 < it.x + hw && it.y - hd < q.y1 && q.y0 < it.y + hd;
+  }).map((it) => it.type + "@" + it.x + "," + it.y);
+}
+
+t("avvertenza di Adatta: di partenza non c'è; la casella c'è solo quando si stringe, ed è spenta", () => {
+  const { R, o } = avvPalco(false);
+  eq([R.ciSta, R.stretta], [true, 0.2], "caso di prova: ci stanno stringendo del 20%");
+  eq(avvertenze().length, 0, "Adatta da sola non scrive niente");
+  ok(o && o.title === "Ci stanno, ma stretti", "la finestra finale: " + (o && o.title));
+  ok(o.scelta && o.scelta.checked === false, "la casella c'è ed è spenta: decide l'utente");
+  ok(/avvertenza nello stage plot/.test(o.scelta.label), o.scelta.label);
+  o.chiusa(false);
+  eq(avvertenze().length, 0, "«Tengo così» senza spunta: niente avvertenza");
+  /* comodo: nessuna finestra; non ci sta: la finestra c'è ma senza casella (non si è stretto, sborda) */
+  reset(); orchestrina().forEach((it) => A.state.items.push(it)); A.save(); A.resetHistory();
+  const vero = A.guideDialog; let viste = [];
+  A.guideDialog = function (x) { viste.push(x); return null; };
+  try {
+    A.adattaPalcoFinestra(A.adattaPalcoApplica(900, 800, false), 900, 800, false);
+    eq(viste.length, 0, "ci sta comodo: solo un avviso, niente finestra");
+    A.undo();
+    const Rn = A.adattaPalcoApplica(300, 800, false);
+    A.adattaPalcoFinestra(Rn, 300, 800, false);
+    ok(!Rn.ciSta && viste.length === 1 && !viste[0].scelta && !viste[0].chiusa, "non ci sta: niente casella");
+  } finally { A.guideDialog = vero; }
+  ok(/R=adattaPalcoApplica\(W, D, nuova\);\s*adattaPalcoFinestra\(R, W, D, nuova\);/.test(appjs), "la finestra vera passa da adattaPalcoFinestra");
+  reset();
+});
+
+t("avvertenza di Adatta: è un testo libero normale, con le misure e la percentuale vere", () => {
+  const { o } = avvPalco(false);
+  const fuoriPrima = A.elementiFuoriDalPalco().length, contienePrima = JSON.stringify(A.palcoCheContieneTutto());
+  o.chiusa(true);
+  const av = avvertenze();
+  eq(av.length, 1, "spuntata: un elemento");
+  eq(av[0].type, "testo", "un «Testo libero» come gli altri");
+  eq(av[0].label, "Attenzione: palco adattato da 12 × 8 m a 5,5 × 8 m. I musicisti sono più vicini del normale (fino al 20% dell'ingombro): verificare gli spazi con la produzione.");
+  eq(av[0].txtColor, "#dc2626", "in rosso");
+  eq(A.elementiFuoriDalPalco().length, fuoriPrima, "sotto PUBBLICO non conta come «fuori dal palco» (l'Esporta proporrebbe di allargare il palco)");
+  eq(JSON.stringify(A.palcoCheContieneTutto()), contienePrima, "né per «Adatta il palco» dell'audit");
+  /* da console, sul progetto di Simone: percentuale data a mano, anche come frazione. Una nuova sostituisce la vecchia. */
+  const c = A.adattaAvvertenza(1200, 1300, 1000, 1000, 60);
+  eq(avvertenze().length, 1, "la nuova prende il posto della vecchia");
+  ok(c && /da 12 × 13 m a 10 × 10 m\./.test(c.label) && /\(fino al 60% dell'ingombro\)/.test(c.label), c && c.label);
+  eq(A.adattaAvvertenzaTesto(1200, 1300, 1000, 1000, 0.6), c.label, "0,6 e 60 sono la stessa cosa");
+  eq(A.adattaAvvertenza(0, 1300, 1000, 1000, 60), null, "senza il palco di partenza non si scrive niente");
+  A.state.tipoEvento = "conferenza";
+  try { ok(/Le postazioni sono più vicine del normale/.test(A.adattaAvvertenzaTesto(800, 600, 600, 400, 0.1)), "conferenza: niente «musicisti»"); }
+  finally { delete A.state.tipoEvento; }
+  reset();
+});
+
+t("avvertenza di Adatta: dentro l'area di stampa del PDF, sotto PUBBLICO, sopra nessuno", () => {
+  const K = A.pdfTextK(100);
+  eq(K, 1.25, "a 1:100 i corpi del PDF crescono di 1,25 (CORPO_RIF 80)");
+  const prova = (W, D, extra) => {
+    reset();
+    A.state.stage = { w: W, d: D, blocks: [{ x: 0, y: 0, w: W, d: D }] };
+    orchestrina().forEach((it) => { it.x = Math.round(it.x * W / 1200); it.y = Math.round(it.y * D / 800); A.state.items.push(it); });
+    (extra || []).forEach((it) => A.state.items.push(it));
+    const av = A.adattaAvvertenza(1400, 1000, W, D, 0.3), q = avvIngombroCarta(av, K), q1 = avvIngombroCarta(av, 1);
+    const pa = A.printArea(), DM = pa.custom ? 0 : 80;
+    const dentro = (r) => r.x0 >= pa.x - DM && r.x1 <= pa.x + pa.w + DM && r.y0 >= pa.y - DM && r.y1 <= pa.y + pa.h + DM;
+    ok(dentro(q) && dentro(q1), W + "×" + D + ": sul foglio sta dentro l'area di stampa " + JSON.stringify({ q, pa }));
+    eq(avvSopra(q, A.state.items.filter((it) => it !== av)), [], W + "×" + D + ": non copre nessuno");
+    return { av, q };
+  };
+  [[1200, 800], [1000, 1000], [550, 800], [400, 300]].forEach(([W, D]) => {
+    const { av, q } = prova(W, D);
+    ok(av.y > D && q.y0 > D + 38, W + "×" + D + ": sotto la scritta PUBBLICO (base a D+38): " + JSON.stringify(q));
+    ok(q.righe <= 2 && av.lblSize >= 9, "al massimo due righe, corpo leggibile: " + JSON.stringify({ righe: q.righe, f: av.lblSize }));
+  });
+  /* qualcosa in mezzo alla fascia sotto PUBBLICO (una cassa in platea): si sposta di lato o in un angolo libero */
+  prova(1200, 800, [{ id: "cassa", type: "leggio", x: 600, y: 860, w: 80, d: 100, rot: 0 }]);
+  /* il punto del cablaggio «stage rack» è disegnato lì (D+72): stesso discorso */
+  reset();
+  A.state.cab.on = true; A.state.cab.home = { kind: "stagerack" };
+  orchestrina().forEach((it) => A.state.items.push(it));
+  const h = A.cabHomePoint(), av = A.adattaAvvertenza(1400, 1000, 1200, 800, 0.3), q = avvIngombroCarta(av, K);
+  eq([h.x, h.y], [600, 872], "stage rack al centro, a D+72");
+  ok(q.x1 < h.x - 40 || q.x0 > h.x + 40 || q.y1 < h.y - 15 || q.y0 > h.y + 15, "l'avvertenza non ci finisce sopra: " + JSON.stringify(q));
+  /* area di stampa personalizzata più stretta della fascia sotto PUBBLICO: resta dentro l'area (in un angolo) */
+  reset();
+  orchestrina().forEach((it) => A.state.items.push(it));
+  A.state.printFrame = { x: 100, y: 0, w: 1000, h: 860 };
+  const avF = A.adattaAvvertenza(1400, 1000, 1200, 800, 0.3), qF = avvIngombroCarta(avF, K);
+  ok(qF.x0 >= 100 && qF.x1 <= 1100 && qF.y0 >= 0 && qF.y1 <= 860, "dentro l'area personalizzata: " + JSON.stringify(qF));
+  eq(avvSopra(qF, A.state.items.filter((it) => it !== avF)), [], "e sopra nessuno");
+  /* un'area un po' più stretta della fascia: la fascia si restringe e l'avvertenza resta sotto PUBBLICO */
+  A.state.printFrame = { x: 100, y: 0, w: 1000, h: 880 };
+  const avS = A.adattaAvvertenza(1400, 1000, 1200, 800, 0.3), qS = avvIngombroCarta(avS, K);
+  ok(avS.y > 800 && qS.x0 >= 100 && qS.x1 <= 1100 && qS.y1 <= 880, "sotto PUBBLICO, dentro l'area: " + JSON.stringify(qS));
+  /* il PNG si fa l'area da solo (ensurePrintFrame, palco esatto senza margine): l'avvertenza sotto PUBBLICO ci deve stare */
+  reset();
+  orchestrina().forEach((it) => A.state.items.push(it));
+  const avP = A.adattaAvvertenza(1400, 1000, 1200, 800, 0.3), qP = avvIngombroCarta(avP, K);
+  ok(avP.y > 800, "caso di prova: sotto PUBBLICO");
+  A.ensurePrintFrame();
+  const fr = A.state.printFrame;
+  ok(fr.x <= 0 && fr.y <= 0 && fr.x + fr.w >= 1200 && fr.y + fr.h >= 800, "l'area comprende il palco: " + JSON.stringify(fr));
+  ok(fr.x <= qP.x0 && fr.x + fr.w >= qP.x1 && fr.y + fr.h >= qP.y1, "e l'avvertenza: " + JSON.stringify({ fr, qP }));
+  A.state.printFrame = null; A.state.items = A.state.items.filter((it) => it !== avP); A.ensurePrintFrame();
+  eq(A.state.printFrame, { x: 0, y: 0, w: 1200, h: 800 }, "senza avvertenza: il palco esatto, come prima");
+  reset();
+});
+
+t("avvertenza di Adatta: un solo Annulla toglie tutto, anche la scena nuova; da console è un passo suo", () => {
+  /* nella stessa scena */
+  let { o } = avvPalco(false);
+  const prima = orchestrina().map((it) => it.x);
+  o.chiusa(true);
+  eq([A.undoStack.length, avvertenze().length], [1, 1], "Adatta + avvertenza = un passo");
+  A.undo();
+  eq([A.state.stage.w, avvertenze().length, A.undoStack.length], [1200, 0, 0], "un Annulla: palco di prima, niente avvertenza");
+  eq(A.state.items.map((it) => it.x), prima, "e gli elementi dov'erano");
+  A.redo();
+  eq([A.state.stage.w, avvertenze().length], [550, 1], "Ripeti rimette tutto, avvertenza compresa");
+  /* in una scena nuova: l'Annulla toglie la scena */
+  ({ o } = avvPalco(true));
+  const partenza = A.VARIANTS[0].id;
+  o.chiusa(true);
+  eq([A.VARIANTS.length, A.undoStack.length, avvertenze().length], [2, 1, 1], "scena nuova, un passo, avvertenza");
+  A.undo();
+  eq([A.VARIANTS.length, A.activeVar, A.state.stage.w, avvertenze().length], [1, partenza, 1200, 0], "un Annulla: scena tolta, niente avvertenza");
+  A.redo();
+  eq([A.VARIANTS.length, A.state.stage.w, avvertenze().length], [2, 550, 1], "Ripeti: scena rimessa con l'avvertenza");
+  /* dopo altro lavoro (o da console su un progetto qualunque) l'avvertenza è un passo a sé */
+  ({ o } = avvPalco(false));
+  A.state.items[0].x += 20; A.save();
+  A.adattaAvvertenza(1200, 800, 550, 800, 0.2);
+  eq(A.undoStack.length, 3, "Adatta, spostamento, avvertenza");
+  A.undo();
+  eq([A.state.stage.w, avvertenze().length], [550, 0], "l'Annulla toglie solo l'avvertenza");
+  reset();
+});
+
+/* ===== Distanza tra i 2 su più postazioni (29/09, segnalazione di Simone: «se seleziono molteplici postazioni a 2
+   devo poter regolare la distanza dei musicisti in simultanea delle postazioni a 2 selezionate») ===== */
+function orchestraA2() {
+  reset();
+  const v1 = add("vlnpost", 200, 300, { doppia: true, sep: 90, vsec: 1 });
+  const v2 = add("vlnpost", 450, 300, { doppia: true, sep: 120, vsec: 1 });
+  const vc = add("violoncello", 700, 300, { doppia: true, sep: 110 });
+  const cx = add("cellix2", 950, 300, { sep: 110 });
+  const vs = add("vlnpost", 200, 550, { vsec: 2 });   /* singola: non è una postazione a 2 */
+  const we = add("wedge", 450, 550);
+  [v1, v2, vc, cx].forEach((it) => { it.w = A.sepToW(A.sepCfg(it), it.sep); });
+  return { v1, v2, vc, cx, vs, we };
+}
+function selezionaTutti(its) { A.clearSelection(); its.forEach((it) => { A.selSet[it.id] = true; A.sel = it.id; }); }
+
+t("postazioni a 2: sono le doppie di POSTAZ e i tipi ×2, non le singole né gli altri elementi", () => {
+  const o = orchestraA2();
+  eq(A.sepPostazioni([o.v1, o.v2, o.vc, o.cx, o.vs, o.we]).map((it) => it.id), [o.v1.id, o.v2.id, o.vc.id, o.cx.id]);
+  eq(A.sepStato([o.vs, o.we]), null, "senza postazioni a 2 il cursore non c'è");
+  reset();
+});
+
+t("postazioni a 2 selezionate: la stessa distanza a tutte, gli altri elementi intatti, un solo Annulla", () => {
+  const o = orchestraA2();
+  A.save(); A.resetHistory();
+  const altri = JSON.stringify([o.vs, o.we]);
+  selezionaTutti([o.v1, o.v2, o.vc, o.cx, o.vs, o.we]);
+  /* trascinamento: tre tacche senza salvare, poi il rilascio */
+  A.grpSepApply(false, 100); A.grpSepApply(false, 130);
+  eq(A.undoStack.length, 0, "durante il trascinamento nessun passo di Annulla");
+  A.grpSepApply(true, 150);
+  const id2 = (it) => A.state.items.find((x) => x.id === it.id);
+  eq([o.v1, o.v2, o.vc, o.cx].map((it) => id2(it).sep), [150, 150, 150, 150], "tutte a 150 cm");
+  eq(id2(o.v1).w, A.sepToW(A.POSTAZ.vlnpost, 150), "la larghezza segue la distanza (vlnpost)");
+  eq(id2(o.cx).w, A.sepToW(A.DOUBLE_TYPES.cellix2, 150), "e anche per i tipi ×2");
+  eq(JSON.stringify([id2(o.vs), id2(o.we)]), altri, "violino singolo e wedge non cambiano");
+  eq(A.undoStack.length, 1, "un solo passo di Annulla");
+  A.undo();
+  eq([o.v1, o.v2, o.vc, o.cx].map((it) => id2(it).sep), [90, 120, 110, 110], "Annulla riporta le distanze di prima, tutte insieme");
+  reset();
+});
+
+t("postazioni a 2 fuori dalla selezione non si toccano; ognuna rispetta il suo minimo", () => {
+  const o = orchestraA2();
+  const cb = add("contrabbasso", 1100, 550, { doppia: true, sep: 160 });
+  selezionaTutti([o.v1, cb]);
+  A.grpSepApply(true, 70);
+  eq([o.v1.sep, cb.sep], [70, A.minSepOf(cb)], "il violino va a 70, il contrabbasso si ferma al suo minimo (100)");
+  eq([o.v2.sep, o.vc.sep], [120, 110], "le postazioni a 2 non selezionate restano come sono");
+  const st = A.sepStato([o.v1, cb]);
+  eq([st.min, st.misto], [65, true], "il cursore parte dal minimo più basso; restano diverse per via del minimo");
+  reset();
+});
+
+t("postazioni a 2: stato misto → «diversi», poi uguali → centimetri", () => {
+  const o = orchestraA2();
+  const sel = [o.v1, o.v2, o.we];
+  let st = A.sepStato(sel);
+  eq([st.n, st.altri, st.lo, st.hi, st.misto], [2, 1, 90, 120, true], "90 e 120: miste");
+  let sc = A.grpSepScritta(st);
+  eq(sc.val, "diversi", "al posto dei centimetri");
+  ok(/da 90 a 120 cm/.test(sc.nota) && /L'altro elemento selezionato resta com'è/.test(sc.nota), sc.nota);
+  A.sepApplica(sel, 105);
+  st = A.sepStato(sel); sc = A.grpSepScritta(st);
+  eq([st.misto, sc.val], [false, "105 cm"], "uguali: i centimetri");
+  ok(/le 2 postazioni a 2 selezionate/.test(sc.nota), sc.nota);
+  reset();
+});
+
+t("postazioni a 2: la distanza nuova si vede nel disegno", () => {
+  const o = orchestraA2();
+  ok(A.itemMarkup(o.v1).indexOf("translate(45,0)") > -1, "a 90 cm i due violinisti stanno a ±45");
+  A.sepApplica([o.v1], 150);
+  const m = A.itemMarkup(o.v1);
+  ok(m.indexOf("translate(75,0)") > -1 && m.indexOf("translate(-75,0)") > -1, "a 150 cm stanno a ±75");
+  reset();
+});
+
+t("postazioni a 2: il cursore sta nel pannello di gruppo, si salva al rilascio, 44 px sul telefono", () => {
+  const tpl = readFileSync(join(root, "index.template.html"), "utf8");
+  const grp = tpl.slice(tpl.indexOf('<div class="sec" id="groupProps"'), tpl.indexOf('id="grpSbWrap"'));
+  ok(/<input type="range" id="grpSep" min="65" max="300" step="5"/.test(grp), "cursore come quello singolo, nel pannello di gruppo");
+  ok(/<output id="grpSepVal"/.test(grp) && /id="grpSepHint"/.test(grp), "centimetri o «diversi», e la nota");
+  ok(/grpSepTrascina=true;[\s\S]{0,200}grpSepApply\(false\);\s*\}\);/.test(appjs), "mentre si trascina: ridisegna senza salvare");
+  ok(/getElementById\("grpSep"\)\.addEventListener\("change", function\(\)\{ grpSepApply\(true\); \}\);/.test(appjs), "al rilascio: un salvataggio");
+  ok(/grpSepRender\(its\);/.test(appjs), "renderProps lo mostra con la selezione multipla");
+  ok(/@media \(max-width:880px\)\{ #props #groupProps #grpSep\{min-height:44px\} \}/.test(stylesCss), "44 px sul telefono");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
