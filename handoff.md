@@ -1,12 +1,26 @@
 # STATO AL 27/09/2026 — da leggere prima di tutto
 
-Tutto in produzione, nessuna PR aperta. Test: 1224 editor · 124 Orchestre · 137 Deno.
+Tutto in produzione, nessuna PR aperta. Test: 1255 editor · 124 Orchestre · 137 Deno.
 Regole di lavoro aggiornate in `AGENTS.md` (§3, §4, §8). Le sessioni fra fine luglio e settembre non
 sono state scritte qui: la loro storia sta nei messaggi di commit e nelle PR (#98-#210).
 
 ## Settembre in una pagina (PR su `main`)
 
-- **29/09 — «Solo pedane»** (ramo `solo-pedane`, segnalazione di Simone). Con una pedana nella selezione il
+- **29/09 — Uscita pulita** (#246, richiesta di Simone: «immagina che io faccia il login sul computer di un'altra
+  persona»). `signOut()`: `preparaUscita` (salva online o chiede «Resta / Esci comunque») → `sb.auth.signOut()`
+  (senza rete `scope:"local"`) → `pulisciDatiAccount` (tabella chiavi nel blocco «USCITA PULITA») → invito
+  `#accessoInvito`. Al boot, progetto dell'account senza sessione → invito «Sessione scaduta» (il progetto resta
+  nel browser). ⚠️ Senza rete no: `sessioneNonRaggiungibile` (AGENTS.md §8). Altre schede: segnale `sp_uscita`.
+  Non provati: login/logout Google veri; le modifiche non salvate di un'altra scheda si perdono.
+
+- **29/09 — Adatta a un altro palco** (#244, richiesta di Simone: «mantenere organico e posizioni con palco di
+  dimensioni diverse… questo organico su un palco 10x10»). «Forma del palco» → «Adatta a un altro palco…»
+  (`showAdattaPalco` → `adattaPalcoCalcola` / `adattaPalcoApplica`, un solo Annulla, nuova scena di partenza).
+  Vincoli d'ordine sulla forma vera (`adattaAngoli`, `adattaMinkowski`), prima i corridoi, file rigide, pedane
+  che seguono chi ci sta sopra; tolleranza a gradini (10 cm d'aria → contatto → sovrapposizioni 10/20/30%) e
+  proposta della misura che basterebbe. Esempio di Simone su 10×10: ci sta, stretto fino al 20%.
+
+- **29/09 — «Solo pedane»** (#245, segnalazione di Simone). Con una pedana nella selezione il
   pannello (`#pSoloPed`, `#grpSoloPed`; sul telefono `#mPeekSolo`, quinta azione della testa) ha l'occhio «Solo
   pedane»: è la voce `pedane` di `layerSoloUI` (`layerFgItem` → `isRiser`), non un meccanismo nuovo. Contesto al 15%
   (`_bgOp`; i layer restano a .42), non si prende; si spegne in `pruneSolo` quando la selezione non ha più pedane,
