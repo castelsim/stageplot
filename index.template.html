@@ -6277,6 +6277,15 @@ function applyHistory(snapshot){
   if(window.__consultDirty) window.__consultDirty();
   if(window.scheduleCloudAutosave) scheduleCloudAutosave();
   render(); renderChannels();
+  pannelloPalcoAggiornato();   /* Annulla con «Forma del palco» aperto: misure e pedane di prima, non quelle vecchie */
+}
+/* Il pannello «Forma del palco» si scrive solo quando lo si apre: chi cambia il palco da fuori (Adatta, Annulla)
+   lo ridisegna, altrimenti mostra misure e pedane che non ci sono più. Blocco selezionato sparito → nessuno. */
+function pannelloPalcoAggiornato(){
+  if(!stageEdit || typeof renderStagePanel!=="function") return;
+  var n=((state.stage&&state.stage.blocks)||[]).length;
+  if(selBlock!=null && selBlock>=n) selBlock=null;
+  renderStagePanel();
 }
 /* applyRemoteState RIMOSSA (14/08): la collaborazione live non passa più di qui — lo stato
    arriva dall'Edge Function e lo applica importProject(). Era rimasta indietro di un'architettura. */
@@ -8094,6 +8103,7 @@ function adattaPalcoApplica(W, D, nuovaScena){
   if(state.printFrame) state.printFrame=null;   /* l'area di stampa era misurata sul palco di prima */
   __cabRes=null; __elecRes=null; __mondRes=null;
   save(); render();
+  pannelloPalcoAggiornato();   /* il pannello «Forma del palco» è aperto: diceva ancora 12 × 13 (29/09) */
   if(typeof fit==="function") fit();
   if(nuovaScena && typeof renderVariantBar==="function") renderVariantBar();
   return R;
