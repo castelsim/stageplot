@@ -5842,7 +5842,7 @@ function adattaPalcoMessaggio(R, W, D){
     testo:R.sbordano+" element"+(R.sbordano===1?"o esce":"i escono")+" dal bordo del palco "+mis(W,D)+(R.fuori?" ("+R.fuori+" del tutto fuori)":"")+": li ho accostati senza metterne nessuno sopra un altro. Stringendo sedie e leggii al massimo servirebbe almeno "+mis(R.serveMinW,R.serveMinD)+"; con le distanze di prima "+mis(R.serveW,R.serveD)+".",
     allargaW:R.serveMinW, allargaD:R.serveMinD };
   if(R.stretta>0) return { titolo:"Ci stanno, ma stretti",
-    testo:"Tutti gli elementi stanno sul palco "+mis(W,D)+", ma gli ingombri di "+R.sovrapposti+" coppi"+(R.sovrapposti===1?"a":"e")+" rientrano l'uno nell'altro fino al "+Math.round(R.stretta*100)+"%: sedie e leggii più vicini che nel disegno di partenza. Per le distanze di prima servirebbe "+mis(R.serveW,R.serveD)+".",
+    testo:"Tutti gli elementi stanno sul palco "+mis(W,D)+", ma sedie e leggii sono più vicini che nel disegno di partenza (fino al "+Math.round(R.stretta*100)+"% dell'ingombro). Per tenere le distanze di prima servirebbe un palco "+mis(R.serveW,R.serveD)+".",
     allargaW:R.serveW, allargaD:R.serveD };
   return { titolo:"Fatto", testo:"Tutti i "+R.elementi+" elementi stanno sul palco "+mis(W,D)+(R.aria>0?", senza sovrapposizioni.":", con gli ingombri accostati: niente più corridoi fra le sezioni.") };
 }
