@@ -5722,12 +5722,10 @@ t("pedane coperte: il clic ripetuto passa a quello sotto, e la pedana si sposta 
   /* presa col clic ripetuto, la pedana si trascina anche dal punto coperto (visto provando nel browser) */
   ok(/if\(g && !e\.shiftKey && sel && !selSet\[g\.getAttribute\("data-id"\)\] && document\.elementsFromPoint\)\{/.test(appjs)
      && /if\(_selSotto\) g=_selSotto;/.test(appjs), "l'elemento selezionato vince anche se coperto");
-  /* Sposta solo la pedana */
-  ok(/if\(TYPES\[it\.type\] && TYPES\[it\.type\]\.riser && !pedanaSola\)\{/.test(appjs), "acceso, la pedana non porta il carico");
-  eq(A.pedanaSola, false, "parte spento, e non si salva");
+  /* «Sposta solo la pedana» (16/09) non c'è più: dal 29/09 la pedana si sposta da sola DI PARTENZA e
+     l'aggancio si accende per pedana (test «pedane sganciate» più sotto). */
   const html = readFileSync(join(root, "app/index.html"), "utf8");
-  ok(/id="pRiserSolo"/.test(html) && /"pSgabWrap","pRiserSoloWrap"/.test(appjs), "l'interruttore sta negli Accessori della pedana");
-  ok(/rsw\.style\.display = t\.riser \? "block" : "none";/.test(appjs), "e si vede solo sulle pedane");
+  ok(!/id="pRiserSolo"/.test(html) && !/pRiserSoloWrap/.test(appjs) && !/pedanaSola\s*=/.test(appjs), "il vecchio interruttore è tolto: un solo comando per la stessa cosa");
 });
 
 t("la scelta del modello mostra la pianta di ogni modello, senza toccare il progetto aperto", () => {
@@ -17262,6 +17260,118 @@ t("Solo pedane: il comando c'è nei tre pannelli, con l'occhio e 44 px col dito"
   const css = readFileSync(join(root, "src/styles.css"), "utf8");
   ok(/@media \(pointer:coarse\)\{ #props \.solo-ped\{min-height:44px\} \}/.test(css), "44 px col dito nel pannello");
   ok(/body\.ped-sel #mPeek \.mpk-acts\{grid-template-columns:repeat\(5/.test(css), "sul telefono quinta azione della testa (52 px)");
+});
+
+/* ===== Pedane sganciate (29/09, Simone: «se sposto la pedana, gli elementi devono rimanere dove sono …
+   lo mettiamo come opzione (snap con pedana) … di default sarà spenta») ===== */
+const idsOf = (arr) => arr.map((i) => i.id).sort();
+t("pedane sganciate: spostata la pedana, chi ci sta sopra resta dov'è; agganciata, la segue", () => {
+  reset();
+  const ped = add("pedana", 600, 400), voce = add("corista", 600, 400), fuori = add("corista", 1000, 400);
+  ok(A.isRiser(ped) && A.itemsOnRiser(ped).indexOf(voce) > -1 && A.itemsOnRiser(ped).indexOf(fuori) === -1, "premessa: il corista è sopra, l'altro fuori");
+  eq(ped.aggancia, undefined, "una pedana nuova nasce sganciata");
+  eq(idsOf(A.caricoDellePedane([ped])), [ped.id], "sganciata: il trascinamento sposta solo la pedana");
+  ped.aggancia = true;
+  eq(idsOf(A.caricoDellePedane([ped])), idsOf([ped, voce]), "agganciata: la segue chi ci sta sopra, non chi sta fuori");
+  eq(idsOf(A.caricoDellePedane([voce])), [voce.id], "preso il corista, la pedana non viene con lui");
+  ped.aggancia = "sì";
+  eq(idsOf(A.caricoDellePedane([ped])), [ped.id], "solo `true` aggancia: un valore strano da un file non accende niente");
+  /* il trascinamento vero (mouse e dito: stesso pointerdown) passa di qui, e non c'è altro aggancio */
+  ok(/var moving=selItems\(\)\.slice\(\)\.filter\(itemEditable\);[\s\S]{0,400}caricoDellePedane\(moving\);\s*\/\*[^\n]*\n\s*drag = \{mode:"item"/.test(appjs), "il trascinamento usa caricoDellePedane");
+  eq((appjs.match(/itemsOnRiser\(it\)\.forEach/g) || []).length, 3, "itemsOnRiser trasporta solo in tre posti: trascinamento, Duplica, Copia");
+});
+
+t("pedane sganciate: l'interruttore scrive sulla pedana, entra in Annulla e si salva nel progetto", () => {
+  reset();
+  const ped = add("pedana", 600, 400), voce = add("corista", 600, 400);
+  A.selectOne(voce.id); A.agganciaPedane(true);
+  eq(ped.aggancia, undefined, "col solo corista selezionato non tocca niente");
+  A.selectOne(ped.id);
+  const undo0 = A.undoStack.length;
+  A.agganciaPedane(true);
+  eq(ped.aggancia, true, "acceso: aggancia:true sulla pedana");
+  ok(A.undoStack.length > undo0, "è un passo di Annulla");
+  A.agganciaPedane(false);
+  ok(!("aggancia" in ped), "spento: la chiave sparisce, il file resta com'era");
+  /* per pedana: nella selezione di gruppo vale per tutte le pedane selezionate, non per gli altri */
+  const p2 = add("pedanacoro", 200, 400);
+  A.selSet = {}; [ped.id, p2.id, voce.id].forEach((k) => { A.selSet[k] = true; }); A.sel = ped.id;
+  A.agganciaPedane(true);
+  eq([ped.aggancia, p2.aggancia, voce.aggancia], [true, true, undefined], "tutte le pedane selezionate, il corista no");
+  /* salvato nel progetto e riaperto: resta agganciata */
+  A.selSet = {}; A.sel = null; p2.aggancia = undefined; delete p2.aggancia;
+  A.loadDoc(JSON.parse(A.docToJSON()));
+  const pr = A.state.items.find((i) => i.id === ped.id), vr = A.state.items.find((i) => i.id === voce.id);
+  eq(pr.aggancia, true, "riaperto, l'aggancio c'è ancora");
+  eq(idsOf(A.caricoDellePedane([pr])), idsOf([pr, vr]), "e porta ancora chi ci sta sopra");
+  eq(A.sanitizeItems([{ type: "pedana", x: 0, y: 0, w: 200, d: 200, aggancia: true }])[0].aggancia, true, "anche da un JSON generato");
+});
+
+t("pedane sganciate: un progetto salvato prima di oggi si apre sganciato", () => {
+  /* Il vecchio «Sposta solo la pedana» era una variabile globale mai salvata: nei file non c'è nessuna
+     scelta da tradurre, e nessuna variabile deve poter rimettere l'aggancio a tutti. */
+  reset();
+  A.loadDoc({ _v: A.SCHEMA_VERSION, titolo: "prima del 29/09", inputs: [], outputs: [], items: [
+    { id: "pv", type: "pedana", x: 600, y: 400, w: 240, d: 200, h: 40, rot: 0, label: "" },
+    { id: "bv", type: "batteria", x: 600, y: 400, rot: 0, label: "Batteria" },
+    { id: "cv", type: "corista", x: 560, y: 380, rot: 0, label: "Coro" }] });
+  const pv = A.state.items.find((i) => i.id === "pv");
+  eq(idsOf(A.caricoDellePedane([pv])), ["pv"], "la pedana di un progetto vecchio si sposta da sola");
+  eq(typeof A.pedanaSola, "undefined", "il vecchio interruttore globale non esiste più");
+  reset();
+});
+
+t("pedane sganciate: Duplica e Copia copiano solo la pedana; agganciata, anche chi ci sta sopra (in blocco)", () => {
+  reset();
+  const ped = add("pedana", 600, 400), voce = add("corista", 600, 400);
+  A.selectOne(ped.id); A.duplicateSel();
+  let nuovi = A.state.items.filter((i) => i.id !== ped.id && i.id !== voce.id);
+  eq(nuovi.map((i) => i.type), ["pedana"], "sganciata: Duplica fa una pedana sola");
+  eq(nuovi[0].grp, undefined, "e non la chiude in un blocco");
+  ped.aggancia = true;
+  A.state.items = [ped, voce];
+  A.selectOne(ped.id); A.duplicateSel();
+  nuovi = A.state.items.filter((i) => i.id !== ped.id && i.id !== voce.id);
+  eq(nuovi.map((i) => i.type).sort(), ["corista", "pedana"], "agganciata: pedana e corista");
+  ok(nuovi[0].grp && nuovi[0].grp === nuovi[1].grp, "in un blocco, così la copia non si porta via l'originale che ha sotto");
+  eq(nuovi.find((i) => i.type === "pedana").aggancia, true, "la copia resta agganciata");
+  /* Copia / Incolla: stessa regola */
+  delete ped.aggancia; A.state.items = [ped, voce];
+  A.selectOne(ped.id); A.copySel(); A.pasteClip();
+  nuovi = A.state.items.filter((i) => i.id !== ped.id && i.id !== voce.id);
+  eq(nuovi.map((i) => i.type), ["pedana"], "sganciata: Incolla fa una pedana sola");
+  eq(nuovi[0].grp, undefined, "senza blocco");
+  ped.aggancia = true; A.state.items = [ped, voce];
+  A.selectOne(ped.id); A.copySel(); A.pasteClip();
+  nuovi = A.state.items.filter((i) => i.id !== ped.id && i.id !== voce.id);
+  eq(nuovi.map((i) => i.type).sort(), ["corista", "pedana"], "agganciata: Incolla porta anche il corista");
+  ok(nuovi[0].grp && nuovi[0].grp === nuovi[1].grp, "in blocco");
+  reset();
+});
+
+t("pedane sganciate: il comando c'è solo con una pedana nella selezione, sotto «Solo pedane»", () => {
+  reset();
+  const ped = add("pedana", 600, 400), p2 = add("pedana", 200, 400), voce = add("corista", 600, 400);
+  const el = {}; ["pAgg", "grpAgg"].forEach((k) => { el[k] = { checked: false, indeterminate: false }; el[k + "Wrap"] = { style: { display: "none" } }; });
+  const docPrima = A.document;
+  A.document = { getElementById: (k) => el[k] || null };
+  const sel = (ids) => { A.selSet = {}; ids.forEach((k) => { A.selSet[k.id] = true; }); A.sel = ids.length ? ids[0].id : null; };
+  try {
+    sel([voce]); A.aggiornaAgganciaPedane();
+    eq([el.pAggWrap.style.display, el.grpAggWrap.style.display], ["none", "none"], "col solo corista non c'è");
+    sel([ped]); A.aggiornaAgganciaPedane();
+    eq([el.pAggWrap.style.display, el.pAgg.checked, el.pAgg.indeterminate], ["", false, false], "con la pedana c'è, spento");
+    ped.aggancia = true; A.aggiornaAgganciaPedane();
+    eq(el.pAgg.checked, true, "e dice lo stato della pedana");
+    sel([ped, p2, voce]); A.aggiornaAgganciaPedane();
+    eq([el.grpAggWrap.style.display, el.grpAgg.checked, el.grpAgg.indeterminate], ["", false, true], "due pedane, una sola agganciata: stato misto");
+  } finally { A.document = docPrima; A.selSet = {}; A.sel = null; }
+  ok(/aggiornaSoloPedane\(\);[^\n]*\n\s*aggiornaAgganciaPedane\(\);/.test(appjs), "si aggiorna a ogni render, insieme a «Solo pedane»");
+  const tpl = readFileSync(join(root, "index.template.html"), "utf8");
+  ok(/id="pSoloPed"[\s\S]*?<\/button>\s*<!--[^\n]*-->\s*<div id="pAggWrap"[^>]*style="display:none"><label class="chk" title="[^"]+"><input type="checkbox" id="pAgg"> <span>Aggancia gli elementi alla pedana/.test(tpl), "pannello dell'elemento: subito sotto «Solo pedane», spento e nascosto di partenza");
+  ok(/id="grpSoloPed"[\s\S]*?<\/button>\s*<div id="grpAggWrap"[^>]*style="display:none"><label class="chk" title="[^"]+"><input type="checkbox" id="grpAgg"> <span>Aggancia gli elementi alle pedane/.test(tpl), "pannello della selezione: idem");
+  ok(!/snap/i.test((tpl.match(/<div id="(?:p|grp)AggWrap"[\s\S]*?<\/div>/g) || []).join("")), "niente gergo nel testo");
+  reset();
 });
 
 /* ===== Adatta a un palco di misura diversa (29/09, richiesta di Simone: stessa formazione, altro palco) ===== */
