@@ -11201,6 +11201,7 @@ function renderProps(){
     document.getElementById("grpLeggioWrap").style.display = allLeggio ? "" : "none";
     if(allSedia) document.getElementById("grpSedia").checked = its.every(function(it){ return optSedia(it); });
     if(allLeggio) document.getElementById("grpLeggio").checked = its.every(function(it){ return it.leggio!==false; });
+    grpSepRender(its);   /* distanza tra i 2, se nella selezione ci sono postazioni a 2 */
     /* --- batch STAGE BOX (Simone 21/07): input/uscite/modello per TUTTE le box selezionate insieme --- */
     var gsb=document.getElementById("grpSbWrap");
     if(gsb){ var boxes=its.filter(cabIsBox);
@@ -12358,6 +12359,63 @@ document.getElementById("pSep").addEventListener("input", function(){
   applySep(false);
 });
 document.getElementById("pSep").addEventListener("change", function(){ applySep(true); });
+/* ===== DISTANZA TRA I 2 SU PIÙ POSTAZIONI (29/09, segnalazione di Simone: «se seleziono molteplici
+   postazioni a 2 devo poter regolare la distanza dei musicisti in simultanea»). Postazione a 2 = quella
+   che ha `sepCfg`: un tipo di POSTAZ con `doppia` (vlnpost, violapost, violoncello, contrabbasso, fiati…)
+   o un tipo ×2 del generatore (DOUBLE_TYPES). La proprietà è `it.sep` (cm fra i due musicisti), da cui
+   segue la larghezza `it.w`: le stesse regole del cursore singolo (`applySep`), minimo di ogni tipo
+   compreso (il contrabbasso non scende sotto 100 anche se il cursore va a 65). Gli altri elementi della
+   selezione non si toccano. Un solo passo di Annulla: durante il trascinamento si ridisegna senza
+   salvare, al rilascio (`change`) un solo `save()`. */
+function sepVal(it){ return Math.max(minSepOf(it), it.sep || defSepOf(it)); }   /* quello che mostra il cursore singolo */
+function sepPostazioni(its){ return (its||[]).filter(function(it){ return !!sepCfg(it); }); }
+/* stato del cursore di gruppo: null se non c'è nessuna postazione a 2; `misto` se le distanze non sono uguali */
+function sepStato(its){
+  var ps=sepPostazioni(its); if(!ps.length) return null;
+  var vals=ps.map(sepVal), lo=Math.min.apply(null, vals), hi=Math.max.apply(null, vals);
+  return { n:ps.length, altri:(its||[]).length-ps.length, min:Math.min.apply(null, ps.map(minSepOf)), lo:lo, hi:hi, misto:lo!==hi };
+}
+/* la stessa distanza a tutte le postazioni a 2 di `its` (ognuna col suo minimo); restituisce quante ne ha toccate */
+function sepApplica(its, v){
+  var ps=sepPostazioni(its);
+  ps.forEach(function(it){ var cfg=sepCfg(it);
+    it.sep=Math.max(minSepOf(it), Math.min(300, Math.round(+v)||minSepOf(it)));
+    it.w=sepToW(cfg, it.sep); });
+  return ps.length;
+}
+var grpSepTrascina=false;   /* mentre il cursore si muove, renderProps non gli riscrive valore e scritta */
+function grpSepRender(its){
+  var w=document.getElementById("grpSepWrap"); if(!w) return;
+  var st=sepStato(its); w.style.display = st ? "block" : "none";
+  if(!st || grpSepTrascina) return;
+  var r=document.getElementById("grpSep"), o=document.getElementById("grpSepVal"), h=document.getElementById("grpSepHint");
+  r.min=st.min; r.value=st.lo;
+  r.classList.toggle("misto", st.misto);
+  var sc=grpSepScritta(st);
+  if(o) o.textContent=sc.val; if(h) h.textContent=sc.nota;
+}
+/* le parole del cursore di gruppo: i centimetri o «diversi», e a chi si applica */
+function grpSepScritta(st){
+  var chi = st.n===1 ? "l'unica postazione a 2 selezionata" : "le "+st.n+" postazioni a 2 selezionate";
+  return { val: st.misto ? "diversi" : st.lo+" cm",
+    nota: (st.misto ? "Distanze diverse, da "+st.lo+" a "+st.hi+" cm: muovendo il cursore diventano tutte uguali. " : "Vale per "+chi+". ")
+      + (st.altri ? (st.altri===1 ? "L'altro elemento selezionato resta com'è." : "Gli altri "+st.altri+" elementi selezionati restano come sono.") : "") };
+}
+function grpSepApply(doSave, val){   /* val: dai test; dall'interfaccia è il valore del cursore */
+  primaDiAgire();   /* un nome ancora in digitazione chiude il suo passo prima: non finisce nello stesso Annulla */
+  var v = val!=null ? +val : +document.getElementById("grpSep").value;
+  if(doSave) grpSepTrascina=false;
+  if(!sepApplica(selItems(), v)) return;
+  if(doSave) __cabRes=null;
+  render();   /* render → renderProps → grpSepRender: al rilascio riscrive stato e «diversi» */
+  if(doSave) save();
+}
+document.getElementById("grpSep").addEventListener("input", function(){
+  grpSepTrascina=true; this.classList.remove("misto");
+  var o=document.getElementById("grpSepVal"); if(o) o.textContent=(this.value||"")+" cm";   /* il numero segue il cursore */
+  grpSepApply(false);
+});
+document.getElementById("grpSep").addEventListener("change", function(){ grpSepApply(true); });
 document.getElementById("pDonna").addEventListener("change", function(){ var c=document.getElementById("pDonna").checked; mutSelAll(function(it){ it.donna=c; }); });
 document.getElementById("pMicMode").addEventListener("change", function(){ var v=this.value; mutSelAll(function(it){ it.micMode=v; delete it.mano; delete it.nomic; if(it.type==="cantante") it.d=cantanteDepth(it); }); __cabRes=null; render(); });
 document.getElementById("pLeggioV").addEventListener("change", function(){ mutSel(function(it){

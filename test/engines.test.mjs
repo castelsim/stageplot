@@ -17477,5 +17477,94 @@ t("adatta palco: il comando sta nella «Forma del palco» e la nuova scena è la
   ok(/run:function\(\)\{ undo\(\); adattaPalcoApplica\(msg\.allargaW, msg\.allargaD, nuova\); \}/.test(appjs), "«Usa un palco…» annulla e rifà sul palco proposto, con la stessa scelta della scena");
 });
 
+/* ===== Distanza tra i 2 su più postazioni (29/09, segnalazione di Simone: «se seleziono molteplici postazioni a 2
+   devo poter regolare la distanza dei musicisti in simultanea delle postazioni a 2 selezionate») ===== */
+function orchestraA2() {
+  reset();
+  const v1 = add("vlnpost", 200, 300, { doppia: true, sep: 90, vsec: 1 });
+  const v2 = add("vlnpost", 450, 300, { doppia: true, sep: 120, vsec: 1 });
+  const vc = add("violoncello", 700, 300, { doppia: true, sep: 110 });
+  const cx = add("cellix2", 950, 300, { sep: 110 });
+  const vs = add("vlnpost", 200, 550, { vsec: 2 });   /* singola: non è una postazione a 2 */
+  const we = add("wedge", 450, 550);
+  [v1, v2, vc, cx].forEach((it) => { it.w = A.sepToW(A.sepCfg(it), it.sep); });
+  return { v1, v2, vc, cx, vs, we };
+}
+function selezionaTutti(its) { A.clearSelection(); its.forEach((it) => { A.selSet[it.id] = true; A.sel = it.id; }); }
+
+t("postazioni a 2: sono le doppie di POSTAZ e i tipi ×2, non le singole né gli altri elementi", () => {
+  const o = orchestraA2();
+  eq(A.sepPostazioni([o.v1, o.v2, o.vc, o.cx, o.vs, o.we]).map((it) => it.id), [o.v1.id, o.v2.id, o.vc.id, o.cx.id]);
+  eq(A.sepStato([o.vs, o.we]), null, "senza postazioni a 2 il cursore non c'è");
+  reset();
+});
+
+t("postazioni a 2 selezionate: la stessa distanza a tutte, gli altri elementi intatti, un solo Annulla", () => {
+  const o = orchestraA2();
+  A.save(); A.resetHistory();
+  const altri = JSON.stringify([o.vs, o.we]);
+  selezionaTutti([o.v1, o.v2, o.vc, o.cx, o.vs, o.we]);
+  /* trascinamento: tre tacche senza salvare, poi il rilascio */
+  A.grpSepApply(false, 100); A.grpSepApply(false, 130);
+  eq(A.undoStack.length, 0, "durante il trascinamento nessun passo di Annulla");
+  A.grpSepApply(true, 150);
+  const id2 = (it) => A.state.items.find((x) => x.id === it.id);
+  eq([o.v1, o.v2, o.vc, o.cx].map((it) => id2(it).sep), [150, 150, 150, 150], "tutte a 150 cm");
+  eq(id2(o.v1).w, A.sepToW(A.POSTAZ.vlnpost, 150), "la larghezza segue la distanza (vlnpost)");
+  eq(id2(o.cx).w, A.sepToW(A.DOUBLE_TYPES.cellix2, 150), "e anche per i tipi ×2");
+  eq(JSON.stringify([id2(o.vs), id2(o.we)]), altri, "violino singolo e wedge non cambiano");
+  eq(A.undoStack.length, 1, "un solo passo di Annulla");
+  A.undo();
+  eq([o.v1, o.v2, o.vc, o.cx].map((it) => id2(it).sep), [90, 120, 110, 110], "Annulla riporta le distanze di prima, tutte insieme");
+  reset();
+});
+
+t("postazioni a 2 fuori dalla selezione non si toccano; ognuna rispetta il suo minimo", () => {
+  const o = orchestraA2();
+  const cb = add("contrabbasso", 1100, 550, { doppia: true, sep: 160 });
+  selezionaTutti([o.v1, cb]);
+  A.grpSepApply(true, 70);
+  eq([o.v1.sep, cb.sep], [70, A.minSepOf(cb)], "il violino va a 70, il contrabbasso si ferma al suo minimo (100)");
+  eq([o.v2.sep, o.vc.sep], [120, 110], "le postazioni a 2 non selezionate restano come sono");
+  const st = A.sepStato([o.v1, cb]);
+  eq([st.min, st.misto], [65, true], "il cursore parte dal minimo più basso; restano diverse per via del minimo");
+  reset();
+});
+
+t("postazioni a 2: stato misto → «diversi», poi uguali → centimetri", () => {
+  const o = orchestraA2();
+  const sel = [o.v1, o.v2, o.we];
+  let st = A.sepStato(sel);
+  eq([st.n, st.altri, st.lo, st.hi, st.misto], [2, 1, 90, 120, true], "90 e 120: miste");
+  let sc = A.grpSepScritta(st);
+  eq(sc.val, "diversi", "al posto dei centimetri");
+  ok(/da 90 a 120 cm/.test(sc.nota) && /L'altro elemento selezionato resta com'è/.test(sc.nota), sc.nota);
+  A.sepApplica(sel, 105);
+  st = A.sepStato(sel); sc = A.grpSepScritta(st);
+  eq([st.misto, sc.val], [false, "105 cm"], "uguali: i centimetri");
+  ok(/le 2 postazioni a 2 selezionate/.test(sc.nota), sc.nota);
+  reset();
+});
+
+t("postazioni a 2: la distanza nuova si vede nel disegno", () => {
+  const o = orchestraA2();
+  ok(A.itemMarkup(o.v1).indexOf("translate(45,0)") > -1, "a 90 cm i due violinisti stanno a ±45");
+  A.sepApplica([o.v1], 150);
+  const m = A.itemMarkup(o.v1);
+  ok(m.indexOf("translate(75,0)") > -1 && m.indexOf("translate(-75,0)") > -1, "a 150 cm stanno a ±75");
+  reset();
+});
+
+t("postazioni a 2: il cursore sta nel pannello di gruppo, si salva al rilascio, 44 px sul telefono", () => {
+  const tpl = readFileSync(join(root, "index.template.html"), "utf8");
+  const grp = tpl.slice(tpl.indexOf('<div class="sec" id="groupProps"'), tpl.indexOf('id="grpSbWrap"'));
+  ok(/<input type="range" id="grpSep" min="65" max="300" step="5"/.test(grp), "cursore come quello singolo, nel pannello di gruppo");
+  ok(/<output id="grpSepVal"/.test(grp) && /id="grpSepHint"/.test(grp), "centimetri o «diversi», e la nota");
+  ok(/grpSepTrascina=true;[\s\S]{0,200}grpSepApply\(false\);\s*\}\);/.test(appjs), "mentre si trascina: ridisegna senza salvare");
+  ok(/getElementById\("grpSep"\)\.addEventListener\("change", function\(\)\{ grpSepApply\(true\); \}\);/.test(appjs), "al rilascio: un salvataggio");
+  ok(/grpSepRender\(its\);/.test(appjs), "renderProps lo mostra con la selezione multipla");
+  ok(/@media \(max-width:880px\)\{ #props #groupProps #grpSep\{min-height:44px\} \}/.test(stylesCss), "44 px sul telefono");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
