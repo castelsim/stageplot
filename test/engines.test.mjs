@@ -12410,6 +12410,8 @@ t("il contatore della landing non conta chi sviluppa il sito, e conta tutti gli 
   /* e l'editor il segno lo scrive davvero, dove decide se l'evento è del fondatore */
   ok(/props\.founder\)\s*localStorage\.setItem\("sp_founder","1"\)/.test(appjs), "l'editor lascia il segno quando l'account è quello di chi sviluppa");
   ok(/localStorage\.removeItem\("sp_founder"\)/.test(appjs), "e lo toglie se nello stesso browser entra qualcun altro");
+  /* uscita pulita (#246): il segno è legato all'account, all'uscita si toglie con gli altri dati dell'account */
+  eq(A.uscitaChiaveDaCancellare("sp_founder", "local"), true, "all'uscita dall'account il segno si cancella");
 });
 
 t("sul telefono il riquadro prima/dopo non blocca lo scorrimento della pagina", () => {
