@@ -8640,7 +8640,9 @@ t("uscire dalla vista e' un comando che si vede", () => {
 t("il contesto sfumato resta leggibile: «fuoco» non e' «isolamento»", () => {
   /* A .15 il contesto era invisibile, quindi il fuoco somigliava all'isolamento e il bottone S non
      distingueva piu' niente da quello che faceva gia' il clic sulla riga. */
-  ok(/class="solo-bg" style="opacity:\.42"/.test(appjs), "l'opacita' del contesto non e' quella misurata a video");
+  /* 29/09: la sola eccezione e' «Solo pedane» (.15, il contesto e' solo un riferimento): i layer restano a .42 */
+  ok(/var _bgOp = soloOn\("pedane"\) \? "\.15" : "\.42";/.test(appjs) && /class="solo-bg" style="opacity:'\+_bgOp\+'"/.test(appjs),
+     "l'opacita' del contesto non e' quella misurata a video");
   eq(appjs.indexOf('class="solo-bg" style="opacity:.15"'), -1, "e' tornata l'opacita' che rendeva il contesto un fantasma");
   ok(/layerSoloMode==="iso"\) return;/.test(appjs), "…e l'isolamento deve restare quello che il contesto lo toglie del tutto");
 });
@@ -16981,6 +16983,69 @@ t("il deploy non pubblica i test e i dati demo di Orchestre, e build non ha i pe
   ok(!/pages: write|id-token: write/.test(cima), "i permessi di pubblicazione non valgono per tutti i job");
   const dep = wf.slice(wf.indexOf("\n  deploy:"));
   ok(/permissions:\s*\n\s*pages: write\s*\n\s*id-token: write/.test(dep), "li ha solo deploy");
+});
+
+t("Solo pedane: dal pannello della pedana si vedono e si prendono solo le pedane, finché una è selezionata", () => {
+  /* 29/09 — Simone: «se seleziono una pedana sulla destra deve esserci un simbolo visibilità … vedere solo
+     le pedane e modificarle a piacimento, poi quando la deseleziona si disattiva anche la modalità solo» */
+  reset();
+  const p1 = add("pedana", 300, 300), p2 = add("pedanacoro", 700, 300), v = add("vlnpost", 450, 520);
+  A.layerSoloUI = {}; A.layerAccOpen = null;
+  A.selectOne(v.id);
+  eq(A.soloPedaneDisponibile(), false, "col musicista selezionato il comando non c'è");
+  A.soloPedane(true);
+  eq(A.soloOn("pedane"), false, "e non si accende");
+  A.selectOne(p1.id);
+  eq(A.soloPedaneDisponibile(), true, "con la pedana selezionata sì");
+  const undo0 = A.undoStack.length;
+  A.soloPedane(true);
+  eq(A.soloOn("pedane"), true, "acceso");
+  eq(A.itemPickable(p2), true, "l'altra pedana (anche del coro) si prende");
+  eq(A.itemPickable(v), false, "il resto no");
+  eq(A.itemLiveOnStage(v), false, "niente maniglie sul resto");
+  const mk = A.sceneMarkup();
+  ok(/<g class="solo-bg" style="opacity:\.15">/.test(mk), "il resto attenuato al 15%, non al .42 dei layer");
+  ok(/mus-item/.test(mk.split('class="solo-bg"')[1] || ""), "il musicista sta nel contesto sfumato");
+  const keepSolo = A.layerSoloUI; A.layerSoloUI = { stage: true };
+  ok(/<g class="solo-bg" style="opacity:\.42">/.test(A.sceneMarkup()), "il solo del Palco resta a .42");
+  A.layerSoloUI = keepSolo;
+  A.pruneSolo();
+  eq(A.soloOn("pedane"), true, "con la pedana ancora selezionata resta acceso a ogni render");
+  A.selSet = {}; A.selSet[p1.id] = true; A.selSet[v.id] = true; A.sel = p1.id;
+  A.pruneSolo();
+  eq(A.soloOn("pedane"), true, "una selezione che contiene una pedana lo tiene");
+  eq(A.undoStack.length, undo0, "annulla/ripeti non ne sono toccati");
+  ok(!/pedane/.test(JSON.stringify(A.state)), "è una vista: non finisce nel progetto");
+  /* export: il PDF disegna il progetto, non la vista (i cavi seguono il solo attraverso layerShown) */
+  const orig = A.cablingMarkup; let soloNelPdf = null;
+  A.cablingMarkup = function () { soloNelPdf = A.anySolo(); return ""; };
+  try { A.stageSceneSvg(null, {}); } finally { A.cablingMarkup = orig; }
+  eq(soloNelPdf, false, "nel PDF nessun solo attivo");
+  eq(A.soloOn("pedane"), true, "e dopo l'export il solo è ancora lì");
+  const png = A.buildExportSvg().svgStr;
+  ok(/<g id="layItems">/.test(png) && !/class="solo-bg"/.test(png), "il PNG esce senza sfumatura");
+  eq(A.soloOn("pedane"), true, "e anche dopo il PNG il solo è ancora lì");
+  /* si spegne da solo: altro tipo selezionato, deselezione, Esc */
+  A.selectOne(v.id); A.pruneSolo();
+  eq(A.soloOn("pedane"), false, "selezionato il musicista: spento");
+  A.selectOne(p1.id); A.soloPedane(true); A.clearSelection(); A.pruneSolo();
+  eq(A.soloOn("pedane"), false, "deselezionata la pedana: spento");
+  A.selectOne(p1.id); A.soloPedane(true); A.exitListMode();
+  eq(A.soloOn("pedane"), false, "Esc (exitListMode): spento");
+  A.soloPedane(true); A.soloPedane(false);
+  eq(A.anySolo(), false, "di nuovo il comando: spento");
+  A.layerSoloUI = {}; A.clearSelection();
+});
+
+t("Solo pedane: il comando c'è nei tre pannelli, con l'occhio e 44 px col dito", () => {
+  const html = readFileSync(join(root, "index.template.html"), "utf8");
+  ["pSoloPed", "grpSoloPed", "mPeekSolo"].forEach((id) => {
+    const m = html.match(new RegExp('<button[^>]*id="' + id + '"[^>]*>[\\s\\S]*?</button>'));
+    ok(m && /M1 12s4-7 11-7/.test(m[0]) && /Solo pedane/.test(m[0]), id + ": occhio e «Solo pedane»");
+  });
+  const css = readFileSync(join(root, "src/styles.css"), "utf8");
+  ok(/@media \(pointer:coarse\)\{ #props \.solo-ped\{min-height:44px\} \}/.test(css), "44 px col dito nel pannello");
+  ok(/body\.ped-sel #mPeek \.mpk-acts\{grid-template-columns:repeat\(5/.test(css), "sul telefono quinta azione della testa (52 px)");
 });
 
 /* ===== Adatta a un palco di misura diversa (29/09, richiesta di Simone: stessa formazione, altro palco) ===== */

@@ -3194,6 +3194,22 @@ body.dark .ask-all .btn{background:transparent}
   .lite-btn{width:44px;height:44px}
   #props .btn.cnt-b{width:44px;height:44px;min-width:44px}   /* i +/− dei contatori: si premono a ripetizione */
 }
+/* SOLO PEDANE (29/09, Simone) — il comando compare nel pannello solo con una pedana selezionata.
+   Occhio + parola; acceso = ambra, lo stesso segno del solo dei layer. Sul telefono sta nella testa
+   del foglio (#mPeek) come quinta azione: il pannello vero lo ripeterebbe due volte. */
+#props .solo-ped{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin:0 0 10px;font-size:12px;font-weight:600}
+#props .solo-ped svg{width:16px;height:16px;flex:0 0 auto}
+#props .solo-ped.on{background:#fde68a;border-color:#f59e0b;color:#92400e}
+body.dark #props .solo-ped.on{background:#78350f;border-color:#b45309;color:#fbbf24}
+@media (pointer:coarse){ #props .solo-ped{min-height:44px} }
+@media (max-width:880px){
+  body.m-has-sel #props .solo-ped{display:none!important}
+  body.ped-sel #mPeek .mpk-acts{grid-template-columns:repeat(5,minmax(0,1fr))}
+  #mPeek .mpk-acts .mpk-solo{line-height:1.1;text-align:center}
+  #mPeek .mpk-acts .mpk-solo.on{background:#fde68a;border-color:#f59e0b;color:#92400e}
+  body.dark #mPeek .mpk-acts .mpk-solo.on{background:#78350f;border-color:#b45309;color:#fbbf24}
+}
+
 
 /* ── BARRA ALTA, MENU E PANNELLI DEL TELEFONO (13/09) ─────────────────────────────────────────────
    Simone: «analizza la versione mobile e prova a farmi dei mockup», poi «procedi con tutte».
@@ -3932,6 +3948,7 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
   </div>
   <div class="sec" id="selProps" hidden>
     <h3 id="selNome">Elemento</h3>
+    <button type="button" class="btn solo-ped" id="pSoloPed" style="display:none" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg><span>Solo pedane</span></button>
     <div id="pLookWrap" style="display:none;margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px">
         <label style="font-size:12px;color:var(--text-2);margin:0">Disegna come</label>
@@ -4476,6 +4493,7 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
   </div>
   <div class="sec" id="groupProps" hidden>
     <h3 id="grpNome">Selezione</h3>
+    <button type="button" class="btn solo-ped" id="grpSoloPed" style="display:none" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg><span>Solo pedane</span></button>
     <div id="grpOpts" style="display:none;margin-bottom:8px">
       <div class="hint" style="font-size:11px;color:var(--text-3);margin-bottom:4px">Applica a tutti gli elementi selezionati:</div>
       <label class="chk" id="grpSediaWrap"><input type="checkbox" id="grpSedia"> Sedia</label>
@@ -4787,6 +4805,7 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
     <button type="button" class="mpk-dup" id="mPeekDup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Duplica</button>
     <button type="button" class="mpk-copy" id="mPeekCopy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="3" width="13" height="15" rx="2"/><path d="M4 7v12a2 2 0 0 0 2 2h9"/></svg>Copia</button>
     <button type="button" class="mpk-del" id="mPeekDel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Elimina</button>
+    <button type="button" class="mpk-solo" id="mPeekSolo" style="display:none" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>Solo pedane</button>
   </div>
 </div>
 
