@@ -9300,9 +9300,7 @@ function auditEngine(){
      non ha nemmeno un canale, in silenzio. In un'orchestra pop 16 su 30 stanno fuori dalle sue due zone.
      Ripreso = dentro una zona, oppure con un microfono d'insieme entro 4,5 m (un overhead da coro
      copre più file; oltre, è un microfono di qualcos'altro). */
-  var AUDIT_ENSEMBLE_MICS={micchoir:1,micover:1,giraffa:1,astagigante:1,coppiast:1,astamic:1};
-  var coroMuto=items.filter(function(it){ return it.type==="corista" && micModeOf(it)==="pano" && !itemInMicZone(it)
-    && !items.some(function(m){ return AUDIT_ENSEMBLE_MICS[m.type] && Math.hypot(m.x-it.x,m.y-it.y)<450; }); });
+  var coroMuto=coristiSenzaRipresa(items);
   if(coroMuto.length) add("warn", coroMuto.length+(coroMuto.length===1?" corista in panoramica non è ripreso":" coristi in panoramica non sono ripresi")+" da nessun microfono: nella channel list il coro non ha canali.","Audio",
     "In panoramica il corista non ha un microfono suo: servono microfoni d'insieme davanti al coro, oppure una zona microfonica che lo copra.",
     {label:"Aggiungi microfoni coro",run:function(){ auditFixChoirMics(coroMuto); }}, "coromuto");
@@ -9600,6 +9598,15 @@ function auditFixAddVoiceMics(list){
    massimo 8, distribuiti sulla larghezza del coro e un metro davanti alla sua prima fila (lato
    pubblico = y maggiore), dentro il palco. Nomi distinti «Coro 1…N»: tre righe «Coro» uguali sono
    il patch ambiguo che l'audit stesso segnala. */
+/* I coristi in panoramica che nessun microfono riprende (regola «coromuto» dell'audit). Funzione a sé
+   perché la usa anche la finestra Esporta (29/09): l'avviso dell'audit non bastava — due progetti veri
+   con 16 e 30 coristi senza canale sono stati esportati tre volte, e l'Esporta si ferma solo sugli errori. */
+var AUDIT_ENSEMBLE_MICS={micchoir:1,micover:1,giraffa:1,astagigante:1,coppiast:1,astamic:1};
+function coristiSenzaRipresa(items){
+  items=items||state.items||[];
+  return items.filter(function(it){ return it.type==="corista" && micModeOf(it)==="pano" && !itemInMicZone(it)
+    && !items.some(function(m){ return AUDIT_ENSEMBLE_MICS[m.type] && Math.hypot(m.x-it.x,m.y-it.y)<450; }); });
+}
 function auditFixChoirMics(list){
   var cs=(list||[]).map(function(v){ return state.items.find(function(i){ return i.id===v.id; }); }).filter(Boolean);
   if(!cs.length) return 0;
@@ -27009,6 +27016,29 @@ function pdfChannelPage(doc, L, paperKey){
     });
     box.appendChild(fix);
   }
+  /* Il coro che nel PDF non ha canali (29/09). Stessa forma dell'avviso qui sopra: quello che si vedrà nel
+     foglio, e il rimedio a un clic — gli stessi microfoni d'insieme che aggiunge l'audit. */
+  function renderCoroMuto(){
+    var box=document.getElementById("pdfCoroMuto"); if(!box) return;
+    box.innerHTML="";
+    var muti = (typeof coristiSenzaRipresa==="function") ? coristiSenzaRipresa() : [];
+    if(!muti.length){ box.hidden=true; return; }
+    box.hidden=false;
+    box.className="nudge warn";
+    var b=document.createElement("b");
+    b.textContent = muti.length===1 ? "1 corista senza microfono" : muti.length+" coristi senza microfono";
+    box.appendChild(b);
+    box.appendChild(document.createTextNode(" — nella channel list del PDF il coro non ha canali. "));
+    var fix=document.createElement("button");
+    fix.type="button"; fix.className="btn"; fix.id="pdfCoroFix"; fix.textContent="Aggiungi microfoni coro";
+    fix.addEventListener("click", function(){
+      if(typeof auditFixChoirMics==="function") auditFixChoirMics(coristiSenzaRipresa());
+      renderCoroMuto();
+      if(typeof pdfRefreshPages==="function") pdfRefreshPages();
+      if(typeof refresh==="function") refresh();
+    });
+    box.appendChild(fix);
+  }
   function renderProdInline(){
     /* Nudge Controllo tecnico (variante A): un invito blu quando restano voci da definire,
        neutro quando è completo; click = apre/chiude le tendine qui sotto. Mai bloccante. */
@@ -27343,6 +27373,7 @@ function pdfChannelPage(doc, L, paperKey){
     pdfRenderPills();
     renderProdInline();
     renderFuoriPalco();
+    renderCoroMuto();
     renderPdfUltimo();
     pdfHeaderInit();
     refresh();
