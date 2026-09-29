@@ -11065,6 +11065,73 @@ t("a schermo il nome cresce attorno al bordo del disegno, non alla sua baseline"
   } finally { A._lblSchermo = pS; A._lblSink = pK; }
 });
 
+// ── AL TELEFONO I NOMI CEDONO IL POSTO (29/09, v2) ─────────────────────────────────────────────
+// Col nome a filo del disegno e il corpo minimo ingrandito 2,3× al telefono, sul progetto di collaudo 25
+// 87 coppie di nomi si accavallavano. nomiCedono (a schermo, solo telefono) nasconde chi toccherebbe un
+// nome già mostrato o — quando il corpo minimo ingrandisce — il disegno di un altro elemento.
+console.log("\n— Al telefono i nomi cedono il posto —");
+const rett = (l, t, r, b) => [[l, t], [r, t], [r, b], [l, b]];
+const girato = (cx, cy, w, h, gradi) => { const a = gradi * Math.PI / 180, c = Math.cos(a), s = Math.sin(a);
+  return [[-w / 2, -h / 2], [w / 2, -h / 2], [w / 2, h / 2], [-w / 2, h / 2]].map(([x, y]) => [cx + x * c - y * s, cy + x * s + y * c]); };
+
+t("due nomi che si toccano: il secondo in ordine di lettura cede", () => {
+  const via = A.nomiDaNascondere([
+    { id: "b", quads: [rett(10, 20, 60, 30)] },
+    { id: "a", quads: [rett(0, 10, 50, 22)] },
+    { id: "c", quads: [rett(200, 10, 250, 22)] },
+  ], []);
+  eq(JSON.stringify(Object.keys(via).sort()), '["b"]', "cede chi viene dopo, e solo lui");
+});
+
+t("il nome dell'elemento selezionato si vede sempre e prende il posto per primo", () => {
+  const via = A.nomiDaNascondere([
+    { id: "a", quads: [rett(0, 10, 50, 22)] },
+    { id: "sel", sel: true, quads: [rett(10, 20, 60, 30)] },
+  ], []);
+  ok(!via.sel, "il selezionato è stato nascosto");
+  ok(via.a, "chi tocca il selezionato non cede, anche se viene prima in ordine di lettura");
+  ok(!A.nomiDaNascondere([{ id: "s", sel: true, quads: [rett(0, 0, 40, 10)] }], [{ id: "x", quad: rett(0, 0, 100, 100) }]).s,
+     "il selezionato sopra un disegno altrui deve restare");
+});
+
+t("un nome sopra il disegno di un ALTRO elemento cede; sopra il suo no", () => {
+  const nome = { id: "v1", quads: [rett(0, 0, 40, 10)] };
+  ok(A.nomiDaNascondere([nome], [{ id: "v2", quad: rett(20, 5, 80, 60) }]).v1, "sopra il disegno del vicino è rimasto");
+  ok(!A.nomiDaNascondere([nome], [{ id: "v1", quad: rett(20, 5, 80, 60) }]).v1, "il proprio disegno non conta");
+  ok(!A.nomiDaNascondere([nome], [{ id: "v2", quad: rett(40.5, 0, 80, 60) }]).v1, "sfiorarsi non conta");
+});
+
+t("i nomi girati si confrontano inclinati, non col riquadro dritto", () => {
+  /* due scritte a 45°, parallele e staccate: i riquadri dritti si sovrappongono, le scritte no */
+  const a = { id: "a", quads: [girato(100, 100, 80, 10, 45)] }, b = { id: "b", quads: [girato(115, 85, 80, 10, 45)] };
+  ok(!A.quadSiToccano(a.quads[0], b.quads[0], 0), "scritte parallele staccate date per sovrapposte");
+  eq(Object.keys(A.nomiDaNascondere([a, b], [])).length, 0, "un nome girato è sparito per il riquadro dritto");
+  ok(A.quadSiToccano(girato(100, 100, 80, 10, 45), girato(100, 100, 80, 10, -45), 0), "due scritte incrociate non si toccano?");
+});
+
+t("la passata sta a schermo, solo al telefono, e i disegni contano solo col corpo ingrandito", () => {
+  const f = appjs.slice(appjs.indexOf("function aggiornaNomiZoom(){"), appjs.indexOf("function reindexItemNodes(){"));
+  ok(/nomiCedono\(\);\s*return ppm;/.test(f), "aggiornaNomiZoom (render, rotella, pizzico) non chiama la passata");
+  const c = appjs.slice(appjs.indexOf("function nomiCedono(){"), appjs.indexOf("function reindexItemNodes(){"));
+  ok(/var attivo=isMobile\(\) && !svg\.classList\.contains\("names-hidden"\);/.test(c), "la passata non è ristretta al telefono");
+  ok(/if\(K>1\.001\) \(state\.items\|\|\[\]\)\.forEach/.test(c), "i disegni contano anche a corpo pieno");
+  ok(/#svg #layLbl \.item-lbls\.lbl-cede\{visibility:hidden\}/.test(stylesCss), "manca la regola che nasconde il nome che cede");
+  ok(/\.lbl-cede\.selected/.test(stylesCss), "il selezionato deve vedersi anche se cede");
+});
+
+t("la misura del disegno non si rifà per il contatore di libIcon", () => {
+  /* «L772_musTrombone_cls-1» cambia a ogni render: la cache non prendeva mai le postazioni illustrate
+     (38 misure su 93 a ogni render del collaudo 25, 204 ms invece di 80) */
+  const prima = A._arteCache; A._arteCache = null;
+  try {
+    A.misuraArte('<g class="L5_musTromba_cls-1"/>');
+    A.misuraArte('<g class="L977_musTromba_cls-1"/>');
+    eq(A._arteCache.size, 1, "lo stesso disegno misurato due volte");
+    A.misuraArte('<g class="L5_musViola_cls-1"/>');
+    eq(A._arteCache.size, 2, "disegni diversi confusi");
+  } finally { A._arteCache = prima; }
+});
+
 // ── DOVE NASCE UN ELEMENTO POSATO DAL CATALOGO (11/08) ─────────────────────────────────────────
 // Un elemento occupa il suo disegno E la striscia dove sta scritto il suo nome. Fino all'11/08 la
 // ricerca del posto libero guardava solo il footprint: sette voci posate dal catalogo su un palco
