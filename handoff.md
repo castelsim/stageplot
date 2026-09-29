@@ -6,6 +6,16 @@ sono state scritte qui: la loro storia sta nei messaggi di commit e nelle PR (#9
 
 ## Settembre in una pagina (PR su `main`)
 
+- **29/09 — Pedane sganciate** (ramo `pedane-sganciate`, richiesta di Simone: «se sposto la pedana, gli elementi
+  devono rimanere dove sono … opzione snap elementi con pedane … di default spenta»). Di partenza trascinare
+  (mouse, dito), Duplica e Copia muovono/copiano SOLO la pedana. Sotto «Solo pedane» (pannello elemento `#pAgg`,
+  pannello selezione `#grpAgg`; sul telefono nel foglio aperto) l'interruttore «Aggancia gli elementi alla
+  pedana» scrive `aggancia:true` SULLA PEDANA (salvato nel progetto, Annulla sì): solo allora vale il
+  comportamento di prima (`caricoDellePedane`, `pedanaAgganciata`; Duplica/Copia con carico e blocco). Tolto
+  «Sposta solo la pedana» (`pedanaSola`, globale mai salvato: nessuna migrazione, i progetti vecchi si aprono
+  sganciati). ⚠️ Le pedane duplicate prima di oggi restano in un blocco `grp` coi loro elementi: si muovono
+  insieme perché gruppo, finché lo si divide. «Adatta a un altro palco» non toccato.
+
 - **29/09 — Uscita pulita** (#246, richiesta di Simone: «immagina che io faccia il login sul computer di un'altra
   persona»). `signOut()`: `preparaUscita` (salva online o chiede «Resta / Esci comunque») → `sb.auth.signOut()`
   (senza rete `scope:"local"`) → `pulisciDatiAccount` (tabella chiavi nel blocco «USCITA PULITA») → invito
