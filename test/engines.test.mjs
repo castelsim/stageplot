@@ -17081,7 +17081,7 @@ t("uscita: signOut passa da preparaUscita, pulisce e mostra l'invito (non più �
   ok(/pulisciDatiAccount\(\);\s*mostraInvitoAccesso\("uscita"\);/.test(so), "pulizia e invito");
   ok(/scope:"local"/.test(so), "senza rete la sessione si toglie comunque dal browser");
   ok(!/toast\("Disconnesso\. Il progetto resta/.test(src), "il vecchio messaggio non c'è più");
-  ok(/<div class="modal" id="accessoInvito" hidden>[\s\S]*?id="aiSenza">Inizia un progetto senza account<[\s\S]*?class="wl-cta" id="aiAccedi">Accedi con Google</.test(src), "invito con i pezzi del benvenuto");
+  ok(/<div class="modal" id="accessoInvito" hidden>[\s\S]*?id="aiSenza">Continua senza account<[\s\S]*?class="wl-cta" id="aiAccedi">Accedi con Google</.test(src), "invito con i pezzi del benvenuto");
   ok(/body\.accesso-invito > :not\(\.modal\)/.test(stylesCss), "con l'invito il progetto dietro non si vede");
 });
 
@@ -17106,7 +17106,12 @@ t("uscita: al boot un progetto dell'account senza sessione non si mostra; quello
   /* il codice di avvio lo chiama davvero, e aspetta chi torna dal login */
   const src = readFileSync(join(root, "index.template.html"), "utf8");
   ok(/if\(!senzaInvito && !haChiaveSessione\(\)\) invitoAlBoot\(false, oauthReturn\);/.test(src), "subito, se la sessione non c'è proprio");
-  ok(/else if\(!senzaInvito\)\{\s*if\(!oauthReturn\) invitoAlBoot\(false, false\);/.test(src), "dopo getSession");
+  /* senza rete supabase-js risponde session:null CON errore (token scaduto non rinnovabile): non è un'uscita,
+     chi lavora in un locale senza campo deve poter continuare */
+  ok(/else if\(!senzaInvito && !sessioneNonRaggiungibile\(r && r\.error\)\)\{\s*if\(!oauthReturn\) invitoAlBoot\(false, false\);/.test(src), "dopo getSession, solo se il server ha risposto");
+  eq(A.sessioneNonRaggiungibile({ name: "AuthRetryableFetchError", status: 0 }), true, "senza rete: il progetto resta");
+  eq(A.sessioneNonRaggiungibile({ name: "AuthApiError", status: 400, code: "refresh_token_not_found" }), false, "sessione revocata: invito");
+  eq(A.sessioneNonRaggiungibile(null), false, "nessun errore e nessuna sessione: invito");
 }));
 
 t("uscita: l'altra scheda smette di mostrare il progetto al segnale", () => conUscitaSandbox(() => {

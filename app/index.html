@@ -3555,6 +3555,7 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
    mostra niente del progetto dietro — restano visibili solo le finestre, il messaggio e le conferme.
    `visibility` e non `display`: il palco tiene le sue misure e alla chiusura fit() non riparte da zero. */
 body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:hidden}
+@media (min-width:881px){ #accessoInvito .wl-foot button{white-space:nowrap} }   /* due bottoni su una riga: a capo sembravano quattro */
 </style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->
 <script async src="/icons.js"></script>
@@ -5271,7 +5272,7 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
     </div>
     <div class="wl-body">
       <div class="wl-foot">
-        <button type="button" class="wl-ghost" id="aiSenza">Inizia un progetto senza account</button>
+        <button type="button" class="wl-ghost" id="aiSenza">Continua senza account</button>
         <button type="button" class="wl-cta" id="aiAccedi">Accedi con Google</button>
       </div>
     </div>
