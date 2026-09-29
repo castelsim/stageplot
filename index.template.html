@@ -6329,7 +6329,7 @@ function redo(){ flushHistorySoon(); if(adattaRifaiScena()) return; if(!redoStac
    Ripeti la rimette. Vale solo finché nella scena nuova non si è fatto altro (passi === quelli lasciati da
    Adatta) e, per Ripeti, finché nella scena di partenza non si è toccato niente (switchVariant azzera la
    cronologia: undoStack vuoto). Niente punto di ripristino: la scena è nata un attimo fa da una copia. */
-var adattaScena=null, adattaRifai=null;
+var adattaScena=null, adattaRifai=null, adattaPasso=null;   /* adattaPasso: vedi adattaAvvertenza */
 /* Ripeti c'è con la cronologia della scena, o per rimettere la scena di «Adatta» appena tolta (adattaRifaiScena) */
 function ripetiDisponibile(){ return redoStack.length>0 || !!(adattaRifai && activeVar===adattaRifai.da && !undoStack.length); }
 function adattaAnnullaScena(){
@@ -7947,7 +7947,7 @@ var FUORI_OK = { foh:1 };
 function elementiFuoriDalPalco(){
   var bl=stageBlocks(), out=[];
   (state.items||[]).forEach(function(it){
-    if(FUORI_OK[it.type]) return;
+    if(FUORI_OK[it.type] || it.avvertenza) return;   /* l'avvertenza di Adatta sta sotto «PUBBLICO» apposta */
     var t=TYPES[it.type]||{}, hw=(it.w||t.w||60)/2, hd=(it.d||t.d||60)/2;
     /* Basta che il CENTRO sia dentro un blocco: un elemento che sborda di poco dal bordo è una cosa
        che si sposta in due secondi, non un errore da segnalare. */
@@ -7959,7 +7959,7 @@ function elementiFuoriDalPalco(){
 }
 /* Il palco che contiene tutto, arrotondato al mezzo metro: le misure di un palco si dicono così. */
 function palcoCheContieneTutto(){
-  var its=(state.items||[]).filter(function(it){ return !FUORI_OK[it.type]; });
+  var its=(state.items||[]).filter(function(it){ return !FUORI_OK[it.type] && !it.avvertenza; });
   if(!its.length) return null;
   var x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
   its.forEach(function(it){
@@ -8172,9 +8172,13 @@ function adattaPalcoApplica(W, D, nuovaScena){
   state.stage={ w:W, d:D, blocks:[h?{x:0,y:0,w:W,d:D,h:h}:{x:0,y:0,w:W,d:D}] };
   if(state.printFrame) state.printFrame=null;   /* l'area di stampa era misurata sul palco di prima */
   __cabRes=null; __elecRes=null; __mondRes=null;
+  var passiPrima=undoStack.length;
   save(); render();
   adattaScena = (nuovaScena && activeVar!==daScena) ? { id:activeVar, da:daScena, passi:undoStack.length } : null;
   adattaRifai = null;
+  /* il passo di Annulla appena fatto: l'avvertenza scelta subito dopo ci entra (adattaAvvertenza) */
+  adattaPasso = (adattaScena || undoStack.length>passiPrima) ? { v:activeVar, passi:undoStack.length, snap:lastSnap } : null;
+  R.W0=W0; R.D0=D0;
   pannelloPalcoAggiornato();   /* il pannello «Forma del palco» è aperto: diceva ancora 12 × 13 (29/09) */
   if(typeof fit==="function") fit();
   if(nuovaScena && typeof renderVariantBar==="function") renderVariantBar();
@@ -8191,6 +8195,121 @@ function adattaPalcoMessaggio(R, W, D){
     testo:"Tutti gli elementi stanno sul palco "+mis(W,D)+", ma sedie e leggii sono più vicini che nel disegno di partenza (fino al "+Math.round(R.stretta*100)+"% dell'ingombro). Per tenere le distanze di prima servirebbe un palco "+mis(R.serveW,R.serveD)+".",
     allargaW:R.serveW, allargaD:R.serveD };
   return { titolo:"Fatto", testo:"Tutti i "+R.elementi+" elementi stanno sul palco "+mis(W,D)+(R.aria>0?", senza sovrapposizioni.":", con gli ingombri accostati: niente più corridoi fra le sezioni.") };
+}
+/* La finestra dopo Adatta. «Ci stanno, ma stretti» ha in più la casella dell'avvertenza, SPENTA: decide chi fa
+   lo stage plot se scriverlo sul foglio (29/09, Simone: «l'avvertenza è un'opzione e decide l'utente»). */
+function adattaPalcoFinestra(R, W, D, nuova){
+  var msg=adattaPalcoMessaggio(R, W, D);
+  if(!msg.allargaW){ showToast(msg.testo); return null; }
+  var stretti=!!(R.ciSta && R.stretta>0);
+  return guideDialog({ title:msg.titolo, msg:msg.testo+" Si annulla con un solo Annulla.", okLabel:"Tengo così",
+    scelta: stretti ? { label:"Aggiungi un'avvertenza nello stage plot, per chi lo riceve", checked:false } : null,
+    chiusa: stretti ? function(si){ if(si) adattaAvvertenza(R.W0, R.D0, W, D, R.stretta); } : null,
+    action:{ label:"Usa un palco "+adattaM(msg.allargaW)+" × "+adattaM(msg.allargaD)+" m",
+      run:function(){ undo(); adattaPalcoApplica(msg.allargaW, msg.allargaD, nuova); } } });   /* in scena nuova: Annulla la toglie, e se ne fa una col nome della misura giusta */
+}
+/* ===== AVVERTENZA «PALCO ADATTATO» (29/09) =====
+   Un elemento «Testo libero» come gli altri (si sposta, si modifica, si cancella), in rosso, con le misure e la
+   percentuale vere. Si riconosce da `avvertenza:"adatta"`: una nuova prende il posto della vecchia, e non conta
+   come «elemento fuori dal palco» (se no l'Esporta proporrebbe di allargare il palco fino a lei).
+   Da console, su un progetto qualunque:  adattaAvvertenza(1200, 1300, 1000, 1000, 60)
+   (palco di partenza e palco attuale in cm; la stretta come frazione 0,2 o come percentuale 60). */
+var ADATTA_AVV_COLORE="#dc2626";
+var ADATTA_AVV_SFONDO={ tappeto:1, forma:1, miczone:1 };   /* si può scrivere sopra: non sono persone né oggetti */
+function adattaAvvertenzaTesto(W0, D0, W, D, stretta){
+  var s=+stretta||0, pc=Math.round(s>1 ? s : s*100);
+  var mis=function(w,d){ return adattaM(w)+" × "+adattaM(d)+" m"; };
+  var chi=(typeof eventoConferenza==="function" && eventoConferenza()) ? "Le postazioni sono più vicine" : "I musicisti sono più vicini";
+  return "Attenzione: palco adattato da "+mis(W0,D0)+" a "+mis(W,D)+". "+chi+" del normale (fino al "+pc+"% dell'ingombro): verificare gli spazi con la produzione.";
+}
+/* Il box per stare in maxW × maxH cm SULLA CARTA: nel PDF i corpi crescono di K (scaleSvgFonts) e il box no,
+   quindi si va a capo a maxW/K e l'altezza si misura sul corpo ingrandito. Dal 12 in giù fino al 9. */
+function adattaAvvertenzaImpagina(testo, maxW, maxH, K){
+  for(var f=12; f>=9; f--){
+    var bw=Math.floor((maxW-16)/K), righe=wrapTextLines(testo, bw, f);
+    var d=Math.ceil(16+1.15*f+1.25*f*(righe.length-1));   /* 8 di margine sopra e sotto + righe (lh 1,25) + discendenti a K */
+    if(d>maxH) continue;
+    var lunga=righe.reduce(function(m,r){ return Math.max(m, r.length); }, 0), cw=f*0.56;
+    return { f:f, righe:righe.length, d:d,
+      w: Math.min(bw+16, Math.ceil(lunga*cw)+18),                /* il box a schermo: stretto sulla riga più lunga, stesse righe */
+      larga: Math.min(maxW, Math.ceil(lunga*cw*K)+16) };        /* quanto occupa sulla carta */
+  }
+  return null;
+}
+/* Dove metterla: sotto «PUBBLICO» (tutta la fascia, poi la metà sinistra o destra: al centro può esserci il punto
+   del cablaggio), poi un angolo libero del palco. Mai sopra un elemento, sempre dentro l'area di stampa del PDF
+   a 1:100 (fino a ~14 m di profondità su A4). via = id da non contare (l'avvertenza che si sostituisce). */
+function adattaAvvertenzaPosto(testo, via){
+  recalcStageBBox();
+  var W=state.stage.w, D=state.stage.d, K=pdfTextK(100);
+  var A=printArea(), DM=A.custom?0:80, pa={x0:A.x-DM, y0:A.y-DM, x1:A.x+A.w+DM, y1:A.y+A.h+DM};
+  var ost=[];
+  (state.items||[]).forEach(function(it){
+    if(!it || it.rackId || (via && via[it.id]) || isRiser(it) || ADATTA_AVV_SFONDO[it.type]) return;
+    var t=TYPES[it.type]||{}, a=(it.rot||0)*Math.PI/180, c=Math.abs(Math.cos(a)), s=Math.abs(Math.sin(a));
+    var w=it.w||t.w||60, d=it.d||t.d||60, hw=(w*c+d*s)/2, hd=(w*s+d*c)/2, r={x0:it.x-hw, y0:it.y-hd, x1:it.x+hw, y1:it.y+hd};
+    var fs=(it.lblSize==null)?14:+it.lblSize;   /* il nome sotto l'elemento, come contentBounds */
+    if((it.label||it.label2) && fs>0 && !t.innerLabel){
+      var mezzo=Math.max(String(it.label||"").length, String(it.label2||"").length)*fs*0.28*K;
+      r.y1+=(fs+10)*K; r.x0=Math.min(r.x0, it.x-mezzo); r.x1=Math.max(r.x1, it.x+mezzo);
+    }
+    ost.push(r);
+  });
+  try{   /* i punti del cablaggio disegnati fuori dal palco (stage rack a D+72): stesse misure di contentBounds */
+    if(state.cab && state.cab.on && layerShown("cabin")){ var h=cabHomePoint(); if(h) ost.push({x0:h.x-40, y0:h.y-15, x1:h.x+40, y1:h.y+15}); }
+    if(state.elec && state.elec.on && layerShown("elec")){ var e=elecSupplyPoint(); if(e) ost.push({x0:e.x-48, y0:e.y-15, x1:e.x+48, y1:e.y+15}); }
+  }catch(_e){}
+  function libero(q){ return !ost.some(function(r){ return r.x0<q.x1-1 && q.x0<r.x1-1 && r.y0<q.y1-1 && q.y0<r.y1-1; }); }
+  function dentro(q){ return q.x0>=pa.x0 && q.y0>=pa.y0 && q.x1<=pa.x1 && q.y1<=pa.y1; }
+  var cand=[], top=D+32, fondo=Math.min(D+79, pa.y1-1);   /* PUBBLICO ha la base a D+38 e niente discendenti */
+  var sx0=Math.max(-70, pa.x0+10), sx1=Math.min(W+70, pa.x1-10);   /* un'area di stampa scelta a mano può essere più stretta */
+  [[sx0, sx1],[sx0, W/2-50],[W/2+50, sx1]].forEach(function(f){
+    if(f[1]-f[0]<100) return;
+    var L=adattaAvvertenzaImpagina(testo, f[1]-f[0], fondo-top, K); if(!L) return;
+    var cx=(f[0]+f[1])/2; cand.push({ L:L, dove:"sotto", q:{x0:cx-L.larga/2, y0:top, x1:cx+L.larga/2, y1:top+L.d} });
+  });
+  /* gli angoli della parte di palco che si stampa */
+  var ax0=Math.max(0, pa.x0)+20, ax1=Math.min(W, pa.x1)-20, ay0=Math.max(0, pa.y0)+20, ay1=Math.min(D, pa.y1)-20;
+  var La=(ax1-ax0>=100) ? adattaAvvertenzaImpagina(testo, Math.min(ax1-ax0, 480), Math.max(0, (ay1-ay0)/2), K) : null;
+  if(La) [[0,1],[1,1],[0,0],[1,0]].forEach(function(k){   /* davanti a sinistra, davanti a destra, in fondo */
+    var x0=k[0] ? ax1-La.larga : ax0, y0=k[1] ? ay1-La.d : ay0;
+    cand.push({ L:La, dove:"angolo", q:{x0:x0, y0:y0, x1:x0+La.larga, y1:y0+La.d} });
+  });
+  var P=null;
+  for(var i=0;i<cand.length && !P;i++) if(dentro(cand[i].q) && libero(cand[i].q)) P=cand[i];
+  var libera=!!P;
+  for(var j=0;j<cand.length && !P;j++) if(dentro(cand[j].q)) P=cand[j];   /* nessun posto libero: il primo che si stampa, e lo si dice */
+  if(!P) P=cand[0] || null;
+  if(!P){ var Lf=adattaAvvertenzaImpagina(testo, W+140, 1e9, K); P={ L:Lf, dove:"sotto", q:{x0:W/2-Lf.larga/2, y0:top, x1:W/2+Lf.larga/2, y1:top+Lf.d} }; }
+  return { x:Math.round((P.q.x0+P.q.x1)/2), y:Math.round((P.q.y0+P.q.y1)/2), w:P.L.w, d:P.L.d, f:P.L.f, dove:P.dove, libero:libera, ingombro:P.q };
+}
+/* Scelta subito dopo Adatta, sta nel SUO passo di Annulla: un Annulla toglie palco, posizioni e avvertenza (in una
+   scena nuova toglie la scena). Altrimenti — da console, o dopo altro lavoro — è un passo suo. */
+function adattaNelPasso(){ var P=adattaPasso; return !!(P && activeVar===P.v && undoStack.length===P.passi && lastSnap===P.snap && !redoStack.length); }
+function adattaAvvertenza(W0, D0, W, D, stretta){
+  if(window.__projLocked || !(W0>0) || !(D0>0)) return null;
+  flushHistorySoon();
+  if(!(W>0)) W=state.stage.w; if(!(D>0)) D=state.stage.d;
+  var testo=adattaAvvertenzaTesto(W0, D0, W, D, stretta), via={};
+  (state.items||[]).forEach(function(it){ if(it && it.avvertenza==="adatta") via[it.id]=1; });
+  var nelPasso=adattaNelPasso(), P=adattaAvvertenzaPosto(testo, via);
+  state.items=state.items.filter(function(it){ return !via[it.id]; });
+  var it={ id:uid(), type:"testo", x:P.x, y:P.y, rot:0, w:P.w, d:P.d, label:testo, lblSize:P.f, align:"center",
+    txtColor:ADATTA_AVV_COLORE, avvertenza:"adatta" };
+  state.items.push(it);
+  if(nelPasso){   /* come save(), ma lo stato nuovo prende il posto dell'ultimo passo invece di aggiungerne uno */
+    dropOrphanRows(state);
+    if(window.scheduleCloudAutosave) scheduleCloudAutosave();
+    persistLocalState();
+    if(window.__consultDirty) window.__consultDirty();
+    lastSnap=historySnapshot(); adattaPasso.snap=lastSnap;
+    pruneVenueHistoryAssets(); syncHistoryButtons();
+    if(window.__rtBroadcast) window.__rtBroadcast(lastSnap.json);
+  } else save();
+  render();
+  if(typeof fit==="function") fit();
+  showToast("Avvertenza aggiunta "+(P.dove==="sotto" ? "sotto «PUBBLICO»" : "in un angolo del palco")+(P.libero?"":", ma copre qualcosa: spostala")+". È un testo: si sposta, si modifica e si cancella come gli altri.");
+  return it;
 }
 function showAdattaPalco(){
   var m=document.getElementById("adattaPalco"); if(!m) return;
@@ -8209,11 +8328,8 @@ function showAdattaPalco(){
     if(w===null || d===null){ err.textContent="Inserisci larghezza e profondità valide, in metri."; err.hidden=false; return; }
     var nuova=document.getElementById("apScena").checked;
     chiudi();
-    var W=Math.round(w*100), D=Math.round(d*100), R=adattaPalcoApplica(W, D, nuova), msg=adattaPalcoMessaggio(R, W, D);
-    if(!msg.allargaW){ showToast(msg.testo); return; }
-    guideDialog({ title:msg.titolo, msg:msg.testo+" Si annulla con un solo Annulla.", okLabel:"Tengo così",
-      action:{ label:"Usa un palco "+adattaM(msg.allargaW)+" × "+adattaM(msg.allargaD)+" m",
-        run:function(){ undo(); adattaPalcoApplica(msg.allargaW, msg.allargaD, nuova); } } });   /* in scena nuova: Annulla la toglie, e se ne fa una col nome della misura giusta */
+    var W=Math.round(w*100), D=Math.round(d*100), R=adattaPalcoApplica(W, D, nuova);
+    adattaPalcoFinestra(R, W, D, nuova);
   }
   document.getElementById("apGo").addEventListener("click", vai);
   document.getElementById("apNo").addEventListener("click", chiudi);
@@ -9741,14 +9857,24 @@ function guideDialog(o){
     o.steps.forEach(function(s){ var li=document.createElement("li"); li.textContent=s; ul.appendChild(li); });
     card.appendChild(ul);
   }
+  /* o.scelta = {label, checked}: una casella fra il testo e i bottoni (29/09, l'avvertenza di «Adatta»).
+     Conta quando la finestra si chiude SENZA l'azione — il bottone di congedo, Esc, clic fuori: o.chiusa(spuntata). */
+  var scelta=null;
+  if(o.scelta){
+    var sl=document.createElement("label"); sl.className="guide-scelta";
+    scelta=document.createElement("input"); scelta.type="checkbox"; scelta.checked=!!o.scelta.checked;
+    var st=document.createElement("span"); st.textContent=o.scelta.label||"";
+    sl.appendChild(scelta); sl.appendChild(st); card.appendChild(sl);
+  }
   var row=document.createElement("div"); row.className="guide-actions";
   function close(){ document.removeEventListener("keydown", onKey, true); ov.remove(); }
-  function onKey(e){ if(e.key==="Escape"){ e.stopPropagation(); close(); } }
+  function congedo(){ close(); if(o.chiusa) try{ o.chiusa(!!(scelta && scelta.checked)); }catch(e){ showToast("Non è stato possibile completare l'operazione","err"); } }
+  function onKey(e){ if(e.key==="Escape"){ e.stopPropagation(); congedo(); } }
   var cancel=document.createElement("button"); cancel.type="button"; cancel.className="btn";
   /* «Ho capito» è la parola giusta quando la finestra spiega che manca qualcosa; per una conferma
      («inviato») serve un congedo, non un'ammissione: o.okLabel lo lascia scegliere a chi chiama. */
   cancel.textContent=o.okLabel || (o.action?"Annulla":"Ho capito");
-  cancel.addEventListener("click", close);
+  cancel.addEventListener("click", congedo);
   row.appendChild(cancel);
   if(o.action){
     var go=document.createElement("button"); go.type="button"; go.className="btn primary"; go.textContent=o.action.label||"Aggiungi";
@@ -9756,7 +9882,7 @@ function guideDialog(o){
     row.appendChild(go);
   }
   card.appendChild(row); ov.appendChild(card); document.body.appendChild(ov);
-  ov.addEventListener("click", function(e){ if(e.target===ov) close(); });
+  ov.addEventListener("click", function(e){ if(e.target===ov) congedo(); });
   document.addEventListener("keydown", onKey, true);
   setTimeout(function(){ try{ (o.action?go:cancel).focus(); }catch(e){} }, 30);
   return ov;
@@ -12209,7 +12335,7 @@ function auditEngine(){
        accanto alle luci sono richieste travestite da decorazione. 2 m = 200 px tra i centri. */
     if(lightItems.length){
       var near=items.filter(function(it){
-        if(it.type!=="testo" || !String(it.label||"").trim()) return false;
+        if(it.type!=="testo" || it.avvertenza || !String(it.label||"").trim()) return false;   /* l'avvertenza di Adatta non è una richiesta luci */
         if(lightsIsLightNote(it)) return true;   /* lo dice il testo: la distanza non c'entra */
         return lightItems.some(function(l){ return Math.hypot((l.x||0)-(it.x||0), (l.y||0)-(it.y||0))<200; });
       });
@@ -25409,7 +25535,18 @@ function frameContentRect(){
   var m=40;
   return {x:Math.round(x0-m), y:Math.round(y0-m), w:Math.round(x1-x0+2*m), h:Math.round(y1-y0+2*m)};
 }
-function ensurePrintFrame(){ if(!state.printFrame) state.printFrame=frameStageRect(); }
+function ensurePrintFrame(){ if(!state.printFrame) state.printFrame=frameConAvvertenza(frameStageRect()); }
+/* L'area che nasce da sola (il PNG la crea col palco esatto, senza margine) comprende anche l'avvertenza di «Adatta»
+   messa sotto PUBBLICO: è scritta per chi riceve il foglio, e nel PNG spariva (29/09). Ingombro sulla carta a 1:100. */
+function frameConAvvertenza(f){
+  var K=pdfTextK(100), x0=f.x, y0=f.y, x1=f.x+f.w, y1=f.y+f.h;
+  (state.items||[]).forEach(function(it){
+    if(!it || it.avvertenza!=="adatta") return;
+    var hw=Math.max(it.w||0, K*((it.w||0)-16)+16)/2+10, hd=(it.d||0)/2+10;
+    x0=Math.min(x0, it.x-hw); y0=Math.min(y0, it.y-hd); x1=Math.max(x1, it.x+hw); y1=Math.max(y1, it.y+hd);
+  });
+  return (x0===f.x && y0===f.y && x1===f.x+f.w && y1===f.y+f.h) ? f : {x:Math.floor(x0), y:Math.floor(y0), w:Math.ceil(x1-Math.floor(x0)), h:Math.ceil(y1-Math.floor(y0))};
+}
 /* DA DOVE si è arrivati all'area di stampa (13/09). Dal Menu del telefono il bottone in fondo diceva
    «Torna a Esporta» e apriva la finestra Esporta, dove nessuno era mai stato: si voleva solo
    sistemare l'area. Adesso torna da dove si è partiti. */

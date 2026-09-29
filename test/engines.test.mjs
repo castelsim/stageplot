@@ -17777,6 +17777,165 @@ t("adatta palco: il comando sta nella «Forma del palco» e la nuova scena è la
   ok(/run:function\(\)\{ undo\(\); adattaPalcoApplica\(msg\.allargaW, msg\.allargaD, nuova\); \}/.test(appjs), "«Usa un palco…» annulla e rifà sul palco proposto, con la stessa scelta della scena");
 });
 
+/* ===== Avvertenza «palco adattato» (29/09, Simone: «l'avvertenza è un'opzione e decide l'utente che crea lo
+   stageplot se inserirla»). 12 × 8 → 5,5 × 8: l'orchestrina ci sta stringendo del 20%. ===== */
+function avvPalco(nuova) {
+  reset();
+  orchestrina().forEach((it) => A.state.items.push(it));
+  A.save(); A.resetHistory();
+  const R = A.adattaPalcoApplica(550, 800, nuova);
+  const vero = A.guideDialog; let o = null;
+  A.guideDialog = function (x) { o = x; return null; };
+  try { A.adattaPalcoFinestra(R, 550, 800, nuova); } finally { A.guideDialog = vero; }
+  return { R, o };
+}
+const avvertenze = () => A.state.items.filter((it) => it.avvertenza === "adatta");
+/* Dove finisce il testo SUL FOGLIO: nel PDF a 1:100 i corpi crescono di K (scaleSvgFonts), il box no. */
+function avvIngombroCarta(it, K) {
+  const f = it.lblSize, righe = A.wrapTextLines(it.label, it.w - 16, f), lunga = Math.max(...righe.map((r) => r.length));
+  const larga = lunga * f * 0.56 * K + 16, top = it.y - it.d / 2;
+  return { x0: it.x - larga / 2, x1: it.x + larga / 2, y0: top + 8 + 0.85 * f - 0.72 * K * f, y1: top + 8 + 0.85 * f + 1.25 * f * (righe.length - 1) + 0.22 * K * f, righe: righe.length };
+}
+function avvSopra(q, altri) {   /* elementi (ingombro ruotato) sotto il testo */
+  return altri.filter((it) => {
+    const t = A.TYPES[it.type] || {}, a = (it.rot || 0) * Math.PI / 180, c = Math.abs(Math.cos(a)), s = Math.abs(Math.sin(a));
+    const w = it.w || t.w, d = it.d || t.d, hw = (w * c + d * s) / 2, hd = (w * s + d * c) / 2;
+    return it.x - hw < q.x1 && q.x0 < it.x + hw && it.y - hd < q.y1 && q.y0 < it.y + hd;
+  }).map((it) => it.type + "@" + it.x + "," + it.y);
+}
+
+t("avvertenza di Adatta: di partenza non c'è; la casella c'è solo quando si stringe, ed è spenta", () => {
+  const { R, o } = avvPalco(false);
+  eq([R.ciSta, R.stretta], [true, 0.2], "caso di prova: ci stanno stringendo del 20%");
+  eq(avvertenze().length, 0, "Adatta da sola non scrive niente");
+  ok(o && o.title === "Ci stanno, ma stretti", "la finestra finale: " + (o && o.title));
+  ok(o.scelta && o.scelta.checked === false, "la casella c'è ed è spenta: decide l'utente");
+  ok(/avvertenza nello stage plot/.test(o.scelta.label), o.scelta.label);
+  o.chiusa(false);
+  eq(avvertenze().length, 0, "«Tengo così» senza spunta: niente avvertenza");
+  /* comodo: nessuna finestra; non ci sta: la finestra c'è ma senza casella (non si è stretto, sborda) */
+  reset(); orchestrina().forEach((it) => A.state.items.push(it)); A.save(); A.resetHistory();
+  const vero = A.guideDialog; let viste = [];
+  A.guideDialog = function (x) { viste.push(x); return null; };
+  try {
+    A.adattaPalcoFinestra(A.adattaPalcoApplica(900, 800, false), 900, 800, false);
+    eq(viste.length, 0, "ci sta comodo: solo un avviso, niente finestra");
+    A.undo();
+    const Rn = A.adattaPalcoApplica(300, 800, false);
+    A.adattaPalcoFinestra(Rn, 300, 800, false);
+    ok(!Rn.ciSta && viste.length === 1 && !viste[0].scelta && !viste[0].chiusa, "non ci sta: niente casella");
+  } finally { A.guideDialog = vero; }
+  ok(/R=adattaPalcoApplica\(W, D, nuova\);\s*adattaPalcoFinestra\(R, W, D, nuova\);/.test(appjs), "la finestra vera passa da adattaPalcoFinestra");
+  reset();
+});
+
+t("avvertenza di Adatta: è un testo libero normale, con le misure e la percentuale vere", () => {
+  const { o } = avvPalco(false);
+  const fuoriPrima = A.elementiFuoriDalPalco().length, contienePrima = JSON.stringify(A.palcoCheContieneTutto());
+  o.chiusa(true);
+  const av = avvertenze();
+  eq(av.length, 1, "spuntata: un elemento");
+  eq(av[0].type, "testo", "un «Testo libero» come gli altri");
+  eq(av[0].label, "Attenzione: palco adattato da 12 × 8 m a 5,5 × 8 m. I musicisti sono più vicini del normale (fino al 20% dell'ingombro): verificare gli spazi con la produzione.");
+  eq(av[0].txtColor, "#dc2626", "in rosso");
+  eq(A.elementiFuoriDalPalco().length, fuoriPrima, "sotto PUBBLICO non conta come «fuori dal palco» (l'Esporta proporrebbe di allargare il palco)");
+  eq(JSON.stringify(A.palcoCheContieneTutto()), contienePrima, "né per «Adatta il palco» dell'audit");
+  /* da console, sul progetto di Simone: percentuale data a mano, anche come frazione. Una nuova sostituisce la vecchia. */
+  const c = A.adattaAvvertenza(1200, 1300, 1000, 1000, 60);
+  eq(avvertenze().length, 1, "la nuova prende il posto della vecchia");
+  ok(c && /da 12 × 13 m a 10 × 10 m\./.test(c.label) && /\(fino al 60% dell'ingombro\)/.test(c.label), c && c.label);
+  eq(A.adattaAvvertenzaTesto(1200, 1300, 1000, 1000, 0.6), c.label, "0,6 e 60 sono la stessa cosa");
+  eq(A.adattaAvvertenza(0, 1300, 1000, 1000, 60), null, "senza il palco di partenza non si scrive niente");
+  A.state.tipoEvento = "conferenza";
+  try { ok(/Le postazioni sono più vicine del normale/.test(A.adattaAvvertenzaTesto(800, 600, 600, 400, 0.1)), "conferenza: niente «musicisti»"); }
+  finally { delete A.state.tipoEvento; }
+  reset();
+});
+
+t("avvertenza di Adatta: dentro l'area di stampa del PDF, sotto PUBBLICO, sopra nessuno", () => {
+  const K = A.pdfTextK(100);
+  eq(K, 1.25, "a 1:100 i corpi del PDF crescono di 1,25 (CORPO_RIF 80)");
+  const prova = (W, D, extra) => {
+    reset();
+    A.state.stage = { w: W, d: D, blocks: [{ x: 0, y: 0, w: W, d: D }] };
+    orchestrina().forEach((it) => { it.x = Math.round(it.x * W / 1200); it.y = Math.round(it.y * D / 800); A.state.items.push(it); });
+    (extra || []).forEach((it) => A.state.items.push(it));
+    const av = A.adattaAvvertenza(1400, 1000, W, D, 0.3), q = avvIngombroCarta(av, K), q1 = avvIngombroCarta(av, 1);
+    const pa = A.printArea(), DM = pa.custom ? 0 : 80;
+    const dentro = (r) => r.x0 >= pa.x - DM && r.x1 <= pa.x + pa.w + DM && r.y0 >= pa.y - DM && r.y1 <= pa.y + pa.h + DM;
+    ok(dentro(q) && dentro(q1), W + "×" + D + ": sul foglio sta dentro l'area di stampa " + JSON.stringify({ q, pa }));
+    eq(avvSopra(q, A.state.items.filter((it) => it !== av)), [], W + "×" + D + ": non copre nessuno");
+    return { av, q };
+  };
+  [[1200, 800], [1000, 1000], [550, 800], [400, 300]].forEach(([W, D]) => {
+    const { av, q } = prova(W, D);
+    ok(av.y > D && q.y0 > D + 38, W + "×" + D + ": sotto la scritta PUBBLICO (base a D+38): " + JSON.stringify(q));
+    ok(q.righe <= 2 && av.lblSize >= 9, "al massimo due righe, corpo leggibile: " + JSON.stringify({ righe: q.righe, f: av.lblSize }));
+  });
+  /* qualcosa in mezzo alla fascia sotto PUBBLICO (una cassa in platea): si sposta di lato o in un angolo libero */
+  prova(1200, 800, [{ id: "cassa", type: "leggio", x: 600, y: 860, w: 80, d: 100, rot: 0 }]);
+  /* il punto del cablaggio «stage rack» è disegnato lì (D+72): stesso discorso */
+  reset();
+  A.state.cab.on = true; A.state.cab.home = { kind: "stagerack" };
+  orchestrina().forEach((it) => A.state.items.push(it));
+  const h = A.cabHomePoint(), av = A.adattaAvvertenza(1400, 1000, 1200, 800, 0.3), q = avvIngombroCarta(av, K);
+  eq([h.x, h.y], [600, 872], "stage rack al centro, a D+72");
+  ok(q.x1 < h.x - 40 || q.x0 > h.x + 40 || q.y1 < h.y - 15 || q.y0 > h.y + 15, "l'avvertenza non ci finisce sopra: " + JSON.stringify(q));
+  /* area di stampa personalizzata più stretta della fascia sotto PUBBLICO: resta dentro l'area (in un angolo) */
+  reset();
+  orchestrina().forEach((it) => A.state.items.push(it));
+  A.state.printFrame = { x: 100, y: 0, w: 1000, h: 860 };
+  const avF = A.adattaAvvertenza(1400, 1000, 1200, 800, 0.3), qF = avvIngombroCarta(avF, K);
+  ok(qF.x0 >= 100 && qF.x1 <= 1100 && qF.y0 >= 0 && qF.y1 <= 860, "dentro l'area personalizzata: " + JSON.stringify(qF));
+  eq(avvSopra(qF, A.state.items.filter((it) => it !== avF)), [], "e sopra nessuno");
+  /* un'area un po' più stretta della fascia: la fascia si restringe e l'avvertenza resta sotto PUBBLICO */
+  A.state.printFrame = { x: 100, y: 0, w: 1000, h: 880 };
+  const avS = A.adattaAvvertenza(1400, 1000, 1200, 800, 0.3), qS = avvIngombroCarta(avS, K);
+  ok(avS.y > 800 && qS.x0 >= 100 && qS.x1 <= 1100 && qS.y1 <= 880, "sotto PUBBLICO, dentro l'area: " + JSON.stringify(qS));
+  /* il PNG si fa l'area da solo (ensurePrintFrame, palco esatto senza margine): l'avvertenza sotto PUBBLICO ci deve stare */
+  reset();
+  orchestrina().forEach((it) => A.state.items.push(it));
+  const avP = A.adattaAvvertenza(1400, 1000, 1200, 800, 0.3), qP = avvIngombroCarta(avP, K);
+  ok(avP.y > 800, "caso di prova: sotto PUBBLICO");
+  A.ensurePrintFrame();
+  const fr = A.state.printFrame;
+  ok(fr.x <= 0 && fr.y <= 0 && fr.x + fr.w >= 1200 && fr.y + fr.h >= 800, "l'area comprende il palco: " + JSON.stringify(fr));
+  ok(fr.x <= qP.x0 && fr.x + fr.w >= qP.x1 && fr.y + fr.h >= qP.y1, "e l'avvertenza: " + JSON.stringify({ fr, qP }));
+  A.state.printFrame = null; A.state.items = A.state.items.filter((it) => it !== avP); A.ensurePrintFrame();
+  eq(A.state.printFrame, { x: 0, y: 0, w: 1200, h: 800 }, "senza avvertenza: il palco esatto, come prima");
+  reset();
+});
+
+t("avvertenza di Adatta: un solo Annulla toglie tutto, anche la scena nuova; da console è un passo suo", () => {
+  /* nella stessa scena */
+  let { o } = avvPalco(false);
+  const prima = orchestrina().map((it) => it.x);
+  o.chiusa(true);
+  eq([A.undoStack.length, avvertenze().length], [1, 1], "Adatta + avvertenza = un passo");
+  A.undo();
+  eq([A.state.stage.w, avvertenze().length, A.undoStack.length], [1200, 0, 0], "un Annulla: palco di prima, niente avvertenza");
+  eq(A.state.items.map((it) => it.x), prima, "e gli elementi dov'erano");
+  A.redo();
+  eq([A.state.stage.w, avvertenze().length], [550, 1], "Ripeti rimette tutto, avvertenza compresa");
+  /* in una scena nuova: l'Annulla toglie la scena */
+  ({ o } = avvPalco(true));
+  const partenza = A.VARIANTS[0].id;
+  o.chiusa(true);
+  eq([A.VARIANTS.length, A.undoStack.length, avvertenze().length], [2, 1, 1], "scena nuova, un passo, avvertenza");
+  A.undo();
+  eq([A.VARIANTS.length, A.activeVar, A.state.stage.w, avvertenze().length], [1, partenza, 1200, 0], "un Annulla: scena tolta, niente avvertenza");
+  A.redo();
+  eq([A.VARIANTS.length, A.state.stage.w, avvertenze().length], [2, 550, 1], "Ripeti: scena rimessa con l'avvertenza");
+  /* dopo altro lavoro (o da console su un progetto qualunque) l'avvertenza è un passo a sé */
+  ({ o } = avvPalco(false));
+  A.state.items[0].x += 20; A.save();
+  A.adattaAvvertenza(1200, 800, 550, 800, 0.2);
+  eq(A.undoStack.length, 3, "Adatta, spostamento, avvertenza");
+  A.undo();
+  eq([A.state.stage.w, avvertenze().length], [550, 0], "l'Annulla toglie solo l'avvertenza");
+  reset();
+});
+
 /* ===== Distanza tra i 2 su più postazioni (29/09, segnalazione di Simone: «se seleziono molteplici postazioni a 2
    devo poter regolare la distanza dei musicisti in simultanea delle postazioni a 2 selezionate») ===== */
 function orchestraA2() {

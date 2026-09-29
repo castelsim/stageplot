@@ -2916,6 +2916,9 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
    finestra guida restano mezzi bersagli — compresi «Segnalazione inviata» e la guida del
    cablaggio, cioe' i punti in cui si sbaglia meno volentieri. Misurato l'02/09. */
 @media (pointer:coarse){ .guide-actions .btn{min-height:44px} }
+/* casella di una finestra-guida (o.scelta): l'avvertenza di «Adatta», 29/09. 44 px: si spunta anche col dito */
+.guide-scelta{display:flex;align-items:center;gap:8px;min-height:44px;margin:12px 0 0;font-size:14px;line-height:1.4;color:var(--text);cursor:pointer}
+.guide-scelta input{margin:0}   /* l'interruttore di tutta l'app (DS v2.1): niente misure proprie, o esce mezzo tondo */
 
 /* Blocco "Uscita" del pannello: i due tipi di uscita (jack/XLR) come coppia segmentata.
    Riusa .adv-btn del design system — niente stili inline (regola Simone). */
