@@ -16606,7 +16606,7 @@ t("il progetto sa se è una conferenza, e il PDF parla da conferenza", () => {
   ok(/doc\.text\(eventoConferenza\(\) \? "SCHEDA TECNICA EVENTO" : "STAGE PLOT — Rider tecnico"/.test(appjs), "l'intestazione del PDF");
   eq((appjs.match(/key:"rider", (title|label):nomeDocumento\(\)/g) || []).length, 2, "il nome della pagina, nell'export e nel link");
   ok(/body\.ev-conferenza #bRichiedi, body\.ev-conferenza #mactRichiedi\{display:none\}/.test(stylesCss), "niente «Richiedi musicisti»");
-  ok(/monitors===0 && !eventoConferenza\(\)\) add\("warn","Nessun monitor sul palco/.test(appjs), "niente «i musicisti non si sentono»");
+  ok(/monitors===0 && !_personali && !eventoConferenza\(\)\) add\("warn","Nessun monitor sul palco/.test(appjs), "niente «i musicisti non si sentono»");
   const s0 = A.state.tipoEvento;
   try {
     A.state.tipoEvento = "conferenza";
@@ -16753,6 +16753,154 @@ t("un login si conta solo quando si torna da un accesso, non a ogni ricarica", (
   eq(m && m[1], "oauthReturn", "e conta solo al ritorno da un accesso");
   ok(/var oauthReturn=\/\[\?&#\]\(code\|access_token\)=\/\.test\(location\.href\);/.test(appjs) && /if\(accessoAppenaFatto\) oauthReturn=true;/.test(appjs),
     "ritorno = ?code= del vecchio accesso, oppure il segno lasciato da /accedi/google/");
+});
+
+t("con i personal mixer sul palco non esce «Nessun monitor sul palco»", () => {
+  /* revisione 28/09: due orchestre vere con 19 hearback si sentivano dire che i musicisti non si sentono,
+     con il pulsante per aggiungere un wedge. I personal mixer non sono mandate della console. */
+  reset(); for (let i = 0; i < 6; i++) add("cantante", 200 + i * 80, 300);
+  ok(hasMsg(/Nessun monitor sul palco/), "senza monitor l'avviso c'è (controllo positivo)");
+  add("hearback", 300, 400);
+  ok(!hasMsg(/Nessun monitor sul palco/), "con un personal mixer tace; findings: " + auditMsgs().join(" | "));
+});
+
+t("il 48V messo a mano che contraddice il microfono si vede, e cambiando microfono si riallinea", () => {
+  /* revisione 28/09: il phantom forzato a mano restava anche cambiando microfono, e fuori dalla
+     consulenza nessun controllo lo guardava: un condensatore muto al soundcheck finiva nel rider. */
+  reset(); add("cantante", 300, 300);
+  const riga = () => A.patchList().rows.find((r) => /SM58|KM184/.test(r.mic));
+  const r0 = riga(); ok(r0 && r0.mic === "SM58" && !r0.p48, "la voce nasce con SM58 senza 48V");
+  ok(!hasMsg(/\+48V acceso a mano|senza \+48V/), "all'inizio nessun avviso");
+  A.cabSetP48(r0.key, true);
+  ok(hasMsg(/\+48V acceso a mano sul canale 1 \(SM58\)/), "48V a mano su un dinamico: avviso; findings: " + auditMsgs().join(" | "));
+  A.cabSetMic(r0.key, "KM184");
+  const r1 = riga(); ok(r1.mic === "KM184" && r1.p48 && r1.p48Auto, "cambiando microfono il 48V torna quello del microfono");
+  ok(!hasMsg(/\+48V acceso a mano|senza \+48V/), "e l'avviso sparisce");
+  A.cabSetP48(r1.key, false);
+  const f = A.auditEngine().findings.find((x) => x.rule === "p48no");
+  ok(f && /condensatore senza \+48V/.test(f.msg) && f.lvl === "warn", "condensatore spento a mano: avviso");
+  f.act.run();
+  const r2 = riga(); ok(r2.p48 && r2.p48Auto, "il pulsante riporta il 48V a quello del microfono");
+  ok(!hasMsg(/senza \+48V/), "e l'avviso se ne va");
+  A.cabSetMic(r2.key, "SM58"); A.cabSetMic(r2.key, "SM58");
+  ok(!riga().p48, "rimettere lo stesso microfono non cambia niente");
+});
+
+t("«fonico» non definisce più Simone nelle pagine pubbliche", () => {
+  /* 25/08, Simone: sound engineer, non «fonico». La consulenza era stata corretta, le guide no (revisione
+     28/09: 23 bio e 21 pulsanti). «Fonico» come nome del mestiere nelle guide resta. */
+  const pagine = [];
+  const giro = (dir) => { for (const n of readdirSync(join(root, dir))) { const p = join(dir, n); if (statSync(join(root, p)).isDirectory()) giro(p); else if (n.endsWith(".html") && pubblicata(p)) pagine.push(p); } };
+  ["guida", "stage-plot", "consulenza"].forEach(giro);
+  ok(pagine.length > 20, "trovate le pagine pubbliche: " + pagine.length);
+  const male = pagine.filter((p) => /Fonico per spettacoli|revisionare da un fonico/.test(readFileSync(join(root, p), "utf8")));
+  eq(male, [], "pagine che chiamano Simone «fonico»");
+  ok(/Sound engineer per spettacoli dal vivo/.test(readFileSync(join(root, "ops/genera-catalogo-mic.mjs"), "utf8")), "e il generatore non lo rimette");
+});
+
+t("«Crea il palco» si legge anche in tema scuro", () => {
+  /* revisione 28/09: in scuro --accent-strong diventa chiaro e il bottone era bianco su #5eead4 = 1,48:1 */
+  ok(/body\.dark \.wl-cta\{background:#0b7a70;color:#fff\}/.test(stylesCss), "in scuro il bottone ha lo sfondo scuro");
+});
+
+/* un finto jsPDF che registra i testi: basta per le funzioni che scrivono intestazioni e piè di pagina */
+function docFinto(pagine, larghezzaMm) {
+  const testi = [];
+  return { testi, getNumberOfPages: () => pagine, setPage: (i) => { testi.push({ pagina: i }); },
+    internal: { pageSize: { getWidth: () => larghezzaMm || 210, getHeight: () => 297 } },
+    setFont() {}, setFontSize() {}, setTextColor() {},
+    text: (t, x, y, o) => testi.push({ t: String(t), x, y, o }),
+    /* 1 carattere ≈ 2,1 mm a 12 pt: abbastanza per decidere se va a capo */
+    splitTextToSize: (t, w) => { const max = Math.floor(w / 2.1), out = []; let r = "";
+      String(t).split(" ").forEach((p) => { if ((r + " " + p).trim().length > max && r) { out.push(r); r = p; } else r = (r + " " + p).trim(); });
+      if (r) out.push(r); return out; } };
+}
+
+t("PDF: numero di pagina su ogni foglio quando i fogli sono più d'uno", () => {
+  /* revisione 28/09: su 30 pagine controllate nessuna era numerata */
+  const d3 = docFinto(3); A.pdfCredit(d3);
+  eq(d3.testi.filter((x) => /^pag \d+\/3$/.test(x.t || "")).map((x) => x.t), ["pag 1/3", "pag 2/3", "pag 3/3"], "pag N/M su tutte");
+  ok(d3.testi.filter((x) => x.t === "Creato con stageplot.it").length === 3, "e il credito resta");
+  const d1 = docFinto(1); A.pdfCredit(d1);
+  ok(!d1.testi.some((x) => /^pag /.test(x.t || "")), "un foglio solo non si numera");
+});
+
+t("PDF: «titolo — luogo» va a capo invece di uscire dal foglio", () => {
+  /* revisione 28/09: 131 caratteri a 12 pt finivano oltre il bordo dell'A4 e il luogo si perdeva */
+  const s0 = { t: A.state.titolo, l: A.state.luogo };
+  try {
+    A.state.titolo = "Concerto sinfonico di fine stagione con coro e solisti ospiti per la rassegna estiva";
+    A.state.luogo = "Teatro Comunale di una città con un nome lungo, piazza principale";
+    const d = docFinto(1); const y = A.pdfTitoloLuogo(d, 16, 30, 8);
+    const righe = d.testi.filter((x) => x.t);
+    ok(righe.length >= 2, "va su più righe");
+    ok(righe.some((x) => x.t.indexOf("Teatro Comunale") === 0), "il luogo ha una riga sua, che comincia col luogo");
+    ok(righe.every((x) => x.t.length * 2.1 <= 210 - 32 + 0.01), "nessuna riga più larga del foglio");
+    ok(y > 30 + 8, "e la y scende di quanto serve");
+    A.state.titolo = "Band"; A.state.luogo = "Bassano";
+    const d2 = docFinto(1); eq(A.pdfTitoloLuogo(d2, 16, 30, 8), 38, "corto: una riga, come prima");
+    eq(d2.testi.map((x) => x.t), ["Band — Bassano"]);
+  } finally { A.state.titolo = s0.t; A.state.luogo = s0.l; }
+});
+
+t("PDF: le tabelle ripetono l'intestazione delle colonne sulle pagine di seguito", () => {
+  /* revisione 28/09: i canali 48-63 di un'orchestra vera finivano su un foglio senza «# SORGENTE MIC/DI…» */
+  const defs = appjs.match(/function trow\([^)]*\)\{ if\(y>286\)\{ doc\.addPage\(\); y=18;[^}]*\}/g) || [];
+  /* 8 tabelle hanno una riga di intestazione; due (quadri elettrici, patch delle stage box) sono elenchi a
+     blocchi con i titoli dentro il blocco: lì non c'è una riga di colonne da ripetere */
+  const conRipresa = defs.filter((d) => /if\(_testaTab\)\{ var _t=_testaTab; _testaTab=null; _t\(\); _testaTab=_t; \}/.test(d));
+  ok(conRipresa.length >= 8, "tabelle che ridisegnano l'intestazione dopo addPage: " + conRipresa.length + " su " + defs.length);
+  eq((appjs.match(/_testa\(\); _testaTab=_testa;/g) || []).length, conRipresa.length, "e ognuna l'ha registrata");
+  ok(/function _testa\(\)\{ trow\("#","SORGENTE","FOH","MIC \/ DI","ASTA","PATCH", true, "#0d9488"\);/.test(appjs), "la channel list compresa");
+});
+
+t("PDF: se i nomi escono illeggibili e l'A3 li rende leggibili, l'Esporta lo dice", () => {
+  /* revisione 28/09: nei PDF veri 35 nomi su 35 sotto 7 pt in A4. Da 1:80 in su escono a 1,75 mm ≈ 5 pt. */
+  ok(Math.abs(A.pdfNomiPt(100) - 4.96) < 0.05, "1:100 → 5 pt: " + A.pdfNomiPt(100));
+  ok(Math.abs(A.pdfNomiPt(50) - 7.94) < 0.05, "1:50 → 7,9 pt");
+  const s0 = JSON.stringify(A.state.stage);
+  try {
+    A.state.stage = { w: 1000, d: 700, blocks: [{ x: 0, y: 0, w: 1000, d: 700 }] };   /* 10×7 m: A4 a 1:100, A3 a 1:50 */
+    const c = A.pdfConsiglioA3("a4", "auto", "");
+    ok(c && c.pt < 6 && c.ptA3 >= 7, "10×7 m: da A4 si consiglia l'A3 (" + JSON.stringify(c) + ")");
+    eq(A.pdfConsiglioA3("a4", "100", ""), null, "con una scala fissa il foglio non cambia i nomi: niente consiglio");
+    eq(A.pdfConsiglioA3("a3", "auto", ""), null, "già in A3: niente consiglio");
+    A.state.stage = { w: 3147, d: 2212, blocks: [{ x: 0, y: 0, w: 3147, d: 2212 }] };   /* 31×22 m: anche in A3 resta a 5 pt */
+    eq(A.pdfConsiglioA3("a4", "auto", ""), null, "se l'A3 non aiuta, il consiglio non si dà");
+  } finally { A.state.stage = JSON.parse(s0); }
+  ok(/id=\\"pdfToA3\\">Passa ad A3</.test(appjs), "e il pulsante porta all'A3");
+});
+
+t("dopo il PDF c'è il passo successivo: mandare il link al service", () => {
+  /* revisione 28/09: la finestra si chiudeva da sola dopo 1,4 s e il percorso finiva lì (7 export, 2 condivisioni) */
+  const i = appjs.indexOf('track("export",{format:"pdf"});'); ok(i > 0, "trovato il punto di fine export");
+  const dopo = appjs.slice(i, i + 1400);
+  ok(!/setTimeout\(function\(\)\{ document\.getElementById\("pdfModal"\)\.hidden=true/.test(dopo), "la finestra non si chiude più da sola");
+  ok(/_ponte\.id="pdfPonte"/.test(dopo) && /Manda anche il link al service/.test(dopo), "c'è il pulsante del passo successivo");
+  ok(/getElementById\("bShareHdr"\); if\(sh\) sh\.click\(\)/.test(dopo), "e apre la condivisione");
+  ok(/_chiudi\.textContent="Chiudi"/.test(dopo) && /maybeLoginNudge\(\);/.test(dopo), "«Annulla» diventa «Chiudi», e il promemoria dell'accesso resta");
+  ok(/function _pdfExportModalCore\(\)\{ modal\.hidden=false; prevIdx=0;\s*var _ann=document\.getElementById\("pdfCancel"\); if\(_ann\) _ann\.textContent="Annulla";/.test(appjs), "riaprendo l'Esporta torna «Annulla»");
+});
+
+t("senza accesso: il QR dice perché non si fa e come ottenerlo, l'email non tronca il link", () => {
+  /* revisione 28/09: sui 30 progetti veri il link senza accesso va da 1.900 a 15.000 caratteri: QR sempre
+     rifiutato con «Stage troppo complesso», e il mailto oltre i 2.000 caratteri in 29 casi su 30 */
+  ok(/Senza accesso il link contiene tutto il palco: è troppo lungo per un QR\./.test(appjs), "il perché");
+  ok(/qa\.id="shareQrLogin"/.test(appjs) && /Accedi: il link diventa corto e il QR funziona/.test(appjs), "e il rimedio, con l'accesso");
+  ok(/#shareQrWarn \.share-login\{/.test(stylesCss.replace(/#shareIntroTxt \.share-login, /g, "")), "con lo stesso aspetto del link dell'altro invito");
+  ok(/var MAILTO_MAX = 1800;/.test(appjs), "soglia dell'email");
+  ok(/var lungo=urlEl\.value\.length>MAILTO_MAX;\s*if\(lungo\) copy\(\);/.test(appjs), "oltre, il link va negli appunti");
+  ok(/Il link è lungo: l'ho copiato negli appunti\. Incollalo qui\./.test(appjs), "e la mail lo dice");
+});
+
+t("«Condividi» è scritto nella barra quando c'è posto", () => {
+  /* revisione 28/09: fra 881 e 1480 px (1280 e MacBook Air compresi) era solo un'icona, e il suo title
+     prometteva «Scarica PDF» che nella finestra non c'è */
+  ok(/@media \(min-width:881px\) and \(max-width:1480px\)\{ header\.cond-si #bShareHdr \.hdr-lbl\{display:inline\} \}/.test(stylesCss), "la regola che la rimostra");
+  ok(stylesCss.indexOf("header.cond-si #bShareHdr .hdr-lbl") > stylesCss.indexOf("#bShareHdr .hdr-lbl, .vtab-add .hdr-lbl{display:none}"), "e viene dopo quella che la nasconde");
+  ok(/function adattaCondividi\(\)\{[^}]*h\.classList\.add\("cond-si"\);\s*if\(h\.scrollWidth>h\.clientWidth\+1\) h\.classList\.remove\("cond-si"\);/.test(appjs), "si toglie solo se la barra trabocca");
+  ok(/function renderVariantBar\(\)\{\s*setTimeout\(adattaCondividi, 0\);/.test(appjs), "si rimisura quando cambiano le scene");
+  ok(!/contiene anche Scarica PDF/.test(readFileSync(join(root, "app/index.html"), "utf8")), "il title non promette più «Scarica PDF»");
 });
 
 t("il limite della landing non si aggira con un IP inventato, e c'è un tetto globale", () => {
