@@ -5266,6 +5266,17 @@ function pdfHeaderFromContact(c){
 }
 /* Proposta all'apertura dell'export: salvato nel progetto > contatto primario della rubrica >
    account Google (nome · email) > vuoto. acct = {name,contact} opzionale. */
+function documentoAltrui(){ try{ return typeof foreignDoc==="function" && foreignDoc()===true; }catch(e){ return false; } }   /* ===true: solo un sì esplicito conta come «di un altro» */
+/* Il titolo di un progetto aperto da link è quello della colonna `title` (la rinomina da «I miei progetti» scrive
+   solo lì: dentro il file restava il nome vecchio, e il PDF di chi riceve il link stampava quello, o «Stage plot»
+   se vuoto). Come fa già l'apertura dal proprio account (openProject). Simone, 29/09. */
+function titoloDelLink(d){
+  if(!d || d.title==null) return;
+  var t=String(d.title).slice(0,120).trim(); if(!t) return;
+  state.titolo=t;
+  try{ TITLE_INPUTS.forEach(function(eid){ var e=document.getElementById(eid); if(e) e.value=t; }); }catch(e){}
+  try{ if(typeof setEventInputs==="function") setEventInputs(); }catch(e){}
+}
 function pdfHeaderPropose(s, acct){
   if(s && typeof s.pdfHeader==="string" && s.pdfHeader.trim()) return s.pdfHeader;
   /* svuotato APPOSTA dall'utente (stringa vuota salvata) ≠ mai impostato (campo assente): senza questa
@@ -5277,7 +5288,10 @@ function pdfHeaderPropose(s, acct){
     var pri=cs.filter(function(c){ return /tecnic|sala|foh|fonic/i.test(c.role||""); })[0] || cs[0];
     return pdfHeaderFromContact(pri);
   }
-  if(acct && ((acct.name&&acct.name.trim())||(acct.contact&&acct.contact.trim()))) return pdfHeaderFromContact(acct);
+  /* Progetto di un ALTRO (link condiviso, consulenza): mai il nome dell'account di chi lo sta guardando. Il server
+     toglie il riferimento del proprietario se non l'ha condiviso, e qui si ripiegava sul nome e l'email di chi
+     esporta: sul cartiglio dello stage plot di una band usciva il nome del service (Simone, 29/09). */
+  if(acct && !documentoAltrui() && ((acct.name&&acct.name.trim())||(acct.contact&&acct.contact.trim()))) return pdfHeaderFromContact(acct);
   return "";
 }
 /* Confine di caricamento del documento persistito.
@@ -28574,6 +28588,7 @@ function gallery(){
     if(!isEditor){ document.body.classList.add("viewmode","consult-viewer"); }   /* 1C: il cliente vede la channel list live (read-only) — preserva i dati */
     if(isEditor){ document.body.classList.remove("viewmode"); document.body.classList.add("consult-editor"); }   /* 1B: sblocca channel list + UI editor, prima di importProject (normalizeState legge il flag) */
     importProject(JSON.stringify(d.data),{keepCloud:true,persist:false,autosave:false});
+    titoloDelLink(d);   /* come nel link di sola visione: il nome attuale del progetto */
     if(window.__applyVenueImage) window.__applyVenueImage(d.venue_image);   /* planimetria dalla colonna dedicata (0013) */
     if(isEditor && d.is_locked && window.applyProjLock) window.applyProjLock(true);
     var ch=sb.channel("consulenza:"+token, {config:{broadcast:{self:false}, presence:{key:isEditor?"editor":"viewer"}}});
@@ -28633,6 +28648,7 @@ function gallery(){
     document.body.classList.remove("consult-pending");
     document.body.classList.add("viewmode");
     importProject(JSON.stringify(d.data),{keepCloud:true,persist:false,autosave:false});
+    titoloDelLink(d);   /* il nome attuale del progetto, non quello rimasto dentro il file */
     if(window.__applyVenueImage) window.__applyVenueImage(d.venue_image);   /* planimetria dalla colonna dedicata (0013) */
     try{ setupViewerTabs(); }catch(e){}   /* T3: tab liste tecniche (Input/Monitor/Carichi/RF/Backline) nel link condiviso */
     try{ var vs=document.getElementById("viewStatus"); if(vs){ var si=statusInfo(state.status); vs.hidden=false; vs.textContent=si.label; vs.style.background=si.color; vs.style.color="#fff"; } }catch(e){}   /* T5: badge stato nel link condiviso */
