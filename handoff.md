@@ -6,6 +6,16 @@ sono state scritte qui: la loro storia sta nei messaggi di commit e nelle PR (#9
 
 ## Settembre in una pagina (PR su `main`)
 
+- **29/09 — Distanza tra i 2 su più postazioni** (ramo `postazioni-distanza`, segnalazione di Simone c0bd4c7b:
+  «se seleziono molteplici postazioni a 2 devo poter regolare la distanza… in simultanea»). Postazione a 2 = ha
+  `sepCfg`: tipo di `POSTAZ` con `doppia` (archi, fiati, sax) o tipo ×2 di `DOUBLE_TYPES`; la proprietà è `it.sep`
+  (cm fra i due), `it.w` segue con `sepToW`. Nel pannello di gruppo `#grpSepWrap` (`#grpSep` 65–300 passo 5,
+  `#grpSepVal`, `#grpSepHint`): `sepStato` / `sepApplica` / `grpSepRender` / `grpSepScritta` / `grpSepApply`.
+  Distanze diverse → «diversi» e cursore sbiadito (`.misto`); ognuna rispetta il suo minimo (contrabbasso 100).
+  Trascinando si ridisegna senza salvare (`grpSepTrascina`), al rilascio un `save()` = un solo Annulla. Gli altri
+  elementi della selezione non si toccano. Sul telefono il cursore è alto 44 px. ⚠️ Non è lo slider «Distanza»
+  delle etichette (ramo `etichette-vicine`).
+
 - **29/09 — Uscita pulita** (#246, richiesta di Simone: «immagina che io faccia il login sul computer di un'altra
   persona»). `signOut()`: `preparaUscita` (salva online o chiede «Resta / Esci comunque») → `sb.auth.signOut()`
   (senza rete `scope:"local"`) → `pulisciDatiAccount` (tabella chiavi nel blocco «USCITA PULITA») → invito
