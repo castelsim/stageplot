@@ -6,6 +6,25 @@ sono state scritte qui: la loro storia sta nei messaggi di commit e nelle PR (#9
 
 ## Settembre in una pagina (PR su `main`)
 
+- **29/09 — Avvertenza «palco adattato»** (ramo `adatta-avvertenza`, Simone: «l'avvertenza è un'opzione e decide
+  l'utente che crea lo stageplot se inserirla»). Nella finestra finale di Adatta, SOLO se «Ci stanno, ma stretti»
+  (`R.ciSta && R.stretta>0`), un interruttore SPENTO «Aggiungi un'avvertenza nello stage plot, per chi lo riceve»
+  (`adattaPalcoFinestra` → `guideDialog` con le opzioni nuove `scelta` / `chiusa(spuntata)`, chiamata con il congedo:
+  «Tengo così», Esc, clic fuori; «Usa un palco…» la ignora). L'avvertenza è un «Testo libero» rosso con
+  `avvertenza:"adatta"`: «Attenzione: palco adattato da 12 × 13 m a 10 × 10 m. I musicisti sono più vicini del
+  normale (fino al 20% dell'ingombro): verificare gli spazi con la produzione.» (conferenza: «Le postazioni…»).
+  Da console: `adattaAvvertenza(1200, 1300, 1000, 1000, 60)` (cm; stretta 0,6 o 60); una nuova sostituisce la
+  vecchia. Posto (`adattaAvvertenzaPosto`): sotto «PUBBLICO» (D+32…D+79), poi metà sinistra/destra della fascia
+  (al centro c'è il punto «stage rack» a D+72), poi un angolo libero del palco; mai sopra un elemento (ingombro +
+  nome), sempre dentro l'area di stampa, misurato con i corpi del PDF a 1:100 (K 1,25: `adattaAvvertenzaImpagina`
+  va a capo a larghezza/K). Scelta subito dopo Adatta, entra nel SUO passo (`adattaPasso`, `adattaNelPasso`): un
+  Annulla toglie tutto, in scena nuova toglie la scena; da console o dopo altro lavoro è un passo suo. Non conta
+  come «fuori dal palco» (`elementiFuoriDalPalco`, `palcoCheContieneTutto`) né come cartello luci. Il PNG si fa
+  l'area col palco esatto (`ensurePrintFrame`): ora `frameConAvvertenza` ci mette dentro l'avvertenza.
+  ⚠️ Oltre 1:100 (palchi > ~14 m di profondità su A4) i corpi crescono di più e la fascia sotto PUBBLICO non basta.
+  ⚠️ Già prima: esportare il PDF scrive `production` nello stato con un passo di Annulla, quindi dopo un export il
+  primo Annulla disfa quello e non Adatta.
+
 - **29/09 — Distanza tra i 2 su più postazioni** (ramo `postazioni-distanza`, segnalazione di Simone c0bd4c7b:
   «se seleziono molteplici postazioni a 2 devo poter regolare la distanza… in simultanea»). Postazione a 2 = ha
   `sepCfg`: tipo di `POSTAZ` con `doppia` (archi, fiati, sax) o tipo ×2 di `DOUBLE_TYPES`; la proprietà è `it.sep`
