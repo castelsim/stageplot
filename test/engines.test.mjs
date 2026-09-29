@@ -7159,7 +7159,7 @@ t("Esporta dice se il progetto è cambiato dopo l'ultimo PDF", () => {
   A.state.items[0].x += 50;
   ok(/^Modificato dopo l'ultimo PDF/.test(A.pdfUltimoTesto(A.state)), "spostato un elemento, la nota deve dirlo");
   ok(/pdfSave\(doc, fileName\(\)\+"\.pdf"\);\s*if\(typeof segnaPdfEsportato==="function"\) segnaPdfEsportato\(\);/.test(appjs), "l'export riuscito deve lasciare la nota");
-  ok(/renderFuoriPalco\(\);\s*renderPdfUltimo\(\);/.test(appjs), "la nota va mostrata all'apertura di Esporta");
+  ok(/renderFuoriPalco\(\);\s*(?:renderCoroMuto\(\);\s*)?renderPdfUltimo\(\);/.test(appjs), "la nota va mostrata all'apertura di Esporta");   /* 29/09: fra i due c'è l'avviso del coro */
 });
 /* Revisione 25/09: il PDF «solo palco» lasciava fuori la channel list senza dirlo. */
 t("Esporta avvisa se la channel list resta fuori dal PDF", () => {
@@ -16901,6 +16901,22 @@ t("«Condividi» è scritto nella barra quando c'è posto", () => {
   ok(/function adattaCondividi\(\)\{[^}]*h\.classList\.add\("cond-si"\);\s*if\(h\.scrollWidth>h\.clientWidth\+1\) h\.classList\.remove\("cond-si"\);/.test(appjs), "si toglie solo se la barra trabocca");
   ok(/function renderVariantBar\(\)\{\s*setTimeout\(adattaCondividi, 0\);/.test(appjs), "si rimisura quando cambiano le scene");
   ok(!/contiene anche Scarica PDF/.test(readFileSync(join(root, "app/index.html"), "utf8")), "il title non promette più «Scarica PDF»");
+});
+
+t("l'Esporta dice quando il coro non ha canali, e li aggiunge con un clic", () => {
+  /* 29/09, dalla lettura del lunedì: due progetti veri con 16 e 30 coristi in panoramica senza microfono
+     sono stati esportati tre volte. L'audit avvisava, ma l'Esporta si ferma solo sugli errori. */
+  reset(); for (let i = 0; i < 6; i++) add("corista", 200 + i * 60, 300, { micMode: "pano" });
+  eq(A.coristiSenzaRipresa().length, 6, "sei coristi in panoramica senza niente davanti");
+  ok(/var coroMuto=coristiSenzaRipresa\(items\);/.test(appjs), "l'audit usa la stessa regola dell'Esporta");
+  ok(hasMsg(/6 coristi in panoramica non sono ripresi/), "e l'audit li conta uguale");
+  add("micchoir", 350, 420);
+  eq(A.coristiSenzaRipresa().length, 0, "un microfono d'insieme davanti li riprende");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/<div id="pdfFuoriPalco" hidden><\/div>\s*<div id="pdfCoroMuto" hidden><\/div>/.test(html), "l'avviso sta nella finestra Esporta, accanto a quello degli elementi fuori dal palco");
+  ok(/renderFuoriPalco\(\);\s*renderCoroMuto\(\);\s*renderPdfUltimo\(\);/.test(appjs), "si calcola a ogni apertura");
+  ok(/coristi senza microfono/.test(appjs) && /nella channel list del PDF il coro non ha canali\./.test(appjs), "dice cosa succederà nel foglio");
+  ok(/fix\.id="pdfCoroFix"[^]*?auditFixChoirMics\(coristiSenzaRipresa\(\)\);\s*renderCoroMuto\(\);\s*if\(typeof pdfRefreshPages==="function"\) pdfRefreshPages\(\);/.test(appjs), "il pulsante aggiunge i microfoni e ricalcola pagine e avviso");
 });
 
 t("il limite della landing non si aggira con un IP inventato, e c'è un tetto globale", () => {
