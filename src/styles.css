@@ -3477,3 +3477,4 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
    mostra niente del progetto dietro — restano visibili solo le finestre, il messaggio e le conferme.
    `visibility` e non `display`: il palco tiene le sue misure e alla chiusura fit() non riparte da zero. */
 body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:hidden}
+@media (min-width:881px){ #accessoInvito .wl-foot button{white-space:nowrap} }   /* due bottoni su una riga: a capo sembravano quattro */

@@ -3756,6 +3756,11 @@ function invitoAlBoot(haSessione, rientro){
   if(window.__invitoAccesso) return true;
   mostraInvitoAccesso("scaduta"); return true;
 }
+/* SENZA RETE non è «sessione scaduta». Con il token scaduto supabase-js 2.110 prova a rinnovarlo; se la rete
+   non c'è (o fetchConTempo scade) risponde session:null con AuthRetryableFetchError e LASCIA la sessione
+   salvata: chi lavora in un locale senza campo deve poter continuare, e l'invito non va mostrato. Una
+   sessione revocata (uscita da un altro dispositivo) risponde invece con un errore del server, e lì sì. */
+function sessioneNonRaggiungibile(err){ return !!(err && (err.name==="AuthRetryableFetchError" || err.status===0)); }
 /* Un'altra scheda è uscita dall'account: questa smette di mostrare il progetto (le chiavi le ha già tolte lei). */
 function uscitaDaAltraScheda(){
   if(foreignDoc()) return false;
@@ -29023,6 +29028,7 @@ function maybeAskStageSize(explicit){
       function fine(){
         if(fatto) return; fatto=true;
         closeModal();
+        try{ var ct=document.getElementById("cloudToast"); if(ct) ct.hidden=true; }catch(e){}   /* «Salvo le ultime modifiche online…» non vale più */
         pulisciDatiAccount();
         mostraInvitoAccesso("uscita");
       }
@@ -29997,7 +30003,8 @@ function maybeAskStageSize(explicit){
       setCloudUser((r && r.data && r.data.session)?r.data.session.user:null);
       window.__cloudAuthResolved=true;
       if(cloudUser){ if(window.__invitoAccesso==="scaduta") chiudiInvitoAccesso(); }
-      else if(!senzaInvito){
+      /* SENZA RETE non è «sessione scaduta»: vedi sessioneNonRaggiungibile */
+      else if(!senzaInvito && !sessioneNonRaggiungibile(r && r.error)){
         if(!oauthReturn) invitoAlBoot(false, false);
         else setTimeout(function(){ if(!cloudUser) invitoAlBoot(false, false); }, 8000);   /* accesso non andato a buon fine */
       }
