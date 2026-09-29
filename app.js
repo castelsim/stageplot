@@ -2830,13 +2830,13 @@ function cicloSotto(c){
       var id=g.getAttribute("data-id"); if(ids.indexOf(id)<0) ids.push(id);
     });
   }
-  ids=ids.filter(function(id){ var it=(state.items||[]).filter(function(x){ return x.id===id; })[0]; return it && itemPickable(it); });
+  ids=ids.filter(function(id){ var it=(state.items||[]).filter(function(x){ return x.id===id; })[0]; return it && itemPickable(it, {esce:true}); });   /* sotto «Solo pedane» anche lo sfumato: prenderlo spegne la vista (29/09) */
   if(ids.length<2) return false;
   var i=ids.indexOf(c.id), n=ids.length;
   for(var k=1;k<n;k++){
     var nid=ids[(i+k+n)%n];
     if(selSet[nid]) continue;   /* stesso blocco: si salta, altrimenti il clic non cambierebbe niente */
-    selectClick(nid); render();
+    selectClick(nid); soloPedGesto=true; render();
     var it=(state.items||[]).filter(function(x){ return x.id===nid; })[0];
     var nome=(it && (it.label || (TYPES[it.type]&&TYPES[it.type].nome))) || "elemento";
     if(typeof showToast==="function") showToast("Preso: "+nome+(n>2 ? " · clic ancora per andare più sotto" : ""));
@@ -6808,7 +6808,7 @@ function itemLiveOnStage(it){
   if(!it || it.rackId) return false;
   if(isCover(it) && !coverLayerUI.vis && !soloOn("cover")) return false;
   if(it.type==="miczone" && !layerShown("miczone")) return false;
-  if(anySolo()){ if(!itemInSoloLayer(it)) return false; }   /* sotto solo si lavora solo sul layer in solo: il resto è contesto (.solo-bg non si clicca) */
+  if(anySolo()){ if(!itemInSoloLayer(it)) return false; }   /* sotto solo si lavora solo sul layer in solo: il resto è contesto (.solo-bg non si clicca; sotto «Solo pedane» si prende, ma prenderlo spegne la vista) */
   else if(!itemEyeShown(it)) return false;
   var _dotId=techDotSoloId();
   if(_dotId && itemInSoloLayer(it) && techDotItem(it,_dotId)) return false;   /* disegnato come punto sezione, non come elemento */
@@ -10533,12 +10533,15 @@ function noteOf(it){ var n=it&&it.note; return (typeof n==="string" && n.trim())
    al disegno lo sporca e a scala reale non si legge — ma nemmeno niente, o nessuno saprebbe di
    doverla cercare nella lista Note. Dentro il <text>, così resta centrato col nome. */
 function noteDot(it){ return noteOf(it) ? '<tspan class="lbl-dot"> •</tspan>' : ""; }
-function itemPickable(it){
+/* `opz.esce` = un gesto che prende QUESTO elemento (clic ripetuto, nome nell'elenco del telefono): sotto
+   «Solo pedane» il contesto sfumato si prende così, e prenderlo spegne la vista (29/09). Il riquadro no:
+   nella vista delle pedane prende le pedane, non chi ci sta sopra. I solo dei layer restano com'erano. */
+function itemPickable(it, opz){
   if(!it || it.rackId) return false;
 
   if(isCover(it) && !coverLayerUI.vis && !soloOn("cover")) return false;
-  if(anySolo()) return itemInSoloLayer(it);
-  return itemEyeShown(it);
+  if(anySolo() && !(opz && opz.esce && soloOn("pedane"))) return itemInSoloLayer(it);
+  return (anySolo() && itemInSoloLayer(it)) || itemEyeShown(it);
 }
 /* La scena è organizzata in LAYER con id stabili (z-order garantito dall'ordine dei gruppi):
    planimetria → palco → elementi → overlay. Permette di rigenerare solo il palco/overlay durante il
@@ -10557,6 +10560,21 @@ function sceneMarkup(opts){
   /* itemEyeShown è ora una funzione di modulo (sopra): la stessa regola serve anche al marquee.
      Il perimetro del palco (layStage) non si spegne mai: è il foglio, non un layer. */
   var items='', zones='', bgItems='', lbls='', bgLbls='';
+  /* .42 e non .15 (SP-06, 06/09): a .15 il contesto era un fantasma, e «fuoco» finiva per somigliare
+     a «isolamento» — cioè il bottone S non distingueva più niente da quello che faceva già il clic
+     sulla riga. Misurato a video: a .42 le spie si leggono ancora, coi loro nomi, e restano
+     chiaramente dietro ai punti del layer su cui si sta lavorando. */
+  var _bgOp = soloOn("pedane") ? ".15" : ".42";   /* solo pedane: il resto è solo un riferimento (vedi soloPedane) */
+  /* «Solo pedane» (29/09 sera, Simone: «vorrei vedere in trasparenza anche quelli sopra la pedana mentre
+     adesso sono sotto»). Per i layer il contesto va tutto SOTTO, in un gruppo solo: lì si legge la catena
+     sopra il palco. Per le pedane no: il contesto resta nel suo ordine di disegno di sempre (sortedItems),
+     quindi chi sta sopra una pedana si disegna sopra la pedana, sfumato. Le sequenze di contesto fra una
+     pedana e l'altra finiscono in un gruppo ciascuna (in pratica due: sotto e sopra le pedane), così
+     musicista e strumento si sfumano insieme e non uno attraverso l'altro. `solo-prende` = il contesto
+     si prende col clic (src/styles.css) e prenderlo spegne la vista; le maniglie della pedana stanno in
+     #layHandles, sopra a tutto. I nomi restano come per i layer (#layLbl non si prende comunque). */
+  var _soloPed = soloSplit && soloOn("pedane") && layerSoloMode!=="iso", pedCtx='';
+  function _pedCtxG(m){ return '<g class="solo-bg solo-prende" style="opacity:'+_bgOp+'">'+m+'</g>'; }
   var _racks={}; (state.items||[]).forEach(function(x){ if(x.type==="rack") _racks[x.id]=x; });
   if(!coverLayerUI.vis && !(state.items||[]).some(isCover)) coverLayerUI.vis=true;   /* niente coperture → riporta la vista a visibile (evita che una nuova copertura nasca nascosta) */
   sortedItems().forEach(function(it){
@@ -10567,20 +10585,18 @@ function sceneMarkup(opts){
     _lblSink=[]; var m, _lbm;
     try{ m=(_dotId && itemInSoloLayer(it) && techDotItem(it, _dotId)) ? sectionDotMarkup(it) : itemMarkup(it);   /* layer tecnici: musicisti (audio) / carichi (power) → punti sezione */
          _lbm=_lblSink.join(''); } finally { _lblSink=null; }   /* mai un raccoglitore rimasto aperto: l'export ci perderebbe i nomi */
-    var showAttr=(anySolo() || itemEyeShown(it)) ? '' : ' display="none"';   /* sotto solo: tutto visibile, il fade lo fa lo split */
+    var showAttr=(soloMostra(it) || itemEyeShown(it)) ? '' : ' display="none"';   /* sotto solo: tutto visibile, il fade lo fa lo split */
     if(_lbm && !isCover(it)) _lbm=_lbm.replace('<g class="item-lbls','<g'+showAttr+' class="item-lbls');
     if(musLayerItem(it.type)) m='<g class="mus-item"'+showAttr+'>'+m+'</g>';   /* classi per i lock (body.mus-lock ecc.) */
     else if(isCover(it)) m='<g class="cover-item">'+m+'</g>';
     else if(TYPES[it.type] && TYPES[it.type].riser) m='<g class="riser-item"'+showAttr+'>'+m+'</g>';   /* pedane: parte del palco, si toccano solo in modalità "Palco e pedane" */
     else m='<g class="st-item"'+showAttr+'>'+m+'</g>';
-    if(soloSplit && !itemInSoloLayer(it)){ if(layerSoloMode==="iso") return; bgItems += m; bgLbls += _lbm; }   /* S = isolamento: il resto sparisce */
-    else { items += m; lbls += _lbm; }
+    if(soloSplit && !itemInSoloLayer(it)){ if(layerSoloMode==="iso") return;   /* S = isolamento: il resto sparisce */
+      if(_soloPed) pedCtx += m; else bgItems += m;
+      bgLbls += _lbm; }
+    else { if(pedCtx){ items += _pedCtxG(pedCtx); pedCtx=''; } items += m; lbls += _lbm; }
   });
-  /* .42 e non .15 (SP-06, 06/09): a .15 il contesto era un fantasma, e «fuoco» finiva per somigliare
-     a «isolamento» — cioè il bottone S non distingueva più niente da quello che faceva già il clic
-     sulla riga. Misurato a video: a .42 le spie si leggono ancora, coi loro nomi, e restano
-     chiaramente dietro ai punti del layer su cui si sta lavorando. */
-  var _bgOp = soloOn("pedane") ? ".15" : ".42";   /* solo pedane: il resto è solo un riferimento (vedi soloPedane) */
+  if(pedCtx) items += _pedCtxG(pedCtx);
   if(soloSplit && bgItems) items = '<g class="solo-bg" style="opacity:'+_bgOp+'">'+bgItems+'</g>'+items;
   if(soloSplit && bgLbls) lbls = '<g class="solo-bg" style="opacity:'+_bgOp+'">'+bgLbls+'</g>'+lbls;
   /* vis dei layer meta INCORPORATA nel markup: render() è chiamato ovunque e un gruppo "nudo"
@@ -10718,8 +10734,9 @@ function syncItemLbl(it){
   var gi=n.firstElementChild; if(gi) gi.setAttribute("transform","rotate("+(it.rot||0)+")");
 }
 /* visibilità del nome = quella del suo elemento (occhio del layer), come in sceneMarkup */
-function lblShowAttr(it){ return isCover(it) ? '' : ((anySolo() || itemEyeShown(it)) ? '' : ' display="none"'); }
+function lblShowAttr(it){ return isCover(it) ? '' : ((soloMostra(it) || itemEyeShown(it)) ? '' : ' display="none"'); }
 function render(){
+  soloPedaneAuto();   /* «Solo pedane» si accende da solo quando la mano seleziona sole pedane (29/09) */
   pruneSolo();   /* niente solo fantasma su layer disattivati */
   diSyncAll();   /* gli accessori legati (DI) seguono il loro strumento: posizione da offset locale + rotazione */
   if(typeof renderStatusUI==="function") renderStatusUI();   /* T5: badge/stato in header (chiamato dopo il full-load → PROJECT_STATUSES definito) */
@@ -14590,7 +14607,7 @@ function closeMobileDrawers(){
    (`itemPickable`: niente elementi dentro un rack, niente layer spenti), col nome che si legge sul
    palco e, sotto, cos'è — «Voce» dice poco se non si sa che è un cantante con l'asta. */
 function mobileListRows(){
-  return (state.items||[]).filter(function(it){ return TYPES[it.type] && itemPickable(it); }).map(function(it){
+  return (state.items||[]).filter(function(it){ return TYPES[it.type] && itemPickable(it, {esce:true}); }).map(function(it){   /* sotto «Solo pedane» anche lo sfumato: toccarlo spegne la vista */
     var t=TYPES[it.type], tipo=t.nome||it.type;
     var nome=String(it.label||"").replace(/\s+/g," ").trim() || tipo;
     return { id:it.id, nome:nome, sub:(nome!==tipo ? tipo : ""), scelto:!!selSet[it.id] };
@@ -14634,7 +14651,7 @@ function renderMobileList(){
     ml.addEventListener("click", function(e){
       var c=e.target.closest("[data-chk]"), g=e.target.closest("[data-go]");
       if(c){ toggleSelId(c.getAttribute("data-chk")); render(); renderMobileList(); return; }
-      if(g){ selectClick(g.getAttribute("data-go")); closeAll(); render(); }   /* il nome porta sul palco: la barra sotto lo mostra */
+      if(g){ selectClick(g.getAttribute("data-go")); closeAll(); soloPedGesto=true; render(); }   /* il nome porta sul palco: la barra sotto lo mostra */
     });
     function on(id, fn){ var b=document.getElementById(id); if(b) b.addEventListener("click", fn); }
     on("mListDone", closeAll);
@@ -15205,10 +15222,10 @@ svg.addEventListener("pointerdown", function(e){
     exitHubModes();   /* selezionando un elemento esci da Evento/Channel list */
     var id = g.getAttribute("data-id");
     if(e.shiftKey){                       /* shift-click: aggiungi/togli dalla selezione, senza drag */
-      e.preventDefault(); toggleSelId(id); render(); svg.setPointerCapture(e.pointerId); drag={mode:"none"}; return;
+      e.preventDefault(); toggleSelId(id); soloPedGesto=true; render(); svg.setPointerCapture(e.pointerId); drag={mode:"none"}; return;
     }
     var _giaSel=!!selSet[id];             /* già selezionato: un clic fermo passa a quello sotto (cicloSotto) */
-    if(!selSet[id]) selectClick(id);      /* click su elemento non selezionato → selezione (gruppo se fa parte di un blocco) */
+    if(!selSet[id]){ selectClick(id); soloPedGesto=true; }   /* click su elemento non selezionato → selezione (gruppo se fa parte di un blocco); la mano ha scelto: vedi soloPedaneAuto */
     var _dupIds=null, _selPrima=null;
     if(e.altKey){ e.preventDefault(); _selPrima=Object.keys(selSet); duplicateSel(true, {rinviaStoria:true}); _dupIds=Object.keys(selSet); }   /* alt+drag: copia sovrapposta all'originale, poi trascinata; la storia la registra il rilascio */
     var moving=selItems().slice().filter(itemEditable);   /* col lucchetto chiuso non si sposta, neanche dentro a un gruppo */
@@ -15724,6 +15741,7 @@ svg.addEventListener("pointerup", function(e){
         var hw=(it.w||0)/2, hd=(it.d||0)/2;
         if(it.x-hw<=r.x+r.w && it.x+hw>=r.x && it.y-hd<=r.y+r.h && it.y+hd>=r.y){ selSet[it.id]=true; sel=it.id; }
       });
+      soloPedGesto=true;   /* un riquadro di sole pedane accende «Solo pedane» (soloPedaneAuto) */
     }
     if(drag.el && drag.el.parentNode) drag.el.parentNode.removeChild(drag.el);
     render();
@@ -19770,12 +19788,41 @@ function layerFgItem(id, it){
    stessa mappa layerSoloUI, quindi il resto (disegno sfumato, niente clic sul contesto, banner, Esc,
    clic sul vuoto) è quello dei solo dei layer. Differenze: vive solo finché la selezione contiene
    una pedana (pruneSolo), sfuma al 15% e non al .42 dei layer tecnici (lì il contesto va LETTO, qui
-   serve solo come riferimento per piazzare le pedane), e non entra mai negli export. */
-function soloPedaneDisponibile(){ return selItems().some(isRiser); }
+   serve solo come riferimento per piazzare le pedane), e non entra mai negli export.
+   Dal 29/09 sera (Simone: «vorrei vedere in trasparenza anche quelli sopra la pedana … vorrei che
+   l'opzione si attivasse in automatico nel momento in cui seleziono una pedana»):
+   - vale solo con una selezione fatta SOLO di pedane: una selezione mista la spegne (pruneSolo);
+   - si accende da sola quando la mano seleziona sole pedane (soloPedaneAuto, più sotto);
+   - il contesto si disegna nel suo ordine di sempre (chi sta sopra la pedana resta sopra, sfumato)
+     e SI PRENDE: un clic su un elemento sfumato lo seleziona e, non essendo una pedana, spegne la
+     vista (sceneMarkup, classe solo-prende). Il riquadro invece prende solo le pedane: itemPickable. */
+function soloPedaneDisponibile(){ var s=selItems(); return s.length>0 && s.every(isRiser); }
 function soloPedane(on){
   if(on && soloPedaneDisponibile()){ layerAccOpen=null; layerSoloUI={pedane:true}; layerSoloMode="focus"; }
   else delete layerSoloUI.pedane;
   if(typeof renderLayerManager==="function") renderLayerManager();
+}
+/* ACCENSIONE AUTOMATICA. `soloPedGesto` lo alzano solo i gesti con cui la mano sceglie un elemento: clic o
+   tocco sul disegno (anche shift e il clic ripetuto di cicloSotto), riquadro, nome dell'elenco del telefono.
+   Le selezioni fatte dal codice non accendono niente: Duplica, Incolla, un elemento appena aggiunto dal
+   catalogo, Annulla, la tastiera, gli avvisi «Mostra il primo». Chi duplica una pedana la vuole vedere dove
+   è finita in mezzo al resto, e se la vista era già accesa resta accesa (la copia è ancora una pedana).
+   `soloPedFirma` = la selezione di sole pedane per cui la vista è già stata decisa: spento l'occhio (o
+   «Mostra tutto il palco»), la firma non cambia e la vista resta spenta finché resta QUELLA selezione;
+   una selezione che non è di sole pedane la azzera, così riselezionare la stessa pedana la riaccende. */
+var soloPedGesto=false, soloPedFirma=null;
+function soloPedaneAutoVietato(){
+  var cl=document.body.classList;
+  if(window.__projLocked || cl.contains("viewmode") || cl.contains("consult-viewer")) return true;   /* sola lettura: niente da modificare, niente vista di lavoro */
+  return !!layerAccOpen || (anySolo() && !soloOn("pedane"));   /* una vista dei layer scelta a mano non si scavalca */
+}
+function soloPedaneAuto(){
+  var gesto=soloPedGesto; soloPedGesto=false;
+  if(!soloPedaneDisponibile()){ soloPedFirma=null; return; }
+  var firma=selIds().slice().sort().join(",");
+  if(firma===soloPedFirma) return;
+  soloPedFirma=firma;
+  if(gesto && !soloOn("pedane") && !soloPedaneAutoVietato()) soloPedane(true);
 }
 /* Gli export (PDF, PNG, anteprima, miniatura) disegnano il progetto, non la vista: col solo pedane
    acceso il PDF perdeva i cavi (layerShown segue il solo) e il PNG usciva sfumato. */
@@ -19792,7 +19839,7 @@ function aggiornaSoloPedane(){
     b.style.display = si ? "" : "none";
     b.classList.toggle("on", on);
     b.setAttribute("aria-pressed", on ? "true" : "false");
-    b.title = on ? "Torna a vedere tutto il palco" : "Mostra solo le pedane: il resto si vede in trasparenza e non si prende";
+    b.title = on ? "Torna a vedere tutto il palco" : "Mostra solo le pedane: il resto si vede in trasparenza";
   });
 }
 (function(){
@@ -19835,6 +19882,10 @@ function itemInSoloLayer(it){
   for(var id in layerSoloUI){ if(layerSoloUI[id] && layerFgItem(id, it)) return true; }
   return false;
 }
+/* Sotto un solo dei layer si vede tutto (il contesto va letto anche con l'occhio chiuso). Sotto «Solo
+   pedane» il contesto è quello del palco normale: con l'occhio dei Musicisti chiuso restano nascosti,
+   anche perché ora il contesto si prende col clic e non si deve poter prendere ciò che non si vede. */
+function soloMostra(it){ return anySolo() && (!soloOn("pedane") || itemInSoloLayer(it)); }
 /* un layer spento (cestino/toggle) non deve restare in solo fantasma sfumando tutto */
 function pruneSolo(){
   if(!anySolo()) return;
@@ -21351,7 +21402,7 @@ function renderVistaBanner(){
   var nome=id;
   try{ layerRegistry().forEach(function(L){ if(L.id===id) nome=L.name; }); }catch(_e){}
   if(id==="pedane"){   /* Solo pedane: dice cosa è cambiato e come si torna indietro, come le viste dei layer */
-    el.innerHTML='<span class="vb-txt"><b>Solo pedane</b> \u2014 il resto del palco \u00e8 in trasparenza e non si prende</span>'
+    el.innerHTML='<span class="vb-txt"><b>Solo pedane</b> \u2014 il resto \u00e8 in trasparenza: un clic su un elemento torna al palco intero</span>'
       + '<button type="button" class="vb-esci" id="vistaEsci">Mostra tutto il palco</button>';
     el.hidden=false;
     var bp=document.getElementById("vistaEsci");
