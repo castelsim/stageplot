@@ -10858,7 +10858,7 @@ function nomiDaNascondere(nomi, ostacoli){
 function nomiCedono(){
   var lay=document.getElementById("layLbl"); if(!lay || !lay.querySelectorAll) return;
   var gs=lay.querySelectorAll(".item-lbls"), n=gs.length|0, i;
-  var attivo=isMobile() && !svg.classList.contains("names-hidden");   /* solo telefono: il computer resta com'era */
+  var attivo=!svg.classList.contains("names-hidden");   /* telefono E computer (Simone 29/09: «2, come sul telefono»): a schermo un nome che tocca un altro cede e ricompare ingrandendo; PDF e PNG non passano di qui */
   if(!attivo){ for(i=0;i<n;i++) if(gs[i].classList.contains("lbl-cede")) gs[i].classList.remove("lbl-cede"); return; }
   var M=lay.getScreenCTM ? lay.getScreenCTM() : null;   /* #layLbl ha le coordinate del palco (i nomi vi stanno a translate(x y)), qualunque gruppo del solo ci sia fra gli elementi */
   if(!M) return;

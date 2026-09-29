@@ -11109,11 +11109,15 @@ t("i nomi girati si confrontano inclinati, non col riquadro dritto", () => {
   ok(A.quadSiToccano(girato(100, 100, 80, 10, 45), girato(100, 100, 80, 10, -45), 0), "due scritte incrociate non si toccano?");
 });
 
-t("la passata sta a schermo, solo al telefono, e i disegni contano solo col corpo ingrandito", () => {
+t("la passata sta a schermo, al telefono e al computer, e i disegni contano solo col corpo ingrandito", () => {
   const f = appjs.slice(appjs.indexOf("function aggiornaNomiZoom(){"), appjs.indexOf("function reindexItemNodes(){"));
   ok(/nomiCedono\(\);\s*return ppm;/.test(f), "aggiornaNomiZoom (render, rotella, pizzico) non chiama la passata");
   const c = appjs.slice(appjs.indexOf("function nomiCedono(){"), appjs.indexOf("function reindexItemNodes(){"));
-  ok(/var attivo=isMobile\(\) && !svg\.classList\.contains\("names-hidden"\);/.test(c), "la passata non è ristretta al telefono");
+  /* 29/09, Simone sul computer: «2, come sul telefono» — i nomi che si toccano cedono anche lì (prima: isMobile() && …) */
+  ok(/var attivo=!svg\.classList\.contains\("names-hidden"\);/.test(c), "la passata vale anche al computer");
+  ok(!/function nomiCedono\(\)\{[\s\S]{0,400}isMobile\(\)/.test(c), "nessuna restrizione al telefono");
+  const tutte = appjs.split("lbl-cede").length - 1, nellaPassata = c.split("lbl-cede").length - 1;
+  eq(tutte, nellaPassata, "«lbl-cede» esiste solo nella passata a schermo: PDF e PNG non nascondono nomi");
   ok(/if\(K>1\.001\) \(state\.items\|\|\[\]\)\.forEach/.test(c), "i disegni contano anche a corpo pieno");
   ok(/#svg #layLbl \.item-lbls\.lbl-cede\{visibility:hidden\}/.test(stylesCss), "manca la regola che nasconde il nome che cede");
   ok(/\.lbl-cede\.selected/.test(stylesCss), "il selezionato deve vedersi anche se cede");
