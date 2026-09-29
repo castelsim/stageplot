@@ -16919,6 +16919,42 @@ t("l'Esporta dice quando il coro non ha canali, e li aggiunge con un clic", () =
   ok(/fix\.id="pdfCoroFix"[^]*?auditFixChoirMics\(coristiSenzaRipresa\(\)\);\s*renderCoroMuto\(\);\s*if\(typeof pdfRefreshPages==="function"\) pdfRefreshPages\(\);/.test(appjs), "il pulsante aggiunge i microfoni e ricalcola pagine e avviso");
 });
 
+/* 29/09, Simone: «spesso quando vado in File, nei miei progetti, si blocca». Le richieste a Supabase non avevano un
+   tempo massimo: una sola appesa (Mac che si riaddormenta, rete che cambia) fermava lista, «Apri» e salvataggio.
+   Il sandbox ha i timer finti: la funzione si estrae dal codice vero e si prova con timer veri. */
+const esitoTempo = await (async () => {
+  const i = appjs.indexOf("var CLOUD_TEMPO_LETTURA="), j = appjs.indexOf("window.fetchConTempo=fetchConTempo;");
+  if (i < 0 || j < 0) return { trovata: false };
+  const ctx = { setTimeout, clearTimeout, AbortController, console: { warn() {} }, Error, String, Math, Date };
+  ctx.window = ctx; vm.createContext(ctx);
+  vm.runInContext(appjs.slice(i, j) + "\nthis.fetchConTempo=fetchConTempo;", ctx);
+  const maiRisponde = (u, o) => new Promise((ok, no) => { o.signal.addEventListener("abort", () => no(Object.assign(new Error("aborted"), { name: "AbortError" }))); });
+  const risponde = (u, o) => Promise.resolve({ ok: true, url: u, metodo: o.method || "GET", segnale: !!o.signal });
+  const out = { trovata: true };
+  const t0 = Date.now();
+  const tetto = (pr) => Promise.race([pr, new Promise((ok, no) => setTimeout(() => no({ name: "APPESA PER SEMPRE" }), 1500))]);   /* se il limite sparisse, la prova fallisce invece di restare ferma */
+  try { await tetto(ctx.fetchConTempo("https://x.supabase.co/rest/v1/stageplot_projects?select=id", {}, maiRisponde, 40)); out.appesa = "risolta?!"; }
+  catch (e) { out.appesa = e.name; out.dopoMs = Date.now() - t0; }
+  out.stallo = (ctx.__cloudStalli || [])[0];
+  out.buona = await ctx.fetchConTempo("https://x.supabase.co/rest/v1/p", { method: "PATCH" }, risponde, 40);
+  const esterno = new AbortController(); const p = ctx.fetchConTempo("u", { signal: esterno.signal }, maiRisponde, 5000); esterno.abort();
+  try { await tetto(p); out.annullata = "risolta?!"; } catch (e) { out.annullata = e.name; }
+  out.stalliDopoAnnullo = (ctx.__cloudStalli || []).length;
+  return out;
+})();
+
+t("nessuna richiesta al server resta appesa per sempre: scade, lo dice, e lascia lavorare i messaggi di errore", () => {
+  ok(esitoTempo.trovata, "fetchConTempo è nel codice");
+  eq(esitoTempo.appesa, "TimeoutError", "una richiesta che non risponde mai finisce in errore");
+  ok(esitoTempo.dopoMs >= 35 && esitoTempo.dopoMs < 1000, "allo scadere del tempo, non prima e non dopo: " + esitoTempo.dopoMs + " ms");
+  ok(esitoTempo.stallo && esitoTempo.stallo.dove === "/rest/v1/stageplot_projects" && esitoTempo.stallo.metodo === "GET", "e lo stallo resta scritto, senza host né parametri: " + JSON.stringify(esitoTempo.stallo));
+  ok(esitoTempo.buona && esitoTempo.buona.ok && esitoTempo.buona.metodo === "PATCH" && esitoTempo.buona.segnale, "una richiesta che risponde passa intatta");
+  eq(esitoTempo.annullata, "AbortError", "se chi chiama annulla, l'annullo arriva");
+  eq(esitoTempo.stalliDopoAnnullo, 1, "e un annullo non è contato come stallo");
+  ok(/var CLOUD_TEMPO_LETTURA=20000, CLOUD_TEMPO_SCRITTURA=60000;/.test(appjs), "letture 20 s, scritture 60 s");
+  eq((appjs.match(/global:\{ fetch:function\(u,o\)\{ return fetchConTempo\(u,o\); \} \}/g) || []).length, 2, "tutti e due i collegamenti a Supabase dell'editor la usano");
+});
+
 t("il limite della landing non si aggira con un IP inventato, e c'è un tetto globale", () => {
   /* 28/09, verifica di sicurezza: si prendeva il primo valore di x-forwarded-for, che scrive il client —
      con un IP falso a ogni colpo si gonfiavano senza fine i contatori su cui si decide il marketing */

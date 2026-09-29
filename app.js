@@ -3840,6 +3840,36 @@ function scheduleCloudAutosave(){
   _cloudRetryStep=0; clearTimeout(_cloudRetryT); _cloudRetryT=null;   /* una modifica dell'utente riparte da capo */
   clearTimeout(_cloudAsT); _cloudAsT=setTimeout(cloudAutosaveNow, 10000);
 }
+/* NESSUNA RICHIESTA AL SERVER RESTA APPESA PER SEMPRE (29/09, Simone: «spesso quando vado in File, nei miei
+   progetti, si blocca»). La lista dei progetti, «Apri», le anteprime e il salvataggio online aspettavano la
+   risposta di Supabase senza limite: dopo che il Mac si era addormentato, o con la rete che cambiava, una
+   richiesta poteva restare in volo per minuti — e «Apri» restava fermo su «Salvo le modifiche correnti…»,
+   la lista su «Sto cercando i tuoi progetti…». Con un tempo massimo la richiesta finisce in ERRORE, e ogni
+   punto dell'app ha già il suo messaggio («Elenco non disponibile…», «Apertura non riuscita», il salvataggio
+   che riprova da solo). Lo stallo resta scritto nella console e in window.__cloudStalli: la prossima volta
+   c'è la prova, non un'ipotesi. Letture 20 s, scritture 60 s (un progetto grande con la planimetria pesa MB). */
+var CLOUD_TEMPO_LETTURA=20000, CLOUD_TEMPO_SCRITTURA=60000;
+function fetchConTempo(url, opts, fetchVero, tempoMs){
+  opts=opts||{}; fetchVero=fetchVero||window.fetch.bind(window);
+  var metodo=String(opts.method||"GET").toUpperCase();
+  var ms=tempoMs || ((metodo==="GET"||metodo==="HEAD") ? CLOUD_TEMPO_LETTURA : CLOUD_TEMPO_SCRITTURA);
+  if(typeof AbortController!=="function") return fetchVero(url, opts);
+  var ctl=new AbortController(), scaduto=false;
+  if(opts.signal){ if(opts.signal.aborted) ctl.abort(); else opts.signal.addEventListener("abort", function(){ ctl.abort(); }); }
+  var t=setTimeout(function(){ scaduto=true; ctl.abort(); }, ms);
+  var o={}; for(var k in opts) o[k]=opts[k]; o.signal=ctl.signal;
+  return fetchVero(url, o).then(function(r){ clearTimeout(t); return r; }, function(e){
+    clearTimeout(t);
+    if(scaduto){
+      var dove=String(url||"").replace(/^https?:\/\/[^/]+/, "").split("?")[0];
+      try{ (window.__cloudStalli=window.__cloudStalli||[]).push({quando:new Date().toISOString(), metodo:metodo, dove:dove, ms:ms}); }catch(_e){}
+      try{ console.warn("[cloud] nessuna risposta in "+Math.round(ms/1000)+" s: "+metodo+" "+dove); }catch(_e){}
+      var err=new Error("Il server non ha risposto in tempo"); err.name="TimeoutError"; throw err;
+    }
+    throw e;
+  });
+}
+window.fetchConTempo=fetchConTempo;
 function flushCloudAutosave(done){
   if(window.__docLoadBlocked){ setDocState("blocked"); if(done) done(false); return; }
   if(window.__bootVenueUnavailable){ setDocState("conflict"); if(done) done(false); return; }
@@ -27825,7 +27855,8 @@ function gallery(){
       if(d.error){ viewerFailed("Il link non corrisponde a nessun progetto: può essere stato revocato o essere scaduto."); return; }
       if(d.kind==="project"){ startSharedProject(vt, d); return; }   /* condivisione generica: read-only statico + copia */
       whenSupabase(function(){
-        var sb=window.supabase.createClient(SB_URL, SB_ANON, {auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"pkce"}});
+        var sb=window.supabase.createClient(SB_URL, SB_ANON, {auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:"pkce"},
+          global:{ fetch:function(u,o){ return fetchConTempo(u,o); } }});
         sb.auth.getSession().then(function(res){
           var session=res&&res.data&&res.data.session?res.data.session:null;
           var user=session?session.user:null;
@@ -29998,7 +30029,8 @@ function maybeAskStageSize(explicit){
     document.addEventListener("keydown", function(e){ if(modalOpen() && e.key==="Escape") closeModal(); });
 
     if(!window.supabase || !window.supabase.createClient){ updateBtn(); window.__flushEvents(); return; }   /* CDN non caricato: il tool resta pienamente usabile */
-    sb=window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth:{ detectSessionInUrl:true, persistSession:true, autoRefreshToken:true, flowType:"pkce" } });
+    sb=window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth:{ detectSessionInUrl:true, persistSession:true, autoRefreshToken:true, flowType:"pkce" },
+      global:{ fetch:function(u,o){ return fetchConTempo(u,o); } } });   /* 29/09: nessuna richiesta appesa per sempre */
 
     /* Orchestre: ?p=<uuid> letto una volta sola; se manca la sessione resta in sessionStorage fino al login */
     var orcOpen=(typeof orcProjectParam==="function")?orcProjectParam(location.search):null;
