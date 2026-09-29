@@ -5825,6 +5825,251 @@ function palcoCheContieneTutto(){
   var w=Math.ceil((x1-x0+M*2)/50)*50, d=Math.ceil((y1-y0+M*2)/50)*50;
   return { w:Math.max(200,w), d:Math.max(200,d), dx:M-x0, dy:M-y0 };
 }
+/* ADATTA A UN PALCO DI MISURA DIVERSA (29/09, Simone: «mantenere organico e posizioni ma con palco
+   di dimensioni diverse… ottimizzare gli spazi per farci stare l'organico»; caso: un'orchestra con
+   coro da 12×13 m su un palco 10×10).
+   Algoritmo, un asse alla volta (prima x, poi y), sugli ingombri veri (w/d ruotati → rettangolo che li contiene):
+   1. ogni coppia di elementi che non si toccano riceve un vincolo sull'asse dove è più separata:
+      «B resta dopo A di almeno metà A + metà B + 10 cm» (o della distanza di prima, se era meno).
+      Chi già si sovrapponeva non si avvicina di più. Così l'ordine (sinistra/destra, fondo/fronte) resta.
+   2. elementi con la stessa coordinata (una fila, una riga del coro) sono UN blocco: la fila resta fila.
+   3. la posizione desiderata è quella di prima scalata verso il nuovo palco; una passata in avanti
+      rispetta i vincoli, una all'indietro rientra nel bordo. I vincoli sono solo dove gli ingombri si
+      toccherebbero: si stringono prima i corridoi vuoti, e gli elementi non si sovrappongono mai.
+   4. se nemmeno stretti al minimo ci stanno, non si sovrappongono lo stesso: sbordano in modo uguale
+      ai due lati e il rapporto dice quanti sono fuori e quanto servirebbe.
+   Pedane e piani d'appoggio non contano nelle collisioni: seguono (e si accorciano con) chi ci sta
+   sopra. Segni (forma, metro, testo, zona microfono) si spostano in proporzione. Chi stava fuori dal
+   palco (FOH, PA) resta alla stessa distanza dal suo bordo. Il motore non tocca lo stato: restituisce. */
+var ADATTA_LIVELLI=[{aria:10,stretta:0},{aria:0,stretta:0},{aria:0,stretta:0.1},{aria:0,stretta:0.2},{aria:0,stretta:0.3}];
+var ADATTA_FONDI={ tappeto:1, tavolo:1, tavolopercussioni:1, flightcase:1, pedanacoro:1, podio:1 };
+var ADATTA_SEGNI={ forma:1, metro:1, miczone:1, testo:1 };
+function adattaIngombro(it){
+  var t=TYPES[it.type]||{}, w=it.w||t.w||60, d=it.d||t.d||60, a=(it.rot||0)*Math.PI/180;
+  var c=Math.abs(Math.cos(a)), s=Math.abs(Math.sin(a));
+  return { hw:(w*c+d*s)/2, hd:(w*s+d*c)/2 };
+}
+/* posizioni lungo un asse: el=[{c,h,id}], cop=[[i,j,req]] con c_i<c_j, L=lunghezza utile, L0=quella di prima */
+function adattaAsse(el, cop, L, L0, TOL){
+  var n=el.length;
+  if(!n) return { pos:[], serve:0, map:function(c){ return c*L/(L0||L); } };
+  var b0=1e9, b1=-1e9; el.forEach(function(e){ b0=Math.min(b0,e.c-e.h); b1=Math.max(b1,e.c+e.h); });
+  var ext=b1-b0, s=Math.min(1, L/Math.max(1,ext)), nb0;
+  if(s<1) nb0=0;
+  else { var lib0=L0-ext, lib=L-ext; nb0=(lib0>0 && b0>=0) ? Math.min(lib, b0*lib/lib0) : lib/2; nb0=Math.max(0,nb0); }
+  function map(c){ return nb0+(c-b0)*s; }
+  /* blocchi: stessa coordinata (±2 cm) */
+  var ord=el.map(function(_,i){ return i; }).sort(function(a,b){ return el[a].c-el[b].c; });
+  var blk=new Array(n), ref=[], k=-1;
+  ord.forEach(function(i){ if(k<0 || el[i].c-ref[k]>TOL){ k++; ref.push(el[i].c); } blk[i]=k; });
+  var K=k+1, des=new Array(K).fill(0), cnt=new Array(K).fill(0), lo=new Array(K).fill(-1e9), hi=new Array(K).fill(1e9), minLo=new Array(K).fill(-1e9);
+  el.forEach(function(e,i){ var b=blk[i], o=e.c-ref[b];
+    des[b]+=map(e.c)-o; cnt[b]++;
+    lo[b]=Math.max(lo[b], e.h-o); hi[b]=Math.min(hi[b], L-e.h-o); });
+  for(k=0;k<K;k++) des[k]/=cnt[k];
+  var pred=[], succ=[]; for(k=0;k<K;k++){ pred.push([]); succ.push([]); }
+  var req={};
+  cop.forEach(function(p){ var a=blk[p[0]], b=blk[p[1]]; if(a===b) return;
+    var r=p[2]-(el[p[1]].c-ref[blk[p[1]]])+(el[p[0]].c-ref[blk[p[0]]]);
+    var key=a+","+b; if(req[key]==null){ req[key]=r; pred[b].push(a); succ[a].push(b); } else req[key]=Math.max(req[key],r); });
+  /* il minimo possibile: tutti accostati da sinistra (percorso più lungo) */
+  var asap=new Array(K), serve=0;
+  for(k=0;k<K;k++){ var v=lo[k]; pred[k].forEach(function(p){ v=Math.max(v, asap[p]+req[p+","+k]); }); asap[k]=v; }
+  for(k=0;k<K;k++) serve=Math.max(serve, asap[k]+(L-hi[k]));   /* bordo destro del blocco più a destra */
+  var x=new Array(K);
+  if(serve>L+0.5){   /* non ci sta: si dispone su un palco lungo quanto basta e si centra, sbordando uguale ai due lati */
+    var R=adattaAsse(el, cop, serve, L0, TOL), sh=(L-serve)/2;
+    return { pos:R.pos.map(function(v){ return v+sh; }), serve:Math.round(serve), map:function(c){ return R.map(c)+sh; } };
+  } else {
+    for(k=0;k<K;k++){ var f=Math.max(des[k], lo[k]); pred[k].forEach(function(p){ f=Math.max(f, x[p]+req[p+","+k]); }); x[k]=f; }
+    for(k=K-1;k>=0;k--){ var g=Math.min(x[k], hi[k]); succ[k].forEach(function(q){ g=Math.min(g, x[q]-req[k+","+q]); }); x[k]=g; }
+  }
+  return { pos:el.map(function(e,i){ return x[blk[i]]+(e.c-ref[blk[i]]); }), serve:Math.round(serve), map:map };
+}
+/* Geometria vera degli ingombri ruotati: il rettangolo che contiene un violino ruotato di 35° è
+   largo 2,1 m invece di 1,75, e con quelli la sezione archi risultava «già sovrapposta» e non si
+   stringeva più. Due rettangoli si toccano quando lo scarto dei centri entra nella loro differenza
+   di Minkowski (convessa): una retta la taglia in un segmento, e il capo del segmento è la distanza
+   minima lungo quell'asse. */
+function adattaAngoli(it){
+  var t=TYPES[it.type]||{}, w=(it.w||t.w||60)/2, d=(it.d||t.d||60)/2, a=(it.rot||0)*Math.PI/180, c=Math.cos(a), s=Math.sin(a);
+  return [[-w,-d],[w,-d],[w,d],[-w,d]].map(function(p){ return [p[0]*c-p[1]*s, p[0]*s+p[1]*c]; });
+}
+function adattaMinkowski(A,B){
+  var pts=[]; A.forEach(function(a){ B.forEach(function(b){ pts.push([a[0]-b[0], a[1]-b[1]]); }); });
+  pts.sort(function(p,q){ return p[0]-q[0] || p[1]-q[1]; });
+  function cr(o,a,b){ return (a[0]-o[0])*(b[1]-o[1])-(a[1]-o[1])*(b[0]-o[0]); }
+  var lo=[], up=[];
+  pts.forEach(function(p){ while(lo.length>=2 && cr(lo[lo.length-2],lo[lo.length-1],p)<=0) lo.pop(); lo.push(p); });
+  for(var i=pts.length-1;i>=0;i--){ var p=pts[i]; while(up.length>=2 && cr(up[up.length-2],up[up.length-1],p)<=0) up.pop(); up.push(p); }
+  lo.pop(); up.pop(); return lo.concat(up);
+}
+/* segmento [min,max] della coordinata «lungo» (0=x, 1=y) dove la retta «altra = v» taglia il poligono */
+function adattaTaglio(poly, lungo, v){
+  var o=1-lungo, mn=1e9, mx=-1e9;
+  for(var i=0;i<poly.length;i++){ var p=poly[i], q=poly[(i+1)%poly.length];
+    if((p[o]-v)*(q[o]-v)>0 || p[o]===q[o]) { if(p[o]===v){ mn=Math.min(mn,p[lungo]); mx=Math.max(mx,p[lungo]); } continue; }
+    var t=(v-p[o])/(q[o]-p[o]), u=p[lungo]+t*(q[lungo]-p[lungo]); mn=Math.min(mn,u); mx=Math.max(mx,u); }
+  return mn<=mx ? [mn,mx] : null;
+}
+/* items, palco di prima (W0×D0), palco nuovo (W×D) in cm → { pos:{id:{x,y[,w,d]}}, fuori, sovrapposti, primaSovrapposti, serveW, serveD, ciSta } */
+function adattaPalcoCalcola(items, W0, D0, W, D){
+  var solidi=[], fondi=[], segni=[], esterni=[], pos={};
+  (items||[]).forEach(function(it){
+    if(!it || it.rackId) return;
+    var dentro=it.x>=0 && it.x<=W0 && it.y>=0 && it.y<=D0;
+    if(FUORI_OK[it.type] || !dentro) esterni.push(it);
+    else if(ADATTA_SEGNI[it.type]) segni.push(it);
+    else if(isRiser(it) || ADATTA_FONDI[it.type]) fondi.push(it);
+    else solidi.push(it);
+  });
+  var ing=solidi.map(adattaIngombro), ang=solidi.map(adattaAngoli), n=solidi.length, M={};
+  /* M[i,j] = differenza di Minkowski di i e j: j tocca i quando (xj-xi, yj-yi) ci entra */
+  function mk(i,j){ var k=i+","+j; return M[k] || (M[k]=adattaMinkowski(ang[j], ang[i].map(function(p){ return [-p[0],-p[1]]; }))); }
+  /* quanto j è dentro i nello scarto (dx,dy): >0 = si sovrappongono (cm lungo l'asse più comodo) */
+  function dentroDi(i,j,dx,dy){
+    if(Math.abs(dx)>=ing[i].hw+ing[j].hw || Math.abs(dy)>=ing[i].hd+ing[j].hd) return 0;
+    var P=mk(i,j), sx=adattaTaglio(P,0,dy), sy=adattaTaglio(P,1,dx);
+    if(!sx || !sy || dx<=sx[0] || dx>=sx[1] || dy<=sy[0] || dy>=sy[1]) return 0;
+    return Math.min(dx-sx[0], sx[1]-dx, dy-sy[0], sy[1]-dy);
+  }
+  var prima=0, i, j;
+  for(i=0;i<n;i++) for(j=i+1;j<n;j++) if(dentroDi(i,j,solidi[j].x-solidi[i].x, solidi[j].y-solidi[i].y)>2) prima++;
+  /* vincolo «b dopo a lungo l'asse»: distanza minima allo scarto trasversale t; chi già si
+     sovrapponeva non si avvicina di più; fra ingombri liberi resta min(gap, aria di prima) */
+  function vincolo(a,b,lungo,t,d0,liv){
+    if(Math.abs(t)>=(lungo?ing[a].hd+ing[b].hd:ing[a].hw+ing[b].hw)) return null;
+    var s=adattaTaglio(mk(a,b),lungo,t); if(!s || s[1]<=0) return null;
+    /* stretta: ognuno può avvicinarsi di questa parte del più piccolo dei due rispetto al più vicino
+       fra «si toccano» e «com'erano prima» (chi già si sovrapponeva stringe come gli altri) */
+    var e=lungo?Math.min(ing[a].hd,ing[b].hd):Math.min(ing[a].hw,ing[b].hw), p=liv.stretta*2*e;
+    return d0<s[1] ? Math.max(0, d0-p) : s[1]-p+Math.min(liv.aria, d0-s[1]);
+  }
+  function prova(liv){
+    var cx=[], cy=[];
+    for(var i=0;i<n;i++) for(var j=i+1;j<n;j++){
+      var a=solidi[i], b=solidi[j], p=a.x<=b.x?[i,j]:[j,i], A=solidi[p[0]], B=solidi[p[1]];
+      var r=vincolo(p[0],p[1],0,B.y-A.y,B.x-A.x,liv); if(r!=null) cx.push([p[0],p[1],r]);
+    }
+    var AX=adattaAsse(solidi.map(function(it,i){ return {c:it.x,h:ing[i].hw}; }), cx, W, W0, -1);   /* in x niente colonne rigide */
+    /* in y si guarda lo scarto in x NUOVO: a stretta zero il risultato non ha sovrapposizioni nuove per costruzione */
+    for(i=0;i<n;i++) for(j=i+1;j<n;j++){
+      var p2=solidi[i].y<=solidi[j].y?[i,j]:[j,i], A2=solidi[p2[0]], B2=solidi[p2[1]];
+      var r2=vincolo(p2[0],p2[1],1,AX.pos[p2[1]]-AX.pos[p2[0]],B2.y-A2.y,liv); if(r2!=null) cy.push([p2[0],p2[1],r2]);
+    }
+    var AY=adattaAsse(solidi.map(function(it,i){ return {c:it.y,h:ing[i].hd}; }), cy, D, D0, 2);   /* in y le file restano file */
+    return { liv:liv, AX:AX, AY:AY, ok: AX.serve<=W+0.5 && AY.serve<=D+0.5 };
+  }
+  /* dal più comodo al più stretto: 10 cm d'aria; accostati; poi ingombri che entrano l'uno nell'altro
+     del 10, 20, 30% (l'ingombro di una postazione ha margine: sedia e leggio veri sono più piccoli).
+     Oltre il 30% non si va: si dice che non ci sta. */
+  var P=null, primoLiv=null, ultimo=null;
+  for(var li=0; li<ADATTA_LIVELLI.length; li++){ var Pi=prova(ADATTA_LIVELLI[li]); if(li===0) primoLiv=Pi; P=ultimo=Pi; if(Pi.ok) break; }
+  /* non ci sta nemmeno stretti al massimo: meglio accostati e puliti, con chi sborda ben visibile,
+     che un mucchio dove non si capisce più chi è dove */
+  if(!P.ok) P=prova(ADATTA_LIVELLI[1]);
+  var AX=P.AX, AY=P.AY;
+  solidi.forEach(function(it,i){ pos[it.id]={ x:Math.round(AX.pos[i]), y:Math.round(AY.pos[i]) }; });
+  function cl(v,a,b){ return Math.max(a, Math.min(b, v)); }
+  /* pedane e piani d'appoggio: seguono chi ci sta sopra, accorciandosi con loro */
+  fondi.forEach(function(f){
+    var g=adattaIngombro(f), fx0=f.x-g.hw, fx1=f.x+g.hw, fy0=f.y-g.hd, fy1=f.y+g.hd;
+    var su=solidi.map(function(it,i){ return i; }).filter(function(i){ var it=solidi[i]; return it.x>=fx0 && it.x<=fx1 && it.y>=fy0 && it.y<=fy1; });
+    if(!su.length){ pos[f.id]={ x:Math.round(cl(AX.map(f.x), g.hw, W-g.hw)), y:Math.round(cl(AY.map(f.y), g.hd, D-g.hd)) }; return; }
+    var r0=[1e9,1e9,-1e9,-1e9], r1=[1e9,1e9,-1e9,-1e9];
+    su.forEach(function(i){ var it=solidi[i], e=ing[i], p=pos[it.id];
+      r0=[Math.min(r0[0],it.x-e.hw),Math.min(r0[1],it.y-e.hd),Math.max(r0[2],it.x+e.hw),Math.max(r0[3],it.y+e.hd)];
+      r1=[Math.min(r1[0],p.x-e.hw),Math.min(r1[1],p.y-e.hd),Math.max(r1[2],p.x+e.hw),Math.max(r1[3],p.y+e.hd)]; });
+    var nx0=Math.max(0, r1[0]-Math.max(0,r0[0]-fx0)), nx1=Math.min(W, r1[2]+Math.max(0,fx1-r0[2]));
+    var ny0=Math.max(0, r1[1]-Math.max(0,r0[1]-fy0)), ny1=Math.min(D, r1[3]+Math.max(0,fy1-r0[3]));
+    var p={ x:Math.round((nx0+nx1)/2), y:Math.round((ny0+ny1)/2) }, rot=((f.rot||0)%360+360)%360;
+    var t=TYPES[f.type]||{};
+    if(t.resizable && rot%90===0){
+      var ew=Math.max(20, Math.round((nx1-nx0)/10)*10), ed=Math.max(20, Math.round((ny1-ny0)/10)*10);   /* al decimetro: le pedane si dicono così */
+      /* solo più corte, mai più lunghe: una pedana da 2 m non diventa da 2,3 m perché il coro si è allargato */
+      if(rot%180===0){ p.w=Math.min(f.w||t.w, ew); p.d=Math.min(f.d||t.d, ed); } else { p.w=Math.min(f.w||t.w, ed); p.d=Math.min(f.d||t.d, ew); }
+    }
+    pos[f.id]=p;
+  });
+  segni.forEach(function(it){ pos[it.id]={ x:Math.round(AX.map(it.x)), y:Math.round(AY.map(it.y)) }; });
+  /* fuori dal palco: stessa distanza dal bordo che aveva */
+  esterni.forEach(function(it){
+    var x = it.x<0 ? it.x : (it.x>W0 ? it.x-W0+W : AX.map(it.x)), y = it.y<0 ? it.y : (it.y>D0 ? it.y-D0+D : AY.map(it.y));
+    pos[it.id]={ x:Math.round(x), y:Math.round(y) };
+  });
+  /* rapporto */
+  var dopo=0, fuori=0, sbordano=0;
+  for(i=0;i<n;i++){
+    var q=pos[solidi[i].id]; if(q.x<0 || q.x>W || q.y<0 || q.y>D) fuori++;
+    if(q.x-ing[i].hw<-5 || q.x+ing[i].hw>W+5 || q.y-ing[i].hd<-5 || q.y+ing[i].hd>D+5) sbordano++;
+    for(j=i+1;j<n;j++){ var q2=pos[solidi[j].id], ora=dentroDi(i,j,q2.x-q.x,q2.y-q.y);
+      if(ora>2 && ora>dentroDi(i,j,solidi[j].x-solidi[i].x,solidi[j].y-solidi[i].y)+2) dopo++; }   /* nuova, o peggiore di prima */
+  }
+  fondi.forEach(function(f){ var p=pos[f.id]; if(p.x<0 || p.x>W || p.y<0 || p.y>D) fuori++; });
+  /* quanto servirebbe per starci SENZA stringere (primo livello) */
+  var serveW=Math.max(W, Math.ceil(primoLiv.AX.serve/50)*50), serveD=Math.max(D, Math.ceil(primoLiv.AY.serve/50)*50);
+  var serveMinW=Math.max(W, Math.ceil(ultimo.AX.serve/50)*50), serveMinD=Math.max(D, Math.ceil(ultimo.AY.serve/50)*50);
+  return { pos:pos, fuori:fuori, sovrapposti:dopo, primaSovrapposti:prima, serveW:serveW, serveD:serveD, serveMinW:serveMinW, serveMinD:serveMinD,
+    ciSta: P.ok && fuori===0, comodo: P.ok && fuori===0 && dopo===0 && P===primoLiv, sbordano:sbordano, stretta:P.liv.stretta, aria:P.liv.aria, elementi:solidi.length+fondi.length+segni.length+esterni.length };
+}
+/* Applica al progetto aperto. nuovaScena (default consigliato): l'originale resta com'era in un'altra scena.
+   Un solo save() = un solo passo di Annulla. */
+function adattaPalcoApplica(W, D, nuovaScena){
+  W=Math.max(100,Math.round(W)); D=Math.max(100,Math.round(D));
+  if(nuovaScena && typeof createVariant==="function") createVariant("Palco "+adattaM(W)+" × "+adattaM(D)+" m");
+  var W0=state.stage.w, D0=state.stage.d;
+  var R=adattaPalcoCalcola(state.items, W0, D0, W, D);
+  (state.items||[]).forEach(function(it){ var p=R.pos[it.id]; if(!p) return;
+    it.x=p.x; it.y=p.y; if(p.w!=null) it.w=p.w; if(p.d!=null) it.d=p.d; });
+  var h=(stageBlocks()[0]||{}).h;
+  state.stage={ w:W, d:D, blocks:[h?{x:0,y:0,w:W,d:D,h:h}:{x:0,y:0,w:W,d:D}] };
+  if(state.printFrame) state.printFrame=null;   /* l'area di stampa era misurata sul palco di prima */
+  __cabRes=null; __elecRes=null; __mondRes=null;
+  save(); render();
+  if(typeof fit==="function") fit();
+  if(nuovaScena && typeof renderVariantBar==="function") renderVariantBar();
+  return R;
+}
+/* Il rapporto dice le cose come stanno: ci sta comodo, ci sta stretto (e di quanto), non ci sta. */
+function adattaM(cm){ return String(Math.round(cm)/100).replace(".",","); }
+function adattaPalcoMessaggio(R, W, D){
+  var mis=function(w,d){ return adattaM(w)+" × "+adattaM(d)+" m"; };
+  if(!R.ciSta) return { titolo:"Non ci sta tutto",
+    testo:R.sbordano+" element"+(R.sbordano===1?"o esce":"i escono")+" dal bordo del palco "+mis(W,D)+(R.fuori?" ("+R.fuori+" del tutto fuori)":"")+": li ho accostati senza metterne nessuno sopra un altro. Stringendo sedie e leggii al massimo servirebbe almeno "+mis(R.serveMinW,R.serveMinD)+"; con le distanze di prima "+mis(R.serveW,R.serveD)+".",
+    allargaW:R.serveMinW, allargaD:R.serveMinD };
+  if(R.stretta>0) return { titolo:"Ci stanno, ma stretti",
+    testo:"Tutti gli elementi stanno sul palco "+mis(W,D)+", ma sedie e leggii sono più vicini che nel disegno di partenza (fino al "+Math.round(R.stretta*100)+"% dell'ingombro). Per tenere le distanze di prima servirebbe un palco "+mis(R.serveW,R.serveD)+".",
+    allargaW:R.serveW, allargaD:R.serveD };
+  return { titolo:"Fatto", testo:"Tutti i "+R.elementi+" elementi stanno sul palco "+mis(W,D)+(R.aria>0?", senza sovrapposizioni.":", con gli ingombri accostati: niente più corridoi fra le sezioni.") };
+}
+function showAdattaPalco(){
+  var m=document.getElementById("adattaPalco"); if(!m) return;
+  var st=state.stage||{}, _m=function(cm){ return String(Math.round((cm||0))/100).replace(".",","); };
+  document.getElementById("apW").value=_m(st.w); document.getElementById("apD").value=_m(st.d);
+  document.getElementById("apErr").hidden=true; m.hidden=false;
+  setTimeout(function(){ try{ var i=document.getElementById("apW"); i.focus(); i.select(); }catch(_e){} }, 0);
+}
+(function(){
+  var m=document.getElementById("adattaPalco"), b=document.getElementById("bAdattaPalco"); if(!m || !b) return;
+  b.addEventListener("click", showAdattaPalco);
+  var err=document.getElementById("apErr");
+  function chiudi(){ m.hidden=true; }
+  function vai(){
+    var w=parseStageDim(document.getElementById("apW").value), d=parseStageDim(document.getElementById("apD").value);
+    if(w===null || d===null){ err.textContent="Inserisci larghezza e profondità valide, in metri."; err.hidden=false; return; }
+    var nuova=document.getElementById("apScena").checked;
+    chiudi();
+    var W=Math.round(w*100), D=Math.round(d*100), R=adattaPalcoApplica(W, D, nuova), msg=adattaPalcoMessaggio(R, W, D);
+    if(!msg.allargaW){ showToast(msg.testo); return; }
+    guideDialog({ title:msg.titolo, msg:msg.testo+" Si annulla con un solo Annulla.", okLabel:"Tengo così",
+      action:{ label:"Usa un palco "+adattaM(msg.allargaW)+" × "+adattaM(msg.allargaD)+" m",
+        run:function(){ undo(); adattaPalcoApplica(msg.allargaW, msg.allargaD, false); } } });
+  }
+  document.getElementById("apGo").addEventListener("click", vai);
+  document.getElementById("apNo").addEventListener("click", chiudi);
+  m.addEventListener("keydown", function(e){ if(e.key==="Enter"){ e.preventDefault(); vai(); } else if(e.key==="Escape"){ e.stopPropagation(); chiudi(); } });
+  m.addEventListener("click", function(e){ if(e.target===m) chiudi(); });
+})();
 /* ===== ZONE DI CABLAGGIO (annotazione: raggruppa elementi per potenza/patch) ===== */
 /* [Zone Audio / Zone Alimentazione rimossi 06/07/2026 — superati dai motori audio/elettrico.
    Restano solo i campi di stato inerti (zones/layerAudio/layerPower) per compatibilità coi progetti salvati.] */
@@ -10258,8 +10503,9 @@ function sceneMarkup(opts){
      a «isolamento» — cioè il bottone S non distingueva più niente da quello che faceva già il clic
      sulla riga. Misurato a video: a .42 le spie si leggono ancora, coi loro nomi, e restano
      chiaramente dietro ai punti del layer su cui si sta lavorando. */
-  if(soloSplit && bgItems) items = '<g class="solo-bg" style="opacity:.42">'+bgItems+'</g>'+items;
-  if(soloSplit && bgLbls) lbls = '<g class="solo-bg" style="opacity:.42">'+bgLbls+'</g>'+lbls;
+  var _bgOp = soloOn("pedane") ? ".15" : ".42";   /* solo pedane: il resto è solo un riferimento (vedi soloPedane) */
+  if(soloSplit && bgItems) items = '<g class="solo-bg" style="opacity:'+_bgOp+'">'+bgItems+'</g>'+items;
+  if(soloSplit && bgLbls) lbls = '<g class="solo-bg" style="opacity:'+_bgOp+'">'+bgLbls+'</g>'+lbls;
   /* vis dei layer meta INCORPORATA nel markup: render() è chiamato ovunque e un gruppo "nudo"
      perderebbe lo stato a ogni ridisegno (bug 14/07). In solo il layer in solo va a piena resa. */
   var mzShown=layerShown("miczone");
@@ -10853,6 +11099,7 @@ function renderProps(){
   var n = selIds().length, grp = document.getElementById("groupProps");
   var _selOne = n===1 ? getSel() : null;
   document.body.classList.toggle("riser-sel", !!(_selOne && isRiser(_selOne)));   /* pedana selezionata: in modalità palco il suo pannello resta visibile */
+  aggiornaSoloPedane();   /* il comando «Solo pedane» c'è solo con una pedana nella selezione */
   document.body.classList.toggle("m-has-sel", n>0);   /* mobile: pannello = elemento vs channel list */
   document.body.classList.toggle("m-multi", n>1);     /* mobile: peek senza azioni singole */
   if(n===0) document.body.classList.remove("props-expanded");  /* deselezione = specifiche di nuovo a scomparsa */
@@ -19388,9 +19635,47 @@ function layerFgItem(id, it){
        mostrare solo palco e pedane»). Prima era true — «Palco = tutto» — e il solo non isolava niente.
        L'occhio del Palco resta la vista d'insieme (itemEyeShown non passa di qui). */
     case "stage":  return palcoStruttura(it);
+    case "pedane": return isRiser(it);   /* «Solo pedane» dal pannello della pedana (29/09): vedi soloPedane() */
   }
   return false;
 }
+/* SOLO PEDANE (Simone 29/09: «se seleziono una pedana sulla destra deve esserci un simbolo visibilità
+   in modo che l'utente possa vedere solo le pedane e modificarle a piacimento, poi quando la
+   deseleziona si disattiva anche la modalità solo»). Non è un secondo meccanismo: è una voce della
+   stessa mappa layerSoloUI, quindi il resto (disegno sfumato, niente clic sul contesto, banner, Esc,
+   clic sul vuoto) è quello dei solo dei layer. Differenze: vive solo finché la selezione contiene
+   una pedana (pruneSolo), sfuma al 15% e non al .42 dei layer tecnici (lì il contesto va LETTO, qui
+   serve solo come riferimento per piazzare le pedane), e non entra mai negli export. */
+function soloPedaneDisponibile(){ return selItems().some(isRiser); }
+function soloPedane(on){
+  if(on && soloPedaneDisponibile()){ layerAccOpen=null; layerSoloUI={pedane:true}; layerSoloMode="focus"; }
+  else delete layerSoloUI.pedane;
+  if(typeof renderLayerManager==="function") renderLayerManager();
+}
+/* Gli export (PDF, PNG, anteprima, miniatura) disegnano il progetto, non la vista: col solo pedane
+   acceso il PDF perdeva i cavi (layerShown segue il solo) e il PNG usciva sfumato. */
+function senzaSoloPedane(fn){
+  if(!layerSoloUI.pedane) return fn();
+  var keep=layerSoloUI; layerSoloUI={};
+  try{ return fn(); } finally { layerSoloUI=keep; }
+}
+function aggiornaSoloPedane(){
+  var si=soloPedaneDisponibile(), on=si && soloOn("pedane");
+  document.body.classList.toggle("ped-sel", si);
+  ["pSoloPed","grpSoloPed","mPeekSolo"].forEach(function(k){
+    var b=document.getElementById(k); if(!b) return;
+    b.style.display = si ? "" : "none";
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-pressed", on ? "true" : "false");
+    b.title = on ? "Torna a vedere tutto il palco" : "Mostra solo le pedane: il resto si vede in trasparenza e non si prende";
+  });
+}
+(function(){
+  ["pSoloPed","grpSoloPed","mPeekSolo"].forEach(function(k){
+    var b=document.getElementById(k); if(!b) return;
+    b.addEventListener("click", function(e){ e.stopPropagation(); soloPedane(!soloOn("pedane")); render(); });
+  });
+})();
 /* Cosa è «palco e pedane»: le pedane (anche coro e riser) e ciò che fa la superficie e i suoi bordi.
    Non sedie, leggii, sgabelli, musicisti, strumenti, tecnica, forme e testi. */
 var PALCO_STRUTTURA = {tappeto:1, scala:1, rampa:1, parapetto:1, fondale:1, quinta:1, truss:1, transenna:1, catwalk:1};
@@ -19409,7 +19694,8 @@ function pruneSolo(){
               miczone:(state.items||[]).some(function(x){return x.type==="miczone";}),
               mus:(state.items||[]).some(function(x){return musLayerItem(x.type);}),
               cover:(state.items||[]).some(isCover),
-              venue:!!(state.venue&&state.venue._dataUrl), stage:true };
+              venue:!!(state.venue&&state.venue._dataUrl), stage:true,
+              pedane:soloPedaneDisponibile() };   /* deselezionata la pedana, il solo pedane si spegne da solo */
   Object.keys(layerSoloUI).forEach(function(k){ if(!alive[k]) delete layerSoloUI[k]; });
 }
 function resetMetaLayersUI(){ stageLayerUI={vis:true,op:100,lock:false}; micLayerUI={vis:true,op:100,lock:false};
@@ -20913,6 +21199,14 @@ function renderVistaBanner(){
   if(!id || !anySolo()){ el.hidden=true; el.innerHTML=""; return; }
   var nome=id;
   try{ layerRegistry().forEach(function(L){ if(L.id===id) nome=L.name; }); }catch(_e){}
+  if(id==="pedane"){   /* Solo pedane: dice cosa è cambiato e come si torna indietro, come le viste dei layer */
+    el.innerHTML='<span class="vb-txt"><b>Solo pedane</b> \u2014 il resto del palco \u00e8 in trasparenza e non si prende</span>'
+      + '<button type="button" class="vb-esci" id="vistaEsci">Mostra tutto il palco</button>';
+    el.hidden=false;
+    var bp=document.getElementById("vistaEsci");
+    if(bp) bp.addEventListener("click", function(e){ e.stopPropagation(); exitListMode(); render(); });
+    return;
+  }
   var iso=soloOn(id) && layerSoloMode==="iso";
   var punti=(typeof techDotSoloId==="function") && techDotSoloId()===id;
   var perche = iso ? "il resto del palco \u00e8 nascosto"
@@ -24258,6 +24552,7 @@ function channelTableSvg(x, top, w){
   return s;
 }
 function buildExportSvg(){
+  if(layerSoloUI.pedane){ var _ex=senzaSoloPedane(buildExportSvg); render(); return _ex; }   /* la vista «Solo pedane» non va nel PNG; il render() finale qui sotto l'aveva tolta dal canvas */
   var keep=sel, keepSet=selSet; sel=null; selSet={};
   recalcStageBBox();
   var m=130, W=state.stage.w, D=state.stage.d, head=70;
@@ -24467,6 +24762,7 @@ function pdfScaleValue(){ var s=document.getElementById("pdfScale"); if(!s) retu
    Con area di stampa automatica (non personalizzata) espande il viewBox di 80 unità per lato
    per includere i label di quota (posizionati fuori dal rettangolo palco). */
 function stageSceneSvg(cropVb, opts){
+  if(layerSoloUI.pedane) return senzaSoloPedane(function(){ return stageSceneSvg(cropVb, opts); });   /* né nel PDF: vedi senzaSoloPedane */
   opts=opts||{}; var focus=opts.focus||null;   /* null | clean | cabin | cabout | mond | cabaudio(legacy: i 3 audio fusi) | elec | sectionmic */
   recalcStageBBox();
   var A=printArea(), DM=A.custom?0:80;
