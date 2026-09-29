@@ -5081,7 +5081,7 @@ t("a schermo i nomi crescono attorno all'ancora del nome, con le rotazioni origi
      '<g class="lblk" style="transform-origin:12.5px -3px"><text class="lbl" x="12.5" y="-3" transform="rotate(90 12.5 -3)">x</text><text class="lbl sub" x="12.5" y="-3" dy="16" transform="rotate(90 12.5 -3)">y</text></g>');
   eq(A.lblScalaAttorno('<text class="lbl" y="60">Basso</text>'), '<g class="lblk" style="transform-origin:0px 60px"><text class="lbl" y="60">Basso</text></g>', "senza x l'ancora è 0");
   ok(/_lblSchermo = !\(opts && opts\.espandi\);/.test(appjs), "l'export (espandi) non si ingrandisce");
-  ok(/\(_lblSchermo \? lblScalaAttorno\(lb\) : lb\)/.test(appjs), "il livello dei nomi a schermo si ingrandisce per gruppo");
+  ok(/\(_lblSchermo \? lblScalaAttorno\(lb, _lblOrig\) : lb\)/.test(appjs), "il livello dei nomi a schermo si ingrandisce per gruppo");
   ok(!/transform-box:fill-box;transform-origin:center;scale:var\(--lblK/.test(stylesCss), "niente più scala testo per testo al centro");
 });
 /* Revisione 26/09: rotella e pizzico cambiano la viewBox senza render(): nomi della misura sbagliata. */
@@ -8022,7 +8022,7 @@ t("le opzioni tipografiche non stanno davanti al lavoro", () => {
      Dimensione, distanza, allineamento e colore del testo sono l'ASPETTO del nome, non la sua
      identita': stanno col disegno, in fondo, non nel primo gruppo del pannello. */
   const g = gruppiProps();
-  const TIPO = ["pLblSizeWrap", "pLblDistWrap", "pAlignWrap", "pTxtColorWrap", "pLblPosWrap"];
+  const TIPO = ["pLblSizeWrap", "pAlignWrap", "pTxtColorWrap", "pLblPosWrap"];
   const et = g.filter((x) => x.titolo === "Etichetta")[0];
   ok(et, "il gruppo Etichetta non c'e' piu'");
   TIPO.forEach((id) => ok(et.ids.indexOf(id) < 0, id + " sta ancora nel primo gruppo del pannello"));
@@ -10933,26 +10933,138 @@ t("ogni scheda del registro porta la sua fonte", () => {
   });
 });
 
-// ── DISTANZA DEL NOME DALL'ELEMENTO (31/07) ────────────────────────────────────────────────────
-// Simone: «stessa interfaccia della dimensione etichetta, ma per la distanza dallo strumento».
-// Misurata in cm reali dal bordo. Era 9, e a 9 il disegno di quel che sta sotto (la DI generata da
-// uno strumento) spuntava in mezzo alle parole del nome: dal 07/08 il default è 22.
-console.log("\n— Distanza del nome —");
+// ── IL NOME A FILO DEL DISEGNO (29/09) ─────────────────────────────────────────────────────────
+// Simone (segnalazione 114cfd80): «il parametro distanza è parecchio inutile perché le etichette
+// dovrebbero sempre essere molto vicine e leggibili». Lo slider «Distanza» (31/07) contava dal
+// footprint: a 0 il nome della voce stava 10 cm DENTRO il suo leggio, al default (22) i violini lo
+// avevano a 27 cm dal disegno. Ora il nome si stacca dal disegno MISURATO (misuraArte) di un terzo di
+// lettera. Nel sandbox non c'è un SVG: misuraArte si sostituisce con un finto che restituisce il riquadro.
+console.log("\n— Il nome a filo del disegno —");
 
-t("il default stacca il nome dal disegno e non si scrive nel documento", () => {
-  reset();
-  const it = add("wedge", 400, 300);
-  eq(A.lblDistOf(it), 22, "22 cm dal bordo");
-  eq(it.lblDist, undefined, "e la chiave non c'è: chi ha scelto la sua distanza se la tiene");
+const ARTE_VERA = A.misuraArte;
+const TEMPLATE_29_09 = readFileSync(join(root, "index.template.html"), "utf8");
+function conArte(box, fn) {   /* il disegno «misura» box per tutta la durata di fn */
+  A.misuraArte = () => box; A._arteDi = null;
+  try { return fn(); } finally { A.misuraArte = ARTE_VERA; A._arteDi = null; }
+}
+const yNome = (svg) => { const m = svg.match(/<text class="lbl" y="([\d.-]+)"/); return m ? +m[1] : null; };
+
+t("lo slider «Distanza» non c'è più, né nel pannello né nel codice", () => {
+  ok(TEMPLATE_29_09.indexOf('id="pLblDist"') < 0 && TEMPLATE_29_09.indexOf('id="pLblDistWrap"') < 0, "lo slider è ancora nel pannello");
+  ok(TEMPLATE_29_09.indexOf('id="pLblSize"') > -1, "…ma Dimensione deve restare");
+  eq(typeof A.lblDistOf, "undefined", "lblDistOf esiste ancora: qualcuno può rileggere la distanza");
+  ok(!/\blblDist\b/.test(appjs.replace(/\/\*[\s\S]*?\*\//g, "").replace(/if\(it\.lblDist!=null\) delete it\.lblDist;/, "")),
+     "il codice legge o scrive ancora lblDist fuori dalla migrazione");
 });
 
-t("la distanza si legge, si limita e regge i valori sballati", () => {
+t("un progetto salvato con una distanza si riapre col nome vicino, e la chiave sparisce", () => {
+  const s2 = A.normalizeState({ _v: 5, items: [
+    { id: "d1", type: "wedge", x: 100, y: 100, lblDist: 40 },
+    { id: "d2", type: "wedge", x: 300, y: 100, lblDist: "x" },
+    { id: "d3", type: "wedge", x: 500, y: 100 },
+  ], stage: { w: 1200, d: 800 } });
+  s2.items.forEach((it) => eq(it.lblDist, undefined, it.id + ": la chiave vecchia è rimasta nel documento"));
+  const ia = A.sanitizeItems([{ id: "a1", type: "wedge", x: 100, y: 100, lblDist: 40 }]);
+  eq(ia[0].lblDist, undefined, "anche il JSON dell'assistente la perde");
+});
+
+t("la distanza vecchia rimasta in memoria non sposta il nome", () => {
   reset();
   const it = add("wedge", 400, 300);
-  it.lblDist = 40; eq(A.lblDistOf(it), 40, "40 cm");
-  it.lblDist = 999; eq(A.lblDistOf(it), 80, "il massimo è 80");
-  it.lblDist = -5; eq(A.lblDistOf(it), 0, "sotto zero non si va");
-  it.lblDist = "boh"; eq(A.lblDistOf(it), 22, "un valore non numerico torna al default");
+  const y0 = yNome(A.itemMarkup(it));
+  it.lblDist = 80;
+  eq(yNome(A.itemMarkup(it)), y0, "con lblDist=80 il nome si è mosso");
+  delete it.lblDist;
+});
+
+t("il nome sta a filo del disegno misurato, non del footprint", () => {
+  reset();
+  const it = add("wedge", 400, 300); it.lblSize = 14;
+  /* un disegno che sporge 70 cm sotto il centro (il footprint del wedge ne dichiara meno della metà) */
+  const y = conArte({ x0: -30, y0: -22, x1: 30, y1: 70 }, () => yNome(A.itemMarkup(it)));
+  const cima = y - 14 * 0.72;   /* dove arrivano le maiuscole */
+  ok(cima > 70, "il nome entra nel disegno: cima delle lettere a " + cima.toFixed(1) + ", disegno fino a 70");
+  ok(cima < 70 + 7, "il nome è lontano dal disegno: " + (cima - 70).toFixed(1) + " cm");
+  /* e segue il disegno: più sporge, più scende, di altrettanto */
+  const y2 = conArte({ x0: -30, y0: -22, x1: 30, y1: 110 }, () => yNome(A.itemMarkup(it)));
+  eq(Math.round(y2 - y), 40, "il nome non segue il disegno");
+});
+
+t("sopra lo schienale: il nome sta a filo della sedia misurata", () => {
+  reset();
+  const it = add("vlnpost", 400, 300); it.lblSize = 11;
+  ok(A.lblSopraDi(it), "la postazione con la sedia porta il nome sopra");
+  const y = conArte({ x0: -50, y0: -60, x1: 50, y1: 55 }, () => yNome(A.itemMarkup(it)));
+  const fondo = y + 11 * 0.25;   /* le discendenti */
+  ok(fondo < -60, "il nome entra nello schienale: fondo a " + fondo.toFixed(1));
+  ok(fondo > -60 - 7, "il nome è lontano dallo schienale: " + (-60 - fondo).toFixed(1) + " cm");
+});
+
+t("senza un SVG da misurare vale la stima: footprint, sgabello, schienale", () => {
+  reset();
+  const w = add("wedge", 400, 300); w.lblSize = 14;
+  eq(A.arteStimata(w).y1, w.d / 2, "wedge: il footprint");
+  const k = add("stagepiano", 800, 300);
+  eq(A.arteStimata(k).y1, k.d / 2 + 36, "piano con lo sgabello");
+  ok(A.arteStimata(add("vlnpost", 400, 600)).y0 <= -43.5, "la sedia della postazione");
+  const y = yNome(A.itemMarkup(w));
+  eq(Math.round((y - (w.d / 2 + A.lblStacco(14) + 14 * 0.72)) * 10), 0, "il wedge senza misura: " + y);
+});
+
+t("il nome dello strumento scavalca la sua DI, ma solo se la DI gli sta davanti", () => {
+  reset();
+  const g = add("gtacustica", 400, 300); g.lblSize = 14; g.label = "Chitarra acustica 1";
+  g.w = 60; g.d = 60;   /* nel sandbox l'illustrazione non ha misure: le si dà quelle vere, da cui dipende il posto della DI */
+  const vecchia = A.diLinked(g); if (vecchia) { A.state.items = A.state.items.filter((x) => x !== vecchia); delete g.diId; delete g.diOff; }
+  A.diApply(g);
+  const di = A.diLinked(g);
+  ok(di, "la chitarra acustica non ha generato la DI: il test non prova niente");
+  const arte = { x0: -40, y0: -40, x1: 40, y1: g.d / 2 };
+  const fondoDi = g.diOff[1] + di.d / 2;
+  const y = conArte(arte, () => yNome(A.itemMarkup(g)));
+  ok(y - 14 * 0.72 > fondoDi, "il nome passa sopra la DI: cima " + (y - 14 * 0.72).toFixed(1) + " contro fondo DI " + fondoDi);
+  /* trascinata lontano, la DI non tira più giù il nome */
+  g.diOff = [400, 0];
+  const y2 = conArte(arte, () => yNome(A.itemMarkup(g)));
+  ok(y2 - 14 * 0.72 < arte.y1 + 7, "con la DI lontana il nome resta a filo: " + y2);
+});
+
+t("la postazione doppia scosta i nomi inclinati di quanto sale il capo interno", () => {
+  reset();
+  const it = add("vln1x2", 400, 300); it.lblSize = 14;
+  const svg = conArte({ x0: -80, y0: -60, x1: 80, y1: 50 }, () => A.itemMarkup(it));
+  const ys = (svg.match(/<text class="lbl" x="[\d.-]+" y="([\d.-]+)" transform="rotate\(-?12 /g) || []).map((m) => +m.match(/y="([\d.-]+)"/)[1]);
+  eq(ys.length, 2, "i due nomi inclinati");
+  const piatto = 50 + A.lblStacco(14) + 14 * 0.72;
+  const sale = A.lblTextW(it.label, 14) / 2 * Math.sin(12 * Math.PI / 180);
+  ok(sale > 2, "il nome è troppo corto per provare qualcosa");
+  ok(ys[0] >= piatto + sale - 0.5, "il capo interno del nome entra nel disegno: y=" + ys[0] + " contro " + (piatto + sale).toFixed(1));
+});
+
+t("al telefono (vista girata) il nome sta a filo del disegno nella direzione dello schermo", () => {
+  reset();
+  const it = add("wedge", 400, 300); it.lblSize = 14; it.rot = 0;
+  const prima = A._sceneRuota; A._sceneRuota = -90;
+  try {
+    const svg = conArte({ x0: -50, y0: -22, x1: 30, y1: 22 }, () => A.itemMarkup(it));
+    const m = svg.match(/<text class="lbl" x="([\d.-]+)" y="([\d.-]+)" transform="rotate/);
+    ok(m, "il nome girato non c'è");
+    /* rot 0, vista a −90°: «sotto sullo schermo» è −x dell'elemento, dove il disegno arriva a −50 */
+    eq(+m[1], -Math.round((50 + A.lblStacco(14)) * 10) / 10, "x del nome girato");
+  } finally { A._sceneRuota = prima; }
+});
+
+t("a schermo il nome cresce attorno al bordo del disegno, non alla sua baseline", () => {
+  reset();
+  const it = add("wedge", 400, 300); it.lblSize = 14;
+  eq(A.lblScalaAttorno('<text class="lbl" y="60">B</text>', [0, 40]), '<g class="lblk" style="transform-origin:0px 40px"><text class="lbl" y="60">B</text></g>', "il perno passato vince");
+  const pS = A._lblSchermo, pK = A._lblSink;
+  A._lblSchermo = true; A._lblSink = [];
+  try {
+    conArte({ x0: -30, y0: -22, x1: 30, y1: 70 }, () => A.itemMarkup(it));
+    const g = A._lblSink.join("");
+    ok(/transform-origin:0px 70px/.test(g), "il gruppo del nome non cresce dal bordo del disegno: " + g.slice(0, 160));
+  } finally { A._lblSchermo = pS; A._lblSink = pK; }
 });
 
 // ── DOVE NASCE UN ELEMENTO POSATO DAL CATALOGO (11/08) ─────────────────────────────────────────
@@ -10966,7 +11078,7 @@ t("la striscia del nome è ingombro: sotto per un wedge, sopra per chi ha la sed
   reset();
   const w = add("wedge", 400, 300);
   const bw = A.lblBandOf(w);
-  ok(bw.sotto >= A.lblDistOf(w), "sotto il wedge si tiene almeno la distanza del nome: " + bw.sotto);
+  ok(bw.sotto >= A.lblStacco(14) + 14, "sotto il wedge si tiene lo stacco e il nome: " + bw.sotto);
   eq(bw.sopra, 0, "e niente sopra");
   const g = add("vlnpost", 900, 300);   /* postazione d'orchestra: nasce con la sedia */
   const bg = A.lblBandOf(g);
@@ -10984,7 +11096,7 @@ t("su un palco stretto il posto si cerca oltre la striscia del nome, non a ridos
   A.state.stage = { w: 260, d: 1400, blocks: [{ x: 0, y: 0, w: 260, d: 1400 }] };
   const a = add("wedge", 130, 300);
   const banda = A.lblBandOf(a).sotto;
-  ok(banda > 20, "il wedge porta il nome sotto di sé: " + banda);
+  ok(banda > 15, "il wedge porta il nome sotto di sé: " + banda);   /* dal 29/09 il nome è a filo: ~20 cm, non più ~37 */
   const p = A.findFreeSpotFor({ type: "wedge", w: a.w, d: a.d }, 130, 300);
   const dy = Math.abs(p.y - a.y);
   ok(dy >= a.d + banda, "il secondo sta oltre la striscia del nome del primo (" + Math.round(dy) + " cm ≥ " + Math.round(a.d + banda) + ")");
@@ -11001,35 +11113,6 @@ t("la posa automatica non manda nessuno fuori dal palco", () => {
   const fuori = A.state.items.filter((o) => o.x - o.w / 2 < 0 || o.x + o.w / 2 > A.state.stage.w
     || o.y - o.d / 2 < 0 || o.y + o.d / 2 > A.state.stage.d);
   eq(fuori.length, 0, "nessuno nasce fuori dal palco: " + fuori.map((o) => o.label || o.type).join(", "));
-});
-
-t("una nota altrui con distanza fuori scala viene riportata nei limiti", () => {
-  const s = A.normalizeState({ _v: 5, items: [
-    { id: "d1", type: "wedge", x: 100, y: 100, lblDist: 5000 },
-    { id: "d2", type: "wedge", x: 200, y: 100, lblDist: "x" },
-  ], stage: { w: 1200, d: 800 } });
-  eq(s.items[0].lblDist, 80, "tagliata a 80");
-  eq(s.items[1].lblDist, undefined, "il non-numero viene buttato");
-});
-
-t("«applica a tutti» vede solo gli elementi dello stesso tipo con distanza diversa", () => {
-  reset();
-  const a = add("wedge", 200, 300), b = add("wedge", 400, 300), c = add("wedge", 600, 300);
-  add("sedia", 800, 300);                                  // altro tipo: non c'entra
-  eq(A.lblDistSiblings(a).length, 0, "all'inizio sono tutti uguali: niente da chiedere");
-  a.lblDist = 30;
-  eq(A.lblDistSiblings(a).length, 2, "ora gli altri due sono diversi");
-  b.lblDist = 30; c.lblDist = 30;
-  eq(A.lblDistSiblings(a).length, 0, "allineati, la domanda decade");
-});
-
-t("la distanza segue l'elemento quando lo si duplica", () => {
-  reset();
-  const it = add("quinta", 300, 300); it.lblDist = 35; it.label = "Quinta";
-  A.selectOne(it.id); A.duplicateSel();
-  const copia = A.state.items.filter((x) => x.type === "quinta" && x.id !== it.id)[0];
-  ok(copia, "la copia c'è");
-  eq(A.lblDistOf(copia), 35, "e porta con sé la distanza");
 });
 
 // ── CIABATTE ELETTRICHE (31/07) ────────────────────────────────────────────────────────────────
@@ -12366,11 +12449,6 @@ t("lo sbraccio del nome cresce col corpo con cui verrà stampato", () => {
   /* il nome sta staccato dall-elemento di una quantità che dipende dall-altezza delle lettere:
      ingrandire il testo a coordinata già scritta lo faceva scendere SOPRA l-elemento */
   ok(y(2) > y(1), "col testo doppio il nome deve stare più in basso, non nello stesso posto");
-  /* ma la distanza scelta dall-utente è in centimetri reali di palco e non si tocca */
-  const d0 = A.lblDistOf(it), prima = y(1);
-  it.lblDist = d0 + 20;
-  eq(Math.round(y(1) - prima), 20, "i cm scelti a mano valgono tali e quali");
-  it.lblDist = d0;
 });
 
 t("il disegno vero usa il corpo stampato e lo spostamento, non solo il calcolo di prova", () => {
