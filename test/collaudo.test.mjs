@@ -95,7 +95,19 @@ if (AGGIORNA) mkdirSync(ATTESI, { recursive: true });
 for (const f of casi) {
   const nome = "collaudo " + f.replace(".json", "");
   try {
-    A.loadDoc(JSON.parse(readFileSync(join(DIR, f), "utf8")));
+    const grezzo = JSON.parse(readFileSync(join(DIR, f), "utf8"));
+    A.loadDoc(grezzo);
+    /* NESSUNA SCENA CON CANALI ORFANI (29/09, dalla lettura del lunedì). Un progetto copiato dal cloud si
+       porta nel file le righe di canale di elementi che non ci sono più (01: 57/94 nella scena 1, 94/94 nelle
+       altre tre): l'editor deve toglierle all'apertura in TUTTE le scene, non solo in quella attiva, e il file
+       salvato deve uscire pulito. Se una scena le tiene, finiscono nella lista manuale e nel PDF consulenza. */
+    const orfaniIn = (st) => { const ids = new Set((st.items || []).map((i) => String(i.id)));
+      return ["inputs", "outputs"].reduce((n, k) => n + (st[k] || []).filter((r) => r && r.linked_item_id != null && r.linked_item_id !== "" && !ids.has(String(r.linked_item_id))).length, 0); };
+    const orfaniDoc = (doc) => (doc.variants || [{ name: "(unica)", state: doc }]).filter((v) => orfaniIn(v.state || {}) > 0).map((v) => v.name + ": " + orfaniIn(v.state));
+    const aperti = A.VARIANTS.filter((v) => orfaniIn(v.id === A.activeVar ? A.state : v.state || {}) > 0).map((v) => v.name);
+    if (aperti.length) throw new Error("canali orfani rimasti dopo l'apertura nelle scene: " + aperti.join(", "));
+    const salvatoOrfani = orfaniDoc(JSON.parse(A.docToJSON()));
+    if (salvatoOrfani.length) throw new Error("il file salvato ha ancora canali orfani: " + salvatoOrfani.join(", "));
     const ora = improntaDocumento();
     /* salvare e riaprire non deve cambiare niente */
     A.loadDoc(JSON.parse(A.docToJSON()));
