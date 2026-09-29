@@ -17299,6 +17299,27 @@ t("adatta palco: in una nuova scena l'originale resta intatto e basta un Annulla
   reset();
 });
 
+t("adatta palco: il pannello «Forma del palco» aperto si ridisegna dopo Adatta e dopo Annulla", () => {
+  /* 29/09, prova nel browser sul progetto di Simone: palco 10 × 10 applicato, il pannello diceva ancora 12 × 13
+     e le pedane con le misure di prima. Si scrive solo all'apertura: chi cambia il palco da fuori lo ridisegna. */
+  reset();
+  add("leggio", 200, 300); add("leggio", 1000, 300);
+  A.save(); A.resetHistory();
+  const vero = A.renderStagePanel; let volte = 0;
+  A.renderStagePanel = function () { volte++; };
+  try {
+    A.stageEdit = true; A.selBlock = 3;
+    A.adattaPalcoApplica(700, 600, false);
+    ok(volte >= 1, "dopo Adatta");
+    eq(A.selBlock, null, "il blocco selezionato che non c'è più si toglie");
+    volte = 0; A.undo();
+    ok(volte >= 1, "dopo Annulla");
+    A.stageEdit = false; volte = 0; A.undo(); A.adattaPalcoApplica(700, 600, false);
+    eq(volte, 0, "pannello chiuso: niente da ridisegnare");
+  } finally { A.renderStagePanel = vero; A.stageEdit = false; A.selBlock = null; }
+  reset();
+});
+
 t("adatta palco: il comando sta nella «Forma del palco» e la nuova scena è la scelta di partenza", () => {
   const tpl = readFileSync(join(root, "index.template.html"), "utf8");
   const pan = tpl.slice(tpl.indexOf('<div class="sec" id="stageEditPanel"'), tpl.indexOf('<div id="venueSec"'));
