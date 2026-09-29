@@ -28,6 +28,23 @@ sono state scritte qui: la loro storia sta nei messaggi di commit e nelle PR (#9
   204 ms → 83 (main 79). ⚠️ Desktop NON toccato, ma sul collaudo 25 i nomi vicini fanno 20 coppie sovrapposte
   contro 5 di main (a 2×: 13 contro 2): la stessa passata sul computer è un cambio di una riga (`attivo`).
 
+- **29/09 — «Solo pedane» automatico, chi sta sopra si vede sopra** (ramo `solo-pedane-auto`, richiesta di Simone:
+  «vorrei vedere in trasparenza anche quelli sopra la pedana mentre adesso sono sotto … che l'opzione si attivasse
+  in automatico nel momento in cui seleziono una pedana»). La vista vale solo con una selezione di SOLE pedane
+  (`soloPedaneDisponibile` = tutte pedane: una selezione mista la spegne in `pruneSolo` e nasconde l'occhio).
+  Si accende da sola in `soloPedaneAuto()` (chiamata in testa a `render()`) quando la MANO ha scelto: la bandierina
+  `soloPedGesto` la alzano solo clic/tocco sul disegno, shift+clic, clic ripetuto (`cicloSotto`), riquadro e nome
+  dell'elenco del telefono (un test conta 5 punti). Duplica, Incolla, catalogo, Annulla, tastiera: niente. Mai in
+  `viewmode`, `consult-viewer`, `__projLocked`, né sopra una vista dei layer aperta a mano. `soloPedFirma` = ids
+  della selezione già decisa: spento l'occhio (o «Mostra tutto il palco») resta spento per quella selezione; una
+  selezione non di sole pedane la azzera, riprendendo la pedana si riaccende. Disegno (`sceneMarkup`, solo l'ordine
+  dei gruppi del solo): per le pedane il contesto resta nell'ordine di `sortedItems`, a sequenze in gruppi
+  `solo-bg solo-prende` (.15) → chi sta sopra la pedana è sopra, sfumato; i layer come prima (tutto sotto). Il
+  contesto delle pedane SI PRENDE (`.solo-bg:not(.solo-prende)` in CSS, niente `auto` che scavalcherebbe il
+  lucchetto del Palco): un clic lo seleziona e spegne la vista; sulla pedana già presa vince lei (regola del 16/09)
+  e il clic fermo passa a chi sta sopra (`itemPickable(it,{esce:true})`). Il riquadro prende solo le pedane.
+  `soloMostra`: nella vista pedane l'occhio chiuso dei Musicisti li nasconde anche nel contesto. Export invariati.
+
 - **29/09 — Distanza tra i 2 su più postazioni** (ramo `postazioni-distanza`, segnalazione di Simone c0bd4c7b:
   «se seleziono molteplici postazioni a 2 devo poter regolare la distanza… in simultanea»). Postazione a 2 = ha
   `sepCfg`: tipo di `POSTAZ` con `doppia` (archi, fiati, sax) o tipo ×2 di `DOUBLE_TYPES`; la proprietà è `it.sep`
