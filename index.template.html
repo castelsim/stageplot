@@ -455,6 +455,7 @@
   </div>
   <div class="sec" id="selProps" hidden>
     <h3 id="selNome">Elemento</h3>
+    <button type="button" class="btn solo-ped" id="pSoloPed" style="display:none" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg><span>Solo pedane</span></button>
     <div id="pLookWrap" style="display:none;margin-bottom:10px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px">
         <label style="font-size:12px;color:var(--text-2);margin:0">Disegna come</label>
@@ -999,6 +1000,7 @@
   </div>
   <div class="sec" id="groupProps" hidden>
     <h3 id="grpNome">Selezione</h3>
+    <button type="button" class="btn solo-ped" id="grpSoloPed" style="display:none" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg><span>Solo pedane</span></button>
     <div id="grpOpts" style="display:none;margin-bottom:8px">
       <div class="hint" style="font-size:11px;color:var(--text-3);margin-bottom:4px">Applica a tutti gli elementi selezionati:</div>
       <label class="chk" id="grpSediaWrap"><input type="checkbox" id="grpSedia"> Sedia</label>
@@ -1310,6 +1312,7 @@
     <button type="button" class="mpk-dup" id="mPeekDup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>Duplica</button>
     <button type="button" class="mpk-copy" id="mPeekCopy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="3" width="13" height="15" rx="2"/><path d="M4 7v12a2 2 0 0 0 2 2h9"/></svg>Copia</button>
     <button type="button" class="mpk-del" id="mPeekDel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>Elimina</button>
+    <button type="button" class="mpk-solo" id="mPeekSolo" style="display:none" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>Solo pedane</button>
   </div>
 </div>
 
@@ -12383,8 +12386,9 @@ function sceneMarkup(opts){
      a «isolamento» — cioè il bottone S non distingueva più niente da quello che faceva già il clic
      sulla riga. Misurato a video: a .42 le spie si leggono ancora, coi loro nomi, e restano
      chiaramente dietro ai punti del layer su cui si sta lavorando. */
-  if(soloSplit && bgItems) items = '<g class="solo-bg" style="opacity:.42">'+bgItems+'</g>'+items;
-  if(soloSplit && bgLbls) lbls = '<g class="solo-bg" style="opacity:.42">'+bgLbls+'</g>'+lbls;
+  var _bgOp = soloOn("pedane") ? ".15" : ".42";   /* solo pedane: il resto è solo un riferimento (vedi soloPedane) */
+  if(soloSplit && bgItems) items = '<g class="solo-bg" style="opacity:'+_bgOp+'">'+bgItems+'</g>'+items;
+  if(soloSplit && bgLbls) lbls = '<g class="solo-bg" style="opacity:'+_bgOp+'">'+bgLbls+'</g>'+lbls;
   /* vis dei layer meta INCORPORATA nel markup: render() è chiamato ovunque e un gruppo "nudo"
      perderebbe lo stato a ogni ridisegno (bug 14/07). In solo il layer in solo va a piena resa. */
   var mzShown=layerShown("miczone");
@@ -12978,6 +12982,7 @@ function renderProps(){
   var n = selIds().length, grp = document.getElementById("groupProps");
   var _selOne = n===1 ? getSel() : null;
   document.body.classList.toggle("riser-sel", !!(_selOne && isRiser(_selOne)));   /* pedana selezionata: in modalità palco il suo pannello resta visibile */
+  aggiornaSoloPedane();   /* il comando «Solo pedane» c'è solo con una pedana nella selezione */
   document.body.classList.toggle("m-has-sel", n>0);   /* mobile: pannello = elemento vs channel list */
   document.body.classList.toggle("m-multi", n>1);     /* mobile: peek senza azioni singole */
   if(n===0) document.body.classList.remove("props-expanded");  /* deselezione = specifiche di nuovo a scomparsa */
@@ -21513,9 +21518,47 @@ function layerFgItem(id, it){
        mostrare solo palco e pedane»). Prima era true — «Palco = tutto» — e il solo non isolava niente.
        L'occhio del Palco resta la vista d'insieme (itemEyeShown non passa di qui). */
     case "stage":  return palcoStruttura(it);
+    case "pedane": return isRiser(it);   /* «Solo pedane» dal pannello della pedana (29/09): vedi soloPedane() */
   }
   return false;
 }
+/* SOLO PEDANE (Simone 29/09: «se seleziono una pedana sulla destra deve esserci un simbolo visibilità
+   in modo che l'utente possa vedere solo le pedane e modificarle a piacimento, poi quando la
+   deseleziona si disattiva anche la modalità solo»). Non è un secondo meccanismo: è una voce della
+   stessa mappa layerSoloUI, quindi il resto (disegno sfumato, niente clic sul contesto, banner, Esc,
+   clic sul vuoto) è quello dei solo dei layer. Differenze: vive solo finché la selezione contiene
+   una pedana (pruneSolo), sfuma al 15% e non al .42 dei layer tecnici (lì il contesto va LETTO, qui
+   serve solo come riferimento per piazzare le pedane), e non entra mai negli export. */
+function soloPedaneDisponibile(){ return selItems().some(isRiser); }
+function soloPedane(on){
+  if(on && soloPedaneDisponibile()){ layerAccOpen=null; layerSoloUI={pedane:true}; layerSoloMode="focus"; }
+  else delete layerSoloUI.pedane;
+  if(typeof renderLayerManager==="function") renderLayerManager();
+}
+/* Gli export (PDF, PNG, anteprima, miniatura) disegnano il progetto, non la vista: col solo pedane
+   acceso il PDF perdeva i cavi (layerShown segue il solo) e il PNG usciva sfumato. */
+function senzaSoloPedane(fn){
+  if(!layerSoloUI.pedane) return fn();
+  var keep=layerSoloUI; layerSoloUI={};
+  try{ return fn(); } finally { layerSoloUI=keep; }
+}
+function aggiornaSoloPedane(){
+  var si=soloPedaneDisponibile(), on=si && soloOn("pedane");
+  document.body.classList.toggle("ped-sel", si);
+  ["pSoloPed","grpSoloPed","mPeekSolo"].forEach(function(k){
+    var b=document.getElementById(k); if(!b) return;
+    b.style.display = si ? "" : "none";
+    b.classList.toggle("on", on);
+    b.setAttribute("aria-pressed", on ? "true" : "false");
+    b.title = on ? "Torna a vedere tutto il palco" : "Mostra solo le pedane: il resto si vede in trasparenza e non si prende";
+  });
+}
+(function(){
+  ["pSoloPed","grpSoloPed","mPeekSolo"].forEach(function(k){
+    var b=document.getElementById(k); if(!b) return;
+    b.addEventListener("click", function(e){ e.stopPropagation(); soloPedane(!soloOn("pedane")); render(); });
+  });
+})();
 /* Cosa è «palco e pedane»: le pedane (anche coro e riser) e ciò che fa la superficie e i suoi bordi.
    Non sedie, leggii, sgabelli, musicisti, strumenti, tecnica, forme e testi. */
 var PALCO_STRUTTURA = {tappeto:1, scala:1, rampa:1, parapetto:1, fondale:1, quinta:1, truss:1, transenna:1, catwalk:1};
@@ -21534,7 +21577,8 @@ function pruneSolo(){
               miczone:(state.items||[]).some(function(x){return x.type==="miczone";}),
               mus:(state.items||[]).some(function(x){return musLayerItem(x.type);}),
               cover:(state.items||[]).some(isCover),
-              venue:!!(state.venue&&state.venue._dataUrl), stage:true };
+              venue:!!(state.venue&&state.venue._dataUrl), stage:true,
+              pedane:soloPedaneDisponibile() };   /* deselezionata la pedana, il solo pedane si spegne da solo */
   Object.keys(layerSoloUI).forEach(function(k){ if(!alive[k]) delete layerSoloUI[k]; });
 }
 function resetMetaLayersUI(){ stageLayerUI={vis:true,op:100,lock:false}; micLayerUI={vis:true,op:100,lock:false};
@@ -23038,6 +23082,14 @@ function renderVistaBanner(){
   if(!id || !anySolo()){ el.hidden=true; el.innerHTML=""; return; }
   var nome=id;
   try{ layerRegistry().forEach(function(L){ if(L.id===id) nome=L.name; }); }catch(_e){}
+  if(id==="pedane"){   /* Solo pedane: dice cosa è cambiato e come si torna indietro, come le viste dei layer */
+    el.innerHTML='<span class="vb-txt"><b>Solo pedane</b> \u2014 il resto del palco \u00e8 in trasparenza e non si prende</span>'
+      + '<button type="button" class="vb-esci" id="vistaEsci">Mostra tutto il palco</button>';
+    el.hidden=false;
+    var bp=document.getElementById("vistaEsci");
+    if(bp) bp.addEventListener("click", function(e){ e.stopPropagation(); exitListMode(); render(); });
+    return;
+  }
   var iso=soloOn(id) && layerSoloMode==="iso";
   var punti=(typeof techDotSoloId==="function") && techDotSoloId()===id;
   var perche = iso ? "il resto del palco \u00e8 nascosto"
@@ -26383,6 +26435,7 @@ function channelTableSvg(x, top, w){
   return s;
 }
 function buildExportSvg(){
+  if(layerSoloUI.pedane){ var _ex=senzaSoloPedane(buildExportSvg); render(); return _ex; }   /* la vista «Solo pedane» non va nel PNG; il render() finale qui sotto l'aveva tolta dal canvas */
   var keep=sel, keepSet=selSet; sel=null; selSet={};
   recalcStageBBox();
   var m=130, W=state.stage.w, D=state.stage.d, head=70;
@@ -26592,6 +26645,7 @@ function pdfScaleValue(){ var s=document.getElementById("pdfScale"); if(!s) retu
    Con area di stampa automatica (non personalizzata) espande il viewBox di 80 unità per lato
    per includere i label di quota (posizionati fuori dal rettangolo palco). */
 function stageSceneSvg(cropVb, opts){
+  if(layerSoloUI.pedane) return senzaSoloPedane(function(){ return stageSceneSvg(cropVb, opts); });   /* né nel PDF: vedi senzaSoloPedane */
   opts=opts||{}; var focus=opts.focus||null;   /* null | clean | cabin | cabout | mond | cabaudio(legacy: i 3 audio fusi) | elec | sectionmic */
   recalcStageBBox();
   var A=printArea(), DM=A.custom?0:80;
