@@ -28,6 +28,16 @@ sono state scritte qui: la loro storia sta nei messaggi di commit e nelle PR (#9
   204 ms → 83 (main 79). ⚠️ Desktop NON toccato, ma sul collaudo 25 i nomi vicini fanno 20 coppie sovrapposte
   contro 5 di main (a 2×: 13 contro 2): la stessa passata sul computer è un cambio di una riga (`attivo`).
 
+- **29/09 — Distanza tra i 2 su più postazioni** (ramo `postazioni-distanza`, segnalazione di Simone c0bd4c7b:
+  «se seleziono molteplici postazioni a 2 devo poter regolare la distanza… in simultanea»). Postazione a 2 = ha
+  `sepCfg`: tipo di `POSTAZ` con `doppia` (archi, fiati, sax) o tipo ×2 di `DOUBLE_TYPES`; la proprietà è `it.sep`
+  (cm fra i due), `it.w` segue con `sepToW`. Nel pannello di gruppo `#grpSepWrap` (`#grpSep` 65–300 passo 5,
+  `#grpSepVal`, `#grpSepHint`): `sepStato` / `sepApplica` / `grpSepRender` / `grpSepScritta` / `grpSepApply`.
+  Distanze diverse → «diversi» e cursore sbiadito (`.misto`); ognuna rispetta il suo minimo (contrabbasso 100).
+  Trascinando si ridisegna senza salvare (`grpSepTrascina`), al rilascio un `save()` = un solo Annulla. Gli altri
+  elementi della selezione non si toccano. Sul telefono il cursore è alto 44 px. ⚠️ Non è lo slider «Distanza»
+  delle etichette (ramo `etichette-vicine`).
+
 - **29/09 — Pedane sganciate** (ramo `pedane-sganciate`, richiesta di Simone: «se sposto la pedana, gli elementi
   devono rimanere dove sono … opzione snap elementi con pedane … di default spenta»). Di partenza trascinare
   (mouse, dito), Duplica e Copia muovono/copiano SOLO la pedana. Sotto «Solo pedane» (pannello elemento `#pAgg`,

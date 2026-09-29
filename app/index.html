@@ -3577,6 +3577,11 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
    `visibility` e non `display`: il palco tiene le sue misure e alla chiusura fit() non riparte da zero. */
 body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:hidden}
 @media (min-width:881px){ #accessoInvito .wl-foot button{white-space:nowrap} }   /* due bottoni su una riga: a capo sembravano quattro */
+
+/* Distanza tra i 2 su più postazioni (29/09): con distanze diverse il cursore è sbiadito e al posto dei
+   centimetri dice «diversi»; sul telefono il cursore è un bersaglio da 44 px. */
+#props #groupProps #grpSep.misto{opacity:.45}
+@media (max-width:880px){ #props #groupProps #grpSep{min-height:44px} }
 </style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->
 <script async src="/icons.js"></script>
@@ -4499,6 +4504,14 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
       <div class="hint" style="font-size:11px;color:var(--text-3);margin-bottom:4px">Applica a tutti gli elementi selezionati:</div>
       <label class="chk" id="grpSediaWrap"><input type="checkbox" id="grpSedia"> Sedia</label>
       <label class="chk" id="grpLeggioWrap"><input type="checkbox" id="grpLeggio"> Leggio</label>
+    </div>
+    <!-- Distanza tra i 2 per TUTTE le postazioni a 2 selezionate (29/09, segnalazione di Simone): lo stesso
+         cursore del pannello singolo. Valori diversi → «diversi» al posto dei centimetri. -->
+    <div id="grpSepWrap" style="display:none;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><label for="grpSep">Distanza tra i 2</label>
+        <output id="grpSepVal" for="grpSep" style="color:var(--text);font-weight:600">90 cm</output></div>
+      <input type="range" id="grpSep" min="65" max="300" step="5" style="width:100%;padding:0">
+      <div class="prop-hint" id="grpSepHint"></div>
     </div>
     <div id="grpSbWrap" class="prop-card" style="display:none">
       <div class="prop-card__head">Stage box selezionate <span id="grpSbN" class="muted"></span></div>
