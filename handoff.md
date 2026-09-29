@@ -6,6 +6,14 @@ sono state scritte qui: la loro storia sta nei messaggi di commit e nelle PR (#9
 
 ## Settembre in una pagina (PR su `main`)
 
+- **29/09 — Revisione a 8 aspetti, azioni 1-4** (#238). 48V: `cabSetMic` azzera `m.p48` al cambio microfono;
+  regola audit `p48no`/`p48si` sulle righe forzate a mano (`auditFixP48Auto`). Monitor: `_personali` (hearback/IEM)
+  nella regola `nomon`. PDF: `pdfCredit` scrive «pag N/M»; 8 `trow` ripetono l'intestazione (`_testaTab`);
+  `pdfTitoloLuogo` va a capo; `pdfNomiPt`/`pdfConsiglioA3` → «Passa ad A3» nell'Esporta. Export: `#pdfPonte`
+  «Manda anche il link al service», la finestra non si chiude più da sola; QR/email senza accesso (`MAILTO_MAX`);
+  `adattaCondividi` mostra «Condividi» se la barra ha posto. ⚠️ «Annulla» rosso = scelta di Simone. Azioni 5-8
+  e tabella completa: `COWORK/STAGEPLOT/analisi/revisione-2026-09-28.md`.
+
 - **28/09 — Verifica di sicurezza** (#233, #234): track-landing con `clientIp()` e tetto globale; supabase-js
   fissato a 2.108.2 ovunque (test); `orchestre/test` e `orchestre/demo` fuori dal deploy; permessi di pubblicazione
   solo al job deploy; migrazione 0070: dal ruolo `authenticated` non si scrivono `user_id`/`profile_id` di
