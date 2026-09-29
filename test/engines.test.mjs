@@ -17409,6 +17409,44 @@ t("adatta palco: in una nuova scena l'originale resta intatto e basta un Annulla
   reset();
 });
 
+t("adatta palco: Annulla toglie la scena nuova e torna a quella di partenza, Ripeti la rimette", () => {
+  /* 29/09, Simone: «correggi anche l'annulla di adatta». Prima Annulla lasciava la scena «Palco 7 × 6 m» col
+     palco di partenza dentro: nome di una misura, contenuto di un'altra. */
+  reset();
+  add("leggio", 200, 300); add("leggio", 1000, 300);
+  A.save(); A.resetHistory();
+  const partenza = A.activeVar;
+  A.adattaPalcoApplica(700, 600, true);
+  const nuova = A.activeVar;
+  ok(nuova !== partenza, "si lavora nella scena nuova");
+  const sync = A.syncHistoryButtons; let visto = null;
+  A.syncHistoryButtons = function () { visto = A.ripetiDisponibile(); return sync.apply(this, arguments); };
+  try { A.undo(); } finally { A.syncHistoryButtons = sync; }
+  eq([A.VARIANTS.length, A.activeVar, A.state.stage.w], [1, partenza, 1200], "Annulla: scena tolta, di nuovo nella scena di partenza");
+  ok(!A.VARIANTS.some((v) => v.id === nuova), "la scena nuova non c'è più");
+  eq(visto, true, "i bottoni si aggiornano con Ripeti disponibile (nel browser restava spento)");
+  A.redo();
+  eq([A.VARIANTS.length, A.activeVar, A.state.stage.w, A.VARIANTS[1].name], [2, nuova, 700, "Palco 7 × 6 m"], "Ripeti: scena rimessa, con il palco adattato");
+  A.undo();
+  eq([A.VARIANTS.length, A.activeVar], [1, partenza], "e Annulla la toglie di nuovo");
+  /* dopo altro lavoro nella scena nuova, Annulla disfa quel lavoro e la scena resta */
+  A.adattaPalcoApplica(700, 600, true);
+  const it = A.state.items[0]; it.x += 50; A.save();
+  A.undo();
+  eq(A.VARIANTS.length, 2, "Annulla disfa lo spostamento, la scena resta");
+  A.undo();
+  eq([A.VARIANTS.length, A.activeVar], [1, partenza], "l'Annulla dopo è quello di Adatta: scena tolta");
+  /* toccata la scena di partenza, Ripeti non rimette più la scena */
+  A.state.items[0].x += 30; A.save();
+  A.redo();
+  eq(A.VARIANTS.length, 1, "Ripeti non la rimette sopra un lavoro nuovo");
+  /* Adatta nella stessa scena: Annulla normale */
+  A.adattaPalcoApplica(700, 600, false);
+  A.undo();
+  eq([A.VARIANTS.length, A.state.stage.w], [1, 1200], "stessa scena: Annulla riporta il palco");
+  reset();
+});
+
 t("adatta palco: il pannello «Forma del palco» aperto si ridisegna dopo Adatta e dopo Annulla", () => {
   /* 29/09, prova nel browser sul progetto di Simone: palco 10 × 10 applicato, il pannello diceva ancora 12 × 13
      e le pedane con le misure di prima. Si scrive solo all'apertura: chi cambia il palco da fuori lo ridisegna. */
@@ -17436,7 +17474,7 @@ t("adatta palco: il comando sta nella «Forma del palco» e la nuova scena è la
   ok(/id="bAdattaPalco"/.test(pan), "bottone nel pannello Forma del palco");
   ok(/<input type="checkbox" id="apScena" checked>/.test(tpl), "«In una nuova scena» spuntato di partenza");
   ok(/R=adattaPalcoApplica\(W, D, nuova\)/.test(appjs), "la finestra applica con la scelta della scena");
-  ok(/run:function\(\)\{ undo\(\); adattaPalcoApplica\(msg\.allargaW, msg\.allargaD, false\); \}/.test(appjs), "«Usa un palco…» annulla e rifà sul palco proposto");
+  ok(/run:function\(\)\{ undo\(\); adattaPalcoApplica\(msg\.allargaW, msg\.allargaD, nuova\); \}/.test(appjs), "«Usa un palco…» annulla e rifà sul palco proposto, con la stessa scelta della scena");
 });
 
 /* ===== Distanza tra i 2 su più postazioni (29/09, segnalazione di Simone: «se seleziono molteplici postazioni a 2

@@ -5360,10 +5360,10 @@ function commitPreparedDoc(prepared){
 /* carica un documento parsato (doc o legacy piatto) in VARIANTS + `state` vivo. Non fa render/persist (lo fa chi chiama). */
 function loadDoc(parsed){ commitPreparedDoc(prepareDoc(parsed)); }
 /* cambia variante attiva: congela l'attuale, carica la target. Reset undo (per-variante). */
-function switchVariant(id){
+function switchVariant(id, senzaSync){   /* senzaSync: la scena attiva è appena stata tolta (Annulla di «Adatta») e non va riscritta */
   if(id===activeVar) return; var target=null; for(var i=0;i<VARIANTS.length;i++){ if(VARIANTS[i].id===id) target=VARIANTS[i]; }
   if(!target || !target.state) return;
-  syncActiveVariant(); activeVar=id; applyVariantState(target.state,true,id);
+  if(!senzaSync) syncActiveVariant(); activeVar=id; applyVariantState(target.state,true,id);
   ensureItemIds(); clearSelection(); if(typeof setEventInputs==="function") setEventInputs();
   resetHistory();
   persistLocalState(); if(window.scheduleCloudAutosave) scheduleCloudAutosave();
@@ -6277,7 +6277,7 @@ function syncHistoryButtons(){
      premibili con la cronologia vuota, e premerli non faceva niente — l'unico posto dove la
      cronologia è vuota davvero è appena dopo aver ricaricato un progetto, cioè il momento in cui
      uno ci prova. (segnalazione 10/09) */
-  var vuotoU=!undoStack.length, vuotoR=!redoStack.length;
+  var vuotoU=!undoStack.length, vuotoR=!ripetiDisponibile();
   ["bUndo","mUndo"].forEach(function(id){ var e=document.getElementById(id); if(e) e.disabled=vuotoU; });
   ["bRedo","mRedo"].forEach(function(id){ var e=document.getElementById(id); if(e) e.disabled=vuotoR; });
 }
@@ -6329,8 +6329,42 @@ function pannelloPalcoAggiornato(){
 }
 /* applyRemoteState RIMOSSA (14/08): la collaborazione live non passa più di qui — lo stato
    arriva dall'Edge Function e lo applica importProject(). Era rimasta indietro di un'architettura. */
-function undo(){ flushHistorySoon(); if(!undoStack.length) return; redoStack.push(lastSnap); applyHistory(undoStack.pop()); pruneVenueHistoryAssets(); syncHistoryButtons(); }
-function redo(){ flushHistorySoon(); if(!redoStack.length) return; undoStack.push(lastSnap); applyHistory(redoStack.pop()); pruneVenueHistoryAssets(); syncHistoryButtons(); }
+function undo(){ flushHistorySoon(); if(adattaAnnullaScena()) return; if(!undoStack.length) return; redoStack.push(lastSnap); applyHistory(undoStack.pop()); pruneVenueHistoryAssets(); syncHistoryButtons(); }
+function redo(){ flushHistorySoon(); if(adattaRifaiScena()) return; if(!redoStack.length) return; undoStack.push(lastSnap); applyHistory(redoStack.pop()); pruneVenueHistoryAssets(); syncHistoryButtons(); }
+/* ANNULLA DI «ADATTA» IN UNA SCENA NUOVA (29/09, Simone: «correggi anche l'annulla di adatta»). La cronologia
+   è per scena: Adatta crea la scena «Palco 10 × 10 m» (createVariant azzera la cronologia) e ci salva UN passo.
+   Annullarlo riportava quella scena al palco di partenza lasciandola in piedi, col nome della misura nuova e il
+   contenuto di prima. Ora l'Annulla che disfa proprio quel passo toglie la scena e torna a quella di partenza;
+   Ripeti la rimette. Vale solo finché nella scena nuova non si è fatto altro (passi === quelli lasciati da
+   Adatta) e, per Ripeti, finché nella scena di partenza non si è toccato niente (switchVariant azzera la
+   cronologia: undoStack vuoto). Niente punto di ripristino: la scena è nata un attimo fa da una copia. */
+var adattaScena=null, adattaRifai=null;
+/* Ripeti c'è con la cronologia della scena, o per rimettere la scena di «Adatta» appena tolta (adattaRifaiScena) */
+function ripetiDisponibile(){ return redoStack.length>0 || !!(adattaRifai && activeVar===adattaRifai.da && !undoStack.length); }
+function adattaAnnullaScena(){
+  var A=adattaScena; if(!A || activeVar!==A.id || undoStack.length!==A.passi) return false;
+  var idx=-1; for(var i=0;i<VARIANTS.length;i++){ if(VARIANTS[i].id===A.id) idx=i; }
+  var da=null; for(var j=0;j<VARIANTS.length;j++){ if(VARIANTS[j].id===A.da) da=VARIANTS[j]; }
+  if(idx<0 || !da || VARIANTS.length<2){ adattaScena=null; return false; }
+  syncActiveVariant();
+  var tolta=VARIANTS.splice(idx,1)[0], img=venueImgCache[tolta.id];
+  delete venueImgCache[tolta.id];
+  switchVariant(A.da, true);   /* senza risincronizzare: scriverebbe la scena tolta sopra quella di partenza */
+  adattaScena=null; adattaRifai={ v:tolta, idx:idx, da:A.da, img:img, passi:A.passi };
+  syncHistoryButtons();   /* switchVariant li ha aggiornati PRIMA che ci fosse adattaRifai: Ripeti restava spento */
+  if(window.__toast) window.__toast("Annullato: tolta la scena «"+(tolta.name||"")+"».");
+  return true;
+}
+function adattaRifaiScena(){
+  var R=adattaRifai; if(!R || activeVar!==R.da || undoStack.length || redoStack.length) return false;
+  syncActiveVariant();
+  VARIANTS.splice(Math.min(R.idx, VARIANTS.length), 0, R.v);
+  if(R.img) venueImgCache[R.v.id]=R.img;
+  switchVariant(R.v.id);
+  adattaRifai=null; adattaScena={ id:R.v.id, da:R.da, passi:undoStack.length };
+  syncHistoryButtons();
+  return true;
+}
 /* ===== Importa progetto da file .json (annullabile) ===== */
 function activatePreparedProject(prepared, opts){
   opts=opts||{};
@@ -8133,6 +8167,7 @@ function adattaPalcoCalcola(items, W0, D0, W, D){
    Un solo save() = un solo passo di Annulla. */
 function adattaPalcoApplica(W, D, nuovaScena){
   W=Math.max(100,Math.round(W)); D=Math.max(100,Math.round(D));
+  var daScena=activeVar;
   if(nuovaScena && typeof createVariant==="function") createVariant("Palco "+adattaM(W)+" × "+adattaM(D)+" m");
   var W0=state.stage.w, D0=state.stage.d;
   var R=adattaPalcoCalcola(state.items, W0, D0, W, D);
@@ -8143,6 +8178,8 @@ function adattaPalcoApplica(W, D, nuovaScena){
   if(state.printFrame) state.printFrame=null;   /* l'area di stampa era misurata sul palco di prima */
   __cabRes=null; __elecRes=null; __mondRes=null;
   save(); render();
+  adattaScena = (nuovaScena && activeVar!==daScena) ? { id:activeVar, da:daScena, passi:undoStack.length } : null;
+  adattaRifai = null;
   pannelloPalcoAggiornato();   /* il pannello «Forma del palco» è aperto: diceva ancora 12 × 13 (29/09) */
   if(typeof fit==="function") fit();
   if(nuovaScena && typeof renderVariantBar==="function") renderVariantBar();
@@ -8181,7 +8218,7 @@ function showAdattaPalco(){
     if(!msg.allargaW){ showToast(msg.testo); return; }
     guideDialog({ title:msg.titolo, msg:msg.testo+" Si annulla con un solo Annulla.", okLabel:"Tengo così",
       action:{ label:"Usa un palco "+adattaM(msg.allargaW)+" × "+adattaM(msg.allargaD)+" m",
-        run:function(){ undo(); adattaPalcoApplica(msg.allargaW, msg.allargaD, false); } } });
+        run:function(){ undo(); adattaPalcoApplica(msg.allargaW, msg.allargaD, nuova); } } });   /* in scena nuova: Annulla la toglie, e se ne fa una col nome della misura giusta */
   }
   document.getElementById("apGo").addEventListener("click", vai);
   document.getElementById("apNo").addEventListener("click", chiudi);
