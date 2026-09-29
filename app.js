@@ -2844,9 +2844,39 @@ function cicloSotto(c){
   }
   return false;
 }
-/* «Sposta solo la pedana»: acceso, trascinare una pedana non porta con sé quello che c'è sopra. Non si
-   salva: vale finché lo si spegne o si ricarica, così non resta acceso a sorpresa il giorno dopo. */
-var pedanaSola=false;
+/* AGGANCIO PEDANA → ELEMENTI (29/09, Simone: «non voglio che gli elementi sulla pedana seguano la pedana,
+   se sposto la pedana, gli elementi devono rimanere dove sono … lo mettiamo come opzione … di default sarà
+   spenta»). Di partenza una pedana è un oggetto come gli altri: trascinarla (mouse, dito), Duplica e Copia
+   muovono o copiano SOLO la pedana. Frecce, rotazione, ridimensionamento e «Allinea equidistanti» non hanno
+   mai portato il carico e restano così. L'interruttore «Aggancia gli elementi alla pedana» (pannello della
+   pedana e della selezione, sotto «Solo pedane») scrive sulla pedana `aggancia:true`, e solo allora vale il
+   comportamento di prima: chi ci sta sopra la segue, e Duplica/Copia se lo portano dietro.
+   PER PEDANA, SALVATO NEL PROGETTO, e non preferenza dell'editor: il comando sta nel pannello della pedana e
+   chi lo accende pensa a QUELLA pedana (la pedana della batteria sì, quella del coro no); salvato nel file,
+   riaprendo il progetto (su un altro computer, da un link) la pedana si comporta come la si era lasciata,
+   senza una chiave di localStorage che cambi il gesto a seconda del browser. Entra in Annulla/Ripeti.
+   MIGRAZIONE: il vecchio «Sposta solo la pedana» (16/09, variabile globale `pedanaSola`) NON si salvava mai
+   — spento a ogni ricarica — quindi nei progetti salvati non c'è nessuna scelta da tradurre: nessuno ha
+   `aggancia`, tutti si aprono sganciati, come chiesto. Unica eredità: le pedane duplicate prima di oggi
+   stanno in un BLOCCO (`grp`) con i loro elementi; un blocco si prende e si sposta intero perché è un
+   gruppo, non per l'aggancio, e resta così finché lo si divide. «Adatta a un altro palco» ha la sua regola
+   (le pedane seguono chi ci sta sopra) e non passa di qui. */
+function pedanaAgganciata(it){ return isRiser(it) && it.aggancia===true; }
+/* Aggiunge a `moving` quello che le pedane agganciate si portano dietro nel trascinamento; le sganciate non
+   aggiungono niente. È la lista che il trascinamento sposta: così si prova nei test senza un mouse. */
+function caricoDellePedane(moving){
+  moving.slice().forEach(function(it){
+    if(!pedanaAgganciata(it)) return;
+    if(it.grp){                            /* pedana in un blocco (es. duplicata): porta i membri del blocco, non gli elementi geometrici (così non aggancia gli originali sotto) */
+      state.items.forEach(function(o){ if(o.grp===it.grp && moving.indexOf(o)===-1) moving.push(o); });
+    } else {                               /* pedana libera: porta gli elementi che ci poggiano sopra (geometrico) */
+      itemsOnRiser(it).forEach(function(o){ if(moving.indexOf(o)!==-1) return;
+        if(o.grp && o.distOf!==it.id) return;   /* appartiene a un blocco diverso (es. copia incollata) → non agganciare */
+        moving.push(o); });
+    }
+  });
+  return moving;
+}
 function itemsOnRiser(r){
   var rot=(r.rot||0)*Math.PI/180, cos=Math.cos(-rot), sin=Math.sin(-rot), hw=r.w/2, hd=r.d/2;
   return state.items.filter(function(it){
@@ -5741,7 +5771,7 @@ function sanitizeItems(arr){
     if(t.riser) it.h=(o.h!=null?+o.h:(t.h||40));
     else if(isCover(it) && o.h!=null) it.h=+o.h;   /* coperture: h opzionale (luce sotto); se assente = default coverH() */
     if(Object.prototype.hasOwnProperty.call(COMP,o.type)) it.parts=o.parts?compClone(o.parts):compClone(COMP[o.type].defParts);
-    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","podio","sgab","grp","distOf","distType","dimSide","lblSize","lblDist","plCh","dvsPro","dvsNet","dvsSr","dvsLat","ifaceId","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
+    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","podio","sgab","grp","distOf","distType","aggancia","dimSide","lblSize","lblDist","plCh","dvsPro","dvsNet","dvsSr","dvsLat","ifaceId","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
     if(it.type==="dimono"){   /* DI box: normalizza gli assi + footprint (migra il vecchio diLook del selettore) */
       if(it.diLook){ if(it.diLook==="stereo") it.diCh=it.diCh||"stereo"; else if(it.diLook==="rack") it.diCh=it.diCh||"multi"; else if(it.diLook==="attiva") it.diType=it.diType||"attiva"; else if(it.diLook==="schema") it.diSchema=true; delete it.diLook; }
       if(!DI_CH_LABEL[it.diCh]) it.diCh="mono"; if(it.diType!=="attiva") it.diType="passiva"; if(it.diMultiCh!==6) it.diMultiCh=8;
@@ -11110,6 +11140,7 @@ function renderProps(){
   var _selOne = n===1 ? getSel() : null;
   document.body.classList.toggle("riser-sel", !!(_selOne && isRiser(_selOne)));   /* pedana selezionata: in modalità palco il suo pannello resta visibile */
   aggiornaSoloPedane();   /* il comando «Solo pedane» c'è solo con una pedana nella selezione */
+  aggiornaAgganciaPedane();   /* e così «Aggancia gli elementi alla pedana», che gli sta sotto */
   document.body.classList.toggle("m-has-sel", n>0);   /* mobile: pannello = elemento vs channel list */
   document.body.classList.toggle("m-multi", n>1);     /* mobile: peek senza azioni singole */
   if(n===0) document.body.classList.remove("props-expanded");  /* deselezione = specifiche di nuovo a scomparsa */
@@ -11634,8 +11665,6 @@ function renderProps(){
   var illustrated = hasLookToggle(it) && it.look!=="schematico";
   document.getElementById("pKeysWrap").style.display = (isKeys && !illustrated) ? "block" : "none";
   if(isKeys) document.getElementById("pPanca").checked = it.panca!==false;
-  var rsw=document.getElementById("pRiserSoloWrap");
-  if(rsw){ rsw.style.display = t.riser ? "block" : "none"; if(t.riser) document.getElementById("pRiserSolo").checked=pedanaSola; }
   var sgw=document.getElementById("pSgabWrap");
   if(sgw){ var isSgab=(it.type==="sgabello"); sgw.style.display = isSgab ? "block" : "none";
     if(isSgab){ var sgs=document.getElementById("pSgabTipo");
@@ -12194,7 +12223,6 @@ document.getElementById("pRfChi").addEventListener("input", function(){ var v=th
 document.getElementById("pRfRiserva").addEventListener("change", function(){ var v=this.checked; mutSel(function(it){ if(v) it.rfRiserva=true; else delete it.rfRiserva; }); });
 document.getElementById("pRf").addEventListener("input", function(){ var v=document.getElementById("pRf").value; mutSelSoon(function(it){ var t=v.trim(); if(t) it.rf=t.slice(0,20); else delete it.rf; }); });   /* RF: frequenza (#2) */
 document.getElementById("pBand").addEventListener("input", function(){ var v=document.getElementById("pBand").value; mutSelSoon(function(it){ var t=v.trim(); if(t) it.band=t.slice(0,16); else delete it.band; }); });   /* RF: banda (#2) */
-document.getElementById("pRiserSolo").addEventListener("change", function(){ pedanaSola=document.getElementById("pRiserSolo").checked; });
 document.getElementById("pSgabTipo").addEventListener("change", function(){
   var v=document.getElementById("pSgabTipo").value;
   mutSel(function(it){
@@ -12705,7 +12733,7 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
   group("Microfono", null, ["pOutCard","pStereoWrap","pOwnMicWrap","pZoneWrap"]);
   group("Stage box", null, ["pSbChWrap"]);
   group("Ascolto", "cosa usa per sentirsi", ["pAscoltoWrap"]);
-  group("Accessori", null, ["pPostaz","pVoce","pGtr","pDir","pTastiera","pComp","pKeysWrap","pSgabWrap","pRiserSoloWrap","pLeggioGenWrap","pLucettaWrap","pRampWrap","pGazWrap","pPreseWrap"]);
+  group("Accessori", null, ["pPostaz","pVoce","pGtr","pDir","pTastiera","pComp","pKeysWrap","pSgabWrap","pLeggioGenWrap","pLucettaWrap","pRampWrap","pGazWrap","pPreseWrap"]);
   group("Installazione", null, ["pMountWrap"]);
   group("Dettagli tecnici", null, ["pIfaceWrap","pCompIfaceWrap","pModelWrap","pLocInWrap","pUsoWrap","pBmWrap","pLmWrap","pModWrap","pWattWrap","pRfWrap","pPmWrap"]);   /* la richiesta di setup NON e' un dettaglio tecnico: e' un'azione verso una persona, e sta con la persona */
   group("Nota", "quello che il disegno non dice", ["pNoteWrap"]);
@@ -13027,11 +13055,12 @@ function bumpItemLabels(c){
 function duplicateSel(noOffset, opts){
   primaDiAgire();
   var its=selItems(); if(!its.length) return;
-  /* includi gli elementi che poggiano sulle pedane selezionate → la copia è completa e non "ruba" gli originali */
+  /* pedana AGGANCIATA: includi gli elementi che ci poggiano sopra → la copia è completa e non "ruba" gli
+     originali. Una pedana sganciata (il caso di partenza dal 29/09) si duplica da sola, come ogni oggetto. */
   var set=its.slice();
-  its.forEach(function(it){ if(TYPES[it.type] && TYPES[it.type].riser){
+  its.forEach(function(it){ if(pedanaAgganciata(it)){
     itemsOnRiser(it).forEach(function(o){ if(set.indexOf(o)===-1) set.push(o); }); } });
-  var hasRiser=set.some(function(it){ return TYPES[it.type] && TYPES[it.type].riser; });
+  var hasRiser=set.some(pedanaAgganciata);   /* il blocco serve solo dove c'è l'aggancio (vedi sotto) */
   var gmap={}, idmap={};   /* le copie di un blocco formano un NUOVO blocco (non si fondono con l'originale) */
   /* offset della copia: su mobile ampio (larghezza elemento + margine) così la duplicazione è VISIBILMENTE staccata dall'originale */
   var offX=40, offY=40;
@@ -13043,7 +13072,8 @@ function duplicateSel(noOffset, opts){
     state.items.push(c); return c; });
   /* rimappa distOf al nuovo id della pedana copiata (evita che la copia punti alla pedana originale) */
   copies.forEach(function(c){ if(c.distOf && idmap[c.distOf]) c.distOf=idmap[c.distOf]; });
-  /* pedana + elementi duplicati = un BLOCCO unico: si muovono insieme e il trascinamento NON aggancia gli originali */
+  /* pedana agganciata + elementi duplicati = un BLOCCO unico: si muovono insieme e il trascinamento NON
+     aggancia gli originali che la copia (spostata di 40 cm) ha sotto. Sganciata, quel rischio non c'è. */
   if(hasRiser){ var bg="g"+uid(); copies.forEach(function(c){ c.grp=bg; }); }
   selSet={}; copies.forEach(function(c){ selSet[c.id]=true; }); sel=copies.length?copies[copies.length-1].id:null;
   render();
@@ -13056,8 +13086,8 @@ function duplicateSel(noOffset, opts){
 var clipboard=[], clipPastes=0;
 function copySel(){
   var its=selItems(); if(!its.length) return;
-  var set=its.slice();   /* includi gli elementi che poggiano sulle pedane selezionate (copia completa) */
-  its.forEach(function(it){ if(TYPES[it.type] && TYPES[it.type].riser){
+  var set=its.slice();   /* pedana agganciata: includi gli elementi che ci poggiano sopra (copia completa); sganciata, sola */
+  its.forEach(function(it){ if(pedanaAgganciata(it)){
     itemsOnRiser(it).forEach(function(o){ if(set.indexOf(o)===-1) set.push(o); }); } });
   clipboard = set.map(function(it){ return JSON.parse(JSON.stringify(it)); });
   clipPastes=0;
@@ -13065,7 +13095,7 @@ function copySel(){
 function pasteClip(){
   if(!clipboard.length) return;
   clipPastes++; var off=40*clipPastes;
-  var hasRiser=clipboard.some(function(it){ return TYPES[it.type] && TYPES[it.type].riser; });
+  var hasRiser=clipboard.some(pedanaAgganciata);   /* blocco solo con una pedana agganciata, come in duplicateSel */
   var gmap={}, idmap={};
   var copies=clipboard.map(function(it){ var c=JSON.parse(JSON.stringify(it)); idmap[it.id]=c.id=uid(); c.x+=off; c.y+=off; bumpItemLabels(c);
     if(c.grp){ if(!gmap[c.grp]) gmap[c.grp]="g"+uid(); c.grp=gmap[c.grp]; } return c; });
@@ -15090,17 +15120,7 @@ svg.addEventListener("pointerdown", function(e){
     moving.slice().forEach(function(it){      /* l'americana trascina i fari che le sono appesi */
       if(isHangStruct(it)) hangItemsOf(it).forEach(function(o){ if(moving.indexOf(o)===-1 && itemEditable(o)) moving.push(o); });
     });
-    moving.slice().forEach(function(it){      /* le pedane trascinano gli elementi sopra */
-      if(TYPES[it.type] && TYPES[it.type].riser && !pedanaSola){   /* «Sposta solo la pedana» (16/09): il carico resta dov'è */
-        if(it.grp){                            /* pedana in un blocco (es. duplicata): porta i membri del blocco, non gli elementi geometrici (così non aggancia gli originali sotto) */
-          state.items.forEach(function(o){ if(o.grp===it.grp && moving.indexOf(o)===-1) moving.push(o); });
-        } else {                               /* pedana libera: porta gli elementi che ci poggiano sopra (geometrico) */
-          itemsOnRiser(it).forEach(function(o){ if(moving.indexOf(o)!==-1) return;
-            if(o.grp && o.distOf!==it.id) return;   /* appartiene a un blocco diverso (es. copia incollata) → non agganciare */
-            moving.push(o); });
-        }
-      }
-    });
+    caricoDellePedane(moving);                /* solo le pedane con «Aggancia gli elementi» si portano dietro chi ci sta sopra (29/09) */
     drag = {mode:"item", sp0:{x:sp.x,y:sp.y},
             items:moving.map(function(i){ return {id:i.id, x0:i.x, y0:i.y}; }), moved:false};
     if(_giaSel) drag.ciclo={x:e.clientX, y:e.clientY, id:id};
@@ -19684,6 +19704,32 @@ function aggiornaSoloPedane(){
   ["pSoloPed","grpSoloPed","mPeekSolo"].forEach(function(k){
     var b=document.getElementById(k); if(!b) return;
     b.addEventListener("click", function(e){ e.stopPropagation(); soloPedane(!soloOn("pedane")); render(); });
+  });
+})();
+/* «Aggancia gli elementi alla pedana» (29/09, Simone: «sulla destra oltre all'opzione solo pedane ci sarà
+   l'opzione snap elementi con pedane che di default sarà spenta»). Sta sotto «Solo pedane» nel pannello
+   dell'elemento e in quello della selezione, e c'è solo con una pedana nella selezione. Sul telefono resta
+   nel foglio aperto (la testa ha già cinque azioni da 52 px): è lì che stava il vecchio «Sposta solo la
+   pedana». Proprietà della pedana, salvata: il perché e la migrazione sopra pedanaAgganciata(). */
+function agganciaPedane(on){
+  var ped=selItems().filter(isRiser); if(!ped.length) return;
+  primaDiAgire();
+  ped.forEach(function(p){ if(on) p.aggancia=true; else delete p.aggancia; });   /* spento = nessuna chiave: il file resta com'era */
+  render(); save();
+}
+function aggiornaAgganciaPedane(){
+  var ped=selItems().filter(isRiser), n=ped.filter(pedanaAgganciata).length;
+  ["pAgg","grpAgg"].forEach(function(k){
+    var w=document.getElementById(k+"Wrap"), c=document.getElementById(k); if(!w || !c) return;
+    w.style.display = ped.length ? "" : "none";
+    c.checked = ped.length>0 && n===ped.length;
+    c.indeterminate = n>0 && n<ped.length;   /* pedane miste: né acceso né spento; il clic le accende tutte */
+  });
+}
+(function(){
+  ["pAgg","grpAgg"].forEach(function(k){
+    var c=document.getElementById(k); if(!c) return;
+    c.addEventListener("change", function(){ agganciaPedane(c.checked); });
   });
 })();
 /* Cosa è «palco e pedane»: le pedane (anche coro e riser) e ciò che fa la superficie e i suoi bordi.
