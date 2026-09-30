@@ -19660,7 +19660,7 @@ function chanRow(kind, row, i){
     who.addEventListener("input", function(){ row.who=who.value; saveSoon(); });
     d.appendChild(who);
   }
-  var by=document.createElement("select"); by.className="clby"; by.title="Fornito da: chi porta l'attrezzatura (band o service). Finisce nella backline list del rider.";
+  var by=document.createElement("select"); by.className="clby"; by.title="Fornito da: chi porta l'attrezzatura (band o service). Nella Channel list del PDF «Band» diventa ** accanto alla sorgente, e finisce nella backline list del rider.";
   ["","Band","Service"].forEach(function(t){ var o=document.createElement("option"); o.value=t; o.textContent=t||"forn."; if(t===(row.by||""))o.selected=true; by.appendChild(o); });
   by.addEventListener("change", function(){ row.by=by.value; saveSoon(); });
   d.appendChild(by);
@@ -21041,6 +21041,40 @@ function cabPairBlocks(){
   }
   return m;
 }
+/* «FORNITO DA» — il ponte fra le due liste (02/09).
+   La channel list che si compila a mano (`state.inputs`) e la input list del PDF (`patchList`) sono
+   due binari: la prima e' scritta dall'utente, la seconda e' derivata dal palco. Il 26/08 e' stata
+   aggiunta la colonna «forn.» alla prima — «dove i rider veri lo mettono, riga per riga» — ma il
+   PDF non la leggeva: si compilava un campo che non usciva da nessuna parte.
+   L'aggancio e' per ELEMENTO e per NOME della sorgente insieme: l'id da solo non basta quando un
+   elemento fa piu' canali (la batteria ne fa otto, e non e' detto che li porti la stessa persona).
+   Se il nome non combacia non si indovina: meglio niente che un'attribuzione sbagliata su un rider. */
+function _riderBy(itemId, name){
+  var righe=state.inputs; if(!righe || !righe.length) return "";
+  var n=String(name||"").trim().toLowerCase();
+  for(var i=0;i<righe.length;i++){
+    var r=righe[i]; if(!r || !r.by) continue;
+    if(itemId!=null && itemId!=="" && String(r.linked_item_id)===String(itemId) && String(r.src||"").trim().toLowerCase() === n) return r.by;
+  }
+  /* senza aggancio all'elemento (righe scritte a mano) vale il solo nome, se e' univoco */
+  var trovate=righe.filter(function(r){ return r && r.by && String(r.src||"").trim().toLowerCase()===n; });
+  return trovate.length===1 ? trovate[0].by : "";
+}
+/* Chi porta un elemento della backline (30/09): il vecchio «Fornito da» sull'elemento (it.by, tolto dal pannello il
+   26/08, resta nei progetti vecchi) oppure la colonna «forn.» delle righe della channel list collegate a lui. Se le
+   sue righe dicono cose diverse (Band su una, Service sull'altra) non si sceglie: vuoto. Prima la backline list
+   leggeva solo it.by, e il suggerimento «Finisce nella backline list del rider» della colonna non era vero. */
+function fornituraElemento(it){
+  if(!it) return "";
+  if(it.by==="Band" || it.by==="Service") return it.by;
+  var v={};
+  (state.inputs||[]).concat(state.outputs||[]).forEach(function(r){
+    if(r && r.linked_item_id!=null && String(r.linked_item_id)===String(it.id) && (r.by==="Band" || r.by==="Service")) v[r.by]=1;
+  });
+  var k=Object.keys(v); return k.length===1 ? k[0] : "";
+}
+/* Convenzione dei rider italiani (Timodà, CONOSCENZA/FONTI.md): «** = a carico della band» accanto alla sorgente. */
+var FORNITO_BAND_SEGNO=" **", FORNITO_BAND_LEGENDA="** = a carico della band (strumento e amplificazione portati dalla band)";
 function patchList(){
   var R=cabResult(true), rows=[], n=0, man=(state.cab&&state.cab.manual)||{};
   var byId={}; (state.items||[]).forEach(function(i){ byId[i.id]=i; });
@@ -21081,7 +21115,7 @@ function patchList(){
     }
     return {n:++n, name:name, mic:mic, stand:stand, p48:p48, standAuto:!(_ov.stand!=null), p48Auto:!(_ov.p48===true||_ov.p48===false),
             micAuto:!(_ov.mic!=null||o),   /* mic DEDOTTO (dal tipo o dal modello reale): in channel list si mostra in corsivo come l'asta */
-            stereoPair:_pair, standShared:_shared,
+            stereoPair:_pair, standShared:_shared, by:_riderBy(itemId, name),
             patch:patch, box:box, itemId:itemId, key:key, micOff:o}; }
   var hasFoh=(R.boxes||[]).length>1 || (R.boxes||[]).some(function(b){ return b.sbId; });
   R.links.forEach(function(l){ if(l.deleted) return;
@@ -25524,7 +25558,9 @@ function patchListPdf(shared){
        di un'orchestra vera finivano su un foglio senza «# SORGENTE MIC/DI…») */
     function _testa(){ trow("#","SORGENTE","FOH","MIC / DI","ASTA","PATCH", true, "#0d9488"); doc.setDrawColor("#0d9488"); doc.setLineWidth(0.4); doc.line(M, y-3.6, 194, y-3.6); }
     _testa(); _testaTab=_testa;
-    pl.rows.forEach(function(r){ trow((pl.hasFoh&&r.foh)?r.foh:r.n, r.reserved?"RISERVATO":r.name, r.short||"", r.reserved?"":(r.mic+(r.p48?"  (48V)":"")), r.standShared?"stessa asta":(r.stand||""), r.patch, false, (r.spare||r.reserved)?"#9a948b":"#111827", (r.spare||r.reserved||r.box)?null:"#b45309"); });
+    var _band=false;   /* «fornito da» della channel list: ** accanto alla sorgente, legenda sotto (30/09) */
+    pl.rows.forEach(function(r){ if(r.by==="Band" && !r.reserved) _band=true; trow((pl.hasFoh&&r.foh)?r.foh:r.n, r.reserved?"RISERVATO":(r.name+(r.by==="Band"?FORNITO_BAND_SEGNO:"")), r.short||"", r.reserved?"":(r.mic+(r.p48?"  (48V)":"")), r.standShared?"stessa asta":(r.stand||""), r.patch, false, (r.spare||r.reserved)?"#9a948b":"#111827", (r.spare||r.reserved||r.box)?null:"#b45309"); });
+    if(_band){ y+=1.5; doc.setFont("helvetica","italic"); doc.setFontSize(8.5); doc.setTextColor("#555555"); if(y>286){ doc.addPage(); y=18; } doc.text(FORNITO_BAND_LEGENDA, M, y); y+=5.4; }
     /* F2: riepilogo riservate/libere per box (spare = porte, non righe fantasma — D2) */
     try{ cabResult().boxes.forEach(function(b){
       if(!b.res.length) return;
@@ -25721,7 +25757,7 @@ function backlineList(){
     if(!isBackline(it)) return;
     var t=TYPES[it.type];
     var name=(it.label && it.label.trim()) ? it.label.trim() : (t?t.nome:it.type);   /* label custom (es. modello) o nome tipo */
-    var by=(it.by==="Band"||it.by==="Service")?it.by:"";
+    var by=fornituraElemento(it);   /* anche dalla colonna «forn.» della channel list (30/09) */
     var k=name+"|"+by;
     if(!groups[k]){ groups[k]={name:name, by:by, qty:0}; order.push(k); }
     groups[k].qty++;

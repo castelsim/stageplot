@@ -18115,5 +18115,51 @@ t("postazioni a 2: il cursore sta nel pannello di gruppo, si salva al rilascio, 
   ok(/@media \(max-width:880px\)\{ #props #groupProps #grpSep\{min-height:44px\} \}/.test(stylesCss), "44 px sul telefono");
 });
 
+/* ===== «Fornito da» dalla channel list al PDF e alla backline (30/09, Simone: «completa il fornito da») ===== */
+t("fornito da: la colonna «forn.» della channel list arriva alla Channel list del PDF e alla backline list", () => {
+  /* Prima il dato si compilava e non usciva da nessuna parte: la Channel list del PDF (patchList) non lo leggeva, e la
+     backline list leggeva solo it.by, che dal 26/08 nessun pannello scrive più. */
+  A.loadDoc({ titolo: "Fornito da", stage: { w: 1000, d: 800, blocks: [{ x: 0, y: 0, w: 1000, d: 800 }] },
+    items: [{ id: "a1", type: "comboamp", x: 200, y: 300 }, { id: "d1", type: "batteria", x: 500, y: 300 }, { id: "v1", type: "cantante", x: 700, y: 500 }],
+    inputs: [], outputs: [] });
+  A.autoInputs(true);
+  const riga = (src) => A.state.inputs.find((r) => r.src === src);
+  riga("Gtr amp").by = "Band";
+  A.state.inputs.filter((r) => String(r.linked_item_id) === "d1").forEach((r) => { r.by = "Band"; });
+  const pl = () => Object.fromEntries(A.patchList().rows.map((r) => [r.name, r.by || ""]));
+  let p = pl();
+  eq([p["Gtr amp"], p["Drums - Kick"], p["Drums - Overhead R"], p["Voce"]], ["Band", "Band", "Band", ""], "ogni canale prende il suo «fornito da»; senza, vuoto");
+  let bl = Object.fromEntries(A.backlineList().rows.map((r) => [r.name, r.by]));
+  eq([bl["Gtr amp"], bl["Drums"]], ["Band", "Band"], "backline: dall'elemento collegato alle righe");
+  /* canali della stessa batteria in disaccordo: nella backline non si sceglie */
+  riga("Drums - Kick").by = "Service";
+  bl = Object.fromEntries(A.backlineList().rows.map((r) => [r.name, r.by]));
+  eq(bl["Drums"], "", "Band su un canale e Service su un altro: vuoto, non si indovina");
+  eq(pl()["Drums - Kick"], "Service", "ma il singolo canale dice il suo");
+  /* il vecchio it.by dei progetti di prima del 26/08 vince */
+  A.state.items.find((i) => i.id === "d1").by = "Service";
+  bl = Object.fromEntries(A.backlineList().rows.map((r) => [r.name, r.by]));
+  eq(bl["Drums"], "Service", "it.by dei progetti vecchi vale ancora");
+  /* riga scritta a mano, senza elemento: vale il nome se è unico; il collegamento per id anche con tipi diversi */
+  A.state.inputs.push({ src: "Click", mic: "DI", stand: "", p48: false, notes: "", by: "Band" });
+  eq(A._riderBy(null, "click"), "Band", "riga a mano: nome unico, maiuscole indifferenti");
+  A.state.inputs.push({ src: "Click", mic: "DI", stand: "", p48: false, notes: "", by: "Service" });
+  eq(A._riderBy(null, "Click"), "", "due righe con lo stesso nome: niente");
+  riga("Voce").by = "Band"; riga("Voce").linked_item_id = 1;
+  A.state.inputs.push({ src: "Voce", mic: "SM58", stand: "", p48: false, notes: "", by: "Service", linked_item_id: "altro" });
+  eq(A._riderBy("1", "Voce"), "Band", "id numero o testo: stesso elemento (il nome da solo qui non basta)");
+});
+
+t("fornito da nel PDF: ** accanto alla sorgente a carico della band, e la legenda solo se serve", () => {
+  const f = appjs.slice(appjs.indexOf("function patchListPdf(shared){"), appjs.indexOf("function patchListPdf(shared){") + 6000);
+  ok(/r\.reserved\?"RISERVATO":\(r\.name\+\(r\.by==="Band"\?FORNITO_BAND_SEGNO:""\)\)/.test(f), "** accanto alla sorgente a carico della band");
+  ok(/if\(r\.by==="Band" && !r\.reserved\) _band=true;/.test(f), "la legenda si accende solo con una riga della band");
+  ok(/if\(_band\)\{[\s\S]{0,300}doc\.text\(FORNITO_BAND_LEGENDA, M, y\)/.test(f), "legenda sotto la tabella");
+  eq(A.FORNITO_BAND_SEGNO, " **", "il segno dei rider italiani");
+  ok(/^\*\* = a carico della band/.test(A.FORNITO_BAND_LEGENDA), "la legenda dice cosa vuol dire");
+  const bl = appjs.slice(appjs.indexOf("function backlineList(){"), appjs.indexOf("function backlineList(){") + 700);
+  ok(/var by=fornituraElemento\(it\);/.test(bl), "la backline list legge anche la channel list");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
