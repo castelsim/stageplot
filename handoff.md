@@ -1,10 +1,20 @@
 # STATO AL 27/09/2026 — da leggere prima di tutto
 
-Tutto in produzione, nessuna PR aperta. Test: 1255 editor · 124 Orchestre · 137 Deno.
+Tutto in produzione, nessuna PR aperta. Test: 1291 editor · 124 Orchestre · 137 Deno.
 Regole di lavoro aggiornate in `AGENTS.md` (§3, §4, §8). Le sessioni fra fine luglio e settembre non
 sono state scritte qui: la loro storia sta nei messaggi di commit e nelle PR (#98-#210).
 
 ## Settembre in una pagina (PR su `main`)
+
+- **29/09 sera — correzioni dalla revisione** (mie, non degli agenti):
+  #250 Annulla di «Adatta» in scena nuova toglie la scena, Ripeti la rimette (`adattaAnnullaScena`, `adattaRifaiScena`,
+  `switchVariant(id, senzaSync)`, `ripetiDisponibile()` — il bottone restava spento, visto nel browser);
+  #254 i nomi che si toccano cedono a schermo anche al computer (scelta di Simone), mai in PDF/PNG;
+  #256 link condiviso: il cartiglio non propone mai l'account di chi guarda (`documentoAltrui`) e il titolo è quello
+  della colonna (`titoloDelLink`); #257 unisce la #242 (landing: `sp_founder`, `pan-y`) e classifica `sp_founder`
+  nella tabella dell'uscita pulita. ⚠️ Nel sandbox dei test il finto DOM restituisce funzioni: un controllo
+  tipo `classList.contains(...)` è sempre «vero» → confrontare con `===true`. ⚠️ Dopo un export PDF il primo
+  Annulla disfa l'export (`production` nello stato), non «Adatta»: aperto.
 
 - **29/09 — Avvertenza «palco adattato»** (ramo `adatta-avvertenza`, Simone: «l'avvertenza è un'opzione e decide
   l'utente che crea lo stageplot se inserirla»). Nella finestra finale di Adatta, SOLO se «Ci stanno, ma stretti»
