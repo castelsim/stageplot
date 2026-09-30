@@ -1,10 +1,16 @@
-# STATO AL 27/09/2026 — da leggere prima di tutto
+# STATO AL 30/09/2026 — da leggere prima di tutto
 
-Tutto in produzione, nessuna PR aperta. Test: 1291 editor · 124 Orchestre · 137 Deno.
+Tutto in produzione, nessuna PR aperta. Test: 1292 editor · 124 Orchestre · 137 Deno.
 Regole di lavoro aggiornate in `AGENTS.md` (§3, §4, §8). Le sessioni fra fine luglio e settembre non
 sono state scritte qui: la loro storia sta nei messaggi di commit e nelle PR (#98-#210).
 
 ## Settembre in una pagina (PR su `main`)
+
+- **30/09 — Punto della situazione** (sola lettura, poi ordine): 13 worktree già uniti tolti; restano
+  `consulenza-migliorie` e `slogan-in-scala` (bozze mai versionate di altre sessioni) e `orchestre-lotto-1` (l'unico
+  `supabase/functions/.env`). Nuova regola: un worktree per lotto da `origin/main`, tolto dopo il merge.
+  supabase-js: **2.110.0 nel browser** (`vendor/`), 2.108.2 nelle Edge Function — il «fissato ovunque» del 28/09 vale per
+  il server. Backup: 7 avvii di Docker falliti a settembre, in aumento (misura in `_STATO.md`, fuori dal repo).
 
 - **29/09 sera — correzioni dalla revisione** (mie, non degli agenti):
   #250 Annulla di «Adatta» in scena nuova toglie la scena, Ripeti la rimette (`adattaAnnullaScena`, `adattaRifaiScena`,
