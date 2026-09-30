@@ -6228,13 +6228,23 @@ var undoStack=[], redoStack=[], lastSnap=null, venueHistoryAssets=Object.create(
    flusso Esporta (ensurePrintFrame / "frame palco" / "frame tutto") non deve creare passi di undo
    invisibili. La escludo dagli snapshot di cronologia (resta comunque in stato e serializzata per
    salvataggio/reload — vedi applyHistory che la preserva attraverso undo/redo). */
+/* Fuori dalla cronologia: quello che l'app annota sul progetto senza che l'utente l'abbia modificato. La cornice
+   di stampa da sempre; dal 30/09 anche la nota «PDF esportato» (pdfEsportato) e production.asked, che la prima
+   apertura dell'Esporta scriveva con save(): un passo di Annulla fantasma — dopo «Adatta» ed Esporta il primo
+   Annulla disfaceva quello e non l'adattamento, e Ripeti si svuotava (Simone: «correggi anche l'annulla dopo
+   l'export»). Un Annulla non le riporta indietro: applyHistory le tiene (vedi notaFuoriCronologia). */
 function historyStateJSON(){
   var had=("printFrame" in state), f=state.printFrame;
+  var hadPe=("pdfEsportato" in state), pe=state.pdfEsportato;
+  var pr=(state.production&&typeof state.production==="object")?state.production:null, hadAsk=!!(pr&&("asked" in pr)), ask=pr?pr.asked:undefined;
   if(had) delete state.printFrame;
-  var j=stateToJSON();
-  if(had) state.printFrame=f;
+  if(hadPe) delete state.pdfEsportato;
+  if(hadAsk) delete pr.asked;
+  try{ var j=stateToJSON(); }
+  finally{ if(had) state.printFrame=f; if(hadPe) state.pdfEsportato=pe; if(hadAsk) pr.asked=ask; }
   return j;
 }
+function notaFuoriCronologia(){ return { pe:state.pdfEsportato, ask:!!(state.production&&state.production.asked) }; }
 function historySnapshot(){
   var json=historyStateJSON(), rec=venueImageRecord(state&&state.venue,venueImgCache[String(activeVar||"")]);
   var venueSig=rec&&rec._sig?rec._sig:null;
@@ -6291,8 +6301,11 @@ function ensureItemIds(){
 function applyHistory(snapshot){
   var snap=historySnapshotValue(snapshot);
   var keepFrame=state.printFrame;   /* l'area di stampa non è undoable: la mantengo attraverso undo/redo */
+  var nota=notaFuoriCronologia();   /* e nemmeno le note dell'export (30/09): vedi historyStateJSON */
   state=normalizeState(JSON.parse(snap.json));
   if(keepFrame!=null) state.printFrame=keepFrame;
+  if(nota.pe) state.pdfEsportato=nota.pe; else delete state.pdfEsportato;
+  if(nota.ask && state.production) state.production.asked=true;
   var key=String(activeVar||"");
   if(snap.venueSig && venueHistoryAssets[snap.venueSig]){
     venueImgCache[key]=Object.assign({},venueHistoryAssets[snap.venueSig]);
@@ -29722,6 +29735,15 @@ function firmaPdf(s){
   var h=5381; for(var i=0;i<j.length;i++){ h=((h<<5)+h+j.charCodeAt(i))|0; }
   return (h>>>0).toString(36)+"."+j.length;
 }
+/* La prima apertura dell'Esporta annota production.asked (vestigiale, per i blob vecchi): si salva ma NON è un
+   passo di Annulla (30/09), come segnaPdfEsportato. */
+function segnaEsportaAperto(){
+  if(!state.production || state.production.asked) return;
+  state.production.asked=true;
+  if(window.scheduleCloudAutosave) scheduleCloudAutosave();
+  persistLocalState();
+  if(window.__consultDirty) window.__consultDirty();
+}
 function segnaPdfEsportato(){
   try{
     dropOrphanRows(state);   /* lo fa save(): va fatto prima dell'impronta, o la nota nasce già vecchia */
@@ -30430,7 +30452,7 @@ function pdfChannelPage(doc, L, paperKey){
     pdfUpdateTechNote();
     /* niente modale pre-export: il Controllo tecnico vive nel nudge qui sotto.
        asked resta per compatibilità blob (vestigiale). */
-    if(state.production && !state.production.asked){ state.production.asked=true; save(); }
+    segnaEsportaAperto();
   }
   window.openPdfExportModal=_pdfExportModalCore;
   /* UN PASSAGGIO SOLO (31/07): prima si passava dalla finestra «Esporta» e da lì si cliccava

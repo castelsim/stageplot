@@ -17777,6 +17777,28 @@ t("adatta palco: in una nuova scena l'originale resta intatto e basta un Annulla
   reset();
 });
 
+t("Annulla dopo l'export: l'export non è un passo, e un Annulla non toglie la nota dell'export", () => {
+  /* 30/09, Simone: «correggi anche l'annulla dopo l'export». La prima apertura dell'Esporta scriveva
+     production.asked con save(): dopo «Adatta» + Esporta il primo Annulla disfaceva quello, e Ripeti si svuotava. */
+  reset();
+  add("leggio", 200, 300); add("leggio", 1000, 300);
+  A.state.production = A.state.production || {}; delete A.state.production.asked; delete A.state.pdfEsportato;
+  A.save(); A.resetHistory();
+  A.adattaPalcoApplica(700, 600, false);
+  eq(A.undoStack.length, 1, "Adatta: un passo");
+  A.segnaEsportaAperto(); A.segnaPdfEsportato();
+  eq([A.undoStack.length, A.state.production.asked, !!A.state.pdfEsportato], [1, true, true], "aprire l'Esporta ed esportare non aggiunge passi");
+  A.save();
+  eq(A.undoStack.length, 1, "un salvataggio senza modifiche dopo l'export non crea un passo fantasma");
+  A.undo();
+  eq(A.state.stage.w, 1200, "il primo Annulla disfa «Adatta»");
+  eq([A.state.production.asked, !!A.state.pdfEsportato], [true, true], "e non toglie le note dell'export");
+  eq(A.redoStack.length, 1, "Ripeti c'è");
+  A.redo();
+  eq(A.state.stage.w, 700, "Ripeti rimette l'adattamento");
+  reset();
+});
+
 t("adatta palco: Annulla toglie la scena nuova e torna a quella di partenza, Ripeti la rimette", () => {
   /* 29/09, Simone: «correggi anche l'annulla di adatta». Prima Annulla lasciava la scena «Palco 7 × 6 m» col
      palco di partenza dentro: nome di una misura, contenuto di un'altra. */
