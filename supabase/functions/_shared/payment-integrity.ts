@@ -1,5 +1,6 @@
 export const PRODUCT_PRICE_EUR_CENTS: Record<string, number> = {
   "pro-review": 2900,
+  "rider-pronto": 5900,
   "production-pack": 14900,
 };
 

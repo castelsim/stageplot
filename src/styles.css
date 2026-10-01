@@ -3509,3 +3509,7 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
    centimetri dice «diversi»; sul telefono il cursore è un bersaglio da 44 px. */
 #props #groupProps #grpSep.misto{opacity:.45}
 @media (max-width:880px){ #props #groupProps #grpSep{min-height:44px} }
+
+/* Riga verso la consulenza dopo l'export (01/10/2026): discreta, sopra i bottoni della finestra PDF */
+#pdfConsulenza{margin:0 0 8px;font-size:12px;color:var(--text-2)}
+#pdfConsulenza a{color:var(--accent);font-weight:600}
