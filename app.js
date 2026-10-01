@@ -3451,6 +3451,20 @@ function confirmDeleteVariant(id){
    non deve toccare il localStorage, che il boot ripristina come documento dell'utente (altrimenti al
    ritorno sulla home ci si ritrova il progetto altrui come proprio, e l'autosave ne creerebbe una copia cloud). */
 function foreignDoc(){ return !!window.__consultMode || document.body.classList.contains("viewmode"); }
+/* Dopo l'export del PDF: il momento in cui chi ha disegnato si chiede se il documento regge davanti al
+   service. Una riga verso la consulenza, mai su un documento altrui (viewer, sessione consulenza).
+   `foreign` esplicito per i test: nel sandbox il DOM finto rende foreignDoc() sempre vero. */
+function consulenzaDopoExport(foreign){
+  if(foreign===undefined) foreign=foreignDoc();
+  if(foreign) return null;
+  return 'Vuoi che lo controlli un tecnico prima di mandarlo? <a href="/consulenza/" target="_blank" rel="noopener">Revisione da 29 €</a>.';
+}
+function pdfConsulenzaMostra(){
+  var el=document.getElementById("pdfConsulenza"); if(!el) return;
+  var t=consulenzaDopoExport();
+  if(t===null){ el.hidden=true; return; }
+  el.innerHTML=t; el.hidden=false;
+}
 /* ===== BLOCCO PROGETTI: sola-lettura del progetto cloud bloccato (spec 13/07) =====
    window.__projLocked = il progetto cloud APERTO è bloccato → editor sola-lettura.
    Difesa in profondità: (1) guardie di persistenza (persist/autosave/save no-op), (2) CSS body.proj-ro
@@ -28454,7 +28468,7 @@ document.getElementById("bPdf").addEventListener("click", function(){ if(window.
       var p=null;
       try{ p=exportPdf(paper.value, pdfScaleValue(), pdfOrientValue(paper.value, pdfScaleValue(), header.value), header.value); }
       catch(e){ fine(); throw e; }
-      if(p && typeof p.then==="function") p.then(fine, fine); else fine();
+      if(p && typeof p.then==="function") p.then(function(){ fine(); pdfConsulenzaMostra(); }, fine); else { fine(); pdfConsulenzaMostra(); }
     }
     /* Gate sugli errori critici (M-04) — spostato qui dall'interno di exportPdf (audit 27/07).
        Prima era un confirm() NATIVO del browser: chi spunta «impedisci a questa pagina di creare altre

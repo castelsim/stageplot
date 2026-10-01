@@ -8,7 +8,7 @@ function json(b: unknown, s = 200) {
   });
 }
 
-const PRODUCTS = new Set(["pro-review", "production-pack"]);
+const PRODUCTS = new Set(["pro-review", "rider-pronto", "production-pack"]);
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
