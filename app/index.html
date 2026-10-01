@@ -24,7 +24,7 @@
      due release nello stesso giorno restano distinguibili in telemetria e supporto. In locale/dev
      resta il placeholder. La sentinella del VALORE è distinta dall'identificatore window.__BUILD_ID__
      così il sed della CI non tocca il nome della variabile. -->
-<script>window.__APP_VERSION__="2026.09.30";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
+<script>window.__APP_VERSION__="2026.10.01";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -3587,6 +3587,10 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
    centimetri dice «diversi»; sul telefono il cursore è un bersaglio da 44 px. */
 #props #groupProps #grpSep.misto{opacity:.45}
 @media (max-width:880px){ #props #groupProps #grpSep{min-height:44px} }
+
+/* Riga verso la consulenza dopo l'export (01/10/2026): discreta, sopra i bottoni della finestra PDF */
+#pdfConsulenza{margin:0 0 8px;font-size:12px;color:var(--text-2)}
+#pdfConsulenza a{color:var(--accent);font-weight:600}
 </style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->
 <script async src="/icons.js"></script>
@@ -5561,6 +5565,8 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
     </div>
     <div class="pdf-exp-foot">
       <div class="mstatus" id="pdfInfo"></div>
+      <!-- Dopo un export riuscito (01/10/2026): una riga, non un popup. Mai su un documento altrui. -->
+      <p class="hint" id="pdfConsulenza" hidden></p>
       <div class="pdf-exp-actions">
         <!-- ALTRI FORMATI (31/07): stavano nella finestra precedente, e chi arrivava qui non li
              trovava più. Sono qui, secondari come devono essere. -->

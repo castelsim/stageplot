@@ -231,9 +231,9 @@
     /* PACCHETTI */
     .grid {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
       gap: 16px;
-      max-width: 860px;
+      max-width: 1100px;
       margin: 0 auto;
     }
 
@@ -517,6 +517,14 @@
           },
           {
             "@type": "Offer",
+            "name": "Rider pronto",
+            "price": "59",
+            "priceCurrency": "EUR",
+            "url": "https://stageplot.it/consulenza/#offerte",
+            "description": "Da una lista canali o un vecchio rider: stage plot in scala, channel list, input list e rider tecnico, consegnati entro 48 ore."
+          },
+          {
+            "@type": "Offer",
             "name": "Produzione Tecnica Completa",
             "price": "149",
             "priceCurrency": "EUR",
@@ -659,6 +667,22 @@
           </ul>
           <button class="btn primary" type="button" data-product="pro-review">Richiedi consulenza</button>
         </article>
+        <!-- «Rider pronto» (01/10/2026): il cliente manda quello che ha, riceve stage plot + channel list + rider.
+             La card resta nascosta finché PAY["rider-pronto"] è vuoto: senza il link di pagamento non si vende. -->
+        <article class="card" id="cardRiderPronto" hidden>
+          <span class="tag">Nuovo &middot; in 48 ore</span>
+          <h3>Rider pronto</h3>
+          <p class="price">59 &euro;</p>
+          <p class="desc">Per chi ha una lista canali, un vecchio rider o una descrizione, e vuole i documenti fatti.</p>
+          <ul>
+            <li>Stage plot in scala, disegnato da noi</li>
+            <li>Channel list e input list</li>
+            <li>Rider tecnico pronto per il service</li>
+            <li>Il progetto apribile nel tool, per cambiarlo da soli</li>
+            <li>Consegna entro 48 ore</li>
+          </ul>
+          <button class="btn primary" type="button" data-product="rider-pronto">Richiedi il rider</button>
+        </article>
         <article class="card featured">
           <span class="tag">&#11088; Consigliato</span>
           <h3>Produzione Tecnica Completa</h3>
@@ -775,14 +799,18 @@
     var FN = function(p){ return SB_URL + "/functions/v1/" + p; };
     var PAY = {
       "pro-review": "https://buy.stripe.com/9B64gzaJR7ZF7wifS67ok07",
+      "rider-pronto": "",   /* Payment Link Stripe da 59 € da creare: finché è vuoto la card non si vede */
       "production-pack": "https://buy.stripe.com/aFa9AT9FN1Bh8AmgWa7ok08"
     };
     var META = {
       "pro-review": { name: "Consulenza Tecnica", price: "29 €",
         includes: ["Verifica tecnica", "Correzioni", "Suggerimenti professionali", "Stage Plot definitivo", "Documento pronto per il service"] },
+      "rider-pronto": { name: "Rider pronto", price: "59 €",
+        includes: ["Stage plot in scala, disegnato da noi", "Channel list e input list", "Rider tecnico pronto per il service", "Progetto apribile nel tool", "Consegna entro 48 ore"] },
       "production-pack": { name: "Produzione Tecnica Completa", price: "149 €",
         includes: ["Stage Plot definitivo", "Channel List", "Input List", "Rider Tecnico", "Email tecnica pronta da inviare", "Note di produzione", "Documentazione completa"] }
     };
+    (function(){ var c = document.getElementById("cardRiderPronto"); if (c && PAY["rider-pronto"]) c.hidden = false; })();
     if (!window.supabase || !window.supabase.createClient) return;
     var sb = window.supabase.createClient(SB_URL, SB_ANON, { auth: { detectSessionInUrl: true, persistSession: true, autoRefreshToken: true, flowType: "pkce" } });
 
