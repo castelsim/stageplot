@@ -565,6 +565,8 @@ t("Layer v3: Ingressi/Output/P.M. separati con occhio/lucchetto/cestino propri",
   ok(A.state.cab.showReturns === false, "occhio Output: ritorni");
   by.cabin.setLocked(true);
   ok(A.state.cab.lockIn === true && A.state.cab.lockOut !== true, "lucchetto Ingressi non blocca gli Output");
+  /* gli elementi a cui le chiavi appartengono ci sono (dal 05/10 un salvataggio toglie le voci senza elemento: dropOrphanLinks) */
+  A.state.items = [{ id: "x", type: "cantante", x: 100, y: 100 }, { id: "b1", type: "stagebox", x: 200, y: 100 }, { id: "s1", type: "wedge", x: 300, y: 100 }];
   A.state.cab.manual = { "grp:x": { box: "b1" }, "mix:L:M1": { box: "b1" }, "ret:m1:s1": { pts: [[0, 0]] } };
   by.cabin.remove();
   ok(!A.state.cab.manual["grp:x"] && A.state.cab.manual["mix:L:M1"] && A.state.cab.manual["ret:m1:s1"], "cestino Ingressi azzera solo gli input");
@@ -18176,6 +18178,157 @@ t("fornito da nel PDF: ** accanto alla sorgente a carico della band, e la legend
   ok(/^\*\* = a carico della band/.test(A.FORNITO_BAND_LEGENDA), "la legenda dice cosa vuol dire");
   const bl = appjs.slice(appjs.indexOf("function backlineList(){"), appjs.indexOf("function backlineList(){") + 700);
   ok(/var by=fornituraElemento\(it\);/.test(bl), "la backline list legge anche la channel list");
+});
+
+console.log("\n— Collegamenti orfani: un id riusato non eredita i cavi di chi c'era prima (05/10) —");
+
+/* Visto su un progetto vero: `elec.manual` aveva 16 voci con la chiave e/o il `distro` di elementi che non esistevano piu'
+   (i61→i73, i66→i79, i79→i76…). Cancellare un elemento non toccava le mappe dei collegamenti e uid() riparte dal massimo
+   esistente: un wedge nuovo nato con l'id di uno vecchio risultava legato a un distro che non c'e' («Carico senza distro»),
+   e il fulmine rispondeva «gia' collegato» senza collegare. Stesse mappe per i cavi audio (cab.manual), i personal
+   monitor (mond.manual) e le risalite ciabatta→quadro (elec.uplinks). Si toglie solo cio' che punta a un elemento che non c'e'. */
+const docConOrfani = () => ({ _v: A.SCHEMA_VERSION, items: [
+  { id: "i60", type: "quadro", x: 900, y: 200 }, { id: "i64", type: "cantante", x: 300, y: 300 },
+  { id: "i65", type: "wedge", x: 300, y: 450 }, { id: "i66", type: "wedge", x: 400, y: 450 },
+], inputs: [], outputs: [],
+elec: { on: true, mode: "manual",
+  manual: { i61: { distro: "i73" }, i64: { distro: "i82" }, i66: { distro: "i79" }, i68: { distro: "i79" }, i79: { distro: "i76" },
+    i65: { distro: "i60", pts: [[500, 300]], auto: 1 }, i90: { deleted: true } },
+  uplinks: { i68: { to: "i79" }, i80: { to: "i60" } } } });
+t("apertura: le voci di elec.manual / uplinks senza elemento (chiave o distro) non entrano nello stato", () => {
+  reset(); A.loadDoc(docConOrfani());
+  eq(Object.keys(A.state.elec.manual), ["i65"], "restano solo le voci con elemento E distro che esistono");
+  eq(A.state.elec.manual.i65, { distro: "i60", pts: [[500, 300]], auto: 1 }, "la voce valida resta identica, con waypoint e auto");
+  eq(A.state.elec.uplinks, {}, "uplink con chiave o quadro sparito: via");
+});
+t("apertura: un carico col distro sparito risulta da collegare, e il fulmine lo collega davvero", () => {
+  reset(); A.loadDoc(docConOrfani());
+  const R = A.elecResult(true);
+  ok(!R.issues.some((x) => /Carico senza distro/.test(x.msg)), "avviso falso «Carico senza distro»: " + JSON.stringify(R.issues));
+  ok(R.pending.some((l) => l.it.id === "i66"), "il wedge i66 e' un carico da collegare");
+  eq(A.elecConnectOne("i66"), "i60", "il fulmine collega al quadro vero, non risponde «gia' collegato» a un fantasma");
+  ok(A.elecResult(true).loadLinks.some((l) => l.key === "i66" && l.distro.it.id === "i60"), "il collegamento c'e' nel motore");
+});
+t("apertura: i nuovi elementi nati con gli id delle voci orfane non ereditano niente", () => {
+  reset(); A.loadDoc({ ...docConOrfani(), items: [{ id: "i60", type: "quadro", x: 900, y: 200 }] });
+  A.nextId = 66;   /* come dopo un Annulla, una scena cambiata o un progetto riaperto: il contatore riparte dal massimo */
+  const w = add("wedge", 500, 450), x = add("testo", 600, 450), c = add("ciabatta", 600, 400);
+  eq([w.id, x.id, c.id], ["i66", "i67", "i68"], "premessa: gli id nuovi sono quelli delle voci orfane");
+  eq(A.state.elec.manual[w.id], undefined, "il wedge nato con l'id di una voce orfana non e' legato a un distro fantasma");
+  eq(A.state.elec.manual[c.id], undefined, "la multipresa nata con l'id di una voce orfana non e' un carico verso un distro fantasma");
+  eq(A.state.elec.uplinks[c.id], undefined, "…e non ha una risalita ereditata");
+  const R = A.elecResult(true);
+  ok(!R.issues.some((q) => /Carico senza distro/.test(q.msg)), "nessun avviso falso: " + JSON.stringify(R.issues));
+  ok(R.pending.some((l) => l.it.id === w.id), "il wedge e' semplicemente da collegare");
+});
+t("apertura: vale per OGNI scena, non solo per quella attiva", () => {
+  reset();
+  const sc = (extra) => Object.assign({ _v: A.SCHEMA_VERSION, items: [{ id: "i1", type: "wedge", x: 1, y: 1 }], inputs: [], outputs: [] }, extra);
+  A.loadDoc({ _doc: 1, active: "a", variants: [
+    { id: "a", name: "A", state: sc({ elec: { on: true, manual: { i1: { distro: "gone" }, gone: { distro: "i1" } } } }) },
+    { id: "b", name: "B", state: sc({ mond: { on: true, manual: { x: { to: "i1" }, i1: { to: "gone" } } }, cab: { on: true, manual: { "gone#0": { box: "i1" }, "i1#0": { box: "gone" } } } }) },
+  ] });
+  eq(A.VARIANTS.map((v) => Object.keys(v.state.elec.manual).length + "/" + Object.keys(v.state.mond.manual).length + "/" + Object.keys(v.state.cab.manual).length), ["0/0/0", "0/0/0"],
+    "una scena in background con voci orfane si apre sporca");
+});
+t("il documento salvato e riaperto non riporta voci orfane e tiene quelle valide", () => {
+  reset(); A.loadDoc(docConOrfani());
+  const salvato = JSON.parse(A.docToJSON()), v = salvato.variants[0].state;
+  eq(Object.keys(v.elec.manual), ["i65"], "salvato: solo la voce valida"); eq(v.elec.uplinks, {}, "salvato: niente uplink orfani");
+  A.loadDoc(salvato);
+  eq(A.state.elec.manual.i65, { distro: "i60", pts: [[500, 300]], auto: 1 }, "riaperto: identica");
+});
+t("voci valide: tutti i campi di corrente, cavi e personal monitor passano il normalize identici", () => {
+  reset();
+  const elec = { on: true, mode: "manual", manual: { w: { distro: "q", pts: [[10, 20], [30, 40]], auto: 1 }, w2: { deleted: true } }, uplinks: { c: { to: "q", pts: [[5, 5]] } } };
+  const cab = { on: true, manual: { "s#0": { box: "b", port: 3, mic: "SM58", short: "VOX", stand: "giraffa", p48: true, pts: [[1, 2]], seg: 1, label: "Lead", auto: 1 },
+    "grp:n": { box: "b" }, "s2#0": { deleted: true, micOff: 1 }, "mix:I:m": { box: "b" }, "mix:L:MIX 1": { box: "b", port: 2 }, "ret:L:MIX 1:m": { pts: [[0, 0]], deleted: true } } };
+  const mond = { on: true, manual: { h: { to: "x", pts: [[7, 7]], auto: 1 }, h2: { deleted: true } } };
+  const items = ["wedge:w", "wedge:w2", "quadro:q", "ciabatta:c", "cantante:s", "cantante:s2", "cantante:n", "stagebox:b", "wedge:m", "hearback:h", "hearback:h2", "mixhub:x"]
+    .map((z) => ({ type: z.split(":")[0], id: z.split(":")[1], x: 100, y: 100 }));
+  A.loadDoc({ _v: A.SCHEMA_VERSION, items, inputs: [], outputs: [], elec: JSON.parse(JSON.stringify(elec)), cab: JSON.parse(JSON.stringify(cab)), mond: JSON.parse(JSON.stringify(mond)) });
+  const ordina = (v) => JSON.parse(JSON.stringify(v, (k, x) => (x && typeof x === "object" && !Array.isArray(x) ? Object.fromEntries(Object.entries(x).sort()) : x)));   /* il normalize riordina le chiavi, non il contenuto */
+  eq(ordina(A.state.elec.manual), ordina(elec.manual), "elec.manual identica"); eq(ordina(A.state.elec.uplinks), ordina(elec.uplinks), "elec.uplinks identica");
+  eq(ordina(A.state.cab.manual), ordina(cab.manual), "cab.manual identica"); eq(ordina(A.state.mond.manual), ordina(mond.manual), "mond.manual identica");
+  eq(A.dropOrphanLinks(A.state), 0, "e non c'e' niente da pulire");
+});
+t("dropOrphanLinks: cosa cade e cosa resta (campi sul bersaglio, scelte sul carico, id con «:»)", () => {
+  reset();
+  A.state.items = [{ id: "a", type: "wedge" }, { id: "b", type: "quadro" }, { id: "w:1", type: "wedge" }, { id: "c", type: "ciabatta" }];
+  A.state.elec.manual = {
+    a: { distro: "gone", pts: [[1, 1]], seg: 1, line: 2, auto: 1, conn: "cee" },   /* bersaglio sparito: cadono i campi del legame, resta il connettore */
+    "w:1": { distro: "gone", deleted: true },                                       /* …e il «scollegato» */
+    b: { distro: "gone" },                                                          /* resta vuota: via */
+    zz: { deleted: true }, zy: { distro: "b" },                                     /* chiave che non e' un elemento: via, anche col distro valido */
+    c: { distro: "b", line: 4 },                                                    /* valida: intatta */
+  };
+  A.state.elec.uplinks = { c: { to: "gone", pts: [[1, 1]] }, b: { to: "c" }, qq: { to: "b" } };
+  A.state.mond.manual = { a: { to: "gone", pts: [[2, 2]], auto: 1 }, b: { to: "c" }, zz: { to: "b" } };
+  A.state.cab.manual = { "a#0": { box: "gone", mic: "SM58", port: 2 }, "w:1#1": { box: "b" }, "gone#0": { box: "b" }, "grp:gone": { box: "b" },
+    "ret:L:X:w:1": { pts: [[1, 1]] }, "ret:L:X:gone": { pts: [[1, 1]] }, "ret:I:gone:a": { deleted: true }, "mix:I:gone": { box: "b" }, "mix:L:X": { box: "gone" } };
+  eq(A.dropOrphanLinks(A.state), 16, "conta le voci toccate: 5 corrente, 2 uplink, 2 monitor, 7 cavi");
+  eq(A.state.elec.manual, { a: { conn: "cee" }, "w:1": { deleted: true }, c: { distro: "b", line: 4 } }, "elec.manual");
+  eq(A.state.elec.uplinks, { b: { to: "c" } }, "elec.uplinks: via quella col quadro sparito (anche coi waypoint) e quella senza elemento");
+  eq(A.state.mond.manual, { b: { to: "c" } }, "mond.manual");
+  eq(A.state.cab.manual, { "a#0": { mic: "SM58" }, "w:1#1": { box: "b" }, "ret:L:X:w:1": { pts: [[1, 1]] } },
+    "cab.manual: la box sparita toglie box e porta ma non il microfono; il monitor con «:» nell'id e' riconosciuto; mix per nome senza box: via");
+  eq(A.dropOrphanLinks(A.state), 0, "idempotente");
+});
+t("elementi eliminati: le loro voci se ne vanno al salvataggio, e un id riusato dopo non le trova", () => {
+  reset();
+  const q = add("quadro", 800, 100), w = add("wedge", 300, 300), c = add("ciabatta", 500, 100);   /* c e' l'ultimo: il suo id verra' riusato */
+  A.state.elec.on = true;
+  A.state.elec.manual[w.id] = { distro: q.id, pts: [[400, 200]] }; A.state.elec.uplinks[c.id] = { to: q.id };
+  A.resetHistory(); A.save();
+  eq(A.state.elec.manual[w.id], { distro: q.id, pts: [[400, 200]] }, "premessa: finche' il quadro c'e', il collegamento e' valido e intatto");
+  eq(A.state.elec.uplinks[c.id], { to: q.id }, "premessa: idem la risalita");
+  A.selectMany([q.id]); A.deleteSel();
+  eq(A.state.elec.manual[w.id], undefined, "il wedge non punta piu' a un quadro che non c'e'");
+  eq(A.state.elec.uplinks[c.id], undefined, "la ciabatta non punta piu' a un quadro che non c'e'");
+  A.state.elec.uplinks[c.id] = { to: "x" };
+  A.selectMany([c.id]); A.deleteSel(); A.syncNextId();
+  const c2 = add("ciabatta", 500, 100);
+  eq(c2.id, c.id, "premessa: l'id della ciabatta e' stato riusato");
+  eq(A.state.elec.uplinks[c2.id], undefined, "la ciabatta nuova non eredita la risalita");
+});
+t("elementi eliminati: la pietra tombale di un carico non resta all'id riusato", () => {
+  reset();
+  const q = add("quadro", 800, 100), w = add("wedge", 300, 300);
+  A.state.elec.on = true; A.state.elec.mode = "auto";
+  A.state.elec.manual[w.id] = { deleted: true };
+  A.resetHistory(); A.save();
+  eq(A.elecResult(true).loadLinks.length, 0, "premessa: scollegato a mano, in auto resta fuori dalla proposta");
+  A.selectMany([w.id]); A.deleteSel(); A.syncNextId();
+  const w2 = add("wedge", 300, 300);
+  eq(w2.id, w.id, "premessa: id riusato");
+  ok(A.elecResult(true).loadLinks.some((l) => l.key === w2.id && l.distro.it.id === q.id), "il wedge nuovo si collega da solo");
+});
+t("cavi audio: le voci seguono l'elemento; con la box sparita cadono box e porta, non il microfono", () => {
+  reset();
+  const s = add("cantante", 100, 100), b = add("stagebox", 400, 100), m = add("wedge", 100, 300), n = add("cantante", 200, 100);
+  A.state.cab.on = true;
+  const valide = { [s.id + "#0"]: { box: b.id, port: 3, mic: "SM58" }, ["grp:" + n.id]: { box: b.id }, ["mix:I:" + m.id]: { box: b.id },
+    ["ret:L:MIX 1:" + m.id]: { pts: [[1, 1]] }, ["ret:I:" + m.id + ":" + m.id]: { deleted: true }, "mix:L:MIX 1": { box: b.id } };
+  A.state.cab.manual = JSON.parse(JSON.stringify(valide)); A.resetHistory(); A.save();
+  eq(A.state.cab.manual, valide, "con tutti gli elementi al loro posto non cambia niente");
+  A.selectMany([b.id]); A.deleteSel();
+  eq(A.state.cab.manual, { [s.id + "#0"]: { mic: "SM58" }, ["ret:L:MIX 1:" + m.id]: { pts: [[1, 1]] }, ["ret:I:" + m.id + ":" + m.id]: { deleted: true } },
+    "box eliminata: via i collegamenti verso di lei, resta il microfono scelto");
+  A.selectMany([m.id]); A.deleteSel();
+  eq(Object.keys(A.state.cab.manual), [s.id + "#0"], "monitor eliminato: via i suoi ritorni");
+  A.selectMany([s.id]); A.deleteSel();
+  eq(A.state.cab.manual, {}, "cantante eliminato: via le sue voci");
+});
+t("personal monitor: l'hub eliminato scollega il mixerino, il mixerino eliminato toglie la sua voce", () => {
+  reset();
+  const x = add("mixhub", 400, 100), h = add("hearback", 100, 100), h2 = add("hearback", 200, 100);
+  A.state.mond.on = true; A.state.mond.manual[h.id] = { to: x.id, pts: [[1, 1]], auto: 1 }; A.state.mond.manual[h2.id] = { to: h.id };
+  A.resetHistory(); A.save();
+  eq(A.state.mond.manual[h.id], { to: x.id, pts: [[1, 1]], auto: 1 }, "premessa: valida e intatta");
+  A.selectMany([x.id]); A.deleteSel();
+  eq(Object.keys(A.state.mond.manual), [h2.id], "hub eliminato: la voce del mixerino cade");
+  A.selectMany([h.id]); A.deleteSel();
+  eq(A.state.mond.manual, {}, "mixerino eliminato: via la sua voce e quella di chi era in catena con lui");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");

@@ -6,6 +6,30 @@ sono state scritte qui: la loro storia sta nei messaggi di commit e nelle PR (#9
 
 ## Settembre in una pagina (PR su `main`)
 
+- **05/10 — Collegamenti orfani** (ramo `orfani-collegamenti`, da una segnalazione su un progetto vero). Le mappe dei
+  collegamenti sono indicizzate per id di elemento — `elec.manual` e `elec.uplinks`, `cab.manual` (chiavi `id#n`,
+  `grp:id`, `mix:I:id`, `ret:mix:id`), `mond.manual` — e cancellare un elemento non le toccava: `uid()` riparte dal
+  massimo, quindi il primo elemento nato con un id già usato ereditava la voce del defunto (wedge «Carico senza distro»,
+  fulmine che risponde «già collegato» a un distro fantasma, multipresa trattata da carico). Nuova `dropOrphanLinks(s)`,
+  sorella di `dropOrphanRows`: chiave che non è più un elemento → via la voce (tombstone `deleted` compreso); chiave
+  valida ma bersaglio (distro/box/hub) sparito → cadono solo i campi del legame (distro/to/box, porta, waypoint, seg,
+  auto, linea), restano le scelte sul carico/canale (connettore, microfono, nome, asta, phantom); `uplinks` con
+  bersaglio sparito → via. Chiamata in `normalizeState` (ogni scena, anche l'Annulla) e in `save()`. Test:
+  `Collegamenti orfani…` in `engines.test.mjs` (11, 18 mutazioni tutte rosse) + controllo nuovo nel collaudo.
+  **Collaudo: 4 attesi su 30 cambiano di proposito (01, 19, 20, 21: stessa famiglia di progetto, 121 voci cavo e 99 voci
+  corrente su elementi o box che non ci sono più)**: stessi canali, cambia l'ordine di patch e spariscono 74 «Sorgente senza
+  destinazione (ingressi palco esauriti)» e 2 «Carico senza distro» falsi (le box non c'erano affatto: ora è «79 ingressi
+  da collegare»). Gli attesi condivisi NON sono stati riscritti (li usano anche gli altri rami): al merge,
+  `node test/collaudo.test.mjs --aggiorna` e controllare che cambino solo quei 4 file. Il 05 ha orfani ma nessun effetto.
+  `uid()` NON è stato cambiato: un contatore che non torna mai indietro andrebbe salvato nel documento (campo nuovo in ogni
+  scena, nel diff della cronologia, nei file condivisi) e il riuso dopo Annulla è voluto — l'Annulla di «aggiungi» deve
+  restituire lo stesso id. Con la pulizia in apertura e al salvataggio un id riusato non trova più niente. Resta scoperto,
+  stessa famiglia: `distOf`/`grp` degli elementi su una pedana cancellata (una pedana nuova con quell'id adotta i vecchi
+  figli, e «Distribuisci» ne toglie le copie: `applyDistribute`). ⚠️ Visto di passaggio e NON toccato: il ricostruttore di `elec.manual` in `normalizeState`
+  tiene solo `distro/pts/deleted/auto`, quindi `line` (numero di linea fissato), `conn` (connettore) e `seg` (cavo
+  segmentato) si perdono a ogni riapertura e a ogni Annulla; la sanificazione di `line/conn` poche righe sopra è codice
+  morto. Stessa cosa per `via` in `cab.manual`.
+
 - **30/09 — Punto della situazione** (sola lettura, poi ordine): 13 worktree già uniti tolti; restano
   `consulenza-migliorie` e `slogan-in-scala` (bozze mai versionate di altre sessioni) e `orchestre-lotto-1` (l'unico
   `supabase/functions/.env`). Nuova regola: un worktree per lotto da `origin/main`, tolto dopo il merge.
