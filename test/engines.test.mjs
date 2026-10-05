@@ -2570,6 +2570,84 @@ t("riderData.pesoKg somma il peso delle sedie", () => {
   eq(A.riderData().pesoKg, 6 + 6 + 3.5);
 });
 
+/* PLATEA A BLOCCHI (06/10/2026): un utente aveva disegnato la platea con 60 sedie bianche posate una per
+   una (e il rider le contava come sedie da orchestra). Ora è UN elemento con file, sedie, passi e corridoio. */
+console.log("\nPlatea a blocchi:");
+t("platea: 6 file × 10 sedie, passo 55 e 90, 60 posti al centro delle loro caselle", () => {
+  reset(); const p = add("platea", 600, 1200);
+  eq([p.w, p.d], [550, 540], "misure di partenza");
+  const c = A.plateaCfg(p);
+  eq([c.file, c.sedie, c.passo, c.passoFile, c.corridoio], [6, 10, 55, 90, 0]);
+  eq(A.plateaPosti(p), 60);
+  const xy = A.plateaPostiXY(p);
+  eq(xy.length, 60);
+  eq(xy[1].x - xy[0].x, 55, "passo fra le sedie");
+  eq(xy[10].y - xy[0].y, 90, "passo fra le file");
+  ok(xy.every((q) => Math.abs(q.x) + 25 <= p.w / 2 && Math.abs(q.y) + 26.5 <= p.d / 2), "ogni sedia 50×53 dentro l'ingombro");
+  ok(/>60 posti</.test(A.TYPES.platea.draw(p)), "il disegno dice «60 posti»");
+  eq((A.TYPES.platea.draw(p).match(/<rect/g) || []).length, 60 * 3 + 1, "60 sedie (3 rettangoli l'una) + il cartellino");
+});
+t("platea: il corridoio centrale divide la fila senza togliere posti", () => {
+  reset(); const p = add("platea", 600, 1200);
+  A.plateaImposta(p, { corridoio: A.PLATEA_CORR_DEF });
+  eq(p.w, 10 * 55 + 120, "la platea si allarga del corridoio");
+  eq(A.plateaPosti(p), 60);
+  const xy = A.plateaPostiXY(p);
+  eq(xy[5].x - xy[4].x, 55 + 120, "fra la quinta e la sesta sedia passa il corridoio");
+  ok(xy.every((q) => Math.abs(q.x) - 25 >= 60), "nessuna sedia nel corridoio");
+  A.plateaImposta(p, { corridoio: 0 });
+  eq(p.w, 550, "spento, torna stretta");
+});
+t("platea: file, sedie e passi dal pannello rifanno le misure e il conteggio", () => {
+  reset(); const p = add("platea", 600, 1200);
+  A.plateaImposta(p, { file: 8, sedie: 12 });
+  eq([p.w, p.d, A.plateaPosti(p)], [660, 720, 96]);
+  ok(/>96 posti</.test(A.TYPES.platea.draw(p)));
+  A.plateaImposta(p, { passo: 60, passoFile: 100 });
+  eq([p.w, p.d, A.plateaPosti(p)], [720, 800, 96], "il passo cambia le misure, non i posti");
+  A.plateaImposta(p, { sedie: 999, file: 0, passo: 10 });
+  const c = A.plateaCfg(p);
+  eq([c.sedie, c.file, c.passo], [60, 1, 50], "fuori dai limiti si torna dentro");
+  eq([p.w, p.d, p.platea.passo], [60 * 50, 100, 50], "e le misure salvate sono quelle dei limiti, non 999 sedie da 10 cm");
+});
+t("platea: la maniglia e il campo L/P aggiungono sedie a scatti; accorciata da fuori, non sborda", () => {
+  reset(); const p = add("platea", 600, 1200);
+  A.plateaDaMisure(p, 600, 640);
+  eq([p.w, p.d, A.plateaPosti(p)], [605, 630, 77], "11 sedie × 7 file, misure esatte sulle caselle");
+  /* «Adatta» accorcia w/d senza sapere della platea: le sedie diventano quelle che ci stanno */
+  p.w = 540; p.d = 530;
+  eq(A.plateaPosti(p), 9 * 5);
+  ok(A.plateaPostiXY(p).every((q) => Math.abs(q.x) + 25 <= p.w / 2 && Math.abs(q.y) + 26.5 <= p.d / 2), "dentro l'ingombro anche così");
+  ok(/rzit\.type==="platea"\)\{ plateaDaMisure\(rzit, nw, nd\)/.test(appjs), "la maniglia di ridimensionamento passa da plateaDaMisure");
+  ok(/it\.w=Math\.max\(10,\+document\.getElementById\("pW"\)\.value\|\|it\.w\); if\(it\.type==="platea"\) plateaDaMisure/.test(appjs), "il campo L passa da plateaDaMisure");
+});
+t("platea: nel rider pesa le sue sedie ma NON entra fra le sedie dei musicisti", () => {
+  reset(); add("platea", 600, 1200);
+  eq(A.countAccessori().sedie, 0, "sedie del rider");
+  ok(!A.pdfTotals().some((s) => /sedut/.test(s)), "nessuna «seduta» nei totali del PDF: " + A.pdfTotals().join(" · "));
+  eq(A.riderData().pesoKg, 60 * 3.5, "peso allestimento: 60 sedie da 3,5 kg");
+  add("sediabianca", 300, 300);
+  eq(A.countAccessori().sedie, 1, "una sedia bianca sul palco invece conta");
+});
+t("platea: i parametri salvati si ripuliscono all'apertura", () => {
+  const s = A.normalizeState({ _v: A.SCHEMA_VERSION, items: [
+    { id: "p1", type: "platea", x: 0, y: 0, w: 550, d: 540, platea: { passo: "abc", passoFile: 9999, corridoio: -5, x: "<b>" } },
+    { id: "p2", type: "tavolo", x: 0, y: 0, w: 120, d: 60, platea: { passo: 55 } },
+    { id: "p3", type: "platea", x: 0, y: 0, w: 550, d: 540, platea: [1, 2] }], inputs: [], outputs: [] });
+  eq(s.items[0].platea, { passo: 55, passoFile: 200, corridoio: 0 });
+  ok(!("platea" in s.items[1]), "su un altro tipo il campo non resta");
+  ok(!("platea" in s.items[2]), "un array non è una platea");
+});
+t("platea: si trova con platea, pubblico, sedie pubblico, posti a sedere", () => {
+  eq((A.__spSearch("platea")[0] || {}).k, "platea", "«platea» la dà per prima");
+  eq((A.__spSearch("posti a sedere")[0] || {}).k, "platea", "«posti a sedere» la dà per prima");
+  eq((A.__spSearch("sedie pubblico")[0] || {}).k, "platea", "«sedie pubblico» la dà per prima");
+  ok(A.__spSearch("pubblico").some((e) => e.k === "platea"), "«pubblico» la trova");
+  ok(A.__qaSearch("platea").some((e) => e.k === "platea"), "anche il doppio clic sul palco la trova");
+  ok(A.__catEntries.some((e) => e.k === "platea"), "sta nel catalogo");
+  ok(A.ESSENTIAL.platea, "e si vede subito, senza «Mostra tutti»");
+});
+
 console.log("\nT2 — rider tecnico generato dai dati:");
 t("riderData: canali derivati + testo default", () => {
   reset(); A.state.cab.on = true; add("astamic", 300, 300); A.__cabRes = null;
@@ -5208,11 +5286,12 @@ t("ricerca: liste e varianti si trovano per nome", () => {
   ok(!A.__spSearch("channel").some((e) => e.nome === "Esporta"), "«channel» non deve più dare Esporta");
   ok(/search\.addEventListener\("keydown", function\(ev\)\{\s*if\(ev\.key!=="Enter"[\s\S]{0,200}results\.querySelector\("button:not\(\.json-act\)"\)[\s\S]{0,80}primo\.click\(\);/.test(appjs), "Invio nella ricerca deve prendere il primo risultato");
 });
-/* 05/10: giri degli utenti (analisi/workaround/2026-10-05.md) — parole cercate davvero senza risultato. */
+/* 05/10: giri degli utenti (analisi/workaround/2026-10-05.md) — parole cercate davvero senza risultato.
+   «platea» dal 06/10/2026 dà la Platea (file di sedie): è il blocco intero, la sedia singola viene dopo. */
 t("ricerca: le parole dei giri degli utenti trovano l'elemento giusto", () => {
   const primo = (q) => (A.__spSearch(q)[0] || {}).nome;
   const attesi = { webcam: "Camera", gobbo: "Gobbo / confidence monitor", tv: "Gobbo / confidence monitor", "schermo testi": "Gobbo / confidence monitor",
-    bodypack: "IEM beltpack", cajonista: "Cajon", pubblico: "Sedia pubblico", platea: "Sedia pubblico",
+    bodypack: "IEM beltpack", cajonista: "Cajon", pubblico: "Sedia pubblico", "sedia pubblico": "Sedia pubblico",
     croce: "Croce", altare: "Altare", finestra: "Finestra", colonna: "Colonna / palo", palo: "Colonna / palo", lampadario: "Lampadario" };
   for (const [q, nome] of Object.entries(attesi)) eq(primo(q), nome, "«" + q + "»:");
   ok(["Laptop", "Mac portatile"].includes(primo("sequenze")), "«sequenze» deve dare il computer delle basi");
