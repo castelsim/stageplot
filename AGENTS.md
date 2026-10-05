@@ -131,3 +131,10 @@ I prossimi moduli previsti (vedi piano): `src/` per canvas, objects, data/serial
 - **Una chiave nuova in localStorage/sessionStorage va classificata** nella tabella «USCITA PULITA»
   (`USCITA_TIENI_*` / `uscitaChiaveDaCancellare`): un test legge ogni `setItem` e fallisce se non c'è. Se contiene
   progetti o dati dell'account si cancella all'uscita; se è una preferenza si tiene.
+- **Collegamenti = mappe per id, e gli id si riusano** (05/10): `elec.manual`, `elec.uplinks`, `cab.manual`, `mond.manual`
+  hanno per chiave l'id di un elemento e per valore (distro/box/hub) un altro id. `uid()` riparte dal massimo esistente
+  (anche dopo Annulla, cambio scena, riapertura), quindi un elemento nuovo eredita la voce di uno cancellato. Non
+  tenere mai in una mappa nuova un id senza elemento: la pulizia è `dropOrphanLinks` (in `normalizeState` e `save()`);
+  una mappa nuova indicizzata per id va aggiunta lì, con test e mutazione. Ricostruire una voce nel normalizzatore
+  scartando campi la rende invisibile a quella pulizia ma anche all'utente: ogni campo nuovo di `*.manual` va
+  elencato nel ricostruttore di `normalizeState` (oggi `line`/`conn`/`seg` di `elec.manual` non ci sono: si perdono).
