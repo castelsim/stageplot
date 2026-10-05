@@ -1349,6 +1349,7 @@
   .ic.fill{fill:#1f2937;stroke:none}
   .ic.soft{fill:#f3f4f6}
   .ic.dash{stroke-dasharray:7 5;fill:none}
+  .ic.vuoto{fill:none}   /* solo tratto (anello poggiapiedi dello sgabello sotto il chitarrista classico) */
   .ic.thin{stroke-width:1.2}
   .mon{stroke:var(--canvas-monitor)}
   .mon.fill{fill:var(--canvas-monitor);stroke:none}

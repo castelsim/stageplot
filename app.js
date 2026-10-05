@@ -379,7 +379,7 @@ function guitarDraw(it,kind){
   if(it.ampli) s+='<g transform="translate(-43,-88) rotate(-30)">'+ampCombo()+'</g>';   /* ampli staccato dietro, angolato (come nel link) */
   if(it.pedaliera) s+='<g transform="translate(0,'+(it.sedia?72:64)+')">'+pedalGlyph()+'</g>';   /* pedaliera ai piedi, disegnata PRIMA: la chitarra imbracciata le passa sopra */
   if(it.sedia){
-    s+=chairSvg(0);                                                              /* sedia (origine) */
+    s+= it.sgab===true ? '<g transform="translate(0,-22)">'+sgabSeduta(true)+'</g>' : chairSvg(0);   /* sedia (origine) — o sgabello, stesso centro della seduta (chitarra classica, 05/10) */
     s+='<g transform="translate('+GTR_GX+','+GTR_GY+')">'+gtrHead(kind)+gtrGlyph(kind)+'</g>';   /* strumento CENTRATO tra sedia e leggio, SCALA REALE */
     if(it.leggio) s+='<g transform="translate(0,'+gtrLeggioY(it,kind)+')">'+leggioGlyph(0)+'</g>';   /* col pedale: leggio OLTRE la pedaliera (fix 18/07: si sovrapponevano) */
   } else {
@@ -459,6 +459,35 @@ function doubleStringPost(kind, dx){
 function chairSvg(cx){ return bar(cx,-22,46,46,'ic fBlack',9)+bar(cx,-48,46,9,'ic fill',4); }
 /* seduta a CONTORNO CHIARO: per le postazioni con icone realistiche, così lo strumento sopra resta leggibile */
 function seatLight(cx){ return bar(cx,-22,46,46,'ic soft',9)+bar(cx,-48,46,9,'ic soft',4); }
+/* SGABELLO SOTTO IL CHITARRISTA CLASSICO (05/10/2026, Simone: «chitarra classica con musicista seduto su
+   sgabello»). Visto dall'alto: seduta tonda Ø36, anello poggiapiedi Ø41 e quattro gambe in diagonale che
+   escono dall'anello. Tondo, gambe e anello sono ciò che lo separa a colpo d'occhio da una sedia (quadrata,
+   con lo schienale). scuro=true nello schematico (come chairSvg), chiaro nell'illustrato (come seatLight:
+   la figura sopra resta leggibile e la seduta non si confonde con i capelli). Origine = centro della seduta. */
+function sgabSeduta(scuro){
+  var s='';
+  [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(function(c){ s+=lin(0,0,c[0]*16.3,c[1]*16.3,'ic'); });
+  return s+circ(0,0,20.5,'ic thin vuoto')+circ(0,0,18,scuro?'ic fBlack':'ic soft')+circ(0,0,12.5,'sil')+circ(0,0,2.2,'dotS');
+}
+/* Illustrato su sgabello: il chitarrista classico siede sul bordo davanti (come si suona la classica), quindi
+   la metà dietro della seduta sporge oltre la schiena e si vede. Per tenerla dentro il riquadro l'ingombro
+   cresce in profondità (87 → 98) e la figura scende di 5,5 cm; lo sgabello ha il centro a (-4, -28,5). */
+var CHITCL_SGAB = { d:98, figY:5.5, sx:-4, sy:-28.5 };
+/* Seduta della chitarra classica: "sedia" | "sgabello" | "" (niente). L'illustrazione è sempre seduta (sedia
+   di serie, sgabello se scelto); lo schematico solo con la seduta accesa (it.sedia===true), come l'acustica.
+   Lo sgabello è it.sgab===true (stesso nome del direttore, già salvato da sanitizeItems). */
+function chitClSeduta(it){
+  if(!it || it.type!=="musChitClassica") return "";
+  if(it.look!=="schematico") return it.sgab===true ? "sgabello" : "sedia";
+  return it.sedia===true ? (it.sgab===true ? "sgabello" : "sedia") : "";
+}
+function chitClImpostaSeduta(it, v){
+  if(!it || it.type!=="musChitClassica") return;
+  if(v==="sgabello"){ it.sedia=true; it.sgab=true; }
+  else if(v==="niente" && it.look==="schematico"){ it.sedia=false; delete it.sgab; }
+  else { it.sedia=true; delete it.sgab; }   /* "sedia" (e "niente" sull'illustrato, che è sempre seduto) */
+  recalcItemDims(it);
+}
 /* postazione configurabile: sedia/leggio/doppia secondo i flag dell'item.
    dblKind: vln1|vln2|vla|vc|cb usano il disegno doppio dedicato; altrimenti doppio generico.
    realistic=true → seduta chiara (icone realistiche). */
@@ -1294,9 +1323,16 @@ var TYPES = {
   /* unica chitarra senza un tipo funzionale "schematico" a cui appoggiarsi (le altre lo hanno via
      LOOK_ART): il suo draw conosce i due aspetti — illustrato di default, schematico su richiesta. */
   musChitClassica: {nome:"Chitarra classica musicista", dim:"87×87", cat:"Band e backline", sub:"Chitarre e bassi", w:87,d:87, defLabel:"Git cl",
-    draw:function(it){ return (it&&it.look==="schematico")
-      ? guitarDraw({sedia:it.sedia, leggio:it.leggio, ampli:it.ampli, pedaliera:it.pedaliera}, "ac")   /* IDENTICO alla chitarra acustica (Simone 27/07): stesso disegno, stessi flag, nessun default in piu' */
-      : drawLibFit("musChitClassica",it,87,87); }},
+    draw:function(it){
+      if(it&&it.look==="schematico")
+        return guitarDraw({sedia:it.sedia, sgab:it.sgab, leggio:it.leggio, ampli:it.ampli, pedaliera:it.pedaliera}, "ac");   /* IDENTICO alla chitarra acustica (Simone 27/07): stesso disegno, stessi flag, nessun default in piu' — lo sgabello (05/10) solo se scelto */
+      if(it&&it.sgab===true){   /* su sgabello (05/10): lo sgabello sotto, poi la stessa figura senza la sedia (musChitClassicaSgab, in icons.js) */
+        var G=CHITCL_SGAB, k=Math.min((it.w||87)/87,(it.d||G.d)/G.d); k=Math.round(k*1000)/1000;
+        var sg='<g transform="translate('+G.sx+','+G.sy+')">'+sgabSeduta(false)+'</g>'+
+               '<g transform="translate(0,'+G.figY+')">'+libIconScene("musChitClassicaSgab")+'</g>';
+        return k===1 ? sg : '<g transform="scale('+k+')">'+sg+'</g>';
+      }
+      return drawLibFit("musChitClassica",it,87,87); }},
   musBasso: {catalog:false, nome:"Basso musicista", dim:"97×79", cat:"Band e backline", sub:"Chitarre e bassi", w:97,d:79, defLabel:"Basso", draw:function(it){ return drawLibFit("musBasso",it,97,79); }},
   musFisarmonica: {nome:"Fisarmonica musicista", dim:"82×96", cat:"Band e backline", sub:"Tastiere e piani", w:82,d:96, defLabel:"Fis", draw:function(it){ return drawLibFit("musFisarmonica",it,82,96); }},
   musDirettore: {catalog:false, nome:"Direttore musicista", dim:"90×114", cat:"Persone e voci", w:90,d:114, defLabel:"Dir", draw:function(it){ return drawLibFit("musDirettore",it,90,114); }},
@@ -5882,7 +5918,7 @@ function recalcItemDims(it){
   if(it.type==="musChitClassica"){   /* schematico = postazione acustica (stesse misure), illustrato = l'illustrazione */
     if(it.look==="schematico"){ var gs=gtrSize({sedia:it.sedia, leggio:it.leggio, ampli:it.ampli, pedaliera:it.pedaliera}, TYPES.gtacustica);
       it.w=gs[0]; it.d=gs[1]; }
-    else { it.w=t.w; it.d=t.d; }
+    else { it.w=t.w; it.d=(it.sgab===true) ? CHITCL_SGAB.d : t.d; }   /* sgabello: la seduta sporge dietro la schiena */
     return;
   }
   var ld=look2Dims(it); if(ld){ it.w=ld[0]; it.d=ld[1];
@@ -6724,6 +6760,7 @@ function sgabelliDi(it){
   if(STOOL_POSTAZ[it.type]!=null && optSedia(it)) return [["contrabbasso", STOOL_POSTAZ[it.type]]];
   if(it.type==="batteria" && parts(it).stool!==false) return [["batteria",1]];
   if(it.type==="direttore" && it.sgab===true) return [["generico",1]];
+  if(chitClSeduta(it)==="sgabello") return [["generico",1]];   /* chitarra classica su sgabello (05/10): è uno sgabello, non una sedia */
   return [];
 }
 function sgabelliPerTipo(items){
@@ -12171,7 +12208,19 @@ function renderProps(){
      schematico: usa lo stesso disegno dell'acustica, e senza i toggle quei flag sarebbero
      irraggiungibili (la sedia, per una classica, serve quasi sempre). */
   var pg=document.getElementById("pGtr"), isGtr=!!t.gtr || (it.type==="musChitClassica" && it.look==="schematico");
-  pg.style.display = isGtr ? "block" : "none";
+  /* chitarra classica (05/10): «Seduta: Sedia · Sgabello · Niente» al posto della casella Sedia, anche
+     nell'illustrato (dove «Niente» non c'è: la figura è seduta) e lì senza leggio/ampli/pedaliera, che
+     l'illustrazione non disegna */
+  var isCl=(it.type==="musChitClassica"), clIll=isCl && it.look!=="schematico";
+  pg.style.display = (isGtr||isCl) ? "block" : "none";
+  document.getElementById("pSedutaWrap").style.display = isCl ? "" : "none";
+  document.getElementById("pGtrSediaLbl").style.display = isCl ? "none" : "";
+  ["pGtrLeggioLbl","pGtrAmpLbl","pGtrPedalLbl"].forEach(function(id){ document.getElementById(id).style.display = clIll ? "none" : ""; });
+  if(isCl){
+    document.getElementById("pSedutaNiente").style.display = clIll ? "none" : "";
+    var _sdt=document.getElementById("pSeduta"); _sdt.value = chitClSeduta(it) || "niente";
+    try{ _sdt.dispatchEvent(new Event("chips-sync")); }catch(e){}
+  }
   if(isGtr){
     document.getElementById("pGtrSedia").checked = it.sedia===true;
     document.getElementById("pGtrLeggio").checked = it.leggio===true;
@@ -12806,6 +12855,7 @@ document.getElementById("pLeggioV").addEventListener("change", function(){ mutSe
 }); });
 document.getElementById("pSediaV").addEventListener("change", function(){ mutSel(function(it){ it.sedia=document.getElementById("pSediaV").checked; }); });
 function gtrApply(it){ var sz=gtrSize(it, TYPES[it.type]); it.w=sz[0]; it.d=sz[1]; }
+document.getElementById("pSeduta").addEventListener("change", function(){ var v=this.value; mutSel(function(it){ chitClImpostaSeduta(it, v); }); renderProps(); });
 document.getElementById("pGtrSedia").addEventListener("change", function(){ mutSel(function(it){ it.sedia=document.getElementById("pGtrSedia").checked; gtrApply(it); }); });
 document.getElementById("pGtrLeggio").addEventListener("change", function(){ mutSel(function(it){ it.leggio=document.getElementById("pGtrLeggio").checked; gtrApply(it); }); });
 document.getElementById("pGtrAmp").addEventListener("change", function(){ mutSel(function(it){ it.ampli=document.getElementById("pGtrAmp").checked; gtrApply(it); }); });
@@ -19903,6 +19953,7 @@ function countAccessori(){
     else if(isStool) sgabelli+=(STOOL_POSTAZ[it.type]||mult);
     else if(it.type==="batteria" && parts(it).stool!==false) sgabelli++;   /* solo se lo sgabello è attivo (toggle Sgabello) */
     else if(it.type==="direttore" && it.sgab===true) sgabelli++;
+    else if(chitClSeduta(it)==="sgabello") sgabelli++;   /* chitarra classica su sgabello (05/10) */
     // hearback
     if(it.type==="hearback") hearbacks++;
   });

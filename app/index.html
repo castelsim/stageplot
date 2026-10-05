@@ -1427,6 +1427,7 @@
   .ic.fill{fill:#1f2937;stroke:none}
   .ic.soft{fill:#f3f4f6}
   .ic.dash{stroke-dasharray:7 5;fill:none}
+  .ic.vuoto{fill:none}   /* solo tratto (anello poggiapiedi dello sgabello sotto il chitarrista classico) */
   .ic.thin{stroke-width:1.2}
   .mon{stroke:var(--canvas-monitor)}
   .mon.fill{fill:var(--canvas-monitor);stroke:none}
@@ -4397,10 +4398,18 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
       <label class="chk" id="pSediaVWrap"><input type="checkbox" id="pSediaV"> Sedia</label>
     </div>
     <div id="pGtr" style="display:none;border-top:1px solid #eef0f2;margin-top:10px;padding-top:8px">
-      <label class="chk"><input type="checkbox" id="pGtrSedia"> Sedia</label>
-      <label class="chk"><input type="checkbox" id="pGtrLeggio"> Leggio</label>
-      <label class="chk"><input type="checkbox" id="pGtrAmp"> Ampli</label>
-      <label class="chk"><input type="checkbox" id="pGtrPedal"> Pedaliera</label>
+      <div class="stpr-f" id="pSedutaWrap" style="display:none"><label>Seduta</label>
+        <div class="chips" data-chips="pSeduta">
+          <button type="button" data-v="sedia">Sedia</button>
+          <button type="button" data-v="sgabello">Sgabello</button>
+          <button type="button" data-v="niente" id="pSedutaNiente">Niente</button>
+        </div>
+        <select id="pSeduta" hidden><option value="sedia">sedia</option><option value="sgabello">sgabello</option><option value="niente">niente</option></select>
+      </div>
+      <label class="chk" id="pGtrSediaLbl"><input type="checkbox" id="pGtrSedia"> Sedia</label>
+      <label class="chk" id="pGtrLeggioLbl"><input type="checkbox" id="pGtrLeggio"> Leggio</label>
+      <label class="chk" id="pGtrAmpLbl"><input type="checkbox" id="pGtrAmp"> Ampli</label>
+      <label class="chk" id="pGtrPedalLbl"><input type="checkbox" id="pGtrPedal"> Pedaliera</label>
       <button class="btn" id="pGtrSplit" style="display:none">⇱ Dividi in elementi</button>
     </div>
     <div id="pDir" style="display:none;border-top:1px solid #eef0f2;margin-top:10px;padding-top:8px">
