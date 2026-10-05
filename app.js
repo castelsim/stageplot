@@ -19924,6 +19924,10 @@ function standNeeds(){
     if(!TYPES[it.type]) return;
     var own=standKindOfItem(it);
     if(own){ out[own].gia++; out[own].tot++; }
+    /* la postazione cajon disegna la sua asta bassa davanti al cajon: è un'asta sul palco come l'«Asta
+       bassa» che sostituisce (revisione 06/10/2026). Il canale (Beta 91A, «interno/terra») non la
+       dice, quindi si conta qui: il modello Acustico passava da 1 asta bassa a 0. */
+    if(it.type==="cajonpost"){ out.bassa.gia++; out.bassa.tot++; }
     /* «PRODUCE CANALI», non «è una sorgente da microfonare» — stessa distinzione gia' fatta il 29/07
        per il palco a zone. Il gate era isAudioSource, che ESCLUDE la zona panoramica di proposito
        (una zona non si microfona: e' lei il microfono). Risultato: il panoramico della zona compariva
@@ -24396,6 +24400,13 @@ function components3D(it){
   if(it.type==="contrabbasso"){
     return [ comp("stool","orchestra_chair",-42,-42,0,40,40,75,0),
              comp("instrument","double_bass",6,14,0,70,45,190,0,-10) ];
+  }
+  if(it.type==="cajonpost"){   /* (revisione 06/10/2026) cajon e asta bassa ai loro posti; il musicista no: people_visible:false */
+    var cL=cajonSlots(parts(it)), cB=cajonBBox(cL), cC=[];
+    cL.forEach(function(e){ var dx=e.s.x-cB.cx, dy=e.s.y-cB.cy;
+      if(e.k==="cajon") cC.push(comp("cajon","cajon",dx,dy,0,30,30,H3D.cajon,0));
+      else if(e.k==="mic") cC.push(comp("astabassa","astabassa",dx,dy,0,e.s.w,e.s.d,H3D.astabassa,180)); });
+    return cC;
   }
   if(it.type==="coppiast"){
     return [ comp("stand","mic_stand",0,8,0,30,30,165,0),
