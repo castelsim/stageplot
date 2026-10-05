@@ -11517,7 +11517,8 @@ t("Acustico, Jazz, Band e Coro: ogni microfono ha chi lo usa, ogni persona il su
   const conta = (out, t) => out.filter((i) => i.type === t).length;
   const ac = A.formationData("acoustic").out;
   eq(conta(ac, "cantante"), 1, "Acustico: c'è il cantante, non solo il microfono «Voce»");
-  eq(conta(ac, "percussionistaR"), 1, "Acustico: e chi suona il cajon");
+  /* 06/10/2026: chi suona il cajon sta dentro la postazione cajon (musicista acceso), non è più un pezzo a sé */
+  eq(ac.filter((i) => i.type === "cajonpost" && !(i.parts && i.parts.mus === false)).length, 1, "Acustico: e chi suona il cajon");
   eq(conta(ac, "wedge"), 4, "Acustico: quattro spie, una a testa");
   eq(conta(ac, "coppiast") + conta(ac, "astamic"), 0, "Acustico: niente microfoni senza persona");
   ok(ac.filter((i) => i.type === "stagepiano" || i.type === "gtacustica" || i.type === "cantante").every((i) => !i.rot), "Acustico: niente musicisti storti");
@@ -18347,6 +18348,100 @@ t("personal monitor: l'hub eliminato scollega il mixerino, il mixerino eliminato
   eq(Object.keys(A.state.mond.manual), [h2.id], "hub eliminato: la voce del mixerino cade");
   A.selectMany([h.id]); A.deleteSel();
   eq(A.state.mond.manual, {}, "mixerino eliminato: via la sua voce e quella di chi era in catena con lui");
+});
+
+// ── POSTAZIONE CAJON (06/10/2026) ──────────────────────────────────────────────────────────────
+// Il cajonista erano tre elementi (percussionista + cajon + asta bassa): per spostarlo se ne
+// prendevano tre, e l'asta bassa aggiungeva un canale SM57 che nessuno aveva chiesto. Ora è una
+// postazione sola; i progetti vecchi con i tre pezzi si riaprono come erano.
+console.log("\nPostazione cajon:");
+const PEZZI_CAJON_ACUSTICO = [   /* i tre pezzi del modello Acustico fino al 05/10/2026, coordinate del modello */
+  { type: "percussionistaR", x: 0, y: -235, rot: 0 }, { type: "cajon", x: 0, y: -217, rot: 0 }, { type: "astabassa", x: 0, y: -170, rot: 180 }];
+t("postazione cajon: nel catalogo come «Cajon» fra le percussioni, il cajon da solo no", () => {
+  const T = A.TYPES.cajonpost;
+  ok(T && T.catalog !== false, "la postazione è nel catalogo");
+  eq([T.nome, T.cat, T.sub], ["Cajon", "Batteria e percussioni", "Percussioni"]);
+  eq(A.catOf("cajonpost"), "Strumenti", "sta fra gli strumenti");
+  eq(A.TYPES.cajon.catalog, false, "il cajon da solo esce dal catalogo: due «Cajon» uno sopra l'altro confondevano");
+});
+t("postazione cajon: si trova con «cajon», «cajonista» e «percussionista»", () => {
+  const primo = (q) => (A.__spSearch(q)[0] || {}).k, primoQa = (q) => (A.__qaSearch(q)[0] || {}).k;
+  for (const q of ["cajon", "cajonista"]) { eq(primo(q), "cajonpost", "«" + q + "» nella barra:"); eq(primoQa(q), "cajonpost", "«" + q + "» nella finestrella:"); }
+  ok(A.__spSearch("percussionista").some((e) => e.k === "cajonpost"), "«percussionista» la trova nella barra");
+  ok(A.__qaSearch("percussionista").some((e) => e.k === "cajonpost"), "«percussionista» la trova nella finestrella");
+  eq(primo("percussionista"), "percussioni", "ma il primo posto resta del set congas + bongos");
+});
+t("postazione cajon: musicista acceso di serie, un canale Beta 91A, si spegne dal pannello", () => {
+  reset();
+  const c = add("cajonpost", 400, 300);
+  eq(c.parts, { mus: true }, "nasce con il musicista");
+  eq(A.COMP.cajonpost.controls.map((k) => k.key + ":" + k.type + ":" + k.label), ["mus:toggle:Musicista"], "nel pannello il solo interruttore Musicista");
+  eq(c.label, "Cajon 1", "con il nome numerato come ogni strumento");
+  eq(chans(c).map((k) => k.name + "/" + k.mic), ["Cajon 1/Beta 91A"], "un canale, il Beta 91A già previsto per il cajon");
+  eq([c.w, c.d], [65, 127], "ingombro: musicista, cajon e asta");
+  /* i pezzi si disegnano con il draw dei tipi singoli: stesso aspetto dei tre elementi di prima.
+     Centro della postazione 5 cm davanti al cajon: cajon a -5, musicista a -23, asta a +42. */
+  const cassa = A.TYPES.cajon.draw(), gruppi = (svg) => (svg.match(/<g transform="translate\([^)]*\)( rotate\(\d+\))?">/g) || []);
+  let svg = A.TYPES.cajonpost.draw(c);
+  ok(svg.includes('<g transform="translate(0 -5)">' + cassa + "</g>"), "disegna il cajon com'è da solo, al suo posto");
+  eq(gruppi(svg).filter((g) => /translate\(0 (-5|-23|42)\)/.test(g)), ['<g transform="translate(0 -23)">', '<g transform="translate(0 -5)">', '<g transform="translate(0 42) rotate(180)">'],
+    "prima il musicista, poi il cajon che gli copre le gambe (come nei tre pezzi: il percussionista ha z:1, sta sotto), poi l'asta bassa girata verso il cajon");
+  A.setPart(c, "mus", false);
+  eq([c.w, c.d], [50, 85], "senza musicista il riquadro si stringe a cajon e asta");
+  svg = A.TYPES.cajonpost.draw(c);
+  eq(gruppi(svg).filter((g) => /translate\(0 -?\d+\)( rotate\(180\))?">$/.test(g)).slice(0, 2), ['<g transform="translate(0 -26)">', '<g transform="translate(0 21) rotate(180)">'],
+    "solo cajon e asta, ricentrati");
+  ok(!svg.includes("translate(0 -44)") && !svg.includes("translate(0 -23)"), "e il musicista non c'è più");
+  eq(chans(c).length, 1, "il canale resta: il cajon suona anche se il disegno non ha la persona");
+  ok(A.canHeadMic(c), "il cajonista può cantare: archetto/asta voce come le percussioni");
+  ok(A.isPerformer(c), "è una postazione suonata da una persona");
+});
+t("postazione cajon: il modello Acustico la usa al posto dei tre pezzi, senza spostare niente", () => {
+  const ac = A.formationData("acoustic").out;
+  const conta = (t) => ac.filter((i) => i.type === t).length;
+  eq(conta("cajonpost"), 1, "una postazione cajon");
+  eq(conta("percussionistaR") + conta("cajon") + conta("astabassa"), 0, "e niente più pezzi separati");
+  /* stessa posizione visiva: «Dividi» sulla postazione del modello ridà i tre pezzi dove li metteva il modello */
+  const st = ac.find((i) => i.type === "cajonpost");
+  const pezzi = A.COMP.cajonpost.explode(Object.assign({ type: "cajonpost" }, st)).map((p) =>
+    ({ type: p.type, x: st.x + p.dx, y: st.y + p.dy, rot: (p.extra && p.extra.rot) || 0 }));
+  const perTipo = (l) => l.slice().sort((a, b) => a.type.localeCompare(b.type));
+  eq(perTipo(pezzi), perTipo(PEZZI_CAJON_ACUSTICO), "ogni pezzo al suo posto di prima");
+  eq(A.modelloAnteprima("acoustic").persone, 4, "il conto dei musicisti non cambia");
+  reset();
+  A.placeOut(ac, true, true, true);
+  const righe = A.patchList().rows.map((r) => r.name + "/" + r.mic);
+  ok(righe.includes("Cajon/Beta 91A"), "il canale del cajon c'è: " + righe.join(" | "));
+  eq(righe.length, A.formationData("acoustic").inp.length, "e la lista ha tanti canali quanti ne dichiara il modello (prima c'era anche l'«Asta bassa» SM57)");
+});
+t("postazione cajon: senza musicista l'anteprima del modello non lo conta", () => {
+  eq(A.modelloAnteprima("acoustic").persone, 4);
+  /* una formazione di prova: l'Acustico con il cajon senza persona (chiave nuova, l'anteprima ha la cache per chiave) */
+  const fd0 = A.formationData;
+  A.formationData = (f, o) => f === "provacajon"
+    ? { out: fd0("acoustic").out.map((x) => x.type === "cajonpost" ? Object.assign({}, x, { parts: { mus: false } }) : x) }
+    : fd0(f, o);
+  try { eq(A.modelloAnteprima("provacajon").persone, 3, "tre musicisti se il cajon è senza persona"); }
+  finally { A.formationData = fd0; }
+});
+t("postazione cajon: «Dividi» ridà i tre pezzi, anche ruotata, con un solo nome visibile", () => {
+  reset();
+  const c = add("cajonpost", 500, 400, { rot: 90 });
+  A.selectMany([c.id]); A.explodeComposite();
+  const it = A.state.items;
+  eq(it.map((i) => i.type).sort(), ["astabassa", "cajon", "percussionistaR"], "i tre pezzi");
+  const cj = it.find((i) => i.type === "cajon"), mu = it.find((i) => i.type === "percussionistaR"), as = it.find((i) => i.type === "astabassa");
+  eq([cj.x, cj.y, mu.x, mu.y, as.x, as.y], [505, 400, 523, 400, 458, 400], "ruotati di 90° attorno al centro della postazione");
+  eq([cj.rot, mu.rot, as.rot], [90, 90, 270], "l'asta resta girata verso il cajon");
+  eq(cj.label, c.label, "il cajon tiene il nome (e il canale) della postazione");
+  eq([mu.label, as.label], ["", ""], "il musicista e l'asta senza nome, come nei progetti di prima");
+});
+t("postazione cajon: un progetto salvato con i tre pezzi si riapre identico (niente migrazione)", () => {
+  const vecchi = PEZZI_CAJON_ACUSTICO.map((p, i) => Object.assign({ id: "v" + i, label: p.type === "cajon" ? "Cajon" : "" }, p, { x: 400 + p.x, y: 500 + p.y }));
+  const s = A.normalizeState({ _v: A.SCHEMA_VERSION, items: JSON.parse(JSON.stringify(vecchi)), inputs: [], outputs: [] });
+  eq(s.items.map((i) => [i.id, i.type, i.x, i.y, i.rot, i.label]), vecchi.map((i) => [i.id, i.type, i.x, i.y, i.rot, i.label]), "stessi pezzi, stessi posti");
+  ok(!s.items.some((i) => i.type === "cajonpost"), "non diventano una postazione da soli");
+  eq(s.items.map((i) => [i.w, i.d]), [[65, 81], [34, 34], [50, 42]], "con le loro misure");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");

@@ -1058,8 +1058,17 @@ var TYPES = {
              draw:function(){ return bongosGlyph(); }},
   percussionistaR:{nome:"Percussionista", dim:"persona · 65 cm", cat:"Batteria e percussioni", sub:"Pezzi singoli", catalog:false, w:65,d:81, z:1, defLabel:"Perc",
              draw:function(){ return libIcon("batteristaPersona"); }},
-  cajon:    {nome:"Cajon", dim:"30×30", cat:"Batteria e percussioni", sub:"Percussioni", w:34,d:34,
+  /* il cajon da solo esce dal catalogo il 06/10/2026: al suo posto c'è la postazione (sotto). Resta come
+     tipo perché i progetti salvati con i tre pezzi (percussionista + cajon + asta bassa) devono riaprirsi
+     identici, e perché «Dividi» sulla postazione lo ridà come pezzo singolo. */
+  cajon:    {nome:"Cajon", dim:"30×30", cat:"Batteria e percussioni", sub:"Percussioni", catalog:false, w:34,d:34,
              draw:function(){ return bar(0,0,30,30,'ic fWoodL',3)+circ(0,0,7,'ic thin fWoodD')+circ(-9,-9,1.8,'dotS')+circ(9,-9,1.8,'dotS'); }},
+  /* POSTAZIONE CAJON (06/10/2026): il cajonista si otteneva con tre elementi separati e per spostarlo
+     se ne prendevano tre. Ora è una postazione sola, come le percussioni: il cajon, il musicista seduto
+     sopra (si toglie dal pannello) e l'asta bassa davanti. Un canale solo, il Beta 91A del cajon. */
+  cajonpost:{nome:"Cajon", dim:"postazione · cajon + mic", cat:"Batteria e percussioni", sub:"Percussioni", w:65,d:127, defLabel:"Cajon",
+             qaCede:"percussionista percussionisti",   /* si trova anche con «percussionista», ma il primo posto resta del set congas + bongos */
+             draw:function(it){ return drawCajonPost(it); }},
   /* — piccole percussioni (30/07): quelle che un percussionista si porta e si dispone a modo suo.
        Nascono SENZA canale proprio (MIKING def "pan", come i fiati di sezione): un setup di dieci
        pezzi si riprende con uno o due panoramici, non con dieci close mic. Chi ne vuole microfonare
@@ -1758,7 +1767,8 @@ var SEARCH_ALIAS_GIRI = {
   camera:"webcam web cam tracking", laptop:"sequenze playback basi click backing track", notebook:"sequenze playback basi",
   iem:"bodypack body pack", sediapubblico:"pubblico platea spettatori sedute",
   confidence:"gobbo tv televisore schermo testi teleprompter prompter testi canzoni",
-  percussioni:"percussionista percussionisti", cajon:"cajonista",
+  percussioni:"percussionista percussionisti",
+  cajonpost:"cajonista cajonisti percussionista percussionisti",   /* 06/10/2026: era sul cajon da solo, ora fuori catalogo */
 };
 [SEARCH_ALIAS, SEARCH_ALIAS_GIRI].forEach(function(tab){ Object.keys(tab).forEach(function(k){   /* fuso nei tipi: le due ricerche leggono solo TYPES[k].alias */
   if(TYPES[k]) TYPES[k].alias=((TYPES[k].alias||"")+" "+tab[k]).trim();
@@ -2094,7 +2104,7 @@ var WEIGHT = {
   grancoda:400, mezzacoda:300, pianoverticale:230, stagepiano:25, doppiatastiera:40, celesta:100,
   /* batteria e percussioni */
   batteria:55, edrums:35, timpani:180, timpani3:135, timpani2:95, marimba:70, vibrafono:65, xilofono:45,
-  glockenspiel:20, campane:90, grancassa:40, tamtam:45, timbales:20, percussioni:30, cajon:6,
+  glockenspiel:20, campane:90, grancassa:40, tamtam:45, timbales:20, percussioni:30, cajon:6, cajonpost:6,   /* la postazione pesa quanto il cajon: le aste qui non hanno peso */
   /* sedie (peso per il rider) */
   sediaorch:6, sediapubblico:3.5, sediabianca:3.5,
   /* PA — un elemento e' UN MODULO, non l'array intero (la larghezza in pianta lo dice: 134 cm per
@@ -2257,7 +2267,7 @@ var VOCE = { cantante:1, corista:1, relatore:1, moderatore:1 };   /* postazioni 
    e se cantano in un pezzo usano l'asta come tutti — il loro canale mic esiste gia'. */
 var HEADMIC_TYPES = { gtstand:1, gtacustica:1, bassstand:1, musChitClassica:1,
   stagepiano:1, tastiera:1, doppiatastiera:1, organohammond:1, grancoda:1, mezzacoda:1, pianoverticale:1,
-  batteria:1, percussioni:1, cajon:1, fisarmonica:1, arpa:1, djset:1 };
+  batteria:1, percussioni:1, cajon:1, cajonpost:1, fisarmonica:1, arpa:1, djset:1 };
 var HEADMIC_MIC = { archetto:"DPA 4088", asta:"SM58", mano:"SM58" };
 function canHeadMic(it){ return !!(it && (HEADMIC_TYPES[it.type] || (TYPES[it.type]&&TYPES[it.type].gtr))); }
 function headMicOf(it){
@@ -2717,6 +2727,55 @@ function percChans(it){ var p=parts(it), out=[];
   if(p.bongos!==false) out.push(["Bongos","e904"]);
   return out;   /* set senza pezzi (solo il percussionista) = nessun canale, non due canali finti */
 }
+/* ── Postazione cajon (06/10/2026) ──
+   I tre pezzi stanno dove li metteva il modello Acustico, misurati dal centro del cajon: il musicista
+   18 cm più indietro (seduto sopra, il corpo sporge verso il fondo), l'asta bassa 47 cm davanti e
+   girata verso il cajon. Ogni pezzo si disegna con il draw del suo tipo singolo, così la postazione
+   e i tre pezzi dei progetti vecchi si vedono uguali. L'ingombro segue i pezzi montati, come le
+   percussioni: senza musicista il riquadro si stringe al cajon e al microfono. */
+var CAJON_SLOTS = { cajon:{x:0,y:0,w:34,d:34}, mus:{x:0,y:-18,w:65,d:81}, mic:{x:0,y:47,w:50,d:42} };
+/* l'ordine è quello di sovrapposizione: il percussionista ha z:1 (sotto gli altri), quindi nei tre pezzi
+   il piano del cajon copriva le gambe di chi ci sta seduto. Qui uguale: prima il musicista, poi il cajon. */
+function cajonSlots(p){
+  var L=[];
+  if(p.mus!==false) L.push({k:"mus", s:CAJON_SLOTS.mus});
+  L.push({k:"cajon", s:CAJON_SLOTS.cajon});
+  L.push({k:"mic", s:CAJON_SLOTS.mic});
+  return L;
+}
+/* centro arrotondato al cm: le coordinate dei pezzi restano intere, e la postazione del modello
+   (centro 5 cm davanti al cajon) rimette ogni pezzo esattamente dov'era */
+function cajonBBox(L){
+  var x0=Infinity, x1=-Infinity, y0=Infinity, y1=-Infinity;
+  L.forEach(function(e){ var s=e.s;
+    x0=Math.min(x0, s.x-s.w/2); x1=Math.max(x1, s.x+s.w/2); y0=Math.min(y0, s.y-s.d/2); y1=Math.max(y1, s.y+s.d/2); });
+  return { cx:Math.round((x0+x1)/2), cy:Math.round((y0+y1)/2), w:Math.round(x1-x0), d:Math.round(y1-y0) };
+}
+function sizeCajonPost(it){ var B=cajonBBox(cajonSlots(parts(it))); return [B.w, B.d]; }
+function drawCajonPost(it){
+  var L=cajonSlots(parts(it)), B=cajonBBox(L), s='';
+  if(it.w!==B.w||it.d!==B.d){ it.w=B.w; it.d=B.d; }   /* riallinea un documento con misure vecchie (idempotente), come le percussioni */
+  L.forEach(function(e){
+    var pre='<g transform="translate('+(e.s.x-B.cx)+' '+(e.s.y-B.cy)+')'+(e.k==="mic"?' rotate(180)':'')+'">';
+    var body = e.k==="cajon" ? TYPES.cajon.draw()
+             : e.k==="mus"   ? TYPES.percussionistaR.draw()
+             :                 TYPES.astabassa.draw({w:CAJON_SLOTS.mic.w, d:CAJON_SLOTS.mic.d});
+    s += pre+body+'</g>';
+  });
+  return s;
+}
+/* «Dividi»: ridà i tre pezzi di prima, con le loro etichette di prima. L'asta bassa da sola torna un
+   microfono a sé (SM57) con il suo canale: diviso, è un elemento come gli altri e si può togliere. */
+function explodeCajonPost(it){
+  var L=cajonSlots(parts(it)), B=cajonBBox(L), out=[];
+  L.forEach(function(e){
+    var dx=e.s.x-B.cx, dy=e.s.y-B.cy;
+    if(e.k==="cajon") out.push({type:"cajon", dx:dx, dy:dy, label:(it.label!=null && it.label!=="") ? it.label : "Cajon"});
+    else if(e.k==="mus") out.push({type:"percussionistaR", dx:dx, dy:dy, label:""});
+    else out.push({type:"astabassa", dx:dx, dy:dy, label:"", extra:{rot:((it.rot||0)+180)%360}});
+  });
+  return out;
+}
 var COMP = {
   percussioni: { defParts:{congas:2, bongos:true, mus:true, stool:false},
     controls:[ {key:"congas",label:"Congas",type:"count",min:0,max:3},
@@ -2729,6 +2788,10 @@ var COMP = {
       var a=(n>0?(n===1?"Conga":"Congas ×"+n):""), b=(p.bongos!==false?"Bongos":"");
       return (a&&b)?(a+" + "+b):(a||b||"Percussioni"); },
     chans:percChans, draw:drawPercussioni, size:sizePercussioni, explode:explodePercussioni },
+  /* il canale non sta qui ma in IN_SRC (Beta 91A): è uno solo e non dipende dai pezzi */
+  cajonpost: { defParts:{mus:true},
+    controls:[ {key:"mus",label:"Musicista",type:"toggle"} ],
+    draw:drawCajonPost, size:sizeCajonPost, explode:explodeCajonPost },
   batteria: { defParts:{toms:2,floor:true,hihat:true,crash:1,ride:true,kick2:false,mus:true,stool:true,lefty:false,leggio:false},
     controls:[ {key:"toms",label:"Tom",type:"count",min:0,max:3},
                {key:"floor",label:"Floor tom",type:"toggle"},
@@ -2765,7 +2828,7 @@ var DEFAULT_LABELS = {
   sgabello:"Sgab.", ventilatore:"Ventilatore", metro:"", testo:"Testo",
   corno:"Corno", tromba:"Tr", trombone:"Tbn", tuba:"Tuba",
   flauto:"Fl", oboe:"Ob", clarinetto:"Cl", fagotto:"Fg", saxalto:"Sax A", saxtenore:"Sax T", saxbaritono:"Sax Bar",
-  batteria:"Drums", edrums:"E-drums", drumshield:"Shield", rullante:"Snare", percussioni:"Perc.", cajon:"Cajon", timbales:"Timbales",
+  batteria:"Drums", edrums:"E-drums", drumshield:"Shield", rullante:"Snare", percussioni:"Perc.", cajon:"Cajon", cajonpost:"Cajon", timbales:"Timbales",
   timpani:"Timpani", timpani3:"Timp x3", timpani2:"Timp x2", grancassa:"Gran cassa", piatto:"Piatto", piatticoppia:"Piatti", campane:"Chimes",
   timpsingolo:"Timp", kickdrum:"Kick", tomdrum:"Tom", hihat:"HH",
   tamtam:"Tam-tam", glockenspiel:"Glock.", xilofono:"Xylo", vibrafono:"Vibes", marimba:"Marimba",
@@ -17321,9 +17384,10 @@ function buildAcousticOut(){
     {type:"wedge", x:210, y:70, label:"Chitarra"},
     {type:"stagepiano", x:-220, y:-80, label:"Piano"},
     {type:"wedge", x:-220, y:70, label:"Piano"},
-    {type:"percussionistaR", x:0, y:-235, label:""},
-    {type:"cajon", x:0, y:-217, label:"Cajon"},
-    {type:"astabassa", x:0, y:-170, rot:180, label:""},   /* il microfono del cajon: niente etichetta doppia */
+    /* 06/10/2026: una postazione sola al posto di percussionista + cajon + asta bassa. Centro 5 cm davanti
+       al cajon: i tre pezzi restano dov'erano (cajon a -217, musicista a -235, asta a -170). E il canale
+       è uno, il Beta 91A della channel list: l'asta bassa separata ne aggiungeva un secondo (SM57). */
+    {type:"cajonpost", x:0, y:-212, label:"Cajon"},
     {type:"wedge", x:110, y:-190, rot:-35, label:"Cajon"}
   ];
 }
@@ -18255,7 +18319,7 @@ var _anteprimeModelli={};
 var ANTEPRIMA_TECNICA={"Microfoni e DI":1,"Monitor da palco":1,"PA e diffusione":1,"Cablaggio e segnale":1,"Elettrico":1,"Regia e console":1,"Dispositivi":1,"Luci":1,"Video":1};
 /* chi siede a questi strumenti è disegnato con loro, ma non è un «contatto»: senza, il quartetto jazz
    diceva «3 musicisti» (18/09, visto nella finestra Nuovo) */
-var ANTEPRIMA_PERSONA={grancoda:1, mezzacoda:1, percussionistaR:1, batteristaR:1};
+var ANTEPRIMA_PERSONA={grancoda:1, mezzacoda:1, percussionistaR:1, batteristaR:1, cajonpost:1};   /* 06/10/2026: il cajonista ora sta dentro la sua postazione */
 function modelloAnteprima(f){
   if(_anteprimeModelli[f]) return _anteprimeModelli[f];
   var qd=(typeof formationData==="function") ? formationData(f) : null;
@@ -18270,7 +18334,7 @@ function modelloAnteprima(f){
     var cls = t.riser ? "mpv-riser"
             : musLayerItem(o.type) ? "mpv-mus"
             : ANTEPRIMA_TECNICA[t.cat] ? "mpv-tec" : "mpv-alt";
-    if(contactEligible(o.type) || t.gtr || ANTEPRIMA_PERSONA[o.type]) persone += (o.doppia===true || DOUBLE_TYPES[o.type]) ? 2 : 1;
+    if(contactEligible(o.type) || t.gtr || (ANTEPRIMA_PERSONA[o.type] && !(o.parts && o.parts.mus===false))) persone += (o.doppia===true || DOUBLE_TYPES[o.type]) ? 2 : 1;
     var rect='<rect class="'+cls+'" x="'+(-z.w/2)+'" y="'+(-z.d/2)+'" width="'+z.w+'" height="'+z.d+'" rx="'+Math.min(12, z.w/4, z.d/4)+'" transform="translate('+x+' '+y+')'+(r?' rotate('+r+')':'')+'"/>';
     if(t.riser) pedane+=rect; else resto+=rect;
   });
@@ -18666,7 +18730,7 @@ var IN_SRC = {
   rullante:"SM57", grancassa:"D6", piatto:"KM184", piatticoppia:"KM184",
   /* pezzi della batteria divisa (audit 14/07: dividere il kit conserva gli 8 mic — ricompone D6+SM57+3×e904+SM81+2×KM184) */
   kickR:"D6", snareR:"SM57", tomR:"e904", floorR:"e904", hihatKR:"SM81", crashR:"KM184", rideR:"KM184",
-  campane:"KM184", tamtam:"KM184", glockenspiel:"KM184", cajon:"Beta 91A",
+  campane:"KM184", tamtam:"KM184", glockenspiel:"KM184", cajon:"Beta 91A", cajonpost:"Beta 91A",
   conga:"e904", quinto:"e904", tumba:"e904", bongos:"e904",   /* pezzi singoli del set percussioni: stesso mic del blocco da cui nascono */
   /* backline / tastiere a mic o DI singolo */
   comboamp:"SM57", stack:"SM57/e906", keysamp:"DI", celesta:"KM184",
@@ -22271,7 +22335,7 @@ function performerKind(it){
 function isPerformer(it){   /* un elemento SUONATO da una persona (non ampli/DI/rack/casse) */
   if(!it) return false; var t=TYPES[it.type]; if(!t) return false;
   if(POSTAZ[it.type]||VOCE[it.type]||KEYS_BENCH[it.type]||TASTIERE[it.type]||t.gtr) return true;
-  if(it.type==="batteria"||it.type==="edrums"||it.type==="percussioni"||it.type==="timbales") return true;
+  if(it.type==="batteria"||it.type==="edrums"||it.type==="percussioni"||it.type==="timbales"||it.type==="cajonpost") return true;
   return t.cat==="Orchestra";
 }
 function performerSpots(){
@@ -24195,7 +24259,7 @@ function resetCatalogView(){
 /* altezze tipiche in cm (override per tipo; fallback per categoria) */
 var H3D={ pedana:0,scala:40,rampa:40,parapetto:110,fondale:400,quinta:400,truss:30,transenna:120, topattivo:180,
   tappeto:1,tavolo:75,sedia:85,sedialeggio:115,leggio:125,podio:20,pedanacoro:60,sgabello:75,ventilatore:120,
-  batteria:120,edrums:110,drumshield:180,rullante:80,percussioni:90,cajon:48,timbales:90,
+  batteria:120,edrums:110,drumshield:180,rullante:80,percussioni:90,cajon:48,cajonpost:48,timbales:90,
   conga:76,quinto:76,tumba:76,bongos:65,djembe:60,surdo:95,tamburello:100,campanaccio:100,templeblocks:95,triangoloperc:130,tavolopercussioni:90,
   crotali:120,woodblock:95,flexaton:92,
   timpani:90,timpani3:90,timpani2:90,
@@ -24269,7 +24333,7 @@ var MAT3D={ black_metal:{type:"metal",color:"black",finish:"matte"},
 var TYPEMAT={ pedana:"stage_riser_black",pedanacoro:"stage_riser_black",podio:"stage_riser_black",scala:"stage_riser_black",rampa:"stage_riser_black",
   tappeto:"muted_red_fabric", sedia:"black_padded_chair",sediabianca:"white_padded_chair",sedialeggio:"black_padded_chair",panchetta:"black_padded_chair",sgabello:"black_padded_chair",
   leggio:"black_metal",astamic:"black_metal",giraffa:"black_metal",astagigante:"black_metal",astabassa:"black_metal",coppiast:"black_metal",corista:"black_metal",truss:"silver_metal",transenna:"grey_metal",parapetto:"grey_metal",
-  batteria:"drum_shell_and_heads",edrums:"black_metal",rullante:"drum_shell_and_heads",timbales:"drum_shell_and_heads",percussioni:"varnished_wood",cajon:"varnished_wood",
+  batteria:"drum_shell_and_heads",edrums:"black_metal",rullante:"drum_shell_and_heads",timbales:"drum_shell_and_heads",percussioni:"varnished_wood",cajon:"varnished_wood",cajonpost:"varnished_wood",
   timpani:"copper",timpani3:"copper",timpani2:"copper",grancassa:"dark_varnished_wood",piatto:"brass_polished",piatticoppia:"brass_polished",campane:"silver_metal",tamtam:"brass_polished",
   glockenspiel:"silver_metal",xilofono:"varnished_wood",vibrafono:"silver_metal",marimba:"dark_varnished_wood",
   grancoda:"black_gloss_piano",mezzacoda:"black_gloss_piano",pianoverticale:"black_gloss_piano",celesta:"dark_varnished_wood",
