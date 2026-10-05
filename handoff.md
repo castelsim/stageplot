@@ -6,6 +6,20 @@ sono state scritte qui: la loro storia sta nei messaggi di commit e nelle PR (#9
 
 ## Settembre in una pagina (PR su `main`)
 
+- **05/10 — Poltrona e ospite in poltrona** (ramo `poltrona`, segnalazione «MANCA» 2ee70399: «mi serve un uomo su
+  una poltrona», palco 10×10 con un mezzacoda). Due pezzi, nessun tipo di persona nuovo:
+  **`poltrona`** (Palco e pedane › Arredo e leggii, 85×85, `resizable`: allargata oltre ~1,4 m diventa un divano a
+  più cuscini, uno ogni ~60 cm) disegnata da `poltronaGlyph(W,D,cy,chiara)`: scura da sola (scocca nera, rotoli
+  grigi, cuscino chiaro — tutta nera non si leggeva), chiara sotto una persona come `seatLight`.
+  **Chi ci sta seduto è una voce con `it.poltrona===true`**: casella «Poltrona» nel pannello di OGNI voce
+  (`pPoltronaV`, anche al telefono in «Accessori»), `voceInPoltrona(it,on)` = una sola seduta (toglie la sedia;
+  tolta la poltrona il moderatore torna sulla sua), ingombro da `voceMisure` (89×109: la poltrona sta 12 cm dietro
+  la figura, `POLTRONA_CY`), ricalcolato in `recalcItemDims`. In catalogo Persone › **«Ospite in poltrona»** =
+  `corista` uomo, lavalier, senza leggio, nome «Ospite»: microfono e canale come ogni voce. Ricerca a sottostringa:
+  le coppie «uomo poltrona», «ospite seduto», «persona seduta», «attore seduto» sono scritte nel `kw`; `qaCede` =
+  alias del corista, così «voce/cantante» restano di Uomo/Donna. Conteggi: `poltroneDi` → «Poltrone» nel pannello
+  Stato e «N poltrone» nel piè di pagina del PDF; una voce in poltrona non conta più come sedia. Peso non scritto
+  (varia troppo). Provato in Playwright: clic veri su catalogo e casella, rotazione, PNG e PDF esportati e guardati.
 - **30/09 — Punto della situazione** (sola lettura, poi ordine): 13 worktree già uniti tolti; restano
   `consulenza-migliorie` e `slogan-in-scala` (bozze mai versionate di altre sessioni) e `orchestre-lotto-1` (l'unico
   `supabase/functions/.env`). Nuova regola: un worktree per lotto da `origin/main`, tolto dopo il merge.
