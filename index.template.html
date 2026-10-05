@@ -15038,7 +15038,14 @@ function mirrorSel(){ primaDiAgire();
   }
   if(!its.length) return;
   var tutti=its.every(function(it){ return it.mir===true; });   /* selezione mista → si allineano tutti */
-  its.forEach(function(it){ if(tutti) delete it.mir; else it.mir=true; });
+  its.forEach(function(it){
+    var siRibalta = tutti || it.mir!==true;   /* chi è già specchiato e resta tale non cambia */
+    if(tutti) delete it.mir; else it.mir=true;
+    /* Simone 05/10: «se specchio un elemento con rotazione deve specchiarsi anche la rotazione». Come nel
+       blocco qui sopra: lo specchio sinistra/destra inverte l'angolo. Prima l'elemento singolo ribaltava il
+       disegno e teneva l'angolo: una sedia girata a 30° verso destra restava girata verso destra. */
+    if(siRibalta && it.rot) it.rot=Math.round((((-it.rot)%360)+360)%360);
+  });
   render(); renderProps(); save();
   if(typeof a11yAnnounce==="function") a11yAnnounce(tutti?"Orientamento originale":"Specchiato");
 }

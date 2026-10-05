@@ -5657,6 +5657,24 @@ t("il comando ribalta l'arte e torna indietro", () => {
   A.mirrorSel();
   eq(q.mir, undefined, "e si torna com'era, senza lasciare tracce nello stato");
 });
+t("un elemento solo, ruotato: lo specchio inverte anche la rotazione", () => {
+  /* 05/10, Simone: «se specchio un elemento con rotazione deve specchiarsi anche la rotazione». Prima solo il
+     blocco invertiva l'angolo; l'elemento singolo ribaltava il disegno e teneva i suoi 30°. */
+  reset();
+  const s1 = add("sedia", 400, 300); s1.rot = 30;
+  A.selectOne(s1.id);
+  A.mirrorSel();
+  eq([s1.mir, s1.rot], [true, 330], "ribaltato e girato dall'altra parte");
+  A.mirrorSel();
+  eq([s1.mir, s1.rot], [undefined, 30], "un secondo specchio riporta tutto com'era");
+  const s2 = add("sedia", 600, 300);
+  A.selectOne(s2.id); A.mirrorSel();
+  eq([s2.mir, s2.rot || 0], [true, 0], "senza rotazione l'angolo resta 0");
+  /* già specchiato e ruotato: lo specchio lo raddrizza e inverte anche l'angolo */
+  const g = add("quinta", 200, 300); g.mir = true; g.rot = 45;
+  A.selectOne(g.id); A.mirrorSel();
+  eq([g.mir, g.rot], [undefined, 315], "torna dritto, girato dall'altra parte");
+});
 t("con piu' elementi si specchia la DISPOSIZIONE, non solo le icone", () => {
   reset();
   const a = add("quinta", 200, 300), b = add("wedge", 800, 300), c = add("sedia", 500, 400);
