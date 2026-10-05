@@ -5206,6 +5206,23 @@ t("ricerca: liste e varianti si trovano per nome", () => {
   ok(!A.__spSearch("channel").some((e) => e.nome === "Esporta"), "«channel» non deve più dare Esporta");
   ok(/search\.addEventListener\("keydown", function\(ev\)\{\s*if\(ev\.key!=="Enter"[\s\S]{0,200}results\.querySelector\("button:not\(\.json-act\)"\)[\s\S]{0,80}primo\.click\(\);/.test(appjs), "Invio nella ricerca deve prendere il primo risultato");
 });
+/* 05/10: giri degli utenti (analisi/workaround/2026-10-05.md) — parole cercate davvero senza risultato. */
+t("ricerca: le parole dei giri degli utenti trovano l'elemento giusto", () => {
+  const primo = (q) => (A.__spSearch(q)[0] || {}).nome;
+  const attesi = { webcam: "Camera", gobbo: "Gobbo / confidence monitor", tv: "Gobbo / confidence monitor", "schermo testi": "Gobbo / confidence monitor",
+    bodypack: "IEM beltpack", cajonista: "Cajon", pubblico: "Sedia pubblico", platea: "Sedia pubblico",
+    croce: "Croce", altare: "Altare", finestra: "Finestra", colonna: "Colonna / palo", palo: "Colonna / palo", lampadario: "Lampadario" };
+  for (const [q, nome] of Object.entries(attesi)) eq(primo(q), nome, "«" + q + "»:");
+  ok(["Laptop", "Mac portatile"].includes(primo("sequenze")), "«sequenze» deve dare il computer delle basi");
+  ok(/percussioni|congas/i.test(primo("percussionista") || ""), "«percussionista» deve dare le percussioni");
+  ok(A.__spSearch("in ear").length > 0 && A.__spSearch("camera").length > 0, "le parole di prima restano (una chiave ripetuta non deve cancellarle)");
+});
+t("elementi del luogo: ostacolo con il suo nome e misure", () => {
+  const e = A.__catEntries.filter((x) => x.k === "ostacolo" && x.over && x.over.label);
+  ok(e.length >= 6, "elementi del luogo trovati: " + e.length);
+  const croce = e.find((x) => x.nome === "Croce");
+  eq(croce.over.label, "CROCE"); ok(croce.over.w > 0 && croce.over.d > 0, "con le sue misure");
+});
 t("query vuota → nessun risultato", () => { eq(A.__qaSearch("").length, 0); eq(A.__qaSearch("   ").length, 0); });
 t("max 8 suggerimenti", () => { ok(A.__qaSearch("a").length <= 8); });
 
