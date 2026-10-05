@@ -18444,5 +18444,32 @@ t("postazione cajon: un progetto salvato con i tre pezzi si riapre identico (nie
   eq(s.items.map((i) => [i.w, i.d]), [[65, 81], [34, 34], [50, 42]], "con le loro misure");
 });
 
+t("postazione cajon: il rider chiede l'asta bassa che la postazione disegna, come con i tre pezzi", () => {
+  /* revisione 06/10/2026: la postazione disegna l'asta bassa davanti al cajon, ma il conteggio delle aste
+     guardava solo gli elementi «Asta bassa» e i microfoni dei canali (il Beta 91A va dentro il cajon:
+     «interno/terra», che non è un'asta). Il modello Acustico passava da 1 asta bassa a 0. */
+  const aste = (n) => Object.fromEntries(Object.entries(n).filter(([, v]) => v.tot > 0).map(([k, v]) => [k, [v.tot, v.gia, v.dedotte]]));
+  reset();
+  A.placeOut(PEZZI_CAJON_ACUSTICO.map((p) => Object.assign({ label: p.type === "cajon" ? "Cajon" : "" }, p)), true, true, true);
+  const prima = aste(A.standNeeds());
+  eq(prima.bassa, [1, 1, 0], "i tre pezzi: l'asta bassa è un elemento sul palco");
+  reset();
+  const c = add("cajonpost", 400, 300);
+  eq(aste(A.standNeeds()), prima, "la postazione chiede le stesse aste dei tre pezzi");
+  A.setPart(c, "mus", false);
+  eq(aste(A.standNeeds()).bassa, [1, 1, 0], "anche senza musicista: l'asta resta disegnata");
+});
+t("postazione cajon: l'export 3D descrive cajon e asta bassa, non un cajon grande quanto la postazione", () => {
+  reset();
+  const c = add("cajonpost", 400, 300);
+  const pz = (it) => (it.components || []).map((k) => [k.type, k.x, k.y, k.w, k.d, k.h, k.rot]);
+  let it3 = A.buildProjectJson().items.find((i) => i.id === c.id);
+  eq(pz(it3), [["cajon", 0, -5, 30, 30, 48, 0], ["astabassa", 0, 42, 50, 42, 60, 180]],
+    "cajon al suo posto e asta bassa davanti, girata verso il cajon; il musicista no (people_visible:false)");
+  A.setPart(c, "mus", false);
+  it3 = A.buildProjectJson().items.find((i) => i.id === c.id);
+  eq(pz(it3).map((k) => k[2]), [-26, 21], "senza musicista i pezzi seguono il centro nuovo");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
