@@ -5964,8 +5964,72 @@ function dropOrphanRows(s){
   });
   return n;
 }
+/* COLLEGAMENTI ORFANI (05/10, da un progetto vero). Le «sovrascritture manuali» dei cavi sono mappe indicizzate
+   per id di elemento: `elec.manual` e `elec.uplinks` (corrente), `cab.manual` (cavi audio, chiavi `id#n`, `grp:id`,
+   `mix:I:id`, `ret:mix:id`), `mond.manual` (personal monitor). Cancellare un elemento non le toccava, e `uid()`
+   riparte dal massimo esistente: il primo elemento nato con un id già usato ereditava il collegamento del defunto —
+   un wedge nuovo risultava legato a un distro che non c'era più («Carico senza distro»), una multipresa nuova
+   risultava un carico verso quello stesso fantasma, e il fulmine rispondeva «già collegato» senza collegare niente.
+   Come per le righe orfane: si toglie SOLO ciò che punta a un elemento che non c'è più.
+   · chiave che non è (più) un elemento → via tutta la voce, tombstone `deleted` compreso (una voce ereditata
+     da un id riusato non deve né collegare né tenere un carico fuori dalla proposta);
+   · chiave valida ma bersaglio (distro / box / hub) sparito → cadono solo i campi che dipendono dal bersaglio
+     (distro/to/box, porta, waypoint, linea, segmento, auto), restano le scelte sul carico o sul canale
+     (connettore, microfono, nome, asta, phantom, `deleted`); una voce rimasta vuota si toglie;
+   · `uplinks`: bersaglio sparito → via la voce intera (senza bersaglio non ha nient'altro da dire).
+   Le voci valide non si toccano. Ritorna quante voci ha cambiato o tolto. */
+function dropOrphanLinks(s){
+  s=s||state;
+  if(!s || !Array.isArray(s.items)) return 0;
+  var ids=Object.create(null), n=0;
+  s.items.forEach(function(it){ if(it && it.id!=null) ids[String(it.id)]=1; });
+  function esiste(v){ return v!=null && v!=="" && ids[String(v)]===1; }
+  function oggetto(o){ return !!o && typeof o==="object" && !Array.isArray(o); }
+  function vuota(o){ for(var k in o) if(Object.prototype.hasOwnProperty.call(o,k)) return false; return true; }
+  /* mappa {chiave→voce}: `legata(k)` dice se la chiave è di un elemento (true/false) o di nessuno (null);
+     `rif` = campo col bersaglio, `dipende` = campi che cadono se il bersaglio non c'è più */
+  function pulisci(mappa, legata, rif, dipende){
+    if(!oggetto(mappa)) return;
+    Object.keys(mappa).forEach(function(k){
+      var o=mappa[k]; if(!oggetto(o)) return;
+      if(legata(k)===false){ delete mappa[k]; n++; return; }
+      if(o[rif]!=null && o[rif]!=="" && !esiste(o[rif])){
+        dipende.forEach(function(c){ delete o[c]; });
+        if(vuota(o)) delete mappa[k];
+        n++;
+      }
+    });
+  }
+  if(oggetto(s.elec)){
+    pulisci(s.elec.manual, esiste, "distro", ["distro","pts","seg","auto","line"]);
+    pulisci(s.elec.uplinks, esiste, "to", ["to","pts"]);   /* senza bersaglio la voce non ha più niente da dire: resta vuota e cade */
+  }
+  if(oggetto(s.mond)) pulisci(s.mond.manual, esiste, "to", ["to","pts","seg","auto"]);
+  if(oggetto(s.cab)){
+    /* di quale elemento è questa chiave? true = c'è, false = non c'è più, null = non legata a un elemento (`mix:L:NOME`) */
+    var legataCab=function(k){
+      k=String(k); var m;
+      if((m=/^grp:(.+)$/.exec(k))) return esiste(m[1]);
+      if((m=/^mix:I:(.+)$/.exec(k))) return esiste(m[1]);
+      if(k.indexOf("mix:")===0) return null;
+      if(k.indexOf("ret:")===0){   /* ret:<chiave del mix>:<id del monitor>; gli id possono contenere «:», si prova ogni taglio */
+        var rest=k.slice(4);
+        for(var p=rest.indexOf(":"); p>=0; p=rest.indexOf(":",p+1)){
+          var mk=rest.slice(0,p), sk=rest.slice(p+1);
+          if(esiste(sk) && (mk.indexOf("I:")!==0 || esiste(mk.slice(2)))) return true;
+        }
+        return false;
+      }
+      if((m=/^(.+)#\d+$/.exec(k))) return esiste(m[1]);
+      return null;
+    };
+    pulisci(s.cab.manual, legataCab, "box", ["box","port","pts","seg","auto"]);
+  }
+  return n;
+}
 function save(){
   dropOrphanRows(state);   /* qualunque strada abbia tolto un elemento, la sua riga non sopravvive al salvataggio */
+  dropOrphanLinks(state);  /* … e nemmeno i suoi collegamenti: un id riusato non deve ereditarli */
   if(window.scheduleCloudAutosave) scheduleCloudAutosave();   /* arma il pending durevole prima del commit locale */
   var localOk=persistLocalState();
   if(window.__consultDirty) window.__consultDirty();   /* indipendente dal debounce history e dal base64 escluso dagli snapshot undo */
@@ -7789,6 +7853,7 @@ function normalizeState(s){
     if(Object.keys(o).length) mman[String(k).slice(0,ITEM_ID_MAX)]=o; }); }
   s.mond={ on:!!mb.on, visible:mb.visible!==false, opacity:Math.min(100,Math.max(15,Math.round((mb.opacity==null||mb.opacity===70)?100:mb.opacity))), locked:!!mb.locked, style:normCabStyle(mb.style), manual:mman };
   if(s.printFrame){ var f=s.printFrame; s.printFrame={x:Math.round(f.x||0), y:Math.round(f.y||0), w:Math.max(50,Math.round(f.w||100)), h:Math.max(50,Math.round(f.h||100))}; }
+  dropOrphanLinks(s);   /* ultimo, a mappe già ricostruite: un progetto salvato con voci rimaste senza elemento si apre già pulito, in ogni scena */
   return s;
 }
 function load(){
