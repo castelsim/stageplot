@@ -6,6 +6,7 @@ sono state scritte qui: la loro storia sta nei messaggi di commit e nelle PR (#9
 
 ## Settembre in una pagina (PR su `main`)
 
+- **05/10 — SEO: CTR delle due guide** (ramo `seo-ctr-guide`): GSC 27/09–03/10 dice che `/guida/rider-tecnico/` (110 impr, 2 clic, pos 7,2) e `/guida/cos-e-uno-stage-plot/` (104 impr, 0 clic, pos 8,0) si vedono ma non si cliccano. Nuovi title/description/og/twitter/headline con la promessa concreta (esempio, modello, come farlo gratis) e i sinonimi cercati «tech rider» e «stage plan»; `dateModified`, byline e `lastmod` al 05/10. ⚠️ Il title del rider deve tenere «cos'è»: il test «non cannibalizza il rider tecnico» separa definizione (rider) e procedura (scheda-tecnica-band). Misurare i clic delle due pagine verso fine ottobre.
 - **05/10 — Giri degli utenti** (#263): `SEARCH_ALIAS_GIRI` (tabella a parte: una chiave ripetuta in
   SEARCH_ALIAS cancellava gli alias esistenti), confidence rinominato «Gobbo / confidence monitor», `sediapubblico`
   aggiunta al gruppo «Arredo e leggii» (non era in nessun gruppo), elementi del luogo = `ostacolo` con over
