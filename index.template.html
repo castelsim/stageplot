@@ -3477,7 +3477,7 @@ var TYPES = {
   proiettore:{nome:"Proiettore", dim:"45×35", cat:"Video", w:48,d:38, defLabel:"PJ",
              draw:function(){ return bar(0,0,44,32,'ic fGrey',4)+circ(11,0,8,'ic thin fBlack')+
                '<path class="ic dash" d="M 23,-7 L 62,-22 M 23,7 L 62,22"/>'; }},
-  confidence:{nome:"Confidence monitor", dim:"schermo a pavimento per il relatore", cat:"Video", w:80,d:40, defLabel:"Confidence", qaCede:"monitor",   /* «monitor» resta dei wedge */
+  confidence:{nome:"Gobbo / confidence monitor", dim:"schermo a terra per chi canta o parla",   /* 05/10: usato come «GOBBO» dai cantanti, e cercato come «gobbo» e «tv» */ cat:"Video", w:80,d:40, defLabel:"Confidence", qaCede:"monitor",   /* «monitor» resta dei wedge */
              alias:"schermo spia ritorno slide relatore conferenza",
              draw:function(){ return bar(0,4,76,30,'ic fBlack',3)+bar(0,2,66,20,'ic thin fGrey',1)+lin(-30,19,30,19,'ic thin'); }},
   camera:   {nome:"Camera", dim:"su treppiede", cat:"Video", w:72,d:72, defLabel:"CAM",
@@ -3820,9 +3820,18 @@ var SEARCH_ALIAS = {
   violapost:"vla", violoncello:"vc vlc cello", contrabbasso:"db cb upright", arpa:"harp",
   consolaluci:"lx light desk", parluci:"lx", dimmerluci:"lx", testamobile:"lx", sagomatore:"lx",
 };
-Object.keys(SEARCH_ALIAS).forEach(function(k){   /* fuso nei tipi: le due ricerche leggono solo TYPES[k].alias */
-  if(TYPES[k]) TYPES[k].alias=((TYPES[k].alias||"")+" "+SEARCH_ALIAS[k]).trim();
-});
+/* 05/10, dai giri degli utenti (analisi/workaround/2026-10-05.md): parole cercate davvero senza risultato,
+   o scritte a mano su un elemento preso al posto di quello giusto. Tabella a parte e AGGIUNTA in coda:
+   in un unico oggetto una chiave ripetuta (camera, iem, percussioni) cancellerebbe la riga di prima. */
+var SEARCH_ALIAS_GIRI = {
+  camera:"webcam web cam tracking", laptop:"sequenze playback basi click backing track", notebook:"sequenze playback basi",
+  iem:"bodypack body pack", sediapubblico:"pubblico platea spettatori sedute",
+  confidence:"gobbo tv televisore schermo testi teleprompter prompter testi canzoni",
+  percussioni:"percussionista percussionisti", cajon:"cajonista",
+};
+[SEARCH_ALIAS, SEARCH_ALIAS_GIRI].forEach(function(tab){ Object.keys(tab).forEach(function(k){   /* fuso nei tipi: le due ricerche leggono solo TYPES[k].alias */
+  if(TYPES[k]) TYPES[k].alias=((TYPES[k].alias||"")+" "+tab[k]).trim();
+}); });
 /* CAT_ORDER = macro-categorie per la trovabilità (L, 07/07): da 17 a 10, strumenti in UN posto.
    La rimappa cat/sub avviene in fase di build (catOf/subOf), i tipi NON vengono mutati. */
 /* Semplificazione 08/07: nomi corti (una riga), gigante spezzato (Palco e pedane / Allestimento),
@@ -16071,12 +16080,25 @@ function ricordaRecenteCatalogo(k, nome, over){
       /* — gruppi strutture — */
       [["Accessi",             ["scala","rampa","parapetto"]],
        ["Scenografia",         ["fondale","quinta","tappeto"]],
-       ["Arredo e leggii",     ["leggiotablet","tavolo","sediabianca","sedia","sedialeggio","leggio","podio","podiosp","sgabello"]],
+       ["Arredo e leggii",     ["leggiotablet","tavolo","sediabianca","sedia","sedialeggio","sediapubblico","leggio","podio","podiosp","sgabello"]],   /* sediapubblico (05/10): esisteva ma non era in nessun gruppo, e la platea si faceva con 60 sedie bianche */
        ["Accessori",           ["ventilatore"]]
       ].forEach(function(g){
         g[1].filter(function(k){ return TYPES[k] && TYPES[k].catalog!==false; }).forEach(function(k){
           addToGroup(g[0], makeBtn(k, TYPES[k].nome)); entries.push({k:k,nome:TYPES[k].nome});
         });
+      });
+      /* ELEMENTI DEL LUOGO (05/10): croce, palo, cippo, finestra, lampadari erano fatti con forme, ostacoli o
+         testi (analisi/workaround/2026-10-05.md). Sono l'«Ostacolo di sito» già col suo nome: si trovano cercando. */
+      if(TYPES.ostacolo) [
+        ["Colonna / palo", "COLONNA", 40, 40, "colonna colonne palo pilastro pilone cippo"],
+        ["Croce", "CROCE", 60, 30, "croce crocifisso chiesa"],
+        ["Altare", "ALTARE", 200, 90, "altare chiesa ambone"],
+        ["Porta", "PORTA", 120, 20, "porta portone ingresso uscita"],
+        ["Finestra", "FINESTRA", 140, 20, "finestra finestre vetrata"],
+        ["Lampadario", "LAMPADARIO", 120, 120, "lampadario lampadari chandelier"],
+        ["Albero", "ALBERO", 150, 150, "albero alberi pianta"]
+      ].forEach(function(v){
+        entries.push({k:"ostacolo", nome:v[0], over:{label:v[1], w:v[2], d:v[3]}, dim:"elemento del luogo", kw:v[4]});
       });
       /* gli sgabelli con il loro tipo: si trovano cercando, nel catalogo resta uno solo (16/09) */
       if(TYPES.sgabello) SGAB_SCELTE.filter(function(k){ return k!=="generico"; }).forEach(function(k){
