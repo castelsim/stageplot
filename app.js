@@ -6471,7 +6471,12 @@ function areaLblSize(it){
   var lunga=String(it.label||"").split(/\s+/).reduce(function(m,p){ return Math.max(m,p.length); },0);
   if(lunga) f=Math.min(f, (w-20)/(lunga*0.62));
   f=Math.min(f, d*0.5);
-  return Math.max(8, Math.floor(f));   /* per difetto: arrotondando per eccesso la parola sporgeva di un soffio */
+  f=Math.max(8, Math.floor(f));   /* per difetto: arrotondando per eccesso la parola sporgeva di un soffio */
+  /* …e TUTTE le righe entrano in altezza (revisione 06/10): «ZONA FIATI E OTTONI» in 200×60 andava su due
+     righe da 30 e usciva sopra e sotto dall'area. Stesso a capo e stesso margine di drawShape. */
+  var mw=Math.max(20, (it.w||120)-16);
+  while(f>8 && wrapTextLines(it.label||"", mw, f).length*f*1.25 + 2*Math.max(6, f*0.3) > d) f--;
+  return f;
 }
 function shapeFillOf(it){ return (it && /^#[0-9a-f]{6}$/i.test(it.fill||"")) ? it.fill : "#0d9488"; }
 /* geometria della forma nel riquadro w×d, centrata sull'origine come tutti gli elementi */
@@ -6495,21 +6500,31 @@ function drawShape(it){
   else if(st==="outline") attrs='fill="none" stroke="'+col+'" stroke-width="'+swo+'"';
   else                    attrs='fill="none" stroke="'+col+'" stroke-width="'+swo+'" stroke-dasharray="10 7"';
   var s='<g class="shape" opacity="'+op+'">'+geom.replace(/\/>$/, " "+attrs+"/>")+'</g>';
-  if(lk) s+=riserLockGlyph(Math.max(8,it.w||120)/2, Math.max(8,it.d||80)/2, shapeOf(it)==="line"?"line":"axis", col);
+  var w2=Math.max(8,it.w||120)/2, d2=Math.max(8,it.d||80)/2, lkY=null;   /* lkY: dove va il lucchetto dell'area col nome in alto */
   /* testo al centro, con lo stesso wrapping del testo libero */
-  var txt=it.label||"", area=(st==="area");
+  var txt=it.label||"", area=(st==="area"), sTxt="";
   if(txt){
     var fsz=area ? areaLblSize(it) : Math.max(6, it.lblSize==null?14:+it.lblSize||14);
     var lines=wrapTextLines(txt, Math.max(20, it.w-16), fsz), lh=fsz*1.25;
     var y0=-((lines.length-1)*lh)/2 + fsz*0.34, tc=esc(it.txtColor||"#1f2937");
-    /* area: il nome in ALTO, dentro il bordo — se le righe ci stanno; altrimenti al centro come la forma */
-    if(area){ var pad=Math.max(6, fsz*0.3), d=Math.max(8,it.d||80); if(lines.length*lh+2*pad<=d) y0=-d/2+pad+fsz*0.85; }
+    /* area: il nome in ALTO, dentro il bordo — se le righe ci stanno; altrimenti al centro come la forma.
+       Solo nel RETTANGOLO (revisione 06/10): cerchio, triangolo e rombo in alto sono stretti, e il nome
+       usciva dalla sagoma; lì resta al centro, dove la sagoma è più larga. */
+    if(area && shapeOf(it)==="rect"){ var pad=Math.max(6, fsz*0.3);
+      if(lines.length*lh+2*pad<=2*d2){ y0=-d2+pad+fsz*0.85; lkY=y0+(lines.length-1)*lh+fsz*0.3+7; } }
     var al=textAlignOf(it,"center"), ax=textAnchorXY(it, al, 10), fw=area ? ";font-weight:700" : "";   /* grassetto inline: svg2pdf legge lo stile calcolato (flattenTextStyles), anche nel PDF */
     lines.forEach(function(ln,i){
-      if(ln) s+='<text class="txtbox-line" x="'+ax[1]+'" y="'+(y0+i*lh)+'" text-anchor="'+ax[0]+'" style="font-size:'+fsz+'px;text-anchor:'+ax[0]+fw+'" fill="'+tc+'">'+esc(ln)+'</text>';
+      if(ln) sTxt+='<text class="txtbox-line" x="'+ax[1]+'" y="'+(y0+i*lh)+'" text-anchor="'+ax[0]+'" style="font-size:'+fsz+'px;text-anchor:'+ax[0]+fw+'" fill="'+tc+'">'+esc(ln)+'</text>';
     });
   }
-  return s;
+  /* lucchetto: sull'asse a metà della metà alta. Nell'area col nome in alto finiva SOPRA la seconda riga
+     del nome (revisione 06/10: «zona 5 violini II» bloccata, lucchetto sul «II»): lì va sotto il nome,
+     tenuto dentro il bordo (al più 5 cm sopra il lato basso); le soglie di grandezza restano quelle di sempre. */
+  if(lk){
+    if(lkY!=null){ if(w2*2>=70 && d2*2>=50) s+=lockGlyphAt(0, Math.min(lkY, d2-5), col); }
+    else s+=riserLockGlyph(w2, d2, shapeOf(it)==="line"?"line":"axis", col);
+  }
+  return s+sTxt;
 }
 /* allineamento del testo (Simone 27/07): vale per il testo libero e per il testo dentro la forma.
    Default: a sinistra nel testo libero, centrato nella forma. */

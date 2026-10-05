@@ -18419,6 +18419,33 @@ t("Area con nome: chi arriva ci si mette dentro, un'area nuova evita solo le alt
     "ma non sopra un'altra area");
 });
 
+/* revisione 06/10/2026: due difetti del disegno visti in Chromium misurando i getBBox */
+t("Area con nome: bloccata, il lucchetto sta SOTTO il nome; nelle sagome non rettangolari il nome sta al centro", () => {
+  const ys = (s) => [...s.matchAll(/<text[^>]* y="([-\d.]+)"[^>]*font-size:([\d.]+)px/g)].map((m) => [+m[1], +m[2]]);
+  const lockY = (s) => +((s.match(/class="riser-lock" transform="translate\([-\d.]+,([-\d.]+)\)"/) || [])[1]);
+  [[300, 200, "zona 5 violini II"], [300, 300, "zona 5 violini II"], [200, 120, "zona 5 violini II"], [80, 78, "ZONA VOCI E CORO"]].forEach(([w, d, lbl]) => {
+    const s = A.TYPES.forma.draw({ type: "forma", shape: "rect", shapeStyle: "area", w, d, label: lbl, lblSize: 32, locked: true });
+    const t = ys(s), ly = lockY(s), ult = t[t.length - 1];
+    ok(t.length >= 2 && Number.isFinite(ly), w + "×" + d + ": due righe e il lucchetto (" + t.length + ", " + ly + ")");
+    ok(ly - 4 > ult[0] + ult[1] * 0.22, w + "×" + d + ": il lucchetto (y " + ly + ") sotto l'ultima riga del nome (base " + ult[0] + ")");
+    ok(ly + 4.2 <= d / 2, w + "×" + d + ": e dentro il bordo (il lucchettino scende 4,2 cm sotto il suo punto)");
+  });
+  const sol = A.TYPES.forma.draw({ type: "forma", shape: "rect", w: 300, d: 200, label: "x", locked: true });
+  eq(lockY(sol), -45, "la forma normale bloccata: lucchetto dove stava");
+  ["circle", "tri", "rhombus", "arrow"].forEach((sh) => {
+    const s = A.TYPES.forma.draw({ type: "forma", shape: sh, shapeStyle: "area", w: 300, d: 200, label: "ZONA VOCI", lblSize: 32 });
+    const y = ys(s)[0][0];
+    ok(Math.abs(y) < 30, sh + ": il nome al centro (y " + y + "), in alto uscirebbe dalla sagoma");
+  });
+  [[200, 60, "ZONA FIATI E OTTONI"], [150, 80, "zona 5 violini II"], [120, 70, "VOCI SOLISTE E CORO"]].forEach(([w, d, lbl]) => {
+    const t = ys(A.TYPES.forma.draw({ type: "forma", shape: "rect", shapeStyle: "area", w, d, label: lbl, lblSize: 32 }));
+    ok(t.every(([y, f]) => y - 0.75 * f >= -d / 2 && y + 0.22 * f <= d / 2),
+      w + "×" + d + " «" + lbl + "»: tutte le righe dentro l'area in altezza (" + JSON.stringify(t) + ")");
+  });
+  const r = A.TYPES.forma.draw({ type: "forma", shape: "rect", shapeStyle: "area", w: 300, d: 200, label: "ZONA VOCI", lblSize: 32 });
+  ok(ys(r)[0][0] < -50, "nel rettangolo resta in alto");
+});
+
 t("Area con nome: nel pannello della forma lo stile «Area», e i quattro bottoni stanno nel pannello", () => {
   const seg = (indexHtml.match(/<div class="seg seg-4"[^>]*aria-label="Stile della forma">([\s\S]*?)<\/div>/) || [])[1] || "";
   eq((seg.match(/data-sst="/g) || []).length, 4, "quattro stili");
