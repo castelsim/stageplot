@@ -766,6 +766,21 @@
       <div id="pAscoltoHint" class="prop-hint"></div>
     </div>
     <div id="pRampWrap" style="display:none"><label for="pRamp">Formato</label><select id="pRamp"></select></div>
+    <!-- PLATEA (06/10/2026): i parametri del blocco di sedie del pubblico. L e P sopra restano: trascinare
+         la maniglia o scrivere la misura aggiunge o toglie sedie e file. -->
+    <div id="pPlateaWrap" style="display:none">
+      <div class="row">
+        <span><label for="pPlFile">File</label><input type="number" id="pPlFile" min="1" max="40" step="1" inputmode="numeric"></span>
+        <span><label for="pPlSedie">Sedie per fila</label><input type="number" id="pPlSedie" min="1" max="60" step="1" inputmode="numeric"></span>
+      </div>
+      <div class="row">
+        <span><label for="pPlPasso">Passo sedie (cm)</label><input type="number" id="pPlPasso" min="50" max="120" step="1" inputmode="numeric"></span>
+        <span><label for="pPlPassoFile">Passo file (cm)</label><input type="number" id="pPlPassoFile" min="60" max="200" step="5" inputmode="numeric"></span>
+      </div>
+      <label class="chk"><input type="checkbox" id="pPlCorr"> Corridoio centrale</label>
+      <div class="row" id="pPlCorrRow" style="display:none"><span><label for="pPlCorrW">Larghezza corridoio (cm)</label><input type="number" id="pPlCorrW" min="60" max="600" step="10" inputmode="numeric"></span></div>
+      <div id="pPlPosti" class="prop-hint"></div>
+    </div>
     <div id="pGazWrap" style="display:none"><label for="pGaz">Taglia</label><select id="pGaz"></select><div style="font-size:11px;color:var(--text-3);margin-top:3px">Poi trascinabile a piacimento.</div></div>
     <!-- B3 (27/07): campo numerico al posto dello slider — mezza riga invece di una intera, e dà il valore
          esatto. Il gesto rapido resta la maniglia di rotazione sul canvas. -->
@@ -2835,6 +2850,84 @@ function drawAstaGigante(){
   s+='<circle fill="'+GR2+'" cx="-.4" cy="'+n(tip-3.4)+'" r="2.5"/>';
   return s;
 }
+/* PLATEA A BLOCCHI (06/10/2026, dai giri degli utenti: una platea disegnata con 60 sedie bianche posate
+   una per una). UN elemento solo, ridimensionabile, che disegna le file di sedie del pubblico e conta i
+   posti: si sposta in un gesto e il file resta leggero (un elemento invece di 60).
+   Fonte di verità = le MISURE (w, d) più il passo: file e sedie per fila si ricavano da lì. Così ogni
+   strada che cambia w/d senza sapere della platea (Adatta palco che la accorcia, il campo L/P, la
+   maniglia) lascia sempre un disegno coerente: ci stanno tante sedie quante ne entrano, mai una di più.
+   Ogni posto occupa una «casella» passo × passoFile (la sedia 50×53 al centro, il resto è lo spazio per
+   passare), il corridoio centrale opzionale divide la fila in due metà. */
+var PLATEA_DEF = { passo:55, passoFile:90, corridoio:0 };
+var PLATEA_LIM = { file:[1,40], sedie:[1,60], passo:[50,120], passoFile:[60,200], corridoio:[0,600] };
+var PLATEA_CORR_DEF = 120;   /* larghezza proposta quando si accende il corridoio: due persone che si incrociano */
+function plateaLim(k, v, def){ var l=PLATEA_LIM[k]; v=Math.round(+v); if(!isFinite(v)) v=def; return Math.max(l[0], Math.min(l[1], v)); }
+function plateaCfg(it){
+  var p=(it && it.platea && typeof it.platea==="object") ? it.platea : {};
+  var passo=plateaLim("passo", p.passo, PLATEA_DEF.passo), passoFile=plateaLim("passoFile", p.passoFile, PLATEA_DEF.passoFile);
+  var corridoio=plateaLim("corridoio", p.corridoio, PLATEA_DEF.corridoio);
+  var w=+(it && it.w)||0, d=+(it && it.d)||0;
+  /* floor e non round: una platea accorciata da fuori (Adatta) perde una sedia, non sborda dal suo ingombro */
+  var sedie=plateaLim("sedie", Math.floor((w-corridoio)/passo), 1), file=plateaLim("file", Math.floor(d/passoFile), 1);
+  if(sedie<2) corridoio=0;   /* una sedia sola non ha due metà fra cui passare */
+  return { file:file, sedie:sedie, passo:passo, passoFile:passoFile, corridoio:corridoio };
+}
+function plateaPosti(it){ var c=plateaCfg(it); return c.file*c.sedie; }
+/* Cambia uno o più parametri tenendo gli altri: le misure si rifanno esatte sulle caselle. */
+function plateaImposta(it, cambi){
+  var c=plateaCfg(it); cambi=cambi||{};
+  ["file","sedie","passo","passoFile","corridoio"].forEach(function(k){ if(cambi[k]!=null) c[k]=plateaLim(k, cambi[k], c[k]); });
+  if(c.sedie<2) c.corridoio=0;
+  it.platea={ passo:c.passo, passoFile:c.passoFile, corridoio:c.corridoio };
+  it.w=c.sedie*c.passo+c.corridoio; it.d=c.file*c.passoFile;
+  return c;
+}
+/* Dalle misure chieste (maniglia, campo L/P) al numero di sedie più vicino: round, così trascinando si
+   aggiunge una sedia a metà casella invece che a casella intera. Poi le misure tornano esatte. */
+function plateaDaMisure(it, w, d){
+  var c=plateaCfg(it);
+  return plateaImposta(it, { sedie:Math.round((w-c.corridoio)/c.passo), file:Math.round(d/c.passoFile) });
+}
+/* I posti, al centro delle loro caselle, nel riferimento dell'elemento. Le sedie guardano il palco (-y):
+   lo schienale sta dietro, verso +y — al contrario della «Sedia pubblico» singola, che nasce come quella
+   dei musicisti. Se le misure avanzano (platea accorciata da fuori), il blocco sta al centro. */
+function plateaPostiXY(it){
+  var c=plateaCfg(it), out=[];
+  var usatoW=c.sedie*c.passo+c.corridoio, usatoD=c.file*c.passoFile;
+  var x0=-usatoW/2, y0=-usatoD/2, sx=Math.ceil(c.sedie/2);
+  for(var f=0; f<c.file; f++) for(var s=0; s<c.sedie; s++){
+    out.push({ x:x0+c.passo*(s+0.5)+(c.corridoio && s>=sx ? c.corridoio : 0), y:y0+c.passoFile*(f+0.5) });
+  }
+  return out;
+}
+function plateaDraw(it){
+  var s='', n=0;
+  plateaPostiXY(it).forEach(function(p){ n++;
+    s+=bar(p.x,p.y-3,50,46,'ic fill',6)+bar(p.x,p.y+20,50,9,'ic fill',4)+bar(p.x,p.y-3,42,38,'ic soft',5); });
+  var txt=n+(n===1?" posto":" posti"), fs=18, tw=txt.length*fs*.58+16;
+  /* il conteggio al centro, su un cartellino bianco: nel corridoio quando c'è, sopra le sedie se no */
+  s+='<rect x="'+(-tw/2)+'" y="'+(-fs*.85)+'" width="'+tw+'" height="'+(fs*1.7)+'" rx="6" fill="#fff" stroke="#cbd5e1" stroke-width="1"/>';
+  s+='<text x="0" y="'+(fs*.35)+'" text-anchor="middle" font-size="'+fs+'" font-weight="700" fill="#1c1c1c" font-family="-apple-system,Segoe UI,sans-serif">'+txt+'</text>';
+  return s;
+}
+/* Il riquadro della platea nel pannello: i numeri veri (anche dopo un «Adatta») e il conteggio dei posti,
+   con il peso, che è l'unica cosa della platea che entra nel rider. */
+function plateaTestoPosti(it){ var c=plateaCfg(it), n=c.file*c.sedie;
+  return n+(n===1?" posto":" posti")+" · "+c.file+(c.file===1?" fila":" file")+" × "+c.sedie+" · "+fmtKg(weightOf(it))+" di sedie"; }
+function plateaFillProps(it){
+  var w=document.getElementById("pPlateaWrap"); if(!w) return;
+  var on=!!(it && it.type==="platea"); w.style.display = on ? "block" : "none";
+  if(!on) return;
+  var c=plateaCfg(it);
+  document.getElementById("pPlFile").value=c.file;
+  document.getElementById("pPlSedie").value=c.sedie;
+  document.getElementById("pPlPasso").value=c.passo;
+  document.getElementById("pPlPassoFile").value=c.passoFile;
+  document.getElementById("pPlCorr").checked=c.corridoio>0;
+  document.getElementById("pPlCorrRow").style.display = c.corridoio>0 ? "" : "none";
+  document.getElementById("pPlCorrW").value=c.corridoio||PLATEA_CORR_DEF;
+  document.getElementById("pPlPosti").textContent=plateaTestoPosti(it);
+}
 var TYPES = {
   /* --- revisione 05/07: Site + Rigging (lotto 2) --- */
   mojobar: {nome:"Barriera antipanico", dim:"100×125", cat:"Sicurezza e site", w:100,d:125,
@@ -3038,6 +3131,11 @@ var TYPES = {
              draw:function(){ return bar(0,2,44,44,'ic fBlack',8)+bar(0,-20,44,8,'ic fill',4); }},
   sediapubblico:{nome:"Sedia pubblico", dim:"50×53 · 3,5 kg", cat:"Palco e strutture", w:50,d:53, z:1.5, defLabel:"Sedia",   /* sedia impilabile pubblico 50×53, alt. 77/seduta 46, 3,5 kg */
              draw:function(){ return bar(0,3,50,46,'ic fill',6)+bar(0,-20,50,9,'ic fill',4)+bar(0,3,42,38,'ic soft',5); }},
+  /* platea (06/10/2026): file di sedie del pubblico in un elemento solo — vedi plateaCfg. NON sono sedie dei
+     musicisti: non entrano nel conteggio «sedie» del rider (countAccessori, pdfTotals), solo nel peso. */
+  platea:{nome:"Platea (file di sedie)", dim:"6 file × 10 sedie · 60 posti", cat:"Palco e strutture", w:550,d:540, resizable:true, z:1, defLabel:"Platea",
+             alias:"platea pubblico sedie pubblico sedie del pubblico posti a sedere posti spettatori file di sedie sala audience seating",
+             draw:function(it){ return plateaDraw(it); }},
   sedialeggio:{nome:"Sedia + leggio", dim:"postazione", cat:"Palco e strutture", w:75,d:105,
              draw:function(){ return bar(0,-22,46,46,'ic fBlack',9)+bar(0,-48,46,9,'ic fill',4)+leggioGlyph(38); }},
   leggio:   {nome:"Leggio", dim:"48×35", cat:"Palco e strutture", catalog:false, w:50,d:35,
@@ -3845,7 +3943,7 @@ var ESSENTIAL={ comboamp:1,stack:1,bassamp:1,keysamp:1, astamic:1,giraffa:1,asta
   /* video e studio: essenziali le sorgenti LED che si montano ogni giorno; HMI, Fresnel LED e
      open-face restano sotto «Mostra tutti» (set più strutturati, non il kit di tutti i giorni) */
   ledcob:1,ledmono:1,ledpanel:1,ledflex:1,ledtube:1,softlight:1,
-  pedana:1,tappeto:1,fondale:1,sediabianca:1,sgabello:1,leggio:1,leggiotablet:1, truss:1,transenna:1,estcarr:1,towergs:1,
+  pedana:1,tappeto:1,fondale:1,sediabianca:1,platea:1,sgabello:1,leggio:1,leggiotablet:1, truss:1,transenna:1,estcarr:1,towergs:1,
   notebook:1,rack2u:1,flightcase:1, cantante:1,corista:1,direttore:1,
   vlnpost:1,violapost:1,violoncello:1,contrabbasso:1,flauto:1,clarinetto:1,saxalto:1,saxtenore:1,tromba:1,trombone:1,corno:1,
   stagepiano:1,tastiera:1,grancoda:1,doppiatastiera:1,organohammond:1, gtstand:1,gtacustica:1,bassstand:1,pedaliera:1, batteria:1,snareR:1 };
@@ -4215,6 +4313,8 @@ function weightOf(it){ if(!it) return 0; if(it.kg!=null && isFinite(it.kg)) retu
   if(ew!=null) return ew;
   var aw=(typeof ampModelKg==="function")?ampModelKg(it):null;   /* backline reale (AMP_DB) */
   if(aw!=null) return aw;
+  /* platea (06/10/2026): pesa quanto le sue sedie del pubblico, una per posto */
+  if(it.type==="platea") return plateaPosti(it)*WEIGHT.sediapubblico;
   return WEIGHT[it.type]||0; }
 function totalWeightKg(){ return (state.items||[]).reduce(function(a,it){ return a+weightOf(it); },0); }
 function totalRackU(){ return (state.items||[]).reduce(function(a,it){ return a+(RACK_U[it.type]||0); },0); }
@@ -7582,6 +7682,10 @@ function normalizeLoadedItems(arr){
       if(it.fill!=null && !/^#[0-9a-f]{6}$/i.test(String(it.fill))) delete it.fill;
       if(it.shape!=null && !SHAPES.some(function(x){ return x[0]===it.shape; })) delete it.shape;
       if(it.shapeStyle!=null && it.shapeStyle!=="outline" && it.shapeStyle!=="dashed") delete it.shapeStyle;
+    }
+    if(it.platea!=null){   /* platea (06/10/2026): solo i tre numeri, nei loro limiti; il resto viene dalle misure */
+      if(it.type!=="platea" || typeof it.platea!=="object" || Array.isArray(it.platea)) delete it.platea;
+      else { var _pc=plateaCfg(it); it.platea={ passo:_pc.passo, passoFile:_pc.passoFile, corridoio:_pc.corridoio }; }
     }
     if(Object.prototype.hasOwnProperty.call(COMP,it.type)) normalizeCompositeParts(it);
     else if(it.parts!=null && (!it.parts || typeof it.parts!=="object" || Array.isArray(it.parts))) delete it.parts;
@@ -14203,6 +14307,7 @@ function renderProps(){
     if(isRamp){ var rsel=document.getElementById("pRamp");
       rsel.innerHTML=Object.keys(RAMP_TYPES).map(function(k){ return '<option value="'+k+'">'+esc(RAMP_TYPES[k].nome)+(RAMP_TYPES[k].ch?" · "+RAMP_TYPES[k].ch+" canali":"")+'</option>'; }).join("");
       rsel.value=it.rampType||"midi"; } }
+  plateaFillProps(it);
   var gzw=document.getElementById("pGazWrap");   /* gazebo: taglia preset (poi resize libero) */
   if(gzw){ var isGaz=!!GAZ_TYPES[it.type]; gzw.style.display=isGaz?"block":"none";
     if(isGaz){ var gsel=document.getElementById("pGaz"), gcur=it.w+"x"+it.d;
@@ -14742,8 +14847,18 @@ document.getElementById("pDiFor").addEventListener("change", function(e){
 document.getElementById("pDiType").addEventListener("click", function(e){ var b=e.target.closest("button[data-v]"); if(!b) return; mutSel(function(it){ it.diType=b.getAttribute("data-v"); it.diTypeUtente=true; __cabRes=null; }); });
 document.getElementById("pDiMultiN").addEventListener("click", function(e){ var b=e.target.closest("button[data-v]"); if(!b) return; mutSel(function(it){ it.diMultiCh=+b.getAttribute("data-v"); __cabRes=null; }); });
 document.getElementById("pDiSchema").addEventListener("change", function(){ var v=document.getElementById("pDiSchema").checked; mutSel(function(it){ it.diSchema=v; }); });
-document.getElementById("pW").addEventListener("change", function(){ mutSel(function(it){ it.w=Math.max(10,+document.getElementById("pW").value||it.w); }); });
-document.getElementById("pD").addEventListener("change", function(){ mutSel(function(it){ it.d=Math.max(10,+document.getElementById("pD").value||it.d); }); });
+document.getElementById("pW").addEventListener("change", function(){ mutSel(function(it){ it.w=Math.max(10,+document.getElementById("pW").value||it.w); if(it.type==="platea") plateaDaMisure(it, it.w, it.d); }); renderProps(); });
+document.getElementById("pD").addEventListener("change", function(){ mutSel(function(it){ it.d=Math.max(10,+document.getElementById("pD").value||it.d); if(it.type==="platea") plateaDaMisure(it, it.w, it.d); }); renderProps(); });
+/* PLATEA (06/10/2026): file, sedie, passi e corridoio — ogni campo rifà le misure (plateaImposta) */
+[["pPlFile","file"],["pPlSedie","sedie"],["pPlPasso","passo"],["pPlPassoFile","passoFile"],["pPlCorrW","corridoio"]].forEach(function(f){
+  var el=document.getElementById(f[0]); if(!el || !el.addEventListener) return;
+  el.addEventListener("change", function(){ var v=+el.value; if(!isFinite(v)||el.value==="") { renderProps(); return; }
+    var c={}; c[f[1]]=v; mutSel(function(it){ if(it.type==="platea") plateaImposta(it, c); }); renderProps(); });
+});
+(function(){ var el=document.getElementById("pPlCorr"); if(!el || !el.addEventListener) return;
+  el.addEventListener("change", function(){ var on=!!el.checked;
+    mutSel(function(it){ if(it.type==="platea") plateaImposta(it, { corridoio: on ? PLATEA_CORR_DEF : 0 }); }); renderProps(); });
+})();
 document.getElementById("pH").addEventListener("change", function(){ mutSel(function(it){ it.h=Math.max(0,+document.getElementById("pH").value||0); }); });
 var ROT_SNAP=2;   /* snap magnetico leggero: entro ±2° aggancia i cardinali, fuori resta libero per regolazioni precise */
 function applyRot(doSave){
@@ -16152,7 +16267,7 @@ function ricordaRecenteCatalogo(k, nome, over){
       /* — gruppi strutture — */
       [["Accessi",             ["scala","rampa","parapetto"]],
        ["Scenografia",         ["fondale","quinta","tappeto"]],
-       ["Arredo e leggii",     ["leggiotablet","tavolo","sediabianca","sedia","sedialeggio","sediapubblico","leggio","podio","podiosp","sgabello"]],   /* sediapubblico (05/10): esisteva ma non era in nessun gruppo, e la platea si faceva con 60 sedie bianche */
+       ["Arredo e leggii",     ["leggiotablet","tavolo","sediabianca","sedia","sedialeggio","sediapubblico","platea","leggio","podio","podiosp","sgabello"]],   /* sediapubblico (05/10): esisteva ma non era in nessun gruppo, e la platea si faceva con 60 sedie bianche */
        ["Accessori",           ["ventilatore"]]
       ].forEach(function(g){
         g[1].filter(function(k){ return TYPES[k] && TYPES[k].catalog!==false; }).forEach(function(k){
@@ -17867,7 +17982,8 @@ svg.addEventListener("pointermove", function(e){
       if(grid){ nw=snap(nw); nd=snap(nd); }
       rzit.w=nw; rzit.d=nd;
       if(rzit.type==="cableramp"){ var rcfg=RAMP_TYPES[rzit.rampType||"midi"]; if(!rcfg.end){ nw=Math.max(rcfg.w, Math.round(nw/rcfg.w)*rcfg.w); nd=rcfg.d; rzit.w=nw; rzit.d=nd; } }   /* passacavi: lunghezza a scatti di 1 modulo, larghezza fissa per formato */
-      if(rzit.type==="parapetto"){ nd=TYPES.parapetto.d; rzit.d=nd; }   /* parapetto pedana: si estende solo in lunghezza, spessore fisso (8 cm) */
+      if(rzit.type==="parapetto"){ nd=TYPES.parapetto.d; rzit.d=nd; }
+      if(rzit.type==="platea"){ plateaDaMisure(rzit, nw, nd); nw=rzit.w; nd=rzit.d; }   /* platea: a scatti di una sedia e di una fila (06/10/2026) */   /* parapetto pedana: si estende solo in lunghezza, spessore fisso (8 cm) */
       var shx=sgx*(nw-drag.w0)/2, shy=sgy*(nd-drag.d0)/2;   /* shift calcolato sui valori (eventualmente) snappati → lato opposto davvero fermo */
       var cc=Math.cos(drag.rot), ss=Math.sin(drag.rot);   /* riporta lo shift locale in coordinate globali (lato opposto fermo) */
       rzit.x = drag.x0 + (shx*cc - shy*ss);
@@ -26281,7 +26397,7 @@ var H3D={ pedana:0,scala:40,rampa:40,parapetto:110,fondale:400,quinta:400,truss:
 /* elementi documentati in patch/2D ma NON da renderizzare (simboli) */
 var HIDDEN3D={ testo:1, metro:1, corrente:1, ciabatta:1, iem:1, headset:1, wireless:1 };
 /* descrizioni EN per il motore 3D (fallback = nome italiano) */
-var DESC3D={ pedana:"black stage riser/platform", podio:"square conductor podium with black trim",
+var DESC3D={ platea:"rows of audience chairs facing the stage", pedana:"black stage riser/platform", podio:"square conductor podium with black trim",
   pedanacoro:"choir riser with 3 steps", tappeto:"large muted-red orchestral rug", sedia:"black padded orchestra chair", sediabianca:"white/light padded orchestra chair",
   sedialeggio:"black padded orchestra chair with black music stand", leggio:"black orchestral music stand",
   batteria:"5-piece acoustic drum kit (kick 22\", snare, 2 rack toms, floor tom, hi-hat, crash, ride, throne)",
