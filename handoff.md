@@ -6,6 +6,16 @@ sono state scritte qui: la loro storia sta nei messaggi di commit e nelle PR (#9
 
 ## Settembre in una pagina (PR su `main`)
 
+- **05/10 — Chitarra classica su sgabello** (ramo `chitarra-sgabello`, IN ATTESA dell'ok di Simone sull'anteprima: niente PR).
+  Lo «Sgabello» a parte finiva sotto la figura e non si vedeva. Ora la seduta è della postazione: pannello «Seduta:
+  Sedia · Sgabello · Niente» (chips `pSeduta`, «Niente» solo nello schematico) → `chitClImpostaSeduta(it, v)`;
+  dato = `it.sgab===true` (+ `sedia:true`), letto da `chitClSeduta(it)`. Disegno: `sgabSeduta(scuro)` (seduta tonda,
+  anello poggiapiedi, 4 gambe in diagonale). Illustrato: sgabello sotto, figura `musChitClassicaSgab` (icons.js:
+  stessa figura senza i 9 pezzi della sedia e con il contorno nero ripassato con potrace — svg2pdf 2.2.3 non conosce
+  `<mask>`), ingombro 87×98 (`CHITCL_SGAB`). Schematico: sgabello scuro al posto di `chairSvg` in `guitarDraw`
+  (solo se `it.sgab`). Conteggi: `sgabelliDi` e `countAccessori` lo contano come sgabello generico. ⚠️ Visto e NON
+  toccato: la SEDIA della chitarra classica oggi non si conta da nessuna parte (né Stato né cartiglio).
+
 - **05/10 — Collegamenti orfani** (ramo `orfani-collegamenti`, da una segnalazione su un progetto vero). Le mappe dei
   collegamenti sono indicizzate per id di elemento — `elec.manual` e `elec.uplinks`, `cab.manual` (chiavi `id#n`,
   `grp:id`, `mix:I:id`, `ret:mix:id`), `mond.manual` — e cancellare un elemento non le toccava: `uid()` riparte dal

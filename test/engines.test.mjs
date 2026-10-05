@@ -6912,6 +6912,80 @@ t("la chitarra classica musicista ha anche l'aspetto schematico", () => {
     eq(A.TYPES.musChitClassica.draw(it), A.TYPES.gtacustica.draw(stessiFlag(it)), "diverso con " + f[0]);
   });
 });
+/* CHITARRA CLASSICA SU SGABELLO (05/10, Simone: «mi serve chitarra classica con musicista seduto su sgabello»).
+   Lo sgabello a parte finiva sotto la figura e non si vedeva: ora è una SEDUTA della postazione, disegnata
+   sotto la figura (che perde la sua sedia) e contata come sgabello, non come sedia. */
+t("chitarra classica: la seduta si sceglie (sedia / sgabello / niente) e cambia disegno e ingombro", () => {
+  reset();
+  const it = add("musChitClassica", 300, 300);
+  const sgabChiaro = A.sgabSeduta(false), sgabScuro = A.sgabSeduta(true), sedia = A.chairSvg(0);
+  eq(A.chitClSeduta(it), "sedia", "illustrata di serie: la figura è seduta sulla sedia");
+  ok(A.TYPES.musChitClassica.draw(it).indexOf(sgabChiaro) < 0, "senza scelta niente sgabello");
+  A.chitClImpostaSeduta(it, "sgabello");
+  eq([A.chitClSeduta(it), it.sedia, it.sgab, it.w, it.d], ["sgabello", true, true, 87, 98], "sgabello: seduta, flag e ingombro");
+  const ill = A.TYPES.musChitClassica.draw(it);
+  ok(ill.indexOf(sgabChiaro) > -1, "illustrato: lo sgabello (chiaro) è disegnato");
+  ok(ill.indexOf(sgabChiaro) < ill.indexOf("translate(0,5.5)"), "lo sgabello va PRIMA della figura (sotto), non sopra");
+  ok(/translate\(-4,-28\.5\)/.test(ill), "lo sgabello sporge dietro la schiena");
+  // niente sull'illustrato non esiste: la figura è seduta → torna la sedia
+  A.chitClImpostaSeduta(it, "niente");
+  eq([A.chitClSeduta(it), it.sgab, it.d], ["sedia", undefined, 87], "illustrato + niente = sedia");
+  // schematico
+  it.look = "schematico"; A.chitClImpostaSeduta(it, "sgabello");
+  const sch = A.TYPES.musChitClassica.draw(it);
+  ok(sch.indexOf(sgabScuro) > -1 && sch.indexOf(sedia) < 0, "schematico: sgabello scuro AL POSTO della sedia");
+  const gs = A.gtrSize({ sedia: true }, A.TYPES.gtacustica);
+  eq([it.w, it.d], gs, "schematico: lo sgabello sta nell'ingombro della sedia");
+  A.chitClImpostaSeduta(it, "sedia");
+  ok(A.TYPES.musChitClassica.draw(it).indexOf(sedia) > -1 && A.TYPES.musChitClassica.draw(it).indexOf(sgabScuro) < 0, "schematico: sedia");
+  A.chitClImpostaSeduta(it, "niente");
+  eq([A.chitClSeduta(it), it.sedia], ["", false], "schematico: niente");
+  const nudo = A.TYPES.musChitClassica.draw(it);
+  ok(nudo.indexOf(sedia) < 0 && nudo.indexOf(sgabScuro) < 0, "niente: né sedia né sgabello");
+  // l'acustica non cambia (lo sgabello è solo della classica)
+  eq(A.TYPES.gtacustica.draw({ sedia: true }), A.TYPES.musChitClassica.draw({ type: "musChitClassica", look: "schematico", sedia: true }));
+});
+t("chitarra classica su sgabello: conta come sgabello, non come sedia (rider e Stato)", () => {
+  reset();
+  const a = add("musChitClassica", 200, 300), b = add("musChitClassica", 400, 300), c = add("musChitClassica", 600, 300);
+  const prima = A.countAccessori();
+  A.chitClImpostaSeduta(a, "sgabello");
+  b.look = "schematico"; A.chitClImpostaSeduta(b, "sgabello");
+  c.look = "schematico"; A.chitClImpostaSeduta(c, "niente");
+  eq(A.sgabelliPerTipo(A.state.items), [["generico", 2]], "due sgabelli generici");
+  eq(A.sgabelliTesto(A.state.items), ["2 sgabelli"]);
+  const dopo = A.countAccessori();
+  eq(dopo.sgabelli - prima.sgabelli, 2, "Stato: +2 sgabelli");
+  eq(dopo.sedie, prima.sedie, "Stato: le sedie non cambiano (uno sgabello non è una sedia)");
+  ok(A.pdfTotals().some(r => r === "2 sgabelli"), "cartiglio del PDF: «2 sgabelli» — " + JSON.stringify(A.pdfTotals()));
+  A.chitClImpostaSeduta(a, "sedia"); A.chitClImpostaSeduta(b, "sedia");
+  eq(A.sgabelliTesto(A.state.items), [], "tornati alla sedia: nessuno sgabello");
+});
+t("chitarra classica su sgabello: salva e riapri tiene la seduta", () => {
+  reset();
+  const a = add("musChitClassica", 200, 300), b = add("musChitClassica", 400, 300);
+  A.chitClImpostaSeduta(a, "sgabello"); b.look = "schematico"; A.chitClImpostaSeduta(b, "sgabello");
+  const ids = [a.id, b.id];
+  A.loadDoc(JSON.parse(A.docToJSON()));
+  const r = ids.map(id => A.state.items.find(x => x.id === id));
+  eq(r.map(x => [x.look || "illustrato", A.chitClSeduta(x), x.d]), [["illustrato", "sgabello", 98], ["schematico", "sgabello", 110]]);
+  eq(A.sgabelliTesto(A.state.items), ["2 sgabelli"]);
+  const s = A.sanitizeItems([{ type: "musChitClassica", x: 0, y: 0, sgab: true, sedia: true }])[0];   /* JSON grezzo (AI/import) */
+  eq([A.chitClSeduta(s), s.d], ["sgabello", 98], "anche dal JSON grezzo: sgabello e ingombro");
+});
+t("icone: il chitarrista classico senza sedia è la stessa figura meno i pezzi della sedia", () => {
+  const ctx = { window: {} }; vm.createContext(ctx);
+  vm.runInContext(readFileSync(join(root, "icons.js"), "utf8"), ctx);
+  const L = ctx.window.LIB_ICONS, o = L.musChitClassica, s = L.musChitClassicaSgab;
+  ok(s && s.body, "manca musChitClassicaSgab in icons.js");
+  eq(s.vb, o.vb, "stesso riquadro");
+  const sedia = [16, 108, 68, 127, 77, 131, 58, 32, 64];
+  sedia.forEach(n => { ok(o.body.indexOf('musChitClassica_cls-' + n + '"') > -1, "l'originale ha il pezzo " + n);
+    ok(s.body.indexOf('class="musChitClassica_cls-' + n + '"') < 0, "pezzo della sedia rimasto: cls-" + n); });
+  eq((s.body.match(/<path /g) || []).length, (o.body.match(/<path /g) || []).length - sedia.length, "tolti SOLO i 9 pezzi della sedia");
+  ok(/class="musChitClassica_cls-25" transform="matrix\(0\.01 0 0 -0\.01 -4 260\)" d="M/.test(s.body), "contorno nuovo, senza la sedia");
+  ok(s.body.indexOf("<mask") < 0, "niente <mask>: svg2pdf non la disegna");
+});
 t("l'archetto e' proposto solo a chi suona con le mani occupate", () => {
   reset();
   [["gtstand", true], ["bassstand", true], ["stagepiano", true], ["batteria", true],
