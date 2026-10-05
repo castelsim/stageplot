@@ -2647,6 +2647,36 @@ t("platea: si trova con platea, pubblico, sedie pubblico, posti a sedere", () =>
   ok(A.__catEntries.some((e) => e.k === "platea"), "sta nel catalogo");
   ok(A.ESSENTIAL.platea, "e si vede subito, senza «Mostra tutti»");
 });
+/* Revisione 06/10/2026: la platea sta in sala per definizione. Contata «fuori dal palco», l'Esporta mostrava
+   sempre «1 elemento è fuori dal palco» e il suo «Adatta il palco» allargava il palco fino al pubblico. */
+t("platea: in sala non è «fuori dal palco» e «Adatta il palco» non la ingloba", () => {
+  reset();
+  for (let i = 0; i < 4; i++) add("cantante", 300 + i * 150, 400);   /* dentro il palco 12×8 */
+  const prima = JSON.stringify(A.palcoCheContieneTutto());
+  const p = add("platea", 600, 800 + 400);                           /* davanti al palco, in sala */
+  eq(A.elementiFuoriDalPalco().length, 0, "la platea non è un elemento fuori posto");
+  eq(JSON.stringify(A.palcoCheContieneTutto()), prima, "il palco «che contiene tutto» non arriva fino al pubblico");
+  const r = A.adattaPalcoCalcola(A.state.items, 1200, 800, 1000, 700);
+  eq(r.pos[p.id].y - 700, p.y - 800, "e Adatta la lascia alla stessa distanza dal bordo, come il FOH");
+});
+t("platea: un JSON generato (#d=, ChatGPT) tiene passi e corridoio", () => {
+  const [p] = A.sanitizeItems([{ id: "pl1", type: "platea", x: 600, y: 1200, w: 790, d: 600, platea: { passo: 60, passoFile: 100, corridoio: 130 } }]);
+  eq(p.platea, { passo: 60, passoFile: 100, corridoio: 130 }, "i parametri arrivano");
+  const s = A.normalizeState({ _v: A.SCHEMA_VERSION, items: [p], inputs: [], outputs: [] });
+  const c = A.plateaCfg(s.items[0]);
+  eq([c.file, c.sedie, c.corridoio, A.plateaPosti(s.items[0])], [6, 11, 130, 66], "e la platea resta quella disegnata");
+});
+t("platea: non si specchia (il cartellino «60 posti» uscirebbe a rovescio)", () => {
+  reset(); const p = add("platea", 600, 1200);
+  eq(A.canMirror(p), false);
+  A.selectOne(p.id); A.mirrorSel();
+  eq(p.mir, undefined, "il comando non la ribalta");
+  const s = A.normalizeState({ _v: A.SCHEMA_VERSION, items: [{ id: "p1", type: "platea", x: 0, y: 0, w: 550, d: 540, mir: true }], inputs: [], outputs: [] });
+  ok(!("mir" in s.items[0]), "e da un file arriva dritta");
+});
+t("platea: la maniglia non la fa agganciare al bordo del palco fuori dalle sue caselle", () => {
+  ok(/if\(!grid && drag\.rot===0 && rzit\.type!=="platea"\)\{/.test(appjs), "il magnete al bordo durante il ridimensionamento salta la platea");
+});
 
 console.log("\nT2 — rider tecnico generato dai dati:");
 t("riderData: canali derivati + testo default", () => {

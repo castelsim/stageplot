@@ -5603,6 +5603,7 @@ function normalizeLoadedItems(arr){
       if(it.type!=="platea" || typeof it.platea!=="object" || Array.isArray(it.platea)) delete it.platea;
       else { var _pc=plateaCfg(it); it.platea={ passo:_pc.passo, passoFile:_pc.passoFile, corridoio:_pc.corridoio }; }
     }
+    if(it.type==="platea" && it.mir!=null) delete it.mir;   /* non si specchia (NO_MIRROR): da un JSON arriverebbe con «60 posti» a rovescio */
     if(Object.prototype.hasOwnProperty.call(COMP,it.type)) normalizeCompositeParts(it);
     else if(it.parts!=null && (!it.parts || typeof it.parts!=="object" || Array.isArray(it.parts))) delete it.parts;
     return it;
@@ -6000,7 +6001,7 @@ function sanitizeItems(arr){
     if(t.riser) it.h=(o.h!=null?+o.h:(t.h||40));
     else if(isCover(it) && o.h!=null) it.h=+o.h;   /* coperture: h opzionale (luce sotto); se assente = default coverH() */
     if(Object.prototype.hasOwnProperty.call(COMP,o.type)) it.parts=o.parts?compClone(o.parts):compClone(COMP[o.type].defParts);
-    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","podio","sgab","grp","distOf","distType","aggancia","dimSide","lblSize","plCh","dvsPro","dvsNet","dvsSr","dvsLat","ifaceId","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
+    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","podio","sgab","grp","distOf","distType","aggancia","dimSide","lblSize","plCh","dvsPro","dvsNet","dvsSr","dvsLat","ifaceId","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic","platea"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });   /* platea: passi e corridoio, ripuliti poi da normalizeLoadedItems */
     if(it.type==="dimono"){   /* DI box: normalizza gli assi + footprint (migra il vecchio diLook del selettore) */
       if(it.diLook){ if(it.diLook==="stereo") it.diCh=it.diCh||"stereo"; else if(it.diLook==="rack") it.diCh=it.diCh||"multi"; else if(it.diLook==="attiva") it.diType=it.diType||"attiva"; else if(it.diLook==="schema") it.diSchema=true; delete it.diLook; }
       if(!DI_CH_LABEL[it.diCh]) it.diCh="mono"; if(it.diType!=="attiva") it.diType="passiva"; if(it.diMultiCh!==6) it.diMultiCh=8;
@@ -6065,7 +6066,7 @@ function stageBlocks(){ var b=state.stage.blocks; return (b&&b.length)?b:[{x:0,y
    l'editor: era uno che non si era accorto del rettangolo. E l'app, che le coordinate le conosce
    tutte, taceva.
    La postazione FOH sta in sala per definizione: non conta. */
-var FUORI_OK = { foh:1 };
+var FUORI_OK = { foh:1, platea:1 };   /* platea (06/10/2026): le file del pubblico stanno in sala per definizione, come il FOH */
 function elementiFuoriDalPalco(){
   var bl=stageBlocks(), out=[];
   (state.items||[]).forEach(function(it){
@@ -13039,7 +13040,7 @@ document.getElementById("pBack").addEventListener("click", function(){
    l'altro lato del palco. Ora è un'azione, nella stessa riga di Duplica ed Elimina.
    Fuori: gli elementi il cui disegno È scrittura (testo, forma, zona) — specchiarli scriverebbe al
    contrario, che non è mai quello che si vuole. */
-var NO_MIRROR={ testo:1, forma:1, miczone:1, metro:1 };
+var NO_MIRROR={ testo:1, forma:1, miczone:1, metro:1, platea:1 };   /* platea: simmetrica, e il cartellino «60 posti» uscirebbe a rovescio */
 function canMirror(it){ return !!(it && !NO_MIRROR[it.type]); }
 /* Con PIÙ elementi (selezionati o uniti in blocco) specchiare vuol dire ribaltare la DISPOSIZIONE,
    non solo l'arte di ognuno: chi sta a sinistra passa a destra rispetto all'asse verticale del
@@ -15898,8 +15899,8 @@ svg.addEventListener("pointermove", function(e){
       if(grid){ nw=snap(nw); nd=snap(nd); }
       rzit.w=nw; rzit.d=nd;
       if(rzit.type==="cableramp"){ var rcfg=RAMP_TYPES[rzit.rampType||"midi"]; if(!rcfg.end){ nw=Math.max(rcfg.w, Math.round(nw/rcfg.w)*rcfg.w); nd=rcfg.d; rzit.w=nw; rzit.d=nd; } }   /* passacavi: lunghezza a scatti di 1 modulo, larghezza fissa per formato */
-      if(rzit.type==="parapetto"){ nd=TYPES.parapetto.d; rzit.d=nd; }
-      if(rzit.type==="platea"){ plateaDaMisure(rzit, nw, nd); nw=rzit.w; nd=rzit.d; }   /* platea: a scatti di una sedia e di una fila (06/10/2026) */   /* parapetto pedana: si estende solo in lunghezza, spessore fisso (8 cm) */
+      if(rzit.type==="parapetto"){ nd=TYPES.parapetto.d; rzit.d=nd; }   /* parapetto pedana: si estende solo in lunghezza, spessore fisso (8 cm) */
+      if(rzit.type==="platea"){ plateaDaMisure(rzit, nw, nd); nw=rzit.w; nd=rzit.d; }   /* platea: a scatti di una sedia e di una fila (06/10/2026) */
       var shx=sgx*(nw-drag.w0)/2, shy=sgy*(nd-drag.d0)/2;   /* shift calcolato sui valori (eventualmente) snappati → lato opposto davvero fermo */
       var cc=Math.cos(drag.rot), ss=Math.sin(drag.rot);   /* riporta lo shift locale in coordinate globali (lato opposto fermo) */
       rzit.x = drag.x0 + (shx*cc - shy*ss);
@@ -15907,7 +15908,7 @@ svg.addEventListener("pointermove", function(e){
       if(grid){ rzit.x=snap(rzit.x); rzit.y=snap(rzit.y); }
       /* snap magnetico a bordo palco durante resize (solo rot=0, no griglia) */
       var rsg=[];
-      if(!grid && drag.rot===0){
+      if(!grid && drag.rot===0 && rzit.type!=="platea"){   /* platea: il magnete al bordo la lascerebbe fuori dalle sue caselle (una sedia in meno) */
         var rW=state.stage.w,rD=state.stage.d,rT=SNAP_T;
         if(ed.indexOf("r")>=0){var rre=rzit.x+nw/2,rdt=rW-rre;if(Math.abs(rdt)<rT){nw+=rdt;rzit.x+=rdt/2;rzit.w=nw;rsg.push({x1:rW,y1:-40,x2:rW,y2:rD+40,cls:'snap-guide'});}}
         if(ed.indexOf("l")>=0){var rle=rzit.x-nw/2,rdt=-rle;if(Math.abs(rdt)<rT){nw+=rdt;rzit.x-=rdt/2;rzit.w=nw;rsg.push({x1:0,y1:-40,x2:0,y2:rD+40,cls:'snap-guide'});}}
