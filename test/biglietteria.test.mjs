@@ -556,7 +556,7 @@ test("la pagina carica gli indirizzi prima di bgl.js e mostra le locandine dello
   assert.ok(h.indexOf('<script src="indirizzi.js?v=1"></script>') > 0 && h.indexOf('<script src="indirizzi.js') < h.indexOf('<script src="bgl.js'));
   const csp = (h.match(/Content-Security-Policy" content="([^"]+)"/) || [])[1] || "";
   assert.match(csp, /img-src 'self' data: https:\/\/vsodplqkuvnsdiikvmjb\.supabase\.co http:\/\/127\.0\.0\.1:54321 http:\/\/localhost:54321;/);
-  assert.match(h, /bgl\.js\?v=7/); assert.match(h, /bgl\.css\?v=6/);
+  assert.match(h, /bgl\.js\?v=7/); assert.match(h, /bgl\.css\?v=7/);
   /* la pagina usa gli stessi indirizzi del resto della biglietteria, non una copia */
   const js = leggi("biglietteria/bgl.js");
   assert.match(js, /BGLI\.linkCanonico\(/); assert.match(js, /BGLI\.urlLocandina\(/);

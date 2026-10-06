@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<!-- «Le mie prenotazioni» (specifica area §3.3): per chi ha prenotato con Google. Parla solo col backend di StagePlot
+     (RPC dell'account + Edge Function bgl-account). 127.0.0.1/localhost:54321 = stack locale delle prove. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://vsodplqkuvnsdiikvmjb.supabase.co http://127.0.0.1:54321 http://localhost:54321; connect-src https://vsodplqkuvnsdiikvmjb.supabase.co http://127.0.0.1:54321 http://localhost:54321; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<script>/* anti-clickjacking: incorniciata da un ALTRO sito, la pagina si nasconde e prova a uscire (come /biglietteria/). */try{if(window.self!==window.top){var _so=false;try{_so=window.top.location.origin===window.location.origin;}catch(_e){}if(!_so){document.documentElement.style.visibility="hidden";try{window.top.location.replace(window.location.href);}catch(_e){}}}}catch(_e){}</script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#0d9488">
+<meta name="color-scheme" content="light dark">
+<title>Le mie prenotazioni</title>
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../bgl.css?v=7">
+</head>
+<body>
+<main id="mie-app" class="pagina mie-pagina" aria-live="polite"><p class="carico" role="status">Un momento…</p>
+  <noscript><p class="nota forte">Per vedere le tue prenotazioni serve JavaScript.</p></noscript></main>
+<script src="/accedi/google/avvio.js"></script>
+<script src="../indirizzi.js?v=1"></script>
+<script src="../bgl.js?v=7"></script>
+<script src="../accesso.js?v=1"></script>
+<script src="mie.js?v=1"></script>
+</body>
+</html>
