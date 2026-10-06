@@ -72,6 +72,7 @@ h1:focus,h2:focus{outline:none}
 .mappa svg{display:inline-block;vertical-align:top;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
 .pianta-svg .foglio{fill:var(--m-foglio)}
 .pianta-svg .palco{fill:var(--m-palco);stroke:var(--m-palco-bd);stroke-width:1.5px;vector-effect:non-scaling-stroke}
+.pianta-svg .sala{fill:none;stroke:var(--m-palco-bd);stroke-width:1.5px;vector-effect:non-scaling-stroke}
 .pianta-svg .pedana{fill:var(--m-pedana);stroke:var(--m-pedana-bd);stroke-width:1px;vector-effect:non-scaling-stroke}
 .pianta-svg .palco-t{fill:var(--m-scritta);font-family:var(--ui);font-weight:800;letter-spacing:.2em;text-anchor:middle;dominant-baseline:central}
 .pianta-svg .fila{fill:var(--m-fila);font-family:var(--ui);font-weight:800;text-anchor:middle;dominant-baseline:central}
