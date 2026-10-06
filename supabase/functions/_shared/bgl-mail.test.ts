@@ -3,7 +3,7 @@ import { ambienteLocale, BGL_FROM, BGL_REPLY_TO, dataBreve, dataLunga, esc, invi
 import { RESEND_TIMEOUT_MS } from "./tenta-invio.ts";
 
 // Biglietteria: la mail di conferma. Dati inventati.
-const dati = () => ({ nome: "Mario", titolo: "Concerto di prova", inizio: "2026-10-09T19:00:00Z", luogo: "Teatro di prova, Città",
+const dati = () => ({ note: "Porte aperte alle 20:30" as string | null, titolo: "Concerto di prova", inizio: "2026-10-09T19:00:00Z", luogo: "Teatro di prova, Città",
   posti: ["Platea|A|6", "Platea|A|5"], codice: "K7M4QX", link: "https://stageplot.it/biglietteria/?e=k3m9x2p7qa&c=3f9a0000000000000000000000000000" });
 
 Deno.test("data e ora all'italiana, nel fuso di Roma (anche col cambio d'ora)", () => {
@@ -23,11 +23,14 @@ Deno.test("posti raggruppati per fila, in ordine; il settore solo se serve", () 
   assertEquals(postiInParole(["Platea|A|1", "Galleria|A|1"]), ["Galleria, fila A, posto 1", "Platea, fila A, posto 1"], "più settori");
 });
 
-Deno.test("la mail ha tutto: saluto, evento, data, luogo, posti, codice, link per disdire, privacy", () => {
+Deno.test("la mail ha tutto: saluto, evento, data, luogo, nota, posti, codice, link per disdire, contatto, privacy", () => {
   const m = mailConferma(dati());
   assertEquals(m.subject, "Prenotazione confermata — Concerto di prova, ven 9 ottobre");
+  assert(m.text.startsWith("Ciao,\n"), "saluto senza nome");
   for (const t of [m.html, m.text]) {
-    assertStringIncludes(t, "Ciao Mario,");
+    assertStringIncludes(t, "Ciao,");
+    assertStringIncludes(t, "Porte aperte alle 20:30");
+    assertStringIncludes(t, "info@stageplot.it");
     assertStringIncludes(t, "Concerto di prova");
     assertStringIncludes(t, "venerdì 9 ottobre 2026, ore 21:00");
     assertStringIncludes(t, "Teatro di prova, Città");
@@ -43,13 +46,25 @@ Deno.test("la mail ha tutto: saluto, evento, data, luogo, posti, codice, link pe
 
 Deno.test("tutto il testo dell'utente e dell'organizzatore è escapato", () => {
   const cattivo = '<script>alert("x")</script>&\'';
-  const m = mailConferma({ ...dati(), nome: cattivo, titolo: cattivo, luogo: cattivo });
+  const m = mailConferma({ ...dati(), note: cattivo, titolo: cattivo, luogo: cattivo });
   assert(!m.html.includes("<script>"), "nessun tag passa");
   assert(!m.html.includes('"x"'), "nessuna virgoletta nuda");
   assertStringIncludes(m.html, "&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;&amp;&#39;");
   assertEquals(esc(`<a href='x'>&"`), "&lt;a href=&#39;x&#39;&gt;&amp;&quot;");
   const s = mailConferma({ ...dati(), titolo: "Prova\r\nBcc: tutti@example.invalid" }).subject;
   assert(!/[\r\n]/.test(s), "l'oggetto è una riga sola");
+});
+
+Deno.test("REVISIONE: la mail non porta MAI testo scritto da chi prenota (il nome non c'è, anche se qualcuno lo passa)", () => {
+  const conNome = { ...dati(), nome: "Hai vinto: https://truffa.example/premio", cognome: "Truffa" } as unknown as Parameters<typeof mailConferma>[0];
+  const m = mailConferma(conNome);
+  for (const t of [m.subject, m.html, m.text]) {
+    assert(!t.includes("truffa.example") && !t.includes("Hai vinto") && !t.includes("Truffa"), t.slice(0, 120));
+  }
+  const senzaNota = mailConferma({ ...dati(), note: null });
+  assert(!senzaNota.text.includes("null") && !senzaNota.html.includes("null"), "senza nota non si scrive «null»");
+  const conRighe = mailConferma({ ...dati(), note: "Porte alle 20:30\nParcheggio dietro" });
+  assertStringIncludes(conRighe.html, "Porte alle 20:30<br>Parcheggio dietro");
 });
 
 Deno.test("ambiente locale: in prova la mail non parte mai", () => {

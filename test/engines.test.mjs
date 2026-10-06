@@ -19412,6 +19412,43 @@ t("biglietteria: i messaggi per chi organizza (vocabolario della specifica)", ()
   ok(/collegarmi/.test(m({ errore: "rete" })), "rete"); ok(/qualcosa_di_nuovo/.test(m({ errore: "qualcosa_di_nuovo" })), "codice sconosciuto: si vede, non si inghiotte");
 });
 
+t("biglietteria REVISIONE: nel pannello le prenotazioni dalla stessa connessione si riconoscono (un numero, mai l'impronta)", () => {
+  const D = bglDati();
+  D.prenotazioni[0].connessione = 1; D.prenotazioni[2].connessione = 1; D.prenotazioni[5].connessione = 2;
+  const riga = A.bglRigaPrenotazione;
+  ok(typeof riga === "function", "la riga dell'elenco si costruisce da una funzione sola");
+  const r0 = riga(D.prenotazioni[0]), r1 = riga(D.prenotazioni[1]), r5 = riga(D.prenotazioni[5]);
+  ok(/Stessa connessione 1/.test(r0), "il segno c'è: " + r0);
+  ok(!/connessione/i.test(r1), "chi è da solo sulla sua connessione non ha il segno");
+  ok(/Stessa connessione 2/.test(r5), "gruppo 2");
+  ok(/title="[^"]*stessa connessione internet/.test(r0), "il segno spiega cosa vuol dire");
+  ok(/data-az="disdici"/.test(r0), "e si disdice come le altre");
+  const sporca = Object.assign({}, D.prenotazioni[0], { nome: "<img src=x onerror=alert(1)>", connessione: '"><script>' });
+  const rs = riga(sporca);
+  ok(!/<img|<script/.test(rs), "niente HTML dai dati: " + rs);
+  ok(!/connessione/i.test(rs), "una connessione che non è un numero non si mostra");
+  eq(A.bglGruppiConnessione(D.prenotazioni), 2, "due gruppi in tutto");
+});
+
+t("biglietteria REVISIONE: la lista per l'ingresso si legge in sala: righe ad almeno 11 pt, intestazioni ad almeno 10", () => {
+  ok(typeof A.bglScriviLista === "function", "il PDF si scrive in un documento dato (provabile senza jsPDF)");
+  const scritte = [];
+  let corpo = 0;
+  const doc = new Proxy({}, { get: (t, k) => {
+    if (k === "setFontSize") return (n) => { corpo = n; return doc; };
+    if (k === "text") return (txt) => { (Array.isArray(txt) ? txt : [txt]).forEach((x) => scritte.push({ t: String(x), corpo })); return doc; };
+    if (k === "getTextWidth") return (x) => String(x).length * corpo * 0.18;
+    if (k === "splitTextToSize") return (x) => [String(x)];
+    if (k === "internal") return { pageSize: { getWidth: () => 210, getHeight: () => 297 } };
+    return () => doc;
+  } });
+  A.bglScriviLista(doc, bglDati(), "entrambe");
+  const di = (re) => scritte.filter((x) => re.test(x.t));
+  ok(di(/Rossi/).length >= 2, "Rossi c'è per cognome e per fila: " + JSON.stringify(scritte.slice(0, 8)));
+  for (const x of di(/Rossi|Bianchi|Alvarez|K7M4QX|Tenuto da parte/)) ok(x.corpo >= 11, "«" + x.t + "» a " + x.corpo + " pt");
+  for (const x of di(/^(COGNOME E NOME|POSTI|CODICE|FILA|POSTO|NOME)$/)) ok(x.corpo >= 10, "intestazione «" + x.t + "» a " + x.corpo + " pt");
+});
+
 ta("biglietteria: il ponte verso il cloud — senza sessione niente rete, solo le sei funzioni dell'organizzatore", async () => {
   const B = A.__bglCloud;
   ok(B && typeof B.rpc === "function" && typeof B.utente === "function" && typeof B.progettoId === "function", "il ponte c'è: window.__bglCloud{rpc, utente, progettoId}");

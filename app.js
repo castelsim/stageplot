@@ -14660,14 +14660,26 @@ function bglDisegnaElenco(){
     return bglSenzaAccenti([p.nome,p.cognome,p.email,p.codice,bglPostiNomi(p.posti)].join(" ")).indexOf(q)>=0;
   });
   if(!elenco.length){ box.innerHTML='<p class="bgl-msg">'+((D.prenotazioni||[]).length ? "Nessuna prenotazione corrisponde." : "Ancora nessuna prenotazione.")+'</p>'; return; }
+  var gruppi=bglGruppiConnessione(D.prenotazioni);
+  box.innerHTML=(gruppi && !q ? '<p class="bgl-msg">'+(gruppi===1 ? "Un gruppo" : gruppi+" gruppi")+' di prenotazioni arrivate dalla stessa connessione internet («Stessa connessione»): di solito è una famiglia, ma se sono tante con email diverse può essere una persona sola che ha preso molti posti.</p>' : '')+
+    '<ul class="bgl-pren">'+elenco.map(bglRigaPrenotazione).join("")+'</ul>';
+}
+/* Una prenotazione nell'elenco del pannello. «connessione»: il numero che il server dà alle prenotazioni arrivate
+   dalla stessa connessione (solo se sono almeno due): l'impronta non esce mai, all'organizzatore basta il gruppo. */
+function bglRigaPrenotazione(p){
   var etic={attiva:"", disdetta:"Disdetta dall'utente", annullata:"Disdetta da te"};
-  box.innerHTML='<ul class="bgl-pren">'+elenco.map(function(p){
-    var attiva=p.stato==="attiva", posti=attiva ? p.posti : (p.posti_chiesti&&p.posti_chiesti.length ? p.posti_chiesti : p.posti);
-    return '<li class="'+(attiva?'':'bgl-spenta')+'"><div class="bgl-p-chi"><strong>'+esc(bglNomeCompleto(p))+'</strong>'+(etic[p.stato]?'<span class="bgl-badge bgl-b-chiusa">'+esc(etic[p.stato])+'</span>':'')+'</div>'+
-      '<div class="bgl-ev-s">'+esc(bglPostiNomi(posti))+' · codice <b class="bgl-cod">'+esc(p.codice||"")+'</b></div>'+
-      (p.email ? '<div class="bgl-ev-s">'+esc(p.email)+'</div>' : '')+
-      (attiva ? '<button type="button" class="btn" data-az="disdici" data-id="'+esc(p.id)+'">Disdici per conto suo</button>' : '')+'</li>';
-  }).join("")+'</ul>';
+  var attiva=p.stato==="attiva", posti=attiva ? p.posti : (p.posti_chiesti&&p.posti_chiesti.length ? p.posti_chiesti : p.posti);
+  var conn=(typeof p.connessione==="number" && p.connessione>=1 && p.connessione%1===0) ? p.connessione : null;
+  return '<li class="'+(attiva?'':'bgl-spenta')+'"><div class="bgl-p-chi"><strong>'+esc(bglNomeCompleto(p))+'</strong>'+(etic[p.stato]?'<span class="bgl-badge bgl-b-chiusa">'+esc(etic[p.stato])+'</span>':'')+
+    (conn ? '<span class="bgl-badge bgl-b-conn" title="Prenotazioni arrivate dalla stessa connessione internet: possono essere della stessa persona con email diverse">Stessa connessione '+conn+'</span>' : '')+'</div>'+
+    '<div class="bgl-ev-s">'+esc(bglPostiNomi(posti))+' · codice <b class="bgl-cod">'+esc(p.codice||"")+'</b></div>'+
+    (p.email ? '<div class="bgl-ev-s">'+esc(p.email)+'</div>' : '')+
+    (attiva ? '<button type="button" class="btn" data-az="disdici" data-id="'+esc(p.id)+'">Disdici per conto suo</button>' : '')+'</li>';
+}
+function bglGruppiConnessione(prenotazioni){
+  var visti=Object.create(null), n=0;
+  (prenotazioni||[]).forEach(function(p){ var c=p.connessione; if(typeof c==="number" && c>=1 && c%1===0 && !visti[c]){ visti[c]=1; n++; } });
+  return n;
 }
 function bglErroreEv(m){ var e=bglEl("bglErr"); if(e){ e.textContent=m; e.hidden=false; } else showToast(m,"err"); }
 function bglCopia(testo){
@@ -14754,10 +14766,12 @@ function bglPdfTesto(s){
   return String(s==null?"":s).replace(/[\u0000-\u001f]/g," ").replace(/[^\u0000-ÿ–—‘’“”…€]/g,function(c){
     var b=c.normalize("NFD").replace(/[\u0300-\u036f]/g,""); return /^[ -~]+$/.test(b) ? b : "?"; });
 }
-function bglListaPdf(dati, ordine){
+/* Scrive la lista nel documento dato (jsPDF vero, o un finto nei test). Corpi per la sala buia all'ingresso
+   (revisione del 06/10): righe a 12 pt, intestazioni delle colonne a 10, righe alte 8 mm. */
+function bglScriviLista(doc, dati, ordine){
   var ev=dati.evento||{}, c=dati.conteggi||{};
   var perC=(ordine==="fila") ? [] : bglListaIngresso(dati,"cognome"), perF=(ordine==="cognome") ? [] : bglListaIngresso(dati,"fila");
-  var run=function(doc){
+  (function(){
     var M=14, y=0, pag="";
     function tronca(t, mm){ t=bglPdfTesto(t); if(doc.getTextWidth(t)<=mm) return t; while(t.length>1 && doc.getTextWidth(t+"...")>mm) t=t.slice(0,-1); return t+"..."; }
     function banda(){
@@ -14775,42 +14789,48 @@ function bglListaPdf(dati, ordine){
       doc.text((c.prenotati||0)+" posti prenotati ("+(c.prenotazioni_attive||0)+" prenotazioni) · "+(c.riservati||0)+" tenuti da parte · "+(c.liberi||0)+" liberi · "+(c.totali||0)+" posti in tutto", M, y); y+=8;
     }
     function colonne(tipo){
-      doc.setFont("helvetica","bold"); doc.setFontSize(8.5); doc.setTextColor("#0d9488");
-      if(tipo==="cognome"){ doc.text("COGNOME E NOME", M+7, y); doc.text("POSTI", M+100, y); doc.text("CODICE", M+160, y); }
-      else { doc.text("FILA", M+7, y); doc.text("POSTO", M+22, y); doc.text("NOME", M+38, y); doc.text("CODICE", M+160, y); }
-      doc.setDrawColor("#0d9488"); doc.setLineWidth(0.4); doc.line(M, y+1.6, 196, y+1.6); y+=6.4;
+      doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor("#0d9488");
+      if(tipo==="cognome"){ doc.text("COGNOME E NOME", M+8, y); doc.text("POSTI", M+100, y); doc.text("CODICE", M+156, y); }
+      else { doc.text("FILA", M+8, y); doc.text("POSTO", M+22, y); doc.text("NOME", M+40, y); doc.text("CODICE", M+156, y); }
+      doc.setDrawColor("#0d9488"); doc.setLineWidth(0.4); doc.line(M, y+1.8, 196, y+1.8); y+=7.4;
     }
-    function nuovaPagina(tipo){ doc.addPage("a4","portrait"); y=16; doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor("#6b7280");
+    function nuovaPagina(tipo){ doc.addPage("a4","portrait"); y=16; doc.setFont("helvetica","normal"); doc.setFontSize(10); doc.setTextColor("#6b7280");
       doc.text(bglPdfTesto(ev.titolo||"")+" — "+pag, M, y); y+=7; colonne(tipo); }
     function riga(tipo, r, grassetto){
-      if(y>280) nuovaPagina(tipo);
-      doc.setDrawColor("#374151"); doc.setLineWidth(0.25); doc.rect(M, y-3.3, 3.8, 3.8);
-      doc.setFont("helvetica", grassetto?"bold":"normal"); doc.setFontSize(10); doc.setTextColor(r.tipo==="riservato" ? "#6b7280" : "#111827");
-      if(tipo==="cognome"){ doc.text(tronca(r.chi, 88), M+7, y); doc.text(tronca(r.posti, 56), M+100, y); doc.text(bglPdfTesto(r.codice), M+160, y); }
-      else { doc.text(bglPdfTesto(String(r.fila)), M+7, y); doc.text(String(r.posto), M+22, y); doc.text(tronca(r.chi, 118), M+38, y); doc.text(bglPdfTesto(r.codice), M+160, y); }
-      doc.setDrawColor("#e5e7eb"); doc.line(M+7, y+1.6, 196, y+1.6); y+=6.6;
+      if(y>279) nuovaPagina(tipo);
+      doc.setDrawColor("#374151"); doc.setLineWidth(0.3); doc.rect(M, y-4, 4.6, 4.6);
+      doc.setFont("helvetica", grassetto?"bold":"normal"); doc.setFontSize(12); doc.setTextColor(r.tipo==="riservato" ? "#4b5563" : "#111827");
+      if(tipo==="cognome"){ doc.text(tronca(r.chi, 88), M+8, y); doc.text(tronca(r.posti, 52), M+100, y); doc.text(bglPdfTesto(r.codice), M+156, y); }
+      else { doc.text(bglPdfTesto(String(r.fila)), M+8, y); doc.text(String(r.posto), M+22, y); doc.text(tronca(r.chi, 112), M+40, y); doc.text(bglPdfTesto(r.codice), M+156, y); }
+      doc.setDrawColor("#e5e7eb"); doc.line(M+8, y+2.2, 196, y+2.2); y+=8.2;
     }
     banda(); intestazione();
     if(ordine!=="fila"){
       pag="per cognome"; doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor("#111827"); doc.text("Per cognome", M, y); y+=6; colonne("cognome");
-      if(!perC.length){ doc.setFont("helvetica","italic"); doc.setFontSize(10); doc.setTextColor("#6b7280"); doc.text("Nessuna prenotazione.", M, y); y+=7; }
+      if(!perC.length){ doc.setFont("helvetica","italic"); doc.setFontSize(12); doc.setTextColor("#6b7280"); doc.text("Nessuna prenotazione.", M, y); y+=8; }
       perC.forEach(function(r){ riga("cognome", r, false); });
-      doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555"); y+=2;
+      doc.setFont("helvetica","normal"); doc.setFontSize(11); doc.setTextColor("#555555"); y+=2;
       if(y>284){ nuovaPagina("cognome"); }
       doc.text(perC.length+(perC.length===1?" prenotazione":" prenotazioni"), M, y); y+=7;
     }
     if(ordine!=="cognome"){
       if(ordine!=="fila"){ doc.addPage("a4","portrait"); y=16; }
       pag="per fila"; doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor("#111827"); doc.text("Per fila (dal palco)", M, y); y+=6; colonne("fila");
-      if(!perF.length){ doc.setFont("helvetica","italic"); doc.setFontSize(10); doc.setTextColor("#6b7280"); doc.text("Nessun posto prenotato o tenuto da parte.", M, y); y+=7; }
+      if(!perF.length){ doc.setFont("helvetica","italic"); doc.setFontSize(12); doc.setTextColor("#6b7280"); doc.text("Nessun posto prenotato o tenuto da parte.", M, y); y+=8; }
       var ultima=null;
       perF.forEach(function(r){
         var g=r.settore+"|"+r.fila;
-        if(g!==ultima){ ultima=g; if(y>270) nuovaPagina("fila"); y+=1.4; doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor("#0d9488");
-          doc.text(bglPdfTesto("FILA "+r.fila+(r.settore!=="Platea" ? " — "+r.settore : "")), M+7, y); y+=5; }
+        if(g!==ultima){ ultima=g; if(y>266) nuovaPagina("fila"); y+=1.6; doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor("#0d9488");
+          doc.text(bglPdfTesto("FILA "+r.fila+(r.settore!=="Platea" ? " — "+r.settore : "")), M+8, y); y+=6.2; }
         riga("fila", r, false);
       });
     }
+  })();
+}
+function bglListaPdf(dati, ordine){
+  var ev=dati.evento||{};
+  var run=function(doc){
+    bglScriviLista(doc, dati, ordine);
     pdfCredit(doc);
     pdfSave(doc, bglSlug(ev.titolo)+"-lista-ingresso.pdf");
   };

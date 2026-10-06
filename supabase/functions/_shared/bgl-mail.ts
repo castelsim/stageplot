@@ -12,6 +12,8 @@ export const BGL_FROM = "Biglietteria StagePlot <feedback@stageplot.it>";
 export const BGL_REPLY_TO = "info@stageplot.it";
 export const BGL_PRIVACY_URL = "https://stageplot.it/privacy/#biglietteria";
 export const BGL_SITE_URL = "https://stageplot.it/biglietteria/";
+/** A chi scrivere per un problema o un gruppo più grande: lo stesso indirizzo delle risposte e della pagina. */
+export const BGL_CONTATTO = "info@stageplot.it";
 const FUSO = "Europe/Rome";
 
 /** Tutto il testo che arriva dall'utente o dall'organizzatore passa di qui prima di finire nell'HTML. */
@@ -67,11 +69,14 @@ export function postiInParole(chiavi: string[]): string[] {
     });
 }
 
+// Nessun testo scritto da chi prenota entra nella mail (revisione del 06/10): l'indirizzo non è verificato,
+// e un nome come «Hai vinto: https://…» farebbe della conferma un modo di mandare messaggi a chiunque.
+// Restano solo i dati dell'evento (scritti dall'organizzatore, che ha un account) e quelli generati qui.
 export type DatiMail = {
-  nome: string;
   titolo: string;
   inizio: string;   // ISO
   luogo: string;
+  note?: string | null;  // la nota dell'organizzatore, es. «porte aperte alle 20:30»
   posti: string[];  // chiavi
   codice: string;
   link: string;     // link per vedere/disdire
@@ -84,15 +89,19 @@ export function mailConferma(d: DatiMail): { subject: string; html: string; text
   const subject = unaRiga(`Prenotazione confermata — ${d.titolo}, ${dataBreve(d.inizio)}`);
   const quando = dataLunga(d.inizio);
   const righe = postiInParole(d.posti);
+  // la nota può andare a capo: righe vere nel testo, <br> nell'HTML; i caratteri di controllo no
+  // deno-lint-ignore no-control-regex
+  const note = String(d.note ?? "").replace(/\r\n?/g, "\n").replace(/[\u0000-\u0009\u000b-\u001f\u007f]+/g, " ").trim();
 
   const text = [
-    `Ciao ${unaRiga(d.nome)},`,
+    "Ciao,",
     "",
     "la tua prenotazione è confermata.",
     "",
     unaRiga(d.titolo),
     quando,
     unaRiga(d.luogo),
+    ...(note ? ["", note] : []),
     "",
     ...righe,
     "",
@@ -102,21 +111,24 @@ export function mailConferma(d: DatiMail): { subject: string; html: string; text
     "",
     `Non puoi più venire? Disdici qui e libera i posti per altri: ${d.link}`,
     "",
+    `Per un problema rispondi a questa mail o scrivi a ${BGL_CONTATTO}.`,
     `Come trattiamo i tuoi dati: ${BGL_PRIVACY_URL}`,
   ].join("\n");
 
   const html = `<!doctype html><html lang="it"><body style="margin:0;padding:24px;background:#f6f6f4;font-family:Arial,Helvetica,sans-serif;color:#1d1d1b">
 <div style="max-width:520px;margin:0 auto;background:#fff;border-radius:12px;padding:24px">
-<p style="font-size:16px;margin:0 0 16px">Ciao ${esc(d.nome)},</p>
+<p style="font-size:16px;margin:0 0 16px">Ciao,</p>
 <p style="font-size:16px;margin:0 0 16px">la tua prenotazione è confermata.</p>
 <h1 style="font-size:20px;margin:0 0 4px">${esc(d.titolo)}</h1>
 <p style="font-size:16px;margin:0">${esc(quando)}</p>
 <p style="font-size:16px;margin:0 0 16px">${esc(d.luogo)}</p>
+${note ? `<p style="font-size:16px;margin:0 0 16px;padding:10px 12px;background:#f0fdfa;border-radius:8px">${note.split("\n").map(esc).join("<br>")}</p>\n` : ""}
 <p style="font-size:16px;margin:0 0 16px"><strong>${righe.map(esc).join("<br>")}</strong></p>
 <p style="font-size:14px;margin:0">Codice</p>
 <p style="font-size:32px;letter-spacing:4px;font-weight:bold;margin:0 0 16px;font-family:'Courier New',monospace">${esc(d.codice)}</p>
 <p style="font-size:16px;margin:0 0 24px">Ingresso gratuito: all'ingresso di' il tuo cognome o mostra questo codice.</p>
 <p style="font-size:14px;margin:0 0 24px">Non puoi più venire? <a href="${esc(d.link)}">Disdici qui</a> e libera i posti per altri.</p>
+<p style="font-size:14px;margin:0 0 24px">Per un problema rispondi a questa mail o scrivi a <a href="mailto:${BGL_CONTATTO}">${BGL_CONTATTO}</a>.</p>
 <p style="font-size:12px;color:#666;margin:0">Hai ricevuto questa mail perché hai prenotato su stageplot.it. <a href="${esc(BGL_PRIVACY_URL)}">Come trattiamo i tuoi dati</a>.</p>
 </div></body></html>`;
 

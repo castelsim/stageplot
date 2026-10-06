@@ -10,7 +10,9 @@
 --   · «Un posto, una persona» lo garantisce la chiave primaria di bgl_posti(evento_id, posto): due
 --     prenotazioni simultanee sullo stesso posto, una vince e l'altra prende unique_violation.
 --   · Il tetto di 4 posti per email si protegge con un advisory lock su (evento, email): due richieste
---     con la stessa email si mettono in fila e non scavalcano il tetto in parallelo.
+--     con la stessa email si mettono in fila e non scavalcano il tetto in parallelo. L'email si normalizza
+--     (+etichette, punti di Gmail); e c'è un tetto di 8 posti per connessione (impronta dell'IP), perché
+--     l'email non è verificata e un indirizzo inventato non è una persona nuova (revisione del 06/10).
 --   · Il token per disdire esce dal database una volta sola (la risposta di bgl_prenota): si salva solo
 --     la sua impronta sha256.
 --   · La pianta arriva dall'editor ma il server la RICOSTRUISCE con i soli campi ammessi: nessuna etichetta,
@@ -54,6 +56,7 @@ create table public.bgl_prenotazioni (
   email           text check (email is null or char_length(email) <= 254),
   email_norm      text,
   posti           text[] not null check (cardinality(posti) between 1 and 4),  -- quelli chiesti (storia)
+  ip_hash         text check (ip_hash is null or ip_hash ~ '^[0-9a-f]{64}$'),  -- impronta della connessione (mai l'IP)
   stato           text not null default 'attiva' check (stato in ('attiva','disdetta','annullata')),
   creata_il       timestamptz not null default now(),
   chiusa_il       timestamptz,          -- disdetta (dal pubblico) o annullata (dall'organizzatore)
@@ -64,6 +67,8 @@ create table public.bgl_prenotazioni (
              and email_norm is not null and token_hash is not null))
 );
 create index bgl_prenotazioni_email_idx on public.bgl_prenotazioni (evento_id, email_norm);
+create index bgl_prenotazioni_mail_idx on public.bgl_prenotazioni (email_norm, creata_il);
+create index bgl_prenotazioni_ip_idx on public.bgl_prenotazioni (ip_hash, chiusa_il) where ip_hash is not null;
 
 -- i posti OCCUPATI adesso: una riga per posto. La chiave primaria È la garanzia «un posto, una persona».
 create table public.bgl_posti (
@@ -161,6 +166,33 @@ returns text language sql immutable set search_path = public, pg_temp as $$
 $$;
 revoke all on function public.bgl_impronta(text) from public, anon, authenticated;
 grant execute on function public.bgl_impronta(text) to service_role;
+
+-- Nome e cognome: lettere (anche accentate o di altri alfabeti), spazi, apostrofi e trattini. Niente cifre, «:»,
+-- «/», «.», «@» né altri segni: un nome non porta un indirizzo web nel pannello, nel PDF o in una mail.
+-- La regola sui caratteri non ASCII non dipende dalla lingua del database (in «C» [[:alpha:]] vale solo per
+-- l'ASCII): si escludono i segni ASCII e il blocco delle forme a larghezza piena (．／＠：…), il resto passa.
+-- La Edge Function è più severa (solo lettere Unicode): questa è la seconda serratura.
+create function public.bgl_nome_ok(p text)
+returns boolean language sql immutable set search_path = public, pg_temp as $$
+  select p is not null and p !~ '[\x01-\x1f\x21-\x26\x28-\x2c\x2e-\x40\x5b-\x60\x7b-\x7f\uff00-\uffef]'
+$$;
+revoke all on function public.bgl_nome_ok(text) from public, anon, authenticated;
+grant execute on function public.bgl_nome_ok(text) to service_role;
+
+-- L'email per i tetti: minuscola, senza «+etichetta» (mario+1@ = mario@) e, per Gmail, senza punti
+-- (m.a.r.i.o@gmail.com = mario@gmail.com, googlemail.com = gmail.com). La mail parte all'indirizzo scritto.
+create function public.bgl_email_norm(p text)
+returns text language sql immutable set search_path = public, pg_temp as $$
+  with x as (select lower(btrim(p)) e),
+       y as (select split_part(e, '@', 1) loc, substr(e, strpos(e, '@') + 1) dom from x where strpos(e, '@') > 1),
+       z as (select coalesce(nullif(split_part(loc, '+', 1), ''), loc) loc,
+                    case when dom = 'googlemail.com' then 'gmail.com' else dom end dom from y)
+  select case when p is null then null
+              else coalesce((select case when dom = 'gmail.com' then coalesce(nullif(replace(loc, '.', ''), ''), loc) else loc end
+                                    || '@' || dom from z), (select e from x)) end
+$$;
+revoke all on function public.bgl_email_norm(text) from public, anon, authenticated;
+grant execute on function public.bgl_email_norm(text) to service_role;
 
 -- Il formato della chiave di un posto: settore|fila|posto, es. «Platea|A|5».
 create function public.bgl_chiave_ok(p text)
@@ -419,16 +451,44 @@ end $$;
 revoke all on function public.bgl_throttle_hit(text) from public, anon, authenticated;
 grant execute on function public.bgl_throttle_hit(text) to service_role;
 
+-- Il limite orario di tutta internet (600), contato SOLO per richieste su un evento che esiste ed è aperto.
+-- La Edge Function lo chiama DOPO il limite per impronta di IP: così chi è già fermo per il suo IP, o chi
+-- martella uno slug inventato, non consuma il contatore di tutti (revisione del 06/10: un solo script
+-- bloccava la biglietteria per un'ora). Ogni chiamata è una transazione a sé: il lock sulla riga del
+-- contatore non resta in mano a nessuna prenotazione.
+create function public.bgl_globale_hit(p_slug text)
+returns jsonb language plpgsql volatile security definer set search_path = public, pg_temp as $$
+declare e public.bgl_eventi;
+begin
+  if p_slug is null or p_slug !~ '^[a-z2-9]{10}$' then return jsonb_build_object('ok', false, 'errore', 'evento_inesistente'); end if;
+  select * into e from public.bgl_eventi where slug = p_slug;
+  if e.id is null then return jsonb_build_object('ok', false, 'errore', 'evento_inesistente'); end if;
+  if public.bgl_stato_pubblico(e.stato, e.inizio, e.chiusura) <> 'aperta' then
+    return jsonb_build_object('ok', false, 'errore', 'prenotazioni_chiuse');
+  end if;
+  return jsonb_build_object('ok', true, 'n', public.bgl_throttle_hit(repeat('0', 64)));
+end $$;
+revoke all on function public.bgl_globale_hit(text) from public, anon, authenticated;
+grant execute on function public.bgl_globale_hit(text) to service_role;
+
 -- La prenotazione atomica (specifica §2.4). Tutto in una transazione:
---   valida → evento aperto → posti esistenti e non tenuti da parte → lock (evento, email) → tetto per email
---   → posti liberi → inserisce prenotazione + righe di bgl_posti in un blocco che, se un'altra transazione
---   ha preso un posto nel frattempo (unique_violation sulla chiave primaria), annulla anche la prenotazione.
-create function public.bgl_prenota(p_slug text, p_posti text[], p_nome text, p_cognome text, p_email text)
+--   valida → evento aperto (letto FOR SHARE: bgl_modifica, che lo prende FOR UPDATE, aspetta e viceversa, così
+--   un posto non diventa «tenuto da parte» mentre qualcuno lo prenota) → posti esistenti e non tenuti da parte
+--   → lock (evento, impronta) e (evento, email) → stessa richiesta ripetuta? → tetto per email → tetto per
+--   connessione → posti liberi → inserisce prenotazione + righe di bgl_posti in un blocco che, se un'altra
+--   transazione ha preso un posto nel frattempo (unique_violation sulla chiave primaria), annulla anche la
+--   prenotazione → decide se la mail può partire.
+-- p_ip_hash: impronta della connessione calcolata dalla Edge Function (null = limite per connessione spento).
+-- p_token: il codice segreto scelto dalla pagina. Se la risposta si perde e la pagina riprova con lo STESSO
+--   token, stessa email e stessi posti, la risposta è la stessa prenotazione («ripetuta»), non «posti presi».
+create function public.bgl_prenota(p_slug text, p_posti text[], p_nome text, p_cognome text, p_email text,
+                                   p_ip_hash text default null, p_token text default null)
 returns jsonb language plpgsql volatile security definer set search_path = public, pg_temp as $$
 declare
   e public.bgl_eventi; v_posti text[]; v_nome text; v_cognome text; v_email text; v_email_norm text;
-  v_chiavi text[]; v_mancanti text[]; v_riservati text[]; v_presi text[]; v_gia int;
-  v_codice text; v_token text; v_pid uuid; v_vincolo text;
+  v_chiavi text[]; v_mancanti text[]; v_riservati text[]; v_presi text[]; v_gia int; v_gia_ip int;
+  v_codice text; v_token text; v_pid uuid; v_vincolo text; v_prima public.bgl_prenotazioni;
+  v_mail_dest int; v_disdette int; v_mail boolean;
 begin
   -- 1. normalizza e valida (la Edge Function l'ha già fatto: qui è la seconda serratura)
   select coalesce(array_agg(x order by i), '{}') into v_posti
@@ -439,18 +499,24 @@ begin
     return jsonb_build_object('ok', false, 'errore', 'dati_non_validi', 'campo', 'posti');
   end if;
   v_nome := public.bgl_testo(p_nome, 1, 60);
-  if v_nome is null then return jsonb_build_object('ok', false, 'errore', 'dati_non_validi', 'campo', 'nome'); end if;
+  if v_nome is null or not public.bgl_nome_ok(v_nome) then return jsonb_build_object('ok', false, 'errore', 'dati_non_validi', 'campo', 'nome'); end if;
   v_cognome := public.bgl_testo(p_cognome, 1, 60);
-  if v_cognome is null then return jsonb_build_object('ok', false, 'errore', 'dati_non_validi', 'campo', 'cognome'); end if;
+  if v_cognome is null or not public.bgl_nome_ok(v_cognome) then return jsonb_build_object('ok', false, 'errore', 'dati_non_validi', 'campo', 'cognome'); end if;
   v_email := public.bgl_testo(p_email, 3, 254);
   if v_email is null or v_email !~ '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$' then
     return jsonb_build_object('ok', false, 'errore', 'dati_non_validi', 'campo', 'email');
   end if;
-  v_email_norm := lower(v_email);
+  v_email_norm := public.bgl_email_norm(v_email);
+  if p_ip_hash is not null and p_ip_hash !~ '^[0-9a-f]{64}$' then
+    return jsonb_build_object('ok', false, 'errore', 'dati_non_validi', 'campo', 'connessione');
+  end if;
+  if p_token is not null and p_token !~ '^[0-9a-f]{32}$' then
+    return jsonb_build_object('ok', false, 'errore', 'dati_non_validi', 'campo', 'token');
+  end if;
 
-  -- 2. l'evento, e che sia aperto
+  -- 2. l'evento, e che sia aperto. FOR SHARE: le prenotazioni non si bloccano fra loro, bgl_modifica sì.
   if p_slug is null or p_slug !~ '^[a-z2-9]{10}$' then return jsonb_build_object('ok', false, 'errore', 'evento_inesistente'); end if;
-  select * into e from public.bgl_eventi where slug = p_slug;
+  select * into e from public.bgl_eventi where slug = p_slug for share;
   if e.id is null then return jsonb_build_object('ok', false, 'errore', 'evento_inesistente'); end if;
   if public.bgl_stato_pubblico(e.stato, e.inizio, e.chiusura) <> 'aperta' then
     return jsonb_build_object('ok', false, 'errore', 'prenotazioni_chiuse');
@@ -467,10 +533,29 @@ begin
     return jsonb_build_object('ok', false, 'errore', 'posto_riservato', 'posti', to_jsonb(v_riservati));
   end if;
 
-  -- 4. due richieste con la stessa email si mettono in fila: il tetto non si scavalca in parallelo
+  -- 4. richieste dalla stessa connessione, e con la stessa email, si mettono in fila: i tetti non si
+  --    scavalcano in parallelo. Sempre in quest'ordine (connessione, poi email): niente stalli.
+  if p_ip_hash is not null then
+    perform pg_advisory_xact_lock(hashtextextended(e.id::text || '|ip|' || p_ip_hash, 0));
+  end if;
   perform pg_advisory_xact_lock(hashtextextended(e.id::text || '|' || v_email_norm, 0));
 
-  -- 5. tetto per email: posti tenuti ADESSO da quella email in questo evento
+  -- 5. la stessa richiesta ripetuta (risposta persa, «Prenota» premuto di nuovo): stessa prenotazione
+  if p_token is not null then
+    select * into v_prima from public.bgl_prenotazioni where token_hash = public.bgl_impronta(p_token);
+    if v_prima.id is not null then
+      if v_prima.evento_id = e.id and v_prima.email_norm = v_email_norm and v_prima.stato = 'attiva'
+         and (select array_agg(x order by x) from unnest(v_prima.posti) x) = (select array_agg(x order by x) from unnest(v_posti) x) then
+        return jsonb_build_object('ok', true, 'ripetuta', true, 'mail', false, 'prenotazione_id', v_prima.id,
+          'codice', v_prima.codice, 'token', p_token, 'posti', to_jsonb(v_prima.posti),
+          'evento', jsonb_build_object('slug', e.slug, 'titolo', e.titolo, 'inizio', e.inizio, 'luogo', e.luogo, 'note', e.note),
+          'nome', v_prima.nome, 'cognome', v_prima.cognome, 'email', v_prima.email);
+      end if;
+      return jsonb_build_object('ok', false, 'errore', 'dati_non_validi', 'campo', 'token');
+    end if;
+  end if;
+
+  -- 6. tetto per email: posti tenuti ADESSO da quella email (normalizzata) in questo evento
   select count(*) into v_gia
     from public.bgl_posti b join public.bgl_prenotazioni p on p.id = b.prenotazione_id
    where b.evento_id = e.id and p.email_norm = v_email_norm and p.stato = 'attiva';
@@ -478,21 +563,32 @@ begin
     return jsonb_build_object('ok', false, 'errore', 'limite_email', 'gia', v_gia, 'max', 4);
   end if;
 
-  -- 6. posti già presi (il caso comune; la gara vera la decide il punto 7)
+  -- 7. tetto per connessione: un'email inventata non è una persona nuova. 8 posti per impronta per evento.
+  if p_ip_hash is not null then
+    select count(*) into v_gia_ip
+      from public.bgl_posti b join public.bgl_prenotazioni p on p.id = b.prenotazione_id
+     where b.evento_id = e.id and p.ip_hash = p_ip_hash and p.stato = 'attiva';
+    if v_gia_ip + cardinality(v_posti) > 8 then
+      return jsonb_build_object('ok', false, 'errore', 'limite_connessione', 'gia', v_gia_ip, 'max', 8);
+    end if;
+  end if;
+
+  -- 8. posti già presi (il caso comune; la gara vera la decide il punto 9)
   select coalesce(array_agg(posto order by posto), '{}') into v_presi
     from public.bgl_posti where evento_id = e.id and posto = any(v_posti);
   if cardinality(v_presi) > 0 then
     return jsonb_build_object('ok', false, 'errore', 'posto_preso', 'presi', to_jsonb(v_presi));
   end if;
 
-  -- 7. inserisce. Un unique_violation sulla chiave dei posti = un'altra transazione ha vinto: il blocco
-  --    annulla anche la prenotazione appena scritta. Su codice o token (rarissimo) si ritenta.
+  -- 9. inserisce. Un unique_violation sulla chiave dei posti = un'altra transazione ha vinto: il blocco
+  --    annulla anche la prenotazione appena scritta. Su codice o token generato (rarissimo) si ritenta;
+  --    un token della pagina già usato da un'altra prenotazione è un errore (non si sceglie il token altrui).
   for tentativo in 1..5 loop
     v_codice := public.bgl_casuale('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 6);
-    v_token := replace(gen_random_uuid()::text, '-', '');
+    v_token := coalesce(p_token, replace(gen_random_uuid()::text, '-', ''));
     begin
-      insert into public.bgl_prenotazioni (evento_id, codice, token_hash, nome, cognome, email, email_norm, posti)
-      values (e.id, v_codice, public.bgl_impronta(v_token), v_nome, v_cognome, v_email, v_email_norm, v_posti)
+      insert into public.bgl_prenotazioni (evento_id, codice, token_hash, nome, cognome, email, email_norm, posti, ip_hash)
+      values (e.id, v_codice, public.bgl_impronta(v_token), v_nome, v_cognome, v_email, v_email_norm, v_posti, p_ip_hash)
       returning id into v_pid;
       insert into public.bgl_posti (evento_id, posto, prenotazione_id)
       select e.id, x, v_pid from unnest(v_posti) x;
@@ -505,19 +601,34 @@ begin
           from public.bgl_posti where evento_id = e.id and posto = any(v_posti);
         return jsonb_build_object('ok', false, 'errore', 'posto_preso', 'presi', to_jsonb(v_presi));
       end if;
+      if v_vincolo = 'bgl_prenotazioni_token_hash_key' and p_token is not null then
+        return jsonb_build_object('ok', false, 'errore', 'dati_non_validi', 'campo', 'token');
+      end if;
     end;
   end loop;
   if v_pid is null then raise exception 'bgl_prenota: codice unico non trovato'; end if;
 
-  -- 8. l'unica volta in cui il token esce dal database
-  return jsonb_build_object('ok', true, 'prenotazione_id', v_pid, 'codice', v_codice, 'token', v_token,
-    'posti', to_jsonb(v_posti),
-    'evento', jsonb_build_object('slug', e.slug, 'titolo', e.titolo, 'inizio', e.inizio, 'luogo', e.luogo),
+  -- 10. la mail di conferma è un messaggio verso un indirizzo che nessuno ha verificato: al massimo 3 al giorno
+  --     allo stesso destinatario, e nessuna dopo 2 disdette dalla stessa connessione nell'ultima ora (il giro
+  --     «prenota, disdici, prenota» non diventa un modo di mandare mail a chiunque).
+  select count(*) into v_mail_dest from public.bgl_prenotazioni
+   where email_norm = v_email_norm and creata_il > now() - interval '24 hours';
+  v_disdette := 0;
+  if p_ip_hash is not null then
+    select count(*) into v_disdette from public.bgl_prenotazioni
+     where ip_hash = p_ip_hash and stato = 'disdetta' and chiusa_il > now() - interval '1 hour';
+  end if;
+  v_mail := v_mail_dest <= 3 and v_disdette < 2;
+
+  -- 11. l'unica volta in cui il token esce dal database
+  return jsonb_build_object('ok', true, 'ripetuta', false, 'mail', v_mail, 'prenotazione_id', v_pid, 'codice', v_codice,
+    'token', v_token, 'posti', to_jsonb(v_posti),
+    'evento', jsonb_build_object('slug', e.slug, 'titolo', e.titolo, 'inizio', e.inizio, 'luogo', e.luogo, 'note', e.note),
     'nome', v_nome, 'cognome', v_cognome, 'email', v_email);
 end $$;
 
-revoke all on function public.bgl_prenota(text, text[], text, text, text) from public, anon, authenticated;
-grant execute on function public.bgl_prenota(text, text[], text, text, text) to service_role;
+revoke all on function public.bgl_prenota(text, text[], text, text, text, text, text) from public, anon, authenticated;
+grant execute on function public.bgl_prenota(text, text[], text, text, text, text, text) to service_role;
 
 -- ───────────────────────────────────────────────────────────────────────────── organizzatore
 -- Ogni funzione: auth.uid() nullo → non_autenticato; evento inesistente o d'altri → lo stesso `non_tuo`
@@ -727,6 +838,8 @@ revoke all on function public.bgl_eventi_progetto(uuid) from public, anon, authe
 grant execute on function public.bgl_eventi_progetto(uuid) to authenticated, service_role;
 
 -- Tutto per il pannello: le prenotazioni con nome, cognome, email, posti e codice. SOLO al proprietario.
+-- «connessione»: un numero (1, 2…) uguale per le prenotazioni arrivate dalla stessa connessione, solo se sono
+-- almeno due; null altrimenti. L'impronta non esce: all'organizzatore basta vedere chi viene dallo stesso posto.
 create function public.bgl_prenotati(p_evento_id uuid)
 returns jsonb language plpgsql stable security definer set search_path = public, pg_temp as $$
 declare uid uuid := auth.uid(); e public.bgl_eventi; c jsonb;
@@ -744,9 +857,15 @@ begin
                     from unnest(p.posti) with ordinality u(x, i)
                    where exists (select 1 from public.bgl_posti b
                                   where b.evento_id = e.id and b.posto = x and b.prenotazione_id = p.id)),
-        'posti_chiesti', to_jsonb(p.posti), 'stato', p.stato, 'creata_il', p.creata_il, 'chiusa_il', p.chiusa_il)
+        'posti_chiesti', to_jsonb(p.posti), 'stato', p.stato, 'creata_il', p.creata_il, 'chiusa_il', p.chiusa_il,
+        'connessione', g.n)
         order by p.creata_il, p.codice)
-      from public.bgl_prenotazioni p where p.evento_id = e.id), '[]'::jsonb),
+      from public.bgl_prenotazioni p
+      left join (select q.ip_hash, row_number() over (order by min(q.creata_il), q.ip_hash)::int n
+                   from public.bgl_prenotazioni q
+                  where q.evento_id = e.id and q.ip_hash is not null
+                  group by q.ip_hash having count(*) >= 2) g on g.ip_hash = p.ip_hash
+      where p.evento_id = e.id), '[]'::jsonb),
     'conteggi', c || jsonb_build_object('prenotazioni_attive',
       (select count(*) from public.bgl_prenotazioni p where p.evento_id = e.id and p.stato = 'attiva')));
 end $$;
@@ -796,7 +915,8 @@ grant execute on function public.bgl_elimina(uuid) to authenticated, service_rol
 -- ───────────────────────────────────────────────────────────────── retention: la purga della 0062, estesa
 -- Stessa firma (returns jsonb): `create or replace` tiene i permessi, ma si riscrivono lo stesso.
 -- In più: nomi, cognomi, email e token delle prenotazioni diventano null 30 giorni dopo l'evento (posti e
--- codici restano: non dicono chi); le impronte degli IP della biglietteria si tolgono dopo 7 giorni.
+-- codici restano: non dicono chi); l'impronta della connessione salvata sulla prenotazione si toglie il giorno
+-- dopo l'evento (serve solo prima, per i tetti e il pannello); i contatori orari della biglietteria dopo 7 giorni.
 -- La Edge Function `retention-purge` e il workflow giornaliero non cambiano.
 create or replace function public.stageplot_purge_expired()
 returns jsonb
@@ -804,7 +924,7 @@ language plpgsql
 security definer
 set search_path = public
 as $$
-declare a int; f int; l int; bp int; bt int;
+declare a int; f int; l int; bp int; bi int; bt int;
 begin
   delete from public.analytics_events  where created_at   < now() - interval '30 days';
   get diagnostics a = row_count;
@@ -813,19 +933,24 @@ begin
   delete from public.landing_throttle  where window_start < now() - interval '7 days';
   get diagnostics l = row_count;
   update public.bgl_prenotazioni p
-     set nome = null, cognome = null, email = null, email_norm = null, token_hash = null, anonimizzata_il = now()
+     set nome = null, cognome = null, email = null, email_norm = null, token_hash = null, ip_hash = null,
+         anonimizzata_il = now()
     from public.bgl_eventi e
    where p.evento_id = e.id and p.anonimizzata_il is null and e.inizio < now() - interval '30 days';
   get diagnostics bp = row_count;
+  update public.bgl_prenotazioni p set ip_hash = null
+    from public.bgl_eventi e
+   where p.evento_id = e.id and p.ip_hash is not null and e.inizio < now() - interval '1 day';
+  get diagnostics bi = row_count;
   delete from public.bgl_throttle where window_start < now() - interval '7 days';
   get diagnostics bt = row_count;
   return jsonb_build_object('analytics_events', a, 'feedback_throttle', f, 'landing_throttle', l,
-    'bgl_anonimizzate', bp, 'bgl_throttle', bt);
+    'bgl_anonimizzate', bp, 'bgl_impronte', bi, 'bgl_throttle', bt);
 end;
 $$;
 
 comment on function public.stageplot_purge_expired() is
-  'Retention delle tabelle: analytics_events (>30gg), feedback_throttle, landing_throttle e bgl_throttle (>7gg), dati personali delle prenotazioni della biglietteria (30gg dopo l''evento). Le schermate delle segnalazioni le cancella la Edge Function retention-purge con la Storage API (0062).';
+  'Retention delle tabelle: analytics_events (>30gg), feedback_throttle, landing_throttle e bgl_throttle (>7gg), dati personali delle prenotazioni della biglietteria (30gg dopo l''evento), impronta della connessione sulle prenotazioni (1 giorno dopo l''evento). Le schermate delle segnalazioni le cancella la Edge Function retention-purge con la Storage API (0062).';
 
 revoke all on function public.stageplot_purge_expired() from public, anon, authenticated;
 grant execute on function public.stageplot_purge_expired() to service_role;

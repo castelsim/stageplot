@@ -17,6 +17,7 @@
   var BERSAGLIO_PX = 44;        /* un posto, ingrandito, è largo almeno così sullo schermo */
   var TOCCO_DIRETTO_PX = 30;    /* col dito: sotto questa misura il primo tocco ingrandisce invece di scegliere */
   var CLIC_DIRETTO_PX = 16;     /* col mouse basta molto meno */
+  var CONTATTO = "info@stageplot.it";   /* a chi scrivere: gruppi più grandi, link rotti, problemi (lo stesso della mail) */
 
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
@@ -163,8 +164,11 @@
       case "posto_inesistente": return "La pianta è cambiata: ricarica la pagina e scegli di nuovo.";
       case "limite_email":
         return "Con questa email hai già " + nPosti(typeof d.gia === "number" ? d.gia : max) +
-          ": se ne possono prenotare al massimo " + max + ".";
-      case "troppi_posti": return "Puoi prenotare al massimo " + max + " posti.";
+          ": se ne possono prenotare al massimo " + max + ". Per un gruppo più grande scrivi a " + CONTATTO + ".";
+      case "limite_connessione":
+        return "Da questa connessione sono già stati prenotati " + nPosti(typeof d.gia === "number" ? d.gia : (d.max || 8)) +
+          ", il massimo. Per altri posti scrivi a " + CONTATTO + ".";
+      case "troppi_posti": return "Puoi prenotare al massimo " + max + " posti. Per un gruppo più grande scrivi a " + CONTATTO + ".";
       case "dati_non_validi":
         return ({
           nome: "Scrivi il tuo nome",
@@ -174,11 +178,16 @@
         })[d.campo] || "Qualcosa non ha funzionato. Riprova fra un momento.";
       case "privacy_mancante": return "Per prenotare devi spuntare l'informativa sulla privacy.";
       case "troppe_richieste": return "Troppi tentativi da questa connessione: riprova fra qualche minuto.";
-      case "token_non_valido": return "Questo link di disdetta non è valido.";
+      case "token_non_valido": return "Questo link di disdetta non è valido: aprilo per intero dalla mail. Per un problema scrivi a " + CONTATTO + ".";
       case "gia_disdetta": return "Questa prenotazione è già stata disdetta.";
       case "evento_concluso": return "L'evento è già iniziato: non si può più disdire.";
+      /* la richiesta è partita ma la risposta non è arrivata: la prenotazione può esserci. Riprovare è sicuro
+         (stesso codice segreto: il server risponde con la stessa prenotazione, non con «posti presi») */
       case "senza_risposta":
-        return "Non abbiamo avuto risposta dal server. Se fra qualche minuto non ti arriva la mail, riprova.";
+        return "Non sappiamo se la prenotazione è andata a buon fine. Controlla la mail: se ti è arrivato il codice, è tutto a posto. " +
+          "Altrimenti premi di nuovo «Prenota»: non rischi di prenotare due volte.";
+      /* la richiesta non è proprio partita */
+      case "offline": return "Sembra che tu non abbia connessione: i tuoi dati sono ancora qui, riprova appena torna la rete.";
       default: return "Qualcosa non ha funzionato. Riprova fra un momento.";
     }
   }
@@ -235,17 +244,141 @@
     return u;
   }
 
-  /* Controlli del modulo prima di chiamare il server (il server li rifà comunque). */
-  function controllaModulo(m) {
+  /* Nome e cognome: la regola del server (bgl-validazione.ts, NOME_RE). Parole di sole lettere separate da
+     spazi, un apostrofo o un trattino: niente cifre né «:/.@», così un nome non porta un indirizzo web. */
+  var NOME_RE = null;
+  try { NOME_RE = new RegExp("^[\\p{L}\\p{M}]+(?:(?: +|['\u2019]|-)[\\p{L}\\p{M}]+)*$", "u"); } catch (e) { NOME_RE = null; }
+  function nomeValido(s) { return NOME_RE ? NOME_RE.test(s) : !/[0-9:/.@<>_!?#&=+;,()[\]{}"*%$|\\~^`]/.test(s); }
+
+  /* Cosa manca nell'email, detto in parole. null = il formato va. */
+  function erroreEmail(x) {
+    var e = String(x == null ? "" : x).trim();
+    if (!e) return "Scrivi la tua email";
+    if (/\s/.test(e)) return "Togli gli spazi dall'email";
+    var at = e.split("@").length - 1;
+    if (at === 0) return "Manca la @ (per esempio nome@gmail.com)";
+    if (at > 1) return "C'è più di una @";
+    if (e.indexOf("@") === 0) return "Manca la parte prima della @";
+    var dom = e.slice(e.indexOf("@") + 1);
+    if (!/^[^.]+(\.[^.]+)+$/.test(dom)) return "Manca il punto dopo la @ (per esempio gmail.com)";
+    if (e.length > 254) return "Controlla l'email";
+    return null;
+  }
+  /* Domini che si scrivono spesso: a un errore di battitura (gmail.con, gmial.com, libero.ti, gmailcom) si
+     propone quello giusto. Distanza 1 (una lettera in più, in meno, cambiata o due scambiate), oppure lo
+     stesso dominio senza il punto. I domini veri vicini a questi (tin.it, mail.com…) sono nell'elenco. */
+  var DOMINI = ["gmail.com", "googlemail.com", "hotmail.com", "hotmail.it", "libero.it", "yahoo.com", "yahoo.it", "icloud.com",
+    "me.com", "outlook.com", "outlook.it", "live.com", "live.it", "alice.it", "virgilio.it", "tiscali.it", "tin.it", "tim.it",
+    "fastwebnet.it", "email.it", "inwind.it", "mail.com", "gmx.com", "gmx.it", "aruba.it", "pec.it", "msn.com"];
+  function distanza1(a, b) {
+    if (a === b) return 0;
+    var la = a.length, lb = b.length;
+    if (Math.abs(la - lb) > 1) return 2;
+    var i = 0;
+    while (i < la && i < lb && a[i] === b[i]) i++;
+    if (la === lb) {
+      if (a.slice(i + 1) === b.slice(i + 1)) return 1;                                     /* una cambiata */
+      if (a[i] === b[i + 1] && a[i + 1] === b[i] && a.slice(i + 2) === b.slice(i + 2)) return 1;   /* due scambiate */
+      return 2;
+    }
+    return (la > lb ? a.slice(i + 1) === b.slice(i) : a.slice(i) === b.slice(i + 1)) ? 1 : 2;   /* una in più o in meno */
+  }
+  function suggerisciEmail(x) {
+    var e = String(x == null ? "" : x).trim(), at = e.lastIndexOf("@");
+    if (at < 1) return null;
+    var dom = e.slice(at + 1).toLowerCase();
+    if (!dom || DOMINI.indexOf(dom) >= 0) return null;
+    if (dom === "gmail.it") return e.slice(0, at + 1) + "gmail.com";   /* Gmail non dà indirizzi @gmail.it: l'errore più comune */
+    for (var i = 0; i < DOMINI.length; i++) {
+      var d = DOMINI[i];
+      if (dom.replace(/\./g, "") === d.replace(/\./g, "") || distanza1(dom, d) === 1) return e.slice(0, at + 1) + d;
+    }
+    return null;
+  }
+
+  /* Controlli del modulo prima di chiamare il server (il server li rifà comunque).
+     o.emailAccettata: l'email che la persona ha confermato dopo il «Forse intendevi…?» */
+  function controllaModulo(m, o) {
     var err = {};
     var nome = String(m.nome || "").trim(), cognome = String(m.cognome || "").trim(),
       email = String(m.email || "").trim();
-    var ctrl = /[\u0000-\u001f\u007f]/;
+    var ctrl = /[\u0000-\u001f\u007f]/, simboli = "Usa solo lettere: niente numeri, punti o simboli.";
     if (!nome || nome.length > 60 || ctrl.test(nome)) err.nome = messaggio("dati_non_validi", { campo: "nome" });
+    else if (!nomeValido(nome)) err.nome = simboli;
     if (!cognome || cognome.length > 60 || ctrl.test(cognome)) err.cognome = messaggio("dati_non_validi", { campo: "cognome" });
-    if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) err.email = messaggio("dati_non_validi", { campo: "email" });
+    else if (!nomeValido(cognome)) err.cognome = simboli;
+    var fe = erroreEmail(email);
+    if (fe) err.email = fe;
+    else {
+      var sug = suggerisciEmail(email);
+      if (sug && !(o && o.emailAccettata === email)) err.email = "Forse intendevi " + sug + "? Se l'indirizzo è giusto, premi di nuovo «Prenota».";
+    }
     if (m.privacy !== true) err.privacy = messaggio("privacy_mancante");
     return err;
+  }
+
+  /* Perché fetch non ha avuto risposta: senza rete la richiesta non è partita; altrimenti (timeout, connessione
+     caduta a metà) può essere arrivata al server. */
+  function tipoErroreRete(err, online) {
+    if (online === false) return "offline";
+    return "senza_risposta";
+  }
+
+  /* Il codice segreto della prenotazione lo sceglie la pagina, uno per TENTATIVO (stesso evento, stessi posti,
+     stessa email): se la risposta si perde e la persona ripreme «Prenota», il server riconosce la richiesta e
+     risponde con la stessa prenotazione. casuale = crypto.getRandomValues (senza: niente codice, lo fa il server). */
+  function firmaTentativo(slug, posti, email) {
+    return slug + "|" + (posti || []).slice().sort().join(",") + "|" + String(email || "").trim().toLowerCase();
+  }
+  function tentativo(prima, slug, posti, email, casuale) {
+    var f = firmaTentativo(slug, posti, email);
+    if (prima && prima.firma === f && tokenValido(prima.token)) return prima;
+    if (typeof casuale !== "function") return null;
+    var b = casuale(new Uint8Array(16)), t = "";
+    for (var i = 0; i < 16; i++) t += (b[i] < 16 ? "0" : "") + b[i].toString(16);
+    return { firma: f, token: t };
+  }
+
+  /* Cosa si ricorda la scheda (sessionStorage) per una ricarica: posti, dati scritti, tentativo. Non la spunta
+     dell'informativa, che si rimette a mano. */
+  function daRicordare(S) {
+    var m = S.modulo || {};
+    return { scelti: (S.scelti || []).slice(0, MAX_POSTI),
+      modulo: { nome: String(m.nome || "").slice(0, 60), cognome: String(m.cognome || "").slice(0, 60), email: String(m.email || "").slice(0, 254) },
+      tentativo: S.tentativo && tokenValido(S.tentativo.token) ? { firma: String(S.tentativo.firma || ""), token: S.tentativo.token } : null };
+  }
+  function daRipristinare(v, ctx) {
+    if (!v || typeof v !== "object") return null;
+    var esiste = {}, via = {};
+    ((ctx && ctx.posti) || []).forEach(function (p) { esiste[chiave(p.settore, p.fila, p.posto)] = 1; });
+    ((ctx && ctx.occupati) || []).concat((ctx && ctx.riservati) || []).forEach(function (k) { via[k] = 1; });
+    var scelti = (Array.isArray(v.scelti) ? v.scelti : []).filter(function (k) {
+      return typeof k === "string" && k.length < 100 && esiste[k] && !via[k];
+    }).slice(0, MAX_POSTI);
+    var m = v.modulo && typeof v.modulo === "object" ? v.modulo : {};
+    var t = v.tentativo && typeof v.tentativo === "object" && tokenValido(v.tentativo.token) && typeof v.tentativo.firma === "string"
+      ? { firma: v.tentativo.firma, token: v.tentativo.token } : null;
+    var testo = function (x, n) { return typeof x === "string" ? x.slice(0, n) : ""; };
+    return { scelti: scelti, modulo: { nome: testo(m.nome, 60), cognome: testo(m.cognome, 60), email: testo(m.email, 254) }, tentativo: t };
+  }
+
+  /* Un posto che non si può scegliere, toccato: lo si dice invece di non rispondere. */
+  function avvisoPosto(k, stato, settore) {
+    if (stato === "occupato") return "Il posto " + etichetta(k, settore) + " è già occupato.";
+    if (stato === "riservato") return "Il posto " + etichetta(k, settore) + " è tenuto da parte: non si può prenotare.";
+    return null;
+  }
+
+  /* La riga d'aiuto sopra la pianta. fine = mouse (o penna): si clicca, non si tocca col dito. */
+  function suggerimento(o) {
+    if (!o.aperta) return "";
+    if (o.fine) {
+      return o.zoom ? "Clicca un posto libero per sceglierlo. Scorri la pianta con la rotellina o le barre."
+        : "Clicca un posto libero per sceglierlo." + (o.serveZoom ? " «Ingrandisci» li mostra più grandi." : "");
+    }
+    if (!o.zoom && o.serveZoom) return "Tocca la pianta per ingrandirla, poi scegli i posti.";
+    if (o.zoom) return "Scorri la pianta con il dito. Tocca un posto libero per sceglierlo.";
+    return "Tocca un posto libero per sceglierlo.";
   }
 
   /* --- geometria della pianta (cm) --- */
@@ -397,7 +530,10 @@
     maxPosti: maxPosti, scegli: scegli, daTogliere: daTogliere, messaggio: messaggio, statoPagina: statoPagina,
     data: data, ora: ora, dataOra: dataOra, mascheraEmail: mascheraEmail, linkMio: linkMio, linkPianta: linkPianta,
     controllaModulo: controllaModulo, passi: passi, scalaDettaglio: scalaDettaglio, capiFile: capiFile,
-    attributiPosto: attributiPosto, svgPianta: svgPianta, nPosti: nPosti
+    attributiPosto: attributiPosto, svgPianta: svgPianta, nPosti: nPosti, CONTATTO: CONTATTO,
+    nomeValido: nomeValido, erroreEmail: erroreEmail, suggerisciEmail: suggerisciEmail, tipoErroreRete: tipoErroreRete,
+    tentativo: tentativo, daRicordare: daRicordare, daRipristinare: daRipristinare, avvisoPosto: avvisoPosto,
+    suggerimento: suggerimento
   };
   root.BGL = BGL;
   if (typeof module === "object" && module && module.exports) module.exports = BGL;
@@ -415,7 +551,7 @@
     slug: q.get("e") || "", token: q.get("c") || "",
     r: null, stato: "caricamento", occupati: [], riservati: [], scelti: [], pianta: null, piantaJson: "",
     schermata: "caricamento", avviso: null, avvisoTipo: "err", zoom: false, modulo: { nome: "", cognome: "", email: "", privacy: false },
-    inviando: false, conferma: null
+    inviando: false, conferma: null, tentativo: null, emailAccettata: null, ripristinato: false
   };
   var TIMEOUT_MS = 20000;
 
@@ -453,6 +589,23 @@
   }
   function ricorda(v) { try { localStorage.setItem("bgl:" + S.slug, JSON.stringify(v)); } catch (e) { /* niente */ } }
   function dimentica() { try { localStorage.removeItem("bgl:" + S.slug); } catch (e) { /* niente */ } }
+  /* La scheda ricorda posti scelti, dati scritti e tentativo (sessionStorage: sparisce chiudendo la scheda):
+     una ricarica a metà, o il telefono che ricarica la pagina tornandoci, non fa ripartire da zero. */
+  function salvaSessione() {
+    try { sessionStorage.setItem("bgl-sessione:" + S.slug, JSON.stringify(daRicordare(S))); } catch (e) { /* niente */ }
+  }
+  function leggiSessione() {
+    try { return JSON.parse(sessionStorage.getItem("bgl-sessione:" + S.slug) || "null"); } catch (e) { return null; }
+  }
+  function chiudiSessione() { try { sessionStorage.removeItem("bgl-sessione:" + S.slug); } catch (e) { /* niente */ } }
+
+  /* --- cronologia: il tasto Indietro (o il gesto) dal modulo torna alla pianta, non esce dalla pagina --- */
+  function statoStoria() { try { return (history.state && history.state.bgl) || null; } catch (e) { return null; } }
+  function spingiStoria(v) { try { history.pushState({ bgl: v }, "", location.href); } catch (e) { /* niente */ } }
+  function sostituisciStoria(v) { try { history.replaceState(v ? { bgl: v } : null, "", location.href); } catch (e) { /* niente */ } }
+  function puntatoreFine() {
+    try { return window.matchMedia("(pointer: fine)").matches; } catch (e) { return false; }
+  }
 
   /* --- pezzi comuni --- */
   function intestazione(ev, conBadge) {
@@ -480,12 +633,14 @@
   }
   function piedino() {
     return '<footer class="piede"><a href="/privacy/#biglietteria" target="_blank" rel="noopener">Privacy</a>' +
+      '<span>Problemi? <a href="mailto:' + CONTATTO + '">' + CONTATTO + "</a></span>" +
       "<span>Prenotazioni con StagePlot</span></footer>";
   }
-  function messaggioPieno(titolo, testo, bottone) {
+  function messaggioPieno(titolo, testo, bottone, link) {
     S.schermata = "messaggio";
     app.innerHTML = '<div class="centro"><h1 tabindex="-1">' + esc(titolo) + "</h1>" + (testo ? "<p>" + esc(testo) + "</p>" : "") +
-      (bottone ? '<button type="button" class="btn primario" id="bgl-riprova">' + esc(bottone) + "</button>" : "") + "</div>" + piedino();
+      (bottone ? '<button type="button" class="btn primario" id="bgl-riprova">' + esc(bottone) + "</button>" : "") +
+      (link ? '<p class="disdici-riga"><a href="' + esc(link) + '">Vai alla pianta dei posti</a></p>' : "") + "</div>" + piedino();
     barra.hidden = true;
     var b = document.getElementById("bgl-riprova");
     if (b) b.addEventListener("click", function () { location.reload(); });
@@ -578,15 +733,10 @@
     z.setAttribute("aria-pressed", S.zoom ? "true" : "false");
     z.hidden = !S.zoom && !serveZoom && scale.dettaglio <= scale.intera * 1.05;
     var sug = document.getElementById("bgl-sugg");
-    if (S.stato !== "aperta") sug.textContent = "";
-    else if (!S.zoom && serveZoom) sug.textContent = "Tocca la pianta per ingrandirla, poi scegli i posti.";
-    else if (S.zoom) sug.textContent = "Scorri la pianta con il dito. Tocca un posto libero per sceglierlo.";
-    else sug.textContent = "Tocca un posto libero per sceglierlo.";
+    sug.textContent = suggerimento({ aperta: S.stato === "aperta", zoom: S.zoom, serveZoom: serveZoom, fine: puntatoreFine() });
   }
   function sogliaTocco() {
-    var fine = false;
-    try { fine = window.matchMedia("(pointer: fine)").matches; } catch (e) { /* niente */ }
-    return fine ? CLIC_DIRETTO_PX : TOCCO_DIRETTO_PX;
+    return puntatoreFine() ? CLIC_DIRETTO_PX : TOCCO_DIRETTO_PX;
   }
   function piccolaPerIlDito() {
     var ps = passi(S.pianta);
@@ -611,13 +761,22 @@
   function tocco(ev) {
     if (S.stato !== "aperta") return;
     var g = ev.target.closest ? ev.target.closest("g.posto") : null;
+    var bottone = g && g.getAttribute("role") === "button";
     /* detail === 0: clic da tastiera o da lettore di schermo — sceglie sempre, senza passare dallo zoom */
     if (ev.detail !== 0 && piccolaPerIlDito()) {
       var svg = document.querySelector("#bgl-mappa svg"), r = svg.getBoundingClientRect();
       impostaZoom(true, (ev.clientX - r.left) / scale.intera, (ev.clientY - r.top) / scale.intera);
+      /* col mouse il clic è preciso: il posto cliccato si sceglie anche mentre la pianta si ingrandisce */
+      if (bottone && puntatoreFine()) toccaPosto(g.getAttribute("data-k"));
       return;
     }
-    if (!g || g.getAttribute("role") !== "button") return;
+    if (!g) return;
+    if (!bottone) {
+      /* occupato o tenuto da parte: si dice, invece di non rispondere */
+      var k = g.getAttribute("data-k"), t = avvisoPosto(k, statoDi(k, S), settoreOn());
+      if (t) { avviso(t, "info"); disegnaBarra(); }
+      return;
+    }
     toccaPosto(g.getAttribute("data-k"));
   }
   function toccaPosto(k) {
@@ -626,6 +785,7 @@
     avviso(r.avviso ? messaggio("troppi_posti", { max: maxPosti(S.r.evento) }) : null);
     aggiornaPosti();
     disegnaBarra();
+    salvaSessione();
   }
   /* Tastiera: Invio/Spazio sceglie, le frecce si spostano sul posto libero più vicino in quella direzione. */
   function tasti(ev) {
@@ -690,6 +850,7 @@
         document.getElementById("bgl-avanti").addEventListener("click", function () {
           if (!S.scelti.length) { avviso(messaggio("dati_non_validi", { campo: "posti" })); disegnaBarra(); return; }
           avviso(null);
+          spingiStoria("modulo");   /* Indietro, da qui, torna alla pianta */
           disegnaModulo();
         });
       } else {
@@ -697,7 +858,9 @@
           '<button type="submit" form="bgl-form" class="btn primario" id="bgl-prenota"></button>';
         document.getElementById("bgl-indietro").addEventListener("click", function () {
           if (S.inviando) return;
-          leggiModulo(); avviso(null); disegnaPianta(); fuoco();
+          /* lo stesso del tasto Indietro: se il modulo ha la sua voce nella cronologia, si torna indietro di una */
+          if (statoStoria() === "modulo") { history.back(); return; }
+          tornaAllaPianta();
         });
       }
     }
@@ -716,6 +879,10 @@
     }
   }
 
+  function tornaAllaPianta() {
+    leggiModulo(); salvaSessione(); avviso(null); disegnaPianta(); fuoco();
+  }
+
   /* --- schermata: il modulo --- */
   function disegnaModulo(errori) {
     salvaScroll();
@@ -724,11 +891,13 @@
     var m = S.modulo, settore = settoreOn();
     function campo(id, etich, tipo, ac, extra) {
       var e = errori[id];
+      var usa = (id === "email" && errori.emailSug)
+        ? '<button type="button" class="btn piccolo" id="bgl-usa-email" data-email="' + esc(errori.emailSug) + '">Usa ' + esc(errori.emailSug) + "</button>" : "";
       return '<div class="campo' + (e ? " ha-errore" : "") + '"><label for="bgl-' + id + '">' + etich + "</label>" +
         '<input id="bgl-' + id + '" name="' + id + '" type="' + tipo + '" autocomplete="' + ac + '" maxlength="' +
         (id === "email" ? 254 : 60) + '" value="' + esc(m[id]) + '"' + (extra || "") +
         (e ? ' aria-invalid="true" aria-describedby="bgl-err-' + id + '"' : "") + ">" +
-        (e ? '<p class="err" id="bgl-err-' + id + '">' + esc(e) + "</p>" : "") + "</div>";
+        (e ? '<p class="err" id="bgl-err-' + id + '">' + esc(e) + "</p>" + usa : "") + "</div>";
     }
     var ep = errori.privacy;
     app.innerHTML = intestazione(S.r.evento, false) +
@@ -762,6 +931,16 @@
     }
     form.addEventListener("input", pulisci);
     form.addEventListener("change", pulisci);
+    form.addEventListener("input", function () { leggiModulo(); salvaSessione(); });
+    var usa = document.getElementById("bgl-usa-email");
+    if (usa) usa.addEventListener("click", function () {
+      var i = document.getElementById("bgl-email");
+      i.value = usa.getAttribute("data-email");
+      leggiModulo(); salvaSessione();
+      var c = i.closest(".campo"); c.classList.remove("ha-errore"); i.removeAttribute("aria-invalid"); i.removeAttribute("aria-describedby");
+      var er = c.querySelector(".err"); if (er) er.remove(); usa.remove();
+      i.focus();
+    });
     disegnaBarra();
     var primo = app.querySelector('[aria-invalid="true"]');
     if (primo) primo.focus(); else fuoco();
@@ -774,17 +953,34 @@
       sito: f("sito").value };
   }
 
+  function casualeSicuro() {
+    var c = root.crypto;
+    return c && typeof c.getRandomValues === "function" ? function (a) { return c.getRandomValues(a); } : null;
+  }
+
   function invia() {
     if (S.inviando) return;
     leggiModulo();
-    var err = controllaModulo(S.modulo);
+    var email = String(S.modulo.email || "").trim();
+    var err = controllaModulo(S.modulo, { emailAccettata: S.emailAccettata });
+    if (err.email && !erroreEmail(email) && suggerisciEmail(email)) {
+      /* «Forse intendevi…?»: il secondo «Prenota» con la stessa email passa */
+      S.emailAccettata = email; err.emailSug = suggerisciEmail(email);
+    }
     if (Object.keys(err).length) { avviso(null); disegnaModulo(err); return; }
+    S.tentativo = tentativo(S.tentativo, S.slug, S.scelti, email, casualeSicuro());
+    salvaSessione();
     S.inviando = true; avviso(null); disegnaBarra();
-    var m = S.modulo;
-    prenotaRete({ e: S.slug, posti: S.scelti.slice(), nome: m.nome.trim(), cognome: m.cognome.trim(),
-      email: m.email.trim(), privacy: true, sito: m.sito || "" })
+    var m = S.modulo, corpo = { e: S.slug, posti: S.scelti.slice(), nome: m.nome.trim(), cognome: m.cognome.trim(),
+      email: email, privacy: true, sito: m.sito || "" };
+    if (S.tentativo) corpo.token = S.tentativo.token;
+    prenotaRete(corpo)
       .then(function (res) { S.inviando = false; esito(res.d || {}); },
-        function () { S.inviando = false; avviso(messaggio("senza_risposta")); disegnaBarra(); });
+        function (e) {
+          S.inviando = false;
+          avviso(messaggio(tipoErroreRete(e, typeof navigator === "object" ? navigator.onLine : true)));
+          disegnaBarra();
+        });
   }
 
   function esito(d) {
@@ -792,10 +988,14 @@
     if (d.ok) {
       S.conferma = d;
       ricorda({ codice: d.codice, token: d.token, posti: d.posti });
-      S.scelti = [];
+      S.scelti = []; S.tentativo = null; S.emailAccettata = null;
+      chiudiSessione();
+      /* la conferma prende il posto del modulo nella cronologia: Indietro porta alla pianta */
+      sostituisciStoria("conferma");
       return disegnaConferma();
     }
     var e = d.errore;
+    if (e === "dati_non_validi" && d.campo === "token") S.tentativo = null;   /* un codice già usato: al prossimo giro uno nuovo */
     if (e === "posto_preso" || e === "posto_riservato") {
       var v = (e === "posto_preso" ? d.presi : d.posti) || [];
       v.forEach(function (k) {
@@ -838,9 +1038,13 @@
         '<p class="big-ev"><strong>' + esc(ev.titolo) + "</strong><br>" + esc(dataOra(ev.inizio)) + "<br>" + esc(ev.luogo || "") + "</p>" +
       "</div>" +
       '<p class="nota ok"><strong>All\'ingresso</strong> di\' il tuo cognome o mostra questo codice. L\'ingresso è gratuito.</p>' +
-      (d.mail === false
+      (d.ripetuta
+        ? '<p class="nota">La prenotazione era già registrata: la prima risposta si era persa per strada. Se non trovi la mail con il codice, fai uno screenshot di questa pagina.</p>'
+        : d.mail === false
         ? '<p class="nota forte">La mail non è partita: fai uno screenshot di questa pagina.</p>'
-        : '<p class="nota">Ti abbiamo mandato una mail a <span class="nowrap">' + esc(mascheraEmail(S.modulo.email)) + "</span> con il codice e il link per disdire.</p>") +
+        /* l'indirizzo intero: un errore di battitura (gmail.con) si vede qui, e non solo quando la mail non arriva */
+        : '<p class="nota">Ti abbiamo mandato una mail a <strong class="email-intera">' + esc(String(S.modulo.email || "").trim()) +
+          "</strong> con il codice e il link per disdire. Se l'indirizzo è sbagliato, fai uno screenshot di questa pagina.</p>") +
       '<p class="disdici-riga">Non puoi più venire? <a href="' + esc(link) + '">Disdici e libera i posti per altri</a></p>' +
       "</section>" + piedino();
     disegnaBarra();
@@ -921,6 +1125,11 @@
       if (st === "inesistente") return messaggioPieno("Pagina non trovata", messaggio("evento_inesistente"));
       if (st === "errore") { if (!silenzioso) messaggioPieno("Qualcosa non ha funzionato", messaggio("rete"), "Riprova"); return; }
       var cambiata = applica(r);
+      if (!S.ripristinato) {
+        S.ripristinato = true;
+        var v = daRipristinare(leggiSessione(), { posti: (S.pianta && S.pianta.posti) || [], occupati: S.occupati, riservati: S.riservati });
+        if (v) { S.scelti = v.scelti; S.modulo.nome = v.modulo.nome; S.modulo.cognome = v.modulo.cognome; S.modulo.email = v.modulo.email; S.tentativo = v.tentativo; }
+      }
       if (st === "conclusa") {
         S.schermata = "messaggio"; barra.hidden = true; document.body.classList.remove("con-barra");
         app.innerHTML = intestazione(r.evento, false) + '<div class="centro"><p class="nota">L\'evento si è già svolto.</p></div>' + piedino();
@@ -950,6 +1159,11 @@
       }
       if (prima === "modulo") leggiModulo();
       disegnaPianta();
+      /* ricaricata a metà del modulo: si torna lì, con posti e dati */
+      if (prima === "caricamento" && statoStoria() === "modulo") {
+        if (st === "aperta" && S.scelti.length) { disegnaModulo(); return; }
+        sostituisciStoria(null);
+      }
       if (!silenzioso || prima !== "pianta") fuoco();
     }, function () {
       if (!silenzioso) messaggioPieno("Non riesco a caricare i posti", "Controlla la connessione e riprova.", "Riprova");
@@ -963,13 +1177,25 @@
   function avvia() {
     if (!slugValido(S.slug)) return messaggioPieno("Pagina non trovata", messaggio("evento_inesistente"));
     if (S.token) {
-      if (!tokenValido(S.token)) return messaggioPieno("Link non valido", messaggio("token_non_valido"));
+      if (!tokenValido(S.token)) return messaggioPieno("Link non valido", messaggio("token_non_valido"), null, linkPianta(BASE, S.slug, cfg));
       rpc("bgl_mia_prenotazione", { p_slug: S.slug, p_token: S.token }).then(function (r) {
-        if (!r || !r.ok) return messaggioPieno("Link non valido", messaggio(r && r.errore === "token_non_valido" ? "token_non_valido" : (r && r.errore) || "rete"));
+        if (!r || !r.ok) return messaggioPieno("Link non valido", messaggio(r && r.errore === "token_non_valido" ? "token_non_valido" : (r && r.errore) || "rete"),
+          null, linkPianta(BASE, S.slug, cfg));
         disegnaMia(r);
       }, function () { messaggioPieno("Non riesco a caricare la prenotazione", "Controlla la connessione e riprova.", "Riprova"); });
       return;
     }
+    window.addEventListener("popstate", function () {
+      var dove = statoStoria();
+      if (S.schermata === "modulo" && dove !== "modulo") {
+        if (S.inviando) { spingiStoria("modulo"); return; }   /* mentre si prenota si resta qui */
+        tornaAllaPianta();
+      } else if (S.schermata === "conferma" && dove !== "conferma") {
+        S.conferma = null; S.schermata = "caricamento"; carica(false);
+      } else if (S.schermata === "pianta" && dove === "modulo") {
+        if (S.stato === "aperta" && S.scelti.length) { avviso(null); disegnaModulo(); } else sostituisciStoria(null);
+      }
+    });
     carica(false);
     setInterval(function () {
       if (document.visibilityState === "visible" && !S.inviando && (S.schermata === "pianta" || S.schermata === "modulo")) carica(true);
