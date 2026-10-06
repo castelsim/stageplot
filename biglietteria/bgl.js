@@ -376,8 +376,8 @@
       return o.zoom ? "Clicca un posto libero per sceglierlo. Scorri la pianta con la rotellina o le barre."
         : "Clicca un posto libero per sceglierlo." + (o.serveZoom ? " «Ingrandisci» li mostra più grandi." : "");
     }
-    if (!o.zoom && o.serveZoom) return "Tocca la pianta per ingrandirla, poi scegli i posti.";
-    if (o.zoom) return "Scorri la pianta con il dito. Tocca un posto libero per sceglierlo.";
+    if (!o.zoom && o.serveZoom) return "Tocca la pianta o allargala con due dita, poi scegli i posti.";
+    if (o.zoom) return "Scorri la pianta con il dito, allarga o stringi con due dita. Tocca un posto libero per sceglierlo.";
     return "Tocca un posto libero per sceglierlo.";
   }
 
@@ -417,6 +417,22 @@
     var p = passi(pianta);
     var lato = Math.min(p.x * 0.96, p.y * 0.96);
     return Math.min(4, BERSAGLIO_PX / Math.max(1, lato));
+  }
+
+  /* ZOOM CON DUE DITA (06/10, Simone: «ci dev'essere il pinch zoom»). Funzioni pure, provate in Node.
+     limitiZoom: da «tutta la pianta» (min) a posti ben più grandi del dito (max).
+     scalaPinch: la scala nuova dal rapporto fra le distanze delle dita, dentro i limiti.
+     scrollPerFuoco: lo scorrimento che tiene il punto (cx,cy) della pianta sotto il punto (mx,my) dello schermo. */
+  function limitiZoom(intera, dettaglio) {
+    var min = intera, max = Math.max(dettaglio * 2.5, intera * 4);
+    return { min: min, max: Math.max(min, max) };
+  }
+  function scalaPinch(k0, d0, d, lim) {
+    if (!(d0 > 0) || !(d > 0) || !(k0 > 0)) return k0;
+    return Math.min(lim.max, Math.max(lim.min, k0 * d / d0));
+  }
+  function scrollPerFuoco(cx, cy, k, mx, my) {
+    return { l: Math.max(0, cx * k - mx), t: Math.max(0, cy * k - my) };
   }
 
   /* Dove scrivere la lettera della fila: ai due capi, un passo oltre il primo e l'ultimo posto. */
@@ -562,7 +578,7 @@
     conSettore: conSettore, testoScelta: testoScelta, frasePosti: frasePosti, elencoPosti: elencoPosti,
     maxPosti: maxPosti, scegli: scegli, daTogliere: daTogliere, messaggio: messaggio, statoPagina: statoPagina,
     data: data, ora: ora, dataOra: dataOra, mascheraEmail: mascheraEmail, linkMio: linkMio, linkPianta: linkPianta,
-    controllaModulo: controllaModulo, passi: passi, scalaDettaglio: scalaDettaglio, capiFile: capiFile,
+    controllaModulo: controllaModulo, passi: passi, scalaDettaglio: scalaDettaglio, limitiZoom: limitiZoom, scalaPinch: scalaPinch, scrollPerFuoco: scrollPerFuoco, capiFile: capiFile,
     attributiPosto: attributiPosto, svgPianta: svgPianta, dovePalco: dovePalco, nPosti: nPosti, CONTATTO: CONTATTO,
     nomeValido: nomeValido, erroreEmail: erroreEmail, suggerisciEmail: suggerisciEmail, tipoErroreRete: tipoErroreRete,
     tentativo: tentativo, daRicordare: daRicordare, daRipristinare: daRipristinare, avvisoPosto: avvisoPosto,
@@ -729,6 +745,7 @@
     var mappa = document.getElementById("bgl-mappa");
     mappa.addEventListener("click", tocco);
     mappa.addEventListener("keydown", tasti);
+    attivaPinch(mappa);
     document.getElementById("bgl-zoom").addEventListener("click", function () { impostaZoom(!S.zoom); });
     var salta = app.querySelector(".salta");
     if (salta) salta.addEventListener("click", function (e) {
@@ -753,7 +770,11 @@
     var largo = mappa.clientWidth, alto = Math.max(260, isFinite(maxH) ? maxH - 2 : Math.min(window.innerHeight * 0.72, 760));
     scale.intera = Math.min(largo / W, alto / H);
     scale.dettaglio = Math.max(scale.intera, scalaDettaglio(S.pianta));
-    var k = S.zoom ? scale.dettaglio : scale.intera;
+    var lim = limitiZoom(scale.intera, scale.dettaglio);
+    /* S.kLibero: la scala scelta con le dita (o il trackpad); altrimenti le due misure fisse */
+    if (S.kLibero != null) S.kLibero = Math.min(lim.max, Math.max(lim.min, S.kLibero));
+    var k = S.kLibero != null ? S.kLibero : (S.zoom ? scale.dettaglio : scale.intera);
+    scale.k = k;
     /* per eccesso: arrotondare per difetto farebbe un bersaglio da 43,9 px */
     svg.setAttribute("width", Math.ceil(W * k));
     svg.setAttribute("height", Math.ceil(H * k));
@@ -773,32 +794,103 @@
   }
   function piccolaPerIlDito() {
     var ps = passi(S.pianta);
-    return !S.zoom && Math.min(ps.x, ps.y) * 0.96 * scale.intera < sogliaTocco();
+    return Math.min(ps.x, ps.y) * 0.96 * kAttuale() < sogliaTocco();
   }
+  function kAttuale() { return scale.k || (S.zoom ? scale.dettaglio : scale.intera); }
   function impostaZoom(on, cx, cy) {
     var mappa = document.getElementById("bgl-mappa");
     if (!mappa) return;
-    var prima = S.zoom ? scale.dettaglio : scale.intera;
+    var prima = kAttuale();
     /* il punto da tenere al centro: quello toccato, o il centro di ciò che si vede adesso */
     if (cx == null) {
       cx = (mappa.scrollLeft + mappa.clientWidth / 2) / prima;
       cy = (mappa.scrollTop + mappa.clientHeight / 2) / prima;
     }
     S.zoom = on;
+    S.kLibero = null;
     adatta();
-    var k = on ? scale.dettaglio : scale.intera;
+    var k = kAttuale();
     mappa.scrollLeft = Math.max(0, cx * k - mappa.clientWidth / 2);
     mappa.scrollTop = Math.max(0, cy * k - mappa.clientHeight / 2);
   }
 
+  /* Lo zoom con due dita (telefono) e col pizzico del trackpad o Ctrl+rotellina (computer): la scala
+     cambia con continuità e il punto fra le dita resta sotto le dita. Il resto della pagina non si
+     ingrandisce: dentro la pianta il gesto è suo (touch-action nel CSS). */
+  var pinch = { attivo: false, d0: 0, k0: 1, cx: 0, cy: 0, fine: 0 };
+  function applicaScala(k, cx, cy, mx, my) {
+    var mappa = document.getElementById("bgl-mappa");
+    if (!mappa) return;
+    S.kLibero = k;
+    S.zoom = k > scale.intera * 1.05;
+    adatta();
+    var sc = scrollPerFuoco(cx, cy, kAttuale(), mx, my);
+    mappa.scrollLeft = sc.l; mappa.scrollTop = sc.t;
+  }
+  function puntoInMappa(mappa, x, y) {
+    var r = mappa.getBoundingClientRect();
+    return { mx: x - r.left, my: y - r.top };
+  }
+  function attivaPinch(mappa) {
+    function due(e) {
+      var a = e.touches[0], b = e.touches[1];
+      return { d: Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY), x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 };
+    }
+    mappa.addEventListener("touchstart", function (e) {
+      if (e.touches.length !== 2) return;
+      var g = due(e), p = puntoInMappa(mappa, g.x, g.y), k = kAttuale();
+      pinch.attivo = true; pinch.d0 = g.d; pinch.k0 = k;
+      pinch.cx = (mappa.scrollLeft + p.mx) / k; pinch.cy = (mappa.scrollTop + p.my) / k;
+    }, { passive: true });
+    mappa.addEventListener("touchmove", function (e) {
+      if (!pinch.attivo || e.touches.length !== 2) return;
+      e.preventDefault();
+      var g = due(e), p = puntoInMappa(mappa, g.x, g.y);
+      var k = scalaPinch(pinch.k0, pinch.d0, g.d, limitiZoom(scale.intera, scale.dettaglio));
+      applicaScala(k, pinch.cx, pinch.cy, p.mx, p.my);
+    }, { passive: false });
+    function stop(e) {
+      if (!pinch.attivo || e.touches.length >= 2) return;
+      pinch.attivo = false; pinch.fine = Date.now(); salvaScroll();
+    }
+    mappa.addEventListener("touchend", stop);
+    mappa.addEventListener("touchcancel", stop);
+    /* trackpad (Chrome, Firefox, Edge: pizzico = rotellina con Ctrl) e Ctrl+rotellina del mouse */
+    mappa.addEventListener("wheel", function (e) {
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      var p = puntoInMappa(mappa, e.clientX, e.clientY), k0 = kAttuale();
+      var cx = (mappa.scrollLeft + p.mx) / k0, cy = (mappa.scrollTop + p.my) / k0;
+      var k = Math.min(limitiZoom(scale.intera, scale.dettaglio).max,
+        Math.max(scale.intera, k0 * Math.exp(-e.deltaY * 0.01)));
+      applicaScala(k, cx, cy, p.mx, p.my);
+    }, { passive: false });
+    /* Safari sul Mac: il pizzico arriva come gesture* */
+    var gs = null;
+    mappa.addEventListener("gesturestart", function (e) {
+      e.preventDefault();
+      var p = puntoInMappa(mappa, e.clientX, e.clientY), k = kAttuale();
+      gs = { k0: k, cx: (mappa.scrollLeft + p.mx) / k, cy: (mappa.scrollTop + p.my) / k };
+    });
+    mappa.addEventListener("gesturechange", function (e) {
+      if (!gs) return;
+      e.preventDefault();
+      var p = puntoInMappa(mappa, e.clientX, e.clientY);
+      applicaScala(scalaPinch(gs.k0, 1, e.scale, limitiZoom(scale.intera, scale.dettaglio)), gs.cx, gs.cy, p.mx, p.my);
+    });
+    mappa.addEventListener("gestureend", function () { gs = null; pinch.fine = Date.now(); salvaScroll(); });
+  }
+
   function tocco(ev) {
+    if (Date.now() - pinch.fine < 400) return;   /* il dito che si alza dopo lo zoom non è una scelta */
     if (S.stato !== "aperta") return;
     var g = ev.target.closest ? ev.target.closest("g.posto") : null;
     var bottone = g && g.getAttribute("role") === "button";
     /* detail === 0: clic da tastiera o da lettore di schermo — sceglie sempre, senza passare dallo zoom */
     if (ev.detail !== 0 && piccolaPerIlDito()) {
       var svg = document.querySelector("#bgl-mappa svg"), r = svg.getBoundingClientRect();
-      impostaZoom(true, (ev.clientX - r.left) / scale.intera, (ev.clientY - r.top) / scale.intera);
+      var k0 = kAttuale();
+      impostaZoom(true, (ev.clientX - r.left) / k0, (ev.clientY - r.top) / k0);
       /* col mouse il clic è preciso: il posto cliccato si sceglie anche mentre la pianta si ingrandisce */
       if (bottone && puntatoreFine()) toccaPosto(g.getAttribute("data-k"));
       return;
