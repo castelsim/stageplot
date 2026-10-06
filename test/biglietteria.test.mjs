@@ -295,6 +295,14 @@ test("l'informativa ha la sezione della biglietteria, e la pagina ci porta", () 
   assert.match(sez, /7 giorni/, "impronta dell'IP");
   assert.match(sez, /6\.1\.b/);
   assert.match(sez, /organizzator/);
+  assert.match(sez, /Continua con Google/, "accesso Google facoltativo");
+  assert.match(sez, /nome, email e immagine del profilo/, "cosa si riceve da Google");
+  assert.match(sez, /12 mesi dopo l'ultimo accesso/, "pulizia degli account");
+  assert.match(sez, /Elimina il mio account/);
+  assert.match(sez, /Le mie prenotazioni/);
+  assert.match(sez, /locandine[^.]*pubblich/i, "le locandine sono pubbliche");
+  assert.match(sez, /email di contatto dell'organizzatore/);
+  assert.match(sez, /nessuna mail/i, "eliminando uno spettacolo non parte nessuna mail (decisione del 06/10)");
   assert.match(leggi("biglietteria/bgl.js"), /href="\/privacy\/#biglietteria"/);
 });
 

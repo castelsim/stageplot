@@ -48,7 +48,7 @@
     </header>
 
     <h1>Informativa sulla privacy</h1>
-    <p class="updated">Ultimo aggiornamento: 6 ottobre 2026 (sezione 8, prenotazione dei posti)</p>
+    <p class="updated">Ultimo aggiornamento: 6 ottobre 2026 (sezione 8, biglietteria e accesso con Google)</p>
 
     <p>Questa informativa spiega quali dati personali tratta <strong>Stage Plot</strong> (lo strumento gratuito su <a href="https://stageplot.it/">stageplot.it</a>), perché, e quali diritti hai. È redatta ai sensi del Regolamento UE 2016/679 (GDPR).</p>
 
@@ -92,7 +92,7 @@
     <div class="tab-scorre"><table>
       <tr><th>Fornitore</th><th>Ruolo</th><th>Dove</th></tr>
       <tr><td>Supabase</td><td>Database, autenticazione ed Edge Functions (account, progetti cloud, feedback, richieste di consulenza, prenotazioni dei posti ed eventi d'uso)</td><td>Unione Europea — Francoforte (Germania)</td></tr>
-      <tr><td>Google</td><td>Accesso "Accedi con Google" (OAuth)</td><td>USA — aderente all'EU-US Data Privacy Framework</td></tr>
+      <tr><td>Google</td><td>Accesso "Accedi con Google" (OAuth), anche per prenotare nella biglietteria</td><td>USA — aderente all'EU-US Data Privacy Framework</td></tr>
       <tr><td>GitHub Pages</td><td>Hosting del sito (pagine statiche, compresa quella delle prenotazioni)</td><td>USA — clausole contrattuali standard</td></tr>
       <tr><td>Stripe</td><td>Gestione dei pagamenti della consulenza</td><td>USA/UE — aderente all'EU-US Data Privacy Framework</td></tr>
       <tr><td>Resend</td><td>Invio delle email transazionali (feedback, consulenza e conferme delle prenotazioni)</td><td>USA — clausole contrattuali standard</td></tr>
@@ -102,23 +102,27 @@
     <p>I progetti salvati online e i dati dell'account restano finché mantieni l'account o finché non li elimini. Puoi cancellare i singoli progetti dal pannello "Cloud" del tool. Per eliminare l'intero account e tutti i dati associati, scrivi a <a href="mailto:castellansimone@gmail.com">castellansimone@gmail.com</a>: provvederemo senza ingiustificato ritardo.</p>
     <p>I feedback, gli eventi d'uso e le impronte IP impiegate per il controllo abusi sono conservati per il tempo necessario alle rispettive finalità e sono soggetti a revisione e cancellazione o anonimizzazione periodica. Le richieste di consulenza e i relativi dati fiscali sono conservati per il tempo richiesto dagli obblighi di legge. I link di consulenza scadono o possono essere revocati, ma i dati della richiesta possono restare necessari per l'esecuzione del servizio e gli obblighi amministrativi.</p>
     <p>Nelle prenotazioni dei posti, nome, cognome ed email si cancellano automaticamente 30 giorni dopo l'evento (<a href="#biglietteria">sezione 8</a>).</p>
+    <p>Gli account creati solo per prenotare (accesso con Google dalla biglietteria) si cancellano automaticamente 12 mesi dopo l'ultimo accesso, se non ci sono prenotazioni future; si possono cancellare prima da «Le mie prenotazioni» (<a href="#biglietteria">sezione 8</a>).</p>
 
     <h2>6. Cookie e archiviazione locale</h2>
-    <p>Stage Plot non usa cookie di marketing né analytics di terze parti: i conteggi della pagina iniziale sono di prima parte, aggregati e senza cookie. Utilizza archiviazione tecnica nel browser: <em>localStorage</em> per i progetti locali, lo storage usato da Supabase per mantenere la sessione dopo il login e <em>sessionStorage</em> — dopo l'accesso per l'identificativo effimero degli eventi d'uso e per completare alcuni flussi dopo un reindirizzamento, e sulla pagina iniziale per ricordare che la visita è già stata contata.</p>
+    <p>Stage Plot non usa cookie di marketing né analytics di terze parti: i conteggi della pagina iniziale sono di prima parte, aggregati e senza cookie. Utilizza archiviazione tecnica nel browser: <em>localStorage</em> per i progetti locali, lo storage usato da Supabase per mantenere la sessione dopo il login e <em>sessionStorage</em> — dopo l'accesso per l'identificativo effimero degli eventi d'uso e per completare alcuni flussi dopo un reindirizzamento (nella biglietteria, per ritrovare i posti scelti quando torni dall'accesso con Google), e sulla pagina iniziale per ricordare che la visita è già stata contata.</p>
 
     <h2>7. I tuoi diritti</h2>
     <p>Hai diritto di accedere ai tuoi dati, rettificarli, cancellarli, limitarne o opporti al trattamento e ottenerne la portabilità (artt. 15-22 GDPR). Puoi esercitarli scrivendo a <a href="mailto:castellansimone@gmail.com">castellansimone@gmail.com</a>. Hai inoltre diritto di proporre reclamo al <a href="https://www.garanteprivacy.it/" target="_blank" rel="noopener">Garante per la protezione dei dati personali</a>.</p>
 
     <h2 id="biglietteria">8. Prenotazione dei posti agli eventi</h2>
-    <p>Questa sezione riguarda la pagina di prenotazione gratuita dei posti (<em>stageplot.it/biglietteria/</em>). Aggiornata il 6 ottobre 2026.</p>
+    <p>Questa sezione riguarda la biglietteria gratuita (<em>stageplot.it/biglietteria/</em>): le pagine degli organizzatori e degli spettacoli, la prenotazione dei posti, «Le mie prenotazioni» e l'area di chi organizza. Aggiornata il 6 ottobre 2026.</p>
     <ul>
-      <li><strong>Titolare:</strong> Simone Castellan, lo stesso della sezione 1.</li>
+      <li><strong>Titolare:</strong> Simone Castellan, lo stesso della sezione 1. Per ora la biglietteria la usa solo lui come organizzatore.</li>
       <li><strong>Quali dati:</strong> nome, cognome, email, i posti che scegli e il codice della prenotazione. Per limitare gli abusi (troppe richieste, o molti posti presi con email diverse) usiamo un'impronta anonima (hash) del tuo indirizzo IP, mai l'indirizzo in chiaro: i contatori orari si cancellano dopo 7 giorni, l'impronta salvata con la prenotazione il giorno dopo l'evento.</li>
-      <li><strong>Perché:</strong> per tenerti i posti, mandarti la mail di conferma con il link per disdire e farti entrare il giorno dell'evento. Base giuridica: esecuzione del servizio che richiedi (art. 6.1.b GDPR). Non li usiamo per altro: niente newsletter, niente pubblicità.</li>
-      <li><strong>Chi li vede:</strong> l'organizzatore dell'evento, che li usa per la lista d'ingresso; dell'impronta vede soltanto se più prenotazioni arrivano dalla stessa connessione, mai l'impronta né l'indirizzo IP. Chi apre la pagina vede solo se un posto è libero o occupato, mai nomi o email.</li>
-      <li><strong>Fornitori:</strong> Supabase (database, Unione Europea), Resend (invio della mail di conferma), GitHub Pages (la pagina): vedi la sezione 4.</li>
-      <li><strong>Per quanto tempo:</strong> 30 giorni dopo l'evento nome, cognome ed email si cancellano automaticamente; restano solo i posti e il codice, che non dicono chi eri.</li>
-      <li><strong>Disdire:</strong> dal link nella mail di conferma, fino all'inizio dell'evento: i posti tornano liberi per altri.</li>
+      <li><strong>Accesso con Google (facoltativo):</strong> se scegli «Continua con Google», da Google riceviamo solo nome, email e immagine del profilo (l'immagine non la usiamo). L'email è quella del tuo account e la prenotazione resta legata all'account, così la ritrovi in «Le mie prenotazioni». Puoi sempre prenotare con nome ed email, senza account.</li>
+      <li><strong>Il tuo account:</strong> se l'hai creato solo per prenotare, lo cancelliamo automaticamente 12 mesi dopo l'ultimo accesso, se non hai prenotazioni future. Puoi cancellarlo prima tu con «Elimina il mio account» in «Le mie prenotazioni»: le prenotazioni future vengono disdette e nomi ed email tolti subito.</li>
+      <li><strong>Perché:</strong> per tenerti i posti, mandarti la mail di conferma con il link per disdire (e, se l'organizzatore cambia i tuoi posti, una mail breve con i posti nuovi) e farti entrare il giorno dell'evento. Base giuridica: esecuzione del servizio che richiedi (art. 6.1.b GDPR). Non li usiamo per altro: niente newsletter, niente pubblicità.</li>
+      <li><strong>Chi li vede:</strong> l'organizzatore dello spettacolo, che li usa per la lista d'ingresso; dell'impronta vede soltanto se più prenotazioni arrivano dalla stessa connessione, mai l'impronta né l'indirizzo IP. Le pagine dell'organizzatore e degli spettacoli sono pubbliche: mostrano il nome e l'email di contatto dell'organizzatore, le locandine e quanti posti sono liberi, mai chi ha prenotato.</li>
+      <li><strong>Locandine e loghi:</strong> le immagini caricate dall'organizzatore sono pubbliche (chi ha l'indirizzo le vede); i diritti sulle immagini sono di chi le carica. Si cancellano quando si elimina lo spettacolo.</li>
+      <li><strong>Fornitori:</strong> Supabase (database e accesso, Unione Europea), Google (accesso facoltativo), Resend (invio delle mail della prenotazione), GitHub Pages (le pagine): vedi la sezione 4.</li>
+      <li><strong>Per quanto tempo:</strong> 30 giorni dopo l'evento nome, cognome ed email si cancellano automaticamente; restano solo i posti e il codice, che non dicono chi eri. L'account creato solo per prenotare: 12 mesi dopo l'ultimo accesso.</li>
+      <li><strong>Disdire:</strong> dal link nella mail di conferma o da «Le mie prenotazioni», fino all'inizio dell'evento: i posti tornano liberi per altri. Se l'organizzatore elimina uno spettacolo, le sue prenotazioni si cancellano con lui e non parte nessuna mail.</li>
       <li><strong>I tuoi diritti:</strong> quelli della sezione 7, scrivendo a <a href="mailto:castellansimone@gmail.com">castellansimone@gmail.com</a>.</li>
     </ul>
 
