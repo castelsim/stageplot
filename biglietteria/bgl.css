@@ -200,5 +200,5 @@ h1:focus,h2:focus{outline:none}
   .mappa{max-height:calc(100vh - 290px)}
 }
 /* revisione 06/10: l'email intera nella conferma (si vede un errore di battitura), il bottone «Usa …@gmail.com» */
-.email-intera{word-break:break-all}
+.email-intera{overflow-wrap:anywhere}
 #bgl-usa-email{margin-top:8px}

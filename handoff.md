@@ -19,6 +19,14 @@ lascia alla rete), `bgl-editor` («Prenotazioni del pubblico…» nelle card dei
 - Prova fine a fine in locale (54/54, tutto vero tranne l'invio della mail): script e istruzioni fuori dal repo,
   nella cartella di lavoro della sessione (`COME_SI_PROVA.md`). Per puntare l'editor allo stack locale si serve una
   COPIA del sito con URL e chiave sostituiti (mai nel repo); la pagina pubblica accetta `?api=&anon=` solo su localhost.
+- Revisione del 06/10 (commit «reperti della revisione»): limite globale contato solo dopo quello per IP e solo per
+  un evento aperto (`bgl_globale_hit`); tetto 8 posti per connessione (`ip_hash` sulla prenotazione, tolto il giorno
+  dopo l'evento) e «Stessa connessione N» nel pannello; email normalizzata per i tetti (+etichette, punti Gmail);
+  nome/cognome solo lettere, spazi, apostrofi, trattini; mail senza nome, con la nota, max 3/giorno allo stesso
+  indirizzo e niente mail nel giro prenota-disdici; token scelto dalla pagina per tentativo (richiesta ripetuta =
+  stessa prenotazione); `bgl_prenota` legge l'evento FOR SHARE; pagina con cronologia (Indietro), sessionStorage,
+  avvisi sui posti non sceglibili, testi per il mouse, email intera e «Forse intendevi…»; PDF a 12 pt.
+  `bgl_prenota` ha due parametri in più (p_ip_hash, p_token): migrazione e funzione vanno su INSIEME.
 - Per la produzione (la fa Simone): `supabase migration list` (ultima 0071) → `supabase db push` (0072) →
   `supabase functions deploy bgl-prenota --project-ref vsodplqkuvnsdiikvmjb --use-api` → merge su `main` → prova con un
   evento finto (una sedia, la propria email, disdire, eliminare) → aprire l'evento vero dall'editor e mandare il link.
