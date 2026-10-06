@@ -67,7 +67,8 @@ h1:focus,h2:focus{outline:none}
 
 /* --- la pianta --- */
 .mappa{background:var(--m-foglio);border:1px solid var(--border);border-radius:var(--r);overflow:auto;
-  max-height:min(72vh,760px);text-align:center;-webkit-overflow-scrolling:touch;cursor:zoom-in}
+  max-height:min(72vh,760px);text-align:center;-webkit-overflow-scrolling:touch;cursor:zoom-in;
+  touch-action:pan-x pan-y}  /* due dita sulla pianta: zoom della pianta, non della pagina */
 .mappa.ingrandita{cursor:default;text-align:left}
 .mappa svg{display:inline-block;vertical-align:top;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
 .pianta-svg .foglio{fill:var(--m-foglio)}
