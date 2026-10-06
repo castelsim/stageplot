@@ -194,7 +194,9 @@ run("organizzatore: apre le prenotazioni sul suo progetto; slug e link nella for
   const e = l.d.eventi.find((x) => x.id === EV.id);
   assert.deepEqual({ tot: e.posti_totali, pren: e.prenotati, ris: e.riservati, lib: e.liberi, st: e.stato, sp: e.stato_pubblico },
     { tot: 96, pren: 0, ris: 2, lib: 94, st: "aperta", sp: "aperta" }, "i tenuti da parte senza doppioni e solo se esistono");
-  assert.deepEqual(Object.keys(e).sort(), ["chiusura", "id", "inizio", "liberi", "luogo", "note", "posti_totali", "prenotati", "riservati", "slug", "stato", "stato_pubblico", "titolo"].sort());
+  assert.deepEqual(Object.keys(e).sort(), ["chiusura", "descrizione", "id", "inizio", "liberi", "locandina_path", "luogo", "note",
+    "posti_totali", "prenotati", "project_id", "pubblicato", "riservati", "slug", "slug_breve", "stato", "stato_pubblico", "titolo",
+    "variante"].sort(), "0074: campi nuovi dell'area, nessun dato personale");
 });
 
 run("organizzatore: dati sbagliati all'apertura", async () => {
@@ -696,7 +698,7 @@ run("purga: 30 giorni dopo l'evento nomi ed email spariscono; a 29 restano; impr
 run("pulizia: l'evento principale si elimina con tutte le sue prenotazioni", async () => {
   const n = (await rest(env, admin(env), "bgl_prenotazioni?select=id&evento_id=eq." + EV.id)).d.length;
   const r = await rpc(env, T.org, "bgl_elimina", { p_evento_id: EV.id });
-  assert.deepEqual(r.d, { ok: true, eliminate: n });
+  assert.deepEqual(r.d, { ok: true, eliminate: n, locandina: null }, "0074: dice anche quale locandina togliere (nessuna)");
   assert.equal((await rest(env, admin(env), "bgl_posti?select=posto&evento_id=eq." + EV.id)).d.length, 0);
   assert.equal(errore(await pub(EV.slug)), "evento_inesistente");
 });
