@@ -19226,20 +19226,6 @@ t("biglietteria: la foto ha solo i posti numerati, il palco in alto, interi, e N
   ok(!/Mario|Rossi|example|333|label|"id"|note|contatto|batteria/.test(j), "nessun nome, contatto, nota, etichetta o id nella foto: " + j.slice(0, 200));
 });
 
-t("biglietteria: teatro disegnato intero (posti dentro il palco): PALCO sulle pedane, la sala non è un palco", () => {
-  const P = { v: 1, box: [0, 0, 1300, 2080], palco: [[[100, 100], [1200, 100], [1200, 1980], [100, 1980]]],
-    pedane: [[[200, 150], [1000, 150], [1000, 500], [200, 500]]],
-    posti: [{ k: "Platea|A|1", settore: "Platea", fila: "A", posto: 1, x: 500, y: 800, w: 50, d: 53, rot: 180 }] };
-  const d = A.bglDovePalco(P);
-  ok(d.sala && d.y > 150 && d.y < 500, "scritta sulle pedane: " + JSON.stringify(d));
-  const svg = A.bglPiantaSvg(P, {});
-  ok(/class="bgl-sala"/.test(svg) && /<polygon class="bgl-palco" points="200,150/.test(svg), "sala senza colore, pedane come palco");
-  const y = +svg.match(/class="bgl-palco-t"[^>]*y="(\d+)"/)[1];
-  ok(y < 800, "PALCO sopra la prima fila: " + y);
-  const Q = Object.assign({}, P, { palco: [[[100, 100], [1200, 100], [1200, 600], [100, 600]]] });
-  eq(A.bglDovePalco(Q).sala, false, "palco sopra i posti: come prima");
-});
-
 t("biglietteria: la foto è la stessa se si gira la scena di 90°, 180° o 37°", () => {
   const base = A.bglPianta(bglScena(0));
   [90, 180, 37, -90].forEach((g) => {
@@ -19290,190 +19276,62 @@ t("biglietteria: problemi della pianta (doppi, troppi) detti in italiano", () =>
   ok(/2000/.test(A.bglProblemiPianta(grande)[0]), "oltre 2000");
 });
 
-t("biglietteria: «A1-4, B5, C 7, Z9» → sei chiavi e Z9 sconosciuto; tutta la fila; settori", () => {
-  const chiavi = []; ["A", "B", "C", "D"].forEach((f) => { for (let n = 1; n <= 6; n++) chiavi.push("Platea|" + f + "|" + n); });
-  let R = A.bglRiservatiDaTesto("A1-4, B5, C 7, Z9", chiavi);
-  eq(R.chiavi, ["Platea|A|1", "Platea|A|2", "Platea|A|3", "Platea|A|4", "Platea|B|5"], "A1-4 e B5; C 7 non esiste (la fila C arriva a 6)");
-  eq(R.sconosciuti, ["C 7", "Z9"], "ciò che non esiste si restituisce com'è scritto");
-  R = A.bglRiservatiDaTesto("a1-4; b5\nC 6, tutta la fila D, fila a", chiavi);
-  eq(R.chiavi.length, 4 + 1 + 1 + 6 + 2, "maiuscole o minuscole, ; e a capo separano, la fila intera, nessun doppione (A1-4 già dentro)");
-  eq(R.sconosciuti, [], "niente di sconosciuto");
-  eq(A.bglRiservatiDaTesto("4-1", ["Platea|A|1"]).sconosciuti, ["4-1"], "senza fila non è un posto");
-  eq(A.bglRiservatiDaTesto("A3-1", chiavi).chiavi, ["Platea|A|1", "Platea|A|2", "Platea|A|3"], "intervallo al contrario");
-  const num = ["Platea|1|5", "Platea|2|5", "Platea|10|5"];
-  eq(A.bglRiservatiDaTesto("10.5, 2/5", num).chiavi, ["Platea|10|5", "Platea|2|5"], "file numeriche con il punto o la barra");
-  const due = ["Platea|A|1", "Platea|A|2", "Balcone|A|1", "Balcone|B|1"];
-  eq(A.bglRiservatiDaTesto("Balcone/A1", due).chiavi, ["Balcone|A|1"], "col nome del settore");
-  eq(A.bglRiservatiDaTesto("A1", due).chiavi, ["Platea|A|1", "Balcone|A|1"], "senza: tutti i settori che hanno quel posto");
-  eq(A.bglRiservatiDaTesto("", chiavi), { chiavi: [], sconosciuti: [] }, "vuoto");
-  eq(A.bglRiservatiATesto(["Platea|A|1", "Platea|A|2", "Platea|A|3", "Platea|A|5", "Platea|B|2"], chiavi), "A1-3, A5, B2", "il contrario, a intervalli");
-  eq(A.bglRiservatiDaTesto(A.bglRiservatiATesto(["Balcone|A|1", "Platea|A|1", "Platea|A|2"], due), due).chiavi.sort(), ["Balcone|A|1", "Platea|A|1", "Platea|A|2"].sort(), "andata e ritorno con più settori");
-});
-
-t("biglietteria: data e ora sono di Roma, anche se il computer è altrove; estate +02:00, inverno +01:00", () => {
-  const tz0 = process.env.TZ;
+ta("biglietteria (area): «Vai alla biglietteria» apre /biglietteria/gestione/?p=<progetto>, dopo aver salvato; senza posti numerati spiega", async () => {
+  const aperti = [], dialoghi = [], salvati = [];
+  const g0 = A.guideDialog, b0 = A.__bglCloud, c0 = A.__cloud;
+  A.guideDialog = (o) => { dialoghi.push(o.title); };
+  A.__bglCloud = { utente: () => ({ id: "u-1" }), progettoId: () => "0b8d0000-0000-4000-8000-0000000000aa", rpc: () => Promise.resolve({ data: true, error: null }) };
+  A.__cloud = { save: (cb, silent) => { salvati.push(silent); cb("0b8d0000-0000-4000-8000-0000000000aa"); } };
   try {
-    ["Europe/Rome", "America/New_York", "Pacific/Auckland", "UTC"].forEach((tz) => {
-      process.env.TZ = tz;
-      eq(A.bglInizioIso("2026-10-09", "21:00"), "2026-10-09T21:00:00+02:00", "estate (" + tz + ")");
-      eq(A.bglInizioIso("2026-12-20", "20:30"), "2026-12-20T20:30:00+01:00", "inverno (" + tz + ")");
-      eq(A.bglInizioIso("2026-10-25", "21:00"), "2026-10-25T21:00:00+01:00", "il giorno del cambio d'ora, la sera: già inverno (" + tz + ")");
-      eq(A.bglInizioIso("2026-03-29", "12:00"), "2026-03-29T12:00:00+02:00", "il giorno del cambio d'ora in primavera, a mezzogiorno (" + tz + ")");
-      eq(A.bglDataOra("2026-10-09T19:00:00+00:00"), { data: "2026-10-09", ora: "21:00" }, "il ritorno dal server, che risponde in UTC (" + tz + ")");
-      eq(A.bglDataOra("2026-12-20T19:30:00Z"), { data: "2026-12-20", ora: "20:30" }, "inverno (" + tz + ")");
-      eq(A.bglDataOra(A.bglInizioIso("2026-10-09", "00:15")), { data: "2026-10-09", ora: "00:15" }, "andata e ritorno a mezzanotte (" + tz + ")");
-      eq(A.bglQuando("2026-10-09T19:00:00+00:00"), "venerdì 9 ottobre 2026, ore 21:00", "come si dice (" + tz + ")");
-    });
-  } finally { if (tz0 == null) delete process.env.TZ; else process.env.TZ = tz0; }
-  eq([A.bglInizioIso("", "21:00"), A.bglInizioIso("2026-10-09", ""), A.bglInizioIso("2026-11-31", "10:00"), A.bglInizioIso("2026-10-09", "25:00"), A.bglInizioIso("2026-13-01", "10:00")], [null, null, null, null, null], "date e ore impossibili");
-  eq(A.bglDataOra("boh"), null, "non è una data");
+    reset(); add("sediapubblico", 100, 100);
+    A.bglVaiAllaBiglietteria((u) => aperti.push(u));
+    eq([dialoghi, aperti], [["Prima numera i posti"], []], "senza posti numerati: si spiega, non si apre niente");
+    const it = A.state.items.find((x) => x.type === "sediapubblico"); it.fila = "A"; it.posto = 1;
+    A.bglVaiAllaBiglietteria((u) => aperti.push(u));
+    eq(salvati, [true], "prima si salva (in silenzio): l'area legge il progetto salvato");
+    eq(aperti, ["/biglietteria/gestione/?p=0b8d0000-0000-4000-8000-0000000000aa"]);
+    A.__bglCloud = { utente: () => null, progettoId: () => null, rpc: b0 && b0.rpc };
+    A.bglVaiAllaBiglietteria((u) => aperti.push(u));
+    eq(dialoghi.at(-1), "Accedi per usare la biglietteria", "senza account: accedi");
+    A.__bglCloud = { utente: () => ({ id: "u-1" }), progettoId: () => null, rpc: b0 && b0.rpc };
+    A.bglVaiAllaBiglietteria((u) => aperti.push(u));
+    eq(dialoghi.at(-1), "Salva il progetto online", "progetto non ancora online: prima lo si salva");
+  } finally { A.guideDialog = g0; A.__bglCloud = b0; A.__cloud = c0; }
 });
 
-/* prenotazioni inventate per la lista e il CSV */
-function bglDati() {
-  const posti = []; ["A", "B", "AA"].forEach((f) => [1, 2, 3].forEach((n) => posti.push({ k: "Platea|" + f + "|" + n, settore: "Platea", fila: f, posto: n, x: n * 60, y: f === "A" ? 1000 : f === "B" ? 1100 : 1200, w: 50, d: 53, rot: 180 })));
-  const pr = (id, nome, cognome, ps, stato, codice, extra) => Object.assign({ id, nome, cognome, email: (nome || "x").toLowerCase() + "@example.invalid", posti: ps, posti_chiesti: ps.slice(), stato, codice, creata_il: "2026-10-07T16:02:00+00:00", chiusa_il: null }, extra || {});
-  return { ok: true,
-    evento: { slug: "abcdefghjk", titolo: "Concerto di prova", inizio: "2026-10-09T19:00:00+00:00", luogo: "Teatro di prova", riservati: ["Platea|A|1", "Platea|AA|3"], pianta: { v: 1, box: [0, 0, 400, 1400], palco: [], pedane: [], posti } },
-    prenotazioni: [
-      pr("1", "Mario", "Rossi", ["Platea|B|2", "Platea|B|1"], "attiva", "K7M4QX"),
-      pr("2", "Álvaro", "Àlvarez", ["Platea|AA|1"], "attiva", "ZZ99AA"),
-      pr("3", "Zita", "Bianchi", ["Platea|A|3", "Platea|A|2"], "attiva", "BB22CC"),
-      pr("4", "Luca", "Verdi", [], "disdetta", "DD33EE", { posti_chiesti: ["Platea|B|3"], chiusa_il: "2026-10-08T10:00:00+00:00" }),
-      pr("5", "Gina", "Neri", [], "annullata", "FF44GG", { posti_chiesti: ["Platea|AA|2"] }),
-      pr("6", "=SOMMA(1)", "+Hacker", ["Platea|B|3"], "attiva", "HH55JJ"),
-    ],
-    conteggi: { totali: 9, prenotati: 6, riservati: 2, liberi: 1, prenotazioni_attive: 4 } };
-}
-
-t("biglietteria: lista per cognome — accenti con le loro lettere, solo prenotazioni attive, posti in ordine", () => {
-  const L = A.bglListaIngresso(bglDati(), "cognome");
-  eq(L.map((r) => r.cognome), ["+Hacker", "Àlvarez", "Bianchi", "Rossi"], "i simboli prima, poi le lettere");
-  ok(!L.some((r) => /Verdi|Neri/.test(r.chi)), "le prenotazioni disdette o annullate non sono all'ingresso");
-  eq(L.find((r) => r.cognome === "Rossi"), { cognome: "Rossi", nome: "Mario", chi: "Rossi Mario", posti: "B 1, B 2", codice: "K7M4QX", tipo: "prenotazione" }, "una riga: posti ordinati");
-  eq(L.find((r) => r.cognome === "Bianchi").posti, "A 2, A 3", "ordinati");
-  eq(A.bglListaIngresso({ prenotazioni: [{ stato: "attiva", nome: null, cognome: null, posti: ["Platea|A|1"], codice: "X" }] }, "cognome")[0].chi, "(dati cancellati)", "dopo la cancellazione dei 30 giorni");
+t("biglietteria (area): i due pulsanti dicono «Vai alla biglietteria» e il pannello non c'è più", () => {
+  const tpl = readFileSync(join(root, "index.template.html"), "utf8");
+  for (const id of ["bPostoPren", "bGrpPostiPren"]) ok(new RegExp('id="' + id + '"[^>]*>Vai alla biglietteria</button>').test(tpl), id);
+  ok(!/Prenotazioni del pubblico…/.test(tpl), "nessun «Prenotazioni del pubblico…»");
+  for (const f of ["bglApriPannello", "bglVistaEvento", "bglListaIngresso", "bglCsv", "bglScriviLista", "bglInizioIso", "bglRiservatiDaTesto", "bglPiantaSvg"])
+    ok(!new RegExp("\\nfunction " + f + "\\(").test(tpl), f + " è ancora nell'editor: una sola copia, in biglietteria/gestione/gst.js");
+  ok(!/\.bgl-card|\.bgl-sw/.test(readFileSync(join(root, "src/styles.css"), "utf8")), "via il CSS del pannello");
 });
 
-t("biglietteria: lista per fila — dal palco (AA dopo B), tenuti da parte inclusi, liberi e disdette fuori", () => {
-  const L = A.bglListaIngresso(bglDati(), "fila");
-  eq(L.map((r) => r.fila + r.posto), ["A1", "A2", "A3", "B1", "B2", "B3", "AA1", "AA3"], "fila A, B, poi AA (più lontana dal palco): non l'alfabeto");
-  eq(L.map((r) => r.chi), ["Tenuto da parte", "Bianchi Zita", "Bianchi Zita", "Rossi Mario", "Rossi Mario", "+Hacker =SOMMA(1)", "Àlvarez Álvaro", "Tenuto da parte"], "chi siede dove; i posti liberi (A... AA2) non ci sono");
-  eq(L.filter((r) => r.tipo === "riservato").map((r) => r.k), ["Platea|A|1", "Platea|AA|3"], "i tenuti da parte");
-  ok(!L.some((r) => /Verdi|Neri|DD33EE|FF44GG/.test(JSON.stringify(r))), "niente disdette");
-  /* l'ordine lo dà la pianta, non il nome: se la fila «B» è davanti all'«A» (file numerate dal fondo), B viene prima */
-  const R = bglDati(); R.evento.pianta.posti.forEach((q) => { if (q.fila === "B") q.y = 900; });
-  eq(A.bglListaIngresso(R, "fila").map((r) => r.fila).filter((f, i, a) => a.indexOf(f) === i), ["B", "A", "AA"], "B è la più vicina al palco: sta per prima");
-  /* senza la pianta si ordina in modo naturale: A, B, … Z, AA e le file numeriche */
-  const D = bglDati(); delete D.evento.pianta;
-  eq(A.bglListaIngresso(D, "fila").map((r) => r.fila).filter((f, i, a) => a.indexOf(f) === i), ["A", "B", "AA"], "AA dopo B anche senza la pianta");
-  const num = { evento: { riservati: [] }, prenotazioni: ["10", "9", "1"].map((f, i) => ({ stato: "attiva", nome: "n", cognome: "c" + i, posti: ["Platea|" + f + "|1"], codice: "C" + i })) };
-  eq(A.bglListaIngresso(num, "fila").map((r) => r.fila), ["1", "9", "10"], "file numeriche: 10 dopo 9");
+/* sincrono apposta: scambia il ponte solo per il tempo del disegno, senza attese (le prove asincrone vicine usano il ponte vero) */
+t("biglietteria (area): selezionando più sedie come prima cosa, la domanda «sono abilitato?» parte lo stesso", () => {
+  const b0 = A.__bglCloud, AB = A.BGL_AB, chiamate = [], salvo = { uid: AB.uid, ok: AB.ok, chiesto: AB.chiesto };
+  /* prima si posano le sedie (addItem disegna da solo il pannello della sedia singola, che farebbe partire la domanda),
+     poi si cambia il ponte e si disegna SOLO la card di gruppo */
+  reset(); const a = add("sediapubblico", 100, 100), b = add("sediapubblico", 160, 100);
+  A.selectMany([a.id, b.id]);
+  A.__bglCloud = { utente: () => ({ id: "u-gruppo" }), progettoId: () => null, rpc: (fn) => { chiamate.push(fn); return Promise.resolve({ data: true, error: null }); } };
+  AB.uid = null; AB.ok = false; AB.chiesto = null;
+  try {
+    A.renderProps();
+    eq(chiamate, ["bgl_abilitato"], "la card di gruppo chiede al server, una volta");
+    A.renderProps(); eq(chiamate.length, 1, "e non a ogni disegno");
+  } finally { A.__bglCloud = b0; AB.uid = salvo.uid; AB.ok = salvo.ok; AB.chiesto = salvo.chiesto; }
 });
 
-t("biglietteria: CSV — una riga per posto, accenti, disdette con il loro stato, formule disinnescate", () => {
-  const righe = A.bglCsv(bglDati()).replace(/^﻿/, "").trim().split("\r\n");
-  eq(righe[0], "Cognome;Nome;Email;Settore;Fila;Posto;Codice;Stato;Prenotato il", "intestazione");
-  eq(righe.length, 1 + 2 + 1 + 2 + 1 + 1 + 1, "una riga per posto: Rossi 2, Àlvarez 1, Bianchi 2, Verdi 1 (disdetta), Neri 1, Hacker 1");
-  ok(righe.includes("Rossi;Mario;mario@example.invalid;Platea;B;2;K7M4QX;Attiva;2026-10-07 18:02"), "ora di Roma (16:02 UTC = 18:02): " + righe.join("|"));
-  ok(righe.some((r) => /^Verdi;Luca;.*;B;3;DD33EE;Disdetta;/.test(r)), "la disdetta resta in elenco, col suo stato e il posto che aveva chiesto");
-  ok(righe.some((r) => /^Neri;Gina;.*;AA;2;FF44GG;Annullata dall'organizzatore;/.test(r)), "annullata");
-  ok(righe.some((r) => r.startsWith("'+Hacker;'=SOMMA(1);")), "il nome che comincia con = o + non diventa una formula: " + righe.join("|"));
-  ok(!righe.slice(1).some((r) => /^[=+\-@]/.test(r)), "nessuna riga comincia con un carattere di formula");
-});
-
-t("biglietteria: la finestra non scrive HTML dei dati degli altri (pianta e nomi sono escapati)", () => {
-  const P = A.bglPianta(bglScena(0));
-  const svg = A.bglPiantaSvg(P, { riservati: ["Platea|A|1"], occupati: { "Platea|A|2": "<img src=x onerror=alert(1)>", "Platea|A|3": 'a" onload="x' }, scelta: true });
-  ok(!/<img/i.test(svg) && !/onload="x/.test(svg), "nomi escapati");
-  eq((svg.match(/class="bgl-posto /g) || []).length, 12, "dodici posti disegnati");
-  eq((svg.match(/bgl-o"/g) || []).length, 2, "due occupati"); eq((svg.match(/bgl-r"/g) || []).length, 1, "un tenuto da parte");
-  ok(/data-az="posto"/.test(svg) && !/data-az=/.test(A.bglPiantaSvg(P, {})), "i posti si toccano solo nel modulo");
-  eq(A.bglPiantaSvg(null, {}), "", "senza pianta niente");
-});
-
-ta("biglietteria: le chiamate (finto server) hanno le firme del contratto e non lanciano mai", async () => {
-  const visti = [];
-  A.bglApi.trasporto = (fn, args) => { visti.push([fn, args]); return Promise.resolve({ data: { ok: true, id: "e1", slug: "abcdefghjk", liberati: 2 }, error: null }); };
-  const ev = { titolo: "T", inizio: "2026-10-09T21:00:00+02:00", chiusura: "2026-10-09T21:00:00+02:00", luogo: "L", note: null, riservati: [], pianta: { v: 1 } };
-  await A.bglApi.apri("p1", ev); await A.bglApi.eventiProgetto("p1"); await A.bglApi.prenotati("e1");
-  await A.bglApi.modifica("e1", { stato: "chiusa" }); await A.bglApi.annulla("pr1"); await A.bglApi.annulla("pr1", ["Platea|A|1"]); await A.bglApi.elimina("e1");
-  eq(visti, [["bgl_apri", { p_project_id: "p1", p_evento: ev }], ["bgl_eventi_progetto", { p_project_id: "p1" }], ["bgl_prenotati", { p_evento_id: "e1" }],
-    ["bgl_modifica", { p_evento_id: "e1", p_campi: { stato: "chiusa" } }], ["bgl_annulla", { p_prenotazione_id: "pr1" }],
-    ["bgl_annulla", { p_prenotazione_id: "pr1", p_posti: ["Platea|A|1"] }], ["bgl_elimina", { p_evento_id: "e1" }]], "nomi e argomenti come nel contratto");
-  const casi = [
-    [() => Promise.resolve({ data: { ok: false, errore: "non_tuo" }, error: null }), "non_tuo"],
-    [() => Promise.resolve({ data: null, error: { code: "non_autenticato", message: "x" } }), "non_autenticato"],
-    [() => Promise.resolve({ data: null, error: { code: "PGRST", message: "boom" } }), "rete"],
-    [() => Promise.resolve({ data: "stringa", error: null }), "risposta_inattesa"],
-    [() => Promise.resolve(null), "rete"],
-    [() => Promise.reject(new Error("offline")), "rete"],
-    [() => { throw new Error("subito"); }, "rete"]];
-  for (const [tr, atteso] of casi) { A.bglApi.trasporto = tr; const r = await A.bglApi.prenotati("e1"); eq([r.ok, r.errore], [false, atteso], "errore " + atteso); }
-  A.bglApi.trasporto = null;
-  const r0 = await A.bglApi.prenotati("e1");
-  eq([r0.ok, r0.errore], [false, "non_autenticato"], "senza ponte né sessione: niente rete, solo «accedi»");
-});
-
-t("biglietteria: i messaggi per chi organizza (vocabolario della specifica)", () => {
-  const m = A.bglMessaggio;
-  eq(m({ errore: "non_autenticato" }), "Accedi per gestire le prenotazioni.");
-  eq(m({ errore: "non_tuo" }), "Questo evento non è tuo, o non esiste più.");
-  eq(m({ errore: "posto_prenotato", posti: ["Platea|A|5"] }), "A 5 è già prenotato: prima disdici la prenotazione.");
-  eq(m({ errore: "posto_prenotato", posti: ["Platea|A|5", "Platea|A|6"] }), "A 5, A 6 sono già prenotati: prima disdici la prenotazione.");
-  eq(m({ errore: "pianta_non_valida", motivo: "posti_doppi" }), "La pianta non si può pubblicare: ci sono posti con lo stesso numero.");
-  eq(m({ errore: "troppi_eventi" }), "Hai già 50 eventi: eliminane qualcuno vecchio.");
-  ok(/collegarmi/.test(m({ errore: "rete" })), "rete"); ok(/qualcosa_di_nuovo/.test(m({ errore: "qualcosa_di_nuovo" })), "codice sconosciuto: si vede, non si inghiotte");
-});
-
-t("biglietteria REVISIONE: nel pannello le prenotazioni dalla stessa connessione si riconoscono (un numero, mai l'impronta)", () => {
-  const D = bglDati();
-  D.prenotazioni[0].connessione = 1; D.prenotazioni[2].connessione = 1; D.prenotazioni[5].connessione = 2;
-  const riga = A.bglRigaPrenotazione;
-  ok(typeof riga === "function", "la riga dell'elenco si costruisce da una funzione sola");
-  const r0 = riga(D.prenotazioni[0]), r1 = riga(D.prenotazioni[1]), r5 = riga(D.prenotazioni[5]);
-  ok(/Stessa connessione 1/.test(r0), "il segno c'è: " + r0);
-  ok(!/connessione/i.test(r1), "chi è da solo sulla sua connessione non ha il segno");
-  ok(/Stessa connessione 2/.test(r5), "gruppo 2");
-  ok(/title="[^"]*stessa connessione internet/.test(r0), "il segno spiega cosa vuol dire");
-  ok(/data-az="disdici"/.test(r0), "e si disdice come le altre");
-  const sporca = Object.assign({}, D.prenotazioni[0], { nome: "<img src=x onerror=alert(1)>", connessione: '"><script>' });
-  const rs = riga(sporca);
-  ok(!/<img|<script/.test(rs), "niente HTML dai dati: " + rs);
-  ok(!/connessione/i.test(rs), "una connessione che non è un numero non si mostra");
-  eq(A.bglGruppiConnessione(D.prenotazioni), 2, "due gruppi in tutto");
-});
-
-t("biglietteria REVISIONE: la lista per l'ingresso si legge in sala: righe ad almeno 11 pt, intestazioni ad almeno 10", () => {
-  ok(typeof A.bglScriviLista === "function", "il PDF si scrive in un documento dato (provabile senza jsPDF)");
-  const scritte = [];
-  let corpo = 0;
-  const doc = new Proxy({}, { get: (t, k) => {
-    if (k === "setFontSize") return (n) => { corpo = n; return doc; };
-    if (k === "text") return (txt) => { (Array.isArray(txt) ? txt : [txt]).forEach((x) => scritte.push({ t: String(x), corpo })); return doc; };
-    if (k === "getTextWidth") return (x) => String(x).length * corpo * 0.18;
-    if (k === "splitTextToSize") return (x) => [String(x)];
-    if (k === "internal") return { pageSize: { getWidth: () => 210, getHeight: () => 297 } };
-    return () => doc;
-  } });
-  A.bglScriviLista(doc, bglDati(), "entrambe");
-  const di = (re) => scritte.filter((x) => re.test(x.t));
-  ok(di(/Rossi/).length >= 2, "Rossi c'è per cognome e per fila: " + JSON.stringify(scritte.slice(0, 8)));
-  for (const x of di(/Rossi|Bianchi|Alvarez|K7M4QX|Tenuto da parte/)) ok(x.corpo >= 11, "«" + x.t + "» a " + x.corpo + " pt");
-  for (const x of di(/^(COGNOME E NOME|POSTI|CODICE|FILA|POSTO|NOME)$/)) ok(x.corpo >= 10, "intestazione «" + x.t + "» a " + x.corpo + " pt");
-});
-
-ta("biglietteria: il ponte verso il cloud — senza sessione niente rete, solo le sei funzioni dell'organizzatore", async () => {
+ta("biglietteria: il ponte verso il cloud — solo bgl_abilitato (il resto lo fa l'area), senza sessione niente rete", async () => {
   const B = A.__bglCloud;
-  ok(B && typeof B.rpc === "function" && typeof B.utente === "function" && typeof B.progettoId === "function", "il ponte c'è: window.__bglCloud{rpc, utente, progettoId}");
-  eq([B.utente(), B.progettoId()], [null, null], "senza sessione né progetto");
+  ok(B && typeof B.rpc === "function" && typeof B.utente === "function" && typeof B.progettoId === "function", "il ponte c'è");
   let rete = 0; const f0 = A.fetch; A.fetch = () => { rete++; return Promise.reject(new Error("no")); };
   try {
-    for (const fn of ["bgl_apri", "bgl_modifica", "bgl_eventi_progetto", "bgl_prenotati", "bgl_annulla", "bgl_elimina"]) {
-      const r = await B.rpc(fn, {}); eq([r.data, r.error.code], [null, "non_autenticato"], fn + " senza sessione");
-    }
-    for (const fn of ["bgl_prenota", "bgl_throttle_hit", "bgl_evento_pubblico", "bgl_apri; drop table x", "stageplot_purge_expired", "orc_stage_view"]) {
-      const r = await B.rpc(fn, {}); eq(r.error.code, "funzione_non_ammessa", fn + ": il ponte non è un telecomando generico");
+    const r = await B.rpc("bgl_abilitato", {}); eq([r.data, r.error.code], [null, "non_autenticato"], "bgl_abilitato senza sessione");
+    for (const fn of ["bgl_apri", "bgl_modifica", "bgl_eventi_progetto", "bgl_prenotati", "bgl_annulla", "bgl_elimina", "bgl_prenota", "stageplot_purge_expired"]) {
+      const x = await B.rpc(fn, {}); eq(x.error.code, "funzione_non_ammessa", fn + ": dall'editor non si chiama più");
     }
   } finally { A.fetch = f0; }
   eq(rete, 0, "nessuna richiesta partita");
@@ -19496,7 +19354,6 @@ ta("biglietteria (0073): il pulsante compare solo se il server dice che QUESTO a
   eq(A.bglAbilitatoVisibile({ id: "u-si" }), false, "il sì di un altro account non vale per questo");
   eq(await A.bglAbilitatoAggiorna({ id: "u-tardi" }, dice({ data: "true", error: null })), false, "solo il booleano true apre");
   azzera(); A.bglAbilitatoVisibile(null);
-  eq(A.bglMessaggio({ errore: "non_abilitato" }).includes("solo su invito"), true, "il rifiuto del server si legge");
   const r = await A.__bglCloud.rpc("bgl_abilitato", {}); eq(r.error.code, "non_autenticato", "bgl_abilitato passa dal ponte, ma senza sessione niente rete");
 });
 
