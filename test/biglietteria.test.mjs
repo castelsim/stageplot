@@ -556,9 +556,36 @@ test("la pagina carica gli indirizzi prima di bgl.js e mostra le locandine dello
   assert.ok(h.indexOf('<script src="indirizzi.js?v=1"></script>') > 0 && h.indexOf('<script src="indirizzi.js') < h.indexOf('<script src="bgl.js'));
   const csp = (h.match(/Content-Security-Policy" content="([^"]+)"/) || [])[1] || "";
   assert.match(csp, /img-src 'self' data: https:\/\/vsodplqkuvnsdiikvmjb\.supabase\.co http:\/\/127\.0\.0\.1:54321 http:\/\/localhost:54321;/);
-  assert.match(h, /bgl\.js\?v=6/); assert.match(h, /bgl\.css\?v=5/);
+  assert.match(h, /bgl\.js\?v=7/); assert.match(h, /bgl\.css\?v=6/);
   /* la pagina usa gli stessi indirizzi del resto della biglietteria, non una copia */
   const js = leggi("biglietteria/bgl.js");
   assert.match(js, /BGLI\.linkCanonico\(/); assert.match(js, /BGLI\.urlLocandina\(/);
   assert.equal(typeof I.urlLocandina, "function");
+});
+
+/* --- «Continua con Google» nella scheda (task 19, specifica area §3.2, D10) --- */
+
+test("Google: i messaggi nuovi", () => {
+  assert.match(B.messaggio("limite_account", { gia: 4, max: 4 }), /Con questo account hai già 4 posti/);
+  assert.match(B.messaggio("accesso_scaduto"), /premi di nuovo «Prenota»/);
+  assert.match(B.messaggio("email_non_verificata"), /nome ed email/);
+  assert.match(B.messaggio("google_annullato"), /nome ed email/);
+});
+
+test("Google: la pagina carica l'accesso di StagePlot prima di bgl.js; «Le mie prenotazioni» nel piè di pagina", () => {
+  const h = leggi("biglietteria/index.html");
+  const pos = ['src="/accedi/google/avvio.js"', 'src="indirizzi.js', 'src="accesso.js', 'src="bgl.js?v=7"'].map((x) => h.indexOf(x));
+  assert.ok(pos.every((p, i) => p > 0 && (i === 0 || p > pos[i - 1])), JSON.stringify(pos));
+  const js = leggi("biglietteria/bgl.js");
+  assert.match(js, /href="\/biglietteria\/mie\/">Le mie prenotazioni</);
+  assert.match(js, /id="bgl-google">Continua con Google</);
+  assert.match(js, /Prenota con nome ed email/);
+});
+
+test("D10: le pagine della biglietteria non scrivono chiavi dell'editor (sp_*) e non portano il pubblico nell'editor", () => {
+  for (const f of ["biglietteria/bgl.js", "biglietteria/accesso.js", "biglietteria/mie/mie.js"].filter((x) => { try { leggi(x); return true; } catch { return false; } })) {
+    const js = leggi(f);
+    assert.doesNotMatch(js, /setItem\(\s*["']sp_/, f + ": nessuna chiave sp_* (benvenuto e onboarding dell'editor restano del dispositivo)");
+    assert.doesNotMatch(js, /href="\/app\//, f + ": nessun link all'editor per il pubblico");
+  }
 });

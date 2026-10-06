@@ -247,3 +247,11 @@ h1:focus,h2:focus{outline:none}
   .pagina:has(> header.ev.con-locandina) > header.ev{position:static}
   .ev-locandina{max-height:34vh}
 }
+/* «Continua con Google» o «Prenota con nome ed email» (specifica area §3.2) */
+.scelta-accesso{display:grid;gap:10px;margin:14px 0}
+.btn.largo{width:100%;min-height:52px}
+/* un bottone che sembra un link, dentro una riga di testo: l'area da toccare si allarga senza spostare la riga */
+.link{background:none;border:0;padding:12px 4px;margin:-12px 0;color:var(--accent-strong);text-decoration:underline;cursor:pointer;font:inherit}
+/* l'email dell'account Google non si cambia: si vede che è fissa */
+.campo input[readonly]{background:var(--raised);color:var(--text-2)}
+.campo > .aiuto{margin-top:6px}
