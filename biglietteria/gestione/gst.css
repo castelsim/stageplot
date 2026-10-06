@@ -89,3 +89,26 @@
 .gst-pren .bgl-badge{border-radius:999px;padding:1px 8px;font-size:12.5px;background:var(--raised)}
 .gst-pren .btn{min-height:44px}
 .gst-fondo{border-top:1px solid var(--border);padding-top:16px}
+/* «La sala del progetto è cambiata» (task 16) */
+.gst-sala{padding:20px 0 8px}
+.gst-sala h1{font-size:24px;letter-spacing:-.015em;margin:4px 0 6px}
+.gst-sala-avviso{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between;font-weight:400}
+.gst-sala-avviso p{margin:0;flex:1 1 240px}
+.gst-riepilogo{font-size:17px;font-weight:600;margin:6px 0 12px}
+.gst-due-piante{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
+@media (min-width:800px){.gst-due-piante{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
+.gst-due-piante figure{margin:0;min-width:0}
+.gst-due-piante figcaption{font-weight:700;margin-bottom:4px}
+.gst-due-piante .gst-mappa{max-height:46vh}
+.posto.cambio-spostato .sedia{stroke:#b45309!important;stroke-width:4px!important;stroke-dasharray:none!important}
+.posto.cambio-nuovo .sedia{stroke:#15803d!important;stroke-width:4px!important;stroke-dasharray:none!important}
+.posto.cambio-tolto .sedia{stroke:#b91c1c!important;stroke-width:4px!important;stroke-dasharray:none!important}
+.posto.cambio-numero .sedia{stroke:#6d28d9!important;stroke-width:4px!important;stroke-dasharray:none!important}
+.gst-leg-cambi{list-style:none;display:flex;flex-wrap:wrap;gap:6px 14px;font-size:14px;margin:8px 0}
+.gst-leg-cambi li{border-left:6px solid;padding-left:6px}
+.gst-leg-cambi .cambio-spostato{border-color:#b45309}.gst-leg-cambi .cambio-nuovo{border-color:#15803d}
+.gst-leg-cambi .cambio-tolto{border-color:#b91c1c}.gst-leg-cambi .cambio-numero{border-color:#6d28d9}
+.gst-bloccanti{list-style:none;display:grid;gap:8px}
+.gst-bloccanti li{display:flex;flex-wrap:wrap;gap:8px;align-items:center;border:1px solid var(--danger-bd);background:var(--danger-bg);border-radius:10px;padding:8px}
+.gst-bloccanti li span{flex:1 1 220px}
+.gst-azioni .btn[disabled]{opacity:.5;cursor:not-allowed}
