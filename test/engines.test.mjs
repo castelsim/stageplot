@@ -18471,5 +18471,112 @@ t("postazione cajon: l'export 3D descrive cajon e asta bassa, non un cajon grand
   eq(pz(it3).map((k) => k[2]), [-26, 21], "senza musicista i pezzi seguono il centro nuovo");
 });
 
+/* AREA CON NOME (06/10/2026). Le zone del palco («zona 5 violini II», «zona voci», «CORO») gli utenti le
+   facevano con pedane alte 0 cm più un testo: la pedana finiva nel rider fra quelle da portare. Ora sono
+   una FORMA con lo stile «area»: una voce di catalogo, nessun tipo nuovo. */
+function areaVoce() { return A.__catEntries.find((e) => e.nome === "Area con nome"); }
+function addArea(x, y, opts) { return add("forma", x, y, Object.assign(JSON.parse(JSON.stringify(areaVoce().over)), opts || {})); }
+t("Area con nome: voce del catalogo, prima per «area», «zona», «settore», ed è una forma stile area", () => {
+  const v = areaVoce();
+  ok(v, "la voce «Area con nome» c'è nel catalogo");
+  eq([v.k, v.over.shape, v.over.shapeStyle], ["forma", "rect", "area"], "è la forma, rettangolo, stile area");
+  ["area", "zona", "settore", "Zone", "settori"].forEach((q) => eq(A.__spSearch(q)[0], { k: "forma", nome: "Area con nome" }, "prima per «" + q + "»"));
+  ok(A.__spSearch("panoramico")[0].k === "miczone", "la zona del microfono panoramico si trova ancora per nome");
+});
+t("Area con nome: velatura tenue, nome grande in grassetto IN ALTO, stretto finché entra", () => {
+  reset();
+  const a = addArea(400, 300, { w: 400, d: 300, label: "Zona voci", fill: "#2563eb" });
+  const s = A.TYPES.forma.draw(a);
+  const fo = +(s.match(/fill-opacity="([\d.]+)"/) || [])[1];
+  ok(fo > 0 && fo <= 0.2, "riempimento tenue (fill-opacity " + fo + ")");
+  ok(/stroke-width="1.5"/.test(s), "bordo sottile");
+  ok(s.indexOf("font-weight:700") > -1, "nome in grassetto (inline: arriva anche nel PDF)");
+  eq(+(s.match(/font-size:([\d.]+)px/) || [])[1], 32, "corpo di partenza 32, più del doppio dei nomi degli strumenti");
+  const y = +(s.match(/<text[^>]* y="([-\d.]+)"/) || [])[1];
+  ok(y < -100, "nome in alto, dentro il bordo (y " + y + " su metà altezza 150): al centro lo coprirebbero i musicisti");
+  const solida = A.TYPES.forma.draw({ w: 400, d: 300, label: "Zona voci", lblSize: 32 });
+  ok(solida.indexOf("font-weight:700") < 0, "la forma normale non cambia: niente grassetto");
+  const stretta = A.TYPES.forma.draw(Object.assign({}, a, { w: 160, label: "Percussioni" }));
+  const fs = +(stretta.match(/font-size:([\d.]+)px/) || [])[1];
+  ok(fs < 32 && fs * 0.62 * "Percussioni".length <= 160 - 20 + 1, "la parola lunga entra nella larghezza (corpo " + fs + ")");
+});
+t("Area con nome: niente pedana né palco, fuori da rider, backline, patch e carichi, sotto gli elementi", () => {
+  reset();
+  const a = addArea(400, 300, { label: "CORO" });
+  const c = add("cantante", 400, 320);
+  ok(!A.isRiser(a), "non è una pedana");
+  eq(A.layerFgItem("stage", a), false, "non sta nel solo del Palco");
+  eq(A.riderData().pedane, [], "il rider non chiede pedane");
+  eq(A.riderData().pesoKg, A.weightOf(c), "nessun peso");
+  eq(A.backlineList().rows.map((r) => r.name), [], "nessuna riga di backline");
+  ok(A.patchList().rows.every((r) => r.itemId !== a.id && String(r.name || "").indexOf("CORO") < 0), "nessun canale");
+  eq(A.loadList().rows.length, 0, "nessun carico elettrico");
+  eq(a.h, undefined, "nessuna altezza");
+  ok(A.effZ(a) < A.effZ(c), "si disegna sotto chi ci sta dentro");
+  eq(A.renderVisible(a), false, "fuori dal prompt del render: in una foto non c'è");
+  eq(A.renderVisible({ type: "forma" }), true, "la forma normale resta com'era");
+  const j3 = A.buildProjectJson().items.find((x) => x.id === a.id);
+  eq([j3.render.visible, j3.visible_in_render], [false, false], "e fuori dal JSON per il render 3D");
+});
+t("Area con nome: ogni area nuova un colore diverso, e lo stile sopravvive al salvataggio", () => {
+  reset();
+  const a = addArea(300, 200), b = addArea(700, 200), c = addArea(300, 600, { fill: "#59544a" });
+  ok(/^#[0-9a-f]{6}$/i.test(a.fill) && /^#[0-9a-f]{6}$/i.test(b.fill), "nascono colorate");
+  ok(a.fill !== b.fill, "due zone accanto non hanno lo stesso colore (" + a.fill + ", " + b.fill + ")");
+  eq(c.fill, "#59544a", "un colore scelto apposta resta quello");
+  const out = A.normalizeLoadedItems([{ id: "i1", type: "forma", x: 1, y: 1, w: 300, d: 200, shapeStyle: "area" },
+    { id: "i2", type: "forma", x: 1, y: 1, w: 300, d: 200, shapeStyle: "<script>" }]);
+  eq(out[0].shapeStyle, "area", "il normalizzatore tiene «area»");
+  eq(out[1].shapeStyle, undefined, "e scarta il resto");
+});
+t("Area con nome: chi arriva ci si mette dentro, un'area nuova evita solo le altre aree", () => {
+  reset();
+  addArea(600, 400, { w: 600, d: 400 });
+  const voce = { type: "cantante", w: 60, d: 60, label: "" };
+  eq(A.findFreeSpotFor(voce, 600, 400), { x: 600, y: 400 }, "il cantante si posa dentro l'area, non accanto");
+  add("cantante", 1050, 700);
+  eq(A.findFreeSpotFor({ type: "forma", shapeStyle: "area", w: 200, d: 150, label: "Zona" }, 1050, 700), { x: 1050, y: 700 },
+    "un'area si posa anche sotto un musicista");
+  ok(JSON.stringify(A.findFreeSpotFor({ type: "forma", shapeStyle: "area", w: 200, d: 150, label: "Zona" }, 600, 400)) !== JSON.stringify({ x: 600, y: 400 }),
+    "ma non sopra un'altra area");
+});
+
+/* revisione 06/10/2026: due difetti del disegno visti in Chromium misurando i getBBox */
+t("Area con nome: bloccata, il lucchetto sta SOTTO il nome; nelle sagome non rettangolari il nome sta al centro", () => {
+  const ys = (s) => [...s.matchAll(/<text[^>]* y="([-\d.]+)"[^>]*font-size:([\d.]+)px/g)].map((m) => [+m[1], +m[2]]);
+  const lockY = (s) => +((s.match(/class="riser-lock" transform="translate\([-\d.]+,([-\d.]+)\)"/) || [])[1]);
+  [[300, 200, "zona 5 violini II"], [300, 300, "zona 5 violini II"], [200, 120, "zona 5 violini II"], [80, 78, "ZONA VOCI E CORO"]].forEach(([w, d, lbl]) => {
+    const s = A.TYPES.forma.draw({ type: "forma", shape: "rect", shapeStyle: "area", w, d, label: lbl, lblSize: 32, locked: true });
+    const t = ys(s), ly = lockY(s), ult = t[t.length - 1];
+    ok(t.length >= 2 && Number.isFinite(ly), w + "×" + d + ": due righe e il lucchetto (" + t.length + ", " + ly + ")");
+    ok(ly - 4 > ult[0] + ult[1] * 0.22, w + "×" + d + ": il lucchetto (y " + ly + ") sotto l'ultima riga del nome (base " + ult[0] + ")");
+    ok(ly + 4.2 <= d / 2, w + "×" + d + ": e dentro il bordo (il lucchettino scende 4,2 cm sotto il suo punto)");
+  });
+  const sol = A.TYPES.forma.draw({ type: "forma", shape: "rect", w: 300, d: 200, label: "x", locked: true });
+  eq(lockY(sol), -45, "la forma normale bloccata: lucchetto dove stava");
+  ["circle", "tri", "rhombus", "arrow"].forEach((sh) => {
+    const s = A.TYPES.forma.draw({ type: "forma", shape: sh, shapeStyle: "area", w: 300, d: 200, label: "ZONA VOCI", lblSize: 32 });
+    const y = ys(s)[0][0];
+    ok(Math.abs(y) < 30, sh + ": il nome al centro (y " + y + "), in alto uscirebbe dalla sagoma");
+  });
+  [[200, 60, "ZONA FIATI E OTTONI"], [150, 80, "zona 5 violini II"], [120, 70, "VOCI SOLISTE E CORO"]].forEach(([w, d, lbl]) => {
+    const t = ys(A.TYPES.forma.draw({ type: "forma", shape: "rect", shapeStyle: "area", w, d, label: lbl, lblSize: 32 }));
+    ok(t.every(([y, f]) => y - 0.75 * f >= -d / 2 && y + 0.22 * f <= d / 2),
+      w + "×" + d + " «" + lbl + "»: tutte le righe dentro l'area in altezza (" + JSON.stringify(t) + ")");
+  });
+  const r = A.TYPES.forma.draw({ type: "forma", shape: "rect", shapeStyle: "area", w: 300, d: 200, label: "ZONA VOCI", lblSize: 32 });
+  ok(ys(r)[0][0] < -50, "nel rettangolo resta in alto");
+});
+
+t("Area con nome: nel pannello della forma lo stile «Area», e i quattro bottoni stanno nel pannello", () => {
+  const seg = (indexHtml.match(/<div class="seg seg-4"[^>]*aria-label="Stile della forma">([\s\S]*?)<\/div>/) || [])[1] || "";
+  eq((seg.match(/data-sst="/g) || []).length, 4, "quattro stili");
+  ok(seg.indexOf('data-sst="area"') > -1, "c'è «Area»");
+  /* col padding di sempre «Tratteggio» e «Area» uscivano dal pannello (visto nel browser il 06/10/2026) */
+  const base = stylesCss.indexOf("#props .seg .adv-btn{"), quattro = stylesCss.indexOf("#props .seg.seg-4 .adv-btn{");
+  ok(quattro > base && base > -1, "la regola dei quattro bottoni viene DOPO quella di base");
+  ok(/#props \.seg\.seg-4 \.adv-btn\{[^}]*min-width:0[^}]*padding:7px 3px/.test(stylesCss), "bottoni stretti quanto il loro testo");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

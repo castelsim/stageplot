@@ -24,7 +24,7 @@
      due release nello stesso giorno restano distinguibili in telemetria e supporto. In locale/dev
      resta il placeholder. La sentinella del VALORE è distinta dall'identificatore window.__BUILD_ID__
      così il sed della CI non tocca il nome della variabile. -->
-<script>window.__APP_VERSION__="2026.10.05";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
+<script>window.__APP_VERSION__="2026.10.06";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -2927,6 +2927,9 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 #props .seg .adv-btn:first-child{border-radius:var(--r-sm) 0 0 var(--r-sm);margin-left:0}
 #props .seg .adv-btn:last-child{border-radius:0 var(--r-sm) var(--r-sm) 0}
 #props .seg .adv-btn.on{position:relative;z-index:1}
+/* quattro stili della forma (Pieno, Contorno, Tratteggio, Area — 06/10/2026): col padding dei due bottoni
+   «Tratteggio» e «Area» uscivano dal pannello. Ogni bottone prende la larghezza del suo testo. */
+#props .seg.seg-4 .adv-btn{flex:1 1 auto;min-width:0;padding:7px 3px}
 #props .seg .adv-btn .lbl-note{font-weight:400;opacity:.75}
 #props .seg .adv-btn.on .lbl-note{opacity:.85;color:inherit}
 
@@ -4037,10 +4040,11 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
       <div class="prop-card__head">Forma</div>
       <div id="pShapeKind" class="shape-grid" role="group" aria-label="Tipo di forma"></div>
       <label>Stile</label>
-      <div class="seg" role="group" aria-label="Stile della forma">
+      <div class="seg seg-4" role="group" aria-label="Stile della forma">
         <button type="button" class="adv-btn" data-sst="solid">Pieno</button>
         <button type="button" class="adv-btn" data-sst="outline">Contorno</button>
         <button type="button" class="adv-btn" data-sst="dashed">Tratteggio</button>
+        <button type="button" class="adv-btn" data-sst="area" title="Zona del palco: colore tenue, nome grande">Area</button>
       </div>
       <label>Colore</label>
       <div id="pShapeFill" class="swatches" role="group" aria-label="Colore della forma"></div>

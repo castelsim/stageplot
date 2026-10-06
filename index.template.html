@@ -526,10 +526,11 @@
       <div class="prop-card__head">Forma</div>
       <div id="pShapeKind" class="shape-grid" role="group" aria-label="Tipo di forma"></div>
       <label>Stile</label>
-      <div class="seg" role="group" aria-label="Stile della forma">
+      <div class="seg seg-4" role="group" aria-label="Stile della forma">
         <button type="button" class="adv-btn" data-sst="solid">Pieno</button>
         <button type="button" class="adv-btn" data-sst="outline">Contorno</button>
         <button type="button" class="adv-btn" data-sst="dashed">Tratteggio</button>
+        <button type="button" class="adv-btn" data-sst="area" title="Zona del palco: colore tenue, nome grande">Area</button>
       </div>
       <label>Colore</label>
       <div id="pShapeFill" class="swatches" role="group" aria-label="Colore della forma"></div>
@@ -7644,7 +7645,7 @@ function normalizeLoadedItems(arr){
     if(it.type==="forma"){   /* forma: valori fuori elenco → si torna al default, mai markup arbitrario */
       if(it.fill!=null && !/^#[0-9a-f]{6}$/i.test(String(it.fill))) delete it.fill;
       if(it.shape!=null && !SHAPES.some(function(x){ return x[0]===it.shape; })) delete it.shape;
-      if(it.shapeStyle!=null && it.shapeStyle!=="outline" && it.shapeStyle!=="dashed") delete it.shapeStyle;
+      if(it.shapeStyle!=null && it.shapeStyle!=="outline" && it.shapeStyle!=="dashed" && it.shapeStyle!=="area") delete it.shapeStyle;   /* «area» dal 06/10/2026: vedi isAreaNome */
     }
     if(Object.prototype.hasOwnProperty.call(COMP,it.type)) normalizeCompositeParts(it);
     else if(it.parts!=null && (!it.parts || typeof it.parts!=="object" || Array.isArray(it.parts))) delete it.parts;
@@ -8574,7 +8575,42 @@ var SHAPE_FILL=[
   ["#15803d","Verde"],["#7c3aed","Viola"],["#59544a","Grigio"],["#ffffff","Bianco"]
 ];
 function shapeOf(it){ var k=it&&it.shape; return SHAPES.some(function(x){ return x[0]===k; }) ? k : "rect"; }
-function shapeStyleOf(it){ var v=it&&it.shapeStyle; return (v==="outline"||v==="dashed") ? v : "solid"; }
+function shapeStyleOf(it){ var v=it&&it.shapeStyle; return (v==="outline"||v==="dashed"||v==="area") ? v : "solid"; }
+/* AREA CON NOME (06/10/2026). Gli utenti fanno le zone del palco («zona 5 violini II», «zona voci»,
+   «CORO») con pedane alte 0 cm più un testo libero, o con scritte giganti. La pedana però finisce nel
+   rider fra le pedane da portare (riderData) e si tocca solo in «Palco e pedane»; il testo non segue il
+   riquadro. Niente tipo nuovo: la FORMA ha già tutto quello che serve — rettangolo ridimensionabile,
+   colore, testo dentro, nasce sotto gli altri (z:1), nessuna altezza né carico, fuori da backline, patch,
+   carichi e rider, lucchetto, Adatta, modifica in linea. Un tipo nuovo avrebbe dovuto ripetere ognuna
+   di quelle liste che oggi nominano «forma». Manca solo un modo di disegnarsi, e quello è l'asse
+   `shapeStyle`: «area» = velatura tenue, bordo sottile, nome grande in grassetto in alto (al centro
+   finirebbe sotto i musicisti che ci stanno dentro). Nel catalogo è la voce «Area con nome». */
+function isAreaNome(it){ return !!(it && it.type==="forma" && it.shapeStyle==="area"); }
+var AREA_LBL=32;   /* corpo di partenza del nome (cm sul palco): a 1:100 sono ~3 mm sul foglio, il doppio dei nomi degli strumenti */
+/* Ordine dei colori per le aree nuove: tinte vicine fra loro (blu, verde, ambra) prima di quelle
+   «d'allarme», e ogni area nuova prende la prima non ancora usata — due zone accanto si distinguono. */
+var AREA_ORDINE=["#2563eb","#15803d","#b45309","#7c3aed","#0d9488","#b91c1c"];
+function areaFreeColor(){
+  var usati={}; (state.items||[]).forEach(function(x){ if(isAreaNome(x) && x.fill) usati[String(x.fill).toLowerCase()]=1; });
+  for(var i=0;i<AREA_ORDINE.length;i++) if(!usati[AREA_ORDINE[i]]) return AREA_ORDINE[i];
+  var n=(state.items||[]).filter(isAreaNome).length;
+  return AREA_ORDINE[n % AREA_ORDINE.length];
+}
+/* Il nome deve stare DENTRO: il corpo scelto è un massimo. Si stringe finché la parola più lunga entra
+   in larghezza (andare a capo dentro una parola non si può) e una riga entra in altezza. Larghezza
+   stimata a 0,62 em per lettera in grassetto, come lblTextW per i nomi. */
+function areaLblSize(it){
+  var w=Math.max(8,it.w||120), d=Math.max(8,it.d||80), f=Math.max(6, it.lblSize==null?AREA_LBL:(+it.lblSize||AREA_LBL));
+  var lunga=String(it.label||"").split(/\s+/).reduce(function(m,p){ return Math.max(m,p.length); },0);
+  if(lunga) f=Math.min(f, (w-20)/(lunga*0.62));
+  f=Math.min(f, d*0.5);
+  f=Math.max(8, Math.floor(f));   /* per difetto: arrotondando per eccesso la parola sporgeva di un soffio */
+  /* …e TUTTE le righe entrano in altezza (revisione 06/10): «ZONA FIATI E OTTONI» in 200×60 andava su due
+     righe da 30 e usciva sopra e sotto dall'area. Stesso a capo e stesso margine di drawShape. */
+  var mw=Math.max(20, (it.w||120)-16);
+  while(f>8 && wrapTextLines(it.label||"", mw, f).length*f*1.25 + 2*Math.max(6, f*0.3) > d) f--;
+  return f;
+}
 function shapeFillOf(it){ return (it && /^#[0-9a-f]{6}$/i.test(it.fill||"")) ? it.fill : "#0d9488"; }
 /* geometria della forma nel riquadro w×d, centrata sull'origine come tutti gli elementi */
 function shapeGeom(it){
@@ -8593,22 +8629,35 @@ function drawShape(it){
   var col=shapeFillOf(it), st=shapeStyleOf(it), op=(it.opacity==null?100:+it.opacity)/100;
   var geom=shapeGeom(it), attrs, lk=(it.locked===true), sw=lk?"3.6":"2", swo=lk?"3.8":"2.4";   /* bloccata: perimetro marcato come la pedana, colore invariato */
   if(st==="solid")        attrs='fill="'+col+'" fill-opacity="'+(op*0.22).toFixed(3)+'" stroke="'+col+'" stroke-width="'+sw+'"';
+  else if(st==="area")    attrs='fill="'+col+'" fill-opacity="'+(op*0.16).toFixed(3)+'" stroke="'+col+'" stroke-opacity="0.6" stroke-width="'+(lk?"3":"1.5")+'"';   /* area: velatura tenue, il nome è il protagonista */
   else if(st==="outline") attrs='fill="none" stroke="'+col+'" stroke-width="'+swo+'"';
   else                    attrs='fill="none" stroke="'+col+'" stroke-width="'+swo+'" stroke-dasharray="10 7"';
   var s='<g class="shape" opacity="'+op+'">'+geom.replace(/\/>$/, " "+attrs+"/>")+'</g>';
-  if(lk) s+=riserLockGlyph(Math.max(8,it.w||120)/2, Math.max(8,it.d||80)/2, shapeOf(it)==="line"?"line":"axis", col);
+  var w2=Math.max(8,it.w||120)/2, d2=Math.max(8,it.d||80)/2, lkY=null;   /* lkY: dove va il lucchetto dell'area col nome in alto */
   /* testo al centro, con lo stesso wrapping del testo libero */
-  var txt=it.label||"";
+  var txt=it.label||"", area=(st==="area"), sTxt="";
   if(txt){
-    var fsz=Math.max(6, it.lblSize==null?14:+it.lblSize||14);
+    var fsz=area ? areaLblSize(it) : Math.max(6, it.lblSize==null?14:+it.lblSize||14);
     var lines=wrapTextLines(txt, Math.max(20, it.w-16), fsz), lh=fsz*1.25;
     var y0=-((lines.length-1)*lh)/2 + fsz*0.34, tc=esc(it.txtColor||"#1f2937");
-    var al=textAlignOf(it,"center"), ax=textAnchorXY(it, al, 10);
+    /* area: il nome in ALTO, dentro il bordo — se le righe ci stanno; altrimenti al centro come la forma.
+       Solo nel RETTANGOLO (revisione 06/10): cerchio, triangolo e rombo in alto sono stretti, e il nome
+       usciva dalla sagoma; lì resta al centro, dove la sagoma è più larga. */
+    if(area && shapeOf(it)==="rect"){ var pad=Math.max(6, fsz*0.3);
+      if(lines.length*lh+2*pad<=2*d2){ y0=-d2+pad+fsz*0.85; lkY=y0+(lines.length-1)*lh+fsz*0.3+7; } }
+    var al=textAlignOf(it,"center"), ax=textAnchorXY(it, al, 10), fw=area ? ";font-weight:700" : "";   /* grassetto inline: svg2pdf legge lo stile calcolato (flattenTextStyles), anche nel PDF */
     lines.forEach(function(ln,i){
-      if(ln) s+='<text class="txtbox-line" x="'+ax[1]+'" y="'+(y0+i*lh)+'" text-anchor="'+ax[0]+'" style="font-size:'+fsz+'px;text-anchor:'+ax[0]+'" fill="'+tc+'">'+esc(ln)+'</text>';
+      if(ln) sTxt+='<text class="txtbox-line" x="'+ax[1]+'" y="'+(y0+i*lh)+'" text-anchor="'+ax[0]+'" style="font-size:'+fsz+'px;text-anchor:'+ax[0]+fw+'" fill="'+tc+'">'+esc(ln)+'</text>';
     });
   }
-  return s;
+  /* lucchetto: sull'asse a metà della metà alta. Nell'area col nome in alto finiva SOPRA la seconda riga
+     del nome (revisione 06/10: «zona 5 violini II» bloccata, lucchetto sul «II»): lì va sotto il nome,
+     tenuto dentro il bordo (al più 5 cm sopra il lato basso); le soglie di grandezza restano quelle di sempre. */
+  if(lk){
+    if(lkY!=null){ if(w2*2>=70 && d2*2>=50) s+=lockGlyphAt(0, Math.min(lkY, d2-5), col); }
+    else s+=riserLockGlyph(w2, d2, shapeOf(it)==="line"?"line":"axis", col);
+  }
+  return s+sTxt;
 }
 /* allineamento del testo (Simone 27/07): vale per il testo libero e per il testo dentro la forma.
    Default: a sinistra nel testo libero, centrato nella forma. */
@@ -14682,7 +14731,8 @@ document.getElementById("pLblSizeAllYes").addEventListener("click", function(){
     var k=e.target.closest("[data-shape]"), st=e.target.closest("[data-sst]"),
         fl=e.target.closest("[data-fill]"), z=e.target.closest("[data-sz]");
     if(k) mut(function(it){ it.shape=k.getAttribute("data-shape"); });
-    else if(st) mut(function(it){ var v=st.getAttribute("data-sst"); if(v==="solid") delete it.shapeStyle; else it.shapeStyle=v; });
+    else if(st) mut(function(it){ var v=st.getAttribute("data-sst"); if(v==="solid") delete it.shapeStyle; else it.shapeStyle=v;
+      if(v==="area" && it.lblSize==null) it.lblSize=AREA_LBL; });   /* una forma che diventa area prende il nome grande, e il cursore lo dice */
     else if(fl) mut(function(it){ it.fill=fl.getAttribute("data-fill"); });
     else if(z) mut(function(it){ var front=z.getAttribute("data-sz")==="front"; if(front) it.z=3; else delete it.z; });
   });
@@ -16205,6 +16255,16 @@ function ricordaRecenteCatalogo(k, nome, over){
       if(TYPES.pedanacoro){ addToGroup("Pedane e gradoni", makeBtn("pedanacoro", TYPES.pedanacoro.nome)); entries.push({k:"pedanacoro",nome:TYPES.pedanacoro.nome}); }
       /* FORME: un solo tipo, sei porte d'ingresso — cercando "cerchio" o "triangolo" si trova la voce
          giusta, e nel pannello la forma si cambia senza cancellare l'elemento. */
+      /* AREA CON NOME (06/10/2026): la prima delle «Forme e note», perché è quella che si cercava facendo
+         le zone con le pedane. È una forma con lo stile «area» (vedi isAreaNome): niente tipo nuovo.
+         `qaPrimo`: «zona», «area», «settore» la danno per prima — prima della zona del microfono
+         panoramico, che nel nome ha «(zona)», e delle sei forme, che hanno «zona» fra le parole. */
+      (function(){
+        var over={shape:"rect", shapeStyle:"area", w:300, d:200, label:"Zona", lblSize:AREA_LBL};
+        addToGroup("Forme e note", makeBtn("forma", "Area con nome", over, "zona colorata col suo nome"));
+        entries.push({k:"forma", nome:"Area con nome", over:over, dim:"zona colorata col suo nome",
+                      kw:"area aree zona zone settore settori reparto spazio riservato", qaPrimo:"area aree zona zone settore settori"});
+      })();
       SHAPES.forEach(function(sh){
         var over={shape:sh[0]};
         if(sh[0]==="line"){ over.w=300; over.d=6; over.shapeStyle="outline"; }
@@ -16560,6 +16620,9 @@ function findFreeSpotFor(it,x,y){
   var mio=lblBandOf(it);
   function occupato(cx,cy){
     return state.items.some(function(o){
+      /* AREA (06/10/2026): sta SOTTO, ci si mette dentro. Un'area non spinge fuori chi arriva, e chi
+         arriva non la evita; un'area nuova evita solo le altre aree (due zone una sull'altra no). */
+      if(isAreaNome(o)!==isAreaNome(it)) return false;
       var suo=lblBandOf(o);
       var t1=cy-it.d/2-mio.sopra, b1=cy+it.d/2+mio.sotto;
       var t2=o.y-o.d/2-suo.sopra,  b2=o.y+o.d/2+suo.sotto;
@@ -16665,6 +16728,7 @@ function addItem(type, over){
   if(COMP[type]){ it.parts=compClone(COMP[type].defParts); if(COMP[type].size){ var sz=COMP[type].size(it); it.w=sz[0]; it.d=sz[1]; } }
   if(type==="miczone") it.zcol=micZoneFreeColor();   /* ogni zona nasce con un colore diverso */
   if(over) Object.keys(over).forEach(function(k){ it[k]=over[k]; });
+  if(isAreaNome(it) && !(over && over.fill)) it.fill=areaFreeColor();   /* anche ogni AREA (06/10/2026): due zone accanto non hanno lo stesso colore */
   if(cabIsBox(it)) sbAutoSize(it);   /* misure dai canali (ch/outCh arrivano da over): subito, non al prossimo caricamento */
   if(it.type==="cantante") it.d=cantanteDepth(it);   /* footprint coerente col mic scelto (over può impostare micMode) */
   if(!(over && over.x!=null)){   /* posizione non esplicita (no drag-drop) → cerca uno spazio libero, nome compreso */
@@ -20648,7 +20712,7 @@ var RENDER_OPTS = { format:"Verticale 4:5 — Instagram", type:"Render 3D fotore
   scene:"Palco allestito prima dell'evento", camera:"Tre quarti sopraelevata", env:"Automatico", people:"Mostrare i musicisti" };
 /* elementi puramente tecnici/grafici da NON rappresentare in una foto reale (prese, ciabatte, metro, testi liberi) */
 var RENDER_SKIP = { corrente:1, ciabatta:1, metro:1, testo:1 };
-function renderVisible(it){ return !RENDER_SKIP[it.type]; }
+function renderVisible(it){ return !RENDER_SKIP[it.type] && !isAreaNome(it); }   /* l'area con nome è un segno sul foglio, in una foto non c'è (06/10/2026) */
 function renderName(it){ return (it.label&&it.label.trim()) || (typeof instrBase==="function"&&instrBase(it.type)) || (TYPES[it.type]&&TYPES[it.type].nome) || it.type; }
 function renderZoneOf(it){
   var W=state.stage.w||1200, D=state.stage.d||800, fx=it.x/W, fy=it.y/D;
@@ -26511,9 +26575,10 @@ function buildProjectJson(){
     if(it.type==="coppiast"){
       out.stereo_technique={ type:"ORTF", height_cm:165, capsule_spacing_cm:17, angle_deg:110, aimed_at:"ensemble_center" };
     }
-    out.render={ visible: !HIDDEN3D[it.type], asset_id: it.type,
+    var _vis3d=!HIDDEN3D[it.type] && !isAreaNome(it);   /* area con nome: segno sul foglio, non un oggetto (06/10/2026) */
+    out.render={ visible: _vis3d, asset_id: it.type,
       material_id: TYPEMAT[it.type]||"black_tolex", detail_level:"high" };
-    if(HIDDEN3D[it.type]) out.visible_in_render=false;
+    if(!_vis3d) out.visible_in_render=false;
     noteAsset(it.type, t.w||it.w, t.d||it.d, h);
     if(!legend[it.type] && t.nome){
       var dc=comps ? comps.map(function(c){ return c.type; }) : undefined;
