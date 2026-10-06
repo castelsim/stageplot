@@ -1,0 +1,201 @@
+/* Biglietteria — pagina pubblica. Prima il telefono, poi il computer.
+   Token dal design system di StagePlot (warm stone + accento teal). La pianta resta su un foglio chiaro
+   anche col tema scuro (come il foglio dell'editor): i colori dei posti non cambiano mai significato. */
+:root{
+  --bg:#f5f4f0;--surface:#fff;--raised:#edebe4;--border:#ddd9cd;--border-strong:#c8c3b4;
+  --text:#292620;--text-2:#5f594d;--text-3:#746e60;
+  --accent:#0d9488;--accent-strong:#0b7a70;--accent-tint:#e4f2f0;--on-accent:#fff;
+  --warn:#92400e;--warn-bg:#fffbeb;--warn-bd:#fde68a;
+  --ok:#166534;--ok-bg:#f0fdf4;--ok-bd:#bbf7d0;
+  --danger:#b91c1c;--danger-bg:#fee2e2;--danger-bd:#fecaca;
+  --focus:#1d4ed8;
+  --r:12px;--r-lg:16px;
+  --ui:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  /* pianta (sempre chiara) */
+  --m-foglio:#ffffff;--m-palco:#edebe4;--m-palco-bd:#c8c3b4;--m-pedana:#d6d1c3;--m-pedana-bd:#b5af9f;--m-scritta:#746e60;
+  --m-fila:#423e36;--m-libero:#0b7a70;--m-scelto:#0b5f58;--m-scelto-bd:#073f3a;
+  --m-occupato:#b9b3a5;--m-croce:#5f594d;--m-riservato:#a29c8e;--m-riservato-n:#746e60;
+}
+@media (prefers-color-scheme: dark){
+  :root{--bg:#12181b;--surface:#1b2327;--raised:#20292e;--border:#2c3a3f;--border-strong:#3a4b51;
+    --text:#e5e7eb;--text-2:#b4c0bd;--text-3:#96a5a1;
+    --accent:#14b8a6;--accent-strong:#2dd4bf;--accent-tint:#13302f;--on-accent:#06201d;
+    --warn:#fbbf24;--warn-bg:#2a2113;--warn-bd:#4a3a1a;--ok:#86efac;--ok-bg:#12261a;--ok-bd:#1f4430;
+    --danger:#fca5a5;--danger-bg:#2c1414;--danger-bd:#5b2121;--focus:#93c5fd}
+}
+*{box-sizing:border-box;margin:0;padding:0}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--text);font-family:var(--ui);font-size:17px;line-height:1.5}
+body.con-barra{padding-bottom:180px}
+a{color:var(--accent-strong)}
+@media (prefers-color-scheme: dark){a{color:var(--accent)}}
+button{font:inherit;color:inherit}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+h1:focus,h2:focus{outline:none}
+
+.pagina{max-width:560px;margin:0 auto;padding:0 16px 24px}
+
+/* --- intestazione dell'evento --- */
+.ev{padding:22px 0 14px}
+.ev-marchio{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3);font-weight:700}
+.ev-titolo{font-size:26px;line-height:1.2;letter-spacing:-.015em;margin:4px 0 8px;overflow-wrap:anywhere}
+.ev-quando{font-weight:600;font-size:17px}
+.ev-quando::first-letter{text-transform:uppercase}
+.ev-luogo{color:var(--text-2);font-size:16px}
+.ev-badge{display:inline-block;margin-top:12px;background:var(--accent-tint);color:var(--accent-strong);
+  border:1px solid var(--accent);border-radius:999px;padding:5px 12px;font-size:14.5px;font-weight:700}
+.ev-chiusura{color:var(--text-2);font-size:14.5px;margin-top:8px}
+.ev-note{margin-top:10px;font-size:15px;color:var(--text-2);white-space:pre-line;overflow-wrap:anywhere}
+.ev-carico .riga-grigia{height:18px;border-radius:6px;background:var(--raised);margin-top:12px;width:55%}
+.ev-carico .riga-grigia.lunga{height:28px;width:85%}
+.carico{color:var(--text-2);padding:18px 0}
+
+/* --- conteggio, legenda, attrezzi --- */
+.riga-posti{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:6px 0 8px}
+.conta{font-size:20px;letter-spacing:-.01em}
+.sottotitolo{color:var(--text-2);font-size:15px}
+.legenda{list-style:none;display:flex;flex-wrap:wrap;gap:6px 16px;font-size:14.5px;color:var(--text-2);margin-bottom:10px}
+.legenda li{display:flex;align-items:center;gap:6px}
+.legenda.sola-lettura .leg-scelto{display:none}
+.leg-svg{width:20px;height:20px;flex:0 0 auto}
+.attrezzi{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px;min-height:44px}
+.suggerimento{font-size:14.5px;color:var(--text-2)}
+.salta{position:absolute;left:-9999px}
+.salta:focus{position:static;display:inline-block;margin-bottom:8px}
+
+/* --- la pianta --- */
+.mappa{background:var(--m-foglio);border:1px solid var(--border);border-radius:var(--r);overflow:auto;
+  max-height:min(72vh,760px);text-align:center;-webkit-overflow-scrolling:touch;cursor:zoom-in}
+.mappa.ingrandita{cursor:default;text-align:left}
+.mappa svg{display:inline-block;vertical-align:top;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
+.pianta-svg .foglio{fill:var(--m-foglio)}
+.pianta-svg .palco{fill:var(--m-palco);stroke:var(--m-palco-bd);stroke-width:1.5px;vector-effect:non-scaling-stroke}
+.pianta-svg .pedana{fill:var(--m-pedana);stroke:var(--m-pedana-bd);stroke-width:1px;vector-effect:non-scaling-stroke}
+.pianta-svg .palco-t{fill:var(--m-scritta);font-family:var(--ui);font-weight:800;letter-spacing:.2em;text-anchor:middle;dominant-baseline:central}
+.pianta-svg .fila{fill:var(--m-fila);font-family:var(--ui);font-weight:800;text-anchor:middle;dominant-baseline:central}
+.pianta-svg .n{font-family:var(--ui);font-weight:700;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+.pianta-svg.piccola .n{display:none}
+/* la lettera della fila dentro il posto solo da vicino, quando le lettere ai capi sono fuori dallo schermo */
+.pianta-svg .nf{display:none}
+.ingrandita .pianta-svg .nf{display:inline;font-size:.6em;font-weight:600}
+.posto .hit{fill:transparent;pointer-events:all}
+.posto .sedia{vector-effect:non-scaling-stroke}
+.posto .croce{fill:none;stroke:none;vector-effect:non-scaling-stroke}
+.posto:focus{outline:none}
+/* libero: fondo bianco, bordo pieno dell'accento, numero scuro */
+.posto.libero .sedia{fill:#fff;stroke:var(--m-libero);stroke-width:2px}
+.posto.libero .n{fill:var(--m-libero)}
+.posto.libero[role=button]{cursor:pointer}
+@media (hover:hover){.posto.libero[role=button]:hover .sedia{fill:#d5ede9}}
+/* scelto: pieno scuro, numero bianco, bordo più spesso (si distingue anche senza colori) */
+.posto.scelto .sedia{fill:var(--m-scelto);stroke:var(--m-scelto-bd);stroke-width:3px}
+.posto.scelto .n{fill:#fff}
+.posto.scelto{cursor:pointer}
+/* occupato: grigio pieno con la croce, senza numero */
+.posto.occupato .sedia{fill:var(--m-occupato);stroke:none}
+.posto.occupato .croce{stroke:var(--m-croce);stroke-width:1.6px}
+.posto.occupato .n{display:none}
+/* tenuto da parte: tratteggio e bordo a trattini */
+.posto.riservato .sedia{fill:url(#bgl-tratt);stroke:var(--m-riservato);stroke-width:1.5px;stroke-dasharray:4 3}
+.posto.riservato .n{fill:var(--m-riservato-n)}
+.tratt-fondo{fill:#fff}
+.tratt-riga{stroke:#c8c3b4;stroke-width:5}
+.leg-svg .posto.riservato .sedia{fill:#fff}
+.posto:focus-visible .hit{fill:rgba(29,78,216,.10);stroke:var(--focus);stroke-width:3px;vector-effect:non-scaling-stroke}
+.mappa .posto:focus-visible .hit{stroke:#1d4ed8}
+
+/* --- avvisi e note --- */
+.nota{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;font-size:15.5px;margin:10px 0}
+.nota.forte{background:var(--warn-bg);border-color:var(--warn-bd);color:var(--warn);font-weight:700}
+.nota.ok{background:var(--ok-bg);border-color:var(--ok-bd);color:var(--ok)}
+.avviso{border-radius:10px;padding:10px 12px;font-size:15.5px;font-weight:600;margin-bottom:10px}
+.avviso.err{background:var(--danger-bg);border:1px solid var(--danger-bd);color:var(--danger)}
+.avviso.info{background:var(--accent-tint);border:1px solid var(--accent);color:var(--accent-strong)}
+
+/* --- bottoni --- */
+.btn{display:inline-flex;align-items:center;justify-content:center;border:1.5px solid var(--border-strong);background:var(--surface);
+  border-radius:var(--r);padding:12px 18px;font-size:16.5px;font-weight:700;cursor:pointer;min-height:52px;text-decoration:none}
+.btn.primario{background:var(--accent-strong);border-color:var(--accent-strong);color:#fff}
+@media (prefers-color-scheme: dark){.btn.primario{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}}
+.btn.primario:active{filter:brightness(.92)}
+.btn.primario[aria-disabled=true]{opacity:.55}
+.btn[disabled]{opacity:.6;cursor:default}
+.btn.piccolo{min-height:44px;padding:8px 14px;font-size:15px;white-space:nowrap;flex:0 0 auto}
+.nowrap{white-space:nowrap}
+.btn.pericolo{background:var(--danger);border-color:var(--danger);color:#fff}
+@media (prefers-color-scheme: dark){.btn.pericolo{color:#2c1414}}
+
+/* --- barra in basso --- */
+.barra{position:fixed;left:0;right:0;bottom:0;z-index:10;background:var(--surface);border-top:1px solid var(--border);
+  box-shadow:0 -6px 18px rgba(38,33,24,.08);padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px))}
+.barra-dentro{max-width:560px;margin:0 auto}
+.avviso-slot:empty{display:none}
+.barra-riga{display:flex;align-items:center;gap:12px}
+.barra-testo{flex:1;font-weight:700;font-size:16px;line-height:1.3;min-width:0}
+.barra-riga .btn.primario{flex:0 0 auto;min-width:120px}
+.barra-riga #bgl-indietro{flex:0 0 auto}
+.barra-riga #bgl-prenota{flex:1}
+
+/* --- modulo --- */
+.modulo h2,.mia h2{font-size:21px;margin:6px 0 12px}
+.riepilogo{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;margin-bottom:16px}
+.riep-k{font-size:13px;color:var(--text-2);text-transform:uppercase;letter-spacing:.08em;font-weight:700}
+.riep-v{font-size:18px;font-weight:700}
+.campo{margin-bottom:14px}
+.campo label{display:block;font-weight:700;font-size:15.5px;margin-bottom:5px}
+.campo input[type=text],.campo input[type=email]{width:100%;font:inherit;font-size:17px;padding:13px 14px;border:1.5px solid var(--border-strong);
+  border-radius:10px;background:var(--surface);color:var(--text);min-height:52px}
+.campo input:focus{outline:3px solid var(--focus);outline-offset:1px;border-color:var(--accent)}
+.campo.ha-errore input{border-color:var(--danger)}
+.err{color:var(--danger);font-size:15px;font-weight:600;margin-top:5px}
+.aiuto{color:var(--text-2);font-size:14.5px;margin:-4px 0 16px}
+.spunta{display:grid;grid-template-columns:28px 1fr;gap:4px 10px;align-items:start;background:var(--surface);
+  border:1px solid var(--border);border-radius:var(--r);padding:14px}
+.spunta input{width:26px;height:26px;margin-top:1px;accent-color:var(--accent-strong)}
+.spunta label{font-weight:400;font-size:15.5px;margin:0}
+.spunta .err{grid-column:1 / -1}
+.spunta.ha-errore{border-color:var(--danger)}
+.trappola{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+
+/* --- conferma e la mia prenotazione --- */
+.conferma{text-align:center;padding:30px 0 10px}
+.spunta-ok{width:64px;height:64px;border-radius:50%;margin:0 auto 10px;background:var(--ok-bg);border:2px solid var(--ok);
+  color:var(--ok);font-size:34px;line-height:60px;font-weight:800}
+.conferma h1{font-size:30px;margin-bottom:16px}
+.biglietto{background:var(--surface);border:1.5px dashed var(--border-strong);border-radius:var(--r-lg);padding:18px 16px;margin:0 0 14px;text-align:center}
+.big-k{font-size:13px;color:var(--text-2);text-transform:uppercase;letter-spacing:.1em;font-weight:700}
+.codice{font-family:var(--mono);font-size:40px;font-weight:800;letter-spacing:.16em;margin:2px 0 6px;color:var(--text)}
+.codice.spento{color:var(--text-3);text-decoration:line-through}
+.big-posti{font-size:19px;font-weight:700}
+.big-ev{color:var(--text-2);font-size:15.5px;margin-top:10px}
+.conferma .nota{text-align:left}
+.disdici-riga{margin:16px 0;font-size:15.5px;color:var(--text-2)}
+.disdici-riga a{display:inline-block;padding:10px 0;min-height:44px}
+.chiedi{background:var(--warn-bg);border:1px solid var(--warn-bd);border-radius:var(--r);padding:14px;margin:12px 0}
+.chiedi p{margin-bottom:10px}
+.azioni{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
+.azioni .btn{flex:1 1 180px}
+.centro{text-align:center;padding:56px 0 20px}
+.centro h1{font-size:24px;margin-bottom:10px}
+.centro p{color:var(--text-2);margin-bottom:18px}
+.piede{display:flex;gap:16px;justify-content:center;flex-wrap:wrap;color:var(--text-3);font-size:13.5px;padding:28px 0 8px}
+.piede a{color:var(--text-2);display:inline-block;min-height:24px}
+
+/* --- computer: intestazione a sinistra, pianta (o modulo) a destra --- */
+@media (min-width:960px){
+  .pagina{max-width:1180px;padding:0 32px 32px}
+  .pagina:has(> header.ev){display:grid;grid-template-columns:minmax(260px,340px) minmax(0,1fr);column-gap:44px;align-items:start}
+  .pagina:has(> header.ev) > header.ev{grid-column:1;grid-row:1 / span 3;position:sticky;top:0;padding-top:40px}
+  .pagina:has(> header.ev) > :not(header){grid-column:2}
+  .pagina:has(> header.ev) > .corpo,.pagina:has(> header.ev) > section{padding-top:36px}
+  .pagina:has(> header.ev) > .centro{padding-top:60px;text-align:left}
+  .ev-titolo{font-size:32px}
+  .modulo,.mia{max-width:560px}
+  .conferma{max-width:560px;margin:0 auto}
+  .barra-dentro{max-width:1116px}
+  .barra-riga .btn.primario{min-width:200px}
+  .barra-riga #bgl-prenota{flex:0 0 auto;min-width:280px;margin-left:auto}
+  .mappa{max-height:calc(100vh - 290px)}
+}
