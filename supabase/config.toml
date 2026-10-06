@@ -55,3 +55,8 @@ verify_jwt = true
 
 [functions.orc-invite-notify]
 verify_jwt = true
+
+# Biglietteria: la prenotazione dalla pagina pubblica (chi prenota non ha un account). Limiti e controlli
+# li fa la function stessa; la mail parte solo in produzione.
+[functions.bgl-prenota]
+verify_jwt = false
