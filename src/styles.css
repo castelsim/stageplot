@@ -467,7 +467,7 @@
   #anelloSetup .an-seg .btn.on{background:var(--accent);border-color:var(--accent);color:#fff;position:relative;z-index:1}
   #anelloSetup .bs-foot{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-top:18px}
   @media (max-width:880px), (pointer:coarse){
-    #anelloSetup .an-seg .btn,#anelloSetup .bs-foot .btn{min-height:44px}
+    #anelloSetup .an-seg .btn,#anelloSetup .bs-foot .btn,#anelloSetup #anPre{min-height:44px}   /* anche il campo del nome: era alto 22 px, sotto il dito (revisione 06/10/2026) */
     #anelloSetup .bs-foot{flex-direction:column-reverse;align-items:stretch}
   }
   #svg.drop-target{outline:3px dashed var(--accent);outline-offset:-6px;background:var(--accent-tint)}

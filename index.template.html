@@ -9165,7 +9165,11 @@ function lblCapovolto(ang){
 function lblCapTr(flip, ang, x, y, corpo){
   var cy=Math.round((y-corpo*0.36)*10)/10, s=ang ? 'rotate('+ang+' '+x+' '+y+')' : '';
   if(flip) s += (s?' ':'')+'rotate(180 '+x+' '+cy+')';
-  return s ? ' transform="'+s+'"' : '';
+  /* data-cap (revisione 06/10/2026): con l'elemento girato di 180° il nome sta, sul foglio, SOPRA il disegno, e
+     la passata anti-sovrapposizione del PDF (nudgeLabelsInDom) sposta i nomi in GIÙ: lo spingeva dentro il suo
+     stesso disegno (progetto di collaudo 10: «Piatto» dentro i due piatti girati). Il segno glielo fa saltare,
+     come quando il nome era capovolto e quella passata non lo prendeva. */
+  return s ? ' transform="'+s+'"'+(flip ? ' data-cap="1"' : '') : '';
 }
 function itemMarkup(it){
   var t = itemTypeDef(it); if(!t) return '';
@@ -17178,6 +17182,9 @@ function apriAnello(){
   var pre=document.getElementById("anPre"); if(pre) pre.value="G";
   anelloSyncUI();
   m.hidden=false;
+  /* revisione 06/10/2026: Esc e Invio si ascoltano sulla finestra, ma il fuoco restava sulla voce del catalogo
+     dietro di lei: aperta col clic, Esc non la chiudeva. Il fuoco va su «Aggiungi», come nelle altre finestre. */
+  var go=document.getElementById("anGo"); if(go && go.focus){ try{ go.focus(); }catch(_e){} }
 }
 function anelloSyncUI(){
   var m=document.getElementById("anelloSetup"); if(!m || !m.querySelectorAll) return;
@@ -28956,6 +28963,7 @@ function nudgeLabelsInDom(svgEl){
   var nodi=[];
   Array.prototype.forEach.call(svgEl.querySelectorAll("text.lbl"), function(el){
     if(el.classList && el.classList.contains("sub")) return;   /* la riga del montaggio segue il suo nome */
+    if(el.getAttribute && el.getAttribute("data-cap")) return;   /* nome rigirato (lblCapTr, 06/10/2026): sta SOPRA il suo elemento, scendendo ci finirebbe addosso */
     var b; try{ b=el.getBBox(); }catch(_e){ return; }
     if(!b || !(b.width>0) || !(b.height>0)) return;
     var m; try{ m=el.getCTM ? el.getCTM() : null; }catch(_e2){ m=null; }
