@@ -14,9 +14,12 @@
 //   3. solo DOPO aver tolto un file se ne toglie il riferimento in `feedback`: se il secondo passo
 //      fallisse resterebbe una riga che punta al nulla, e si vede; l'ordine inverso lascerebbe file
 //      orfani nel bucket, che non si vedono più.
+//   4. le locandine della biglietteria che nessuno cita più (D4): le sceglie il database
+//      (`bgl_locandine_orfane`, più vecchie di 24 ore), le toglie la Storage API.
 import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2.108.2";
 import { serviceRoleKey, usingLegacyKey } from "../_shared/service-role-key.ts";
 import { chunks, expiredDayFolders, lastExpiredDay, SHOT_BUCKET } from "../_shared/retention.ts";
+import { pulisciLocandine } from "../_shared/bgl-pulizia.ts";
 
 const PAGE = 1000;
 const REMOVE_BATCH = 100;
@@ -88,7 +91,17 @@ Deno.serve(async (req) => {
     const { data: tables, error } = await supabase.rpc("stageplot_purge_expired");
     if (error) throw new Error(`tabelle: ${error.message}`);
     const shots = await purgeShots(supabase, new Date());
-    return json({ ok: true, tables, ...shots });
+    const locandine = await pulisciLocandine({
+      rpc: async (fn, args) => {
+        const { data, error } = await supabase.rpc(fn, args);
+        return { data, error: error ? { message: error.message } : null };
+      },
+      rimuovi: async (bucket, nomi) => {
+        const { data, error } = await supabase.storage.from(bucket).remove(nomi);
+        return { error: error ? { message: error.message } : null, tolti: (data ?? []).length };
+      },
+    }, new Date());
+    return json({ ok: true, tables, ...shots, ...locandine });
   } catch (e) {
     /* rosso vero: il workflow fallisce e se ne accorge qualcuno, invece di un avviso che nessuno legge */
     console.error("retention-purge fallita:", e instanceof Error ? e.message : "unknown");
