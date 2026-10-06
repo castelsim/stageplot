@@ -1849,11 +1849,18 @@ var SEARCH_ALIAS = {
    o scritte a mano su un elemento preso al posto di quello giusto. Tabella a parte e AGGIUNTA in coda:
    in un unico oggetto una chiave ripetuta (camera, iem, percussioni) cancellerebbe la riga di prima. */
 var SEARCH_ALIAS_GIRI = {
-  camera:"webcam web cam tracking", laptop:"sequenze playback basi click backing track", notebook:"sequenze playback basi",
+  camera:"webcam web cam tracking motion tracking", laptop:"sequenze playback basi click backing track polytempo max msp maxmsp ableton live electronics elettronica timecode smpte mtc", notebook:"sequenze playback basi",
   iem:"bodypack body pack", sediapubblico:"pubblico platea spettatori sedute",
   confidence:"gobbo tv televisore schermo testi teleprompter prompter testi canzoni",
   percussioni:"percussionista percussionisti",
   cajonpost:"cajonista cajonisti percussionista percussionisti",   /* 06/10/2026: era sul cajon da solo, ora fuori catalogo */
+  /* 06/10/2026, giro P-725a15 (live electronics): Moog, Soma Lyra, Polytempo, «MIDI Drum Kit» e webcam erano stati messi su
+     tablet, rack2u, notebook, batteria e testo libero perché la ricerca non conosceva queste parole. Tipi già esistenti, scelti da fonico.
+     edrums è fuori catalogo (modulo), perciò «midi drum» va sull'SPD-SX. Manca ancora un elemento per il sync dedicato (generatore/distributore di timecode e word clock) e per il theremin. */
+  tastiera:"moog",
+  rack2u:"modulare eurorack lyra soma lyra drone",
+  spdsx:"drum machine drummachine beatbox midi kit midi drum midi drum kit",
+  audiointerface:"scheda audio word clock wordclock",
 };
 [SEARCH_ALIAS, SEARCH_ALIAS_GIRI].forEach(function(tab){ Object.keys(tab).forEach(function(k){   /* fuso nei tipi: le due ricerche leggono solo TYPES[k].alias */
   if(TYPES[k]) TYPES[k].alias=((TYPES[k].alias||"")+" "+tab[k]).trim();

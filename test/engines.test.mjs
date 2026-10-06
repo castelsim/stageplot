@@ -18702,5 +18702,35 @@ t("Area con nome: nel pannello della forma lo stile «Area», e i quattro botton
   ok(/#props \.seg\.seg-4 \.adv-btn\{[^}]*min-width:0[^}]*padding:7px 3px/.test(stylesCss), "bottoni stretti quanto il loro testo");
 });
 
+/* ---- 06/10/2026 (giro P-725a15): parole dell'elettronica e del sync nella ricerca ---- */
+console.log("\nRicerca: elettronica e sync:");
+t("Elettronica: ogni gruppo di parole porta per primo il tipo da fonico", () => {
+  const gruppi = {
+    tastiera: ["moog"],
+    rack2u: ["eurorack", "lyra", "soma lyra", "drone"],
+    spdsx: ["drum machine", "midi kit", "midi drum", "midi drum kit"],
+    laptop: ["polytempo", "max msp", "ableton", "live electronics", "elettronica", "click", "timecode", "smpte", "mtc"],
+    audiointerface: ["interfaccia audio", "scheda audio", "word clock"],
+    camera: ["motion tracking", "tracking"],
+  };
+  Object.keys(gruppi).forEach((k) => gruppi[k].forEach((q) => {
+    eq((A.__spSearch(q)[0] || {}).k, k, "«" + q + "» deve dare per prima " + k);
+  }));
+});
+t("Elettronica: «modulare» trova anche il rack 2U (il LED wall modulare passa prima per nome)", () => {
+  ok(searchKeys("modulare").indexOf("rack2u") > -1, "rack2u non trovato");
+});
+t("Elettronica: «synth» e «sintetizzatore» trovano la tastiera singola", () => {
+  ok(searchKeys("synth").indexOf("tastiera") > -1 && searchKeys("sintetizzatore").indexOf("tastiera") > -1, "tastiera non trovata");
+});
+t("Elettronica: le parole nuove non cancellano quelle vecchie (laptop: sequenze, playback)", () => {
+  ok(searchKeys("playback").slice(0, 2).indexOf("laptop") > -1, "«playback» non trova più il laptop");
+  eq((A.__spSearch("webcam")[0] || {}).k, "camera", "«webcam» dava camera prima");
+});
+t("Elettronica: sync e theremin non hanno un elemento giusto, e non si forza", () => {
+  eq(searchKeys("sync").length, 0, "«sync» non deve dare risultati a caso");
+  eq(searchKeys("theremin").length, 0, "«theremin» non deve dare risultati a caso");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
