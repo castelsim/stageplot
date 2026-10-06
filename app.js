@@ -12492,6 +12492,7 @@ function renderProps(){
   var t = TYPES[it.type];
   document.getElementById("selNome").textContent = t.nome;
   setPeekName(t.nome);
+  if(typeof bglAbilitatoAggiorna==="function") bglAbilitatoAggiorna();   /* biglietteria: solo abilitati (0073) */
   var ppw=document.getElementById("pPostoWrap");   /* posti numerati (06/10) */
   if(ppw){ var isPosto=postoTipo(it); ppw.style.display = isPosto ? "block" : "none";
     if(isPosto){ var altri=(state.items||[]).filter(postoNumerato).length;
@@ -14358,6 +14359,7 @@ function bglMessaggio(r){
     case "non_tuo": return "Questo evento non è tuo, o non esiste più.";
     case "pianta_non_valida": return "La pianta non si può pubblicare"+(r.motivo?": "+bglMotivo(r.motivo):"")+".";
     case "posto_prenotato": return (r.posti&&r.posti.length ? bglPostiNomi(r.posti)+(r.posti.length>1?" sono già prenotati":" è già prenotato") : "Un posto è già prenotato")+": prima disdici la prenotazione.";
+    case "non_abilitato": return "La biglietteria è in prova solo su invito: scrivi a info@stageplot.it.";
     case "troppi_eventi": return "Hai già 50 eventi: eliminane qualcuno vecchio.";
     case "rete": return "Non riesco a collegarmi: controlla la rete e riprova.";
     default: return "Qualcosa non ha funzionato"+(r.errore?" ("+r.errore+")":"")+". Riprova fra un momento.";
@@ -14860,6 +14862,32 @@ function bglListaPdf(dati, ordine){
     pdfSave(doc, bglSlug(ev.titolo)+"-lista-ingresso.pdf");
   };
   loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
+}
+/* SOLO GLI ACCOUNT ABILITATI (0073, 06/10, decisione di Simone: per ora la biglietteria è solo sua).
+   Il pulsante nasce nascosto e compare solo se il server dice sì per QUESTO account; si richiede quando
+   cambia l'account. Il server rifiuta comunque (non_abilitato): qui si evita solo di mostrare una porta chiusa. */
+var BGL_AB={uid:null, ok:false, chiesto:null};
+/* u e T si passano solo nei test (niente globali da toccare mentre altre prove asincrone girano) */
+function bglAbilitatoVisibile(uTest){
+  if(!BGL_AB) return false;   /* chiamata prima che lo script arrivi qui (primo renderProps) */
+  var u=(uTest!==undefined ? uTest : bglUtente()), vis=!!(u && BGL_AB.ok && BGL_AB.uid===u.id);
+  ["bGrpPostiPren","bPostoPren"].forEach(function(id){ var el=document.getElementById(id); if(el) el.style.display=vis?"":"none"; });
+  return vis;
+}
+function bglAbilitatoAggiorna(uTest, TTest){
+  if(!BGL_AB) return Promise.resolve(false);
+  var leggi=function(){ return uTest!==undefined ? uTest : bglUtente(); };
+  var u=leggi(), uid=u?u.id:null, attesa=Promise.resolve();
+  if(uid && BGL_AB.uid!==uid && BGL_AB.chiesto!==uid){
+    BGL_AB.chiesto=uid;
+    var T=TTest || bglApi.trasporto || (window.__bglCloud && window.__bglCloud.rpc);
+    if(typeof T==="function") attesa=Promise.resolve(T("bgl_abilitato", {})).then(function(r){
+      var ora=leggi(); if(!ora || ora.id!==uid) return;   /* nel frattempo è cambiato l'account */
+      BGL_AB.uid=uid; BGL_AB.ok=!!(r && !r.error && r.data===true);
+    }, function(){ BGL_AB.chiesto=null; });
+  }
+  bglAbilitatoVisibile(uTest);
+  return attesa.then(function(){ return bglAbilitatoVisibile(uTest); });
 }
 (function(){
   var a=document.getElementById("bGrpPostiPren"), b=document.getElementById("bPostoPren");
@@ -32375,7 +32403,7 @@ function maybeAskStageSize(explicit){
   /* Ponte per la biglietteria (06/10): l'editor dell'organizzatore chiama le sue funzioni SQL da qui, senza che
      `sb`, la sessione o il progetto aperto escano dall'IIFE. Solo le sei funzioni dell'organizzatore (il resto della
      biglietteria è pubblico e non passa da qui); senza sessione non parte nessuna richiesta. Nessuna chiave in storage. */
-  var BGL_RPC_AMMESSE=/^bgl_(apri|modifica|eventi_progetto|prenotati|annulla|elimina)$/;
+  var BGL_RPC_AMMESSE=/^bgl_(apri|modifica|eventi_progetto|prenotati|annulla|elimina|abilitato)$/;
   window.__bglCloud = {
     rpc:function(fn, args){
       var nonAut={data:null, error:{code:"non_autenticato", message:"non_autenticato"}};
