@@ -2907,8 +2907,10 @@ function plateaDraw(it){
     s+=bar(p.x,p.y-3,50,46,'ic fill',6)+bar(p.x,p.y+20,50,9,'ic fill',4)+bar(p.x,p.y-3,42,38,'ic soft',5); });
   var txt=n+(n===1?" posto":" posti"), fs=18, tw=txt.length*fs*.58+16;
   /* il conteggio al centro, su un cartellino bianco: nel corridoio quando c'è, sopra le sedie se no */
+  /* contro-ruotato: la platea girata di 90° non deve far leggere «60 posti» di lato (revisione del 06/10/2026) */
+  s+='<g class="pl-posti" transform="rotate('+(-(+it.rot||0))+')">';
   s+='<rect x="'+(-tw/2)+'" y="'+(-fs*.85)+'" width="'+tw+'" height="'+(fs*1.7)+'" rx="6" fill="#fff" stroke="#cbd5e1" stroke-width="1"/>';
-  s+='<text x="0" y="'+(fs*.35)+'" text-anchor="middle" font-size="'+fs+'" font-weight="700" fill="#1c1c1c" font-family="-apple-system,Segoe UI,sans-serif">'+txt+'</text>';
+  s+='<text x="0" y="'+(fs*.35)+'" text-anchor="middle" font-size="'+fs+'" font-weight="700" fill="#1c1c1c" font-family="-apple-system,Segoe UI,sans-serif">'+txt+'</text></g>';
   return s;
 }
 /* Il riquadro della platea nel pannello: i numeri veri (anche dopo un «Adatta») e il conteggio dei posti,
@@ -8214,7 +8216,7 @@ function stageBlocks(){ var b=state.stage.blocks; return (b&&b.length)?b:[{x:0,y
    l'editor: era uno che non si era accorto del rettangolo. E l'app, che le coordinate le conosce
    tutte, taceva.
    La postazione FOH sta in sala per definizione: non conta. */
-var FUORI_OK = { foh:1, platea:1 };   /* platea (06/10/2026): le file del pubblico stanno in sala per definizione, come il FOH */
+var FUORI_OK = { foh:1, platea:1, sediapubblico:1 };   /* platea e sedia del pubblico (06/10/2026): stanno in sala per definizione, come il FOH */
 function elementiFuoriDalPalco(){
   var bl=stageBlocks(), out=[];
   (state.items||[]).forEach(function(it){

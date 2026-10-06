@@ -2659,6 +2659,21 @@ t("platea: in sala non è «fuori dal palco» e «Adatta il palco» non la inglo
   const r = A.adattaPalcoCalcola(A.state.items, 1200, 800, 1000, 700);
   eq(r.pos[p.id].y - 700, p.y - 800, "e Adatta la lascia alla stessa distanza dal bordo, come il FOH");
 });
+/* Revisione 06/10/2026: una Sedia pubblico singola in sala era «fuori dal palco» (la platea no): stessa regola */
+t("sedia pubblico: in sala non è «fuori dal palco»", () => {
+  reset();
+  add("cantante", 600, 400);
+  add("sediapubblico", 600, 1300);
+  eq(A.elementiFuoriDalPalco().length, 0, "la sedia del pubblico sta in sala per definizione");
+  add("wedge", 600, 1300);
+  eq(A.elementiFuoriDalPalco().length, 1, "una spia nello stesso punto invece sì");
+});
+/* Revisione 06/10/2026: la platea girata di 90° faceva leggere «60 posti» di lato */
+t("platea: il cartellino dei posti resta dritto quando la platea ruota", () => {
+  const svg = A.TYPES.platea.draw({ type: "platea", w: 550, d: 540, rot: 90 });
+  ok(/class="pl-posti" transform="rotate\(-90\)"/.test(svg), "contro-ruotato di 90°");
+  ok(/class="pl-posti" transform="rotate\(0\)"/.test(A.TYPES.platea.draw({ type: "platea", w: 550, d: 540 })), "dritta: nessuna rotazione");
+});
 t("platea: un JSON generato (#d=, ChatGPT) tiene passi e corridoio", () => {
   const [p] = A.sanitizeItems([{ id: "pl1", type: "platea", x: 600, y: 1200, w: 790, d: 600, platea: { passo: 60, passoFile: 100, corridoio: 130 } }]);
   eq(p.platea, { passo: 60, passoFile: 100, corridoio: 130 }, "i parametri arrivano");
