@@ -18702,5 +18702,70 @@ t("Area con nome: nel pannello della forma lo stile «Area», e i quattro botton
   ok(/#props \.seg\.seg-4 \.adv-btn\{[^}]*min-width:0[^}]*padding:7px 3px/.test(stylesCss), "bottoni stretti quanto il loro testo");
 });
 
+/* 06/10/2026 — avviso di variante identica (progetto P-725a15: 2 varianti su 10 uguali a un'altra) */
+const itV = (id, extra) => Object.assign({ id, type: "cantante", x: 100, y: 100, w: 70, d: 90, label: "Voce" }, extra || {});
+function docDueVarianti(itemsA, itemsB, extraB) {
+  A.loadDoc({ _doc: 1, active: "vA", variants: [
+    { id: "vA", name: "Piena", state: { titolo: "T", items: itemsA, inputs: [], outputs: [] } },
+    { id: "vB", name: "Copia dimenticata", state: Object.assign({ titolo: "T", items: itemsB, inputs: [], outputs: [] }, extraB || {}) } ] });
+}
+t("variante identica: due varianti uguali, avviso su entrambe", () => {
+  reset();
+  docDueVarianti([itV("i1"), itV("i2", { x: 300 })], [itV("i1"), itV("i2", { x: 300 })]);
+  const u = A.variantiUguali();
+  eq(u.vA, "Copia dimenticata"); eq(u.vB, "Piena");
+  const h = A.variantTabsHtml();
+  ok(/class="vtab on uguale"[^>]*data-var="vA"/.test(h) && /class="vtab uguale"[^>]*data-var="vB"/.test(h), "entrambe le schede segnate");
+  ok(/uguale a Piena/.test(h) && /uguale a Copia dimenticata/.test(h), "con il nome dell'altra");
+});
+t("variante identica: una modifica di un elemento fa sparire l'avviso", () => {
+  reset();
+  docDueVarianti([itV("i1")], [itV("i1")]);
+  eq(Object.keys(A.variantiUguali()).length, 2, "prima: uguali");
+  A.state.items[0].x = 101;   /* la variante attiva si ricalcola dallo stato vivo */
+  eq(Object.keys(A.variantiUguali()).length, 0, "modifica nell'attiva: niente avviso");
+  A.state.items[0].x = 100;
+  eq(Object.keys(A.variantiUguali()).length, 2, "rimessa com'era: di nuovo uguali");
+  A.VARIANTS[1].state.items[0].label = "Altro";   /* una ferma (cache per oggetto stato: qui si sostituisce lo stato come fa la sync) */
+  A.VARIANTS[1].state = JSON.parse(JSON.stringify(A.VARIANTS[1].state));
+  eq(Object.keys(A.variantiUguali()).length, 0, "modifica nell'altra: niente avviso");
+  ok(!/uguale/.test(A.variantTabsHtml()), "e nelle schede non c'e' piu' traccia");
+});
+t("variante identica: id diversi ma stesso contenuto sono uguali; nome e _v non contano", () => {
+  reset();
+  docDueVarianti([itV("i1", { grp: "g5" }), itV("i2", { x: 300, grp: "g5" })],
+    [itV("i77", { grp: "g9" }), itV("i78", { x: 300, grp: "g9" })], { _v: 3 });
+  A.VARIANTS[1].name = "Un altro nome";
+  eq(A.variantiUguali().vA, "Un altro nome", "id rinumerati, gruppo incluso");
+  /* gli id citati altrove (liste, cavi) si rinumerano insieme */
+  docDueVarianti([itV("i1")], [itV("i9")]);
+  A.state.cab = { manual: { "mix:i1": 1 } }; A.VARIANTS[1].state.cab = { manual: { "mix:i9": 1 } };
+  eq(Object.keys(A.variantiUguali()).length, 2, "riferimento ad un id: stesso contenuto");
+  A.VARIANTS[1].state = JSON.parse(JSON.stringify(A.VARIANTS[1].state)); A.VARIANTS[1].state.items[0].grp = "g1";
+  eq(Object.keys(A.variantiUguali()).length, 0, "un elemento in gruppo e uno no: diversi");
+});
+t("variante identica: la variante appena creata con «Nuova variante» non si segnala finché non diverge", () => {
+  reset();
+  A.loadDoc({ titolo: "Base", items: [], inputs: [], outputs: [] });
+  add("astamic", 300, 300);
+  const idNuova = A.createVariant("Ridotta");
+  eq(Object.keys(A.variantiUguali()).length, 0, "uguale per costruzione: zero avvisi, ne' su lei ne' sull'originale");
+  A.state.items[0].x += 50;
+  eq(Object.keys(A.variantiUguali()).length, 0, "diverge: ancora niente");
+  A.state.items[0].x -= 50;
+  eq(Object.keys(A.variantiUguali()).length, 2, "tornata uguale dopo aver divergito: ora e' un doppione vero");
+  A.switchVariant(A.VARIANTS[0].id);
+  eq(A.variantiUguali()[idNuova], "Variante 1", "anche cambiando variante");
+});
+t("variante identica: una sola variante o scene diverse, nessun avviso; firma economica (cache)", () => {
+  reset();
+  eq(Object.keys(A.variantiUguali()).length, 0, "una variante sola");
+  docDueVarianti([itV("i1")], [itV("i1", { x: 5 })]);
+  eq(Object.keys(A.variantiUguali()).length, 0, "scene diverse");
+  ok(/function firmaVariante\(v\)[\s\S]{0,400}firmaVarCache\.has\(v\.state\)/.test(appjs), "le varianti ferme si firmano una volta sola");
+  const rvb = appjs.slice(appjs.indexOf("function renderVariantBar(){"), appjs.indexOf("function variantTabsHtml(){"));
+  ok(!/variantiUguali/.test(rvb.split("renderVariantMobile();")[0]), "nessun calcolo fuori dal disegno della barra");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
