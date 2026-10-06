@@ -18804,5 +18804,41 @@ t("anello: la voce è nel catalogo (si trova scrivendo «anello» o «ottofonico
   ok(/data-an-forma="cerchio"/.test(html) && /data-an-forma="rettangolo"/.test(html) && /id="anPre" type="text" value="G"/.test(html), "cerchio / rettangolo e prefisso G");
 });
 
+/* REVISIONE 06/10/2026 del ramo anello. (1) I nomi rigirati entravano nella passata anti-sovrapposizione del PDF,
+   che sposta in GIÙ: con l'elemento a 180° il nome sta SOPRA il disegno, e scendendo ci finiva dentro (progetto di
+   collaudo 10: i due «Piatto» dentro i loro piatti). (2) La finestra dell'anello ascolta Esc e Invio su di sé, ma il
+   fuoco restava sulla voce del catalogo: aperta col clic, Esc non la chiudeva. */
+t("nome rigirato: porta data-cap, e la passata anti-sovrapposizione del PDF non lo sposta (scenderebbe sul disegno)", () => {
+  reset();
+  const it = { id: "c180", type: "topattivo", x: 300, y: 300, rot: 180, w: 90, d: 90, label: "G5" };
+  A.selSet = {}; A._lblSink = []; A.itemMarkup(it); const lb = A._lblSink.join(""); A._lblSink = null;
+  ok(/<text class="lbl"[^>]*transform="rotate\(180 [^"]*" data-cap="1"[^>]*>G5/.test(lb), "il nome rigirato è segnato (" + lb.slice(0, 160) + ")");
+  const dritto = { id: "c0", type: "topattivo", x: 300, y: 300, rot: 0, w: 90, d: 90, label: "G1" };
+  A.selSet = {}; A._lblSink = []; A.itemMarkup(dritto); const lb0 = A._lblSink.join(""); A._lblSink = null;
+  ok(!/data-cap/.test(lb0), "il nome dritto no");
+  /* due nomi che si toccano: il secondo scende, a meno che non sia rigirato */
+  const finto = (y, cap) => { const at = { y: String(y) }; if (cap) at["data-cap"] = "1";
+    return { classList: { contains: () => false }, getAttribute: (k) => (k in at ? at[k] : null), setAttribute: (k, v) => { at[k] = String(v); },
+      getBBox: () => ({ x: 0, y: +at.y - 10, width: 60, height: 14 }), getCTM: () => ({ a: 1, b: 0, c: 0, d: 1, e: 100, f: 100 }),
+      parentNode: { querySelector: () => null }, at }; };
+  const prova = (cap) => { const a = finto(50, false), b = finto(56, cap);
+    A.nudgeLabelsInDom({ querySelectorAll: () => [a, b] }); return +b.at.y; };
+  ok(prova(false) > 56, "controllo: un nome dritto che tocca il vicino scende (" + prova(false) + ")");
+  eq(prova(true), 56, "il nome rigirato resta dov'è");
+});
+t("anello: la finestra aperta mette il fuoco su «Aggiungi» (Esc e Invio si ascoltano su di lei)", () => {
+  const oldDoc = A.document; let fuoco = null;
+  const el = (id) => ({ id, hidden: true, value: "", focus() { fuoco = id; }, querySelectorAll: () => [], classList: { toggle() {} } });
+  const els = { anelloSetup: el("anelloSetup"), anPre: el("anPre"), anGo: el("anGo") };
+  try {
+    A.document = { getElementById: (id) => els[id] || null };
+    A.apriAnello();
+    eq(els.anelloSetup.hidden, false, "la finestra si apre");
+    eq(els.anPre.value, "G", "il nome riparte da G");
+    eq(fuoco, "anGo", "il fuoco è su «Aggiungi»");
+  } finally { A.document = oldDoc; }
+  ok(/#anelloSetup #anPre\{min-height:44px\}/.test(stylesCss), "al telefono anche il campo del nome è alto 44 px");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
