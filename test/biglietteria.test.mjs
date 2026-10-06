@@ -14,6 +14,7 @@ import { fileURLToPath } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const require = createRequire(import.meta.url);
 const B = require(join(root, "biglietteria/bgl.js"));
+const I = require(join(root, "biglietteria/indirizzi.js"));
 const leggi = (p) => readFileSync(join(root, p), "utf8");
 
 /* Pianta di prova: 3 file inventate, numerazione da sinistra. */
@@ -274,7 +275,10 @@ test("la pagina non va su Google, non passa il link ad altri siti, e parla solo 
   assert.equal(leggi("robots.txt").indexOf("biglietteria"), -1, "robots.txt non si tocca");
   /* nessun indirizzo esterno nel codice oltre al server di produzione */
   const js = leggi("biglietteria/bgl.js");
-  const host = [...js.matchAll(/https?:\/\/([a-z0-9.\-]+)/gi)].map((m) => m[1]).filter((x) => x !== "vsodplqkuvnsdiikvmjb.supabase.co" && x !== "www.w3.org");
+  /* oltre al server: il calendario di Google (un link che la persona apre, non una chiamata) e stageplot.it stesso
+     (l'indirizzo della scheda scritto dentro il file .ics) */
+  const host = [...js.matchAll(/https?:\/\/([a-z0-9.\-]+)/gi)].map((m) => m[1])
+    .filter((x) => x !== "vsodplqkuvnsdiikvmjb.supabase.co" && x !== "www.w3.org" && x !== "calendar.google.com" && x !== "stageplot.it");
   assert.deepEqual(host, []);
 });
 
@@ -470,7 +474,91 @@ test("ZOOM CON DUE DITA: dentro la pianta il gesto è suo (touch-action), la pag
 test("SENZA SPETTACOLO: stageplot.it/biglietteria spiega come prenotare, il link storto resta «non trovata»", () => {
   const js = readFileSync(join(root, "biglietteria/bgl.js"), "utf8");
   const avvia = js.slice(js.indexOf("function avvia()"));
-  assert.ok(avvia.indexOf("if (!S.slug) return messaggioPieno(SENZA_EVENTO") >= 0 &&
-    avvia.indexOf("if (!S.slug)") < avvia.indexOf("if (!slugValido(S.slug))"), "prima il caso senza spettacolo, poi lo slug storto");
+  /* prima nessun parametro, poi l'organizzatore, poi lo slug storto */
+  assert.ok(avvia.indexOf("if (!S.slug && !S.org) return messaggioPieno(SENZA_EVENTO") >= 0 &&
+    avvia.indexOf("if (!S.slug && !S.org)") < avvia.indexOf("if (S.slug && !slugValido(S.slug))"), "prima il caso senza spettacolo, poi lo slug storto");
   assert.match(js, /titolo: "Prenota il tuo posto"/);
+});
+
+/* ─────────────────────────────────────────────── area dell'organizzatore: pagina, scheda, calendario (ottobre 2026) */
+
+test("RF5: il file .ics dice l'ora giusta anche la sera del cambio d'ora; testo scappato e righe piegate a 75 byte", () => {
+  const ev = { slug: "k3m9x2p7qa", titolo: "Concerto; di prova, «bis»", inizio: "2026-10-25T21:00:00+01:00", luogo: "Teatro di prova, Città",
+    note: "Porte alle 20:30" };
+  const t = B.icsEvento(ev, "https://stageplot.it/biglietteria/teatro-prova/concerto-25-ottobre", Date.parse("2026-10-06T10:00:00Z"));
+  assert.match(t, /^BEGIN:VCALENDAR\r\nVERSION:2\.0\r\n/);
+  assert.match(t, /\r\nDTSTART:20261025T200000Z\r\n/, "21:00 a Roma dopo il cambio d'ora = 20:00 UTC");
+  assert.match(t, /\r\nDTEND:20261025T220000Z\r\n/, "due ore di durata presunta");
+  /* RFC 5545 §3.3.11: «;» e «,» nel testo si scrivono «\;» e «\,» */
+  assert.match(t, /\r\nSUMMARY:Concerto\\; di prova\\, «bis»\r\n/);
+  assert.match(t, /\r\nLOCATION:Teatro di prova\\, Città\r\n/);
+  assert.match(t, /\r\nDTSTAMP:20261006T100000Z\r\n/);
+  assert.match(t, /\r\nEND:VCALENDAR\r\n$/, "finisce con CRLF");
+  for (const riga of t.split("\r\n")) assert.ok(Buffer.byteLength(riga, "utf8") <= 75, "riga troppo lunga: " + riga);
+  assert.ok(t.includes("\r\n "), "la riga lunga si piega, con uno spazio davanti alla continuazione");
+  assert.match(t.replace(/\r\n /g, ""), /\r\nDESCRIPTION:Porte alle 20:30\\nhttps:\/\/stageplot\.it\/biglietteria\/teatro-prova\/concerto-25-ottobre\r\n/,
+    "ripiegata e riunita, la descrizione è intera");
+  assert.equal(B.icsEvento({ titolo: "x" }, "l", 0), "", "senza data niente calendario");
+});
+
+test("RF5: mezzanotte e mezza del 1° gennaio a Roma è ancora il 31 dicembre in UTC (e la data breve dice 1 gennaio)", () => {
+  const t = B.icsEvento({ slug: "k3m9x2p7qa", titolo: "Capodanno", inizio: "2027-01-01T00:30:00+01:00" }, "l", 0);
+  assert.match(t, /\r\nDTSTART:20261231T233000Z\r\n/);
+  assert.match(t, /\r\nDTEND:20270101T013000Z\r\n/);
+  assert.equal(B.dataBreve("2026-12-31T23:30:00Z"), "ven 1 gennaio");
+});
+
+test("piegaIcs: non spezza mai una lettera accentata a metà, e ogni pezzo sta nei 75 byte", () => {
+  const riga = "SUMMARY:" + "è".repeat(80);
+  const v = B.piegaIcs(riga).split("\r\n");
+  assert.ok(v.length > 1);
+  for (const r of v) { assert.ok(Buffer.byteLength(r, "utf8") <= 75, r); assert.doesNotMatch(r, /\uFFFD/); }
+  assert.equal(v.map((r, i) => (i ? r.slice(1) : r)).join(""), riga, "riunita è identica");
+  assert.equal(B.piegaIcs("corta"), "corta");
+});
+
+test("RF5: Google Calendar con le stesse ore in UTC", () => {
+  const g = B.linkGoogleCalendar({ titolo: "Prova", inizio: "2026-10-25T21:00:00+01:00", luogo: "Teatro" }, "https://stageplot.it/biglietteria/x/y");
+  assert.match(g, /^https:\/\/calendar\.google\.com\/calendar\/render\?action=TEMPLATE&text=Prova&dates=20261025T200000Z\/20261025T220000Z&/);
+  assert.match(g, /&details=https%3A%2F%2Fstageplot\.it%2Fbiglietteria%2Fx%2Fy&/);
+  assert.match(g, /&location=Teatro$/);
+  assert.equal(B.linkGoogleCalendar({ titolo: "x" }, "l"), "", "senza data niente link");
+  assert.equal(B.DURATA_CALENDARIO_MS, 7200000);
+});
+
+test("pagina dell'organizzatore: le etichette sulle locandine (ultimi posti, esaurito, chiuse)", () => {
+  assert.equal(B.badgeSpettacolo({ stato: "aperta", liberi: 40 }), null);
+  assert.equal(B.badgeSpettacolo({ stato: "aperta", liberi: 13 }), null);
+  assert.deepEqual(B.badgeSpettacolo({ stato: "aperta", liberi: 12 }), { testo: "Ultimi 12 posti", cls: "ultimi" });
+  assert.deepEqual(B.badgeSpettacolo({ stato: "aperta", liberi: 1 }), { testo: "Ultimo posto", cls: "ultimi" });
+  assert.deepEqual(B.badgeSpettacolo({ stato: "aperta", liberi: 0 }), { testo: "Esaurito", cls: "esaurito" });
+  assert.deepEqual(B.badgeSpettacolo({ stato: "chiusa", liberi: 5 }), { testo: "Prenotazioni chiuse", cls: "chiuso" });
+  assert.deepEqual(B.badgeSpettacolo({ stato: "conclusa", liberi: 5 }), { testo: "Concluso", cls: "chiuso" });
+  assert.equal(B.badgeSpettacolo({ stato: "aperta" }), null, "senza conteggio nessuna etichetta inventata");
+});
+
+test("senza locandina: un riquadro con titolo e data (scappati)", () => {
+  const h = B.riquadroLocandina("<b>Prova</b>", "2026-10-09T19:00:00Z");
+  assert.match(h, /&lt;b&gt;Prova&lt;\/b&gt;/); assert.match(h, /ven 9 ottobre/); assert.doesNotMatch(h, /<b>/);
+  assert.equal(B.dataBreve("non è una data"), "");
+});
+
+test("errori nuovi: organizzatore o spettacolo che non ci sono", () => {
+  assert.equal(B.statoPagina({ ok: false, errore: "spettacolo_inesistente" }), "inesistente");
+  assert.equal(B.statoPagina({ ok: false, errore: "organizzatore_inesistente" }), "inesistente");
+  assert.equal(B.statoPagina({ ok: false, errore: "rete" }), "errore");
+  assert.match(B.messaggio("spettacolo_inesistente"), /non c'è più/);
+  assert.match(B.messaggio("organizzatore_inesistente"), /non esiste/);
+});
+
+test("la pagina carica gli indirizzi prima di bgl.js e mostra le locandine dello spazio pubblico", () => {
+  const h = leggi("biglietteria/index.html");
+  assert.ok(h.indexOf('<script src="indirizzi.js?v=1"></script>') > 0 && h.indexOf('<script src="indirizzi.js') < h.indexOf('<script src="bgl.js'));
+  const csp = (h.match(/Content-Security-Policy" content="([^"]+)"/) || [])[1] || "";
+  assert.match(csp, /img-src 'self' data: https:\/\/vsodplqkuvnsdiikvmjb\.supabase\.co http:\/\/127\.0\.0\.1:54321 http:\/\/localhost:54321;/);
+  assert.match(h, /bgl\.js\?v=6/); assert.match(h, /bgl\.css\?v=5/);
+  /* la pagina usa gli stessi indirizzi del resto della biglietteria, non una copia */
+  const js = leggi("biglietteria/bgl.js");
+  assert.match(js, /BGLI\.linkCanonico\(/); assert.match(js, /BGLI\.urlLocandina\(/);
+  assert.equal(typeof I.urlLocandina, "function");
 });
