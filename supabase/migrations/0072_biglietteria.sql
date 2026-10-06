@@ -108,6 +108,7 @@ returns text language sql stable set search_path = public, pg_temp as $$
   end
 $$;
 revoke all on function public.bgl_stato_pubblico(text, timestamptz, timestamptz) from public, anon, authenticated;
+grant execute on function public.bgl_stato_pubblico(text, timestamptz, timestamptz) to service_role;
 
 -- Testo libero dell'utente o dell'organizzatore: tagliato, senza caratteri di controllo, entro i limiti.
 -- null se non va bene (chi chiama decide il codice d'errore).
@@ -121,6 +122,7 @@ returns text language sql immutable set search_path = public, pg_temp as $$
   end
 $$;
 revoke all on function public.bgl_testo(text, int, int) from public, anon, authenticated;
+grant execute on function public.bgl_testo(text, int, int) to service_role;
 
 -- Una data dal JSON del client: null se manca o non si legge (mai un'eccezione verso chi chiama).
 create function public.bgl_ts(p text)
@@ -132,6 +134,7 @@ exception when others then
   return null;
 end $$;
 revoke all on function public.bgl_ts(text) from public, anon, authenticated;
+grant execute on function public.bgl_ts(text) to service_role;
 
 -- Caratteri a caso da un alfabeto: byte casuali di gen_random_uuid (si saltano i byte 6 e 8, che portano
 -- versione e variante). Per il codice l'alfabeto ha 32 lettere: 256/32, nessuno sbilanciamento.
@@ -149,6 +152,7 @@ begin
   return out;
 end $$;
 revoke all on function public.bgl_casuale(text, int) from public, anon, authenticated;
+grant execute on function public.bgl_casuale(text, int) to service_role;
 
 -- Impronta del token di disdetta: è l'unica cosa che il database conserva del token.
 create function public.bgl_impronta(p_token text)
@@ -156,6 +160,7 @@ returns text language sql immutable set search_path = public, pg_temp as $$
   select encode(sha256(convert_to(p_token, 'UTF8')), 'hex')
 $$;
 revoke all on function public.bgl_impronta(text) from public, anon, authenticated;
+grant execute on function public.bgl_impronta(text) to service_role;
 
 -- Il formato della chiave di un posto: settore|fila|posto, es. «Platea|A|5».
 create function public.bgl_chiave_ok(p text)
@@ -163,6 +168,7 @@ returns boolean language sql immutable set search_path = public, pg_temp as $$
   select p is not null and p ~ '^[^|]{1,24}\|[0-9A-Z]{1,4}\|[1-9][0-9]{0,3}$' and p !~ '[[:cntrl:]]'
 $$;
 revoke all on function public.bgl_chiave_ok(text) from public, anon, authenticated;
+grant execute on function public.bgl_chiave_ok(text) to service_role;
 
 -- Le chiavi dei posti di una pianta già pulita.
 create function public.bgl_chiavi(p_pianta jsonb)
@@ -170,6 +176,7 @@ returns text[] language sql immutable set search_path = public, pg_temp as $$
   select coalesce(array_agg(x->>'k'), '{}') from jsonb_array_elements(p_pianta->'posti') x
 $$;
 revoke all on function public.bgl_chiavi(jsonb) from public, anon, authenticated;
+grant execute on function public.bgl_chiavi(jsonb) to service_role;
 
 -- ───────────────────────────────────────────────────────────────── pianta: si ricostruisce, non si copia
 -- Formato «foto» v1 (specifica §2.5). Qualunque campo che non sia fra questi si scarta: la pianta salvata
@@ -298,6 +305,7 @@ begin
     'palco', out_palco, 'pedane', out_pedane, 'posti', out_posti);
 end $$;
 revoke all on function public.bgl_pianta_pulita(jsonb) from public, anon, authenticated;
+grant execute on function public.bgl_pianta_pulita(jsonb) to service_role;
 
 -- I tenuti da parte: solo chiavi che esistono nella pianta, senza doppioni, nell'ordine dato.
 create function public.bgl_riservati_puliti(p jsonb, p_chiavi text[])
@@ -311,6 +319,7 @@ returns text[] language sql immutable set search_path = public, pg_temp as $$
   ) d
 $$;
 revoke all on function public.bgl_riservati_puliti(jsonb, text[]) from public, anon, authenticated;
+grant execute on function public.bgl_riservati_puliti(jsonb, text[]) to service_role;
 
 -- ──────────────────────────────────────────────────────────────────────── pubblico: lettura e disdetta
 
@@ -525,6 +534,7 @@ returns jsonb language sql stable set search_path = public, pg_temp as $$
   from occ, ris
 $$;
 revoke all on function public.bgl_conteggi(public.bgl_eventi) from public, anon, authenticated;
+grant execute on function public.bgl_conteggi(public.bgl_eventi) to service_role;
 
 create function public.bgl_evento_json(p_evento public.bgl_eventi)
 returns jsonb language sql stable set search_path = public, pg_temp as $$
@@ -537,6 +547,7 @@ returns jsonb language sql stable set search_path = public, pg_temp as $$
   from (select public.bgl_conteggi(p_evento) c) x
 $$;
 revoke all on function public.bgl_evento_json(public.bgl_eventi) from public, anon, authenticated;
+grant execute on function public.bgl_evento_json(public.bgl_eventi) to service_role;
 
 -- Apre le prenotazioni su un progetto dell'utente. La pianta si ricostruisce coi soli campi ammessi.
 create function public.bgl_apri(p_project_id uuid, p_evento jsonb)
@@ -602,7 +613,7 @@ begin
     'link', 'https://stageplot.it/biglietteria/?e=' || v_slug);
 end $$;
 revoke all on function public.bgl_apri(uuid, jsonb) from public, anon, authenticated;
-grant execute on function public.bgl_apri(uuid, jsonb) to authenticated;
+grant execute on function public.bgl_apri(uuid, jsonb) to authenticated, service_role;
 
 -- Cambia titolo/inizio/chiusura/luogo/note/stato/riservati/pianta. Un posto prenotato non si tiene da
 -- parte e non sparisce dalla pianta: prima si disdice.
@@ -696,7 +707,7 @@ begin
   return jsonb_build_object('ok', true);
 end $$;
 revoke all on function public.bgl_modifica(uuid, jsonb) from public, anon, authenticated;
-grant execute on function public.bgl_modifica(uuid, jsonb) to authenticated;
+grant execute on function public.bgl_modifica(uuid, jsonb) to authenticated, service_role;
 
 -- Gli eventi di un progetto dell'utente, con i conteggi.
 create function public.bgl_eventi_progetto(p_project_id uuid)
@@ -713,7 +724,7 @@ begin
       from public.bgl_eventi e where e.project_id = p_project_id and e.user_id = uid), '[]'::jsonb));
 end $$;
 revoke all on function public.bgl_eventi_progetto(uuid) from public, anon, authenticated;
-grant execute on function public.bgl_eventi_progetto(uuid) to authenticated;
+grant execute on function public.bgl_eventi_progetto(uuid) to authenticated, service_role;
 
 -- Tutto per il pannello: le prenotazioni con nome, cognome, email, posti e codice. SOLO al proprietario.
 create function public.bgl_prenotati(p_evento_id uuid)
@@ -740,7 +751,7 @@ begin
       (select count(*) from public.bgl_prenotazioni p where p.evento_id = e.id and p.stato = 'attiva')));
 end $$;
 revoke all on function public.bgl_prenotati(uuid) from public, anon, authenticated;
-grant execute on function public.bgl_prenotati(uuid) to authenticated;
+grant execute on function public.bgl_prenotati(uuid) to authenticated, service_role;
 
 -- L'organizzatore disdice per conto di qualcuno: tutta la prenotazione, o alcuni posti.
 create function public.bgl_annulla(p_prenotazione_id uuid, p_posti text[] default null)
@@ -765,7 +776,7 @@ begin
   return jsonb_build_object('ok', true, 'liberati', n);
 end $$;
 revoke all on function public.bgl_annulla(uuid, text[]) from public, anon, authenticated;
-grant execute on function public.bgl_annulla(uuid, text[]) to authenticated;
+grant execute on function public.bgl_annulla(uuid, text[]) to authenticated, service_role;
 
 -- Cancella l'evento e le sue prenotazioni (errori, prove).
 create function public.bgl_elimina(p_evento_id uuid)
@@ -780,7 +791,7 @@ begin
   return jsonb_build_object('ok', true, 'eliminate', n);
 end $$;
 revoke all on function public.bgl_elimina(uuid) from public, anon, authenticated;
-grant execute on function public.bgl_elimina(uuid) to authenticated;
+grant execute on function public.bgl_elimina(uuid) to authenticated, service_role;
 
 -- ───────────────────────────────────────────────────────────────── retention: la purga della 0062, estesa
 -- Stessa firma (returns jsonb): `create or replace` tiene i permessi, ma si riscrivono lo stesso.
