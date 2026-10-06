@@ -377,8 +377,8 @@ test("REVISIONE: toccare un posto occupato o tenuto da parte risponde qualcosa",
 
 test("REVISIONE: sul computer la pagina parla di clic, sul telefono di tocchi", () => {
   const sug = B.suggerimento;
-  assert.equal(sug({ aperta: true, zoom: false, serveZoom: true, fine: false }), "Tocca la pianta per ingrandirla, poi scegli i posti.");
-  assert.equal(sug({ aperta: true, zoom: true, serveZoom: true, fine: false }), "Scorri la pianta con il dito. Tocca un posto libero per sceglierlo.");
+  assert.equal(sug({ aperta: true, zoom: false, serveZoom: true, fine: false }), "Tocca la pianta o allargala con due dita, poi scegli i posti.");
+  assert.equal(sug({ aperta: true, zoom: true, serveZoom: true, fine: false }), "Scorri la pianta con il dito, allarga o stringi con due dita. Tocca un posto libero per sceglierlo.");
   assert.equal(sug({ aperta: true, zoom: false, serveZoom: false, fine: false }), "Tocca un posto libero per sceglierlo.");
   for (const z of [true, false]) for (const sz of [true, false]) {
     const t = sug({ aperta: true, zoom: z, serveZoom: sz, fine: true });
@@ -434,4 +434,26 @@ test("PALCO: palco separato sopra i posti, come prima: scritta sul bordo verso i
   assert.equal(d.sala, false);
   assert.ok(d.y > 350 && d.y < 600, "y=" + d.y);
   assert.match(B.svgPianta(p, {}), /<polygon class="palco" points="100,100/);
+});
+
+/* 06/10, Simone: «ci dev'essere il pinch zoom». La matematica del gesto, senza DOM. */
+test("ZOOM CON DUE DITA: la scala segue le dita dentro i limiti, il punto fra le dita resta fermo", () => {
+  const lim = B.limitiZoom(0.3, 0.9);
+  assert.equal(lim.min, 0.3, "non si rimpicciolisce sotto la pianta intera");
+  assert.ok(lim.max >= 0.9 * 2.5 - 1e-9 && lim.max >= 0.3 * 4 - 1e-9, "si ingrandisce ben oltre il dettaglio: " + lim.max);
+  assert.equal(B.scalaPinch(0.5, 100, 200, lim), 1, "dita due volte più lontane: scala doppia");
+  assert.equal(B.scalaPinch(0.5, 100, 10, lim), 0.3, "stringendo troppo: si ferma alla pianta intera");
+  assert.equal(B.scalaPinch(0.5, 100, 10000, lim), lim.max, "allargando troppo: si ferma al massimo");
+  assert.equal(B.scalaPinch(0.5, 0, 200, lim), 0.5, "distanza iniziale nulla: niente salti");
+  const sc = B.scrollPerFuoco(400, 300, 2, 150, 100);
+  assert.deepEqual(sc, { l: 650, t: 500 }, "il punto (400,300) della pianta resta a (150,100) sullo schermo");
+  assert.deepEqual(B.scrollPerFuoco(10, 10, 1, 150, 100), { l: 0, t: 0 }, "mai scorrimenti negativi");
+});
+test("ZOOM CON DUE DITA: dentro la pianta il gesto è suo (touch-action), la pagina resta ingrandibile", () => {
+  const css = readFileSync(join(root, "biglietteria/bgl.css"), "utf8");
+  assert.match(css, /\.mappa\{[^}]*touch-action:pan-x pan-y/, "pianta: un dito scorre, due dita restano alla pagina (che le passa allo zoom della pianta)");
+  const html = readFileSync(join(root, "biglietteria/index.html"), "utf8");
+  assert.doesNotMatch(html, /user-scalable\s*=\s*no|maximum-scale\s*=\s*1(?![.\d])/, "lo zoom della pagina non è vietato");
+  const js = readFileSync(join(root, "biglietteria/bgl.js"), "utf8");
+  for (const ev of ["touchmove", "wheel", "gesturechange"]) assert.match(js, new RegExp('addEventListener\\("' + ev + '"'), ev + " gestito");
 });
