@@ -17289,7 +17289,7 @@ function aggiungiAnello(o){
   return made;
 }
 /* La finestra: quante casse, la disposizione e il prefisso del nome. Il centro e la misura vengono dalla
-   vista (dove l'utente sta guardando) e non dal palco: l'anello sta attorno al pubblico, che di solito
+   platea se c'è (anelloDallaPlatea), se no dalla vista (dove l'utente sta guardando) e non dal palco: l'anello sta attorno al pubblico, che di solito
    sta fuori dal palco. */
 var _anello={n:8, forma:"cerchio"};
 function apriAnello(){
@@ -17306,7 +17306,20 @@ function anelloSyncUI(){
   Array.prototype.forEach.call(m.querySelectorAll("[data-an-n]"), function(b){ b.classList.toggle("on", +b.getAttribute("data-an-n")===_anello.n); });
   Array.prototype.forEach.call(m.querySelectorAll("[data-an-forma]"), function(b){ b.classList.toggle("on", b.getAttribute("data-an-forma")===_anello.forma); });
 }
+/* Se nel progetto c'è una PLATEA, l'anello va attorno a lei e non al centro della vista: provato nel browser
+   il 06/10/2026, con palco e platea in vista una cassa finiva in mezzo alle sedie. Sulla platea più grande;
+   girata di 90°/270° si scambiano le misure. Margine di 1 m: il treppiede ne occupa 90 cm. */
+function anelloDallaPlatea(){
+  var pl=null;
+  (state.items||[]).forEach(function(it){ if(it.type==="platea" && (!pl || (it.w||0)*(it.d||0)>(pl.w||0)*(pl.d||0))) pl=it; });
+  if(!pl) return null;
+  var rr=((+pl.rot||0)%180+180)%180, gira=rr>45 && rr<135;
+  var W=gira ? (pl.d||0) : (pl.w||0), D=gira ? (pl.w||0) : (pl.d||0);
+  var r=Math.ceil((Math.hypot(W,D)/2+100)/10)*10;   /* per eccesso: mai sopra le sedie */
+  return {cx:Math.round(pl.x), cy:Math.round(pl.y), r:Math.max(250,r), w:Math.round(W+200), d:Math.round(D+200)};
+}
 function anelloDallaVista(){
+  var p=anelloDallaPlatea(); if(p) return p;
   var c=v2w({x:vb.x+vb.w/2, y:vb.y+vb.h/2}), lato=Math.min(vb.w, vb.h);
   var r=Math.max(250, Math.min(800, Math.round(lato*0.3/10)*10));
   return {cx:Math.round(c.x), cy:Math.round(c.y), r:r, w:Math.round(r*2*1.3/10)*10, d:r*2};
