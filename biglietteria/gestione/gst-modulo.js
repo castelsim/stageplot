@@ -53,6 +53,11 @@
 
   A.registra("nuovo", { disegna: function (q) { apri(null, q.get("p")); } });
   A.registra("modifica", { disegna: function (q) { apri(q.get("id"), null); } });
+  /* nuovo spettacolo, di ritorno dall'editor: la sala scelta si rilegge (quello che si è scritto resta). In «Modifica»
+     no: lì la pianta è quella pubblicata, e si cambia solo scegliendo la sala, mai da sola */
+  A.estendi("di-nuovo-visibile", function (v) {
+    if (v === "nuovo" && M && !M.id && M.progetto && !M.inviando && (M.pianta || M.erroreSala)) { leggi(); scegliSala(M.progetto, M.variante); }
+  });
 
   function torna() { return '<p class="ev-marchio"><a href="?" data-az="tutti">← I miei spettacoli</a></p>'; }
   function apri(id, progetto) {
