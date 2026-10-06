@@ -44,3 +44,23 @@
 .gst-dlg h2{font-size:20px;margin-bottom:8px}
 .gst-dlg-testo{white-space:pre-line;margin-bottom:16px}
 .gst-dlg-az{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+.gst-due{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.gst-mappa{max-height:60vh}
+.gst-locandina{max-width:220px;max-height:300px;object-fit:contain;margin:8px 0;border-radius:8px}
+.gst-per{list-style:none;display:grid;gap:6px;margin-top:6px}
+.gst-per li{display:grid;grid-template-columns:72px 1fr;gap:8px;align-items:center}
+.gst-per-posto{font-weight:700}
+.gst-per input,.gst-riga-form input{min-height:44px;font:inherit;padding:6px 10px;border:1.5px solid var(--border-strong);border-radius:10px;background:var(--surface);color:var(--text)}
+.gst-riga-form{display:flex;gap:8px}
+.gst-riga-form input{flex:1}
+.gst-label{font-weight:700}
+.gst-spunta{display:flex;gap:8px;align-items:center;min-height:44px;font-weight:600}
+.gst-azioni{display:flex;flex-wrap:wrap;gap:10px;margin:20px 0 40px}
+.gst-azioni .btn{min-height:48px}
+.ha-errore input,.ha-errore textarea,.ha-errore select{border-color:var(--danger)}
+.gst-mappa{cursor:default}
+.gst-mappa{max-height:58vh;text-align:left}
+.gst-mappa svg{max-width:none}
+.gst-locandina{display:block}
+.gst-campo select{-webkit-appearance:none;appearance:none;padding-right:36px;background-repeat:no-repeat;background-position:right 12px center;background-size:12px 8px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23746e60' stroke-width='2'/%3E%3C/svg%3E")}
