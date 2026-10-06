@@ -7,7 +7,7 @@ const buona = () => ({ e: "k3m9x2p7qa", posti: ["Platea|A|5", "Platea|A|6"], nom
 
 Deno.test("una richiesta fatta bene passa, con gli spazi tagliati", () => {
   const r = validaPrenotazione({ ...buona(), nome: "  Mario ", email: " mario.rossi@example.invalid " });
-  assertEquals(r, { ok: true, value: { e: "k3m9x2p7qa", posti: ["Platea|A|5", "Platea|A|6"], nome: "Mario", cognome: "Rossi", email: "mario.rossi@example.invalid" } });
+  assertEquals(r, { ok: true, value: { e: "k3m9x2p7qa", posti: ["Platea|A|5", "Platea|A|6"], nome: "Mario", cognome: "Rossi", email: "mario.rossi@example.invalid", token: null } });
 });
 
 Deno.test("due tocchi sullo stesso posto contano uno; il quinto posto no", () => {
@@ -62,5 +62,29 @@ Deno.test("slug storto = l'evento non c'è; corpo che non è un oggetto", () => 
   }
   for (const x of [null, "stringa", 5, [buona()]]) {
     assertEquals(validaPrenotazione(x), { ok: false, errore: "dati_non_validi", campo: "corpo" });
+  }
+});
+
+Deno.test("REVISIONE: nome e cognome solo lettere, spazi, apostrofi e trattini (niente indirizzi web da far arrivare per mail)", () => {
+  const campo = (o: Record<string, unknown>) => {
+    const r = validaPrenotazione({ ...buona(), ...o });
+    return r.ok ? "ok" : `${r.errore}:${r.campo ?? ""}`;
+  };
+  for (const n of ["Hai vinto: https://truffa.example/premio", "truffa.example", "Mario2", "a@b", "Rossi/Bianchi", "Ｈｔｔｐｓ：／／", "Mario_Rossi", "Rossi!", "'", "-", "Mario  ❤"]) {
+    assertEquals(campo({ nome: n }), "dati_non_validi:nome", n);
+    assertEquals(campo({ cognome: n }), "dati_non_validi:cognome", n);
+  }
+  for (const n of ["Anna Maria", "D'Annunzio", "O’Brien", "De Rossi-Bianchi", "Nicolò", "Ζωή", "Seán", "Nguyễn"]) {
+    assertEquals(campo({ nome: n, cognome: n }), "ok", n);
+  }
+});
+
+Deno.test("REVISIONE: il codice segreto della pagina (facoltativo) passa solo se è nel formato giusto", () => {
+  const t = "0123456789abcdef0123456789abcdef";
+  const r = validaPrenotazione({ ...buona(), token: t });
+  assertEquals(r.ok && r.value.token, t);
+  assertEquals(validaPrenotazione({ ...buona() }).ok && (validaPrenotazione({ ...buona() }) as { value: { token: unknown } }).value.token, null);
+  for (const x of ["ABC", t.toUpperCase(), t + "0", 42, ""]) {
+    assertEquals(validaPrenotazione({ ...buona(), token: x }), { ok: false, errore: "dati_non_validi", campo: "token" }, String(x));
   }
 });

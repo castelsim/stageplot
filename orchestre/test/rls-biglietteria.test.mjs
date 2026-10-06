@@ -7,7 +7,8 @@
    Dati inventati: utenti @example.invalid, «Mario Rossi», «Concerto di prova». */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
+import { execFileSync, spawn } from "node:child_process";
 import { localEnv, mkUser, login, rest, rpc, admin } from "./_local.mjs";
 
 const env = localEnv();
@@ -36,7 +37,9 @@ const evento = (o = {}) => ({ titolo: "Concerto di prova", inizio: fra(72), chiu
   note: null, riservati: [], pianta: pianta(), ...o });
 const apri = (tok, prog, o) => rpc(env, tok, "bgl_apri", { p_project_id: prog, p_evento: evento(o) });
 const prenota = (slug, posti, n = 1, o = {}) => rpc(env, admin(env), "bgl_prenota", {
-  p_slug: slug, p_posti: posti, p_nome: "Mario", p_cognome: "Rossi" + n, p_email: pubblico(n), ...o });
+  p_slug: slug, p_posti: posti, p_nome: "Mario", p_cognome: "Rossi " + lettere(n), p_email: pubblico(n), ...o });
+/* nei cognomi niente cifre (bgl_nome_ok): il numero della persona diventa lettere, 12 → «Rossi bc» */
+function lettere(n) { return String(n).replace(/\d/g, (c) => "abcdefghij"[c]); }
 const pub = (slug) => rpc(env, env.ANON_KEY, "bgl_evento_pubblico", { p_slug: slug });
 const errore = (r) => r.d && r.d.errore;
 /* Per i casi di tempo (chiusura passata, evento concluso, purga) le date si spostano col servizio. */
@@ -238,12 +241,12 @@ run("organizzatore: modifica stato, riservati e pianta; un posto prenotato non s
 run("prenotazione: forma della risposta; il token esce una volta e nel database c'è solo la sua impronta", async () => {
   const r = await prenota(EV.slug, ["Platea|B|5", "Platea|B|6", "Platea|B|5"], 60, { p_nome: "  Mario ", p_email: "  " + pubblico(60).toUpperCase() + " " });
   assert.equal(r.d.ok, true, JSON.stringify(r.d));
-  assert.deepEqual(Object.keys(r.d).sort(), ["codice", "cognome", "email", "evento", "nome", "ok", "posti", "prenotazione_id", "token"]);
+  assert.deepEqual(Object.keys(r.d).sort(), ["codice", "cognome", "email", "evento", "mail", "nome", "ok", "posti", "prenotazione_id", "ripetuta", "token"]);
   assert.match(r.d.token, /^[0-9a-f]{32}$/);
   assert.match(r.d.codice, /^[A-HJ-NP-Z2-9]{6}$/);
   assert.deepEqual(r.d.posti, ["Platea|B|5", "Platea|B|6"], "i doppioni si tolgono");
   assert.equal(r.d.nome, "Mario", "spazi tagliati");
-  assert.deepEqual(Object.keys(r.d.evento).sort(), ["inizio", "luogo", "slug", "titolo"]);
+  assert.deepEqual(Object.keys(r.d.evento).sort(), ["inizio", "luogo", "note", "slug", "titolo"], "la nota dell'organizzatore va nella mail");
   const riga = (await rest(env, admin(env), "bgl_prenotazioni?select=token_hash,email_norm&id=eq." + r.d.prenotazione_id)).d[0];
   assert.notEqual(riga.token_hash, r.d.token, "il token in chiaro non è salvato");
   assert.equal(riga.token_hash, impronta(r.d.token), "è salvata la sua impronta sha256");
@@ -417,13 +420,191 @@ run("organizzatore: il pannello ha tutto e l'annullamento completo chiude la pre
   assert.deepEqual(Object.keys(r.d).sort(), ["conteggi", "evento", "ok", "prenotazioni"]);
   assert.deepEqual(Object.keys(r.d.conteggi).sort(), ["liberi", "prenotati", "prenotazioni_attive", "riservati", "totali"]);
   const p = r.d.prenotazioni.find((x) => x.stato === "attiva");
-  assert.deepEqual(Object.keys(p).sort(), ["chiusa_il", "codice", "cognome", "creata_il", "email", "id", "nome", "posti", "posti_chiesti", "stato"]);
+  assert.deepEqual(Object.keys(p).sort(), ["chiusa_il", "codice", "cognome", "connessione", "creata_il", "email", "id", "nome", "posti", "posti_chiesti", "stato"]);
   const a = await rpc(env, T.org, "bgl_annulla", { p_prenotazione_id: p.id });
   assert.equal(a.d.ok, true); assert.equal(a.d.liberati, p.posti.length);
   const dopo = (await rpc(env, T.org, "bgl_prenotati", { p_evento_id: EV.id })).d.prenotazioni.find((x) => x.id === p.id);
   assert.equal(dopo.stato, "annullata"); assert.ok(dopo.chiusa_il); assert.deepEqual(dopo.posti, []);
   assert.deepEqual(dopo.posti_chiesti, p.posti_chiesti, "la storia resta");
   assert.equal(errore(await rpc(env, T.org, "bgl_annulla", { p_prenotazione_id: p.id })), "gia_disdetta");
+});
+
+// ─────────────────────────────────────────────────────────── revisione del 06/10: abusi e casi veri
+
+const conn = (s) => impronta("connessione-" + s + "-" + stamp);   // l'impronta che calcola la Edge Function
+const codiceSegreto = () => randomBytes(16).toString("hex");      // il token che sceglie la pagina
+const contatoreGlobale = async () => {
+  const ora = new Date(); ora.setUTCMinutes(0, 0, 0);
+  const r = await rest(env, admin(env), "bgl_throttle?select=count&ip_hash=eq." + "0".repeat(64) + "&window_start=eq." + encodeURIComponent(ora.toISOString()));
+  return r.d && r.d[0] ? r.d[0].count : 0;
+};
+const disdiciCon = (slug, tok) => rpc(env, env.ANON_KEY, "bgl_disdici", { p_slug: slug, p_token: tok });
+
+run("limite globale: si conta SOLO per un evento che esiste ed è aperto (uno slug inventato non blocca tutti)", async () => {
+  for (const tok of [env.ANON_KEY, T.altro]) {
+    const r = await rpc(env, tok, "bgl_globale_hit", { p_slug: EV.slug });
+    assert.match(String(r.d && r.d.message), /permission denied for function/, "solo il servizio: " + JSON.stringify(r.d));
+  }
+  const g = (slug) => rpc(env, admin(env), "bgl_globale_hit", { p_slug: slug });
+  const prima = await contatoreGlobale();
+  for (let i = 0; i < 5; i++) assert.equal(errore(await g("zzzzzzzzzz")), "evento_inesistente");
+  assert.equal(errore(await g("ZZ'; drop")), "evento_inesistente");
+  const chiuso = await apri(T.org, PROGETTO, { pianta: pianta({ file: "A", perFila: 2 }) });
+  assert.equal((await rpc(env, T.org, "bgl_modifica", { p_evento_id: chiuso.d.id, p_campi: { stato: "chiusa" } })).d.ok, true);
+  assert.equal(errore(await g(chiuso.d.slug)), "prenotazioni_chiuse");
+  assert.equal(await contatoreGlobale(), prima, "né lo slug inventato né l'evento chiuso hanno consumato il contatore di tutti");
+  const ok = await g(EV.slug);
+  assert.equal(ok.d.ok, true, JSON.stringify(ok.d));
+  assert.equal(ok.d.n, prima + 1, "per un evento aperto sì: " + JSON.stringify(ok.d));
+  assert.equal(await contatoreGlobale(), prima + 1);
+  assert.equal((await rpc(env, T.org, "bgl_elimina", { p_evento_id: chiuso.d.id })).d.ok, true);
+});
+
+run("tetto per connessione: con email inventate dalla stessa connessione al massimo 8 posti; un'altra connessione prenota", async () => {
+  const ev = await apri(T.org, PROGETTO);
+  assert.equal(ev.d.ok, true, JSON.stringify(ev.d));
+  const da = (ip, posti, n) => prenota(ev.d.slug, posti, n, { p_ip_hash: ip, p_email: "accaparra-" + n + "-" + stamp + "@example.invalid" });
+  const fila = (f, a, b) => Array.from({ length: b - a + 1 }, (_, i) => "Platea|" + f + "|" + (a + i));
+  const a1 = await da(conn("a"), fila("B", 1, 4), 1);
+  assert.equal(a1.d.ok, true, JSON.stringify(a1.d));
+  assert.equal((await da(conn("a"), fila("B", 5, 8), 2)).d.ok, true);
+  const no = await da(conn("a"), ["Platea|B|9"], 3);
+  assert.equal(errore(no), "limite_connessione", JSON.stringify(no.d));
+  assert.equal(no.d.gia, 8); assert.equal(no.d.max, 8);
+  assert.equal((await da(conn("b"), fila("C", 1, 4), 4)).d.ok, true, "un'altra connessione prenota");
+  /* disdire libera anche il tetto della connessione */
+  assert.equal((await disdiciCon(ev.d.slug, a1.d.token)).d.ok, true);
+  assert.equal((await da(conn("a"), ["Platea|B|9"], 5)).d.ok, true, "dopo una disdetta la connessione ha di nuovo posto");
+  /* in parallelo: 4 richieste da 4 posti, email diverse, stessa connessione → al massimo 2 */
+  const tutte = await Promise.all([0, 1, 2, 3].map((i) => da(conn("c"), i < 3 ? fila("D", i * 4 + 1, i * 4 + 4) : fila("E", 1, 4), 10 + i)));
+  const passate = tutte.filter((r) => r.d && r.d.ok);
+  assert.equal(passate.length, 2, "il tetto tiene anche in parallelo: " + JSON.stringify(tutte.map((r) => r.d.errore || "ok")));
+  for (const r of tutte.filter((x) => !(x.d && x.d.ok))) assert.equal(errore(r), "limite_connessione", JSON.stringify(r.d));
+  /* l'organizzatore vede che quelle prenotazioni vengono dalla stessa connessione (un numero, mai l'impronta) */
+  const org = await rpc(env, T.org, "bgl_prenotati", { p_evento_id: ev.d.id });
+  const per = (cod) => org.d.prenotazioni.find((p) => p.codice === cod);
+  const gA = per(a1.d.codice).connessione, gC = per(passate[0].d.codice).connessione;
+  assert.ok(Number.isInteger(gA) && Number.isInteger(gC) && gA !== gC, JSON.stringify(org.d.prenotazioni.map((p) => [p.codice, p.connessione])));
+  assert.equal(per(passate[1].d.codice).connessione, gC, "le due della connessione C hanno lo stesso numero");
+  const sola = org.d.prenotazioni.find((p) => p.email.startsWith("accaparra-4-"));
+  assert.equal(sola.connessione, null, "chi è da solo sulla sua connessione non ha un numero");
+  assert.doesNotMatch(JSON.stringify(org.d), new RegExp(conn("a") + "|" + conn("c")), "l'impronta non esce");
+  assert.equal((await rpc(env, T.org, "bgl_elimina", { p_evento_id: ev.d.id })).d.ok, true);
+});
+
+run("email per i tetti: +etichette e punti di Gmail non fanno una persona nuova", async () => {
+  const n = (e) => rpc(env, admin(env), "bgl_email_norm", { p: e }).then((r) => r.d);
+  assert.equal(await n("  Prova.Biglietteria.Finta+concerto@GoogleMail.com "), "provabiglietteriafinta@gmail.com");
+  assert.equal(await n("anna.b+x@example.invalid"), "anna.b@example.invalid", "fuori da Gmail i punti contano, l'etichetta no");
+  assert.equal(await n("+solo@example.invalid"), "+solo@example.invalid", "un indirizzo che è solo etichetta resta com'è");
+  const ev = await apri(T.org, PROGETTO);
+  const con = (posti, email) => prenota(ev.d.slug, posti, 1, { p_email: email });
+  assert.equal((await con(["Platea|B|1", "Platea|B|2"], "prova.biglietteria.finta+1@gmail.com")).d.ok, true);
+  assert.equal((await con(["Platea|B|3", "Platea|B|4"], "p.r.o.v.a.biglietteria.finta+2@googlemail.com")).d.ok, true);
+  const no = await con(["Platea|B|5"], "ProvaBiglietteriaFinta@Gmail.com");
+  assert.equal(errore(no), "limite_email", JSON.stringify(no.d));
+  const riga = (await rest(env, admin(env), "bgl_prenotazioni?select=email,email_norm&evento_id=eq." + ev.d.id + "&order=creata_il")).d;
+  assert.equal(riga[1].email, "p.r.o.v.a.biglietteria.finta+2@googlemail.com", "la mail parte all'indirizzo scritto");
+  assert.equal(riga[1].email_norm, "provabiglietteriafinta@gmail.com");
+  assert.equal((await rpc(env, T.org, "bgl_elimina", { p_evento_id: ev.d.id })).d.ok, true);
+});
+
+run("nomi: solo lettere, spazi, apostrofi e trattini (nessun indirizzo web arriva nella mail)", async () => {
+  const ev = await apri(T.org, PROGETTO);
+  for (const [campo, v] of [["p_nome", "Hai vinto: https://truffa.example/premio"], ["p_nome", "truffa.example"], ["p_nome", "Mario2"],
+    ["p_nome", "a@b"], ["p_cognome", "Rossi/Bianchi"], ["p_nome", "Ｈｔｔｐｓ：／／"], ["p_cognome", "Rossi!"], ["p_nome", "Mario_Rossi"]]) {
+    const r = await prenota(ev.d.slug, ["Platea|C|1"], 1, { [campo]: v });
+    assert.equal(errore(r), "dati_non_validi", v); assert.equal(r.d.campo, campo.slice(2), v);
+  }
+  let i = 0;
+  for (const [nome, cognome] of [["Anna Maria", "D'Annunzio"], ["Nicolò", "De Rossi-Bianchi"], ["Seán", "O’Brien"], ["Ζωή", "Παππά"]]) {
+    const r = await prenota(ev.d.slug, ["Platea|C|" + (++i)], 900 + i, { p_nome: nome, p_cognome: cognome });
+    assert.equal(r.d.ok, true, nome + " " + cognome + ": " + JSON.stringify(r.d));
+  }
+  assert.equal((await rpc(env, T.org, "bgl_elimina", { p_evento_id: ev.d.id })).d.ok, true);
+});
+
+run("risposta persa: la stessa richiesta ripetuta (stesso codice della pagina, email e posti) ridà la stessa prenotazione, senza seconda mail", async () => {
+  const ev = await apri(T.org, PROGETTO);
+  const t = codiceSegreto(), lenta = "rete-lenta-" + stamp + "@example.invalid";
+  const r1 = await prenota(ev.d.slug, ["Platea|F|3", "Platea|F|4"], 1, { p_token: t, p_ip_hash: conn("lenta"), p_email: lenta });
+  assert.equal(r1.d.ok, true, JSON.stringify(r1.d));
+  assert.equal(r1.d.token, t); assert.equal(r1.d.ripetuta, false); assert.equal(r1.d.mail, true);
+  const r2 = await prenota(ev.d.slug, ["Platea|F|4", "Platea|F|3"], 1, { p_token: t, p_ip_hash: conn("lenta"), p_email: " " + lenta.toUpperCase() });
+  assert.equal(r2.d.ok, true, "non «posti presi»: " + JSON.stringify(r2.d));
+  assert.equal(r2.d.ripetuta, true); assert.equal(r2.d.mail, false, "la mail è già partita la prima volta");
+  assert.equal(r2.d.prenotazione_id, r1.d.prenotazione_id); assert.equal(r2.d.codice, r1.d.codice);
+  assert.equal((await rest(env, admin(env), "bgl_prenotazioni?select=id&evento_id=eq." + ev.d.id)).d.length, 1, "una prenotazione sola");
+  /* lo stesso codice con altri posti o un'altra email non è la stessa richiesta: non si usa il codice altrui */
+  assert.equal((await prenota(ev.d.slug, ["Platea|F|5"], 1, { p_token: t, p_email: lenta })).d.campo, "token");
+  assert.equal((await prenota(ev.d.slug, ["Platea|F|3", "Platea|F|4"], 2, { p_token: t })).d.campo, "token");
+  assert.equal((await prenota(ev.d.slug, ["Platea|F|6"], 3, { p_token: "ZZ" })).d.campo, "token");
+  /* senza codice della pagina tutto come prima: un token nuovo dal database */
+  const r3 = await prenota(ev.d.slug, ["Platea|F|7"], 4);
+  assert.equal(r3.d.ok, true); assert.match(r3.d.token, /^[0-9a-f]{32}$/); assert.notEqual(r3.d.token, t);
+  assert.equal((await rpc(env, T.org, "bgl_elimina", { p_evento_id: ev.d.id })).d.ok, true);
+});
+
+run("mail di conferma: al massimo 3 al giorno allo stesso indirizzo; dopo 2 disdette dalla stessa connessione in un'ora, niente mail", async () => {
+  const ev = await apri(T.org, PROGETTO);
+  const vittima = "vittima-" + stamp + "@example.invalid";
+  const giri = [];
+  for (let i = 0; i < 4; i++) {
+    const r = await prenota(ev.d.slug, ["Platea|A|12"], 1, { p_email: vittima, p_ip_hash: conn("giro-" + i) });
+    assert.equal(r.d.ok, true, JSON.stringify(r.d));
+    giri.push(r.d.mail);
+    assert.equal((await disdiciCon(ev.d.slug, r.d.token)).d.ok, true);
+  }
+  assert.deepEqual(giri, [true, true, true, false], "la quarta prenotazione del giorno allo stesso indirizzo non manda la mail");
+  const altri = [];
+  for (let i = 0; i < 3; i++) {
+    const r = await prenota(ev.d.slug, ["Platea|A|11"], 1, { p_email: "altro-" + i + "-" + stamp + "@example.invalid", p_ip_hash: conn("giostra") });
+    assert.equal(r.d.ok, true, JSON.stringify(r.d));
+    altri.push(r.d.mail);
+    if (i < 2) assert.equal((await disdiciCon(ev.d.slug, r.d.token)).d.ok, true);
+  }
+  assert.deepEqual(altri, [true, true, false], "prenota-disdici-prenota dalla stessa connessione: alla terza niente mail");
+  assert.equal((await rpc(env, T.org, "bgl_elimina", { p_evento_id: ev.d.id })).d.ok, true);
+});
+
+/* Due sessioni vere sul Postgres locale: l'organizzatore modifica DENTRO una transazione che resta aperta 3 s
+   (psql nel container), intanto il pubblico prenota il posto che sta tenendo da parte. */
+function dbContainer() {
+  try {
+    return execFileSync("docker", ["ps", "--format", "{{.Names}}"], { encoding: "utf8" }).split("\n").find((n) => /^supabase_db_/.test(n)) || null;
+  } catch { return null; }
+}
+function psqlAsync(sql) {
+  return new Promise((ok) => {
+    const p = spawn("docker", ["exec", "-i", dbContainer(), "psql", "-U", "postgres", "-At", "-v", "ON_ERROR_STOP=1"]);
+    let out = "", err = "";
+    p.stdout.on("data", (d) => { out += d; }); p.stderr.on("data", (d) => { err += d; });
+    p.on("close", (code) => ok({ code, out, err }));
+    p.stdin.end(sql);
+  });
+}
+
+run("CONCORRENZA: l'organizzatore tiene da parte un posto mentre il pubblico lo prenota → mai tenuto da parte E prenotato", async () => {
+  assert.ok(dbContainer(), "serve il container del database locale");
+  const ev = await apri(T.org, PROGETTO, { riservati: ["Platea|A|1", "Platea|A|2"] });
+  const claims = JSON.stringify({ sub: U.org, role: "authenticated" });
+  const sessione = psqlAsync(`begin;
+set local role authenticated;
+select set_config('request.jwt.claims', '${claims}', true);
+select public.bgl_modifica('${ev.d.id}'::uuid, '{"riservati":["Platea|A|1","Platea|A|2","Platea|B|3"]}'::jsonb);
+select pg_sleep(3);
+commit;`);
+  await new Promise((r) => setTimeout(r, 1200));   // la modifica è fatta e la transazione è ancora aperta
+  const p = await prenota(ev.d.slug, ["Platea|B|3"], 1);
+  const m = await sessione;
+  assert.equal(m.code, 0, m.err);
+  assert.match(m.out, /"ok": true/, "la modifica dell'organizzatore è andata: " + m.out);
+  const fin = await rpc(env, T.org, "bgl_prenotati", { p_evento_id: ev.d.id });
+  const tenuto = fin.d.evento.riservati.includes("Platea|B|3");
+  const preso = (await rest(env, admin(env), "bgl_posti?select=posto&evento_id=eq." + ev.d.id)).d.some((x) => x.posto === "Platea|B|3");
+  assert.ok(!(tenuto && preso), "B3 è sia tenuto da parte sia prenotato: due persone sullo stesso posto all'ingresso");
+  assert.equal(errore(p), "posto_riservato", "la prenotazione ha aspettato la modifica e ha visto B3 tenuto da parte: " + JSON.stringify(p.d));
+  assert.equal((await rpc(env, T.org, "bgl_elimina", { p_evento_id: ev.d.id })).d.ok, true);
 });
 
 run("tetto: 50 eventi per account, il 51° no", async () => {
@@ -442,8 +623,10 @@ run("tetto: 50 eventi per account, il 51° no", async () => {
 run("purga: 30 giorni dopo l'evento nomi ed email spariscono; a 29 restano; impronte IP via dopo 7 giorni", async () => {
   const vecchio = await apri(T.org, PROGETTO, { pianta: pianta({ file: "A", perFila: 3 }) });
   const recente = await apri(T.org, PROGETTO, { pianta: pianta({ file: "A", perFila: 3 }) });
-  const pv = await prenota(vecchio.d.slug, ["Platea|A|1"], 800);
-  const pr = await prenota(recente.d.slug, ["Platea|A|1"], 801);
+  const pv = await prenota(vecchio.d.slug, ["Platea|A|1"], 800, { p_ip_hash: conn("purga") });
+  const pr = await prenota(recente.d.slug, ["Platea|A|1"], 801, { p_ip_hash: conn("purga") });
+  const pf = await prenota(EV.slug, ["Platea|H|11"], 802, { p_ip_hash: conn("purga") });
+  assert.ok(pf.d.ok, JSON.stringify(pf.d));
   assert.ok(pv.d.ok && pr.d.ok);
   const giorni = (n) => new Date(Date.now() - n * 86_400_000).toISOString();
   assert.ok((await sposta(vecchio.d.id, { chiusura: giorni(31), inizio: giorni(31) })).ok);
@@ -464,6 +647,11 @@ run("purga: 30 giorni dopo l'evento nomi ed email spariscono; a 29 restano; impr
   assert.ok(v.anonimizzata_il); assert.equal(v.codice, pv.d.codice, "codice e posti restano: non dicono chi"); assert.deepEqual(v.posti, ["Platea|A|1"]);
   const n = await riga(pr.d.prenotazione_id);
   assert.equal(n.nome, "Mario"); assert.equal(n.email, pubblico(801)); assert.equal(n.anonimizzata_il, null, "evento di 29 giorni fa: intatto");
+  const ip = async (id) => (await rest(env, admin(env), "bgl_prenotazioni?select=ip_hash&id=eq." + id)).d[0].ip_hash;
+  assert.equal(await ip(pv.d.prenotazione_id), null, "l'impronta della connessione sparisce con il resto");
+  assert.equal(await ip(pr.d.prenotazione_id), null, "e anche prima: serve solo fino al giorno dopo l'evento");
+  assert.equal(await ip(pf.d.prenotazione_id), conn("purga"), "per un evento che deve ancora venire resta (tetto per connessione)");
+  assert.equal(typeof r.d.bgl_impronte, "number");
   const th = (await rest(env, admin(env), "bgl_throttle?select=ip_hash&ip_hash=in.(" + h8 + "," + h1 + ")")).d.map((x) => x.ip_hash);
   await rest(env, admin(env), "bgl_throttle?ip_hash=eq." + h1, { method: "DELETE" });
   assert.deepEqual(th, [h1], "l'impronta di 8 giorni fa è sparita, quella di ieri resta");

@@ -103,9 +103,9 @@ test("ogni codice d'errore ha il suo messaggio (specifica §5)", () => {
   assert.equal(m("posto_riservato", { posti: ["Platea|A|1"] }), "Il posto A 1 non è prenotabile: scegline un altro.");
   assert.equal(m("posto_riservato", { posti: ["Platea|A|1", "Platea|A|2"] }), "I posti A 1 e A 2 non sono prenotabili: scegline altri.");
   assert.equal(m("posto_inesistente"), "La pianta è cambiata: ricarica la pagina e scegli di nuovo.");
-  assert.equal(m("limite_email", { gia: 2, max: 4 }), "Con questa email hai già 2 posti: se ne possono prenotare al massimo 4.");
-  assert.equal(m("limite_email", { gia: 1, max: 4 }), "Con questa email hai già 1 posto: se ne possono prenotare al massimo 4.");
-  assert.equal(m("troppi_posti"), "Puoi prenotare al massimo 4 posti.");
+  assert.equal(m("limite_email", { gia: 2, max: 4 }), "Con questa email hai già 2 posti: se ne possono prenotare al massimo 4. Per un gruppo più grande scrivi a info@stageplot.it.");
+  assert.equal(m("limite_email", { gia: 1, max: 4 }), "Con questa email hai già 1 posto: se ne possono prenotare al massimo 4. Per un gruppo più grande scrivi a info@stageplot.it.");
+  assert.equal(m("troppi_posti"), "Puoi prenotare al massimo 4 posti. Per un gruppo più grande scrivi a info@stageplot.it.");
   assert.equal(m("dati_non_validi", { campo: "nome" }), "Scrivi il tuo nome");
   assert.equal(m("dati_non_validi", { campo: "cognome" }), "Scrivi il tuo cognome");
   assert.equal(m("dati_non_validi", { campo: "email" }), "Controlla l'email");
@@ -115,7 +115,7 @@ test("ogni codice d'errore ha il suo messaggio (specifica §5)", () => {
   for (const e of ["richiesta_troppo_grande", "metodo_non_ammesso", "errore_interno", "rete", undefined]) {
     assert.equal(m(e), "Qualcosa non ha funzionato. Riprova fra un momento.", String(e));
   }
-  assert.equal(m("token_non_valido"), "Questo link di disdetta non è valido.");
+  assert.equal(m("token_non_valido"), "Questo link di disdetta non è valido: aprilo per intero dalla mail. Per un problema scrivi a info@stageplot.it.");
   assert.equal(m("gia_disdetta"), "Questa prenotazione è già stata disdetta.");
   assert.equal(m("evento_concluso"), "L'evento è già iniziato: non si può più disdire.");
   /* con più settori, il settore entra nel nome del posto */
@@ -297,3 +297,109 @@ test("l'informativa ha la sezione della biglietteria, e la pagina ci porta", () 
   assert.match(sez, /organizzator/);
   assert.match(leggi("biglietteria/bgl.js"), /href="\/privacy\/#biglietteria"/);
 });
+
+/* ─────────────────────────────────────────────────────────── revisione del 06/10 */
+
+test("REVISIONE: risposta persa e rete assente hanno due messaggi diversi, e nessuno dei due fa aspettare una mail che non arriverà", () => {
+  const m = B.messaggio;
+  assert.equal(m("senza_risposta"), "Non sappiamo se la prenotazione è andata a buon fine. Controlla la mail: se ti è arrivato il codice, è tutto a posto. Altrimenti premi di nuovo «Prenota»: non rischi di prenotare due volte.");
+  assert.equal(m("offline"), "Sembra che tu non abbia connessione: i tuoi dati sono ancora qui, riprova appena torna la rete.");
+  const abort = Object.assign(new Error("x"), { name: "AbortError" });
+  assert.equal(B.tipoErroreRete(new TypeError("Failed to fetch"), false), "offline", "il telefono dice che la rete non c'è");
+  assert.equal(B.tipoErroreRete(abort, false), "offline");
+  assert.equal(B.tipoErroreRete(abort, true), "senza_risposta", "timeout: la richiesta può essere arrivata");
+  assert.equal(B.tipoErroreRete(new TypeError("Failed to fetch"), true), "senza_risposta", "connessione caduta a metà: non si sa");
+});
+
+test("REVISIONE: lo stesso tentativo riusa il suo codice segreto (risposta persa = stessa prenotazione); cambiando posti o email, codice nuovo", () => {
+  const casuale = (() => { let n = 0; return (a) => { for (let i = 0; i < a.length; i++) a[i] = (n++ * 37) & 255; return a; }; })();
+  const t1 = B.tentativo(null, "k3m9x2p7qa", ["Platea|F|4", "Platea|F|3"], " Anna@Example.invalid ", casuale);
+  assert.match(t1.token, /^[0-9a-f]{32}$/);
+  const t2 = B.tentativo(t1, "k3m9x2p7qa", ["Platea|F|3", "Platea|F|4"], "anna@example.invalid", casuale);
+  assert.equal(t2, t1, "stessi posti (in altro ordine) e stessa email: stesso tentativo");
+  const t3 = B.tentativo(t1, "k3m9x2p7qa", ["Platea|F|3"], "anna@example.invalid", casuale);
+  assert.notEqual(t3.token, t1.token, "altri posti: codice nuovo");
+  const t4 = B.tentativo(t1, "k3m9x2p7qa", ["Platea|F|3", "Platea|F|4"], "bruno@example.invalid", casuale);
+  assert.notEqual(t4.token, t1.token, "altra email: codice nuovo");
+  assert.equal(B.tentativo(null, "k3m9x2p7qa", ["Platea|F|3"], "a@b.it", null), null, "senza un generatore sicuro niente codice: decide il server");
+});
+
+test("REVISIONE: nome e cognome con la stessa regola del server (solo lettere, spazi, apostrofi, trattini)", () => {
+  const ok = { nome: "Mario", cognome: "Rossi", email: "mario.rossi@example.invalid", privacy: true };
+  for (const n of ["Anna Maria", "D'Annunzio", "O’Brien", "De Rossi-Bianchi", "Nicolò", "Ζωή"]) {
+    assert.deepEqual(B.controllaModulo({ ...ok, nome: n, cognome: n }), {}, n);
+  }
+  for (const n of ["Hai vinto: https://truffa.example", "Mario2", "a@b", "x.y", "Rossi!"]) {
+    const e = B.controllaModulo({ ...ok, nome: n, cognome: n });
+    assert.equal(e.nome, "Usa solo lettere: niente numeri, punti o simboli.", n);
+    assert.equal(e.cognome, "Usa solo lettere: niente numeri, punti o simboli.", n);
+  }
+  assert.equal(B.controllaModulo({ ...ok, nome: "" }).nome, "Scrivi il tuo nome");
+});
+
+test("REVISIONE: l'email sbagliata dice cosa manca, e un errore di battitura nel dominio si nota", () => {
+  const e = (x) => B.erroreEmail(x);
+  assert.equal(e(""), "Scrivi la tua email");
+  assert.equal(e("anna rossi@gmail.com"), "Togli gli spazi dall'email");
+  assert.equal(e("anna.gmail.com"), "Manca la @ (per esempio nome@gmail.com)");
+  assert.equal(e("anna@@gmail.com"), "C'è più di una @");
+  assert.equal(e("anna@gmailcom"), "Manca il punto dopo la @ (per esempio gmail.com)");
+  assert.equal(e("@gmail.com"), "Manca la parte prima della @");
+  assert.equal(e("anna@gmail.com"), null);
+  const s = B.suggerisciEmail;
+  assert.equal(s("bruno.neri@gmail.con"), "bruno.neri@gmail.com");
+  assert.equal(s("anna@gmial.com"), "anna@gmail.com");
+  assert.equal(s("anna@gmailcom"), "anna@gmail.com");
+  assert.equal(s("anna@libero.ti"), "anna@libero.it");
+  assert.equal(s("anna@hotmial.it"), "anna@hotmail.it");
+  assert.equal(s("anna@gmail.it"), "anna@gmail.com", "Gmail non dà indirizzi @gmail.it (e non è email.it)");
+  for (const giusta of ["anna@gmail.com", "anna@tin.it", "anna@mail.com", "anna@email.it", "anna@example.invalid", "anna@studio-rossi.it"]) {
+    assert.equal(s(giusta), null, giusta);
+  }
+  /* nel modulo: il primo «Prenota» con un dominio sospetto si ferma e chiede; il secondo con la stessa email passa */
+  const m = { nome: "Bruno", cognome: "Neri", email: "bruno.neri@gmail.con", privacy: true };
+  assert.equal(B.controllaModulo(m).email, "Forse intendevi bruno.neri@gmail.com? Se l'indirizzo è giusto, premi di nuovo «Prenota».");
+  assert.deepEqual(B.controllaModulo(m, { emailAccettata: "bruno.neri@gmail.con" }), {});
+  assert.equal(B.controllaModulo({ ...m, email: "bruno.neri@gmailcom" }).email, "Manca il punto dopo la @ (per esempio gmail.com)");
+});
+
+test("REVISIONE: troppi posti dalla stessa connessione ha il suo messaggio, con chi contattare", () => {
+  assert.equal(B.messaggio("limite_connessione", { gia: 8, max: 8 }),
+    "Da questa connessione sono già stati prenotati 8 posti, il massimo. Per altri posti scrivi a info@stageplot.it.");
+});
+
+test("REVISIONE: toccare un posto occupato o tenuto da parte risponde qualcosa", () => {
+  assert.equal(B.avvisoPosto("Platea|D|3", "occupato"), "Il posto D 3 è già occupato.");
+  assert.equal(B.avvisoPosto("Platea|A|2", "riservato"), "Il posto A 2 è tenuto da parte: non si può prenotare.");
+  assert.equal(B.avvisoPosto("Galleria|A|2", "occupato", true), "Il posto Galleria A 2 è già occupato.");
+  assert.equal(B.avvisoPosto("Platea|A|2", "libero"), null);
+});
+
+test("REVISIONE: sul computer la pagina parla di clic, sul telefono di tocchi", () => {
+  const sug = B.suggerimento;
+  assert.equal(sug({ aperta: true, zoom: false, serveZoom: true, fine: false }), "Tocca la pianta per ingrandirla, poi scegli i posti.");
+  assert.equal(sug({ aperta: true, zoom: true, serveZoom: true, fine: false }), "Scorri la pianta con il dito. Tocca un posto libero per sceglierlo.");
+  assert.equal(sug({ aperta: true, zoom: false, serveZoom: false, fine: false }), "Tocca un posto libero per sceglierlo.");
+  for (const z of [true, false]) for (const sz of [true, false]) {
+    const t = sug({ aperta: true, zoom: z, serveZoom: sz, fine: true });
+    assert.match(t, /^Clicca un posto libero per sceglierlo\./, "col mouse si clicca: " + t);
+    assert.doesNotMatch(t, /dito|Tocca/);
+  }
+  assert.equal(sug({ aperta: false, zoom: false, serveZoom: true, fine: true }), "");
+});
+
+test("REVISIONE: la scelta e i dati si ritrovano dopo una ricarica, ma solo i posti ancora liberi", () => {
+  const S = { slug: "k3m9x2p7qa", scelti: ["Platea|A|5", "Platea|B|2"], modulo: { nome: "Anna", cognome: "Neri", email: "anna@example.invalid", privacy: true, sito: "" },
+    tentativo: { firma: "x", token: "ab".repeat(16) } };
+  const v = B.daRicordare(S);
+  assert.deepEqual(Object.keys(v).sort(), ["modulo", "scelti", "tentativo"]);
+  assert.equal(v.modulo.privacy, undefined, "la spunta dell'informativa si rimette a mano");
+  const r = B.daRipristinare(JSON.parse(JSON.stringify(v)), { posti: piantaProva().posti, occupati: ["Platea|B|2"], riservati: [] });
+  assert.deepEqual(r.scelti, ["Platea|A|5"], "B 2 intanto è stato preso");
+  assert.equal(r.modulo.nome, "Anna");
+  assert.deepEqual(r.tentativo, S.tentativo);
+  assert.equal(B.daRipristinare({ scelti: ["Platea|Z|1", 5, "x".repeat(300)] }, { posti: piantaProva().posti }).scelti.length, 0, "chiavi che non esistono: via");
+  assert.equal(B.daRipristinare(null, { posti: [] }), null);
+  assert.equal(B.daRipristinare({ scelti: ["Platea|A|1"], tentativo: { token: "NO" } }, { posti: piantaProva().posti }).tentativo, null, "codice storto: via");
+});
+

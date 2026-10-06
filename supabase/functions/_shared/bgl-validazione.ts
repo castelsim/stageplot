@@ -14,8 +14,16 @@ export const MAX_POSTI = 4;
 // deno-lint-ignore no-control-regex
 const CONTROLLO = /[\u0000-\u001f\u007f]/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** Nome e cognome: parole di sole lettere (anche accentate o di altri alfabeti), separate da uno spazio, un
+ *  apostrofo (' o ’) o un trattino. Niente cifre, «:», «/», «.», «@»: un nome non porta un indirizzo web nel
+ *  pannello, nel PDF o nella mail (revisione del 06/10). La stessa regola sta in bgl.js (pagina) e, un po' più
+ *  larga, in bgl_nome_ok (database). */
+export const NOME_RE = /^[\p{L}\p{M}]+(?:(?: +|['’]|-)[\p{L}\p{M}]+)*$/u;
+/** Il codice segreto che la pagina sceglie per la prenotazione (32 esadecimali minuscoli): se la risposta si
+ *  perde e la pagina riprova con lo stesso codice, il database risponde con la stessa prenotazione. */
+export const TOKEN_RE = /^[0-9a-f]{32}$/;
 
-export type Prenotazione = { e: string; posti: string[]; nome: string; cognome: string; email: string };
+export type Prenotazione = { e: string; posti: string[]; nome: string; cognome: string; email: string; token: string | null };
 export type EsitoValidazione =
   | { ok: true; value: Prenotazione }
   | { ok: false; errore: string; campo?: string };
@@ -51,11 +59,17 @@ export function validaPrenotazione(x: unknown): EsitoValidazione {
   if (posti.length > MAX_POSTI) return no("troppi_posti");
 
   const nome = testo(o.nome, 1, 60);
-  if (nome === null) return no("dati_non_validi", "nome");
+  if (nome === null || !NOME_RE.test(nome)) return no("dati_non_validi", "nome");
   const cognome = testo(o.cognome, 1, 60);
-  if (cognome === null) return no("dati_non_validi", "cognome");
+  if (cognome === null || !NOME_RE.test(cognome)) return no("dati_non_validi", "cognome");
   const email = testo(o.email, 3, 254);
   if (email === null || !EMAIL_RE.test(email)) return no("dati_non_validi", "email");
 
-  return { ok: true, value: { e: o.e, posti, nome, cognome, email } };
+  let token: string | null = null;
+  if (o.token !== undefined && o.token !== null) {
+    if (typeof o.token !== "string" || !TOKEN_RE.test(o.token)) return no("dati_non_validi", "token");
+    token = o.token;
+  }
+
+  return { ok: true, value: { e: o.e, posti, nome, cognome, email, token } };
 }

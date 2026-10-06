@@ -199,3 +199,6 @@ h1:focus,h2:focus{outline:none}
   .barra-riga #bgl-prenota{flex:0 0 auto;min-width:280px;margin-left:auto}
   .mappa{max-height:calc(100vh - 290px)}
 }
+/* revisione 06/10: l'email intera nella conferma (si vede un errore di battitura), il bottone «Usa …@gmail.com» */
+.email-intera{word-break:break-all}
+#bgl-usa-email{margin-top:8px}
