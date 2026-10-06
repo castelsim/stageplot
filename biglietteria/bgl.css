@@ -247,3 +247,28 @@ h1:focus,h2:focus{outline:none}
   .pagina:has(> header.ev.con-locandina) > header.ev{position:static}
   .ev-locandina{max-height:34vh}
 }
+/* «Continua con Google» o «Prenota con nome ed email» (specifica area §3.2) */
+.scelta-accesso{display:grid;gap:10px;margin:14px 0}
+.btn.largo{width:100%;min-height:52px}
+/* un bottone che sembra un link, dentro una riga di testo: l'area da toccare si allarga senza spostare la riga */
+.link{background:none;border:0;padding:12px 4px;margin:-12px 0;color:var(--accent-strong);text-decoration:underline;cursor:pointer;font:inherit}
+/* l'email dell'account Google non si cambia: si vede che è fissa */
+.campo input[readonly]{background:var(--raised);color:var(--text-2)}
+.campo > .aiuto{margin-top:6px}
+/* «Le mie prenotazioni» (/biglietteria/mie/, specifica area §3.3) */
+.mie{list-style:none;display:grid;gap:10px;margin:12px 0;padding:0}
+.mia{border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;background:var(--surface)}
+.mia p{margin:2px 0}
+.mia.spenta{opacity:.65}
+.mia-titolo{display:inline-block;font-weight:700;font-size:18px;line-height:1.3;overflow-wrap:anywhere}
+.mia .ev-quando::first-letter{text-transform:uppercase}
+.mia-posti{font-size:15.5px}
+.mia-az{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:10px}
+.mia-az p{flex:1 0 100%}
+.mie-passate{margin:14px 0}
+.mie-passate summary{cursor:pointer;font-weight:700;min-height:44px;display:flex;align-items:center}
+.mie-account{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:20px 0}
+.mie-account .nota{flex:1 0 100%}
+/* una colonna sola anche sul computer (la regola larga della scheda è in un @media più su: questa, dopo, vince) */
+.pagina.mie-pagina{max-width:640px;padding-top:24px}
+.mie-pagina .mia{max-width:none}
