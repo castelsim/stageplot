@@ -457,6 +457,19 @@
     #bandSetup .bs-foot .btn{min-height:44px}
     #bandSetup .bs-foot{flex-direction:column-reverse;align-items:stretch}
   }
+  /* Anello di altoparlanti: tre righe «etichetta + scelta» e il piede della finestra «Chi sale sul palco» */
+  #anelloSetup .an-riga{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px}
+  #anelloSetup .an-lbl{font-size:14px;font-weight:400;color:var(--text)}
+  #anelloSetup .an-seg{display:flex}
+  #anelloSetup .an-seg .btn{border-radius:0;margin-left:-1px;min-width:44px}
+  #anelloSetup .an-seg .btn:first-child{border-radius:var(--r-sm) 0 0 var(--r-sm);margin-left:0}
+  #anelloSetup .an-seg .btn:last-child{border-radius:0 var(--r-sm) var(--r-sm) 0}
+  #anelloSetup .an-seg .btn.on{background:var(--accent);border-color:var(--accent);color:#fff;position:relative;z-index:1}
+  #anelloSetup .bs-foot{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-top:18px}
+  @media (max-width:880px), (pointer:coarse){
+    #anelloSetup .an-seg .btn,#anelloSetup .bs-foot .btn,#anelloSetup #anPre{min-height:44px}   /* anche il campo del nome: era alto 22 px, sotto il dito (revisione 06/10/2026) */
+    #anelloSetup .bs-foot{flex-direction:column-reverse;align-items:stretch}
+  }
   #svg.drop-target{outline:3px dashed var(--accent);outline-offset:-6px;background:var(--accent-tint)}
   #catalog button[draggable=true]{cursor:grab}
   #defs-master{position:absolute;width:0;height:0;overflow:hidden;pointer-events:none}
@@ -2497,6 +2510,8 @@ body.viewmode.consult-viewer.cl-view #props #chanlist{ display:block; max-width:
 .hdr-variants .vtab:hover{color:var(--text)}
 .hdr-variants .vtab.on{background:var(--surface);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.12)}
 .hdr-variants .vtab-add{padding:0 9px;color:var(--accent-strong)}
+/* variante con contenuto uguale a un'altra (06/10): una nota piccola, non un allarme */
+.hdr-variants .vtab-eq{margin-left:6px;font-size:10px;font-weight:500;opacity:.6;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;display:inline-block}
 .hdr-variants .vtab-add:hover{background:var(--accent-tint)}
 .hdr-variants .vtab:focus-visible,.hdr-variants .vtab-add:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
 .var-menu .mi-danger{color:var(--danger)}
@@ -2863,6 +2878,9 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 #props .seg .adv-btn:first-child{border-radius:var(--r-sm) 0 0 var(--r-sm);margin-left:0}
 #props .seg .adv-btn:last-child{border-radius:0 var(--r-sm) var(--r-sm) 0}
 #props .seg .adv-btn.on{position:relative;z-index:1}
+/* quattro stili della forma (Pieno, Contorno, Tratteggio, Area — 06/10/2026): col padding dei due bottoni
+   «Tratteggio» e «Area» uscivano dal pannello. Ogni bottone prende la larghezza del suo testo. */
+#props .seg.seg-4 .adv-btn{flex:1 1 auto;min-width:0;padding:7px 3px}
 #props .seg .adv-btn .lbl-note{font-weight:400;opacity:.75}
 #props .seg .adv-btn.on .lbl-note{opacity:.85;color:inherit}
 
