@@ -18767,5 +18767,68 @@ t("variante identica: una sola variante o scene diverse, nessun avviso; firma ec
   ok(!/variantiUguali/.test(rvb.split("renderVariantMobile();")[0]), "nessun calcolo fuori dal disegno della barra");
 });
 
+/* revisione 06/10/2026 — avviso di variante identica */
+t("variante identica: cambiare titolo o data (campi del documento) non separa due gemelle; area di stampa e _sameAs non contano", () => {
+  reset();
+  docDueVarianti([itV("i1")], [itV("i1")]);
+  eq(Object.keys(A.variantiUguali()).length, 2, "prima: uguali (la ferma ora e' in cache)");
+  A.state.titolo = "Titolo nuovo"; A.state.evDate = "2026-11-13";
+  A.syncActiveVariant();   /* come fa ogni salvataggio: propagaCampiDocumento riscrive la ferma SENZA sostituirne lo stato */
+  eq(A.VARIANTS[1].state.titolo, "Titolo nuovo", "il titolo e' arrivato anche nell'altra");
+  eq(Object.keys(A.variantiUguali()).length, 2, "dopo il titolo nuovo restano uguali");
+  docDueVarianti([itV("i1")], [itV("i1")], { printFrame: { x: 0, y: 0, w: 500, h: 400 }, production: { asked: true } });
+  eq(Object.keys(A.variantiUguali()).length, 2, "esportare il PDF di una sola (area di stampa, asked) non la rende diversa");
+  A.loadDoc({ _doc: 1, active: "vA", variants: [
+    { id: "vA", name: "Piena", state: { titolo: "T", items: [itV("i1")], inputs: [], outputs: [], venue: { name: "pianta.png" } } },
+    { id: "vB", name: "Copia", state: { titolo: "T", items: [itV("i1")], inputs: [], outputs: [], venue: { name: "pianta.png", _sameAs: "vA" } } } ] });
+  eq(Object.keys(A.variantiUguali()).length, 2, "il rimando _sameAs del file esportato non e' contenuto");
+  A.state.items[0].x = 120;
+  eq(Object.keys(A.variantiUguali()).length, 0, "ma un elemento spostato si'");
+});
+t("variante identica: dopo una modifica l'avviso in vista si ricontrolla da solo (senza doppioni non si arma)", () => {
+  reset();
+  const vecchio = A.setTimeout; let cb = null;
+  A.setTimeout = (f) => { cb = f; return 1; };
+  try {
+    docDueVarianti([itV("i1")], [itV("i1", { x: 5 })]);
+    A.variantTabsHtml();
+    A.persistLocalState(); eq(cb, null, "nessun avviso in vista: nessun ricalcolo dopo le modifiche");
+    docDueVarianti([itV("i1")], [itV("i1")]);
+    ok(/uguale/.test(A.variantTabsHtml()), "avviso disegnato");
+    A.state.items[0].x = 150;
+    A.persistLocalState();
+    ok(typeof cb === "function", "la modifica arma il ricontrollo");
+    eq(cb(), true, "l'esito e' cambiato: si ridisegna");
+    eq(A.avvisoDisegnato, "{}", "e l'avviso non dice piu' «uguale»");
+  } finally { A.setTimeout = vecchio; }
+});
+t("variante identica: il ridisegno dell'avviso tiene il fuoco sul bottone dov'era", () => {
+  reset();
+  docDueVarianti([itV("i1")], [itV("i1")]);
+  A.variantTabsHtml();
+  A.state.items[0].x = 150;   /* l'avviso in vista e' diventato falso */
+  const mk = (n) => Array.from({ length: n }, () => { const b = { focus() { fuoco = b; } }; return b; });
+  let fuoco = null;
+  const bar = { hidden: false, children: mk(3) };
+  Object.defineProperty(bar, "innerHTML", { set() { bar.children = mk(3); } });
+  const vecchio = A.document;
+  A.document = { getElementById: (id) => (id === "variantBar" ? bar : null), activeElement: bar.children[1] };
+  try {
+    eq(A.rinfrescaAvvisiVarianti(), true, "ridisegnata");
+    ok(fuoco === bar.children[1], "il fuoco e' sul secondo bottone nuovo, non sulla pagina");
+  } finally { A.document = vecchio; }
+});
+t("variante identica: un id tutto cifre non rinumera le coordinate (niente falsi «uguale»); l'ordine delle chiavi non conta", () => {
+  reset();
+  docDueVarianti([itV("12", { x: 12 })], [itV("40", { x: 40 })]);
+  eq(A.VARIANTS[0].state.items[0].id, "12", "l'id tutto cifre resta com'e'");
+  eq(Object.keys(A.variantiUguali()).length, 0, "elemento in due punti diversi: non sono uguali");
+  docDueVarianti([itV("12", { x: 300 })], [itV("40", { x: 300 })]);
+  eq(Object.keys(A.variantiUguali()).length, 2, "stesso punto, id diversi: uguali");
+  const s1 = { items: [itV("i1"), itV("i2")], cab: { manual: { i1: "i2" } }, b: 1, a: 2 };
+  const s2 = { a: 2, cab: { manual: { i9: "i10" } }, b: 1, items: [itV("i9"), itV("i10")] };
+  eq(A.firmaScena(s1), A.firmaScena(s2), "chiavi in un altro ordine e id diversi: stessa firma");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
