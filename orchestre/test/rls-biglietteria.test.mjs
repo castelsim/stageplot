@@ -381,8 +381,9 @@ run("prenotazioni chiuse: con stato «chiusa» e dopo la data di chiusura", asyn
 run("PRIVACY: la lettura pubblica non contiene nomi, email, codici o id di prenotazione", async () => {
   const r = await pub(EV.slug);
   assert.equal(r.ok, true); assert.equal(r.d.ok, true);
-  assert.deepEqual(Object.keys(r.d).sort(), ["evento", "liberi", "occupati", "ok", "ora", "pianta", "riservati"]);
-  assert.deepEqual(Object.keys(r.d.evento).sort(), ["chiusura", "inizio", "luogo", "max_per_email", "note", "slug", "stato", "titolo"]);
+  assert.deepEqual(Object.keys(r.d).sort(), ["evento", "liberi", "occupati", "ok", "ora", "organizzatore", "pianta", "riservati"]);
+  assert.deepEqual(Object.keys(r.d.evento).sort(), ["chiusura", "descrizione", "inizio", "locandina", "luogo", "max_per_email",
+    "note", "s", "slug", "stato", "titolo"], "0075: descrizione, locandina, indirizzo breve; nessun dato personale");
   const testo = JSON.stringify(r.d);
   assert.doesNotMatch(testo, /@/, "nessuna email");
   assert.doesNotMatch(testo, /Rossi|Mario|Bianchi|Anna/, "nessun nome");
