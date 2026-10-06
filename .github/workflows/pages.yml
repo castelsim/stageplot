@@ -41,8 +41,8 @@ jobs:
         run: node build.mjs --check
       - name: Test motori frontend
         run: node --test test/engines.test.mjs
-      - name: Test pagina della biglietteria
-        run: node --test test/biglietteria.test.mjs
+      - name: Test pagine della biglietteria
+        run: node --test test/biglietteria.test.mjs test/bgl-*.test.mjs
       - name: Test funzioni condivise Supabase
         run: deno test --lock=deno.lock --frozen supabase/functions/_shared/*.test.ts
       - name: Type-check Edge Functions
