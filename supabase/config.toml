@@ -64,3 +64,7 @@ verify_jwt = false
 # L'organizzatore manda la mail «posti cambiati» dall'area: il token lo controlla la funzione.
 [functions.bgl-avvisa]
 verify_jwt = false
+
+# "Elimina il mio account" dalla biglietteria: il token lo controlla la funzione.
+[functions.bgl-account]
+verify_jwt = false
