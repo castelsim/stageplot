@@ -685,6 +685,10 @@
       '<span>Problemi? <a href="mailto:' + CONTATTO + '">' + CONTATTO + "</a></span>" +
       "<span>Prenotazioni con StagePlot</span></footer>";
   }
+  var SENZA_EVENTO = {
+    titolo: "Prenota il tuo posto",
+    testo: "Per prenotare apri il link dello spettacolo che ti hanno mandato, oppure inquadra il suo QR con la fotocamera del telefono."
+  };
   function messaggioPieno(titolo, testo, bottone, link) {
     S.schermata = "messaggio";
     app.innerHTML = '<div class="centro"><h1 tabindex="-1">' + esc(titolo) + "</h1>" + (testo ? "<p>" + esc(testo) + "</p>" : "") +
@@ -1300,6 +1304,8 @@
   }
 
   function avvia() {
+    /* stageplot.it/biglietteria senza spettacolo (06/10, Simone): non è un link sbagliato, è l'ingresso */
+    if (!S.slug) return messaggioPieno(SENZA_EVENTO.titolo, SENZA_EVENTO.testo);
     if (!slugValido(S.slug)) return messaggioPieno("Pagina non trovata", messaggio("evento_inesistente"));
     if (S.token) {
       if (!tokenValido(S.token)) return messaggioPieno("Link non valido", messaggio("token_non_valido"), null, linkPianta(BASE, S.slug, cfg));
