@@ -16498,6 +16498,29 @@ function bglMotivo(m){
 
 /* ----- la pianta disegnata (la stessa foto che vede il pubblico), per l'anteprima e per il pannello ----- */
 /* o.riservati = chiavi tenute da parte · o.occupati = {chiave: cognome} · o.scelta = i posti si toccano (anteprima del modulo) */
+/* Dove scrivere «PALCO» nella pianta della biglietteria (06/10). Se il palco più grande contiene i posti
+   è la sala intera: la scritta va sulle pedane sopra la prima fila (o nella fascia sopra la prima fila). */
+function bglDovePalco(p){
+  var palchi=(p&&p.palco)||[], posti=(p&&p.posti)||[];
+  if(!palchi.length) return null;
+  function box(poly){ var x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity; poly.forEach(function(q){ x0=Math.min(x0,q[0]); y0=Math.min(y0,q[1]); x1=Math.max(x1,q[0]); y1=Math.max(y1,q[1]); }); return {x:x0,y:y0,w:x1-x0,h:y1-y0}; }
+  var bs=palchi.map(box), big=bs.slice().sort(function(a,b){ return b.w*b.h-a.w*a.h; })[0];
+  var dentro=posti.some(function(q){ return q.x>big.x && q.x<big.x+big.w && q.y>big.y && q.y<big.y+big.h; });
+  if(!dentro){
+    var top=Math.min.apply(null,bs.map(function(b){ return b.y; })), bot=Math.max.apply(null,bs.map(function(b){ return b.y+b.h; }));
+    var l=Math.min.apply(null,bs.map(function(b){ return b.x; })), r=Math.max.apply(null,bs.map(function(b){ return b.x+b.w; }));
+    return {sala:false, x:(l+r)/2, top:top, bottom:bot};
+  }
+  var primaY=Infinity; posti.forEach(function(q){ primaY=Math.min(primaY, q.y-(q.d||50)/2); });
+  var ped=((p.pedane)||[]).map(box).filter(function(b){ return b.y+b.h<=primaY; }), a;
+  if(ped.length){
+    var x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
+    ped.forEach(function(b){ x0=Math.min(x0,b.x); y0=Math.min(y0,b.y); x1=Math.max(x1,b.x+b.w); y1=Math.max(y1,b.y+b.h); });
+    a={x:x0,y:y0,w:x1-x0,h:y1-y0};
+  } else a={x:big.x,y:big.y,w:big.w,h:Math.max(0,primaY-big.y)};
+  if(a.h<=0||a.w<=0) return {sala:true, x:big.x+big.w/2, y:big.y+40, corpo:30};
+  return {sala:true, x:a.x+a.w/2, y:a.y+a.h/2, corpo:Math.max(30,Math.min(a.h*0.3,a.w*0.09,140))};
+}
 function bglPiantaSvg(p, o){
   o=o||{};
   if(!p || !p.box || !p.posti) return "";
@@ -16509,12 +16532,14 @@ function bglPiantaSvg(p, o){
   var primaY=H; p.posti.forEach(function(q){ if(q.y-q.d<primaY) primaY=q.y-q.d; });
   var y0=Math.max(0, Math.round(primaY-450));
   var s='<svg class="bgl-pianta" viewBox="0 '+y0+' '+W+' '+(H-y0)+'" role="img" aria-label="Pianta dei posti, con il palco in alto" preserveAspectRatio="xMidYMid meet">';
-  (p.palco||[]).forEach(function(poly){ s+='<polygon class="bgl-palco" points="'+pts(poly)+'"/>'; });
-  (p.pedane||[]).forEach(function(poly){ s+='<polygon class="bgl-pedana" points="'+pts(poly)+'"/>'; });
-  if((p.palco||[]).length){
-    var xs=[], ys=[]; p.palco.forEach(function(poly){ poly.forEach(function(q){ xs.push(q[0]); ys.push(q[1]); }); });
-    var cx=(Math.min.apply(null,xs)+Math.max.apply(null,xs))/2, cy=(Math.max(Math.min.apply(null,ys),y0)+Math.max.apply(null,ys))/2;
-    s+='<text class="bgl-palco-t" x="'+Math.round(cx)+'" y="'+Math.round(cy)+'" font-size="'+Math.max(40,Math.round(W/22))+'">PALCO</text>';
+  /* il palco che CONTIENE i posti è la sala (teatro disegnato intero, 06/10): niente colore da palco,
+     le pedane fanno da palco e la scritta va su di loro (stessa regola di dovePalco in biglietteria/bgl.js) */
+  var dp=bglDovePalco(p);
+  (p.palco||[]).forEach(function(poly){ s+='<polygon class="'+(dp&&dp.sala?'bgl-sala':'bgl-palco')+'" points="'+pts(poly)+'"/>'; });
+  (p.pedane||[]).forEach(function(poly){ s+='<polygon class="'+(dp&&dp.sala?'bgl-palco':'bgl-pedana')+'" points="'+pts(poly)+'"/>'; });
+  if(dp){
+    var ty=dp.sala ? dp.y : (Math.max(dp.top,y0)+dp.bottom)/2;
+    s+='<text class="bgl-palco-t" x="'+Math.round(dp.x)+'" y="'+Math.round(ty)+'" font-size="'+(dp.sala?Math.round(dp.corpo):Math.max(40,Math.round(W/22)))+'">PALCO</text>';
   }
   var righe=Object.create(null), ordine=[];
   p.posti.forEach(function(q){

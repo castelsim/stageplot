@@ -19226,6 +19226,20 @@ t("biglietteria: la foto ha solo i posti numerati, il palco in alto, interi, e N
   ok(!/Mario|Rossi|example|333|label|"id"|note|contatto|batteria/.test(j), "nessun nome, contatto, nota, etichetta o id nella foto: " + j.slice(0, 200));
 });
 
+t("biglietteria: teatro disegnato intero (posti dentro il palco): PALCO sulle pedane, la sala non è un palco", () => {
+  const P = { v: 1, box: [0, 0, 1300, 2080], palco: [[[100, 100], [1200, 100], [1200, 1980], [100, 1980]]],
+    pedane: [[[200, 150], [1000, 150], [1000, 500], [200, 500]]],
+    posti: [{ k: "Platea|A|1", settore: "Platea", fila: "A", posto: 1, x: 500, y: 800, w: 50, d: 53, rot: 180 }] };
+  const d = A.bglDovePalco(P);
+  ok(d.sala && d.y > 150 && d.y < 500, "scritta sulle pedane: " + JSON.stringify(d));
+  const svg = A.bglPiantaSvg(P, {});
+  ok(/class="bgl-sala"/.test(svg) && /<polygon class="bgl-palco" points="200,150/.test(svg), "sala senza colore, pedane come palco");
+  const y = +svg.match(/class="bgl-palco-t"[^>]*y="(\d+)"/)[1];
+  ok(y < 800, "PALCO sopra la prima fila: " + y);
+  const Q = Object.assign({}, P, { palco: [[[100, 100], [1200, 100], [1200, 600], [100, 600]]] });
+  eq(A.bglDovePalco(Q).sala, false, "palco sopra i posti: come prima");
+});
+
 t("biglietteria: la foto è la stessa se si gira la scena di 90°, 180° o 37°", () => {
   const base = A.bglPianta(bglScena(0));
   [90, 180, 37, -90].forEach((g) => {
