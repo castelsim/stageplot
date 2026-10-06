@@ -64,3 +64,28 @@
 .gst-locandina{display:block}
 .gst-campo select{-webkit-appearance:none;appearance:none;padding-right:36px;background-repeat:no-repeat;background-position:right 12px center;background-size:12px 8px;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23746e60' stroke-width='2'/%3E%3C/svg%3E")}
+/* scheda di gestione (task 15) */
+.gst-scheda{padding:20px 0 8px}
+.gst-scheda h1{font-size:26px;letter-spacing:-.015em;margin:4px 0 2px;overflow-wrap:anywhere}
+.gst-bozza{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:space-between}
+.gst-cont{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0}
+.gst-cont div{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px;text-align:center}
+.gst-cont b{display:block;font-size:22px}
+.gst-cont span{font-size:13px;color:var(--text-2)}
+@media (max-width:420px){.gst-cont{grid-template-columns:repeat(2,1fr)}}
+.gst-riga-stato{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:6px 0}
+.gst-riga-stato .gst-aiuto{margin-top:0}
+.gst-stato-chiuse,.gst-stato-concluso{font-weight:700}
+.gst-azioni-scheda{margin:14px 0}
+.gst-azioni-scheda select{min-height:48px;font:inherit;padding:8px 10px;border:1.5px solid var(--border-strong);border-radius:10px;background:var(--surface);color:var(--text)}
+.gst-tocca{margin:-4px 0 6px}
+.gst-filtro-in{width:100%;min-height:44px;font:inherit;padding:8px 10px;border:1.5px solid var(--border-strong);border-radius:10px;margin:6px 0 10px;background:var(--surface);color:var(--text)}
+.gst-pren{list-style:none;display:grid;gap:8px}
+.gst-pren li{border:1px solid var(--border);border-radius:10px;padding:10px;background:var(--surface);display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center}
+.gst-pren li>div{flex:1 0 100%}
+.gst-pren li.bgl-spenta{opacity:.6}
+.gst-pren .bgl-p-chi{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.gst-pren .bgl-ev-s{font-size:14.5px;color:var(--text-2);overflow-wrap:anywhere}
+.gst-pren .bgl-badge{border-radius:999px;padding:1px 8px;font-size:12.5px;background:var(--raised)}
+.gst-pren .btn{min-height:44px}
+.gst-fondo{border-top:1px solid var(--border);padding-top:16px}
