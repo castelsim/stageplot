@@ -6,6 +6,19 @@ sono state scritte qui: la loro storia sta nei messaggi di commit e nelle PR (#9
 
 ## Settembre in una pagina (PR su `main`)
 
+- **06/10 — Posti numerati del pubblico** (ramo `numerazione-posti`, NON unito; richiesta di Simone per il concerto
+  di Ceron del 09/10). Sedie `sediapubblico` selezionate (≥2) → card «Posti del pubblico» → «Numera i posti…»
+  (finestra con Settore, file a lettere senza I/O o a numeri, posti consecutivi da sinistra o dispari/pari dal
+  corridoio centrale); dalla sedia singola «Numera tutti i posti…». Campi `fila`/`posto`/`settore` sull'elemento
+  (sanificati in `normalizeLoadedItems` e `sanitizeItems` da `postoSanifica`). La fila A è quella verso cui
+  GUARDANO le sedie (`postiVerso`, media delle rotazioni; se guardano da parti diverse ≥80° non si numera),
+  sinistra/destra = di chi siede. Disegno: `postoMarkup` dentro `itemMarkup` (numero dritto nella sedia, lettera ai
+  capi, legenda «Platea · 100 posti · file A–H» e «+ N sedie senza numero»), memo in `postiDisegno()`; corpi
+  divisi per `__sceneTextK` perché `scaleSvgFonts` li rimoltiplica. Duplica/Incolla: la copia perde il numero se
+  quel posto c'è già (`postiCopie`). CSV «Settore;Fila;Posto» con `rowsToCsv(…, true)`. NON toccati
+  `countAccessori`, `seatLight`, il draw della sedia (rami `poltrona`/`chitarra-sgabello`): i due punti in comune
+  sono `itemMarkup` (una riga prima delle maniglie) e `guideDialog` (opzione nuova `o.corpo`).
+
 - **05/10 — Giri degli utenti** (#263): `SEARCH_ALIAS_GIRI` (tabella a parte: una chiave ripetuta in
   SEARCH_ALIAS cancellava gli alias esistenti), confidence rinominato «Gobbo / confidence monitor», `sediapubblico`
   aggiunta al gruppo «Arredo e leggii» (non era in nessun gruppo), elementi del luogo = `ostacolo` con over
