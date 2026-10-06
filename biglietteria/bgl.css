@@ -255,3 +255,20 @@ h1:focus,h2:focus{outline:none}
 /* l'email dell'account Google non si cambia: si vede che è fissa */
 .campo input[readonly]{background:var(--raised);color:var(--text-2)}
 .campo > .aiuto{margin-top:6px}
+/* «Le mie prenotazioni» (/biglietteria/mie/, specifica area §3.3) */
+.mie{list-style:none;display:grid;gap:10px;margin:12px 0;padding:0}
+.mia{border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;background:var(--surface)}
+.mia p{margin:2px 0}
+.mia.spenta{opacity:.65}
+.mia-titolo{display:inline-block;font-weight:700;font-size:18px;line-height:1.3;overflow-wrap:anywhere}
+.mia .ev-quando::first-letter{text-transform:uppercase}
+.mia-posti{font-size:15.5px}
+.mia-az{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:10px}
+.mia-az p{flex:1 0 100%}
+.mie-passate{margin:14px 0}
+.mie-passate summary{cursor:pointer;font-weight:700;min-height:44px;display:flex;align-items:center}
+.mie-account{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:20px 0}
+.mie-account .nota{flex:1 0 100%}
+/* una colonna sola anche sul computer (la regola larga della scheda è in un @media più su: questa, dopo, vince) */
+.pagina.mie-pagina{max-width:640px;padding-top:24px}
+.mie-pagina .mia{max-width:none}
