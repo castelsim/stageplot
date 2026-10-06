@@ -914,6 +914,7 @@
   body:not(.f-esporta) #pdfScaleRow,
   body:not(.f-esporta) #pdfScaleCustomRow,
   body:not(.f-esporta) #pdfHdrRow,
+  body:not(.f-esporta) #pdfPesiRow,
   body:not(.f-esporta) #pdfTechRow{display:none !important}
   #pdfModal .exp-pro{display:block;width:100%;margin-top:10px;min-height:44px;font-weight:600}
 }
@@ -3426,6 +3427,7 @@ body.dark #props .solo-ped.on{background:#78350f;border-color:#b45309;color:#fbb
   body:not(.f-esporta) #pdfScaleRow,
   body:not(.f-esporta) #pdfScaleCustomRow,
   body:not(.f-esporta) #pdfHdrRow,
+  body:not(.f-esporta) #pdfPesiRow,
   body:not(.f-esporta) #pdfTechRow{display:none !important}
   #pdfModal .exp-pro{display:block;width:100%;margin-top:10px;min-height:36px;font-weight:600}
   /* «io direi che la versione semplificata non ha liste» (Simone, 14/09): in Semplice la colonna di
