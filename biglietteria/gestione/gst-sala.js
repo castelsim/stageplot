@@ -110,6 +110,10 @@
   A.azione("vedi-sala", function (el) { A.vai("sala", { id: el.getAttribute("data-id") }); });
 
   A.registra("sala", { disegna: function (q) { vista(q.get("id")); } });
+  /* di ritorno sulla pagina: si riconfronta con la sala di ADESSO, così «Aggiorna la pianta» non pubblica quella vecchia */
+  A.estendi("di-nuovo-visibile", function (v) {
+    if (v === "sala" && !document.querySelector(".gst-dlg-ov")) vista(new URLSearchParams(location.search).get("id"));
+  });
   function svg(pianta, occ, id, riservati) {
     return '<div class="mappa gst-mappa" id="' + id + '">' + BGL.svgPianta(pianta, { occupati: occ, riservati: riservati || [], scelti: [], attiva: false }) + "</div>";
   }
@@ -163,7 +167,7 @@
     });
   }
   A.azione("torna-scheda", function (el) { A.vai("scheda", { id: el.getAttribute("data-id") }); });
-  A.azione("sala-sposta", function (el) { A.vai("sposta", { id: el.getAttribute("data-ev"), p: el.getAttribute("data-id") }); });
+  A.azione("sala-sposta", function (el) { A.vai("sposta", { id: el.getAttribute("data-ev"), p: el.getAttribute("data-id"), da: "sala" }); });
   A.azione("sala-disdici", function (el) {
     A.conferma({ titolo: "Disdire la prenotazione?", testo: "I posti tornano liberi. Alla persona non arriva nessun avviso: se serve, avvisala tu.", si: "Disdici", pericolo: true })
       .then(function (si) {

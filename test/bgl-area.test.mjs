@@ -88,3 +88,14 @@ test("senza rete la risposta non si fa aspettare 30 secondi: dopo ATTESA_MS vale
   assert.equal(await ACC.conLimite(Promise.resolve("subito"), 1000, "tardi"), "subito");
   await assert.rejects(ACC.conLimite(Promise.reject(new Error("x")), 1000, "tardi"));
 });
+
+test("di ritorno dall'editor l'area rilegge il progetto: niente sala vecchia in memoria (integrazione ondata E/F)", () => {
+  /* la prova che discrimina è nel browser (area-prove/prova-ritorno.mjs, con le mutazioni); qui il contratto fra i file */
+  const leggi = (f) => readFileSync(join(root, "biglietteria/gestione/" + f), "utf8");
+  const app = leggi("gst-app.js");
+  assert.match(app, /function mostra\(\) \{[^}]*dimenticaProgetti\(\);/, "a ogni schermata il progetto si rilegge");
+  assert.match(app, /addEventListener\("visibilitychange"[\s\S]{0,200}dimenticaProgetti\(\)/, "tornando sulla pagina il progetto si rilegge");
+  for (const [f, v] of [["gst-scheda.js", "scheda"], ["gst-sala.js", "sala"], ["gst-modulo.js", "nuovo"]])
+    assert.match(leggi(f), new RegExp('A\\.estendi\\("di-nuovo-visibile"[\\s\\S]{0,120}v === "' + v + '"'), f + ": la schermata si aggiorna al ritorno");
+  assert.match(leggi("gst-sala.js"), /A\.vai\("sposta", \{[^}]*da: "sala"/, "Sposta dalla sala riporta alla sala");
+});

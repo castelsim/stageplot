@@ -29,9 +29,10 @@
   A.estendi("prenotazione-azioni", function (p) { return p.stato === "attiva" ? [{ az: "sposta", testo: "Sposta" }] : []; });
   A.azione("sposta", function (el) { A.vai("sposta", { id: new URLSearchParams(location.search).get("id"), p: el.getAttribute("data-id") }); });
   A.azione("torna-scheda", function (el) { A.vai("scheda", { id: el.getAttribute("data-id") }); });
-  A.registra("sposta", { disegna: function (q) { apri(q.get("id"), q.get("p")); } });
+  /* da=sala: si è arrivati da «La sala del progetto è cambiata» e lì si torna (le altre persone da sistemare sono lì) */
+  A.registra("sposta", { disegna: function (q) { apri(q.get("id"), q.get("p"), q.get("da")); } });
 
-  function apri(id, pid) {
+  function apri(id, pid, da) {
     A.corpo('<p class="carico" role="status">Carico la sala…</p>');
     G.api.prenotati(id).then(function (r) {
       if (!r.ok) return A.corpo('<section class="gst-centro"><h1>Sposta</h1><p class="gst-errore" role="alert">' + esc(G.messaggio(r)) + "</p></section>");
@@ -39,14 +40,16 @@
       if (!p) { A.avviso("Questa prenotazione non c'è più o è già disdetta.", "err"); return A.vai("scheda", { id: id }, true); }
       var altri = [];
       r.prenotazioni.forEach(function (x) { if (x.stato === "attiva" && x.id !== pid) altri = altri.concat(x.posti || []); });
-      S = { id: id, p: p, ev: r.evento, altri: altri, scelti: [], inviando: false };
+      S = { id: id, p: p, ev: r.evento, altri: altri, scelti: [], inviando: false, da: da === "sala" ? "sala" : "scheda" };
       disegna();
     });
   }
   function disegna() {
     var n = S.p.posti.length, ev = S.ev;
     document.title = "Sposta — " + ev.titolo;
-    A.corpo('<section class="gst-sposta"><p class="ev-marchio"><a href="?v=scheda&amp;id=' + esc(S.id) + '" data-az="torna-scheda" data-id="' + esc(S.id) + '">← ' + esc(ev.titolo) + "</a></p>" +
+    var torna = S.da === "sala" ? "vedi-sala" : "torna-scheda";
+    A.corpo('<section class="gst-sposta"><p class="ev-marchio"><a href="?v=' + S.da + '&amp;id=' + esc(S.id) + '" data-az="' + torna + '" data-id="' + esc(S.id) + '">← ' +
+      esc(S.da === "sala" ? "La sala del progetto è cambiata" : ev.titolo) + "</a></p>" +
       "<h1>Sposta " + esc(G.bglNomeCompleto(S.p)) + "</h1>" +
       '<p class="gst-aiuto">Adesso: <b>' + esc(PP.bglPostiNomi(S.p.posti)) + "</b> (bordo blu). Tocca " + n + (n === 1 ? " posto nuovo" : " posti nuovi") +
       " sulla pianta. I posti tenuti da parte si possono dare: escono dai tenuti.</p>" +
@@ -56,7 +59,7 @@
         (S.p.email ? "" : " (i dati di questa prenotazione sono già stati cancellati)") + "</label>" +
       (S.p.email ? '<p class="gst-aiuto">Una mail breve con i posti nuovi a ' + esc(S.p.email) + ".</p>" : "") +
       '<div class="gst-azioni"><button type="button" class="btn primario" data-az="conferma-sposta" disabled>Sposta</button>' +
-        '<button type="button" class="btn" data-az="torna-scheda" data-id="' + esc(S.id) + '">Annulla</button></div></section>');
+        '<button type="button" class="btn" data-az="' + torna + '" data-id="' + esc(S.id) + '">Annulla</button></div></section>');
     var m = document.getElementById("gst-sposta-mappa");
     pianta(null);
     m.addEventListener("click", function (e) {
@@ -108,16 +111,16 @@
   A.azione("conferma-sposta", function (el) {
     if (S.inviando || !spostaPronto(S.scelti, S.p.posti.length, S.p.posti)) return;
     S.inviando = true; el.disabled = true;
-    var avvisa = document.getElementById("gst-avvisa").checked, prima = S.p.posti.slice(), pid = S.p.id, id = S.id;
+    var avvisa = document.getElementById("gst-avvisa").checked, prima = S.p.posti.slice(), pid = S.p.id, id = S.id, da = S.da;
     G.api.sposta(pid, S.scelti).then(function (r) {
       if (!r.ok) {
         S.inviando = false; el.disabled = false; A.avviso(G.messaggio(r), "err");
-        if (r.errore === "posto_preso") apri(id, pid);   /* qualcuno ha appena prenotato: si ricarica la sala */
+        if (r.errore === "posto_preso") apri(id, pid, da);   /* qualcuno ha appena prenotato: si ricarica la sala */
         return;
       }
       var fatto = "Spostato: " + frase(prima, r.posti) + ".";
-      /* lo spostamento è fatto: si torna subito alla scheda; la mail si dice quando ha risposto */
-      A.ricarica(); A.vai("scheda", { id: id }, true);
+      /* lo spostamento è fatto: si torna subito da dove si era venuti; la mail si dice quando ha risposto */
+      A.ricarica(); A.vai(da, { id: id }, true);
       if (!avvisa) { A.avviso(fatto); return; }
       A.avviso(fatto + " Invio la mail…");
       avvisaPerMail(pid).then(function (m) {

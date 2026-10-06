@@ -228,9 +228,12 @@
         div.passati.map(riga).join("") + "</ul></details>" : "") + "</section>");
     A.chiama("elenco-disegnato", lista);
   }
+  /* il progetto si rilegge a ogni schermata: nel frattempo l'organizzatore può averlo cambiato nell'editor */
+  function dimenticaProgetti() { progetti = Object.create(null); }
   function mostra() {
     if (!D.utente) return;
     if (!D.org) return vistaPrimaVolta();
+    dimenticaProgetti();
     var q = new URLSearchParams(location.search), v = q.get("v") || "elenco";
     if (v !== "elenco" && viste[v]) return viste[v].disegna(q);
     if (v !== "elenco") { try { history.replaceState({ gst: 1 }, "", location.pathname); } catch (e) { /* niente */ } }
@@ -281,6 +284,16 @@
     if (p && !q.get("v") && D.org && !D.spettacoli.some(function (e) { return e.project_id === p; })) return A.vai("nuovo", { p: p }, true);
     mostra();
   }
+  /* l'area resta aperta mentre si cambia la sala nell'editor (un'altra scheda, un'altra app): tornando qui, il progetto si
+     rilegge e la schermata di adesso si aggiorna (elenco qui; scheda, sala e nuovo spettacolo col punto «di-nuovo-visibile») */
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState !== "visible" || !D.utente || !D.org) return;
+    dimenticaProgetti();
+    var v = new URLSearchParams(location.search).get("v") || "elenco";
+    if (v !== "elenco") { A.chiama("di-nuovo-visibile", v); return; }
+    if (document.querySelector(".gst-dlg-ov")) return;   /* una domanda aperta non si cancella sotto il dito */
+    A.ricarica().then(function (r) { if (r.ok && !new URLSearchParams(location.search).get("v")) mostra(); });
+  });
   /* le viste degli altri file si registrano mentre la pagina finisce di caricarsi: si parte dopo */
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", avvio); else setTimeout(avvio, 0);
 })(typeof globalThis !== "undefined" ? globalThis : this);

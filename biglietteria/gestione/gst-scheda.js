@@ -50,6 +50,10 @@
   G.scheda = { ricarica: carica, elencoPrenotazioni: elencoPrenotazioni, nomiSuiPosti: nomiSuiPosti, testoElimina: testoElimina, adattaMappa: adattaMappa };
 
   A.registra("scheda", { disegna: function (q) { S.filtro = ""; carica(q.get("id")); } });
+  /* di ritorno sulla pagina (dall'editor, dalla posta): prenotazioni e sala di adesso, senza perdere il posto */
+  A.estendi("di-nuovo-visibile", function (v) {
+    if (v === "scheda" && S.dati && !document.querySelector(".gst-dlg-ov")) fresco();
+  });
 
   /* quieto = ridisegno dopo un'azione: niente «Carico…» e la pagina resta dov'era */
   function carica(id, quieto) {
