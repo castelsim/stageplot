@@ -18702,5 +18702,107 @@ t("Area con nome: nel pannello della forma lo stile «Area», e i quattro botton
   ok(/#props \.seg\.seg-4 \.adv-btn\{[^}]*min-width:0[^}]*padding:7px 3px/.test(stylesCss), "bottoni stretti quanto il loro testo");
 });
 
+/* ANELLO DI ALTOPARLANTI (06/10/2026): un progetto aveva un impianto ottofonico disegnato a mano, con le
+   casse girate di 180° e il nome a testa in giù. Due cose: il nome non si capovolge, e le casse attorno al
+   pubblico si pongono in un colpo, ognuna col fronte verso il centro. */
+console.log("\nAnello di altoparlanti e nomi leggibili:");
+const verso = (p) => [-Math.sin(p.rot * Math.PI / 180), Math.cos(p.rot * Math.PI / 180)];   /* il fronte (+y) girato */
+const guarda = (p, cx, cy) => { const dx = cx - p.x, dy = cy - p.y, L = Math.hypot(dx, dy), v = verso(p); return (v[0] * dx + v[1] * dy) / L; };   /* 1 = guarda esattamente il centro */
+t("anello: 8 casse in cerchio, G1 in alto e in senso orario, ognuna col fronte verso il centro", () => {
+  const pts = A.anelloPunti({ n: 8, forma: "cerchio", cx: 600, cy: 500, r: 400 });
+  eq(pts.map((p) => p.label), ["G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8"]);
+  eq([pts[0].x, pts[0].y, pts[0].rot], [600, 100, 0], "G1 in alto, fronte in giù");
+  eq([pts[2].x, pts[2].y, pts[2].rot], [1000, 500, 90], "G3 a destra, fronte a sinistra");
+  eq([pts[4].x, pts[4].y, pts[4].rot], [600, 900, 180], "G5 in basso, fronte in su");
+  eq([pts[6].x, pts[6].y, pts[6].rot], [200, 500, 270], "G7 a sinistra, fronte a destra");
+  pts.forEach((p) => {
+    ok(Math.abs(Math.hypot(p.x - 600, p.y - 500) - 400) <= 1, p.label + " sul cerchio");
+    ok(guarda(p, 600, 500) > 0.999, p.label + " guarda il centro (" + guarda(p, 600, 500).toFixed(4) + ")");
+  });
+});
+t("anello: 4 e 6 casse in cerchio, e un prefisso scelto", () => {
+  [4, 6].forEach((n) => {
+    const pts = A.anelloPunti({ n, forma: "cerchio", cx: 0, cy: 0, r: 300, prefisso: "S" });
+    eq(pts.length, n); eq(pts.map((p) => p.label), Array.from({ length: n }, (_, i) => "S" + (i + 1)));
+    pts.forEach((p) => ok(guarda(p, 0, 0) > 0.998, n + " casse: " + p.label + " guarda il centro"));
+  });
+  eq(A.anelloPunti({ n: 4, forma: "cerchio", r: 300 }).map((p) => p.rot), [0, 90, 180, 270]);
+});
+t("anello: in rettangolo, 4 angoli · 6 con i lati lunghi · 8 con tutti i lati, tutte verso il centro", () => {
+  const rett = (n) => A.anelloPunti({ n, forma: "rettangolo", cx: 1000, cy: 800, w: 800, d: 600 });
+  const c4 = rett(4), c6 = rett(6), c8 = rett(8);
+  eq(c4.map((p) => [p.x, p.y]), [[600, 500], [1400, 500], [1400, 1100], [600, 1100]], "4 = angoli, dall'alto a sinistra in senso orario");
+  eq(c6.map((p) => [p.x, p.y]), [[600, 500], [1000, 500], [1400, 500], [1400, 1100], [1000, 1100], [600, 1100]], "6 = angoli + metà di sopra e sotto");
+  eq(c8.map((p) => [p.x, p.y]), [[600, 500], [1000, 500], [1400, 500], [1400, 800], [1400, 1100], [1000, 1100], [600, 1100], [600, 800]], "8 = angoli + metà dei quattro lati");
+  eq(c8.map((p) => p.label), ["G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8"]);
+  eq([c8[1].rot, c8[3].rot, c8[5].rot, c8[7].rot], [0, 90, 180, 270], "le casse a metà lato guardano dritto verso l'interno");
+  [c4, c6, c8].forEach((c) => c.forEach((p) => ok(guarda(p, 1000, 800) > 0.999, c.length + " casse: " + p.label + " guarda il centro")));
+  const c5 = rett(5);
+  eq(c5.length, 5, "un numero diverso (5) si distribuisce sul perimetro");
+  c5.forEach((p) => ok(guarda(p, 1000, 800) > 0.999));
+});
+t("anello: si posa in UN solo passo di annulla, come elementi normali (diffusori attivi)", () => {
+  reset(); A.resetHistory();
+  const fatte = A.aggiungiAnello({ n: 8, forma: "cerchio", cx: 600, cy: 400, r: 300 });
+  eq(fatte.length, 8); eq(A.state.items.length, 8);
+  eq(A.state.items.map((i) => i.label), ["G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8"]);
+  A.state.items.forEach((i, k) => {
+    eq(i.type, "topattivo", "cassa full-range da sala");
+    ok(i.id && i.w === A.TYPES.topattivo.w && i.d === A.TYPES.topattivo.d, "misure del catalogo");
+    ok(guarda(i, 600, 400) > 0.999, i.label + " guarda il centro");
+  });
+  eq(new Set(A.state.items.map((i) => i.id)).size, 8, "id tutti diversi");
+  eq(Object.keys(A.selSet).length, 8, "restano selezionate tutte, per spostarle insieme");
+  eq(A.undoStack.length, 1, "un passo di annulla, non otto");
+  A.undo();
+  eq(A.state.items.length, 0, "un solo Annulla le toglie tutte");
+  A.redo();
+  eq(A.state.items.length, 8, "e Ripeti le rimette");
+});
+t("anello: la numerazione G1…Gn non tocca i «Diffusore N» già sul palco", () => {
+  reset(); add("topattivo", 100, 100);
+  const lab0 = A.state.items[0].label;
+  A.aggiungiAnello({ n: 4, cx: 600, cy: 400, r: 300 });
+  eq(A.state.items[0].label, lab0, "il diffusore di prima resta com'era");
+  eq(A.state.items.slice(1).map((i) => i.label), ["G1", "G2", "G3", "G4"]);
+});
+t("nome leggibile: lblCapovolto dice quando l'angolo totale lo girerebbe a testa in giù", () => {
+  [[0, false], [45, false], [90, false], [91, true], [135, true], [180, true], [225, true], [269, true], [270, false], [300, false], [-90, false], [-180, true], [360, false], [540, true]].forEach(([a, c]) =>
+    eq(A.lblCapovolto(a), c, a + "°"));
+});
+t("nome leggibile: una cassa girata di 180° (o 135°, 225°) si rigira di mezzo giro attorno al nome; a 0/45/90/270 no", () => {
+  reset();
+  const nome = (rot) => { const it = { id: "c" + rot, type: "topattivo", x: 300, y: 300, rot, w: 90, d: 90, label: "G5" };
+    A.selSet = {}; A._lblSink = []; A.itemMarkup(it); const lb = A._lblSink.join(""); A._lblSink = null;
+    return (lb.match(/<text class="lbl"[^>]*>G5/) || [""])[0]; };
+  [180, 135, 225].forEach((r) => ok(/transform="rotate\(180 0 [-\d.]+\)"/.test(nome(r)), r + "°: il nome si rigira (" + nome(r) + ")"));
+  [0, 45, 90, 270, 315].forEach((r) => ok(nome(r) !== "" && !/transform=/.test(nome(r)), r + "°: il nome resta com'era (" + nome(r) + ")"));
+  /* il mezzo giro è attorno al CENTRO delle lettere: il nome non cambia posto, solo verso */
+  const base = +(nome(180).match(/ y="([-\d.]+)"/) || [])[1], cen = +(nome(180).match(/rotate\(180 0 ([-\d.]+)\)/) || [])[1];
+  ok(cen < base && base - cen > 3 && base - cen < 8, "il centro sta sopra la baseline di circa mezza lettera (" + base + " → " + cen + ")");
+});
+t("nome leggibile: vale anche per la quota della pedana (sopra/sotto), la riga del montaggio e la doppia", () => {
+  reset();
+  const lbOf = (it) => { A.selSet = {}; A._lblSink = []; A.itemMarkup(it); const lb = A._lblSink.join(""); A._lblSink = null; return lb; };
+  const ped = (rot, lato) => lbOf({ id: "p" + rot + lato, type: "pedana", x: 400, y: 300, rot, w: 200, d: 100, h: 40, label: "", dimSide: lato });
+  const quota = (lb) => (lb.match(/<text class="lbl sub"[^>]*>/) || [""])[0];
+  ok(/transform="rotate\(180 /.test(quota(ped(180, "top"))), "pedana a 180°, quota sopra: si rigira");
+  ok(/transform="rotate\(180 /.test(quota(ped(180, "bottom"))), "pedana a 180°, quota sotto: si rigira");
+  ok(!/transform=/.test(quota(ped(0, "top"))), "pedana a 0°: la quota com'era");
+  ok(!/transform="rotate\(\-?90 [-\d.]+ [-\d.]+\) rotate\(180/.test(quota(ped(180, "left"))), "pedana a 180°, quota a sinistra: già di lato, non si tocca (270° sullo schermo)");
+  ok(/rotate\(90 [-\d.]+ [-\d.]+\) rotate\(180 /.test(quota(ped(90, "right"))), "pedana a 90°, quota a destra: 90+90 = 180°, si rigira");
+  const dbl = lbOf({ id: "d180", type: "vln1x2", x: 400, y: 300, rot: 180, w: 120, d: 70, label: "Violino 1", label2: "Violino 2", doppia: true });
+  const tr = [...dbl.matchAll(/<text class="lbl"[^>]*transform="([^"]*)"/g)].map((m) => m[1]);
+  eq(tr.length, 2, "i due nomi della doppia hanno la loro trasformazione");
+  tr.forEach((x) => ok(/rotate\(180 /.test(x), "doppia a 180°: ogni nome si rigira (" + x + ")"));
+});
+t("anello: la voce è nel catalogo (si trova scrivendo «anello» o «ottofonico») e la finestra c'è", () => {
+  const trova = (q) => A.__spSearch(q).some((r) => r.nome === "Anello di altoparlanti");
+  ok(trova("anello"), "«anello»"); ok(trova("ottofonico"), "«ottofonico»"); ok(trova("multicanale"), "«multicanale»");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="anelloSetup"/.test(html) && /data-an-n="4"/.test(html) && /data-an-n="6"/.test(html) && /data-an-n="8"/.test(html), "finestra con 4, 6, 8");
+  ok(/data-an-forma="cerchio"/.test(html) && /data-an-forma="rettangolo"/.test(html) && /id="anPre" type="text" value="G"/.test(html), "cerchio / rettangolo e prefisso G");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
