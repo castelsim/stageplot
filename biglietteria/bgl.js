@@ -447,6 +447,38 @@
     return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
   }
 
+  /* DOVE SI SCRIVE «PALCO» (06/10, prima prova vera). In StagePlot il «palco» è la superficie disegnata:
+     in un teatro con la platea dentro il progetto (sala intera come palco, pedane in alto, sedie sotto)
+     il palco CONTIENE i posti. Allora è la sala: niente colore da palco e la scritta va sulle pedane
+     (o, senza pedane, nella fascia sopra la prima fila). Altrimenti, come prima, sul bordo del palco
+     verso il pubblico. Ritorna {sala, x, y, corpo} oppure null se non c'è niente da scrivere. */
+  function dovePalco(pianta) {
+    var palchi = (pianta && pianta.palco) || [], posti = (pianta && pianta.posti) || [];
+    if (!palchi.length) return null;
+    var big = palchi.map(riquadro).sort(function (a, b) { return b.w * b.h - a.w * a.h; })[0];
+    var dentro = posti.some(function (p) {
+      return +p.x > big.x && +p.x < big.x + big.w && +p.y > big.y && +p.y < big.y + big.h;
+    });
+    if (!dentro) {
+      var corpo = Math.max(30, Math.min(big.h * 0.22, big.w * 0.09, 140));
+      return { sala: false, x: big.x + big.w / 2, y: big.y + big.h - Math.min(corpo * 0.9, big.h / 2), corpo: corpo };
+    }
+    var primaY = Infinity;
+    posti.forEach(function (p) { primaY = Math.min(primaY, +p.y - (+p.d || 50) / 2); });
+    var ped = ((pianta && pianta.pedane) || []).map(riquadro).filter(function (r) { return r.y + r.h <= primaY; });
+    var area;
+    if (ped.length) {
+      var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      ped.forEach(function (r) { x0 = Math.min(x0, r.x); y0 = Math.min(y0, r.y); x1 = Math.max(x1, r.x + r.w); y1 = Math.max(y1, r.y + r.h); });
+      area = { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+    } else {
+      area = { x: big.x, y: big.y, w: big.w, h: Math.max(0, primaY - big.y) };
+    }
+    if (area.h <= 0 || area.w <= 0) return { sala: true, x: big.x + big.w / 2, y: big.y + 40, corpo: 30 };
+    var c = Math.max(30, Math.min(area.h * 0.3, area.w * 0.09, 140));
+    return { sala: true, x: area.x + area.w / 2, y: area.y + area.h / 2, corpo: c };
+  }
+
   var STATI_POSTO = { libero: "libero", scelto: "scelto da te", occupato: "occupato", riservato: "tenuto da parte" };
 
   function nomePosto(p, settore) {
@@ -486,15 +518,16 @@
     out.push('<defs><pattern id="bgl-tratt" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">' +
       '<rect width="14" height="14" class="tratt-fondo"/><line x1="0" y1="0" x2="0" y2="14" class="tratt-riga"/></pattern></defs>');
     out.push('<rect class="foglio" x="0" y="0" width="' + W + '" height="' + H + '"/>');
-    var palchi = (pianta && pianta.palco) || [];
-    palchi.forEach(function (pp) { out.push('<polygon class="palco" points="' + puntiPoligono(pp) + '"/>'); });
-    ((pianta && pianta.pedane) || []).forEach(function (pp) { out.push('<polygon class="pedana" points="' + puntiPoligono(pp) + '"/>'); });
-    if (palchi.length) {
-      var big = palchi.map(riquadro).sort(function (a, b) { return b.w * b.h - a.w * a.h; })[0];
-      var corpo = Math.max(30, Math.min(big.h * 0.22, big.w * 0.09, 140));
-      /* la scritta sta sul bordo del palco verso il pubblico: lontana dalle pedane, vicina ai posti */
-      out.push('<text class="palco-t" aria-hidden="true" x="' + Math.round(big.x + big.w / 2) + '" y="' +
-        Math.round(big.y + big.h - Math.min(corpo * 0.9, big.h / 2)) + '" font-size="' + Math.round(corpo) + '">PALCO</text>');
+    var dp = dovePalco(pianta);
+    ((pianta && pianta.palco) || []).forEach(function (pp) {
+      out.push('<polygon class="' + (dp && dp.sala ? "sala" : "palco") + '" points="' + puntiPoligono(pp) + '"/>');
+    });
+    ((pianta && pianta.pedane) || []).forEach(function (pp) {
+      out.push('<polygon class="' + (dp && dp.sala ? "palco" : "pedana") + '" points="' + puntiPoligono(pp) + '"/>');
+    });
+    if (dp) {
+      out.push('<text class="palco-t" aria-hidden="true" x="' + Math.round(dp.x) + '" y="' + Math.round(dp.y) +
+        '" font-size="' + Math.round(dp.corpo) + '">PALCO</text>');
     }
     capiFile(pianta).forEach(function (c) {
       var t = esc(c.fila);
@@ -530,7 +563,7 @@
     maxPosti: maxPosti, scegli: scegli, daTogliere: daTogliere, messaggio: messaggio, statoPagina: statoPagina,
     data: data, ora: ora, dataOra: dataOra, mascheraEmail: mascheraEmail, linkMio: linkMio, linkPianta: linkPianta,
     controllaModulo: controllaModulo, passi: passi, scalaDettaglio: scalaDettaglio, capiFile: capiFile,
-    attributiPosto: attributiPosto, svgPianta: svgPianta, nPosti: nPosti, CONTATTO: CONTATTO,
+    attributiPosto: attributiPosto, svgPianta: svgPianta, dovePalco: dovePalco, nPosti: nPosti, CONTATTO: CONTATTO,
     nomeValido: nomeValido, erroreEmail: erroreEmail, suggerisciEmail: suggerisciEmail, tipoErroreRete: tipoErroreRete,
     tentativo: tentativo, daRicordare: daRicordare, daRipristinare: daRipristinare, avvisoPosto: avvisoPosto,
     suggerimento: suggerimento

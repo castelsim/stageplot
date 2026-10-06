@@ -403,3 +403,35 @@ test("REVISIONE: la scelta e i dati si ritrovano dopo una ricarica, ma solo i po
   assert.equal(B.daRipristinare({ scelti: ["Platea|A|1"], tentativo: { token: "NO" } }, { posti: piantaProva().posti }).tentativo, null, "codice storto: via");
 });
 
+
+/* 06/10, prima prova vera: un teatro disegnato intero (la sala è il «palco» di StagePlot, pedane in alto,
+   sedie sotto). La scritta PALCO finiva in fondo alla sala, dietro l'ultima fila. */
+function piantaSala() {
+  return { v: 1, box: [0, 0, 1300, 2080], palco: [[[100, 100], [1200, 100], [1200, 1980], [100, 1980]]],
+    pedane: [[[200, 150], [1000, 150], [1000, 500], [200, 500]]],
+    posti: [{ k: "Platea|A|1", settore: "Platea", fila: "A", posto: 1, x: 500, y: 800, w: 50, d: 53, rot: 180 },
+            { k: "Platea|B|1", settore: "Platea", fila: "B", posto: 1, x: 500, y: 910, w: 50, d: 53, rot: 180 }] };
+}
+test("PALCO: se il palco contiene i posti è la sala, e la scritta va sulle pedane sopra la prima fila", () => {
+  const d = B.dovePalco(piantaSala());
+  assert.equal(d.sala, true);
+  assert.ok(d.y > 150 && d.y < 500, "la scritta sta sulle pedane, non in fondo alla sala: y=" + d.y);
+  assert.ok(d.x > 200 && d.x < 1000);
+  const svg = B.svgPianta(piantaSala(), {});
+  assert.match(svg, /class="sala"/, "la sala non è colorata come un palco");
+  assert.match(svg, /<polygon class="palco" points="200,150/, "le pedane fanno da palco");
+  const y = +svg.match(/class="palco-t"[^>]*y="(\d+)"/)[1];
+  assert.ok(y < 800, "PALCO sopra la prima fila: y=" + y);
+});
+test("PALCO: senza pedane la scritta va nella fascia fra il bordo e la prima fila", () => {
+  const p = piantaSala(); p.pedane = [];
+  const d = B.dovePalco(p);
+  assert.ok(d.sala && d.y > 100 && d.y < 773, "y=" + d.y);
+});
+test("PALCO: palco separato sopra i posti, come prima: scritta sul bordo verso il pubblico", () => {
+  const p = piantaSala(); p.palco = [[[100, 100], [1200, 100], [1200, 600], [100, 600]]];
+  const d = B.dovePalco(p);
+  assert.equal(d.sala, false);
+  assert.ok(d.y > 350 && d.y < 600, "y=" + d.y);
+  assert.match(B.svgPianta(p, {}), /<polygon class="palco" points="100,100/);
+});
