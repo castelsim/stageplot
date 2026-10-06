@@ -293,8 +293,12 @@
   function datiModulo(c, opz) {
     opz = opz || {}; c = c || {};
     var e = {}, d = {};
-    var titolo = String(c.titolo || "").trim(), luogo = String(c.luogo || "").trim();
-    var descr = String(c.descrizione || "").replace(/\r\n?/g, "\n").trim(), note = String(c.note || "").replace(/\r\n?/g, "\n").trim();
+    /* il database rifiuta i caratteri di controllo (bgl_testo; in descrizione e nota passa solo l'a capo): un tab
+       incollato da Word diventa uno spazio qui, invece di un «Controlla la descrizione» che non si capisce */
+    function riga(s) { return String(s || "").replace(/[\u0000-\u001f\u007f]+/g, " ").trim(); }
+    function righe(s) { return String(s || "").replace(/\r\n?/g, "\n").replace(/[\u0000-\u0009\u000b-\u001f\u007f]+/g, " ").trim(); }
+    var titolo = riga(c.titolo), luogo = riga(c.luogo);
+    var descr = righe(c.descrizione), note = righe(c.note);
     if (!titolo) e.titolo = "Scrivi il titolo dello spettacolo."; else if (lunghezza(titolo) > 120) e.titolo = "Al massimo 120 caratteri.";
     if (!luogo) e.luogo = "Scrivi dove si tiene."; else if (lunghezza(luogo) > 160) e.luogo = "Al massimo 160 caratteri.";
     if (lunghezza(descr) > 600) e.descrizione = "Al massimo 600 caratteri (adesso " + lunghezza(descr) + ").";
@@ -330,7 +334,7 @@
       case "posto_prenotato": return (r.posti && r.posti.length ? bglPostiNomi(r.posti) + (r.posti.length > 1 ? " sono già prenotati" : " è già prenotato") : "Un posto è già prenotato") + ": prima disdici o sposta la prenotazione.";
       case "slug_occupato": return "Questo indirizzo è già usato: scegline un altro.";
       case "slug_bloccato": return contesto === "organizzatore"
-        ? "L'indirizzo della tua pagina non si cambia più: c'è già uno spettacolo pubblicato con questo link."
+        ? "L'indirizzo della tua pagina non si cambia più: dal primo spettacolo pubblicato il link può essere già stampato o condiviso."
         : "L'indirizzo dello spettacolo non si cambia più: qualcuno ha già prenotato con questo link.";
       case "ha_prenotazioni": return "Ci sono già prenotazioni: lo spettacolo non torna in bozza. Puoi chiudere le prenotazioni.";
       case "troppi_eventi": return "Hai già 50 spettacoli: eliminane qualcuno vecchio.";

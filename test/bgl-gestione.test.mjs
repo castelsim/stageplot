@@ -116,6 +116,15 @@ test("modulo: errori in parole, campo per campo; limiti 600 e 200; chiusura prim
   eq(Object.keys(G.datiModulo({ ...base, descrizione: "é".repeat(600) }, {}).errori), [], "600 lettere accentate passano (si contano i caratteri)");
 });
 
+test("modulo: un tab incollato da Word non fa rifiutare il salvataggio (il database vuole solo testo e a capo)", () => {
+  // bgl_testo (titolo, luogo) rifiuta ogni carattere di controllo; bgl_testo_righe (descrizione, nota) tutti tranne l'a capo
+  const r = G.datiModulo({ project_id: "p1", titolo: "Concerto\tdi prova", data: "2026-10-25", ora: "21:00", luogo: "Teatro\u0007di prova",
+    descrizione: "Prima riga\tcon tab\r\nSeconda\u000briga", note: "porte\talle 20:30", chiusuraAllInizio: true }, { nuovo: true });
+  eq(r.errori, {});
+  eq([r.dati.titolo, r.dati.luogo, r.dati.descrizione, r.dati.note],
+    ["Concerto di prova", "Teatro di prova", "Prima riga con tab\nSeconda riga", "porte alle 20:30"]);
+});
+
 test("elenco: stato e conti in parole; prossimi in alto, passati in fondo; luogo predefinito = l'ultimo usato", () => {
   eq(G.statoRiga({ pubblicato: false, stato_pubblico: "aperta" }).t, "bozza");
   eq(G.statoRiga({ pubblicato: true, stato_pubblico: "aperta" }).t, "aperte");
@@ -145,7 +154,8 @@ test("messaggi per chi organizza: il testo della specifica per chi non è abilit
   eq(G.messaggio({ errore: "non_abilitato" }), G.NON_ABILITATO);
   eq(G.messaggio({ errore: "posto_prenotato", posti: ["Platea|A|5"] }), "A 5 è già prenotato: prima disdici o sposta la prenotazione.");
   assert.match(G.messaggio({ errore: "slug_bloccato" }, "spettacolo"), /qualcuno ha già prenotato/);
-  assert.match(G.messaggio({ errore: "slug_bloccato" }, "organizzatore"), /spettacolo pubblicato/);
+  assert.match(G.messaggio({ errore: "slug_bloccato" }, "organizzatore"), /dal primo spettacolo pubblicato/,
+    "decisione 1 del 06/10: il blocco resta anche se lo spettacolo poi si elimina, il messaggio non dice «c'è già»");
   assert.match(G.messaggio({ errore: "numero_diverso", prima: 2 }), /Scegli 2 posti/);
   assert.match(G.messaggio({ errore: "qualcosa_di_nuovo" }), /qualcosa_di_nuovo/);
 });
