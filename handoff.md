@@ -6,8 +6,8 @@ sono state scritte qui: la loro storia sta nei messaggi di commit e nelle PR (#9
 
 ## Settembre in una pagina (PR su `main`)
 
-- **06/10 — Posti numerati del pubblico** (ramo `numerazione-posti`, NON unito; richiesta di Simone per il concerto
-  di Ceron del 09/10). Sedie `sediapubblico` selezionate (≥2) → card «Posti del pubblico» → «Numera i posti…»
+- **06/10 — Posti numerati del pubblico** (ramo `numerazione-posti`, NON unito; richiesta di Simone per un concerto
+  del 09/10). Sedie `sediapubblico` selezionate (≥2) → card «Posti del pubblico» → «Numera i posti…»
   (finestra con Settore, file a lettere senza I/O o a numeri, posti consecutivi da sinistra o dispari/pari dal
   corridoio centrale); dalla sedia singola «Numera tutti i posti…». Campi `fila`/`posto`/`settore` sull'elemento
   (sanificati in `normalizeLoadedItems` e `sanitizeItems` da `postoSanifica`). La fila A è quella verso cui
