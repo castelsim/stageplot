@@ -18750,6 +18750,18 @@ t("Elettronica: sync e theremin non hanno un elemento giusto, e non si forza", (
 console.log("\nAnello di altoparlanti e nomi leggibili:");
 const verso = (p) => [-Math.sin(p.rot * Math.PI / 180), Math.cos(p.rot * Math.PI / 180)];   /* il fronte (+y) girato */
 const guarda = (p, cx, cy) => { const dx = cx - p.x, dy = cy - p.y, L = Math.hypot(dx, dy), v = verso(p); return (v[0] * dx + v[1] * dy) / L; };   /* 1 = guarda esattamente il centro */
+/* Provato nel browser il 06/10/2026: centrato sulla vista, con palco e platea in vista G5 finiva fra le sedie */
+t("anello: se c'è una platea si mette attorno a lei, con un metro di margine", () => {
+  reset();
+  eq(A.anelloDallaPlatea(), null, "senza platea: decide la vista");
+  add("platea", 600, 1300, { w: 550, d: 540 });
+  const p = add("platea", 700, 1500, { w: 790, d: 400, rot: 90 });   /* la più grande, girata */
+  const c = A.anelloDallaPlatea();
+  eq([c.cx, c.cy], [p.x, p.y], "centro sulla platea più grande");
+  eq([c.w, c.d], [p.d + 200, p.w + 200], "girata di 90°: misure scambiate, un metro per lato");
+  ok(c.r >= Math.hypot(p.w, p.d) / 2 + 100, "il cerchio non passa sopra le sedie");
+  eq(A.anelloDallaVista(), c, "e la finestra usa lei");
+});
 t("anello: 8 casse in cerchio, G1 in alto e in senso orario, ognuna col fronte verso il centro", () => {
   const pts = A.anelloPunti({ n: 8, forma: "cerchio", cx: 600, cy: 500, r: 400 });
   eq(pts.map((p) => p.label), ["G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8"]);
