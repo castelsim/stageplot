@@ -18706,8 +18706,8 @@ t("Area con nome: nel pannello della forma lo stile «Area», e i quattro botton
 console.log("\nRicerca: elettronica e sync:");
 t("Elettronica: ogni gruppo di parole porta per primo il tipo da fonico", () => {
   const gruppi = {
-    tastiera: ["moog"],
-    rack2u: ["eurorack", "lyra", "soma lyra", "drone"],
+    tastiera: ["moog", "synth", "sintetizzatore"],
+    rack2u: ["eurorack", "lyra", "soma lyra"],
     spdsx: ["drum machine", "midi kit", "midi drum", "midi drum kit"],
     laptop: ["polytempo", "max msp", "ableton", "live electronics", "elettronica", "click", "timecode", "smpte", "mtc"],
     audiointerface: ["interfaccia audio", "scheda audio", "word clock"],
@@ -18720,8 +18720,20 @@ t("Elettronica: ogni gruppo di parole porta per primo il tipo da fonico", () => 
 t("Elettronica: «modulare» trova anche il rack 2U (il LED wall modulare passa prima per nome)", () => {
   ok(searchKeys("modulare").indexOf("rack2u") > -1, "rack2u non trovato");
 });
-t("Elettronica: «synth» e «sintetizzatore» trovano la tastiera singola", () => {
-  ok(searchKeys("synth").indexOf("tastiera") > -1 && searchKeys("sintetizzatore").indexOf("tastiera") > -1, "tastiera non trovata");
+t("Elettronica: «synth» porta prima la tastiera singola anche nella finestrella del doppio clic; la doppia resta trovabile", () => {
+  eq((A.__qaSearch("synth")[0] || {}).k, "tastiera", "quick-add «synth»");
+  eq((A.__qaSearch("sintetizzatore")[0] || {}).k, "tastiera", "quick-add «sintetizzatore»");
+  ok(searchKeys("synth").indexOf("doppiatastiera") > -1, "la doppia tastiera non si trova più con «synth»");
+  eq((A.__spSearch("tastiera")[0] || {}).k, "tastiera", "«tastiera» invariata");
+});
+/* revisione 06/10/2026: l'alias «live electronics» del Mac faceva uscire il Mac prima dei dLive cercando «live»;
+   «beatbox» (cantante) e «drone» (anche quello che vola) portavano a SPD-SX e Rack 2U */
+t("Elettronica: «live» resta dei dLive, «beatbox» e «drone» non vanno a pad e rack", () => {
+  eq((A.__spSearch("live")[0] || {}).k, "dlives5", "barra di ricerca «live»");
+  eq((A.__qaSearch("live")[0] || {}).k, "dlives5", "quick-add «live»");
+  ok(searchKeys("live").indexOf("laptop") > -1, "il Mac si trova ancora con «live»");
+  ok(searchKeys("beatbox").indexOf("spdsx") < 0, "«beatbox» non è un SPD-SX");
+  ok(searchKeys("drone").indexOf("rack2u") < 0, "«drone» non è un rack 2U");
 });
 t("Elettronica: le parole nuove non cancellano quelle vecchie (laptop: sequenze, playback)", () => {
   ok(searchKeys("playback").slice(0, 2).indexOf("laptop") > -1, "«playback» non trova più il laptop");

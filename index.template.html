@@ -3359,6 +3359,7 @@ var TYPES = {
   stagepiano:{nome:"Stage piano", dim:"88 tasti", cat:"Band e backline", sub:"Tastiere e piani", w:138,d:42, alias:"tastiera keyboard piano digitale synth 88 tasti",
              draw:function(it){ return drawLibFit("stagepiano",it,135,40); }},
   tastiera: {nome:"Tastiera", dim:"synth · 1 tastiera", cat:"Band e backline", sub:"Tastiere e piani", w:120,d:36, alias:"tastiera tastiere keyboard synth sintetizzatore synthesizer piano digitale master keyboard workstation singola nord korg roland",
+             qaPrimo:"synth sintetizzatore synthesizer",   /* 06/10/2026: un synth è uno strumento solo; vinceva la Doppia tastiera per ordine alfabetico */
              draw:function(it){ return drawLibFit("stagepiano",it,118,34); }},
   doppiatastiera:{nome:"Doppia tastiera", dim:"120×75", cat:"Band e backline", sub:"Tastiere e piani", w:125,d:78, alias:"tastiera tastiere doppia due keyboard keyboards synth sintetizzatore stack",
              draw:function(it){ return drawLibFit("doppiatastiera",it,105,50); }},
@@ -3576,6 +3577,7 @@ var TYPES = {
   monmix:   {nome:"Mixer monitor", dim:"~90×60", cat:"Cablaggio e segnale", w:95,d:70, defLabel:"MON MIX", qaCede:"monitor",
              draw:function(it){ return drawLibFit("mixermonitor",it,95,65); }},
   laptop:   {nome:"Mac portatile", dim:"38×28", cat:"Regia e console", sub:"Postazioni regia", w:44,d:34, defLabel:"MAC",
+             qaCede:"live",   /* 06/10/2026: l'alias «live electronics» faceva uscire il Mac prima dei dLive cercando «live» */
              draw:function(it){ return drawLibFit("laptopstand",it,45,40); }},
   audiointerface:{nome:"Interfaccia audio", dim:"32×22", cat:"Regia e console", sub:"Postazioni regia", w:42,d:30, defLabel:"I/O",
              draw:function(){ return bar(0,0,38,24,'ic tec fGrey',3)+
@@ -3941,10 +3943,11 @@ var SEARCH_ALIAS_GIRI = {
   cajonpost:"cajonista cajonisti percussionista percussionisti",   /* 06/10/2026: era sul cajon da solo, ora fuori catalogo */
   /* 06/10/2026, giro P-725a15 (live electronics): Moog, Soma Lyra, Polytempo, «MIDI Drum Kit» e webcam erano stati messi su
      tablet, rack2u, notebook, batteria e testo libero perché la ricerca non conosceva queste parole. Tipi già esistenti, scelti da fonico.
-     edrums è fuori catalogo (modulo), perciò «midi drum» va sull'SPD-SX. Manca ancora un elemento per il sync dedicato (generatore/distributore di timecode e word clock) e per il theremin. */
+     edrums è fuori catalogo (modulo), perciò «midi drum» va sull'SPD-SX. Niente «beatbox» (è un cantante col microfono) né «drone»
+     (sul palco è anche quello che vola). Manca ancora un elemento per il sync dedicato (generatore/distributore di timecode e word clock) e per il theremin. */
   tastiera:"moog",
-  rack2u:"modulare eurorack lyra soma lyra drone",
-  spdsx:"drum machine drummachine beatbox midi kit midi drum midi drum kit",
+  rack2u:"modulare eurorack lyra soma lyra",
+  spdsx:"drum machine drummachine midi kit midi drum midi drum kit",
   audiointerface:"scheda audio word clock wordclock",
 };
 [SEARCH_ALIAS, SEARCH_ALIAS_GIRI].forEach(function(tab){ Object.keys(tab).forEach(function(k){   /* fuso nei tipi: le due ricerche leggono solo TYPES[k].alias */
