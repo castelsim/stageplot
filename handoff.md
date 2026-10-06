@@ -1,3 +1,25 @@
+# 06/10/2026 — Biglietteria, area: ondata E/F unita in `bgl-area` (T15–T20; NON su main, NON in produzione)
+
+Uniti senza conflitti `bgl-c-gestione` (T15 scheda di gestione, T16 «La sala del progetto è cambiata», T17 Sposta),
+`bgl-c-editor` (T18: dall'editor solo «Vai alla biglietteria», via il pannello e ~50 funzioni) e `bgl-c-google` (T19
+«Continua con Google» nella scheda, T20 `/biglietteria/mie/`). Nessuna migrazione nuova: lo stack locale resta 0000–0078.
+Revisione dell'integratore: diff letti contro piano e specifica, mutazioni rifatte (Node: «nessun avviso» in Elimina,
+disdette sui posti, D8, RF2, bloccanti solo attivi, posti d'altri in Sposta, tetto dei posti, «elimina» solo per gli
+account solo biglietteria, messaggio «accesso scaduto»; editor: ponte che ammette `bgl_apri`, apertura senza salvare):
+tutte rosse. Prove nel browser sul ramo unito: scheda 92/92, sala 65/65, sposta 57/57, editor 25/25, google 78/78,
+mie 59/59, pubblico 213/213, area 55/55, modulo 101/101, scorciatoie 8/8, ritorno 49/49.
+
+- Corretto nell'integrazione: `A.progettoDati` teneva il progetto in memoria per sempre. Con l'area aperta e la sala
+  cambiata nell'editor, tornando non compariva l'avviso e «Aggiorna la pianta» pubblicava la sala VECCHIA. Ora si
+  rilegge a ogni schermata e al ritorno sulla pagina (`visibilitychange` → punto `di-nuovo-visibile`). «Sposta» dalla
+  vista sala riporta alla sala (`&da=sala`). Prova: `area-prove/prova-ritorno.mjs`.
+- `area-prove/prova-pubblico.mjs` aggiornata al T19: dopo «Avanti» si sceglie «Prenota con nome ed email».
+- ⚠️ Aperto (scelta lato server): chi entra con Google dalla scheda e NON prenota non ha la riga in `bgl_pubblico`:
+  la pulizia dei 12 mesi non lo vede e «Elimina il mio account» gli dice di scrivere a info@.
+- ⚠️ Per il T22: Google vero, ritorni ammessi `https://stageplot.it/biglietteria/**` in Supabase Auth e mail vere NON
+  provati (solo produzione, T24). Dopo un «annulla» su Google, `/accedi/google/ritorno.js` mostra «Accesso non
+  riuscito»: si torna alla scheda solo con «Torna senza accedere».
+
 # 06/10/2026 — Biglietteria, area: ondata C/D unita in `bgl-area` (T6–T9, T11, T13, T14; NON su main, NON in produzione)
 
 Uniti senza conflitti `bgl-b-server` (T6–T9), `bgl-b-pagine` (T11), `bgl-b-area` (T13, T14). Revisione
