@@ -506,6 +506,13 @@
       <div class="di-note"><b>Passiva/Attiva</b>: le attive richiedono alimentazione (phantom 48V o batteria) — segnato in channel list. Modello reale qui sotto.</div>
     </div>
     <div id="pLabelWrap"><input aria-label="Etichetta" type="text" id="pLabel"></div>
+    <!-- POSTI NUMERATI (06/10): la sedia del pubblico dice qual è il suo posto, o che non ne ha ancora uno -->
+    <div id="pPostoWrap" class="prop-card" style="display:none">
+      <div class="prop-card__head">Posto</div>
+      <div class="prop-hint" id="pPostoInfo"></div>
+      <button class="btn" id="bPostoNumera" type="button" style="width:100%;margin-top:6px">Numera tutti i posti…</button>
+      <button class="btn" id="bPostoCsv" type="button" style="width:100%;margin-top:6px">Elenco posti (CSV)</button>
+    </div>
     <div id="pLabel2Wrap" style="display:none"><label for="pLabel2">Etichetta 2 (secondo strumento)</label><input type="text" id="pLabel2"></div>
     <div id="pLblModeWrap">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px">
@@ -1055,6 +1062,16 @@
         <select id="grpSbOut"><option value="">— invariato —</option><option value="0">0</option><option value="4">4</option><option value="8">8</option><option value="16">16</option><option value="24">24</option></select>
       </div>
       <div class="prop-hint">Le modifiche si applicano a tutte le stage box selezionate e restano salvate.</div>
+    </div>
+    <!-- POSTI NUMERATI (06/10): fila e posto alle sedie del pubblico selezionate, come in biglietteria -->
+    <div id="grpPostiWrap" class="prop-card" style="display:none">
+      <div class="prop-card__head">Posti del pubblico <span id="grpPostiN" class="muted"></span></div>
+      <div class="prop-hint" id="grpPostiStato"></div>
+      <button class="btn" id="bGrpPosti" type="button" style="width:100%;margin-top:6px">Numera i posti…</button>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <button class="btn" id="bGrpPostiCsv" type="button" style="flex:1 1 0;min-width:0">Elenco (CSV)</button>
+        <button class="btn" id="bGrpPostiVia" type="button" style="flex:1 1 0;min-width:0">Togli i numeri</button>
+      </div>
     </div>
     <div id="grpZoneWrap" class="prop-card" style="display:none">
       <div class="prop-card__head">Microfonazione panoramica</div>
@@ -7835,6 +7852,7 @@ function normalizeLoadedItems(arr){
       if(typeof it.label2==="string" || typeof it.label2==="number") it.label2=String(it.label2);
       else delete it.label2;
     }
+    postoSanifica(it);   /* posti numerati (06/10): fila/posto/settore da file altrui → tipi e lunghezze garantiti, o via */
     if(it.note!=null){   /* nota dell'elemento: testo altrui in arrivo da file/link/cloud → tipo e lunghezza garantiti qui */
       var _nn=(typeof it.note==="string"||typeof it.note==="number") ? String(it.note).slice(0,NOTE_MAX).trim() : "";
       if(_nn) it.note=_nn; else delete it.note;
@@ -8288,7 +8306,8 @@ function sanitizeItems(arr){
     if(t.riser) it.h=(o.h!=null?+o.h:(t.h||40));
     else if(isCover(it) && o.h!=null) it.h=+o.h;   /* coperture: h opzionale (luce sotto); se assente = default coverH() */
     if(Object.prototype.hasOwnProperty.call(COMP,o.type)) it.parts=o.parts?compClone(o.parts):compClone(COMP[o.type].defParts);
-    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","podio","sgab","grp","distOf","distType","aggancia","dimSide","lblSize","plCh","dvsPro","dvsNet","dvsSr","dvsLat","ifaceId","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic","platea"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });   /* platea: passi e corridoio, ripuliti poi da normalizeLoadedItems */
+    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","podio","sgab","grp","distOf","distType","aggancia","dimSide","lblSize","plCh","dvsPro","dvsNet","dvsSr","dvsLat","ifaceId","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic","platea","fila","posto","settore"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });   /* platea: passi e corridoio, ripuliti poi da normalizeLoadedItems; fila/posto/settore: posti numerati */
+    postoSanifica(it);   /* posti numerati (06/10): tipi e lunghezze garantiti */
     if(it.type==="dimono"){   /* DI box: normalizza gli assi + footprint (migra il vecchio diLook del selettore) */
       if(it.diLook){ if(it.diLook==="stereo") it.diCh=it.diCh||"stereo"; else if(it.diLook==="rack") it.diCh=it.diCh||"multi"; else if(it.diLook==="attiva") it.diType=it.diType||"attiva"; else if(it.diLook==="schema") it.diSchema=true; delete it.diLook; }
       if(!DI_CH_LABEL[it.diCh]) it.diCh="mono"; if(it.diType!=="attiva") it.diType="passiva"; if(it.diMultiCh!==6) it.diMultiCh=8;
@@ -9286,6 +9305,209 @@ function lblCapTr(flip, ang, x, y, corpo){
      come quando il nome era capovolto e quella passata non lo prendeva. */
   return s ? ' transform="'+s+'"'+(flip ? ' data-cap="1"' : '') : '';
 }
+/* ============ POSTI NUMERATI DEL PUBBLICO (06/10/2026) ============
+   Richiesta di Simone per un concerto: la platea numerata come nelle piante delle biglietterie
+   (TicketOne, Vivaticket, Ticketmaster) e dei teatri. Le convenzioni scelte, dallo studio del 06/10:
+   - FILE: lettere dalla più vicina al palco (A), saltando I e O, che sul biglietto si leggono 1 e 0;
+     oppure numeri (Fila 1, 2…), come in molti teatri italiani.
+   - POSTI: consecutivi da sinistra, OPPURE dispari/pari dal corridoio centrale (dispari a sinistra,
+     pari a destra, 1 e 2 accanto al corridoio). Sinistra e destra sono SEMPRE quelle di chi siede e
+     guarda il palco, come in «house left / house right»: sulla pianta col palco in alto coincidono.
+   - Dov'è il palco non lo si chiede: è dove GUARDANO le sedie (la loro rotazione). Così funziona anche
+     con la platea girata, e una sedia girata al contrario non fa una fila a parte (vedi postiVerso).
+   Dati sull'elemento: `fila` (testo), `posto` (intero), `settore` (testo, «Platea» se manca). Restano
+   con salva/riapri, Annulla, spostamenti; una sedia aggiunta dopo nasce SENZA numero (anche il duplicato:
+   postiCopie) finché non si rinumera, e la legenda lo dice. */
+function postoTipo(it){ return !!it && it.type==="sediapubblico"; }
+function postoNumerato(it){ return postoTipo(it) && typeof it.fila==="string" && it.fila!=="" && typeof it.posto==="number" && isFinite(it.posto) && it.posto>0; }
+function postoSettore(it){ return (it && typeof it.settore==="string" && it.settore.trim()) ? it.settore.trim() : "Platea"; }
+function postoChiave(it){ return postoSettore(it).toLowerCase()+"|"+String(it.fila).toUpperCase()+"|"+it.posto; }
+/* Nome della fila i (da 0): A…Z senza I e O, poi AA, AB… — oppure il numero */
+function filaNome(i, modo){
+  i=Math.max(0, i|0);
+  if(modo==="numeri") return String(i+1);
+  var L="ABCDEFGHJKLMNPQRSTUVWXYZ", s="";
+  do{ s=L.charAt(i%24)+s; i=Math.floor(i/24)-1; }while(i>=0);
+  return s;
+}
+function postiMediana(a){ if(!a.length) return 0; var b=a.slice().sort(function(p,q){ return p-q; }), m=b.length>>1; return b.length%2 ? b[m] : (b[m-1]+b[m])/2; }
+/* Dove guarda una sedia: lo schienale è disegnato a y negativa, quindi chi siede guarda verso +y
+   del suo disegno, girato della rotazione dell'elemento. */
+function postoVerso(it){ var r=(+it.rot||0)*Math.PI/180; return {x:-Math.sin(r), y:Math.cos(r)}; }
+/* Il verso comune delle sedie: la media. Se guardano da parti troppo diverse (media corta: due metà
+   girate di 80° o più l'una dall'altra) non c'è un palco a cui riferire le file → null, e lo si dice. */
+function postiVerso(seats){
+  var x=0, y=0; seats.forEach(function(s){ var v=postoVerso(s); x+=v.x; y+=v.y; });
+  var n=Math.sqrt(x*x+y*y);
+  return (seats.length && n>=seats.length*0.75) ? {x:x/n, y:y/n} : null;
+}
+/* Le FILE: si proietta ogni sedia sull'asse verso il palco (a) e su quello sinistra→destra di chi siede
+   (b). Fila nuova quando, andando dal palco in giù, il salto supera ~metà profondità della sedia:
+   le sedie della stessa fila messe un po' storte restano insieme, due file a 80 cm no. */
+function postiFile(seats){
+  var f=postiVerso(seats); if(!f) return null;
+  var R={x:-f.y, y:f.x};   /* la destra di chi guarda verso f (y in giù sullo schermo) */
+  var pts=seats.map(function(s){ return {it:s, a:s.x*f.x+s.y*f.y, b:s.x*R.x+s.y*R.y}; });
+  pts.sort(function(p,q){ return (q.a-p.a) || (p.b-q.b); });
+  var tol=Math.max(12, postiMediana(seats.map(function(s){ return +s.d||53; }))*0.45);
+  var file=[], cur=null, prev=null;
+  pts.forEach(function(p){ if(!cur || prev-p.a>tol){ cur={pts:[]}; file.push(cur); } cur.pts.push(p); prev=p.a; });
+  file.forEach(function(r){ r.pts.sort(function(p,q){ return p.b-q.b; }); });
+  return {verso:f, destra:R, file:file};
+}
+/* Il calcolo, senza toccare niente: [{it, fila, posto}] più il riassunto.
+   opts.file = "lettere" | "numeri" · opts.posti = "consecutivi" | "alterni" (dispari/pari dal corridoio) */
+function postiNumerazione(seats, opts){
+  opts=opts||{};
+  seats=(seats||[]).filter(postoTipo);
+  if(!seats.length) return {ok:false, motivo:"vuoto"};
+  var G=postiFile(seats); if(!G) return {ok:false, motivo:"verso"};
+  var gaps=[], allB=[];
+  G.file.forEach(function(r){ r.pts.forEach(function(p,i){ allB.push(p.b); if(i) gaps.push(p.b-r.pts[i-1].b); }); });
+  var passo=postiMediana(gaps)||55, soglia=passo*1.5;   /* un vuoto di una sedia e mezza è un corridoio */
+  var M=(Math.min.apply(null,allB)+Math.max.apply(null,allB))/2, centri=[];
+  /* il corridoio CENTRALE: in ogni fila, il vuoto più vicino al centro della platea; poi la mediana
+     fra le file, così una fila più corta o sbilanciata non sposta la linea dei dispari/pari */
+  G.file.forEach(function(r){ var best=null;
+    for(var i=1;i<r.pts.length;i++){ var g=r.pts[i].b-r.pts[i-1].b; if(g>soglia){ var c=(r.pts[i].b+r.pts[i-1].b)/2; if(best==null || Math.abs(c-M)<Math.abs(best-M)) best=c; } }
+    if(best!=null) centri.push(best); });
+  var C=centri.length ? postiMediana(centri) : M;
+  var alterni=(opts.posti==="alterni"), out=[];
+  G.file.forEach(function(r, i){
+    var nome=filaNome(i, opts.file);
+    if(!alterni){ r.pts.forEach(function(p,k){ out.push({it:p.it, fila:nome, posto:k+1}); }); return; }
+    var sx=r.pts.filter(function(p){ return p.b<C; }).reverse(), dx=r.pts.filter(function(p){ return p.b>=C; });
+    sx.forEach(function(p,k){ out.push({it:p.it, fila:nome, posto:2*k+1}); });
+    dx.forEach(function(p,k){ out.push({it:p.it, fila:nome, posto:2*k+2}); });
+  });
+  return {ok:true, assegna:out, file:G.file.length, prima:filaNome(0, opts.file), ultima:filaNome(G.file.length-1, opts.file),
+          totale:out.length, corridoio:centri.length>0};
+}
+function postoNomeSettore(v){ v=(v==null?"":String(v)).replace(/[\u0000-\u001f]/g," ").replace(/\s+/g," ").trim().slice(0,24); return v||"Platea"; }
+/* Applica la numerazione alle sedie date (le altre non si toccano). Ritorna il riassunto, con `doppi` =
+   posti che ora esistono due volte perché un'altra sedia dello stesso settore, fuori da questa
+   numerazione, aveva già quel numero. */
+function numeraPosti(seats, opts){
+  opts=opts||{};
+  var R=postiNumerazione(seats, opts); if(!R.ok) return R;
+  var settore=postoNomeSettore(opts.settore);
+  R.assegna.forEach(function(a){ var it=a.it;
+    it.fila=a.fila; it.posto=a.posto; it.settore=settore;
+    it.label="Fila "+a.fila+" · "+a.posto;   /* il nome lungo resta per le liste; sul disegno parla il numero */
+    it.labelMode="hidden"; });
+  var dentro=Object.create(null), chiavi=Object.create(null);
+  R.assegna.forEach(function(a){ dentro[a.it.id]=1; chiavi[postoChiave(a.it)]=1; });
+  R.doppi=(state.items||[]).filter(function(o){ return !dentro[o.id] && postoNumerato(o) && chiavi[postoChiave(o)]; }).length;
+  R.settore=settore;
+  return R;
+}
+function togliNumeriPosti(seats){
+  var n=0;
+  (seats||[]).forEach(function(it){ if(!postoTipo(it)) return;
+    if(it.fila!=null || it.posto!=null || it.settore!=null) n++;
+    delete it.fila; delete it.posto; delete it.settore;
+    if(/^Fila .+ · \d+$/.test(it.label||"")) it.label=defaultLabel(it.type); });
+  return n;
+}
+/* Una COPIA (Duplica, Incolla, Alt+trascina) di una sedia numerata non si porta il numero se nella
+   scena quel posto c'è già: due «A 5» sulla pianta sono due biglietti per la stessa sedia. Se il
+   posto è libero (incolla in un'altra scena, o dopo averlo tagliato) il numero resta. */
+function postiCopie(copies){
+  var occ=Object.create(null), nuove=Object.create(null);
+  (copies||[]).forEach(function(c){ nuove[c.id]=1; });
+  (state.items||[]).forEach(function(o){ if(!nuove[o.id] && postoNumerato(o)) occ[postoChiave(o)]=1; });
+  (copies||[]).forEach(function(c){ if(!postoNumerato(c)) return;
+    var k=postoChiave(c);
+    if(occ[k]){ delete c.fila; delete c.posto; delete c.settore; c.label=defaultLabel(c.type); }
+    else occ[k]=1; });
+}
+/* Sanificazione dei campi in arrivo da file/link/cloud: tipi e lunghezze garantiti, o via */
+function postoSanifica(it){
+  if(!it) return;
+  if(it.fila!=null){ var f=(typeof it.fila==="string"||typeof it.fila==="number") ? String(it.fila).replace(/[^0-9A-Za-z]/g,"").slice(0,4).toUpperCase() : ""; if(f) it.fila=f; else delete it.fila; }
+  if(it.posto!=null){ var p=Math.round(+it.posto); if(isFinite(p) && p>0 && p<10000) it.posto=p; else delete it.posto; }
+  if(it.settore!=null){ if(typeof it.settore==="string" && it.settore.trim()) it.settore=postoNomeSettore(it.settore); else delete it.settore; }
+  if(!postoTipo(it) || it.fila==null || it.posto==null){ delete it.fila; delete it.posto; delete it.settore; }
+}
+/* Righe del CSV per chi assegna i biglietti: per settore, fila (dal palco) e posto */
+function postiElenco(items){
+  var seats=(items||state.items||[]).filter(postoNumerato), file=postiFile(seats), ordFila=Object.create(null);
+  /* l'ordine delle file è quello dal palco, non l'alfabeto: «AA» viene dopo «Z», «10» dopo «9» */
+  if(file) file.file.forEach(function(r,i){ r.pts.forEach(function(p){ var k=postoSettore(p.it)+"|"+p.it.fila; if(ordFila[k]==null || i<ordFila[k]) ordFila[k]=i; }); });
+  return seats.map(function(s){ return {settore:postoSettore(s), fila:s.fila, posto:s.posto, o:ordFila[postoSettore(s)+"|"+s.fila]||0}; })
+    .sort(function(a,b){ return a.settore.localeCompare(b.settore) || (a.o-b.o) || (a.posto-b.posto); });
+}
+function postiCsv(items){
+  var rows=postiElenco(items).map(function(r){ return [r.settore, r.fila, String(r.posto)]; });
+  return {csv:rowsToCsv(["Settore","Fila","Posto"], rows, ";", true), count:rows.length};
+}
+function exportPostiCsv(){
+  var r=postiCsv();
+  if(!r.count){ showToast("Nessun posto numerato: seleziona le sedie del pubblico e usa «Numera i posti…»","err"); return false; }
+  downloadCsv(r.csv, fileName()+"-posti.csv");
+  return true;
+}
+/* Cosa disegnare oltre al numero nella sedia: la fila ai due capi di ogni fila e la legenda del settore
+   dietro l'ultima fila. Calcolato una volta per stato (firma) e letto da itemMarkup sedia per sedia:
+   ogni scritta viaggia con UNA sedia, così schermo, PNG e PDF la disegnano dallo stesso posto. */
+var _postiDis=null;
+function postiDisegno(){
+  var items=state.items||[], firma=[], senza=0, seats=[];
+  items.forEach(function(it){ if(!postoTipo(it)) return;
+    if(postoNumerato(it)){ seats.push(it); firma.push(it.id+","+it.x+","+it.y+","+(it.rot||0)+","+it.fila+","+it.posto+","+postoSettore(it)+","+(it.w||0)); }
+    else senza++; });
+  var k=firma.join(";")+"#"+senza;
+  if(_postiDis && _postiDis.firma===k) return _postiDis;
+  var byId=Object.create(null);
+  function metti(id, o){ (byId[id]=byId[id]||[]).push(o); }
+  var perSet=Object.create(null), ordine=[];
+  seats.forEach(function(s){ var n=postoSettore(s); if(!perSet[n]){ perSet[n]=[]; ordine.push(n); } perSet[n].push(s); });
+  ordine.forEach(function(nome, si){
+    var ss=perSet[nome], f=postiVerso(ss)||{x:0,y:-1}, R={x:-f.y, y:f.x};
+    var file=Object.create(null), nomi=[];
+    ss.forEach(function(s){ if(!file[s.fila]){ file[s.fila]=[]; nomi.push(s.fila); } file[s.fila].push(s); });
+    var amin=Infinity, bmin=Infinity, bmax=-Infinity, dep=0, ultima=null;
+    nomi.forEach(function(fn){
+      var fs=file[fn], lo=null, hi=null, asum=0;
+      fs.forEach(function(s){ var a=s.x*f.x+s.y*f.y, b=s.x*R.x+s.y*R.y; asum+=a;
+        if(!lo || b<lo.b) lo={s:s,b:b}; if(!hi || b>hi.b) hi={s:s,b:b};
+        if(a<amin){ amin=a; ultima=s; } bmin=Math.min(bmin,b); bmax=Math.max(bmax,b); dep=Math.max(dep, +s.d||53); });
+      file[fn].a=asum/fs.length;
+      /* la lettera fuori dalla fila, a mezza sedia più un palmo dal bordo */
+      var oL=(+lo.s.w||50)/2+26, oH=(+hi.s.w||50)/2+26;
+      metti(lo.s.id, {x:lo.s.x-R.x*oL, y:lo.s.y-R.y*oL, t:fn, c:"posto-fila"});
+      metti(hi.s.id, {x:hi.s.x+R.x*oH, y:hi.s.y+R.y*oH, t:fn, c:"posto-fila"});
+    });
+    nomi.sort(function(p,q){ return file[q].a-file[p].a; });   /* dal palco in giù */
+    var testo=nome+" · "+ss.length+(ss.length===1?" posto":" posti")+" · "+(nomi.length===1 ? "fila "+nomi[0] : "file "+nomi[0]+"–"+nomi[nomi.length-1]);
+    var ac=amin-dep/2-46, bc=(bmin+bmax)/2;   /* dietro l'ultima fila, al centro */
+    metti(ultima.id, {x:f.x*ac+R.x*bc, y:f.y*ac+R.y*bc, t:testo, c:"posto-legenda"});
+    if(si===0 && senza>0){ var ac2=ac-34;
+      metti(ultima.id, {x:f.x*ac2+R.x*bc, y:f.y*ac2+R.y*bc, t:"+ "+senza+(senza===1?" sedia senza numero: rinumera i posti":" sedie senza numero: rinumera i posti"), c:"posto-legenda posto-senza"}); }
+  });
+  _postiDis={firma:k, byId:byId, senza:senza, numerati:seats.length};
+  return _postiDis;
+}
+/* Il markup del posto, nel sistema dell'elemento (già traslato e ruotato): il numero dentro la sedia e,
+   se tocca a lei, la lettera della fila e la legenda. Tutto DRITTO sullo schermo e sul foglio: ogni
+   testo gira del contrario della sedia (e della vista ruotata del telefono, come i nomi).
+   I corpi sono divisi per il fattore di stampa (__sceneTextK) perché scaleSvgFonts li rimoltiplica:
+   il numero deve stare nella sedia a qualunque scala, non crescere come un nome. */
+function postoMarkup(it){
+  if(!postoNumerato(it)) return '';
+  var K=(window.__sceneTextK>0 ? window.__sceneTextK : 1), rot=+it.rot||0, rc=(_sceneRuota||0)-rot;
+  var t=String(it.posto), fs=t.length>2 ? 17 : 23;
+  var out='<text class="posto-n" x="0" y="'+(3+fs*0.36).toFixed(1)+'" transform="rotate('+rc+' 0 3)" style="font-size:'+(fs/K).toFixed(2)+'px">'+t+'</text>';
+  var extra=postiDisegno().byId[it.id];
+  if(extra){ var r=rot*Math.PI/180, co=Math.cos(r), si=Math.sin(r);
+    extra.forEach(function(e){
+      var dx=e.x-it.x, dy=e.y-it.y, lx=(dx*co+dy*si), ly=(-dx*si+dy*co);
+      var big=(e.c==="posto-fila"), es=big ? 28 : (e.c.indexOf("posto-senza")>-1 ? 20 : 26);
+      out+='<text class="'+e.c+'" x="'+lx.toFixed(1)+'" y="'+(ly+es*0.36).toFixed(1)+'" transform="rotate('+rc+' '+lx.toFixed(1)+' '+ly.toFixed(1)+')" style="font-size:'+(es/K).toFixed(2)+'px">'+esc(e.t)+'</text>';
+    });
+  }
+  return out;
+}
 function itemMarkup(it){
   var t = itemTypeDef(it); if(!t) return '';
   var lb='';   /* i NOMI: nella scena vanno nel livello sopra tutto (#layLbl), vedi _lblSink */
@@ -9452,6 +9674,9 @@ function itemMarkup(it){
       lb += '<text class="lbl" x="'+gdx+'" y="'+gdy+'" text-anchor="middle" style="font-size:'+gzsz+'px"'+gtr+'>'+esc(gzT)+'</text>';
     }
   }
+  /* POSTI NUMERATI (06/10): numero nella sedia, lettera della fila ai capi, legenda — nel disegno
+     dell'elemento, dopo il nome (misuraArte ha già misurato l'arte senza queste scritte) */
+  if(postoTipo(it)) s += postoMarkup(it);
   /* Le MANIGLIE dell'elemento selezionato NON stanno qui: vivono nel layer sopra tutto
      (selHandlesMarkup / layHandles). Dentro il gruppo dell'elemento finivano sotto al disegno
      di chi viene dopo nell'ordine — due pedane vicine e il lucchetto di quella «sotto» spariva. */
@@ -10339,6 +10564,8 @@ function guideDialog(o){
     o.steps.forEach(function(s){ var li=document.createElement("li"); li.textContent=s; ul.appendChild(li); });
     card.appendChild(ul);
   }
+  /* o.corpo = un nodo DOM già pronto fra il testo e i bottoni (06/10, le scelte di «Numera i posti») */
+  if(o.corpo) card.appendChild(o.corpo);
   /* o.scelta = {label, checked}: una casella fra il testo e i bottoni (29/09, l'avvertenza di «Adatta»).
      Conta quando la finestra si chiude SENZA l'azione — il bottone di congedo, Esc, clic fuori: o.chiusa(spuntata). */
   var scelta=null;
@@ -14106,6 +14333,18 @@ function renderProps(){
     var zoneWrap=document.getElementById("grpZoneWrap");
     if(zoneWrap){ var zsrc=its.filter(function(x){ return isAudioSource(x); });
       zoneWrap.style.display = (zsrc.length && !its.some(function(x){ return x.type==="miczone"; })) ? "block" : "none"; }
+    /* --- posti numerati: con almeno due sedie del pubblico nella selezione (06/10) --- */
+    var gpw=document.getElementById("grpPostiWrap");
+    if(gpw){ var gps=its.filter(postoTipo), gpn=gps.filter(postoNumerato).length;
+      gpw.style.display = gps.length>=2 ? "block" : "none";
+      if(gps.length>=2){
+        document.getElementById("grpPostiN").textContent="("+gps.length+")";
+        document.getElementById("grpPostiStato").textContent = !gpn ? "Ancora senza numero. La fila A sarà quella più vicina al palco."
+          : (gpn===gps.length ? "Tutte numerate. Se le sposti o ne aggiungi, rinumera." : gpn+" numerate, "+(gps.length-gpn)+" senza numero: rinumera per darlo anche a loro.");
+        document.getElementById("bGrpPosti").textContent = gpn ? "Rinumera i posti…" : "Numera i posti…";
+        document.getElementById("bGrpPostiVia").style.display = gpn ? "" : "none";
+        document.getElementById("bGrpPostiCsv").style.display = gpn ? "" : "none";
+      } }
     /* --- dimensione etichetta per tutti (normalizza) --- */
     document.getElementById("grpLblWrap").style.display="block";
     var cs=(its[0].lblSize==null?14:its[0].lblSize); document.getElementById("grpLblSize").value=cs; document.getElementById("grpLblSizeVal").textContent=cs;
@@ -14147,6 +14386,13 @@ function renderProps(){
   var t = TYPES[it.type];
   document.getElementById("selNome").textContent = t.nome;
   setPeekName(t.nome);
+  var ppw=document.getElementById("pPostoWrap");   /* posti numerati (06/10) */
+  if(ppw){ var isPosto=postoTipo(it); ppw.style.display = isPosto ? "block" : "none";
+    if(isPosto){ var altri=(state.items||[]).filter(postoNumerato).length;
+      document.getElementById("pPostoInfo").textContent = postoNumerato(it) ? postoSettore(it)+" · fila "+it.fila+" · posto "+it.posto
+        : (altri ? "Senza numero: è stata aggiunta o copiata dopo la numerazione. Rinumera i posti per dargliene uno." : "I posti non sono ancora numerati.");
+      document.getElementById("bPostoNumera").textContent = altri ? "Rinumera tutti i posti…" : "Numera tutti i posti…";
+      document.getElementById("bPostoCsv").style.display = altri ? "" : "none"; } }
   var pwWrap=document.getElementById("pWattWrap");
   if(pwWrap){ var powered=hasWattItem(it); pwWrap.style.display = powered ? "block" : "none";
     if(powered) document.getElementById("pWatt").value = wattOf(it); }
@@ -15917,6 +16163,58 @@ document.getElementById("grpGroup").addEventListener("click", groupSel);
 document.getElementById("grpUngroup").addEventListener("click", ungroupSel);
 /* crea una zona di microfonazione attorno alla selezione: HULL poligonale dei footprint reali
    (angoli ruotati) + margine → area di pertinenza aderente (Simone 14/07); bbox solo come fallback */
+/* ===== POSTI NUMERATI: la finestra delle scelte (06/10) ===== */
+var _postiScelte={file:"lettere", posti:"consecutivi"};   /* le ultime scelte, per la sessione */
+function apriNumeraPosti(seats){
+  seats=(seats||[]).filter(postoTipo); if(!seats.length) return;
+  if(!postiVerso(seats)){
+    guideDialog({title:"Le sedie guardano da parti diverse",
+      msg:"Per sapere qual è la prima fila, le sedie da numerare devono guardare tutte verso il palco.",
+      steps:["Girale verso il palco (Rotazione, o la maniglia sul disegno)","Se i settori guardano da parti diverse, numerali uno alla volta, ciascuno col suo nome"]});
+    return;
+  }
+  var ex=seats.filter(postoNumerato)[0], sett=ex ? postoSettore(ex) : "Platea";
+  if(ex){ _postiScelte.file = /^\d+$/.test(ex.fila) ? "numeri" : "lettere"; }
+  var corpo=document.createElement("div"); corpo.className="posti-dlg";
+  corpo.innerHTML=
+    '<label for="postiSett">Settore</label><input type="text" id="postiSett" maxlength="24" autocomplete="off">'+
+    '<div class="posti-grp" role="radiogroup" aria-label="File"><div class="posti-tit">File</div>'+
+      '<label class="chk"><input type="radio" name="postiFile" value="lettere"> Lettere: A, B, C… (senza I e O)</label>'+
+      '<label class="chk"><input type="radio" name="postiFile" value="numeri"> Numeri: 1, 2, 3…</label></div>'+
+    '<div class="posti-grp" role="radiogroup" aria-label="Posti"><div class="posti-tit">Posti in ogni fila</div>'+
+      '<label class="chk"><input type="radio" name="postiPosti" value="consecutivi"> 1, 2, 3… da sinistra a destra</label>'+
+      '<label class="chk"><input type="radio" name="postiPosti" value="alterni"> Dispari a sinistra, pari a destra del corridoio centrale (1 e 2 al centro)</label></div>'+
+    '<p class="posti-esito" id="postiEsito" aria-live="polite"></p>';
+  corpo.querySelector("#postiSett").value=sett;
+  [].forEach.call(corpo.querySelectorAll('input[type=radio]'), function(r){
+    r.checked = (r.name==="postiFile" ? _postiScelte.file : _postiScelte.posti)===r.value; });
+  function scelte(){ var o={settore:corpo.querySelector("#postiSett").value};
+    [].forEach.call(corpo.querySelectorAll('input[type=radio]'), function(r){ if(r.checked){ if(r.name==="postiFile") o.file=r.value; else o.posti=r.value; } });
+    return o; }
+  function esito(){ var o=scelte(), R=postiNumerazione(seats, o), el=corpo.querySelector("#postiEsito");
+    if(!R.ok){ el.textContent=""; return; }
+    el.textContent=R.totale+" posti in "+R.file+(R.file===1?" fila ("+R.prima+")":" file ("+R.prima+"–"+R.ultima+")")+
+      (o.posti==="alterni" && !R.corridoio ? ". Nessun corridoio centrale: dispari e pari si dividono a metà fila." : "."); }
+  corpo.addEventListener("change", esito); esito();
+  guideDialog({title:"Numera i posti",
+    msg:seats.length+(seats.length===1?" sedia":" sedie")+" del pubblico. La prima fila è la più vicina al palco, cioè quella verso cui guardano le sedie; sinistra e destra sono quelle di chi siede.",
+    corpo:corpo,
+    action:{label:"Numera", run:function(){
+      var o=scelte(); _postiScelte.file=o.file; _postiScelte.posti=o.posti;
+      primaDiAgire();
+      var R=numeraPosti(seats, o); if(!R.ok) return;
+      render(); save(); renderProps();
+      showToast(R.settore+": "+R.totale+" posti, file "+R.prima+(R.file>1?"–"+R.ultima:"")+
+        (R.doppi ? ". Attenzione: "+R.doppi+" posti doppi con altre sedie di «"+R.settore+"»: numerale insieme o cambia il nome del settore" : ""), R.doppi>0);
+    }}});
+}
+document.getElementById("bGrpPosti").addEventListener("click", function(){ apriNumeraPosti(selItems()); });
+document.getElementById("bGrpPostiCsv").addEventListener("click", function(){ exportPostiCsv(); });
+document.getElementById("bGrpPostiVia").addEventListener("click", function(){
+  primaDiAgire(); var n=togliNumeriPosti(selItems()); if(!n) return;
+  render(); save(); renderProps(); showToast("Numeri tolti da "+n+(n===1?" sedia":" sedie")); });
+document.getElementById("bPostoNumera").addEventListener("click", function(){ apriNumeraPosti((state.items||[]).filter(postoTipo)); });
+document.getElementById("bPostoCsv").addEventListener("click", function(){ exportPostiCsv(); });
 document.getElementById("bGrpZone").addEventListener("click", function(){
   var its=selItems().filter(function(x){ return x.type!=="miczone"; }); if(!its.length) return;
   var z, shape=miczoneShapeFromItems(its, 25);
@@ -16015,6 +16313,7 @@ function duplicateSel(noOffset, opts){
     bumpItemLabels(c);
     if(c.grp){ if(!gmap[c.grp]) gmap[c.grp]="g"+uid(); c.grp=gmap[c.grp]; }
     state.items.push(c); return c; });
+  postiCopie(copies);   /* il duplicato di un posto numerato nasce senza numero: quel posto c'è già */
   /* rimappa distOf al nuovo id della pedana copiata (evita che la copia punti alla pedana originale) */
   copies.forEach(function(c){ if(c.distOf && idmap[c.distOf]) c.distOf=idmap[c.distOf]; });
   /* pedana agganciata + elementi duplicati = un BLOCCO unico: si muovono insieme e il trascinamento NON
@@ -16048,6 +16347,7 @@ function pasteClip(){
   copies.forEach(function(c){ if(c.distOf && idmap[c.distOf]) c.distOf=idmap[c.distOf]; });
   if(hasRiser){ var bg="g"+uid(); copies.forEach(function(c){ c.grp=bg; }); }   /* pedana+elementi = blocco */
   copies.forEach(function(c){ state.items.push(c); });
+  postiCopie(copies);   /* posto numerato già presente nella scena → la copia resta senza numero */
   selSet={}; copies.forEach(function(c){ selSet[c.id]=true; }); sel=copies.length?copies[copies.length-1].id:null;
   render(); save(); ensureVisible();
 }

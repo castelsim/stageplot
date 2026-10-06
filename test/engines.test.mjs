@@ -19022,5 +19022,141 @@ t("variante identica: un id tutto cifre non rinumera le coordinate (niente falsi
   eq(A.firmaScena(s1), A.firmaScena(s2), "chiavi in un altro ordine e id diversi: stessa firma");
 });
 
+/* ===== POSTI NUMERATI DEL PUBBLICO (06/10/2026) — scene sintetiche, nessun progetto vero ===== */
+/* Una platea finta come quelle vere: due blocchi di sedie col corridoio in mezzo, palco in alto (le sedie
+   guardano in su: rot 180), l'ultima fila più corta. File da 6 (3+3), 6, 4 (2+2). */
+function platea(opts) {
+  reset();
+  const o = Object.assign({ rot: 180, y0: 500 }, opts || {});
+  const righe = [[100, 150, 200, 330, 380, 430], [100, 150, 200, 330, 380, 430], [150, 200, 330, 380]];
+  const items = [];
+  righe.forEach((xs, r) => xs.forEach((x) => items.push({ id: "p" + r + "_" + x, type: "sediapubblico", x, y: o.y0 + r * 110, rot: o.rot, w: 50, d: 53, label: "Sedia", labelMode: "hidden" })));
+  A.loadDoc({ _v: A.SCHEMA_VERSION, items, inputs: [], outputs: [] });
+  return A.state.items.filter(A.postoTipo);
+}
+const posti = (f) => A.state.items.filter((i) => i.fila === f).sort((a, b) => a.x - b.x).map((i) => i.posto);
+
+t("posti numerati: file a lettere senza I e O, poi AA; o a numeri", () => {
+  eq([0, 7, 8, 12, 13, 23, 24, 25].map((i) => A.filaNome(i)), ["A", "H", "J", "N", "P", "Z", "AA", "AB"], "lettere");
+  eq([0, 9].map((i) => A.filaNome(i, "numeri")), ["1", "10"], "numeri");
+});
+
+t("posti numerati: fila A = la più vicina al palco, posti da sinistra di chi siede, corridoio dispari/pari", () => {
+  const s = platea();
+  let R = A.numeraPosti(s, { file: "lettere", posti: "consecutivi" });
+  eq([R.ok, R.file, R.prima, R.ultima, R.totale, R.doppi], [true, 3, "A", "C", 16, 0], "riassunto");
+  eq(A.state.items.find((i) => i.id === "p0_100").fila, "A", "la prima fila è quella verso cui guardano le sedie (in alto)");
+  eq(posti("A"), [1, 2, 3, 4, 5, 6], "consecutivi da sinistra (palco in alto: sinistra di chi siede = sinistra della pianta)");
+  eq(posti("C"), [1, 2, 3, 4], "fila corta");
+  eq(A.state.items.find((i) => i.id === "p0_100").label, "Fila A · 1", "il nome lungo diventa quello del posto");
+  R = A.numeraPosti(s, { file: "numeri", posti: "alterni" });
+  ok(R.corridoio, "il corridoio centrale c'è");
+  eq(posti("1"), [5, 3, 1, 2, 4, 6], "dispari a sinistra, pari a destra, 1 e 2 accanto al corridoio");
+  eq(posti("3"), [3, 1, 2, 4], "anche la fila corta parte dal corridoio");
+  eq(A.state.items.find((i) => i.id === "p0_100").settore, "Platea", "settore di partenza");
+});
+
+t("posti numerati: la platea girata segue le sedie, e sedie che guardano da parti diverse non si numerano", () => {
+  /* rot 90: le sedie guardano a sinistra (palco a sinistra). Ruoto la platea finta: x→y, y→-x */
+  reset();
+  const items = [];
+  [[0, 0], [0, 50], [0, 100], [110, 0], [110, 50], [110, 100]].forEach(([dx, dy], k) =>
+    items.push({ id: "g" + k, type: "sediapubblico", x: 300 + dx, y: 300 + dy, rot: 90, w: 50, d: 53, label: "Sedia" }));
+  A.loadDoc({ _v: A.SCHEMA_VERSION, items, inputs: [], outputs: [] });
+  const s = A.state.items.filter(A.postoTipo);
+  A.numeraPosti(s, {});
+  const it = (id) => A.state.items.find((i) => i.id === id);
+  eq([it("g0").fila, it("g3").fila], ["A", "B"], "fila A = la colonna più a sinistra, verso cui guardano");
+  eq([it("g2").posto, it("g1").posto, it("g0").posto], [1, 2, 3], "guardando a sinistra, la sinistra di chi siede è in basso");
+  it("g3").rot = 0; it("g4").rot = 0; it("g5").rot = 0;   /* metà guarda in giù: 90° di disaccordo */
+  const R = A.numeraPosti(s, {});
+  eq([R.ok, R.motivo], [false, "verso"], "niente numerazione inventata");
+  eq(A.postiNumerazione([], {}).motivo, "vuoto", "nessuna sedia");
+});
+
+t("posti numerati: restano con salva-riapri e Annulla/Ripeti; da file altrui tipi garantiti", () => {
+  const s = platea();
+  A.resetHistory();
+  A.numeraPosti(s, { settore: "  Platea   bassa " }); A.save();
+  const back = A.normalizeState(JSON.parse(A.stateToJSON()));
+  const b = back.items.find((i) => i.id === "p0_330");
+  eq([b.fila, b.posto, b.settore], ["A", 4, "Platea bassa"], "salva-riapri (settore ripulito)");
+  A.undo();
+  eq(A.state.items.filter(A.postoNumerato).length, 0, "Annulla toglie la numerazione");
+  A.redo();
+  eq(A.state.items.filter(A.postoNumerato).length, 16, "Ripeti la rimette");
+  const n = A.normalizeState({ items: [
+    { id: "a", type: "sediapubblico", x: 0, y: 0, fila: "=b-1", posto: "7", settore: { x: 1 } },
+    { id: "b", type: "sediapubblico", x: 60, y: 0, fila: "C", posto: "x" },
+    { id: "c", type: "wedge", x: 0, y: 200, fila: "A", posto: 1 }] });
+  const g = (id) => n.items.find((i) => i.id === id);
+  eq([g("a").fila, g("a").posto, g("a").settore], ["B1", 7, undefined], "fila solo lettere e cifre, posto numero, settore non testo via");
+  eq([g("b").fila, g("b").posto], [undefined, undefined], "senza posto valido niente fila");
+  eq([g("c").fila, g("c").posto], [undefined, undefined], "fila e posto solo sulle sedie del pubblico");
+  const ai = A.sanitizeItems([{ type: "sediapubblico", x: 0, y: 0, fila: "d", posto: 3 }]);
+  eq([ai[0].fila, ai[0].posto], ["D", 3], "anche dal JSON dell'AI");
+});
+
+t("posti numerati: il duplicato nasce senza numero; tagliato e incollato lo tiene", () => {
+  const s = platea();
+  A.numeraPosti(s, {});
+  const a1 = A.state.items.find((i) => i.id === "p0_100");
+  A.selectMany([a1.id]); A.duplicateSel();
+  const dup = A.state.items[A.state.items.length - 1];
+  ok(dup.id !== a1.id && !A.postoNumerato(dup), "Duplica: due «A 1» sarebbero due biglietti per una sedia");
+  eq(dup.label, "Sedia", "e non si chiama come il posto");
+  A.selectMany([a1.id]); A.copySel(); A.pasteClip();
+  ok(!A.postoNumerato(A.state.items[A.state.items.length - 1]), "Copia/Incolla con l'originale presente: senza numero");
+  A.selectMany([a1.id]); A.copySel(); A.deleteSel(); A.pasteClip();
+  const inc = A.state.items[A.state.items.length - 1];
+  eq([inc.fila, inc.posto], ["A", 1], "Taglia e incolla: il posto era libero, il numero resta");
+  eq(A.togliNumeriPosti([inc]), 1, "Togli i numeri");
+  eq([inc.fila, inc.posto, inc.label], [undefined, undefined, "Sedia"], "via fila, posto e nome del posto");
+});
+
+t("posti numerati: numero dritto nella sedia, fila ai capi, legenda; corpo fisso anche in stampa", () => {
+  const s = platea();
+  A.numeraPosti(s, {});
+  const it = (id) => A.state.items.find((i) => i.id === id);
+  const testi = (id) => (A.itemMarkup(it(id)).match(/<text class="posto[^"]*"[^>]*>[^<]*<\/text>/g) || []);
+  const n = testi("p0_150");
+  eq(n.length, 1, "una sedia in mezzo: solo il suo numero");
+  ok(/class="posto-n"[^>]*transform="rotate\(-180 0 3\)"[^>]*>2</.test(n[0]), "il 2 gira del contrario della sedia: resta dritto " + n[0]);
+  const capoS = testi("p0_100").join(""), capoD = testi("p0_430").join("");
+  ok(/class="posto-fila" x="51\.0"[^>]*>A</.test(capoS), "la A fuori dal capo sinistro (x locale +51 = sinistra in pianta, girata) " + capoS);
+  ok(/class="posto-fila" x="-51\.0"[^>]*>A</.test(capoD), "e fuori dal capo destro " + capoD);
+  const leg = s.map((x) => testi(x.id).join("")).join("").match(/posto-legenda[^>]*>([^<]*)</g) || [];
+  eq(leg.length, 1, "una legenda per settore");
+  ok(/>Platea · 16 posti · file A–C<$/.test(leg[0]), leg[0]);
+  /* in stampa i corpi si moltiplicano per __sceneTextK (scaleSvgFonts): il numero li divide prima */
+  A.__sceneTextK = 2;
+  try { ok(/class="posto-n"[^>]*font-size:11\.50px/.test(testi("p0_150")[0]), "a K=2 il corpo scritto è la metà, sul foglio torna 23"); }
+  finally { delete A.__sceneTextK; }
+  /* una sedia aggiunta dopo: senza numero, e la legenda lo dice */
+  add("sediapubblico", 700, 900);
+  const tutto = A.state.items.map((x) => A.itemMarkup(x)).join("");
+  ok(/posto-senza[^>]*>\+ 1 sedia senza numero: rinumera i posti</.test(tutto), "la sedia nuova non resta un posto fantasma");
+  ok(!/class="posto-n"/.test(A.itemMarkup(A.state.items[A.state.items.length - 1])), "e non ha numero");
+  ok(!/posto-/.test(A.itemMarkup(add("sediabianca", 900, 900))), "le altre sedie non c'entrano");
+});
+
+t("posti numerati: elenco CSV per fila dal palco, protetto dalle formule", () => {
+  const s = platea();
+  A.numeraPosti(s, { settore: "=HYPERLINK(1)" });
+  const r = A.postiCsv();
+  eq(r.count, 16, "tutti i posti");
+  const righe = r.csv.replace(/^﻿/, "").trim().split("\r\n");
+  eq(righe[0], "Settore;Fila;Posto", "intestazione");
+  eq(righe[1], "'=HYPERLINK(1);A;1", "l'apice disinnesca la formula");
+  eq(righe.slice(1).map((x) => x.split(";").slice(1).join("")), ["A1","A2","A3","A4","A5","A6","B1","B2","B3","B4","B5","B6","C1","C2","C3","C4"], "ordine: fila dal palco, poi posto");
+  /* file a numeri oltre la nona: «10» viene dopo «9», non dopo «1» */
+  reset();
+  const items = []; for (let r2 = 0; r2 < 11; r2++) items.push({ id: "q" + r2, type: "sediapubblico", x: 100, y: 100 + r2 * 100, rot: 180, w: 50, d: 53 });
+  A.loadDoc({ _v: A.SCHEMA_VERSION, items, inputs: [], outputs: [] });
+  A.numeraPosti(A.state.items.filter(A.postoTipo), { file: "numeri" });
+  eq(A.postiElenco().map((x) => x.fila).join(","), "1,2,3,4,5,6,7,8,9,10,11", "ordine delle file dal palco");
+  reset();
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
