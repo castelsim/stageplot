@@ -490,6 +490,7 @@
       <div class="prop-hint" id="pPostoInfo"></div>
       <button class="btn" id="bPostoNumera" type="button" style="width:100%;margin-top:6px">Numera tutti i posti…</button>
       <button class="btn" id="bPostoCsv" type="button" style="width:100%;margin-top:6px">Elenco posti (CSV)</button>
+      <button class="btn" id="bPostoPren" type="button" style="width:100%;margin-top:6px">Prenotazioni del pubblico…</button>
     </div>
     <div id="pLabel2Wrap" style="display:none"><label for="pLabel2">Etichetta 2 (secondo strumento)</label><input type="text" id="pLabel2"></div>
     <div id="pLblModeWrap">
@@ -1034,6 +1035,7 @@
         <button class="btn" id="bGrpPostiCsv" type="button" style="flex:1 1 0;min-width:0">Elenco (CSV)</button>
         <button class="btn" id="bGrpPostiVia" type="button" style="flex:1 1 0;min-width:0">Togli i numeri</button>
       </div>
+      <button class="btn" id="bGrpPostiPren" type="button" style="width:100%;margin-top:6px">Prenotazioni del pubblico…</button>
     </div>
     <div id="grpZoneWrap" class="prop-card" style="display:none">
       <div class="prop-card__head">Microfonazione panoramica</div>
@@ -9070,6 +9072,235 @@ function exportPostiCsv(){
   downloadCsv(r.csv, fileName()+"-posti.csv");
   return true;
 }
+/* ============ PRENOTAZIONI DEL PUBBLICO — pezzi puri (biglietteria, 06/10/2026) ============
+   La biglietteria gratuita di stageplot.it (pagina /biglietteria/) prenota i posti numerati: qui sta
+   l'editor di chi organizza. Questo blocco è solo calcolo, senza DOM e senza rete, così lo prova la
+   suite: la FOTO della pianta da pubblicare, le chiavi dei posti (stessa regola del server), i posti tenuti
+   da parte, la lista per l'ingresso e il CSV. La finestra, le chiamate e il PDF sono più sotto.
+   Il pubblico vede solo la foto: posti, sagoma del palco e pedane. Nessuna etichetta, nome, contatto o nota
+   della scena ci finisce dentro: la foto si costruisce COPIANDO i soli campi del contratto, mai l'elemento. */
+function bglChiave(it){ return postoSettore(it).replace(/\|/g,"/")+"|"+it.fila+"|"+it.posto; }
+/* «Platea|A|5» → «A 5» (il settore si dice solo se non è la Platea) */
+function bglPostoNome(k){
+  var p=String(k==null?"":k).split("|"); if(p.length!==3) return String(k||"");
+  return (p[0]==="Platea" ? "" : p[0]+" ")+p[1]+" "+p[2];
+}
+function bglPostiNomi(chiavi){ return (chiavi||[]).map(bglPostoNome).join(", "); }
+function bglSemiPoligono(r){
+  /* il semicerchio del palco (mezza ellisse nel suo riquadro) come poligono di 24 vertici: 23 passi d'arco + il lato dritto */
+  var x=r.x, y=r.y, w=r.w, d=r.d, flat=r.flat||"top", cx, cy, rx, ry, a0, out=[], N=24;
+  if(flat==="top"){ cx=x+w/2; cy=y; rx=w/2; ry=d; a0=0; }                 /* dritto in alto, bulge in basso */
+  else if(flat==="bottom"){ cx=x+w/2; cy=y+d; rx=w/2; ry=d; a0=Math.PI; }  /* bulge in alto */
+  else if(flat==="left"){ cx=x; cy=y+d/2; rx=w; ry=d/2; a0=-Math.PI/2; }   /* bulge a destra */
+  else { cx=x+w; cy=y+d/2; rx=w; ry=d/2; a0=Math.PI/2; }                   /* right: bulge a sinistra */
+  for(var i=0;i<N;i++){ var a=a0+Math.PI*i/(N-1); out.push([cx+rx*Math.cos(a), cy+ry*Math.sin(a)]); }
+  return out;
+}
+/* La FOTO della scena (pianta v1, vedi la specifica): coordinate in cm interi, girate perché le sedie guardino
+   in alto (palco in alto) e traslate perché il riquadro parta da 0,0, con 100 cm di margine.
+   Null se non ci sono posti numerati. `st` = lo stato da fotografare (di norma quello vivo). */
+function bglPianta(st){
+  st=st||state;
+  var items=st.items||[], seats=items.filter(postoNumerato);
+  if(!seats.length) return null;
+  var f=postiVerso(seats);
+  if(!f){   /* sedie che guardano da parti diverse: ci si regola sul settore più numeroso */
+    var per=Object.create(null), best=null;
+    seats.forEach(function(s){ var n=postoSettore(s); (per[n]=per[n]||[]).push(s); });
+    Object.keys(per).forEach(function(n){ if(best==null || per[n].length>per[best].length) best=n; });
+    f=postiVerso(per[best]);
+  }
+  var th=f ? (-Math.PI/2-Math.atan2(f.y,f.x)) : 0, c=Math.cos(th), s=Math.sin(th), gradi=th*180/Math.PI;
+  function R(p){ return [p[0]*c-p[1]*s, p[0]*s+p[1]*c]; }
+  function rotNorm(r){ r=((r+180)%360+360)%360-180; return r===-180 ? 180 : r; }
+  var blocchi=(st.stage && st.stage.blocks && st.stage.blocks.length) ? st.stage.blocks : [{x:0,y:0,w:(st.stage&&st.stage.w)||1200,d:(st.stage&&st.stage.d)||800}];
+  var palco=blocchi.slice(0,16).map(function(b){ return (b.shape==="semi" ? bglSemiPoligono(b) : blockCorners(b)).map(R); });
+  var pedane=items.filter(function(it){ return TYPES[it.type] && TYPES[it.type].riser; }).slice(0,200)
+    .map(function(it){ return itemCorners(it).map(R); });
+  var sedie=seats.map(function(it){
+    var p=R([it.x,it.y]), w=Math.max(10,Math.min(300,Math.round(+it.w||TYPES.sediapubblico.w))), d=Math.max(10,Math.min(300,Math.round(+it.d||TYPES.sediapubblico.d)));
+    return {it:it, x:p[0], y:p[1], w:w, d:d, rot:rotNorm((+it.rot||0)+gradi)};
+  });
+  var x0=Infinity, y0=Infinity, x1=-Infinity, y1=-Infinity;
+  function tocca(px,py){ if(px<x0) x0=px; if(px>x1) x1=px; if(py<y0) y0=py; if(py>y1) y1=py; }
+  palco.concat(pedane).forEach(function(poly){ poly.forEach(function(p){ tocca(p[0],p[1]); }); });
+  sedie.forEach(function(q){
+    var a=q.rot*Math.PI/180, ca=Math.cos(a), sa=Math.sin(a);
+    [[-q.w/2,-q.d/2],[q.w/2,-q.d/2],[q.w/2,q.d/2],[-q.w/2,q.d/2]].forEach(function(p){ tocca(q.x+p[0]*ca-p[1]*sa, q.y+p[0]*sa+p[1]*ca); });
+  });
+  var M=100, dx=M-x0, dy=M-y0;
+  function P(p){ return [Math.round(p[0]+dx), Math.round(p[1]+dy)]; }
+  return {
+    v:1,
+    box:[0, 0, Math.round(x1-x0+2*M), Math.round(y1-y0+2*M)],
+    palco:palco.map(function(poly){ return poly.map(P); }),
+    pedane:pedane.map(function(poly){ return poly.map(P); }),
+    posti:sedie.map(function(q){ var p=P([q.x,q.y]);
+      return {k:bglChiave(q.it), settore:postoSettore(q.it).replace(/\|/g,"/"), fila:String(q.it.fila), posto:q.it.posto, x:p[0], y:p[1], w:q.w, d:q.d, rot:Math.round(q.rot)}; })
+  };
+}
+/* Cosa impedirebbe di pubblicare la foto (il server rifiuterebbe), detto in italiano: [] se va bene */
+function bglProblemiPianta(p){
+  var out=[];
+  if(!p || !p.posti || !p.posti.length){ out.push("Non ci sono posti numerati."); return out; }
+  if(p.posti.length>2000) out.push("Troppi posti: ne sono ammessi al massimo 2000, qui ce ne sono "+p.posti.length+".");
+  var visti=Object.create(null), doppi=[];
+  p.posti.forEach(function(q){ if(visti[q.k]) { if(doppi.indexOf(q.k)<0) doppi.push(q.k); } else visti[q.k]=1; });
+  if(doppi.length) out.push("Questi posti esistono due volte: "+bglPostiNomi(doppi.slice(0,6))+(doppi.length>6?"…":"")+". Rinumera i posti, o dai un nome diverso al settore.");
+  return out;
+}
+/* Sedie del pubblico che non hanno un numero: restano fuori dalla pianta, e va detto */
+function bglSenzaNumero(st){ st=st||state; return (st.items||[]).filter(function(it){ return postoTipo(it) && !postoNumerato(it); }).length; }
+
+/* «A1-4, B5, C 7, tutta la fila D» → chiavi. `chiavi` = le chiavi dei posti della pianta. Ritorna
+   {chiavi, sconosciuti}: ciò che non corrisponde a nessun posto si restituisce com'è scritto, non si butta.
+   Forme ammesse: A5 · A 5 · A1-4 · D (tutta la fila) · 3.5 / 3/5 (fila numerica 3, posto 5) · «Settore/A5»
+   quando i settori sono più d'uno. */
+function bglRiservatiDaTesto(testo, chiavi){
+  chiavi=chiavi||[];
+  var idx=Object.create(null), tutte=Object.create(null), settori=[];
+  chiavi.forEach(function(k){
+    var p=k.split("|"); if(p.length!==3) return;
+    var a=p[1]+"|"+p[2], s=p[0]+"|"+p[1];
+    (idx[a]=idx[a]||[]).push(k); (tutte[s]=tutte[s]||[]).push(k);
+    if(settori.indexOf(p[0])<0) settori.push(p[0]);
+  });
+  settori.sort(function(a,b){ return b.length-a.length; });
+  var out=[], sconosciuti=[], gia=Object.create(null);
+  function dentro(k){ if(!gia[k]){ gia[k]=1; out.push(k); } }
+  String(testo==null?"":testo).split(/[,;\n]+/).forEach(function(tok0){
+    var tok=tok0.replace(/\s+/g," ").trim(); if(!tok) return;
+    var t=tok, sett=null;
+    for(var i=0;i<settori.length;i++){ var pre=settori[i].toLowerCase()+"/"; if(t.toLowerCase().indexOf(pre)===0){ sett=settori[i]; t=t.slice(pre.length).trim(); break; } }
+    var m, fila, p0, p1, trovati=[];
+    function filtra(l){ return (l||[]).filter(function(k){ return sett==null || k.split("|")[0]===sett; }); }
+    if((m=/^(?:tutta\s+la\s+fila\s+|fila\s+)?([A-Za-z]{1,4})$/i.exec(t))){
+      fila=m[1].toUpperCase();
+      settori.concat([]).forEach(function(se){ trovati=trovati.concat(filtra(tutte[se+"|"+fila])); });
+    } else if((m=/^([A-Za-z]{1,4})\s*(\d{1,4})(?:\s*[-–]\s*(\d{1,4}))?$/.exec(t)) || (m=/^(\d{1,4})\s*[.:\/]\s*(\d{1,4})(?:\s*[-–]\s*(\d{1,4}))?$/.exec(t))){
+      fila=m[1].toUpperCase(); p0=+m[2]; p1=m[3]!=null ? +m[3] : p0;
+      if(p1<p0){ var x=p0; p0=p1; p1=x; }
+      for(var n=p0;n<=p1 && n-p0<=2000;n++) trovati=trovati.concat(filtra(idx[fila+"|"+n]));
+    }
+    if(!trovati.length){ sconosciuti.push(tok); return; }
+    trovati.forEach(dentro);
+    /* un intervallo che copre solo in parte posti che esistono (A1-4 con la fila di 3) non è un errore: avanza quel che c'è */
+  });
+  return {chiavi:out, sconosciuti:sconosciuti};
+}
+/* il contrario: le chiavi come le scrive una persona («A1-4, B5»); col nome del settore solo se ce n'è più d'uno */
+function bglRiservatiATesto(chiavi, tutte){
+  var settori=Object.create(null), nS=0;
+  (tutte||chiavi||[]).forEach(function(k){ var s=k.split("|")[0]; if(!settori[s]){ settori[s]=1; nS++; } });
+  var per=Object.create(null), ordine=[];
+  (chiavi||[]).forEach(function(k){
+    var p=k.split("|"); if(p.length!==3) return;
+    var g=p[0]+"|"+p[1]; if(!per[g]){ per[g]={s:p[0], f:p[1], n:[]}; ordine.push(g); }
+    per[g].n.push(+p[2]);
+  });
+  return ordine.map(function(g){
+    var r=per[g], n=r.n.sort(function(a,b){ return a-b; }), parti=[], i=0;
+    while(i<n.length){ var j=i; while(j+1<n.length && n[j+1]===n[j]+1) j++;
+      parti.push(j>i ? n[i]+"-"+n[j] : String(n[i])); i=j+1; }
+    return (nS>1 ? r.s+"/" : "")+r.f+parti.join(", "+(nS>1 ? r.s+"/" : "")+r.f);
+  }).join(", ");
+}
+
+/* ----- date: l'evento è a Roma, ovunque stia il computer di chi organizza ----- */
+function bglOffsetRoma(ms){
+  var o={}; new Intl.DateTimeFormat("en-GB",{timeZone:"Europe/Rome",hourCycle:"h23",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit"})
+    .formatToParts(new Date(ms)).forEach(function(p){ o[p.type]=p.value; });
+  return Math.round((Date.UTC(+o.year,+o.month-1,+o.day,+o.hour,+o.minute,+o.second)-Math.floor(ms/1000)*1000)/60000);
+}
+function bglDueCifre(n){ return (n<10?"0":"")+n; }
+/* «2026-10-09» + «21:00» (ora di Roma) → «2026-10-09T21:00:00+02:00»; null se la data o l'ora non sono valide */
+function bglInizioIso(data, ora){
+  var d=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(data||"")), h=/^(\d{1,2}):(\d{2})$/.exec(String(ora||""));
+  if(!d || !h) return null;
+  var Y=+d[1], Mo=+d[2], D=+d[3], H=+h[1], Mi=+h[2];
+  if(Mo<1||Mo>12||D<1||D>31||H>23||Mi>59) return null;
+  var loc=Date.UTC(Y,Mo-1,D,H,Mi);
+  if(new Date(loc).getUTCDate()!==D) return null;   /* 31 novembre e simili */
+  var off=bglOffsetRoma(loc-2*3600000), ist=loc-off*60000, off2=bglOffsetRoma(ist);
+  if(off2!==off){ off=off2; ist=loc-off*60000; }
+  var seg=off<0?"-":"+", a=Math.abs(off);
+  return d[1]+"-"+d[2]+"-"+d[3]+"T"+bglDueCifre(H)+":"+h[2]+":00"+seg+bglDueCifre(Math.floor(a/60))+":"+bglDueCifre(a%60);
+}
+/* il ritorno: un istante (ISO) → {data:"2026-10-09", ora:"21:00"} a Roma; null se non è una data */
+function bglDataOra(iso){
+  var ms=Date.parse(iso); if(!isFinite(ms)) return null;
+  var l=new Date(ms+bglOffsetRoma(ms)*60000).toISOString();
+  return {data:l.slice(0,10), ora:l.slice(11,16)};
+}
+/* «venerdì 9 ottobre 2026, ore 21:00» */
+function bglQuando(iso){
+  var ms=Date.parse(iso); if(!isFinite(ms)) return "";
+  var g=new Intl.DateTimeFormat("it-IT",{timeZone:"Europe/Rome",weekday:"long",day:"numeric",month:"long",year:"numeric"}).format(new Date(ms)), o=bglDataOra(iso);
+  return g+", ore "+o.ora;
+}
+function bglQuandoBreve(iso){
+  var ms=Date.parse(iso); if(!isFinite(ms)) return "";
+  var o=bglDataOra(iso);
+  return new Intl.DateTimeFormat("it-IT",{timeZone:"Europe/Rome",weekday:"short",day:"numeric",month:"short"}).format(new Date(ms))+" · "+o.ora;
+}
+
+/* ----- lista per l'ingresso e CSV: dati = la risposta di bgl_prenotati ----- */
+function bglNomeCompleto(p){
+  var c=(p.cognome==null?"":String(p.cognome)).trim(), n=(p.nome==null?"":String(p.nome)).trim();
+  return (c||n) ? (c+(c&&n?" ":"")+n) : "(dati cancellati)";
+}
+/* per cercare: minuscolo e senza accenti («alvarez» trova «Àlvarez») */
+function bglSenzaAccenti(s){ return String(s==null?"":s).normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim(); }
+function bglCmp(a,b){ return String(a).localeCompare(String(b),"it",{sensitivity:"base"}); }
+/* «A», «B»… «Z», «AA»; «1»… «9», «10»: prima le più corte, poi l'alfabeto (quando la pianta non dice altro) */
+function bglCmpFila(a,b){ return (a.length-b.length) || bglCmp(a,b); }
+function bglPostoDiChiave(k){ var p=String(k).split("|"); return {settore:p[0], fila:p[1], posto:+p[2]}; }
+/* righe della lista.
+   ordine "cognome": una riga per prenotazione ATTIVA {cognome, nome, chi, posti:"A 5, A 6", codice, tipo:"prenotazione"}.
+   ordine "fila": una riga per posto occupato o tenuto da parte, nell'ordine in cui si siede chi guarda il palco
+   (la fila più vicina, poi le altre; la pianta è già girata col palco in alto, quindi è la y media della fila:
+   «AA» viene dopo «Z» perché sta dietro, non per l'alfabeto), poi il posto. I posti liberi non ci sono; le
+   prenotazioni disdette o annullate nemmeno. */
+function bglListaIngresso(dati, ordine){
+  dati=dati||{};
+  var pren=(dati.prenotazioni||[]).filter(function(p){ return p.stato==="attiva"; });
+  if(ordine==="fila"){
+    var righe=[], occ=Object.create(null);
+    pren.forEach(function(p){ (p.posti||[]).forEach(function(k){ occ[k]=1;
+      var q=bglPostoDiChiave(k); righe.push({k:k, settore:q.settore, fila:q.fila, posto:q.posto, chi:bglNomeCompleto(p), codice:p.codice||"", tipo:"prenotazione"}); }); });
+    ((dati.evento && dati.evento.riservati) || []).forEach(function(k){ if(occ[k]) return;
+      var q=bglPostoDiChiave(k); righe.push({k:k, settore:q.settore, fila:q.fila, posto:q.posto, chi:"Tenuto da parte", codice:"", tipo:"riservato"}); });
+    var y=Object.create(null), n=Object.create(null), pianta=dati.evento && dati.evento.pianta;
+    if(pianta && pianta.posti) pianta.posti.forEach(function(q){ var g=q.settore+"|"+q.fila; y[g]=(y[g]||0)+q.y; n[g]=(n[g]||0)+1; });
+    function ordFila(r){ var g=r.settore+"|"+r.fila; return n[g] ? y[g]/n[g] : null; }
+    righe.sort(function(a,b){
+      var c=bglCmp(a.settore,b.settore); if(c) return c;
+      var oa=ordFila(a), ob=ordFila(b);
+      if(oa!=null && ob!=null && oa!==ob) return oa-ob;
+      if(a.fila!==b.fila) return bglCmpFila(a.fila,b.fila);
+      return a.posto-b.posto;
+    });
+    return righe;
+  }
+  return pren.map(function(p){
+    return {cognome:(p.cognome==null?"":String(p.cognome)).trim(), nome:(p.nome==null?"":String(p.nome)).trim(), chi:bglNomeCompleto(p),
+            posti:bglPostiNomi((p.posti||[]).slice().sort(function(a,b){ var x=bglPostoDiChiave(a), z=bglPostoDiChiave(b); return bglCmp(x.settore,z.settore)||bglCmpFila(x.fila,z.fila)||(x.posto-z.posto); })),
+            codice:p.codice||"", tipo:"prenotazione"};
+  }).sort(function(a,b){ return bglCmp(a.cognome||a.nome, b.cognome||b.nome) || bglCmp(a.nome,b.nome) || bglCmp(a.codice,b.codice); });
+}
+/* «2026-10-07 18:02» (ora di Roma) per il CSV; vuoto se manca */
+function bglDataCsv(iso){ var o=iso?bglDataOra(iso):null; return o ? o.data+" "+o.ora : ""; }
+/* Elenco per chi gestisce l'ingresso, una riga per posto; vale per tutte le prenotazioni (anche disdette: lo dice Stato).
+   Passa da rowsToCsv(…, true): un nome che comincia con «=» non diventa una formula in Excel. */
+function bglCsv(dati){
+  var rows=[], stati={attiva:"Attiva", disdetta:"Disdetta", annullata:"Annullata dall'organizzatore"};
+  ((dati||{}).prenotazioni||[]).slice().sort(function(a,b){ return bglCmp((a.cognome||"")+" "+(a.nome||""), (b.cognome||"")+" "+(b.nome||"")) || bglCmp(a.codice||"",b.codice||""); }).forEach(function(p){
+    var posti=(p.stato==="attiva" ? p.posti : (p.posti_chiesti&&p.posti_chiesti.length ? p.posti_chiesti : p.posti))||[];
+    posti.forEach(function(k){ var q=bglPostoDiChiave(k);
+      rows.push([p.cognome||"", p.nome||"", p.email||"", q.settore, q.fila, String(q.posto), p.codice||"", stati[p.stato]||String(p.stato||""), bglDataCsv(p.creata_il)]); });
+  });
+  return rowsToCsv(["Cognome","Nome","Email","Settore","Fila","Posto","Codice","Stato","Prenotato il"], rows, ";", true);
+}
 /* Cosa disegnare oltre al numero nella sedia: la fila ai due capi di ogni fila e la legenda del settore
    dietro l'ultima fila. Calcolato una volta per stato (firma) e letto da itemMarkup sedia per sedia:
    ogni scritta viaggia con UNA sedia, così schermo, PNG e PDF la disegnano dallo stesso posto. */
@@ -10206,7 +10437,7 @@ function guideDialog(o){
   cancel.addEventListener("click", congedo);
   row.appendChild(cancel);
   if(o.action){
-    var go=document.createElement("button"); go.type="button"; go.className="btn primary"; go.textContent=o.action.label||"Aggiungi";
+    var go=document.createElement("button"); go.type="button"; go.className="btn "+(o.action.danger?"danger-solid":"primary"); go.textContent=o.action.label||"Aggiungi";
     go.addEventListener("click", function(){ close(); try{ o.action.run(); }catch(e){ showToast("Non è stato possibile completare l'operazione","err"); } });
     row.appendChild(go);
   }
@@ -14736,7 +14967,7 @@ var ABBR_PRO=[
   ["direct box","DI"],["stage box","SB"],["stagebox","SB"],
   ["leggio","Leg"],["praticabile","Prat"],["pedana","Ped"]
 ];
-function _deacc(s){ s=(s||"").toLowerCase(); return s.normalize?s.normalize("NFD").replace(/[̀-ͯ]/g,""):s; }
+function _deacc(s){ s=(s||"").toLowerCase(); return s.normalize?s.normalize("NFD").replace(/[\u0300-\u036f]/g,""):s; }
 function proAbbrName(name){ name=_deacc(name); for(var i=0;i<ABBR_PRO.length;i++){ if(name.indexOf(ABBR_PRO[i][0])>=0) return ABBR_PRO[i][1]; } return null; }
 /* fallback quando nessuna sigla di settore corrisponde: iniziali / troncamento, tenendo il numero finale */
 function autoAbbr(s){
@@ -15823,6 +16054,506 @@ document.getElementById("bGrpPostiVia").addEventListener("click", function(){
   render(); save(); renderProps(); showToast("Numeri tolti da "+n+(n===1?" sedia":" sedie")); });
 document.getElementById("bPostoNumera").addEventListener("click", function(){ apriNumeraPosti((state.items||[]).filter(postoTipo)); });
 document.getElementById("bPostoCsv").addEventListener("click", function(){ exportPostiCsv(); });
+/* ============ PRENOTAZIONI DEL PUBBLICO — chiamate, finestra, lista d'ingresso (biglietteria, 06/10/2026) ============
+   I pezzi puri (foto della pianta, chiavi, tenuti da parte, lista, CSV) stanno più su, accanto a «Numera i posti».
+   Qui: le sei chiamate dell'organizzatore con le firme del contratto, la finestra e il PDF. Il server decide chi può
+   fare cosa (il proprietario del progetto e basta): l'editor non si fida di sé stesso e mostra i suoi rifiuti. */
+var BGL_SITO="https://stageplot.it/biglietteria/";
+function bglLink(slug){ return BGL_SITO+"?e="+encodeURIComponent(slug); }
+/* Le chiamate passano da qui, e da qui sola, così si provano con un finto server: `bglApi.trasporto` sostituisce
+   il ponte verso il cloud con una funzione (nome, argomenti) → Promise<{data, error}>. Ogni risposta esce come
+   {ok:true,…} o {ok:false, errore:"codice", …}: mai un'eccezione, mai un `undefined`. */
+var bglApi={
+  trasporto:null,
+  chiama:function(fn, args){
+    var T=bglApi.trasporto || (window.__bglCloud && window.__bglCloud.rpc);
+    if(typeof T!=="function") return Promise.resolve({ok:false, errore:"non_autenticato"});
+    return new Promise(function(res){ res(T(fn, args||{})); }).then(function(r){
+      if(!r) return {ok:false, errore:"rete"};
+      if(r.error){ var c=r.error.code; return {ok:false, errore:(c==="non_autenticato"?c:"rete"), dettaglio:String(r.error.message||"")}; }
+      var d=r.data;
+      if(d && typeof d==="object" && !Array.isArray(d) && typeof d.ok==="boolean") return d;
+      return {ok:false, errore:"risposta_inattesa"};
+    }, function(e){ return {ok:false, errore:"rete", dettaglio:String(e&&e.message||e)}; });
+  },
+  apri:function(progetto, evento){ return bglApi.chiama("bgl_apri", {p_project_id:progetto, p_evento:evento}); },
+  eventiProgetto:function(progetto){ return bglApi.chiama("bgl_eventi_progetto", {p_project_id:progetto}); },
+  prenotati:function(evento){ return bglApi.chiama("bgl_prenotati", {p_evento_id:evento}); },
+  modifica:function(evento, campi){ return bglApi.chiama("bgl_modifica", {p_evento_id:evento, p_campi:campi}); },
+  annulla:function(prenotazione, posti){ var a={p_prenotazione_id:prenotazione}; if(posti && posti.length) a.p_posti=posti; return bglApi.chiama("bgl_annulla", a); },
+  elimina:function(evento){ return bglApi.chiama("bgl_elimina", {p_evento_id:evento}); }
+};
+/* l'errore del server come lo legge chi organizza (vocabolario della specifica, §5) */
+function bglMessaggio(r){
+  r=r||{};
+  switch(r.errore){
+    case "non_autenticato": return "Accedi per gestire le prenotazioni.";
+    case "non_tuo": return "Questo evento non è tuo, o non esiste più.";
+    case "pianta_non_valida": return "La pianta non si può pubblicare"+(r.motivo?": "+bglMotivo(r.motivo):"")+".";
+    case "posto_prenotato": return (r.posti&&r.posti.length ? bglPostiNomi(r.posti)+(r.posti.length>1?" sono già prenotati":" è già prenotato") : "Un posto è già prenotato")+": prima disdici la prenotazione.";
+    case "troppi_eventi": return "Hai già 50 eventi: eliminane qualcuno vecchio.";
+    case "rete": return "Non riesco a collegarmi: controlla la rete e riprova.";
+    default: return "Qualcosa non ha funzionato"+(r.errore?" ("+r.errore+")":"")+". Riprova fra un momento.";
+  }
+}
+function bglMotivo(m){
+  m=String(m||"");
+  if(/doppi/.test(m)) return "ci sono posti con lo stesso numero";
+  return m.replace(/_/g," ");
+}
+
+/* ----- la pianta disegnata (la stessa foto che vede il pubblico), per l'anteprima e per il pannello ----- */
+/* o.riservati = chiavi tenute da parte · o.occupati = {chiave: cognome} · o.scelta = i posti si toccano (anteprima del modulo) */
+function bglPiantaSvg(p, o){
+  o=o||{};
+  if(!p || !p.box || !p.posti) return "";
+  var ris=Object.create(null), occ=o.occupati||{};
+  (o.riservati||[]).forEach(function(k){ ris[k]=1; });
+  var W=p.box[2], H=p.box[3];
+  function pts(poly){ return poly.map(function(q){ return q[0]+","+q[1]; }).join(" "); }
+  /* di un palco da otto metri basta vederne l'orlo: si taglia il riquadro 4,5 m sopra la prima fila, così i posti restano leggibili */
+  var primaY=H; p.posti.forEach(function(q){ if(q.y-q.d<primaY) primaY=q.y-q.d; });
+  var y0=Math.max(0, Math.round(primaY-450));
+  var s='<svg class="bgl-pianta" viewBox="0 '+y0+' '+W+' '+(H-y0)+'" role="img" aria-label="Pianta dei posti, con il palco in alto" preserveAspectRatio="xMidYMid meet">';
+  (p.palco||[]).forEach(function(poly){ s+='<polygon class="bgl-palco" points="'+pts(poly)+'"/>'; });
+  (p.pedane||[]).forEach(function(poly){ s+='<polygon class="bgl-pedana" points="'+pts(poly)+'"/>'; });
+  if((p.palco||[]).length){
+    var xs=[], ys=[]; p.palco.forEach(function(poly){ poly.forEach(function(q){ xs.push(q[0]); ys.push(q[1]); }); });
+    var cx=(Math.min.apply(null,xs)+Math.max.apply(null,xs))/2, cy=(Math.max(Math.min.apply(null,ys),y0)+Math.max.apply(null,ys))/2;
+    s+='<text class="bgl-palco-t" x="'+Math.round(cx)+'" y="'+Math.round(cy)+'" font-size="'+Math.max(40,Math.round(W/22))+'">PALCO</text>';
+  }
+  var righe=Object.create(null), ordine=[];
+  p.posti.forEach(function(q){
+    var g=q.settore+"|"+q.fila; if(!righe[g]){ righe[g]=[]; ordine.push(g); } righe[g].push(q);
+    var st=(occ[q.k]!=null) ? "o" : (ris[q.k] ? "r" : "l");
+    var nome=bglPostoNome(q.k)+" — "+(st==="o" ? (occ[q.k]||"prenotato") : (st==="r" ? "tenuto da parte" : "libero"));
+    s+='<g class="bgl-posto bgl-'+st+'" data-k="'+esc(q.k)+'"'+(o.scelta ? ' data-az="posto" role="button" tabindex="0" aria-pressed="'+(st==="r")+'" aria-label="'+esc(nome)+'"' : '')+'>'+
+       '<title>'+esc(nome)+'</title>'+
+       '<rect x="'+(-q.w/2)+'" y="'+(-q.d/2)+'" width="'+q.w+'" height="'+q.d+'" rx="8" transform="translate('+q.x+' '+q.y+') rotate('+q.rot+')"/>'+
+       '<text x="'+q.x+'" y="'+q.y+'" font-size="'+Math.round(Math.min(q.w,q.d)*0.5)+'">'+esc(q.posto)+'</text></g>';
+  });
+  ordine.forEach(function(g){
+    var r=righe[g], mn=r[0], mx=r[0];
+    r.forEach(function(q){ if(q.x<mn.x) mn=q; if(q.x>mx.x) mx=q; });
+    var fs=Math.round(Math.min(mn.w,mn.d)*0.62);
+    s+='<text class="bgl-fila" x="'+Math.round(mn.x-mn.w*0.95)+'" y="'+mn.y+'" font-size="'+fs+'">'+esc(mn.fila)+'</text>'+
+       '<text class="bgl-fila" x="'+Math.round(mx.x+mx.w*0.95)+'" y="'+mx.y+'" font-size="'+fs+'">'+esc(mx.fila)+'</text>';
+  });
+  return s+'</svg>';
+}
+function bglLegenda(){
+  return '<div class="bgl-legenda"><span><i class="bgl-sw bgl-l"></i>Libero</span><span><i class="bgl-sw bgl-o"></i>Prenotato</span><span><i class="bgl-sw bgl-r"></i>Tenuto da parte</span></div>';
+}
+
+/* ----- la finestra ----- */
+var BGL={ov:null, vista:"", eventi:null, evId:null, dati:null, bozza:null, filtro:"", seq:0, occupato:false};
+function bglUtente(){ try{ return (window.__bglCloud && window.__bglCloud.utente && window.__bglCloud.utente()) || null; }catch(e){ return null; } }
+function bglProgetto(){ try{ return (window.__bglCloud && window.__bglCloud.progettoId && window.__bglCloud.progettoId()) || null; }catch(e){ return null; } }
+function bglEl(id){ return document.getElementById(id); }
+/* Il punto d'ingresso: dai bottoni delle due card dei posti. Tre cose possono mancare, e ognuna si dice con una
+   frase e un'azione, non con un bottone spento. */
+function bglApriPannello(){
+  if(!(state.items||[]).some(postoNumerato)){
+    guideDialog({title:"Prima numera i posti",
+      msg:"Le prenotazioni si fanno sui posti numerati: ogni persona sceglie fila e posto sulla pianta.",
+      steps:["Seleziona le sedie del pubblico","Usa «Numera i posti…»: la fila A è quella più vicina al palco"],
+      action:{label:"Numera i posti…", run:function(){ apriNumeraPosti(selItems().filter(postoTipo).length>=1 ? selItems() : (state.items||[]).filter(postoTipo)); }}});
+    return;
+  }
+  if(!bglUtente()){
+    guideDialog({title:"Accedi per aprire le prenotazioni",
+      msg:"Le prenotazioni stanno nel tuo account StagePlot: così solo tu vedi chi ha prenotato.",
+      action:{label:"Accedi", run:function(){ try{ if(window.__cloud && window.__cloud.signIn) window.__cloud.signIn(); else document.getElementById("bCloud").click(); }catch(e){} }}});
+    return;
+  }
+  if(!bglProgetto()){
+    guideDialog({title:"Salva il progetto online",
+      msg:"Le prenotazioni si collegano a un progetto salvato nel tuo account, così le ritrovi quando lo riapri.",
+      action:{label:"Salva online", run:function(){
+        try{ window.__cloud.save(function(id){ if(id) bglApriPannello(); else showToast("Il progetto non si è salvato: riprova","err"); }); }catch(e){ showToast("Il progetto non si è salvato: riprova","err"); } }}});
+    return;
+  }
+  bglApriFinestra();
+  bglCaricaEventi();
+}
+function bglApriFinestra(){
+  var old=bglEl("bglDlg"); if(old) old.remove();
+  var ov=document.createElement("div"); ov.id="bglDlg"; ov.className="guide-ov";
+  var card=document.createElement("div"); card.className="guide-card bgl-card";
+  card.setAttribute("role","dialog"); card.setAttribute("aria-modal","true"); card.setAttribute("aria-label","Prenotazioni del pubblico");
+  card.innerHTML='<div class="bgl-testa"><h3 class="guide-title" id="bglTit">Prenotazioni del pubblico</h3><button type="button" class="btn" data-az="chiudi">Chiudi</button></div><div class="bgl-corpo" id="bglCorpo" aria-live="polite"></div>';
+  ov.appendChild(card); document.body.appendChild(ov);
+  BGL.ov=ov; BGL.vista=""; BGL.eventi=null; BGL.evId=null; BGL.dati=null; BGL.bozza=null; BGL.filtro=""; BGL.occupato=false; BGL.seq++;
+  function chiudi(){ document.removeEventListener("keydown", onKey, true); ov.remove(); if(BGL.ov===ov) BGL.ov=null; BGL.seq++; }
+  function onKey(e){ if(e.key==="Escape" && !bglEl("guideDlg")){ e.stopPropagation(); chiudi(); } }
+  BGL.chiudi=chiudi;
+  document.addEventListener("keydown", onKey, true);
+  card.tabIndex=-1; try{ card.focus(); }catch(e){}
+  ov.addEventListener("click", function(e){ if(e.target===ov && BGL.vista!=="form") chiudi(); });
+  card.addEventListener("click", bglClick);
+  card.addEventListener("keydown", function(e){ if((e.key==="Enter"||e.key===" ") && e.target.getAttribute && e.target.getAttribute("data-az")==="posto"){ e.preventDefault(); bglClick(e); } });
+  card.addEventListener("input", function(e){ if(e.target.id==="bglFiltro"){ BGL.filtro=e.target.value; bglDisegnaElenco(); } });
+  card.addEventListener("change", function(e){ if(e.target.id==="bglRis") bglRiservatiDaCampo(); });
+}
+function bglCorpo(titolo, html){
+  var t=bglEl("bglTit"), c=bglEl("bglCorpo"); if(!c) return null;
+  if(titolo!=null && t) t.textContent=titolo;
+  c.innerHTML=html; return c;
+}
+function bglSeqNuovo(){ return ++BGL.seq; }
+/* ---- elenco degli eventi del progetto ---- */
+function bglCaricaEventi(){
+  var mio=bglSeqNuovo(); BGL.vista="carico";
+  bglCorpo("Prenotazioni del pubblico",'<p class="bgl-msg">Carico gli eventi…</p>');
+  bglApi.eventiProgetto(bglProgetto()).then(function(r){
+    if(mio!==BGL.seq || !BGL.ov) return;
+    if(!r.ok){ bglErroreVista(r, bglCaricaEventi); return; }
+    BGL.eventi=r.eventi||[];
+    if(!BGL.eventi.length) bglVistaForm(null); else bglVistaElenco();
+  });
+}
+function bglErroreVista(r, riprova){
+  BGL.vista="errore";
+  bglCorpo("Prenotazioni del pubblico",'<p class="bgl-msg bgl-err" role="alert">'+esc(bglMessaggio(r))+'</p><div class="guide-actions"><button type="button" class="btn" data-az="chiudi">Chiudi</button><button type="button" class="btn primary" data-az="riprova">Riprova</button></div>');
+  BGL.riprova=riprova;
+}
+function bglStatoEtichetta(ev){
+  var sp=ev.stato_pubblico||ev.stato;
+  if(sp==="conclusa") return {t:"Evento concluso", c:"fine"};
+  if(ev.stato==="chiusa") return {t:"Prenotazioni chiuse da te", c:"chiusa"};
+  if(sp==="chiusa") return {t:"Prenotazioni chiuse: la scadenza è passata", c:"chiusa"};
+  return {t:"Prenotazioni aperte", c:"aperta"};
+}
+function bglVistaElenco(){
+  BGL.vista="elenco";
+  var h='<p class="bgl-msg">Gli eventi di questo progetto con le prenotazioni del pubblico.</p><ul class="bgl-lista">';
+  BGL.eventi.forEach(function(ev){
+    var st=bglStatoEtichetta(ev);
+    h+='<li class="bgl-ev"><div class="bgl-ev-t"><strong>'+esc(ev.titolo)+'</strong><span class="bgl-badge bgl-b-'+st.c+'">'+esc(st.t)+'</span></div>'+
+       '<div class="bgl-ev-s">'+esc(bglQuandoBreve(ev.inizio))+' · '+esc(ev.luogo)+'</div>'+
+       '<div class="bgl-ev-s">'+esc(ev.prenotati)+' prenotati · '+esc(ev.liberi)+' liberi'+(ev.riservati?' · '+esc(ev.riservati)+' tenuti da parte':'')+'</div>'+
+       '<button type="button" class="btn primary" data-az="gestisci" data-id="'+esc(ev.id)+'">Gestisci</button></li>';
+  });
+  h+='</ul><div class="guide-actions"><button type="button" class="btn" data-az="nuovo">Nuovo evento…</button><button type="button" class="btn" data-az="chiudi">Chiudi</button></div>';
+  bglCorpo("Prenotazioni del pubblico", h);
+}
+/* ---- il modulo: apri le prenotazioni (ev = null) o modifica un evento ---- */
+function bglVistaForm(dati){
+  var modifica=!!dati, ev=modifica ? dati.evento : null, pianta, riservati, occupati={};
+  if(modifica){
+    pianta=ev.pianta; riservati=(ev.riservati||[]).slice();
+    (dati.prenotazioni||[]).forEach(function(p){ if(p.stato==="attiva") (p.posti||[]).forEach(function(k){ occupati[k]=bglNomeCompleto(p); }); });
+  } else {
+    pianta=bglPianta();
+    if(!pianta){ bglCorpo("Apri le prenotazioni",'<p class="bgl-msg bgl-err">Non ci sono posti numerati.</p><div class="guide-actions"><button type="button" class="btn" data-az="chiudi">Chiudi</button></div>'); return; }
+    riservati=[];
+  }
+  var tutte=(pianta.posti||[]).map(function(q){ return q.k; });
+  BGL.vista="form";
+  BGL.bozza={modo:modifica?"modifica":"nuovo", id:modifica?BGL.evId:null, pianta:pianta, riservati:riservati, occupati:occupati, tutte:tutte};
+  var d0, c0;
+  if(modifica){ d0=bglDataOra(ev.inizio)||{data:"",ora:""}; c0=bglDataOra(ev.chiusura)||d0; }
+  else { var ora=/^\d{1,2}:\d{2}$/.test(state.evTime||"") ? bglDueCifre(+state.evTime.split(":")[0])+":"+state.evTime.split(":")[1] : "21:00";
+         d0={data:state.evDate||"", ora:ora}; c0=d0; }
+  var senza=modifica ? 0 : bglSenzaNumero();
+  var h='<form id="bglForm" novalidate>'+
+    (modifica ? '' : '<p class="bgl-msg">Il pubblico prenota da una pagina sua (con un link che mandi tu): sceglie fila e posto, e riceve una mail di conferma. L\'ingresso è gratuito.</p>')+
+    '<label for="bglTitolo">Titolo dell\'evento</label><input type="text" id="bglTitolo" maxlength="120" autocomplete="off">'+
+    '<label for="bglLuogo">Luogo</label><input type="text" id="bglLuogo" maxlength="160" autocomplete="off">'+
+    '<div class="bgl-riga"><div><label for="bglData">Data</label><input type="date" id="bglData"></div><div><label for="bglOra">Ora d\'inizio</label><input type="time" id="bglOra"></div></div>'+
+    '<div class="bgl-riga"><div><label for="bglChData">Prenotazioni aperte fino al</label><input type="date" id="bglChData"></div><div><label for="bglChOra">alle</label><input type="time" id="bglChOra"></div></div>'+
+    '<label for="bglNote">Una nota per il pubblico (facoltativa)</label><textarea id="bglNote" rows="2" maxlength="500" placeholder="Per esempio: porte aperte alle 20:30"></textarea>'+
+    '<label for="bglRis">Posti tenuti da parte (ospiti, staff)</label>'+
+    '<textarea id="bglRis" rows="2" placeholder="Per esempio: A1-4, B5, tutta la fila H" spellcheck="false" autocomplete="off"></textarea>'+
+    '<div class="bgl-ris-az"><button type="button" class="btn" data-az="prendisel">Prendi le sedie selezionate</button><button type="button" class="btn" data-az="svuotaris">Togli tutti</button></div>'+
+    '<p class="bgl-nota">Tocca i posti sulla pianta per tenerli da parte o liberarli: il pubblico li vede come non prenotabili.</p>'+
+    '<div class="bgl-prev" id="bglPrev"></div>'+
+    '<p class="bgl-riepilogo" id="bglRiep" aria-live="polite"></p>'+
+    (senza ? '<p class="bgl-msg bgl-avviso">'+esc(senza)+(senza===1?' sedia del pubblico non ha':' sedie del pubblico non hanno')+' il numero: '+(senza===1?'resta fuori':'restano fuori')+' dalle prenotazioni. Rinumera i posti per includerl'+(senza===1?'a':'e')+'.</p>' : '')+
+    '<p class="bgl-msg bgl-err" id="bglErr" role="alert" hidden></p>'+
+    '<div class="guide-actions"><button type="button" class="btn" data-az="annullaform">Annulla</button><button type="submit" class="btn primary" id="bglInvia">'+(modifica?'Salva le modifiche':'Apri le prenotazioni')+'</button></div></form>';
+  bglCorpo(modifica ? "Modifica l'evento" : "Apri le prenotazioni", h);
+  bglEl("bglTitolo").value=modifica ? ev.titolo : (state.titolo||"");
+  bglEl("bglLuogo").value=modifica ? ev.luogo : (state.luogo||"");
+  bglEl("bglData").value=d0.data; bglEl("bglOra").value=d0.ora;
+  bglEl("bglChData").value=c0.data; bglEl("bglChOra").value=c0.ora;
+  bglEl("bglNote").value=modifica ? (ev.note||"") : "";
+  bglEl("bglForm").addEventListener("submit", function(e){ e.preventDefault(); bglInviaForm(); });
+  bglDisegnaForm();
+}
+/* ridisegna la parte del modulo che dipende dai posti tenuti da parte: testo, pianta, riepilogo */
+function bglDisegnaForm(){
+  var B=BGL.bozza; if(!B) return;
+  var campo=bglEl("bglRis"); if(campo) campo.value=bglRiservatiATesto(B.riservati, B.tutte);
+  var prev=bglEl("bglPrev"); if(prev) prev.innerHTML=bglPiantaSvg(B.pianta,{riservati:B.riservati, occupati:B.occupati, scelta:true})+bglLegenda();
+  var tot=B.tutte.length, rr=B.riservati.length, pr=Object.keys(B.occupati).length;
+  var riep=bglEl("bglRiep");
+  if(riep) riep.textContent=tot+" posti"+(rr?" · "+rr+" tenut"+(rr===1?"o":"i")+" da parte":"")+(pr?" · "+pr+" già prenotat"+(pr===1?"o":"i"):"")+" · "+(tot-rr-pr)+" prenotabil"+((tot-rr-pr)===1?"e":"i")+".";
+}
+function bglRiservatiDaCampo(){
+  var B=BGL.bozza, c=bglEl("bglRis"); if(!B||!c) return null;
+  var R=bglRiservatiDaTesto(c.value, B.tutte), err=bglEl("bglErr");
+  var presi=R.chiavi.filter(function(k){ return B.occupati[k]!=null; });
+  var msg="";
+  if(R.sconosciuti.length) msg="Non trovo questi posti: "+R.sconosciuti.join(", ")+". Correggi o toglili.";
+  else if(presi.length) msg=bglPostiNomi(presi)+(presi.length>1?" sono già prenotati":" è già prenotato")+": prima disdici la prenotazione.";
+  if(!msg){ B.riservati=R.chiavi; bglDisegnaForm(); }
+  if(err){ err.hidden=!msg; err.textContent=msg; }
+  return msg ? null : R;
+}
+function bglPostoToccato(k){
+  var B=BGL.bozza; if(!B) return;
+  if(B.occupati[k]!=null){ showToast("Quel posto è già prenotato: prima disdici la prenotazione","err"); return; }
+  var i=B.riservati.indexOf(k);
+  if(i<0) B.riservati.push(k); else B.riservati.splice(i,1);
+  var err=bglEl("bglErr"); if(err) err.hidden=true;
+  bglDisegnaForm();
+}
+function bglInviaForm(){
+  var B=BGL.bozza; if(!B || BGL.occupato) return;
+  var R=bglRiservatiDaCampo(); if(!R) return;
+  var err=bglEl("bglErr");
+  function no(m){ err.textContent=m; err.hidden=false; err.scrollIntoView && err.scrollIntoView({block:"nearest"}); }
+  var titolo=bglEl("bglTitolo").value.trim(), luogo=bglEl("bglLuogo").value.trim(), note=bglEl("bglNote").value.trim();
+  if(!titolo) return no("Scrivi il titolo dell'evento.");
+  if(!luogo) return no("Scrivi dove si svolge.");
+  var inizio=bglInizioIso(bglEl("bglData").value, bglEl("bglOra").value);
+  if(!inizio) return no("Scegli la data e l'ora d'inizio.");
+  var chiusura=bglInizioIso(bglEl("bglChData").value, bglEl("bglChOra").value);
+  if(!chiusura) return no("Scegli fino a quando si può prenotare.");
+  if(Date.parse(chiusura)>Date.parse(inizio)) return no("Le prenotazioni non possono chiudere dopo l'inizio dell'evento.");
+  if(B.modo==="nuovo" && Date.parse(inizio)<Date.now()) return no("La data è già passata.");
+  var problemi=bglProblemiPianta(B.pianta); if(problemi.length) return no(problemi[0]);
+  var campi={titolo:titolo, inizio:inizio, chiusura:chiusura, luogo:luogo, note:note||null, riservati:R.chiavi};
+  var btn=bglEl("bglInvia"); BGL.occupato=true; if(btn){ btn.disabled=true; btn.textContent="Un momento…"; }
+  var mio=BGL.seq;
+  var p=(B.modo==="nuovo")
+    ? bglApi.apri(bglProgetto(), {titolo:titolo, inizio:inizio, chiusura:chiusura, luogo:luogo, note:note||null, riservati:R.chiavi, pianta:B.pianta})
+    : bglApi.modifica(B.id, campi);
+  p.then(function(r){
+    BGL.occupato=false;
+    if(mio!==BGL.seq || !BGL.ov) return;
+    if(!r.ok){ if(btn){ btn.disabled=false; btn.textContent=B.modo==="nuovo"?"Apri le prenotazioni":"Salva le modifiche"; } no(bglMessaggio(r)); return; }
+    showToast(B.modo==="nuovo" ? "Prenotazioni aperte" : "Modifiche salvate");
+    bglCaricaEvento(B.modo==="nuovo" ? r.id : B.id);
+  });
+}
+/* ---- il pannello di un evento ---- */
+function bglCaricaEvento(id, quieto){
+  var mio=bglSeqNuovo(); BGL.evId=id;
+  if(!quieto){ BGL.vista="carico"; bglCorpo("Prenotazioni del pubblico",'<p class="bgl-msg">Carico le prenotazioni…</p>'); }
+  return bglApi.prenotati(id).then(function(r){
+    if(mio!==BGL.seq || !BGL.ov) return null;
+    if(!r.ok){ bglErroreVista(r, function(){ bglCaricaEvento(id); }); return null; }
+    BGL.dati=r; bglVistaEvento(); return r;
+  });
+}
+function bglVistaEvento(){
+  var D=BGL.dati, ev=D.evento||{}, c=D.conteggi||{}, st=bglStatoEtichetta(ev);
+  BGL.vista="evento";
+  var ris=Array.isArray(ev.riservati) ? ev.riservati : [], occupati={};
+  (D.prenotazioni||[]).forEach(function(p){ if(p.stato==="attiva") (p.posti||[]).forEach(function(k){ occupati[k]=bglNomeCompleto(p); }); });
+  var link=bglLink(ev.slug||"");
+  var h='<div class="bgl-nav"><button type="button" class="btn" data-az="tuttieventi">← Tutti gli eventi</button></div>'+
+    '<h4 class="bgl-evt">'+esc(ev.titolo)+'</h4>'+
+    '<p class="bgl-ev-s">'+esc(bglQuando(ev.inizio))+' · '+esc(ev.luogo)+'</p>'+
+    '<div class="bgl-cont" role="group" aria-label="Posti">'+
+      '<div><b>'+esc(c.prenotati||0)+'</b><span>prenotati</span></div><div><b>'+esc(c.liberi||0)+'</b><span>liberi</span></div>'+
+      '<div><b>'+esc(c.riservati||0)+'</b><span>tenuti da parte</span></div><div><b>'+esc(c.totali||0)+'</b><span>posti in tutto</span></div></div>'+
+    '<div class="bgl-stato"><span class="bgl-badge bgl-b-'+st.c+'">'+esc(st.t)+'</span>'+
+      (ev.stato==="aperta" ? '<span class="bgl-ev-s">fino al '+esc(bglQuandoBreve(ev.chiusura))+'</span>' : '')+
+      '<button type="button" class="btn" data-az="'+(ev.stato==="aperta"?"chiudiev":"riapriev")+'">'+(ev.stato==="aperta"?"Chiudi le prenotazioni":"Riapri le prenotazioni")+'</button></div>'+
+    '<label for="bglLink">Link da mandare al pubblico</label>'+
+    '<div class="bgl-link"><input type="text" id="bglLink" readonly value="'+esc(link)+'"><button type="button" class="btn" data-az="copia">Copia</button><a class="btn" href="'+esc(link)+'" target="_blank" rel="noopener">Apri</a></div>'+
+    '<div class="bgl-az">'+
+      '<button type="button" class="btn primary" data-az="pdf">Lista per l\'ingresso (PDF)</button>'+
+      '<select id="bglOrdine" aria-label="Come ordinare la lista"><option value="entrambe">per cognome e per fila</option><option value="cognome">solo per cognome</option><option value="fila">solo per fila</option></select>'+
+      '<button type="button" class="btn" data-az="csv">Elenco (CSV)</button>'+
+      '<button type="button" class="btn" data-az="aggiorna">Aggiorna</button></div>'+
+    '<div class="bgl-prev">'+bglPiantaSvg(ev.pianta,{riservati:ris, occupati:occupati})+bglLegenda()+'</div>'+
+    '<h4 class="bgl-sez">Prenotazioni <span class="bgl-ev-s">('+esc(c.prenotazioni_attive!=null?c.prenotazioni_attive:0)+' attive)</span></h4>'+
+    '<input type="search" id="bglFiltro" placeholder="Cerca per nome, email, codice o posto" aria-label="Cerca fra le prenotazioni" value="'+esc(BGL.filtro)+'">'+
+    '<div id="bglElenco"></div>'+
+    '<p class="bgl-msg bgl-err" id="bglErr" role="alert" hidden></p>'+
+    '<div class="bgl-az bgl-az-fine"><button type="button" class="btn" data-az="modifica">Modifica i dati e i posti tenuti da parte</button>'+
+      '<button type="button" class="btn" data-az="aggiornapianta">Aggiorna la pianta</button>'+
+      '<button type="button" class="btn danger" data-az="elimina">Elimina l\'evento</button></div>'+
+    '<div class="guide-actions"><button type="button" class="btn" data-az="chiudi">Chiudi</button></div>';
+  bglCorpo("Prenotazioni del pubblico", h);
+  bglDisegnaElenco();
+}
+function bglDisegnaElenco(){
+  var box=bglEl("bglElenco"), D=BGL.dati; if(!box||!D) return;
+  var q=bglSenzaAccenti(BGL.filtro);
+  var elenco=(D.prenotazioni||[]).slice().sort(function(a,b){
+    var sa=a.stato==="attiva"?0:1, sb=b.stato==="attiva"?0:1; if(sa!==sb) return sa-sb;
+    return bglCmp((a.cognome||"")+" "+(a.nome||""), (b.cognome||"")+" "+(b.nome||""));
+  }).filter(function(p){
+    if(!q) return true;
+    return bglSenzaAccenti([p.nome,p.cognome,p.email,p.codice,bglPostiNomi(p.posti)].join(" ")).indexOf(q)>=0;
+  });
+  if(!elenco.length){ box.innerHTML='<p class="bgl-msg">'+((D.prenotazioni||[]).length ? "Nessuna prenotazione corrisponde." : "Ancora nessuna prenotazione.")+'</p>'; return; }
+  var etic={attiva:"", disdetta:"Disdetta dall'utente", annullata:"Disdetta da te"};
+  box.innerHTML='<ul class="bgl-pren">'+elenco.map(function(p){
+    var attiva=p.stato==="attiva", posti=attiva ? p.posti : (p.posti_chiesti&&p.posti_chiesti.length ? p.posti_chiesti : p.posti);
+    return '<li class="'+(attiva?'':'bgl-spenta')+'"><div class="bgl-p-chi"><strong>'+esc(bglNomeCompleto(p))+'</strong>'+(etic[p.stato]?'<span class="bgl-badge bgl-b-chiusa">'+esc(etic[p.stato])+'</span>':'')+'</div>'+
+      '<div class="bgl-ev-s">'+esc(bglPostiNomi(posti))+' · codice <b class="bgl-cod">'+esc(p.codice||"")+'</b></div>'+
+      (p.email ? '<div class="bgl-ev-s">'+esc(p.email)+'</div>' : '')+
+      (attiva ? '<button type="button" class="btn" data-az="disdici" data-id="'+esc(p.id)+'">Disdici per conto suo</button>' : '')+'</li>';
+  }).join("")+'</ul>';
+}
+function bglErroreEv(m){ var e=bglEl("bglErr"); if(e){ e.textContent=m; e.hidden=false; } else showToast(m,"err"); }
+function bglCopia(testo){
+  function riserva(){ var c=bglEl("bglLink"); if(!c) return false; c.select(); try{ return document.execCommand("copy"); }catch(e){ return false; } }
+  function fatto(ok){ showToast(ok ? "Link copiato" : "Non riesco a copiare: selezionalo e copialo a mano", !ok); }
+  if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(testo).then(function(){ fatto(true); }, function(){ fatto(riserva()); });
+  else fatto(riserva());
+}
+function bglSlug(s){ return String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"evento"; }
+/* i dati più freschi possibili prima di stampare: la lista all'ingresso non deve avere un'ora di ritardo */
+function bglDatiFreschi(){
+  var id=BGL.evId; if(!id) return Promise.resolve(null);
+  return bglApi.prenotati(id).then(function(r){
+    if(!r.ok){ bglErroreEv(bglMessaggio(r)); return null; }
+    if(BGL.ov && BGL.evId===id){ BGL.dati=r; bglVistaEvento(); }
+    return r;
+  });
+}
+function bglClick(e){
+  var el=e.target.closest ? e.target.closest("[data-az]") : null; if(!el) return;
+  var az=el.getAttribute("data-az"), id=el.getAttribute("data-id");
+  var D=BGL.dati, ev=D&&D.evento;
+  switch(az){
+    case "chiudi": if(BGL.chiudi) BGL.chiudi(); break;
+    case "riprova": if(BGL.riprova) BGL.riprova(); break;
+    case "nuovo": bglVistaForm(null); break;
+    case "annullaform": if(BGL.bozza && BGL.bozza.modo==="modifica") bglVistaEvento(); else if(BGL.eventi && BGL.eventi.length) bglVistaElenco(); else if(BGL.chiudi) BGL.chiudi(); break;
+    case "tuttieventi": bglCaricaEventi(); break;
+    case "gestisci": bglCaricaEvento(id); break;
+    case "posto": bglPostoToccato(el.getAttribute("data-k") || (el.closest("[data-k]")&&el.closest("[data-k]").getAttribute("data-k"))); break;
+    case "prendisel": {
+      var B=BGL.bozza; if(!B) break;
+      var ch=Object.create(null); B.tutte.forEach(function(k){ ch[k]=1; });
+      var presi=selItems().filter(postoNumerato).map(bglChiave).filter(function(k){ return ch[k]; });
+      if(!presi.length){ showToast("Prima seleziona qualche sedia numerata sulla pianta dell'editor","err"); break; }
+      presi.forEach(function(k){ if(B.occupati[k]==null && B.riservati.indexOf(k)<0) B.riservati.push(k); });
+      bglDisegnaForm(); break; }
+    case "svuotaris": if(BGL.bozza){ BGL.bozza.riservati=[]; bglDisegnaForm(); } break;
+    case "copia": bglCopia(bglEl("bglLink").value); break;
+    case "aggiorna": bglCaricaEvento(BGL.evId, true).then(function(r){ if(r) showToast("Aggiornato"); }); break;
+    case "chiudiev": case "riapriev":
+      bglApi.modifica(BGL.evId, {stato: az==="chiudiev" ? "chiusa" : "aperta"}).then(function(r){
+        if(!r.ok){ bglErroreEv(bglMessaggio(r)); return; }
+        showToast(az==="chiudiev" ? "Prenotazioni chiuse" : "Prenotazioni riaperte"); bglCaricaEvento(BGL.evId, true); });
+      break;
+    case "modifica": bglVistaForm(D); break;
+    case "pdf": { var ord=(bglEl("bglOrdine")||{}).value||"entrambe";
+      bglDatiFreschi().then(function(r){ if(r) bglListaPdf(r, ord); }); break; }
+    case "csv": bglDatiFreschi().then(function(r){ if(r) downloadCsv(bglCsv(r), bglSlug(r.evento.titolo)+"-prenotazioni.csv"); }); break;
+    case "disdici": {
+      var p=(D.prenotazioni||[]).filter(function(x){ return x.id===id; })[0]; if(!p) break;
+      guideDialog({title:"Disdire la prenotazione?",
+        msg:bglNomeCompleto(p)+" — "+bglPostiNomi(p.posti)+" (codice "+p.codice+").\nI posti tornano liberi per altri. A "+(p.nome?"lui o lei":"questa persona")+" non arriva nessun avviso: se serve, avvisala tu.",
+        action:{label:"Disdici", run:function(){
+          bglApi.annulla(id).then(function(r){
+            if(!r.ok){ bglErroreEv(bglMessaggio(r)); return; }
+            showToast("Prenotazione disdetta: "+(r.liberati||0)+(r.liberati===1?" posto libero":" posti liberi")); bglCaricaEvento(BGL.evId, true); }); }}});
+      break; }
+    case "aggiornapianta": {
+      var nuova=bglPianta(); var pr=bglProblemiPianta(nuova);
+      if(pr.length){ bglErroreEv(pr[0]); break; }
+      guideDialog({title:"Aggiorno la pianta?",
+        msg:"Pubblico la pianta com'è adesso nell'editor ("+nuova.posti.length+" posti, adesso sono "+(((ev&&ev.pianta&&ev.pianta.posti)||[]).length)+"). I posti già prenotati restano prenotati; se ne hai tolto uno già prenotato, prima devi disdire la prenotazione.",
+        action:{label:"Aggiorna la pianta", run:function(){
+          bglApi.modifica(BGL.evId, {pianta:nuova}).then(function(r){
+            if(!r.ok){ bglErroreEv(bglMessaggio(r)); return; }
+            showToast("Pianta aggiornata"); bglCaricaEvento(BGL.evId, true); }); }}});
+      break; }
+    case "elimina": {
+      var n=(D.prenotazioni||[]).length;
+      guideDialog({title:"Eliminare l'evento?",
+        msg:"«"+ev.titolo+"»: si cancellano l'evento e le sue "+n+(n===1?" prenotazione":" prenotazioni")+", con nomi ed email. Il link smette di funzionare. Non si può annullare.",
+        action:{label:"Elimina", danger:true, run:function(){
+          bglApi.elimina(BGL.evId).then(function(r){
+            if(!r.ok){ bglErroreEv(bglMessaggio(r)); return; }
+            showToast("Evento eliminato"); BGL.evId=null; bglCaricaEventi(); }); }}});
+      break; }
+  }
+}
+
+/* ----- lista per l'ingresso (PDF) ----- */
+/* jsPDF scrive in Windows-1252: una lettera fuori da lì (ł, ő…) perde l'accento o diventa «?» invece di uscire storpiata */
+function bglPdfTesto(s){
+  return String(s==null?"":s).replace(/[\u0000-\u001f]/g," ").replace(/[^\u0000-ÿ–—‘’“”…€]/g,function(c){
+    var b=c.normalize("NFD").replace(/[\u0300-\u036f]/g,""); return /^[ -~]+$/.test(b) ? b : "?"; });
+}
+function bglListaPdf(dati, ordine){
+  var ev=dati.evento||{}, c=dati.conteggi||{};
+  var perC=(ordine==="fila") ? [] : bglListaIngresso(dati,"cognome"), perF=(ordine==="cognome") ? [] : bglListaIngresso(dati,"fila");
+  var run=function(doc){
+    var M=14, y=0, pag="";
+    function tronca(t, mm){ t=bglPdfTesto(t); if(doc.getTextWidth(t)<=mm) return t; while(t.length>1 && doc.getTextWidth(t+"...")>mm) t=t.slice(0,-1); return t+"..."; }
+    function banda(){
+      doc.setFillColor("#0d9488"); doc.rect(0,0,210,14,"F");
+      doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Lista per l'ingresso", M, 9);
+      doc.setFont("helvetica","normal"); doc.setFontSize(9);
+      doc.text("aggiornata il "+new Date().toLocaleDateString("it-IT")+" "+new Date().toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"}), 196, 9, {align:"right"});
+    }
+    function intestazione(){
+      y=22; doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(14);
+      doc.splitTextToSize(bglPdfTesto(ev.titolo||""), 182).forEach(function(r){ doc.text(r, M, y); y+=6.2; });
+      doc.setFont("helvetica","normal"); doc.setFontSize(10); doc.setTextColor("#374151");
+      doc.text(bglPdfTesto(bglQuando(ev.inizio)+" — "+(ev.luogo||"")), M, y); y+=5.4;
+      doc.setFontSize(9.5); doc.setTextColor("#555555");
+      doc.text((c.prenotati||0)+" posti prenotati ("+(c.prenotazioni_attive||0)+" prenotazioni) · "+(c.riservati||0)+" tenuti da parte · "+(c.liberi||0)+" liberi · "+(c.totali||0)+" posti in tutto", M, y); y+=8;
+    }
+    function colonne(tipo){
+      doc.setFont("helvetica","bold"); doc.setFontSize(8.5); doc.setTextColor("#0d9488");
+      if(tipo==="cognome"){ doc.text("COGNOME E NOME", M+7, y); doc.text("POSTI", M+100, y); doc.text("CODICE", M+160, y); }
+      else { doc.text("FILA", M+7, y); doc.text("POSTO", M+22, y); doc.text("NOME", M+38, y); doc.text("CODICE", M+160, y); }
+      doc.setDrawColor("#0d9488"); doc.setLineWidth(0.4); doc.line(M, y+1.6, 196, y+1.6); y+=6.4;
+    }
+    function nuovaPagina(tipo){ doc.addPage("a4","portrait"); y=16; doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor("#6b7280");
+      doc.text(bglPdfTesto(ev.titolo||"")+" — "+pag, M, y); y+=7; colonne(tipo); }
+    function riga(tipo, r, grassetto){
+      if(y>280) nuovaPagina(tipo);
+      doc.setDrawColor("#374151"); doc.setLineWidth(0.25); doc.rect(M, y-3.3, 3.8, 3.8);
+      doc.setFont("helvetica", grassetto?"bold":"normal"); doc.setFontSize(10); doc.setTextColor(r.tipo==="riservato" ? "#6b7280" : "#111827");
+      if(tipo==="cognome"){ doc.text(tronca(r.chi, 88), M+7, y); doc.text(tronca(r.posti, 56), M+100, y); doc.text(bglPdfTesto(r.codice), M+160, y); }
+      else { doc.text(bglPdfTesto(String(r.fila)), M+7, y); doc.text(String(r.posto), M+22, y); doc.text(tronca(r.chi, 118), M+38, y); doc.text(bglPdfTesto(r.codice), M+160, y); }
+      doc.setDrawColor("#e5e7eb"); doc.line(M+7, y+1.6, 196, y+1.6); y+=6.6;
+    }
+    banda(); intestazione();
+    if(ordine!=="fila"){
+      pag="per cognome"; doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor("#111827"); doc.text("Per cognome", M, y); y+=6; colonne("cognome");
+      if(!perC.length){ doc.setFont("helvetica","italic"); doc.setFontSize(10); doc.setTextColor("#6b7280"); doc.text("Nessuna prenotazione.", M, y); y+=7; }
+      perC.forEach(function(r){ riga("cognome", r, false); });
+      doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555"); y+=2;
+      if(y>284){ nuovaPagina("cognome"); }
+      doc.text(perC.length+(perC.length===1?" prenotazione":" prenotazioni"), M, y); y+=7;
+    }
+    if(ordine!=="cognome"){
+      if(ordine!=="fila"){ doc.addPage("a4","portrait"); y=16; }
+      pag="per fila"; doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor("#111827"); doc.text("Per fila (dal palco)", M, y); y+=6; colonne("fila");
+      if(!perF.length){ doc.setFont("helvetica","italic"); doc.setFontSize(10); doc.setTextColor("#6b7280"); doc.text("Nessun posto prenotato o tenuto da parte.", M, y); y+=7; }
+      var ultima=null;
+      perF.forEach(function(r){
+        var g=r.settore+"|"+r.fila;
+        if(g!==ultima){ ultima=g; if(y>270) nuovaPagina("fila"); y+=1.4; doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor("#0d9488");
+          doc.text(bglPdfTesto("FILA "+r.fila+(r.settore!=="Platea" ? " — "+r.settore : "")), M+7, y); y+=5; }
+        riga("fila", r, false);
+      });
+    }
+    pdfCredit(doc);
+    pdfSave(doc, bglSlug(ev.titolo)+"-lista-ingresso.pdf");
+  };
+  loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
+}
+(function(){
+  var a=document.getElementById("bGrpPostiPren"), b=document.getElementById("bPostoPren");
+  if(a) a.addEventListener("click", bglApriPannello);
+  if(b) b.addEventListener("click", bglApriPannello);
+})();
 document.getElementById("bGrpZone").addEventListener("click", function(){
   var its=selItems().filter(function(x){ return x.type!=="miczone"; }); if(!its.length) return;
   var z, shape=miczoneShapeFromItems(its, 25);
@@ -27358,7 +28089,7 @@ function pdfSave(doc, name){ doc.save(name); toastDownloaded(name); }
    Excel/console invece di ri-digitare il PDF a mano. Separatore scelto + BOM UTF-8 (accenti). ===== */
 function csvCell(v, sep){ v=(v==null?"":String(v)); return (v.indexOf(sep)>-1 || /["\n\r]/.test(v)) ? '"'+v.replace(/"/g,'""')+'"' : v; }
 /* nome canale per Allen & Heath: accenti rimossi, solo alfanumerici+spazio, max 8 caratteri (vincolo console) */
-function ahName(s){ return String(s==null?"":s).normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^A-Za-z0-9 ]/g,"").trim().slice(0,8); }
+function ahName(s){ return String(s==null?"":s).normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^A-Za-z0-9 ]/g,"").trim().slice(0,8); }
 /* CSV INJECTION (segnalazione 10/09). Excel ESEGUE una cella che comincia con = + - @ (o con un
    TAB / ritorno a capo) come se fosse una formula: un canale chiamato «=1+1» arriva al service e
    nel foglio si legge 2; con nomi meno innocenti si arriva a DDE e a comandi di sistema.
@@ -33275,6 +34006,24 @@ function maybeAskStageSize(explicit){
       cb(true);
     }, function(){ cb(null); });
   }
+  /* Ponte per la biglietteria (06/10): l'editor dell'organizzatore chiama le sue funzioni SQL da qui, senza che
+     `sb`, la sessione o il progetto aperto escano dall'IIFE. Solo le sei funzioni dell'organizzatore (il resto della
+     biglietteria è pubblico e non passa da qui); senza sessione non parte nessuna richiesta. Nessuna chiave in storage. */
+  var BGL_RPC_AMMESSE=/^bgl_(apri|modifica|eventi_progetto|prenotati|annulla|elimina)$/;
+  window.__bglCloud = {
+    rpc:function(fn, args){
+      var nonAut={data:null, error:{code:"non_autenticato", message:"non_autenticato"}};
+      if(!BGL_RPC_AMMESSE.test(String(fn))) return Promise.resolve({data:null, error:{code:"funzione_non_ammessa", message:"funzione_non_ammessa"}});
+      if(!sb || !cloudUser) return Promise.resolve(nonAut);
+      var u=cloudUser.id, g=authGeneration;
+      return sb.rpc(fn, args||{}).then(function(r){
+        if(!authStill(u,g)) return nonAut;   /* nel frattempo è cambiato l'account: la risposta non è più sua */
+        return {data:r.data, error:r.error};
+      }, function(e){ return {data:null, error:{code:"rete", message:String(e&&e.message||e)}}; });
+    },
+    utente:function(){ return cloudUser ? {id:cloudUser.id, email:cloudUser.email||""} : null; },
+    progettoId:function(){ return cloudCurrentId||null; }
+  };
   window.__cloud = {
     requests: {
       list:requestsList, create:requestCreate, versions:requestVersions,
