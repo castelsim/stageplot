@@ -2567,7 +2567,135 @@ t("sediaorch 44×48 · 6 kg · sediapubblico 50×53 · 3,5 kg", () => {
 });
 t("riderData.pesoKg somma il peso delle sedie", () => {
   reset(); add("sediaorch", 300, 300); add("sediaorch", 340, 300); add("sediapubblico", 500, 300);
-  eq(A.riderData().pesoKg, 6 + 6 + 3.5);
+  eq(A.riderData().pesoKg, 0, "«Pesi (kg)» spenta di serie: nel rider niente peso");
+  A.state.pdfPesi = true;
+  eq(A.riderData().pesoKg, 6 + 6 + 3.5, "accesa: il peso c'è");
+  delete A.state.pdfPesi;
+});
+
+/* PLATEA A BLOCCHI (06/10/2026): un utente aveva disegnato la platea con 60 sedie bianche posate una per
+   una (e il rider le contava come sedie da orchestra). Ora è UN elemento con file, sedie, passi e corridoio. */
+console.log("\nPlatea a blocchi:");
+t("platea: 6 file × 10 sedie, passo 55 e 90, 60 posti al centro delle loro caselle", () => {
+  reset(); const p = add("platea", 600, 1200);
+  eq([p.w, p.d], [550, 540], "misure di partenza");
+  const c = A.plateaCfg(p);
+  eq([c.file, c.sedie, c.passo, c.passoFile, c.corridoio], [6, 10, 55, 90, 0]);
+  eq(A.plateaPosti(p), 60);
+  const xy = A.plateaPostiXY(p);
+  eq(xy.length, 60);
+  eq(xy[1].x - xy[0].x, 55, "passo fra le sedie");
+  eq(xy[10].y - xy[0].y, 90, "passo fra le file");
+  ok(xy.every((q) => Math.abs(q.x) + 25 <= p.w / 2 && Math.abs(q.y) + 26.5 <= p.d / 2), "ogni sedia 50×53 dentro l'ingombro");
+  ok(/>60 posti</.test(A.TYPES.platea.draw(p)), "il disegno dice «60 posti»");
+  eq((A.TYPES.platea.draw(p).match(/<rect/g) || []).length, 60 * 3 + 1, "60 sedie (3 rettangoli l'una) + il cartellino");
+});
+t("platea: il corridoio centrale divide la fila senza togliere posti", () => {
+  reset(); const p = add("platea", 600, 1200);
+  A.plateaImposta(p, { corridoio: A.PLATEA_CORR_DEF });
+  eq(p.w, 10 * 55 + 120, "la platea si allarga del corridoio");
+  eq(A.plateaPosti(p), 60);
+  const xy = A.plateaPostiXY(p);
+  eq(xy[5].x - xy[4].x, 55 + 120, "fra la quinta e la sesta sedia passa il corridoio");
+  ok(xy.every((q) => Math.abs(q.x) - 25 >= 60), "nessuna sedia nel corridoio");
+  A.plateaImposta(p, { corridoio: 0 });
+  eq(p.w, 550, "spento, torna stretta");
+});
+t("platea: file, sedie e passi dal pannello rifanno le misure e il conteggio", () => {
+  reset(); const p = add("platea", 600, 1200);
+  A.plateaImposta(p, { file: 8, sedie: 12 });
+  eq([p.w, p.d, A.plateaPosti(p)], [660, 720, 96]);
+  ok(/>96 posti</.test(A.TYPES.platea.draw(p)));
+  A.plateaImposta(p, { passo: 60, passoFile: 100 });
+  eq([p.w, p.d, A.plateaPosti(p)], [720, 800, 96], "il passo cambia le misure, non i posti");
+  A.plateaImposta(p, { sedie: 999, file: 0, passo: 10 });
+  const c = A.plateaCfg(p);
+  eq([c.sedie, c.file, c.passo], [60, 1, 50], "fuori dai limiti si torna dentro");
+  eq([p.w, p.d, p.platea.passo], [60 * 50, 100, 50], "e le misure salvate sono quelle dei limiti, non 999 sedie da 10 cm");
+});
+t("platea: la maniglia e il campo L/P aggiungono sedie a scatti; accorciata da fuori, non sborda", () => {
+  reset(); const p = add("platea", 600, 1200);
+  A.plateaDaMisure(p, 600, 640);
+  eq([p.w, p.d, A.plateaPosti(p)], [605, 630, 77], "11 sedie × 7 file, misure esatte sulle caselle");
+  /* «Adatta» accorcia w/d senza sapere della platea: le sedie diventano quelle che ci stanno */
+  p.w = 540; p.d = 530;
+  eq(A.plateaPosti(p), 9 * 5);
+  ok(A.plateaPostiXY(p).every((q) => Math.abs(q.x) + 25 <= p.w / 2 && Math.abs(q.y) + 26.5 <= p.d / 2), "dentro l'ingombro anche così");
+  ok(/rzit\.type==="platea"\)\{ plateaDaMisure\(rzit, nw, nd\)/.test(appjs), "la maniglia di ridimensionamento passa da plateaDaMisure");
+  ok(/it\.w=Math\.max\(10,\+document\.getElementById\("pW"\)\.value\|\|it\.w\); if\(it\.type==="platea"\) plateaDaMisure/.test(appjs), "il campo L passa da plateaDaMisure");
+});
+t("platea: nel rider pesa le sue sedie ma NON entra fra le sedie dei musicisti", () => {
+  reset(); add("platea", 600, 1200);
+  eq(A.countAccessori().sedie, 0, "sedie del rider");
+  ok(!A.pdfTotals().some((s) => /sedut/.test(s)), "nessuna «seduta» nei totali del PDF: " + A.pdfTotals().join(" · "));
+  A.state.pdfPesi = true;   /* i kg nel rider solo con «Pesi (kg)» (06/10/2026) */
+  eq(A.riderData().pesoKg, 60 * 3.5, "peso allestimento: 60 sedie da 3,5 kg");
+  delete A.state.pdfPesi;
+  add("sediabianca", 300, 300);
+  eq(A.countAccessori().sedie, 1, "una sedia bianca sul palco invece conta");
+});
+t("platea: i parametri salvati si ripuliscono all'apertura", () => {
+  const s = A.normalizeState({ _v: A.SCHEMA_VERSION, items: [
+    { id: "p1", type: "platea", x: 0, y: 0, w: 550, d: 540, platea: { passo: "abc", passoFile: 9999, corridoio: -5, x: "<b>" } },
+    { id: "p2", type: "tavolo", x: 0, y: 0, w: 120, d: 60, platea: { passo: 55 } },
+    { id: "p3", type: "platea", x: 0, y: 0, w: 550, d: 540, platea: [1, 2] }], inputs: [], outputs: [] });
+  eq(s.items[0].platea, { passo: 55, passoFile: 200, corridoio: 0 });
+  ok(!("platea" in s.items[1]), "su un altro tipo il campo non resta");
+  ok(!("platea" in s.items[2]), "un array non è una platea");
+});
+t("platea: si trova con platea, pubblico, sedie pubblico, posti a sedere", () => {
+  eq((A.__spSearch("platea")[0] || {}).k, "platea", "«platea» la dà per prima");
+  eq((A.__spSearch("posti a sedere")[0] || {}).k, "platea", "«posti a sedere» la dà per prima");
+  eq((A.__spSearch("sedie pubblico")[0] || {}).k, "platea", "«sedie pubblico» la dà per prima");
+  ok(A.__spSearch("pubblico").some((e) => e.k === "platea"), "«pubblico» la trova");
+  ok(A.__qaSearch("platea").some((e) => e.k === "platea"), "anche il doppio clic sul palco la trova");
+  ok(A.__catEntries.some((e) => e.k === "platea"), "sta nel catalogo");
+  ok(A.ESSENTIAL.platea, "e si vede subito, senza «Mostra tutti»");
+});
+/* Revisione 06/10/2026: la platea sta in sala per definizione. Contata «fuori dal palco», l'Esporta mostrava
+   sempre «1 elemento è fuori dal palco» e il suo «Adatta il palco» allargava il palco fino al pubblico. */
+t("platea: in sala non è «fuori dal palco» e «Adatta il palco» non la ingloba", () => {
+  reset();
+  for (let i = 0; i < 4; i++) add("cantante", 300 + i * 150, 400);   /* dentro il palco 12×8 */
+  const prima = JSON.stringify(A.palcoCheContieneTutto());
+  const p = add("platea", 600, 800 + 400);                           /* davanti al palco, in sala */
+  eq(A.elementiFuoriDalPalco().length, 0, "la platea non è un elemento fuori posto");
+  eq(JSON.stringify(A.palcoCheContieneTutto()), prima, "il palco «che contiene tutto» non arriva fino al pubblico");
+  const r = A.adattaPalcoCalcola(A.state.items, 1200, 800, 1000, 700);
+  eq(r.pos[p.id].y - 700, p.y - 800, "e Adatta la lascia alla stessa distanza dal bordo, come il FOH");
+});
+/* Revisione 06/10/2026: una Sedia pubblico singola in sala era «fuori dal palco» (la platea no): stessa regola */
+t("sedia pubblico: in sala non è «fuori dal palco»", () => {
+  reset();
+  add("cantante", 600, 400);
+  add("sediapubblico", 600, 1300);
+  eq(A.elementiFuoriDalPalco().length, 0, "la sedia del pubblico sta in sala per definizione");
+  add("wedge", 600, 1300);
+  eq(A.elementiFuoriDalPalco().length, 1, "una spia nello stesso punto invece sì");
+});
+/* Revisione 06/10/2026: la platea girata di 90° faceva leggere «60 posti» di lato */
+t("platea: il cartellino dei posti resta dritto quando la platea ruota", () => {
+  const svg = A.TYPES.platea.draw({ type: "platea", w: 550, d: 540, rot: 90 });
+  ok(/class="pl-posti" transform="rotate\(-90\)"/.test(svg), "contro-ruotato di 90°");
+  ok(/class="pl-posti" transform="rotate\(0\)"/.test(A.TYPES.platea.draw({ type: "platea", w: 550, d: 540 })), "dritta: nessuna rotazione");
+});
+t("platea: un JSON generato (#d=, ChatGPT) tiene passi e corridoio", () => {
+  const [p] = A.sanitizeItems([{ id: "pl1", type: "platea", x: 600, y: 1200, w: 790, d: 600, platea: { passo: 60, passoFile: 100, corridoio: 130 } }]);
+  eq(p.platea, { passo: 60, passoFile: 100, corridoio: 130 }, "i parametri arrivano");
+  const s = A.normalizeState({ _v: A.SCHEMA_VERSION, items: [p], inputs: [], outputs: [] });
+  const c = A.plateaCfg(s.items[0]);
+  eq([c.file, c.sedie, c.corridoio, A.plateaPosti(s.items[0])], [6, 11, 130, 66], "e la platea resta quella disegnata");
+});
+t("platea: non si specchia (il cartellino «60 posti» uscirebbe a rovescio)", () => {
+  reset(); const p = add("platea", 600, 1200);
+  eq(A.canMirror(p), false);
+  A.selectOne(p.id); A.mirrorSel();
+  eq(p.mir, undefined, "il comando non la ribalta");
+  const s = A.normalizeState({ _v: A.SCHEMA_VERSION, items: [{ id: "p1", type: "platea", x: 0, y: 0, w: 550, d: 540, mir: true }], inputs: [], outputs: [] });
+  ok(!("mir" in s.items[0]), "e da un file arriva dritta");
+});
+t("platea: la maniglia non la fa agganciare al bordo del palco fuori dalle sue caselle", () => {
+  ok(/if\(!grid && drag\.rot===0 && rzit\.type!=="platea"\)\{/.test(appjs), "il magnete al bordo durante il ridimensionamento salta la platea");
 });
 
 console.log("\nT2 — rider tecnico generato dai dati:");
@@ -5208,11 +5336,12 @@ t("ricerca: liste e varianti si trovano per nome", () => {
   ok(!A.__spSearch("channel").some((e) => e.nome === "Esporta"), "«channel» non deve più dare Esporta");
   ok(/search\.addEventListener\("keydown", function\(ev\)\{\s*if\(ev\.key!=="Enter"[\s\S]{0,200}results\.querySelector\("button:not\(\.json-act\)"\)[\s\S]{0,80}primo\.click\(\);/.test(appjs), "Invio nella ricerca deve prendere il primo risultato");
 });
-/* 05/10: giri degli utenti (analisi/workaround/2026-10-05.md) — parole cercate davvero senza risultato. */
+/* 05/10: giri degli utenti (analisi/workaround/2026-10-05.md) — parole cercate davvero senza risultato.
+   «platea» dal 06/10/2026 dà la Platea (file di sedie): è il blocco intero, la sedia singola viene dopo. */
 t("ricerca: le parole dei giri degli utenti trovano l'elemento giusto", () => {
   const primo = (q) => (A.__spSearch(q)[0] || {}).nome;
   const attesi = { webcam: "Camera", gobbo: "Gobbo / confidence monitor", tv: "Gobbo / confidence monitor", "schermo testi": "Gobbo / confidence monitor",
-    bodypack: "IEM beltpack", cajonista: "Cajon", pubblico: "Sedia pubblico", platea: "Sedia pubblico",
+    bodypack: "IEM beltpack", cajonista: "Cajon", pubblico: "Sedia pubblico", "sedia pubblico": "Sedia pubblico",
     croce: "Croce", altare: "Altare", finestra: "Finestra", colonna: "Colonna / palo", palo: "Colonna / palo", lampadario: "Lampadario" };
   for (const [q, nome] of Object.entries(attesi)) eq(primo(q), nome, "«" + q + "»:");
   ok(["Laptop", "Mac portatile"].includes(primo("sequenze")), "«sequenze» deve dare il computer delle basi");
@@ -5767,8 +5896,23 @@ t("senza «Esporta avanzato» il cartiglio non scrive peso, rack e canali", () =
   ok(!/canali/.test(senza), "senza, no: " + senza);
   ok(/leggi/.test(senza) && /spia/.test(senza), "leggii e spie restano: servono a chi allestisce: " + senza);
   ok(/function pdfDatiTecnici\(\)\{\s*try\{ return typeof funzOn!=="function" \|\| !!funzOn\("esporta"\);/.test(appjs), "la regola è la funzione Esporta avanzato");
-  ok(/var _tecn=pdfDatiTecnici\(\);[^\n]*\n\s*var _wt=_tecn\?totalWeightKg\(\):0;[^\n]*\n\s*var _ru=_tecn\?totalRackU\(\):0;/.test(appjs), "nel PDF peso e rack seguono la stessa regola");
-  ok(/var _ptecn=pdfDatiTecnici\(\);[^\n]*\n\s*var _pwt=_ptecn\?totalWeightKg\(\):0;[^\n]*_pru=_ptecn\?totalRackU\(\):0;/.test(appjs), "e l'anteprima pure");
+  /* 06/10/2026: il peso in più vuole la casella «Pesi (kg)» (pdfPesiOn), il rack resta com'era */
+  ok(/var _tecn=pdfDatiTecnici\(\);[^\n]*\n\s*var _wt=\(_tecn&&pdfPesiOn\(\)\)\?totalWeightKg\(\):0;[^\n]*\n\s*var _ru=_tecn\?totalRackU\(\):0;/.test(appjs), "nel PDF peso e rack seguono la stessa regola");
+  ok(/var _ptecn=pdfDatiTecnici\(\);[^\n]*\n\s*var _pwt=\(_ptecn&&pdfPesiOn\(\)\)\?totalWeightKg\(\):0;[^\n]*_pru=_ptecn\?totalRackU\(\):0;/.test(appjs), "e l'anteprima pure");
+});
+
+/* 06/10/2026 — Simone: «sul pdf che stampo ci sono i kg, dev'essere un'opzione disattivata di default» */
+t("Pesi (kg) nel PDF: opzione del progetto, spenta di serie", () => {
+  reset(); add("sediaorch", 300, 300);
+  ok(!A.pdfPesiOn(), "progetto nuovo: spenta");
+  A.state.pdfPesi = true; ok(A.pdfPesiOn(), "accesa con la casella");
+  eq(A.normalizeState({ _v: A.SCHEMA_VERSION, items: [], inputs: [], outputs: [], pdfPesi: "si" }).pdfPesi, undefined, "da un file: solo un true esplicito");
+  eq(A.normalizeState({ _v: A.SCHEMA_VERSION, items: [], inputs: [], outputs: [], pdfPesi: true }).pdfPesi, true, "e il true resta");
+  ok(A.CAMPI_DOCUMENTO.indexOf("pdfPesi") > -1, "vale per tutte le varianti");
+  ok(/<label class="chk" id="pdfPesiRow"><input type="checkbox" id="pdfPesi">/.test(readFileSync(join(root, "app/index.html"), "utf8")), "la casella c'è, senza «checked»");
+  eq((stylesCss.match(/body:not\(\.f-esporta\) #pdfPesiRow,/g) || []).length, 2, "sta in «Altre opzioni», su telefono e scrivania");
+  ok(/A\.weightKg>0&&pdfPesiOn\(\)\?" · peso ~"/.test(appjs), "anche l'audit in PDF la rispetta");
+  delete A.state.pdfPesi;
 });
 
 t("pedane coperte: il clic ripetuto passa a quello sotto, e la pedana si sposta anche da sola", () => {
@@ -11517,7 +11661,8 @@ t("Acustico, Jazz, Band e Coro: ogni microfono ha chi lo usa, ogni persona il su
   const conta = (out, t) => out.filter((i) => i.type === t).length;
   const ac = A.formationData("acoustic").out;
   eq(conta(ac, "cantante"), 1, "Acustico: c'è il cantante, non solo il microfono «Voce»");
-  eq(conta(ac, "percussionistaR"), 1, "Acustico: e chi suona il cajon");
+  /* 06/10/2026: chi suona il cajon sta dentro la postazione cajon (musicista acceso), non è più un pezzo a sé */
+  eq(ac.filter((i) => i.type === "cajonpost" && !(i.parts && i.parts.mus === false)).length, 1, "Acustico: e chi suona il cajon");
   eq(conta(ac, "wedge"), 4, "Acustico: quattro spie, una a testa");
   eq(conta(ac, "coppiast") + conta(ac, "astamic"), 0, "Acustico: niente microfoni senza persona");
   ok(ac.filter((i) => i.type === "stagepiano" || i.type === "gtacustica" || i.type === "cantante").every((i) => !i.rot), "Acustico: niente musicisti storti");
@@ -18347,6 +18492,554 @@ t("personal monitor: l'hub eliminato scollega il mixerino, il mixerino eliminato
   eq(Object.keys(A.state.mond.manual), [h2.id], "hub eliminato: la voce del mixerino cade");
   A.selectMany([h.id]); A.deleteSel();
   eq(A.state.mond.manual, {}, "mixerino eliminato: via la sua voce e quella di chi era in catena con lui");
+});
+
+// ── POSTAZIONE CAJON (06/10/2026) ──────────────────────────────────────────────────────────────
+// Il cajonista erano tre elementi (percussionista + cajon + asta bassa): per spostarlo se ne
+// prendevano tre, e l'asta bassa aggiungeva un canale SM57 che nessuno aveva chiesto. Ora è una
+// postazione sola; i progetti vecchi con i tre pezzi si riaprono come erano.
+console.log("\nPostazione cajon:");
+const PEZZI_CAJON_ACUSTICO = [   /* i tre pezzi del modello Acustico fino al 05/10/2026, coordinate del modello */
+  { type: "percussionistaR", x: 0, y: -235, rot: 0 }, { type: "cajon", x: 0, y: -217, rot: 0 }, { type: "astabassa", x: 0, y: -170, rot: 180 }];
+t("postazione cajon: nel catalogo come «Cajon» fra le percussioni, il cajon da solo no", () => {
+  const T = A.TYPES.cajonpost;
+  ok(T && T.catalog !== false, "la postazione è nel catalogo");
+  eq([T.nome, T.cat, T.sub], ["Cajon", "Batteria e percussioni", "Percussioni"]);
+  eq(A.catOf("cajonpost"), "Strumenti", "sta fra gli strumenti");
+  eq(A.TYPES.cajon.catalog, false, "il cajon da solo esce dal catalogo: due «Cajon» uno sopra l'altro confondevano");
+});
+t("postazione cajon: si trova con «cajon», «cajonista» e «percussionista»", () => {
+  const primo = (q) => (A.__spSearch(q)[0] || {}).k, primoQa = (q) => (A.__qaSearch(q)[0] || {}).k;
+  for (const q of ["cajon", "cajonista"]) { eq(primo(q), "cajonpost", "«" + q + "» nella barra:"); eq(primoQa(q), "cajonpost", "«" + q + "» nella finestrella:"); }
+  ok(A.__spSearch("percussionista").some((e) => e.k === "cajonpost"), "«percussionista» la trova nella barra");
+  ok(A.__qaSearch("percussionista").some((e) => e.k === "cajonpost"), "«percussionista» la trova nella finestrella");
+  eq(primo("percussionista"), "percussioni", "ma il primo posto resta del set congas + bongos");
+});
+t("postazione cajon: musicista acceso di serie, un canale Beta 91A, si spegne dal pannello", () => {
+  reset();
+  const c = add("cajonpost", 400, 300);
+  eq(c.parts, { mus: true }, "nasce con il musicista");
+  eq(A.COMP.cajonpost.controls.map((k) => k.key + ":" + k.type + ":" + k.label), ["mus:toggle:Musicista"], "nel pannello il solo interruttore Musicista");
+  eq(c.label, "Cajon 1", "con il nome numerato come ogni strumento");
+  eq(chans(c).map((k) => k.name + "/" + k.mic), ["Cajon 1/Beta 91A"], "un canale, il Beta 91A già previsto per il cajon");
+  eq([c.w, c.d], [65, 127], "ingombro: musicista, cajon e asta");
+  /* i pezzi si disegnano con il draw dei tipi singoli: stesso aspetto dei tre elementi di prima.
+     Centro della postazione 5 cm davanti al cajon: cajon a -5, musicista a -23, asta a +42. */
+  const cassa = A.TYPES.cajon.draw(), gruppi = (svg) => (svg.match(/<g transform="translate\([^)]*\)( rotate\(\d+\))?">/g) || []);
+  let svg = A.TYPES.cajonpost.draw(c);
+  ok(svg.includes('<g transform="translate(0 -5)">' + cassa + "</g>"), "disegna il cajon com'è da solo, al suo posto");
+  eq(gruppi(svg).filter((g) => /translate\(0 (-5|-23|42)\)/.test(g)), ['<g transform="translate(0 -23)">', '<g transform="translate(0 -5)">', '<g transform="translate(0 42) rotate(180)">'],
+    "prima il musicista, poi il cajon che gli copre le gambe (come nei tre pezzi: il percussionista ha z:1, sta sotto), poi l'asta bassa girata verso il cajon");
+  A.setPart(c, "mus", false);
+  eq([c.w, c.d], [50, 85], "senza musicista il riquadro si stringe a cajon e asta");
+  svg = A.TYPES.cajonpost.draw(c);
+  eq(gruppi(svg).filter((g) => /translate\(0 -?\d+\)( rotate\(180\))?">$/.test(g)).slice(0, 2), ['<g transform="translate(0 -26)">', '<g transform="translate(0 21) rotate(180)">'],
+    "solo cajon e asta, ricentrati");
+  ok(!svg.includes("translate(0 -44)") && !svg.includes("translate(0 -23)"), "e il musicista non c'è più");
+  eq(chans(c).length, 1, "il canale resta: il cajon suona anche se il disegno non ha la persona");
+  ok(A.canHeadMic(c), "il cajonista può cantare: archetto/asta voce come le percussioni");
+  ok(A.isPerformer(c), "è una postazione suonata da una persona");
+});
+t("postazione cajon: il modello Acustico la usa al posto dei tre pezzi, senza spostare niente", () => {
+  const ac = A.formationData("acoustic").out;
+  const conta = (t) => ac.filter((i) => i.type === t).length;
+  eq(conta("cajonpost"), 1, "una postazione cajon");
+  eq(conta("percussionistaR") + conta("cajon") + conta("astabassa"), 0, "e niente più pezzi separati");
+  /* stessa posizione visiva: «Dividi» sulla postazione del modello ridà i tre pezzi dove li metteva il modello */
+  const st = ac.find((i) => i.type === "cajonpost");
+  const pezzi = A.COMP.cajonpost.explode(Object.assign({ type: "cajonpost" }, st)).map((p) =>
+    ({ type: p.type, x: st.x + p.dx, y: st.y + p.dy, rot: (p.extra && p.extra.rot) || 0 }));
+  const perTipo = (l) => l.slice().sort((a, b) => a.type.localeCompare(b.type));
+  eq(perTipo(pezzi), perTipo(PEZZI_CAJON_ACUSTICO), "ogni pezzo al suo posto di prima");
+  eq(A.modelloAnteprima("acoustic").persone, 4, "il conto dei musicisti non cambia");
+  reset();
+  A.placeOut(ac, true, true, true);
+  const righe = A.patchList().rows.map((r) => r.name + "/" + r.mic);
+  ok(righe.includes("Cajon/Beta 91A"), "il canale del cajon c'è: " + righe.join(" | "));
+  eq(righe.length, A.formationData("acoustic").inp.length, "e la lista ha tanti canali quanti ne dichiara il modello (prima c'era anche l'«Asta bassa» SM57)");
+});
+t("postazione cajon: senza musicista l'anteprima del modello non lo conta", () => {
+  eq(A.modelloAnteprima("acoustic").persone, 4);
+  /* una formazione di prova: l'Acustico con il cajon senza persona (chiave nuova, l'anteprima ha la cache per chiave) */
+  const fd0 = A.formationData;
+  A.formationData = (f, o) => f === "provacajon"
+    ? { out: fd0("acoustic").out.map((x) => x.type === "cajonpost" ? Object.assign({}, x, { parts: { mus: false } }) : x) }
+    : fd0(f, o);
+  try { eq(A.modelloAnteprima("provacajon").persone, 3, "tre musicisti se il cajon è senza persona"); }
+  finally { A.formationData = fd0; }
+});
+t("postazione cajon: «Dividi» ridà i tre pezzi, anche ruotata, con un solo nome visibile", () => {
+  reset();
+  const c = add("cajonpost", 500, 400, { rot: 90 });
+  A.selectMany([c.id]); A.explodeComposite();
+  const it = A.state.items;
+  eq(it.map((i) => i.type).sort(), ["astabassa", "cajon", "percussionistaR"], "i tre pezzi");
+  const cj = it.find((i) => i.type === "cajon"), mu = it.find((i) => i.type === "percussionistaR"), as = it.find((i) => i.type === "astabassa");
+  eq([cj.x, cj.y, mu.x, mu.y, as.x, as.y], [505, 400, 523, 400, 458, 400], "ruotati di 90° attorno al centro della postazione");
+  eq([cj.rot, mu.rot, as.rot], [90, 90, 270], "l'asta resta girata verso il cajon");
+  eq(cj.label, c.label, "il cajon tiene il nome (e il canale) della postazione");
+  eq([mu.label, as.label], ["", ""], "il musicista e l'asta senza nome, come nei progetti di prima");
+});
+t("postazione cajon: un progetto salvato con i tre pezzi si riapre identico (niente migrazione)", () => {
+  const vecchi = PEZZI_CAJON_ACUSTICO.map((p, i) => Object.assign({ id: "v" + i, label: p.type === "cajon" ? "Cajon" : "" }, p, { x: 400 + p.x, y: 500 + p.y }));
+  const s = A.normalizeState({ _v: A.SCHEMA_VERSION, items: JSON.parse(JSON.stringify(vecchi)), inputs: [], outputs: [] });
+  eq(s.items.map((i) => [i.id, i.type, i.x, i.y, i.rot, i.label]), vecchi.map((i) => [i.id, i.type, i.x, i.y, i.rot, i.label]), "stessi pezzi, stessi posti");
+  ok(!s.items.some((i) => i.type === "cajonpost"), "non diventano una postazione da soli");
+  eq(s.items.map((i) => [i.w, i.d]), [[65, 81], [34, 34], [50, 42]], "con le loro misure");
+});
+
+t("postazione cajon: il rider chiede l'asta bassa che la postazione disegna, come con i tre pezzi", () => {
+  /* revisione 06/10/2026: la postazione disegna l'asta bassa davanti al cajon, ma il conteggio delle aste
+     guardava solo gli elementi «Asta bassa» e i microfoni dei canali (il Beta 91A va dentro il cajon:
+     «interno/terra», che non è un'asta). Il modello Acustico passava da 1 asta bassa a 0. */
+  const aste = (n) => Object.fromEntries(Object.entries(n).filter(([, v]) => v.tot > 0).map(([k, v]) => [k, [v.tot, v.gia, v.dedotte]]));
+  reset();
+  A.placeOut(PEZZI_CAJON_ACUSTICO.map((p) => Object.assign({ label: p.type === "cajon" ? "Cajon" : "" }, p)), true, true, true);
+  const prima = aste(A.standNeeds());
+  eq(prima.bassa, [1, 1, 0], "i tre pezzi: l'asta bassa è un elemento sul palco");
+  reset();
+  const c = add("cajonpost", 400, 300);
+  eq(aste(A.standNeeds()), prima, "la postazione chiede le stesse aste dei tre pezzi");
+  A.setPart(c, "mus", false);
+  eq(aste(A.standNeeds()).bassa, [1, 1, 0], "anche senza musicista: l'asta resta disegnata");
+});
+t("postazione cajon: l'export 3D descrive cajon e asta bassa, non un cajon grande quanto la postazione", () => {
+  reset();
+  const c = add("cajonpost", 400, 300);
+  const pz = (it) => (it.components || []).map((k) => [k.type, k.x, k.y, k.w, k.d, k.h, k.rot]);
+  let it3 = A.buildProjectJson().items.find((i) => i.id === c.id);
+  eq(pz(it3), [["cajon", 0, -5, 30, 30, 48, 0], ["astabassa", 0, 42, 50, 42, 60, 180]],
+    "cajon al suo posto e asta bassa davanti, girata verso il cajon; il musicista no (people_visible:false)");
+  A.setPart(c, "mus", false);
+  it3 = A.buildProjectJson().items.find((i) => i.id === c.id);
+  eq(pz(it3).map((k) => k[2]), [-26, 21], "senza musicista i pezzi seguono il centro nuovo");
+});
+
+/* AREA CON NOME (06/10/2026). Le zone del palco («zona 5 violini II», «zona voci», «CORO») gli utenti le
+   facevano con pedane alte 0 cm più un testo: la pedana finiva nel rider fra quelle da portare. Ora sono
+   una FORMA con lo stile «area»: una voce di catalogo, nessun tipo nuovo. */
+function areaVoce() { return A.__catEntries.find((e) => e.nome === "Area con nome"); }
+function addArea(x, y, opts) { return add("forma", x, y, Object.assign(JSON.parse(JSON.stringify(areaVoce().over)), opts || {})); }
+t("Area con nome: voce del catalogo, prima per «area», «zona», «settore», ed è una forma stile area", () => {
+  const v = areaVoce();
+  ok(v, "la voce «Area con nome» c'è nel catalogo");
+  eq([v.k, v.over.shape, v.over.shapeStyle], ["forma", "rect", "area"], "è la forma, rettangolo, stile area");
+  ["area", "zona", "settore", "Zone", "settori"].forEach((q) => eq(A.__spSearch(q)[0], { k: "forma", nome: "Area con nome" }, "prima per «" + q + "»"));
+  ok(A.__spSearch("panoramico")[0].k === "miczone", "la zona del microfono panoramico si trova ancora per nome");
+});
+t("Area con nome: velatura tenue, nome grande in grassetto IN ALTO, stretto finché entra", () => {
+  reset();
+  const a = addArea(400, 300, { w: 400, d: 300, label: "Zona voci", fill: "#2563eb" });
+  const s = A.TYPES.forma.draw(a);
+  const fo = +(s.match(/fill-opacity="([\d.]+)"/) || [])[1];
+  ok(fo > 0 && fo <= 0.2, "riempimento tenue (fill-opacity " + fo + ")");
+  ok(/stroke-width="1.5"/.test(s), "bordo sottile");
+  ok(s.indexOf("font-weight:700") > -1, "nome in grassetto (inline: arriva anche nel PDF)");
+  eq(+(s.match(/font-size:([\d.]+)px/) || [])[1], 32, "corpo di partenza 32, più del doppio dei nomi degli strumenti");
+  const y = +(s.match(/<text[^>]* y="([-\d.]+)"/) || [])[1];
+  ok(y < -100, "nome in alto, dentro il bordo (y " + y + " su metà altezza 150): al centro lo coprirebbero i musicisti");
+  const solida = A.TYPES.forma.draw({ w: 400, d: 300, label: "Zona voci", lblSize: 32 });
+  ok(solida.indexOf("font-weight:700") < 0, "la forma normale non cambia: niente grassetto");
+  const stretta = A.TYPES.forma.draw(Object.assign({}, a, { w: 160, label: "Percussioni" }));
+  const fs = +(stretta.match(/font-size:([\d.]+)px/) || [])[1];
+  ok(fs < 32 && fs * 0.62 * "Percussioni".length <= 160 - 20 + 1, "la parola lunga entra nella larghezza (corpo " + fs + ")");
+});
+t("Area con nome: niente pedana né palco, fuori da rider, backline, patch e carichi, sotto gli elementi", () => {
+  reset();
+  const a = addArea(400, 300, { label: "CORO" });
+  const c = add("cantante", 400, 320);
+  ok(!A.isRiser(a), "non è una pedana");
+  eq(A.layerFgItem("stage", a), false, "non sta nel solo del Palco");
+  eq(A.riderData().pedane, [], "il rider non chiede pedane");
+  eq(A.riderData().pesoKg, A.weightOf(c), "nessun peso");
+  eq(A.backlineList().rows.map((r) => r.name), [], "nessuna riga di backline");
+  ok(A.patchList().rows.every((r) => r.itemId !== a.id && String(r.name || "").indexOf("CORO") < 0), "nessun canale");
+  eq(A.loadList().rows.length, 0, "nessun carico elettrico");
+  eq(a.h, undefined, "nessuna altezza");
+  ok(A.effZ(a) < A.effZ(c), "si disegna sotto chi ci sta dentro");
+  eq(A.renderVisible(a), false, "fuori dal prompt del render: in una foto non c'è");
+  eq(A.renderVisible({ type: "forma" }), true, "la forma normale resta com'era");
+  const j3 = A.buildProjectJson().items.find((x) => x.id === a.id);
+  eq([j3.render.visible, j3.visible_in_render], [false, false], "e fuori dal JSON per il render 3D");
+});
+t("Area con nome: ogni area nuova un colore diverso, e lo stile sopravvive al salvataggio", () => {
+  reset();
+  const a = addArea(300, 200), b = addArea(700, 200), c = addArea(300, 600, { fill: "#59544a" });
+  ok(/^#[0-9a-f]{6}$/i.test(a.fill) && /^#[0-9a-f]{6}$/i.test(b.fill), "nascono colorate");
+  ok(a.fill !== b.fill, "due zone accanto non hanno lo stesso colore (" + a.fill + ", " + b.fill + ")");
+  eq(c.fill, "#59544a", "un colore scelto apposta resta quello");
+  const out = A.normalizeLoadedItems([{ id: "i1", type: "forma", x: 1, y: 1, w: 300, d: 200, shapeStyle: "area" },
+    { id: "i2", type: "forma", x: 1, y: 1, w: 300, d: 200, shapeStyle: "<script>" }]);
+  eq(out[0].shapeStyle, "area", "il normalizzatore tiene «area»");
+  eq(out[1].shapeStyle, undefined, "e scarta il resto");
+});
+t("Area con nome: chi arriva ci si mette dentro, un'area nuova evita solo le altre aree", () => {
+  reset();
+  addArea(600, 400, { w: 600, d: 400 });
+  const voce = { type: "cantante", w: 60, d: 60, label: "" };
+  eq(A.findFreeSpotFor(voce, 600, 400), { x: 600, y: 400 }, "il cantante si posa dentro l'area, non accanto");
+  add("cantante", 1050, 700);
+  eq(A.findFreeSpotFor({ type: "forma", shapeStyle: "area", w: 200, d: 150, label: "Zona" }, 1050, 700), { x: 1050, y: 700 },
+    "un'area si posa anche sotto un musicista");
+  ok(JSON.stringify(A.findFreeSpotFor({ type: "forma", shapeStyle: "area", w: 200, d: 150, label: "Zona" }, 600, 400)) !== JSON.stringify({ x: 600, y: 400 }),
+    "ma non sopra un'altra area");
+});
+
+/* revisione 06/10/2026: due difetti del disegno visti in Chromium misurando i getBBox */
+t("Area con nome: bloccata, il lucchetto sta SOTTO il nome; nelle sagome non rettangolari il nome sta al centro", () => {
+  const ys = (s) => [...s.matchAll(/<text[^>]* y="([-\d.]+)"[^>]*font-size:([\d.]+)px/g)].map((m) => [+m[1], +m[2]]);
+  const lockY = (s) => +((s.match(/class="riser-lock" transform="translate\([-\d.]+,([-\d.]+)\)"/) || [])[1]);
+  [[300, 200, "zona 5 violini II"], [300, 300, "zona 5 violini II"], [200, 120, "zona 5 violini II"], [80, 78, "ZONA VOCI E CORO"]].forEach(([w, d, lbl]) => {
+    const s = A.TYPES.forma.draw({ type: "forma", shape: "rect", shapeStyle: "area", w, d, label: lbl, lblSize: 32, locked: true });
+    const t = ys(s), ly = lockY(s), ult = t[t.length - 1];
+    ok(t.length >= 2 && Number.isFinite(ly), w + "×" + d + ": due righe e il lucchetto (" + t.length + ", " + ly + ")");
+    ok(ly - 4 > ult[0] + ult[1] * 0.22, w + "×" + d + ": il lucchetto (y " + ly + ") sotto l'ultima riga del nome (base " + ult[0] + ")");
+    ok(ly + 4.2 <= d / 2, w + "×" + d + ": e dentro il bordo (il lucchettino scende 4,2 cm sotto il suo punto)");
+  });
+  const sol = A.TYPES.forma.draw({ type: "forma", shape: "rect", w: 300, d: 200, label: "x", locked: true });
+  eq(lockY(sol), -45, "la forma normale bloccata: lucchetto dove stava");
+  ["circle", "tri", "rhombus", "arrow"].forEach((sh) => {
+    const s = A.TYPES.forma.draw({ type: "forma", shape: sh, shapeStyle: "area", w: 300, d: 200, label: "ZONA VOCI", lblSize: 32 });
+    const y = ys(s)[0][0];
+    ok(Math.abs(y) < 30, sh + ": il nome al centro (y " + y + "), in alto uscirebbe dalla sagoma");
+  });
+  [[200, 60, "ZONA FIATI E OTTONI"], [150, 80, "zona 5 violini II"], [120, 70, "VOCI SOLISTE E CORO"]].forEach(([w, d, lbl]) => {
+    const t = ys(A.TYPES.forma.draw({ type: "forma", shape: "rect", shapeStyle: "area", w, d, label: lbl, lblSize: 32 }));
+    ok(t.every(([y, f]) => y - 0.75 * f >= -d / 2 && y + 0.22 * f <= d / 2),
+      w + "×" + d + " «" + lbl + "»: tutte le righe dentro l'area in altezza (" + JSON.stringify(t) + ")");
+  });
+  const r = A.TYPES.forma.draw({ type: "forma", shape: "rect", shapeStyle: "area", w: 300, d: 200, label: "ZONA VOCI", lblSize: 32 });
+  ok(ys(r)[0][0] < -50, "nel rettangolo resta in alto");
+});
+
+t("Area con nome: nel pannello della forma lo stile «Area», e i quattro bottoni stanno nel pannello", () => {
+  const seg = (indexHtml.match(/<div class="seg seg-4"[^>]*aria-label="Stile della forma">([\s\S]*?)<\/div>/) || [])[1] || "";
+  eq((seg.match(/data-sst="/g) || []).length, 4, "quattro stili");
+  ok(seg.indexOf('data-sst="area"') > -1, "c'è «Area»");
+  /* col padding di sempre «Tratteggio» e «Area» uscivano dal pannello (visto nel browser il 06/10/2026) */
+  const base = stylesCss.indexOf("#props .seg .adv-btn{"), quattro = stylesCss.indexOf("#props .seg.seg-4 .adv-btn{");
+  ok(quattro > base && base > -1, "la regola dei quattro bottoni viene DOPO quella di base");
+  ok(/#props \.seg\.seg-4 \.adv-btn\{[^}]*min-width:0[^}]*padding:7px 3px/.test(stylesCss), "bottoni stretti quanto il loro testo");
+});
+
+/* ---- 06/10/2026 (giro P-725a15): parole dell'elettronica e del sync nella ricerca ---- */
+console.log("\nRicerca: elettronica e sync:");
+t("Elettronica: ogni gruppo di parole porta per primo il tipo da fonico", () => {
+  const gruppi = {
+    tastiera: ["moog", "synth", "sintetizzatore"],
+    rack2u: ["eurorack", "lyra", "soma lyra"],
+    spdsx: ["drum machine", "midi kit", "midi drum", "midi drum kit"],
+    laptop: ["polytempo", "max msp", "ableton", "live electronics", "elettronica", "click", "timecode", "smpte", "mtc"],
+    audiointerface: ["interfaccia audio", "scheda audio", "word clock"],
+    camera: ["motion tracking", "tracking"],
+  };
+  Object.keys(gruppi).forEach((k) => gruppi[k].forEach((q) => {
+    eq((A.__spSearch(q)[0] || {}).k, k, "«" + q + "» deve dare per prima " + k);
+  }));
+});
+t("Elettronica: «modulare» trova anche il rack 2U (il LED wall modulare passa prima per nome)", () => {
+  ok(searchKeys("modulare").indexOf("rack2u") > -1, "rack2u non trovato");
+});
+t("Elettronica: «synth» porta prima la tastiera singola anche nella finestrella del doppio clic; la doppia resta trovabile", () => {
+  eq((A.__qaSearch("synth")[0] || {}).k, "tastiera", "quick-add «synth»");
+  eq((A.__qaSearch("sintetizzatore")[0] || {}).k, "tastiera", "quick-add «sintetizzatore»");
+  ok(searchKeys("synth").indexOf("doppiatastiera") > -1, "la doppia tastiera non si trova più con «synth»");
+  eq((A.__spSearch("tastiera")[0] || {}).k, "tastiera", "«tastiera» invariata");
+});
+/* revisione 06/10/2026: l'alias «live electronics» del Mac faceva uscire il Mac prima dei dLive cercando «live»;
+   «beatbox» (cantante) e «drone» (anche quello che vola) portavano a SPD-SX e Rack 2U */
+t("Elettronica: «live» resta dei dLive, «beatbox» e «drone» non vanno a pad e rack", () => {
+  eq((A.__spSearch("live")[0] || {}).k, "dlives5", "barra di ricerca «live»");
+  eq((A.__qaSearch("live")[0] || {}).k, "dlives5", "quick-add «live»");
+  ok(searchKeys("live").indexOf("laptop") > -1, "il Mac si trova ancora con «live»");
+  ok(searchKeys("beatbox").indexOf("spdsx") < 0, "«beatbox» non è un SPD-SX");
+  ok(searchKeys("drone").indexOf("rack2u") < 0, "«drone» non è un rack 2U");
+});
+t("Elettronica: le parole nuove non cancellano quelle vecchie (laptop: sequenze, playback)", () => {
+  ok(searchKeys("playback").slice(0, 2).indexOf("laptop") > -1, "«playback» non trova più il laptop");
+  eq((A.__spSearch("webcam")[0] || {}).k, "camera", "«webcam» dava camera prima");
+});
+t("Elettronica: sync e theremin non hanno un elemento giusto, e non si forza", () => {
+  eq(searchKeys("sync").length, 0, "«sync» non deve dare risultati a caso");
+  eq(searchKeys("theremin").length, 0, "«theremin» non deve dare risultati a caso");
+});
+
+/* ANELLO DI ALTOPARLANTI (06/10/2026): un progetto aveva un impianto ottofonico disegnato a mano, con le
+   casse girate di 180° e il nome a testa in giù. Due cose: il nome non si capovolge, e le casse attorno al
+   pubblico si pongono in un colpo, ognuna col fronte verso il centro. */
+console.log("\nAnello di altoparlanti e nomi leggibili:");
+const verso = (p) => [-Math.sin(p.rot * Math.PI / 180), Math.cos(p.rot * Math.PI / 180)];   /* il fronte (+y) girato */
+const guarda = (p, cx, cy) => { const dx = cx - p.x, dy = cy - p.y, L = Math.hypot(dx, dy), v = verso(p); return (v[0] * dx + v[1] * dy) / L; };   /* 1 = guarda esattamente il centro */
+/* Provato nel browser il 06/10/2026: centrato sulla vista, con palco e platea in vista G5 finiva fra le sedie */
+t("anello: se c'è una platea si mette attorno a lei, con un metro di margine", () => {
+  reset();
+  eq(A.anelloDallaPlatea(), null, "senza platea: decide la vista");
+  add("platea", 600, 1300, { w: 550, d: 540 });
+  const p = add("platea", 700, 1500, { w: 790, d: 400, rot: 90 });   /* la più grande, girata */
+  const c = A.anelloDallaPlatea();
+  eq([c.cx, c.cy], [p.x, p.y], "centro sulla platea più grande");
+  eq([c.w, c.d], [p.d + 200, p.w + 200], "girata di 90°: misure scambiate, un metro per lato");
+  ok(c.r >= Math.hypot(p.w, p.d) / 2 + 100, "il cerchio non passa sopra le sedie");
+  eq(A.anelloDallaVista(), c, "e la finestra usa lei");
+});
+t("anello: 8 casse in cerchio, G1 in alto e in senso orario, ognuna col fronte verso il centro", () => {
+  const pts = A.anelloPunti({ n: 8, forma: "cerchio", cx: 600, cy: 500, r: 400 });
+  eq(pts.map((p) => p.label), ["G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8"]);
+  eq([pts[0].x, pts[0].y, pts[0].rot], [600, 100, 0], "G1 in alto, fronte in giù");
+  eq([pts[2].x, pts[2].y, pts[2].rot], [1000, 500, 90], "G3 a destra, fronte a sinistra");
+  eq([pts[4].x, pts[4].y, pts[4].rot], [600, 900, 180], "G5 in basso, fronte in su");
+  eq([pts[6].x, pts[6].y, pts[6].rot], [200, 500, 270], "G7 a sinistra, fronte a destra");
+  pts.forEach((p) => {
+    ok(Math.abs(Math.hypot(p.x - 600, p.y - 500) - 400) <= 1, p.label + " sul cerchio");
+    ok(guarda(p, 600, 500) > 0.999, p.label + " guarda il centro (" + guarda(p, 600, 500).toFixed(4) + ")");
+  });
+});
+t("anello: 4 e 6 casse in cerchio, e un prefisso scelto", () => {
+  [4, 6].forEach((n) => {
+    const pts = A.anelloPunti({ n, forma: "cerchio", cx: 0, cy: 0, r: 300, prefisso: "S" });
+    eq(pts.length, n); eq(pts.map((p) => p.label), Array.from({ length: n }, (_, i) => "S" + (i + 1)));
+    pts.forEach((p) => ok(guarda(p, 0, 0) > 0.998, n + " casse: " + p.label + " guarda il centro"));
+  });
+  eq(A.anelloPunti({ n: 4, forma: "cerchio", r: 300 }).map((p) => p.rot), [0, 90, 180, 270]);
+});
+t("anello: in rettangolo, 4 angoli · 6 con i lati lunghi · 8 con tutti i lati, tutte verso il centro", () => {
+  const rett = (n) => A.anelloPunti({ n, forma: "rettangolo", cx: 1000, cy: 800, w: 800, d: 600 });
+  const c4 = rett(4), c6 = rett(6), c8 = rett(8);
+  eq(c4.map((p) => [p.x, p.y]), [[600, 500], [1400, 500], [1400, 1100], [600, 1100]], "4 = angoli, dall'alto a sinistra in senso orario");
+  eq(c6.map((p) => [p.x, p.y]), [[600, 500], [1000, 500], [1400, 500], [1400, 1100], [1000, 1100], [600, 1100]], "6 = angoli + metà di sopra e sotto");
+  eq(c8.map((p) => [p.x, p.y]), [[600, 500], [1000, 500], [1400, 500], [1400, 800], [1400, 1100], [1000, 1100], [600, 1100], [600, 800]], "8 = angoli + metà dei quattro lati");
+  eq(c8.map((p) => p.label), ["G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8"]);
+  eq([c8[1].rot, c8[3].rot, c8[5].rot, c8[7].rot], [0, 90, 180, 270], "le casse a metà lato guardano dritto verso l'interno");
+  [c4, c6, c8].forEach((c) => c.forEach((p) => ok(guarda(p, 1000, 800) > 0.999, c.length + " casse: " + p.label + " guarda il centro")));
+  const c5 = rett(5);
+  eq(c5.length, 5, "un numero diverso (5) si distribuisce sul perimetro");
+  c5.forEach((p) => ok(guarda(p, 1000, 800) > 0.999));
+});
+t("anello: si posa in UN solo passo di annulla, come elementi normali (diffusori attivi)", () => {
+  reset(); A.resetHistory();
+  const fatte = A.aggiungiAnello({ n: 8, forma: "cerchio", cx: 600, cy: 400, r: 300 });
+  eq(fatte.length, 8); eq(A.state.items.length, 8);
+  eq(A.state.items.map((i) => i.label), ["G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8"]);
+  A.state.items.forEach((i, k) => {
+    eq(i.type, "topattivo", "cassa full-range da sala");
+    ok(i.id && i.w === A.TYPES.topattivo.w && i.d === A.TYPES.topattivo.d, "misure del catalogo");
+    ok(guarda(i, 600, 400) > 0.999, i.label + " guarda il centro");
+  });
+  eq(new Set(A.state.items.map((i) => i.id)).size, 8, "id tutti diversi");
+  eq(Object.keys(A.selSet).length, 8, "restano selezionate tutte, per spostarle insieme");
+  eq(A.undoStack.length, 1, "un passo di annulla, non otto");
+  A.undo();
+  eq(A.state.items.length, 0, "un solo Annulla le toglie tutte");
+  A.redo();
+  eq(A.state.items.length, 8, "e Ripeti le rimette");
+});
+t("anello: la numerazione G1…Gn non tocca i «Diffusore N» già sul palco", () => {
+  reset(); add("topattivo", 100, 100);
+  const lab0 = A.state.items[0].label;
+  A.aggiungiAnello({ n: 4, cx: 600, cy: 400, r: 300 });
+  eq(A.state.items[0].label, lab0, "il diffusore di prima resta com'era");
+  eq(A.state.items.slice(1).map((i) => i.label), ["G1", "G2", "G3", "G4"]);
+});
+t("nome leggibile: lblCapovolto dice quando l'angolo totale lo girerebbe a testa in giù", () => {
+  [[0, false], [45, false], [90, false], [91, true], [135, true], [180, true], [225, true], [269, true], [270, false], [300, false], [-90, false], [-180, true], [360, false], [540, true]].forEach(([a, c]) =>
+    eq(A.lblCapovolto(a), c, a + "°"));
+});
+t("nome leggibile: una cassa girata di 180° (o 135°, 225°) si rigira di mezzo giro attorno al nome; a 0/45/90/270 no", () => {
+  reset();
+  const nome = (rot) => { const it = { id: "c" + rot, type: "topattivo", x: 300, y: 300, rot, w: 90, d: 90, label: "G5" };
+    A.selSet = {}; A._lblSink = []; A.itemMarkup(it); const lb = A._lblSink.join(""); A._lblSink = null;
+    return (lb.match(/<text class="lbl"[^>]*>G5/) || [""])[0]; };
+  [180, 135, 225].forEach((r) => ok(/transform="rotate\(180 0 [-\d.]+\)"/.test(nome(r)), r + "°: il nome si rigira (" + nome(r) + ")"));
+  [0, 45, 90, 270, 315].forEach((r) => ok(nome(r) !== "" && !/transform=/.test(nome(r)), r + "°: il nome resta com'era (" + nome(r) + ")"));
+  /* il mezzo giro è attorno al CENTRO delle lettere: il nome non cambia posto, solo verso */
+  const base = +(nome(180).match(/ y="([-\d.]+)"/) || [])[1], cen = +(nome(180).match(/rotate\(180 0 ([-\d.]+)\)/) || [])[1];
+  ok(cen < base && base - cen > 3 && base - cen < 8, "il centro sta sopra la baseline di circa mezza lettera (" + base + " → " + cen + ")");
+});
+t("nome leggibile: vale anche per la quota della pedana (sopra/sotto), la riga del montaggio e la doppia", () => {
+  reset();
+  const lbOf = (it) => { A.selSet = {}; A._lblSink = []; A.itemMarkup(it); const lb = A._lblSink.join(""); A._lblSink = null; return lb; };
+  const ped = (rot, lato) => lbOf({ id: "p" + rot + lato, type: "pedana", x: 400, y: 300, rot, w: 200, d: 100, h: 40, label: "", dimSide: lato });
+  const quota = (lb) => (lb.match(/<text class="lbl sub"[^>]*>/) || [""])[0];
+  ok(/transform="rotate\(180 /.test(quota(ped(180, "top"))), "pedana a 180°, quota sopra: si rigira");
+  ok(/transform="rotate\(180 /.test(quota(ped(180, "bottom"))), "pedana a 180°, quota sotto: si rigira");
+  ok(!/transform=/.test(quota(ped(0, "top"))), "pedana a 0°: la quota com'era");
+  ok(!/transform="rotate\(\-?90 [-\d.]+ [-\d.]+\) rotate\(180/.test(quota(ped(180, "left"))), "pedana a 180°, quota a sinistra: già di lato, non si tocca (270° sullo schermo)");
+  ok(/rotate\(90 [-\d.]+ [-\d.]+\) rotate\(180 /.test(quota(ped(90, "right"))), "pedana a 90°, quota a destra: 90+90 = 180°, si rigira");
+  const dbl = lbOf({ id: "d180", type: "vln1x2", x: 400, y: 300, rot: 180, w: 120, d: 70, label: "Violino 1", label2: "Violino 2", doppia: true });
+  const tr = [...dbl.matchAll(/<text class="lbl"[^>]*transform="([^"]*)"/g)].map((m) => m[1]);
+  eq(tr.length, 2, "i due nomi della doppia hanno la loro trasformazione");
+  tr.forEach((x) => ok(/rotate\(180 /.test(x), "doppia a 180°: ogni nome si rigira (" + x + ")"));
+});
+t("anello: la voce è nel catalogo (si trova scrivendo «anello» o «ottofonico») e la finestra c'è", () => {
+  const trova = (q) => A.__spSearch(q).some((r) => r.nome === "Anello di altoparlanti");
+  ok(trova("anello"), "«anello»"); ok(trova("ottofonico"), "«ottofonico»"); ok(trova("multicanale"), "«multicanale»");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="anelloSetup"/.test(html) && /data-an-n="4"/.test(html) && /data-an-n="6"/.test(html) && /data-an-n="8"/.test(html), "finestra con 4, 6, 8");
+  ok(/data-an-forma="cerchio"/.test(html) && /data-an-forma="rettangolo"/.test(html) && /id="anPre" type="text" value="G"/.test(html), "cerchio / rettangolo e prefisso G");
+});
+
+/* REVISIONE 06/10/2026 del ramo anello. (1) I nomi rigirati entravano nella passata anti-sovrapposizione del PDF,
+   che sposta in GIÙ: con l'elemento a 180° il nome sta SOPRA il disegno, e scendendo ci finiva dentro (progetto di
+   collaudo 10: i due «Piatto» dentro i loro piatti). (2) La finestra dell'anello ascolta Esc e Invio su di sé, ma il
+   fuoco restava sulla voce del catalogo: aperta col clic, Esc non la chiudeva. */
+t("nome rigirato: porta data-cap, e la passata anti-sovrapposizione del PDF non lo sposta (scenderebbe sul disegno)", () => {
+  reset();
+  const it = { id: "c180", type: "topattivo", x: 300, y: 300, rot: 180, w: 90, d: 90, label: "G5" };
+  A.selSet = {}; A._lblSink = []; A.itemMarkup(it); const lb = A._lblSink.join(""); A._lblSink = null;
+  ok(/<text class="lbl"[^>]*transform="rotate\(180 [^"]*" data-cap="1"[^>]*>G5/.test(lb), "il nome rigirato è segnato (" + lb.slice(0, 160) + ")");
+  const dritto = { id: "c0", type: "topattivo", x: 300, y: 300, rot: 0, w: 90, d: 90, label: "G1" };
+  A.selSet = {}; A._lblSink = []; A.itemMarkup(dritto); const lb0 = A._lblSink.join(""); A._lblSink = null;
+  ok(!/data-cap/.test(lb0), "il nome dritto no");
+  /* due nomi che si toccano: il secondo scende, a meno che non sia rigirato */
+  const finto = (y, cap) => { const at = { y: String(y) }; if (cap) at["data-cap"] = "1";
+    return { classList: { contains: () => false }, getAttribute: (k) => (k in at ? at[k] : null), setAttribute: (k, v) => { at[k] = String(v); },
+      getBBox: () => ({ x: 0, y: +at.y - 10, width: 60, height: 14 }), getCTM: () => ({ a: 1, b: 0, c: 0, d: 1, e: 100, f: 100 }),
+      parentNode: { querySelector: () => null }, at }; };
+  const prova = (cap) => { const a = finto(50, false), b = finto(56, cap);
+    A.nudgeLabelsInDom({ querySelectorAll: () => [a, b] }); return +b.at.y; };
+  ok(prova(false) > 56, "controllo: un nome dritto che tocca il vicino scende (" + prova(false) + ")");
+  eq(prova(true), 56, "il nome rigirato resta dov'è");
+});
+t("anello: la finestra aperta mette il fuoco su «Aggiungi» (Esc e Invio si ascoltano su di lei)", () => {
+  const oldDoc = A.document; let fuoco = null;
+  const el = (id) => ({ id, hidden: true, value: "", focus() { fuoco = id; }, querySelectorAll: () => [], classList: { toggle() {} } });
+  const els = { anelloSetup: el("anelloSetup"), anPre: el("anPre"), anGo: el("anGo") };
+  try {
+    A.document = { getElementById: (id) => els[id] || null };
+    A.apriAnello();
+    eq(els.anelloSetup.hidden, false, "la finestra si apre");
+    eq(els.anPre.value, "G", "il nome riparte da G");
+    eq(fuoco, "anGo", "il fuoco è su «Aggiungi»");
+  } finally { A.document = oldDoc; }
+  ok(/#anelloSetup #anPre\{min-height:44px\}/.test(stylesCss), "al telefono anche il campo del nome è alto 44 px");
+});
+
+/* 06/10/2026 — avviso di variante identica (progetto P-725a15: 2 varianti su 10 uguali a un'altra) */
+const itV = (id, extra) => Object.assign({ id, type: "cantante", x: 100, y: 100, w: 70, d: 90, label: "Voce" }, extra || {});
+function docDueVarianti(itemsA, itemsB, extraB) {
+  A.loadDoc({ _doc: 1, active: "vA", variants: [
+    { id: "vA", name: "Piena", state: { titolo: "T", items: itemsA, inputs: [], outputs: [] } },
+    { id: "vB", name: "Copia dimenticata", state: Object.assign({ titolo: "T", items: itemsB, inputs: [], outputs: [] }, extraB || {}) } ] });
+}
+t("variante identica: due varianti uguali, avviso su entrambe", () => {
+  reset();
+  docDueVarianti([itV("i1"), itV("i2", { x: 300 })], [itV("i1"), itV("i2", { x: 300 })]);
+  const u = A.variantiUguali();
+  eq(u.vA, "Copia dimenticata"); eq(u.vB, "Piena");
+  const h = A.variantTabsHtml();
+  ok(/class="vtab on uguale"[^>]*data-var="vA"/.test(h) && /class="vtab uguale"[^>]*data-var="vB"/.test(h), "entrambe le schede segnate");
+  ok(/uguale a Piena/.test(h) && /uguale a Copia dimenticata/.test(h), "con il nome dell'altra");
+});
+t("variante identica: una modifica di un elemento fa sparire l'avviso", () => {
+  reset();
+  docDueVarianti([itV("i1")], [itV("i1")]);
+  eq(Object.keys(A.variantiUguali()).length, 2, "prima: uguali");
+  A.state.items[0].x = 101;   /* la variante attiva si ricalcola dallo stato vivo */
+  eq(Object.keys(A.variantiUguali()).length, 0, "modifica nell'attiva: niente avviso");
+  A.state.items[0].x = 100;
+  eq(Object.keys(A.variantiUguali()).length, 2, "rimessa com'era: di nuovo uguali");
+  A.VARIANTS[1].state.items[0].label = "Altro";   /* una ferma (cache per oggetto stato: qui si sostituisce lo stato come fa la sync) */
+  A.VARIANTS[1].state = JSON.parse(JSON.stringify(A.VARIANTS[1].state));
+  eq(Object.keys(A.variantiUguali()).length, 0, "modifica nell'altra: niente avviso");
+  ok(!/uguale/.test(A.variantTabsHtml()), "e nelle schede non c'e' piu' traccia");
+});
+t("variante identica: id diversi ma stesso contenuto sono uguali; nome e _v non contano", () => {
+  reset();
+  docDueVarianti([itV("i1", { grp: "g5" }), itV("i2", { x: 300, grp: "g5" })],
+    [itV("i77", { grp: "g9" }), itV("i78", { x: 300, grp: "g9" })], { _v: 3 });
+  A.VARIANTS[1].name = "Un altro nome";
+  eq(A.variantiUguali().vA, "Un altro nome", "id rinumerati, gruppo incluso");
+  /* gli id citati altrove (liste, cavi) si rinumerano insieme */
+  docDueVarianti([itV("i1")], [itV("i9")]);
+  A.state.cab = { manual: { "mix:i1": 1 } }; A.VARIANTS[1].state.cab = { manual: { "mix:i9": 1 } };
+  eq(Object.keys(A.variantiUguali()).length, 2, "riferimento ad un id: stesso contenuto");
+  A.VARIANTS[1].state = JSON.parse(JSON.stringify(A.VARIANTS[1].state)); A.VARIANTS[1].state.items[0].grp = "g1";
+  eq(Object.keys(A.variantiUguali()).length, 0, "un elemento in gruppo e uno no: diversi");
+});
+t("variante identica: la variante appena creata con «Nuova variante» non si segnala finché non diverge", () => {
+  reset();
+  A.loadDoc({ titolo: "Base", items: [], inputs: [], outputs: [] });
+  add("astamic", 300, 300);
+  const idNuova = A.createVariant("Ridotta");
+  eq(Object.keys(A.variantiUguali()).length, 0, "uguale per costruzione: zero avvisi, ne' su lei ne' sull'originale");
+  A.state.items[0].x += 50;
+  eq(Object.keys(A.variantiUguali()).length, 0, "diverge: ancora niente");
+  A.state.items[0].x -= 50;
+  eq(Object.keys(A.variantiUguali()).length, 2, "tornata uguale dopo aver divergito: ora e' un doppione vero");
+  A.switchVariant(A.VARIANTS[0].id);
+  eq(A.variantiUguali()[idNuova], "Variante 1", "anche cambiando variante");
+});
+t("variante identica: una sola variante o scene diverse, nessun avviso; firma economica (cache)", () => {
+  reset();
+  eq(Object.keys(A.variantiUguali()).length, 0, "una variante sola");
+  docDueVarianti([itV("i1")], [itV("i1", { x: 5 })]);
+  eq(Object.keys(A.variantiUguali()).length, 0, "scene diverse");
+  ok(/function firmaVariante\(v\)[\s\S]{0,400}firmaVarCache\.has\(v\.state\)/.test(appjs), "le varianti ferme si firmano una volta sola");
+  const rvb = appjs.slice(appjs.indexOf("function renderVariantBar(){"), appjs.indexOf("function variantTabsHtml(){"));
+  ok(!/variantiUguali/.test(rvb.split("renderVariantMobile();")[0]), "nessun calcolo fuori dal disegno della barra");
+});
+
+/* revisione 06/10/2026 — avviso di variante identica */
+t("variante identica: cambiare titolo o data (campi del documento) non separa due gemelle; area di stampa e _sameAs non contano", () => {
+  reset();
+  docDueVarianti([itV("i1")], [itV("i1")]);
+  eq(Object.keys(A.variantiUguali()).length, 2, "prima: uguali (la ferma ora e' in cache)");
+  A.state.titolo = "Titolo nuovo"; A.state.evDate = "2026-11-13";
+  A.syncActiveVariant();   /* come fa ogni salvataggio: propagaCampiDocumento riscrive la ferma SENZA sostituirne lo stato */
+  eq(A.VARIANTS[1].state.titolo, "Titolo nuovo", "il titolo e' arrivato anche nell'altra");
+  eq(Object.keys(A.variantiUguali()).length, 2, "dopo il titolo nuovo restano uguali");
+  docDueVarianti([itV("i1")], [itV("i1")], { printFrame: { x: 0, y: 0, w: 500, h: 400 }, production: { asked: true } });
+  eq(Object.keys(A.variantiUguali()).length, 2, "esportare il PDF di una sola (area di stampa, asked) non la rende diversa");
+  A.loadDoc({ _doc: 1, active: "vA", variants: [
+    { id: "vA", name: "Piena", state: { titolo: "T", items: [itV("i1")], inputs: [], outputs: [], venue: { name: "pianta.png" } } },
+    { id: "vB", name: "Copia", state: { titolo: "T", items: [itV("i1")], inputs: [], outputs: [], venue: { name: "pianta.png", _sameAs: "vA" } } } ] });
+  eq(Object.keys(A.variantiUguali()).length, 2, "il rimando _sameAs del file esportato non e' contenuto");
+  A.state.items[0].x = 120;
+  eq(Object.keys(A.variantiUguali()).length, 0, "ma un elemento spostato si'");
+});
+t("variante identica: dopo una modifica l'avviso in vista si ricontrolla da solo (senza doppioni non si arma)", () => {
+  reset();
+  const vecchio = A.setTimeout; let cb = null;
+  A.setTimeout = (f) => { cb = f; return 1; };
+  try {
+    docDueVarianti([itV("i1")], [itV("i1", { x: 5 })]);
+    A.variantTabsHtml();
+    A.persistLocalState(); eq(cb, null, "nessun avviso in vista: nessun ricalcolo dopo le modifiche");
+    docDueVarianti([itV("i1")], [itV("i1")]);
+    ok(/uguale/.test(A.variantTabsHtml()), "avviso disegnato");
+    A.state.items[0].x = 150;
+    A.persistLocalState();
+    ok(typeof cb === "function", "la modifica arma il ricontrollo");
+    eq(cb(), true, "l'esito e' cambiato: si ridisegna");
+    eq(A.avvisoDisegnato, "{}", "e l'avviso non dice piu' «uguale»");
+  } finally { A.setTimeout = vecchio; }
+});
+t("variante identica: il ridisegno dell'avviso tiene il fuoco sul bottone dov'era", () => {
+  reset();
+  docDueVarianti([itV("i1")], [itV("i1")]);
+  A.variantTabsHtml();
+  A.state.items[0].x = 150;   /* l'avviso in vista e' diventato falso */
+  const mk = (n) => Array.from({ length: n }, () => { const b = { focus() { fuoco = b; } }; return b; });
+  let fuoco = null;
+  const bar = { hidden: false, children: mk(3) };
+  Object.defineProperty(bar, "innerHTML", { set() { bar.children = mk(3); } });
+  const vecchio = A.document;
+  A.document = { getElementById: (id) => (id === "variantBar" ? bar : null), activeElement: bar.children[1] };
+  try {
+    eq(A.rinfrescaAvvisiVarianti(), true, "ridisegnata");
+    ok(fuoco === bar.children[1], "il fuoco e' sul secondo bottone nuovo, non sulla pagina");
+  } finally { A.document = vecchio; }
+});
+t("variante identica: un id tutto cifre non rinumera le coordinate (niente falsi «uguale»); l'ordine delle chiavi non conta", () => {
+  reset();
+  docDueVarianti([itV("12", { x: 12 })], [itV("40", { x: 40 })]);
+  eq(A.VARIANTS[0].state.items[0].id, "12", "l'id tutto cifre resta com'e'");
+  eq(Object.keys(A.variantiUguali()).length, 0, "elemento in due punti diversi: non sono uguali");
+  docDueVarianti([itV("12", { x: 300 })], [itV("40", { x: 300 })]);
+  eq(Object.keys(A.variantiUguali()).length, 2, "stesso punto, id diversi: uguali");
+  const s1 = { items: [itV("i1"), itV("i2")], cab: { manual: { i1: "i2" } }, b: 1, a: 2 };
+  const s2 = { a: 2, cab: { manual: { i9: "i10" } }, b: 1, items: [itV("i9"), itV("i10")] };
+  eq(A.firmaScena(s1), A.firmaScena(s2), "chiavi in un altro ordine e id diversi: stessa firma");
 });
 
 /* ===== POSTI NUMERATI DEL PUBBLICO (06/10/2026) — scene sintetiche, nessun progetto vero ===== */
