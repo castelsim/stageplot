@@ -1,3 +1,31 @@
+# 06/10/2026 — Biglietteria, area dell'organizzatore: ondata A/B unita in `bgl-area` (NON su main, NON in produzione)
+
+Ramo di integrazione `bgl-area` (worktree `.claude/worktrees/bgl-area`). Specifica e piano FUORI dal repo:
+`COWORK/STAGEPLOT/BIGLIETTERIA/2026-10-06-biglietteria-area-design.md` e `…-area-plan.md` (24 task). Uniti T1, T2
+(`bgl-a-pianta`), T3, T4, T5 (`bgl-a-db`), T10, T12, T21 (`bgl-a-base`), senza conflitti. Prossima ondata: T6–T9
+(server), T11 (pagine pubbliche), T13–T14 (area).
+
+- Pianta: UNA fonte, `src/pianta-posti.js`. `node build.mjs` la mette nell'editor (marcatore `/*__PIANTA_POSTI__*/`)
+  e la copia in `biglietteria/pianta-posti.js` (generato: non si modifica; `--check` lo controlla). Confronto
+  foto/progetto: `piantaConfronta` + `piantaRiassunto`.
+- Database: 0074 (organizzatore, campi nuovi dello spettacolo, `bgl_spettacolo_salva`, `bgl_progetti_sala`), 0075
+  (letture pubbliche `bgl_organizzatore_pubblico`, `bgl_spettacolo_pubblico`; le bozze non escono da nessuna porta
+  pubblica), 0076 (spazio `bgl-locandine`, policy, `bgl_locandine_orfane` per `retention-purge`). Applicate allo stack
+  locale; in produzione NO.
+- Decisioni di Simone del 06/10: (1) l'indirizzo della pagina si blocca dal primo spettacolo pubblicato e resta
+  bloccato (`indirizzo_bloccato_il`, trigger su `bgl_eventi`); (2) eliminando uno spettacolo non parte nessuna mail
+  (scritto nell'informativa); (3) contatto pubblico predefinito = email dell'account, nella «prima volta» il campo è
+  precompilato e modificabile (da fare nel T13).
+- ⚠️ Per il T13: alla prima volta `bgl_organizzatore_salva` collega gli spettacoli nati nell'editor (pubblicati), e il
+  trigger blocca SUBITO l'indirizzo: la schermata deve dirlo prima del salvataggio. Il contatto lasciato vuoto NON
+  nasconde l'email: la lettura pubblica usa quella dell'account (regola della specifica); l'interfaccia deve dirlo.
+- ⚠️ Per il T7: `bgl_prenota` (SQL) non controlla `pubblicato`; oggi le bozze le ferma solo `bgl_globale_hit`
+  nell'Edge Function, che però lascia passare se quella chiamata fallisce. Nella riscrittura della 0078 aggiungere
+  il controllo, con test.
+- Informativa (§8) già aggiornata ma descrive anche T9/T20 («Elimina il mio account», «Le mie prenotazioni»): non va
+  online prima di loro; alla messa online riscrivere la data (intestazione, §8 e i due test).
+- Banco di prova nel browser fuori dal repo: `COWORK/STAGEPLOT/BIGLIETTERIA/area-prove/` (`prepara.sh`, `comune.mjs`).
+
 # 06/10/2026 — Biglietteria gratuita (ramo `biglietteria`, NON unito, NON in produzione)
 
 Prenotazione gratuita dei posti numerati per un concerto (prima uscita venerdì 09/10, 100 posti A–H). Specifica e piano
