@@ -1,3 +1,31 @@
+# 06/10/2026 — Biglietteria, area: ondata C/D unita in `bgl-area` (T6–T9, T11, T13, T14; NON su main, NON in produzione)
+
+Uniti senza conflitti `bgl-b-server` (T6–T9), `bgl-b-pagine` (T11), `bgl-b-area` (T13, T14). Revisione
+dell'integratore: diff letti contro piano e specifica, mutazioni rifatte (SQL sullo stack locale: proprietario in
+`bgl_sposta` e in `bgl_avviso_spostamento`, bozze in `bgl_prenota`, tetto per account, organizzatore escluso da «solo
+biglietteria»; TS: email/account con Google, 401 senza ripiego anonimo, 409 `account_in_uso`; JS: `.ics` in UTC e
+virgole scappate, «senza rete» ≠ «uscito», chiavi della pianta salvata): tutte rosse. Prove nel browser sul ramo
+unito: pubblico 213/213, area 55/55, modulo 101/101, scorciatoie 8/8.
+
+- Server: 0077 (`bgl_sposta`, `bgl_avviso_spostamento`, Edge Function `bgl-avvisa`), 0078 (`bgl_prenota` a 8
+  argomenti con `p_user_id`, `bgl_pubblico`, `bgl_mie_prenotazioni`, `bgl_disdici_mia`, `bgl_account_stato`,
+  `bgl_account_prepara_eliminazione`, `bgl_account_da_pulire`), `bgl-prenota` con `Authorization`, Edge Function
+  `bgl-account`, `retention-purge` con la pulizia degli account. Applicate allo stack locale (0000–0078).
+- Pagine: `?o=` (pagina dell'organizzatore) e `?o=&s=` (scheda con locandina, descrizione, calendario); `?e=` invariato.
+- Area: `/biglietteria/gestione/` con accesso, «non abilitato», prima volta (decisioni 1 e 3 di Simone), «I miei
+  spettacoli», «Nuovo spettacolo»/«Modifica». Dopo il salvataggio si va a `?v=scheda`, che arriva col T15: fino ad
+  allora la pagina ripiega sull'elenco.
+- ⚠️ Messa online (T24): PRIMA la migrazione 0078, POI le funzioni `bgl-prenota`, `bgl-avvisa`, `bgl-account`,
+  `retention-purge`. La firma di `bgl_prenota` cambia (drop della vecchia a 7 argomenti nella stessa transazione).
+- ⚠️ Per il T19: `Authorization` a `bgl-prenota` SOLO con una sessione vera e con la chiave anon LEGACY (quella di
+  `SUPABASE_ANON_KEY`), altrimenti 401; un 401 `accesso_scaduto` si rinnova e si riprova, mai in anonimo. Chi entra con
+  Google dalla scheda ma non prenota NON ha la riga in `bgl_pubblico`: la pulizia dei 12 mesi non lo vede (vedi sotto).
+- ⚠️ Per il T17: `bgl-avvisa` risponde 403/404/409 (`gia_disdetta`, `dati_cancellati`, `non_spostata` = oltre un'ora
+  dallo «Sposta»)/429 (`troppi_avvisi`). Per il T20: `bgl-account` dà 409 `account_in_uso` anche per Orchestre,
+  richieste e consulenze → «scrivi a info@stageplot.it».
+- Banco di prova: `googleFinto` di `comune.mjs` usa un 302 che WebKit rifiuta: per WebKit una pagina 200 con
+  `location.replace` (come in `prova-area-ingresso.mjs`).
+
 # 06/10/2026 — Biglietteria, area dell'organizzatore: ondata A/B unita in `bgl-area` (NON su main, NON in produzione)
 
 Ramo di integrazione `bgl-area` (worktree `.claude/worktrees/bgl-area`). Specifica e piano FUORI dal repo:
