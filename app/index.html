@@ -992,6 +992,7 @@
   body:not(.f-esporta) #pdfScaleRow,
   body:not(.f-esporta) #pdfScaleCustomRow,
   body:not(.f-esporta) #pdfHdrRow,
+  body:not(.f-esporta) #pdfPesiRow,
   body:not(.f-esporta) #pdfTechRow{display:none !important}
   #pdfModal .exp-pro{display:block;width:100%;margin-top:10px;min-height:44px;font-weight:600}
 }
@@ -3504,6 +3505,7 @@ body.dark #props .solo-ped.on{background:#78350f;border-color:#b45309;color:#fbb
   body:not(.f-esporta) #pdfScaleRow,
   body:not(.f-esporta) #pdfScaleCustomRow,
   body:not(.f-esporta) #pdfHdrRow,
+  body:not(.f-esporta) #pdfPesiRow,
   body:not(.f-esporta) #pdfTechRow{display:none !important}
   #pdfModal .exp-pro{display:block;width:100%;margin-top:10px;min-height:36px;font-weight:600}
   /* «io direi che la versione semplificata non ha liste» (Simone, 14/09): in Semplice la colonna di
@@ -5631,6 +5633,7 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
         </div>
         <div class="hdr-saved" id="pdfHdrSaved"></div>
         </div>
+        <label class="chk" id="pdfPesiRow"><input type="checkbox" id="pdfPesi"> Pesi (kg) <small class="lbl-note">— peso stimato dell'allestimento, in testata e nel rider</small></label>
         <!-- Telefono: le opzioni da scrivania stanno dietro questo, con la STESSA preferenza del
              pannello elemento — chi accende «tecnico» lo accende una volta, non due. -->
         <button type="button" class="btn exp-pro" id="pdfProBtn">Altre opzioni</button>

@@ -2567,7 +2567,10 @@ t("sediaorch 44×48 · 6 kg · sediapubblico 50×53 · 3,5 kg", () => {
 });
 t("riderData.pesoKg somma il peso delle sedie", () => {
   reset(); add("sediaorch", 300, 300); add("sediaorch", 340, 300); add("sediapubblico", 500, 300);
-  eq(A.riderData().pesoKg, 6 + 6 + 3.5);
+  eq(A.riderData().pesoKg, 0, "«Pesi (kg)» spenta di serie: nel rider niente peso");
+  A.state.pdfPesi = true;
+  eq(A.riderData().pesoKg, 6 + 6 + 3.5, "accesa: il peso c'è");
+  delete A.state.pdfPesi;
 });
 
 /* PLATEA A BLOCCHI (06/10/2026): un utente aveva disegnato la platea con 60 sedie bianche posate una per
@@ -2625,7 +2628,9 @@ t("platea: nel rider pesa le sue sedie ma NON entra fra le sedie dei musicisti",
   reset(); add("platea", 600, 1200);
   eq(A.countAccessori().sedie, 0, "sedie del rider");
   ok(!A.pdfTotals().some((s) => /sedut/.test(s)), "nessuna «seduta» nei totali del PDF: " + A.pdfTotals().join(" · "));
+  A.state.pdfPesi = true;   /* i kg nel rider solo con «Pesi (kg)» (06/10/2026) */
   eq(A.riderData().pesoKg, 60 * 3.5, "peso allestimento: 60 sedie da 3,5 kg");
+  delete A.state.pdfPesi;
   add("sediabianca", 300, 300);
   eq(A.countAccessori().sedie, 1, "una sedia bianca sul palco invece conta");
 });
@@ -5891,8 +5896,23 @@ t("senza «Esporta avanzato» il cartiglio non scrive peso, rack e canali", () =
   ok(!/canali/.test(senza), "senza, no: " + senza);
   ok(/leggi/.test(senza) && /spia/.test(senza), "leggii e spie restano: servono a chi allestisce: " + senza);
   ok(/function pdfDatiTecnici\(\)\{\s*try\{ return typeof funzOn!=="function" \|\| !!funzOn\("esporta"\);/.test(appjs), "la regola è la funzione Esporta avanzato");
-  ok(/var _tecn=pdfDatiTecnici\(\);[^\n]*\n\s*var _wt=_tecn\?totalWeightKg\(\):0;[^\n]*\n\s*var _ru=_tecn\?totalRackU\(\):0;/.test(appjs), "nel PDF peso e rack seguono la stessa regola");
-  ok(/var _ptecn=pdfDatiTecnici\(\);[^\n]*\n\s*var _pwt=_ptecn\?totalWeightKg\(\):0;[^\n]*_pru=_ptecn\?totalRackU\(\):0;/.test(appjs), "e l'anteprima pure");
+  /* 06/10/2026: il peso in più vuole la casella «Pesi (kg)» (pdfPesiOn), il rack resta com'era */
+  ok(/var _tecn=pdfDatiTecnici\(\);[^\n]*\n\s*var _wt=\(_tecn&&pdfPesiOn\(\)\)\?totalWeightKg\(\):0;[^\n]*\n\s*var _ru=_tecn\?totalRackU\(\):0;/.test(appjs), "nel PDF peso e rack seguono la stessa regola");
+  ok(/var _ptecn=pdfDatiTecnici\(\);[^\n]*\n\s*var _pwt=\(_ptecn&&pdfPesiOn\(\)\)\?totalWeightKg\(\):0;[^\n]*_pru=_ptecn\?totalRackU\(\):0;/.test(appjs), "e l'anteprima pure");
+});
+
+/* 06/10/2026 — Simone: «sul pdf che stampo ci sono i kg, dev'essere un'opzione disattivata di default» */
+t("Pesi (kg) nel PDF: opzione del progetto, spenta di serie", () => {
+  reset(); add("sediaorch", 300, 300);
+  ok(!A.pdfPesiOn(), "progetto nuovo: spenta");
+  A.state.pdfPesi = true; ok(A.pdfPesiOn(), "accesa con la casella");
+  eq(A.normalizeState({ _v: A.SCHEMA_VERSION, items: [], inputs: [], outputs: [], pdfPesi: "si" }).pdfPesi, undefined, "da un file: solo un true esplicito");
+  eq(A.normalizeState({ _v: A.SCHEMA_VERSION, items: [], inputs: [], outputs: [], pdfPesi: true }).pdfPesi, true, "e il true resta");
+  ok(A.CAMPI_DOCUMENTO.indexOf("pdfPesi") > -1, "vale per tutte le varianti");
+  ok(/<label class="chk" id="pdfPesiRow"><input type="checkbox" id="pdfPesi">/.test(readFileSync(join(root, "app/index.html"), "utf8")), "la casella c'è, senza «checked»");
+  eq((stylesCss.match(/body:not\(\.f-esporta\) #pdfPesiRow,/g) || []).length, 2, "sta in «Altre opzioni», su telefono e scrivania");
+  ok(/A\.weightKg>0&&pdfPesiOn\(\)\?" · peso ~"/.test(appjs), "anche l'audit in PDF la rispetta");
+  delete A.state.pdfPesi;
 });
 
 t("pedane coperte: il clic ripetuto passa a quello sotto, e la pedana si sposta anche da sola", () => {

@@ -2088,6 +2088,7 @@
         </div>
         <div class="hdr-saved" id="pdfHdrSaved"></div>
         </div>
+        <label class="chk" id="pdfPesiRow"><input type="checkbox" id="pdfPesi"> Pesi (kg) <small class="lbl-note">— peso stimato dell'allestimento, in testata e nel rider</small></label>
         <!-- Telefono: le opzioni da scrivania stanno dietro questo, con la STESSA preferenza del
              pannello elemento — chi accende «tecnico» lo accende una volta, non due. -->
         <button type="button" class="btn exp-pro" id="pdfProBtn">Altre opzioni</button>
@@ -5405,7 +5406,7 @@ function nextVariantName(){ var n=0; VARIANTS.forEach(function(v){ var m=/^Varia
    data e contatti non erano mai diversi. Restano nello stato di ogni variante — lo schema e i file
    già salvati non cambiano — ma a ogni sincronizzazione quelli della variante attiva si scrivono
    nelle altre. */
-var CAMPI_DOCUMENTO=["titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader"];
+var CAMPI_DOCUMENTO=["titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento */
 function propagaCampiDocumento(v){
   var src=v&&v.state; if(!src) return;
   VARIANTS.forEach(function(o){
@@ -8039,6 +8040,7 @@ function normalizeState(s){
   s.evTime=(typeof s.evTime==="string" && /^\d{2}:\d{2}$/.test(s.evTime)) ? s.evTime : "";
   s.tipoEvento=(s.tipoEvento==="conferenza") ? "conferenza" : "concerto";   /* 24/09: conferenza cambia le parole del PDF e gli avvisi, non il disegno */
   s.pdfHeader = (typeof s.pdfHeader==="string") ? s.pdfHeader.slice(0,120) : "";   /* riferimento nel cartiglio (export), persistente */
+  if(s.pdfPesi!==true) delete s.pdfPesi;   /* kg nel PDF: solo un true esplicito li accende (06/10/2026) */
   /* Le pagine scelte nella finestra Esporta si ricordavano nel progetto (06/08). Dal 10/09 non più
      — «togli anche la memoria della scelta» — e il campo si porta via chi apre il progetto, non una
      scrittura di massa sul database: quella toccherebbe i progetti di tutti in un colpo solo e non
@@ -29359,7 +29361,7 @@ function auditReportPdf(shared){
     if(state.titolo||state.luogo) line((state.titolo||"")+(state.luogo?" — "+state.luogo:""), 12, true, null, 8);
     line("Prontezza: "+A.score+"/100  —  "+A.grade, 15, true, col, 8);
     line(A.errs+" errori · "+A.warns+" avvisi    ·    "+A.audioSrc+" ingressi · "+A.monitors+" mix monitor · "+(A.totW/1000).toFixed(1).replace(".",",")+" kW · cavo ~"+A.totCableM.toFixed(0)+" m"
-      +(A.weightKg>0?" · peso ~"+fmtKg(A.weightKg):"")+(A.rackU>0?" · rack "+A.rackU+" U":""), 9.5, false, "#555555", 9);
+      +(A.weightKg>0&&pdfPesiOn()?" · peso ~"+fmtKg(A.weightKg):"")+(A.rackU>0?" · rack "+A.rackU+" U":""), 9.5, false, "#555555", 9);
     line("Criticità e suggerimenti", 12, true, col, 6);
     var probs=A.findings.filter(function(x){ return x.lvl==="err"||x.lvl==="warn"; });
     if(!probs.length) line("Nessuna criticità rilevata: il rider sembra pronto.", 10, false, "#0d9488", 5);
@@ -29574,6 +29576,11 @@ function niceBarMeters(N){            /* barra di scala: ~25-40 mm sul foglio */
 function pdfDatiTecnici(){
   try{ return typeof funzOn!=="function" || !!funzOn("esporta"); }catch(e){ return true; }
 }
+/* PESI NEL PDF (06/10/2026, Simone: «sul pdf che stampo ci sono i kg, dev'essere un'opzione disattivata di
+   default»). Il peso stimato dell'allestimento usciva nella testata del palco, nel rider («peso allestimento
+   stimato») e nell'audit. È una stima per chi carica il furgone, non per chi riceve il rider: si stampa solo
+   con la casella «Pesi (kg)» accesa in «Altre opzioni», e la scelta resta nel progetto (state.pdfPesi). */
+function pdfPesiOn(){ return !!(state && state.pdfPesi===true) && pdfDatiTecnici(); }
 function pdfTotals(opts){
   var it=state.items||[], out=[];
   var tecn=(opts && ("tecnici" in opts)) ? !!opts.tecnici : pdfDatiTecnici();
@@ -29626,7 +29633,7 @@ function pdfCartiglio(doc, L, N, header){
   sub.push(dataDocumento());
   var _Ac=printArea(); sub.push((_Ac.custom?"area ":"palco ")+(_Ac.w/100)+"×"+(_Ac.h/100)+" m");
   var _tecn=pdfDatiTecnici();   /* peso e rack solo con «Esporta avanzato» (16/09) */
-  var _wt=_tecn?totalWeightKg():0; if(_wt>0) sub.push(fmtKg(_wt));   /* L2: peso di trasporto stimato */
+  var _wt=(_tecn&&pdfPesiOn())?totalWeightKg():0; if(_wt>0) sub.push(fmtKg(_wt));   /* L2: peso di trasporto stimato, solo con «Pesi (kg)» */
   var _ru=_tecn?totalRackU():0; if(_ru>0) sub.push(_ru+" U rack");
   var subStr=sub.join("  ·  ");
   var subL=doc.splitTextToSize(subStr, titleW);
@@ -29711,7 +29718,7 @@ function pdfPreviewSvg(paperKey, N, orient, header, opts){
   var sub=[]; if(state.luogo) sub.push(state.luogo);
   sub.push(dataDocumento()); sub.push((A.custom?"area ":"palco ")+(A.w/100)+"×"+(A.h/100)+" m");
   var _ptecn=pdfDatiTecnici();   /* l'anteprima dice quello che dirà il file */
-  var _pwt=_ptecn?totalWeightKg():0; if(_pwt>0) sub.push(fmtKg(_pwt)); var _pru=_ptecn?totalRackU():0; if(_pru>0) sub.push(_pru+" U rack");
+  var _pwt=(_ptecn&&pdfPesiOn())?totalWeightKg():0; if(_pwt>0) sub.push(fmtKg(_pwt)); var _pru=_ptecn?totalRackU():0; if(_pru>0) sub.push(_pru+" U rack");
   var stroke = A.custom ? '#9ca3af' : (box.cropped ? '#9ca3af' : (isSingleRect()?'#1f2937':'none'));
   var labels = A.custom ? '' :
     '<text x="'+(ix+stMmW/2)+'" y="'+(iy-1.6)+'" font-size="3" fill="#9a9a9a" text-anchor="middle">FONDO PALCO</text>'+
@@ -29979,7 +29986,7 @@ function riderData(){
     /* Chi sta sul palco è metà del lavoro del service (gradoni, sedie, leggii): un coro da 24 non
        compariva da nessuna parte nel documento consegnato, mentre il pannello dei layer lo contava. */
     persone: cnt("corista")+cnt("cantante")+cnt("relatore")+cnt("moderatore"), leggii: cnt("leggio")+cnt("sedialeggio"),
-    pesoKg: (typeof totalWeightKg==="function") ? totalWeightKg() : 0,
+    pesoKg: (typeof totalWeightKg==="function" && pdfPesiOn()) ? totalWeightKg() : 0,   /* «Pesi (kg)» spenta: niente peso nel rider */
     /* Quanta corrente serve è una domanda che il service fa SEMPRE, e il rider non la nominava mai:
        i watt erano solo nella Lista carichi, una pagina tecnica separata e facoltativa (06/08). */
     elettrico: (function(){ try{ var E=(typeof elecResult==="function")?elecResult(true):null;
@@ -31307,7 +31314,14 @@ function pdfChannelPage(doc, L, paperKey){
     el.textContent = has ? "Salvato nel progetto." :
       (header.value.trim() ? "Dal contatto primario della rubrica · si salva nel progetto." : "Si salva nel progetto.");
   }
+  /* «Pesi (kg)»: spenta di serie, si salva nel progetto (vedi pdfPesiOn) */
+  var pesiChk=document.getElementById("pdfPesi");
+  if(pesiChk) pesiChk.addEventListener("change", function(){
+    if(pesiChk.checked) state.pdfPesi=true; else delete state.pdfPesi;
+    save(); refresh();
+  });
   function pdfHeaderInit(){
+    if(pesiChk) pesiChk.checked=(state.pdfPesi===true);
     header.value=(typeof pdfHeaderPropose==="function") ? pdfHeaderPropose(state, pdfHeaderAccount()) : (state.pdfHeader||"");
     pdfHeaderSavedLine();
   }
