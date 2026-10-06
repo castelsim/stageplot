@@ -457,3 +457,12 @@ test("ZOOM CON DUE DITA: dentro la pianta il gesto è suo (touch-action), la pag
   const js = readFileSync(join(root, "biglietteria/bgl.js"), "utf8");
   for (const ev of ["touchmove", "wheel", "gesturechange"]) assert.match(js, new RegExp('addEventListener\\("' + ev + '"'), ev + " gestito");
 });
+
+/* 06/10, Simone: «stageplot.it/biglietteria mi dà pagina non trovata». Senza spettacolo è l'ingresso, non un errore. */
+test("SENZA SPETTACOLO: stageplot.it/biglietteria spiega come prenotare, il link storto resta «non trovata»", () => {
+  const js = readFileSync(join(root, "biglietteria/bgl.js"), "utf8");
+  const avvia = js.slice(js.indexOf("function avvia()"));
+  assert.ok(avvia.indexOf("if (!S.slug) return messaggioPieno(SENZA_EVENTO") >= 0 &&
+    avvia.indexOf("if (!S.slug)") < avvia.indexOf("if (!slugValido(S.slug))"), "prima il caso senza spettacolo, poi lo slug storto");
+  assert.match(js, /titolo: "Prenota il tuo posto"/);
+});
