@@ -7043,6 +7043,23 @@ function lblBaseY(it, fszK, ext){
   var g=lblStacco(fszK);
   return lblSopraDi(it) ? (ext.y0 - g - fszK*0.25) : (ext.y1 + g + fszK*0.72);
 }
+/* NOMI CHE NON SI CAPOVOLGONO (06/10/2026, impianto a 8 casse G1–G8 attorno al pubblico: quelle girate di
+   180° avevano il nome a testa in giù). Il nome gira con l'elemento, quindi con l'elemento a 180° (o
+   qualunque angolo fra 90° e 270°, estremi esclusi) si leggeva capovolto. Qui si dice se l'angolo TOTALE con
+   cui il testo arriva sullo schermo lo capovolge; in quel caso il testo si rigira di 180° attorno al proprio
+   centro: resta dov'è (lo stesso lato dell'elemento) ma si legge dritto. A 90° e 270° il testo è verticale
+   e si legge di lato, come sempre: non si tocca. */
+function lblCapovolto(ang){
+  var r=(((+ang||0)%360)+360)%360;
+  return r>90.5 && r<269.5;
+}
+/* transform di un testo: la sua inclinazione propria (ang, attorno a x,y) e, se capovolto, il mezzo giro
+   attorno al centro delle lettere (baseline − 0,36 corpo). Vuoto se non serve niente. */
+function lblCapTr(flip, ang, x, y, corpo){
+  var cy=Math.round((y-corpo*0.36)*10)/10, s=ang ? 'rotate('+ang+' '+x+' '+y+')' : '';
+  if(flip) s += (s?' ':'')+'rotate(180 '+x+' '+cy+')';
+  return s ? ' transform="'+s+'"' : '';
+}
 function itemMarkup(it){
   var t = itemTypeDef(it); if(!t) return '';
   var lb='';   /* i NOMI: nella scena vanno nel livello sopra tutto (#layLbl), vedi _lblSink */
@@ -7099,11 +7116,12 @@ function itemMarkup(it){
   }
   if(it.leggio===true && leggioExtra(it)) s += '<g transform="translate(0,'+leggioExtraY(it)+')">'+leggioGlyph(0)+'</g>';   /* leggio generico: arpa, piani, organi, percussioni, mallet… (off di default, davanti allo strumento) */
   if(t.riser){                                       /* quota pedana sul lato scelto/auto (più visibile) */
-    var dimT=(it.w/100)+'×'+(it.d/100)+' m · h'+it.h, rside=riserDimSide(it), roff=12, rdx=0, rdy=0, ranc='middle', rtr='';
+    var dimT=(it.w/100)+'×'+(it.d/100)+' m · h'+it.h, rside=riserDimSide(it), roff=12, rdx=0, rdy=0, ranc='middle', rtr='', rang=0;
     if(rside==="top"){ rdy=-(it.d/2)-roff; }
     else if(rside==="bottom"){ rdy=(it.d/2)+roff+9; }
-    else if(rside==="left"){ rdx=-(it.w/2)-roff; ranc='middle'; rtr=' transform="rotate(-90 '+rdx+' 0)"'; }   /* ruotata, legge lungo il lato sx */
-    else { rdx=(it.w/2)+roff; ranc='middle'; rtr=' transform="rotate(90 '+rdx+' 0)"'; }                       /* ruotata, lato dx */
+    else if(rside==="left"){ rdx=-(it.w/2)-roff; ranc='middle'; rang=-90; }   /* ruotata, legge lungo il lato sx */
+    else { rdx=(it.w/2)+roff; ranc='middle'; rang=90; }                       /* ruotata, lato dx */
+    rtr=lblCapTr(!_sceneRuota && lblCapovolto((it.rot||0)+rang), rang, rdx, rdy, 12);   /* 06/10: la quota non si capovolge con la pedana girata */
     lb += '<text class="lbl sub" x="'+rdx+'" y="'+rdy+'" text-anchor="'+ranc+'"'+rtr+'>'+dimT+'</text>';
   }
   var _lblOrig = null;   /* perno del corpo minimo a schermo (lblScalaAttorno): null = l'ancora del primo testo */
@@ -7163,7 +7181,8 @@ function itemMarkup(it){
        colonna attorno al primo: loro restano come prima */
     if(!it.diFor && !t.riser && !(_sceneRuota && (it.doppia===true || DOUBLE_TYPES[it.type]))) _lblOrig = [_orX, _orY];
     var _xy = _sceneRuota ? ' x="'+_lxR+'" y="'+_lyR+'"' : ' y="'+ly+'"';
-    var _rot = _sceneRuota ? ' transform="rotate('+_rc+' '+_lxR+' '+_lyR+')"' : '';
+    var _cap = !_sceneRuota && lblCapovolto(it.rot);   /* 06/10: elemento girato oltre 90°/prima di 270°: il nome si rigira, resta dov'è ma si legge dritto */
+    var _rot = _sceneRuota ? ' transform="rotate('+_rc+' '+_lxR+' '+_lyR+')"' : lblCapTr(_cap, 0, 0, ly, fszK);
     var _fstR = _sceneRuota ? ' style="font-size:'+fsz+'px;text-anchor:middle;dominant-baseline:hanging"' : fst;
     var isDbl = it.doppia===true || !!DOUBLE_TYPES[it.type];
     var _t1 = lblText(it.label, it, true), _t2 = lblText(it.label2, it, false);   /* modalità nome per-elemento (full/sigla) */
@@ -7174,8 +7193,8 @@ function itemMarkup(it){
       /* inclinato, il capo interno del nome sale verso il disegno di mezza parola × sen 12°: a filo del
          disegno (29/09) lo si scosta di altrettanto, o «Violini I 1» entrava nel leggio */
       if(!_sceneRuota){ var _tc=Math.max(lblTextW(_t1, fszK), lblTextW(_t2, fszK))/2*Math.sin(tilt*Math.PI/180); ly += lblAbove ? -_tc : _tc; }
-      if(_t1) lb += '<text class="lbl" x="'+(-lx)+'" y="'+ly+'" transform="rotate('+(_sceneRuota ? _rc : -tilt)+' '+(-lx)+' '+ly+')"'+fst+'>'+esc(_t1)+'</text>';
-      if(_t2) lb += '<text class="lbl" x="'+lx+'" y="'+ly+'" transform="rotate('+(_sceneRuota ? _rc : tilt)+' '+lx+' '+ly+')"'+fst+'>'+esc(_t2)+'</text>';
+      if(_t1) lb += '<text class="lbl" x="'+(-lx)+'" y="'+ly+'"'+lblCapTr(_cap, (_sceneRuota ? _rc : -tilt), -lx, ly, fszK)+fst+'>'+esc(_t1)+'</text>';
+      if(_t2) lb += '<text class="lbl" x="'+lx+'" y="'+ly+'"'+lblCapTr(_cap, (_sceneRuota ? _rc : tilt), lx, ly, fszK)+fst+'>'+esc(_t2)+'</text>';
     } else if(_t1){
       /* DI generata da uno strumento (audit 27/07): il suo posto è sotto lo strumento, quindi la sua
          etichetta finiva nella stessa colonna di quella dello strumento e ci si stampava sopra —
@@ -7183,7 +7202,7 @@ function itemMarkup(it){
          esce di lato, dove non c'è nient'altro. */
       /* 18 e non 7: a 7 la prima lettera nasceva addosso al bordo della DI e il contorno del disegno
          si leggeva come parte del nome («⊏DI 1»). */
-      if(it.diFor) lb += '<text class="lbl" x="'+(it.w/2+18)+'" y="'+(fszK*0.36+_nudge)+'" text-anchor="start"'+(_sceneRuota ? ' transform="rotate('+_rc+' '+(it.w/2+18)+' '+(fszK*0.36+_nudge)+')"' : '')+fst+'>'+esc(_t1)+noteDot(it)+'</text>';
+      if(it.diFor) lb += '<text class="lbl" x="'+(it.w/2+18)+'" y="'+(fszK*0.36+_nudge)+'" text-anchor="start"'+(_sceneRuota ? ' transform="rotate('+_rc+' '+(it.w/2+18)+' '+(fszK*0.36+_nudge)+')"' : lblCapTr(_cap, 0, it.w/2+18, fszK*0.36+_nudge, fszK))+fst+'>'+esc(_t1)+noteDot(it)+'</text>';
       else if(!nomeGiaSullaSpia(it)) lb += '<text class="lbl"'+_xy+_rot+_fstR+'>'+esc(_t1)+noteDot(it)+'</text>';
     } else if(noteOf(it)){
       /* elementi che nascono anonimi (pedane, zone): senza questo ramo la loro nota non avrebbe
@@ -7192,17 +7211,18 @@ function itemMarkup(it){
     }
     /* MONTAGGIO: «stativo 2,5 m» sotto il nome. È il dato che chi allestisce viene a cercare, e a
        terra non si scrive niente — l'assenza vuol dire «poggiato», che è il caso normale. */
-    if(_mn) lb += '<text class="lbl sub"'+(_sceneRuota ? _xy+' dy="'+(fszK*1.1)+'"' : ' y="'+(ly+fszK*0.95)+'"')+_rot+' style="font-size:'+(fsz*0.8)+'px'+(_sceneRuota ? ';text-anchor:middle;dominant-baseline:hanging' : '')+'">'+esc(_mn)+'</text>';
+    if(_mn) lb += '<text class="lbl sub"'+(_sceneRuota ? _xy+' dy="'+(fszK*1.1)+'"' : ' y="'+(ly+fszK*0.95)+'"')+(_sceneRuota ? _rot : lblCapTr(_cap, 0, 0, ly+fszK*0.95, fszK*0.8))+' style="font-size:'+(fsz*0.8)+'px'+(_sceneRuota ? ';text-anchor:middle;dominant-baseline:hanging' : '')+'">'+esc(_mn)+'</text>';
   }
   /* coperture (gazebo/tende): UNA etichetta = nome + dimensione automatica, sul lato scelto (Sopra/Sotto/Sx/Dx) */
   if(GAZ_TYPES[it.type] && it.labelMode!=='hidden'){
     var gzsz=(it.lblSize==null)?14:it.lblSize;
     if(gzsz>0){
-      var gzT=gazStructLabel(it), gzs=(it.dimSide&&it.dimSide!=='auto')?it.dimSide:'top', goff=13, gdx=0, gdy=0, gtr='';
+      var gzT=gazStructLabel(it), gzs=(it.dimSide&&it.dimSide!=='auto')?it.dimSide:'top', goff=13, gdx=0, gdy=0, gtr='', gang=0;
       if(gzs==='top'){ gdy=-(it.d/2)-goff; }
       else if(gzs==='bottom'){ gdy=(it.d/2)+goff+gzsz*0.6; }
-      else if(gzs==='left'){ gdx=-(it.w/2)-goff; gtr=' transform="rotate(-90 '+gdx+' 0)"'; }
-      else { gdx=(it.w/2)+goff; gtr=' transform="rotate(90 '+gdx+' 0)"'; }
+      else if(gzs==='left'){ gdx=-(it.w/2)-goff; gang=-90; }
+      else { gdx=(it.w/2)+goff; gang=90; }
+      gtr=lblCapTr(!_sceneRuota && lblCapovolto((it.rot||0)+gang), gang, gdx, gdy, gzsz);   /* 06/10: come i nomi, non si capovolge */
       lb += '<text class="lbl" x="'+gdx+'" y="'+gdy+'" text-anchor="middle" style="font-size:'+gzsz+'px"'+gtr+'>'+esc(gzT)+'</text>';
     }
   }
@@ -14389,6 +14409,14 @@ function ricordaRecenteCatalogo(k, nome, over){
         addBtn(TYPES[k].nome);
       }
     });
+    if(c==="Audio"){   /* dopo i tipi: il gruppo «Impianto piccolo» esiste già e conserva il suo posto nell'ordine */
+      /* ANELLO DI ALTOPARLANTI (06/10/2026): una voce che apre una piccola scelta (quante casse, cerchio o
+         rettangolo, nome) e posa l'impianto multicanale in un colpo, nel gruppo «Impianto piccolo» dei diffusori */
+      var ANELLO_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="16" cy="16" r="10" stroke-dasharray="2 3" opacity=".5"/><rect x="13" y="3" width="6" height="5" rx="1"/><rect x="13" y="24" width="6" height="5" rx="1"/><rect x="3" y="13" width="5" height="6" rx="1"/><rect x="24" y="13" width="5" height="6" rx="1"/></svg>';
+      addToGroup("Impianto piccolo", makeActionBtn("Anello di altoparlanti", "4, 6 o 8 casse attorno al pubblico", null, apriAnello, ANELLO_ICON));
+      entries.push({nome:"Anello di altoparlanti", dim:"4, 6 o 8 casse attorno al pubblico", action:apriAnello, iconHtml:ANELLO_ICON,
+                    kw:"anello altoparlanti multicanale ottofonico ottofonia quadrifonico quadrifonia surround immersivo", noQuick:true});
+    }
     /* Task 4: sposta i bottoni NON essenziali sotto "Mostra tutti (+N)" (le sottocat rimaste vuote spariscono).
        I bottoni direttamente su body (azioni Voci/Palco) restano sempre visibili. */
     if(c!=="Liste tecniche"){
@@ -14726,7 +14754,7 @@ function instrBase(type){ return INSTR_BASE[type] || (TYPES[type]&&TYPES[type].n
 function instrSeats(type){ var base=instrBase(type), n=0;
   state.items.forEach(function(x){ if(x.type && autoNumbered(x.type) && instrBase(x.type)===base) n += ((x.doppia||DOUBLE_TYPES[x.type])?2:1); });
   return n; }
-function addItem(type, over){
+function addItem(type, over, silenzioso){   /* silenzioso (06/10/2026): crea e mette nello stato, ma non disegna, non salva e non seleziona — lo usa chi ne posa molti in un colpo (anello di altoparlanti) e salva UNA volta */
   if(window.__projLocked) return null;   /* BLOCCO progetti: nessuna aggiunta di elementi (backstop di TUTTI i path: catalogo, quick-add, drag-drop, fix audit, auto-add cablaggio) */
   var t=TYPES[type];
   var _cv=v2w({x:vb.x+vb.w/2, y:vb.y+vb.h/2});   /* il centro di quello che si vede, nelle coordinate del palco (anche con la vista ruotata) */
@@ -14774,6 +14802,7 @@ function addItem(type, over){
      la scatoletta compare SUBITO accanto a loro, come quando si sceglie DI a mano. Prima appariva
      solo toccando la tendina, e il pannello diceva "serve una DI" mostrando un palco senza DI. */
   try{ if(typeof diUsesBox==="function" && diUsesBox(it)) diApply(it, {quiet:true}); }catch(_e){}
+  if(silenzioso) return it;
   selectOne(it.id); render(); save(); ensureVisible();
   /* Layer v2 (21/07): CABLAGGIO AUTOMATICO — appena sul palco ci sono stage box e sorgenti, il
      cablaggio si collega da solo (niente bottoni, niente gesti da scoprire). Solo sugli inserimenti
@@ -14986,6 +15015,96 @@ function openQuickAdd(sp, cx, cy){
 /* numerazione progressiva violini per sezione (1 = Violini I, 2 = Violini II); le doppie contano 2 leggii */
 function vlnSeats(sec){ var n=0; state.items.forEach(function(x){ if(x.type==="vlnpost" && x.vsec===sec) n += (x.doppia?2:1); }); return n; }
 function addViolin(sec){ var base=vlnSeats(sec); addItem("vlnpost",{vsec:sec, label:"Violino "+toRoman(sec)+" "+(base+1)}); }
+/* ANELLO DI ALTOPARLANTI (06/10/2026). Un progetto aveva un impianto ottofonico disegnato a mano: otto
+   casse G1–G8 attorno al pubblico, ciascuna da posare, girare e nominare. Qui si pongono in un colpo.
+   Le posizioni sono una funzione pura (la prova la suite): n casse, in CERCHIO o in RETTANGOLO attorno a
+   (cx,cy), ognuna girata col FRONTE verso il centro. Il fronte del diffusore è +y (verso il pubblico, vedi
+   topStandDraw), e la rotazione r porta +y su (−sen r, cos r): per guardare il punto d = centro − posto
+   serve r = atan2(−dx, dy). Il giro parte dall'alto e va in senso orario: G1 in alto (a sinistra nel
+   rettangolo), G2 dopo, e così via. */
+var ANELLO_TIPO = "topattivo";   /* la cassa full-range da sala/PA: «Diffusore attivo su stativo» */
+function anelloRot(dx, dy){   /* rotazione che porta il fronte (+y) verso (dx,dy), in gradi 0…360 */
+  var r=Math.atan2(-dx, dy)*180/Math.PI; if(r<0) r+=360;
+  r=Math.round(r*10)/10; return r>=360 ? 0 : r;
+}
+function anelloPunti(o){
+  o=o||{};
+  var n=Math.max(2, Math.min(24, Math.round(+o.n||8))), cx=+o.cx||0, cy=+o.cy||0;
+  var pre=(o.prefisso==null) ? "G" : String(o.prefisso);
+  var pts=[], k, i;
+  if(o.forma==="rettangolo"){
+    var hw=Math.max(10,+o.w||800)/2, hd=Math.max(10,+o.d||600)/2;
+    var angoli=[[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]], lati=[[0,-hd],[hw,0],[0,hd],[-hw,0]];   /* TL TR BR BL · alto destra basso sinistra */
+    if(n===4) pts=angoli.slice();
+    else if(n===6) pts=[angoli[0],lati[0],angoli[1],angoli[2],lati[2],angoli[3]];            /* angoli + metà dei lati lunghi */
+    else if(n===8) pts=[angoli[0],lati[0],angoli[1],lati[1],angoli[2],lati[2],angoli[3],lati[3]];
+    else {   /* altri numeri: a passo uguale sul perimetro, dall'angolo in alto a sinistra */
+      var per=4*(hw+hd), pos=function(s){ s=((s%per)+per)%per;
+        if(s<2*hw) return [-hw+s,-hd]; s-=2*hw; if(s<2*hd) return [hw,-hd+s]; s-=2*hd;
+        if(s<2*hw) return [hw-s,hd]; s-=2*hw; return [-hw,hd-s]; };
+      for(k=0;k<n;k++) pts.push(pos(k*per/n));
+    }
+  } else {
+    var r=Math.max(10,+o.r||400);
+    for(k=0;k<n;k++){ var th=(-90+k*360/n)*Math.PI/180; pts.push([r*Math.cos(th), r*Math.sin(th)]); }
+  }
+  return pts.map(function(p,i2){ return {x:Math.round(cx+p[0]), y:Math.round(cy+p[1]), rot:anelloRot(-p[0], -p[1]), label:pre+(i2+1)}; });
+}
+/* Le posa come elementi normali (`topattivo`), UN passo di annulla: addItem in silenzio, poi si disegna e
+   si salva una volta sola. Restano selezionate tutte, per spostarle o cancellarle insieme. */
+function aggiungiAnello(o){
+  o=o||{};
+  primaDiAgire();
+  var pts=anelloPunti(o), made=[];
+  pts.forEach(function(p){ var it=addItem(ANELLO_TIPO, {x:p.x, y:p.y, rot:p.rot, label:p.label}, true); if(it) made.push(it); });
+  if(!made.length) return made;
+  selSet={}; made.forEach(function(it){ selSet[it.id]=true; }); sel=made[made.length-1].id;
+  render(); save(); ensureVisible();
+  return made;
+}
+/* La finestra: quante casse, la disposizione e il prefisso del nome. Il centro e la misura vengono dalla
+   vista (dove l'utente sta guardando) e non dal palco: l'anello sta attorno al pubblico, che di solito
+   sta fuori dal palco. */
+var _anello={n:8, forma:"cerchio"};
+function apriAnello(){
+  var m=document.getElementById("anelloSetup"); if(!m) return;
+  var pre=document.getElementById("anPre"); if(pre) pre.value="G";
+  anelloSyncUI();
+  m.hidden=false;
+}
+function anelloSyncUI(){
+  var m=document.getElementById("anelloSetup"); if(!m || !m.querySelectorAll) return;
+  Array.prototype.forEach.call(m.querySelectorAll("[data-an-n]"), function(b){ b.classList.toggle("on", +b.getAttribute("data-an-n")===_anello.n); });
+  Array.prototype.forEach.call(m.querySelectorAll("[data-an-forma]"), function(b){ b.classList.toggle("on", b.getAttribute("data-an-forma")===_anello.forma); });
+}
+function anelloDallaVista(){
+  var c=v2w({x:vb.x+vb.w/2, y:vb.y+vb.h/2}), lato=Math.min(vb.w, vb.h);
+  var r=Math.max(250, Math.min(800, Math.round(lato*0.3/10)*10));
+  return {cx:Math.round(c.x), cy:Math.round(c.y), r:r, w:Math.round(r*2*1.3/10)*10, d:r*2};
+}
+(function(){
+  var m=document.getElementById("anelloSetup"); if(!m || !m.addEventListener) return;
+  function chiudi(){ m.hidden=true; }
+  m.addEventListener("click", function(e){
+    var t=e.target; if(!t || !t.getAttribute) return;
+    if(t===m){ chiudi(); return; }
+    var bn=t.closest ? t.closest("[data-an-n]") : null, bf=t.closest ? t.closest("[data-an-forma]") : null;
+    if(bn){ _anello.n=+bn.getAttribute("data-an-n"); anelloSyncUI(); }
+    else if(bf){ _anello.forma=bf.getAttribute("data-an-forma"); anelloSyncUI(); }
+  });
+  var go=document.getElementById("anGo"), no=document.getElementById("anNo"), pre=document.getElementById("anPre");
+  if(no) no.addEventListener("click", chiudi);
+  function vai(){
+    var v=anelloDallaVista(), p=pre ? String(pre.value||"").trim().slice(0,12) : "G";
+    chiudi();
+    aggiungiAnello({n:_anello.n, forma:_anello.forma, cx:v.cx, cy:v.cy, r:v.r, w:v.w, d:v.d, prefisso:p});
+  }
+  if(go) go.addEventListener("click", vai);
+  m.addEventListener("keydown", function(e){
+    if(e.key==="Escape"){ e.preventDefault(); chiudi(); }
+    else if(e.key==="Enter" && !(e.target && e.target.tagName==="BUTTON")){ e.preventDefault(); vai(); }
+  });
+})();
 /* rinumera in ordine i violini di una sezione: ogni doppio occupa 2 posti, i successivi scalano.
    Rinumera solo le etichette AUTO ("Violino S P"); un'etichetta personalizzata dal tecnico resta intatta. */
 function renumberViolins(sec){
