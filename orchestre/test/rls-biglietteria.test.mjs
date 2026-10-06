@@ -47,10 +47,36 @@ const sposta = (id, campi) => rest(env, admin(env), "bgl_eventi?id=eq." + id, { 
 
 run("preparazione: l'organizzatore con un progetto, un altro account con il suo", async () => {
   for (const n of ["org", "altro"]) { U[n] = await mkUser(env, mail(n)); T[n] = await login(env, mail(n)); }
+  /* 0073: la biglietteria è solo per gli account abilitati; questi due lo sono (li scrive il servizio) */
+  const ab = await rest(env, admin(env), "bgl_organizzatori", { method: "POST", body: [{ user_id: U.org, abilitato: true }, { user_id: U.altro, abilitato: true }] });
+  assert.ok(ab.ok, JSON.stringify(ab.d));
   const p = await rest(env, T.org, "stageplot_projects", { method: "POST", body: { user_id: U.org, title: "Teatro " + stamp, data: { items: [] } } });
   assert.ok(p.ok, JSON.stringify(p.d)); PROGETTO = p.d[0].id;
   const q = await rest(env, T.altro, "stageplot_projects", { method: "POST", body: { user_id: U.altro, title: "Altro " + stamp, data: { items: [] } } });
   assert.ok(q.ok, JSON.stringify(q.d)); PROGETTO_B = q.d[0].id;
+});
+
+run("0073: un account NON abilitato non apre spettacoli (né dalla funzione né scrivendo la tabella) e lo sa", async () => {
+  const n = "nuovo"; U[n] = await mkUser(env, mail(n)); T[n] = await login(env, mail(n));
+  const q = await rest(env, T[n], "stageplot_projects", { method: "POST", body: { user_id: U[n], title: "Nuovo " + stamp, data: { items: [] } } });
+  assert.ok(q.ok, JSON.stringify(q.d));
+  const r = await apri(T[n], q.d[0].id);
+  assert.equal(errore(r), "non_abilitato", JSON.stringify(r.d));
+  const a1 = await rpc(env, T[n], "bgl_abilitato", {});
+  assert.equal(a1.d, false, "bgl_abilitato() per chi non lo è: " + JSON.stringify(a1.d));
+  const a2 = await rpc(env, T.org, "bgl_abilitato", {});
+  assert.equal(a2.d, true, "bgl_abilitato() per l'organizzatore: " + JSON.stringify(a2.d));
+  const anon = await rpc(env, env.ANON_KEY, "bgl_abilitato", {});
+  assert.equal(anon.ok, false, "l'anonimo non chiede nemmeno");
+  const leggi = await rest(env, T[n], "bgl_organizzatori?select=*");
+  assert.equal(leggi.d && leggi.d.code, "42501", "la lista degli abilitati non si legge: " + JSON.stringify(leggi.d));
+  const scrivi = await rest(env, T[n], "bgl_organizzatori", { method: "POST", body: { user_id: U[n], abilitato: true } });
+  assert.equal(scrivi.d && scrivi.d.code, "42501", "e non ci si abilita da soli: " + JSON.stringify(scrivi.d));
+  /* il trigger: anche il servizio non può far nascere uno spettacolo per un account non abilitato */
+  const ins = await rest(env, admin(env), "bgl_eventi", { method: "POST", body: { slug: "zzzzzzzzz2", user_id: U[n], titolo: "x", inizio: fra(72),
+    chiusura: fra(70), luogo: "x", pianta: pianta(), posti_totali: 96 } });
+  assert.equal(ins.ok, false, "trigger: " + JSON.stringify(ins.d));
+  assert.match(String(ins.d && ins.d.message), /non abilitato/);
 });
 
 // ───────────────────────────────────────────────────────────────────────────── tabelle chiuse

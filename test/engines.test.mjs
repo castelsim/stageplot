@@ -19480,6 +19480,26 @@ ta("biglietteria: il ponte verso il cloud — senza sessione niente rete, solo l
 });
 
 
+ta("biglietteria (0073): il pulsante compare solo se il server dice che QUESTO account è abilitato", async () => {
+  const AB = A.BGL_AB, azzera = () => { AB.uid = null; AB.ok = false; AB.chiesto = null; };
+  let chiamate = 0;
+  const dice = (risposta) => (fn) => { chiamate++; eq(fn, "bgl_abilitato", "chiede solo bgl_abilitato"); return Promise.resolve(risposta); };
+  azzera();
+  eq([await A.bglAbilitatoAggiorna(null, dice({ data: true, error: null })), chiamate], [false, 0], "senza account: nascosto e nessuna domanda al server");
+  eq(await A.bglAbilitatoAggiorna({ id: "u-no" }, dice({ data: false, error: null })), false, "account non abilitato: nascosto");
+  azzera();
+  eq(await A.bglAbilitatoAggiorna({ id: "u-si" }, dice({ data: true, error: null })), true, "account abilitato: visibile");
+  const prima = chiamate;
+  eq([await A.bglAbilitatoAggiorna({ id: "u-si" }, dice({ data: true, error: null })), chiamate], [true, prima], "stesso account: non si richiede a ogni disegno");
+  eq(A.bglAbilitatoVisibile({ id: "u-x" }), false, "appena cambiato account, prima della risposta: il sì dell'account di prima non vale");
+  eq(await A.bglAbilitatoAggiorna({ id: "u-altro" }, dice({ data: null, error: { code: "rete" } })), false, "cambiato account, risposta d'errore: nascosto");
+  eq(A.bglAbilitatoVisibile({ id: "u-si" }), false, "il sì di un altro account non vale per questo");
+  eq(await A.bglAbilitatoAggiorna({ id: "u-tardi" }, dice({ data: "true", error: null })), false, "solo il booleano true apre");
+  azzera(); A.bglAbilitatoVisibile(null);
+  eq(A.bglMessaggio({ errore: "non_abilitato" }).includes("solo su invito"), true, "il rifiuto del server si legge");
+  const r = await A.__bglCloud.rpc("bgl_abilitato", {}); eq(r.error.code, "non_autenticato", "bgl_abilitato passa dal ponte, ma senza sessione niente rete");
+});
+
 await Promise.all(attese);
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
