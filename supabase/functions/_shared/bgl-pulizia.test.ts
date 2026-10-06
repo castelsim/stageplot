@@ -1,5 +1,5 @@
 import { assertEquals, assertRejects } from "jsr:@std/assert@1";
-import { LOTTO, pulisciLocandine, type PuliziaDeps } from "./bgl-pulizia.ts";
+import { LOTTO, pulisciAccount, pulisciLocandine, type PuliziaDeps } from "./bgl-pulizia.ts";
 
 const UID = "0b8d0000-0000-4000-8000-000000000001";
 const nome = (i: number) => `${UID}/${i.toString(16).padStart(32, "0")}.webp`;
@@ -34,4 +34,21 @@ Deno.test("locandine orfane: niente da togliere = nessuna chiamata; errore del d
   const rotto = finto([nome(1)]);
   rotto.deps.rimuovi = () => Promise.resolve({ error: { message: "storage giù" }, tolti: 0 });
   await assertRejects(() => pulisciLocandine(rotto.deps, new Date()), Error, "locandine: storage giù");
+});
+
+// ───────────────────────────── account del pubblico fermi da 12 mesi (task 9, D9)
+Deno.test("account: per ognuno prima la preparazione, poi la cancellazione; chi intanto usa StagePlot si salta", async () => {
+  const A = "0b8d0000-0000-4000-8000-00000000000a", B = "0b8d0000-0000-4000-8000-00000000000b", C = "0b8d0000-0000-4000-8000-00000000000c";
+  const ordine: string[] = [];
+  const r = await pulisciAccount({
+    rpc: (fn, args) => {
+      ordine.push(fn);
+      if (fn === "bgl_account_da_pulire") return Promise.resolve({ data: [A, B, C, "non-uuid"], error: null });
+      return Promise.resolve({ data: args.p_uid === B ? { ok: false, errore: "account_in_uso" } : { ok: true }, error: null });
+    },
+    elimina: (uid) => { ordine.push("elimina " + uid.slice(-1)); return Promise.resolve({ error: uid === C ? { message: "x" } : null }); },
+  }, 200);
+  assertEquals(r, { account_puliti: 1, account_falliti: 2 });
+  assertEquals(ordine, ["bgl_account_da_pulire", "bgl_account_prepara_eliminazione", "elimina a", "bgl_account_prepara_eliminazione",
+    "bgl_account_prepara_eliminazione", "elimina c"]);
 });
