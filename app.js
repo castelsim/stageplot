@@ -3467,6 +3467,7 @@ function createVariant(name){
   var copy=JSON.parse(JSON.stringify(src.state)); var id=newVarId();
   delete copy.pdfEsportato;   /* una variante nuova non è mai stata esportata */
   VARIANTS.push({ id:id, name:(name||nextVariantName()), state:copy });
+  variantiNuove[id]=src.id;   /* uguale per costruzione: nessun avviso finché non diverge */
   if(venueImgCache[src.id]) venueImgCache[id]=Object.assign({},venueImgCache[src.id]);
   activeVar=id; applyVariantState(copy,true,id);
   ensureItemIds(); clearSelection(); if(typeof setEventInputs==="function") setEventInputs();
@@ -3474,6 +3475,105 @@ function createVariant(name){
   persistLocalState(); if(window.scheduleCloudAutosave) scheduleCloudAutosave();
   if(window.__consultDirty) window.__consultDirty();
   render(); renderChannels(); fit(); renderVariantBar(); return id;
+}
+/* Varianti identiche (06/10/2026). «Nuova variante» copia quella attiva: un progetto reale ne aveva 2 su 10
+   uguali a un'altra (73 elementi identici), duplicati dimenticati. La firma è il contenuto della scena
+   (elementi con posizioni, nomi e proprietà, palco, liste) SENZA le cose interne: gli id degli elementi
+   (e dei gruppi), citati ovunque (cavi, mix, monitor), si rinumerano per ordine; il nome della variante
+   sta fuori dallo stato; _v e pdfEsportato non sono contenuto. Costo: si calcola solo quando si disegna la
+   barra (cambio variante, nuova, rinomina, elimina) o ci si passa sopra col mouse; le varianti ferme si
+   firmano una volta sola (cache per oggetto stato, che syncActiveVariant sostituisce a ogni modifica),
+   solo l'attiva si ricalcola. Una variante appena creata con «Nuova variante» è uguale per costruzione:
+   non si segnala (né lei né l'originale) finché non diverge; se poi diverge, entra nel confronto. */
+var avvisoDisegnato="", firmaVarCache=new WeakMap(), variantiNuove=Object.create(null);
+function firmaScena(st){
+  if(!st || typeof st!=="object") return null;
+  var o=JSON.parse(JSON.stringify(st)); delete o._v; delete o.pdfEsportato;
+  /* Revisione 06/10: fuori anche i campi del DOCUMENTO (titolo, data, contatti… e il permesso del link), uguali
+     in ogni variante per costruzione. propagaCampiDocumento li riscrive DENTRO lo stato delle varianti ferme
+     senza sostituirlo: la firma in cache restava col titolo vecchio, e dopo aver cambiato il titolo due varianti
+     gemelle smettevano di risultare uguali. Fuori anche quello che l'app annota senza che l'utente lo modifichi
+     (come historyStateJSON: area di stampa, production.asked) e il rimando _sameAs della pianta nei file
+     esportati: esportare il PDF di una delle due non la rende diversa dall'altra. */
+  CAMPI_DOCUMENTO.forEach(function(k){ delete o[k]; }); delete o.shareOpts; delete o.printFrame;
+  if(o.production && typeof o.production==="object") delete o.production.asked;
+  if(o.venue && typeof o.venue==="object") delete o.venue._sameAs;
+  var mappa=Object.create(null), n=0, ng=0;
+  (o.items||[]).forEach(function(it){
+    if(!it || typeof it!=="object") return;
+    if(typeof it.id==="string" && it.id && !(it.id in mappa)) mappa[it.id]="\u00a7"+(n++);
+    if(typeof it.grp==="string" && it.grp && !(it.grp in mappa)) mappa[it.grp]="\u00a7g"+(ng++);
+  });
+  var ids=Object.keys(mappa), re=null;
+  if(ids.length){
+    ids.sort(function(a,b){ return b.length-a.length; });
+    re=new RegExp("(?<![A-Za-z0-9_-])(?:"+ids.map(function(k){ return k.replace(/[.*+?^${}()|[\]\\\/-]/g,"\\$&"); }).join("|")+")(?![A-Za-z0-9_-])","g");
+  }
+  /* Revisione 06/10: la rinumerazione tocca SOLO le stringhe (valori e chiavi), mai i numeri. Sul testo JSON un id
+     tutto cifre — safeItemId lo accetta, un file importato può averne — prendeva anche le coordinate: con l'id "12"
+     un "x":12 diventava "x":§0, e due scene con l'elemento in punti diversi risultavano uguali.
+     Chiavi ordinate, come firmaPdf: l'ordine delle chiavi non è contenuto (normalizeState aggiunge in coda i campi
+     che mancano). Si ordina sulle chiavi GIÀ rinumerate, o le mappe per id (cab.manual…) seguirebbero gli id vecchi. */
+  function ren(x){ return re ? x.replace(re,function(m){ return mappa[m]; }) : x; }
+  function canon(x){
+    if(typeof x==="string") return ren(x);
+    if(Array.isArray(x)) return x.map(canon);
+    if(x && typeof x==="object"){
+      var r=Object.create(null);
+      Object.keys(x).map(function(k){ return [ren(k),k]; }).sort(function(a,b){ return a[0]<b[0]?-1:(a[0]>b[0]?1:0); })
+        .forEach(function(p){ r[p[0]]=canon(x[p[1]]); });
+      return r;
+    }
+    return x;
+  }
+  return JSON.stringify(canon(o));
+}
+function firmaVariante(v){
+  if(!v) return null;
+  if(v.id===activeVar && typeof state!=="undefined" && state) return firmaScena(JSON.parse(stateToJSON()));
+  if(!v.state || typeof v.state!=="object") return null;
+  if(!firmaVarCache.has(v.state)) firmaVarCache.set(v.state, firmaScena(v.state));
+  return firmaVarCache.get(v.state);
+}
+/* id variante → nome della prima altra variante col contenuto identico (solo quelle che hanno un gemello) */
+function variantiUguali(){
+  var sig={}, out={}, i, v;
+  for(i=0;i<VARIANTS.length;i++){ v=VARIANTS[i]; sig[v.id]=firmaVariante(v); }
+  for(var id in variantiNuove){
+    var src=variantiNuove[id], vivo=VARIANTS.some(function(x){ return x.id===id; });
+    if(!vivo || !(src in sig) || sig[id]!==sig[src]) delete variantiNuove[id];
+  }
+  for(i=0;i<VARIANTS.length;i++){
+    v=VARIANTS[i]; if(sig[v.id]==null || variantiNuove[v.id]) continue;
+    for(var j=0;j<VARIANTS.length;j++){
+      var w=VARIANTS[j];
+      if(w===v || sig[w.id]!==sig[v.id] || variantiNuove[w.id]) continue;
+      out[v.id]=w.name||("Variante "+(j+1)); break;
+    }
+  }
+  return out;
+}
+/* Revisione 06/10: l'avviso disegnato non deve restare a dire «uguale» mentre si modifica una delle due.
+   Si ridisegna solo se l'esito cambia, tenendo il fuoco sul bottone dov'era (focusin rifaceva la barra sotto
+   la tastiera e il fuoco cadeva sulla pagina). Dopo una modifica (persistLocalState: save, saveSoon,
+   Annulla) si ricontrolla con un ritardo, e SOLO se un avviso è in vista: senza doppioni non costa niente. */
+var avvisiVarT=null;
+function rinfrescaAvvisiVarianti(){
+  avvisiVarT=null;
+  var k=VARIANTS.length>1 ? JSON.stringify(variantiUguali()) : "{}";
+  if(k===avvisoDisegnato) return false;
+  var bar=document.getElementById("variantBar"), html=variantTabsHtml();
+  if(bar && !bar.hidden){
+    var kids=Array.prototype.slice.call(bar.children||[]), f=document.activeElement, pos=kids.indexOf(f);
+    bar.innerHTML=html;
+    if(pos>=0 && bar.children[pos] && bar.children[pos].focus) bar.children[pos].focus();
+  }
+  renderVariantMobile();
+  return true;
+}
+function avvisiDopoModifica(){
+  if(!avvisoDisegnato || avvisoDisegnato==="{}") return;
+  clearTimeout(avvisiVarT); avvisiVarT=setTimeout(rinfrescaAvvisiVarianti, 600);
 }
 function renameVariant(id, name){ name=(name||"").trim(); if(!name) return; for(var i=0;i<VARIANTS.length;i++){ if(VARIANTS[i].id===id){ VARIANTS[i].name=name; break; } }
   persistLocalState(); if(window.scheduleCloudAutosave) scheduleCloudAutosave(); if(window.__consultDirty) window.__consultDirty(); renderVariantBar(); }
@@ -3528,11 +3628,13 @@ function renderVariantBar(){
 }
 /* Le schede delle varianti, come testo: una funzione pura, così si prova senza DOM. */
 function variantTabsHtml(){
-  var html="";
+  var html="", uguali=VARIANTS.length>1 ? variantiUguali() : {}; avvisoDisegnato=JSON.stringify(uguali);
   for(var i=0;i<VARIANTS.length;i++){
-    var v=VARIANTS[i], on=(v.id===activeVar), nome=v.name||("Variante "+(i+1));
-    html+='<button type="button" class="vtab'+(on?' on':'')+'" role="tab" aria-selected="'+(on?'true':'false')+'" data-var="'+esc(v.id)+'" title="'+
-      (on ? 'Variante attiva — tocca per rinominarla, duplicarla o eliminarla' : 'Passa alla variante «'+esc(nome)+'»')+'">'+esc(nome)+'</button>';
+    var v=VARIANTS[i], on=(v.id===activeVar), nome=v.name||("Variante "+(i+1)), gemella=uguali[v.id];
+    html+='<button type="button" class="vtab'+(on?' on':'')+(gemella?' uguale':'')+'" role="tab" aria-selected="'+(on?'true':'false')+'" data-var="'+esc(v.id)+'" title="'+
+      (on ? 'Variante attiva — tocca per rinominarla, duplicarla o eliminarla' : 'Passa alla variante «'+esc(nome)+'»')+
+      (gemella ? ' — contenuto uguale a «'+esc(gemella)+'»' : '')+'">'+esc(nome)+
+      (gemella ? '<span class="vtab-eq" aria-label="uguale a '+esc(gemella)+'">= '+esc(gemella)+'</span>' : '')+'</button>';
   }
   /* con una sola variante il «+» dice cosa fa; con più varianti le schede lo spiegano già */
   html+='<button type="button" class="vtab-add" title="Nuova variante: copia di quella attiva" aria-label="Nuova variante">'+(VARIANTS.length>1 ? '+' : '+<span class="hdr-lbl"> Variante</span>')+'</button>';
@@ -3552,8 +3654,8 @@ function renderVariantMobile(){
   var multi=!ospite && VARIANTS.length>1;
   if(row) row.hidden=!multi; if(ren) ren.hidden=!multi; if(del) del.hidden=!multi;
   if(ospite || !sel) return;
-  var html=""; for(var i=0;i<VARIANTS.length;i++){ var v=VARIANTS[i];
-    html+='<option value="'+esc(v.id)+'"'+(v.id===activeVar?" selected":"")+'>'+esc(v.name||("Variante "+(i+1)))+'</option>'; }
+  var uguali=VARIANTS.length>1 ? variantiUguali() : {}, html=""; for(var i=0;i<VARIANTS.length;i++){ var v=VARIANTS[i];
+    html+='<option value="'+esc(v.id)+'"'+(v.id===activeVar?" selected":"")+'>'+esc(v.name||("Variante "+(i+1)))+(uguali[v.id]?' (uguale a «'+esc(uguali[v.id])+'»)':'')+'</option>'; }
   sel.innerHTML=html; sel.value=activeVar;
 }
 function promptRenameVariant(id){
@@ -3611,6 +3713,8 @@ function confirmDeleteVariant(id){
     else if(a==="new") createVariant();
     else if(a==="del") confirmDeleteVariant(activeVar);
   });
+  /* l'attiva può essere cambiata dall'ultimo disegno: ci si passa sopra e l'avviso si ricalcola (solo se cambia) */
+  if(bar){ bar.addEventListener("mouseenter", rinfrescaAvvisiVarianti); bar.addEventListener("focusin", rinfrescaAvvisiVarianti); }
   document.addEventListener("click", function(e){ if(menu && !menu.hidden && !e.target.closest("#variantMenu") && !e.target.closest("#variantBar")) chiudiMenu(); });
   document.addEventListener("keydown", function(e){ if(e.key==="Escape") chiudiMenu(); });
   var msel=document.getElementById("mVariantSel");
@@ -3735,6 +3839,7 @@ track("app_open", {from:(location.search.match(/[?&]from=([\w-]{1,24})/)||[])[1]
    "Senza titolo" al primo autosave. Stato e id si scrivono insieme così restano sempre coerenti; se il
    modulo cloud non è ancora partito la chiave non si tocca (il boot la sta per adottare). */
 function persistLocalState(forceLockedMetadata){
+  avvisiDopoModifica();   /* avviso di variante identica ancora vero? (06/10) */
   if(foreignDoc() || (window.__projLocked&&!forceLockedMetadata) || window.__docLoadBlocked) return;   /* progetto bloccato: scrittura solo per rev metadata esplicitamente autorizzata */
   if(window.__localConflict) return false;
   var C=window.__cloud, cloudId=window.__bootCloudId||null, cloudRev=window.__bootCloudRev||null, payload;
