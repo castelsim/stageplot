@@ -165,6 +165,114 @@ function piantaDaDocumento(doc, varianteId){
     return bglPianta({items:items, stage:st.stage});
   }catch(e){ return null; }
 }
+/* ===== CONFRONTO FRA LA FOTO PUBBLICATA E LA SALA DI ADESSO (specifica area §4) =====
+   Le due piante hanno ciascuna il suo riquadro (0,0 = 100 cm prima del punto più a sinistra e più in alto) e il suo
+   verso (le sedie girate a guardare in su): aggiungere una sedia a sinistra sposta TUTTE le coordinate, e una sedia
+   girata cambia di poco il verso medio. Prima si sovrappongono le due piante (la rotazione e la traslazione che meglio
+   portano l'una sull'altra: il palco se è lo stesso, altrimenti i posti con lo stesso numero, scartando quelli mossi),
+   poi si confronta posto per posto. Tolleranze in cm e gradi. */
+function piantaTolleranze(){ return {cm:5, gradi:3, sedia:15}; }
+/* rotazione + traslazione (Kabsch nel piano) che porta i punti c[0] sui punti c[1] */
+function piantaKabsch(coppie){
+  var n=coppie.length; if(!n) return null;
+  var mx=0, my=0, fx=0, fy=0;
+  coppie.forEach(function(c){ mx+=c[0][0]; my+=c[0][1]; fx+=c[1][0]; fy+=c[1][1]; });
+  mx/=n; my/=n; fx/=n; fy/=n;
+  var a=0, b=0;
+  coppie.forEach(function(c){ var x=c[0][0]-mx, y=c[0][1]-my, u=c[1][0]-fx, v=c[1][1]-fy; a+=x*u+y*v; b+=x*v-y*u; });
+  var ang=(n>=2 && (a||b)) ? Math.atan2(b, a) : 0, co=Math.cos(ang), si=Math.sin(ang);
+  return {c:co, s:si, tx:fx-(mx*co-my*si), ty:fy-(mx*si+my*co), gradi:ang*180/Math.PI};
+}
+function piantaPorta(T, x, y){ return [x*T.c-y*T.s+T.tx, x*T.s+y*T.c+T.ty]; }
+function piantaScarto(T, c){ var q=piantaPorta(T, c[0][0], c[0][1]); return Math.sqrt((q[0]-c[1][0])*(q[0]-c[1][0])+(q[1]-c[1][1])*(q[1]-c[1][1])); }
+function piantaAllinea(foto, nuova){
+  var tol=piantaTolleranze(), pf=(foto&&foto.palco)||[], pn=(nuova&&nuova.palco)||[], coppie=[], T=null;
+  if(pf.length && pf.length===pn.length && pf.every(function(poly,i){ return poly.length===pn[i].length; })){
+    pn.forEach(function(poly,i){ poly.forEach(function(p,j){ coppie.push([p, pf[i][j]]); }); });
+    T=piantaKabsch(coppie);
+    if(T && coppie.every(function(c){ return piantaScarto(T, c)<=tol.cm; })){ T.base="palco"; return T; }
+  }
+  var F=Object.create(null); coppie=[];
+  ((foto&&foto.posti)||[]).forEach(function(q){ F[q.k]=q; });
+  ((nuova&&nuova.posti)||[]).forEach(function(q){ if(F[q.k]) coppie.push([[q.x,q.y],[F[q.k].x,F[q.k].y]]); });
+  T=piantaKabsch(coppie);
+  for(var giro=0; T && giro<3; giro++){   /* i posti davvero spostati non devono tirare l'allineamento */
+    var dentro=coppie.filter(function(c){ return piantaScarto(T, c)<=tol.sedia; });
+    if(dentro.length===coppie.length || dentro.length<Math.max(2, coppie.length/2)) break;
+    T=piantaKabsch(dentro);
+  }
+  if(T){ T.base="posti"; return T; }
+  return {c:1, s:0, tx:0, ty:0, gradi:0, base:"nessuna"};
+}
+function piantaPoligoniUguali(T, a, b, cm){
+  a=a||[]; b=b||[]; if(a.length!==b.length) return false;
+  var usati=[];
+  return b.every(function(pb){
+    for(var i=0;i<a.length;i++){
+      if(usati[i] || a[i].length!==pb.length) continue;
+      var ok=pb.every(function(p,j){ var q=piantaPorta(T,p[0],p[1]); return Math.abs(q[0]-a[i][j][0])<=cm && Math.abs(q[1]-a[i][j][1])<=cm; });
+      if(ok){ usati[i]=1; return true; }
+    }
+    return false;
+  });
+}
+function piantaConfronta(foto, nuova, prenotati){
+  var T=piantaAllinea(foto, nuova), tol=piantaTolleranze(), F=Object.create(null), N=Object.create(null), occ=Object.create(null);
+  ((foto&&foto.posti)||[]).forEach(function(q){ F[q.k]=q; });
+  ((nuova&&nuova.posti)||[]).forEach(function(q){ N[q.k]=q; });
+  (prenotati||[]).forEach(function(k){ occ[k]=1; });
+  function giro(a, b){ return Math.abs(((a-b)%360+540)%360-180); }
+  function dist(q, f){ var p=piantaPorta(T, q.x, q.y); return Math.sqrt((p[0]-f.x)*(p[0]-f.x)+(p[1]-f.y)*(p[1]-f.y)); }
+  var spostati=[], aggiunti=[], tolti=[];
+  Object.keys(N).forEach(function(k){
+    var q=N[k], f=F[k]; if(!f){ aggiunti.push(k); return; }
+    if(dist(q, f)>tol.cm || giro((+q.rot||0)+T.gradi, +f.rot||0)>tol.gradi) spostati.push(k);
+  });
+  Object.keys(F).forEach(function(k){ if(!N[k]) tolti.push(k); });
+  /* una sedia tolta e una aggiunta nello stesso punto sono la stessa sedia con un numero nuovo */
+  var rinumerati=[], usati=Object.create(null);
+  tolti.forEach(function(k){
+    var best=null, bd=Infinity;
+    aggiunti.forEach(function(k2){ if(usati[k2]) return; var d=dist(N[k2], F[k]); if(d<bd){ bd=d; best=k2; } });
+    if(best!==null && bd<=tol.sedia){ usati[best]=1; rinumerati.push({da:k, a:best}); }
+  });
+  var daRin=Object.create(null); rinumerati.forEach(function(r){ daRin[r.da]=1; });
+  tolti=tolti.filter(function(k){ return !daRin[k]; });
+  aggiunti=aggiunti.filter(function(k){ return !usati[k]; });
+  function file(P){ var o=Object.create(null); Object.keys(P).forEach(function(k){ o[P[k].settore+"|"+P[k].fila]={settore:P[k].settore, fila:P[k].fila}; }); return o; }
+  var fF=file(F), fN=file(N);
+  var fileNuove=Object.keys(fN).filter(function(g){ return !fF[g]; }).map(function(g){ return fN[g]; });
+  var fileTolte=Object.keys(fF).filter(function(g){ return !fN[g]; }).map(function(g){ return fF[g]; });
+  var palcoCambiato=!piantaPoligoniUguali(T, foto&&foto.palco, nuova&&nuova.palco, tol.cm) ||
+    !piantaPoligoniUguali(T, foto&&foto.pedane, nuova&&nuova.pedane, tol.cm);
+  var bloccanti=[], prenotatiSpostati=[];
+  tolti.forEach(function(k){ if(occ[k]) bloccanti.push({k:k, motivo:"tolto"}); });
+  rinumerati.forEach(function(r){ if(occ[r.da]) bloccanti.push({k:r.da, motivo:"rinumerato", a:r.a}); });
+  spostati.forEach(function(k){ if(occ[k]) prenotatiSpostati.push(k); });
+  return {uguale:!spostati.length && !aggiunti.length && !tolti.length && !rinumerati.length && !palcoCambiato,
+    spostati:spostati, aggiunti:aggiunti, tolti:tolti, rinumerati:rinumerati, fileNuove:fileNuove, fileTolte:fileTolte,
+    palcoCambiato:palcoCambiato, bloccanti:bloccanti, prenotatiSpostati:prenotatiSpostati};
+}
+/* Il confronto in parole: «12 posti spostati · 2 posti in più · fila J nuova · nessun posto prenotato coinvolto» */
+function piantaRiassunto(c){
+  if(!c) return "";
+  if(c.uguale) return "Nessuna differenza";
+  function n(x, uno, tanti){ return x===1 ? "1 "+uno : x+" "+tanti; }
+  function elenco(v){ return v.length<=1 ? v.join("") : v.slice(0,-1).join(", ")+" e "+v[v.length-1]; }
+  function nomeFila(f){ return (f.settore!=="Platea" ? f.settore+" " : "")+f.fila; }
+  var out=[];
+  if(c.spostati.length) out.push(n(c.spostati.length, "posto spostato", "posti spostati"));
+  if(c.aggiunti.length) out.push(n(c.aggiunti.length, "posto in più", "posti in più"));
+  if(c.tolti.length) out.push(n(c.tolti.length, "posto in meno", "posti in meno"));
+  if(c.rinumerati.length) out.push(n(c.rinumerati.length, "posto con un numero nuovo", "posti con un numero nuovo"));
+  if(c.fileNuove.length) out.push((c.fileNuove.length===1 ? "fila " : "file ")+elenco(c.fileNuove.map(nomeFila))+(c.fileNuove.length===1 ? " nuova" : " nuove"));
+  if(c.fileTolte.length) out.push((c.fileTolte.length===1 ? "fila " : "file ")+elenco(c.fileTolte.map(nomeFila))+(c.fileTolte.length===1 ? " tolta" : " tolte"));
+  if(c.palcoCambiato) out.push("palco o pedane cambiati");
+  if(c.bloccanti.length) out.push(n(c.bloccanti.length, "posto prenotato coinvolto", "posti prenotati coinvolti"));
+  else if(c.prenotatiSpostati.length) out.push(n(c.prenotatiSpostati.length, "posto prenotato solo spostato", "posti prenotati solo spostati"));
+  else out.push("nessun posto prenotato coinvolto");
+  return out.join(" · ");
+}
 /* Tutto il modulo in un oggetto: per Node (module.exports) e per chi lo vuole per nome. */
 function piantaPostiModulo(){
   return {postoTipo:postoTipo, postoNumerato:postoNumerato, postoSettore:postoSettore, postoNomeSettore:postoNomeSettore,
@@ -172,6 +280,8 @@ function piantaPostiModulo(){
     itemCorners:itemCorners, bglChiave:bglChiave, bglPostoNome:bglPostoNome, bglPostiNomi:bglPostiNomi,
     bglSemiPoligono:bglSemiPoligono, bglPianta:bglPianta, bglProblemiPianta:bglProblemiPianta, bglSenzaNumero:bglSenzaNumero,
     piantaPedana:piantaPedana, piantaSediaMisure:piantaSediaMisure, piantaVarianti:piantaVarianti,
-    piantaStatoDaDocumento:piantaStatoDaDocumento, piantaDaDocumento:piantaDaDocumento};
+    piantaStatoDaDocumento:piantaStatoDaDocumento, piantaDaDocumento:piantaDaDocumento,
+    piantaTolleranze:piantaTolleranze, piantaAllinea:piantaAllinea, piantaPorta:piantaPorta, piantaConfronta:piantaConfronta,
+    piantaRiassunto:piantaRiassunto};
 }
 if(typeof module==="object" && module && module.exports) module.exports=piantaPostiModulo();
