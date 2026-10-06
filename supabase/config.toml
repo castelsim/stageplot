@@ -60,3 +60,7 @@ verify_jwt = true
 # li fa la function stessa; la mail parte solo in produzione.
 [functions.bgl-prenota]
 verify_jwt = false
+
+# L'organizzatore manda la mail «posti cambiati» dall'area: il token lo controlla la funzione.
+[functions.bgl-avvisa]
+verify_jwt = false
