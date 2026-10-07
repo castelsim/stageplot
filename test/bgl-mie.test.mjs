@@ -43,8 +43,8 @@ test("la pagina: noindex, niente referrer, CSP, script nell'ordine giusto", () =
   assert.match(h, /window\.self!==window\.top/, "anti-incorniciamento");
   const pos = ['src="/accedi/google/avvio.js"', 'src="../indirizzi.js', 'src="../bgl.js', 'src="../accesso.js', 'src="mie.js'].map((x) => h.indexOf(x));
   assert.ok(pos.every((x, i) => x > 0 && (i === 0 || x > pos[i - 1])), JSON.stringify(pos));
-  assert.match(h, /href="\.\.\/bgl\.css\?v=7"/);
-  for (const f of ["biglietteria/index.html", "biglietteria/gestione/index.html"]) assert.match(leggi(f), /bgl\.css\?v=7"/, f + ": niente bgl.css vecchio in cache");
+  assert.match(h, /href="\.\.\/bgl\.css\?v=8"/);
+  for (const f of ["biglietteria/index.html", "biglietteria/gestione/index.html"]) assert.match(leggi(f), /bgl\.css\?v=8"/, f + ": niente bgl.css vecchio in cache");
   assert.equal(leggi("sitemap.xml").indexOf("mie"), -1, "fuori dalla sitemap");
 });
 
