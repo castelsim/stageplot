@@ -501,6 +501,14 @@ test("RF5: il file .ics dice l'ora giusta anche la sera del cambio d'ora; testo 
   assert.equal(B.icsEvento({ titolo: "x" }, "l", 0), "", "senza data niente calendario");
 });
 
+test("revisione T23: nel file .ics un \\r da solo non spezza la riga (niente proprietà inserite dalla nota)", () => {
+  const t = B.icsEvento({ slug: "k3m9x2p7qa", titolo: "Concerto\rX-FINTA:1", inizio: "2026-10-25T21:00:00+01:00",
+    note: "Porte alle 20:30\rBEGIN:VALARM\rTRIGGER:-PT5M\rACTION:DISPLAY\rEND:VALARM" }, "l", 0);
+  const righe = t.replace(/\r\n /g, "").split(/\r\n|\r|\n/);
+  assert.ok(!righe.some((r) => /^(BEGIN:VALARM|TRIGGER|ACTION|X-FINTA)/.test(r)), "righe inserite: " + JSON.stringify(righe));
+  assert.equal(B.testoIcs("a\rb\r\nc\nd"), "a\\nb\\nc\\nd");
+});
+
 test("RF5: mezzanotte e mezza del 1° gennaio a Roma è ancora il 31 dicembre in UTC (e la data breve dice 1 gennaio)", () => {
   const t = B.icsEvento({ slug: "k3m9x2p7qa", titolo: "Capodanno", inizio: "2027-01-01T00:30:00+01:00" }, "l", 0);
   assert.match(t, /\r\nDTSTART:20261231T233000Z\r\n/);

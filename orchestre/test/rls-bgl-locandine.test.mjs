@@ -105,3 +105,21 @@ run("una locandina usata anche altrove (altro spettacolo, logo) non si dichiara 
   const ultimo = await rpc(env, c.tok, "bgl_spettacolo_salva", { p_id: a.id, p_dati: { locandina_path: null } });
   assert.equal(ultimo.d.locandina_vecchia, nuova, "senza altri che la citano, la vecchia si toglie");
 });
+
+run("revisione T23: una locandina citata da uno spettacolo (o il logo) non si cancella dalla Storage API; tolta dallo spettacolo sì", async () => {
+  const c = await account("loc5", S, { abilitato: true });
+  const prog = await progetto(c, docSala());
+  await paginaOrganizzatore(c, "teatro-loc5-" + S.slice(-6));
+  const usata = nomeDi(c), logo = nomeDi(c);
+  for (const p of [usata, logo]) assert.ok((await carica(c.tok, p)).ok);
+  const r = (await spettacolo(c, prog, { pubblicato: true, locandina_path: usata })).d;
+  assert.equal(r.ok, true, JSON.stringify(r));
+  assert.equal((await rpc(env, c.tok, "bgl_organizzatore_salva", { p_dati: { nome: "Teatro di prova", slug: "teatro-loc5-" + S.slice(-6), logo_path: logo } })).d.ok, true);
+  await togli(c.tok, usata); await togli(c.tok, logo);
+  assert.equal(await pubblica(usata), 200, "la locandina dello spettacolo pubblicato resta");
+  assert.equal(await pubblica(logo), 200, "il logo della pagina resta");
+  const via = await rpc(env, c.tok, "bgl_spettacolo_salva", { p_id: r.id, p_dati: { locandina_path: null } });
+  assert.equal(via.d.locandina_vecchia, usata);
+  await togli(c.tok, usata);
+  assert.notEqual(await pubblica(usata), 200, "non più citata: il proprietario la toglie (come fa l'area dopo il salvataggio)");
+});

@@ -133,3 +133,35 @@ update public.bgl_pubblico set ultimo_il = now() - interval '${mesi} months' whe
   assert.ok(!lista.includes(U.org.uid), "l'organizzatore mai");
   assert.equal((await rest(env, U.maria.tok, "bgl_pubblico?select=*")).ok, false, "la tabella non si legge da fuori");
 });
+
+run("D9 (revisione T23): chi ha mandato una segnalazione dall'editor non è «solo biglietteria» (la sua email resterebbe staccata)", async () => {
+  const c = await account("segnala", S);
+  assert.equal((await prenotaCon(EV.slug, ["Platea|D|1"], c.uid, c.email)).d.ok, true);
+  assert.equal((await rpc(env, c.tok, "bgl_account_stato", {})).d.solo_biglietteria, true);
+  assert.equal((await psql(`insert into public.feedback (message, user_id, user_email) values ('Prova di segnalazione', '${c.uid}', '${c.email}');`)).code, 0);
+  assert.equal((await rpc(env, c.tok, "bgl_account_stato", {})).d.solo_biglietteria, false);
+  assert.equal(errore(await rpc(env, admin(env), "bgl_account_prepara_eliminazione", { p_uid: c.uid })), "account_in_uso");
+  /* e la pulizia dei 12 mesi non lo prende */
+  assert.equal((await psql(`update auth.users set last_sign_in_at = now() - interval '14 months', created_at = now() - interval '15 months' where id = '${c.uid}';
+update public.bgl_pubblico set ultimo_il = now() - interval '14 months' where user_id = '${c.uid}';`)).code, 0);
+  const pv = (await rest(env, admin(env), "bgl_prenotazioni?select=id&user_id=eq." + c.uid)).d[0].id;
+  assert.equal((await rpc(env, c.tok, "bgl_disdici_mia", { p_prenotazione_id: pv })).d.ok, true);
+  assert.ok(!(await rpc(env, admin(env), "bgl_account_da_pulire", { p_limite: 1000 })).d.includes(c.uid), "fuori dalla pulizia");
+});
+
+run("D9 (revisione T23): ogni tabella che punta a un account è guardata da bgl_account_solo_biglietteria", async () => {
+  /* una tabella nuova con un riferimento ad auth.users va aggiunta alla funzione, o il suo dato sparirebbe (cascade) o
+     resterebbe staccato (set null) con una pulizia automatica */
+  const fk = await psql(`select c.conrelid::regclass::text || '.' || a.attname from pg_constraint c
+  join pg_attribute a on a.attrelid = c.conrelid and a.attnum = any(c.conkey)
+ where c.contype = 'f' and c.confrelid = 'auth.users'::regclass and c.connamespace = 'public'::regnamespace order by 1;`);
+  const def = await psql(`select pg_get_functiondef('public.bgl_account_solo_biglietteria(uuid)'::regprocedure);`);
+  assert.equal(fk.code + def.code, 0, fk.err + def.err);
+  /* le due tabelle della biglietteria stessa: bgl_pubblico è la condizione, le prenotazioni le sistema la preparazione */
+  const fuori = new Set(["bgl_pubblico.user_id", "bgl_prenotazioni.user_id"]);
+  const mancano = fk.out.trim().split("\n").filter((x) => x && !fuori.has(x)).filter((x) => {
+    const [t, col] = x.split(".");
+    return !new RegExp("public\\." + t + " where " + col + " = p_uid").test(def.out);
+  });
+  assert.deepEqual(mancano, [], "tabelle con un account che la funzione non guarda");
+});

@@ -99,3 +99,8 @@ test("di ritorno dall'editor l'area rilegge il progetto: niente sala vecchia in 
     assert.match(leggi(f), new RegExp('A\\.estendi\\("di-nuovo-visibile"[\\s\\S]{0,120}v === "' + v + '"'), f + ": la schermata si aggiorna al ritorno");
   assert.match(leggi("gst-sala.js"), /A\.vai\("sposta", \{[^}]*da: "sala"/, "Sposta dalla sala riporta alla sala");
 });
+
+test("revisione T23: le locandine si caricano con una cache breve (un giorno): eliminato lo spettacolo, non restano un anno sul CDN", () => {
+  assert.ok(Number(IMG.CACHE) > 0 && Number(IMG.CACHE) <= 86400, "cacheControl: " + IMG.CACHE);
+  assert.match(leggi("biglietteria/gestione/gst-immagine.js"), /cacheControl: CACHE\b/);
+});
