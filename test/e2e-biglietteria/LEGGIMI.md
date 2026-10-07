@@ -9,6 +9,8 @@ dati inventati (`@example.invalid`), porte 8800–8899. Telefono 390x844 e compu
 - `prova-fuso.mjs` — ora legale e fuso del dispositivo; `prova-gara.mjs` — due persone, stesso posto, stesso istante.
 - `prova-<area>.mjs` — una per schermata (404, pubblico, area-ingresso, modulo, scheda, sala, sposta, editor, google, mie, ritorno).
 - `prova-miei.mjs` — «I tuoi posti» sulla pianta (ricordo, Google, niente) e «Entra con Google» dalla pianta.
+- `prova-zoom-pc.mjs` — la pianta col mouse (clic = scegli, «+ − Vista intera», doppio clic, trascinamento, rotellina) e col
+  dito come prima (tocco che ingrandisce, due dita).
 - `prova-segnala.mjs` — la casella delle segnalazioni su tutte le pagine; submit-feedback intercettata (non parte niente).
 - `comune.mjs` (attrezzi), `server.mjs` (finto GitHub Pages con `404.html`), `prepara.sh` (copia di sola prova del sito con
   indirizzo e chiave locali al posto di quelli di produzione: il repo non cambia), `env` (per `supabase functions serve`).

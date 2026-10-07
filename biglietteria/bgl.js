@@ -17,6 +17,12 @@
   var BERSAGLIO_PX = 44;        /* un posto, ingrandito, è largo almeno così sullo schermo */
   var TOCCO_DIRETTO_PX = 30;    /* col dito: sotto questa misura il primo tocco ingrandisce invece di scegliere */
   var CLIC_DIRETTO_PX = 16;     /* col mouse basta molto meno */
+  /* COMPUTER O TELEFONO sulla pianta (07/10, Simone: «la lente promette una cosa che il clic non fa»). Conta lo strumento,
+     non la larghezza: un mouse in una finestra stretta clicca preciso come in una larga. È la parte «strumento» di
+     MEDIA_COMPUTER di segnala.js (lì serve anche la larghezza per il riquadro fisso); la stessa stringa è in bgl.css. */
+  var MEDIA_MOUSE = "(hover: hover) and (pointer: fine)";
+  var PASSO_ZOOM = 1.6;         /* «+», «−» e doppio clic: un passo fisso, sempre lo stesso */
+  var SOGLIA_TRASCINA_PX = 6;   /* sotto questo spostamento il mouse ha fatto un clic, non un trascinamento */
   var CONTATTO = "info@stageplot.it";   /* a chi scrivere: gruppi più grandi, link rotti, problemi (lo stesso della mail) */
   /* Gli indirizzi (biglietteria/indirizzi.js): nel browser è già caricato; in Node lo si chiede accanto */
   var BGLI = root.BGLIndirizzi || (typeof require === "function" ? require("./indirizzi.js") : null);
@@ -453,8 +459,8 @@
   function suggerimento(o) {
     if (!o.aperta) return "";
     if (o.fine) {
-      return o.zoom ? "Clicca un posto libero per sceglierlo. Scorri la pianta con la rotellina o le barre."
-        : "Clicca un posto libero per sceglierlo." + (o.serveZoom ? " «Ingrandisci» li mostra più grandi." : "");
+      return o.zoom ? "Clicca un posto libero per sceglierlo. Trascina la pianta per spostarti."
+        : "Clicca un posto libero per sceglierlo. Per ingrandire: doppio clic o «+».";
     }
     if (!o.zoom && o.serveZoom) return "Tocca la pianta o allargala con due dita, poi scegli i posti.";
     if (o.zoom) return "Scorri la pianta con il dito, allarga o stringi con due dita. Tocca un posto libero per sceglierlo.";
@@ -513,6 +519,25 @@
   }
   function scrollPerFuoco(cx, cy, k, mx, my) {
     return { l: Math.max(0, cx * k - mx), t: Math.max(0, cy * k - my) };
+  }
+  /* COMPUTER (07/10). passoZoom: la scala dopo un «+» (dir 1), un «−» (dir -1) o un doppio clic, dentro i limiti; a un
+     soffio dalla pianta intera ci si ferma lì (niente «quasi intera» da un 1 % da togliere a mano). */
+  function passoZoom(k, dir, lim) {
+    if (!(k > 0)) return lim.min;
+    var n = dir > 0 ? k * PASSO_ZOOM : k / PASSO_ZOOM;
+    if (n <= lim.min * 1.05) return lim.min;
+    return Math.min(lim.max, Math.max(lim.min, n));
+  }
+  /* È un trascinamento (si sposta la pianta, non si sceglie il posto sotto il mouse) solo oltre la soglia. */
+  function eTrascinamento(dx, dy) { return Math.sqrt(dx * dx + dy * dy) > SOGLIA_TRASCINA_PX; }
+  /* Cosa fa un clic (o un tocco) sulla pianta.
+     o = {mouse: computer col mouse, tastiera: clic da tastiera o lettore di schermo (detail 0), piccola: posti troppo
+     piccoli per il dito, fine: puntatore preciso, bottone: posto che si sceglie, posto: c'è un posto sotto}.
+     Col mouse il clic sceglie SEMPRE e non ingrandisce mai: per ingrandire ci sono «+», il doppio clic e il pizzico.
+     Col dito (telefono, tablet) resta com'era: sui posti piccoli il primo tocco ingrandisce. */
+  function azioneClic(o) {
+    if (o.mouse || o.tastiera || !o.piccola) return o.bottone ? "scegli" : (o.posto ? "avviso" : "niente");
+    return o.bottone && o.fine ? "zoom+scegli" : "zoom";
   }
 
   /* Dove scrivere la lettera della fila: ai due capi, un passo oltre il primo e l'ultimo posto. */
@@ -733,6 +758,8 @@
     maxPosti: maxPosti, scegli: scegli, daTogliere: daTogliere, messaggio: messaggio, statoPagina: statoPagina,
     data: data, ora: ora, dataOra: dataOra, mascheraEmail: mascheraEmail, linkMio: linkMio, linkPianta: linkPianta,
     controllaModulo: controllaModulo, passi: passi, scalaDettaglio: scalaDettaglio, limitiZoom: limitiZoom, scalaPinch: scalaPinch, scrollPerFuoco: scrollPerFuoco, capiFile: capiFile,
+    MEDIA_MOUSE: MEDIA_MOUSE, PASSO_ZOOM: PASSO_ZOOM, SOGLIA_TRASCINA_PX: SOGLIA_TRASCINA_PX, passoZoom: passoZoom,
+    eTrascinamento: eTrascinamento, azioneClic: azioneClic,
     attributiPosto: attributiPosto, svgPianta: svgPianta, dovePalco: dovePalco, nPosti: nPosti, CONTATTO: CONTATTO,
     nomeValido: nomeValido, erroreEmail: erroreEmail, suggerisciEmail: suggerisciEmail, tipoErroreRete: tipoErroreRete,
     tentativo: tentativo, daRicordare: daRicordare, daRipristinare: daRipristinare, avvisoPosto: avvisoPosto,
@@ -825,6 +852,10 @@
   function sostituisciStoria(v) { try { history.replaceState(v ? { bgl: v } : null, "", location.href); } catch (e) { /* niente */ } }
   function puntatoreFine() {
     try { return window.matchMedia("(pointer: fine)").matches; } catch (e) { return false; }
+  }
+  /* computer col mouse (MEDIA_MOUSE): clic = scegli, «+ − Vista intera» sulla pianta, doppio clic, trascinamento */
+  function modoMouse() {
+    try { return window.matchMedia(MEDIA_MOUSE).matches; } catch (e) { return false; }
   }
 
   /* --- pezzi comuni --- */
@@ -965,6 +996,7 @@
     if (mio && !(mio.posti && mio.posti.some(function (k) { return S.occupati.indexOf(k) >= 0; }))) dimentica();
     ricalcolaMiei();
     var liberi = typeof r.liberi === "number" ? r.liberi : 0;
+    var mouse = modoMouse();
     app.innerHTML = intestazione(ev, true, true) +
       '<div class="corpo">' +
       '<section class="col-pianta" aria-labelledby="bgl-h-posti">' +
@@ -978,17 +1010,24 @@
         return '<div id="bgl-accesso" data-h="' + esc(h) + '">' + h + "</div>";
       })() +
       '<div class="attrezzi"><p class="suggerimento" id="bgl-sugg"></p>' +
-        '<button type="button" class="btn piccolo" id="bgl-zoom" aria-pressed="false">Ingrandisci</button></div>' +
+        (mouse ? "" : '<button type="button" class="btn piccolo" id="bgl-zoom" aria-pressed="false">Ingrandisci</button>') + "</div>" +
       (attiva ? '<a class="salta" href="#bgl-barra">Salta la pianta</a>' : "") +
-      '<div class="mappa" id="bgl-mappa">' + svgPianta(S.pianta, { occupati: S.occupati, riservati: S.riservati,
-        scelti: S.scelti, miei: S.miei, attiva: attiva }) + "</div>" +
+      '<div class="mappa-box">' +
+      /* sul computer i comandi dello zoom stanno sulla pianta, fuori dalla parte che scorre: restano sempre in vista */
+      (mouse ? '<div class="zoom-pc" role="group" aria-label="Ingrandimento della pianta">' +
+        '<button type="button" class="zoom-b" id="bgl-piu" aria-label="Ingrandisci" title="Ingrandisci">+</button>' +
+        '<button type="button" class="zoom-b" id="bgl-meno" aria-label="Rimpicciolisci" title="Rimpicciolisci">\u2212</button>' +
+        '<button type="button" class="zoom-b intera" id="bgl-intera">Vista intera</button></div>' : "") +
+      '<div class="mappa' + (mouse ? " mouse" : "") + '" id="bgl-mappa">' + svgPianta(S.pianta, { occupati: S.occupati, riservati: S.riservati,
+        scelti: S.scelti, miei: S.miei, attiva: attiva }) + "</div></div>" +
       "</section>" +
       "</div>" + piedino();
     var mappa = document.getElementById("bgl-mappa");
     mappa.addEventListener("click", tocco);
     mappa.addEventListener("keydown", tasti);
     attivaPinch(mappa);
-    document.getElementById("bgl-zoom").addEventListener("click", function () { impostaZoom(!S.zoom); });
+    if (mouse) attivaMouse(mappa);
+    else document.getElementById("bgl-zoom").addEventListener("click", function () { impostaZoom(!S.zoom); });
     var salta = app.querySelector(".salta");
     if (salta) salta.addEventListener("click", function (e) {
       e.preventDefault();
@@ -1024,12 +1063,31 @@
     svg.classList.toggle("piccola", ps.w * k < 18);
     var serveZoom = Math.min(ps.x, ps.y) * 0.96 * scale.intera < sogliaTocco();
     mappa.classList.toggle("ingrandita", S.zoom);
+    var mouse = mappa.classList.contains("mouse");
     var z = document.getElementById("bgl-zoom");
-    z.textContent = S.zoom ? "Vista intera" : "Ingrandisci";
-    z.setAttribute("aria-pressed", S.zoom ? "true" : "false");
-    z.hidden = !S.zoom && !serveZoom && scale.dettaglio <= scale.intera * 1.05;
+    if (z) {
+      z.textContent = S.zoom ? "Vista intera" : "Ingrandisci";
+      z.setAttribute("aria-pressed", S.zoom ? "true" : "false");
+      z.hidden = !S.zoom && !serveZoom && scale.dettaglio <= scale.intera * 1.05;
+    }
+    /* col mouse, ingranditi ma ancora più stretti della pianta: al centro (non attaccati a sinistra), così «+» e il
+       doppio clic non fanno saltare la pianta di lato */
+    if (mouse) svg.style.marginLeft = S.zoom ? Math.max(0, Math.floor((mappa.clientWidth - Math.ceil(W * k)) / 2)) + "px" : "";
+    if (mouse) aggiornaComandi(mappa, lim);
     var sug = document.getElementById("bgl-sugg");
-    sug.textContent = suggerimento({ aperta: S.stato === "aperta", zoom: S.zoom, serveZoom: serveZoom, fine: puntatoreFine() });
+    sug.textContent = suggerimento({ aperta: S.stato === "aperta", zoom: S.zoom, serveZoom: serveZoom, fine: mouse || puntatoreFine() });
+  }
+  /* «+» spento al massimo, «−» e «Vista intera» spenti alla pianta intera (aria-disabled: il fuoco non si perde);
+     la manina «afferra» solo se c'è qualcosa da spostare; i comandi si scostano dalla barra di scorrimento verticale. */
+  function aggiornaComandi(mappa, lim) {
+    var k = kAttuale();
+    function spento(id, si) { var b = document.getElementById(id); if (b) b.setAttribute("aria-disabled", si ? "true" : "false"); }
+    spento("bgl-piu", k >= lim.max * 0.999);
+    spento("bgl-meno", !S.zoom);
+    spento("bgl-intera", !S.zoom);
+    mappa.classList.toggle("si-sposta", mappa.scrollWidth > mappa.clientWidth + 1 || mappa.scrollHeight > mappa.clientHeight + 1);
+    var box = mappa.parentNode;
+    if (box && box.style) box.style.setProperty("--barra-v", Math.max(0, mappa.offsetWidth - mappa.clientWidth - mappa.clientLeft * 2) + "px");
   }
   function sogliaTocco() {
     return puntatoreFine() ? CLIC_DIRETTO_PX : TOCCO_DIRETTO_PX;
@@ -1099,13 +1157,12 @@
     mappa.addEventListener("touchcancel", stop);
     /* trackpad (Chrome, Firefox, Edge: pizzico = rotellina con Ctrl) e Ctrl+rotellina del mouse */
     mappa.addEventListener("wheel", function (e) {
-      if (!e.ctrlKey) return;
+      if (!e.ctrlKey) return;   /* senza Ctrl: scorre la pianta e poi la pagina, come ogni riquadro */
       e.preventDefault();
-      var p = puntoInMappa(mappa, e.clientX, e.clientY), k0 = kAttuale();
-      var cx = (mappa.scrollLeft + p.mx) / k0, cy = (mappa.scrollTop + p.my) / k0;
+      var p = puntoPianta(mappa, e.clientX, e.clientY), k0 = kAttuale();
       var k = Math.min(limitiZoom(scale.intera, scale.dettaglio).max,
         Math.max(scale.intera, k0 * Math.exp(-e.deltaY * 0.01)));
-      applicaScala(k, cx, cy, p.mx, p.my);
+      applicaScala(k, p.cx, p.cy, p.mx, p.my);
     }, { passive: false });
     /* Safari sul Mac: il pizzico arriva come gesture* */
     var gs = null;
@@ -1123,22 +1180,95 @@
     mappa.addEventListener("gestureend", function () { gs = null; pinch.fine = Date.now(); salvaScroll(); });
   }
 
+  /* COMPUTER COL MOUSE (07/10, design approvato da Simone). Il clic sceglie e basta (tocco/azioneClic); qui il resto:
+     «+» e «−» attorno al centro di ciò che si vede, «Vista intera», doppio clic che ingrandisce lì dove si è cliccato,
+     trascinamento per spostare la pianta ingrandita. La rotellina senza Ctrl non si tocca: scorre la pianta e, quando
+     la pianta è finita, la pagina (comportamento normale del contenitore). Ctrl+rotellina e pizzico: attivaPinch. */
+  var trascinato = false;
+  /* il punto (cx,cy) della pianta sotto (x,y) dello schermo, e dove cade (mx,my) nella parte visibile della pianta;
+     dallo SVG e non dallo scorrimento: alla pianta intera lo SVG è centrato, non attaccato a sinistra */
+  function puntoPianta(mappa, x, y) {
+    var svg = mappa.querySelector("svg"), rs = svg.getBoundingClientRect(), k = kAttuale(), p = puntoInMappa(mappa, x, y);
+    var W = S.pianta.box[2], H = S.pianta.box[3];
+    return { cx: Math.min(W, Math.max(0, (x - rs.left) / k)), cy: Math.min(H, Math.max(0, (y - rs.top) / k)),
+      mx: p.mx - mappa.clientLeft, my: p.my - mappa.clientTop };
+  }
+  function zoomAPassi(mappa, dir, x, y) {
+    var lim = limitiZoom(scale.intera, scale.dettaglio), k0 = kAttuale(), k = passoZoom(k0, dir, lim);
+    if (Math.abs(k - k0) < 1e-9) return;
+    if (x == null) {   /* «+» e «−»: attorno al centro di ciò che si vede */
+      var r = mappa.getBoundingClientRect();
+      x = r.left + mappa.clientLeft + mappa.clientWidth / 2; y = r.top + mappa.clientTop + mappa.clientHeight / 2;
+    }
+    var p = puntoPianta(mappa, x, y);
+    if (k <= lim.min) { impostaZoom(false, p.cx, p.cy); salvaScroll(); return; }
+    applicaScala(k, p.cx, p.cy, p.mx, p.my);
+    salvaScroll();
+  }
+  function aComando(id, fn) {
+    var b = document.getElementById(id);
+    if (b) b.addEventListener("click", function () { if (b.getAttribute("aria-disabled") !== "true") fn(); });
+  }
+  function attivaMouse(mappa) {
+    aComando("bgl-piu", function () { zoomAPassi(mappa, 1); });
+    aComando("bgl-meno", function () { zoomAPassi(mappa, -1); });
+    aComando("bgl-intera", function () { impostaZoom(false); salvaScroll(); });
+    /* doppio clic: i due clic singoli scelgono e tolgono (il posto resta com'era), il doppio ingrandisce lì */
+    mappa.addEventListener("dblclick", function (e) {
+      e.preventDefault();
+      zoomAPassi(mappa, 1, e.clientX, e.clientY);
+    });
+    var tr = null;
+    mappa.addEventListener("pointerdown", function (e) {
+      trascinato = false;
+      if (e.pointerType !== "mouse" || e.button !== 0) return;
+      /* sulle barre di scorrimento comanda la barra, non il trascinamento */
+      var r = mappa.getBoundingClientRect();
+      if (e.clientX - r.left - mappa.clientLeft >= mappa.clientWidth || e.clientY - r.top - mappa.clientTop >= mappa.clientHeight) return;
+      tr = { id: e.pointerId, x: e.clientX, y: e.clientY, l: mappa.scrollLeft, t: mappa.scrollTop, via: false };
+    });
+    mappa.addEventListener("pointermove", function (e) {
+      if (!tr || e.pointerId !== tr.id) return;
+      var dx = e.clientX - tr.x, dy = e.clientY - tr.y;
+      if (!tr.via) {
+        if (!eTrascinamento(dx, dy)) return;
+        tr.via = true;
+        mappa.classList.add("trascina");
+        try { mappa.setPointerCapture(e.pointerId); } catch (x) { /* niente */ }
+      }
+      e.preventDefault();
+      mappa.scrollLeft = tr.l - dx; mappa.scrollTop = tr.t - dy;
+    });
+    function fine(e) {
+      if (!tr || e.pointerId !== tr.id) return;
+      if (tr.via) { trascinato = true; mappa.classList.remove("trascina"); salvaScroll(); }
+      tr = null;
+    }
+    mappa.addEventListener("pointerup", fine);
+    mappa.addEventListener("pointercancel", fine);
+    mappa.addEventListener("lostpointercapture", fine);
+  }
+
   function tocco(ev) {
     if (Date.now() - pinch.fine < 400) return;   /* il dito che si alza dopo lo zoom non è una scelta */
+    /* la pianta è stata spostata col mouse: il clic che segue il rilascio non è una scelta */
+    if (trascinato) { trascinato = false; if (ev.detail !== 0) return; }
     if (S.stato !== "aperta") return;
     var g = ev.target.closest ? ev.target.closest("g.posto") : null;
     var bottone = g && g.getAttribute("role") === "button";
+    var mappa = document.getElementById("bgl-mappa");
     /* detail === 0: clic da tastiera o da lettore di schermo — sceglie sempre, senza passare dallo zoom */
-    if (ev.detail !== 0 && piccolaPerIlDito()) {
+    var fa = azioneClic({ mouse: !!(mappa && mappa.classList.contains("mouse")), tastiera: ev.detail === 0,
+      piccola: ev.detail !== 0 && piccolaPerIlDito(), fine: puntatoreFine(), bottone: !!bottone, posto: !!g });
+    if (fa === "zoom" || fa === "zoom+scegli") {
       var svg = document.querySelector("#bgl-mappa svg"), r = svg.getBoundingClientRect();
       var k0 = kAttuale();
       impostaZoom(true, (ev.clientX - r.left) / k0, (ev.clientY - r.top) / k0);
-      /* col mouse il clic è preciso: il posto cliccato si sceglie anche mentre la pianta si ingrandisce */
-      if (bottone && puntatoreFine()) toccaPosto(g.getAttribute("data-k"));
+      if (fa === "zoom+scegli") toccaPosto(g.getAttribute("data-k"));
       return;
     }
-    if (!g) return;
-    if (!bottone) {
+    if (fa === "niente") return;
+    if (fa === "avviso") {
       /* occupato o tenuto da parte: si dice, invece di non rispondere */
       var k = g.getAttribute("data-k"), st = statoDi(k, S);
       if (st === "mio") {
@@ -1810,6 +1940,10 @@
     document.addEventListener("visibilitychange", function () {
       if (document.visibilityState === "visible" && !S.inviando && (S.schermata === "pianta" || S.schermata === "modulo")) carica(true);
     });
+    try {
+      var mq = window.matchMedia(MEDIA_MOUSE), cambia = function () { if (S.schermata === "pianta" && S.pianta) disegnaPianta(); };
+      if (mq.addEventListener) mq.addEventListener("change", cambia); else if (mq.addListener) mq.addListener(cambia);
+    } catch (e) { /* niente */ }
     var rt = null;
     window.addEventListener("resize", function () {
       clearTimeout(rt);
