@@ -1,3 +1,16 @@
+# 07/10/2026 (sera) — Biglietteria: casella delle segnalazioni su tutte le pagine (ramo `bgl-segnala`, NON unito)
+
+- `biglietteria/segnala.js` + `segnala.css` (v=1), caricati da scheda/organizzatore/disdetta (`index.html`), `gestione/`, `mie/`.
+  Manda a `submit-feedback` (stesso server dell'editor, NON toccato; CORS `https://stageplot.it` = stessa origine delle pagine).
+- Computer/telefono: UNA regola, `MEDIA_COMPUTER` = `(min-width: 700px) and (hover: hover) and (pointer: fine)`, uguale in JS e
+  CSS (test). Computer: riquadro in basso a destra (sopra la barra «Avanti» se c'è). Altrimenti («via di mezzo» di Simone): niente
+  di fisso, voce «Un problema? Scrivici» (area: «Cosa manca? Bug? Idea?») nel piè di pagina dopo «Privacy»; nell'area, che non ha
+  piè di pagina, un `footer.piede.sg-piede` suo dopo il `<main>`. Un MutationObserver la rimette quando la pagina si ridisegna.
+- Privacy: `meta.page_url` = origine + percorso + solo `o`, `s`, `e` ben formati (mai `c=`, `id=`, `p=`, `api=`); `tech_context`
+  = origine, pagina, org, spettacolo, slug, vista/schermata. Token della sessione solo se in localStorage c'è una sessione.
+- Prove: `test/bgl-segnala.test.mjs` (14, mutazioni rosse); `test/e2e-biglietteria/prova-segnala.mjs` (187, submit-feedback
+  intercettata; aggiunta a `tutte.sh`).
+
 # 07/10/2026 (pomeriggio) — Biglietteria IN PRODUZIONE e primo spettacolo aperto
 
 - **Online** con #275: migrazioni 0074–0079, Edge `bgl-prenota`, `bgl-avvisa`, `bgl-account`, `retention-purge`. Redirect di
