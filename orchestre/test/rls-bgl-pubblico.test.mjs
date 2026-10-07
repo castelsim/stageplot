@@ -23,15 +23,41 @@ run("preparazione: un organizzatore con due spettacoli pubblicati, una bozza, un
   assert.equal(p.d.ok, true, JSON.stringify(p.d));
 });
 
-run("pagina dell'organizzatore: nome, contatto (quello dell'account se non ne ha scritto uno), solo pubblicati in arrivo, in ordine", async () => {
+run("pagina dell'organizzatore: nome, contatto (solo quello scritto dall'organizzatore), solo pubblicati in arrivo, in ordine", async () => {
   const r = await anon("bgl_organizzatore_pubblico", { p_slug: ORG.toUpperCase() });
   assert.equal(r.d.ok, true, JSON.stringify(r.d));
-  assert.deepEqual(r.d.organizzatore, { slug: ORG, nome: "Teatro di prova", contatto: U.org.email, logo: null });
+  /* revisione T23: nessun ripiego sull'email dell'account (spesso quella personale). Il «predefinito = account» della
+     specifica lo fa la «prima volta», precompilando il campo: in pagina va solo ciò che l'organizzatore ha visto e salvato */
+  assert.deepEqual(r.d.organizzatore, { slug: ORG, nome: "Teatro di prova", contatto: null, logo: null });
   assert.deepEqual(r.d.spettacoli.map((x) => x.titolo), ["Primo", "Secondo"], "niente bozza, niente passato da più di 12 ore");
   assert.deepEqual(Object.keys(r.d.spettacoli[0]).sort(), ["inizio", "liberi", "locandina", "luogo", "posti_totali", "s", "stato", "titolo"]);
   assert.deepEqual([r.d.spettacoli[0].liberi, r.d.spettacoli[0].posti_totali, r.d.spettacoli[0].stato], [23, 24, "aperta"]);
   await rpc(env, U.org.tok, "bgl_organizzatore_salva", { p_dati: { nome: "Teatro di prova", slug: ORG, contatto_email: "biglietteria@example.invalid" } });
   assert.equal((await anon("bgl_organizzatore_pubblico", { p_slug: ORG })).d.organizzatore.contatto, "biglietteria@example.invalid");
+});
+
+run("contatto: svuotato non si vede da nessuna porta (pagina, scheda, vecchio ?e=), e mai l'email dell'account", async () => {
+  const salva = (c) => rpc(env, U.org.tok, "bgl_organizzatore_salva", { p_dati: { nome: "Teatro di prova", slug: ORG, contatto_email: c } });
+  assert.equal((await salva("biglietteria@example.invalid")).d.ok, true);
+  assert.equal((await anon("bgl_evento_pubblico", { p_slug: A1.slug })).d.organizzatore.contatto, "biglietteria@example.invalid", "anche dal ?e=");
+  for (const vuoto of ["", "   ", null]) {
+    assert.equal((await salva(vuoto)).d.ok, true, JSON.stringify(vuoto));
+    for (const r of [await anon("bgl_organizzatore_pubblico", { p_slug: ORG }), await anon("bgl_spettacolo_pubblico", { p_org: ORG, p_slug: A1.slug_breve }),
+      await anon("bgl_evento_pubblico", { p_slug: A1.slug })]) {
+      assert.equal(r.d.organizzatore.contatto, null, "svuotato = nessuna email in pagina: " + JSON.stringify(vuoto));
+      assert.ok(!JSON.stringify(r.d).includes(U.org.email), "l'email dell'account non esce mai");
+    }
+  }
+});
+
+run("contatto: il formato è quello di un'email, senza segni da pagina web (< > \" ' `)", async () => {
+  const salva = (c) => rpc(env, U.org.tok, "bgl_organizzatore_salva", { p_dati: { nome: "Teatro di prova", slug: ORG, contatto_email: c } });
+  for (const c of ['"><img/src=x/onerror=alert(1)>@x.it', "a<b@example.invalid", "a@exa>mple.invalid", "o'brien@example.invalid", "a`b@example.invalid",
+    "senza-chiocciola.example.invalid", "a@b", "due@@example.invalid"]) {
+    assert.deepEqual([errore(await salva(c)), (await salva(c)).d.campo], ["dati_non_validi", "contatto_email"], c);
+  }
+  assert.equal((await salva("info@teatro-prova.example.invalid")).d.ok, true, "un indirizzo normale passa");
+  assert.equal((await anon("bgl_organizzatore_pubblico", { p_slug: ORG })).d.organizzatore.contatto, "info@teatro-prova.example.invalid");
 });
 
 run("PRIVACY: né la pagina dell'organizzatore né la scheda dicono chi ha prenotato", async () => {

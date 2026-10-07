@@ -5,10 +5,12 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { join } from "node:path";
+import { readFileSync } from "node:fs";
 import { loadApp, root } from "./sandbox.mjs";
 
 const G = createRequire(import.meta.url)(join(root, "biglietteria/gestione/gst.js"));
 const eq = assert.deepEqual;
+const ok = assert.ok;
 
 test("tenuti da parte scritti a mano: «A1-4, B5, C 7, Z9», tutta la fila, settori, andata e ritorno", () => {
   const chiavi = []; ["A", "B", "C", "D"].forEach((f) => { for (let n = 1; n <= 6; n++) chiavi.push("Platea|" + f + "|" + n); });
@@ -179,4 +181,20 @@ test("chiamate: nomi e argomenti del contratto, mai un'eccezione, sessione scadu
   for (const [tr, atteso] of casi) { G.api.trasporto = tr; const r = await G.api.prenotati("e1"); eq([r.ok, r.errore], [false, atteso], atteso); }
   G.api.trasporto = null;
   eq((await G.api.prenotati("e1")).errore, "non_autenticato");
+});
+
+test("revisione T23: l'email di contatto vuota = nessuna in pagina; il formato è lo stesso del server (niente < > \" ' ` , ;)", () => {
+  eq(G.contattoOk(""), true, "vuota: si può");
+  eq(G.contattoOk("info@teatro-prova.example.invalid"), true);
+  for (const x of ['"><img/src=x/onerror=alert(1)>@x.it', "a<b@example.invalid", "o'brien@example.invalid", "a`b@example.invalid",
+    "a@b", "due@@example.invalid", "a b@example.invalid", "a@example.invalid,b@example.invalid", "a;b@example.invalid"])
+    eq(G.contattoOk(x), false, x);
+  /* lo stesso schema della migrazione: si legge dal file, così i due non possono divergere */
+  const sql = readFileSync(join(root, "supabase/migrations/0074_bgl_area_organizzatori.sql"), "utf8");
+  const classe = sql.match(/v_contatto !~ '\^(\[\^.*?\])\+@/)[1].replace(/''/g, "'").replace("[:space:]", "\\s");
+  eq(G.CONTATTO_RE.source.startsWith("^" + classe + "+@"), true, "stessa classe di caratteri: " + classe + " / " + G.CONTATTO_RE.source);
+  const app = readFileSync(join(root, "biglietteria/gestione/gst-app.js"), "utf8");
+  ok(!/si vede l'email del tuo account/.test(app), "l'aiuto non promette più l'email dell'account");
+  ok(/vuoto[^"]*nessuna email/.test(app), "l'aiuto dice che vuoto = nessuna email in pagina");
+  ok(/GST\.contattoOk\(/.test(app), "la prima volta controlla il formato prima di salvare");
 });
