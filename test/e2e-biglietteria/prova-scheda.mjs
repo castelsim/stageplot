@@ -50,6 +50,7 @@ for (const [nm, motore] of [["chromium", chromium], ["webkit", webkit]]) for (co
   E.ok(/Rossi;Mario;.*;B;1;/.test(readFileSync(await csv.path(), "utf8")), chi + ": CSV");
   const [pdf] = await Promise.all([p.waitForEvent("download"), p.click("text=Lista per l'ingresso (PDF)")]);
   const testoPdf = execFileSync("pdftotext", [await pdf.path(), "-"], { encoding: "utf8" });
+  await pdf.saveAs(`${OUT}/t15-${nm}-${t}-lista.pdf`);   /* per le anteprime */
   E.ok(/Rossi Mario/.test(testoPdf) && /Tenuto da parte - Ospite|Tenuto da parte — Ospite/.test(testoPdf), chi + ": PDF per cognome e per fila, con il «per chi»");
   const [qr] = await Promise.all([p.waitForEvent("download"), p.click('.gst-link [data-az="qr"]')]);
   E.ok(/^qr-concerto-di-prova-.*\.png$/.test(qr.suggestedFilename()), chi + ": QR dello spettacolo (" + qr.suggestedFilename() + ")");
