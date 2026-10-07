@@ -1,3 +1,38 @@
+# 07/10/2026 — Biglietteria: area dell'organizzatore, pagine pubbliche, accesso Google — PRONTA (ramo `bgl-area`, NON unito, NON in produzione)
+
+Specifica e piano fuori dal repo: `COWORK/STAGEPLOT/BIGLIETTERIA/2026-10-06-biglietteria-area-design.md` e `…-plan.md` (T1–T23
+fatti; il T24, messa online, lo fa la sessione principale DOPO l'ok di Simone). Unito `bgl-d-e2e` (T22: prove fine a fine in
+`test/e2e-biglietteria/`, vedi il suo `LEGGIMI.md`).
+- Pianta UNA: `src/pianta-posti.js` → editor (marcatore PIANTA_POSTI) e `biglietteria/pianta-posti.js` (GENERATO, `build.mjs --check`).
+  `piantaDaDocumento` = foto dal JSON salvato; `piantaConfronta` = «La sala del progetto è cambiata». Collaudo: controllo nuovo.
+- Database 0074–0078 (solo aggiunte): organizzatore e spettacolo dell'area (`bgl_spettacolo_salva`), lettura pubblica
+  (`bgl_organizzatore_pubblico`, `bgl_spettacolo_pubblico` = `bgl_evento_pubblico`), spazio `bgl-locandine`, `bgl_sposta`,
+  Google (`p_user_id`, tetto per account, `bgl_pubblico`, «Le mie prenotazioni», pulizia a 12 mesi).
+- Edge: `bgl-prenota` (Authorization), `bgl-avvisa` (nuova), `bgl-account` (nuova), `retention-purge` (locandine orfane, account).
+- Pagine: `/biglietteria/?o=&s=` (+ scorciatoie da `404.html`), `/biglietteria/gestione/`, `/biglietteria/mie/`. Editor: solo
+  «Vai alla biglietteria»; il pannello e le sue funzioni sono andati in `biglietteria/gestione/gst.js`.
+- Messa online: piano, task 24 (ORDINE: migrazioni → bgl-prenota → altre funzioni → indirizzi di ritorno → merge). Passi
+  esatti per la sessione principale: `~/.claude/jobs/c49f7062/tmp/bgl-area/PER_ANDARE_ONLINE.md` (fuori dal repo).
+- Prove: `test/e2e-biglietteria/tutte.sh` (suite, RLS, migrazioni che si ripassano, 15 prove nel browser, viaggio normale,
+  invertito e scuro; NON fa `db reset`). Al 07/10: 31/31 passi con uscita 0; engines 1383, node 114, RLS 362, Deno 190,
+  collaudo 30/30; browser pubblico 213, area 63, modulo 101, scheda 92, sala 65, sposta 57, editor 25, google 78, mie 59,
+  ritorno 49, fuso 37, gara 25, viaggio 47 ×3. Mutazioni del piano (T23 step 2) tutte rosse.
+
+Revisione T23 (07/10), corretti con test e mutazioni:
+- ⚠️ IMPORTANTE, decisione da far confermare a Simone: il contatto pubblico dell'organizzatore NON ripiega più
+  sull'email dell'account (0075). Prima non c'era modo di non pubblicare un'email, e la mostrava anche il vecchio `?e=`.
+  Ora la «prima volta» precompila il campo con l'email dell'account (decisione 3), ma in pagina va solo ciò che è salvato:
+  vuoto = nessuna email. Formato più stretto (niente spazi, né `<` `>` `"` `'` backtick `,` `;`), uguale in pagina e nel server.
+- `bgl_modifica` con le regole della nota dell'area (200, niente `\r` da solo); `testoIcs` toglie anche il `\r` da solo.
+- `bgl_account_solo_biglietteria` guarda `feedback` e tutte le colonne che puntano ad `auth.users` (test sul catalogo).
+- Policy di delete delle locandine: un file citato (spettacolo o logo) non si cancella (`bgl_locandina_citata`).
+- Locandine con `cacheControl` di un giorno (non un anno): tolte, spariscono dal CDN entro un giorno.
+- Aperti (da decidere con Simone, non bloccano): palco tagliato nelle piante dell'area (la pianta scorre sui posti);
+  chi entra con Google e non prenota non ha la riga in `bgl_pubblico` (la pulizia non lo vede); tetto «4 per account»
+  aggirabile prenotando senza Google con un'altra email (resta il tetto di 8 per connessione); lo Storage locale serve
+  senza `nosniff` (rischio basso, `<img>` su altro dominio; produzione da guardare); `bgl_apri` (0073, ancora concessa)
+  accetta ancora note di 500 caratteri con `\r` (il `.ics` ora è protetto comunque).
+
 # 06/10/2026 — Biglietteria, area: ondata E/F unita in `bgl-area` (T15–T20; NON su main, NON in produzione)
 
 Uniti senza conflitti `bgl-c-gestione` (T15 scheda di gestione, T16 «La sala del progetto è cambiata», T17 Sposta),
