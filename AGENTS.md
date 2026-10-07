@@ -103,6 +103,12 @@ I prossimi moduli previsti (vedi piano): `src/` per canvas, objects, data/serial
 - **CSS, ordine**: a parità di specificità vince l'ultima scritta; una regola base scritta *dopo* un
   gradino `@media` lo annulla. Dentro `#props` ogni regola nuova va scritta almeno `#props .x`.
 - **Boot**: una `var` definita più in basso nel file è `undefined` per il codice di avvio sopra di lei.
+- **Migrazioni provate solo «a pezzi»** (07/10): sullo stack locale `supabase migration up` applica ogni file sopra lo stato già
+  presente, e se un file viene ritoccato dopo essere stato applicato la versione nuova non gira mai da zero. La 0074 è passata in
+  locale e fu rifiutata in produzione (funzione `language sql` che citava colonne create più sotto: il corpo `sql` si controlla
+  alla creazione). **Prima di ogni `db push` in produzione**: `supabase db reset --local` (catena intera) e, se ci sono dati veri,
+  anche `db reset --local --version <ultima in produzione>` + dati di prova + `migration up`. Dopo un reset lo storage locale
+  (immagine vecchia) vuole l'indice unico `(bucket_id, name)` su `storage.objects`: crearlo come `supabase_admin`, solo in locale.
 - **PDF**: molte funzioni `*Pdf` hanno un `function trow(...)` identico: sostituire dentro la funzione
   giusta, mai la prima occorrenza nel file.
 - **Ricerca del catalogo**: un nome nuovo che contiene «mic» o «monitor» ruba i risultati ad aste e wedge;
