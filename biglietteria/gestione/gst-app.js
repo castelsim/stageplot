@@ -173,6 +173,8 @@
       if (stato.toccato) return;
       slug.value = GST.slugDaTesto(nome.value).slice(0, 40).replace(/-+$/, ""); controlla();
     });
+    /* l'avviso «email non giusta» sparisce appena la si corregge */
+    document.getElementById("gst-contatto").addEventListener("input", function () { document.getElementById("gst-pv-err").hidden = true; });
     slug.addEventListener("input", function () { stato.toccato = true; slug.value = slug.value.toLowerCase().replace(/[^a-z0-9-]/g, ""); controlla(); });
     document.getElementById("gst-logo").addEventListener("change", function (e) {
       var f = e.target.files && e.target.files[0], er = document.getElementById("gst-e-logo"), img = document.getElementById("gst-logo-ant");
