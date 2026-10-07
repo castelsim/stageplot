@@ -564,7 +564,7 @@ test("la pagina carica gli indirizzi prima di bgl.js e mostra le locandine dello
   assert.ok(h.indexOf('<script src="indirizzi.js?v=1"></script>') > 0 && h.indexOf('<script src="indirizzi.js') < h.indexOf('<script src="bgl.js'));
   const csp = (h.match(/Content-Security-Policy" content="([^"]+)"/) || [])[1] || "";
   assert.match(csp, /img-src 'self' data: https:\/\/vsodplqkuvnsdiikvmjb\.supabase\.co http:\/\/127\.0\.0\.1:54321 http:\/\/localhost:54321;/);
-  assert.match(h, /bgl\.js\?v=7/); assert.match(h, /bgl\.css\?v=7/);
+  assert.match(h, /bgl\.js\?v=8/); assert.match(h, /bgl\.css\?v=7/);
   /* la pagina usa gli stessi indirizzi del resto della biglietteria, non una copia */
   const js = leggi("biglietteria/bgl.js");
   assert.match(js, /BGLI\.linkCanonico\(/); assert.match(js, /BGLI\.urlLocandina\(/);
@@ -582,7 +582,7 @@ test("Google: i messaggi nuovi", () => {
 
 test("Google: la pagina carica l'accesso di StagePlot prima di bgl.js; «Le mie prenotazioni» nel piè di pagina", () => {
   const h = leggi("biglietteria/index.html");
-  const pos = ['src="/accedi/google/avvio.js"', 'src="indirizzi.js', 'src="accesso.js', 'src="bgl.js?v=7"'].map((x) => h.indexOf(x));
+  const pos = ['src="/accedi/google/avvio.js"', 'src="indirizzi.js', 'src="accesso.js', 'src="bgl.js?v=8"'].map((x) => h.indexOf(x));
   assert.ok(pos.every((p, i) => p > 0 && (i === 0 || p > pos[i - 1])), JSON.stringify(pos));
   const js = leggi("biglietteria/bgl.js");
   assert.match(js, /href="\/biglietteria\/mie\/">Le mie prenotazioni</);
@@ -596,4 +596,15 @@ test("D10: le pagine della biglietteria non scrivono chiavi dell'editor (sp_*) e
     assert.doesNotMatch(js, /setItem\(\s*["']sp_/, f + ": nessuna chiave sp_* (benvenuto e onboarding dell'editor restano del dispositivo)");
     assert.doesNotMatch(js, /href="\/app\//, f + ": nessun link all'editor per il pubblico");
   }
+});
+
+/* 0079 (07/10): appena le pagine pubbliche trovano una sessione Google, l'account si segna «del pubblico». */
+test("0079: la scheda e «Le mie prenotazioni» chiamano bgl_pubblico_registra una volta, senza bloccare la pagina", () => {
+  const js = readFileSync(join(root, "biglietteria/bgl.js"), "utf8");
+  const chi = js.slice(js.indexOf("function chiSono()"), js.indexOf("function vaiAlModulo("));
+  assert.match(chi, /registraPubblico\(\);\s*return \{ token:/, "chiSono segna l'account quando trova la sessione");
+  assert.match(js, /if \(pubblicoRegistrato \|\| !ACC \|\| !ACC\.rpcGrezza\) return;/, "una volta per pagina");
+  assert.match(js, /rpcGrezza\(cfg, "bgl_pubblico_registra", \{\}\)/);
+  const mie = readFileSync(join(root, "biglietteria/mie/mie.js"), "utf8");
+  assert.match(mie, /rpc\("bgl_pubblico_registra", \{\}\)\.then\(null,/, "Le mie prenotazioni segna l'account, e un errore non ferma la pagina");
 });

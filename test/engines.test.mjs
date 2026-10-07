@@ -12643,7 +12643,7 @@ t("la privacy racconta i conteggi, e la data lo dice", () => {
   ok(/aggregat/i.test(p) && /nessun cookie/i.test(p), "dice che sono aggregati e senza cookie");
   ok(/Do Not Track/.test(p), "dichiara il rispetto del Do Not Track");
   ok(/impronta anonima \(hash\) dell'indirizzo IP/.test(p), "dichiara l'impronta dell'IP per il rate limit");
-  ok(/Ultimo aggiornamento: 6 ottobre 2026/.test(p), "la data dell'ultimo aggiornamento è quella giusta (06/10: sezione 8, biglietteria, area e accesso Google)");
+  ok(/Ultimo aggiornamento: 7 ottobre 2026/.test(p), "la data dell'ultimo aggiornamento è quella giusta (07/10: sezione 8, biglietteria, area e accesso Google)");
   ok(!/senza accesso non si attivano autenticazione, salvataggio cloud o statistiche d'uso/.test(p),
     "la frase che ora sarebbe falsa non c'è più");
 });

@@ -77,6 +77,7 @@
       sezioneAccount((lista || []).length) + piede());
   }
   function carica() {
+    rpc("bgl_pubblico_registra", {}).then(null, function () { /* solo un segno per la pulizia (0079) */ });
     return Promise.all([rpc("bgl_mie_prenotazioni", {}), rpc("bgl_account_stato", {})]).then(function (r) {
       if (!r[0].ok) {
         return corpo("<h1>Le mie prenotazioni</h1><p>" + esc(r[0].errore === "rete"
