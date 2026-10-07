@@ -21,7 +21,10 @@
  */
 import { readFileSync, writeFileSync, readdirSync, mkdirSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
+import { createRequire } from "node:module";
 import { loadApp, root } from "./sandbox.mjs";
+
+const PP = createRequire(import.meta.url)(join(root, "biglietteria/pianta-posti.js"));
 
 /* la cartella privata: dalla variabile, oppure risalendo (il repo sta anche in .claude/worktrees/<nome>) */
 function cartella() {
@@ -125,6 +128,19 @@ for (const f of casi) {
     if (legamiAperti.length) throw new Error("collegamenti orfani rimasti dopo l'apertura nelle scene: " + legamiAperti.join(", "));
     const legamiSalvati = legamiDoc(JSON.parse(A.docToJSON()));
     if (legamiSalvati.length) throw new Error("il file salvato ha ancora collegamenti orfani: " + legamiSalvati.join(", "));
+    /* LA FOTO DELLA BIGLIETTERIA DAL FILE (area, §4.2). L'area dell'organizzatore non apre il progetto nell'editor: legge
+       il JSON salvato e chiama piantaDaDocumento. Una foto diversa da quella dell'editor farebbe dire a ogni apertura
+       «la sala del progetto è cambiata». Si prova sul file salvato adesso e su quello grezzo del collaudo (RF1). */
+    const salvatoFoto = JSON.parse(A.docToJSON());
+    const grezzoFoto = JSON.parse(readFileSync(join(DIR, f), "utf8"));   /* riletto: loadDoc può aver ritoccato `grezzo` */
+    const grezzoPiatto = !Array.isArray(grezzoFoto.variants);
+    for (const v of A.VARIANTS.slice()) {
+      A.switchVariant(v.id);
+      const ed = JSON.stringify(A.bglPianta(A.state));
+      if (JSON.stringify(PP.piantaDaDocumento(salvatoFoto, v.id)) !== ed) throw new Error("foto della scena «" + v.name + "»: area diversa dall'editor (file salvato)");
+      const daGrezzo = PP.piantaDaDocumento(grezzoFoto, grezzoPiatto ? null : v.id);
+      if (JSON.stringify(daGrezzo) !== ed) throw new Error("foto della scena «" + v.name + "»: area diversa dall'editor (file grezzo)");
+    }
     const ora = improntaDocumento();
     /* salvare e riaprire non deve cambiare niente */
     A.loadDoc(JSON.parse(A.docToJSON()));

@@ -1,6 +1,6 @@
 // supabase/functions/_shared/bgl-mail.ts
 //
-// BIGLIETTERIA — la mail di conferma della prenotazione. Contenuto (puro, testato) e invio (Resend).
+// BIGLIETTERIA — la mail di conferma della prenotazione e quella dei posti cambiati («Sposta», area §4.1). Contenuto (puro, testato) e invio (Resend).
 // Mittente: lo stesso indirizzo che Resend consegna già oggi per le segnalazioni (dominio verificato),
 // con un nome diverso; le risposte vanno alla casella vera. `email.ts` non si tocca: il suo `sendEmail` ha
 // il mittente fisso e niente reply_to né testo semplice, e cambiarlo obbligherebbe a ridistribuire tutte le
@@ -132,6 +132,35 @@ ${note ? `<p style="font-size:16px;margin:0 0 16px;padding:10px 12px;background:
 <p style="font-size:12px;color:#666;margin:0">Hai ricevuto questa mail perché hai prenotato su stageplot.it. <a href="${esc(BGL_PRIVACY_URL)}">Come trattiamo i tuoi dati</a>.</p>
 </div></body></html>`;
 
+  return { subject, html, text };
+}
+
+export type DatiSpostamento = { titolo: string; inizio: string; luogo: string; posti: string[]; codice: string; link: string };
+
+/** «Posti cambiati» (specifica area §4.1): breve, solo dati dello spettacolo e dei posti, nessun testo libero. */
+export function mailSpostamento(d: DatiSpostamento): { subject: string; html: string; text: string } {
+  // deno-lint-ignore no-control-regex
+  const unaRiga = (s: string) => s.replace(/[\u0000-\u001f\u007f]+/g, " ").trim();
+  const subject = unaRiga(`Posti cambiati — ${d.titolo}, ${dataBreve(d.inizio)}`);
+  const quando = dataLunga(d.inizio), righe = postiInParole(d.posti);
+  const text = ["Ciao,", "", `l'organizzatore ha cambiato i tuoi posti per «${unaRiga(d.titolo)}».`, "", quando, unaRiga(d.luogo), "",
+    "I posti nuovi:", ...righe, "", `Codice: ${d.codice}`, "",
+    "Per vedere o disdire la prenotazione usa il link della mail di conferma che hai già ricevuto.",
+    `La pagina dello spettacolo: ${d.link}`, "", `Per un problema scrivi a ${BGL_CONTATTO}.`].join("\n");
+  const html = `<!doctype html><html lang="it"><body style="margin:0;padding:24px;background:#f6f6f4;font-family:Arial,Helvetica,sans-serif;color:#1d1d1b">
+<div style="max-width:520px;margin:0 auto;background:#fff;border-radius:12px;padding:24px">
+<p style="font-size:16px;margin:0 0 16px">Ciao,</p>
+<p style="font-size:16px;margin:0 0 16px">l'organizzatore ha cambiato i tuoi posti per <strong>${esc(d.titolo)}</strong>.</p>
+<p style="font-size:16px;margin:0">${esc(quando)}</p>
+<p style="font-size:16px;margin:0 0 16px">${esc(d.luogo)}</p>
+<p style="font-size:14px;margin:0">I posti nuovi</p>
+<p style="font-size:18px;margin:0 0 16px"><strong>${righe.map(esc).join("<br>")}</strong></p>
+<p style="font-size:14px;margin:0">Codice</p>
+<p style="font-size:28px;letter-spacing:4px;font-weight:bold;margin:0 0 16px;font-family:'Courier New',monospace">${esc(d.codice)}</p>
+<p style="font-size:14px;margin:0 0 16px">Per vedere o disdire la prenotazione usa il link della mail di conferma che hai già ricevuto.
+<a href="${esc(d.link)}">La pagina dello spettacolo</a>.</p>
+<p style="font-size:14px;margin:0">Per un problema scrivi a <a href="mailto:${BGL_CONTATTO}">${BGL_CONTATTO}</a>.</p>
+</div></body></html>`;
   return { subject, html, text };
 }
 

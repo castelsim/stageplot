@@ -1,6 +1,7 @@
 import { assert, assertEquals, assertStringIncludes } from "jsr:@std/assert@1";
 import { CHIAVE_GLOBALE, type Deps, gestisciPrenota, MAX_ORA_GLOBALE, MAX_ORA_IP } from "./bgl-prenota.ts";
 import type { InvioMail } from "./bgl-mail.ts";
+import type { Utente } from "./bgl-utente.ts";
 
 // Biglietteria: la Edge Function `bgl-prenota` con database e Resend finti. Dati inventati.
 const PROD = "https://abcdefghijklmnopqrst.supabase.co";
@@ -15,7 +16,8 @@ const ok = { ok: true, ripetuta: false, mail: true, prenotazione_id: "5d0c0000-0
 type Chiamata = { fn: string; args: Record<string, unknown> };
 /* I contatori sono veri (salgono a ogni chiamata, partendo da `contatori`): così si vede CHI li fa salire. */
 function finto(o: { env?: Record<string, string>; prenota?: unknown; errore?: string; contatori?: { globale?: number; ip?: number };
-  globale?: Record<string, unknown>; invia?: (a: InvioMail) => Promise<{ ok: boolean; status: number }> } = {}) {
+  globale?: Record<string, unknown>; invia?: (a: InvioMail) => Promise<{ ok: boolean; status: number }>;
+  utente?: (t: string) => Promise<Utente | null> } = {}) {
   const chiamate: Chiamata[] = [], mail: InvioMail[] = [], log: string[] = [];
   const env: Record<string, string> = { SUPABASE_URL: PROD, RESEND_API_KEY: "chiave-finta", FEEDBACK_IP_SALT: "sale-finto", ...o.env };
   const conta = { globale: (o.contatori?.globale ?? 1) - 1, ip: (o.contatori?.ip ?? 1) - 1 };
@@ -37,6 +39,7 @@ function finto(o: { env?: Record<string, string>; prenota?: unknown; errore?: st
     env: { get: (k: string) => env[k] },
     log: (m) => { log.push(m); },
   };
+  if (o.utente) deps.utente = o.utente;
   return { deps, chiamate, mail, log, conta };
 }
 const req = (body: unknown, init: RequestInit & { ip?: string } = {}) => new Request("http://x/functions/v1/bgl-prenota", {
@@ -239,4 +242,54 @@ Deno.test("CORS: la pagina locale legge la risposta solo con BGL_CORS_DEV=1", as
   const r2 = await gestisciPrenota(req(corpo(), { headers: { ...loc, "content-type": "application/json" } }), finto({ env: { BGL_CORS_DEV: "1" } }).deps);
   assertEquals(r2.headers.get("access-control-allow-origin"), "http://localhost:8123");
   assertEquals(r2.headers.get("cache-control"), "no-store");
+});
+
+// ───────────────────────────── accesso con Google (specifica area §3.2, §6)
+const GOOGLE: Utente = { id: "9a8b0000-0000-4000-8000-000000000009", email: "maria.bianchi@example.invalid", verificata: true };
+const conToken = (t: string) => req(corpo({ email: "scritta.a.mano@example.invalid" }), {
+  headers: { "content-type": "application/json", origin: "https://stageplot.it", "x-real-ip": "203.0.113.7", authorization: "Bearer " + t } });
+
+Deno.test("Google: con un token valido l'email è quella dell'account (non quella del modulo) e la prenotazione si lega all'account", async () => {
+  const f = finto({ utente: (t) => Promise.resolve(t === "buono" ? GOOGLE : null) });
+  const r = await leggi(await gestisciPrenota(conToken("buono"), f.deps));
+  assertEquals(r.status, 200);
+  const p = f.chiamate.find((c) => c.fn === "bgl_prenota")!;
+  assertEquals([p.args.p_email, p.args.p_user_id], ["maria.bianchi@example.invalid", GOOGLE.id]);
+});
+
+Deno.test("Google: token scaduto o falso → 401 accesso_scaduto, prima di contare la connessione e senza toccare le prenotazioni", async () => {
+  const f = finto({ utente: () => Promise.resolve(null) });
+  const r = await leggi(await gestisciPrenota(conToken("scaduto"), f.deps));
+  assertEquals([r.status, r.d.errore], [401, "accesso_scaduto"]);
+  assertEquals(f.chiamate.length, 0, "né contatori né prenotazione");
+  const senza = finto();
+  assertEquals((await gestisciPrenota(conToken("qualunque"), senza.deps)).status, 401, "senza verifica dell'account configurata: mai anonimo");
+});
+
+Deno.test("Google: email non verificata → 403", async () => {
+  const f = finto({ utente: () => Promise.resolve({ ...GOOGLE, verificata: false }) });
+  assertEquals((await leggi(await gestisciPrenota(conToken("buono"), f.deps))).d.errore, "email_non_verificata");
+});
+
+Deno.test("senza Authorization la chiamata al database è identica a prima (nessun p_user_id)", async () => {
+  const f = finto({ utente: () => Promise.resolve(GOOGLE) });
+  await gestisciPrenota(req(corpo()), f.deps);
+  const p = f.chiamate.find((c) => c.fn === "bgl_prenota")!;
+  assert(!("p_user_id" in p.args), JSON.stringify(p.args));
+  assertEquals(p.args.p_email, "mario.rossi@example.invalid");
+});
+
+Deno.test("limite_account dal database → 409 con gia e max", async () => {
+  const f = finto({ utente: () => Promise.resolve(GOOGLE), prenota: { ok: false, errore: "limite_account", gia: 4, max: 4 } });
+  const r = await leggi(await gestisciPrenota(conToken("buono"), f.deps));
+  assertEquals([r.status, r.d], [409, { ok: false, errore: "limite_account", gia: 4, max: 4 }]);
+});
+
+Deno.test("la chiave pubblica in Authorization (supabase-js senza sessione) vale come nessun accesso, non come 401", async () => {
+  const f = finto({ env: { SUPABASE_ANON_KEY: "chiave-pubblica-finta" }, utente: () => Promise.resolve(null) });
+  const r = await leggi(await gestisciPrenota(conToken("chiave-pubblica-finta"), f.deps));
+  assertEquals(r.status, 200);
+  const p = f.chiamate.find((c) => c.fn === "bgl_prenota")!;
+  assert(!("p_user_id" in p.args), JSON.stringify(p.args));
+  assertEquals(p.args.p_email, "scritta.a.mano@example.invalid");
 });
