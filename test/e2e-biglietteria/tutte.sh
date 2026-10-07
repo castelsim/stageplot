@@ -29,7 +29,7 @@ for m in 0074 0075 0076 0077 0078; do
   passo "migrazione $m si ripassa" bash -c "docker exec -i $DB psql -U postgres -v ON_ERROR_STOP=1 -q < $WT/supabase/migrations/${m}_*.sql"
 done
 passo "copia di prova"           env REF=HEAD DEST=$P/sito $Q/prepara.sh
-for s in ${SOLO:-404 pubblico area-ingresso modulo scheda sala sposta editor google mie ritorno fuso gara viaggio}; do
+for s in ${SOLO:-404 pubblico area-ingresso modulo scheda sala sposta editor google mie ritorno segnala fuso gara viaggio}; do
   f=$Q/prova-$s.mjs; [[ $s == viaggio ]] && f=$Q/e2e-viaggio.mjs
   passo "browser: $s" node $f
 done
