@@ -1,4 +1,15 @@
-# 07/10/2026 — Biglietteria: area dell'organizzatore, pagine pubbliche, accesso Google — PRONTA (ramo `bgl-area`, NON unito, NON in produzione)
+# 07/10/2026 (pomeriggio) — Biglietteria IN PRODUZIONE e primo spettacolo aperto
+
+- **Online** con #275: migrazioni 0074–0079, Edge `bgl-prenota`, `bgl-avvisa`, `bgl-account`, `retention-purge`. Redirect di
+  Supabase Auth già coperto da `https://stageplot.it/**`. 0079 = `bgl_pubblico_registra()` (account del pubblico segnato al primo
+  accesso Google, scelta di Simone). Contatto pubblico: niente ripiego sull'email dell'account (scelta di Simone).
+- **Primo tentativo di `db push` fallito** sulla 0074 (funzione `sql` che citava colonne create più sotto): transazione annullata,
+  nulla applicato. Corretta in `plpgsql`, riprovata da zero e sopra uno stato come la produzione. Vedi AGENTS §8.
+- **Primo organizzatore**: «AVA Sound», `stageplot.it/biglietteria/ava-sound` (indirizzo bloccato). Spettacolo del 09/10 aperto,
+  100 posti A–J. Organizzatori abilitati a mano: `ops/bgl-abilita.mjs` (oggi solo l'account di Simone).
+- Aperti: palco tagliato nelle piante dell'area (estetico); tetto «4 per account» aggirabile senza Google (resta 8 per connessione).
+
+# 07/10/2026 — Biglietteria: area dell'organizzatore, pagine pubbliche, accesso Google — PRONTA (ramo `bgl-area`, poi unito con #275)
 
 Specifica e piano fuori dal repo: `COWORK/STAGEPLOT/BIGLIETTERIA/2026-10-06-biglietteria-area-design.md` e `…-plan.md` (T1–T23
 fatti; il T24, messa online, lo fa la sessione principale DOPO l'ok di Simone). Unito `bgl-d-e2e` (T22: prove fine a fine in
