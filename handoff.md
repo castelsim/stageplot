@@ -1,3 +1,20 @@
+# 07/10/2026 (notte) — Biglietteria: «I tuoi posti» sulla pianta + «Entra con Google» dalla pianta (ramo `bgl-miei-posti`, NON unito)
+
+- Segnalazione cf7adc04 di Simone: chi ha già prenotato vedeva i suoi posti con la croce degli altri. Stato nuovo `mio`
+  («I tuoi posti»): pieno indaco con la spunta bianca, senza numero (l'unico con la spunta: si distingue da «scelto» e
+  «occupato» anche senza colori). La spunta è FUORI dalla rotazione della sedia (con rot 180 diventava un «^»). Non si
+  sceglie (role img, etichetta «…, tuo»); toccandolo: «Il posto A 3 è tuo.» + «Vedi o disdici» (ricordo) o «Per disdire:
+  Le mie prenotazioni». Voce in legenda solo se ce n'è uno.
+- Fonti (unione, solo posti ancora occupati): ricordo `bgl:<slug>` + con sessione Google `bgl_mie_prenotazioni` (0078),
+  confrontando `evento.percorso` con lo spettacolo della pagina (`rifSpettacolo` / `stessoSpettacolo`). La chiamata parte
+  DOPO la pianta (fine di `carica`, anche al giro dei 20 s) e la colora senza ridisegnarla (`aggiornaMiei`); nessun
+  `bgl_pubblico_registra` per chi guarda soltanto. Dopo una prenotazione riuscita si rilegge.
+- Aggiunta di Simone: riga sopra la pianta. Non collegato: «Hai già prenotato? Entra con Google per vedere i tuoi posti» +
+  «Entra con Google» (si torna sulla pianta, scelta conservata: `sessionStorage bgl-google = "pianta:<slug>"`). Collegato:
+  «Sei entrato come <email> · Esci». Il modulo non cambia. Database ed Edge Function NON toccati. bgl.js v=9, bgl.css v=8.
+- Prove: `test/bgl-miei.test.mjs` (11, mutazioni rosse), `test/e2e-biglietteria/prova-miei.mjs` (131/131, 4 giri, aggiunta
+  a `tutte.sh`). Noto e già su main: `prova-404` (scorciatoia con `/?x=1`) fallisce anche su origin/main.
+
 # 07/10/2026 (sera) — Biglietteria: casella delle segnalazioni su tutte le pagine (ramo `bgl-segnala`, NON unito)
 
 - `biglietteria/segnala.js` + `segnala.css` (v=1), caricati da scheda/organizzatore/disdetta (`index.html`), `gestione/`, `mie/`.

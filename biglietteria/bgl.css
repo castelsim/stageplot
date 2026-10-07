@@ -16,6 +16,7 @@
   --m-foglio:#ffffff;--m-palco:#edebe4;--m-palco-bd:#c8c3b4;--m-pedana:#d6d1c3;--m-pedana-bd:#b5af9f;--m-scritta:#746e60;
   --m-fila:#423e36;--m-libero:#0b7a70;--m-scelto:#0b5f58;--m-scelto-bd:#073f3a;
   --m-occupato:#b9b3a5;--m-croce:#5f594d;--m-riservato:#a29c8e;--m-riservato-n:#746e60;
+  --m-mio:#4338ca;--m-mio-bd:#1e1b4b;
 }
 @media (prefers-color-scheme: dark){
   :root{--bg:#12181b;--surface:#1b2327;--raised:#20292e;--border:#2c3a3f;--border-strong:#3a4b51;
@@ -105,8 +106,23 @@ h1:focus,h2:focus{outline:none}
 .tratt-fondo{fill:#fff}
 .tratt-riga{stroke:#c8c3b4;stroke-width:5}
 .leg-svg .posto.riservato .sedia{fill:#fff}
+/* tuo (già prenotato da te): pieno indaco con la spunta bianca, senza numero. Da «scelto» (verde scuro col numero)
+   e da «occupato» (grigio con la croce) si distingue anche senza colori: è l'unico con la spunta */
+.posto .spunta{fill:none;stroke:none;stroke-linecap:round;stroke-linejoin:round}
+.posto.mio .sedia{fill:var(--m-mio);stroke:var(--m-mio-bd);stroke-width:2px}
+.posto.mio .spunta{stroke:#fff}
+.posto.mio .n{display:none}
+.posto.mio{cursor:pointer}
 .posto:focus-visible .hit{fill:rgba(29,78,216,.10);stroke:var(--focus);stroke-width:3px;vector-effect:non-scaling-stroke}
 .mappa .posto:focus-visible .hit{stroke:#1d4ed8}
+
+/* --- la riga dell'accesso sopra la pianta: discreta, non un ostacolo --- */
+.accesso-riga{font-size:14.5px;color:var(--text-2);margin:0 0 10px;overflow-wrap:anywhere}
+.accesso-riga.fuori{display:flex;align-items:center;justify-content:space-between;gap:6px 12px;flex-wrap:wrap;
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:6px 6px 6px 14px}
+.accesso-riga.fuori p{flex:1 1 14em}
+.accesso-riga .btn{color:var(--text)}
+.accesso-riga.dentro .link{font-size:14.5px}
 
 /* --- avvisi e note --- */
 .nota{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px 14px;font-size:15.5px;margin:10px 0}
