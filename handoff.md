@@ -1,3 +1,20 @@
+# 07/10/2026 (notte, 2) — Biglietteria: la pianta sul computer, niente lente (ramo `bgl-zoom-pc`, NON unito)
+
+- Simone: sul computer la lente (`cursor:zoom-in`) prometteva uno zoom che il clic non faceva in modo prevedibile. Design
+  approvato: col mouse (`MEDIA_MOUSE` = `(hover: hover) and (pointer: fine)`, stessa stringa in bgl.css; è la parte
+  «strumento» di `MEDIA_COMPUTER` di segnala.js, un test lo controlla) il clic sceglie/toglie SEMPRE (`azioneClic`), mai zoom;
+  manina sui posti che si scelgono, freccia sugli altri (il clic dà l'avviso), «afferra» sulla pianta ingrandita.
+- Comandi «+», «−», «Vista intera» (36 px, `aria-disabled` ai limiti, il fuoco resta) in `.mappa-box`, FUORI dalla parte che
+  scorre (restano in vista; si scostano dalla barra verticale con `--barra-v`). «+»/«−» attorno al centro visibile, doppio clic
+  lì dove si clicca (`passoZoom` ×1,6; i due clic singoli scelgono e tolgono: il posto resta com'era), trascinamento oltre
+  6 px (`eTrascinamento`; con cattura del puntatore + guardia `trascinato`: il rilascio non sceglie). Ingranditi ma ancora più
+  stretti del riquadro: SVG al centro (`marginLeft`), solo col mouse. Rotellina senza Ctrl: invariata (scorre pianta e pagina).
+- Telefono/tablet col dito: NIENTE cambiato (stessa prova passa identica su main). Gestione non toccata (`.gst-mappa` aveva già
+  `cursor:default`). bgl.js v=10, bgl.css v=9.
+- Prove: `test/bgl-zoom-pc.test.mjs` (8, 20 mutazioni rosse insieme a biglietteria/bgl-mie), `prova-zoom-pc.mjs` (110, Chromium e
+  WebKit, computer e telefono; 7 mutazioni nel browser rosse; in `tutte.sh`). miei 131, segnala 187, pubblico 213, scheda 92,
+  modulo 101. gara/google/viaggio non provati: Edge runtime locale spento (503 anche su main).
+
 # 07/10/2026 (notte) — Biglietteria: «I tuoi posti» sulla pianta + «Entra con Google» dalla pianta (ramo `bgl-miei-posti`, NON unito)
 
 - Segnalazione cf7adc04 di Simone: chi ha già prenotato vedeva i suoi posti con la croce degli altri. Stato nuovo `mio`
