@@ -68,9 +68,25 @@ h1:focus,h2:focus{outline:none}
 
 /* --- la pianta --- */
 .mappa{background:var(--m-foglio);border:1px solid var(--border);border-radius:var(--r);overflow:auto;
-  max-height:min(72vh,760px);text-align:center;-webkit-overflow-scrolling:touch;cursor:zoom-in;
+  max-height:min(72vh,760px);text-align:center;-webkit-overflow-scrolling:touch;
   touch-action:pan-x pan-y}  /* due dita sulla pianta: zoom della pianta, non della pagina */
-.mappa.ingrandita{cursor:default;text-align:left}
+.mappa.ingrandita{text-align:left}
+/* COMPUTER COL MOUSE (07/10): niente lente. Manina sui posti che si scelgono, freccia sugli altri, «afferra» sulla pianta
+   ingrandita (si trascina), e «+ − Vista intera» nell'angolo, fuori dalla parte che scorre. La stessa stringa di
+   MEDIA_MOUSE in bgl.js (un test le confronta); la classe .mouse la mette bgl.js con la stessa regola. */
+.mappa-box{position:relative}
+.zoom-pc{position:absolute;z-index:2;top:8px;right:calc(8px + var(--barra-v,0px));display:flex;gap:6px}
+.zoom-b{min-width:36px;height:36px;padding:0 10px;border:1px solid var(--m-palco-bd);border-radius:10px;background:#fff;
+  color:var(--m-fila);font-size:20px;font-weight:700;line-height:1;cursor:pointer;box-shadow:0 1px 4px rgba(38,33,24,.14)}
+.zoom-b.intera{font-size:14.5px}
+.zoom-b:hover{background:#f3f1ea}
+.zoom-b[aria-disabled=true]{opacity:.45;cursor:default;background:#fff}
+@media (hover: hover) and (pointer: fine){
+  .mappa.mouse .posto{cursor:default}
+  .mappa.mouse .posto[role=button]{cursor:pointer}
+  .mappa.mouse.si-sposta{cursor:grab}
+  .mappa.mouse.trascina,.mappa.mouse.trascina .posto{cursor:grabbing}
+}
 .mappa svg{display:inline-block;vertical-align:top;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent}
 .pianta-svg .foglio{fill:var(--m-foglio)}
 .pianta-svg .palco{fill:var(--m-palco);stroke:var(--m-palco-bd);stroke-width:1.5px;vector-effect:non-scaling-stroke}

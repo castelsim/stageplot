@@ -395,8 +395,12 @@ test("REVISIONE: sul computer la pagina parla di clic, sul telefono di tocchi", 
   for (const z of [true, false]) for (const sz of [true, false]) {
     const t = sug({ aperta: true, zoom: z, serveZoom: sz, fine: true });
     assert.match(t, /^Clicca un posto libero per sceglierlo\./, "col mouse si clicca: " + t);
-    assert.doesNotMatch(t, /dito|Tocca/);
+    assert.doesNotMatch(t, /dito|Tocca|«Ingrandisci»/);
   }
+  /* 07/10: sul computer il clic sceglie e basta; per ingrandire doppio clic o «+», per spostarsi si trascina */
+  assert.equal(sug({ aperta: true, zoom: false, serveZoom: true, fine: true }), "Clicca un posto libero per sceglierlo. Per ingrandire: doppio clic o «+».");
+  assert.equal(sug({ aperta: true, zoom: false, serveZoom: false, fine: true }), "Clicca un posto libero per sceglierlo. Per ingrandire: doppio clic o «+».");
+  assert.equal(sug({ aperta: true, zoom: true, serveZoom: true, fine: true }), "Clicca un posto libero per sceglierlo. Trascina la pianta per spostarti.");
   assert.equal(sug({ aperta: false, zoom: false, serveZoom: true, fine: true }), "");
 });
 
@@ -564,7 +568,7 @@ test("la pagina carica gli indirizzi prima di bgl.js e mostra le locandine dello
   assert.ok(h.indexOf('<script src="indirizzi.js?v=1"></script>') > 0 && h.indexOf('<script src="indirizzi.js') < h.indexOf('<script src="bgl.js'));
   const csp = (h.match(/Content-Security-Policy" content="([^"]+)"/) || [])[1] || "";
   assert.match(csp, /img-src 'self' data: https:\/\/vsodplqkuvnsdiikvmjb\.supabase\.co http:\/\/127\.0\.0\.1:54321 http:\/\/localhost:54321;/);
-  assert.match(h, /bgl\.js\?v=9/); assert.match(h, /bgl\.css\?v=8/);
+  assert.match(h, /bgl\.js\?v=10/); assert.match(h, /bgl\.css\?v=9/);
   /* la pagina usa gli stessi indirizzi del resto della biglietteria, non una copia */
   const js = leggi("biglietteria/bgl.js");
   assert.match(js, /BGLI\.linkCanonico\(/); assert.match(js, /BGLI\.urlLocandina\(/);
@@ -582,7 +586,7 @@ test("Google: i messaggi nuovi", () => {
 
 test("Google: la pagina carica l'accesso di StagePlot prima di bgl.js; «Le mie prenotazioni» nel piè di pagina", () => {
   const h = leggi("biglietteria/index.html");
-  const pos = ['src="/accedi/google/avvio.js"', 'src="indirizzi.js', 'src="accesso.js', 'src="bgl.js?v=9"'].map((x) => h.indexOf(x));
+  const pos = ['src="/accedi/google/avvio.js"', 'src="indirizzi.js', 'src="accesso.js', 'src="bgl.js?v=10"'].map((x) => h.indexOf(x));
   assert.ok(pos.every((p, i) => p > 0 && (i === 0 || p > pos[i - 1])), JSON.stringify(pos));
   const js = leggi("biglietteria/bgl.js");
   assert.match(js, /href="\/biglietteria\/mie\/">Le mie prenotazioni</);
