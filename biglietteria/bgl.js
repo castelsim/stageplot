@@ -181,6 +181,7 @@
       case "accesso_scaduto": return "L'accesso con Google è scaduto: premi di nuovo «Prenota».";
       case "email_non_verificata": return "L'email del tuo account Google non risulta verificata: prenota con nome ed email.";
       case "google_annullato": return "Accesso con Google annullato: puoi prenotare con nome ed email.";
+      case "google_annullato_pianta": return "Accesso con Google annullato: puoi scegliere i posti lo stesso.";
       case "dati_non_validi":
         return ({
           nome: "Scrivi il tuo nome",
@@ -379,9 +380,73 @@
 
   /* Un posto che non si può scegliere, toccato: lo si dice invece di non rispondere. */
   function avvisoPosto(k, stato, settore) {
+    if (stato === "mio") return "Il posto " + etichetta(k, settore) + " è tuo.";
     if (stato === "occupato") return "Il posto " + etichetta(k, settore) + " è già occupato.";
     if (stato === "riservato") return "Il posto " + etichetta(k, settore) + " è tenuto da parte: non si può prenotare.";
     return null;
+  }
+
+  /* --- «I tuoi posti» (segnalazione del 07/10: chi ha già prenotato vedeva i suoi posti con la croce degli altri) ---
+     Due fonti, unite: il ricordo del dispositivo (localStorage «bgl:<slug>») e, con l'accesso Google, «Le mie prenotazioni»
+     (RPC bgl_mie_prenotazioni, 0078). Quella RPC non dà lo slug ma il percorso: «<org>/<spettacolo>» o «?e=<slug10>». */
+  var LINK_MIE = "/biglietteria/mie/";
+  /* lo spettacolo della pagina: dall'indirizzo (?o=&s=) o, aperto con ?e=, da ciò che ha risposto il server */
+  function rifSpettacolo(S) {
+    S = S || {};
+    var r = S.r || {}, o = r.organizzatore || {}, ev = r.evento || {};
+    return { org: String(S.org || o.slug || "").toLowerCase(), s: String(S.s || ev.s || "").toLowerCase(), slug: String(S.slug || "") };
+  }
+  function stessoSpettacolo(percorso, rif) {
+    if (typeof percorso !== "string" || !rif) return false;
+    if (percorso.indexOf("?e=") === 0) { var sl = percorso.slice(3); return slugValido(sl) && sl === rif.slug; }
+    var m = /^([a-z0-9-]+)\/([a-z0-9-]+)$/.exec(percorso);
+    return !!(m && m[1] === rif.org && m[2] === rif.s);
+  }
+  /* i posti delle prenotazioni ATTIVE di questo spettacolo, dalla risposta di bgl_mie_prenotazioni */
+  function mieiDaGoogle(d, rif) {
+    var out = [];
+    ((d && d.ok && Array.isArray(d.prenotazioni)) ? d.prenotazioni : []).forEach(function (p) {
+      if (!p || p.stato !== "attiva" || !p.evento || !stessoSpettacolo(p.evento.percorso, rif)) return;
+      (Array.isArray(p.posti) ? p.posti : []).forEach(function (k) {
+        if (typeof k === "string" && k.length < 100 && out.indexOf(k) < 0) out.push(k);
+      });
+    });
+    return out;
+  }
+  /* l'unione delle due fonti, solo i posti ancora occupati (una prenotazione disdetta altrove non resta «tua») */
+  function mieiPosti(ricordati, google, occupati) {
+    var occ = {}, visti = {}, out = [];
+    (occupati || []).forEach(function (k) { occ[k] = 1; });
+    (ricordati || []).concat(google || []).forEach(function (k) {
+      if (typeof k === "string" && occ[k] && !visti[k]) { visti[k] = 1; out.push(k); }
+    });
+    return ordina(out);
+  }
+  /* toccando un posto tuo: dove si disdice. vedi = il link «Vedi o disdici» del ricordo, se quel posto è lì */
+  function avvisoMio(k, settore, vedi) {
+    var t = avvisoPosto(k, "mio", settore);
+    return vedi ? { testo: t, link: { href: vedi, testo: "Vedi o disdici" } }
+      : { testo: t + " Per disdire:", link: { href: LINK_MIE, testo: "Le mie prenotazioni" } };
+  }
+  /* la nota sopra la pianta: o.vedi = link del ricordo (o null), o.mie = ci sono posti trovati con Google */
+  function notaMiei(miei, settore, o) {
+    if (!miei || !miei.length) return "";
+    o = o || {};
+    return '<p class="nota ok">Hai già prenotato: ' + esc(elencoPosti(miei, settore)) +
+      (o.vedi ? ' · <a href="' + esc(o.vedi) + '">Vedi o disdici</a>' : "") +
+      (o.mie ? ' · <a href="' + LINK_MIE + '">Le mie prenotazioni</a>' : "") + "</p>";
+  }
+  /* La riga dell'accesso sulla pianta (07/10, Simone): non collegato, un invito discreto; collegato, chi sei ed «Esci».
+     o = {acc: c'è l'accesso, salvata: sessione salvata sul dispositivo, email: quella letta dalla sessione} */
+  function rigaAccesso(o) {
+    o = o || {};
+    if (!o.acc) return "";
+    if (o.email || o.salvata) {
+      return '<p class="accesso-riga dentro">Sei entrato ' + (o.email ? "come <b>" + esc(o.email) + "</b>" : "con Google") +
+        ' · <button type="button" class="link" id="bgl-esci-p">Esci</button></p>';
+    }
+    return '<div class="accesso-riga fuori"><p>Hai già prenotato? Entra con Google per vedere i tuoi posti.</p>' +
+      '<button type="button" class="btn piccolo" id="bgl-entra">Entra con Google</button></div>';
   }
 
   /* La riga d'aiuto sopra la pianta. fine = mouse (o penna): si clicca, non si tocca col dito. */
@@ -510,7 +575,7 @@
     return { sala: true, x: area.x + area.w / 2, y: area.y + area.h / 2, corpo: c };
   }
 
-  var STATI_POSTO = { libero: "libero", scelto: "scelto da te", occupato: "occupato", riservato: "tenuto da parte" };
+  var STATI_POSTO = { libero: "libero", scelto: "scelto da te", mio: "tuo", occupato: "occupato", riservato: "tenuto da parte" };
 
   function nomePosto(p, settore) {
     return (settore ? p.settore + ", fila " : "Fila ") + p.fila + ", posto " + p.posto;
@@ -530,6 +595,7 @@
   }
 
   function statoDi(k, s) {
+    if (s.miei && s.miei.indexOf(k) >= 0) return "mio";
     if (s.scelti && s.scelti.indexOf(k) >= 0) return "scelto";
     if (s.occupati && s.occupati.indexOf(k) >= 0) return "occupato";
     if (s.riservati && s.riservati.indexOf(k) >= 0) return "riservato";
@@ -537,7 +603,7 @@
   }
 
   /* La pianta in SVG (stringa). Coordinate già girate col palco in alto: si disegna e basta.
-     s = {occupati:[k], riservati:[k], scelti:[k], attiva:bool}. Solo i campi della foto v1: niente altro. */
+     s = {occupati:[k], riservati:[k], scelti:[k], miei:[k], attiva:bool}. Solo i campi della foto v1: niente altro. */
   function svgPianta(pianta, s) {
     s = s || {};
     var box = (pianta && pianta.box) || [0, 0, 1000, 1000], W = box[2], H = box[3];
@@ -578,6 +644,11 @@
       out.push('<path class="croce" d="M' + (x - w * 0.22) + " " + (y - d * 0.22) + "L" + (x + w * 0.22) + " " + (y + d * 0.22) +
         "M" + (x + w * 0.22) + " " + (y - d * 0.22) + "L" + (x - w * 0.22) + " " + (y + d * 0.22) + '"/>');
       out.push("</g>");
+      /* la spunta dei tuoi posti, fuori dalla rotazione come il numero (una sedia girata verso il palco la capovolgerebbe):
+         c'è sempre (aggiornaPosti cambia solo la classe), si vede solo su .mio */
+      var lato = Math.min(w, d);
+      out.push('<path class="spunta" stroke-width="' + Math.round(lato * 0.13 * 10) / 10 + '" d="M' + (x - lato * 0.25) + " " + (y + lato * 0.01) +
+        "L" + (x - lato * 0.07) + " " + (y + lato * 0.19) + "L" + (x + lato * 0.26) + " " + (y - lato * 0.18) + '"/>');
       out.push('<text class="n" aria-hidden="true" x="' + x + '" y="' + y + '" font-size="' +
         Math.round(Math.min(w, d) * 0.46) + '"><tspan class="nf">' + esc(p.fila) + "</tspan>" + esc(p.posto) + "</text>");
       out.push("</g>");
@@ -665,6 +736,8 @@
     attributiPosto: attributiPosto, svgPianta: svgPianta, dovePalco: dovePalco, nPosti: nPosti, CONTATTO: CONTATTO,
     nomeValido: nomeValido, erroreEmail: erroreEmail, suggerisciEmail: suggerisciEmail, tipoErroreRete: tipoErroreRete,
     tentativo: tentativo, daRicordare: daRicordare, daRipristinare: daRipristinare, avvisoPosto: avvisoPosto,
+    statoDi: statoDi, rifSpettacolo: rifSpettacolo, stessoSpettacolo: stessoSpettacolo, mieiDaGoogle: mieiDaGoogle, mieiPosti: mieiPosti,
+    avvisoMio: avvisoMio, notaMiei: notaMiei, rigaAccesso: rigaAccesso, LINK_MIE: LINK_MIE,
     suggerimento: suggerimento,
     dataIcs: dataIcs, testoIcs: testoIcs, piegaIcs: piegaIcs, icsEvento: icsEvento, linkGoogleCalendar: linkGoogleCalendar,
     badgeSpettacolo: badgeSpettacolo, dataBreve: dataBreve, riquadroLocandina: riquadroLocandina, DURATA_CALENDARIO_MS: DURATA_CALENDARIO_MS
@@ -692,7 +765,10 @@
     inviando: false, conferma: null, tentativo: null, emailAccettata: null, ripristinato: false,
     /* Google: chi è collegato ({token, email, nome, cognome}), se ha scelto nome ed email, se torna da Google,
        se un accesso scaduto è già stato rinnovato e riprovato una volta */
-    google: null, mostraModulo: false, ritornoGoogle: false, ritentato: false
+    google: null, mostraModulo: false, ritornoGoogle: false, ritentato: false,
+    /* «I tuoi posti»: miei = unione di ricordo e Google (solo occupati), mieiGoogle = da bgl_mie_prenotazioni;
+       accesso = chi è collegato, per la riga sopra la pianta ({email}); ritornoPianta = tornati da Google entrati dalla pianta */
+    miei: [], mieiGoogle: [], notaMiei: "", accesso: null, ritornoPianta: false
   };
   var TIMEOUT_MS = 20000;
 
@@ -772,13 +848,14 @@
       (conCal ? calendario(ev) : "") + "</header>";
   }
   function legenda() {
-    function voce(cls, t) {
-      return '<li class="leg-' + cls + '"><svg viewBox="0 0 60 60" aria-hidden="true" class="leg-svg"><g class="posto ' + cls + '">' +
+    function voce(cls, t, nascosta) {
+      return '<li class="leg-' + cls + '"' + (nascosta ? " hidden" : "") + '><svg viewBox="0 0 60 60" aria-hidden="true" class="leg-svg"><g class="posto ' + cls + '">' +
         '<rect class="sedia" x="6" y="6" width="48" height="48" rx="10"/>' +
-        '<path class="croce" d="M19 19L41 41M41 19L19 41"/></g></svg>' + t + "</li>";
+        '<path class="croce" d="M19 19L41 41M41 19L19 41"/><path class="spunta" stroke-width="7" d="M16 31L26 41L45 20"/></g></svg>' + t + "</li>";
     }
+    /* «I tuoi posti» solo quando ce n'è almeno uno (aggiornaMiei la mostra o la nasconde) */
     return '<ul class="legenda' + (S.stato === "aperta" ? "" : " sola-lettura") + '" aria-label="Legenda">' + voce("libero", "Libero") + voce("scelto", "Scelto da te") +
-      voce("occupato", "Occupato") + voce("riservato", "Tenuto da parte") + "</ul>";
+      voce("mio", "I tuoi posti", !S.miei.length) + voce("occupato", "Occupato") + voce("riservato", "Tenuto da parte") + "</ul>";
   }
   function piedino() {
     var c = S.r && S.r.organizzatore && S.r.organizzatore.contatto;
@@ -883,25 +960,28 @@
     var testa = "";
     if (st === "chiusa") testa = '<p class="nota forte" role="status">Le prenotazioni sono chiuse.</p>';
     else if (st === "esaurita") testa = '<p class="nota forte" role="status">Posti esauriti.</p>';
-    var mio = ricordo(), giaMio = "";
-    if (mio && mio.posti && mio.posti.some(function (k) { return S.occupati.indexOf(k) >= 0; })) {
-      giaMio = '<p class="nota ok">Hai già prenotato: ' + esc(elencoPosti(mio.posti, settoreOn())) +
-        ' · <a href="' + esc(linkMio(BASE, S.slug, mio.token, cfg)) + '">Vedi o disdici</a></p>';
-    } else if (mio) { dimentica(); }
+    /* il ricordo di una prenotazione che non ha più posti occupati (disdetta altrove) si dimentica */
+    var mio = ricordo();
+    if (mio && !(mio.posti && mio.posti.some(function (k) { return S.occupati.indexOf(k) >= 0; }))) dimentica();
+    ricalcolaMiei();
     var liberi = typeof r.liberi === "number" ? r.liberi : 0;
     app.innerHTML = intestazione(ev, true, true) +
       '<div class="corpo">' +
       '<section class="col-pianta" aria-labelledby="bgl-h-posti">' +
-      giaMio + testa +
+      '<div id="bgl-miei" data-h="' + esc(S.notaMiei) + '">' + S.notaMiei + "</div>" + testa +
       '<div class="riga-posti"><h2 id="bgl-h-posti" class="conta" tabindex="-1">' +
         (liberi === 1 ? "1 posto libero" : liberi + " posti liberi") + "</h2>" +
         (attiva ? '<p class="sottotitolo">Scegli fino a ' + maxPosti(ev) + " posti</p>" : "") + "</div>" +
       legenda() +
+      (function () {
+        var h = rigaAccesso({ acc: !!ACC, salvata: conGoogle(), email: S.accesso && S.accesso.email });
+        return '<div id="bgl-accesso" data-h="' + esc(h) + '">' + h + "</div>";
+      })() +
       '<div class="attrezzi"><p class="suggerimento" id="bgl-sugg"></p>' +
         '<button type="button" class="btn piccolo" id="bgl-zoom" aria-pressed="false">Ingrandisci</button></div>' +
       (attiva ? '<a class="salta" href="#bgl-barra">Salta la pianta</a>' : "") +
       '<div class="mappa" id="bgl-mappa">' + svgPianta(S.pianta, { occupati: S.occupati, riservati: S.riservati,
-        scelti: S.scelti, attiva: attiva }) + "</div>" +
+        scelti: S.scelti, miei: S.miei, attiva: attiva }) + "</div>" +
       "</section>" +
       "</div>" + piedino();
     var mappa = document.getElementById("bgl-mappa");
@@ -1060,7 +1140,15 @@
     if (!g) return;
     if (!bottone) {
       /* occupato o tenuto da parte: si dice, invece di non rispondere */
-      var k = g.getAttribute("data-k"), t = avvisoPosto(k, statoDi(k, S), settoreOn());
+      var k = g.getAttribute("data-k"), st = statoDi(k, S);
+      if (st === "mio") {
+        /* un tuo posto non si sceglie di nuovo: si dice dove disdirlo */
+        var mio = ricordo(), vedi = mio && mio.posti && mio.posti.indexOf(k) >= 0 ? linkMio(BASE, S.slug, mio.token, cfg) : null;
+        var am = avvisoMio(k, settoreOn(), vedi);
+        avviso(am.testo, "info", am.link); disegnaBarra();
+        return;
+      }
+      var t = avvisoPosto(k, st, settoreOn());
       if (t) { avviso(t, "info"); disegnaBarra(); }
       return;
     }
@@ -1114,7 +1202,86 @@
     });
   }
 
-  function avviso(testo, tipo) { S.avviso = testo || null; S.avvisoTipo = tipo || "err"; }
+  /* link = {href, testo}: un collegamento dopo il testo (per ora solo «Vedi o disdici» / «Le mie prenotazioni») */
+  function avviso(testo, tipo, link) { S.avviso = testo || null; S.avvisoTipo = tipo || "err"; S.avvisoLink = (testo && link) || null; }
+
+  /* --- «I tuoi posti» e la riga dell'accesso sulla pianta --- */
+  function ricalcolaMiei() {
+    var mio = ricordo(), g = {};
+    S.miei = mieiPosti(mio && mio.posti, S.mieiGoogle, S.occupati);
+    S.mieiGoogle.forEach(function (k) { g[k] = 1; });
+    var vedi = mio && mio.posti && mio.posti.some(function (k) { return S.miei.indexOf(k) >= 0; }) ? linkMio(BASE, S.slug, mio.token, cfg) : null;
+    S.notaMiei = notaMiei(S.miei, settoreOn(), { vedi: vedi, mie: S.miei.some(function (k) { return g[k]; }) });
+  }
+  /* senza ridisegnare la pianta: classi dei posti, nota in alto, voce della legenda */
+  function aggiornaMiei() {
+    if (!S.pianta) return;
+    ricalcolaMiei();
+    if (S.schermata !== "pianta") return;
+    aggiornaPosti();
+    var n = document.getElementById("bgl-miei");
+    if (n && n.getAttribute("data-h") !== S.notaMiei) { n.innerHTML = S.notaMiei; n.setAttribute("data-h", S.notaMiei); }
+    var l = app.querySelector(".legenda .leg-mio");
+    if (l) l.hidden = !S.miei.length;
+  }
+  function aggiornaAccesso() {
+    var n = document.getElementById("bgl-accesso");
+    if (!n) return;
+    var h = rigaAccesso({ acc: !!ACC, salvata: conGoogle(), email: S.accesso && S.accesso.email });
+    if (n.getAttribute("data-h") !== h) { n.innerHTML = h; n.setAttribute("data-h", h); }
+  }
+  /* Con una sessione Google: chi è e i suoi posti di questo spettacolo (bgl_mie_prenotazioni). Dopo la pianta, mai prima:
+     la prima apparizione non aspetta supabase-js né la rete. Senza sessione salvata non carica niente. Nessun segno
+     «del pubblico» (0079) qui: guardare la scheda da collegati non è entrare dalla biglietteria. */
+  var googleCorsa = null;
+  function aggiornaGoogle() {
+    if (!ACC) return Promise.resolve();
+    if (!conGoogle()) {
+      S.accesso = null; S.mieiGoogle = [];
+      aggiornaMiei(); aggiornaAccesso();
+      return Promise.resolve();
+    }
+    if (googleCorsa) return googleCorsa;
+    googleCorsa = ACC.sessione(cfg).then(function (s) {
+      var st = ACC.statoAccesso(s);
+      if (st === "fuori") { S.accesso = null; S.mieiGoogle = []; return; }
+      if (st !== "dentro") return;   /* senza rete: si tiene quello che si sapeva */
+      var u = s.sessione.user || {};
+      S.accesso = { email: String(u.email || "") };
+      return ACC.rpcGrezza(cfg, "bgl_mie_prenotazioni", {}).then(function (r) {
+        var d = r && r.data;
+        if (d && d.ok) S.mieiGoogle = mieiDaGoogle(d, rifSpettacolo(S));
+        else if (d && d.errore === "non_autenticato") S.mieiGoogle = [];
+      });
+    }).then(null, function () { /* niente: la pianta resta com'era */ }).then(function () {
+      googleCorsa = null;
+      aggiornaMiei(); aggiornaAccesso();
+    });
+    return googleCorsa;
+  }
+  /* «Entra con Google» dalla pianta: la scelta in corso resta nella scheda (sessionStorage), al ritorno si torna qui */
+  function entraDallaPianta(b) {
+    if (!ACC) return;
+    b.disabled = true;
+    salvaSessione();
+    try { sessionStorage.setItem("bgl-google", "pianta:" + S.slug); } catch (e) { /* niente: al ritorno si riparte dalla pianta */ }
+    ACC.accedi(cfg, location.pathname + location.search).then(null, function () {
+      try { sessionStorage.removeItem("bgl-google"); } catch (e) { /* niente */ }
+      b.disabled = false;
+      avviso(messaggio("offline")); disegnaBarra();
+    });
+  }
+  function esciDallaPianta(b) {
+    if (!ACC) return;
+    b.disabled = true;
+    ACC.esci(cfg).then(function () {
+      S.accesso = null; S.google = null; S.mieiGoogle = [];
+      if (S.schermata !== "pianta") return;
+      disegnaPianta();
+      var e = document.getElementById("bgl-entra");
+      if (e) e.focus();
+    });
+  }
 
   /* La barra in basso (sul computer: la colonna a destra). Cambia con la schermata. */
   /* La struttura si costruisce una volta per schermata; dopo si cambiano solo i testi, così le regioni
@@ -1153,6 +1320,11 @@
     }
     var av = document.getElementById("bgl-avviso");
     av.textContent = S.avviso || "";
+    if (S.avviso && S.avvisoLink) {
+      var al = document.createElement("a");
+      al.href = S.avvisoLink.href; al.textContent = S.avvisoLink.testo;
+      av.appendChild(document.createTextNode(" ")); av.appendChild(al);
+    }
     av.className = "avviso-slot" + (S.avviso ? " avviso " + S.avvisoTipo : "");
     var n = S.scelti.length;
     if (modo === "pianta") {
@@ -1369,6 +1541,7 @@
       S.ritentato = false;
       S.conferma = d;
       ricorda({ codice: d.codice, token: d.token, posti: d.posti });
+      if (conGoogle()) aggiornaGoogle();
       S.scelti = []; S.tentativo = null; S.emailAccettata = null;
       chiudiSessione();
       /* la conferma prende il posto del modulo nella cronologia: Indietro porta alla pianta */
@@ -1529,6 +1702,7 @@
         var ritorno = null;
         try { ritorno = sessionStorage.getItem("bgl-google"); sessionStorage.removeItem("bgl-google"); } catch (e) { ritorno = null; }
         S.ritornoGoogle = !!S.slug && ritorno === S.slug;
+        S.ritornoPianta = !!S.slug && ritorno === "pianta:" + S.slug;
       }
       if (st === "conclusa") {
         S.schermata = "messaggio"; barra.hidden = true; document.body.classList.remove("con-barra");
@@ -1553,12 +1727,19 @@
         return;
       }
       if (prima === "pianta" && st === statoPrima && !cambiata) {
-        aggiornaPosti(); aggiornaConta();
+        aggiornaMiei(); aggiornaConta();
         if (via.length) disegnaBarra();
         return;
       }
       if (prima === "modulo") leggiModulo();
       disegnaPianta();
+      if (prima === "caricamento" && S.ritornoPianta) {
+        /* tornati da Google entrando dalla pianta: si resta qui (scelta conservata); se Google ha detto di no, lo si dice */
+        S.ritornoPianta = false;
+        chiSono().then(function (g) {
+          if (!g && S.schermata === "pianta" && S.stato === "aperta") { avviso(messaggio("google_annullato_pianta"), "info"); disegnaBarra(); }
+        });
+      }
       if (prima === "caricamento" && S.ritornoGoogle) {
         S.ritornoGoogle = false;
         if (st === "aperta" && S.scelti.length) {
@@ -1578,6 +1759,9 @@
       if (!silenzioso || prima !== "pianta") fuoco();
     }, function () {
       if (!silenzioso) messaggioPieno("Non riesco a caricare i posti", "Controlla la connessione e riprova.", "Riprova");
+    }).then(function () {
+      /* i tuoi posti con Google: dopo la pianta (prima apparizione e giro dei 20 s), solo se c'è una sessione */
+      if (S.schermata === "pianta" && S.pianta) aggiornaGoogle();
     });
   }
   function aggiornaConta() {
@@ -1593,7 +1777,12 @@
       if (!S.s) return caricaOrganizzatore();
     }
     if (S.slug && !slugValido(S.slug)) return messaggioPieno("Pagina non trovata", messaggio("evento_inesistente"));
-    app.addEventListener("click", function (e) { if (e.target && e.target.id === "bgl-ics") scaricaIcs(); });
+    app.addEventListener("click", function (e) {
+      var id = e.target && e.target.id;
+      if (id === "bgl-ics") scaricaIcs();
+      else if (id === "bgl-entra") entraDallaPianta(e.target);
+      else if (id === "bgl-esci-p") esciDallaPianta(e.target);
+    });
     if (S.token && S.slug) {
       if (!tokenValido(S.token)) return messaggioPieno("Link non valido", messaggio("token_non_valido"), null, linkPianta(BASE, S.slug, cfg));
       rpc("bgl_mia_prenotazione", { p_slug: S.slug, p_token: S.token }).then(function (r) {
