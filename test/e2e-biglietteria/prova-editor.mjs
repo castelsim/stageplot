@@ -2,7 +2,9 @@
    rete esterna bloccata, accesso con sessione iniettata. Prima: WT=<worktree> REF=lavoro DEST=<cartella> ./prepara.sh
    Poi: WT=<worktree> SITO=<cartella> node prova-editor.mjs */
 import { chromium, webkit, avviaSito, contesto, http, utente, TELEFONO, COMPUTER, sorveglia, esito, P } from "./comune.mjs";
-const SITO = process.env.SITO || P + "/sito";
+import { mkdirSync } from "node:fs";
+const SITO = process.env.SITO || P + "/sito", OUT = process.env.OUT || P + "/out";
+mkdirSync(OUT, { recursive: true });
 const E = esito(), errori = [], S = Date.now().toString(36), sito = await avviaSito(SITO);
 let giro = 0;
 for (const [nm, motore] of [["chromium", chromium], ["webkit", webkit]]) for (const [t, tipo] of [["computer", COMPUTER], ["telefono", TELEFONO]]) {
@@ -28,6 +30,7 @@ for (const [nm, motore] of [["chromium", chromium], ["webkit", webkit]]) for (co
     await p.waitForTimeout(1500);   /* la risposta di bgl_abilitato */
     const vis = await p.evaluate(() => { const b = document.getElementById("bGrpPostiPren"); return b && b.style.display !== "none" ? b.textContent : null; });
     if (t === "telefono") await p.evaluate(() => { document.body.classList.add("props-expanded"); const g = document.getElementById("bGrpPostiPren"); if (g) g.scrollIntoView({ block: "center" }); });   /* il pannello del telefono nasce chiuso */
+    if (abilitato) await p.screenshot({ path: `${OUT}/t18-${nm}-${t}-editor.png` });   /* per le anteprime: la card col pulsante */
     E.ok(abilitato ? vis === "Vai alla biglietteria" : vis === null, `${chi}: pulsante ${abilitato ? "visibile all'abilitato" : "nascosto a chi non lo è"} (${vis})`);
     if (abilitato) {
       await p.click("#bGrpPostiPren");
