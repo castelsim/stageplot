@@ -105,12 +105,15 @@ grant execute on function public.bgl_locandina_ok(uuid, text) to service_role;
 -- Un file (locandina o logo) che qualche spettacolo o organizzatore cita ancora. Le funzioni che rispondono «questo
 -- file non serve più, toglilo» (bgl_elimina, locandina_vecchia, logo_vecchio) lo dicono solo se nessuno lo cita:
 -- il browser lo cancella subito (D4) e una locandina condivisa sparirebbe anche dall'altro spettacolo.
+-- plpgsql e non sql: le colonne locandina_path e logo_path nascono più sotto in questa stessa migrazione, e il corpo
+-- di una funzione sql si controlla quando la si crea (07/10: su un database nuovo la 0074 si fermava qui).
 create or replace function public.bgl_file_citato(p_path text)
-returns boolean language sql stable set search_path = public, pg_temp as $$
-  select p_path is not null
+returns boolean language plpgsql stable set search_path = public, pg_temp as $$
+begin
+  return p_path is not null
      and (exists (select 1 from public.bgl_eventi where locandina_path = p_path)
-          or exists (select 1 from public.bgl_organizzatori where logo_path = p_path))
-$$;
+          or exists (select 1 from public.bgl_organizzatori where logo_path = p_path));
+end $$;
 revoke all on function public.bgl_file_citato(text) from public, anon, authenticated;
 grant execute on function public.bgl_file_citato(text) to service_role;
 
