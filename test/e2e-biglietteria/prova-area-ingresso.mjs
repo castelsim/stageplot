@@ -57,6 +57,7 @@ for (const [nm, motore] of [["chromium", chromium], ["webkit", webkit]]) for (co
   E.ok(/email per il pubblico non sembra giusta/.test(await p.textContent("#gst-pv-err")) && (await p.$("#gst-pv")) !== null &&
     (await p.evaluate(() => document.activeElement && document.activeElement.id)) === "gst-contatto", chi + ": email sbagliata fermata prima di salvare");
   await p.fill("#gst-contatto", "info@example.invalid");
+  E.ok(await p.isHidden("#gst-pv-err"), chi + ": corretta l'email, l'avviso sparisce");
   /* RF4 in piccolo: un logo enorme si riduce prima di partire */
   const grande = await p.evaluate(async () => { const c = document.createElement("canvas"); c.width = 4000; c.height = 3000; const g = c.getContext("2d");
     for (let i = 0; i < 3000; i += 3) { g.fillStyle = `hsl(${i % 360},70%,50%)`; g.fillRect(0, i, 4000, 3); }
