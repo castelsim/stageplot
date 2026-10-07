@@ -165,3 +165,27 @@ run("D9 (revisione T23): ogni tabella che punta a un account è guardata da bgl_
   });
   assert.deepEqual(mancano, [], "tabelle con un account che la funzione non guarda");
 });
+
+/* 0079 (07/10, scelta di Simone): l'origine «biglietteria» si scrive al primo accesso, anche senza prenotare. */
+run("0079: chi entra con Google e non prenota diventa «del pubblico»; chi usa l'editor o organizza no; l'anonimo non può", async () => {
+  const g = await account("solo-accesso", S);
+  const pub = (u) => rest(env, admin(env), "bgl_pubblico?select=user_id,ultimo_il&user_id=eq." + u.uid);
+  assert.equal((await pub(g)).d.length, 0, "prima dell'accesso nessuna riga");
+  const r = await rpc(env, g.tok, "bgl_pubblico_registra", {});
+  assert.deepEqual(r.d, { ok: true, pubblico: true }, JSON.stringify(r.d));
+  assert.equal((await pub(g)).d.length, 1, "dopo il primo accesso c'è");
+  const st = await rpc(env, g.tok, "bgl_account_stato", {});
+  assert.equal(st.ok, true, JSON.stringify(st.d));
+  const prima = (await pub(g)).d[0].ultimo_il;
+  await new Promise((ok) => setTimeout(ok, 20));
+  assert.equal((await rpc(env, g.tok, "bgl_pubblico_registra", {})).d.ok, true, "di nuovo: nessun errore");
+  assert.ok((await pub(g)).d[0].ultimo_il > prima, "il secondo accesso aggiorna l'ultimo uso");
+  const e = await account("editore2", S);
+  await progetto(e, docSala());
+  assert.deepEqual((await rpc(env, e.tok, "bgl_pubblico_registra", {})).d, { ok: true, pubblico: false });
+  assert.equal((await pub(e)).d.length, 0, "chi ha un progetto resta un utente dell'editor");
+  assert.deepEqual((await rpc(env, U.org.tok, "bgl_pubblico_registra", {})).d, { ok: true, pubblico: false });
+  assert.equal((await pub(U.org)).d.length, 0, "l'organizzatore non è «del pubblico»");
+  const anon = await rpc(env, env.ANON_KEY, "bgl_pubblico_registra", {});
+  assert.equal(anon.ok, false, "l'anonimo non chiama: " + JSON.stringify(anon.d));
+});

@@ -1278,8 +1278,19 @@
       var u = s.sessione && s.sessione.user;
       if (!u || !u.email) return null;
       var n = ACC.nomeDaGoogle(u.user_metadata);
+      registraPubblico();
       return { token: s.sessione.access_token, email: u.email, nome: n.nome, cognome: n.cognome };
     }, function () { return null; });
+  }
+  /* 0079 (07/10, scelta di Simone): chi entra con Google dalla biglietteria è «del pubblico» già al primo accesso,
+     così la pulizia dei 12 mesi e «Elimina il mio account» valgono anche se non prenota. Una volta per pagina,
+     senza attendere né mostrare errori: è solo un segno per la pulizia. */
+  var pubblicoRegistrato = false;
+  function registraPubblico() {
+    if (pubblicoRegistrato || !ACC || !ACC.rpcGrezza) return;
+    pubblicoRegistrato = true;
+    try { ACC.rpcGrezza(cfg, "bgl_pubblico_registra", {}).then(null, function () { pubblicoRegistrato = false; }); }
+    catch (e) { pubblicoRegistrato = false; }
   }
   /* dalla pianta al modulo: prima si guarda se la persona è già collegata (allora niente scelta) */
   function vaiAlModulo(errori) {
