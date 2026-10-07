@@ -5,7 +5,9 @@
 //
 // Ordine (specifica §3.1, rivisto il 06/10): OPTIONS → metodo → si LEGGE tutto il corpo e poi si misura
 // (rispondere prima di averlo letto dà un 503 dopo due minuti, AGENTS §8) → JSON → validazione → informativa
-// spuntata → limite per IP → limite globale, contato SOLO per un evento che esiste ed è aperto
+// spuntata → accesso Google, se c'è (token valido → email verificata dell'account e prenotazione legata a
+// lui; token scaduto o falso → 401, mai una prenotazione anonima) → limite per IP → limite globale,
+// contato SOLO per un evento che esiste ed è aperto
 // (`bgl_globale_hit`: prima, chi era già fermo per il suo IP o martellava uno slug inventato consumava il
 // contatore di tutti e bloccava la biglietteria per un'ora) → `bgl_prenota` nel database, con l'impronta
 // della connessione (tetto di posti per connessione) e il codice segreto scelto dalla pagina (una richiesta
@@ -19,6 +21,7 @@ import { validaPrenotazione } from "./bgl-validazione.ts";
 import { clientIp } from "./feedback-limits.ts";
 import { tentaInvio } from "./tenta-invio.ts";
 import type { EnvLike } from "./service-role-key.ts";
+import { tokenDa, type Utente } from "./bgl-utente.ts";
 
 /** Il corpo più grande che si accetta: una prenotazione sta in poche centinaia di byte. */
 export const MAX_CORPO = 8 * 1024;
@@ -36,13 +39,17 @@ export type Deps = {
   invia: (a: InvioMail) => Promise<{ ok: boolean; status: number }>;
   env: EnvLike;
   log?: (msg: string) => void;
+  /** chi c'è dietro un token di accesso (Google): null se non è valido. Senza, un token vale sempre 401. */
+  utente?: (token: string) => Promise<Utente | null>;
 };
 
 /** Errore del database → stato HTTP. Quello che non è qui è un guasto: 500. */
 const HTTP: Record<string, number> = {
   dati_non_validi: 400, privacy_mancante: 400, troppi_posti: 400, posto_inesistente: 400,
+  accesso_scaduto: 401, email_non_verificata: 403,
   evento_inesistente: 404,
   posto_preso: 409, posto_riservato: 409, limite_email: 409, limite_connessione: 409, prenotazioni_chiuse: 409,
+  limite_account: 409,
 };
 /** I dettagli che passano al pubblico insieme al codice (mai altro di quello che risponde il database). */
 const DETTAGLI = ["campo", "presi", "posti", "gia", "max"];
@@ -77,6 +84,22 @@ export async function gestisciPrenota(req: Request, deps: Deps): Promise<Respons
 
     const p = v.value;
 
+    // ACCESSO CON GOOGLE (specifica area §3.2, §6). Con un token valido l'email è quella VERIFICATA dell'account (quella
+    // del modulo si ignora) e la prenotazione si lega all'account: il tetto di 4 posti vale anche per account. Un token
+    // storto o scaduto NON diventa una prenotazione anonima: 401, e la pagina rinnova l'accesso e riprova.
+    let userId: string | null = null;
+    // La chiave pubblica (anon) non è un accesso: supabase-js la mette da sola in Authorization quando non c'è
+    // una sessione (functions.invoke). Vale come «senza header», non come un accesso scaduto.
+    let accesso = tokenDa(req);
+    if (accesso && accesso === (deps.env.get("SUPABASE_ANON_KEY") ?? "").trim()) accesso = null;
+    if (accesso) {
+      const u = deps.utente ? await deps.utente(accesso) : null;
+      if (!u) return no("accesso_scaduto", 401);
+      if (!u.verificata || !u.email) return no("email_non_verificata", 403);
+      p.email = u.email;
+      userId = u.id;
+    }
+
     // tetto per impronta dell'IP (mai l'IP), PRIMA di tutto il resto: chi l'ha superato si ferma qui e non
     // tocca né il contatore di tutti né il database delle prenotazioni. Senza il sale il limite per IP è
     // spento (e con lui il tetto di posti per connessione): resta quello globale.
@@ -106,7 +129,7 @@ export async function gestisciPrenota(req: Request, deps: Deps): Promise<Respons
 
     const { data, error } = await deps.rpc("bgl_prenota", {
       p_slug: p.e, p_posti: p.posti, p_nome: p.nome, p_cognome: p.cognome, p_email: p.email,
-      p_ip_hash: ipHash, p_token: p.token,
+      p_ip_hash: ipHash, p_token: p.token, ...(userId ? { p_user_id: userId } : {}),
     });
     if (error || !data || typeof data !== "object") {
       log("bgl-prenota: database: " + (error ? error.message : "risposta vuota"));

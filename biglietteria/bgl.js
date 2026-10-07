@@ -18,6 +18,9 @@
   var TOCCO_DIRETTO_PX = 30;    /* col dito: sotto questa misura il primo tocco ingrandisce invece di scegliere */
   var CLIC_DIRETTO_PX = 16;     /* col mouse basta molto meno */
   var CONTATTO = "info@stageplot.it";   /* a chi scrivere: gruppi più grandi, link rotti, problemi (lo stesso della mail) */
+  /* Gli indirizzi (biglietteria/indirizzi.js): nel browser è già caricato; in Node lo si chiede accanto */
+  var BGLI = root.BGLIndirizzi || (typeof require === "function" ? require("./indirizzi.js") : null);
+  var DURATA_CALENDARIO_MS = 2 * 3600 * 1000;   /* lo spettacolo non dice quando finisce: due ore per il calendario */
 
   function esc(s) {
     return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) {
@@ -150,6 +153,8 @@
     var max = d.max || MAX_POSTI, v;
     switch (errore) {
       case "evento_inesistente": return "Questa pagina di prenotazione non esiste. Controlla il link che ti hanno mandato.";
+      case "organizzatore_inesistente": return "Questa pagina non esiste. Controlla l'indirizzo che ti hanno dato.";
+      case "spettacolo_inesistente": return "Questo spettacolo non c'è più, o il suo indirizzo è cambiato.";
       case "prenotazioni_chiuse": return "Le prenotazioni sono chiuse.";
       case "posto_preso":
         v = d.presi || d.posti || [];
@@ -169,6 +174,13 @@
         return "Da questa connessione sono già stati prenotati " + nPosti(typeof d.gia === "number" ? d.gia : (d.max || 8)) +
           ", il massimo. Per altri posti scrivi a " + CONTATTO + ".";
       case "troppi_posti": return "Puoi prenotare al massimo " + max + " posti. Per un gruppo più grande scrivi a " + CONTATTO + ".";
+      /* accesso con Google (specifica area §3.2): il tetto per account, il token scaduto, l'email non verificata, il «no» a Google */
+      case "limite_account":
+        return "Con questo account hai già " + nPosti(typeof d.gia === "number" ? d.gia : max) + ": se ne possono prenotare al massimo " +
+          max + ". Per un gruppo più grande scrivi a " + CONTATTO + ".";
+      case "accesso_scaduto": return "L'accesso con Google è scaduto: premi di nuovo «Prenota».";
+      case "email_non_verificata": return "L'email del tuo account Google non risulta verificata: prenota con nome ed email.";
+      case "google_annullato": return "Accesso con Google annullato: puoi prenotare con nome ed email.";
       case "dati_non_validi":
         return ({
           nome: "Scrivi il tuo nome",
@@ -195,7 +207,10 @@
   /* Cosa mostra la pagina, dalla risposta di bgl_evento_pubblico. */
   function statoPagina(r) {
     if (r == null) return "caricamento";
-    if (r.ok === false) return r.errore === "evento_inesistente" ? "inesistente" : "errore";
+    if (r.ok === false) {
+      return (r.errore === "evento_inesistente" || r.errore === "spettacolo_inesistente" || r.errore === "organizzatore_inesistente")
+        ? "inesistente" : "errore";
+    }
     if (!r.ok || !r.evento) return "errore";
     var s = r.evento.stato;
     if (s === "conclusa") return "conclusa";
@@ -571,6 +586,74 @@
     return out.join("");
   }
 
+  /* --- calendario (specifica area §3.2): file .ics generato nella pagina + link Google Calendar. Ore sempre in UTC
+     («Z»): il calendario del telefono le porta nel suo fuso, e il cambio d'ora non sbaglia (RF5). --- */
+  function dataIcs(iso) {
+    var d = new Date(iso);
+    return isNaN(d) ? "" : d.toISOString().replace(/\.\d{3}Z$/, "Z").replace(/[-:]/g, "");
+  }
+  /* RFC 5545 §3.3.11: nel testo «\», «;» e «,» si scappano con la barra, l'a capo diventa «\n»; anche un \r da solo
+     (revisione T23: un lettore che spezza le righe sul CR vedrebbe proprietà inserite dalla nota) */
+  function testoIcs(s) {
+    return String(s == null ? "" : s).replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r\n|\r|\n/g, "\\n");
+  }
+  /* RFC 5545 §3.1: righe di al massimo 75 byte; le continuazioni cominciano con uno spazio (che conta nei 75).
+     Si conta per lettera (Array.from), così una lettera accentata non si spezza a metà fra due righe. */
+  function piegaIcs(riga) {
+    var out = [], cur = "", n = 0;
+    Array.from(String(riga)).forEach(function (c) {
+      var cp = c.codePointAt(0), b = cp < 0x80 ? 1 : cp < 0x800 ? 2 : cp < 0x10000 ? 3 : 4;   /* byte in UTF-8 */
+      if (n + b > 75) { out.push(cur); cur = " "; n = 1; }
+      cur += c; n += b;
+    });
+    out.push(cur);
+    return out.join("\r\n");
+  }
+  function icsEvento(ev, link, adessoMs) {
+    var t0 = Date.parse(ev && ev.inizio);
+    if (!isFinite(t0)) return "";
+    var righe = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//StagePlot//Biglietteria//IT", "CALSCALE:GREGORIAN", "METHOD:PUBLISH",
+      "BEGIN:VEVENT", "UID:" + String(ev.slug || "spettacolo") + "@stageplot.it", "DTSTAMP:" + dataIcs(new Date(adessoMs).toISOString()),
+      "DTSTART:" + dataIcs(ev.inizio), "DTEND:" + dataIcs(new Date(t0 + DURATA_CALENDARIO_MS).toISOString()),
+      "SUMMARY:" + testoIcs(ev.titolo)];
+    if (ev.luogo) righe.push("LOCATION:" + testoIcs(ev.luogo));
+    righe.push("DESCRIPTION:" + testoIcs([ev.note, link].filter(Boolean).join("\n")));
+    if (link) righe.push("URL:" + link);
+    righe.push("END:VEVENT", "END:VCALENDAR");
+    return righe.map(piegaIcs).join("\r\n") + "\r\n";
+  }
+  function linkGoogleCalendar(ev, link) {
+    var t0 = Date.parse(ev && ev.inizio);
+    if (!isFinite(t0)) return "";
+    return "https://calendar.google.com/calendar/render?action=TEMPLATE&text=" + encodeURIComponent(ev.titolo || "") +
+      "&dates=" + dataIcs(ev.inizio) + "/" + dataIcs(new Date(t0 + DURATA_CALENDARIO_MS).toISOString()) +
+      "&details=" + encodeURIComponent([ev.note, link].filter(Boolean).join("\n")) + "&location=" + encodeURIComponent(ev.luogo || "");
+  }
+
+  /* --- pagina dell'organizzatore (specifica area §1, §3.1) --- */
+  /* L'etichetta sulla locandina: «Ultimi 12 posti», «Esaurito», «Prenotazioni chiuse». Niente etichetta se va tutto bene. */
+  function badgeSpettacolo(sp) {
+    if (!sp) return null;
+    if (sp.stato === "conclusa") return { testo: "Concluso", cls: "chiuso" };
+    if (sp.stato === "chiusa") return { testo: "Prenotazioni chiuse", cls: "chiuso" };
+    var l = typeof sp.liberi === "number" ? sp.liberi : null;
+    if (l !== null && l <= 0) return { testo: "Esaurito", cls: "esaurito" };
+    if (l !== null && l <= 12) return { testo: l === 1 ? "Ultimo posto" : "Ultimi " + l + " posti", cls: "ultimi" };
+    return null;
+  }
+  /* «ven 9 ottobre», sempre nel fuso di Roma */
+  function dataBreve(iso) {
+    var d = new Date(iso);
+    if (isNaN(d)) return "";
+    return new Intl.DateTimeFormat("it-IT", { timeZone: "Europe/Rome", weekday: "short", day: "numeric", month: "long" })
+      .format(d).replace(/\.(?=\s)/, "");
+  }
+  /* specifica §5: senza locandina, un riquadro con titolo e data, nello stile della pagina */
+  function riquadroLocandina(titolo, iso) {
+    return '<span class="carta-loc riquadro" aria-hidden="true"><span class="rq-t">' + esc(titolo) + '</span><span class="rq-d">' +
+      esc(dataBreve(iso)) + "</span></span>";
+  }
+
   var BGL = {
     API_PROD: API_PROD, ANON_PROD: ANON_PROD, MAX_POSTI: MAX_POSTI, BERSAGLIO_PX: BERSAGLIO_PX,
     esc: esc, configura: configura, slugValido: slugValido, tokenValido: tokenValido,
@@ -582,7 +665,9 @@
     attributiPosto: attributiPosto, svgPianta: svgPianta, dovePalco: dovePalco, nPosti: nPosti, CONTATTO: CONTATTO,
     nomeValido: nomeValido, erroreEmail: erroreEmail, suggerisciEmail: suggerisciEmail, tipoErroreRete: tipoErroreRete,
     tentativo: tentativo, daRicordare: daRicordare, daRipristinare: daRipristinare, avvisoPosto: avvisoPosto,
-    suggerimento: suggerimento
+    suggerimento: suggerimento,
+    dataIcs: dataIcs, testoIcs: testoIcs, piegaIcs: piegaIcs, icsEvento: icsEvento, linkGoogleCalendar: linkGoogleCalendar,
+    badgeSpettacolo: badgeSpettacolo, dataBreve: dataBreve, riquadroLocandina: riquadroLocandina, DURATA_CALENDARIO_MS: DURATA_CALENDARIO_MS
   };
   root.BGL = BGL;
   if (typeof module === "object" && module && module.exports) module.exports = BGL;
@@ -593,14 +678,21 @@
 
   var app = document.getElementById("bgl-app");
   var barra = document.getElementById("bgl-barra");
+  /* l'accesso condiviso (accesso.js): senza, la pagina resta quella di prima, solo nome ed email */
+  var ACC = root.BGLAccesso || null;
   var q = new URLSearchParams(location.search);
   var cfg = configura(location.hostname, location.search);
   var BASE = location.origin + location.pathname;
   var S = {
     slug: q.get("e") || "", token: q.get("c") || "",
+    /* pagina dell'organizzatore (?o=) e scheda dello spettacolo (?o=&s=): dopo la prima lettura S.slug è lo slug10 */
+    org: (q.get("o") || "").toLowerCase(), s: (q.get("s") || "").toLowerCase(), evCal: null,
     r: null, stato: "caricamento", occupati: [], riservati: [], scelti: [], pianta: null, piantaJson: "",
     schermata: "caricamento", avviso: null, avvisoTipo: "err", zoom: false, modulo: { nome: "", cognome: "", email: "", privacy: false },
-    inviando: false, conferma: null, tentativo: null, emailAccettata: null, ripristinato: false
+    inviando: false, conferma: null, tentativo: null, emailAccettata: null, ripristinato: false,
+    /* Google: chi è collegato ({token, email, nome, cognome}), se ha scelto nome ed email, se torna da Google,
+       se un accesso scaduto è già stato rinnovato e riprovato una volta */
+    google: null, mostraModulo: false, ritornoGoogle: false, ritentato: false
   };
   var TIMEOUT_MS = 20000;
 
@@ -621,10 +713,13 @@
       return res.json();
     });
   }
-  function prenotaRete(corpo) {
+  /* token: l'accesso Google della persona (la prenotazione si lega all'account); senza, la prenotazione di prima */
+  function prenotaRete(corpo, token) {
+    var h = { "Content-Type": "application/json" };
+    if (token) h.Authorization = "Bearer " + token;
     return conTimeout(cfg.api + "/functions/v1/bgl-prenota", {
       method: "POST", cache: "no-store", credentials: "omit", referrerPolicy: "no-referrer",
-      headers: { "Content-Type": "application/json" }, body: JSON.stringify(corpo)
+      headers: h, body: JSON.stringify(corpo)
     }).then(function (res) {
       return res.json().then(function (d) { return { status: res.status, d: d }; },
         function () { return { status: res.status, d: { ok: false, errore: "errore_interno" } }; });
@@ -657,19 +752,24 @@
   }
 
   /* --- pezzi comuni --- */
-  function intestazione(ev, conBadge) {
+  /* conCal: la riga «Aggiungi al calendario» (nella scheda; nel modulo no, lì si scrivono i dati) */
+  function intestazione(ev, conBadge, conCal) {
+    var org = S.r && S.r.organizzatore, loc = ev.locandina && BGLI ? BGLI.urlLocandina(cfg.api, ev.locandina) : "";
     var luogo = ev.luogo ? '<p class="ev-luogo">' + esc(ev.luogo) + "</p>" : "";
     var chiusura = "";
     if (ev.chiusura && ev.inizio && ev.chiusura !== ev.inizio && S.stato === "aperta") {
       chiusura = '<p class="ev-chiusura">Si prenota fino a ' + esc(data(ev.chiusura)) + ", ore " + esc(ora(ev.chiusura)) + "</p>";
     }
-    return '<header class="ev">' +
-      '<p class="ev-marchio">Prenotazione posti</p>' +
+    return '<header class="ev' + (loc ? " con-locandina" : "") + '">' +
+      (loc ? '<img class="ev-locandina" src="' + esc(loc) + '" alt="Locandina: ' + esc(ev.titolo || "") + '">' : "") +
+      '<p class="ev-marchio">' + (org && org.slug && BGLI
+        ? '<a href="' + esc(BGLI.linkCanonico(org.slug)) + '">' + esc(org.nome) + "</a>" : "Prenotazione posti") + "</p>" +
       '<h1 class="ev-titolo" tabindex="-1">' + esc(ev.titolo || "") + "</h1>" +
       '<p class="ev-quando">' + esc(dataOra(ev.inizio)) + "</p>" + luogo +
       (conBadge ? '<p class="ev-badge">Ingresso gratuito con prenotazione</p>' : "") + chiusura +
       (ev.note ? '<p class="ev-note">' + esc(ev.note) + "</p>" : "") +
-      "</header>";
+      (ev.descrizione ? '<p class="ev-descrizione">' + esc(ev.descrizione) + "</p>" : "") +
+      (conCal ? calendario(ev) : "") + "</header>";
   }
   function legenda() {
     function voce(cls, t) {
@@ -681,7 +781,10 @@
       voce("occupato", "Occupato") + voce("riservato", "Tenuto da parte") + "</ul>";
   }
   function piedino() {
-    return '<footer class="piede"><a href="/privacy/#biglietteria" target="_blank" rel="noopener">Privacy</a>' +
+    var c = S.r && S.r.organizzatore && S.r.organizzatore.contatto;
+    return '<footer class="piede">' + (conGoogle() ? '<a href="/biglietteria/mie/">Le mie prenotazioni</a>' : "") +
+      '<a href="/privacy/#biglietteria" target="_blank" rel="noopener">Privacy</a>' +
+      (c ? '<span>Domande sullo spettacolo? <a href="mailto:' + esc(c) + '">' + esc(c) + "</a></span>" : "") +
       '<span>Problemi? <a href="mailto:' + CONTATTO + '">' + CONTATTO + "</a></span>" +
       "<span>Prenotazioni con StagePlot</span></footer>";
   }
@@ -689,11 +792,12 @@
     titolo: "Prenota il tuo posto",
     testo: "Per prenotare apri il link dello spettacolo che ti hanno mandato, oppure inquadra il suo QR con la fotocamera del telefono."
   };
-  function messaggioPieno(titolo, testo, bottone, link) {
+  function messaggioPieno(titolo, testo, bottone, link, etichetta) {
     S.schermata = "messaggio";
     app.innerHTML = '<div class="centro"><h1 tabindex="-1">' + esc(titolo) + "</h1>" + (testo ? "<p>" + esc(testo) + "</p>" : "") +
       (bottone ? '<button type="button" class="btn primario" id="bgl-riprova">' + esc(bottone) + "</button>" : "") +
-      (link ? '<p class="disdici-riga"><a href="' + esc(link) + '">Vai alla pianta dei posti</a></p>' : "") + "</div>" + piedino();
+      (link ? '<p class="disdici-riga"><a href="' + esc(link) + '">' + esc(etichetta || "Vai alla pianta dei posti") + "</a></p>" : "") +
+      "</div>" + piedino();
     barra.hidden = true;
     var b = document.getElementById("bgl-riprova");
     if (b) b.addEventListener("click", function () { location.reload(); });
@@ -702,6 +806,60 @@
   function fuoco() {
     var h = app.querySelector("h1, h2");
     if (h) { try { h.focus({ preventScroll: true }); } catch (e) { h.focus(); } }
+  }
+
+  /* --- calendario e pagina dell'organizzatore (specifica area §1, §3.1, §3.2) --- */
+  /* l'indirizzo della scheda da dare al calendario: quello bello se c'è, altrimenti il link ?e= */
+  function baseSito() { return /^(localhost|127\.0\.0\.1)$/.test(location.hostname) ? location.origin : "https://stageplot.it"; }
+  function linkScheda(ev) {
+    var o = S.r && S.r.organizzatore;
+    return o && o.slug && ev && ev.s && BGLI ? BGLI.linkSpettacolo(o.slug, ev.s, baseSito())
+      : baseSito() + "/biglietteria/?e=" + encodeURIComponent(S.slug);
+  }
+  function scaricaIcs() {
+    var ev = S.evCal; if (!ev) return;
+    var blob = new Blob([icsEvento(ev, linkScheda(ev), Date.now())], { type: "text/calendar;charset=utf-8" });
+    var u = URL.createObjectURL(blob), a = document.createElement("a");
+    a.href = u; a.download = (ev.s || S.slug || "spettacolo") + ".ics";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(u); }, 4000);
+  }
+  /* «Aggiungi al calendario» (file .ics fatto qui, nessun server) e il link di Google Calendar. Non per uno spettacolo finito. */
+  function calendario(ev) {
+    if (!ev || !ev.inizio || S.stato === "conclusa" || ev.stato === "conclusa" || Date.parse(ev.inizio) <= Date.now()) return "";
+    /* l'UID del calendario nasce dallo slug: senza (la pagina «la tua prenotazione») si usa quello della pagina */
+    S.evCal = ev.slug ? ev : Object.assign({}, ev, { slug: S.slug });
+    var g = linkGoogleCalendar(ev, linkScheda(ev));
+    return '<p class="ev-cal"><button type="button" class="btn piccolo" id="bgl-ics">Aggiungi al calendario</button>' +
+      (g ? '<a class="btn piccolo" href="' + esc(g) + '" target="_blank" rel="noopener">Google Calendar</a>' : "") + "</p>";
+  }
+  function caricaOrganizzatore() {
+    return rpc("bgl_organizzatore_pubblico", { p_slug: S.org }).then(function (r) {
+      if (r && r.ok === false && r.errore === "organizzatore_inesistente") return messaggioPieno("Pagina non trovata", messaggio(r.errore));
+      if (!r || r.ok !== true || !r.organizzatore) return messaggioPieno("Qualcosa non ha funzionato", messaggio("rete"), "Riprova");
+      disegnaOrganizzatore(r);
+    }, function () { messaggioPieno("Non riesco a caricare gli spettacoli", "Controlla la connessione e riprova.", "Riprova"); });
+  }
+  function disegnaOrganizzatore(r) {
+    S.schermata = "organizzatore";
+    var o = r.organizzatore, sp = r.spettacoli || [];
+    document.title = o.nome + " — Spettacoli";
+    var logo = o.logo ? BGLI.urlLocandina(cfg.api, o.logo) : "";
+    app.innerHTML = '<header class="org">' + (logo ? '<img class="org-logo" src="' + esc(logo) + '" alt="">' : "") +
+      '<p class="ev-marchio">Spettacoli</p><h1 class="ev-titolo" tabindex="-1">' + esc(o.nome) + "</h1></header>" +
+      (sp.length ? '<ul class="carte' + (sp.length === 1 ? " una" : "") + '">' + sp.map(function (x) {
+        var b = badgeSpettacolo(x), loc = x.locandina ? BGLI.urlLocandina(cfg.api, x.locandina) : "";
+        return '<li class="carta"><a href="' + esc(BGLI.linkCanonico(o.slug, x.s)) + '">' +
+          (loc ? '<img class="carta-loc" src="' + esc(loc) + '" alt="" loading="lazy">' : riquadroLocandina(x.titolo, x.inizio)) +
+          '<span class="carta-testo"><span class="carta-titolo">' + esc(x.titolo) + '</span><span class="carta-quando">' +
+          esc(dataBreve(x.inizio) + " · ore " + ora(x.inizio)) + '</span><span class="carta-luogo">' + esc(x.luogo) + "</span>" +
+          (b ? '<span class="badge ' + b.cls + '">' + esc(b.testo) + "</span>" : "") + "</span></a></li>";
+      }).join("") + "</ul>"
+        : '<p class="nota">Nessuno spettacolo in programma, per ora.</p>') +
+      (o.contatto ? '<p class="org-contatto">Domande sugli spettacoli? <a href="mailto:' + esc(o.contatto) + '">' + esc(o.contatto) + "</a></p>" : "") +
+      piedino();
+    barra.hidden = true; document.body.classList.remove("con-barra");
+    fuoco();
   }
 
   /* --- schermata: la pianta --- */
@@ -731,7 +889,7 @@
         ' · <a href="' + esc(linkMio(BASE, S.slug, mio.token, cfg)) + '">Vedi o disdici</a></p>';
     } else if (mio) { dimentica(); }
     var liberi = typeof r.liberi === "number" ? r.liberi : 0;
-    app.innerHTML = intestazione(ev, true) +
+    app.innerHTML = intestazione(ev, true, true) +
       '<div class="corpo">' +
       '<section class="col-pianta" aria-labelledby="bgl-h-posti">' +
       giaMio + testa +
@@ -980,7 +1138,7 @@
           if (!S.scelti.length) { avviso(messaggio("dati_non_validi", { campo: "posti" })); disegnaBarra(); return; }
           avviso(null);
           spingiStoria("modulo");   /* Indietro, da qui, torna alla pianta */
-          disegnaModulo();
+          vaiAlModulo();
         });
       } else {
         riga.innerHTML = '<button type="button" class="btn" id="bgl-indietro">Cambia posti</button>' +
@@ -1003,6 +1161,8 @@
       if (n) a.removeAttribute("aria-disabled"); else a.setAttribute("aria-disabled", "true");
     } else {
       var b = document.getElementById("bgl-prenota");
+      /* finché la persona non ha scelto fra Google e nome ed email non c'è niente da prenotare */
+      b.hidden = !(S.google || S.mostraModulo || !ACC);
       b.disabled = !!S.inviando;
       b.textContent = S.inviando ? "Prenoto…" : "Prenota " + (n === 1 ? "1 posto" : n + " posti");
     }
@@ -1029,25 +1189,53 @@
         (e ? '<p class="err" id="bgl-err-' + id + '">' + esc(e) + "</p>" + usa : "") + "</div>";
     }
     var ep = errori.privacy;
-    app.innerHTML = intestazione(S.r.evento, false) +
-      '<section class="modulo">' +
-      '<h2 tabindex="-1">I tuoi dati</h2>' +
-      '<div class="riepilogo"><p class="riep-k">I tuoi posti</p><p class="riep-v">' + esc(frasePosti(S.scelti, settore)) + "</p></div>" +
-      '<form id="bgl-form" novalidate>' +
+    /* Prima la scelta: «Continua con Google» (principale) o «Prenota con nome ed email» (il modulo di prima).
+       Con Google il modulo ha nome e cognome presi da Google (si correggono) e l'email dell'account, fissa. */
+    var g = S.google, scelto = !!g || S.mostraModulo || !ACC;
+    var scelta = g
+      ? '<p class="nota ok">Prenoti con Google: <b>' + esc(g.email) + '</b> · <button type="button" class="link" id="bgl-esci">Non sei tu? Esci</button></p>'
+      : (ACC ? '<div class="scelta-accesso"><button type="button" class="btn primario largo" id="bgl-google">Continua con Google</button>' +
+          '<p class="aiuto">Prendiamo nome ed email dal tuo account Google, e la prenotazione la ritrovi in «Le mie prenotazioni».</p>' +
+          (S.mostraModulo ? "" : '<button type="button" class="btn largo" id="bgl-mostra">Prenota con nome ed email</button>') + "</div>" : "");
+    var moduloHtml = !scelto ? "" : '<form id="bgl-form" novalidate>' +
       campo("nome", "Nome", "text", "given-name", ' autocapitalize="words"') +
       campo("cognome", "Cognome", "text", "family-name", ' autocapitalize="words"') +
-      campo("email", "Email", "email", "email", ' inputmode="email" autocapitalize="off" spellcheck="false"') +
-      '<p class="aiuto">Ti mandiamo qui il codice della prenotazione e il link per disdire.</p>' +
+      (g ? '<div class="campo"><label for="bgl-email">Email</label><input id="bgl-email" name="email" type="email" value="' + esc(g.email) +
+           '" readonly aria-describedby="bgl-email-aiuto"><p class="aiuto" id="bgl-email-aiuto">È quella del tuo account Google: la conferma arriva lì.</p></div>'
+         : campo("email", "Email", "email", "email", ' inputmode="email" autocapitalize="off" spellcheck="false"') +
+           '<p class="aiuto">Ti mandiamo qui il codice della prenotazione e il link per disdire.</p>') +
       /* trappola per i programmi automatici: una persona non la vede e non la riempie */
       '<div class="trappola" aria-hidden="true"><label for="bgl-sito">Sito web</label>' +
         '<input id="bgl-sito" name="sito" type="text" tabindex="-1" autocomplete="off"></div>' +
       '<div class="campo spunta' + (ep ? " ha-errore" : "") + '"><input id="bgl-privacy" type="checkbox"' + (m.privacy ? " checked" : "") +
         (ep ? ' aria-invalid="true" aria-describedby="bgl-err-privacy"' : "") + ">" +
         '<label for="bgl-privacy">Ho letto l\'<a href="/privacy/#biglietteria" target="_blank" rel="noopener">informativa sulla privacy</a>: ' +
-        "nome ed email servono solo per questa prenotazione e si cancellano 30 giorni dopo l'evento.</label>" +
-        (ep ? '<p class="err" id="bgl-err-privacy">' + esc(ep) + "</p>" : "") + "</div>" +
-      "</form></section>" + piedino();
+        "nome ed email servono solo per questa prenotazione e si cancellano 30 giorni dopo l'evento" +
+        (g ? "; l'account creato per la biglietteria si cancella 12 mesi dopo l'ultimo accesso" : "") + ".</label>" +
+        (ep ? '<p class="err" id="bgl-err-privacy">' + esc(ep) + "</p>" : "") + "</div></form>";
+    app.innerHTML = intestazione(S.r.evento, false) +
+      '<section class="modulo">' +
+      '<h2 tabindex="-1">I tuoi dati</h2>' +
+      '<div class="riepilogo"><p class="riep-k">I tuoi posti</p><p class="riep-v">' + esc(frasePosti(S.scelti, settore)) + "</p></div>" +
+      scelta + moduloHtml + "</section>" + piedino();
+    var bg = document.getElementById("bgl-google");
+    if (bg) bg.addEventListener("click", function () { bg.disabled = true; continuaConGoogle(bg); });
+    var bm = document.getElementById("bgl-mostra");
+    if (bm) bm.addEventListener("click", function () {
+      S.mostraModulo = true; disegnaModulo();
+      var n = document.getElementById("bgl-nome"); if (n) n.focus();
+    });
+    var be = document.getElementById("bgl-esci");
+    if (be) be.addEventListener("click", esciGoogle);
     var form = document.getElementById("bgl-form");
+    if (form) ascoltaModulo(form);
+    disegnaBarra();
+    var primo = app.querySelector('[aria-invalid="true"]');
+    if (primo) primo.focus(); else fuoco();
+    window.scrollTo(0, 0);
+  }
+  /* gli ascoltatori del modulo (c'è solo dopo la scelta) */
+  function ascoltaModulo(form) {
     form.addEventListener("submit", function (e) { e.preventDefault(); invia(); });
     /* l'errore di un campo sparisce appena lo si corregge */
     function pulisci(ev) {
@@ -1070,16 +1258,60 @@
       var er = c.querySelector(".err"); if (er) er.remove(); usa.remove();
       i.focus();
     });
-    disegnaBarra();
-    var primo = app.querySelector('[aria-invalid="true"]');
-    if (primo) primo.focus(); else fuoco();
-    window.scrollTo(0, 0);
   }
   function leggiModulo() {
     var f = function (id) { var n = document.getElementById("bgl-" + id); return n ? n : null; };
     if (!f("nome")) return;
-    S.modulo = { nome: f("nome").value, cognome: f("cognome").value, email: f("email").value, privacy: f("privacy").checked,
-      sito: f("sito").value };
+    /* con Google l'email è quella dell'account, qualunque cosa ci sia nel campo */
+    S.modulo = { nome: f("nome").value, cognome: f("cognome").value, email: S.google ? S.google.email : f("email").value,
+      privacy: f("privacy").checked, sito: f("sito").value };
+  }
+
+  /* ACCESSO CON GOOGLE (specifica area §3.2): facoltativo. supabase-js si carica solo se c'è già una sessione salvata
+     o se la persona sceglie Google. Con Google l'email è quella dell'account (verificata) e non si cambia. */
+  function conGoogle() {
+    try { return !!(ACC && ACC.sessioneSalvata(root.localStorage, cfg.api)); } catch (e) { return false; }
+  }
+  function chiSono() {
+    if (!ACC || !conGoogle()) return Promise.resolve(null);
+    return ACC.sessione(cfg).then(function (s) {
+      var u = s.sessione && s.sessione.user;
+      if (!u || !u.email) return null;
+      var n = ACC.nomeDaGoogle(u.user_metadata);
+      registraPubblico();
+      return { token: s.sessione.access_token, email: u.email, nome: n.nome, cognome: n.cognome };
+    }, function () { return null; });
+  }
+  /* 0079 (07/10, scelta di Simone): chi entra con Google dalla biglietteria è «del pubblico» già al primo accesso,
+     così la pulizia dei 12 mesi e «Elimina il mio account» valgono anche se non prenota. Una volta per pagina,
+     senza attendere né mostrare errori: è solo un segno per la pulizia. */
+  var pubblicoRegistrato = false;
+  function registraPubblico() {
+    if (pubblicoRegistrato || !ACC || !ACC.rpcGrezza) return;
+    pubblicoRegistrato = true;
+    try { ACC.rpcGrezza(cfg, "bgl_pubblico_registra", {}).then(null, function () { pubblicoRegistrato = false; }); }
+    catch (e) { pubblicoRegistrato = false; }
+  }
+  /* dalla pianta al modulo: prima si guarda se la persona è già collegata (allora niente scelta) */
+  function vaiAlModulo(errori) {
+    return chiSono().then(function (g) {
+      S.google = g;
+      if (g) { if (!S.modulo.nome) S.modulo.nome = g.nome; if (!S.modulo.cognome) S.modulo.cognome = g.cognome; S.modulo.email = g.email; }
+      if (S.schermata === "pianta" || S.schermata === "modulo") disegnaModulo(errori);
+    });
+  }
+  /* via a Google: posti e dati restano nella scheda (sessionStorage), «bgl-google» dice al ritorno di riaprire il modulo */
+  function continuaConGoogle(bottone) {
+    leggiModulo(); salvaSessione();
+    try { sessionStorage.setItem("bgl-google", S.slug); } catch (e) { /* niente: al ritorno si riparte dalla pianta */ }
+    ACC.accedi(cfg, location.pathname + location.search).then(null, function () {
+      try { sessionStorage.removeItem("bgl-google"); } catch (e) { /* niente */ }
+      if (bottone) bottone.disabled = false;
+      avviso(messaggio("offline")); disegnaBarra();
+    });
+  }
+  function esciGoogle() {
+    ACC.esci(cfg).then(function () { S.google = null; S.modulo.email = ""; S.mostraModulo = true; disegnaModulo(); });
   }
 
   function casualeSicuro() {
@@ -1103,7 +1335,10 @@
     var m = S.modulo, corpo = { e: S.slug, posti: S.scelti.slice(), nome: m.nome.trim(), cognome: m.cognome.trim(),
       email: email, privacy: true, sito: m.sito || "" };
     if (S.tentativo) corpo.token = S.tentativo.token;
-    prenotaRete(corpo)
+    /* con Google: il token di adesso (supabase-js lo rinnova se serve); la prenotazione si lega all'account */
+    var g = S.google;
+    (g ? ACC.token(cfg) : Promise.resolve(null))
+      .then(function (tk) { return prenotaRete(corpo, g ? (tk || g.token) : null); })
       .then(function (res) { S.inviando = false; esito(res.d || {}); },
         function (e) {
           S.inviando = false;
@@ -1114,7 +1349,24 @@
 
   function esito(d) {
     var settore = settoreOn(), max = maxPosti(S.r.evento);
+    if (d.errore === "accesso_scaduto" && !S.ritentato) {
+      /* il token non vale più: si chiede la sessione di nuovo; se c'è si riprova UNA volta (stesso codice segreto:
+         niente doppioni), altrimenti si prosegue con nome ed email */
+      S.ritentato = true;
+      return chiSono().then(function (g2) {
+        S.google = g2;
+        if (g2) return invia();
+        S.mostraModulo = true; avviso(messaggio("accesso_scaduto")); disegnaModulo();
+      });
+    }
+    if (d.errore === "accesso_scaduto" || d.errore === "email_non_verificata") {
+      /* Google non basta: si passa al modulo con nome ed email (la prossima prenotazione parte senza token) */
+      S.google = null; S.mostraModulo = true;
+      if (d.errore === "email_non_verificata") S.modulo.email = "";
+      avviso(messaggio(d.errore)); return disegnaModulo();
+    }
     if (d.ok) {
+      S.ritentato = false;
       S.conferma = d;
       ricorda({ codice: d.codice, token: d.token, posti: d.posti });
       S.scelti = []; S.tentativo = null; S.emailAccettata = null;
@@ -1167,6 +1419,7 @@
         '<p class="big-ev"><strong>' + esc(ev.titolo) + "</strong><br>" + esc(dataOra(ev.inizio)) + "<br>" + esc(ev.luogo || "") + "</p>" +
       "</div>" +
       '<p class="nota ok"><strong>All\'ingresso</strong> di\' il tuo cognome o mostra questo codice. L\'ingresso è gratuito.</p>' +
+      calendario(ev) +
       (d.ripetuta
         ? '<p class="nota">La prenotazione era già registrata: la prima risposta si era persa per strada. Se non trovi la mail con il codice, fai uno screenshot di questa pagina.</p>'
         : d.mail === false
@@ -1175,6 +1428,7 @@
         : '<p class="nota">Ti abbiamo mandato una mail a <strong class="email-intera">' + esc(String(S.modulo.email || "").trim()) +
           "</strong> con il codice e il link per disdire. Se l'indirizzo è sbagliato, fai uno screenshot di questa pagina.</p>") +
       '<p class="disdici-riga">Non puoi più venire? <a href="' + esc(link) + '">Disdici e libera i posti per altri</a></p>' +
+      (S.google ? '<p class="aiuto">La trovi anche in <a href="/biglietteria/mie/">Le mie prenotazioni</a>.</p>' : "") +
       "</section>" + piedino();
     disegnaBarra();
     window.scrollTo(0, 0);
@@ -1208,7 +1462,7 @@
     var errore = msg ? '<p class="avviso err" role="alert">' + esc(msg) + "</p>" : "";
     var posti = (r.posti && r.posti.length && fase !== "disdetta" && stato === "attiva")
       ? '<p class="big-posti">' + esc(frasePosti(r.posti, settore)) + "</p>" : "";
-    app.innerHTML = intestazione(ev, false) +
+    app.innerHTML = intestazione(ev, false, stato === "attiva" && fase !== "disdetta") +
       '<section class="mia"><h2 tabindex="-1">La tua prenotazione</h2>' +
       '<div class="biglietto"><p class="big-k">Codice</p><p class="codice' + (stato === "attiva" && fase !== "disdetta" ? "" : " spento") + '">' +
         esc(r.codice || "") + "</p>" + posti + "</div>" +
@@ -1247,21 +1501,38 @@
     return cambiata;
   }
 
+  /* ?e= (e, dopo la prima lettura, sempre): lo spettacolo per slug10; ?o=&s=: per organizzatore e indirizzo breve */
+  function letturaPubblica() {
+    if (S.slug) return rpc("bgl_evento_pubblico", { p_slug: S.slug });
+    return rpc("bgl_spettacolo_pubblico", { p_org: S.org, p_slug: S.s });
+  }
   function carica(silenzioso) {
-    return rpc("bgl_evento_pubblico", { p_slug: S.slug }).then(function (r) {
+    return letturaPubblica().then(function (r) {
       var statoPrima = S.stato, prima = S.schermata;
       var st = statoPagina(r);
-      if (st === "inesistente") return messaggioPieno("Pagina non trovata", messaggio("evento_inesistente"));
+      if (st === "inesistente") {
+        /* RF3: un indirizzo vecchio o sbagliato dello spettacolo porta agli spettacoli dell'organizzatore */
+        if (r && r.errore === "spettacolo_inesistente" && r.organizzatore && r.organizzatore.slug && BGLI) {
+          return messaggioPieno("Spettacolo non trovato", messaggio("spettacolo_inesistente"), null,
+            BGLI.linkCanonico(r.organizzatore.slug), "Vedi gli spettacoli di " + r.organizzatore.nome);
+        }
+        return messaggioPieno("Pagina non trovata", messaggio((r && r.errore) || "evento_inesistente"));
+      }
+      if (!S.slug && r && r.evento && slugValido(r.evento.slug)) S.slug = r.evento.slug;   /* da qui in poi è il link ?e= */
       if (st === "errore") { if (!silenzioso) messaggioPieno("Qualcosa non ha funzionato", messaggio("rete"), "Riprova"); return; }
       var cambiata = applica(r);
       if (!S.ripristinato) {
         S.ripristinato = true;
         var v = daRipristinare(leggiSessione(), { posti: (S.pianta && S.pianta.posti) || [], occupati: S.occupati, riservati: S.riservati });
         if (v) { S.scelti = v.scelti; S.modulo.nome = v.modulo.nome; S.modulo.cognome = v.modulo.cognome; S.modulo.email = v.modulo.email; S.tentativo = v.tentativo; }
+        /* di ritorno da Google (o da «Torna senza accedere»): si riapre il modulo con gli stessi posti */
+        var ritorno = null;
+        try { ritorno = sessionStorage.getItem("bgl-google"); sessionStorage.removeItem("bgl-google"); } catch (e) { ritorno = null; }
+        S.ritornoGoogle = !!S.slug && ritorno === S.slug;
       }
       if (st === "conclusa") {
         S.schermata = "messaggio"; barra.hidden = true; document.body.classList.remove("con-barra");
-        app.innerHTML = intestazione(r.evento, false) + '<div class="centro"><p class="nota">L\'evento si è già svolto.</p></div>' + piedino();
+        app.innerHTML = intestazione(r.evento, false, false) + '<div class="centro"><p class="nota">L\'evento si è già svolto.</p></div>' + piedino();
         return;
       }
       /* posti scelti che intanto sono stati presi */
@@ -1288,9 +1559,20 @@
       }
       if (prima === "modulo") leggiModulo();
       disegnaPianta();
+      if (prima === "caricamento" && S.ritornoGoogle) {
+        S.ritornoGoogle = false;
+        if (st === "aperta" && S.scelti.length) {
+          chiSono().then(function (g) {
+            /* senza sessione Google ha detto di no (o la persona è tornata indietro): si prosegue con nome ed email */
+            if (!g) { S.mostraModulo = true; avviso(messaggio("google_annullato"), "info"); }
+            spingiStoria("modulo"); vaiAlModulo();
+          });
+          return;
+        }
+      }
       /* ricaricata a metà del modulo: si torna lì, con posti e dati */
       if (prima === "caricamento" && statoStoria() === "modulo") {
-        if (st === "aperta" && S.scelti.length) { disegnaModulo(); return; }
+        if (st === "aperta" && S.scelti.length) { vaiAlModulo(); return; }
         sostituisciStoria(null);
       }
       if (!silenzioso || prima !== "pianta") fuoco();
@@ -1305,9 +1587,14 @@
 
   function avvia() {
     /* stageplot.it/biglietteria senza spettacolo (06/10, Simone): non è un link sbagliato, è l'ingresso */
-    if (!S.slug) return messaggioPieno(SENZA_EVENTO.titolo, SENZA_EVENTO.testo);
-    if (!slugValido(S.slug)) return messaggioPieno("Pagina non trovata", messaggio("evento_inesistente"));
-    if (S.token) {
+    if (!S.slug && !S.org) return messaggioPieno(SENZA_EVENTO.titolo, SENZA_EVENTO.testo);
+    if (!S.slug) {
+      if (!BGLI || !BGLI.slugOrgOk(S.org) || (S.s && !BGLI.slugOk(S.s))) return messaggioPieno("Pagina non trovata", messaggio("organizzatore_inesistente"));
+      if (!S.s) return caricaOrganizzatore();
+    }
+    if (S.slug && !slugValido(S.slug)) return messaggioPieno("Pagina non trovata", messaggio("evento_inesistente"));
+    app.addEventListener("click", function (e) { if (e.target && e.target.id === "bgl-ics") scaricaIcs(); });
+    if (S.token && S.slug) {
       if (!tokenValido(S.token)) return messaggioPieno("Link non valido", messaggio("token_non_valido"), null, linkPianta(BASE, S.slug, cfg));
       rpc("bgl_mia_prenotazione", { p_slug: S.slug, p_token: S.token }).then(function (r) {
         if (!r || !r.ok) return messaggioPieno("Link non valido", messaggio(r && r.errore === "token_non_valido" ? "token_non_valido" : (r && r.errore) || "rete"),
@@ -1324,7 +1611,7 @@
       } else if (S.schermata === "conferma" && dove !== "conferma") {
         S.conferma = null; S.schermata = "caricamento"; carica(false);
       } else if (S.schermata === "pianta" && dove === "modulo") {
-        if (S.stato === "aperta" && S.scelti.length) { avviso(null); disegnaModulo(); } else sostituisciStoria(null);
+        if (S.stato === "aperta" && S.scelti.length) { avviso(null); vaiAlModulo(); } else sostituisciStoria(null);
       }
     });
     carica(false);

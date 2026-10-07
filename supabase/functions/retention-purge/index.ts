@@ -14,9 +14,14 @@
 //   3. solo DOPO aver tolto un file se ne toglie il riferimento in `feedback`: se il secondo passo
 //      fallisse resterebbe una riga che punta al nulla, e si vede; l'ordine inverso lascerebbe file
 //      orfani nel bucket, che non si vedono più.
+//   4. le locandine della biglietteria che nessuno cita più (D4): le sceglie il database
+//      (`bgl_locandine_orfane`, più vecchie di 24 ore), le toglie la Storage API.
+//   5. gli account del pubblico fermi da 12 mesi (D9): li sceglie e li prepara il database
+//      (`bgl_account_da_pulire`, `bgl_account_prepara_eliminazione`), li cancella l'Admin API (D3), uno per uno.
 import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2.108.2";
 import { serviceRoleKey, usingLegacyKey } from "../_shared/service-role-key.ts";
 import { chunks, expiredDayFolders, lastExpiredDay, SHOT_BUCKET } from "../_shared/retention.ts";
+import { pulisciAccount, pulisciLocandine } from "../_shared/bgl-pulizia.ts";
 
 const PAGE = 1000;
 const REMOVE_BATCH = 100;
@@ -88,7 +93,25 @@ Deno.serve(async (req) => {
     const { data: tables, error } = await supabase.rpc("stageplot_purge_expired");
     if (error) throw new Error(`tabelle: ${error.message}`);
     const shots = await purgeShots(supabase, new Date());
-    return json({ ok: true, tables, ...shots });
+    const rpc = async (fn: string, args: Record<string, unknown>) => {
+      const r = await supabase.rpc(fn, args);
+      return { data: r.data as unknown, error: r.error ? { message: r.error.message } : null };
+    };
+    const locandine = await pulisciLocandine({
+      rpc,
+      rimuovi: async (bucket, nomi) => {
+        const { data, error } = await supabase.storage.from(bucket).remove(nomi);
+        return { error: error ? { message: error.message } : null, tolti: (data ?? []).length };
+      },
+    }, new Date());
+    const account = await pulisciAccount({
+      rpc,
+      elimina: async (uid) => {
+        const { error } = await supabase.auth.admin.deleteUser(uid);
+        return { error: error ? { message: error.message } : null };
+      },
+    });
+    return json({ ok: true, tables, ...shots, ...locandine, ...account });
   } catch (e) {
     /* rosso vero: il workflow fallisce e se ne accorge qualcuno, invece di un avviso che nessuno legge */
     console.error("retention-purge fallita:", e instanceof Error ? e.message : "unknown");
