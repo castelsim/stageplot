@@ -22,9 +22,22 @@ drop policy if exists bgl_locandine_proprie on storage.objects;
 create policy bgl_locandine_proprie on storage.objects for select to authenticated
   using (bucket_id = 'bgl-locandine' and (storage.foldername(name))[1] = auth.uid()::text);
 
+-- Un file citato da uno spettacolo o dal logo della pagina non si cancella (revisione T23): la scheda resterebbe con
+-- un'immagine rotta. L'area lo toglie solo DOPO che il salvataggio o l'eliminazione hanno smesso di citarlo.
+-- Risponde solo per i file della propria cartella (per gli altri dice sempre «citato»: niente da sapere sui nomi altrui).
+create or replace function public.bgl_locandina_citata(p_name text)
+returns boolean language sql stable security definer set search_path = public, pg_temp as $$
+  select auth.uid() is null or coalesce((storage.foldername(p_name))[1], '') <> auth.uid()::text
+      or exists (select 1 from public.bgl_eventi e where e.locandina_path = p_name)
+      or exists (select 1 from public.bgl_organizzatori g where g.logo_path = p_name)
+$$;
+revoke all on function public.bgl_locandina_citata(text) from public, anon, authenticated;
+grant execute on function public.bgl_locandina_citata(text) to authenticated, service_role;
+
 drop policy if exists bgl_locandine_togli on storage.objects;
 create policy bgl_locandine_togli on storage.objects for delete to authenticated
-  using (bucket_id = 'bgl-locandine' and (storage.foldername(name))[1] = auth.uid()::text);
+  using (bucket_id = 'bgl-locandine' and (storage.foldername(name))[1] = auth.uid()::text
+    and not public.bgl_locandina_citata(name));
 
 create or replace function public.bgl_locandine_orfane(p_prima timestamptz)
 returns text[] language sql stable security definer set search_path = public, pg_temp as $$

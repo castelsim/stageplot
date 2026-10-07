@@ -250,6 +250,20 @@ returns boolean language sql stable security definer set search_path = public, p
      and not exists (select 1 from public.stageplot_dept_assign where user_id = p_uid)
      and not exists (select 1 from public.stageplot_item_contacts where user_id = p_uid)
      and not exists (select 1 from public.consultation_requests where user_id = p_uid)
+     -- revisione T23: una segnalazione dall'editor (feedback, on delete set null) terrebbe l'email in chiaro staccata
+     -- dall'account; e le colonne «creato da» di Orchestre. Un test controlla che ogni riferimento ad auth.users sia qui.
+     and not exists (select 1 from public.feedback where user_id = p_uid)
+     and not exists (select 1 from public.sp_request_versions where reopened_by = p_uid)
+     and not exists (select 1 from public.orc_organizations where created_by = p_uid)
+     and not exists (select 1 from public.orc_musicians where created_by = p_uid)
+     and not exists (select 1 from public.orc_musician_exclusions where created_by = p_uid)
+     and not exists (select 1 from public.orc_productions where created_by = p_uid)
+     and not exists (select 1 from public.orc_matching_rulesets where created_by = p_uid)
+     and not exists (select 1 from public.orc_matching_runs where ran_by = p_uid)
+     and not exists (select 1 from public.orc_invitations where created_by = p_uid)
+     and not exists (select 1 from public.orc_performance_feedback where author_id = p_uid)
+     and not exists (select 1 from public.orc_evaluations where author_id = p_uid)
+     and not exists (select 1 from public.orc_musician_invites where claimed_by = p_uid)
 $$;
 revoke all on function public.bgl_account_solo_biglietteria(uuid) from public, anon, authenticated;
 grant execute on function public.bgl_account_solo_biglietteria(uuid) to service_role;

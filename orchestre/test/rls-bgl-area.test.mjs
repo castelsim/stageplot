@@ -194,3 +194,21 @@ run("D7 (decisione del 06/10): l'indirizzo della pagina resta bloccato anche dop
   const stesso = await rpc(env, c.tok, "bgl_organizzatore_salva", { p_dati: { nome: "Teatro nuovo", slug: org + "-x" } });
   assert.deepEqual([stesso.d.ok, stesso.d.organizzatore.nome], [true, "Teatro nuovo"], "il nome si cambia sempre");
 });
+
+run("revisione T23: la vecchia bgl_modifica segue le regole della nota dell'area (200 caratteri, niente \\r da solo)", async () => {
+  const c = await account("modnota", S, { abilitato: true });
+  const prog = await progetto(c, docSala());
+  await paginaOrganizzatore(c, "teatro-mn-" + S.slice(-6));
+  const r = (await spettacolo(c, prog, { pubblicato: true })).d;
+  const mod = (note) => rpc(env, c.tok, "bgl_modifica", { p_evento_id: r.id, p_campi: { note } });
+  const iniezione = "Porte alle 20:30\rBEGIN:VALARM\rTRIGGER:-PT5M\rACTION:DISPLAY\rEND:VALARM";
+  /* la stessa nota che bgl_spettacolo_salva rifiuta */
+  assert.equal(errore(await rpc(env, c.tok, "bgl_spettacolo_salva", { p_id: r.id, p_dati: { note: iniezione } })), "dati_non_validi");
+  assert.deepEqual([errore(await mod(iniezione)), (await mod(iniezione)).d.campo], ["dati_non_validi", "note"], "\\r da solo");
+  assert.equal(errore(await mod("n".repeat(201))), "dati_non_validi", "oltre 200 caratteri");
+  assert.equal((await mod("Porte alle 20:30\r\nIngresso dal cortile")).d.ok, true, "\\r\\n è un a capo normale");
+  const v = (await rpc(env, env.ANON_KEY, "bgl_evento_pubblico", { p_slug: r.slug })).d.evento.note;
+  assert.equal(v, "Porte alle 20:30\nIngresso dal cortile", "salvata come nell'area");
+  assert.equal((await mod("")).d.ok, true);
+  assert.equal((await rpc(env, env.ANON_KEY, "bgl_evento_pubblico", { p_slug: r.slug })).d.evento.note, null, "vuota = nessuna nota");
+});

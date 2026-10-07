@@ -592,9 +592,10 @@
     var d = new Date(iso);
     return isNaN(d) ? "" : d.toISOString().replace(/\.\d{3}Z$/, "Z").replace(/[-:]/g, "");
   }
-  /* RFC 5545 §3.3.11: nel testo «\», «;» e «,» si scappano con la barra, l'a capo diventa «\n» */
+  /* RFC 5545 §3.3.11: nel testo «\», «;» e «,» si scappano con la barra, l'a capo diventa «\n»; anche un \r da solo
+     (revisione T23: un lettore che spezza le righe sul CR vedrebbe proprietà inserite dalla nota) */
   function testoIcs(s) {
-    return String(s == null ? "" : s).replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r?\n/g, "\\n");
+    return String(s == null ? "" : s).replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\r\n|\r|\n/g, "\\n");
   }
   /* RFC 5545 §3.1: righe di al massimo 75 byte; le continuazioni cominciano con uno spazio (che conta nei 75).
      Si conta per lettera (Array.from), così una lettera accentata non si spezza a metà fra due righe. */

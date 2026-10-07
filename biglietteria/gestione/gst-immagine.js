@@ -73,10 +73,13 @@
       });
     }, function (e) { throw e && e.codice ? e : errore("formato"); });
   }
+  /* un giorno (revisione T23): eliminato lo spettacolo, il file sparisce anche dal CDN di Supabase entro un giorno
+     senza dipendere dalla Smart CDN; un anno lo lascerebbe raggiungibile dal suo indirizzo (specifica §5) */
+  var CACHE = "86400";
   function carica(cfg, uid, ridotta) {
     var path = nomeFile(uid, esadecimale(16, function (a) { return root.crypto.getRandomValues(a); }), ridotta.est);
     return root.BGLAccesso.cliente(cfg).then(function (c) {
-      return c.storage.from("bgl-locandine").upload(path, ridotta.blob, { contentType: ridotta.tipo, upsert: false, cacheControl: "31536000" });
+      return c.storage.from("bgl-locandine").upload(path, ridotta.blob, { contentType: ridotta.tipo, upsert: false, cacheControl: CACHE });
     }).then(function (r) { return r && !r.error ? { path: path } : { errore: "carica" }; }, function () { return { errore: "carica" }; });
   }
   function togli(cfg, path) {
@@ -84,7 +87,7 @@
     return root.BGLAccesso.cliente(cfg).then(function (c) { return c.storage.from("bgl-locandine").remove([path]); }).then(function () {}, function () {});
   }
 
-  var IMG = { LATO: LATO, MAX_BYTE: MAX_BYTE, QUALITA: QUALITA, MESSAGGI: MESSAGGI, dimensioniRidotte: dimensioniRidotte,
+  var IMG = { CACHE: CACHE, LATO: LATO, MAX_BYTE: MAX_BYTE, QUALITA: QUALITA, MESSAGGI: MESSAGGI, dimensioniRidotte: dimensioniRidotte,
     sceltaFormato: sceltaFormato, tipoAccettato: tipoAccettato, cercaFormato: cercaFormato, esadecimale: esadecimale,
     nomeFile: nomeFile, riduci: riduci, carica: carica, togli: togli };
   if (root.GST) root.GST.immagine = IMG;
