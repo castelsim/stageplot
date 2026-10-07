@@ -39,7 +39,7 @@ for (const [nm, motore] of [["chromium", chromium], ["webkit", webkit]]) for (co
   E.ok(p.url().startsWith(sito.url + "/biglietteria/gestione/"), chi + ": dopo Google si torna all'area");
   /* decisione 3: contatto precompilato con l'email dell'account, modificabile, con l'aiuto su info@ */
   E.ok((await p.inputValue("#gst-contatto")) === email && /info@/.test(await p.textContent("#gst-c-contatto")) &&
-    /vuoto, si vede l'email del tuo account/.test(await p.textContent("#gst-c-contatto")), chi + ": contatto precompilato, aiuto con info@ e regola del vuoto");
+    /vuoto, in pagina non compare nessuna email/.test(await p.textContent("#gst-c-contatto")), chi + ": contatto precompilato, aiuto con info@ e regola del vuoto (revisione T23: vuoto = nessuna email)");
   /* D7: con uno spettacolo già pubblicato lo si dice prima di salvare */
   E.ok((await p.$("#gst-slug-fisso")) !== null === conEditor, chi + ": avviso «resta fisso» " + (conEditor ? "presente" : "assente"));
   /* 2. prima volta: indirizzo proposto dal nome e controllato mentre si scrive */
@@ -50,6 +50,12 @@ for (const [nm, motore] of [["chromium", chromium], ["webkit", webkit]]) for (co
   await p.waitForFunction(() => /non si può usare/.test(document.getElementById("gst-slug-stato").textContent));
   E.ok(true, chi + ": parola riservata rifiutata mentre si scrive");
   await p.fill("#gst-slug", "teatro-prova-" + S + "-" + giro);
+  /* revisione T23: un'email con segni da pagina web si ferma prima di salvare, con un messaggio che dice cosa fare */
+  await p.fill("#gst-contatto", '"><img src=x>@example.invalid');
+  await p.click("#gst-pv button[type=submit]");
+  await p.waitForSelector("#gst-pv-err:not([hidden])", { timeout: 5000 });
+  E.ok(/email per il pubblico non sembra giusta/.test(await p.textContent("#gst-pv-err")) && (await p.$("#gst-pv")) !== null &&
+    (await p.evaluate(() => document.activeElement && document.activeElement.id)) === "gst-contatto", chi + ": email sbagliata fermata prima di salvare");
   await p.fill("#gst-contatto", "info@example.invalid");
   /* RF4 in piccolo: un logo enorme si riduce prima di partire */
   const grande = await p.evaluate(async () => { const c = document.createElement("canvas"); c.width = 4000; c.height = 3000; const g = c.getContext("2d");

@@ -411,6 +411,14 @@
     setTimeout(function () { URL.revokeObjectURL(u); }, 4000);
   }
 
+  /* Email di contatto dell'organizzatore (revisione T23): vuota = nessuna email in pagina; altrimenti lo stesso schema
+     della migrazione 0074 (un test controlla che la classe di caratteri sia la stessa) */
+  var CONTATTO_RE = /^[^\s@<>"'`,;]+@[^\s@<>"'`,;]+\.[^\s@<>"'`,;]+$/;
+  function contattoOk(v) {
+    var t = String(v == null ? "" : v).trim();
+    return t === "" || (t.length >= 3 && t.length <= 254 && CONTATTO_RE.test(t));
+  }
+
   var GST = root.GST || {};
   /* le funzioni copiate dall'editor (Step 3), per nome */
   GST.bglRiservatiDaTesto = bglRiservatiDaTesto; GST.bglRiservatiATesto = bglRiservatiATesto; GST.bglOffsetRoma = bglOffsetRoma;
@@ -425,7 +433,7 @@
   GST.piantaRiassuntoBreve = piantaRiassuntoBreve; GST.statoRiga = statoRiga; GST.contaRiga = contaRiga;
   GST.dividiSpettacoli = dividiSpettacoli; GST.luogoPredefinito = luogoPredefinito; GST.riservatiPerPuliti = riservatiPerPuliti;
   GST.datiModulo = datiModulo; GST.messaggio = messaggio; GST.api = api; GST.creditoPdf = creditoPdf;
-  GST.listaPdf = listaPdf; GST.scarica = scarica;
+  GST.listaPdf = listaPdf; GST.scarica = scarica; GST.CONTATTO_RE = CONTATTO_RE; GST.contattoOk = contattoOk;
   root.GST = GST;
   if (typeof module === "object" && module && module.exports) module.exports = GST;
 })(typeof globalThis !== "undefined" ? globalThis : this);

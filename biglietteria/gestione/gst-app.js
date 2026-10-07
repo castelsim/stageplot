@@ -147,10 +147,10 @@
         '<p class="gst-stato" id="gst-slug-stato" aria-live="polite"></p>' +
         (giaPubblicati ? '<p class="nota forte" id="gst-slug-fisso">Hai già uno spettacolo con le prenotazioni aperte: appena salvi, questo indirizzo resta fisso per sempre.</p>' : ""),
         "Sceglilo bene: dal primo spettacolo con le prenotazioni aperte non si cambia più, perché link e QR possono essere già stampati.") +
-      /* decisione 3 di Simone (06/10): precompilata con l'email dell'account, ben visibile, modificabile; vuota = si
-         vede comunque quella dell'account (regola della specifica, la applica la lettura pubblica) */
+      /* decisione 3 di Simone (06/10): precompilata con l'email dell'account, ben visibile, modificabile. In pagina va
+         solo quella salvata qui: vuota = nessuna email (revisione T23: niente ripiego nascosto sull'email dell'account) */
       campo("contatto", "Email per le domande del pubblico", '<input id="gst-contatto" type="email" maxlength="254" autocomplete="email" value="' + esc(D.emailAccount) + '">',
-        "La vede chiunque apre la tua pagina. Meglio un indirizzo pensato per il pubblico, come info@… o quello del teatro. Se lo lasci vuoto, si vede l'email del tuo account.") +
+        "La vede chiunque apre la tua pagina. Meglio un indirizzo pensato per il pubblico, come info@… o quello del teatro. Se lo lasci vuoto, in pagina non compare nessuna email.") +
       campo("logo", "Logo (facoltativo)", '<input id="gst-logo" type="file" accept="image/*"><img id="gst-logo-ant" class="gst-logo" alt="" hidden>') +
       '<p class="gst-errore" id="gst-pv-err" role="alert" hidden></p>' +
       '<button type="submit" class="btn primario">Continua</button></form></section>');
@@ -187,6 +187,8 @@
       err.hidden = true;
       if (!nome.value.trim()) { err.textContent = "Scrivi il nome che vede il pubblico."; err.hidden = false; nome.focus(); return; }
       if (!I.slugOrgOk(slug.value)) { err.textContent = "Scegli un indirizzo: lettere minuscole, numeri e trattini, da 3 a 40."; err.hidden = false; slug.focus(); return; }
+      var contatto = document.getElementById("gst-contatto");
+      if (!GST.contattoOk(contatto.value)) { err.textContent = "L'email per il pubblico non sembra giusta: correggila, oppure lasciala vuota."; err.hidden = false; contatto.focus(); return; }
       btn.disabled = true;
       var passo = stato.logo ? GST.immagine.carica(cfg, D.utente.id, stato.logo) : Promise.resolve(null);
       passo.then(function (car) {

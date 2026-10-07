@@ -284,7 +284,9 @@ begin
     if jsonb_typeof(p_dati->'contatto_email') = 'null' or btrim(coalesce(p_dati->>'contatto_email', '')) = '' then v_contatto := null;
     else
       v_contatto := public.bgl_testo(p_dati->>'contatto_email', 3, 254);
-      if v_contatto is null or v_contatto !~ '^[^[:space:]@]+@[^[:space:]@]+\.[^[:space:]@]+$' then
+      -- formato di un'email e niente segni da pagina web (< > " ' `) né separatori di più indirizzi (, ;): le pagine
+      -- scappano tutto, ma un indirizzo vero non li contiene e finisce in un mailto: (revisione T23)
+      if v_contatto is null or v_contatto !~ '^[^[:space:]@<>"''`,;]+@[^[:space:]@<>"''`,;]+\.[^[:space:]@<>"''`,;]+$' then
         return jsonb_build_object('ok', false, 'errore', 'dati_non_validi', 'campo', 'contatto_email');
       end if;
     end if;
@@ -599,11 +601,11 @@ begin
     if jsonb_typeof(p_campi->'note') not in ('null', 'string') then
       return jsonb_build_object('ok', false, 'errore', 'dati_non_validi', 'campo', 'note');
     end if;
-    v := nullif(btrim(coalesce(p_campi->>'note', '')), '');
-    if v is not null and (char_length(v) > 500 or v ~ '[\x01-\x08\x0b\x0c\x0e-\x1f\x7f]') then
-      return jsonb_build_object('ok', false, 'errore', 'dati_non_validi', 'campo', 'note');
-    end if;
-    e.note := v;
+    -- le stesse regole di bgl_spettacolo_salva (revisione T23): 200 caratteri, a capo sì, \r da solo no (finirebbe
+    -- crudo nel file .ics del pubblico)
+    v := public.bgl_testo_righe(p_campi->>'note', 200);
+    if v is null then return jsonb_build_object('ok', false, 'errore', 'dati_non_validi', 'campo', 'note'); end if;
+    e.note := nullif(v, '');
   end if;
   if p_campi ? 'inizio' then
     e.inizio := public.bgl_ts(p_campi->>'inizio');

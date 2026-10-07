@@ -3,11 +3,13 @@
 -- mai di chi prenota. La scheda È bgl_evento_pubblico (una sola regola di privacy, non due).
 -- Le bozze (pubblicato = false) non esistono per nessuna porta pubblica. Solo aggiunte; idempotente.
 
+-- Contatto: SOLO quello che l'organizzatore ha scritto (revisione T23). Nessun ripiego sull'email dell'account, che è
+-- spesso quella personale: il «predefinito = email dell'account» della specifica (§2.1, decisione 3 di Simone) lo fa la
+-- «prima volta» precompilando il campo, così in pagina va solo ciò che l'organizzatore ha visto e salvato; svuotato =
+-- nessuna email in pagina (anche sul vecchio link ?e=, che legge da qui).
 create or replace function public.bgl_organizzatore_pubblico_json(o public.bgl_organizzatori)
 returns jsonb language sql stable security definer set search_path = public, pg_temp as $$
-  select jsonb_build_object('slug', o.slug, 'nome', o.nome,
-    'contatto', coalesce(o.contatto_email, (select u.email from auth.users u where u.id = o.user_id)),
-    'logo', o.logo_path)
+  select jsonb_build_object('slug', o.slug, 'nome', o.nome, 'contatto', nullif(o.contatto_email, ''), 'logo', o.logo_path)
 $$;
 revoke all on function public.bgl_organizzatore_pubblico_json(public.bgl_organizzatori) from public, anon, authenticated;
 grant execute on function public.bgl_organizzatore_pubblico_json(public.bgl_organizzatori) to service_role;
