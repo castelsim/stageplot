@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' https://vsodplqkuvnsdiikvmjb.supabase.co; base-uri 'none'; object-src 'none'; form-action 'none'">
+<title>Analisi vocale</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="stile.css">
+<script src="vendor/supabase/supabase.js"></script>
+<script type="module" src="app.js"></script>
+</head>
+<body>
+<header class="testa">
+  <div>
+    <h1>Analisi vocale</h1>
+    <p class="sotto" id="sottotitolo"></p>
+  </div>
+  <div class="utente" id="utente" hidden><span id="email"></span> <button id="esci" class="piccolo"></button></div>
+</header>
+
+<section id="schermo-accesso" class="pannello" hidden>
+  <p id="perche"></p>
+  <button id="entra" class="grande"></button>
+</section>
+
+<main id="schermo-app" hidden>
+  <section class="carica">
+    <label class="zona" id="zona-pre"><input type="file" id="file-pre" accept="audio/*,.wav,.aif,.aiff,.flac,.mp3,.m4a"><span id="testo-pre"></span></label>
+    <label class="zona" id="zona-post"><input type="file" id="file-post" accept="audio/*,.wav,.aif,.aiff,.flac,.mp3,.m4a"><span id="testo-post"></span></label>
+  </section>
+  <p id="avvisi-file" class="avviso" hidden></p>
+  <div id="domanda-stereo" class="pannello" hidden><p id="testo-stereo"></p><button id="stereo-si"></button> <button id="stereo-no"></button></div>
+  <p id="stato" class="stato" aria-live="polite"></p>
+
+  <section id="comandi" class="comandi" hidden>
+    <button id="play" class="grande"></button>
+    <button id="ab" class="grande"></button>
+    <button id="pre-poi-post"></button>
+    <button id="togli"></button>
+    <button id="misura" class="evidenza"></button>
+    <button id="zoom-piu"></button>
+    <button id="zoom-meno"></button>
+    <button id="vedi-tutto"></button>
+    <button id="esporta"></button>
+    <label class="titolo-figura"><span id="t-titolo"></span> <input type="text" id="titolo-figura" maxlength="120"></label>
+    <label><input type="checkbox" id="c-pareggio" checked> <span id="t-pareggio"></span></label>
+    <label><input type="checkbox" id="c-f0" checked> <span id="t-f0"></span></label>
+    <label><input type="checkbox" id="c-formanti"> <span id="t-formanti"></span></label>
+    <label><input type="checkbox" id="c-fascia"> <span id="t-fascia"></span></label>
+    <label><input type="checkbox" id="c-maschile"> <span id="t-maschile"></span></label>
+    <span id="tempo" class="tempo"></span>
+    <p class="aiuto" id="aiuto-comandi"></p>
+  </section>
+
+  <canvas id="spg-pre" class="spg" role="img" aria-label="Spettrogramma PRE" hidden></canvas>
+  <canvas id="spg-post" class="spg" role="img" aria-label="Spettrogramma POST" hidden></canvas>
+  <p class="legenda" id="legenda" hidden></p>
+
+  <section id="risultati" class="pannello" hidden>
+    <h2>Misure del tratto <span id="tratto-tempi"></span></h2>
+    <p id="avviso-acuto" class="avviso" hidden></p>
+    <p id="avviso-fine" class="avviso" hidden></p>
+    <table id="tabella"><thead><tr><th>Misura</th><th>PRE</th><th>POST</th><th id="th-differenza"></th><th></th></tr></thead><tbody></tbody></table>
+  </section>
+</main>
+
+<footer class="piede">
+  <p id="didattico"></p>
+  <p><a href="fonti.html" id="link-fonti"></a> · <a href="https://github.com/castelsim/voce" id="link-sorgente"></a></p>
+</footer>
+</body>
+</html>

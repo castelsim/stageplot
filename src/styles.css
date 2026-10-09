@@ -457,6 +457,19 @@
     #bandSetup .bs-foot .btn{min-height:44px}
     #bandSetup .bs-foot{flex-direction:column-reverse;align-items:stretch}
   }
+  /* Anello di altoparlanti: tre righe «etichetta + scelta» e il piede della finestra «Chi sale sul palco» */
+  #anelloSetup .an-riga{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px}
+  #anelloSetup .an-lbl{font-size:14px;font-weight:400;color:var(--text)}
+  #anelloSetup .an-seg{display:flex}
+  #anelloSetup .an-seg .btn{border-radius:0;margin-left:-1px;min-width:44px}
+  #anelloSetup .an-seg .btn:first-child{border-radius:var(--r-sm) 0 0 var(--r-sm);margin-left:0}
+  #anelloSetup .an-seg .btn:last-child{border-radius:0 var(--r-sm) var(--r-sm) 0}
+  #anelloSetup .an-seg .btn.on{background:var(--accent);border-color:var(--accent);color:#fff;position:relative;z-index:1}
+  #anelloSetup .bs-foot{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-top:18px}
+  @media (max-width:880px), (pointer:coarse){
+    #anelloSetup .an-seg .btn,#anelloSetup .bs-foot .btn,#anelloSetup #anPre{min-height:44px}   /* anche il campo del nome: era alto 22 px, sotto il dito (revisione 06/10/2026) */
+    #anelloSetup .bs-foot{flex-direction:column-reverse;align-items:stretch}
+  }
   #svg.drop-target{outline:3px dashed var(--accent);outline-offset:-6px;background:var(--accent-tint)}
   #catalog button[draggable=true]{cursor:grab}
   #defs-master{position:absolute;width:0;height:0;overflow:hidden;pointer-events:none}
@@ -901,6 +914,7 @@
   body:not(.f-esporta) #pdfScaleRow,
   body:not(.f-esporta) #pdfScaleCustomRow,
   body:not(.f-esporta) #pdfHdrRow,
+  body:not(.f-esporta) #pdfPesiRow,
   body:not(.f-esporta) #pdfTechRow{display:none !important}
   #pdfModal .exp-pro{display:block;width:100%;margin-top:10px;min-height:44px;font-weight:600}
 }
@@ -1394,6 +1408,20 @@ svg.names-hidden .orc-name{display:none}
 .orc-row .orc-line{padding:2px 0}.orc-row .orc-line.ok{color:#0d9488}.orc-row .orc-line.wait{color:#2563eb}.orc-row .orc-line.open{color:#b45309}.orc-row .orc-line.off{color:var(--text-3,#6b7280)}
 .orc-row .orc-link{display:inline-block;margin-top:6px;color:#0d9488;font-weight:600;text-decoration:none;min-height:24px}
 .lbl.sub{font-weight:400;fill:#6b7280;font-size:12px;stroke-width:2.6}
+/* POSTI NUMERATI (06/10): il numero nella sedia, la fila ai capi, la legenda. Non sono .lbl: «nomi
+   nascosti» e la passata anti-collisione del PDF non li toccano — il numero è il posto, non un nome. */
+.posto-n{fill:#111827;font-weight:700;text-anchor:middle;pointer-events:none}
+.posto-fila{fill:#0f766e;font-weight:800;text-anchor:middle;pointer-events:none;paint-order:stroke;stroke:#fff;stroke-width:4;stroke-linejoin:round}
+.posto-legenda{fill:#1f2937;font-weight:600;text-anchor:middle;pointer-events:none;paint-order:stroke;stroke:#fff;stroke-width:4;stroke-linejoin:round}
+.posto-legenda.posto-senza{fill:#b45309}
+.posti-dlg{margin:4px 0 10px}
+.posti-dlg label[for]{display:block;font-size:12px;color:var(--text-2);margin-bottom:4px}
+.posti-dlg input[type=text]{width:100%;min-height:40px;padding:8px 10px;border:1px solid var(--line,#d1d5db);border-radius:8px;font:inherit;box-sizing:border-box}
+.posti-dlg .posti-grp{margin-top:10px}
+.posti-dlg .posti-tit{font-size:12px;color:var(--text-2);margin-bottom:2px}
+.posti-dlg .chk{display:flex;align-items:center;gap:8px;min-height:36px;font-size:14px;line-height:1.3;cursor:pointer}
+.posti-dlg .chk input{flex:0 0 auto;width:18px;height:18px;margin:0}
+.posti-dlg .posti-esito{margin:10px 0 0;font-weight:600}
   /* «qui c'è una nota da leggere»: colore d'accento, sta al nome come un asterisco a una voce di
      tabella. Eredita lo stroke bianco del nome, quindi regge anche sui fondi scuri. */
   .lbl-dot{fill:#0d9488;font-weight:800}
@@ -2483,6 +2511,8 @@ body.viewmode.consult-viewer.cl-view #props #chanlist{ display:block; max-width:
 .hdr-variants .vtab:hover{color:var(--text)}
 .hdr-variants .vtab.on{background:var(--surface);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.12)}
 .hdr-variants .vtab-add{padding:0 9px;color:var(--accent-strong)}
+/* variante con contenuto uguale a un'altra (06/10): una nota piccola, non un allarme */
+.hdr-variants .vtab-eq{margin-left:6px;font-size:10px;font-weight:500;opacity:.6;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;display:inline-block}
 .hdr-variants .vtab-add:hover{background:var(--accent-tint)}
 .hdr-variants .vtab:focus-visible,.hdr-variants .vtab-add:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
 .var-menu .mi-danger{color:var(--danger)}
@@ -2849,6 +2879,9 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 #props .seg .adv-btn:first-child{border-radius:var(--r-sm) 0 0 var(--r-sm);margin-left:0}
 #props .seg .adv-btn:last-child{border-radius:0 var(--r-sm) var(--r-sm) 0}
 #props .seg .adv-btn.on{position:relative;z-index:1}
+/* quattro stili della forma (Pieno, Contorno, Tratteggio, Area — 06/10/2026): col padding dei due bottoni
+   «Tratteggio» e «Area» uscivano dal pannello. Ogni bottone prende la larghezza del suo testo. */
+#props .seg.seg-4 .adv-btn{flex:1 1 auto;min-width:0;padding:7px 3px}
 #props .seg .adv-btn .lbl-note{font-weight:400;opacity:.75}
 #props .seg .adv-btn.on .lbl-note{opacity:.85;color:inherit}
 
@@ -3394,6 +3427,7 @@ body.dark #props .solo-ped.on{background:#78350f;border-color:#b45309;color:#fbb
   body:not(.f-esporta) #pdfScaleRow,
   body:not(.f-esporta) #pdfScaleCustomRow,
   body:not(.f-esporta) #pdfHdrRow,
+  body:not(.f-esporta) #pdfPesiRow,
   body:not(.f-esporta) #pdfTechRow{display:none !important}
   #pdfModal .exp-pro{display:block;width:100%;margin-top:10px;min-height:36px;font-weight:600}
   /* «io direi che la versione semplificata non ha liste» (Simone, 14/09): in Semplice la colonna di

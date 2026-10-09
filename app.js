@@ -766,6 +766,86 @@ function drawAstaGigante(){
   s+='<circle fill="'+GR2+'" cx="-.4" cy="'+n(tip-3.4)+'" r="2.5"/>';
   return s;
 }
+/* PLATEA A BLOCCHI (06/10/2026, dai giri degli utenti: una platea disegnata con 60 sedie bianche posate
+   una per una). UN elemento solo, ridimensionabile, che disegna le file di sedie del pubblico e conta i
+   posti: si sposta in un gesto e il file resta leggero (un elemento invece di 60).
+   Fonte di verità = le MISURE (w, d) più il passo: file e sedie per fila si ricavano da lì. Così ogni
+   strada che cambia w/d senza sapere della platea (Adatta palco che la accorcia, il campo L/P, la
+   maniglia) lascia sempre un disegno coerente: ci stanno tante sedie quante ne entrano, mai una di più.
+   Ogni posto occupa una «casella» passo × passoFile (la sedia 50×53 al centro, il resto è lo spazio per
+   passare), il corridoio centrale opzionale divide la fila in due metà. */
+var PLATEA_DEF = { passo:55, passoFile:90, corridoio:0 };
+var PLATEA_LIM = { file:[1,40], sedie:[1,60], passo:[50,120], passoFile:[60,200], corridoio:[0,600] };
+var PLATEA_CORR_DEF = 120;   /* larghezza proposta quando si accende il corridoio: due persone che si incrociano */
+function plateaLim(k, v, def){ var l=PLATEA_LIM[k]; v=Math.round(+v); if(!isFinite(v)) v=def; return Math.max(l[0], Math.min(l[1], v)); }
+function plateaCfg(it){
+  var p=(it && it.platea && typeof it.platea==="object") ? it.platea : {};
+  var passo=plateaLim("passo", p.passo, PLATEA_DEF.passo), passoFile=plateaLim("passoFile", p.passoFile, PLATEA_DEF.passoFile);
+  var corridoio=plateaLim("corridoio", p.corridoio, PLATEA_DEF.corridoio);
+  var w=+(it && it.w)||0, d=+(it && it.d)||0;
+  /* floor e non round: una platea accorciata da fuori (Adatta) perde una sedia, non sborda dal suo ingombro */
+  var sedie=plateaLim("sedie", Math.floor((w-corridoio)/passo), 1), file=plateaLim("file", Math.floor(d/passoFile), 1);
+  if(sedie<2) corridoio=0;   /* una sedia sola non ha due metà fra cui passare */
+  return { file:file, sedie:sedie, passo:passo, passoFile:passoFile, corridoio:corridoio };
+}
+function plateaPosti(it){ var c=plateaCfg(it); return c.file*c.sedie; }
+/* Cambia uno o più parametri tenendo gli altri: le misure si rifanno esatte sulle caselle. */
+function plateaImposta(it, cambi){
+  var c=plateaCfg(it); cambi=cambi||{};
+  ["file","sedie","passo","passoFile","corridoio"].forEach(function(k){ if(cambi[k]!=null) c[k]=plateaLim(k, cambi[k], c[k]); });
+  if(c.sedie<2) c.corridoio=0;
+  it.platea={ passo:c.passo, passoFile:c.passoFile, corridoio:c.corridoio };
+  it.w=c.sedie*c.passo+c.corridoio; it.d=c.file*c.passoFile;
+  return c;
+}
+/* Dalle misure chieste (maniglia, campo L/P) al numero di sedie più vicino: round, così trascinando si
+   aggiunge una sedia a metà casella invece che a casella intera. Poi le misure tornano esatte. */
+function plateaDaMisure(it, w, d){
+  var c=plateaCfg(it);
+  return plateaImposta(it, { sedie:Math.round((w-c.corridoio)/c.passo), file:Math.round(d/c.passoFile) });
+}
+/* I posti, al centro delle loro caselle, nel riferimento dell'elemento. Le sedie guardano il palco (-y):
+   lo schienale sta dietro, verso +y — al contrario della «Sedia pubblico» singola, che nasce come quella
+   dei musicisti. Se le misure avanzano (platea accorciata da fuori), il blocco sta al centro. */
+function plateaPostiXY(it){
+  var c=plateaCfg(it), out=[];
+  var usatoW=c.sedie*c.passo+c.corridoio, usatoD=c.file*c.passoFile;
+  var x0=-usatoW/2, y0=-usatoD/2, sx=Math.ceil(c.sedie/2);
+  for(var f=0; f<c.file; f++) for(var s=0; s<c.sedie; s++){
+    out.push({ x:x0+c.passo*(s+0.5)+(c.corridoio && s>=sx ? c.corridoio : 0), y:y0+c.passoFile*(f+0.5) });
+  }
+  return out;
+}
+function plateaDraw(it){
+  var s='', n=0;
+  plateaPostiXY(it).forEach(function(p){ n++;
+    s+=bar(p.x,p.y-3,50,46,'ic fill',6)+bar(p.x,p.y+20,50,9,'ic fill',4)+bar(p.x,p.y-3,42,38,'ic soft',5); });
+  var txt=n+(n===1?" posto":" posti"), fs=18, tw=txt.length*fs*.58+16;
+  /* il conteggio al centro, su un cartellino bianco: nel corridoio quando c'è, sopra le sedie se no */
+  /* contro-ruotato: la platea girata di 90° non deve far leggere «60 posti» di lato (revisione del 06/10/2026) */
+  s+='<g class="pl-posti" transform="rotate('+(-(+it.rot||0))+')">';
+  s+='<rect x="'+(-tw/2)+'" y="'+(-fs*.85)+'" width="'+tw+'" height="'+(fs*1.7)+'" rx="6" fill="#fff" stroke="#cbd5e1" stroke-width="1"/>';
+  s+='<text x="0" y="'+(fs*.35)+'" text-anchor="middle" font-size="'+fs+'" font-weight="700" fill="#1c1c1c" font-family="-apple-system,Segoe UI,sans-serif">'+txt+'</text></g>';
+  return s;
+}
+/* Il riquadro della platea nel pannello: i numeri veri (anche dopo un «Adatta») e il conteggio dei posti,
+   con il peso, che è l'unica cosa della platea che entra nel rider. */
+function plateaTestoPosti(it){ var c=plateaCfg(it), n=c.file*c.sedie;
+  return n+(n===1?" posto":" posti")+" · "+c.file+(c.file===1?" fila":" file")+" × "+c.sedie+" · "+fmtKg(weightOf(it))+" di sedie"; }
+function plateaFillProps(it){
+  var w=document.getElementById("pPlateaWrap"); if(!w) return;
+  var on=!!(it && it.type==="platea"); w.style.display = on ? "block" : "none";
+  if(!on) return;
+  var c=plateaCfg(it);
+  document.getElementById("pPlFile").value=c.file;
+  document.getElementById("pPlSedie").value=c.sedie;
+  document.getElementById("pPlPasso").value=c.passo;
+  document.getElementById("pPlPassoFile").value=c.passoFile;
+  document.getElementById("pPlCorr").checked=c.corridoio>0;
+  document.getElementById("pPlCorrRow").style.display = c.corridoio>0 ? "" : "none";
+  document.getElementById("pPlCorrW").value=c.corridoio||PLATEA_CORR_DEF;
+  document.getElementById("pPlPosti").textContent=plateaTestoPosti(it);
+}
 var TYPES = {
   /* --- revisione 05/07: Site + Rigging (lotto 2) --- */
   mojobar: {nome:"Barriera antipanico", dim:"100×125", cat:"Sicurezza e site", w:100,d:125,
@@ -969,6 +1049,11 @@ var TYPES = {
              draw:function(){ return bar(0,2,44,44,'ic fBlack',8)+bar(0,-20,44,8,'ic fill',4); }},
   sediapubblico:{nome:"Sedia pubblico", dim:"50×53 · 3,5 kg", cat:"Palco e strutture", w:50,d:53, z:1.5, defLabel:"Sedia",   /* sedia impilabile pubblico 50×53, alt. 77/seduta 46, 3,5 kg */
              draw:function(){ return bar(0,3,50,46,'ic fill',6)+bar(0,-20,50,9,'ic fill',4)+bar(0,3,42,38,'ic soft',5); }},
+  /* platea (06/10/2026): file di sedie del pubblico in un elemento solo — vedi plateaCfg. NON sono sedie dei
+     musicisti: non entrano nel conteggio «sedie» del rider (countAccessori, pdfTotals), solo nel peso. */
+  platea:{nome:"Platea (file di sedie)", dim:"6 file × 10 sedie · 60 posti", cat:"Palco e strutture", w:550,d:540, resizable:true, z:1, defLabel:"Platea",
+             alias:"platea pubblico sedie pubblico sedie del pubblico posti a sedere posti spettatori file di sedie sala audience seating",
+             draw:function(it){ return plateaDraw(it); }},
   sedialeggio:{nome:"Sedia + leggio", dim:"postazione", cat:"Palco e strutture", w:75,d:105,
              draw:function(){ return bar(0,-22,46,46,'ic fBlack',9)+bar(0,-48,46,9,'ic fill',4)+leggioGlyph(38); }},
   leggio:   {nome:"Leggio", dim:"48×35", cat:"Palco e strutture", catalog:false, w:50,d:35,
@@ -1058,8 +1143,17 @@ var TYPES = {
              draw:function(){ return bongosGlyph(); }},
   percussionistaR:{nome:"Percussionista", dim:"persona · 65 cm", cat:"Batteria e percussioni", sub:"Pezzi singoli", catalog:false, w:65,d:81, z:1, defLabel:"Perc",
              draw:function(){ return libIcon("batteristaPersona"); }},
-  cajon:    {nome:"Cajon", dim:"30×30", cat:"Batteria e percussioni", sub:"Percussioni", w:34,d:34,
+  /* il cajon da solo esce dal catalogo il 06/10/2026: al suo posto c'è la postazione (sotto). Resta come
+     tipo perché i progetti salvati con i tre pezzi (percussionista + cajon + asta bassa) devono riaprirsi
+     identici, e perché «Dividi» sulla postazione lo ridà come pezzo singolo. */
+  cajon:    {nome:"Cajon", dim:"30×30", cat:"Batteria e percussioni", sub:"Percussioni", catalog:false, w:34,d:34,
              draw:function(){ return bar(0,0,30,30,'ic fWoodL',3)+circ(0,0,7,'ic thin fWoodD')+circ(-9,-9,1.8,'dotS')+circ(9,-9,1.8,'dotS'); }},
+  /* POSTAZIONE CAJON (06/10/2026): il cajonista si otteneva con tre elementi separati e per spostarlo
+     se ne prendevano tre. Ora è una postazione sola, come le percussioni: il cajon, il musicista seduto
+     sopra (si toglie dal pannello) e l'asta bassa davanti. Un canale solo, il Beta 91A del cajon. */
+  cajonpost:{nome:"Cajon", dim:"postazione · cajon + mic", cat:"Batteria e percussioni", sub:"Percussioni", w:65,d:127, defLabel:"Cajon",
+             qaCede:"percussionista percussionisti",   /* si trova anche con «percussionista», ma il primo posto resta del set congas + bongos */
+             draw:function(it){ return drawCajonPost(it); }},
   /* — piccole percussioni (30/07): quelle che un percussionista si porta e si dispone a modo suo.
        Nascono SENZA canale proprio (MIKING def "pan", come i fiati di sezione): un setup di dieci
        pezzi si riprende con uno o due panoramici, non con dieci close mic. Chi ne vuole microfonare
@@ -1180,6 +1274,7 @@ var TYPES = {
   stagepiano:{nome:"Stage piano", dim:"88 tasti", cat:"Band e backline", sub:"Tastiere e piani", w:138,d:42, alias:"tastiera keyboard piano digitale synth 88 tasti",
              draw:function(it){ return drawLibFit("stagepiano",it,135,40); }},
   tastiera: {nome:"Tastiera", dim:"synth · 1 tastiera", cat:"Band e backline", sub:"Tastiere e piani", w:120,d:36, alias:"tastiera tastiere keyboard synth sintetizzatore synthesizer piano digitale master keyboard workstation singola nord korg roland",
+             qaPrimo:"synth sintetizzatore synthesizer",   /* 06/10/2026: un synth è uno strumento solo; vinceva la Doppia tastiera per ordine alfabetico */
              draw:function(it){ return drawLibFit("stagepiano",it,118,34); }},
   doppiatastiera:{nome:"Doppia tastiera", dim:"120×75", cat:"Band e backline", sub:"Tastiere e piani", w:125,d:78, alias:"tastiera tastiere doppia due keyboard keyboards synth sintetizzatore stack",
              draw:function(it){ return drawLibFit("doppiatastiera",it,105,50); }},
@@ -1397,6 +1492,7 @@ var TYPES = {
   monmix:   {nome:"Mixer monitor", dim:"~90×60", cat:"Cablaggio e segnale", w:95,d:70, defLabel:"MON MIX", qaCede:"monitor",
              draw:function(it){ return drawLibFit("mixermonitor",it,95,65); }},
   laptop:   {nome:"Mac portatile", dim:"38×28", cat:"Regia e console", sub:"Postazioni regia", w:44,d:34, defLabel:"MAC",
+             qaCede:"live",   /* 06/10/2026: l'alias «live electronics» faceva uscire il Mac prima dei dLive cercando «live» */
              draw:function(it){ return drawLibFit("laptopstand",it,45,40); }},
   audiointerface:{nome:"Interfaccia audio", dim:"32×22", cat:"Regia e console", sub:"Postazioni regia", w:42,d:30, defLabel:"I/O",
              draw:function(){ return bar(0,0,38,24,'ic tec fGrey',3)+
@@ -1755,10 +1851,19 @@ var SEARCH_ALIAS = {
    o scritte a mano su un elemento preso al posto di quello giusto. Tabella a parte e AGGIUNTA in coda:
    in un unico oggetto una chiave ripetuta (camera, iem, percussioni) cancellerebbe la riga di prima. */
 var SEARCH_ALIAS_GIRI = {
-  camera:"webcam web cam tracking", laptop:"sequenze playback basi click backing track", notebook:"sequenze playback basi",
+  camera:"webcam web cam tracking motion tracking", laptop:"sequenze playback basi click backing track polytempo max msp maxmsp ableton live electronics elettronica timecode smpte mtc", notebook:"sequenze playback basi",
   iem:"bodypack body pack", sediapubblico:"pubblico platea spettatori sedute",
   confidence:"gobbo tv televisore schermo testi teleprompter prompter testi canzoni",
-  percussioni:"percussionista percussionisti", cajon:"cajonista",
+  percussioni:"percussionista percussionisti",
+  cajonpost:"cajonista cajonisti percussionista percussionisti",   /* 06/10/2026: era sul cajon da solo, ora fuori catalogo */
+  /* 06/10/2026, giro P-725a15 (live electronics): Moog, Soma Lyra, Polytempo, «MIDI Drum Kit» e webcam erano stati messi su
+     tablet, rack2u, notebook, batteria e testo libero perché la ricerca non conosceva queste parole. Tipi già esistenti, scelti da fonico.
+     edrums è fuori catalogo (modulo), perciò «midi drum» va sull'SPD-SX. Niente «beatbox» (è un cantante col microfono) né «drone»
+     (sul palco è anche quello che vola). Manca ancora un elemento per il sync dedicato (generatore/distributore di timecode e word clock) e per il theremin. */
+  tastiera:"moog",
+  rack2u:"modulare eurorack lyra soma lyra",
+  spdsx:"drum machine drummachine midi kit midi drum midi drum kit",
+  audiointerface:"scheda audio word clock wordclock",
 };
 [SEARCH_ALIAS, SEARCH_ALIAS_GIRI].forEach(function(tab){ Object.keys(tab).forEach(function(k){   /* fuso nei tipi: le due ricerche leggono solo TYPES[k].alias */
   if(TYPES[k]) TYPES[k].alias=((TYPES[k].alias||"")+" "+tab[k]).trim();
@@ -1776,7 +1881,7 @@ var ESSENTIAL={ comboamp:1,stack:1,bassamp:1,keysamp:1, astamic:1,giraffa:1,asta
   /* video e studio: essenziali le sorgenti LED che si montano ogni giorno; HMI, Fresnel LED e
      open-face restano sotto «Mostra tutti» (set più strutturati, non il kit di tutti i giorni) */
   ledcob:1,ledmono:1,ledpanel:1,ledflex:1,ledtube:1,softlight:1,
-  pedana:1,tappeto:1,fondale:1,sediabianca:1,sgabello:1,leggio:1,leggiotablet:1, truss:1,transenna:1,estcarr:1,towergs:1,
+  pedana:1,tappeto:1,fondale:1,sediabianca:1,platea:1,sgabello:1,leggio:1,leggiotablet:1, truss:1,transenna:1,estcarr:1,towergs:1,
   notebook:1,rack2u:1,flightcase:1, cantante:1,corista:1,direttore:1,
   vlnpost:1,violapost:1,violoncello:1,contrabbasso:1,flauto:1,clarinetto:1,saxalto:1,saxtenore:1,tromba:1,trombone:1,corno:1,
   stagepiano:1,tastiera:1,grancoda:1,doppiatastiera:1,organohammond:1, gtstand:1,gtacustica:1,bassstand:1,pedaliera:1, batteria:1,snareR:1 };
@@ -2094,7 +2199,7 @@ var WEIGHT = {
   grancoda:400, mezzacoda:300, pianoverticale:230, stagepiano:25, doppiatastiera:40, celesta:100,
   /* batteria e percussioni */
   batteria:55, edrums:35, timpani:180, timpani3:135, timpani2:95, marimba:70, vibrafono:65, xilofono:45,
-  glockenspiel:20, campane:90, grancassa:40, tamtam:45, timbales:20, percussioni:30, cajon:6,
+  glockenspiel:20, campane:90, grancassa:40, tamtam:45, timbales:20, percussioni:30, cajon:6, cajonpost:6,   /* la postazione pesa quanto il cajon: le aste qui non hanno peso */
   /* sedie (peso per il rider) */
   sediaorch:6, sediapubblico:3.5, sediabianca:3.5,
   /* PA — un elemento e' UN MODULO, non l'array intero (la larghezza in pianta lo dice: 134 cm per
@@ -2146,6 +2251,8 @@ function weightOf(it){ if(!it) return 0; if(it.kg!=null && isFinite(it.kg)) retu
   if(ew!=null) return ew;
   var aw=(typeof ampModelKg==="function")?ampModelKg(it):null;   /* backline reale (AMP_DB) */
   if(aw!=null) return aw;
+  /* platea (06/10/2026): pesa quanto le sue sedie del pubblico, una per posto */
+  if(it.type==="platea") return plateaPosti(it)*WEIGHT.sediapubblico;
   return WEIGHT[it.type]||0; }
 function totalWeightKg(){ return (state.items||[]).reduce(function(a,it){ return a+weightOf(it); },0); }
 function totalRackU(){ return (state.items||[]).reduce(function(a,it){ return a+(RACK_U[it.type]||0); },0); }
@@ -2257,7 +2364,7 @@ var VOCE = { cantante:1, corista:1, relatore:1, moderatore:1 };   /* postazioni 
    e se cantano in un pezzo usano l'asta come tutti — il loro canale mic esiste gia'. */
 var HEADMIC_TYPES = { gtstand:1, gtacustica:1, bassstand:1, musChitClassica:1,
   stagepiano:1, tastiera:1, doppiatastiera:1, organohammond:1, grancoda:1, mezzacoda:1, pianoverticale:1,
-  batteria:1, percussioni:1, cajon:1, fisarmonica:1, arpa:1, djset:1 };
+  batteria:1, percussioni:1, cajon:1, cajonpost:1, fisarmonica:1, arpa:1, djset:1 };
 var HEADMIC_MIC = { archetto:"DPA 4088", asta:"SM58", mano:"SM58" };
 function canHeadMic(it){ return !!(it && (HEADMIC_TYPES[it.type] || (TYPES[it.type]&&TYPES[it.type].gtr))); }
 function headMicOf(it){
@@ -2717,6 +2824,55 @@ function percChans(it){ var p=parts(it), out=[];
   if(p.bongos!==false) out.push(["Bongos","e904"]);
   return out;   /* set senza pezzi (solo il percussionista) = nessun canale, non due canali finti */
 }
+/* ── Postazione cajon (06/10/2026) ──
+   I tre pezzi stanno dove li metteva il modello Acustico, misurati dal centro del cajon: il musicista
+   18 cm più indietro (seduto sopra, il corpo sporge verso il fondo), l'asta bassa 47 cm davanti e
+   girata verso il cajon. Ogni pezzo si disegna con il draw del suo tipo singolo, così la postazione
+   e i tre pezzi dei progetti vecchi si vedono uguali. L'ingombro segue i pezzi montati, come le
+   percussioni: senza musicista il riquadro si stringe al cajon e al microfono. */
+var CAJON_SLOTS = { cajon:{x:0,y:0,w:34,d:34}, mus:{x:0,y:-18,w:65,d:81}, mic:{x:0,y:47,w:50,d:42} };
+/* l'ordine è quello di sovrapposizione: il percussionista ha z:1 (sotto gli altri), quindi nei tre pezzi
+   il piano del cajon copriva le gambe di chi ci sta seduto. Qui uguale: prima il musicista, poi il cajon. */
+function cajonSlots(p){
+  var L=[];
+  if(p.mus!==false) L.push({k:"mus", s:CAJON_SLOTS.mus});
+  L.push({k:"cajon", s:CAJON_SLOTS.cajon});
+  L.push({k:"mic", s:CAJON_SLOTS.mic});
+  return L;
+}
+/* centro arrotondato al cm: le coordinate dei pezzi restano intere, e la postazione del modello
+   (centro 5 cm davanti al cajon) rimette ogni pezzo esattamente dov'era */
+function cajonBBox(L){
+  var x0=Infinity, x1=-Infinity, y0=Infinity, y1=-Infinity;
+  L.forEach(function(e){ var s=e.s;
+    x0=Math.min(x0, s.x-s.w/2); x1=Math.max(x1, s.x+s.w/2); y0=Math.min(y0, s.y-s.d/2); y1=Math.max(y1, s.y+s.d/2); });
+  return { cx:Math.round((x0+x1)/2), cy:Math.round((y0+y1)/2), w:Math.round(x1-x0), d:Math.round(y1-y0) };
+}
+function sizeCajonPost(it){ var B=cajonBBox(cajonSlots(parts(it))); return [B.w, B.d]; }
+function drawCajonPost(it){
+  var L=cajonSlots(parts(it)), B=cajonBBox(L), s='';
+  if(it.w!==B.w||it.d!==B.d){ it.w=B.w; it.d=B.d; }   /* riallinea un documento con misure vecchie (idempotente), come le percussioni */
+  L.forEach(function(e){
+    var pre='<g transform="translate('+(e.s.x-B.cx)+' '+(e.s.y-B.cy)+')'+(e.k==="mic"?' rotate(180)':'')+'">';
+    var body = e.k==="cajon" ? TYPES.cajon.draw()
+             : e.k==="mus"   ? TYPES.percussionistaR.draw()
+             :                 TYPES.astabassa.draw({w:CAJON_SLOTS.mic.w, d:CAJON_SLOTS.mic.d});
+    s += pre+body+'</g>';
+  });
+  return s;
+}
+/* «Dividi»: ridà i tre pezzi di prima, con le loro etichette di prima. L'asta bassa da sola torna un
+   microfono a sé (SM57) con il suo canale: diviso, è un elemento come gli altri e si può togliere. */
+function explodeCajonPost(it){
+  var L=cajonSlots(parts(it)), B=cajonBBox(L), out=[];
+  L.forEach(function(e){
+    var dx=e.s.x-B.cx, dy=e.s.y-B.cy;
+    if(e.k==="cajon") out.push({type:"cajon", dx:dx, dy:dy, label:(it.label!=null && it.label!=="") ? it.label : "Cajon"});
+    else if(e.k==="mus") out.push({type:"percussionistaR", dx:dx, dy:dy, label:""});
+    else out.push({type:"astabassa", dx:dx, dy:dy, label:"", extra:{rot:((it.rot||0)+180)%360}});
+  });
+  return out;
+}
 var COMP = {
   percussioni: { defParts:{congas:2, bongos:true, mus:true, stool:false},
     controls:[ {key:"congas",label:"Congas",type:"count",min:0,max:3},
@@ -2729,6 +2885,10 @@ var COMP = {
       var a=(n>0?(n===1?"Conga":"Congas ×"+n):""), b=(p.bongos!==false?"Bongos":"");
       return (a&&b)?(a+" + "+b):(a||b||"Percussioni"); },
     chans:percChans, draw:drawPercussioni, size:sizePercussioni, explode:explodePercussioni },
+  /* il canale non sta qui ma in IN_SRC (Beta 91A): è uno solo e non dipende dai pezzi */
+  cajonpost: { defParts:{mus:true},
+    controls:[ {key:"mus",label:"Musicista",type:"toggle"} ],
+    draw:drawCajonPost, size:sizeCajonPost, explode:explodeCajonPost },
   batteria: { defParts:{toms:2,floor:true,hihat:true,crash:1,ride:true,kick2:false,mus:true,stool:true,lefty:false,leggio:false},
     controls:[ {key:"toms",label:"Tom",type:"count",min:0,max:3},
                {key:"floor",label:"Floor tom",type:"toggle"},
@@ -2765,7 +2925,7 @@ var DEFAULT_LABELS = {
   sgabello:"Sgab.", ventilatore:"Ventilatore", metro:"", testo:"Testo",
   corno:"Corno", tromba:"Tr", trombone:"Tbn", tuba:"Tuba",
   flauto:"Fl", oboe:"Ob", clarinetto:"Cl", fagotto:"Fg", saxalto:"Sax A", saxtenore:"Sax T", saxbaritono:"Sax Bar",
-  batteria:"Drums", edrums:"E-drums", drumshield:"Shield", rullante:"Snare", percussioni:"Perc.", cajon:"Cajon", timbales:"Timbales",
+  batteria:"Drums", edrums:"E-drums", drumshield:"Shield", rullante:"Snare", percussioni:"Perc.", cajon:"Cajon", cajonpost:"Cajon", timbales:"Timbales",
   timpani:"Timpani", timpani3:"Timp x3", timpani2:"Timp x2", grancassa:"Gran cassa", piatto:"Piatto", piatticoppia:"Piatti", campane:"Chimes",
   timpsingolo:"Timp", kickdrum:"Kick", tomdrum:"Tom", hihat:"HH",
   tamtam:"Tam-tam", glockenspiel:"Glock.", xilofono:"Xylo", vibrafono:"Vibes", marimba:"Marimba",
@@ -3121,7 +3281,7 @@ function nextVariantName(){ var n=0; VARIANTS.forEach(function(v){ var m=/^Varia
    data e contatti non erano mai diversi. Restano nello stato di ogni variante — lo schema e i file
    già salvati non cambiano — ma a ogni sincronizzazione quelli della variante attiva si scrivono
    nelle altre. */
-var CAMPI_DOCUMENTO=["titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader"];
+var CAMPI_DOCUMENTO=["titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento */
 function propagaCampiDocumento(v){
   var src=v&&v.state; if(!src) return;
   VARIANTS.forEach(function(o){
@@ -3307,6 +3467,7 @@ function createVariant(name){
   var copy=JSON.parse(JSON.stringify(src.state)); var id=newVarId();
   delete copy.pdfEsportato;   /* una variante nuova non è mai stata esportata */
   VARIANTS.push({ id:id, name:(name||nextVariantName()), state:copy });
+  variantiNuove[id]=src.id;   /* uguale per costruzione: nessun avviso finché non diverge */
   if(venueImgCache[src.id]) venueImgCache[id]=Object.assign({},venueImgCache[src.id]);
   activeVar=id; applyVariantState(copy,true,id);
   ensureItemIds(); clearSelection(); if(typeof setEventInputs==="function") setEventInputs();
@@ -3314,6 +3475,105 @@ function createVariant(name){
   persistLocalState(); if(window.scheduleCloudAutosave) scheduleCloudAutosave();
   if(window.__consultDirty) window.__consultDirty();
   render(); renderChannels(); fit(); renderVariantBar(); return id;
+}
+/* Varianti identiche (06/10/2026). «Nuova variante» copia quella attiva: un progetto reale ne aveva 2 su 10
+   uguali a un'altra (73 elementi identici), duplicati dimenticati. La firma è il contenuto della scena
+   (elementi con posizioni, nomi e proprietà, palco, liste) SENZA le cose interne: gli id degli elementi
+   (e dei gruppi), citati ovunque (cavi, mix, monitor), si rinumerano per ordine; il nome della variante
+   sta fuori dallo stato; _v e pdfEsportato non sono contenuto. Costo: si calcola solo quando si disegna la
+   barra (cambio variante, nuova, rinomina, elimina) o ci si passa sopra col mouse; le varianti ferme si
+   firmano una volta sola (cache per oggetto stato, che syncActiveVariant sostituisce a ogni modifica),
+   solo l'attiva si ricalcola. Una variante appena creata con «Nuova variante» è uguale per costruzione:
+   non si segnala (né lei né l'originale) finché non diverge; se poi diverge, entra nel confronto. */
+var avvisoDisegnato="", firmaVarCache=new WeakMap(), variantiNuove=Object.create(null);
+function firmaScena(st){
+  if(!st || typeof st!=="object") return null;
+  var o=JSON.parse(JSON.stringify(st)); delete o._v; delete o.pdfEsportato;
+  /* Revisione 06/10: fuori anche i campi del DOCUMENTO (titolo, data, contatti… e il permesso del link), uguali
+     in ogni variante per costruzione. propagaCampiDocumento li riscrive DENTRO lo stato delle varianti ferme
+     senza sostituirlo: la firma in cache restava col titolo vecchio, e dopo aver cambiato il titolo due varianti
+     gemelle smettevano di risultare uguali. Fuori anche quello che l'app annota senza che l'utente lo modifichi
+     (come historyStateJSON: area di stampa, production.asked) e il rimando _sameAs della pianta nei file
+     esportati: esportare il PDF di una delle due non la rende diversa dall'altra. */
+  CAMPI_DOCUMENTO.forEach(function(k){ delete o[k]; }); delete o.shareOpts; delete o.printFrame;
+  if(o.production && typeof o.production==="object") delete o.production.asked;
+  if(o.venue && typeof o.venue==="object") delete o.venue._sameAs;
+  var mappa=Object.create(null), n=0, ng=0;
+  (o.items||[]).forEach(function(it){
+    if(!it || typeof it!=="object") return;
+    if(typeof it.id==="string" && it.id && !(it.id in mappa)) mappa[it.id]="\u00a7"+(n++);
+    if(typeof it.grp==="string" && it.grp && !(it.grp in mappa)) mappa[it.grp]="\u00a7g"+(ng++);
+  });
+  var ids=Object.keys(mappa), re=null;
+  if(ids.length){
+    ids.sort(function(a,b){ return b.length-a.length; });
+    re=new RegExp("(?<![A-Za-z0-9_-])(?:"+ids.map(function(k){ return k.replace(/[.*+?^${}()|[\]\\\/-]/g,"\\$&"); }).join("|")+")(?![A-Za-z0-9_-])","g");
+  }
+  /* Revisione 06/10: la rinumerazione tocca SOLO le stringhe (valori e chiavi), mai i numeri. Sul testo JSON un id
+     tutto cifre — safeItemId lo accetta, un file importato può averne — prendeva anche le coordinate: con l'id "12"
+     un "x":12 diventava "x":§0, e due scene con l'elemento in punti diversi risultavano uguali.
+     Chiavi ordinate, come firmaPdf: l'ordine delle chiavi non è contenuto (normalizeState aggiunge in coda i campi
+     che mancano). Si ordina sulle chiavi GIÀ rinumerate, o le mappe per id (cab.manual…) seguirebbero gli id vecchi. */
+  function ren(x){ return re ? x.replace(re,function(m){ return mappa[m]; }) : x; }
+  function canon(x){
+    if(typeof x==="string") return ren(x);
+    if(Array.isArray(x)) return x.map(canon);
+    if(x && typeof x==="object"){
+      var r=Object.create(null);
+      Object.keys(x).map(function(k){ return [ren(k),k]; }).sort(function(a,b){ return a[0]<b[0]?-1:(a[0]>b[0]?1:0); })
+        .forEach(function(p){ r[p[0]]=canon(x[p[1]]); });
+      return r;
+    }
+    return x;
+  }
+  return JSON.stringify(canon(o));
+}
+function firmaVariante(v){
+  if(!v) return null;
+  if(v.id===activeVar && typeof state!=="undefined" && state) return firmaScena(JSON.parse(stateToJSON()));
+  if(!v.state || typeof v.state!=="object") return null;
+  if(!firmaVarCache.has(v.state)) firmaVarCache.set(v.state, firmaScena(v.state));
+  return firmaVarCache.get(v.state);
+}
+/* id variante → nome della prima altra variante col contenuto identico (solo quelle che hanno un gemello) */
+function variantiUguali(){
+  var sig={}, out={}, i, v;
+  for(i=0;i<VARIANTS.length;i++){ v=VARIANTS[i]; sig[v.id]=firmaVariante(v); }
+  for(var id in variantiNuove){
+    var src=variantiNuove[id], vivo=VARIANTS.some(function(x){ return x.id===id; });
+    if(!vivo || !(src in sig) || sig[id]!==sig[src]) delete variantiNuove[id];
+  }
+  for(i=0;i<VARIANTS.length;i++){
+    v=VARIANTS[i]; if(sig[v.id]==null || variantiNuove[v.id]) continue;
+    for(var j=0;j<VARIANTS.length;j++){
+      var w=VARIANTS[j];
+      if(w===v || sig[w.id]!==sig[v.id] || variantiNuove[w.id]) continue;
+      out[v.id]=w.name||("Variante "+(j+1)); break;
+    }
+  }
+  return out;
+}
+/* Revisione 06/10: l'avviso disegnato non deve restare a dire «uguale» mentre si modifica una delle due.
+   Si ridisegna solo se l'esito cambia, tenendo il fuoco sul bottone dov'era (focusin rifaceva la barra sotto
+   la tastiera e il fuoco cadeva sulla pagina). Dopo una modifica (persistLocalState: save, saveSoon,
+   Annulla) si ricontrolla con un ritardo, e SOLO se un avviso è in vista: senza doppioni non costa niente. */
+var avvisiVarT=null;
+function rinfrescaAvvisiVarianti(){
+  avvisiVarT=null;
+  var k=VARIANTS.length>1 ? JSON.stringify(variantiUguali()) : "{}";
+  if(k===avvisoDisegnato) return false;
+  var bar=document.getElementById("variantBar"), html=variantTabsHtml();
+  if(bar && !bar.hidden){
+    var kids=Array.prototype.slice.call(bar.children||[]), f=document.activeElement, pos=kids.indexOf(f);
+    bar.innerHTML=html;
+    if(pos>=0 && bar.children[pos] && bar.children[pos].focus) bar.children[pos].focus();
+  }
+  renderVariantMobile();
+  return true;
+}
+function avvisiDopoModifica(){
+  if(!avvisoDisegnato || avvisoDisegnato==="{}") return;
+  clearTimeout(avvisiVarT); avvisiVarT=setTimeout(rinfrescaAvvisiVarianti, 600);
 }
 function renameVariant(id, name){ name=(name||"").trim(); if(!name) return; for(var i=0;i<VARIANTS.length;i++){ if(VARIANTS[i].id===id){ VARIANTS[i].name=name; break; } }
   persistLocalState(); if(window.scheduleCloudAutosave) scheduleCloudAutosave(); if(window.__consultDirty) window.__consultDirty(); renderVariantBar(); }
@@ -3368,11 +3628,13 @@ function renderVariantBar(){
 }
 /* Le schede delle varianti, come testo: una funzione pura, così si prova senza DOM. */
 function variantTabsHtml(){
-  var html="";
+  var html="", uguali=VARIANTS.length>1 ? variantiUguali() : {}; avvisoDisegnato=JSON.stringify(uguali);
   for(var i=0;i<VARIANTS.length;i++){
-    var v=VARIANTS[i], on=(v.id===activeVar), nome=v.name||("Variante "+(i+1));
-    html+='<button type="button" class="vtab'+(on?' on':'')+'" role="tab" aria-selected="'+(on?'true':'false')+'" data-var="'+esc(v.id)+'" title="'+
-      (on ? 'Variante attiva — tocca per rinominarla, duplicarla o eliminarla' : 'Passa alla variante «'+esc(nome)+'»')+'">'+esc(nome)+'</button>';
+    var v=VARIANTS[i], on=(v.id===activeVar), nome=v.name||("Variante "+(i+1)), gemella=uguali[v.id];
+    html+='<button type="button" class="vtab'+(on?' on':'')+(gemella?' uguale':'')+'" role="tab" aria-selected="'+(on?'true':'false')+'" data-var="'+esc(v.id)+'" title="'+
+      (on ? 'Variante attiva — tocca per rinominarla, duplicarla o eliminarla' : 'Passa alla variante «'+esc(nome)+'»')+
+      (gemella ? ' — contenuto uguale a «'+esc(gemella)+'»' : '')+'">'+esc(nome)+
+      (gemella ? '<span class="vtab-eq" aria-label="uguale a '+esc(gemella)+'">= '+esc(gemella)+'</span>' : '')+'</button>';
   }
   /* con una sola variante il «+» dice cosa fa; con più varianti le schede lo spiegano già */
   html+='<button type="button" class="vtab-add" title="Nuova variante: copia di quella attiva" aria-label="Nuova variante">'+(VARIANTS.length>1 ? '+' : '+<span class="hdr-lbl"> Variante</span>')+'</button>';
@@ -3392,8 +3654,8 @@ function renderVariantMobile(){
   var multi=!ospite && VARIANTS.length>1;
   if(row) row.hidden=!multi; if(ren) ren.hidden=!multi; if(del) del.hidden=!multi;
   if(ospite || !sel) return;
-  var html=""; for(var i=0;i<VARIANTS.length;i++){ var v=VARIANTS[i];
-    html+='<option value="'+esc(v.id)+'"'+(v.id===activeVar?" selected":"")+'>'+esc(v.name||("Variante "+(i+1)))+'</option>'; }
+  var uguali=VARIANTS.length>1 ? variantiUguali() : {}, html=""; for(var i=0;i<VARIANTS.length;i++){ var v=VARIANTS[i];
+    html+='<option value="'+esc(v.id)+'"'+(v.id===activeVar?" selected":"")+'>'+esc(v.name||("Variante "+(i+1)))+(uguali[v.id]?' (uguale a «'+esc(uguali[v.id])+'»)':'')+'</option>'; }
   sel.innerHTML=html; sel.value=activeVar;
 }
 function promptRenameVariant(id){
@@ -3451,6 +3713,8 @@ function confirmDeleteVariant(id){
     else if(a==="new") createVariant();
     else if(a==="del") confirmDeleteVariant(activeVar);
   });
+  /* l'attiva può essere cambiata dall'ultimo disegno: ci si passa sopra e l'avviso si ricalcola (solo se cambia) */
+  if(bar){ bar.addEventListener("mouseenter", rinfrescaAvvisiVarianti); bar.addEventListener("focusin", rinfrescaAvvisiVarianti); }
   document.addEventListener("click", function(e){ if(menu && !menu.hidden && !e.target.closest("#variantMenu") && !e.target.closest("#variantBar")) chiudiMenu(); });
   document.addEventListener("keydown", function(e){ if(e.key==="Escape") chiudiMenu(); });
   var msel=document.getElementById("mVariantSel");
@@ -3575,6 +3839,7 @@ track("app_open", {from:(location.search.match(/[?&]from=([\w-]{1,24})/)||[])[1]
    "Senza titolo" al primo autosave. Stato e id si scrivono insieme così restano sempre coerenti; se il
    modulo cloud non è ancora partito la chiave non si tocca (il boot la sta per adottare). */
 function persistLocalState(forceLockedMetadata){
+  avvisiDopoModifica();   /* avviso di variante identica ancora vero? (06/10) */
   if(foreignDoc() || (window.__projLocked&&!forceLockedMetadata) || window.__docLoadBlocked) return;   /* progetto bloccato: scrittura solo per rev metadata esplicitamente autorizzata */
   if(window.__localConflict) return false;
   var C=window.__cloud, cloudId=window.__bootCloudId||null, cloudRev=window.__bootCloudRev||null, payload;
@@ -5463,6 +5728,7 @@ function normalizeLoadedItems(arr){
       if(typeof it.label2==="string" || typeof it.label2==="number") it.label2=String(it.label2);
       else delete it.label2;
     }
+    postoSanifica(it);   /* posti numerati (06/10): fila/posto/settore da file altrui → tipi e lunghezze garantiti, o via */
     if(it.note!=null){   /* nota dell'elemento: testo altrui in arrivo da file/link/cloud → tipo e lunghezza garantiti qui */
       var _nn=(typeof it.note==="string"||typeof it.note==="number") ? String(it.note).slice(0,NOTE_MAX).trim() : "";
       if(_nn) it.note=_nn; else delete it.note;
@@ -5512,8 +5778,13 @@ function normalizeLoadedItems(arr){
     if(it.type==="forma"){   /* forma: valori fuori elenco → si torna al default, mai markup arbitrario */
       if(it.fill!=null && !/^#[0-9a-f]{6}$/i.test(String(it.fill))) delete it.fill;
       if(it.shape!=null && !SHAPES.some(function(x){ return x[0]===it.shape; })) delete it.shape;
-      if(it.shapeStyle!=null && it.shapeStyle!=="outline" && it.shapeStyle!=="dashed") delete it.shapeStyle;
+      if(it.shapeStyle!=null && it.shapeStyle!=="outline" && it.shapeStyle!=="dashed" && it.shapeStyle!=="area") delete it.shapeStyle;   /* «area» dal 06/10/2026: vedi isAreaNome */
     }
+    if(it.platea!=null){   /* platea (06/10/2026): solo i tre numeri, nei loro limiti; il resto viene dalle misure */
+      if(it.type!=="platea" || typeof it.platea!=="object" || Array.isArray(it.platea)) delete it.platea;
+      else { var _pc=plateaCfg(it); it.platea={ passo:_pc.passo, passoFile:_pc.passoFile, corridoio:_pc.corridoio }; }
+    }
+    if(it.type==="platea" && it.mir!=null) delete it.mir;   /* non si specchia (NO_MIRROR): da un JSON arriverebbe con «60 posti» a rovescio */
     if(Object.prototype.hasOwnProperty.call(COMP,it.type)) normalizeCompositeParts(it);
     else if(it.parts!=null && (!it.parts || typeof it.parts!=="object" || Array.isArray(it.parts))) delete it.parts;
     return it;
@@ -5644,6 +5915,7 @@ function normalizeState(s){
   s.evTime=(typeof s.evTime==="string" && /^\d{2}:\d{2}$/.test(s.evTime)) ? s.evTime : "";
   s.tipoEvento=(s.tipoEvento==="conferenza") ? "conferenza" : "concerto";   /* 24/09: conferenza cambia le parole del PDF e gli avvisi, non il disegno */
   s.pdfHeader = (typeof s.pdfHeader==="string") ? s.pdfHeader.slice(0,120) : "";   /* riferimento nel cartiglio (export), persistente */
+  if(s.pdfPesi!==true) delete s.pdfPesi;   /* kg nel PDF: solo un true esplicito li accende (06/10/2026) */
   /* Le pagine scelte nella finestra Esporta si ricordavano nel progetto (06/08). Dal 10/09 non più
      — «togli anche la memoria della scelta» — e il campo si porta via chi apre il progetto, non una
      scrittura di massa sul database: quella toccherebbe i progetti di tutti in un colpo solo e non
@@ -5911,7 +6183,8 @@ function sanitizeItems(arr){
     if(t.riser) it.h=(o.h!=null?+o.h:(t.h||40));
     else if(isCover(it) && o.h!=null) it.h=+o.h;   /* coperture: h opzionale (luce sotto); se assente = default coverH() */
     if(Object.prototype.hasOwnProperty.call(COMP,o.type)) it.parts=o.parts?compClone(o.parts):compClone(COMP[o.type].defParts);
-    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","podio","sgab","grp","distOf","distType","aggancia","dimSide","lblSize","plCh","dvsPro","dvsNet","dvsSr","dvsLat","ifaceId","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
+    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","podio","sgab","grp","distOf","distType","aggancia","dimSide","lblSize","plCh","dvsPro","dvsNet","dvsSr","dvsLat","ifaceId","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic","platea","fila","posto","settore"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });   /* platea: passi e corridoio, ripuliti poi da normalizeLoadedItems; fila/posto/settore: posti numerati */
+    postoSanifica(it);   /* posti numerati (06/10): tipi e lunghezze garantiti */
     if(it.type==="dimono"){   /* DI box: normalizza gli assi + footprint (migra il vecchio diLook del selettore) */
       if(it.diLook){ if(it.diLook==="stereo") it.diCh=it.diCh||"stereo"; else if(it.diLook==="rack") it.diCh=it.diCh||"multi"; else if(it.diLook==="attiva") it.diType=it.diType||"attiva"; else if(it.diLook==="schema") it.diSchema=true; delete it.diLook; }
       if(!DI_CH_LABEL[it.diCh]) it.diCh="mono"; if(it.diType!=="attiva") it.diType="passiva"; if(it.diMultiCh!==6) it.diMultiCh=8;
@@ -5976,7 +6249,7 @@ function stageBlocks(){ var b=state.stage.blocks; return (b&&b.length)?b:[{x:0,y
    l'editor: era uno che non si era accorto del rettangolo. E l'app, che le coordinate le conosce
    tutte, taceva.
    La postazione FOH sta in sala per definizione: non conta. */
-var FUORI_OK = { foh:1 };
+var FUORI_OK = { foh:1, platea:1, sediapubblico:1 };   /* platea e sedia del pubblico (06/10/2026): stanno in sala per definizione, come il FOH */
 function elementiFuoriDalPalco(){
   var bl=stageBlocks(), out=[];
   (state.items||[]).forEach(function(it){
@@ -6374,13 +6647,6 @@ function showAdattaPalco(){
    Restano solo i campi di stato inerti (zones/layerAudio/layerPower) per compatibilità coi progetti salvati.] */
 function isSingleRect(){ var b=stageBlocks(); return b.length===1 && b[0].shape!=="semi" && !(b[0].pts&&b[0].pts.length===4); }
 function stageHeightNote(){ var h=stageBlocks()[0].h||0; return h?" · h "+h+" cm":""; }
-/* angoli del blocco: r.pts (quadrilatero libero) se presente, altrimenti i 4 spigoli del rettangolo.
-   Ordine: TL, TR, BR, BL. Solo i blocchi rettangolari possono diventare quadrilateri (i semicerchi no). */
-function hasPts(r){ return !!(r.pts && r.pts.length===4 && r.shape!=="semi"); }
-function blockCorners(r){
-  if(hasPts(r)) return r.pts.map(function(p){ return [p[0],p[1]]; });
-  return [[r.x,r.y],[r.x+r.w,r.y],[r.x+r.w,r.y+r.d],[r.x,r.y+r.d]];
-}
 /* indici degli spigoli del bbox (TL=0, TR=1, BR=2, BL=3) che giacciono sul lato DRITTO del semicerchio.
    Sono i due "veri" angoli della forma: le maniglie d'angolo del semicerchio stanno qui. */
 function semiCornerIdx(flat){
@@ -6442,7 +6708,42 @@ var SHAPE_FILL=[
   ["#15803d","Verde"],["#7c3aed","Viola"],["#59544a","Grigio"],["#ffffff","Bianco"]
 ];
 function shapeOf(it){ var k=it&&it.shape; return SHAPES.some(function(x){ return x[0]===k; }) ? k : "rect"; }
-function shapeStyleOf(it){ var v=it&&it.shapeStyle; return (v==="outline"||v==="dashed") ? v : "solid"; }
+function shapeStyleOf(it){ var v=it&&it.shapeStyle; return (v==="outline"||v==="dashed"||v==="area") ? v : "solid"; }
+/* AREA CON NOME (06/10/2026). Gli utenti fanno le zone del palco («zona 5 violini II», «zona voci»,
+   «CORO») con pedane alte 0 cm più un testo libero, o con scritte giganti. La pedana però finisce nel
+   rider fra le pedane da portare (riderData) e si tocca solo in «Palco e pedane»; il testo non segue il
+   riquadro. Niente tipo nuovo: la FORMA ha già tutto quello che serve — rettangolo ridimensionabile,
+   colore, testo dentro, nasce sotto gli altri (z:1), nessuna altezza né carico, fuori da backline, patch,
+   carichi e rider, lucchetto, Adatta, modifica in linea. Un tipo nuovo avrebbe dovuto ripetere ognuna
+   di quelle liste che oggi nominano «forma». Manca solo un modo di disegnarsi, e quello è l'asse
+   `shapeStyle`: «area» = velatura tenue, bordo sottile, nome grande in grassetto in alto (al centro
+   finirebbe sotto i musicisti che ci stanno dentro). Nel catalogo è la voce «Area con nome». */
+function isAreaNome(it){ return !!(it && it.type==="forma" && it.shapeStyle==="area"); }
+var AREA_LBL=32;   /* corpo di partenza del nome (cm sul palco): a 1:100 sono ~3 mm sul foglio, il doppio dei nomi degli strumenti */
+/* Ordine dei colori per le aree nuove: tinte vicine fra loro (blu, verde, ambra) prima di quelle
+   «d'allarme», e ogni area nuova prende la prima non ancora usata — due zone accanto si distinguono. */
+var AREA_ORDINE=["#2563eb","#15803d","#b45309","#7c3aed","#0d9488","#b91c1c"];
+function areaFreeColor(){
+  var usati={}; (state.items||[]).forEach(function(x){ if(isAreaNome(x) && x.fill) usati[String(x.fill).toLowerCase()]=1; });
+  for(var i=0;i<AREA_ORDINE.length;i++) if(!usati[AREA_ORDINE[i]]) return AREA_ORDINE[i];
+  var n=(state.items||[]).filter(isAreaNome).length;
+  return AREA_ORDINE[n % AREA_ORDINE.length];
+}
+/* Il nome deve stare DENTRO: il corpo scelto è un massimo. Si stringe finché la parola più lunga entra
+   in larghezza (andare a capo dentro una parola non si può) e una riga entra in altezza. Larghezza
+   stimata a 0,62 em per lettera in grassetto, come lblTextW per i nomi. */
+function areaLblSize(it){
+  var w=Math.max(8,it.w||120), d=Math.max(8,it.d||80), f=Math.max(6, it.lblSize==null?AREA_LBL:(+it.lblSize||AREA_LBL));
+  var lunga=String(it.label||"").split(/\s+/).reduce(function(m,p){ return Math.max(m,p.length); },0);
+  if(lunga) f=Math.min(f, (w-20)/(lunga*0.62));
+  f=Math.min(f, d*0.5);
+  f=Math.max(8, Math.floor(f));   /* per difetto: arrotondando per eccesso la parola sporgeva di un soffio */
+  /* …e TUTTE le righe entrano in altezza (revisione 06/10): «ZONA FIATI E OTTONI» in 200×60 andava su due
+     righe da 30 e usciva sopra e sotto dall'area. Stesso a capo e stesso margine di drawShape. */
+  var mw=Math.max(20, (it.w||120)-16);
+  while(f>8 && wrapTextLines(it.label||"", mw, f).length*f*1.25 + 2*Math.max(6, f*0.3) > d) f--;
+  return f;
+}
 function shapeFillOf(it){ return (it && /^#[0-9a-f]{6}$/i.test(it.fill||"")) ? it.fill : "#0d9488"; }
 /* geometria della forma nel riquadro w×d, centrata sull'origine come tutti gli elementi */
 function shapeGeom(it){
@@ -6461,22 +6762,35 @@ function drawShape(it){
   var col=shapeFillOf(it), st=shapeStyleOf(it), op=(it.opacity==null?100:+it.opacity)/100;
   var geom=shapeGeom(it), attrs, lk=(it.locked===true), sw=lk?"3.6":"2", swo=lk?"3.8":"2.4";   /* bloccata: perimetro marcato come la pedana, colore invariato */
   if(st==="solid")        attrs='fill="'+col+'" fill-opacity="'+(op*0.22).toFixed(3)+'" stroke="'+col+'" stroke-width="'+sw+'"';
+  else if(st==="area")    attrs='fill="'+col+'" fill-opacity="'+(op*0.16).toFixed(3)+'" stroke="'+col+'" stroke-opacity="0.6" stroke-width="'+(lk?"3":"1.5")+'"';   /* area: velatura tenue, il nome è il protagonista */
   else if(st==="outline") attrs='fill="none" stroke="'+col+'" stroke-width="'+swo+'"';
   else                    attrs='fill="none" stroke="'+col+'" stroke-width="'+swo+'" stroke-dasharray="10 7"';
   var s='<g class="shape" opacity="'+op+'">'+geom.replace(/\/>$/, " "+attrs+"/>")+'</g>';
-  if(lk) s+=riserLockGlyph(Math.max(8,it.w||120)/2, Math.max(8,it.d||80)/2, shapeOf(it)==="line"?"line":"axis", col);
+  var w2=Math.max(8,it.w||120)/2, d2=Math.max(8,it.d||80)/2, lkY=null;   /* lkY: dove va il lucchetto dell'area col nome in alto */
   /* testo al centro, con lo stesso wrapping del testo libero */
-  var txt=it.label||"";
+  var txt=it.label||"", area=(st==="area"), sTxt="";
   if(txt){
-    var fsz=Math.max(6, it.lblSize==null?14:+it.lblSize||14);
+    var fsz=area ? areaLblSize(it) : Math.max(6, it.lblSize==null?14:+it.lblSize||14);
     var lines=wrapTextLines(txt, Math.max(20, it.w-16), fsz), lh=fsz*1.25;
     var y0=-((lines.length-1)*lh)/2 + fsz*0.34, tc=esc(it.txtColor||"#1f2937");
-    var al=textAlignOf(it,"center"), ax=textAnchorXY(it, al, 10);
+    /* area: il nome in ALTO, dentro il bordo — se le righe ci stanno; altrimenti al centro come la forma.
+       Solo nel RETTANGOLO (revisione 06/10): cerchio, triangolo e rombo in alto sono stretti, e il nome
+       usciva dalla sagoma; lì resta al centro, dove la sagoma è più larga. */
+    if(area && shapeOf(it)==="rect"){ var pad=Math.max(6, fsz*0.3);
+      if(lines.length*lh+2*pad<=2*d2){ y0=-d2+pad+fsz*0.85; lkY=y0+(lines.length-1)*lh+fsz*0.3+7; } }
+    var al=textAlignOf(it,"center"), ax=textAnchorXY(it, al, 10), fw=area ? ";font-weight:700" : "";   /* grassetto inline: svg2pdf legge lo stile calcolato (flattenTextStyles), anche nel PDF */
     lines.forEach(function(ln,i){
-      if(ln) s+='<text class="txtbox-line" x="'+ax[1]+'" y="'+(y0+i*lh)+'" text-anchor="'+ax[0]+'" style="font-size:'+fsz+'px;text-anchor:'+ax[0]+'" fill="'+tc+'">'+esc(ln)+'</text>';
+      if(ln) sTxt+='<text class="txtbox-line" x="'+ax[1]+'" y="'+(y0+i*lh)+'" text-anchor="'+ax[0]+'" style="font-size:'+fsz+'px;text-anchor:'+ax[0]+fw+'" fill="'+tc+'">'+esc(ln)+'</text>';
     });
   }
-  return s;
+  /* lucchetto: sull'asse a metà della metà alta. Nell'area col nome in alto finiva SOPRA la seconda riga
+     del nome (revisione 06/10: «zona 5 violini II» bloccata, lucchetto sul «II»): lì va sotto il nome,
+     tenuto dentro il bordo (al più 5 cm sopra il lato basso); le soglie di grandezza restano quelle di sempre. */
+  if(lk){
+    if(lkY!=null){ if(w2*2>=70 && d2*2>=50) s+=lockGlyphAt(0, Math.min(lkY, d2-5), col); }
+    else s+=riserLockGlyph(w2, d2, shapeOf(it)==="line"?"line":"axis", col);
+  }
+  return s+sTxt;
 }
 /* allineamento del testo (Simone 27/07): vale per il testo libero e per il testo dentro la forma.
    Default: a sinistra nel testo libero, centrato nella forma. */
@@ -6840,6 +7154,494 @@ function lblBaseY(it, fszK, ext){
   var g=lblStacco(fszK);
   return lblSopraDi(it) ? (ext.y0 - g - fszK*0.25) : (ext.y1 + g + fszK*0.72);
 }
+/* NOMI CHE NON SI CAPOVOLGONO (06/10/2026, impianto a 8 casse G1–G8 attorno al pubblico: quelle girate di
+   180° avevano il nome a testa in giù). Il nome gira con l'elemento, quindi con l'elemento a 180° (o
+   qualunque angolo fra 90° e 270°, estremi esclusi) si leggeva capovolto. Qui si dice se l'angolo TOTALE con
+   cui il testo arriva sullo schermo lo capovolge; in quel caso il testo si rigira di 180° attorno al proprio
+   centro: resta dov'è (lo stesso lato dell'elemento) ma si legge dritto. A 90° e 270° il testo è verticale
+   e si legge di lato, come sempre: non si tocca. */
+function lblCapovolto(ang){
+  var r=(((+ang||0)%360)+360)%360;
+  return r>90.5 && r<269.5;
+}
+/* transform di un testo: la sua inclinazione propria (ang, attorno a x,y) e, se capovolto, il mezzo giro
+   attorno al centro delle lettere (baseline − 0,36 corpo). Vuoto se non serve niente. */
+function lblCapTr(flip, ang, x, y, corpo){
+  var cy=Math.round((y-corpo*0.36)*10)/10, s=ang ? 'rotate('+ang+' '+x+' '+y+')' : '';
+  if(flip) s += (s?' ':'')+'rotate(180 '+x+' '+cy+')';
+  /* data-cap (revisione 06/10/2026): con l'elemento girato di 180° il nome sta, sul foglio, SOPRA il disegno, e
+     la passata anti-sovrapposizione del PDF (nudgeLabelsInDom) sposta i nomi in GIÙ: lo spingeva dentro il suo
+     stesso disegno (progetto di collaudo 10: «Piatto» dentro i due piatti girati). Il segno glielo fa saltare,
+     come quando il nome era capovolto e quella passata non lo prendeva. */
+  return s ? ' transform="'+s+'"'+(flip ? ' data-cap="1"' : '') : '';
+}
+/* ============ POSTI NUMERATI DEL PUBBLICO (06/10/2026) ============
+   Richiesta di Simone per un concerto: la platea numerata come nelle piante delle biglietterie
+   (TicketOne, Vivaticket, Ticketmaster) e dei teatri. Le convenzioni scelte, dallo studio del 06/10:
+   - FILE: lettere dalla più vicina al palco (A), saltando I e O, che sul biglietto si leggono 1 e 0;
+     oppure numeri (Fila 1, 2…), come in molti teatri italiani.
+   - POSTI: consecutivi da sinistra, OPPURE dispari/pari dal corridoio centrale (dispari a sinistra,
+     pari a destra, 1 e 2 accanto al corridoio). Sinistra e destra sono SEMPRE quelle di chi siede e
+     guarda il palco, come in «house left / house right»: sulla pianta col palco in alto coincidono.
+   - Dov'è il palco non lo si chiede: è dove GUARDANO le sedie (la loro rotazione). Così funziona anche
+     con la platea girata, e una sedia girata al contrario non fa una fila a parte (vedi postiVerso).
+   Dati sull'elemento: `fila` (testo), `posto` (intero), `settore` (testo, «Platea» se manca). Restano
+   con salva/riapri, Annulla, spostamenti; una sedia aggiunta dopo nasce SENZA numero (anche il duplicato:
+   postiCopie) finché non si rinumera, e la legenda lo dice. */
+/* LA PIANTA DEI POSTI — una sola fonte per l'editor e per la biglietteria (specifica area §4.2, ottobre 2026).
+   `node build.mjs` mette questo testo nell'editor, al posto del marcatore PIANTA_POSTI del template, e lo copia uguale
+   in biglietteria/pianta-posti.js, che l'area dell'organizzatore carica come file. Due copie della stessa funzione
+   renderebbero falso il confronto «la sala del progetto è cambiata»: un test (bgl-pianta-posti) lo impedisce.
+   Regole di questo file: SOLO dichiarazioni di funzione (all'avvio dell'editor una `var` scritta più in basso vale
+   undefined, AGENTS §8 «Boot»), niente DOM, niente rete; `state` e `TYPES` dell'editor non si leggono qui: lo stato
+   arriva come argomento (l'editor, se non lo passa, usa il suo `state`). */
+function postoTipo(it){ return !!it && it.type==="sediapubblico"; }
+function postoNumerato(it){ return postoTipo(it) && typeof it.fila==="string" && it.fila!=="" && typeof it.posto==="number" && isFinite(it.posto) && it.posto>0; }
+function postoSettore(it){ return (it && typeof it.settore==="string" && it.settore.trim()) ? it.settore.trim() : "Platea"; }
+function postoNomeSettore(v){ v=(v==null?"":String(v)).replace(/[\u0000-\u001f]/g," ").replace(/\s+/g," ").trim().slice(0,24); return v||"Platea"; }
+/* Sanificazione dei campi in arrivo da file/link/cloud: tipi e lunghezze garantiti, o via */
+function postoSanifica(it){
+  if(!it) return;
+  if(it.fila!=null){ var f=(typeof it.fila==="string"||typeof it.fila==="number") ? String(it.fila).replace(/[^0-9A-Za-z]/g,"").slice(0,4).toUpperCase() : ""; if(f) it.fila=f; else delete it.fila; }
+  if(it.posto!=null){ var p=Math.round(+it.posto); if(isFinite(p) && p>0 && p<10000) it.posto=p; else delete it.posto; }
+  if(it.settore!=null){ if(typeof it.settore==="string" && it.settore.trim()) it.settore=postoNomeSettore(it.settore); else delete it.settore; }
+  if(!postoTipo(it) || it.fila==null || it.posto==null){ delete it.fila; delete it.posto; delete it.settore; }
+}
+/* Dove guarda una sedia: lo schienale è disegnato a y negativa, quindi chi siede guarda verso +y
+   del suo disegno, girato della rotazione dell'elemento. */
+function postoVerso(it){ var r=(+it.rot||0)*Math.PI/180; return {x:-Math.sin(r), y:Math.cos(r)}; }
+/* Il verso comune delle sedie: la media. Se guardano da parti troppo diverse (media corta: due metà
+   girate di 80° o più l'una dall'altra) non c'è un palco a cui riferire le file → null, e lo si dice. */
+function postiVerso(seats){
+  var x=0, y=0; seats.forEach(function(s){ var v=postoVerso(s); x+=v.x; y+=v.y; });
+  var n=Math.sqrt(x*x+y*y);
+  return (seats.length && n>=seats.length*0.75) ? {x:x/n, y:y/n} : null;
+}
+/* angoli del blocco: r.pts (quadrilatero libero) se presente, altrimenti i 4 spigoli del rettangolo.
+   Ordine: TL, TR, BR, BL. Solo i blocchi rettangolari possono diventare quadrilateri (i semicerchi no). */
+function hasPts(r){ return !!(r.pts && r.pts.length===4 && r.shape!=="semi"); }
+function blockCorners(r){
+  if(hasPts(r)) return r.pts.map(function(p){ return [p[0],p[1]]; });
+  return [[r.x,r.y],[r.x+r.w,r.y],[r.x+r.w,r.y+r.d],[r.x,r.y+r.d]];
+}
+function itemCorners(it){
+  var hw=(it.w||40)/2, hd=(it.d||40)/2, a=(it.rot||0)*Math.PI/180, c=Math.cos(a), s=Math.sin(a);
+  return [[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]].map(function(p){ return [it.x+p[0]*c-p[1]*s, it.y+p[0]*s+p[1]*c]; });
+}
+function bglChiave(it){ return postoSettore(it).replace(/\|/g,"/")+"|"+it.fila+"|"+it.posto; }
+/* «Platea|A|5» → «A 5» (il settore si dice solo se non è la Platea) */
+function bglPostoNome(k){
+  var p=String(k==null?"":k).split("|"); if(p.length!==3) return String(k||"");
+  return (p[0]==="Platea" ? "" : p[0]+" ")+p[1]+" "+p[2];
+}
+function bglPostiNomi(chiavi){ return (chiavi||[]).map(bglPostoNome).join(", "); }
+function bglSemiPoligono(r){
+  /* il semicerchio del palco (mezza ellisse nel suo riquadro) come poligono di 24 vertici: 23 passi d'arco + il lato dritto */
+  var x=r.x, y=r.y, w=r.w, d=r.d, flat=r.flat||"top", cx, cy, rx, ry, a0, out=[], N=24;
+  if(flat==="top"){ cx=x+w/2; cy=y; rx=w/2; ry=d; a0=0; }                 /* dritto in alto, bulge in basso */
+  else if(flat==="bottom"){ cx=x+w/2; cy=y+d; rx=w/2; ry=d; a0=Math.PI; }  /* bulge in alto */
+  else if(flat==="left"){ cx=x; cy=y+d/2; rx=w; ry=d/2; a0=-Math.PI/2; }   /* bulge a destra */
+  else { cx=x+w; cy=y+d/2; rx=w; ry=d/2; a0=Math.PI/2; }                   /* right: bulge a sinistra */
+  for(var i=0;i<N;i++){ var a=a0+Math.PI*i/(N-1); out.push([cx+rx*Math.cos(a), cy+ry*Math.sin(a)]); }
+  return out;
+}
+/* La FOTO della scena (pianta v1, vedi la specifica): coordinate in cm interi, girate perché le sedie guardino
+   in alto (palco in alto) e traslate perché il riquadro parta da 0,0, con 100 cm di margine.
+   Null se non ci sono posti numerati. `st` = lo stato da fotografare (di norma quello vivo). */
+function bglPianta(st){
+  st=st||(typeof state!=="undefined" ? state : null); if(!st) return null;
+  var items=st.items||[], seats=items.filter(postoNumerato);
+  if(!seats.length) return null;
+  var f=postiVerso(seats);
+  if(!f){   /* sedie che guardano da parti diverse: ci si regola sul settore più numeroso */
+    var per=Object.create(null), best=null;
+    seats.forEach(function(s){ var n=postoSettore(s); (per[n]=per[n]||[]).push(s); });
+    Object.keys(per).forEach(function(n){ if(best==null || per[n].length>per[best].length) best=n; });
+    f=postiVerso(per[best]);
+  }
+  var th=f ? (-Math.PI/2-Math.atan2(f.y,f.x)) : 0, c=Math.cos(th), s=Math.sin(th), gradi=th*180/Math.PI;
+  function R(p){ return [p[0]*c-p[1]*s, p[0]*s+p[1]*c]; }
+  function rotNorm(r){ r=((r+180)%360+360)%360-180; return r===-180 ? 180 : r; }
+  var blocchi=(st.stage && st.stage.blocks && st.stage.blocks.length) ? st.stage.blocks : [{x:0,y:0,w:(st.stage&&st.stage.w)||1200,d:(st.stage&&st.stage.d)||800}];
+  var palco=blocchi.slice(0,16).map(function(b){ return (b.shape==="semi" ? bglSemiPoligono(b) : blockCorners(b)).map(R); });
+  var pedane=items.filter(function(it){ return piantaPedana(it.type); }).slice(0,200)
+    .map(function(it){ return itemCorners(it).map(R); });
+  var sedie=seats.map(function(it){
+    var p=R([it.x,it.y]), w=Math.max(10,Math.min(300,Math.round(+it.w||piantaSediaMisure().w))), d=Math.max(10,Math.min(300,Math.round(+it.d||piantaSediaMisure().d)));
+    return {it:it, x:p[0], y:p[1], w:w, d:d, rot:rotNorm((+it.rot||0)+gradi)};
+  });
+  var x0=Infinity, y0=Infinity, x1=-Infinity, y1=-Infinity;
+  function tocca(px,py){ if(px<x0) x0=px; if(px>x1) x1=px; if(py<y0) y0=py; if(py>y1) y1=py; }
+  palco.concat(pedane).forEach(function(poly){ poly.forEach(function(p){ tocca(p[0],p[1]); }); });
+  sedie.forEach(function(q){
+    var a=q.rot*Math.PI/180, ca=Math.cos(a), sa=Math.sin(a);
+    [[-q.w/2,-q.d/2],[q.w/2,-q.d/2],[q.w/2,q.d/2],[-q.w/2,q.d/2]].forEach(function(p){ tocca(q.x+p[0]*ca-p[1]*sa, q.y+p[0]*sa+p[1]*ca); });
+  });
+  var M=100, dx=M-x0, dy=M-y0;
+  function P(p){ return [Math.round(p[0]+dx), Math.round(p[1]+dy)]; }
+  return {
+    v:1,
+    box:[0, 0, Math.round(x1-x0+2*M), Math.round(y1-y0+2*M)],
+    palco:palco.map(function(poly){ return poly.map(P); }),
+    pedane:pedane.map(function(poly){ return poly.map(P); }),
+    posti:sedie.map(function(q){ var p=P([q.x,q.y]);
+      return {k:bglChiave(q.it), settore:postoSettore(q.it).replace(/\|/g,"/"), fila:String(q.it.fila), posto:q.it.posto, x:p[0], y:p[1], w:q.w, d:q.d, rot:Math.round(q.rot)}; })
+  };
+}
+/* Cosa impedirebbe di pubblicare la foto (il server rifiuterebbe), detto in italiano: [] se va bene */
+function bglProblemiPianta(p){
+  var out=[];
+  if(!p || !p.posti || !p.posti.length){ out.push("Non ci sono posti numerati."); return out; }
+  if(p.posti.length>2000) out.push("Troppi posti: ne sono ammessi al massimo 2000, qui ce ne sono "+p.posti.length+".");
+  var visti=Object.create(null), doppi=[];
+  p.posti.forEach(function(q){ if(visti[q.k]) { if(doppi.indexOf(q.k)<0) doppi.push(q.k); } else visti[q.k]=1; });
+  if(doppi.length) out.push("Questi posti esistono due volte: "+bglPostiNomi(doppi.slice(0,6))+(doppi.length>6?"…":"")+". Rinumera i posti, o dai un nome diverso al settore.");
+  return out;
+}
+/* Sedie del pubblico che non hanno un numero: restano fuori dalla pianta, e va detto */
+function bglSenzaNumero(st){ st=st||(typeof state!=="undefined" ? state : null); if(!st) return 0; return (st.items||[]).filter(function(it){ return postoTipo(it) && !postoNumerato(it); }).length; }
+/* I tipi che la foto disegna come pedane: gli stessi che nel catalogo dell'editor hanno `riser:true`
+   (un test confronta questa funzione con TYPES: un tipo pedana nuovo va aggiunto qui). */
+function piantaPedana(type){ return type==="pedana" || type==="pedanacoro"; }
+/* Le misure della sedia del pubblico quando l'elemento non le ha (le stesse di TYPES.sediapubblico) */
+function piantaSediaMisure(){ return {w:50, d:53}; }
+/* Le varianti (scene) di un documento salvato: [{id, nome, attiva}]. Un progetto «piatto» (versioni vecchie) ha una
+   sola variante senza id. */
+function piantaVarianti(doc){
+  if(!doc || typeof doc!=="object") return [];
+  if(!Array.isArray(doc.variants)) return Array.isArray(doc.items) ? [{id:null, nome:"Variante 1", attiva:true}] : [];
+  var attiva=(typeof doc.active==="string"||typeof doc.active==="number") ? String(doc.active) : null, out=[];
+  doc.variants.forEach(function(v, i){
+    if(!v || typeof v!=="object" || !v.state || typeof v.state!=="object") return;
+    var id=(typeof v.id==="string"||typeof v.id==="number") ? String(v.id) : null;
+    out.push({id:id, nome:String(v.name||"Variante "+(i+1)).slice(0,80), attiva:false});
+  });
+  var a=null; out.forEach(function(v){ if(v.id!==null && v.id===attiva) a=v; });
+  if(!a && out.length) a=out[0];
+  if(a) a.attiva=true;
+  return out;
+}
+/* Lo stato di una variante del documento salvato (quello di stageplot_projects.data). varianteId nullo = la variante
+   attiva (o l'unica, per i documenti piatti). Una variante che non c'è più → null. */
+function piantaStatoDaDocumento(doc, varianteId){
+  if(!doc || typeof doc!=="object") return null;
+  if(!Array.isArray(doc.variants)){
+    if(varianteId!=null) return null;
+    return Array.isArray(doc.items) ? doc : null;
+  }
+  var vs=piantaVarianti(doc), scelta=null;
+  vs.forEach(function(v){ if(varianteId!=null ? v.id===String(varianteId) : v.attiva) scelta=v; });
+  if(!scelta) return null;
+  for(var i=0;i<doc.variants.length;i++){
+    var v=doc.variants[i];
+    if(v && v.state && typeof v.state==="object" && (scelta.id===null ? i===vs.indexOf(scelta) : String(v.id)===scelta.id)) return v.state;
+  }
+  return null;
+}
+/* La FOTO della pianta calcolata dal documento salvato, come la calcola l'editor dopo averlo aperto. L'editor passa
+   ogni elemento da postoSanifica all'apertura (normalizeLoadedItems): qui si fa lo stesso su una COPIA. Se un giorno
+   l'apertura dell'editor cambierà altri campi che la foto legge, il test RF1 diventerà rosso: si aggiunge qui quella
+   stessa trasformazione (solo quella), mai una copia di normalizeState. */
+function piantaDaDocumento(doc, varianteId){
+  try{
+    var st=piantaStatoDaDocumento(doc, varianteId); if(!st) return null;
+    var items=(Array.isArray(st.items) ? st.items : []).map(function(it){
+      if(!it || typeof it!=="object") return null;
+      var c={}; for(var k in it) if(Object.prototype.hasOwnProperty.call(it,k)) c[k]=it[k];
+      postoSanifica(c); return c;
+    }).filter(function(x){ return !!x; });
+    return bglPianta({items:items, stage:st.stage});
+  }catch(e){ return null; }
+}
+/* ===== CONFRONTO FRA LA FOTO PUBBLICATA E LA SALA DI ADESSO (specifica area §4) =====
+   Le due piante hanno ciascuna il suo riquadro (0,0 = 100 cm prima del punto più a sinistra e più in alto) e il suo
+   verso (le sedie girate a guardare in su): aggiungere una sedia a sinistra sposta TUTTE le coordinate, e una sedia
+   girata cambia di poco il verso medio. Prima si sovrappongono le due piante (la rotazione e la traslazione che meglio
+   portano l'una sull'altra: il palco se è lo stesso, altrimenti i posti con lo stesso numero, scartando quelli mossi),
+   poi si confronta posto per posto. Tolleranze in cm e gradi. */
+function piantaTolleranze(){ return {cm:5, gradi:3, sedia:15}; }
+/* rotazione + traslazione (Kabsch nel piano) che porta i punti c[0] sui punti c[1] */
+function piantaKabsch(coppie){
+  var n=coppie.length; if(!n) return null;
+  var mx=0, my=0, fx=0, fy=0;
+  coppie.forEach(function(c){ mx+=c[0][0]; my+=c[0][1]; fx+=c[1][0]; fy+=c[1][1]; });
+  mx/=n; my/=n; fx/=n; fy/=n;
+  var a=0, b=0;
+  coppie.forEach(function(c){ var x=c[0][0]-mx, y=c[0][1]-my, u=c[1][0]-fx, v=c[1][1]-fy; a+=x*u+y*v; b+=x*v-y*u; });
+  var ang=(n>=2 && (a||b)) ? Math.atan2(b, a) : 0, co=Math.cos(ang), si=Math.sin(ang);
+  return {c:co, s:si, tx:fx-(mx*co-my*si), ty:fy-(mx*si+my*co), gradi:ang*180/Math.PI};
+}
+function piantaPorta(T, x, y){ return [x*T.c-y*T.s+T.tx, x*T.s+y*T.c+T.ty]; }
+function piantaScarto(T, c){ var q=piantaPorta(T, c[0][0], c[0][1]); return Math.sqrt((q[0]-c[1][0])*(q[0]-c[1][0])+(q[1]-c[1][1])*(q[1]-c[1][1])); }
+function piantaAllinea(foto, nuova){
+  var tol=piantaTolleranze(), pf=(foto&&foto.palco)||[], pn=(nuova&&nuova.palco)||[], coppie=[], T=null;
+  if(pf.length && pf.length===pn.length && pf.every(function(poly,i){ return poly.length===pn[i].length; })){
+    pn.forEach(function(poly,i){ poly.forEach(function(p,j){ coppie.push([p, pf[i][j]]); }); });
+    T=piantaKabsch(coppie);
+    if(T && coppie.every(function(c){ return piantaScarto(T, c)<=tol.cm; })){ T.base="palco"; return T; }
+  }
+  var F=Object.create(null); coppie=[];
+  ((foto&&foto.posti)||[]).forEach(function(q){ F[q.k]=q; });
+  ((nuova&&nuova.posti)||[]).forEach(function(q){ if(F[q.k]) coppie.push([[q.x,q.y],[F[q.k].x,F[q.k].y]]); });
+  T=piantaKabsch(coppie);
+  for(var giro=0; T && giro<3; giro++){   /* i posti davvero spostati non devono tirare l'allineamento */
+    var dentro=coppie.filter(function(c){ return piantaScarto(T, c)<=tol.sedia; });
+    if(dentro.length===coppie.length || dentro.length<Math.max(2, coppie.length/2)) break;
+    T=piantaKabsch(dentro);
+  }
+  if(T){ T.base="posti"; return T; }
+  return {c:1, s:0, tx:0, ty:0, gradi:0, base:"nessuna"};
+}
+function piantaPoligoniUguali(T, a, b, cm){
+  a=a||[]; b=b||[]; if(a.length!==b.length) return false;
+  var usati=[];
+  return b.every(function(pb){
+    for(var i=0;i<a.length;i++){
+      if(usati[i] || a[i].length!==pb.length) continue;
+      var ok=pb.every(function(p,j){ var q=piantaPorta(T,p[0],p[1]); return Math.abs(q[0]-a[i][j][0])<=cm && Math.abs(q[1]-a[i][j][1])<=cm; });
+      if(ok){ usati[i]=1; return true; }
+    }
+    return false;
+  });
+}
+function piantaConfronta(foto, nuova, prenotati){
+  var T=piantaAllinea(foto, nuova), tol=piantaTolleranze(), F=Object.create(null), N=Object.create(null), occ=Object.create(null);
+  ((foto&&foto.posti)||[]).forEach(function(q){ F[q.k]=q; });
+  ((nuova&&nuova.posti)||[]).forEach(function(q){ N[q.k]=q; });
+  (prenotati||[]).forEach(function(k){ occ[k]=1; });
+  function giro(a, b){ return Math.abs(((a-b)%360+540)%360-180); }
+  function dist(q, f){ var p=piantaPorta(T, q.x, q.y); return Math.sqrt((p[0]-f.x)*(p[0]-f.x)+(p[1]-f.y)*(p[1]-f.y)); }
+  var spostati=[], aggiunti=[], tolti=[];
+  Object.keys(N).forEach(function(k){
+    var q=N[k], f=F[k]; if(!f){ aggiunti.push(k); return; }
+    if(dist(q, f)>tol.cm || giro((+q.rot||0)+T.gradi, +f.rot||0)>tol.gradi) spostati.push(k);
+  });
+  Object.keys(F).forEach(function(k){ if(!N[k]) tolti.push(k); });
+  /* una sedia tolta e una aggiunta nello stesso punto sono la stessa sedia con un numero nuovo */
+  var rinumerati=[], usati=Object.create(null);
+  tolti.forEach(function(k){
+    var best=null, bd=Infinity;
+    aggiunti.forEach(function(k2){ if(usati[k2]) return; var d=dist(N[k2], F[k]); if(d<bd){ bd=d; best=k2; } });
+    if(best!==null && bd<=tol.sedia){ usati[best]=1; rinumerati.push({da:k, a:best}); }
+  });
+  var daRin=Object.create(null); rinumerati.forEach(function(r){ daRin[r.da]=1; });
+  tolti=tolti.filter(function(k){ return !daRin[k]; });
+  aggiunti=aggiunti.filter(function(k){ return !usati[k]; });
+  function file(P){ var o=Object.create(null); Object.keys(P).forEach(function(k){ o[P[k].settore+"|"+P[k].fila]={settore:P[k].settore, fila:P[k].fila}; }); return o; }
+  var fF=file(F), fN=file(N);
+  var fileNuove=Object.keys(fN).filter(function(g){ return !fF[g]; }).map(function(g){ return fN[g]; });
+  var fileTolte=Object.keys(fF).filter(function(g){ return !fN[g]; }).map(function(g){ return fF[g]; });
+  var palcoCambiato=!piantaPoligoniUguali(T, foto&&foto.palco, nuova&&nuova.palco, tol.cm) ||
+    !piantaPoligoniUguali(T, foto&&foto.pedane, nuova&&nuova.pedane, tol.cm);
+  var bloccanti=[], prenotatiSpostati=[];
+  tolti.forEach(function(k){ if(occ[k]) bloccanti.push({k:k, motivo:"tolto"}); });
+  rinumerati.forEach(function(r){ if(occ[r.da]) bloccanti.push({k:r.da, motivo:"rinumerato", a:r.a}); });
+  spostati.forEach(function(k){ if(occ[k]) prenotatiSpostati.push(k); });
+  return {uguale:!spostati.length && !aggiunti.length && !tolti.length && !rinumerati.length && !palcoCambiato,
+    spostati:spostati, aggiunti:aggiunti, tolti:tolti, rinumerati:rinumerati, fileNuove:fileNuove, fileTolte:fileTolte,
+    palcoCambiato:palcoCambiato, bloccanti:bloccanti, prenotatiSpostati:prenotatiSpostati};
+}
+/* Il confronto in parole: «12 posti spostati · 2 posti in più · fila J nuova · nessun posto prenotato coinvolto» */
+function piantaRiassunto(c){
+  if(!c) return "";
+  if(c.uguale) return "Nessuna differenza";
+  function n(x, uno, tanti){ return x===1 ? "1 "+uno : x+" "+tanti; }
+  function elenco(v){ return v.length<=1 ? v.join("") : v.slice(0,-1).join(", ")+" e "+v[v.length-1]; }
+  function nomeFila(f){ return (f.settore!=="Platea" ? f.settore+" " : "")+f.fila; }
+  var out=[];
+  if(c.spostati.length) out.push(n(c.spostati.length, "posto spostato", "posti spostati"));
+  if(c.aggiunti.length) out.push(n(c.aggiunti.length, "posto in più", "posti in più"));
+  if(c.tolti.length) out.push(n(c.tolti.length, "posto in meno", "posti in meno"));
+  if(c.rinumerati.length) out.push(n(c.rinumerati.length, "posto con un numero nuovo", "posti con un numero nuovo"));
+  if(c.fileNuove.length) out.push((c.fileNuove.length===1 ? "fila " : "file ")+elenco(c.fileNuove.map(nomeFila))+(c.fileNuove.length===1 ? " nuova" : " nuove"));
+  if(c.fileTolte.length) out.push((c.fileTolte.length===1 ? "fila " : "file ")+elenco(c.fileTolte.map(nomeFila))+(c.fileTolte.length===1 ? " tolta" : " tolte"));
+  if(c.palcoCambiato) out.push("palco o pedane cambiati");
+  if(c.bloccanti.length) out.push(n(c.bloccanti.length, "posto prenotato coinvolto", "posti prenotati coinvolti"));
+  else if(c.prenotatiSpostati.length) out.push(n(c.prenotatiSpostati.length, "posto prenotato solo spostato", "posti prenotati solo spostati"));
+  else out.push("nessun posto prenotato coinvolto");
+  return out.join(" · ");
+}
+/* Tutto il modulo in un oggetto: per Node (module.exports) e per chi lo vuole per nome. */
+function piantaPostiModulo(){
+  return {postoTipo:postoTipo, postoNumerato:postoNumerato, postoSettore:postoSettore, postoNomeSettore:postoNomeSettore,
+    postoSanifica:postoSanifica, postoVerso:postoVerso, postiVerso:postiVerso, hasPts:hasPts, blockCorners:blockCorners,
+    itemCorners:itemCorners, bglChiave:bglChiave, bglPostoNome:bglPostoNome, bglPostiNomi:bglPostiNomi,
+    bglSemiPoligono:bglSemiPoligono, bglPianta:bglPianta, bglProblemiPianta:bglProblemiPianta, bglSenzaNumero:bglSenzaNumero,
+    piantaPedana:piantaPedana, piantaSediaMisure:piantaSediaMisure, piantaVarianti:piantaVarianti,
+    piantaStatoDaDocumento:piantaStatoDaDocumento, piantaDaDocumento:piantaDaDocumento,
+    piantaTolleranze:piantaTolleranze, piantaAllinea:piantaAllinea, piantaPorta:piantaPorta, piantaConfronta:piantaConfronta,
+    piantaRiassunto:piantaRiassunto};
+}
+if(typeof module==="object" && module && module.exports) module.exports=piantaPostiModulo();
+
+function postoChiave(it){ return postoSettore(it).toLowerCase()+"|"+String(it.fila).toUpperCase()+"|"+it.posto; }
+/* Nome della fila i (da 0): A…Z senza I e O, poi AA, AB… — oppure il numero */
+function filaNome(i, modo){
+  i=Math.max(0, i|0);
+  if(modo==="numeri") return String(i+1);
+  var L="ABCDEFGHJKLMNPQRSTUVWXYZ", s="";
+  do{ s=L.charAt(i%24)+s; i=Math.floor(i/24)-1; }while(i>=0);
+  return s;
+}
+function postiMediana(a){ if(!a.length) return 0; var b=a.slice().sort(function(p,q){ return p-q; }), m=b.length>>1; return b.length%2 ? b[m] : (b[m-1]+b[m])/2; }
+/* Le FILE: si proietta ogni sedia sull'asse verso il palco (a) e su quello sinistra→destra di chi siede
+   (b). Fila nuova quando, andando dal palco in giù, il salto supera ~metà profondità della sedia:
+   le sedie della stessa fila messe un po' storte restano insieme, due file a 80 cm no. */
+function postiFile(seats){
+  var f=postiVerso(seats); if(!f) return null;
+  var R={x:-f.y, y:f.x};   /* la destra di chi guarda verso f (y in giù sullo schermo) */
+  var pts=seats.map(function(s){ return {it:s, a:s.x*f.x+s.y*f.y, b:s.x*R.x+s.y*R.y}; });
+  pts.sort(function(p,q){ return (q.a-p.a) || (p.b-q.b); });
+  var tol=Math.max(12, postiMediana(seats.map(function(s){ return +s.d||53; }))*0.45);
+  var file=[], cur=null, prev=null;
+  pts.forEach(function(p){ if(!cur || prev-p.a>tol){ cur={pts:[]}; file.push(cur); } cur.pts.push(p); prev=p.a; });
+  file.forEach(function(r){ r.pts.sort(function(p,q){ return p.b-q.b; }); });
+  return {verso:f, destra:R, file:file};
+}
+/* Il calcolo, senza toccare niente: [{it, fila, posto}] più il riassunto.
+   opts.file = "lettere" | "numeri" · opts.posti = "consecutivi" | "alterni" (dispari/pari dal corridoio) */
+function postiNumerazione(seats, opts){
+  opts=opts||{};
+  seats=(seats||[]).filter(postoTipo);
+  if(!seats.length) return {ok:false, motivo:"vuoto"};
+  var G=postiFile(seats); if(!G) return {ok:false, motivo:"verso"};
+  var gaps=[], allB=[];
+  G.file.forEach(function(r){ r.pts.forEach(function(p,i){ allB.push(p.b); if(i) gaps.push(p.b-r.pts[i-1].b); }); });
+  var passo=postiMediana(gaps)||55, soglia=passo*1.5;   /* un vuoto di una sedia e mezza è un corridoio */
+  var M=(Math.min.apply(null,allB)+Math.max.apply(null,allB))/2, centri=[];
+  /* il corridoio CENTRALE: in ogni fila, il vuoto più vicino al centro della platea; poi la mediana
+     fra le file, così una fila più corta o sbilanciata non sposta la linea dei dispari/pari */
+  G.file.forEach(function(r){ var best=null;
+    for(var i=1;i<r.pts.length;i++){ var g=r.pts[i].b-r.pts[i-1].b; if(g>soglia){ var c=(r.pts[i].b+r.pts[i-1].b)/2; if(best==null || Math.abs(c-M)<Math.abs(best-M)) best=c; } }
+    if(best!=null) centri.push(best); });
+  var C=centri.length ? postiMediana(centri) : M;
+  var alterni=(opts.posti==="alterni"), out=[];
+  G.file.forEach(function(r, i){
+    var nome=filaNome(i, opts.file);
+    if(!alterni){ r.pts.forEach(function(p,k){ out.push({it:p.it, fila:nome, posto:k+1}); }); return; }
+    var sx=r.pts.filter(function(p){ return p.b<C; }).reverse(), dx=r.pts.filter(function(p){ return p.b>=C; });
+    sx.forEach(function(p,k){ out.push({it:p.it, fila:nome, posto:2*k+1}); });
+    dx.forEach(function(p,k){ out.push({it:p.it, fila:nome, posto:2*k+2}); });
+  });
+  return {ok:true, assegna:out, file:G.file.length, prima:filaNome(0, opts.file), ultima:filaNome(G.file.length-1, opts.file),
+          totale:out.length, corridoio:centri.length>0};
+}
+/* Applica la numerazione alle sedie date (le altre non si toccano). Ritorna il riassunto, con `doppi` =
+   posti che ora esistono due volte perché un'altra sedia dello stesso settore, fuori da questa
+   numerazione, aveva già quel numero. */
+function numeraPosti(seats, opts){
+  opts=opts||{};
+  var R=postiNumerazione(seats, opts); if(!R.ok) return R;
+  var settore=postoNomeSettore(opts.settore);
+  R.assegna.forEach(function(a){ var it=a.it;
+    it.fila=a.fila; it.posto=a.posto; it.settore=settore;
+    it.label="Fila "+a.fila+" · "+a.posto;   /* il nome lungo resta per le liste; sul disegno parla il numero */
+    it.labelMode="hidden"; });
+  var dentro=Object.create(null), chiavi=Object.create(null);
+  R.assegna.forEach(function(a){ dentro[a.it.id]=1; chiavi[postoChiave(a.it)]=1; });
+  R.doppi=(state.items||[]).filter(function(o){ return !dentro[o.id] && postoNumerato(o) && chiavi[postoChiave(o)]; }).length;
+  R.settore=settore;
+  return R;
+}
+function togliNumeriPosti(seats){
+  var n=0;
+  (seats||[]).forEach(function(it){ if(!postoTipo(it)) return;
+    if(it.fila!=null || it.posto!=null || it.settore!=null) n++;
+    delete it.fila; delete it.posto; delete it.settore;
+    if(/^Fila .+ · \d+$/.test(it.label||"")) it.label=defaultLabel(it.type); });
+  return n;
+}
+/* Una COPIA (Duplica, Incolla, Alt+trascina) di una sedia numerata non si porta il numero se nella
+   scena quel posto c'è già: due «A 5» sulla pianta sono due biglietti per la stessa sedia. Se il
+   posto è libero (incolla in un'altra scena, o dopo averlo tagliato) il numero resta. */
+function postiCopie(copies){
+  var occ=Object.create(null), nuove=Object.create(null);
+  (copies||[]).forEach(function(c){ nuove[c.id]=1; });
+  (state.items||[]).forEach(function(o){ if(!nuove[o.id] && postoNumerato(o)) occ[postoChiave(o)]=1; });
+  (copies||[]).forEach(function(c){ if(!postoNumerato(c)) return;
+    var k=postoChiave(c);
+    if(occ[k]){ delete c.fila; delete c.posto; delete c.settore; c.label=defaultLabel(c.type); }
+    else occ[k]=1; });
+}
+/* Righe del CSV per chi assegna i biglietti: per settore, fila (dal palco) e posto */
+function postiElenco(items){
+  var seats=(items||state.items||[]).filter(postoNumerato), file=postiFile(seats), ordFila=Object.create(null);
+  /* l'ordine delle file è quello dal palco, non l'alfabeto: «AA» viene dopo «Z», «10» dopo «9» */
+  if(file) file.file.forEach(function(r,i){ r.pts.forEach(function(p){ var k=postoSettore(p.it)+"|"+p.it.fila; if(ordFila[k]==null || i<ordFila[k]) ordFila[k]=i; }); });
+  return seats.map(function(s){ return {settore:postoSettore(s), fila:s.fila, posto:s.posto, o:ordFila[postoSettore(s)+"|"+s.fila]||0}; })
+    .sort(function(a,b){ return a.settore.localeCompare(b.settore) || (a.o-b.o) || (a.posto-b.posto); });
+}
+function postiCsv(items){
+  var rows=postiElenco(items).map(function(r){ return [r.settore, r.fila, String(r.posto)]; });
+  return {csv:rowsToCsv(["Settore","Fila","Posto"], rows, ";", true), count:rows.length};
+}
+function exportPostiCsv(){
+  var r=postiCsv();
+  if(!r.count){ showToast("Nessun posto numerato: seleziona le sedie del pubblico e usa «Numera i posti…»","err"); return false; }
+  downloadCsv(r.csv, fileName()+"-posti.csv");
+  return true;
+}
+/* Cosa disegnare oltre al numero nella sedia: la fila ai due capi di ogni fila e la legenda del settore
+   dietro l'ultima fila. Calcolato una volta per stato (firma) e letto da itemMarkup sedia per sedia:
+   ogni scritta viaggia con UNA sedia, così schermo, PNG e PDF la disegnano dallo stesso posto. */
+var _postiDis=null;
+function postiDisegno(){
+  var items=state.items||[], firma=[], senza=0, seats=[];
+  items.forEach(function(it){ if(!postoTipo(it)) return;
+    if(postoNumerato(it)){ seats.push(it); firma.push(it.id+","+it.x+","+it.y+","+(it.rot||0)+","+it.fila+","+it.posto+","+postoSettore(it)+","+(it.w||0)); }
+    else senza++; });
+  var k=firma.join(";")+"#"+senza;
+  if(_postiDis && _postiDis.firma===k) return _postiDis;
+  var byId=Object.create(null);
+  function metti(id, o){ (byId[id]=byId[id]||[]).push(o); }
+  var perSet=Object.create(null), ordine=[];
+  seats.forEach(function(s){ var n=postoSettore(s); if(!perSet[n]){ perSet[n]=[]; ordine.push(n); } perSet[n].push(s); });
+  ordine.forEach(function(nome, si){
+    var ss=perSet[nome], f=postiVerso(ss)||{x:0,y:-1}, R={x:-f.y, y:f.x};
+    var file=Object.create(null), nomi=[];
+    ss.forEach(function(s){ if(!file[s.fila]){ file[s.fila]=[]; nomi.push(s.fila); } file[s.fila].push(s); });
+    var amin=Infinity, bmin=Infinity, bmax=-Infinity, dep=0, ultima=null;
+    nomi.forEach(function(fn){
+      var fs=file[fn], lo=null, hi=null, asum=0;
+      fs.forEach(function(s){ var a=s.x*f.x+s.y*f.y, b=s.x*R.x+s.y*R.y; asum+=a;
+        if(!lo || b<lo.b) lo={s:s,b:b}; if(!hi || b>hi.b) hi={s:s,b:b};
+        if(a<amin){ amin=a; ultima=s; } bmin=Math.min(bmin,b); bmax=Math.max(bmax,b); dep=Math.max(dep, +s.d||53); });
+      file[fn].a=asum/fs.length;
+      /* la lettera fuori dalla fila, a mezza sedia più un palmo dal bordo */
+      var oL=(+lo.s.w||50)/2+26, oH=(+hi.s.w||50)/2+26;
+      metti(lo.s.id, {x:lo.s.x-R.x*oL, y:lo.s.y-R.y*oL, t:fn, c:"posto-fila"});
+      metti(hi.s.id, {x:hi.s.x+R.x*oH, y:hi.s.y+R.y*oH, t:fn, c:"posto-fila"});
+    });
+    nomi.sort(function(p,q){ return file[q].a-file[p].a; });   /* dal palco in giù */
+    var testo=nome+" · "+ss.length+(ss.length===1?" posto":" posti")+" · "+(nomi.length===1 ? "fila "+nomi[0] : "file "+nomi[0]+"–"+nomi[nomi.length-1]);
+    var ac=amin-dep/2-46, bc=(bmin+bmax)/2;   /* dietro l'ultima fila, al centro */
+    metti(ultima.id, {x:f.x*ac+R.x*bc, y:f.y*ac+R.y*bc, t:testo, c:"posto-legenda"});
+    if(si===0 && senza>0){ var ac2=ac-34;
+      metti(ultima.id, {x:f.x*ac2+R.x*bc, y:f.y*ac2+R.y*bc, t:"+ "+senza+(senza===1?" sedia senza numero: rinumera i posti":" sedie senza numero: rinumera i posti"), c:"posto-legenda posto-senza"}); }
+  });
+  _postiDis={firma:k, byId:byId, senza:senza, numerati:seats.length};
+  return _postiDis;
+}
+/* Il markup del posto, nel sistema dell'elemento (già traslato e ruotato): il numero dentro la sedia e,
+   se tocca a lei, la lettera della fila e la legenda. Tutto DRITTO sullo schermo e sul foglio: ogni
+   testo gira del contrario della sedia (e della vista ruotata del telefono, come i nomi).
+   I corpi sono divisi per il fattore di stampa (__sceneTextK) perché scaleSvgFonts li rimoltiplica:
+   il numero deve stare nella sedia a qualunque scala, non crescere come un nome. */
+function postoMarkup(it){
+  if(!postoNumerato(it)) return '';
+  var K=(window.__sceneTextK>0 ? window.__sceneTextK : 1), rot=+it.rot||0, rc=(_sceneRuota||0)-rot;
+  var t=String(it.posto), fs=t.length>2 ? 17 : 23;
+  var out='<text class="posto-n" x="0" y="'+(3+fs*0.36).toFixed(1)+'" transform="rotate('+rc+' 0 3)" style="font-size:'+(fs/K).toFixed(2)+'px">'+t+'</text>';
+  var extra=postiDisegno().byId[it.id];
+  if(extra){ var r=rot*Math.PI/180, co=Math.cos(r), si=Math.sin(r);
+    extra.forEach(function(e){
+      var dx=e.x-it.x, dy=e.y-it.y, lx=(dx*co+dy*si), ly=(-dx*si+dy*co);
+      var big=(e.c==="posto-fila"), es=big ? 28 : (e.c.indexOf("posto-senza")>-1 ? 20 : 26);
+      out+='<text class="'+e.c+'" x="'+lx.toFixed(1)+'" y="'+(ly+es*0.36).toFixed(1)+'" transform="rotate('+rc+' '+lx.toFixed(1)+' '+ly.toFixed(1)+')" style="font-size:'+(es/K).toFixed(2)+'px">'+esc(e.t)+'</text>';
+    });
+  }
+  return out;
+}
 function itemMarkup(it){
   var t = itemTypeDef(it); if(!t) return '';
   var lb='';   /* i NOMI: nella scena vanno nel livello sopra tutto (#layLbl), vedi _lblSink */
@@ -6896,11 +7698,12 @@ function itemMarkup(it){
   }
   if(it.leggio===true && leggioExtra(it)) s += '<g transform="translate(0,'+leggioExtraY(it)+')">'+leggioGlyph(0)+'</g>';   /* leggio generico: arpa, piani, organi, percussioni, mallet… (off di default, davanti allo strumento) */
   if(t.riser){                                       /* quota pedana sul lato scelto/auto (più visibile) */
-    var dimT=(it.w/100)+'×'+(it.d/100)+' m · h'+it.h, rside=riserDimSide(it), roff=12, rdx=0, rdy=0, ranc='middle', rtr='';
+    var dimT=(it.w/100)+'×'+(it.d/100)+' m · h'+it.h, rside=riserDimSide(it), roff=12, rdx=0, rdy=0, ranc='middle', rtr='', rang=0;
     if(rside==="top"){ rdy=-(it.d/2)-roff; }
     else if(rside==="bottom"){ rdy=(it.d/2)+roff+9; }
-    else if(rside==="left"){ rdx=-(it.w/2)-roff; ranc='middle'; rtr=' transform="rotate(-90 '+rdx+' 0)"'; }   /* ruotata, legge lungo il lato sx */
-    else { rdx=(it.w/2)+roff; ranc='middle'; rtr=' transform="rotate(90 '+rdx+' 0)"'; }                       /* ruotata, lato dx */
+    else if(rside==="left"){ rdx=-(it.w/2)-roff; ranc='middle'; rang=-90; }   /* ruotata, legge lungo il lato sx */
+    else { rdx=(it.w/2)+roff; ranc='middle'; rang=90; }                       /* ruotata, lato dx */
+    rtr=lblCapTr(!_sceneRuota && lblCapovolto((it.rot||0)+rang), rang, rdx, rdy, 12);   /* 06/10: la quota non si capovolge con la pedana girata */
     lb += '<text class="lbl sub" x="'+rdx+'" y="'+rdy+'" text-anchor="'+ranc+'"'+rtr+'>'+dimT+'</text>';
   }
   var _lblOrig = null;   /* perno del corpo minimo a schermo (lblScalaAttorno): null = l'ancora del primo testo */
@@ -6960,7 +7763,8 @@ function itemMarkup(it){
        colonna attorno al primo: loro restano come prima */
     if(!it.diFor && !t.riser && !(_sceneRuota && (it.doppia===true || DOUBLE_TYPES[it.type]))) _lblOrig = [_orX, _orY];
     var _xy = _sceneRuota ? ' x="'+_lxR+'" y="'+_lyR+'"' : ' y="'+ly+'"';
-    var _rot = _sceneRuota ? ' transform="rotate('+_rc+' '+_lxR+' '+_lyR+')"' : '';
+    var _cap = !_sceneRuota && lblCapovolto(it.rot);   /* 06/10: elemento girato oltre 90°/prima di 270°: il nome si rigira, resta dov'è ma si legge dritto */
+    var _rot = _sceneRuota ? ' transform="rotate('+_rc+' '+_lxR+' '+_lyR+')"' : lblCapTr(_cap, 0, 0, ly, fszK);
     var _fstR = _sceneRuota ? ' style="font-size:'+fsz+'px;text-anchor:middle;dominant-baseline:hanging"' : fst;
     var isDbl = it.doppia===true || !!DOUBLE_TYPES[it.type];
     var _t1 = lblText(it.label, it, true), _t2 = lblText(it.label2, it, false);   /* modalità nome per-elemento (full/sigla) */
@@ -6971,8 +7775,8 @@ function itemMarkup(it){
       /* inclinato, il capo interno del nome sale verso il disegno di mezza parola × sen 12°: a filo del
          disegno (29/09) lo si scosta di altrettanto, o «Violini I 1» entrava nel leggio */
       if(!_sceneRuota){ var _tc=Math.max(lblTextW(_t1, fszK), lblTextW(_t2, fszK))/2*Math.sin(tilt*Math.PI/180); ly += lblAbove ? -_tc : _tc; }
-      if(_t1) lb += '<text class="lbl" x="'+(-lx)+'" y="'+ly+'" transform="rotate('+(_sceneRuota ? _rc : -tilt)+' '+(-lx)+' '+ly+')"'+fst+'>'+esc(_t1)+'</text>';
-      if(_t2) lb += '<text class="lbl" x="'+lx+'" y="'+ly+'" transform="rotate('+(_sceneRuota ? _rc : tilt)+' '+lx+' '+ly+')"'+fst+'>'+esc(_t2)+'</text>';
+      if(_t1) lb += '<text class="lbl" x="'+(-lx)+'" y="'+ly+'"'+lblCapTr(_cap, (_sceneRuota ? _rc : -tilt), -lx, ly, fszK)+fst+'>'+esc(_t1)+'</text>';
+      if(_t2) lb += '<text class="lbl" x="'+lx+'" y="'+ly+'"'+lblCapTr(_cap, (_sceneRuota ? _rc : tilt), lx, ly, fszK)+fst+'>'+esc(_t2)+'</text>';
     } else if(_t1){
       /* DI generata da uno strumento (audit 27/07): il suo posto è sotto lo strumento, quindi la sua
          etichetta finiva nella stessa colonna di quella dello strumento e ci si stampava sopra —
@@ -6980,7 +7784,7 @@ function itemMarkup(it){
          esce di lato, dove non c'è nient'altro. */
       /* 18 e non 7: a 7 la prima lettera nasceva addosso al bordo della DI e il contorno del disegno
          si leggeva come parte del nome («⊏DI 1»). */
-      if(it.diFor) lb += '<text class="lbl" x="'+(it.w/2+18)+'" y="'+(fszK*0.36+_nudge)+'" text-anchor="start"'+(_sceneRuota ? ' transform="rotate('+_rc+' '+(it.w/2+18)+' '+(fszK*0.36+_nudge)+')"' : '')+fst+'>'+esc(_t1)+noteDot(it)+'</text>';
+      if(it.diFor) lb += '<text class="lbl" x="'+(it.w/2+18)+'" y="'+(fszK*0.36+_nudge)+'" text-anchor="start"'+(_sceneRuota ? ' transform="rotate('+_rc+' '+(it.w/2+18)+' '+(fszK*0.36+_nudge)+')"' : lblCapTr(_cap, 0, it.w/2+18, fszK*0.36+_nudge, fszK))+fst+'>'+esc(_t1)+noteDot(it)+'</text>';
       else if(!nomeGiaSullaSpia(it)) lb += '<text class="lbl"'+_xy+_rot+_fstR+'>'+esc(_t1)+noteDot(it)+'</text>';
     } else if(noteOf(it)){
       /* elementi che nascono anonimi (pedane, zone): senza questo ramo la loro nota non avrebbe
@@ -6989,20 +7793,24 @@ function itemMarkup(it){
     }
     /* MONTAGGIO: «stativo 2,5 m» sotto il nome. È il dato che chi allestisce viene a cercare, e a
        terra non si scrive niente — l'assenza vuol dire «poggiato», che è il caso normale. */
-    if(_mn) lb += '<text class="lbl sub"'+(_sceneRuota ? _xy+' dy="'+(fszK*1.1)+'"' : ' y="'+(ly+fszK*0.95)+'"')+_rot+' style="font-size:'+(fsz*0.8)+'px'+(_sceneRuota ? ';text-anchor:middle;dominant-baseline:hanging' : '')+'">'+esc(_mn)+'</text>';
+    if(_mn) lb += '<text class="lbl sub"'+(_sceneRuota ? _xy+' dy="'+(fszK*1.1)+'"' : ' y="'+(ly+fszK*0.95)+'"')+(_sceneRuota ? _rot : lblCapTr(_cap, 0, 0, ly+fszK*0.95, fszK*0.8))+' style="font-size:'+(fsz*0.8)+'px'+(_sceneRuota ? ';text-anchor:middle;dominant-baseline:hanging' : '')+'">'+esc(_mn)+'</text>';
   }
   /* coperture (gazebo/tende): UNA etichetta = nome + dimensione automatica, sul lato scelto (Sopra/Sotto/Sx/Dx) */
   if(GAZ_TYPES[it.type] && it.labelMode!=='hidden'){
     var gzsz=(it.lblSize==null)?14:it.lblSize;
     if(gzsz>0){
-      var gzT=gazStructLabel(it), gzs=(it.dimSide&&it.dimSide!=='auto')?it.dimSide:'top', goff=13, gdx=0, gdy=0, gtr='';
+      var gzT=gazStructLabel(it), gzs=(it.dimSide&&it.dimSide!=='auto')?it.dimSide:'top', goff=13, gdx=0, gdy=0, gtr='', gang=0;
       if(gzs==='top'){ gdy=-(it.d/2)-goff; }
       else if(gzs==='bottom'){ gdy=(it.d/2)+goff+gzsz*0.6; }
-      else if(gzs==='left'){ gdx=-(it.w/2)-goff; gtr=' transform="rotate(-90 '+gdx+' 0)"'; }
-      else { gdx=(it.w/2)+goff; gtr=' transform="rotate(90 '+gdx+' 0)"'; }
+      else if(gzs==='left'){ gdx=-(it.w/2)-goff; gang=-90; }
+      else { gdx=(it.w/2)+goff; gang=90; }
+      gtr=lblCapTr(!_sceneRuota && lblCapovolto((it.rot||0)+gang), gang, gdx, gdy, gzsz);   /* 06/10: come i nomi, non si capovolge */
       lb += '<text class="lbl" x="'+gdx+'" y="'+gdy+'" text-anchor="middle" style="font-size:'+gzsz+'px"'+gtr+'>'+esc(gzT)+'</text>';
     }
   }
+  /* POSTI NUMERATI (06/10): numero nella sedia, lettera della fila ai capi, legenda — nel disegno
+     dell'elemento, dopo il nome (misuraArte ha già misurato l'arte senza queste scritte) */
+  if(postoTipo(it)) s += postoMarkup(it);
   /* Le MANIGLIE dell'elemento selezionato NON stanno qui: vivono nel layer sopra tutto
      (selHandlesMarkup / layHandles). Dentro il gruppo dell'elemento finivano sotto al disegno
      di chi viene dopo nell'ordine — due pedane vicine e il lucchetto di quella «sotto» spariva. */
@@ -7226,10 +8034,6 @@ function micZoneMicPos(z){
 /* Area di PERTINENZA dalla selezione (Simone 14/07): convex hull dei footprint REALI (i 4 angoli
    ruotati di ogni elemento) + margine radiale → zona POLIGONALE aderente al gruppo, non un
    rettangolo assiale che copre mezzo palco e cattura sezioni vicine. */
-function itemCorners(it){
-  var hw=(it.w||40)/2, hd=(it.d||40)/2, a=(it.rot||0)*Math.PI/180, c=Math.cos(a), s=Math.sin(a);
-  return [[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]].map(function(p){ return [it.x+p[0]*c-p[1]*s, it.y+p[0]*s+p[1]*c]; });
-}
 function convexHull(pts){   /* Andrew monotone chain; i collineari cadono (cross<=0) */
   pts=pts.slice().sort(function(a,b){ return a[0]-b[0] || a[1]-b[1]; });
   if(pts.length<3) return pts;
@@ -7890,6 +8694,8 @@ function guideDialog(o){
     o.steps.forEach(function(s){ var li=document.createElement("li"); li.textContent=s; ul.appendChild(li); });
     card.appendChild(ul);
   }
+  /* o.corpo = un nodo DOM già pronto fra il testo e i bottoni (06/10, le scelte di «Numera i posti») */
+  if(o.corpo) card.appendChild(o.corpo);
   /* o.scelta = {label, checked}: una casella fra il testo e i bottoni (29/09, l'avvertenza di «Adatta»).
      Conta quando la finestra si chiude SENZA l'azione — il bottone di congedo, Esc, clic fuori: o.chiusa(spuntata). */
   var scelta=null;
@@ -7910,7 +8716,7 @@ function guideDialog(o){
   cancel.addEventListener("click", congedo);
   row.appendChild(cancel);
   if(o.action){
-    var go=document.createElement("button"); go.type="button"; go.className="btn primary"; go.textContent=o.action.label||"Aggiungi";
+    var go=document.createElement("button"); go.type="button"; go.className="btn "+(o.action.danger?"danger-solid":"primary"); go.textContent=o.action.label||"Aggiungi";
     go.addEventListener("click", function(){ close(); try{ o.action.run(); }catch(e){ showToast("Non è stato possibile completare l'operazione","err"); } });
     row.appendChild(go);
   }
@@ -11657,6 +12463,20 @@ function renderProps(){
     var zoneWrap=document.getElementById("grpZoneWrap");
     if(zoneWrap){ var zsrc=its.filter(function(x){ return isAudioSource(x); });
       zoneWrap.style.display = (zsrc.length && !its.some(function(x){ return x.type==="miczone"; })) ? "block" : "none"; }
+    /* --- posti numerati: con almeno due sedie del pubblico nella selezione (06/10) --- */
+    var gpw=document.getElementById("grpPostiWrap");
+    if(gpw){ var gps=its.filter(postoTipo), gpn=gps.filter(postoNumerato).length;
+      gpw.style.display = gps.length>=2 ? "block" : "none";
+      if(gps.length>=2){
+        document.getElementById("grpPostiN").textContent="("+gps.length+")";
+        document.getElementById("grpPostiStato").textContent = !gpn ? "Ancora senza numero. La fila A sarà quella più vicina al palco."
+          : (gpn===gps.length ? "Tutte numerate. Se le sposti o ne aggiungi, rinumera." : gpn+" numerate, "+(gps.length-gpn)+" senza numero: rinumera per darlo anche a loro.");
+        document.getElementById("bGrpPosti").textContent = gpn ? "Rinumera i posti…" : "Numera i posti…";
+        document.getElementById("bGrpPostiVia").style.display = gpn ? "" : "none";
+        document.getElementById("bGrpPostiCsv").style.display = gpn ? "" : "none";
+        /* chi seleziona più sedie per prima cosa deve vedere «Vai alla biglietteria»: la domanda al server parte anche da qui */
+        if(typeof bglAbilitatoAggiorna==="function") bglAbilitatoAggiorna();
+      } }
     /* --- dimensione etichetta per tutti (normalizza) --- */
     document.getElementById("grpLblWrap").style.display="block";
     var cs=(its[0].lblSize==null?14:its[0].lblSize); document.getElementById("grpLblSize").value=cs; document.getElementById("grpLblSizeVal").textContent=cs;
@@ -11698,6 +12518,14 @@ function renderProps(){
   var t = TYPES[it.type];
   document.getElementById("selNome").textContent = t.nome;
   setPeekName(t.nome);
+  if(typeof bglAbilitatoAggiorna==="function") bglAbilitatoAggiorna();   /* biglietteria: solo abilitati (0073) */
+  var ppw=document.getElementById("pPostoWrap");   /* posti numerati (06/10) */
+  if(ppw){ var isPosto=postoTipo(it); ppw.style.display = isPosto ? "block" : "none";
+    if(isPosto){ var altri=(state.items||[]).filter(postoNumerato).length;
+      document.getElementById("pPostoInfo").textContent = postoNumerato(it) ? postoSettore(it)+" · fila "+it.fila+" · posto "+it.posto
+        : (altri ? "Senza numero: è stata aggiunta o copiata dopo la numerazione. Rinumera i posti per dargliene uno." : "I posti non sono ancora numerati.");
+      document.getElementById("bPostoNumera").textContent = altri ? "Rinumera tutti i posti…" : "Numera tutti i posti…";
+      document.getElementById("bPostoCsv").style.display = altri ? "" : "none"; } }
   var pwWrap=document.getElementById("pWattWrap");
   if(pwWrap){ var powered=hasWattItem(it); pwWrap.style.display = powered ? "block" : "none";
     if(powered) document.getElementById("pWatt").value = wattOf(it); }
@@ -12134,6 +12962,7 @@ function renderProps(){
     if(isRamp){ var rsel=document.getElementById("pRamp");
       rsel.innerHTML=Object.keys(RAMP_TYPES).map(function(k){ return '<option value="'+k+'">'+esc(RAMP_TYPES[k].nome)+(RAMP_TYPES[k].ch?" · "+RAMP_TYPES[k].ch+" canali":"")+'</option>'; }).join("");
       rsel.value=it.rampType||"midi"; } }
+  plateaFillProps(it);
   var gzw=document.getElementById("pGazWrap");   /* gazebo: taglia preset (poi resize libero) */
   if(gzw){ var isGaz=!!GAZ_TYPES[it.type]; gzw.style.display=isGaz?"block":"none";
     if(isGaz){ var gsel=document.getElementById("pGaz"), gcur=it.w+"x"+it.d;
@@ -12421,7 +13250,7 @@ var ABBR_PRO=[
   ["direct box","DI"],["stage box","SB"],["stagebox","SB"],
   ["leggio","Leg"],["praticabile","Prat"],["pedana","Ped"]
 ];
-function _deacc(s){ s=(s||"").toLowerCase(); return s.normalize?s.normalize("NFD").replace(/[̀-ͯ]/g,""):s; }
+function _deacc(s){ s=(s||"").toLowerCase(); return s.normalize?s.normalize("NFD").replace(/[\u0300-\u036f]/g,""):s; }
 function proAbbrName(name){ name=_deacc(name); for(var i=0;i<ABBR_PRO.length;i++){ if(name.indexOf(ABBR_PRO[i][0])>=0) return ABBR_PRO[i][1]; } return null; }
 /* fallback quando nessuna sigla di settore corrisponde: iniziali / troncamento, tenendo il numero finale */
 function autoAbbr(s){
@@ -12550,7 +13379,8 @@ document.getElementById("pLblSizeAllYes").addEventListener("click", function(){
     var k=e.target.closest("[data-shape]"), st=e.target.closest("[data-sst]"),
         fl=e.target.closest("[data-fill]"), z=e.target.closest("[data-sz]");
     if(k) mut(function(it){ it.shape=k.getAttribute("data-shape"); });
-    else if(st) mut(function(it){ var v=st.getAttribute("data-sst"); if(v==="solid") delete it.shapeStyle; else it.shapeStyle=v; });
+    else if(st) mut(function(it){ var v=st.getAttribute("data-sst"); if(v==="solid") delete it.shapeStyle; else it.shapeStyle=v;
+      if(v==="area" && it.lblSize==null) it.lblSize=AREA_LBL; });   /* una forma che diventa area prende il nome grande, e il cursore lo dice */
     else if(fl) mut(function(it){ it.fill=fl.getAttribute("data-fill"); });
     else if(z) mut(function(it){ var front=z.getAttribute("data-sz")==="front"; if(front) it.z=3; else delete it.z; });
   });
@@ -12673,8 +13503,18 @@ document.getElementById("pDiFor").addEventListener("change", function(e){
 document.getElementById("pDiType").addEventListener("click", function(e){ var b=e.target.closest("button[data-v]"); if(!b) return; mutSel(function(it){ it.diType=b.getAttribute("data-v"); it.diTypeUtente=true; __cabRes=null; }); });
 document.getElementById("pDiMultiN").addEventListener("click", function(e){ var b=e.target.closest("button[data-v]"); if(!b) return; mutSel(function(it){ it.diMultiCh=+b.getAttribute("data-v"); __cabRes=null; }); });
 document.getElementById("pDiSchema").addEventListener("change", function(){ var v=document.getElementById("pDiSchema").checked; mutSel(function(it){ it.diSchema=v; }); });
-document.getElementById("pW").addEventListener("change", function(){ mutSel(function(it){ it.w=Math.max(10,+document.getElementById("pW").value||it.w); }); });
-document.getElementById("pD").addEventListener("change", function(){ mutSel(function(it){ it.d=Math.max(10,+document.getElementById("pD").value||it.d); }); });
+document.getElementById("pW").addEventListener("change", function(){ mutSel(function(it){ it.w=Math.max(10,+document.getElementById("pW").value||it.w); if(it.type==="platea") plateaDaMisure(it, it.w, it.d); }); renderProps(); });
+document.getElementById("pD").addEventListener("change", function(){ mutSel(function(it){ it.d=Math.max(10,+document.getElementById("pD").value||it.d); if(it.type==="platea") plateaDaMisure(it, it.w, it.d); }); renderProps(); });
+/* PLATEA (06/10/2026): file, sedie, passi e corridoio — ogni campo rifà le misure (plateaImposta) */
+[["pPlFile","file"],["pPlSedie","sedie"],["pPlPasso","passo"],["pPlPassoFile","passoFile"],["pPlCorrW","corridoio"]].forEach(function(f){
+  var el=document.getElementById(f[0]); if(!el || !el.addEventListener) return;
+  el.addEventListener("change", function(){ var v=+el.value; if(!isFinite(v)||el.value==="") { renderProps(); return; }
+    var c={}; c[f[1]]=v; mutSel(function(it){ if(it.type==="platea") plateaImposta(it, c); }); renderProps(); });
+});
+(function(){ var el=document.getElementById("pPlCorr"); if(!el || !el.addEventListener) return;
+  el.addEventListener("change", function(){ var on=!!el.checked;
+    mutSel(function(it){ if(it.type==="platea") plateaImposta(it, { corridoio: on ? PLATEA_CORR_DEF : 0 }); }); renderProps(); });
+})();
 document.getElementById("pH").addEventListener("change", function(){ mutSel(function(it){ it.h=Math.max(0,+document.getElementById("pH").value||0); }); });
 var ROT_SNAP=2;   /* snap magnetico leggero: entro ±2° aggancia i cardinali, fuori resta libero per regolazioni precise */
 function applyRot(doSave){
@@ -12939,7 +13779,7 @@ document.getElementById("pBack").addEventListener("click", function(){
    l'altro lato del palco. Ora è un'azione, nella stessa riga di Duplica ed Elimina.
    Fuori: gli elementi il cui disegno È scrittura (testo, forma, zona) — specchiarli scriverebbe al
    contrario, che non è mai quello che si vuole. */
-var NO_MIRROR={ testo:1, forma:1, miczone:1, metro:1 };
+var NO_MIRROR={ testo:1, forma:1, miczone:1, metro:1, platea:1 };   /* platea: simmetrica, e il cartellino «60 posti» uscirebbe a rovescio */
 function canMirror(it){ return !!(it && !NO_MIRROR[it.type]); }
 /* Con PIÙ elementi (selezionati o uniti in blocco) specchiare vuol dire ribaltare la DISPOSIZIONE,
    non solo l'arte di ognuno: chi sta a sinistra passa a destra rispetto all'asse verticale del
@@ -13456,6 +14296,125 @@ document.getElementById("grpGroup").addEventListener("click", groupSel);
 document.getElementById("grpUngroup").addEventListener("click", ungroupSel);
 /* crea una zona di microfonazione attorno alla selezione: HULL poligonale dei footprint reali
    (angoli ruotati) + margine → area di pertinenza aderente (Simone 14/07); bbox solo come fallback */
+/* ===== POSTI NUMERATI: la finestra delle scelte (06/10) ===== */
+var _postiScelte={file:"lettere", posti:"consecutivi"};   /* le ultime scelte, per la sessione */
+function apriNumeraPosti(seats){
+  seats=(seats||[]).filter(postoTipo); if(!seats.length) return;
+  if(!postiVerso(seats)){
+    guideDialog({title:"Le sedie guardano da parti diverse",
+      msg:"Per sapere qual è la prima fila, le sedie da numerare devono guardare tutte verso il palco.",
+      steps:["Girale verso il palco (Rotazione, o la maniglia sul disegno)","Se i settori guardano da parti diverse, numerali uno alla volta, ciascuno col suo nome"]});
+    return;
+  }
+  var ex=seats.filter(postoNumerato)[0], sett=ex ? postoSettore(ex) : "Platea";
+  if(ex){ _postiScelte.file = /^\d+$/.test(ex.fila) ? "numeri" : "lettere"; }
+  var corpo=document.createElement("div"); corpo.className="posti-dlg";
+  corpo.innerHTML=
+    '<label for="postiSett">Settore</label><input type="text" id="postiSett" maxlength="24" autocomplete="off">'+
+    '<div class="posti-grp" role="radiogroup" aria-label="File"><div class="posti-tit">File</div>'+
+      '<label class="chk"><input type="radio" name="postiFile" value="lettere"> Lettere: A, B, C… (senza I e O)</label>'+
+      '<label class="chk"><input type="radio" name="postiFile" value="numeri"> Numeri: 1, 2, 3…</label></div>'+
+    '<div class="posti-grp" role="radiogroup" aria-label="Posti"><div class="posti-tit">Posti in ogni fila</div>'+
+      '<label class="chk"><input type="radio" name="postiPosti" value="consecutivi"> 1, 2, 3… da sinistra a destra</label>'+
+      '<label class="chk"><input type="radio" name="postiPosti" value="alterni"> Dispari a sinistra, pari a destra del corridoio centrale (1 e 2 al centro)</label></div>'+
+    '<p class="posti-esito" id="postiEsito" aria-live="polite"></p>';
+  corpo.querySelector("#postiSett").value=sett;
+  [].forEach.call(corpo.querySelectorAll('input[type=radio]'), function(r){
+    r.checked = (r.name==="postiFile" ? _postiScelte.file : _postiScelte.posti)===r.value; });
+  function scelte(){ var o={settore:corpo.querySelector("#postiSett").value};
+    [].forEach.call(corpo.querySelectorAll('input[type=radio]'), function(r){ if(r.checked){ if(r.name==="postiFile") o.file=r.value; else o.posti=r.value; } });
+    return o; }
+  function esito(){ var o=scelte(), R=postiNumerazione(seats, o), el=corpo.querySelector("#postiEsito");
+    if(!R.ok){ el.textContent=""; return; }
+    el.textContent=R.totale+" posti in "+R.file+(R.file===1?" fila ("+R.prima+")":" file ("+R.prima+"–"+R.ultima+")")+
+      (o.posti==="alterni" && !R.corridoio ? ". Nessun corridoio centrale: dispari e pari si dividono a metà fila." : "."); }
+  corpo.addEventListener("change", esito); esito();
+  guideDialog({title:"Numera i posti",
+    msg:seats.length+(seats.length===1?" sedia":" sedie")+" del pubblico. La prima fila è la più vicina al palco, cioè quella verso cui guardano le sedie; sinistra e destra sono quelle di chi siede.",
+    corpo:corpo,
+    action:{label:"Numera", run:function(){
+      var o=scelte(); _postiScelte.file=o.file; _postiScelte.posti=o.posti;
+      primaDiAgire();
+      var R=numeraPosti(seats, o); if(!R.ok) return;
+      render(); save(); renderProps();
+      showToast(R.settore+": "+R.totale+" posti, file "+R.prima+(R.file>1?"–"+R.ultima:"")+
+        (R.doppi ? ". Attenzione: "+R.doppi+" posti doppi con altre sedie di «"+R.settore+"»: numerale insieme o cambia il nome del settore" : ""), R.doppi>0);
+    }}});
+}
+document.getElementById("bGrpPosti").addEventListener("click", function(){ apriNumeraPosti(selItems()); });
+document.getElementById("bGrpPostiCsv").addEventListener("click", function(){ exportPostiCsv(); });
+document.getElementById("bGrpPostiVia").addEventListener("click", function(){
+  primaDiAgire(); var n=togliNumeriPosti(selItems()); if(!n) return;
+  render(); save(); renderProps(); showToast("Numeri tolti da "+n+(n===1?" sedia":" sedie")); });
+document.getElementById("bPostoNumera").addEventListener("click", function(){ apriNumeraPosti((state.items||[]).filter(postoTipo)); });
+document.getElementById("bPostoCsv").addEventListener("click", function(){ exportPostiCsv(); });
+/* ============ BIGLIETTERIA — dall'editor solo «Vai alla biglietteria» (area, ottobre 2026) ============
+   Il vecchio pannello delle prenotazioni non c'è più: la biglietteria ha la sua area in /biglietteria/gestione/
+   (specifica area §2.5). Qui restano il pulsante, chi lo vede (solo gli account abilitati: bgl_abilitato) e la
+   pianta dei posti, che sta nel modulo condiviso src/pianta-posti.js. */
+function bglUtente(){ try{ return (window.__bglCloud && window.__bglCloud.utente && window.__bglCloud.utente()) || null; }catch(e){ return null; } }
+function bglProgetto(){ try{ return (window.__bglCloud && window.__bglCloud.progettoId && window.__bglCloud.progettoId()) || null; }catch(e){ return null; } }
+function bglIndirizzoGestione(pid){ return "/biglietteria/gestione/?p="+encodeURIComponent(pid); }
+/* Prima si SALVA (in silenzio): l'area legge il progetto salvato, e una numerazione appena fatta deve esserci.
+   `apri` si passa solo nei test. */
+function bglVaiAllaBiglietteria(apri){
+  apri=apri||function(u){ var w=window.open(u,"_blank"); if(w){ try{ w.opener=null; }catch(e){} } else location.assign(u); };
+  if(!(state.items||[]).some(postoNumerato)){
+    guideDialog({title:"Prima numera i posti",
+      msg:"La biglietteria prenota i posti numerati: ogni persona sceglie fila e posto sulla pianta.",
+      steps:["Seleziona le sedie del pubblico","Usa «Numera i posti…»: la fila A è quella più vicina al palco"],
+      action:{label:"Numera i posti…", run:function(){ apriNumeraPosti(selItems().filter(postoTipo).length>=1 ? selItems() : (state.items||[]).filter(postoTipo)); }}});
+    return;
+  }
+  if(!bglUtente()){
+    guideDialog({title:"Accedi per usare la biglietteria",
+      msg:"Gli spettacoli stanno nel tuo account StagePlot: così solo tu vedi chi ha prenotato.",
+      action:{label:"Accedi", run:function(){ try{ if(window.__cloud && window.__cloud.signIn) window.__cloud.signIn(); else document.getElementById("bCloud").click(); }catch(e){} }}});
+    return;
+  }
+  if(!bglProgetto()){
+    guideDialog({title:"Salva il progetto online",
+      msg:"La biglietteria usa la sala del progetto salvato nel tuo account: così la ritrovi e si aggiorna con il progetto.",
+      action:{label:"Salva online", run:function(){
+        try{ window.__cloud.save(function(id){ if(id) apri(bglIndirizzoGestione(id)); else showToast("Il progetto non si è salvato: riprova","err"); }); }
+        catch(e){ showToast("Il progetto non si è salvato: riprova","err"); } }}});
+    return;
+  }
+  try{
+    window.__cloud.save(function(id){ apri(bglIndirizzoGestione(id||bglProgetto())); }, true);
+  }catch(e){ apri(bglIndirizzoGestione(bglProgetto())); }
+}
+/* SOLO GLI ACCOUNT ABILITATI (0073, 06/10, decisione di Simone: per ora la biglietteria è solo sua).
+   Il pulsante nasce nascosto e compare solo se il server dice sì per QUESTO account; si richiede quando
+   cambia l'account. Il server rifiuta comunque (non_abilitato): qui si evita solo di mostrare una porta chiusa. */
+var BGL_AB={uid:null, ok:false, chiesto:null};
+/* u e T si passano solo nei test (niente globali da toccare mentre altre prove asincrone girano) */
+function bglAbilitatoVisibile(uTest){
+  if(!BGL_AB) return false;   /* chiamata prima che lo script arrivi qui (primo renderProps) */
+  var u=(uTest!==undefined ? uTest : bglUtente()), vis=!!(u && BGL_AB.ok && BGL_AB.uid===u.id);
+  ["bGrpPostiPren","bPostoPren"].forEach(function(id){ var el=document.getElementById(id); if(el) el.style.display=vis?"":"none"; });
+  return vis;
+}
+function bglAbilitatoAggiorna(uTest, TTest){
+  if(!BGL_AB) return Promise.resolve(false);
+  var leggi=function(){ return uTest!==undefined ? uTest : bglUtente(); };
+  var u=leggi(), uid=u?u.id:null, attesa=Promise.resolve();
+  if(uid && BGL_AB.uid!==uid && BGL_AB.chiesto!==uid){
+    BGL_AB.chiesto=uid;
+    var T=TTest || (window.__bglCloud && window.__bglCloud.rpc);
+    if(typeof T==="function") attesa=Promise.resolve(T("bgl_abilitato", {})).then(function(r){
+      var ora=leggi(); if(!ora || ora.id!==uid) return;   /* nel frattempo è cambiato l'account */
+      BGL_AB.uid=uid; BGL_AB.ok=!!(r && !r.error && r.data===true);
+    }, function(){ BGL_AB.chiesto=null; });
+  }
+  bglAbilitatoVisibile(uTest);
+  return attesa.then(function(){ return bglAbilitatoVisibile(uTest); });
+}
+(function(){
+  var a=document.getElementById("bGrpPostiPren"), b=document.getElementById("bPostoPren");
+  if(a) a.addEventListener("click", function(){ bglVaiAllaBiglietteria(); });
+  if(b) b.addEventListener("click", function(){ bglVaiAllaBiglietteria(); });
+})();
 document.getElementById("bGrpZone").addEventListener("click", function(){
   var its=selItems().filter(function(x){ return x.type!=="miczone"; }); if(!its.length) return;
   var z, shape=miczoneShapeFromItems(its, 25);
@@ -13554,6 +14513,7 @@ function duplicateSel(noOffset, opts){
     bumpItemLabels(c);
     if(c.grp){ if(!gmap[c.grp]) gmap[c.grp]="g"+uid(); c.grp=gmap[c.grp]; }
     state.items.push(c); return c; });
+  postiCopie(copies);   /* il duplicato di un posto numerato nasce senza numero: quel posto c'è già */
   /* rimappa distOf al nuovo id della pedana copiata (evita che la copia punti alla pedana originale) */
   copies.forEach(function(c){ if(c.distOf && idmap[c.distOf]) c.distOf=idmap[c.distOf]; });
   /* pedana agganciata + elementi duplicati = un BLOCCO unico: si muovono insieme e il trascinamento NON
@@ -13587,6 +14547,7 @@ function pasteClip(){
   copies.forEach(function(c){ if(c.distOf && idmap[c.distOf]) c.distOf=idmap[c.distOf]; });
   if(hasRiser){ var bg="g"+uid(); copies.forEach(function(c){ c.grp=bg; }); }   /* pedana+elementi = blocco */
   copies.forEach(function(c){ state.items.push(c); });
+  postiCopie(copies);   /* posto numerato già presente nella scena → la copia resta senza numero */
   selSet={}; copies.forEach(function(c){ selSet[c.id]=true; }); sel=copies.length?copies[copies.length-1].id:null;
   render(); save(); ensureVisible();
 }
@@ -14073,6 +15034,16 @@ function ricordaRecenteCatalogo(k, nome, over){
       if(TYPES.pedanacoro){ addToGroup("Pedane e gradoni", makeBtn("pedanacoro", TYPES.pedanacoro.nome)); entries.push({k:"pedanacoro",nome:TYPES.pedanacoro.nome}); }
       /* FORME: un solo tipo, sei porte d'ingresso — cercando "cerchio" o "triangolo" si trova la voce
          giusta, e nel pannello la forma si cambia senza cancellare l'elemento. */
+      /* AREA CON NOME (06/10/2026): la prima delle «Forme e note», perché è quella che si cercava facendo
+         le zone con le pedane. È una forma con lo stile «area» (vedi isAreaNome): niente tipo nuovo.
+         `qaPrimo`: «zona», «area», «settore» la danno per prima — prima della zona del microfono
+         panoramico, che nel nome ha «(zona)», e delle sei forme, che hanno «zona» fra le parole. */
+      (function(){
+        var over={shape:"rect", shapeStyle:"area", w:300, d:200, label:"Zona", lblSize:AREA_LBL};
+        addToGroup("Forme e note", makeBtn("forma", "Area con nome", over, "zona colorata col suo nome"));
+        entries.push({k:"forma", nome:"Area con nome", over:over, dim:"zona colorata col suo nome",
+                      kw:"area aree zona zone settore settori reparto spazio riservato", qaPrimo:"area aree zona zone settore settori"});
+      })();
       SHAPES.forEach(function(sh){
         var over={shape:sh[0]};
         if(sh[0]==="line"){ over.w=300; over.d=6; over.shapeStyle="outline"; }
@@ -14083,7 +15054,7 @@ function ricordaRecenteCatalogo(k, nome, over){
       /* — gruppi strutture — */
       [["Accessi",             ["scala","rampa","parapetto"]],
        ["Scenografia",         ["fondale","quinta","tappeto"]],
-       ["Arredo e leggii",     ["leggiotablet","tavolo","sediabianca","sedia","sedialeggio","sediapubblico","leggio","podio","podiosp","sgabello"]],   /* sediapubblico (05/10): esisteva ma non era in nessun gruppo, e la platea si faceva con 60 sedie bianche */
+       ["Arredo e leggii",     ["leggiotablet","tavolo","sediabianca","sedia","sedialeggio","sediapubblico","platea","leggio","podio","podiosp","sgabello"]],   /* sediapubblico (05/10): esisteva ma non era in nessun gruppo, e la platea si faceva con 60 sedie bianche */
        ["Accessori",           ["ventilatore"]]
       ].forEach(function(g){
         g[1].filter(function(k){ return TYPES[k] && TYPES[k].catalog!==false; }).forEach(function(k){
@@ -14164,6 +15135,14 @@ function ricordaRecenteCatalogo(k, nome, over){
         addBtn(TYPES[k].nome);
       }
     });
+    if(c==="Audio"){   /* dopo i tipi: il gruppo «Impianto piccolo» esiste già e conserva il suo posto nell'ordine */
+      /* ANELLO DI ALTOPARLANTI (06/10/2026): una voce che apre una piccola scelta (quante casse, cerchio o
+         rettangolo, nome) e posa l'impianto multicanale in un colpo, nel gruppo «Impianto piccolo» dei diffusori */
+      var ANELLO_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="16" cy="16" r="10" stroke-dasharray="2 3" opacity=".5"/><rect x="13" y="3" width="6" height="5" rx="1"/><rect x="13" y="24" width="6" height="5" rx="1"/><rect x="3" y="13" width="5" height="6" rx="1"/><rect x="24" y="13" width="5" height="6" rx="1"/></svg>';
+      addToGroup("Impianto piccolo", makeActionBtn("Anello di altoparlanti", "4, 6 o 8 casse attorno al pubblico", null, apriAnello, ANELLO_ICON));
+      entries.push({nome:"Anello di altoparlanti", dim:"4, 6 o 8 casse attorno al pubblico", action:apriAnello, iconHtml:ANELLO_ICON,
+                    kw:"anello altoparlanti multicanale ottofonico ottofonia quadrifonico quadrifonia surround immersivo", noQuick:true});
+    }
     /* Task 4: sposta i bottoni NON essenziali sotto "Mostra tutti (+N)" (le sottocat rimaste vuote spariscono).
        I bottoni direttamente su body (azioni Voci/Palco) restano sempre visibili. */
     if(c!=="Liste tecniche"){
@@ -14428,6 +15407,9 @@ function findFreeSpotFor(it,x,y){
   var mio=lblBandOf(it);
   function occupato(cx,cy){
     return state.items.some(function(o){
+      /* AREA (06/10/2026): sta SOTTO, ci si mette dentro. Un'area non spinge fuori chi arriva, e chi
+         arriva non la evita; un'area nuova evita solo le altre aree (due zone una sull'altra no). */
+      if(isAreaNome(o)!==isAreaNome(it)) return false;
       var suo=lblBandOf(o);
       var t1=cy-it.d/2-mio.sopra, b1=cy+it.d/2+mio.sotto;
       var t2=o.y-o.d/2-suo.sopra,  b2=o.y+o.d/2+suo.sotto;
@@ -14498,7 +15480,7 @@ function instrBase(type){ return INSTR_BASE[type] || (TYPES[type]&&TYPES[type].n
 function instrSeats(type){ var base=instrBase(type), n=0;
   state.items.forEach(function(x){ if(x.type && autoNumbered(x.type) && instrBase(x.type)===base) n += ((x.doppia||DOUBLE_TYPES[x.type])?2:1); });
   return n; }
-function addItem(type, over){
+function addItem(type, over, silenzioso){   /* silenzioso (06/10/2026): crea e mette nello stato, ma non disegna, non salva e non seleziona — lo usa chi ne posa molti in un colpo (anello di altoparlanti) e salva UNA volta */
   if(window.__projLocked) return null;   /* BLOCCO progetti: nessuna aggiunta di elementi (backstop di TUTTI i path: catalogo, quick-add, drag-drop, fix audit, auto-add cablaggio) */
   var t=TYPES[type];
   var _cv=v2w({x:vb.x+vb.w/2, y:vb.y+vb.h/2});   /* il centro di quello che si vede, nelle coordinate del palco (anche con la vista ruotata) */
@@ -14533,6 +15515,7 @@ function addItem(type, over){
   if(COMP[type]){ it.parts=compClone(COMP[type].defParts); if(COMP[type].size){ var sz=COMP[type].size(it); it.w=sz[0]; it.d=sz[1]; } }
   if(type==="miczone") it.zcol=micZoneFreeColor();   /* ogni zona nasce con un colore diverso */
   if(over) Object.keys(over).forEach(function(k){ it[k]=over[k]; });
+  if(isAreaNome(it) && !(over && over.fill)) it.fill=areaFreeColor();   /* anche ogni AREA (06/10/2026): due zone accanto non hanno lo stesso colore */
   if(cabIsBox(it)) sbAutoSize(it);   /* misure dai canali (ch/outCh arrivano da over): subito, non al prossimo caricamento */
   if(it.type==="cantante") it.d=cantanteDepth(it);   /* footprint coerente col mic scelto (over può impostare micMode) */
   if(!(over && over.x!=null)){   /* posizione non esplicita (no drag-drop) → cerca uno spazio libero, nome compreso */
@@ -14545,6 +15528,7 @@ function addItem(type, over){
      la scatoletta compare SUBITO accanto a loro, come quando si sceglie DI a mano. Prima appariva
      solo toccando la tendina, e il pannello diceva "serve una DI" mostrando un palco senza DI. */
   try{ if(typeof diUsesBox==="function" && diUsesBox(it)) diApply(it, {quiet:true}); }catch(_e){}
+  if(silenzioso) return it;
   selectOne(it.id); render(); save(); ensureVisible();
   /* Layer v2 (21/07): CABLAGGIO AUTOMATICO — appena sul palco ci sono stage box e sorgenti, il
      cablaggio si collega da solo (niente bottoni, niente gesti da scoprire). Solo sugli inserimenti
@@ -14757,6 +15741,112 @@ function openQuickAdd(sp, cx, cy){
 /* numerazione progressiva violini per sezione (1 = Violini I, 2 = Violini II); le doppie contano 2 leggii */
 function vlnSeats(sec){ var n=0; state.items.forEach(function(x){ if(x.type==="vlnpost" && x.vsec===sec) n += (x.doppia?2:1); }); return n; }
 function addViolin(sec){ var base=vlnSeats(sec); addItem("vlnpost",{vsec:sec, label:"Violino "+toRoman(sec)+" "+(base+1)}); }
+/* ANELLO DI ALTOPARLANTI (06/10/2026). Un progetto aveva un impianto ottofonico disegnato a mano: otto
+   casse G1–G8 attorno al pubblico, ciascuna da posare, girare e nominare. Qui si pongono in un colpo.
+   Le posizioni sono una funzione pura (la prova la suite): n casse, in CERCHIO o in RETTANGOLO attorno a
+   (cx,cy), ognuna girata col FRONTE verso il centro. Il fronte del diffusore è +y (verso il pubblico, vedi
+   topStandDraw), e la rotazione r porta +y su (−sen r, cos r): per guardare il punto d = centro − posto
+   serve r = atan2(−dx, dy). Il giro parte dall'alto e va in senso orario: G1 in alto (a sinistra nel
+   rettangolo), G2 dopo, e così via. */
+var ANELLO_TIPO = "topattivo";   /* la cassa full-range da sala/PA: «Diffusore attivo su stativo» */
+function anelloRot(dx, dy){   /* rotazione che porta il fronte (+y) verso (dx,dy), in gradi 0…360 */
+  var r=Math.atan2(-dx, dy)*180/Math.PI; if(r<0) r+=360;
+  r=Math.round(r*10)/10; return r>=360 ? 0 : r;
+}
+function anelloPunti(o){
+  o=o||{};
+  var n=Math.max(2, Math.min(24, Math.round(+o.n||8))), cx=+o.cx||0, cy=+o.cy||0;
+  var pre=(o.prefisso==null) ? "G" : String(o.prefisso);
+  var pts=[], k, i;
+  if(o.forma==="rettangolo"){
+    var hw=Math.max(10,+o.w||800)/2, hd=Math.max(10,+o.d||600)/2;
+    var angoli=[[-hw,-hd],[hw,-hd],[hw,hd],[-hw,hd]], lati=[[0,-hd],[hw,0],[0,hd],[-hw,0]];   /* TL TR BR BL · alto destra basso sinistra */
+    if(n===4) pts=angoli.slice();
+    else if(n===6) pts=[angoli[0],lati[0],angoli[1],angoli[2],lati[2],angoli[3]];            /* angoli + metà dei lati lunghi */
+    else if(n===8) pts=[angoli[0],lati[0],angoli[1],lati[1],angoli[2],lati[2],angoli[3],lati[3]];
+    else {   /* altri numeri: a passo uguale sul perimetro, dall'angolo in alto a sinistra */
+      var per=4*(hw+hd), pos=function(s){ s=((s%per)+per)%per;
+        if(s<2*hw) return [-hw+s,-hd]; s-=2*hw; if(s<2*hd) return [hw,-hd+s]; s-=2*hd;
+        if(s<2*hw) return [hw-s,hd]; s-=2*hw; return [-hw,hd-s]; };
+      for(k=0;k<n;k++) pts.push(pos(k*per/n));
+    }
+  } else {
+    var r=Math.max(10,+o.r||400);
+    for(k=0;k<n;k++){ var th=(-90+k*360/n)*Math.PI/180; pts.push([r*Math.cos(th), r*Math.sin(th)]); }
+  }
+  return pts.map(function(p,i2){ return {x:Math.round(cx+p[0]), y:Math.round(cy+p[1]), rot:anelloRot(-p[0], -p[1]), label:pre+(i2+1)}; });
+}
+/* Le posa come elementi normali (`topattivo`), UN passo di annulla: addItem in silenzio, poi si disegna e
+   si salva una volta sola. Restano selezionate tutte, per spostarle o cancellarle insieme. */
+function aggiungiAnello(o){
+  o=o||{};
+  primaDiAgire();
+  var pts=anelloPunti(o), made=[];
+  pts.forEach(function(p){ var it=addItem(ANELLO_TIPO, {x:p.x, y:p.y, rot:p.rot, label:p.label}, true); if(it) made.push(it); });
+  if(!made.length) return made;
+  selSet={}; made.forEach(function(it){ selSet[it.id]=true; }); sel=made[made.length-1].id;
+  render(); save(); ensureVisible();
+  return made;
+}
+/* La finestra: quante casse, la disposizione e il prefisso del nome. Il centro e la misura vengono dalla
+   platea se c'è (anelloDallaPlatea), se no dalla vista (dove l'utente sta guardando) e non dal palco: l'anello sta attorno al pubblico, che di solito
+   sta fuori dal palco. */
+var _anello={n:8, forma:"cerchio"};
+function apriAnello(){
+  var m=document.getElementById("anelloSetup"); if(!m) return;
+  var pre=document.getElementById("anPre"); if(pre) pre.value="G";
+  anelloSyncUI();
+  m.hidden=false;
+  /* revisione 06/10/2026: Esc e Invio si ascoltano sulla finestra, ma il fuoco restava sulla voce del catalogo
+     dietro di lei: aperta col clic, Esc non la chiudeva. Il fuoco va su «Aggiungi», come nelle altre finestre. */
+  var go=document.getElementById("anGo"); if(go && go.focus){ try{ go.focus(); }catch(_e){} }
+}
+function anelloSyncUI(){
+  var m=document.getElementById("anelloSetup"); if(!m || !m.querySelectorAll) return;
+  Array.prototype.forEach.call(m.querySelectorAll("[data-an-n]"), function(b){ b.classList.toggle("on", +b.getAttribute("data-an-n")===_anello.n); });
+  Array.prototype.forEach.call(m.querySelectorAll("[data-an-forma]"), function(b){ b.classList.toggle("on", b.getAttribute("data-an-forma")===_anello.forma); });
+}
+/* Se nel progetto c'è una PLATEA, l'anello va attorno a lei e non al centro della vista: provato nel browser
+   il 06/10/2026, con palco e platea in vista una cassa finiva in mezzo alle sedie. Sulla platea più grande;
+   girata di 90°/270° si scambiano le misure. Margine di 1 m: il treppiede ne occupa 90 cm. */
+function anelloDallaPlatea(){
+  var pl=null;
+  (state.items||[]).forEach(function(it){ if(it.type==="platea" && (!pl || (it.w||0)*(it.d||0)>(pl.w||0)*(pl.d||0))) pl=it; });
+  if(!pl) return null;
+  var rr=((+pl.rot||0)%180+180)%180, gira=rr>45 && rr<135;
+  var W=gira ? (pl.d||0) : (pl.w||0), D=gira ? (pl.w||0) : (pl.d||0);
+  var r=Math.ceil((Math.hypot(W,D)/2+100)/10)*10;   /* per eccesso: mai sopra le sedie */
+  return {cx:Math.round(pl.x), cy:Math.round(pl.y), r:Math.max(250,r), w:Math.round(W+200), d:Math.round(D+200)};
+}
+function anelloDallaVista(){
+  var p=anelloDallaPlatea(); if(p) return p;
+  var c=v2w({x:vb.x+vb.w/2, y:vb.y+vb.h/2}), lato=Math.min(vb.w, vb.h);
+  var r=Math.max(250, Math.min(800, Math.round(lato*0.3/10)*10));
+  return {cx:Math.round(c.x), cy:Math.round(c.y), r:r, w:Math.round(r*2*1.3/10)*10, d:r*2};
+}
+(function(){
+  var m=document.getElementById("anelloSetup"); if(!m || !m.addEventListener) return;
+  function chiudi(){ m.hidden=true; }
+  m.addEventListener("click", function(e){
+    var t=e.target; if(!t || !t.getAttribute) return;
+    if(t===m){ chiudi(); return; }
+    var bn=t.closest ? t.closest("[data-an-n]") : null, bf=t.closest ? t.closest("[data-an-forma]") : null;
+    if(bn){ _anello.n=+bn.getAttribute("data-an-n"); anelloSyncUI(); }
+    else if(bf){ _anello.forma=bf.getAttribute("data-an-forma"); anelloSyncUI(); }
+  });
+  var go=document.getElementById("anGo"), no=document.getElementById("anNo"), pre=document.getElementById("anPre");
+  if(no) no.addEventListener("click", chiudi);
+  function vai(){
+    var v=anelloDallaVista(), p=pre ? String(pre.value||"").trim().slice(0,12) : "G";
+    chiudi();
+    aggiungiAnello({n:_anello.n, forma:_anello.forma, cx:v.cx, cy:v.cy, r:v.r, w:v.w, d:v.d, prefisso:p});
+  }
+  if(go) go.addEventListener("click", vai);
+  m.addEventListener("keydown", function(e){
+    if(e.key==="Escape"){ e.preventDefault(); chiudi(); }
+    else if(e.key==="Enter" && !(e.target && e.target.tagName==="BUTTON")){ e.preventDefault(); vai(); }
+  });
+})();
 /* rinumera in ordine i violini di una sezione: ogni doppio occupa 2 posti, i successivi scalano.
    Rinumera solo le etichette AUTO ("Violino S P"); un'etichetta personalizzata dal tecnico resta intatta. */
 function renumberViolins(sec){
@@ -15799,6 +16889,7 @@ svg.addEventListener("pointermove", function(e){
       rzit.w=nw; rzit.d=nd;
       if(rzit.type==="cableramp"){ var rcfg=RAMP_TYPES[rzit.rampType||"midi"]; if(!rcfg.end){ nw=Math.max(rcfg.w, Math.round(nw/rcfg.w)*rcfg.w); nd=rcfg.d; rzit.w=nw; rzit.d=nd; } }   /* passacavi: lunghezza a scatti di 1 modulo, larghezza fissa per formato */
       if(rzit.type==="parapetto"){ nd=TYPES.parapetto.d; rzit.d=nd; }   /* parapetto pedana: si estende solo in lunghezza, spessore fisso (8 cm) */
+      if(rzit.type==="platea"){ plateaDaMisure(rzit, nw, nd); nw=rzit.w; nd=rzit.d; }   /* platea: a scatti di una sedia e di una fila (06/10/2026) */
       var shx=sgx*(nw-drag.w0)/2, shy=sgy*(nd-drag.d0)/2;   /* shift calcolato sui valori (eventualmente) snappati → lato opposto davvero fermo */
       var cc=Math.cos(drag.rot), ss=Math.sin(drag.rot);   /* riporta lo shift locale in coordinate globali (lato opposto fermo) */
       rzit.x = drag.x0 + (shx*cc - shy*ss);
@@ -15806,7 +16897,7 @@ svg.addEventListener("pointermove", function(e){
       if(grid){ rzit.x=snap(rzit.x); rzit.y=snap(rzit.y); }
       /* snap magnetico a bordo palco durante resize (solo rot=0, no griglia) */
       var rsg=[];
-      if(!grid && drag.rot===0){
+      if(!grid && drag.rot===0 && rzit.type!=="platea"){   /* platea: il magnete al bordo la lascerebbe fuori dalle sue caselle (una sedia in meno) */
         var rW=state.stage.w,rD=state.stage.d,rT=SNAP_T;
         if(ed.indexOf("r")>=0){var rre=rzit.x+nw/2,rdt=rW-rre;if(Math.abs(rdt)<rT){nw+=rdt;rzit.x+=rdt/2;rzit.w=nw;rsg.push({x1:rW,y1:-40,x2:rW,y2:rD+40,cls:'snap-guide'});}}
         if(ed.indexOf("l")>=0){var rle=rzit.x-nw/2,rdt=-rle;if(Math.abs(rdt)<rT){nw+=rdt;rzit.x-=rdt/2;rzit.w=nw;rsg.push({x1:0,y1:-40,x2:0,y2:rD+40,cls:'snap-guide'});}}
@@ -17321,9 +18412,10 @@ function buildAcousticOut(){
     {type:"wedge", x:210, y:70, label:"Chitarra"},
     {type:"stagepiano", x:-220, y:-80, label:"Piano"},
     {type:"wedge", x:-220, y:70, label:"Piano"},
-    {type:"percussionistaR", x:0, y:-235, label:""},
-    {type:"cajon", x:0, y:-217, label:"Cajon"},
-    {type:"astabassa", x:0, y:-170, rot:180, label:""},   /* il microfono del cajon: niente etichetta doppia */
+    /* 06/10/2026: una postazione sola al posto di percussionista + cajon + asta bassa. Centro 5 cm davanti
+       al cajon: i tre pezzi restano dov'erano (cajon a -217, musicista a -235, asta a -170). E il canale
+       è uno, il Beta 91A della channel list: l'asta bassa separata ne aggiungeva un secondo (SM57). */
+    {type:"cajonpost", x:0, y:-212, label:"Cajon"},
     {type:"wedge", x:110, y:-190, rot:-35, label:"Cajon"}
   ];
 }
@@ -18255,7 +19347,7 @@ var _anteprimeModelli={};
 var ANTEPRIMA_TECNICA={"Microfoni e DI":1,"Monitor da palco":1,"PA e diffusione":1,"Cablaggio e segnale":1,"Elettrico":1,"Regia e console":1,"Dispositivi":1,"Luci":1,"Video":1};
 /* chi siede a questi strumenti è disegnato con loro, ma non è un «contatto»: senza, il quartetto jazz
    diceva «3 musicisti» (18/09, visto nella finestra Nuovo) */
-var ANTEPRIMA_PERSONA={grancoda:1, mezzacoda:1, percussionistaR:1, batteristaR:1};
+var ANTEPRIMA_PERSONA={grancoda:1, mezzacoda:1, percussionistaR:1, batteristaR:1, cajonpost:1};   /* 06/10/2026: il cajonista ora sta dentro la sua postazione */
 function modelloAnteprima(f){
   if(_anteprimeModelli[f]) return _anteprimeModelli[f];
   var qd=(typeof formationData==="function") ? formationData(f) : null;
@@ -18270,7 +19362,7 @@ function modelloAnteprima(f){
     var cls = t.riser ? "mpv-riser"
             : musLayerItem(o.type) ? "mpv-mus"
             : ANTEPRIMA_TECNICA[t.cat] ? "mpv-tec" : "mpv-alt";
-    if(contactEligible(o.type) || t.gtr || ANTEPRIMA_PERSONA[o.type]) persone += (o.doppia===true || DOUBLE_TYPES[o.type]) ? 2 : 1;
+    if(contactEligible(o.type) || t.gtr || (ANTEPRIMA_PERSONA[o.type] && !(o.parts && o.parts.mus===false))) persone += (o.doppia===true || DOUBLE_TYPES[o.type]) ? 2 : 1;
     var rect='<rect class="'+cls+'" x="'+(-z.w/2)+'" y="'+(-z.d/2)+'" width="'+z.w+'" height="'+z.d+'" rx="'+Math.min(12, z.w/4, z.d/4)+'" transform="translate('+x+' '+y+')'+(r?' rotate('+r+')':'')+'"/>';
     if(t.riser) pedane+=rect; else resto+=rect;
   });
@@ -18515,7 +19607,7 @@ var RENDER_OPTS = { format:"Verticale 4:5 — Instagram", type:"Render 3D fotore
   scene:"Palco allestito prima dell'evento", camera:"Tre quarti sopraelevata", env:"Automatico", people:"Mostrare i musicisti" };
 /* elementi puramente tecnici/grafici da NON rappresentare in una foto reale (prese, ciabatte, metro, testi liberi) */
 var RENDER_SKIP = { corrente:1, ciabatta:1, metro:1, testo:1 };
-function renderVisible(it){ return !RENDER_SKIP[it.type]; }
+function renderVisible(it){ return !RENDER_SKIP[it.type] && !isAreaNome(it); }   /* l'area con nome è un segno sul foglio, in una foto non c'è (06/10/2026) */
 function renderName(it){ return (it.label&&it.label.trim()) || (typeof instrBase==="function"&&instrBase(it.type)) || (TYPES[it.type]&&TYPES[it.type].nome) || it.type; }
 function renderZoneOf(it){
   var W=state.stage.w||1200, D=state.stage.d||800, fx=it.x/W, fy=it.y/D;
@@ -18666,7 +19758,7 @@ var IN_SRC = {
   rullante:"SM57", grancassa:"D6", piatto:"KM184", piatticoppia:"KM184",
   /* pezzi della batteria divisa (audit 14/07: dividere il kit conserva gli 8 mic — ricompone D6+SM57+3×e904+SM81+2×KM184) */
   kickR:"D6", snareR:"SM57", tomR:"e904", floorR:"e904", hihatKR:"SM81", crashR:"KM184", rideR:"KM184",
-  campane:"KM184", tamtam:"KM184", glockenspiel:"KM184", cajon:"Beta 91A",
+  campane:"KM184", tamtam:"KM184", glockenspiel:"KM184", cajon:"Beta 91A", cajonpost:"Beta 91A",
   conga:"e904", quinto:"e904", tumba:"e904", bongos:"e904",   /* pezzi singoli del set percussioni: stesso mic del blocco da cui nascono */
   /* backline / tastiere a mic o DI singolo */
   comboamp:"SM57", stack:"SM57/e906", keysamp:"DI", celesta:"KM184",
@@ -19860,6 +20952,10 @@ function standNeeds(){
     if(!TYPES[it.type]) return;
     var own=standKindOfItem(it);
     if(own){ out[own].gia++; out[own].tot++; }
+    /* la postazione cajon disegna la sua asta bassa davanti al cajon: è un'asta sul palco come l'«Asta
+       bassa» che sostituisce (revisione 06/10/2026). Il canale (Beta 91A, «interno/terra») non la
+       dice, quindi si conta qui: il modello Acustico passava da 1 asta bassa a 0. */
+    if(it.type==="cajonpost"){ out.bassa.gia++; out.bassa.tot++; }
     /* «PRODUCE CANALI», non «è una sorgente da microfonare» — stessa distinzione gia' fatta il 29/07
        per il palco a zone. Il gate era isAudioSource, che ESCLUDE la zona panoramica di proposito
        (una zona non si microfona: e' lei il microfono). Risultato: il panoramico della zona compariva
@@ -22271,7 +23367,7 @@ function performerKind(it){
 function isPerformer(it){   /* un elemento SUONATO da una persona (non ampli/DI/rack/casse) */
   if(!it) return false; var t=TYPES[it.type]; if(!t) return false;
   if(POSTAZ[it.type]||VOCE[it.type]||KEYS_BENCH[it.type]||TASTIERE[it.type]||t.gtr) return true;
-  if(it.type==="batteria"||it.type==="edrums"||it.type==="percussioni"||it.type==="timbales") return true;
+  if(it.type==="batteria"||it.type==="edrums"||it.type==="percussioni"||it.type==="timbales"||it.type==="cajonpost") return true;
   return t.cat==="Orchestra";
 }
 function performerSpots(){
@@ -24195,7 +25291,7 @@ function resetCatalogView(){
 /* altezze tipiche in cm (override per tipo; fallback per categoria) */
 var H3D={ pedana:0,scala:40,rampa:40,parapetto:110,fondale:400,quinta:400,truss:30,transenna:120, topattivo:180,
   tappeto:1,tavolo:75,sedia:85,sedialeggio:115,leggio:125,podio:20,pedanacoro:60,sgabello:75,ventilatore:120,
-  batteria:120,edrums:110,drumshield:180,rullante:80,percussioni:90,cajon:48,timbales:90,
+  batteria:120,edrums:110,drumshield:180,rullante:80,percussioni:90,cajon:48,cajonpost:48,timbales:90,
   conga:76,quinto:76,tumba:76,bongos:65,djembe:60,surdo:95,tamburello:100,campanaccio:100,templeblocks:95,triangoloperc:130,tavolopercussioni:90,
   crotali:120,woodblock:95,flexaton:92,
   timpani:90,timpani3:90,timpani2:90,
@@ -24212,7 +25308,7 @@ var H3D={ pedana:0,scala:40,rampa:40,parapetto:110,fondale:400,quinta:400,truss:
 /* elementi documentati in patch/2D ma NON da renderizzare (simboli) */
 var HIDDEN3D={ testo:1, metro:1, corrente:1, ciabatta:1, iem:1, headset:1, wireless:1 };
 /* descrizioni EN per il motore 3D (fallback = nome italiano) */
-var DESC3D={ pedana:"black stage riser/platform", podio:"square conductor podium with black trim",
+var DESC3D={ platea:"rows of audience chairs facing the stage", pedana:"black stage riser/platform", podio:"square conductor podium with black trim",
   pedanacoro:"choir riser with 3 steps", tappeto:"large muted-red orchestral rug", sedia:"black padded orchestra chair", sediabianca:"white/light padded orchestra chair",
   sedialeggio:"black padded orchestra chair with black music stand", leggio:"black orchestral music stand",
   batteria:"5-piece acoustic drum kit (kick 22\", snare, 2 rack toms, floor tom, hi-hat, crash, ride, throne)",
@@ -24269,7 +25365,7 @@ var MAT3D={ black_metal:{type:"metal",color:"black",finish:"matte"},
 var TYPEMAT={ pedana:"stage_riser_black",pedanacoro:"stage_riser_black",podio:"stage_riser_black",scala:"stage_riser_black",rampa:"stage_riser_black",
   tappeto:"muted_red_fabric", sedia:"black_padded_chair",sediabianca:"white_padded_chair",sedialeggio:"black_padded_chair",panchetta:"black_padded_chair",sgabello:"black_padded_chair",
   leggio:"black_metal",astamic:"black_metal",giraffa:"black_metal",astagigante:"black_metal",astabassa:"black_metal",coppiast:"black_metal",corista:"black_metal",truss:"silver_metal",transenna:"grey_metal",parapetto:"grey_metal",
-  batteria:"drum_shell_and_heads",edrums:"black_metal",rullante:"drum_shell_and_heads",timbales:"drum_shell_and_heads",percussioni:"varnished_wood",cajon:"varnished_wood",
+  batteria:"drum_shell_and_heads",edrums:"black_metal",rullante:"drum_shell_and_heads",timbales:"drum_shell_and_heads",percussioni:"varnished_wood",cajon:"varnished_wood",cajonpost:"varnished_wood",
   timpani:"copper",timpani3:"copper",timpani2:"copper",grancassa:"dark_varnished_wood",piatto:"brass_polished",piatticoppia:"brass_polished",campane:"silver_metal",tamtam:"brass_polished",
   glockenspiel:"silver_metal",xilofono:"varnished_wood",vibrafono:"silver_metal",marimba:"dark_varnished_wood",
   grancoda:"black_gloss_piano",mezzacoda:"black_gloss_piano",pianoverticale:"black_gloss_piano",celesta:"dark_varnished_wood",
@@ -24333,6 +25429,13 @@ function components3D(it){
     return [ comp("stool","orchestra_chair",-42,-42,0,40,40,75,0),
              comp("instrument","double_bass",6,14,0,70,45,190,0,-10) ];
   }
+  if(it.type==="cajonpost"){   /* (revisione 06/10/2026) cajon e asta bassa ai loro posti; il musicista no: people_visible:false */
+    var cL=cajonSlots(parts(it)), cB=cajonBBox(cL), cC=[];
+    cL.forEach(function(e){ var dx=e.s.x-cB.cx, dy=e.s.y-cB.cy;
+      if(e.k==="cajon") cC.push(comp("cajon","cajon",dx,dy,0,30,30,H3D.cajon,0));
+      else if(e.k==="mic") cC.push(comp("astabassa","astabassa",dx,dy,0,e.s.w,e.s.d,H3D.astabassa,180)); });
+    return cC;
+  }
   if(it.type==="coppiast"){
     return [ comp("stand","mic_stand",0,8,0,30,30,165,0),
              comp("bar","stereo_bar",0,0,165,70,4,4,0),
@@ -24367,9 +25470,10 @@ function buildProjectJson(){
     if(it.type==="coppiast"){
       out.stereo_technique={ type:"ORTF", height_cm:165, capsule_spacing_cm:17, angle_deg:110, aimed_at:"ensemble_center" };
     }
-    out.render={ visible: !HIDDEN3D[it.type], asset_id: it.type,
+    var _vis3d=!HIDDEN3D[it.type] && !isAreaNome(it);   /* area con nome: segno sul foglio, non un oggetto (06/10/2026) */
+    out.render={ visible: _vis3d, asset_id: it.type,
       material_id: TYPEMAT[it.type]||"black_tolex", detail_level:"high" };
-    if(HIDDEN3D[it.type]) out.visible_in_render=false;
+    if(!_vis3d) out.visible_in_render=false;
     noteAsset(it.type, t.w||it.w, t.d||it.d, h);
     if(!legend[it.type] && t.nome){
       var dc=comps ? comps.map(function(c){ return c.type; }) : undefined;
@@ -24989,7 +26093,7 @@ function pdfSave(doc, name){ doc.save(name); toastDownloaded(name); }
    Excel/console invece di ri-digitare il PDF a mano. Separatore scelto + BOM UTF-8 (accenti). ===== */
 function csvCell(v, sep){ v=(v==null?"":String(v)); return (v.indexOf(sep)>-1 || /["\n\r]/.test(v)) ? '"'+v.replace(/"/g,'""')+'"' : v; }
 /* nome canale per Allen & Heath: accenti rimossi, solo alfanumerici+spazio, max 8 caratteri (vincolo console) */
-function ahName(s){ return String(s==null?"":s).normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^A-Za-z0-9 ]/g,"").trim().slice(0,8); }
+function ahName(s){ return String(s==null?"":s).normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^A-Za-z0-9 ]/g,"").trim().slice(0,8); }
 /* CSV INJECTION (segnalazione 10/09). Excel ESEGUE una cella che comincia con = + - @ (o con un
    TAB / ritorno a capo) come se fosse una formula: un canale chiamato «=1+1» arriva al service e
    nel foglio si legge 2; con nomi meno innocenti si arriva a DDE e a comandi di sistema.
@@ -26455,7 +27559,7 @@ function auditReportPdf(shared){
     if(state.titolo||state.luogo) line((state.titolo||"")+(state.luogo?" — "+state.luogo:""), 12, true, null, 8);
     line("Prontezza: "+A.score+"/100  —  "+A.grade, 15, true, col, 8);
     line(A.errs+" errori · "+A.warns+" avvisi    ·    "+A.audioSrc+" ingressi · "+A.monitors+" mix monitor · "+(A.totW/1000).toFixed(1).replace(".",",")+" kW · cavo ~"+A.totCableM.toFixed(0)+" m"
-      +(A.weightKg>0?" · peso ~"+fmtKg(A.weightKg):"")+(A.rackU>0?" · rack "+A.rackU+" U":""), 9.5, false, "#555555", 9);
+      +(A.weightKg>0&&pdfPesiOn()?" · peso ~"+fmtKg(A.weightKg):"")+(A.rackU>0?" · rack "+A.rackU+" U":""), 9.5, false, "#555555", 9);
     line("Criticità e suggerimenti", 12, true, col, 6);
     var probs=A.findings.filter(function(x){ return x.lvl==="err"||x.lvl==="warn"; });
     if(!probs.length) line("Nessuna criticità rilevata: il rider sembra pronto.", 10, false, "#0d9488", 5);
@@ -26487,6 +27591,7 @@ function nudgeLabelsInDom(svgEl){
   var nodi=[];
   Array.prototype.forEach.call(svgEl.querySelectorAll("text.lbl"), function(el){
     if(el.classList && el.classList.contains("sub")) return;   /* la riga del montaggio segue il suo nome */
+    if(el.getAttribute && el.getAttribute("data-cap")) return;   /* nome rigirato (lblCapTr, 06/10/2026): sta SOPRA il suo elemento, scendendo ci finirebbe addosso */
     var b; try{ b=el.getBBox(); }catch(_e){ return; }
     if(!b || !(b.width>0) || !(b.height>0)) return;
     var m; try{ m=el.getCTM ? el.getCTM() : null; }catch(_e2){ m=null; }
@@ -26669,6 +27774,11 @@ function niceBarMeters(N){            /* barra di scala: ~25-40 mm sul foglio */
 function pdfDatiTecnici(){
   try{ return typeof funzOn!=="function" || !!funzOn("esporta"); }catch(e){ return true; }
 }
+/* PESI NEL PDF (06/10/2026, Simone: «sul pdf che stampo ci sono i kg, dev'essere un'opzione disattivata di
+   default»). Il peso stimato dell'allestimento usciva nella testata del palco, nel rider («peso allestimento
+   stimato») e nell'audit. È una stima per chi carica il furgone, non per chi riceve il rider: si stampa solo
+   con la casella «Pesi (kg)» accesa in «Altre opzioni», e la scelta resta nel progetto (state.pdfPesi). */
+function pdfPesiOn(){ return !!(state && state.pdfPesi===true) && pdfDatiTecnici(); }
 function pdfTotals(opts){
   var it=state.items||[], out=[];
   var tecn=(opts && ("tecnici" in opts)) ? !!opts.tecnici : pdfDatiTecnici();
@@ -26721,7 +27831,7 @@ function pdfCartiglio(doc, L, N, header){
   sub.push(dataDocumento());
   var _Ac=printArea(); sub.push((_Ac.custom?"area ":"palco ")+(_Ac.w/100)+"×"+(_Ac.h/100)+" m");
   var _tecn=pdfDatiTecnici();   /* peso e rack solo con «Esporta avanzato» (16/09) */
-  var _wt=_tecn?totalWeightKg():0; if(_wt>0) sub.push(fmtKg(_wt));   /* L2: peso di trasporto stimato */
+  var _wt=(_tecn&&pdfPesiOn())?totalWeightKg():0; if(_wt>0) sub.push(fmtKg(_wt));   /* L2: peso di trasporto stimato, solo con «Pesi (kg)» */
   var _ru=_tecn?totalRackU():0; if(_ru>0) sub.push(_ru+" U rack");
   var subStr=sub.join("  ·  ");
   var subL=doc.splitTextToSize(subStr, titleW);
@@ -26806,7 +27916,7 @@ function pdfPreviewSvg(paperKey, N, orient, header, opts){
   var sub=[]; if(state.luogo) sub.push(state.luogo);
   sub.push(dataDocumento()); sub.push((A.custom?"area ":"palco ")+(A.w/100)+"×"+(A.h/100)+" m");
   var _ptecn=pdfDatiTecnici();   /* l'anteprima dice quello che dirà il file */
-  var _pwt=_ptecn?totalWeightKg():0; if(_pwt>0) sub.push(fmtKg(_pwt)); var _pru=_ptecn?totalRackU():0; if(_pru>0) sub.push(_pru+" U rack");
+  var _pwt=(_ptecn&&pdfPesiOn())?totalWeightKg():0; if(_pwt>0) sub.push(fmtKg(_pwt)); var _pru=_ptecn?totalRackU():0; if(_pru>0) sub.push(_pru+" U rack");
   var stroke = A.custom ? '#9ca3af' : (box.cropped ? '#9ca3af' : (isSingleRect()?'#1f2937':'none'));
   var labels = A.custom ? '' :
     '<text x="'+(ix+stMmW/2)+'" y="'+(iy-1.6)+'" font-size="3" fill="#9a9a9a" text-anchor="middle">FONDO PALCO</text>'+
@@ -27074,7 +28184,7 @@ function riderData(){
     /* Chi sta sul palco è metà del lavoro del service (gradoni, sedie, leggii): un coro da 24 non
        compariva da nessuna parte nel documento consegnato, mentre il pannello dei layer lo contava. */
     persone: cnt("corista")+cnt("cantante")+cnt("relatore")+cnt("moderatore"), leggii: cnt("leggio")+cnt("sedialeggio"),
-    pesoKg: (typeof totalWeightKg==="function") ? totalWeightKg() : 0,
+    pesoKg: (typeof totalWeightKg==="function" && pdfPesiOn()) ? totalWeightKg() : 0,   /* «Pesi (kg)» spenta: niente peso nel rider */
     /* Quanta corrente serve è una domanda che il service fa SEMPRE, e il rider non la nominava mai:
        i watt erano solo nella Lista carichi, una pagina tecnica separata e facoltativa (06/08). */
     elettrico: (function(){ try{ var E=(typeof elecResult==="function")?elecResult(true):null;
@@ -28402,7 +29512,14 @@ function pdfChannelPage(doc, L, paperKey){
     el.textContent = has ? "Salvato nel progetto." :
       (header.value.trim() ? "Dal contatto primario della rubrica · si salva nel progetto." : "Si salva nel progetto.");
   }
+  /* «Pesi (kg)»: spenta di serie, si salva nel progetto (vedi pdfPesiOn) */
+  var pesiChk=document.getElementById("pdfPesi");
+  if(pesiChk) pesiChk.addEventListener("change", function(){
+    if(pesiChk.checked) state.pdfPesi=true; else delete state.pdfPesi;
+    save(); refresh();
+  });
   function pdfHeaderInit(){
+    if(pesiChk) pesiChk.checked=(state.pdfPesi===true);
     header.value=(typeof pdfHeaderPropose==="function") ? pdfHeaderPropose(state, pdfHeaderAccount()) : (state.pdfHeader||"");
     pdfHeaderSavedLine();
   }
@@ -30804,6 +31921,23 @@ function maybeAskStageSize(explicit){
       cb(true);
     }, function(){ cb(null); });
   }
+  /* Ponte per la biglietteria: dall'editor si chiede SOLO se l'account è abilitato (per mostrare il pulsante); tutto il
+     resto lo fa l'area /biglietteria/gestione/ (specifica area §2.5). Senza sessione non parte nessuna richiesta. */
+  var BGL_RPC_AMMESSE=/^bgl_abilitato$/;
+  window.__bglCloud = {
+    rpc:function(fn, args){
+      var nonAut={data:null, error:{code:"non_autenticato", message:"non_autenticato"}};
+      if(!BGL_RPC_AMMESSE.test(String(fn))) return Promise.resolve({data:null, error:{code:"funzione_non_ammessa", message:"funzione_non_ammessa"}});
+      if(!sb || !cloudUser) return Promise.resolve(nonAut);
+      var u=cloudUser.id, g=authGeneration;
+      return sb.rpc(fn, args||{}).then(function(r){
+        if(!authStill(u,g)) return nonAut;   /* nel frattempo è cambiato l'account: la risposta non è più sua */
+        return {data:r.data, error:r.error};
+      }, function(e){ return {data:null, error:{code:"rete", message:String(e&&e.message||e)}}; });
+    },
+    utente:function(){ return cloudUser ? {id:cloudUser.id, email:cloudUser.email||""} : null; },
+    progettoId:function(){ return cloudCurrentId||null; }
+  };
   window.__cloud = {
     requests: {
       list:requestsList, create:requestCreate, versions:requestVersions,

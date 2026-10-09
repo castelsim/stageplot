@@ -55,3 +55,16 @@ verify_jwt = true
 
 [functions.orc-invite-notify]
 verify_jwt = true
+
+# Biglietteria: la prenotazione dalla pagina pubblica (chi prenota non ha un account). Limiti e controlli
+# li fa la function stessa; la mail parte solo in produzione.
+[functions.bgl-prenota]
+verify_jwt = false
+
+# L'organizzatore manda la mail «posti cambiati» dall'area: il token lo controlla la funzione.
+[functions.bgl-avvisa]
+verify_jwt = false
+
+# "Elimina il mio account" dalla biglietteria: il token lo controlla la funzione.
+[functions.bgl-account]
+verify_jwt = false

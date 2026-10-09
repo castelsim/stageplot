@@ -1,0 +1,10 @@
+# NOTICE
+Analisi vocale (stageplot.it/voce) — © 2026 Simone Castellan — GPL-3.0-or-later.
+
+Contiene:
+- Praat 6.4.62 (Paul Boersma & David Weenink, https://www.praat.org), GPL-3.0-or-later,
+  compilato in WebAssembly dal pacchetto praat-wasm 6.4.6200 (https://github.com/reynoldsnlp/praat.github.io).
+- supabase-js 2.110.0 (Supabase, MIT) per l'accesso con Google.
+Metodi ripresi e citati (non codice): VoxPlot (Barsties v. Latoszek, Mayer et al., GPL-3.0),
+AVQI (Maryn, Barsties), ABI (Barsties v. Latoszek et al.), SPR (Omori et al. 1996), CPP (Hillenbrand; Heman-Ackah et al. 2003).
+Il codice sorgente completo è su https://github.com/castelsim/voce.

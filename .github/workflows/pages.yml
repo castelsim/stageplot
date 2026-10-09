@@ -41,6 +41,8 @@ jobs:
         run: node build.mjs --check
       - name: Test motori frontend
         run: node --test test/engines.test.mjs
+      - name: Test pagine della biglietteria
+        run: node --test test/biglietteria.test.mjs test/bgl-*.test.mjs
       - name: Test funzioni condivise Supabase
         run: deno test --lock=deno.lock --frozen supabase/functions/_shared/*.test.ts
       - name: Type-check Edge Functions
@@ -59,6 +61,9 @@ jobs:
           supabase/functions/orc-quote-notify/index.ts
           supabase/functions/orc-invite-notify/index.ts
           supabase/functions/retention-purge/index.ts
+          supabase/functions/bgl-prenota/index.ts
+          supabase/functions/bgl-avvisa/index.ts
+          supabase/functions/bgl-account/index.ts
       - name: Lint backend
         run: deno lint supabase/functions
       # Le suite RLS (rls*.test.mjs) hanno bisogno di un Postgres vero: girano in orchestre-rls.yml, che
@@ -76,7 +81,7 @@ jobs:
             robots.txt sitemap.xml llms.txt \
             favicon.ico favicon.svg favicon-48.png favicon-96.png \
             apple-touch-icon.png icon-192.png icon-512.png logo-512.png preview.png \
-            accedi consulenza guida img orchestre privacy richiesta stage-plot termini vendor \
+            accedi biglietteria consulenza guida img orchestre privacy richiesta stage-plot termini vendor voce \
             ./_site/
       - name: Timbra il build ID (SHA del commit) negli asset pubblicati (audit L-03)
         # il placeholder sta nella shell dell'editor (app/index.html), non nella landing
