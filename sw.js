@@ -57,6 +57,11 @@ self.addEventListener("fetch", function (e) {
   /* Orchestre (/orchestre/*) è un'altra applicazione: pagine di login e dati di persone.
      Il SW dell'editor non la cacha e non la serve: rete pura, sempre fresca. */
   if (url.pathname === "/orchestre" || url.pathname.indexOf("/orchestre/") === 0) return;
+  /* La biglietteria (/biglietteria/*) mostra posti liberi e occupati: sempre dalla rete, mai una copia vecchia. */
+  if (url.pathname === "/biglietteria" || url.pathname.indexOf("/biglietteria/") === 0) return;
+  /* Analisi vocale (/voce/*) è un programma separato (GPL-3, github.com/castelsim/voce):
+     il SW dell'editor non la cacha, così ogni aggiornamento arriva intero e mai mescolato. */
+  if (url.pathname === "/voce" || url.pathname.indexOf("/voce/") === 0) return;
   /* Il ritorno da Google (/accedi/) porta un accesso: mai da una copia vecchia. */
   if (url.pathname.indexOf("/accedi/") === 0) return;
 

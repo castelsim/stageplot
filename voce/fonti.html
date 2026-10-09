@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self'; img-src 'self' data:; base-uri 'none'; object-src 'none'; form-action 'none'">
+<title>Da dove viene ogni misura</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="stile.css">
+</head>
+<body>
+<header class="testa">
+  <div>
+    <h1>Da dove viene ogni misura</h1>
+    <p class="sotto"><a href="index.html">Torna all'analisi vocale</a></p>
+  </div>
+</header>
+<div class="testo-pagina">
+
+<h2>Cos'è questo strumento</h2>
+<p>Analisi vocale confronta due registrazioni della stessa voce (PRE e POST) e misura un tratto scelto da chi usa lo strumento. È uno strumento didattico: confronta la persona con sé stessa. Non è uno strumento diagnostico e non applica soglie di «normalità» al canto.</p>
+
+<h2>Come si misura</h2>
+<p>Tutte le misure sono calcolate da Praat, lo stesso programma usato in ricerca, con impostazioni scelte per la voce cantata.</p>
+<table>
+<thead><tr><th>Misura</th><th>Comando Praat (parametri)</th><th>Note</th></tr></thead>
+<tbody>
+<tr><td>F0 mediana, minima, massima</td><td>To Pitch (ac): 0.01, 75, 15, yes, 0.03, 0.45, 0.01, 0.35, 0.14, 1100</td><td>Intervallo 75-1100 Hz per il canto.</td></tr>
+<tr><td>Scarto dalla nota (cents)</td><td>Dalla F0: distanza della mediana dal semitono temperato (La = 440 Hz)</td><td>100 cents = un semitono.</td></tr>
+<tr><td>Oscillazione dell'altezza (cents)</td><td>Dalla F0 del tratto: deviazione standard</td><td>Comprende melodia, ornamenti e vibrato.</td></tr>
+<tr><td>CPPS</td><td>To PowerCepstrogram: 60, 0.002, 5000, 50; Get CPPS: yes, 0.01, 0.001, 60, 1100, 0.05, Parabolic, 0.001, 0.05, Exponential decay, Robust</td><td>Ricerca del picco fino a 1100 Hz per le voci acute. Metodo di adattamento «Robust»: «Robust slow» dà risultati diversi a ogni esecuzione (1-2 %), «Robust» è ripetibile.</td></tr>
+<tr><td>HNR</td><td>To Harmonicity (cc): 0.01, max(75, F0/2), 0.1, 1.0; Get mean</td><td></td></tr>
+<tr><td>Jitter, shimmer (local)</td><td>To PointProcess (periodic, cc): 75, 1100; parametri 0.0001, 0.02, 1.3 (, 1.6)</td><td>Poco affidabili con il vibrato.</td></tr>
+<tr><td>H1−H2</td><td>Spectrum → Ltas 1-to-1, massimo vicino a F0 e a 2·F0</td><td>Dipende dalla vocale.</td></tr>
+<tr><td>Alpha ratio, pendenza dello spettro, SPR</td><td>To Ltas: 100; energia 1-5 kHz contro 0,05-1 kHz; Get slope 0-1000 / 1000-10000; picchi 0-2 kHz contro 2-4 kHz</td><td></td></tr>
+<tr><td>Spettrogramma mostrato</td><td>To Spectrogram: 0.025, 6000, 0.01, 40, "Gaussian"</td><td>Grigi: più scuro = più energia; dinamica di 70 dB.</td></tr>
+<tr><td>Tracciati sullo spettrogramma</td><td>F0: To Pitch (ac) dell'intero file, con gli stessi parametri della F0 qui sopra. Formanti: To Formant (burg) dell'intero file, parametri della riga sotto</td><td>La F0 (linea fucsia) ha la sua scala in Hz a destra, la stessa per PRE e POST. Le formanti (puntini) si mostrano solo dove c'è voce (F0 rilevata) e l'intensità supera il massimo del file meno 25 dB.</td></tr>
+<tr><td>Formanti F1-F4</td><td>To Formant (burg): 0.01, 5, 5500 (voce maschile 5000), 0.025, 50</td><td>Avviso automatico se la F0 è sopra 350 Hz: le formanti sono poco affidabili.</td></tr>
+<tr><td>Livello e sua stabilità</td><td>To Intensity: 100, 0.01, "yes"</td><td>Non calibrato: dipende dal guadagno della registrazione.</td></tr>
+</tbody>
+</table>
+<p>WAV, AIFF, FLAC e MP3 vanno a Praat così come sono. M4A, OGG e gli altri formati che Praat non legge li converte prima il browser, a 44,1 kHz (con un ricampionamento se la registrazione era a un'altra frequenza): le misure possono differire di poco. Per i numeri della tesi usa WAV, AIFF o FLAC.</p>
+<p>Il «volume pareggiato» vale solo per l'ascolto: serve a sentire PRE e POST allo stesso livello e non cambia nessuna misura.</p>
+
+<h2>Versioni e verifica</h2>
+<ul>
+<li>Praat 6.4.62, compilato per il browser con praat-wasm 6.4.6200.</li>
+<li>Verifica: su 16 file di prova × 2 tratti, praat-wasm coincide con Praat 6.4.62 nativo (scarto massimo 0,074 % sul CPPS; tutte le altre misure identiche entro 0,002 %).</li>
+<li>Coincide anche con Praat 7.0.02 nativo entro le stesse tolleranze: stessi scarti, scarto massimo 0,074 % sul CPPS (metodo «Robust»).</li>
+</ul>
+
+<h2>Riferimenti</h2>
+<ul>
+<li>Boersma &amp; Weenink: Praat, programma per l'analisi fonetica.</li>
+<li>Barsties v. Latoszek et al., 2023: VoxPlot (metodi ripresi per le misure sulla voce parlata).</li>
+<li>Heman-Ackah et al., 2003: CPP, picco del cepstrogramma.</li>
+<li>Omori et al., 1996: SPR, rapporto fra i picchi dello spettro.</li>
+<li>Previsti in una versione successiva, non ancora presenti: Michaelis et al., 1997 (GNE); Barsties &amp; Maryn, 2016 (AVQI); Barsties v. Latoszek et al., 2017 (ABI).</li>
+</ul>
+
+<h2>Come citare</h2>
+<ul>
+<li>Praat: Boersma, P. &amp; Weenink, D., <em>Praat: doing phonetics by computer</em>, versione 6.4.62, <a href="https://www.praat.org">https://www.praat.org</a>.</li>
+<li>Praat nel browser: praat-wasm 6.4.6200.</li>
+<li>Questo strumento: <em>Analisi vocale</em>, stageplot.it/voce/, licenza GPL-3, 2026.</li>
+</ul>
+
+<h2>Licenza</h2>
+<p>Analisi vocale è software libero, licenza GPL-3.0-or-later. Codice sorgente: <a href="https://github.com/castelsim/voce">github.com/castelsim/voce</a>. Usa Praat e praat-wasm (GPL-3+) e supabase-js (MIT).</p>
+
+<h2>Privacy in breve</h2>
+<ul>
+<li>L'audio non lascia mai il tuo computer: è analizzato nel browser.</li>
+<li>L'accesso è con Google, per sapere come viene usato lo strumento.</li>
+<li>In una versione successiva si raccoglieranno statistiche d'uso, senza audio e senza nomi di file.</li>
+</ul>
+
+</div>
+</body>
+</html>

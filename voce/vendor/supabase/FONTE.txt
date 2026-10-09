@@ -1,0 +1,6 @@
+@supabase/supabase-js 2.110.0 — client di Supabase (solo per l'accesso con Google)
+Pacchetto npm: https://registry.npmjs.org/@supabase/supabase-js/-/supabase-js-2.110.0.tgz
+Integrità (npm): sha512-8yI84VJiEVW4zxZpLUmxXmjzQ7O2St9X/ymzlBETDHTURPWG3LmvbSiibq+7dqAJmyoUfxZnSfXeM4HCM8s4XQ==
+Repository di origine: https://github.com/supabase/supabase-js (cartella packages/core/supabase-js)
+Commit: non dichiarato nel pacchetto npm
+Licenza: MIT
