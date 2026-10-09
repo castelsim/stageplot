@@ -1,5 +1,6 @@
 :root { --acc: #8a3b12; --pre: #1f6fb4; --post: #d2551e; --fondo: #faf7f2; --testo: #1d1d1d; }
 * { box-sizing: border-box }
+[hidden] { display: none !important }  /* le classi con display (.comandi, .spg) non devono mostrare ciò che è nascosto */
 body { margin: 0; font: 17px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--testo); background: var(--fondo) }
 .testa, main, .piede { max-width: 1400px; margin: 0 auto; padding: 16px 24px }
 .testa { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap }
