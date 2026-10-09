@@ -2064,8 +2064,8 @@ svg.names-hidden .orc-name{display:none}
        da sempre, ma i loro stati non erano nell'elenco: si premeva la voce, il palco sbiadiva
        (`body.area-edit .item{opacity:.4}`) e non compariva NIENTE. Due funzioni raggiungibili e
        morte. Chi ne aggiunge una terza deve passare da qui. */
-    body.stage-edit #props,body.evento-edit #props,body.chan-edit #props,body.tech-open #props,body.area-edit #props,body.vers-edit #props,body.m-has-sel.props-expanded #props{display:block}
-    body.stage-edit main,body.evento-edit main,body.chan-edit main,body.tech-open main,body.area-edit main,body.vers-edit main,body.m-has-sel.props-expanded main{bottom:calc(46vh + 53px + env(safe-area-inset-bottom,0px))}
+    body.stage-edit #props,body.evento-edit #props,body.scaletta-edit #props,body.chan-edit #props,body.tech-open #props,body.area-edit #props,body.vers-edit #props,body.m-has-sel.props-expanded #props{display:block}
+    body.stage-edit main,body.evento-edit main,body.scaletta-edit main,body.chan-edit main,body.tech-open main,body.area-edit main,body.vers-edit main,body.m-has-sel.props-expanded main{bottom:calc(46vh + 53px + env(safe-area-inset-bottom,0px))}
     /* In «Punti di ripristino» resta solo la lista delle versioni, come fa già «Area stampa». */
     body.vers-edit #selProps,body.vers-edit #noSel,body.vers-edit #groupProps,body.vers-edit #eventoSec{display:none !important}
     /* LA TESTA DEL FOGLIO DELL'ELEMENTO (13/09): nome e misure, sotto quattro azioni scritte da 52 px.
@@ -3683,6 +3683,62 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
 /* Riga verso la consulenza dopo l'export (01/10/2026): discreta, sopra i bottoni della finestra PDF */
 #pdfConsulenza{margin:0 0 8px;font-size:12px;color:var(--text-2)}
 #pdfConsulenza a{color:var(--accent);font-weight:600}
+
+/* ── SCALETTA (10/10/2026) ───────────────────────────────────────────────────────────────────────
+   Pannello come «Evento»: con la scaletta aperta la colonna (o il cassetto del telefono) mostra solo
+   lei. `display` su id e non l'attributo hidden: `.sec` lo batterebbe (stessa cosa per #eventoSec). */
+#props #scalettaSec{display:none}
+body.scaletta-edit #props #scalettaSec{display:block}
+body.scaletta-edit #selProps,body.scaletta-edit #groupProps,body.scaletta-edit #noSel,body.scaletta-edit #stageEditPanel,body.scaletta-edit #eventoSec{display:none !important}
+#props #scalettaSec h3{margin-bottom:2px}
+#props #scalettaSec .ev-intro{font-size:12px;color:var(--text-2);margin:0 0 10px;line-height:1.4}
+#props #scalettaSec .sc-vuota{font-size:13px;color:var(--text-2);line-height:1.45;margin:4px 0 10px;padding:10px 12px;border:1px dashed var(--border-strong);border-radius:10px}
+#props #scalettaSec .sc-vuota[hidden]{display:none}
+/* Una voce = due righe: numero · titolo · durata, poi note · frecce · togli. La terza colonna è larga
+   quanto le tre frecce, così titolo e note si allineano fra loro. */
+#props #scalettaSec .sc-row{display:grid;grid-template-columns:22px minmax(0,1fr) 84px;gap:5px 6px;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)}
+#props #scalettaSec .sc-row.sc-segno{background:var(--surface-2,#f8fafc);border-radius:8px;padding:6px 6px 8px;margin:4px 0;border-bottom:none}
+#props #scalettaSec .sc-kind{grid-column:1 / -1;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3)}
+#props #scalettaSec .sc-n{grid-column:1;font:700 13px var(--font-ui);color:var(--text-2);text-align:right;font-variant-numeric:tabular-nums}
+#props #scalettaSec .sc-tit{grid-column:2;min-width:0;width:100%;box-sizing:border-box}
+#props #scalettaSec .sc-dur{grid-column:3;min-width:0;width:100%;box-sizing:border-box;text-align:right;font-variant-numeric:tabular-nums}
+#props #scalettaSec .sc-dur.err{border-color:var(--danger);color:var(--danger)}
+#props #scalettaSec .sc-note{grid-column:2;min-width:0;width:100%;box-sizing:border-box;font-size:12px}
+#props #scalettaSec .sc-acts{grid-column:3;display:flex;justify-content:flex-end;gap:2px}
+#props #scalettaSec .sc-b{width:28px;height:28px;padding:0;border:1px solid transparent;border-radius:7px;background:none;color:var(--text-2);font:600 14px var(--font-ui);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+#props #scalettaSec .sc-b:hover:not(:disabled){background:var(--n-100,#f1f5f9);border-color:var(--border)}
+#props #scalettaSec .sc-b:disabled{opacity:.3;cursor:default}
+#props #scalettaSec .sc-b.sc-via{color:var(--danger)}
+#props #scalettaSec .sc-add{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 4px}
+#props #scalettaSec .sc-add .btn{width:auto;flex:0 0 auto;margin:0;font-size:12px;padding:6px 10px}
+#props #scalettaSec .sc-tot{margin:12px 0 0;padding:9px 12px;border-radius:10px;background:var(--accent-tint);color:var(--text);font-size:13px;line-height:1.4}
+#props #scalettaSec .sc-tot b{font-variant-numeric:tabular-nums;font-size:15px}
+#props #scalettaSec .sc-tot small{display:block;color:var(--text-2);font-size:11px;margin-top:2px}
+#props #scalettaSec .sc-tot[hidden]{display:none}
+#props #scalettaSec #bScalettaDone{width:100%;margin-top:16px}
+body.sc-ro #props #scalettaSec .sc-acts,body.sc-ro #props #scalettaSec .sc-add{display:none}
+body.dark #props #scalettaSec .sc-row.sc-segno{background:#1f262c}
+body.dark #props #scalettaSec .sc-b:hover:not(:disabled){background:#222b38}
+@media (max-width:880px), (pointer:coarse){
+  /* col dito: frecce e ✕ da 44 px (bersagli), la colonna si allarga di conseguenza */
+  #props #scalettaSec .sc-row{grid-template-columns:22px minmax(0,1fr) 136px}
+  #props #scalettaSec .sc-b{flex:0 0 44px;width:44px;height:44px;font-size:17px}
+  #props #scalettaSec .sc-add .btn{min-height:44px;font-size:14px}
+  #props #scalettaSec #bScalettaDone{min-height:48px}
+}
+/* Nelle Liste la scaletta è una riga senza i comandi dei layer: il conteggio va in fondo a destra */
+#layerRows .sc-lriga .layer-cnt,#layerRows .sc-lriga .layer-actbadge{margin-left:auto}
+/* Anteprima e link condiviso: le voci che non sono brani si distinguono, titoli e note vanno a capo */
+.pdf-list-tbl tr.sc-voce td{white-space:normal}
+.pdf-list-tbl tr.sc-segno td{color:#334155;font-weight:600;background:#f1f5f9}
+.pdf-list-tbl tfoot td{font-weight:700;border-top:2px solid #111827;border-bottom:none;color:#111827}
+
+/* ── QR VERSO LA VERSIONE ONLINE, nella finestra Esporta (10/10/2026) ────────────────────────────── */
+.pdf-qr-row{margin:8px 0 0}
+.pdf-qr-row .chk{margin:0}
+.pdf-qr-nota{font-size:11px;line-height:1.4;color:var(--text-3);margin:3px 0 0}
+.pdf-qr-avviso{font-size:12px;line-height:1.4;margin:6px 0 0;padding:6px 8px;border-radius:8px;background:var(--warning-bg);border:1px solid var(--warning-border);color:var(--text)}
+.pdf-qr-avviso[hidden]{display:none}
 </style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->
 <script async src="/icons.js"></script>
@@ -4081,6 +4137,24 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
       <div><label for="evTimeM">Orario</label><input type="time" id="evTimeM"></div>
     </div>
     <button class="btn primary" id="bEventoDone">Fatto</button>
+  </div>
+  <!-- SCALETTA (10/10/2026, dal confronto con TecRider Pro): i brani in ordine con la durata, e i
+       momenti che non sono brani. Pannello come «Evento»: si apre dalle Liste (col mouse), dal Menu
+       del telefono e dalla ricerca; «Fatto» lo chiude. Le righe le scrive renderScaletta(). -->
+  <div class="sec sc-sec" id="scalettaSec" hidden>
+    <h3>Scaletta</h3>
+    <p class="ev-intro">I brani in ordine, con la durata se la sai. Nel PDF diventa una pagina a sé: la scegli in Esporta.</p>
+    <div id="scRows"></div>
+    <p class="sc-vuota" id="scVuota">Nessun brano ancora. Aggiungi il primo qui sotto: titolo e durata (per esempio <b>3:45</b>) bastano.</p>
+    <div class="sc-add">
+      <button type="button" class="btn primary" id="scAddBrano">+ Brano</button>
+      <button type="button" class="btn" data-sc-add="intro">Intro</button>
+      <button type="button" class="btn" data-sc-add="pausa">Pausa</button>
+      <button type="button" class="btn" data-sc-add="bis">Bis</button>
+      <button type="button" class="btn" data-sc-add="cambio">Cambio palco</button>
+    </div>
+    <div class="sc-tot" id="scTot" role="status"></div>
+    <button class="btn primary" id="bScalettaDone" type="button">Fatto</button>
   </div>
   <div class="sec" id="selProps" hidden>
     <h3 id="selNome">Elemento</h3>
@@ -5022,6 +5096,7 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
   <div class="mlist">
     <button class="mrow" data-act="evento"><span class="mrow-t">Luogo</span><span class="mrow-v" id="mMenuLuogo"></span></button>
     <button class="mrow" data-act="evento"><span class="mrow-t">Data e ora</span><span class="mrow-v" id="mMenuData"></span></button>
+    <button class="mrow" data-act="scaletta"><span class="mrow-t">Scaletta</span><span class="mrow-v" id="mMenuScaletta"></span></button>
   </div>
   <div class="sh">Palco</div>
   <div class="mlist">
@@ -5633,6 +5708,16 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
         <input type="text" id="pdfTitolo" placeholder="Senza titolo" maxlength="120">
         <div class="hdr-saved" id="pdfFileName"></div>
         <div class="hdr-saved" id="pdfUltimo" hidden></div>
+        <!-- SCALETTA e QR (10/10/2026, idee dal confronto con TecRider Pro). Fuori da «Altre opzioni»:
+             la scaletta è contenuto scritto dall'utente, e il QR esiste solo per chi ha già un link
+             attivo. Le righe compaiono solo quando servono (style.display: `.pdf-exp-side>label`
+             batterebbe l'attributo hidden). -->
+        <label class="chk" id="pdfScalettaRow" style="display:none"><input type="checkbox" id="pdfScaletta"> Scaletta <small class="lbl-note" id="pdfScalettaNota"></small></label>
+        <div class="pdf-qr-row" id="pdfQrRow" style="display:none">
+          <label class="chk"><input type="checkbox" id="pdfQr"> Aggiungi un QR alla versione online aggiornata</label>
+          <div class="pdf-qr-nota" id="pdfQrNota">Chi ha il PDF potrà inquadrarlo e aprire il progetto online, aggiornato all'ultima modifica, finché il link di condivisione resta attivo.</div>
+          <div class="pdf-qr-avviso" id="pdfQrAvviso" role="status" hidden></div>
+        </div>
         <!-- AREA DI STAMPA (31/07): era il passaggio precedente, una finestra a sé che si attraversava
              per arrivare qui. Ora è una riga di questa: si legge cosa verrà stampato e si cambia se
              serve, senza uscire. -->

@@ -475,6 +475,24 @@
     </div>
     <button class="btn primary" id="bEventoDone">Fatto</button>
   </div>
+  <!-- SCALETTA (10/10/2026, dal confronto con TecRider Pro): i brani in ordine con la durata, e i
+       momenti che non sono brani. Pannello come «Evento»: si apre dalle Liste (col mouse), dal Menu
+       del telefono e dalla ricerca; «Fatto» lo chiude. Le righe le scrive renderScaletta(). -->
+  <div class="sec sc-sec" id="scalettaSec" hidden>
+    <h3>Scaletta</h3>
+    <p class="ev-intro">I brani in ordine, con la durata se la sai. Nel PDF diventa una pagina a sé: la scegli in Esporta.</p>
+    <div id="scRows"></div>
+    <p class="sc-vuota" id="scVuota">Nessun brano ancora. Aggiungi il primo qui sotto: titolo e durata (per esempio <b>3:45</b>) bastano.</p>
+    <div class="sc-add">
+      <button type="button" class="btn primary" id="scAddBrano">+ Brano</button>
+      <button type="button" class="btn" data-sc-add="intro">Intro</button>
+      <button type="button" class="btn" data-sc-add="pausa">Pausa</button>
+      <button type="button" class="btn" data-sc-add="bis">Bis</button>
+      <button type="button" class="btn" data-sc-add="cambio">Cambio palco</button>
+    </div>
+    <div class="sc-tot" id="scTot" role="status"></div>
+    <button class="btn primary" id="bScalettaDone" type="button">Fatto</button>
+  </div>
   <div class="sec" id="selProps" hidden>
     <h3 id="selNome">Elemento</h3>
     <button type="button" class="btn solo-ped" id="pSoloPed" style="display:none" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg><span>Solo pedane</span></button>
@@ -1415,6 +1433,7 @@
   <div class="mlist">
     <button class="mrow" data-act="evento"><span class="mrow-t">Luogo</span><span class="mrow-v" id="mMenuLuogo"></span></button>
     <button class="mrow" data-act="evento"><span class="mrow-t">Data e ora</span><span class="mrow-v" id="mMenuData"></span></button>
+    <button class="mrow" data-act="scaletta"><span class="mrow-t">Scaletta</span><span class="mrow-v" id="mMenuScaletta"></span></button>
   </div>
   <div class="sh">Palco</div>
   <div class="mlist">
@@ -2026,6 +2045,16 @@
         <input type="text" id="pdfTitolo" placeholder="Senza titolo" maxlength="120">
         <div class="hdr-saved" id="pdfFileName"></div>
         <div class="hdr-saved" id="pdfUltimo" hidden></div>
+        <!-- SCALETTA e QR (10/10/2026, idee dal confronto con TecRider Pro). Fuori da «Altre opzioni»:
+             la scaletta è contenuto scritto dall'utente, e il QR esiste solo per chi ha già un link
+             attivo. Le righe compaiono solo quando servono (style.display: `.pdf-exp-side>label`
+             batterebbe l'attributo hidden). -->
+        <label class="chk" id="pdfScalettaRow" style="display:none"><input type="checkbox" id="pdfScaletta"> Scaletta <small class="lbl-note" id="pdfScalettaNota"></small></label>
+        <div class="pdf-qr-row" id="pdfQrRow" style="display:none">
+          <label class="chk"><input type="checkbox" id="pdfQr"> Aggiungi un QR alla versione online aggiornata</label>
+          <div class="pdf-qr-nota" id="pdfQrNota">Chi ha il PDF potrà inquadrarlo e aprire il progetto online, aggiornato all'ultima modifica, finché il link di condivisione resta attivo.</div>
+          <div class="pdf-qr-avviso" id="pdfQrAvviso" role="status" hidden></div>
+        </div>
         <!-- AREA DI STAMPA (31/07): era il passaggio precedente, una finestra a sé che si attraversava
              per arrivare qui. Ora è una riga di questa: si legge cosa verrà stampato e si cambia se
              serve, senza uscire. -->
@@ -5085,6 +5114,7 @@ var state = { titolo:"", luogo:"", stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d
 var stageEdit=false, selBlock=null;   /* modalità "Modifica palco" e blocco selezionato */
 var stagePanelView="palco";   /* quale sezione mostra il pannello palco: "palco" (blocchi) | "planimetria" */
 var eventoEdit=false;                 /* modalità "Evento" (titolo/luogo dietro al bottone) */
+var scalettaEdit=false;               /* pannello «Scaletta» (10/10): come Evento, aperto da Liste, Menu del telefono, ricerca */
 var chanEdit=false;                   /* modalità "Channel list" (mobile: si apre dal bottone) */
 var sel = null, selSet = {}, nextId = 1, addCascade = 0;
 function selIds(){ return Object.keys(selSet); }
@@ -5412,7 +5442,7 @@ function nextVariantName(){ var n=0; VARIANTS.forEach(function(v){ var m=/^Varia
    data e contatti non erano mai diversi. Restano nello stato di ogni variante — lo schema e i file
    già salvati non cambiano — ma a ogni sincronizzazione quelli della variante attiva si scrivono
    nelle altre. */
-var CAMPI_DOCUMENTO=["titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento */
+var CAMPI_DOCUMENTO=["titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","scaletta"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena */
 function propagaCampiDocumento(v){
   var src=v&&v.state; if(!src) return;
   VARIANTS.forEach(function(o){
@@ -8268,6 +8298,67 @@ function normalizePersistedItemRefs(s){
     normalizeItemRefField(mb.manual[k],"to",false);
   });
 }
+/* ===== SCALETTA (10/10/2026) — idea presa dal confronto con TecRider Pro =====
+   La lista ordinata di quello che succede sul palco: brani, e i momenti che non sono brani (intro,
+   pausa, bis, cambio palco). Ogni voce: {tipo, titolo, durata "m:ss" facoltativa, note facoltative}.
+   Vive nello stato della variante, come contatti e luci: entra in Annulla/Ripeti, nell'autosave e nel
+   link condiviso senza strade sue. `state.scaletta` esiste SOLO se ha almeno una voce: un campo vuoto
+   aggiunto a ogni progetto cambierebbe l'impronta di «Modificato dopo l'ultimo PDF» (firmaPdf) di
+   tutti i progetti già esportati, senza che nessuno abbia toccato niente.
+   Tipi e limiti stanno in funzioni e non in `var`: normalizeState gira all'avvio, e una `var` scritta
+   più in basso nel file a quel punto è ancora undefined (AGENTS §8, «Boot»). */
+function scalettaTipi(){ return { brano:"Brano", intro:"Intro", pausa:"Pausa", bis:"Bis", cambio:"Cambio palco" }; }
+function scalettaTesto(x, max){ return (typeof x==="string" || typeof x==="number") ? String(x).replace(/[\r\n\t]+/g," ").slice(0,max) : ""; }
+function scalettaVoceNorm(v){
+  v=(v && typeof v==="object") ? v : {};
+  var T=scalettaTipi();
+  return { tipo: Object.prototype.hasOwnProperty.call(T, v.tipo) ? v.tipo : "brano",
+    titolo: scalettaTesto(v.titolo, 80),
+    durata: scalettaTesto(v.durata, 12).replace(/[^0-9:.']/g,"").slice(0,8),   /* solo cifre e separatori: «3:30», «3.30», «3'30» */
+    note: scalettaTesto(v.note, 120) };
+}
+function scalettaNorm(arr){ return Array.isArray(arr) ? arr.slice(0,200).map(scalettaVoceNorm) : []; }
+/* Durata in secondi, o null se non è una durata: «m:ss» (anche «m.ss» e «m'ss»), oppure «h:mm:ss».
+   «0:00» non è una durata: è un campo lasciato a metà, e non deve far credere che il brano duri zero. */
+function scalettaSecondi(d){
+  var m=/^\s*(?:(\d{1,2})[:.'])?(\d{1,3})[:.'](\d{2})\s*$/.exec(String(d==null?"":d));
+  if(!m) return null;
+  var h=m[1]?+m[1]:0, mi=+m[2], s=+m[3];
+  if(s>59 || (m[1] && mi>59)) return null;
+  var t=h*3600+mi*60+s;
+  return t>0 ? t : null;
+}
+function scalettaFmt(sec){
+  sec=Math.max(0, Math.round(+sec||0));
+  var h=Math.floor(sec/3600), m=Math.floor((sec%3600)/60), s=sec%60;
+  return h ? (h+":"+(m<10?"0":"")+m+":"+(s<10?"0":"")+s) : (m+":"+(s<10?"0":"")+s);
+}
+/* Una voce è vuota solo se è un brano senza niente scritto: una «Pausa» senza titolo dice già qualcosa. */
+function scalettaVuota(v){ return v.tipo==="brano" && !v.titolo.trim() && !v.durata.trim() && !v.note.trim(); }
+/* Le righe che escono (PDF, anteprima, link condiviso), con il numero d'ordine dei soli brani e il
+   totale delle durate valide. Le voci vuote non escono; una durata scritta male non entra nel totale
+   e si conta a parte, così il totale non finge di essere completo. */
+function scalettaList(src){
+  var arr=scalettaNorm(src!==undefined ? src : state.scaletta), T=scalettaTipi();
+  var rows=[], n=0, tot=0, senza=0;
+  arr.forEach(function(v){
+    if(scalettaVuota(v)) return;
+    var sec=scalettaSecondi(v.durata), br=(v.tipo==="brano"), tit=v.titolo.trim();
+    if(br) n++;
+    if(sec) tot+=sec; else if(br) senza++;
+    rows.push({ n:br?String(n):"", tipo:v.tipo, segno:!br,
+      testo: br ? (tit || "(senza titolo)") : (T[v.tipo]+(tit ? " · "+tit : "")),
+      durata: sec ? scalettaFmt(sec) : "", note: v.note.trim() });
+  });
+  return { rows:rows, count:rows.length, brani:n, tot:tot, totTxt:tot?scalettaFmt(tot):"", senzaDurata:senza };
+}
+function scalettaRiassunto(d){
+  d=d||scalettaList();
+  var p=[d.brani===1 ? "1 brano" : d.brani+" brani"];
+  if(d.tot) p.push("durata totale "+d.totTxt);
+  if(d.senzaDurata) p.push(d.senzaDurata===1 ? "1 brano senza durata, fuori dal totale" : d.senzaDurata+" brani senza durata, fuori dal totale");
+  return p.join(" · ");
+}
 function normalizeState(s){
   s=migrate(s);
   ["__proto__","prototype","constructor"].forEach(function(k){ if(Object.prototype.hasOwnProperty.call(s,k)) delete s[k]; });
@@ -8376,6 +8467,9 @@ function normalizeState(s){
   s.contacts = Array.isArray(s.contacts) ? s.contacts.map(normContact) : [];   /* T4: rubrica contatti/ruoli del progetto */
   if(!s.contacts.length && s.techContact){ s.contacts=[{role:"Riferimento tecnico", name:"", contact:s.techContact, note:""}]; }   /* migrazione dal singolo campo (nessun dato perso) */
   if(s.contacts.length){ var _pc=primaryContactStr(s.contacts); if(_pc) s.techContact=_pc; }   /* tiene allineato il legacy field (rider header + pagina consulenza) */
+  /* Scaletta (10/10): sanificata voce per voce; senza voci il campo non c'è (vedi scalettaTipi) */
+  var _sc=scalettaNorm(s.scaletta);
+  if(_sc.length) s.scaletta=_sc; else delete s.scaletta;
   s.status = (["bozza","revisione","approvato","superato"].indexOf(s.status)>=0) ? s.status : "bozza";   /* T5: stato di approvazione */
   s.approval = (s.approval && typeof s.approval==="object") ? {by:String(s.approval.by||"").slice(0,80), at:String(s.approval.at||"").slice(0,10)} : {by:"",at:""};
   s.namesMode = (["auto","on","off"].indexOf(s.namesMode)>=0) ? s.namesMode : "auto";   /* K: visibilità nomi strumenti */
@@ -14123,6 +14217,7 @@ function render(){
   aderisciSelezione(); for(var _fk in _selFit){ redrawSelHandles(); break; }   /* il riquadro sul disegno vero, e la maniglia sul riquadro (solo se c'è qualcosa di misurato) */
   renderProps();
   renderAccessoriCount();
+  if(scalettaEdit) renderScaletta();   /* Annulla, cambio di scena, progetto aperto: le righe seguono lo stato */
   renderVenuePanel();
   renderFramePanel();
   renderVistaBanner();   /* SP-06: la vista attiva si dichiara, e si annulla con un comando che si vede */
@@ -17378,6 +17473,8 @@ function ricordaRecenteCatalogo(k, nome, over){
                 kw:"channel list input list lista canali lista ingressi ingressi canali patch list"});
   entries.push({nome:"Monitor list", dim:"le mandate degli ascolti", noQuick:true, iconHtml:LISTA_ICON, action:function(){ apriListaDaRicerca("cabout"); },
                 kw:"monitor list output list lista monitor lista uscite mandate mix ascolti", qaCede:"monitor"});
+  entries.push({nome:"Scaletta", dim:"brani in ordine, con le durate", noQuick:true, iconHtml:LISTA_ICON, action:function(){ if(!scalettaEdit) toggleScaletta(); },
+                kw:"scaletta setlist set list brani canzoni pezzi ordine durata durate pausa bis intro cambio palco"});
   entries.push({nome:"Nuova variante", dim:"copia della scena attiva, da cambiare", noQuick:true, iconHtml:VAR_ICON, action:function(){ if(typeof createVariant==="function") createVariant(); },
                 kw:"variante varianti scena scene versione alternativa seconda formazione"});
   entries.push({nome:"Frequenze radio (RF)", dim:"si scrivono su ogni radiomic e in-ear", noQuick:true, iconHtml:RF_ICON, action:openRfFreq,
@@ -18315,6 +18412,7 @@ function renderMobileList(){
     function txt(id, v){ var e=document.getElementById(id); if(e) e.textContent=v; }
     txt("mMenuLuogo", state.luogo || "da scrivere");
     txt("mMenuData", dataEventoBreve() || "da scrivere");
+    txt("mMenuScaletta", scalettaRigaBreve() || "da scrivere");
     txt("mMenuStage", misurePalco());
     var nf=FUNZIONI.filter(function(f){ return funzOn(f.id); }).length;
     txt("mMenuFunz", nf===0 ? "spente" : nf===FUNZIONI.length ? "tutte accese" : (nf+" di "+FUNZIONI.length));
@@ -18342,6 +18440,7 @@ function renderMobileList(){
       },0);
       if(a==="palco"){ toggleStageEdit(); return; }
       if(a==="evento"){ toggleEvento(); return; }
+      if(a==="scaletta"){ toggleScaletta(); return; }
       if(a==="chan"){ toggleChan(); return; }
       if(a==="venue"){ toggleVenueEdit(); return; }
       if(a==="frame"){ toggleFrameEdit(); return; }
@@ -19612,6 +19711,7 @@ function renderStagePanel(){
 function exitHubModes(except){
   if(except!=="palco" && stageEdit){ stageEdit=false; selBlock=null; venueAutoLock(); renderStagePanel(); }
   if(except!=="evento" && eventoEdit){ eventoEdit=false; renderEventoPanel(); }
+  if(except!=="scaletta" && scalettaEdit){ scalettaEdit=false; renderScalettaPanel(); }
   if(except!=="chan" && chanEdit){ chanEdit=false; renderChanPanel(); }
   if(except!=="frame"&&except!=="save" && (frameEdit||saveAsOpen)){ frameEdit=false; saveAsOpen=false; renderFramePanel(); }
   if(except!=="vers" && versEdit){ versEdit=false; renderVersionPanel(); }
@@ -19663,6 +19763,148 @@ function renderEventoPanel(){ document.body.classList.toggle("evento-edit", even
 function toggleEvento(){ eventoEdit=!eventoEdit; if(eventoEdit){ exitHubModes("evento"); clearSelection(); } renderEventoPanel(); render(); }
 function renderChanPanel(){ document.body.classList.toggle("chan-edit", chanEdit); }
 function toggleChan(){ chanEdit=!chanEdit; if(chanEdit){ exitHubModes("chan"); clearSelection(); } renderChanPanel(); render(); }
+/* ===== SCALETTA — il pannello (10/10). I dati e il totale stanno in scalettaList(), sopra normalizeState. =====
+   Scrivere un titolo o una durata = saveSoon (un passo di Annulla per parola, come i contatti);
+   aggiungere, spostare e togliere = azioni discrete: primaDiAgire() chiude prima la parola in sospeso,
+   poi save(). Il pannello si ridisegna da render() (Annulla, cambio di scena, progetto aperto) ma solo
+   se la scaletta è cambiata da fuori: mentre si scrive, le righe non si rifanno e il cursore resta lì. */
+var _scFirma=null;
+function scalettaVoci(){ return Array.isArray(state.scaletta) ? state.scaletta : []; }
+function scalettaRigaBreve(){
+  var d=scalettaList(); if(!d.count) return "";
+  return (d.brani===1 ? "1 brano" : d.brani+" brani")+(d.tot ? " · "+d.totTxt : "");
+}
+function renderScalettaPanel(){
+  document.body.classList.toggle("scaletta-edit", scalettaEdit);
+  var s=document.getElementById("scalettaSec"); if(s) s.hidden=!scalettaEdit;
+  if(scalettaEdit) renderScaletta(true);
+}
+function toggleScaletta(){
+  primaDiAgire();
+  scalettaEdit=!scalettaEdit;
+  if(scalettaEdit){ exitHubModes("scaletta"); clearSelection(); if(typeof exitListMode==="function") exitListMode(); }
+  renderScalettaPanel(); render();
+  if(scalettaEdit){ var b=document.getElementById(scalettaVoci().length ? "bScalettaDone" : "scAddBrano"); if(b && b.focus) try{ b.focus({preventScroll:true}); }catch(_e){} }
+}
+function scalettaAggiungi(tipo){
+  primaDiAgire();
+  if(!Array.isArray(state.scaletta)) state.scaletta=[];
+  if(state.scaletta.length>=200){ if(window.__toast) window.__toast("La scaletta arriva al massimo a 200 voci.", true); return -1; }
+  state.scaletta.push(scalettaVoceNorm({tipo:tipo||"brano"}));
+  save(); renderScaletta(true);
+  var i=state.scaletta.length-1;
+  var inp=document.querySelector('#scRows .sc-row[data-i="'+i+'"] .sc-tit'); if(inp && inp.focus) try{ inp.focus(); }catch(_e){}
+  return i;
+}
+function scalettaSposta(i, dir){
+  var a=scalettaVoci(), j=i+dir;
+  if(i<0 || i>=a.length || j<0 || j>=a.length) return false;
+  primaDiAgire();
+  var t=a[i]; a[i]=a[j]; a[j]=t;
+  save(); renderScaletta(true);
+  /* il fuoco segue la voce spostata: con la tastiera si sposta di più posti premendo più volte */
+  var b=document.querySelector('#scRows .sc-row[data-i="'+j+'"] [data-sc="'+(dir<0?"su":"giu")+'"]');
+  if(b && !b.disabled && b.focus) try{ b.focus(); }catch(_e){}
+  return true;
+}
+function scalettaTogli(i){
+  var a=scalettaVoci(); if(i<0 || i>=a.length) return false;
+  primaDiAgire();
+  a.splice(i,1);
+  if(!a.length) delete state.scaletta;   /* senza voci il campo non c'è: vedi scalettaTipi */
+  save(); renderScaletta(true);
+  return true;
+}
+/* Numeri, totale e avvisi, senza rifare i campi: si chiama a ogni tasto. */
+function scalettaContorno(){
+  var host=document.getElementById("scRows"); if(!host) return;
+  var voci=scalettaVoci(), n=0;
+  voci.forEach(function(v,i){
+    var row=host.querySelector('.sc-row[data-i="'+i+'"]'); if(!row) return;
+    var nv=scalettaVoceNorm(v);
+    var num=row.querySelector(".sc-n");
+    if(num && v.tipo==="brano") num.textContent = scalettaVuota(nv) ? "" : String(++n);
+    var du=row.querySelector(".sc-dur");
+    if(du){ var bad=!!(nv.durata.trim() && !scalettaSecondi(nv.durata));
+      du.classList.toggle("err", bad);
+      if(bad){ du.setAttribute("aria-invalid","true"); du.title="Scrivi minuti e secondi, per esempio 3:45"; }
+      else { du.removeAttribute("aria-invalid"); du.title=""; } }
+  });
+  var vu=document.getElementById("scVuota"); if(vu) vu.hidden=voci.length>0;
+  var tot=document.getElementById("scTot");
+  if(tot){
+    var d=scalettaList();
+    if(!d.count){ tot.textContent=""; tot.hidden=true; }
+    else { tot.hidden=false;
+      tot.innerHTML="Totale <b>"+esc(d.tot ? d.totTxt : "—")+"</b> · "+esc(d.brani===1 ? "1 brano" : d.brani+" brani")+
+        (d.senzaDurata ? '<small>'+esc(d.senzaDurata===1 ? "1 brano senza durata: non è nel totale" : d.senzaDurata+" brani senza durata: non sono nel totale")+'</small>' : ""); }
+  }
+}
+function renderScaletta(forza){
+  var host=document.getElementById("scRows"); if(!host) return;
+  var voci=scalettaVoci(), firma=JSON.stringify(voci);
+  if(!forza && firma===_scFirma){ scalettaContorno(); return; }
+  _scFirma=firma;
+  var T=scalettaTipi();
+  var ro=document.body.classList.contains("consult-viewer") || !!window.__projLocked;
+  document.body.classList.toggle("sc-ro", ro);
+  host.innerHTML="";
+  voci.forEach(function(v,i){
+    var segno=(v.tipo!=="brano");
+    var row=document.createElement("div"); row.className="sc-row"+(segno?" sc-segno":""); row.setAttribute("data-i", i); row.setAttribute("data-tipo", v.tipo);
+    var etich=segno ? T[v.tipo] : "Brano";
+    if(segno){ var k=document.createElement("span"); k.className="sc-kind"; k.textContent=T[v.tipo]; row.appendChild(k); }
+    var num=document.createElement("span"); num.className="sc-n"; num.setAttribute("aria-hidden","true"); row.appendChild(num);
+    function campo(cls, chiave, max, ph, lbl){
+      var el=document.createElement("input"); el.type="text"; el.className=cls; el.maxLength=max; el.placeholder=ph;
+      el.value=v[chiave]||""; el.setAttribute("aria-label", lbl+" — voce "+(i+1)+" ("+etich+")");
+      if(ro){ el.readOnly=true; return el; }
+      el.addEventListener("input", function(){
+        var a=scalettaVoci(); if(!a[i]) return;
+        var o={}; o[chiave]=el.value; a[i][chiave]=scalettaVoceNorm(Object.assign({}, a[i], o))[chiave];
+        if(a[i][chiave]!==el.value && chiave==="durata") el.value=a[i][chiave];   /* lettere nella durata: non entrano */
+        _scFirma=JSON.stringify(a);   /* il cambio viene da qui: il prossimo render non rifà le righe */
+        saveSoon(); scalettaContorno();
+      });
+      return el;
+    }
+    var tit=campo("sc-tit", "titolo", 80, segno ? T[v.tipo]+" — titolo facoltativo" : "Titolo del brano", "Titolo");
+    var dur=campo("sc-dur", "durata", 8, "m:ss", "Durata");
+    dur.inputMode="decimal";
+    if(!ro) dur.addEventListener("change", function(){   /* «3.5» resta com'è, «3.05» diventa «3:05»: si legge com'è scritto nel PDF */
+      var a=scalettaVoci(); if(!a[i]) return;
+      var sec=scalettaSecondi(a[i].durata); if(!sec) return;
+      var f=scalettaFmt(sec); if(f===a[i].durata) return;
+      a[i].durata=f; dur.value=f; _scFirma=JSON.stringify(a); saveSoon(); scalettaContorno();
+    });
+    var note=campo("sc-note", "note", 120, "Note (facoltative)", "Note");
+    row.appendChild(tit); row.appendChild(dur); row.appendChild(note);
+    var acts=document.createElement("span"); acts.className="sc-acts";
+    [["su","↑","Sposta su",i===0],["giu","↓","Sposta giù",i===voci.length-1],["via","✕","Togli la voce",false]].forEach(function(b){
+      var bt=document.createElement("button"); bt.type="button"; bt.className="sc-b"+(b[0]==="via"?" sc-via":"");
+      bt.setAttribute("data-sc", b[0]); bt.textContent=b[1]; bt.title=b[2]; bt.setAttribute("aria-label", b[2]+" — voce "+(i+1)+" ("+etich+")");
+      bt.disabled=!!b[3];
+      acts.appendChild(bt);
+    });
+    row.appendChild(acts);
+    host.appendChild(row);
+  });
+  scalettaContorno();
+}
+(function(){
+  var host=document.getElementById("scRows");
+  if(host) host.addEventListener("click", function(e){
+    var b=e.target.closest && e.target.closest("button[data-sc]"); if(!b || b.disabled) return;
+    var row=b.closest(".sc-row"); if(!row) return;
+    var i=+row.getAttribute("data-i"), a=b.getAttribute("data-sc");
+    if(a==="su") scalettaSposta(i,-1); else if(a==="giu") scalettaSposta(i,1); else if(a==="via") scalettaTogli(i);
+  });
+  var ab=document.getElementById("scAddBrano"); if(ab) ab.addEventListener("click", function(){ scalettaAggiungi("brano"); });
+  Array.prototype.forEach.call(document.querySelectorAll("[data-sc-add]"), function(b){
+    b.addEventListener("click", function(){ scalettaAggiungi(b.getAttribute("data-sc-add")); });
+  });
+  var fb=document.getElementById("bScalettaDone"); if(fb) fb.addEventListener("click", toggleScaletta);
+})();
 function addStageBlock(){
   var bb=stageBlocks(); recalcStageBBox();
   var base=bb[0], r;
@@ -20980,7 +21222,7 @@ function detachCloudDoc(epochAlreadyChanged){
 function stateHasMeaningfulWork(s, ignoraPalco){
   if(!s || typeof s!=="object") return false;
   if(String(s.titolo||"").trim() || String(s.luogo||"").trim() || String(s.techContact||"").trim()) return true;
-  if(["items","inputs","outputs","contacts","zones"].some(function(k){ return Array.isArray(s[k])&&s[k].length; })) return true;
+  if(["items","inputs","outputs","contacts","zones","scaletta"].some(function(k){ return Array.isArray(s[k])&&s[k].length; })) return true;
   if(s.venue || s.printFrame || (s.rider&&Object.keys(s.rider).length)) return true;
   if(s.status&&s.status!=="bozza") return true;
   if(s.approval&&(s.approval.by||s.approval.at)) return true;
@@ -23768,6 +24010,7 @@ function renderLayerManager(){
   var base=LS.filter(function(L){ return !AVANZATE[L.id]; });
   var avanz=LS.filter(function(L){ return AVANZATE[L.id]; });
   base.forEach(function(L){ renderLayerRow(L, rows); });
+  renderScalettaRiga(rows);
   if(avanz.length){
     /* in uso = motore acceso, oppure la lista è visibile/aperta: allora non si chiude niente */
     var inUso=avanz.some(function(L){ return L.engineOn || layerAccOpen===L.id; });
@@ -23797,6 +24040,23 @@ function renderLayerManager(){
    Qui c'è una riga sola in fondo alle liste: dice a che punto è e apre l'audit. Non insegna niente
    e non blocca niente: e' la prossima azione, mostrata quando serve. Sparisce sul palco vuoto,
    dove non c'e' ancora niente da controllare. */
+/* SCALETTA nelle Liste (10/10): non è un layer — non ha niente sul palco da mettere a fuoco, quindi
+   niente S, occhio e lucchetto. È una riga che apre il suo pannello, con a destra quanti brani e la
+   durata: il dato che si cerca per primo, come «11» sotto Input. */
+function renderScalettaRiga(rows){
+  if(!rows) return;
+  var r=document.createElement("div"); r.className="layer-row layer-clickable sc-lriga"+(scalettaEdit?" focus":"");
+  var d=scalettaList(), sum=scalettaRigaBreve();
+  /* nella riga sta solo la durata (o quanti brani, se le durate mancano): la colonna è stretta come per «11» sotto Input */
+  var corto = d.count ? (d.tot ? d.totTxt : String(d.brani)) : "";
+  r.innerHTML='<span class="layer-chev">▸</span><span class="layer-dot" style="background:#475569"></span><span class="layer-name">Scaletta</span>'+
+    (corto ? '<span class="layer-cnt">'+esc(corto)+'</span>' : '<span class="layer-actbadge">scrivi</span>');
+  r.title = sum ? "Apri la scaletta: "+sum : "Scrivi la scaletta: brani e durate, per il PDF e il link";
+  r.addEventListener("click", toggleScaletta);
+  premibile(r, toggleScaletta, (scalettaEdit ? "Chiudi" : "Apri")+" la scaletta");
+  r.setAttribute("aria-expanded", scalettaEdit ? "true" : "false");
+  rows.appendChild(r);
+}
 function renderStatoRider(rows){
   if(!rows || !(state.items||[]).length) return;
   var A; try{ A=auditEngine(); }catch(_e){ return; }
@@ -27663,6 +27923,8 @@ function buildProjectJson(){
       warn_if_missing:["components","linked_item_id","linked_component_id","tilt"] }
   };
 }
+/* Il link «vivo» di un progetto condiviso: lo stesso nella finestra Condividi e nel QR del PDF (10/10). */
+function linkVistaCondivisa(tok){ return location.origin+location.pathname+"?view="+encodeURIComponent(tok); }
 function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"stage-plot"; }
 /* ===== Condividi progetto (link auto-caricante) ===== */
 (function(){
@@ -27683,6 +27945,7 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     });
     return __qrLibPromise;
   }
+  window.__loadQrLib=loadQrLib;   /* lo usa anche l'Esporta per il QR nel PDF (10/10): una libreria, un caricamento */
   function shareText(){ var t=state.titolo||"", l=state.luogo||"";
     return (t||l) ? (t+(t&&l?" · ":"")+l) : "Stage plot"; }   /* oggetto mail = titolo · luogo */
   function fillShareModal(url){
@@ -27852,7 +28115,7 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
         } else status("Impossibile preparare il link. Riprova.");
         return;
       }
-      fillShareModal(location.origin+location.pathname+"?view="+encodeURIComponent(tok));
+      fillShareModal(linkVistaCondivisa(tok));
       showUnshare(true);
     });
   }
@@ -28522,7 +28785,7 @@ function paperLabel(paperKey, orient){
    posto solo. Prima ogni chiamante la ricalcolava a modo suo e la scala automatica usava 22 fisso. */
 function cartHFor(header, paperKey, orient){
   var L=pdfLayout(paperKey, orient, 22);
-  return cartHForHeader(header, L.pw-2*L.M-90);
+  return cartHForHeader(header, pdfCartTitleW(L.pw, L.M));   /* col QR la colonna del titolo è più stretta (10/10) */
 }
 /* stima l'altezza del cartiglio in base alle righe dell'intestazione (8pt ≈ 1.8mm/char) */
 function cartHForHeader(header, titleW){
@@ -29366,6 +29629,58 @@ function backlineListPdf(shared){
    nel PDF non usciva: la funzione che la stampa non era mai stata scritta. Qui non si copia l'ennesima
    tabella a mano — si stampa dalla stessa configurazione (`pdfListConfig`) da cui nascono l'anteprima
    e il link condiviso, così le tre viste non possono piu' divergere. */
+/* PAGINA «SCALETTA» del PDF (10/10). Stessa testata delle altre liste (fascia colorata, data, titolo e
+   luogo, riassunto) e stesso foglio A4 verticale; la numerazione «pag N/M» la mette pdfCredit alla fine,
+   come per tutte. A differenza di pdfListGeneric, titoli e note vanno a capo: una tabella a colonne
+   fisse con un titolo lungo lo faceva finire sotto la durata. Le voci vuote non escono (scalettaList).
+   Torna false se non c'è niente da stampare: la pagina allora non si aggiunge nemmeno. */
+function scalettaPdf(doc){
+  var d=scalettaList(); if(!d.rows.length) return false;
+  doc.addPage("a4","portrait");
+  var M=16, R=194, y=22, col="#475569", XT=M+11, XD=R, WT=R-XT-24;
+  doc.setFillColor(col); doc.rect(0,0,210,14,"F");
+  doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11);
+  doc.text("STAGE PLOT — Scaletta", M, 9);
+  doc.setFont("helvetica","normal"); doc.setFontSize(9);
+  doc.text(dataDocumento(), R, 9, {align:"right"});
+  if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); y=pdfTitoloLuogo(doc, M, y, 8); }
+  doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
+  doc.text(scalettaRiassunto(d), M, y); y+=8;
+  function testa(){
+    doc.setFont("helvetica","bold"); doc.setFontSize(8.5); doc.setTextColor("#334155");
+    doc.text("#", XT-3, y, {align:"right"}); doc.text("BRANO", XT, y); doc.text("DURATA", XD, y, {align:"right"});
+    doc.setDrawColor(col); doc.setLineWidth(0.4); doc.line(M, y+1.6, R, y+1.6); y+=7;
+  }
+  testa();
+  d.rows.forEach(function(r){
+    doc.setFont("helvetica", r.segno?"bold":"normal"); doc.setFontSize(r.segno?9.5:11);
+    var tl=doc.splitTextToSize(r.testo, WT).slice(0,3);
+    doc.setFontSize(8.5);
+    var nl=r.note ? doc.splitTextToSize(r.note, WT).slice(0,3) : [];
+    var h=tl.length*(r.segno?4.6:5.2)+nl.length*4+2.6;
+    if(y+h>284){ doc.addPage("a4","portrait"); y=18; testa(); }   /* la riga intera passa di pagina, con l'intestazione delle colonne */
+    if(r.segno){ doc.setFillColor("#f1f5f9"); doc.rect(M, y-4.2, R-M, h-0.6, "F"); }
+    doc.setTextColor(r.segno?"#334155":"#111827");
+    if(r.n){ doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text(r.n, XT-3, y, {align:"right"}); }
+    doc.setFont("helvetica", r.segno?"bold":"normal"); doc.setFontSize(r.segno?9.5:11);
+    tl.forEach(function(t,k){ doc.text(t, XT, y+k*(r.segno?4.6:5.2)); });
+    if(r.durata){ doc.setFont("helvetica","normal"); doc.setFontSize(r.segno?9.5:11); doc.text(r.durata, XD, y, {align:"right"}); }
+    else if(!r.segno){ doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor("#b45309"); doc.text("—", XD, y, {align:"right"}); }
+    var yn=y+tl.length*(r.segno?4.6:5.2)-0.8;
+    if(nl.length){ doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor("#555555");
+      nl.forEach(function(t,k){ doc.text(t, XT, yn+k*4); }); }
+    y+=h;
+  });
+  /* il totale chiude la tabella: è il numero che l'organizzazione chiede per primo */
+  if(y+9>284){ doc.addPage("a4","portrait"); y=18; }
+  doc.setDrawColor("#111827"); doc.setLineWidth(0.5); doc.line(M, y-2.6, R, y-2.6); y+=3;
+  doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor("#111827");
+  doc.text("Totale"+(d.brani ? " · "+(d.brani===1?"1 brano":d.brani+" brani") : ""), XT, y);
+  doc.text(d.tot ? d.totTxt : "—", XD, y, {align:"right"});
+  if(d.senzaDurata){ y+=5; doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor("#b45309");
+    doc.text(d.senzaDurata===1 ? "1 brano senza durata: non è nel totale." : d.senzaDurata+" brani senza durata: non sono nel totale.", XT, y); }
+  return true;
+}
 function pdfListGeneric(doc, key, shared){
   var cfg=(typeof pdfListConfig==="function") ? pdfListConfig()[key] : null;
   if(!cfg || !cfg.data) return false;
@@ -29972,8 +30287,61 @@ function pdfTotals(opts){
   if(iem)    out.push(iem+" in-ear");
   return out;
 }
+/* ===== QR NEL PDF VERSO LA VERSIONE ONLINE (10/10/2026, dal confronto con TecRider Pro) =====
+   Facoltativo, spento di serie, offerto solo se il progetto ha GIÀ un link di condivisione attivo
+   (shareTokenAttivo: l'export non ne crea mai uno). Sta nel cartiglio della prima pagina, in una
+   colonna sua fra il titolo e la scala: il titolo si stringe per fargli posto, quindi non copre
+   niente — il concorrente lo mette sopra l'intestazione. Il QR si disegna a rettangoli vettoriali
+   (niente immagine), con la stessa libreria locale della finestra Condividi. `window.__pdfQr` lo
+   prepara l'Esporta: {url, n, m} con m = righe di "0"/"1"; null = niente QR. */
+function pdfQrCol(){ return 30; }   /* mm riservati nel cartiglio: QR da 14 mm + didascalia sotto */
+function pdfQrInCartiglio(){ var q=window.__pdfQr; return !!(q && q.n>0 && Array.isArray(q.m) && q.m.length===q.n); }
+/* Larghezza della colonna del titolo nel cartiglio: UNA formula per PDF, anteprima e scala automatica. */
+function pdfCartTitleW(pw, M){ return pw-2*M-90-(pdfQrInCartiglio() ? pdfQrCol() : 0); }
+function pdfQrBox(L){
+  var y=L.ph-L.fondo-L.cartH, s=14, colX=L.pw-L.M-90-pdfQrCol(), cx=colX+pdfQrCol()/2;
+  return { x:cx-s/2, y:y+2.5, s:s, cx:cx, capY:y+20.4, colX:colX, colW:pdfQrCol() };
+}
+/* Dati del QR per un link, o {troppo:true} se un QR stampato così piccolo non si leggerebbe:
+   oltre i 1000 caratteri (la soglia di qrTooBig in Condividi) o oltre 41 moduli per lato (a 14 mm
+   il modulo scenderebbe sotto 0,35 mm). null = libreria non disponibile. */
+function pdfQrDati(url){
+  url=String(url||""); if(!url) return null;
+  if(url.length>1000) return {troppo:true};
+  if(typeof window.qrcode!=="function") return null;
+  var qr; try{ qr=window.qrcode(0,"M"); qr.addData(url); qr.make(); }catch(e){ return {troppo:true}; }
+  var n=qr.getModuleCount(); if(n>41) return {troppo:true};
+  var m=[];
+  for(var r=0;r<n;r++){ var riga=""; for(var c=0;c<n;c++) riga+=qr.isDark(r,c)?"1":"0"; m.push(riga); }
+  return { url:url, n:n, m:m };
+}
+/* Moduli scuri accorpati per riga: [riga, colonna, lunghezza] — meno rettangoli, PDF più leggero. */
+function pdfQrCorse(q){
+  var out=[];
+  (q&&q.m||[]).forEach(function(riga, r){ var c=0;
+    while(c<riga.length){ if(riga.charAt(c)!=="1"){ c++; continue; } var c0=c; while(c<riga.length && riga.charAt(c)==="1") c++; out.push([r, c0, c-c0]); } });
+  return out;
+}
+function pdfQrDisegna(doc, L){
+  if(!pdfQrInCartiglio()) return false;
+  var q=window.__pdfQr, B=pdfQrBox(L), ms=B.s/q.n;
+  doc.setFillColor(255,255,255); doc.rect(B.x-2*ms, B.y-2*ms, B.s+4*ms, B.s+4*ms, "F");
+  doc.setFillColor(0,0,0);
+  pdfQrCorse(q).forEach(function(k){ doc.rect(B.x+k[1]*ms, B.y+k[0]*ms, k[2]*ms, ms, "F"); });
+  doc.setFont("helvetica","normal"); doc.setFontSize(6); doc.setTextColor(75,85,99);
+  doc.text("Versione aggiornata online", B.cx, B.capY, {align:"center"});
+  return true;
+}
+function pdfQrSvg(L){
+  if(!pdfQrInCartiglio()) return "";
+  var q=window.__pdfQr, B=pdfQrBox(L), ms=B.s/q.n, d="";
+  pdfQrCorse(q).forEach(function(k){ d+="M"+(B.x+k[1]*ms).toFixed(3)+" "+(B.y+k[0]*ms).toFixed(3)+"h"+(k[2]*ms).toFixed(3)+"v"+ms.toFixed(3)+"h-"+(k[2]*ms).toFixed(3)+"z"; });
+  return '<g class="pdf-qr"><rect x="'+(B.x-2*ms)+'" y="'+(B.y-2*ms)+'" width="'+(B.s+4*ms)+'" height="'+(B.s+4*ms)+'" fill="#fff"/>'+
+    '<path d="'+d+'" fill="#000"/>'+
+    '<text x="'+B.cx+'" y="'+B.capY+'" font-size="2.1" fill="#4b5563" text-anchor="middle">Versione aggiornata online</text></g>';
+}
 function pdfCartiglio(doc, L, N, header){
-  var y=L.ph-L.fondo-L.cartH, M=L.M, scW=90, titleW=L.pw-2*M-scW;
+  var y=L.ph-L.fondo-L.cartH, M=L.M, scW=90, titleW=pdfCartTitleW(L.pw, M);   /* col QR la colonna del titolo si stringe (10/10) */
   doc.setDrawColor(31,41,55); doc.setLineWidth(0.4);
   doc.line(M, y, L.pw-M, y);
   doc.setTextColor(17,24,39);
@@ -30061,7 +30429,7 @@ function pdfCredit(doc){
 function pdfPreviewSvg(paperKey, N, orient, header, opts){
   opts=opts||{};   /* opts.focus = clean|cabaudio|elec|sectionmic ; opts.pageLabel = titolo pagina-vista */
   var scW=90, baseL=pdfLayout(paperKey, orient, 22);
-  var ch=cartHForHeader(header, baseL.pw-2*baseL.M-scW);
+  var ch=cartHForHeader(header, pdfCartTitleW(baseL.pw, baseL.M));
   var Ng = N || 500;
   var box=pdfStageBox(Ng, paperKey, orient, ch), L=box.L, A=box.A;
   var stMmW=box.mmW, stMmH=box.mmH, ix=box.ix, iy=box.iy;
@@ -30078,7 +30446,7 @@ function pdfPreviewSvg(paperKey, N, orient, header, opts){
   var labels = A.custom ? '' :
     '<text x="'+(ix+stMmW/2)+'" y="'+(iy-1.6)+'" font-size="3" fill="#9a9a9a" text-anchor="middle">FONDO PALCO</text>'+
     '<text x="'+(ix+stMmW/2)+'" y="'+(iy+stMmH+4)+'" font-size="3" fill="#9a9a9a" text-anchor="middle">PUBBLICO</text>';
-  var titleColW=L.pw-2*L.M-scW;
+  var titleColW=pdfCartTitleW(L.pw, L.M);
   /* clip per la colonna sinistra del cartiglio (titolo+sub+header non invadono SCALA) */
   var cartClip='<defs><clipPath id="cartClip"><rect x="'+L.M+'" y="'+cy+'" width="'+titleColW+'" height="'+L.cartH+'"/></clipPath></defs>';
   /* header: riga singola nella preview (il PDF usa splitTextToSize per multi-riga) */
@@ -30095,6 +30463,7 @@ function pdfPreviewSvg(paperKey, N, orient, header, opts){
     '<text clip-path="url(#cartClip)" x="'+L.M+'" y="'+(cy+7)+'" font-size="6" font-weight="700" fill="#111827">'+esc(state.titolo||"Stage plot")+'</text>'+
     '<text clip-path="url(#cartClip)" x="'+L.M+'" y="'+(cy+12.5)+'" font-size="3.6" fill="#4b5563">'+esc(sub.join("  ·  "))+'</text>'+
     headerSvg+
+    ((!opts.focus || opts.focus==="clean") ? pdfQrSvg(L) : "")+   /* QR: solo sulla prima pagina, come nel PDF */
     '<text x="'+(L.pw-L.M)+'" y="'+(cy+9)+'" font-size="9" font-weight="700" fill="#111827" text-anchor="end">SCALA 1:'+Ng+'</text>'+
     /* il formato del foglio, come nel PDF: l'anteprima deve dire le stesse cose del file che uscirà */
     '<text x="'+(L.pw-L.M)+'" y="'+(cy+13.5)+'" font-size="3.6" font-weight="700" fill="#111827" text-anchor="end">'+esc(paperLabel(L.paper, L.orient))+'</text>'+
@@ -30182,6 +30551,16 @@ function pdfListConfig(){
     notelist:{ title:"Note", color:"#6b7280", data:(typeof noteList==="function"?noteList:null),
       sub:function(d){ return d.count+" not"+(d.count===1?"a":"e")+" sugli elementi · sul disegno sono i nomi col puntino"; },
       cols:[{h:"Elemento",f:function(r){return r.name;}},{h:"Nota",f:function(r){return r.note;}}] },
+    /* Scaletta (10/10): anteprima nell'Esporta e scheda del link condiviso. Il PDF ha la sua pagina
+       (scalettaPdf), perché titoli e note lunghi vanno a capo invece di finire sulla colonna accanto. */
+    scaletta:{ title:"Scaletta", color:"#475569", data:(typeof scalettaList==="function"?scalettaList:null),
+      sub:function(d){ return scalettaRiassunto(d); },
+      rowCls:function(r){ return r.segno ? "sc-voce sc-segno" : "sc-voce"; },
+      foot:function(d){ return d.tot ? ["", "Totale", d.totTxt, ""] : null; },
+      cols:[{h:"#",num:1,f:function(r){return r.n;}},
+            {h:"Brano",f:function(r){return r.testo;}},
+            {h:"Durata",num:1,f:function(r){return r.durata||(r.segno?"":"—");},warn:function(r){return !r.segno && !r.durata;}},
+            {h:"Note",f:function(r){return r.note;}}] },
     rf:{ title:"Lista RF", color:"#4f46e5", data:(typeof rfList==="function"?rfList:null),
       sub:function(d){ return d.count+" frequenz"+(d.count===1?"a":"e")+" RF"; },
       cols:[{h:"Dispositivo",f:function(r){return r.name;}},{h:"Chi lo usa",f:function(r){return r.chi||"—";}},{h:"Tipo",f:function(r){return r.kind;}},{h:"Freq / banda",f:function(r){return [r.rf,r.band].filter(Boolean).join(" · ")||"—";}},{h:"Ricevitore",f:function(r){return r.rx||"—";}}] }
@@ -30193,16 +30572,18 @@ function listPreviewHtml(key){
   var d; try{ d=cfg.data(); }catch(e){ return null; }
   if(!d || !d.rows || !d.rows.length) return '<div class="pdf-list-sheet"><div class="pdf-list-hd" style="background:'+cfg.color+'">'+esc(cfg.title)+'</div><div class="pdf-list-empty">Nessun dato</div></div>';
   var thead='<tr>'+cfg.cols.map(function(c){return '<th'+(c.num?' class="n"':'')+'>'+esc(c.h)+'</th>';}).join('')+'</tr>';
-  var tbody=d.rows.map(function(r){ return '<tr>'+cfg.cols.map(function(c){ var v=c.f(r,d); var w=c.warn&&c.warn(r); return '<td'+(c.num?' class="n"':'')+(w?' data-w="1"':'')+'>'+esc(v==null?'':v)+'</td>'; }).join('')+'</tr>'; }).join('');
+  var tbody=d.rows.map(function(r){ var rc=cfg.rowCls?cfg.rowCls(r):""; return '<tr'+(rc?' class="'+esc(rc)+'"':'')+'>'+cfg.cols.map(function(c){ var v=c.f(r,d); var w=c.warn&&c.warn(r); return '<td'+(c.num?' class="n"':'')+(w?' data-w="1"':'')+'>'+esc(v==null?'':v)+'</td>'; }).join('')+'</tr>'; }).join('');
+  var foot=cfg.foot?cfg.foot(d):null;   /* riga dei totali (la scaletta: la durata della serata) */
+  var tfoot=foot ? '<tfoot><tr>'+foot.map(function(v,i){ var c=cfg.cols[i]||{}; return '<td'+(c.num?' class="n"':'')+'>'+esc(v==null?'':v)+'</td>'; }).join('')+'</tr></tfoot>' : '';
   return '<div class="pdf-list-sheet">'+
     '<div class="pdf-list-hd" style="background:'+cfg.color+'">'+esc(cfg.title)+'<span class="pdf-list-date">'+esc(dataDocumento())+'</span></div>'+
     (state.titolo?'<div class="pdf-list-tt">'+esc(state.titolo+(state.luogo?" — "+state.luogo:""))+'</div>':'')+
     (cfg.sub?'<div class="pdf-list-sub">'+esc(cfg.sub(d)||"")+'</div>':'')+
-    '<table class="pdf-list-tbl"><thead>'+thead+'</thead><tbody>'+tbody+'</tbody></table></div>';
+    '<table class="pdf-list-tbl"><thead>'+thead+'</thead><tbody>'+tbody+'</tbody>'+tfoot+'</table></div>';
 }
 /* T3 — liste disponibili nel link condiviso (solo quelle con dati). Riusa pdfListConfig → tabelle reali. */
 function availableViewerLists(){
-  var order=["inputlist","monitorlist","loadlist","backline","rf","notelist"], cfg=pdfListConfig(), out=[];
+  var order=["scaletta","inputlist","monitorlist","loadlist","backline","rf","notelist"], cfg=pdfListConfig(), out=[];   /* scaletta (10/10): subito dopo il rider */
   if((state.items||[]).length) out.push({key:"rider", title:nomeDocumento()});   /* T2: il rider (riepilogo derivato) apre il pacchetto */
   order.forEach(function(k){ var c=cfg[k]; if(!c||!c.data) return; var d; try{ d=c.data(); }catch(e){ return; }
     if(d && d.rows && d.rows.length) out.push({key:k, title:c.title}); });
@@ -30939,7 +31320,7 @@ function setupViewerTabs(){
 /* costruisce il jsPDF doc (Promise) — separato da save per poterlo testare */
 function buildPdfDoc(paperKey, N, orient, header){
   var baseL=pdfLayout(paperKey, orient, 22);
-  var cartH=cartHForHeader(header, baseL.pw-2*baseL.M-90);
+  var cartH=cartHForHeader(header, pdfCartTitleW(baseL.pw, baseL.M));
   var box=pdfStageBox(N, paperKey, orient, cartH), L=box.L, A=box.A;
   var stMmW=box.mmW, stMmH=box.mmH, ix=box.ix, iy=box.iy;
   /* il disegno viene rimpicciolito di N volte: le scritte vanno ingrandite altrettanto per restare
@@ -30967,6 +31348,7 @@ function buildPdfDoc(paperKey, N, orient, header){
     }
     pdfScaleBar(doc, ix, iy+stMmH+10, N);
     pdfCartiglio(doc, L, N, header);
+    pdfQrDisegna(doc, L);   /* il QR verso la versione online, se scelto: solo qui, sulla prima pagina (10/10) */
     var pg=window.__pdfPages||null;
     var want=function(k){ return pg ? !!pg[k] : false; };
     /* Pagine-vista per layer: stesso box/scala della pag 1, ridisegnato col layer a fuoco (100%) e il
@@ -31007,6 +31389,10 @@ function buildPdfDoc(paperKey, N, orient, header){
         doc.addPage(paperKey, L.orient);
         pdfChannelPage(doc, L, paperKey);
       }
+      /* SCALETTA (10/10): subito dopo i disegni del palco, prima delle pagine tecniche. La decide la
+         casella dell'Esporta (window.__pdfScaletta), non le pillole: è contenuto dell'utente, non una
+         lista tecnica, e si offre anche nell'Esporta base. L'anteprima la mette nello stesso posto. */
+      if(window.__pdfScaletta===true) scalettaPdf(doc);
       /* Una sequenza sola, PDF_TECH_ORDER, condivisa con pillole e anteprima: prima erano due
          elenchi scritti a mano e la Lista luci usciva in una posizione diversa da quella annunciata. */
       var STAMPA={
@@ -31300,10 +31686,13 @@ function pdfChannelPage(doc, L, paperKey){
   function previewPages(){
     var pages=[{focus:"clean", title:"Palco"}];
     var sel=window.__pdfPages||{};
+    var sc=(window.__pdfScaletta===true && scalettaList().count>0), scMessa=false;
+    function mettiScaletta(){ if(sc && !scMessa){ pages.push({list:true, key:"scaletta", title:"Scaletta"}); scMessa=true; } }
     _pdfTechPages.forEach(function(p){ if(!sel[p.key]) return;
       if(VIEW_MAP[p.key]) pages.push({focus:VIEW_MAP[p.key].focus, title:VIEW_MAP[p.key].title});
-      else pages.push({list:true, key:p.key, title:p.label.replace(/^Vista:\s*/,"")});
+      else { mettiScaletta(); pages.push({list:true, key:p.key, title:p.label.replace(/^Vista:\s*/,"")}); }
     });
+    mettiScaletta();   /* dopo le viste e prima delle liste, come in buildPdfDoc */
     return pages;
   }
   /* ⚠️ L'SVG dell'anteprima si porta dentro il CSS dell'app coi corpi moltiplicati per la scala
@@ -31760,8 +32149,63 @@ function pdfChannelPage(doc, L, paperKey){
     var cs=document.getElementById("pdfAltCsv");
     if(cs) cs.addEventListener("click", function(){ if(window.openCsvExport){ modal.hidden=true; window.openCsvExport(); } });
   })();
+  /* SCALETTA nell'Esporta (10/10): la casella c'è solo se la scaletta ha almeno una voce, e allora
+     parte spuntata — chi l'ha scritta la vuole nel PDF; chi non l'ha scritta non vede niente. Come le
+     pagine tecniche, la scelta non si ricorda: vale per questa apertura. */
+  var scChk=document.getElementById("pdfScaletta");
+  function pdfScalettaInit(){
+    var row=document.getElementById("pdfScalettaRow"), nota=document.getElementById("pdfScalettaNota");
+    var d=scalettaList();
+    if(row) row.style.display = d.count ? "" : "none";
+    if(nota) nota.textContent = d.count ? "— una pagina: "+(d.brani===1?"1 brano":d.brani+" brani")+(d.tot?", "+d.totTxt:"") : "";
+    if(scChk) scChk.checked = d.count>0;
+    window.__pdfScaletta = d.count>0;
+  }
+  if(scChk) scChk.addEventListener("change", function(){ window.__pdfScaletta=!!scChk.checked; renderPreview(); });
+  /* QR verso la versione online (10/10). Spento a ogni apertura; la riga compare solo quando il
+     cloud conferma che il progetto ha già un link attivo (la risposta arriva dopo: se nel frattempo
+     la finestra si è chiusa o riaperta, non vale più). */
+  var qrChk=document.getElementById("pdfQr"), _qrUrl=null, _qrGiro=0;
+  function pdfQrAvviso(msg){ var a=document.getElementById("pdfQrAvviso"); if(!a) return; a.textContent=msg||""; a.hidden=!msg; }
+  function pdfQrInit(){
+    var row=document.getElementById("pdfQrRow"), giro=++_qrGiro;
+    window.__pdfQr=null; _qrUrl=null;
+    if(qrChk){ qrChk.checked=false; qrChk.disabled=false; }
+    pdfQrAvviso("");
+    if(row) row.style.display="none";
+    var C=window.__cloud;
+    if(!C || typeof C.shareTokenAttivo!=="function") return;
+    C.shareTokenAttivo(function(tok){
+      if(giro!==_qrGiro || modal.hidden || !tok) return;
+      _qrUrl=linkVistaCondivisa(tok);
+      if(row) row.style.display="";
+    });
+  }
+  if(qrChk) qrChk.addEventListener("change", function(){
+    var giro=_qrGiro;
+    pdfQrAvviso("");
+    if(!qrChk.checked || !_qrUrl){ window.__pdfQr=null; refresh(); return; }
+    var carica=window.__loadQrLib ? window.__loadQrLib() : Promise.reject(new Error("QR non disponibile"));
+    qrChk.disabled=true;
+    carica.then(function(){
+      if(giro!==_qrGiro) return;
+      qrChk.disabled=false;
+      var q=pdfQrDati(_qrUrl);
+      if(!q || q.troppo){
+        qrChk.checked=false; window.__pdfQr=null;
+        pdfQrAvviso(q && q.troppo ? "Il link è troppo lungo per un QR leggibile così piccolo: il PDF esce senza QR." : "Non riesco a preparare il QR: il PDF esce senza.");
+      } else window.__pdfQr=q;
+      refresh();   /* il titolo nel cartiglio si stringe: scala e anteprima si ricalcolano */
+    }, function(){
+      if(giro!==_qrGiro) return;
+      qrChk.disabled=false; qrChk.checked=false; window.__pdfQr=null;
+      pdfQrAvviso("Non riesco a caricare il generatore del QR: il PDF esce senza.");
+      refresh();
+    });
+  });
   function _pdfExportModalCore(){ modal.hidden=false; prevIdx=0;
     var _ann=document.getElementById("pdfCancel"); if(_ann) _ann.textContent="Annulla";   /* dopo un export era diventato «Chiudi» */
+    pdfScalettaInit(); pdfQrInit();   /* scaletta spuntata se c'è; QR sempre spento all'apertura (10/10) */
     /* Il nome del progetto si rilegge dallo STATO ogni volta che la finestra si apre. Un modello
        scrive state.titolo («Band pop/rock») e l'header lo mostrava, ma questo campo restava vuoto e
        la riga sotto prometteva «stage-plot.pdf»: due verità nella stessa schermata. Chi imposta il
@@ -33945,6 +34389,17 @@ function maybeAskStageSize(explicit){
       },r.data&&r.data.updated_at);
     });
   }
+  /* Il token del progetto aperto, SE c'è già (10/10, QR nel PDF). Sola lettura: non ne crea uno —
+     un link di condivisione si attiva solo da Condividi, mai di nascosto da un export. Senza account,
+     senza progetto online o senza rete: null, e l'Esporta non offre il QR. */
+  function shareTokenAttivo(cb){
+    if(!sb || !cloudUser || !cloudCurrentId){ cb(null); return; }
+    var id=cloudCurrentId, requestUser=cloudUser.id, requestAuth=authGeneration;
+    sb.from("stageplot_projects").select("share_token").eq("id", id).maybeSingle().then(function(r){
+      if(!authStill(requestUser,requestAuth) || cloudCurrentId!==id || !r || r.error || !r.data){ cb(null); return; }
+      cb(typeof r.data.share_token==="string" && r.data.share_token ? r.data.share_token : null);
+    }, function(){ cb(null); });
+  }
   function clearShareTokenFor(id, cb){
     if(!sb || !id){ if(cb) cb(false); return; }
     var requestUser=cloudUser&&cloudUser.id, requestAuth=authGeneration;
@@ -34260,6 +34715,7 @@ function maybeAskStageSize(explicit){
     unlockCurrent: unlockCurrent,   /* usato dalla barra "🔒 Progetto bloccato — Sblocca" */
     dupOpenCurrent: dupOpenCurrent,   /* usato dalla barra "Progetto bloccato — Duplica" */
     ensureShareTokenFor: ensureShareTokenFor,
+    shareTokenAttivo: shareTokenAttivo,
     clearShareTokenFor: clearShareTokenFor,
     copySharedToken: completeCopyFromToken,
     /* token di sessione fresco per l'Authorization header (audit S5: identità del feedback lato server) */
