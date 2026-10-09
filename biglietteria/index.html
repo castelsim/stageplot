@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<!-- CSP: questa pagina parla SOLO con il backend di StagePlot (RPC pubbliche + Edge Function bgl-prenota) e ne
+     mostra le locandine (spazio pubblico bgl-locandine). Nessun terzo; supabase-js (da /vendor/) si carica solo per chi
+     prenota con Google, e parla con lo stesso backend. 127.0.0.1/localhost:54321 = stack Supabase locale per le prove:
+     bgl.js li usa solo se la pagina stessa è aperta da localhost (vedi configura()). -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://vsodplqkuvnsdiikvmjb.supabase.co http://127.0.0.1:54321 http://localhost:54321; connect-src https://vsodplqkuvnsdiikvmjb.supabase.co http://127.0.0.1:54321 http://localhost:54321; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+<script>/* anti-clickjacking: incorniciata da un ALTRO sito, la pagina si nasconde e prova a uscire. Stessa logica di /richiesta/ e /orchestre/src/frame.js: frame-ancestors dentro un <meta> il browser lo ignora, e GitHub Pages non manda header. */try{if(window.self!==window.top){var _so=false;try{_so=window.top.location.origin===window.location.origin;}catch(_e){}if(!_so){document.documentElement.style.visibility="hidden";document.addEventListener("DOMContentLoaded",function(){var p=document.createElement("p");p.style.cssText="visibility:visible;font:16px/1.5 system-ui,sans-serif;padding:24px;max-width:34em";p.textContent="Questa pagina non si apre dentro la pagina di un altro sito. ";var a=document.createElement("a");a.href=window.location.href;a.target="_top";a.rel="noopener";a.textContent="Aprila da sola";p.appendChild(a);document.body.replaceChildren(p);});try{window.top.location.replace(window.location.href);}catch(_e){}}}}catch(_e){}</script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- Il link porta con sé il codice per disdire (?c=): mai nei Referer, mai su Google. -->
+<meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#0d9488">
+<meta name="color-scheme" content="light dark">
+<title>Prenota il posto</title>
+<meta name="description" content="Prenotazione gratuita dei posti per un evento.">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="bgl.css?v=9">
+<link rel="stylesheet" href="segnala.css?v=1">
+</head>
+<body>
+<main id="bgl-app" class="pagina" aria-busy="false">
+  <header class="ev ev-carico">
+    <p class="ev-marchio">Prenotazione posti</p>
+    <p class="riga-grigia lunga"></p>
+    <p class="riga-grigia"></p>
+  </header>
+  <p class="carico" role="status">Carico i posti…</p>
+  <noscript><p class="nota forte">Per prenotare serve JavaScript: attivalo nel browser e ricarica la pagina.</p></noscript>
+</main>
+<div id="bgl-barra" class="barra" hidden></div>
+<!-- l'accesso Google facoltativo (lo stesso dell'editor): avvio.js parte da stageplot.it, accesso.js tiene la sessione -->
+<script src="/accedi/google/avvio.js"></script>
+<script src="indirizzi.js?v=1"></script>
+<script src="accesso.js?v=1"></script>
+<script src="bgl.js?v=10"></script>
+<!-- «Un problema? Scrivici»: la casella delle segnalazioni, uguale su tutte le pagine della biglietteria -->
+<script src="segnala.js?v=1"></script>
+</body>
+</html>

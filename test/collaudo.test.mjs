@@ -21,7 +21,10 @@
  */
 import { readFileSync, writeFileSync, readdirSync, mkdirSync, existsSync } from "node:fs";
 import { join, dirname } from "node:path";
+import { createRequire } from "node:module";
 import { loadApp, root } from "./sandbox.mjs";
+
+const PP = createRequire(import.meta.url)(join(root, "biglietteria/pianta-posti.js"));
 
 /* la cartella privata: dalla variabile, oppure risalendo (il repo sta anche in .claude/worktrees/<nome>) */
 function cartella() {
@@ -108,6 +111,36 @@ for (const f of casi) {
     if (aperti.length) throw new Error("canali orfani rimasti dopo l'apertura nelle scene: " + aperti.join(", "));
     const salvatoOrfani = orfaniDoc(JSON.parse(A.docToJSON()));
     if (salvatoOrfani.length) throw new Error("il file salvato ha ancora canali orfani: " + salvatoOrfani.join(", "));
+    /* NESSUN COLLEGAMENTO ORFANO (05/10). Le mappe dei cavi (corrente, audio, personal monitor) sono indicizzate per id di
+       elemento: una voce rimasta senza elemento, o col distro/box sparito, la eredita il primo elemento nato con quell'id
+       (un wedge «senza distro», una multipresa carico di un fantasma). Si guarda in tutte le scene, aperte e salvate.
+       Conta con regole sue, indipendenti da dropOrphanLinks, per non dare ragione a un errore di quella. */
+    const legamiOrfani = (st) => { const ids = new Set((st.items || []).map((i) => String(i.id))); const e = (v) => v != null && v !== "" && ids.has(String(v));
+      const el = st.elec || {}, md = st.mond || {}, cb = st.cab || {}; let n = 0;
+      Object.entries(el.manual || {}).forEach(([k, v]) => { if (!e(k) || (v && v.distro != null && !e(v.distro))) n++; });
+      Object.entries(el.uplinks || {}).forEach(([k, v]) => { if (!e(k) || (v && v.to != null && !e(v.to))) n++; });
+      Object.entries(md.manual || {}).forEach(([k, v]) => { if (!e(k) || (v && v.to != null && !e(v.to))) n++; });
+      Object.entries(cb.manual || {}).forEach(([k, v]) => { const m = /^(?:grp:)?(.+?)(?:#\d+)?$/.exec(k);
+        const legata = !/^(?:mix|ret):/.test(k); if ((legata && !e(m[1])) || (v && v.box != null && !e(v.box))) n++; });
+      return n; };
+    const legamiDoc = (doc) => (doc.variants || [{ name: "(unica)", state: doc }]).filter((v) => legamiOrfani(v.state || {}) > 0).map((v) => v.name + ": " + legamiOrfani(v.state));
+    const legamiAperti = A.VARIANTS.filter((v) => legamiOrfani(v.id === A.activeVar ? A.state : v.state || {}) > 0).map((v) => v.name);
+    if (legamiAperti.length) throw new Error("collegamenti orfani rimasti dopo l'apertura nelle scene: " + legamiAperti.join(", "));
+    const legamiSalvati = legamiDoc(JSON.parse(A.docToJSON()));
+    if (legamiSalvati.length) throw new Error("il file salvato ha ancora collegamenti orfani: " + legamiSalvati.join(", "));
+    /* LA FOTO DELLA BIGLIETTERIA DAL FILE (area, §4.2). L'area dell'organizzatore non apre il progetto nell'editor: legge
+       il JSON salvato e chiama piantaDaDocumento. Una foto diversa da quella dell'editor farebbe dire a ogni apertura
+       «la sala del progetto è cambiata». Si prova sul file salvato adesso e su quello grezzo del collaudo (RF1). */
+    const salvatoFoto = JSON.parse(A.docToJSON());
+    const grezzoFoto = JSON.parse(readFileSync(join(DIR, f), "utf8"));   /* riletto: loadDoc può aver ritoccato `grezzo` */
+    const grezzoPiatto = !Array.isArray(grezzoFoto.variants);
+    for (const v of A.VARIANTS.slice()) {
+      A.switchVariant(v.id);
+      const ed = JSON.stringify(A.bglPianta(A.state));
+      if (JSON.stringify(PP.piantaDaDocumento(salvatoFoto, v.id)) !== ed) throw new Error("foto della scena «" + v.name + "»: area diversa dall'editor (file salvato)");
+      const daGrezzo = PP.piantaDaDocumento(grezzoFoto, grezzoPiatto ? null : v.id);
+      if (JSON.stringify(daGrezzo) !== ed) throw new Error("foto della scena «" + v.name + "»: area diversa dall'editor (file grezzo)");
+    }
     const ora = improntaDocumento();
     /* salvare e riaprire non deve cambiare niente */
     A.loadDoc(JSON.parse(A.docToJSON()));
