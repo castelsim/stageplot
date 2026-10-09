@@ -32,6 +32,19 @@ Deno.test("payment integrity lega prodotto, importo, valuta e stato", () => {
     }).ok,
     true,
   );
+  /* «Rider pronto» (01/10/2026): 59 €, e un importo diverso non passa */
+  assertEquals(
+    validatePaidConsultation({
+      requestId: REQUEST_ID, product: "rider-pronto", amountTotal: 5900, currency: "eur", paymentStatus: "paid",
+    }).ok,
+    true,
+  );
+  assertEquals(
+    validatePaidConsultation({
+      requestId: REQUEST_ID, product: "rider-pronto", amountTotal: 5800, currency: "eur", paymentStatus: "paid",
+    }),
+    { ok: false, reason: "amount_mismatch" },
+  );
   assertEquals(
     validatePaidConsultation({
       requestId: REQUEST_ID,
