@@ -24,7 +24,7 @@
      due release nello stesso giorno restano distinguibili in telemetria e supporto. In locale/dev
      resta il placeholder. La sentinella del VALORE è distinta dall'identificatore window.__BUILD_ID__
      così il sed della CI non tocca il nome della variabile. -->
-<script>window.__APP_VERSION__="2026.10.01";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
+<script>window.__APP_VERSION__="2026.10.09";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -535,6 +535,19 @@
     #bandSetup .bs-foot .btn{min-height:44px}
     #bandSetup .bs-foot{flex-direction:column-reverse;align-items:stretch}
   }
+  /* Anello di altoparlanti: tre righe «etichetta + scelta» e il piede della finestra «Chi sale sul palco» */
+  #anelloSetup .an-riga{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px}
+  #anelloSetup .an-lbl{font-size:14px;font-weight:400;color:var(--text)}
+  #anelloSetup .an-seg{display:flex}
+  #anelloSetup .an-seg .btn{border-radius:0;margin-left:-1px;min-width:44px}
+  #anelloSetup .an-seg .btn:first-child{border-radius:var(--r-sm) 0 0 var(--r-sm);margin-left:0}
+  #anelloSetup .an-seg .btn:last-child{border-radius:0 var(--r-sm) var(--r-sm) 0}
+  #anelloSetup .an-seg .btn.on{background:var(--accent);border-color:var(--accent);color:#fff;position:relative;z-index:1}
+  #anelloSetup .bs-foot{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-top:18px}
+  @media (max-width:880px), (pointer:coarse){
+    #anelloSetup .an-seg .btn,#anelloSetup .bs-foot .btn,#anelloSetup #anPre{min-height:44px}   /* anche il campo del nome: era alto 22 px, sotto il dito (revisione 06/10/2026) */
+    #anelloSetup .bs-foot{flex-direction:column-reverse;align-items:stretch}
+  }
   #svg.drop-target{outline:3px dashed var(--accent);outline-offset:-6px;background:var(--accent-tint)}
   #catalog button[draggable=true]{cursor:grab}
   #defs-master{position:absolute;width:0;height:0;overflow:hidden;pointer-events:none}
@@ -979,6 +992,7 @@
   body:not(.f-esporta) #pdfScaleRow,
   body:not(.f-esporta) #pdfScaleCustomRow,
   body:not(.f-esporta) #pdfHdrRow,
+  body:not(.f-esporta) #pdfPesiRow,
   body:not(.f-esporta) #pdfTechRow{display:none !important}
   #pdfModal .exp-pro{display:block;width:100%;margin-top:10px;min-height:44px;font-weight:600}
 }
@@ -1472,6 +1486,20 @@ svg.names-hidden .orc-name{display:none}
 .orc-row .orc-line{padding:2px 0}.orc-row .orc-line.ok{color:#0d9488}.orc-row .orc-line.wait{color:#2563eb}.orc-row .orc-line.open{color:#b45309}.orc-row .orc-line.off{color:var(--text-3,#6b7280)}
 .orc-row .orc-link{display:inline-block;margin-top:6px;color:#0d9488;font-weight:600;text-decoration:none;min-height:24px}
 .lbl.sub{font-weight:400;fill:#6b7280;font-size:12px;stroke-width:2.6}
+/* POSTI NUMERATI (06/10): il numero nella sedia, la fila ai capi, la legenda. Non sono .lbl: «nomi
+   nascosti» e la passata anti-collisione del PDF non li toccano — il numero è il posto, non un nome. */
+.posto-n{fill:#111827;font-weight:700;text-anchor:middle;pointer-events:none}
+.posto-fila{fill:#0f766e;font-weight:800;text-anchor:middle;pointer-events:none;paint-order:stroke;stroke:#fff;stroke-width:4;stroke-linejoin:round}
+.posto-legenda{fill:#1f2937;font-weight:600;text-anchor:middle;pointer-events:none;paint-order:stroke;stroke:#fff;stroke-width:4;stroke-linejoin:round}
+.posto-legenda.posto-senza{fill:#b45309}
+.posti-dlg{margin:4px 0 10px}
+.posti-dlg label[for]{display:block;font-size:12px;color:var(--text-2);margin-bottom:4px}
+.posti-dlg input[type=text]{width:100%;min-height:40px;padding:8px 10px;border:1px solid var(--line,#d1d5db);border-radius:8px;font:inherit;box-sizing:border-box}
+.posti-dlg .posti-grp{margin-top:10px}
+.posti-dlg .posti-tit{font-size:12px;color:var(--text-2);margin-bottom:2px}
+.posti-dlg .chk{display:flex;align-items:center;gap:8px;min-height:36px;font-size:14px;line-height:1.3;cursor:pointer}
+.posti-dlg .chk input{flex:0 0 auto;width:18px;height:18px;margin:0}
+.posti-dlg .posti-esito{margin:10px 0 0;font-weight:600}
   /* «qui c'è una nota da leggere»: colore d'accento, sta al nome come un asterisco a una voce di
      tabella. Eredita lo stroke bianco del nome, quindi regge anche sui fondi scuri. */
   .lbl-dot{fill:#0d9488;font-weight:800}
@@ -2561,6 +2589,8 @@ body.viewmode.consult-viewer.cl-view #props #chanlist{ display:block; max-width:
 .hdr-variants .vtab:hover{color:var(--text)}
 .hdr-variants .vtab.on{background:var(--surface);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.12)}
 .hdr-variants .vtab-add{padding:0 9px;color:var(--accent-strong)}
+/* variante con contenuto uguale a un'altra (06/10): una nota piccola, non un allarme */
+.hdr-variants .vtab-eq{margin-left:6px;font-size:10px;font-weight:500;opacity:.6;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;display:inline-block}
 .hdr-variants .vtab-add:hover{background:var(--accent-tint)}
 .hdr-variants .vtab:focus-visible,.hdr-variants .vtab-add:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
 .var-menu .mi-danger{color:var(--danger)}
@@ -2927,6 +2957,9 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 #props .seg .adv-btn:first-child{border-radius:var(--r-sm) 0 0 var(--r-sm);margin-left:0}
 #props .seg .adv-btn:last-child{border-radius:0 var(--r-sm) var(--r-sm) 0}
 #props .seg .adv-btn.on{position:relative;z-index:1}
+/* quattro stili della forma (Pieno, Contorno, Tratteggio, Area — 06/10/2026): col padding dei due bottoni
+   «Tratteggio» e «Area» uscivano dal pannello. Ogni bottone prende la larghezza del suo testo. */
+#props .seg.seg-4 .adv-btn{flex:1 1 auto;min-width:0;padding:7px 3px}
 #props .seg .adv-btn .lbl-note{font-weight:400;opacity:.75}
 #props .seg .adv-btn.on .lbl-note{opacity:.85;color:inherit}
 
@@ -3472,6 +3505,7 @@ body.dark #props .solo-ped.on{background:#78350f;border-color:#b45309;color:#fbb
   body:not(.f-esporta) #pdfScaleRow,
   body:not(.f-esporta) #pdfScaleCustomRow,
   body:not(.f-esporta) #pdfHdrRow,
+  body:not(.f-esporta) #pdfPesiRow,
   body:not(.f-esporta) #pdfTechRow{display:none !important}
   #pdfModal .exp-pro{display:block;width:100%;margin-top:10px;min-height:36px;font-weight:600}
   /* «io direi che la versione semplificata non ha liste» (Simone, 14/09): in Semplice la colonna di
@@ -3783,6 +3817,28 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
   </div>
 </div>
 
+<!-- Anello di altoparlanti (06/10/2026): quante casse, come disposte, che nome. Il centro è quello della vista. -->
+<div class="modal" id="anelloSetup" hidden>
+  <div class="mcard" style="width:380px;max-width:94vw">
+    <h2>Anello di altoparlanti</h2>
+    <div class="hint">Le casse si posano attorno al centro di ciò che stai guardando, ognuna con il fronte verso l'interno e il suo nome (G1, G2…). Poi si spostano come ogni elemento.</div>
+    <div class="an-riga"><span class="an-lbl">Quante casse</span>
+      <div class="an-seg" role="group" aria-label="Quante casse">
+        <button type="button" class="btn" data-an-n="4">4</button><button type="button" class="btn" data-an-n="6">6</button><button type="button" class="btn" data-an-n="8">8</button>
+      </div></div>
+    <div class="an-riga"><span class="an-lbl">Disposizione</span>
+      <div class="an-seg" role="group" aria-label="Disposizione">
+        <button type="button" class="btn" data-an-forma="cerchio">Cerchio</button><button type="button" class="btn" data-an-forma="rettangolo">Rettangolo</button>
+      </div></div>
+    <div class="an-riga"><label class="an-lbl" for="anPre">Nome</label>
+      <input id="anPre" type="text" value="G" maxlength="12" autocomplete="off" style="width:90px"></div>
+    <div class="bs-foot">
+      <button class="btn" id="anNo" type="button">Annulla</button>
+      <button class="btn primary" id="anGo" type="button">Aggiungi</button>
+    </div>
+  </div>
+</div>
+
 <div id="assunzioni" hidden>
   <div class="as-head">
     <b>Abbiamo ipotizzato questo</b>
@@ -3999,6 +4055,14 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
       <div class="di-note"><b>Passiva/Attiva</b>: le attive richiedono alimentazione (phantom 48V o batteria) — segnato in channel list. Modello reale qui sotto.</div>
     </div>
     <div id="pLabelWrap"><input aria-label="Etichetta" type="text" id="pLabel"></div>
+    <!-- POSTI NUMERATI (06/10): la sedia del pubblico dice qual è il suo posto, o che non ne ha ancora uno -->
+    <div id="pPostoWrap" class="prop-card" style="display:none">
+      <div class="prop-card__head">Posto</div>
+      <div class="prop-hint" id="pPostoInfo"></div>
+      <button class="btn" id="bPostoNumera" type="button" style="width:100%;margin-top:6px">Numera tutti i posti…</button>
+      <button class="btn" id="bPostoCsv" type="button" style="width:100%;margin-top:6px">Elenco posti (CSV)</button>
+      <button class="btn" id="bPostoPren" type="button" style="display:none;width:100%;margin-top:6px">Vai alla biglietteria</button>
+    </div>
     <div id="pLabel2Wrap" style="display:none"><label for="pLabel2">Etichetta 2 (secondo strumento)</label><input type="text" id="pLabel2"></div>
     <div id="pLblModeWrap">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px">
@@ -4041,10 +4105,11 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
       <div class="prop-card__head">Forma</div>
       <div id="pShapeKind" class="shape-grid" role="group" aria-label="Tipo di forma"></div>
       <label>Stile</label>
-      <div class="seg" role="group" aria-label="Stile della forma">
+      <div class="seg seg-4" role="group" aria-label="Stile della forma">
         <button type="button" class="adv-btn" data-sst="solid">Pieno</button>
         <button type="button" class="adv-btn" data-sst="outline">Contorno</button>
         <button type="button" class="adv-btn" data-sst="dashed">Tratteggio</button>
+        <button type="button" class="adv-btn" data-sst="area" title="Zona del palco: colore tenue, nome grande">Area</button>
       </div>
       <label>Colore</label>
       <div id="pShapeFill" class="swatches" role="group" aria-label="Colore della forma"></div>
@@ -4281,6 +4346,21 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
       <div id="pAscoltoHint" class="prop-hint"></div>
     </div>
     <div id="pRampWrap" style="display:none"><label for="pRamp">Formato</label><select id="pRamp"></select></div>
+    <!-- PLATEA (06/10/2026): i parametri del blocco di sedie del pubblico. L e P sopra restano: trascinare
+         la maniglia o scrivere la misura aggiunge o toglie sedie e file. -->
+    <div id="pPlateaWrap" style="display:none">
+      <div class="row">
+        <span><label for="pPlFile">File</label><input type="number" id="pPlFile" min="1" max="40" step="1" inputmode="numeric"></span>
+        <span><label for="pPlSedie">Sedie per fila</label><input type="number" id="pPlSedie" min="1" max="60" step="1" inputmode="numeric"></span>
+      </div>
+      <div class="row">
+        <span><label for="pPlPasso">Passo sedie (cm)</label><input type="number" id="pPlPasso" min="50" max="120" step="1" inputmode="numeric"></span>
+        <span><label for="pPlPassoFile">Passo file (cm)</label><input type="number" id="pPlPassoFile" min="60" max="200" step="5" inputmode="numeric"></span>
+      </div>
+      <label class="chk"><input type="checkbox" id="pPlCorr"> Corridoio centrale</label>
+      <div class="row" id="pPlCorrRow" style="display:none"><span><label for="pPlCorrW">Larghezza corridoio (cm)</label><input type="number" id="pPlCorrW" min="60" max="600" step="10" inputmode="numeric"></span></div>
+      <div id="pPlPosti" class="prop-hint"></div>
+    </div>
     <div id="pGazWrap" style="display:none"><label for="pGaz">Taglia</label><select id="pGaz"></select><div style="font-size:11px;color:var(--text-3);margin-top:3px">Poi trascinabile a piacimento.</div></div>
     <!-- B3 (27/07): campo numerico al posto dello slider — mezza riga invece di una intera, e dà il valore
          esatto. Il gesto rapido resta la maniglia di rotazione sul canvas. -->
@@ -4532,6 +4612,17 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
         <select id="grpSbOut"><option value="">— invariato —</option><option value="0">0</option><option value="4">4</option><option value="8">8</option><option value="16">16</option><option value="24">24</option></select>
       </div>
       <div class="prop-hint">Le modifiche si applicano a tutte le stage box selezionate e restano salvate.</div>
+    </div>
+    <!-- POSTI NUMERATI (06/10): fila e posto alle sedie del pubblico selezionate, come in biglietteria -->
+    <div id="grpPostiWrap" class="prop-card" style="display:none">
+      <div class="prop-card__head">Posti del pubblico <span id="grpPostiN" class="muted"></span></div>
+      <div class="prop-hint" id="grpPostiStato"></div>
+      <button class="btn" id="bGrpPosti" type="button" style="width:100%;margin-top:6px">Numera i posti…</button>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <button class="btn" id="bGrpPostiCsv" type="button" style="flex:1 1 0;min-width:0">Elenco (CSV)</button>
+        <button class="btn" id="bGrpPostiVia" type="button" style="flex:1 1 0;min-width:0">Togli i numeri</button>
+      </div>
+      <button class="btn" id="bGrpPostiPren" type="button" style="display:none;width:100%;margin-top:6px">Vai alla biglietteria</button>
     </div>
     <div id="grpZoneWrap" class="prop-card" style="display:none">
       <div class="prop-card__head">Microfonazione panoramica</div>
@@ -5548,6 +5639,7 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
         </div>
         <div class="hdr-saved" id="pdfHdrSaved"></div>
         </div>
+        <label class="chk" id="pdfPesiRow"><input type="checkbox" id="pdfPesi"> Pesi (kg) <small class="lbl-note">— peso stimato dell'allestimento, in testata e nel rider</small></label>
         <!-- Telefono: le opzioni da scrivania stanno dietro questo, con la STESSA preferenza del
              pannello elemento — chi accende «tecnico» lo accende una volta, non due. -->
         <button type="button" class="btn exp-pro" id="pdfProBtn">Altre opzioni</button>
