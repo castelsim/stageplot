@@ -86,6 +86,7 @@ function reset() {
   A.state.lookDefault = "illustrato";   /* «Postazione» = default del progetto (senza questo, un test che lo lascia su «Strumento solo» inquina i successivi) */
   A.state.titolo = ""; A.state.luogo = ""; A.state.techContact = ""; A.state.venue = null; A.state.printFrame = null; A.state.zones = [];
   A.state.lights = { rows: [], blackout: null, mood: "" };   /* luci = reparto (blocco A): senza azzeramento le righe di un test finiscono nel rider del successivo */
+  delete A.state.scaletta;   /* scaletta (10/10): campo che esiste solo con almeno una voce */
   A.state.stage = { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] };   /* palco default: base per isFreshBlankProject */
   /* cab.home va azzerato come le luci e lookDefault: dal 02/09 un test puo' CREARE il punto
      d'arrivo dei cavi, e se resta scritto il test dopo trova un capolinea che non ha messo lui —
@@ -19377,6 +19378,244 @@ ta("biglietteria (0073): il pulsante compare solo se il server dice che QUESTO a
   eq(await A.bglAbilitatoAggiorna({ id: "u-tardi" }, dice({ data: "true", error: null })), false, "solo il booleano true apre");
   azzera(); A.bglAbilitatoVisibile(null);
   const r = await A.__bglCloud.rpc("bgl_abilitato", {}); eq(r.error.code, "non_autenticato", "bgl_abilitato passa dal ponte, ma senza sessione niente rete");
+});
+
+/* ═══ SCALETTA E QR NEL PDF (10/10/2026, idee dal confronto con TecRider Pro) ═══════════════════════ */
+console.log("\nScaletta e QR nel PDF:");
+
+/* Un jsPDF finto che tiene le pagine: testi, rettangoli pieni e dimensioni per pagina. Basta per
+   buildPdfDoc con il disegno del palco sostituito (drawStageVector è svg2pdf, che qui non c'è). */
+function jsPdfFinto() {
+  return function (o) {
+    const dims = { a4: [210, 297], a3: [297, 420], a2: [420, 594] };
+    const dimDi = (f, or) => { const d = dims[f] || dims.a4; return or === "landscape" ? [d[1], d[0]] : [d[0], d[1]]; };
+    const pagine = [{ wh: dimDi(o.format, o.orientation), testi: [], rett: [] }];
+    let cur = 0, fill = "#000";
+    const doc = {
+      pagine,
+      internal: { pageSize: { getWidth: () => pagine[cur].wh[0], getHeight: () => pagine[cur].wh[1] } },
+      addPage(f, or) { pagine.push({ wh: dimDi(f || o.format, or || o.orientation), testi: [], rett: [] }); cur = pagine.length - 1; return doc; },
+      setPage(i) { cur = i - 1; }, getNumberOfPages: () => pagine.length,
+      setFont() {}, setFontSize() {}, setTextColor() {}, setDrawColor() {}, setLineWidth() {}, line() {},
+      setFillColor(...c) { fill = c.join(","); },
+      rect(x, y, w, h, st) { pagine[cur].rett.push({ x, y, w, h, st, fill }); },
+      text(t, x, y, op) { (Array.isArray(t) ? t : [t]).forEach((r, i) => pagine[cur].testi.push({ t: String(r), x, y: y + i * 4, op })); },
+      getTextWidth: (t) => String(t).length * 1.9,
+      splitTextToSize: (t, w) => { const max = Math.max(1, Math.floor(w / 2.1)), out = []; let r = "";
+        String(t).split(" ").forEach((p) => { if ((r + " " + p).trim().length > max && r) { out.push(r); r = p; } else r = (r + " " + p).trim(); });
+        if (r) out.push(r); return out.length ? out : [""]; },
+    };
+    return doc;
+  };
+}
+/* Le prove asincrone girano in parallelo (ta): queste toccano le stesse globali dell'Esporta
+   (__pdfPages, __pdfScaletta, __pdfQr, jspdf), quindi vanno in fila, una dopo l'altra. */
+let codaPdf = Promise.resolve();
+function taPdf(name, fn) { const p = codaPdf.then(fn); codaPdf = p.catch(() => {}); ta(name, () => p); }
+async function pdfFinto(opts) {
+  const prima = { pg: A.__pdfPages, sc: A.__pdfScaletta, qr: A.__pdfQr, jspdf: A.jspdf };
+  A.__pdfPages = opts.pagine || {}; A.__pdfScaletta = opts.scaletta; A.__pdfQr = opts.qr || null;
+  A.jspdf = { jsPDF: jsPdfFinto() };
+  const l0 = A.loadJsPDF, d0 = A.drawStageVector;
+  A.loadJsPDF = () => Promise.resolve(); A.drawStageVector = () => Promise.resolve();
+  try { return await A.buildPdfDoc("a4", 100, "landscape", ""); }
+  finally { A.loadJsPDF = l0; A.drawStageVector = d0; A.__pdfPages = prima.pg; A.__pdfScaletta = prima.sc; A.__pdfQr = prima.qr; A.jspdf = prima.jspdf; }
+}
+const SCALETTA_PROVA = [
+  { tipo: "intro", titolo: "", durata: "1:30", note: "" },
+  { tipo: "brano", titolo: "Apertura", durata: "3:30", note: "attacca il batterista" },
+  { tipo: "brano", titolo: "Seconda", durata: "4.15", note: "" },
+  { tipo: "brano", titolo: "", durata: "", note: "" },                 /* voce vuota: non esce */
+  { tipo: "pausa", titolo: "Intervallo", durata: "15:00", note: "" },
+  { tipo: "brano", titolo: "Senza tempo", durata: "3:7", note: "" },   /* durata scritta male: fuori dal totale */
+  { tipo: "bis", titolo: "", durata: "", note: "" },
+  { tipo: "brano", titolo: "Finale", durata: "5:00", note: "" },
+];
+
+t("scaletta: salvata, riaperta e sanificata come gli altri campi", () => {
+  reset();
+  const sporca = [
+    { tipo: "concerto", titolo: { x: 1 }, durata: "3:30 min", note: "n".repeat(300), extra: "via" },
+    null, "testo", { tipo: "pausa", titolo: "Riga\nsu due", durata: "15'00" },
+  ];
+  const n = A.normalizeState(Object.assign(JSON.parse(A.stateToJSON()), { scaletta: sporca }));
+  eq(n.scaletta.length, 4, "ogni voce resta al suo posto:");
+  eq(n.scaletta[0], { tipo: "brano", titolo: "", durata: "3:30", note: "n".repeat(120) }, "tipo sconosciuto → brano, testo non stringa → vuoto, lettere fuori dalla durata, note a 120:");
+  eq(n.scaletta[1], { tipo: "brano", titolo: "", durata: "", note: "" }, "una voce che non è un oggetto diventa una voce vuota:");
+  eq(n.scaletta[3].titolo, "Riga su due", "niente a capo nel titolo:");
+  ok(!("extra" in n.scaletta[0]), "i campi in più non passano");
+  eq(A.normalizeState(Object.assign(JSON.parse(A.stateToJSON()), { scaletta: new Array(250).fill({ titolo: "x" }) })).scaletta.length, 200, "al massimo 200 voci:");
+  ok(!("scaletta" in A.normalizeState(Object.assign(JSON.parse(A.stateToJSON()), { scaletta: [] }))), "vuota: il campo non c'è (l'impronta dei progetti già esportati non cambia)");
+  ok(!("scaletta" in A.normalizeState(Object.assign(JSON.parse(A.stateToJSON()), { scaletta: "brani" }))), "non una lista: il campo non c'è");
+  /* il giro salva → riapri non perde niente */
+  A.state.scaletta = JSON.parse(JSON.stringify(SCALETTA_PROVA));
+  const riaperta = A.normalizeState(JSON.parse(A.stateToJSON()));
+  eq(riaperta.scaletta, A.scalettaNorm(SCALETTA_PROVA), "salvata e riaperta, identica:");
+  ok(A.stateHasMeaningfulWork({ scaletta: [{ tipo: "brano", titolo: "x", durata: "", note: "" }] }), "un progetto con la sola scaletta non è un progetto vuoto");
+  ok(A.CAMPI_DOCUMENTO.indexOf("scaletta") > -1, "è della serata, non della scena: vale per tutte le varianti");
+  reset();
+});
+
+t("scaletta: è del documento — scritta in una scena, la ritrova anche l'altra", () => {
+  reset();
+  const v1 = { id: "V1", name: "A", state: { scaletta: [{ tipo: "brano", titolo: "Uno", durata: "3:00", note: "" }] } };
+  const v2 = { id: "V2", name: "B", state: {} };
+  const v0 = A.VARIANTS; A.VARIANTS = [v1, v2];
+  try {
+    A.propagaCampiDocumento(v1);
+    eq(v2.state.scaletta, v1.state.scaletta, "copiata nell'altra scena:");
+    delete v1.state.scaletta; A.propagaCampiDocumento(v1);
+    ok(!("scaletta" in v2.state), "e tolta anche lì quando si svuota");
+  } finally { A.VARIANTS = v0; reset(); }
+});
+
+t("scaletta: durata totale = somma delle durate valide; vuote fuori, numerati i soli brani", () => {
+  eq([A.scalettaSecondi("3:30"), A.scalettaSecondi("3.05"), A.scalettaSecondi("3'30"), A.scalettaSecondi("1:02:03"), A.scalettaSecondi("12:00")],
+     [210, 185, 210, 3723, 720], "formati accettati:");
+  eq(["3:7", "3:60", "1:60:00", "abc", "", "0:00", "330", null].map(A.scalettaSecondi), [null, null, null, null, null, null, null, null], "e quelli che non sono durate:");
+  eq([A.scalettaFmt(210), A.scalettaFmt(65), A.scalettaFmt(3723)], ["3:30", "1:05", "1:02:03"], "formato m:ss, h:mm:ss oltre l'ora:");
+  const d = A.scalettaList(SCALETTA_PROVA);
+  eq(d.count, 7, "7 righe su 8: la voce vuota non esce:");
+  eq(d.rows.map((r) => r.n), ["", "1", "2", "", "3", "", "4"], "i numeri d'ordine sono dei brani, e la vuota non ne consuma uno:");
+  eq(d.tot, 90 + 210 + 255 + 900 + 300, "il totale somma le durate valide, pausa e intro comprese:");
+  eq(d.totTxt, "29:15");
+  eq([d.brani, d.senzaDurata], [4, 1], "4 brani, 1 senza una durata valida:");
+  eq(d.rows[3].testo, "Pausa · Intervallo", "le voci che non sono brani dicono cosa sono:");
+  eq(d.rows[5].testo, "Bis");
+  ok(/1 brano senza durata, fuori dal totale/.test(A.scalettaRiassunto(d)), "e il riassunto lo dice: " + A.scalettaRiassunto(d));
+  eq(A.scalettaList([{ tipo: "pausa" }]).count, 1, "una pausa senza titolo non è vuota:");
+  eq(A.scalettaList([]).count, 0, "lista vuota: nessuna riga");
+});
+
+taPdf("PDF: la pagina «Scaletta» c'è se la casella è spuntata, e solo allora", async () => {
+  reset();
+  A.state.titolo = "Concerto di prova"; A.state.scaletta = JSON.parse(JSON.stringify(SCALETTA_PROVA));
+  try {
+    const no = await pdfFinto({ scaletta: false });
+    eq(no.pagine.length, 1, "casella spenta: solo il palco");
+    ok(!no.pagine.some((p) => p.testi.some((x) => /Scaletta/.test(x.t))), "e nessuna traccia della scaletta");
+    const si = await pdfFinto({ scaletta: true });
+    eq(si.pagine.length, 2, "casella accesa: una pagina in più");
+    const pg = si.pagine[1], testi = pg.testi.map((x) => x.t);
+    ok(testi.indexOf("STAGE PLOT — Scaletta") > -1, "la testata della lista");
+    ok(testi.some((x) => /^Concerto di prova/.test(x)), "il titolo del progetto");
+    ["Apertura", "Seconda", "Pausa · Intervallo", "Senza tempo", "Bis", "Finale", "attacca il batterista"].forEach((v) => ok(testi.indexOf(v) > -1, "c'è «" + v + "»"));
+    ["1", "2", "3", "4"].forEach((n) => ok(testi.indexOf(n) > -1, "numero d'ordine " + n));
+    ok(testi.indexOf("29:15") > -1, "il totale");
+    ok(testi.some((x) => /^Totale/.test(x)), "con la sua etichetta");
+    ok(testi.indexOf("(senza titolo)") === -1, "la voce vuota non esce");
+    eq(si.pagine[0].wh, [297, 210], "il palco resta sul foglio scelto");
+    eq(pg.wh, [210, 297], "la scaletta è un A4 verticale come le altre liste");
+    ok(pg.testi.filter((x) => x.t !== "Creato con stageplot.it" && !/^pag \d/.test(x.t)).every((x) => x.y > 0 && x.y < 297 - 10), "il contenuto resta sopra il piede (credito e numero di pagina)");
+    ok(si.pagine.every((p, i) => p.testi.some((x) => x.t === "pag " + (i + 1) + "/2")), "numerata «pag N/2» come il resto del PDF");
+    /* casella accesa ma scaletta vuota (o di sole voci vuote): niente pagina bianca */
+    A.state.scaletta = [{ tipo: "brano", titolo: "", durata: "", note: "" }];
+    eq((await pdfFinto({ scaletta: true })).pagine.length, 1, "scaletta di sole voci vuote: nessuna pagina");
+  } finally { reset(); }
+});
+
+t("PDF: la scaletta lunga va a pagina nuova con l'intestazione, senza righe a metà", () => {
+  reset();
+  A.state.scaletta = Array.from({ length: 40 }, (_, i) => ({ tipo: "brano", titolo: "Brano numero " + (i + 1) + " con un titolo abbastanza lungo da andare a capo una volta", durata: "4:00", note: "nota " + (i + 1) }));
+  try {
+    const doc = jsPdfFinto()({ format: "a4", orientation: "landscape" });
+    ok(A.scalettaPdf(doc) === true, "stampata");
+    const fogli = doc.pagine.slice(1);
+    ok(fogli.length >= 2, "40 brani lunghi stanno su più fogli: " + fogli.length);
+    fogli.forEach((p, i) => { ok(p.testi.some((x) => x.t === "BRANO"), "intestazione delle colonne sul foglio " + (i + 1));
+      ok(p.testi.every((x) => x.y < 291), "niente sotto il fondo del foglio " + (i + 1)); });
+    ok(fogli[fogli.length - 1].testi.some((x) => x.t === "2:40:00"), "e il totale in fondo: 40 × 4:00 = 2:40:00");
+    delete A.state.scaletta;
+    const vuoto = jsPdfFinto()({ format: "a4" });
+    eq([A.scalettaPdf(vuoto), vuoto.pagine.length], [false, 1], "niente scaletta: niente pagina");
+  } finally { reset(); }
+});
+
+t("scaletta nell'anteprima e nel link condiviso: stesse righe, voci vuote fuori", () => {
+  reset();
+  A.state.scaletta = JSON.parse(JSON.stringify(SCALETTA_PROVA));
+  try {
+    ok(A.availableViewerLists().some((l) => l.key === "scaletta" && l.title === "Scaletta"), "il link condiviso ha la scheda Scaletta");
+    const h = A.listPreviewHtml("scaletta");
+    ok(/Finale/.test(h) && /29:15/.test(h), "righe e totale nella tabella");
+    eq((h.match(/<tr class="sc-voce/g) || []).length, 7, "7 righe: la vuota non c'è");
+    ok(/<tfoot>/.test(h), "il totale chiude la tabella");
+    ok(!/<tfoot>/.test(A.listPreviewHtml("notelist") || ""), "e le altre liste restano come prima");
+    delete A.state.scaletta;
+    ok(!A.availableViewerLists().some((l) => l.key === "scaletta"), "senza scaletta, nessuna scheda");
+  } finally { reset(); }
+});
+
+t("Esporta: la casella della scaletta c'è e parte spuntata solo con almeno una voce", () => {
+  /* la finestra vive nel DOM (qui c'è solo uno stub): si legge la regola dove sta */
+  const f = appjs.slice(appjs.indexOf("function pdfScalettaInit(){"), appjs.indexOf("function pdfScalettaInit(){") + 700);
+  ok(/var d=scalettaList\(\);/.test(f), "decide sulle voci che escono davvero (le vuote non contano)");
+  ok(/row\.style\.display = d\.count \? "" : "none";/.test(f), "la riga si vede solo se c'è qualcosa");
+  ok(/scChk\.checked = d\.count>0;/.test(f) && /window\.__pdfScaletta = d\.count>0;/.test(f), "spuntata di partenza solo con almeno una voce");
+  ok(/function _pdfExportModalCore\(\)\{[^}]*?pdfScalettaInit\(\); pdfQrInit\(\);/.test(appjs), "e si rifà a ogni apertura (la scelta non si ricorda)");
+  ok(/if\(window\.__pdfScaletta===true\) scalettaPdf\(doc\);/.test(appjs), "il PDF segue la casella");
+});
+
+/* La libreria del QR è quella della finestra Condividi, servita da /vendor/: qui si carica nel sandbox. */
+vm.runInContext(readFileSync(join(root, "vendor/qrcode.min.js"), "utf8"), A);
+const LINK_VIVO = "https://stageplot.it/app/?view=Zx3kP9qLmN2vB7tR4sW8yA";
+
+taPdf("QR nel PDF: assente di serie e senza un link di condivisione", async () => {
+  reset();
+  try {
+    eq(A.pdfQrInCartiglio(), false, "di serie nessun QR");
+    const d = await pdfFinto({ scaletta: false });
+    ok(!d.pagine[0].testi.some((x) => /Versione aggiornata online/.test(x.t)), "nessuna didascalia");
+    ok(!d.pagine[0].rett.some((r) => r.st === "F" && r.fill === "0,0,0"), "nessun modulo nero");
+    eq(A.pdfCartTitleW(297, 10), 297 - 20 - 90, "e il titolo ha tutta la sua colonna");
+    /* senza account, senza progetto online o senza rete il cloud risponde «nessun link» e non crea niente */
+    let tok = "x", rete = 0; const f0 = A.fetch; A.fetch = () => { rete++; return Promise.reject(new Error("no")); };
+    try { A.__cloud.shareTokenAttivo((t) => { tok = t; }); } finally { A.fetch = f0; }
+    eq([tok, rete], [null, 0], "senza account: nessun link, nessuna richiesta");
+    ok(/function pdfQrInit\(\)\{[\s\S]*?window\.__pdfQr=null;[\s\S]*?qrChk\.checked=false;[\s\S]*?row\.style\.display="none";[\s\S]*?if\(giro!==_qrGiro \|\| modal\.hidden \|\| !tok\) return;[\s\S]*?row\.style\.display="";/.test(appjs),
+       "all'apertura dell'Esporta: spento, riga nascosta, e la riga compare solo con un link attivo");
+    ok(!/function shareTokenAttivo[\s\S]{0,700}tokenCondivisione\(\)/.test(appjs), "chiedere il link non ne crea uno");
+  } finally { reset(); }
+});
+
+taPdf("QR nel PDF: nel cartiglio della prima pagina, in una colonna sua, senza coprire niente", async () => {
+  reset();
+  A.state.titolo = "Un titolo molto lungo per vedere che la colonna del titolo si stringe e non finisce sotto il QR";
+  A.state.lights = { rows: [{ id: "l1", n: 1, fn: "", gear: "", color: "", items: [] }], blackout: null, mood: "" };
+  const q = A.pdfQrDati(LINK_VIVO);
+  try {
+    ok(q && q.n >= 21 && q.n <= 41 && q.m.length === q.n, "il QR del link vivo: " + (q && q.n) + " moduli per lato");
+    const d = await pdfFinto({ scaletta: false, qr: q, pagine: { "view-luci": true } });
+    A.__pdfQr = q;   /* pdfFinto rimette le globali com'erano: per misurare il cartiglio il QR serve ancora */
+    eq(d.pagine.length, 2, "palco + una pagina-vista (che ha anche lei il cartiglio)");
+    const cap = (p) => p.testi.filter((x) => x.t === "Versione aggiornata online");
+    eq([cap(d.pagine[0]).length, cap(d.pagine[1]).length], [1, 0], "il QR è solo sulla prima pagina");
+    const L = A.pdfLayout("a4", "landscape", A.cartHFor("", "a4", "landscape")), B = A.pdfQrBox(L);
+    const neri = d.pagine[0].rett.filter((r) => r.fill === "0,0,0");
+    ok(neri.length > 20, "i moduli sono disegnati: " + neri.length + " rettangoli");
+    ok(neri.every((r) => r.x >= B.x - 1e-6 && r.x + r.w <= B.x + B.s + 1e-6 && r.y >= B.y - 1e-6 && r.y + r.h <= B.y + B.s + 1e-6), "tutti dentro il riquadro del QR");
+    const cy = L.ph - L.fondo - L.cartH, titoloW = A.pdfCartTitleW(L.pw, L.M);
+    eq(titoloW, L.pw - 2 * L.M - 90 - 30, "la colonna del titolo si stringe di 30 mm");
+    ok(B.x - (L.M + titoloW) >= 4 * B.s / q.n, "fra titolo e QR resta la zona di rispetto (4 moduli)");
+    ok(B.x + B.s <= L.pw - L.M - 90 - 4 * B.s / q.n, "e fra QR e scala lo stesso");
+    ok(B.y - cy >= 4 * B.s / q.n * 0.9 && B.y + B.s < B.capY - 1.5, "sotto la riga del cartiglio, sopra la sua didascalia");
+    ok(B.capY <= L.ph - L.fondo, "la didascalia resta dentro il cartiglio, sopra il margine della stampante");
+    const testiCartiglio = d.pagine[0].testi.filter((x) => x.y >= cy && x.x < B.x && x.t !== "Versione aggiornata online" && !x.op);
+    ok(testiCartiglio.length > 0 && testiCartiglio.every((x) => x.x + x.t.length * 2.1 * 0.62 <= B.x), "nessun testo del cartiglio arriva sotto il QR");
+    ok(/<g class="pdf-qr">/.test(A.pdfPreviewSvg("a4", 100, "landscape", "", { focus: "clean" }) || ""), "l'anteprima mostra il QR sulla prima pagina…");
+    ok(!/<g class="pdf-qr">/.test(A.pdfPreviewSvg("a4", 100, "landscape", "", { focus: "luci", pageLabel: "LUCI" }) || ""), "…e non sulle pagine-vista");
+  } finally { A.__pdfQr = null; reset(); }
+});
+
+t("QR nel PDF: link troppo lungo → niente QR (e l'Esporta lo dice)", () => {
+  eq(A.pdfQrDati("https://stageplot.it/app/#p=" + "a".repeat(1200)), { troppo: true }, "oltre i 1000 caratteri, come qrTooBig:");
+  eq(A.pdfQrDati("https://stageplot.it/app/?view=" + "b".repeat(300)), { troppo: true }, "e oltre i 41 moduli, illeggibile a 14 mm:");
+  eq(A.pdfQrDati(""), null);
+  const p0 = A.__pdfQr;
+  try { A.__pdfQr = { troppo: true }; eq(A.pdfQrInCartiglio(), false, "un QR «troppo» non entra nel cartiglio"); }
+  finally { A.__pdfQr = p0; }
+  ok(/Il link è troppo lungo per un QR leggibile così piccolo: il PDF esce senza QR\./.test(appjs), "l'avviso");
+  ok(/if\(!q \|\| q\.troppo\)\{\s*qrChk\.checked=false; window\.__pdfQr=null;/.test(appjs), "e la casella si spegne");
 });
 
 await Promise.all(attese);

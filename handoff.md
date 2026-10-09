@@ -1,3 +1,24 @@
+# 10/10/2026 — Editor: SCALETTA con durate e QR nel PDF verso la versione online (ramo `scaletta-qr`, NON unito)
+
+- Idee dal confronto con TecRider Pro. **Scaletta**: `state.scaletta` = [{tipo brano|intro|pausa|bis|cambio, titolo, durata
+  "m:ss", note}], campo del DOCUMENTO (`CAMPI_DOCUMENTO`), presente SOLO con almeno una voce (un `[]` su tutti i progetti
+  avrebbe cambiato `firmaPdf` → falso «Modificato dopo l'ultimo PDF»). Sanificata in `normalizeState` (`scalettaNorm`, max 200
+  voci, titolo 80, note 120, durata solo cifre e separatori). Totale = somma delle durate valide (`scalettaList`), voci vuote
+  fuori, numeri d'ordine solo ai brani. Tipi e limiti in funzioni, non `var` (normalizeState gira al boot).
+- Pannello `#scalettaSec` (hub come Evento, `scalettaEdit`, `body.scaletta-edit`): riga «Scaletta» nelle Liste (col mouse,
+  con Liste accese), Menu del telefono → Evento → Scaletta, ricerca «scaletta/setlist». Testo = saveSoon, aggiungi/sposta/
+  togli = `primaDiAgire()` + save(); render() ridisegna le righe solo se la scaletta è cambiata da fuori (Annulla, scena).
+- PDF: casella `#pdfScaletta` (fuori da «Altre opzioni»; visibile e spuntata solo con ≥1 voce, non si ricorda) →
+  `window.__pdfScaletta` → `scalettaPdf(doc)` dopo le pagine-vista, prima delle tecniche; A4 verticale come le liste,
+  titoli e note a capo, totale in fondo. Anteprima e scheda del link condiviso da `pdfListConfig().scaletta` (+ `rowCls`/`foot`).
+- QR: casella `#pdfQr`, spenta a ogni apertura, visibile solo se `__cloud.shareTokenAttivo` (sola lettura, NON crea token)
+  trova un link attivo. `pdfQrDati` (libreria di Condividi, `window.__loadQrLib`; >1000 caratteri o >41 moduli = niente QR +
+  avviso), disegnato a rettangoli nel cartiglio della SOLA prima pagina, in una colonna sua da 30 mm (`pdfCartTitleW`: titolo,
+  cartH e scala automatica usano la stessa larghezza). `linkVistaCondivisa(tok)` = stesso link di Condividi.
+- Prove: engines 1396 (10 nuove), 7 mutazioni rosse; collaudo 30/30; Orchestre verde. Browser (127.0.0.1:8931, origine
+  separata per non toccare il progetto dell'account su localhost): scaletta creata, Annulla/Ripeti, ricarica, PDF vero
+  (2 pagine, QR nel cartiglio senza sovrapposizioni — token finto: QR provato senza account), telefono a 402 px.
+
 # 10/10/2026 — Riquadro «In breve» sulle pagine di guida e di formazione (ramo `in-breve`, PR da unire)
 
 - Idea dalla «risposta rapida» dei concorrenti (è il testo che AI Overview e ChatGPT riprendono): in 23 pagine (12 in `guida/*`, 11 in `stage-plot/*`) c'è ora, subito dopo H1, apertura e riga «A cura di…», un `<div class="callout in-breve">` con `<strong>In breve:</strong>` e 2-3 frasi (≤ ~60 parole) che rispondono alla domanda del title/H1 usando SOLO fatti già scritti nella pagina. Nessun CSS nuovo: riusa `.callout` di `guida/style.css` (la classe `in-breve` è solo un aggancio). ⚠️ La consegna parlava di un riquadro «già presente» in `guida/rider-tecnico`: non c'era (solo un paragrafo «In breve:» sotto la tabella), quindi è stato aggiunto anche lì.
