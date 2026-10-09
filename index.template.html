@@ -1349,6 +1349,8 @@
       style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0" aria-hidden="true">
     <button class="fb-send" id="fbSend">Invia</button>
     <p class="fb-note">Inviando, accetti che il messaggio e alcuni dati tecnici anonimi vengano usati per migliorare StagePlot. <a href="/privacy/">Privacy</a></p>
+    <!-- Programma Fondatori (10/10): l'ingresso fisso sta qui, dove già si lascia un parere. -->
+    <p class="fb-fond"><a href="/fondatori/" data-fond="apri">Usi StagePlot per un concerto vero? Diventa fondatore</a>: accesso a vita a tutte le funzioni, per i primi 100.</p>
     <p class="fb-msg" id="fbResult" style="display:none"></p>
   </div>
 </div>
@@ -5863,10 +5865,305 @@ function consulenzaDopoExport(foreign){
 }
 function pdfConsulenzaMostra(){
   var el=document.getElementById("pdfConsulenza"); if(!el) return;
-  var t=consulenzaDopoExport();
-  if(t===null){ el.hidden=true; return; }
-  el.innerHTML=t; el.hidden=false;
+  /* 10/10: la riga si ALTERNA con l'invito ai fondatori (mai tutte e due nello stesso export) */
+  var r=rigaDopoExport(foreignDoc(), rigaExportUltima(), fondInvitoPossibile());
+  if(!r){ el.hidden=true; return; }
+  el.innerHTML=r.html; el.hidden=false;
+  rigaExportRicorda(r.tipo);
 }
+/* ===== PROGRAMMA FONDATORI (10/10/2026, decisioni di Simone) =====
+   I primi 100 fondatori APPROVATI hanno accesso a vita a tutte le funzioni software di stageplot.it, presenti e
+   future, anche se diventeranno a pagamento; la consulenza (servizi personali di Simone) resta esclusa. Si diventa
+   fondatori lasciando un feedback costruttivo, con l'accesso Google; Simone approva a mano (ops/fondatori.sh, fuori
+   dal repo). Il database (0080) tiene il tetto di 100, la soglia del feedback e «una richiesta attiva per account»:
+   qui si mostra, si guida e si controlla prima, perché un rifiuto del server dopo aver scritto è una delusione.
+   A ONDATE (Simone, 10/10): ondata 1 «Fondatore» = numeri 1–100, ondata 2 «Early adopter» = 101–200 (condizioni
+   agevolate ancora da definire: qui nessun prezzo). Le ondate e quale è aperta le dice il server (fondatori_pubblico);
+   il numero è progressivo e globale. Oggi è aperta solo la 1.
+   Pagina pubblica: /fondatori/ (termini, elenco dei nomi, posti rimasti). */
+var FONDATORI_TETTO=100;   /* i posti dell'ondata 1, quella dell'accesso a vita (nei testi: «i primi 100») */
+/* i nomi delle ondate se il server non ha ancora risposto; quelli veri arrivano da fondatori_ondate */
+var FONDATORI_ONDATE=[{numero:1, nome:"Fondatore", posti:100}, {numero:2, nome:"Early adopter", posti:100}];
+/* La soglia: almeno 2 risposte su 3 «piene» (≥ 30 caratteri e ≥ 5 parole, spazi compressi) e diverse fra loro.
+   «Bello, bravo» (12 caratteri) non passa; «Lo userei perché è veloce e fa tutto» sì. È la stessa della 0080
+   (fondatori_risposta_piena, fondatori_feedback_valido): un test confronta i numeri. */
+var FONDATORI_SOGLIA={caratteri:30, parole:5, risposte:2};
+var FONDATORI_DOMANDE=[
+  {k:"risposta_tempo", t:"Cosa ti ha fatto perdere tempo?", p:"Un passaggio lento, una cosa che non trovavi, un comando che non faceva quello che ti aspettavi…"},
+  {k:"risposta_manca", t:"Cosa manca perché tu lo possa mandare al service o al locale?", p:"Un dato, una pagina del PDF, un simbolo, un formato…"},
+  {k:"risposta_prossimo", t:"Lo useresti per il tuo prossimo concerto? Perché?", p:"Sì o no, e soprattutto il perché."}
+];
+var FONDATORI_TIPI=[["band","Band o musicista"],["tecnico","Tecnico o service"],["scuola","Scuola o orchestra"],["altro","Altro"]];
+/* richiesta: undefined = non lo so ancora (o senza account), null = nessuna richiesta, oggetto = l'ultima */
+var FOND={uid:null, richiesta:undefined, chiesto:null, posti:null, ondata:null, ondate:null, nomi:null, inCorso:false};
+function fondNorm(t){ return String(t==null?"":t).replace(/\s+/g," ").replace(/^ | $/g,""); }
+function fondRispostaPiena(t){
+  var s=fondNorm(t);
+  return Array.from(s).length>=FONDATORI_SOGLIA.caratteri && (s ? s.split(" ").length : 0)>=FONDATORI_SOGLIA.parole;
+}
+function fondValuta(risposte){
+  var viste={}, piene=0, doppie=false;
+  (risposte||[]).forEach(function(x){
+    if(!fondRispostaPiena(x)) return;
+    var k=fondNorm(x).toLowerCase();
+    if(viste[k]){ doppie=true; return; }   /* la stessa frase incollata due volte vale una */
+    viste[k]=1; piene++;
+  });
+  return {ok:piene>=FONDATORI_SOGLIA.risposte, piene:piene, doppie:doppie};
+}
+function fondUtente(){ try{ return (window.__fondCloud && window.__fondCloud.utente && window.__fondCloud.utente()) || null; }catch(e){ return null; } }
+/* L'invito (dopo l'export) solo se ci sono posti E l'utente non ha già una richiesta, di nessun tipo: chi è in attesa,
+   approvato o respinto non va richiamato. Senza account la richiesta non può esserci (serve Google). Posti sconosciuti
+   (rete, server) = niente invito: meglio la riga di sempre che una promessa su un numero che non si conosce.
+   `st` e `u` si passano solo nei test. */
+function fondInvitoPossibile(st, u){
+  st=st||FOND; if(u===undefined) u=fondUtente();
+  if(!(typeof st.posti==="number" && st.posti>0)) return false;
+  if(!u) return true;
+  return st.uid===u.id && st.richiesta===null;
+}
+/* La riga dopo un export riuscito: consulenza e fondatori si ALTERNANO (mai tutte e due). Il primo export di sempre
+   resta alla consulenza, com'era; poi, se l'invito è possibile, tocca ai fondatori, e così via. Se l'invito non è
+   possibile, consulenza ogni volta. `ultima` = quella mostrata dopo l'export precedente (sp_riga_export). */
+function rigaDopoExport(foreign, ultima, invitoFondatori, ondata){
+  if(foreign) return null;
+  if(invitoFondatori && ultima==="consulenza"){
+    var o=(ondata===undefined ? FOND.ondata : ondata);
+    if(o && o.numero!==1)   /* un'ondata dopo la prima: niente «accesso a vita», le condizioni le dice la pagina */
+      return {tipo:"fondatori", html:'Ti è stato utile? Dicci com\'è andata: è aperta l\'ondata «'+esc(o.nome)+'» del <a href="/fondatori/" data-fond="apri">programma fondatori</a>.'};
+    return {tipo:"fondatori", html:'Ti è stato utile? Dicci com\'è andata e <a href="/fondatori/" data-fond="apri">diventa fondatore</a>: accesso a vita a tutte le funzioni, per i primi '+FONDATORI_TETTO+'.'};
+  }
+  return {tipo:"consulenza", html:consulenzaDopoExport(false)};
+}
+function rigaExportUltima(){ try{ return localStorage.getItem("sp_riga_export"); }catch(e){ return null; } }
+function rigaExportRicorda(t){ try{ localStorage.setItem("sp_riga_export", t); }catch(e){} }
+/* Il nome dell'ondata, al singolare come nel badge: «Fondatore», «Early adopter». */
+function fondNomeOndata(n, ondate){
+  var el=(ondate||FOND.ondate||FONDATORI_ONDATE), t=null;
+  (el||[]).forEach(function(o){ if(o && o.numero===n && o.nome) t=String(o.nome); });
+  if(!t) FONDATORI_ONDATE.forEach(function(o){ if(o.numero===n) t=o.nome; });
+  return t || ("Ondata "+n);
+}
+/* Il badge nell'account: solo per chi ha una richiesta viva. Una respinta non si mostra come un marchio.
+   Con il nome dell'ondata: «Fondatore n. 7», «Early adopter n. 104». */
+function fondBadge(r, ondate){
+  if(!r || typeof r!=="object") return null;
+  if(r.stato==="approvato" && r.numero_fondatore)
+    return {testo:fondNomeOndata(r.ondata||1, ondate)+" n. "+r.numero_fondatore, classe:"fond-badge fond-ok"};
+  if(r.stato==="in_attesa") return {testo:"Fondatore · in attesa di approvazione", classe:"fond-badge fond-attesa"};
+  return null;
+}
+/* La riga nella finestra dell'account («I tuoi progetti»): il badge, oppure l'ingresso al programma finché ci sono posti. */
+function fondRigaAccount(st, u){
+  st=st||FOND; if(u===undefined) u=fondUtente();
+  var mio = !!(u && st.uid===u.id), b = mio ? fondBadge(st.richiesta) : null;
+  if(b) return '<div class="fond-acc"><button type="button" class="'+b.classe+'" data-fond="apri">'+esc(b.testo)+'</button></div>';
+  if(st.posti===0) return "";
+  if(u && !mio) return "";   /* la risposta del server non è ancora arrivata: niente invito a chi magari è già fondatore */
+  return '<div class="fond-acc"><a href="/fondatori/" data-fond="apri">Diventa fondatore: accesso a vita, i primi '+FONDATORI_TETTO+' →</a></div>';
+}
+/* Si chiede al server: i posti (una volta, e di nuovo dopo un invio) e la richiesta di QUESTO account (quando cambia).
+   `C` (il ponte) si passa solo nei test. */
+function fondAggiorna(C){
+  C=C||window.__fondCloud; if(!C || typeof C.pubblico!=="function") return Promise.resolve();
+  var u=(typeof C.utente==="function") ? C.utente() : null, attese=[];
+  if(FOND.posti===null && !FOND.inCorso){
+    FOND.inCorso=true;
+    attese.push(Promise.resolve(C.pubblico()).then(function(r){
+      FOND.inCorso=false;
+      if(r && !r.error && r.data && typeof r.data.posti_rimasti==="number"){
+        FOND.posti=Math.max(0, r.data.posti_rimasti); FOND.nomi=Array.isArray(r.data.nomi) ? r.data.nomi : [];
+        FOND.ondata=(r.data.ondata && typeof r.data.ondata==="object") ? r.data.ondata : null;   /* quella aperta, o nessuna */
+        FOND.ondate=Array.isArray(r.data.ondate) ? r.data.ondate : null;
+      }
+    }, function(){ FOND.inCorso=false; }));
+  }
+  if(!u){ FOND.uid=null; FOND.richiesta=undefined; FOND.chiesto=null; }
+  else if(FOND.uid!==u.id && FOND.chiesto!==u.id){
+    var uid=u.id; FOND.uid=null; FOND.richiesta=undefined; FOND.chiesto=uid;
+    attese.push(Promise.resolve(C.mia()).then(function(r){
+      var ora=C.utente(); if(!ora || ora.id!==uid) return;   /* nel frattempo è cambiato l'account */
+      FOND.chiesto=null;
+      if(r && !r.error){ FOND.uid=uid; FOND.richiesta=r.data||null; }
+    }, function(){ FOND.chiesto=null; }));
+  }
+  return Promise.all(attese).then(function(){ fondRidisegna(); fondDopoAccesso(); });
+}
+function fondRidisegna(){
+  try{ if(typeof window.__cloudRidisegna==="function") window.__cloudRidisegna(); }catch(e){}
+  var ov=document.getElementById("fondModal"); if(ov && !ov.hidden) fondRender();
+}
+/* Dal modulo, senza account: si entra con Google e al ritorno il modulo si riapre da solo (sp_fond_riapri). */
+function fondDopoAccesso(){
+  var f=null; try{ f=sessionStorage.getItem("sp_fond_riapri"); }catch(e){}
+  if(f!=="1" || !fondUtente()) return;
+  try{ sessionStorage.removeItem("sp_fond_riapri"); }catch(e){}
+  fondApri();
+}
+function fondAccedi(){
+  try{ sessionStorage.setItem("sp_fond_riapri","1"); }catch(e){}
+  try{
+    if(window.__fondCloud && window.__fondCloud.accedi) window.__fondCloud.accedi();
+    /* la finestra dei progetti non si riapre sopra il modulo: al ritorno si torna qui */
+    sessionStorage.removeItem("cloudReopen");
+  }catch(e){}
+}
+/* I dati da mandare: risposte ripulite agli estremi, nome pubblico SOLO con il consenso (e allora obbligatorio). */
+function fondPayload(v){
+  v=v||{};
+  var nome = v.consenso ? fondNorm(v.nome).slice(0,60) : "";
+  var tipo = FONDATORI_TIPI.some(function(t){ return t[0]===v.tipo; }) ? v.tipo : null;
+  return {
+    risposta_tempo:String(v.risposta_tempo||"").trim().slice(0,2000),
+    risposta_manca:String(v.risposta_manca||"").trim().slice(0,2000),
+    risposta_prossimo:String(v.risposta_prossimo||"").trim().slice(0,2000),
+    tipo_utente:tipo, nome_pubblico:nome||null, consenso_nome:!!nome
+  };
+}
+function fondErrore(e){
+  var c=String(e&&e.code||""), m=String(e&&e.message||"");
+  if(c==="23505") return "Hai già una richiesta attiva: la trovi qui, nel tuo account.";
+  if(/troppe_richieste/.test(m)) return "Hai già inviato tre richieste. Per riprovare scrivici dal box «Cosa manca?».";
+  if(c==="23514") return "Servono almeno due risposte con qualche frase vera, diverse fra loro.";
+  if(c==="non_autenticato" || c==="42501" || c==="PGRST301") return "La sessione è scaduta: accedi di nuovo e riprova.";
+  return "Non è stato possibile inviare. Controlla la connessione e riprova.";
+}
+function fondApri(){
+  var ov=document.getElementById("fondModal");
+  if(!ov){
+    ov=document.createElement("div"); ov.className="modal"; ov.id="fondModal"; ov.hidden=true;
+    ov.setAttribute("role","dialog"); ov.setAttribute("aria-modal","true"); ov.setAttribute("aria-labelledby","fondTitle");
+    ov.innerHTML='<div class="mcard fond-card"><h2 id="fondTitle">Diventa fondatore di StagePlot</h2><div class="fond-corpo"></div></div>';
+    document.body.appendChild(ov);
+    ov.addEventListener("click", function(e){
+      if(e.target===ov){ fondChiudi(); return; }
+      var b=e.target.closest && e.target.closest("[data-fond]"); if(!b) return;
+      var k=b.getAttribute("data-fond");
+      if(k==="chiudi"){ e.preventDefault(); fondChiudi(); }
+      else if(k==="accedi"){ e.preventDefault(); fondAccedi(); }
+      else if(k==="invia"){ e.preventDefault(); fondInvia(); }
+      else if(k==="apri"){ e.preventDefault(); e.stopPropagation(); }   /* già aperto */
+    });
+    ov.addEventListener("input", fondControlla);
+    ov.addEventListener("change", fondControlla);
+    document.addEventListener("keydown", function(e){ if(e.key==="Escape" && !ov.hidden) fondChiudi(); });
+  }
+  ov.hidden=false; ov.__bozza=null;
+  fondRender();
+  fondAggiorna();
+  setTimeout(function(){ var f=ov.querySelector("textarea, .fond-azioni .primary, .fond-azioni .btn"); if(f) f.focus(); }, 30);
+}
+function fondChiudi(){ var ov=document.getElementById("fondModal"); if(ov){ fondBozza(ov); ov.hidden=true; } }
+/* Quello che si è scritto resta se la finestra si ridisegna (arriva la risposta del server) o si chiude e riapre. */
+var FOND_BOZZA=null;
+function fondBozza(ov){
+  if(!ov || !ov.querySelector("#fondR0")) return;
+  FOND_BOZZA=fondLeggi(ov);
+}
+function fondLeggi(ov){
+  var g=function(id){ var x=ov.querySelector("#"+id); return x ? x.value : ""; };
+  var t=ov.querySelector('input[name="fondTipo"]:checked'), c=ov.querySelector("#fondConsenso");
+  return {risposta_tempo:g("fondR0"), risposta_manca:g("fondR1"), risposta_prossimo:g("fondR2"),
+          tipo:t?t.value:"", consenso:!!(c&&c.checked), nome:g("fondNome")};
+}
+function fondRender(){
+  var ov=document.getElementById("fondModal"); if(!ov) return;
+  var box=ov.querySelector(".fond-corpo"); if(!box) return;
+  fondBozza(ov);
+  var u=fondUtente(), st=FOND, r=(u && st.uid===u.id) ? st.richiesta : undefined;
+  var posti = (typeof st.posti==="number") ? st.posti : null, ond=st.ondata;
+  var dopoPrima = !!(ond && ond.numero!==1);
+  var h = dopoPrima
+    ? '<p class="fond-intro">I primi '+FONDATORI_TETTO+' fondatori sono stati approvati. Adesso è aperta l\'ondata <b>«'+esc(ond.nome)+'»</b>, con condizioni agevolate descritte nella pagina del programma. Resta esclusa la consulenza. <a href="/fondatori/#termini" target="_blank" rel="noopener">Termini del programma</a></p>'
+    : '<p class="fond-intro">I primi <b>'+FONDATORI_TETTO+' fondatori approvati</b> hanno <b>accesso a vita a tutte le funzioni di StagePlot</b>, presenti e future, anche se un giorno diventeranno a pagamento. Resta esclusa la consulenza, che è un servizio personale. <a href="/fondatori/#termini" target="_blank" rel="noopener">Termini del programma</a></p>';
+  if(posti!==null) h+='<p class="fond-posti">'+(posti>0
+    ? 'Posti rimasti'+(dopoPrima ? ' fra gli «'+esc(ond.nome)+'»' : '')+': <b>'+posti+'</b> su '+(ond && ond.posti ? ond.posti : FONDATORI_TETTO)
+    : 'I posti di questa ondata sono stati assegnati. Puoi mandare lo stesso le tue risposte: la richiesta resta in attesa e la consideriamo quando apriamo l\'ondata successiva.')+'</p>';
+  var azioni=function(dentro){ return '<div class="fond-azioni">'+dentro+'</div>'; };
+  var b=fondBadge(r);
+  if(!u){
+    h+='<p class="hint">Si partecipa rispondendo a tre domande dopo aver usato StagePlot su un progetto vero; Simone legge ogni richiesta e la approva a mano. Serve l\'accesso con Google: lo stato di fondatore resta legato al tuo account.</p>';
+    h+=azioni('<button type="button" class="btn danger" data-fond="chiudi">Chiudi</button><button type="button" class="btn primary" data-fond="accedi">Accedi con Google</button>');
+  } else if(r===undefined){
+    h+='<p class="hint" role="status">Controllo la tua richiesta…</p>'+azioni('<button type="button" class="btn danger" data-fond="chiudi">Chiudi</button>');
+  } else if(b){
+    h+='<p class="fond-stato"><span class="'+b.classe+'">'+esc(b.testo)+'</span></p>';
+    h+= r.stato==="approvato"
+      ? '<p class="hint">Grazie: le tue risposte ci aiutano a decidere cosa fare dopo. L\'accesso a vita è legato a questo account ('+esc(u.email||"")+').</p>'
+      : '<p class="hint">Abbiamo ricevuto le tue risposte. Simone le legge una per una: quando la richiesta è approvata, qui compare il tuo numero.</p>';
+    h+=azioni('<button type="button" class="btn primary" data-fond="chiudi">Chiudi</button>');
+  } else {
+    var v=FOND_BOZZA||{};
+    if(r && r.stato==="respinto") h+='<p class="hint fond-respinta">La tua richiesta precedente non è stata approvata. Puoi riprovare, con risposte più concrete.</p>';
+    h+='<p class="hint">Tre domande sul progetto vero per cui hai usato StagePlot. Bastano due risposte, con qualche frase vera: «bello, bravo» non ci aiuta a migliorare.</p>';
+    FONDATORI_DOMANDE.forEach(function(d,i){
+      h+='<label class="fond-q" for="fondR'+i+'">'+(i+1)+'. '+esc(d.t)+'</label>'
+        +'<textarea id="fondR'+i+'" rows="3" maxlength="2000" placeholder="'+esc(d.p)+'">'+esc(v[d.k]||"")+'</textarea>';
+    });
+    h+='<p class="fond-conta" id="fondConta" role="status" aria-live="polite"></p>';
+    h+='<fieldset class="fond-tipi"><legend>Chi sei? <small>(facoltativo)</small></legend>'+FONDATORI_TIPI.map(function(t){
+        return '<label class="fond-tipo"><input type="radio" name="fondTipo" value="'+t[0]+'"'+(v.tipo===t[0]?' checked':'')+'><span>'+esc(t[1])+'</span></label>';
+      }).join("")+'</fieldset>';
+    h+='<label class="fond-consenso chk"><input type="checkbox" id="fondConsenso"'+(v.consenso?' checked':'')+'><span>Voglio comparire con un nome nella <a href="/fondatori/" target="_blank" rel="noopener">pagina dei fondatori</a></span></label>';
+    h+='<div class="fond-nome" id="fondNomeRiga"'+(v.consenso?'':' hidden')+'><label for="fondNome">Nome da mostrare (il tuo, o quello della band)</label><input type="text" id="fondNome" maxlength="60" autocomplete="name" value="'+esc(v.nome||"")+'"></div>';
+    h+='<p class="fond-nota">Le risposte le legge Simone per migliorare StagePlot; il nome compare solo se lo scegli qui. <a href="/privacy/#fondatori" target="_blank" rel="noopener">Privacy</a></p>';
+    h+='<p class="fond-msg" id="fondMsg" role="alert" hidden></p>';
+    h+=azioni('<button type="button" class="btn danger" data-fond="chiudi">Annulla</button><button type="button" class="btn primary" data-fond="invia" id="fondInvia">Invia la richiesta</button>');
+  }
+  box.innerHTML=h;
+  fondControlla();
+}
+/* Il contatore sotto le domande dice quante risposte bastano già, e l'invio si accende solo quando la soglia c'è. */
+function fondControlla(){
+  var ov=document.getElementById("fondModal"); if(!ov) return;
+  var cont=ov.querySelector("#fondConta"), inv=ov.querySelector("#fondInvia"); if(!cont || !inv) return;
+  var d=fondLeggi(ov), v=fondValuta([d.risposta_tempo, d.risposta_manca, d.risposta_prossimo]);
+  var riga=ov.querySelector("#fondNomeRiga"); if(riga) riga.hidden=!d.consenso;
+  var nomeOk = !d.consenso || Array.from(fondNorm(d.nome)).length>=2;
+  cont.textContent = v.ok ? "Risposte sufficienti: puoi inviare."
+    : "Risposte complete: "+Math.min(v.piene, FONDATORI_SOGLIA.risposte)+" su "+FONDATORI_SOGLIA.risposte+" (almeno "+FONDATORI_SOGLIA.caratteri+" caratteri e "+FONDATORI_SOGLIA.parole+" parole ciascuna"+(v.doppie?", diverse fra loro":"")+").";
+  cont.classList.toggle("fond-pronto", v.ok);
+  inv.disabled = !(v.ok && nomeOk) || !!ov.__invio;
+}
+function fondInvia(){
+  var ov=document.getElementById("fondModal"); if(!ov || ov.__invio) return;
+  var d=fondLeggi(ov), p=fondPayload(d), msg=ov.querySelector("#fondMsg");
+  var mostra=function(t){ if(msg){ msg.textContent=t; msg.hidden=!t; } };
+  if(!fondValuta([p.risposta_tempo, p.risposta_manca, p.risposta_prossimo]).ok){ mostra("Servono almeno due risposte con qualche frase vera, diverse fra loro."); return; }
+  if(d.consenso && !p.nome_pubblico){ mostra("Scrivi il nome da mostrare, oppure togli la spunta."); return; }
+  var C=window.__fondCloud, u=fondUtente();
+  if(!C || !u){ mostra("La sessione è scaduta: accedi di nuovo e riprova."); return; }
+  ov.__invio=true; fondControlla();
+  var inv=ov.querySelector("#fondInvia"); if(inv) inv.textContent="Invio…";
+  Promise.resolve(C.invia(p)).then(function(r){
+    ov.__invio=false;
+    if(r && !r.error && r.data){
+      FOND_BOZZA=null; FOND.uid=u.id; FOND.richiesta=r.data; FOND.posti=null;   /* i posti si rileggono */
+      fondRender(); fondRidisegna(); fondAggiorna();
+      showToast("Richiesta inviata: grazie");
+      return;
+    }
+    if(inv) inv.textContent="Invia la richiesta";
+    fondControlla(); mostra(fondErrore(r && r.error));
+    if(r && r.error && String(r.error.code)==="23505"){ FOND.uid=null; FOND.chiesto=null; fondAggiorna(); }   /* ce n'è già una: la si rilegge */
+  }, function(){ ov.__invio=false; if(inv) inv.textContent="Invia la richiesta"; fondControlla(); mostra(fondErrore(null)); });
+}
+/* Dalla pagina /fondatori/ («Apri l'editor e partecipa»): /app/?fondatori=1 apre il modulo, una volta. Il parametro si
+   toglie dall'indirizzo, così ricaricando non si riapre. */
+(function(){
+  var q=null; try{ q=new URLSearchParams(location.search||""); }catch(e){ return; }
+  if(!q || q.get("fondatori")!=="1") return;
+  q.delete("fondatori");
+  try{ history.replaceState(history.state, "", location.pathname+(q.toString()?"?"+q.toString():"")+location.hash); }catch(e){}
+  setTimeout(function(){ if(typeof fondApri==="function") fondApri(); }, 400);
+})();
+/* Un ingresso solo per tutti i posti (box delle segnalazioni, account, riga dopo l'export): data-fond="apri".
+   Il link porta comunque a /fondatori/, se lo script non c'è. */
+document.addEventListener("click", function(e){
+  var a=e.target && e.target.closest && e.target.closest('[data-fond="apri"]'); if(!a) return;
+  if(a.closest && a.closest("#fondModal")) return;
+  e.preventDefault(); fondApri();
+});
 /* ===== BLOCCO PROGETTI: sola-lettura del progetto cloud bloccato (spec 13/07) =====
    window.__projLocked = il progetto cloud APERTO è bloccato → editor sola-lettura.
    Difesa in profondità: (1) guardie di persistenza (persist/autosave/save no-op), (2) CSS body.proj-ro
@@ -6080,6 +6377,7 @@ window.addEventListener("storage",function(e){
    | orcOpenProject, copiaDi:<utente>:<link> | session | CANCELLA   | progetto Orchestre da aprire, copie già fatte da un link
    | sp_sid, sp_accesso_google               | session | CANCELLA   | sessione delle statistiche (legata all'utente), segno del login
    | sp_google_accesso                       | session | CANCELLA   | stato dell'accesso Google in corso (accedi/google/avvio.js)
+   | sp_fond_riapri                          | session | CANCELLA   | «riapri il modulo dei fondatori dopo l'accesso» (10/10): legato all'account
    | sp_loginPrompt                          | session | tieni      | «invito già mostrato in questa sessione»: interfaccia
    | stageplot_theme                         | local   | tieni      | tema chiaro/scuro
    | sp_welcome, sp_onboarded, sp_dragHint   | local   | tieni      | benvenuto e suggerimenti già visti
@@ -6087,18 +6385,19 @@ window.addEventListener("storage",function(e){
    | sp_catRecenti                           | local   | tieni      | recenti del catalogo: nomi di strumenti, non progetti
    | sp_advListe, sp_assPos, sp_noAssunzioni,| local   | tieni      | preferenze di pannelli e viste
    | sp_rail, sp_vistaRuotata                |         |            |
+   | sp_riga_export                          | local   | tieni      | quale riga è comparsa dopo l'ultimo export (consulenza/fondatori, 10/10)
    La rubrica NON è nel browser: sta nell'account (window.__cloud.rubrica, cache solo in memoria).
    Una chiave nuova va aggiunta qui: il test «ogni chiave scritta dall'app è classificata» la cerca. */
 var USCITA_SEGNALE="sp_uscita";
 var USCITA_TIENI_LOCAL={stageplot_theme:1, sp_welcome:1, sp_onboarded:1, sp_dragHint:1, sp_funzioni:1, sp_props_pro:1,
-  sp_catRecenti:1, sp_advListe:1, sp_assPos:1, sp_noAssunzioni:1, sp_rail:1, sp_vistaRuotata:1};
+  sp_catRecenti:1, sp_advListe:1, sp_assPos:1, sp_noAssunzioni:1, sp_rail:1, sp_vistaRuotata:1, sp_riga_export:1};
 var USCITA_TIENI_SESSION={sp_loginPrompt:1};
 function uscitaChiaveDaCancellare(k, area){
   k=String(k||"");
   if(area==="session"){
     if(USCITA_TIENI_SESSION[k]) return false;
     return k==="cloudReopen" || k==="copyFromToken" || k==="orcOpenProject" || k.indexOf("copiaDi:")===0 ||
-      k==="sp_sid" || k==="sp_accesso_google" || k==="sp_google_accesso";
+      k==="sp_sid" || k==="sp_accesso_google" || k==="sp_google_accesso" || k==="sp_fond_riapri";
   }
   if(USCITA_TIENI_LOCAL[k]) return false;
   return k===LS_KEY || k.indexOf(LS_KEY+"_")===0 || k===VER_KEY || /^sb-.+-auth-token/.test(k) || k===USCITA_SEGNALE || k==="sp_founder";
@@ -32839,7 +33138,8 @@ function maybeAskStageSize(explicit){
         '<p style="margin:13px 0 0;font-size:12px;color:var(--text-3);text-align:center;line-height:1.5">Accedendo accetti la <a href="/privacy/" target="_blank" rel="noopener" style="color:var(--text-3);text-decoration:underline">Privacy Policy</a>.</p>'+
         /* I punti di ripristino sono LOCALI (li scrivono salvataggio, import e File→Nuovo): servono
            anche — e soprattutto — a chi non ha un account, quindi il link sta in entrambi i rami. */
-        '<a href="#" id="cloudVersioni" style="display:block;margin-top:14px;text-align:center;color:var(--text-2);text-decoration:none;font-size:13px;padding:2px">Punti di ripristino…</a>';
+        '<a href="#" id="cloudVersioni" style="display:block;margin-top:14px;text-align:center;color:var(--text-2);text-decoration:none;font-size:13px;padding:2px">Punti di ripristino…</a>'+
+        (typeof fondRigaAccount==="function" ? fondRigaAccount() : "");   /* fondatori (10/10): l'ingresso c'è anche prima dell'accesso */
       var b=document.getElementById("cloudSignin"); if(b) b.addEventListener("click", signIn);
       bindVersioniLink();
       return;
@@ -32877,6 +33177,7 @@ function maybeAskStageSize(explicit){
         '<span style="color:var(--text-2);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Connesso come <strong style="color:var(--text)">'+esc(cloudUser.email||"")+'</strong></span>'+
         '<button id="cloudSignout" style="border:1px solid var(--border-strong);background:var(--surface);color:var(--text);border-radius:7px;padding:5px 11px;cursor:pointer;white-space:nowrap">Esci</button>'+
       '</div>'+
+      (typeof fondRigaAccount==="function" ? fondRigaAccount() : "")+   /* fondatori: il badge o l'ingresso (10/10) */
       '<p style="color:var(--text-3);font-size:12px;margin:0 0 8px">I tuoi progetti si salvano online automaticamente mentre lavori (V. stato accanto al nome del progetto).</p>'+
       '<div style="margin-top:10px">'+rows+'</div>'+
       '<a href="#" id="cloudRubrica" style="display:block;margin-top:12px;text-align:center;color:var(--text-2);text-decoration:none;font-size:13px;padding:2px">La mia rubrica…</a>'+
@@ -33898,6 +34199,39 @@ function maybeAskStageSize(explicit){
     utente:function(){ return cloudUser ? {id:cloudUser.id, email:cloudUser.email||""} : null; },
     progettoId:function(){ return cloudCurrentId||null; }
   };
+  /* Ponte per il Programma Fondatori (0080, 10/10): i posti e i nomi pubblici (fondatori_pubblico, anche senza account),
+     la PROPRIA richiesta (la RLS dà solo le sue) e l'invio. Stato, numero e date non si scrivono da qui: il database
+     accetta solo le risposte, il tipo di utente e il nome pubblico (privilegi per colonna). */
+  var FOND_SEL="id,stato,numero_fondatore,ondata,creata_il,decisa_il";
+  function fondRete(e){ return {data:null, error:{code:"rete", message:String(e&&e.message||e)}}; }
+  window.__fondCloud = {
+    utente:function(){ return cloudUser ? {id:cloudUser.id, email:cloudUser.email||""} : null; },
+    pubblico:function(){
+      if(!sb) return Promise.resolve({data:null, error:{code:"offline", message:"offline"}});
+      return sb.rpc("fondatori_pubblico").then(function(r){ return {data:r.data, error:r.error}; }, fondRete);
+    },
+    mia:function(){
+      var nonAut={data:null, error:{code:"non_autenticato", message:"non_autenticato"}};
+      if(!sb || !cloudUser) return Promise.resolve(nonAut);
+      var u=cloudUser.id, g=authGeneration;
+      return sb.from("fondatori_richieste").select(FOND_SEL).order("creata_il",{ascending:false}).limit(1).then(function(r){
+        if(!authStill(u,g)) return nonAut;   /* nel frattempo è cambiato l'account */
+        return {data:(r.data&&r.data[0])||null, error:r.error};
+      }, fondRete);
+    },
+    invia:function(d){
+      var nonAut={data:null, error:{code:"non_autenticato", message:"non_autenticato"}};
+      if(!sb || !cloudUser) return Promise.resolve(nonAut);
+      var u=cloudUser.id, g=authGeneration;
+      return sb.from("fondatori_richieste").insert(d).select(FOND_SEL).single().then(function(r){
+        if(!authStill(u,g)) return nonAut;
+        return {data:r.data, error:r.error};
+      }, fondRete);
+    },
+    accedi:function(){ signIn(); }
+  };
+  /* chi cambia lo stato dei fondatori ridisegna la finestra dell'account, se è aperta */
+  window.__cloudRidisegna=function(){ if(modalOpen()) renderModal(); };
   window.__cloud = {
     requests: {
       list:requestsList, create:requestCreate, versions:requestVersions,
@@ -34082,6 +34416,7 @@ function maybeAskStageSize(explicit){
       orcSeatsSync();
       updateBtn();
       if(window.renderAccountBtn) window.renderAccountBtn();   /* header A′: avatar + chip stato */
+      if(typeof fondAggiorna==="function") fondAggiorna();   /* fondatori: posti e richiesta di questo account (0080) */
       if(typeof window.renderContacts==="function") window.renderContacts();   /* login/logout: i controlli rubrica (+ Dalla rubrica, ★, Gestisci) compaiono subito, non al prossimo re-render */
       if(modalOpen()) renderModal();
       if(cloudUser && modalOpen()) loadProjects();

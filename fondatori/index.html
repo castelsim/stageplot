@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <!-- CSP: pagina statica; parla solo con Supabase (la funzione pubblica fondatori_pubblico) e, in prova, con lo stack locale. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src https://vsodplqkuvnsdiikvmjb.supabase.co http://127.0.0.1:54321 http://localhost:54321; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Programma Fondatori | StagePlot</title>
+  <meta name="description" content="I primi 100 fondatori di StagePlot hanno accesso a vita a tutte le funzioni, anche future. Si partecipa con un feedback vero, approvato a mano.">
+  <meta name="author" content="Simone Castellan">
+  <link rel="canonical" href="https://stageplot.it/fondatori/">
+  <!-- Fuori da Google (10/10): è un programma a tempo, con un elenco di nomi di persone, e ci si arriva dall'editor.
+       Se un giorno serve in SERP: togliere noindex, metterla nel sitemap e linkarla da almeno tre pagine e da un hub. -->
+  <meta name="robots" content="noindex,follow">
+  <meta name="theme-color" content="#111827">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <style>
+    :root{
+      --n-50:#f5f4f0; --n-100:#edebe4; --n-200:#ddd9cd; --n-500:#746e60; --n-800:#292620; --n-900:#1a1815;
+      --accent-tint:#e4f2f0; --accent:#0d9488; --accent-strong:#0b7a70;
+      --ink:var(--n-800); --muted:var(--n-500); --line:var(--n-200); --panel:var(--n-50);
+      --r-md:8px; --r-lg:12px;
+    }
+    *{ box-sizing:border-box; }
+    body{ margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+      color:var(--ink); background:#fff; line-height:1.6; -webkit-font-smoothing:antialiased; }
+    a{ color:var(--accent-strong); }
+    .topbar{ display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:60px;
+      padding:10px clamp(16px,4vw,48px); border-bottom:1px solid var(--line); }
+    .brand{ display:flex; align-items:center; gap:10px; font-weight:700; text-decoration:none; color:var(--ink); }
+    .brand img{ width:30px; height:30px; border-radius:8px; display:block; }
+    .topbar nav a{ color:var(--muted); text-decoration:none; font-size:15px; }
+    .topbar nav a:hover{ color:var(--ink); }
+    .wrap{ max-width:760px; margin:0 auto; padding:clamp(28px,5vw,56px) 16px 72px; }
+    .eyebrow{ margin:0 0 8px; color:var(--accent-strong); font-weight:700; font-size:13px; letter-spacing:.06em; text-transform:uppercase; }
+    h1{ margin:0; font-size:clamp(30px,5vw,44px); line-height:1.1; letter-spacing:-.02em; }
+    .lead{ margin:16px 0 0; font-size:clamp(17px,1.8vw,19px); color:#3d3a33; }
+    .posti{ margin:24px 0 0; padding:16px 18px; border:1px solid var(--line); border-radius:var(--r-lg); background:var(--panel); }
+    .posti p{ margin:0; font-weight:600; }
+    .barra{ margin-top:10px; height:8px; border-radius:999px; background:var(--n-100); overflow:hidden; }
+    .barra span{ display:block; height:100%; width:0; background:var(--accent); }
+    .cta{ display:inline-flex; align-items:center; justify-content:center; min-height:44px; margin-top:22px; padding:11px 18px;
+      border-radius:var(--r-md); background:var(--accent-strong); color:#fff; font-weight:600; text-decoration:none; }
+    .cta:hover{ background:#096a61; }
+    h2{ margin:44px 0 10px; font-size:22px; letter-spacing:-.01em; }
+    p, li{ color:#2f2c26; }
+    ul, ol{ padding-left:22px; }
+    li{ margin:6px 0; }
+    .domande li{ font-weight:600; }
+    .nota{ color:var(--muted); font-size:15px; }
+    .termini{ border-top:1px solid var(--line); margin-top:48px; padding-top:8px; font-size:15px; }
+    .termini h2{ margin-top:28px; }
+    .elenco{ list-style:none; padding:0; margin:12px 0 0; display:flex; flex-wrap:wrap; gap:8px; }
+    .elenco li{ margin:0; padding:6px 12px; border:1px solid var(--line); border-radius:999px; background:#fff; font-weight:600; }
+    footer{ border-top:1px solid var(--line); padding:20px 16px 36px; color:var(--muted); font-size:14px; }
+    footer .inner{ max-width:760px; margin:0 auto; display:flex; flex-wrap:wrap; gap:18px; }
+    footer a{ color:var(--muted); }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/"><img src="/favicon.svg" width="460" height="460" alt=""><span>StagePlot</span></a>
+    <nav><a href="/app/">Apri l'editor</a></nav>
+  </header>
+
+  <main class="wrap">
+    <p class="eyebrow">Programma Fondatori</p>
+    <h1>I primi 100 fondatori di StagePlot</h1>
+    <p class="lead">Chi usa StagePlot su un progetto vero e ci dice con sincerità cosa non va ottiene <strong>l'accesso a vita a tutte le funzioni di StagePlot</strong>, anche quelle che arriveranno e anche se un giorno diventeranno a pagamento. I posti sono 100, e ogni richiesta la legge e la approva Simone, a mano.</p>
+
+    <div class="posti" aria-live="polite">
+      <p id="posti">Sto leggendo i posti rimasti…</p>
+      <div class="barra" role="progressbar" aria-label="Posti assegnati" aria-valuemin="0" aria-valuemax="100" hidden><span id="postiBarra"></span></div>
+    </div>
+    <a class="cta" href="/app/?fondatori=1">Apri l'editor e partecipa</a>
+
+    <h2>Cosa ottieni</h2>
+    <ul>
+      <li><strong>Accesso a vita a tutte le funzioni software di stageplot.it</strong>, quelle di oggi e quelle future, anche se diventeranno a pagamento: dal disegno in scala alla channel list, dai monitor ai carichi elettrici, dal rider in PDF alla condivisione, e quello che verrà.</li>
+      <li>Un <strong>numero di fondatore</strong> (da 1 a 100), che vedi nel tuo account.</li>
+      <li>Se lo scegli, il tuo nome (o quello della tua band) nell'<a href="#elenco-fondatori">elenco dei fondatori</a> qui sotto.</li>
+    </ul>
+
+    <h2>Cosa resta escluso</h2>
+    <p>La <a href="/consulenza/">consulenza</a>: la revisione di un progetto, «Rider pronto» e ogni altro lavoro che Simone fa a mano sul tuo caso. Sono servizi personali, non funzioni del software, e restano a pagamento anche per i fondatori.</p>
+
+    <h2>Come si partecipa</h2>
+    <ol>
+      <li>Usa StagePlot su un progetto vero: un concerto, una data, una produzione.</li>
+      <li>Accedi con Google: lo stato di fondatore resta legato al tuo account.</li>
+      <li>Apri «Diventa fondatore»: lo trovi nel box «Cosa manca?», nella finestra del tuo account e, ogni tanto, dopo un export del PDF.</li>
+      <li>Rispondi a tre domande:
+        <ol class="domande">
+          <li>Cosa ti ha fatto perdere tempo?</li>
+          <li>Cosa manca perché tu lo possa mandare al service o al locale?</li>
+          <li>Lo useresti per il tuo prossimo concerto? Perché?</li>
+        </ol>
+        Bastano due risposte, con qualche frase vera (almeno 30 caratteri e 5 parole ciascuna, diverse fra loro): «bello, bravo» non ci aiuta a migliorare. Le critiche sono benvenute quanto i complimenti.
+      </li>
+      <li>Simone legge ogni richiesta e la approva a mano. Finché è in attesa, nel tuo account vedi «in attesa di approvazione»; quando è approvata, il tuo numero di fondatore.</li>
+    </ol>
+    <p class="nota">Una sola richiesta attiva per account. Se una richiesta non viene approvata, se ne può mandare un'altra, fino a tre in tutto.</p>
+
+    <h2>Perché solo 100, e perché a mano</h2>
+    <p>Ci servono pareri di chi ha usato StagePlot per lavoro, non un numero di iscritti. Cento persone che raccontano dove si sono fermate valgono più di mille clic. Il numero si assegna al momento dell'approvazione, in ordine; quando i 100 posti sono assegnati la prima ondata si chiude. Il limite lo controlla il database, non solo questa pagina.</p>
+    <p>Dopo i primi 100 apriremo una seconda ondata, gli <strong>early adopter</strong>, con condizioni agevolate. Le richieste che arrivano a prima ondata piena restano in attesa e le consideriamo quando la seconda si apre.</p>
+
+    <h2>Se il servizio cambia</h2>
+    <p>Oggi StagePlot è gratuito e non esiste un piano a pagamento. Se in futuro alcune funzioni diventeranno a pagamento, i fondatori approvati le avranno <strong>senza pagare niente</strong>: nessun abbonamento, nessuna carta da inserire, nessun prezzo nascosto.</p>
+    <p>«A vita» vuol dire per tutta la durata di stageplot.it: non possiamo promettere che un servizio esista per sempre, e preferiamo dirlo. Se un giorno StagePlot dovesse chiudere, lo annunceremo con almeno 60 giorni di anticipo. In ogni momento i tuoi progetti restano tuoi ed esportabili: PDF, immagine, channel list in CSV e il file del progetto.</p>
+
+    <h2 id="elenco-fondatori">I fondatori</h2>
+    <p class="nota">Compare qui solo chi ha scelto di comparire, con il nome che ha indicato.</p>
+    <ul class="elenco" id="elenco" hidden></ul>
+    <p class="nota" id="elencoVuoto">L'elenco si sta caricando…</p>
+
+    <section class="termini" id="termini">
+      <h2>Termini del programma</h2>
+      <ol>
+        <li><strong>Chi lo promuove.</strong> Simone Castellan, titolare di stageplot.it (vedi i <a href="/termini/">termini d'uso</a>).</li>
+        <li><strong>Partecipazione.</strong> Gratuita, con un account Google. Una richiesta attiva per account, al massimo tre richieste in tutto.</li>
+        <li><strong>Approvazione.</strong> Ogni richiesta è valutata a mano. Possono non essere approvate le richieste con risposte generiche, copiate o non legate a un uso reale di StagePlot.</li>
+        <li><strong>Posti e ondate.</strong> Il programma procede a ondate. La prima, «Fondatori», ha al massimo 100 approvati, con i numeri da 1 a 100; la seconda, «Early adopter», i numeri da 101 a 200, con condizioni agevolate che saranno descritte qui prima che si apra. Il numero si assegna all'approvazione, in ordine, nell'ondata aperta in quel momento.</li>
+        <li><strong>Cosa si ottiene.</strong> I fondatori della prima ondata: accesso, senza costi, a tutte le funzioni software di stageplot.it, presenti e future, anche se diventeranno a pagamento, per tutta la durata del servizio.</li>
+        <li><strong>Esclusioni.</strong> La consulenza e ogni servizio personale (revisioni, «Rider pronto», lavori su misura) resta a pagamento.</li>
+        <li><strong>Lo stato è personale.</strong> È legato al tuo account e non si cede. Si perde se elimini l'account o in caso di abuso del servizio (punto 6 dei <a href="/termini/">termini d'uso</a>).</li>
+        <li><strong>Modifiche.</strong> Il programma può cambiare per chi non è ancora fondatore; per i fondatori già approvati le condizioni possono solo migliorare.</li>
+        <li><strong>Dati.</strong> Risposte, tipo di utente e, solo con il tuo consenso, il nome pubblico: come li trattiamo è scritto nella <a href="/privacy/#fondatori">privacy</a>.</li>
+      </ol>
+    </section>
+  </main>
+
+  <footer>
+    <div class="inner">
+      <a href="/app/">Editor</a>
+      <a href="/privacy/#fondatori">Privacy</a>
+      <a href="/termini/">Termini d'uso</a>
+      <span>© StagePlot — Simone Castellan</span>
+    </div>
+  </footer>
+  <script src="/fondatori/fondatori.js"></script>
+</body>
+</html>
