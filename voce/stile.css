@@ -1,0 +1,29 @@
+:root { --acc: #8a3b12; --pre: #1f6fb4; --post: #d2551e; --fondo: #faf7f2; --testo: #1d1d1d; }
+* { box-sizing: border-box }
+body { margin: 0; font: 17px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--testo); background: var(--fondo) }
+.testa, main, .piede { max-width: 1400px; margin: 0 auto; padding: 16px 24px }
+.testa { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap }
+h1 { color: var(--acc); margin: 0 }
+.sotto { margin: 4px 0 0; color: #555 }
+.pannello { background: #fff; border: 1px solid #e3ddd3; border-radius: 10px; padding: 16px; margin: 12px auto; max-width: 1400px }
+button { font: inherit; border: 2px solid var(--acc); color: var(--acc); background: #fff; border-radius: 8px; padding: 8px 14px; cursor: pointer; min-height: 44px }
+button:focus-visible, input:focus-visible { outline: 3px solid #1f6fb4; outline-offset: 2px }
+button.grande { font-weight: 700 } button.evidenza { background: var(--acc); color: #fff } button.piccolo { min-height: 44px; min-width: 44px; padding: 2px 10px; font-size: 14px }
+.carica { display: grid; grid-template-columns: 1fr 1fr; gap: 12px }
+.zona { position: relative; display: block; border: 2px dashed #c9bfae; border-radius: 10px; padding: 22px; text-align: center; cursor: pointer; background: #fff }
+.zona.sopra { border-color: var(--acc); background: #fff6ee } .zona input { position: absolute; opacity: 0; width: 1px; height: 1px; overflow: hidden; pointer-events: none }
+.zona:focus-within { outline: 3px solid #1f6fb4; outline-offset: 2px }
+.titolo-figura { display: inline-flex; gap: 6px; align-items: center }
+.titolo-figura input { font: inherit; min-height: 44px; padding: 4px 8px; width: 24em; max-width: 100% }
+.comandi { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 10px 0 }
+.tempo { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums }
+.aiuto { width: 100%; margin: 0; color: #555; font-size: 14px }
+.spg { display: block; width: 100%; height: 300px; background: #fff; border-radius: 8px; margin: 8px 0; cursor: crosshair }
+.legenda { color: #555; font-size: 14px } .stato { font-weight: 600; min-height: 1.5em } .avviso { color: #8a3b12 }
+table { border-collapse: collapse; width: 100% } th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #eee }
+td.num { text-align: right; font-variant-numeric: tabular-nums }
+tr.aiuto-riga td { color: #555; font-size: 15px; background: #faf7f2 }
+.piede { color: #555; font-size: 14px }
+.testo-pagina { max-width: 900px; margin: 0 auto; padding: 16px 24px }
+@media (max-width: 700px) { .carica { grid-template-columns: 1fr } }
+th:nth-child(n+2):nth-child(-n+4) { text-align: right }
