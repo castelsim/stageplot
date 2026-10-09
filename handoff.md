@@ -1,3 +1,19 @@
+# 09/10/2026 — Analisi vocale su stageplot.it/voce/ (ramo `voce-tappa1`, PR bozza, NON unito)
+
+- `voce/` è un **programma separato GPL-3** (sorgente: github.com/castelsim/voce, commit in `voce/SORGENTE.txt`): Praat
+  6.4.62 in WebAssembly nel browser, confronto PRE/POST della voce cantata. **Non si modifica qui**: si aggiorna dal
+  repository della voce con `node strumenti/pubblica-su-stageplot.mjs <checkout di StagePlot>` (fa tutti i suoi test,
+  rifiuta audio, json, file nascosti, percorsi locali, sorgente non pubblicato, radice senza CNAME stageplot.it).
+- `pages.yml`: `voce` aggiunta all'elenco delle cartelle pubblicate (senza, 404). `sw.js`: `/voce/*` escluso come
+  `/orchestre/` e `/biglietteria/` (rete pura: niente versioni mescolate). `LICENSE`: eccezione GPL per `voce/`.
+- `privacy/`: sezione 9 «Analisi vocale» (accesso Google obbligatorio, l'audio non lascia il computer, nessun evento
+  d'uso in questa versione), «Modifiche» diventa 10, data 9/10; test in `engines.test.mjs` aggiornato. Titolare in
+  privacy e termini: **Cassola (VI)**, non Milano (correzione di Simone).
+- Login: il redirect è già coperto da `https://stageplot.it/**` in Supabase (nessuna modifica).
+- Prove: `node build.mjs --check` ok, `node test/engines.test.mjs` 1383/1383; nel repository della voce 108/108 (anche
+  coincidenza con Praat nativo e prova in Chrome). Dopo il merge: verificare `curl -sI https://stageplot.it/voce/vendor/praat-wasm/dist/praat.wasm`
+  (content-type `application/wasm`) e il giro completo con accesso Google.
+
 # 07/10/2026 (notte, 2) — Biglietteria: la pianta sul computer, niente lente (ramo `bgl-zoom-pc`, NON unito)
 
 - Simone: sul computer la lente (`cursor:zoom-in`) prometteva uno zoom che il clic non faceva in modo prevedibile. Design
