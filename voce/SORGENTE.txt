@@ -1,0 +1,4 @@
+Analisi vocale — GPL-3.0-or-later
+Codice sorgente completo: https://github.com/castelsim/voce
+Commit: 6c92dbef8b974fa8fe597688cf950798fb8a657b
+Versione di Praat: 6.4.62 (praat-wasm 6.4.6200)
