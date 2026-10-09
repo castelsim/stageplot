@@ -16621,8 +16621,9 @@ t("il bottone del PDF torna vivo alla fine dell'export, non a cronometro", () =>
      — misurato chiamandola: entrambi i rami rispondono con un thenable. */
   ok(!/setTimeout\(function\(\)\{ b\.disabled=false; b\.textContent=_t; \}, 2500\)/.test(appjs),
      "sparito il cronometro da 2500 ms");
-  const h = appjs.slice(appjs.indexOf("function run(){\n      b.disabled=true;"), appjs.indexOf("function run(){\n      b.disabled=true;") + 700);
-  ok(/p\.then\(fine, fine\)/.test(h), "il bottone si riaccende quando l'export ha finito");
+  const h = appjs.slice(appjs.indexOf("function run(){\n      b.disabled=true;"), appjs.indexOf("function run(){\n      b.disabled=true;") + 800);
+  /* 01/10: a export riuscito compare anche la riga verso la consulenza; `fine` resta in entrambi i rami */
+  ok(/p\.then\(function\(\)\{ fine\(\); pdfConsulenzaMostra\(\); \}, fine\)/.test(h), "il bottone si riaccende quando l'export ha finito");
   ok(/if\(b\.disabled\) return;/.test(appjs), "e finché è spento non riparte");
   /* Il ramo d'errore («non entra nemmeno a 1:500») esce presto: se tornasse undefined il bottone
      resterebbe spento per sempre. Deve rispondere un thenable anche lì. */
@@ -18342,6 +18343,26 @@ t("fornito da nel PDF: ** accanto alla sorgente a carico della band, e la legend
   ok(/^\*\* = a carico della band/.test(A.FORNITO_BAND_LEGENDA), "la legenda dice cosa vuol dire");
   const bl = appjs.slice(appjs.indexOf("function backlineList(){"), appjs.indexOf("function backlineList(){") + 700);
   ok(/var by=fornituraElemento\(it\);/.test(bl), "la backline list legge anche la channel list");
+});
+
+console.log("\n— Dopo l'export: una riga verso la consulenza (01/10/2026) —");
+
+/* Il momento in cui chi ha disegnato si chiede se il documento regge davanti al service è subito dopo
+   l'export. Una riga, non un popup; mai su un documento altrui (viewer o sessione consulenza), dove
+   l'invito sarebbe rivolto alla persona sbagliata. */
+t("consulenzaDopoExport: sul proprio documento propone la revisione, con il link alla pagina", () => {
+  const txt = A.consulenzaDopoExport(false);
+  ok(typeof txt === "string" && /href="\/consulenza\/"/.test(txt), "manca il link a /consulenza/");
+  ok(/29 €/.test(txt), "dice da quanto si parte");
+});
+t("consulenzaDopoExport: su un documento altrui non dice niente", () => {
+  eq(A.consulenzaDopoExport(true), null);
+});
+t("la riga esiste nel template, nascosta finché non c'è stato un export, e compare solo a export riuscito", () => {
+  const src = readFileSync(join(root, "index.template.html"), "utf8");
+  ok(/<p class="hint" id="pdfConsulenza" hidden><\/p>/.test(src), "la riga nasce nascosta");
+  ok(/p\.then\(function\(\)\{ fine\(\); pdfConsulenzaMostra\(\); \}, fine\)/.test(appjs), "si mostra dopo il then, non nel catch");
+  ok(/#pdfConsulenza\{/.test(stylesCss), "ha il suo stile");
 });
 
 console.log("\n— Collegamenti orfani: un id riusato non eredita i cavi di chi c'era prima (05/10) —");

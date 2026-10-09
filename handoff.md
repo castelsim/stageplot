@@ -218,6 +218,28 @@ lascia alla rete), `bgl-editor` («Prenotazioni del pubblico…» nelle card dei
   `supabase functions deploy bgl-prenota --project-ref vsodplqkuvnsdiikvmjb --use-api` → merge su `main` → prova con un
   evento finto (una sedia, la propria email, disdire, eliminare) → aprire l'evento vero dall'editor e mandare il link.
 
+# STATO AL 01/10/2026 — da leggere prima di tutto
+
+**PR #262 aperta, da unire** (ramo `rider-pronto`): livello «Rider pronto» a 59 € in /consulenza/ e una riga verso la
+consulenza nella finestra PDF dopo un export riuscito. Test: 1297 editor · 124 Orchestre · 138 Deno · collaudo 30/30.
+Dopo il merge: **ridistribuire** `create-consultation`, `stripe-webhook`, `process-consultation-notifications`
+(`supabase functions deploy <nome> --project-ref vsodplqkuvnsdiikvmjb --use-api`), poi `curl https://stageplot.it/app.js | grep consulenzaDopoExport`.
+La card da 59 € resta **nascosta finché `PAY["rider-pronto"]` in `consulenza/index.html` è vuoto**: serve un Payment Link Stripe da 59 €.
+
+## 01/10 — «Rider pronto» (PR #262)
+
+- **Perché**: la consulenza (29/149 €) ha zero richieste da luglio. Fuori dal repo, in `STAGEPLOT/campioni/`, c'è un motore che
+  da un rider in PDF ricava stage plot, channel list e — da oggi — il rider in prosa (`lib/prosa.mjs`), collaudato su 13 rider
+  pubblici di band italiane (`campioni/COLLAUDO.md`, `node test.mjs` 36 ok). Un livello a 59 € con consegna in 48 ore è il
+  prodotto che quel motore rende possibile: umano solo al controllo (10–15 min) e all'export del PDF (2 min, solo nel browser).
+- **App**: `consulenzaDopoExport(foreign)` (pura; `foreign` esplicito perché nel sandbox `foreignDoc()` è sempre vero) e
+  `pdfConsulenzaMostra()` accanto a `foreignDoc`; `#pdfConsulenza` nella `.pdf-exp-foot`, mostrato solo nel ramo `then` di
+  `exportPdf`. Mai su documento altrui.
+- **Server**: `rider-pronto` in `PRODUCTS`, `PRODUCT_PRICE_EUR_CENTS` (5900) e `PRODUCT_LABEL`; test Deno con importo giusto e sbagliato.
+- ⚠️ `patchList()` ricava i microfoni dagli **oggetti**, non dalla channel list: in un sandbox senza oggetti coerenti dà un rider che
+  contraddice l'input list. Il motore campioni conta dagli `inputs`.
+- ⚠️ Il test «bottone torna vivo» legge una finestra di caratteri dopo `function run(){`: allargata a 800 perché la riga del `then` è cresciuta.
+
 # STATO AL 30/09/2026 — da leggere prima di tutto
 
 Tutto in produzione, nessuna PR aperta. Test: 1292 editor · 124 Orchestre · 137 Deno.

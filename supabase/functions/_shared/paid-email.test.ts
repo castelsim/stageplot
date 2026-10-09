@@ -13,6 +13,11 @@ Deno.test("buildPaidEmail: contatto, importo e link vivo", () => {
   assertStringIncludes(html, "https://stageplot.it/?view=tok123");
 });
 
+Deno.test("buildPaidEmail: «rider-pronto» ha il suo nome, non l'id", () => {
+  const { subject } = buildPaidEmail({ name: "A", email: "a@x.it", product: "rider-pronto", amount: 5900, viewUrl: "https://stageplot.it/?view=t" });
+  assertStringIncludes(subject, "Rider pronto");
+});
+
 Deno.test("buildPaidEmail: campi mancanti → trattino, nessun crash", () => {
   const { html } = buildPaidEmail({ name: null, email: null, product: null, amount: null, viewUrl: "https://stageplot.it/?view=t" });
   assert(html.includes("—"));
