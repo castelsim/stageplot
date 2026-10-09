@@ -19,6 +19,13 @@
   separata per non toccare il progetto dell'account su localhost): scaletta creata, Annulla/Ripeti, ricarica, PDF vero
   (2 pagine, QR nel cartiglio senza sovrapposizioni — token finto: QR provato senza account), telefono a 402 px.
 
+# 10/10/2026 — Riquadro «In breve» sulle pagine di guida e di formazione (ramo `in-breve`, PR da unire)
+
+- Idea dalla «risposta rapida» dei concorrenti (è il testo che AI Overview e ChatGPT riprendono): in 23 pagine (12 in `guida/*`, 11 in `stage-plot/*`) c'è ora, subito dopo H1, apertura e riga «A cura di…», un `<div class="callout in-breve">` con `<strong>In breve:</strong>` e 2-3 frasi (≤ ~60 parole) che rispondono alla domanda del title/H1 usando SOLO fatti già scritti nella pagina. Nessun CSS nuovo: riusa `.callout` di `guida/style.css` (la classe `in-breve` è solo un aggancio). ⚠️ La consegna parlava di un riquadro «già presente» in `guida/rider-tecnico`: non c'era (solo un paragrafo «In breve:» sotto la tabella), quindi è stato aggiunto anche lì.
+- Aggiornati `dateModified` (JSON-LD), «aggiornato il 10/10/2026» e `<lastmod>` in `sitemap.xml` delle 23 pagine. Title/description/H1 e FAQ (visibili e JSON-LD) NON toccati.
+- Hub `stage-plot/index.html`: le schede erano solo link alle pagine; aggiunta sezione «Apri il modello nell'editor» con 11 link `/app/?model=<chiave>` (band, orchestra, coro, chiesa, festival, matrimonio, dj, tributo, acustica, jazz, bigband: le stesse chiavi delle pagine singole). Lastmod dell'hub al 10/10.
+- Prove: `node test/engines.test.mjs` 1386 passati, 0 falliti; `node build.mjs --check` ok; JSON-LD parse ok su tutte; riquadro presente una volta sola (fetch su server locale 8931).
+
 # 09/10/2026 — Analisi vocale su stageplot.it/voce/ (ramo `voce-tappa1`, PR bozza, NON unito)
 
 - `voce/` è un **programma separato GPL-3** (sorgente: github.com/castelsim/voce, commit in `voce/SORGENTE.txt`): Praat
