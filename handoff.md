@@ -1,3 +1,22 @@
+# 10/10/2026 — Programma Fondatori, a ondate (ramo `fondatori`, PR aperta, NON unito; migrazione 0080 NON in produzione)
+
+- Decisioni di Simone (10/10): i primi 100 approvati («Fondatore», ondata 1) = accesso a vita a tutte le funzioni software,
+  consulenza esclusa. Ondata 2 «Early adopter» = numeri 101–200, condizioni agevolate DA DEFINIRE (nessun prezzo scritto),
+  chiusa. Si entra con un feedback (3 domande, almeno 2 risposte piene: ≥ 30 caratteri e ≥ 5 parole, diverse fra loro),
+  con l'accesso Google; Simone approva a mano con `COWORK/STAGEPLOT/ops/fondatori.sh` (fuori dal repo).
+- 0080: `fondatori_ondate` (nome, dal–al, aperta; exclude contro le sovrapposizioni) + `fondatori_richieste` (RLS: inserisce
+  e legge solo le sue, insert solo sulle colonne delle risposte/tipo/nome; tetto per ondata = numero unico + trigger
+  `fondatori_numero_nell_ondata`). `fondatori_approva` (prima ondata aperta con posto libero, altrimenti resta in attesa),
+  `fondatori_respingi`, `fondatori_ondata_apri`, `fondatori_lista` = solo servizio; `fondatori_pubblico()` = posti dell'ondata
+  aperta, ondate, nomi con consenso. Purga: respinte dopo 12 mesi. `bgl_account_solo_biglietteria` guarda anche questa tabella.
+- Editor: modulo `fondApri` (finestra `#fondModal`, z 205 sopra «I tuoi progetti»), ingressi `data-fond="apri"` nel box
+  «Cosa manca?», nella finestra dell'account (badge «Fondatore n. X» / «in attesa di approvazione») e nella riga dopo l'export,
+  che ora ALTERNA consulenza e fondatori (`rigaDopoExport`, `sp_riga_export`; primo export = consulenza come prima; invito
+  solo senza richieste e con posti). `/app/?fondatori=1` apre il modulo. Ponte `window.__fondCloud`.
+- Pagina `/fondatori/` (noindex, fuori sitemap, nell'allowlist di pages.yml), privacy §10, termini §11.
+- Prove: engines 1395, RLS 251 (rls-fondatori 12, tetto per ondata in transazione annullata), node 124, bgl 148, Deno 191,
+  collaudo 30/30; 6 mutazioni editor + 2 sabotaggi DB tutti rossi. Browser 8931 con ponte finto (computer e 402 px).
+
 # 09/10/2026 — Analisi vocale su stageplot.it/voce/ (ramo `voce-tappa1`, PR bozza, NON unito)
 
 - `voce/` è un **programma separato GPL-3** (sorgente: github.com/castelsim/voce, commit in `voce/SORGENTE.txt`): Praat
