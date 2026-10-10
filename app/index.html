@@ -24,7 +24,7 @@
      due release nello stesso giorno restano distinguibili in telemetria e supporto. In locale/dev
      resta il placeholder. La sentinella del VALORE è distinta dall'identificatore window.__BUILD_ID__
      così il sed della CI non tocca il nome della variabile. -->
-<script>window.__APP_VERSION__="2026.10.09";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
+<script>window.__APP_VERSION__="2026.10.10";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -5538,7 +5538,7 @@ body.dark #props #scalettaSec .sc-b:hover:not(:disabled){background:#222b38}
       <button type="button" class="pa-card csvfmt" data-fmt="ah" style="text-align:left">
         <b>Allen &amp; Heath Director</b><br><small style="color:var(--text-2)">Sezione [Channels] con nomi + phantom. <b style="color:var(--warning)">Verifica l'import sulla tua console.</b></small></button>
       <button type="button" class="pa-card csvfmt" data-fmt="x32snp" style="text-align:left">
-        <b>Behringer X32 / Midas M32</b> <small>(snippet .snp)</small><br><small style="color:var(--text-2)">Nomi, colori e 48V dei canali: si carica da USB (Scenes → Snippets) o da X32-Edit, senza toccare il resto. <b style="color:var(--warning)">Provalo prima dello show.</b></small></button>
+        <b>Behringer X32 / Midas M32</b> <small>(snippet .snp)</small><br><small style="color:var(--text-2)">Applica solo nome e colore dei canali: NON tocca guadagni, 48V, sorgenti d’ingresso, icone né il resto. Si carica da USB (Scenes → Snippets) o da X32-Edit. Il 48V resta da impostare a mano (è indicato nella Channel list). <b style="color:var(--warning)">Provalo prima dello show.</b></small></button>
     </div>
     <div style="display:flex;margin-top:14px"><button class="btn" id="csvClose" style="margin-left:auto">Annulla</button></div>
   </div>

@@ -13152,13 +13152,13 @@ t("nel file X32 un canale ha SEMPRE un nome, anche se il suo è tutto non-ASCII"
   /* Un nome cinese o di sole emoji è una stringa non vuota, quindi vinceva il fallback «CH n», ma la
      pulizia ASCII lo riduceva a niente: in console arrivava un canale senza nome (25/08). */
   const cinese = A.x32Snippet([{ n: 1, name: "陈明", short: "" }], "Show").snp;
-  ok(/\/ch\/01\/config "CH 1"/.test(cinese), "ripiego «CH 1» invece del nome vuoto: " + cinese.split("\n").find(l => /ch\/01/.test(l)));
-  ok(!/config ""/.test(cinese), "nessun nome vuoto nel file");
+  ok(/\/ch\/01\/config\/name "CH 1"/.test(cinese), "ripiego «CH 1» invece del nome vuoto: " + cinese.split("\n").find(l => /ch\/01/.test(l)));
+  ok(!/name ""/.test(cinese), "nessun nome vuoto nel file");
   const emoji = A.x32Snippet([{ n: 2, name: "🎤🎸", short: "" }], "Show").snp;
-  ok(!/config ""/.test(emoji), "vale anche per le sole emoji");
+  ok(!/name ""/.test(emoji), "vale anche per le sole emoji");
   /* e un nome misto tiene la parte leggibile, non il ripiego */
   const misto = A.x32Snippet([{ n: 3, name: "Voce 陈", short: "" }], "Show").snp;
-  ok(/config "Voce"/.test(misto), "la parte ASCII resta: " + misto.split("\n").find(l => /ch\/03/.test(l)));
+  ok(/config\/name "Voce"/.test(misto), "la parte ASCII resta: " + misto.split("\n").find(l => /ch\/03/.test(l)));
 });
 
 t("il rider dice quanta corrente serve, e sotto quale protezione — in HTML e in PDF", () => {
@@ -13199,10 +13199,11 @@ t("ORC-02: il parametro ?model= si consuma dopo l'uso", () => {
 });
 
 /* ============ export console: snippet X32/M32 (23/08) ============ */
-t("lo snippet X32/M32 ha il formato dei file veri: intestazione, config per canale, headamp per il 48V", () => {
-  /* Formato letto da scene pubbliche (GitHub) e dalla doc OSC di Maillot: «#4.0# "nome" 1 1 1 1 1»,
-     «/ch/NN/config "Nome" icona COLORE sorgente», «/headamp/NNN +0.0 ON|OFF» con /headamp/000 =
-     ingresso locale 1. Snippet, non scena: applica SOLO questi parametri. */
+t("lo snippet X32/M32 scrive solo nome e colore: mai gain (/headamp), icona o sorgente", () => {
+  /* Formato letto da scene pubbliche (GitHub) e dalla doc OSC di Maillot: «#4.0# "nome" 1 1 1 1 1».
+     DIFETTO 10/10: lo snippet scriveva «/headamp/NNN +0.0 ON|OFF», ma quel comando porta GAIN e phantom
+     insieme: caricandolo il gain di ogni canale tornava a 0 dB. Anche «/ch/NN/config "n" icona col
+     sorgente» sovrascrive la sorgente (il routing). Ora: due righe separate per canale, name e color. */
   const righe = [
     { n: 1, name: "Kick", short: "Kick", mic: "D6", p48: false },
     { n: 2, name: "Batteria 1 - Rullante top", short: "Sn top", mic: "SM57", p48: false },
@@ -13216,21 +13217,33 @@ t("lo snippet X32/M32 ha il formato dei file veri: intestazione, config per cana
   const r = A.x32Snippet(righe, "Band pop/rock");
   const L = r.snp.split("\n");
   eq(L[0], '#4.0# "Band pop/rock" 1 1 1 1 1', "intestazione dello snippet");
-  eq(L[1], '/ch/01/config "Kick" 1 RD 1', "canale 1: nome, icona 1, rosso per la batteria, sorgente locale 1");
-  eq(L[2], '/headamp/000 +0.0 OFF', "headamp 000 = ingresso 1, phantom OFF");
-  eq(L[3], '/ch/02/config "Sn top" 1 RD 2', "il nome breve (la sigla FOH) vince sul nome lungo");
-  ok(/\/ch\/03\/config "Overhead L" 1 RD 3/.test(r.snp) && /\/headamp\/002 \+0\.0 ON/.test(r.snp), "overhead: rosso e 48V ON su headamp 002");
-  ok(/\/ch\/04\/config "Basso" 1 BL 4/.test(r.snp), "basso blu");
-  ok(/\/ch\/05\/config "Chitarra ele" 1 GN 5/.test(r.snp), "chitarra: verde, accenti e virgolette tolti, 12 caratteri");
-  ok(/\/ch\/06\/config "Tastiere L" 1 YE 6/.test(r.snp), "tastiere gialle");
-  ok(/\/ch\/07\/config "Voce" 1 CY 7/.test(r.snp), "voce ciano");
-  ok(/\/ch\/08\/config "SPARE" 1 WHi 8/.test(r.snp), "una riservata esce SPARE in bianco invertito");
+  eq(L[1], '/ch/01/config/name "Kick"', "canale 1: nome");
+  eq(L[2], '/ch/01/config/color RD', "canale 1: rosso per la batteria");
+  eq(L.length, 1 + 8 * 2 + 1, "intestazione + 2 righe per canale + riga finale vuota: nient'altro");
+  ok(!/headamp/.test(r.snp), "NESSUNA riga /headamp: porterebbe il gain a 0 dB su un banco già regolato");
+  ok(!/[+-]\d+\.\d/.test(r.snp), "nessun valore di gain nel file");
+  ok(!/\/ch\/\d\d\/config "/.test(r.snp), "niente riga config completa: porterebbe icona e SORGENTE (routing)");
+  ok(!/source|preamp|insert/.test(r.snp), "nessuna sorgente, preamp o insert");
+  eq(L.filter(l => l && !/^(#4\.0#|\/ch\/\d\d\/config\/(name|color) )/.test(l)).length, 0, "ogni riga è intestazione, name o color");
+  eq(r.snp.match(/48V|phantom|\bON\b|\bOFF\b/g), null, "il 48V non è nel file (non lo imposta)");
+  ok(/\/ch\/02\/config\/name "Sn top"/.test(r.snp), "il nome breve (la sigla FOH) vince sul nome lungo");
+  ok(/\/ch\/03\/config\/name "Overhead L"/.test(r.snp) && /\/ch\/03\/config\/color RD/.test(r.snp), "overhead: nome e rosso");
+  ok(/\/ch\/04\/config\/color BL/.test(r.snp), "basso blu");
+  ok(/\/ch\/05\/config\/name "Chitarra ele"/.test(r.snp) && /\/ch\/05\/config\/color GN/.test(r.snp), "chitarra: verde, accenti e virgolette tolti, 12 caratteri");
+  ok(/\/ch\/06\/config\/color YE/.test(r.snp), "tastiere gialle");
+  ok(/\/ch\/07\/config\/color CY/.test(r.snp), "voce ciano");
+  ok(/\/ch\/08\/config\/name "SPARE"/.test(r.snp) && /\/ch\/08\/config\/color WHi/.test(r.snp), "una riservata esce SPARE in bianco invertito");
   eq(r.count, 8, "otto canali");
   ok(r.snp.endsWith("\n"), "file terminato da newline");
   ok(!/[^\x00-\x7f]/.test(r.snp), "solo ASCII: la console non legge altro");
   /* i non-ASCII DENTRO i 12 caratteri: «» e ♪ spariscono, gli accenti perdono il segno */
   const r3 = A.x32Snippet([{ n: 1, name: "Sax «solo» ♪ più", mic: "SM57" }], "x");
-  ok(/\/ch\/01\/config "Sax solo piu" 1 MG 1/.test(r3.snp), "«» e ♪ tolti (e gli spazi doppi che lasciano), ù → u, sax magenta: " + r3.snp.split("\n")[1]);
+  ok(/\/ch\/01\/config\/name "Sax solo piu"/.test(r3.snp) && /config\/color MG/.test(r3.snp), "«» e ♪ tolti, ù → u, sax magenta: " + r3.snp.split("\n")[1]);
+  /* l'interfaccia non promette ciò che il file non fa */
+  const tpl = readFileSync(join(root, "index.template.html"), "utf8");
+  const i0 = tpl.indexOf('data-fmt="x32snp"');
+  const voce = tpl.slice(i0, i0 + 700);
+  ok(/NON tocca guadagni, 48V/.test(voce) && !/Nomi, colori e 48V/.test(voce), "la voce del selettore dice che NON tocca gain e 48V");
 });
 
 t("lo snippet X32 rispetta i 32 canali e usa il numero FOH quando c'è", () => {
@@ -13240,7 +13253,7 @@ t("lo snippet X32 rispetta i 32 canali e usa il numero FOH quando c'è", () => {
   eq(r.skipped.length, 8, "e dice quanti sono rimasti fuori");
   const foh = [{ n: 1, foh: 17, name: "Kick", mic: "D6" }, { n: 2, foh: 18, name: "Rullante", mic: "SM57" }];
   const r2 = A.x32Snippet(foh, "x");
-  ok(/\/ch\/17\/config "Kick" 1 RD 17/.test(r2.snp) && /\/headamp\/016 /.test(r2.snp), "con più box vale il canale FOH (17), headamp 016");
+  ok(/\/ch\/17\/config\/name "Kick"/.test(r2.snp) && /\/ch\/18\/config\/name "Rullante"/.test(r2.snp), "con più box vale il canale FOH (17, 18)");
   ok(!/\/ch\/01\//.test(r2.snp), "e non il progressivo di riga");
   /* e la voce sta nel selettore dei formati */
   const html = readFileSync(join(root, "app/index.html"), "utf8");
