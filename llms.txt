@@ -47,6 +47,12 @@ Uno stage plot (o stage plan) è lo schema in scala del palco che mostra la disp
 - [Rete Dante e rack audio](https://stageplot.it/guida/rack-audio-dante/): cos'è la rete Dante (audio digitale su Ethernet), quando conviene sull'analogico, cosa contiene un rack audio, Device ID e routing, clock e latenza, ridondanza
 - [Rider tecnico per DJ set](https://stageplot.it/guida/rider-tecnico-dj/): come scrivere il rider di un DJ — lettori e mixer, monitor da booth, uscita stereo, alimentazione pulita; con esempio e differenza dalla scheda tecnica di una band
 
+## Confronti con altri editor (fatti verificati il 10/10/2026)
+- [Alternative a Ridermaker, TecRider e Stage Plot Pro](https://stageplot.it/alternative/): tabella riassuntiva dei tre editor confrontati con StagePlot (lingua, prezzo, PDF senza account, scala, channel list, funzioni in più)
+- [Alternativa a Ridermaker](https://stageplot.it/alternative/ridermaker/): Ridermaker (inglese e spagnolo, Pro 19 €/anno, Premium 29 €/anno) esporta i nomi dei canali verso diversi mixer; nella prova gli oggetti non erano in scala e la channel list si compilava a mano
+- [Alternativa a TecRider](https://stageplot.it/alternative/tecrider/): TecRider (editor in inglese anche sotto /it/, 15 $/anno o 19 $ a vita) ha scaletta e icone generate con l'AI; senza account il PDF rimandava ai piani a pagamento
+- [Alternativa a Stage Plot Pro](https://stageplot.it/alternative/stage-plot-pro/): Stage Plot Pro (stageplotpro.app, inglese, gratis in accesso anticipato, Pro annunciato a 69 $/anno) dichiara vista 3D e file scena per X32/M32; è un prodotto diverso da StagePlot
+
 ## Stage plot per formazione
 - [Stage plot per band](https://stageplot.it/stage-plot/band/)
 - [Stage plot per orchestra](https://stageplot.it/stage-plot/orchestra/)

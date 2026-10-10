@@ -11787,6 +11787,61 @@ t("scheda tecnica: le FAQ visibili e quelle in JSON-LD dicono la stessa cosa", (
     "l'autore riusa lo stesso @id delle altre guide (anello E-E-A-T)");
 });
 
+/* --- Pagine «alternativa a…» (10/10) ---------------------------------------------------------
+   Perché esistono: chi cerca «alternativa a Ridermaker / TecRider / Stage Plot Pro» trovava solo
+   pagine in inglese. Sono pubblicità comparativa: ogni fatto sul concorrente deve essere datato e
+   le FAQ dello schema devono dire esattamente quello che la pagina mostra. E una cartella nuova
+   non pubblicata dall'allowlist del deploy dà 404 senza errori: va presidiata qui. */
+const ALT = ["alternative/", "alternative/ridermaker/", "alternative/tecrider/", "alternative/stage-plot-pro/"];
+const altHtml = (rel) => readFileSync(join(root, rel, "index.html"), "utf8");
+const deEnt = (s) => s.replace(/<[^>]+>/g, "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#x27;/g, "'").replace(/&amp;/g, "&");
+
+t("alternative: pubblicate dal deploy, in sitemap, in llms.txt e agganciate a pagine sorelle", () => {
+  const wf = readFileSync(join(root, ".github/workflows/pages.yml"), "utf8");
+  const allow = wf.slice(wf.indexOf("rsync -a"), wf.indexOf("./_site/"));
+  ok(/\balternative\b/.test(allow), "la cartella alternative è nell'allowlist del deploy (senza: 404)");
+  const sm = readFileSync(join(root, "sitemap.xml"), "utf8");
+  const llms = readFileSync(join(root, "llms.txt"), "utf8");
+  for (const rel of ALT) {
+    ok(sm.indexOf("<loc>https://stageplot.it/" + rel + "</loc>") > -1, rel + ": in sitemap");
+    ok(llms.indexOf("https://stageplot.it/" + rel + ")") > -1, rel + ": in llms.txt");
+  }
+  /* le pagine che le linkano, escluse loro stesse: una pagina orfana non si indicizza */
+  const altre = readdirSync(root, { recursive: true, withFileTypes: true })
+    .filter((d) => d.isFile() && d.name === "index.html")
+    .map((d) => join(d.parentPath || d.path, d.name))
+    .filter((p) => pubblicata(p.slice(root.length)));
+  for (const rel of ALT) {
+    const href = 'href="/' + rel + '"';
+    const da = altre.filter((p) => p !== join(root, rel, "index.html") && readFileSync(p, "utf8").indexOf(href) > -1);
+    ok(da.length >= 3, rel + ": linkata da almeno 3 pagine (" + da.length + ")");
+  }
+  ok(readFileSync(join(root, "guida/index.html"), "utf8").indexOf('href="/alternative/"') > -1, "l'hub delle guide linka l'hub dei confronti");
+  ok(readFileSync(join(root, "index.html"), "utf8").indexOf('href="/alternative/"') > -1, "la home linka l'hub dei confronti");
+});
+
+t("alternative: un H1, il riquadro «In breve», fatti datati e FAQ dello schema identiche a quelle visibili", () => {
+  const rider = readFileSync(join(root, "guida/rider-tecnico/index.html"), "utf8");
+  const titolo = (s) => (s.match(/<title>([^<]*)<\/title>/) || ["", ""])[1];
+  for (const rel of ALT) {
+    const h = altHtml(rel);
+    eq((h.match(/<h1[\s>]/g) || []).length, 1, rel + ": un solo H1");
+    eq((h.match(/class="callout in-breve"/g) || []).length, 1, rel + ": riquadro «In breve» presente una volta");
+    ok(h.indexOf('<link rel="canonical" href="https://stageplot.it/' + rel + '">') > -1, rel + ": canonical su sé stessa");
+    ok(/<caption>[^<]*10\/10\/2026/.test(h), rel + ": la tabella dice quando sono stati verificati i fatti");
+    eq(/fonico/i.test(h), false, rel + ": Simone è «sound engineer», mai «fonico»");
+    ok(titolo(h) !== titolo(rider) && /Ridermaker|TecRider|Stage Plot Pro/.test(titolo(h)),
+      rel + ": il title punta al concorrente, non al rider tecnico: " + titolo(h));
+    const ld = JSON.parse((h.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/) || [])[1]);
+    const tipi = ld["@graph"].map((n) => n["@type"]);
+    ok(tipi.includes("BreadcrumbList") && tipi.includes("FAQPage") && (tipi.includes("Article") || tipi.includes("CollectionPage")),
+      rel + ": breadcrumb, FAQ e pagina nei dati strutturati: " + tipi.join(","));
+    const faq = ld["@graph"].find((n) => n["@type"] === "FAQPage").mainEntity.map((q) => [q.name, q.acceptedAnswer.text]);
+    const vis = [...h.matchAll(/<details><summary>([\s\S]*?)<\/summary><p>([\s\S]*?)<\/p><\/details>/g)].map((m) => [deEnt(m[1]), deEnt(m[2])]);
+    eq(JSON.stringify(vis), JSON.stringify(faq), rel + ": FAQ visibili = FAQPage, domande e risposte");
+  }
+});
+
 /* --- La radice è la landing, l'editor sta su /app/ (08/08) ---
    Perché esistono: lo spostamento tocca sette file scollegati fra loro (build, service worker, manifest,
    workflow, landing, link interni, sitemap) e ognuno rompe in silenzio. I due modi tipici: un link
