@@ -451,6 +451,34 @@
     .od-upsell strong { color: var(--accent); }
     .od-upsell ul { margin: 8px 0 12px; padding-left: 18px; font-size: 14px; display: grid; gap: 4px; }
     .od-msg { min-height: 18px; color: var(--muted); font-size: 13px; }
+    .od-msg.err { color: #b42318; }
+    /* Rider pronto senza progetto (10/10/2026): il materiale del cliente */
+    #odRider { display: grid; gap: 14px; }
+    #odRider .od-field { display: grid; gap: 6px; }
+    #odRider label { display: block; font-size: 14px; font-weight: 600; }
+    .od-intro { margin: 0; font-size: 15px; line-height: 1.45; }
+    .od-opt { font-weight: 400; color: var(--muted); }
+    .od-hint { margin: 0; font-size: 13px; color: var(--muted); }
+    #orderDrawer input:not([type=file]), #orderDrawer textarea {
+      width: 100%; border: 1px solid var(--line); border-radius: 9px;
+      padding: 11px 13px; font: inherit; font-size: 16px; font-weight: 400; background: #fff; color: var(--ink);
+    }
+    #orderDrawer textarea { resize: vertical; min-height: 96px; }
+    #orderDrawer input:focus, #orderDrawer textarea:focus { border-color: var(--accent); outline: none; }
+    #orderDrawer input:focus-visible, #orderDrawer textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+    .od-add { min-height: 44px; justify-self: start; }
+    .od-filelist { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+    .od-filelist:empty { display: none; }
+    .od-filelist li {
+      display: flex; align-items: center; gap: 8px; min-height: 44px;
+      border: 1px solid var(--line); border-radius: 9px; padding: 4px 4px 4px 12px; font-size: 14px; background: var(--panel);
+    }
+    .od-filelist .fn { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .od-filelist .fs { color: var(--muted); font-size: 12px; flex: none; }
+    .od-filelist button {
+      flex: none; min-width: 44px; min-height: 36px; border: none; background: none; cursor: pointer;
+      color: var(--muted); font: inherit; font-size: 13px; text-decoration: underline;
+    }
     #orderClose {
       position: absolute; top: 14px; right: 16px;
       border: none; background: none; font-size: 26px; line-height: 1;
@@ -615,7 +643,7 @@
       <div class="confirm">
         <h2>Richiesta ricevuta.</h2>
         <p>Il pagamento è in elaborazione: la ricevuta arriva via email da Stripe.</p>
-        <p>Simone riceve subito il tuo Stage Plot e ti contatta entro un giorno lavorativo per confermare tempi e dettagli della consegna. Per qualsiasi dubbio: <a href="mailto:castellansimone@gmail.com">castellansimone@gmail.com</a>.</p>
+        <p>Simone riceve subito la tua richiesta e ti contatta entro un giorno lavorativo per confermare tempi e dettagli della consegna. Per qualsiasi dubbio: <a href="mailto:castellansimone@gmail.com">castellansimone@gmail.com</a>.</p>
       </div>
     </section>
 
@@ -673,7 +701,7 @@
           <span class="tag">Nuovo &middot; in 48 ore</span>
           <h3>Rider pronto</h3>
           <p class="price">59 &euro;</p>
-          <p class="desc">Per chi ha una lista canali, un vecchio rider o una descrizione, e vuole i documenti fatti.</p>
+          <p class="desc">Per chi ha un vecchio rider, una lista canali, una foto del palco o solo una descrizione: niente da disegnare, i documenti li facciamo noi.</p>
           <ul>
             <li>Stage plot in scala, disegnato da noi</li>
             <li>Channel list e input list</li>
@@ -761,11 +789,47 @@
     <h3>Riepilogo</h3>
     <div class="od-row"><span class="od-pack" id="odPack"></span><span class="od-price" id="odPrice"></span></div>
 
-    <div class="od-sec">
+    <div class="od-sec" id="odProjectSec">
       <label for="odProject">Per quale Stage Plot?</label>
       <select id="odProject"></select>
       <div id="odEmpty" hidden style="margin-top:8px;color:var(--muted);font-size:14px">
         Non hai ancora uno Stage Plot salvato. <a href="/app/">Aprilo nel tool gratuito</a> e salvalo col suo nome, poi torna qui.
+      </div>
+    </div>
+
+    <!-- Rider pronto (10/10/2026): niente progetto obbligatorio. Il cliente manda quello che ha: file e/o due righe. -->
+    <div class="od-sec" id="odRider" hidden>
+      <p class="od-intro">Mandaci quello che hai: il vecchio rider, una foto del palco, anche solo un messaggio. Ti restituiamo stage plot, channel list e rider pronti.</p>
+      <div>
+        <button class="btn small od-add" type="button" id="odAdd">Aggiungi file</button>
+        <input type="file" id="odFiles" multiple hidden
+          accept=".pdf,.doc,.docx,.odt,.xls,.xlsx,.jpg,.jpeg,.png,.webp,.heic,.heif,application/pdf,image/*">
+      </div>
+      <p class="od-hint" id="odFilesHint">PDF, Word, Excel o foto &middot; fino a 8 file da 10 MB l'uno</p>
+      <ul class="od-filelist" id="odFileList" aria-label="File da mandare"></ul>
+      <div class="od-field">
+        <label for="odDesc">Scrivi cosa ti serve <span class="od-opt">(basta questo, se non hai file)</span></label>
+        <textarea id="odDesc" rows="4" maxlength="4000" placeholder="Es. quartetto: voce, chitarra acustica, basso, batteria. Il cantante usa un suo microfono. Palco 6×4 m."></textarea>
+      </div>
+      <div class="od-field">
+        <label for="odPer">Per chi è il rider? <span class="od-opt">(band o artista)</span></label>
+        <input id="odPer" maxlength="120" autocomplete="organization">
+      </div>
+      <div class="od-field">
+        <label for="odData">Data dell'evento <span class="od-opt">(se c'è)</span></label>
+        <input id="odData" type="date" min="2000-01-01" max="2100-12-31">
+      </div>
+      <div class="od-field">
+        <label for="odNome">Il tuo nome</label>
+        <input id="odNome" maxlength="120" autocomplete="name" required>
+      </div>
+      <div class="od-field">
+        <label for="odEmail">Email per la consegna</label>
+        <input id="odEmail" type="email" maxlength="254" autocomplete="email" required>
+      </div>
+      <div class="od-field" id="odRiderProjWrap" hidden>
+        <label for="odRiderProject">Oppure parti da un tuo Stage Plot <span class="od-opt">(facoltativo)</span></label>
+        <select id="odRiderProject"></select>
       </div>
     </div>
 
@@ -825,6 +889,34 @@
     var odUpsell = document.getElementById("odUpsell");
     var odMsg = document.getElementById("odMsg");
     var currentProduct = null;
+    var odProjectSec = document.getElementById("odProjectSec");
+    var odRider = document.getElementById("odRider");
+    var odFiles = document.getElementById("odFiles");
+    var odFileList = document.getElementById("odFileList");
+    var odDesc = document.getElementById("odDesc");
+    var odPer = document.getElementById("odPer");
+    var odData = document.getElementById("odData");
+    var odNome = document.getElementById("odNome");
+    var odEmail = document.getElementById("odEmail");
+    var odRiderProjWrap = document.getElementById("odRiderProjWrap");
+    var odRiderProject = document.getElementById("odRiderProject");
+    var odPayBtn = document.getElementById("odPay");
+    /* Rider pronto: tipi ammessi per estensione. STESSA lista di _shared/rider-order.ts e della migrazione 0081 (test). */
+    var RIDER_TIPI = {
+      "pdf": "application/pdf",
+      "doc": "application/msword",
+      "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "odt": "application/vnd.oasis.opendocument.text",
+      "xls": "application/vnd.ms-excel",
+      "xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "jpg": "image/jpeg", "jpeg": "image/jpeg",
+      "png": "image/png",
+      "webp": "image/webp",
+      "heic": "image/heic",
+      "heif": "image/heif"
+    };
+    var RIDER_MAX_FILES = 8, RIDER_MAX_BYTES = 10485760;
+    var riderFiles = [];
 
     var heroPicker = document.getElementById("heroPicker");
     var heroProject = document.getElementById("heroProject");
@@ -864,7 +956,62 @@
       odPrice.textContent = m.price;
       odIncludes.innerHTML = m.includes.map(function(x){ return "<li>" + esc(x) + "</li>"; }).join("");
       odUpsell.hidden = (product !== "pro-review");
-      odMsg.textContent = "";
+      var rider = (product === "rider-pronto");
+      odRider.hidden = !rider;
+      odProjectSec.hidden = rider;
+      setMsg("");
+    }
+    function setMsg(t, err){ odMsg.textContent = t; odMsg.classList.toggle("err", !!err); }
+
+    // ---- Rider pronto: i file del cliente ----
+    function tipoRider(f){
+      var m = /\.([A-Za-z0-9]{1,8})$/.exec((f && f.name) || "");
+      return m ? (RIDER_TIPI[m[1].toLowerCase()] || "") : "";
+    }
+    function pesoLeggibile(b){ return b >= 1048576 ? (b / 1048576).toFixed(1).replace(".", ",") + " MB" : Math.max(1, Math.round(b / 1024)) + " KB"; }
+    function renderRiderFiles(){
+      odFileList.innerHTML = riderFiles.map(function(f, i){
+        return '<li><span class="fn">' + esc(f.name) + '</span><span class="fs">' + pesoLeggibile(f.size) + '</span>' +
+          '<button type="button" data-togli="' + i + '" aria-label="Togli ' + esc(f.name) + '">Togli</button></li>';
+      }).join("");
+    }
+    function aggiungiFile(lista){
+      var scarti = [];
+      [].forEach.call(lista || [], function(f){
+        if (!tipoRider(f)) { scarti.push("«" + f.name + "» non va: mandaci PDF, Word, Excel o foto."); return; }
+        if (!f.size) { scarti.push("«" + f.name + "» è vuoto."); return; }
+        if (f.size > RIDER_MAX_BYTES) { scarti.push("«" + f.name + "» supera 10 MB."); return; }
+        if (riderFiles.some(function(g){ return g.name === f.name && g.size === f.size; })) return;
+        if (riderFiles.length >= RIDER_MAX_FILES) { scarti.push("Al massimo " + RIDER_MAX_FILES + " file."); return; }
+        riderFiles.push(f);
+      });
+      renderRiderFiles();
+      setMsg(scarti.filter(function(x, i, a){ return a.indexOf(x) === i; }).join(" "), scarti.length > 0);
+    }
+    document.getElementById("odAdd").addEventListener("click", function(){ odFiles.click(); });
+    odFiles.addEventListener("change", function(){ aggiungiFile(odFiles.files); odFiles.value = ""; });
+    odFileList.addEventListener("click", function(e){
+      var b = e.target.closest ? e.target.closest("[data-togli]") : null;
+      if (!b) return;
+      riderFiles.splice(Number(b.getAttribute("data-togli")), 1);
+      renderRiderFiles();
+      setMsg("");
+    });
+    function prefillRider(session){
+      var u = session && session.user ? session.user : {};
+      var md = u.user_metadata || {};
+      if (!odNome.value) odNome.value = md.full_name || md.name || "";
+      if (!odEmail.value) odEmail.value = u.email || "";
+    }
+    function loadRiderProjects(){
+      return sb.from("stageplot_projects").select("id,title,updated_at").is("deleted_at", null)
+        .order("updated_at", { ascending: false }).then(function(r){
+          var ok = !r.error && r.data && r.data.length;
+          odRiderProjWrap.hidden = !ok;
+          if (!ok) { odRiderProject.innerHTML = ""; return; }
+          odRiderProject.innerHTML = '<option value="">Nessuno: uso i file e il messaggio</option>' +
+            r.data.map(function(p){ return '<option value="' + p.id + '">' + projLabel(p) + "</option>"; }).join("");
+        });
     }
 
     /* Etichetta leggibile del progetto: titolo + data ultimo salvataggio → distingue i "Senza titolo" (C3 audit UX). */
@@ -894,12 +1041,69 @@
         var session = res && res.data ? res.data.session : null;
         if (!session) { startLogin(product); return; }
         fillDrawer(product);
-        loadProjects().then(function(ok){ if (ok && heroProjectId) odProject.value = heroProjectId; });
+        if (product === "rider-pronto") { prefillRider(session); loadRiderProjects(); }
+        else loadProjects().then(function(ok){ if (ok && heroProjectId) odProject.value = heroProjectId; });
         openDrawer();
       });
     }
 
+    function vaiAlPagamento(requestId, email){
+      location.href = PAY[currentProduct] + "?client_reference_id=" + encodeURIComponent(requestId) + "&prefilled_email=" + encodeURIComponent(email || "");
+    }
+
+    /* Rider pronto: la richiesta nasce dal materiale (file e/o descrizione), il progetto è facoltativo.
+       La funzione crea la richiesta e un link firmato per file; i file vanno nel bucket privato, poi si paga. */
+    function payRider(session){
+      var desc = odDesc.value.trim(), pid = odRiderProjWrap.hidden ? "" : odRiderProject.value;
+      var nome = odNome.value.trim(), email = odEmail.value.trim();
+      if (!pid && !riderFiles.length && !desc) { setMsg("Allega almeno un file o scrivi due righe su cosa ti serve.", true); odDesc.focus(); return; }
+      if (!nome) { setMsg("Scrivi il tuo nome.", true); odNome.focus(); return; }
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email)) { setMsg("Controlla l'email: lì ti mandiamo i documenti.", true); odEmail.focus(); return; }
+      var files = riderFiles.slice();
+      odPayBtn.disabled = true;
+      setMsg("Preparo l'ordine…");
+      var body = { product: currentProduct, rider: {
+        nome: nome, email: email, per_chi: odPer.value.trim() || null, data_evento: odData.value || null, descrizione: desc || null,
+        files: files.map(function(f){ return { name: f.name, type: tipoRider(f), size: f.size }; }) } };
+      if (pid) body.project_id = pid;
+      function fallito(t){ odPayBtn.disabled = false; setMsg(t, true); }
+      fetch(FN("create-consultation"), {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + session.access_token, "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      }).then(function(r){ return r.json().then(function(j){ return { ok: r.ok, status: r.status, j: j }; }); })
+        .then(function(o){
+          if (!o.ok || !o.j.request_id) {
+            fallito(o.status === 429 ? "Oggi hai già aperto molte richieste: riprova domani o scrivimi a castellansimone@gmail.com."
+              : o.status === 400 && o.j && typeof o.j.error === "string" ? "Controlla i dati: " + o.j.error + "."
+              : "Errore. Riprova o scrivimi a castellansimone@gmail.com.");
+            return;
+          }
+          var up = o.j.uploads || [], i = 0;
+          if (up.length !== files.length) { fallito("Errore. Riprova o scrivimi a castellansimone@gmail.com."); return; }
+          (function prossimo(){
+            if (i >= up.length) { setMsg("Fatto. Ti porto al pagamento…"); vaiAlPagamento(o.j.request_id, email); return; }
+            setMsg("Carico il file " + (i + 1) + " di " + up.length + "…");
+            sb.storage.from("consultation-uploads").uploadToSignedUrl(up[i].path, up[i].token, files[i], { contentType: tipoRider(files[i]) })
+              .then(function(res){
+                if (res && res.error) { fallito("Il file «" + files[i].name + "» non è partito. Controlla la connessione e riprova."); return; }
+                i++; prossimo();
+              }, function(){ fallito("Il file «" + files[i].name + "» non è partito. Controlla la connessione e riprova."); });
+          })();
+        })
+        .catch(function(){ fallito("Errore di rete. Riprova."); });
+    }
+
     function pay(){
+      if (!PAY[currentProduct]) { setMsg("Il pagamento di questo pacchetto non è ancora attivo. Scrivimi a castellansimone@gmail.com.", true); return; }
+      if (currentProduct === "rider-pronto") {
+        sb.auth.getSession().then(function(res){
+          var session = res && res.data ? res.data.session : null;
+          if (!session) { startLogin(currentProduct); return; }
+          payRider(session);
+        });
+        return;
+      }
       var pid = odProject.value;
       if (!pid || odProject.hidden) { odMsg.textContent = "Seleziona prima uno Stage Plot."; return; }
       odMsg.textContent = "Preparo il pagamento…";
@@ -913,7 +1117,7 @@
         }).then(function(r){ return r.json().then(function(j){ return { ok: r.ok, j: j }; }); })
           .then(function(o){
             if (!o.ok || !o.j.request_id) { odMsg.textContent = "Errore. Riprova o scrivimi a castellansimone@gmail.com."; return; }
-            location.href = PAY[currentProduct] + "?client_reference_id=" + encodeURIComponent(o.j.request_id) + "&prefilled_email=" + encodeURIComponent(session.user.email || "");
+            vaiAlPagamento(o.j.request_id, session.user.email);
           })
           .catch(function(){ odMsg.textContent = "Errore di rete. Riprova."; });
       });

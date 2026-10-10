@@ -6,6 +6,11 @@ import { sendEmail } from "../_shared/email.ts";
 import { serviceRoleKey, usingLegacyKey } from "../_shared/service-role-key.ts";
 import { buildPaidEmail } from "../_shared/paid-email.ts";
 import {
+  LINK_EMAIL_SECONDI,
+  RIDER_BUCKET,
+  riderPerEmail,
+} from "../_shared/rider-order.ts";
+import {
   nextOutboxAttempt,
   notificationCandidateIsActive,
   outboxBatchHasFailures,
@@ -149,7 +154,7 @@ async function processPaidNotifications(
       .is("share_revoked_at", null)
       .gt("share_expires_at", new Date(nowMs).toISOString())
       .select(
-        "id,name,email,product,amount,share_token,payment_intent_id,notification_attempts",
+        "id,name,email,product,amount,share_token,payment_intent_id,notification_attempts,project_id,senza_progetto,rider_per,event_date,notes,attachments,allegati_rimossi_at",
       )
       .maybeSingle();
     if (claimError) {
@@ -189,12 +194,20 @@ async function processPaidNotifications(
       }
     }
 
+    const rider = await riderPerEmail(claimed, async (path) => {
+      const { data } = await supabase.storage.from(RIDER_BUCKET)
+        .createSignedUrl(path, LINK_EMAIL_SECONDI);
+      return data?.signedUrl ?? null;
+    });
     const { subject, html } = buildPaidEmail({
       name: claimed.name,
       email: claimed.email,
       product: claimed.product,
       amount: claimed.amount,
-      viewUrl: `https://stageplot.it/?view=${claimed.share_token}`,
+      viewUrl: claimed.senza_progetto === true
+        ? null
+        : `https://stageplot.it/?view=${claimed.share_token}`,
+      rider,
     });
     let result: { ok: boolean; status: number };
     try {
