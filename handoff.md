@@ -1,3 +1,20 @@
+# 10/10/2026 — Pagine «alternativa a…»: /alternative/ + Ridermaker, TecRider, Stage Plot Pro (ramo `alternative`, PR da unire)
+
+- 4 pagine statiche nuove nello stile delle guide (`guida/style.css`, un H1, breadcrumb, byline, `callout in-breve`, FAQ visibili =
+  `FAQPage`, `BreadcrumbList` + `Article`/`CollectionPage`): hub `/alternative/` e `/alternative/{ridermaker,tecrider,stage-plot-pro}/`.
+  Fatti SOLO dai profili verificati in `MARKETING/competitor-profiles/` (prove in Chrome del 10/10 per Ridermaker e TecRider,
+  pagine pubbliche per Stage Plot Pro), con la data in ogni tabella. Ricontrollati con curl il 10/10: prezzi Ridermaker (19/29 € anno
+  + IVA, prova 7 giorni) e pagina prezzi/home di stageplotpro.app. ⚠️ Il PDF di stageplot.it ha la riga «Creato con stageplot.it»:
+  le pagine dicono «senza filigrana», MAI «senza marchio». TecRider: «PDF gratis con account gratuito» NON verificato (scritto così).
+- Pubblicità comparativa: niente aggettivi sul concorrente, niente loghi, nota sui marchi in fondo, «non indicato ≠ assente».
+- ⚠️ `alternative` aggiunta all'allowlist rsync di `pages.yml` (senza: 404). Agganci: hub delle guide (sezione «Confronti con altri
+  editor» + footer), footer della home, `guida/stage-plot-in-scala`, `guida/channel-list-input-list`; le 3 pagine si linkano fra loro.
+  `sitemap.xml` (+4, lastmod di home e /guida/ al 10/10), `llms.txt` (sezione «Confronti»). Date in UTC (`date -u +%F` = 2026-10-10).
+- Le pagine sono generate una volta da uno script fuori dal repo: da qui in poi si modificano a mano come le guide.
+- Prove: engines 1398/1398 (2 test nuovi «alternative: …», 9 mutazioni rosse: allowlist, FAQ ld≠visibile, doppio H1, data tolta,
+  riquadro tolto, link dall'hub guide, «fonico», llms); `build.mjs --check` ok; JSON-LD parse ok; server locale 8931: 4 pagine 200,
+  un H1, riquadro presente, tutti i link interni 200. Da rifare ogni 3 mesi: prezzi e lingue dei tre concorrenti.
+
 # 10/10/2026 — Editor: SCALETTA con durate e QR nel PDF verso la versione online (ramo `scaletta-qr`, NON unito)
 
 - Idee dal confronto con TecRider Pro. **Scaletta**: `state.scaletta` = [{tipo brano|intro|pausa|bis|cambio, titolo, durata
