@@ -3475,6 +3475,73 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
   #funzModal .funz-azioni .btn{min-height:44px}
 }
 
+/* ── PROGRAMMA FONDATORI (10/10) ─────────────────────────────────────────────────────────────────
+   La finestra si apre anche dalla finestra dei progetti (#cloudModal, z-index 200): deve starle sopra, sotto il
+   messaggio #cloudToast (210). Con l'id davanti, come #funzModal: `.mcard label` vincerebbe. */
+#fondModal.modal{z-index:205}
+body.cl-open #fondModal.modal{z-index:320}
+#fondModal .fond-card{width:540px;max-width:calc(100vw - 32px)}
+#fondModal h2{margin:0 0 8px}
+#fondModal .fond-intro{margin:0 0 8px;font-size:14px;line-height:1.5;color:var(--text)}
+#fondModal .fond-intro a, #fondModal .fond-nota a, #fondModal .fond-consenso a{color:var(--accent)}
+#fondModal .fond-posti{margin:0 0 10px;font-size:13px;color:var(--text-2)}
+#fondModal .hint{font-size:13px;line-height:1.5;color:var(--text-2);margin:0 0 10px}
+#fondModal .fond-respinta{color:var(--warning)}
+#fondModal .fond-q{display:block;margin:12px 0 5px;font-size:13px;font-weight:600;color:var(--text)}
+#fondModal textarea{display:block;width:100%;box-sizing:border-box;min-height:64px;resize:vertical;font:inherit;font-size:14px;
+  line-height:1.45;padding:8px 10px;border:1px solid var(--border-strong);border-radius:8px;background:var(--surface);color:var(--text)}
+#fondModal .fond-conta{margin:8px 0 4px;font-size:12px;color:var(--text-2)}
+#fondModal .fond-conta.fond-pronto{color:var(--success)}
+#fondModal .fond-tipi{border:0;margin:12px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+#fondModal .fond-tipi legend{padding:0;margin:0 0 6px;font-size:13px;font-weight:600;color:var(--text)}
+#fondModal .fond-tipi legend small{font-weight:400;color:var(--text-3)}
+#fondModal .fond-tipo{display:inline-flex;align-items:center;margin:0;font-size:13px;font-weight:400;color:var(--text);cursor:pointer}
+#fondModal .fond-tipo input{position:absolute;opacity:0;width:1px;height:1px}
+#fondModal .fond-tipo span{display:inline-block;padding:6px 11px;border:1px solid var(--border-strong);border-radius:999px;background:var(--surface)}
+#fondModal .fond-tipo input:checked + span{background:var(--accent-tint);border-color:var(--accent);color:var(--accent-strong);font-weight:600}
+#fondModal .fond-tipo input:focus-visible + span{outline:2px solid var(--accent);outline-offset:2px}
+#fondModal .fond-consenso{display:flex;gap:10px;align-items:center;margin:14px 0 0;font-size:13px;font-weight:400;color:var(--text);cursor:pointer}
+#fondModal .fond-consenso input{margin:0;flex:0 0 auto}
+#fondModal .fond-nome{margin-top:8px}
+#fondModal .fond-nome[hidden]{display:none}
+#fondModal .fond-nome label{display:block;margin:0 0 4px;font-size:12px;font-weight:600;color:var(--text-2)}
+#fondModal .fond-nome input{width:100%;box-sizing:border-box;font:inherit;font-size:14px;padding:7px 10px;border:1px solid var(--border-strong);
+  border-radius:8px;background:var(--surface);color:var(--text)}
+#fondModal .fond-nota{margin:12px 0 0;font-size:12px;line-height:1.4;color:var(--text-3)}
+#fondModal .fond-msg{margin:10px 0 0;font-size:13px;color:var(--danger)}
+#fondModal .fond-stato{margin:6px 0 10px}
+#fondModal .fond-azioni{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+/* il badge: nell'account e nella finestra. Teal pieno = fondatore; contorno = in attesa */
+.fond-badge{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;font:600 12px/1.4 var(--font-ui);
+  border:1px solid var(--accent);background:var(--surface);color:var(--accent-strong);cursor:pointer}
+.fond-badge::before{content:"★";font-size:11px}
+.fond-badge.fond-ok{background:var(--accent);color:#fff}
+.fond-acc{margin:10px 0 8px;text-align:center}
+.fond-acc-nota{margin-top:4px;font-size:12px;color:var(--text-2)}
+.fond-acc-nota a{font-size:12px}
+#fondModal .fond-punti{margin:0 0 6px;font-size:14px;color:var(--text)}
+#fondModal .fond-tipi-elenco{list-style:none;margin:0;padding:0;border:1px solid var(--border);border-radius:10px}
+#fondModal .fond-tipi-elenco li{display:flex;justify-content:space-between;gap:12px;padding:8px 12px;font-size:13px;color:var(--text);border-bottom:1px solid var(--n-100)}
+#fondModal .fond-tipi-elenco li:last-child{border-bottom:0}
+#fondModal .fond-tipi-elenco li b{white-space:nowrap;font-weight:600;color:var(--text-2)}
+#fondModal .fond-tipi-elenco li.fond-fatto span{color:var(--success)}
+body.dark #fondModal .fond-tipi-elenco li{border-bottom-color:#2a3138}
+.fond-acc a{color:var(--accent);font-size:13px;font-weight:600;text-decoration:none}
+.fond-acc a:hover{text-decoration:underline}
+#fbBox .fb-fond{margin:8px 2px 0;font-size:11px;line-height:1.4;color:var(--text-2)}
+#fbBox .fb-fond a{color:var(--accent);font-weight:600;text-decoration:none}
+#fbBox .fb-fond a:hover{text-decoration:underline}
+body.dark #fondModal .fond-tipo input:checked + span{background:#13202a;color:#5eb8c7}
+@media (max-width:880px){
+  #fondModal .fond-azioni .btn{min-height:44px}
+  #fondModal .fond-tipo span{display:inline-flex;align-items:center;min-height:44px;padding:0 14px;box-sizing:border-box}
+  #fondModal .fond-consenso{min-height:44px}
+  #fondModal textarea{font-size:16px}   /* sotto i 16 px iOS ingrandisce la pagina al tocco */
+  #fondModal .fond-nome input{font-size:16px;min-height:44px}
+  .fond-acc a, .fond-badge{display:inline-flex;align-items:center;min-height:44px}
+  #fbBox .fb-fond a{display:inline-block;padding:6px 0}
+}
+
 /* ── ANTEPRIME DEI MODELLI, nella finestra «Nuovo» (16/09) ──────────────────────────────────────────
    Con l'id davanti: `.wl-mods` (flex, pastiglie) vale anche qui e altrimenti vincerebbe. */
 #mpMods.mp-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}

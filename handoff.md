@@ -1,3 +1,34 @@
+# 10/10/2026 — Programma Fondatori, a ondate e A PUNTI (ramo `fondatori`, PR #284, NON unito; 0080 NON in produzione)
+
+- Terzo passaggio di Simone (10/10): si diventa fondatori CONTRIBUENDO. `fondatori_tipi_contributo` (feedback 3, segnalazione
+  3, proposta 5, prova 4, recensione 3, invito 3, contenuto 3: configurabili nel DB) e `fondatori_contributi` (registro: tipo,
+  punti copiati, nota, data, assegnato_da; scrive solo il servizio, l'utente legge i propri). Soglia per ondata in
+  `fondatori_ondate` (1: 10 punti e 2 tipi diversi; 2: null = da decidere). Il trigger `fondatori_controlla_approvazione`
+  rifiuta un'approvazione sotto soglia anche dal servizio. Il modulo è il primo contributo: `fondatori_accetta_feedback`.
+  Script: `accetta`, `punti <utente> <tipo> "nota"`, `stato <utente>`, `tipi`, `soglia-ondata`; `approva` solo a soglia.
+- Editor: `fondPunti`/`fondMancano`, badge «Candidatura fondatore · N su 10 punti», nell'account e nel modulo punti, tipi fatti,
+  cosa manca e «Come contribuire» (tipi e punti DAL SERVER, mai scritti nel client). Pagina: tabella dei contributi (uguale al
+  seme della 0080, un test le confronta) e soglia. Prove: engines 1406, RLS 253 (rls-fondatori 14), mutazioni rosse.
+- ⚠️ La porta 8931 il 10/10 sera era occupata dal worktree `alternative`: l'ultima prova nel browser è sulla 8947.
+
+
+- Decisioni di Simone (10/10): i primi 100 approvati («Fondatore», ondata 1) = accesso a vita a tutte le funzioni software,
+  consulenza esclusa. Ondata 2 «Early adopter» = numeri 101–200, condizioni agevolate DA DEFINIRE (nessun prezzo scritto),
+  chiusa. Si entra con un feedback (3 domande, almeno 2 risposte piene: ≥ 30 caratteri e ≥ 5 parole, diverse fra loro),
+  con l'accesso Google; Simone approva a mano con `COWORK/STAGEPLOT/ops/fondatori.sh` (fuori dal repo).
+- 0080: `fondatori_ondate` (nome, dal–al, aperta; exclude contro le sovrapposizioni) + `fondatori_richieste` (RLS: inserisce
+  e legge solo le sue, insert solo sulle colonne delle risposte/tipo/nome; tetto per ondata = numero unico + trigger
+  `fondatori_numero_nell_ondata`). `fondatori_approva` (prima ondata aperta con posto libero, altrimenti resta in attesa),
+  `fondatori_respingi`, `fondatori_ondata_apri`, `fondatori_lista` = solo servizio; `fondatori_pubblico()` = posti dell'ondata
+  aperta, ondate, nomi con consenso. Purga: respinte dopo 12 mesi. `bgl_account_solo_biglietteria` guarda anche questa tabella.
+- Editor: modulo `fondApri` (finestra `#fondModal`, z 205 sopra «I tuoi progetti»), ingressi `data-fond="apri"` nel box
+  «Cosa manca?», nella finestra dell'account (badge «Fondatore n. X» / «in attesa di approvazione») e nella riga dopo l'export,
+  che ora ALTERNA consulenza e fondatori (`rigaDopoExport`, `sp_riga_export`; primo export = consulenza come prima; invito
+  solo senza richieste e con posti). `/app/?fondatori=1` apre il modulo. Ponte `window.__fondCloud`.
+- Pagina `/fondatori/` (noindex, fuori sitemap, nell'allowlist di pages.yml), privacy §10, termini §11.
+- Prove: engines 1395, RLS 251 (rls-fondatori 12, tetto per ondata in transazione annullata), node 124, bgl 148, Deno 191,
+  collaudo 30/30; 6 mutazioni editor + 2 sabotaggi DB tutti rossi. Browser 8931 con ponte finto (computer e 402 px).
+
 # 10/10/2026 — Editor: SCALETTA con durate e QR nel PDF verso la versione online (ramo `scaletta-qr`, NON unito)
 
 - Idee dal confronto con TecRider Pro. **Scaletta**: `state.scaletta` = [{tipo brano|intro|pausa|bis|cambio, titolo, durata
