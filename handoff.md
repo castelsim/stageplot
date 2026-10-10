@@ -1,4 +1,16 @@
-# 10/10/2026 — Programma Fondatori, a ondate (ramo `fondatori`, PR aperta, NON unito; migrazione 0080 NON in produzione)
+# 10/10/2026 — Programma Fondatori, a ondate e A PUNTI (ramo `fondatori`, PR #284, NON unito; 0080 NON in produzione)
+
+- Terzo passaggio di Simone (10/10): si diventa fondatori CONTRIBUENDO. `fondatori_tipi_contributo` (feedback 3, segnalazione
+  3, proposta 5, prova 4, recensione 3, invito 3, contenuto 3: configurabili nel DB) e `fondatori_contributi` (registro: tipo,
+  punti copiati, nota, data, assegnato_da; scrive solo il servizio, l'utente legge i propri). Soglia per ondata in
+  `fondatori_ondate` (1: 10 punti e 2 tipi diversi; 2: null = da decidere). Il trigger `fondatori_controlla_approvazione`
+  rifiuta un'approvazione sotto soglia anche dal servizio. Il modulo è il primo contributo: `fondatori_accetta_feedback`.
+  Script: `accetta`, `punti <utente> <tipo> "nota"`, `stato <utente>`, `tipi`, `soglia-ondata`; `approva` solo a soglia.
+- Editor: `fondPunti`/`fondMancano`, badge «Candidatura fondatore · N su 10 punti», nell'account e nel modulo punti, tipi fatti,
+  cosa manca e «Come contribuire» (tipi e punti DAL SERVER, mai scritti nel client). Pagina: tabella dei contributi (uguale al
+  seme della 0080, un test le confronta) e soglia. Prove: engines 1406, RLS 253 (rls-fondatori 14), mutazioni rosse.
+- ⚠️ La porta 8931 il 10/10 sera era occupata dal worktree `alternative`: l'ultima prova nel browser è sulla 8947.
+
 
 - Decisioni di Simone (10/10): i primi 100 approvati («Fondatore», ondata 1) = accesso a vita a tutte le funzioni software,
   consulenza esclusa. Ondata 2 «Early adopter» = numeri 101–200, condizioni agevolate DA DEFINIRE (nessun prezzo scritto),

@@ -55,6 +55,19 @@
     }
     if (barra && o) { barra.style.width = ((tot - n) / tot * 100) + "%"; barra.parentNode.hidden = false;
       barra.parentNode.setAttribute("aria-valuemax", String(tot)); barra.parentNode.setAttribute("aria-valuenow", String(tot - n)); }
+    /* tipi, punti e soglia dal database (la tabella scritta in pagina è la stessa, per chi non ha lo script) */
+    var corpo = document.getElementById("tipiCorpo");
+    if (corpo && Array.isArray(d.tipi) && d.tipi.length) {
+      corpo.textContent = "";
+      d.tipi.forEach(function (t) {
+        if (!t || typeof t.nome !== "string") return;
+        var tr = document.createElement("tr"), a = document.createElement("td"), b = document.createElement("td");
+        a.textContent = t.nome; b.textContent = String(t.punti); tr.appendChild(a); tr.appendChild(b); corpo.appendChild(tr);
+      });
+    }
+    var sog = document.getElementById("sogliaTesto");
+    if (sog && o && typeof o.soglia_punti === "number" && typeof o.soglia_tipi === "number")
+      sog.textContent = o.soglia_punti + " punti con almeno " + o.soglia_tipi + " tipi di contributo diversi";
     var nomi = Array.isArray(d.nomi) ? d.nomi.filter(function (x) { return x && typeof x.nome === "string" && x.nome; }) : [];
     if (!elenco) return;
     elenco.textContent = "";
