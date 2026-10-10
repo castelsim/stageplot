@@ -12699,7 +12699,7 @@ t("la privacy racconta i conteggi, e la data lo dice", () => {
   ok(/aggregat/i.test(p) && /nessun cookie/i.test(p), "dice che sono aggregati e senza cookie");
   ok(/Do Not Track/.test(p), "dichiara il rispetto del Do Not Track");
   ok(/impronta anonima \(hash\) dell'indirizzo IP/.test(p), "dichiara l'impronta dell'IP per il rate limit");
-  ok(/Ultimo aggiornamento: 9 ottobre 2026/.test(p), "la data dell'ultimo aggiornamento è quella giusta (09/10: sezione 9, Analisi vocale)");
+  ok(/Ultimo aggiornamento: 10 ottobre 2026/.test(p), "la data dell'ultimo aggiornamento è quella giusta (10/10: allegati del Rider pronto)");
   ok(/id="voce"/.test(p) && /L'audio resta sul tuo computer/.test(p), "c'è la sezione Analisi vocale: l'audio non lascia il computer");
   ok(!/senza accesso non si attivano autenticazione, salvataggio cloud o statistiche d'uso/.test(p),
     "la frase che ora sarebbe falsa non c'è più");

@@ -1,3 +1,34 @@
+# 10/10/2026 — Consulenza «Rider pronto» SENZA progetto: allegati + descrizione (ramo `rider-senza-progetto`, NON unito)
+
+- Solo per `rider-pronto` la richiesta nasce senza progetto: nel riquadro dell'ordine «Mandaci quello che hai…», fino a 8 file
+  da 10 MB (PDF, Word doc/docx/odt, Excel xls/xlsx, foto jpg/png/webp/heic/heif; tipo deciso dall'ESTENSIONE, il browser a
+  volte manda tipo vuoto), descrizione, per chi, data, nome ed email di consegna (dall'account, modificabili). Chi ha progetti
+  può sceglierne uno (facoltativo). Accesso Google ancora obbligatorio (barriera anti-abuso: 10 richieste non pagate/giorno).
+  Gli altri due livelli: progetto obbligatorio come prima, il modulo del rider è rifiutato (400).
+- Catena: `create-consultation` (regole pure in `_shared/rider-order.ts`) crea la richiesta (`senza_progetto=true`, `notes`,
+  `rider_per`, `event_date`, `attachments` con percorsi `rider/<id>/<n>-<nome-pulito>.<ext>` decisi dal server) e un link
+  firmato di caricamento per file → il browser carica (`uploadToSignedUrl`) → Payment Link con `client_reference_id`
+  (invariato) → `stripe-webhook` → mail a Simone con descrizione e link firmati a 7 giorni (niente «Link vivo» senza
+  progetto). Stessa mail dal worker `process-consultation-notifications`.
+- Migrazione **0081** (additiva; 0080 è di `fondatori`): colonne, vincolo «senza_progetto solo rider-pronto e project_id
+  nullo», tipi nuovi del bucket privato `consultation-uploads` (0001), `stageplot_associate_consultation_payment` = 0029 + il
+  ramo senza progetto (un test controlla che contenga ogni riga della 0029), retention `stageplot_rider_allegati_scaduti` /
+  `_dimentica` (7 giorni non pagate, 90 dal pagamento) chiamate da `retention-purge`, e i grant a service_role che in
+  produzione ci sono già (differenza fra ambienti, come 0062). ⚠️ `senza_progetto` NON si deduce da project_id nullo: la
+  FK è «set null», una consulenza col progetto cancellato deve restare `project_unavailable`.
+- Nessuna policy su storage.objects per quel bucket: né anonimo né account (nemmeno chi ha caricato) leggono o elencano.
+- Privacy: allegati (tipi), progetto facoltativo per il Rider pronto, cancellazione 90/7 giorni; data 10/10.
+- `PAY["rider-pronto"]` resta vuoto: senza link la card non si vede e `pay()` non crea richieste.
+- Messa online, in ordine: `supabase db push` (0081; se `fondatori` 0080 non è ancora in produzione serve `--include-all`
+  dopo, o unire prima fondatori) → deploy `create-consultation`, `stripe-webhook`, `process-consultation-notifications`,
+  `retention-purge` → merge (pagina e privacy). La funzione `retention-purge` PRIMA della migrazione fallirebbe (rpc mancante).
+- Prove: `test/consulenza-rider.test.mjs` (liste dei tipi uguali in pagina/server/bucket, limiti, 0029⊂0081, link vuoto),
+  `_shared/rider-order.test.ts` (10), `orchestre/test/rls-consulenza-rider.test.mjs` (vincoli, associazione, privacy dei file,
+  retention), `test/e2e-consulenza/prova-rider.mjs` (125 controlli; Edge Function con Deno su porte proprie via `funzione.ts`,
+  Resend intercettato, Stripe finto con evento firmato; Chromium/WebKit × telefono/computer; `PULIZIA_VERA=1` solo su stack non
+  condiviso). Mutazioni: 19 codice + 13 database/storage + 6 catena nel browser, tutte rosse. Stack locale ricreato con
+  `db reset --local` (poi 0080 di fondatori riapplicata a mano e registrata, come prima).
+
 # 10/10/2026 — Pagine «alternativa a…»: /alternative/ + Ridermaker, TecRider, Stage Plot Pro (ramo `alternative`, PR da unire)
 
 - 4 pagine statiche nuove nello stile delle guide (`guida/style.css`, un H1, breadcrumb, byline, `callout in-breve`, FAQ visibili =

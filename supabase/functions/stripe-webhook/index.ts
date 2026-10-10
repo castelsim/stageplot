@@ -5,6 +5,11 @@ import {
   type SupabaseClient,
 } from "jsr:@supabase/supabase-js@2.108.2";
 import { buildPaidEmail } from "../_shared/paid-email.ts";
+import {
+  LINK_EMAIL_SECONDI,
+  RIDER_BUCKET,
+  riderPerEmail,
+} from "../_shared/rider-order.ts";
 import { sendEmail } from "../_shared/email.ts";
 import {
   nextOutboxAttempt,
@@ -774,7 +779,9 @@ Deno.serve(async (req) => {
     .in("status", ["paid", "in_progress", "completed"])
     .is("share_revoked_at", null)
     .gt("share_expires_at", claimTime)
-    .select("name,email,product,amount,share_token,notification_attempts")
+    .select(
+      "id,name,email,product,amount,share_token,notification_attempts,project_id,senza_progetto,rider_per,event_date,notes,attachments,allegati_rimossi_at",
+    )
     .maybeSingle();
   if (claimError) {
     console.error("claim notifica fallito:", claimError.message);
@@ -806,12 +813,21 @@ Deno.serve(async (req) => {
   });
   if (preNotificationLifecycle) return preNotificationLifecycle;
 
+  /* Rider pronto: descrizione e link firmati (7 giorni) agli allegati. Senza progetto non c'è un link vivo da aprire. */
+  const rider = await riderPerEmail(claimed, async (path) => {
+    const { data } = await supabase.storage.from(RIDER_BUCKET)
+      .createSignedUrl(path, LINK_EMAIL_SECONDI);
+    return data?.signedUrl ?? null;
+  });
   const { subject, html } = buildPaidEmail({
     name: claimed.name,
     email: claimed.email,
     product: claimed.product,
     amount: claimed.amount,
-    viewUrl: `https://stageplot.it/?view=${claimed.share_token}`,
+    viewUrl: claimed.senza_progetto === true
+      ? null
+      : `https://stageplot.it/?view=${claimed.share_token}`,
+    rider,
   });
   let mailResult: { ok: boolean; status: number };
   try {
