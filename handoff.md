@@ -1,3 +1,9 @@
+# 10/10/2026 — Snippet X32/M32: non azzera più il gain (ramo `x32-gain`, NON unito)
+
+- Difetto: lo snippet scriveva `/headamp/NNN +0.0 ON|OFF`; nei file reali quel comando porta GAIN e phantom insieme (`/headamp/000 +0.0 OFF`), quindi caricarlo riportava a 0 dB il gain di ogni canale. Tolte TUTTE le righe `/headamp`: il 48V non si imposta più dallo snippet (resta nella Channel list).
+- Anche `/ch/NN/config "nome" icona colore SORGENTE` sovrascriveva la sorgente (routing) e l'icona. Ora due righe separate per canale: `/ch/NN/config/name "..."` e `/ch/NN/config/color XX`. ⚠️ Questa forma separata NON è provata su un banco vero (i file reali la usano per altri nodi annidati, es. `/config/talk/A`): da provare su X32-Edit/console prima di fidarsi; se non fosse accettata, il danno è «non cambia niente». Alternativa verificata ma meno prudente: riga `config` completa (tocca sorgente e icona).
+- Testi del selettore Esporta riscritti: «NON tocca guadagni, 48V, sorgenti, icone». Test `lo snippet X32/M32 scrive solo nome e colore…` + 2 mutazioni rosse (riga headamp rimessa; riga config completa rimessa).
+
 # 10/10/2026 — Pagine «alternativa a…»: /alternative/ + Ridermaker, TecRider, Stage Plot Pro (ramo `alternative`, PR da unire)
 
 - 4 pagine statiche nuove nello stile delle guide (`guida/style.css`, un H1, breadcrumb, byline, `callout in-breve`, FAQ visibili =
