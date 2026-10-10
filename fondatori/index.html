@@ -47,6 +47,10 @@
     ul, ol{ padding-left:22px; }
     li{ margin:6px 0; }
     .domande li{ font-weight:600; }
+    table.tipi{ width:100%; border-collapse:collapse; font-size:15px; margin:8px 0 0; }
+    table.tipi th, table.tipi td{ text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
+    table.tipi th{ font-size:13px; color:var(--muted); font-weight:600; }
+    table.tipi td:last-child, table.tipi th:last-child{ text-align:right; white-space:nowrap; font-weight:700; }
     .nota{ color:var(--muted); font-size:15px; }
     .termini{ border-top:1px solid var(--line); margin-top:48px; padding-top:8px; font-size:15px; }
     .termini h2{ margin-top:28px; }
@@ -66,7 +70,7 @@
   <main class="wrap">
     <p class="eyebrow">Programma Fondatori</p>
     <h1>I primi 100 fondatori di StagePlot</h1>
-    <p class="lead">Chi usa StagePlot su un progetto vero e ci dice con sincerità cosa non va ottiene <strong>l'accesso a vita a tutte le funzioni di StagePlot</strong>, anche quelle che arriveranno e anche se un giorno diventeranno a pagamento. I posti sono 100, e ogni richiesta la legge e la approva Simone, a mano.</p>
+    <p class="lead">Chi usa StagePlot su un progetto vero e <strong>contribuisce</strong> a farlo crescere (un parere sincero, una segnalazione, una proposta, una prova insieme) ottiene <strong>l'accesso a vita a tutte le funzioni di StagePlot</strong>, anche quelle che arriveranno e anche se un giorno diventeranno a pagamento. I posti sono 100, e ogni richiesta la approva Simone, a mano.</p>
 
     <div class="posti" aria-live="polite">
       <p id="posti">Sto leggendo i posti rimasti…</p>
@@ -85,21 +89,36 @@
     <p>La <a href="/consulenza/">consulenza</a>: la revisione di un progetto, «Rider pronto» e ogni altro lavoro che Simone fa a mano sul tuo caso. Sono servizi personali, non funzioni del software, e restano a pagamento anche per i fondatori.</p>
 
     <h2>Come si partecipa</h2>
+    <p>Si diventa fondatori <strong>contribuendo</strong>. Ogni contributo confermato vale dei punti; quando arrivi alla soglia, <strong><span id="sogliaTesto">10 punti con almeno 2 tipi di contributo diversi</span></strong>, Simone valuta la tua richiesta e la approva a mano.</p>
     <ol>
       <li>Usa StagePlot su un progetto vero: un concerto, una data, una produzione.</li>
-      <li>Accedi con Google: lo stato di fondatore resta legato al tuo account.</li>
-      <li>Apri «Diventa fondatore»: lo trovi nel box «Cosa manca?», nella finestra del tuo account e, ogni tanto, dopo un export del PDF.</li>
-      <li>Rispondi a tre domande:
+      <li>Accedi con Google: punti e stato di fondatore restano legati al tuo account.</li>
+      <li>Il primo contributo è il modulo «Diventa fondatore», che trovi nel box «Cosa manca?», nella finestra del tuo account e, ogni tanto, dopo un export del PDF. Sono tre domande:
         <ol class="domande">
           <li>Cosa ti ha fatto perdere tempo?</li>
           <li>Cosa manca perché tu lo possa mandare al service o al locale?</li>
           <li>Lo useresti per il tuo prossimo concerto? Perché?</li>
         </ol>
-        Bastano due risposte, con qualche frase vera (almeno 30 caratteri e 5 parole ciascuna, diverse fra loro): «bello, bravo» non ci aiuta a migliorare. Le critiche sono benvenute quanto i complimenti.
+        Bastano due risposte, con qualche frase vera (almeno 30 caratteri e 5 parole ciascuna, diverse fra loro): «bello, bravo» non ci aiuta a migliorare. Le critiche sono benvenute quanto i complimenti. Quando Simone le accetta valgono come «feedback completo».
       </li>
-      <li>Simone legge ogni richiesta e la approva a mano. Finché è in attesa, nel tuo account vedi «in attesa di approvazione»; quando è approvata, il tuo numero di fondatore.</li>
+      <li>Poi gli altri contributi, ognuno con i suoi punti (elenco qui sotto). I punti li assegna Simone quando il contributo è confermato.</li>
+      <li>Nel tuo account vedi i punti, i tipi di contributo già fatti e quanto manca alla soglia. Raggiunta la soglia, se c'è posto, Simone approva la richiesta e compare il tuo numero di fondatore.</li>
     </ol>
-    <p class="nota">Una sola richiesta attiva per account. Se una richiesta non viene approvata, se ne può mandare un'altra, fino a tre in tutto.</p>
+
+    <h2 id="contributi">I modi di contribuire</h2>
+    <table class="tipi">
+      <thead><tr><th>Contributo</th><th>Punti</th></tr></thead>
+      <tbody id="tipiCorpo">
+        <tr><td>Feedback completo (le tre domande)</td><td>3</td></tr>
+        <tr><td>Segnalazione di un problema riprodotto e confermato</td><td>3</td></tr>
+        <tr><td>Proposta accolta e realizzata</td><td>5</td></tr>
+        <tr><td>Prova guidata o intervista</td><td>4</td></tr>
+        <tr><td>Recensione pubblica</td><td>3</td></tr>
+        <tr><td>Porta un utente che usa StagePlot davvero</td><td>3</td></tr>
+        <tr><td>Contenuto utile (foto di un palco vero, un esempio, una correzione)</td><td>3</td></tr>
+      </tbody>
+    </table>
+    <p class="nota">Un esempio: feedback completo (3) + una proposta accolta (5) + una segnalazione confermata (3) = 11 punti di tre tipi diversi. Dieci punti di un solo tipo non bastano: contano anche i tipi diversi. Una sola richiesta attiva per account; se una richiesta non viene approvata, se ne può mandare un'altra, fino a tre in tutto.</p>
 
     <h2>Perché solo 100, e perché a mano</h2>
     <p>Ci servono pareri di chi ha usato StagePlot per lavoro, non un numero di iscritti. Cento persone che raccontano dove si sono fermate valgono più di mille clic. Il numero si assegna al momento dell'approvazione, in ordine; quando i 100 posti sono assegnati la prima ondata si chiude. Il limite lo controlla il database, non solo questa pagina.</p>
@@ -118,8 +137,8 @@
       <h2>Termini del programma</h2>
       <ol>
         <li><strong>Chi lo promuove.</strong> Simone Castellan, titolare di stageplot.it (vedi i <a href="/termini/">termini d'uso</a>).</li>
-        <li><strong>Partecipazione.</strong> Gratuita, con un account Google. Una richiesta attiva per account, al massimo tre richieste in tutto.</li>
-        <li><strong>Approvazione.</strong> Ogni richiesta è valutata a mano. Possono non essere approvate le richieste con risposte generiche, copiate o non legate a un uso reale di StagePlot.</li>
+        <li><strong>Partecipazione.</strong> Gratuita, con un account Google. Si partecipa contribuendo: ogni contributo confermato vale i punti indicati in <a href="#contributi">questa tabella</a>, assegnati da Simone. Una richiesta attiva per account, al massimo tre richieste in tutto.</li>
+        <li><strong>Soglia e approvazione.</strong> Per la prima ondata servono 10 punti con almeno 2 tipi di contributo diversi; la soglia delle ondate successive sarà indicata qui prima che si aprano. Raggiunta la soglia, ogni richiesta è valutata a mano: possono non essere approvate le richieste con contributi generici, copiati o non legati a un uso reale di StagePlot. Tipi e punti possono cambiare per il futuro; i punti già assegnati restano.</li>
         <li><strong>Posti e ondate.</strong> Il programma procede a ondate. La prima, «Fondatori», ha al massimo 100 approvati, con i numeri da 1 a 100; la seconda, «Early adopter», i numeri da 101 a 200, con condizioni agevolate che saranno descritte qui prima che si apra. Il numero si assegna all'approvazione, in ordine, nell'ondata aperta in quel momento.</li>
         <li><strong>Cosa si ottiene.</strong> I fondatori della prima ondata: accesso, senza costi, a tutte le funzioni software di stageplot.it, presenti e future, anche se diventeranno a pagamento, per tutta la durata del servizio.</li>
         <li><strong>Esclusioni.</strong> La consulenza e ogni servizio personale (revisioni, «Rider pronto», lavori su misura) resta a pagamento.</li>

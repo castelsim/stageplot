@@ -19410,7 +19410,14 @@ t("fondatori: la soglia e le ondate sono le STESSE nell'editor e nella migrazion
   ok(new RegExp("string_to_array\\(public\\.fondatori_norm\\(t\\), ' '\\), 1\\), 0\\) >= " + A.FONDATORI_SOGLIA.parole).test(migFond), "le parole nel database");
   ok(new RegExp("count\\(distinct lower\\(public\\.fondatori_norm\\(x\\)\\)\\) >= " + A.FONDATORI_SOGLIA.risposte).test(migFond), "le risposte nel database");
   /* le ondate di partenza: quelle che l'editor conosce prima che il server risponda sono quelle che la 0080 crea */
-  const semi = [...migFond.matchAll(/\((\d+), '([^']+)', (\d+), (\d+), (true|false)\)/g)].map((m) => [+m[1], m[2], +m[4] - +m[3] + 1, m[5] === "true", +m[3]]);
+  const semi = [...migFond.matchAll(/\((\d+), '([^']+)', (\d+), (\d+), (true|false), (\d+|null), (\d+|null)\)/g)]
+    .map((m) => [+m[1], m[2], +m[4] - +m[3] + 1, m[5] === "true", +m[3]]);
+  const soglie = [...migFond.matchAll(/\((\d+), '([^']+)', (\d+), (\d+), (true|false), (\d+|null), (\d+|null)\)/g)].map((m) => [m[6], m[7]]);
+  eq(soglie, [["10", "2"], ["null", "null"]], "soglia dell'ondata 1: 10 punti e 2 tipi; ondata 2 da decidere");
+  /* tipi e punti stanno nel database: nell'editor nessun elenco scritto a mano */
+  const tipiDb = [...migFond.matchAll(/\('([a-z_]+)',\s*'([^']+)',\s+(\d+), \d+\)/g)].map((m) => [m[1], +m[3]]);
+  eq(tipiDb, [["feedback", 3], ["segnalazione", 3], ["proposta", 5], ["prova", 4], ["recensione", 3], ["invito", 3], ["contenuto", 3]], "i tipi di partenza");
+  ok(!/Proposta accolta|Recensione pubblica|Prova guidata/.test(appjs), "i nomi dei tipi non sono nel client: arrivano dal server");
   eq(semi, [[1, "Fondatore", 100, true, 1], [2, "Early adopter", 100, false, 101]], "ondata 1 aperta (1–100), ondata 2 chiusa (101–200)");
   eq(JSON.parse(JSON.stringify(A.FONDATORI_ONDATE)).map((o) => [o.numero, o.nome, o.posti]), semi.map((x) => x.slice(0, 3)));
   eq(semi[0][2], A.FONDATORI_TETTO, "«i primi 100» dei testi = i posti dell'ondata 1");
@@ -19475,11 +19482,11 @@ t("fondatori: lo stato nell'account — «in attesa di approvazione» o «Fondat
   const u = { id: "u1" };
   ok(/Fondatore n\. 7/.test(A.fondRigaAccount({ uid: "u1", richiesta: { stato: "approvato", numero_fondatore: 7 }, posti: 0 }, u)), "il badge resta anche a posti finiti");
   ok(/in attesa di approvazione/.test(A.fondRigaAccount({ uid: "u1", richiesta: { stato: "in_attesa" }, posti: 10 }, u)));
-  ok(/Diventa fondatore/.test(A.fondRigaAccount({ uid: "u1", richiesta: null, posti: 10 }, u)), "senza richiesta: l'ingresso");
-  ok(/Diventa fondatore/.test(A.fondRigaAccount({ uid: "u1", richiesta: { stato: "respinto" }, posti: 10 }, u)), "respinta: si può riprovare dal menu");
+  ok(/diventa fondatore/i.test(A.fondRigaAccount({ uid: "u1", richiesta: null, posti: 10 }, u)), "senza richiesta: l'ingresso");
+  ok(/diventa fondatore/i.test(A.fondRigaAccount({ uid: "u1", richiesta: { stato: "respinto" }, posti: 10 }, u)), "respinta: si può riprovare dal menu");
   eq(A.fondRigaAccount({ uid: "u1", richiesta: null, posti: 0 }, u), "", "posti finiti e nessuna richiesta: niente");
   eq(A.fondRigaAccount({ uid: null, richiesta: undefined, posti: 10 }, u), "", "risposta non arrivata: niente invito a chi magari è già fondatore");
-  ok(/Diventa fondatore/.test(A.fondRigaAccount({ uid: null, richiesta: undefined, posti: null }, null)), "senza account: l'ingresso c'è");
+  ok(/diventa fondatore/i.test(A.fondRigaAccount({ uid: null, richiesta: undefined, posti: null }, null)), "senza account: l'ingresso c'è");
   ok(!/<script/i.test(A.fondRigaAccount({ uid: "u1", richiesta: { stato: "approvato", numero_fondatore: "<script>" }, posti: 1 }, u)), "il testo passa da esc");
 });
 
@@ -19494,6 +19501,28 @@ t("fondatori: i dati da mandare — nome pubblico solo con il consenso, tipo sol
   ok(/grant insert \(risposta_tempo, risposta_manca, risposta_prossimo, tipo_utente, nome_pubblico, consenso_nome\)/.test(migFond), "e sono quelle della 0080");
 });
 
+t("fondatori: la soglia a punti nell'account — 10 punti di un tipo solo non bastano, due tipi sì; cosa manca", () => {
+  const o1 = { numero: 1, soglia_punti: 10, soglia_tipi: 2 };
+  const c = (tipo, punti) => ({ tipo, punti });
+  const unTipo = A.fondPunti([c("proposta", 5), c("proposta", 5)], o1);
+  eq([unTipo.punti, unTipo.tipi, unTipo.ok, unTipo.mancaPunti, unTipo.mancaTipi], [10, 1, false, 0, 1], "10 punti, un tipo: no");
+  eq(A.fondMancano(unTipo), "Manca 1 tipo di contributo diverso.");
+  const dueTipi = A.fondPunti([c("feedback", 3), c("proposta", 5), c("segnalazione", 3)], o1);
+  eq([dueTipi.punti, dueTipi.tipi, dueTipi.ok, JSON.parse(JSON.stringify(dueTipi.fatti))], [11, 3, true, ["feedback", "proposta", "segnalazione"]], "11 punti, 3 tipi: sì");
+  ok(/Simone/.test(A.fondMancano(dueTipi)), "a soglia raggiunta decide Simone");
+  const poco = A.fondPunti([c("feedback", 3)], o1);
+  eq([poco.mancaPunti, poco.mancaTipi, A.fondMancano(poco)], [7, 1, "Mancano 7 punti e 1 tipo di contributo diverso."]);
+  const daDecidere = A.fondPunti([c("feedback", 3), c("proposta", 5), c("prova", 4)], { numero: 2, soglia_punti: null, soglia_tipi: null });
+  eq([daDecidere.ok, daDecidere.mancaPunti, A.fondMancano(daDecidere)], [false, null, ""], "soglia da decidere: mai «ok», e nessun numero inventato");
+  eq(A.fondPunti(null, null).punti, 0);
+  eq(A.fondPunti([c("prova", "x"), null, { punti: 4 }], o1).punti, 0, "righe strane non contano");
+  /* il badge di chi è sotto la soglia dice a che punto è */
+  eq(A.fondBadge({ stato: "in_attesa" }, null, poco).testo, "Candidatura fondatore · 3 su 10 punti");
+  ok(/in attesa di approvazione/.test(A.fondBadge({ stato: "in_attesa" }, null, dueTipi).testo), "a soglia raggiunta: in attesa di approvazione");
+  const riga = A.fondRigaAccount({ uid: "u1", richiesta: { stato: "in_attesa" }, contributi: [c("feedback", 3)], ondata: o1, posti: 50 }, { id: "u1" });
+  ok(/3 su 10 punti/.test(riga) && /Mancano 7 punti/.test(riga) && /Come contribuire/.test(riga), "nell'account: punti, cosa manca, come contribuire: " + riga);
+});
+
 ta("fondatori: fondAggiorna legge posti e richiesta dal ponte, e scarta la risposta se nel frattempo è cambiato l'account", async () => {
   const salvo = JSON.parse(JSON.stringify(A.FOND));
   try {
@@ -19501,10 +19530,10 @@ ta("fondatori: fondAggiorna legge posti e richiesta dal ponte, e scarta la rispo
     let chi = { id: "u1" };
     const ponte = { utente: () => chi, pubblico: () => Promise.resolve({ data: { posti_rimasti: 37, nomi: ["Una band"],
         ondata: { numero: 1, nome: "Fondatore", posti: 100 }, ondate: [{ numero: 1, nome: "Fondatore" }, { numero: 2, nome: "Early adopter" }] }, error: null }),
-      mia: () => Promise.resolve({ data: { stato: "in_attesa" }, error: null }) };
+      mia: () => Promise.resolve({ data: { stato: "in_attesa" }, contributi: [{ tipo: "feedback", punti: 3 }], error: null }) };
     await A.fondAggiorna(ponte);
-    eq([A.FOND.posti, A.FOND.nomi, A.FOND.uid, A.FOND.richiesta && A.FOND.richiesta.stato, A.FOND.ondata.numero, A.FOND.ondate.length],
-      [37, ["Una band"], "u1", "in_attesa", 1, 2], "posti dell'ondata aperta, le ondate, la richiesta");
+    eq([A.FOND.posti, A.FOND.nomi, A.FOND.uid, A.FOND.richiesta && A.FOND.richiesta.stato, A.FOND.ondata.numero, A.FOND.ondate.length, A.FOND.contributi.length],
+      [37, ["Una band"], "u1", "in_attesa", 1, 2, 1], "posti dell'ondata aperta, le ondate, la richiesta, i contributi");
     eq(A.fondInvitoPossibile(A.FOND, chi), false, "in attesa: dopo l'export nessun invito");
     /* nuovo account; la risposta arriva quando l'account è già cambiato di nuovo: va scartata */
     chi = { id: "u2" };
@@ -19531,7 +19560,9 @@ t("fondatori: gli ingressi — box delle segnalazioni, account (con e senza acce
   ok(/rigaExportRicorda\(r\.tipo\)/.test(m), "e ricorda quale ha mostrato");
   ok(/<p class="hint" id="pdfConsulenza" hidden><\/p>/.test(src), "il posto della riga è lo stesso di prima");
   ok(/window\.__fondCloud = \{/.test(appjs) && /sb\.from\("fondatori_richieste"\)\.insert\(d\)/.test(appjs), "il ponte scrive nella tabella con la RLS");
-  ok(!/fondatori_approva|fondatori_respingi|fondatori_lista/.test(appjs), "l'editor non conosce le funzioni di Simone");
+  ok(!/fondatori_approva|fondatori_respingi|fondatori_lista|fondatori_assegna|fondatori_accetta_feedback/.test(appjs), "l'editor non conosce le funzioni di Simone");
+  ok(/sb\.from\("fondatori_contributi"\)\.select\("tipo,punti,creato_il"\)/.test(appjs) && !/from\("fondatori_contributi"\)\.(insert|update|upsert)/.test(appjs),
+    "l'editor legge i propri contributi e non li scrive");
   eq([A.uscitaChiaveDaCancellare("sp_riga_export", "local"), A.uscitaChiaveDaCancellare("sp_fond_riapri", "session")], [false, true],
     "la preferenza della riga resta all'uscita, il «riapri dopo l'accesso» no");
 });
@@ -19548,6 +19579,12 @@ t("fondatori: la pagina /fondatori/ — noindex e fuori dal sitemap, pubblicata,
   ok(/id="termini"/.test(h) && /consulenza/i.test(h) && /100/.test(h), "termini, esclusione della consulenza, i primi 100");
   ok(!/fonico/i.test(h), "mai «fonico»");
   ok(/href="\/app\/"/.test(h), "si partecipa dall'editor");
+  /* la tabella scritta in pagina (per chi non ha lo script) è quella del database */
+  const righe = [...h.slice(h.indexOf('id="tipiCorpo"')).matchAll(/<tr><td>([^<]+)<\/td><td>(\d+)<\/td><\/tr>/g)].map((m) => [m[1], +m[2]]);
+  const seme = [...migFond.matchAll(/\('[a-z_]+',\s*'([^']+)',\s+(\d+), \d+\)/g)].map((m) => [m[1], +m[2]]);
+  eq(righe, seme, "tipi e punti in pagina = quelli della 0080");
+  ok(/10 punti con almeno 2 tipi di contributo diversi/.test(h) && /contribu/i.test(h), "si diventa fondatori contribuendo, con la soglia");
+  ok(!/€|euro/i.test(h), "nessun prezzo");
   const pr = readFileSync(join(root, "privacy/index.html"), "utf8");
   ok(/id="fondatori"/.test(pr) && /Ultimo aggiornamento: 10 ottobre 2026/.test(pr), "la privacy ha la sua voce, con la data nuova");
 });

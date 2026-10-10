@@ -1368,7 +1368,7 @@
     <button class="fb-send" id="fbSend">Invia</button>
     <p class="fb-note">Inviando, accetti che il messaggio e alcuni dati tecnici anonimi vengano usati per migliorare StagePlot. <a href="/privacy/">Privacy</a></p>
     <!-- Programma Fondatori (10/10): l'ingresso fisso sta qui, dove già si lascia un parere. -->
-    <p class="fb-fond"><a href="/fondatori/" data-fond="apri">Usi StagePlot per un concerto vero? Diventa fondatore</a>: accesso a vita a tutte le funzioni, per i primi 100.</p>
+    <p class="fb-fond"><a href="/fondatori/" data-fond="apri">Usi StagePlot per un concerto vero? Contribuisci e diventa fondatore</a>: accesso a vita a tutte le funzioni, per i primi 100.</p>
     <p class="fb-msg" id="fbResult" style="display:none"></p>
   </div>
 </div>
@@ -5910,6 +5910,10 @@ function pdfConsulenzaMostra(){
    A ONDATE (Simone, 10/10): ondata 1 «Fondatore» = numeri 1–100, ondata 2 «Early adopter» = 101–200 (condizioni
    agevolate ancora da definire: qui nessun prezzo). Le ondate e quale è aperta le dice il server (fondatori_pubblico);
    il numero è progressivo e globale. Oggi è aperta solo la 1.
+   A PUNTI (Simone, 10/10, terzo passaggio): si diventa fondatori CONTRIBUENDO. Il registro dei contributi lo scrive solo
+   Simone (ops/fondatori.sh punti / accetta); la soglia è per ondata (oggi 10 punti con almeno 2 tipi diversi) e la
+   controlla il database all'approvazione. Il modulo delle tre domande è il PRIMO contributo. Tipi, punti e soglia NON
+   stanno qui: arrivano dal server (fondatori_pubblico), e senza risposta i testi non dicono numeri.
    Pagina pubblica: /fondatori/ (termini, elenco dei nomi, posti rimasti). */
 var FONDATORI_TETTO=100;   /* i posti dell'ondata 1, quella dell'accesso a vita (nei testi: «i primi 100») */
 /* i nomi delle ondate se il server non ha ancora risposto; quelli veri arrivano da fondatori_ondate */
@@ -5925,7 +5929,7 @@ var FONDATORI_DOMANDE=[
 ];
 var FONDATORI_TIPI=[["band","Band o musicista"],["tecnico","Tecnico o service"],["scuola","Scuola o orchestra"],["altro","Altro"]];
 /* richiesta: undefined = non lo so ancora (o senza account), null = nessuna richiesta, oggetto = l'ultima */
-var FOND={uid:null, richiesta:undefined, chiesto:null, posti:null, ondata:null, ondate:null, nomi:null, inCorso:false};
+var FOND={uid:null, richiesta:undefined, contributi:[], chiesto:null, posti:null, ondata:null, ondate:null, tipi:null, nomi:null, inCorso:false};
 function fondNorm(t){ return String(t==null?"":t).replace(/\s+/g," ").replace(/^ | $/g,""); }
 function fondRispostaPiena(t){
   var s=fondNorm(t);
@@ -5961,12 +5965,37 @@ function rigaDopoExport(foreign, ultima, invitoFondatori, ondata){
     var o=(ondata===undefined ? FOND.ondata : ondata);
     if(o && o.numero!==1)   /* un'ondata dopo la prima: niente «accesso a vita», le condizioni le dice la pagina */
       return {tipo:"fondatori", html:'Ti è stato utile? Dicci com\'è andata: è aperta l\'ondata «'+esc(o.nome)+'» del <a href="/fondatori/" data-fond="apri">programma fondatori</a>.'};
-    return {tipo:"fondatori", html:'Ti è stato utile? Dicci com\'è andata e <a href="/fondatori/" data-fond="apri">diventa fondatore</a>: accesso a vita a tutte le funzioni, per i primi '+FONDATORI_TETTO+'.'};
+    return {tipo:"fondatori", html:'Ti è stato utile? Contribuisci e <a href="/fondatori/" data-fond="apri">diventa fondatore</a>: accesso a vita a tutte le funzioni, per i primi '+FONDATORI_TETTO+'.'};
   }
   return {tipo:"consulenza", html:consulenzaDopoExport(false)};
 }
 function rigaExportUltima(){ try{ return localStorage.getItem("sp_riga_export"); }catch(e){ return null; } }
 function rigaExportRicorda(t){ try{ localStorage.setItem("sp_riga_export", t); }catch(e){} }
+/* I punti di un account rispetto alla soglia dell'ondata aperta: quanti, di quanti tipi diversi, cosa manca.
+   `contributi` = le righe del registro (le legge l'utente: RLS), `ondata` = {soglia_punti, soglia_tipi} dal server.
+   Senza soglia (ondata da decidere, o il server non ha risposto) `ok` è falso e `mancaPunti`/`mancaTipi` sono null. */
+function fondPunti(contributi, ondata){
+  var punti=0, fatti=[];
+  (Array.isArray(contributi) ? contributi : []).forEach(function(c){
+    if(!c || typeof c.tipo!=="string") return;
+    var p=Number(c.punti); if(isFinite(p) && p>0) punti+=p;
+    if(fatti.indexOf(c.tipo)<0) fatti.push(c.tipo);
+  });
+  var sp = ondata && typeof ondata.soglia_punti==="number" ? ondata.soglia_punti : null;
+  var st = ondata && typeof ondata.soglia_tipi==="number" ? ondata.soglia_tipi : null;
+  var mp = sp===null ? null : Math.max(0, sp-punti), mt = st===null ? null : Math.max(0, st-fatti.length);
+  return {punti:punti, tipi:fatti.length, fatti:fatti, sogliaPunti:sp, sogliaTipi:st, mancaPunti:mp, mancaTipi:mt,
+          ok: sp!==null && st!==null && mp===0 && mt===0};
+}
+/* «Mancano 7 punti e 1 tipo di contributo diverso.» — o niente se la soglia non si conosce. */
+function fondMancano(s){
+  if(!s || s.sogliaPunti===null) return "";
+  if(s.ok) return "Hai raggiunto la soglia: ora decide Simone.";
+  var p=[];
+  if(s.mancaPunti>0) p.push(s.mancaPunti+(s.mancaPunti===1?" punto":" punti"));
+  if(s.mancaTipi>0) p.push(s.mancaTipi+(s.mancaTipi===1?" tipo di contributo diverso":" tipi di contributo diversi"));
+  return (p.length>1 || s.mancaPunti>1 ? "Mancano " : "Manca ")+p.join(" e ")+".";
+}
 /* Il nome dell'ondata, al singolare come nel badge: «Fondatore», «Early adopter». */
 function fondNomeOndata(n, ondate){
   var el=(ondate||FOND.ondate||FONDATORI_ONDATE), t=null;
@@ -5976,8 +6005,11 @@ function fondNomeOndata(n, ondate){
 }
 /* Il badge nell'account: solo per chi ha una richiesta viva. Una respinta non si mostra come un marchio.
    Con il nome dell'ondata: «Fondatore n. 7», «Early adopter n. 104». */
-function fondBadge(r, ondate){
+function fondBadge(r, ondate, sintesi){
   if(!r || typeof r!=="object") return null;
+  /* in attesa ma sotto la soglia: è una candidatura, e il badge dice a che punto è */
+  if(r.stato==="in_attesa" && sintesi && sintesi.sogliaPunti!==null && !sintesi.ok)
+    return {testo:"Candidatura fondatore · "+sintesi.punti+" su "+sintesi.sogliaPunti+" punti", classe:"fond-badge fond-attesa"};
   if(r.stato==="approvato" && r.numero_fondatore)
     return {testo:fondNomeOndata(r.ondata||1, ondate)+" n. "+r.numero_fondatore, classe:"fond-badge fond-ok"};
   if(r.stato==="in_attesa") return {testo:"Fondatore · in attesa di approvazione", classe:"fond-badge fond-attesa"};
@@ -5986,15 +6018,20 @@ function fondBadge(r, ondate){
 /* La riga nella finestra dell'account («I tuoi progetti»): il badge, oppure l'ingresso al programma finché ci sono posti. */
 function fondRigaAccount(st, u){
   st=st||FOND; if(u===undefined) u=fondUtente();
-  var mio = !!(u && st.uid===u.id), b = mio ? fondBadge(st.richiesta) : null;
-  if(b) return '<div class="fond-acc"><button type="button" class="'+b.classe+'" data-fond="apri">'+esc(b.testo)+'</button></div>';
+  var mio = !!(u && st.uid===u.id), sin = mio ? fondPunti(st.contributi, st.ondata) : null;
+  var b = mio ? fondBadge(st.richiesta, null, sin) : null;
+  if(b){
+    var m = (st.richiesta && st.richiesta.stato==="in_attesa") ? fondMancano(sin) : "";
+    return '<div class="fond-acc"><button type="button" class="'+b.classe+'" data-fond="apri">'+esc(b.testo)+'</button>'
+      +(m ? '<div class="fond-acc-nota">'+esc(m)+' <a href="/fondatori/" data-fond="apri">Come contribuire</a></div>' : '')+'</div>';
+  }
   if(st.posti===0) return "";
   if(u && !mio) return "";   /* la risposta del server non è ancora arrivata: niente invito a chi magari è già fondatore */
-  return '<div class="fond-acc"><a href="/fondatori/" data-fond="apri">Diventa fondatore: accesso a vita, i primi '+FONDATORI_TETTO+' →</a></div>';
+  return '<div class="fond-acc"><a href="/fondatori/" data-fond="apri">Contribuisci e diventa fondatore: accesso a vita, i primi '+FONDATORI_TETTO+' →</a></div>';
 }
 /* Si chiede al server: i posti (una volta, e di nuovo dopo un invio) e la richiesta di QUESTO account (quando cambia).
    `C` (il ponte) si passa solo nei test. */
-function fondAggiorna(C){
+function fondAggiorna(C, forza){
   C=C||window.__fondCloud; if(!C || typeof C.pubblico!=="function") return Promise.resolve();
   var u=(typeof C.utente==="function") ? C.utente() : null, attese=[];
   if(FOND.posti===null && !FOND.inCorso){
@@ -6005,16 +6042,18 @@ function fondAggiorna(C){
         FOND.posti=Math.max(0, r.data.posti_rimasti); FOND.nomi=Array.isArray(r.data.nomi) ? r.data.nomi : [];
         FOND.ondata=(r.data.ondata && typeof r.data.ondata==="object") ? r.data.ondata : null;   /* quella aperta, o nessuna */
         FOND.ondate=Array.isArray(r.data.ondate) ? r.data.ondate : null;
+        FOND.tipi=Array.isArray(r.data.tipi) ? r.data.tipi : null;
       }
     }, function(){ FOND.inCorso=false; }));
   }
-  if(!u){ FOND.uid=null; FOND.richiesta=undefined; FOND.chiesto=null; }
-  else if(FOND.uid!==u.id && FOND.chiesto!==u.id){
-    var uid=u.id; FOND.uid=null; FOND.richiesta=undefined; FOND.chiesto=uid;
+  if(!u){ FOND.uid=null; FOND.richiesta=undefined; FOND.contributi=[]; FOND.chiesto=null; }
+  else if((FOND.uid!==u.id || forza) && FOND.chiesto!==u.id){
+    /* `forza` (finestra riaperta): si rilegge senza cancellare quello che si vede, i punti possono essere arrivati */
+    var uid=u.id; if(FOND.uid!==uid){ FOND.uid=null; FOND.richiesta=undefined; FOND.contributi=[]; } FOND.chiesto=uid;
     attese.push(Promise.resolve(C.mia()).then(function(r){
       var ora=C.utente(); if(!ora || ora.id!==uid) return;   /* nel frattempo è cambiato l'account */
       FOND.chiesto=null;
-      if(r && !r.error){ FOND.uid=uid; FOND.richiesta=r.data||null; }
+      if(r && !r.error){ FOND.uid=uid; FOND.richiesta=r.data||null; FOND.contributi=Array.isArray(r.contributi) ? r.contributi : []; }
     }, function(){ FOND.chiesto=null; }));
   }
   return Promise.all(attese).then(function(){ fondRidisegna(); fondDopoAccesso(); });
@@ -6080,7 +6119,7 @@ function fondApri(){
   }
   ov.hidden=false; ov.__bozza=null;
   fondRender();
-  fondAggiorna();
+  fondAggiorna(null, true);
   setTimeout(function(){ var f=ov.querySelector("textarea, .fond-azioni .primary, .fond-azioni .btn"); if(f) f.focus(); }, 30);
 }
 function fondChiudi(){ var ov=document.getElementById("fondModal"); if(ov){ fondBozza(ov); ov.hidden=true; } }
@@ -6096,6 +6135,23 @@ function fondLeggi(ov){
   return {risposta_tempo:g("fondR0"), risposta_manca:g("fondR1"), risposta_prossimo:g("fondR2"),
           tipo:t?t.value:"", consenso:!!(c&&c.checked), nome:g("fondNome")};
 }
+function fondPuntiTipo(codice){
+  var p=null; (FOND.tipi||[]).forEach(function(t){ if(t && t.codice===codice && typeof t.punti==="number") p=t.punti; }); return p;
+}
+/* «Come contribuire»: i tipi dal server, con i punti e la spunta su quelli già fatti. Senza risposta, niente elenco. */
+function fondElencoTipi(fatti){
+  if(!Array.isArray(FOND.tipi) || !FOND.tipi.length) return "";
+  return '<p class="fond-q">Come contribuire</p><ul class="fond-tipi-elenco">'+FOND.tipi.map(function(t){
+      var si=(fatti||[]).indexOf(t.codice)>=0;
+      return '<li'+(si?' class="fond-fatto"':'')+'><span>'+(si?'✓ ':'')+esc(t.nome)+'</span><b>'+esc(String(t.punti))+(t.punti===1?' punto':' punti')+'</b></li>';
+    }).join("")+'</ul><p class="fond-nota">I punti li assegna Simone quando un contributo è confermato: per una segnalazione, una proposta o una prova usa il box «Cosa manca?» o scrivigli.</p>';
+}
+function fondBloccoPunti(sin){
+  var h='<p class="fond-punti" id="fondPunti">I tuoi punti: <b>'+sin.punti+'</b>'+(sin.sogliaPunti!==null ? ' su '+sin.sogliaPunti : '')
+    +' · tipi diversi: <b>'+sin.tipi+'</b>'+(sin.sogliaTipi!==null ? ' su '+sin.sogliaTipi : '')+'</p>';
+  var m=fondMancano(sin); if(m) h+='<p class="hint">'+esc(m)+'</p>';
+  return h+fondElencoTipi(sin.fatti);
+}
 function fondRender(){
   var ov=document.getElementById("fondModal"); if(!ov) return;
   var box=ov.querySelector(".fond-corpo"); if(!box) return;
@@ -6103,29 +6159,38 @@ function fondRender(){
   var u=fondUtente(), st=FOND, r=(u && st.uid===u.id) ? st.richiesta : undefined;
   var posti = (typeof st.posti==="number") ? st.posti : null, ond=st.ondata;
   var dopoPrima = !!(ond && ond.numero!==1);
-  var h = dopoPrima
+  var sogliaTxt = (ond && typeof ond.soglia_punti==="number")
+    ? 'servono <b>'+ond.soglia_punti+' punti</b> con almeno <b>'+ond.soglia_tipi+' tipi di contributo diversi</b>'
+    : 'serve una soglia di punti';
+  var h = '<p class="fond-intro">Si diventa fondatori <b>contribuendo</b> alla crescita di StagePlot: '+sogliaTxt+', poi Simone approva a mano.</p>';
+  h += dopoPrima
     ? '<p class="fond-intro">I primi '+FONDATORI_TETTO+' fondatori sono stati approvati. Adesso è aperta l\'ondata <b>«'+esc(ond.nome)+'»</b>, con condizioni agevolate descritte nella pagina del programma. Resta esclusa la consulenza. <a href="/fondatori/#termini" target="_blank" rel="noopener">Termini del programma</a></p>'
-    : '<p class="fond-intro">I primi <b>'+FONDATORI_TETTO+' fondatori approvati</b> hanno <b>accesso a vita a tutte le funzioni di StagePlot</b>, presenti e future, anche se un giorno diventeranno a pagamento. Resta esclusa la consulenza, che è un servizio personale. <a href="/fondatori/#termini" target="_blank" rel="noopener">Termini del programma</a></p>';
+    : '<p class="fond-intro">I primi <b>'+FONDATORI_TETTO+' fondatori</b> hanno <b>accesso a vita a tutte le funzioni di StagePlot</b>, presenti e future, anche se un giorno diventeranno a pagamento. Resta esclusa la consulenza, che è un servizio personale. <a href="/fondatori/#termini" target="_blank" rel="noopener">Termini del programma</a></p>';
   if(posti!==null) h+='<p class="fond-posti">'+(posti>0
     ? 'Posti rimasti'+(dopoPrima ? ' fra gli «'+esc(ond.nome)+'»' : '')+': <b>'+posti+'</b> su '+(ond && ond.posti ? ond.posti : FONDATORI_TETTO)
     : 'I posti di questa ondata sono stati assegnati. Puoi mandare lo stesso le tue risposte: la richiesta resta in attesa e la consideriamo quando apriamo l\'ondata successiva.')+'</p>';
   var azioni=function(dentro){ return '<div class="fond-azioni">'+dentro+'</div>'; };
-  var b=fondBadge(r);
+  var sin=fondPunti((u && st.uid===u.id) ? st.contributi : [], ond);
+  var b=fondBadge(r, null, sin);
   if(!u){
-    h+='<p class="hint">Si partecipa rispondendo a tre domande dopo aver usato StagePlot su un progetto vero; Simone legge ogni richiesta e la approva a mano. Serve l\'accesso con Google: lo stato di fondatore resta legato al tuo account.</p>';
+    h+='<p class="hint">Il primo contributo sono tre domande sul progetto vero per cui hai usato StagePlot. Serve l\'accesso con Google: i punti e lo stato di fondatore restano legati al tuo account.</p>'+fondElencoTipi([]);
     h+=azioni('<button type="button" class="btn danger" data-fond="chiudi">Chiudi</button><button type="button" class="btn primary" data-fond="accedi">Accedi con Google</button>');
   } else if(r===undefined){
     h+='<p class="hint" role="status">Controllo la tua richiesta…</p>'+azioni('<button type="button" class="btn danger" data-fond="chiudi">Chiudi</button>');
   } else if(b){
     h+='<p class="fond-stato"><span class="'+b.classe+'">'+esc(b.testo)+'</span></p>';
+    if(r.stato==="in_attesa") h+=fondBloccoPunti(sin);
     h+= r.stato==="approvato"
-      ? '<p class="hint">Grazie: le tue risposte ci aiutano a decidere cosa fare dopo. L\'accesso a vita è legato a questo account ('+esc(u.email||"")+').</p>'
-      : '<p class="hint">Abbiamo ricevuto le tue risposte. Simone le legge una per una: quando la richiesta è approvata, qui compare il tuo numero.</p>';
+      ? '<p class="hint">Grazie: i tuoi contributi ci aiutano a decidere cosa fare dopo. '+((r.ondata||1)===1
+          ? 'L\'accesso a vita è legato a questo account ('+esc(u.email||"")+').'
+          : 'Le condizioni della tua ondata sono nella <a href="/fondatori/" target="_blank" rel="noopener">pagina del programma</a> e restano legate a questo account ('+esc(u.email||"")+').')+'</p>'
+      : '<p class="hint">Abbiamo ricevuto le tue risposte. Simone le legge una per una: quando le accetta valgono come primo contributo; a soglia raggiunta approva la richiesta e qui compare il tuo numero.</p>';
     h+=azioni('<button type="button" class="btn primary" data-fond="chiudi">Chiudi</button>');
   } else {
     var v=FOND_BOZZA||{};
     if(r && r.stato==="respinto") h+='<p class="hint fond-respinta">La tua richiesta precedente non è stata approvata. Puoi riprovare, con risposte più concrete.</p>';
-    h+='<p class="hint">Tre domande sul progetto vero per cui hai usato StagePlot. Bastano due risposte, con qualche frase vera: «bello, bravo» non ci aiuta a migliorare.</p>';
+    var pf=fondPuntiTipo("feedback");
+    h+='<p class="hint"><b>Il primo contributo:</b> tre domande sul progetto vero per cui hai usato StagePlot'+(pf!==null ? ', che valgono '+pf+' punti quando Simone le accetta' : '')+'. Bastano due risposte, con qualche frase vera: «bello, bravo» non ci aiuta a migliorare.</p>';
     FONDATORI_DOMANDE.forEach(function(d,i){
       h+='<label class="fond-q" for="fondR'+i+'">'+(i+1)+'. '+esc(d.t)+'</label>'
         +'<textarea id="fondR'+i+'" rows="3" maxlength="2000" placeholder="'+esc(d.p)+'">'+esc(v[d.k]||"")+'</textarea>';
@@ -34669,9 +34734,14 @@ function maybeAskStageSize(explicit){
       var nonAut={data:null, error:{code:"non_autenticato", message:"non_autenticato"}};
       if(!sb || !cloudUser) return Promise.resolve(nonAut);
       var u=cloudUser.id, g=authGeneration;
-      return sb.from("fondatori_richieste").select(FOND_SEL).order("creata_il",{ascending:false}).limit(1).then(function(r){
+      /* la richiesta più recente e il registro dei contributi (tutti e due: la RLS dà solo i propri) */
+      return Promise.all([
+        sb.from("fondatori_richieste").select(FOND_SEL).order("creata_il",{ascending:false}).limit(1),
+        sb.from("fondatori_contributi").select("tipo,punti,creato_il").order("creato_il",{ascending:true})
+      ]).then(function(rr){
         if(!authStill(u,g)) return nonAut;   /* nel frattempo è cambiato l'account */
-        return {data:(r.data&&r.data[0])||null, error:r.error};
+        var r=rr[0], c=rr[1];
+        return {data:(r.data&&r.data[0])||null, contributi:(c && !c.error && c.data) || [], error:r.error||(c&&c.error)||null};
       }, fondRete);
     },
     invia:function(d){

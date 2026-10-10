@@ -3595,6 +3595,15 @@ body.cl-open #fondModal.modal{z-index:320}
 .fond-badge::before{content:"★";font-size:11px}
 .fond-badge.fond-ok{background:var(--accent);color:#fff}
 .fond-acc{margin:10px 0 8px;text-align:center}
+.fond-acc-nota{margin-top:4px;font-size:12px;color:var(--text-2)}
+.fond-acc-nota a{font-size:12px}
+#fondModal .fond-punti{margin:0 0 6px;font-size:14px;color:var(--text)}
+#fondModal .fond-tipi-elenco{list-style:none;margin:0;padding:0;border:1px solid var(--border);border-radius:10px}
+#fondModal .fond-tipi-elenco li{display:flex;justify-content:space-between;gap:12px;padding:8px 12px;font-size:13px;color:var(--text);border-bottom:1px solid var(--n-100)}
+#fondModal .fond-tipi-elenco li:last-child{border-bottom:0}
+#fondModal .fond-tipi-elenco li b{white-space:nowrap;font-weight:600;color:var(--text-2)}
+#fondModal .fond-tipi-elenco li.fond-fatto span{color:var(--success)}
+body.dark #fondModal .fond-tipi-elenco li{border-bottom-color:#2a3138}
 .fond-acc a{color:var(--accent);font-size:13px;font-weight:600;text-decoration:none}
 .fond-acc a:hover{text-decoration:underline}
 #fbBox .fb-fond{margin:8px 2px 0;font-size:11px;line-height:1.4;color:var(--text-2)}
@@ -5031,7 +5040,7 @@ body.dark #props #scalettaSec .sc-b:hover:not(:disabled){background:#222b38}
     <button class="fb-send" id="fbSend">Invia</button>
     <p class="fb-note">Inviando, accetti che il messaggio e alcuni dati tecnici anonimi vengano usati per migliorare StagePlot. <a href="/privacy/">Privacy</a></p>
     <!-- Programma Fondatori (10/10): l'ingresso fisso sta qui, dove già si lascia un parere. -->
-    <p class="fb-fond"><a href="/fondatori/" data-fond="apri">Usi StagePlot per un concerto vero? Diventa fondatore</a>: accesso a vita a tutte le funzioni, per i primi 100.</p>
+    <p class="fb-fond"><a href="/fondatori/" data-fond="apri">Usi StagePlot per un concerto vero? Contribuisci e diventa fondatore</a>: accesso a vita a tutte le funzioni, per i primi 100.</p>
     <p class="fb-msg" id="fbResult" style="display:none"></p>
   </div>
 </div>
