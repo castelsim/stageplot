@@ -1933,7 +1933,7 @@
       <button type="button" class="pa-card csvfmt" data-fmt="ah" style="text-align:left">
         <b>Allen &amp; Heath Director</b><br><small style="color:var(--text-2)">Sezione [Channels] con nomi + phantom. <b style="color:var(--warning)">Verifica l'import sulla tua console.</b></small></button>
       <button type="button" class="pa-card csvfmt" data-fmt="x32snp" style="text-align:left">
-        <b>Behringer X32 / Midas M32</b> <small>(snippet .snp)</small><br><small style="color:var(--text-2)">Nomi, colori e 48V dei canali: si carica da USB (Scenes → Snippets) o da X32-Edit, senza toccare il resto. <b style="color:var(--warning)">Provalo prima dello show.</b></small></button>
+        <b>Behringer X32 / Midas M32</b> <small>(snippet .snp)</small><br><small style="color:var(--text-2)">Applica solo nome e colore dei canali: NON tocca guadagni, 48V, sorgenti d’ingresso, icone né il resto. Si carica da USB (Scenes → Snippets) o da X32-Edit. Il 48V resta da impostare a mano (è indicato nella Channel list). <b style="color:var(--warning)">Provalo prima dello show.</b></small></button>
     </div>
     <div style="display:flex;margin-top:14px"><button class="btn" id="csvClose" style="margin-left:auto">Annulla</button></div>
   </div>
@@ -11697,7 +11697,7 @@ function cablingMarkup(){
       /* Etichetta multicore (C1, 08/07): la snake box→FOH è il fascio che raccoglie le code — nei plot
          pro si annota col numero di canali. Rende esplicito il bundling già fatto dal motore. */
       if(LBL && state.cab.showLabels!==false && k.box){ var smid=cabMidpoint(orthExpand(dpts));
-        sk+='<text class="cab-lbl cab-snake-lbl" x="'+smid[0].toFixed(1)+'" y="'+(smid[1]-5).toFixed(1)+'" text-anchor="middle">multicore '+k.box.used+' ch'+(k.up?' \u2192 '+(k.up.box.sbId?('ID'+k.up.box.sbId):k.up.box.letter):'')+'</text>'; }
+        sk+='<text class="cab-lbl cab-snake-lbl" x="'+smid[0].toFixed(1)+'" y="'+(smid[1]-5).toFixed(1)+'" text-anchor="middle">multicore '+k.box.used+' ch'+(k.up?' → '+(k.up.box.sbId?('ID'+k.up.box.sbId):k.up.box.letter):'')+'</text>'; }
       s+='<g class="cabgrp" data-own="'+esc(k.box&&k.box.id||'')+'">'+sk+'</g>';   /* C3: fade se non collegato all'elemento in hover */
     });
     var linkS='', loomPolys=[], drawnKey={};   /* C1: percorsi raccolti per il calcolo dei fasci */
@@ -13600,8 +13600,8 @@ var LOCK_GLYPH_SELF={ pedana:1, tappeto:1, forma:1, miczone:1, metro:1 };
 function isLockable(it){ return !!(it && (isRiser(it) || LOCKABLE[it.type]===1)); }
 var LOCK_NAMES={ tappeto:"il tappeto", forma:"la forma", miczone:"la zona", metro:"il metro",
   tavolo:"il tavolo", tavolopercussioni:"il tavolo", podio:"il podio", pedanacoro:"la pedana", flightcase:"il flight case",
-  americana:"l\u2019americana", truss:"la truss" };
-function lockNameOf(it){ return isRiser(it) ? "la pedana" : (it && LOCK_NAMES[it.type]) || "l\u2019elemento"; }
+  americana:"l’americana", truss:"la truss" };
+function lockNameOf(it){ return isRiser(it) ? "la pedana" : (it && LOCK_NAMES[it.type]) || "l’elemento"; }
 function itemEditable(it){ return !(it && it.locked===true && isLockable(it)); }   /* col lucchetto chiuso resta dov'è */
 /* NOTA sull'elemento (30/07): quello che il disegno non sa dire. Nata dal tavolo percussioni — i
    piccoli (shaker, claves, güiro) a 20 cm in pianta sono pallini invisibili, ma il service deve
@@ -14293,7 +14293,7 @@ function renderSbF2(it){
       ts.value=(it.sbTo && (it.sbTo==="main" || digs.some(function(t){ return t.id===it.sbTo; })))?it.sbTo:"";
       ts.onchange=function(){ if(ts.value) it.sbTo=ts.value; else delete it.sbTo; __cabRes=null; save(); render(); renderProps(); };
       var th=document.getElementById("pSbToHint");
-      if(b&&b.up) th.textContent="Coda "+b.up.n+" ch \u2192 "+(b.up.box.sbId?("ID "+b.up.box.sbId):("box "+b.up.box.letter))+" · porte "+b.up.p0+"–"+(b.up.p0+b.up.n-1)+" · "+Math.ceil(b.up.lenM)+" m — FOH dal rack I/O";
+      if(b&&b.up) th.textContent="Coda "+b.up.n+" ch → "+(b.up.box.sbId?("ID "+b.up.box.sbId):("box "+b.up.box.letter))+" · porte "+b.up.p0+"–"+(b.up.p0+b.up.n-1)+" · "+Math.ceil(b.up.lenM)+" m — FOH dal rack I/O";
       else if(it.sbTo==="main") th.textContent="Multipolare analogico fino al punto principale (come una snake classica).";
       else th.textContent=b&&b.used?"Nessun blocco contiguo libero: guarda l'audit.":"";
     }
@@ -24076,7 +24076,7 @@ function renderPmAccList(){
   if(!(R.links||[]).length){ el.innerHTML=s+'<div style="font-size:12px;color:var(--text-3);padding:4px 0">Nessun collegamento: trascina un cavo dal mixerino a un hub.</div>'; return; }
   R.links.forEach(function(l){
     var pmF=pmOf(l.from), pw=(R.power||{})[l.from.id];
-    s+='<div class="insp-row"><b>'+esc((l.from.label||"mixer")+" \u2192 "+(l.to.label||(l.toIsHub?"hub":"mixer")))+'</b><small>'+esc((pmF?pmSysName(pmF.sys)+" \u00b7 ":"")+(l.cut?l.cut+" m":Math.round(l.lenM)+" m")+(pw==="data"?" \u00b7 \u26a1":pw==="psu"?" \u00b7 PSU":""))+'</small></div>';
+    s+='<div class="insp-row"><b>'+esc((l.from.label||"mixer")+" → "+(l.to.label||(l.toIsHub?"hub":"mixer")))+'</b><small>'+esc((pmF?pmSysName(pmF.sys)+" \u00b7 ":"")+(l.cut?l.cut+" m":Math.round(l.lenM)+" m")+(pw==="data"?" \u00b7 \u26a1":pw==="psu"?" \u00b7 PSU":""))+'</small></div>';
   });
   el.innerHTML=s;
 }
@@ -24431,7 +24431,7 @@ function patchList(){
     var up=l.box.up, upCh=up?up.map[l.ch]:null;
     /* USB/Dante: il patch NON \u00e8 una porta della box, \u00e8 un canale della connessione (29/07) */
     var ptxt = l.via ? (MIX_CONN[l.via].tag+" "+l.ch)
-             : (up&&upCh ? (l.box.letter+"\u2192"+(up.box.sbId?("ID"+up.box.sbId):up.box.letter)+":"+upCh) : (tag+"\u00b7"+l.ch));
+             : (up&&upCh ? (l.box.letter+"→"+(up.box.sbId?("ID"+up.box.sbId):up.box.letter)+":"+upCh) : (tag+"\u00b7"+l.ch));
     var r0=row(l.s.name, l.s.mic, l.s.key, ptxt, l.box.letter, l.s.it.id);
     r0.via=l.via||null;
     r0.foh=l.via ? null : ((up&&upCh) ? (up.box.fohBase!=null?up.box.fohBase+upCh:null) : ((l.box.fohBase!=null)?(l.box.fohBase+l.ch):null));
@@ -25317,7 +25317,7 @@ function busList(){
     var fn=pmFeedNames(n), mdl=(d?d.model:"hub");
     fn.forEach(function(nm, k){
       auto.push({name:nm, tag:"CUF", box:b, ports:[ps[k]], cuf:true, feedOf:mdl,
-        dest:(k===0 ? ("cuffie "+mdl+(nPM?" \u2192 "+nPM+" personal mixer":"")) : "cuffie "+mdl)});
+        dest:(k===0 ? ("cuffie "+mdl+(nPM?" → "+nPM+" personal mixer":"")) : "cuffie "+mdl)});
     });
   });
   (state.items||[]).forEach(function(hb){ if(pmIsHub(hb) && hb.pmFeed==="dante"){ var d=pmOf(hb);
@@ -28238,18 +28238,26 @@ function downloadCsv(text, name){
   toastDownloaded(name);
   setTimeout(function(){ URL.revokeObjectURL(url); }, 4000);
 }
-/* ===== Behringer X32 / Midas M32: SNIPPET (.snp) con nomi, colori e 48V dei canali =====
+/* ===== Behringer X32 / Midas M32: SNIPPET (.snp) con nomi e colori dei canali =====
    Perché uno snippet e non una scena: la scena (.scn) è l'istantanea di TUTTI i ~2000 parametri della
-   console; lo snippet è il formato che la X32 ha apposta per applicare SOLO alcuni parametri senza
-   toccare il resto — qui /ch/NN/config (nome ≤12 caratteri, icona, colore, sorgente) e /headamp/NNN
-   (gain, phantom). Formato letto da file reali (scene pubbliche su GitHub) e dalla documentazione
-   OSC non ufficiale di Patrick-Gilles Maillot: intestazione «#4.0# "nome" 1 1 1 1 1», poi una riga
-   per comando OSC. Sorgente = ingresso locale NN (1–32); /headamp/000 è l'ingresso locale 1.
+   console; lo snippet applica SOLO le righe che contiene. Formato letto da file reali (scene pubbliche
+   su GitHub) e dalla documentazione OSC non ufficiale di Patrick-Gilles Maillot: intestazione
+   «#4.0# "nome" 1 1 1 1 1», poi una riga per comando.
+   ⚠️ COSA NON SCRIVIAMO MAI (10/10, difetto trovato in revisione):
+   - /headamp/NNN: nei file reali il comando è «/headamp/000 +0.0 OFF», cioè GUADAGNO e phantom
+     INSIEME in una riga sola. Non esiste la forma con il solo phantom: scriverla riporta il gain di
+     ogni canale a 0 dB, un danno su un banco già in soundcheck. Quindi niente righe /headamp: il 48V
+     NON si imposta da qui, resta nella channel list / nella patch list del PDF.
+   - icona e sorgente: la riga completa «/ch/NN/config "nome" icona colore sorgente» porta anche la
+     SORGENTE (il routing d'ingresso del canale) e l'icona. Per non sovrascrivere la patch del fonico
+     scriviamo solo i due campi che promettiamo, come righe separate (come fanno i file veri per i
+     nodi annidati, es. /config/talk/A): /ch/NN/config/name e /ch/NN/config/color.
+   ⚠️ Le righe separate non sono state provate su un banco vero (nessuna X32 sotto mano): provare lo
+   snippet su console o X32-Edit PRIMA dello show. Se la console non le accettasse, il danno è
+   nessun cambiamento, non un cambiamento sbagliato.
    Colori X32: OFF RD GN YE BL MG CY WH (+ «i» = invertito). I colori qui sono un DEFAULT sensato per
    famiglia (batteria rossa, basso blu, chitarre verdi, tastiere gialle, voci ciano…): il fonico li
-   cambia in un tocco, ma 32 nomi non li ridigita. StageOn e Stageplot Pro lo fanno; da oggi anche
-   noi. ⚠️ Da verificare su una console o su X32-Edit prima dello show: il formato è quello, ma qui
-   nessuno ha una X32 sotto mano (23/08). */
+   cambia in un tocco, ma 32 nomi non li ridigita. Canale = numero sul banco (FOH se c'è). */
 var X32_MAX_CH=32, X32_NAME_MAX=12;
 function x32Color(nome){
   var n=String(nome||"").toLowerCase();
@@ -28278,9 +28286,10 @@ function x32Snippet(rows, titolo){
        riduceva a niente e in console arrivava un canale senza nome — «"" 1 WH 1» (25/08). */
     var nome = r.reserved ? "SPARE" : (x32Name(r.short||r.name) || x32Name("CH "+ch));
     var col  = r.reserved ? "WHi" : x32Color(r.name);
-    var nn=("0"+ch).slice(-2), ha=("00"+(ch-1)).slice(-3);
-    lines.push("/ch/"+nn+"/config \""+nome+"\" 1 "+col+" "+ch);
-    lines.push("/headamp/"+ha+" +0.0 "+(r.p48?"ON":"OFF"));
+    var nn=("0"+ch).slice(-2);
+    /* Solo nome e colore, in righe separate: mai gain (/headamp), icona o sorgente (vedi sopra). */
+    lines.push("/ch/"+nn+"/config/name \""+nome+"\"");
+    lines.push("/ch/"+nn+"/config/color "+col);
     count++;
   });
   var head='#4.0# "'+x32Name(titolo||"StagePlot", 16)+'" 1 1 1 1 1';   /* il nome dello snippet non ha il limite dei canali: una scena reale ne aveva 13 */
@@ -29166,9 +29175,9 @@ function netListPdf(shared){
     function _testa(){ trow("TRATTA","PROTOCOLLO","MEZZO","LUNGHEZZA","NOTE", true, "#4338ca"); doc.setDrawColor("#4f46e5"); doc.setLineWidth(0.4); doc.line(M, y-3.6, 194, y-3.6); }
     _testa(); _testaTab=_testa;
     N.runs.forEach(function(r){
-      var da = r.kind==="trunk" ? "switch \u2192 console"
-             : r.kind==="dvs" ? ((r.comp && r.comp.label ? r.comp.label : "Computer")+(r.sw?" \u2192 switch":" \u2192 console"))
-             : ("box "+(r.box.sbId?("ID"+r.box.sbId):r.box.letter)+(N.sw&&r.sw?" \u2192 switch":" \u2192 console"));
+      var da = r.kind==="trunk" ? "switch → console"
+             : r.kind==="dvs" ? ((r.comp && r.comp.label ? r.comp.label : "Computer")+(r.sw?" → switch":" → console"))
+             : ("box "+(r.box.sbId?("ID"+r.box.sbId):r.box.letter)+(N.sw&&r.sw?" → switch":" → console"));
       /* Sul computer la nota dice quello che il disegno non sa: che software gira, con quanti
          canali, e che la porta di rete dev'essere cablata (manuale Audinate). */
       var note = r.kind==="dvs"
@@ -30849,10 +30858,10 @@ function renderProdHub(){
     /* chi compra i musicisti non ha un'organizzazione: per lui la porta è la richiesta, non l'organico */
     /* «Richiedi musicisti» nascosto dal 26/09 (Simone: «quel ramo del progetto va rivisto bene»):
        si rimette con RICHIEDI_MUSICISTI=true, insieme alle due righe CSS di #bRichiedi e #mactRichiedi. */
-    if(RICHIEDI_MUSICISTI) oa.appendChild(mkA(orcRichiediLink(logged&&pid?pid:null), "Richiedi musicisti \u2192", !olink));
-    if(olink) oa.appendChild(mkA(olink, "Organico e convocazioni \u2192", false));
+    if(RICHIEDI_MUSICISTI) oa.appendChild(mkA(orcRichiediLink(logged&&pid?pid:null), "Richiedi musicisti →", !olink));
+    if(olink) oa.appendChild(mkA(olink, "Organico e convocazioni →", false));
     if(!olink && RICHIEDI_MUSICISTI) oa.appendChild(document.createElement("br"));
-    if(!olink) oa.appendChild(el2('<span class="pd-hint">Se gestisci tu l\u2019organico: '+(logged?"salva il progetto nel cloud":"accedi e salva il progetto nel cloud")+' per collegarlo a una produzione di Orchestre.</span>'));
+    if(!olink) oa.appendChild(el2('<span class="pd-hint">Se gestisci tu l’organico: '+(logged?"salva il progetto nel cloud":"accedi e salva il progetto nel cloud")+' per collegarlo a una produzione di Orchestre.</span>'));
   }
 }
 var DEPT_ROLES=["Capo reparto","Tecnico","Assistente","Runner"];
@@ -32461,8 +32470,8 @@ function renderOrcRow(it){
   var prod=rows?rows[0]:orcSeats.productions[0];
   var h='<div class="orc-hd">Organico <span class="orc-prod">'+esc(String(prod.production_title||""))+'</span></div>';
   if(rows){ rows.forEach(function(r){ var who=String(r.musician_name||"").trim(); h+='<div class="orc-line '+orcSeatClass(r)+'">'+esc((r.role_name?r.role_name+" \u00b7 ":"")+((who && r.seat_no!=null)?"posto "+r.seat_no+" \u00b7 ":"")+orcSeatLine(r))+'</div>'; });
-    h+='<a class="orc-link" href="/orchestre/admin/produzioni/scheda/?id='+encodeURIComponent(prod.production_id)+'&t=organico">Apri l\u2019organico \u2192</a>'; }
-  else { h+='<div class="orc-line off">Postazione non ancora nell\u2019organico</div><a class="orc-link" href="/orchestre/admin/produzioni/scheda/?id='+encodeURIComponent(prod.production_id)+'&t=stageplot">Importa le postazioni \u2192</a>'; }
+    h+='<a class="orc-link" href="/orchestre/admin/produzioni/scheda/?id='+encodeURIComponent(prod.production_id)+'&t=organico">Apri l’organico →</a>'; }
+  else { h+='<div class="orc-line off">Postazione non ancora nell’organico</div><a class="orc-link" href="/orchestre/admin/produzioni/scheda/?id='+encodeURIComponent(prod.production_id)+'&t=stageplot">Importa le postazioni →</a>'; }
   row.innerHTML=h;
 }
 /* eliminare una postazione con una persona sopra: il posto in Orchestre resta, si chiede prima */
@@ -32471,7 +32480,7 @@ function deleteSelGuarded(){
   var who=[];
   (state.items||[]).forEach(function(it){ if(!selSet[it.id]) return; var rows=orcSeatsFor(it); if(rows) rows.forEach(function(r){ if(r.musician_name) who.push(r.musician_name); }); });
   if(!who.length){ deleteSel(); return Promise.resolve(true); }
-  var msg=(who.length===1?who[0]+" resta sul suo posto in Orchestre: il disegno perde solo il collegamento alla postazione.":who.length+" persone restano sui loro posti in Orchestre: il disegno perde solo il collegamento alle postazioni.")+" Puoi ricollegarle da Orchestre \u2192 StagePlot.";
+  var msg=(who.length===1?who[0]+" resta sul suo posto in Orchestre: il disegno perde solo il collegamento alla postazione.":who.length+" persone restano sui loro posti in Orchestre: il disegno perde solo il collegamento alle postazioni.")+" Puoi ricollegarle da Orchestre → StagePlot.";
   var p=(typeof confirmDialog==="function")?confirmDialog({icon:"warn",title:"Postazione con una persona in organico",message:msg,confirmText:"Elimina lo stesso",cancelText:"Annulla"}):Promise.resolve(window.confirm(msg));
   return p.then(function(ok){ if(ok) deleteSel(); return !!ok; });
 }
