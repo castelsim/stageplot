@@ -24,7 +24,7 @@
      due release nello stesso giorno restano distinguibili in telemetria e supporto. In locale/dev
      resta il placeholder. La sentinella del VALORE è distinta dall'identificatore window.__BUILD_ID__
      così il sed della CI non tocca il nome della variabile. -->
-<script>window.__APP_VERSION__="2026.10.10";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
+<script>window.__APP_VERSION__="2026.10.12";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -1441,6 +1441,7 @@
   .ic.fill{fill:#1f2937;stroke:none}
   .ic.soft{fill:#f3f4f6}
   .ic.dash{stroke-dasharray:7 5;fill:none}
+  .ic.vuoto{fill:none}   /* solo tratto (anello poggiapiedi dello sgabello sotto il chitarrista classico) */
   .ic.thin{stroke-width:1.2}
   .mon{stroke:var(--canvas-monitor)}
   .mon.fill{fill:var(--canvas-monitor);stroke:none}
@@ -4555,10 +4556,18 @@ body.dark #props #scalettaSec .sc-b:hover:not(:disabled){background:#222b38}
       <label class="chk" id="pSediaVWrap"><input type="checkbox" id="pSediaV"> Sedia</label>
     </div>
     <div id="pGtr" style="display:none;border-top:1px solid #eef0f2;margin-top:10px;padding-top:8px">
-      <label class="chk"><input type="checkbox" id="pGtrSedia"> Sedia</label>
-      <label class="chk"><input type="checkbox" id="pGtrLeggio"> Leggio</label>
-      <label class="chk"><input type="checkbox" id="pGtrAmp"> Ampli</label>
-      <label class="chk"><input type="checkbox" id="pGtrPedal"> Pedaliera</label>
+      <div class="stpr-f" id="pSedutaWrap" style="display:none"><label>Seduta</label>
+        <div class="chips" data-chips="pSeduta">
+          <button type="button" data-v="sedia">Sedia</button>
+          <button type="button" data-v="sgabello">Sgabello</button>
+          <button type="button" data-v="niente" id="pSedutaNiente">Niente</button>
+        </div>
+        <select id="pSeduta" hidden><option value="sedia">sedia</option><option value="sgabello">sgabello</option><option value="niente">niente</option></select>
+      </div>
+      <label class="chk" id="pGtrSediaLbl"><input type="checkbox" id="pGtrSedia"> Sedia</label>
+      <label class="chk" id="pGtrLeggioLbl"><input type="checkbox" id="pGtrLeggio"> Leggio</label>
+      <label class="chk" id="pGtrAmpLbl"><input type="checkbox" id="pGtrAmp"> Ampli</label>
+      <label class="chk" id="pGtrPedalLbl"><input type="checkbox" id="pGtrPedal"> Pedaliera</label>
       <button class="btn" id="pGtrSplit" style="display:none">⇱ Dividi in elementi</button>
     </div>
     <div id="pDir" style="display:none;border-top:1px solid #eef0f2;margin-top:10px;padding-top:8px">
