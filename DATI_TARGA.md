@@ -253,7 +253,7 @@ per ogni taglia ma non l'assorbimento. Markbass (`markbass.it`) dà peso e poten
 questo che rende un catalogo diverso da una stima più precisa. C'è un test che cade se il catalogo
 si restringe alla sola fascia media.
 
-### Pilota «catalogo da Thomann» (12/10/2026) — 18 modelli nuovi, e le misure in pianta
+### Pilota «catalogo da Thomann» (12/10/2026) — 20 modelli nuovi, e le misure in pianta
 
 **Come sono stati scelti.** Dalle classifiche dei più venduti di thomann.it (stage piano, combo per
 chitarra, combo per basso), lette poche volte e a mano: è quello che una band italiana ha davvero.
@@ -268,6 +268,11 @@ qui sotto. Scegliendo il modello, l'elemento prende **larghezza e profondità de
 arrotondati al centimetro). Non succede in tre casi: la Doppia tastiera (sono due strumenti), una
 testata o un modulo sull'Ampli basso (l'elemento è il rig) e lo stage piano in aspetto «Postazione»
 (l'ingombro è il disegno col musicista; la misura vera si vede con «Strumento solo»).
+
+Sul foglio (dal 12/10, seconda parte): la lista **Backline** (PDF, anteprima dell'Esporta, link condiviso)
+scrive il modello scelto accanto all'etichetta («Ampli basso 1 — Ampeg RB-115 Rocket Bass»; senza
+etichetta solo «Marca Modello»), e la **Lista carichi** del PDF scrive accanto ai W da dove vengono:
+«targa» (questo registro), «stima» (valore tipico del tipo) o «indicato» (scritto a mano).
 
 | chiave | modello | L × P × A mm | kg | W assorbiti | W uscita | PDF · pagina |
 |---|---|---|---|---|---|---|
@@ -285,11 +290,21 @@ testata o un modulo sull'Ampli basso (l'elemento è il rig) e lo stage piano in 
 | `harleybenton_hb20r` | Harley Benton HB-20R | 380 × 175 × 340 | 7 | **40** (max) | 20 | `HarleyBenton_HB-20R_UserManual.pdf` p.16 |
 | `marshall_mg30gfx` | Marshall MG30GFX | 480 × 225 × 420 | 10,8 | non dichiarato | 30 | `Marshall_MG15GFX-MG30GFX_QuickStartGuide.pdf` p.1 |
 | `harleybenton_tube15c` | Harley Benton TUBE15 Celestion | 427 × 235 × 435 | 11,5 | **50** (max; 30 tipici) | 15 | `HarleyBenton_TUBE5-TUBE15-Celestion_UserManual.pdf` p.21 |
+| `boss_katana100g3` | Boss Katana-100 Gen 3 (combo 1×12″, da palco) | 530 × 248 × 445 | 14,8 | **77** | 100 | `Boss_Katana-Gen3_ReferenceManual.pdf` p.19 |
 | `harleybenton_hb20b` | Harley Benton HB-20B (combo basso) | 380 × 175 × 340 | 7,5 | **40** (max) | 20 | `HarleyBenton_HB-20B_UserManual.pdf` p.16 |
 | `markbass_micromark801` | Markbass Micromark 801 (combo) | 268 × 262 × 268 | 5,2 ⚠ | non dichiarato | 45 | `Markbass_Micromark801-Minimark802_UserManual.pdf` p.16 |
 | `harleybenton_hb40b` | Harley Benton HB-40B (combo basso) | 425 × 300 × 445 | 12 | **80** (max) | 40 | `HarleyBenton_HB-40B_UserManual.pdf` p.16 |
 | `pjb_bg450` | Phil Jones Bass BG-450 Compact Plus | 361 × 336 × 362 | 14,1 | non dichiarato | 300 | `PhilJonesBass_BG-450-CompactPlus_Manual.pdf` p.10 |
 | `ampeg_rb115` | Ampeg RB-115 Rocket Bass | 513 × 354 × 570 | 15,45 ⚠ | **280** (max) | 100 | `Ampeg_RocketBass-RB108-RB210_OwnerManual.pdf` p.9 |
+| `ampeg_rb210` | Ampeg RB-210 Rocket Bass (combo 2×10″, da palco) | 513 × 354 × 654 | 17,7 ⚠ | **600** (max) | 250 | `Ampeg_RocketBass-RB108-RB210_OwnerManual.pdf` p.10 |
+
+Gli ultimi due (Katana-100 Gen 3 e RB-210) erano le riserve: il 12/10 Simone ha deciso di aggiungerli
+come **ampli da palco**, accanto agli Harley Benton da studio, che restano.
+
+**Regola: l'assorbimento in catalogo è il MASSIMO dichiarato, non il tipico** (decisione di Simone del
+12/10). È il numero che deve reggere la presa e la linea: Roland FP-40 22 W e non 5, Harley Benton
+TUBE15 50 W e non 30. Quando il costruttore dà un solo valore senza dire quale sia, si scrive quello;
+quando ne dà due, si prende il più alto e l'altro va nella nota della riga.
 
 **Le citazioni** (frase copiata dal PDF, pagina del file):
 
@@ -352,6 +367,16 @@ testata o un modulo sull'Ampli basso (l'elemento è il rig) e lo stage piano in 
   external speaker) / 100 Watts RMS @ 8 Ω» · «Power Requirements 100–240V ~ 50-60 Hz, 280W Max» ·
   «Size (H x W x D) … 570 x 513 x 354 mm» · «Weight (Approximate) 33.4 lbs 15.45 kg». ⚠ 33,4 libbre
   fanno 15,15 kg: in catalogo i kg scritti dal costruttore, con la nota.
+- **Boss Katana-100 Gen 3** — stesso `KTN3_reference_eng02_W.pdf`, p.19, scheda «KATANA-100»: «Rated
+  Power Output 100 W» · «Speaker 30 cm (12 inches) x 1» · «Power Consumption 77 W» · «Dimensions 530
+  (W) x 248 (D) x 445 (H) mm (Include handle and rubber feet)» · «Weight 14.8 kg 32 lbs 11 oz».
+  Stessi numeri del Katana-100 MkII (`boss_katana100`), prodotto diverso: due righe.
+- **Ampeg RB-210 Rocket Bass** — stesso manuale Ampeg, p.10, «RB-210 Technical Specifications»:
+  «Output Power Rating 500 Watts RMS @ 4 Ω 5% THD+N (with external speaker) / 250 Watts RMS @ 8 Ω 2%
+  THD+N» · «Speaker Specs 2 x 10" custom Lavoce speakers» · «Power Requirements 100–240V ~ 50-60 Hz,
+  600W Max» · «Size (H x W x D) … 654 x 513 x 354 mm» · «Weight (Approximate) 38 lbs 17.7 kg».
+  ⚠ 38 libbre fanno 17,24 kg: in catalogo i kg scritti dal costruttore, con la nota (come per il
+  RB-115). In uscita 250 W col suo altoparlante: i 500 W valgono solo con una cassa esterna.
 
 **Assorbimento non dichiarato** (si torna alla stima del tipo, e il software dice «stima»): Nord
 Stage 4 ed Electro 7, Thomann SP-120, Marshall MG30GFX, Markbass Micromark 801, Phil Jones BG-450.

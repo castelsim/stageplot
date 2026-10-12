@@ -14861,12 +14861,18 @@ const PILOTA_THOMANN = {
   harleybenton_hb20r:     [["comboamp"],              40,   20,   7,     [380, 175, 340],  "HarleyBenton_HB-20R_UserManual.pdf"],
   marshall_mg30gfx:       [["comboamp"],              null, 30,   10.8,  [480, 225, 420],  "Marshall_MG15GFX-MG30GFX_QuickStartGuide.pdf"],
   harleybenton_tube15c:   [["comboamp"],              50,   15,   11.5,  [427, 235, 435],  "HarleyBenton_TUBE5-TUBE15-Celestion_UserManual.pdf"],
+  /* le due riserve da palco, entrate il 12/10 su scelta di Simone (stessi PDF, pagine 19 e 10) */
+  boss_katana100g3:       [["comboamp"],              77,   100,  14.8,  [530, 248, 445],  "Boss_Katana-Gen3_ReferenceManual.pdf"],
   harleybenton_hb20b:     [["bassamp"],               40,   20,   7.5,   [380, 175, 340],  "HarleyBenton_HB-20B_UserManual.pdf"],
   markbass_micromark801:  [["bassamp"],               null, 45,   5.2,   [268, 262, 268],  "Markbass_Micromark801-Minimark802_UserManual.pdf"],
   harleybenton_hb40b:     [["bassamp"],               80,   40,   12,    [425, 300, 445],  "HarleyBenton_HB-40B_UserManual.pdf"],
   pjb_bg450:              [["bassamp"],               null, 300,  14.1,  [361, 336, 362],  "PhilJonesBass_BG-450-CompactPlus_Manual.pdf"],
   ampeg_rb115:            [["bassamp"],               280,  100,  15.45, [513, 354, 570],  "Ampeg_RocketBass-RB108-RB210_OwnerManual.pdf"],
+  ampeg_rb210:            [["bassamp"],               600,  250,  17.7,  [513, 354, 654],  "Ampeg_RocketBass-RB108-RB210_OwnerManual.pdf"],
 };
+/* la pagina giusta del manuale: Katana-50 e -100 Gen 3 stanno nello stesso PDF (p.17 e p.19), RB-115 e
+   RB-210 pure (p.9 e p.10). Una fonte copiata dalla riga accanto manderebbe a leggere il modello sbagliato. */
+const PILOTA_PAGINE = { boss_katana50g3: "p.17", boss_katana100g3: "p.19", ampeg_rb115: "p.9", ampeg_rb210: "p.10" };
 
 t("pilota Thomann: ogni modello porta i numeri del suo manuale, e nient'altro", () => {
   const sbagliati = [];
@@ -14880,6 +14886,7 @@ t("pilota Thomann: ogni modello porta i numeri del suo manuale, e nient'altro", 
     ok(!d.ruolo, k + ": un combo è l'ampli intero, niente ruolo");
   });
   eq(sbagliati, [], "numeri diversi dal manuale:");
+  Object.keys(PILOTA_PAGINE).forEach(k => eq(A.AMP_DB[k].fonte.split(" ").pop(), PILOTA_PAGINE[k], k + ": pagina del manuale"));
   /* e il Casio CDP-S110 NON c'è: senza il PDF del costruttore non si scrive niente (casio.com risponde 403) */
   ok(!Object.keys(A.AMP_DB).some(k => /casio/i.test(k)), "un modello senza manuale non entra");
 });
@@ -14921,9 +14928,14 @@ t("scegliendo il modello, l'ingombro in scala diventa quello del manuale", () =>
   eq([ba.w, ba.d], [38, 18], "HB-20B: 380 × 175 mm");
   A.ampModelSetBm(ba, "ampeg_rb115");
   eq([ba.w, ba.d], [51, 35], "Ampeg RB-115: 513 × 354 mm");
+  A.ampModelSetBm(ba, "ampeg_rb210");
+  eq([ba.w, ba.d], [51, 35], "Ampeg RB-210: stessa pianta del RB-115 (513 × 354 mm), è più alto");
   const co = add("comboamp", 800, 300);
   A.ampModelSetBm(co, "marshall_mg30gfx");
   eq([co.w, co.d], [48, 23], "Marshall MG30GFX: 480 × 225 mm");
+  A.ampModelSetBm(co, "boss_katana100g3");
+  eq([co.w, co.d], [53, 25], "Boss Katana-100 Gen 3: 530 × 248 mm");
+  A.ampModelSetBm(co, "marshall_mg30gfx");
   /* un modello che non copre il tipo non si attacca e non sposta niente */
   A.ampModelSetBm(co, "yamaha_p525");
   eq([co.w, co.d, co.bm], [T.comboamp.w, T.comboamp.d, undefined], "una tastiera su un combo: rifiutata, e il combo torna generico");
@@ -15009,6 +15021,10 @@ t("peso e assorbimento del modello arrivano a lista carichi e rider", () => {
   eq([riga(co).w, riga(co).fonte], [47, "targa"], "Katana-50 Gen 3: 47 W");
   eq([riga(ba).w, riga(ba).fonte], [280, "targa"], "RB-115: 280 W, non i 400 di un rig 8×10");
   eq(A.powerTotalW(), 18 + 47 + 280, "il totale del palco è la somma dei tre manuali (il synth senza W dichiarati non è un carico)");
+  /* le due riserve da palco: il RB-210 assorbe PIÙ della stima di un 8×10 (600 contro 400) */
+  A.ampModelSetBm(ba, "ampeg_rb210"); A.ampModelSetBm(co, "boss_katana100g3"); A.__elecRes = null;
+  eq([A.wattOf(ba), A.wattFonte(ba), A.wattOf(co), A.wattFonte(co)], [600, "targa", 77, "targa"], "RB-210 600 W, Katana-100 Gen 3 77 W");
+  A.ampModelSetBm(ba, "ampeg_rb115"); A.ampModelSetBm(co, "boss_katana50g3"); A.__elecRes = null;
   /* un modello che l'assorbimento non lo dichiara resta stima, e lo dice */
   A.ampModelSetBm(co, "marshall_mg30gfx"); A.__elecRes = null;
   eq([A.wattOf(co), A.wattFonte(co)], [A.WATT.comboamp, "stima"], "Marshall non lo pubblica: stima del tipo, e la parola «stima»");
@@ -15046,6 +15062,98 @@ t("pilota Thomann: ogni modello ha la sua citazione scritta in DATI_TARGA.md", (
   });
   eq(mancano, [], "senza citazione:");
   ok(/non dichiarato/.test(doc) && /Casio CDP-S110/.test(doc), "anche quello che manca è scritto: assorbimenti non dichiarati e il Casio senza PDF");
+});
+
+/* ═══ IL MODELLO SCELTO SUL FOGLIO, E DA DOVE VENGONO I WATT (12/10/2026, decisioni di Simone) ═════
+   Due limiti visti nelle anteprime del pilota: la lista Backline scriveva l'etichetta e non il modello
+   scelto nel pannello, e la Lista carichi del PDF non diceva se i W erano di targa o stimati. */
+t("backline: il modello scelto va sul foglio, insieme all'etichetta dell'utente", () => {
+  reset(); A.state.lookDefault = "schematico";
+  const nome = (it) => A.backlineName(it);
+  const ba = add("bassamp", 300, 300), co = add("comboamp", 500, 300), sp = add("stagepiano", 300, 600);
+  eq(nome(ba), ba.label, "di serie l'elemento nasce con un'etichetta («" + ba.label + "»), e senza modello vale quella");
+  ba.label = ""; co.label = "  ";
+  eq([nome(ba), nome(co)], ["Ampli basso", "Combo chitarra"], "senza modello né etichetta: il nome del tipo, come prima");
+  co.label = "Chitarra Luca"; eq(nome(co), "Chitarra Luca", "senza modello: l'etichetta, come prima");
+  A.ampModelSetBm(ba, "ampeg_rb115");
+  eq(nome(ba), "Ampeg RB-115 Rocket Bass", "modello senza etichetta: «Marca Modello» al posto del nome generico");
+  ba.label = "Ampli basso";
+  eq(nome(ba), "Ampli basso — Ampeg RB-115 Rocket Bass", "etichetta e modello: tutte e due, l'etichetta prima");
+  A.ampModelSetBm(co, "boss_katana100g3");
+  eq(nome(co), "Chitarra Luca — Boss Katana-100 Gen 3", "l'etichetta scritta dall'utente non si perde");
+  ba.label = "Ampeg RB-115";
+  eq(nome(ba), "Ampeg RB-115", "un'etichetta che il modello lo dice già (la sigla con le cifre) resta sola");
+  ba.label = "rb 115 di Giulia"; eq(nome(ba), "rb 115 di Giulia", "maiuscole, spazi e trattini non contano");
+  A.ampModelSetBm(sp, "nord_stage4_88"); sp.label = "Stage piano";
+  eq(nome(sp), "Stage piano — Nord Stage 4 88", "«Stage» da solo non è il modello: niente falso «già scritto»");
+  A.ampModelSetBm(sp, "nord_electro7_73"); sp.label = "Electro 7 73 (Marco)";
+  eq(nome(sp), "Electro 7 73 (Marco)", "modello senza sigla numerica in testa: conta il nome intero");
+  /* una testata: l'elemento è il rig, il nome lo dice */
+  const rig = add("bassamp", 700, 300); rig.label = ""; A.ampModelSetBm(rig, "ampeg_svtcl");
+  eq(nome(rig), "Ampli basso — Ampeg SVT-CL (testata)", "testata: di cosa fa parte e che ruolo ha");
+  /* un modello rimasto attaccato a un tipo che non copre non conta (ampModelOf) */
+  const co2 = add("comboamp", 900, 300); co2.label = ""; co2.bm = "yamaha_p525";
+  eq(nome(co2), "Combo chitarra", "un modello di un altro tipo non finisce sul foglio");
+  /* la lista: due elementi uguali con lo stesso modello fanno una riga da 2, modelli diversi due righe */
+  const a1 = add("comboamp", 300, 900), a2 = add("comboamp", 500, 900), a3 = add("comboamp", 700, 900);
+  [a1, a2, a3].forEach((x) => { x.label = ""; });
+  A.ampModelSetBm(a1, "boss_katana50g3"); A.ampModelSetBm(a2, "boss_katana50g3"); A.ampModelSetBm(a3, "harleybenton_hb10g");
+  const righe = Object.fromEntries(A.backlineList().rows.map((r) => [r.name, r.qty]));
+  eq([righe["Boss Katana-50 Gen 3"], righe["Harley Benton HB-10G"]], [2, 1], "una riga per modello, con la quantità:");
+  ok(righe["Ampli basso — Ampeg SVT-CL (testata)"] === 1 && righe["Chitarra Luca — Boss Katana-100 Gen 3"] === 1, "e le righe con l'etichetta");
+  reset();
+});
+
+t("backline: schermo e PDF scrivono lo stesso nome col modello, e la riga lunga va a capo", () => {
+  reset(); A.state.lookDefault = "schematico";
+  const ba = add("bassamp", 300, 300); ba.label = "Ampli basso"; A.ampModelSetBm(ba, "ampeg_rb210");
+  const lungo = add("comboamp", 500, 300); lungo.label = "Combo della chitarra ritmica, quello col flight case nero"; A.ampModelSetBm(lungo, "harleybenton_tube15c");
+  const atteso = "Ampli basso — Ampeg RB-210 Rocket Bass";
+  /* schermo: l'anteprima dell'Esporta e il link condiviso sono la stessa tabella (pdfListConfig) */
+  ok(A.listPreviewHtml("backline").indexOf(atteso) >= 0, "anteprima e link condiviso: «" + atteso + "»");
+  /* PDF */
+  const doc = jsPdfFinto()({ format: "a4", orientation: "portrait" });
+  A.backlineListPdf(doc);
+  const pag = doc.pagine[1].testi, tx = pag.map((x) => x.t);
+  ok(tx.indexOf(atteso) >= 0, "PDF: «" + atteso + "», invece:\n" + tx.join("\n"));
+  /* la riga lunga: più righe nella colonna dell'attrezzatura, nessuna oltre «Fornito da» */
+  const col1 = pag.filter((x) => x.x === 16 + 16), xFornito = 16 + 130;
+  ok(col1.some((x) => /flight/.test(x.t)) && col1.every((x) => x.t.length * 1.9 <= xFornito - (16 + 16)), "la colonna dell'attrezzatura va a capo:\n" + col1.map((x) => x.t).join("\n"));
+  ok(col1.filter((x) => /Celestion|flight|ritmica/.test(x.t)).length >= 2, "la riga lunga sta su più righe");
+  reset();
+});
+
+t("lista carichi del PDF: accanto ai W la fonte, targa o stima, e la legenda solo per le parole usate", () => {
+  reset(); A.state.lookDefault = "schematico";
+  const ba = add("bassamp", 300, 300), co = add("comboamp", 500, 300);
+  A.ampModelSetBm(ba, "ampeg_rb210"); A.ampModelSetBm(co, "marshall_mg30gfx");   /* 600 W di targa; Marshall non dichiara: stima */
+  A.__elecRes = null;
+  const doc = jsPdfFinto()({ format: "a4", orientation: "portrait" });
+  A.loadListPdf(doc);
+  const pag = doc.pagine[1].testi;
+  const cella = (t) => pag.find((x) => x.t === t);
+  const w600 = cella("600 W"), w150 = cella(A.WATT.comboamp + " W");
+  ok(w600 && w150, "le due celle dei W:\n" + pag.map((x) => x.t).join("\n"));
+  /* la parola sta SULLA STESSA RIGA del suo numero, subito a destra */
+  const accanto = (cw, parola) => pag.some((x) => x.t === parola && Math.abs(x.y - cw.y) < 0.01 && x.x > cw.x && x.x < cw.x + 20);
+  ok(accanto(w600, "targa"), "600 W del RB-210: «targa» accanto");
+  ok(accanto(w150, "stima"), "150 W del Marshall: «stima» accanto");
+  ok(!accanto(w600, "stima") && !accanto(w150, "targa"), "e non scambiate");
+  const leg = pag.map((x) => x.t).filter((t, i, a) => /^W: /.test(t) || (i > 0 && /^W: /.test(a[i - 1]))).join(" ");
+  ok(/targa = dichiarato dal costruttore/.test(leg) && /stima = valore tipico/.test(leg), "la legenda dice cosa vogliono dire: «" + leg + "»");
+  ok(!/indicato =/.test(leg), "«indicato» non compare in tabella, quindi nemmeno in legenda");
+  /* un valore scritto a mano dall'utente */
+  co.watt = 120; A.__elecRes = null;
+  const doc2 = jsPdfFinto()({ format: "a4", orientation: "portrait" }); A.loadListPdf(doc2);
+  const p2 = doc2.pagine[1].testi, c120 = p2.find((x) => x.t === "120 W");
+  ok(c120 && p2.some((x) => x.t === "indicato" && Math.abs(x.y - c120.y) < 0.01), "W scritti a mano: «indicato»");
+  const leg2 = p2.map((x) => x.t).filter((t, i, a) => /^W: /.test(t) || (i > 0 && /^W: /.test(a[i - 1]))).join(" ");
+  ok(/indicato = scritto da chi ha preparato il documento/.test(leg2) && !/stima =/.test(leg2), "legenda: indicato sì, stima no: «" + leg2 + "»");
+  /* lo schermo (anteprima dell'Esporta e link condiviso) dice la stessa cosa, in una colonna */
+  const html = A.listPreviewHtml("loadlist");
+  ok(/<th>Fonte W<\/th>/.test(html) && />targa</.test(html) && />indicato</.test(html), "anteprima: colonna «Fonte W» con le stesse parole");
+  eq([A.wattFonteBreve("targa"), A.wattFonteBreve("stima"), A.wattFonteBreve("dichiarato"), A.wattFonteBreve("boh")], ["targa", "stima", "indicato", ""], "le parole brevi");
+  reset();
 });
 
 /* ═══ HOMEPAGE — i numeri che si vedono ═══════════════════════════════════════════════════════════
