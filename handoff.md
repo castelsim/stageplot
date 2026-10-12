@@ -1,3 +1,26 @@
+# 12/10/2026 — Ospite in poltrona: ora è SEDUTO (ramo `poltrona-2` = `poltrona` + main, NON unito, niente PR)
+
+- Simone, guardando l'anteprima del 05/10: nella poltrona c'era la figura IN PIEDI delle voci (gambe dritte). Ora, con
+  `it.poltrona===true`, `singer()` disegna `personaSeduta(donna, schema)`: illustrata = `voceSeduta` / `voceSedutaDonna`
+  di `icons.js`, cioè il clarinettista (`musClarinetto`) senza clarinetto né sedia, mani in grembo. Contorno nero (cls-60)
+  rifatto una volta (contorno originale tenuto solo vicino ai pezzi della persona + capelli, 10 px/unità, potrace) e
+  tre toppe + tre tratti dove il clarinetto tagliava mento, camicia e cavallo. Niente `<mask>` (svg2pdf). Uomo = giacca
+  blu scuro; donna = abito scuro e capelli castani (path dei capelli dalla stessa rasterizzazione).
+- Posa: scala dei musicisti seduti, spostata di (1, 4.4) perché la testa resti a (0,−20) come in piedi (microfoni e
+  archetto al loro posto). `POLTRONA_CY` −12 → **−3**: spalle sullo schienale, ginocchia sulla seduta, piedi a +44,
+  1,5 cm oltre il bordo. Ingombro della voce in poltrona **89×109 → 89×91** (`voceMisure`). Lavalier a (7,−4) sul
+  bavero; mic in mano fra grembo e mento; leggio oltre i piedi (`PERSONA_SEDUTA.piedi+10`).
+- Schematico (`look:"schematico"`, `_pdfMode`, e ripiego finché icons.js non è arrivato): spalle, testa chiara, due cosce
+  aperte, piedi. ⚠️ Le voci NON hanno il selettore Illustrato/Schematico (`hasLookToggle` falso) e `_pdfMode` non diventa
+  mai vero (il PDF è vettoriale CON le illustrazioni): oggi lo schema seduto si vede solo senza icons.js o con `look`
+  scritto nel JSON.
+- ⚠️ Visto e NON toccato: `importProject`/`loadDoc` non ricalcolano l'ingombro (si fida di `w/d` salvati); un JSON
+  scritto a mano con `poltrona:true` e senza `w/d` nasce 70×88. Il divano con persone sedute NON esiste nell'app
+  (la voce porta la sua poltrona 85×85): nell'anteprima è un tipo di prova definito solo nella pagina.
+- Test: 4 nuovi in `engines.test.mjs` («icone: la persona seduta…», «…la figura è SEDUTA…», «…schematico…», «…misure,
+  piedi oltre il bordo…») + 2 attesi 89×109 → 89×91; 13 mutazioni tutte rosse. engines 1412/1412, collaudo 30/30
+  invariato, biglietteria 148/148, `build --check` verde.
+
 # 10/10/2026 — Snippet X32/M32: non azzera più il gain (ramo `x32-gain`, NON unito)
 
 - Difetto: lo snippet scriveva `/headamp/NNN +0.0 ON|OFF`; nei file reali quel comando porta GAIN e phantom insieme (`/headamp/000 +0.0 OFF`), quindi caricarlo riportava a 0 dB il gain di ogni canale. Tolte TUTTE le righe `/headamp`: il 48V non si imposta più dallo snippet (resta nella Channel list).
@@ -299,6 +322,20 @@ sono state scritte qui: la loro storia sta nei messaggi di commit e nelle PR (#9
 
 ## Settembre in una pagina (PR su `main`)
 
+- **05/10 — Poltrona e ospite in poltrona** (ramo `poltrona`, segnalazione «MANCA» 2ee70399: «mi serve un uomo su
+  una poltrona», palco 10×10 con un mezzacoda). Due pezzi, nessun tipo di persona nuovo:
+  **`poltrona`** (Palco e pedane › Arredo e leggii, 85×85, `resizable`: allargata oltre ~1,4 m diventa un divano a
+  più cuscini, uno ogni ~60 cm) disegnata da `poltronaGlyph(W,D,cy,chiara)`: scura da sola (scocca nera, rotoli
+  grigi, cuscino chiaro — tutta nera non si leggeva), chiara sotto una persona come `seatLight`.
+  **Chi ci sta seduto è una voce con `it.poltrona===true`**: casella «Poltrona» nel pannello di OGNI voce
+  (`pPoltronaV`, anche al telefono in «Accessori»), `voceInPoltrona(it,on)` = una sola seduta (toglie la sedia;
+  tolta la poltrona il moderatore torna sulla sua), ingombro da `voceMisure` (89×109: la poltrona sta 12 cm dietro
+  la figura, `POLTRONA_CY`), ricalcolato in `recalcItemDims`. In catalogo Persone › **«Ospite in poltrona»** =
+  `corista` uomo, lavalier, senza leggio, nome «Ospite»: microfono e canale come ogni voce. Ricerca a sottostringa:
+  le coppie «uomo poltrona», «ospite seduto», «persona seduta», «attore seduto» sono scritte nel `kw`; `qaCede` =
+  alias del corista, così «voce/cantante» restano di Uomo/Donna. Conteggi: `poltroneDi` → «Poltrone» nel pannello
+  Stato e «N poltrone» nel piè di pagina del PDF; una voce in poltrona non conta più come sedia. Peso non scritto
+  (varia troppo). Provato in Playwright: clic veri su catalogo e casella, rotazione, PNG e PDF esportati e guardati.
 - **06/10 — Posti numerati del pubblico** (ramo `numerazione-posti`, NON unito; richiesta di Simone per un concerto
   del 09/10). Sedie `sediapubblico` selezionate (≥2) → card «Posti del pubblico» → «Numera i posti…»
   (finestra con Settore, file a lettere senza I/O o a numeri, posti consecutivi da sinistra o dispari/pari dal
