@@ -1,3 +1,39 @@
+# 12/10/2026 pomeriggio — Catalogo da Thomann, decisioni di Simone: 2 ampli da palco, modello in Backline, fonte dei W in Lista carichi (ramo `catalogo-thomann`, NON unito, niente PR)
+
+- **AMP_DB +2** (21 righe del pilota): `boss_katana100g3` (77 W, 100 W out, 14,8 kg, 530×248×445, p.19) e `ampeg_rb210`
+  (600 W max, 250 W out, 17,7 kg circa, 513×354×654, p.10), dagli stessi PDF di Katana-50 Gen 3 e RB-115, riletti con
+  pdftotext. Harley Benton restano. Regola scritta in DATI_TARGA.md §3: **assorbimento = massimo dichiarato**.
+- **`backlineName(it)`** (nuova, usata da `backlineList` → PDF, anteprima Esporta, link condiviso): con `it.bm` scrive
+  «Etichetta — Marca Modello»; senza etichetta «Marca Modello»; testata/modulo «Tipo — Marca Modello (ruolo)»; se
+  l'etichetta nomina già il modello (sigla con cifre o nome intero, senza maiuscole/spazi/trattini) resta sola.
+  ⚠ Gli elementi nascono con un'etichetta («Ampli basso 1»), quindi nell'uso vero esce quasi sempre «Ampli basso 1 —
+  Ampeg RB-115 Rocket Bass». Il PDF Backline ora manda a capo la colonna Attrezzatura (`splitTextToSize`).
+- **Lista carichi del PDF**: accanto ai W «targa» / «stima» / «indicato» (`wattFonteBreve`, da `wattFonte`; «dichiarato»
+  = scritto a mano diventa «indicato», per non confonderlo col costruttore) + legenda `WATT_FONTE_LEGENDA` con le sole
+  parole usate. Nell'anteprima/link condiviso colonna «Fonte W». `loadName` NON cambiato (il modello lì non compare).
+- Test: 3 nuovi + 2 righe in `PILOTA_THOMANN` + `PILOTA_PAGINE`; 17 mutazioni rosse. engines 1425/1425, collaudo 30/30
+  invariato, biglietteria 148/148, `build --check` verde. Anteprime (porta 8993) in `CATALOGO_THOMANN/anteprime/`.
+
+# 12/10/2026 — Catalogo da Thomann, pilota: 18 modelli nuovi in AMP_DB e le MISURE in pianta (ramo `catalogo-thomann`, NON unito, niente PR)
+
+- Thomann ha scelto QUALI modelli (più venduti di stage piano, combo chitarra, combo basso); i numeri vengono solo dai PDF dei costruttori,
+  con `fonte` (file e pagina) nella riga e la frase copiata in `DATI_TARGA.md` §3 «Pilota catalogo da Thomann». Lavoro e PDF fuori dal
+  repo: `COWORK/STAGEPLOT/CATALOGO_THOMANN/LEGGIMI.md`, `STAGE PLOT/MANUALI_PDF/backline/`.
+- 8 tastiere (Yamaha P-145/P-45/P-225/P-525, Nord Electro 7 73, Kawai ES120, Roland FP-40, Thomann SP-120) + misure al Nord Stage 4 88;
+  5 combo chitarra (Katana-50 Gen 3, HB-10G, HB-20R, Marshall MG30GFX, TUBE15 Celestion); 5 combo basso (HB-20B, Micromark 801, HB-40B,
+  PJB BG-450, Ampeg RB-115). Casio CDP-S110 fuori: casio.com dà 403, nessun PDF. Electro 7 73 e SP-120 anche sul tipo `tastiera`
+  (prima la Tastiera/synth non aveva nessun modello).
+- **Codice nuovo**: campo `mm:[L,P,A]` in AMP_DB; `ampModelDimsCm` (L/10 × P/10, mai su doppiatastiera né su testata/modulo) e
+  `ampModelSetBm` (sceglie il modello e porta l'ingombro; tornando a «Generico» rimette le misure del tipo SOLO se l'elemento ha ancora
+  quelle del modello). Le due tendine del pannello passano da lì. `recalcItemDims` applica la misura del modello dopo l'illustrazione:
+  in «Postazione» lo stage piano resta il disegno col musicista (il pannello dice di passare a «Strumento solo»).
+  Correzione collaterale: tornando a «Strumento solo» lo stage piano restava 132×117 (misura del disegno) invece di 138×42; ora torna al
+  tipo, ma solo se la misura è ancora quella del disegno.
+- Prove: engines 1412/1412 (10 test nuovi, 15 mutazioni tutte rosse), `build.mjs --check`, collaudo 30/30 invariato, biglietteria 148/148.
+  Anteprime nel browser (porta 8987) in `CATALOGO_THOMANN/anteprime/`. Nessuna migrazione, nessun dato in `equip_product`.
+- Da decidere con Simone: peso Micromark 801 (manuale 5,2 kg, sito 6,6 kg: riga `v:false`), tenere o no SP-120 e gli Harley Benton
+  (manuali sul CDN di Thomann come costruttore), «Postazione» con la misura del modello, nome del modello nella lista Backline/rider.
+
 # 12/10/2026 — Ospite in poltrona: ora è SEDUTO (ramo `poltrona-2` = `poltrona` + main, NON unito, niente PR)
 
 - Simone, guardando l'anteprima del 05/10: nella poltrona c'era la figura IN PIEDI delle voci (gambe dritte). Ora, con

@@ -2090,7 +2090,8 @@ var SPEC_TARGA = { dm3:1, dm7c:1, dm7:1, csr3:1, csr5:1, csr10:1,
    Ogni riga viene dal documento del costruttore, aperto uno per uno (citazioni in DATI_TARGA.md).
    Chi aggiunge una riga senza aprire un datasheet sta rimettendo il problema.
 
-   watt = ASSORBIMENTO a rete dichiarato. out = potenza di USCITA AUDIO, che sta qui solo per
+   watt = ASSORBIMENTO a rete dichiarato, il MASSIMO quando il costruttore ne dà due (regola del 12/10,
+   decisa da Simone: è quello che deve reggere la presa). out = potenza di USCITA AUDIO, che sta qui solo per
    scriverla nel pannello: NON diventa mai un carico elettrico. Per le luci si ripiega sulla potenza
    nominale della sorgente quando l'assorbimento non e' pubblicato (lightModelWatt), ma per un
    amplificatore quella strada e' sbagliata di brutto — il Roland KC-600 da' 200 W di uscita e ne
@@ -2122,7 +2123,8 @@ var AMP_DB = {
                     note:"2,45 kg di sola testata: si porta a mano insieme al basso"},
   "markbass_ny122":{brand:"Markbass", model:"New York 122", ruolo:"cassa", per:["bassamp"], watt:0, kg:18.8, v:true},
   /* — Nord / Clavia (nordkeyboards.com). Il peso e' dichiarato per ogni taglia, l'assorbimento no. — */
-  "nord_stage4_88":{brand:"Nord", model:"Stage 4 88", per:["stagepiano"], watt:null, kg:19.6, v:true},
+  "nord_stage4_88":{brand:"Nord", model:"Stage 4 88", per:["stagepiano"], watt:null, kg:19.6, mm:[1282,349,121], v:true,
+                    fonte:"Nord_Stage4_SpecificationsWeb.pdf p.6-7"},   /* misure aggiunte il 12/10 (pilota Thomann, 1° in classifica) */
   "nord_stage4_73":{brand:"Nord", model:"Stage 4 73", per:["stagepiano"], watt:null, kg:16.7, v:true},
   "nord_stage4_c": {brand:"Nord", model:"Stage 4 Compact", per:["stagepiano","doppiatastiera"], watt:null, kg:10.4, v:true},
   /* — Yamaha (yamaha.com, pagine Specs). Il peso c'e' per ogni taglia, l'assorbimento no. — */
@@ -2131,6 +2133,60 @@ var AMP_DB = {
   /* — Hammond (hammondorganco.com) — */
   "hammond_skxpro":{brand:"Hammond", model:"SkxPro", per:["organohammond","doppiatastiera"], watt:22, kg:16.9, v:true,
                     note:"è l'Hammond PORTATILE: un B3 vintage pesa più di dieci volte tanto e non si sposta in due"},
+  /* ═══ PILOTA «CATALOGO DA THOMANN» (12/10/2026) ═══════════════════════════════════════════════
+     QUALI modelli: i primi della classifica dei più venduti su thomann.it (stage piano, combo per
+     chitarra, combo per basso), cioè quello che una band italiana ha davvero. Da Thomann NON viene
+     nessun numero. I DATI vengono solo dal PDF del costruttore, scaricato dal suo sito o dal suo
+     CDN, con la pagina in `fonte` e la frase copiata in DATI_TARGA.md §3.
+     `mm` = [larghezza, profondità, altezza] in millimetri, già riordinati: ogni costruttore scrive
+     un ordine diverso (W×D×H, W×H×D, H×W×D) e la frase originale sta in DATI_TARGA.md. È l'ingombro
+     in pianta: scegliendo il modello, l'elemento prende L e P (ampModelDimsCm). Per gli Harley
+     Benton e il Thomann SP-120 il costruttore È Thomann (marchio proprio): il manuale sta sul suo
+     CDN ed è il documento del costruttore. Casio CDP-S110 (4° in classifica) manca: casio.com
+     risponde 403 a ogni accesso automatico e senza il PDF non si scrive niente. — */
+  /* — Tastiere e piani digitali — */
+  "yamaha_p145":   {brand:"Yamaha", model:"P-145", per:["stagepiano"], watt:6, kg:11.1, mm:[1326,268,129], v:true,
+                    fonte:"Yamaha_P-145_OwnerManual.pdf p.14", note:"6 W con l'alimentatore PA-150 (0,3 W in standby). Lo stesso manuale vale per il P-143, con gli stessi numeri"},
+  "yamaha_p45":    {brand:"Yamaha", model:"P-45", per:["stagepiano"], watt:6, kg:11.5, mm:[1326,295,154], v:true,
+                    fonte:"Yamaha_P-45_OwnerManual.pdf p.20", note:"6 W con l'alimentatore PA-150. Non è il P-145: pesa 0,4 kg in più ed è 27 mm più profondo"},
+  "yamaha_p225":   {brand:"Yamaha", model:"P-225", per:["stagepiano"], watt:9, kg:11.5, mm:[1326,272,129], v:true,
+                    fonte:"Yamaha_P-225_OwnerManual.pdf p.24", note:"9 W con l'alimentatore PA-150. Lo stesso manuale vale per il P-223"},
+  "yamaha_p525":   {brand:"Yamaha", model:"P-525", per:["stagepiano"], watt:18, kg:22, mm:[1336,376,145], v:true,
+                    fonte:"Yamaha_P-525_OwnerManual.pdf p.117-118", note:"18 W con l'alimentatore PA-300C"},
+  "nord_electro7_73":{brand:"Nord", model:"Electro 7 73", per:["stagepiano","tastiera"], watt:null, kg:9.5, mm:[1066,294,104], v:true,
+                    fonte:"Nord_Electro7_SpecificationsWeb.pdf p.6", note:"73 tasti semipesati. Non è l'Electro 7 HP (73 tasti pesati, 13 kg, 1070×341 mm), che è un altro strumento"},
+  "kawai_es120":   {brand:"Kawai", model:"ES120", per:["stagepiano"], watt:9, kg:12, mm:[1305,280,150], v:true,
+                    fonte:"Kawai_ES120_OwnerManual.pdf p.33", note:"9 W con l'alimentatore PS-129"},
+  "roland_fp40":   {brand:"Roland", model:"FP-40", per:["stagepiano"], watt:22, kg:14, mm:[1307,332,122], v:true,
+                    fonte:"Roland_FP-40_ReferenceManual.pdf p.56", note:"22 W è il massimo dichiarato (5 W suonando a metà volume). Le misure sono senza leggio, il peso è con il leggio"},
+  "thomann_sp120": {brand:"Thomann", model:"SP-120", per:["stagepiano","tastiera"], watt:null, kg:6.2, mm:[1070,275,95], v:true,
+                    fonte:"Thomann_SP-120_UserManual.pdf p.22", note:"73 tasti leggeri, non 88. Alimentatore esterno da 9-12 V: l'assorbimento a rete non è dichiarato"},
+  /* — Combo per chitarra — */
+  "boss_katana50g3":{brand:"Boss", model:"Katana-50 Gen 3", per:["comboamp"], watt:47, out:50, kg:11.6, mm:[470,238,398], v:true,
+                    fonte:"Boss_Katana-Gen3_ReferenceManual.pdf p.17", note:"misure con maniglia e piedini. Stessi numeri del Katana-50 MkII, ma è un altro prodotto"},
+  "harleybenton_hb10g":{brand:"Harley Benton", model:"HB-10G", per:["comboamp"], watt:20, out:10, kg:4.2, mm:[289,176,314], v:true,
+                    fonte:"HarleyBenton_HB-10G_UserManual.pdf p.16", note:"20 W è l'assorbimento massimo dichiarato"},
+  "harleybenton_hb20r":{brand:"Harley Benton", model:"HB-20R", per:["comboamp"], watt:40, out:20, kg:7, mm:[380,175,340], v:true,
+                    fonte:"HarleyBenton_HB-20R_UserManual.pdf p.16", note:"40 W è l'assorbimento massimo dichiarato"},
+  "marshall_mg30gfx":{brand:"Marshall", model:"MG30GFX", per:["comboamp"], watt:null, out:30, kg:10.8, mm:[480,225,420], v:true,
+                    fonte:"Marshall_MG15GFX-MG30GFX_QuickStartGuide.pdf p.1", note:"Marshall non dichiara l'assorbimento. La profondità è 225 mm nel testo inglese e 228 in quello giapponese dello stesso foglio"},
+  "harleybenton_tube15c":{brand:"Harley Benton", model:"TUBE15 Celestion", per:["comboamp"], watt:50, out:15, kg:11.5, mm:[427,235,435], v:true,
+                    fonte:"HarleyBenton_TUBE5-TUBE15-Celestion_UserManual.pdf p.21", note:"valvolare: 30 W tipici, 50 W al massimo. Qui il massimo, che è quello che deve reggere la presa"},
+  "boss_katana100g3":{brand:"Boss", model:"Katana-100 Gen 3", per:["comboamp"], watt:77, out:100, kg:14.8, mm:[530,248,445], v:true,
+                    fonte:"Boss_Katana-Gen3_ReferenceManual.pdf p.19", note:"combo 1×12″ da palco (aggiunto il 12/10 su scelta di Simone). Misure con maniglia e piedini. Stessi numeri del Katana-100 MkII, ma è un altro prodotto"},
+  /* — Combo per basso: sull'elemento «Ampli basso» sono l'ampli intero, quindi niente ruolo — */
+  "harleybenton_hb20b":{brand:"Harley Benton", model:"HB-20B", per:["bassamp"], watt:40, out:20, kg:7.5, mm:[380,175,340], v:true,
+                    fonte:"HarleyBenton_HB-20B_UserManual.pdf p.16", note:"combo 1×8″. 40 W è l'assorbimento massimo dichiarato"},
+  "markbass_micromark801":{brand:"Markbass", model:"Micromark 801", per:["bassamp"], watt:null, out:45, kg:5.2, mm:[268,262,268], v:false,
+                    fonte:"Markbass_Micromark801-Minimark802_UserManual.pdf p.16", note:"combo 1×8″, 45 W su 8 Ω. Il manuale dice 5,2 kg, la pagina web di Markbass 6,6 kg: da chiarire. L'assorbimento non è dichiarato"},
+  "harleybenton_hb40b":{brand:"Harley Benton", model:"HB-40B", per:["bassamp"], watt:80, out:40, kg:12, mm:[425,300,445], v:true,
+                    fonte:"HarleyBenton_HB-40B_UserManual.pdf p.16", note:"combo 1×10″. 80 W è l'assorbimento massimo dichiarato"},
+  "pjb_bg450":     {brand:"Phil Jones Bass", model:"BG-450 Compact Plus", per:["bassamp"], watt:null, out:300, kg:14.1, mm:[361,336,362], v:true,
+                    fonte:"PhilJonesBass_BG-450-CompactPlus_Manual.pdf p.10", note:"combo 4×5″, 300 W su 8 Ω (a p.7 il manuale dice 250). L'assorbimento non è dichiarato"},
+  "ampeg_rb115":   {brand:"Ampeg", model:"RB-115 Rocket Bass", per:["bassamp"], watt:280, out:100, kg:15.45, mm:[513,354,570], v:true,
+                    fonte:"Ampeg_RocketBass-RB108-RB210_OwnerManual.pdf p.9", note:"combo 1×15″: 100 W col suo altoparlante, 200 W con una cassa esterna. 280 W è l'assorbimento massimo. Peso «circa»: 15,45 kg, ma le 33,4 libbre scritte accanto fanno 15,15"},
+  "ampeg_rb210":   {brand:"Ampeg", model:"RB-210 Rocket Bass", per:["bassamp"], watt:600, out:250, kg:17.7, mm:[513,354,654], v:true,
+                    fonte:"Ampeg_RocketBass-RB108-RB210_OwnerManual.pdf p.10", note:"combo 2×10″ da palco (aggiunto il 12/10 su scelta di Simone): 250 W col suo altoparlante, 500 W con una cassa esterna. 600 W è l'assorbimento massimo. Peso «circa»: 17,7 kg, ma le 38 libbre scritte accanto fanno 17,24"},
   /* — PA ATTIVA DI TAGLIO PICCOLO — la tabella non e' piu' solo backline: un diffusore attivo e'
        un apparecchio che assorbe, e il piano elettrico ha lo stesso bisogno di sapere quanto.
        ⚠️ Qui `watt` e' la RICHIESTA DI RETE dichiarata (VA), non il programma medio: e' il numero
@@ -2161,6 +2217,36 @@ function ampModelWatt(it){ var d=ampModelOf(it); if(!d||d.watt==null) return nul
   var n=+d.watt; return (isFinite(n)&&n>=0) ? n : null; }
 function ampModelKg(it){ var d=ampModelOf(it); if(!d||d.kg==null) return null;
   var n=+d.kg; return (isFinite(n)&&n>0) ? n : null; }
+/* INGOMBRO IN SCALA del modello (12/10, pilota Thomann). Prima il modello portava watt e chili ma
+   non la misura: un HB-20B (38×18 cm) restava disegnato come un frigo 8×10 (68×43), e un Electro 7
+   da 73 tasti largo quanto un 88. Ora L e P del costruttore diventano it.w/it.d (1 unità = 1 cm,
+   mm arrotondati al cm), come già fa equipDimsCm per i modelli del DB prodotti.
+   Tre casi in cui la misura del modello NON descrive l'elemento, e quindi non si applica:
+   - la «Doppia tastiera» sono DUE strumenti su un supporto a due piani: la misura di uno non è la loro;
+   - una TESTATA (o un modulo) su «Ampli basso»: l'elemento è il rig, e 2,45 kg di Little Mark IV non
+     devono rimpicciolire l'8×10 che le sta sotto;
+   - l'aspetto «Postazione» dello stage piano: lì l'ingombro è l'illustrazione col musicista
+     (look2Dims), che ha misure sue. Ci pensa recalcItemDims, che guarda l'aspetto prima del modello. */
+function ampModelDimsCm(it){
+  var d=ampModelOf(it); if(!d || !Array.isArray(d.mm)) return null;
+  if(it.type==="doppiatastiera" || d.ruolo==="testata" || d.ruolo==="modulo") return null;
+  var w=Math.round(+d.mm[0]/10), p=Math.round(+d.mm[1]/10);
+  return (isFinite(w)&&isFinite(p)&&w>0&&p>0) ? {w:w, d:p} : null;
+}
+/* Sceglie (o toglie, con key vuota) il modello e porta l'ingombro con sé. Tornando a «Generico», o a
+   un modello che la misura non la dichiara, l'elemento riprende le misure del suo tipo — ma solo se ha
+   ancora quelle del modello di prima: se nel frattempo qualcuno l'ha ridimensionato a mano, la sua
+   misura resta sua. */
+function ampModelSetBm(x, key){
+  if(!x || !ampModelApplies(x)) return;
+  var prima=ampModelDimsCm(x);
+  if(key && AMP_DB[key] && AMP_DB[key].per.indexOf(x.type)>=0) x.bm=key; else delete x.bm;
+  var dopo=ampModelDimsCm(x);
+  if(typeof look2Art==="function" && look2Art(x)) return;   /* «Postazione»: l'ingombro è l'illustrazione */
+  if(dopo){ x.w=dopo.w; x.d=dopo.d; return; }
+  var t=TYPES[x.type];
+  if(prima && t && x.w===prima.w && x.d===prima.d){ x.w=t.w; x.d=t.d; }
+}
 /* Quel che il pannello dice del modello: solo i campi dichiarati, e la distinzione fra i due watt. */
 function ampModelSpecText(d){
   if(!d) return "";
@@ -2169,6 +2255,7 @@ function ampModelSpecText(d){
   else b.push("assorbimento non dichiarato dal costruttore");
   if(d.out!=null) b.push(d.out+" W di uscita audio");
   if(d.kg!=null) b.push(String(d.kg).replace(".",",")+" kg");
+  if(Array.isArray(d.mm)) b.push(d.mm.join("×")+" mm (L×P×A)");
   var t=b.join(" · ");
   return d.note ? (t+" — "+d.note) : t;
 }
@@ -2382,6 +2469,9 @@ function wattFonte(it){
   if(typeof SPEC_TARGA!=="undefined" && SPEC_TARGA[it.type]) return "targa";
   return "stima";
 }
+/** La provenienza in una parola, per i fogli (Lista carichi del PDF, anteprima, link condiviso). */
+function wattFonteBreve(f){ return f==="targa" ? "targa" : (f==="stima" ? "stima" : (f==="dichiarato" ? "indicato" : "")); }
+var WATT_FONTE_LEGENDA=[["targa","dichiarato dal costruttore del modello"],["stima","valore tipico del tipo di attrezzatura, non una misura"],["indicato","scritto da chi ha preparato il documento"]];
 /** La stessa provenienza, detta a chi legge. */
 function wattFonteTxt(f){
   if(f==="dichiarato") return "Assorbimento dichiarato da te, a 230 V";
@@ -6345,6 +6435,16 @@ function recalcItemDims(it){
   var ld=look2Dims(it); if(ld){ it.w=ld[0]; it.d=ld[1];
     if(t.gtr){ if(it.ampli) it.w=Math.max(it.w,80); if(it.pedaliera) it.d=Math.max(it.d, it.sedia!==false?150:130); }   /* chitarra illustrata: includi ampli (larghezza) e pedaliera (profondità) nel footprint */
     return; }   /* Fase 2 illustrato: footprint = illustrazione */
+  /* modello del backline con le misure del costruttore (12/10): vale come un ingombro di tipo, quindi
+     sopravvive al cambio di aspetto e ai ricalcoli. Viene DOPO l'illustrazione, che ha misure sue. */
+  var amd=(typeof ampModelDimsCm==="function") ? ampModelDimsCm(it) : null;
+  if(amd){ it.w=amd.w; it.d=amd.d; return; }
+  /* Tornando a «Strumento solo» uno stage piano (o un pianoforte, un'arpa) restava con l'ingombro
+     dell'illustrazione col musicista, 132×117 invece di 138×42: nessun ramo qui sotto lo rimetteva.
+     Si rimette il tipo solo se la misura è ancora quella dell'illustrazione, cioè se nessuno l'ha
+     cambiata a mano (visto il 12/10 preparando le anteprime del catalogo). */
+  if(LOOK_ART[it.type] && !t.gtr && window.LIB_ICONS){ var _ie=window.LIB_ICONS[LOOK_ART[it.type]];
+    if(_ie && _ie.vb && it.w===Math.round(_ie.vb[2]) && it.d===Math.round(_ie.vb[3])){ it.w=t.w; it.d=t.d; return; } }
   if(t.gtr){ var g=gtrSize(it,t); it.w=g[0]; it.d=g[1]; return; }
   if(t.dir || it.type==="direttore"){ var ds=dirSize(it); it.w=ds[0]; it.d=ds[1]; return; }
   if(DOUBLE_TYPES[it.type]){ var cfgD=DOUBLE_TYPES[it.type]; if(it.sep==null) it.sep=defSepOf(it);
@@ -10927,6 +11027,9 @@ function bmFillProps(it){
   } else { mSel.innerHTML=""; mSel.style.display="none"; }
   var info=document.getElementById("pBmInfo");
   if(info) info.textContent = cur ? ampModelSpecText(cur)
+      /* la misura c'è ma in «Postazione» non si vede: va detto, o sembra che il modello non conti */
+      + ((Array.isArray(cur.mm) && typeof look2Art==="function" && look2Art(it))
+         ? ". In pianta la misura vera si vede con «Strumento solo»: la postazione col musicista ha l'ingombro del disegno" : "")
     : "Generico: valgono la stima di categoria e i chili medi, non un modello.";
 }
 function lmFillProps(it){
@@ -22426,16 +22529,15 @@ function renderCabPanel(){
   var bmB=document.getElementById("pBmBrand");
   if(bmB) bmB.addEventListener("change", function(){ var it=getSel(); if(!it||!ampModelApplies(it)) return;
     var v=this.value;
-    if(!v){ mutSel(function(x){ if(ampModelApplies(x)) delete x.bm; }); }
+    if(!v){ mutSel(function(x){ ampModelSetBm(x, ""); }); }
     else { var first=null; Object.keys(AMP_DB).some(function(k){ var d=AMP_DB[k];
         if(d.brand===v && d.per.indexOf(it.type)>=0){ first=k; return true; } return false; });
-      if(first) mutSel(function(x){ if(ampModelApplies(x) && AMP_DB[first].per.indexOf(x.type)>=0) x.bm=first; }); }
+      if(first) mutSel(function(x){ if(ampModelApplies(x) && AMP_DB[first].per.indexOf(x.type)>=0) ampModelSetBm(x, first); }); }
     __elecRes=null; save(); render(); renderProps(); });
   var bmM=document.getElementById("pBmModel");
   if(bmM) bmM.addEventListener("change", function(){ var it=getSel(); if(!it||!ampModelApplies(it)) return;
     var v=this.value;
-    mutSel(function(x){ if(!ampModelApplies(x)) return;
-      if(v && AMP_DB[v] && AMP_DB[v].per.indexOf(x.type)>=0) x.bm=v; else delete x.bm; });
+    mutSel(function(x){ ampModelSetBm(x, v); });   /* il modello porta anche la sua misura in pianta (12/10) */
     __elecRes=null; save(); render(); renderProps(); });
   /* modello della luce (29/07): la marca seleziona il primo modello; il modello scrive it.lm.
      Stesso identico gesto delle due tendine del personal monitor. */
@@ -27333,7 +27435,20 @@ function loadListPdf(shared){
        di un'orchestra vera finivano su un foglio senza «# SORGENTE MIC/DI…») */
     function _testa(){ trow("#","CARICO","W","A","DISTRO/FASE", true, "#b45309"); doc.setDrawColor("#d97706"); doc.setLineWidth(0.4); doc.line(M, y-3.6, 194, y-3.6); }
     _testa(); _testaTab=_testa;
-    pl.rows.forEach(function(r){ trow(r.n, r.name, r.w+" W", r.a.toFixed(1)+" A", (r.ok?r.distro+" / "+r.phase:"— senza distro")+(r.cee?" (CEE)":""), false, "#111827", r.ok?null:"#b45309"); });
+    /* DA DOVE VIENE IL NUMERO (12/10): accanto ai W, in piccolo, «targa» (il costruttore del modello lo
+       dichiara), «stima» (valore tipico del tipo: non è una misura) o «indicato» (scritto a mano da chi
+       ha fatto il documento). Il pannello lo diceva già nel suggerimento sulla riga; il foglio che arriva
+       al service no, e un 400 W stimato si leggeva come un 280 W di targa. La legenda sotto la tabella
+       spiega solo le parole che compaiono. */
+    var _fonti={};
+    pl.rows.forEach(function(r){ var wt=r.w+" W";
+      trow(r.n, r.name, wt, r.a.toFixed(1)+" A", (r.ok?r.distro+" / "+r.phase:"— senza distro")+(r.cee?" (CEE)":""), false, "#111827", r.ok?null:"#b45309");
+      var fb=wattFonteBreve(r.fonte); if(!fb) return; _fonti[fb]=1;
+      doc.setFont("helvetica","normal"); doc.setFontSize(9); var xf=cols[2]+doc.getTextWidth(wt)+1.2;
+      doc.setFontSize(7); doc.setTextColor(r.fonte==="stima"?"#b45309":"#6b7280"); doc.text(fb, xf, y-5.4); });
+    var _leg=WATT_FONTE_LEGENDA.filter(function(l){ return _fonti[l[0]]; }).map(function(l){ return l[0]+" = "+l[1]; });
+    if(_leg.length){ y+=2; if(y>286){ doc.addPage(); y=18; } doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor("#6b7280");
+      var _lg=doc.splitTextToSize("W: "+_leg.join(" · "), 178); doc.text(_lg, M, y); y+=_lg.length*3.6+1; }
     var _rmp=(state.items||[]).filter(function(it){ return it.type==="cableramp"; });   /* passacavi: il service sa quanti moduli servono */
     if(_rmp.length){ var _rm=_rmp.reduce(function(a,it){ return a+rampModules(it); },0), _rl=_rmp.reduce(function(a,it){ return a+(it.w||0); },0);
       y+=4; doc.setFont("helvetica","bold"); doc.setFontSize(9.5); doc.setTextColor("#111827"); doc.text("Passacavi: "+_rm+" moduli · "+(_rl/100).toFixed(1).replace(".",",")+" m", M, y); y+=6; }
@@ -27350,12 +27465,35 @@ function loadListPdf(shared){
    deve procurare (righe Service), la band cosa porta lei. Auto-derivata dagli elementi sul palco. ===== */
 var BACKLINE_EXTRA={ batteria:1, edrums:1, percussioni:1, timbales:1 };   /* strumenti-backline fuori dalla categoria "Band e backline" */
 function isBackline(it){ var t=TYPES[it.type]; if(!t) return false; return t.cat==="Band e backline" || !!BACKLINE_EXTRA[it.type]; }
+/* IL NOME DI UNA RIGA DI BACKLINE (12/10, pilota Thomann). Il modello scelto in «Modello del backline»
+   (it.bm) non arrivava sul foglio: la lista diceva «Ampli basso» anche quando il pannello sapeva che era
+   un Ampeg RB-115, e il service doveva indovinare cosa procurare. Ora:
+   - nessun modello: come prima, l'etichetta o il nome del tipo;
+   - modello senza etichetta: «Marca Modello» al posto del nome generico del tipo («Ampeg RB-115 Rocket
+     Bass»); una testata o un modulo dicono anche di cosa fanno parte («Ampli basso — Ampeg SVT-CL
+     (testata)»), perché l'elemento è il rig intero;
+   - modello ed etichetta: tutte e due, l'etichetta dell'utente prima («Ampli basso — Ampeg RB-115…»).
+     Se l'etichetta il modello lo dice già («Ampeg RB-115», «P-525 di Marco») resta sola: ripeterlo
+     sarebbe rumore. Il confronto ignora maiuscole, spazi e trattini; basta la sigla con le cifre
+     («RB-115», «P-525»), perché «Stage» o «Little» da soli non nominano un modello.
+   Una funzione sola per lo schermo (anteprima dell'Esporta, link condiviso) e il PDF: tutti leggono
+   backlineList. */
+function backlineName(it){
+  var t=TYPES[it.type], tipo=t?t.nome:it.type, lab=String(it.label||"").trim();
+  var d=(typeof ampModelOf==="function")?ampModelOf(it):null;
+  if(!d) return lab || tipo;
+  var mod=d.brand+" "+d.model+(d.ruolo?" ("+d.ruolo+")":"");
+  if(!lab) return d.ruolo ? (tipo+" — "+mod) : mod;
+  var norm=function(x){ return String(x||"").toLowerCase().replace(/[^a-z0-9]+/g,""); };
+  var L=norm(lab), sigla=String(d.model).split(/\s+/)[0];
+  if(L.indexOf(norm(d.model))>=0 || (/\d/.test(sigla) && L.indexOf(norm(sigla))>=0)) return lab;
+  return lab+" — "+mod;
+}
 function backlineList(){
   var groups={}, order=[];
   (state.items||[]).forEach(function(it){
     if(!isBackline(it)) return;
-    var t=TYPES[it.type];
-    var name=(it.label && it.label.trim()) ? it.label.trim() : (t?t.nome:it.type);   /* label custom (es. modello) o nome tipo */
+    var name=backlineName(it);   /* etichetta, modello scelto, o nome del tipo */
     var by=fornituraElemento(it);   /* anche dalla colonna «forn.» della channel list (30/09) */
     var k=name+"|"+by;
     if(!groups[k]){ groups[k]={name:name, by:by, qty:0}; order.push(k); }
@@ -27594,7 +27732,11 @@ function backlineListPdf(shared){
     doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
     doc.text(pl.totItems+" element"+(pl.totItems===1?"o":"i")+" di backline"+(pl.byService?"   ·   "+pl.byService+" da fornire (Service)":""), M, y); y+=8;
     var _testaTab=null;
-    function trow(a,b,c,bold,color){ if(y>286){ doc.addPage(); y=18; if(_testaTab){ var _t=_testaTab; _testaTab=null; _t(); _testaTab=_t; } } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9.5); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); y+=5.6; }
+    /* con il modello nel nome («Ampli basso — Ampeg RB-115 Rocket Bass») una riga lunga andava a finire
+       sotto «Fornito da»: la colonna dell'attrezzatura va a capo invece di sbordare (12/10) */
+    function trow(a,b,c,bold,color){ if(y>286){ doc.addPage(); y=18; if(_testaTab){ var _t=_testaTab; _testaTab=null; _t(); _testaTab=_t; } } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9.5); doc.setTextColor(color||"#111827");
+      var bl=doc.splitTextToSize(String(b), cols[2]-cols[1]-4);
+      doc.text(String(a),cols[0],y); doc.text(bl,cols[1],y); doc.text(String(c),cols[2],y); y+=5.6+(bl.length-1)*3.9; }
     /* intestazione delle colonne ripetuta sulle pagine di seguito (revisione 28/09) */
     function _testa(){ trow("Q.tà","ATTREZZATURA","FORNITO DA", true, "#0b7a70"); doc.setDrawColor("#0d9488"); doc.setLineWidth(0.4); doc.line(M, y-3.8, 194, y-3.8); }
     _testa(); _testaTab=_testa;
@@ -28526,7 +28668,7 @@ function pdfListConfig(){
       cols:[{h:"#",num:1,f:function(r){return r.n;}},{h:"Mix",f:function(r){return r.mix;}},{h:"Tipo",f:function(r){return r.tipo+(r.stereo?" · st":"");}},{h:"Monitor",f:function(r){return r.name;}},{h:"Uscita",f:function(r){return r.patch;},warn:function(r){return !r.box;}}] },
     loadlist:{ title:"Lista carichi", color:"#d97706", data:(typeof loadList==="function"?loadList:null),
       sub:function(d){ return d.R?("Totale "+elecKW(d.R.totW)+" · "+d.R.totA.toFixed(0)+" A"):""; },
-      cols:[{h:"#",num:1,f:function(r){return r.n;}},{h:"Carico",f:function(r){return r.name;}},{h:"W",num:1,f:function(r){return r.w;}},{h:"A",num:1,f:function(r){return r.a.toFixed(1);}},{h:"Distro / fase",f:function(r){return r.ok?(r.distro+" / "+r.phase):"— senza distro";},warn:function(r){return !r.ok;}}] },
+      cols:[{h:"#",num:1,f:function(r){return r.n;}},{h:"Carico",f:function(r){return r.name;}},{h:"W",num:1,f:function(r){return r.w;}},{h:"Fonte W",f:function(r){return wattFonteBreve(r.fonte)||"—";}},{h:"A",num:1,f:function(r){return r.a.toFixed(1);}},{h:"Distro / fase",f:function(r){return r.ok?(r.distro+" / "+r.phase):"— senza distro";},warn:function(r){return !r.ok;}}] },
     backline:{ title:"Backline", color:"#0d9488", data:(typeof backlineList==="function"?backlineList:null),
       sub:function(d){ return d.totItems+" element"+(d.totItems===1?"o":"i")+(d.byService?" · "+d.byService+" da Service":""); },
       cols:[{h:"Q.tà",num:1,f:function(r){return r.qty+"×";}},{h:"Attrezzatura",f:function(r){return r.name;}},{h:"Fornito da",f:function(r){return r.by||"—";}}] },
