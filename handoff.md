@@ -1,3 +1,23 @@
+# 12/10/2026 — Catalogo da Thomann, pilota: 18 modelli nuovi in AMP_DB e le MISURE in pianta (ramo `catalogo-thomann`, NON unito, niente PR)
+
+- Thomann ha scelto QUALI modelli (più venduti di stage piano, combo chitarra, combo basso); i numeri vengono solo dai PDF dei costruttori,
+  con `fonte` (file e pagina) nella riga e la frase copiata in `DATI_TARGA.md` §3 «Pilota catalogo da Thomann». Lavoro e PDF fuori dal
+  repo: `COWORK/STAGEPLOT/CATALOGO_THOMANN/LEGGIMI.md`, `STAGE PLOT/MANUALI_PDF/backline/`.
+- 8 tastiere (Yamaha P-145/P-45/P-225/P-525, Nord Electro 7 73, Kawai ES120, Roland FP-40, Thomann SP-120) + misure al Nord Stage 4 88;
+  5 combo chitarra (Katana-50 Gen 3, HB-10G, HB-20R, Marshall MG30GFX, TUBE15 Celestion); 5 combo basso (HB-20B, Micromark 801, HB-40B,
+  PJB BG-450, Ampeg RB-115). Casio CDP-S110 fuori: casio.com dà 403, nessun PDF. Electro 7 73 e SP-120 anche sul tipo `tastiera`
+  (prima la Tastiera/synth non aveva nessun modello).
+- **Codice nuovo**: campo `mm:[L,P,A]` in AMP_DB; `ampModelDimsCm` (L/10 × P/10, mai su doppiatastiera né su testata/modulo) e
+  `ampModelSetBm` (sceglie il modello e porta l'ingombro; tornando a «Generico» rimette le misure del tipo SOLO se l'elemento ha ancora
+  quelle del modello). Le due tendine del pannello passano da lì. `recalcItemDims` applica la misura del modello dopo l'illustrazione:
+  in «Postazione» lo stage piano resta il disegno col musicista (il pannello dice di passare a «Strumento solo»).
+  Correzione collaterale: tornando a «Strumento solo» lo stage piano restava 132×117 (misura del disegno) invece di 138×42; ora torna al
+  tipo, ma solo se la misura è ancora quella del disegno.
+- Prove: engines 1412/1412 (10 test nuovi, 15 mutazioni tutte rosse), `build.mjs --check`, collaudo 30/30 invariato, biglietteria 148/148.
+  Anteprime nel browser (porta 8987) in `CATALOGO_THOMANN/anteprime/`. Nessuna migrazione, nessun dato in `equip_product`.
+- Da decidere con Simone: peso Micromark 801 (manuale 5,2 kg, sito 6,6 kg: riga `v:false`), tenere o no SP-120 e gli Harley Benton
+  (manuali sul CDN di Thomann come costruttore), «Postazione» con la misura del modello, nome del modello nella lista Backline/rider.
+
 # 10/10/2026 — Snippet X32/M32: non azzera più il gain (ramo `x32-gain`, NON unito)
 
 - Difetto: lo snippet scriveva `/headamp/NNN +0.0 ON|OFF`; nei file reali quel comando porta GAIN e phantom insieme (`/headamp/000 +0.0 OFF`), quindi caricarlo riportava a 0 dB il gain di ogni canale. Tolte TUTTE le righe `/headamp`: il 48V non si imposta più dallo snippet (resta nella Channel list).

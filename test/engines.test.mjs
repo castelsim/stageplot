@@ -14700,6 +14700,216 @@ t("le citazioni stanno scritte, e nominano i modelli che coprono", () => {
      "la riserva sul Midas HD96 resta scritta finche' non si trova il dato");
 });
 
+/* ═══ PILOTA «CATALOGO DA THOMANN» (12/10/2026) ═══════════════════════════════════════════════════
+   Thomann ha scelto QUALI modelli (i più venduti fra stage piano, combo chitarra e combo basso); i
+   numeri vengono solo dai PDF dei costruttori, con la pagina in `fonte` e la frase in DATI_TARGA.md.
+   La tabella qui sotto è la stessa che sta in CATALOGO_THOMANN/LEGGIMI.md (fuori dal repo), riletta
+   sui PDF tre volte: due verifiche indipendenti e un controllo con pdftotext prima di scriverla.
+   Il test confronta OGNI numero: un valore toccato per sbaglio (un 11.1 diventato 11.5 copiando una
+   riga) lo fa cadere, con il nome del modello. */
+const PILOTA_THOMANN = {
+  /* chiave:              [per,                       watt, out,  kg,    mm,               file del costruttore] */
+  nord_stage4_88:         [["stagepiano"],            null, null, 19.6,  [1282, 349, 121], "Nord_Stage4_SpecificationsWeb.pdf"],
+  yamaha_p145:            [["stagepiano"],            6,    null, 11.1,  [1326, 268, 129], "Yamaha_P-145_OwnerManual.pdf"],
+  yamaha_p45:             [["stagepiano"],            6,    null, 11.5,  [1326, 295, 154], "Yamaha_P-45_OwnerManual.pdf"],
+  yamaha_p225:            [["stagepiano"],            9,    null, 11.5,  [1326, 272, 129], "Yamaha_P-225_OwnerManual.pdf"],
+  yamaha_p525:            [["stagepiano"],            18,   null, 22,    [1336, 376, 145], "Yamaha_P-525_OwnerManual.pdf"],
+  nord_electro7_73:       [["stagepiano", "tastiera"], null, null, 9.5,  [1066, 294, 104], "Nord_Electro7_SpecificationsWeb.pdf"],
+  kawai_es120:            [["stagepiano"],            9,    null, 12,    [1305, 280, 150], "Kawai_ES120_OwnerManual.pdf"],
+  roland_fp40:            [["stagepiano"],            22,   null, 14,    [1307, 332, 122], "Roland_FP-40_ReferenceManual.pdf"],
+  thomann_sp120:          [["stagepiano", "tastiera"], null, null, 6.2,  [1070, 275, 95],  "Thomann_SP-120_UserManual.pdf"],
+  boss_katana50g3:        [["comboamp"],              47,   50,   11.6,  [470, 238, 398],  "Boss_Katana-Gen3_ReferenceManual.pdf"],
+  harleybenton_hb10g:     [["comboamp"],              20,   10,   4.2,   [289, 176, 314],  "HarleyBenton_HB-10G_UserManual.pdf"],
+  harleybenton_hb20r:     [["comboamp"],              40,   20,   7,     [380, 175, 340],  "HarleyBenton_HB-20R_UserManual.pdf"],
+  marshall_mg30gfx:       [["comboamp"],              null, 30,   10.8,  [480, 225, 420],  "Marshall_MG15GFX-MG30GFX_QuickStartGuide.pdf"],
+  harleybenton_tube15c:   [["comboamp"],              50,   15,   11.5,  [427, 235, 435],  "HarleyBenton_TUBE5-TUBE15-Celestion_UserManual.pdf"],
+  harleybenton_hb20b:     [["bassamp"],               40,   20,   7.5,   [380, 175, 340],  "HarleyBenton_HB-20B_UserManual.pdf"],
+  markbass_micromark801:  [["bassamp"],               null, 45,   5.2,   [268, 262, 268],  "Markbass_Micromark801-Minimark802_UserManual.pdf"],
+  harleybenton_hb40b:     [["bassamp"],               80,   40,   12,    [425, 300, 445],  "HarleyBenton_HB-40B_UserManual.pdf"],
+  pjb_bg450:              [["bassamp"],               null, 300,  14.1,  [361, 336, 362],  "PhilJonesBass_BG-450-CompactPlus_Manual.pdf"],
+  ampeg_rb115:            [["bassamp"],               280,  100,  15.45, [513, 354, 570],  "Ampeg_RocketBass-RB108-RB210_OwnerManual.pdf"],
+};
+
+t("pilota Thomann: ogni modello porta i numeri del suo manuale, e nient'altro", () => {
+  const sbagliati = [];
+  Object.keys(PILOTA_THOMANN).forEach(k => {
+    const [per, watt, out, kg, mm, file] = PILOTA_THOMANN[k], d = A.AMP_DB[k];
+    if (!d) { sbagliati.push(k + ": manca"); return; }
+    const conf = (campo, got, exp) => { if (JSON.stringify(got) !== JSON.stringify(exp)) sbagliati.push(k + "." + campo + " = " + JSON.stringify(got) + " invece di " + JSON.stringify(exp)); };
+    conf("per", d.per, per); conf("watt", d.watt, watt); conf("out", d.out == null ? null : d.out, out);
+    conf("kg", d.kg, kg); conf("mm", d.mm, mm);
+    ok(typeof d.fonte === "string" && d.fonte.indexOf(file) === 0 && /p\.\d/.test(d.fonte), k + ": la fonte deve nominare il PDF e la pagina, è «" + d.fonte + "»");
+    ok(!d.ruolo, k + ": un combo è l'ampli intero, niente ruolo");
+  });
+  eq(sbagliati, [], "numeri diversi dal manuale:");
+  /* e il Casio CDP-S110 NON c'è: senza il PDF del costruttore non si scrive niente (casio.com risponde 403) */
+  ok(!Object.keys(A.AMP_DB).some(k => /casio/i.test(k)), "un modello senza manuale non entra");
+});
+
+t("pilota Thomann: le misure sono in ordine L×P×A, non come le scrive il costruttore", () => {
+  /* Yamaha P-525, Thomann SP-120 e gli Harley Benton scrivono W×H×D, Marshall e Ampeg H×W×D: chi
+     copia i tre numeri nell'ordine della pagina mette l'altezza al posto della profondità, e un
+     combo alto 34 cm diventa profondo 34. Per un combo l'altezza è sempre più della profondità,
+     per una tastiera la larghezza è sempre la misura più grande e l'altezza la più piccola. */
+  Object.keys(PILOTA_THOMANN).forEach(k => {
+    const d = A.AMP_DB[k], [L, P, H] = d.mm;
+    if (d.per.indexOf("stagepiano") >= 0) ok(L > P && P > H, k + ": tastiera con L>P>A, invece " + d.mm);
+    else ok(H > P, k + ": un combo è più alto che profondo, invece " + d.mm);
+  });
+});
+
+t("scegliendo il modello, l'ingombro in scala diventa quello del manuale", () => {
+  reset(); A.state.lookDefault = "schematico";   /* «Strumento solo»: l'ingombro è lo strumento */
+  const sp = add("stagepiano", 300, 300), T = A.TYPES;
+  eq([sp.w, sp.d], [T.stagepiano.w, T.stagepiano.d], "di serie: lo stage piano generico");
+  A.ampModelSetBm(sp, "yamaha_p525");
+  eq([sp.w, sp.d], [134, 38], "Yamaha P-525: 1336 × 376 mm → 134 × 38 cm");
+  A.ampModelSetBm(sp, "thomann_sp120");
+  eq([sp.w, sp.d], [107, 28], "un 73 tasti è 31 cm più stretto: 1070 × 275 mm");
+  A.ampModelSetBm(sp, "nord_stage4_73");   /* modello senza misure: torna al tipo, perché aveva ancora quelle del modello di prima */
+  eq([sp.w, sp.d, sp.bm], [T.stagepiano.w, T.stagepiano.d, "nord_stage4_73"], "modello senza misure: torna al generico");
+  A.ampModelSetBm(sp, "roland_fp40");
+  A.ampModelSetBm(sp, "");
+  eq([sp.w, sp.d, sp.bm], [T.stagepiano.w, T.stagepiano.d, undefined], "«Generico»: misure del tipo e niente modello");
+  /* il synth: stessa strada, e prima il modello non c'era nemmeno */
+  const sy = add("tastiera", 300, 500);
+  ok(A.ampModelApplies(sy), "sulla Tastiera ora si sceglie il modello");
+  A.ampModelSetBm(sy, "nord_electro7_73");
+  eq([sy.w, sy.d], [107, 29], "Nord Electro 7 73: 1066 × 294 mm");
+  /* l'ampli basso: il generico è un frigo 8×10, un combo 1×8 è un quinto di quella superficie */
+  const ba = add("bassamp", 600, 300);
+  eq([ba.w, ba.d], [T.bassamp.w, T.bassamp.d]);
+  A.ampModelSetBm(ba, "harleybenton_hb20b");
+  eq([ba.w, ba.d], [38, 18], "HB-20B: 380 × 175 mm");
+  A.ampModelSetBm(ba, "ampeg_rb115");
+  eq([ba.w, ba.d], [51, 35], "Ampeg RB-115: 513 × 354 mm");
+  const co = add("comboamp", 800, 300);
+  A.ampModelSetBm(co, "marshall_mg30gfx");
+  eq([co.w, co.d], [48, 23], "Marshall MG30GFX: 480 × 225 mm");
+  /* un modello che non copre il tipo non si attacca e non sposta niente */
+  A.ampModelSetBm(co, "yamaha_p525");
+  eq([co.w, co.d, co.bm], [T.comboamp.w, T.comboamp.d, undefined], "una tastiera su un combo: rifiutata, e il combo torna generico");
+  reset();
+});
+
+t("la misura del modello non si applica dove non descrive l'elemento", () => {
+  reset(); A.state.lookDefault = "schematico";
+  const T = A.TYPES;
+  /* TESTATA sul rig di basso: la Little Mark IV pesa 2,45 kg e sta sopra la cassa. Se la sua misura
+     passasse all'elemento, l'8×10 diventerebbe una scatoletta. */
+  const rig = add("bassamp", 300, 300);
+  A.AMP_DB.__prova_testata = { brand: "Prova", model: "Testata", ruolo: "testata", per: ["bassamp"], watt: 300, kg: 3, mm: [280, 250, 80] };
+  A.AMP_DB.__prova_doppia = { brand: "Prova", model: "Doppia", per: ["doppiatastiera"], watt: 20, kg: 10, mm: [1000, 300, 100] };
+  try {
+    A.ampModelSetBm(rig, "__prova_testata");
+    eq([rig.w, rig.d], [T.bassamp.w, T.bassamp.d], "la testata non rimpicciolisce il rig");
+    A.ampModelSetBm(rig, "harleybenton_hb20b"); A.ampModelSetBm(rig, "__prova_testata");
+    eq([rig.w, rig.d], [T.bassamp.w, T.bassamp.d], "e passando da un combo a una testata il rig torna intero");
+    /* DOPPIA TASTIERA: sono due strumenti su un supporto a due piani */
+    const dt = add("doppiatastiera", 300, 600), w0 = dt.w, d0 = dt.d;
+    A.ampModelSetBm(dt, "__prova_doppia");
+    eq([dt.w, dt.d, dt.bm], [w0, d0, "__prova_doppia"], "il modello vale per watt e chili, la misura resta della coppia");
+  } finally { delete A.AMP_DB.__prova_testata; delete A.AMP_DB.__prova_doppia; }
+  /* RIDIMENSIONATO A MANO: tornando a «Generico» la misura scelta dall'utente resta sua */
+  const co = add("comboamp", 800, 300);
+  A.ampModelSetBm(co, "boss_katana50g3"); eq([co.w, co.d], [47, 24]);
+  co.w = 60;
+  A.ampModelSetBm(co, "");
+  eq([co.w, co.d], [60, 24], "l'utente l'aveva cambiato: non si torna al tipo di nascosto");
+  reset();
+});
+
+t("in «Postazione» l'ingombro resta il disegno col musicista; in «Strumento solo» è il manuale", () => {
+  /* Lo stage piano illustrato è musicista + sgabello + tastiera (132 × 117 cm): la misura di una
+     tastiera sola non lo descrive, e restringerne la figura falserebbe la scala della persona. */
+  const prima = A.LIB_ICONS;
+  A.LIB_ICONS = { musTastiera: { vb: [0, 0, 132, 117.4], body: "" } };   /* nel sandbox icons.js non c'è */
+  try {
+    reset();
+    const sp = add("stagepiano", 300, 300);
+    eq([sp.w, sp.d], [132, 117], "Postazione: l'ingombro è l'illustrazione");
+    A.ampModelSetBm(sp, "thomann_sp120");
+    eq([sp.w, sp.d, sp.bm], [132, 117, "thomann_sp120"], "il modello si sceglie (watt, chili), il disegno non si deforma");
+    /* passando a «Strumento solo» vale la misura del manuale, e tornando indietro di nuovo il disegno */
+    sp.look = "schematico"; A.recalcItemDims(sp);
+    eq([sp.w, sp.d], [107, 28], "Strumento solo: 1070 × 275 mm");
+    sp.look = "illustrato"; A.recalcItemDims(sp);
+    eq([sp.w, sp.d], [132, 117], "e di nuovo Postazione");
+    /* senza modello, «Strumento solo» rimetteva... niente: lo stage piano restava 132×117, la misura
+       del disegno, invece dei 138×42 del tipo. */
+    A.ampModelSetBm(sp, "");
+    sp.look = "schematico"; A.recalcItemDims(sp);
+    eq([sp.w, sp.d], [A.TYPES.stagepiano.w, A.TYPES.stagepiano.d], "generico in Strumento solo: le misure del tipo");
+    sp.w = 150; A.recalcItemDims(sp);
+    eq(sp.w, 150, "ma una misura scritta a mano resta");
+    /* il pannello lo dice, invece di lasciar credere che il modello non conti */
+    A.ampModelSetBm(sp, "yamaha_p45"); sp.look = "illustrato"; A.recalcItemDims(sp);
+    ok(/\d+×\d+×\d+ mm/.test(A.ampModelSpecText(A.AMP_DB.yamaha_p45)), "la riga del pannello scrive le misure");
+  } finally { A.LIB_ICONS = prima; reset(); }
+});
+
+t("la misura del modello sopravvive ai ricalcoli e alla riapertura", () => {
+  reset(); A.state.lookDefault = "schematico";
+  const co = add("comboamp", 300, 300);
+  A.ampModelSetBm(co, "harleybenton_tube15c");
+  co.w = 999; A.recalcItemDims(co);   /* un ricalcolo (cambio d'aspetto, import) rimette la misura del modello */
+  eq([co.w, co.d], [43, 24], "TUBE15: 427 × 235 mm");
+  const json = A.stateToJSON(), riletti = A.normalizeLoadedItems(JSON.parse(json).items);
+  const r = riletti.find(x => x.id === co.id);
+  eq([r.w, r.d, r.bm], [43, 24, "harleybenton_tube15c"], "salvato e riaperto, uguale");
+  reset();
+});
+
+t("peso e assorbimento del modello arrivano a lista carichi e rider", () => {
+  reset(); A.state.lookDefault = "schematico";
+  const sp = add("stagepiano", 300, 300), co = add("comboamp", 500, 300), ba = add("bassamp", 700, 300), sy = add("tastiera", 300, 500);
+  A.ampModelSetBm(sp, "yamaha_p525"); A.ampModelSetBm(co, "boss_katana50g3");
+  A.ampModelSetBm(ba, "ampeg_rb115"); A.ampModelSetBm(sy, "nord_electro7_73");
+  A.__elecRes = null;
+  const rows = A.loadList().rows, riga = (it) => rows.find(r => r.loadId === it.id);
+  eq([riga(sp).w, riga(sp).fonte], [18, "targa"], "P-525: 18 W di targa, non i 50 della stima");
+  eq([riga(co).w, riga(co).fonte], [47, "targa"], "Katana-50 Gen 3: 47 W");
+  eq([riga(ba).w, riga(ba).fonte], [280, "targa"], "RB-115: 280 W, non i 400 di un rig 8×10");
+  eq(A.powerTotalW(), 18 + 47 + 280, "il totale del palco è la somma dei tre manuali (il synth senza W dichiarati non è un carico)");
+  /* un modello che l'assorbimento non lo dichiara resta stima, e lo dice */
+  A.ampModelSetBm(co, "marshall_mg30gfx"); A.__elecRes = null;
+  eq([A.wattOf(co), A.wattFonte(co)], [A.WATT.comboamp, "stima"], "Marshall non lo pubblica: stima del tipo, e la parola «stima»");
+  A.ampModelSetBm(co, "boss_katana50g3");
+  /* peso: rider e totale, solo con «Pesi (kg)» accesa */
+  eq(A.riderData().pesoKg, 0, "«Pesi (kg)» spenta: niente peso");
+  A.state.pdfPesi = true;
+  const kg = 22 + 11.6 + 15.45 + 9.5;
+  ok(Math.abs(A.riderData().pesoKg - kg) < 1e-9, "accesa: 22 + 11,6 + 15,45 + 9,5 kg dai manuali, è " + A.riderData().pesoKg);
+  delete A.state.pdfPesi;
+  reset();
+});
+
+t("le due tendine del pannello passano dalla strada che porta la misura", () => {
+  /* Il gesto vero è nel DOM, che il sandbox non ha: si controlla che i due gestori (marca e modello)
+     chiamino ampModelSetBm e non scrivano più x.bm a mano. Un gestore che tornasse a `x.bm=v`
+     sceglierebbe il modello senza cambiarne l'ingombro, con tutta la suite verde. */
+  const marca = appjs.slice(appjs.indexOf('getElementById("pBmBrand");\n  if(bmB)'), appjs.indexOf('var bmM=document.getElementById("pBmModel")'));
+  const modello = appjs.slice(appjs.indexOf('var bmM=document.getElementById("pBmModel")'), appjs.indexOf('var lmB=document.getElementById("pLmBrand")'));
+  ok(marca.length > 50 && modello.length > 50, "gestori non trovati");
+  ok(/ampModelSetBm\(x, ""\)/.test(marca) && /ampModelSetBm\(x, first\)/.test(marca), "la marca: «Generico» e il primo modello passano da ampModelSetBm");
+  ok(/ampModelSetBm\(x, v\)/.test(modello), "il modello pure");
+  ok(!/x\.bm=/.test(marca + modello), "nessuno scrive più x.bm a mano");
+});
+
+t("pilota Thomann: ogni modello ha la sua citazione scritta in DATI_TARGA.md", () => {
+  /* Il numero e la frase da cui viene viaggiano insieme: un modello aggiunto ad AMP_DB senza la sua
+     riga nel registro è un dato che fra un mese nessuno saprà più verificare. */
+  const doc = readFileSync(join(root, "DATI_TARGA.md"), "utf8");
+  const mancano = [];
+  Object.keys(PILOTA_THOMANN).forEach(k => {
+    const file = PILOTA_THOMANN[k][5];
+    if (doc.indexOf("`" + k + "`") < 0) mancano.push(k + " (chiave)");
+    if (doc.indexOf(file) < 0) mancano.push(k + " (file " + file + ")");
+  });
+  eq(mancano, [], "senza citazione:");
+  ok(/non dichiarato/.test(doc) && /Casio CDP-S110/.test(doc), "anche quello che manca è scritto: assorbimenti non dichiarati e il Casio senza PDF");
+});
+
 /* ═══ HOMEPAGE — i numeri che si vedono ═══════════════════════════════════════════════════════════
    La suite finora guardava solo l'app: la homepage, che e' quello che legge chi non ci e' ancora
    entrato, non la controllava nessuno. E li' i numeri stavano scritti a mano in piu' copie.
@@ -19563,6 +19773,20 @@ async function pdfFinto(opts) {
   try { return await A.buildPdfDoc("a4", 100, "landscape", ""); }
   finally { A.loadJsPDF = l0; A.drawStageVector = d0; A.__pdfPages = prima.pg; A.__pdfScaletta = prima.sc; A.__pdfQr = prima.qr; A.jspdf = prima.jspdf; }
 }
+taPdf("PDF: il peso dei modelli reali arriva nella testata del palco", async () => {
+  /* La strada fino al foglio: due modelli dai manuali (22 + 15,45 kg) invece delle stime di
+     famiglia (25 + 40 kg). Il totale nella riga sotto il titolo deve essere il loro. */
+  reset(); A.state.lookDefault = "schematico";
+  const sp = add("stagepiano", 300, 300), ba = add("bassamp", 600, 300);
+  A.ampModelSetBm(sp, "yamaha_p525"); A.ampModelSetBm(ba, "ampeg_rb115");
+  A.state.pdfPesi = true;
+  try {
+    const d = await pdfFinto({ scaletta: false });
+    const testi = d.pagine[0].testi.map(x => x.t).join("\n");
+    ok(testi.indexOf(A.fmtKg(22 + 15.45)) >= 0, "nella testata ci vuole «" + A.fmtKg(22 + 15.45) + "»:\n" + testi.slice(0, 300));
+    ok(testi.indexOf(A.fmtKg(A.WEIGHT.stagepiano + A.WEIGHT.bassamp)) < 0, "e non il peso delle stime di famiglia");
+  } finally { delete A.state.pdfPesi; reset(); }
+});
 const SCALETTA_PROVA = [
   { tipo: "intro", titolo: "", durata: "1:30", note: "" },
   { tipo: "brano", titolo: "Apertura", durata: "3:30", note: "attacca il batterista" },
