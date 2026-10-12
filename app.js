@@ -333,10 +333,12 @@ function headMicGlyph(){
 function singer(it){
   it=it||{};
   var mm=micModeOf(it), donna=it.donna===true;
-  var s=(it.poltrona===true ? poltronaGlyph(POLTRONA.w, POLTRONA.d, POLTRONA_CY, true)   /* seduta in poltrona: la testa davanti allo schienale */
+  var polt=(it.poltrona===true);
+  var s=(polt ? poltronaGlyph(POLTRONA.w, POLTRONA.d, POLTRONA_CY, true)   /* seduta in poltrona: schiena sullo schienale */
        : it.sedia===true ? seatLight(0) : '');   /* coristi: sedia opzionale (contorno chiaro dietro la persona) */
   var noMic=(mm==="pano");
-  if(_pdfMode){
+  if(polt){ s+=personaSeduta(donna, _pdfMode || it.look==="schematico"); }   /* in poltrona: SEDUTA, non la figura in piedi (12/10) */
+  else if(_pdfMode){
     /* PDF: sagoma top-down geometrica — 3 path, vettoriale, nessun blocco svg2pdf */
     s+=circ(0,-20,15,'ic fGrey')+bar(0,4,32,noMic?24:26,'ic fGrey',9);
   } else {
@@ -351,9 +353,9 @@ function singer(it){
      icone dettagliate). Valori (cm reali, origine = centro cantante, +y = pubblico). */
   var legY=30;
   if(mm==="archetto"){ s+='<g transform="translate(0,-19)">'+headMicGlyph()+'</g>'; legY=34; }
-  else if(mm==="lavalier"){ s+='<circle cx="7" cy="6" r="2.6" fill="#2b2e31" stroke="#fff" stroke-width="1.2"/>'; legY=34; }   /* capsula sul bavero */   /* indossato: niente asta, niente ingombro davanti */
+  else if(mm==="lavalier"){ s+='<circle cx="7" cy="'+(polt?-4:6)+'" r="2.6" fill="#2b2e31" stroke="#fff" stroke-width="1.2"/>'; legY=34; }   /* seduta: la testa china copre il petto, la capsula va sul bavero accanto al mento */   /* capsula sul bavero */   /* indossato: niente asta, niente ingombro davanti */
   else if(mm==="mano"){
-    s+='<g transform="translate(35.7,32.1) rotate(-28)"><rect x="-4" y="-9" width="8" height="18" rx="4" fill="#2b2e31" stroke="#565b60" stroke-width="0.6"/><rect x="-3" y="-8" width="6" height="6" rx="3" fill="#565b60"/></g>';   /* mic in mano (capsula) */
+    s+='<g transform="'+(polt?'translate(10,3) rotate(-20)':'translate(35.7,32.1) rotate(-28)')+'"><rect x="-4" y="-9" width="8" height="18" rx="4" fill="#2b2e31" stroke="#565b60" stroke-width="0.6"/><rect x="-3" y="-8" width="6" height="6" rx="3" fill="#565b60"/></g>';   /* mic in mano (capsula) */
     legY=48;
   } else if(mm==="giraffa"){
     if(_pdfMode){
@@ -370,8 +372,31 @@ function singer(it){
     }
     legY=60;
   }
+  if(polt) legY=Math.max(legY, PERSONA_SEDUTA.piedi+10);   /* seduta: il leggio oltre i piedi, non sulle ginocchia */
   if(it.leggio) s+='<g transform="translate(0,'+legY+')">'+leggioGlyph(0)+'</g>';
   return s;
+}
+/* PERSONA SEDUTA IN POLTRONA, vista dall'alto (12/10/2026, Simone: «mi piacerebbe che fosse seduto la persona»).
+   Illustrata: voceSeduta / voceSedutaDonna di icons.js, cioè il clarinettista senza clarinetto né sedia (mani in grembo),
+   alla stessa scala degli altri musicisti seduti. Spostata di (1, 4.4) perché la testa cada dove sta quella della figura
+   in piedi (0,−20): così microfoni e archetto restano al loro posto. Schiena sullo schienale, cosce sulla seduta,
+   ginocchia a +29, piedi fino a +44 (appena oltre il bordo della poltrona, che finisce a POLTRONA_CY+42,5).
+   Schematica (e ripiego finché icons.js non è arrivato): stessa posa in forme semplici — spalle, testa, cosce, gambe. */
+var PERSONA_SEDUTA = {dx:1, dy:4.4, ginocchia:29, piedi:44};
+function personaSeduta(donna, schema){
+  var k=donna?"voceSedutaDonna":"voceSeduta";
+  if(!schema && typeof LIB_ICONS==="object" && LIB_ICONS[k])
+    return '<g class="persona-seduta" transform="translate('+PERSONA_SEDUTA.dx+','+PERSONA_SEDUTA.dy+')">'+libIconScene(k)+'</g>';
+  var P=PERSONA_SEDUTA, cosce='';
+  [-1,1].forEach(function(l){   /* coscia: dall'anca (±9, −8) al ginocchio (±13, P.ginocchia), un po' aperte */
+    var cx=l*11, cy=(P.ginocchia-8)/2, h=P.ginocchia+8+4;
+    cosce+='<rect class="ic fGrey" x="'+(cx-7.5)+'" y="'+(cy-h/2)+'" width="15" height="'+h+'" rx="7" transform="rotate('+(-l*6.5)+' '+cx+' '+cy+')"/>';
+  });
+  return '<g class="persona-seduta schema">'+cosce+
+    bar(-14, P.piedi-7, 11, 14, 'ic fill', 5)+bar(14, P.piedi-7, 11, 14, 'ic fill', 5)+   /* piedi davanti alle ginocchia */
+    bar(0, -24, 48, 20, 'ic fGrey', 10)+   /* spalle contro lo schienale */
+    circ(0, -20, 11, 'ic soft')+   /* testa: chiara sulle spalle scure, come la si legge dall'alto */
+  '</g>';
 }
 /* ===== Chitarre/basso: glifo strumento + postazione musicista + ampli ===== */
 function gtrGlyph(kind){
@@ -481,7 +506,7 @@ function seatLight(cx){ return bar(cx,-22,46,46,'ic soft',9)+bar(cx,-48,46,9,'ic
    sedia delle voci (seatLight), perché la persona seduta sopra resti leggibile; scura = l'elemento
    da solo, come la «Sedia» nera. cy = centro della poltrona (la persona seduta la porta indietro). */
 var POLTRONA = {w:85, d:85, bracciolo:15, schienale:18};
-var POLTRONA_CY = -12;   /* persona in poltrona: centro della poltrona 12 cm dietro il centro della figura (testa a −20, raggio 15) */
+var POLTRONA_CY = -3;   /* persona SEDUTA in poltrona (12/10): centro della poltrona 3 cm dietro il centro della figura — spalle sullo schienale, piedi appena oltre il bordo davanti (PERSONA_SEDUTA) */
 function poltronaGlyph(W, D, cy, chiara){
   W=Math.max(50, +W||POLTRONA.w); D=Math.max(50, +D||POLTRONA.d); cy=cy||0;
   var a=Math.min(POLTRONA.bracciolo, W*0.18), b=Math.min(POLTRONA.schienale, D*0.22);
@@ -1422,17 +1447,17 @@ var TYPES = {
      microfono scelto dal pannello, stesso canale — ma nascono con il microfono delle conferenze. */
   relatore: {nome:"Relatore", dim:"conferenza", cat:"Persone e voci", w:70,d:90, voce:true, defLabel:"Relatore", micDef:"lavalier",
              alias:"relatore relatrice relatori speaker oratore oratrice presentatore presentatrice keynote conferenza convegno persona",
-             draw:function(it){ it=it||{}; return singer({micMode:micModeOf(it), leggio:it.leggio===true, donna:it.donna, sedia:it.sedia===true, poltrona:it.poltrona===true, type:"relatore"}); }},
+             draw:function(it){ it=it||{}; return singer({micMode:micModeOf(it), leggio:it.leggio===true, donna:it.donna, sedia:it.sedia===true, poltrona:it.poltrona===true, look:it.look, type:"relatore"}); }},
   moderatore: {nome:"Moderatore", dim:"conferenza, seduto", cat:"Persone e voci", w:70,d:90, voce:true, defLabel:"Moderatore", micDef:"mano", sediaDef:true,
              alias:"moderatore moderatrice conduttore conduttrice presentatore panel tavola rotonda conferenza convegno persona",
-             draw:function(it){ it=it||{}; return singer({micMode:micModeOf(it), leggio:it.leggio===true, donna:it.donna, sedia:it.sedia===true, poltrona:it.poltrona===true, type:"moderatore"}); }},
+             draw:function(it){ it=it||{}; return singer({micMode:micModeOf(it), leggio:it.leggio===true, donna:it.donna, sedia:it.sedia===true, poltrona:it.poltrona===true, look:it.look, type:"moderatore"}); }},
   cantante: {nome:"Cantante", dim:"voce", cat:"Persone e voci", w:70,d:90, voce:true, defLabel:"Voce", alias:"cantante cantanti solista soliste voce voci vocalist singer frontman frontwoman lead vocal backing vocal corista coriste coristi coro cori choir chorus cantore persona",
              draw:function(it){ return singer(it); }},
   /* Si chiama «Voce» perché è la figura generica della voce: il catalogo la offre come Uomo/Donna sotto
      la ricerca «voce/cantante/corista», e il pannello deve dire la stessa parola con cui l'hai trovata.
      Prima diceva «Corista» — che in italiano è il cantante di un coro, non il solista (audit 27/07). */
   corista:  {nome:"Voce", dim:"voce coro", cat:"Persone e voci", w:70,d:88, voce:true, defLabel:"", alias:"corista coriste coristi cantante cantanti solista soliste voce voci vocalist singer frontman frontwoman lead vocal backing vocal coro cori choir chorus cantore persona",
-             draw:function(it){ it=it||{}; return singer({micMode:micModeOf(it), leggio:it.leggio!==false, donna:it.donna, sedia:it.sedia===true, poltrona:it.poltrona===true, type:"corista"}); }},
+             draw:function(it){ it=it||{}; return singer({micMode:micModeOf(it), leggio:it.leggio!==false, donna:it.donna, sedia:it.sedia===true, poltrona:it.poltrona===true, look:it.look, type:"corista"}); }},
   /* --- Musicisti illustrati (top-down, dimensioni CALIBRATE dall utente 14/07/2026). Tipi TECNICI (mic/canali come i corrispettivi), in aggiunta agli schematici. --- */
   musViolino1: {catalog:false, nome:"Violino musicista", dim:"80×81", cat:"Orchestra", sub:"Archi", w:80,d:81, defLabel:"Vln I", draw:function(it){ return drawLibFit("musViolino1",it,80,81); }},
   musViolino2: {nome:"Violino II", dim:"81×82", cat:"Orchestra", sub:"Archi", catalog:false, w:81,d:82, defLabel:"Vln II", draw:function(it){ return drawLibFit("musViolino2",it,81,82); }},
