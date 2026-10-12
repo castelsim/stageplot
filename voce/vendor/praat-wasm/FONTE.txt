@@ -1,0 +1,6 @@
+praat-wasm 6.4.6200 — Praat (Boersma & Weenink) compilato in WebAssembly
+Pacchetto npm: https://registry.npmjs.org/praat-wasm/-/praat-wasm-6.4.6200.tgz
+Integrità (npm): sha512-JoOa9iKkzAKprNkYiiEBDk+7vsMOUgbvV8HJ85u77lHvFERpEv5YtHBZxOVhSVL6hlw/Y+0FBoxuIgDm6U5nYQ==
+Repository di origine: https://github.com/reynoldsnlp/praat.github.io (fork di Praat, PR praat/praat#3316)
+Commit: f2da7c33e1ae99cb134251cbd90b5e5fecf2e4cc (gitHead dichiarato nel pacchetto npm; nessuna attestazione di provenienza)
+Licenza: GPL-3.0-or-later

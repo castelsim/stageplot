@@ -24,7 +24,7 @@
      due release nello stesso giorno restano distinguibili in telemetria e supporto. In locale/dev
      resta il placeholder. La sentinella del VALORE è distinta dall'identificatore window.__BUILD_ID__
      così il sed della CI non tocca il nome della variabile. -->
-<script>window.__APP_VERSION__="2026.10.05";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
+<script>window.__APP_VERSION__="2026.10.12";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -535,6 +535,19 @@
     #bandSetup .bs-foot .btn{min-height:44px}
     #bandSetup .bs-foot{flex-direction:column-reverse;align-items:stretch}
   }
+  /* Anello di altoparlanti: tre righe «etichetta + scelta» e il piede della finestra «Chi sale sul palco» */
+  #anelloSetup .an-riga{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px}
+  #anelloSetup .an-lbl{font-size:14px;font-weight:400;color:var(--text)}
+  #anelloSetup .an-seg{display:flex}
+  #anelloSetup .an-seg .btn{border-radius:0;margin-left:-1px;min-width:44px}
+  #anelloSetup .an-seg .btn:first-child{border-radius:var(--r-sm) 0 0 var(--r-sm);margin-left:0}
+  #anelloSetup .an-seg .btn:last-child{border-radius:0 var(--r-sm) var(--r-sm) 0}
+  #anelloSetup .an-seg .btn.on{background:var(--accent);border-color:var(--accent);color:#fff;position:relative;z-index:1}
+  #anelloSetup .bs-foot{display:flex;gap:8px;justify-content:space-between;align-items:center;margin-top:18px}
+  @media (max-width:880px), (pointer:coarse){
+    #anelloSetup .an-seg .btn,#anelloSetup .bs-foot .btn,#anelloSetup #anPre{min-height:44px}   /* anche il campo del nome: era alto 22 px, sotto il dito (revisione 06/10/2026) */
+    #anelloSetup .bs-foot{flex-direction:column-reverse;align-items:stretch}
+  }
   #svg.drop-target{outline:3px dashed var(--accent);outline-offset:-6px;background:var(--accent-tint)}
   #catalog button[draggable=true]{cursor:grab}
   #defs-master{position:absolute;width:0;height:0;overflow:hidden;pointer-events:none}
@@ -979,6 +992,7 @@
   body:not(.f-esporta) #pdfScaleRow,
   body:not(.f-esporta) #pdfScaleCustomRow,
   body:not(.f-esporta) #pdfHdrRow,
+  body:not(.f-esporta) #pdfPesiRow,
   body:not(.f-esporta) #pdfTechRow{display:none !important}
   #pdfModal .exp-pro{display:block;width:100%;margin-top:10px;min-height:44px;font-weight:600}
 }
@@ -1427,6 +1441,7 @@
   .ic.fill{fill:#1f2937;stroke:none}
   .ic.soft{fill:#f3f4f6}
   .ic.dash{stroke-dasharray:7 5;fill:none}
+  .ic.vuoto{fill:none}   /* solo tratto (anello poggiapiedi dello sgabello sotto il chitarrista classico) */
   .ic.thin{stroke-width:1.2}
   .mon{stroke:var(--canvas-monitor)}
   .mon.fill{fill:var(--canvas-monitor);stroke:none}
@@ -1472,6 +1487,20 @@ svg.names-hidden .orc-name{display:none}
 .orc-row .orc-line{padding:2px 0}.orc-row .orc-line.ok{color:#0d9488}.orc-row .orc-line.wait{color:#2563eb}.orc-row .orc-line.open{color:#b45309}.orc-row .orc-line.off{color:var(--text-3,#6b7280)}
 .orc-row .orc-link{display:inline-block;margin-top:6px;color:#0d9488;font-weight:600;text-decoration:none;min-height:24px}
 .lbl.sub{font-weight:400;fill:#6b7280;font-size:12px;stroke-width:2.6}
+/* POSTI NUMERATI (06/10): il numero nella sedia, la fila ai capi, la legenda. Non sono .lbl: «nomi
+   nascosti» e la passata anti-collisione del PDF non li toccano — il numero è il posto, non un nome. */
+.posto-n{fill:#111827;font-weight:700;text-anchor:middle;pointer-events:none}
+.posto-fila{fill:#0f766e;font-weight:800;text-anchor:middle;pointer-events:none;paint-order:stroke;stroke:#fff;stroke-width:4;stroke-linejoin:round}
+.posto-legenda{fill:#1f2937;font-weight:600;text-anchor:middle;pointer-events:none;paint-order:stroke;stroke:#fff;stroke-width:4;stroke-linejoin:round}
+.posto-legenda.posto-senza{fill:#b45309}
+.posti-dlg{margin:4px 0 10px}
+.posti-dlg label[for]{display:block;font-size:12px;color:var(--text-2);margin-bottom:4px}
+.posti-dlg input[type=text]{width:100%;min-height:40px;padding:8px 10px;border:1px solid var(--line,#d1d5db);border-radius:8px;font:inherit;box-sizing:border-box}
+.posti-dlg .posti-grp{margin-top:10px}
+.posti-dlg .posti-tit{font-size:12px;color:var(--text-2);margin-bottom:2px}
+.posti-dlg .chk{display:flex;align-items:center;gap:8px;min-height:36px;font-size:14px;line-height:1.3;cursor:pointer}
+.posti-dlg .chk input{flex:0 0 auto;width:18px;height:18px;margin:0}
+.posti-dlg .posti-esito{margin:10px 0 0;font-weight:600}
   /* «qui c'è una nota da leggere»: colore d'accento, sta al nome come un asterisco a una voce di
      tabella. Eredita lo stroke bianco del nome, quindi regge anche sui fondi scuri. */
   .lbl-dot{fill:#0d9488;font-weight:800}
@@ -2036,8 +2065,8 @@ svg.names-hidden .orc-name{display:none}
        da sempre, ma i loro stati non erano nell'elenco: si premeva la voce, il palco sbiadiva
        (`body.area-edit .item{opacity:.4}`) e non compariva NIENTE. Due funzioni raggiungibili e
        morte. Chi ne aggiunge una terza deve passare da qui. */
-    body.stage-edit #props,body.evento-edit #props,body.chan-edit #props,body.tech-open #props,body.area-edit #props,body.vers-edit #props,body.m-has-sel.props-expanded #props{display:block}
-    body.stage-edit main,body.evento-edit main,body.chan-edit main,body.tech-open main,body.area-edit main,body.vers-edit main,body.m-has-sel.props-expanded main{bottom:calc(46vh + 53px + env(safe-area-inset-bottom,0px))}
+    body.stage-edit #props,body.evento-edit #props,body.scaletta-edit #props,body.chan-edit #props,body.tech-open #props,body.area-edit #props,body.vers-edit #props,body.m-has-sel.props-expanded #props{display:block}
+    body.stage-edit main,body.evento-edit main,body.scaletta-edit main,body.chan-edit main,body.tech-open main,body.area-edit main,body.vers-edit main,body.m-has-sel.props-expanded main{bottom:calc(46vh + 53px + env(safe-area-inset-bottom,0px))}
     /* In «Punti di ripristino» resta solo la lista delle versioni, come fa già «Area stampa». */
     body.vers-edit #selProps,body.vers-edit #noSel,body.vers-edit #groupProps,body.vers-edit #eventoSec{display:none !important}
     /* LA TESTA DEL FOGLIO DELL'ELEMENTO (13/09): nome e misure, sotto quattro azioni scritte da 52 px.
@@ -2561,6 +2590,8 @@ body.viewmode.consult-viewer.cl-view #props #chanlist{ display:block; max-width:
 .hdr-variants .vtab:hover{color:var(--text)}
 .hdr-variants .vtab.on{background:var(--surface);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.12)}
 .hdr-variants .vtab-add{padding:0 9px;color:var(--accent-strong)}
+/* variante con contenuto uguale a un'altra (06/10): una nota piccola, non un allarme */
+.hdr-variants .vtab-eq{margin-left:6px;font-size:10px;font-weight:500;opacity:.6;max-width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;display:inline-block}
 .hdr-variants .vtab-add:hover{background:var(--accent-tint)}
 .hdr-variants .vtab:focus-visible,.hdr-variants .vtab-add:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
 .var-menu .mi-danger{color:var(--danger)}
@@ -2927,6 +2958,9 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
 #props .seg .adv-btn:first-child{border-radius:var(--r-sm) 0 0 var(--r-sm);margin-left:0}
 #props .seg .adv-btn:last-child{border-radius:0 var(--r-sm) var(--r-sm) 0}
 #props .seg .adv-btn.on{position:relative;z-index:1}
+/* quattro stili della forma (Pieno, Contorno, Tratteggio, Area — 06/10/2026): col padding dei due bottoni
+   «Tratteggio» e «Area» uscivano dal pannello. Ogni bottone prende la larghezza del suo testo. */
+#props .seg.seg-4 .adv-btn{flex:1 1 auto;min-width:0;padding:7px 3px}
 #props .seg .adv-btn .lbl-note{font-weight:400;opacity:.75}
 #props .seg .adv-btn.on .lbl-note{opacity:.85;color:inherit}
 
@@ -3472,6 +3506,7 @@ body.dark #props .solo-ped.on{background:#78350f;border-color:#b45309;color:#fbb
   body:not(.f-esporta) #pdfScaleRow,
   body:not(.f-esporta) #pdfScaleCustomRow,
   body:not(.f-esporta) #pdfHdrRow,
+  body:not(.f-esporta) #pdfPesiRow,
   body:not(.f-esporta) #pdfTechRow{display:none !important}
   #pdfModal .exp-pro{display:block;width:100%;margin-top:10px;min-height:36px;font-weight:600}
   /* «io direi che la versione semplificata non ha liste» (Simone, 14/09): in Semplice la colonna di
@@ -3587,6 +3622,66 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
    centimetri dice «diversi»; sul telefono il cursore è un bersaglio da 44 px. */
 #props #groupProps #grpSep.misto{opacity:.45}
 @media (max-width:880px){ #props #groupProps #grpSep{min-height:44px} }
+
+/* Riga verso la consulenza dopo l'export (01/10/2026): discreta, sopra i bottoni della finestra PDF */
+#pdfConsulenza{margin:0 0 8px;font-size:12px;color:var(--text-2)}
+#pdfConsulenza a{color:var(--accent);font-weight:600}
+
+/* ── SCALETTA (10/10/2026) ───────────────────────────────────────────────────────────────────────
+   Pannello come «Evento»: con la scaletta aperta la colonna (o il cassetto del telefono) mostra solo
+   lei. `display` su id e non l'attributo hidden: `.sec` lo batterebbe (stessa cosa per #eventoSec). */
+#props #scalettaSec{display:none}
+body.scaletta-edit #props #scalettaSec{display:block}
+body.scaletta-edit #selProps,body.scaletta-edit #groupProps,body.scaletta-edit #noSel,body.scaletta-edit #stageEditPanel,body.scaletta-edit #eventoSec{display:none !important}
+#props #scalettaSec h3{margin-bottom:2px}
+#props #scalettaSec .ev-intro{font-size:12px;color:var(--text-2);margin:0 0 10px;line-height:1.4}
+#props #scalettaSec .sc-vuota{font-size:13px;color:var(--text-2);line-height:1.45;margin:4px 0 10px;padding:10px 12px;border:1px dashed var(--border-strong);border-radius:10px}
+#props #scalettaSec .sc-vuota[hidden]{display:none}
+/* Una voce = due righe: numero · titolo · durata, poi note · frecce · togli. La terza colonna è larga
+   quanto le tre frecce, così titolo e note si allineano fra loro. */
+#props #scalettaSec .sc-row{display:grid;grid-template-columns:22px minmax(0,1fr) 84px;gap:5px 6px;align-items:center;padding:8px 0;border-bottom:1px solid var(--border)}
+#props #scalettaSec .sc-row.sc-segno{background:var(--surface-2,#f8fafc);border-radius:8px;padding:6px 6px 8px;margin:4px 0;border-bottom:none}
+#props #scalettaSec .sc-kind{grid-column:1 / -1;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3)}
+#props #scalettaSec .sc-n{grid-column:1;font:700 13px var(--font-ui);color:var(--text-2);text-align:right;font-variant-numeric:tabular-nums}
+#props #scalettaSec .sc-tit{grid-column:2;min-width:0;width:100%;box-sizing:border-box}
+#props #scalettaSec .sc-dur{grid-column:3;min-width:0;width:100%;box-sizing:border-box;text-align:right;font-variant-numeric:tabular-nums}
+#props #scalettaSec .sc-dur.err{border-color:var(--danger);color:var(--danger)}
+#props #scalettaSec .sc-note{grid-column:2;min-width:0;width:100%;box-sizing:border-box;font-size:12px}
+#props #scalettaSec .sc-acts{grid-column:3;display:flex;justify-content:flex-end;gap:2px}
+#props #scalettaSec .sc-b{width:28px;height:28px;padding:0;border:1px solid transparent;border-radius:7px;background:none;color:var(--text-2);font:600 14px var(--font-ui);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+#props #scalettaSec .sc-b:hover:not(:disabled){background:var(--n-100,#f1f5f9);border-color:var(--border)}
+#props #scalettaSec .sc-b:disabled{opacity:.3;cursor:default}
+#props #scalettaSec .sc-b.sc-via{color:var(--danger)}
+#props #scalettaSec .sc-add{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 4px}
+#props #scalettaSec .sc-add .btn{width:auto;flex:0 0 auto;margin:0;font-size:12px;padding:6px 10px}
+#props #scalettaSec .sc-tot{margin:12px 0 0;padding:9px 12px;border-radius:10px;background:var(--accent-tint);color:var(--text);font-size:13px;line-height:1.4}
+#props #scalettaSec .sc-tot b{font-variant-numeric:tabular-nums;font-size:15px}
+#props #scalettaSec .sc-tot small{display:block;color:var(--text-2);font-size:11px;margin-top:2px}
+#props #scalettaSec .sc-tot[hidden]{display:none}
+#props #scalettaSec #bScalettaDone{width:100%;margin-top:16px}
+body.sc-ro #props #scalettaSec .sc-acts,body.sc-ro #props #scalettaSec .sc-add{display:none}
+body.dark #props #scalettaSec .sc-row.sc-segno{background:#1f262c}
+body.dark #props #scalettaSec .sc-b:hover:not(:disabled){background:#222b38}
+@media (max-width:880px), (pointer:coarse){
+  /* col dito: frecce e ✕ da 44 px (bersagli), la colonna si allarga di conseguenza */
+  #props #scalettaSec .sc-row{grid-template-columns:22px minmax(0,1fr) 136px}
+  #props #scalettaSec .sc-b{flex:0 0 44px;width:44px;height:44px;font-size:17px}
+  #props #scalettaSec .sc-add .btn{min-height:44px;font-size:14px}
+  #props #scalettaSec #bScalettaDone{min-height:48px}
+}
+/* Nelle Liste la scaletta è una riga senza i comandi dei layer: il conteggio va in fondo a destra */
+#layerRows .sc-lriga .layer-cnt,#layerRows .sc-lriga .layer-actbadge{margin-left:auto}
+/* Anteprima e link condiviso: le voci che non sono brani si distinguono, titoli e note vanno a capo */
+.pdf-list-tbl tr.sc-voce td{white-space:normal}
+.pdf-list-tbl tr.sc-segno td{color:#334155;font-weight:600;background:#f1f5f9}
+.pdf-list-tbl tfoot td{font-weight:700;border-top:2px solid #111827;border-bottom:none;color:#111827}
+
+/* ── QR VERSO LA VERSIONE ONLINE, nella finestra Esporta (10/10/2026) ────────────────────────────── */
+.pdf-qr-row{margin:8px 0 0}
+.pdf-qr-row .chk{margin:0}
+.pdf-qr-nota{font-size:11px;line-height:1.4;color:var(--text-3);margin:3px 0 0}
+.pdf-qr-avviso{font-size:12px;line-height:1.4;margin:6px 0 0;padding:6px 8px;border-radius:8px;background:var(--warning-bg);border:1px solid var(--warning-border);color:var(--text)}
+.pdf-qr-avviso[hidden]{display:none}
 </style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->
 <script async src="/icons.js"></script>
@@ -3779,6 +3874,28 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
   </div>
 </div>
 
+<!-- Anello di altoparlanti (06/10/2026): quante casse, come disposte, che nome. Il centro è quello della vista. -->
+<div class="modal" id="anelloSetup" hidden>
+  <div class="mcard" style="width:380px;max-width:94vw">
+    <h2>Anello di altoparlanti</h2>
+    <div class="hint">Le casse si posano attorno al centro di ciò che stai guardando, ognuna con il fronte verso l'interno e il suo nome (G1, G2…). Poi si spostano come ogni elemento.</div>
+    <div class="an-riga"><span class="an-lbl">Quante casse</span>
+      <div class="an-seg" role="group" aria-label="Quante casse">
+        <button type="button" class="btn" data-an-n="4">4</button><button type="button" class="btn" data-an-n="6">6</button><button type="button" class="btn" data-an-n="8">8</button>
+      </div></div>
+    <div class="an-riga"><span class="an-lbl">Disposizione</span>
+      <div class="an-seg" role="group" aria-label="Disposizione">
+        <button type="button" class="btn" data-an-forma="cerchio">Cerchio</button><button type="button" class="btn" data-an-forma="rettangolo">Rettangolo</button>
+      </div></div>
+    <div class="an-riga"><label class="an-lbl" for="anPre">Nome</label>
+      <input id="anPre" type="text" value="G" maxlength="12" autocomplete="off" style="width:90px"></div>
+    <div class="bs-foot">
+      <button class="btn" id="anNo" type="button">Annulla</button>
+      <button class="btn primary" id="anGo" type="button">Aggiungi</button>
+    </div>
+  </div>
+</div>
+
 <div id="assunzioni" hidden>
   <div class="as-head">
     <b>Abbiamo ipotizzato questo</b>
@@ -3964,6 +4081,24 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
     </div>
     <button class="btn primary" id="bEventoDone">Fatto</button>
   </div>
+  <!-- SCALETTA (10/10/2026, dal confronto con TecRider Pro): i brani in ordine con la durata, e i
+       momenti che non sono brani. Pannello come «Evento»: si apre dalle Liste (col mouse), dal Menu
+       del telefono e dalla ricerca; «Fatto» lo chiude. Le righe le scrive renderScaletta(). -->
+  <div class="sec sc-sec" id="scalettaSec" hidden>
+    <h3>Scaletta</h3>
+    <p class="ev-intro">I brani in ordine, con la durata se la sai. Nel PDF diventa una pagina a sé: la scegli in Esporta.</p>
+    <div id="scRows"></div>
+    <p class="sc-vuota" id="scVuota">Nessun brano ancora. Aggiungi il primo qui sotto: titolo e durata (per esempio <b>3:45</b>) bastano.</p>
+    <div class="sc-add">
+      <button type="button" class="btn primary" id="scAddBrano">+ Brano</button>
+      <button type="button" class="btn" data-sc-add="intro">Intro</button>
+      <button type="button" class="btn" data-sc-add="pausa">Pausa</button>
+      <button type="button" class="btn" data-sc-add="bis">Bis</button>
+      <button type="button" class="btn" data-sc-add="cambio">Cambio palco</button>
+    </div>
+    <div class="sc-tot" id="scTot" role="status"></div>
+    <button class="btn primary" id="bScalettaDone" type="button">Fatto</button>
+  </div>
   <div class="sec" id="selProps" hidden>
     <h3 id="selNome">Elemento</h3>
     <button type="button" class="btn solo-ped" id="pSoloPed" style="display:none" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg><span>Solo pedane</span></button>
@@ -3995,6 +4130,14 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
       <div class="di-note"><b>Passiva/Attiva</b>: le attive richiedono alimentazione (phantom 48V o batteria) — segnato in channel list. Modello reale qui sotto.</div>
     </div>
     <div id="pLabelWrap"><input aria-label="Etichetta" type="text" id="pLabel"></div>
+    <!-- POSTI NUMERATI (06/10): la sedia del pubblico dice qual è il suo posto, o che non ne ha ancora uno -->
+    <div id="pPostoWrap" class="prop-card" style="display:none">
+      <div class="prop-card__head">Posto</div>
+      <div class="prop-hint" id="pPostoInfo"></div>
+      <button class="btn" id="bPostoNumera" type="button" style="width:100%;margin-top:6px">Numera tutti i posti…</button>
+      <button class="btn" id="bPostoCsv" type="button" style="width:100%;margin-top:6px">Elenco posti (CSV)</button>
+      <button class="btn" id="bPostoPren" type="button" style="display:none;width:100%;margin-top:6px">Vai alla biglietteria</button>
+    </div>
     <div id="pLabel2Wrap" style="display:none"><label for="pLabel2">Etichetta 2 (secondo strumento)</label><input type="text" id="pLabel2"></div>
     <div id="pLblModeWrap">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px">
@@ -4037,10 +4180,11 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
       <div class="prop-card__head">Forma</div>
       <div id="pShapeKind" class="shape-grid" role="group" aria-label="Tipo di forma"></div>
       <label>Stile</label>
-      <div class="seg" role="group" aria-label="Stile della forma">
+      <div class="seg seg-4" role="group" aria-label="Stile della forma">
         <button type="button" class="adv-btn" data-sst="solid">Pieno</button>
         <button type="button" class="adv-btn" data-sst="outline">Contorno</button>
         <button type="button" class="adv-btn" data-sst="dashed">Tratteggio</button>
+        <button type="button" class="adv-btn" data-sst="area" title="Zona del palco: colore tenue, nome grande">Area</button>
       </div>
       <label>Colore</label>
       <div id="pShapeFill" class="swatches" role="group" aria-label="Colore della forma"></div>
@@ -4277,6 +4421,21 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
       <div id="pAscoltoHint" class="prop-hint"></div>
     </div>
     <div id="pRampWrap" style="display:none"><label for="pRamp">Formato</label><select id="pRamp"></select></div>
+    <!-- PLATEA (06/10/2026): i parametri del blocco di sedie del pubblico. L e P sopra restano: trascinare
+         la maniglia o scrivere la misura aggiunge o toglie sedie e file. -->
+    <div id="pPlateaWrap" style="display:none">
+      <div class="row">
+        <span><label for="pPlFile">File</label><input type="number" id="pPlFile" min="1" max="40" step="1" inputmode="numeric"></span>
+        <span><label for="pPlSedie">Sedie per fila</label><input type="number" id="pPlSedie" min="1" max="60" step="1" inputmode="numeric"></span>
+      </div>
+      <div class="row">
+        <span><label for="pPlPasso">Passo sedie (cm)</label><input type="number" id="pPlPasso" min="50" max="120" step="1" inputmode="numeric"></span>
+        <span><label for="pPlPassoFile">Passo file (cm)</label><input type="number" id="pPlPassoFile" min="60" max="200" step="5" inputmode="numeric"></span>
+      </div>
+      <label class="chk"><input type="checkbox" id="pPlCorr"> Corridoio centrale</label>
+      <div class="row" id="pPlCorrRow" style="display:none"><span><label for="pPlCorrW">Larghezza corridoio (cm)</label><input type="number" id="pPlCorrW" min="60" max="600" step="10" inputmode="numeric"></span></div>
+      <div id="pPlPosti" class="prop-hint"></div>
+    </div>
     <div id="pGazWrap" style="display:none"><label for="pGaz">Taglia</label><select id="pGaz"></select><div style="font-size:11px;color:var(--text-3);margin-top:3px">Poi trascinabile a piacimento.</div></div>
     <!-- B3 (27/07): campo numerico al posto dello slider — mezza riga invece di una intera, e dà il valore
          esatto. Il gesto rapido resta la maniglia di rotazione sul canvas. -->
@@ -4398,10 +4557,18 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
       <label class="chk" id="pPoltronaVWrap"><input type="checkbox" id="pPoltronaV"> Poltrona</label>
     </div>
     <div id="pGtr" style="display:none;border-top:1px solid #eef0f2;margin-top:10px;padding-top:8px">
-      <label class="chk"><input type="checkbox" id="pGtrSedia"> Sedia</label>
-      <label class="chk"><input type="checkbox" id="pGtrLeggio"> Leggio</label>
-      <label class="chk"><input type="checkbox" id="pGtrAmp"> Ampli</label>
-      <label class="chk"><input type="checkbox" id="pGtrPedal"> Pedaliera</label>
+      <div class="stpr-f" id="pSedutaWrap" style="display:none"><label>Seduta</label>
+        <div class="chips" data-chips="pSeduta">
+          <button type="button" data-v="sedia">Sedia</button>
+          <button type="button" data-v="sgabello">Sgabello</button>
+          <button type="button" data-v="niente" id="pSedutaNiente">Niente</button>
+        </div>
+        <select id="pSeduta" hidden><option value="sedia">sedia</option><option value="sgabello">sgabello</option><option value="niente">niente</option></select>
+      </div>
+      <label class="chk" id="pGtrSediaLbl"><input type="checkbox" id="pGtrSedia"> Sedia</label>
+      <label class="chk" id="pGtrLeggioLbl"><input type="checkbox" id="pGtrLeggio"> Leggio</label>
+      <label class="chk" id="pGtrAmpLbl"><input type="checkbox" id="pGtrAmp"> Ampli</label>
+      <label class="chk" id="pGtrPedalLbl"><input type="checkbox" id="pGtrPedal"> Pedaliera</label>
       <button class="btn" id="pGtrSplit" style="display:none">⇱ Dividi in elementi</button>
     </div>
     <div id="pDir" style="display:none;border-top:1px solid #eef0f2;margin-top:10px;padding-top:8px">
@@ -4529,6 +4696,17 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
         <select id="grpSbOut"><option value="">— invariato —</option><option value="0">0</option><option value="4">4</option><option value="8">8</option><option value="16">16</option><option value="24">24</option></select>
       </div>
       <div class="prop-hint">Le modifiche si applicano a tutte le stage box selezionate e restano salvate.</div>
+    </div>
+    <!-- POSTI NUMERATI (06/10): fila e posto alle sedie del pubblico selezionate, come in biglietteria -->
+    <div id="grpPostiWrap" class="prop-card" style="display:none">
+      <div class="prop-card__head">Posti del pubblico <span id="grpPostiN" class="muted"></span></div>
+      <div class="prop-hint" id="grpPostiStato"></div>
+      <button class="btn" id="bGrpPosti" type="button" style="width:100%;margin-top:6px">Numera i posti…</button>
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <button class="btn" id="bGrpPostiCsv" type="button" style="flex:1 1 0;min-width:0">Elenco (CSV)</button>
+        <button class="btn" id="bGrpPostiVia" type="button" style="flex:1 1 0;min-width:0">Togli i numeri</button>
+      </div>
+      <button class="btn" id="bGrpPostiPren" type="button" style="display:none;width:100%;margin-top:6px">Vai alla biglietteria</button>
     </div>
     <div id="grpZoneWrap" class="prop-card" style="display:none">
       <div class="prop-card__head">Microfonazione panoramica</div>
@@ -4868,6 +5046,7 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
   <div class="mlist">
     <button class="mrow" data-act="evento"><span class="mrow-t">Luogo</span><span class="mrow-v" id="mMenuLuogo"></span></button>
     <button class="mrow" data-act="evento"><span class="mrow-t">Data e ora</span><span class="mrow-v" id="mMenuData"></span></button>
+    <button class="mrow" data-act="scaletta"><span class="mrow-t">Scaletta</span><span class="mrow-v" id="mMenuScaletta"></span></button>
   </div>
   <div class="sh">Palco</div>
   <div class="mlist">
@@ -5369,7 +5548,7 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
       <button type="button" class="pa-card csvfmt" data-fmt="ah" style="text-align:left">
         <b>Allen &amp; Heath Director</b><br><small style="color:var(--text-2)">Sezione [Channels] con nomi + phantom. <b style="color:var(--warning)">Verifica l'import sulla tua console.</b></small></button>
       <button type="button" class="pa-card csvfmt" data-fmt="x32snp" style="text-align:left">
-        <b>Behringer X32 / Midas M32</b> <small>(snippet .snp)</small><br><small style="color:var(--text-2)">Nomi, colori e 48V dei canali: si carica da USB (Scenes → Snippets) o da X32-Edit, senza toccare il resto. <b style="color:var(--warning)">Provalo prima dello show.</b></small></button>
+        <b>Behringer X32 / Midas M32</b> <small>(snippet .snp)</small><br><small style="color:var(--text-2)">Applica solo nome e colore dei canali: NON tocca guadagni, 48V, sorgenti d’ingresso, icone né il resto. Si carica da USB (Scenes → Snippets) o da X32-Edit. Il 48V resta da impostare a mano (è indicato nella Channel list). <b style="color:var(--warning)">Provalo prima dello show.</b></small></button>
     </div>
     <div style="display:flex;margin-top:14px"><button class="btn" id="csvClose" style="margin-left:auto">Annulla</button></div>
   </div>
@@ -5479,6 +5658,16 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
         <input type="text" id="pdfTitolo" placeholder="Senza titolo" maxlength="120">
         <div class="hdr-saved" id="pdfFileName"></div>
         <div class="hdr-saved" id="pdfUltimo" hidden></div>
+        <!-- SCALETTA e QR (10/10/2026, idee dal confronto con TecRider Pro). Fuori da «Altre opzioni»:
+             la scaletta è contenuto scritto dall'utente, e il QR esiste solo per chi ha già un link
+             attivo. Le righe compaiono solo quando servono (style.display: `.pdf-exp-side>label`
+             batterebbe l'attributo hidden). -->
+        <label class="chk" id="pdfScalettaRow" style="display:none"><input type="checkbox" id="pdfScaletta"> Scaletta <small class="lbl-note" id="pdfScalettaNota"></small></label>
+        <div class="pdf-qr-row" id="pdfQrRow" style="display:none">
+          <label class="chk"><input type="checkbox" id="pdfQr"> Aggiungi un QR alla versione online aggiornata</label>
+          <div class="pdf-qr-nota" id="pdfQrNota">Chi ha il PDF potrà inquadrarlo e aprire il progetto online, aggiornato all'ultima modifica, finché il link di condivisione resta attivo.</div>
+          <div class="pdf-qr-avviso" id="pdfQrAvviso" role="status" hidden></div>
+        </div>
         <!-- AREA DI STAMPA (31/07): era il passaggio precedente, una finestra a sé che si attraversava
              per arrivare qui. Ora è una riga di questa: si legge cosa verrà stampato e si cambia se
              serve, senza uscire. -->
@@ -5545,6 +5734,7 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
         </div>
         <div class="hdr-saved" id="pdfHdrSaved"></div>
         </div>
+        <label class="chk" id="pdfPesiRow"><input type="checkbox" id="pdfPesi"> Pesi (kg) <small class="lbl-note">— peso stimato dell'allestimento, in testata e nel rider</small></label>
         <!-- Telefono: le opzioni da scrivania stanno dietro questo, con la STESSA preferenza del
              pannello elemento — chi accende «tecnico» lo accende una volta, non due. -->
         <button type="button" class="btn exp-pro" id="pdfProBtn">Altre opzioni</button>
@@ -5562,6 +5752,8 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
     </div>
     <div class="pdf-exp-foot">
       <div class="mstatus" id="pdfInfo"></div>
+      <!-- Dopo un export riuscito (01/10/2026): una riga, non un popup. Mai su un documento altrui. -->
+      <p class="hint" id="pdfConsulenza" hidden></p>
       <div class="pdf-exp-actions">
         <!-- ALTRI FORMATI (31/07): stavano nella finestra precedente, e chi arrivava qui non li
              trovava più. Sono qui, secondari come devono essere. -->
