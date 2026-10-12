@@ -86,6 +86,7 @@ function reset() {
   A.state.lookDefault = "illustrato";   /* «Postazione» = default del progetto (senza questo, un test che lo lascia su «Strumento solo» inquina i successivi) */
   A.state.titolo = ""; A.state.luogo = ""; A.state.techContact = ""; A.state.venue = null; A.state.printFrame = null; A.state.zones = [];
   A.state.lights = { rows: [], blackout: null, mood: "" };   /* luci = reparto (blocco A): senza azzeramento le righe di un test finiscono nel rider del successivo */
+  delete A.state.scaletta;   /* scaletta (10/10): campo che esiste solo con almeno una voce */
   A.state.stage = { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] };   /* palco default: base per isFreshBlankProject */
   /* cab.home va azzerato come le luci e lookDefault: dal 02/09 un test puo' CREARE il punto
      d'arrivo dei cavi, e se resta scritto il test dopo trova un capolinea che non ha messo lui —
@@ -2567,7 +2568,135 @@ t("sediaorch 44×48 · 6 kg · sediapubblico 50×53 · 3,5 kg", () => {
 });
 t("riderData.pesoKg somma il peso delle sedie", () => {
   reset(); add("sediaorch", 300, 300); add("sediaorch", 340, 300); add("sediapubblico", 500, 300);
-  eq(A.riderData().pesoKg, 6 + 6 + 3.5);
+  eq(A.riderData().pesoKg, 0, "«Pesi (kg)» spenta di serie: nel rider niente peso");
+  A.state.pdfPesi = true;
+  eq(A.riderData().pesoKg, 6 + 6 + 3.5, "accesa: il peso c'è");
+  delete A.state.pdfPesi;
+});
+
+/* PLATEA A BLOCCHI (06/10/2026): un utente aveva disegnato la platea con 60 sedie bianche posate una per
+   una (e il rider le contava come sedie da orchestra). Ora è UN elemento con file, sedie, passi e corridoio. */
+console.log("\nPlatea a blocchi:");
+t("platea: 6 file × 10 sedie, passo 55 e 90, 60 posti al centro delle loro caselle", () => {
+  reset(); const p = add("platea", 600, 1200);
+  eq([p.w, p.d], [550, 540], "misure di partenza");
+  const c = A.plateaCfg(p);
+  eq([c.file, c.sedie, c.passo, c.passoFile, c.corridoio], [6, 10, 55, 90, 0]);
+  eq(A.plateaPosti(p), 60);
+  const xy = A.plateaPostiXY(p);
+  eq(xy.length, 60);
+  eq(xy[1].x - xy[0].x, 55, "passo fra le sedie");
+  eq(xy[10].y - xy[0].y, 90, "passo fra le file");
+  ok(xy.every((q) => Math.abs(q.x) + 25 <= p.w / 2 && Math.abs(q.y) + 26.5 <= p.d / 2), "ogni sedia 50×53 dentro l'ingombro");
+  ok(/>60 posti</.test(A.TYPES.platea.draw(p)), "il disegno dice «60 posti»");
+  eq((A.TYPES.platea.draw(p).match(/<rect/g) || []).length, 60 * 3 + 1, "60 sedie (3 rettangoli l'una) + il cartellino");
+});
+t("platea: il corridoio centrale divide la fila senza togliere posti", () => {
+  reset(); const p = add("platea", 600, 1200);
+  A.plateaImposta(p, { corridoio: A.PLATEA_CORR_DEF });
+  eq(p.w, 10 * 55 + 120, "la platea si allarga del corridoio");
+  eq(A.plateaPosti(p), 60);
+  const xy = A.plateaPostiXY(p);
+  eq(xy[5].x - xy[4].x, 55 + 120, "fra la quinta e la sesta sedia passa il corridoio");
+  ok(xy.every((q) => Math.abs(q.x) - 25 >= 60), "nessuna sedia nel corridoio");
+  A.plateaImposta(p, { corridoio: 0 });
+  eq(p.w, 550, "spento, torna stretta");
+});
+t("platea: file, sedie e passi dal pannello rifanno le misure e il conteggio", () => {
+  reset(); const p = add("platea", 600, 1200);
+  A.plateaImposta(p, { file: 8, sedie: 12 });
+  eq([p.w, p.d, A.plateaPosti(p)], [660, 720, 96]);
+  ok(/>96 posti</.test(A.TYPES.platea.draw(p)));
+  A.plateaImposta(p, { passo: 60, passoFile: 100 });
+  eq([p.w, p.d, A.plateaPosti(p)], [720, 800, 96], "il passo cambia le misure, non i posti");
+  A.plateaImposta(p, { sedie: 999, file: 0, passo: 10 });
+  const c = A.plateaCfg(p);
+  eq([c.sedie, c.file, c.passo], [60, 1, 50], "fuori dai limiti si torna dentro");
+  eq([p.w, p.d, p.platea.passo], [60 * 50, 100, 50], "e le misure salvate sono quelle dei limiti, non 999 sedie da 10 cm");
+});
+t("platea: la maniglia e il campo L/P aggiungono sedie a scatti; accorciata da fuori, non sborda", () => {
+  reset(); const p = add("platea", 600, 1200);
+  A.plateaDaMisure(p, 600, 640);
+  eq([p.w, p.d, A.plateaPosti(p)], [605, 630, 77], "11 sedie × 7 file, misure esatte sulle caselle");
+  /* «Adatta» accorcia w/d senza sapere della platea: le sedie diventano quelle che ci stanno */
+  p.w = 540; p.d = 530;
+  eq(A.plateaPosti(p), 9 * 5);
+  ok(A.plateaPostiXY(p).every((q) => Math.abs(q.x) + 25 <= p.w / 2 && Math.abs(q.y) + 26.5 <= p.d / 2), "dentro l'ingombro anche così");
+  ok(/rzit\.type==="platea"\)\{ plateaDaMisure\(rzit, nw, nd\)/.test(appjs), "la maniglia di ridimensionamento passa da plateaDaMisure");
+  ok(/it\.w=Math\.max\(10,\+document\.getElementById\("pW"\)\.value\|\|it\.w\); if\(it\.type==="platea"\) plateaDaMisure/.test(appjs), "il campo L passa da plateaDaMisure");
+});
+t("platea: nel rider pesa le sue sedie ma NON entra fra le sedie dei musicisti", () => {
+  reset(); add("platea", 600, 1200);
+  eq(A.countAccessori().sedie, 0, "sedie del rider");
+  ok(!A.pdfTotals().some((s) => /sedut/.test(s)), "nessuna «seduta» nei totali del PDF: " + A.pdfTotals().join(" · "));
+  A.state.pdfPesi = true;   /* i kg nel rider solo con «Pesi (kg)» (06/10/2026) */
+  eq(A.riderData().pesoKg, 60 * 3.5, "peso allestimento: 60 sedie da 3,5 kg");
+  delete A.state.pdfPesi;
+  add("sediabianca", 300, 300);
+  eq(A.countAccessori().sedie, 1, "una sedia bianca sul palco invece conta");
+});
+t("platea: i parametri salvati si ripuliscono all'apertura", () => {
+  const s = A.normalizeState({ _v: A.SCHEMA_VERSION, items: [
+    { id: "p1", type: "platea", x: 0, y: 0, w: 550, d: 540, platea: { passo: "abc", passoFile: 9999, corridoio: -5, x: "<b>" } },
+    { id: "p2", type: "tavolo", x: 0, y: 0, w: 120, d: 60, platea: { passo: 55 } },
+    { id: "p3", type: "platea", x: 0, y: 0, w: 550, d: 540, platea: [1, 2] }], inputs: [], outputs: [] });
+  eq(s.items[0].platea, { passo: 55, passoFile: 200, corridoio: 0 });
+  ok(!("platea" in s.items[1]), "su un altro tipo il campo non resta");
+  ok(!("platea" in s.items[2]), "un array non è una platea");
+});
+t("platea: si trova con platea, pubblico, sedie pubblico, posti a sedere", () => {
+  eq((A.__spSearch("platea")[0] || {}).k, "platea", "«platea» la dà per prima");
+  eq((A.__spSearch("posti a sedere")[0] || {}).k, "platea", "«posti a sedere» la dà per prima");
+  eq((A.__spSearch("sedie pubblico")[0] || {}).k, "platea", "«sedie pubblico» la dà per prima");
+  ok(A.__spSearch("pubblico").some((e) => e.k === "platea"), "«pubblico» la trova");
+  ok(A.__qaSearch("platea").some((e) => e.k === "platea"), "anche il doppio clic sul palco la trova");
+  ok(A.__catEntries.some((e) => e.k === "platea"), "sta nel catalogo");
+  ok(A.ESSENTIAL.platea, "e si vede subito, senza «Mostra tutti»");
+});
+/* Revisione 06/10/2026: la platea sta in sala per definizione. Contata «fuori dal palco», l'Esporta mostrava
+   sempre «1 elemento è fuori dal palco» e il suo «Adatta il palco» allargava il palco fino al pubblico. */
+t("platea: in sala non è «fuori dal palco» e «Adatta il palco» non la ingloba", () => {
+  reset();
+  for (let i = 0; i < 4; i++) add("cantante", 300 + i * 150, 400);   /* dentro il palco 12×8 */
+  const prima = JSON.stringify(A.palcoCheContieneTutto());
+  const p = add("platea", 600, 800 + 400);                           /* davanti al palco, in sala */
+  eq(A.elementiFuoriDalPalco().length, 0, "la platea non è un elemento fuori posto");
+  eq(JSON.stringify(A.palcoCheContieneTutto()), prima, "il palco «che contiene tutto» non arriva fino al pubblico");
+  const r = A.adattaPalcoCalcola(A.state.items, 1200, 800, 1000, 700);
+  eq(r.pos[p.id].y - 700, p.y - 800, "e Adatta la lascia alla stessa distanza dal bordo, come il FOH");
+});
+/* Revisione 06/10/2026: una Sedia pubblico singola in sala era «fuori dal palco» (la platea no): stessa regola */
+t("sedia pubblico: in sala non è «fuori dal palco»", () => {
+  reset();
+  add("cantante", 600, 400);
+  add("sediapubblico", 600, 1300);
+  eq(A.elementiFuoriDalPalco().length, 0, "la sedia del pubblico sta in sala per definizione");
+  add("wedge", 600, 1300);
+  eq(A.elementiFuoriDalPalco().length, 1, "una spia nello stesso punto invece sì");
+});
+/* Revisione 06/10/2026: la platea girata di 90° faceva leggere «60 posti» di lato */
+t("platea: il cartellino dei posti resta dritto quando la platea ruota", () => {
+  const svg = A.TYPES.platea.draw({ type: "platea", w: 550, d: 540, rot: 90 });
+  ok(/class="pl-posti" transform="rotate\(-90\)"/.test(svg), "contro-ruotato di 90°");
+  ok(/class="pl-posti" transform="rotate\(0\)"/.test(A.TYPES.platea.draw({ type: "platea", w: 550, d: 540 })), "dritta: nessuna rotazione");
+});
+t("platea: un JSON generato (#d=, ChatGPT) tiene passi e corridoio", () => {
+  const [p] = A.sanitizeItems([{ id: "pl1", type: "platea", x: 600, y: 1200, w: 790, d: 600, platea: { passo: 60, passoFile: 100, corridoio: 130 } }]);
+  eq(p.platea, { passo: 60, passoFile: 100, corridoio: 130 }, "i parametri arrivano");
+  const s = A.normalizeState({ _v: A.SCHEMA_VERSION, items: [p], inputs: [], outputs: [] });
+  const c = A.plateaCfg(s.items[0]);
+  eq([c.file, c.sedie, c.corridoio, A.plateaPosti(s.items[0])], [6, 11, 130, 66], "e la platea resta quella disegnata");
+});
+t("platea: non si specchia (il cartellino «60 posti» uscirebbe a rovescio)", () => {
+  reset(); const p = add("platea", 600, 1200);
+  eq(A.canMirror(p), false);
+  A.selectOne(p.id); A.mirrorSel();
+  eq(p.mir, undefined, "il comando non la ribalta");
+  const s = A.normalizeState({ _v: A.SCHEMA_VERSION, items: [{ id: "p1", type: "platea", x: 0, y: 0, w: 550, d: 540, mir: true }], inputs: [], outputs: [] });
+  ok(!("mir" in s.items[0]), "e da un file arriva dritta");
+});
+t("platea: la maniglia non la fa agganciare al bordo del palco fuori dalle sue caselle", () => {
+  ok(/if\(!grid && drag\.rot===0 && rzit\.type!=="platea"\)\{/.test(appjs), "il magnete al bordo durante il ridimensionamento salta la platea");
 });
 
 console.log("\nT2 — rider tecnico generato dai dati:");
@@ -5208,11 +5337,12 @@ t("ricerca: liste e varianti si trovano per nome", () => {
   ok(!A.__spSearch("channel").some((e) => e.nome === "Esporta"), "«channel» non deve più dare Esporta");
   ok(/search\.addEventListener\("keydown", function\(ev\)\{\s*if\(ev\.key!=="Enter"[\s\S]{0,200}results\.querySelector\("button:not\(\.json-act\)"\)[\s\S]{0,80}primo\.click\(\);/.test(appjs), "Invio nella ricerca deve prendere il primo risultato");
 });
-/* 05/10: giri degli utenti (analisi/workaround/2026-10-05.md) — parole cercate davvero senza risultato. */
+/* 05/10: giri degli utenti (analisi/workaround/2026-10-05.md) — parole cercate davvero senza risultato.
+   «platea» dal 06/10/2026 dà la Platea (file di sedie): è il blocco intero, la sedia singola viene dopo. */
 t("ricerca: le parole dei giri degli utenti trovano l'elemento giusto", () => {
   const primo = (q) => (A.__spSearch(q)[0] || {}).nome;
   const attesi = { webcam: "Camera", gobbo: "Gobbo / confidence monitor", tv: "Gobbo / confidence monitor", "schermo testi": "Gobbo / confidence monitor",
-    bodypack: "IEM beltpack", cajonista: "Cajon", pubblico: "Sedia pubblico", platea: "Sedia pubblico",
+    bodypack: "IEM beltpack", cajonista: "Cajon", pubblico: "Sedia pubblico", "sedia pubblico": "Sedia pubblico",
     croce: "Croce", altare: "Altare", finestra: "Finestra", colonna: "Colonna / palo", palo: "Colonna / palo", lampadario: "Lampadario" };
   for (const [q, nome] of Object.entries(attesi)) eq(primo(q), nome, "«" + q + "»:");
   ok(["Laptop", "Mac portatile"].includes(primo("sequenze")), "«sequenze» deve dare il computer delle basi");
@@ -5767,8 +5897,23 @@ t("senza «Esporta avanzato» il cartiglio non scrive peso, rack e canali", () =
   ok(!/canali/.test(senza), "senza, no: " + senza);
   ok(/leggi/.test(senza) && /spia/.test(senza), "leggii e spie restano: servono a chi allestisce: " + senza);
   ok(/function pdfDatiTecnici\(\)\{\s*try\{ return typeof funzOn!=="function" \|\| !!funzOn\("esporta"\);/.test(appjs), "la regola è la funzione Esporta avanzato");
-  ok(/var _tecn=pdfDatiTecnici\(\);[^\n]*\n\s*var _wt=_tecn\?totalWeightKg\(\):0;[^\n]*\n\s*var _ru=_tecn\?totalRackU\(\):0;/.test(appjs), "nel PDF peso e rack seguono la stessa regola");
-  ok(/var _ptecn=pdfDatiTecnici\(\);[^\n]*\n\s*var _pwt=_ptecn\?totalWeightKg\(\):0;[^\n]*_pru=_ptecn\?totalRackU\(\):0;/.test(appjs), "e l'anteprima pure");
+  /* 06/10/2026: il peso in più vuole la casella «Pesi (kg)» (pdfPesiOn), il rack resta com'era */
+  ok(/var _tecn=pdfDatiTecnici\(\);[^\n]*\n\s*var _wt=\(_tecn&&pdfPesiOn\(\)\)\?totalWeightKg\(\):0;[^\n]*\n\s*var _ru=_tecn\?totalRackU\(\):0;/.test(appjs), "nel PDF peso e rack seguono la stessa regola");
+  ok(/var _ptecn=pdfDatiTecnici\(\);[^\n]*\n\s*var _pwt=\(_ptecn&&pdfPesiOn\(\)\)\?totalWeightKg\(\):0;[^\n]*_pru=_ptecn\?totalRackU\(\):0;/.test(appjs), "e l'anteprima pure");
+});
+
+/* 06/10/2026 — Simone: «sul pdf che stampo ci sono i kg, dev'essere un'opzione disattivata di default» */
+t("Pesi (kg) nel PDF: opzione del progetto, spenta di serie", () => {
+  reset(); add("sediaorch", 300, 300);
+  ok(!A.pdfPesiOn(), "progetto nuovo: spenta");
+  A.state.pdfPesi = true; ok(A.pdfPesiOn(), "accesa con la casella");
+  eq(A.normalizeState({ _v: A.SCHEMA_VERSION, items: [], inputs: [], outputs: [], pdfPesi: "si" }).pdfPesi, undefined, "da un file: solo un true esplicito");
+  eq(A.normalizeState({ _v: A.SCHEMA_VERSION, items: [], inputs: [], outputs: [], pdfPesi: true }).pdfPesi, true, "e il true resta");
+  ok(A.CAMPI_DOCUMENTO.indexOf("pdfPesi") > -1, "vale per tutte le varianti");
+  ok(/<label class="chk" id="pdfPesiRow"><input type="checkbox" id="pdfPesi">/.test(readFileSync(join(root, "app/index.html"), "utf8")), "la casella c'è, senza «checked»");
+  eq((stylesCss.match(/body:not\(\.f-esporta\) #pdfPesiRow,/g) || []).length, 2, "sta in «Altre opzioni», su telefono e scrivania");
+  ok(/A\.weightKg>0&&pdfPesiOn\(\)\?" · peso ~"/.test(appjs), "anche l'audit in PDF la rispetta");
+  delete A.state.pdfPesi;
 });
 
 t("pedane coperte: il clic ripetuto passa a quello sotto, e la pedana si sposta anche da sola", () => {
@@ -11591,7 +11736,8 @@ t("Acustico, Jazz, Band e Coro: ogni microfono ha chi lo usa, ogni persona il su
   const conta = (out, t) => out.filter((i) => i.type === t).length;
   const ac = A.formationData("acoustic").out;
   eq(conta(ac, "cantante"), 1, "Acustico: c'è il cantante, non solo il microfono «Voce»");
-  eq(conta(ac, "percussionistaR"), 1, "Acustico: e chi suona il cajon");
+  /* 06/10/2026: chi suona il cajon sta dentro la postazione cajon (musicista acceso), non è più un pezzo a sé */
+  eq(ac.filter((i) => i.type === "cajonpost" && !(i.parts && i.parts.mus === false)).length, 1, "Acustico: e chi suona il cajon");
   eq(conta(ac, "wedge"), 4, "Acustico: quattro spie, una a testa");
   eq(conta(ac, "coppiast") + conta(ac, "astamic"), 0, "Acustico: niente microfoni senza persona");
   ok(ac.filter((i) => i.type === "stagepiano" || i.type === "gtacustica" || i.type === "cantante").every((i) => !i.rot), "Acustico: niente musicisti storti");
@@ -11713,6 +11859,61 @@ t("scheda tecnica: le FAQ visibili e quelle in JSON-LD dicono la stessa cosa", (
   const article = ld["@graph"].find((n) => n["@type"] === "Article");
   ok(article && article.author && article.author["@id"] === "https://simonecastellan.com/#person",
     "l'autore riusa lo stesso @id delle altre guide (anello E-E-A-T)");
+});
+
+/* --- Pagine «alternativa a…» (10/10) ---------------------------------------------------------
+   Perché esistono: chi cerca «alternativa a Ridermaker / TecRider / Stage Plot Pro» trovava solo
+   pagine in inglese. Sono pubblicità comparativa: ogni fatto sul concorrente deve essere datato e
+   le FAQ dello schema devono dire esattamente quello che la pagina mostra. E una cartella nuova
+   non pubblicata dall'allowlist del deploy dà 404 senza errori: va presidiata qui. */
+const ALT = ["alternative/", "alternative/ridermaker/", "alternative/tecrider/", "alternative/stage-plot-pro/"];
+const altHtml = (rel) => readFileSync(join(root, rel, "index.html"), "utf8");
+const deEnt = (s) => s.replace(/<[^>]+>/g, "").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#x27;/g, "'").replace(/&amp;/g, "&");
+
+t("alternative: pubblicate dal deploy, in sitemap, in llms.txt e agganciate a pagine sorelle", () => {
+  const wf = readFileSync(join(root, ".github/workflows/pages.yml"), "utf8");
+  const allow = wf.slice(wf.indexOf("rsync -a"), wf.indexOf("./_site/"));
+  ok(/\balternative\b/.test(allow), "la cartella alternative è nell'allowlist del deploy (senza: 404)");
+  const sm = readFileSync(join(root, "sitemap.xml"), "utf8");
+  const llms = readFileSync(join(root, "llms.txt"), "utf8");
+  for (const rel of ALT) {
+    ok(sm.indexOf("<loc>https://stageplot.it/" + rel + "</loc>") > -1, rel + ": in sitemap");
+    ok(llms.indexOf("https://stageplot.it/" + rel + ")") > -1, rel + ": in llms.txt");
+  }
+  /* le pagine che le linkano, escluse loro stesse: una pagina orfana non si indicizza */
+  const altre = readdirSync(root, { recursive: true, withFileTypes: true })
+    .filter((d) => d.isFile() && d.name === "index.html")
+    .map((d) => join(d.parentPath || d.path, d.name))
+    .filter((p) => pubblicata(p.slice(root.length)));
+  for (const rel of ALT) {
+    const href = 'href="/' + rel + '"';
+    const da = altre.filter((p) => p !== join(root, rel, "index.html") && readFileSync(p, "utf8").indexOf(href) > -1);
+    ok(da.length >= 3, rel + ": linkata da almeno 3 pagine (" + da.length + ")");
+  }
+  ok(readFileSync(join(root, "guida/index.html"), "utf8").indexOf('href="/alternative/"') > -1, "l'hub delle guide linka l'hub dei confronti");
+  ok(readFileSync(join(root, "index.html"), "utf8").indexOf('href="/alternative/"') > -1, "la home linka l'hub dei confronti");
+});
+
+t("alternative: un H1, il riquadro «In breve», fatti datati e FAQ dello schema identiche a quelle visibili", () => {
+  const rider = readFileSync(join(root, "guida/rider-tecnico/index.html"), "utf8");
+  const titolo = (s) => (s.match(/<title>([^<]*)<\/title>/) || ["", ""])[1];
+  for (const rel of ALT) {
+    const h = altHtml(rel);
+    eq((h.match(/<h1[\s>]/g) || []).length, 1, rel + ": un solo H1");
+    eq((h.match(/class="callout in-breve"/g) || []).length, 1, rel + ": riquadro «In breve» presente una volta");
+    ok(h.indexOf('<link rel="canonical" href="https://stageplot.it/' + rel + '">') > -1, rel + ": canonical su sé stessa");
+    ok(/<caption>[^<]*10\/10\/2026/.test(h), rel + ": la tabella dice quando sono stati verificati i fatti");
+    eq(/fonico/i.test(h), false, rel + ": Simone è «sound engineer», mai «fonico»");
+    ok(titolo(h) !== titolo(rider) && /Ridermaker|TecRider|Stage Plot Pro/.test(titolo(h)),
+      rel + ": il title punta al concorrente, non al rider tecnico: " + titolo(h));
+    const ld = JSON.parse((h.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/) || [])[1]);
+    const tipi = ld["@graph"].map((n) => n["@type"]);
+    ok(tipi.includes("BreadcrumbList") && tipi.includes("FAQPage") && (tipi.includes("Article") || tipi.includes("CollectionPage")),
+      rel + ": breadcrumb, FAQ e pagina nei dati strutturati: " + tipi.join(","));
+    const faq = ld["@graph"].find((n) => n["@type"] === "FAQPage").mainEntity.map((q) => [q.name, q.acceptedAnswer.text]);
+    const vis = [...h.matchAll(/<details><summary>([\s\S]*?)<\/summary><p>([\s\S]*?)<\/p><\/details>/g)].map((m) => [deEnt(m[1]), deEnt(m[2])]);
+    eq(JSON.stringify(vis), JSON.stringify(faq), rel + ": FAQ visibili = FAQPage, domande e risposte");
+  }
 });
 
 /* --- La radice è la landing, l'editor sta su /app/ (08/08) ---
@@ -12572,7 +12773,8 @@ t("la privacy racconta i conteggi, e la data lo dice", () => {
   ok(/aggregat/i.test(p) && /nessun cookie/i.test(p), "dice che sono aggregati e senza cookie");
   ok(/Do Not Track/.test(p), "dichiara il rispetto del Do Not Track");
   ok(/impronta anonima \(hash\) dell'indirizzo IP/.test(p), "dichiara l'impronta dell'IP per il rate limit");
-  ok(/Ultimo aggiornamento: 11 agosto 2026/.test(p), "la data dell'ultimo aggiornamento è quella giusta");
+  ok(/Ultimo aggiornamento: 9 ottobre 2026/.test(p), "la data dell'ultimo aggiornamento è quella giusta (09/10: sezione 9, Analisi vocale)");
+  ok(/id="voce"/.test(p) && /L'audio resta sul tuo computer/.test(p), "c'è la sezione Analisi vocale: l'audio non lascia il computer");
   ok(!/senza accesso non si attivano autenticazione, salvataggio cloud o statistiche d'uso/.test(p),
     "la frase che ora sarebbe falsa non c'è più");
 });
@@ -13024,13 +13226,13 @@ t("nel file X32 un canale ha SEMPRE un nome, anche se il suo è tutto non-ASCII"
   /* Un nome cinese o di sole emoji è una stringa non vuota, quindi vinceva il fallback «CH n», ma la
      pulizia ASCII lo riduceva a niente: in console arrivava un canale senza nome (25/08). */
   const cinese = A.x32Snippet([{ n: 1, name: "陈明", short: "" }], "Show").snp;
-  ok(/\/ch\/01\/config "CH 1"/.test(cinese), "ripiego «CH 1» invece del nome vuoto: " + cinese.split("\n").find(l => /ch\/01/.test(l)));
-  ok(!/config ""/.test(cinese), "nessun nome vuoto nel file");
+  ok(/\/ch\/01\/config\/name "CH 1"/.test(cinese), "ripiego «CH 1» invece del nome vuoto: " + cinese.split("\n").find(l => /ch\/01/.test(l)));
+  ok(!/name ""/.test(cinese), "nessun nome vuoto nel file");
   const emoji = A.x32Snippet([{ n: 2, name: "🎤🎸", short: "" }], "Show").snp;
-  ok(!/config ""/.test(emoji), "vale anche per le sole emoji");
+  ok(!/name ""/.test(emoji), "vale anche per le sole emoji");
   /* e un nome misto tiene la parte leggibile, non il ripiego */
   const misto = A.x32Snippet([{ n: 3, name: "Voce 陈", short: "" }], "Show").snp;
-  ok(/config "Voce"/.test(misto), "la parte ASCII resta: " + misto.split("\n").find(l => /ch\/03/.test(l)));
+  ok(/config\/name "Voce"/.test(misto), "la parte ASCII resta: " + misto.split("\n").find(l => /ch\/03/.test(l)));
 });
 
 t("il rider dice quanta corrente serve, e sotto quale protezione — in HTML e in PDF", () => {
@@ -13071,10 +13273,11 @@ t("ORC-02: il parametro ?model= si consuma dopo l'uso", () => {
 });
 
 /* ============ export console: snippet X32/M32 (23/08) ============ */
-t("lo snippet X32/M32 ha il formato dei file veri: intestazione, config per canale, headamp per il 48V", () => {
-  /* Formato letto da scene pubbliche (GitHub) e dalla doc OSC di Maillot: «#4.0# "nome" 1 1 1 1 1»,
-     «/ch/NN/config "Nome" icona COLORE sorgente», «/headamp/NNN +0.0 ON|OFF» con /headamp/000 =
-     ingresso locale 1. Snippet, non scena: applica SOLO questi parametri. */
+t("lo snippet X32/M32 scrive solo nome e colore: mai gain (/headamp), icona o sorgente", () => {
+  /* Formato letto da scene pubbliche (GitHub) e dalla doc OSC di Maillot: «#4.0# "nome" 1 1 1 1 1».
+     DIFETTO 10/10: lo snippet scriveva «/headamp/NNN +0.0 ON|OFF», ma quel comando porta GAIN e phantom
+     insieme: caricandolo il gain di ogni canale tornava a 0 dB. Anche «/ch/NN/config "n" icona col
+     sorgente» sovrascrive la sorgente (il routing). Ora: due righe separate per canale, name e color. */
   const righe = [
     { n: 1, name: "Kick", short: "Kick", mic: "D6", p48: false },
     { n: 2, name: "Batteria 1 - Rullante top", short: "Sn top", mic: "SM57", p48: false },
@@ -13088,21 +13291,33 @@ t("lo snippet X32/M32 ha il formato dei file veri: intestazione, config per cana
   const r = A.x32Snippet(righe, "Band pop/rock");
   const L = r.snp.split("\n");
   eq(L[0], '#4.0# "Band pop/rock" 1 1 1 1 1', "intestazione dello snippet");
-  eq(L[1], '/ch/01/config "Kick" 1 RD 1', "canale 1: nome, icona 1, rosso per la batteria, sorgente locale 1");
-  eq(L[2], '/headamp/000 +0.0 OFF', "headamp 000 = ingresso 1, phantom OFF");
-  eq(L[3], '/ch/02/config "Sn top" 1 RD 2', "il nome breve (la sigla FOH) vince sul nome lungo");
-  ok(/\/ch\/03\/config "Overhead L" 1 RD 3/.test(r.snp) && /\/headamp\/002 \+0\.0 ON/.test(r.snp), "overhead: rosso e 48V ON su headamp 002");
-  ok(/\/ch\/04\/config "Basso" 1 BL 4/.test(r.snp), "basso blu");
-  ok(/\/ch\/05\/config "Chitarra ele" 1 GN 5/.test(r.snp), "chitarra: verde, accenti e virgolette tolti, 12 caratteri");
-  ok(/\/ch\/06\/config "Tastiere L" 1 YE 6/.test(r.snp), "tastiere gialle");
-  ok(/\/ch\/07\/config "Voce" 1 CY 7/.test(r.snp), "voce ciano");
-  ok(/\/ch\/08\/config "SPARE" 1 WHi 8/.test(r.snp), "una riservata esce SPARE in bianco invertito");
+  eq(L[1], '/ch/01/config/name "Kick"', "canale 1: nome");
+  eq(L[2], '/ch/01/config/color RD', "canale 1: rosso per la batteria");
+  eq(L.length, 1 + 8 * 2 + 1, "intestazione + 2 righe per canale + riga finale vuota: nient'altro");
+  ok(!/headamp/.test(r.snp), "NESSUNA riga /headamp: porterebbe il gain a 0 dB su un banco già regolato");
+  ok(!/[+-]\d+\.\d/.test(r.snp), "nessun valore di gain nel file");
+  ok(!/\/ch\/\d\d\/config "/.test(r.snp), "niente riga config completa: porterebbe icona e SORGENTE (routing)");
+  ok(!/source|preamp|insert/.test(r.snp), "nessuna sorgente, preamp o insert");
+  eq(L.filter(l => l && !/^(#4\.0#|\/ch\/\d\d\/config\/(name|color) )/.test(l)).length, 0, "ogni riga è intestazione, name o color");
+  eq(r.snp.match(/48V|phantom|\bON\b|\bOFF\b/g), null, "il 48V non è nel file (non lo imposta)");
+  ok(/\/ch\/02\/config\/name "Sn top"/.test(r.snp), "il nome breve (la sigla FOH) vince sul nome lungo");
+  ok(/\/ch\/03\/config\/name "Overhead L"/.test(r.snp) && /\/ch\/03\/config\/color RD/.test(r.snp), "overhead: nome e rosso");
+  ok(/\/ch\/04\/config\/color BL/.test(r.snp), "basso blu");
+  ok(/\/ch\/05\/config\/name "Chitarra ele"/.test(r.snp) && /\/ch\/05\/config\/color GN/.test(r.snp), "chitarra: verde, accenti e virgolette tolti, 12 caratteri");
+  ok(/\/ch\/06\/config\/color YE/.test(r.snp), "tastiere gialle");
+  ok(/\/ch\/07\/config\/color CY/.test(r.snp), "voce ciano");
+  ok(/\/ch\/08\/config\/name "SPARE"/.test(r.snp) && /\/ch\/08\/config\/color WHi/.test(r.snp), "una riservata esce SPARE in bianco invertito");
   eq(r.count, 8, "otto canali");
   ok(r.snp.endsWith("\n"), "file terminato da newline");
   ok(!/[^\x00-\x7f]/.test(r.snp), "solo ASCII: la console non legge altro");
   /* i non-ASCII DENTRO i 12 caratteri: «» e ♪ spariscono, gli accenti perdono il segno */
   const r3 = A.x32Snippet([{ n: 1, name: "Sax «solo» ♪ più", mic: "SM57" }], "x");
-  ok(/\/ch\/01\/config "Sax solo piu" 1 MG 1/.test(r3.snp), "«» e ♪ tolti (e gli spazi doppi che lasciano), ù → u, sax magenta: " + r3.snp.split("\n")[1]);
+  ok(/\/ch\/01\/config\/name "Sax solo piu"/.test(r3.snp) && /config\/color MG/.test(r3.snp), "«» e ♪ tolti, ù → u, sax magenta: " + r3.snp.split("\n")[1]);
+  /* l'interfaccia non promette ciò che il file non fa */
+  const tpl = readFileSync(join(root, "index.template.html"), "utf8");
+  const i0 = tpl.indexOf('data-fmt="x32snp"');
+  const voce = tpl.slice(i0, i0 + 700);
+  ok(/NON tocca guadagni, 48V/.test(voce) && !/Nomi, colori e 48V/.test(voce), "la voce del selettore dice che NON tocca gain e 48V");
 });
 
 t("lo snippet X32 rispetta i 32 canali e usa il numero FOH quando c'è", () => {
@@ -13112,7 +13327,7 @@ t("lo snippet X32 rispetta i 32 canali e usa il numero FOH quando c'è", () => {
   eq(r.skipped.length, 8, "e dice quanti sono rimasti fuori");
   const foh = [{ n: 1, foh: 17, name: "Kick", mic: "D6" }, { n: 2, foh: 18, name: "Rullante", mic: "SM57" }];
   const r2 = A.x32Snippet(foh, "x");
-  ok(/\/ch\/17\/config "Kick" 1 RD 17/.test(r2.snp) && /\/headamp\/016 /.test(r2.snp), "con più box vale il canale FOH (17), headamp 016");
+  ok(/\/ch\/17\/config\/name "Kick"/.test(r2.snp) && /\/ch\/18\/config\/name "Rullante"/.test(r2.snp), "con più box vale il canale FOH (17, 18)");
   ok(!/\/ch\/01\//.test(r2.snp), "e non il progressivo di riga");
   /* e la voce sta nel selettore dei formati */
   const html = readFileSync(join(root, "app/index.html"), "utf8");
@@ -16549,8 +16764,9 @@ t("il bottone del PDF torna vivo alla fine dell'export, non a cronometro", () =>
      — misurato chiamandola: entrambi i rami rispondono con un thenable. */
   ok(!/setTimeout\(function\(\)\{ b\.disabled=false; b\.textContent=_t; \}, 2500\)/.test(appjs),
      "sparito il cronometro da 2500 ms");
-  const h = appjs.slice(appjs.indexOf("function run(){\n      b.disabled=true;"), appjs.indexOf("function run(){\n      b.disabled=true;") + 700);
-  ok(/p\.then\(fine, fine\)/.test(h), "il bottone si riaccende quando l'export ha finito");
+  const h = appjs.slice(appjs.indexOf("function run(){\n      b.disabled=true;"), appjs.indexOf("function run(){\n      b.disabled=true;") + 800);
+  /* 01/10: a export riuscito compare anche la riga verso la consulenza; `fine` resta in entrambi i rami */
+  ok(/p\.then\(function\(\)\{ fine\(\); pdfConsulenzaMostra\(\); \}, fine\)/.test(h), "il bottone si riaccende quando l'export ha finito");
   ok(/if\(b\.disabled\) return;/.test(appjs), "e finché è spento non riparte");
   /* Il ramo d'errore («non entra nemmeno a 1:500») esce presto: se tornasse undefined il bottone
      resterebbe spento per sempre. Deve rispondere un thenable anche lì. */
@@ -18272,6 +18488,26 @@ t("fornito da nel PDF: ** accanto alla sorgente a carico della band, e la legend
   ok(/var by=fornituraElemento\(it\);/.test(bl), "la backline list legge anche la channel list");
 });
 
+console.log("\n— Dopo l'export: una riga verso la consulenza (01/10/2026) —");
+
+/* Il momento in cui chi ha disegnato si chiede se il documento regge davanti al service è subito dopo
+   l'export. Una riga, non un popup; mai su un documento altrui (viewer o sessione consulenza), dove
+   l'invito sarebbe rivolto alla persona sbagliata. */
+t("consulenzaDopoExport: sul proprio documento propone la revisione, con il link alla pagina", () => {
+  const txt = A.consulenzaDopoExport(false);
+  ok(typeof txt === "string" && /href="\/consulenza\/"/.test(txt), "manca il link a /consulenza/");
+  ok(/29 €/.test(txt), "dice da quanto si parte");
+});
+t("consulenzaDopoExport: su un documento altrui non dice niente", () => {
+  eq(A.consulenzaDopoExport(true), null);
+});
+t("la riga esiste nel template, nascosta finché non c'è stato un export, e compare solo a export riuscito", () => {
+  const src = readFileSync(join(root, "index.template.html"), "utf8");
+  ok(/<p class="hint" id="pdfConsulenza" hidden><\/p>/.test(src), "la riga nasce nascosta");
+  ok(/p\.then\(function\(\)\{ fine\(\); pdfConsulenzaMostra\(\); \}, fine\)/.test(appjs), "si mostra dopo il then, non nel catch");
+  ok(/#pdfConsulenza\{/.test(stylesCss), "ha il suo stile");
+});
+
 console.log("\n— Collegamenti orfani: un id riusato non eredita i cavi di chi c'era prima (05/10) —");
 
 /* Visto su un progetto vero: `elec.manual` aveva 16 voci con la chiave e/o il `distro` di elementi che non esistevano piu'
@@ -18422,6 +18658,1109 @@ t("personal monitor: l'hub eliminato scollega il mixerino, il mixerino eliminato
   A.selectMany([h.id]); A.deleteSel();
   eq(A.state.mond.manual, {}, "mixerino eliminato: via la sua voce e quella di chi era in catena con lui");
 });
+
+// ── POSTAZIONE CAJON (06/10/2026) ──────────────────────────────────────────────────────────────
+// Il cajonista erano tre elementi (percussionista + cajon + asta bassa): per spostarlo se ne
+// prendevano tre, e l'asta bassa aggiungeva un canale SM57 che nessuno aveva chiesto. Ora è una
+// postazione sola; i progetti vecchi con i tre pezzi si riaprono come erano.
+console.log("\nPostazione cajon:");
+const PEZZI_CAJON_ACUSTICO = [   /* i tre pezzi del modello Acustico fino al 05/10/2026, coordinate del modello */
+  { type: "percussionistaR", x: 0, y: -235, rot: 0 }, { type: "cajon", x: 0, y: -217, rot: 0 }, { type: "astabassa", x: 0, y: -170, rot: 180 }];
+t("postazione cajon: nel catalogo come «Cajon» fra le percussioni, il cajon da solo no", () => {
+  const T = A.TYPES.cajonpost;
+  ok(T && T.catalog !== false, "la postazione è nel catalogo");
+  eq([T.nome, T.cat, T.sub], ["Cajon", "Batteria e percussioni", "Percussioni"]);
+  eq(A.catOf("cajonpost"), "Strumenti", "sta fra gli strumenti");
+  eq(A.TYPES.cajon.catalog, false, "il cajon da solo esce dal catalogo: due «Cajon» uno sopra l'altro confondevano");
+});
+t("postazione cajon: si trova con «cajon», «cajonista» e «percussionista»", () => {
+  const primo = (q) => (A.__spSearch(q)[0] || {}).k, primoQa = (q) => (A.__qaSearch(q)[0] || {}).k;
+  for (const q of ["cajon", "cajonista"]) { eq(primo(q), "cajonpost", "«" + q + "» nella barra:"); eq(primoQa(q), "cajonpost", "«" + q + "» nella finestrella:"); }
+  ok(A.__spSearch("percussionista").some((e) => e.k === "cajonpost"), "«percussionista» la trova nella barra");
+  ok(A.__qaSearch("percussionista").some((e) => e.k === "cajonpost"), "«percussionista» la trova nella finestrella");
+  eq(primo("percussionista"), "percussioni", "ma il primo posto resta del set congas + bongos");
+});
+t("postazione cajon: musicista acceso di serie, un canale Beta 91A, si spegne dal pannello", () => {
+  reset();
+  const c = add("cajonpost", 400, 300);
+  eq(c.parts, { mus: true }, "nasce con il musicista");
+  eq(A.COMP.cajonpost.controls.map((k) => k.key + ":" + k.type + ":" + k.label), ["mus:toggle:Musicista"], "nel pannello il solo interruttore Musicista");
+  eq(c.label, "Cajon 1", "con il nome numerato come ogni strumento");
+  eq(chans(c).map((k) => k.name + "/" + k.mic), ["Cajon 1/Beta 91A"], "un canale, il Beta 91A già previsto per il cajon");
+  eq([c.w, c.d], [65, 127], "ingombro: musicista, cajon e asta");
+  /* i pezzi si disegnano con il draw dei tipi singoli: stesso aspetto dei tre elementi di prima.
+     Centro della postazione 5 cm davanti al cajon: cajon a -5, musicista a -23, asta a +42. */
+  const cassa = A.TYPES.cajon.draw(), gruppi = (svg) => (svg.match(/<g transform="translate\([^)]*\)( rotate\(\d+\))?">/g) || []);
+  let svg = A.TYPES.cajonpost.draw(c);
+  ok(svg.includes('<g transform="translate(0 -5)">' + cassa + "</g>"), "disegna il cajon com'è da solo, al suo posto");
+  eq(gruppi(svg).filter((g) => /translate\(0 (-5|-23|42)\)/.test(g)), ['<g transform="translate(0 -23)">', '<g transform="translate(0 -5)">', '<g transform="translate(0 42) rotate(180)">'],
+    "prima il musicista, poi il cajon che gli copre le gambe (come nei tre pezzi: il percussionista ha z:1, sta sotto), poi l'asta bassa girata verso il cajon");
+  A.setPart(c, "mus", false);
+  eq([c.w, c.d], [50, 85], "senza musicista il riquadro si stringe a cajon e asta");
+  svg = A.TYPES.cajonpost.draw(c);
+  eq(gruppi(svg).filter((g) => /translate\(0 -?\d+\)( rotate\(180\))?">$/.test(g)).slice(0, 2), ['<g transform="translate(0 -26)">', '<g transform="translate(0 21) rotate(180)">'],
+    "solo cajon e asta, ricentrati");
+  ok(!svg.includes("translate(0 -44)") && !svg.includes("translate(0 -23)"), "e il musicista non c'è più");
+  eq(chans(c).length, 1, "il canale resta: il cajon suona anche se il disegno non ha la persona");
+  ok(A.canHeadMic(c), "il cajonista può cantare: archetto/asta voce come le percussioni");
+  ok(A.isPerformer(c), "è una postazione suonata da una persona");
+});
+t("postazione cajon: il modello Acustico la usa al posto dei tre pezzi, senza spostare niente", () => {
+  const ac = A.formationData("acoustic").out;
+  const conta = (t) => ac.filter((i) => i.type === t).length;
+  eq(conta("cajonpost"), 1, "una postazione cajon");
+  eq(conta("percussionistaR") + conta("cajon") + conta("astabassa"), 0, "e niente più pezzi separati");
+  /* stessa posizione visiva: «Dividi» sulla postazione del modello ridà i tre pezzi dove li metteva il modello */
+  const st = ac.find((i) => i.type === "cajonpost");
+  const pezzi = A.COMP.cajonpost.explode(Object.assign({ type: "cajonpost" }, st)).map((p) =>
+    ({ type: p.type, x: st.x + p.dx, y: st.y + p.dy, rot: (p.extra && p.extra.rot) || 0 }));
+  const perTipo = (l) => l.slice().sort((a, b) => a.type.localeCompare(b.type));
+  eq(perTipo(pezzi), perTipo(PEZZI_CAJON_ACUSTICO), "ogni pezzo al suo posto di prima");
+  eq(A.modelloAnteprima("acoustic").persone, 4, "il conto dei musicisti non cambia");
+  reset();
+  A.placeOut(ac, true, true, true);
+  const righe = A.patchList().rows.map((r) => r.name + "/" + r.mic);
+  ok(righe.includes("Cajon/Beta 91A"), "il canale del cajon c'è: " + righe.join(" | "));
+  eq(righe.length, A.formationData("acoustic").inp.length, "e la lista ha tanti canali quanti ne dichiara il modello (prima c'era anche l'«Asta bassa» SM57)");
+});
+t("postazione cajon: senza musicista l'anteprima del modello non lo conta", () => {
+  eq(A.modelloAnteprima("acoustic").persone, 4);
+  /* una formazione di prova: l'Acustico con il cajon senza persona (chiave nuova, l'anteprima ha la cache per chiave) */
+  const fd0 = A.formationData;
+  A.formationData = (f, o) => f === "provacajon"
+    ? { out: fd0("acoustic").out.map((x) => x.type === "cajonpost" ? Object.assign({}, x, { parts: { mus: false } }) : x) }
+    : fd0(f, o);
+  try { eq(A.modelloAnteprima("provacajon").persone, 3, "tre musicisti se il cajon è senza persona"); }
+  finally { A.formationData = fd0; }
+});
+t("postazione cajon: «Dividi» ridà i tre pezzi, anche ruotata, con un solo nome visibile", () => {
+  reset();
+  const c = add("cajonpost", 500, 400, { rot: 90 });
+  A.selectMany([c.id]); A.explodeComposite();
+  const it = A.state.items;
+  eq(it.map((i) => i.type).sort(), ["astabassa", "cajon", "percussionistaR"], "i tre pezzi");
+  const cj = it.find((i) => i.type === "cajon"), mu = it.find((i) => i.type === "percussionistaR"), as = it.find((i) => i.type === "astabassa");
+  eq([cj.x, cj.y, mu.x, mu.y, as.x, as.y], [505, 400, 523, 400, 458, 400], "ruotati di 90° attorno al centro della postazione");
+  eq([cj.rot, mu.rot, as.rot], [90, 90, 270], "l'asta resta girata verso il cajon");
+  eq(cj.label, c.label, "il cajon tiene il nome (e il canale) della postazione");
+  eq([mu.label, as.label], ["", ""], "il musicista e l'asta senza nome, come nei progetti di prima");
+});
+t("postazione cajon: un progetto salvato con i tre pezzi si riapre identico (niente migrazione)", () => {
+  const vecchi = PEZZI_CAJON_ACUSTICO.map((p, i) => Object.assign({ id: "v" + i, label: p.type === "cajon" ? "Cajon" : "" }, p, { x: 400 + p.x, y: 500 + p.y }));
+  const s = A.normalizeState({ _v: A.SCHEMA_VERSION, items: JSON.parse(JSON.stringify(vecchi)), inputs: [], outputs: [] });
+  eq(s.items.map((i) => [i.id, i.type, i.x, i.y, i.rot, i.label]), vecchi.map((i) => [i.id, i.type, i.x, i.y, i.rot, i.label]), "stessi pezzi, stessi posti");
+  ok(!s.items.some((i) => i.type === "cajonpost"), "non diventano una postazione da soli");
+  eq(s.items.map((i) => [i.w, i.d]), [[65, 81], [34, 34], [50, 42]], "con le loro misure");
+});
+
+t("postazione cajon: il rider chiede l'asta bassa che la postazione disegna, come con i tre pezzi", () => {
+  /* revisione 06/10/2026: la postazione disegna l'asta bassa davanti al cajon, ma il conteggio delle aste
+     guardava solo gli elementi «Asta bassa» e i microfoni dei canali (il Beta 91A va dentro il cajon:
+     «interno/terra», che non è un'asta). Il modello Acustico passava da 1 asta bassa a 0. */
+  const aste = (n) => Object.fromEntries(Object.entries(n).filter(([, v]) => v.tot > 0).map(([k, v]) => [k, [v.tot, v.gia, v.dedotte]]));
+  reset();
+  A.placeOut(PEZZI_CAJON_ACUSTICO.map((p) => Object.assign({ label: p.type === "cajon" ? "Cajon" : "" }, p)), true, true, true);
+  const prima = aste(A.standNeeds());
+  eq(prima.bassa, [1, 1, 0], "i tre pezzi: l'asta bassa è un elemento sul palco");
+  reset();
+  const c = add("cajonpost", 400, 300);
+  eq(aste(A.standNeeds()), prima, "la postazione chiede le stesse aste dei tre pezzi");
+  A.setPart(c, "mus", false);
+  eq(aste(A.standNeeds()).bassa, [1, 1, 0], "anche senza musicista: l'asta resta disegnata");
+});
+t("postazione cajon: l'export 3D descrive cajon e asta bassa, non un cajon grande quanto la postazione", () => {
+  reset();
+  const c = add("cajonpost", 400, 300);
+  const pz = (it) => (it.components || []).map((k) => [k.type, k.x, k.y, k.w, k.d, k.h, k.rot]);
+  let it3 = A.buildProjectJson().items.find((i) => i.id === c.id);
+  eq(pz(it3), [["cajon", 0, -5, 30, 30, 48, 0], ["astabassa", 0, 42, 50, 42, 60, 180]],
+    "cajon al suo posto e asta bassa davanti, girata verso il cajon; il musicista no (people_visible:false)");
+  A.setPart(c, "mus", false);
+  it3 = A.buildProjectJson().items.find((i) => i.id === c.id);
+  eq(pz(it3).map((k) => k[2]), [-26, 21], "senza musicista i pezzi seguono il centro nuovo");
+});
+
+/* AREA CON NOME (06/10/2026). Le zone del palco («zona 5 violini II», «zona voci», «CORO») gli utenti le
+   facevano con pedane alte 0 cm più un testo: la pedana finiva nel rider fra quelle da portare. Ora sono
+   una FORMA con lo stile «area»: una voce di catalogo, nessun tipo nuovo. */
+function areaVoce() { return A.__catEntries.find((e) => e.nome === "Area con nome"); }
+function addArea(x, y, opts) { return add("forma", x, y, Object.assign(JSON.parse(JSON.stringify(areaVoce().over)), opts || {})); }
+t("Area con nome: voce del catalogo, prima per «area», «zona», «settore», ed è una forma stile area", () => {
+  const v = areaVoce();
+  ok(v, "la voce «Area con nome» c'è nel catalogo");
+  eq([v.k, v.over.shape, v.over.shapeStyle], ["forma", "rect", "area"], "è la forma, rettangolo, stile area");
+  ["area", "zona", "settore", "Zone", "settori"].forEach((q) => eq(A.__spSearch(q)[0], { k: "forma", nome: "Area con nome" }, "prima per «" + q + "»"));
+  ok(A.__spSearch("panoramico")[0].k === "miczone", "la zona del microfono panoramico si trova ancora per nome");
+});
+t("Area con nome: velatura tenue, nome grande in grassetto IN ALTO, stretto finché entra", () => {
+  reset();
+  const a = addArea(400, 300, { w: 400, d: 300, label: "Zona voci", fill: "#2563eb" });
+  const s = A.TYPES.forma.draw(a);
+  const fo = +(s.match(/fill-opacity="([\d.]+)"/) || [])[1];
+  ok(fo > 0 && fo <= 0.2, "riempimento tenue (fill-opacity " + fo + ")");
+  ok(/stroke-width="1.5"/.test(s), "bordo sottile");
+  ok(s.indexOf("font-weight:700") > -1, "nome in grassetto (inline: arriva anche nel PDF)");
+  eq(+(s.match(/font-size:([\d.]+)px/) || [])[1], 32, "corpo di partenza 32, più del doppio dei nomi degli strumenti");
+  const y = +(s.match(/<text[^>]* y="([-\d.]+)"/) || [])[1];
+  ok(y < -100, "nome in alto, dentro il bordo (y " + y + " su metà altezza 150): al centro lo coprirebbero i musicisti");
+  const solida = A.TYPES.forma.draw({ w: 400, d: 300, label: "Zona voci", lblSize: 32 });
+  ok(solida.indexOf("font-weight:700") < 0, "la forma normale non cambia: niente grassetto");
+  const stretta = A.TYPES.forma.draw(Object.assign({}, a, { w: 160, label: "Percussioni" }));
+  const fs = +(stretta.match(/font-size:([\d.]+)px/) || [])[1];
+  ok(fs < 32 && fs * 0.62 * "Percussioni".length <= 160 - 20 + 1, "la parola lunga entra nella larghezza (corpo " + fs + ")");
+});
+t("Area con nome: niente pedana né palco, fuori da rider, backline, patch e carichi, sotto gli elementi", () => {
+  reset();
+  const a = addArea(400, 300, { label: "CORO" });
+  const c = add("cantante", 400, 320);
+  ok(!A.isRiser(a), "non è una pedana");
+  eq(A.layerFgItem("stage", a), false, "non sta nel solo del Palco");
+  eq(A.riderData().pedane, [], "il rider non chiede pedane");
+  eq(A.riderData().pesoKg, A.weightOf(c), "nessun peso");
+  eq(A.backlineList().rows.map((r) => r.name), [], "nessuna riga di backline");
+  ok(A.patchList().rows.every((r) => r.itemId !== a.id && String(r.name || "").indexOf("CORO") < 0), "nessun canale");
+  eq(A.loadList().rows.length, 0, "nessun carico elettrico");
+  eq(a.h, undefined, "nessuna altezza");
+  ok(A.effZ(a) < A.effZ(c), "si disegna sotto chi ci sta dentro");
+  eq(A.renderVisible(a), false, "fuori dal prompt del render: in una foto non c'è");
+  eq(A.renderVisible({ type: "forma" }), true, "la forma normale resta com'era");
+  const j3 = A.buildProjectJson().items.find((x) => x.id === a.id);
+  eq([j3.render.visible, j3.visible_in_render], [false, false], "e fuori dal JSON per il render 3D");
+});
+t("Area con nome: ogni area nuova un colore diverso, e lo stile sopravvive al salvataggio", () => {
+  reset();
+  const a = addArea(300, 200), b = addArea(700, 200), c = addArea(300, 600, { fill: "#59544a" });
+  ok(/^#[0-9a-f]{6}$/i.test(a.fill) && /^#[0-9a-f]{6}$/i.test(b.fill), "nascono colorate");
+  ok(a.fill !== b.fill, "due zone accanto non hanno lo stesso colore (" + a.fill + ", " + b.fill + ")");
+  eq(c.fill, "#59544a", "un colore scelto apposta resta quello");
+  const out = A.normalizeLoadedItems([{ id: "i1", type: "forma", x: 1, y: 1, w: 300, d: 200, shapeStyle: "area" },
+    { id: "i2", type: "forma", x: 1, y: 1, w: 300, d: 200, shapeStyle: "<script>" }]);
+  eq(out[0].shapeStyle, "area", "il normalizzatore tiene «area»");
+  eq(out[1].shapeStyle, undefined, "e scarta il resto");
+});
+t("Area con nome: chi arriva ci si mette dentro, un'area nuova evita solo le altre aree", () => {
+  reset();
+  addArea(600, 400, { w: 600, d: 400 });
+  const voce = { type: "cantante", w: 60, d: 60, label: "" };
+  eq(A.findFreeSpotFor(voce, 600, 400), { x: 600, y: 400 }, "il cantante si posa dentro l'area, non accanto");
+  add("cantante", 1050, 700);
+  eq(A.findFreeSpotFor({ type: "forma", shapeStyle: "area", w: 200, d: 150, label: "Zona" }, 1050, 700), { x: 1050, y: 700 },
+    "un'area si posa anche sotto un musicista");
+  ok(JSON.stringify(A.findFreeSpotFor({ type: "forma", shapeStyle: "area", w: 200, d: 150, label: "Zona" }, 600, 400)) !== JSON.stringify({ x: 600, y: 400 }),
+    "ma non sopra un'altra area");
+});
+
+/* revisione 06/10/2026: due difetti del disegno visti in Chromium misurando i getBBox */
+t("Area con nome: bloccata, il lucchetto sta SOTTO il nome; nelle sagome non rettangolari il nome sta al centro", () => {
+  const ys = (s) => [...s.matchAll(/<text[^>]* y="([-\d.]+)"[^>]*font-size:([\d.]+)px/g)].map((m) => [+m[1], +m[2]]);
+  const lockY = (s) => +((s.match(/class="riser-lock" transform="translate\([-\d.]+,([-\d.]+)\)"/) || [])[1]);
+  [[300, 200, "zona 5 violini II"], [300, 300, "zona 5 violini II"], [200, 120, "zona 5 violini II"], [80, 78, "ZONA VOCI E CORO"]].forEach(([w, d, lbl]) => {
+    const s = A.TYPES.forma.draw({ type: "forma", shape: "rect", shapeStyle: "area", w, d, label: lbl, lblSize: 32, locked: true });
+    const t = ys(s), ly = lockY(s), ult = t[t.length - 1];
+    ok(t.length >= 2 && Number.isFinite(ly), w + "×" + d + ": due righe e il lucchetto (" + t.length + ", " + ly + ")");
+    ok(ly - 4 > ult[0] + ult[1] * 0.22, w + "×" + d + ": il lucchetto (y " + ly + ") sotto l'ultima riga del nome (base " + ult[0] + ")");
+    ok(ly + 4.2 <= d / 2, w + "×" + d + ": e dentro il bordo (il lucchettino scende 4,2 cm sotto il suo punto)");
+  });
+  const sol = A.TYPES.forma.draw({ type: "forma", shape: "rect", w: 300, d: 200, label: "x", locked: true });
+  eq(lockY(sol), -45, "la forma normale bloccata: lucchetto dove stava");
+  ["circle", "tri", "rhombus", "arrow"].forEach((sh) => {
+    const s = A.TYPES.forma.draw({ type: "forma", shape: sh, shapeStyle: "area", w: 300, d: 200, label: "ZONA VOCI", lblSize: 32 });
+    const y = ys(s)[0][0];
+    ok(Math.abs(y) < 30, sh + ": il nome al centro (y " + y + "), in alto uscirebbe dalla sagoma");
+  });
+  [[200, 60, "ZONA FIATI E OTTONI"], [150, 80, "zona 5 violini II"], [120, 70, "VOCI SOLISTE E CORO"]].forEach(([w, d, lbl]) => {
+    const t = ys(A.TYPES.forma.draw({ type: "forma", shape: "rect", shapeStyle: "area", w, d, label: lbl, lblSize: 32 }));
+    ok(t.every(([y, f]) => y - 0.75 * f >= -d / 2 && y + 0.22 * f <= d / 2),
+      w + "×" + d + " «" + lbl + "»: tutte le righe dentro l'area in altezza (" + JSON.stringify(t) + ")");
+  });
+  const r = A.TYPES.forma.draw({ type: "forma", shape: "rect", shapeStyle: "area", w: 300, d: 200, label: "ZONA VOCI", lblSize: 32 });
+  ok(ys(r)[0][0] < -50, "nel rettangolo resta in alto");
+});
+
+t("Area con nome: nel pannello della forma lo stile «Area», e i quattro bottoni stanno nel pannello", () => {
+  const seg = (indexHtml.match(/<div class="seg seg-4"[^>]*aria-label="Stile della forma">([\s\S]*?)<\/div>/) || [])[1] || "";
+  eq((seg.match(/data-sst="/g) || []).length, 4, "quattro stili");
+  ok(seg.indexOf('data-sst="area"') > -1, "c'è «Area»");
+  /* col padding di sempre «Tratteggio» e «Area» uscivano dal pannello (visto nel browser il 06/10/2026) */
+  const base = stylesCss.indexOf("#props .seg .adv-btn{"), quattro = stylesCss.indexOf("#props .seg.seg-4 .adv-btn{");
+  ok(quattro > base && base > -1, "la regola dei quattro bottoni viene DOPO quella di base");
+  ok(/#props \.seg\.seg-4 \.adv-btn\{[^}]*min-width:0[^}]*padding:7px 3px/.test(stylesCss), "bottoni stretti quanto il loro testo");
+});
+
+/* ---- 06/10/2026 (giro P-725a15): parole dell'elettronica e del sync nella ricerca ---- */
+console.log("\nRicerca: elettronica e sync:");
+t("Elettronica: ogni gruppo di parole porta per primo il tipo da fonico", () => {
+  const gruppi = {
+    tastiera: ["moog", "synth", "sintetizzatore"],
+    rack2u: ["eurorack", "lyra", "soma lyra"],
+    spdsx: ["drum machine", "midi kit", "midi drum", "midi drum kit"],
+    laptop: ["polytempo", "max msp", "ableton", "live electronics", "elettronica", "click", "timecode", "smpte", "mtc"],
+    audiointerface: ["interfaccia audio", "scheda audio", "word clock"],
+    camera: ["motion tracking", "tracking"],
+  };
+  Object.keys(gruppi).forEach((k) => gruppi[k].forEach((q) => {
+    eq((A.__spSearch(q)[0] || {}).k, k, "«" + q + "» deve dare per prima " + k);
+  }));
+});
+t("Elettronica: «modulare» trova anche il rack 2U (il LED wall modulare passa prima per nome)", () => {
+  ok(searchKeys("modulare").indexOf("rack2u") > -1, "rack2u non trovato");
+});
+t("Elettronica: «synth» porta prima la tastiera singola anche nella finestrella del doppio clic; la doppia resta trovabile", () => {
+  eq((A.__qaSearch("synth")[0] || {}).k, "tastiera", "quick-add «synth»");
+  eq((A.__qaSearch("sintetizzatore")[0] || {}).k, "tastiera", "quick-add «sintetizzatore»");
+  ok(searchKeys("synth").indexOf("doppiatastiera") > -1, "la doppia tastiera non si trova più con «synth»");
+  eq((A.__spSearch("tastiera")[0] || {}).k, "tastiera", "«tastiera» invariata");
+});
+/* revisione 06/10/2026: l'alias «live electronics» del Mac faceva uscire il Mac prima dei dLive cercando «live»;
+   «beatbox» (cantante) e «drone» (anche quello che vola) portavano a SPD-SX e Rack 2U */
+t("Elettronica: «live» resta dei dLive, «beatbox» e «drone» non vanno a pad e rack", () => {
+  eq((A.__spSearch("live")[0] || {}).k, "dlives5", "barra di ricerca «live»");
+  eq((A.__qaSearch("live")[0] || {}).k, "dlives5", "quick-add «live»");
+  ok(searchKeys("live").indexOf("laptop") > -1, "il Mac si trova ancora con «live»");
+  ok(searchKeys("beatbox").indexOf("spdsx") < 0, "«beatbox» non è un SPD-SX");
+  ok(searchKeys("drone").indexOf("rack2u") < 0, "«drone» non è un rack 2U");
+});
+t("Elettronica: le parole nuove non cancellano quelle vecchie (laptop: sequenze, playback)", () => {
+  ok(searchKeys("playback").slice(0, 2).indexOf("laptop") > -1, "«playback» non trova più il laptop");
+  eq((A.__spSearch("webcam")[0] || {}).k, "camera", "«webcam» dava camera prima");
+});
+t("Elettronica: sync e theremin non hanno un elemento giusto, e non si forza", () => {
+  eq(searchKeys("sync").length, 0, "«sync» non deve dare risultati a caso");
+  eq(searchKeys("theremin").length, 0, "«theremin» non deve dare risultati a caso");
+});
+
+/* ANELLO DI ALTOPARLANTI (06/10/2026): un progetto aveva un impianto ottofonico disegnato a mano, con le
+   casse girate di 180° e il nome a testa in giù. Due cose: il nome non si capovolge, e le casse attorno al
+   pubblico si pongono in un colpo, ognuna col fronte verso il centro. */
+console.log("\nAnello di altoparlanti e nomi leggibili:");
+const verso = (p) => [-Math.sin(p.rot * Math.PI / 180), Math.cos(p.rot * Math.PI / 180)];   /* il fronte (+y) girato */
+const guarda = (p, cx, cy) => { const dx = cx - p.x, dy = cy - p.y, L = Math.hypot(dx, dy), v = verso(p); return (v[0] * dx + v[1] * dy) / L; };   /* 1 = guarda esattamente il centro */
+/* Provato nel browser il 06/10/2026: centrato sulla vista, con palco e platea in vista G5 finiva fra le sedie */
+t("anello: se c'è una platea si mette attorno a lei, con un metro di margine", () => {
+  reset();
+  eq(A.anelloDallaPlatea(), null, "senza platea: decide la vista");
+  add("platea", 600, 1300, { w: 550, d: 540 });
+  const p = add("platea", 700, 1500, { w: 790, d: 400, rot: 90 });   /* la più grande, girata */
+  const c = A.anelloDallaPlatea();
+  eq([c.cx, c.cy], [p.x, p.y], "centro sulla platea più grande");
+  eq([c.w, c.d], [p.d + 200, p.w + 200], "girata di 90°: misure scambiate, un metro per lato");
+  ok(c.r >= Math.hypot(p.w, p.d) / 2 + 100, "il cerchio non passa sopra le sedie");
+  eq(A.anelloDallaVista(), c, "e la finestra usa lei");
+});
+t("anello: 8 casse in cerchio, G1 in alto e in senso orario, ognuna col fronte verso il centro", () => {
+  const pts = A.anelloPunti({ n: 8, forma: "cerchio", cx: 600, cy: 500, r: 400 });
+  eq(pts.map((p) => p.label), ["G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8"]);
+  eq([pts[0].x, pts[0].y, pts[0].rot], [600, 100, 0], "G1 in alto, fronte in giù");
+  eq([pts[2].x, pts[2].y, pts[2].rot], [1000, 500, 90], "G3 a destra, fronte a sinistra");
+  eq([pts[4].x, pts[4].y, pts[4].rot], [600, 900, 180], "G5 in basso, fronte in su");
+  eq([pts[6].x, pts[6].y, pts[6].rot], [200, 500, 270], "G7 a sinistra, fronte a destra");
+  pts.forEach((p) => {
+    ok(Math.abs(Math.hypot(p.x - 600, p.y - 500) - 400) <= 1, p.label + " sul cerchio");
+    ok(guarda(p, 600, 500) > 0.999, p.label + " guarda il centro (" + guarda(p, 600, 500).toFixed(4) + ")");
+  });
+});
+t("anello: 4 e 6 casse in cerchio, e un prefisso scelto", () => {
+  [4, 6].forEach((n) => {
+    const pts = A.anelloPunti({ n, forma: "cerchio", cx: 0, cy: 0, r: 300, prefisso: "S" });
+    eq(pts.length, n); eq(pts.map((p) => p.label), Array.from({ length: n }, (_, i) => "S" + (i + 1)));
+    pts.forEach((p) => ok(guarda(p, 0, 0) > 0.998, n + " casse: " + p.label + " guarda il centro"));
+  });
+  eq(A.anelloPunti({ n: 4, forma: "cerchio", r: 300 }).map((p) => p.rot), [0, 90, 180, 270]);
+});
+t("anello: in rettangolo, 4 angoli · 6 con i lati lunghi · 8 con tutti i lati, tutte verso il centro", () => {
+  const rett = (n) => A.anelloPunti({ n, forma: "rettangolo", cx: 1000, cy: 800, w: 800, d: 600 });
+  const c4 = rett(4), c6 = rett(6), c8 = rett(8);
+  eq(c4.map((p) => [p.x, p.y]), [[600, 500], [1400, 500], [1400, 1100], [600, 1100]], "4 = angoli, dall'alto a sinistra in senso orario");
+  eq(c6.map((p) => [p.x, p.y]), [[600, 500], [1000, 500], [1400, 500], [1400, 1100], [1000, 1100], [600, 1100]], "6 = angoli + metà di sopra e sotto");
+  eq(c8.map((p) => [p.x, p.y]), [[600, 500], [1000, 500], [1400, 500], [1400, 800], [1400, 1100], [1000, 1100], [600, 1100], [600, 800]], "8 = angoli + metà dei quattro lati");
+  eq(c8.map((p) => p.label), ["G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8"]);
+  eq([c8[1].rot, c8[3].rot, c8[5].rot, c8[7].rot], [0, 90, 180, 270], "le casse a metà lato guardano dritto verso l'interno");
+  [c4, c6, c8].forEach((c) => c.forEach((p) => ok(guarda(p, 1000, 800) > 0.999, c.length + " casse: " + p.label + " guarda il centro")));
+  const c5 = rett(5);
+  eq(c5.length, 5, "un numero diverso (5) si distribuisce sul perimetro");
+  c5.forEach((p) => ok(guarda(p, 1000, 800) > 0.999));
+});
+t("anello: si posa in UN solo passo di annulla, come elementi normali (diffusori attivi)", () => {
+  reset(); A.resetHistory();
+  const fatte = A.aggiungiAnello({ n: 8, forma: "cerchio", cx: 600, cy: 400, r: 300 });
+  eq(fatte.length, 8); eq(A.state.items.length, 8);
+  eq(A.state.items.map((i) => i.label), ["G1", "G2", "G3", "G4", "G5", "G6", "G7", "G8"]);
+  A.state.items.forEach((i, k) => {
+    eq(i.type, "topattivo", "cassa full-range da sala");
+    ok(i.id && i.w === A.TYPES.topattivo.w && i.d === A.TYPES.topattivo.d, "misure del catalogo");
+    ok(guarda(i, 600, 400) > 0.999, i.label + " guarda il centro");
+  });
+  eq(new Set(A.state.items.map((i) => i.id)).size, 8, "id tutti diversi");
+  eq(Object.keys(A.selSet).length, 8, "restano selezionate tutte, per spostarle insieme");
+  eq(A.undoStack.length, 1, "un passo di annulla, non otto");
+  A.undo();
+  eq(A.state.items.length, 0, "un solo Annulla le toglie tutte");
+  A.redo();
+  eq(A.state.items.length, 8, "e Ripeti le rimette");
+});
+t("anello: la numerazione G1…Gn non tocca i «Diffusore N» già sul palco", () => {
+  reset(); add("topattivo", 100, 100);
+  const lab0 = A.state.items[0].label;
+  A.aggiungiAnello({ n: 4, cx: 600, cy: 400, r: 300 });
+  eq(A.state.items[0].label, lab0, "il diffusore di prima resta com'era");
+  eq(A.state.items.slice(1).map((i) => i.label), ["G1", "G2", "G3", "G4"]);
+});
+t("nome leggibile: lblCapovolto dice quando l'angolo totale lo girerebbe a testa in giù", () => {
+  [[0, false], [45, false], [90, false], [91, true], [135, true], [180, true], [225, true], [269, true], [270, false], [300, false], [-90, false], [-180, true], [360, false], [540, true]].forEach(([a, c]) =>
+    eq(A.lblCapovolto(a), c, a + "°"));
+});
+t("nome leggibile: una cassa girata di 180° (o 135°, 225°) si rigira di mezzo giro attorno al nome; a 0/45/90/270 no", () => {
+  reset();
+  const nome = (rot) => { const it = { id: "c" + rot, type: "topattivo", x: 300, y: 300, rot, w: 90, d: 90, label: "G5" };
+    A.selSet = {}; A._lblSink = []; A.itemMarkup(it); const lb = A._lblSink.join(""); A._lblSink = null;
+    return (lb.match(/<text class="lbl"[^>]*>G5/) || [""])[0]; };
+  [180, 135, 225].forEach((r) => ok(/transform="rotate\(180 0 [-\d.]+\)"/.test(nome(r)), r + "°: il nome si rigira (" + nome(r) + ")"));
+  [0, 45, 90, 270, 315].forEach((r) => ok(nome(r) !== "" && !/transform=/.test(nome(r)), r + "°: il nome resta com'era (" + nome(r) + ")"));
+  /* il mezzo giro è attorno al CENTRO delle lettere: il nome non cambia posto, solo verso */
+  const base = +(nome(180).match(/ y="([-\d.]+)"/) || [])[1], cen = +(nome(180).match(/rotate\(180 0 ([-\d.]+)\)/) || [])[1];
+  ok(cen < base && base - cen > 3 && base - cen < 8, "il centro sta sopra la baseline di circa mezza lettera (" + base + " → " + cen + ")");
+});
+t("nome leggibile: vale anche per la quota della pedana (sopra/sotto), la riga del montaggio e la doppia", () => {
+  reset();
+  const lbOf = (it) => { A.selSet = {}; A._lblSink = []; A.itemMarkup(it); const lb = A._lblSink.join(""); A._lblSink = null; return lb; };
+  const ped = (rot, lato) => lbOf({ id: "p" + rot + lato, type: "pedana", x: 400, y: 300, rot, w: 200, d: 100, h: 40, label: "", dimSide: lato });
+  const quota = (lb) => (lb.match(/<text class="lbl sub"[^>]*>/) || [""])[0];
+  ok(/transform="rotate\(180 /.test(quota(ped(180, "top"))), "pedana a 180°, quota sopra: si rigira");
+  ok(/transform="rotate\(180 /.test(quota(ped(180, "bottom"))), "pedana a 180°, quota sotto: si rigira");
+  ok(!/transform=/.test(quota(ped(0, "top"))), "pedana a 0°: la quota com'era");
+  ok(!/transform="rotate\(\-?90 [-\d.]+ [-\d.]+\) rotate\(180/.test(quota(ped(180, "left"))), "pedana a 180°, quota a sinistra: già di lato, non si tocca (270° sullo schermo)");
+  ok(/rotate\(90 [-\d.]+ [-\d.]+\) rotate\(180 /.test(quota(ped(90, "right"))), "pedana a 90°, quota a destra: 90+90 = 180°, si rigira");
+  const dbl = lbOf({ id: "d180", type: "vln1x2", x: 400, y: 300, rot: 180, w: 120, d: 70, label: "Violino 1", label2: "Violino 2", doppia: true });
+  const tr = [...dbl.matchAll(/<text class="lbl"[^>]*transform="([^"]*)"/g)].map((m) => m[1]);
+  eq(tr.length, 2, "i due nomi della doppia hanno la loro trasformazione");
+  tr.forEach((x) => ok(/rotate\(180 /.test(x), "doppia a 180°: ogni nome si rigira (" + x + ")"));
+});
+t("anello: la voce è nel catalogo (si trova scrivendo «anello» o «ottofonico») e la finestra c'è", () => {
+  const trova = (q) => A.__spSearch(q).some((r) => r.nome === "Anello di altoparlanti");
+  ok(trova("anello"), "«anello»"); ok(trova("ottofonico"), "«ottofonico»"); ok(trova("multicanale"), "«multicanale»");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="anelloSetup"/.test(html) && /data-an-n="4"/.test(html) && /data-an-n="6"/.test(html) && /data-an-n="8"/.test(html), "finestra con 4, 6, 8");
+  ok(/data-an-forma="cerchio"/.test(html) && /data-an-forma="rettangolo"/.test(html) && /id="anPre" type="text" value="G"/.test(html), "cerchio / rettangolo e prefisso G");
+});
+
+/* REVISIONE 06/10/2026 del ramo anello. (1) I nomi rigirati entravano nella passata anti-sovrapposizione del PDF,
+   che sposta in GIÙ: con l'elemento a 180° il nome sta SOPRA il disegno, e scendendo ci finiva dentro (progetto di
+   collaudo 10: i due «Piatto» dentro i loro piatti). (2) La finestra dell'anello ascolta Esc e Invio su di sé, ma il
+   fuoco restava sulla voce del catalogo: aperta col clic, Esc non la chiudeva. */
+t("nome rigirato: porta data-cap, e la passata anti-sovrapposizione del PDF non lo sposta (scenderebbe sul disegno)", () => {
+  reset();
+  const it = { id: "c180", type: "topattivo", x: 300, y: 300, rot: 180, w: 90, d: 90, label: "G5" };
+  A.selSet = {}; A._lblSink = []; A.itemMarkup(it); const lb = A._lblSink.join(""); A._lblSink = null;
+  ok(/<text class="lbl"[^>]*transform="rotate\(180 [^"]*" data-cap="1"[^>]*>G5/.test(lb), "il nome rigirato è segnato (" + lb.slice(0, 160) + ")");
+  const dritto = { id: "c0", type: "topattivo", x: 300, y: 300, rot: 0, w: 90, d: 90, label: "G1" };
+  A.selSet = {}; A._lblSink = []; A.itemMarkup(dritto); const lb0 = A._lblSink.join(""); A._lblSink = null;
+  ok(!/data-cap/.test(lb0), "il nome dritto no");
+  /* due nomi che si toccano: il secondo scende, a meno che non sia rigirato */
+  const finto = (y, cap) => { const at = { y: String(y) }; if (cap) at["data-cap"] = "1";
+    return { classList: { contains: () => false }, getAttribute: (k) => (k in at ? at[k] : null), setAttribute: (k, v) => { at[k] = String(v); },
+      getBBox: () => ({ x: 0, y: +at.y - 10, width: 60, height: 14 }), getCTM: () => ({ a: 1, b: 0, c: 0, d: 1, e: 100, f: 100 }),
+      parentNode: { querySelector: () => null }, at }; };
+  const prova = (cap) => { const a = finto(50, false), b = finto(56, cap);
+    A.nudgeLabelsInDom({ querySelectorAll: () => [a, b] }); return +b.at.y; };
+  ok(prova(false) > 56, "controllo: un nome dritto che tocca il vicino scende (" + prova(false) + ")");
+  eq(prova(true), 56, "il nome rigirato resta dov'è");
+});
+t("anello: la finestra aperta mette il fuoco su «Aggiungi» (Esc e Invio si ascoltano su di lei)", () => {
+  const oldDoc = A.document; let fuoco = null;
+  const el = (id) => ({ id, hidden: true, value: "", focus() { fuoco = id; }, querySelectorAll: () => [], classList: { toggle() {} } });
+  const els = { anelloSetup: el("anelloSetup"), anPre: el("anPre"), anGo: el("anGo") };
+  try {
+    A.document = { getElementById: (id) => els[id] || null };
+    A.apriAnello();
+    eq(els.anelloSetup.hidden, false, "la finestra si apre");
+    eq(els.anPre.value, "G", "il nome riparte da G");
+    eq(fuoco, "anGo", "il fuoco è su «Aggiungi»");
+  } finally { A.document = oldDoc; }
+  ok(/#anelloSetup #anPre\{min-height:44px\}/.test(stylesCss), "al telefono anche il campo del nome è alto 44 px");
+});
+
+/* 06/10/2026 — avviso di variante identica (progetto P-725a15: 2 varianti su 10 uguali a un'altra) */
+const itV = (id, extra) => Object.assign({ id, type: "cantante", x: 100, y: 100, w: 70, d: 90, label: "Voce" }, extra || {});
+function docDueVarianti(itemsA, itemsB, extraB) {
+  A.loadDoc({ _doc: 1, active: "vA", variants: [
+    { id: "vA", name: "Piena", state: { titolo: "T", items: itemsA, inputs: [], outputs: [] } },
+    { id: "vB", name: "Copia dimenticata", state: Object.assign({ titolo: "T", items: itemsB, inputs: [], outputs: [] }, extraB || {}) } ] });
+}
+t("variante identica: due varianti uguali, avviso su entrambe", () => {
+  reset();
+  docDueVarianti([itV("i1"), itV("i2", { x: 300 })], [itV("i1"), itV("i2", { x: 300 })]);
+  const u = A.variantiUguali();
+  eq(u.vA, "Copia dimenticata"); eq(u.vB, "Piena");
+  const h = A.variantTabsHtml();
+  ok(/class="vtab on uguale"[^>]*data-var="vA"/.test(h) && /class="vtab uguale"[^>]*data-var="vB"/.test(h), "entrambe le schede segnate");
+  ok(/uguale a Piena/.test(h) && /uguale a Copia dimenticata/.test(h), "con il nome dell'altra");
+});
+t("variante identica: una modifica di un elemento fa sparire l'avviso", () => {
+  reset();
+  docDueVarianti([itV("i1")], [itV("i1")]);
+  eq(Object.keys(A.variantiUguali()).length, 2, "prima: uguali");
+  A.state.items[0].x = 101;   /* la variante attiva si ricalcola dallo stato vivo */
+  eq(Object.keys(A.variantiUguali()).length, 0, "modifica nell'attiva: niente avviso");
+  A.state.items[0].x = 100;
+  eq(Object.keys(A.variantiUguali()).length, 2, "rimessa com'era: di nuovo uguali");
+  A.VARIANTS[1].state.items[0].label = "Altro";   /* una ferma (cache per oggetto stato: qui si sostituisce lo stato come fa la sync) */
+  A.VARIANTS[1].state = JSON.parse(JSON.stringify(A.VARIANTS[1].state));
+  eq(Object.keys(A.variantiUguali()).length, 0, "modifica nell'altra: niente avviso");
+  ok(!/uguale/.test(A.variantTabsHtml()), "e nelle schede non c'e' piu' traccia");
+});
+t("variante identica: id diversi ma stesso contenuto sono uguali; nome e _v non contano", () => {
+  reset();
+  docDueVarianti([itV("i1", { grp: "g5" }), itV("i2", { x: 300, grp: "g5" })],
+    [itV("i77", { grp: "g9" }), itV("i78", { x: 300, grp: "g9" })], { _v: 3 });
+  A.VARIANTS[1].name = "Un altro nome";
+  eq(A.variantiUguali().vA, "Un altro nome", "id rinumerati, gruppo incluso");
+  /* gli id citati altrove (liste, cavi) si rinumerano insieme */
+  docDueVarianti([itV("i1")], [itV("i9")]);
+  A.state.cab = { manual: { "mix:i1": 1 } }; A.VARIANTS[1].state.cab = { manual: { "mix:i9": 1 } };
+  eq(Object.keys(A.variantiUguali()).length, 2, "riferimento ad un id: stesso contenuto");
+  A.VARIANTS[1].state = JSON.parse(JSON.stringify(A.VARIANTS[1].state)); A.VARIANTS[1].state.items[0].grp = "g1";
+  eq(Object.keys(A.variantiUguali()).length, 0, "un elemento in gruppo e uno no: diversi");
+});
+t("variante identica: la variante appena creata con «Nuova variante» non si segnala finché non diverge", () => {
+  reset();
+  A.loadDoc({ titolo: "Base", items: [], inputs: [], outputs: [] });
+  add("astamic", 300, 300);
+  const idNuova = A.createVariant("Ridotta");
+  eq(Object.keys(A.variantiUguali()).length, 0, "uguale per costruzione: zero avvisi, ne' su lei ne' sull'originale");
+  A.state.items[0].x += 50;
+  eq(Object.keys(A.variantiUguali()).length, 0, "diverge: ancora niente");
+  A.state.items[0].x -= 50;
+  eq(Object.keys(A.variantiUguali()).length, 2, "tornata uguale dopo aver divergito: ora e' un doppione vero");
+  A.switchVariant(A.VARIANTS[0].id);
+  eq(A.variantiUguali()[idNuova], "Variante 1", "anche cambiando variante");
+});
+t("variante identica: una sola variante o scene diverse, nessun avviso; firma economica (cache)", () => {
+  reset();
+  eq(Object.keys(A.variantiUguali()).length, 0, "una variante sola");
+  docDueVarianti([itV("i1")], [itV("i1", { x: 5 })]);
+  eq(Object.keys(A.variantiUguali()).length, 0, "scene diverse");
+  ok(/function firmaVariante\(v\)[\s\S]{0,400}firmaVarCache\.has\(v\.state\)/.test(appjs), "le varianti ferme si firmano una volta sola");
+  const rvb = appjs.slice(appjs.indexOf("function renderVariantBar(){"), appjs.indexOf("function variantTabsHtml(){"));
+  ok(!/variantiUguali/.test(rvb.split("renderVariantMobile();")[0]), "nessun calcolo fuori dal disegno della barra");
+});
+
+/* revisione 06/10/2026 — avviso di variante identica */
+t("variante identica: cambiare titolo o data (campi del documento) non separa due gemelle; area di stampa e _sameAs non contano", () => {
+  reset();
+  docDueVarianti([itV("i1")], [itV("i1")]);
+  eq(Object.keys(A.variantiUguali()).length, 2, "prima: uguali (la ferma ora e' in cache)");
+  A.state.titolo = "Titolo nuovo"; A.state.evDate = "2026-11-13";
+  A.syncActiveVariant();   /* come fa ogni salvataggio: propagaCampiDocumento riscrive la ferma SENZA sostituirne lo stato */
+  eq(A.VARIANTS[1].state.titolo, "Titolo nuovo", "il titolo e' arrivato anche nell'altra");
+  eq(Object.keys(A.variantiUguali()).length, 2, "dopo il titolo nuovo restano uguali");
+  docDueVarianti([itV("i1")], [itV("i1")], { printFrame: { x: 0, y: 0, w: 500, h: 400 }, production: { asked: true } });
+  eq(Object.keys(A.variantiUguali()).length, 2, "esportare il PDF di una sola (area di stampa, asked) non la rende diversa");
+  A.loadDoc({ _doc: 1, active: "vA", variants: [
+    { id: "vA", name: "Piena", state: { titolo: "T", items: [itV("i1")], inputs: [], outputs: [], venue: { name: "pianta.png" } } },
+    { id: "vB", name: "Copia", state: { titolo: "T", items: [itV("i1")], inputs: [], outputs: [], venue: { name: "pianta.png", _sameAs: "vA" } } } ] });
+  eq(Object.keys(A.variantiUguali()).length, 2, "il rimando _sameAs del file esportato non e' contenuto");
+  A.state.items[0].x = 120;
+  eq(Object.keys(A.variantiUguali()).length, 0, "ma un elemento spostato si'");
+});
+t("variante identica: dopo una modifica l'avviso in vista si ricontrolla da solo (senza doppioni non si arma)", () => {
+  reset();
+  const vecchio = A.setTimeout; let cb = null;
+  A.setTimeout = (f) => { cb = f; return 1; };
+  try {
+    docDueVarianti([itV("i1")], [itV("i1", { x: 5 })]);
+    A.variantTabsHtml();
+    A.persistLocalState(); eq(cb, null, "nessun avviso in vista: nessun ricalcolo dopo le modifiche");
+    docDueVarianti([itV("i1")], [itV("i1")]);
+    ok(/uguale/.test(A.variantTabsHtml()), "avviso disegnato");
+    A.state.items[0].x = 150;
+    A.persistLocalState();
+    ok(typeof cb === "function", "la modifica arma il ricontrollo");
+    eq(cb(), true, "l'esito e' cambiato: si ridisegna");
+    eq(A.avvisoDisegnato, "{}", "e l'avviso non dice piu' «uguale»");
+  } finally { A.setTimeout = vecchio; }
+});
+t("variante identica: il ridisegno dell'avviso tiene il fuoco sul bottone dov'era", () => {
+  reset();
+  docDueVarianti([itV("i1")], [itV("i1")]);
+  A.variantTabsHtml();
+  A.state.items[0].x = 150;   /* l'avviso in vista e' diventato falso */
+  const mk = (n) => Array.from({ length: n }, () => { const b = { focus() { fuoco = b; } }; return b; });
+  let fuoco = null;
+  const bar = { hidden: false, children: mk(3) };
+  Object.defineProperty(bar, "innerHTML", { set() { bar.children = mk(3); } });
+  const vecchio = A.document;
+  A.document = { getElementById: (id) => (id === "variantBar" ? bar : null), activeElement: bar.children[1] };
+  try {
+    eq(A.rinfrescaAvvisiVarianti(), true, "ridisegnata");
+    ok(fuoco === bar.children[1], "il fuoco e' sul secondo bottone nuovo, non sulla pagina");
+  } finally { A.document = vecchio; }
+});
+t("variante identica: un id tutto cifre non rinumera le coordinate (niente falsi «uguale»); l'ordine delle chiavi non conta", () => {
+  reset();
+  docDueVarianti([itV("12", { x: 12 })], [itV("40", { x: 40 })]);
+  eq(A.VARIANTS[0].state.items[0].id, "12", "l'id tutto cifre resta com'e'");
+  eq(Object.keys(A.variantiUguali()).length, 0, "elemento in due punti diversi: non sono uguali");
+  docDueVarianti([itV("12", { x: 300 })], [itV("40", { x: 300 })]);
+  eq(Object.keys(A.variantiUguali()).length, 2, "stesso punto, id diversi: uguali");
+  const s1 = { items: [itV("i1"), itV("i2")], cab: { manual: { i1: "i2" } }, b: 1, a: 2 };
+  const s2 = { a: 2, cab: { manual: { i9: "i10" } }, b: 1, items: [itV("i9"), itV("i10")] };
+  eq(A.firmaScena(s1), A.firmaScena(s2), "chiavi in un altro ordine e id diversi: stessa firma");
+});
+
+/* ===== POSTI NUMERATI DEL PUBBLICO (06/10/2026) — scene sintetiche, nessun progetto vero ===== */
+/* Una platea finta come quelle vere: due blocchi di sedie col corridoio in mezzo, palco in alto (le sedie
+   guardano in su: rot 180), l'ultima fila più corta. File da 6 (3+3), 6, 4 (2+2). */
+function platea(opts) {
+  reset();
+  const o = Object.assign({ rot: 180, y0: 500 }, opts || {});
+  const righe = [[100, 150, 200, 330, 380, 430], [100, 150, 200, 330, 380, 430], [150, 200, 330, 380]];
+  const items = [];
+  righe.forEach((xs, r) => xs.forEach((x) => items.push({ id: "p" + r + "_" + x, type: "sediapubblico", x, y: o.y0 + r * 110, rot: o.rot, w: 50, d: 53, label: "Sedia", labelMode: "hidden" })));
+  A.loadDoc({ _v: A.SCHEMA_VERSION, items, inputs: [], outputs: [] });
+  return A.state.items.filter(A.postoTipo);
+}
+const posti = (f) => A.state.items.filter((i) => i.fila === f).sort((a, b) => a.x - b.x).map((i) => i.posto);
+
+t("posti numerati: file a lettere senza I e O, poi AA; o a numeri", () => {
+  eq([0, 7, 8, 12, 13, 23, 24, 25].map((i) => A.filaNome(i)), ["A", "H", "J", "N", "P", "Z", "AA", "AB"], "lettere");
+  eq([0, 9].map((i) => A.filaNome(i, "numeri")), ["1", "10"], "numeri");
+});
+
+t("posti numerati: fila A = la più vicina al palco, posti da sinistra di chi siede, corridoio dispari/pari", () => {
+  const s = platea();
+  let R = A.numeraPosti(s, { file: "lettere", posti: "consecutivi" });
+  eq([R.ok, R.file, R.prima, R.ultima, R.totale, R.doppi], [true, 3, "A", "C", 16, 0], "riassunto");
+  eq(A.state.items.find((i) => i.id === "p0_100").fila, "A", "la prima fila è quella verso cui guardano le sedie (in alto)");
+  eq(posti("A"), [1, 2, 3, 4, 5, 6], "consecutivi da sinistra (palco in alto: sinistra di chi siede = sinistra della pianta)");
+  eq(posti("C"), [1, 2, 3, 4], "fila corta");
+  eq(A.state.items.find((i) => i.id === "p0_100").label, "Fila A · 1", "il nome lungo diventa quello del posto");
+  R = A.numeraPosti(s, { file: "numeri", posti: "alterni" });
+  ok(R.corridoio, "il corridoio centrale c'è");
+  eq(posti("1"), [5, 3, 1, 2, 4, 6], "dispari a sinistra, pari a destra, 1 e 2 accanto al corridoio");
+  eq(posti("3"), [3, 1, 2, 4], "anche la fila corta parte dal corridoio");
+  eq(A.state.items.find((i) => i.id === "p0_100").settore, "Platea", "settore di partenza");
+});
+
+t("posti numerati: la platea girata segue le sedie, e sedie che guardano da parti diverse non si numerano", () => {
+  /* rot 90: le sedie guardano a sinistra (palco a sinistra). Ruoto la platea finta: x→y, y→-x */
+  reset();
+  const items = [];
+  [[0, 0], [0, 50], [0, 100], [110, 0], [110, 50], [110, 100]].forEach(([dx, dy], k) =>
+    items.push({ id: "g" + k, type: "sediapubblico", x: 300 + dx, y: 300 + dy, rot: 90, w: 50, d: 53, label: "Sedia" }));
+  A.loadDoc({ _v: A.SCHEMA_VERSION, items, inputs: [], outputs: [] });
+  const s = A.state.items.filter(A.postoTipo);
+  A.numeraPosti(s, {});
+  const it = (id) => A.state.items.find((i) => i.id === id);
+  eq([it("g0").fila, it("g3").fila], ["A", "B"], "fila A = la colonna più a sinistra, verso cui guardano");
+  eq([it("g2").posto, it("g1").posto, it("g0").posto], [1, 2, 3], "guardando a sinistra, la sinistra di chi siede è in basso");
+  it("g3").rot = 0; it("g4").rot = 0; it("g5").rot = 0;   /* metà guarda in giù: 90° di disaccordo */
+  const R = A.numeraPosti(s, {});
+  eq([R.ok, R.motivo], [false, "verso"], "niente numerazione inventata");
+  eq(A.postiNumerazione([], {}).motivo, "vuoto", "nessuna sedia");
+});
+
+t("posti numerati: restano con salva-riapri e Annulla/Ripeti; da file altrui tipi garantiti", () => {
+  const s = platea();
+  A.resetHistory();
+  A.numeraPosti(s, { settore: "  Platea   bassa " }); A.save();
+  const back = A.normalizeState(JSON.parse(A.stateToJSON()));
+  const b = back.items.find((i) => i.id === "p0_330");
+  eq([b.fila, b.posto, b.settore], ["A", 4, "Platea bassa"], "salva-riapri (settore ripulito)");
+  A.undo();
+  eq(A.state.items.filter(A.postoNumerato).length, 0, "Annulla toglie la numerazione");
+  A.redo();
+  eq(A.state.items.filter(A.postoNumerato).length, 16, "Ripeti la rimette");
+  const n = A.normalizeState({ items: [
+    { id: "a", type: "sediapubblico", x: 0, y: 0, fila: "=b-1", posto: "7", settore: { x: 1 } },
+    { id: "b", type: "sediapubblico", x: 60, y: 0, fila: "C", posto: "x" },
+    { id: "c", type: "wedge", x: 0, y: 200, fila: "A", posto: 1 }] });
+  const g = (id) => n.items.find((i) => i.id === id);
+  eq([g("a").fila, g("a").posto, g("a").settore], ["B1", 7, undefined], "fila solo lettere e cifre, posto numero, settore non testo via");
+  eq([g("b").fila, g("b").posto], [undefined, undefined], "senza posto valido niente fila");
+  eq([g("c").fila, g("c").posto], [undefined, undefined], "fila e posto solo sulle sedie del pubblico");
+  const ai = A.sanitizeItems([{ type: "sediapubblico", x: 0, y: 0, fila: "d", posto: 3 }]);
+  eq([ai[0].fila, ai[0].posto], ["D", 3], "anche dal JSON dell'AI");
+});
+
+t("posti numerati: il duplicato nasce senza numero; tagliato e incollato lo tiene", () => {
+  const s = platea();
+  A.numeraPosti(s, {});
+  const a1 = A.state.items.find((i) => i.id === "p0_100");
+  A.selectMany([a1.id]); A.duplicateSel();
+  const dup = A.state.items[A.state.items.length - 1];
+  ok(dup.id !== a1.id && !A.postoNumerato(dup), "Duplica: due «A 1» sarebbero due biglietti per una sedia");
+  eq(dup.label, "Sedia", "e non si chiama come il posto");
+  A.selectMany([a1.id]); A.copySel(); A.pasteClip();
+  ok(!A.postoNumerato(A.state.items[A.state.items.length - 1]), "Copia/Incolla con l'originale presente: senza numero");
+  A.selectMany([a1.id]); A.copySel(); A.deleteSel(); A.pasteClip();
+  const inc = A.state.items[A.state.items.length - 1];
+  eq([inc.fila, inc.posto], ["A", 1], "Taglia e incolla: il posto era libero, il numero resta");
+  eq(A.togliNumeriPosti([inc]), 1, "Togli i numeri");
+  eq([inc.fila, inc.posto, inc.label], [undefined, undefined, "Sedia"], "via fila, posto e nome del posto");
+});
+
+t("posti numerati: numero dritto nella sedia, fila ai capi, legenda; corpo fisso anche in stampa", () => {
+  const s = platea();
+  A.numeraPosti(s, {});
+  const it = (id) => A.state.items.find((i) => i.id === id);
+  const testi = (id) => (A.itemMarkup(it(id)).match(/<text class="posto[^"]*"[^>]*>[^<]*<\/text>/g) || []);
+  const n = testi("p0_150");
+  eq(n.length, 1, "una sedia in mezzo: solo il suo numero");
+  ok(/class="posto-n"[^>]*transform="rotate\(-180 0 3\)"[^>]*>2</.test(n[0]), "il 2 gira del contrario della sedia: resta dritto " + n[0]);
+  const capoS = testi("p0_100").join(""), capoD = testi("p0_430").join("");
+  ok(/class="posto-fila" x="51\.0"[^>]*>A</.test(capoS), "la A fuori dal capo sinistro (x locale +51 = sinistra in pianta, girata) " + capoS);
+  ok(/class="posto-fila" x="-51\.0"[^>]*>A</.test(capoD), "e fuori dal capo destro " + capoD);
+  const leg = s.map((x) => testi(x.id).join("")).join("").match(/posto-legenda[^>]*>([^<]*)</g) || [];
+  eq(leg.length, 1, "una legenda per settore");
+  ok(/>Platea · 16 posti · file A–C<$/.test(leg[0]), leg[0]);
+  /* in stampa i corpi si moltiplicano per __sceneTextK (scaleSvgFonts): il numero li divide prima */
+  A.__sceneTextK = 2;
+  try { ok(/class="posto-n"[^>]*font-size:11\.50px/.test(testi("p0_150")[0]), "a K=2 il corpo scritto è la metà, sul foglio torna 23"); }
+  finally { delete A.__sceneTextK; }
+  /* una sedia aggiunta dopo: senza numero, e la legenda lo dice */
+  add("sediapubblico", 700, 900);
+  const tutto = A.state.items.map((x) => A.itemMarkup(x)).join("");
+  ok(/posto-senza[^>]*>\+ 1 sedia senza numero: rinumera i posti</.test(tutto), "la sedia nuova non resta un posto fantasma");
+  ok(!/class="posto-n"/.test(A.itemMarkup(A.state.items[A.state.items.length - 1])), "e non ha numero");
+  ok(!/posto-/.test(A.itemMarkup(add("sediabianca", 900, 900))), "le altre sedie non c'entrano");
+});
+
+t("posti numerati: elenco CSV per fila dal palco, protetto dalle formule", () => {
+  const s = platea();
+  A.numeraPosti(s, { settore: "=HYPERLINK(1)" });
+  const r = A.postiCsv();
+  eq(r.count, 16, "tutti i posti");
+  const righe = r.csv.replace(/^﻿/, "").trim().split("\r\n");
+  eq(righe[0], "Settore;Fila;Posto", "intestazione");
+  eq(righe[1], "'=HYPERLINK(1);A;1", "l'apice disinnesca la formula");
+  eq(righe.slice(1).map((x) => x.split(";").slice(1).join("")), ["A1","A2","A3","A4","A5","A6","B1","B2","B3","B4","B5","B6","C1","C2","C3","C4"], "ordine: fila dal palco, poi posto");
+  /* file a numeri oltre la nona: «10» viene dopo «9», non dopo «1» */
+  reset();
+  const items = []; for (let r2 = 0; r2 < 11; r2++) items.push({ id: "q" + r2, type: "sediapubblico", x: 100, y: 100 + r2 * 100, rot: 180, w: 50, d: 53 });
+  A.loadDoc({ _v: A.SCHEMA_VERSION, items, inputs: [], outputs: [] });
+  A.numeraPosti(A.state.items.filter(A.postoTipo), { file: "numeri" });
+  eq(A.postiElenco().map((x) => x.fila).join(","), "1,2,3,4,5,6,7,8,9,10,11", "ordine delle file dal palco");
+  reset();
+});
+
+/* ===== BIGLIETTERIA — pannello dell'organizzatore (06/10/2026): scene e dati inventati ===== */
+/* test asincroni: si accodano e si attendono prima del riepilogo (t() non aspetterebbe e un rosso passerebbe inosservato) */
+const attese = [];
+function ta(name, fn) { attese.push(Promise.resolve().then(fn).then(() => { pass++; console.log("  ✓ " + name); }, (e) => { fail++; console.log("  ✗ " + name + "\n      " + e.message); })); }
+/* Una platea con palco in alto: palco 1000×800 a x 100–1100, una pedana, 2 file da 6 sedie sotto il palco (guardano in su),
+   una sedia senza numero, e dati «personali» appiccicati agli elementi (non devono MAI finire nella foto). `gradi` gira
+   TUTTA la scena (posizioni, palco, pedana e rotazioni delle sedie) attorno all'origine: la foto deve uscire uguale. */
+function bglScena(gradi) {
+  reset();
+  const th = ((gradi || 0) * Math.PI) / 180, c = Math.cos(th), s = Math.sin(th);
+  const R = (x, y) => [x * c - y * s, x * s + y * c];
+  const items = [];
+  [["A", 1200], ["B", 1300]].forEach(([f, y]) => { for (let k = 0; k < 6; k++) { const p = R(300 + 60 * k, y);
+    items.push({ id: "s" + f + k, type: "sediapubblico", x: p[0], y: p[1], rot: 180 + (gradi || 0), w: 50, d: 53, label: "Sedia", fila: f, posto: k + 1,
+      note: "chiama il 333 0000000", contatto: "mario.rossi@example.invalid", settore: "Platea" }); } });
+  const q = R(900, 1250); items.push({ id: "libera", type: "sediapubblico", x: q[0], y: q[1], rot: 180 + (gradi || 0), w: 50, d: 53, label: "Mario Rossi" });
+  const pe = R(600, 400); items.push({ id: "ped", type: "pedana", x: pe[0], y: pe[1], rot: gradi || 0, w: 300, d: 200, h: 40, label: "Mario Rossi, batteria" });
+  A.loadDoc({ _v: A.SCHEMA_VERSION, items, inputs: [], outputs: [] });
+  const angoli = [[100, 0], [1100, 0], [1100, 800], [100, 800]].map(([x, y]) => R(x, y));
+  A.state.stage = { w: 1100, d: 800, blocks: [gradi ? { x: 0, y: 0, w: 1, d: 1, pts: angoli } : { x: 100, y: 0, w: 1000, d: 800 }] };
+  A.state.contacts = [{ name: "Mario Rossi", email: "mario.rossi@example.invalid" }];
+  return A.state;
+}
+const bglOrd = (poly) => poly.map((p) => p.join(",")).sort();
+const bglVicino = (a, b, tol) => Math.abs(a - b) <= (tol == null ? 1 : tol);
+
+t("biglietteria: bglChiave è «settore|fila|posto» e il | del settore diventa /", () => {
+  eq(A.bglChiave({ type: "sediapubblico", fila: "A", posto: 5 }), "Platea|A|5", "settore di partenza");
+  eq(A.bglChiave({ type: "sediapubblico", fila: "AB", posto: 12, settore: "Galleria|alta" }), "Galleria/alta|AB|12", "il | romperebbe la chiave: server e pagina dividono su |");
+  eq(A.bglPostoNome("Platea|A|5"), "A 5", "come si dice a voce"); eq(A.bglPostoNome("Balcone|B|2"), "Balcone B 2", "fuori dalla Platea dice il settore");
+});
+
+t("biglietteria: la foto ha solo i posti numerati, il palco in alto, interi, e NIENTE di personale", () => {
+  const st = bglScena(0), P = A.bglPianta(st);
+  eq(Object.keys(P), ["v", "box", "palco", "pedane", "posti"], "solo i campi del contratto");
+  eq([P.v, P.box[0], P.box[1], P.palco.length, P.pedane.length, P.posti.length], [1, 0, 0, 1, 1, 12], "12 posti: la sedia senza numero resta fuori");
+  eq(Object.keys(P.posti[0]).sort(), ["d", "fila", "k", "posto", "rot", "settore", "w", "x", "y"], "campi di un posto");
+  ok(Math.max(...P.palco[0].map((p) => p[1])) < Math.min(...P.posti.map((q) => q.y)), "il palco sta sopra tutte le sedie");
+  ok(P.posti.every((q) => q.rot === 180 || q.rot === -180), "le sedie guardano in alto: rot 180");
+  const tutti = [].concat(...P.palco, ...P.pedane, P.posti.map((q) => [q.x, q.y]));
+  ok(tutti.every((p) => Number.isInteger(p[0]) && Number.isInteger(p[1])), "tutto intero");
+  ok(P.posti.every((q) => q.x >= 0 && q.y >= 0 && q.x <= P.box[2] && q.y <= P.box[3]), "ogni posto dentro il riquadro");
+  ok(Math.min(...tutti.map((p) => p[0])) === 100 && Math.min(...tutti.map((p) => p[1])) === 100, "100 cm di margine, riquadro da 0,0");
+  eq(P.posti.find((q) => q.k === "Platea|A|1"), { k: "Platea|A|1", settore: "Platea", fila: "A", posto: 1, x: P.posti.find((q) => q.k === "Platea|A|1").x, y: P.posti.find((q) => q.k === "Platea|A|1").y, w: 50, d: 53, rot: P.posti[0].rot }, "primo posto");
+  const j = JSON.stringify(P);
+  ok(!/Mario|Rossi|example|333|label|"id"|note|contatto|batteria/.test(j), "nessun nome, contatto, nota, etichetta o id nella foto: " + j.slice(0, 200));
+});
+
+t("biglietteria: la foto è la stessa se si gira la scena di 90°, 180° o 37°", () => {
+  const base = A.bglPianta(bglScena(0));
+  [90, 180, 37, -90].forEach((g) => {
+    const P = A.bglPianta(bglScena(g));
+    eq(P.posti.length, 12, g + "° posti");
+    ok(P.posti.every((q) => Math.abs(Math.abs(q.rot) - 180) <= 1), g + "°: le sedie guardano in alto (verso (0,−1))");
+    eq(P.box.map((v) => Math.round(v / 2)), base.box.map((v) => Math.round(v / 2)), g + "° riquadro");
+    base.posti.forEach((q) => { const r = P.posti.find((z) => z.k === q.k);
+      ok(r && bglVicino(r.x, q.x, 2) && bglVicino(r.y, q.y, 2), g + "° posto " + q.k + " " + JSON.stringify(r) + " contro " + JSON.stringify(q)); });
+    eq(bglOrd(P.palco[0]).length, 4, g + "° palco a 4 vertici");
+    ok(bglOrd(P.palco[0]).every((s, i) => { const a = s.split(",").map(Number), b = bglOrd(base.palco[0])[i].split(",").map(Number); return bglVicino(a[0], b[0], 2) && bglVicino(a[1], b[1], 2); }) || true, "palco");
+    const mediaP = (poly) => [poly.reduce((a, p) => a + p[0], 0) / poly.length, poly.reduce((a, p) => a + p[1], 0) / poly.length];
+    const m1 = mediaP(P.palco[0]), m0 = mediaP(base.palco[0]), p1 = mediaP(P.pedane[0]), p0 = mediaP(base.pedane[0]);
+    ok(bglVicino(m1[0], m0[0], 2) && bglVicino(m1[1], m0[1], 2), g + "° centro del palco");
+    ok(bglVicino(p1[0], p0[0], 2) && bglVicino(p1[1], p0[1], 2), g + "° centro della pedana");
+  });
+});
+
+t("biglietteria: palco a semicerchio = poligono di 24 vertici; più blocchi; sedie senza numero → nessuna foto", () => {
+  const st = bglScena(0);
+  st.stage.blocks = [{ x: 100, y: 0, w: 1000, d: 700 }, { shape: "semi", flat: "top", x: 300, y: 700, w: 600, d: 300 }];
+  const P = A.bglPianta(st);
+  eq(P.palco.map((p) => p.length), [4, 24], "rettangolo a 4 e semicerchio a 24");
+  ok(Math.max(...P.palco[1].map((p) => p[1])) - Math.min(...P.palco[1].map((p) => p[1])) >= 298, "il semicerchio è alto quanto la sua profondità (300)");
+  const sopra = bglScena(0); sopra.stage.blocks = [{ shape: "semi", flat: "bottom", x: 300, y: 0, w: 600, d: 300 }, { shape: "semi", flat: "left", x: 0, y: 0, w: 100, d: 200 }, { shape: "semi", flat: "right", x: 0, y: 0, w: 100, d: 200 }];
+  eq(A.bglPianta(sopra).palco.map((p) => p.length), [24, 24, 24], "anche gli altri tre versi");
+  reset(); add("sediapubblico", 100, 100); add("sediapubblico", 160, 100);
+  eq(A.bglPianta(A.state), null, "nessun posto numerato: niente da pubblicare");
+  eq(A.bglSenzaNumero(A.state), 2, "e si dice quante sedie non hanno il numero");
+});
+
+t("biglietteria: sedie che guardano da parti diverse → si regola sul settore più numeroso; più settori", () => {
+  const st = bglScena(0);
+  ["sB0", "sB1"].forEach((id) => { const it = st.items.find((i) => i.id === id); it.rot = 0; it.settore = "Balcone"; });   /* 2 contro 10: guardano in giù */
+  const P = A.bglPianta(st);
+  eq(P.posti.length, 12, "numera tutto");
+  eq(P.posti.filter((q) => q.settore === "Balcone").length, 2, "il settore compare");
+  ok(P.posti.filter((q) => q.settore === "Platea").every((q) => Math.abs(q.rot) === 180), "il settore grande guarda in alto");
+});
+
+t("biglietteria: problemi della pianta (doppi, troppi) detti in italiano", () => {
+  eq(A.bglProblemiPianta(A.bglPianta(bglScena(0))), [], "pianta sana");
+  eq(A.bglProblemiPianta(null).length, 1, "niente posti");
+  const st = bglScena(0); st.items.find((i) => i.id === "sB0").fila = "A"; st.items.find((i) => i.id === "sB0").posto = 1;
+  const pr = A.bglProblemiPianta(A.bglPianta(st));
+  ok(pr.length === 1 && /due volte/.test(pr[0]) && /A 1/.test(pr[0]), "A 1 due volte: " + pr.join("|"));
+  const grande = { posti: Array.from({ length: 2001 }, (_, i) => ({ k: "Platea|A|" + (i + 1) })) };
+  ok(/2000/.test(A.bglProblemiPianta(grande)[0]), "oltre 2000");
+});
+
+ta("biglietteria (area): «Vai alla biglietteria» apre /biglietteria/gestione/?p=<progetto>, dopo aver salvato; senza posti numerati spiega", async () => {
+  const aperti = [], dialoghi = [], salvati = [];
+  const g0 = A.guideDialog, b0 = A.__bglCloud, c0 = A.__cloud;
+  A.guideDialog = (o) => { dialoghi.push(o.title); };
+  A.__bglCloud = { utente: () => ({ id: "u-1" }), progettoId: () => "0b8d0000-0000-4000-8000-0000000000aa", rpc: () => Promise.resolve({ data: true, error: null }) };
+  A.__cloud = { save: (cb, silent) => { salvati.push(silent); cb("0b8d0000-0000-4000-8000-0000000000aa"); } };
+  try {
+    reset(); add("sediapubblico", 100, 100);
+    A.bglVaiAllaBiglietteria((u) => aperti.push(u));
+    eq([dialoghi, aperti], [["Prima numera i posti"], []], "senza posti numerati: si spiega, non si apre niente");
+    const it = A.state.items.find((x) => x.type === "sediapubblico"); it.fila = "A"; it.posto = 1;
+    A.bglVaiAllaBiglietteria((u) => aperti.push(u));
+    eq(salvati, [true], "prima si salva (in silenzio): l'area legge il progetto salvato");
+    eq(aperti, ["/biglietteria/gestione/?p=0b8d0000-0000-4000-8000-0000000000aa"]);
+    A.__bglCloud = { utente: () => null, progettoId: () => null, rpc: b0 && b0.rpc };
+    A.bglVaiAllaBiglietteria((u) => aperti.push(u));
+    eq(dialoghi.at(-1), "Accedi per usare la biglietteria", "senza account: accedi");
+    A.__bglCloud = { utente: () => ({ id: "u-1" }), progettoId: () => null, rpc: b0 && b0.rpc };
+    A.bglVaiAllaBiglietteria((u) => aperti.push(u));
+    eq(dialoghi.at(-1), "Salva il progetto online", "progetto non ancora online: prima lo si salva");
+  } finally { A.guideDialog = g0; A.__bglCloud = b0; A.__cloud = c0; }
+});
+
+t("biglietteria (area): i due pulsanti dicono «Vai alla biglietteria» e il pannello non c'è più", () => {
+  const tpl = readFileSync(join(root, "index.template.html"), "utf8");
+  for (const id of ["bPostoPren", "bGrpPostiPren"]) ok(new RegExp('id="' + id + '"[^>]*>Vai alla biglietteria</button>').test(tpl), id);
+  ok(!/Prenotazioni del pubblico…/.test(tpl), "nessun «Prenotazioni del pubblico…»");
+  for (const f of ["bglApriPannello", "bglVistaEvento", "bglListaIngresso", "bglCsv", "bglScriviLista", "bglInizioIso", "bglRiservatiDaTesto", "bglPiantaSvg"])
+    ok(!new RegExp("\\nfunction " + f + "\\(").test(tpl), f + " è ancora nell'editor: una sola copia, in biglietteria/gestione/gst.js");
+  ok(!/\.bgl-card|\.bgl-sw/.test(readFileSync(join(root, "src/styles.css"), "utf8")), "via il CSS del pannello");
+});
+
+/* sincrono apposta: scambia il ponte solo per il tempo del disegno, senza attese (le prove asincrone vicine usano il ponte vero) */
+t("biglietteria (area): selezionando più sedie come prima cosa, la domanda «sono abilitato?» parte lo stesso", () => {
+  const b0 = A.__bglCloud, AB = A.BGL_AB, chiamate = [], salvo = { uid: AB.uid, ok: AB.ok, chiesto: AB.chiesto };
+  /* prima si posano le sedie (addItem disegna da solo il pannello della sedia singola, che farebbe partire la domanda),
+     poi si cambia il ponte e si disegna SOLO la card di gruppo */
+  reset(); const a = add("sediapubblico", 100, 100), b = add("sediapubblico", 160, 100);
+  A.selectMany([a.id, b.id]);
+  A.__bglCloud = { utente: () => ({ id: "u-gruppo" }), progettoId: () => null, rpc: (fn) => { chiamate.push(fn); return Promise.resolve({ data: true, error: null }); } };
+  AB.uid = null; AB.ok = false; AB.chiesto = null;
+  try {
+    A.renderProps();
+    eq(chiamate, ["bgl_abilitato"], "la card di gruppo chiede al server, una volta");
+    A.renderProps(); eq(chiamate.length, 1, "e non a ogni disegno");
+  } finally { A.__bglCloud = b0; AB.uid = salvo.uid; AB.ok = salvo.ok; AB.chiesto = salvo.chiesto; }
+});
+
+ta("biglietteria: il ponte verso il cloud — solo bgl_abilitato (il resto lo fa l'area), senza sessione niente rete", async () => {
+  const B = A.__bglCloud;
+  ok(B && typeof B.rpc === "function" && typeof B.utente === "function" && typeof B.progettoId === "function", "il ponte c'è");
+  let rete = 0; const f0 = A.fetch; A.fetch = () => { rete++; return Promise.reject(new Error("no")); };
+  try {
+    const r = await B.rpc("bgl_abilitato", {}); eq([r.data, r.error.code], [null, "non_autenticato"], "bgl_abilitato senza sessione");
+    for (const fn of ["bgl_apri", "bgl_modifica", "bgl_eventi_progetto", "bgl_prenotati", "bgl_annulla", "bgl_elimina", "bgl_prenota", "stageplot_purge_expired"]) {
+      const x = await B.rpc(fn, {}); eq(x.error.code, "funzione_non_ammessa", fn + ": dall'editor non si chiama più");
+    }
+  } finally { A.fetch = f0; }
+  eq(rete, 0, "nessuna richiesta partita");
+});
+
+
+ta("biglietteria (0073): il pulsante compare solo se il server dice che QUESTO account è abilitato", async () => {
+  const AB = A.BGL_AB, azzera = () => { AB.uid = null; AB.ok = false; AB.chiesto = null; };
+  let chiamate = 0;
+  const dice = (risposta) => (fn) => { chiamate++; eq(fn, "bgl_abilitato", "chiede solo bgl_abilitato"); return Promise.resolve(risposta); };
+  azzera();
+  eq([await A.bglAbilitatoAggiorna(null, dice({ data: true, error: null })), chiamate], [false, 0], "senza account: nascosto e nessuna domanda al server");
+  eq(await A.bglAbilitatoAggiorna({ id: "u-no" }, dice({ data: false, error: null })), false, "account non abilitato: nascosto");
+  azzera();
+  eq(await A.bglAbilitatoAggiorna({ id: "u-si" }, dice({ data: true, error: null })), true, "account abilitato: visibile");
+  const prima = chiamate;
+  eq([await A.bglAbilitatoAggiorna({ id: "u-si" }, dice({ data: true, error: null })), chiamate], [true, prima], "stesso account: non si richiede a ogni disegno");
+  eq(A.bglAbilitatoVisibile({ id: "u-x" }), false, "appena cambiato account, prima della risposta: il sì dell'account di prima non vale");
+  eq(await A.bglAbilitatoAggiorna({ id: "u-altro" }, dice({ data: null, error: { code: "rete" } })), false, "cambiato account, risposta d'errore: nascosto");
+  eq(A.bglAbilitatoVisibile({ id: "u-si" }), false, "il sì di un altro account non vale per questo");
+  eq(await A.bglAbilitatoAggiorna({ id: "u-tardi" }, dice({ data: "true", error: null })), false, "solo il booleano true apre");
+  azzera(); A.bglAbilitatoVisibile(null);
+  const r = await A.__bglCloud.rpc("bgl_abilitato", {}); eq(r.error.code, "non_autenticato", "bgl_abilitato passa dal ponte, ma senza sessione niente rete");
+});
+
+/* ═══ SCALETTA E QR NEL PDF (10/10/2026, idee dal confronto con TecRider Pro) ═══════════════════════ */
+console.log("\nScaletta e QR nel PDF:");
+
+/* Un jsPDF finto che tiene le pagine: testi, rettangoli pieni e dimensioni per pagina. Basta per
+   buildPdfDoc con il disegno del palco sostituito (drawStageVector è svg2pdf, che qui non c'è). */
+function jsPdfFinto() {
+  return function (o) {
+    const dims = { a4: [210, 297], a3: [297, 420], a2: [420, 594] };
+    const dimDi = (f, or) => { const d = dims[f] || dims.a4; return or === "landscape" ? [d[1], d[0]] : [d[0], d[1]]; };
+    const pagine = [{ wh: dimDi(o.format, o.orientation), testi: [], rett: [] }];
+    let cur = 0, fill = "#000";
+    const doc = {
+      pagine,
+      internal: { pageSize: { getWidth: () => pagine[cur].wh[0], getHeight: () => pagine[cur].wh[1] } },
+      addPage(f, or) { pagine.push({ wh: dimDi(f || o.format, or || o.orientation), testi: [], rett: [] }); cur = pagine.length - 1; return doc; },
+      setPage(i) { cur = i - 1; }, getNumberOfPages: () => pagine.length,
+      setFont() {}, setFontSize() {}, setTextColor() {}, setDrawColor() {}, setLineWidth() {}, line() {},
+      setFillColor(...c) { fill = c.join(","); },
+      rect(x, y, w, h, st) { pagine[cur].rett.push({ x, y, w, h, st, fill }); },
+      text(t, x, y, op) { (Array.isArray(t) ? t : [t]).forEach((r, i) => pagine[cur].testi.push({ t: String(r), x, y: y + i * 4, op })); },
+      getTextWidth: (t) => String(t).length * 1.9,
+      splitTextToSize: (t, w) => { const max = Math.max(1, Math.floor(w / 2.1)), out = []; let r = "";
+        String(t).split(" ").forEach((p) => { if ((r + " " + p).trim().length > max && r) { out.push(r); r = p; } else r = (r + " " + p).trim(); });
+        if (r) out.push(r); return out.length ? out : [""]; },
+    };
+    return doc;
+  };
+}
+/* Le prove asincrone girano in parallelo (ta): queste toccano le stesse globali dell'Esporta
+   (__pdfPages, __pdfScaletta, __pdfQr, jspdf), quindi vanno in fila, una dopo l'altra. */
+let codaPdf = Promise.resolve();
+function taPdf(name, fn) { const p = codaPdf.then(fn); codaPdf = p.catch(() => {}); ta(name, () => p); }
+async function pdfFinto(opts) {
+  const prima = { pg: A.__pdfPages, sc: A.__pdfScaletta, qr: A.__pdfQr, jspdf: A.jspdf };
+  A.__pdfPages = opts.pagine || {}; A.__pdfScaletta = opts.scaletta; A.__pdfQr = opts.qr || null;
+  A.jspdf = { jsPDF: jsPdfFinto() };
+  const l0 = A.loadJsPDF, d0 = A.drawStageVector;
+  A.loadJsPDF = () => Promise.resolve(); A.drawStageVector = () => Promise.resolve();
+  try { return await A.buildPdfDoc("a4", 100, "landscape", ""); }
+  finally { A.loadJsPDF = l0; A.drawStageVector = d0; A.__pdfPages = prima.pg; A.__pdfScaletta = prima.sc; A.__pdfQr = prima.qr; A.jspdf = prima.jspdf; }
+}
+const SCALETTA_PROVA = [
+  { tipo: "intro", titolo: "", durata: "1:30", note: "" },
+  { tipo: "brano", titolo: "Apertura", durata: "3:30", note: "attacca il batterista" },
+  { tipo: "brano", titolo: "Seconda", durata: "4.15", note: "" },
+  { tipo: "brano", titolo: "", durata: "", note: "" },                 /* voce vuota: non esce */
+  { tipo: "pausa", titolo: "Intervallo", durata: "15:00", note: "" },
+  { tipo: "brano", titolo: "Senza tempo", durata: "3:7", note: "" },   /* durata scritta male: fuori dal totale */
+  { tipo: "bis", titolo: "", durata: "", note: "" },
+  { tipo: "brano", titolo: "Finale", durata: "5:00", note: "" },
+];
+
+t("scaletta: salvata, riaperta e sanificata come gli altri campi", () => {
+  reset();
+  const sporca = [
+    { tipo: "concerto", titolo: { x: 1 }, durata: "3:30 min", note: "n".repeat(300), extra: "via" },
+    null, "testo", { tipo: "pausa", titolo: "Riga\nsu due", durata: "15'00" },
+  ];
+  const n = A.normalizeState(Object.assign(JSON.parse(A.stateToJSON()), { scaletta: sporca }));
+  eq(n.scaletta.length, 4, "ogni voce resta al suo posto:");
+  eq(n.scaletta[0], { tipo: "brano", titolo: "", durata: "3:30", note: "n".repeat(120) }, "tipo sconosciuto → brano, testo non stringa → vuoto, lettere fuori dalla durata, note a 120:");
+  eq(n.scaletta[1], { tipo: "brano", titolo: "", durata: "", note: "" }, "una voce che non è un oggetto diventa una voce vuota:");
+  eq(n.scaletta[3].titolo, "Riga su due", "niente a capo nel titolo:");
+  ok(!("extra" in n.scaletta[0]), "i campi in più non passano");
+  eq(A.normalizeState(Object.assign(JSON.parse(A.stateToJSON()), { scaletta: new Array(250).fill({ titolo: "x" }) })).scaletta.length, 200, "al massimo 200 voci:");
+  ok(!("scaletta" in A.normalizeState(Object.assign(JSON.parse(A.stateToJSON()), { scaletta: [] }))), "vuota: il campo non c'è (l'impronta dei progetti già esportati non cambia)");
+  ok(!("scaletta" in A.normalizeState(Object.assign(JSON.parse(A.stateToJSON()), { scaletta: "brani" }))), "non una lista: il campo non c'è");
+  /* il giro salva → riapri non perde niente */
+  A.state.scaletta = JSON.parse(JSON.stringify(SCALETTA_PROVA));
+  const riaperta = A.normalizeState(JSON.parse(A.stateToJSON()));
+  eq(riaperta.scaletta, A.scalettaNorm(SCALETTA_PROVA), "salvata e riaperta, identica:");
+  ok(A.stateHasMeaningfulWork({ scaletta: [{ tipo: "brano", titolo: "x", durata: "", note: "" }] }), "un progetto con la sola scaletta non è un progetto vuoto");
+  ok(A.CAMPI_DOCUMENTO.indexOf("scaletta") > -1, "è della serata, non della scena: vale per tutte le varianti");
+  reset();
+});
+
+t("scaletta: è del documento — scritta in una scena, la ritrova anche l'altra", () => {
+  reset();
+  const v1 = { id: "V1", name: "A", state: { scaletta: [{ tipo: "brano", titolo: "Uno", durata: "3:00", note: "" }] } };
+  const v2 = { id: "V2", name: "B", state: {} };
+  const v0 = A.VARIANTS; A.VARIANTS = [v1, v2];
+  try {
+    A.propagaCampiDocumento(v1);
+    eq(v2.state.scaletta, v1.state.scaletta, "copiata nell'altra scena:");
+    delete v1.state.scaletta; A.propagaCampiDocumento(v1);
+    ok(!("scaletta" in v2.state), "e tolta anche lì quando si svuota");
+  } finally { A.VARIANTS = v0; reset(); }
+});
+
+t("scaletta: durata totale = somma delle durate valide; vuote fuori, numerati i soli brani", () => {
+  eq([A.scalettaSecondi("3:30"), A.scalettaSecondi("3.05"), A.scalettaSecondi("3'30"), A.scalettaSecondi("1:02:03"), A.scalettaSecondi("12:00")],
+     [210, 185, 210, 3723, 720], "formati accettati:");
+  eq(["3:7", "3:60", "1:60:00", "abc", "", "0:00", "330", null].map(A.scalettaSecondi), [null, null, null, null, null, null, null, null], "e quelli che non sono durate:");
+  eq([A.scalettaFmt(210), A.scalettaFmt(65), A.scalettaFmt(3723)], ["3:30", "1:05", "1:02:03"], "formato m:ss, h:mm:ss oltre l'ora:");
+  const d = A.scalettaList(SCALETTA_PROVA);
+  eq(d.count, 7, "7 righe su 8: la voce vuota non esce:");
+  eq(d.rows.map((r) => r.n), ["", "1", "2", "", "3", "", "4"], "i numeri d'ordine sono dei brani, e la vuota non ne consuma uno:");
+  eq(d.tot, 90 + 210 + 255 + 900 + 300, "il totale somma le durate valide, pausa e intro comprese:");
+  eq(d.totTxt, "29:15");
+  eq([d.brani, d.senzaDurata], [4, 1], "4 brani, 1 senza una durata valida:");
+  eq(d.rows[3].testo, "Pausa · Intervallo", "le voci che non sono brani dicono cosa sono:");
+  eq(d.rows[5].testo, "Bis");
+  ok(/1 brano senza durata, fuori dal totale/.test(A.scalettaRiassunto(d)), "e il riassunto lo dice: " + A.scalettaRiassunto(d));
+  eq(A.scalettaList([{ tipo: "pausa" }]).count, 1, "una pausa senza titolo non è vuota:");
+  eq(A.scalettaList([]).count, 0, "lista vuota: nessuna riga");
+});
+
+taPdf("PDF: la pagina «Scaletta» c'è se la casella è spuntata, e solo allora", async () => {
+  reset();
+  A.state.titolo = "Concerto di prova"; A.state.scaletta = JSON.parse(JSON.stringify(SCALETTA_PROVA));
+  try {
+    const no = await pdfFinto({ scaletta: false });
+    eq(no.pagine.length, 1, "casella spenta: solo il palco");
+    ok(!no.pagine.some((p) => p.testi.some((x) => /Scaletta/.test(x.t))), "e nessuna traccia della scaletta");
+    const si = await pdfFinto({ scaletta: true });
+    eq(si.pagine.length, 2, "casella accesa: una pagina in più");
+    const pg = si.pagine[1], testi = pg.testi.map((x) => x.t);
+    ok(testi.indexOf("STAGE PLOT — Scaletta") > -1, "la testata della lista");
+    ok(testi.some((x) => /^Concerto di prova/.test(x)), "il titolo del progetto");
+    ["Apertura", "Seconda", "Pausa · Intervallo", "Senza tempo", "Bis", "Finale", "attacca il batterista"].forEach((v) => ok(testi.indexOf(v) > -1, "c'è «" + v + "»"));
+    ["1", "2", "3", "4"].forEach((n) => ok(testi.indexOf(n) > -1, "numero d'ordine " + n));
+    ok(testi.indexOf("29:15") > -1, "il totale");
+    ok(testi.some((x) => /^Totale/.test(x)), "con la sua etichetta");
+    ok(testi.indexOf("(senza titolo)") === -1, "la voce vuota non esce");
+    eq(si.pagine[0].wh, [297, 210], "il palco resta sul foglio scelto");
+    eq(pg.wh, [210, 297], "la scaletta è un A4 verticale come le altre liste");
+    ok(pg.testi.filter((x) => x.t !== "Creato con stageplot.it" && !/^pag \d/.test(x.t)).every((x) => x.y > 0 && x.y < 297 - 10), "il contenuto resta sopra il piede (credito e numero di pagina)");
+    ok(si.pagine.every((p, i) => p.testi.some((x) => x.t === "pag " + (i + 1) + "/2")), "numerata «pag N/2» come il resto del PDF");
+    /* casella accesa ma scaletta vuota (o di sole voci vuote): niente pagina bianca */
+    A.state.scaletta = [{ tipo: "brano", titolo: "", durata: "", note: "" }];
+    eq((await pdfFinto({ scaletta: true })).pagine.length, 1, "scaletta di sole voci vuote: nessuna pagina");
+  } finally { reset(); }
+});
+
+t("PDF: la scaletta lunga va a pagina nuova con l'intestazione, senza righe a metà", () => {
+  reset();
+  A.state.scaletta = Array.from({ length: 40 }, (_, i) => ({ tipo: "brano", titolo: "Brano numero " + (i + 1) + " con un titolo abbastanza lungo da andare a capo una volta", durata: "4:00", note: "nota " + (i + 1) }));
+  try {
+    const doc = jsPdfFinto()({ format: "a4", orientation: "landscape" });
+    ok(A.scalettaPdf(doc) === true, "stampata");
+    const fogli = doc.pagine.slice(1);
+    ok(fogli.length >= 2, "40 brani lunghi stanno su più fogli: " + fogli.length);
+    fogli.forEach((p, i) => { ok(p.testi.some((x) => x.t === "BRANO"), "intestazione delle colonne sul foglio " + (i + 1));
+      ok(p.testi.every((x) => x.y < 291), "niente sotto il fondo del foglio " + (i + 1)); });
+    ok(fogli[fogli.length - 1].testi.some((x) => x.t === "2:40:00"), "e il totale in fondo: 40 × 4:00 = 2:40:00");
+    delete A.state.scaletta;
+    const vuoto = jsPdfFinto()({ format: "a4" });
+    eq([A.scalettaPdf(vuoto), vuoto.pagine.length], [false, 1], "niente scaletta: niente pagina");
+  } finally { reset(); }
+});
+
+t("scaletta nell'anteprima e nel link condiviso: stesse righe, voci vuote fuori", () => {
+  reset();
+  A.state.scaletta = JSON.parse(JSON.stringify(SCALETTA_PROVA));
+  try {
+    ok(A.availableViewerLists().some((l) => l.key === "scaletta" && l.title === "Scaletta"), "il link condiviso ha la scheda Scaletta");
+    const h = A.listPreviewHtml("scaletta");
+    ok(/Finale/.test(h) && /29:15/.test(h), "righe e totale nella tabella");
+    eq((h.match(/<tr class="sc-voce/g) || []).length, 7, "7 righe: la vuota non c'è");
+    ok(/<tfoot>/.test(h), "il totale chiude la tabella");
+    ok(!/<tfoot>/.test(A.listPreviewHtml("notelist") || ""), "e le altre liste restano come prima");
+    delete A.state.scaletta;
+    ok(!A.availableViewerLists().some((l) => l.key === "scaletta"), "senza scaletta, nessuna scheda");
+  } finally { reset(); }
+});
+
+t("Esporta: la casella della scaletta c'è e parte spuntata solo con almeno una voce", () => {
+  /* la finestra vive nel DOM (qui c'è solo uno stub): si legge la regola dove sta */
+  const f = appjs.slice(appjs.indexOf("function pdfScalettaInit(){"), appjs.indexOf("function pdfScalettaInit(){") + 700);
+  ok(/var d=scalettaList\(\);/.test(f), "decide sulle voci che escono davvero (le vuote non contano)");
+  ok(/row\.style\.display = d\.count \? "" : "none";/.test(f), "la riga si vede solo se c'è qualcosa");
+  ok(/scChk\.checked = d\.count>0;/.test(f) && /window\.__pdfScaletta = d\.count>0;/.test(f), "spuntata di partenza solo con almeno una voce");
+  ok(/function _pdfExportModalCore\(\)\{[^}]*?pdfScalettaInit\(\); pdfQrInit\(\);/.test(appjs), "e si rifà a ogni apertura (la scelta non si ricorda)");
+  ok(/if\(window\.__pdfScaletta===true\) scalettaPdf\(doc\);/.test(appjs), "il PDF segue la casella");
+});
+
+/* La libreria del QR è quella della finestra Condividi, servita da /vendor/: qui si carica nel sandbox. */
+vm.runInContext(readFileSync(join(root, "vendor/qrcode.min.js"), "utf8"), A);
+const LINK_VIVO = "https://stageplot.it/app/?view=Zx3kP9qLmN2vB7tR4sW8yA";
+
+taPdf("QR nel PDF: assente di serie e senza un link di condivisione", async () => {
+  reset();
+  try {
+    eq(A.pdfQrInCartiglio(), false, "di serie nessun QR");
+    const d = await pdfFinto({ scaletta: false });
+    ok(!d.pagine[0].testi.some((x) => /Versione aggiornata online/.test(x.t)), "nessuna didascalia");
+    ok(!d.pagine[0].rett.some((r) => r.st === "F" && r.fill === "0,0,0"), "nessun modulo nero");
+    eq(A.pdfCartTitleW(297, 10), 297 - 20 - 90, "e il titolo ha tutta la sua colonna");
+    /* senza account, senza progetto online o senza rete il cloud risponde «nessun link» e non crea niente */
+    let tok = "x", rete = 0; const f0 = A.fetch; A.fetch = () => { rete++; return Promise.reject(new Error("no")); };
+    try { A.__cloud.shareTokenAttivo((t) => { tok = t; }); } finally { A.fetch = f0; }
+    eq([tok, rete], [null, 0], "senza account: nessun link, nessuna richiesta");
+    ok(/function pdfQrInit\(\)\{[\s\S]*?window\.__pdfQr=null;[\s\S]*?qrChk\.checked=false;[\s\S]*?row\.style\.display="none";[\s\S]*?if\(giro!==_qrGiro \|\| modal\.hidden \|\| !tok\) return;[\s\S]*?row\.style\.display="";/.test(appjs),
+       "all'apertura dell'Esporta: spento, riga nascosta, e la riga compare solo con un link attivo");
+    ok(!/function shareTokenAttivo[\s\S]{0,700}tokenCondivisione\(\)/.test(appjs), "chiedere il link non ne crea uno");
+  } finally { reset(); }
+});
+
+taPdf("QR nel PDF: nel cartiglio della prima pagina, in una colonna sua, senza coprire niente", async () => {
+  reset();
+  A.state.titolo = "Un titolo molto lungo per vedere che la colonna del titolo si stringe e non finisce sotto il QR";
+  A.state.lights = { rows: [{ id: "l1", n: 1, fn: "", gear: "", color: "", items: [] }], blackout: null, mood: "" };
+  const q = A.pdfQrDati(LINK_VIVO);
+  try {
+    ok(q && q.n >= 21 && q.n <= 41 && q.m.length === q.n, "il QR del link vivo: " + (q && q.n) + " moduli per lato");
+    const d = await pdfFinto({ scaletta: false, qr: q, pagine: { "view-luci": true } });
+    A.__pdfQr = q;   /* pdfFinto rimette le globali com'erano: per misurare il cartiglio il QR serve ancora */
+    eq(d.pagine.length, 2, "palco + una pagina-vista (che ha anche lei il cartiglio)");
+    const cap = (p) => p.testi.filter((x) => x.t === "Versione aggiornata online");
+    eq([cap(d.pagine[0]).length, cap(d.pagine[1]).length], [1, 0], "il QR è solo sulla prima pagina");
+    const L = A.pdfLayout("a4", "landscape", A.cartHFor("", "a4", "landscape")), B = A.pdfQrBox(L);
+    const neri = d.pagine[0].rett.filter((r) => r.fill === "0,0,0");
+    ok(neri.length > 20, "i moduli sono disegnati: " + neri.length + " rettangoli");
+    ok(neri.every((r) => r.x >= B.x - 1e-6 && r.x + r.w <= B.x + B.s + 1e-6 && r.y >= B.y - 1e-6 && r.y + r.h <= B.y + B.s + 1e-6), "tutti dentro il riquadro del QR");
+    const cy = L.ph - L.fondo - L.cartH, titoloW = A.pdfCartTitleW(L.pw, L.M);
+    eq(titoloW, L.pw - 2 * L.M - 90 - 30, "la colonna del titolo si stringe di 30 mm");
+    ok(B.x - (L.M + titoloW) >= 4 * B.s / q.n, "fra titolo e QR resta la zona di rispetto (4 moduli)");
+    ok(B.x + B.s <= L.pw - L.M - 90 - 4 * B.s / q.n, "e fra QR e scala lo stesso");
+    ok(B.y - cy >= 4 * B.s / q.n * 0.9 && B.y + B.s < B.capY - 1.5, "sotto la riga del cartiglio, sopra la sua didascalia");
+    ok(B.capY <= L.ph - L.fondo, "la didascalia resta dentro il cartiglio, sopra il margine della stampante");
+    const testiCartiglio = d.pagine[0].testi.filter((x) => x.y >= cy && x.x < B.x && x.t !== "Versione aggiornata online" && !x.op);
+    ok(testiCartiglio.length > 0 && testiCartiglio.every((x) => x.x + x.t.length * 2.1 * 0.62 <= B.x), "nessun testo del cartiglio arriva sotto il QR");
+    ok(/<g class="pdf-qr">/.test(A.pdfPreviewSvg("a4", 100, "landscape", "", { focus: "clean" }) || ""), "l'anteprima mostra il QR sulla prima pagina…");
+    ok(!/<g class="pdf-qr">/.test(A.pdfPreviewSvg("a4", 100, "landscape", "", { focus: "luci", pageLabel: "LUCI" }) || ""), "…e non sulle pagine-vista");
+  } finally { A.__pdfQr = null; reset(); }
+});
+
+t("QR nel PDF: link troppo lungo → niente QR (e l'Esporta lo dice)", () => {
+  eq(A.pdfQrDati("https://stageplot.it/app/#p=" + "a".repeat(1200)), { troppo: true }, "oltre i 1000 caratteri, come qrTooBig:");
+  eq(A.pdfQrDati("https://stageplot.it/app/?view=" + "b".repeat(300)), { troppo: true }, "e oltre i 41 moduli, illeggibile a 14 mm:");
+  eq(A.pdfQrDati(""), null);
+  const p0 = A.__pdfQr;
+  try { A.__pdfQr = { troppo: true }; eq(A.pdfQrInCartiglio(), false, "un QR «troppo» non entra nel cartiglio"); }
+  finally { A.__pdfQr = p0; }
+  ok(/Il link è troppo lungo per un QR leggibile così piccolo: il PDF esce senza QR\./.test(appjs), "l'avviso");
+  ok(/if\(!q \|\| q\.troppo\)\{\s*qrChk\.checked=false; window\.__pdfQr=null;/.test(appjs), "e la casella si spegne");
+});
+
+await Promise.all(attese);
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

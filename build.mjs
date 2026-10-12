@@ -4,6 +4,8 @@
  * Output:
  *   app/index.html → shell leggera (HTML + CSS + versione + <script defer src="/app.js"> + <script async src="/icons.js">)
  *   app.js         → tutto il JS dell'app (i blocchi <script data-app> del template, concatenati) — caricato DEFER
+ *   biglietteria/pianta-posti.js → copia di src/pianta-posti.js (lo stesso testo è dentro app.js) per l'area della
+ *                    biglietteria: una sola fonte per la foto della sala (specifica area §4.2)
  *   (icons.js e' un asset statico a se', non generato qui: libreria icone caricata ASYNC)
  *
  * NB: l'editor vive su /app/, la root e' la landing di prodotto (index.html, scritta a mano, NON generata qui).
@@ -26,7 +28,15 @@ const r = (p) => join(root, p);
 /* marcatore -> file sorgente da iniettare (inline). Aggiungere qui i moduli futuri. */
 const INJECTIONS = [
   { marker: "/*__STAGEPLOT_STYLES__*/", file: "src/styles.css" },
+  /* la pianta dei posti: dentro l'editor E, uguale, in biglietteria/pianta-posti.js (specifica area §4.2) */
+  { marker: "/*__PIANTA_POSTI__*/", file: "src/pianta-posti.js" },
 ];
+const PIANTA_PUBBLICA = "biglietteria/pianta-posti.js";
+function piantaPubblica() {
+  return "/* GENERATO da src/pianta-posti.js con `node build.mjs`: NON modificare questo file.\n" +
+    "   Lo stesso testo è dentro l'editor (app.js): una sola fonte per la foto della sala (specifica area §4.2). */\n" +
+    readFileSync(r("src/pianta-posti.js"), "utf8");
+}
 
 function build() {
   let out = readFileSync(r("index.template.html"), "utf8");
@@ -65,10 +75,17 @@ if (check) {
     console.error("✗ app/index.html o app.js NON allineati ai sorgenti. Esegui: node build.mjs");
     process.exit(1);
   }
-  console.log("✓ app/index.html + app.js allineati ai sorgenti.");
+  let curPianta = "__MISSING__";
+  try { curPianta = readFileSync(r(PIANTA_PUBBLICA), "utf8"); } catch (e) { /* mancante → disallineata */ }
+  if (curPianta !== piantaPubblica()) {
+    console.error("✗ " + PIANTA_PUBBLICA + " NON allineato a src/pianta-posti.js. Esegui: node build.mjs");
+    process.exit(1);
+  }
+  console.log("✓ app/index.html + app.js + biglietteria/pianta-posti.js allineati ai sorgenti.");
 } else {
   mkdirSync(r("app"), { recursive: true });
   writeFileSync(r("app/index.html"), html);
   writeFileSync(r("app.js"), appjs);
-  console.log("✓ app/index.html + app.js generati dai sorgenti.");
+  writeFileSync(r(PIANTA_PUBBLICA), piantaPubblica());
+  console.log("✓ app/index.html + app.js + biglietteria/pianta-posti.js generati dai sorgenti.");
 }
