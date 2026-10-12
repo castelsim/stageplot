@@ -5355,6 +5355,144 @@ t("elementi del luogo: ostacolo con il suo nome e misure", () => {
   const croce = e.find((x) => x.nome === "Croce");
   eq(croce.over.label, "CROCE"); ok(croce.over.w > 0 && croce.over.d > 0, "con le sue misure");
 });
+/* 05/10, segnalazione «mi serve un uomo su una poltrona»: la poltrona è arredo (si allarga a divano),
+   chi ci sta seduto è una voce con «Poltrona» acceso — microfono, canale, conteggi. */
+console.log("\nPoltrona e ospite in poltrona (05/10):");
+t("poltrona: nel catalogo fra gli arredi, misure reali, si allarga", () => {
+  const p = A.TYPES.poltrona; ok(p, "manca TYPES.poltrona");
+  eq([p.w, p.d], [85, 85]); eq(p.cat, "Palco e strutture"); ok(p.resizable === true, "si allarga a divano");
+  ok(A.__catEntries.some((e) => e.k === "poltrona" && e.nome === "Poltrona"), "la poltrona è una voce del catalogo");
+  ok(/"Arredo e leggii",\s*\[[^\]]*"poltrona"/.test(appjs), "sta nel gruppo «Arredo e leggii» con le sedie");
+  const a = p.draw({ w: 85, d: 85 }), b = p.draw({ w: 220, d: 85 });
+  eq((a.match(/<rect /g) || []).length, 5, "scocca, due braccioli, schienale, cuscino");
+  eq((b.match(/<line /g) || []).length, 2, "a 2,2 m è un divano a tre cuscini");
+  eq((a.match(/<line /g) || []).length, 0, "la poltrona ha un cuscino solo");
+});
+t("ricerca: poltrona, uomo poltrona, ospite seduto, divano", () => {
+  const primo = (q) => (A.__spSearch(q)[0] || {}).nome, primoQa = (q) => (A.__qaSearch(q)[0] || {}).nome;
+  eq(primo("poltrona"), "Poltrona"); eq(primoQa("poltrona"), "Poltrona");
+  ok(A.__spSearch("poltrona").some((e) => e.nome === "Ospite in poltrona"), "«poltrona» trova anche chi ci sta seduto");
+  for (const q of ["uomo poltrona", "uomo in poltrona", "ospite seduto", "ospite", "persona seduta", "attore seduto"]) {
+    eq(primo(q), "Ospite in poltrona", "«" + q + "» nella barra:"); eq(primoQa(q), "Ospite in poltrona", "«" + q + "» nella finestrella:");
+  }
+  eq(primo("divano"), "Poltrona"); eq(primo("armchair"), "Poltrona");
+  eq(primo("uomo"), "Uomo", "«uomo» resta della voce in piedi");
+});
+t("ospite in poltrona: è una voce seduta, col lavalier e il suo canale", () => {
+  reset();
+  const e = A.__catEntries.find((x) => x.nome === "Ospite in poltrona"); ok(e, "manca la voce di catalogo");
+  eq(e.k, "corista", "stessa figura delle voci, non un tipo nuovo");
+  const it = add(e.k, 400, 300, JSON.parse(JSON.stringify(e.over)));
+  ok(A.VOCE[it.type], "è una voce"); eq(it.poltrona, true); eq(it.sedia, false, "niente sedia sotto la poltrona");
+  eq(it.donna, false, "un uomo"); eq(it.leggio, false); eq(it.label, "Ospite");
+  eq(A.micModeOf(it), "lavalier");
+  eq(chans(it).length, 1, "una voce col microfono ha il suo canale");
+  eq([it.w, it.d], [89, 91], "l'ingombro va dallo schienale ai piedi (centro poltrona 3 cm dietro la figura)");
+  ok(/rx="13"/.test(A.TYPES.corista.draw(it)), "la figura ha la poltrona disegnata dietro");
+  it.micMode = "pano"; A.__cabRes = null; eq(chans(it).length, 0, "panoramico: niente canale suo, come le altre voci");
+});
+t("poltrona sì/no dal pannello: una sola seduta, misure che tornano", () => {
+  reset();
+  const m = add("moderatore", 400, 300); eq(m.sedia, true, "il moderatore nasce seduto");
+  A.voceInPoltrona(m, true); eq(m.sedia, false); eq(m.poltrona, true); eq([m.w, m.d], [89, 91]);
+  A.voceInPoltrona(m, false); eq(m.sedia, true, "torna sulla sua sedia"); ok(!m.poltrona); eq([m.w, m.d], [70, 90]);
+  const c = add("cantante", 600, 300, { micMode: "giraffa" }); const d0 = c.d;
+  A.voceInPoltrona(c, true); eq(c.d, d0, "il cantante con la giraffa era già più profondo: resta"); eq(c.w, 89);
+  A.voceInPoltrona(c, false); eq([c.w, c.d], [70, d0]);
+  const r = A.recalcItemDims, v = { type: "corista", poltrona: true, w: 70, d: 88 }; r(v); eq([v.w, v.d], [89, 91], "riaprendo il progetto l'ingombro si ricalcola");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="pPoltronaV"/.test(html), "la casella «Poltrona» nel pannello delle voci");
+  ok(/pPoltronaV"\)\.addEventListener\("change"[\s\S]{0,200}voceInPoltrona\(it, on\)/.test(appjs), "la casella chiama voceInPoltrona");
+});
+t("poltrone contate a parte da sedie e sgabelli (pannello Stato e PDF)", () => {
+  reset();
+  add("poltrona", 200, 300); add("poltrona", 400, 300, { w: 200 });
+  add("corista", 600, 300, { poltrona: true, leggio: false });
+  add("moderatore", 800, 300);
+  /* un progetto scritto a mano o dall'AI può avere tutti e due i flag: la poltrona vince, la sedia non si conta */
+  A.state.items.push({ id: "pz", type: "corista", x: 1000, y: 300, w: 89, d: 91, sedia: true, poltrona: true, leggio: false });
+  const c = A.countAccessori(); eq(c.poltrone, 4); eq(c.sedie, 1, "solo il moderatore sulla sua sedia");
+  const tot = A.pdfTotals({ tecnici: false }).join(" · ");
+  ok(/4 poltrone/.test(tot), "nel piè di pagina del PDF: " + tot); ok(/1 seduta/.test(tot), "la sedia del moderatore resta: " + tot);
+  reset(); add("poltrona", 200, 300); ok(/1 poltrona\b/.test(A.pdfTotals({ tecnici: false }).join(" · ")), "singolare");
+});
+t("poltrona nel PDF/PNG: disegno vettoriale anche in modalità PDF", () => {
+  const prima = A._pdfMode; A._pdfMode = true;
+  try {
+    const s = A.TYPES.corista.draw({ type: "corista", poltrona: true, micMode: "lavalier", leggio: false });
+    ok(/rx="13"/.test(s) && !/<use|<image/.test(s), "poltrona come rettangoli: svg2pdf la disegna");
+  } finally { A._pdfMode = prima; }
+});
+/* 12/10, Simone guardando l'anteprima: «mi piacerebbe che fosse seduto la persona». Nella poltrona c'era la figura IN PIEDI
+   delle voci (gambe dritte). Ora è una persona SEDUTA: il clarinettista di icons.js senza clarinetto né sedia. */
+function iconeVere() { const c = { window: {} }; vm.createContext(c); vm.runInContext(readFileSync(join(root, "icons.js"), "utf8"), c); return c.window.LIB_ICONS; }
+function conIcone(chiavi, fn) {   /* nel sandbox LIB_ICONS è lo stub: si presta un oggetto con le icone vere, poi si rimette */
+  const L = iconeVere(), prima = A.LIB_ICONS, presto = {};
+  chiavi.forEach(k => { presto[k] = L[k]; });
+  A.LIB_ICONS = presto;
+  try { return fn(L); } finally { A.LIB_ICONS = prima; }
+}
+t("icone: la persona seduta è il clarinettista senza clarinetto né sedia, uomo e donna", () => {
+  const L = iconeVere(), o = L.musClarinetto;
+  for (const k of ["voceSeduta", "voceSedutaDonna"]) {
+    const s = L[k]; ok(s && s.body, "manca " + k + " in icons.js");
+    eq(s.vb, o.vb, k + ": stesso riquadro del clarinettista");
+    /* via: schienale (7), seduta (14) e montanti (15, 17) della sedia; campana (13), corpo (16), bocchino (28) e chiavi del clarinetto */
+    [7, 14, 15, 17, 13, 16, 28, 19, 20, 21, 33, 46].forEach(n => {
+      ok(o.body.indexOf('class="musClarinetto_cls-' + n + '"') > -1, "l'originale ha il pezzo " + n);
+      ok(s.body.indexOf('class="musClarinetto_cls-' + n + '"') < 0, k + ": è rimasto il pezzo cls-" + n); });
+    /* resta la persona: camicia, pantaloni, braccia e mani, viso, orecchie, scarpe */
+    [30, 10, 27, 3, 40, 55, 34, 22, 50].forEach(n => ok(s.body.indexOf('class="musClarinetto_cls-' + n + '"') > -1, k + ": manca il pezzo della persona cls-" + n));
+    ok(/class="musClarinetto_cls-60" transform="matrix\(0\.01 0 0 -0\.01 0 321\)" d="M/.test(s.body), k + ": contorno nuovo, senza sedia né clarinetto");
+    ok(s.body.indexOf("<mask") < 0 && s.body.indexOf("<image") < 0, k + ": niente <mask>/<image>: svg2pdf non le disegna");
+  }
+  const giacca = (k) => (L[k].body.match(/\.musClarinetto_cls-30 \{\s*fill: (#[0-9a-f]+)/) || [])[1];
+  ok(giacca("voceSeduta") && giacca("voceSeduta") !== giacca("voceSedutaDonna"), "uomo e donna vestiti diversi");
+  ok(L.voceSedutaDonna.body.indexOf('fill="#6b4a36"') > -1 && L.voceSeduta.body.indexOf('fill="#6b4a36"') < 0, "la donna ha i capelli castani, l'uomo no");
+  eq(o.body, iconeVere().musClarinetto.body, "il clarinettista non è toccato");
+});
+t("ospite in poltrona: la figura è SEDUTA, non quella in piedi", () => {
+  conIcone(["voceSeduta", "voceSedutaDonna"], () => {
+    const seduto = A.TYPES.corista.draw({ type: "corista", poltrona: true, micMode: "lavalier", leggio: false });
+    ok(/class="persona-seduta"/.test(seduto), "manca la persona seduta");
+    ok(/musClarinetto_cls-55/.test(seduto), "la figura seduta (viso del clarinettista) non c'è");
+    ok(!/coroUomo_|coroDonna_/.test(seduto), "in poltrona c'è ancora la figura in piedi");
+    ok(/rx="13"/.test(seduto), "la poltrona resta disegnata sotto");
+    ok(seduto.indexOf("<mask") < 0, "niente <mask>");
+    const donna = A.TYPES.corista.draw({ type: "corista", poltrona: true, donna: true, micMode: "lavalier", leggio: false });
+    ok(donna.indexOf('fill="#6b4a36"') > -1 && !/coroDonna_/.test(donna), "la donna in poltrona è la donna SEDUTA");
+    for (const tp of ["relatore", "moderatore", "cantante"]) {
+      const s = A.TYPES[tp].draw({ type: tp, poltrona: true, micMode: "lavalier" });
+      ok(/class="persona-seduta"/.test(s) && !/coroUomo_/.test(s), tp + " in poltrona: seduto");
+    }
+    const inPiedi = A.TYPES.corista.draw({ type: "corista", micMode: "lavalier", leggio: false });
+    ok(/coroUomo_/.test(inPiedi) && !/persona-seduta/.test(inPiedi), "senza poltrona la voce resta in piedi");
+    const sedia = A.TYPES.moderatore.draw({ type: "moderatore", sedia: true, micMode: "mano" });
+    ok(/coroUomo_/.test(sedia) && !/persona-seduta/.test(sedia), "sulla sedia normale non cambia niente");
+  });
+});
+t("ospite in poltrona: schematico (e senza illustrazioni) è seduto anche lui", () => {
+  const s = A.TYPES.corista.draw({ type: "corista", poltrona: true, micMode: "lavalier", leggio: false, look: "schematico" });
+  ok(/class="persona-seduta schema"/.test(s), "manca la persona seduta schematica");
+  ok(!/coroUomo_/.test(s) && !/x="-16" y="-9" width="32" height="26"/.test(s), "nello schematico c'è la sagoma in piedi");
+  eq((s.match(/transform="rotate\(/g) || []).length, 2, "due cosce in avanti, un po' aperte");
+  const senza = A.TYPES.corista.draw({ type: "corista", poltrona: true, micMode: "lavalier", leggio: false });   /* icons.js non ancora arrivato */
+  ok(/persona-seduta schema/.test(senza) && !/coroUomo_/.test(senza), "senza illustrazioni: lo schema seduto, non la figura in piedi");
+  const prima = A._pdfMode; A._pdfMode = true;
+  try { conIcone(["voceSeduta"], () => ok(/persona-seduta schema/.test(A.TYPES.corista.draw({ type: "corista", poltrona: true, micMode: "lavalier", leggio: false })), "in modalità PDF geometrica: seduto")); }
+  finally { A._pdfMode = prima; }
+});
+t("ospite in poltrona: misure, piedi oltre il bordo, microfoni e leggio al posto giusto", () => {
+  const P = A.PERSONA_SEDUTA, fronte = A.POLTRONA_CY + A.POLTRONA.d / 2, dietro = A.POLTRONA_CY - A.POLTRONA.d / 2;
+  ok(P.piedi > fronte && P.piedi - fronte <= 8, "i piedi sporgono appena oltre il bordo davanti: piedi " + P.piedi + ", bordo " + fronte);
+  ok(P.ginocchia < fronte, "le ginocchia stanno sulla seduta");
+  const m = A.voceMisure({ type: "corista", poltrona: true });
+  ok(m[1] / 2 >= P.piedi && m[1] / 2 >= -dietro, "il riquadro contiene schienale e piedi: " + m);
+  const lav = (o) => { const x = A.TYPES.corista.draw(Object.assign({ type: "corista", micMode: "lavalier", leggio: false }, o)).match(/<circle cx="7" cy="(-?[\d.]+)" r="2.6"/); return x && +x[1]; };
+  eq(lav({ poltrona: true }), -4, "seduto: capsula sul bavero accanto al mento"); eq(lav({}), 6, "in piedi: sul petto come prima");
+  const leg = A.TYPES.corista.draw({ type: "corista", poltrona: true, micMode: "lavalier", leggio: true }).match(/<g transform="translate\(0,(-?[\d.]+)\)">/);
+  ok(leg && +leg[1] >= P.piedi + 10, "il leggio sta oltre i piedi, non sulle ginocchia: " + (leg && leg[1]));
+});
 t("query vuota → nessun risultato", () => { eq(A.__qaSearch("").length, 0); eq(A.__qaSearch("   ").length, 0); });
 t("max 8 suggerimenti", () => { ok(A.__qaSearch("a").length <= 8); });
 

@@ -297,6 +297,21 @@ function cantanteDepth(it){
   if(it.leggio) d = Math.max(d, mm==="giraffa"?200:mm==="tonda"?150:122);
   return d;
 }
+/* Ingombro di una voce: quello del tipo (il cantante segue il microfono), allargato alla poltrona se
+   ci sta seduta. La poltrona sta dietro la figura (POLTRONA_CY): il riquadro, centrato, deve arrivare
+   allo schienale, o selezione e spazi liberi finirebbero a metà poltrona. */
+function voceMisure(it){
+  var t=TYPES[it.type]||{w:70,d:90}, w=t.w, d=(it.type==="cantante") ? cantanteDepth(it) : t.d;
+  if(it.poltrona===true){ w=Math.max(w, POLTRONA.w+4); d=Math.max(d, Math.ceil(2*(POLTRONA.d/2-POLTRONA_CY))); }
+  return [w,d];
+}
+/* Seduta in poltrona sì/no. Una sola seduta: la poltrona toglie la sedia; tolta la poltrona, chi nasce
+   seduto (il moderatore, `sediaDef`) torna sulla sua sedia. */
+function voceInPoltrona(it, on){
+  if(on){ it.poltrona=true; it.sedia=false; }
+  else { delete it.poltrona; if(TYPES[it.type] && TYPES[it.type].sediaDef) it.sedia=true; }
+  var vm=voceMisure(it); it.w=vm[0]; it.d=vm[1];
+}
 /* Archetto in testa: si legge anche a 1:100 — un archetto sottile che gira dall'orecchio alla
    guancia, col puntino della capsula. Disegnato in scala reale sopra la figura (origine = centro). */
 /* ARCHETTO (headset tipo DPA 4088) visto DALL'ALTO, a scala reale — testa ≈ 18 cm di larghezza:
@@ -318,9 +333,12 @@ function headMicGlyph(){
 function singer(it){
   it=it||{};
   var mm=micModeOf(it), donna=it.donna===true;
-  var s=(it.sedia===true ? seatLight(0) : '');   /* coristi: sedia opzionale (contorno chiaro dietro la persona) */
+  var polt=(it.poltrona===true);
+  var s=(polt ? poltronaGlyph(POLTRONA.w, POLTRONA.d, POLTRONA_CY, true)   /* seduta in poltrona: schiena sullo schienale */
+       : it.sedia===true ? seatLight(0) : '');   /* coristi: sedia opzionale (contorno chiaro dietro la persona) */
   var noMic=(mm==="pano");
-  if(_pdfMode){
+  if(polt){ s+=personaSeduta(donna, _pdfMode || it.look==="schematico"); }   /* in poltrona: SEDUTA, non la figura in piedi (12/10) */
+  else if(_pdfMode){
     /* PDF: sagoma top-down geometrica — 3 path, vettoriale, nessun blocco svg2pdf */
     s+=circ(0,-20,15,'ic fGrey')+bar(0,4,32,noMic?24:26,'ic fGrey',9);
   } else {
@@ -335,9 +353,9 @@ function singer(it){
      icone dettagliate). Valori (cm reali, origine = centro cantante, +y = pubblico). */
   var legY=30;
   if(mm==="archetto"){ s+='<g transform="translate(0,-19)">'+headMicGlyph()+'</g>'; legY=34; }
-  else if(mm==="lavalier"){ s+='<circle cx="7" cy="6" r="2.6" fill="#2b2e31" stroke="#fff" stroke-width="1.2"/>'; legY=34; }   /* capsula sul bavero */   /* indossato: niente asta, niente ingombro davanti */
+  else if(mm==="lavalier"){ s+='<circle cx="7" cy="'+(polt?-4:6)+'" r="2.6" fill="#2b2e31" stroke="#fff" stroke-width="1.2"/>'; legY=34; }   /* seduta: la testa china copre il petto, la capsula va sul bavero accanto al mento */   /* capsula sul bavero */   /* indossato: niente asta, niente ingombro davanti */
   else if(mm==="mano"){
-    s+='<g transform="translate(35.7,32.1) rotate(-28)"><rect x="-4" y="-9" width="8" height="18" rx="4" fill="#2b2e31" stroke="#565b60" stroke-width="0.6"/><rect x="-3" y="-8" width="6" height="6" rx="3" fill="#565b60"/></g>';   /* mic in mano (capsula) */
+    s+='<g transform="'+(polt?'translate(10,3) rotate(-20)':'translate(35.7,32.1) rotate(-28)')+'"><rect x="-4" y="-9" width="8" height="18" rx="4" fill="#2b2e31" stroke="#565b60" stroke-width="0.6"/><rect x="-3" y="-8" width="6" height="6" rx="3" fill="#565b60"/></g>';   /* mic in mano (capsula) */
     legY=48;
   } else if(mm==="giraffa"){
     if(_pdfMode){
@@ -354,8 +372,31 @@ function singer(it){
     }
     legY=60;
   }
+  if(polt) legY=Math.max(legY, PERSONA_SEDUTA.piedi+10);   /* seduta: il leggio oltre i piedi, non sulle ginocchia */
   if(it.leggio) s+='<g transform="translate(0,'+legY+')">'+leggioGlyph(0)+'</g>';
   return s;
+}
+/* PERSONA SEDUTA IN POLTRONA, vista dall'alto (12/10/2026, Simone: «mi piacerebbe che fosse seduto la persona»).
+   Illustrata: voceSeduta / voceSedutaDonna di icons.js, cioè il clarinettista senza clarinetto né sedia (mani in grembo),
+   alla stessa scala degli altri musicisti seduti. Spostata di (1, 4.4) perché la testa cada dove sta quella della figura
+   in piedi (0,−20): così microfoni e archetto restano al loro posto. Schiena sullo schienale, cosce sulla seduta,
+   ginocchia a +29, piedi fino a +44 (appena oltre il bordo della poltrona, che finisce a POLTRONA_CY+42,5).
+   Schematica (e ripiego finché icons.js non è arrivato): stessa posa in forme semplici — spalle, testa, cosce, gambe. */
+var PERSONA_SEDUTA = {dx:1, dy:4.4, ginocchia:29, piedi:44};
+function personaSeduta(donna, schema){
+  var k=donna?"voceSedutaDonna":"voceSeduta";
+  if(!schema && typeof LIB_ICONS==="object" && LIB_ICONS[k])
+    return '<g class="persona-seduta" transform="translate('+PERSONA_SEDUTA.dx+','+PERSONA_SEDUTA.dy+')">'+libIconScene(k)+'</g>';
+  var P=PERSONA_SEDUTA, cosce='';
+  [-1,1].forEach(function(l){   /* coscia: dall'anca (±9, −8) al ginocchio (±13, P.ginocchia), un po' aperte */
+    var cx=l*11, cy=(P.ginocchia-8)/2, h=P.ginocchia+8+4;
+    cosce+='<rect class="ic fGrey" x="'+(cx-7.5)+'" y="'+(cy-h/2)+'" width="15" height="'+h+'" rx="7" transform="rotate('+(-l*6.5)+' '+cx+' '+cy+')"/>';
+  });
+  return '<g class="persona-seduta schema">'+cosce+
+    bar(-14, P.piedi-7, 11, 14, 'ic fill', 5)+bar(14, P.piedi-7, 11, 14, 'ic fill', 5)+   /* piedi davanti alle ginocchia */
+    bar(0, -24, 48, 20, 'ic fGrey', 10)+   /* spalle contro lo schienale */
+    circ(0, -20, 11, 'ic soft')+   /* testa: chiara sulle spalle scure, come la si legge dall'alto */
+  '</g>';
 }
 /* ===== Chitarre/basso: glifo strumento + postazione musicista + ampli ===== */
 function gtrGlyph(kind){
@@ -459,6 +500,29 @@ function doubleStringPost(kind, dx){
 function chairSvg(cx){ return bar(cx,-22,46,46,'ic fBlack',9)+bar(cx,-48,46,9,'ic fill',4); }
 /* seduta a CONTORNO CHIARO: per le postazioni con icone realistiche, così lo strumento sopra resta leggibile */
 function seatLight(cx){ return bar(cx,-22,46,46,'ic soft',9)+bar(cx,-48,46,9,'ic soft',4); }
+/* POLTRONA vista dall'alto (05/10, segnalazione «mi serve un uomo su una poltrona»): scocca imbottita
+   con schienale dietro e due braccioli, cuscino della seduta in mezzo. Larga oltre 1,4 m diventa un
+   divano: la seduta si divide in più cuscini, uno ogni ~60 cm. `chiara` = contorno chiaro come la
+   sedia delle voci (seatLight), perché la persona seduta sopra resti leggibile; scura = l'elemento
+   da solo, come la «Sedia» nera. cy = centro della poltrona (la persona seduta la porta indietro). */
+var POLTRONA = {w:85, d:85, bracciolo:15, schienale:18};
+var POLTRONA_CY = -3;   /* persona SEDUTA in poltrona (12/10): centro della poltrona 3 cm dietro il centro della figura — spalle sullo schienale, piedi appena oltre il bordo davanti (PERSONA_SEDUTA) */
+function poltronaGlyph(W, D, cy, chiara){
+  W=Math.max(50, +W||POLTRONA.w); D=Math.max(50, +D||POLTRONA.d); cy=cy||0;
+  var a=Math.min(POLTRONA.bracciolo, W*0.18), b=Math.min(POLTRONA.schienale, D*0.22);
+  /* scura: scocca nera, braccioli e schienale grigi, cuscino chiaro — il cuscino chiaro fra due rotoli
+     scuri è ciò che fa leggere «poltrona» e non «cassa nera» (provato nel browser il 05/10) */
+  var scocca=chiara?'ic soft':'ic fBlack', rotolo=chiara?'ic thin soft':'ic thin fGrey', cuscino=chiara?'ic thin':'ic thin soft';
+  var sx=W-2*a, sy=D-b-4, scy=cy-D/2+b+sy/2;   /* seduta: fra i braccioli, dallo schienale al bordo davanti */
+  var s=bar(0,cy,W,D,scocca,13)+
+    bar(-W/2+a/2, cy+2, a-4, D-10, rotolo, a/2)+   /* braccioli: rotoli sui fianchi */
+    bar( W/2-a/2, cy+2, a-4, D-10, rotolo, a/2)+
+    bar(0, cy-D/2+b/2+1, sx+6, b-5, rotolo, 5)+   /* schienale: cuscino dietro */
+    bar(0, scy, sx-2, sy, cuscino, 7);
+  var n=Math.max(1, Math.round(sx/60));
+  for(var i=1;i<n;i++){ var x=-sx/2+i*sx/n; s+=lin(x, scy-sy/2+3, x, scy+sy/2-3, 'ic thin'); }
+  return s;
+}
 /* SGABELLO SOTTO IL CHITARRISTA CLASSICO (05/10/2026, Simone: «chitarra classica con musicista seduto su
    sgabello»). Visto dall'alto: seduta tonda Ø36, anello poggiapiedi Ø41 e quattro gambe in diagonale che
    escono dall'anello. Tondo, gambe e anello sono ciò che lo separa a colpo d'occhio da una sedia (quadrata,
@@ -1078,6 +1142,12 @@ var TYPES = {
              draw:function(){ return bar(0,2,44,44,'ic fBlack',8)+bar(0,-20,44,8,'ic fill',4); }},
   sediapubblico:{nome:"Sedia pubblico", dim:"50×53 · 3,5 kg", cat:"Palco e strutture", w:50,d:53, z:1.5, defLabel:"Sedia",   /* sedia impilabile pubblico 50×53, alt. 77/seduta 46, 3,5 kg */
              draw:function(){ return bar(0,3,50,46,'ic fill',6)+bar(0,-20,50,9,'ic fill',4)+bar(0,3,42,38,'ic soft',5); }},
+  /* POLTRONA (05/10): arredo di scena per reading, interviste, talk, salotti. Si allarga e diventa un
+     divano (più cuscini). Chi ci sta SEDUTO non è questo elemento: è la voce con «Poltrona» acceso
+     (Persone › «Ospite in poltrona»), che ha microfono e canale come ogni voce. */
+  poltrona: {nome:"Poltrona", dim:"85×85", cat:"Palco e strutture", w:POLTRONA.w, d:POLTRONA.d, resizable:true, z:1.5, defLabel:"Poltrona",
+             alias:"poltrona poltrone divano divani sofa armchair lounge salotto intervista talk show reading lettura scenografia arredo",
+             draw:function(it){ it=it||{}; return poltronaGlyph(it.w, it.d, 0, false); }},
   /* platea (06/10/2026): file di sedie del pubblico in un elemento solo — vedi plateaCfg. NON sono sedie dei
      musicisti: non entrano nel conteggio «sedie» del rider (countAccessori, pdfTotals), solo nel peso. */
   platea:{nome:"Platea (file di sedie)", dim:"6 file × 10 sedie · 60 posti", cat:"Palco e strutture", w:550,d:540, resizable:true, z:1, defLabel:"Platea",
@@ -1377,17 +1447,17 @@ var TYPES = {
      microfono scelto dal pannello, stesso canale — ma nascono con il microfono delle conferenze. */
   relatore: {nome:"Relatore", dim:"conferenza", cat:"Persone e voci", w:70,d:90, voce:true, defLabel:"Relatore", micDef:"lavalier",
              alias:"relatore relatrice relatori speaker oratore oratrice presentatore presentatrice keynote conferenza convegno persona",
-             draw:function(it){ it=it||{}; return singer({micMode:micModeOf(it), leggio:it.leggio===true, donna:it.donna, sedia:it.sedia===true, type:"relatore"}); }},
+             draw:function(it){ it=it||{}; return singer({micMode:micModeOf(it), leggio:it.leggio===true, donna:it.donna, sedia:it.sedia===true, poltrona:it.poltrona===true, look:it.look, type:"relatore"}); }},
   moderatore: {nome:"Moderatore", dim:"conferenza, seduto", cat:"Persone e voci", w:70,d:90, voce:true, defLabel:"Moderatore", micDef:"mano", sediaDef:true,
              alias:"moderatore moderatrice conduttore conduttrice presentatore panel tavola rotonda conferenza convegno persona",
-             draw:function(it){ it=it||{}; return singer({micMode:micModeOf(it), leggio:it.leggio===true, donna:it.donna, sedia:it.sedia===true, type:"moderatore"}); }},
+             draw:function(it){ it=it||{}; return singer({micMode:micModeOf(it), leggio:it.leggio===true, donna:it.donna, sedia:it.sedia===true, poltrona:it.poltrona===true, look:it.look, type:"moderatore"}); }},
   cantante: {nome:"Cantante", dim:"voce", cat:"Persone e voci", w:70,d:90, voce:true, defLabel:"Voce", alias:"cantante cantanti solista soliste voce voci vocalist singer frontman frontwoman lead vocal backing vocal corista coriste coristi coro cori choir chorus cantore persona",
              draw:function(it){ return singer(it); }},
   /* Si chiama «Voce» perché è la figura generica della voce: il catalogo la offre come Uomo/Donna sotto
      la ricerca «voce/cantante/corista», e il pannello deve dire la stessa parola con cui l'hai trovata.
      Prima diceva «Corista» — che in italiano è il cantante di un coro, non il solista (audit 27/07). */
   corista:  {nome:"Voce", dim:"voce coro", cat:"Persone e voci", w:70,d:88, voce:true, defLabel:"", alias:"corista coriste coristi cantante cantanti solista soliste voce voci vocalist singer frontman frontwoman lead vocal backing vocal coro cori choir chorus cantore persona",
-             draw:function(it){ it=it||{}; return singer({micMode:micModeOf(it), leggio:it.leggio!==false, donna:it.donna, sedia:it.sedia===true, type:"corista"}); }},
+             draw:function(it){ it=it||{}; return singer({micMode:micModeOf(it), leggio:it.leggio!==false, donna:it.donna, sedia:it.sedia===true, poltrona:it.poltrona===true, look:it.look, type:"corista"}); }},
   /* --- Musicisti illustrati (top-down, dimensioni CALIBRATE dall utente 14/07/2026). Tipi TECNICI (mic/canali come i corrispettivi), in aggiunta agli schematici. --- */
   musViolino1: {catalog:false, nome:"Violino musicista", dim:"80×81", cat:"Orchestra", sub:"Archi", w:80,d:81, defLabel:"Vln I", draw:function(it){ return drawLibFit("musViolino1",it,80,81); }},
   musViolino2: {nome:"Violino II", dim:"81×82", cat:"Orchestra", sub:"Archi", catalog:false, w:81,d:82, defLabel:"Vln II", draw:function(it){ return drawLibFit("musViolino2",it,81,82); }},
@@ -6376,6 +6446,7 @@ function recalcItemDims(it){
     else { it.w=P.s[0]; it.d=P.s[1]; }
     return; }
   if(COMP[it.type] && COMP[it.type].size){ var sz=COMP[it.type].size(it); it.w=sz[0]; it.d=sz[1]; return; }
+  if(VOCE[it.type] && it.poltrona===true){ var vm=voceMisure(it); it.w=vm[0]; it.d=vm[1]; return; }   /* voce in poltrona (05/10) */
   if(it.type==="cantante"){ it.d = cantanteDepth(it); return; }
 }
 /* normalizza item "grezzi" (es. generati dall'AI): chiavi valide, dimensioni/parts di default, id garantito */
@@ -6390,7 +6461,7 @@ function sanitizeItems(arr){
     if(t.riser) it.h=(o.h!=null?+o.h:(t.h||40));
     else if(isCover(it) && o.h!=null) it.h=+o.h;   /* coperture: h opzionale (luce sotto); se assente = default coverH() */
     if(Object.prototype.hasOwnProperty.call(COMP,o.type)) it.parts=o.parts?compClone(o.parts):compClone(COMP[o.type].defParts);
-    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","podio","sgab","grp","distOf","distType","aggancia","dimSide","lblSize","plCh","dvsPro","dvsNet","dvsSr","dvsLat","ifaceId","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic","platea","fila","posto","settore"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });   /* platea: passi e corridoio, ripuliti poi da normalizeLoadedItems; fila/posto/settore: posti numerati */
+    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","podio","sgab","grp","distOf","distType","aggancia","dimSide","lblSize","plCh","dvsPro","dvsNet","dvsSr","dvsLat","ifaceId","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","poltrona","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic","platea","fila","posto","settore"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });   /* platea: passi e corridoio, ripuliti poi da normalizeLoadedItems; fila/posto/settore: posti numerati */
     postoSanifica(it);   /* posti numerati (06/10): tipi e lunghezze garantiti */
     if(it.type==="dimono"){   /* DI box: normalizza gli assi + footprint (migra il vecchio diLook del selettore) */
       if(it.diLook){ if(it.diLook==="stereo") it.diCh=it.diCh||"stereo"; else if(it.diLook==="rack") it.diCh=it.diCh||"multi"; else if(it.diLook==="attiva") it.diType=it.diType||"attiva"; else if(it.diLook==="schema") it.diSchema=true; delete it.diLook; }
@@ -13206,7 +13277,8 @@ function renderProps(){
     var _mm=document.getElementById("pMicMode"); if(_mm){ _mm.value = micModeOf(it); try{ _mm.dispatchEvent(new Event("chips-sync")); }catch(e){} }
     document.getElementById("pLeggioV").checked = it.leggio!==false;
     document.getElementById("pSediaVWrap").style.display = (it.type==="corista") ? "" : "none";   /* sedia solo per le voci — "" e non "block", che rompeva l'allineamento del toggle (audit 27/07) */
-    document.getElementById("pSediaV").checked = it.sedia===true;
+    document.getElementById("pSediaV").checked = it.sedia===true && it.poltrona!==true;
+    document.getElementById("pPoltronaV").checked = it.poltrona===true;   /* ogni voce può stare in poltrona (05/10) */
   }
   /* i toggle sedia/leggio/ampli/pedaliera valgono anche per la chitarra classica in aspetto
      schematico: usa lo stesso disegno dell'acustica, e senza i toggle quei flag sarebbero
@@ -13863,12 +13935,15 @@ document.getElementById("grpSep").addEventListener("input", function(){
 });
 document.getElementById("grpSep").addEventListener("change", function(){ grpSepApply(true); });
 document.getElementById("pDonna").addEventListener("change", function(){ var c=document.getElementById("pDonna").checked; mutSelAll(function(it){ it.donna=c; }); });
-document.getElementById("pMicMode").addEventListener("change", function(){ var v=this.value; mutSelAll(function(it){ it.micMode=v; delete it.mano; delete it.nomic; if(it.type==="cantante") it.d=cantanteDepth(it); }); __cabRes=null; render(); });
+document.getElementById("pMicMode").addEventListener("change", function(){ var v=this.value; mutSelAll(function(it){ it.micMode=v; delete it.mano; delete it.nomic; if(it.type==="cantante"||it.poltrona===true){ var vm=voceMisure(it); it.w=vm[0]; it.d=vm[1]; } }); __cabRes=null; render(); });
 document.getElementById("pLeggioV").addEventListener("change", function(){ mutSel(function(it){
   it.leggio=document.getElementById("pLeggioV").checked;
-  if(it.type==="cantante") it.d = cantanteDepth(it);   /* footprint = figura + mic in scala */
+  if(it.type==="cantante"||it.poltrona===true){ var vm=voceMisure(it); it.w=vm[0]; it.d=vm[1]; }   /* footprint = figura + mic in scala (+ poltrona) */
 }); });
-document.getElementById("pSediaV").addEventListener("change", function(){ mutSel(function(it){ it.sedia=document.getElementById("pSediaV").checked; }); });
+document.getElementById("pSediaV").addEventListener("change", function(){ mutSel(function(it){ it.sedia=document.getElementById("pSediaV").checked;
+  if(it.sedia && it.poltrona===true) voceInPoltrona(it, false); }); });   /* sedia o poltrona: una sola seduta */
+document.getElementById("pPoltronaV").addEventListener("change", function(){ var on=document.getElementById("pPoltronaV").checked;
+  mutSelAll(function(it){ if(VOCE[it.type]) voceInPoltrona(it, on); }); });
 function gtrApply(it){ var sz=gtrSize(it, TYPES[it.type]); it.w=sz[0]; it.d=sz[1]; }
 document.getElementById("pSeduta").addEventListener("change", function(){ var v=this.value; mutSel(function(it){ chitClImpostaSeduta(it, v); }); renderProps(); });
 document.getElementById("pGtrSedia").addEventListener("change", function(){ mutSel(function(it){ it.sedia=document.getElementById("pGtrSedia").checked; gtrApply(it); }); });
@@ -15279,7 +15354,7 @@ function ricordaRecenteCatalogo(k, nome, over){
       /* — gruppi strutture — */
       [["Accessi",             ["scala","rampa","parapetto"]],
        ["Scenografia",         ["fondale","quinta","tappeto"]],
-       ["Arredo e leggii",     ["leggiotablet","tavolo","sediabianca","sedia","sedialeggio","sediapubblico","platea","leggio","podio","podiosp","sgabello"]],   /* sediapubblico (05/10): esisteva ma non era in nessun gruppo, e la platea si faceva con 60 sedie bianche */
+       ["Arredo e leggii",     ["leggiotablet","tavolo","sediabianca","sedia","sedialeggio","sediapubblico","platea","poltrona","leggio","podio","podiosp","sgabello"]],   /* sediapubblico (05/10): esisteva ma non era in nessun gruppo, e la platea si faceva con 60 sedie bianche */
        ["Accessori",           ["ventilatore"]]
       ].forEach(function(g){
         g[1].filter(function(k){ return TYPES[k] && TYPES[k].catalog!==false; }).forEach(function(k){
@@ -15330,6 +15405,17 @@ function ricordaRecenteCatalogo(k, nome, over){
         body.appendChild(makeBtn(k, TYPES[k].nome, null, TYPES[k].dim)); n++;
         entries.push({k:k, nome:TYPES[k].nome, dim:TYPES[k].dim, kw:TYPES[k].alias});
       });
+      /* OSPITE IN POLTRONA (05/10, segnalazione «mi serve un uomo su una poltrona»): non un tipo nuovo ma la
+         Voce con «Poltrona» acceso — stessa figura, microfono dal pannello, canale, Uomo/Donna. Lavalier di
+         serie: seduto, legge o parla con le mani libere. La ricerca è a sottostringa sulla frase intera:
+         le coppie di parole che si cercano davvero («uomo poltrona», «ospite seduto») stanno scritte così. */
+      var polU={donna:false, micMode:"lavalier", leggio:false, poltrona:true, label:"Ospite"}, polM=voceMisure({type:"corista", poltrona:true});
+      polU.w=polM[0]; polU.d=polM[1];   /* l'anteprima del bottone inquadra anche la poltrona */
+      body.appendChild(makeBtn("corista","Ospite in poltrona", polU, "seduto · voce")); n++;
+      entries.push({k:"corista", nome:"Ospite in poltrona", over:polU, dim:"seduto · voce",
+        kw:"poltrona uomo poltrona uomo in poltrona donna poltrona donna in poltrona persona poltrona persona seduta ospite seduto ospite seduta "+
+           "ospiti attore seduto attore poltrona attrice attore attrice intervista intervistato talk show salotto reading lettura guest",
+        qaCede:TYPES.corista.alias});   /* «voce», «cantante», «corista»… restano di Uomo/Donna in piedi: questa voce le eredita dal tipo ma le cede */
     }
     if(c==="Audio"){   /* varianti stage box (i LAYER audio calcolati sono in "Layer tecnici") */
       [[8,"8 canali"],[16,"16 canali"],[24,"24 canali"]].forEach(function(v){
@@ -15745,6 +15831,7 @@ function addItem(type, over, silenzioso){   /* silenzioso (06/10/2026): crea e m
   if(isAreaNome(it) && !(over && over.fill)) it.fill=areaFreeColor();   /* anche ogni AREA (06/10/2026): due zone accanto non hanno lo stesso colore */
   if(cabIsBox(it)) sbAutoSize(it);   /* misure dai canali (ch/outCh arrivano da over): subito, non al prossimo caricamento */
   if(it.type==="cantante") it.d=cantanteDepth(it);   /* footprint coerente col mic scelto (over può impostare micMode) */
+  if(VOCE[it.type] && it.poltrona===true) voceInPoltrona(it, true);   /* «Ospite in poltrona» dal catalogo: niente sedia, ingombro della poltrona */
   if(!(over && over.x!=null)){   /* posizione non esplicita (no drag-drop) → cerca uno spazio libero, nome compreso */
     var fs=findFreeSpotFor(it, it.x, it.y); it.x=fs.x; it.y=fs.y;
   }
@@ -18552,7 +18639,7 @@ function placeOut(out, fitStage, clearFirst, force){
     if(t.riser) it.h=(o.h!=null?o.h:(t.h||40));
     else if(isCover(it) && o.h!=null) it.h=+o.h;   /* coperture: h opzionale (luce sotto) */
     if(o.parts){ it.parts=compClone(o.parts); if(COMP[o.type] && COMP[o.type].size){ var cz=COMP[o.type].size(it); it.w=cz[0]; it.d=cz[1]; } }
-    ["donna","hair","mano","leggio","sedia","doppia","sep","ampli","pedaliera","vsec","label2","podio","nomic","micMode","hw","ch","outCh","dimSide","rfChi"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });   /* flag opzionali dal generatore (hw/ch/outCh = capacità stage box; dimSide = lato della misura pedana) */
+    ["donna","hair","mano","leggio","sedia","doppia","sep","ampli","pedaliera","vsec","label2","podio","nomic","micMode","hw","ch","outCh","dimSide","rfChi","poltrona"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });   /* flag opzionali dal generatore (hw/ch/outCh = capacità stage box; dimSide = lato della misura pedana) */
     return it;
   });
   if(!clearFirst && state.items.length) avoidGroupOverlap(news);   /* non sovrapporsi a ciò che è già sul palco */
@@ -21347,7 +21434,7 @@ function standNeeds(){
 }
 function standTotal(n){ var t=0; STAND_KINDS.forEach(function(k){ if(k[0]!=="clip"&&k[0]!=="headset"&&k[0]!=="terra") t+=n[k[0]].tot; }); return t; }   /* "aste" vere: clip e headset non lo sono */
 function countAccessori(){
-  var sedie=0, leggii=0, sgabelli=0, hearbacks=0;
+  var sedie=0, leggii=0, sgabelli=0, hearbacks=0, poltrone=poltroneDi(state.items);
   state.items.forEach(function(it){
     var t=TYPES[it.type]; if(!t) return;
     var isDouble = it.doppia===true || !!DOUBLE_TYPES[it.type];
@@ -21356,7 +21443,7 @@ function countAccessori(){
     // sedie
     if(it.type==="sedia"||it.type==="sediabianca"||it.type==="sedialeggio") sedie++;
     else if(POSTAZ[it.type] && it.sedia!==false && !isStool) sedie+=mult;
-    else if(VOCE[it.type] && it.sedia===true) sedie++;
+    else if(VOCE[it.type] && it.sedia===true && it.poltrona!==true) sedie++;   /* in poltrona: conta fra le poltrone */
     else if(t.gtr && it.sedia===true) sedie++;
     // leggii
     if(it.type==="leggio"||it.type==="sedialeggio") leggii++;
@@ -21375,7 +21462,12 @@ function countAccessori(){
     // hearback
     if(it.type==="hearback") hearbacks++;
   });
-  return {sedie:sedie, leggii:leggii, sgabelli:sgabelli, hearbacks:hearbacks};
+  return {sedie:sedie, leggii:leggii, sgabelli:sgabelli, hearbacks:hearbacks, poltrone:poltrone};
+}
+/* Le poltrone da portare: quelle vuote (anche allargate a divano: una per elemento) e quelle con una
+   voce seduta sopra. Sono arredo di scena, non sedie: chi allestisce le cerca altrove (05/10). */
+function poltroneDi(items){
+  var n=0; (items||[]).forEach(function(it){ if(it && (it.type==="poltrona" || (VOCE[it.type] && it.poltrona===true))) n++; }); return n;
 }
 /* ===== LAYER MANAGER — governa visibilità/opacità/blocco/rimozione dei layer tecnici =====
    Registro estensibile = fonte unica (colori formalizzati). Compare a destra solo se ≥1 layer attivo. */
@@ -24812,6 +24904,7 @@ function renderInspectorB(){
       }
     }catch(_e){}
     if(c.sedie)     s+=ir("Sedie", c.sedie);
+    if(c.poltrone)  s+=ir("Poltrone", c.poltrone);
     if(c.leggii)    s+=ir("Leggii", c.leggii);
     if(c.sgabelli)  s+=ir("Sgabelli", c.sgabelli);
     if(c.hearbacks) s+=ir("Hearback", c.hearbacks);
@@ -28252,7 +28345,7 @@ function pdfTotals(opts){
   it.forEach(function(x){
     if(x.type==="sedia"||x.type==="sediabianca"||x.type==="sedialeggio"){ sedie++; return; }
     if(!isPost(x) && !VOCE[x.type] && !(TYPES[x.type]&&TYPES[x.type].gtr)) return;
-    if(optSedia(x)!==true) return;
+    if(optSedia(x)!==true || x.poltrona===true) return;   /* in poltrona: si conta sotto, fra le poltrone */
     if(STOOL_POSTAZ[x.type]!=null) return;   /* il contrabbasso sta su uno sgabello: si conta sotto, col suo tipo */
     sedie += (x.doppia===true || DOUBLE_TYPES[x.type]) ? 2 : 1;
   });
@@ -28263,6 +28356,7 @@ function pdfTotals(opts){
   if(canali && tecn) out.push(canali+" canali");
   if(leggii) out.push(leggii+(leggii===1?" leggio":" leggii"));
   if(sedie)  out.push(sedie+(sedie===1?" seduta":" sedute"));
+  var poltr=poltroneDi(it); if(poltr) out.push(poltr+(poltr===1?" poltrona":" poltrone"));
   sgabelliTesto(it).forEach(function(t){ out.push(t); });   /* quali sgabelli, non solo quanti (16/09) */
   if(pm)     out.push(pm+" personal mixer"+(hub?" ("+hub+(hub===1?" hub)":" hub)"):""));
   if(wedge)  out.push(wedge+(wedge===1?" spia":" spie"));
