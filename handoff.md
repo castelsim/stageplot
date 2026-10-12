@@ -1,3 +1,19 @@
+# 12/10/2026 pomeriggio — Catalogo da Thomann, decisioni di Simone: 2 ampli da palco, modello in Backline, fonte dei W in Lista carichi (ramo `catalogo-thomann`, NON unito, niente PR)
+
+- **AMP_DB +2** (21 righe del pilota): `boss_katana100g3` (77 W, 100 W out, 14,8 kg, 530×248×445, p.19) e `ampeg_rb210`
+  (600 W max, 250 W out, 17,7 kg circa, 513×354×654, p.10), dagli stessi PDF di Katana-50 Gen 3 e RB-115, riletti con
+  pdftotext. Harley Benton restano. Regola scritta in DATI_TARGA.md §3: **assorbimento = massimo dichiarato**.
+- **`backlineName(it)`** (nuova, usata da `backlineList` → PDF, anteprima Esporta, link condiviso): con `it.bm` scrive
+  «Etichetta — Marca Modello»; senza etichetta «Marca Modello»; testata/modulo «Tipo — Marca Modello (ruolo)»; se
+  l'etichetta nomina già il modello (sigla con cifre o nome intero, senza maiuscole/spazi/trattini) resta sola.
+  ⚠ Gli elementi nascono con un'etichetta («Ampli basso 1»), quindi nell'uso vero esce quasi sempre «Ampli basso 1 —
+  Ampeg RB-115 Rocket Bass». Il PDF Backline ora manda a capo la colonna Attrezzatura (`splitTextToSize`).
+- **Lista carichi del PDF**: accanto ai W «targa» / «stima» / «indicato» (`wattFonteBreve`, da `wattFonte`; «dichiarato»
+  = scritto a mano diventa «indicato», per non confonderlo col costruttore) + legenda `WATT_FONTE_LEGENDA` con le sole
+  parole usate. Nell'anteprima/link condiviso colonna «Fonte W». `loadName` NON cambiato (il modello lì non compare).
+- Test: 3 nuovi + 2 righe in `PILOTA_THOMANN` + `PILOTA_PAGINE`; 17 mutazioni rosse. engines 1425/1425, collaudo 30/30
+  invariato, biglietteria 148/148, `build --check` verde. Anteprime (porta 8993) in `CATALOGO_THOMANN/anteprime/`.
+
 # 12/10/2026 — Catalogo da Thomann, pilota: 18 modelli nuovi in AMP_DB e le MISURE in pianta (ramo `catalogo-thomann`, NON unito, niente PR)
 
 - Thomann ha scelto QUALI modelli (più venduti di stage piano, combo chitarra, combo basso); i numeri vengono solo dai PDF dei costruttori,
