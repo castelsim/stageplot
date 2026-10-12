@@ -4,6 +4,7 @@ function esc(s: string | null | undefined): string {
 
 const PRODUCT_LABEL: Record<string, string> = {
   "pro-review": "Consulenza Tecnica",
+  "rider-pronto": "Rider pronto",
   "production-pack": "Produzione Tecnica Completa",
 };
 
