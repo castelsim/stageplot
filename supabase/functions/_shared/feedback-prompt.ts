@@ -1,6 +1,31 @@
 import type { FeedbackInput } from "./feedback-validation.ts";
 
-const HINT_LABEL: Record<string, string> = { bug: "Bug", missing: "Manca qualcosa", idea: "Idea" };
+const HINT_LABEL: Record<string, string> = {
+  bug: "Bug", missing: "Manca qualcosa", idea: "Idea",
+  elemento: "Elemento da rivedere",   // dall'editor «Crea elemento» (13/10/2026), non dalle chip
+};
+/* il nome del tipo; uno che il server non conosce (o non più) non diventa «undefined» nella mail */
+const etichetta = (h: string | null, vuoto: string) => h ? (HINT_LABEL[h] ?? h) : vuoto;
+
+/* la scheda dell'elemento inviato per revisione (già passata da elementoPulito), in righe da leggere */
+function righeElemento(f: FeedbackInput): string[] {
+  const e = (f.tech_context as Record<string, unknown>).elemento as Record<string, unknown> | undefined;
+  if (f.hint !== "elemento" || !e) return [];
+  const ins = e.ins as { n: number; tipo: string } | null;
+  const membri = Array.isArray(e.membri) ? e.membri as string[] : [];
+  return [
+    ``,
+    `Elemento inviato per revisione:`,
+    `- Nome: ${e.nome}`,
+    `- Misure: ${e.w ?? "?"} × ${e.d ?? "?"} cm`,
+    `- Descrizione: ${e.desc || "nessuna"}`,
+    `- Potenza: ${e.watt != null ? e.watt + " W" : "non indicata"}`,
+    `- Ingressi: ${ins ? ins.n + " " + ins.tipo : "nessuno"} · backline: ${e.backline ? "sì" : "no"}`,
+    `- Forme disegnate: ${e.forme ?? "?"} · elementi del catalogo dentro: ${membri.length ? membri.join(", ") : "nessuno"}`,
+    `- JSON dell'elemento: ${(f.tech_context as Record<string, unknown>).elemento_json ? "sì (tech_context.elemento_json)" : "no"}`,
+    `- Anteprima del disegno: ${f.screenshot ? "sì, allegata" : "no"}`,
+  ];
+}
 
 export function buildFeedbackPrompt(f: FeedbackInput): string {
   const tc = f.tech_context as Record<string, unknown>;
@@ -9,7 +34,8 @@ export function buildFeedbackPrompt(f: FeedbackInput): string {
   return [
     `Un utente di StagePlot ha segnalato: "${f.message}"`,
     ``,
-    `Segnale utente (chip): ${f.hint ? HINT_LABEL[f.hint] : "nessuno"}`,
+    `Segnale utente (chip): ${etichetta(f.hint, "nessuno")}`,
+    ...righeElemento(f),
     ``,
     `Contesto tecnico:`,
     `- Browser/OS/device: ${m.user_agent ?? "n/d"}`,
@@ -30,10 +56,10 @@ export function buildFeedbackPrompt(f: FeedbackInput): string {
 }
 
 export function buildFeedbackEmail(f: FeedbackInput): { subject: string; html: string } {
-  const chip = f.hint ? HINT_LABEL[f.hint] : "Feedback";
-  const short = f.message.length > 50 ? f.message.slice(0, 50) + "…" : f.message;
-  const subject = `[StagePlot feedback] ${chip} — ${short}`;
   const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const chip = esc(etichetta(f.hint, "Feedback"));
+  const short = f.message.length > 50 ? f.message.slice(0, 50) + "…" : f.message;
+  const subject = `[StagePlot feedback] ${etichetta(f.hint, "Feedback")} — ${short}`;
   const prompt = buildFeedbackPrompt(f);
   const html = [
     `<h2>Nuovo feedback StagePlot</h2>`,
@@ -42,7 +68,7 @@ export function buildFeedbackEmail(f: FeedbackInput): { subject: string; html: s
     // La schermata è ALLEGATA a questa mail: prima non era nominata da nessuna parte e sembrava
     // persa, mentre era nel bucket. Chi legge deve vederla senza andarla a cercare.
     f.screenshot
-      ? `<p><strong>📎 Schermata allegata a questa email</strong> — il ritaglio del punto segnalato.</p>`
+      ? `<p><strong>📎 Schermata allegata a questa email</strong> — ${f.hint === "elemento" ? "l'anteprima del disegno dell'elemento" : "il ritaglio del punto segnalato"}.</p>`
       : `<p style="color:#64748b">Nessuna schermata allegata.</p>`,
     `<hr>`,
     `<p><strong>Prompt Claude pronto (copia e incolla):</strong></p>`,

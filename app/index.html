@@ -4819,7 +4819,9 @@ body.cust-editor.m-has-sel #custScheda{border-top:1px solid var(--border);paddin
       <div class="cust-pan-btns">
         <button class="btn" id="pCustModifica" type="button" title="Riapre l'editor su questa copia: le altre non cambiano">Modifica elemento</button>
         <button class="btn" id="pCustModello" type="button">Salva come modello</button>
+        <button class="btn" id="pCustInvia" type="button" hidden title="Lo mandi a StagePlot: se entra nel catalogo, te lo scriviamo nell'app">Invia per revisione</button>
       </div>
+      <p class="prop-hint cust-pan-rev" id="pCustRev" hidden></p>
       <p class="prop-hint" id="pCustModelloHint"></p>
     </div>
     <div id="pRackWrap" style="display:none">
@@ -4858,7 +4860,9 @@ body.cust-editor.m-has-sel #custScheda{border-top:1px solid var(--border);paddin
       <div class="cust-pan-btns">
         <button class="btn" id="grpCustModifica" type="button" title="Riapre l'editor su questa copia: le altre non cambiano">Modifica elemento</button>
         <button class="btn" id="grpCustModello" type="button">Salva come modello</button>
+        <button class="btn" id="grpCustInvia" type="button" hidden title="Lo mandi a StagePlot: se entra nel catalogo, te lo scriviamo nell'app">Invia per revisione</button>
       </div>
+      <p class="prop-hint cust-pan-rev" id="grpCustRev" hidden></p>
       <p class="prop-hint" id="grpCustModelloHint"></p>
     </div>
     <button type="button" class="btn solo-ped" id="grpSoloPed" style="display:none" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg><span>Solo pedane</span></button>
