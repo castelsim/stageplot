@@ -11272,7 +11272,14 @@ t("il percussionista è IN PIEDI; con lo sgabello acceso è seduto", () => {
 t("icone: il percussionista in piedi è la persona di musPercussioni, senza tamburi", () => {
   const L = iconeVere(), o = L.musPercussioni, s = L.percussionistaInPiedi;
   ok(s && s.body, "manca percussionistaInPiedi in icons.js");
-  [99, 70, 103, 89, 17, 157, 40].forEach((n) => ok(s.body.indexOf('class="musPercussioni_cls-' + n + '"') > -1, "manca il pezzo della persona cls-" + n));
+  [99, 70, 103, 89].forEach((n) => ok(s.body.indexOf('class="musPercussioni_cls-' + n + '"') > -1, "manca il pezzo della persona cls-" + n));
+  /* testa e piedi rifatti (13/10): via il viso visto di fronte (17), le sopracciglia (155, 39), le orecchie (130, 112)
+     e le scarpe tagliate dalle congas (157, 40); al loro posto la calotta vista dall'alto e le scarpe intere */
+  [17, 155, 39, 130, 112, 157, 40].forEach((n) => ok(s.body.indexOf('class="musPercussioni_cls-' + n + '"') < 0, "è rimasto il pezzo vecchio cls-" + n));
+  ok(s.body.indexOf('class="perc-testa"') > -1 && s.body.indexOf('class="perc-piedi"') > -1, "la testa vista dall'alto e le scarpe intere");
+  ok(s.body.indexOf('class="perc-piedi"') < s.body.indexOf('class="musPercussioni_cls-70"'), "le scarpe sotto i pantaloni (escono dai risvolti)");
+  ok(s.body.lastIndexOf('class="musPercussioni_cls-99"') < s.body.indexOf('class="perc-testa"'), "la testa sopra la camicia");
+  ok(!/rgb\(|NaN|undefined/.test(s.body) && (s.body.match(/<style/g) || []).length === (o.body.match(/<style/g) || []).length, "colori hex, nessun <style> nuovo, nessun NaN");
   /* via: pelle delle congas (152), fusti gialli (44, 182, 167), campanaccio (119), contorno che avvolge tutto (85) */
   [152, 44, 182, 167, 119, 85].forEach((n) => {
     ok(o.body.indexOf('class="musPercussioni_cls-' + n + '"') > -1, "l'originale ha il pezzo " + n);
