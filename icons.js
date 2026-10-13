@@ -91,5 +91,25 @@ Object.assign(window.LIB_ICONS, {
   window.LIB_ICONS.voceSeduta=variante({30:"#3c4a5c", 10:"#5d6570", 27:"#5d6570"}, null);
   window.LIB_ICONS.voceSedutaDonna=variante({30:"#2f2b33", 10:"#2f2b33", 27:"#2f2b33", 34:"#3a2a24"}, "#6b4a36");
 })(window.LIB_ICONS.musClarinetto);
+/* --- Percussionista IN PIEDI (13/10/2026, Simone: «il percussionista di solito è in piedi»).
+   Non e' un disegno nuovo: e' la persona di musPercussioni (la vecchia illustrazione del set, quella in piedi
+   dietro congas e bongos) senza gli strumenti. Si tengono camicia con le braccia, pantaloni, mani, viso,
+   orecchie, sopracciglia e scarpe. Il contorno nero dell'originale (cls-85) avvolge anche i tamburi, quindi
+   qui si rifa' con un tratto nero SOTTO ogni pezzo (stesso colore, 7 unita'); i capelli, che nell'originale
+   sono dentro il contorno, sono un'ellisse nera. Niente <mask>: il PDF passa da svg2pdf 2.2.3.
+   Il riquadro (vb) e' centrato sull'asse della testa, non sull'ingombro: la mano destra sporge verso i bongos. --- */
+(function(L){ if(!L) return;
+  var TIENI={99:1, 70:1, 103:1, 89:1, 17:1, 157:1, 40:1, 130:1, 112:1, 155:1, 39:1};   /* camicia, pantaloni, mani, viso, scarpe, orecchie, sopracciglia */
+  var sotto='', sopra='';
+  L.body.replace(/<path class="musPercussioni_cls-(\d+)"([^>]*?)\s*\/>/g, function(t, n, resto){
+    if(!TIENI[n]) return t;
+    sotto+='<path'+resto+' style="fill:#0a0b0b;stroke:#0a0b0b;stroke-width:7;stroke-linejoin:round"/>';
+    sopra+=t; return t;
+  });
+  var scala=(L.body.match(/^<g transform="scale\(([\d.]+)\)">/)||[])[1]||"0.35616";
+  var defs=(L.body.match(/<defs>[\s\S]*?<\/defs>/)||[""])[0];
+  var capelli='<ellipse cx="231" cy="50" rx="29" ry="27" style="fill:#0a0b0b"/>';
+  window.LIB_ICONS.percussionistaInPiedi={vb:[27.6, 6.2, 109.4, 68.1], body:'<g transform="scale('+scala+')">'+defs+sotto+capelli+sopra+'</g>'};
+})(window.LIB_ICONS.musPercussioni);
 if (window.__onIconsReady) window.__onIconsReady();
 if(window.LIB_ICONS && window.LIB_ICONS.musTrombone) window.LIB_ICONS.musTromboneBasso={vb:window.LIB_ICONS.musTrombone.vb,body:window.LIB_ICONS.musTrombone.body};   /* dedup: body identico a musTrombone (solo prefisso id diverso) */

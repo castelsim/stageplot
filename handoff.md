@@ -1,3 +1,17 @@
+# 13/10/2026 (2) — Percussionista IN PIEDI e postazione ridisegnata (ramo `percussionista`, dopo #290)
+
+- Simone: «gli strumenti devono essere posizionati meglio e il percussionista di solito è in piedi».
+- **Figura in piedi**: `LIB_ICONS.percussionistaInPiedi` (blocco in fondo a icons.js) = la persona di `musPercussioni`
+  senza strumenti (classi 99, 70, 103, 89, 17, 157, 40, 130, 112, 155, 39); contorno rifatto con un tratto nero
+  (7 unità) SOTTO ogni pezzo, capelli = ellisse nera; vb centrato sull'asse della testa. `percFigura(seduto)`:
+  in piedi di serie, seduta (batteristaPersona) con lo sgabello acceso. `percussionistaR` col campo `inPiedi`.
+- **Disposizione** (`percSlots`, ricalcata su musPercussioni): chi suona in `PERC_CHI` (0,−42); congas ad arco a
+  `PERC_ARCO` 60 cm (angoli in `PERC_ANGOLI`); bongos a destra (x<0) con il campanaccio montato davanti sullo
+  stesso stativo; tavolo dietro a destra per lungo (rot 90); piatto avanti a sinistra; chimes di fianco a sinistra
+  (rot 270: treppiede verso fuori). Anche i set salvati prendono la disposizione nuova (stessi pezzi, misura nuova).
+- Test: 4 nuovi + 3 adattati; 6 mutazioni rosse (anche su icons.js). engines 1439/1439, collaudo 30/30,
+  orchestre 124/124, `build --check`.
+
 # 13/10/2026 — Postazione del percussionista + leggio della tastiera dal lato giusto e sgabello a scelta (ramo `percussionista`, PR da unire)
 
 - **Percussionista** (Simone: «un percussionista con conga, bongo, chimes, le cose da percussionista»): il componibile
