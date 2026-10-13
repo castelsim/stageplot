@@ -7497,6 +7497,33 @@ t("agglomerato: gli elementi veri dentro contano da soli", () => {
   eq(righe.length, 2, "due voci = due righe, come posate una a una");
 });
 
+t("modelli del progetto: si posano copie indipendenti, e il campo esiste solo se serve", () => {
+  reset();
+  const _cmPrima = A.state.customModels;   /* reset() non lo conosce: lo ripristino a fine prova */
+  try {
+    const base = add("custom", 400, 400, { w: 200, d: 100, cust: { nome: "Batteria teatro", shapes: [{ k: "rect", x: 0, y: 0, w: 200, h: 100, stroke: "#000000", sw: 1 }] } });
+    A.custNorm(base);
+    const mic = add("cantante", 450, 420); base.grp = mic.grp = "gB";
+    const m = A.custModelDaAgglomerato(base);
+    eq(m.membri.length, 1, "un membro");
+    eq([m.membri[0].dx, m.membri[0].dy], [50, 20], "posizione relativa al centro");
+    A.state.customModels = [m];
+    const nuovi = A.custPosaModello(m.id, 800, 400);
+    eq(nuovi.length, 2, "base + membro");
+    ok(nuovi.every(x => x.grp && x.grp !== "gB"), "gruppo nuovo");
+    ok(nuovi.every(x => x.id !== base.id && x.id !== mic.id), "id nuovi");
+    eq([nuovi[1].x, nuovi[1].y], [850, 420], "membro al posto giusto");
+    nuovi[0].cust.nome = "Cambiata";
+    eq(base.cust.nome, "Batteria teatro", "le copie sono indipendenti");
+    const s = A.normalizeState({ _v: 5, stage: { w: 1200, d: 800 }, items: [], customModels: [] });
+    eq("customModels" in s, false, "vuoto = assente (impronta del PDF invariata)");
+    const s2 = A.normalizeState({ _v: 5, stage: { w: 1200, d: 800 }, items: [], customModels: [{ id: "<x>", nome: 5 }, "boh"] });
+    eq("customModels" in s2, false, "modelli non validi scartati");
+  } finally {
+    if (_cmPrima === undefined) delete A.state.customModels; else A.state.customModels = _cmPrima;
+  }
+});
+
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");
