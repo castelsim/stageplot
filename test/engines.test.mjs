@@ -3026,8 +3026,15 @@ t("lifecycle cloud: snapshot immutabile, revision guard e cambio progetto fail-c
     autosaveFlow.includes('setDocState("conflict")') &&
     autosaveFlow.includes("resolveCloudFlush(false)"),
   "una planimetria locale mancante non può propagare venue_image=null al cloud");
-  ok(/beforeunload",function\(e\)\{[\s\S]{0,900}?if\(!window\.__localConflict && !window\.__localStorageUnavailable && !window\.__docLoadBlocked\) return;/.test(appjs),
-    "gli edit sospesi attivano l'avviso di uscita: conflitto multi-tab, archivio pieno E documento incompatibile (tutti e tre lasciano il lavoro in sola memoria)");
+  /* la guardia è una funzione (uscitaDaChiedere, 13/10): si prova il comportamento, del gestore si guarda solo che la usi */
+  ok(/beforeunload",function\(e\)\{[\s\S]{0,1200}?if\(!uscitaDaChiedere\(\)\) return;/.test(appjs), "il gestore di uscita usa la guardia");
+  {
+    const fl = ["__localConflict", "__localStorageUnavailable", "__docLoadBlocked"], had = fl.map((k) => [Object.prototype.hasOwnProperty.call(A, k), A[k]]);
+    try {
+      fl.forEach((k) => { fl.forEach((j) => { A[j] = false; }); A[k] = true;
+        eq(A.uscitaDaChiedere(), true, "gli edit sospesi attivano l'avviso di uscita (" + k + ": il lavoro resta in sola memoria)"); });
+    } finally { fl.forEach((k, i) => { if (had[i][0]) A[k] = had[i][1]; else delete A[k]; }); }
+  }
   const openFlow = appjs.slice(appjs.indexOf("function openProject"), appjs.indexOf("function dupProject"));
   ok(openFlow.includes("window.flushCloudAutosave(function(ok)"), "il cambio progetto attende il flush");
   ok(openFlow.includes("window.__cloudNeedsFlush()"), "gli edit durante la lettura remota bloccano il commit");
@@ -7649,10 +7656,17 @@ t("palco temporaneo: Salva rimette tutto al suo posto, raggruppato, con le forme
 
 t("palco temporaneo: con l'editor aperto variante, Nuovo, Apri ed export non toccano il progetto", () => conEditor(() => {
   reset();
+  add("cantante", 350, 330); A.save();
+  const docVero = A.docToJSON(), varPrima = A.activeVar, dirtyPrima = A._cloudDirty;
   A.custEditorApri({ x: 0, y: 0, w: 100, d: 100 }, { includi: false });
-  ok(/custEditorAttivo\(\)\)\s*return/.test(String(A.switchVariant)), "switchVariant bloccato");
-  ok(/custEditorAttivo\(\)/.test(String(A.importProject)), "importProject bloccato");
-  ok(/__custEditor/.test(String(A.scheduleCloudAutosave)), "autosave cloud sospeso");
+  /* il comportamento, non il testo delle funzioni (revisione finale, M7) */
+  A.switchVariant("altra");
+  eq(A.activeVar, varPrima, "switchVariant bloccato: la scena resta quella");
+  let importato = true; try { A.importProject(docVero); } catch (e) { importato = false; }
+  ok(A.custEditorAttivo() && [A.state.stage.w, A.state.stage.d].join() === "100,100", "importProject bloccato: l'editor e il palco temporaneo restano" + (importato ? "" : " (rifiutato con un errore)"));
+  A._cloudDirty = false; A.scheduleCloudAutosave();
+  eq(A._cloudDirty, false, "autosave cloud sospeso: non si arma");
+  A._cloudDirty = dirtyPrima;
   A.custEditorAnnulla();
 }));
 
@@ -7799,6 +7813,11 @@ t("palco temporaneo: Annulla/Ripeti nell'editor non toccano le scene vere attrav
   const prima = A.docToJSON(), scenaPrima = A.adattaScena;
   ok(A.custEditorApri({ x: 300, y: 300, w: 120, d: 80 }, {}), "aperto");
   eq([A.adattaScena, A.adattaRifai, A.adattaPasso], [null, null, null], "lo stato di «Adatta» è messo da parte");
+  /* difesa doppia, provata (M7): anche se lo stato di «Adatta» fosse ancora lì, la funzione si ferma con l'editor aperto */
+  A.adattaScena = scenaPrima;
+  ok(!A.adattaAnnullaScena(), "adattaAnnullaScena si ferma");
+  eq(A.VARIANTS.length, 2, "e non toglie la scena");
+  A.adattaScena = null;
   A.state.items.push(formaProva(20, 20)); A.save();
   A.undo();
   eq(A.VARIANTS.length, 2, "nessuna scena tolta");
@@ -7816,13 +7835,16 @@ t("palco temporaneo: Annulla/Ripeti nell'editor non toccano le scene vere attrav
   const prima2 = A.docToJSON(), rifaiPrima = A.adattaRifai;
   ok(A.custEditorApri({ x: 300, y: 300, w: 120, d: 80 }, {}), "aperto");
   eq(A.ripetiDisponibile(), false, "nell'editor Ripeti non è disponibile");
+  A.adattaRifai = rifaiPrima;   /* difesa doppia (M7): con lo stato di «Adatta» ancora lì */
+  eq(A.ripetiDisponibile(), false, "ripetiDisponibile si ferma");
+  ok(!A.adattaRifaiScena(), "adattaRifaiScena si ferma");
+  eq(A.VARIANTS.length, 1, "e non rimette la scena");
+  A.adattaRifai = null;
   A.redo();
   eq(A.VARIANTS.length, 1, "nessuna scena rimessa");
   A.custEditorAnnulla();
   eq(canonDoc(A.docToJSON()), canonDoc(prima2), "progetto identico");
   ok(A.adattaRifai === rifaiPrima && A.ripetiDisponibile(), "e Ripeti di «Adatta» torna com'era");
-  ok(/custEditorAttivo\(\)/.test(String(A.adattaAnnullaScena)) && /custEditorAttivo\(\)/.test(String(A.adattaRifaiScena))
-    && /custEditorAttivo\(\)/.test(String(A.ripetiDisponibile)), "difesa doppia: le tre funzioni si fermano con l'editor aperto");
 }));
 
 t("palco temporaneo: dopo Salva gli id restano unici (gli elementi nati nell'editor hanno id alti)", () => conEditor(() => {
@@ -8143,9 +8165,35 @@ t("crea elemento: pastiglia di salvataggio, interruttore «Un canale solo» e sc
   ok(/var zn=\(isAudioSource\(it\) && it\.type!=="custom"\) \? itemInMicZone\(it\)/.test(appjs), "«Un canale solo / Due canali» non compare sull'elemento personalizzato");
   ok(/_cd\.mode==="poly" && e\.key==="Enter"\)\{ e\.preventDefault\(\); custChiudiPoligono\(\)/.test(appjs), "Invio chiude il poligono");
   ok(/if\(window\.__custDraw && custPointerDown\(e\)\) return;/.test(appjs), "col disegno acceso il gesto è un disegno, prima del doppio clic");
-  ok(!/prompt\(|window\.confirm\(|alert\(/.test(String(A.custDisegnaArea) + A.custChiediMisureEInclusione + A.custSalvaDaScheda + A.custEsci + A.custTestoModifica + A.custPointerDown), "niente finestre del browser");
   eq(A.TYPES.custshape.z, A.TYPES.custom.z, "le forme stanno sotto gli elementi veri, come dopo il salvataggio");
 });
+t("crea elemento: niente finestre del browser (prompt, confirm, alert) in tutto il giro dell'editor", () => conCampi((campi, el) => {
+  /* provato (revisione finale, M7): le tre finestre del browser contano le chiamate; si fa il giro intero */
+  const chiamate = [], salva = {};
+  ["prompt", "confirm", "alert"].forEach((k) => { salva[k] = [Object.prototype.hasOwnProperty.call(A, k), A[k]]; A[k] = () => { chiamate.push(k); return null; }; });
+  const chiediPrima = A.custChiedi; let chieste = 0;
+  A.custChiedi = (tit, testo, bottoni, cb) => { chieste++; cb(0); };   /* la finestra dell'app: «Resta» */
+  try {
+    reset(); add("cantante", 350, 330); A.save();
+    A.custDisegnaArea();
+    A.custChiediMisureEInclusione({ x: 300, y: 300, w: 120, d: 80 });
+    A.custAreaFine();
+    ok(A.custApriEditor({ x: 300, y: 300, w: 120, d: 80 }, true), "aperto");
+    A.custMostraScheda({ nome: "" });
+    eq(A.custSalvaDaScheda(), null, "senza nome non salva (campo rosso, nessuna finestra)");
+    A.custNuovaForma("text", { x: 10, y: 10 }, null, null, "Ciao"); A.save();
+    const testo = A.state.items.find((x) => x.type === "custshape");
+    if (testo) A.custTestoModifica(testo.id, "Ciao a tutti");
+    A.custEsci(true);
+    ok(chieste >= 1 && A.custEditorAttivo(), "Esci con qualcosa da perdere chiede con la finestra dell'app");
+    el("custNome").value = "Con nome"; A.custSalvaDaScheda();
+    eq(A.custEditorAttivo(), false, "salvato e chiuso");
+    eq(chiamate, [], "nessuna finestra del browser");
+  } finally {
+    A.custChiedi = chiediPrima;
+    Object.keys(salva).forEach((k) => { if (salva[k][0]) A[k] = salva[k][1]; else delete A[k]; });
+  }
+}));
 t("crea elemento: sul telefono, con il progetto bloccato o in sola lettura non parte", () => conCampi(() => {
   const mm = A.matchMedia; A.matchMedia = () => ({ matches: true, addEventListener() {}, addListener() {} });
   let titolo = null; const gd = A.guideDialog; A.guideDialog = (o) => { titolo = o.msg; };
@@ -8541,7 +8589,8 @@ t("invio per revisione: il segno «inviato» passa da custNorm (solo una data IS
     eq("rev" in n(bad), false, "scartato: " + JSON.stringify(bad));
   }
   eq("rev" in n(undefined), false, "assente se non inviato (firmaPdf non cambia)");
-  ok(/rev/.test(A.custNorm.toString()), "custNorm lo conosce");
+  const ns = A.normalizeState({ items: [{ id: "i1", type: "custom", w: 100, d: 50, cust: { nome: "X", shapes: [], rev: { inviato: "2026-10-13T15:04:05.123Z" } } }], inputs: [], outputs: [] });
+  eq(ns.items[0].cust.rev, { inviato: "2026-10-13T15:04:05.123Z" }, "un documento caricato lo tiene (custNorm lo conosce)");
 });
 t("invio per revisione: Modifica toglie il segno (quello che si salva non è più quello inviato); i modelli non lo portano", () => conInvio(() => {
   const { base } = elementoDaInviare();
@@ -9114,7 +9163,7 @@ t("Ruling 16: i modelli anche nella ricerca rapida del doppio clic, posati nel p
   delete A.state.customModels; A.__catCustomAggiorna();
   eq(A.__qaSearch("proiettore sala").some(e => e.nome === "Proiettore sala"), false, "tolto il modello, sparisce anche da lì");
 }));
-/* ===== Crea elemento — correzioni della revisione finale (13/10/2026): C1, I1–I4 ===== */
+/* ===== Crea elemento — correzioni della revisione finale (13/10/2026): C1, I1–I4, M1–M8 ===== */
 /* C1 — i legami degli inclusi verso elementi rimasti FUORI dal rettangolo. Il palco temporaneo contiene solo gli inclusi e
    normalizeState toglieva i riferimenti verso gli assenti: al Salva il progetto vero li perdeva (e a ogni Modifica+Salva). */
 const C1_R = { x: 300, y: 300, w: 120, d: 80 };   /* dentro: (350,330); fuori: (800,600) e dintorni */
@@ -9298,6 +9347,167 @@ t("I4: conflitto fra schede a editor aperto: il punto di ripristino del progetto
   }
 }));
 
+/* M1 — chiudere o ricaricare con un disegno non salvato chiede conferma */
+t("M1: con un disegno non salvato nell'editor, chiudere o ricaricare la pagina chiede conferma", () => conCampi(() => {
+  const flag = ["__localConflict", "__localStorageUnavailable", "__docLoadBlocked"];
+  const had = flag.map((k) => [Object.prototype.hasOwnProperty.call(A, k), A[k]]);
+  /* i tre motivi di sempre spenti subito prima di chiedere: nel sandbox il salvataggio locale può accendere il conflitto */
+  const chiede = () => { flag.forEach((k) => { A[k] = false; }); return A.uscitaDaChiedere(); };
+  try {
+    reset(); add("cantante", 350, 330); A.save();
+    eq(chiede(), false, "nessun motivo: si chiude senza chiedere");
+    ok(A.custApriEditor(C1_R, true), "aperto"); A.custMostraScheda({ nome: "" });
+    eq(chiede(), false, "editor appena aperto: niente da perdere");
+    A.custNuovaForma("ell", { x: 10, y: 10 }, { x: 50, y: 30 }); A.save();
+    eq(chiede(), true, "una forma disegnata: si chiede");
+    A.custEsci(false);
+    eq(chiede(), false, "editor chiuso: niente da chiedere");
+    /* i tre motivi di sempre, ognuno da solo */
+    flag.forEach((k) => { flag.forEach((j) => { A[j] = false; }); A[k] = true; eq(A.uscitaDaChiedere(), true, k + " → si chiede"); });
+    A.__cloudNeedsFlush = () => true;
+    eq(chiede(), false, "il cloud indietro ma il locale sano: non si chiede (il lavoro è nel locale)");
+  } finally { flag.forEach((k, i) => { if (had[i][0]) A[k] = had[i][1]; else delete A[k]; }); delete A.__cloudNeedsFlush; }
+}));
+
+/* M2 — l'invio per revisione non resta «in corso» per sempre se la rete non risponde */
+const salvaManda = A.custManda;   /* quella vera: conInvio la sostituisce con una finta */
+t("M2: invio per revisione senza risposta: dopo 30 s «La rete non risponde, riprova» e l'invio si sblocca", () => conInvio((giro) => {
+  const { base } = elementoDaInviare();
+  const timer = [], stPrima = A.setTimeout, ctPrima = A.clearTimeout, fPrima = A.fetch;
+  A.setTimeout = (fn, ms) => { timer.push({ fn, ms }); return timer.length; };
+  A.clearTimeout = () => {};
+  A.fetch = () => new Promise(() => {});   /* la rete non risponde mai */
+  A.custManda = salvaManda;   /* conInvio la sostituisce: qui serve quella vera */
+  try {
+    const corpo = A.custCorpoRevisione(base, null);
+    const p = A.custManda(corpo, base.id);
+    ok(p && typeof p.then === "function", "restituisce una promessa");
+    eq(A.__custInvio, true, "in corso");
+    const t30 = timer.find((x) => x.ms === 30000);
+    ok(t30, "un tempo massimo di 30 s: " + timer.map((x) => x.ms).join(","));
+    t30.fn();
+    eq(A.__custInvio, false, "scaduto il tempo: non più in corso");
+    const d = giro.dialoghi.pop();
+    eq(d.title, "Non inviato");
+    ok(/^La rete non risponde, riprova\./.test(d.msg), "lo dice: " + d.msg);
+    ok(d.action && d.action.label === "Riprova", "con Riprova");
+    eq(base.cust.rev, undefined, "niente segno «inviato»");
+  } finally { A.setTimeout = stPrima; A.clearTimeout = ctPrima; A.fetch = fPrima; }
+}));
+/* M3 — il segno «inviato» non è un passo di Annulla; le copie non lo portano */
+t("M3: il segno «inviato» non entra nella cronologia (Annulla non lo toglie) e Duplica/Incolla non lo copiano", () => conInvio((giro) => {
+  const { base } = elementoDaInviare();
+  A.save();
+  const mic = A.state.items.find((x) => x.type === "cantante" && x.grp === base.grp);
+  mic.x += 20; A.save();   /* un passo vero da annullare */
+  const passi = A.undoStack.length;
+  eq(A.custEsitoInvio(200, { ok: true }, base.id, "Proiettore"), "ok");
+  giro.dialoghi.pop();
+  eq(A.undoStack.length, passi, "nessun passo di Annulla in più");
+  ok(A.state.items.find((x) => x.id === base.id).cust.rev, "segnato");
+  A.undo();
+  const b = A.state.items.find((x) => x.id === base.id);
+  ok(b.cust.rev && b.cust.rev.inviato, "dopo Annulla (dello spostamento) resta inviato");
+  eq(A.state.items.find((x) => x.id === mic.id).x, mic.x - 20, "e Annulla ha disfatto lo spostamento");
+  A.redo();
+  ok(A.state.items.find((x) => x.id === base.id).cust.rev, "anche dopo Ripeti");
+  /* le copie non sono state inviate */
+  A.selectOne(base.id); A.duplicateSel();
+  const dup = A.state.items.filter((x) => x.type === "custom" && x.id !== base.id && x.id !== undefined).pop();
+  ok(dup && dup.cust && !dup.cust.rev, "Duplica: la copia non è «inviata»");
+  A.selectOne(base.id); A.copySel(); A.pasteClip();
+  const inc = A.state.items.filter((x) => x.type === "custom").pop();
+  ok(inc !== dup && inc.cust && !inc.cust.rev, "Incolla: la copia non è «inviata»");
+  ok(A.state.items.find((x) => x.id === base.id).cust.rev, "l'originale resta inviato");
+}));
+
+/* M4 — incollato in un altro progetto, un elemento non resta legato a un modello diverso con lo stesso id */
+t("M4: Incolla fra progetti: il legame al modello resta solo se il modello d'arrivo è lo stesso", () => conModelli(() => {
+  reset();
+  const base = add("custom", 300, 300, { w: 120, d: 80, cust: { nome: "Pedana A", shapes: [] } }); A.custNorm(base);
+  A.custSalvaComeModello(base.id);
+  const mid = base.cust.modelId;
+  ok(mid, "legato al suo modello");
+  A.selectOne(base.id); A.copySel();
+  A.pasteClip();
+  eq(A.state.items.filter((x) => x.type === "custom").pop().cust.modelId, mid, "nello stesso progetto il legame resta");
+  /* un altro progetto: stesso id di modello, ma è un altro modello */
+  reset();
+  A.state.customModels = [A.custModelNorm({ id: mid, nome: "Altro modello", w: 200, d: 100, shapes: [], membri: [] })];
+  A.pasteClip();
+  const inc = A.state.items.filter((x) => x.type === "custom").pop();
+  ok(inc && inc.cust.nome === "Pedana A", "incollato");
+  eq(inc.cust.modelId, undefined, "non è legato al modello «Altro modello»");
+  /* un progetto senza quel modello */
+  reset(); A.pasteClip();
+  eq(A.state.items.filter((x) => x.type === "custom").pop().cust.modelId, undefined, "senza il modello: niente legame");
+}));
+
+/* M5 — dopo Salva l'elemento torna nel suo punto dell'ordine di disegno; il gruppo dell'utente */
+t("M5: dopo Salva e Modifica l'elemento resta al suo posto nell'ordine di disegno, non sopra gli altri", () => conModelli(() => {
+  reset();
+  const a = add("cantante", 800, 300), c = add("cantante", 350, 330), b = add("cantante", 800, 600);
+  A.save();
+  ok(A.custEditorApri(C1_R, { includi: true }));
+  const id = A.custEditorSalva(c1Scheda);
+  /* a parità di livello si disegna nell'ordine dell'elenco: il blocco prende il posto del primo dei suoi pezzi */
+  const el = () => A.state.items.map((x) => x.id), vis = () => A.sortedItems().map((x) => x.id);
+  eq(el(), [a.id, id, c.id, b.id], "nell'elenco: la base e il cantante incluso dove stava il cantante");
+  let o = vis();
+  ok(o.indexOf(a.id) < o.indexOf(c.id) && o.indexOf(c.id) < o.indexOf(b.id), "a video il cantante incluso resta sotto quello che gli stava sopra: " + o.join(","));
+  ok(A.custEditorApri(null, { baseId: id }));
+  A.custEditorSalva(c1Scheda);
+  eq(el(), [a.id, id, c.id, b.id], "anche dopo Modifica+Salva");
+  o = vis();
+  ok(o.indexOf(c.id) < o.indexOf(b.id), "e a video: " + o.join(","));
+}));
+t("M5: un gruppo dell'utente preso a metà dal rettangolo: gli inclusi vanno nell'elemento, chi resta fuori tiene il suo gruppo", () => conModelli(() => {
+  reset();
+  const c = add("cantante", 350, 330), f1 = add("cantante", 800, 600), f2 = add("cantante", 900, 600);
+  c.grp = f1.grp = f2.grp = "gU"; A.save();
+  ok(A.custEditorApri(C1_R, { includi: true }));
+  const id = A.custEditorSalva(c1Scheda);
+  const by = c1By();
+  ok(by[c.id].grp && by[c.id].grp === by[id].grp, "l'incluso è nel gruppo dell'elemento");
+  ok(by[id].grp !== "gU", "un gruppo suo, non quello dell'utente");
+  eq([by[f1.id].grp, by[f2.id].grp], ["gU", "gU"], "chi è rimasto fuori conserva il suo gruppo");
+}));
+
+/* M6 — i modelli non cambiano l'impronta del PDF */
+t("M6: creare o eliminare un modello non segna «modificato dopo l'ultimo PDF»", () => conModelli(() => {
+  reset();
+  const base = add("custom", 300, 300, { w: 120, d: 80, cust: { nome: "Proiettore", shapes: [] } }); A.custNorm(base);
+  add("cantante", 330, 310);
+  const f0 = A.firmaPdf(A.state);
+  A.custSalvaComeModello(base.id);
+  ok(A.state.customModels && base.cust.modelId, "modello creato e copia legata");
+  eq(A.firmaPdf(A.state), f0, "dopo «Salva come modello»: stessa impronta");
+  A.custTogliModello(base.cust.modelId);
+  eq(A.firmaPdf(A.state), f0, "dopo «Elimina modello»: stessa impronta");
+  base.cust.nome = "Proiettore grande";
+  ok(A.firmaPdf(A.state) !== f0, "controprova: cambiare il nome dell'elemento cambia l'impronta");
+}));
+
+/* M8 — tetto in byte alle forme di un modello */
+t("M8: le forme di un modello stanno sotto i 256 KB; quelle in più restano fuori e si dice", () => conModelli(() => {
+  reset();
+  const pts = Array.from({ length: 200 }, (_, i) => [Math.round(1000 * (0.5 + 0.49 * Math.cos(i / 31.83))) / 10 + 0.123456, Math.round(1000 * (0.5 + 0.49 * Math.sin(i / 31.83))) / 10 + 0.654321]);
+  const shapes = Array.from({ length: 200 }, () => ({ k: "poly", pts, stroke: "#000000", sw: 1 }));
+  const base = add("custom", 300, 300, { w: 100, d: 100, cust: { nome: "Pesante", shapes } }); A.custNorm(base);
+  eq(base.cust.shapes.length, 200, "l'elemento sul palco le tiene tutte");
+  let msg = null; const tp = A.__toast; A.__toast = (s) => { msg = s; };
+  try { A.custSalvaComeModello(base.id); } finally { A.__toast = tp; }
+  const m = A.state.customModels[0];
+  ok(A.custByte(JSON.stringify(m.shapes)) <= 262144, "forme del modello sotto i 256 KB: " + A.custByte(JSON.stringify(m.shapes)));
+  ok(m.shapes.length > 0 && m.shapes.length < 200, "in parte: " + m.shapes.length);
+  ok(new RegExp((200 - m.shapes.length) + " forme oltre il limite di grandezza").test(msg || ""), "si dice: " + msg);
+  /* lo stesso tetto su un file che arriva con un modello gonfiato */
+  const n = A.custModelNorm({ id: "mz", nome: "Z", w: 100, d: 100, shapes, membri: [] });
+  ok(A.custByte(JSON.stringify(n.shapes)) <= 262144, "anche da un file");
+  /* un modello normale non perde niente */
+  const p = A.custModelNorm({ id: "mp", nome: "P", w: 100, d: 100, shapes: shapes.slice(0, 5), membri: [] });
+  eq([p.shapes.length, A.custModelNorm.tolte], [5, 0], "sotto il tetto: tutte");
+}));
 /* ===== «Solo pedane»: un clic dentro una pedana prende la pedana (13/10, Simone: «se sono in solo pedane e
    clicco su un'altra pedana dove sopra ci sono degli elementi, deve prendere la pedana e restare in solo
    pedane; solo un clic fuori dalle pedane torna alla vista normale») ===== */
@@ -16236,9 +16446,14 @@ t("chiudere la scheda non lascia l'ultima modifica in coda", () => {
   /* la CONDIZIONE, non una finestra di caratteri dopo l'inizio della funzione: il commento sopra la
      riga è lungo, e misurare a caratteri faceva leggere al test il commento invece del codice —
      scoperto sabotando, perché il controllo restava verde col difetto rimesso. */
-  const cond = (appjs.match(/if\(!window\.__localConflict[^\n]*return;/) || [""])[0];
-  ok(cond.length > 40, "la guardia di uscita è stata trovata: " + cond);
-  eq(/__cloudNeedsFlush/.test(cond), false, "e l'avviso di uscita non si allarga a chi ha il locale sano");
+  /* dal 13/10 la guardia è una funzione: si prova il comportamento invece di leggerne il testo */
+  {
+    const fl = ["__localConflict", "__localStorageUnavailable", "__docLoadBlocked", "__cloudNeedsFlush"], had = fl.map((k) => [Object.prototype.hasOwnProperty.call(A, k), A[k]]);
+    try {
+      A.__localConflict = false; A.__localStorageUnavailable = false; A.__docLoadBlocked = null; A.__cloudNeedsFlush = () => true;
+      eq(A.uscitaDaChiedere(), false, "l'avviso di uscita non si allarga a chi ha il locale sano (cloud indietro)");
+    } finally { fl.forEach((k, i) => { if (had[i][0]) A[k] = had[i][1]; else delete A[k]; }); }
+  }
 });
 
 /* ===== L'ILLUSTRAZIONE SI DEFINISCE UNA VOLTA, MA SOLO A VIDEO (14/08) ==================== */
