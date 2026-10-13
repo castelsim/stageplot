@@ -3362,6 +3362,9 @@ var TYPES = {
              draw:function(it){ return drawShape(it); }},
   testo:    {nome:"Testo libero", dim:"box di testo", cat:"Palco e strutture", w:200,d:70, resizable:true, z:3, innerLabel:true, defLabel:"Testo…",
              draw:function(it){ return drawTextBox(it); }},
+  custom:   {nome:"Elemento personalizzato", dim:"disegnato da te, in scala", cat:"Palco e strutture", w:120,d:80, z:1, catalog:false, defLabel:"Elemento",
+             alias:"elemento personalizzato custom segnaposto",
+             draw:function(it){ return drawCustom(it); }},
   /* --- ottoni (icone realistiche libreria + seduta chiara) --- */
   corno:    {nome:"Corno", dim:"postazione", cat:"Orchestra", sub:"Ottoni", w:95,d:105,
              draw:function(it){ return station(it, gCorno(), "wind", true); }},
@@ -8224,6 +8227,7 @@ function normalizeLoadedItems(arr){
       if(it.shape!=null && !SHAPES.some(function(x){ return x[0]===it.shape; })) delete it.shape;
       if(it.shapeStyle!=null && it.shapeStyle!=="outline" && it.shapeStyle!=="dashed" && it.shapeStyle!=="area") delete it.shapeStyle;   /* «area» dal 06/10/2026: vedi isAreaNome */
     }
+    if(it.type==="custom") custNorm(it);   /* elemento personalizzato: forme come dati controllati (13/10/2026) */
     if(it.platea!=null){   /* platea (06/10/2026): solo i tre numeri, nei loro limiti; il resto viene dalle misure */
       if(it.type!=="platea" || typeof it.platea!=="object" || Array.isArray(it.platea)) delete it.platea;
       else { var _pc=plateaCfg(it); it.platea={ passo:_pc.passo, passoFile:_pc.passoFile, corridoio:_pc.corridoio }; }
@@ -9276,6 +9280,60 @@ function shapeGeom(it){
     return '<polygon points="'+(-hw)+','+(-t)+' '+px+','+(-t)+' '+px+','+(-hd)+' '+hw+',0 '+px+','+hd+' '+px+','+t+' '+(-hw)+','+t+'"/>';
   }
   return '<rect x="'+(-hw)+'" y="'+(-hd)+'" width="'+w+'" height="'+d+'" rx="'+Math.min(14, Math.min(w,d)*0.12)+'"/>';
+}
+/* Elemento personalizzato (13/10/2026): le forme arrivano da file altrui (link condivisi, JSON importati), quindi
+   sono DATI controllati — tipo da un elenco chiuso, numeri finiti, colori hex — e mai grafica scritta a mano. I limiti
+   stanno in una funzione: una var più in basso nel file sarebbe undefined per normalizeState all'avvio. */
+function custLimiti(){ return {NOME:60, DESC:280, TESTO:140, FORME:200, PUNTI:200, WATT:20000, INS:16, MIN:10}; }
+function custNorm(it){
+  var L=custLimiti(), c=(it.cust && typeof it.cust==="object" && !Array.isArray(it.cust)) ? it.cust : {};
+  var hex=function(v){ return (typeof v==="string" && /^#[0-9a-f]{6}$/i.test(v)) ? v : null; };
+  var num=function(v,lo,hi){ v=Number(v); return isFinite(v) ? Math.max(lo,Math.min(hi,v)) : null; };
+  it.w=num(it.w,L.MIN,100000)||TYPES.custom.w; it.d=num(it.d,L.MIN,100000)||TYPES.custom.d;
+  var W=it.w, D=it.d, mx=Math.max(W,D)*0.1, X=function(v){ return num(v,-mx,W+mx); }, Y=function(v){ return num(v,-mx,D+mx); };
+  var out={ nome:(typeof c.nome==="string" && c.nome.trim()) ? c.nome.trim().slice(0,L.NOME) : "Elemento personalizzato", shapes:[] };
+  if(typeof c.desc==="string" && c.desc.trim()) out.desc=c.desc.trim().slice(0,L.DESC);
+  (Array.isArray(c.shapes)?c.shapes:[]).forEach(function(f){
+    if(out.shapes.length>=L.FORME || !f || typeof f!=="object") return;
+    var g={k:f.k, fill:hex(f.fill), stroke:hex(f.stroke)||"#1d1d1f", sw:num(f.sw,0,50)}; if(g.sw==null) g.sw=1;
+    if(f.rot!=null){ var r=num(f.rot,-360,360); if(r) g.rot=r; }
+    if(f.k==="rect"){ g.x=X(f.x); g.y=Y(f.y); g.w=num(f.w,0,W+mx); g.h=num(f.h,0,D+mx); if(f.r!=null) g.r=num(f.r,0,1000)||0;
+      if([g.x,g.y,g.w,g.h].some(function(v){ return v==null; })) return; }
+    else if(f.k==="ell"){ g.cx=X(f.cx); g.cy=Y(f.cy); g.rx=num(f.rx,0,W); g.ry=num(f.ry,0,D);
+      if([g.cx,g.cy,g.rx,g.ry].some(function(v){ return v==null; })) return; }
+    else if(f.k==="line"){ g.x1=X(f.x1); g.y1=Y(f.y1); g.x2=X(f.x2); g.y2=Y(f.y2);
+      if([g.x1,g.y1,g.x2,g.y2].some(function(v){ return v==null; })) return; }
+    else if(f.k==="poly"){ if(!Array.isArray(f.pts)) return; g.pts=[];
+      f.pts.slice(0,L.PUNTI).forEach(function(p){ if(Array.isArray(p)){ var a=X(p[0]), b=Y(p[1]); if(a!=null && b!=null) g.pts.push([a,b]); } });
+      if(g.pts.length<2) return; }
+    else if(f.k==="text"){ g.x=X(f.x); g.y=Y(f.y); g.size=num(f.size,2,200)||12;
+      g.s=(typeof f.s==="string") ? f.s.replace(/[\u0000-\u001f]/g," ").slice(0,L.TESTO) : "";
+      if(g.x==null || g.y==null || !g.s.trim()) return; g.fill=g.fill||"#1d1d1f"; }
+    else return;
+    out.shapes.push(g);
+  });
+  if(c.ins && typeof c.ins==="object"){ var n=Number(c.ins.n); if(isFinite(n) && n>=1 && n<=L.INS && (c.ins.tipo==="mic"||c.ins.tipo==="linea")) out.ins={n:Math.round(n), tipo:c.ins.tipo}; }
+  if(c.backline===true) out.backline=true;
+  if(typeof c.modelId==="string" && /^[a-z0-9_-]{1,40}$/i.test(c.modelId)) out.modelId=c.modelId;
+  it.cust=out;
+  if(it.watt!=null){ var w=Number(it.watt); if(isFinite(w)) it.watt=Math.max(0,Math.min(L.WATT,w)); else delete it.watt; }
+  if(!it.label) it.label=out.nome;
+  return it;
+}
+function drawCustom(it){
+  var c=it.cust||{}, w=it.w||120, d=it.d||80, ox=-w/2, oy=-d/2, s="";
+  var f2=function(v){ return String(Math.round(v*10)/10); };
+  var st=function(g){ return ' fill="'+(g.fill||"none")+'" stroke="'+g.stroke+'" stroke-width="'+f2(g.sw)+'"'; };
+  var tr=function(g,cx,cy){ return g.rot ? ' transform="rotate('+f2(g.rot)+' '+f2(cx)+' '+f2(cy)+')"' : ""; };
+  (c.shapes||[]).forEach(function(g){
+    if(g.k==="rect") s+='<rect x="'+f2(ox+g.x)+'" y="'+f2(oy+g.y)+'" width="'+f2(g.w)+'" height="'+f2(g.h)+'"'+(g.r?' rx="'+f2(g.r)+'"':"")+st(g)+tr(g,ox+g.x+g.w/2,oy+g.y+g.h/2)+'/>';
+    else if(g.k==="ell") s+='<ellipse cx="'+f2(ox+g.cx)+'" cy="'+f2(oy+g.cy)+'" rx="'+f2(g.rx)+'" ry="'+f2(g.ry)+'"'+st(g)+tr(g,ox+g.cx,oy+g.cy)+'/>';
+    else if(g.k==="line") s+='<line x1="'+f2(ox+g.x1)+'" y1="'+f2(oy+g.y1)+'" x2="'+f2(ox+g.x2)+'" y2="'+f2(oy+g.y2)+'" stroke="'+g.stroke+'" stroke-width="'+f2(g.sw)+'"/>';
+    else if(g.k==="poly") s+='<polygon points="'+g.pts.map(function(p){ return f2(ox+p[0])+","+f2(oy+p[1]); }).join(" ")+'"'+st(g)+'/>';
+    else if(g.k==="text") s+='<text x="'+f2(ox+g.x)+'" y="'+f2(oy+g.y)+'" font-size="'+f2(g.size)+'" font-family="helvetica" text-anchor="middle" fill="'+g.fill+'"'+tr(g,ox+g.x,oy+g.y)+'>'+esc(g.s)+'</text>';
+  });
+  if(!s) s='<rect x="'+f2(ox)+'" y="'+f2(oy)+'" width="'+f2(w)+'" height="'+f2(d)+'" fill="none" stroke="#1d1d1f" stroke-width="1.5" stroke-dasharray="6 4"/>';
+  return '<g class="custom-el">'+s+'</g>';
 }
 function drawShape(it){
   var col=shapeFillOf(it), st=shapeStyleOf(it), op=(it.opacity==null?100:+it.opacity)/100;

@@ -7406,6 +7406,56 @@ t("catalogo: «Palco» in cima, «Forma» subito sotto, e la ricerca trova ancor
   ok(/nome:"Palco"[\s\S]{0,200}kw:"[^"]*forma del palco/.test(appjs), "chi cerca «forma del palco» trova il Palco");
   ok(/makeActionBtn\("Forma",[^\n]*addItem\("forma"\)/.test(appjs), "il pulsante Forma posa una forma");
 });
+t("elemento personalizzato: un file manomesso si apre pulito", () => {
+  const forme = [
+    { k: "rect", x: 0, y: 0, w: 100, h: 50, fill: "#ff0000", stroke: "#000000", sw: 2 },
+    { k: "text", x: 10, y: 20, s: "<script>alert(1)</script>", size: 12, fill: "#000000" },
+    { k: "rect", x: NaN, y: 0, w: 1e9, h: 5, fill: "rgb(1,2,3)", stroke: "#000000", sw: 1 },
+    { k: "foreignObject", x: 0, y: 0 },
+    { k: "poly", pts: Array.from({ length: 500 }, (_, i) => [i % 100, i % 50]), fill: null, stroke: "#123456", sw: 1 },
+  ].concat(Array.from({ length: 300 }, () => ({ k: "line", x1: 0, y1: 0, x2: 10, y2: 10, stroke: "#000000", sw: 1 })));
+  const s = A.normalizeState({ _v: 5, stage: { w: 1200, d: 800 }, items: [
+    { id: "c1", type: "custom", x: 300, y: 300, w: 120, d: 80, watt: 1e12,
+      cust: { nome: "x".repeat(200), desc: "d".repeat(900), shapes: forme, ins: { n: 99, tipo: "boh" }, backline: "si" } },
+    { id: "c2", type: "custom", x: 600, y: 300, w: 120, d: 80, cust: "non un oggetto" },
+  ] });
+  const c = s.items[0].cust;
+  eq(c.nome.length, 60, "nome tagliato");
+  eq(c.desc.length, 280, "descrizione tagliata");
+  ok(c.shapes.length <= 200, "al massimo 200 forme: " + c.shapes.length);
+  ok(c.shapes.every(f => ["rect", "ell", "line", "poly", "text"].includes(f.k)), "solo forme ammesse");
+  ok(c.shapes.every(f => f.fill == null || /^#[0-9a-f]{6}$/i.test(f.fill)), "solo colori hex");
+  const poli = c.shapes.find(f => f.k === "poly");
+  ok(poli && poli.pts.length <= 200, "poligono tagliato a 200 punti");
+  eq(c.shapes.some(f => f.k === "rect" && !isFinite(f.x)), false, "forme con numeri non validi scartate");
+  eq(c.ins, undefined, "ingressi fuori limite scartati");
+  eq(c.backline, undefined, "backline non booleana scartata");
+  eq(s.items[0].watt, 20000, "watt al massimo 20000");
+  eq(s.items[1].cust.nome, "Elemento personalizzato", "cust non valido diventa un elemento vuoto col nome di default");
+  eq(s.items[1].cust.shapes.length, 0, "nessuna forma");
+});
+
+t("elemento personalizzato: il disegno è vettoriale pulito, adatto al PDF", () => {
+  const it = A.custNorm({ id: "c3", type: "custom", x: 0, y: 0, w: 120, d: 80, cust: { nome: "Proiettore", shapes: [
+    { k: "rect", x: 10, y: 10, w: 100, h: 60, fill: "#334455", stroke: "#000000", sw: 1, r: 4 },
+    { k: "ell", cx: 60, cy: 40, rx: 15, ry: 15, fill: null, stroke: "#ffffff", sw: 2 },
+    { k: "line", x1: 0, y1: 0, x2: 120, y2: 80, stroke: "#000000", sw: 1 },
+    { k: "poly", pts: [[0, 0], [20, 0], [10, 15]], fill: "#00ff00", stroke: "#000000", sw: 1 },
+    { k: "text", x: 60, y: 75, s: "A & <b>", size: 10, fill: "#000000" } ] } });
+  const svg = A.drawCustom(it);
+  ok(/<rect[^>]+x="-50"/.test(svg), "coordinate spostate al centro (10 - 120/2 = -50): " + svg.slice(0, 200));
+  ok(svg.includes("A &amp; &lt;b&gt;"), "testo con escape");
+  ok(!/NaN|undefined|rgb\(|<style|<script|foreignObject/.test(svg), "niente che rompa svg2pdf o esegua codice");
+  ok((svg.match(/<text\b[^>]*>/g) || []).every(x => / x="/.test(x) && / y="/.test(x)), "ogni <text> ha x e y");
+  ok(svg.includes('fill="none"'), "riempimento assente = none");
+});
+
+t("elemento personalizzato: il tipo esiste ma non sta nel catalogo, e un progetto che lo contiene si apre", () => {
+  ok(A.TYPES.custom && typeof A.TYPES.custom.draw === "function", "TYPES.custom definito");
+  eq(A.TYPES.custom.catalog, false, "non compare tra gli elementi da posare");
+  const s = A.normalizeState({ _v: 5, stage: { w: 1200, d: 800 }, items: [{ id: "c4", type: "custom", x: 1, y: 1 }] });
+  eq(s.items[0].w >= 10 && s.items[0].d >= 10, true, "misure di ripiego almeno 10×10");
+});
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");
