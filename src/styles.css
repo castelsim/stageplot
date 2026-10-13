@@ -629,7 +629,7 @@
   .rs-handle{fill:#fff;stroke:var(--accent);stroke-width:1.4;vector-effect:non-scaling-stroke;pointer-events:none}   /* 1,4 px di schermo a ogni zoom (non-scaling) */
   .rs-grab{fill:transparent;cursor:pointer}
   .rs-grab:hover ~ .rs-handle,.rs-handle:hover{fill:var(--accent-tint)}
-  .rs-handle.rs-end{fill:var(--accent);stroke:#fff}   /* metro: maniglie tonde agli estremi della linea */
+  .rs-handle.rs-end{fill:var(--accent);stroke:#fff;stroke-width:1.6}   /* metro: maniglie tonde agli estremi della linea; 1,6 px come il loro attributo (.rs-handle da solo le porterebbe a 1,4) */
   .rs-l,.rs-r{cursor:ew-resize} .rs-t,.rs-b{cursor:ns-resize}
   .rs-tl,.rs-br{cursor:nwse-resize} .rs-tr,.rs-bl{cursor:nesw-resize}
   /* Le maniglie dell'elemento selezionato vivono in un layer PROPRIO (#layHandles, l'ultimo della
