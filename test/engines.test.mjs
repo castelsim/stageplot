@@ -7406,6 +7406,27 @@ t("catalogo: «Palco» in cima, «Forma» subito sotto, e la ricerca trova ancor
   ok(/nome:"Palco"[\s\S]{0,200}kw:"[^"]*forma del palco/.test(appjs), "chi cerca «forma del palco» trova il Palco");
   ok(/makeActionBtn\("Forma",[^\n]*addItem\("forma"\)/.test(appjs), "il pulsante Forma posa una forma");
 });
+t("il leggio da solo si trova nel catalogo e nella ricerca", () => {
+  ok(A.TYPES.leggio && A.TYPES.leggio.catalog !== false, "leggio non più nascosto");
+  ok(/"Arredo e leggii",\s*\[[^\]]*"leggio"/.test(appjs), "nel gruppo Arredo e leggii");
+});
+
+t("l'aggancio alla griglia si salva col progetto, ma non conta come lavoro né cambia il PDF", () => {
+  const prima = A.DOC_EXTRA, snapPrima = A.snapMode;
+  try {
+    A.DOC_EXTRA = { snap: "0" }; A.snapDalDocumento();
+    eq(A.snapMode, "0", "un progetto salvato su «Libero» si riapre su Libero");
+    eq(A.docExtraHasWork(), false, "lo snap non rende «pieno» un progetto vuoto");
+    A.DOC_EXTRA = { snap: "<x>" }; A.snapDalDocumento();
+    eq(A.snapMode, "25", "valore non valido → 25 cm");
+    A.DOC_EXTRA = {}; A.snapDalDocumento();
+    eq(A.snapMode, "25", "progetto senza snap (o nuovo) → 25 cm");
+  } finally { A.DOC_EXTRA = prima; A.snapMode = snapPrima; }
+  ok(/DOC_EXTRA=prepared\.extra\|\|\{\};\s*if\(typeof snapDalDocumento==="function"\) snapDalDocumento\(\);/.test(appjs), "aprire un documento rilegge lo snap");
+  ok(/function set\(v\)\{ if\(!snapValido\(v\)\) return;[\s\S]{0,200}DOC_EXTRA\.snap=v/.test(appjs), "cambiarlo lo scrive nel documento");
+  eq(/snap/.test(String(A.stateToJSON())), false, "non entra nello stato della scena (impronta del PDF invariata)");
+});
+
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");

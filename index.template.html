@@ -3322,7 +3322,10 @@ var TYPES = {
              draw:function(it){ return plateaDraw(it); }},
   sedialeggio:{nome:"Sedia + leggio", dim:"postazione", cat:"Palco e strutture", w:75,d:105,
              draw:function(){ return bar(0,-22,46,46,'ic fBlack',9)+bar(0,-48,46,9,'ic fill',4)+leggioGlyph(38); }},
-  leggio:   {nome:"Leggio", dim:"48×35", cat:"Palco e strutture", catalog:false, w:50,d:35,
+  /* leggio da solo (13/10/2026): era nascosto dal catalogo dal 04/07 (riorganizzazione), ma il gruppo «Arredo e
+     leggii» lo elencava già e il commento di postaz() lo dava per «elemento separato»: una svista, non una scelta. */
+  leggio:   {nome:"Leggio", dim:"48×35", cat:"Palco e strutture", w:50,d:35,
+             alias:"leggio leggii music stand spartito",
              draw:function(){ return leggioGlyph(2); }},
   podio:    {nome:"Podio direttore", dim:"100×100", cat:"Palco e strutture", w:100,d:100,
              draw:function(){ return bar(0,0,100,100,'ic fFloor',3)+bar(0,0,84,84,'ic thin',2)+
@@ -5860,6 +5863,7 @@ function commitPreparedDoc(prepared){
   /* Commit atomico: nessuno stato globale cambia finché ogni variante non è stata validata e normalizzata. */
   window.__respLoadSeq=(window.__respLoadSeq||0)+1; window.__respData=null;   /* nessun contatto account attraversa il progetto */
   VARIANTS=prepared.variants; activeVar=prepared.active; DOC_EXTRA=prepared.extra||{};
+  if(typeof snapDalDocumento==="function") snapDalDocumento();   /* l'aggancio del progetto che si apre (nuovo = 25 cm) */
   venueImgCache=Object.create(null);   /* confine documento: nessuna bitmap del progetto precedente può attraversarlo */
   VARIANTS.forEach(function(v){ cacheVenueImg(v.state&&v.state.venue,v.id); });
   /* Secondo giro: le scene che dichiarano `_sameAs` riprendono la bitmap dalla scena indicata.
@@ -15941,6 +15945,12 @@ document.getElementById("pTastLeg2").addEventListener("change", function(){ mutS
    stava mille righe più sotto: all'avvio valeva ancora `undefined`, nessuna opzione corrispondeva e il
    selettore nell'intestazione restava vuoto finché non lo si cambiava a mano. */
 var snapMode = "25";   /* "0"=libero · "25"/"50"/"100"=griglia cm · "obj"=oggetti */
+/* L'aggancio si salva COL PROGETTO (13/10/2026, Simone: «metto libero, ma poi dopo un tot torna a 25 cm»):
+   viveva solo in memoria, e ogni ricarica — anche quella automatica dopo un aggiornamento dell'app — lo
+   rimetteva a 25. Sta fra le chiavi di servizio del documento (DOC_EXTRA.snap, assente se 25), non nello
+   stato della scena: cambiarlo non è lavoro sul disegno e non deve segnare «modificato dopo l'ultimo PDF». */
+function snapValido(v){ return v==="0"||v==="25"||v==="50"||v==="100"||v==="obj"; }   /* funzione, non var: va usata anche da chi apre un documento */
+function snapDalDocumento(){ var v=DOC_EXTRA && DOC_EXTRA.snap; snapMode=snapValido(v) ? v : "25"; try{ syncSnapSelects(); }catch(e){} }   /* il menu si allinea quando c'è; aprire il documento non deve mai fallire per lui */
 function syncSnapSelects(){
   var a=document.getElementById("snapSel"), b=document.getElementById("snapSelM");
   if(a) a.value=snapMode; if(b) b.value=snapMode;
@@ -15952,7 +15962,10 @@ function syncSnapSelects(){
 }
 (function(){
   var a=document.getElementById("snapSel"), b=document.getElementById("snapSelM");
-  function set(v){ snapMode=v; syncSnapSelects(); }
+  function set(v){ if(!snapValido(v)) return; snapMode=v; syncSnapSelects();
+    DOC_EXTRA=DOC_EXTRA||{}; if(v==="25") delete DOC_EXTRA.snap; else DOC_EXTRA.snap=v;
+    if(typeof persistLocalState==="function") persistLocalState();
+    if(window.scheduleCloudAutosave) scheduleCloudAutosave(); }
   if(a) a.addEventListener("change", function(){ set(this.value); });
   if(b) b.addEventListener("change", function(){ set(this.value); });
   Array.prototype.forEach.call(document.querySelectorAll("#mSnap [data-snap]"), function(x){
@@ -21277,7 +21290,7 @@ function stateHasMeaningfulWork(s, ignoraPalco){
    viene scritta SEMPRE da prepareDoc (permesso unico del link), quindi contarla come contenuto
    renderebbe «pieno» ogni documento appena creato — e tornerebbero i gusci «Senza titolo»
    nell'elenco cloud che il ramo del documento vuoto esiste apposta per evitare. */
-var DOC_EXTRA_SERVIZIO={shareOpts:1};
+var DOC_EXTRA_SERVIZIO={shareOpts:1, snap:1};   /* snap (13/10/2026): l'aggancio scelto, non lavoro */
 function docExtraHasWork(){
   return Object.keys(DOC_EXTRA||{}).some(function(k){ return !DOC_EXTRA_SERVIZIO[k]; });
 }
