@@ -3408,7 +3408,7 @@ var TYPES = {
   bongos:   {nome:"Bongos", dim:"7\"+8½\" · 44×24", cat:"Batteria e percussioni", sub:"Pezzi singoli", w:44,d:24, defLabel:"Bng",
              draw:function(){ return bongosGlyph(); }},
   percussionistaR:{nome:"Percussionista", dim:"persona · 65 cm", cat:"Batteria e percussioni", sub:"Pezzi singoli", catalog:false, w:65,d:81, z:1, defLabel:"Perc",
-             draw:function(){ return libIcon("batteristaPersona"); }},
+             draw:function(it){ return percFigura(!(it && it.inPiedi===true)); }},   /* inPiedi: nato dal «Dividi» della postazione (13/10/2026) */
   /* il cajon da solo esce dal catalogo il 06/10/2026: al suo posto c'è la postazione (sotto). Resta come
      tipo perché i progetti salvati con i tre pezzi (percussionista + cajon + asta bassa) devono riaprirsi
      identici, e perché «Dividi» sulla postazione lo ridà come pezzo singolo. */
@@ -5111,28 +5111,32 @@ function explodeTimpani(it){
 var PERC_CONGA={ quinto:{r:15,lbl:"Quinto",type:"quinto"}, conga:{r:16,lbl:"Conga",type:"conga"}, tumba:{r:17,lbl:"Tumba",type:"tumba"} };
 var PERC_CONGA_SET={ 1:["conga"], 2:["tumba","conga"], 3:["tumba","conga","quinto"] };   /* da sinistra a destra sullo schermo: la tumba sta alla DESTRA del percussionista, che è x<0 (stessa convenzione del kit batteria) */
 var PERC_BONGO={ hembra:12, macho:10 };   /* raggi cerchione: hembra 8½" ≈ Ø24, macho 7" ≈ Ø20 */
+/* LA POSTAZIONE (13/10/2026, Simone: «gli strumenti devono essere posizionati meglio e il percussionista di
+   solito è in piedi»). Ricalcata sulla vecchia illustrazione del set (musPercussioni): chi suona IN PIEDI al
+   centro, dietro; le congas ad ARCO davanti a lui, alla distanza delle braccia (PERC_ARCO dal suo centro);
+   alla sua DESTRA (x<0) i bongos su stativo, col campanaccio montato davanti sullo stesso stativo, e più in
+   fondo il tavolo dei piccoli, girato per lungo; alla sua SINISTRA (x>0) il piatto sospeso, avanti, e i chimes
+   di fianco a lui, girati per lungo (si suonano con una passata della mano). Con lo sgabello acceso la figura
+   è quella seduta. Le misure sono in cm, l'origine è il centro di chi suona spostato di PERC_CHI. */
+var PERC_CHI={x:0, y:-42}, PERC_ARCO=60;
+var PERC_ANGOLI={ 1:[90], 2:[107,73], 3:[124,90,56] };   /* gradi: 90 = dritto davanti a lui; >90 = alla sua destra (x<0) */
+var PERC_IN_PIEDI={hw:45, hd:34}, PERC_SEDUTO={hw:33, hd:40};   /* ingombro della figura: braccia avanti / seduto */
 function percSlots(p){
-  var L=[], x=0, keys=PERC_CONGA_SET[Math.max(1,Math.min(3,p.congas|0))]||PERC_CONGA_SET[2];
-  if((p.congas|0)>0) keys.forEach(function(k,i){
-    var c=PERC_CONGA[k]; if(i) x+=2;                    /* 2 cm d'aria fra i cerchioni: i tamburi si sfiorano */
-    x+=c.r; L.push({k:"conga", size:k, x:x, y:0, r:c.r}); x+=c.r;
+  var L=[], n=Math.max(0,Math.min(3,p.congas|0));
+  if(n>0) PERC_CONGA_SET[n].forEach(function(k,i){
+    var a=PERC_ANGOLI[n][i]*Math.PI/180;
+    L.push({k:"conga", size:k, x:Math.round(PERC_CHI.x+PERC_ARCO*Math.cos(a)), y:Math.round(PERC_CHI.y+PERC_ARCO*Math.sin(a)), r:PERC_CONGA[k].r});
   });
-  if(p.bongos!==false){
-    if(x>0) x+=10;                                      /* i bongos stanno alla sinistra del percussionista, staccati dalle congas */
-    x+=PERC_BONGO.hembra; L.push({k:"bongos", x:x-2, y:8, r:PERC_BONGO.hembra+PERC_BONGO.macho}); x+=PERC_BONGO.hembra+PERC_BONGO.macho*2;
-  }
-  var half=x/2; L.forEach(function(sl){ sl.x-=half; });  /* centratura orizzontale */
-  /* Il resto della postazione (13/10/2026, Simone: «un percussionista con conga, bongo, chimes, le cose da
-     percussionista»). Sta attorno a chi suona, non fra i tamburi: alla sua DESTRA (x<0) il tavolo dei
-     piccoli accanto a lui e il piatto sospeso vicino alle congas; alla sua SINISTRA (x>0) i chimes accanto
-     a lui e il campanaccio dopo i bongos. */
-  var sx=L.length ? L[0].x-L[0].r : 0, dx=0;          /* bordo sinistro e destro dei tamburi (0,0 senza tamburi) */
-  L.forEach(function(sl){ dx=Math.max(dx, sl.x+sl.r); sx=Math.min(sx, sl.x-sl.r); });
-  if(p.piatto===true) L.push({k:"piatto", x:Math.min(sx,-20)-26, y:-8, hw:23, hd:23});
-  if(p.tavolo===true) L.push({k:"tavolo", x:-33-10-PERC_TAVOLO.w/2, y:-62, hw:PERC_TAVOLO.w/2, hd:PERC_TAVOLO.d/2});
-  if(p.chimes===true) L.push({k:"chimes", x:33+10+32, y:-62, hw:32, hd:14});
-  if(p.campanaccio===true) L.push({k:"campanaccio", x:Math.max(dx,20)+14, y:-14, hw:11, hd:7});
-  if(p.mus!==false || p.stool===true) L.push({k:"seat", x:0, y:-62, r:20, seat:true});   /* il percussionista sta DIETRO i tamburi, non dentro come il batterista */
+  var sx=-20, dx=20;                                    /* bordi dell'arco delle congas (senza congas: lo spazio delle mani) */
+  L.forEach(function(sl){ sx=Math.min(sx, sl.x-sl.r); dx=Math.max(dx, sl.x+sl.r); });
+  var bx=Math.min(-62, sx-3-22), by=-14;                /* bongos: a destra, fuori dall'arco, all'altezza delle mani */
+  if(p.bongos!==false) L.push({k:"bongos", x:bx, y:by, r:PERC_BONGO.hembra+PERC_BONGO.macho, hw:22, hd:PERC_BONGO.hembra});
+  if(p.campanaccio===true) L.push({k:"campanaccio", x:bx, y:by+22, hw:11, hd:7});   /* montato sullo stativo dei bongos, davanti */
+  if(p.piatto===true) L.push({k:"piatto", x:Math.max(62, dx+3+23), y:2, hw:23, hd:23});
+  if(p.chimes===true) L.push({k:"chimes", x:66, y:-56, hw:14, hd:32, rot:270});   /* 270: il treppiede verso fuori, la barra verso chi suona */
+  if(p.tavolo===true) L.push({k:"tavolo", x:-100, y:-70, hw:PERC_TAVOLO.d/2, hd:PERC_TAVOLO.w/2, rot:90});
+  if(p.mus!==false || p.stool===true){ var fig=(p.stool===true)?PERC_SEDUTO:PERC_IN_PIEDI;
+    L.push({k:"seat", x:PERC_CHI.x, y:PERC_CHI.y, r:20, hw:fig.hw, hd:fig.hd, seat:true}); }
   return L;
 }
 var PERC_TAVOLO={w:80, d:40};   /* il tavolo della postazione: più piccolo di quello da banco (120×60), ci stanno shaker, claves, güiro */
@@ -5143,13 +5147,15 @@ function percBBox(L){ var minx=1e9,maxx=-1e9,miny=1e9,maxy=-1e9;
     minx=Math.min(minx,t.x-rx); maxx=Math.max(maxx,t.x+rx); miny=Math.min(miny,t.y-ry); maxy=Math.max(maxy,t.y+down); });
   return {w:maxx-minx, d:maxy-miny, cx:(minx+maxx)/2, cy:(miny+maxy)/2};
 }
+/* chi suona: in piedi (percussionistaInPiedi di icons.js) o seduto sullo sgabello (la figura del batterista) */
+function percFigura(seduto){ return libIcon(seduto ? "batteristaPersona" : "percussionistaInPiedi"); }
 /* il disegno di un pezzo della postazione che non è un tamburo */
 function percPezzoGlyph(sl){
   if(sl.k==="bongos") return bongosGlyph();
-  if(sl.k==="chimes") return chimesGlyph();
+  if(sl.k==="chimes") return '<g transform="rotate('+(sl.rot||0)+')">'+chimesGlyph()+'</g>';
   if(sl.k==="campanaccio") return campanaccioGlyph();
   if(sl.k==="piatto") return TYPES.piatto.draw();
-  if(sl.k==="tavolo") return drawLibFit("tavolopercussioni",PERC_TAVOLO,120,60);
+  if(sl.k==="tavolo") return '<g transform="rotate('+(sl.rot||0)+')">'+drawLibFit("tavolopercussioni",PERC_TAVOLO,120,60)+'</g>';
   return congaGlyph(sl.r);
 }
 /* tipo e nome del pezzo singolo che «Dividi» ridà */
@@ -5192,7 +5198,7 @@ function drawPercussioni(it){
     if(sl.seat){
       var g='';
       if(p.stool===true) g += '<g transform="translate(0,-22)">'+libIcon("sgabellobatt")+'</g>';
-      if(p.mus!==false)  g += libIcon("batteristaPersona");   /* il percussionista sta in piedi: sgabello spento di default */
+      if(p.mus!==false)  g += percFigura(p.stool===true);   /* in piedi di serie; con lo sgabello, seduto */
       s += pre+g+'</g>'; return;
     }
     s += pre+percPezzoGlyph(sl)+'</g>';
@@ -5206,13 +5212,14 @@ function explodePercussioni(it){
     var dx=Math.round((sl.x-B.cx)*10)/10, dy=Math.round((sl.y-B.cy)*10)/10;
     if(sl.seat){
       if(p.stool===true) out.push({type:"stoolR", dx:dx, dy:dy-22, label:""});
-      if(p.mus!==false)  out.push({type:"percussionistaR", dx:dx, dy:dy, label:base+"Percussionista"});
+      if(p.mus!==false)  out.push({type:"percussionistaR", dx:dx, dy:dy, label:base+"Percussionista", extra:(p.stool===true ? null : {inPiedi:true, w:2*PERC_IN_PIEDI.hw, d:2*PERC_IN_PIEDI.hd})});
       return;
     }
     if(sl.k==="bongos"){ out.push({type:"bongos", dx:dx, dy:dy, label:base+"Bongos"}); return; }
     var pz=PERC_PEZZI[sl.k];
     if(pz){ var o={type:pz[0], dx:dx, dy:dy, label:base+pz[1]};
       if(sl.k==="tavolo") o.extra={w:PERC_TAVOLO.w, d:PERC_TAVOLO.d};
+      if(sl.rot) o.extra=Object.assign(o.extra||{}, {rot:((it.rot||0)+sl.rot)%360});
       out.push(o); return; }
     var c=PERC_CONGA[sl.size];
     out.push({type:c.type, dx:dx, dy:dy, label:base+c.lbl});
