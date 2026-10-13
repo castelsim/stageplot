@@ -14775,8 +14775,12 @@ function renderProps(){
 
   var rfWrap=document.getElementById("pRfWrap");   /* RF: frequenza + banda solo per radiomic/in-ear (#2) */
   if(rfWrap){ var isRfEl=(typeof isRf==="function") && isRf(it); rfWrap.style.display = isRfEl ? "block" : "none";
-    if(isRfEl){ document.getElementById("pRf").value = it.rf||""; document.getElementById("pBand").value = it.band||"";
-      document.getElementById("pRfChi").value = it.rfChi||""; document.getElementById("pRfChi").placeholder = VOCE[it.type] ? "chi lo usa: "+rfChiOf(it) : "chi lo usa (es. pubblico)";
+    /* 13/10/2026 (stessa radice della segnalazione 68b902d9 sulla Nota): questi campi salvano col .trim() a ogni
+       tasto e render() riscriveva il campo → lo spazio in fondo spariva, «Mario Rossi» diventava «MarioRossi».
+       Il campo che si sta scrivendo non si riscrive, come per le zone microfoni. */
+    if(isRfEl){ var _af=document.activeElement, _rw=function(id,v){ var e=document.getElementById(id); if(e!==_af) e.value=v; };
+      _rw("pRf", it.rf||""); _rw("pBand", it.band||"");
+      _rw("pRfChi", it.rfChi||""); document.getElementById("pRfChi").placeholder = VOCE[it.type] ? "chi lo usa: "+rfChiOf(it) : "chi lo usa (es. pubblico)";
       document.getElementById("pRfRiserva").checked = !!it.rfRiserva; } }
   var pmWrap=document.getElementById("pPmWrap");   /* personal monitor model-driven (B1): marca/modello da PM_DB */
   if(pmWrap){ var isPm=(it.type==="hearback"||it.type==="mixhub"); pmWrap.style.display = isPm ? "block" : "none";
@@ -14809,7 +14813,7 @@ function renderProps(){
   })();
   document.getElementById("pLabel").value = it.label||"";
   var _pn=document.getElementById("pNote");
-  _pn.value = it.note||"";
+  if(document.activeElement!==_pn) _pn.value = it.note||"";   /* mentre si scrive non si riscrive (segnalazione 68b902d9) */
   _pn.placeholder = NOTE_HINT[it.type] || "es. fornito dalla band";   /* il suggerimento parla del pezzo che si ha davanti */
   /* Testo libero = box di testo: si scrive col doppio click sul palco → via Etichetta e Nome sul palco;
      lo slider diventa "Dimensione testo" e compare il colore. */
@@ -15562,9 +15566,18 @@ function mutSelAll(fn){ primaDiAgire(); var it=getSel(); if(!it) return;
   tutti.forEach(fn); render(); save(); }
 function mutSelSoon(fn){ var it=getSel(); if(!it) return; fn(it); render(); saveSoon(); }   /* per la digitazione: snapshot di cronologia debounce-ato */
 document.getElementById("pLabel").addEventListener("input", function(){ mutSelSoon(function(it){ it.label=document.getElementById("pLabel").value; }); });
+/* Segnalazione 68b902d9 (13/10/2026): nella Nota la barra spaziatrice non scriveva, «Fornitodallacompagnia».
+   Mentre si scrive il testo va salvato COM'È: con .trim() a ogni tasto lo spazio appena battuto in fondo
+   spariva, render() → renderProps() rimetteva nel campo il testo accorciato, e la parola dopo si attaccava.
+   Gli spazi ai bordi si tolgono quando si esce dal campo (change), e comunque all'apertura (normalizeState). */
 document.getElementById("pNote").addEventListener("input", function(){ mutSelSoon(function(it){
+  var v=String(document.getElementById("pNote").value||"").slice(0,NOTE_MAX);
+  if(v.trim()) it.note=v; else delete it.note;   /* nota vuota = nessuna nota: niente chiavi morte nel documento */
+}); });
+document.getElementById("pNote").addEventListener("change", function(){ mutSelSoon(function(it){
   var v=String(document.getElementById("pNote").value||"").slice(0,NOTE_MAX).trim();
-  if(v) it.note=v; else delete it.note;   /* nota vuota = nessuna nota: niente chiavi morte nel documento */
+  if(v) it.note=v; else delete it.note;
+  document.getElementById("pNote").value=v;
 }); });
 (function(){ function setPrese(d){ var it=getSel(); if(!it||(it.type!=="ciabatta"&&it.type!=="dimmerluci")) return;
   var dim=it.type==="dimmerluci", def=dim?12:6, max=dim?48:12;
