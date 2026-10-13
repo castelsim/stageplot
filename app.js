@@ -28627,8 +28627,9 @@ function pdfCredit(doc){
     doc.setFont("helvetica","normal"); doc.setFontSize(6.5); doc.setTextColor(156,163,175);
     doc.text("Creato con stageplot.it", pw-10, ph-4.5, {align:"right"});   /* a 2,8 mm dal bordo la stampante non arrivava */
     /* il numero di pagina (revisione 28/09: su 30 pagine controllate, nessuna numerata — fogli separati fra
-       regia e palco non si rimettevano in ordine). Più scuro del credito: questo si deve leggere. */
-    if(n>1){ doc.setFontSize(8); doc.setTextColor(107,114,128); doc.text("pag "+i+"/"+n, pw/2, ph-4.5, {align:"center"}); }
+       regia e palco non si rimettevano in ordine). Più scuro del credito: questo si deve leggere.
+       «1 di N» su ogni foglio, anche quando è uno solo (regola del 06/10 per ogni PDF che esce da qui). */
+    doc.setFontSize(8); doc.setTextColor(107,114,128); doc.text(i+" di "+n, pw/2, ph-4.5, {align:"center"});
   }
   doc.setPage(n);
 }
