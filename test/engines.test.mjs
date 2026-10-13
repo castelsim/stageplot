@@ -7771,6 +7771,140 @@ t("palco temporaneo: rifiuta progetto bloccato, sola visione, consulenza, base i
   A.custEditorAnnulla();   /* a editor chiuso non fa nulla e non lancia */
 }));
 
+/* ---- Correzioni della revisione (Task 4, giro 1) ---- */
+const canonDoc = j => JSON.stringify(JSON.parse(j), (k, v) => (v && typeof v === "object" && !Array.isArray(v)) ? Object.fromEntries(Object.keys(v).sort().map(x => [x, v[x]])) : v);
+const formaProva = (x, y) => ({ id: A.uid(), type: "custshape", k: "rect", x, y, w: 10, d: 10, rot: 0, fill: "#334455", stroke: "#000000", sw: 1 });
+
+t("palco temporaneo: Annulla/Ripeti nell'editor non toccano le scene vere attraverso «Adatta palco»", () => conEditor(() => {
+  /* Annulla: dopo Adatta in scena nuova basta una forma e Cmd+Z per far togliere la scena vera */
+  reset(); A.applyVariantState(JSON.parse(A.stateToJSON()));
+  add("cantante", 350, 330); add("sedia", 900, 600); A.save();
+  A.adattaPalcoApplica(1000, 600, true);
+  ok(A.VARIANTS.length === 2 && A.adattaScena, "premessa: Adatta ha creato la scena nuova");
+  const prima = A.docToJSON(), scenaPrima = A.adattaScena;
+  ok(A.custEditorApri({ x: 300, y: 300, w: 120, d: 80 }, {}), "aperto");
+  eq([A.adattaScena, A.adattaRifai, A.adattaPasso], [null, null, null], "lo stato di «Adatta» è messo da parte");
+  A.state.items.push(formaProva(20, 20)); A.save();
+  A.undo();
+  eq(A.VARIANTS.length, 2, "nessuna scena tolta");
+  eq([A.state.stage.w, A.state.stage.d], [120, 80], "Annulla ha agito sul palco temporaneo");
+  A.redo(); A.undo();
+  A.custEditorAnnulla();
+  eq(canonDoc(A.docToJSON()), canonDoc(prima), "progetto identico");
+  ok(A.VARIANTS.some(v => v.id === A.activeVar), "la scena attiva esiste");
+  ok(A.adattaScena === scenaPrima, "l'Annulla di «Adatta» torna disponibile com'era");
+  /* Ripeti: dopo Adatta + Annulla, all'apertura gli stack sono vuoti e «Ripeti» rimetterebbe la scena tolta */
+  reset(); A.applyVariantState(JSON.parse(A.stateToJSON()));
+  add("cantante", 350, 330); A.save();
+  A.adattaPalcoApplica(1000, 600, true); A.undo();
+  ok(A.adattaRifai && A.VARIANTS.length === 1, "premessa: scena di Adatta tolta, Ripeti pronto");
+  const prima2 = A.docToJSON(), rifaiPrima = A.adattaRifai;
+  ok(A.custEditorApri({ x: 300, y: 300, w: 120, d: 80 }, {}), "aperto");
+  eq(A.ripetiDisponibile(), false, "nell'editor Ripeti non è disponibile");
+  A.redo();
+  eq(A.VARIANTS.length, 1, "nessuna scena rimessa");
+  A.custEditorAnnulla();
+  eq(canonDoc(A.docToJSON()), canonDoc(prima2), "progetto identico");
+  ok(A.adattaRifai === rifaiPrima && A.ripetiDisponibile(), "e Ripeti di «Adatta» torna com'era");
+  ok(/custEditorAttivo\(\)/.test(String(A.adattaAnnullaScena)) && /custEditorAttivo\(\)/.test(String(A.adattaRifaiScena))
+    && /custEditorAttivo\(\)/.test(String(A.ripetiDisponibile)), "difesa doppia: le tre funzioni si fermano con l'editor aperto");
+}));
+
+t("palco temporaneo: dopo Salva gli id restano unici (gli elementi nati nell'editor hanno id alti)", () => conEditor(() => {
+  reset();
+  add("cantante", 350, 330);
+  ok(A.custEditorApri({ x: 300, y: 300, w: 120, d: 80 }, { includi: true }), "aperto");
+  for (let i = 0; i < 4; i++) A.state.items.push(formaProva(20 + i, 20));
+  add("sedia", 60, 40);
+  A.custEditorSalva({ nome: "P", desc: "", watt: null, ins: null, backline: false });
+  for (let i = 0; i < 6; i++) add("sedia", 900, 600);
+  const ids = A.state.items.map(x => x.id);
+  eq(ids.filter((x, i) => ids.indexOf(x) !== i), [], "nessun id doppio");
+}));
+
+t("palco temporaneo: aprire e salvare più volte un elemento con misure dispari non sposta niente", () => conEditor(() => {
+  for (const rot of [0, 90]) {
+    reset();
+    const base = add("custom", 500, 500, { w: 101, d: 51, rot, cust: { nome: "R", shapes: [{ k: "rect", x: 10, y: 10, w: 20, h: 10, fill: "#334455", stroke: "#000000", sw: 1 }] } }); A.custNorm(base);
+    const voce = add("cantante", 520, 540, { rot: 0 }); base.grp = voce.grp = "gT";
+    const forme = JSON.stringify(base.cust.shapes);
+    for (let k = 0; k < 3; k++) {
+      ok(A.custEditorApri(null, { baseId: base.id }), "aperto");
+      A.custEditorSalva({ nome: "R", desc: "", watt: null, ins: null, backline: false });
+    }
+    const b = A.state.items.find(x => x.type === "custom"), v = A.state.items.find(x => x.type === "cantante");
+    eq([b.x, b.y, b.w, b.d, b.rot], [500, 500, 101, 51, rot], "base ferma (rot " + rot + ")");
+    eq([v.x, v.y, v.rot], [520, 540, 0], "compagno fermo (rot " + rot + ")");
+    eq(JSON.stringify(b.cust.shapes), forme, "forme ferme (rot " + rot + ")");
+  }
+}));
+
+t("palco temporaneo: la planimetria in cache del progetto vero torna esattamente com'era", () => conEditor(() => {
+  reset();
+  add("cantante", 350, 330); A.save();
+  const key = String(A.activeVar), img = { name: "pianta.png", _dataUrl: "data:image/png;base64,AAAA", _imgW: 10, _imgH: 10, _sig: "s1" };
+  /* caso 1: il progetto non ha planimetria, nell'editor ne arriva una in cache */
+  delete A.venueImgCache[key];
+  ok(A.custEditorApri({ x: 300, y: 300, w: 120, d: 80 }, {}), "aperto");
+  A.venueImgCache[key] = Object.assign({}, img);
+  A.custEditorAnnulla();
+  eq(Object.prototype.hasOwnProperty.call(A.venueImgCache, key), false, "nessuna planimetria entra nel progetto vero");
+  /* caso 2: il progetto ha la planimetria, nell'editor la cache si svuota (applyHistory la cancella) */
+  A.venueImgCache[key] = Object.assign({}, img);
+  ok(A.custEditorApri({ x: 300, y: 300, w: 120, d: 80 }, {}), "aperto");
+  delete A.venueImgCache[key];
+  A.custEditorAnnulla();
+  eq(A.venueImgCache[key], img, "la planimetria del progetto vero non si perde");
+  delete A.venueImgCache[key];
+}));
+
+t("palco temporaneo: i rifiuti con l'editor aperto dicono una cosa sola e chiara; il cloud non va in errore", () => conEditor(() => {
+  reset();
+  const toast = [], toastPrima = A.__toast;
+  A.__toast = (m) => { toast.push(m); };
+  try {
+    ok(A.custEditorApri({ x: 0, y: 0, w: 100, d: 100 }, {}), "aperto");
+    A.switchVariant("altra"); A.createVariant("x"); A.beginNewDocument(null, { skipRecovery: true });
+    A.guardDocumentReplacement({ reason: "prova" }, () => { throw new Error("non deve partire"); });
+    A.exportPng();
+    const msg = "Chiudi prima l'elemento che stai creando (Salva o Annulla).";
+    ok(toast.length >= 5, "ogni rifiuto lo dice");
+    eq(toast.filter(m => m !== msg), [], "e dice sempre la stessa cosa");
+    A.custEditorAnnulla();
+  } finally { A.__toast = toastPrima; }
+  /* la riserva in saveProject risponde «editor»: chi aspetta non accende l'errore né i tentativi */
+  ok(/if\(window\.__custEditor\)\{ done\(null, *"editor"\); return; \}/.test(appjs), "saveProject: motivo «editor»");
+  const stati = [], setDoc = A.setDocState, cloudPrima = A.__cloud, dirtyPrima = A._cloudDirty, savingPrima = A._cloudSaving;
+  const flag = ["__docLoadBlocked", "__localConflict", "__cloudConflict", "__bootVenueUnavailable", "__projLocked"], flagPrima = flag.map(k => A[k]);
+  flag.forEach(k => { A[k] = false; });
+  A.setDocState = (m) => { stati.push(m); };
+  A.__cloud = { user: () => ({ id: "u" }), currentId: () => "c1", isWriting: () => false, save: (cb) => cb(null, "editor") };
+  try {
+    A._cloudDirty = true; A._cloudSaving = false; A.cloudAutosaveNow();
+    eq(stati.includes("error"), false, "nessuno stato «errore»");
+    eq(A._cloudDirty, true, "il salvataggio resta da fare: riparte alla chiusura dell'editor");
+  } finally {
+    A.setDocState = setDoc; A.__cloud = cloudPrima; A._cloudDirty = dirtyPrima; A._cloudSaving = savingPrima;
+    flag.forEach((k, i) => { A[k] = flagPrima[i]; });
+  }
+}));
+
+t("palco temporaneo: un custshape da un documento esterno è rifiutato anche con l'editor aperto", () => conEditor(() => {
+  reset();
+  ok(A.custEditorApri({ x: 0, y: 0, w: 100, d: 100 }, {}), "aperto");
+  const doc = { titolo: "", stage: { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] }, items: [{ id: "i1", type: "custshape", k: "rect", x: 0, y: 0, w: 10, d: 10 }] };
+  throws(() => A.prepareDoc(JSON.parse(JSON.stringify(doc))), "UNKNOWN_ITEM_TYPE");
+  throws(() => A.normalizeLoadedItems([{ id: "i1", type: "custshape", k: "rect", x: 0, y: 0, w: 10, d: 10 }]), "UNKNOWN_ITEM_TYPE");
+  /* la cronologia dell'editor invece li porta: Annulla di un passo con due forme ne lascia una */
+  A.state.items.push(formaProva(20, 20)); A.save();
+  A.state.items.push(formaProva(40, 20)); A.save();
+  A.undo();
+  eq(A.state.items.filter(x => x.type === "custshape").length, 1, "Annulla dentro l'editor ripristina le forme");
+  A.redo();
+  eq(A.state.items.filter(x => x.type === "custshape").length, 2, "e Ripeti le rimette");
+  A.custEditorAnnulla();
+}));
+
 t("custshape: tipo solo dell'editor, mai da un file, mai in catalogo", () => {
   eq(A.TYPES.custshape && A.TYPES.custshape.catalog, false, "fuori dal catalogo");
   ok(!A.custEditorAttivo(), "editor chiuso");
