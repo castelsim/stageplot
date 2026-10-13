@@ -1155,7 +1155,10 @@ var TYPES = {
              draw:function(it){ return plateaDraw(it); }},
   sedialeggio:{nome:"Sedia + leggio", dim:"postazione", cat:"Palco e strutture", w:75,d:105,
              draw:function(){ return bar(0,-22,46,46,'ic fBlack',9)+bar(0,-48,46,9,'ic fill',4)+leggioGlyph(38); }},
-  leggio:   {nome:"Leggio", dim:"48×35", cat:"Palco e strutture", catalog:false, w:50,d:35,
+  /* leggio da solo (13/10/2026): era nascosto dal catalogo dal 04/07 (riorganizzazione), ma il gruppo «Arredo e
+     leggii» lo elencava già e il commento di postaz() lo dava per «elemento separato»: una svista, non una scelta. */
+  leggio:   {nome:"Leggio", dim:"48×35", cat:"Palco e strutture", w:50,d:35,
+             alias:"leggio leggii music stand spartito",
              draw:function(){ return leggioGlyph(2); }},
   podio:    {nome:"Podio direttore", dim:"100×100", cat:"Palco e strutture", w:100,d:100,
              draw:function(){ return bar(0,0,100,100,'ic fFloor',3)+bar(0,0,84,84,'ic thin',2)+
@@ -1193,7 +1196,7 @@ var TYPES = {
   forma:    {nome:"Forma", dim:"area · annotazione", cat:"Palco e strutture", w:200,d:140, resizable:true, z:1, innerLabel:true, defLabel:"",
              alias:"forma forme shape area zona evidenzia annotazione",   /* le parole della singola geometria (quadrato, cerchio…) stanno sulla VOCE, non sul tipo: altrimenti ogni forma trova ogni query */
              draw:function(it){ return drawShape(it); }},
-  testo:    {nome:"Testo libero", dim:"box di testo", cat:"Palco e strutture", w:200,d:70, resizable:true, z:3, innerLabel:true, defLabel:"Testo…",
+  testo:    {nome:"Testo libero", dim:"box di testo", cat:"Palco e strutture", catalog:false, w:200,d:70, resizable:true, z:3, innerLabel:true, defLabel:"Testo…",   /* catalog:false dal 13/10/2026: si crea come Forma «Solo testo»; questo tipo resta per i progetti salvati */
              draw:function(it){ return drawTextBox(it); }},
   custom:   {nome:"Elemento personalizzato", dim:"disegnato da te, in scala", cat:"Palco e strutture", w:120,d:80, z:1, catalog:false, defLabel:"Elemento",
              alias:"elemento personalizzato custom segnaposto",
@@ -3705,6 +3708,7 @@ function commitPreparedDoc(prepared){
   /* Commit atomico: nessuno stato globale cambia finché ogni variante non è stata validata e normalizzata. */
   window.__respLoadSeq=(window.__respLoadSeq||0)+1; window.__respData=null;   /* nessun contatto account attraversa il progetto */
   VARIANTS=prepared.variants; activeVar=prepared.active; DOC_EXTRA=prepared.extra||{};
+  if(typeof snapDalDocumento==="function") snapDalDocumento();   /* l'aggancio del progetto che si apre (nuovo = 25 cm) */
   venueImgCache=Object.create(null);   /* confine documento: nessuna bitmap del progetto precedente può attraversarlo */
   VARIANTS.forEach(function(v){ cacheVenueImg(v.state&&v.state.venue,v.id); });
   /* Secondo giro: le scene che dichiarano `_sameAs` riprendono la bitmap dalla scena indicata.
@@ -7092,7 +7096,11 @@ var SHAPES=[
   ["tri","Triangolo","triangolo cuneo"],
   ["rhombus","Rombo","diamante losanga"],
   ["arrow","Freccia","direzione verso entrata uscita"],
-  ["line","Linea","riga tratto divisorio separatore"]
+  ["line","Linea","riga tratto divisorio separatore"],
+  /* SOLO TESTO (13/10/2026, Simone: «testo libero lo implementiamo con le forme»): niente sagoma, solo le
+     righe, in alto e a sinistra come il vecchio Testo libero. Un solo pannello per testo e forme, e un testo
+     diventa un riquadro colorato (o il contrario) con un clic. I «testo» già salvati restano il loro tipo. */
+  ["testo","Solo testo","testo scritta nota etichetta didascalia testo libero"]
 ];
 var SHAPE_FILL=[
   ["#0d9488","Teal"],["#b45309","Ambra"],["#b91c1c","Rosso"],["#2563eb","Blu"],
@@ -7425,6 +7433,7 @@ function custShapeDaForma(g){
   return x;
 }
 function drawShape(it){
+  if(shapeOf(it)==="testo") return drawShapeTesto(it);
   var col=shapeFillOf(it), st=shapeStyleOf(it), op=(it.opacity==null?100:+it.opacity)/100;
   var geom=shapeGeom(it), attrs, lk=(it.locked===true), sw=lk?"3.6":"2", swo=lk?"3.8":"2.4";   /* bloccata: perimetro marcato come la pedana, colore invariato */
   if(st==="solid")        attrs='fill="'+col+'" fill-opacity="'+(op*0.22).toFixed(3)+'" stroke="'+col+'" stroke-width="'+sw+'"';
@@ -7457,6 +7466,18 @@ function drawShape(it){
     else s+=riserLockGlyph(w2, d2, shapeOf(it)==="line"?"line":"axis", col);
   }
   return s+sTxt;
+}
+/* Forma «Solo testo»: le righe partono dall'alto, come nel Testo libero (al centro, in un riquadro alto,
+   il testo galleggerebbe lontano da dove lo si è scritto). Lucchetto piccolo in alto a destra se bloccata. */
+function drawShapeTesto(it){
+  var w=Math.max(8,it.w||200), d=Math.max(8,it.d||70), fsz=Math.max(6, it.lblSize==null?14:+it.lblSize||14), pad=8;
+  var lines=wrapTextLines(it.label||"", Math.max(20, w-pad*2), fsz), lh=fsz*1.25, y0=-d/2+pad+fsz*0.85;
+  var al=textAlignOf(it,"left"), ax=textAnchorXY(it, al, pad), tc=esc(it.txtColor||"#1f2937"), s='';
+  lines.forEach(function(ln,i){
+    if(ln) s+='<text class="txtbox-line" x="'+ax[1]+'" y="'+(y0+i*lh)+'" text-anchor="'+ax[0]+'" style="font-size:'+fsz+'px;text-anchor:'+ax[0]+'" fill="'+tc+'">'+esc(ln)+'</text>';
+  });
+  if(it.locked===true) s+=lockGlyphAt(w/2-8, -d/2+8, "#59544a");
+  return s;
 }
 /* allineamento del testo (Simone 27/07): vale per il testo libero e per il testo dentro la forma.
    Default: a sinistra nel testo libero, centrato nella forma. */
@@ -13272,12 +13293,14 @@ function renderProps(){
                     tri:'<polygon points="12,4 21,20 3,20"/>',
                     rhombus:'<polygon points="12,3 21,12 12,21 3,12"/>',
                     arrow:'<polygon points="3,9 14,9 14,5 21,12 14,19 14,15 3,15"/>',
-                    line:'<rect x="3" y="10.5" width="18" height="3" rx="1.5"/>'}[sh[0]];
+                    line:'<rect x="3" y="10.5" width="18" height="3" rx="1.5"/>',
+                    testo:'<path d="M5 5h14v3h-2V7.5h-3.5V18H16v2H8v-2h2.5V7.5H7V8H5z"/>'}[sh[0]];
           return '<button type="button" data-shape="'+sh[0]+'" title="'+esc(sh[1])+'" aria-label="'+esc(sh[1])+'">'+
             '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">'+mini+'</svg></button>';
         }).join("");
       }
       grid.querySelectorAll("[data-shape]").forEach(function(b){ b.classList.toggle("on", b.getAttribute("data-shape")===kind); });
+      var _look=document.getElementById("pShapeLook"); if(_look) _look.style.display = (kind==="testo") ? "none" : "";   /* solo testo: niente sagoma, quindi niente stile, colore né trasparenza */
       shw.querySelectorAll("[data-sst]").forEach(function(b){ b.classList.toggle("on", b.getAttribute("data-sst")===sst); });
       var sw=document.getElementById("pShapeFill");
       if(!sw.childElementCount){
@@ -13303,7 +13326,7 @@ function renderProps(){
   if(alw){
     var hasTxt = isTxt || it.type==="forma";
     alw.style.display = hasTxt ? "block" : "none";
-    if(hasTxt){ var al=textAlignOf(it, isTxt?"left":"center");
+    if(hasTxt){ var al=textAlignOf(it, (isTxt || shapeOf(it)==="testo")?"left":"center");
       alw.querySelectorAll("[data-align]").forEach(function(b){ b.classList.toggle("on", b.getAttribute("data-align")===al); }); }
   }
   if(isTxt || it.type==="forma"){
@@ -14076,7 +14099,7 @@ document.getElementById("pLblSizeAllYes").addEventListener("click", function(){
   w.addEventListener("click", function(e){
     var b=e.target.closest("[data-align]"); if(!b) return;
     var v=b.getAttribute("data-align"), it=getSel();
-    var def=(it && it.type==="forma") ? "center" : "left";
+    var def=(it && it.type==="forma" && shapeOf(it)!=="testo") ? "center" : "left";   /* la forma «Solo testo» parte a sinistra come il Testo libero */
     mutSel(function(x){ if(v===def) delete x.align; else x.align=v; });   /* il default non si memorizza */
     renderProps();
   });
@@ -14381,6 +14404,12 @@ document.getElementById("pTastLeg2").addEventListener("change", function(){ mutS
    stava mille righe più sotto: all'avvio valeva ancora `undefined`, nessuna opzione corrispondeva e il
    selettore nell'intestazione restava vuoto finché non lo si cambiava a mano. */
 var snapMode = "25";   /* "0"=libero · "25"/"50"/"100"=griglia cm · "obj"=oggetti */
+/* L'aggancio si salva COL PROGETTO (13/10/2026, Simone: «metto libero, ma poi dopo un tot torna a 25 cm»):
+   viveva solo in memoria, e ogni ricarica — anche quella automatica dopo un aggiornamento dell'app — lo
+   rimetteva a 25. Sta fra le chiavi di servizio del documento (DOC_EXTRA.snap, assente se 25), non nello
+   stato della scena: cambiarlo non è lavoro sul disegno e non deve segnare «modificato dopo l'ultimo PDF». */
+function snapValido(v){ return v==="0"||v==="25"||v==="50"||v==="100"||v==="obj"; }   /* funzione, non var: va usata anche da chi apre un documento */
+function snapDalDocumento(){ var v=DOC_EXTRA && DOC_EXTRA.snap; snapMode=snapValido(v) ? v : "25"; try{ syncSnapSelects(); }catch(e){} }   /* il menu si allinea quando c'è; aprire il documento non deve mai fallire per lui */
 function syncSnapSelects(){
   var a=document.getElementById("snapSel"), b=document.getElementById("snapSelM");
   if(a) a.value=snapMode; if(b) b.value=snapMode;
@@ -14392,7 +14421,10 @@ function syncSnapSelects(){
 }
 (function(){
   var a=document.getElementById("snapSel"), b=document.getElementById("snapSelM");
-  function set(v){ snapMode=v; syncSnapSelects(); }
+  function set(v){ if(!snapValido(v)) return; snapMode=v; syncSnapSelects();
+    DOC_EXTRA=DOC_EXTRA||{}; if(v==="25") delete DOC_EXTRA.snap; else DOC_EXTRA.snap=v;
+    if(typeof persistLocalState==="function") persistLocalState();
+    if(window.scheduleCloudAutosave) scheduleCloudAutosave(); }
   if(a) a.addEventListener("change", function(){ set(this.value); });
   if(b) b.addEventListener("change", function(){ set(this.value); });
   Array.prototype.forEach.call(document.querySelectorAll("#mSnap [data-snap]"), function(x){
@@ -15760,6 +15792,7 @@ function ricordaRecenteCatalogo(k, nome, over){
       SHAPES.forEach(function(sh){
         var over={shape:sh[0]};
         if(sh[0]==="line"){ over.w=300; over.d=6; over.shapeStyle="outline"; }
+        if(sh[0]==="testo"){ over.w=200; over.d=70; over.label="Testo…"; }
         if(sh[0]==="arrow"){ over.w=220; over.d=90; }
         addToGroup("Forme e note", makeBtn("forma", sh[1], over, ""));
         entries.push({k:"forma", nome:sh[1], over:over, kw:sh[2]+" forma forme area zona evidenzia annotazione"});
@@ -15955,9 +15988,15 @@ function ricordaRecenteCatalogo(k, nome, over){
                 kw:"variante varianti scena scene versione alternativa seconda formazione"});
   entries.push({nome:"Frequenze radio (RF)", dim:"si scrivono su ogni radiomic e in-ear", noQuick:true, iconHtml:RF_ICON, action:openRfFreq,
                 kw:"frequenza frequenze radiofrequenza radiofrequenze radio radiomicrofoni banda mhz lista rf"});
-  ["metro","testo"].forEach(function(k){
+  ["metro"].forEach(function(k){
     pin.appendChild(makeBtn(k, TYPES[k].nome)); entries.push({k:k,nome:TYPES[k].nome});
   });
+  /* Testo libero (13/10/2026): è una FORMA «Solo testo» — stesso pannello di forme, colori e testo. Nasce già
+     con il cursore dentro, come prima. Il vecchio tipo «testo» resta per i progetti salvati, non si crea più. */
+  function nuovoTestoLibero(){ var it=addItem("forma", {shape:"testo", w:200, d:70, label:"Testo…"}); if(it && !isMobile()) inlineTextEdit(it.id); }
+  pin.appendChild(makeActionBtn("Testo libero","box di testo", null, nuovoTestoLibero, miniSvg("testo")));
+  entries.push({nome:"Testo libero", dim:"box di testo", action:nuovoTestoLibero, iconHtml:miniSvg("testo"), noQuick:true,
+                kw:"testo testi scritta scritte nota note etichetta didascalia titolo commento"});
 
   /* Ricerca permissiva (generale, nessun hardcoded): per ogni entry un indice normalizzato — minuscole
      + diacritici rimossi — costruito da nome + dimensione + categoria/sottocategoria + alias del tipo.
@@ -19717,7 +19756,7 @@ function stateHasMeaningfulWork(s, ignoraPalco){
    viene scritta SEMPRE da prepareDoc (permesso unico del link), quindi contarla come contenuto
    renderebbe «pieno» ogni documento appena creato — e tornerebbero i gusci «Senza titolo»
    nell'elenco cloud che il ramo del documento vuoto esiste apposta per evitare. */
-var DOC_EXTRA_SERVIZIO={shareOpts:1};
+var DOC_EXTRA_SERVIZIO={shareOpts:1, snap:1};   /* snap (13/10/2026): l'aggancio scelto, non lavoro */
 function docExtraHasWork(){
   return Object.keys(DOC_EXTRA||{}).some(function(k){ return !DOC_EXTRA_SERVIZIO[k]; });
 }
