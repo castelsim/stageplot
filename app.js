@@ -11403,7 +11403,7 @@ function auditEngine(){
   /* «segnato come da confermare» era una promessa che nessuno manteneva: _provisional veniva scritto
      e mai più letto da nessuna parte — passati i 3 secondi del toast, l'informazione era persa e il
      service riceveva un palco standard come se fosse una misura dichiarata (06/08). */
-  if(state.stage && state.stage._provisional) add("warn","Le misure del palco sono ancora quelle standard 8 × 6 m, da confermare.","Palco","Apri «Forma del palco» e inserisci le misure reali: il service le legge dal disegno.");
+  if(state.stage && state.stage._provisional) add("warn","Le misure del palco sono ancora quelle standard 8 × 6 m, da confermare.","Palco","Apri «Palco» e inserisci le misure reali: il service le legge dal disegno.");
   if(items.length && (state.status||"bozza")==="bozza") add("info","Il progetto è ancora una «Bozza»: portalo ad «Approvato» quando è pronto da inviare al service.","Stato");
   /* metriche */
   var totCableM=(Rc.links||[]).filter(function(l){return !l.deleted;}).reduce(function(a,l){return a+l.lenM;},0)
@@ -15589,7 +15589,11 @@ function ricordaRecenteCatalogo(k, nome, over){
   var extraSep=document.createElement("div"); extraSep.style.cssText="height:1px;background:var(--border);margin:10px 6px 8px";
   pin.appendChild(extraSep);
   var MAP_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="5.5" y="7" width="21" height="18" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5.5 13.5h21M5.5 19h21M12 7v18M19 7v18" stroke="currentColor" stroke-width="1" opacity=".55"/></svg>';
-  pin.appendChild(makeActionBtn("Forma del palco","blocchi, misure e altezze","pedana", toggleStageEdit));
+  /* «Palco» (Simone 13/10/2026): prima «Forma del palco», che si confondeva con l'elemento Forma qui sotto.
+     La FORMA sta subito dopo: rettangolo, cerchio, freccia… con colore e testo, tutto nel pannello di destra. */
+  pin.appendChild(makeActionBtn("Palco","blocchi, misure e altezze","pedana", toggleStageEdit));
+  var FORMA_ICON=miniSvg("forma", {w:200,d:140});
+  pin.appendChild(makeActionBtn("Forma","rettangolo, cerchio, freccia… con colore e testo", null, function(){ addItem("forma"); }, FORMA_ICON));
   /* La PEDANA sta qui sotto, in mano al palco ma come elemento a sé (Simone 27/07): si posa e si
      lavora subito — misure, altezza, rotazione — senza entrare in nessuna modalità. */
   var PEDANA_ICON=miniSvg("pedana", {w:200,d:100});
@@ -15600,8 +15604,8 @@ function ricordaRecenteCatalogo(k, nome, over){
      lo ospitava era stata rimossa. Resta nell'indice: si scrive "audit" (o verifica, controlla,
      manca…) nella ricerca del catalogo e compare, cliccabile come prima. */
   var AUDIT_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><circle cx="16" cy="16" r="11" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M11 16.5l3.2 3.2L21 12.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  entries.push({nome:"Forma del palco", dim:"blocchi, misure e altezze", icon:"pedana", action:toggleStageEdit, noQuick:true,
-                kw:"palco stage forma blocchi misure altezza semicerchio pedana pedane praticabile"});   /* cercando "pedana" si arriva qui, dove le pedane si fanno davvero */
+  entries.push({nome:"Palco", dim:"blocchi, misure e altezze", icon:"pedana", action:toggleStageEdit, noQuick:true,
+                kw:"palco stage forma del palco blocchi misure altezza semicerchio pedana pedane praticabile"});   /* cercando "pedana" si arriva qui, dove le pedane si fanno davvero */
   entries.push({nome:"Planimetria", dim:"immagine di sfondo", action:toggleVenueEdit, iconHtml:MAP_ICON, noQuick:true});
   entries.push({nome:"Audit progetto", dim:"controlla se manca qualcosa", action:toggleAuditView, iconHtml:AUDIT_ICON, kw:"audit controlla verifica diagnostica analisi problemi manca prontezza checklist errori avvisi punteggio", noQuick:true});
   /* Comandi cercati per nome (25/09, dalle ricerche senza risultati degli utenti): «espo» e
@@ -31337,14 +31341,14 @@ function maybeAskStageSize(explicit){
      che ha bisogno di sapere cosa gli è stato messo e come cambiarlo (audit 27/07). */
   document.getElementById("ssUnknown").addEventListener("click", function(){
     applyStageSize(8, 6, true); closeStageSize();   /* palco indicativo 8×6, marcato da confermare */
-    if(window.__toast) window.__toast("Ho messo un palco standard di 8 × 6 m, segnato come «da confermare». Puoi cambiarlo quando vuoi da «Forma del palco».");
+    if(window.__toast) window.__toast("Ho messo un palco standard di 8 × 6 m, segnato come «da confermare». Puoi cambiarlo quando vuoi da «Palco».");
   });
   m.addEventListener("keydown", function(e){ if(e.key==="Enter"){ e.preventDefault(); confirm(); } });
   /* Esc e click sul velo sono l'altro modo di dire «non lo so», e consegnavano il palco DOPPIO
      (12×8) senza dirlo né marcarlo, mentre il bottone dà 8×6 marcato e lo dichiara. Due modi di non
      rispondere non possono avere due esiti opposti, e il più silenzioso non può essere il peggiore. */
   function stageSizeSkip(){ if(m.hidden) return; applyStageSize(8, 6, true); closeStageSize();
-    if(window.__toast) window.__toast("Ho messo un palco standard di 8 × 6 m, segnato come «da confermare». Puoi cambiarlo quando vuoi da «Forma del palco»."); }
+    if(window.__toast) window.__toast("Ho messo un palco standard di 8 × 6 m, segnato come «da confermare». Puoi cambiarlo quando vuoi da «Palco»."); }
   m.addEventListener("click", function(e){ if(e.target===m) stageSizeSkip(); });
   document.addEventListener("keydown", function(e){ if(e.key==="Escape" && !m.hidden) stageSizeSkip(); });
   [wIn,dIn].forEach(function(i){ i.addEventListener("input", function(){ if(err) err.hidden=true; }); });
