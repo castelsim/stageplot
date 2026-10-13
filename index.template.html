@@ -6714,6 +6714,14 @@ document.addEventListener("keydown",function(e){
 },true);
 window.__uscita={preparaUscita:preparaUscita, pulisci:pulisciDatiAccount, mostra:mostraInvitoAccesso, chiudi:chiudiInvitoAccesso,
   alBoot:invitoAlBoot, altraScheda:uscitaDaAltraScheda, daCancellare:uscitaChiaveDaCancellare};
+/* la pagina sta per chiudersi/ricaricarsi: va chiesto? (estratto dal gestore qui sotto per poterlo provare) */
+function uscitaDaChiedere(){
+  if(window.__localConflict || window.__localStorageUnavailable || window.__docLoadBlocked) return true;
+  /* «Crea elemento» con un disegno o una scheda non salvati (revisione finale, M1): chiudendo, il progetto torna com'era
+     (a editor aperto non si scrive niente), ma il disegno si perde. Si chiede. */
+  try{ if(typeof custModificato==="function" && custModificato()) return true; }catch(e){}
+  return false;
+}
 window.addEventListener("beforeunload",function(e){
   /* TRE modi diversi di finire con il lavoro solo in RAM: il conflitto fra schede, l'archivio del
      browser pieno, e il documento salvato che questa versione non sa aprire. La guardia nasceva per
@@ -6721,7 +6729,7 @@ window.addEventListener("beforeunload",function(e){
      dopo il primo errore di quota (06/08); il terzo era rimasto fuori (14/08) ed è il più insidioso,
      perché lì NON salva né in locale né sul cloud (`__docLoadBlocked` ferma entrambi) e l'unico
      segnale è una pastiglia in un angolo. Chi monta uno stage plot di corsa non la guarda. */
-  if(!window.__localConflict && !window.__localStorageUnavailable && !window.__docLoadBlocked) return;
+  if(!uscitaDaChiedere()) return;   /* … e il quarto: un disegno di «Crea elemento» non salvato */
   e.preventDefault(); e.returnValue="";
 });   /* dopo un conflitto multi-tab gli edit restano solo in memoria: non chiudere senza esportarli */
 /* Persistenza dedicata dell'immagine planimetria: NON entra in LS_KEY (riscritto ad alta frequenza durante la
@@ -7213,11 +7221,13 @@ function applyHistory(snapshot){
   var snap=historySnapshotValue(snapshot);
   var keepFrame=state.printFrame;   /* l'area di stampa non è undoable: la mantengo attraverso undo/redo */
   var nota=notaFuoriCronologia();   /* e nemmeno le note dell'export (30/09): vedi historyStateJSON */
+  var revs=custRevTieni();   /* né il segno «inviato per revisione» degli elementi personalizzati (M3) */
   __custShapeAmmesse=custEditorAttivo();   /* la cronologia del palco temporaneo porta le forme dell'editor */
   try{ state=normalizeState(JSON.parse(snap.json)); }finally{ __custShapeAmmesse=false; }
   if(keepFrame!=null) state.printFrame=keepFrame;
   if(nota.pe) state.pdfEsportato=nota.pe; else delete state.pdfEsportato;
   if(nota.ask && state.production) state.production.asked=true;
+  custRevRimetti(revs);
   var key=String(activeVar||"");
   if(snap.venueSig && venueHistoryAssets[snap.venueSig]){
     venueImgCache[key]=Object.assign({},venueHistoryAssets[snap.venueSig]);
@@ -9508,7 +9518,7 @@ function shapeGeom(it){
 /* Elemento personalizzato (13/10/2026): le forme arrivano da file altrui (link condivisi, JSON importati), quindi
    sono DATI controllati — tipo da un elenco chiuso, numeri finiti, colori hex — e mai grafica scritta a mano. I limiti
    stanno in una funzione: una var più in basso nel file sarebbe undefined per normalizeState all'avvio. */
-function custLimiti(){ return {NOME:60, DESC:280, TESTO:140, FORME:200, PUNTI:200, WATT:20000, INS:16, MIN:10, MEMBRO:4096, MODELLI:50}; }
+function custLimiti(){ return {NOME:60, DESC:280, TESTO:140, FORME:200, PUNTI:200, WATT:20000, INS:16, MIN:10, MEMBRO:4096, MODELLI:50, FORME_BYTE:262144}; }
 /* un numero vero: un number finito, o una stringa numerica non vuota. null (da JSON), "", true, [] NON sono 0: si scartano */
 function custNumero(v){
   if(typeof v==="string"){ if(!v.trim()) return null; v=Number(v); }
@@ -9622,7 +9632,16 @@ function custByte(s){ try{ return encodeURIComponent(String(s)).replace(/%[0-9A-
 function custModelNorm(m){
   if(!m || typeof m!=="object" || typeof m.id!=="string" || !/^[a-z0-9_-]{1,40}$/i.test(m.id)) return null;
   var finto=custNorm({type:"custom", w:m.w, d:m.d, watt:m.watt, cust:{nome:m.nome, desc:m.desc, shapes:m.shapes, ins:m.ins, backline:m.backline}});
-  var out={id:m.id, nome:finto.cust.nome, w:finto.w, d:finto.d, shapes:finto.cust.shapes, membri:[]};
+  var out={id:m.id, nome:finto.cust.nome, w:finto.w, d:finto.d, shapes:[], membri:[]};
+  /* M8 (revisione finale): un tetto in byte alle forme di un modello (256 KB). I modelli sono un campo del documento:
+     CAMPI_DOCUMENTO li copia in ogni scena e ogni passo di Annulla ne porta una copia — 200 poligoni da 200 punti
+     farebbero quasi 1 MB a modello. Oltre il tetto le forme in coda restano fuori (custModelNorm.tolte, chi salva lo dice). */
+  var usati=2, pieno=false; custModelNorm.tolte=0;
+  finto.cust.shapes.forEach(function(g){
+    var b=custByte(JSON.stringify(g))+1;
+    if(pieno || usati+b>custLimiti().FORME_BYTE){ pieno=true; custModelNorm.tolte++; return; }
+    usati+=b; out.shapes.push(g);
+  });
   if(finto.cust.desc) out.desc=finto.cust.desc; if(finto.watt!=null) out.watt=finto.watt;
   if(finto.cust.ins) out.ins=finto.cust.ins; if(finto.cust.backline) out.backline=true;
   (Array.isArray(m.membri)?m.membri:[]).forEach(function(x){
@@ -9651,13 +9670,15 @@ function custNomeModelloLibero(nome, modelli, escludiId){
 }
 /* il modello di un elemento posato (con i suoi pezzi), con le regole dell'apertura e un nome libero. idModello: si sovrascrive quello.
    custModelloDaElemento.troppi = pezzi rimasti fuori perché troppo grandi (custTroppiTesto lo dice a chi salva) */
+function custFormeTolteTesto(n){ return !(n>0) ? "" : (n===1 ? " 1 forma oltre il limite di grandezza (256 KB) non è entrata nel modello: l'elemento sul palco resta intero." : " "+n+" forme oltre il limite di grandezza (256 KB) non sono entrate nel modello: l'elemento sul palco resta intero."); }
 function custTroppiTesto(n){ return !(n>0) ? "" : (n===1 ? " 1 pezzo troppo grande non è entrato nel modello." : " "+n+" pezzi troppo grandi non sono entrati nel modello."); }
 function custModelloDaElemento(it, idModello){
-  custModelloDaElemento.troppi=0;
+  custModelloDaElemento.troppi=0; custModelloDaElemento.formeTolte=0;
   var m=custModelDaAgglomerato(it); if(!m) return null;
   custModelloDaElemento.troppi=custModelDaAgglomerato.troppi||0;
   if(idModello) m.id=idModello;
   m=custModelNorm(m); if(!m) return null;   /* quello che si salva è quello che si riapre */
+  custModelloDaElemento.formeTolte=custModelNorm.tolte||0;   /* forme oltre il tetto in byte (M8) */
   m.nome=custNomeModelloLibero(m.nome, state.customModels, m.id);
   return m;
 }
@@ -9817,8 +9838,12 @@ function custEditorSalva(scheda){
      stanno per tornare sul palco: senza questo il prossimo elemento nuovo ne ripeterebbe uno */
   veri.forEach(function(c){ var n=itemIdNum(c.id); if(n>=nextId) nextId=n+1; });
   var orig=E.baseId ? state.items.find(function(x){ return x.id===E.baseId; }) : null;
-  state.items=state.items.filter(function(x){ return x.id!==E.baseId && E.inclusi.indexOf(x.id)<0; });
-  var resto=state.items.slice();   /* gli elementi del palco vero rimasti fuori dall'editor */
+  /* ORDINE DI DISEGNO (revisione finale, M5): l'elemento torna nel punto dell'elenco dove stava il primo dei suoi pezzi
+     (la base, in una modifica), non in fondo: a parità di livello non deve passare sopra agli elementi che aveva sopra. */
+  var resto=[], dove=-1, blocco=[];
+  state.items.forEach(function(x){ if(x.id===E.baseId || E.inclusi.indexOf(x.id)>=0){ if(dove<0) dove=resto.length; } else resto.push(x); });
+  state.items=resto; if(dove<0) dove=resto.length;
+  /* gli inclusi lasciano il loro gruppo e prendono quello dell'elemento; chi è rimasto fuori conserva il suo */
   var gid=veri.length ? grpLibero() : null;
   /* modifica: si parte dall'elemento com'era (nota, blocco…); forme, misure, scheda e gruppo sono quelli nuovi */
   var base=orig ? JSON.parse(JSON.stringify(orig)) : {};
@@ -9831,29 +9856,31 @@ function custEditorSalva(scheda){
   if(scheda.watt!=null && scheda.watt!=="") base.watt=Number(scheda.watt);
   /* il nome sul palco: quello di serie segue il nome nuovo, quello scritto a mano («Schermo sinistro») resta (custEtichetta) */
   custNorm(base); base.label=custEtichetta(orig ? orig.label : "", (orig && orig.cust) ? orig.cust.nome : null, base.cust.nome);
-  if(gid) base.grp=gid; state.items.push(base);
+  if(gid) base.grp=gid; blocco.push(base);
   /* un id che (per qualunque ragione) esiste già sul palco vero si cambia, e chi lo nominava (la DI del suo strumento, il
      rack, il ricevitore…) segue il cambio: dopo Salva nessun elemento punta a un id del palco temporaneo */
   var nuovi={};
-  veri.forEach(function(c){ if(E.inclusi.indexOf(c.id)<0 && state.items.some(function(z){ return z.id===c.id; })){ var v=uid(); nuovi[c.id]=v; c.id=v; } });
+  var esiste=function(id){ return state.items.some(function(z){ return z.id===id; }) || blocco.some(function(z){ return z.id===id; }); };
+  veri.forEach(function(c){ if(E.inclusi.indexOf(c.id)<0 && esiste(c.id)){ var v=uid(); nuovi[c.id]=v; c.id=v; } });
   veri.forEach(function(c){ var p=rotatePointAround(E.o.x+c.x, E.o.y+c.y, cx, cy, E.rot);
     c.x=Math.round(p[0]); c.y=Math.round(p[1]); c.rot=(((c.rot||0)+E.rot)%360+360)%360; if(gid) c.grp=gid;
     ["diFor","diId","rackId","ascoltoId","rxId","distOf","sbTo"].forEach(function(k){ if(c[k]!=null && nuovi[c[k]]) c[k]=nuovi[c[k]]; });
     custRimettiLegami(c, E, resto);
-    state.items.push(c); });
+    blocco.push(c); });
   /* un incluso cancellato nell'editor: chi lo nominava da fuori non punta a un id che non c'è più (le stesse regole di
      normalizeState: il riferimento se ne va con i suoi compagni, l'elemento resta) */
   var vivi={}; veri.forEach(function(c){ vivi[c.id]=1; });
   var persi={}; E.inclusi.forEach(function(id){ if(!vivi[id]) persi[id]=1; });
   resto.forEach(function(x){ custLegami().forEach(function(g){ if(x[g[0]]!=null && persi[x[g[0]]]) g.forEach(function(k){ delete x[k]; }); }); });
+  Array.prototype.splice.apply(state.items, [dove, 0].concat(blocco));
   /* IL PRIMO SALVA DI UN ELEMENTO NUOVO crea anche il modello in «Elementi di questo progetto» (spec, Ruling 17): da lì se
      ne posano altre copie. Stesso passo di Annulla dell'elemento: un Annulla toglie tutti e due. Oltre i 50 modelli
      l'elemento si salva lo stesso, senza modello (lo dice custSalvaDaScheda). */
-  custEditorSalva.troppi=0;
+  custEditorSalva.troppi=0; custEditorSalva.formeTolte=0;
   if(!orig && (state.customModels||[]).length<custLimiti().MODELLI){
     var m=custModelloDaElemento(base);
     if(m){ if(!state.customModels) state.customModels=[]; state.customModels.push(m); base.cust.modelId=m.id; }
-    custEditorSalva.troppi=custModelloDaElemento.troppi||0;
+    custEditorSalva.troppi=custModelloDaElemento.troppi||0; custEditorSalva.formeTolte=custModelloDaElemento.formeTolte||0;
   }
   clearSelection(); selectClick(base.id);
   save(); custEditorRidisegna();
@@ -10158,8 +10185,8 @@ function custSalvaComeModello(id, opz){
   if(!state.customModels) state.customModels=[];
   if(i>=0) state.customModels[i]=m; else { state.customModels.push(m); it.cust.modelId=m.id; }
   render(); save();
-  var troppi=custModelloDaElemento.troppi||0;
-  custToast((i>=0 ? "Modello «"+m.nome+"» aggiornato: le copie già posate restano come sono." : "«"+m.nome+"» è in «Elementi di questo progetto», nel catalogo: da lì ne posi altre copie.")+custTroppiTesto(troppi), troppi>0);
+  var troppi=custModelloDaElemento.troppi||0, tolte=custModelloDaElemento.formeTolte||0;
+  custToast((i>=0 ? "Modello «"+m.nome+"» aggiornato: le copie già posate restano come sono." : "«"+m.nome+"» è in «Elementi di questo progetto», nel catalogo: da lì ne posi altre copie.")+custTroppiTesto(troppi)+custFormeTolteTesto(tolte), troppi>0 || tolte>0);
   return true;
 }
 /* «Elimina modello» (Ruling 16): dalla sua voce in «Elementi di questo progetto», con conferma. Le copie restano. */
@@ -10327,32 +10354,78 @@ function custJsonRevisione(it){
   var s=JSON.stringify(m);
   return s.length<=30000 ? s : null;
 }
+/* M2 (revisione finale): oltre questo tempo senza risposta l'invio si chiude con «La rete non risponde» — senza, una
+   rete appesa lasciava «Invio già in corso» acceso per sempre (e l'editor non si riapriva più fino alla ricarica) */
+function custTempoInvio(){ return 30000; }
 function custManda(corpo, id){
-  var fb=window.__fbInvio||{}, nome=corpo.tech_context.elemento.nome;
+  var fb=window.__fbInvio||{}, nome=corpo.tech_context.elemento.nome, ctl=null;
   window.__custInvio=true; custToast("Invio in corso…");
-  var tokP=(window.__cloud && window.__cloud.accessToken) ? window.__cloud.accessToken() : Promise.resolve(null);
-  return tokP.then(function(tok){
-    if(!tok) return {status:401, j:{}};   /* sessione scaduta: il server rifiuterebbe comunque */
-    if(!fb.url) return {status:0, j:{}};
-    return fetch(fb.url, {method:"POST", headers:{"Content-Type":"application/json", "Authorization":"Bearer "+tok}, body:JSON.stringify(corpo)})
-      .then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){ return {status:r.status, j:j}; }); });
-  }).catch(function(){ return {status:0, j:{}}; })
-    .then(function(res){ window.__custInvio=false; return custEsitoInvio(res.status, res.j, id, nome, corpo); });
+  try{ if(typeof AbortController==="function") ctl=new AbortController(); }catch(e){ ctl=null; }
+  return new Promise(function(fine){
+    var chiuso=false, timer=null;
+    /* un esito solo: quello che arriva per primo fra la risposta e il tempo scaduto */
+    var esito=function(res){
+      if(chiuso) return; chiuso=true; clearTimeout(timer);
+      window.__custInvio=false; fine(custEsitoInvio(res.status, res.j, id, nome, corpo, res.tempo===true));
+    };
+    timer=setTimeout(function(){ try{ if(ctl) ctl.abort(); }catch(e){} esito({status:0, j:{}, tempo:true}); }, custTempoInvio());
+    var tokP=(window.__cloud && window.__cloud.accessToken) ? window.__cloud.accessToken() : Promise.resolve(null);
+    Promise.resolve(tokP).then(function(tok){
+      if(!tok) return {status:401, j:{}};   /* sessione scaduta: il server rifiuterebbe comunque */
+      if(!fb.url) return {status:0, j:{}};
+      var o={method:"POST", headers:{"Content-Type":"application/json", "Authorization":"Bearer "+tok}, body:JSON.stringify(corpo)};
+      if(ctl) o.signal=ctl.signal;
+      return fetch(fb.url, o)
+        .then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){ return {status:r.status, j:j}; }); });
+    }).catch(function(){ return {status:0, j:{}}; }).then(esito);
+  });
 }
 /* esito: «ok» (e l'elemento si segna come inviato), «accesso», «troppi», «errore» (con Riprova) */
-function custEsitoInvio(status, j, id, nome, corpo){
+function custEsitoInvio(status, j, id, nome, corpo, tempo){
   window.__custInvio=false;
   if(status===200 && j && j.ok){
     var it=(state.items||[]).find(function(x){ return x.id===id && x.type==="custom" && x.cust && x.cust.nome===nome; });
-    if(it && !custEditorAttivo() && !custSolaLettura()){ it.cust.rev={inviato:new Date().toISOString()}; save(); render(); }
+    if(it && !custEditorAttivo() && !custSolaLettura()){ it.cust.rev={inviato:new Date().toISOString()}; custSegnaFuoriCronologia(); render(); }
     guideDialog({title:"Inviato", msg:"Grazie: lo guardiamo e, se lo aggiungiamo al catalogo, te lo scriviamo qui.", okLabel:"Chiudi"});
     return "ok";
   }
+  if(tempo){ guideDialog({title:"Non inviato", msg:"La rete non risponde, riprova. L'elemento resta salvato nel progetto.",
+    action:corpo ? {label:"Riprova", run:function(){ if(window.__custInvio!==true) custManda(corpo, id); }} : null}); return "tempo"; }
   if(status===401){ custServeAccesso(); return "accesso"; }
   if(status===429){ guideDialog({title:"Non inviato", msg:"Hai inviato troppe richieste, riprova più tardi. L'elemento resta salvato nel progetto."}); return "troppi"; }
   guideDialog({title:"Non inviato", msg:"Non è stato possibile inviare, riprova. L'elemento resta salvato nel progetto.",
     action:corpo ? {label:"Riprova", run:function(){ if(window.__custInvio!==true) custManda(corpo, id); }} : null});
   return "errore";
+}
+/* M3 (revisione finale): il segno «inviato» si salva come segnaPdfEsportato, SENZA un passo di Annulla. Con save() un
+   Annulla lo toglieva, e l'elemento appena inviato tornava «da inviare» (un secondo invio = un doppione). Il segno
+   entra nell'istantanea di base (lastSnap) e applyHistory lo tiene finché il disegno è quello inviato (custRevTieni). */
+function custSegnaFuoriCronologia(){
+  try{
+    if(window.scheduleCloudAutosave) scheduleCloudAutosave();
+    persistLocalState();
+    if(window.__consultDirty) window.__consultDirty();
+    lastSnap=historySnapshot();
+  }catch(e){}
+}
+/* il disegno che l'invio descrive (misure, potenza, scheda, forme): un segno «inviato» vale finché questo non cambia */
+function custFirmaDisegno(it){
+  var c=JSON.parse(JSON.stringify(it.cust||{})); delete c.rev; delete c.modelId;
+  /* a chiavi ordinate: la normalizzazione della cronologia può riscrivere una forma con i campi in un altro ordine */
+  return JSON.stringify([it.w, it.d, it.watt==null ? null : it.watt, c], function(k, v){
+    if(v && typeof v==="object" && !Array.isArray(v)){ var o={}; Object.keys(v).sort().forEach(function(kk){ o[kk]=v[kk]; }); return o; }
+    return v;
+  });
+}
+/* prima di applyHistory: i segni «inviato» dello stato vivo; dopo: si rimettono sugli elementi con lo stesso id e lo
+   stesso disegno (un Annulla di uno spostamento non deve far tornare l'elemento «da inviare») */
+function custRevTieni(){
+  var o={}; (state.items||[]).forEach(function(x){ if(x && x.type==="custom" && x.cust && x.cust.rev) o[x.id]={rev:x.cust.rev, firma:custFirmaDisegno(x)}; });
+  return o;
+}
+function custRevRimetti(o){
+  (state.items||[]).forEach(function(x){ var r=x && o[x.id];
+    if(r && x.type==="custom" && x.cust && !x.cust.rev && custFirmaDisegno(x)===r.firma) x.cust.rev=JSON.parse(JSON.stringify(r.rev)); });
 }
 /* «Inviato per revisione il 13/10.» (vuoto se non inviato) */
 function custRevTesto(it){
@@ -10692,9 +10765,9 @@ function custSalvaDaScheda(opz){
   custDopoChiusura();
   /* il primo Salva ha messo l'elemento anche fra gli «Elementi di questo progetto»: si dice dove trovarlo */
   var it=id ? (state.items||[]).find(function(x){ return x.id===id; }) : null;
-  var troppi=custEditorSalva.troppi||0;
+  var troppi=custEditorSalva.troppi||0, tolte=custEditorSalva.formeTolte||0;
   if(nuovo && it && !(opz && opz.invia)) custToast((it.cust.modelId ? "«"+it.cust.nome+"» è anche fra gli «Elementi di questo progetto», nel catalogo: da lì ne posi altre copie."
-    : "Salvato. Gli «Elementi di questo progetto» sono già "+custLimiti().MODELLI+": questo non è entrato nel catalogo.")+(it.cust.modelId ? custTroppiTesto(troppi) : ""), !it.cust.modelId || troppi>0);
+    : "Salvato. Gli «Elementi di questo progetto» sono già "+custLimiti().MODELLI+": questo non è entrato nel catalogo.")+(it.cust.modelId ? custTroppiTesto(troppi)+custFormeTolteTesto(tolte) : ""), !it.cust.modelId || troppi>0 || tolte>0);
   if(id && opz && opz.invia && typeof window.custInviaRevisione==="function") window.custInviaRevisione(id);
   return id;
 }
@@ -18460,7 +18533,7 @@ function duplicateSel(noOffset, opts){
   if(!noOffset && isMobile()){ offX=Math.round((its[0].w||60)+40); offY=40; }
   var copies=set.map(function(it){ var c=JSON.parse(JSON.stringify(it)); idmap[it.id]=c.id=uid();
     if(!noOffset){ c.x+=offX; c.y+=offY; }   /* offset solo per duplica con Ctrl+D; ALT+drag parte dalla posizione originale */
-    bumpItemLabels(c);
+    bumpItemLabels(c); custCopiaPulita(c, false);
     if(c.grp){ if(!gmap[c.grp]) gmap[c.grp]=grpLibero(); c.grp=gmap[c.grp]; }
     state.items.push(c); return c; });
   postiCopie(copies);   /* il duplicato di un posto numerato nasce senza numero: quel posto c'è già */
@@ -18477,14 +18550,28 @@ function duplicateSel(noOffset, opts){
   if(!(opts && opts.rinviaStoria)) save();
 }
 /* ===== Copia / Incolla (Cmd/Ctrl+C · Cmd/Ctrl+V) ===== */
-var clipboard=[], clipPastes=0;
+var clipboard=[], clipPastes=0, clipModelli={};
+/* M3–M4 (revisione finale): la copia di un elemento personalizzato non è stata inviata per revisione (niente segno
+   «inviato»), e tiene il legame al modello solo se nel progetto d'arrivo quel modello è LO STESSO che c'era alla copia:
+   fra due progetti lo stesso id può essere un altro modello, e «Aggiorna il modello» lo sovrascriverebbe. */
+function custCopiaPulita(c, daAppunti){
+  if(!c || c.type!=="custom" || !c.cust || typeof c.cust!=="object") return c;
+  delete c.cust.rev;
+  if(daAppunti && c.cust.modelId){
+    var m=(state.customModels||[]).find(function(q){ return q.id===c.cust.modelId; });
+    if(!m || clipModelli[c.cust.modelId]!==JSON.stringify(m)) delete c.cust.modelId;
+  }
+  return c;
+}
 function copySel(){
   var its=selItems(); if(!its.length) return;
   var set=its.slice();   /* pedana agganciata: includi gli elementi che ci poggiano sopra (copia completa); sganciata, sola */
   its.forEach(function(it){ if(pedanaAgganciata(it)){
     itemsOnRiser(it).forEach(function(o){ if(set.indexOf(o)===-1) set.push(o); }); } });
   clipboard = set.map(function(it){ return JSON.parse(JSON.stringify(it)); });
-  clipPastes=0;
+  clipPastes=0; clipModelli={};   /* i modelli degli elementi copiati, com'erano: pasteClip li confronta con quelli d'arrivo */
+  clipboard.forEach(function(c){ var mid=c && c.type==="custom" && c.cust && c.cust.modelId; if(!mid) return;
+    var m=(state.customModels||[]).find(function(q){ return q.id===mid; }); clipModelli[mid]=m ? JSON.stringify(m) : null; });
 }
 function pasteClip(){
   clipboard=custFuoriEditor(clipboard);   /* una forma copiata nell'editor non si incolla sul palco vero (il documento non si riaprirebbe) */
@@ -18493,7 +18580,7 @@ function pasteClip(){
   clipPastes++; var off=40*clipPastes;
   var hasRiser=clipboard.some(pedanaAgganciata);   /* blocco solo con una pedana agganciata, come in duplicateSel */
   var gmap={}, idmap={};
-  var copies=clipboard.map(function(it){ var c=JSON.parse(JSON.stringify(it)); idmap[it.id]=c.id=uid(); c.x+=off; c.y+=off; bumpItemLabels(c);
+  var copies=clipboard.map(function(it){ var c=JSON.parse(JSON.stringify(it)); idmap[it.id]=c.id=uid(); c.x+=off; c.y+=off; bumpItemLabels(c); custCopiaPulita(c, true);
     if(c.grp){ if(!gmap[c.grp]) gmap[c.grp]=grpLibero(); c.grp=gmap[c.grp]; } return c; });
   /* rimappa distOf al nuovo id della pedana incollata */
   copies.forEach(function(c){ if(c.distOf && idmap[c.distOf]) c.distOf=idmap[c.distOf]; });
@@ -33459,10 +33546,14 @@ function firmaPdf(s){
      campi mancanti, in coda) cambia l'ordine delle chiavi ma non il contenuto, e non è una modifica. */
   var c=JSON.parse(JSON.stringify(s||{}));
   try{ var n=normalizeState(c); if(n) c=n; }catch(_e){}
+  /* M6 (revisione finale): i modelli di «Elementi di questo progetto» non sono nel disegno né nel PDF. Crearne o
+     eliminarne uno (che aggancia o sgancia cust.modelId delle copie) non è «modificato dopo l'ultimo PDF». */
+  if(c && typeof c==="object") delete c.customModels;
   var j=JSON.stringify(c, function(k,v){
     if(k==="pdfEsportato") return undefined;
-    /* il segno «inviato per revisione» di un elemento personalizzato (cust.rev) non è una modifica del disegno */
-    if(k==="rev" && this && typeof this.nome==="string" && Array.isArray(this.shapes)) return undefined;
+    /* il segno «inviato per revisione» di un elemento personalizzato (cust.rev) non è una modifica del disegno, né il
+       legame della copia al suo modello (cust.modelId) */
+    if((k==="rev" || k==="modelId") && this && typeof this.nome==="string" && Array.isArray(this.shapes)) return undefined;
     if(v && typeof v==="object" && !Array.isArray(v)){ var o={}; Object.keys(v).sort().forEach(function(kk){ o[kk]=v[kk]; }); return o; }
     return v;
   })||"";
