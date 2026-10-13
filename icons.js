@@ -93,23 +93,61 @@ Object.assign(window.LIB_ICONS, {
 })(window.LIB_ICONS.musClarinetto);
 /* --- Percussionista IN PIEDI (13/10/2026, Simone: «il percussionista di solito è in piedi»).
    Non e' un disegno nuovo: e' la persona di musPercussioni (la vecchia illustrazione del set, quella in piedi
-   dietro congas e bongos) senza gli strumenti. Si tengono camicia con le braccia, pantaloni, mani, viso,
-   orecchie, sopracciglia e scarpe. Il contorno nero dell'originale (cls-85) avvolge anche i tamburi, quindi
-   qui si rifa' con un tratto nero SOTTO ogni pezzo (stesso colore, 7 unita'); i capelli, che nell'originale
-   sono dentro il contorno, sono un'ellisse nera. Niente <mask>: il PDF passa da svg2pdf 2.2.3.
+   dietro congas e bongos) senza gli strumenti. Si tengono camicia con le braccia, pantaloni e mani. Il contorno
+   nero dell'originale (cls-85) avvolge anche i tamburi, quindi qui si rifa' con un tratto nero SOTTO ogni pezzo
+   (stesso colore, 7 unita'). Niente <mask>, niente <style> nuovi, colori hex: il PDF passa da svg2pdf 2.2.3.
+   TESTA E PIEDI rifatti (13/10/2026: «va migliorato nella testa e nei piedi»). Prima la testa era
+   un'ellisse nera con dentro il viso dell'originale (occhi e mento: una faccia vista di fronte, schiacciata)
+   e le scarpe erano i due pezzi marroni tagliati dalle congas. Ora, come il direttore (l'unica figura della
+   libreria vista davvero dall'alto): calotta nera che copre lo scollo della camicia, orecchie ai lati, e
+   davanti al massimo fronte e punta del naso; scarpe intere, ovali allungati con la punta verso il pubblico
+   (+y), che escono da sotto i risvolti. Colori della libreria: capelli #0a0b0b, pelle #d3b489, orecchie
+   #d2b89c, scarpe #61524c (le stesse del batterista e del direttore). Misure: 1 cm = 2,808 unita' interne.
+   Due varianti, si sceglie con SCELTA: "A" = calotta con fronte e naso, scarpe divaricate a V;
+   "B" = solo calotta (testa china, il viso non si vede), scarpe quasi parallele.
    Il riquadro (vb) e' centrato sull'asse della testa, non sull'ingombro: la mano destra sporge verso i bongos. --- */
 (function(L){ if(!L) return;
-  var TIENI={99:1, 70:1, 103:1, 89:1, 17:1, 157:1, 40:1, 130:1, 112:1, 155:1, 39:1};   /* camicia, pantaloni, mani, viso, scarpe, orecchie, sopracciglia */
+  var SCELTA="A";
+  var TIENI={99:1, 70:1, 103:1, 89:1};   /* camicia con le braccia, pantaloni, mano destra, mano sinistra */
   var sotto='', sopra='';
   L.body.replace(/<path class="musPercussioni_cls-(\d+)"([^>]*?)\s*\/>/g, function(t, n, resto){
     if(!TIENI[n]) return t;
     sotto+='<path'+resto+' style="fill:#0a0b0b;stroke:#0a0b0b;stroke-width:7;stroke-linejoin:round"/>';
     sopra+=t; return t;
   });
+  /* un pezzo nuovo: il contorno (tratto nero 7, sotto) e poi il colore, come i pezzi tenuti */
+  function bordo(d, t){ return '<path'+(t?' transform="'+t+'"':'')+' d="'+d+'" style="fill:#0a0b0b;stroke:#0a0b0b;stroke-width:7;stroke-linejoin:round"/>'; }
+  function pezzo(d, fill, t){ return '<path'+(t?' transform="'+t+'"':'')+' d="'+d+'" style="fill:'+fill+'"/>'; }
+  /* orecchie ai lati della calotta, a meta' profondita' */
+  var ORECCHIE=["M197,38 C188,39 187,54 197,58 Z", "M261,38 C270,39 271,54 261,58 Z"];
+  var V={
+    A:{ /* calotta un po' piu' larga dietro; davanti, sotto l'attaccatura, una striscia di fronte e la punta del naso */
+      capelli:"M229,12 C250,12 263,25 263,44 C263,60 257,70 249,75 C240,72 218,72 209,75 C201,70 195,60 195,44 C195,25 208,12 229,12 Z",
+      viso:"M207,70 C217,66 241,66 251,70 C249,77 243,82 236,84 C234,85 233,87 231,89 C230,90 228,90 227,89 C225,87 224,85 222,84 C215,82 209,77 207,70 Z",
+      segni:'<path d="M229,81 L229,87" style="fill:none;stroke:#b8976b;stroke-width:1.4;stroke-linecap:round"/>'+
+            '<path d="M229,27 C223,35 221,48 222,62 M231,27 C237,35 239,48 238,62 M228,27 C216,32 210,42 208,54 M232,27 C244,32 250,42 252,54" style="fill:none;stroke:#26282a;stroke-width:1.3;stroke-linecap:round"/>',
+      scarpa:"M-9,0 C-10,14 -11,30 -10,40 C-9,50 -5,58 0,58 C5,58 9,50 10,40 C11,30 10,14 9,0 C8,-6 -8,-6 -9,0 Z",
+      lucido:"M-5,40 C-5,47 -3,52 0,53 C3,52 5,47 5,40 C3,44 -3,44 -5,40 Z",
+      sx:"translate(209,152) rotate(16)", dx:"translate(257,142) rotate(-5)" },
+    B:{ /* solo calotta: copre tutto lo scollo, il viso resta sotto, chino sugli strumenti (come il direttore, visto da dietro) */
+      capelli:"M229,12 C250,12 264,26 264,46 C264,68 250,90 229,90 C208,90 194,68 194,46 C194,26 208,12 229,12 Z",
+      viso:null,
+      segni:'<path d="M229,27 C223,37 221,54 223,72 M231,27 C237,37 239,54 237,72 M228,27 C216,33 209,44 207,58 M232,27 C244,33 251,44 253,58" style="fill:none;stroke:#26282a;stroke-width:1.3;stroke-linecap:round"/>',
+      scarpa:"M-9,0 C-10,14 -11,30 -10,40 C-9,50 -5,58 0,58 C5,58 9,50 10,40 C11,30 10,14 9,0 C8,-6 -8,-6 -9,0 Z",
+      lucido:"M-5,40 C-5,47 -3,52 0,53 C3,52 5,47 5,40 C3,44 -3,44 -5,40 Z",
+      sx:"translate(209,152) rotate(4)", dx:"translate(258,142) rotate(-1)" }
+  }[SCELTA];
+  var piedi='<g class="perc-piedi">'+[V.sx, V.dx].map(function(t){
+    return bordo(V.scarpa, t)+pezzo(V.scarpa, "#61524c", t)+(V.lucido ? pezzo(V.lucido, "#7a6a63", t) : '');
+  }).join('')+'</g>';
+  var testa='<g class="perc-testa">'+ORECCHIE.map(function(d){ return bordo(d); }).join('')+
+    bordo(V.capelli)+(V.viso ? bordo(V.viso) : '')+
+    ORECCHIE.map(function(d){ return pezzo(d, "#d2b89c"); }).join('')+
+    (V.viso ? pezzo(V.viso, "#d3b489") : '')+pezzo(V.capelli, "#0a0b0b")+V.segni+'</g>';
   var scala=(L.body.match(/^<g transform="scale\(([\d.]+)\)">/)||[])[1]||"0.35616";
   var defs=(L.body.match(/<defs>[\s\S]*?<\/defs>/)||[""])[0];
-  var capelli='<ellipse cx="231" cy="50" rx="29" ry="27" style="fill:#0a0b0b"/>';
-  window.LIB_ICONS.percussionistaInPiedi={vb:[27.6, 6.2, 109.4, 68.1], body:'<g transform="scale('+scala+')">'+defs+sotto+capelli+sopra+'</g>'};
+  /* le scarpe sotto i pantaloni (escono dai risvolti), la testa sopra tutto: dall'alto e' il punto piu' alto */
+  window.LIB_ICONS.percussionistaInPiedi={vb:[27.6, 6.2, 109.4, 68.1], body:'<g transform="scale('+scala+')">'+defs+piedi+sotto+sopra+testa+'</g>'};
 })(window.LIB_ICONS.musPercussioni);
 if (window.__onIconsReady) window.__onIconsReady();
 if(window.LIB_ICONS && window.LIB_ICONS.musTrombone) window.LIB_ICONS.musTromboneBasso={vb:window.LIB_ICONS.musTrombone.vb,body:window.LIB_ICONS.musTrombone.body};   /* dedup: body identico a musTrombone (solo prefisso id diverso) */
