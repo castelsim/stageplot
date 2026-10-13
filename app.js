@@ -3251,6 +3251,35 @@ function applyOptAll(key, val){
   render(); save();
 }
 function toggleSelId(id){ if(selSet[id]){ delete selSet[id]; if(sel===id) sel=selIds()[selIds().length-1]||null; } else { selSet[id]=true; sel=id; } }
+/* CLIC DENTRO UNA PEDANA SOTTO «SOLO PEDANE» (13/10, Simone: «se sono in solo pedane e clicco su un'altra
+   pedana dove sopra ci sono degli elementi, deve prendere la pedana e restare in solo pedane; solo un clic
+   fuori dalle pedane torna alla vista normale»). Prima il bersaglio era l'elemento sfumato disegnato sopra la
+   pedana (classe solo-prende): il clic prendeva il musicista e, non essendo una pedana, spegneva la vista
+   (regola del 29/09). Ora, con la vista accesa, un clic che cade su un elemento che NON è una pedana cerca la
+   pedana più in alto (ordine di disegno, sortedItems) il cui rettangolo ruotato contiene il punto: se c'è,
+   il gesto è suo — selezione, trascinamento, Shift, doppio clic — e la vista resta; se non c'è, tutto come
+   prima (si prende l'elemento e la vista si spegne). Uguale col dito: il tocco passa dallo stesso pointerdown.
+   `pedanaSottoPunto` è la geometria pura (si prova nei test); `pedanaDelClic` la applica all'evento. */
+function pedanaSottoPunto(items, x, y){
+  for(var i=(items||[]).length-1; i>=0; i--){   /* dall'ultimo disegnato: vince la pedana che sta sopra */
+    var r=items[i]; if(!isRiser(r) || r.rackId) continue;
+    var a=(r.rot||0)*Math.PI/180, c=Math.cos(-a), s=Math.sin(-a), dx=x-r.x, dy=y-r.y;
+    var lx=dx*c-dy*s, ly=dx*s+dy*c;   /* stesso riferimento di itemsOnRiser */
+    if(Math.abs(lx)<=(r.w||0)/2 && Math.abs(ly)<=(r.d||0)/2) return r;
+  }
+  return null;
+}
+function pedanaDelClic(e){
+  if(!soloOn("pedane") || !e || !e.target || !e.target.closest) return null;
+  var g=e.target.closest(".item"); if(!g) return null;
+  var gid=g.getAttribute("data-id"), it=(state.items||[]).filter(function(x){ return x.id===gid; })[0];
+  if(!it || isRiser(it)) return null;   /* sulla pedana stessa (o su niente) il clic va già dove deve */
+  var sp=svgPoint(e), p=pedanaSottoPunto(sortedItems().filter(function(x){ return itemPickable(x); }), sp.x, sp.y);
+  if(!p) return null;
+  var gs=svg.querySelectorAll("#layItems .item");
+  for(var i=0;i<gs.length;i++){ if(gs[i].getAttribute("data-id")===p.id) return gs[i]; }
+  return null;
+}
 /* elementi che poggiano su una pedana (centro dentro al rettangolo, con rotazione) */
 /* PEDANE COPERTE (16/09, Simone: «trovo estremamente difficile spostare e modificare le pedane se ci sono
    elementi sopra»; scelta A fra quattro prototipi). Un clic fermo su un elemento GIÀ selezionato passa
@@ -3265,7 +3294,9 @@ function cicloSotto(c){
       var id=g.getAttribute("data-id"); if(ids.indexOf(id)<0) ids.push(id);
     });
   }
-  ids=ids.filter(function(id){ var it=(state.items||[]).filter(function(x){ return x.id===id; })[0]; return it && itemPickable(it, {esce:true}); });   /* sotto «Solo pedane» anche lo sfumato: prenderlo spegne la vista (29/09) */
+  var _soloPed=soloOn("pedane");
+  ids=ids.filter(function(id){ var it=(state.items||[]).filter(function(x){ return x.id===id; })[0];
+    return it && (_soloPed ? (isRiser(it) && itemPickable(it)) : itemPickable(it, {esce:true})); });   /* sotto «Solo pedane» il clic ripetuto passa solo fra le pedane sovrapposte: chi ci sta sopra non si prende (13/10, vedi pedanaDelClic) */
   if(ids.length<2) return false;
   var i=ids.indexOf(c.id), n=ids.length;
   for(var k=1;k<n;k++){
@@ -12082,7 +12113,8 @@ function sceneMarkup(opts){
      quindi chi sta sopra una pedana si disegna sopra la pedana, sfumato. Le sequenze di contesto fra una
      pedana e l'altra finiscono in un gruppo ciascuna (in pratica due: sotto e sopra le pedane), così
      musicista e strumento si sfumano insieme e non uno attraverso l'altro. `solo-prende` = il contesto
-     si prende col clic (src/styles.css) e prenderlo spegne la vista; le maniglie della pedana stanno in
+     si prende col clic (src/styles.css) e prenderlo spegne la vista — ma dentro una pedana il clic va alla
+     pedana (pedanaDelClic, 13/10); le maniglie della pedana stanno in
      #layHandles, sopra a tutto. I nomi restano come per i layer (#layLbl non si prende comunque). */
   var _soloPed = soloSplit && soloOn("pedane") && layerSoloMode!=="iso", pedCtx='';
   function _pedCtxG(m){ return '<g class="solo-bg solo-prende" style="opacity:'+_bgOp+'">'+m+'</g>'; }
@@ -16821,7 +16853,8 @@ svg.addEventListener("pointerdown", function(e){
     svg.classList.add("dragging"); svg.setPointerCapture(e.pointerId); return;
   }
   /* doppio-click manuale: robusto al re-render dell'SVG (il dblclick nativo si perde perché render() ricrea il bersaglio) */
-  var dcG = e.target.closest ? e.target.closest(".item") : null;
+  var _gPed = pedanaDelClic(e);   /* «Solo pedane»: dentro una pedana il clic è della pedana, non di chi ci sta sopra (13/10) */
+  var dcG = _gPed || (e.target.closest ? e.target.closest(".item") : null);
   var dcId = dcG ? dcG.getAttribute("data-id") : null;
   var _onCabEl = state.cab && state.cab.on && e.target.closest && e.target.closest(".cab-hit,.cab-seg-hit,.cab-endpt,.cab-homehit");
   /* SEGMENTA COL DOPPIO CLICK (Simone 28/07): il gesto sta sul cavo, non solo nel pannello. Il tratto
@@ -17126,7 +17159,7 @@ svg.addEventListener("pointerdown", function(e){
     }
     return;
   }
-  var g = e.target.closest ? e.target.closest(".item") : null;
+  var g = _gPed || (e.target.closest ? e.target.closest(".item") : null);   /* _gPed: vedi pedanaDelClic */
   /* L'elemento GIÀ selezionato vince anche se coperto (16/09): presa la pedana col clic ripetuto, la si
      trascina da dove la si vede. Senza questo, premere di nuovo sul punto coperto riprendeva la batteria
      sopra e la pedana restava ferma (visto provando). Un clic fermo passa comunque a quello sotto. */
@@ -21873,7 +21906,9 @@ function layerFgItem(id, it){
    - si accende da sola quando la mano seleziona sole pedane (soloPedaneAuto, più sotto);
    - il contesto si disegna nel suo ordine di sempre (chi sta sopra la pedana resta sopra, sfumato)
      e SI PRENDE: un clic su un elemento sfumato lo seleziona e, non essendo una pedana, spegne la
-     vista (sceneMarkup, classe solo-prende). Il riquadro invece prende solo le pedane: itemPickable. */
+     vista (sceneMarkup, classe solo-prende). Il riquadro invece prende solo le pedane: itemPickable.
+   - dal 13/10 lo sfumato si prende solo FUORI dalle pedane: un clic dentro una pedana, anche dove sopra
+     c'è un elemento, prende la pedana e la vista resta (pedanaDelClic). */
 function soloPedaneDisponibile(){ var s=selItems(); return s.length>0 && s.every(isRiser); }
 function soloPedane(on){
   if(on && soloPedaneDisponibile()){ layerAccOpen=null; layerSoloUI={pedane:true}; layerSoloMode="focus"; }
@@ -23531,7 +23566,7 @@ function renderVistaBanner(){
   var nome=id;
   try{ layerRegistry().forEach(function(L){ if(L.id===id) nome=L.name; }); }catch(_e){}
   if(id==="pedane"){   /* Solo pedane: dice cosa è cambiato e come si torna indietro, come le viste dei layer */
-    el.innerHTML='<span class="vb-txt"><b>Solo pedane</b> \u2014 il resto \u00e8 in trasparenza: un clic su un elemento torna al palco intero</span>'
+    el.innerHTML='<span class="vb-txt"><b>Solo pedane</b> \u2014 il resto \u00e8 in trasparenza: un clic fuori dalle pedane torna al palco intero</span>'
       + '<button type="button" class="vb-esci" id="vistaEsci">Mostra tutto il palco</button>';
     el.hidden=false;
     var bp=document.getElementById("vistaEsci");
