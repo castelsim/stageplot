@@ -7596,24 +7596,79 @@ t("la pagina Note del PDF va a capo: una nota lunga c'è tutta, dentro il margin
   ok(dellaLunga.length >= 2, "la nota lunga va su più righe: " + dellaLunga.length);
   const sotto = righeNota.find((x) => x.t === "luce da leggio");
   ok(sotto && sotto.y > Math.max(...dellaLunga.map((x) => x.y)), "la nota dopo comincia sotto l'ultima riga di quella lunga");
+  /* la nota ha la parte larga del foglio: prima 82 mm contro i 93 del nome dell'elemento */
+  ok(194 - xNota > 1.5 * (xNota - 16), "la colonna della nota (" + (194 - xNota).toFixed(1) + " mm) non è la più larga: elemento " + (xNota - 16).toFixed(1));
+  /* fra una riga e l'altra un filetto, alla stessa distanza della linea d'intestazione; sotto l'intestazione no */
+  const p1 = doc.pagine[1], yTesta = p1.testi.find((x) => x.t === "Nota").y;
+  const orizz = (l) => l.y1 === l.y2 && l.x1 === 16 && l.x2 === 194;
+  eq(p1.linee.filter((l) => orizz(l) && Math.abs(l.y1 - (yTesta + 1.8)) < 1e-6).length, 1, "una sola linea sotto l'intestazione (niente filetto doppio)");
+  ok(p1.linee.some((l) => orizz(l) && Math.abs(l.y1 - (sotto.y - 3.8)) < 1e-6 && l.y1 > Math.max(...dellaLunga.map((x) => x.y))),
+    "manca il filetto fra la nota lunga e la successiva");
   /* tante note lunghe: si passa pagina con la riga intera e l'intestazione ripetuta, niente sotto il fondo */
   reset();
-  for (let i = 0; i < 40; i++) add("astamic", 100 + i * 20, 300, { label: "Asta " + (i + 1), note: lunga });
+  const NR = 70;
+  for (let i = 0; i < NR; i++) add("astamic", 100 + i * 20, 300, { label: "Asta " + (i + 1), note: lunga });
   const doc2 = jsPdfFinto()({ format: "a4", orientation: "portrait" });
   A.noteListPdf(doc2);
   const pag = doc2.pagine.slice(1);
-  ok(pag.length >= 3, "40 note lunghe stanno su più fogli: " + pag.length);
+  ok(pag.length >= 3, NR + " note lunghe stanno su più fogli: " + pag.length);
+  const viste = new Set();
   pag.forEach((p, i) => {
-    ok(p.testi.some((x) => x.t === "Nota"), "foglio " + (i + 1) + " senza l'intestazione delle colonne");
+    const testa = p.testi.find((x) => x.t === "Nota");
+    ok(testa, "foglio " + (i + 1) + " senza l'intestazione delle colonne");
+    if (!testa) return;
+    ok(p.linee.some((l) => orizz(l) && Math.abs(l.y1 - (testa.y + 1.8)) < 1e-6), "foglio " + (i + 1) + ": manca la linea sotto l'intestazione ripetuta");
     ok(p.testi.every((x) => x.y <= 287), "foglio " + (i + 1) + ": testo sotto il fondo");
+    /* ogni riga intera sullo stesso foglio: dalla riga del nome, le righe della nota una sotto l'altra
+       ricompongono la nota tutta, senza che un pezzo finisca sul foglio dopo */
+    const nomi = p.testi.filter((x) => x.x === 16 && /^Asta \d+$/.test(x.t));
+    nomi.forEach((nm) => {
+      const pezzi = [];
+      for (let k = 0; ; k++) { const r = p.testi.find((x) => x.x === testa.x && Math.abs(x.y - (nm.y + k * 4.4)) < 1e-6); if (!r) break; pezzi.push(r.t); }
+      eq(pezzi.join(" "), lunga, "foglio " + (i + 1) + ", " + nm.t + ": la riga è spezzata o incompleta");
+      viste.add(nm.t);
+    });
+    /* una linea sopra ogni riga: l'intestazione sopra la prima del foglio, un filetto sopra le altre */
+    eq(p.linee.filter((l) => orizz(l) && nomi.some((nm) => Math.abs(l.y1 - (nm.y - 3.8)) < 1e-6)).length, nomi.length,
+      "foglio " + (i + 1) + ": una linea sopra ogni riga");
   });
-  const parole = pag.flatMap((p) => p.testi).map((x) => x.t).join(" ").split(/\s+/);
-  eq(parole.filter((p) => p === "corti").length, 40, "ogni nota arriva fino all'ultima parola");
+  eq(viste.size, NR, "tutte le righe, ognuna intera su un foglio");
   /* anteprima e link condiviso: la stessa nota per intero, in una cella che va a capo */
   const html = A.listPreviewHtml("notelist");
   ok(html.indexOf(A.esc(lunga)) > -1, "l'anteprima ha la nota intera");
   ok(/<td class="a-capo">/.test(html), "la cella della nota va a capo");
   ok(/\.pdf-list-tbl td\.a-capo\{[^}]*white-space:normal/.test(stylesCss), "manca la regola CSS che manda a capo la cella");
+  reset();
+});
+/* La Lista luci passa dalla stessa pagina generica: l'apparecchio lungo va a capo nella sua colonna, le
+   colonne di numeri non si spezzano, e nell'anteprima vanno a capo le stesse celle del PDF. */
+t("la Lista luci del PDF va a capo come le Note, e l'anteprima anche", () => {
+  reset();
+  const gear = "Proiettore LED a fascio stretto con lente zoom 15-30 gradi, bandiere e telaio portagelatine";
+  const pos = "americana frontale sopra la seconda fila della platea";
+  A.state.lights = { rows: [
+    A.lightRow({ fn: "frontale", n: 12, gear, color: "3200 K", pos }),
+    A.lightRow({ fn: "controluce", n: 4, gear: "sagomatore", color: "" }),
+  ], blackout: true, mood: "" };
+  const doc = jsPdfFinto()({ format: "a4", orientation: "portrait" });
+  A.lightsListPdf(doc);
+  const testi = doc.pagine[1].testi;
+  const tutto = testi.map((x) => x.t).join(" ");
+  eq(tutto.indexOf("…"), -1, "niente puntini");
+  gear.split(/\s+/).forEach((w) => ok(tutto.indexOf(w) > -1, "manca «" + w + "» dell'apparecchio"));
+  const teste = ["Q.tà", "Funzione", "Apparecchio", "Colore", "Posizione", "Sul palco"].map((h) => testi.find((x) => x.t === h));
+  ok(teste.every(Boolean), "le intestazioni restano intere, anche quelle dei numeri: " + teste.map((x) => x && x.t));
+  const cols = teste.map((x) => x.x);
+  for (let i = 0; i < cols.length; i++) {
+    const fine = i < cols.length - 1 ? cols[i + 1] - 3 : 194;
+    testi.filter((x) => x.x === cols[i] && x.y > teste[0].y).forEach((x) =>
+      ok(x.x + A.pdfTxtW(x.t, 9.5, false) <= fine + 1e-6, "colonna " + teste[i].t + ": «" + x.t + "» esce dalla colonna"));
+  }
+  ok(testi.filter((x) => x.x === cols[2] && gear.indexOf(x.t) > -1).length >= 2, "l'apparecchio lungo va su più righe");
+  /* anteprima: Funzione, Apparecchio e Posizione vanno a capo; quantità e colore no */
+  const html = A.listPreviewHtml("lightslist");
+  const celle = html.match(/<tbody><tr>(.*?)<\/tr>/)[1].match(/<td[^>]*>/g);
+  eq(celle.map((c) => c.replace(/ data-w="1"/, "")), ['<td class="n">', '<td class="a-capo">', '<td class="a-capo">', "<td>", '<td class="a-capo">', '<td class="n">'], "le celle che vanno a capo");
   reset();
 });
 t("la nota interna di un contatto non finisce nel PDF", () => {
@@ -20486,7 +20541,7 @@ async function pdfFinto(opts) {
 /* 13/10/2026, PDF vero (palco 12×8 a 1:50 su A4): la barra di scala finiva sopra il titolo del cartiglio.
    Stava sempre 10 mm sotto il disegno, ma dal 16/09 il cartiglio si è alzato di 7 mm dal fondo (fondo) e
    fra disegno e cartiglio ne restano 8: col disegno che riempie il foglio la barra cadeva DENTRO il cartiglio.
-   Per ogni altezza del cartiglio (testi corti e lunghi, col QR e senza), A4/A3, verticale/orizzontale:
+   Per ogni altezza del cartiglio (testi corti e lunghi, col QR e senza), A4/A3/A2, verticale/orizzontale:
    barra sotto il disegno e sopra il cartiglio, con aria da tutte e due le parti; anteprima uguale. */
 taPdf("la barra di scala non tocca mai il cartiglio", async () => {
   const prima = { jspdf: A.jspdf, l: A.loadJsPDF, d: A.drawStageVector, pg: A.__pdfPages, qr: A.__pdfQr, t: A.pdfTotals };
@@ -20501,7 +20556,7 @@ taPdf("la barra di scala non tocca mai il cartiglio", async () => {
   };
   try {
     for (const palco of [[4000, 3000], [400, 300]])   /* il disegno riempie il foglio (ritagliato) / ci sta largo */
-      for (const paper of ["a4", "a3"]) for (const orient of ["landscape", "portrait"])
+      for (const paper of ["a4", "a3", "a2"]) for (const orient of ["landscape", "portrait"])
         for (const k of Object.keys(TESTI)) for (const qr of [false, true]) {
           reset();
           A.state.stage = { w: palco[0], d: palco[1], blocks: [{ x: 0, y: 0, w: palco[0], d: palco[1] }] };
@@ -20519,8 +20574,18 @@ taPdf("la barra di scala non tocca mai il cartiglio", async () => {
           const scritte = p.testi.filter((x) => (x.t === "0" && x.x === barra.x1) || (/^\d+ m$/.test(x.t) && x.x === barra.x2));
           eq(scritte.length, 2, caso + ": «0» e «N m» sotto la barra");
           const alto = Math.min(...tacche.map((l) => Math.min(l.y1, l.y2))), basso = Math.max(...scritte.map((x) => x.y), ...tacche.map((l) => Math.max(l.y1, l.y2)));
-          ok(basso + 2 <= cartTop + 1e-6, caso + ": la barra arriva a " + basso.toFixed(1) + " mm, il cartiglio comincia a " + cartTop.toFixed(1));
-          ok(alto >= box.iy + box.mmH - 1e-6, caso + ": la barra sale dentro il disegno (" + alto.toFixed(1) + " < " + (box.iy + box.mmH).toFixed(1) + ")");
+          /* l'aria: 1,5 mm dal disegno e 2,5 dal cartiglio; se la fascia non basta (disegno a tutta pagina:
+             8 mm per una barra alta 5) la differenza si toglie in parti uguali, mai fino a toccare */
+          const fondoDis = box.iy + box.mmH, fascia = cartTop - fondoDis, ariaDis = alto - fondoDis, ariaCart = cartTop - basso;
+          ok(fascia >= 8 - 1e-6, caso + ": fra disegno e cartiglio restano " + fascia.toFixed(2) + " mm (attesi almeno 8)");
+          ok(Math.abs(alto - (barra.y1 - 1.4)) < 1e-6 && Math.abs(basso - (barra.y1 + 3.6)) < 1e-6, caso + ": la barra è alta 1,4 sopra la linea e 3,6 sotto");
+          if (fascia >= 1.5 + 5 + 2.5 - 1e-6) {
+            ok(ariaDis >= 1.5 - 1e-6, caso + ": dal disegno solo " + ariaDis.toFixed(2) + " mm");
+            ok(ariaCart >= 2.5 - 1e-6, caso + ": dal cartiglio solo " + ariaCart.toFixed(2) + " mm");
+          } else {
+            ok(Math.abs((1.5 - ariaDis) - (2.5 - ariaCart)) < 1e-6, caso + ": l'aria mancante non è tolta in parti uguali (" + ariaDis.toFixed(2) + " / " + ariaCart.toFixed(2) + ")");
+            ok(ariaDis >= 1 - 1e-6 && ariaCart >= 2 - 1e-6, caso + ": troppo vicina (" + ariaDis.toFixed(2) + " dal disegno, " + ariaCart.toFixed(2) + " dal cartiglio)");
+          }
           if (palco[0] === 400) eq(barra.y1, box.iy + box.mmH + 10, caso + ": con spazio la barra resta dov'era, 10 mm sotto il disegno");
           /* l'anteprima dell'Esporta disegna la stessa barra, alla stessa altezza */
           const svg = A.pdfPreviewSvg(paper, N, orient, T.head, { focus: "clean" });
