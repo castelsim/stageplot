@@ -1,3 +1,20 @@
+# 13/10/2026 (3) — Service worker: l'editor si aggiorna alla prima apertura (ramo `cache-aggiornata`)
+
+- Simone: «sistemami la cache di stageplot così si aggiorna subito». Prima: stale-while-revalidate su tutto, e il
+  rinfresco in background passava dalla cache HTTP (max-age 600 di GitHub Pages) → una versione pubblicata si vedeva
+  dopo 2 ricariche e 10 minuti, e il toast «nuova versione» non partiva (il SW riceveva la stessa copia vecchia).
+- Ora `SHELL` (/app/, /app.js, /icons.js) = **prima la rete** con `cache:"no-cache"` (304 se invariato), copia salvata
+  se la rete manca o supera `RETE_ATTESA_MS` (4 s); se la rete arriva dopo, cache aggiornata + `sp-updated`.
+  Il resto resta SWR. Precache dell'installazione con `cache:"reload"`.
+- ⚠️ Trappola trovata in prova (e ora coperta dal test): `res.clone()` va fatto SUBITO quando arriva la risposta;
+  fatto dopo un `cache.match` il corpo è già stato letto dalla pagina, clone() fallisce e la cache resta vecchia
+  (online non si vede, offline si apre la versione precedente). Nel banco di prova la cache è asincrona apposta.
+- Chi ha già il SW vecchio: la prima apertura dopo il deploy installa questo; dalla seguente in poi ogni
+  aggiornamento si vede subito.
+- Test: 6 nuovi (sw.js eseguito in vm con rete e cache finte); 7 mutazioni rosse. Prova vera in Chrome (porte 9010/9011):
+  versione nuova con 1 ricarica, offline apre l'ultima. engines 1445/1445, collaudo 30/30, orchestre 124/124,
+  biglietteria 47/47, `build --check`.
+
 # 13/10/2026 (2) — Percussionista IN PIEDI e postazione ridisegnata (ramo `percussionista`, dopo #290)
 
 - Simone: «gli strumenti devono essere posizionati meglio e il percussionista di solito è in piedi».
