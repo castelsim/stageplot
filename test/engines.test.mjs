@@ -12200,8 +12200,7 @@ t("scheda tecnica: le FAQ visibili e quelle in JSON-LD dicono la stessa cosa", (
    La pagina offre il PDF d'esempio esportato dall'editor e un link che apre l'editor su un modello.
    Si rompono in silenzio: un PDF spostato (404), un modello rinominato (l'editor si apre vuoto) e il
    numero di pagina «1 di N» in fondo a ogni foglio, regola fissa per ogni PDF che pubblichiamo
-   (l'export dell'app scrive ancora «pag 1/N» e solo da due pagine in su: il modello è stato
-   esportato con il piè di pagina «1 di N»). */
+   (dal 13/10 anche l'export dell'app scrive «N di T» su ogni foglio, vedi pdfCredit). */
 t("scheda tecnica: il modello PDF esiste, è pubblicato, e ogni pagina dice «N di T»", () => {
   const hrefPdf = (schedaHtml.match(/href="(\/guida\/scheda-tecnica-band\/[^"]+\.pdf)"/) || [])[1];
   ok(hrefPdf, "la pagina linka un PDF nella sua cartella (pubblicata dal deploy con guida/)");
@@ -18051,13 +18050,15 @@ function docFinto(pagine, larghezzaMm) {
       if (r) out.push(r); return out; } };
 }
 
-t("PDF: numero di pagina su ogni foglio quando i fogli sono più d'uno", () => {
-  /* revisione 28/09: su 30 pagine controllate nessuna era numerata */
+t("PDF: «N di T» su ogni foglio, anche quando il foglio è uno solo", () => {
+  /* revisione 28/09: su 30 pagine controllate nessuna era numerata. Regola di Simone (06/10): ogni PDF
+     porta «1 di N» in fondo a ogni pagina — anche un foglio solo dice «1 di 1» */
   const d3 = docFinto(3); A.pdfCredit(d3);
-  eq(d3.testi.filter((x) => /^pag \d+\/3$/.test(x.t || "")).map((x) => x.t), ["pag 1/3", "pag 2/3", "pag 3/3"], "pag N/M su tutte");
+  eq(d3.testi.filter((x) => /^\d+ di 3$/.test(x.t || "")).map((x) => x.t), ["1 di 3", "2 di 3", "3 di 3"], "«N di 3» su tutte");
   ok(d3.testi.filter((x) => x.t === "Creato con stageplot.it").length === 3, "e il credito resta");
+  ok(!d3.testi.some((x) => /^pag /.test(x.t || "")), "niente più «pag N/M»");
   const d1 = docFinto(1); A.pdfCredit(d1);
-  ok(!d1.testi.some((x) => /^pag /.test(x.t || "")), "un foglio solo non si numera");
+  eq(d1.testi.filter((x) => /^\d+ di \d+$/.test(x.t || "")).map((x) => x.t), ["1 di 1"], "un foglio solo dice «1 di 1»");
 });
 
 t("PDF: «titolo — luogo» va a capo invece di uscire dal foglio", () => {
@@ -20353,8 +20354,8 @@ taPdf("PDF: la pagina «Scaletta» c'è se la casella è spuntata, e solo allora
     ok(testi.indexOf("(senza titolo)") === -1, "la voce vuota non esce");
     eq(si.pagine[0].wh, [297, 210], "il palco resta sul foglio scelto");
     eq(pg.wh, [210, 297], "la scaletta è un A4 verticale come le altre liste");
-    ok(pg.testi.filter((x) => x.t !== "Creato con stageplot.it" && !/^pag \d/.test(x.t)).every((x) => x.y > 0 && x.y < 297 - 10), "il contenuto resta sopra il piede (credito e numero di pagina)");
-    ok(si.pagine.every((p, i) => p.testi.some((x) => x.t === "pag " + (i + 1) + "/2")), "numerata «pag N/2» come il resto del PDF");
+    ok(pg.testi.filter((x) => x.t !== "Creato con stageplot.it" && !/^\d+ di \d+$/.test(x.t)).every((x) => x.y > 0 && x.y < 297 - 10), "il contenuto resta sopra il piede (credito e numero di pagina)");
+    ok(si.pagine.every((p, i) => p.testi.some((x) => x.t === (i + 1) + " di 2")), "numerata «N di 2» come il resto del PDF");
     /* casella accesa ma scaletta vuota (o di sole voci vuote): niente pagina bianca */
     A.state.scaletta = [{ tipo: "brano", titolo: "", durata: "", note: "" }];
     eq((await pdfFinto({ scaletta: true })).pagine.length, 1, "scaletta di sole voci vuote: nessuna pagina");

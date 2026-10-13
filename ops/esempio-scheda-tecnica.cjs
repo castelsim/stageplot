@@ -7,8 +7,7 @@
  * modello Tributo, poi esportata con l'Esporta dell'app (A4, scala automatica) con rider, channel
  * list, monitor, carichi e backline. Nessun dato di utenti: solo il codice dell'app.
  *
- * Unica differenza dall'export dell'app: il piè di pagina dice «1 di N» su OGNI pagina (regola fissa
- * per i PDF pubblicati); l'app oggi scrive «pag 1/N» e solo da due pagine in su.
+ * È l'export dell'app così com'è: dal 13/10 il piè di pagina dice «1 di N» su ogni pagina (pdfCredit).
  *
  * Uso (rete esterna bloccata dallo script):
  *   python3 -m http.server <porta nuova> --bind 127.0.0.1      # dalla radice del repo
@@ -69,22 +68,7 @@ const PORT = process.argv[2], MODE = process.argv[3] || "probe";
     return 0;
   });
   console.log(JSON.stringify(await page.evaluate(() => ({ patch: patchList().rows.map((r) => r.n + " " + r.name + " " + r.mic), backline: backlineList().rows.map((r) => r.qty + "x " + r.name + " " + r.by) }))));
-  if (MODE === "dinN") {
-    // footer «i di N» su ogni pagina (regola di Simone); il resto è il codice dell'app
-    await page.evaluate(() => {
-      window.pdfCredit = function (doc) {
-        var n = doc.getNumberOfPages();
-        for (var i = 1; i <= n; i++) {
-          doc.setPage(i);
-          var ps = doc.internal.pageSize, pw = ps.getWidth(), ph = ps.getHeight();
-          doc.setFont("helvetica", "normal"); doc.setFontSize(6.5); doc.setTextColor(156, 163, 175);
-          doc.text("Creato con stageplot.it", pw - 10, ph - 4.5, { align: "right" });
-          doc.setFontSize(8); doc.setTextColor(107, 114, 128); doc.text(i + " di " + n, pw / 2, ph - 4.5, { align: "center" });
-        }
-        doc.setPage(n);
-      };
-    });
-  }
+  // dal 13/10 il piè «i di N» su ogni pagina è dell'app (pdfCredit): niente più sostituzioni qui
   const dl = page.waitForEvent("download", { timeout: 60000 });
   await page.evaluate(() => {
     window.__pdfPages = { rider: true, inputlist: true, monitorlist: true, backline: true, loadlist: true };
