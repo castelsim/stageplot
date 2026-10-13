@@ -8862,6 +8862,39 @@ t("rifinitura v2: i pezzi troppo grandi lasciati fuori dal modello si dicono", (
     ok(msg.some(([m, err]) => /è anche fra gli «Elementi di questo progetto»[\s\S]*1 pezzo troppo grande non è entrato nel modello\./.test(m) && err), "anche al primo Salva: " + JSON.stringify(msg));
   } finally { A.__toast = tp; }
 }));
+t("rifinitura v3: maniglie dell'editor visibili, gambo sopra la maniglia alta, riquadro sotto il nome scritto sopra", () => {
+  reset();
+  const f = { id: A.uid(), type: "custshape", k: "rect", x: 300, y: 300, w: 20, d: 10, rot: 0, stroke: "#000000", sw: 2 };
+  A.state.items.push(f); A.sel = f.id; A.selSet = { [f.id]: true };
+  const cpp = A.cmPerPx; A.cmPerPx = () => 0.02;   /* da vicino, come nell'editor su una superficie piccola: 50 px per cm */
+  try {
+    const mk = A.selHandlesMarkup();
+    const sws = (mk.match(/class="rs-handle[^"]*"[^>]*stroke-width="([^"]+)"/g) || []).map(x => x.match(/stroke-width="([^"]+)"/)[1]);
+    ok(sws.length === 8 && sws.every(v => v === "1.4"), "bordo delle maniglie in pixel di schermo (1,4), non in centimetri: " + sws.join(","));
+    ok(/\.rs-handle\{[^}]*stroke-width:1\.4;[^}]*vector-effect:non-scaling-stroke/.test(stylesCss), "e il CSS lo fissa a 1,4 px");
+    /* il gambo parte fuori dal bordo esterno (margine + mezza linea) e sopra la maniglia alta, con aria fra lei e il pomello */
+    const bh = f.d / 2 + A.selMargine(f), y1 = +mk.match(/class="rh-line" x1="0" y1="(-?[\d.e-]+)"/)[1];
+    const ky = +mk.match(/class="rh-knob" cx="0" cy="(-?[\d.e-]+)" r="(-?[\d.e-]+)"/)[1], kr = +mk.match(/class="rh-knob" cx="0" cy="(-?[\d.e-]+)" r="(-?[\d.e-]+)"/)[2];
+    const alta = mk.match(/class="rs-handle rs-t"[^>]*\sy="(-?[\d.e-]+)"/), cimaAlta = +alta[1];
+    ok(y1 <= -bh - A.hSize(6) + 1e-9, "il gambo parte sopra la maniglia alta (" + y1 + " ≤ " + (-bh - A.hSize(6)) + ")");
+    ok(cimaAlta - (ky + kr) >= A.hSize(10), "fra il pomello e la maniglia alta almeno 10 px (" + ((cimaAlta - (ky + kr)) / A.hSize(1)) + " px)");
+  } finally { A.cmPerPx = cpp; A.sel = null; A.selSet = {}; A.state.items = A.state.items.filter(x => x !== f); }
+  /* il riquadro aderente: la mezza linea delle forme entra (data-fitpad), e sotto un nome scritto sopra resta sotto le lettere */
+  const nodo = (id, bbox, fitpad) => {
+    const att = { class: "selbox" }; if (fitpad != null) att["data-fitpad"] = String(fitpad);
+    const box = { getAttribute: (k) => (k in att ? att[k] : null), setAttribute: (k, v) => { att[k] = v; }, removeAttribute: (k) => { delete att[k]; } };
+    const rg = { children: [box], getBBox: () => bbox };
+    return { firstElementChild: rg, getAttribute: (k) => (k === "data-id" ? id : null), setAttribute() {}, box: att };
+  };
+  const fr = A.aderisciRiquadro(nodo("nessuno", { x: -10, y: -5, width: 20, height: 10 }, 1));
+  ok(Math.abs(fr.y1 - (-5 - A.hSize(4) - 1)) < 1e-9, "forma con linea di 2 cm: 4 px oltre la mezza linea");
+  const b = add("custom", 400, 400, { w: 160, d: 80, cust: { nome: "Banco luci", shapes: [] } }); A.custNorm(b);
+  const ks = A._lblSchermo; A._lblSchermo = true; try { A.itemMarkup(b); } finally { A._lblSchermo = ks; }
+  const lc = A._lblCima[b.id]; ok(lc && lc.b > lc.y, "la cima e il fondo del nome sono annotati");
+  const fb = A.aderisciRiquadro(nodo(b.id, { x: -80, y: -40, width: 160, height: 80 }));
+  const atteso = Math.max(-40 - A.hSize(4), Math.min(lc.b + A.hSize(2), -40 - A.hSize(1)));
+  ok(Math.abs(fb.y1 - atteso) < 1e-9 && fb.y1 >= Math.min(lc.b, -40 - A.hSize(1)) - 1e-9, "il bordo alto del riquadro non taglia le lettere (" + fb.y1 + ", nome fino a " + lc.b + ")");
+});
 t("rifinitura 17: pannello singolo — la riga dell'elemento in cima, potenza solo nella scheda", () => {
   ok(/<h3 id="selNome">Elemento<\/h3>\s*<!--[\s\S]*?-->\s*<div id="pCustomWrap"/.test(appHtml), "#pCustomWrap subito sotto il titolo, come nel pannello di gruppo");
   eq(A.hasWattItem({ type: "custom" }), false, "il campo generico «Potenza (W)» non compare");
