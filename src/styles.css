@@ -3713,6 +3713,39 @@ body.dark .cust-righello text{fill:#cbd5e1}
 #custScheda .cust-ins{display:flex;gap:6px}
 #custScheda .cust-ins input{flex:0 0 72px}
 #custScheda .cust-ins select{flex:1 1 auto}
-#custScheda .cust-azioni .btn{padding:8px 4px;font-size:13px}
-#custScheda #custInvia{width:100%;margin-top:6px}
+/* i pulsanti della scheda in un piede fermo in fondo alla colonna: a 1280×800, con una forma selezionata, Salva stava sotto
+   il bordo. #props è una colonna flex che scorre: margin-top:auto lo porta in fondo anche quando la colonna è corta. */
+#custScheda[hidden] + #custPiede{display:none}
+#custPiede{position:sticky;bottom:-12px;z-index:2;margin:auto -12px -12px;padding:10px 12px 12px;background:var(--surface);
+  border-top:1px solid var(--border);box-shadow:0 -6px 14px -10px rgba(38,33,24,.35)}
+body.dark #custPiede{background:#1b2327;box-shadow:0 -6px 14px -10px rgba(0,0,0,.6)}
+#custPiede .cust-azioni{margin-top:0}
+#custPiede .cust-azioni .btn{padding:8px 4px;font-size:13px}
+#custPiede #custInvia{width:100%;margin-top:6px}
+#custPiede #custInvia[hidden]{display:none}
+
+/* Tappa 3: il pulsante nel catalogo, «Non c'è? Crealo», gli elementi di questo progetto, la riga nel pannello */
+#catalog small.cust-tel{display:none}
+@media (max-width:880px){ #catalog small.cust-pc{display:none} #catalog small.cust-tel{display:block} }
+#catCustom[hidden]{display:none}
+#catCustom h4{margin-top:10px}
+body.cust-editor #catCustom, body.proj-ro #catCustom, body.viewmode #catCustom{display:none !important}
+#catalog #catResults .cust-crealo{justify-content:flex-start;height:auto;margin-top:4px;padding:6px 8px;border:1px dashed var(--border-strong);
+  background:transparent;color:var(--text);font-size:13px;font-weight:400;text-align:left;line-height:1.3;white-space:normal}
+#catalog #catResults .cust-crealo:hover{background:var(--accent-tint);border-color:var(--accent-soft)}
+#catResults .cust-crealo > span{min-width:0;flex:1 1 auto}
+#catResults .cust-crealo b{color:var(--accent-strong)}
+#catResults .cust-crealo small{white-space:normal;overflow-wrap:anywhere}
+#catResults .cust-crealo-fondo{margin-top:10px}
+#props .cust-pan{margin:0 0 10px}
+#props .cust-pan [hidden]{display:none}
+#props .cust-pan .cust-pan-desc{margin:0 0 4px;font-size:12px;line-height:1.4;color:var(--text-2);overflow-wrap:anywhere}
+#props .cust-pan .cust-pan-conta{margin:0 0 8px}
+#props .cust-pan .cust-pan-btns{display:flex;flex-direction:column;gap:6px}
+/* nella scheda (fondo «raised») il bottone di serie sparirebbe: fondo pieno e bordo, come i comandi del pannello */
+#props .cust-pan .cust-pan-btns .btn{margin-top:0;background:var(--surface);border:1px solid var(--border-strong);color:var(--text);font-weight:600;white-space:normal}
+#props .cust-pan .cust-pan-btns .btn:hover{border-color:var(--accent);color:var(--accent-strong)}
+#props .cust-pan .cust-pan-btns .btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
+body.dark #props .cust-pan .cust-pan-btns .btn{background:#20292e;border-color:#3a4658;color:#e5e7eb}
+#props .cust-pan .prop-hint:last-child{margin:6px 0 0}
 body.cust-editor.m-has-sel #custScheda{border-top:1px solid var(--border);padding-top:12px;margin-top:6px}   /* sotto il pannello di ciò che è selezionato */

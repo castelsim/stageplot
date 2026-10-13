@@ -8255,6 +8255,161 @@ t("revisione 11: le forme stanno sempre sotto i pezzi veri; Primo piano / In fon
   const m = A.sceneMarkup(), iOver = m.indexOf('id="layOverlay"');
   ok(iOver > m.indexOf('id="layItems"') && m.indexOf('class="cust-righello"') > iOver, "il righello sta nel livello sopra gli elementi");
 }));
+/* ===== Crea elemento, Tappa 3: ingressi, elementi di questo progetto, Modifica (13/10/2026) ===== */
+/* i modelli del progetto non li azzera reset(): ogni prova li rimette com'erano */
+function conModelli(fn) {
+  const prima = A.state.customModels;
+  try { return conCampi(fn); }
+  finally { if (prima === undefined) delete A.state.customModels; else A.state.customModels = prima; }
+}
+t("crea elemento: ingressi dal catalogo e dalla ricerca senza risultati", () => {
+  ok(/makeActionBtn\("Crea elemento","disegna o componi, in scala"/.test(appjs), "pulsante sotto Testo libero");
+  ok(/nome:"Crea elemento"[\s\S]{0,200}noQuick:true/.test(appjs), "anche nella ricerca");
+  ok(/Non c'è\? <b>Crealo<\/b>|Non c'è\? Crealo/.test(appjs), "«Non c'è? Crealo» in fondo alla ricerca");
+  ok(/makeActionBtn\("Testo libero"[\s\S]{0,1500}makeActionBtn\("Crea elemento"/.test(appjs), "subito dopo Testo libero, ultimo del blocco");
+  ok(/nome:"Testo libero"[\s\S]{0,1500}nome:"Crea elemento"/.test(appjs), "e nella ricerca accanto a Testo libero");
+  ok(/cust-crealo cust-crealo-fondo/.test(appjs), "anche in fondo ai risultati non vuoti");
+  const voce = A.__catEntries.find(e => e.nome === "Crea elemento");
+  ok(voce && voce.noQuick && voce.custNo, "fuori dalla ricerca rapida e dall'editor aperto");
+  ok(A.__spSearch("crea elemento").some(e => e.nome === "Crea elemento"), "si trova cercandolo");
+  eq(A.custNomeDaRicerca("  videoproiettore  "), "Videoproiettore", "il nome cercato, con la maiuscola");
+  eq(A.custNomeDaRicerca("iPad"), "iPad", "una maiuscola già scritta resta com'è");
+  eq(A.custNomeDaRicerca("x".repeat(80)).length, 60, "al massimo 60 caratteri");
+});
+t("crea elemento: su un progetto bloccato o in sola lettura non si apre", () => conModelli(() => {
+  reset();
+  A.window.__projLocked = true;
+  try {
+    eq(A.custEditorApri({ x: 0, y: 0, w: 100, d: 100 }, { includi: false }), false, "bloccato");
+  } finally { A.window.__projLocked = false; }
+  const base = add("custom", 100, 100, { cust: { nome: "X", shapes: [] } }); A.custNorm(base);
+  A.window.__projLocked = true;
+  try {
+    eq(A.custModificaElemento(base.id), false, "Modifica non parte");
+    eq(A.custEditorAttivo(), false, "editor chiuso");
+    eq(A.custSalvaComeModello(base.id), false, "Salva come modello non scrive");
+    eq("customModels" in A.state, false, "nessun modello");
+  } finally { A.window.__projLocked = false; }
+}));
+t("catalogo del progetto: salvare come modello e ritrovarlo", () => conModelli(() => {
+  reset(); delete A.state.customModels;
+  const base = add("custom", 300, 300, { cust: { nome: "Schermo", shapes: [] } }); A.custNorm(base);
+  A.custSalvaComeModello(base.id);
+  eq((A.state.customModels || []).length, 1, "un modello");
+  eq(A.state.customModels[0].nome, "Schermo");
+  A.custSalvaComeModello(base.id);
+  eq(A.state.customModels.length, 1, "lo stesso elemento non duplica il modello (aggiorna)");
+  eq(base.cust.modelId, A.state.customModels[0].id, "l'elemento ricorda il suo modello");
+  /* la sezione del catalogo e la ricerca seguono i modelli, senza ricostruirsi a ogni render */
+  A.__catCustomAggiorna();
+  eq(A.__catCustomAggiorna(), false, "modelli uguali: niente da rifare");
+  ok(A.__spSearch("schermo").some(e => e.nome === "Schermo"), "la ricerca trova il modello per nome");
+  const voce = A.__catEntries.find(e => e.custModello && e.nome === "Schermo");
+  ok(voce && voce.noQuick && voce.custNo, "non nella ricerca rapida, non nell'editor");
+  A.state.customModels[0].nome = "Schermo grande";
+  eq(A.__catCustomAggiorna(), true, "nome cambiato: si rifà");
+  ok(A.__spSearch("schermo grande").length === 1 && !A.__catEntries.some(e => e.custModello && e.nome === "Schermo"), "una voce sola, aggiornata");
+  /* Annulla toglie il modello; vuoto = campo assente, mai [] */
+  A.undo(); A.undo();
+  ok(!("customModels" in A.state) || A.state.customModels.length > 0, "mai un elenco vuoto nello stato");
+}));
+t("catalogo del progetto: con l'editor aperto «Salva come modello» si ferma e lo dice", () => conModelli(() => {
+  reset(); delete A.state.customModels;
+  const base = add("custom", 300, 300, { cust: { nome: "Schermo", shapes: [] } }); A.custNorm(base);
+  ok(A.custApriEditor({ x: 600, y: 300, w: 100, d: 100 }, false), "editor aperto");
+  const msg = []; const tp = A.__toast; A.__toast = (m) => msg.push(m);
+  try { eq(A.custSalvaComeModello(base.id), false, "fermato"); eq(A.custPosaDalCatalogo("m1"), false, "e anche posare un modello"); }
+  finally { A.__toast = tp; }
+  ok(msg.length === 2 && msg.every(m => m === A.custEditorMsg()), "il messaggio unico dell'editor");
+  A.custEsci(false);
+  eq("customModels" in A.state, false, "niente modelli scritti");
+}));
+t("catalogo del progetto: due copie dal catalogo, modificarne una non cambia l'altra", () => conModelli(() => {
+  reset(); delete A.state.customModels;
+  const base = add("custom", 300, 300, { w: 120, d: 80, cust: { nome: "Postazione", shapes: [{ k: "rect", x: 0, y: 0, w: 120, h: 80, stroke: "#000000", sw: 1 }] } });
+  A.custNorm(base);
+  const mic = add("cantante", 330, 310); base.grp = mic.grp = "gP";
+  A.custSalvaComeModello(base.id);
+  const mid = A.state.customModels[0].id;
+  const a = A.custPosaDalCatalogo(mid), b = A.custPosaDalCatalogo(mid);
+  ok(a.length === 2 && b.length === 2, "base + cantante, due volte");
+  ok(a[0].grp !== b[0].grp && a[0].grp !== "gP", "gruppi diversi");
+  ok(A.selIds().length === 2 && A.selIds().includes(b[0].id), "l'ultima copia è selezionata, tutta");
+  ok([a[0].x, a[0].y, b[0].x, b[0].y].every(Number.isFinite), "posizioni vere anche con la vista non misurata");
+  ok(Math.abs(a[0].x - b[0].x) + Math.abs(a[0].y - b[0].y) > 0, "non una sull'altra");
+  const nomiB = JSON.stringify(b[0].cust);
+  ok(A.custModificaElemento(a[0].id), "Modifica apre l'editor sulla prima copia");
+  eq(A.custLeggiScheda().nome, "Postazione", "scheda piena");
+  eq(A.state.items.filter(x => x.type === "custshape").length, 1, "le forme dell'elemento");
+  eq(A.state.items.filter(x => x.type === "cantante").length, 1, "e il suo pezzo");
+  A.custMostraScheda({ nome: "Postazione A", watt: 500 });
+  A.custSalvaDaScheda();
+  eq(A.custEditorAttivo(), false, "salvato");
+  const a2 = A.state.items.find(x => x.id === a[0].id), b2 = A.state.items.find(x => x.id === b[0].id);
+  eq([a2.cust.nome, a2.watt], ["Postazione A", 500], "la copia modificata");
+  eq(JSON.stringify(b2.cust), nomiB, "l'altra copia è com'era");
+  eq(A.state.customModels[0].nome, "Postazione", "il modello pure");
+  eq(a2.cust.modelId, undefined, "la copia modificata non è più il modello: «Salva come modello» ne fa uno nuovo");
+  A.custSalvaComeModello(a2.id);
+  eq(A.state.customModels.map(m => m.nome), ["Postazione", "Postazione A"], "due modelli");
+}));
+t("Modifica: il nome sul palco scritto a mano resta, quello di serie segue il nome nuovo", () => conModelli(() => {
+  reset();
+  const x = add("custom", 300, 300, { cust: { nome: "Schermo", shapes: [] } }); A.custNorm(x);
+  const y = add("custom", 700, 300, { cust: { nome: "Schermo", shapes: [] } }); A.custNorm(y); y.label = "Schermo sinistro";
+  ok(A.custModificaElemento(x.id)); A.custMostraScheda({ nome: "Telo" }); A.custSalvaDaScheda();
+  eq(A.state.items.find(i => i.id === x.id).label, "Telo", "nome di serie → segue");
+  ok(A.custModificaElemento(y.id)); A.custMostraScheda({ nome: "Telo" }); A.custSalvaDaScheda();
+  eq(A.state.items.find(i => i.id === y.id).label, "Schermo sinistro", "nome scritto a mano → resta");
+}));
+t("Modifica: doppio clic sul computer, «disponibile dal computer» sul telefono", () => conModelli(() => {
+  ok(/dcIt && dcIt\.type==="custom"\)\{[\s\S]{0,200}custModificaElemento\(dcId\)/.test(appjs), "doppio clic sull'elemento personalizzato");
+  reset();
+  const x = add("custom", 300, 300, { cust: { nome: "Schermo", shapes: [] } }); A.custNorm(x);
+  const mm = A.matchMedia; A.matchMedia = () => ({ matches: true, addEventListener() {}, addListener() {} });
+  let msg = null; const gd = A.guideDialog; A.guideDialog = (o) => { msg = o.msg; };
+  try { eq(A.custModificaElemento(x.id), false, "telefono"); ok(/dal computer/.test(msg), "lo dice"); }
+  finally { A.matchMedia = mm; A.guideDialog = gd; }
+  eq(A.custModificaElemento("nessuno"), false, "elemento inesistente");
+  ok(/custBaseDi\(dcIt\)\)\{[\s\S]{0,400}custModificaElemento\(custBaseDi\(dcIt\)\.id, dcId\)/.test(appjs), "doppio clic su un pezzo: l'editor del suo elemento");
+  const pz = add("astamic", 320, 310); x.grp = pz.grp = "gZ";
+  eq(A.custBaseDi(pz), x, "la base del pezzo"); eq(A.custBaseDi(x), null, "la base non è un pezzo");
+  ok(A.custModificaElemento(x.id, pz.id), "aperto dal pezzo");
+  eq(A.selIds(), [pz.id], "il pezzo è già selezionato nell'editor");
+  A.custEsci(false);
+  const y2 = add("custom", 330, 300, { cust: { nome: "Z", shapes: [] } }); A.custNorm(y2); y2.grp = "gZ";
+  eq(A.custBaseDi(pz), null, "due basi nello stesso gruppo: nessuna");
+  const c = add("cantante", 600, 600);
+  eq(A.custModificaElemento(c.id), false, "non personalizzato");
+}));
+t("pannello: il gruppo dell'elemento personalizzato porta il suo nome e i suoi comandi", () => {
+  reset();
+  const base = add("custom", 300, 300, { cust: { nome: "Regia luci", shapes: [] } }); A.custNorm(base);
+  const mic = add("cantante", 320, 310), fuori = add("cantante", 700, 700);
+  base.grp = mic.grp = "gR";
+  eq(A.custDiSelezione([base, mic]), { base, intero: true }, "tutto l'elemento");
+  eq(A.custDiSelezione([base, mic, fuori]), { base, intero: false }, "con altro: comandi sì, titolo no");
+  eq(A.custDiSelezione([mic, fuori]), null, "senza elemento personalizzato");
+  const altro = add("custom", 900, 300, { cust: { nome: "Y", shapes: [] } }); A.custNorm(altro);
+  eq(A.custDiSelezione([base, mic, altro]), null, "due elementi personalizzati: nessuno dei due");
+  ok(/grpNome"\)\.textContent = _cs && _cs\.intero \? _cs\.base\.cust\.nome/.test(appjs), "il titolo del gruppo è il nome");
+  ok(/id="grpCustomRow"/.test(appHtml) && /id="pCustomWrap"/.test(appHtml), "le righe nei due pannelli");
+  eq(A.custContaTesto({ watt: 300, cust: { ins: { n: 2, tipo: "linea" }, backline: true } }), "300 W · 2 ingressi linea · backline");
+  eq(A.custContaTesto({ cust: { ins: { n: 1, tipo: "mic" } } }), "1 ingresso microfono");
+  eq(A.custContaTesto({ cust: {} }), "Non conta nelle liste: potenza, ingressi e backline si danno con «Modifica elemento».");
+});
+t("arteStimata: l'elemento personalizzato non ha lo schienale della sedia", () => {
+  const s = A.arteStimata({ type: "custom", w: 100, d: 40 });
+  eq([s.y0, s.y1], [-20, 20], "solo la sua superficie");
+});
+t("editor: Salva e Annulla restano in vista in fondo alla colonna di destra", () => {
+  ok(/id="custConta"><\/p>\s*<\/div>\s*(<!--[\s\S]*?-->\s*)?<div class="cust-piede" id="custPiede">[\s\S]{0,300}id="custSalva"/.test(appHtml), "un piede dopo la scheda");
+  const css = readFileSync(join(root, "src/styles.css"), "utf8");
+  ok(/#custPiede\{[^}]*position:sticky;[^}]*bottom:/.test(css), "appiccicato in fondo");
+  ok(/#custScheda\[hidden\] \+ #custPiede\{display:none\}/.test(css), "nascosto con la scheda");
+  ok(/body\.cust-editor #catCustom|#catCustom[^{]*\{display:none/.test(css), "gli elementi del progetto non si posano nell'editor");
+  ok(/body\.proj-ro #catCustom/.test(css) && /body\.viewmode #catCustom/.test(css), "né su un progetto bloccato o in sola lettura");
+});
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");

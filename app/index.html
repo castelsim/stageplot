@@ -3791,8 +3791,41 @@ body.dark .cust-righello text{fill:#cbd5e1}
 #custScheda .cust-ins{display:flex;gap:6px}
 #custScheda .cust-ins input{flex:0 0 72px}
 #custScheda .cust-ins select{flex:1 1 auto}
-#custScheda .cust-azioni .btn{padding:8px 4px;font-size:13px}
-#custScheda #custInvia{width:100%;margin-top:6px}
+/* i pulsanti della scheda in un piede fermo in fondo alla colonna: a 1280×800, con una forma selezionata, Salva stava sotto
+   il bordo. #props è una colonna flex che scorre: margin-top:auto lo porta in fondo anche quando la colonna è corta. */
+#custScheda[hidden] + #custPiede{display:none}
+#custPiede{position:sticky;bottom:-12px;z-index:2;margin:auto -12px -12px;padding:10px 12px 12px;background:var(--surface);
+  border-top:1px solid var(--border);box-shadow:0 -6px 14px -10px rgba(38,33,24,.35)}
+body.dark #custPiede{background:#1b2327;box-shadow:0 -6px 14px -10px rgba(0,0,0,.6)}
+#custPiede .cust-azioni{margin-top:0}
+#custPiede .cust-azioni .btn{padding:8px 4px;font-size:13px}
+#custPiede #custInvia{width:100%;margin-top:6px}
+#custPiede #custInvia[hidden]{display:none}
+
+/* Tappa 3: il pulsante nel catalogo, «Non c'è? Crealo», gli elementi di questo progetto, la riga nel pannello */
+#catalog small.cust-tel{display:none}
+@media (max-width:880px){ #catalog small.cust-pc{display:none} #catalog small.cust-tel{display:block} }
+#catCustom[hidden]{display:none}
+#catCustom h4{margin-top:10px}
+body.cust-editor #catCustom, body.proj-ro #catCustom, body.viewmode #catCustom{display:none !important}
+#catalog #catResults .cust-crealo{justify-content:flex-start;height:auto;margin-top:4px;padding:6px 8px;border:1px dashed var(--border-strong);
+  background:transparent;color:var(--text);font-size:13px;font-weight:400;text-align:left;line-height:1.3;white-space:normal}
+#catalog #catResults .cust-crealo:hover{background:var(--accent-tint);border-color:var(--accent-soft)}
+#catResults .cust-crealo > span{min-width:0;flex:1 1 auto}
+#catResults .cust-crealo b{color:var(--accent-strong)}
+#catResults .cust-crealo small{white-space:normal;overflow-wrap:anywhere}
+#catResults .cust-crealo-fondo{margin-top:10px}
+#props .cust-pan{margin:0 0 10px}
+#props .cust-pan [hidden]{display:none}
+#props .cust-pan .cust-pan-desc{margin:0 0 4px;font-size:12px;line-height:1.4;color:var(--text-2);overflow-wrap:anywhere}
+#props .cust-pan .cust-pan-conta{margin:0 0 8px}
+#props .cust-pan .cust-pan-btns{display:flex;flex-direction:column;gap:6px}
+/* nella scheda (fondo «raised») il bottone di serie sparirebbe: fondo pieno e bordo, come i comandi del pannello */
+#props .cust-pan .cust-pan-btns .btn{margin-top:0;background:var(--surface);border:1px solid var(--border-strong);color:var(--text);font-weight:600;white-space:normal}
+#props .cust-pan .cust-pan-btns .btn:hover{border-color:var(--accent);color:var(--accent-strong)}
+#props .cust-pan .cust-pan-btns .btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
+body.dark #props .cust-pan .cust-pan-btns .btn{background:#20292e;border-color:#3a4658;color:#e5e7eb}
+#props .cust-pan .prop-hint:last-child{margin:6px 0 0}
 body.cust-editor.m-has-sel #custScheda{border-top:1px solid var(--border);padding-top:12px;margin-top:6px}   /* sotto il pannello di ciò che è selezionato */
 </style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->
@@ -4779,6 +4812,16 @@ body.cust-editor.m-has-sel #custScheda{border-top:1px solid var(--border);paddin
         <input type="checkbox" id="pSwRed" style="width:auto"> Ridondanza Dante (Primary + Secondary)</label>
       <div id="pSwKv" style="margin-top:6px;font-size:12px;color:var(--text-2)"></div>
     </div>
+    <!-- CREA ELEMENTO (13/10/2026): l'elemento personalizzato da solo; col gruppo dei suoi pezzi la stessa riga sta in #grpCustomRow -->
+    <div id="pCustomWrap" class="prop-card cust-pan" style="display:none">
+      <p class="cust-pan-desc" id="pCustDesc" hidden></p>
+      <p class="prop-hint cust-pan-conta" id="pCustConta"></p>
+      <div class="cust-pan-btns">
+        <button class="btn" id="pCustModifica" type="button" title="Riapre l'editor su questa copia: le altre non cambiano">Modifica elemento</button>
+        <button class="btn" id="pCustModello" type="button">Salva come modello</button>
+      </div>
+      <p class="prop-hint" id="pCustModelloHint"></p>
+    </div>
     <div id="pRackWrap" style="display:none">
       <label for="pRackFn">Funzione</label><select id="pRackFn"></select>
       <label for="pRackU">Dimensione</label><select id="pRackU"></select>
@@ -4808,6 +4851,16 @@ body.cust-editor.m-has-sel #custScheda{border-top:1px solid var(--border);paddin
   </div>
   <div class="sec" id="groupProps" hidden>
     <h3 id="grpNome">Selezione</h3>
+    <!-- l'elemento personalizzato con i suoi pezzi è un gruppo: i suoi comandi stanno in cima, il titolo è il suo nome -->
+    <div id="grpCustomRow" class="prop-card cust-pan" style="display:none">
+      <p class="cust-pan-desc" id="grpCustDesc" hidden></p>
+      <p class="prop-hint cust-pan-conta" id="grpCustConta"></p>
+      <div class="cust-pan-btns">
+        <button class="btn" id="grpCustModifica" type="button" title="Riapre l'editor su questa copia: le altre non cambiano">Modifica elemento</button>
+        <button class="btn" id="grpCustModello" type="button">Salva come modello</button>
+      </div>
+      <p class="prop-hint" id="grpCustModelloHint"></p>
+    </div>
     <button type="button" class="btn solo-ped" id="grpSoloPed" style="display:none" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg><span>Solo pedane</span></button>
     <div id="grpAggWrap" class="agg-ped" style="display:none"><label class="chk" title="Acceso: spostando una pedana si spostano anche i musicisti e gli strumenti che ci stanno sopra, e Duplica e Copia li copiano con lei. Spento: si sposta solo la pedana, il resto rimane dov'è. Vale per tutte le pedane selezionate."><input type="checkbox" id="grpAgg"> <span>Aggancia gli elementi alle pedane <small class="lbl-note">— spostandole, chi ci sta sopra le segue</small></span></label></div>
     <div id="grpOpts" style="display:none;margin-bottom:8px">
@@ -4927,6 +4980,10 @@ body.cust-editor.m-has-sel #custScheda{border-top:1px solid var(--border);paddin
       <label class="chk"><input type="checkbox" id="custBackline"> È backline</label>
     </div>
     <p class="prop-hint" id="custConta"></p>
+  </div>
+  <!-- i pulsanti della scheda: un piede fermo in fondo alla colonna, in vista anche quando sopra c'è il pannello di una forma
+       o di un elemento (si nasconde con la scheda: #custScheda[hidden] + #custPiede) -->
+  <div class="cust-piede" id="custPiede">
     <div class="btns cust-azioni">
       <button class="btn" id="custAnnulla" type="button">Annulla</button>
       <button class="btn primary" id="custSalva" type="button">Salva</button>
