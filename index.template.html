@@ -1061,6 +1061,16 @@
         <input type="checkbox" id="pSwRed" style="width:auto"> Ridondanza Dante (Primary + Secondary)</label>
       <div id="pSwKv" style="margin-top:6px;font-size:12px;color:var(--text-2)"></div>
     </div>
+    <!-- CREA ELEMENTO (13/10/2026): l'elemento personalizzato da solo; col gruppo dei suoi pezzi la stessa riga sta in #grpCustomRow -->
+    <div id="pCustomWrap" class="prop-card cust-pan" style="display:none">
+      <p class="cust-pan-desc" id="pCustDesc" hidden></p>
+      <p class="prop-hint cust-pan-conta" id="pCustConta"></p>
+      <div class="cust-pan-btns">
+        <button class="btn" id="pCustModifica" type="button" title="Riapre l'editor su questa copia: le altre non cambiano">Modifica elemento</button>
+        <button class="btn" id="pCustModello" type="button">Salva come modello</button>
+      </div>
+      <p class="prop-hint" id="pCustModelloHint"></p>
+    </div>
     <div id="pRackWrap" style="display:none">
       <label for="pRackFn">Funzione</label><select id="pRackFn"></select>
       <label for="pRackU">Dimensione</label><select id="pRackU"></select>
@@ -1090,6 +1100,16 @@
   </div>
   <div class="sec" id="groupProps" hidden>
     <h3 id="grpNome">Selezione</h3>
+    <!-- l'elemento personalizzato con i suoi pezzi è un gruppo: i suoi comandi stanno in cima, il titolo è il suo nome -->
+    <div id="grpCustomRow" class="prop-card cust-pan" style="display:none">
+      <p class="cust-pan-desc" id="grpCustDesc" hidden></p>
+      <p class="prop-hint cust-pan-conta" id="grpCustConta"></p>
+      <div class="cust-pan-btns">
+        <button class="btn" id="grpCustModifica" type="button" title="Riapre l'editor su questa copia: le altre non cambiano">Modifica elemento</button>
+        <button class="btn" id="grpCustModello" type="button">Salva come modello</button>
+      </div>
+      <p class="prop-hint" id="grpCustModelloHint"></p>
+    </div>
     <button type="button" class="btn solo-ped" id="grpSoloPed" style="display:none" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg><span>Solo pedane</span></button>
     <div id="grpAggWrap" class="agg-ped" style="display:none"><label class="chk" title="Acceso: spostando una pedana si spostano anche i musicisti e gli strumenti che ci stanno sopra, e Duplica e Copia li copiano con lei. Spento: si sposta solo la pedana, il resto rimane dov'è. Vale per tutte le pedane selezionate."><input type="checkbox" id="grpAgg"> <span>Aggancia gli elementi alle pedane <small class="lbl-note">— spostandole, chi ci sta sopra le segue</small></span></label></div>
     <div id="grpOpts" style="display:none;margin-bottom:8px">
@@ -1209,6 +1229,10 @@
       <label class="chk"><input type="checkbox" id="custBackline"> È backline</label>
     </div>
     <p class="prop-hint" id="custConta"></p>
+  </div>
+  <!-- i pulsanti della scheda: un piede fermo in fondo alla colonna, in vista anche quando sopra c'è il pannello di una forma
+       o di un elemento (si nasconde con la scheda: #custScheda[hidden] + #custPiede) -->
+  <div class="cust-piede" id="custPiede">
     <div class="btns cust-azioni">
       <button class="btn" id="custAnnulla" type="button">Annulla</button>
       <button class="btn primary" id="custSalva" type="button">Salva</button>
@@ -9639,11 +9663,14 @@ function custEditorSalva(scheda){
   var gid=veri.length ? "g"+uid() : null;
   /* modifica: si parte dall'elemento com'era (nota, blocco…); forme, misure, scheda e gruppo sono quelli nuovi */
   var base=orig ? JSON.parse(JSON.stringify(orig)) : {};
+  /* il nome sul palco: se era quello di serie (il nome dell'elemento) segue il nome nuovo; se l'utente l'aveva scritto a mano
+     («Schermo sinistro») resta il suo */
+  var etichetta=(orig && typeof orig.label==="string" && orig.label && orig.cust && orig.label!==orig.cust.nome && orig.label!==TYPES.custom.defLabel) ? orig.label : null;
   delete base.grp; delete base.watt; delete base.label;
   Object.assign(base, {id:E.baseId||uid(), type:"custom", x:Math.round(cx), y:Math.round(cy), rot:E.rot, w:r.w, d:r.d,
             cust:{nome:scheda.nome, desc:scheda.desc, shapes:forme, ins:scheda.ins, backline:!!scheda.backline}});
   if(scheda.watt!=null && scheda.watt!=="") base.watt=Number(scheda.watt);
-  custNorm(base); base.label=base.cust.nome; if(gid) base.grp=gid; state.items.push(base);
+  custNorm(base); base.label=etichetta||base.cust.nome; if(gid) base.grp=gid; state.items.push(base);
   /* un id che (per qualunque ragione) esiste già sul palco vero si cambia, e chi lo nominava (la DI del suo strumento, il
      rack, il ricevitore…) segue il cambio: dopo Salva nessun elemento punta a un id del palco temporaneo */
   var nuovi={};
@@ -9876,12 +9903,107 @@ function custChiediMisureEInclusione(area){
       ["No", "Sì"], function(i){ if(i<0){ custTogliAnteprimaArea(); custToast("Creazione annullata: il palco non è cambiato."); return; } apri(i===1); });
   }, function(){ custTogliAnteprimaArea(); });
 }
-function custApriEditor(area, incl){
+function custApriEditor(area, incl, baseId){
   var prima={vb:Object.assign({}, vb), utente:vistaUtente};
-  if(!custEditorApri(area, {includi:!!incl})){ custToast("Non è stato possibile aprire l'editor: il palco non è cambiato.", true); return false; }
+  if(!custEditorApri(area, baseId!=null ? {baseId:baseId} : {includi:!!incl})){ custToast("Non è stato possibile aprire l'editor: il palco non è cambiato.", true); return false; }
   custVistaPrima=prima; custStatoIniziale=stateToJSON();
   custStrumento("sel"); custRenderEditor();
   return true;
+}
+
+/* ---------- 2b. dopo: Modifica, Salva come modello, Elementi di questo progetto (Tappa 3) ---------- */
+/* sul telefono si vede, si sposta, esce nei PDF; si crea e si modifica dal computer (decisione 8 della spec) */
+function custSoloDalComputer(titolo){
+  guideDialog({title:titolo, msg:"Disponibile dal computer. Sul telefono gli elementi personalizzati si vedono, si spostano ed escono nei PDF."});
+}
+/* progetto in cui non si scrive: bloccato, link condiviso in sola lettura, consulenza */
+function custSolaLettura(){ return !!window.__projLocked || document.body.classList.contains("viewmode") || foreignDoc(); }
+/* il testo cercato diventa il nome proposto: pulito, al massimo 60 caratteri, con la maiuscola se è tutto minuscolo */
+function custNomeDaRicerca(q){
+  var s=String(q==null?"":q).replace(/[\u0000-\u001f]/g," ").replace(/\s+/g," ").trim().slice(0, custLimiti().NOME);
+  return (s && s===s.toLowerCase()) ? s.charAt(0).toUpperCase()+s.slice(1) : s;
+}
+/* la base personalizzata del gruppo di un pezzo (una sola: con due non si sa quale) */
+function custBaseDi(it){
+  if(!it || !it.grp || it.type==="custom") return null;
+  var bs=(state.items||[]).filter(function(x){ return x.grp===it.grp && x.type==="custom"; });
+  return bs.length===1 ? bs[0] : null;
+}
+/* riapre l'editor su QUESTA copia (le altre copie e il modello non cambiano): forme, pezzi del gruppo e scheda piena.
+   pezzoId: aperto dal doppio clic su un pezzo, che nell'editor si trova già selezionato. */
+function custModificaElemento(id, pezzoId){
+  var it=(state.items||[]).find(function(x){ return x.id===id && x.type==="custom"; }); if(!it) return false;
+  if(isMobile()){ custSoloDalComputer("Modifica elemento"); return false; }
+  if(custEditorAttivo()){ custEditorAvvisa(); return false; }
+  if(custSolaLettura()) return false;
+  var c=it.cust||{}, valori={nome:c.nome, desc:c.desc||"", watt:it.watt, ins:c.ins||null, backline:!!c.backline};
+  if(window.__custDraw) custAreaFine();   /* il rettangolo di «Crea elemento» lasciato a metà */
+  if(inListMode()) exitListMode(); endCatSearch();
+  if(!custApriEditor(null, false, id)) return false;
+  custMostraScheda(valori);
+  /* aperto dal doppio clic su un pezzo: nell'editor i pezzi tengono il loro id, lo si trova già selezionato */
+  if(pezzoId!=null && state.items.some(function(x){ return x.id===pezzoId; })){ selectOne(pezzoId); render(); }
+  return true;
+}
+/* l'elemento (con i suoi pezzi) entra in «Elementi di questo progetto». Se viene già da un modello che esiste ancora, lo
+   aggiorna invece di farne un doppione; una copia modificata nell'editor non ricorda più il modello e ne fa uno nuovo. */
+function custSalvaComeModello(id){
+  if(custEditorAttivo()){ custEditorAvvisa(); return false; }
+  if(custSolaLettura()) return false;
+  var it=(state.items||[]).find(function(x){ return x.id===id && x.type==="custom"; }); if(!it) return false;
+  var L=state.customModels||[], i=(it.cust && it.cust.modelId) ? L.findIndex(function(q){ return q.id===it.cust.modelId; }) : -1;
+  if(i<0 && L.length>=50){ custToast("Al massimo 50 elementi salvati per progetto.", true); return false; }
+  var m=custModelDaAgglomerato(it); if(i>=0) m.id=L[i].id;
+  m=custModelNorm(m); if(!m) return false;   /* le stesse regole dell'apertura: quello che si salva è quello che si riapre */
+  primaDiAgire();
+  if(!state.customModels) state.customModels=[];
+  if(i>=0) state.customModels[i]=m; else { state.customModels.push(m); it.cust.modelId=m.id; }
+  render(); save();
+  custToast(i>=0 ? "Aggiornato in «Elementi di questo progetto»." : "«"+m.nome+"» è in «Elementi di questo progetto», nel catalogo: da lì ne posi altre copie.");
+  return true;
+}
+/* una copia dal catalogo: al centro della vista, in un posto libero (come addItem), selezionata tutta */
+function custPosaDalCatalogo(mid){
+  if(custEditorAttivo()){ custEditorAvvisa(); return false; }
+  if(custSolaLettura()) return false;
+  var m=(state.customModels||[]).find(function(q){ return q.id===mid; }); if(!m) return false;
+  var cv=v2w({x:vb.x+vb.w/2, y:vb.y+vb.h/2});
+  if(!isFinite(cv.x) || !isFinite(cv.y)) cv={x:(+state.stage.w||0)/2, y:(+state.stage.d||0)/2};   /* vista non ancora misurata: il centro del palco */
+  var fs=findFreeSpotFor({type:"custom", w:m.w, d:m.d, rot:0, label:m.nome}, Math.round(cv.x+addCascade), Math.round(cv.y+addCascade));
+  addCascade=(addCascade+25)%150;
+  primaDiAgire();
+  var nuovi=custPosaModello(mid, fs.x, fs.y); if(!nuovi.length) return false;
+  clearSelection(); selectClick(nuovi[0].id);
+  render(); save(); ensureVisible();
+  return nuovi;
+}
+/* l'elemento personalizzato di una selezione: uno solo (con due non si sa quale), e se la selezione è proprio lui con i
+   suoi pezzi (intero) il pannello può portarne il nome */
+function custDiSelezione(its){
+  var cs=(its||[]).filter(function(x){ return x && x.type==="custom"; }); if(cs.length!==1) return null;
+  var b=cs[0], intero=(its||[]).every(function(x){ return x===b || (b.grp && x.grp===b.grp); })
+    && (its.length===(b.grp ? (state.items||[]).filter(function(x){ return x.grp===b.grp; }).length : 1));
+  return {base:b, intero:intero};
+}
+/* cosa conta nelle liste, in una riga (nel pannello si legge soltanto: si cambia con «Modifica elemento») */
+function custContaTesto(it){
+  var c=(it && it.cust)||{}, p=[];
+  if(it && it.watt>0) p.push(Math.round(it.watt)+" W");
+  if(c.ins && c.ins.n>0) p.push(c.ins.n+(c.ins.n===1 ? " ingresso " : " ingressi ")+(c.ins.tipo==="linea" ? "linea" : "microfono"));
+  if(c.backline) p.push("backline");
+  return p.length ? p.join(" · ") : "Non conta nelle liste: potenza, ingressi e backline si danno con «Modifica elemento».";
+}
+/* la riga dell'elemento personalizzato, uguale nel pannello singolo (pCust…) e in quello del gruppo (grpCust…) */
+function custPannello(pre, base){
+  var w=document.getElementById(pre==="p" ? "pCustomWrap" : "grpCustomRow"); if(!w) return;
+  w.style.display=base ? "block" : "none"; if(!base) return;
+  var c=base.cust||{}, el=function(k){ return document.getElementById(pre+"Cust"+k); };
+  var L=state.customModels||[], m=c.modelId ? L.find(function(q){ return q.id===c.modelId; }) : null;
+  var d=el("Desc"); if(d){ d.textContent=c.desc||""; d.hidden=!c.desc; }
+  var n=el("Conta"); if(n) n.textContent=custContaTesto(base);
+  var bm=el("Modifica"); if(bm) bm.onclick=function(){ custModificaElemento(base.id); };
+  var bs=el("Modello"); if(bs){ bs.textContent=m ? "Aggiorna il modello" : "Salva come modello"; bs.onclick=function(){ custSalvaComeModello(base.id); }; }
+  var h=el("ModelloHint"); if(h) h.textContent=m ? "È fra gli «Elementi di questo progetto», nel catalogo." : "Lo trovi poi nel catalogo, fra gli «Elementi di questo progetto».";
 }
 
 /* ---------- 3. strumenti di disegno ---------- */
@@ -10708,7 +10830,7 @@ function arteStimata(it){
   var w=+it.w||0, d=+it.d||0, sotto=d/2, sopra=-d/2;
   if(hasPanca(it)) sotto+=36;   /* sgabello */
   if(VOCE[it.type]){ var mm=micModeOf(it); if(mm==="tonda"||mm==="giraffa") sotto+=26; }   /* base dell'asta */
-  if(lblSopraDi(it)) sopra=Math.min(sopra, -43.5);   /* schienale della sedia */
+  if(lblSopraDi(it) && it.type!=="custom") sopra=Math.min(sopra, -43.5);   /* schienale della sedia (l'elemento personalizzato ha il nome sopra, ma nessuna sedia) */
   return {x0:-w/2, y0:sopra, x1:w/2, y1:sotto};
 }
 function arteDi(it){ var m=it && _arteDi && _arteDi[it.id]; return m || arteStimata(it); }
@@ -15284,6 +15406,7 @@ function render(){
   reindexItemNodes();
   aderisciSelezione(); for(var _fk in _selFit){ redrawSelHandles(); break; }   /* il riquadro sul disegno vero, e la maniglia sul riquadro (solo se c'è qualcosa di misurato) */
   renderProps();
+  if(window.__catCustomAggiorna) window.__catCustomAggiorna();   /* «Elementi di questo progetto»: si rifà solo se i modelli sono cambiati */
   renderAccessoriCount();
   if(scalettaEdit) renderScaletta();   /* Annulla, cambio di scena, progetto aperto: le righe seguono lo stato */
   renderVenuePanel();
@@ -15738,10 +15861,14 @@ function renderProps(){
   try{ document.body.classList.toggle("tech-open", isMobile() && !!(patchActive||monActive||loadActive)); }catch(_e){}
   if(n>1){
     grp.hidden=false; document.getElementById("selProps").hidden=true; document.getElementById("noSel").hidden=true;
-    document.getElementById("grpNome").textContent = n+" elementi selezionati";
-    setPeekName(n+" elementi");
     var its=selItems();
     if(!its.length){ grp.hidden=true; document.getElementById("noSel").hidden=false; clearSelection(); return; }   /* selezione stale (id non più in scena) → niente crash */
+    /* un elemento personalizzato con i suoi pezzi è un gruppo: il titolo è il suo nome (non «3 elementi selezionati») e in
+       cima ci sono Modifica elemento / Salva come modello */
+    var _cs=custDiSelezione(its);
+    document.getElementById("grpNome").textContent = _cs && _cs.intero ? _cs.base.cust.nome : n+" elementi selezionati";
+    setPeekName(_cs && _cs.intero ? _cs.base.cust.nome : n+" elementi");
+    custPannello("grp", _cs ? _cs.base : null);
     /* Specchia su più elementi = ribalta la DISPOSIZIONE: vale anche per una selezione di soli testi,
        che si spostano senza ribaltarsi. Qui non è un interruttore ma un'azione: niente stato acceso. */
     var gmir=document.getElementById("grpMirror");
@@ -15837,8 +15964,10 @@ function renderProps(){
   box.hidden = !it;
   if(!it) return;
   var t = TYPES[it.type];
-  document.getElementById("selNome").textContent = t.nome;
-  setPeekName(t.nome);
+  var _nomeSel = it.type==="custom" && it.cust ? it.cust.nome : t.nome;   /* l'elemento personalizzato si chiama col suo nome */
+  document.getElementById("selNome").textContent = _nomeSel;
+  setPeekName(_nomeSel);
+  custPannello("p", it.type==="custom" ? it : null);
   if(typeof bglAbilitatoAggiorna==="function") bglAbilitatoAggiorna();   /* biglietteria: solo abilitati (0073) */
   var ppw=document.getElementById("pPostoWrap");   /* posti numerati (06/10) */
   if(ppw){ var isPosto=postoTipo(it); ppw.style.display = isPosto ? "block" : "none";
@@ -18623,6 +18752,16 @@ function ricordaRecenteCatalogo(k, nome, over){
   pin.appendChild(makeActionBtn("Testo libero","box di testo", null, nuovoTestoLibero, miniSvg("testo")));
   entries.push({nome:"Testo libero", dim:"box di testo", action:nuovoTestoLibero, iconHtml:miniSvg("testo"), noQuick:true,
                 kw:"testo testi scritta scritte nota note etichetta didascalia titolo commento"});
+  /* CREA ELEMENTO (13/10/2026): l'ultimo del blocco. L'oggetto che il catalogo non ha si disegna o si compone, in scala.
+     Sul telefono resta visibile e dice dove si fa (il sottotitolo cambia col CSS: .cust-pc / .cust-tel). */
+  var CUST_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="5.5" y="8" width="21" height="16" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="3.5 2.5"/><path d="M16 12.5v7M12.5 16h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+  function creaElemento(){ custDisegnaArea(""); }
+  pin.appendChild(makeActionBtn("Crea elemento","disegna o componi, in scala", null, creaElemento, CUST_ICON));
+  pin.lastChild.classList.add("cust-no", "cust-crea");
+  pin.lastChild.querySelector("small").insertAdjacentHTML("afterend", '<small class="cust-tel">disponibile dal computer</small>');
+  pin.lastChild.querySelector("small").classList.add("cust-pc");
+  entries.push({nome:"Crea elemento", dim:"disegna o componi, in scala", noQuick:true, custNo:true, action:creaElemento, iconHtml:CUST_ICON,
+                kw:"crea nuovo elemento personalizzato custom segnaposto disegna disegnare componi oggetto"});
 
   /* Ricerca permissiva (generale, nessun hardcoded): per ogni entry un indice normalizzato — minuscole
      + diacritici rimossi — costruito da nome + dimensione + categoria/sottocategoria + alias del tipo.
@@ -18632,7 +18771,7 @@ function ricordaRecenteCatalogo(k, nome, over){
   /* comandi sul progetto (palco, planimetria, liste, export, varianti…): nell'editor «Crea elemento» la ricerca non li propone */
   var CUST_NO_RICERCA={"Palco":1, "Planimetria":1, "Audit progetto":1, "Esporta":1, "Channel list":1, "Monitor list":1, "Scaletta":1, "Nuova variante":1, "Frequenze radio (RF)":1};
   entries.forEach(function(e){ if(!e.k && CUST_NO_RICERCA[e.nome]) e.custNo=true; });
-  entries.forEach(function(e){
+  function indicizza(e){   /* anche per le voci che arrivano dopo (gli elementi di questo progetto) */
     var t=e.k?TYPES[e.k]:null;
     var strong=[e.nome, e.dim, e.kw, e.k, t&&t.nome, t&&t.alias];   /* come l'utente chiama l'elemento */
     var weak=[t&&t.cat, t&&t.sub, e.k&&subOf(e.k)];                 /* dove sta nel catalogo */
@@ -18641,7 +18780,38 @@ function ricordaRecenteCatalogo(k, nome, over){
     e._kw=_deacc(strong.concat(weak).filter(Boolean).join(" "));   /* _deacc: minuscole + diacritici rimossi */
     e._cede=qaCedeDi(e,t);     /* query che questo elemento lascia a chi le aveva già */
     e._primo=qaPrimoDi(e,t);   /* query esatta che questo elemento prende davanti a tutti */
-  });
+  }
+  entries.forEach(indicizza);
+
+  /* ELEMENTI DI QUESTO PROGETTO (13/10/2026): i modelli salvati con «Salva come modello», sopra il blocco degli attrezzi.
+     Un clic posa una copia indipendente. Si rifà solo quando i modelli cambiano (firma: id, nome, misure, pezzi), non a
+     ogni render; la ricerca li trova per nome. Nell'editor, su un progetto bloccato e in sola lettura non si vede (CSS). */
+  var cc=document.createElement("div"); cc.id="catCustom"; cc.hidden=true; el.insertBefore(cc, pin);
+  var ccFirma=null, ccRif=[];
+  function custMiniModello(m){   /* il disegno del modello in miniatura: le linee sottili restano visibili a 32 px */
+    var k=Math.max(m.w, m.d)/32*1.2;
+    return miniSvg("custom", {w:m.w, d:m.d, cust:{shapes:(m.shapes||[]).map(function(g){ return Object.assign({}, g, {sw:Math.max(g.sw||0, k)}); })}});
+  }
+  window.__catCustomAggiorna=function(){
+    var L=(typeof state!=="undefined" && state && state.customModels) || [];
+    cc.hidden=!L.length;
+    /* firma leggera (render gira a ogni passo di trascinamento): gli stessi oggetti, con gli stessi nomi e le stesse misure.
+       Un modello aggiornato, un Annulla o un documento nuovo portano oggetti nuovi, e la sezione si rifà. */
+    var firma=JSON.stringify(L.map(function(m){ return [m.id, m.nome, m.w, m.d, (m.membri||[]).length, (m.shapes||[]).length]; }));
+    if(firma===ccFirma && ccRif.length===L.length && L.every(function(m, i){ return m===ccRif[i]; })) return false;
+    ccFirma=firma; ccRif=L.slice();
+    cc.innerHTML=L.length ? '<h4>Elementi di questo progetto</h4>' : "";
+    for(var i=entries.length-1; i>=0; i--) if(entries[i].custModello) entries.splice(i, 1);
+    L.forEach(function(m){
+      var np=(m.membri||[]).length, dim=custMisura(m.w, m.d)+(np ? " · con "+(np===1 ? "1 elemento" : np+" elementi") : "");
+      var posa=function(){ custPosaDalCatalogo(m.id); }, ic=custMiniModello(m);
+      cc.appendChild(makeActionBtn(m.nome, dim, null, posa, ic));
+      var e={nome:m.nome, dim:dim, kw:"elemento personalizzato di questo progetto "+(m.desc||""), action:posa, iconHtml:ic, noQuick:true, custNo:true, custModello:true};
+      indicizza(e); entries.push(e);
+    });
+    return true;
+  };
+  window.__catCustomAggiorna();
   function searchMatches(query){
     var nq=_deacc(String(query||"").trim());
     if(!nq) return [];
@@ -18671,8 +18841,8 @@ function ricordaRecenteCatalogo(k, nome, over){
     var q=this.value.trim().toLowerCase();
     clearTimeout(__noResTimer);
     results.innerHTML="";
-    if(!q){ wrap.style.display=""; pin.style.display=""; rec.style.display=""; results.style.display="none"; return; }
-    wrap.style.display="none"; pin.style.display="none"; rec.style.display="none"; results.style.display="block";   /* le azioni pinnate ricompaiono nei risultati se pertinenti (niente doppione) */
+    if(!q){ wrap.style.display=""; pin.style.display=""; rec.style.display=""; cc.style.display=""; results.style.display="none"; return; }
+    wrap.style.display="none"; pin.style.display="none"; cc.style.display="none"; rec.style.display="none"; results.style.display="block";   /* le azioni pinnate ricompaiono nei risultati se pertinenti (niente doppione) */
     if(q==="json"){   /* escape-hatch tecnica: solo con "json" ESATTO. Non è una categoria né un elemento del palco. */
       results.innerHTML='<div class="json-tools">'
         +'<button type="button" class="btn json-act" data-j="exp"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><path d="M12 15V3"/></svg>Esporta JSON</button>'
@@ -18689,13 +18859,25 @@ function ricordaRecenteCatalogo(k, nome, over){
       results.appendChild(rb); return;
     }
     var matched=searchMatches(q);   /* match permissivo su nome+categoria+alias, senza accenti, priorità al nome */
+    var cerca=this.value;   /* il testo com'è scritto (q è in minuscolo): diventa il nome proposto */
     if(!matched.length){ results.innerHTML='<div class="nores">Nessun elemento trovato</div>';
+      crealoBtn(results, cerca, false);
       if(q.length>=2 && q!==__lastNoRes){ __noResTimer=setTimeout(function(){ __lastNoRes=q; try{ track("search_no_results",{q:q.slice(0,40)}); }catch(e){} }, 900); }   /* cosa cercano gli utenti e non trovano (segnale per il catalogo) */
       return; }
     matched.forEach(function(e){
       results.appendChild(e.action ? makeActionBtn(e.nome, e.dim, e.icon||"vln1x2", e.action, e.iconHtml) : makeBtn(e.k, e.nome, e.over, e.dim));
     });
+    crealoBtn(results, cerca, true);   /* anche quando qualcosa c'è, ma non è quello che si cercava */
   });
+  /* «Non c'è? Crealo» (13/10/2026): l'uscita della ricerca verso «Crea elemento», col nome già scritto. Nell'editor no
+     (non si crea un elemento dentro un altro), né dove non si scrive. Sul telefono c'è: dice che si fa dal computer. */
+  function crealoBtn(dove, testo, fondo){
+    if(custEditorAttivo() || custSolaLettura()) return;
+    var b=document.createElement("button"); b.type="button"; b.className=fondo ? "btn cust-crealo cust-crealo-fondo" : "btn cust-crealo";
+    b.innerHTML=CUST_ICON+"<span>Non c'è? <b>Crealo</b>"+(testo.trim() ? '<small>«'+esc(custNomeDaRicerca(testo))+'», disegnato o composto in scala</small>' : '')+'</span>';
+    b.addEventListener("click", function(){ endCatSearch(); closeMobileDrawers(); custDisegnaArea(custNomeDaRicerca(testo)); });
+    dove.appendChild(b);
+  }
   /* Invio = il primo risultato (revisione 25/09): chi scriveva «batteria» e premeva Invio non otteneva
      niente, e doveva andare col mouse sul risultato che aveva già sotto gli occhi. */
   search.addEventListener("keydown", function(ev){
@@ -19824,6 +20006,13 @@ svg.addEventListener("pointerdown", function(e){
       var dcIt=(state.items||[]).find(function(i){ return i.id===dcId; });
       if(dcIt && dcIt.type==="custshape"){   /* «Crea elemento»: doppio clic su un testo = lo riscrivi lì; sulle altre forme non apre altro */
         e.preventDefault(); if(dcIt.k==="text") custTestoModifica(dcId, false); }
+      else if(dcIt && dcIt.type==="custom"){   /* elemento personalizzato: si riapre nell'editor (sul telefono: «disponibile dal computer») */
+        e.preventDefault(); if(isMobile()) custSoloDalComputer("Modifica elemento"); else custModificaElemento(dcId); }
+      else if(dcIt && !isMobile() && dcIt.type!=="testo" && dcIt.type!=="forma" && custBaseDi(dcIt)){
+        /* un pezzo dell'elemento personalizzato: l'elemento è uno solo, si riapre l'editor con quel pezzo già selezionato
+           (il suo pannello è lì). Le aree d'aggancio dei pezzi coprono buona parte della base: senza questo il doppio clic
+           sul disegno prendeva il microfono invece dell'elemento. Testi e forme tengono la scrittura sul posto. */
+        e.preventDefault(); custModificaElemento(custBaseDi(dcIt).id, dcId); }
       else if(dcIt && (dcIt.type==="testo" || dcIt.type==="forma")){
         /* Testo libero: scrivi direttamente sul palco (anche mobile: doppio tap).
            preventDefault: senza, la default action del mousedown sposta il focus e chiude
