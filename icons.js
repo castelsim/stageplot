@@ -103,11 +103,10 @@ Object.assign(window.LIB_ICONS, {
    davanti al massimo fronte e punta del naso; scarpe intere, ovali allungati con la punta verso il pubblico
    (+y), che escono da sotto i risvolti. Colori della libreria: capelli #0a0b0b, pelle #d3b489, orecchie
    #d2b89c, scarpe #61524c (le stesse del batterista e del direttore). Misure: 1 cm = 2,808 unita' interne.
-   Due varianti, si sceglie con SCELTA: "A" = calotta con fronte e naso, scarpe divaricate a V;
-   "B" = solo calotta (testa china, il viso non si vede), scarpe quasi parallele.
+   Scelta del 13/10/2026 fra due prove: calotta con fronte e punta del naso (si capisce dove guarda) e scarpe
+   divaricate a V; scartata la sola calotta con le scarpe parallele (tornava il «blob» nero).
    Il riquadro (vb) e' centrato sull'asse della testa, non sull'ingombro: la mano destra sporge verso i bongos. --- */
 (function(L){ if(!L) return;
-  var SCELTA="A";
   var TIENI={99:1, 70:1, 103:1, 89:1};   /* camicia con le braccia, pantaloni, mano destra, mano sinistra */
   var sotto='', sopra='';
   L.body.replace(/<path class="musPercussioni_cls-(\d+)"([^>]*?)\s*\/>/g, function(t, n, resto){
@@ -120,23 +119,14 @@ Object.assign(window.LIB_ICONS, {
   function pezzo(d, fill, t){ return '<path'+(t?' transform="'+t+'"':'')+' d="'+d+'" style="fill:'+fill+'"/>'; }
   /* orecchie ai lati della calotta, a meta' profondita' */
   var ORECCHIE=["M197,38 C188,39 187,54 197,58 Z", "M261,38 C270,39 271,54 261,58 Z"];
-  var V={
-    A:{ /* calotta un po' piu' larga dietro; davanti, sotto l'attaccatura, una striscia di fronte e la punta del naso */
+  var V={ /* calotta un po' piu' larga dietro; davanti, sotto l'attaccatura, una striscia di fronte e la punta del naso */
       capelli:"M229,12 C250,12 263,25 263,44 C263,60 257,70 249,75 C240,72 218,72 209,75 C201,70 195,60 195,44 C195,25 208,12 229,12 Z",
       viso:"M207,70 C217,66 241,66 251,70 C249,77 243,82 236,84 C234,85 233,87 231,89 C230,90 228,90 227,89 C225,87 224,85 222,84 C215,82 209,77 207,70 Z",
       segni:'<path d="M229,81 L229,87" style="fill:none;stroke:#b8976b;stroke-width:1.4;stroke-linecap:round"/>'+
             '<path d="M229,27 C223,35 221,48 222,62 M231,27 C237,35 239,48 238,62 M228,27 C216,32 210,42 208,54 M232,27 C244,32 250,42 252,54" style="fill:none;stroke:#26282a;stroke-width:1.3;stroke-linecap:round"/>',
       scarpa:"M-9,0 C-10,14 -11,30 -10,40 C-9,50 -5,58 0,58 C5,58 9,50 10,40 C11,30 10,14 9,0 C8,-6 -8,-6 -9,0 Z",
       lucido:"M-5,40 C-5,47 -3,52 0,53 C3,52 5,47 5,40 C3,44 -3,44 -5,40 Z",
-      sx:"translate(209,152) rotate(16)", dx:"translate(257,142) rotate(-5)" },
-    B:{ /* solo calotta: copre tutto lo scollo, il viso resta sotto, chino sugli strumenti (come il direttore, visto da dietro) */
-      capelli:"M229,12 C250,12 264,26 264,46 C264,68 250,90 229,90 C208,90 194,68 194,46 C194,26 208,12 229,12 Z",
-      viso:null,
-      segni:'<path d="M229,27 C223,37 221,54 223,72 M231,27 C237,37 239,54 237,72 M228,27 C216,33 209,44 207,58 M232,27 C244,33 251,44 253,58" style="fill:none;stroke:#26282a;stroke-width:1.3;stroke-linecap:round"/>',
-      scarpa:"M-9,0 C-10,14 -11,30 -10,40 C-9,50 -5,58 0,58 C5,58 9,50 10,40 C11,30 10,14 9,0 C8,-6 -8,-6 -9,0 Z",
-      lucido:"M-5,40 C-5,47 -3,52 0,53 C3,52 5,47 5,40 C3,44 -3,44 -5,40 Z",
-      sx:"translate(209,152) rotate(4)", dx:"translate(258,142) rotate(-1)" }
-  }[SCELTA];
+      sx:"translate(209,152) rotate(16)", dx:"translate(257,142) rotate(-5)" };
   var piedi='<g class="perc-piedi">'+[V.sx, V.dx].map(function(t){
     return bordo(V.scarpa, t)+pezzo(V.scarpa, "#61524c", t)+(V.lucido ? pezzo(V.lucido, "#7a6a63", t) : '');
   }).join('')+'</g>';
