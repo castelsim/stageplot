@@ -8410,6 +8410,155 @@ t("editor: Salva e Annulla restano in vista in fondo alla colonna di destra", ()
   ok(/body\.cust-editor #catCustom|#catCustom[^{]*\{display:none/.test(css), "gli elementi del progetto non si posano nell'editor");
   ok(/body\.proj-ro #catCustom/.test(css) && /body\.viewmode #catCustom/.test(css), "né su un progetto bloccato o in sola lettura");
 });
+/* ===== Crea elemento, Tappa 5: invio per revisione (13/10/2026) ===== */
+t("invio per revisione: solo con accesso, con consenso e con l'anteprima", () => {
+  ok(/hint:"elemento"/.test(appjs), "tipo elemento");
+  ok(/function custInviaRevisione[\s\S]{0,400}__cloud\.user/.test(appjs), "controlla l'accesso");
+  ok(/senza il tuo nome/.test(appjs), "frase del consenso");
+  ok(/function custAnteprima/.test(appjs), "anteprima");
+});
+/* un elemento con descrizione, un pezzo del catalogo e le stub del giro (consenso, anteprima, invio) */
+function conInvio(fn) {
+  const salva = {}, nomi = ["guideDialog", "custChiediConsenso", "custAnteprima", "custManda", "__cloud", "__fbInvio", "getFeedbackContext"];
+  nomi.forEach((k) => { salva[k] = A[k]; });
+  const giro = { dialoghi: [], consenso: [], mandato: [], accesso: 0 };
+  A.guideDialog = (o) => { giro.dialoghi.push(o); };
+  A.custChiediConsenso = (nome, cb) => { giro.consenso.push(nome); cb(); };
+  A.custAnteprima = (it, cb) => cb("data:image/jpeg;base64,QUJD");
+  A.custManda = (corpo, id) => { ok(A.__custInvio === true, "«in corso» dal consenso all'esito"); giro.mandato.push({ corpo, id }); A.__custInvio = false; };
+  A.__cloud = { user: () => null, signIn: () => { giro.accesso++; }, accessToken: () => Promise.resolve("tok") };
+  A.__fbInvio = { url: "https://esempio.invalid/submit-feedback", techContext: () => ({ stage_w: 1200, total_objects: 3 }), meta: () => ({ app_version: "t" }) };
+  A.getFeedbackContext = () => ({ project_id: "p-1" });
+  try { return conModelli(() => fn(giro)); }
+  finally { nomi.forEach((k) => { if (salva[k] === undefined) delete A[k]; else A[k] = salva[k]; }); A.__custInvio = false; }
+}
+function elementoDaInviare() {
+  reset();
+  const base = add("custom", 300, 300, { w: 120, d: 80, watt: 300, cust: { nome: "Proiettore", desc: "Su carrello", ins: { n: 2, tipo: "linea" },
+    shapes: [{ k: "rect", x: 0, y: 0, w: 120, h: 80, stroke: "#000000", sw: 1 }, { k: "text", x: 60, y: 40, s: "PROIETTORE", size: 10 }] } });
+  A.custNorm(base);
+  const mic = add("cantante", 320, 310, { label: "Nome di una persona" }); base.grp = mic.grp = "gI";
+  add("cantante", 800, 600);   /* fuori dal gruppo: non viaggia */
+  return { base, mic };
+}
+t("invio per revisione: senza accesso «Serve l'accesso» (l'elemento resta salvato), niente invio", () => conInvio((giro) => {
+  const { base } = elementoDaInviare();
+  eq(A.custInviaRevisione(base.id), false, "non parte");
+  eq(giro.dialoghi.length, 1); eq(giro.dialoghi[0].title, "Serve l'accesso");
+  ok(/accesso con Google/.test(giro.dialoghi[0].msg) && /già salvato nel progetto/.test(giro.dialoghi[0].msg), "lo dice");
+  eq(giro.dialoghi[0].action.label, "Accedi con Google");
+  giro.dialoghi[0].action.run(); eq(giro.accesso, 1, "il bottone porta all'accesso");
+  eq(giro.consenso.length + giro.mandato.length, 0, "né consenso né invio");
+}));
+t("invio per revisione: con l'accesso chiede il consenso, poi manda nome, misure, conteggi, pezzi, JSON e anteprima", () => conInvio((giro) => {
+  const { base } = elementoDaInviare();
+  A.__cloud.user = () => ({ id: "u-1" });
+  eq(A.custInviaRevisione(base.id), true);
+  eq(giro.consenso, ["Proiettore"], "prima il consenso");
+  eq(giro.mandato.length, 1); const c = giro.mandato[0].corpo;
+  eq(giro.mandato[0].id, base.id);
+  eq([c.hint, c.honeypot, c.message, c.project_snapshot, c.project_id], ["elemento", "", "Elemento: Proiettore — Su carrello", null, "p-1"]);
+  ok(c.message.length >= 5 && c.message.length <= 1000, "regola 5–1000 del server");
+  eq(c.tech_context.elemento, { nome: "Proiettore", desc: "Su carrello", w: 120, d: 80, watt: 300, ins: { n: 2, tipo: "linea" }, backline: false, forme: 2, membri: ["cantante"] });
+  eq(c.tech_context.stage_w, 1200, "con il contesto di sempre");
+  eq(c.meta, { app_version: "t" });
+  eq(c.screenshot, "data:image/jpeg;base64,QUJD");
+  const j = JSON.parse(c.tech_context.elemento_json);
+  eq([j.nome, j.w, j.d, j.watt, j.shapes.length, j.membri.length], ["Proiettore", 120, 80, 300, 2, 1]);
+  ok(Object.keys(j.membri[0]).every((k) => ["type", "dx", "dy", "rot", "w", "d"].includes(k)) && j.membri[0].type === "cantante", "dei pezzi solo tipo, misure e posizione: niente etichette scritte dall'utente");
+  ok(!("id" in j) && !c.tech_context.elemento_json.includes("Nome di una persona"), "nessun id di modello, nessun nome scritto sui pezzi");
+  ok(!("user_id" in c) && !("user_email" in c), "l'identità la ricava il server dal token");
+  /* senza descrizione il messaggio è solo il nome; anteprima non riuscita → si manda senza */
+  delete base.cust.desc; A.custAnteprima = (it, cb) => cb(null);
+  A.custInviaRevisione(base.id);
+  eq([giro.mandato[1].corpo.message, giro.mandato[1].corpo.screenshot], ["Elemento: Proiettore", null]);
+  /* un JSON troppo grande non parte (il server lo scarterebbe): resta la scheda */
+  base.cust.shapes = Array.from({ length: 200 }, (_, i) => ({ k: "poly", pts: Array.from({ length: 200 }, (_, k) => [i % 120, k % 80]), stroke: "#000000", sw: 1 }));
+  A.custInviaRevisione(base.id);
+  eq(giro.mandato[2].corpo.tech_context.elemento_json, null, "oltre 30000 caratteri: null");
+  eq(giro.mandato[2].corpo.tech_context.elemento.forme, 200);
+}));
+t("invio per revisione: sul telefono, in sola lettura, con l'editor aperto o due volte di fila non parte", () => conInvio((giro) => {
+  const { base } = elementoDaInviare();
+  A.__cloud.user = () => ({ id: "u-1" });
+  const mm = A.matchMedia; A.matchMedia = () => ({ matches: true, addEventListener() {}, addListener() {} });
+  try { eq(A.custInviaRevisione(base.id), false, "telefono"); ok(/dal computer/.test(giro.dialoghi.pop().msg), "lo dice"); }
+  finally { A.matchMedia = mm; }
+  A.__projLocked = true; eq(A.custInviaRevisione(base.id), false, "bloccato"); A.__projLocked = false;
+  eq(A.custInviaRevisione("nessuno"), false, "elemento inesistente");
+  A.__custInvio = true; eq(A.custInviaRevisione(base.id), false, "un invio è già in corso"); A.__custInvio = false;
+  eq(giro.mandato.length, 0);
+  ok(/function custPannello[\s\S]{0,2000}Invia[\s\S]{0,300}isMobile\(\)/.test(appjs), "nel pannello il pulsante non c'è sul telefono");
+}));
+t("invio per revisione: gli esiti (inviato e segnato, accesso scaduto, troppe richieste, errore)", () => conInvio((giro) => {
+  const { base } = elementoDaInviare();
+  eq(A.custEsitoInvio(500, {}, base.id, "Proiettore"), "errore");
+  ok(/Non è stato possibile inviare, riprova\. L'elemento resta salvato nel progetto\./.test(giro.dialoghi.pop().msg));
+  eq(A.custEsitoInvio(0, {}, base.id, "Proiettore"), "errore", "rete giù");
+  giro.dialoghi.pop();
+  eq(A.custEsitoInvio(429, {}, base.id, "Proiettore"), "troppi");
+  ok(/Hai inviato troppe richieste, riprova più tardi\./.test(giro.dialoghi.pop().msg));
+  eq(A.custEsitoInvio(401, {}, base.id, "Proiettore"), "accesso");
+  eq(giro.dialoghi.pop().title, "Serve l'accesso");
+  eq(base.cust.rev, undefined, "niente segno finché non è arrivato");
+  eq(A.custEsitoInvio(200, { ok: true }, base.id, "Proiettore"), "ok");
+  const d = giro.dialoghi.pop(); eq(d.title, "Inviato");
+  eq(d.msg, "Grazie: lo guardiamo e, se lo aggiungiamo al catalogo, te lo scriviamo qui.");
+  const b = A.state.items.find((x) => x.id === base.id);
+  ok(b.cust.rev && /^\d{4}-\d{2}-\d{2}T/.test(b.cust.rev.inviato), "segnato come inviato, con la data");
+  ok(/^Inviato per revisione il \d{2}\/\d{2}\.$/.test(A.custRevTesto(b)), "il pannello lo dice: " + A.custRevTesto(b));
+  eq(A.custRevTesto({ cust: {} }), "");
+  /* una risposta che arriva quando l'elemento non c'è più (o è un altro) non segna niente */
+  const altro = add("custom", 900, 300, { cust: { nome: "Altro", shapes: [] } }); A.custNorm(altro);
+  eq(A.custEsitoInvio(200, { ok: true }, altro.id, "Proiettore"), "ok");
+  eq(altro.cust.rev, undefined, "nome diverso: non è quello mandato");
+}));
+t("invio per revisione: il segno «inviato» passa da custNorm (solo una data ISO corta) e non nasce vuoto", () => {
+  const n = (rev) => A.custNorm({ type: "custom", w: 100, d: 50, cust: { nome: "X", shapes: [], rev } }).cust;
+  eq(n({ inviato: "2026-10-13T15:04:05.123Z" }).rev, { inviato: "2026-10-13T15:04:05.123Z" });
+  eq(n({ inviato: "2026-10-13T15:04:05.123Z", altro: "<b>" }).rev, { inviato: "2026-10-13T15:04:05.123Z" }, "solo il campo noto");
+  for (const bad of [{ inviato: "<script>" }, { inviato: 1234 }, { inviato: "2026-10-13T15:04:05.123Z" + " ".repeat(20) }, { inviato: "2026-13-45T99:99:99Z" }, "2026-10-13", null]) {
+    eq("rev" in n(bad), false, "scartato: " + JSON.stringify(bad));
+  }
+  eq("rev" in n(undefined), false, "assente se non inviato (firmaPdf non cambia)");
+  ok(/rev/.test(A.custNorm.toString()), "custNorm lo conosce");
+});
+t("invio per revisione: Modifica toglie il segno (quello che si salva non è più quello inviato); i modelli non lo portano", () => conInvio(() => {
+  const { base } = elementoDaInviare();
+  base.cust.rev = { inviato: "2026-10-13T10:00:00.000Z" };
+  A.custSalvaComeModello(base.id);
+  ok(!JSON.stringify(A.state.customModels).includes("inviato"), "il modello non è «inviato»");
+  ok(A.custModificaElemento(base.id)); A.custSalvaDaScheda();
+  eq(A.state.items.find((x) => x.id === base.id).cust.rev, undefined, "modificato: si può reinviare");
+}));
+t("invio per revisione: l'anteprima inquadra il gruppo ruotato con il 5% di margine, al massimo 560 px", () => {
+  /* margine: il 5% del lato maggiore dell'ingombro, su ogni lato (un elemento stretto non resta senza respiro) */
+  const v = A.custAnteprimaVista([{ x: 300, y: 300, w: 100, d: 40, rot: 90 }]);
+  ok(Math.abs(v.w - 50) < 0.01 && Math.abs(v.h - 110) < 0.01, "ruotato di 90°: 40 × 100 più 5 cm per lato: " + v.w + "×" + v.h);
+  ok(Math.abs(v.x - 275) < 0.01 && Math.abs(v.y - 245) < 0.01, "centrato sul gruppo");
+  eq(Math.max(v.pxW, v.pxH), 560); eq(v.pxH, 560); eq(v.pxW, Math.round(50 * 560 / 110));
+  const g = A.custAnteprimaVista([{ x: 100, y: 100, w: 100, d: 100, rot: 45 }, { x: 300, y: 100, w: 20, d: 20 }]);
+  const x0 = 100 - 50 * Math.SQRT2, m = 0.05 * (310 - x0);
+  ok(Math.abs(g.x - (x0 - m)) < 0.01 && Math.abs(g.w - (310 - x0 + 2 * m)) < 0.01, "il quadrato a 45° allarga l'ingombro");
+  eq(A.custAnteprimaVista([]), null, "niente da inquadrare");
+  ok(/function custAnteprima\([\s\S]{0,1500}custAnteprimaVista[\s\S]{0,1500}svgInJpeg\([^)]*0\.82/.test(appjs), "stessa trafila della miniatura, JPEG 0,82");
+  ok(/function genThumbnail\([\s\S]{0,2000}svgInJpeg\(/.test(appjs), "genThumbnail usa la stessa trafila");
+});
+t("invio per revisione: i tipi dei pezzi passano il controllo del server (lettere, cifre, _ e -, max 40)", () => {
+  const server = readFileSync(join(root, "supabase/functions/_shared/feedback-validation.ts"), "utf8");
+  ok(/\/\^\[A-Za-z0-9_-\]\{1,40\}\$\//.test(server), "la regola del server");
+  const no = Object.keys(A.TYPES).filter((k) => !/^[A-Za-z0-9_-]{1,40}$/.test(k));
+  eq(no, [], "tutti i tipi del catalogo");
+  ok(/MAX_ELEMENTO_JSON_CHARS = 30_000/.test(server) && /function custJsonRevisione[\s\S]{0,900}30000/.test(appjs), "stesso tetto del JSON");
+});
+t("invio per revisione: la finestra del consenso (casella da spuntare, Invia spento finché non c'è la spunta)", () => {
+  ok(/Disegno, misure e descrizione arrivano a StagePlot\. Se lo aggiungiamo al catalogo sarà disponibile per tutti, senza il tuo nome\./.test(appjs), "la frase della spec, uguale");
+  ok(/function custChiediConsenso[\s\S]{0,2500}type="checkbox"|function custChiediConsenso[\s\S]{0,2500}\.type="checkbox"/.test(appjs), "una casella");
+  ok(/function custChiediConsenso[\s\S]{0,2500}disabled=true[\s\S]{0,800}disabled=!/.test(appjs), "Invia spento, si accende con la spunta");
+  ok(/function custChiediConsenso[\s\S]{0,2500}fuoco:/.test(appjs), "il fuoco sulla casella");
+  ok(/id="pCustInvia"/.test(appHtml) && /id="grpCustInvia"/.test(appHtml) && /id="pCustRev"/.test(appHtml), "pannello: Invia per revisione e la riga «Inviato…»");
+  ok(/window\.__fbInvio *= *\{/.test(appjs), "il box segnalazioni presta indirizzo, contesto e meta");
+});
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");
@@ -15102,8 +15251,12 @@ t("il feedback non si porta dietro il progetto nascosto nell'indirizzo", () => {
   /* `#p=` contiene il PROGETTO INTERO compresso e `?view=`/`?t=` il token che lo apre: mandare
      `location.href` significava allegarli a ogni segnalazione, anche a chi aveva lasciato vuota la
      casella «Allega il mio progetto», mentre la riga sotto il bottone promette «dati anonimi». */
+  /* le meta stanno in metaInvio() dal 13/10 (le usa anche «Invia per revisione» di Crea elemento): si segue la chiamata */
   const corpo = appjs.slice(appjs.indexOf("function collectAndSend("), appjs.indexOf("function collectAndSend(") + 900);
-  ok(/page_url:\s*pageUrlSicuro\(\)/.test(corpo), "l'URL passa dalla ripulitura");
+  ok(/meta:\s*metaInvio\(\)/.test(corpo), "collectAndSend prende le meta da metaInvio");
+  const meta = appjs.slice(appjs.indexOf("function metaInvio("), appjs.indexOf("function metaInvio(") + 400);
+  ok(/page_url:\s*pageUrlSicuro\(\)/.test(meta), "l'URL passa dalla ripulitura");
+  eq(/page_url:\s*location\.href/.test(meta), false, "e non è più l'indirizzo grezzo (meta)");
   eq(/page_url:\s*location\.href/.test(corpo), false, "e non è più l'indirizzo grezzo");
 
   /* Non basta che la funzione esista: qui viene ESEGUITA su un indirizzo che porta un token e un

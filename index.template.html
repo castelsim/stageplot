@@ -1068,7 +1068,9 @@
       <div class="cust-pan-btns">
         <button class="btn" id="pCustModifica" type="button" title="Riapre l'editor su questa copia: le altre non cambiano">Modifica elemento</button>
         <button class="btn" id="pCustModello" type="button">Salva come modello</button>
+        <button class="btn" id="pCustInvia" type="button" hidden title="Lo mandi a StagePlot: se entra nel catalogo, te lo scriviamo nell'app">Invia per revisione</button>
       </div>
+      <p class="prop-hint cust-pan-rev" id="pCustRev" hidden></p>
       <p class="prop-hint" id="pCustModelloHint"></p>
     </div>
     <div id="pRackWrap" style="display:none">
@@ -1107,7 +1109,9 @@
       <div class="cust-pan-btns">
         <button class="btn" id="grpCustModifica" type="button" title="Riapre l'editor su questa copia: le altre non cambiano">Modifica elemento</button>
         <button class="btn" id="grpCustModello" type="button">Salva come modello</button>
+        <button class="btn" id="grpCustInvia" type="button" hidden title="Lo mandi a StagePlot: se entra nel catalogo, te lo scriviamo nell'app">Invia per revisione</button>
       </div>
+      <p class="prop-hint cust-pan-rev" id="grpCustRev" hidden></p>
       <p class="prop-hint" id="grpCustModelloHint"></p>
     </div>
     <button type="button" class="btn solo-ped" id="grpSoloPed" style="display:none" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg><span>Solo pedane</span></button>
@@ -9467,6 +9471,10 @@ function custNorm(it){
   if(c.ins && typeof c.ins==="object"){ var n=Number(c.ins.n); if(isFinite(n) && n>=1 && n<=L.INS && (c.ins.tipo==="mic"||c.ins.tipo==="linea")) out.ins={n:Math.round(n), tipo:c.ins.tipo}; }
   if(c.backline===true) out.backline=true;
   if(typeof c.modelId==="string" && /^[a-z0-9_-]{1,40}$/i.test(c.modelId)) out.modelId=c.modelId;
+  /* inviato per revisione (Tappa 5): solo la data ISO dell'invio, corta e vera; esiste solo se l'elemento è partito */
+  if(c.rev && typeof c.rev==="object" && typeof c.rev.inviato==="string" && c.rev.inviato.length<=30 &&
+     /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/.test(c.rev.inviato) && isFinite(Date.parse(c.rev.inviato)))
+    out.rev={inviato:c.rev.inviato};
   it.cust=out;
   if(it.watt!=null){ var w=Number(it.watt); if(isFinite(w)) it.watt=Math.max(0,Math.min(L.WATT,w)); else delete it.watt; }
   if(!it.label) it.label=out.nome;
@@ -9525,7 +9533,7 @@ function custModelIdLibero(){
 }
 /* membri = elementi con lo stesso grp della base (stesse regole di custModelNorm: no custom, max 100), in coordinate
    relative al centro della base e con la rotazione della base tolta */
-function custModelDaAgglomerato(base){
+function custModelDaAgglomerato(base, senzaId){
   var rot=-(base.rot||0), membri=[];
   (base.grp ? state.items.filter(function(x){ return x.grp===base.grp && x.id!==base.id; }) : []).forEach(function(x){
     if(membri.length>=100) return;
@@ -9533,7 +9541,7 @@ function custModelDaAgglomerato(base){
     var p=rotatePointAround(x.x, x.y, base.x, base.y, rot);
     c.dx=Math.max(-100000,Math.min(100000,Math.round(p[0]-base.x))); c.dy=Math.max(-100000,Math.min(100000,Math.round(p[1]-base.y)));
     c.rot=(((x.rot||0)+rot)%360+360)%360; membri.push(c); });
-  var c=base.cust||{}, m={id:custModelIdLibero(), nome:c.nome, w:base.w, d:base.d, shapes:JSON.parse(JSON.stringify(c.shapes||[])), membri:membri};
+  var c=base.cust||{}, m={id:senzaId ? undefined : custModelIdLibero(), nome:c.nome, w:base.w, d:base.d, shapes:JSON.parse(JSON.stringify(c.shapes||[])), membri:membri};
   if(c.desc) m.desc=c.desc; if(base.watt!=null) m.watt=base.watt; if(c.ins) m.ins=c.ins; if(c.backline) m.backline=true;
   return m;
 }
@@ -10004,6 +10012,132 @@ function custPannello(pre, base){
   var bm=el("Modifica"); if(bm) bm.onclick=function(){ custModificaElemento(base.id); };
   var bs=el("Modello"); if(bs){ bs.textContent=m ? "Aggiorna il modello" : "Salva come modello"; bs.onclick=function(){ custSalvaComeModello(base.id); }; }
   var h=el("ModelloHint"); if(h) h.textContent=m ? "È fra gli «Elementi di questo progetto», nel catalogo." : "Lo trovi poi nel catalogo, fra gli «Elementi di questo progetto».";
+  /* Invia per revisione: dal computer e dove si scrive (come l'editor); già inviato → la riga con la data */
+  var rv=el("Rev"), rt=custRevTesto(base); if(rv){ rv.textContent=rt; rv.hidden=!rt; }
+  var bi=el("Invia"); if(bi){ bi.hidden=!!rt || isMobile() || custSolaLettura(); bi.onclick=function(){ custInviaRevisione(base.id); }; }
+}
+
+/* ---------- 5. invio per revisione (Tappa 5) ----------
+   L'elemento salvato va a StagePlot come segnalazione di tipo «elemento»: scheda, modello (JSON) e anteprima del
+   disegno. Serve l'accesso (la risposta torna nell'app a chi l'ha mandato) e il consenso esplicito della spec. Il
+   server rifiuta «elemento» senza un utente vero (401) e scarta i campi fuori regola (_shared/feedback-validation.ts). */
+function custInviaRevisione(id){
+  var it=(state.items||[]).find(function(x){ return x.id===id && x.type==="custom"; }); if(!it) return false;
+  var u=window.__cloud && window.__cloud.user && window.__cloud.user();
+  if(isMobile()){ custSoloDalComputer("Invia per revisione"); return false; }
+  if(custEditorAttivo() || custSolaLettura() || window.__custInvio===true) return false;
+  if(!u){ custServeAccesso(); return false; }
+  var nome=(it.cust||{}).nome||"";
+  custChiediConsenso(nome, function(){
+    window.__custInvio=true;   /* fino all'esito: un secondo clic non manda un doppione */
+    custAnteprima(it, function(jpeg){
+      try{ custManda(custCorpoRevisione(it, jpeg), it.id); }catch(e){ custEsitoInvio(0, {}, it.id, nome); }   /* mai fermo su «in corso» */
+    });
+  });
+  return true;
+}
+function custServeAccesso(){
+  guideDialog({title:"Serve l'accesso", msg:"Per inviarlo e ricevere la risposta serve l'accesso con Google. L'elemento è già salvato nel progetto: dopo l'accesso lo invii dal suo pannello, con «Invia per revisione».",
+    okLabel:"Non ora", action:{label:"Accedi con Google", run:function(){ if(window.__cloud && window.__cloud.signIn) window.__cloud.signIn(); }}});
+}
+/* il permesso esplicito di usare il disegno: «Invia» resta spento finché la casella non è spuntata */
+function custChiediConsenso(nome, cb){
+  var corpo=document.createElement("label"); corpo.className="guide-scelta cust-consenso";
+  var ck=document.createElement("input"); ck.type="checkbox"; ck.id="custConsenso";
+  var tx=document.createElement("span"); tx.textContent="Disegno, misure e descrizione arrivano a StagePlot. Se lo aggiungiamo al catalogo sarà disponibile per tutti, senza il tuo nome.";
+  corpo.appendChild(ck); corpo.appendChild(tx);
+  var f=custFinestra({title:"Invia «"+nome+"» per revisione", msg:"Lo guardiamo e ti rispondiamo qui, nell'app.", corpo:corpo, fuoco:ck,
+    bottoni:[{label:"Annulla"}, {label:"Invia", cls:"primary", id:"custConsensoInvia", resta:function(){ return ck.checked; }, run:cb}]});
+  var invia=f.bottoni[1]; invia.disabled=true;
+  ck.addEventListener("change", function(){ invia.disabled=!ck.checked; });
+  return f;
+}
+/* il corpo per submit-feedback: lo stesso del box segnalazioni (contesto, meta, progetto), tipo «elemento» */
+function custCorpoRevisione(it, jpeg){
+  var c=it.cust||{}, fb=window.__fbInvio||{};
+  var membri=(it.grp ? state.items.filter(function(x){ return x.grp===it.grp && x.id!==it.id && x.type!=="custom" && x.type!=="custshape"; }) : [])
+    .map(function(x){ return x.type; }).slice(0, 100);
+  var el={nome:c.nome, desc:c.desc||"", w:it.w, d:it.d, watt:(it.watt==null ? null : it.watt), ins:c.ins||null, backline:!!c.backline,
+    forme:(c.shapes||[]).length, membri:membri};
+  var tc=(typeof fb.techContext==="function") ? fb.techContext() : {};
+  tc.elemento=el; tc.elemento_json=custJsonRevisione(it);
+  var ctx=(typeof window.getFeedbackContext==="function") ? window.getFeedbackContext() : null;
+  return {message:("Elemento: "+c.nome+(c.desc ? " — "+c.desc : "")).slice(0, 1000), hint:"elemento", honeypot:"",
+    tech_context:tc, meta:(typeof fb.meta==="function") ? fb.meta() : {},
+    screenshot:(typeof jpeg==="string" && /^data:image\/jpeg;base64,/.test(jpeg) && jpeg.length<=2800000) ? jpeg : null,
+    project_snapshot:null, project_id:(ctx && ctx.project_id) || null};
+}
+/* il modello dell'elemento, per rifarlo: forme, misure, scheda e i pezzi (solo tipo, misure e posizione: le
+   etichette dei pezzi le scrive l'utente e possono contenere nomi). Oltre 30000 caratteri il server lo scarta: null. */
+function custJsonRevisione(it){
+  var m=custModelDaAgglomerato(it, true);
+  m.membri=(m.membri||[]).map(function(x){ var o={type:x.type, dx:x.dx, dy:x.dy, rot:x.rot}; if(x.w!=null) o.w=x.w; if(x.d!=null) o.d=x.d; return o; });
+  var s=JSON.stringify(m);
+  return s.length<=30000 ? s : null;
+}
+function custManda(corpo, id){
+  var fb=window.__fbInvio||{}, nome=corpo.tech_context.elemento.nome;
+  window.__custInvio=true; custToast("Invio in corso…");
+  var tokP=(window.__cloud && window.__cloud.accessToken) ? window.__cloud.accessToken() : Promise.resolve(null);
+  return tokP.then(function(tok){
+    if(!tok) return {status:401, j:{}};   /* sessione scaduta: il server rifiuterebbe comunque */
+    if(!fb.url) return {status:0, j:{}};
+    return fetch(fb.url, {method:"POST", headers:{"Content-Type":"application/json", "Authorization":"Bearer "+tok}, body:JSON.stringify(corpo)})
+      .then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){ return {status:r.status, j:j}; }); });
+  }).catch(function(){ return {status:0, j:{}}; })
+    .then(function(res){ window.__custInvio=false; return custEsitoInvio(res.status, res.j, id, nome, corpo); });
+}
+/* esito: «ok» (e l'elemento si segna come inviato), «accesso», «troppi», «errore» (con Riprova) */
+function custEsitoInvio(status, j, id, nome, corpo){
+  window.__custInvio=false;
+  if(status===200 && j && j.ok){
+    var it=(state.items||[]).find(function(x){ return x.id===id && x.type==="custom" && x.cust && x.cust.nome===nome; });
+    if(it && !custEditorAttivo() && !custSolaLettura()){ it.cust.rev={inviato:new Date().toISOString()}; save(); render(); }
+    guideDialog({title:"Inviato", msg:"Grazie: lo guardiamo e, se lo aggiungiamo al catalogo, te lo scriviamo qui.", okLabel:"Chiudi"});
+    return "ok";
+  }
+  if(status===401){ custServeAccesso(); return "accesso"; }
+  if(status===429){ guideDialog({title:"Non inviato", msg:"Hai inviato troppe richieste, riprova più tardi. L'elemento resta salvato nel progetto."}); return "troppi"; }
+  guideDialog({title:"Non inviato", msg:"Non è stato possibile inviare, riprova. L'elemento resta salvato nel progetto.",
+    action:corpo ? {label:"Riprova", run:function(){ if(window.__custInvio!==true) custManda(corpo, id); }} : null});
+  return "errore";
+}
+/* «Inviato per revisione il 13/10.» (vuoto se non inviato) */
+function custRevTesto(it){
+  var r=it && it.cust && it.cust.rev, d=r && r.inviato ? new Date(r.inviato) : null;
+  if(!d || !isFinite(d.getTime())) return "";
+  var z=function(n){ return (n<10 ? "0" : "")+n; };
+  return "Inviato per revisione il "+z(d.getDate())+"/"+z(d.getMonth()+1)+".";
+}
+/* l'inquadratura dell'anteprima: l'ingombro del gruppo con la rotazione di ogni pezzo, più il 5% del lato maggiore
+   su ogni lato; al massimo 560 px */
+function custAnteprimaVista(its){
+  var mnx=Infinity, mny=Infinity, mxx=-Infinity, mxy=-Infinity;
+  (its||[]).forEach(function(x){
+    var w=+x.w||0, d=+x.d||0, r=(+x.rot||0)*Math.PI/180, c=Math.abs(Math.cos(r)), s=Math.abs(Math.sin(r));
+    var hw=(w*c+d*s)/2, hd=(w*s+d*c)/2;
+    if(!isFinite(x.x) || !isFinite(x.y)) return;
+    mnx=Math.min(mnx, x.x-hw); mxx=Math.max(mxx, x.x+hw); mny=Math.min(mny, x.y-hd); mxy=Math.max(mxy, x.y+hd); });
+  if(!isFinite(mnx) || mxx-mnx<=0 || mxy-mny<=0) return null;
+  var m=Math.max(mxx-mnx, mxy-mny)*0.05, v={x:mnx-m, y:mny-m, w:mxx-mnx+2*m, h:mxy-mny+2*m};
+  var sc=560/Math.max(v.w, v.h); v.pxW=Math.max(1, Math.round(v.w*sc)); v.pxH=Math.max(1, Math.round(v.h*sc));
+  return v;
+}
+/* l'anteprima del disegno: l'elemento con i suoi pezzi, senza palco e senza nomi, in JPEG (la trafila di genThumbnail).
+   cb(dataUrl) — oppure cb(null) se non riesce: si manda senza anteprima. */
+function custAnteprima(it, cb){
+  var fatto=false, fine=function(u){ if(fatto) return; fatto=true; clearTimeout(tm); try{ cb(u); }catch(e){} };
+  var tm=setTimeout(function(){ fine(null); }, 8000);
+  try{
+    var its=sortedItems().filter(function(x){ return x.id===it.id || (it.grp && x.grp===it.grp && x.type!=="custshape"); });
+    var v=custAnteprimaVista(its); if(!v){ fine(null); return; }
+    var keep=sel, keepSet=selSet; sel=null; selSet={};
+    var items=""; try{ its.forEach(function(x){ items+=itemMarkup(x); }); } finally { sel=keep; selSet=keepSet; }
+    var css=document.querySelector("style").textContent.replace(/\/\*[\s\S]*?\*\//g,"");
+    var svgStr='<svg xmlns="http://www.w3.org/2000/svg" width="'+v.pxW+'" height="'+v.pxH+'" viewBox="'+v.x+' '+v.y+' '+v.w+' '+v.h+'">'+
+      '<style>'+css+'</style>'+DEFS+'<rect x="'+v.x+'" y="'+v.y+'" width="'+v.w+'" height="'+v.h+'" fill="#ffffff"/>'+items+'</svg>';
+    svgInJpeg(svgStr, v.pxW, v.pxH, 0.82).then(fine, function(){ fine(null); });
+  }catch(e){ fine(null); }
 }
 
 /* ---------- 3. strumenti di disegno ---------- */
@@ -33050,6 +33184,15 @@ function genThumbnail(){
         '<style>'+css+'</style>'+DEFS+
         '<rect x="'+vbx+'" y="'+vby+'" width="'+vbw+'" height="'+vbh+'" fill="#ffffff"/>'+
         stageFloorMarkup()+items+'</svg>';
+      svgInJpeg(svgStr, pxW, pxH, 0.82).then(resolve, reject);
+    } catch(e){ reject(e); }
+  });
+}
+/* La trafila comune delle miniature (consulenza, invio per revisione): SVG con il <style> dell'app → attributi piatti
+   (un SVG col <style> non si carica come immagine) → canvas bianco → JPEG. Via i nomi degli elementi (text.lbl). */
+function svgInJpeg(svgStr, pxW, pxH, qualita){
+  return new Promise(function(resolve, reject){
+    try {
       var host=document.createElement("div");
       host.style.cssText="position:fixed;left:-99999px;top:0;width:0;height:0;overflow:hidden;opacity:0;pointer-events:none";
       document.body.appendChild(host);
@@ -33069,7 +33212,7 @@ function genThumbnail(){
           var c=document.createElement("canvas"); c.width=pxW; c.height=pxH;
           var ctx=c.getContext("2d"); ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,pxW,pxH);
           ctx.drawImage(img,0,0,pxW,pxH);
-          resolve(c.toDataURL("image/jpeg",0.82));
+          resolve(c.toDataURL("image/jpeg",qualita));
         }catch(e){ reject(e); }
       };
       img.onerror=function(){ URL.revokeObjectURL(url); reject(new Error("thumb fallito")); };
@@ -36788,13 +36931,18 @@ function maybeAskStageSize(explicit){
   });
   document.addEventListener("keydown", function(e){ if(e.key==="Escape" && crop && !crop.hidden) cropChiudi(); });
 
+  function metaInvio(){
+    return { app_version: window.__APP_VERSION__||null, build_id: window.__BUILD_ID__||null, page_url: pageUrlSicuro(),
+      user_agent: navigator.userAgent, viewport: innerWidth+"x"+innerHeight, language: navigator.language };
+  }
+  /* «Invia per revisione» di Crea elemento (custManda) usa la stessa funzione del server, lo stesso contesto e le stesse meta */
+  window.__fbInvio = { url: SUBMIT_URL, techContext: techContext, meta: metaInvio };
   function collectAndSend(projectId){
     /* Niente user_id/user_email nel body: l'identità la ricava il server dal JWT (audit S5). */
     var body={
       message: msg.value.trim(), hint: hint, honeypot: hp.value,
       tech_context: techContext(),
-      meta:{ app_version: window.__APP_VERSION__||null, build_id: window.__BUILD_ID__||null, page_url: pageUrlSicuro(),
-        user_agent: navigator.userAgent, viewport: innerWidth+"x"+innerHeight, language: navigator.language },
+      meta: metaInvio(),
       screenshot: _fbShotData || null,     /* JPEG data URL, già ridotto: il server lo mette su Storage */
       project_snapshot: (attach.checked && typeof buildProjectJson==="function") ? buildProjectJson() : null,
       project_id: (projectId||null)
