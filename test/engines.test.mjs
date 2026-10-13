@@ -7427,6 +7427,21 @@ t("l'aggancio alla griglia si salva col progetto, ma non conta come lavoro né c
   eq(/snap/.test(String(A.stateToJSON())), false, "non entra nello stato della scena (impronta del PDF invariata)");
 });
 
+t("Testo libero = forma «Solo testo»: scritta in alto a sinistra, nessuna sagoma, stesso pannello", () => {
+  reset();
+  const it = add("forma", 300, 300, { shape: "testo", w: 200, d: 70, label: "Ingresso artisti", fill: "#b45309" });
+  const m = A.drawShape(it);
+  ok(/Ingresso artisti/.test(m), "il testo c'è");
+  eq(/<(rect|ellipse|polygon)\b/.test(m), false, "nessuna sagoma");
+  ok(/text-anchor="start"/.test(m), "a sinistra di default");
+  ok(/y="-?\d/.test(m) && Number(m.match(/ y="(-?[\d.]+)"/)[1]) < 0, "in alto, non al centro");
+  eq(m.includes("#b45309"), false, "il colore della sagoma non tinge il testo");
+  it.align = "center"; ok(/text-anchor="middle"/.test(A.drawShape(it)), "si può centrare");
+  eq(A.TYPES.testo.catalog, false, "il vecchio tipo non si crea più…");
+  ok(typeof A.TYPES.testo.draw === "function", "…ma i progetti salvati si aprono ancora");
+  ok(/makeActionBtn\("Testo libero","box di testo", null, nuovoTestoLibero/.test(appjs), "il pulsante fisso crea la forma «Solo testo»");
+  ok(/addItem\("forma", \{shape:"testo"/.test(appjs), "con shape testo");
+});
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");
@@ -7440,9 +7455,9 @@ t("il riferimento del cartiglio, se svuotato, resta svuotato", () => {
     "mai impostato: la proposta ci sta");
 });
 /* 27/07: elemento FORMA — un tipo con l'asse `shape`, sei voci nel catalogo, testo dentro. */
-t("la forma e' un tipo solo, con sei geometrie", () => {
+t("la forma e' un tipo solo, con sette geometrie", () => {
   reset();
-  eq(A.SHAPES.length, 6, "rettangolo, cerchio, triangolo, rombo, freccia, linea");
+  eq(A.SHAPES.length, 7, "rettangolo, cerchio, triangolo, rombo, freccia, linea, solo testo");
   const it = add("forma", 300, 300);
   eq(A.shapeOf(it), "rect", "di default e' un rettangolo");
   it.shape = "circle"; eq(A.shapeOf(it), "circle", "cambia geometria senza cambiare tipo");
@@ -7462,7 +7477,7 @@ t("ogni geometria disegna qualcosa di suo, col colore scelto", () => {
   ok(/rect/.test(markup.rect) && /rect/.test(markup.line), "rettangolo e linea");
   ok(markup.rect.indexOf("#b45309") > -1, "il colore scelto finisce nel disegno");
   const uniche = new Set(Object.values(markup));
-  eq(uniche.size, 6, "sei disegni diversi");
+  eq(uniche.size, 7, "sette disegni diversi");
 });
 t("il testo dentro la forma si allinea come quello libero", () => {
   reset();
