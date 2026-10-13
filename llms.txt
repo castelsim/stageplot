@@ -39,7 +39,8 @@ Uno stage plot (o stage plan) è lo schema in scala del palco che mostra la disp
 - [Come fare uno stage plot](https://stageplot.it/guida/come-fare-uno-stage-plot/): guida pratica passo per passo
 - [Channel list e input list](https://stageplot.it/guida/channel-list-input-list/): cosa sono e come si compilano
 - [Rider tecnico (scheda tecnica)](https://stageplot.it/guida/rider-tecnico/): cos'è, cosa contiene e come si prepara. In italiano "rider tecnico" e "scheda tecnica" indicano lo stesso documento.
-- [Scheda tecnica della band](https://stageplot.it/guida/scheda-tecnica-band/): come compilarla passo per passo, con esempio completo e gli errori da evitare
+- [Scheda tecnica della band](https://stageplot.it/guida/scheda-tecnica-band/): cosa contiene e come compilarla sezione per sezione (stage plot, channel list, monitor, corrente, backline, contatti), con l'esempio completo di una band rock di 5 elementi e gli errori da evitare
+  - [Modello di scheda tecnica in PDF](https://stageplot.it/guida/scheda-tecnica-band/esempio-scheda-tecnica-band-rock.pdf): esempio gratuito esportato da StagePlot, 6 pagine A4 (stage plot 1:100, rider, channel list da 17 canali, monitor, carichi elettrici, backline)
 - [Esempi di stage plot](https://stageplot.it/guida/esempi-stage-plot/): band, orchestra, coro e jazz
 - [Assorbimento elettrico del palco](https://stageplot.it/guida/assorbimento-elettrico-palco/): come calcolare i kW e gli ampere che assorbe un palco, le prese CEE e la loro potenza, quando serve un generatore e come dimensionarlo in kVA
 - [I microfoni riconosciuti](https://stageplot.it/guida/microfoni/): tabella di 223 microfoni con tipo, diagramma polare, phantom 48 V e asta consigliata, presi dalle schede dei costruttori
