@@ -626,10 +626,10 @@
   /* Maniglie (variante A): segno minuto a misura FISSA — lo spessore arriva dal markup, che lo
      calcola in pixel di schermo. Sotto, un'area di presa invisibile piu' larga: piccole da vedere,
      facili da afferrare. */
-  .rs-handle{fill:#fff;stroke:var(--accent);vector-effect:non-scaling-stroke;pointer-events:none}
+  .rs-handle{fill:#fff;stroke:var(--accent);stroke-width:1.4;vector-effect:non-scaling-stroke;pointer-events:none}   /* 1,4 px di schermo a ogni zoom (non-scaling) */
   .rs-grab{fill:transparent;cursor:pointer}
   .rs-grab:hover ~ .rs-handle,.rs-handle:hover{fill:var(--accent-tint)}
-  .rs-handle.rs-end{fill:var(--accent);stroke:#fff}   /* metro: maniglie tonde agli estremi della linea */
+  .rs-handle.rs-end{fill:var(--accent);stroke:#fff;stroke-width:1.6}   /* metro: maniglie tonde agli estremi della linea; 1,6 px come il loro attributo (.rs-handle da solo le porterebbe a 1,4) */
   .rs-l,.rs-r{cursor:ew-resize} .rs-t,.rs-b{cursor:ns-resize}
   .rs-tl,.rs-br{cursor:nwse-resize} .rs-tr,.rs-bl{cursor:nesw-resize}
   /* Le maniglie dell'elemento selezionato vivono in un layer PROPRIO (#layHandles, l'ultimo della
@@ -3605,3 +3605,161 @@ body.dark #props #scalettaSec .sc-b:hover:not(:disabled){background:#222b38}
 .pdf-qr-nota{font-size:11px;line-height:1.4;color:var(--text-3);margin:3px 0 0}
 .pdf-qr-avviso{font-size:12px;line-height:1.4;margin:6px 0 0;padding:6px 8px;border-radius:8px;background:var(--warning-bg);border:1px solid var(--warning-border);color:var(--text)}
 .pdf-qr-avviso[hidden]{display:none}
+
+/* ===== CREA ELEMENTO (13/10/2026) — l'editor degli elementi personalizzati =====
+   È lo stesso editor su un palco temporaneo grande quanto l'elemento (body.cust-editor). Si nasconde tutto ciò che
+   agirebbe sul progetto vero o ne leggerebbe le liste (intestazione del progetto, export, condivisione, account,
+   varianti, layer, channel list, palco e planimetria): le stesse azioni sono fermate anche nel codice. */
+body.cust-editor #fileBtn, body.cust-editor header .tbdiv, body.cust-editor #titolo, body.cust-editor #evChip,
+body.cust-editor #variantBar, body.cust-editor #projStatus, body.cust-editor #projApprovedBy, body.cust-editor #docState,
+body.cust-editor header .snapwrap, body.cust-editor header .hdr-actions,
+body.cust-editor #vistaBanner, body.cust-editor #funzBanner, body.cust-editor #assunzioni,
+body.cust-editor #noSel, body.cust-editor #chanlist, body.cust-editor #areaEditPanel, body.cust-editor #stageEditPanel,
+body.cust-editor #eventoSec, body.cust-editor #scalettaSec, body.cust-editor #cabPropsSec,
+body.cust-editor #catalog .cust-no{display:none !important}
+body.cust-forma-sel #selProps{display:none !important}   /* una forma selezionata ha il suo pannello (#custForma) */
+body.cust-draw #svg, body.cust-draw #svg *{cursor:crosshair !important}
+body.cust-draw #svg .item{pointer-events:none}   /* mentre si disegna gli elementi sotto non si evidenziano: il gesto è del disegno */
+/* i nomi degli elementi sono di 14 cm veri: sulla superficie ingrandita coprirebbero il disegno. Chi c'è lo dice la scheda. */
+body.cust-editor #layLbl{display:none}
+
+/* la barra degli strumenti: una pastiglia in alto sul palco, come gli avvisi della vista */
+#custBar{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:31;display:flex;align-items:center;gap:8px 12px;
+  width:max-content;max-width:calc(100% - 24px);flex-wrap:wrap;justify-content:center;background:var(--surface);color:var(--text);
+  border:1px solid var(--border-strong);border-radius:var(--r-lg);padding:4px 10px 4px 12px;font-size:var(--t-label);
+  box-shadow:0 6px 20px rgba(38,33,24,.16)}
+#custBar[hidden]{display:none}
+body.dark #custBar{box-shadow:0 6px 20px rgba(0,0,0,.4)}
+#custBar .cb-tit{white-space:nowrap;color:var(--text-2);font-variant-numeric:tabular-nums}
+#custBar .cb-tit b{color:var(--text);font-weight:700}
+#custBar .cb-seg{display:flex;gap:2px;padding:2px;border-radius:var(--r-md);background:var(--surface-raised)}
+#custBar .cb-tool{display:inline-flex;align-items:center;justify-content:center;width:32px;height:30px;border:0;border-radius:var(--r-sm);
+  background:transparent;color:var(--text-2);cursor:pointer}
+#custBar .cb-tool:hover{background:var(--surface);color:var(--text)}
+#custBar .cb-tool.on{background:var(--accent);color:#fff}
+#custBar .cb-tool:focus-visible,#custBar input:focus-visible,#custBar select:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
+#custBar .cb-grp{display:flex;align-items:center;gap:6px;white-space:nowrap}
+#custBar .cb-lbl{color:var(--text-2)}
+#custBar input[type=color]{width:30px;height:26px;padding:2px;border:1px solid var(--border-strong);border-radius:var(--r-sm);background:var(--surface);cursor:pointer}
+#custBar input[type=color]:disabled{opacity:.35;cursor:default}
+#custBar select{height:28px;width:auto;border:1px solid var(--border-strong);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font-size:var(--t-label);padding:0 6px}
+#custBar select:disabled{opacity:.45}
+#custBar .cb-chk{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;color:var(--text-2);cursor:pointer}
+#custBar .cb-chk input{margin:0;accent-color:var(--accent)}
+#custBar .cb-chk input:disabled+*{opacity:.45}
+#custBar .cb-snap #custPassoLbl{color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}
+/* la riga di aiuto del gesto in corso: sotto la barra nell'editor, in cima al palco mentre si traccia il rettangolo */
+#custGuida{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:30;display:flex;align-items:center;gap:10px;
+  max-width:calc(100% - 24px);background:var(--surface);color:var(--text);border:1px solid var(--border-strong);border-radius:999px;
+  padding:6px 8px 6px 16px;font-size:13px;line-height:1.35;box-shadow:0 6px 20px rgba(38,33,24,.16)}
+#custGuida[hidden]{display:none}
+body.cust-editor #custGuida{top:60px}   /* sotto la barra (custGuida la riallinea se la barra va su due righe) */
+body.dark #custGuida{box-shadow:0 6px 20px rgba(0,0,0,.4)}
+#custGuida .vb-txt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-2)}
+#custGuida .vb-txt b{color:var(--text)}
+#custGuida .vb-esci{flex:none;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);border-radius:999px;
+  padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;min-height:32px;white-space:nowrap}
+#custGuida .vb-esci:hover{background:var(--accent-tint);border-color:var(--accent)}
+#custGuida .vb-esci:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* la superficie: un foglio bianco in scala, griglia in cm (passo secondo lo zoom), righello in alto e a sinistra */
+.cust-sup{fill:var(--sheet)}
+.cust-griglia line{stroke:var(--grid-line);stroke-width:1;vector-effect:non-scaling-stroke}
+.cust-griglia line.m{stroke:var(--grid-major)}
+.cust-bordo{fill:none;stroke:var(--n-600);stroke-width:1.5;vector-effect:non-scaling-stroke}
+.cust-righello line{stroke:var(--n-400);stroke-width:1;vector-effect:non-scaling-stroke}
+.cust-righello text{fill:var(--text-2);font-variant-numeric:tabular-nums;paint-order:stroke;stroke:var(--canvas-bg);stroke-linejoin:round}   /* alone (spessore in px dal markup): sopra un pezzo che sborda i numeri restano leggibili */
+.cust-righello .cust-unita{fill:var(--text-3)}
+.cust-vuoto{fill:var(--text-3);pointer-events:none}
+body.dark .cust-righello text{fill:#cbd5e1}
+/* il rettangolo sul palco, le forme che si disegnano e le loro misure (in pixel fissi a ogni zoom) */
+.cust-area{fill:rgba(13,148,136,.10);stroke:var(--accent);stroke-width:2;stroke-dasharray:8 5;vector-effect:non-scaling-stroke;pointer-events:none}
+.cust-forma-prev{pointer-events:none}
+.cust-forma-prev>rect,.cust-forma-prev>ellipse,.cust-forma-prev>line{opacity:.85}
+.cust-misura{pointer-events:none}
+.cust-misura rect{fill:var(--n-800);opacity:.92}
+.cust-misura text{fill:#fff;font-weight:600;font-variant-numeric:tabular-nums}
+.cust-poly-prev{pointer-events:none}
+.cust-poly-prev polyline{fill:none;stroke:var(--accent);stroke-width:1.5;stroke-dasharray:6 4;vector-effect:non-scaling-stroke}
+.cust-poly-prev circle{fill:#fff;stroke:var(--accent);stroke-width:1.5;vector-effect:non-scaling-stroke}
+.cust-poly-prev circle.primo{fill:var(--accent)}
+/* il testo che si scrive sul palco */
+.cust-testo-inp{position:fixed;z-index:60;border:1.5px solid var(--accent);border-radius:6px;background:var(--sheet);padding:2px 6px;
+  font-family:var(--font-ui);font-weight:500;text-align:center;box-shadow:var(--elev-2);outline:none}
+
+/* la finestra delle misure */
+.cust-misure{margin-top:14px}
+.cust-mis-riga{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}
+.cust-mis-riga label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--text-2)}
+.cust-mis-in{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-2)}
+.cust-mis-riga input{width:96px;font-size:16px;padding:7px 9px;border:1px solid var(--border-strong);border-radius:var(--r-md);
+  background:var(--surface);color:var(--text);font-variant-numeric:tabular-nums}
+.cust-mis-riga input:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
+.cust-mis-riga input.err{border-color:var(--danger-solid);box-shadow:0 0 0 1px var(--danger-solid)}
+.cust-mis-x{font-size:18px;color:var(--text-3);padding-bottom:8px}
+.cust-mis-x::before{content:"×"}   /* il segno di moltiplicazione delle misure (non un «chiudi»): sta nel foglio di stile */
+.cust-mis-nota{margin-top:8px;font-size:12px;color:var(--text-3);min-height:16px}
+.cust-mis-nota.err{color:var(--danger)}
+.guide-actions .btn:disabled{opacity:.45;cursor:not-allowed}
+
+/* la scheda dell'elemento e il pannello della forma */
+#custScheda[hidden],#custForma[hidden],#custFormaDims[hidden],#custFormaTxt[hidden]{display:none}
+#custScheda .cust-req,#custScheda .cust-opz{font-size:11px;color:var(--text-3);font-weight:400}
+#custScheda input.err{border-color:var(--danger-solid);box-shadow:0 0 0 1px var(--danger-solid)}
+#custScheda .cust-err{font-size:var(--t-label);color:var(--danger);margin-top:4px}
+#custScheda .cust-err[hidden]{display:none}
+#custScheda .cust-cnt{font-size:11px;color:var(--text-3);text-align:right;margin-top:2px;font-variant-numeric:tabular-nums}
+#custScheda .cust-conta{margin-top:12px}
+#custScheda .cust-conta label:first-of-type{margin-top:4px}
+#custScheda .cust-ins{display:flex;gap:6px}
+#custScheda .cust-ins input{flex:0 0 72px}
+#custScheda .cust-ins select{flex:1 1 auto}
+/* i pulsanti della scheda in un piede fermo in fondo alla colonna: a 1280×800, con una forma selezionata, Salva stava sotto
+   il bordo. #props è una colonna flex che scorre: margin-top:auto lo porta in fondo anche quando la colonna è corta. */
+#custScheda[hidden] + #custPiede{display:none}
+#custPiede{position:sticky;bottom:-12px;z-index:2;margin:auto -12px -12px;padding:10px 12px 12px;background:var(--surface);
+  border-top:1px solid var(--border);box-shadow:0 -6px 14px -10px rgba(38,33,24,.35)}
+body.dark #custPiede{background:#1b2327;box-shadow:0 -6px 14px -10px rgba(0,0,0,.6)}
+#custPiede .cust-azioni{margin-top:0}
+#custPiede .cust-azioni .btn{padding:8px 4px;font-size:13px}
+#custPiede #custInvia{width:100%;margin-top:6px}
+#custPiede #custInvia[hidden]{display:none}
+
+/* Tappa 3: il pulsante nel catalogo, «Non c'è? Crealo», gli elementi di questo progetto, la riga nel pannello */
+#catalog small.cust-tel{display:none}
+@media (max-width:880px){ #catalog small.cust-pc{display:none} #catalog small.cust-tel{display:block} }
+#catCustom[hidden]{display:none}
+/* fase 1 del rilascio (custIngressiAttivi() = false): «Crea elemento» non si vede nel catalogo */
+#catalog .cust-crea.cust-off{display:none !important}
+#catCustom h4{margin-top:10px}
+body.cust-editor #catCustom, body.proj-ro #catCustom, body.viewmode #catCustom{display:none !important}
+/* Ruling 16: dentro ogni voce, sul bordo destro, «Elimina modello» — un bottone suo (mai un bottone dentro un bottone),
+   quieto, rosso solo al passaggio; sul dito 44 px. Il nome lungo va a capo in sillabe: «(2)» deve restare leggibile. */
+#catCustom .cust-voce{position:relative}
+#catalog #catCustom .cust-voce > button:first-child{padding-right:36px}
+#catCustom .cust-voce > button:first-child span{min-width:0;overflow-wrap:break-word;hyphens:auto}
+#catalog #catCustom .cust-voce-elimina{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:32px;height:32px;min-height:0;margin:0;padding:0;
+  justify-content:center;border-color:transparent;background:transparent;color:var(--text-3)}
+#catalog #catCustom .cust-voce-elimina:hover{color:var(--danger);border-color:var(--danger-solid);background:var(--surface)}
+#catalog #catCustom .cust-voce-elimina:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
+#catalog #catCustom .cust-voce-elimina svg{width:16px;height:16px;flex:0 0 auto}
+@media (max-width:880px){ #catalog #catCustom .cust-voce-elimina{width:44px;height:44px} #catalog #catCustom .cust-voce > button:first-child{padding-right:52px} }
+#catalog #catResults .cust-crealo{justify-content:flex-start;height:auto;margin-top:4px;padding:6px 8px;border:1px dashed var(--border-strong);
+  background:transparent;color:var(--text);font-size:13px;font-weight:400;text-align:left;line-height:1.3;white-space:normal}
+#catalog #catResults .cust-crealo:hover{background:var(--accent-tint);border-color:var(--accent-soft)}
+#catResults .cust-crealo > span{min-width:0;flex:1 1 auto}
+#catResults .cust-crealo b{color:var(--accent-strong)}
+#catResults .cust-crealo small{white-space:normal;overflow-wrap:anywhere}
+#catResults .cust-crealo-fondo{margin-top:10px}
+#props .cust-pan{margin:0 0 10px}
+#props .cust-pan [hidden]{display:none}
+#props .cust-pan .cust-pan-desc{margin:0 0 4px;font-size:12px;line-height:1.4;color:var(--text-2);overflow-wrap:anywhere}
+#props .cust-pan .cust-pan-conta{margin:0 0 8px}
+#props .cust-pan .cust-pan-btns{display:flex;flex-direction:column;gap:6px}
+/* nella scheda (fondo «raised») il bottone di serie sparirebbe: fondo pieno e bordo, come i comandi del pannello */
+#props .cust-pan .cust-pan-btns .btn{margin-top:0;background:var(--surface);border:1px solid var(--border-strong);color:var(--text);font-weight:600;white-space:normal}
+#props .cust-pan .cust-pan-btns .btn:hover{border-color:var(--accent);color:var(--accent-strong)}
+#props .cust-pan .cust-pan-btns .btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
+body.dark #props .cust-pan .cust-pan-btns .btn{background:#20292e;border-color:#3a4658;color:#e5e7eb}
+#props .cust-pan .prop-hint:last-child{margin:6px 0 0}
+body.cust-editor.m-has-sel #custScheda{border-top:1px solid var(--border);padding-top:12px;margin-top:6px}   /* sotto il pannello di ciò che è selezionato */

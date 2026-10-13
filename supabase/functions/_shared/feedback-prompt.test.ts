@@ -54,3 +54,33 @@ Deno.test("la mail dice che la schermata c'è, e la porta con sé", () => {
   assertEquals(feedbackAttachment({ ...base, screenshot: "data:image/png;base64,Rk9P" })!.filename, "segnalazione.png");
   assertEquals(feedbackAttachment({ ...base, screenshot: "non un data url" }), null);
 });
+
+/* ===== Crea elemento (13/10/2026): il tipo nuovo ha il suo nome, mai «undefined» ===== */
+Deno.test("email e prompt: il tipo «elemento» ha un nome e porta la scheda dell'elemento", () => {
+  const f: FeedbackInput = { ...base, message: "Elemento: Proiettore — Su carrello", hint: "elemento",
+    tech_context: { ...base.tech_context, elemento: { nome: "Proiettore", desc: "Su carrello", w: 120, d: 80, watt: 300,
+      ins: { n: 2, tipo: "linea" }, backline: false, forme: 3, membri: ["cantante", "astamic"] }, elemento_json: '{"w":120}' } };
+  const { subject, html } = buildFeedbackEmail(f);
+  assertStringIncludes(subject, "Elemento");
+  assertEquals(subject.includes("undefined") || html.includes("undefined"), false);
+  const p = buildFeedbackPrompt(f);
+  assertStringIncludes(p, "Elemento da rivedere");
+  assertStringIncludes(p, "120 × 80 cm");
+  assertStringIncludes(p, "300 W");
+  assertStringIncludes(p, "2 linea");
+  assertStringIncludes(p, "cantante, astamic");
+  assertStringIncludes(p, "JSON dell'elemento: sì");
+  /* un tipo che il server non conosce più non scrive «undefined» */
+  const ignoto = buildFeedbackEmail({ ...base, hint: "vecchio" as string });
+  assertEquals(ignoto.subject.includes("undefined"), false);
+});
+
+Deno.test("prompt dell'elemento: niente progetto né pagina", () => {
+  const f: FeedbackInput = { ...base, message: "Elemento: Proiettore", hint: "elemento", project_id: "p-1",
+    tech_context: { elemento: { nome: "Proiettore", desc: "", w: 120, d: 80, watt: null, ins: null, backline: false, forme: 1, membri: [] } } };
+  const p = buildFeedbackPrompt(f);
+  assertEquals(p.includes("Progetto:"), false);
+  assertEquals(p.includes("https://stageplot.it/"), false);
+  assertEquals(p.includes("Dimensione palco"), false);
+  assertStringIncludes(buildFeedbackPrompt(base), "Progetto: nessuno", "gli altri tipi come prima");
+});

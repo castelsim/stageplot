@@ -89,6 +89,9 @@ test("i testi: nell'area come nell'editor, al pubblico «Un problema? Scrivici»
   const hints = JSON.parse((server.match(/const HINTS = (\[[^\]]+\])/) || [])[1]);
   assert.deepEqual(SG.testi("gestione").tipi.map((t) => t[0]), hints);
   assert.deepEqual(SG.HINTS, hints);
+  /* «elemento» (Crea elemento, 13/10/2026) è un tipo dell'editor, non una chip: sta in HINTS_EDITOR */
+  assert.ok(!SG.HINTS.includes("elemento"), "la biglietteria non manda elementi");
+  assert.match(server, /export const HINTS_EDITOR = \["elemento"\]/);
   assert.equal(SG.hintValido("missing"), "missing"); assert.equal(SG.hintValido("Bug"), null);
   assert.match(SG.testi("scheda").grazie, /Grazie, l'abbiamo ricevuto/);
   assert.equal(SG.testi("gestione").notaPubblico, "", "all'organizzatore niente rimando all'organizzatore");
