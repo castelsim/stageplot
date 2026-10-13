@@ -7524,6 +7524,62 @@ t("modelli del progetto: si posano copie indipendenti, e il campo esiste solo se
   }
 });
 
+t("modelli del progetto: riferimenti, membri sporchi, id doppi, rotazione, blocco, custom escluso", () => {
+  reset();
+  const _cmPrima = A.state.customModels, _lockPrima = A.__projLocked;
+  const norm = (cm) => A.normalizeState({ _v: 5, stage: { w: 1200, d: 800 }, items: [], customModels: cm });
+  const shapes = [{ k: "rect", x: 0, y: 0, w: 200, h: 100, stroke: "#000000", sw: 1 }];
+  try {
+    /* I1: riferimenti e posti numerati fuori dal modello e dalle copie */
+    const base = add("custom", 400, 400, { w: 200, d: 100, cust: { nome: "Kit", shapes } });
+    A.custNorm(base);
+    const mic = add("cantante", 450, 420, { rackId: "i9", rackPos: 2, diFor: "i7", diId: "i8", ascoltoId: "i5", rxId: "i4", distOf: "i3", sbTo: "i2", fila: "A", posto: 3, settore: "S" });
+    base.grp = mic.grp = "gR";
+    const m = A.custModelDaAgglomerato(base);
+    ["rackId", "rackPos", "diFor", "diId", "ascoltoId", "rxId", "distOf", "sbTo", "fila", "posto", "settore", "id", "grp", "x", "y"].forEach(k => ok(!(k in m.membri[0]), k + " nel membro del modello"));
+    const sporco = JSON.parse(JSON.stringify(m)); sporco.membri[0].rackId = "i9"; sporco.membri[0].diFor = "i7"; sporco.membri[0].fila = "B";
+    const n1 = norm([sporco]).customModels[0];
+    ["rackId", "diFor", "fila"].forEach(k => ok(!(k in n1.membri[0]), k + " tolto da custModelNorm"));
+    A.state.customModels = [m];
+    const posati = A.custPosaModello(m.id, 800, 400);
+    ["rackId", "diFor", "fila", "posto", "settore"].forEach(k => ok(!(k in posati[1]), k + " nella copia"));
+    /* I2: membro sporco */
+    const brutto = JSON.parse('{"id":"mx1","nome":"X","w":200,"d":100,"shapes":[],"membri":[{"type":"cantante","dx":1e300,"dy":-1e300,"w":"x","rot":null,"label":{"a":1},"__proto__":{"evil":1},"constructor":"c"}]}');
+    const nb = norm([brutto]).customModels[0].membri[0];
+    eq([nb.dx, nb.dy], [100000, -100000], "dx/dy limitati");
+    ok(!("w" in nb) && !("label" in nb) && !Object.prototype.hasOwnProperty.call(nb, "__proto__") && !Object.prototype.hasOwnProperty.call(nb, "constructor"), "membro pulito");
+    ok(nb.rot === undefined || Number.isFinite(nb.rot), "rot finita");
+    /* I5: id doppi → uno solo */
+    const doppi = norm([{ id: "dup", nome: "A", w: 100, d: 50, shapes: [], membri: [] }, { id: "dup", nome: "B", w: 100, d: 50, shapes: [], membri: [] }]).customModels;
+    eq(doppi.length, 1, "un solo modello"); eq(doppi[0].nome, "A", "si tiene il primo");
+    /* I5: id nuovo mai uguale a uno esistente (qui occupo proprio quello che uid() darebbe) */
+    A.state.customModels = [{ id: "m" + A.uid().slice(1), nome: "z", w: 10, d: 10, shapes: [], membri: [] }];
+    const m2 = A.custModelDaAgglomerato(base);
+    ok(!A.state.customModels.some(q => q.id === m2.id), "id libero");
+    /* rotazione della base tolta */
+    reset();
+    const b90 = add("custom", 400, 400, { w: 200, d: 100, rot: 90, cust: { nome: "Ruotato", shapes } });
+    A.custNorm(b90);
+    const m90 = add("cantante", 400, 450, { rot: 90 }); b90.grp = m90.grp = "gQ";
+    const mr = A.custModelDaAgglomerato(b90);
+    eq([mr.membri[0].dx, mr.membri[0].dy, mr.membri[0].rot], [50, 0, 0], "relativo alla base ruotata");
+    /* I4: custom nel gruppo escluso */
+    const c2 = add("custom", 500, 400, { w: 50, d: 50, cust: { nome: "Altro", shapes: [] } }); A.custNorm(c2); c2.grp = "gQ";
+    eq(A.custModelDaAgglomerato(b90).membri.length, 1, "il custom del gruppo non e' un membro");
+    /* I3: progetto bloccato */
+    A.state.customModels = [mr];
+    const prima = A.state.items.length;
+    A.__projLocked = true;
+    eq(A.custPosaModello(mr.id, 0, 0), [], "bloccato: niente copie");
+    eq(A.state.items.length, prima, "bloccato: scena intatta");
+    A.__projLocked = false;
+    eq(A.custPosaModello(mr.id, 0, 0).length, 2, "sbloccato: posa");
+  } finally {
+    if (_cmPrima === undefined) delete A.state.customModels; else A.state.customModels = _cmPrima;
+    A.__projLocked = _lockPrima;
+  }
+});
+
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");
