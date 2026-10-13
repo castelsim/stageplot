@@ -6434,7 +6434,11 @@ function markLocalConflict(){
   if(window.setDocState) window.setDocState("conflict");
   if(!localConflictWarned){
     localConflictWarned=true;
-    try{ if(typeof saveVersion==="function") saveVersion("Conflitto tra schede "+new Date().toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"}),true); }catch(_recoveryErr){}
+    var _nomeConfl="Conflitto tra schede "+new Date().toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"});
+    /* con «Crea elemento» aperto lo stato vivo è il palco temporaneo e saveVersion rifiuta: il punto di ripristino del
+       progetto vero si crea alla chiusura dell'editor (custRipristina), e non va perso per sempre (revisione finale, I4) */
+    if(custEditorAttivo()) __custVersioneRinviata=_nomeConfl;
+    else try{ if(typeof saveVersion==="function") saveVersion(_nomeConfl,true); }catch(_recoveryErr){}
     if(window.__toast) window.__toast("Un'altra scheda ha modificato questo progetto. Salvataggio sospeso: esporta questa versione o ricarica prima di continuare.",true);
   }
 }
@@ -6590,6 +6594,10 @@ function uscitaChiavi(st){
 /* Lo stato in memoria torna quello di un progetto vuoto, senza passare da save(): niente punto di
    ripristino (conterrebbe il progetto che si sta togliendo) e niente scrittura locale. */
 function azzeraMemoriaDocumento(){
+  /* «Crea elemento» aperto (revisione finale, I3): l'editor si chiude SENZA ripristino. Il progetto messo da parte è
+     quello dell'account appena uscito: rimetterlo (Annulla, o Salva) lo riporterebbe nel browser anonimo. */
+  var _custEraAperto=custEditorAttivo();
+  if(_custEraAperto){ window.__custEditor=null; __custVersioneRinviata=null; custEditorClasse(false); }
   commitPreparedDoc(prepareDoc({titolo:"",luogo:"",stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]},items:[],inputs:[],outputs:[]}));
   window.__docLoadBlocked=null; window.__docLoadBlockedRaw=null;
   window.__localConflict=false; localConflictWarned=false;
@@ -6600,6 +6608,7 @@ function azzeraMemoriaDocumento(){
     if(typeof renderVariantBar==="function") renderVariantBar();
     if(typeof resetMetaLayersUI==="function") resetMetaLayersUI();
     stageEdit=false; selBlock=null; eventoEdit=false;
+    if(_custEraAperto) custDopoChiusura();
     renderStagePanel(); renderEventoPanel(); clearSelection(); setEventInputs(); renderChannels();
     if(typeof resetCatalogView==="function") resetCatalogView();
     render(); fit();
@@ -9694,7 +9703,12 @@ function custPosaModello(id, x, y){
    sessione live, varianti, Nuovo, Apri/import/ripristino, export PDF/PNG/JSON, condivisione. Chiudere o ricaricare la
    pagina con l'editor aperto lascia quindi in memoria e nel cloud il progetto com'era prima di aprirlo.
    `var` (e non solo window.__custEditor=…): la dichiarazione esiste da subito, anche per il codice di avvio più in alto. */
-var __custEditor=null;   /* null | {salvato, rect:{x,y,w,d}, rot, baseId|null, inclusi:[id…]} */
+var __custEditor=null;   /* null | {salvato, rect:{x,y,w,d}, rot, baseId|null, inclusi:[id…], rif:{id:{campo:valore}}} */
+/* I campi con cui un elemento punta a un altro, a gruppi: il primo è il riferimento, gli altri i suoi compagni (che
+   normalizeState toglie insieme a lui). sbTo può valere anche "main", che non è un elemento. */
+/* nome del punto di ripristino «Conflitto tra schede» chiesto mentre l'editor era aperto: si crea alla sua chiusura */
+var __custVersioneRinviata=null;
+function custLegami(){ return [["ascoltoId","ascolto"],["diId","diOff"],["diFor"],["rxId","rxCh"],["rackId","rackPos"],["sbTo"],["distOf"]]; }
 function custEditorAttivo(){ return !!window.__custEditor; }
 /* un solo messaggio per tutto ciò che l'editor aperto ferma: chi preme «Nuovo» o cambia scena deve sapere cosa fare */
 function custEditorMsg(){ return "Chiudi prima l'elemento che stai creando (Salva o Annulla)."; }
@@ -9731,6 +9745,13 @@ function custEditorApri(rect, opz){
   if(base && base.grp) inclusi=state.items.filter(function(x){ return x.grp===base.grp && x.id!==base.id; });
   else if(!base && opz.includi) inclusi=custDentroArea(r);   /* la stessa regola della domanda «Includere gli N elementi?» */
   var realNext=nextId, vKey=String(activeVar||"");
+  /* I LEGAMI DEGLI INCLUSI (revisione finale, C1): il palco temporaneo contiene solo gli inclusi, e normalizeState toglie
+     ogni riferimento verso un elemento assente (il wedge d'ascolto, il ricevitore, la DI, il rack rimasti fuori dal
+     rettangolo). Si mettono da parte qui, com'erano, e custEditorSalva li rimette. */
+  var rif={};
+  inclusi.forEach(function(x){ var o={}, c=false;
+    custLegami().forEach(function(g){ g.forEach(function(k){ if(x[k]!=null){ o[k]=JSON.parse(JSON.stringify(x[k])); c=true; } }); });
+    if(c) rif[x.id]=o; });
   /* origine INTERA per gli elementi: con una superficie dispari l'angolo cade su x.5 e gli arrotondamenti di andata e
      ritorno spostavano i compagni di 1 cm a ogni apertura/salvataggio. Stessa origine all'apertura e al salvataggio. */
   var o={x:Math.floor(r.x), y:Math.floor(r.y)};
@@ -9740,7 +9761,7 @@ function custEditorApri(rect, opz){
                                  venueCache:Object.prototype.hasOwnProperty.call(venueImgCache,vKey) ? Object.assign({},venueImgCache[vKey]) : null,
                                  /* «Adatta palco»: Annulla/Ripeti della scena nuova agiscono su VARIANTS. Nell'editor si spengono */
                                  adatta:{scena:adattaScena, rifai:adattaRifai, passo:adattaPasso}},
-                        rect:r, o:o, rot:rot, baseId:base?base.id:null, inclusi:inclusi.map(function(x){ return x.id; }) };
+                        rect:r, o:o, rot:rot, baseId:base?base.id:null, inclusi:inclusi.map(function(x){ return x.id; }), rif:rif };
   adattaScena=null; adattaRifai=null; adattaPasso=null;
   try{
     var tmp=JSON.parse(window.__custEditor.salvato.attiva);
@@ -9763,7 +9784,10 @@ function custEditorApri(rect, opz){
 function custRipristina(){
   var E=window.__custEditor, sv=E.salvato, vKey=String(sv.activeVar||"");
   if(sv.venueCache) venueImgCache[vKey]=Object.assign({},sv.venueCache); else delete venueImgCache[vKey];   /* PRIMA: applyVariantState riaggancia da qui */
-  applyVariantState(JSON.parse(sv.attiva), true, sv.activeVar); ensureItemIds(); clearSelection();
+  /* ripristino ESATTO (revisione finale, I1): lo stato com'era, byte per byte. Ripassarlo dal normalizzatore
+     (applyVariantState) aggiungeva i campi di serie mancanti — production.asked:false su un progetto che non l'aveva —
+     e un Annulla dell'editor diventava una modifica. Il JSON viene dallo stato vivo: è già quello che l'app usava. */
+  state=JSON.parse(sv.attiva); reattachVenueImg(state, sv.activeVar||activeVar); ensureItemIds(); clearSelection();
   undoStack.length=0; Array.prototype.push.apply(undoStack, sv.undo);
   redoStack.length=0; Array.prototype.push.apply(redoStack, sv.redo);
   lastSnap=sv.lastSnap; venueHistoryAssets=sv.venueAssets;   /* le planimetrie della cronologia: senza, un Annulla dopo l'editor la cancellerebbe */
@@ -9772,6 +9796,9 @@ function custRipristina(){
   custEditorClasse(false);
   syncHistoryButtons();
   if(_cloudDirty && window.scheduleCloudAutosave) scheduleCloudAutosave();   /* un salvataggio del progetto vero rimandato durante l'editor */
+  /* il punto di ripristino di un conflitto fra schede arrivato a editor aperto (I4): adesso lo stato è il progetto vero */
+  var rinv=__custVersioneRinviata; __custVersioneRinviata=null;
+  if(rinv) try{ saveVersion(rinv, true); }catch(e){}
   return E;
 }
 function custEditorAnnulla(){ if(!custEditorAttivo()) return; custRipristina(); custEditorRidisegna(); }
@@ -9791,6 +9818,7 @@ function custEditorSalva(scheda){
   veri.forEach(function(c){ var n=itemIdNum(c.id); if(n>=nextId) nextId=n+1; });
   var orig=E.baseId ? state.items.find(function(x){ return x.id===E.baseId; }) : null;
   state.items=state.items.filter(function(x){ return x.id!==E.baseId && E.inclusi.indexOf(x.id)<0; });
+  var resto=state.items.slice();   /* gli elementi del palco vero rimasti fuori dall'editor */
   var gid=veri.length ? grpLibero() : null;
   /* modifica: si parte dall'elemento com'era (nota, blocco…); forme, misure, scheda e gruppo sono quelli nuovi */
   var base=orig ? JSON.parse(JSON.stringify(orig)) : {};
@@ -9811,7 +9839,13 @@ function custEditorSalva(scheda){
   veri.forEach(function(c){ var p=rotatePointAround(E.o.x+c.x, E.o.y+c.y, cx, cy, E.rot);
     c.x=Math.round(p[0]); c.y=Math.round(p[1]); c.rot=(((c.rot||0)+E.rot)%360+360)%360; if(gid) c.grp=gid;
     ["diFor","diId","rackId","ascoltoId","rxId","distOf","sbTo"].forEach(function(k){ if(c[k]!=null && nuovi[c[k]]) c[k]=nuovi[c[k]]; });
+    custRimettiLegami(c, E, resto);
     state.items.push(c); });
+  /* un incluso cancellato nell'editor: chi lo nominava da fuori non punta a un id che non c'è più (le stesse regole di
+     normalizeState: il riferimento se ne va con i suoi compagni, l'elemento resta) */
+  var vivi={}; veri.forEach(function(c){ vivi[c.id]=1; });
+  var persi={}; E.inclusi.forEach(function(id){ if(!vivi[id]) persi[id]=1; });
+  resto.forEach(function(x){ custLegami().forEach(function(g){ if(x[g[0]]!=null && persi[x[g[0]]]) g.forEach(function(k){ delete x[k]; }); }); });
   /* IL PRIMO SALVA DI UN ELEMENTO NUOVO crea anche il modello in «Elementi di questo progetto» (spec, Ruling 17): da lì se
      ne posano altre copie. Stesso passo di Annulla dell'elemento: un Annulla toglie tutti e due. Oltre i 50 modelli
      l'elemento si salva lo stesso, senza modello (lo dice custSalvaDaScheda). */
@@ -9824,6 +9858,20 @@ function custEditorSalva(scheda){
   clearSelection(); selectClick(base.id);
   save(); custEditorRidisegna();
   return base.id;
+}
+/* C1: rimette su una copia di un incluso i legami verso elementi rimasti FUORI dal rettangolo, che il palco temporaneo
+   aveva tolto. Un gruppo si rimette solo se nella copia manca tutto (se nell'editor l'utente ha scelto un altro ascolto,
+   resta il suo) e se il bersaglio c'è ancora sul palco vero. I legami fra due inclusi li ha già tenuti l'editor (e se lì
+   sono stati tolti, restano tolti). `fuori` = gli elementi del palco vero rimasti fuori dall'editor. */
+function custRimettiLegami(c, E, fuori){
+  var o=E.rif && E.rif[c.id]; if(!o || E.inclusi.indexOf(c.id)<0) return;
+  custLegami().forEach(function(g){
+    var v=o[g[0]]; if(v==null) return;
+    if(!g.every(function(k){ return c[k]==null; })) return;
+    if(v===E.baseId || E.inclusi.indexOf(v)>=0) return;
+    if(!fuori.some(function(z){ return z.id===v; })) return;
+    g.forEach(function(k){ if(o[k]!=null) c[k]=JSON.parse(JSON.stringify(o[k])); });
+  });
 }
 /* custshape ↔ forma. L'item custshape ha x/y = centro e w/d = ingombro (come ogni elemento: si seleziona, si sposta, si
    ruota, si ridimensiona dalle maniglie); linea e poligono hanno i punti relativi al centro IN FRAZIONI dell'ingombro
@@ -10149,11 +10197,30 @@ function custPosaDalCatalogo(mid, punto){
     fs=findFreeSpotFor({type:"custom", w:m.w, d:m.d, rot:0, label:m.nome}, Math.round(cv.x+addCascade), Math.round(cv.y+addCascade));
     addCascade=(addCascade+25)%150;
   }
+  fs=custDentroPalco(m, fs);   /* l'ingombro del GRUPPO (base + pezzi) resta sul palco, anche col doppio clic vicino a un bordo */
   primaDiAgire();
   var nuovi=custPosaModello(mid, fs.x, fs.y); if(!nuovi.length) return false;
   clearSelection(); selectClick(nuovi[0].id);
   render(); save(); ensureVisible();
   return nuovi;
+}
+/* I2 (revisione finale): il punto dove posare un modello perché tutto il gruppo (base e pezzi, con le loro rotazioni)
+   stia dentro il palco. Su un lato dove il gruppo è più grande del palco, lo si centra. */
+function custIngombroModello(m){
+  var box={x0:-m.w/2, y0:-m.d/2, x1:m.w/2, y1:m.d/2};
+  (m.membri||[]).forEach(function(c){
+    var t=itemTypeDef(c)||{}, w=+c.w||+t.w||0, d=+c.d||+t.d||0, r=(+c.rot||0)*Math.PI/180;
+    var hw=(w*Math.abs(Math.cos(r))+d*Math.abs(Math.sin(r)))/2, hd=(w*Math.abs(Math.sin(r))+d*Math.abs(Math.cos(r)))/2;
+    if(!isFinite(hw) || !isFinite(hd) || !isFinite(+c.dx) || !isFinite(+c.dy)) return;
+    box.x0=Math.min(box.x0, c.dx-hw); box.x1=Math.max(box.x1, c.dx+hw);
+    box.y0=Math.min(box.y0, c.dy-hd); box.y1=Math.max(box.y1, c.dy+hd);
+  });
+  return box;
+}
+function custDentroPalco(m, p){
+  var S=state.stage||{}, W=+S.w||0, D=+S.d||0, b=custIngombroModello(m);
+  var lim=function(v, lo, hi, L, a0, a1){ return (a1-a0>L) ? Math.round(L/2-(a0+a1)/2) : Math.round(Math.max(lo, Math.min(hi, v))); };
+  return {x:lim(p.x, -b.x0, W-b.x1, W, b.x0, b.x1), y:lim(p.y, -b.y0, D-b.y1, D, b.y0, b.y1)};
 }
 /* l'elemento personalizzato di una selezione: uno solo (con due non si sa quale), e se la selezione è proprio lui con i
    suoi pezzi (intero) il pannello può portarne il nome */
