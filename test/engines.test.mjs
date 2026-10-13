@@ -6038,7 +6038,9 @@ t("senza «Esporta avanzato» il cartiglio non scrive peso, rack e canali", () =
   ok(/function pdfDatiTecnici\(\)\{\s*try\{ return typeof funzOn!=="function" \|\| !!funzOn\("esporta"\);/.test(appjs), "la regola è la funzione Esporta avanzato");
   /* 06/10/2026: il peso in più vuole la casella «Pesi (kg)» (pdfPesiOn), il rack resta com'era */
   ok(/var _tecn=pdfDatiTecnici\(\);[^\n]*\n\s*var _wt=\(_tecn&&pdfPesiOn\(\)\)\?totalWeightKg\(\):0;[^\n]*\n\s*var _ru=_tecn\?totalRackU\(\):0;/.test(appjs), "nel PDF peso e rack seguono la stessa regola");
-  ok(/var _ptecn=pdfDatiTecnici\(\);[^\n]*\n\s*var _pwt=\(_ptecn&&pdfPesiOn\(\)\)\?totalWeightKg\(\):0;[^\n]*_pru=_ptecn\?totalRackU\(\):0;/.test(appjs), "e l'anteprima pure");
+  /* dal 13/10 la riga la compone una funzione sola (pdfCartSub, via pdfCartRighe) per PDF e anteprima */
+  ok(/function pdfCartRighe\([^)]*\)\{[\s\S]{0,300}?pdfCartSub\(\)/.test(appjs), "la riga del cartiglio viene da pdfCartSub");
+  ok(/function pdfCartiglio\([\s\S]{0,900}?pdfCartRighe\(header, titleW\)/.test(appjs) && /function pdfPreviewSvg\([\s\S]{0,3000}?pdfCartRighe\(header, titleColW\)/.test(appjs), "e l'anteprima pure");
 });
 
 /* 06/10/2026 — Simone: «sul pdf che stampo ci sono i kg, dev'essere un'opzione disattivata di default» */
@@ -7514,6 +7516,60 @@ t("doppio clic su un elemento (computer): il nome resta col focus, il mousedown 
   ok(/else if\(isMobile\(\)\)\{ document\.body\.classList\.add\("props-expanded"\); \}/.test(appjs), "sul telefono si apre ancora il foglio");
 });
 
+/* 13/10 — Simone, esportando il PDF di un progetto vero: «nel cartiglio, nel PDF, devono esserci tutte le
+   informazioni, non i tre puntini». Titolo, riga luogo · data e totali venivano tagliati a una riga con «…».
+   Ora vanno a capo nella colonna di sinistra e il cartiglio cresce quanto serve (testi inventati, stessa lunghezza). */
+t("il cartiglio va a capo invece di tagliare con «…» (titolo, luogo · data, totali)", () => {
+  reset();
+  const t0 = A.pdfTotals;
+  A.state.titolo = "Concerto di Primavera 22.04.27 Auditorium Comunale con orchestra, coro e ospiti";
+  A.state.luogo = "Auditorium Comunale Gianfranco Bertolin, Montebelluna di Sopra (TV)";
+  A.pdfTotals = () => ["31 canali", "16 leggii", "12 sedute", "1 sgabello batteria", "4 personal mixer (1 hub)", "7 spie", "3 in-ear", "2 poltrone"];
+  try {
+    const head = "Riferimento: Mario Rossi Prova · mario.rossi.prova@esempio.it · 333 0000000";
+    const parole = (s) => String(s).split(/\s+/).filter(Boolean);
+    const attese = [].concat(parole(A.state.titolo), parole(A.state.luogo), parole(A.pdfTotals().join(" ")), parole(head));
+    const ch = A.cartHFor(head, "a4", "portrait");
+    ok(ch > 27 + 4, "il cartiglio si alza per le righe in più: " + ch);
+    const L = A.pdfLayout("a4", "portrait", ch), cy = L.ph - L.fondo - L.cartH, titoloW = A.pdfCartTitleW(L.pw, L.M);
+    const doc = jsPdfFinto()({ format: "a4", orientation: "portrait" });
+    A.pdfCartiglio(doc, L, 100, head);
+    const sx = doc.pagine[0].testi.filter((x) => !x.op);   /* la colonna di sinistra (la destra è allineata a destra) */
+    const tutto = sx.map((x) => x.t).join(" ");
+    eq(tutto.indexOf("…"), -1, "nessun testo tagliato: " + tutto);
+    attese.forEach((p) => ok(tutto.indexOf(p) > -1, "c'è «" + p + "»"));
+    ok(sx.every((x) => x.y > cy && x.y <= L.ph - L.fondo - 2), "tutte le righe dentro il cartiglio, sopra il margine della stampante");
+    /* ogni riga sta nella colonna del titolo, misurata con le metriche Helvetica del PDF */
+    const R = A.pdfCartRighe(head, titoloW);
+    ok(R.blocchi.find((b) => b.k === "titolo").righe.length >= 2, "il titolo va su più righe");
+    ok(R.blocchi.find((b) => b.k === "tot").righe.length >= 2, "i totali vanno su più righe");
+    R.blocchi.forEach((b) => b.righe.forEach((r) => ok(A.pdfTxtW(r, b.pt, b.bold) <= titoloW + 1e-6, b.k + " entro la colonna: «" + r + "»")));
+    R.blocchi.forEach((b) => b.righe.forEach((r) => ok(!/^·|·$/.test(r), b.k + ": nessuna riga comincia o finisce col separatore: «" + r + "»")));
+    eq(R.cartH, ch, "una sola altezza per impaginazione e disegno");
+    /* l'anteprima mostra lo stesso cartiglio a capo */
+    const svg = A.pdfPreviewSvg("a4", 100, "portrait", head, { focus: "clean" });
+    eq(svg.indexOf("…"), -1, "nemmeno l'anteprima taglia");
+    const testoSvg = (svg.match(/<text[^>]*>[^<]*<\/text>/g) || []).map((s) => s.replace(/<[^>]+>/g, "")).join(" ")
+      .replace(/&amp;/g, "&");
+    attese.forEach((p) => ok(testoSvg.indexOf(p) > -1, "anteprima: c'è «" + p + "»"));
+    /* con il QR la colonna si stringe: si va a capo di più, e il cartiglio non si accorcia */
+    A.__pdfQr = { n: 21, m: Array(21).fill("0".repeat(21)) };
+    ok(A.cartHFor(head, "a4", "portrait") >= ch, "col QR la colonna è più stretta: righe uguali o in più");
+  } finally { A.pdfTotals = t0; A.__pdfQr = null; reset(); }
+});
+t("il cartiglio dei progetti normali resta alto com'era", () => {
+  reset();
+  const t0 = A.pdfTotals;
+  A.state.titolo = "Trio jazz"; A.state.luogo = "Teatro Comunale";
+  try {
+    A.pdfTotals = () => [];
+    eq(A.cartHFor("", "a4", "landscape"), 22, "senza totali");
+    eq(A.cartHFor("Mario Rossi · mario@esempio.it", "a4", "portrait"), 22, "con un riferimento corto");
+    A.pdfTotals = () => ["8 canali", "3 leggii", "3 sedute", "2 spie"];
+    eq(A.cartHFor("", "a4", "landscape"), 27, "con la riga dei totali");
+    eq(A.cartHFor("Mario Rossi · mario@esempio.it", "a4", "portrait"), 27, "e col riferimento corto");
+  } finally { A.pdfTotals = t0; reset(); }
+});
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");
