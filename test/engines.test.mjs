@@ -11146,12 +11146,12 @@ t("posato dal catalogo è la postazione intera: congas, bongos, chimes, campanac
   eq(A.TYPES.percussioni.nome, "Percussionista", "in catalogo si chiama Percussionista");
 });
 
-t("un set salvato prima si riapre IDENTICO: i pezzi nuovi restano spenti", () => {
+t("un set salvato prima si riapre coi SUOI pezzi: niente chimes, tavolo o piatto aggiunti", () => {
   reset();
   const s = A.normalizeState({ _v: 2, items: [{ id: "x1", type: "percussioni", x: 300, y: 300, label: "Perc", w: 122, d: 89, parts: { congas: 2, bongos: true, mus: true, stool: false } }], stage: { w: 1200, d: 800 } });
   const it = s.items[0], pp = A.parts(it);
   eq([pp.chimes, pp.campanaccio, pp.piatto, pp.tavolo].join(","), "false,false,false,false", "niente pezzi aggiunti di nascosto");
-  eq(A.COMP.percussioni.size(it).join("x"), "110x105", "la misura di prima (quella calcolata da main il 13/10)");
+  eq(A.COMP.percussioni.size(it).join("x"), A.COMP.percussioni.size({ type: "percussioni", parts: { congas: 2, bongos: true, mus: true } }).join("x"), "la misura di un set di soli tamburi (la disposizione è quella nuova, 13/10)");
   eq(chans(it).length, 2, "e i due canali di prima");
 });
 
@@ -11175,12 +11175,69 @@ t("ogni pezzo nuovo allarga la postazione, e togliendolo si torna alla misura di
   reset();
   const p = soloTamburi(add("percussioni", 400, 400));
   const base = p.w + "x" + p.d;
-  ["chimes", "campanaccio", "piatto", "tavolo"].forEach((k) => {
+  ["chimes", "piatto", "tavolo"].forEach((k) => {   // il campanaccio no: sta sullo stativo dei bongos, dentro l'ingombro
     A.parts(p)[k] = true; A.drawPercussioni(p);
     ok(p.w + "x" + p.d !== base, k + " cambia l'ingombro: " + p.w + "x" + p.d);
     A.parts(p)[k] = false; A.drawPercussioni(p);
     eq(p.w + "x" + p.d, base, "senza " + k + " si torna a " + base);
   });
+});
+
+t("disposizione: congas ad arco davanti a chi suona, bongos e tavolo alla sua destra, piatto e chimes alla sua sinistra", () => {
+  reset();
+  [1, 2, 3].forEach((n) => {
+    const L = A.percSlots({ congas: n, bongos: true, chimes: true, campanaccio: true, piatto: true, tavolo: true, mus: true, stool: false });
+    const chi = L.find((x) => x.seat), di = (k) => L.filter((x) => x.k === k);
+    di("conga").forEach((c) => {
+      ok(c.y > chi.y, n + " congas: la conga sta DAVANTI a chi suona (verso il pubblico)");
+      const dist = Math.hypot(c.x - chi.x, c.y - chi.y);
+      ok(dist > 50 && dist < 70, n + " congas: alla distanza delle braccia: " + Math.round(dist) + " cm");
+    });
+    ok(di("bongos")[0].x < chi.x && di("tavolo")[0].x < chi.x, n + " congas: bongos e tavolo alla sua destra (x<0)");
+    ok(di("piatto")[0].x > chi.x && di("chimes")[0].x > chi.x, n + " congas: piatto e chimes alla sua sinistra (x>0)");
+    ok(di("tavolo")[0].y < chi.y, n + " congas: il tavolo sta più indietro di lui");
+    eq(di("campanaccio")[0].x, di("bongos")[0].x, n + " congas: il campanaccio è montato sullo stativo dei bongos");
+  });
+});
+
+t("il percussionista è IN PIEDI; con lo sgabello acceso è seduto", () => {
+  conIcone(["percussionistaInPiedi", "batteristaPersona"], () => {
+    reset();
+    const p = add("percussioni", 400, 400);
+    const piedi = A.drawPercussioni(p);
+    ok(piedi.indexOf("musPercussioni_cls-99") > -1, "la figura in piedi (camicia di musPercussioni)");
+    ok(piedi.indexOf("batteristaPersona") < 0, "non quella seduta del batterista");
+    A.parts(p).stool = true;
+    const seduto = A.drawPercussioni(p);
+    ok(seduto.indexOf("batteristaPersona") > -1 && seduto.indexOf("musPercussioni_cls-99") < 0, "con lo sgabello: seduto");
+  });
+});
+
+t("icone: il percussionista in piedi è la persona di musPercussioni, senza tamburi", () => {
+  const L = iconeVere(), o = L.musPercussioni, s = L.percussionistaInPiedi;
+  ok(s && s.body, "manca percussionistaInPiedi in icons.js");
+  [99, 70, 103, 89, 17, 157, 40].forEach((n) => ok(s.body.indexOf('class="musPercussioni_cls-' + n + '"') > -1, "manca il pezzo della persona cls-" + n));
+  /* via: pelle delle congas (152), fusti gialli (44, 182, 167), campanaccio (119), contorno che avvolge tutto (85) */
+  [152, 44, 182, 167, 119, 85].forEach((n) => {
+    ok(o.body.indexOf('class="musPercussioni_cls-' + n + '"') > -1, "l'originale ha il pezzo " + n);
+    ok(s.body.indexOf('class="musPercussioni_cls-' + n + '"') < 0, "è rimasto il pezzo cls-" + n);
+  });
+  ok(/stroke:#0a0b0b;stroke-width:7/.test(s.body), "il contorno rifatto col tratto nero sotto ogni pezzo");
+  ok(s.body.indexOf("<mask") < 0 && s.body.indexOf("<image") < 0, "niente <mask>/<image>: svg2pdf non le disegna");
+  eq(o.body, iconeVere().musPercussioni.body, "l'illustrazione originale non è toccata");
+});
+
+t("«Dividi»: il percussionista resta in piedi, chimes e tavolo restano girati", () => {
+  reset();
+  const p = add("percussioni", 400, 400); p.rot = 0;
+  const pezzi = A.COMP.percussioni.explode(p);
+  const chi = pezzi.find((x) => x.type === "percussionistaR");
+  ok(chi && chi.extra && chi.extra.inPiedi === true, "il percussionista diviso è in piedi");
+  eq(pezzi.find((x) => x.type === "chimes").extra.rot, 270, "i chimes girati col treppiede verso fuori");
+  eq(pezzi.find((x) => x.type === "tavolopercussioni").extra.rot, 90, "il tavolo per lungo");
+  A.parts(p).stool = true;
+  const seduto = A.COMP.percussioni.explode(p).find((x) => x.type === "percussionistaR");
+  ok(!(seduto.extra && seduto.extra.inPiedi), "con lo sgabello il percussionista diviso è seduto");
 });
 
 t("chimes, campanaccio, piatto e tavolo valgono UN panoramico, non un canale a testa", () => {
