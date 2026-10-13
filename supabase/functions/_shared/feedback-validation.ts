@@ -53,7 +53,9 @@ export const MAX_ELEMENTO_JSON_CHARS = 30_000;
    il testo a schermo). Diventano spazi. RESTANO U+200C (ZWNJ) e U+200D (ZWJ): fanno parte del testo (emoji composte
    come famiglie e bandiere, persiano, hindi). INVISIBILI_TESTO lascia anche a capo e tabulazione, che in un messaggio
    servono; prima di pulire, \r\n e \r da solo diventano \n (giro 2 della revisione). */
+// deno-lint-ignore no-control-regex -- i caratteri di controllo si cercano apposta, per toglierli
 const INVISIBILI = /[\u0000-\u001f\u007f-\u009f\u200b\u200e\u200f\u202a-\u202e\u2066-\u2069]/g;
+// deno-lint-ignore no-control-regex -- idem: pulizia del messaggio
 const INVISIBILI_TESTO = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u200b\u200e\u200f\u202a-\u202e\u2066-\u2069]/g;
 export const messaggioPulito = (s: string) => s.replace(/\r\n?/g, "\n").replace(INVISIBILI_TESTO, " ").trim();
 /* nome e descrizione: una riga sola, spazi compattati */
