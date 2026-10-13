@@ -9749,6 +9749,107 @@ t("il cartiglio dei progetti normali resta alto com'era", () => {
     eq(A.cartHFor("Mario Rossi · mario@esempio.it", "a4", "portrait"), 27, "e col riferimento corto");
   } finally { A.pdfTotals = t0; reset(); }
 });
+/* 13/10/2026, stage plot vero: la pagina «Note» del PDF scriveva ogni nota su una riga sola, a partire
+   da metà foglio. Oltre una sessantina di caratteri il testo usciva dal margine e poi dal foglio: la
+   nota c'era nel file ma sulla carta se ne leggeva metà. Stessa regola del cartiglio (#300): mai «…»,
+   si va a capo, e la riga dopo comincia sotto l'ultima riga della nota. */
+t("la pagina Note del PDF va a capo: una nota lunga c'è tutta, dentro il margine", () => {
+  reset();
+  const lunga = "Quattro tastiere per bambini su supporto a X, alimentate a rete: serve una ciabatta accanto e una DI stereo per tastiera, cavi jack corti";
+  ok(lunga.length > 120 && lunga.length <= A.NOTE_MAX, "la nota di prova è lunga quanto il campo permette: " + lunga.length);
+  const k = add("astamic", 300, 300, { label: "Tastiere bambini", note: lunga });
+  const altro = add("astamic", 500, 300, { label: "Leggio", note: "luce da leggio" });
+  ok(k.note === lunga && altro.note, "le note sono sugli elementi");
+  const doc = jsPdfFinto()({ format: "a4", orientation: "portrait" });
+  A.noteListPdf(doc);   /* modalità pacchetto: aggiunge la sua pagina al documento */
+  const testi = doc.pagine.slice(1).flatMap((p) => p.testi);
+  const tutto = testi.map((x) => x.t).join(" ");
+  eq(tutto.indexOf("…"), -1, "nessuna nota tagliata coi puntini");
+  lunga.split(/\s+/).forEach((p) => ok(tutto.indexOf(p) > -1, "manca «" + p + "» della nota"));
+  /* la colonna della nota è quella della sua intestazione; ogni riga ci sta, al corpo del PDF */
+  const xNota = (testi.find((x) => x.t === "Nota") || {}).x;
+  ok(xNota > 16, "intestazione «Nota» non trovata");
+  const righeNota = testi.filter((x) => x.x === xNota && x.t !== "Nota");
+  righeNota.forEach((x) => ok(x.x + A.pdfTxtW(x.t, 9.5, false) <= 194 + 1e-6, "riga oltre il margine destro: «" + x.t + "»"));
+  const dellaLunga = righeNota.filter((x) => lunga.indexOf(x.t) > -1);
+  ok(dellaLunga.length >= 2, "la nota lunga va su più righe: " + dellaLunga.length);
+  const sotto = righeNota.find((x) => x.t === "luce da leggio");
+  ok(sotto && sotto.y > Math.max(...dellaLunga.map((x) => x.y)), "la nota dopo comincia sotto l'ultima riga di quella lunga");
+  /* la nota ha la parte larga del foglio: prima 82 mm contro i 93 del nome dell'elemento */
+  ok(194 - xNota > 1.5 * (xNota - 16), "la colonna della nota (" + (194 - xNota).toFixed(1) + " mm) non è la più larga: elemento " + (xNota - 16).toFixed(1));
+  /* fra una riga e l'altra un filetto, alla stessa distanza della linea d'intestazione; sotto l'intestazione no */
+  const p1 = doc.pagine[1], yTesta = p1.testi.find((x) => x.t === "Nota").y;
+  const orizz = (l) => l.y1 === l.y2 && l.x1 === 16 && l.x2 === 194;
+  eq(p1.linee.filter((l) => orizz(l) && Math.abs(l.y1 - (yTesta + 1.8)) < 1e-6).length, 1, "una sola linea sotto l'intestazione (niente filetto doppio)");
+  ok(p1.linee.some((l) => orizz(l) && Math.abs(l.y1 - (sotto.y - 3.8)) < 1e-6 && l.y1 > Math.max(...dellaLunga.map((x) => x.y))),
+    "manca il filetto fra la nota lunga e la successiva");
+  /* tante note lunghe: si passa pagina con la riga intera e l'intestazione ripetuta, niente sotto il fondo */
+  reset();
+  const NR = 70;
+  for (let i = 0; i < NR; i++) add("astamic", 100 + i * 20, 300, { label: "Asta " + (i + 1), note: lunga });
+  const doc2 = jsPdfFinto()({ format: "a4", orientation: "portrait" });
+  A.noteListPdf(doc2);
+  const pag = doc2.pagine.slice(1);
+  ok(pag.length >= 3, NR + " note lunghe stanno su più fogli: " + pag.length);
+  const viste = new Set();
+  pag.forEach((p, i) => {
+    const testa = p.testi.find((x) => x.t === "Nota");
+    ok(testa, "foglio " + (i + 1) + " senza l'intestazione delle colonne");
+    if (!testa) return;
+    ok(p.linee.some((l) => orizz(l) && Math.abs(l.y1 - (testa.y + 1.8)) < 1e-6), "foglio " + (i + 1) + ": manca la linea sotto l'intestazione ripetuta");
+    ok(p.testi.every((x) => x.y <= 287), "foglio " + (i + 1) + ": testo sotto il fondo");
+    /* ogni riga intera sullo stesso foglio: dalla riga del nome, le righe della nota una sotto l'altra
+       ricompongono la nota tutta, senza che un pezzo finisca sul foglio dopo */
+    const nomi = p.testi.filter((x) => x.x === 16 && /^Asta \d+$/.test(x.t));
+    nomi.forEach((nm) => {
+      const pezzi = [];
+      for (let k = 0; ; k++) { const r = p.testi.find((x) => x.x === testa.x && Math.abs(x.y - (nm.y + k * 4.4)) < 1e-6); if (!r) break; pezzi.push(r.t); }
+      eq(pezzi.join(" "), lunga, "foglio " + (i + 1) + ", " + nm.t + ": la riga è spezzata o incompleta");
+      viste.add(nm.t);
+    });
+    /* una linea sopra ogni riga: l'intestazione sopra la prima del foglio, un filetto sopra le altre */
+    eq(p.linee.filter((l) => orizz(l) && nomi.some((nm) => Math.abs(l.y1 - (nm.y - 3.8)) < 1e-6)).length, nomi.length,
+      "foglio " + (i + 1) + ": una linea sopra ogni riga");
+  });
+  eq(viste.size, NR, "tutte le righe, ognuna intera su un foglio");
+  /* anteprima e link condiviso: la stessa nota per intero, in una cella che va a capo */
+  const html = A.listPreviewHtml("notelist");
+  ok(html.indexOf(A.esc(lunga)) > -1, "l'anteprima ha la nota intera");
+  ok(/<td class="a-capo">/.test(html), "la cella della nota va a capo");
+  ok(/\.pdf-list-tbl td\.a-capo\{[^}]*white-space:normal/.test(stylesCss), "manca la regola CSS che manda a capo la cella");
+  reset();
+});
+/* La Lista luci passa dalla stessa pagina generica: l'apparecchio lungo va a capo nella sua colonna, le
+   colonne di numeri non si spezzano, e nell'anteprima vanno a capo le stesse celle del PDF. */
+t("la Lista luci del PDF va a capo come le Note, e l'anteprima anche", () => {
+  reset();
+  const gear = "Proiettore LED a fascio stretto con lente zoom 15-30 gradi, bandiere e telaio portagelatine";
+  const pos = "americana frontale sopra la seconda fila della platea";
+  A.state.lights = { rows: [
+    A.lightRow({ fn: "frontale", n: 12, gear, color: "3200 K", pos }),
+    A.lightRow({ fn: "controluce", n: 4, gear: "sagomatore", color: "" }),
+  ], blackout: true, mood: "" };
+  const doc = jsPdfFinto()({ format: "a4", orientation: "portrait" });
+  A.lightsListPdf(doc);
+  const testi = doc.pagine[1].testi;
+  const tutto = testi.map((x) => x.t).join(" ");
+  eq(tutto.indexOf("…"), -1, "niente puntini");
+  gear.split(/\s+/).forEach((w) => ok(tutto.indexOf(w) > -1, "manca «" + w + "» dell'apparecchio"));
+  const teste = ["Q.tà", "Funzione", "Apparecchio", "Colore", "Posizione", "Sul palco"].map((h) => testi.find((x) => x.t === h));
+  ok(teste.every(Boolean), "le intestazioni restano intere, anche quelle dei numeri: " + teste.map((x) => x && x.t));
+  const cols = teste.map((x) => x.x);
+  for (let i = 0; i < cols.length; i++) {
+    const fine = i < cols.length - 1 ? cols[i + 1] - 3 : 194;
+    testi.filter((x) => x.x === cols[i] && x.y > teste[0].y).forEach((x) =>
+      ok(x.x + A.pdfTxtW(x.t, 9.5, false) <= fine + 1e-6, "colonna " + teste[i].t + ": «" + x.t + "» esce dalla colonna"));
+  }
+  ok(testi.filter((x) => x.x === cols[2] && gear.indexOf(x.t) > -1).length >= 2, "l'apparecchio lungo va su più righe");
+  /* anteprima: Funzione, Apparecchio e Posizione vanno a capo; quantità e colore no */
+  const html = A.listPreviewHtml("lightslist");
+  const celle = html.match(/<tbody><tr>(.*?)<\/tr>/)[1].match(/<td[^>]*>/g);
+  eq(celle.map((c) => c.replace(/ data-w="1"/, "")), ['<td class="n">', '<td class="a-capo">', '<td class="a-capo">', "<td>", '<td class="a-capo">', '<td class="n">'], "le celle che vanno a capo");
+  reset();
+});
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");
@@ -22621,14 +22722,15 @@ function jsPdfFinto() {
   return function (o) {
     const dims = { a4: [210, 297], a3: [297, 420], a2: [420, 594] };
     const dimDi = (f, or) => { const d = dims[f] || dims.a4; return or === "landscape" ? [d[1], d[0]] : [d[0], d[1]]; };
-    const pagine = [{ wh: dimDi(o.format, o.orientation), testi: [], rett: [] }];
+    const pagine = [{ wh: dimDi(o.format, o.orientation), testi: [], rett: [], linee: [] }];
     let cur = 0, fill = "#000";
     const doc = {
       pagine,
       internal: { pageSize: { getWidth: () => pagine[cur].wh[0], getHeight: () => pagine[cur].wh[1] } },
-      addPage(f, or) { pagine.push({ wh: dimDi(f || o.format, or || o.orientation), testi: [], rett: [] }); cur = pagine.length - 1; return doc; },
+      addPage(f, or) { pagine.push({ wh: dimDi(f || o.format, or || o.orientation), testi: [], rett: [], linee: [] }); cur = pagine.length - 1; return doc; },
       setPage(i) { cur = i - 1; }, getNumberOfPages: () => pagine.length,
-      setFont() {}, setFontSize() {}, setTextColor() {}, setDrawColor() {}, setLineWidth() {}, line() {},
+      setFont() {}, setFontSize() {}, setTextColor() {}, setDrawColor() {}, setLineWidth() {},
+      line(x1, y1, x2, y2) { pagine[cur].linee.push({ x1, y1, x2, y2 }); },   /* le linee servono a misurare barra di scala e cartiglio */
       setFillColor(...c) { fill = c.join(","); },
       rect(x, y, w, h, st) { pagine[cur].rett.push({ x, y, w, h, st, fill }); },
       text(t, x, y, op) { (Array.isArray(t) ? t : [t]).forEach((r, i) => pagine[cur].testi.push({ t: String(r), x, y: y + i * 4, op })); },
@@ -22653,6 +22755,65 @@ async function pdfFinto(opts) {
   try { return await A.buildPdfDoc("a4", 100, "landscape", ""); }
   finally { A.loadJsPDF = l0; A.drawStageVector = d0; A.__pdfPages = prima.pg; A.__pdfScaletta = prima.sc; A.__pdfQr = prima.qr; A.jspdf = prima.jspdf; }
 }
+/* 13/10/2026, PDF vero (palco 12×8 a 1:50 su A4): la barra di scala finiva sopra il titolo del cartiglio.
+   Stava sempre 10 mm sotto il disegno, ma dal 16/09 il cartiglio si è alzato di 7 mm dal fondo (fondo) e
+   fra disegno e cartiglio ne restano 8: col disegno che riempie il foglio la barra cadeva DENTRO il cartiglio.
+   Per ogni altezza del cartiglio (testi corti e lunghi, col QR e senza), A4/A3/A2, verticale/orizzontale:
+   barra sotto il disegno e sopra il cartiglio, con aria da tutte e due le parti; anteprima uguale. */
+taPdf("la barra di scala non tocca mai il cartiglio", async () => {
+  const prima = { jspdf: A.jspdf, l: A.loadJsPDF, d: A.drawStageVector, pg: A.__pdfPages, qr: A.__pdfQr, t: A.pdfTotals };
+  A.jspdf = { jsPDF: jsPdfFinto() }; A.loadJsPDF = () => Promise.resolve(); A.drawStageVector = () => Promise.resolve();
+  A.__pdfPages = {};
+  const TESTI = {
+    corti: { titolo: "Trio jazz", luogo: "Teatro Comunale", head: "", tot: [] },
+    lunghi: { titolo: "Concerto di Primavera 22.04.27 Auditorium Comunale con orchestra, coro e ospiti",
+      luogo: "Auditorium Comunale Gianfranco Bertolin, Montebelluna di Sopra (TV)",
+      head: "Riferimento: Mario Rossi Prova · mario.rossi.prova@esempio.it · 333 0000000",
+      tot: ["31 canali", "16 leggii", "12 sedute", "1 sgabello batteria", "4 personal mixer (1 hub)", "7 spie", "3 in-ear"] },
+  };
+  try {
+    for (const palco of [[4000, 3000], [400, 300]])   /* il disegno riempie il foglio (ritagliato) / ci sta largo */
+      for (const paper of ["a4", "a3", "a2"]) for (const orient of ["landscape", "portrait"])
+        for (const k of Object.keys(TESTI)) for (const qr of [false, true]) {
+          reset();
+          A.state.stage = { w: palco[0], d: palco[1], blocks: [{ x: 0, y: 0, w: palco[0], d: palco[1] }] };
+          const T = TESTI[k]; A.state.titolo = T.titolo; A.state.luogo = T.luogo; A.pdfTotals = () => T.tot;
+          A.__pdfQr = qr ? { n: 21, m: Array(21).fill("0".repeat(21)) } : null;
+          const caso = [palco[0] / 100 + "×" + palco[1] / 100 + " m", paper, orient, k, qr ? "QR" : "senza QR"].join(" · ");
+          const N = 50, cartH = A.cartHFor(T.head, paper, orient), box = A.pdfStageBox(N, paper, orient, cartH), L = box.L;
+          const doc = await A.buildPdfDoc(paper, N, orient, T.head);
+          const p = doc.pagine[0], cartTop = L.ph - L.fondo - L.cartH;
+          ok(p.linee.some((l) => l.x1 === L.M && l.x2 === L.pw - L.M && Math.abs(l.y1 - cartTop) < 1e-6), caso + ": linea del cartiglio non trovata");
+          /* la barra: la linea orizzontale che parte dal bordo sinistro del disegno, le sue tacche e le due scritte */
+          const barra = p.linee.find((l) => l.x1 === box.ix && l.y1 === l.y2 && l.x2 > l.x1);
+          ok(barra, caso + ": barra di scala non trovata");
+          const tacche = p.linee.filter((l) => l.x1 === l.x2 && l.x1 >= barra.x1 && l.x1 <= barra.x2);
+          const scritte = p.testi.filter((x) => (x.t === "0" && x.x === barra.x1) || (/^\d+ m$/.test(x.t) && x.x === barra.x2));
+          eq(scritte.length, 2, caso + ": «0» e «N m» sotto la barra");
+          const alto = Math.min(...tacche.map((l) => Math.min(l.y1, l.y2))), basso = Math.max(...scritte.map((x) => x.y), ...tacche.map((l) => Math.max(l.y1, l.y2)));
+          /* l'aria: 1,5 mm dal disegno e 2,5 dal cartiglio; se la fascia non basta (disegno a tutta pagina:
+             8 mm per una barra alta 5) la differenza si toglie in parti uguali, mai fino a toccare */
+          const fondoDis = box.iy + box.mmH, fascia = cartTop - fondoDis, ariaDis = alto - fondoDis, ariaCart = cartTop - basso;
+          ok(fascia >= 8 - 1e-6, caso + ": fra disegno e cartiglio restano " + fascia.toFixed(2) + " mm (attesi almeno 8)");
+          ok(Math.abs(alto - (barra.y1 - 1.4)) < 1e-6 && Math.abs(basso - (barra.y1 + 3.6)) < 1e-6, caso + ": la barra è alta 1,4 sopra la linea e 3,6 sotto");
+          if (fascia >= 1.5 + 5 + 2.5 - 1e-6) {
+            ok(ariaDis >= 1.5 - 1e-6, caso + ": dal disegno solo " + ariaDis.toFixed(2) + " mm");
+            ok(ariaCart >= 2.5 - 1e-6, caso + ": dal cartiglio solo " + ariaCart.toFixed(2) + " mm");
+          } else {
+            ok(Math.abs((1.5 - ariaDis) - (2.5 - ariaCart)) < 1e-6, caso + ": l'aria mancante non è tolta in parti uguali (" + ariaDis.toFixed(2) + " / " + ariaCart.toFixed(2) + ")");
+            ok(ariaDis >= 1 - 1e-6 && ariaCart >= 2 - 1e-6, caso + ": troppo vicina (" + ariaDis.toFixed(2) + " dal disegno, " + ariaCart.toFixed(2) + " dal cartiglio)");
+          }
+          if (palco[0] === 400) eq(barra.y1, box.iy + box.mmH + 10, caso + ": con spazio la barra resta dov'era, 10 mm sotto il disegno");
+          /* l'anteprima dell'Esporta disegna la stessa barra, alla stessa altezza */
+          const svg = A.pdfPreviewSvg(paper, N, orient, T.head, { focus: "clean" });
+          const m = svg.match(/<line class="scala-barra" x1="([\d.]+)" y1="([\d.]+)"/);
+          ok(m, caso + ": l'anteprima non ha la barra di scala");
+          if (m) { ok(Math.abs(+m[1] - barra.x1) < 0.01 && Math.abs(+m[2] - barra.y1) < 0.01, caso + ": anteprima " + m[1] + "," + m[2] + " contro PDF " + barra.x1 + "," + barra.y1); }
+        }
+  } finally {
+    A.jspdf = prima.jspdf; A.loadJsPDF = prima.l; A.drawStageVector = prima.d; A.__pdfPages = prima.pg; A.__pdfQr = prima.qr; A.pdfTotals = prima.t; reset();
+  }
+});
 taPdf("PDF: il peso dei modelli reali arriva nella testata del palco", async () => {
   /* La strada fino al foglio: due modelli dai manuali (22 + 15,45 kg) invece delle stime di
      famiglia (25 + 40 kg). Il totale nella riga sotto il titolo deve essere il loro. */
