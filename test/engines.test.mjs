@@ -11,6 +11,7 @@ import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import vm from "node:vm";
+import { inflateSync } from "node:zlib";   /* il testo dei PDF pubblicati sta in stream compressi */
 import { execFileSync } from "node:child_process";   /* per far controllare app.js al parser vero */
 import { datiDallaLanding } from "../ops/anteprima-social.mjs";   /* l'anteprima social si pesca dalla landing: qui si verifica che sia ancora quella */
 
@@ -12192,6 +12193,45 @@ t("scheda tecnica: le FAQ visibili e quelle in JSON-LD dicono la stessa cosa", (
   const article = ld["@graph"].find((n) => n["@type"] === "Article");
   ok(article && article.author && article.author["@id"] === "https://simonecastellan.com/#person",
     "l'autore riusa lo stesso @id delle altre guide (anello E-E-A-T)");
+});
+
+/* --- Il modello scaricabile della scheda tecnica (13/10) ---
+   Perché: per «scheda tecnica band» Google Italia mostra solo articoli senza un modello da scaricare.
+   La pagina offre il PDF d'esempio esportato dall'editor e un link che apre l'editor su un modello.
+   Si rompono in silenzio: un PDF spostato (404), un modello rinominato (l'editor si apre vuoto) e il
+   numero di pagina «1 di N» in fondo a ogni foglio, regola fissa per ogni PDF che pubblichiamo
+   (l'export dell'app scrive ancora «pag 1/N» e solo da due pagine in su: il modello è stato
+   esportato con il piè di pagina «1 di N»). */
+t("scheda tecnica: il modello PDF esiste, è pubblicato, e ogni pagina dice «N di T»", () => {
+  const hrefPdf = (schedaHtml.match(/href="(\/guida\/scheda-tecnica-band\/[^"]+\.pdf)"/) || [])[1];
+  ok(hrefPdf, "la pagina linka un PDF nella sua cartella (pubblicata dal deploy con guida/)");
+  const pdf = readFileSync(join(root, hrefPdf));
+  eq(pdf.subarray(0, 5).toString("latin1"), "%PDF-", "è un PDF");
+  ok(pdf.length < 1024 * 1024, "pesa meno di 1 MB: " + pdf.length);
+  ok(readFileSync(join(root, "llms.txt"), "utf8").indexOf("https://stageplot.it" + hrefPdf) > -1, "llms.txt lo elenca");
+  /* il testo di jsPDF sta in stream FlateDecode: si scompattano e si cercano le scritte «(i di N) Tj» */
+  const raw = pdf.toString("latin1");
+  const pagine = (raw.match(/\/Type \/Page\b(?!s)/g) || []).length;
+  let testo = "";
+  for (const m of raw.matchAll(/stream\r?\n/g)) {
+    const da = m.index + m[0].length, a = raw.indexOf("endstream", da);
+    try { testo += inflateSync(pdf.subarray(da, a)).toString("latin1"); } catch (_e) { /* immagini o stream non compressi */ }
+  }
+  const numeri = [...testo.matchAll(/\((\d+) di (\d+)\) Tj/g)].map((m) => m[1] + "/" + m[2]);
+  ok(pagine >= 2, "più pagine: " + pagine);
+  eq(numeri.join(","), Array.from({ length: pagine }, (_, i) => (i + 1) + "/" + pagine).join(","), "«N di T» su ogni pagina, in ordine");
+  const img = (schedaHtml.match(/src="(\/guida\/scheda-tecnica-band\/[^"]+\.jpg)"/) || [])[1];
+  ok(img && existsSync(join(root, img)), "l'anteprima della prima pagina esiste: " + img);
+});
+
+t("scheda tecnica: il link «apri nell'editor» punta a un modello che l'editor conosce", () => {
+  const modelli = [...schedaHtml.matchAll(/href="\/app\/\?model=([\w-]+)"/g)].map((m) => m[1]);
+  ok(modelli.length >= 1, "c'è almeno un link a un modello");
+  for (const k of modelli) {
+    const d = A.formationData(k);
+    ok(d && d.out && d.out.length > 0, "?model=" + k + " apre un palco con dentro qualcosa");
+    ok(d.out.filter((i) => i.type === "gtstand" || i.type === "stack").length >= 2, "?model=" + k + ": due chitarre, come la band dell'esempio");
+  }
 });
 
 /* --- Pagine «alternativa a…» (10/10) ---------------------------------------------------------
