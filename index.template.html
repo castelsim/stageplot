@@ -5715,7 +5715,7 @@ function nextVariantName(){ var n=0; VARIANTS.forEach(function(v){ var m=/^Varia
    data e contatti non erano mai diversi. Restano nello stato di ogni variante — lo schema e i file
    già salvati non cambiano — ma a ogni sincronizzazione quelli della variante attiva si scrivono
    nelle altre. */
-var CAMPI_DOCUMENTO=["titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","scaletta"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena */
+var CAMPI_DOCUMENTO=["titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
 function propagaCampiDocumento(v){
   var src=v&&v.state; if(!src) return;
   VARIANTS.forEach(function(o){
@@ -8450,6 +8450,7 @@ function normalizeState(s){
   if(_sc.length) s.scaletta=_sc; else delete s.scaletta;
   /* Modelli dell'elemento personalizzato (13/10): solo se ce n'è almeno uno valido; una copia che punta a un modello sparito perde il riferimento */
   var _cm=(Array.isArray(s.customModels)?s.customModels:[]).slice(0,50).map(custModelNorm).filter(Boolean);
+  var _cmVisti=Object.create(null); _cm=_cm.filter(function(q){ if(_cmVisti[q.id]) return false; _cmVisti[q.id]=1; return true; });   /* id doppi: si tiene il primo */
   if(_cm.length) s.customModels=_cm; else delete s.customModels;   /* solo se serve: l'impronta del PDF non cambia */
   s.items.forEach(function(x){ if(x.type==="custom" && x.cust && x.cust.modelId && !_cm.some(function(q){ return q.id===x.cust.modelId; })) delete x.cust.modelId; });
   s.status = (["bozza","revisione","approvato","superato"].indexOf(s.status)>=0) ? s.status : "bozza";   /* T5: stato di approvazione */
@@ -9344,38 +9345,65 @@ function drawCustom(it){
 /* Modelli del progetto (13/10/2026): un elemento personalizzato (con i suoi eventuali compagni di gruppo) salvato nel
    progetto per posarne copie indipendenti. `state.customModels` esiste solo se non è vuoto: firmaPdf fa l'hash dello
    stato normalizzato e un [] in più segnerebbe «modificato dopo l'ultimo PDF» su ogni progetto. */
+/* Campi di un membro che puntano ad altri elementi (id dell'originale) o a un posto numerato: nel modello e nelle copie non hanno senso */
+function custMembroViaggio(){ return ["id","grp","x","y","diFor","diId","rackId","rackPos","ascoltoId","rxId","distOf","sbTo","fila","posto","settore","__proto__","prototype","constructor"]; }
+/* copia pulita di un membro (null se non ammesso): niente modelli dentro modelli, niente riferimenti, numeri finiti, etichetta testuale */
+function custMembroPulito(x){
+  if(!x || typeof x!=="object" || Array.isArray(x) || !itemTypeDef(x) || x.type==="custom") return null;
+  var c=JSON.parse(JSON.stringify(x)), n;
+  custMembroViaggio().forEach(function(k){ delete c[k]; });
+  ["w","d"].forEach(function(k){ if(!(k in c)) return; n=(c[k]===null||typeof c[k]==="boolean") ? NaN : Number(c[k]); if(isFinite(n) && n>0) c[k]=n; else delete c[k]; });   /* altrimenti valgono i default del tipo */
+  if("rot" in c){ n=(c.rot===null||typeof c.rot==="boolean") ? NaN : Number(c.rot); if(isFinite(n)) c.rot=Math.round(n); else delete c.rot; }
+  if("label" in c){ if(typeof c.label==="string" || typeof c.label==="number") c.label=String(c.label).slice(0,80); else delete c.label; }
+  return c;
+}
 function custModelNorm(m){
   if(!m || typeof m!=="object" || typeof m.id!=="string" || !/^[a-z0-9_-]{1,40}$/i.test(m.id)) return null;
   var finto=custNorm({type:"custom", w:m.w, d:m.d, watt:m.watt, cust:{nome:m.nome, desc:m.desc, shapes:m.shapes, ins:m.ins, backline:m.backline}});
   var out={id:m.id, nome:finto.cust.nome, w:finto.w, d:finto.d, shapes:finto.cust.shapes, membri:[]};
   if(finto.cust.desc) out.desc=finto.cust.desc; if(finto.watt!=null) out.watt=finto.watt;
   if(finto.cust.ins) out.ins=finto.cust.ins; if(finto.cust.backline) out.backline=true;
-  (Array.isArray(m.membri)?m.membri:[]).slice(0,100).forEach(function(x){
-    if(!x || typeof x!=="object" || !itemTypeDef(x) || x.type==="custom") return;   /* niente modelli dentro modelli */
+  (Array.isArray(m.membri)?m.membri:[]).forEach(function(x){
+    if(out.membri.length>=100) return;
+    var c=custMembroPulito(x); if(!c) return;
     var dx=Number(x.dx), dy=Number(x.dy); if(!isFinite(dx)||!isFinite(dy)) return;
-    var c=JSON.parse(JSON.stringify(x)); delete c.id; delete c.grp; delete c.x; delete c.y; c.dx=dx; c.dy=dy; out.membri.push(c);
+    c.dx=Math.max(-100000,Math.min(100000,Math.round(dx))); c.dy=Math.max(-100000,Math.min(100000,Math.round(dy)));
+    out.membri.push(c);
   });
   return out;
 }
-/* membri = elementi con lo stesso grp della base, in coordinate relative al centro della base e con la rotazione della base tolta */
+/* id di un modello nuovo: mai uno già presente (nextId si ricalcola solo dagli elementi, dopo una ricarica potrebbe ripetersi) */
+function custModelIdLibero(){
+  var id, usati=(state.customModels||[]).map(function(q){ return q.id; });
+  do{ id="m"+uid().slice(1); }while(usati.indexOf(id)>=0);
+  return id;
+}
+/* membri = elementi con lo stesso grp della base (stesse regole di custModelNorm: no custom, max 100), in coordinate
+   relative al centro della base e con la rotazione della base tolta */
 function custModelDaAgglomerato(base){
   var rot=-(base.rot||0), membri=[];
   (base.grp ? state.items.filter(function(x){ return x.grp===base.grp && x.id!==base.id; }) : []).forEach(function(x){
-    var p=rotatePointAround(x.x, x.y, base.x, base.y, rot), c=JSON.parse(JSON.stringify(x));
-    delete c.id; delete c.grp; delete c.x; delete c.y; c.dx=Math.round(p[0]-base.x); c.dy=Math.round(p[1]-base.y);
+    if(membri.length>=100) return;
+    var c=custMembroPulito(x); if(!c) return;
+    var p=rotatePointAround(x.x, x.y, base.x, base.y, rot);
+    c.dx=Math.max(-100000,Math.min(100000,Math.round(p[0]-base.x))); c.dy=Math.max(-100000,Math.min(100000,Math.round(p[1]-base.y)));
     c.rot=(((x.rot||0)+rot)%360+360)%360; membri.push(c); });
-  var c=base.cust||{}, m={id:"m"+uid().slice(1), nome:c.nome, w:base.w, d:base.d, shapes:JSON.parse(JSON.stringify(c.shapes||[])), membri:membri};
+  var c=base.cust||{}, m={id:custModelIdLibero(), nome:c.nome, w:base.w, d:base.d, shapes:JSON.parse(JSON.stringify(c.shapes||[])), membri:membri};
   if(c.desc) m.desc=c.desc; if(base.watt!=null) m.watt=base.watt; if(c.ins) m.ins=c.ins; if(c.backline) m.backline=true;
   return m;
 }
 /* posa una copia del modello: base + membri con id e gruppo nuovi (copie profonde, indipendenti dal modello) */
 function custPosaModello(id, x, y){
+  if(window.__projLocked) return [];   /* progetto bloccato: nessun percorso di aggiunta deve poter scrivere */
   var m=(state.customModels||[]).find(function(q){ return q.id===id; }); if(!m) return [];
   var gid="g"+uid(), base={id:uid(), type:"custom", x:Math.round(x), y:Math.round(y), rot:0, w:m.w, d:m.d, grp:gid,
     watt:m.watt, cust:{nome:m.nome, desc:m.desc, shapes:JSON.parse(JSON.stringify(m.shapes)), ins:m.ins, backline:m.backline, modelId:m.id}};
   if(base.watt==null) delete base.watt; custNorm(base); base.label=base.cust.nome; state.items.push(base);
   var out=[base];
-  m.membri.forEach(function(c){ var it=JSON.parse(JSON.stringify(c)); it.id=uid(); it.grp=gid; it.x=base.x+c.dx; it.y=base.y+c.dy; delete it.dx; delete it.dy; state.items.push(it); out.push(it); });
+  /* i membri passano dalla normalizzazione degli elementi (id già assegnati e unici: restano); lastDupIds è del caricamento, si rimette com'era */
+  var membri=m.membri.map(function(c){ var it=JSON.parse(JSON.stringify(c)); it.id=uid(); it.grp=gid; it.x=base.x+c.dx; it.y=base.y+c.dy; delete it.dx; delete it.dy; return it; });
+  var _dup=normalizeLoadedItems.lastDupIds; membri=normalizeLoadedItems(membri); normalizeLoadedItems.lastDupIds=_dup;
+  membri.forEach(function(it){ bumpItemLabels(it); state.items.push(it); out.push(it); });   /* come duplicateSel: la copia non ripete la sigla dell'originale */
   if(m.membri.length===0) delete base.grp;   /* un gruppo di un solo elemento non ha senso */
   return out;
 }
