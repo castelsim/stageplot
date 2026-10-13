@@ -7580,6 +7580,206 @@ t("modelli del progetto: riferimenti, membri sporchi, id doppi, rotazione, blocc
   }
 });
 
+/* ===== Crea elemento — palco temporaneo (Task 4). Il rischio: con l'editor aperto lo stato vivo è il palco temporaneo,
+   e qualunque scrittura (locale, cloud, versioni, varianti, export) lo farebbe passare per il progetto vero. Ogni test
+   chiude l'editor nel finally: i test dopo devono trovare il progetto vero. */
+function conEditor(fn) {
+  const docPrima = A.document, lockPrima = A.__projLocked, consultPrima = A.__consultMode;
+  const cl = { contains: () => false, add() {}, remove() {}, toggle() {} };
+  const body = new Proxy({}, { get: (t, k) => (k === "classList" ? cl : docPrima.body[k]) });
+  A.document = new Proxy({}, { get: (t, k) => (k === "body" ? body : docPrima[k]) });
+  A.__projLocked = false; A.__consultMode = false;
+  try { return fn(); }
+  finally {
+    try { if (typeof A.custEditorAttivo === "function" && A.custEditorAttivo()) A.custEditorAnnulla(); } catch (e) { A.__custEditor = null; }
+    A.document = docPrima; A.__projLocked = lockPrima; A.__consultMode = consultPrima;
+  }
+}
+
+t("palco temporaneo: si apre sulla superficie, Annulla lascia il progetto identico", () => conEditor(() => {
+  reset();
+  A.applyVariantState(JSON.parse(A.stateToJSON()));   /* reset() scrive `lights` senza `notes`: lo stato dell'app è sempre normalizzato */
+  const a = add("cantante", 350, 330), b = add("sedia", 900, 600);
+  const prima = A.docToJSON();
+  ok(A.custEditorApri({ x: 300, y: 300, w: 120, d: 80 }, { includi: true }), "editor aperto");
+  ok(A.custEditorAttivo(), "attivo");
+  eq([A.state.stage.w, A.state.stage.d], [120, 80], "il palco è la superficie");
+  eq(A.state.items.length, 1, "dentro solo l'elemento nell'area");
+  eq([A.state.items[0].x, A.state.items[0].y], [50, 30], "coordinate della superficie");
+  eq(A.persistLocalState(), true, "salvataggio locale sospeso (non scrive)");
+  A.custEditorAnnulla();
+  eq(A.custEditorAttivo(), false, "chiuso");
+  const canon = j => JSON.stringify(JSON.parse(j), (k, v) => (v && typeof v === "object" && !Array.isArray(v)) ? Object.fromEntries(Object.keys(v).sort().map(x => [x, v[x]])) : v);
+  eq(canon(A.docToJSON()), canon(prima), "progetto identico a prima (a meno dell'ordine delle chiavi)");
+}));
+
+t("palco temporaneo: Salva rimette tutto al suo posto, raggruppato, con le forme", () => conEditor(() => {
+  reset();
+  add("cantante", 350, 330);
+  A.custEditorApri({ x: 300, y: 300, w: 120, d: 80 }, { includi: true });
+  A.state.items.push({ id: A.uid(), type: "custshape", k: "rect", x: 60, y: 40, w: 100, d: 60, rot: 0, fill: "#334455", stroke: "#000000", sw: 1 });
+  const id = A.custEditorSalva({ nome: "Postazione", desc: "", watt: 300, ins: null, backline: false });
+  eq(A.custEditorAttivo(), false, "chiuso");
+  const base = A.state.items.find(x => x.id === id);
+  ok(base && base.type === "custom", "base creata");
+  eq([base.x, base.y, base.w, base.d], [360, 340, 120, 80], "posata nel rettangolo (centro)");
+  eq(base.watt, 300, "watt");
+  eq(base.cust.shapes.length, 1, "una forma");
+  eq([base.cust.shapes[0].x, base.cust.shapes[0].y], [10, 10], "forma in coordinate della superficie (60-50, 40-30)");
+  const voce = A.state.items.find(x => x.type === "cantante");
+  eq([voce.x, voce.y], [350, 330], "elemento vero tornato al suo posto");
+  ok(voce.grp && voce.grp === base.grp, "raggruppati");
+  eq(A.state.items.some(x => x.type === "custshape"), false, "nessun custshape sul palco vero");
+}));
+
+t("palco temporaneo: con l'editor aperto variante, Nuovo, Apri ed export non toccano il progetto", () => conEditor(() => {
+  reset();
+  A.custEditorApri({ x: 0, y: 0, w: 100, d: 100 }, { includi: false });
+  ok(/custEditorAttivo\(\)\)\s*return/.test(String(A.switchVariant)), "switchVariant bloccato");
+  ok(/custEditorAttivo\(\)/.test(String(A.importProject)), "importProject bloccato");
+  ok(/__custEditor/.test(String(A.scheduleCloudAutosave)), "autosave cloud sospeso");
+  A.custEditorAnnulla();
+}));
+
+t("modifica di un elemento ruotato: si apre dritto e si risalva ruotato", () => conEditor(() => {
+  reset();
+  const base = add("custom", 500, 500, { w: 100, d: 50, rot: 90, cust: { nome: "R", shapes: [] } }); A.custNorm(base);
+  A.custEditorApri(null, { baseId: base.id });
+  eq([A.state.stage.w, A.state.stage.d], [100, 50], "superficie con le misure dell'elemento, non ruotata");
+  const id = A.custEditorSalva({ nome: "R", desc: "", watt: null, ins: null, backline: false });
+  const b = A.state.items.find(x => x.id === id);
+  eq([b.x, b.y, b.rot], [500, 500, 90], "stessa posizione e rotazione");
+}));
+
+t("palco temporaneo: le forme dell'elemento tornano nell'editor e si risalvano uguali (anche coi compagni ruotati)", () => conEditor(() => {
+  reset();
+  const shapes = [{ k: "rect", x: 10, y: 10, w: 40, h: 20, fill: "#334455", stroke: "#000000", sw: 1 },
+    { k: "ell", cx: 70, cy: 25, rx: 10, ry: 8, fill: null, stroke: "#112233", sw: 2 },
+    { k: "line", x1: 0, y1: 0, x2: 100, y2: 50, fill: null, stroke: "#000000", sw: 1 },
+    { k: "poly", pts: [[0, 0], [20, 0], [10, 15]], fill: "#aabbcc", stroke: "#000000", sw: 1 },
+    { k: "text", x: 50, y: 40, s: "Ciao", size: 12, fill: "#1d1d1f", stroke: "#1d1d1f", sw: 1 }];
+  const base = add("custom", 500, 500, { w: 100, d: 50, rot: 90, cust: { nome: "Forme", shapes: JSON.parse(JSON.stringify(shapes)) } }); A.custNorm(base);
+  const voce = add("cantante", 500, 550, { rot: 90 }); base.grp = voce.grp = "gT";
+  const formePrima = JSON.parse(JSON.stringify(base.cust.shapes));
+  ok(A.custEditorApri(null, { baseId: base.id }), "aperto");
+  eq(A.state.items.filter(x => x.type === "custshape").length, 5, "una forma = un custshape");
+  const v = A.state.items.find(x => x.type === "cantante");
+  eq([v.x, v.y, v.rot], [100, 25, 0], "il compagno nella superficie dritta (rotazione dell'elemento tolta)");
+  const id = A.custEditorSalva({ nome: "Forme", desc: "", watt: null, ins: null, backline: false });
+  const b = A.state.items.find(x => x.id === id);
+  eq(b.id, base.id, "stesso id: è lo stesso elemento");
+  eq(b.cust.shapes, formePrima, "forme identiche dopo il giro editor → salva");
+  const v2 = A.state.items.find(x => x.type === "cantante");
+  eq([v2.x, v2.y, v2.rot], [500, 550, 90], "il compagno torna dov'era");
+  ok(v2.grp && v2.grp === b.grp, "ancora nello stesso gruppo");
+  eq(A.state.items.filter(x => x.type === "custom").length, 1, "nessun doppione della base");
+}));
+
+t("palco temporaneo: con l'editor aperto nessuno scrive il palco temporaneo (locale, cloud, versioni, varianti, documento)", () => conEditor(() => {
+  reset();
+  A.applyVariantState(JSON.parse(A.stateToJSON()));   /* come nell'app: stato normalizzato (reset() lascia `lights` senza `notes`) */
+  add("cantante", 350, 330);
+  const canon = j => JSON.stringify(JSON.parse(j), (k, v) => (v && typeof v === "object" && !Array.isArray(v)) ? Object.fromEntries(Object.keys(v).sort().map(x => [x, v[x]])) : v);
+  const scritte = [], cloud = { salvataggi: 0 };
+  const lsPrima = A.localStorage, cloudPrima = A.__cloud, dirtyPrima = A._cloudDirty, savingPrima = A._cloudSaving;
+  /* i blocchi del cloud spenti (nel sandbox una window.__x mai scritta vale «vero»): così è la guardia dell'editor a fermarlo */
+  const flag = ["__docLoadBlocked", "__localConflict", "__cloudConflict", "__bootVenueUnavailable", "__localStorageUnavailable"];
+  const flagPrima = flag.map(k => A[k]); flag.forEach(k => { A[k] = false; });
+  const rtPrima = A.__rtBroadcast; let diretta = 0; A.__rtBroadcast = () => { diretta++; };   /* sessione live: chi guarda riceve lo stato */
+  /* «sp_onboarded» è una preferenza dell'interfaccia (render la scrive quando il palco ha elementi), non il progetto */
+  A.localStorage = { getItem: () => null, setItem: (k, v) => { if (k !== "sp_onboarded") scritte.push(k); }, removeItem: (k) => scritte.push("-" + k) };
+  A.__cloud = { user: () => ({ id: "u" }), currentId: () => "c1", save: () => { cloud.salvataggi++; }, isWriting: () => false };
+  try {
+    A.save();   /* il progetto vero entra in VARIANTS prima dell'apertura */
+    const docVero = A.docToJSON();
+    A._cloudDirty = true; A._cloudSaving = false; A.cloudAutosaveNow();
+    ok(cloud.salvataggi > 0, "controprova: a editor chiuso il salvataggio cloud parte davvero");
+    A._cloudDirty = false; A._cloudSaving = false;
+    ok(A.custEditorApri({ x: 300, y: 300, w: 120, d: 80 }, { includi: true }), "aperto");
+    const prima = scritte.length, salvPrima = cloud.salvataggi, direttaPrima = diretta;
+    A.state.items.push({ id: A.uid(), type: "custshape", k: "rect", x: 60, y: 40, w: 100, d: 60, rot: 0, fill: "#334455", stroke: "#000000", sw: 1 });
+    A.save(); A.saveSoon(); A.flushHistorySoon();
+    eq(A.persistLocalState(), true, "persistLocalState non scrive ma non segnala errore");
+    A.scheduleCloudAutosave();
+    eq(A._cloudDirty, false, "l'autosave cloud non si arma");
+    A._cloudDirty = true; A.cloudAutosaveNow(); A.flushCloudAutosave();
+    eq(cloud.salvataggi, salvPrima, "nessun salvataggio cloud parte, nemmeno forzato");
+    eq(diretta, direttaPrima, "la sessione live non riceve il palco temporaneo");
+    A._cloudDirty = false;
+    eq(A.saveVersion("prova", true), false, "nessun punto di ripristino del palco temporaneo");
+    eq(scritte.length, prima, "nessuna scrittura in localStorage");
+    eq(A.docToJSON(), docVero, "il documento (cloud/export) resta quello vero");
+    const varPrima = A.activeVar, nVar = A.VARIANTS.length;
+    A.switchVariant("altra"); eq(A.activeVar, varPrima, "niente cambio di variante");
+    eq(A.createVariant("x"), null, "niente variante nuova"); eq(A.VARIANTS.length, nVar, "varianti intatte");
+    eq(A.deleteVariant(varPrima), false, "niente variante eliminata");
+    eq(A.beginNewDocument(null, { skipRecovery: true }), false, "niente documento nuovo");
+    throws(() => A.importProject(docVero), null);
+    eq(A.custEditorAttivo(), true, "l'editor è ancora aperto");
+    eq(A.exportPng(), false, "niente PNG");
+    eq(A.custEditorApri({ x: 0, y: 0, w: 50, d: 50 }, {}), false, "un secondo editor non si apre");
+    A.custEditorAnnulla();
+    eq(canon(A.docToJSON()), canon(docVero), "Annulla: il documento è quello vero (a meno dell'ordine delle chiavi)");
+    eq(scritte.slice(prima), [], "Annulla non scrive niente (non c'era niente di nuovo)");
+  } finally {
+    A.localStorage = lsPrima; A.__cloud = cloudPrima; A._cloudDirty = dirtyPrima; A._cloudSaving = savingPrima;
+    flag.forEach((k, i) => { A[k] = flagPrima[i]; }); A.__rtBroadcast = rtPrima;
+  }
+}));
+
+t("palco temporaneo: Annulla e Ripeti dentro l'editor, poi la cronologia vera torna com'era", () => conEditor(() => {
+  reset();
+  A.resetHistory();   /* lo stack si ferma a 120 passi: si parte da vuoto, così il conto dei passi è esatto */
+  add("cantante", 350, 330); A.save();
+  add("sedia", 900, 600); A.save();
+  const undoPrima = A.undoStack.length, snapPrima = A.lastSnap, assetsPrima = A.venueHistoryAssets;
+  ok(A.custEditorApri({ x: 300, y: 300, w: 120, d: 80 }, { includi: true }), "aperto");
+  eq(A.undoStack.length, 0, "cronologia dell'editor vuota");
+  A.state.items.push({ id: A.uid(), type: "custshape", k: "ell", x: 30, y: 30, w: 20, d: 20, rot: 0, fill: null, stroke: "#000000", sw: 1 });
+  A.save();
+  A.undo();
+  eq(A.state.items.filter(x => x.type === "custshape").length, 0, "Annulla dentro l'editor toglie la forma");
+  eq([A.state.stage.w, A.state.stage.d], [120, 80], "e resta nel palco temporaneo");
+  A.custEditorAnnulla();
+  eq(A.undoStack.length, undoPrima, "la cronologia vera è tornata");
+  ok(A.lastSnap === snapPrima, "con lo stesso ultimo passo");
+  ok(A.venueHistoryAssets === assetsPrima, "e le planimetrie della cronologia (senza, un Annulla cancellerebbe la planimetria)");
+  A.custEditorApri({ x: 300, y: 300, w: 120, d: 80 }, { includi: true });
+  A.custEditorSalva({ nome: "X", desc: "", watt: null, ins: null, backline: false });
+  eq(A.undoStack.length, undoPrima + 1, "Salva è un solo passo di Annulla");
+  A.undo();
+  eq(A.state.items.some(x => x.type === "custom"), false, "e Annulla lo toglie per intero");
+  eq(A.state.items.find(x => x.type === "cantante").grp, undefined, "il cantante torna fuori dal gruppo");
+}));
+
+t("palco temporaneo: rifiuta progetto bloccato, sola visione, consulenza, base inesistente, superficie troppo piccola", () => conEditor(() => {
+  reset();
+  A.__projLocked = true;
+  eq(A.custEditorApri({ x: 0, y: 0, w: 100, d: 100 }, {}), false, "bloccato");
+  A.__projLocked = false;
+  A.__consultMode = true;
+  eq(A.custEditorApri({ x: 0, y: 0, w: 100, d: 100 }, {}), false, "consulenza");
+  A.__consultMode = false;
+  eq(A.custEditorApri(null, { baseId: "inesistente" }), false, "base inesistente");
+  const s = add("sedia", 100, 100);
+  eq(A.custEditorApri(null, { baseId: s.id }), false, "la base deve essere un elemento personalizzato");
+  eq(A.custEditorApri({ x: 0, y: 0, w: 5, d: 100 }, {}), false, "sotto i 10 cm");
+  eq(A.custEditorApri(null, {}), false, "senza rettangolo né base");
+  eq(A.custEditorApri({ x: NaN, y: 0, w: 100, d: 100 }, {}), false, "numeri non validi");
+  eq(A.custEditorAttivo(), false, "mai aperto");
+  eq(A.custEditorSalva({ nome: "X" }), null, "Salva a editor chiuso non fa nulla");
+  A.custEditorAnnulla();   /* a editor chiuso non fa nulla e non lancia */
+}));
+
+t("custshape: tipo solo dell'editor, mai da un file, mai in catalogo", () => {
+  eq(A.TYPES.custshape && A.TYPES.custshape.catalog, false, "fuori dal catalogo");
+  ok(!A.custEditorAttivo(), "editor chiuso");
+  const e = throws(() => A.normalizeLoadedItems([{ id: "i1", type: "custshape", k: "rect", x: 0, y: 0, w: 10, d: 10 }]), "UNKNOWN_ITEM_TYPE");
+  ok(e, "un custshape da file blocca il documento come un tipo sconosciuto");
+  eq(A.custMembroPulito({ type: "custshape", k: "rect", x: 0, y: 0 }), null, "e non entra nei modelli del progetto");
+  ok(A.NO_MIRROR.custshape, "non si specchia (i testi uscirebbero a rovescio)");
+});
+
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");

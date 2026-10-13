@@ -1198,6 +1198,12 @@ var TYPES = {
   custom:   {nome:"Elemento personalizzato", dim:"disegnato da te, in scala", cat:"Palco e strutture", w:120,d:80, z:1, catalog:false, defLabel:"Elemento",
              alias:"elemento personalizzato custom segnaposto",
              draw:function(it){ return drawCustom(it); }},
+  /* forma dentro l'editor «Crea elemento» (palco temporaneo): esiste solo lì. Non si salva mai (il palco temporaneo non
+     si persiste) e un file che la contiene viene rifiutato da normalizeLoadedItems. Si disegna passando da custNorm,
+     così anche una forma appena creata ha colori e numeri controllati. */
+  custshape:{nome:"Forma dell'elemento", dim:"", cat:"Palco e strutture", w:40,d:40, z:2, catalog:false, resizable:true, innerLabel:true, defLabel:"",
+             draw:function(it){ var w=Math.max(4,+it.w||40), d=Math.max(4,+it.d||40);   /* rot:0: la rotazione dell'item la applica già itemMarkup */
+               return drawCustom(custNorm({w:w, d:d, cust:{shapes:[custFormaDaShape(Object.assign({}, it, {x:w/2, y:d/2, rot:0}))].filter(Boolean)}})); }},
   /* --- ottoni (icone realistiche libreria + seduta chiara) --- */
   corno:    {nome:"Corno", dim:"postazione", cat:"Orchestra", sub:"Ottoni", w:95,d:105,
              draw:function(it){ return station(it, gCorno(), "wind", true); }},
@@ -3559,7 +3565,9 @@ function propagaCampiDocumento(v){
     });
   });
 }
-function syncActiveVariant(){ ensureVariants(); var v=activeVarObj(); if(v){ cacheVenueImg(state&&state.venue,v.id); v.state=JSON.parse(stateToJSON()); propagaCampiDocumento(v); } }
+/* Con l'editor «Crea elemento» aperto lo stato vivo è il palco temporaneo: la scena attiva in VARIANTS resta quella vera
+   (sincronizzata all'apertura), così chiunque serializzi il documento (cloud, export, versioni) scrive il progetto vero. */
+function syncActiveVariant(){ if(window.__custEditor) return; ensureVariants(); var v=activeVarObj(); if(v){ cacheVenueImg(state&&state.venue,v.id); v.state=JSON.parse(stateToJSON()); propagaCampiDocumento(v); } }
 function documentEnvelope(active,variants,extra){
   var out={}; Object.keys(extra||DOC_EXTRA||{}).forEach(function(k){ out[k]=(extra||DOC_EXTRA)[k]; });
   out._doc=1; out.active=active; out.variants=variants; return out;
@@ -3719,6 +3727,7 @@ function commitPreparedDoc(prepared){
 function loadDoc(parsed){ commitPreparedDoc(prepareDoc(parsed)); }
 /* cambia variante attiva: congela l'attuale, carica la target. Reset undo (per-variante). */
 function switchVariant(id, senzaSync){   /* senzaSync: la scena attiva è appena stata tolta (Annulla di «Adatta») e non va riscritta */
+  if(custEditorAttivo()) return;   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo */
   if(id===activeVar) return; var target=null; for(var i=0;i<VARIANTS.length;i++){ if(VARIANTS[i].id===id) target=VARIANTS[i]; }
   if(!target || !target.state) return;
   if(!senzaSync) syncActiveVariant(); activeVar=id; applyVariantState(target.state,true,id);
@@ -3730,6 +3739,7 @@ function switchVariant(id, senzaSync){   /* senzaSync: la scena attiva è appena
 }
 /* crea una nuova variante = copia dell'attiva, poi ci passa sopra */
 function createVariant(name){
+  if(custEditorAttivo()) return null;   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo */
   syncActiveVariant(); var src=activeVarObj(); if(!src) return null;
   var copy=JSON.parse(JSON.stringify(src.state)); var id=newVarId();
   delete copy.pdfEsportato;   /* una variante nuova non è mai stata esportata */
@@ -3844,7 +3854,7 @@ function avvisiDopoModifica(){
 }
 function renameVariant(id, name){ name=(name||"").trim(); if(!name) return; for(var i=0;i<VARIANTS.length;i++){ if(VARIANTS[i].id===id){ VARIANTS[i].name=name; break; } }
   persistLocalState(); if(window.scheduleCloudAutosave) scheduleCloudAutosave(); if(window.__consultDirty) window.__consultDirty(); renderVariantBar(); }
-function deleteVariant(id){ if(VARIANTS.length<=1) return false;   /* guardia: mai eliminare l'ultima variante */
+function deleteVariant(id){ if(custEditorAttivo()) return false; if(VARIANTS.length<=1) return false;   /* guardia: mai eliminare l'ultima variante */
   var idx=-1; for(var i=0;i<VARIANTS.length;i++){ if(VARIANTS[i].id===id) idx=i; } if(idx<0) return false;
   /* La cronologia è per-scena (applyHistory non tocca VARIANTS): ⌘Z dopo questa riga non riporta la
      scena, annulla l'ultima modifica fatta ALTROVE. L'unica rete possibile è il punto di ripristino,
@@ -4120,6 +4130,7 @@ track("app_open", {from:(location.search.match(/[?&]from=([\w-]{1,24})/)||[])[1]
    "Senza titolo" al primo autosave. Stato e id si scrivono insieme così restano sempre coerenti; se il
    modulo cloud non è ancora partito la chiave non si tocca (il boot la sta per adottare). */
 function persistLocalState(forceLockedMetadata){
+  if(window.__custEditor) return true;   /* editor aperto: lo stato vivo è il palco temporaneo, non va mai scritto */
   avvisiDopoModifica();   /* avviso di variante identica ancora vero? (06/10) */
   if(foreignDoc() || (window.__projLocked&&!forceLockedMetadata) || window.__docLoadBlocked) return;   /* progetto bloccato: scrittura solo per rev metadata esplicitamente autorizzata */
   if(window.__localConflict) return false;
@@ -4378,7 +4389,7 @@ window.addEventListener("beforeunload",function(e){
    digitazione), ma in una chiave separata scritta SOLO quando la planimetria cambia. Così sopravvive a reload e
    login senza riscrivere MB ad ogni carattere. */
 function stageVenueImg(){
-  if(foreignDoc() || window.__docLoadBlocked) return;
+  if(window.__custEditor || foreignDoc() || window.__docLoadBlocked) return;   /* editor aperto: niente scritture */
   var bundle=venueImageBundle(), hasImages=Object.keys(bundle.images).length>0, sig=venueImageBundleSig();
   if(sig && sig===venueStageFailedSig) return false;   /* non riscrivere MB a ogni tasto dopo una quota failure */
   try{
@@ -4609,6 +4620,9 @@ function cloudAutosaveNow(){
   clearTimeout(_cloudAsT); _cloudAsT=null;
   clearTimeout(_cloudRetryT); _cloudRetryT=null;   /* questo tentativo sostituisce l'eventuale retry pendente */
   if(_cloudSaving) return;   /* il callback corrente rilancia se nel frattempo sono arrivate altre modifiche */
+  /* editor «Crea elemento» aperto (retry, rete che torna, scheda nascosta, flush esplicito): si rimanda. Un salvataggio
+     ancora in sospeso del progetto vero resta in _cloudDirty e riparte alla chiusura dell'editor (custRipristina). */
+  if(window.__custEditor){ resolveCloudFlush(false); return; }
   if(window.__docLoadBlocked){ setDocState("blocked"); resolveCloudFlush(false); return; }   /* documento incompatibile: mai sovrascrivere il cloud */
   if(window.__localConflict){ setDocState("conflict"); resolveCloudFlush(false); return; }   /* un'altra tab ha una revisione locale concorrente */
   if(window.__bootVenueUnavailable){ setDocState("conflict"); resolveCloudFlush(false); return; }   /* pointer locale mancante: attendi il recupero autorevole, mai inviare venue_image=null */
@@ -4646,6 +4660,7 @@ function cloudAutosaveNow(){
   }, true);
 }
 function scheduleCloudAutosave(){
+  if(window.__custEditor) return;   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo: l'autosave non si arma */
   if(window.__docLoadBlocked){ setDocState("blocked"); return; }
   if(window.__consultMode || document.body.classList.contains("viewmode") || window.__projLocked) return;  /* consulenza: autosave proprio · bloccato: read-only */
   _cloudDirty=true; _cloudChangeSeq++;
@@ -4817,7 +4832,7 @@ function recordHistory(){
   if(lastSnap!=null){ undoStack.push(lastSnap); if(undoStack.length>120) undoStack.shift(); }
   lastSnap=s; redoStack.length=0;
   pruneVenueHistoryAssets(); syncHistoryButtons();
-  if(window.__rtBroadcast) window.__rtBroadcast(s.json);   /* Fase 3: sessione live, solo editor */
+  if(!window.__custEditor && window.__rtBroadcast) window.__rtBroadcast(s.json);   /* Fase 3: sessione live, solo editor (mai il palco temporaneo) */
 }
 function resetHistory(){ venueHistoryAssets=Object.create(null); undoStack.length=0; redoStack.length=0; lastSnap=historySnapshot(); syncHistoryButtons(); }
 /* Annulla/Ripeti si spengono quando non c'è niente da annullare. Serve soprattutto dopo un cambio di
@@ -4922,6 +4937,9 @@ function adattaRifaiScena(){
 }
 /* ===== Importa progetto da file .json (annullabile) ===== */
 function activatePreparedProject(prepared, opts){
+  /* editor «Crea elemento» aperto: nessun documento entra. Si LANCIA (non return): chi chiama ha il suo ramo d'errore e
+     non deve proseguire come se il documento fosse stato aperto (id cloud, revisione, titolo). */
+  if(custEditorAttivo()) throw new Error("Chiudi prima l'elemento che stai disegnando.");
   opts=opts||{};
   commitPreparedDoc(prepared);
   window.__docLoadBlocked=null;   /* un documento compatibile aperto esplicitamente sblocca persistenza e cloud */
@@ -4942,6 +4960,7 @@ function activatePreparedProject(prepared, opts){
   render(); renderChannels(); fit(); renderVariantBar();
 }
 function importProject(json, opts){
+  if(custEditorAttivo()) throw new Error("Chiudi prima l'elemento che stai disegnando.");   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo */
   var s=JSON.parse(json);                                   /* lancia se non è JSON valido */
   if(!s || typeof s!=="object") throw new Error("Formato non valido");
   activatePreparedProject(prepareDoc(s),opts);   /* valida tutto prima del primo side effect */
@@ -5978,6 +5997,8 @@ function normalizeLoadedItems(arr){
   var provided=Object.create(null), used=Object.create(null), seq=1, dupIds=0;
   arr.forEach(function(it,idx){
     if(!itemTypeDef(it)) throw documentLoadError("UNKNOWN_ITEM_TYPE","Elemento "+(idx+1)+" non supportato.");
+    /* custshape vive solo nel palco temporaneo dell'editor «Crea elemento»: da un file (link, JSON, cloud) non deve mai arrivare */
+    if(it.type==="custshape" && !window.__custEditor) throw documentLoadError("UNKNOWN_ITEM_TYPE","Elemento "+(idx+1)+" non supportato.");
     if(it.id==null || it.id==="") return;
     var id=itemIdString(it.id);
     /* id non-safe o duplicato: NON blocca il documento — verrà riassegnato nel map (come gli id vuoti),
@@ -6015,7 +6036,7 @@ function normalizeLoadedItems(arr){
       if(_nn) it.note=_nn; else delete it.note;
     }
     [["x",0],["y",0],["rot",0]].forEach(function(k){
-      n=Number(it[k[0]]); it[k[0]]=isFinite(n)?Math.round(n):k[1];
+      n=Number(it[k[0]]); it[k[0]]=isFinite(n)?(it.type==="custshape"?n:Math.round(n)):k[1];   /* custshape: il centro di una forma non si arrotonda (la forma si sposterebbe a ogni Annulla) */
     });
     ["w","d"].forEach(function(k){
       if(it[k]==null) return;
@@ -6032,7 +6053,7 @@ function normalizeLoadedItems(arr){
        chiave sparisce dal file. Niente da convertire: nessun valore vecchio diceva qualcosa sul disegno. */
     if(it.lblDist!=null) delete it.lblDist;
     if(it.opacity!=null){ n=Number(it.opacity); if(isFinite(n)) it.opacity=Math.max(0,Math.min(100,n)); else delete it.opacity; }
-    if(it.pts!=null){
+    if(it.pts!=null && it.type!=="custshape"){   /* i punti di una forma (anche 2, non interi) li controlla custFormaDaShape */
       if(Array.isArray(it.pts) && it.pts.length>=3 && it.pts.every(function(p){ return Array.isArray(p)&&p.length>=2&&isFinite(+p[0])&&isFinite(+p[1]); }))
         it.pts=it.pts.map(function(p){ return [Math.round(+p[0]),Math.round(+p[1])]; });
       else delete it.pts;
@@ -6973,7 +6994,7 @@ function adattaAvvertenza(W0, D0, W, D, stretta){
     if(window.__consultDirty) window.__consultDirty();
     lastSnap=historySnapshot(); adattaPasso.snap=lastSnap;
     pruneVenueHistoryAssets(); syncHistoryButtons();
-    if(window.__rtBroadcast) window.__rtBroadcast(lastSnap.json);
+    if(!window.__custEditor && window.__rtBroadcast) window.__rtBroadcast(lastSnap.json);
   } else save();
   render();
   if(typeof fit==="function") fit();
@@ -7182,7 +7203,7 @@ function drawCustom(it){
 function custMembroViaggio(){ return ["id","grp","x","y","diFor","diId","rackId","rackPos","ascoltoId","rxId","distOf","sbTo","fila","posto","settore","__proto__","prototype","constructor"]; }
 /* copia pulita di un membro (null se non ammesso): niente modelli dentro modelli, niente riferimenti, numeri finiti, etichetta testuale */
 function custMembroPulito(x){
-  if(!x || typeof x!=="object" || Array.isArray(x) || !itemTypeDef(x) || x.type==="custom") return null;
+  if(!x || typeof x!=="object" || Array.isArray(x) || !itemTypeDef(x) || x.type==="custom" || x.type==="custshape") return null;
   var c=JSON.parse(JSON.stringify(x)), n;
   custMembroViaggio().forEach(function(k){ delete c[k]; });
   ["w","d"].forEach(function(k){ if(!(k in c)) return; n=(c[k]===null||typeof c[k]==="boolean") ? NaN : Number(c[k]); if(isFinite(n) && n>0) c[k]=n; else delete c[k]; });   /* altrimenti valgono i default del tipo */
@@ -7239,6 +7260,141 @@ function custPosaModello(id, x, y){
   membri.forEach(function(it){ bumpItemLabels(it); state.items.push(it); out.push(it); });   /* come duplicateSel: la copia non ripete la sigla dell'originale */
   if(m.membri.length===0) delete base.grp;   /* un gruppo di un solo elemento non ha senso */
   return out;
+}
+/* ===== Crea elemento: il PALCO TEMPORANEO (13/10/2026) =====
+   L'editor non è una finestra a parte: è lo stesso editor, con il palco ridotto alla superficie dell'elemento. All'apertura
+   il progetto vero si mette da parte (la scena attiva serializzata, la cronologia, le immagini della cronologia) e lo stato
+   vivo diventa il palco temporaneo; alla chiusura si rimette la scena salvata (Tappa 0: applyVariantState + stack di
+   Annulla, MAI importProject, che staccherebbe il progetto dal cloud).
+   Il pericolo è uno solo: che il palco temporaneo venga scritto come se fosse il progetto. Con `__custEditor` acceso sono
+   fermi: persistLocalState, stageVenueImg, scheduleCloudAutosave, cloudAutosaveNow, saveProject (cloud), saveVersion,
+   syncActiveVariant (VARIANTS resta quello vero: docToJSON ed export scrivono il progetto vero), il broadcast della
+   sessione live, varianti, Nuovo, Apri/import/ripristino, export PDF/PNG/JSON, condivisione. Chiudere o ricaricare la
+   pagina con l'editor aperto lascia quindi in memoria e nel cloud il progetto com'era prima di aprirlo.
+   `var` (e non solo window.__custEditor=…): la dichiarazione esiste da subito, anche per il codice di avvio più in alto. */
+var __custEditor=null;   /* null | {salvato, rect:{x,y,w,d}, rot, baseId|null, inclusi:[id…]} */
+function custEditorAttivo(){ return !!window.__custEditor; }
+function custEditorClasse(on){ try{ document.body.classList[on?"add":"remove"]("cust-editor"); }catch(e){} }
+function custEditorRidisegna(){
+  render();
+  if(typeof renderChannels==="function") renderChannels();
+  if(typeof fit==="function") fit();
+}
+/* rect = superficie nuova in coordinate del palco (angolo + misure); opz.includi = porta dentro gli elementi che ci stanno
+   sopra; opz.baseId = modifica di un elemento personalizzato già posato (con i compagni del suo gruppo). */
+function custEditorApri(rect, opz){
+  opz=opz||{};
+  if(custEditorAttivo() || window.__projLocked || document.body.classList.contains("viewmode") || foreignDoc() || isMobile()) return false;
+  var L=custLimiti(), base=null, r;
+  if(opz.baseId!=null){
+    base=state.items.find(function(x){ return x.id===opz.baseId && x.type==="custom"; });
+    if(!base) return false;
+    r={x:base.x-base.w/2, y:base.y-base.d/2, w:base.w, d:base.d};
+  } else {
+    if(!rect || ![rect.x,rect.y,rect.w,rect.d].every(function(v){ return typeof v==="number" && isFinite(v); })) return false;
+    r={x:Math.round(rect.x), y:Math.round(rect.y), w:Math.round(rect.w), d:Math.round(rect.d)};
+  }
+  if(!(r.w>=L.MIN && r.d>=L.MIN)) return false;
+  primaDiAgire();   /* uno snapshot in sospeso (digitazione) entra nella cronologia vera prima di metterla da parte */
+  if(window.flushCloudAutosave) try{ flushCloudAutosave(); }catch(e){}   /* un salvataggio cloud in attesa parte adesso, col progetto vero */
+  syncActiveVariant();   /* VARIANTS porta il progetto vero: con l'editor aperto non si aggiorna più */
+  var rot=base ? (base.rot||0) : 0, cx=r.x+r.w/2, cy=r.y+r.d/2, inclusi=[];
+  if(base && base.grp) inclusi=state.items.filter(function(x){ return x.grp===base.grp && x.id!==base.id; });
+  else if(!base && opz.includi) inclusi=state.items.filter(function(x){ return x.type!=="custom" && itemPickable(x) && x.x>=r.x && x.x<=r.x+r.w && x.y>=r.y && x.y<=r.y+r.d; });
+  var realNext=nextId;
+  window.__custEditor={ salvato:{attiva:stateToJSON(), undo:undoStack.slice(), redo:redoStack.slice(), lastSnap:lastSnap,
+                                 venueAssets:venueHistoryAssets, activeVar:activeVar},
+                        rect:r, rot:rot, baseId:base?base.id:null, inclusi:inclusi.map(function(x){ return x.id; }) };
+  try{
+    var tmp=JSON.parse(window.__custEditor.salvato.attiva);
+    tmp.stage={w:r.w, d:r.d, blocks:[{x:0,y:0,w:r.w,d:r.d}]};
+    /* dentro la superficie dritta: la rotazione dell'elemento si toglie, e si rimette al salvataggio */
+    tmp.items=inclusi.map(function(x){ var c=JSON.parse(JSON.stringify(x)), p=rotatePointAround(x.x,x.y,cx,cy,-rot);
+      c.x=Math.round(p[0]-r.x); c.y=Math.round(p[1]-r.y); c.rot=(((x.rot||0)-rot)%360+360)%360; delete c.grp; return c; });
+    if(base) (base.cust.shapes||[]).forEach(function(g){ var c=custShapeDaForma(g); if(c) tmp.items.push(c); });
+    applyVariantState(tmp); ensureItemIds();
+    if(nextId<realNext) nextId=realNext;   /* gli elementi nuovi non riprendono id del progetto vero */
+    clearSelection(); resetHistory();
+  }catch(e){ custRipristina(); return false; }   /* qualcosa non va: si torna subito al progetto vero, intatto */
+  custEditorClasse(true); custEditorRidisegna();
+  return true;
+}
+/* rimette il progetto vero com'era all'apertura. Il flag si spegne DOPO il ripristino: se questo fallisse, le scritture
+   restano ferme e il progetto vero resta quello in memoria locale e nel cloud. */
+function custRipristina(){
+  var E=window.__custEditor, sv=E.salvato;
+  applyVariantState(JSON.parse(sv.attiva), true, sv.activeVar); ensureItemIds(); clearSelection();
+  undoStack.length=0; Array.prototype.push.apply(undoStack, sv.undo);
+  redoStack.length=0; Array.prototype.push.apply(redoStack, sv.redo);
+  lastSnap=sv.lastSnap; venueHistoryAssets=sv.venueAssets;   /* le planimetrie della cronologia: senza, un Annulla dopo l'editor la cancellerebbe */
+  window.__custEditor=null;
+  custEditorClasse(false);
+  syncHistoryButtons();
+  if(_cloudDirty && window.scheduleCloudAutosave) scheduleCloudAutosave();   /* un salvataggio del progetto vero rimandato durante l'editor */
+  return E;
+}
+function custEditorAnnulla(){ if(!custEditorAttivo()) return; custRipristina(); custEditorRidisegna(); }
+/* scheda = {nome, desc, watt, ins, backline}. Le forme (custshape) diventano cust.shapes in coordinate della superficie; gli
+   altri elementi del palco temporaneo tornano sul palco vero, nel gruppo dell'elemento. Un solo passo di Annulla. */
+function custEditorSalva(scheda){
+  if(!custEditorAttivo()) return null;
+  scheda=scheda||{};
+  var E=window.__custEditor, r=E.rect, cx=r.x+r.w/2, cy=r.y+r.d/2;
+  var forme=state.items.filter(function(x){ return x.type==="custshape"; }).map(custFormaDaShape).filter(Boolean);
+  var veri=state.items.filter(function(x){ return x.type!=="custshape"; }).map(function(x){ return JSON.parse(JSON.stringify(x)); });
+  custRipristina();
+  primaDiAgire();
+  var orig=E.baseId ? state.items.find(function(x){ return x.id===E.baseId; }) : null;
+  state.items=state.items.filter(function(x){ return x.id!==E.baseId && E.inclusi.indexOf(x.id)<0; });
+  var gid=veri.length ? "g"+uid() : null;
+  /* modifica: si parte dall'elemento com'era (nota, blocco…); forme, misure, scheda e gruppo sono quelli nuovi */
+  var base=orig ? JSON.parse(JSON.stringify(orig)) : {};
+  delete base.grp; delete base.watt; delete base.label;
+  Object.assign(base, {id:E.baseId||uid(), type:"custom", x:Math.round(cx), y:Math.round(cy), rot:E.rot, w:r.w, d:r.d,
+            cust:{nome:scheda.nome, desc:scheda.desc, shapes:forme, ins:scheda.ins, backline:!!scheda.backline}});
+  if(scheda.watt!=null && scheda.watt!=="") base.watt=Number(scheda.watt);
+  custNorm(base); base.label=base.cust.nome; if(gid) base.grp=gid; state.items.push(base);
+  veri.forEach(function(c){ var p=rotatePointAround(r.x+c.x, r.y+c.y, cx, cy, E.rot);
+    c.x=Math.round(p[0]); c.y=Math.round(p[1]); c.rot=(((c.rot||0)+E.rot)%360+360)%360; if(gid) c.grp=gid;
+    if(E.inclusi.indexOf(c.id)<0 && state.items.some(function(z){ return z.id===c.id; })) c.id=uid();
+    state.items.push(c); });
+  clearSelection(); selectClick(base.id);
+  save(); custEditorRidisegna();
+  return base.id;
+}
+/* custshape ↔ forma. L'item custshape ha x/y = centro e w/d = ingombro (come ogni elemento: si seleziona, si sposta, si
+   ruota); linea e poligono hanno i punti relativi al centro. La forma salvata vive nella superficie (angolo in alto a
+   sinistra). La rotazione di linea e poligono si cuoce nei punti: drawCustom la applica solo a rettangolo, ellisse, testo. */
+function custFormaDaShape(x){
+  if(!x || typeof x!=="object") return null;
+  var n=function(v){ v=Number(v); return isFinite(v) ? v : null; }, cx=n(x.x), cy=n(x.y), w=n(x.w), d=n(x.d), rot=n(x.rot)||0;
+  if(cx==null || cy==null) return null;
+  var pt=function(p){ if(!Array.isArray(p) || n(p[0])==null || n(p[1])==null) return null;
+    return rot ? rotatePointAround(cx+Number(p[0]), cy+Number(p[1]), cx, cy, rot) : [cx+Number(p[0]), cy+Number(p[1])]; };
+  var g={k:x.k, fill:x.fill, stroke:x.stroke, sw:x.sw};
+  if(x.k==="rect"){ if(w==null || d==null) return null; g.x=cx-w/2; g.y=cy-d/2; g.w=w; g.h=d; if(x.r) g.r=x.r; }
+  else if(x.k==="ell"){ if(w==null || d==null) return null; g.cx=cx; g.cy=cy; g.rx=w/2; g.ry=d/2; }
+  else if(x.k==="line"){ var a=pt(x.p1), b=pt(x.p2); if(!a || !b) return null; g.x1=a[0]; g.y1=a[1]; g.x2=b[0]; g.y2=b[1]; return g; }
+  else if(x.k==="poly"){ if(!Array.isArray(x.pts)) return null; g.pts=x.pts.map(pt).filter(Boolean); if(g.pts.length<2) return null; return g; }
+  else if(x.k==="text"){ g.x=cx; g.y=cy; g.s=x.s; g.size=x.size; }
+  else return null;
+  if(rot) g.rot=rot;
+  return g;
+}
+function custShapeDaForma(g){
+  if(!g || typeof g!=="object") return null;
+  var x={id:uid(), type:"custshape", k:g.k, fill:g.fill, stroke:g.stroke, sw:g.sw, rot:g.rot||0};
+  if(g.k==="rect"){ x.x=g.x+g.w/2; x.y=g.y+g.h/2; x.w=g.w; x.d=g.h; if(g.r) x.r=g.r; }
+  else if(g.k==="ell"){ x.x=g.cx; x.y=g.cy; x.w=g.rx*2; x.d=g.ry*2; }
+  else if(g.k==="line"){ x.rot=0; x.x=(g.x1+g.x2)/2; x.y=(g.y1+g.y2)/2; x.p1=[g.x1-x.x, g.y1-x.y]; x.p2=[g.x2-x.x, g.y2-x.y];
+    x.w=Math.max(4,Math.abs(g.x2-g.x1)); x.d=Math.max(4,Math.abs(g.y2-g.y1)); }
+  else if(g.k==="poly"){ var xs=g.pts.map(function(p){ return p[0]; }), ys=g.pts.map(function(p){ return p[1]; });
+    x.rot=0; x.x=(Math.min.apply(0,xs)+Math.max.apply(0,xs))/2; x.y=(Math.min.apply(0,ys)+Math.max.apply(0,ys))/2;
+    x.pts=g.pts.map(function(p){ return [p[0]-x.x, p[1]-x.y]; });
+    x.w=Math.max(4,Math.max.apply(0,xs)-Math.min.apply(0,xs)); x.d=Math.max(4,Math.max.apply(0,ys)-Math.min.apply(0,ys)); }
+  else if(g.k==="text"){ x.x=g.x; x.y=g.y; x.s=g.s; x.size=g.size; x.w=Math.max(10,g.s.length*g.size*0.55); x.d=g.size*1.3; }
+  else return null;
+  return x;
 }
 function drawShape(it){
   var col=shapeFillOf(it), st=shapeStyleOf(it), op=(it.opacity==null?100:+it.opacity)/100;
@@ -14308,7 +14464,7 @@ document.getElementById("pBack").addEventListener("click", function(){
    l'altro lato del palco. Ora è un'azione, nella stessa riga di Duplica ed Elimina.
    Fuori: gli elementi il cui disegno È scrittura (testo, forma, zona) — specchiarli scriverebbe al
    contrario, che non è mai quello che si vuole. */
-var NO_MIRROR={ testo:1, forma:1, miczone:1, metro:1, platea:1, custom:1 };   /* platea: simmetrica, e il cartellino «60 posti» uscirebbe a rovescio; custom: i suoi testi uscirebbero a rovescio */
+var NO_MIRROR={ testo:1, forma:1, miczone:1, metro:1, platea:1, custom:1, custshape:1 };   /* platea: simmetrica, e il cartellino «60 posti» uscirebbe a rovescio; custom: i suoi testi uscirebbero a rovescio */
 function canMirror(it){ return !!(it && !NO_MIRROR[it.type]); }
 /* Con PIÙ elementi (selezionati o uniti in blocco) specchiare vuol dire ribaltare la DISPOSIZIONE,
    non solo l'arte di ognuno: chi sta a sinistra passa a destra rispetto all'asse verticale del
@@ -19577,6 +19733,8 @@ function downloadProjectCopy(){
 }
 var documentReplacementSeq=0;
 function guardDocumentReplacement(options,action){
+  /* apri progetto, link condiviso, ripristina versione: con l'editor «Crea elemento» aperto non si sostituisce niente */
+  if(custEditorAttivo()){ if(window.__toast) window.__toast("Chiudi prima l'elemento che stai disegnando.",true); return null; }
   options=options||{};
   var request=++documentReplacementSeq, meaningful=hasMeaningfulDocument();
   function current(){ return request===documentReplacementSeq; }
@@ -19640,6 +19798,7 @@ function guardDocumentReplacement(options,action){
   return request;
 }
 function beginNewDocument(initialState,options){
+  if(custEditorAttivo()) return false;   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo: niente documento nuovo */
   options=options||{};
   /* Qualsiasi generatore/modello può rimpiazzare lo slot locale: prima conserva l'intero documento,
      incluse varianti e planimetrie. Se il recovery non entra nello storage, non distruggere il lavoro. */
@@ -25512,6 +25671,7 @@ function venueRefForVersion(sig){
   return {sig:sig,key:staged.key};
 }
 function saveVersion(name,includeImages){
+  if(custEditorAttivo()) return false;   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo: nessun punto di ripristino */
   var vs=loadVersions();
   var C=window.__cloud, cid=(C&&typeof C.currentId==="function")?(C.currentId()||null):(window.__bootCloudId||null);
   var row={name:name||'Versione', date:Date.now(), cloudId:cid};
@@ -25936,6 +26096,7 @@ window.confirmDialog=confirmDialog;
 
 /* ============ FILE: nuovo / json / png ============ */
 document.getElementById("bNew").addEventListener("click", function(){
+  if(custEditorAttivo()) return;   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo */
   if(window.__consultMode){
     if(window.__toast) window.__toast("Durante la consulenza non puoi sostituire il progetto. Usa Esporta recupero se ti serve una copia.",true);
     return;
@@ -26426,6 +26587,7 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     showForProject(id,request);
   } };
   function openShare(){
+    if(custEditorAttivo()) return;   /* editor «Crea elemento» aperto: il link condiviso porterebbe il palco temporaneo */
     var C=window.__cloud, request=++shareRequestSeq, sourceEpoch=window.__docEpoch||0;
     modal.hidden=false;
     _shareIsCurrent=true; shareFillExtras();
@@ -26481,6 +26643,7 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
      versione dal menu — confondevano). Sotto il cofano resta uno snapshot versione SILENZIOSO:
      rete di sicurezza gratuita, zero carico cognitivo. */
   function fileSaveCloud(){
+    if(custEditorAttivo()) return;   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo */
     if(window.__consultMode){
       var liveSave=document.getElementById("viewSave"); if(liveSave&&!liveSave.disabled) liveSave.click();
       if(window.__toast) window.__toast("Salvataggio consulenza richiesto.");
@@ -26671,6 +26834,7 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
   window.jsonSoloCollegati=jsonSoloCollegati;
   document.getElementById("saveJson").addEventListener("click", function(){
     if(!window.jsonSoloCollegati()) return;
+    if(custEditorAttivo()) return;   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo */
     var name=((state.titolo||state.luogo||"stageplot").replace(/[^\w\-]+/g,"_").replace(/^_+|_+$/g,"").slice(0,40)||"stageplot")+".json";
     var data=docToJSONFull();   /* T6: export = documento intero (tutte le varianti); l'attiva porta la planimetria (_dataUrl), nessun limite di dimensione */
     if(typeof window.showSaveFilePicker==="function" && !isMobile()){   /* apre il selettore "dove salvare" */
@@ -29838,6 +30002,7 @@ function renderPdfUltimo(){
   el.classList.toggle("vecchio", /^Modificato/.test(tx));
 }
 function exportPdf(paperKey, scaleSel, orient, header){
+  if(custEditorAttivo()) return Promise.resolve(false);   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo: niente export */
   var info=document.getElementById("pdfInfo");
   /* M-04: il gate sugli errori CRITICI vive nel click di #pdfGo, non più qui — perché lì può usare la
      finestra dell'app (Promise) invece del confirm() nativo che alcuni browser lasciano sopprimere.
@@ -29887,6 +30052,7 @@ function exportPdf(paperKey, scaleSel, orient, header){
    fine vera — riuscita o fallita — così il bottone può tornare vivo quando il lavoro è finito. */
 var _pngInCorso=false;
 function exportPng(fatto){
+  if(custEditorAttivo()) return false;   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo: niente export */
   function fine(){ _pngInCorso=false; if(typeof fatto==="function") fatto(); }
   if(_pngInCorso){ if(window.__toast) window.__toast("PNG già in preparazione."); return false; }
   _pngInCorso=true;
@@ -32132,6 +32298,7 @@ function maybeAskStageSize(explicit){
     if(window.__bootVenueUnavailable){
       fail("Planimetria locale non disponibile: attendi il recupero cloud prima di salvare."); return;
     }
+    if(window.__custEditor){ done(null); return; }   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo (backstop: cloudAutosaveNow lo rimanda già) */
     if(window.__projLocked && cloudCurrentId){ done(cloudCurrentId); return; }   /* BLOCCO: mai riscrivere un progetto bloccato (backstop lato client) */
     if(cloudConflict){ done(null); return; }   /* conflitto aperto: nessuna scrittura finché l'utente non sceglie */
     /* Documento NUOVO e ancora vuoto: l'autosave non deve depositare un guscio nell'elenco (audit
