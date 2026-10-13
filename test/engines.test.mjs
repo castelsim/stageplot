@@ -20450,14 +20450,15 @@ function jsPdfFinto() {
   return function (o) {
     const dims = { a4: [210, 297], a3: [297, 420], a2: [420, 594] };
     const dimDi = (f, or) => { const d = dims[f] || dims.a4; return or === "landscape" ? [d[1], d[0]] : [d[0], d[1]]; };
-    const pagine = [{ wh: dimDi(o.format, o.orientation), testi: [], rett: [] }];
+    const pagine = [{ wh: dimDi(o.format, o.orientation), testi: [], rett: [], linee: [] }];
     let cur = 0, fill = "#000";
     const doc = {
       pagine,
       internal: { pageSize: { getWidth: () => pagine[cur].wh[0], getHeight: () => pagine[cur].wh[1] } },
-      addPage(f, or) { pagine.push({ wh: dimDi(f || o.format, or || o.orientation), testi: [], rett: [] }); cur = pagine.length - 1; return doc; },
+      addPage(f, or) { pagine.push({ wh: dimDi(f || o.format, or || o.orientation), testi: [], rett: [], linee: [] }); cur = pagine.length - 1; return doc; },
       setPage(i) { cur = i - 1; }, getNumberOfPages: () => pagine.length,
-      setFont() {}, setFontSize() {}, setTextColor() {}, setDrawColor() {}, setLineWidth() {}, line() {},
+      setFont() {}, setFontSize() {}, setTextColor() {}, setDrawColor() {}, setLineWidth() {},
+      line(x1, y1, x2, y2) { pagine[cur].linee.push({ x1, y1, x2, y2 }); },   /* le linee servono a misurare barra di scala e cartiglio */
       setFillColor(...c) { fill = c.join(","); },
       rect(x, y, w, h, st) { pagine[cur].rett.push({ x, y, w, h, st, fill }); },
       text(t, x, y, op) { (Array.isArray(t) ? t : [t]).forEach((r, i) => pagine[cur].testi.push({ t: String(r), x, y: y + i * 4, op })); },
@@ -20482,6 +20483,55 @@ async function pdfFinto(opts) {
   try { return await A.buildPdfDoc("a4", 100, "landscape", ""); }
   finally { A.loadJsPDF = l0; A.drawStageVector = d0; A.__pdfPages = prima.pg; A.__pdfScaletta = prima.sc; A.__pdfQr = prima.qr; A.jspdf = prima.jspdf; }
 }
+/* 13/10/2026, PDF vero (palco 12×8 a 1:50 su A4): la barra di scala finiva sopra il titolo del cartiglio.
+   Stava sempre 10 mm sotto il disegno, ma dal 16/09 il cartiglio si è alzato di 7 mm dal fondo (fondo) e
+   fra disegno e cartiglio ne restano 8: col disegno che riempie il foglio la barra cadeva DENTRO il cartiglio.
+   Per ogni altezza del cartiglio (testi corti e lunghi, col QR e senza), A4/A3, verticale/orizzontale:
+   barra sotto il disegno e sopra il cartiglio, con aria da tutte e due le parti; anteprima uguale. */
+taPdf("la barra di scala non tocca mai il cartiglio", async () => {
+  const prima = { jspdf: A.jspdf, l: A.loadJsPDF, d: A.drawStageVector, pg: A.__pdfPages, qr: A.__pdfQr, t: A.pdfTotals };
+  A.jspdf = { jsPDF: jsPdfFinto() }; A.loadJsPDF = () => Promise.resolve(); A.drawStageVector = () => Promise.resolve();
+  A.__pdfPages = {};
+  const TESTI = {
+    corti: { titolo: "Trio jazz", luogo: "Teatro Comunale", head: "", tot: [] },
+    lunghi: { titolo: "Concerto di Primavera 22.04.27 Auditorium Comunale con orchestra, coro e ospiti",
+      luogo: "Auditorium Comunale Gianfranco Bertolin, Montebelluna di Sopra (TV)",
+      head: "Riferimento: Mario Rossi Prova · mario.rossi.prova@esempio.it · 333 0000000",
+      tot: ["31 canali", "16 leggii", "12 sedute", "1 sgabello batteria", "4 personal mixer (1 hub)", "7 spie", "3 in-ear"] },
+  };
+  try {
+    for (const palco of [[4000, 3000], [400, 300]])   /* il disegno riempie il foglio (ritagliato) / ci sta largo */
+      for (const paper of ["a4", "a3"]) for (const orient of ["landscape", "portrait"])
+        for (const k of Object.keys(TESTI)) for (const qr of [false, true]) {
+          reset();
+          A.state.stage = { w: palco[0], d: palco[1], blocks: [{ x: 0, y: 0, w: palco[0], d: palco[1] }] };
+          const T = TESTI[k]; A.state.titolo = T.titolo; A.state.luogo = T.luogo; A.pdfTotals = () => T.tot;
+          A.__pdfQr = qr ? { n: 21, m: Array(21).fill("0".repeat(21)) } : null;
+          const caso = [palco[0] / 100 + "×" + palco[1] / 100 + " m", paper, orient, k, qr ? "QR" : "senza QR"].join(" · ");
+          const N = 50, cartH = A.cartHFor(T.head, paper, orient), box = A.pdfStageBox(N, paper, orient, cartH), L = box.L;
+          const doc = await A.buildPdfDoc(paper, N, orient, T.head);
+          const p = doc.pagine[0], cartTop = L.ph - L.fondo - L.cartH;
+          ok(p.linee.some((l) => l.x1 === L.M && l.x2 === L.pw - L.M && Math.abs(l.y1 - cartTop) < 1e-6), caso + ": linea del cartiglio non trovata");
+          /* la barra: la linea orizzontale che parte dal bordo sinistro del disegno, le sue tacche e le due scritte */
+          const barra = p.linee.find((l) => l.x1 === box.ix && l.y1 === l.y2 && l.x2 > l.x1);
+          ok(barra, caso + ": barra di scala non trovata");
+          const tacche = p.linee.filter((l) => l.x1 === l.x2 && l.x1 >= barra.x1 && l.x1 <= barra.x2);
+          const scritte = p.testi.filter((x) => (x.t === "0" && x.x === barra.x1) || (/^\d+ m$/.test(x.t) && x.x === barra.x2));
+          eq(scritte.length, 2, caso + ": «0» e «N m» sotto la barra");
+          const alto = Math.min(...tacche.map((l) => Math.min(l.y1, l.y2))), basso = Math.max(...scritte.map((x) => x.y), ...tacche.map((l) => Math.max(l.y1, l.y2)));
+          ok(basso + 2 <= cartTop + 1e-6, caso + ": la barra arriva a " + basso.toFixed(1) + " mm, il cartiglio comincia a " + cartTop.toFixed(1));
+          ok(alto >= box.iy + box.mmH - 1e-6, caso + ": la barra sale dentro il disegno (" + alto.toFixed(1) + " < " + (box.iy + box.mmH).toFixed(1) + ")");
+          if (palco[0] === 400) eq(barra.y1, box.iy + box.mmH + 10, caso + ": con spazio la barra resta dov'era, 10 mm sotto il disegno");
+          /* l'anteprima dell'Esporta disegna la stessa barra, alla stessa altezza */
+          const svg = A.pdfPreviewSvg(paper, N, orient, T.head, { focus: "clean" });
+          const m = svg.match(/<line class="scala-barra" x1="([\d.]+)" y1="([\d.]+)"/);
+          ok(m, caso + ": l'anteprima non ha la barra di scala");
+          if (m) { ok(Math.abs(+m[1] - barra.x1) < 0.01 && Math.abs(+m[2] - barra.y1) < 0.01, caso + ": anteprima " + m[1] + "," + m[2] + " contro PDF " + barra.x1 + "," + barra.y1); }
+        }
+  } finally {
+    A.jspdf = prima.jspdf; A.loadJsPDF = prima.l; A.drawStageVector = prima.d; A.__pdfPages = prima.pg; A.__pdfQr = prima.qr; A.pdfTotals = prima.t; reset();
+  }
+});
 taPdf("PDF: il peso dei modelli reali arriva nella testata del palco", async () => {
   /* La strada fino al foglio: due modelli dai manuali (22 + 15,45 kg) invece delle stime di
      famiglia (25 + 40 kg). Il totale nella riga sotto il titolo deve essere il loro. */
