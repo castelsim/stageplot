@@ -20414,6 +20414,93 @@ t("QR nel PDF: link troppo lungo → niente QR (e l'Esporta lo dice)", () => {
   ok(/if\(!q \|\| q\.troppo\)\{\s*qrChk\.checked=false; window\.__pdfQr=null;/.test(appjs), "e la casella si spegne");
 });
 
+
+// ── SERVICE WORKER: L'EDITOR SI AGGIORNA SUBITO (13/10/2026) ───────────────────────────────────
+// Simone: «sistemami la cache di stageplot così si aggiorna subito». Con lo stale-while-revalidate la
+// shell arrivava sempre dalla cache e il rinfresco passava dalla cache HTTP (max-age 600 di GitHub
+// Pages): una versione pubblicata si vedeva dopo due ricariche e dieci minuti. Qui sw.js gira davvero,
+// con rete e cache finte.
+console.log("\n— Service worker: l'editor si aggiorna subito —");
+function swBanco({ rete, salvate = {} }) {
+  const R = class { constructor(corpo, o = {}) { this.corpo = corpo; this.status = o.status ?? 200; this.ok = this.status >= 200 && this.status < 300; this.type = o.type || "basic"; this._h = o.headers || {}; this.headers = { get: (k) => this._h[k] ?? null }; } clone() { if (this.usato) throw new TypeError("Response body is already used"); return new R(this.corpo, { status: this.status, type: this.type, headers: this._h }); } static error() { return new R("", { status: 0, type: "error" }); } };
+  const versione = (v) => new R(v, { headers: { etag: v } });
+  const chiave = (k) => typeof k === "string" ? k : new URL(k.url).pathname;
+  const store = new Map(Object.entries(salvate).map(([k, v]) => [k, versione(v)]));
+  /* asincrona come quella vera: la risposta arriva alla pagina PRIMA che la cache risponda */
+  const cache = { match: (k) => new Promise((r) => setImmediate(() => r(store.get(chiave(k))))), put: (k, r) => { store.set(chiave(k), r); return Promise.resolve(); }, addAll: (l) => { cache.precache = l; return Promise.resolve(); } };
+  const handlers = {}, timer = [], messaggi = [], chiamate = [];
+  const ctx = {
+    self: { addEventListener: (t, f) => { handlers[t] = f; }, location: { origin: "https://stageplot.it" }, skipWaiting: () => Promise.resolve(),
+      clients: { claim: () => Promise.resolve(), matchAll: () => Promise.resolve([{ postMessage: (m) => messaggi.push(m) }]) } },
+    caches: { open: () => Promise.resolve(cache), keys: () => Promise.resolve([]), delete: () => Promise.resolve(true) },
+    fetch: (u, o) => { chiamate.push({ u: typeof u === "string" ? u : u.url, cache: o && o.cache }); return rete(versione); },
+    Request: class { constructor(u, o) { this.url = u; this.cache = o && o.cache; } }, Response: R,
+    setTimeout: (f) => { timer.push(f); return timer.length; }, URL, Promise, console,
+  };
+  vm.createContext(ctx);
+  vm.runInContext(readFileSync(join(root, "sw.js"), "utf8"), ctx);
+  const chiedi = (path, mode = "cors") => {
+    const attese = []; let risposta;
+    /* come il browser: appena la risposta arriva alla pagina il corpo è letto, e clone() non si può più fare */
+    handlers.fetch({ request: { method: "GET", url: "https://stageplot.it" + path, mode }, respondWith: (p) => { risposta = p.then((r) => { r.usato = true; return r; }); }, waitUntil: (p) => attese.push(p) });
+    return { risposta, fine: () => Promise.all(attese) };
+  };
+  return { handlers, chiedi, store, timer, messaggi, chiamate, cache };
+}
+const dopo = () => new Promise((r) => setImmediate(r));
+
+ta("service worker: app.js nuovo sul server → la pagina riceve SUBITO quello nuovo, chiesto scavalcando i 10 minuti", async () => {
+  const B = swBanco({ rete: (v) => Promise.resolve(v("nuova")), salvate: { "/app.js": "vecchia" } });
+  const { risposta, fine } = B.chiedi("/app.js");
+  eq((await risposta).corpo, "nuova", "alla prima apertura, non alla seconda");
+  await fine();
+  eq(B.chiamate[0].cache, "no-cache", "la richiesta scavalca la cache HTTP (max-age 600)");
+  eq(B.store.get("/app.js").corpo, "nuova", "e la copia offline si aggiorna");
+  eq(B.messaggi.length, 0, "niente avviso: la pagina ha già la versione nuova");
+});
+
+ta("service worker: anche la pagina dell'editor (/app/?view=…) arriva dalla rete", async () => {
+  const B = swBanco({ rete: (v) => Promise.resolve(v("pagina-nuova")), salvate: { "/app/": "pagina-vecchia" } });
+  const { risposta, fine } = B.chiedi("/app/?view=abc", "navigate");
+  eq((await risposta).corpo, "pagina-nuova");
+  await fine();
+  eq(B.store.get("/app/").corpo, "pagina-nuova", "salvata sotto la chiave della shell");
+});
+
+ta("service worker: senza rete si apre la copia salvata (l'editor funziona offline)", async () => {
+  const B = swBanco({ rete: () => Promise.reject(new TypeError("offline")), salvate: { "/app.js": "salvata", "/app/": "shell" } });
+  eq((await B.chiedi("/app.js").risposta).corpo, "salvata");
+  eq((await B.chiedi("/app/", "navigate").risposta).corpo, "shell");
+});
+
+ta("service worker: rete lenta → dopo l'attesa la copia salvata; quando la rete arriva, cache aggiornata e avviso", async () => {
+  let arriva; const B = swBanco({ rete: (v) => new Promise((r) => { arriva = () => r(v("nuova")); }), salvate: { "/icons.js": "vecchia" } });
+  const { risposta, fine } = B.chiedi("/icons.js");
+  for (let i = 0; i < 10 && !B.timer.length; i++) await dopo();
+  ok(B.timer.length > 0, "c'è un'attesa massima per la rete");
+  B.timer.forEach((f) => f());                       // scade l'attesa
+  eq((await risposta).corpo, "vecchia", "non si resta appesi alla rete lenta");
+  arriva(); await fine(); await dopo();
+  eq(B.store.get("/icons.js").corpo, "nuova", "la rete arrivata dopo aggiorna la copia");
+  eq(B.messaggi.map((m) => m.type), ["sp-updated"], "e la pagina riceve l'avviso «nuova versione»");
+});
+
+ta("service worker: i file che non sono l'editor restano «prima la copia» (vendor, icone)", async () => {
+  const B = swBanco({ rete: (v) => Promise.resolve(v("nuova")), salvate: { "/vendor/pdf.min.js": "salvata" } });
+  const { risposta, fine } = B.chiedi("/vendor/pdf.min.js");
+  eq((await risposta).corpo, "salvata", "risposta immediata dalla cache");
+  await fine();
+  eq(B.store.get("/vendor/pdf.min.js").corpo, "nuova", "rinfresco in background, come prima");
+});
+
+ta("service worker: il precache dell'installazione scarica dal server, non dalla cache HTTP", async () => {
+  const B = swBanco({ rete: (v) => Promise.resolve(v("x")) });
+  const attese = []; B.handlers.install({ waitUntil: (p) => attese.push(p) }); await Promise.all(attese);
+  ok(B.cache.precache && B.cache.precache.length >= 3, "precache fatto");
+  ok(B.cache.precache.every((r) => r.cache === "reload"), "ogni file con cache:reload");
+  ok(B.cache.precache.some((r) => r.url === "/app.js"), "fra cui app.js");
+});
+
 await Promise.all(attese);
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
