@@ -31746,26 +31746,54 @@ function pdfListGeneric(doc, key, shared){
   doc.text("STAGE PLOT \u2014 "+cfg.title, M, 9);
   doc.setFont("helvetica","normal"); doc.setFontSize(9);
   doc.text(dataDocumento(), 194, 9, {align:"right"});
-  if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12);
-    doc.text((state.titolo||"")+(state.luogo?" \u2014 "+state.luogo:""), M, y); y+=8; }
+  if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); y=pdfTitoloLuogo(doc, M, y, 8); }
   var sub=cfg.sub?cfg.sub(d):"";
-  if(sub){ doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555"); doc.text(sub, M, y); y+=8; }
+  if(sub){ doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
+    var _sr=pdfTxtRighe(sub, 178, 9.5, false); _sr.forEach(function(t,k){ doc.text(t, M, y+k*4.4); }); y+=8+(_sr.length-1)*4.4; }
   /* colonne larghe in proporzione al testo: le liste tecniche hanno una colonna lunga (l'apparecchio)
-     e diverse corte (quantità, altezza), e a larghezza fissa la lunga si troncava */
-  var W=178, nCols=cfg.cols.length, xs=[], acc=M;
-  cfg.cols.forEach(function(c,i){ xs.push(acc); acc += (c.num?0.5:1.4)*(W/(nCols+0.6)); });
-  function riga(vals, bold, colore){
-    if(y>286){ doc.addPage(); y=18; }
-    doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9.5);
-    vals.forEach(function(v,i){ doc.setTextColor((colore&&colore[i])||(bold?"#0b7a70":"#111827")); doc.text(String(v==null?"":v), xs[i], y); });
-    y+=5.6;
+     e diverse corte (quantità, altezza), e a larghezza fissa la lunga si troncava.
+     LARGHEZZE (13/10/2026): le colonne di numeri sono larghe quanto la loro scritta più larga
+     (intestazione compresa: «Q.tà» e «Sul palco» non si spezzano); il resto si divide fra le colonne di
+     testo, e quelle che vanno a capo (wrap: la nota, l'apparecchio) pesano quasi il doppio — prima la nota
+     aveva 82 mm e il nome dell'elemento 93. Le colonne occupano esattamente i 178 mm fra i margini. */
+  var W=178, R=M+W, xs=[], acc=M, PT=9.5, PASSO=4.4, GAP=3;
+  var largNum=cfg.cols.map(function(c){
+    if(!c.num) return 0;
+    var w=pdfTxtW(c.h, PT, true);
+    d.rows.forEach(function(r){ var v=c.f(r,d); w=Math.max(w, pdfTxtW(v==null?"":String(v), PT, false)); });
+    return w+GAP;
+  });
+  var pesi=cfg.cols.map(function(c){ return c.num ? 0 : (c.wrap ? 2.6 : 1.4); });
+  var restoW=W-largNum.reduce(function(a,b){ return a+b; },0), sommaPesi=pesi.reduce(function(a,b){ return a+b; },0)||1;
+  cfg.cols.forEach(function(c,i){ xs.push(acc); acc += c.num ? largNum[i] : restoW*pesi[i]/sommaPesi; });
+  /* A CAPO (13/10/2026, stage plot vero): ogni cella si scriveva su una riga sola, e una nota da 140
+     caratteri partiva a metà foglio e usciva dal margine e poi dalla carta — sul foglio se ne leggeva
+     metà. Ora ogni cella va a capo nella sua colonna (fino alla colonna dopo, l'ultima fino al margine),
+     misurata con le metriche Helvetica del PDF come il cartiglio (#300): mai «…», niente testo perso.
+     La riga si alza quanto la cella più lunga; una riga di una cella sola resta alta 5,6 mm come prima. */
+  var ws=xs.map(function(x,i){ return (i<xs.length-1 ? xs[i+1]-GAP : R)-x; });
+  var testa=null;
+  /* sep: filetto chiaro sopra la riga, alla stessa distanza della linea d'intestazione. Con le righe
+     che vanno a capo (4,4 mm dentro la riga, 5,6 fra una riga e l'altra) senza filetto non si capiva
+     dove finisce una nota e comincia la successiva. È il bordo delle righe dell'anteprima
+     (.pdf-list-tbl td), un grigio appena più scuro perché resti in stampa. Sotto l'intestazione e in
+     cima a una pagina nuova non serve: lì c'è già la linea delle colonne. */
+  function riga(vals, bold, colore, sep){
+    var righe=vals.map(function(v,i){ return pdfTxtRighe(v==null?"":String(v), ws[i], PT, bold); });
+    var n=Math.max.apply(null, righe.map(function(r){ return r.length; }));
+    if(y+(n-1)*PASSO>286){ doc.addPage(); y=18; sep=false; if(testa){ var _t=testa; testa=null; _t(); testa=_t; } }   /* la riga passa di pagina intera, con l'intestazione delle colonne */
+    if(sep){ doc.setDrawColor("#e5e7eb"); doc.setLineWidth(0.2); doc.line(M, y-3.8, R, y-3.8); }
+    doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(PT);
+    righe.forEach(function(rr,i){ doc.setTextColor((colore&&colore[i])||(bold?"#0b7a70":"#111827"));
+      rr.forEach(function(t,k){ doc.text(t, xs[i], y+k*PASSO); }); });
+    y+=5.6+(n-1)*PASSO;
   }
-  riga(cfg.cols.map(function(c){ return c.h; }), true);
-  doc.setDrawColor(col); doc.setLineWidth(0.4); doc.line(M, y-3.8, 194, y-3.8);
-  d.rows.forEach(function(r){
+  function _testa(){ riga(cfg.cols.map(function(c){ return c.h; }), true); doc.setDrawColor(col); doc.setLineWidth(0.4); doc.line(M, y-3.8, R, y-3.8); }
+  _testa(); testa=_testa;
+  d.rows.forEach(function(r, i){
     var vals=cfg.cols.map(function(c){ return c.f(r,d); });   /* d: alcune colonne dipendono dal dataset (es. hasFoh) */
     var colori=cfg.cols.map(function(c){ return (c.warn && c.warn(r)) ? "#b45309" : "#111827"; });   /* i buchi si vedono anche in stampa */
-    riga(vals, false, colori);
+    riga(vals, false, colori, i>0);
   });
   return true;
 }
@@ -32524,13 +32552,38 @@ function pdfCartiglio(doc, L, N, header){
   doc.setFont("helvetica","bold"); doc.setFontSize(8.5); doc.setTextColor(17,24,39);
   doc.text(_fmt, L.pw-M-_wAvv, y+16, {align:"right"});
 }
+/* BARRA DI SCALA: dove sta (13/10/2026, PDF vero: «2 m» scritto sopra il titolo del cartiglio).
+   Stava sempre 10 mm sotto il disegno. Dal 16/09 il cartiglio si è staccato dal fondo di 7 mm (L.fondo)
+   senza rimpicciolire il disegno, e fra il fondo del disegno e la linea del cartiglio ne restano 8
+   (M + botLbl − fondo, per ogni foglio, orientamento e altezza del cartiglio): quando il disegno riempie il
+   foglio la barra cadeva dentro il cartiglio. Ora resta a 10 mm sotto il disegno se c'è posto, altrimenti
+   sale quanto basta per lasciare SCALEBAR_ARIA sopra il cartiglio — negli 8 mm ci sta tutta (1,4 sopra la
+   linea, 3,6 sotto fino alla base delle scritte) e non tocca il disegno. Una formula per PDF e anteprima. */
+var SCALEBAR_SOPRA=1.4, SCALEBAR_SOTTO=3.6, SCALEBAR_ARIA=2.5, SCALEBAR_ARIA_DIS=1.5;
+/* Aria voluta: 1,5 mm dal disegno e 2,5 dal cartiglio. Col disegno a tutta pagina la fascia è di 8 mm e la
+   barra ne occupa 5: per i 4 di aria ne mancano 1, e allora si tolgono 0,5 mm da ciascuna parte (1 e 2 mm),
+   così non tocca né il disegno né il cartiglio. Con più spazio resta 10 mm sotto il disegno, come sempre. */
+function pdfScaleBarY(L, iy, mmH){
+  var giu=L.ph-L.fondo-L.cartH-SCALEBAR_ARIA-SCALEBAR_SOTTO, su=iy+mmH+SCALEBAR_ARIA_DIS+SCALEBAR_SOPRA;
+  if(su<=giu) return Math.min(iy+mmH+10, giu);
+  return (su+giu)/2;   /* manca aria: la si toglie in parti uguali da sopra e da sotto */
+}
 function pdfScaleBar(doc, x, y, N){
   var bm=niceBarMeters(N), len=bm*1000/N;     /* mm */
   doc.setDrawColor(17,24,39); doc.setLineWidth(0.6);
   doc.line(x, y, x+len, y);
-  doc.line(x, y-1.4, x, y+1.4); doc.line(x+len, y-1.4, x+len, y+1.4); doc.line(x+len/2, y-1, x+len/2, y+1);
+  doc.line(x, y-SCALEBAR_SOPRA, x, y+SCALEBAR_SOPRA); doc.line(x+len, y-SCALEBAR_SOPRA, x+len, y+SCALEBAR_SOPRA); doc.line(x+len/2, y-1, x+len/2, y+1);
   doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(17,24,39);
-  doc.text("0", x, y+4); doc.text(bm+" m", x+len, y+4, {align:"right"});
+  doc.text("0", x, y+SCALEBAR_SOTTO); doc.text(bm+" m", x+len, y+SCALEBAR_SOTTO, {align:"right"});   /* cifre e «m»: niente discendenti sotto la base */
+}
+/* la stessa barra nell'anteprima dell'Esporta (prima non c'era: non si vedeva nemmeno dove sarebbe caduta) */
+function pdfScaleBarSvg(x, y, N){
+  var bm=niceBarMeters(N), len=bm*1000/N, f=function(v){ return (Math.round(v*1000)/1000); };
+  var ln=function(cls, x1, y1, x2, y2){ return '<line'+(cls?' class="'+cls+'"':'')+' x1="'+f(x1)+'" y1="'+f(y1)+'" x2="'+f(x2)+'" y2="'+f(y2)+'" stroke="#111827" stroke-width="0.6"/>'; };
+  var fs=(7.5*25.4/72).toFixed(3);
+  return ln("scala-barra", x, y, x+len, y)+ln("", x, y-SCALEBAR_SOPRA, x, y+SCALEBAR_SOPRA)+ln("", x+len, y-SCALEBAR_SOPRA, x+len, y+SCALEBAR_SOPRA)+ln("", x+len/2, y-1, x+len/2, y+1)+
+    '<text x="'+f(x)+'" y="'+f(y+SCALEBAR_SOTTO)+'" font-family="Helvetica, Arial, sans-serif" font-size="'+fs+'" fill="#111827">0</text>'+
+    '<text x="'+f(x+len)+'" y="'+f(y+SCALEBAR_SOTTO)+'" font-family="Helvetica, Arial, sans-serif" font-size="'+fs+'" fill="#111827" text-anchor="end">'+bm+' m</text>';
 }
 /* Credito "Creato con stageplot.it" su OGNI pagina del doc (attribuzione, non copyright: il
    contenuto del rider è dell'utente). Variante A: angolo basso-destra, fuori dal cartiglio,
@@ -32598,6 +32651,7 @@ function pdfPreviewSvg(paperKey, N, orient, header, opts){
     scene+
     '<rect x="'+ix+'" y="'+iy+'" width="'+stMmW+'" height="'+stMmH+'" fill="none" stroke="'+stroke+'" stroke-width="0.5"/>'+
     labels+
+    pdfScaleBarSvg(ix, pdfScaleBarY(L, iy, stMmH), Ng)+   /* come nel PDF (pdfScaleBar), alla stessa altezza */
     '<line x1="'+L.M+'" y1="'+cy+'" x2="'+(L.pw-L.M)+'" y2="'+cy+'" stroke="#1f2937" stroke-width="0.4"/>'+
     colSx+
     ((!opts.focus || opts.focus==="clean") ? pdfQrSvg(L) : "")+   /* QR: solo sulla prima pagina, come nel PDF */
@@ -32657,15 +32711,15 @@ function pdfListConfig(){
         (d.blackout===true?"sala oscurabile":(d.blackout===false?"buio non necessario":"oscurabilità da dichiarare")),
         d.mood?("luce "+d.mood):""].filter(Boolean).join(" · "); },
       cols:[{h:"Q.tà",num:1,f:function(r){return r.n+"×";}},
-            {h:"Funzione",f:function(r){return r.fn;},warn:function(r){return r.fn.indexOf("assegnare")>=0;}},
+            {h:"Funzione",wrap:1,f:function(r){return r.fn;},warn:function(r){return r.fn.indexOf("assegnare")>=0;}},
             /* il modello vero sta nella colonna dell'apparecchio, non in una colonna sua: chi legge
                cerca «cosa mi serve», e il modello è la stessa informazione, più precisa.
                Stessa cosa per il modificatore: chi noleggia deve leggere «COB con ottagonale 120»
                su una riga sola, non cercarsi il softbox in una lista a parte. */
-            {h:"Apparecchio",f:function(r){return (r.model?(r.gear+" — "+r.model):r.gear)+(r.mod?(" con "+r.mod):"");}},
+            {h:"Apparecchio",wrap:1,f:function(r){return (r.model?(r.gear+" — "+r.model):r.gear)+(r.mod?(" con "+r.mod):"");}},
             {h:"Colore",f:function(r){return r.color||"—";},warn:function(r){return !r.color;}},
-            {h:"Posizione",f:function(r){return r.pos||"—";}},
-            {h:"Sul palco",num:1,f:function(r){return r.shown?String(r.shown):"—";}}] },
+            {h:"Posizione",wrap:1,f:function(r){return r.pos||"—";}},
+            {h:"Sul palco",num:1,f:function(r){return r.shown?String(r.shown):"—";}}] },   /* wrap: nell'anteprima vanno a capo come nel PDF (e nel PDF pesano di più) */
     inputlist:{ title:"Channel list", color:"#0d9488", data:(typeof patchList==="function"?patchList:null),
       sub:function(d){ return d.R&&d.R.boxes?("Stage box: "+d.R.boxes.map(function(b){return b.letter;}).join(", ")):""; },
       /* Il numero DEVE essere quello che il fonico troverà al banco: col FOH disponibile (più stage
@@ -32687,7 +32741,7 @@ function pdfListConfig(){
       cols:[{h:"Q.tà",num:1,f:function(r){return r.qty+"×";}},{h:"Attrezzatura",f:function(r){return r.name;}},{h:"Fornito da",f:function(r){return r.by||"—";}}] },
     notelist:{ title:"Note", color:"#6b7280", data:(typeof noteList==="function"?noteList:null),
       sub:function(d){ return d.count+" not"+(d.count===1?"a":"e")+" sugli elementi · sul disegno sono i nomi col puntino"; },
-      cols:[{h:"Elemento",f:function(r){return r.name;}},{h:"Nota",f:function(r){return r.note;}}] },
+      cols:[{h:"Elemento",f:function(r){return r.name;}},{h:"Nota",wrap:1,f:function(r){return r.note;}}] },   /* wrap: nell'anteprima e nel link condiviso la nota va a capo come nel PDF */
     /* Scaletta (10/10): anteprima nell'Esporta e scheda del link condiviso. Il PDF ha la sua pagina
        (scalettaPdf), perché titoli e note lunghi vanno a capo invece di finire sulla colonna accanto. */
     scaletta:{ title:"Scaletta", color:"#475569", data:(typeof scalettaList==="function"?scalettaList:null),
@@ -32709,7 +32763,7 @@ function listPreviewHtml(key){
   var d; try{ d=cfg.data(); }catch(e){ return null; }
   if(!d || !d.rows || !d.rows.length) return '<div class="pdf-list-sheet"><div class="pdf-list-hd" style="background:'+cfg.color+'">'+esc(cfg.title)+'</div><div class="pdf-list-empty">Nessun dato</div></div>';
   var thead='<tr>'+cfg.cols.map(function(c){return '<th'+(c.num?' class="n"':'')+'>'+esc(c.h)+'</th>';}).join('')+'</tr>';
-  var tbody=d.rows.map(function(r){ var rc=cfg.rowCls?cfg.rowCls(r):""; return '<tr'+(rc?' class="'+esc(rc)+'"':'')+'>'+cfg.cols.map(function(c){ var v=c.f(r,d); var w=c.warn&&c.warn(r); return '<td'+(c.num?' class="n"':'')+(w?' data-w="1"':'')+'>'+esc(v==null?'':v)+'</td>'; }).join('')+'</tr>'; }).join('');
+  var tbody=d.rows.map(function(r){ var rc=cfg.rowCls?cfg.rowCls(r):""; return '<tr'+(rc?' class="'+esc(rc)+'"':'')+'>'+cfg.cols.map(function(c){ var v=c.f(r,d); var w=c.warn&&c.warn(r); return '<td'+(c.num?' class="n"':(c.wrap?' class="a-capo"':''))+(w?' data-w="1"':'')+'>'+esc(v==null?'':v)+'</td>'; }).join('')+'</tr>'; }).join('');
   var foot=cfg.foot?cfg.foot(d):null;   /* riga dei totali (la scaletta: la durata della serata) */
   var tfoot=foot ? '<tfoot><tr>'+foot.map(function(v,i){ var c=cfg.cols[i]||{}; return '<td'+(c.num?' class="n"':'')+'>'+esc(v==null?'':v)+'</td>'; }).join('')+'</tr></tfoot>' : '';
   return '<div class="pdf-list-sheet">'+
@@ -33483,7 +33537,7 @@ function buildPdfDoc(paperKey, N, orient, header){
       doc.text((state.stage.w/100)+" m", ix+stMmW/2, iy-8, {align:"center"});
       doc.text((state.stage.d/100)+" m", ix-5, iy+stMmH/2, {align:"center", angle:90});
     }
-    pdfScaleBar(doc, ix, iy+stMmH+10, N);
+    pdfScaleBar(doc, ix, pdfScaleBarY(L, iy, stMmH), N);
     pdfCartiglio(doc, L, N, header);
     pdfQrDisegna(doc, L);   /* il QR verso la versione online, se scelto: solo qui, sulla prima pagina (10/10) */
     var pg=window.__pdfPages||null;
@@ -33512,7 +33566,7 @@ function buildPdfDoc(paperKey, N, orient, header){
             _viewFails.push(v[1]);
           })
           .then(function(){
-            pdfScaleBar(doc, ix, iy+stMmH+10, N);
+            pdfScaleBar(doc, ix, pdfScaleBarY(L, iy, stMmH), N);
             pdfCartiglio(doc, L, N, header);   /* «stampato in basso su ogni pagina»: anche qui, non solo sulla prima */
           });
       });
