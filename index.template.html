@@ -237,6 +237,29 @@
 <div id="venueCalibBanner" hidden></div>
 <div id="vistaBanner" hidden></div>
 <div id="funzBanner" hidden role="status"></div>
+<!-- CREA ELEMENTO (13/10/2026): la barra degli strumenti dell'editor e la riga di aiuto del gesto in corso. La barra si
+     vede solo con l'editor aperto (body.cust-editor); la riga anche mentre si trascina il rettangolo sul palco. -->
+<div id="custBar" role="toolbar" aria-label="Strumenti per disegnare l'elemento" hidden>
+  <span class="cb-tit"><b>Elemento</b> <span id="custDim"></span></span>
+  <span class="cb-seg" role="group" aria-label="Strumento">
+    <button type="button" class="cb-tool on" data-cust-tool="sel" aria-pressed="true" aria-label="Seleziona" title="Seleziona, sposta, ridimensiona e ruota"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5 18.5 11l-5.6 1.6-2.7 5.4z"/></svg></button>
+    <button type="button" class="cb-tool" data-cust-tool="rect" aria-pressed="false" aria-label="Rettangolo" title="Rettangolo — trascina per disegnarlo; con Maiusc un quadrato"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="6" width="16" height="12" rx="1"/></svg></button>
+    <button type="button" class="cb-tool" data-cust-tool="ell" aria-pressed="false" aria-label="Ellisse" title="Ellisse — trascina per disegnarla; con Maiusc un cerchio"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="12" rx="8.5" ry="6"/></svg></button>
+    <button type="button" class="cb-tool" data-cust-tool="line" aria-pressed="false" aria-label="Linea" title="Linea — trascina da un capo all'altro; con Maiusc dritta o a 45°"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 19 19 5"/></svg></button>
+    <button type="button" class="cb-tool" data-cust-tool="poly" aria-pressed="false" aria-label="Poligono" title="Poligono — un clic per ogni punto; doppio clic o Invio per chiudere"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3.5 8 6-3 10.5H7L4 9.5z"/></svg></button>
+    <button type="button" class="cb-tool" data-cust-tool="text" aria-pressed="false" aria-label="Testo" title="Testo — clic dove scriverlo"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7V4.5h14V7M12 4.5v15M9 19.5h6"/></svg></button>
+  </span>
+  <span class="cb-grp" title="Riempimento delle forme nuove, o di quelle selezionate">
+    <label class="cb-lbl" for="custFill">Riempimento</label><input type="color" id="custFill" value="#e5e7eb">
+    <label class="cb-chk"><input type="checkbox" id="custNoFill"> nessuno</label>
+  </span>
+  <span class="cb-grp" title="Colore e spessore di bordo, linee e testi (per le forme nuove, o per quelle selezionate)">
+    <label class="cb-lbl" for="custStroke">Linea</label><input type="color" id="custStroke" value="#1d1d1f">
+    <select id="custSw" aria-label="Spessore della linea"><option value="0.5">0,5 cm</option><option value="1" selected>1 cm</option><option value="1.5">1,5 cm</option><option value="2">2 cm</option><option value="3">3 cm</option><option value="5">5 cm</option><option value="10">10 cm</option></select>
+  </span>
+  <label class="cb-chk cb-snap" title="Aggancia alla griglia: il passo segue lo zoom (1, 5 o 10 cm). Tieni ⌘ (Ctrl) per muovere libero."><input type="checkbox" id="custSnap" checked> Griglia <span id="custPassoLbl">1 cm</span></label>
+</div>
+<div id="custGuida" role="status" aria-live="polite" hidden><span class="vb-txt" id="custGuidaTxt"></span><button type="button" class="vb-esci" id="custGuidaEsci">Annulla</button></div>
 <div id="venueCalibPop" hidden>
   <label>Distanza reale tra i 2 punti (m)</label>
   <div style="display:flex;gap:6px;align-items:center">
@@ -1145,6 +1168,52 @@
       <button class="btn danger" id="grpDel">Elimina</button>
     </div>
     <div class="hint" style="font-size:11px;color:var(--text-3);margin-top:8px">Shift-click per aggiungere/togliere. <b>Unisci in blocco</b>: si muovono e selezionano insieme. Trascina per spostare il gruppo.</div>
+  </div>
+  <!-- CREA ELEMENTO (13/10/2026): la forma selezionata nell'editor (colori e linea stanno nella barra in alto) -->
+  <div class="sec" id="custForma" hidden>
+    <h3 id="custFormaNome">Forma</h3>
+    <div class="row" id="custFormaDims">
+      <span><label for="custFW">L (cm)</label><input type="number" id="custFW" min="1" step="1"></span>
+      <span><label for="custFD">P (cm)</label><input type="number" id="custFD" min="1" step="1"></span>
+    </div>
+    <div id="custFormaTxt" hidden>
+      <label for="custFTesto">Testo</label><input type="text" id="custFTesto" maxlength="140">
+      <div class="row"><span><label for="custFCorpo">Corpo (cm)</label><input type="number" id="custFCorpo" min="2" max="200" step="0.5"></span></div>
+    </div>
+    <div class="row"><span><label for="custFRot">Rotazione (°)</label><input type="number" id="custFRot" min="-360" max="360" step="5"></span></div>
+    <div class="btns">
+      <button class="btn" id="custFFront" type="button" title="Porta questa forma sopra le altre">⬆ Primo piano</button>
+      <button class="btn" id="custFBack" type="button" title="Mandala dietro alle altre">⬇ In fondo</button>
+    </div>
+    <div class="btns">
+      <button class="btn" id="custFDup" type="button">Duplica</button>
+      <button class="btn danger" id="custFDel" type="button">Elimina</button>
+    </div>
+  </div>
+  <!-- CREA ELEMENTO: la scheda dell'elemento. Con niente selezionato sta al posto del pannello; con una selezione, sotto. -->
+  <div class="sec" id="custScheda" hidden>
+    <h3>Scheda dell'elemento</h3>
+    <label for="custNome">Nome <span class="cust-req">obbligatorio</span></label>
+    <input type="text" id="custNome" maxlength="60" autocomplete="off" placeholder="Es. Videoproiettore" aria-describedby="custNomeErr">
+    <div class="cust-err" id="custNomeErr" hidden>Scrivi il nome: è quello che si legge sul palco e nelle liste.</div>
+    <label for="custDesc">Descrizione <span class="cust-opz">facoltativa</span></label>
+    <textarea id="custDesc" maxlength="280" rows="3" placeholder="Cos'è, a cosa serve, chi lo porta"></textarea>
+    <div class="cust-cnt" id="custDescN" aria-live="polite">0/280</div>
+    <div class="prop-card cust-conta">
+      <div class="prop-card__head">Cosa conta nelle liste</div>
+      <label for="custWatt">Potenza (W)</label>
+      <input type="number" id="custWatt" min="0" max="20000" step="10" inputmode="numeric" placeholder="nessuna">
+      <label for="custInsN">Ingressi audio</label>
+      <div class="cust-ins"><input type="number" id="custInsN" min="0" max="16" step="1" inputmode="numeric" value="0" aria-label="Numero di ingressi audio">
+        <select id="custInsTipo" aria-label="Tipo di ingresso"><option value="mic">microfono</option><option value="linea">linea</option></select></div>
+      <label class="chk"><input type="checkbox" id="custBackline"> È backline</label>
+    </div>
+    <p class="prop-hint" id="custConta"></p>
+    <div class="btns cust-azioni">
+      <button class="btn" id="custAnnulla" type="button">Annulla</button>
+      <button class="btn primary" id="custSalva" type="button">Salva</button>
+    </div>
+    <button class="btn" id="custInvia" type="button" hidden>Salva e invia per revisione</button>
   </div>
   <div class="sec" id="cabPropsSec" hidden style="border-bottom:1px solid var(--border,#e5e7eb);padding-bottom:12px;margin-bottom:10px">
     <div id="cabPropsTitle" style="font-weight:700;font-size:13px"></div>
@@ -3372,8 +3441,9 @@ var TYPES = {
              draw:function(it){ return drawCustom(it); }},
   /* forma dentro l'editor «Crea elemento» (palco temporaneo): esiste solo lì. Non si salva mai (il palco temporaneo non
      si persiste) e un file che la contiene viene rifiutato da normalizeLoadedItems. Si disegna passando da custNorm,
-     così anche una forma appena creata ha colori e numeri controllati. */
-  custshape:{nome:"Forma dell'elemento", dim:"", cat:"Palco e strutture", w:40,d:40, z:2, catalog:false, resizable:true, innerLabel:true, defLabel:"",
+     così anche una forma appena creata ha colori e numeri controllati. z:1 come la base `custom`: le forme stanno SOTTO
+     gli elementi veri posati sopra, come dopo il salvataggio (quello che si vede nell'editor è quello che si ottiene). */
+  custshape:{nome:"Forma dell'elemento", dim:"", cat:"Palco e strutture", w:40,d:40, z:1, catalog:false, resizable:true, innerLabel:true, defLabel:"",
              draw:function(it){ var w=Math.max(4,+it.w||40), d=Math.max(4,+it.d||40);   /* rot:0: la rotazione dell'item la applica già itemMarkup */
                return drawCustom(custNorm({w:w, d:d, cust:{shapes:[custFormaDaShape(Object.assign({}, it, {x:w/2, y:d/2, rot:0}))].filter(Boolean)}})); }},
   /* --- ottoni (icone realistiche libreria + seduta chiara) --- */
@@ -6820,7 +6890,9 @@ function cloudAutosaveNow(){
       if(_cloudDirty) cloudAutosaveNow(); else resolveCloudFlushWhenIdle(true);   /* modifiche durante il volo → secondo snapshot */
     } else if(motivo==="editor"){
       /* riserva di saveProject con l'editor «Crea elemento» aperto: non è un errore e non si ritenta; _cloudDirty resta
-         acceso e il salvataggio riparte alla chiusura dell'editor (custRipristina) */
+         acceso e il salvataggio riparte alla chiusura dell'editor (custRipristina). La pastiglia era già su «Salvataggio…»:
+         torna su uno stato vero — il progetto è salvato sul dispositivo, l'online riparte dopo. */
+      setDocState("local");
       resolveCloudFlush(false);
     } else if(motivo==="empty"){
       /* Documento ancora vuoto: saveProject ha deciso di non depositare un guscio nell'elenco e ha
@@ -9182,6 +9254,7 @@ function adattaAvvertenza(W0, D0, W, D, stretta){
   return it;
 }
 function showAdattaPalco(){
+  if(custEditorAttivo()) return custEditorAvvisa();   /* «Crea elemento» aperto: agirebbe sul palco temporaneo come se fosse il progetto */
   var m=document.getElementById("adattaPalco"); if(!m) return;
   var st=state.stage||{}, _m=function(cm){ return String(Math.round((cm||0))/100).replace(".",","); };
   document.getElementById("apW").value=_m(st.w); document.getElementById("apD").value=_m(st.d);
@@ -9485,12 +9558,13 @@ function custEditorApri(rect, opz){
     r={x:Math.round(rect.x), y:Math.round(rect.y), w:Math.round(rect.w), d:Math.round(rect.d)};
   }
   if(!(r.w>=L.MIN && r.d>=L.MIN)) return false;
+  exitHubModes();   /* modifica del palco, evento, area di stampa…: sono modalità del progetto vero, si chiudono prima */
   primaDiAgire();   /* uno snapshot in sospeso (digitazione) entra nella cronologia vera prima di metterla da parte */
   if(window.flushCloudAutosave) try{ flushCloudAutosave(); }catch(e){}   /* un salvataggio cloud in attesa parte adesso, col progetto vero */
   syncActiveVariant();   /* VARIANTS porta il progetto vero: con l'editor aperto non si aggiorna più */
   var rot=base ? (base.rot||0) : 0, cx=r.x+r.w/2, cy=r.y+r.d/2, inclusi=[];
   if(base && base.grp) inclusi=state.items.filter(function(x){ return x.grp===base.grp && x.id!==base.id; });
-  else if(!base && opz.includi) inclusi=state.items.filter(function(x){ return x.type!=="custom" && itemPickable(x) && x.x>=r.x && x.x<=r.x+r.w && x.y>=r.y && x.y<=r.y+r.d; });
+  else if(!base && opz.includi) inclusi=custDentroArea(r);   /* la stessa regola della domanda «Includere gli N elementi?» */
   var realNext=nextId, vKey=String(activeVar||"");
   /* origine INTERA per gli elementi: con una superficie dispari l'angolo cade su x.5 e gli arrotondamenti di andata e
      ritorno spostavano i compagni di 1 cm a ogni apertura/salvataggio. Stessa origine all'apertura e al salvataggio. */
@@ -9542,7 +9616,8 @@ function custEditorSalva(scheda){
   if(!custEditorAttivo()) return null;
   scheda=scheda||{};
   var E=window.__custEditor, r=E.rect, cx=r.x+r.w/2, cy=r.y+r.d/2;
-  var forme=state.items.filter(function(x){ return x.type==="custshape"; }).map(custFormaDaShape).filter(Boolean);
+  /* nell'ordine in cui si vedono (Primo piano / In fondo cambiano z): il disegno salvato le sovrappone allo stesso modo */
+  var forme=sortedItems().filter(function(x){ return x.type==="custshape"; }).map(custFormaDaShape).filter(Boolean);
   var veri=state.items.filter(function(x){ return x.type!=="custshape"; }).map(function(x){ return JSON.parse(JSON.stringify(x)); });
   custRipristina();
   primaDiAgire();
@@ -9559,29 +9634,45 @@ function custEditorSalva(scheda){
             cust:{nome:scheda.nome, desc:scheda.desc, shapes:forme, ins:scheda.ins, backline:!!scheda.backline}});
   if(scheda.watt!=null && scheda.watt!=="") base.watt=Number(scheda.watt);
   custNorm(base); base.label=base.cust.nome; if(gid) base.grp=gid; state.items.push(base);
+  /* un id che (per qualunque ragione) esiste già sul palco vero si cambia, e chi lo nominava (la DI del suo strumento, il
+     rack, il ricevitore…) segue il cambio: dopo Salva nessun elemento punta a un id del palco temporaneo */
+  var nuovi={};
+  veri.forEach(function(c){ if(E.inclusi.indexOf(c.id)<0 && state.items.some(function(z){ return z.id===c.id; })){ var v=uid(); nuovi[c.id]=v; c.id=v; } });
   veri.forEach(function(c){ var p=rotatePointAround(E.o.x+c.x, E.o.y+c.y, cx, cy, E.rot);
     c.x=Math.round(p[0]); c.y=Math.round(p[1]); c.rot=(((c.rot||0)+E.rot)%360+360)%360; if(gid) c.grp=gid;
-    if(E.inclusi.indexOf(c.id)<0 && state.items.some(function(z){ return z.id===c.id; })) c.id=uid();
+    ["diFor","diId","rackId","ascoltoId","rxId","distOf","sbTo"].forEach(function(k){ if(c[k]!=null && nuovi[c[k]]) c[k]=nuovi[c[k]]; });
     state.items.push(c); });
   clearSelection(); selectClick(base.id);
   save(); custEditorRidisegna();
   return base.id;
 }
 /* custshape ↔ forma. L'item custshape ha x/y = centro e w/d = ingombro (come ogni elemento: si seleziona, si sposta, si
-   ruota); linea e poligono hanno i punti relativi al centro. La forma salvata vive nella superficie (angolo in alto a
-   sinistra). La rotazione di linea e poligono si cuoce nei punti: drawCustom la applica solo a rettangolo, ellisse, testo. */
+   ruota, si ridimensiona dalle maniglie); linea e poligono hanno i punti relativi al centro IN FRAZIONI dell'ingombro
+   (-0,5…0,5), così allungare la forma dalle maniglie o dal pannello allunga anche il disegno. Il testo ha il corpo legato
+   all'altezza (d = corpo × 1,3) e il centro dell'ingombro a metà delle maiuscole: la riga di base sta 0,35 corpi sotto.
+   La forma salvata vive nella superficie (angolo in alto a sinistra). La rotazione di linea e poligono si cuoce nei
+   punti: drawCustom la applica solo a rettangolo, ellisse, testo. I numeri si arrotondano al milionesimo: andata e
+   ritorno restituiscono la forma identica, senza i residui della virgola mobile. */
+function custR6(v){ return Math.round(v*1e6)/1e6; }
+function custTestoAlto(size){ return size*1.3; }                                /* ingombro verticale del testo */
+function custTestoLargo(s, size){ return Math.max(4, String(s||"").length*size*0.55); }   /* larghezza stimata (Helvetica) */
 function custFormaDaShape(x){
   if(!x || typeof x!=="object") return null;
   var n=function(v){ v=Number(v); return isFinite(v) ? v : null; }, cx=n(x.x), cy=n(x.y), w=n(x.w), d=n(x.d), rot=n(x.rot)||0;
   if(cx==null || cy==null) return null;
+  var W=(w>0?w:1), D=(d>0?d:1);
   var pt=function(p){ if(!Array.isArray(p) || n(p[0])==null || n(p[1])==null) return null;
-    return rot ? rotatePointAround(cx+Number(p[0]), cy+Number(p[1]), cx, cy, rot) : [cx+Number(p[0]), cy+Number(p[1])]; };
+    var px=cx+Number(p[0])*W, py=cy+Number(p[1])*D, q=rot ? rotatePointAround(px, py, cx, cy, rot) : [px, py];
+    return [custR6(q[0]), custR6(q[1])]; };
   var g={k:x.k, fill:x.fill, stroke:x.stroke, sw:x.sw};
-  if(x.k==="rect"){ if(w==null || d==null) return null; g.x=cx-w/2; g.y=cy-d/2; g.w=w; g.h=d; if(x.r) g.r=x.r; }
-  else if(x.k==="ell"){ if(w==null || d==null) return null; g.cx=cx; g.cy=cy; g.rx=w/2; g.ry=d/2; }
+  if(x.k==="rect"){ if(w==null || d==null) return null; g.x=custR6(cx-w/2); g.y=custR6(cy-d/2); g.w=w; g.h=d; if(x.r) g.r=x.r; }
+  else if(x.k==="ell"){ if(w==null || d==null) return null; g.cx=cx; g.cy=cy; g.rx=custR6(w/2); g.ry=custR6(d/2); }
   else if(x.k==="line"){ var a=pt(x.p1), b=pt(x.p2); if(!a || !b) return null; g.x1=a[0]; g.y1=a[1]; g.x2=b[0]; g.y2=b[1]; return g; }
   else if(x.k==="poly"){ if(!Array.isArray(x.pts)) return null; g.pts=x.pts.map(pt).filter(Boolean); if(g.pts.length<2) return null; return g; }
-  else if(x.k==="text"){ g.x=cx; g.y=cy; g.s=x.s; g.size=x.size; }
+  else if(x.k==="text"){
+    var size=(d>0) ? d/1.3 : n(x.size); if(size==null) return null;   /* il corpo segue l'altezza: le maniglie lo ingrandiscono */
+    var off=0.35*size, r=rot*Math.PI/180;
+    g.x=custR6(cx-off*Math.sin(r)); g.y=custR6(cy+off*Math.cos(r)); g.s=x.s; g.size=custR6(size); }
   else return null;
   if(rot) g.rot=rot;
   return g;
@@ -9589,18 +9680,581 @@ function custFormaDaShape(x){
 function custShapeDaForma(g){
   if(!g || typeof g!=="object") return null;
   var x={id:uid(), type:"custshape", k:g.k, fill:g.fill, stroke:g.stroke, sw:g.sw, rot:g.rot||0};
-  if(g.k==="rect"){ x.x=g.x+g.w/2; x.y=g.y+g.h/2; x.w=g.w; x.d=g.h; if(g.r) x.r=g.r; }
-  else if(g.k==="ell"){ x.x=g.cx; x.y=g.cy; x.w=g.rx*2; x.d=g.ry*2; }
-  else if(g.k==="line"){ x.rot=0; x.x=(g.x1+g.x2)/2; x.y=(g.y1+g.y2)/2; x.p1=[g.x1-x.x, g.y1-x.y]; x.p2=[g.x2-x.x, g.y2-x.y];
-    x.w=Math.max(4,Math.abs(g.x2-g.x1)); x.d=Math.max(4,Math.abs(g.y2-g.y1)); }
+  var fr=function(v, c, m){ return custR6((v-c)/m); };
+  if(g.k==="rect"){ x.x=custR6(g.x+g.w/2); x.y=custR6(g.y+g.h/2); x.w=g.w; x.d=g.h; if(g.r) x.r=g.r; }
+  else if(g.k==="ell"){ x.x=g.cx; x.y=g.cy; x.w=custR6(g.rx*2); x.d=custR6(g.ry*2); }
+  else if(g.k==="line"){ x.rot=0; x.x=custR6((g.x1+g.x2)/2); x.y=custR6((g.y1+g.y2)/2);
+    x.w=Math.max(4,Math.abs(g.x2-g.x1)); x.d=Math.max(4,Math.abs(g.y2-g.y1));
+    x.p1=[fr(g.x1,x.x,x.w), fr(g.y1,x.y,x.d)]; x.p2=[fr(g.x2,x.x,x.w), fr(g.y2,x.y,x.d)]; }
   else if(g.k==="poly"){ var xs=g.pts.map(function(p){ return p[0]; }), ys=g.pts.map(function(p){ return p[1]; });
-    x.rot=0; x.x=(Math.min.apply(0,xs)+Math.max.apply(0,xs))/2; x.y=(Math.min.apply(0,ys)+Math.max.apply(0,ys))/2;
-    x.pts=g.pts.map(function(p){ return [p[0]-x.x, p[1]-x.y]; });
-    x.w=Math.max(4,Math.max.apply(0,xs)-Math.min.apply(0,xs)); x.d=Math.max(4,Math.max.apply(0,ys)-Math.min.apply(0,ys)); }
-  else if(g.k==="text"){ x.x=g.x; x.y=g.y; x.s=g.s; x.size=g.size; x.w=Math.max(10,g.s.length*g.size*0.55); x.d=g.size*1.3; }
+    x.rot=0; x.x=custR6((Math.min.apply(0,xs)+Math.max.apply(0,xs))/2); x.y=custR6((Math.min.apply(0,ys)+Math.max.apply(0,ys))/2);
+    x.w=Math.max(4,Math.max.apply(0,xs)-Math.min.apply(0,xs)); x.d=Math.max(4,Math.max.apply(0,ys)-Math.min.apply(0,ys));
+    x.pts=g.pts.map(function(p){ return [fr(p[0],x.x,x.w), fr(p[1],x.y,x.d)]; }); }
+  else if(g.k==="text"){ var off=0.35*g.size, r=(g.rot||0)*Math.PI/180;
+    x.x=custR6(g.x+off*Math.sin(r)); x.y=custR6(g.y-off*Math.cos(r)); x.s=g.s; x.size=g.size;
+    x.w=custTestoLargo(g.s, g.size); x.d=custR6(custTestoAlto(g.size)); }
   else return null;
   return x;
 }
+/* ===== Crea elemento: L'INTERFACCIA (Tappa 2, 13/10/2026) =====
+   Sopra il palco temporaneo (custEditorApri/Salva/Annulla, qui sopra) ci sono: il rettangolo trascinato sul palco vero
+   con le misure in metri, la finestra per correggerle a numeri, la domanda di inclusione, gli strumenti di disegno, la
+   griglia in centimetri col passo che segue lo zoom e la scheda dell'elemento. Le forme sono elementi `custshape`:
+   selezione, spostamento, maniglie, rotazione, Duplica, Elimina e Annulla funzionano come sul palco. Mai prompt(),
+   alert() o confirm(): solo finestre dell'app. Tutte le variabili qui sono `var`: esistono da subito (AGENTS.md §8). */
+var __custDraw=null;        /* null | {mode:"area"|"rect"|"ell"|"line"|"poly"|"text", pts?} — il disegno in corso */
+var __custNomePreso="";     /* il nome scritto nella ricerca «Non c'è? Crealo»: precompila la scheda */
+var custStile={fill:"#e5e7eb", noFill:false, stroke:"#1d1d1f", sw:1};   /* lo stile delle forme NUOVE (cm, colori #rrggbb) */
+var custAggancio=true;      /* griglia dell'editor: passo di 1, 5 o 10 cm secondo lo zoom */
+var custVistaPrima=null, custStatoIniziale=null, custSchedaIniziale=null, custUiAccesa=false, custPolyClic=null, custGrigliaFirma="";
+var CUST_STRUMENTI={sel:"Seleziona", rect:"Rettangolo", ell:"Ellisse", line:"Linea", poly:"Poligono", text:"Testo"};
+function custClasse(c, on){ try{ document.body.classList[on?"add":"remove"](c); }catch(e){} }
+function custEl(id){ try{ var e=document.getElementById(id); return (e && e.nodeType===1) ? e : null; }catch(e){ return null; } }
+function custToast(s, err){ if(window.__toast) window.__toast(s, !!err); }
+/* «1,20 × 0,80 m»: le misure si dicono in metri, con la virgola */
+function custMetri(cm){ return (Math.round(cm)/100).toFixed(2).replace(".",","); }
+function custMisura(w, d){ return custMetri(w)+" × "+custMetri(d)+" m"; }
+/* passo della griglia: circa 8 px di schermo, arrotondato al passo più vicino fra 1, 5 e 10 cm */
+function custPassoDa(k){ var v=(isFinite(k) && k>0 ? k : 1)*8, best=1; [5,10].forEach(function(s){ if(Math.abs(s-v)<Math.abs(best-v)) best=s; }); return best; }
+function custPasso(){ return custPassoDa(cmPerPx()); }
+/* aggancio dentro l'editor (⌘/Ctrl = libero, al centimetro) */
+function custAggancia(v, e){ var s=(custAggancio && !(e && (e.metaKey||e.ctrlKey))) ? custPasso() : 1; return Math.round(v/s)*s; }
+/* aggancio del rettangolo sul palco vero: 5 cm (gli elementi si misurano al centimetro, i 25 cm del palco sono troppi);
+   libero al centimetro con l'aggancio su «Libero» o tenendo ⌘/Ctrl */
+function custAgganciaPalco(v, e){ var s=(snapMode==="0" || (e && (e.metaKey||e.ctrlKey))) ? 1 : 5; return Math.round(v/s)*s; }
+/* chi sta dentro l'area: centro dentro, come la selezione a rettangolo. Fuori: gli elementi personalizzati e i pezzi di un
+   altro elemento personalizzato (lo romperebbero), e ciò che non si vede (rack, occhio chiuso). */
+function custDentroArea(r){
+  var agglo={}; (state.items||[]).forEach(function(x){ if(x.type==="custom" && x.grp) agglo[x.grp]=1; });
+  return (state.items||[]).filter(function(x){ return x.type!=="custom" && x.type!=="custshape" && !(x.grp && agglo[x.grp]) && itemPickable(x)
+    && x.x>=r.x && x.x<=r.x+r.w && x.y>=r.y && x.y<=r.y+r.d; });
+}
+/* «Cantante, 2 × Asta microfono»: chi conta da solo, per nome del tipo */
+function custElencoTipi(its){
+  var n={}, ord=[];
+  its.forEach(function(x){ var nm=(TYPES[x.type]&&TYPES[x.type].nome)||x.type; if(!n[nm]){ n[nm]=0; ord.push(nm); } n[nm]++; });
+  return ord.map(function(nm){ return (n[nm]>1 ? n[nm]+" × " : "")+nm; }).join(", ");
+}
+
+/* ---------- finestre (stesso aspetto di guideDialog: .guide-ov / .guide-card) ---------- */
+/* o = {title, msg, corpo, bottoni:[{label, cls, run, id}], esc:function, fuoco:elemento}. Esc e clic fuori = o.esc. */
+function custFinestra(o){
+  var old=document.getElementById("custDlg"); if(old && old.remove) old.remove();
+  var ov=document.createElement("div"); ov.id="custDlg"; ov.className="guide-ov";
+  var card=document.createElement("div"); card.className="guide-card";
+  card.setAttribute("role","dialog"); card.setAttribute("aria-modal","true"); card.setAttribute("aria-labelledby","custDlgT");
+  var h=document.createElement("h3"); h.className="guide-title"; h.id="custDlgT"; h.textContent=o.title||""; card.appendChild(h);
+  if(o.msg){ var p=document.createElement("p"); p.className="guide-msg"; p.textContent=o.msg; card.appendChild(p); }
+  if(o.corpo) card.appendChild(o.corpo);
+  var row=document.createElement("div"), btns=[]; row.className="guide-actions";
+  var chiusa=false;
+  function chiudi(){ if(chiusa) return; chiusa=true; document.removeEventListener("keydown", onKey, true); ov.remove(); }
+  function onKey(e){ if(e.key==="Escape"){ e.preventDefault(); e.stopPropagation(); chiudi(); if(o.esc) o.esc(); } }
+  (o.bottoni||[]).forEach(function(b){
+    var x=document.createElement("button"); x.type="button"; x.className="btn"+(b.cls?" "+b.cls:""); x.textContent=b.label; if(b.id) x.id=b.id;
+    x.addEventListener("click", function(){ if(x.disabled) return; if(b.resta && b.resta()===false) return; chiudi(); if(b.run) b.run(); });
+    row.appendChild(x); btns.push(x); });
+  card.appendChild(row); ov.appendChild(card); document.body.appendChild(ov);
+  ov.addEventListener("click", function(e){ if(e.target===ov){ chiudi(); if(o.esc) o.esc(); } });
+  document.addEventListener("keydown", onKey, true);
+  setTimeout(function(){ try{ (o.fuoco || btns[o.fuocoBottone!=null ? o.fuocoBottone : btns.length-1]).focus(); if(o.fuoco && o.fuoco.select) o.fuoco.select(); }catch(e){} }, 30);
+  return {ov:ov, bottoni:btns, chiudi:chiudi};
+}
+/* domanda con più risposte: cb(indice) — Esc e clic fuori = cb(-1). L'ULTIMO bottone è quello in evidenza e prende il
+   fuoco; con un'azione distruttiva (cls «danger-solid») il fuoco va al primo, quello che non perde niente (Invio = sicuro). */
+function custChiedi(titolo, testo, bottoni, cb, cls){
+  var dist=(cls||[]).indexOf("danger-solid")>=0;
+  return custFinestra({title:titolo, msg:testo, esc:function(){ cb(-1); }, fuocoBottone:dist ? 0 : null,
+    bottoni:bottoni.map(function(l, i){ return {label:l, cls:(cls&&cls[i])||(i===bottoni.length-1?"primary":""), run:function(){ cb(i); }}; })});
+}
+
+/* ---------- 1. il rettangolo sul palco ---------- */
+function custDisegnaArea(nomePreso){
+  if(isMobile()){ guideDialog({title:"Crea elemento", msg:"Si crea dal computer: sul telefono gli elementi personalizzati si vedono, si spostano ed escono nei PDF."}); return false; }
+  if(custEditorAttivo()){ custEditorAvvisa(); return false; }
+  if(window.__projLocked || document.body.classList.contains("viewmode") || foreignDoc()) return false;
+  window.__custNomePreso=(typeof nomePreso==="string") ? nomePreso.replace(/[\u0000-\u001f]/g," ").trim().slice(0, custLimiti().NOME) : "";
+  exitHubModes(); if(inListMode()) exitListMode(); endCatSearch(); clearSelection();
+  window.__custDraw={mode:"area"};
+  custClasse("cust-draw", true); render(); custGuida();
+  return true;
+}
+function custAnteprimaArea(r){
+  var g=document.getElementById("custarea-preview");
+  if(!g){ g=document.createElementNS("http://www.w3.org/2000/svg","g"); g.id="custarea-preview";
+    g.innerHTML='<rect class="newblk-preview cust-area"/><g class="cust-misura"><rect rx="4"/><text text-anchor="middle"></text></g>';
+    scenaSvg().appendChild(g); }
+  var rc=g.firstChild, lb=g.lastChild, fs=hSize(12), tx=lb.lastChild, txt=custMisura(r.w, r.d);
+  rc.setAttribute("x", r.x); rc.setAttribute("y", r.y); rc.setAttribute("width", r.w); rc.setAttribute("height", r.d);
+  /* l'etichetta delle misure sotto il rettangolo, in pixel fissi a qualunque zoom */
+  var bw=txt.length*fs*0.58+hSize(14), bh=fs*1.7, cx=r.x+r.w/2, ty=r.y+r.d+hSize(8);
+  lb.firstChild.setAttribute("x", cx-bw/2); lb.firstChild.setAttribute("y", ty); lb.firstChild.setAttribute("width", bw); lb.firstChild.setAttribute("height", bh);
+  tx.setAttribute("x", cx); tx.setAttribute("y", ty+bh*0.68); tx.setAttribute("font-size", fs); tx.textContent=txt;
+}
+function custTogliAnteprimaArea(){ var g=document.getElementById("custarea-preview"); if(g && g.parentNode) g.parentNode.removeChild(g); }
+function custAreaFine(){ window.__custDraw=null; drag=null; custTogliAnteprimaArea(); custClasse("cust-draw", false); custGuida(); }
+/* 2. le misure a numeri (la superficie resta disegnata sotto la finestra e segue i campi) */
+function custFinestraMisure(area, cb, annulla){
+  var L=custLimiti(), MAX=Math.max(L.MIN, Math.round(Math.max(+state.stage.w||0, +state.stage.d||0))) || 100000;
+  var corpo=document.createElement("div"); corpo.className="cust-misure";
+  corpo.innerHTML='<div class="cust-mis-riga"><label><span>Larghezza</span><span class="cust-mis-in"><input type="number" id="custMisW" min="'+L.MIN+'" max="'+MAX+'" step="1" inputmode="numeric"> cm</span></label>'+
+    '<span class="cust-mis-x" aria-hidden="true"></span><label><span>Profondità</span><span class="cust-mis-in"><input type="number" id="custMisD" min="'+L.MIN+'" max="'+MAX+'" step="1" inputmode="numeric"> cm</span></label></div>'+
+    '<div class="cust-mis-nota" id="custMisNota" aria-live="polite"></div>';
+  var iw=corpo.querySelector("#custMisW"), id=corpo.querySelector("#custMisD"), nota=corpo.querySelector("#custMisNota");
+  iw.value=area.w; id.value=area.d;
+  var a=Object.assign({}, area), F;
+  function valida(){
+    var ok=true;
+    [[iw,"w"],[id,"d"]].forEach(function(c){ var v=Number(String(c[0].value).replace(",",".")), buono=String(c[0].value).trim()!=="" && isFinite(v) && v===Math.round(v) && v>=L.MIN && v<=MAX;
+      c[0].classList.toggle("err", !buono); c[0].setAttribute("aria-invalid", buono?"false":"true"); if(buono) a[c[1]]=v; else ok=false; });
+    nota.textContent = ok ? custMisura(a.w, a.d) : "Numeri interi da "+L.MIN+" a "+MAX+" cm.";
+    nota.classList.toggle("err", !ok);
+    if(F) F.bottoni[1].disabled=!ok;
+    if(ok) custAnteprimaArea({x:a.x, y:a.y, w:a.w, d:a.d});
+    return ok;
+  }
+  [iw,id].forEach(function(x){ x.addEventListener("input", valida);
+    x.addEventListener("keydown", function(e){ if(e.key==="Enter"){ e.preventDefault(); if(valida()){ F.chiudi(); cb(a); } } }); });
+  F=custFinestra({title:"Misure dell'elemento", msg:"La superficie in scala su cui lo disegni. Correggi le misure se serve.", corpo:corpo, fuoco:iw,
+    esc:annulla, bottoni:[{label:"Annulla", run:annulla}, {label:"Continua", cls:"primary", id:"custMisOk", resta:valida, run:function(){ cb(a); }}]});
+  valida();
+  return F;
+}
+/* dopo il rettangolo: misure, domanda di inclusione, editor */
+function custChiediMisureEInclusione(area){
+  custFinestraMisure(area, function(a){
+    var dentro=custDentroArea(a);
+    var apri=function(incl){ custTogliAnteprimaArea(); if(custApriEditor(a, incl)) custMostraScheda({nome:(window.__custNomePreso||"")}); };
+    if(!dentro.length) return apri(false);
+    /* l'articolo segue il suono del numero: «i 2 elementi», «gli 8 elementi», «gli 11 elementi» */
+    var n=dentro.length, art=/^(8|11|8\d)$/.test(String(n)) ? "gli" : "i";
+    var tit=n===1 ? "Includere l'elemento nell'area?" : (art==="gli" ? "Includere gli "+n+" elementi nell'area?" : "Includere i "+n+" elementi nell'area?");
+    custChiedi(tit, custElencoTipi(dentro)+".\n\nSe sì, diventano pezzi dell'elemento e restano veri: contano da soli nelle liste. Se no, restano sul palco e l'editor parte vuoto.",
+      ["No", "Sì"], function(i){ if(i<0){ custTogliAnteprimaArea(); custToast("Creazione annullata: il palco non è cambiato."); return; } apri(i===1); });
+  }, function(){ custTogliAnteprimaArea(); });
+}
+function custApriEditor(area, incl){
+  var prima={vb:Object.assign({}, vb), utente:vistaUtente};
+  if(!custEditorApri(area, {includi:!!incl})){ custToast("Non è stato possibile aprire l'editor: il palco non è cambiato.", true); return false; }
+  custVistaPrima=prima; custStatoIniziale=stateToJSON();
+  custStrumento("sel"); custRenderEditor();
+  return true;
+}
+
+/* ---------- 3. strumenti di disegno ---------- */
+function custStrumento(t){
+  if(!custEditorAttivo() && t!=="sel") return;
+  custPolyClic=null; var p=document.getElementById("custpoly-preview"); if(p && p.parentNode) p.parentNode.removeChild(p);
+  window.__custDraw=(t && t!=="sel" && CUST_STRUMENTI[t]) ? {mode:t, pts:[]} : null;
+  if(window.__custDraw) clearSelection();
+  custClasse("cust-draw", !!window.__custDraw);
+  Array.prototype.forEach.call(document.querySelectorAll("#custBar [data-cust-tool]") || [], function(b){
+    var on=b.getAttribute("data-cust-tool")===(window.__custDraw ? window.__custDraw.mode : "sel"); b.classList.toggle("on", on); b.setAttribute("aria-pressed", on?"true":"false"); });
+  render(); custGuida();
+}
+/* la riga di aiuto sotto la barra: cosa fa il gesto adesso (e l'uscita) */
+function custGuida(){
+  var el=custEl("custGuida"), tx=custEl("custGuidaTxt"), bt=custEl("custGuidaEsci"); if(!el || !tx) return;
+  var m=window.__custDraw && window.__custDraw.mode, s="", b="Fine";
+  if(m==="area"){ s="<b>Crea elemento</b> · trascina un rettangolo sul palco: sarà la superficie dell'elemento, in scala."; b="Annulla"; }
+  else if(m==="rect") s="<b>Rettangolo</b> · trascina per disegnarlo · Maiusc = quadrato";
+  else if(m==="ell") s="<b>Ellisse</b> · trascina per disegnarla · Maiusc = cerchio";
+  else if(m==="line") s="<b>Linea</b> · trascina da un capo all'altro · Maiusc = dritta o a 45°";
+  else if(m==="poly") s="<b>Poligono</b> · un clic per ogni punto · doppio clic, Invio o clic sul primo punto per chiudere · ⌫ toglie l'ultimo";
+  else if(m==="text") s="<b>Testo</b> · clic dove scrivere";
+  el.hidden=!s; tx.innerHTML=s; if(bt) bt.textContent=b;
+  var bar=custEl("custBar");   /* nell'editor sta sotto la barra, anche quando la finestra stretta la manda su due righe */
+  try{ el.style.top=(bar && !bar.hidden && bar.offsetHeight) ? (bar.offsetTop+bar.offsetHeight+8)+"px" : ""; }catch(e){}
+}
+/* Esc durante un disegno: il poligono in corso si butta, lo strumento torna a Seleziona; il rettangolo sul palco si annulla */
+function custEscDisegno(){
+  var m=window.__custDraw && window.__custDraw.mode; if(!m) return false;
+  if(m==="area"){ custAreaFine(); render(); return true; }
+  if(m==="poly" && window.__custDraw.pts.length){ window.__custDraw.pts=[]; custPolyAnteprima(null); custGuida(); return true; }
+  custStrumento("sel"); return true;
+}
+function custStileNuovo(k){
+  var st=custStile, f=st.noFill ? null : st.fill;
+  if(k==="line") return {fill:null, stroke:st.stroke, sw:st.sw};
+  if(k==="text") return {fill:st.stroke, stroke:st.stroke, sw:st.sw};   /* il testo prende il colore del tratto: è inchiostro */
+  return {fill:f, stroke:st.stroke, sw:st.sw};
+}
+/* una forma nuova dal gesto: a/b = capi del trascinamento (o i punti del poligono) in coordinate della superficie */
+function custNuovaForma(k, a, b, pts, testo){
+  if(state.items.filter(function(x){ return x.type==="custshape"; }).length>=custLimiti().FORME){ custToast("Al massimo "+custLimiti().FORME+" forme per elemento.", true); return null; }
+  var st=custStileNuovo(k), g=Object.assign({k:k}, st);
+  if(k==="rect"){ g.x=Math.min(a.x,b.x); g.y=Math.min(a.y,b.y); g.w=Math.abs(b.x-a.x); g.h=Math.abs(b.y-a.y); }
+  else if(k==="ell"){ g.cx=(a.x+b.x)/2; g.cy=(a.y+b.y)/2; g.rx=Math.abs(b.x-a.x)/2; g.ry=Math.abs(b.y-a.y)/2; }
+  else if(k==="line"){ g.x1=a.x; g.y1=a.y; g.x2=b.x; g.y2=b.y; }
+  else if(k==="poly"){ g.pts=pts.map(function(p){ return [p.x, p.y]; }); }
+  else if(k==="text"){ var S=state.stage; g.x=a.x; g.y=a.y; g.s=testo||""; g.size=Math.max(2, Math.min(12, Math.round(Math.min(S.w, S.d)/8))); }
+  var it=custShapeDaForma(g); if(!it) return null;
+  primaDiAgire(); state.items.push(it); selectOne(it.id);
+  return it;
+}
+function custLimita(p){ var S=state.stage, mx=Math.max(S.w,S.d)*0.1; return {x:Math.max(-mx, Math.min(S.w+mx, p.x)), y:Math.max(-mx, Math.min(S.d+mx, p.y))}; }
+function custPunto(e){ var p=svgPoint(e); return custLimita({x:custAggancia(p.x, e), y:custAggancia(p.y, e)}); }
+/* Maiusc: quadrato/cerchio, o linea a 0/45/90° */
+function custVincola(k, a, b, e){
+  if(!e || !e.shiftKey) return b;
+  var dx=b.x-a.x, dy=b.y-a.y;
+  if(k==="line"){ var ang=Math.round(Math.atan2(dy,dx)/(Math.PI/4))*(Math.PI/4), l=Math.hypot(dx,dy); return {x:a.x+Math.round(Math.cos(ang)*l), y:a.y+Math.round(Math.sin(ang)*l)}; }
+  var m=Math.max(Math.abs(dx), Math.abs(dy)); return {x:a.x+(dx<0?-m:m), y:a.y+(dy<0?-m:m)};
+}
+function custPolyAnteprima(cur){
+  var P=window.__custDraw && window.__custDraw.pts, g=document.getElementById("custpoly-preview");
+  if(!P || !P.length){ if(g && g.parentNode) g.parentNode.removeChild(g); return; }
+  if(!g){ g=document.createElementNS("http://www.w3.org/2000/svg","g"); g.id="custpoly-preview"; g.setAttribute("class","cust-poly-prev"); scenaSvg().appendChild(g); }
+  var pts=P.concat(cur?[cur]:[]), r=hSize(4), s='<polyline points="'+pts.map(function(p){ return p.x+","+p.y; }).join(" ")+'"/>';
+  P.forEach(function(p, i){ s+='<circle cx="'+p.x+'" cy="'+p.y+'" r="'+(i===0?r*1.5:r)+'"'+(i===0?' class="primo"':'')+'/>'; });
+  g.innerHTML=s;
+}
+function custChiudiPoligono(){
+  var D=window.__custDraw; if(!D || D.mode!=="poly") return false;
+  if(D.pts.length<3){ custToast("Servono almeno 3 punti per chiudere il poligono."); return false; }
+  var it=custNuovaForma("poly", null, null, D.pts); custPolyAnteprima(null);
+  custStrumento("sel"); if(it){ selectOne(it.id); render(); save(); }
+  return true;
+}
+/* pointerdown sul palco con una modalità di disegno accesa: true = gestito (il resto del gestore non parte) */
+function custPointerDown(e){
+  var D=window.__custDraw; if(!D || e.button>0) return false;
+  e.preventDefault(); lastDown=null;
+  if(D.mode==="area"){
+    var sp0=svgPoint(e), p0={x:custAgganciaPalco(sp0.x,e), y:custAgganciaPalco(sp0.y,e)};
+    drag={mode:"custarea", x0:p0.x, y0:p0.y, rect:null}; custAnteprimaArea({x:p0.x, y:p0.y, w:0, d:0});
+    try{ svg.setPointerCapture(e.pointerId); }catch(_e){} return true;
+  }
+  if(!custEditorAttivo()){ custEscDisegno(); return true; }
+  var p=custPunto(e);
+  if(D.mode==="poly"){
+    var P=D.pts, now=Date.now(), pr=custPolyClic, px=hSize(8);
+    /* doppio clic (secondo clic fermo entro 400 ms) o clic sul primo punto: chiude */
+    var doppio=pr && now-pr.t<400 && Math.abs(e.clientX-pr.cx)<6 && Math.abs(e.clientY-pr.cy)<6;
+    var sulPrimo=P.length>=3 && Math.hypot(p.x-P[0].x, p.y-P[0].y)<=px;
+    custPolyClic={t:now, cx:e.clientX, cy:e.clientY};
+    if(doppio || sulPrimo){ custChiudiPoligono(); return true; }
+    if(P.length>=custLimiti().PUNTI){ custToast("Al massimo "+custLimiti().PUNTI+" punti: il poligono si chiude qui."); custChiudiPoligono(); return true; }
+    if(!P.length || P[P.length-1].x!==p.x || P[P.length-1].y!==p.y) P.push(p);
+    custPolyAnteprima(null); return true;
+  }
+  if(D.mode==="text"){
+    var it=custNuovaForma("text", p, null, null, ""); if(!it) return true;
+    custStrumento("sel"); selectOne(it.id); render(); custTestoModifica(it.id, true); return true;
+  }
+  drag={mode:"custforma", k:D.mode, a:p, b:p};
+  var g=document.createElementNS("http://www.w3.org/2000/svg","g"); g.id="custforma-preview"; g.setAttribute("class","cust-forma-prev");
+  g.innerHTML='<g class="cust-misura"><rect rx="4"/><text text-anchor="middle"></text></g>';
+  scenaSvg().appendChild(g); drag.el=g;
+  try{ svg.setPointerCapture(e.pointerId); }catch(_e){}
+  return true;
+}
+function custPointerMove(e){
+  if(drag && drag.mode==="custarea"){
+    var sp=svgPoint(e), x1=custAgganciaPalco(sp.x,e), y1=custAgganciaPalco(sp.y,e);
+    var r={x:Math.min(x1,drag.x0), y:Math.min(y1,drag.y0), w:Math.abs(x1-drag.x0), d:Math.abs(y1-drag.y0)};
+    drag.rect=r; custAnteprimaArea(r); return true;
+  }
+  if(drag && drag.mode==="custforma"){
+    var b=custVincola(drag.k, drag.a, custPunto(e), e); drag.b=b;
+    var a=drag.a, s, mis, fs=hSize(12), lab;
+    var st=custStileNuovo(drag.k), sty=' fill="'+(st.fill||"none")+'" stroke="'+st.stroke+'" stroke-width="'+st.sw+'"';
+    if(drag.k==="rect"){ s='<rect x="'+Math.min(a.x,b.x)+'" y="'+Math.min(a.y,b.y)+'" width="'+Math.abs(b.x-a.x)+'" height="'+Math.abs(b.y-a.y)+'"'+sty+'/>'; mis=custMisura(Math.abs(b.x-a.x), Math.abs(b.y-a.y)); }
+    else if(drag.k==="ell"){ s='<ellipse cx="'+(a.x+b.x)/2+'" cy="'+(a.y+b.y)/2+'" rx="'+Math.abs(b.x-a.x)/2+'" ry="'+Math.abs(b.y-a.y)/2+'"'+sty+'/>'; mis=custMisura(Math.abs(b.x-a.x), Math.abs(b.y-a.y)); }
+    else { s='<line x1="'+a.x+'" y1="'+a.y+'" x2="'+b.x+'" y2="'+b.y+'" stroke="'+st.stroke+'" stroke-width="'+st.sw+'"/>'; mis=custMetri(Math.hypot(b.x-a.x, b.y-a.y))+" m"; }
+    var bw=mis.length*fs*0.58+hSize(14), bh=fs*1.7, cx=(a.x+b.x)/2, ty=Math.max(a.y,b.y)+hSize(8);
+    lab='<g class="cust-misura"><rect rx="'+hSize(4)+'" x="'+(cx-bw/2)+'" y="'+ty+'" width="'+bw+'" height="'+bh+'"/><text text-anchor="middle" x="'+cx+'" y="'+(ty+bh*0.68)+'" font-size="'+fs+'">'+esc(mis)+'</text></g>';
+    drag.el.innerHTML=s+lab; return true;
+  }
+  if(!drag && window.__custDraw && window.__custDraw.mode==="poly" && window.__custDraw.pts.length){ custPolyAnteprima(custPunto(e)); return true; }
+  return false;
+}
+function custPointerUp(e){
+  if(drag && drag.mode==="custarea"){
+    var nr=drag.rect, L=custLimiti(); drag=null;
+    if(!nr || nr.w<L.MIN || nr.d<L.MIN){
+      custTogliAnteprimaArea(); custToast("Trascina un rettangolo di almeno "+L.MIN+" × "+L.MIN+" cm (Esc per annullare).");
+      return true;   /* la modalità resta: si riprova subito */
+    }
+    window.__custDraw=null; custClasse("cust-draw", false); custGuida();
+    custChiediMisureEInclusione({x:Math.round(nr.x), y:Math.round(nr.y), w:Math.round(nr.w), d:Math.round(nr.d)});
+    return true;
+  }
+  if(drag && drag.mode==="custforma"){
+    var k=drag.k, a=drag.a, b=drag.b; if(drag.el && drag.el.parentNode) drag.el.parentNode.removeChild(drag.el); drag=null;
+    var lungo=(k==="line") ? Math.hypot(b.x-a.x, b.y-a.y)>=1 : (Math.abs(b.x-a.x)>=1 && Math.abs(b.y-a.y)>=1);
+    if(!lungo){ render(); return true; }   /* un clic senza trascinare non disegna niente: lo strumento resta acceso */
+    var it=custNuovaForma(k, a, b);
+    custStrumento("sel"); if(it){ selectOne(it.id); render(); save(); }
+    return true;
+  }
+  return false;
+}
+/* scrivere un testo sul palco temporaneo (riga sola, max 140): Invio conferma, Esc annulla; un testo nuovo lasciato vuoto sparisce */
+function custTestoModifica(id, nuovo){
+  var it=state.items.find(function(x){ return x.id===id && x.type==="custshape" && x.k==="text"; }); if(!it) return;
+  var g=itemNode(id); if(!g) return;
+  var r=g.getBoundingClientRect(), scale=1/cmPerPx(), fs=Math.max(12, (it.d/1.3)*scale);
+  var inp=document.createElement("input"); inp.type="text"; inp.maxLength=custLimiti().TESTO; inp.value=it.s||""; inp.placeholder="Scrivi…";
+  inp.className="cust-testo-inp"; inp.setAttribute("aria-label","Testo della forma");
+  var w=Math.max(160, r.width+40);
+  inp.style.cssText="left:"+Math.round(r.left+r.width/2-w/2)+"px;top:"+Math.round(r.top+r.height/2-fs*0.8)+"px;width:"+Math.round(w)+"px;font-size:"+Math.round(fs)+"px;color:"+(it.fill||"#1d1d1f");
+  g.setAttribute("opacity","0"); var _lh=document.getElementById("layHandles"); if(_lh) _lh.setAttribute("opacity","0");
+  document.body.appendChild(inp); inp.focus(); inp.select();
+  var fatto=false, nato=Date.now();
+  function fine(ok){
+    if(fatto) return; fatto=true; inp.remove();
+    var v=ok ? inp.value.replace(/[\u0000-\u001f]/g," ").trim().slice(0, custLimiti().TESTO) : (it.s||"");
+    if(!v){ state.items=state.items.filter(function(x){ return x.id!==id; }); clearSelection(); if(!nuovo) save(); render(); return; }
+    if(v!==it.s || nuovo){ it.s=v; it.w=custTestoLargo(v, it.d/1.3); save(); }
+    render();
+  }
+  inp.addEventListener("keydown", function(ev){ ev.stopPropagation(); if(ev.key==="Enter"){ ev.preventDefault(); fine(true); } else if(ev.key==="Escape"){ ev.preventDefault(); fine(false); } });
+  inp.addEventListener("blur", function(){ if(Date.now()-nato<300 && !fatto){ setTimeout(function(){ if(!fatto) inp.focus(); }, 0); return; } fine(true); });
+  inp.addEventListener("pointerdown", function(ev){ ev.stopPropagation(); });
+}
+
+/* ---------- 4. la superficie: foglio, griglia in cm, righello ---------- */
+function custSuperficieMarkup(){
+  var W=+state.stage.w||0, D=+state.stage.d||0, g=custPasso(), M=g*10, s='', x, y;
+  custGrigliaFirma=g+":"+cmPerPx().toFixed(3);
+  s+='<rect class="cust-sup" x="0" y="0" width="'+W+'" height="'+D+'"/>';
+  if(W/g+D/g<=1600){
+    s+='<g class="cust-griglia">';
+    for(x=g; x<W; x+=g) s+='<line'+(x%M===0?' class="m"':'')+' x1="'+x+'" y1="0" x2="'+x+'" y2="'+D+'"/>';
+    for(y=g; y<D; y+=g) s+='<line'+(y%M===0?' class="m"':'')+' x1="0" y1="'+y+'" x2="'+W+'" y2="'+y+'"/>';
+    s+='</g>';
+  }
+  s+='<rect class="cust-bordo" x="0" y="0" width="'+W+'" height="'+D+'"/>';
+  /* righello in alto e a sinistra: tacche ogni 10 passi, numeri in cm a una distanza leggibile (≥ 44 px) */
+  var k=cmPerPx(), fs=hSize(10.5), t=hSize(5), lab=M; while(lab/k<44) lab*=(String(lab).charAt(0)==="1" ? 5 : 2);
+  s+='<g class="cust-righello" font-size="'+fs+'">';
+  for(x=0; x<=W+0.001; x+=M){ s+='<line x1="'+x+'" y1="0" x2="'+x+'" y2="'+(-t*(x%lab===0?1.6:1))+'"/>'; if(x%lab===0) s+='<text x="'+x+'" y="'+(-t*2.2)+'" text-anchor="middle">'+x+'</text>'; }
+  for(y=0; y<=D+0.001; y+=M){ s+='<line x1="0" y1="'+y+'" x2="'+(-t*(y%lab===0?1.6:1))+'" y2="'+y+'"/>'; if(y%lab===0 && y>0) s+='<text x="'+(-t*2.2)+'" y="'+(y+fs*0.35)+'" text-anchor="end">'+y+'</text>'; }
+  s+='<text class="cust-unita" x="'+(-t*2.2)+'" y="'+(-t*2.2)+'" text-anchor="end">cm</text></g>';
+  if(!(state.items||[]).length) s+='<text class="cust-vuoto" x="'+(W/2)+'" y="'+(D/2)+'" text-anchor="middle" font-size="'+hSize(13)+'">Disegna con gli strumenti in alto, o posa elementi dal catalogo</text>';
+  return s;
+}
+/* lo zoom cambia il passo e la misura dei numeri del righello: si ridisegna solo il foglio */
+function custAggiornaGriglia(){
+  if(!custEditorAttivo()) return;
+  if(custPasso()+":"+cmPerPx().toFixed(3)===custGrigliaFirma) return;
+  var l=document.getElementById("layStage"); if(l) setSvgInner(l, custSuperficieMarkup());
+  var pl=custEl("custPassoLbl"); if(pl) pl.textContent=custPasso()+" cm";
+}
+
+/* ---------- 5. la scheda ---------- */
+function custSchedaNorm(v){
+  v=v||{}; var L=custLimiti();
+  var nome=String(v.nome==null?"":v.nome).replace(/[\u0000-\u001f]/g," ").trim().slice(0, L.NOME);
+  var desc=String(v.desc==null?"":v.desc).replace(/[\u0000-\u0009\u000b-\u001f]/g," ").trim().slice(0, L.DESC);
+  var w=(v.watt===""||v.watt==null) ? null : Number(String(v.watt).replace(",","."));
+  w=(w==null || !isFinite(w) || w<=0) ? null : Math.min(L.WATT, Math.round(w));
+  var n=v.ins && typeof v.ins==="object" ? Number(v.ins.n) : 0; n=isFinite(n) ? Math.max(0, Math.min(L.INS, Math.round(n))) : 0;
+  return {nome:nome, desc:desc, watt:w, ins:n>0 ? {n:n, tipo:(v.ins.tipo==="linea"?"linea":"mic")} : null, backline:v.backline===true};
+}
+/* valori = {nome, desc, watt, ins, backline}: riempie la scheda (Crea: solo il nome preso dalla ricerca; Modifica: tutto) */
+function custMostraScheda(valori){
+  var v=custSchedaNorm(valori), f=function(id){ return custEl(id); };
+  if(f("custNome")) f("custNome").value=v.nome;
+  if(f("custDesc")) f("custDesc").value=v.desc;
+  if(f("custWatt")) f("custWatt").value=v.watt==null ? "" : String(v.watt);
+  if(f("custInsN")) f("custInsN").value=String(v.ins ? v.ins.n : 0);
+  if(f("custInsTipo")) f("custInsTipo").value=v.ins ? v.ins.tipo : "mic";
+  if(f("custBackline")) f("custBackline").checked=!!v.backline;
+  custSchedaIniziale=JSON.stringify(v);
+  custSchedaErrore(false); custSchedaContatori();
+  if(f("custScheda")) f("custScheda").hidden=!custEditorAttivo();
+  return v;
+}
+function custLeggiScheda(){
+  var f=function(id){ return custEl(id); };
+  return custSchedaNorm({nome:f("custNome")?f("custNome").value:"", desc:f("custDesc")?f("custDesc").value:"",
+    watt:f("custWatt")?f("custWatt").value:"", ins:{n:f("custInsN")?f("custInsN").value:0, tipo:f("custInsTipo")?f("custInsTipo").value:"mic"},
+    backline:!!(f("custBackline") && f("custBackline").checked)});
+}
+function custSchedaErrore(on){
+  var n=custEl("custNome"), e=custEl("custNomeErr");
+  if(n){ n.classList.toggle("err", !!on); n.setAttribute("aria-invalid", on?"true":"false"); }
+  if(e) e.hidden=!on;
+}
+function custSchedaContatori(){
+  var d=custEl("custDesc"), c=custEl("custDescN"); if(d && c) c.textContent=String(d.value||"").length+"/"+custLimiti().DESC;
+  var n=custEl("custInsN"), t=custEl("custInsTipo"); if(n && t) t.disabled=!(Number(n.value)>0);
+}
+/* «+ 3 elementi contati a parte: 2 × Microfono su asta, Ampli»: gli elementi veri dentro contano da soli */
+function custContaVeri(){
+  var veri=(state.items||[]).filter(function(x){ return x.type!=="custshape"; });
+  if(!veri.length) return "Gli elementi del catalogo che posi qui restano veri: contano da soli nelle liste.";
+  return "+ "+(veri.length===1 ? "1 elemento contato" : veri.length+" elementi contati")+" a parte: "+custElencoTipi(veri)+".";
+}
+function custModificato(){
+  if(!custEditorAttivo()) return false;
+  return stateToJSON()!==custStatoIniziale || JSON.stringify(custLeggiScheda())!==custSchedaIniziale;
+}
+/* Salva (opz.invia: «Salva e invia per revisione», Tappa 5): senza nome il campo diventa rosso e prende il fuoco */
+function custSalvaDaScheda(opz){
+  if(!custEditorAttivo()) return null;
+  var v=custLeggiScheda();
+  if(!v.nome){ custSchedaErrore(true); var n=custEl("custNome"); if(n) try{ n.focus(); }catch(e){} return null; }
+  custSchedaErrore(false);
+  /* forme fuori dalla superficie: salvando si schiaccerebbero sul bordo. Si dice, e si sceglie. */
+  var fuori=custFormeFuori();
+  if(fuori.length && !(opz && opz.fuoriOk)){
+    custChiedi("Una forma esce dalla superficie", "Salvando, la parte fuori si schiaccia sul bordo dell'elemento ("+custMisura(state.stage.w, state.stage.d)+"). Riportala dentro, o salva così.",
+      ["Torna a disegnare", "Salva così"], function(i){
+        if(i===1) custSalvaDaScheda(Object.assign({}, opz, {fuoriOk:true}));
+        else { selSet={}; fuori.forEach(function(id){ selSet[id]=true; }); sel=fuori[fuori.length-1]; render(); } });
+    return null;
+  }
+  var id=custEditorSalva(v);
+  custDopoChiusura();
+  if(id && opz && opz.invia && typeof window.custInviaRevisione==="function") window.custInviaRevisione(id);
+  return id;
+}
+/* forme che escono dalla superficie oltre la tolleranza di custNorm (10%) */
+function custFormeFuori(){
+  var S=state.stage, mx=Math.max(S.w,S.d)*0.1;
+  return (state.items||[]).filter(function(x){
+    if(x.type!=="custshape") return false;
+    var r=(x.rot||0)*Math.PI/180, c=Math.abs(Math.cos(r)), s=Math.abs(Math.sin(r)), hw=(x.w*c+x.d*s)/2, hd=(x.w*s+x.d*c)/2;
+    return x.x-hw< -mx-0.5 || x.y-hd< -mx-0.5 || x.x+hw>S.w+mx+0.5 || x.y+hd>S.d+mx+0.5;
+  }).map(function(x){ return x.id; });
+}
+/* Annulla / Esc: se c'è qualcosa da perdere si chiede; altrimenti si esce subito */
+function custEsci(chiedi){
+  if(!custEditorAttivo()) return;
+  if(chiedi && custModificato()){
+    custChiedi("Uscire senza salvare?", "Il disegno e la scheda si perdono; il palco torna esattamente com'era.", ["Resta", "Esci senza salvare"],
+      function(i){ if(i===1) custEsci(false); }, ["", "danger-solid"]);
+    return;
+  }
+  custEditorAnnulla(); custDopoChiusura();
+}
+function custDopoChiusura(){
+  window.__custDraw=null; custPolyClic=null; custClasse("cust-draw", false);
+  ["custpoly-preview","custforma-preview","custarea-preview"].forEach(function(i){ var g=document.getElementById(i); if(g && g.parentNode) g.parentNode.removeChild(g); });
+  custStatoIniziale=null; custSchedaIniziale=null; window.__custNomePreso="";
+  if(custVistaPrima){ vb=custVistaPrima.vb; vistaUtente=custVistaPrima.utente; custVistaPrima=null; }
+  custGuida(); render();
+}
+
+/* ---------- 6. l'interfaccia segue lo stato (da renderProps: anche a ogni passo di trascinamento) ---------- */
+function custFormeSel(){ return selItems().filter(function(x){ return x.type==="custshape"; }); }
+function custRenderEditor(){
+  var on=custEditorAttivo();
+  if(!on && !custUiAccesa) return;
+  custUiAccesa=on;
+  var bar=custEl("custBar"), sch=custEl("custScheda"), fo=custEl("custForma");
+  if(bar) bar.hidden=!on; if(sch) sch.hidden=!on;
+  var one=on && selIds().length===1 ? getSel() : null, forma=one && one.type==="custshape" ? one : null;
+  custClasse("cust-forma-sel", !!forma);
+  if(fo) fo.hidden=!forma;
+  if(!on){ var gd=custEl("custGuida"); if(gd && !window.__custDraw) gd.hidden=true; return; }
+  var dm=custEl("custDim"); if(dm) dm.textContent=custMisura(state.stage.w, state.stage.d);
+  var pl=custEl("custPassoLbl"); if(pl) pl.textContent=custPasso()+" cm";
+  var ct=custEl("custConta"); if(ct) ct.textContent=custContaVeri();
+  /* stile: quello della forma selezionata, altrimenti quello delle forme nuove */
+  var fs=custFormeSel(), ref=fs[0], fill=ref ? ref.fill : (custStile.noFill ? null : custStile.fill);
+  var F=custEl("custFill"), NF=custEl("custNoFill"), S=custEl("custStroke"), W=custEl("custSw");
+  var soloTesti=fs.length && fs.every(function(x){ return x.k==="text"; }), soloLinee=fs.length && fs.every(function(x){ return x.k==="line"; });
+  /* il testo ha un colore solo, quello della linea (è inchiostro); la linea non ha riempimento */
+  if(F && document.activeElement!==F) F.value=(ref && ref.k!=="text" && ref.fill) || custStile.fill;
+  if(NF){ NF.checked=(ref && ref.k!=="text") ? !ref.fill : custStile.noFill; NF.disabled=!!(soloTesti || soloLinee); }
+  if(F) F.disabled=!!(soloTesti || soloLinee);
+  if(S && document.activeElement!==S) S.value=(ref ? (ref.k==="text" ? ref.fill : ref.stroke) : custStile.stroke) || "#1d1d1f";
+  if(W){ W.value=String(ref ? ref.sw : custStile.sw); W.disabled=!!soloTesti; }
+  if(forma) custRenderForma(forma);
+}
+function custRenderForma(it){
+  var nm=custEl("custFormaNome"); if(nm) nm.textContent=CUST_STRUMENTI[it.k]||"Forma";
+  var testo=it.k==="text", a=document.activeElement;
+  var dims=custEl("custFormaDims"), tx=custEl("custFormaTxt"); if(dims) dims.hidden=testo; if(tx) tx.hidden=!testo;
+  var set=function(id, v){ var e=custEl(id); if(e && e!==a) e.value=v; };
+  set("custFW", Math.round(it.w*10)/10); set("custFD", Math.round(it.d*10)/10); set("custFRot", Math.round(it.rot||0));
+  if(testo){ set("custFTesto", it.s||""); set("custFCorpo", Math.round(it.d/1.3*10)/10); }
+}
+/* stile dalla barra: sulla selezione se ci sono forme selezionate (anche il prossimo disegno lo eredita), altrimenti solo per le nuove */
+function custApplicaStile(campo, valore, salva){
+  if(campo==="fill"){ custStile.fill=valore; custStile.noFill=false; }
+  else if(campo==="noFill") custStile.noFill=!!valore;
+  else if(campo==="stroke") custStile.stroke=valore;
+  else if(campo==="sw") custStile.sw=valore;
+  var fs=custFormeSel(); if(!fs.length) return;
+  if(salva) primaDiAgire();
+  fs.forEach(function(x){
+    if(campo==="fill"){ if(x.k!=="line") x.fill=valore; }
+    else if(campo==="noFill"){ if(x.k!=="line" && x.k!=="text") x.fill=valore ? null : custStile.fill; }
+    else if(campo==="stroke"){ if(x.k==="text") x.fill=valore; x.stroke=valore; }
+    else if(campo==="sw"){ if(x.k!=="text") x.sw=valore; }
+  });
+  render(); if(salva) save();
+}
+/* le misure di una forma dal pannello (cm, anche decimali) */
+function custFormaImposta(campo, v){
+  var it=getSel(); if(!it || it.type!=="custshape") return;
+  v=Number(String(v).replace(",",".")); if(!isFinite(v)) { renderProps(); return; }
+  primaDiAgire();
+  if(campo==="w") it.w=Math.max(1, Math.min(100000, v));
+  else if(campo==="d") it.d=Math.max(1, Math.min(100000, v));
+  else if(campo==="rot"){ it.rot=Math.round(((v%360)+360)%360); }
+  else if(campo==="corpo"){ var c=Math.max(2, Math.min(200, v)); it.d=custR6(custTestoAlto(c)); it.w=custTestoLargo(it.s, c); }
+  render(); save();
+}
+
+/* ---------- 7. le azioni del progetto vero sono ferme mentre l'editor è aperto ---------- */
+/* Comandi che agirebbero sul progetto vero (o lo esporterebbero leggendo il palco temporaneo): sono nascosti dal CSS
+   (body.cust-editor) e, se arrivano lo stesso (scorciatoie, proxy, ricerca), si fermano qui col messaggio unico. */
+var CUST_BLOCCATI="#fileBtn,#fileMenu [data-file],#evChip,#variantBar,#variantMenu [data-vm],#projStatus,#bChanList,#bRichiedi,#bExportHdr,#bShareHdr,#accountBtn,"+
+  "#cloudSignout,#bCloud,#bHdrPdf,#bHdrImport,#bVenue,#bPdf,#bAi,#bShare,#bStageShape,#bAdattaPalco,#venueBtnImport,#venueBtnReload";
+function custBlocca(){ if(!custEditorAttivo()) return false; custEditorAvvisa(); return true; }
+(function(){
+  try{
+    document.addEventListener("click", function(e){
+      if(!custEditorAttivo() || !e.target || !e.target.closest) return;
+      if(e.target.closest(CUST_BLOCCATI)){ e.preventDefault(); e.stopImmediatePropagation(); custEditorAvvisa(); }
+    }, true);
+    document.addEventListener("focusin", function(e){   /* il titolo e i campi del progetto: nemmeno il fuoco */
+      if(custEditorAttivo() && e.target && e.target.closest && e.target.closest("#titolo,#mTitle,#luogo,#projApprovedBy")){ try{ e.target.blur(); }catch(_e){} }
+    }, true);
+  }catch(e){}
+})();
+
+/* ---------- 8. i comandi dell'interfaccia ---------- */
+(function(){
+  var on=function(id, ev, fn){ var e=custEl(id); if(e && e.addEventListener) e.addEventListener(ev, fn); };
+  try{
+    Array.prototype.forEach.call(document.querySelectorAll("#custBar [data-cust-tool]") || [], function(b){
+      b.addEventListener("click", function(){ custStrumento(b.getAttribute("data-cust-tool")); }); });
+  }catch(e){}
+  on("custGuidaEsci", "click", function(){ var m=window.__custDraw && window.__custDraw.mode; if(m==="area"){ custAreaFine(); render(); } else custStrumento("sel"); });
+  on("custFill", "input", function(){ custApplicaStile("fill", this.value, false); });
+  on("custFill", "change", function(){ custApplicaStile("fill", this.value, true); });
+  on("custNoFill", "change", function(){ custApplicaStile("noFill", this.checked, true); });
+  on("custStroke", "input", function(){ custApplicaStile("stroke", this.value, false); });
+  on("custStroke", "change", function(){ custApplicaStile("stroke", this.value, true); });
+  on("custSw", "change", function(){ var v=Number(this.value); if(isFinite(v)) custApplicaStile("sw", Math.max(0.5, Math.min(10, v)), true); });
+  on("custSnap", "change", function(){ custAggancio=!!this.checked; });
+  on("custFW", "change", function(){ custFormaImposta("w", this.value); });
+  on("custFD", "change", function(){ custFormaImposta("d", this.value); });
+  on("custFRot", "change", function(){ custFormaImposta("rot", this.value); });
+  on("custFCorpo", "change", function(){ custFormaImposta("corpo", this.value); });
+  on("custFTesto", "change", function(){ var it=getSel(); if(!it || it.k!=="text") return;
+    var v=String(this.value).replace(/[\u0000-\u001f]/g," ").trim().slice(0, custLimiti().TESTO); if(!v){ renderProps(); return; }
+    primaDiAgire(); it.s=v; it.w=custTestoLargo(v, it.d/1.3); render(); save(); });
+  on("custFDup", "click", function(){ duplicateSel(); });
+  on("custFDel", "click", function(){ deleteSelGuarded(); });
+  on("custFFront", "click", function(){ mutSel(function(it){ it.z=zDavantiA(state.items, it); }); });
+  on("custFBack", "click", function(){ mutSel(function(it){ it.z=zDietroA(state.items, it); }); });
+  on("custNome", "input", function(){ if(this.value.trim()) custSchedaErrore(false); });
+  on("custDesc", "input", custSchedaContatori);
+  on("custInsN", "input", custSchedaContatori);
+  on("custSalva", "click", function(){ custSalvaDaScheda(); });
+  on("custInvia", "click", function(){ custSalvaDaScheda({invia:true}); });
+  on("custAnnulla", "click", function(){ custEsci(true); });
+  /* «Salva e invia per revisione» si vede solo quando l'invio esiste (Tappa 5: custInviaRevisione e la funzione del server) */
+  var inv=custEl("custInvia"); if(inv) inv.hidden=(typeof window.custInviaRevisione!=="function");
+})();
 function drawShape(it){
   if(shapeOf(it)==="testo") return drawShapeTesto(it);
   var col=shapeFillOf(it), st=shapeStyleOf(it), op=(it.opacity==null?100:+it.opacity)/100;
@@ -14268,7 +14922,10 @@ function sceneMarkup(opts){
   _sceneArt = (opts && opts.espandi) ? null : {};
   _lblSchermo = !(opts && opts.espandi);
   recalcStageBBox();
-  var venue = (state.venue && layerShown("venue") ? venueMarkup() : '');   /* layer 0: planimetria (partecipa al solo) */
+  /* «Crea elemento»: il palco temporaneo è la superficie dell'elemento. Planimetria, cavi, cornice di stampa, FONDO PALCO e
+     legende sono del palco vero, con le sue coordinate: qui finirebbero fuori posto, e non si disegnano. */
+  var _cust=custEditorAttivo() && !(opts && opts.espandi);
+  var venue = (!_cust && state.venue && layerShown("venue") ? venueMarkup() : '');   /* layer 0: planimetria (partecipa al solo) */
   /* durante la calibrazione scala: solo planimetria + punti, palco/elementi nascosti per avere la visuale libera */
   if(venueCalibMode>0){ _sceneArt=null; return '<g id="layVenue">'+venue+'</g>'; }
   /* SOLO attivo: elementi pertinenti ai layer in solo a fuoco, il resto sfumato come contesto.
@@ -14323,12 +14980,12 @@ function sceneMarkup(opts){
   var _defs=sceneArtDefs(); _sceneArt=null;   /* i <defs> vanno PRIMA di chi li usa e la raccolta finisce qui */
   return _defs+
          '<g id="layVenue">'+venue+'</g>'+
-         '<g id="layStage">'+stageLayerMarkup()+'</g>'+
+         '<g id="layStage">'+(_cust ? custSuperficieMarkup() : stageLayerMarkup())+'</g>'+
          '<g id="layMicZones"'+mzAttr+'>'+zones+'</g>'+
          '<g id="layItems">'+items+'</g>'+
          '<g id="layLbl" style="pointer-events:none">'+lbls+'</g>'+   /* i nomi sopra tutti gli elementi (revisione 25/09); trasparenti ai clic */
          (function(){ var m=(opts && opts.espandi) ? '' : orcSeatsMarkup(); return m ? '<g id="layOrcSeats">'+m+'</g>' : ''; })()+   /* Orchestre: chi c'è sul posto (solo schermo, solo staff); in stampa/export il layer non esiste */
-         '<g id="layOverlay">'+overlayLayerMarkup()+'</g>'+
+         '<g id="layOverlay">'+(_cust ? mzMicHitMarkup() : overlayLayerMarkup())+'</g>'+
          '<g id="layHandles">'+selHandlesMarkup()+'</g>';   /* ULTIMO: le maniglie di ciò che è selezionato stanno sopra a tutto (anche ai blocchi del palco) */
 }
 /* sostituisce il contenuto di un nodo SVG in modo robusto (non si affida a <g>.innerHTML, meno universale di <svg>.innerHTML) */
@@ -14342,8 +14999,9 @@ function redrawStageLayers(){
   recalcStageBBox();
   var ls=document.getElementById("layStage"), lo=document.getElementById("layOverlay");
   if(!ls || !lo){ render(); return; }
-  setSvgInner(ls, stageLayerMarkup());
-  setSvgInner(lo, overlayLayerMarkup());
+  var _cust=custEditorAttivo();   /* «Crea elemento»: la superficie, non il palco vero (vedi sceneMarkup) */
+  setSvgInner(ls, _cust ? custSuperficieMarkup() : stageLayerMarkup());
+  setSvgInner(lo, _cust ? mzMicHitMarkup() : overlayLayerMarkup());
   redrawSelHandles();
 }
 /* RIQUADRO DI SELEZIONE ADERENTE (26/09, Simone: «il contorno verde dovrebbe adattarsi allo zoom ed essere
@@ -14427,6 +15085,7 @@ function aggiornaNomiZoom(){
   var nMode = state.namesMode||'auto';
   svg.classList.toggle("names-hidden", nMode==='off' || (nMode==='auto' && ppm<30));
   try{ svg.style.setProperty("--lblK", Math.max(1, 9/(14*ppm/100)).toFixed(3)); }catch(e){}
+  if(window.__custEditor) custAggiornaGriglia();   /* «Crea elemento»: lo zoom cambia il passo della griglia e il righello */
   nomiCedono();
   return ppm;
 }
@@ -14568,7 +15227,7 @@ function render(){
      dell'editor, si ingrandiscono attorno al loro centro fino a 9 px; il testo in sé non cambia, quindi
      PDF e PNG (che hanno un loro SVG e la loro scala, pdfTextK) restano come sono. */
   document.getElementById("scaleInfo").textContent =
-    "palco "+(state.stage.w/100)+"×"+(state.stage.d/100)+" m"+stageHeightNote()+" · zoom "+ppm.toFixed(0)+" px/m";
+    (custEditorAttivo() ? "elemento "+custMisura(state.stage.w, state.stage.d) : "palco "+(state.stage.w/100)+"×"+(state.stage.d/100)+" m"+stageHeightNote())+" · zoom "+ppm.toFixed(0)+" px/m";
   /* sp_onboarded = "ha già piazzato qualcosa almeno una volta": tiene spenta la finestra di benvenuto */
   if(state.items.length>0){ try{ localStorage.setItem("sp_onboarded","1"); }catch(e){} }
   /* C (ciclo #3): a palco vuoto + non loggato, non mostrare l'indicatore di salvataggio — niente rumore al primo impatto */
@@ -14991,6 +15650,7 @@ function renderSbF2(it){
   }
 }
 function renderProps(){
+  custRenderEditor();   /* «Crea elemento»: barra, scheda e pannello della forma seguono la selezione (anche a metà trascinamento) */
   updateHeaderStage();
   var n = selIds().length, grp = document.getElementById("groupProps");
   var _selOne = n===1 ? getSel() : null;
@@ -15430,7 +16090,7 @@ function renderProps(){
       document.getElementById("pStereoMono").className="btn"+(sst?"":" primary");
       document.getElementById("pStereoStereo").className="btn"+(sst?" primary":""); } }
   var omw=document.getElementById("pOwnMicWrap");   /* dentro una zona: eredita il panoramico, e puo' avere anche il suo (Simone 14/07, riscritto 29/07) */
-  if(omw){ var zn=isAudioSource(it) ? itemInMicZone(it) : null; omw.style.display=zn?"block":"none";
+  if(omw){ var zn=(isAudioSource(it) && it.type!=="custom") ? itemInMicZone(it) : null; omw.style.display=zn?"block":"none";   /* custom: i suoi ingressi li dice la scheda, l'interruttore non avrebbe effetto */
     if(zn){
       var due=effOwnMic(it);   /* i close-obligati (kick, rullante, tom, hi-hat) nascono gia' con il loro */
       Array.prototype.forEach.call(document.querySelectorAll("#pOwnMicMode [data-om]"), function(b){
@@ -17136,6 +17796,7 @@ function duplicateSel(noOffset, opts){
   var gmap={}, idmap={};   /* le copie di un blocco formano un NUOVO blocco (non si fondono con l'originale) */
   /* offset della copia: su mobile ampio (larghezza elemento + margine) così la duplicazione è VISIBILMENTE staccata dall'originale */
   var offX=40, offY=40;
+  if(custEditorAttivo()){ offX=offY=Math.max(2, Math.round(Math.min(state.stage.w, state.stage.d)*0.05)); }   /* nell'editor la superficie è piccola: 40 cm la porterebbero fuori */
   if(!noOffset && isMobile()){ offX=Math.round((its[0].w||60)+40); offY=40; }
   var copies=set.map(function(it){ var c=JSON.parse(JSON.stringify(it)); idmap[it.id]=c.id=uid();
     if(!noOffset){ c.x+=offX; c.y+=offY; }   /* offset solo per duplica con Ctrl+D; ALT+drag parte dalla posizione originale */
@@ -17371,7 +18032,10 @@ renderEvChip();
 document.getElementById("mW").addEventListener("change", function(){ applyStageWidth(this.value); });
 document.getElementById("mD").addEventListener("change", function(){ applyStageDepth(this.value); });
 /* `snapMode` è dichiarata più in alto, prima di syncSnapSelects (16/09) */
-function snapVal(){ var v=parseInt(snapMode,10); return (isNaN(v)||v<=0) ? 0 : v; }
+function snapVal(){ if(window.__custEditor) return custAggancio ? custPasso() : 0;   /* «Crea elemento»: la griglia fine dell'editor */
+  var v=parseInt(snapMode,10); return (isNaN(v)||v<=0) ? 0 : v; }
+/* l'aggancio che vale adesso: nell'editor «Crea elemento» la griglia in cm (passo secondo lo zoom) o libero */
+function snapModeEff(){ return window.__custEditor ? (custAggancio ? "cust" : "0") : snapMode; }
 function snap(v){ var s=snapVal(); return s>0 ? Math.round(v/s)*s : Math.round(v); }
 function placeCoord(v,e){ return (e && (e.metaKey||e.ctrlKey)) ? Math.round(v) : snap(v); }
 
@@ -17382,7 +18046,7 @@ function magneticSnap(dragItems, ddx, ddy){
      ddx/ddy:  delta grezzo dal punto di inizio drag
      Ritorna {sdx, sdy, guides:[{x1,y1,x2,y2,cls}]}  */
   if(!dragItems.length) return {sdx:0,sdy:0,guides:[]};
-  var W=state.stage.w, D=state.stage.d, T=SNAP_T;
+  var W=state.stage.w, D=state.stage.d, T=custEditorAttivo() ? hSize(8) : SNAP_T;   /* nell'editor la superficie è di centimetri: il magnete vale 8 px, non 15 cm */
 
   /* set di id trascinati (esclusi dai target) */
   var dragIds={};
@@ -17831,6 +18495,7 @@ function ricordaRecenteCatalogo(k, nome, over){
   /* «Palco» (Simone 13/10/2026): prima «Forma del palco», che si confondeva con l'elemento Forma qui sotto.
      La FORMA sta subito dopo: rettangolo, cerchio, freccia… con colore e testo, tutto nel pannello di destra. */
   pin.appendChild(makeActionBtn("Palco","blocchi, misure e altezze","pedana", toggleStageEdit));
+  pin.lastChild.classList.add("cust-no");   /* cust-no: nascosto nell'editor «Crea elemento» (la superficie non si cambia da qui) */
   var FORMA_ICON=miniSvg("forma", {w:200,d:140});
   pin.appendChild(makeActionBtn("Forma","rettangolo, cerchio, freccia… con colore e testo", null, function(){ addItem("forma"); }, FORMA_ICON));
   /* La PEDANA sta qui sotto, in mano al palco ma come elemento a sé (Simone 27/07): si posa e si
@@ -17838,6 +18503,7 @@ function ricordaRecenteCatalogo(k, nome, over){
   var PEDANA_ICON=miniSvg("pedana", {w:200,d:100});
   pin.appendChild(makeActionBtn("Pedana","2×1 m · si allunga e ruota", null, function(){ addItem("pedana"); }, PEDANA_ICON));
   pin.appendChild(makeActionBtn("Planimetria","immagine di sfondo", null, toggleVenueEdit, MAP_ICON));
+  pin.lastChild.classList.add("cust-no");
   /* Audit progetto: NON è una card fissa (segnalazione 6458fdd9, 18/08). Il catalogo di sinistra è
      la roba che si posa sul palco; l'audit è un controllo, e stava lì solo perché la categoria che
      lo ospitava era stata rimossa. Resta nell'indice: si scrive "audit" (o verifica, controlla,
@@ -17887,6 +18553,9 @@ function ricordaRecenteCatalogo(k, nome, over){
      Gli alias vivono su TYPES[k].alias (dati, invisibili in UI): singolare/plurale, italiano/inglese,
      sinonimi e termini comuni. Così "tastiera" trova singola+doppia, "coro" attraversa persone e
      dispositivi, "voce"/"singer" trovano il cantante — con un solo meccanismo per tutta la libreria. */
+  /* comandi sul progetto (palco, planimetria, liste, export, varianti…): nell'editor «Crea elemento» la ricerca non li propone */
+  var CUST_NO_RICERCA={"Palco":1, "Planimetria":1, "Audit progetto":1, "Esporta":1, "Channel list":1, "Monitor list":1, "Scaletta":1, "Nuova variante":1, "Frequenze radio (RF)":1};
+  entries.forEach(function(e){ if(!e.k && CUST_NO_RICERCA[e.nome]) e.custNo=true; });
   entries.forEach(function(e){
     var t=e.k?TYPES[e.k]:null;
     var strong=[e.nome, e.dim, e.kw, e.k, t&&t.nome, t&&t.alias];   /* come l'utente chiama l'elemento */
@@ -17900,7 +18569,7 @@ function ricordaRecenteCatalogo(k, nome, over){
   function searchMatches(query){
     var nq=_deacc(String(query||"").trim());
     if(!nq) return [];
-    var m=entries.filter(function(e){ return e._kw.indexOf(nq)>-1; });   /* substring su nome+categoria+alias; ogni entry una sola volta → nessun duplicato */
+    var m=entries.filter(function(e){ return e._kw.indexOf(nq)>-1 && !(e.custNo && custEditorAttivo()); });   /* substring su nome+categoria+alias; ogni entry una sola volta → nessun duplicato */
     /* STESSO ordinamento della finestrella del doppio clic (qaSearch): nome che inizia con la query →
        query a inizio parola nel nome → a inizio parola in un campo forte → a metà parola → sola
        categoria. Prima la barra guardava solo "il nome contiene la query", e cercando "kb" (tastiere)
@@ -18987,7 +19656,7 @@ function cabHoverTip(e){
 var _hovLbl=null;   /* il nome dell'elemento sotto il puntatore: in «nomi nascosti» si mostra (prima bastava .item:hover) */
 svg.addEventListener("pointerleave", function(){ if(_hovLbl){ _hovLbl.classList.remove("hov"); _hovLbl=null; } });   /* uscendo dal palco direttamente da un elemento il nome restava acceso */
 svg.addEventListener("pointerover", function(e){
-  if(isMobile() || drag) return;
+  if(isMobile() || drag || window.__custDraw) return;   /* «Crea elemento»: mentre si disegna, niente evidenziazioni degli elementi sotto */
   var g=e.target.closest ? e.target.closest(".item") : null;
   var _nl=g ? itemLblNode(g.getAttribute("data-id")) : null;
   if(_hovLbl && _hovLbl!==_nl) _hovLbl.classList.remove("hov");
@@ -19026,6 +19695,9 @@ svg.addEventListener("pointerdown", function(e){
     drag={mode:"pan", px:e.clientX, py:e.clientY, vx:vb.x, vy:vb.y};
     svg.classList.add("dragging"); svg.setPointerCapture(e.pointerId); return;
   }
+  /* «Crea elemento»: con una modalità di disegno accesa (rettangolo sul palco, strumenti dell'editor) il gesto è un
+     disegno, anche sopra un elemento: niente selezione, trascinamento o doppio clic dell'elemento sotto */
+  if(window.__custDraw && custPointerDown(e)) return;
   /* doppio-click manuale: robusto al re-render dell'SVG (il dblclick nativo si perde perché render() ricrea il bersaglio) */
   var dcG = e.target.closest ? e.target.closest(".item") : null;
   var dcId = dcG ? dcG.getAttribute("data-id") : null;
@@ -19074,7 +19746,9 @@ svg.addEventListener("pointerdown", function(e){
     }
     if(dcId){ selectOne(dcId); render();
       var dcIt=(state.items||[]).find(function(i){ return i.id===dcId; });
-      if(dcIt && (dcIt.type==="testo" || dcIt.type==="forma")){
+      if(dcIt && dcIt.type==="custshape"){   /* «Crea elemento»: doppio clic su un testo = lo riscrivi lì; sulle altre forme non apre altro */
+        e.preventDefault(); if(dcIt.k==="text") custTestoModifica(dcId, false); }
+      else if(dcIt && (dcIt.type==="testo" || dcIt.type==="forma")){
         /* Testo libero: scrivi direttamente sul palco (anche mobile: doppio tap).
            preventDefault: senza, la default action del mousedown sposta il focus e chiude
            la textarea appena aperta (bug trovato col mouse vero; gli eventi sintetici non lo mostrano). */
@@ -19393,7 +20067,7 @@ svg.addEventListener("pointermove", function(e){
     var pa=pointers[ids[0]], pb=pointers[ids[1]];
     var d=Math.hypot(pb.x-pa.x, pb.y-pa.y); if(d<=0) return;
     var f=pinch.d0/d, rect=svg.getBoundingClientRect();
-    var nw=Math.max(300, pinch.startW*f), nh=nw*pinch.ratio;
+    var nw=Math.max(custEditorAttivo()?20:300, pinch.startW*f), nh=nw*pinch.ratio;
     var mx=(pa.x+pb.x)/2, my=(pa.y+pb.y)/2;
     vb.w=nw; vb.h=nh;
     vb.x=pinch.mid0.x - (mx-rect.left)/rect.width*nw;
@@ -19402,6 +20076,8 @@ svg.addEventListener("pointermove", function(e){
     vistaUtente=true; syncMinimap(); aderisciSelezionePresto();   /* B: da qui la vista è dell'utente, e resta dove la lascia */
     return;
   }
+  /* «Crea elemento»: rettangolo sul palco, forma che si disegna, poligono che segue il puntatore */
+  if((drag && (drag.mode==="custarea" || drag.mode==="custforma")) || (!drag && window.__custDraw)){ if(custPointerMove(e)) return; }
   if(!drag) return;
   var sp;
   if(drag.mode==="cabseg"){   /* editing Max: trascina il LATO in perpendicolare; gli angoli si formano da soli */
@@ -19475,7 +20151,7 @@ svg.addEventListener("pointermove", function(e){
   if(drag.mode==="item"){
     sp=svgPoint(e); var ddx=sp.x-drag.sp0.x, ddy=sp.y-drag.sp0.y; drag.moved=true;
     var freeMove = e.metaKey || e.ctrlKey;   /* Cmd (Mac) / Ctrl (Win) tenuto premuto = movimento libero (no snap) */
-    var sm=snapMode;
+    var sm=snapModeEff();
     var magnet = freeMove ? {sdx:0,sdy:0,guides:[]}
       : sm==="obj" ? objectSnap(drag.items,ddx,ddy)
       : sm!=="0"   ? magneticSnap(drag.items,ddx,ddy)
@@ -19523,7 +20199,7 @@ svg.addEventListener("pointermove", function(e){
   } else if(drag.mode==="mzvtx"){           /* ZONA: trascina un vertice del poligono (frame locale, considera la rotazione) */
     sp=svgPoint(e); var zzit=state.items.find(function(i){ return i.id===drag.id; });
     if(zzit && zzit.pts && zzit.pts[drag.vi]){
-      var zgrid=(e.metaKey||e.ctrlKey)||(snapMode!=="0"&&snapMode!=="obj");
+      var zgrid=(e.metaKey||e.ctrlKey)||(snapModeEff()!=="0"&&snapModeEff()!=="obj");
       var zpx=sp.x, zpy=sp.y; if(zgrid){ zpx=snap(zpx); zpy=snap(zpy); }
       var za=(zzit.rot||0)*Math.PI/180, zdx=zpx-zzit.x, zdy=zpy-zzit.y;
       var zlx=zdx*Math.cos(za)+zdy*Math.sin(za), zly=-zdx*Math.sin(za)+zdy*Math.cos(za);
@@ -19536,7 +20212,8 @@ svg.addEventListener("pointermove", function(e){
       var gdx=sp.x-drag.sp0.x, gdy=sp.y-drag.sp0.y;
       var cn=Math.cos(-drag.rot), sn=Math.sin(-drag.rot);
       var ldx=gdx*cn - gdy*sn, ldy=gdx*sn + gdy*cn;     /* delta nel frame locale dell'elemento */
-      var grid=(e.metaKey||e.ctrlKey)||(snapMode!=="0"&&snapMode!=="obj"), MIN=20, ed=drag.edge, nw=drag.w0, nd=drag.d0, sgx=0, sgy=0;
+      /* forme di «Crea elemento»: si misurano al centimetro (un dettaglio di 2 cm è normale), non coi 20 cm del palco */
+      var grid=(e.metaKey||e.ctrlKey)||(snapModeEff()!=="0"&&snapModeEff()!=="obj"), MIN=(rzit.type==="custshape"?1:20), ed=drag.edge, nw=drag.w0, nd=drag.d0, sgx=0, sgy=0;
       if(ed.indexOf("r")>=0){ nw=Math.max(MIN, drag.w0+ldx); sgx=1; }
       if(ed.indexOf("l")>=0){ nw=Math.max(MIN, drag.w0-ldx); sgx=-1; }
       if(ed.indexOf("b")>=0){ nd=Math.max(MIN, drag.d0+ldy); sgy=1; }
@@ -19554,7 +20231,7 @@ svg.addEventListener("pointermove", function(e){
       /* snap magnetico a bordo palco durante resize (solo rot=0, no griglia) */
       var rsg=[];
       if(!grid && drag.rot===0 && rzit.type!=="platea"){   /* platea: il magnete al bordo la lascerebbe fuori dalle sue caselle (una sedia in meno) */
-        var rW=state.stage.w,rD=state.stage.d,rT=SNAP_T;
+        var rW=state.stage.w,rD=state.stage.d,rT=custEditorAttivo()?hSize(8):SNAP_T;
         if(ed.indexOf("r")>=0){var rre=rzit.x+nw/2,rdt=rW-rre;if(Math.abs(rdt)<rT){nw+=rdt;rzit.x+=rdt/2;rzit.w=nw;rsg.push({x1:rW,y1:-40,x2:rW,y2:rD+40,cls:'snap-guide'});}}
         if(ed.indexOf("l")>=0){var rle=rzit.x-nw/2,rdt=-rle;if(Math.abs(rdt)<rT){nw+=rdt;rzit.x-=rdt/2;rzit.w=nw;rsg.push({x1:0,y1:-40,x2:0,y2:rD+40,cls:'snap-guide'});}}
         if(ed.indexOf("b")>=0){var rbe=rzit.y+nd/2,rdt=rD-rbe;if(Math.abs(rdt)<rT){nd+=rdt;rzit.y+=rdt/2;rzit.d=nd;rsg.push({x1:-40,y1:rD,x2:rW+40,y2:rD,cls:'snap-guide'});}}
@@ -19565,7 +20242,7 @@ svg.addEventListener("pointermove", function(e){
   } else if(drag.mode==="metroend"){        /* metro: il capo trascinato segue il cursore, l'altro resta fermo */
     sp=svgPoint(e); var mit=state.items.find(function(i){ return i.id===drag.id; });
     if(mit){
-      var mgrid=(e.metaKey||e.ctrlKey)||(snapMode!=="0"&&snapMode!=="obj");
+      var mgrid=(e.metaKey||e.ctrlKey)||(snapModeEff()!=="0"&&snapModeEff()!=="obj");
       var mpx=sp.x, mpy=sp.y; if(mgrid){ mpx=snap(mpx); mpy=snap(mpy); }
       var mdx=mpx-drag.fix[0], mdy=mpy-drag.fix[1], mlen=Math.hypot(mdx,mdy);
       if(mlen>=20){
@@ -19677,6 +20354,7 @@ svg.addEventListener("pointermove", function(e){
 svg.addEventListener("pointerup", function(e){
   delete pointers[e.pointerId];
   if(pinch){ if(Object.keys(pointers).length<2) pinch=null; svg.classList.remove("dragging"); drag=null; return; }
+  if(drag && (drag.mode==="custarea" || drag.mode==="custforma")){ custPointerUp(e); svg.classList.remove("dragging"); return; }
   if(drag && drag.mode==="cabseg"){ if(drag.moved){ save(); } __cabRes=null; render(); renderCabPanel(); drag=null; return; }
   if(drag && drag.mode==="cabhome"){
     if(drag.moved){ save(); }
@@ -19848,7 +20526,10 @@ svg.addEventListener("pointerup", function(e){
   if(drag && drag.mode==="grouprot"){ if(drag.moved){ save(); ensureVisible(); } render(); drag=null; return; }
   if(drag && drag.mode==="mzmic"){ if(drag.moved){ __cabRes=null; save(); } render(); drag=null; return; }   /* __cabRes=null: il cavo riparte dalla nuova posizione del mic */
   if(drag && drag.mode==="mzvtx"){ var _zz=state.items.find(function(i){ return i.id===drag.id; }); if(_zz) miczoneRecenter(_zz); save(); ensureVisible(); render(); drag=null; return; }
-  if(drag && drag.mode==="itemresize"){ if(drag.moved){ save(); ensureVisible(); } render(); drag=null; return; }
+  if(drag && drag.mode==="itemresize"){ if(drag.moved){
+      var _rz=state.items.find(function(i){ return i.id===drag.id; });
+      if(_rz && _rz.type==="custshape" && _rz.k==="text") _rz.w=custTestoLargo(_rz.s, _rz.d/1.3);   /* testo: l'altezza fa il corpo, la larghezza la riga */
+      save(); ensureVisible(); } render(); drag=null; return; }
   if(drag && drag.mode==="metroend"){ if(drag.moved){ save(); ensureVisible(); } render(); drag=null; return; }
   if(drag && drag.mode==="item" && !drag.moved && drag.dupIds){   /* Alt+clic senza trascinare: la copia non serviva, via */
     var _dup={}; drag.dupIds.forEach(function(x){ _dup[x]=1; });
@@ -19910,6 +20591,7 @@ svg.addEventListener("pointercancel", function(e){   /* touch interrotto (2° di
   if(Object.keys(pointers).length<2) pinch=null;
   if(!drag){ svg.classList.remove("dragging"); return; }
   if(drag.el && drag.el.parentNode) drag.el.parentNode.removeChild(drag.el);   /* via il cavo-fantasma (mode port) */
+  if(drag.mode==="custarea") custTogliAnteprimaArea();   /* il rettangolo di «Crea elemento» interrotto: la modalità resta, si riprova */
   var mode=drag.mode, moved=drag.moved;
   drag=null; svg.classList.remove("dragging");
   /* Modalità che scrivono lo stato DURANTE il move (posizione/rotazione/segmenti/alimentazione):
@@ -19930,8 +20612,8 @@ svg.addEventListener("wheel", function(e){
   var unit = e.deltaMode===1 ? 16 : (e.deltaMode===2 ? 100 : 1);
   var d = e.deltaY*unit, mag = Math.min(Math.abs(d), 120)/120;
   var f = Math.exp((d>0?1:-1) * 0.06 * mag);
-  var nw=vb.w*f;
-  if(nw<300) nw=300;
+  var nw=vb.w*f, _zMin=custEditorAttivo() ? 20 : 300;   /* «Crea elemento»: si scende fino a 20 cm di vista, per i dettagli */
+  if(nw<_zMin) nw=_zMin;
   if(Math.abs(nw-vb.w)<0.5) return;
   f=nw/vb.w;
   vb.x = sp.x-(sp.x-vb.x)*f; vb.y = sp.y-(sp.y-vb.y)*f; vb.w*=f; vb.h*=f;
@@ -19971,6 +20653,8 @@ svg.addEventListener("drop", function(e){
      quote        offset 16 e 33 cm dal bordo + font 14 ruotato → ~45 cm oltre i lati */
 function stageDecorBounds(){
   var W=state.stage.w||0, D=state.stage.d||0, half=65, side=45;
+  /* «Crea elemento»: niente scritte fuori dal palco; resta il posto del righello (in alto e a sinistra) */
+  if(custEditorAttivo()){ var rg=Math.max(W,D)*0.09; return {x0:-rg, y0:-rg, x1:W+rg*0.4, y1:D+rg*0.4}; }
   return { x0:Math.min(-side, W/2-half), y0:-58, x1:Math.max(W+side, W/2+half), y1:D+42 };
 }
 /* riquadro di TUTTO il contenuto (palco + scritte/quote + elementi) per "vedere sempre tutto" */
@@ -20003,7 +20687,9 @@ function contentBounds(){
 /* Margine di fit proporzionato al palco: un margine fisso (140cm) rimpiccioliva troppo i palchi
    piccoli. Minimo assoluto 30 cm: aria fra il contenuto (scritte comprese) e il bordo dell'area
    visibile, anche su palchi molto piccoli dove il 5% varrebbe una decina di centimetri. */
-function fitMargin(){ var big=Math.max(state.stage.w||0, state.stage.d||0, 300); return Math.max(30, Math.round(big*(isMobile()?0.05:0.055))); }
+function fitMargin(){
+  if(custEditorAttivo()) return Math.max(1, Math.max(state.stage.w||0, state.stage.d||0)*0.04);   /* la superficie dell'elemento riempie la vista */
+  var big=Math.max(state.stage.w||0, state.stage.d||0, 300); return Math.max(30, Math.round(big*(isMobile()?0.05:0.055))); }
 /* larghezza viewBox che mostra TUTTO (= massimo zoom-out consentito) */
 /* `fitVb` calcola la vista senza ridisegnare (serve a render quando la vista si gira); i limiti
    arrivano sempre in coordinate del PALCO, e qui si portano in quelle della vista. */
@@ -20157,12 +20843,13 @@ function inlineTextEdit(id){
   ta.addEventListener("pointerdown", function(ev){ ev.stopPropagation(); });
 }
 function toggleStageEdit(){
+  if(custEditorAttivo() && !stageEdit) return custEditorAvvisa();   /* «Crea elemento»: la superficie non si cambia da qui (Palco e «Adatta») */
   if(stageEdit && stagePanelView!=="palco"){ stagePanelView="palco"; selBlock=0; renderStagePanel(); render(); return; }   /* aperto sulla planimetria: passa ai blocchi */
   stageEdit=!stageEdit; stagePanelView="palco"; selBlock=stageEdit?0:null; if(stageEdit){ exitHubModes("palco"); clearSelection(); } else venueAutoLock(); renderStagePanel(); render(); }
 function renderEventoPanel(){ document.body.classList.toggle("evento-edit", eventoEdit); document.getElementById("eventoSec").hidden=!eventoEdit; }
-function toggleEvento(){ eventoEdit=!eventoEdit; if(eventoEdit){ exitHubModes("evento"); clearSelection(); } renderEventoPanel(); render(); }
+function toggleEvento(){ if(custEditorAttivo() && !eventoEdit) return custEditorAvvisa(); eventoEdit=!eventoEdit; if(eventoEdit){ exitHubModes("evento"); clearSelection(); } renderEventoPanel(); render(); }
 function renderChanPanel(){ document.body.classList.toggle("chan-edit", chanEdit); }
-function toggleChan(){ chanEdit=!chanEdit; if(chanEdit){ exitHubModes("chan"); clearSelection(); } renderChanPanel(); render(); }
+function toggleChan(){ if(custEditorAttivo() && !chanEdit) return custEditorAvvisa(); chanEdit=!chanEdit; if(chanEdit){ exitHubModes("chan"); clearSelection(); } renderChanPanel(); render(); }
 /* ===== SCALETTA — il pannello (10/10). I dati e il totale stanno in scalettaList(), sopra normalizeState. =====
    Scrivere un titolo o una durata = saveSoon (un passo di Annulla per parola, come i contatti);
    aggiungere, spostare e togliere = azioni discrete: primaDiAgire() chiude prima la parola in sospeso,
@@ -20180,6 +20867,7 @@ function renderScalettaPanel(){
   if(scalettaEdit) renderScaletta(true);
 }
 function toggleScaletta(){
+  if(custEditorAttivo()) return custEditorAvvisa();   /* «Crea elemento» aperto: agirebbe sul palco temporaneo come se fosse il progetto */
   primaDiAgire();
   scalettaEdit=!scalettaEdit;
   if(scalettaEdit){ exitHubModes("scaletta"); clearSelection(); if(typeof exitListMode==="function") exitListMode(); }
@@ -20501,6 +21189,16 @@ function escCloseTopModal(target){
 document.addEventListener("keydown", function(e){
   if(clOpen && e.key==="Escape"){ clShow(false); return; }   /* channel list a schermo intero */
   if(e.key==="Escape" && escCloseTopModal(e.target)) return;
+  /* «Crea elemento», disegno in corso (fuori dai campi): Esc lo chiude un livello per volta — il poligono a metà si butta,
+     lo strumento torna a Seleziona, il rettangolo sul palco si annulla. Invio chiude il poligono, ⌫ e ⌘Z tolgono
+     l'ultimo punto. Prima di tutto il resto: la stessa Esc altrimenti deselezionerebbe o chiederebbe di uscire. */
+  if(window.__custDraw && !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName||"")){
+    var _cd=window.__custDraw;
+    if(e.key==="Escape"){ e.preventDefault(); custEscDisegno(); return; }
+    if(_cd.mode==="poly" && e.key==="Enter"){ e.preventDefault(); custChiudiPoligono(); return; }
+    if(_cd.mode==="poly" && _cd.pts.length && (e.key==="Backspace" || e.key==="Delete" || ((e.metaKey||e.ctrlKey) && (e.key==="z"||e.key==="Z") && !e.shiftKey))){
+      e.preventDefault(); _cd.pts.pop(); custPolyAnteprima(null); return; }
+  }
   /* durante la scelta dell'area di stampa Esc vale «annulla questo passo»: riporta alla finestra
      Esporta da cui si è partiti, invece di lasciare sul canvas senza né finestra né pannello */
   if(e.key==="Escape" && typeof frameEdit!=="undefined" && frameEdit && typeof finishFrameEdit==="function"){
@@ -20644,6 +21342,8 @@ document.addEventListener("keydown", function(e){
       .filter(function(x){ return !x.hidden && x.getClientRects().length; });
     if(_apri.length) return;
   }
+  /* «Crea elemento»: Esc con niente selezionato = uscire dall'editor (se c'è qualcosa da perdere, si chiede) */
+  if(e.key==="Escape" && custEditorAttivo() && !selIds().length && !catSearching()){ e.preventDefault(); custEsci(true); return; }
   if(e.key==="Escape"){ exitHubModes(); clearSelection(); if(!endCatSearch()) collapseCats();   /* con una ricerca aperta, Esc riporta la colonna in stato di partenza (campo vuoto, in cima) */
     exitListMode();   /* ESC: i layer si deselezionano e tornano alla modalità base */
     render(); }
@@ -24214,6 +24914,7 @@ var ACC_DEL_LAYER={ cabin:"patch", cabout:"mon", elec:"load" };
 /* Dalla ricerca: accende le Liste tecniche se servono, poi apre il layer con la sua lista (e il
    motore, la prima volta, come il clic sulla riga «attiva»). */
 function apriListaDaRicerca(id){
+  if(custEditorAttivo()) return custEditorAvvisa();   /* «Crea elemento» aperto: agirebbe sul palco temporaneo come se fosse il progetto */
   if(typeof funzOn==="function" && !funzOn("liste") && typeof funzImposta==="function") funzImposta({liste:true});
   var L=layerRegistry().filter(function(l){ return l.id===id; })[0];
   if(typeof clearSelection==="function") clearSelection();   /* con un elemento selezionato il pannello mostra lui, non la lista */
@@ -25312,6 +26013,7 @@ function clDragRenumber(host){
 var clReturnFocus=null;
 function clShow(v){
   var apro=(v!==false);
+  if(apro && custEditorAttivo()) return custEditorAvvisa();   /* channel list a schermo intero: leggerebbe il palco temporaneo */
   /* chiudendo, il fuoco torna al comando che l'ha aperta: senza, finiva su <body> e chi naviga a
      Tab ripartiva dall'inizio della pagina (06/08) */
   if(apro && !clOpen){
@@ -27117,7 +27819,7 @@ function renderAuditPanel(){
     host.appendChild(row);
   });
 }
-function toggleAuditView(){ auditActive=!auditActive; if(auditActive){ techAccordionOpen("audit"); closeMobileDrawers(); clearSelection(); } render(); }
+function toggleAuditView(){ if(custEditorAttivo() && !auditActive) return custEditorAvvisa(); auditActive=!auditActive; if(auditActive){ techAccordionOpen("audit"); closeMobileDrawers(); clearSelection(); } render(); }
 (function(){
   var head=document.getElementById("auditSecHead"); if(!head) return;
   head.addEventListener("click", function(e){ if(e.target.closest("#auditTrash")) return; if(auditOpen) auditOpen=false; else techAccordionOpen("audit"); renderAccessoriCount(); });   /* accordion */
@@ -27517,6 +28219,7 @@ function renderVenuePanel(){
   document.getElementById("venueBtnDel").style.display = v?"":"none";
 }
 function toggleVenueEdit(){
+  if(custEditorAttivo()) return custEditorAvvisa();   /* «Crea elemento» aperto: agirebbe sul palco temporaneo come se fosse il progetto */
   if(stageEdit && stagePanelView!=="planimetria"){ stagePanelView="planimetria"; selBlock=null; renderStagePanel(); render(); return; }   /* aperto sui blocchi: passa alla planimetria */
   if(!stageEdit){ stageEdit=true; stagePanelView="planimetria"; selBlock=null; exitHubModes("palco"); clearSelection(); }
   else { stageEdit=false; selBlock=null; venueAutoLock(); }
@@ -29082,6 +29785,7 @@ function exportChannelCsv(opts){
 }
 /* apre il piccolo dialogo di scelta formato (voce menu / bottone pannello) */
 function openCsvExport(){
+  if(custEditorAttivo()) return custEditorAvvisa();   /* «Crea elemento» aperto: agirebbe sul palco temporaneo come se fosse il progetto */
   if(!channelListCsv().count){ if(window.__toast) window.__toast("Nessun canale da esportare: aggiungi microfoni, DI o strumenti sul palco.", true); return; }
   var m=document.getElementById("csvPicker"); if(m) m.hidden=false; else exportChannelCsv();
 }
@@ -30334,6 +31038,7 @@ function isRf(it){ return !!(it && (RF_TYPES[it.type] || (VOCE[it.type] && micMo
    Lista RF. Quindi si apre il pannello del primo che ne è senza — o del primo in assoluto — e se
    sul palco non ce n'è nessuno si spiega dove si scrive, invece di non fare niente. */
 function openRfFreq(){
+  if(custEditorAttivo()) return custEditorAvvisa();   /* «Crea elemento» aperto: agirebbe sul palco temporaneo come se fosse il progetto */
   var rf=(state.items||[]).filter(isRf);
   if(!rf.length){ if(window.__toast) window.__toast("La frequenza si scrive su ogni radiomicrofono o in-ear: aggiungine uno dal catalogo, poi compila «Frequenza RF» nel suo pannello.", false); return null; }
   var senza=rf.filter(function(it){ return !it.rf; }), it=senza[0]||rf[0];
