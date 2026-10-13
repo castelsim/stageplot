@@ -74,3 +74,13 @@ Deno.test("email e prompt: il tipo «elemento» ha un nome e porta la scheda del
   const ignoto = buildFeedbackEmail({ ...base, hint: "vecchio" as string });
   assertEquals(ignoto.subject.includes("undefined"), false);
 });
+
+Deno.test("prompt dell'elemento: niente progetto né pagina", () => {
+  const f: FeedbackInput = { ...base, message: "Elemento: Proiettore", hint: "elemento", project_id: "p-1",
+    tech_context: { elemento: { nome: "Proiettore", desc: "", w: 120, d: 80, watt: null, ins: null, backline: false, forme: 1, membri: [] } } };
+  const p = buildFeedbackPrompt(f);
+  assertEquals(p.includes("Progetto:"), false);
+  assertEquals(p.includes("https://stageplot.it/"), false);
+  assertEquals(p.includes("Dimensione palco"), false);
+  assertStringIncludes(buildFeedbackPrompt(base), "Progetto: nessuno", "gli altri tipi come prima");
+});

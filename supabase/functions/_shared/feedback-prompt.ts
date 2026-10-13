@@ -30,12 +30,24 @@ function righeElemento(f: FeedbackInput): string[] {
 export function buildFeedbackPrompt(f: FeedbackInput): string {
   const tc = f.tech_context as Record<string, unknown>;
   const m = f.meta;
+  /* l'elemento non porta progetto, pagina né browser (privacy, revisione 13/10): solo la sua scheda */
+  if (f.hint === "elemento") {
+    return [
+      `Un utente di StagePlot ha inviato per revisione un elemento personalizzato: "${f.message}"`,
+      ``,
+      `Segnale utente (chip): ${etichetta(f.hint, "nessuno")}`,
+      ...righeElemento(f),
+      `- App version / lingua: ${m.app_version ?? "n/d"} / ${m.language ?? "n/d"}`,
+      ``,
+      `Valuta se rifarlo come voce del catalogo: misure verificate, dati di targa solo dai manuali dei costruttori.`,
+      `Non modificare codice senza prima spiegare il piano.`,
+    ].join("\n");
+  }
   const types = tc.object_types ? JSON.stringify(tc.object_types) : "n/d";
   return [
     `Un utente di StagePlot ha segnalato: "${f.message}"`,
     ``,
     `Segnale utente (chip): ${etichetta(f.hint, "nessuno")}`,
-    ...righeElemento(f),
     ``,
     `Contesto tecnico:`,
     `- Browser/OS/device: ${m.user_agent ?? "n/d"}`,

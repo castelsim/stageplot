@@ -8427,7 +8427,8 @@ function conInvio(fn) {
   A.custAnteprima = (it, cb) => cb("data:image/jpeg;base64,QUJD");
   A.custManda = (corpo, id) => { ok(A.__custInvio === true, "«in corso» dal consenso all'esito"); giro.mandato.push({ corpo, id }); A.__custInvio = false; };
   A.__cloud = { user: () => null, signIn: () => { giro.accesso++; }, accessToken: () => Promise.resolve("tok") };
-  A.__fbInvio = { url: "https://esempio.invalid/submit-feedback", techContext: () => ({ stage_w: 1200, total_objects: 3 }), meta: () => ({ app_version: "t" }) };
+  A.__fbInvio = { url: "https://esempio.invalid/submit-feedback", techContext: () => ({ stage_w: 1200, total_objects: 3, object_types: { cantante: 2 } }),
+    meta: () => ({ app_version: "t", page_url: "https://stageplot.it/app/ [view]", user_agent: "UA", viewport: "1440x900", language: "it" }) };
   A.getFeedbackContext = () => ({ project_id: "p-1" });
   try { return conModelli(() => fn(giro)); }
   finally { nomi.forEach((k) => { if (salva[k] === undefined) delete A[k]; else A[k] = salva[k]; }); A.__custInvio = false; }
@@ -8457,11 +8458,13 @@ t("invio per revisione: con l'accesso chiede il consenso, poi manda nome, misure
   eq(giro.consenso, ["Proiettore"], "prima il consenso");
   eq(giro.mandato.length, 1); const c = giro.mandato[0].corpo;
   eq(giro.mandato[0].id, base.id);
-  eq([c.hint, c.honeypot, c.message, c.project_snapshot, c.project_id], ["elemento", "", "Elemento: Proiettore — Su carrello", null, "p-1"]);
+  eq([c.hint, c.honeypot, c.message, c.project_snapshot, c.project_id], ["elemento", "", "Elemento: Proiettore — Su carrello", null, null]);
   ok(c.message.length >= 5 && c.message.length <= 1000, "regola 5–1000 del server");
   eq(c.tech_context.elemento, { nome: "Proiettore", desc: "Su carrello", w: 120, d: 80, watt: 300, ins: { n: 2, tipo: "linea" }, backline: false, forme: 2, membri: ["cantante"] });
-  eq(c.tech_context.stage_w, 1200, "con il contesto di sempre");
-  eq(c.meta, { app_version: "t" });
+  /* privacy (revisione): solo quello che dice il consenso — disegno, misure, descrizione */
+  eq(Object.keys(c.tech_context).sort(), ["elemento", "elemento_json"], "niente contesto del progetto");
+  ok(Object.keys(c.meta).every((k) => ["app_version", "build_id", "language"].includes(k)), "meta: solo versione e lingua, " + JSON.stringify(c.meta));
+  ok(!/stage_w|object_types|page_url|user_agent|viewport|p-1/.test(JSON.stringify(c)), "nessun dato del progetto, della pagina o del browser");
   eq(c.screenshot, "data:image/jpeg;base64,QUJD");
   const j = JSON.parse(c.tech_context.elemento_json);
   eq([j.nome, j.w, j.d, j.watt, j.shapes.length, j.membri.length], ["Proiettore", 120, 80, 300, 2, 1]);
@@ -8559,6 +8562,48 @@ t("invio per revisione: la finestra del consenso (casella da spuntare, Invia spe
   ok(/id="pCustInvia"/.test(appHtml) && /id="grpCustInvia"/.test(appHtml) && /id="pCustRev"/.test(appHtml), "pannello: Invia per revisione e la riga «Inviato…»");
   ok(/window\.__fbInvio *= *\{/.test(appjs), "il box segnalazioni presta indirizzo, contesto e meta");
 });
+t("revisione 7: l'anteprima non porta testi scritti a mano né altri elementi personalizzati", () => {
+  reset();
+  const base = add("custom", 300, 300, { w: 120, d: 80, cust: { nome: "Postazione", shapes: [] } }); A.custNorm(base);
+  const mic = add("cantante", 320, 310), nota = add("forma", 330, 330, { shape: "testo", label: "Telefono di Mario" });
+  const box = add("forma", 280, 280, { shape: "rect", label: "Scritta" });
+  const altro = add("custom", 340, 340, { cust: { nome: "Altro", shapes: [] } }); A.custNorm(altro);
+  [base, mic, nota, box, altro].forEach((x) => { x.grp = "gT"; });
+  if (A.TYPES.testo) { const tl = add("testo", 300, 340, { label: "Nome e cognome" }); tl.grp = "gT"; }
+  const ids = A.custAnteprimaPezzi(base).map((x) => x.id);
+  ok(ids.includes(base.id) && ids.includes(mic.id) && ids.includes(box.id), "la base e i pezzi");
+  ok(!ids.includes(nota.id) && !ids.includes(altro.id), "fuori la forma «Solo testo» e l'altro elemento personalizzato");
+  ok(!A.state.items.filter((x) => x.type === "testo").some((x) => ids.includes(x.id)), "fuori il testo libero");
+  ok(/function custAnteprima\([\s\S]{0,1200}custAnteprimaPezzi\(/.test(appjs), "custAnteprima usa questo filtro");
+  ok(/function svgInJpeg\([\s\S]{0,900}txtbox-line/.test(appjs) && /svgInJpeg\(svgStr, v\.pxW, v\.pxH, 0\.82, *\{togliTesti:true\}\)/.test(appjs), "e toglie le righe di testo delle forme");
+  ok(/svgInJpeg\(svgStr, pxW, pxH, 0\.82\)\.then\(resolve, reject\)/.test(appjs), "la miniatura della consulenza resta com'era");
+});
+t("revisione 7: il segno «inviato» non cambia l'impronta del PDF (niente «modificato dopo l'ultimo PDF»)", () => {
+  reset();
+  const base = add("custom", 300, 300, { cust: { nome: "Schermo", shapes: [] } }); A.custNorm(base);
+  const prima = A.firmaPdf(A.state);
+  base.cust.rev = { inviato: "2026-10-13T10:00:00.000Z" };
+  eq(A.firmaPdf(A.state), prima, "inviato: stessa impronta");
+  base.cust.nome = "Telo";
+  ok(A.firmaPdf(A.state) !== prima, "un cambio vero sì");
+});
+t("revisione 7: durante l'invio l'editor non si apre, e «Salva e invia» dice che un invio è in corso", () => conInvio((giro) => {
+  const { base } = elementoDaInviare();
+  A.__cloud.user = () => ({ id: "u-1" });
+  const msg = []; const tp = A.__toast; A.__toast = (m) => msg.push(m);
+  A.__custInvio = true;
+  try {
+    eq(A.custDisegnaArea(""), false, "Crea elemento fermo");
+    eq(A.custModificaElemento(base.id), false, "Modifica ferma");
+    eq(A.custEditorAttivo(), false);
+    eq(A.custInviaRevisione(base.id), false, "secondo invio fermo");
+    ok(msg.length === 3 && msg.every((m) => /Invio già in corso/.test(m)), "lo dice: " + JSON.stringify(msg));
+  } finally { A.__toast = tp; A.__custInvio = false; }
+  /* il corpo si prepara PRIMA dell'anteprima: quello che cambia sul palco durante l'attesa non entra */
+  A.custAnteprima = (it, cb) => { const z = add("astamic", 330, 330); z.grp = "gI"; cb(null); };
+  A.custInviaRevisione(base.id);
+  eq(giro.mandato[0].corpo.tech_context.elemento.membri, ["cantante"], "i pezzi di quando si è dato il consenso");
+}));
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");

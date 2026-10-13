@@ -48,8 +48,14 @@ export type ElementoInviato = {
 };
 const EL_NOME = 60, EL_DESC = 280, EL_FORME = 200, EL_MEMBRI = 100, EL_WATT = 20_000, EL_INS = 16;
 export const MAX_ELEMENTO_JSON_CHARS = 30_000;
-/* niente caratteri di controllo: nome e descrizione finiscono nella mail e nel terminale di ops/segnalazioni.sh */
-const senzaControllo = (s: string) => s.replace(/[\u0000-\u001f\u007f-\u009f]/g, " ").replace(/\s+/g, " ").trim();
+/* Caratteri che non si vedono e che cambiano quello che si vede: di controllo C0/C1 (sequenze ANSI nel terminale di
+   ops/segnalazioni.sh), di larghezza zero e di direzione (U+200B–U+200F, U+202A–U+202E, U+2066–U+2069: girano il
+   testo a schermo). Diventano spazi. INVISIBILI_TESTO lascia a capo e tabulazione, che in un messaggio servono. */
+const INVISIBILI = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g;
+const INVISIBILI_TESTO = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g;
+export const messaggioPulito = (s: string) => s.replace(INVISIBILI_TESTO, " ").trim();
+/* nome e descrizione: una riga sola, spazi compattati */
+const senzaControllo = (s: string) => s.replace(INVISIBILI, " ").replace(/\s+/g, " ").trim();
 const numeroIn = (v: unknown, lo: number, hi: number) =>
   (typeof v === "number" && Number.isFinite(v) && v >= lo && v <= hi) ? v : null;
 
@@ -69,7 +75,8 @@ export function elementoPulito(x: unknown): ElementoInviato | null {
   }
   const forme = (Number.isInteger(e.forme) && (e.forme as number) >= 0 && (e.forme as number) <= EL_FORME) ? e.forme as number : null;
   const membri = Array.isArray(e.membri)
-    ? e.membri.filter((m): m is string => typeof m === "string" && /^[A-Za-z0-9_-]{1,40}$/.test(m)).slice(0, EL_MEMBRI)
+    ? e.membri.filter((m): m is string => typeof m === "string" && /^[A-Za-z0-9_-]{1,40}$/.test(m) &&
+        m !== "__proto__" && m !== "constructor" && m !== "prototype").slice(0, EL_MEMBRI)
     : [];
   return {
     nome, desc,
@@ -98,7 +105,9 @@ export function elementoRichiedeUtente(hint: string | null, userId: string | nul
 /* tech_context: i campi dell'elemento hanno il loro tetto e la loro validazione; il resto il tetto di sempre */
 function techContextPulito(raw: Record<string, unknown>, hint: string | null): Record<string, unknown> {
   const { elemento, elemento_json, ...resto } = raw;
-  const tc: Record<string, unknown> = jsonSize(resto) > MAX_TECH_BYTES ? {} : resto;
+  /* Privacy (revisione 13/10): per l'elemento arrivano SOLO disegno, misure e descrizione, come promette la frase del
+     consenso. Niente contesto del progetto (palco, tipi, conteggi): si parte da vuoto anche se il client lo manda. */
+  const tc: Record<string, unknown> = (hint === "elemento" || jsonSize(resto) > MAX_TECH_BYTES) ? {} : resto;
   if (hint === "elemento") {
     const el = elementoPulito(elemento), js = elementoJsonPulito(elemento_json);
     if (el) tc.elemento = el;
@@ -112,18 +121,25 @@ export function validateFeedback(payload: unknown): ValidationResult {
   if (typeof p.honeypot === "string" && p.honeypot.trim() !== "") {
     return { ok: false, error: "spam" };
   }
-  const message = typeof p.message === "string" ? p.message.trim() : "";
+  /* via i caratteri di controllo e di direzione per ogni tipo: il messaggio finisce nella mail e nel terminale */
+  const message = typeof p.message === "string" ? messaggioPulito(p.message) : "";
   if (message.length < 5) return { ok: false, error: "messaggio troppo corto" };
   if (message.length > 1000) return { ok: false, error: "messaggio troppo lungo" };
   const hint = typeof p.hint === "string" && (HINTS.includes(p.hint) || HINTS_EDITOR.includes(p.hint)) ? p.hint : null;
   const obj = (x: unknown) => (x && typeof x === "object") ? x as Record<string, unknown> : {};
+  const elemento = hint === "elemento";
+  /* per l'elemento delle meta restano solo versione e lingua: niente pagina, browser, schermo */
+  const meta = metaPulito(p.meta) as FeedbackMeta;
+  const metaElemento: FeedbackMeta = {};
+  if (meta.app_version !== undefined) metaElemento.app_version = meta.app_version;
+  if (meta.language !== undefined) metaElemento.language = meta.language;
   return {
     ok: true,
     value: {
       message, hint,
       tech_context: techContextPulito(obj(p.tech_context), hint),
-      meta: metaPulito(p.meta) as FeedbackMeta,   // solo stringhe corte e note (16/09): finiscono nelle colonne e nella mail
-      project_snapshot: (p.project_snapshot != null && jsonSize(p.project_snapshot) <= MAX_SNAPSHOT_BYTES)
+      meta: elemento ? metaElemento : meta,   // solo stringhe corte e note (16/09): finiscono nelle colonne e nella mail
+      project_snapshot: (!elemento && p.project_snapshot != null && jsonSize(p.project_snapshot) <= MAX_SNAPSHOT_BYTES)
         ? p.project_snapshot
         : null,
       // Schermata allegata: solo un data URL di immagine, e solo se sta nel limite. Il client la
@@ -138,7 +154,7 @@ export function validateFeedback(payload: unknown): ValidationResult {
       // spoofare user_id/user_email. Vengono derivati dal JWT verificato in index.ts.
       user_id: null,
       user_email: null,
-      project_id: typeof p.project_id === "string" ? p.project_id : null,
+      project_id: (!elemento && typeof p.project_id === "string") ? p.project_id : null,   // l'elemento non porta il progetto
     },
   };
 }

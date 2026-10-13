@@ -9848,6 +9848,7 @@ function custChiedi(titolo, testo, bottoni, cb, cls){
 function custDisegnaArea(nomePreso){
   if(isMobile()){ guideDialog({title:"Crea elemento", msg:"Si crea dal computer: sul telefono gli elementi personalizzati si vedono, si spostano ed escono nei PDF."}); return false; }
   if(custEditorAttivo()){ custEditorAvvisa(); return false; }
+  if(custInvioInCorso()) return false;   /* l'invio legge ancora il palco vero (anteprima): l'editor aspetta */
   if(window.__projLocked || document.body.classList.contains("viewmode") || foreignDoc()) return false;
   window.__custNomePreso=(typeof nomePreso==="string") ? nomePreso.replace(/[\u0000-\u001f]/g," ").trim().slice(0, custLimiti().NOME) : "";
   exitHubModes(); if(inListMode()) exitListMode(); endCatSearch(); clearSelection();
@@ -9912,6 +9913,7 @@ function custChiediMisureEInclusione(area){
   }, function(){ custTogliAnteprimaArea(); });
 }
 function custApriEditor(area, incl, baseId){
+  if(custInvioInCorso()) return false;
   var prima={vb:Object.assign({}, vb), utente:vistaUtente};
   if(!custEditorApri(area, baseId!=null ? {baseId:baseId} : {includi:!!incl})){ custToast("Non è stato possibile aprire l'editor: il palco non è cambiato.", true); return false; }
   custVistaPrima=prima; custStatoIniziale=stateToJSON();
@@ -9943,7 +9945,7 @@ function custModificaElemento(id, pezzoId){
   var it=(state.items||[]).find(function(x){ return x.id===id && x.type==="custom"; }); if(!it) return false;
   if(isMobile()){ custSoloDalComputer("Modifica elemento"); return false; }
   if(custEditorAttivo()){ custEditorAvvisa(); return false; }
-  if(custSolaLettura()) return false;
+  if(custSolaLettura() || custInvioInCorso()) return false;
   var c=it.cust||{}, valori={nome:c.nome, desc:c.desc||"", watt:it.watt, ins:c.ins||null, backline:!!c.backline};
   if(window.__custDraw) custAreaFine();   /* il rettangolo di «Crea elemento» lasciato a metà */
   if(inListMode()) exitListMode(); endCatSearch();
@@ -10025,17 +10027,27 @@ function custInviaRevisione(id){
   var it=(state.items||[]).find(function(x){ return x.id===id && x.type==="custom"; }); if(!it) return false;
   var u=window.__cloud && window.__cloud.user && window.__cloud.user();
   if(isMobile()){ custSoloDalComputer("Invia per revisione"); return false; }
-  if(custEditorAttivo() || custSolaLettura() || window.__custInvio===true) return false;
+  if(custInvioInCorso() || custEditorAttivo() || custSolaLettura()) return false;
   if(!u){ custServeAccesso(); return false; }
   var nome=(it.cust||{}).nome||"";
   custChiediConsenso(nome, function(){
-    window.__custInvio=true;   /* fino all'esito: un secondo clic non manda un doppione */
+    window.__custInvio=true;   /* fino all'esito: un secondo clic non manda un doppione, e l'editor non si apre */
+    /* il corpo si prepara ADESSO, con l'elemento come l'utente l'ha appena visto: l'anteprima può metterci qualche
+       secondo e intanto il palco cambia */
+    var corpo; try{ corpo=custCorpoRevisione(it, null); }catch(e){ custEsitoInvio(0, {}, it.id, nome); return; }
     custAnteprima(it, function(jpeg){
-      try{ custManda(custCorpoRevisione(it, jpeg), it.id); }catch(e){ custEsitoInvio(0, {}, it.id, nome); }   /* mai fermo su «in corso» */
+      try{ corpo.screenshot=custJpegValido(jpeg); custManda(corpo, it.id); }catch(e){ custEsitoInvio(0, {}, it.id, nome); }   /* mai fermo su «in corso» */
     });
   });
   return true;
 }
+/* un invio è in corso (consenso dato, anteprima o risposta in attesa): lo si dice, e si aspetta */
+function custInvioInCorso(){
+  if(window.__custInvio!==true) return false;
+  custToast("Invio già in corso: un attimo.");
+  return true;
+}
+function custJpegValido(jpeg){ return (typeof jpeg==="string" && /^data:image\/jpeg;base64,/.test(jpeg) && jpeg.length<=2800000) ? jpeg : null; }
 function custServeAccesso(){
   guideDialog({title:"Serve l'accesso", msg:"Per inviarlo e ricevere la risposta serve l'accesso con Google. L'elemento è già salvato nel progetto: dopo l'accesso lo invii dal suo pannello, con «Invia per revisione».",
     okLabel:"Non ora", action:{label:"Accedi con Google", run:function(){ if(window.__cloud && window.__cloud.signIn) window.__cloud.signIn(); }}});
@@ -10052,20 +10064,20 @@ function custChiediConsenso(nome, cb){
   ck.addEventListener("change", function(){ invia.disabled=!ck.checked; });
   return f;
 }
-/* il corpo per submit-feedback: lo stesso del box segnalazioni (contesto, meta, progetto), tipo «elemento» */
+/* il corpo per submit-feedback, tipo «elemento». Privacy (revisione 13/10): parte SOLO quello che dice la frase del
+   consenso — disegno, misure, descrizione e conteggi dell'elemento. Niente contesto del progetto, niente project_id,
+   delle meta solo versione e lingua (niente indirizzo della pagina, browser, schermo). Il server fa lo stesso. */
 function custCorpoRevisione(it, jpeg){
-  var c=it.cust||{}, fb=window.__fbInvio||{};
+  var c=it.cust||{};
   var membri=(it.grp ? state.items.filter(function(x){ return x.grp===it.grp && x.id!==it.id && x.type!=="custom" && x.type!=="custshape"; }) : [])
     .map(function(x){ return x.type; }).slice(0, 100);
   var el={nome:c.nome, desc:c.desc||"", w:it.w, d:it.d, watt:(it.watt==null ? null : it.watt), ins:c.ins||null, backline:!!c.backline,
     forme:(c.shapes||[]).length, membri:membri};
-  var tc=(typeof fb.techContext==="function") ? fb.techContext() : {};
-  tc.elemento=el; tc.elemento_json=custJsonRevisione(it);
-  var ctx=(typeof window.getFeedbackContext==="function") ? window.getFeedbackContext() : null;
+  var lingua=null; try{ lingua=(typeof navigator!=="undefined" && typeof navigator.language==="string") ? navigator.language : null; }catch(e){}
   return {message:("Elemento: "+c.nome+(c.desc ? " — "+c.desc : "")).slice(0, 1000), hint:"elemento", honeypot:"",
-    tech_context:tc, meta:(typeof fb.meta==="function") ? fb.meta() : {},
-    screenshot:(typeof jpeg==="string" && /^data:image\/jpeg;base64,/.test(jpeg) && jpeg.length<=2800000) ? jpeg : null,
-    project_snapshot:null, project_id:(ctx && ctx.project_id) || null};
+    tech_context:{elemento:el, elemento_json:custJsonRevisione(it)},
+    meta:{app_version:window.__APP_VERSION__||null, build_id:window.__BUILD_ID__||null, language:lingua},
+    screenshot:custJpegValido(jpeg), project_snapshot:null, project_id:null};
 }
 /* il modello dell'elemento, per rifarlo: forme, misure, scheda e i pezzi (solo tipo, misure e posizione: le
    etichette dei pezzi le scrive l'utente e possono contenere nomi). Oltre 30000 caratteri il server lo scarta: null. */
@@ -10123,20 +10135,29 @@ function custAnteprimaVista(its){
   var sc=560/Math.max(v.w, v.h); v.pxW=Math.max(1, Math.round(v.w*sc)); v.pxH=Math.max(1, Math.round(v.h*sc));
   return v;
 }
+/* chi entra nell'anteprima: la base e i pezzi del catalogo, come nei membri e nel JSON. Fuori gli altri elementi
+   personalizzati del gruppo e i testi scritti a mano (Testo libero, Forma «Solo testo»): possono contenere nomi. */
+function custAnteprimaPezzi(it){
+  return sortedItems().filter(function(x){
+    if(x.id===it.id) return true;
+    if(!it.grp || x.grp!==it.grp) return false;
+    return x.type!=="custshape" && x.type!=="custom" && x.type!=="testo" && !(x.type==="forma" && shapeOf(x)==="testo");
+  });
+}
 /* l'anteprima del disegno: l'elemento con i suoi pezzi, senza palco e senza nomi, in JPEG (la trafila di genThumbnail).
    cb(dataUrl) — oppure cb(null) se non riesce: si manda senza anteprima. */
 function custAnteprima(it, cb){
   var fatto=false, fine=function(u){ if(fatto) return; fatto=true; clearTimeout(tm); try{ cb(u); }catch(e){} };
   var tm=setTimeout(function(){ fine(null); }, 8000);
   try{
-    var its=sortedItems().filter(function(x){ return x.id===it.id || (it.grp && x.grp===it.grp && x.type!=="custshape"); });
+    var its=custAnteprimaPezzi(it);
     var v=custAnteprimaVista(its); if(!v){ fine(null); return; }
     var keep=sel, keepSet=selSet; sel=null; selSet={};
     var items=""; try{ its.forEach(function(x){ items+=itemMarkup(x); }); } finally { sel=keep; selSet=keepSet; }
     var css=document.querySelector("style").textContent.replace(/\/\*[\s\S]*?\*\//g,"");
     var svgStr='<svg xmlns="http://www.w3.org/2000/svg" width="'+v.pxW+'" height="'+v.pxH+'" viewBox="'+v.x+' '+v.y+' '+v.w+' '+v.h+'">'+
       '<style>'+css+'</style>'+DEFS+'<rect x="'+v.x+'" y="'+v.y+'" width="'+v.w+'" height="'+v.h+'" fill="#ffffff"/>'+items+'</svg>';
-    svgInJpeg(svgStr, v.pxW, v.pxH, 0.82).then(fine, function(){ fine(null); });
+    svgInJpeg(svgStr, v.pxW, v.pxH, 0.82, {togliTesti:true}).then(fine, function(){ fine(null); });
   }catch(e){ fine(null); }
 }
 
@@ -33024,6 +33045,8 @@ function firmaPdf(s){
   try{ var n=normalizeState(c); if(n) c=n; }catch(_e){}
   var j=JSON.stringify(c, function(k,v){
     if(k==="pdfEsportato") return undefined;
+    /* il segno «inviato per revisione» di un elemento personalizzato (cust.rev) non è una modifica del disegno */
+    if(k==="rev" && this && typeof this.nome==="string" && Array.isArray(this.shapes)) return undefined;
     if(v && typeof v==="object" && !Array.isArray(v)){ var o={}; Object.keys(v).sort().forEach(function(kk){ o[kk]=v[kk]; }); return o; }
     return v;
   })||"";
@@ -33190,7 +33213,7 @@ function genThumbnail(){
 }
 /* La trafila comune delle miniature (consulenza, invio per revisione): SVG con il <style> dell'app → attributi piatti
    (un SVG col <style> non si carica come immagine) → canvas bianco → JPEG. Via i nomi degli elementi (text.lbl). */
-function svgInJpeg(svgStr, pxW, pxH, qualita){
+function svgInJpeg(svgStr, pxW, pxH, qualita, opz){
   return new Promise(function(resolve, reject){
     try {
       var host=document.createElement("div");
@@ -33200,6 +33223,8 @@ function svgInJpeg(svgStr, pxW, pxH, qualita){
       root.innerHTML=svgStr;
       var svgEl=root.querySelector("svg");
       Array.prototype.forEach.call(svgEl.querySelectorAll("text.lbl"), function(n){ if(n.parentNode) n.parentNode.removeChild(n); });   /* via i nomi degli elementi */
+      /* opz.togliTesti (invio per revisione): via anche le righe di testo scritte nelle forme, possono contenere nomi */
+      if(opz && opz.togliTesti) Array.prototype.forEach.call(svgEl.querySelectorAll("text.txtbox-line"), function(n){ if(n.parentNode) n.parentNode.removeChild(n); });
       flattenTextStyles(svgEl); flattenGradients(svgEl); flattenCssToAttrs(svgEl);
       var flat=new XMLSerializer().serializeToString(svgEl);
       host.remove();
@@ -36935,8 +36960,9 @@ function maybeAskStageSize(explicit){
     return { app_version: window.__APP_VERSION__||null, build_id: window.__BUILD_ID__||null, page_url: pageUrlSicuro(),
       user_agent: navigator.userAgent, viewport: innerWidth+"x"+innerHeight, language: navigator.language };
   }
-  /* «Invia per revisione» di Crea elemento (custManda) usa la stessa funzione del server, lo stesso contesto e le stesse meta */
-  window.__fbInvio = { url: SUBMIT_URL, techContext: techContext, meta: metaInvio };
+  /* «Invia per revisione» di Crea elemento (custManda) usa la stessa funzione del server. Solo l'indirizzo: contesto del
+     progetto e meta della pagina NON viaggiano con l'elemento (privacy, revisione 13/10; vedi custCorpoRevisione) */
+  window.__fbInvio = { url: SUBMIT_URL };
   function collectAndSend(projectId){
     /* Niente user_id/user_email nel body: l'identità la ricava il server dal JWT (audit S5). */
     var body={
