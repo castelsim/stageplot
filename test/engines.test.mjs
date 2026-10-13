@@ -7386,6 +7386,17 @@ t("l'altezza del cartiglio e' una sola per anteprima, avviso ed export", () => {
   const largo = A.autoScale("a4", "portrait", 22), stretto = A.autoScale("a4", "portrait", lungo);
   ok(stretto >= largo, "col cartiglio alto la scala non puo' essere piu' generosa");
 });
+t("i campi di testo del pannello tengono lo spazio mentre si scrive (segnalazione 68b902d9)", () => {
+  /* «Fornitodallacompagnia»: l'input salvava col .trim() e render() → renderProps() riscriveva il campo,
+     così lo spazio appena battuto in fondo spariva. Il campo che ha il fuoco non va mai riscritto. */
+  const inNota = appjs.match(/getElementById\("pNote"\)\.addEventListener\("input",[\s\S]{0,300}?\}\); \}\);/);
+  ok(inNota, "handler input della Nota trovato");
+  eq(/\.slice\(0,NOTE_MAX\)\.trim\(\)/.test(inNota[0]), false, "la Nota non si accorcia a ogni tasto: " + inNota[0]);
+  ok(/getElementById\("pNote"\)\.addEventListener\("change"[\s\S]{0,200}?\.trim\(\)/.test(appjs), "gli spazi ai bordi si tolgono all'uscita dal campo");
+  ok(/if\(document\.activeElement!==_pn\) _pn\.value *= *it\.note/.test(appjs), "renderProps non riscrive la Nota mentre ha il fuoco");
+  ok(/_rw\("pRf", it\.rf\|\|""\); _rw\("pBand", it\.band\|\|""\);/.test(appjs) && /_rw\("pRfChi", it\.rfChi\|\|""\)/.test(appjs) && /if\(e!==_af\) e\.value=v/.test(appjs),
+     "frequenza, banda e «chi lo usa» non si riscrivono mentre hanno il fuoco");
+});
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");
