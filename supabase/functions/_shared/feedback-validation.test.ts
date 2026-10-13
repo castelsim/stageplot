@@ -198,3 +198,14 @@ Deno.test("nome e descrizione: via anche i caratteri invisibili e di direzione",
   assertEquals(s.desc, "a b c");
   assertEquals(elementoPulito({ ...elOk, nome: "‮​" }), null, "fatto solo di invisibili: niente nome");
 });
+
+/* ===== giro 2: ZWJ e ZWNJ fanno parte del testo (emoji composte, persiano, hindi); \r\n diventa \n ===== */
+Deno.test("messaggio: emoji composte, persiano, hindi e a capo di Windows restano come sono", () => {
+  const m = (s: string) => { const r = validateFeedback({ message: s, hint: "bug" }); if (!r.ok) throw new Error(r.error); return r.value.message; };
+  for (const s of ["Famiglia 👨‍👩‍👧 ok", "bandiera 🏳️‍🌈 ok", "می‌خواهم گزارش دهم", "नमस्‍ते दुनिया ok", "שלום עולם בדיקה"]) assertEquals(m(s), s);
+  assertEquals(m("riga uno\r\nriga due"), "riga uno\nriga due");
+  assertEquals(m("riga uno\rriga due"), "riga uno\nriga due", "\\r da solo");
+  assertEquals(m("ciao‮ mondo\u001b[2J"), "ciao  mondo [2J", "direzione ed ESC via come prima");
+  const e = elementoPulito({ nome: "Proiettore 👨‍👩‍👧", desc: "می‌خواهم‮" })!;
+  assertEquals([e.nome, e.desc], ["Proiettore 👨‍👩‍👧", "می‌خواهم"]);
+});

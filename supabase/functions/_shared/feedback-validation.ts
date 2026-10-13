@@ -49,11 +49,13 @@ export type ElementoInviato = {
 const EL_NOME = 60, EL_DESC = 280, EL_FORME = 200, EL_MEMBRI = 100, EL_WATT = 20_000, EL_INS = 16;
 export const MAX_ELEMENTO_JSON_CHARS = 30_000;
 /* Caratteri che non si vedono e che cambiano quello che si vede: di controllo C0/C1 (sequenze ANSI nel terminale di
-   ops/segnalazioni.sh), di larghezza zero e di direzione (U+200B–U+200F, U+202A–U+202E, U+2066–U+2069: girano il
-   testo a schermo). Diventano spazi. INVISIBILI_TESTO lascia a capo e tabulazione, che in un messaggio servono. */
-const INVISIBILI = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g;
-const INVISIBILI_TESTO = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g;
-export const messaggioPulito = (s: string) => s.replace(INVISIBILI_TESTO, " ").trim();
+   ops/segnalazioni.sh), di larghezza zero e di direzione (U+200B, U+200E–U+200F, U+202A–U+202E, U+2066–U+2069: girano
+   il testo a schermo). Diventano spazi. RESTANO U+200C (ZWNJ) e U+200D (ZWJ): fanno parte del testo (emoji composte
+   come famiglie e bandiere, persiano, hindi). INVISIBILI_TESTO lascia anche a capo e tabulazione, che in un messaggio
+   servono; prima di pulire, \r\n e \r da solo diventano \n (giro 2 della revisione). */
+const INVISIBILI = /[\u0000-\u001f\u007f-\u009f\u200b\u200e\u200f\u202a-\u202e\u2066-\u2069]/g;
+const INVISIBILI_TESTO = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u200b\u200e\u200f\u202a-\u202e\u2066-\u2069]/g;
+export const messaggioPulito = (s: string) => s.replace(/\r\n?/g, "\n").replace(INVISIBILI_TESTO, " ").trim();
 /* nome e descrizione: una riga sola, spazi compattati */
 const senzaControllo = (s: string) => s.replace(INVISIBILI, " ").replace(/\s+/g, " ").trim();
 const numeroIn = (v: unknown, lo: number, hi: number) =>
