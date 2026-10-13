@@ -1,3 +1,21 @@
+# 13/10/2026 — Postazione del percussionista + leggio della tastiera dal lato giusto e sgabello a scelta (ramo `percussionista`, PR da unire)
+
+- **Percussionista** (Simone: «un percussionista con conga, bongo, chimes, le cose da percussionista»): il componibile
+  `percussioni` si chiama «Percussionista» e ha in più `chimes`, `campanaccio`, `piatto`, `tavolo` (80×40, `PERC_TAVOLO`).
+  `COMP.percussioni.newParts` = postazione intera per chi lo posa oggi (addItem usa `newParts||defParts`); in `defParts`
+  i pezzi nuovi sono SPENTI, così `parts()` riapre i set salvati identici (collaudo 30/30 invariato, misura base 110×105).
+  Posizioni attorno a chi suona: tavolo e piatto alla sua destra (x<0), chimes e campanaccio alla sua sinistra.
+  Canali: Congas, Bongos + UN panoramico «Perc. OH» (KM184) se c'è almeno un piccolo. «Dividi» ridà anche i pezzi nuovi.
+  Nuovo tipo singolo `chimes` (mark tree), in `PERC_PICCOLE` (nasce panoramico, da vicino KM184).
+- **Leggio delle tastiere**: nello schematico i tasti sono a +y (lì sgabello e musicista, vedi `pianoBench`); il leggio
+  a +y finiva fra tasti e musicista / sopra lo sgabello. `tastieraLatoLeggio(it, illustrato)` → −1 nello schematico
+  (leggio a −y, `rotate(180)`), +1 nell'illustrato. La Tastiera usa il leggio generico: `leggioExtraY` le dà −(d/2+18).
+  ⚠️ Da chiarire con Simone: lo schematico delle tastiere disegna chi suona di spalle al pubblico (tasti a +y); qui
+  NON l'ho girato per non capovolgere i progetti esistenti.
+- **Sgabello sulla Tastiera**: `KEYS_BENCH_OPT={tastiera:1}`, spento di partenza; `hasPanca(it)` è l'unica regola
+  (disegno, rider, pannello, ingombro del nome).
+- Test: 10 nuovi + 3 adattati; 10 mutazioni tutte rosse. engines 1435/1435, collaudo 30/30, orchestre 124/124, `build --check`.
+
 # 12/10/2026 pomeriggio — Catalogo da Thomann, decisioni di Simone: 2 ampli da palco, modello in Backline, fonte dei W in Lista carichi (ramo `catalogo-thomann`, NON unito, niente PR)
 
 - **AMP_DB +2** (21 righe del pilota): `boss_katana100g3` (77 W, 100 W out, 14,8 kg, 530×248×445, p.19) e `ampeg_rb210`
