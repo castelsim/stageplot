@@ -7398,6 +7398,14 @@ t("i campi di testo del pannello tengono lo spazio mentre si scrive (segnalazion
   ok(/_rw\("pRf", it\.rf\|\|""\); _rw\("pBand", it\.band\|\|""\);/.test(appjs) && /_rw\("pRfChi", it\.rfChi\|\|""\)/.test(appjs) && /if\(e!==_af\) e\.value=v/.test(appjs),
      "frequenza, banda e «chi lo usa» non si riscrivono mentre hanno il fuoco");
 });
+t("catalogo: «Palco» in cima, «Forma» subito sotto, e la ricerca trova ancora «forma del palco»", () => {
+  const i = appjs.indexOf('makeActionBtn("Palco","blocchi, misure e altezze"'), j = appjs.indexOf('makeActionBtn("Forma","rettangolo, cerchio, freccia');
+  const k = appjs.indexOf('makeActionBtn("Pedana"');
+  ok(i > 0 && j > i && k > j, "ordine Palco → Forma → Pedana");
+  eq(appjs.includes('makeActionBtn("Forma del palco"'), false, "il vecchio nome non c'è più come pulsante");
+  ok(/nome:"Palco"[\s\S]{0,200}kw:"[^"]*forma del palco/.test(appjs), "chi cerca «forma del palco» trova il Palco");
+  ok(/makeActionBtn\("Forma",[^\n]*addItem\("forma"\)/.test(appjs), "il pulsante Forma posa una forma");
+});
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");
@@ -7499,7 +7507,7 @@ t("la pedana e' un elemento del catalogo e porta anche al costruttore", () => {
   ok(quick.some(n => /^Pedana 2/i.test(n)), "la pedana singola deve esserci: " + JSON.stringify(quick));
   const voci = (A.__catEntries || []).filter(e => /pedana|praticabile/i.test((e.nome || "") + " " + (e.kw || "")));
   ok(voci.some(e => e.k === "pedana"), "voce di catalogo per il tipo pedana");
-  ok(voci.some(e => e.nome === "Forma del palco"), "cercando pedana si trova anche il costruttore del palco");
+  ok(voci.some(e => e.nome === "Palco"), "cercando pedana si trova anche il costruttore del palco (Palco, ex «Forma del palco»)");
   eq(A.TYPES.pedana.resizable, true, "si allunga trascinando");
 });
 t("nessun alias inquina le query comuni (la ricerca e' una substring)", () => {
