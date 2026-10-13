@@ -35475,8 +35475,9 @@ if ("serviceWorker" in navigator) {
   addEventListener("load", function () {
     navigator.serviceWorker.register("/sw.js").catch(function () {});
   });
-  /* Toast "nuova versione" (UX-c1): il SW avvisa quando il refresh in background ha scaricato
-     una shell diversa da quella servita (SWR = il 1° load dopo un deploy è stantio).
+  /* Toast "nuova versione" (UX-c1): dal 13/10/2026 la shell arriva prima dalla rete, quindi di
+     solito è già l'ultima. Il SW avvisa solo quando l'ha dovuta aprire dalla copia salvata (rete
+     lenta o assente) e poi la rete ne ha portata una diversa.
      Un solo avviso per sessione; "Ricarica" basta perché la cache è già aggiornata. */
   var updShown = false;
   navigator.serviceWorker.addEventListener("message", function (ev) {
