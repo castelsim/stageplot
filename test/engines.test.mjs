@@ -8146,6 +8146,115 @@ t("crea elemento: sul telefono, con il progetto bloccato o in sola lettura non p
   A.custEscDisegno();
   eq(A.__custDraw, null, "Esc la spegne");
 }));
+/* ===== Crea elemento, Tappa 2 — correzioni della revisione (13/10/2026) ===== */
+t("revisione 1: una forma copiata nell'editor non arriva sul palco vero (Incolla, Duplica, Alt+trascina); il documento si riapre", () => conCampi(() => {
+  reset();
+  add("cantante", 800, 600); A.save();
+  ok(A.custApriEditor({ x: 200, y: 200, w: 120, d: 80 }, false), "aperto");
+  const f = A.custNuovaForma("rect", { x: 10, y: 10 }, { x: 60, y: 40 });
+  A.selectOne(f.id); A.copySel();
+  ok(A.clipboard.some(x => x.type === "custshape"), "premessa: la forma è negli appunti");
+  A.custEsci(false);
+  eq(A.clipboard.some(x => x.type === "custshape"), false, "chiudendo l'editor la forma esce dagli appunti");
+  A.clipboard = [JSON.parse(JSON.stringify(f))];   /* anche se ci fosse rimasta (strada qualunque) */
+  A.pasteClip();
+  eq(A.state.items.some(x => x.type === "custshape"), false, "Incolla non la posa");
+  A.state.items.push(JSON.parse(JSON.stringify(f))); A.selectOne(f.id);
+  eq(A.duplicateSel(), false, "Duplica (e Alt+trascina, che lo usa) non la copia");
+  ok(!/"custshape"/.test(A.stateToJSON()), "rete di sicurezza: lo stato scritto non la contiene");
+  A.save();
+  eq(A.state.items.some(x => x.type === "custshape"), false, "save() la toglie dal palco vero");
+  const items = JSON.parse(A.stateToJSON()).items;
+  eq(A.normalizeLoadedItems(items).length, items.length, "il documento si riapre");
+  A.undo(); A.redo();   /* nessuna eccezione */
+  ok(/if\(duplicateSel\(true, \{rinviaStoria:true\}\)!==false\) _dupIds=Object\.keys\(selSet\);/.test(appjs), "Alt+trascina rifiutato non cancella l'originale al rilascio");
+}));
+t("revisione 2: Esc a metà trascinamento butta la forma (il rilascio non la crea)", () => conCampi(() => {
+  reset();
+  ok(A.custApriEditor({ x: 200, y: 200, w: 120, d: 80 }, false), "aperto");
+  A.custStrumento("rect");
+  A.drag = { mode: "custforma", k: "rect", a: { x: 10, y: 10 }, b: { x: 60, y: 40 }, el: null };
+  A.custEscDisegno();
+  eq(A.drag, null, "il trascinamento è chiuso");
+  eq(A.custPointerUp({}), false, "il rilascio non ha più niente da fare");
+  eq(A.state.items.filter(x => x.type === "custshape").length, 0, "nessuna forma");
+}));
+t("revisione 3: il nome dell'elemento personalizzato sta sopra, i pezzi tengono il loro sotto", () => {
+  reset();
+  const c = add("custom", 400, 400, { w: 120, d: 80, cust: { nome: "Banco regia", shapes: [] } }); A.custNorm(c);
+  const v = add("cantante", 400, 400);
+  eq([A.lblSopraDi(c), A.lblSopraDi(v)], [true, false], "custom sopra, cantante sotto");
+  ok(A.lblBaseY(c, 14) < -40, "la riga del nome sta sopra il bordo alto (y < -d/2)");
+});
+t("revisione 4: con l'editor aperto un'immagine trascinata sul foglio non diventa planimetria", () => conCampi(() => {
+  reset();
+  ok(A.custApriEditor({ x: 200, y: 200, w: 120, d: 80 }, false), "aperto");
+  const msg = []; const tp = A.__toast; A.__toast = (m) => msg.push(m);
+  try { A.venueLoadFile({ name: "pianta.png", type: "image/png", size: 10 }); } finally { A.__toast = tp; }
+  eq(msg, [A.custEditorMsg()], "fermato col messaggio unico");
+  eq(A.state.venue, null, "nessuna planimetria nel palco temporaneo");
+}));
+t("revisione 5: poligono e linea identici già al primo giro (frazioni non arrotondate)", () => {
+  const ord = (o) => JSON.stringify(Object.fromEntries(Object.keys(o).sort().map(k => [k, o[k]])));
+  [{ k: "poly", pts: [[0, 0], [30, 0], [10, 20]], fill: null, stroke: "#000000", sw: 1 },
+   { k: "poly", pts: [[3, 7], [41, 9], [17, 33], [5, 29]], fill: null, stroke: "#000000", sw: 1 },
+   { k: "line", x1: 3, y1: 7, x2: 41, y2: 10, fill: null, stroke: "#000000", sw: 1 },
+   { k: "text", x: 33, y: 17, s: "Abc", size: 7, fill: "#000000", stroke: "#000000", sw: 1, rot: 17 },
+   { k: "rect", x: 3, y: 7, w: 33, h: 17, fill: null, stroke: "#000000", sw: 1, rot: 30 }].forEach(g => {
+    let a = g; for (let i = 0; i < 3; i++) { a = A.custFormaDaShape(A.custShapeDaForma(a)); eq(ord(a), ord(g), g.k + " identico al giro " + (i + 1)); }
+  });
+});
+t("revisione 6: il rettangolo resta sul palco, e ogni misura al massimo è quella del palco", () => {
+  reset();
+  eq(A.custSulPalco({ x: -50, y: 900 }), { x: 0, y: 800 }, "i capi si fermano ai bordi del palco 1200×800");
+  ok(/MAXW=Math\.max\(L\.MIN, Math\.floor\(\+S\.w\|\|0\)\), MAXD=Math\.max\(L\.MIN, Math\.floor\(\+S\.d\|\|0\)\)/.test(appjs), "larghezza ≤ palco.w, profondità ≤ palco.d");
+  ok(/a\.x=Math\.max\(0, Math\.min\(area\.x, \(\+S\.w\|\|0\)-a\.w\)\)/.test(appjs), "allargando a numeri la superficie rientra nel palco");
+});
+t("revisione 7: il limite delle 200 forme vale anche per Duplica, ⌘D, Incolla e Alt+trascina", () => conCampi(() => {
+  reset();
+  ok(A.custApriEditor({ x: 200, y: 200, w: 120, d: 80 }, false), "aperto");
+  for (let i = 0; i < 200; i++) A.state.items.push({ id: "f" + i, type: "custshape", k: "rect", x: 10, y: 10, w: 5, d: 5, rot: 0, fill: null, stroke: "#000000", sw: 1 });
+  const msg = []; const tp = A.__toast; A.__toast = (m) => msg.push(m);
+  try {
+    A.selectOne("f0"); eq(A.duplicateSel(), false, "Duplica rifiutata");
+    A.copySel(); A.pasteClip();
+    eq(A.custNuovaForma("rect", { x: 1, y: 1 }, { x: 5, y: 5 }), null, "anche col disegno");
+  } finally { A.__toast = tp; }
+  eq(A.state.items.filter(x => x.type === "custshape").length, 200, "restano 200");
+  ok(msg.length >= 3 && msg.every(m => /Al massimo 200 forme per elemento/.test(m)), "e lo si dice ogni volta");
+}));
+t("revisione 8: la superficie si adatta sotto la barra; la riga di aiuto si riallinea anche quando la finestra cambia", () => {
+  ok(/var _top=custEditorAttivo\(\) \? custCoperturaAlto\(\) : 0/.test(appjs), "fitVb toglie lo spazio della barra e della riga di aiuto");
+  ok(/window\.addEventListener\("resize", function\(\)\{ if\(!custEditorAttivo\(\)\) return; custPosizionaGuida\(\); if\(!vistaUtente\) fit\(\); \}\)/.test(appjs), "ridimensionando la finestra");
+  ok(/function custRenderEditor\(\)[\s\S]{0,900}custPosizionaGuida\(\);/.test(appjs), "e a ogni ridisegno del pannello");
+});
+t("revisione 9: zone dei microfoni, metri e platee non diventano pezzi dell'elemento", () => {
+  reset();
+  const z = add("miczone", 340, 330), m = add("metro", 350, 340), v = add("cantante", 360, 340);
+  eq(A.custDentroArea({ x: 300, y: 300, w: 120, d: 80 }).map(x => x.id), [v.id], "solo il cantante");
+  ok(z && m, "premessa");
+});
+t("revisione 10: le finestre ridanno il fuoco; il rettangolo si spegne se cambia documento o scena", () => conCampi(() => {
+  reset();
+  ok(/prima=document\.activeElement;[\s\S]{0,300}prima\.focus\(\)/.test(appjs), "il fuoco torna dov'era");
+  eq(A.custDisegnaArea(""), true, "modalità rettangolo accesa");
+  A.applyVariantState(JSON.parse(A.stateToJSON()));   /* cambio di scena, documento aperto, Nuovo: passano tutti da qui */
+  eq(A.__custDraw, null, "spenta");
+}));
+t("revisione 11: le forme stanno sempre sotto i pezzi veri; Primo piano / In fondo le riordinano fra loro; il righello sta sopra", () => conCampi(() => {
+  reset();
+  ok(A.custApriEditor({ x: 200, y: 200, w: 120, d: 80 }, false), "aperto");
+  const a = A.custNuovaForma("rect", { x: 10, y: 10 }, { x: 60, y: 40 }), b = A.custNuovaForma("ell", { x: 20, y: 20 }, { x: 50, y: 30 });
+  const v = add("cantante", 40, 30);
+  A.selectOne(a.id); A.custFormaOrdine(true);
+  eq(A.sortedItems().map(x => x.id), [b.id, a.id, v.id], "la forma in primo piano sale sopra l'altra forma, non sopra il cantante");
+  A.custFormaOrdine(false);
+  eq(A.sortedItems().map(x => x.id), [a.id, b.id, v.id], "In fondo");
+  a.z = 99;   /* anche con uno z scritto (vecchio Primo piano) */
+  eq(A.sortedItems()[2].id, v.id, "il pezzo vero resta sopra");
+  const m = A.sceneMarkup(), iOver = m.indexOf('id="layOverlay"');
+  ok(iOver > m.indexOf('id="layItems"') && m.indexOf('class="cust-righello"') > iOver, "il righello sta nel livello sopra gli elementi");
+}));
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");

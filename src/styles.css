@@ -3667,7 +3667,7 @@ body.dark #custGuida{box-shadow:0 6px 20px rgba(0,0,0,.4)}
 .cust-griglia line.m{stroke:var(--grid-major)}
 .cust-bordo{fill:none;stroke:var(--n-600);stroke-width:1.5;vector-effect:non-scaling-stroke}
 .cust-righello line{stroke:var(--n-400);stroke-width:1;vector-effect:non-scaling-stroke}
-.cust-righello text{fill:var(--text-2);font-variant-numeric:tabular-nums}
+.cust-righello text{fill:var(--text-2);font-variant-numeric:tabular-nums;paint-order:stroke;stroke:var(--canvas-bg);stroke-linejoin:round}   /* alone (spessore in px dal markup): sopra un pezzo che sborda i numeri restano leggibili */
 .cust-righello .cust-unita{fill:var(--text-3)}
 .cust-vuoto{fill:var(--text-3);pointer-events:none}
 body.dark .cust-righello text{fill:#cbd5e1}
