@@ -27037,13 +27037,11 @@ function cartHFor(header, paperKey, orient){
   var L=pdfLayout(paperKey, orient, 22);
   return cartHForHeader(header, pdfCartTitleW(L.pw, L.M));   /* col QR la colonna del titolo è più stretta (10/10) */
 }
-/* stima l'altezza del cartiglio in base alle righe dell'intestazione (8pt ≈ 1.8mm/char) */
+/* altezza del cartiglio: righe VERE di titolo, luogo, totali e riferimento (pdfCartRighe), non più una stima
+   a caratteri. La riga dei totali va contata, o «Automatica» sceglie una scala che poi non entra; e da quando
+   le righe vanno a capo (13/10) anche titolo e luogo lunghi alzano il cartiglio, prima di impaginare il disegno. */
 function cartHForHeader(header, titleW){
-  var base=22;
-  try{ if(pdfTotals().length) base+=5; }catch(e){}   /* riga dei totali: va contata, o «Automatica» sceglie una scala che poi non entra */
-  if(!header || !String(header).trim()) return base;
-  var charsPerLine=Math.max(20, Math.floor(titleW/1.8));
-  return base+Math.max(0, Math.ceil(String(header).trim().length/charsPerLine)-1)*4;
+  return pdfCartRighe(header, titleW).cartH;
 }
 function scaleFits(N, paperKey, orient, cartH){
   var L=pdfLayout(paperKey, orient, cartH), A=printArea(), DM=A.custom?0:80;
@@ -28631,41 +28629,119 @@ function pdfQrSvg(L){
     '<path d="'+d+'" fill="#000"/>'+
     '<text x="'+B.cx+'" y="'+B.capY+'" font-size="2.1" fill="#4b5563" text-anchor="middle">Versione aggiornata online</text></g>';
 }
-function pdfCartiglio(doc, L, N, header){
-  var y=L.ph-L.fondo-L.cartH, M=L.M, scW=90, titleW=pdfCartTitleW(L.pw, M);   /* col QR la colonna del titolo si stringe (10/10) */
-  doc.setDrawColor(31,41,55); doc.setLineWidth(0.4);
-  doc.line(M, y, L.pw-M, y);
-  doc.setTextColor(17,24,39);
-  /* titolo — una riga con ellipsis se supera la colonna sinistra */
-  doc.setFont("helvetica","bold"); doc.setFontSize(13);
-  var tit=state.titolo||"Stage plot";
-  var titL=doc.splitTextToSize(tit, titleW);
-  doc.text(titL.length>1 ? titL[0].replace(/\s+\S*$/,"")+"…" : tit, M, y+8);
-  /* luogo · data · palco — stessa logica */
-  doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor(75,85,99);
+/* ===== CARTIGLIO A CAPO (13/10/2026, Simone: «nel cartiglio, nel PDF, devono esserci tutte le
+   informazioni, non i tre puntini»). Titolo, riga luogo · data e totali erano UNA riga ciascuno, tagliata
+   con «…» quando non stava nella colonna di sinistra: su un progetto vero sparivano il nome del teatro, la
+   data e metà dei totali. Ora ogni riga va a capo e il cartiglio cresce quanto serve.
+   Le righe si misurano con le metriche Helvetica dei font standard del PDF (le stesse che usa jsPDF, che non
+   applica crenatura): così l'altezza si calcola PRIMA di avere il documento — la scala automatica la vuole
+   prima di caricare jsPDF — e PDF, anteprima e scala vedono le stesse identiche righe. */
+var PDF_HELV_W=[278,278,355,556,556,889,667,191,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,278,278,584,584,584,556,1015,667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,667,778,722,667,611,722,667,944,667,667,611,278,278,278,469,556,333,556,556,500,556,556,278,556,556,222,222,500,222,833,556,556,556,556,333,500,278,556,500,722,500,500,500,334,260,334,584];
+var PDF_HELVB_W=[278,333,474,556,556,889,722,238,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,333,333,584,584,584,611,975,722,722,722,722,667,611,778,722,278,556,722,611,833,722,778,667,778,722,667,611,722,667,944,667,667,611,333,278,333,584,556,333,556,611,556,611,556,333,611,611,278,278,556,278,889,611,611,611,611,389,556,333,611,556,778,556,556,500,389,280,389,584];
+var PDF_HELV_EXTRA={"·":[278,278],"×":[584,584],"—":[1000,1000],"–":[556,556],"…":[1000,1000],"’":[222,278],"‘":[222,278],"“":[333,500],"”":[333,500],"°":[400,400],"€":[556,556],"«":[556,556],"»":[556,556]," ":[278,278]};
+/* larghezza in mm di un testo in Helvetica (bold o no) al corpo pt */
+function pdfTxtW(s, pt, bold){
+  s=String(s==null?"":s); var u=0;
+  for(var i=0;i<s.length;i++){
+    var ch=s.charAt(i), c=s.charCodeAt(i), w;
+    if(c>=32 && c<=126) w=(bold?PDF_HELVB_W:PDF_HELV_W)[c-32];
+    else if(PDF_HELV_EXTRA[ch]) w=PDF_HELV_EXTRA[ch][bold?1:0];
+    else { var b=ch.normalize ? ch.normalize("NFD").charAt(0) : ch, cb=b.charCodeAt(0);   /* à è é ò ù…: larghe come la lettera base */
+      w=(cb>=32 && cb<=126) ? (bold?PDF_HELVB_W:PDF_HELV_W)[cb-32] : 556; }
+    u+=w;
+  }
+  return u/1000*pt*25.4/72;
+}
+/* righe di un testo che stanno in w mm: si va a capo fra le parole; una parola più lunga della riga
+   (un indirizzo mail, un link) si spezza fra le lettere. Mai «…». */
+function pdfTxtRighe(s, w, pt, bold){
+  var parole=String(s==null?"":s).trim().split(/\s+/).filter(Boolean), out=[], r="";
+  parole.forEach(function(p){
+    var prova=r ? r+" "+p : p;
+    if(pdfTxtW(prova, pt, bold)<=w){ r=prova; return; }
+    if(r) out.push(r);
+    r=p;
+    while(pdfTxtW(r, pt, bold)>w && r.length>1){   /* parola da sola più larga della colonna */
+      var k=r.length-1; while(k>1 && pdfTxtW(r.slice(0,k), pt, bold)>w) k--;
+      out.push(r.slice(0,k)); r=r.slice(k);
+    }
+  });
+  if(r) out.push(r);
+  /* il separatore «·» a cavallo di un a capo non serve: l'a capo separa già (e una riga che comincia con
+     «·» sembra un elenco puntato) */
+  out=out.map(function(x){ return x.replace(/^·\s+/,"").replace(/\s+·$/,""); }).filter(function(x, i, a){ return x!=="·" || a.length===1; });
+  return out.length ? out : [""];
+}
+/* Un ELENCO (luogo · data · palco, i totali) va a capo fra una voce e l'altra: «5 personal mixer (1 hub)»
+   resta intera sulla sua riga invece di spezzarsi a metà. Solo una voce più larga della colonna da sola
+   va a capo fra le parole. */
+function pdfTxtRigheVoci(voci, w, pt, bold){
+  var SEP="  ·  ", out=[], r="";
+  (voci||[]).map(function(v){ return String(v==null?"":v).trim(); }).filter(Boolean).forEach(function(v){
+    if(r && pdfTxtW(r+SEP+v, pt, bold)<=w){ r+=SEP+v; return; }
+    if(r) out.push(r);
+    var pezzi=pdfTxtRighe(v, w, pt, bold);
+    r=pezzi.pop(); pezzi.forEach(function(x){ out.push(x); });
+  });
+  if(r) out.push(r);
+  return out.length ? out : [""];
+}
+/* Le righe di un blocco: al suo corpo finché stanno in maxR righe; oltre, il corpo scende a passi di
+   0,5 pt fino a minPt. Se nemmeno così bastano, si tengono TUTTE le righe al corpo minimo: il cartiglio
+   si alza ancora, ma niente si perde. */
+function pdfCartBlocco(k, s, w, pt, minPt, maxR, passo, bold){
+  var righeDi=function(p){ return Array.isArray(s) ? pdfTxtRigheVoci(s, w, p, bold) : pdfTxtRighe(s, w, p, bold); };   /* un array = un elenco di voci */
+  var p=pt, righe=righeDi(p);
+  while(righe.length>maxR && p-0.5>=minPt-1e-9){ p-=0.5; righe=righeDi(p); }
+  return { k:k, righe:righe, pt:p, bold:!!bold, passo:passo*p/pt };
+}
+/* Le voci della riga sotto il titolo: luogo · data · palco (e peso/rack con «Esporta avanzato»). Una sola
+   fonte per PDF e anteprima, che prima la componevano ognuna per conto suo. */
+function pdfCartSub(){
   var sub=[]; if(state.luogo) sub.push(state.luogo);
   sub.push(dataDocumento());
   var _Ac=printArea(); sub.push((_Ac.custom?"area ":"palco ")+(_Ac.w/100)+"×"+(_Ac.h/100)+" m");
   var _tecn=pdfDatiTecnici();   /* peso e rack solo con «Esporta avanzato» (16/09) */
   var _wt=(_tecn&&pdfPesiOn())?totalWeightKg():0; if(_wt>0) sub.push(fmtKg(_wt));   /* L2: peso di trasporto stimato, solo con «Pesi (kg)» */
   var _ru=_tecn?totalRackU():0; if(_ru>0) sub.push(_ru+" U rack");
-  var subStr=sub.join("  ·  ");
-  var subL=doc.splitTextToSize(subStr, titleW);
-  doc.text(subL.length>1 ? subL[0].replace(/\s+\S*$/,"")+"…" : subStr, M, y+14);
-  /* TOTALI essenziali: quanti leggii, sedute, personal mixer, spie — quello che serve a chi allestisce */
-  var _tot=pdfTotals(), _yNext=y+19;
+  return sub;
+}
+/* IMPAGINAZIONE della colonna di sinistra del cartiglio, in mm dall'alto del cartiglio: righe, corpo e
+   linea di base di ogni blocco, e l'altezza totale. La usano cartHFor (scala automatica, area del disegno),
+   pdfCartiglio (il PDF) e pdfPreviewSvg (l'anteprima). Con testi di una riga le misure sono quelle di
+   sempre: titolo a 8, luogo a 14, totali a 19, riferimento a 19/24, cartiglio 22 (+5 coi totali, +4 per
+   ogni riga in più del riferimento; la riga del riferimento resta riservata anche quando è vuoto). Limiti prima di ridurre il corpo: titolo 3 righe, luogo 3, totali 4. */
+function pdfCartRighe(header, titleW){
+  var B=[], y, cartH;
+  var tit=pdfCartBlocco("titolo", state.titolo||"Stage plot", titleW, 13, 10, 3, 5.5, true);
+  tit.y0=8; B.push(tit);
+  var sub=pdfCartBlocco("sub", pdfCartSub(), titleW, 9, 7.5, 3, 4, false);
+  sub.y0=14+(tit.righe.length-1)*tit.passo; B.push(sub);
+  y=sub.y0+(sub.righe.length-1)*sub.passo;
+  var _tot=[]; try{ _tot=pdfTotals(); }catch(e){}
   if(_tot.length){
-    doc.setFontSize(8.5); doc.setTextColor(31,41,55);
-    var _tStr=_tot.join("  ·  ");
-    var _tL=doc.splitTextToSize(_tStr, titleW);
-    doc.text(_tL.length>1 ? _tL[0].replace(/\s+\S*$/,"")+"…" : _tStr, M, _yNext);
-    _yNext+=5;
+    var tot=pdfCartBlocco("tot", _tot, titleW, 8.5, 7, 4, 3.8, false);
+    tot.y0=y+5; B.push(tot); y=tot.y0+(tot.righe.length-1)*tot.passo;
   }
-  /* intestazione opzionale — multi-riga, sfrutta l'altezza dinamica del cartiglio */
   if(header && String(header).trim()){
-    doc.setFontSize(8); doc.setTextColor(120,120,120);
-    doc.text(doc.splitTextToSize(String(header).trim(), titleW), M, _yNext);
-  }
+    var hd=pdfCartBlocco("rif", String(header).trim(), titleW, 8, 8, 99, 4, false);
+    hd.y0=y+5; B.push(hd); y=hd.y0+(hd.righe.length-1)*hd.passo;
+    cartH=y+3;
+  } else cartH=y+8;   /* senza riferimento resta libera la sua riga, come sempre (e sotto c'è la didascalia del QR) */
+  return { blocchi:B, cartH:Math.round(cartH*100)/100 };
+}
+function pdfCartiglio(doc, L, N, header){
+  var y=L.ph-L.fondo-L.cartH, M=L.M, scW=90, titleW=pdfCartTitleW(L.pw, M);   /* col QR la colonna del titolo si stringe (10/10) */
+  doc.setDrawColor(31,41,55); doc.setLineWidth(0.4);
+  doc.line(M, y, L.pw-M, y);
+  /* colonna sinistra: titolo, luogo · data · palco, totali essenziali (leggii, sedute, personal mixer, spie —
+     quello che serve a chi allestisce) e riferimento. Tutto A CAPO, mai «…» (13/10): righe e altezza vengono
+     da pdfCartRighe, la stessa impaginazione con cui è stata calcolata L.cartH. */
+  var STILE={ titolo:[[17,24,39],"bold"], sub:[[75,85,99],"normal"], tot:[[31,41,55],"normal"], rif:[[120,120,120],"normal"] };
+  pdfCartRighe(header, titleW).blocchi.forEach(function(b){
+    var st=STILE[b.k]; doc.setFont("helvetica", st[1]); doc.setFontSize(b.pt); doc.setTextColor(st[0][0],st[0][1],st[0][2]);
+    b.righe.forEach(function(r, i){ doc.text(r, M, y+b.y0+i*b.passo); });   /* riga per riga: il passo è il nostro, non quello di jsPDF */
+  });
   /* SCALA a destra — colonna riservata scW */
   doc.setFont("helvetica","bold"); doc.setFontSize(20); doc.setTextColor(17,24,39);
   doc.text("SCALA 1:"+N, L.pw-M, y+10, {align:"right"});
@@ -28730,20 +28806,24 @@ function pdfPreviewSvg(paperKey, N, orient, header, opts){
       noBlockDims:!A.custom && !box.cropped && stageBlocks().length<2})
     .replace(/^<svg /, '<svg x="'+ix+'" y="'+iy+'" width="'+stMmW+'" height="'+stMmH+'" preserveAspectRatio="none" ');
   var cy=L.ph-L.fondo-L.cartH;
-  var sub=[]; if(state.luogo) sub.push(state.luogo);
-  sub.push(dataDocumento()); sub.push((A.custom?"area ":"palco ")+(A.w/100)+"×"+(A.h/100)+" m");
-  var _ptecn=pdfDatiTecnici();   /* l'anteprima dice quello che dirà il file */
-  var _pwt=(_ptecn&&pdfPesiOn())?totalWeightKg():0; if(_pwt>0) sub.push(fmtKg(_pwt)); var _pru=_ptecn?totalRackU():0; if(_pru>0) sub.push(_pru+" U rack");
   var stroke = A.custom ? '#9ca3af' : (box.cropped ? '#9ca3af' : (isSingleRect()?'#1f2937':'none'));
   var labels = A.custom ? '' :
     '<text x="'+(ix+stMmW/2)+'" y="'+(iy-1.6)+'" font-size="3" fill="#9a9a9a" text-anchor="middle">FONDO PALCO</text>'+
     '<text x="'+(ix+stMmW/2)+'" y="'+(iy+stMmH+4)+'" font-size="3" fill="#9a9a9a" text-anchor="middle">PUBBLICO</text>';
   var titleColW=pdfCartTitleW(L.pw, L.M);
-  /* clip per la colonna sinistra del cartiglio (titolo+sub+header non invadono SCALA) */
+  /* clip per la colonna sinistra del cartiglio (titolo+sub+header non invadono SCALA): solo una rete di
+     sicurezza, le righe sono già quelle del PDF e stanno nella colonna */
   var cartClip='<defs><clipPath id="cartClip"><rect x="'+L.M+'" y="'+cy+'" width="'+titleColW+'" height="'+L.cartH+'"/></clipPath></defs>';
-  /* header: riga singola nella preview (il PDF usa splitTextToSize per multi-riga) */
-  var headerSvg=header&&String(header).trim()
-    ?'<text clip-path="url(#cartClip)" x="'+L.M+'" y="'+(cy+17)+'" font-size="3.1" fill="#787878">'+esc(String(header).trim())+'</text>':'';
+  /* colonna sinistra: le STESSE righe del PDF (pdfCartRighe), stesso corpo (pt → mm) e stesse linee di base:
+     titolo, luogo · data, totali e riferimento vanno a capo come nel file (13/10; prima qui erano una riga
+     sola, più grande, e i totali non c'erano) */
+  var COL={ titolo:"#111827", sub:"#4b5563", tot:"#1f2937", rif:"#787878" }, colSx="";
+  pdfCartRighe(header, titleColW).blocchi.forEach(function(b){
+    b.righe.forEach(function(r, i){
+      colSx+='<text clip-path="url(#cartClip)" x="'+L.M+'" y="'+(cy+b.y0+i*b.passo).toFixed(2)+'" font-family="Helvetica, Arial, sans-serif" font-size="'+(b.pt*25.4/72).toFixed(3)+'"'+
+        (b.bold?' font-weight="700"':'')+' fill="'+COL[b.k]+'">'+esc(r)+'</text>';
+    });
+  });
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+L.pw+' '+L.ph+'" '+
       'style="display:block;width:100%;height:auto;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.18)">'+
     cartClip+
@@ -28752,9 +28832,7 @@ function pdfPreviewSvg(paperKey, N, orient, header, opts){
     '<rect x="'+ix+'" y="'+iy+'" width="'+stMmW+'" height="'+stMmH+'" fill="none" stroke="'+stroke+'" stroke-width="0.5"/>'+
     labels+
     '<line x1="'+L.M+'" y1="'+cy+'" x2="'+(L.pw-L.M)+'" y2="'+cy+'" stroke="#1f2937" stroke-width="0.4"/>'+
-    '<text clip-path="url(#cartClip)" x="'+L.M+'" y="'+(cy+7)+'" font-size="6" font-weight="700" fill="#111827">'+esc(state.titolo||"Stage plot")+'</text>'+
-    '<text clip-path="url(#cartClip)" x="'+L.M+'" y="'+(cy+12.5)+'" font-size="3.6" fill="#4b5563">'+esc(sub.join("  ·  "))+'</text>'+
-    headerSvg+
+    colSx+
     ((!opts.focus || opts.focus==="clean") ? pdfQrSvg(L) : "")+   /* QR: solo sulla prima pagina, come nel PDF */
     '<text x="'+(L.pw-L.M)+'" y="'+(cy+9)+'" font-size="9" font-weight="700" fill="#111827" text-anchor="end">SCALA 1:'+Ng+'</text>'+
     /* il formato del foglio, come nel PDF: l'anteprima deve dire le stesse cose del file che uscirà */
