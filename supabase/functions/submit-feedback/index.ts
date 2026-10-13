@@ -1,7 +1,7 @@
 // supabase/functions/submit-feedback/index.ts
 import { createClient } from "jsr:@supabase/supabase-js@2.108.2";
 import { corsHeaders } from "../_shared/cors.ts";
-import { validateFeedback } from "../_shared/feedback-validation.ts";
+import { elementoRichiedeUtente, validateFeedback } from "../_shared/feedback-validation.ts";
 import { buildFeedbackEmail, feedbackAttachment } from "../_shared/feedback-prompt.ts";
 import { sendEmail } from "../_shared/email.ts";
 import { redactSnapshotForFeedback } from "../_shared/project-sharing.ts";
@@ -52,6 +52,9 @@ Deno.serve(async (req) => {
     const { data: u } = await supabase.auth.getUser(jwt);
     if (u?.user) { f.user_id = u.user.id; f.user_email = u.user.email ?? null; }
   }
+  // Un elemento inviato per revisione (Crea elemento, 13/10/2026) aspetta la risposta nell'app: senza un utente
+  // vero non c'è a chi darla. Si rifiuta QUI, prima dei contatori, del caricamento dell'anteprima e della riga.
+  if (elementoRichiedeUtente(f.hint, f.user_id)) return json({ error: "login_richiesto" }, 401);
 
   // Tetto GLOBALE (16/09): regge anche se l'IP è falsificato. Pochi invii al giorno sono la norma.
   const { count: nellOra, error: cntErr } = await supabase.from("feedback")

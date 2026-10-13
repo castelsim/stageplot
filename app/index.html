@@ -704,10 +704,10 @@
   /* Maniglie (variante A): segno minuto a misura FISSA — lo spessore arriva dal markup, che lo
      calcola in pixel di schermo. Sotto, un'area di presa invisibile piu' larga: piccole da vedere,
      facili da afferrare. */
-  .rs-handle{fill:#fff;stroke:var(--accent);vector-effect:non-scaling-stroke;pointer-events:none}
+  .rs-handle{fill:#fff;stroke:var(--accent);stroke-width:1.4;vector-effect:non-scaling-stroke;pointer-events:none}   /* 1,4 px di schermo a ogni zoom (non-scaling) */
   .rs-grab{fill:transparent;cursor:pointer}
   .rs-grab:hover ~ .rs-handle,.rs-handle:hover{fill:var(--accent-tint)}
-  .rs-handle.rs-end{fill:var(--accent);stroke:#fff}   /* metro: maniglie tonde agli estremi della linea */
+  .rs-handle.rs-end{fill:var(--accent);stroke:#fff;stroke-width:1.6}   /* metro: maniglie tonde agli estremi della linea; 1,6 px come il loro attributo (.rs-handle da solo le porterebbe a 1,4) */
   .rs-l,.rs-r{cursor:ew-resize} .rs-t,.rs-b{cursor:ns-resize}
   .rs-tl,.rs-br{cursor:nwse-resize} .rs-tr,.rs-bl{cursor:nesw-resize}
   /* Le maniglie dell'elemento selezionato vivono in un layer PROPRIO (#layHandles, l'ultimo della
@@ -3683,6 +3683,164 @@ body.dark #props #scalettaSec .sc-b:hover:not(:disabled){background:#222b38}
 .pdf-qr-nota{font-size:11px;line-height:1.4;color:var(--text-3);margin:3px 0 0}
 .pdf-qr-avviso{font-size:12px;line-height:1.4;margin:6px 0 0;padding:6px 8px;border-radius:8px;background:var(--warning-bg);border:1px solid var(--warning-border);color:var(--text)}
 .pdf-qr-avviso[hidden]{display:none}
+
+/* ===== CREA ELEMENTO (13/10/2026) — l'editor degli elementi personalizzati =====
+   È lo stesso editor su un palco temporaneo grande quanto l'elemento (body.cust-editor). Si nasconde tutto ciò che
+   agirebbe sul progetto vero o ne leggerebbe le liste (intestazione del progetto, export, condivisione, account,
+   varianti, layer, channel list, palco e planimetria): le stesse azioni sono fermate anche nel codice. */
+body.cust-editor #fileBtn, body.cust-editor header .tbdiv, body.cust-editor #titolo, body.cust-editor #evChip,
+body.cust-editor #variantBar, body.cust-editor #projStatus, body.cust-editor #projApprovedBy, body.cust-editor #docState,
+body.cust-editor header .snapwrap, body.cust-editor header .hdr-actions,
+body.cust-editor #vistaBanner, body.cust-editor #funzBanner, body.cust-editor #assunzioni,
+body.cust-editor #noSel, body.cust-editor #chanlist, body.cust-editor #areaEditPanel, body.cust-editor #stageEditPanel,
+body.cust-editor #eventoSec, body.cust-editor #scalettaSec, body.cust-editor #cabPropsSec,
+body.cust-editor #catalog .cust-no{display:none !important}
+body.cust-forma-sel #selProps{display:none !important}   /* una forma selezionata ha il suo pannello (#custForma) */
+body.cust-draw #svg, body.cust-draw #svg *{cursor:crosshair !important}
+body.cust-draw #svg .item{pointer-events:none}   /* mentre si disegna gli elementi sotto non si evidenziano: il gesto è del disegno */
+/* i nomi degli elementi sono di 14 cm veri: sulla superficie ingrandita coprirebbero il disegno. Chi c'è lo dice la scheda. */
+body.cust-editor #layLbl{display:none}
+
+/* la barra degli strumenti: una pastiglia in alto sul palco, come gli avvisi della vista */
+#custBar{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:31;display:flex;align-items:center;gap:8px 12px;
+  width:max-content;max-width:calc(100% - 24px);flex-wrap:wrap;justify-content:center;background:var(--surface);color:var(--text);
+  border:1px solid var(--border-strong);border-radius:var(--r-lg);padding:4px 10px 4px 12px;font-size:var(--t-label);
+  box-shadow:0 6px 20px rgba(38,33,24,.16)}
+#custBar[hidden]{display:none}
+body.dark #custBar{box-shadow:0 6px 20px rgba(0,0,0,.4)}
+#custBar .cb-tit{white-space:nowrap;color:var(--text-2);font-variant-numeric:tabular-nums}
+#custBar .cb-tit b{color:var(--text);font-weight:700}
+#custBar .cb-seg{display:flex;gap:2px;padding:2px;border-radius:var(--r-md);background:var(--surface-raised)}
+#custBar .cb-tool{display:inline-flex;align-items:center;justify-content:center;width:32px;height:30px;border:0;border-radius:var(--r-sm);
+  background:transparent;color:var(--text-2);cursor:pointer}
+#custBar .cb-tool:hover{background:var(--surface);color:var(--text)}
+#custBar .cb-tool.on{background:var(--accent);color:#fff}
+#custBar .cb-tool:focus-visible,#custBar input:focus-visible,#custBar select:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
+#custBar .cb-grp{display:flex;align-items:center;gap:6px;white-space:nowrap}
+#custBar .cb-lbl{color:var(--text-2)}
+#custBar input[type=color]{width:30px;height:26px;padding:2px;border:1px solid var(--border-strong);border-radius:var(--r-sm);background:var(--surface);cursor:pointer}
+#custBar input[type=color]:disabled{opacity:.35;cursor:default}
+#custBar select{height:28px;width:auto;border:1px solid var(--border-strong);border-radius:var(--r-sm);background:var(--surface);color:var(--text);font-size:var(--t-label);padding:0 6px}
+#custBar select:disabled{opacity:.45}
+#custBar .cb-chk{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;color:var(--text-2);cursor:pointer}
+#custBar .cb-chk input{margin:0;accent-color:var(--accent)}
+#custBar .cb-chk input:disabled+*{opacity:.45}
+#custBar .cb-snap #custPassoLbl{color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}
+/* la riga di aiuto del gesto in corso: sotto la barra nell'editor, in cima al palco mentre si traccia il rettangolo */
+#custGuida{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:30;display:flex;align-items:center;gap:10px;
+  max-width:calc(100% - 24px);background:var(--surface);color:var(--text);border:1px solid var(--border-strong);border-radius:999px;
+  padding:6px 8px 6px 16px;font-size:13px;line-height:1.35;box-shadow:0 6px 20px rgba(38,33,24,.16)}
+#custGuida[hidden]{display:none}
+body.cust-editor #custGuida{top:60px}   /* sotto la barra (custGuida la riallinea se la barra va su due righe) */
+body.dark #custGuida{box-shadow:0 6px 20px rgba(0,0,0,.4)}
+#custGuida .vb-txt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-2)}
+#custGuida .vb-txt b{color:var(--text)}
+#custGuida .vb-esci{flex:none;border:1px solid var(--border-strong);background:var(--surface);color:var(--text);border-radius:999px;
+  padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;min-height:32px;white-space:nowrap}
+#custGuida .vb-esci:hover{background:var(--accent-tint);border-color:var(--accent)}
+#custGuida .vb-esci:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* la superficie: un foglio bianco in scala, griglia in cm (passo secondo lo zoom), righello in alto e a sinistra */
+.cust-sup{fill:var(--sheet)}
+.cust-griglia line{stroke:var(--grid-line);stroke-width:1;vector-effect:non-scaling-stroke}
+.cust-griglia line.m{stroke:var(--grid-major)}
+.cust-bordo{fill:none;stroke:var(--n-600);stroke-width:1.5;vector-effect:non-scaling-stroke}
+.cust-righello line{stroke:var(--n-400);stroke-width:1;vector-effect:non-scaling-stroke}
+.cust-righello text{fill:var(--text-2);font-variant-numeric:tabular-nums;paint-order:stroke;stroke:var(--canvas-bg);stroke-linejoin:round}   /* alone (spessore in px dal markup): sopra un pezzo che sborda i numeri restano leggibili */
+.cust-righello .cust-unita{fill:var(--text-3)}
+.cust-vuoto{fill:var(--text-3);pointer-events:none}
+body.dark .cust-righello text{fill:#cbd5e1}
+/* il rettangolo sul palco, le forme che si disegnano e le loro misure (in pixel fissi a ogni zoom) */
+.cust-area{fill:rgba(13,148,136,.10);stroke:var(--accent);stroke-width:2;stroke-dasharray:8 5;vector-effect:non-scaling-stroke;pointer-events:none}
+.cust-forma-prev{pointer-events:none}
+.cust-forma-prev>rect,.cust-forma-prev>ellipse,.cust-forma-prev>line{opacity:.85}
+.cust-misura{pointer-events:none}
+.cust-misura rect{fill:var(--n-800);opacity:.92}
+.cust-misura text{fill:#fff;font-weight:600;font-variant-numeric:tabular-nums}
+.cust-poly-prev{pointer-events:none}
+.cust-poly-prev polyline{fill:none;stroke:var(--accent);stroke-width:1.5;stroke-dasharray:6 4;vector-effect:non-scaling-stroke}
+.cust-poly-prev circle{fill:#fff;stroke:var(--accent);stroke-width:1.5;vector-effect:non-scaling-stroke}
+.cust-poly-prev circle.primo{fill:var(--accent)}
+/* il testo che si scrive sul palco */
+.cust-testo-inp{position:fixed;z-index:60;border:1.5px solid var(--accent);border-radius:6px;background:var(--sheet);padding:2px 6px;
+  font-family:var(--font-ui);font-weight:500;text-align:center;box-shadow:var(--elev-2);outline:none}
+
+/* la finestra delle misure */
+.cust-misure{margin-top:14px}
+.cust-mis-riga{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap}
+.cust-mis-riga label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--text-2)}
+.cust-mis-in{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--text-2)}
+.cust-mis-riga input{width:96px;font-size:16px;padding:7px 9px;border:1px solid var(--border-strong);border-radius:var(--r-md);
+  background:var(--surface);color:var(--text);font-variant-numeric:tabular-nums}
+.cust-mis-riga input:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
+.cust-mis-riga input.err{border-color:var(--danger-solid);box-shadow:0 0 0 1px var(--danger-solid)}
+.cust-mis-x{font-size:18px;color:var(--text-3);padding-bottom:8px}
+.cust-mis-x::before{content:"×"}   /* il segno di moltiplicazione delle misure (non un «chiudi»): sta nel foglio di stile */
+.cust-mis-nota{margin-top:8px;font-size:12px;color:var(--text-3);min-height:16px}
+.cust-mis-nota.err{color:var(--danger)}
+.guide-actions .btn:disabled{opacity:.45;cursor:not-allowed}
+
+/* la scheda dell'elemento e il pannello della forma */
+#custScheda[hidden],#custForma[hidden],#custFormaDims[hidden],#custFormaTxt[hidden]{display:none}
+#custScheda .cust-req,#custScheda .cust-opz{font-size:11px;color:var(--text-3);font-weight:400}
+#custScheda input.err{border-color:var(--danger-solid);box-shadow:0 0 0 1px var(--danger-solid)}
+#custScheda .cust-err{font-size:var(--t-label);color:var(--danger);margin-top:4px}
+#custScheda .cust-err[hidden]{display:none}
+#custScheda .cust-cnt{font-size:11px;color:var(--text-3);text-align:right;margin-top:2px;font-variant-numeric:tabular-nums}
+#custScheda .cust-conta{margin-top:12px}
+#custScheda .cust-conta label:first-of-type{margin-top:4px}
+#custScheda .cust-ins{display:flex;gap:6px}
+#custScheda .cust-ins input{flex:0 0 72px}
+#custScheda .cust-ins select{flex:1 1 auto}
+/* i pulsanti della scheda in un piede fermo in fondo alla colonna: a 1280×800, con una forma selezionata, Salva stava sotto
+   il bordo. #props è una colonna flex che scorre: margin-top:auto lo porta in fondo anche quando la colonna è corta. */
+#custScheda[hidden] + #custPiede{display:none}
+#custPiede{position:sticky;bottom:-12px;z-index:2;margin:auto -12px -12px;padding:10px 12px 12px;background:var(--surface);
+  border-top:1px solid var(--border);box-shadow:0 -6px 14px -10px rgba(38,33,24,.35)}
+body.dark #custPiede{background:#1b2327;box-shadow:0 -6px 14px -10px rgba(0,0,0,.6)}
+#custPiede .cust-azioni{margin-top:0}
+#custPiede .cust-azioni .btn{padding:8px 4px;font-size:13px}
+#custPiede #custInvia{width:100%;margin-top:6px}
+#custPiede #custInvia[hidden]{display:none}
+
+/* Tappa 3: il pulsante nel catalogo, «Non c'è? Crealo», gli elementi di questo progetto, la riga nel pannello */
+#catalog small.cust-tel{display:none}
+@media (max-width:880px){ #catalog small.cust-pc{display:none} #catalog small.cust-tel{display:block} }
+#catCustom[hidden]{display:none}
+/* fase 1 del rilascio (custIngressiAttivi() = false): «Crea elemento» non si vede nel catalogo */
+#catalog .cust-crea.cust-off{display:none !important}
+#catCustom h4{margin-top:10px}
+body.cust-editor #catCustom, body.proj-ro #catCustom, body.viewmode #catCustom{display:none !important}
+/* Ruling 16: dentro ogni voce, sul bordo destro, «Elimina modello» — un bottone suo (mai un bottone dentro un bottone),
+   quieto, rosso solo al passaggio; sul dito 44 px. Il nome lungo va a capo in sillabe: «(2)» deve restare leggibile. */
+#catCustom .cust-voce{position:relative}
+#catalog #catCustom .cust-voce > button:first-child{padding-right:36px}
+#catCustom .cust-voce > button:first-child span{min-width:0;overflow-wrap:break-word;hyphens:auto}
+#catalog #catCustom .cust-voce-elimina{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:32px;height:32px;min-height:0;margin:0;padding:0;
+  justify-content:center;border-color:transparent;background:transparent;color:var(--text-3)}
+#catalog #catCustom .cust-voce-elimina:hover{color:var(--danger);border-color:var(--danger-solid);background:var(--surface)}
+#catalog #catCustom .cust-voce-elimina:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
+#catalog #catCustom .cust-voce-elimina svg{width:16px;height:16px;flex:0 0 auto}
+@media (max-width:880px){ #catalog #catCustom .cust-voce-elimina{width:44px;height:44px} #catalog #catCustom .cust-voce > button:first-child{padding-right:52px} }
+#catalog #catResults .cust-crealo{justify-content:flex-start;height:auto;margin-top:4px;padding:6px 8px;border:1px dashed var(--border-strong);
+  background:transparent;color:var(--text);font-size:13px;font-weight:400;text-align:left;line-height:1.3;white-space:normal}
+#catalog #catResults .cust-crealo:hover{background:var(--accent-tint);border-color:var(--accent-soft)}
+#catResults .cust-crealo > span{min-width:0;flex:1 1 auto}
+#catResults .cust-crealo b{color:var(--accent-strong)}
+#catResults .cust-crealo small{white-space:normal;overflow-wrap:anywhere}
+#catResults .cust-crealo-fondo{margin-top:10px}
+#props .cust-pan{margin:0 0 10px}
+#props .cust-pan [hidden]{display:none}
+#props .cust-pan .cust-pan-desc{margin:0 0 4px;font-size:12px;line-height:1.4;color:var(--text-2);overflow-wrap:anywhere}
+#props .cust-pan .cust-pan-conta{margin:0 0 8px}
+#props .cust-pan .cust-pan-btns{display:flex;flex-direction:column;gap:6px}
+/* nella scheda (fondo «raised») il bottone di serie sparirebbe: fondo pieno e bordo, come i comandi del pannello */
+#props .cust-pan .cust-pan-btns .btn{margin-top:0;background:var(--surface);border:1px solid var(--border-strong);color:var(--text);font-weight:600;white-space:normal}
+#props .cust-pan .cust-pan-btns .btn:hover{border-color:var(--accent);color:var(--accent-strong)}
+#props .cust-pan .cust-pan-btns .btn:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
+body.dark #props .cust-pan .cust-pan-btns .btn{background:#20292e;border-color:#3a4658;color:#e5e7eb}
+#props .cust-pan .prop-hint:last-child{margin:6px 0 0}
+body.cust-editor.m-has-sel #custScheda{border-top:1px solid var(--border);padding-top:12px;margin-top:6px}   /* sotto il pannello di ciò che è selezionato */
 </style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->
 <script async src="/icons.js"></script>
@@ -3844,6 +4002,29 @@ body.dark #props #scalettaSec .sc-b:hover:not(:disabled){background:#222b38}
 <div id="venueCalibBanner" hidden></div>
 <div id="vistaBanner" hidden></div>
 <div id="funzBanner" hidden role="status"></div>
+<!-- CREA ELEMENTO (13/10/2026): la barra degli strumenti dell'editor e la riga di aiuto del gesto in corso. La barra si
+     vede solo con l'editor aperto (body.cust-editor); la riga anche mentre si trascina il rettangolo sul palco. -->
+<div id="custBar" role="toolbar" aria-label="Strumenti per disegnare l'elemento" hidden>
+  <span class="cb-tit"><b>Elemento</b> <span id="custDim"></span></span>
+  <span class="cb-seg" role="group" aria-label="Strumento">
+    <button type="button" class="cb-tool on" data-cust-tool="sel" aria-pressed="true" aria-label="Seleziona" title="Seleziona, sposta, ridimensiona e ruota"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5 18.5 11l-5.6 1.6-2.7 5.4z"/></svg></button>
+    <button type="button" class="cb-tool" data-cust-tool="rect" aria-pressed="false" aria-label="Rettangolo" title="Rettangolo — trascina per disegnarlo; con Maiusc un quadrato"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="6" width="16" height="12" rx="1"/></svg></button>
+    <button type="button" class="cb-tool" data-cust-tool="ell" aria-pressed="false" aria-label="Ellisse" title="Ellisse — trascina per disegnarla; con Maiusc un cerchio"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><ellipse cx="12" cy="12" rx="8.5" ry="6"/></svg></button>
+    <button type="button" class="cb-tool" data-cust-tool="line" aria-pressed="false" aria-label="Linea" title="Linea — trascina da un capo all'altro; con Maiusc dritta o a 45°"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 19 19 5"/></svg></button>
+    <button type="button" class="cb-tool" data-cust-tool="poly" aria-pressed="false" aria-label="Poligono" title="Poligono — un clic per ogni punto; doppio clic o Invio per chiudere"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3.5 8 6-3 10.5H7L4 9.5z"/></svg></button>
+    <button type="button" class="cb-tool" data-cust-tool="text" aria-pressed="false" aria-label="Testo" title="Testo — clic dove scriverlo"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 7V4.5h14V7M12 4.5v15M9 19.5h6"/></svg></button>
+  </span>
+  <span class="cb-grp" title="Riempimento delle forme nuove, o di quelle selezionate">
+    <label class="cb-lbl" for="custFill">Riempimento</label><input type="color" id="custFill" value="#e5e7eb">
+    <label class="cb-chk"><input type="checkbox" id="custNoFill"> nessuno</label>
+  </span>
+  <span class="cb-grp" title="Colore e spessore di bordo, linee e testi (per le forme nuove, o per quelle selezionate)">
+    <label class="cb-lbl" for="custStroke">Linea</label><input type="color" id="custStroke" value="#1d1d1f">
+    <select id="custSw" aria-label="Spessore della linea"><option value="0.5">0,5 cm</option><option value="1" selected>1 cm</option><option value="1.5">1,5 cm</option><option value="2">2 cm</option><option value="3">3 cm</option><option value="5">5 cm</option><option value="10">10 cm</option></select>
+  </span>
+  <label class="cb-chk cb-snap" title="Aggancia alla griglia: il passo segue lo zoom (1, 5 o 10 cm). Tieni ⌘ (Ctrl) per muovere libero."><input type="checkbox" id="custSnap" checked> Griglia <span id="custPassoLbl">1 cm</span></label>
+</div>
+<div id="custGuida" role="status" aria-live="polite" hidden><span class="vb-txt" id="custGuidaTxt"></span><button type="button" class="vb-esci" id="custGuidaEsci">Annulla</button></div>
 <div id="venueCalibPop" hidden>
   <label>Distanza reale tra i 2 punti (m)</label>
   <div style="display:flex;gap:6px;align-items:center">
@@ -4102,6 +4283,20 @@ body.dark #props #scalettaSec .sc-b:hover:not(:disabled){background:#222b38}
   </div>
   <div class="sec" id="selProps" hidden>
     <h3 id="selNome">Elemento</h3>
+    <!-- CREA ELEMENTO (13/10/2026): l'elemento personalizzato da solo, IN CIMA come nel pannello di gruppo (#grpCustomRow):
+         cosa conta, Modifica, i modelli. Potenza, ingressi e backline si scrivono solo nella sua scheda (una via sola). -->
+    <div id="pCustomWrap" class="prop-card cust-pan" style="display:none">
+      <p class="cust-pan-desc" id="pCustDesc" hidden></p>
+      <p class="prop-hint cust-pan-conta" id="pCustConta"></p>
+      <div class="cust-pan-btns">
+        <button class="btn" id="pCustModifica" type="button" title="Riapre l'editor su questa copia: le altre non cambiano">Modifica elemento</button>
+        <button class="btn" id="pCustModello" type="button">Salva come modello</button>
+        <button class="btn" id="pCustModelloNuovo" type="button" hidden title="Un modello in più nel catalogo; quello di partenza resta com'è">Salva come nuovo modello</button>
+        <button class="btn" id="pCustInvia" type="button" hidden title="Lo mandi a StagePlot: se entra nel catalogo, te lo scriviamo nell'app">Invia per revisione</button>
+      </div>
+      <p class="prop-hint cust-pan-rev" id="pCustRev" hidden></p>
+      <p class="prop-hint" id="pCustModelloHint"></p>
+    </div>
     <button type="button" class="btn solo-ped" id="pSoloPed" style="display:none" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg><span>Solo pedane</span></button>
     <!-- 29/09 (Simone): di partenza la pedana si sposta da sola; acceso, chi ci sta sopra la segue. Vedi pedanaAgganciata(). -->
     <div id="pAggWrap" class="agg-ped" style="display:none"><label class="chk" title="Acceso: spostando la pedana si spostano anche i musicisti e gli strumenti che ci stanno sopra, e Duplica e Copia li copiano con lei. Spento: si sposta solo la pedana, il resto rimane dov'è."><input type="checkbox" id="pAgg"> <span>Aggancia gli elementi alla pedana <small class="lbl-note">— spostandola, chi ci sta sopra la segue</small></span></label></div>
@@ -4674,6 +4869,19 @@ body.dark #props #scalettaSec .sc-b:hover:not(:disabled){background:#222b38}
   </div>
   <div class="sec" id="groupProps" hidden>
     <h3 id="grpNome">Selezione</h3>
+    <!-- l'elemento personalizzato con i suoi pezzi è un gruppo: i suoi comandi stanno in cima, il titolo è il suo nome -->
+    <div id="grpCustomRow" class="prop-card cust-pan" style="display:none">
+      <p class="cust-pan-desc" id="grpCustDesc" hidden></p>
+      <p class="prop-hint cust-pan-conta" id="grpCustConta"></p>
+      <div class="cust-pan-btns">
+        <button class="btn" id="grpCustModifica" type="button" title="Riapre l'editor su questa copia: le altre non cambiano">Modifica elemento</button>
+        <button class="btn" id="grpCustModello" type="button">Salva come modello</button>
+        <button class="btn" id="grpCustModelloNuovo" type="button" hidden title="Un modello in più nel catalogo; quello di partenza resta com'è">Salva come nuovo modello</button>
+        <button class="btn" id="grpCustInvia" type="button" hidden title="Lo mandi a StagePlot: se entra nel catalogo, te lo scriviamo nell'app">Invia per revisione</button>
+      </div>
+      <p class="prop-hint cust-pan-rev" id="grpCustRev" hidden></p>
+      <p class="prop-hint" id="grpCustModelloHint"></p>
+    </div>
     <button type="button" class="btn solo-ped" id="grpSoloPed" style="display:none" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg><span>Solo pedane</span></button>
     <div id="grpAggWrap" class="agg-ped" style="display:none"><label class="chk" title="Acceso: spostando una pedana si spostano anche i musicisti e gli strumenti che ci stanno sopra, e Duplica e Copia li copiano con lei. Spento: si sposta solo la pedana, il resto rimane dov'è. Vale per tutte le pedane selezionate."><input type="checkbox" id="grpAgg"> <span>Aggancia gli elementi alle pedane <small class="lbl-note">— spostandole, chi ci sta sopra le segue</small></span></label></div>
     <div id="grpOpts" style="display:none;margin-bottom:8px">
@@ -4752,6 +4960,56 @@ body.dark #props #scalettaSec .sc-b:hover:not(:disabled){background:#222b38}
       <button class="btn danger" id="grpDel">Elimina</button>
     </div>
     <div class="hint" style="font-size:11px;color:var(--text-3);margin-top:8px">Shift-click per aggiungere/togliere. <b>Unisci in blocco</b>: si muovono e selezionano insieme. Trascina per spostare il gruppo.</div>
+  </div>
+  <!-- CREA ELEMENTO (13/10/2026): la forma selezionata nell'editor (colori e linea stanno nella barra in alto) -->
+  <div class="sec" id="custForma" hidden>
+    <h3 id="custFormaNome">Forma</h3>
+    <div class="row" id="custFormaDims">
+      <span><label for="custFW">L (cm)</label><input type="number" id="custFW" min="1" step="1"></span>
+      <span><label for="custFD">P (cm)</label><input type="number" id="custFD" min="1" step="1"></span>
+    </div>
+    <div id="custFormaTxt" hidden>
+      <label for="custFTesto">Testo</label><input type="text" id="custFTesto" maxlength="140">
+      <div class="row"><span><label for="custFCorpo">Corpo (cm)</label><input type="number" id="custFCorpo" min="2" max="200" step="0.5"></span></div>
+    </div>
+    <div class="row"><span><label for="custFRot">Rotazione (°)</label><input type="number" id="custFRot" min="-360" max="360" step="5"></span></div>
+    <div class="btns">
+      <button class="btn" id="custFFront" type="button" title="Porta questa forma sopra le altre">⬆ Primo piano</button>
+      <button class="btn" id="custFBack" type="button" title="Mandala dietro alle altre">⬇ In fondo</button>
+    </div>
+    <div class="btns">
+      <button class="btn" id="custFDup" type="button">Duplica</button>
+      <button class="btn danger" id="custFDel" type="button">Elimina</button>
+    </div>
+  </div>
+  <!-- CREA ELEMENTO: la scheda dell'elemento. Con niente selezionato sta al posto del pannello; con una selezione, sotto. -->
+  <div class="sec" id="custScheda" hidden>
+    <h3>Scheda dell'elemento</h3>
+    <label for="custNome">Nome <span class="cust-req">obbligatorio</span></label>
+    <input type="text" id="custNome" maxlength="60" autocomplete="off" placeholder="Es. Videoproiettore" aria-describedby="custNomeErr">
+    <div class="cust-err" id="custNomeErr" hidden>Scrivi il nome: è quello che si legge sul palco e nelle liste.</div>
+    <label for="custDesc">Descrizione <span class="cust-opz">facoltativa</span></label>
+    <textarea id="custDesc" maxlength="280" rows="3" placeholder="Cos'è, a cosa serve, chi lo porta"></textarea>
+    <div class="cust-cnt" id="custDescN" aria-live="polite">0/280</div>
+    <div class="prop-card cust-conta">
+      <div class="prop-card__head">Cosa conta nelle liste</div>
+      <label for="custWatt">Potenza (W)</label>
+      <input type="number" id="custWatt" min="0" max="20000" step="10" inputmode="numeric" placeholder="nessuna">
+      <label for="custInsN">Ingressi audio</label>
+      <div class="cust-ins"><input type="number" id="custInsN" min="0" max="16" step="1" inputmode="numeric" value="0" aria-label="Numero di ingressi audio">
+        <select id="custInsTipo" aria-label="Tipo di ingresso"><option value="mic">microfono</option><option value="linea">linea</option></select></div>
+      <label class="chk"><input type="checkbox" id="custBackline"> È backline</label>
+    </div>
+    <p class="prop-hint" id="custConta"></p>
+  </div>
+  <!-- i pulsanti della scheda: un piede fermo in fondo alla colonna, in vista anche quando sopra c'è il pannello di una forma
+       o di un elemento (si nasconde con la scheda: #custScheda[hidden] + #custPiede) -->
+  <div class="cust-piede" id="custPiede">
+    <div class="btns cust-azioni">
+      <button class="btn" id="custAnnulla" type="button">Annulla</button>
+      <button class="btn primary" id="custSalva" type="button">Salva</button>
+    </div>
+    <button class="btn" id="custInvia" type="button" hidden>Salva e invia per revisione</button>
   </div>
   <div class="sec" id="cabPropsSec" hidden style="border-bottom:1px solid var(--border,#e5e7eb);padding-bottom:12px;margin-bottom:10px">
     <div id="cabPropsTitle" style="font-weight:700;font-size:13px"></div>

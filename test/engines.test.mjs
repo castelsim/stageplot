@@ -88,6 +88,7 @@ function reset() {
   A.state.titolo = ""; A.state.luogo = ""; A.state.techContact = ""; A.state.venue = null; A.state.printFrame = null; A.state.zones = [];
   A.state.lights = { rows: [], blackout: null, mood: "" };   /* luci = reparto (blocco A): senza azzeramento le righe di un test finiscono nel rider del successivo */
   delete A.state.scaletta;   /* scaletta (10/10): campo che esiste solo con almeno una voce */
+  delete A.state.customModels;   /* modelli dell'elemento personalizzato (13/10): dal primo Salva di un elemento nuovo nasce anche il modello (Ruling 17), e un test che salva non deve lasciarli ai successivi */
   A.state.stage = { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] };   /* palco default: base per isFreshBlankProject */
   /* cab.home va azzerato come le luci e lookDefault: dal 02/09 un test puo' CREARE il punto
      d'arrivo dei cavi, e se resta scritto il test dopo trova un capolinea che non ha messo lui —
@@ -109,6 +110,15 @@ function reset() {
 function add(type, x, y, opts) { return A.addItem(type, Object.assign({ x, y }, opts || {})) || A.state.items[A.state.items.length - 1]; }   /* addItem puo' creare anche la DI: vale il valore restituito */
 function chans(it) { return A.cabItemInputs(it); }
 
+/* risultati finti della ricerca del catalogo (catCercaInvio): un bottone «primo», e con `nores` anche «Nessun elemento
+   trovato» col solo «Non c'è? Crealo», che chiamerebbe custDisegnaArea */
+function finteRisultati(nores) {
+  const giro = { clic: [], prevenuto: false };
+  const bottone = (nome) => ({ classList: { contains: (c) => nome === "crealo" && c === "cust-crealo" }, click: () => giro.clic.push(nome) });
+  giro.results = { style: { display: "block" }, querySelector: (sel) => sel === ".nores" ? (nores ? {} : null) : (sel === "button:not(.json-act)" ? bottone(nores ? "crealo" : "primo") : null) };
+  giro.ev = { key: "Enter", isComposing: false, preventDefault: () => { giro.prevenuto = true; } };
+  return giro;
+}
 console.log("StagePlot — test motori\n");
 
 console.log("Microfonazione / cabItemInputs:");
@@ -3016,8 +3026,15 @@ t("lifecycle cloud: snapshot immutabile, revision guard e cambio progetto fail-c
     autosaveFlow.includes('setDocState("conflict")') &&
     autosaveFlow.includes("resolveCloudFlush(false)"),
   "una planimetria locale mancante non può propagare venue_image=null al cloud");
-  ok(/beforeunload",function\(e\)\{[\s\S]{0,900}?if\(!window\.__localConflict && !window\.__localStorageUnavailable && !window\.__docLoadBlocked\) return;/.test(appjs),
-    "gli edit sospesi attivano l'avviso di uscita: conflitto multi-tab, archivio pieno E documento incompatibile (tutti e tre lasciano il lavoro in sola memoria)");
+  /* la guardia è una funzione (uscitaDaChiedere, 13/10): si prova il comportamento, del gestore si guarda solo che la usi */
+  ok(/beforeunload",function\(e\)\{[\s\S]{0,1200}?if\(!uscitaDaChiedere\(\)\) return;/.test(appjs), "il gestore di uscita usa la guardia");
+  {
+    const fl = ["__localConflict", "__localStorageUnavailable", "__docLoadBlocked"], had = fl.map((k) => [Object.prototype.hasOwnProperty.call(A, k), A[k]]);
+    try {
+      fl.forEach((k) => { fl.forEach((j) => { A[j] = false; }); A[k] = true;
+        eq(A.uscitaDaChiedere(), true, "gli edit sospesi attivano l'avviso di uscita (" + k + ": il lavoro resta in sola memoria)"); });
+    } finally { fl.forEach((k, i) => { if (had[i][0]) A[k] = had[i][1]; else delete A[k]; }); }
+  }
   const openFlow = appjs.slice(appjs.indexOf("function openProject"), appjs.indexOf("function dupProject"));
   ok(openFlow.includes("window.flushCloudAutosave(function(ok)"), "il cambio progetto attende il flush");
   ok(openFlow.includes("window.__cloudNeedsFlush()"), "gli edit durante la lettura remota bloccano il commit");
@@ -5336,7 +5353,8 @@ t("ricerca: liste e varianti si trovano per nome", () => {
   eq(primo("nuova variante"), "Nuova variante"); eq(primo("variante"), "Nuova variante");
   ok(!A.__qaSearch("channel list").length, "la finestrella del doppio clic resta per gli elementi");
   ok(!A.__spSearch("channel").some((e) => e.nome === "Esporta"), "«channel» non deve più dare Esporta");
-  ok(/search\.addEventListener\("keydown", function\(ev\)\{\s*if\(ev\.key!=="Enter"[\s\S]{0,200}results\.querySelector\("button:not\(\.json-act\)"\)[\s\S]{0,80}primo\.click\(\);/.test(appjs), "Invio nella ricerca deve prendere il primo risultato");
+  ok(/search\.addEventListener\("keydown", function\(ev\)\{ catCercaInvio\(ev, results\); \}\);/.test(appjs), "la ricerca passa Invio a catCercaInvio");
+  { const giro = finteRisultati(false); eq(A.catCercaInvio(giro.ev, giro.results), true, "Invio nella ricerca deve prendere il primo risultato"); eq(giro.clic, ["primo"], "il primo risultato, una volta"); }
 });
 /* 05/10: giri degli utenti (analisi/workaround/2026-10-05.md) — parole cercate davvero senza risultato.
    «platea» dal 06/10/2026 dà la Platea (file di sedie): è il blocco intero, la sedia singola viene dopo. */
@@ -7408,6 +7426,538 @@ t("catalogo: «Palco» in cima, «Forma» subito sotto, e la ricerca trova ancor
   ok(/nome:"Palco"[\s\S]{0,200}kw:"[^"]*forma del palco/.test(appjs), "chi cerca «forma del palco» trova il Palco");
   ok(/makeActionBtn\("Forma",[^\n]*addItem\("forma"\)/.test(appjs), "il pulsante Forma posa una forma");
 });
+t("elemento personalizzato: un file manomesso si apre pulito", () => {
+  const forme = [
+    { k: "rect", x: 0, y: 0, w: 100, h: 50, fill: "#ff0000", stroke: "#000000", sw: 2 },
+    { k: "text", x: 10, y: 20, s: "<script>alert(1)</script>", size: 12, fill: "#000000" },
+    { k: "rect", x: NaN, y: 0, w: 1e9, h: 5, fill: "rgb(1,2,3)", stroke: "#000000", sw: 1 },
+    { k: "foreignObject", x: 0, y: 0 },
+    { k: "poly", pts: Array.from({ length: 500 }, (_, i) => [i % 100, i % 50]), fill: null, stroke: "#123456", sw: 1 },
+  ].concat(Array.from({ length: 300 }, () => ({ k: "line", x1: 0, y1: 0, x2: 10, y2: 10, stroke: "#000000", sw: 1 })));
+  const s = A.normalizeState({ _v: 5, stage: { w: 1200, d: 800 }, items: [
+    { id: "c1", type: "custom", x: 300, y: 300, w: 120, d: 80, watt: 1e12,
+      cust: { nome: "x".repeat(200), desc: "d".repeat(900), shapes: forme, ins: { n: 99, tipo: "boh" }, backline: "si" } },
+    { id: "c2", type: "custom", x: 600, y: 300, w: 120, d: 80, cust: "non un oggetto" },
+  ] });
+  const c = s.items[0].cust;
+  eq(c.nome.length, 60, "nome tagliato");
+  eq(c.desc.length, 280, "descrizione tagliata");
+  ok(c.shapes.length <= 200, "al massimo 200 forme: " + c.shapes.length);
+  ok(c.shapes.every(f => ["rect", "ell", "line", "poly", "text"].includes(f.k)), "solo forme ammesse");
+  ok(c.shapes.every(f => f.fill == null || /^#[0-9a-f]{6}$/i.test(f.fill)), "solo colori hex");
+  const poli = c.shapes.find(f => f.k === "poly");
+  ok(poli && poli.pts.length <= 200, "poligono tagliato a 200 punti");
+  eq(c.shapes.some(f => f.k === "rect" && !isFinite(f.x)), false, "forme con numeri non validi scartate");
+  eq(c.ins, undefined, "ingressi fuori limite scartati");
+  eq(c.backline, undefined, "backline non booleana scartata");
+  eq(s.items[0].watt, 20000, "watt al massimo 20000");
+  eq(s.items[1].cust.nome, "Elemento personalizzato", "cust non valido diventa un elemento vuoto col nome di default");
+  eq(s.items[1].cust.shapes.length, 0, "nessuna forma");
+});
+
+t("elemento personalizzato: il disegno è vettoriale pulito, adatto al PDF", () => {
+  const it = A.custNorm({ id: "c3", type: "custom", x: 0, y: 0, w: 120, d: 80, cust: { nome: "Proiettore", shapes: [
+    { k: "rect", x: 10, y: 10, w: 100, h: 60, fill: "#334455", stroke: "#000000", sw: 1, r: 4 },
+    { k: "ell", cx: 60, cy: 40, rx: 15, ry: 15, fill: null, stroke: "#ffffff", sw: 2 },
+    { k: "line", x1: 0, y1: 0, x2: 120, y2: 80, stroke: "#000000", sw: 1 },
+    { k: "poly", pts: [[0, 0], [20, 0], [10, 15]], fill: "#00ff00", stroke: "#000000", sw: 1 },
+    { k: "text", x: 60, y: 75, s: "A & <b>", size: 10, fill: "#000000" } ] } });
+  const svg = A.drawCustom(it);
+  ok(/<rect[^>]+x="-50"/.test(svg), "coordinate spostate al centro (10 - 120/2 = -50): " + svg.slice(0, 200));
+  ok(svg.includes("A &amp; &lt;b&gt;"), "testo con escape");
+  ok(!/NaN|undefined|rgb\(|<style|<script|foreignObject/.test(svg), "niente che rompa svg2pdf o esegua codice");
+  ok((svg.match(/<text\b[^>]*>/g) || []).every(x => / x="/.test(x) && / y="/.test(x)), "ogni <text> ha x e y");
+  ok(svg.includes('fill="none"'), "riempimento assente = none");
+});
+
+t("elemento personalizzato: il tipo esiste ma non sta nel catalogo, e un progetto che lo contiene si apre", () => {
+  ok(A.TYPES.custom && typeof A.TYPES.custom.draw === "function", "TYPES.custom definito");
+  eq(A.TYPES.custom.catalog, false, "non compare tra gli elementi da posare");
+  const s = A.normalizeState({ _v: 5, stage: { w: 1200, d: 800 }, items: [{ id: "c4", type: "custom", x: 1, y: 1 }] });
+  eq(s.items[0].w >= 10 && s.items[0].d >= 10, true, "misure di ripiego almeno 10×10");
+});
+t("elemento personalizzato: non si specchia (i testi uscirebbero a rovescio)", () => {
+  eq(A.canMirror({ type: "custom" }), false, "custom fuori dallo specchio");
+  const s = A.normalizeState({ _v: 5, stage: { w: 1200, d: 800 }, items: [{ id: "c5", type: "custom", x: 1, y: 1, w: 120, d: 80, mir: true }] });
+  eq(s.items[0].mir, undefined, "mir scartato al caricamento");
+});
+t("elemento personalizzato: conta nei carichi, nella channel list e in backline", () => {
+  reset();
+  add("dm3", 900, 300);
+  const c = add("custom", 300, 300, { w: 120, d: 80, watt: 900, cust: { nome: "Videoproiettore", shapes: [], ins: { n: 2, tipo: "linea" }, backline: true } });
+  A.custNorm(c);
+  A.__elecRes = null; A.__cabRes = null;
+  const carico = A.loadList().rows.find(r => r.loadId === c.id);
+  ok(carico && carico.w === 900, "900 W nella Lista carichi");
+  eq(A.loadName(c), "Videoproiettore", "il carico si chiama come l'elemento, senza « · Elemento personalizzato»");
+  eq(A.cabItemInputs(c).map(x => x.name), ["Videoproiettore 1", "Videoproiettore 2"], "due ingressi linea");
+  eq(A.cabItemInputs(c).map(x => x.mic), ["DI", "DI"], "linea = DI da prevedere");
+  ok(A.isAudioSource(c), "è una sorgente audio");
+  ok(A.patchList().rows.some(r => r.name === "Videoproiettore 1"), "riga in channel list");
+  ok(A.backlineList().rows.some(r => r.name === "Videoproiettore"), "riga in backline");
+});
+
+t("elemento personalizzato senza ingressi né backline non conta", () => {
+  reset();
+  const c = add("custom", 300, 300, { cust: { nome: "Segnaposto", shapes: [] } });
+  A.custNorm(c); A.__cabRes = null;
+  eq(A.cabItemInputs(c).length, 0, "nessun ingresso");
+  eq(A.isAudioSource(c), false, "non è una sorgente");
+  eq(A.backlineList().rows.some(r => r.name === "Segnaposto"), false, "non in backline");
+});
+
+t("agglomerato: gli elementi veri dentro contano da soli", () => {
+  reset();
+  add("dm3", 900, 300);
+  const base = add("custom", 300, 300, { cust: { nome: "Postazione teatro", shapes: [] } });
+  const m1 = add("cantante", 280, 290), m2 = add("cantante", 320, 290);
+  [base, m1, m2].forEach(x => { x.grp = "gT"; });
+  A.__cabRes = null;
+  const righe = A.patchList().rows.filter(r => r.itemId === m1.id || r.itemId === m2.id);
+  eq(righe.length, 2, "due voci = due righe, come posate una a una");
+});
+
+t("modelli del progetto: si posano copie indipendenti, e il campo esiste solo se serve", () => {
+  reset();
+  const _cmPrima = A.state.customModels;   /* reset() non lo conosce: lo ripristino a fine prova */
+  try {
+    const base = add("custom", 400, 400, { w: 200, d: 100, cust: { nome: "Batteria teatro", shapes: [{ k: "rect", x: 0, y: 0, w: 200, h: 100, stroke: "#000000", sw: 1 }] } });
+    A.custNorm(base);
+    const mic = add("cantante", 450, 420); base.grp = mic.grp = "gB";
+    const m = A.custModelDaAgglomerato(base);
+    eq(m.membri.length, 1, "un membro");
+    eq([m.membri[0].dx, m.membri[0].dy], [50, 20], "posizione relativa al centro");
+    A.state.customModels = [m];
+    const nuovi = A.custPosaModello(m.id, 800, 400);
+    eq(nuovi.length, 2, "base + membro");
+    ok(nuovi.every(x => x.grp && x.grp !== "gB"), "gruppo nuovo");
+    ok(nuovi.every(x => x.id !== base.id && x.id !== mic.id), "id nuovi");
+    eq([nuovi[1].x, nuovi[1].y], [850, 420], "membro al posto giusto");
+    nuovi[0].cust.nome = "Cambiata";
+    eq(base.cust.nome, "Batteria teatro", "le copie sono indipendenti");
+    const s = A.normalizeState({ _v: 5, stage: { w: 1200, d: 800 }, items: [], customModels: [] });
+    eq("customModels" in s, false, "vuoto = assente (impronta del PDF invariata)");
+    const s2 = A.normalizeState({ _v: 5, stage: { w: 1200, d: 800 }, items: [], customModels: [{ id: "<x>", nome: 5 }, "boh"] });
+    eq("customModels" in s2, false, "modelli non validi scartati");
+  } finally {
+    if (_cmPrima === undefined) delete A.state.customModels; else A.state.customModels = _cmPrima;
+  }
+});
+
+t("modelli del progetto: riferimenti, membri sporchi, id doppi, rotazione, blocco, custom escluso", () => {
+  reset();
+  const _cmPrima = A.state.customModels, _lockPrima = A.__projLocked;
+  const norm = (cm) => A.normalizeState({ _v: 5, stage: { w: 1200, d: 800 }, items: [], customModels: cm });
+  const shapes = [{ k: "rect", x: 0, y: 0, w: 200, h: 100, stroke: "#000000", sw: 1 }];
+  try {
+    /* I1: riferimenti e posti numerati fuori dal modello e dalle copie */
+    const base = add("custom", 400, 400, { w: 200, d: 100, cust: { nome: "Kit", shapes } });
+    A.custNorm(base);
+    const mic = add("cantante", 450, 420, { rackId: "i9", rackPos: 2, diFor: "i7", diId: "i8", ascoltoId: "i5", rxId: "i4", distOf: "i3", sbTo: "i2", fila: "A", posto: 3, settore: "S" });
+    base.grp = mic.grp = "gR";
+    const m = A.custModelDaAgglomerato(base);
+    ["rackId", "rackPos", "diFor", "diId", "ascoltoId", "rxId", "distOf", "sbTo", "fila", "posto", "settore", "id", "grp", "x", "y"].forEach(k => ok(!(k in m.membri[0]), k + " nel membro del modello"));
+    const sporco = JSON.parse(JSON.stringify(m)); sporco.membri[0].rackId = "i9"; sporco.membri[0].diFor = "i7"; sporco.membri[0].fila = "B";
+    const n1 = norm([sporco]).customModels[0];
+    ["rackId", "diFor", "fila"].forEach(k => ok(!(k in n1.membri[0]), k + " tolto da custModelNorm"));
+    A.state.customModels = [m];
+    const posati = A.custPosaModello(m.id, 800, 400);
+    ["rackId", "diFor", "fila", "posto", "settore"].forEach(k => ok(!(k in posati[1]), k + " nella copia"));
+    /* I2: membro sporco */
+    const brutto = JSON.parse('{"id":"mx1","nome":"X","w":200,"d":100,"shapes":[],"membri":[{"type":"cantante","dx":1e300,"dy":-1e300,"w":"x","rot":null,"label":{"a":1},"__proto__":{"evil":1},"constructor":"c"}]}');
+    const nb = norm([brutto]).customModels[0].membri[0];
+    eq([nb.dx, nb.dy], [100000, -100000], "dx/dy limitati");
+    ok(!("w" in nb) && !("label" in nb) && !Object.prototype.hasOwnProperty.call(nb, "__proto__") && !Object.prototype.hasOwnProperty.call(nb, "constructor"), "membro pulito");
+    ok(nb.rot === undefined || Number.isFinite(nb.rot), "rot finita");
+    /* I5: id doppi → uno solo */
+    const doppi = norm([{ id: "dup", nome: "A", w: 100, d: 50, shapes: [], membri: [] }, { id: "dup", nome: "B", w: 100, d: 50, shapes: [], membri: [] }]).customModels;
+    eq(doppi.length, 1, "un solo modello"); eq(doppi[0].nome, "A", "si tiene il primo");
+    /* I5: id nuovo mai uguale a uno esistente (qui occupo proprio quello che uid() darebbe) */
+    A.state.customModels = [{ id: "m" + A.uid().slice(1), nome: "z", w: 10, d: 10, shapes: [], membri: [] }];
+    const m2 = A.custModelDaAgglomerato(base);
+    ok(!A.state.customModels.some(q => q.id === m2.id), "id libero");
+    /* rotazione della base tolta */
+    reset();
+    const b90 = add("custom", 400, 400, { w: 200, d: 100, rot: 90, cust: { nome: "Ruotato", shapes } });
+    A.custNorm(b90);
+    const m90 = add("cantante", 400, 450, { rot: 90 }); b90.grp = m90.grp = "gQ";
+    const mr = A.custModelDaAgglomerato(b90);
+    eq([mr.membri[0].dx, mr.membri[0].dy, mr.membri[0].rot], [50, 0, 0], "relativo alla base ruotata");
+    /* I4: custom nel gruppo escluso */
+    const c2 = add("custom", 500, 400, { w: 50, d: 50, cust: { nome: "Altro", shapes: [] } }); A.custNorm(c2); c2.grp = "gQ";
+    eq(A.custModelDaAgglomerato(b90).membri.length, 1, "il custom del gruppo non e' un membro");
+    /* I3: progetto bloccato */
+    A.state.customModels = [mr];
+    const prima = A.state.items.length;
+    A.__projLocked = true;
+    eq(A.custPosaModello(mr.id, 0, 0), [], "bloccato: niente copie");
+    eq(A.state.items.length, prima, "bloccato: scena intatta");
+    A.__projLocked = false;
+    eq(A.custPosaModello(mr.id, 0, 0).length, 2, "sbloccato: posa");
+  } finally {
+    if (_cmPrima === undefined) delete A.state.customModels; else A.state.customModels = _cmPrima;
+    A.__projLocked = _lockPrima;
+  }
+});
+
+/* RILASCIO IN DUE FASI: in produzione custIngressiAttivi() torna false (nessuno può ancora CREARE un elemento personalizzato).
+   Tutte le prove di comportamento qui sotto (editor, modelli, Modifica, invio) girano con i punti d'ingresso ACCESI, come
+   alla fase 2: il sandbox lascia sostituire la funzione globale. Si rimette com'era dopo l'ultima prova di «Crea elemento»;
+   subito dopo ci sono le prove con l'interruttore SPENTO. */
+const _custIngressiOriginale = A.custIngressiAttivi;
+A.custIngressiAttivi = () => true;
+
+/* ===== Crea elemento — palco temporaneo (Task 4). Il rischio: con l'editor aperto lo stato vivo è il palco temporaneo,
+   e qualunque scrittura (locale, cloud, versioni, varianti, export) lo farebbe passare per il progetto vero. Ogni test
+   chiude l'editor nel finally: i test dopo devono trovare il progetto vero. */
+function conEditor(fn) {
+  const docPrima = A.document, lockPrima = A.__projLocked, consultPrima = A.__consultMode;
+  const cl = { contains: () => false, add() {}, remove() {}, toggle() {} };
+  const body = new Proxy({}, { get: (t, k) => (k === "classList" ? cl : docPrima.body[k]) });
+  A.document = new Proxy({}, { get: (t, k) => (k === "body" ? body : docPrima[k]) });
+  A.__projLocked = false; A.__consultMode = false;
+  try { return fn(); }
+  finally {
+    try { if (typeof A.custEditorAttivo === "function" && A.custEditorAttivo()) A.custEditorAnnulla(); } catch (e) { A.__custEditor = null; }
+    A.document = docPrima; A.__projLocked = lockPrima; A.__consultMode = consultPrima;
+  }
+}
+
+t("palco temporaneo: si apre sulla superficie, Annulla lascia il progetto identico", () => conEditor(() => {
+  reset();
+  /* stato NON normalizzato di proposito (revisione finale, I1): reset() scrive `lights` senza `notes`, e il ripristino
+     deve rimetterlo esattamente così — prima un passaggio dal normalizzatore nascondeva i campi aggiunti dall'editor */
+  const a = add("cantante", 350, 330), b = add("sedia", 900, 600);
+  const prima = A.docToJSON(), statoPrima = A.stateToJSON();
+  ok(A.custEditorApri({ x: 300, y: 300, w: 120, d: 80 }, { includi: true }), "editor aperto");
+  ok(A.custEditorAttivo(), "attivo");
+  eq([A.state.stage.w, A.state.stage.d], [120, 80], "il palco è la superficie");
+  eq(A.state.items.length, 1, "dentro solo l'elemento nell'area");
+  eq([A.state.items[0].x, A.state.items[0].y], [50, 30], "coordinate della superficie");
+  eq(A.persistLocalState(), true, "salvataggio locale sospeso (non scrive)");
+  A.custEditorAnnulla();
+  eq(A.custEditorAttivo(), false, "chiuso");
+  const canon = j => JSON.stringify(JSON.parse(j), (k, v) => (v && typeof v === "object" && !Array.isArray(v)) ? Object.fromEntries(Object.keys(v).sort().map(x => [x, v[x]])) : v);
+  eq(canon(A.docToJSON()), canon(prima), "progetto identico a prima (a meno dell'ordine delle chiavi)");
+  eq(A.stateToJSON(), statoPrima, "e lo stato vivo identico byte per byte, ordine delle chiavi compreso");
+}));
+
+t("palco temporaneo: Salva rimette tutto al suo posto, raggruppato, con le forme", () => conEditor(() => {
+  reset();
+  add("cantante", 350, 330);
+  A.custEditorApri({ x: 300, y: 300, w: 120, d: 80 }, { includi: true });
+  A.state.items.push({ id: A.uid(), type: "custshape", k: "rect", x: 60, y: 40, w: 100, d: 60, rot: 0, fill: "#334455", stroke: "#000000", sw: 1 });
+  const id = A.custEditorSalva({ nome: "Postazione", desc: "", watt: 300, ins: null, backline: false });
+  eq(A.custEditorAttivo(), false, "chiuso");
+  const base = A.state.items.find(x => x.id === id);
+  ok(base && base.type === "custom", "base creata");
+  eq([base.x, base.y, base.w, base.d], [360, 340, 120, 80], "posata nel rettangolo (centro)");
+  eq(base.watt, 300, "watt");
+  eq(base.cust.shapes.length, 1, "una forma");
+  eq([base.cust.shapes[0].x, base.cust.shapes[0].y], [10, 10], "forma in coordinate della superficie (60-50, 40-30)");
+  const voce = A.state.items.find(x => x.type === "cantante");
+  eq([voce.x, voce.y], [350, 330], "elemento vero tornato al suo posto");
+  ok(voce.grp && voce.grp === base.grp, "raggruppati");
+  eq(A.state.items.some(x => x.type === "custshape"), false, "nessun custshape sul palco vero");
+}));
+
+t("palco temporaneo: con l'editor aperto variante, Nuovo, Apri ed export non toccano il progetto", () => conEditor(() => {
+  reset();
+  add("cantante", 350, 330); A.save();
+  const docVero = A.docToJSON(), varPrima = A.activeVar, dirtyPrima = A._cloudDirty;
+  A.custEditorApri({ x: 0, y: 0, w: 100, d: 100 }, { includi: false });
+  /* il comportamento, non il testo delle funzioni (revisione finale, M7) */
+  A.switchVariant("altra");
+  eq(A.activeVar, varPrima, "switchVariant bloccato: la scena resta quella");
+  let importato = true; try { A.importProject(docVero); } catch (e) { importato = false; }
+  ok(A.custEditorAttivo() && [A.state.stage.w, A.state.stage.d].join() === "100,100", "importProject bloccato: l'editor e il palco temporaneo restano" + (importato ? "" : " (rifiutato con un errore)"));
+  A._cloudDirty = false; A.scheduleCloudAutosave();
+  eq(A._cloudDirty, false, "autosave cloud sospeso: non si arma");
+  A._cloudDirty = dirtyPrima;
+  A.custEditorAnnulla();
+}));
+
+t("modifica di un elemento ruotato: si apre dritto e si risalva ruotato", () => conEditor(() => {
+  reset();
+  const base = add("custom", 500, 500, { w: 100, d: 50, rot: 90, cust: { nome: "R", shapes: [] } }); A.custNorm(base);
+  A.custEditorApri(null, { baseId: base.id });
+  eq([A.state.stage.w, A.state.stage.d], [100, 50], "superficie con le misure dell'elemento, non ruotata");
+  const id = A.custEditorSalva({ nome: "R", desc: "", watt: null, ins: null, backline: false });
+  const b = A.state.items.find(x => x.id === id);
+  eq([b.x, b.y, b.rot], [500, 500, 90], "stessa posizione e rotazione");
+}));
+
+t("palco temporaneo: le forme dell'elemento tornano nell'editor e si risalvano uguali (anche coi compagni ruotati)", () => conEditor(() => {
+  reset();
+  const shapes = [{ k: "rect", x: 10, y: 10, w: 40, h: 20, fill: "#334455", stroke: "#000000", sw: 1 },
+    { k: "ell", cx: 70, cy: 25, rx: 10, ry: 8, fill: null, stroke: "#112233", sw: 2 },
+    { k: "line", x1: 0, y1: 0, x2: 100, y2: 50, fill: null, stroke: "#000000", sw: 1 },
+    { k: "poly", pts: [[0, 0], [20, 0], [10, 15]], fill: "#aabbcc", stroke: "#000000", sw: 1 },
+    { k: "text", x: 50, y: 40, s: "Ciao", size: 12, fill: "#1d1d1f", stroke: "#1d1d1f", sw: 1 }];
+  const base = add("custom", 500, 500, { w: 100, d: 50, rot: 90, cust: { nome: "Forme", shapes: JSON.parse(JSON.stringify(shapes)) } }); A.custNorm(base);
+  const voce = add("cantante", 500, 550, { rot: 90 }); base.grp = voce.grp = "gT";
+  const formePrima = JSON.parse(JSON.stringify(base.cust.shapes));
+  ok(A.custEditorApri(null, { baseId: base.id }), "aperto");
+  eq(A.state.items.filter(x => x.type === "custshape").length, 5, "una forma = un custshape");
+  const v = A.state.items.find(x => x.type === "cantante");
+  eq([v.x, v.y, v.rot], [100, 25, 0], "il compagno nella superficie dritta (rotazione dell'elemento tolta)");
+  const id = A.custEditorSalva({ nome: "Forme", desc: "", watt: null, ins: null, backline: false });
+  const b = A.state.items.find(x => x.id === id);
+  eq(b.id, base.id, "stesso id: è lo stesso elemento");
+  eq(b.cust.shapes, formePrima, "forme identiche dopo il giro editor → salva");
+  const v2 = A.state.items.find(x => x.type === "cantante");
+  eq([v2.x, v2.y, v2.rot], [500, 550, 90], "il compagno torna dov'era");
+  ok(v2.grp && v2.grp === b.grp, "ancora nello stesso gruppo");
+  eq(A.state.items.filter(x => x.type === "custom").length, 1, "nessun doppione della base");
+}));
+
+t("palco temporaneo: con l'editor aperto nessuno scrive il palco temporaneo (locale, cloud, versioni, varianti, documento)", () => conEditor(() => {
+  reset();
+  A.applyVariantState(JSON.parse(A.stateToJSON()));   /* come nell'app: stato normalizzato (reset() lascia `lights` senza `notes`) */
+  add("cantante", 350, 330);
+  const canon = j => JSON.stringify(JSON.parse(j), (k, v) => (v && typeof v === "object" && !Array.isArray(v)) ? Object.fromEntries(Object.keys(v).sort().map(x => [x, v[x]])) : v);
+  const scritte = [], cloud = { salvataggi: 0 };
+  const lsPrima = A.localStorage, cloudPrima = A.__cloud, dirtyPrima = A._cloudDirty, savingPrima = A._cloudSaving;
+  /* i blocchi del cloud spenti (nel sandbox una window.__x mai scritta vale «vero»): così è la guardia dell'editor a fermarlo */
+  const flag = ["__docLoadBlocked", "__localConflict", "__cloudConflict", "__bootVenueUnavailable", "__localStorageUnavailable"];
+  const flagPrima = flag.map(k => A[k]); flag.forEach(k => { A[k] = false; });
+  const rtPrima = A.__rtBroadcast; let diretta = 0; A.__rtBroadcast = () => { diretta++; };   /* sessione live: chi guarda riceve lo stato */
+  /* «sp_onboarded» è una preferenza dell'interfaccia (render la scrive quando il palco ha elementi), non il progetto */
+  A.localStorage = { getItem: () => null, setItem: (k, v) => { if (k !== "sp_onboarded") scritte.push(k); }, removeItem: (k) => scritte.push("-" + k) };
+  A.__cloud = { user: () => ({ id: "u" }), currentId: () => "c1", save: () => { cloud.salvataggi++; }, isWriting: () => false };
+  try {
+    A.save();   /* il progetto vero entra in VARIANTS prima dell'apertura */
+    const docVero = A.docToJSON();
+    A._cloudDirty = true; A._cloudSaving = false; A.cloudAutosaveNow();
+    ok(cloud.salvataggi > 0, "controprova: a editor chiuso il salvataggio cloud parte davvero");
+    A._cloudDirty = false; A._cloudSaving = false;
+    ok(A.custEditorApri({ x: 300, y: 300, w: 120, d: 80 }, { includi: true }), "aperto");
+    const prima = scritte.length, salvPrima = cloud.salvataggi, direttaPrima = diretta;
+    A.state.items.push({ id: A.uid(), type: "custshape", k: "rect", x: 60, y: 40, w: 100, d: 60, rot: 0, fill: "#334455", stroke: "#000000", sw: 1 });
+    A.save(); A.saveSoon(); A.flushHistorySoon();
+    eq(A.persistLocalState(), true, "persistLocalState non scrive ma non segnala errore");
+    A.scheduleCloudAutosave();
+    eq(A._cloudDirty, false, "l'autosave cloud non si arma");
+    A._cloudDirty = true; A.cloudAutosaveNow(); A.flushCloudAutosave();
+    eq(cloud.salvataggi, salvPrima, "nessun salvataggio cloud parte, nemmeno forzato");
+    eq(diretta, direttaPrima, "la sessione live non riceve il palco temporaneo");
+    A._cloudDirty = false;
+    eq(A.saveVersion("prova", true), false, "nessun punto di ripristino del palco temporaneo");
+    eq(scritte.length, prima, "nessuna scrittura in localStorage");
+    eq(A.docToJSON(), docVero, "il documento (cloud/export) resta quello vero");
+    const varPrima = A.activeVar, nVar = A.VARIANTS.length;
+    A.switchVariant("altra"); eq(A.activeVar, varPrima, "niente cambio di variante");
+    eq(A.createVariant("x"), null, "niente variante nuova"); eq(A.VARIANTS.length, nVar, "varianti intatte");
+    eq(A.deleteVariant(varPrima), false, "niente variante eliminata");
+    eq(A.beginNewDocument(null, { skipRecovery: true }), false, "niente documento nuovo");
+    throws(() => A.importProject(docVero), null);
+    eq(A.custEditorAttivo(), true, "l'editor è ancora aperto");
+    eq(A.exportPng(), false, "niente PNG");
+    eq(A.custEditorApri({ x: 0, y: 0, w: 50, d: 50 }, {}), false, "un secondo editor non si apre");
+    A.custEditorAnnulla();
+    eq(canon(A.docToJSON()), canon(docVero), "Annulla: il documento è quello vero (a meno dell'ordine delle chiavi)");
+    eq(scritte.slice(prima), [], "Annulla non scrive niente (non c'era niente di nuovo)");
+  } finally {
+    A.localStorage = lsPrima; A.__cloud = cloudPrima; A._cloudDirty = dirtyPrima; A._cloudSaving = savingPrima;
+    flag.forEach((k, i) => { A[k] = flagPrima[i]; }); A.__rtBroadcast = rtPrima;
+  }
+}));
+
+t("palco temporaneo: Annulla e Ripeti dentro l'editor, poi la cronologia vera torna com'era", () => conEditor(() => {
+  reset();
+  A.resetHistory();   /* lo stack si ferma a 120 passi: si parte da vuoto, così il conto dei passi è esatto */
+  add("cantante", 350, 330); A.save();
+  add("sedia", 900, 600); A.save();
+  const undoPrima = A.undoStack.length, snapPrima = A.lastSnap, assetsPrima = A.venueHistoryAssets;
+  ok(A.custEditorApri({ x: 300, y: 300, w: 120, d: 80 }, { includi: true }), "aperto");
+  eq(A.undoStack.length, 0, "cronologia dell'editor vuota");
+  A.state.items.push({ id: A.uid(), type: "custshape", k: "ell", x: 30, y: 30, w: 20, d: 20, rot: 0, fill: null, stroke: "#000000", sw: 1 });
+  A.save();
+  A.undo();
+  eq(A.state.items.filter(x => x.type === "custshape").length, 0, "Annulla dentro l'editor toglie la forma");
+  eq([A.state.stage.w, A.state.stage.d], [120, 80], "e resta nel palco temporaneo");
+  A.custEditorAnnulla();
+  eq(A.undoStack.length, undoPrima, "la cronologia vera è tornata");
+  ok(A.lastSnap === snapPrima, "con lo stesso ultimo passo");
+  ok(A.venueHistoryAssets === assetsPrima, "e le planimetrie della cronologia (senza, un Annulla cancellerebbe la planimetria)");
+  A.custEditorApri({ x: 300, y: 300, w: 120, d: 80 }, { includi: true });
+  A.custEditorSalva({ nome: "X", desc: "", watt: null, ins: null, backline: false });
+  eq(A.undoStack.length, undoPrima + 1, "Salva è un solo passo di Annulla");
+  A.undo();
+  eq(A.state.items.some(x => x.type === "custom"), false, "e Annulla lo toglie per intero");
+  eq(A.state.items.find(x => x.type === "cantante").grp, undefined, "il cantante torna fuori dal gruppo");
+}));
+
+t("palco temporaneo: rifiuta progetto bloccato, sola visione, consulenza, base inesistente, superficie troppo piccola", () => conEditor(() => {
+  reset();
+  A.__projLocked = true;
+  eq(A.custEditorApri({ x: 0, y: 0, w: 100, d: 100 }, {}), false, "bloccato");
+  A.__projLocked = false;
+  A.__consultMode = true;
+  eq(A.custEditorApri({ x: 0, y: 0, w: 100, d: 100 }, {}), false, "consulenza");
+  A.__consultMode = false;
+  eq(A.custEditorApri(null, { baseId: "inesistente" }), false, "base inesistente");
+  const s = add("sedia", 100, 100);
+  eq(A.custEditorApri(null, { baseId: s.id }), false, "la base deve essere un elemento personalizzato");
+  eq(A.custEditorApri({ x: 0, y: 0, w: 5, d: 100 }, {}), false, "sotto i 10 cm");
+  eq(A.custEditorApri(null, {}), false, "senza rettangolo né base");
+  eq(A.custEditorApri({ x: NaN, y: 0, w: 100, d: 100 }, {}), false, "numeri non validi");
+  eq(A.custEditorAttivo(), false, "mai aperto");
+  eq(A.custEditorSalva({ nome: "X" }), null, "Salva a editor chiuso non fa nulla");
+  A.custEditorAnnulla();   /* a editor chiuso non fa nulla e non lancia */
+}));
+
+/* ---- Correzioni della revisione (Task 4, giro 1) ---- */
+const canonDoc = j => JSON.stringify(JSON.parse(j), (k, v) => (v && typeof v === "object" && !Array.isArray(v)) ? Object.fromEntries(Object.keys(v).sort().map(x => [x, v[x]])) : v);
+const formaProva = (x, y) => ({ id: A.uid(), type: "custshape", k: "rect", x, y, w: 10, d: 10, rot: 0, fill: "#334455", stroke: "#000000", sw: 1 });
+
+t("palco temporaneo: Annulla/Ripeti nell'editor non toccano le scene vere attraverso «Adatta palco»", () => conEditor(() => {
+  /* Annulla: dopo Adatta in scena nuova basta una forma e Cmd+Z per far togliere la scena vera */
+  reset(); A.applyVariantState(JSON.parse(A.stateToJSON()));
+  add("cantante", 350, 330); add("sedia", 900, 600); A.save();
+  A.adattaPalcoApplica(1000, 600, true);
+  ok(A.VARIANTS.length === 2 && A.adattaScena, "premessa: Adatta ha creato la scena nuova");
+  const prima = A.docToJSON(), scenaPrima = A.adattaScena;
+  ok(A.custEditorApri({ x: 300, y: 300, w: 120, d: 80 }, {}), "aperto");
+  eq([A.adattaScena, A.adattaRifai, A.adattaPasso], [null, null, null], "lo stato di «Adatta» è messo da parte");
+  /* difesa doppia, provata (M7): anche se lo stato di «Adatta» fosse ancora lì, la funzione si ferma con l'editor aperto */
+  A.adattaScena = scenaPrima;
+  ok(!A.adattaAnnullaScena(), "adattaAnnullaScena si ferma");
+  eq(A.VARIANTS.length, 2, "e non toglie la scena");
+  A.adattaScena = null;
+  A.state.items.push(formaProva(20, 20)); A.save();
+  A.undo();
+  eq(A.VARIANTS.length, 2, "nessuna scena tolta");
+  eq([A.state.stage.w, A.state.stage.d], [120, 80], "Annulla ha agito sul palco temporaneo");
+  A.redo(); A.undo();
+  A.custEditorAnnulla();
+  eq(canonDoc(A.docToJSON()), canonDoc(prima), "progetto identico");
+  ok(A.VARIANTS.some(v => v.id === A.activeVar), "la scena attiva esiste");
+  ok(A.adattaScena === scenaPrima, "l'Annulla di «Adatta» torna disponibile com'era");
+  /* Ripeti: dopo Adatta + Annulla, all'apertura gli stack sono vuoti e «Ripeti» rimetterebbe la scena tolta */
+  reset(); A.applyVariantState(JSON.parse(A.stateToJSON()));
+  add("cantante", 350, 330); A.save();
+  A.adattaPalcoApplica(1000, 600, true); A.undo();
+  ok(A.adattaRifai && A.VARIANTS.length === 1, "premessa: scena di Adatta tolta, Ripeti pronto");
+  const prima2 = A.docToJSON(), rifaiPrima = A.adattaRifai;
+  ok(A.custEditorApri({ x: 300, y: 300, w: 120, d: 80 }, {}), "aperto");
+  eq(A.ripetiDisponibile(), false, "nell'editor Ripeti non è disponibile");
+  A.adattaRifai = rifaiPrima;   /* difesa doppia (M7): con lo stato di «Adatta» ancora lì */
+  eq(A.ripetiDisponibile(), false, "ripetiDisponibile si ferma");
+  ok(!A.adattaRifaiScena(), "adattaRifaiScena si ferma");
+  eq(A.VARIANTS.length, 1, "e non rimette la scena");
+  A.adattaRifai = null;
+  A.redo();
+  eq(A.VARIANTS.length, 1, "nessuna scena rimessa");
+  A.custEditorAnnulla();
+  eq(canonDoc(A.docToJSON()), canonDoc(prima2), "progetto identico");
+  ok(A.adattaRifai === rifaiPrima && A.ripetiDisponibile(), "e Ripeti di «Adatta» torna com'era");
+}));
+
+t("palco temporaneo: dopo Salva gli id restano unici (gli elementi nati nell'editor hanno id alti)", () => conEditor(() => {
+  reset();
+  add("cantante", 350, 330);
+  ok(A.custEditorApri({ x: 300, y: 300, w: 120, d: 80 }, { includi: true }), "aperto");
+  for (let i = 0; i < 4; i++) A.state.items.push(formaProva(20 + i, 20));
+  add("sedia", 60, 40);
+  A.custEditorSalva({ nome: "P", desc: "", watt: null, ins: null, backline: false });
+  for (let i = 0; i < 6; i++) add("sedia", 900, 600);
+  const ids = A.state.items.map(x => x.id);
+  eq(ids.filter((x, i) => ids.indexOf(x) !== i), [], "nessun id doppio");
+}));
+
+t("palco temporaneo: aprire e salvare più volte un elemento con misure dispari non sposta niente", () => conEditor(() => {
+  for (const rot of [0, 90]) {
+    reset();
+    const base = add("custom", 500, 500, { w: 101, d: 51, rot, cust: { nome: "R", shapes: [{ k: "rect", x: 10, y: 10, w: 20, h: 10, fill: "#334455", stroke: "#000000", sw: 1 }] } }); A.custNorm(base);
+    const voce = add("cantante", 520, 540, { rot: 0 }); base.grp = voce.grp = "gT";
+    const forme = JSON.stringify(base.cust.shapes);
+    for (let k = 0; k < 3; k++) {
+      ok(A.custEditorApri(null, { baseId: base.id }), "aperto");
+      A.custEditorSalva({ nome: "R", desc: "", watt: null, ins: null, backline: false });
+    }
+    const b = A.state.items.find(x => x.type === "custom"), v = A.state.items.find(x => x.type === "cantante");
+    eq([b.x, b.y, b.w, b.d, b.rot], [500, 500, 101, 51, rot], "base ferma (rot " + rot + ")");
+    eq([v.x, v.y, v.rot], [520, 540, 0], "compagno fermo (rot " + rot + ")");
+    eq(JSON.stringify(b.cust.shapes), forme, "forme ferme (rot " + rot + ")");
+  }
+}));
+
+t("palco temporaneo: la planimetria in cache del progetto vero torna esattamente com'era", () => conEditor(() => {
+  reset();
+  add("cantante", 350, 330); A.save();
+  const key = String(A.activeVar), img = { name: "pianta.png", _dataUrl: "data:image/png;base64,AAAA", _imgW: 10, _imgH: 10, _sig: "s1" };
+  /* caso 1: il progetto non ha planimetria, nell'editor ne arriva una in cache */
+  delete A.venueImgCache[key];
+  ok(A.custEditorApri({ x: 300, y: 300, w: 120, d: 80 }, {}), "aperto");
+  A.venueImgCache[key] = Object.assign({}, img);
+  A.custEditorAnnulla();
+  eq(Object.prototype.hasOwnProperty.call(A.venueImgCache, key), false, "nessuna planimetria entra nel progetto vero");
+  /* caso 2: il progetto ha la planimetria, nell'editor la cache si svuota (applyHistory la cancella) */
+  A.venueImgCache[key] = Object.assign({}, img);
+  ok(A.custEditorApri({ x: 300, y: 300, w: 120, d: 80 }, {}), "aperto");
+  delete A.venueImgCache[key];
+  A.custEditorAnnulla();
+  eq(A.venueImgCache[key], img, "la planimetria del progetto vero non si perde");
+  delete A.venueImgCache[key];
+}));
+
+t("palco temporaneo: i rifiuti con l'editor aperto dicono una cosa sola e chiara; il cloud non va in errore", () => conEditor(() => {
+  reset();
+  const toast = [], toastPrima = A.__toast;
+  A.__toast = (m) => { toast.push(m); };
+  try {
+    ok(A.custEditorApri({ x: 0, y: 0, w: 100, d: 100 }, {}), "aperto");
+    A.switchVariant("altra"); A.createVariant("x"); A.beginNewDocument(null, { skipRecovery: true });
+    A.guardDocumentReplacement({ reason: "prova" }, () => { throw new Error("non deve partire"); });
+    A.exportPng();
+    const msg = "Chiudi prima l'elemento che stai creando (Salva o Annulla).";
+    ok(toast.length >= 5, "ogni rifiuto lo dice");
+    eq(toast.filter(m => m !== msg), [], "e dice sempre la stessa cosa");
+    A.custEditorAnnulla();
+  } finally { A.__toast = toastPrima; }
+  /* la riserva in saveProject risponde «editor»: chi aspetta non accende l'errore né i tentativi */
+  ok(/if\(window\.__custEditor\)\{ done\(null, *"editor"\); return; \}/.test(appjs), "saveProject: motivo «editor»");
+  const stati = [], setDoc = A.setDocState, cloudPrima = A.__cloud, dirtyPrima = A._cloudDirty, savingPrima = A._cloudSaving;
+  const flag = ["__docLoadBlocked", "__localConflict", "__cloudConflict", "__bootVenueUnavailable", "__projLocked"], flagPrima = flag.map(k => A[k]);
+  flag.forEach(k => { A[k] = false; });
+  A.setDocState = (m) => { stati.push(m); };
+  A.__cloud = { user: () => ({ id: "u" }), currentId: () => "c1", isWriting: () => false, save: (cb) => cb(null, "editor") };
+  try {
+    A._cloudDirty = true; A._cloudSaving = false; A.cloudAutosaveNow();
+    eq(stati.includes("error"), false, "nessuno stato «errore»");
+    eq(A._cloudDirty, true, "il salvataggio resta da fare: riparte alla chiusura dell'editor");
+  } finally {
+    A.setDocState = setDoc; A.__cloud = cloudPrima; A._cloudDirty = dirtyPrima; A._cloudSaving = savingPrima;
+    flag.forEach((k, i) => { A[k] = flagPrima[i]; });
+  }
+}));
+
+t("palco temporaneo: un custshape da un documento esterno è rifiutato anche con l'editor aperto", () => conEditor(() => {
+  reset();
+  ok(A.custEditorApri({ x: 0, y: 0, w: 100, d: 100 }, {}), "aperto");
+  const doc = { titolo: "", stage: { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] }, items: [{ id: "i1", type: "custshape", k: "rect", x: 0, y: 0, w: 10, d: 10 }] };
+  throws(() => A.prepareDoc(JSON.parse(JSON.stringify(doc))), "UNKNOWN_ITEM_TYPE");
+  throws(() => A.normalizeLoadedItems([{ id: "i1", type: "custshape", k: "rect", x: 0, y: 0, w: 10, d: 10 }]), "UNKNOWN_ITEM_TYPE");
+  /* la cronologia dell'editor invece li porta: Annulla di un passo con due forme ne lascia una */
+  A.state.items.push(formaProva(20, 20)); A.save();
+  A.state.items.push(formaProva(40, 20)); A.save();
+  A.undo();
+  eq(A.state.items.filter(x => x.type === "custshape").length, 1, "Annulla dentro l'editor ripristina le forme");
+  A.redo();
+  eq(A.state.items.filter(x => x.type === "custshape").length, 2, "e Ripeti le rimette");
+  A.custEditorAnnulla();
+}));
+
+t("custshape: tipo solo dell'editor, mai da un file, mai in catalogo", () => {
+  eq(A.TYPES.custshape && A.TYPES.custshape.catalog, false, "fuori dal catalogo");
+  ok(!A.custEditorAttivo(), "editor chiuso");
+  const e = throws(() => A.normalizeLoadedItems([{ id: "i1", type: "custshape", k: "rect", x: 0, y: 0, w: 10, d: 10 }]), "UNKNOWN_ITEM_TYPE");
+  ok(e, "un custshape da file blocca il documento come un tipo sconosciuto");
+  eq(A.custMembroPulito({ type: "custshape", k: "rect", x: 0, y: 0 }), null, "e non entra nei modelli del progetto");
+  ok(A.NO_MIRROR.custshape, "non si specchia (i testi uscirebbero a rovescio)");
+});
+
 t("il leggio da solo si trova nel catalogo e nella ricerca", () => {
   ok(A.TYPES.leggio && A.TYPES.leggio.catalog !== false, "leggio non più nascosto");
   ok(/"Arredo e leggii",\s*\[[^\]]*"leggio"/.test(appjs), "nel gruppo Arredo e leggii");
@@ -7444,6 +7994,1635 @@ t("Testo libero = forma «Solo testo»: scritta in alto a sinistra, nessuna sago
   ok(/makeActionBtn\("Testo libero","box di testo", null, nuovoTestoLibero/.test(appjs), "il pulsante fisso crea la forma «Solo testo»");
   ok(/addItem\("forma", \{shape:"testo"/.test(appjs), "con shape testo");
 });
+/* ===== Crea elemento, Tappa 2: l'interfaccia dell'editor (13/10/2026) ===== */
+const appHtml = readFileSync(join(root, "app/index.html"), "utf8");
+t("crea elemento: modalità rettangolo, domanda di inclusione, Esc annulla", () => {
+  ok(/function custDisegnaArea\(/.test(appjs), "custDisegnaArea definita");
+  ok(/Includere gli /.test(appjs), "domanda «Includere gli N elementi nell'area?»");
+  ok(/__custDraw[\s\S]{0,200}Escape|Escape[\s\S]{0,300}__custDraw/.test(appjs), "Esc esce dalla modalità disegno");
+  ok(/body\.cust-editor/.test(readFileSync(join(root, "src/styles.css"), "utf8")), "stile dell'editor");
+  ok(/id="custScheda"/.test(appHtml) && /id="custNome"/.test(appHtml) && /id="custWatt"/.test(appHtml) && /id="custInsN"/.test(appHtml) && /id="custBackline"/.test(appHtml), "scheda dell'elemento");
+  ok(/id="custSalva"/.test(appHtml) && /id="custInvia"/.test(appHtml) && /id="custAnnulla"/.test(appHtml), "tre pulsanti");
+});
+/* un DOM finto con i soli campi della scheda: valori e classi si ricordano (lo stub del sandbox li ingoia) */
+function conCampi(fn) {
+  const docPrima = A.document, campi = {};
+  const el = (id) => campi[id] || (campi[id] = mk(id));
+  const mk = (id) => { const o = { id, nodeType: 1, value: "", checked: false, hidden: true, disabled: false, textContent: "", _cls: new Set(), attrs: {},
+    classList: { add(c) { this._o._cls.add(c); }, remove(c) { this._o._cls.delete(c); }, toggle(c, on) { if (on === undefined) on = !this._o._cls.has(c); on ? this._o._cls.add(c) : this._o._cls.delete(c); return on; }, contains(c) { return this._o._cls.has(c); } },
+    setAttribute(k, v) { this.attrs[k] = String(v); }, focus() { A.__focused = id; } }; o.classList._o = o; return o; };
+  const cl = { contains: () => false, add() {}, remove() {}, toggle() {} };
+  const body = new Proxy({}, { get: (t, k) => (k === "classList" ? cl : docPrima.body[k]) });
+  /* solo i campi dell'editor (id «cust…»); tutto il resto resta lo stub del sandbox */
+  A.document = new Proxy({}, { get: (t, k) => k === "getElementById" ? (id) => (/^cust/.test(id) ? el(id) : docPrima.getElementById(id)) : (k === "body" ? body : docPrima[k]) });
+  const lock = A.__projLocked, cons = A.__consultMode; A.__projLocked = false; A.__consultMode = false;
+  try { return fn(campi, el); }
+  finally {
+    try { if (A.custEditorAttivo()) A.custEditorAnnulla(); } catch (e) { A.__custEditor = null; }
+    A.document = docPrima; A.__projLocked = lock; A.__consultMode = cons; A.__custDraw = null;
+  }
+}
+t("crea elemento: chi sta dentro l'area (centro dentro; fuori gli elementi personalizzati e i pezzi di un altro)", () => {
+  reset();
+  const a = add("cantante", 330, 320), b = add("astamic", 380, 350), fuori = add("cantante", 600, 600);
+  const altro = add("custom", 360, 330, { cust: { nome: "X", shapes: [] } }); A.custNorm(altro);
+  const pezzo = add("astamic", 340, 340); altro.grp = pezzo.grp = "gA";
+  const dentro = A.custDentroArea({ x: 300, y: 300, w: 120, d: 80 }).map(x => x.id);
+  eq(dentro.sort(), [a.id, b.id].sort(), "i due elementi col centro nell'area");
+  ok(!dentro.includes(fuori.id) && !dentro.includes(altro.id) && !dentro.includes(pezzo.id), "fuori: chi è fuori, l'elemento personalizzato e i suoi pezzi");
+  ok(/opz\.includi\) inclusi=custDentroArea\(r\)/.test(appjs), "l'editor include esattamente quelli della domanda");
+  eq(A.custElencoTipi([a, fuori, b]), "2 × " + A.TYPES.cantante.nome + ", " + A.TYPES.astamic.nome, "la domanda dice chi");
+});
+t("crea elemento: misure in metri con la virgola, passo della griglia 1/5/10 cm secondo lo zoom", () => {
+  eq(A.custMisura(120, 80), "1,20 × 0,80 m");
+  eq(A.custMisura(1205, 7), "12,05 × 0,07 m");
+  eq([0.1, 0.2, 0.3, 0.4, 0.6, 1, 1.5, 3].map(A.custPassoDa), [1, 1, 1, 5, 5, 10, 10, 10], "≈ 8 px di schermo al passo più vicino");
+  ok(/function snapVal\(\)\{ if\(window\.__custEditor\) return custAggancio \? custPasso\(\) : 0;/.test(appjs), "nell'editor l'aggancio usa la griglia fine");
+});
+t("crea elemento: la scheda si riempie e si rilegge uguale (limiti della spec)", () => conCampi((campi) => {
+  const v = A.custMostraScheda({ nome: "  Proiettore\n", desc: "x".repeat(300), watt: "2500", ins: { n: 3, tipo: "linea" }, backline: true });
+  eq(campi.custNome.value, "Proiettore", "nome pulito");
+  eq(A.custLeggiScheda(), { nome: "Proiettore", desc: "x".repeat(280), watt: 2500, ins: { n: 3, tipo: "linea" }, backline: true }, "andata e ritorno");
+  eq(v, A.custLeggiScheda(), "custMostraScheda restituisce ciò che ha scritto");
+  campi.custWatt.value = "99999"; campi.custInsN.value = "40"; campi.custInsTipo.value = "<x>";
+  eq([A.custLeggiScheda().watt, A.custLeggiScheda().ins], [20000, { n: 16, tipo: "mic" }], "watt e ingressi dentro i limiti");
+  campi.custWatt.value = ""; campi.custInsN.value = "0";
+  eq([A.custLeggiScheda().watt, A.custLeggiScheda().ins], [null, null], "vuoti = niente watt, niente ingressi");
+  A.custMostraScheda({ nome: "Schermo" });
+  eq(A.custLeggiScheda(), { nome: "Schermo", desc: "", watt: null, ins: null, backline: false }, "Crea: solo il nome, il resto vuoto");
+}));
+t("crea elemento: Salva senza nome non salva (campo rosso e fuoco); col nome posa l'elemento raggruppato", () => conCampi((campi) => {
+  reset();
+  const v = add("cantante", 350, 330);
+  ok(A.custApriEditor({ x: 300, y: 300, w: 120, d: 80 }, true), "aperto con l'elemento dentro");
+  A.custMostraScheda({ nome: "" });
+  eq(A.custSalvaDaScheda(), null, "senza nome non salva");
+  ok(A.custEditorAttivo() && campi.custNome._cls.has("err") && A.__focused === "custNome", "editor ancora aperto, campo rosso col fuoco");
+  A.custNuovaForma("rect", { x: 10, y: 10 }, { x: 60, y: 40 });
+  campi.custNome.value = "Banco regia"; campi.custWatt.value = "300";
+  const id = A.custSalvaDaScheda();
+  ok(id && !A.custEditorAttivo(), "salvato e chiuso");
+  const base = A.state.items.find(x => x.id === id);
+  eq([base.type, base.cust.nome, base.watt, base.x, base.y, base.w, base.d], ["custom", "Banco regia", 300, 360, 340, 120, 80], "nel rettangolo scelto");
+  eq(base.cust.shapes.length, 1, "con la forma disegnata");
+  const v2 = A.state.items.find(x => x.id === v.id);
+  ok(v2 && v2.grp && v2.grp === base.grp, "il cantante è un pezzo dell'elemento (stesso gruppo)");
+  eq(campi.custNome._cls.has("err"), false, "il rosso non resta per la prossima volta");
+}));
+t("crea elemento: Annulla ed Esc lasciano il progetto identico (chiedono solo se c'è qualcosa da perdere)", () => conCampi((campi) => {
+  reset();   /* stato non normalizzato di proposito: il ripristino è esatto (revisione finale, I1) */
+  add("cantante", 350, 330);
+  A.save();
+  const prima = A.stateToJSON(), undoPrima = A.undoStack.length;
+  ok(A.custApriEditor({ x: 300, y: 300, w: 120, d: 80 }, true), "aperto");
+  A.custMostraScheda({ nome: "" });
+  eq(A.custModificato(), false, "appena aperto: niente da perdere");
+  A.custNuovaForma("ell", { x: 10, y: 10 }, { x: 50, y: 30 }); A.save();
+  ok(A.custModificato(), "una forma disegnata: c'è qualcosa da perdere");
+  let chiesto = null; const chiediPrima = A.custChiedi;
+  A.custChiedi = (tit, testo, bottoni, cb) => { chiesto = tit; cb(0); };   /* «Resta» */
+  try { A.custEsci(true); } finally { A.custChiedi = chiediPrima; }
+  eq(chiesto, "Uscire senza salvare?", "si chiede");
+  ok(A.custEditorAttivo(), "«Resta»: l'editor resta aperto");
+  A.custEsci(false);
+  eq(A.custEditorAttivo(), false, "uscito");
+  eq(A.stateToJSON(), prima, "progetto identico, byte per byte");
+  eq(A.undoStack.length, undoPrima, "cronologia identica");
+  ok(/if\(e\.key==="Escape" && custEditorAttivo\(\) && !selIds\(\)\.length && !catSearching\(\)\)\{ e\.preventDefault\(\); custEsci\(true\); return; \}/.test(appjs), "Esc senza selezione = uscire (chiedendo)");
+}));
+t("crea elemento: le cinque forme disegnate diventano le forme dell'elemento, in cm della superficie", () => conCampi((campi, el) => {
+  reset();
+  ok(A.custApriEditor({ x: 200, y: 200, w: 120, d: 80 }, false), "aperto vuoto");
+  A.custStile.fill = "#334455"; A.custStile.stroke = "#000000"; A.custStile.sw = 2; A.custStile.noFill = false;
+  A.custNuovaForma("rect", { x: 70, y: 50 }, { x: 10, y: 10 });   /* trascinato all'indietro: si normalizza */
+  A.custNuovaForma("ell", { x: 80, y: 20 }, { x: 100, y: 40 });
+  const ln = A.custNuovaForma("line", { x: 0, y: 70 }, { x: 60, y: 70 });
+  A.custNuovaForma("poly", null, null, [{ x: 10, y: 60 }, { x: 30, y: 60 }, { x: 20, y: 75 }]);
+  A.custNuovaForma("text", { x: 90, y: 65 }, null, null, "PROIETTORE");
+  ln.w = 120; ln.x = 60;   /* la linea allungata dalle maniglie (punti in frazioni dell'ingombro) */
+  el("custNome").value = "Postazione";
+  const id = A.custSalvaDaScheda({ fuoriOk: true });
+  const sh = A.state.items.find(x => x.id === id).cust.shapes;
+  eq(sh.map(g => g.k), ["rect", "ell", "line", "poly", "text"], "nell'ordine");
+  eq([sh[0].x, sh[0].y, sh[0].w, sh[0].h, sh[0].fill, sh[0].stroke, sh[0].sw], [10, 10, 60, 40, "#334455", "#000000", 2], "rettangolo");
+  eq([sh[1].cx, sh[1].cy, sh[1].rx, sh[1].ry], [90, 30, 10, 10], "ellisse");
+  eq([sh[2].x1, sh[2].y1, sh[2].x2, sh[2].y2, sh[2].fill], [0, 70, 120, 70, null], "linea allungata dalle maniglie, senza riempimento");
+  eq(sh[3].pts, [[10, 60], [30, 60], [20, 75]], "poligono");
+  eq([sh[4].s, sh[4].x, sh[4].y, sh[4].fill], ["PROIETTORE", 90, 65, "#000000"], "testo: riga di base dove si è cliccato, colore della linea");
+}));
+t("crea elemento: un testo ruotato e ingrandito torna dove si vede (centro a metà delle maiuscole)", () => {
+  const g = { k: "text", x: 50, y: 40, s: "Ciao", size: 12, fill: "#1d1d1f", stroke: "#1d1d1f", sw: 1, rot: 30 };
+  const it = A.custShapeDaForma(g);
+  const ord = (o) => Object.fromEntries(Object.keys(o).sort().map(k => [k, o[k]]));
+  eq(ord(A.custFormaDaShape(it)), ord(g), "andata e ritorno identici, anche ruotato");
+  it.d = it.d * 2;   /* maniglie: l'altezza fa il corpo */
+  eq(A.custFormaDaShape(it).size, 24, "corpo raddoppiato");
+  const poly = A.custShapeDaForma({ k: "poly", pts: [[0, 0], [40, 0], [20, 30]], fill: null, stroke: "#000000", sw: 1 });
+  poly.w *= 2; poly.d *= 2;
+  eq(A.custFormaDaShape(poly).pts, [[-20, -15], [60, -15], [20, 45]], "il poligono si allunga con l'ingombro, attorno al centro");
+});
+t("crea elemento: dopo Salva nessun riferimento a id del palco temporaneo (DI dello strumento, id già usati)", () => conCampi((campi, el) => {
+  reset();
+  const vero = add("cantante", 800, 600);
+  ok(A.custApriEditor({ x: 200, y: 200, w: 200, d: 120 }, false), "aperto");
+  /* uno strumento con la sua DI posato nell'editor, con l'id di un elemento del palco vero (caso forzato) */
+  A.state.items.push({ id: vero.id, type: "tastiera", x: 60, y: 60, rot: 0, w: 130, d: 40 });
+  A.state.items.push({ id: "i99990", type: "di", x: 60, y: 90, rot: 0, diFor: vero.id });
+  el("custNome").value = "Postazione tastiera";
+  const id = A.custSalvaDaScheda();
+  const base = A.state.items.find(x => x.id === id), membri = A.state.items.filter(x => x.grp && x.grp === base.grp && x.id !== id);
+  const tast = membri.find(x => x.type === "tastiera"), di = membri.find(x => x.type === "di");
+  ok(tast && tast.id !== vero.id, "lo strumento ha un id nuovo");
+  eq(di.diFor, tast.id, "la DI punta allo strumento nuovo, non al cantante del palco vero");
+  eq(new Set(A.state.items.map(x => x.id)).size, A.state.items.length, "nessun id doppio");
+}));
+t("crea elemento: nell'editor si fermano Palco, Planimetria, liste, audit, RF, CSV, Adatta e i comandi del progetto", () => conCampi(() => {
+  reset();
+  ok(A.custApriEditor({ x: 200, y: 200, w: 120, d: 80 }, false), "aperto");
+  const msg = []; const toastPrima = A.__toast; A.__toast = (m) => msg.push(m);
+  try {
+    A.toggleStageEdit(); eq(A.stageEdit, false, "Palco: la superficie non si cambia da qui");
+    A.toggleVenueEdit(); eq(A.stageEdit, false, "Planimetria");
+    A.toggleAuditView(); eq(A.auditActive, false, "Audit");
+    A.toggleScaletta(); eq(A.scalettaEdit, false, "Scaletta");
+    A.toggleEvento(); eq(A.eventoEdit, false, "Evento");
+    A.apriListaDaRicerca("cabin"); A.openRfFreq(); A.openCsvExport(); A.showAdattaPalco(); A.clShow(true);
+    eq(A.clOpen, false, "channel list a schermo intero");
+    ok(msg.length >= 9 && msg.every(m => m === A.custEditorMsg()), "ogni volta lo stesso messaggio: chiudi prima l'elemento");
+  } finally { A.__toast = toastPrima; }
+  ok(/var CUST_BLOCCATI="#fileBtn,#fileMenu \[data-file\],#evChip,#variantBar,#variantMenu \[data-vm\],#projStatus,#bChanList,#bRichiedi,#bExportHdr,#bShareHdr,#accountBtn,/.test(appjs), "i comandi dell'intestazione si fermano al clic (anche da scorciatoia)");
+  ok(/body\.cust-editor #noSel, body\.cust-editor #chanlist/.test(stylesCss) && /body\.cust-editor #catalog \.cust-no/.test(stylesCss), "layer, channel list, Palco e Planimetria nascosti");
+  ok(/e\.custNo && custEditorAttivo\(\)/.test(appjs), "la ricerca non propone i comandi del progetto");
+}));
+t("crea elemento: la superficie si disegna con griglia e righello, senza planimetria, cavi, cornice né FONDO PALCO", () => conCampi(() => {
+  reset();
+  A.state.cab.on = true; add("cantante", 350, 330);
+  const fuori = A.sceneMarkup();
+  ok(/FONDO PALCO/.test(fuori), "controprova: fuori dall'editor c'è");
+  ok(A.custApriEditor({ x: 300, y: 300, w: 120, d: 80 }, true), "aperto");
+  const m = A.sceneMarkup();
+  ok(/class="cust-sup"/.test(m) && /class="cust-griglia"/.test(m) && /class="cust-righello"/.test(m), "foglio, griglia, righello");
+  eq(/FONDO PALCO|PUBBLICO/.test(m), false, "niente scritte del palco vero");
+  eq(/cab-line|cab-hit/.test(m), false, "niente cavi");
+  ok(/class="cust-sup"/.test(A.sceneMarkup({ espandi: true })) === false, "l'export (bloccato) non userebbe mai la superficie");
+  A.state.cab.on = false;
+}));
+t("crea elemento: pastiglia di salvataggio, interruttore «Un canale solo» e scorciatoie", () => {
+  ok(/motivo==="editor"\)\{[\s\S]{0,400}setDocState\("local"\);/.test(appjs), "la riserva «editor» non lascia «Salvataggio…» acceso");
+  ok(/var zn=\(isAudioSource\(it\) && it\.type!=="custom"\) \? itemInMicZone\(it\)/.test(appjs), "«Un canale solo / Due canali» non compare sull'elemento personalizzato");
+  ok(/_cd\.mode==="poly" && e\.key==="Enter"\)\{ e\.preventDefault\(\); custChiudiPoligono\(\)/.test(appjs), "Invio chiude il poligono");
+  ok(/if\(window\.__custDraw && custPointerDown\(e\)\) return;/.test(appjs), "col disegno acceso il gesto è un disegno, prima del doppio clic");
+  eq(A.TYPES.custshape.z, A.TYPES.custom.z, "le forme stanno sotto gli elementi veri, come dopo il salvataggio");
+});
+t("crea elemento: niente finestre del browser (prompt, confirm, alert) in tutto il giro dell'editor", () => conCampi((campi, el) => {
+  /* provato (revisione finale, M7): le tre finestre del browser contano le chiamate; si fa il giro intero */
+  const chiamate = [], salva = {};
+  ["prompt", "confirm", "alert"].forEach((k) => { salva[k] = [Object.prototype.hasOwnProperty.call(A, k), A[k]]; A[k] = () => { chiamate.push(k); return null; }; });
+  const chiediPrima = A.custChiedi; let chieste = 0;
+  A.custChiedi = (tit, testo, bottoni, cb) => { chieste++; cb(0); };   /* la finestra dell'app: «Resta» */
+  try {
+    reset(); add("cantante", 350, 330); A.save();
+    A.custDisegnaArea();
+    A.custChiediMisureEInclusione({ x: 300, y: 300, w: 120, d: 80 });
+    A.custAreaFine();
+    ok(A.custApriEditor({ x: 300, y: 300, w: 120, d: 80 }, true), "aperto");
+    A.custMostraScheda({ nome: "" });
+    eq(A.custSalvaDaScheda(), null, "senza nome non salva (campo rosso, nessuna finestra)");
+    A.custNuovaForma("text", { x: 10, y: 10 }, null, null, "Ciao"); A.save();
+    const testo = A.state.items.find((x) => x.type === "custshape");
+    if (testo) A.custTestoModifica(testo.id, "Ciao a tutti");
+    A.custEsci(true);
+    ok(chieste >= 1 && A.custEditorAttivo(), "Esci con qualcosa da perdere chiede con la finestra dell'app");
+    el("custNome").value = "Con nome"; A.custSalvaDaScheda();
+    eq(A.custEditorAttivo(), false, "salvato e chiuso");
+    eq(chiamate, [], "nessuna finestra del browser");
+  } finally {
+    A.custChiedi = chiediPrima;
+    Object.keys(salva).forEach((k) => { if (salva[k][0]) A[k] = salva[k][1]; else delete A[k]; });
+  }
+}));
+t("crea elemento: sul telefono, con il progetto bloccato o in sola lettura non parte", () => conCampi(() => {
+  const mm = A.matchMedia; A.matchMedia = () => ({ matches: true, addEventListener() {}, addListener() {} });
+  let titolo = null; const gd = A.guideDialog; A.guideDialog = (o) => { titolo = o.msg; };
+  try { eq(A.custDisegnaArea("x"), false, "telefono"); ok(/Si crea dal computer/.test(titolo), "lo dice"); }
+  finally { A.matchMedia = mm; A.guideDialog = gd; }
+  A.__projLocked = true;
+  try { eq(A.custDisegnaArea(""), false, "bloccato"); eq(A.__custDraw, null, "nessuna modalità accesa"); }
+  finally { A.__projLocked = false; }
+  eq(A.custDisegnaArea("Videoproiettore 4K"), true, "sul computer parte");
+  eq([A.__custDraw && A.__custDraw.mode, A.__custNomePreso], ["area", "Videoproiettore 4K"], "modalità rettangolo, nome preso dalla ricerca");
+  A.custEscDisegno();
+  eq(A.__custDraw, null, "Esc la spegne");
+}));
+/* ===== Crea elemento, Tappa 2 — correzioni della revisione (13/10/2026) ===== */
+t("revisione 1: una forma copiata nell'editor non arriva sul palco vero (Incolla, Duplica, Alt+trascina); il documento si riapre", () => conCampi(() => {
+  reset();
+  add("cantante", 800, 600); A.save();
+  ok(A.custApriEditor({ x: 200, y: 200, w: 120, d: 80 }, false), "aperto");
+  const f = A.custNuovaForma("rect", { x: 10, y: 10 }, { x: 60, y: 40 });
+  A.selectOne(f.id); A.copySel();
+  ok(A.clipboard.some(x => x.type === "custshape"), "premessa: la forma è negli appunti");
+  A.custEsci(false);
+  eq(A.clipboard.some(x => x.type === "custshape"), false, "chiudendo l'editor la forma esce dagli appunti");
+  A.clipboard = [JSON.parse(JSON.stringify(f))];   /* anche se ci fosse rimasta (strada qualunque) */
+  A.pasteClip();
+  eq(A.state.items.some(x => x.type === "custshape"), false, "Incolla non la posa");
+  A.state.items.push(JSON.parse(JSON.stringify(f))); A.selectOne(f.id);
+  eq(A.duplicateSel(), false, "Duplica (e Alt+trascina, che lo usa) non la copia");
+  ok(!/"custshape"/.test(A.stateToJSON()), "rete di sicurezza: lo stato scritto non la contiene");
+  A.save();
+  eq(A.state.items.some(x => x.type === "custshape"), false, "save() la toglie dal palco vero");
+  const items = JSON.parse(A.stateToJSON()).items;
+  eq(A.normalizeLoadedItems(items).length, items.length, "il documento si riapre");
+  A.undo(); A.redo();   /* nessuna eccezione */
+  ok(/if\(duplicateSel\(true, \{rinviaStoria:true\}\)!==false\) _dupIds=Object\.keys\(selSet\);/.test(appjs), "Alt+trascina rifiutato non cancella l'originale al rilascio");
+}));
+t("revisione 2: Esc a metà trascinamento butta la forma (il rilascio non la crea)", () => conCampi(() => {
+  reset();
+  ok(A.custApriEditor({ x: 200, y: 200, w: 120, d: 80 }, false), "aperto");
+  A.custStrumento("rect");
+  A.drag = { mode: "custforma", k: "rect", a: { x: 10, y: 10 }, b: { x: 60, y: 40 }, el: null };
+  A.custEscDisegno();
+  eq(A.drag, null, "il trascinamento è chiuso");
+  eq(A.custPointerUp({}), false, "il rilascio non ha più niente da fare");
+  eq(A.state.items.filter(x => x.type === "custshape").length, 0, "nessuna forma");
+}));
+t("revisione 3: il nome dell'elemento personalizzato sta sopra, i pezzi tengono il loro sotto", () => {
+  reset();
+  const c = add("custom", 400, 400, { w: 120, d: 80, cust: { nome: "Banco regia", shapes: [] } }); A.custNorm(c);
+  const v = add("cantante", 400, 400);
+  eq([A.lblSopraDi(c), A.lblSopraDi(v)], [true, false], "custom sopra, cantante sotto");
+  ok(A.lblBaseY(c, 14) < -40, "la riga del nome sta sopra il bordo alto (y < -d/2)");
+});
+t("revisione 4: con l'editor aperto un'immagine trascinata sul foglio non diventa planimetria", () => conCampi(() => {
+  reset();
+  ok(A.custApriEditor({ x: 200, y: 200, w: 120, d: 80 }, false), "aperto");
+  const msg = []; const tp = A.__toast; A.__toast = (m) => msg.push(m);
+  try { A.venueLoadFile({ name: "pianta.png", type: "image/png", size: 10 }); } finally { A.__toast = tp; }
+  eq(msg, [A.custEditorMsg()], "fermato col messaggio unico");
+  eq(A.state.venue, null, "nessuna planimetria nel palco temporaneo");
+}));
+t("revisione 5: poligono e linea identici già al primo giro (frazioni non arrotondate)", () => {
+  const ord = (o) => JSON.stringify(Object.fromEntries(Object.keys(o).sort().map(k => [k, o[k]])));
+  [{ k: "poly", pts: [[0, 0], [30, 0], [10, 20]], fill: null, stroke: "#000000", sw: 1 },
+   { k: "poly", pts: [[3, 7], [41, 9], [17, 33], [5, 29]], fill: null, stroke: "#000000", sw: 1 },
+   { k: "line", x1: 3, y1: 7, x2: 41, y2: 10, fill: null, stroke: "#000000", sw: 1 },
+   { k: "text", x: 33, y: 17, s: "Abc", size: 7, fill: "#000000", stroke: "#000000", sw: 1, rot: 17 },
+   { k: "rect", x: 3, y: 7, w: 33, h: 17, fill: null, stroke: "#000000", sw: 1, rot: 30 }].forEach(g => {
+    let a = g; for (let i = 0; i < 3; i++) { a = A.custFormaDaShape(A.custShapeDaForma(a)); eq(ord(a), ord(g), g.k + " identico al giro " + (i + 1)); }
+  });
+});
+t("revisione 6: il rettangolo resta sul palco, e ogni misura al massimo è quella del palco", () => {
+  reset();
+  eq(A.custSulPalco({ x: -50, y: 900 }), { x: 0, y: 800 }, "i capi si fermano ai bordi del palco 1200×800");
+  ok(/MAXW=Math\.max\(L\.MIN, Math\.floor\(\+S\.w\|\|0\)\), MAXD=Math\.max\(L\.MIN, Math\.floor\(\+S\.d\|\|0\)\)/.test(appjs), "larghezza ≤ palco.w, profondità ≤ palco.d");
+  ok(/a\.x=Math\.max\(0, Math\.min\(area\.x, \(\+S\.w\|\|0\)-a\.w\)\)/.test(appjs), "allargando a numeri la superficie rientra nel palco");
+});
+t("revisione 7: il limite delle 200 forme vale anche per Duplica, ⌘D, Incolla e Alt+trascina", () => conCampi(() => {
+  reset();
+  ok(A.custApriEditor({ x: 200, y: 200, w: 120, d: 80 }, false), "aperto");
+  for (let i = 0; i < 200; i++) A.state.items.push({ id: "f" + i, type: "custshape", k: "rect", x: 10, y: 10, w: 5, d: 5, rot: 0, fill: null, stroke: "#000000", sw: 1 });
+  const msg = []; const tp = A.__toast; A.__toast = (m) => msg.push(m);
+  try {
+    A.selectOne("f0"); eq(A.duplicateSel(), false, "Duplica rifiutata");
+    A.copySel(); A.pasteClip();
+    eq(A.custNuovaForma("rect", { x: 1, y: 1 }, { x: 5, y: 5 }), null, "anche col disegno");
+  } finally { A.__toast = tp; }
+  eq(A.state.items.filter(x => x.type === "custshape").length, 200, "restano 200");
+  ok(msg.length >= 3 && msg.every(m => /Al massimo 200 forme per elemento/.test(m)), "e lo si dice ogni volta");
+}));
+t("revisione 8: la superficie si adatta sotto la barra; la riga di aiuto si riallinea anche quando la finestra cambia", () => {
+  ok(/var _top=custEditorAttivo\(\) \? custCoperturaAlto\(\) : 0/.test(appjs), "fitVb toglie lo spazio della barra e della riga di aiuto");
+  ok(/window\.addEventListener\("resize", function\(\)\{ if\(!custEditorAttivo\(\)\) return; custPosizionaGuida\(\); if\(!vistaUtente\) fit\(\); \}\)/.test(appjs), "ridimensionando la finestra");
+  ok(/function custRenderEditor\(\)[\s\S]{0,900}custPosizionaGuida\(\);/.test(appjs), "e a ogni ridisegno del pannello");
+});
+t("revisione 9: zone dei microfoni, metri e platee non diventano pezzi dell'elemento", () => {
+  reset();
+  const z = add("miczone", 340, 330), m = add("metro", 350, 340), v = add("cantante", 360, 340);
+  eq(A.custDentroArea({ x: 300, y: 300, w: 120, d: 80 }).map(x => x.id), [v.id], "solo il cantante");
+  ok(z && m, "premessa");
+});
+t("revisione 10: le finestre ridanno il fuoco; il rettangolo si spegne se cambia documento o scena", () => conCampi(() => {
+  reset();
+  ok(/prima=document\.activeElement;[\s\S]{0,300}prima\.focus\(\)/.test(appjs), "il fuoco torna dov'era");
+  eq(A.custDisegnaArea(""), true, "modalità rettangolo accesa");
+  A.applyVariantState(JSON.parse(A.stateToJSON()));   /* cambio di scena, documento aperto, Nuovo: passano tutti da qui */
+  eq(A.__custDraw, null, "spenta");
+}));
+t("revisione 11: le forme stanno sempre sotto i pezzi veri; Primo piano / In fondo le riordinano fra loro; il righello sta sopra", () => conCampi(() => {
+  reset();
+  ok(A.custApriEditor({ x: 200, y: 200, w: 120, d: 80 }, false), "aperto");
+  const a = A.custNuovaForma("rect", { x: 10, y: 10 }, { x: 60, y: 40 }), b = A.custNuovaForma("ell", { x: 20, y: 20 }, { x: 50, y: 30 });
+  const v = add("cantante", 40, 30);
+  A.selectOne(a.id); A.custFormaOrdine(true);
+  eq(A.sortedItems().map(x => x.id), [b.id, a.id, v.id], "la forma in primo piano sale sopra l'altra forma, non sopra il cantante");
+  A.custFormaOrdine(false);
+  eq(A.sortedItems().map(x => x.id), [a.id, b.id, v.id], "In fondo");
+  a.z = 99;   /* anche con uno z scritto (vecchio Primo piano) */
+  eq(A.sortedItems()[2].id, v.id, "il pezzo vero resta sopra");
+  const m = A.sceneMarkup(), iOver = m.indexOf('id="layOverlay"');
+  ok(iOver > m.indexOf('id="layItems"') && m.indexOf('class="cust-righello"') > iOver, "il righello sta nel livello sopra gli elementi");
+}));
+/* ===== Crea elemento, Tappa 3: ingressi, elementi di questo progetto, Modifica (13/10/2026) ===== */
+/* i modelli del progetto non li azzera reset(): ogni prova li rimette com'erano */
+function conModelli(fn) {
+  const prima = A.state.customModels;
+  try { return conCampi(fn); }
+  finally { if (prima === undefined) delete A.state.customModels; else A.state.customModels = prima; }
+}
+t("crea elemento: ingressi dal catalogo e dalla ricerca senza risultati", () => {
+  ok(/makeActionBtn\("Crea elemento","disegna o componi, in scala"/.test(appjs), "pulsante sotto Testo libero");
+  ok(/nome:"Crea elemento"[\s\S]{0,200}noQuick:true/.test(appjs), "anche nella ricerca");
+  ok(/Non c'è\? <b>Crealo<\/b>|Non c'è\? Crealo/.test(appjs), "«Non c'è? Crealo» in fondo alla ricerca");
+  ok(/makeActionBtn\("Testo libero"[\s\S]{0,1500}makeActionBtn\("Crea elemento"/.test(appjs), "subito dopo Testo libero, ultimo del blocco");
+  ok(/nome:"Testo libero"[\s\S]{0,1500}nome:"Crea elemento"/.test(appjs), "e nella ricerca accanto a Testo libero");
+  ok(/cust-crealo cust-crealo-fondo/.test(appjs), "anche in fondo ai risultati non vuoti");
+  const voce = A.__catEntries.find(e => e.nome === "Crea elemento");
+  ok(voce && voce.noQuick && voce.custNo, "fuori dalla ricerca rapida e dall'editor aperto");
+  ok(A.__spSearch("crea elemento").some(e => e.nome === "Crea elemento"), "si trova cercandolo");
+  eq(A.custNomeDaRicerca("  videoproiettore  "), "Videoproiettore", "il nome cercato, con la maiuscola");
+  eq(A.custNomeDaRicerca("iPad"), "iPad", "una maiuscola già scritta resta com'è");
+  eq(A.custNomeDaRicerca("x".repeat(80)).length, 60, "al massimo 60 caratteri");
+});
+t("crea elemento: su un progetto bloccato o in sola lettura non si apre", () => conModelli(() => {
+  reset();
+  A.window.__projLocked = true;
+  try {
+    eq(A.custEditorApri({ x: 0, y: 0, w: 100, d: 100 }, { includi: false }), false, "bloccato");
+  } finally { A.window.__projLocked = false; }
+  const base = add("custom", 100, 100, { cust: { nome: "X", shapes: [] } }); A.custNorm(base);
+  A.window.__projLocked = true;
+  try {
+    eq(A.custModificaElemento(base.id), false, "Modifica non parte");
+    eq(A.custEditorAttivo(), false, "editor chiuso");
+    eq(A.custSalvaComeModello(base.id), false, "Salva come modello non scrive");
+    eq("customModels" in A.state, false, "nessun modello");
+  } finally { A.window.__projLocked = false; }
+}));
+t("catalogo del progetto: salvare come modello e ritrovarlo", () => conModelli(() => {
+  reset(); delete A.state.customModels;
+  const base = add("custom", 300, 300, { cust: { nome: "Schermo", shapes: [] } }); A.custNorm(base);
+  A.resetHistory();   /* la cronologia parte da qui: l'Annulla in fondo deve togliere proprio il modello, non l'elemento */
+  A.custSalvaComeModello(base.id);
+  eq((A.state.customModels || []).length, 1, "un modello");
+  eq(A.state.customModels[0].nome, "Schermo");
+  A.custSalvaComeModello(base.id);
+  eq(A.state.customModels.length, 1, "lo stesso elemento non duplica il modello (aggiorna)");
+  eq(base.cust.modelId, A.state.customModels[0].id, "l'elemento ricorda il suo modello");
+  /* la sezione del catalogo e la ricerca seguono i modelli, senza ricostruirsi a ogni render */
+  A.__catCustomAggiorna();
+  eq(A.__catCustomAggiorna(), false, "modelli uguali: niente da rifare");
+  ok(A.__spSearch("schermo").some(e => e.nome === "Schermo"), "la ricerca trova il modello per nome");
+  const voce = A.__catEntries.find(e => e.custModello && e.nome === "Schermo");
+  ok(voce && !voce.noQuick && voce.custNo && voce.custModelloId === A.state.customModels[0].id, "anche nella ricerca rapida (Ruling 16), non nell'editor");
+  A.state.customModels[0].nome = "Schermo grande";
+  eq(A.__catCustomAggiorna(), true, "nome cambiato: si rifà");
+  ok(A.__spSearch("schermo grande").length === 1 && !A.__catEntries.some(e => e.custModello && e.nome === "Schermo"), "una voce sola, aggiornata");
+  /* Annulla toglie il modello; vuoto = campo assente, mai [] */
+  A.undo();   /* il secondo Salva non cambiava niente: nessun passo in più, basta UN Annulla */
+  eq("customModels" in A.state, false, "Annulla toglie il modello: campo assente, mai []");
+  ok(A.state.items.some(x => x.id === base.id), "e solo il modello: l'elemento resta");
+  ok(!A.__spSearch("schermo").some(e => e.nome === "Schermo" || e.nome === "Schermo grande"), "e la ricerca non lo trova più");
+}));
+t("catalogo del progetto: con l'editor aperto «Salva come modello» si ferma e lo dice", () => conModelli(() => {
+  reset(); delete A.state.customModels;
+  const base = add("custom", 300, 300, { cust: { nome: "Schermo", shapes: [] } }); A.custNorm(base);
+  ok(A.custApriEditor({ x: 600, y: 300, w: 100, d: 100 }, false), "editor aperto");
+  const msg = []; const tp = A.__toast; A.__toast = (m) => msg.push(m);
+  try { eq(A.custSalvaComeModello(base.id), false, "fermato"); eq(A.custPosaDalCatalogo("m1"), false, "e anche posare un modello"); }
+  finally { A.__toast = tp; }
+  ok(msg.length === 2 && msg.every(m => m === A.custEditorMsg()), "il messaggio unico dell'editor");
+  A.custEsci(false);
+  eq("customModels" in A.state, false, "niente modelli scritti");
+}));
+t("catalogo del progetto: due copie dal catalogo, modificarne una non cambia l'altra", () => conModelli(() => {
+  reset(); delete A.state.customModels;
+  const base = add("custom", 300, 300, { w: 120, d: 80, cust: { nome: "Postazione", shapes: [{ k: "rect", x: 0, y: 0, w: 120, h: 80, stroke: "#000000", sw: 1 }] } });
+  A.custNorm(base);
+  const mic = add("cantante", 330, 310); base.grp = mic.grp = "gP";
+  A.custSalvaComeModello(base.id);
+  const mid = A.state.customModels[0].id;
+  const a = A.custPosaDalCatalogo(mid), b = A.custPosaDalCatalogo(mid);
+  ok(a.length === 2 && b.length === 2, "base + cantante, due volte");
+  ok(a[0].grp !== b[0].grp && a[0].grp !== "gP", "gruppi diversi");
+  ok(A.selIds().length === 2 && A.selIds().includes(b[0].id), "l'ultima copia è selezionata, tutta");
+  ok([a[0].x, a[0].y, b[0].x, b[0].y].every(Number.isFinite), "posizioni vere anche con la vista non misurata");
+  ok(Math.abs(a[0].x - b[0].x) + Math.abs(a[0].y - b[0].y) > 0, "non una sull'altra");
+  const nomiB = JSON.stringify(b[0].cust);
+  ok(A.custModificaElemento(a[0].id), "Modifica apre l'editor sulla prima copia");
+  eq(A.custLeggiScheda().nome, "Postazione", "scheda piena");
+  eq(A.state.items.filter(x => x.type === "custshape").length, 1, "le forme dell'elemento");
+  eq(A.state.items.filter(x => x.type === "cantante").length, 1, "e il suo pezzo");
+  A.custMostraScheda({ nome: "Postazione A", watt: 500 });
+  A.custSalvaDaScheda();
+  eq(A.custEditorAttivo(), false, "salvato");
+  const a2 = A.state.items.find(x => x.id === a[0].id), b2 = A.state.items.find(x => x.id === b[0].id);
+  eq([a2.cust.nome, a2.watt], ["Postazione A", 500], "la copia modificata");
+  eq(JSON.stringify(b2.cust), nomiB, "l'altra copia è com'era");
+  eq(A.state.customModels[0].nome, "Postazione", "il modello pure");
+  eq(a2.cust.modelId, mid, "la copia modificata resta legata al suo modello (Ruling 17: dal pannello «Aggiorna il modello» o «Salva come nuovo modello»)");
+  A.custSalvaComeModello(a2.id, { nuovo: true });
+  eq(A.state.customModels.map(m => m.nome), ["Postazione", "Postazione A"], "due modelli");
+  eq(a2.cust.modelId, A.state.customModels[1].id, "e la copia passa al modello nuovo");
+}));
+t("Modifica: il nome sul palco scritto a mano resta, quello di serie segue il nome nuovo", () => conModelli(() => {
+  reset();
+  const x = add("custom", 300, 300, { cust: { nome: "Schermo", shapes: [] } }); A.custNorm(x);
+  const y = add("custom", 700, 300, { cust: { nome: "Schermo", shapes: [] } }); A.custNorm(y); y.label = "Schermo sinistro";
+  ok(A.custModificaElemento(x.id)); A.custMostraScheda({ nome: "Telo" }); A.custSalvaDaScheda();
+  eq(A.state.items.find(i => i.id === x.id).label, "Telo", "nome di serie → segue");
+  ok(A.custModificaElemento(y.id)); A.custMostraScheda({ nome: "Telo" }); A.custSalvaDaScheda();
+  eq(A.state.items.find(i => i.id === y.id).label, "Schermo sinistro", "nome scritto a mano → resta");
+}));
+t("Modifica: doppio clic sul computer, «disponibile dal computer» sul telefono", () => conModelli(() => {
+  ok(/dcIt && dcIt\.type==="custom" && custIngressiAttivi\(\)\)\{[\s\S]{0,200}custModificaElemento\(dcId\)/.test(appjs), "doppio clic sull'elemento personalizzato");
+  reset();
+  const x = add("custom", 300, 300, { cust: { nome: "Schermo", shapes: [] } }); A.custNorm(x);
+  const mm = A.matchMedia; A.matchMedia = () => ({ matches: true, addEventListener() {}, addListener() {} });
+  let msg = null; const gd = A.guideDialog; A.guideDialog = (o) => { msg = o.msg; };
+  try { eq(A.custModificaElemento(x.id), false, "telefono"); ok(/dal computer/.test(msg), "lo dice"); }
+  finally { A.matchMedia = mm; A.guideDialog = gd; }
+  eq(A.custModificaElemento("nessuno"), false, "elemento inesistente");
+  ok(/custBaseDi\(dcIt\)\)\{[\s\S]{0,400}custModificaElemento\(custBaseDi\(dcIt\)\.id, dcId\)/.test(appjs), "doppio clic su un pezzo: l'editor del suo elemento");
+  const pz = add("astamic", 320, 310); x.grp = pz.grp = "gZ";
+  eq(A.custBaseDi(pz), x, "la base del pezzo"); eq(A.custBaseDi(x), null, "la base non è un pezzo");
+  ok(A.custModificaElemento(x.id, pz.id), "aperto dal pezzo");
+  eq(A.selIds(), [pz.id], "il pezzo è già selezionato nell'editor");
+  A.custEsci(false);
+  const y2 = add("custom", 330, 300, { cust: { nome: "Z", shapes: [] } }); A.custNorm(y2); y2.grp = "gZ";
+  eq(A.custBaseDi(pz), null, "due basi nello stesso gruppo: nessuna");
+  const c = add("cantante", 600, 600);
+  eq(A.custModificaElemento(c.id), false, "non personalizzato");
+}));
+t("pannello: il gruppo dell'elemento personalizzato porta il suo nome e i suoi comandi", () => {
+  reset();
+  const base = add("custom", 300, 300, { cust: { nome: "Regia luci", shapes: [] } }); A.custNorm(base);
+  const mic = add("cantante", 320, 310), fuori = add("cantante", 700, 700);
+  base.grp = mic.grp = "gR";
+  eq(A.custDiSelezione([base, mic]), { base, intero: true }, "tutto l'elemento");
+  eq(A.custDiSelezione([base, mic, fuori]), { base, intero: false }, "con altro: comandi sì, titolo no");
+  eq(A.custDiSelezione([mic, fuori]), null, "senza elemento personalizzato");
+  const altro = add("custom", 900, 300, { cust: { nome: "Y", shapes: [] } }); A.custNorm(altro);
+  eq(A.custDiSelezione([base, mic, altro]), null, "due elementi personalizzati: nessuno dei due");
+  ok(/grpNome"\)\.textContent = _cs && _cs\.intero \? _cs\.base\.cust\.nome/.test(appjs), "il titolo del gruppo è il nome");
+  ok(/id="grpCustomRow"/.test(appHtml) && /id="pCustomWrap"/.test(appHtml), "le righe nei due pannelli");
+  eq(A.custContaTesto({ watt: 300, cust: { ins: { n: 2, tipo: "linea" }, backline: true } }), "300 W · 2 ingressi linea · backline");
+  eq(A.custContaTesto({ cust: { ins: { n: 1, tipo: "mic" } } }), "1 ingresso microfono");
+  eq(A.custContaTesto({ cust: {} }), "Non conta nelle liste: potenza, ingressi e backline si danno con «Modifica elemento».");
+});
+t("arteStimata: l'elemento personalizzato non ha lo schienale della sedia", () => {
+  const s = A.arteStimata({ type: "custom", w: 100, d: 40 });
+  eq([s.y0, s.y1], [-20, 20], "solo la sua superficie");
+});
+t("editor: Salva e Annulla restano in vista in fondo alla colonna di destra", () => {
+  ok(/id="custConta"><\/p>\s*<\/div>\s*(<!--[\s\S]*?-->\s*)?<div class="cust-piede" id="custPiede">[\s\S]{0,300}id="custSalva"/.test(appHtml), "un piede dopo la scheda");
+  const css = readFileSync(join(root, "src/styles.css"), "utf8");
+  ok(/#custPiede\{[^}]*position:sticky;[^}]*bottom:/.test(css), "appiccicato in fondo");
+  ok(/#custScheda\[hidden\] \+ #custPiede\{display:none\}/.test(css), "nascosto con la scheda");
+  ok(/body\.cust-editor #catCustom/.test(css), "gli elementi del progetto non si posano nell'editor");
+  ok(/body\.proj-ro #catCustom/.test(css) && /body\.viewmode #catCustom/.test(css), "né su un progetto bloccato o in sola lettura");
+});
+/* ===== Crea elemento, Tappa 5: invio per revisione (13/10/2026) ===== */
+t("invio per revisione: solo con accesso, con consenso e con l'anteprima", () => {
+  ok(/hint:"elemento"/.test(appjs), "tipo elemento");
+  ok(/function custInviaRevisione[\s\S]{0,400}__cloud\.user/.test(appjs), "controlla l'accesso");
+  ok(/senza il tuo nome/.test(appjs), "frase del consenso");
+  ok(/function custAnteprima/.test(appjs), "anteprima");
+});
+/* un elemento con descrizione, un pezzo del catalogo e le stub del giro (consenso, anteprima, invio) */
+function conInvio(fn) {
+  const salva = {}, nomi = ["guideDialog", "custChiediConsenso", "custAnteprima", "custManda", "__cloud", "__fbInvio", "getFeedbackContext"];
+  nomi.forEach((k) => { salva[k] = A[k]; });
+  const giro = { dialoghi: [], consenso: [], mandato: [], accesso: 0 };
+  A.guideDialog = (o) => { giro.dialoghi.push(o); };
+  A.custChiediConsenso = (nome, cb) => { giro.consenso.push(nome); cb(); };
+  A.custAnteprima = (it, cb) => cb("data:image/jpeg;base64,QUJD");
+  A.custManda = (corpo, id) => { ok(A.__custInvio === true, "«in corso» dal consenso all'esito"); giro.mandato.push({ corpo, id }); A.__custInvio = false; };
+  A.__cloud = { user: () => null, signIn: () => { giro.accesso++; }, accessToken: () => Promise.resolve("tok") };
+  A.__fbInvio = { url: "https://esempio.invalid/submit-feedback", techContext: () => ({ stage_w: 1200, total_objects: 3, object_types: { cantante: 2 } }),
+    meta: () => ({ app_version: "t", page_url: "https://stageplot.it/app/ [view]", user_agent: "UA", viewport: "1440x900", language: "it" }) };
+  A.getFeedbackContext = () => ({ project_id: "p-1" });
+  try { return conModelli(() => fn(giro)); }
+  finally { nomi.forEach((k) => { if (salva[k] === undefined) delete A[k]; else A[k] = salva[k]; }); A.__custInvio = false; }
+}
+function elementoDaInviare() {
+  reset();
+  const base = add("custom", 300, 300, { w: 120, d: 80, watt: 300, cust: { nome: "Proiettore", desc: "Su carrello", ins: { n: 2, tipo: "linea" },
+    shapes: [{ k: "rect", x: 0, y: 0, w: 120, h: 80, stroke: "#000000", sw: 1 }, { k: "text", x: 60, y: 40, s: "PROIETTORE", size: 10 }] } });
+  A.custNorm(base);
+  const mic = add("cantante", 320, 310, { label: "Nome di una persona" }); base.grp = mic.grp = "gI";
+  add("cantante", 800, 600);   /* fuori dal gruppo: non viaggia */
+  return { base, mic };
+}
+t("invio per revisione: senza accesso «Serve l'accesso» (l'elemento resta salvato), niente invio", () => conInvio((giro) => {
+  const { base } = elementoDaInviare();
+  eq(A.custInviaRevisione(base.id), false, "non parte");
+  eq(giro.dialoghi.length, 1); eq(giro.dialoghi[0].title, "Serve l'accesso");
+  ok(/accesso con Google/.test(giro.dialoghi[0].msg) && /già salvato nel progetto/.test(giro.dialoghi[0].msg), "lo dice");
+  eq(giro.dialoghi[0].action.label, "Accedi con Google");
+  giro.dialoghi[0].action.run(); eq(giro.accesso, 1, "il bottone porta all'accesso");
+  eq(giro.consenso.length + giro.mandato.length, 0, "né consenso né invio");
+}));
+t("invio per revisione: con l'accesso chiede il consenso, poi manda nome, misure, conteggi, pezzi, JSON e anteprima", () => conInvio((giro) => {
+  const { base } = elementoDaInviare();
+  A.__cloud.user = () => ({ id: "u-1" });
+  eq(A.custInviaRevisione(base.id), true);
+  eq(giro.consenso, ["Proiettore"], "prima il consenso");
+  eq(giro.mandato.length, 1); const c = giro.mandato[0].corpo;
+  eq(giro.mandato[0].id, base.id);
+  eq([c.hint, c.honeypot, c.message, c.project_snapshot, c.project_id], ["elemento", "", "Elemento: Proiettore — Su carrello", null, null]);
+  ok(c.message.length >= 5 && c.message.length <= 1000, "regola 5–1000 del server");
+  eq(c.tech_context.elemento, { nome: "Proiettore", desc: "Su carrello", w: 120, d: 80, watt: 300, ins: { n: 2, tipo: "linea" }, backline: false, forme: 2, membri: ["cantante"] });
+  /* privacy (revisione): solo quello che dice il consenso — disegno, misure, descrizione */
+  eq(Object.keys(c.tech_context).sort(), ["elemento", "elemento_json"], "niente contesto del progetto");
+  ok(Object.keys(c.meta).every((k) => ["app_version", "build_id", "language"].includes(k)), "meta: solo versione e lingua, " + JSON.stringify(c.meta));
+  ok(!/stage_w|object_types|page_url|user_agent|viewport|p-1/.test(JSON.stringify(c)), "nessun dato del progetto, della pagina o del browser");
+  eq(c.screenshot, "data:image/jpeg;base64,QUJD");
+  const j = JSON.parse(c.tech_context.elemento_json);
+  eq([j.nome, j.w, j.d, j.watt, j.shapes.length, j.membri.length], ["Proiettore", 120, 80, 300, 2, 1]);
+  ok(Object.keys(j.membri[0]).every((k) => ["type", "dx", "dy", "rot", "w", "d"].includes(k)) && j.membri[0].type === "cantante", "dei pezzi solo tipo, misure e posizione: niente etichette scritte dall'utente");
+  ok(!("id" in j) && !c.tech_context.elemento_json.includes("Nome di una persona"), "nessun id di modello, nessun nome scritto sui pezzi");
+  ok(!("user_id" in c) && !("user_email" in c), "l'identità la ricava il server dal token");
+  /* senza descrizione il messaggio è solo il nome; anteprima non riuscita → si manda senza */
+  delete base.cust.desc; A.custAnteprima = (it, cb) => cb(null);
+  A.custInviaRevisione(base.id);
+  eq([giro.mandato[1].corpo.message, giro.mandato[1].corpo.screenshot], ["Elemento: Proiettore", null]);
+  /* un JSON troppo grande non parte (il server lo scarterebbe): resta la scheda */
+  base.cust.shapes = Array.from({ length: 200 }, (_, i) => ({ k: "poly", pts: Array.from({ length: 200 }, (_, k) => [i % 120, k % 80]), stroke: "#000000", sw: 1 }));
+  A.custInviaRevisione(base.id);
+  eq(giro.mandato[2].corpo.tech_context.elemento_json, null, "oltre 30000 caratteri: null");
+  eq(giro.mandato[2].corpo.tech_context.elemento.forme, 200);
+}));
+t("invio per revisione: sul telefono, in sola lettura, con l'editor aperto o due volte di fila non parte", () => conInvio((giro) => {
+  const { base } = elementoDaInviare();
+  A.__cloud.user = () => ({ id: "u-1" });
+  const mm = A.matchMedia; A.matchMedia = () => ({ matches: true, addEventListener() {}, addListener() {} });
+  try { eq(A.custInviaRevisione(base.id), false, "telefono"); ok(/dal computer/.test(giro.dialoghi.pop().msg), "lo dice"); }
+  finally { A.matchMedia = mm; }
+  A.__projLocked = true; eq(A.custInviaRevisione(base.id), false, "bloccato"); A.__projLocked = false;
+  eq(A.custInviaRevisione("nessuno"), false, "elemento inesistente");
+  A.__custInvio = true; eq(A.custInviaRevisione(base.id), false, "un invio è già in corso"); A.__custInvio = false;
+  eq(giro.mandato.length, 0);
+  ok(/function custPannello[\s\S]{0,2000}Invia[\s\S]{0,300}isMobile\(\)/.test(appjs), "nel pannello il pulsante non c'è sul telefono");
+}));
+t("invio per revisione: gli esiti (inviato e segnato, accesso scaduto, troppe richieste, errore)", () => conInvio((giro) => {
+  const { base } = elementoDaInviare();
+  eq(A.custEsitoInvio(500, {}, base.id, "Proiettore"), "errore");
+  ok(/Non è stato possibile inviare, riprova\. L'elemento resta salvato nel progetto\./.test(giro.dialoghi.pop().msg));
+  eq(A.custEsitoInvio(0, {}, base.id, "Proiettore"), "errore", "rete giù");
+  giro.dialoghi.pop();
+  eq(A.custEsitoInvio(429, {}, base.id, "Proiettore"), "troppi");
+  ok(/Hai inviato troppe richieste, riprova più tardi\./.test(giro.dialoghi.pop().msg));
+  eq(A.custEsitoInvio(401, {}, base.id, "Proiettore"), "accesso");
+  eq(giro.dialoghi.pop().title, "Serve l'accesso");
+  eq(base.cust.rev, undefined, "niente segno finché non è arrivato");
+  eq(A.custEsitoInvio(200, { ok: true }, base.id, "Proiettore"), "ok");
+  const d = giro.dialoghi.pop(); eq(d.title, "Inviato");
+  eq(d.msg, "Grazie: lo guardiamo e, se lo aggiungiamo al catalogo, te lo scriviamo qui.");
+  const b = A.state.items.find((x) => x.id === base.id);
+  ok(b.cust.rev && /^\d{4}-\d{2}-\d{2}T/.test(b.cust.rev.inviato), "segnato come inviato, con la data");
+  ok(/^Inviato per revisione il \d{2}\/\d{2}\.$/.test(A.custRevTesto(b)), "il pannello lo dice: " + A.custRevTesto(b));
+  eq(A.custRevTesto({ cust: {} }), "");
+  /* una risposta che arriva quando l'elemento non c'è più (o è un altro) non segna niente */
+  const altro = add("custom", 900, 300, { cust: { nome: "Altro", shapes: [] } }); A.custNorm(altro);
+  eq(A.custEsitoInvio(200, { ok: true }, altro.id, "Proiettore"), "ok");
+  eq(altro.cust.rev, undefined, "nome diverso: non è quello mandato");
+}));
+t("invio per revisione: il segno «inviato» passa da custNorm (solo una data ISO corta) e non nasce vuoto", () => {
+  const n = (rev) => A.custNorm({ type: "custom", w: 100, d: 50, cust: { nome: "X", shapes: [], rev } }).cust;
+  eq(n({ inviato: "2026-10-13T15:04:05.123Z" }).rev, { inviato: "2026-10-13T15:04:05.123Z" });
+  eq(n({ inviato: "2026-10-13T15:04:05.123Z", altro: "<b>" }).rev, { inviato: "2026-10-13T15:04:05.123Z" }, "solo il campo noto");
+  for (const bad of [{ inviato: "<script>" }, { inviato: 1234 }, { inviato: "2026-10-13T15:04:05.123Z" + " ".repeat(20) }, { inviato: "2026-13-45T99:99:99Z" }, "2026-10-13", null]) {
+    eq("rev" in n(bad), false, "scartato: " + JSON.stringify(bad));
+  }
+  eq("rev" in n(undefined), false, "assente se non inviato (firmaPdf non cambia)");
+  const ns = A.normalizeState({ items: [{ id: "i1", type: "custom", w: 100, d: 50, cust: { nome: "X", shapes: [], rev: { inviato: "2026-10-13T15:04:05.123Z" } } }], inputs: [], outputs: [] });
+  eq(ns.items[0].cust.rev, { inviato: "2026-10-13T15:04:05.123Z" }, "un documento caricato lo tiene (custNorm lo conosce)");
+});
+t("invio per revisione: Modifica toglie il segno (quello che si salva non è più quello inviato); i modelli non lo portano", () => conInvio(() => {
+  const { base } = elementoDaInviare();
+  base.cust.rev = { inviato: "2026-10-13T10:00:00.000Z" };
+  A.custSalvaComeModello(base.id);
+  ok(!JSON.stringify(A.state.customModels).includes("inviato"), "il modello non è «inviato»");
+  ok(A.custModificaElemento(base.id)); A.custSalvaDaScheda();
+  eq(A.state.items.find((x) => x.id === base.id).cust.rev, undefined, "modificato: si può reinviare");
+}));
+t("invio per revisione: l'anteprima inquadra il gruppo ruotato con il 5% di margine, al massimo 560 px", () => {
+  /* margine: il 5% del lato maggiore dell'ingombro, su ogni lato (un elemento stretto non resta senza respiro) */
+  const v = A.custAnteprimaVista([{ x: 300, y: 300, w: 100, d: 40, rot: 90 }]);
+  ok(Math.abs(v.w - 50) < 0.01 && Math.abs(v.h - 110) < 0.01, "ruotato di 90°: 40 × 100 più 5 cm per lato: " + v.w + "×" + v.h);
+  ok(Math.abs(v.x - 275) < 0.01 && Math.abs(v.y - 245) < 0.01, "centrato sul gruppo");
+  eq(Math.max(v.pxW, v.pxH), 560); eq(v.pxH, 560); eq(v.pxW, Math.round(50 * 560 / 110));
+  const g = A.custAnteprimaVista([{ x: 100, y: 100, w: 100, d: 100, rot: 45 }, { x: 300, y: 100, w: 20, d: 20 }]);
+  const x0 = 100 - 50 * Math.SQRT2, m = 0.05 * (310 - x0);
+  ok(Math.abs(g.x - (x0 - m)) < 0.01 && Math.abs(g.w - (310 - x0 + 2 * m)) < 0.01, "il quadrato a 45° allarga l'ingombro");
+  eq(A.custAnteprimaVista([]), null, "niente da inquadrare");
+  ok(/function custAnteprima\([\s\S]{0,1500}custAnteprimaVista[\s\S]{0,1500}svgInJpeg\([^)]*0\.82/.test(appjs), "stessa trafila della miniatura, JPEG 0,82");
+  ok(/function genThumbnail\([\s\S]{0,2000}svgInJpeg\(/.test(appjs), "genThumbnail usa la stessa trafila");
+});
+t("invio per revisione: i tipi dei pezzi passano il controllo del server (lettere, cifre, _ e -, max 40)", () => {
+  const server = readFileSync(join(root, "supabase/functions/_shared/feedback-validation.ts"), "utf8");
+  ok(/\/\^\[A-Za-z0-9_-\]\{1,40\}\$\//.test(server), "la regola del server");
+  const no = Object.keys(A.TYPES).filter((k) => !/^[A-Za-z0-9_-]{1,40}$/.test(k));
+  eq(no, [], "tutti i tipi del catalogo");
+  ok(/MAX_ELEMENTO_JSON_CHARS = 30_000/.test(server) && /function custJsonRevisione[\s\S]{0,900}30000/.test(appjs), "stesso tetto del JSON");
+});
+t("invio per revisione: la finestra del consenso (casella da spuntare, Invia spento finché non c'è la spunta)", () => {
+  ok(/Disegno, misure e descrizione arrivano a StagePlot\. Se lo aggiungiamo al catalogo sarà disponibile per tutti, senza il tuo nome\./.test(appjs), "la frase della spec, uguale");
+  ok(/function custChiediConsenso[\s\S]{0,2500}type="checkbox"|function custChiediConsenso[\s\S]{0,2500}\.type="checkbox"/.test(appjs), "una casella");
+  ok(/function custChiediConsenso[\s\S]{0,2500}disabled=true[\s\S]{0,800}disabled=!/.test(appjs), "Invia spento, si accende con la spunta");
+  ok(/function custChiediConsenso[\s\S]{0,2500}fuoco:/.test(appjs), "il fuoco sulla casella");
+  ok(/id="pCustInvia"/.test(appHtml) && /id="grpCustInvia"/.test(appHtml) && /id="pCustRev"/.test(appHtml), "pannello: Invia per revisione e la riga «Inviato…»");
+  ok(/window\.__fbInvio *= *\{/.test(appjs), "il box segnalazioni presta indirizzo, contesto e meta");
+});
+t("revisione 7: l'anteprima non porta testi scritti a mano né altri elementi personalizzati", () => {
+  reset();
+  const base = add("custom", 300, 300, { w: 120, d: 80, cust: { nome: "Postazione", shapes: [] } }); A.custNorm(base);
+  const mic = add("cantante", 320, 310), nota = add("forma", 330, 330, { shape: "testo", label: "Telefono di Mario" });
+  const box = add("forma", 280, 280, { shape: "rect", label: "Scritta" });
+  const altro = add("custom", 340, 340, { cust: { nome: "Altro", shapes: [] } }); A.custNorm(altro);
+  [base, mic, nota, box, altro].forEach((x) => { x.grp = "gT"; });
+  if (A.TYPES.testo) { const tl = add("testo", 300, 340, { label: "Nome e cognome" }); tl.grp = "gT"; }
+  const ids = A.custAnteprimaPezzi(base).map((x) => x.id);
+  ok(ids.includes(base.id) && ids.includes(mic.id) && ids.includes(box.id), "la base e i pezzi");
+  ok(!ids.includes(nota.id) && !ids.includes(altro.id), "fuori la forma «Solo testo» e l'altro elemento personalizzato");
+  ok(!A.state.items.filter((x) => x.type === "testo").some((x) => ids.includes(x.id)), "fuori il testo libero");
+  ok(/function custAnteprima\([\s\S]{0,1200}custAnteprimaPezzi\(/.test(appjs), "custAnteprima usa questo filtro");
+  ok(/function svgInJpeg\([\s\S]{0,900}txtbox-line/.test(appjs) && /svgInJpeg\(svgStr, v\.pxW, v\.pxH, 0\.82, *\{togliTesti:true\}\)/.test(appjs), "e toglie le righe di testo delle forme");
+  ok(/svgInJpeg\(svgStr, pxW, pxH, 0\.82\)\.then\(resolve, reject\)/.test(appjs), "la miniatura della consulenza resta com'era");
+});
+t("revisione 7: il segno «inviato» non cambia l'impronta del PDF (niente «modificato dopo l'ultimo PDF»)", () => {
+  reset();
+  const base = add("custom", 300, 300, { cust: { nome: "Schermo", shapes: [] } }); A.custNorm(base);
+  const prima = A.firmaPdf(A.state);
+  base.cust.rev = { inviato: "2026-10-13T10:00:00.000Z" };
+  eq(A.firmaPdf(A.state), prima, "inviato: stessa impronta");
+  base.cust.nome = "Telo";
+  ok(A.firmaPdf(A.state) !== prima, "un cambio vero sì");
+});
+t("revisione 7: durante l'invio l'editor non si apre, e «Salva e invia» dice che un invio è in corso", () => conInvio((giro) => {
+  const { base } = elementoDaInviare();
+  A.__cloud.user = () => ({ id: "u-1" });
+  const msg = []; const tp = A.__toast; A.__toast = (m) => msg.push(m);
+  A.__custInvio = true;
+  try {
+    eq(A.custDisegnaArea(""), false, "Crea elemento fermo");
+    eq(A.custModificaElemento(base.id), false, "Modifica ferma");
+    eq(A.custEditorAttivo(), false);
+    eq(A.custInviaRevisione(base.id), false, "secondo invio fermo");
+    ok(msg.length === 3 && msg.every((m) => /Invio già in corso/.test(m)), "lo dice: " + JSON.stringify(msg));
+  } finally { A.__toast = tp; A.__custInvio = false; }
+  /* il corpo si prepara PRIMA dell'anteprima: quello che cambia sul palco durante l'attesa non entra */
+  A.custAnteprima = (it, cb) => { const z = add("astamic", 330, 330); z.grp = "gI"; cb(null); };
+  A.custInviaRevisione(base.id);
+  eq(giro.mandato[0].corpo.tech_context.elemento.membri, ["cantante"], "i pezzi di quando si è dato il consenso");
+}));
+/* ===== Crea elemento, Rifinitura (13/10/2026): le osservazioni rinviate dei revisori e i Ruling 16/17 ===== */
+/* il pannello dell'elemento (pCust…/grpCust…) con un DOM finto che ricorda testi, visibilità e onclick */
+function conPannello(fn) {
+  return conModelli(() => {
+    const d = A.document, finti = {};
+    const mk = (id) => ({ id, nodeType: 1, style: {}, hidden: false, textContent: "", onclick: null });
+    A.document = new Proxy({}, { get: (t, k) => k === "getElementById"
+      ? (id) => (/^(pCust|grpCust)|^(pCustomWrap|grpCustomRow)$/.test(id) ? (finti[id] || (finti[id] = mk(id))) : d.getElementById(id)) : d[k] });
+    try { return fn(finti); } finally { A.document = d; }
+  });
+}
+/* sola lettura come la vede l'app: classe del body (viewmode) o consulenza */
+function conSolaLettura(modo, fn) {
+  return conModelli(() => {
+    const d = A.document, cons = A.__consultMode;
+    const cl = { contains: (c) => modo === "viewmode" && c === "viewmode", add() {}, remove() {}, toggle() {} };
+    const body = new Proxy({}, { get: (t, k) => (k === "classList" ? cl : d.body[k]) });
+    A.document = new Proxy({}, { get: (t, k) => (k === "body" ? body : d[k]) });
+    if (modo === "consulenza") A.__consultMode = true;
+    try { return fn(); } finally { A.document = d; A.__consultMode = cons; }
+  });
+}
+const surrogatoSpaiato = (s) => /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(^|[^\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(s);
+
+t("rifinitura 1: l'etichetta della base è il nome dell'elemento, salvo quella scritta a mano (una regola sola)", () => {
+  ok(!/if\(!it\.label\) it\.label=out\.nome/.test(appjs), "niente ramo quasi morto in custNorm");
+  const s = A.normalizeState({ _v: 5, stage: { w: 1200, d: 800 }, items: [
+    { id: "e1", type: "custom", x: 100, y: 100, w: 120, d: 80, cust: { nome: "Regia", shapes: [] } },
+    { id: "e2", type: "custom", x: 400, y: 100, w: 120, d: 80, label: "Elemento", cust: { nome: "Leggio grande", shapes: [] } },
+    { id: "e3", type: "custom", x: 700, y: 100, w: 120, d: 80, label: "Schermo sinistro", cust: { nome: "Schermo", shapes: [] } } ] });
+  eq(s.items.map(x => x.label), ["Regia", "Leggio grande", "Schermo sinistro"], "senza etichetta e con quella di serie → il nome; scritta a mano → resta");
+  eq(A.custEtichetta("Schermo", "Schermo", "Telo"), "Telo", "uguale al nome di prima → segue il nome nuovo");
+  eq(A.custEtichetta("Schermo sx", "Schermo", "Telo"), "Schermo sx", "scritta a mano → resta");
+  ok(/base\.label=custEtichetta\(orig \? orig\.label : ""/.test(appjs), "Modifica usa la stessa regola");
+});
+t("rifinitura 2: null, \"\", true e [] non sono numeri (prima diventavano 0 o 1)", () => {
+  const forma = (v) => A.custNorm({ type: "custom", w: 120, d: 80, cust: { shapes: [{ k: "rect", x: v, y: 0, w: 10, h: 10 }] } }).cust.shapes.length;
+  [null, "", "  ", true, false, [], {}].forEach((v) => eq(forma(v), 0, "x=" + JSON.stringify(v) + " scartata"));
+  eq(forma(5), 1, "un numero vero resta"); eq(forma("5"), 1, "anche come stringa numerica");
+  eq(A.custNorm({ type: "custom", w: null, d: "", cust: {} }).w, 120, "misura null → quella di serie, non 10");
+  eq(A.custNorm({ type: "custom", w: null, d: "", cust: {} }).d, 80, "misura \"\" → quella di serie");
+  eq("watt" in A.custNorm({ type: "custom", watt: "", cust: {} }), false, "watt \"\" scartato (prima 0)");
+  eq("watt" in A.custNorm({ type: "custom", watt: true, cust: {} }), false, "watt true scartato (prima 1)");
+  eq(A.custNorm({ type: "custom", watt: "450", cust: {} }).watt, 450, "watt da stringa numerica");
+  eq(A.custNorm({ type: "custom", cust: { ins: { n: true, tipo: "mic" } } }).cust.ins, undefined, "ingressi n=true scartati (prima 1)");
+  eq(A.custNorm({ type: "custom", cust: { ins: { n: [], tipo: "mic" } } }).cust.ins, undefined, "ingressi n=[] scartati");
+  eq(A.custNumero(null), null); eq(A.custNumero(""), null); eq(A.custNumero(true), null); eq(A.custNumero([]), null); eq(A.custNumero(" 7 "), 7);
+});
+t("rifinitura 3: la rotazione di linea e poligono si cuoce nei punti, e l'andata e ritorno con l'editor è identica", () => {
+  const n = A.custNorm({ type: "custom", w: 120, d: 80, cust: { shapes: [
+    { k: "line", x1: 10, y1: 40, x2: 110, y2: 40, stroke: "#000000", sw: 1, rot: 90 },
+    { k: "poly", pts: [[20, 20], [60, 20], [60, 40]], stroke: "#000000", sw: 1, rot: 180 } ] } }).cust.shapes;
+  eq("rot" in n[0] || "rot" in n[1], false, "la rotazione non resta salvata dove il disegno non la applicherebbe");
+  eq([n[0].x1, n[0].y1, n[0].x2, n[0].y2], [60, -10, 60, 90], "linea girata di 90° attorno al suo centro");
+  eq(n[1].pts, [[60, 40], [20, 40], [20, 20]], "poligono girato di 180° attorno al centro dell'ingombro");
+  const svg = A.drawCustom({ type: "custom", w: 120, d: 80, cust: { shapes: n } });
+  ok(/<line x1="0" y1="-50" x2="0" y2="50"/.test(svg), "il disegno è quello girato: " + svg.slice(0, 160));
+  const giro = n.map(g => A.custFormaDaShape(A.custShapeDaForma(g)));
+  eq(A.custNorm({ type: "custom", w: 120, d: 80, cust: { shapes: giro } }).cust.shapes, n, "editor ↔ forme: identiche");
+  eq(A.custNorm({ type: "custom", w: 120, d: 80, cust: { shapes: n } }).cust.shapes, n, "e custNorm non le sposta più");
+});
+t("rifinitura 4: i tagli non spezzano un carattere (coppie surrogate)", () => {
+  const nome = "a".repeat(59) + "😀", desc = "b".repeat(279) + "🎸", testo = "c".repeat(139) + "🎤";
+  const n = A.custNorm({ type: "custom", w: 120, d: 80, cust: { nome, desc, shapes: [{ k: "text", x: 10, y: 10, s: testo, size: 10 }] } }).cust;
+  ok(!surrogatoSpaiato(n.nome) && n.nome.length <= 60, "nome intero e entro 60: " + n.nome.length);
+  ok(!surrogatoSpaiato(n.desc) && n.desc.length <= 280, "descrizione");
+  ok(!surrogatoSpaiato(n.shapes[0].s) && n.shapes[0].s.length <= 140, "testo della forma");
+  eq(A.custTaglia("ab😀cd", 4), "ab😀", "la coppia entra intera quando c'è posto");
+  eq(A.custTaglia("abc😀", 4), "abc", "o resta fuori tutta");
+  ok(!surrogatoSpaiato(A.custNomeDaRicerca("x".repeat(59) + "😀")), "anche il nome preso dalla ricerca");
+  ok(!surrogatoSpaiato(A.custSchedaNorm({ nome: "y".repeat(59) + "😀", desc: "z".repeat(279) + "😀" }).nome), "e la scheda dell'editor");
+});
+t("rifinitura 5: drawCustom oltre il caso felice (rotazione, segnaposto, cust storto, __proto__, colori non hex)", () => {
+  const rot = A.drawCustom(A.custNorm({ type: "custom", w: 100, d: 50, cust: { shapes: [{ k: "rect", x: 10, y: 10, w: 20, h: 10, stroke: "#000000", sw: 1, rot: 30 }] } }));
+  ok(/transform="rotate\(30 -30 -10\)"/.test(rot), "rettangolo ruotato attorno al suo centro: " + rot);
+  const vuoto = A.drawCustom(A.custNorm({ type: "custom", w: 100, d: 50, cust: { shapes: [] } }));
+  ok(/stroke-dasharray="6 4"/.test(vuoto) && /<rect x="-50" y="-25" width="100" height="50"/.test(vuoto), "senza forme: il segnaposto tratteggiato sull'ingombro");
+  const arr = A.custNorm({ type: "custom", w: 100, d: 50, cust: [{ nome: "X", shapes: [{ k: "rect", x: 0, y: 0, w: 5, h: 5 }] }] });
+  eq([arr.cust.nome, arr.cust.shapes.length], ["Elemento personalizzato", 0], "cust come array: elemento vuoto col nome di serie");
+  const proto = A.custNorm({ type: "custom", w: 100, d: 50, cust: JSON.parse('{"__proto__":{"nome":"Rubato","shapes":[{"k":"rect","x":0,"y":0,"w":5,"h":5}]}}') });
+  eq([proto.cust.nome, proto.cust.shapes.length], ["Elemento personalizzato", 0], "__proto__ dentro cust non porta niente");
+  ok(!Object.prototype.hasOwnProperty.call(proto.cust, "__proto__") && ({}).nome === undefined, "e non sporca nessun prototipo");
+  const sh = A.custNorm({ type: "custom", w: 100, d: 50, cust: { shapes: [{ k: "rect", x: 0, y: 0, w: 5, h: 5, fill: "rgb(1,2,3)", stroke: "red" }, { k: "ell", cx: 5, cy: 5, rx: 2, ry: 2, fill: null }] } }).cust.shapes;
+  ok(!("fill" in sh[0]) && !("fill" in sh[1]), "rgb() e null: il riempimento è ASSENTE");
+  eq(sh[0].stroke, "#1d1d1f", "linea non hex → quella di serie");
+  ok(/<rect[^>]+fill="none"/.test(A.drawCustom({ type: "custom", w: 100, d: 50, cust: { shapes: sh } })), "disegnato senza riempimento");
+});
+t("rifinitura 6: drawCustom non si fida di chi lo chiama (item non normalizzato)", () => {
+  const svg = A.drawCustom({ cust: { shapes: [{ k: "rect", x: 0, y: 0, w: 10, h: 10 }, { k: "text", x: 5, y: 5, s: "A" }, { k: "line", x1: "a", y1: 0, x2: 1, y2: 1 }] } });
+  ok(!/undefined|NaN|null/.test(svg), "niente undefined/NaN/null: " + svg);
+  ok(/stroke="#1d1d1f" stroke-width="1"/.test(svg), "linea e spessore di ripiego");
+  ok(/<text x="[-\d.]+" y="[-\d.]+"[^>]+fill="#1d1d1f"/.test(svg), "il testo ha x, y e un colore");
+  ok(!/undefined|NaN/.test(A.drawCustom({})) && !/undefined|NaN/.test(A.drawCustom({ cust: null, w: "x" })), "anche senza niente");
+});
+t("rifinitura 7–8: una riga sola per lo specchio, il commento della DI al suo posto", () => {
+  eq((appjs.match(/it\.mir!=null[^\n]*delete it\.mir;/g) || []).length, 1, "platea e personalizzato in una riga");
+  ok(/if\(it\.mir!=null && \(it\.type==="platea" \|\| it\.type==="custom"\)\) delete it\.mir;/.test(appjs), "la riga unica");
+  const s = A.normalizeState({ _v: 5, stage: { w: 1200, d: 800 }, items: [{ id: "p1", type: "platea", x: 300, y: 300, mir: true }, { id: "c1", type: "custom", x: 600, y: 300, mir: true }] });
+  ok(s.items.every(x => !("mir" in x)), "nessuno dei due resta specchiato");
+  ok(/function isAudioSource\(it\)\{ if\(it\.diFor\) return false;   \/\* DI generata da uno strumento/.test(appjs), "il commento della DI sta sulla riga diFor");
+  ok(!/custInputs\(it\)\.length>0;[^\n]*DI generata/.test(appjs), "e non più sulla riga del personalizzato");
+});
+t("rifinitura 10: conteggi — la base senza ingressi non fa righe, un ingresso microfono, la potenza solo dalla scheda", () => {
+  reset();
+  add("dm3", 900, 300);
+  const base = add("custom", 300, 300, { cust: { nome: "Pedana coro", shapes: [] } }); A.custNorm(base);
+  const m1 = add("cantante", 280, 290), m2 = add("cantante", 320, 290); [base, m1, m2].forEach(x => { x.grp = "gK"; });
+  A.__cabRes = null;
+  const righe = A.patchList().rows;
+  eq(righe.filter(r => r.itemId === base.id).length, 0, "la base senza ingressi: zero righe");
+  eq(righe.filter(r => r.itemId === m1.id || r.itemId === m2.id).length, 2, "i pezzi: le loro");
+  eq(A.custInputs({ type: "custom", cust: { nome: "Talkback", ins: { n: 1, tipo: "mic" } } }), [{ name: "Talkback", mic: "SM57" }], "un ingresso microfono: il nome, senza numero");
+  eq(A.hasWattItem({ type: "custom" }), false, "nessun campo «Potenza (W)» generico: si scrive nella scheda dell'elemento");
+  eq(A.wattOf({ type: "custom", watt: 300 }), 300, "ma nei carichi conta");
+});
+t("rifinitura 11: un membro di modello oltre 4 KB non entra", () => {
+  const ok1 = { type: "cantante", dx: 0, dy: 0, label: "Voce" }, grosso = { type: "cantante", dx: 10, dy: 0, nota: "x".repeat(5000) };
+  const m = A.custModelNorm({ id: "mg1", nome: "G", w: 100, d: 50, shapes: [], membri: [ok1, grosso] });
+  eq(m.membri.length, 1, "il membro gonfiato è scartato, l'altro resta");
+  ok(A.custByte(JSON.stringify(m.membri[0])) <= A.custLimiti().MEMBRO, "entro il tetto");
+  eq(A.custByte("è"), 2, "si contano i byte (UTF-8), non i caratteri");
+  reset();
+  const base = add("custom", 300, 300, { w: 120, d: 80, cust: { nome: "G", shapes: [] } }); A.custNorm(base);
+  const v = add("cantante", 310, 300); v.nota = "y".repeat(5000); base.grp = v.grp = "gG";
+  eq(A.custModelDaAgglomerato(base).membri.length, 0, "anche quando il modello nasce dal palco");
+});
+t("rifinitura 12: un gruppo nuovo non riprende mai l'id di un gruppo vivo", () => conModelli(() => {
+  reset();
+  const a = add("cantante", 100, 100), b = add("cantante", 200, 100);
+  const occupato = "gi" + A.nextId;   /* proprio quello che "g"+uid() darebbe adesso */
+  a.grp = b.grp = occupato;
+  const g = A.grpLibero();
+  ok(g !== occupato && !A.state.items.some(x => x.grp === g), "libero: " + g);
+  A.state.customModels = [{ id: "mz1", nome: "Z", w: 100, d: 50, shapes: [], membri: [{ type: "cantante", dx: 10, dy: 0 }] }];
+  const c = add("cantante", 300, 100); c.grp = "gi" + A.nextId;
+  const posati = A.custPosaModello("mz1", 600, 400);
+  ok(posati[0].grp !== c.grp, "la posa di un modello non fonde il suo gruppo con uno vivo");
+  eq((appjs.match(/=\s*"g"\+uid\(\)/g) || []).length, 1, "una fonte sola: grpLibero");
+}));
+t("rifinitura 13–14: il modello nasce solo da un elemento personalizzato; l'id nuovo salta quello occupato", () => conModelli(() => {
+  reset();
+  const c = add("cantante", 300, 300);
+  eq(A.custModelDaAgglomerato(c), null, "da un elemento qualunque: nessun modello (prima: nome undefined)");
+  eq(A.custModelDaAgglomerato(null), null, "né dal nulla");
+  const base = add("custom", 500, 300, { cust: { nome: "K", shapes: [] } }); A.custNorm(base);
+  A.state.customModels = [{ id: "m" + A.nextId, nome: "z", w: 10, d: 10, shapes: [], membri: [] }];   /* l'id che il prossimo uid() darebbe, senza consumarlo */
+  const m2 = A.custModelDaAgglomerato(base);
+  ok(m2.id !== A.state.customModels[0].id && !A.state.customModels.some(q => q.id === m2.id), "id libero: " + m2.id);
+}));
+t("rifinitura 15: le maniglie delle forme dell'editor stanno a 4 px dal disegno, a qualunque zoom", () => {
+  const px = A.hSize(1);
+  eq(A.selMargine({ type: "custshape", k: "rect", sw: 0 }), 4 * px, "forma senza linea: 4 px");
+  eq(A.selMargine({ type: "custshape", k: "rect", sw: 2 }), 4 * px + 1, "con una linea di 2 cm: 4 px oltre la mezza linea (le maniglie non stanno sulla linea)");
+  eq(A.selMargine({ type: "custshape", k: "text", sw: 2 }), 4 * px, "il testo non ha linea");
+  eq(A.selMargine({ type: "cantante" }), 6, "sul palco come sempre");
+  /* il riquadro e le maniglie vengono dalla stessa regola: le maniglie di destra stanno a w/2 + margine */
+  reset();
+  const f = { id: A.uid(), type: "custshape", k: "rect", x: 300, y: 300, w: 8, d: 6, rot: 0, stroke: "#000000", sw: 2 };
+  A.state.items.push(f); A.sel = f.id; A.selSet = { [f.id]: true };
+  try {
+    const mk = A.selHandlesMarkup(), m = A.selMargine(f), hs = A.hSize(3.25);
+    const r = mk.match(/class="rs-handle rs-r"[^>]*\sx="(-?[\d.e-]+)"/);
+    ok(r && Math.abs(+r[1] - (4 + m - hs)) < 1e-6, "maniglia destra a w/2 + margine: " + (r && r[1]));
+    const sb = A.itemMarkup(f).match(/class="selbox" x="(-?[\d.e-]+)"/), hit = A.itemMarkup(f).match(/class="hit" x="(-?[\d.e-]+)"/);
+    ok(sb && Math.abs(+sb[1] - (-4 - m - 3)) < 1e-6, "riquadro con lo stesso margine: " + (sb && sb[1]));
+    ok(hit && Math.abs(+hit[1] - (-4 - A.hSize(6))) < 1e-6, "area di clic a 6 px, non 35 cm: " + (hit && hit[1]));
+  } finally { A.sel = null; A.selSet = {}; A.state.items = A.state.items.filter(x => x !== f); }
+  /* una forma sotto i 10 cm (il minimo della superficie di custNorm) si disegna CENTRATA sul suo ingombro: prima usciva
+     spostata di (10 − misura)/2 rispetto alla selezione e alle maniglie */
+  const piccola = A.TYPES.custshape.draw({ type: "custshape", k: "rect", x: 0, y: 0, w: 8, d: 6, rot: 0, stroke: "#000000", sw: 1 });
+  ok(/<rect x="-4" y="-3" width="8" height="6"/.test(piccola), "rettangolo 8 × 6 centrato: " + piccola);
+});
+t("rifinitura 15: la superficie piccola è grande quanto l'elemento (non 50 × 50), e i palchi veri restano col minimo", () => conModelli(() => {
+  reset();
+  ok(A.custEditorApri({ x: 400, y: 300, w: 30, d: 20 }, {}), "editor su 30 × 20 cm");
+  eq([A.state.stage.w, A.state.stage.d, A.state.stage.blocks[0].w, A.state.stage.blocks[0].d], [30, 20, 30, 20], "la superficie è quella dell'elemento");
+  A.custEsci(false);
+  const s = A.normalizeState({ _v: 5, stage: { w: 30, d: 20, blocks: [{ x: 0, y: 0, w: 30, d: 20 }] }, items: [] });
+  eq([s.stage.blocks[0].w, s.stage.blocks[0].d], [50, 50], "un palco vero da un file: il minimo di sempre");
+}));
+t("rifinitura 16: il nome dell'elemento sta sopra anche ai pezzi che sbordano in alto", () => {
+  reset();
+  const base = add("custom", 500, 500, { w: 120, d: 80, cust: { nome: "Banco regia", shapes: [] } }); A.custNorm(base);
+  const solo = A.lblBaseY(base, 14);
+  const pz = add("wedge", 500, 455); base.grp = pz.grp = "gN";
+  const ly = A.lblBaseY(base, 14), cima = (pz.y - base.y) + A.arteDi(pz).y0;
+  ok(ly < cima, "il nome (" + ly + ") sopra la cima del pezzo (" + cima + ")");
+  ok(ly < solo, "più in alto di quando la base era sola");
+  const lato = add("wedge", 900, 400); lato.grp = "gN";
+  eq(A.lblBaseY(base, 14), ly, "un pezzo lontano di lato non lo sposta");
+  const lassu = add("wedge", 500, 100); lassu.grp = "gN";   /* stessa colonna, 4 m sopra: un «Raggruppa» dell'utente */
+  eq(A.lblBaseY(base, 14), ly, "un pezzo lontano in alto non fa volare il nome");
+  const giu = add("wedge", 500, 900); giu.grp = "gN";
+  eq(A.lblBaseY(base, 14), ly, "e nemmeno uno lontano in basso");
+  base.rot = 90; pz.x = 545; pz.y = 500; pz.rot = 90;   /* lo stesso pezzo, col gruppo girato di 90° */
+  ok(A.lblBaseY(base, 14) < solo, "anche con il gruppo ruotato");
+});
+t("rifinitura v2: la maniglia di rotazione scavalca il nome scritto sopra (elemento personalizzato e postazione con sedia)", () => {
+  reset();
+  const cima = (it) => { const r = A.selHandlesMarkup().match(/class="rh-line" x1="0" y1="(-?[\d.e-]+)"/); return r ? +r[1] : null; };
+  const prova = (it, cosa) => {
+    const ks = A._lblSchermo; A._lblSchermo = true;
+    try { A.itemMarkup(it); } finally { A._lblSchermo = ks; }   /* il disegno a schermo annota la cima del nome */
+    A.sel = it.id; A.selSet = { [it.id]: true };
+    try {
+      const top = cima(it), lettere = A.lblBaseY(it, 14) - 14 * 0.8;
+      ok(top != null && top <= lettere - A.hSize(4) + 1e-6, cosa + ": la maniglia parte sopra le lettere (" + top + " ≤ " + lettere + ")");
+    } finally { A.sel = null; A.selSet = {}; }
+  };
+  const b = add("custom", 400, 400, { w: 160, d: 80, cust: { nome: "Banco luci", shapes: [] } }); A.custNorm(b);
+  prova(b, "elemento personalizzato");
+  const v = add("vlnpost", 800, 400);
+  ok(A.lblSopraDi(v), "il violino con la sedia ha il nome sopra");
+  prova(v, "postazione con sedia");
+  /* nome nascosto: la maniglia torna al suo posto (nessuna cima annotata) */
+  b.labelMode = "hidden"; const ks = A._lblSchermo; A._lblSchermo = true; try { A.itemMarkup(b); } finally { A._lblSchermo = ks; }
+  A.sel = b.id; A.selSet = { [b.id]: true };
+  try { ok(cima(b) > A.lblBaseY(b, 14) - 14 * 0.8, "senza nome la maniglia resta attaccata all'elemento"); } finally { A.sel = null; A.selSet = {}; }
+});
+t("rifinitura v2: i pezzi troppo grandi lasciati fuori dal modello si dicono", () => conModelli(() => {
+  reset();
+  const msg = []; const tp = A.__toast; A.__toast = (m, err) => msg.push([m, err]);
+  try {
+    const base = add("custom", 300, 300, { w: 120, d: 80, cust: { nome: "Postazione", shapes: [] } }); A.custNorm(base);
+    const ok1 = add("cantante", 310, 300), grosso = add("cantante", 330, 300); grosso.nota = "x".repeat(5000);
+    base.grp = ok1.grp = grosso.grp = "gT";
+    A.custSalvaComeModello(base.id);
+    eq(A.state.customModels[0].membri.length, 1, "il pezzo gonfiato resta fuori");
+    ok(msg.some(([m, err]) => /1 pezzo troppo grande non è entrato nel modello\./.test(m) && err), "e lo dice: " + JSON.stringify(msg));
+    msg.length = 0; ok1.nota = "y".repeat(5000);
+    A.custSalvaComeModello(base.id);
+    ok(msg.some(([m]) => /2 pezzi troppo grandi non sono entrati nel modello\./.test(m)), "al plurale");
+    msg.length = 0; delete ok1.nota; delete grosso.nota;
+    A.custSalvaComeModello(base.id);
+    ok(msg.length === 1 && !/troppo grand/.test(msg[0][0]) && !msg[0][1], "senza scarti nessuna avvertenza");
+    /* il modello automatico del primo Salva */
+    msg.length = 0; delete A.state.customModels;
+    const pz = add("cantante", 820, 330); pz.nota = "z".repeat(5000);
+    ok(A.custApriEditor({ x: 760, y: 280, w: 120, d: 100 }, true), "editor con il pezzo gonfiato dentro");
+    A.custMostraScheda({ nome: "Pedana" }); A.custSalvaDaScheda();
+    ok(msg.some(([m, err]) => /è anche fra gli «Elementi di questo progetto»[\s\S]*1 pezzo troppo grande non è entrato nel modello\./.test(m) && err), "anche al primo Salva: " + JSON.stringify(msg));
+  } finally { A.__toast = tp; }
+}));
+t("metro: le maniglie tonde agli estremi hanno il bordo da 1,6 px anche col CSS (non 1,4 delle quadrate)", () => {
+  /* .rs-handle fissa stroke-width:1.4 nel CSS e il CSS vince sull'attributo: le maniglie tonde del metro
+     (stroke-width="1.6") hanno bisogno della loro regola, più specifica */
+  reset();
+  const m = add("metro", 400, 400, { w: 300, d: 10 });
+  A.sel = m.id; A.selSet = { [m.id]: true };
+  try {
+    const mk = A.selHandlesMarkup();
+    const tonde = mk.match(/<circle class="rs-handle[^"]*\brs-end\b[^"]*"[^>]*>/g) || [];
+    eq(tonde.length, 2, "due maniglie tonde agli estremi");
+    ok(tonde.every(c => /stroke-width="1\.6"/.test(c)), "l'attributo dice 1,6: " + tonde.join(" "));
+  } finally { A.sel = null; A.selSet = {}; reset(); }
+  const regole = [...stylesCss.matchAll(/(^|[\n}])\s*([^{}\n]*\.rs-handle[^{}\n]*)\{([^}]*)\}/g)].map(r => ({ sel: r[2].trim(), dec: r[3] }));
+  const sw = (r) => { const x = r.dec.match(/stroke-width:\s*([\d.]+)/); return x ? +x[1] : null; };
+  const base = regole.find(r => r.sel === ".rs-handle"), fine = regole.find(r => /^\.rs-handle\.rs-end$/.test(r.sel));
+  eq(base && sw(base), 1.4, "le quadrate: 1,4 px");
+  ok(fine && sw(fine) === 1.6, "le tonde del metro: una regola più specifica a 1,6 px");
+  ok(regole.filter(r => sw(r) != null && r !== base && r !== fine).length === 0, "nessun'altra regola sul bordo delle maniglie");
+});
+t("rifinitura v3: maniglie dell'editor visibili, gambo sopra la maniglia alta, riquadro sotto il nome scritto sopra", () => {
+  reset();
+  const f = { id: A.uid(), type: "custshape", k: "rect", x: 300, y: 300, w: 20, d: 10, rot: 0, stroke: "#000000", sw: 2 };
+  A.state.items.push(f); A.sel = f.id; A.selSet = { [f.id]: true };
+  const cpp = A.cmPerPx; A.cmPerPx = () => 0.02;   /* da vicino, come nell'editor su una superficie piccola: 50 px per cm */
+  try {
+    const mk = A.selHandlesMarkup();
+    const sws = (mk.match(/class="rs-handle[^"]*"[^>]*stroke-width="([^"]+)"/g) || []).map(x => x.match(/stroke-width="([^"]+)"/)[1]);
+    ok(sws.length === 8 && sws.every(v => v === "1.4"), "bordo delle maniglie in pixel di schermo (1,4), non in centimetri: " + sws.join(","));
+    ok(/\.rs-handle\{[^}]*stroke-width:1\.4;[^}]*vector-effect:non-scaling-stroke/.test(stylesCss), "e il CSS lo fissa a 1,4 px");
+    /* il gambo parte fuori dal bordo esterno (margine + mezza linea) e sopra la maniglia alta, con aria fra lei e il pomello */
+    const bh = f.d / 2 + A.selMargine(f), y1 = +mk.match(/class="rh-line" x1="0" y1="(-?[\d.e-]+)"/)[1];
+    const ky = +mk.match(/class="rh-knob" cx="0" cy="(-?[\d.e-]+)" r="(-?[\d.e-]+)"/)[1], kr = +mk.match(/class="rh-knob" cx="0" cy="(-?[\d.e-]+)" r="(-?[\d.e-]+)"/)[2];
+    const alta = mk.match(/class="rs-handle rs-t"[^>]*\sy="(-?[\d.e-]+)"/), cimaAlta = +alta[1];
+    ok(y1 <= -bh - A.hSize(6) + 1e-9, "il gambo parte sopra la maniglia alta (" + y1 + " ≤ " + (-bh - A.hSize(6)) + ")");
+    ok(cimaAlta - (ky + kr) >= A.hSize(10), "fra il pomello e la maniglia alta almeno 10 px (" + ((cimaAlta - (ky + kr)) / A.hSize(1)) + " px)");
+  } finally { A.cmPerPx = cpp; A.sel = null; A.selSet = {}; A.state.items = A.state.items.filter(x => x !== f); }
+  /* il riquadro aderente: la mezza linea delle forme entra (data-fitpad), e sotto un nome scritto sopra resta sotto le lettere */
+  const nodo = (id, bbox, fitpad) => {
+    const att = { class: "selbox" }; if (fitpad != null) att["data-fitpad"] = String(fitpad);
+    const box = { getAttribute: (k) => (k in att ? att[k] : null), setAttribute: (k, v) => { att[k] = v; }, removeAttribute: (k) => { delete att[k]; } };
+    const rg = { children: [box], getBBox: () => bbox };
+    return { firstElementChild: rg, getAttribute: (k) => (k === "data-id" ? id : null), setAttribute() {}, box: att };
+  };
+  const fr = A.aderisciRiquadro(nodo("nessuno", { x: -10, y: -5, width: 20, height: 10 }, 1));
+  ok(Math.abs(fr.y1 - (-5 - A.hSize(4) - 1)) < 1e-9, "forma con linea di 2 cm: 4 px oltre la mezza linea");
+  const b = add("custom", 400, 400, { w: 160, d: 80, cust: { nome: "Banco luci", shapes: [] } }); A.custNorm(b);
+  const ks = A._lblSchermo; A._lblSchermo = true; try { A.itemMarkup(b); } finally { A._lblSchermo = ks; }
+  const lc = A._lblCima[b.id]; ok(lc && lc.b > lc.y, "la cima e il fondo del nome sono annotati");
+  const fb = A.aderisciRiquadro(nodo(b.id, { x: -80, y: -40, width: 160, height: 80 }));
+  const atteso = Math.max(-40 - A.hSize(4), Math.min(lc.b + A.hSize(2), -40 - A.hSize(1)));
+  ok(Math.abs(fb.y1 - atteso) < 1e-9 && fb.y1 >= Math.min(lc.b, -40 - A.hSize(1)) - 1e-9, "il bordo alto del riquadro non taglia le lettere (" + fb.y1 + ", nome fino a " + lc.b + ")");
+});
+t("rifinitura 17: pannello singolo — la riga dell'elemento in cima, potenza solo nella scheda", () => {
+  ok(/<h3 id="selNome">Elemento<\/h3>\s*<!--[\s\S]*?-->\s*<div id="pCustomWrap"/.test(appHtml), "#pCustomWrap subito sotto il titolo, come nel pannello di gruppo");
+  eq(A.hasWattItem({ type: "custom" }), false, "il campo generico «Potenza (W)» non compare");
+  eq(A.custContaTesto({ cust: {} }), "Non conta nelle liste: potenza, ingressi e backline si danno con «Modifica elemento».", "e il testo dice la via giusta");
+  const mm = A.matchMedia; A.matchMedia = () => ({ matches: true, addEventListener() {}, addListener() {} });
+  try { eq(A.custContaTesto({ cust: {} }), "Non conta nelle liste: potenza, ingressi e backline si cambiano dal computer con «Modifica elemento».", "sul telefono: dove si fa"); }
+  finally { A.matchMedia = mm; }
+});
+t("rifinitura 18: Invio con zero risultati non preme «Crealo»", () => {
+  const da = A.custDisegnaArea; let chiamate = 0; A.custDisegnaArea = () => { chiamate++; return true; };
+  try {
+    const zero = finteRisultati(true);
+    eq(A.catCercaInvio(zero.ev, zero.results), false, "con «Nessun elemento trovato» Invio non fa niente");
+    eq([zero.clic, zero.prevenuto, chiamate], [[], false, 0], "«Crealo» non premuto, custDisegnaArea non chiamata");
+    const pieni = finteRisultati(false);
+    eq(A.catCercaInvio(pieni.ev, pieni.results), true, "con risultati: il primo");
+    eq(A.catCercaInvio({ key: "a", preventDefault() {} }, pieni.results), false, "un altro tasto: niente");
+  } finally { A.custDisegnaArea = da; }
+});
+t("rifinitura 22: sul telefono «Crea elemento» e «Crealo» dicono «disponibile dal computer»", () => {
+  const h = A.custCrealoHtml("videoproiettore");
+  ok(/<small class="cust-pc">«Videoproiettore», disegnato o composto in scala<\/small>/.test(h), "computer: " + h);
+  ok(/<small class="cust-tel">«Videoproiettore», disponibile dal computer<\/small>/.test(h), "telefono");
+  ok(/cust-tel">disponibile dal computer/.test(A.custCrealoHtml("")), "anche senza nome");
+  ok(A.custCrealoHtml("<b>").indexOf("<b>»") < 0, "il testo cercato passa da esc()");
+  const voce = A.__catEntries.find(e => e.nome === "Crea elemento");
+  eq(voce.telDim, "disponibile dal computer", "la voce di ricerca porta il sottotitolo del telefono");
+  ok(/if\(e\.telDim\) telefonoDice\(b, e\.telDim\);/.test(appjs), "e i risultati lo usano");
+  ok(/@media \(max-width:880px\)\{ #catalog small\.cust-pc\{display:none\} #catalog small\.cust-tel\{display:block\} \}/.test(stylesCss), "il CSS sceglie quale mostrare");
+});
+t("rifinitura 23: con la ricerca aperta, un cambio dei modelli (anche da Annulla) rifà i risultati", () => {
+  conModelli(() => {
+    reset(); A.__catCustomAggiorna();
+    const eventi = [], campo = { value: "schermo", dispatchEvent: (e) => { eventi.push(e); return true; } };
+    const d = A.document;
+    A.document = new Proxy({}, { get: (t, k) => k === "getElementById" ? (id) => (id === "catSearch" ? campo : d.getElementById(id)) : d[k] });
+    try {
+      const base = add("custom", 300, 300, { cust: { nome: "Schermo", shapes: [] } }); A.custNorm(base);
+      A.resetHistory();
+      const n0 = eventi.length;
+      A.custSalvaComeModello(base.id);   /* render() → __catCustomAggiorna(): i modelli sono cambiati */
+      ok(eventi.length > n0, "un modello nuovo: la ricerca scritta si rifà");
+      const n1 = eventi.length;
+      eq(A.__catCustomAggiorna(), false, "niente di cambiato…"); eq(eventi.length, n1, "…nessun rinfresco");
+      A.undo();
+      ok(eventi.length > n1 && !("customModels" in A.state), "Annulla toglie il modello e la ricerca si rifà");
+      ok(!A.__qaSearch("schermo").some(e => e.custModello), "e anche la ricerca rapida ha l'indice nuovo");
+      campo.value = "  "; const n2 = eventi.length; A.custSalvaComeModello(base.id);
+      eq(eventi.length, n2, "ricerca vuota: niente da rifare");
+    } finally { A.document = d; }
+  });
+});
+t("rifinitura 21: sola lettura anche da link condiviso (viewmode) e in consulenza", () => {
+  ["viewmode", "consulenza"].forEach((modo) => {
+    let base, mid;
+    conModelli(() => {
+      reset();
+      base = add("custom", 300, 300, { cust: { nome: "Schermo", shapes: [] } }); A.custNorm(base);
+      A.custSalvaComeModello(base.id); mid = A.state.customModels[0].id;
+    });
+    const prima = A.state.customModels;
+    conSolaLettura(modo, () => {
+      A.state.customModels = prima;
+      const n = A.state.items.length, json = JSON.stringify(A.state.customModels);
+      eq(A.custSolaLettura(), true, modo + ": sola lettura");
+      eq(A.custModificaElemento(base.id), false, modo + ": Modifica");
+      eq(A.custEditorAttivo(), false, modo + ": editor chiuso");
+      eq(A.custSalvaComeModello(base.id), false, modo + ": Salva come modello");
+      eq(A.custSalvaComeModello(base.id, { nuovo: true }), false, modo + ": Salva come nuovo modello");
+      eq(A.custPosaDalCatalogo(mid), false, modo + ": posa dal catalogo");
+      eq(A.custPosaDalCatalogo(mid, { x: 10, y: 10 }), false, modo + ": posa dalla ricerca rapida");
+      eq(A.custEliminaModello(mid), false, modo + ": Elimina modello");
+      eq(A.custTogliModello(mid), false, modo + ": anche il passo finale");
+      eq([A.state.items.length, JSON.stringify(A.state.customModels)], [n, json], modo + ": niente cambia");
+    });
+  });
+});
+t("Ruling 17: il primo Salva di un elemento nuovo crea anche il modello; un Annulla toglie tutti e due", () => conModelli(() => {
+  reset(); A.resetHistory();   /* la cronologia parte dal palco di questo test */
+  const msg = []; const tp = A.__toast; A.__toast = (m) => msg.push(m);
+  try {
+    ok(A.custApriEditor({ x: 300, y: 300, w: 120, d: 80 }, false), "editor aperto");
+    A.custMostraScheda({ nome: "Videoproiettore", watt: 450 });
+    const id = A.custSalvaDaScheda();
+    const base = A.state.items.find(x => x.id === id);
+    eq((A.state.customModels || []).length, 1, "un modello");
+    eq([A.state.customModels[0].nome, A.state.customModels[0].watt], ["Videoproiettore", 450], "con la scheda dell'elemento");
+    eq(base.cust.modelId, A.state.customModels[0].id, "l'elemento è legato al suo modello");
+    ok(msg.some(m => /è anche fra gli «Elementi di questo progetto»/.test(m)), "lo dice: " + msg.join(" | "));
+    A.undo();
+    ok(!A.state.items.some(x => x.id === id), "Annulla: l'elemento non c'è più");
+    eq("customModels" in A.state, false, "e nemmeno il modello (campo assente, mai [])");
+    A.redo();
+    eq([A.state.items.some(x => x.id === id), (A.state.customModels || []).length], [true, 1], "Ripeti li rimette insieme");
+    /* Modifica di un elemento già posato: nessun modello in più */
+    ok(A.custModificaElemento(id), "Modifica");
+    A.custMostraScheda({ nome: "Videoproiettore sala", watt: 450 }); A.custSalvaDaScheda();
+    eq(A.state.customModels.length, 1, "Modifica non crea modelli");
+    eq(A.state.customModels[0].nome, "Videoproiettore", "e non cambia quello che c'è");
+    eq(A.state.items.find(x => x.id === id).cust.modelId, A.state.customModels[0].id, "la copia resta legata");
+  } finally { A.__toast = tp; }
+}));
+t("Ruling 17: oltre i 50 modelli l'elemento si salva lo stesso, senza modello, e lo dice", () => conModelli(() => {
+  reset();
+  A.state.customModels = Array.from({ length: 50 }, (_, i) => ({ id: "mp" + i, nome: "P" + i, w: 20, d: 20, shapes: [], membri: [] }));
+  const msg = []; const tp = A.__toast; A.__toast = (m, err) => msg.push([m, err]);
+  try {
+    ok(A.custApriEditor({ x: 300, y: 300, w: 120, d: 80 }, false));
+    A.custMostraScheda({ nome: "Cinquantunesimo" });
+    const id = A.custSalvaDaScheda();
+    ok(A.state.items.some(x => x.id === id), "salvato");
+    eq(A.state.customModels.length, 50, "nessun modello in più");
+    eq(A.state.items.find(x => x.id === id).cust.modelId, undefined, "e nessun legame");
+    ok(msg.some(([m, err]) => /non è entrato nel catalogo/.test(m) && err), "lo dice");
+  } finally { A.__toast = tp; }
+}));
+t("Ruling 17: su una copia «Aggiorna il modello» e «Salva come nuovo modello»; senza modello «Salva come modello»", () => conPannello((P) => {
+  reset();
+  const base = add("custom", 300, 300, { w: 120, d: 80, cust: { nome: "Schermo", shapes: [] } }); A.custNorm(base);
+  A.custPannello("p", base);
+  eq([P.pCustModello.textContent, P.pCustModelloNuovo.hidden], ["Salva come modello", true], "senza modello: un'azione sola");
+  A.custSalvaComeModello(base.id);
+  const mid = A.state.customModels[0].id;
+  const copia = A.custPosaDalCatalogo(mid)[0];
+  ["p", "grp"].forEach((pre) => {
+    A.custPannello(pre, copia);
+    eq([P[pre + "CustModello"].textContent, P[pre + "CustModelloNuovo"].hidden], ["Aggiorna il modello", false], pre + ": due azioni distinte");
+  });
+  /* «Aggiorna il modello»: sovrascrive quello di partenza (stesso id) */
+  copia.watt = 900;
+  P.pCustModello.onclick();
+  eq([A.state.customModels.length, A.state.customModels[0].id, A.state.customModels[0].watt], [1, mid, 900], "aggiornato, non duplicato");
+  /* «Salva come nuovo modello»: un modello in più, nome libero, la copia ci si aggancia */
+  P.pCustModelloNuovo.onclick();
+  eq(A.state.customModels.map(m => m.nome), ["Schermo", "Schermo (2)"], "nome univoco");
+  eq(copia.cust.modelId, A.state.customModels[1].id, "la copia ora è del modello nuovo");
+  eq(base.cust.modelId, mid, "l'originale resta col suo");
+  ok(/id="pCustModelloNuovo"[^>]*>Salva come nuovo modello</.test(appHtml) && /id="grpCustModelloNuovo"[^>]*>Salva come nuovo modello</.test(appHtml), "nei due pannelli");
+}));
+t("Ruling 16: «Elimina modello» con conferma: le copie restano, il legame no; l'ultimo toglie il campo; un Annulla", () => conModelli(() => {
+  reset(); A.resetHistory();
+  const base = add("custom", 300, 300, { cust: { nome: "Schermo", shapes: [] } }); A.custNorm(base);
+  A.custSalvaComeModello(base.id);
+  const mid = A.state.customModels[0].id, copia = A.custPosaDalCatalogo(mid)[0];
+  const domande = []; const ch = A.custChiedi;
+  A.custChiedi = (tit, testo, bottoni, cb, cls) => { domande.push({ tit, testo, bottoni, cls }); cb(0); };
+  try {
+    ok(A.custEliminaModello(mid), "chiede");
+    eq([domande[0].tit, domande[0].testo], ["Eliminare il modello «Schermo»?", "Le copie già posate restano."], "la domanda giusta");
+    eq(domande[0].bottoni, ["Annulla", "Elimina"]); eq(domande[0].cls[1], "danger-solid", "Elimina in rosso, il fuoco su Annulla");
+    eq(A.state.customModels.length, 1, "«Annulla»: niente cambia");
+    A.custChiedi = (tit, testo, bottoni, cb) => cb(1);
+    ok(A.custEliminaModello(mid));
+  } finally { A.custChiedi = ch; }
+  eq("customModels" in A.state, false, "l'ultimo modello: il campo sparisce (mai [])");
+  ok(A.state.items.some(x => x.id === copia.id) && A.state.items.some(x => x.id === base.id), "le copie restano sul palco");
+  ok(A.state.items.filter(x => x.type === "custom").every(x => !("modelId" in x.cust)), "senza il legame");
+  A.undo();
+  eq((A.state.customModels || []).map(m => m.id), [mid], "un Annulla lo rimette");
+  eq(A.state.items.find(x => x.id === copia.id).cust.modelId, mid, "col legame delle copie");
+  ok(/cust-voce-elimina/.test(appjs) && /aria-label", "Elimina il modello «"\+m\.nome\+"»"/.test(appjs), "un bottone suo accanto alla voce, con il nome per chi non vede");
+  /* con l'editor aperto: si ferma e lo dice */
+  const msg = []; const tp = A.__toast; A.__toast = (m) => msg.push(m);
+  try { ok(A.custApriEditor({ x: 700, y: 300, w: 100, d: 100 }, false)); eq(A.custEliminaModello(mid), false, "fermo nell'editor"); eq(msg, [A.custEditorMsg()]); A.custEsci(false); }
+  finally { A.__toast = tp; }
+}));
+t("Ruling 16: nomi dei modelli univoci, anche nei file vecchi", () => conModelli(() => {
+  const s = A.normalizeState({ _v: 5, stage: { w: 1200, d: 800 }, items: [], customModels: [
+    { id: "ma", nome: "Leggio", w: 50, d: 50, shapes: [], membri: [] }, { id: "mb", nome: "Leggio", w: 50, d: 50, shapes: [], membri: [] },
+    { id: "mc", nome: "Leggio", w: 50, d: 50, shapes: [], membri: [] }, { id: "md", nome: "Leggio (2)", w: 50, d: 50, shapes: [], membri: [] } ] });
+  eq(s.customModels.map(m => m.nome), ["Leggio", "Leggio (3)", "Leggio (4)", "Leggio (2)"], "i nomi scritti restano (anche «Leggio (2)»), i doppioni prendono il primo numero libero");
+  eq(A.normalizeState(JSON.parse(JSON.stringify(s))).customModels.map(m => m.nome), ["Leggio", "Leggio (3)", "Leggio (4)", "Leggio (2)"], "e una seconda apertura non cambia niente");
+  const lungo = "L".repeat(60);
+  eq(A.custNomeModelloLibero(lungo, [{ id: "x", nome: lungo }]), "L".repeat(56) + " (2)", "entro i 60 caratteri");
+  eq(A.custNomeModelloLibero("A", [{ id: "x", nome: "A" }], "x"), "A", "il modello che si aggiorna non fa concorrenza a sé stesso");
+  /* «Salva come modello» su un elemento che ha il nome di un modello che c'è già */
+  reset();
+  const a = add("custom", 300, 300, { cust: { nome: "Pedana", shapes: [] } }); A.custNorm(a);
+  const b = add("custom", 600, 300, { cust: { nome: "Pedana", shapes: [] } }); A.custNorm(b);
+  A.custSalvaComeModello(a.id); A.custSalvaComeModello(b.id);
+  eq(A.state.customModels.map(m => m.nome), ["Pedana", "Pedana (2)"], "dal pannello");
+}));
+t("Ruling 16: i modelli anche nella ricerca rapida del doppio clic, posati nel punto del clic", () => conModelli(() => {
+  reset();
+  const base = add("custom", 300, 300, { w: 120, d: 80, cust: { nome: "Proiettore sala", shapes: [] } }); A.custNorm(base);
+  const mic = add("cantante", 330, 310); base.grp = mic.grp = "gQ";
+  A.custSalvaComeModello(base.id); A.__catCustomAggiorna();
+  ok(A.__qaSearch("proiettore sala").some(e => e.nome === "Proiettore sala"), "la ricerca rapida lo trova");
+  const nuovi = A.custPosaDalCatalogo(A.state.customModels[0].id, { x: 777.4, y: 333 });
+  eq([nuovi[0].x, nuovi[0].y], [777, 333], "la copia nel punto del doppio clic");
+  eq([nuovi[1].x, nuovi[1].y], [807, 343], "con il suo pezzo al posto giusto");
+  ok(/if\(e\.custModelloId\)\{ custPosaDalCatalogo\(e\.custModelloId, sp2\); \}/.test(appjs), "la scelta nella finestrella passa il punto");
+  ok(A.custApriEditor({ x: 700, y: 500, w: 100, d: 100 }, false));
+  eq(A.__qaSearch("proiettore sala").some(e => e.nome === "Proiettore sala"), false, "dentro l'editor no");
+  A.custEsci(false);
+  delete A.state.customModels; A.__catCustomAggiorna();
+  eq(A.__qaSearch("proiettore sala").some(e => e.nome === "Proiettore sala"), false, "tolto il modello, sparisce anche da lì");
+}));
+/* ===== Crea elemento — correzioni della revisione finale (13/10/2026): C1, I1–I4, M1–M8 ===== */
+/* C1 — i legami degli inclusi verso elementi rimasti FUORI dal rettangolo. Il palco temporaneo contiene solo gli inclusi e
+   normalizeState toglieva i riferimenti verso gli assenti: al Salva il progetto vero li perdeva (e a ogni Modifica+Salva). */
+const C1_R = { x: 300, y: 300, w: 120, d: 80 };   /* dentro: (350,330); fuori: (800,600) e dintorni */
+function c1Casi() {
+  return [
+    { nome: "cantante con il wedge d'ascolto fuori",
+      items: [{ id: "i901", type: "wedge", x: 800, y: 600 }, { id: "i902", type: "cantante", x: 350, y: 330, ascolto: "wedge", ascoltoId: "i901" }],
+      dentro: ["i902"],
+      verifica: (by) => { eq([by.i902.ascolto, by.i902.ascoltoId], ["wedge", "i901"], "l'ascolto del cantante"); } },
+    { nome: "radiomicrofono con il ricevitore fuori",
+      items: [{ id: "i911", type: "rxrf", x: 800, y: 600 }, { id: "i912", type: "wireless", x: 350, y: 330, rxId: "i911", rxCh: 2 }],
+      dentro: ["i912"],
+      verifica: (by) => { eq([by.i912.rxId, by.i912.rxCh], ["i911", 2], "il ricevitore e il canale del radiomicrofono"); } },
+    { nome: "tastiera con la DI fuori",
+      items: [{ id: "i921", type: "dimono", x: 800, y: 600, diFor: "i922" }, { id: "i922", type: "tastiera", x: 350, y: 330, diId: "i921", diOff: [0, 40] }],
+      dentro: ["i922"],
+      verifica: (by) => { eq([by.i922.diId, by.i922.diOff], ["i921", [0, 40]], "la tastiera conosce la sua DI");
+        eq(by.i921.diFor, "i922", "e la DI rimasta fuori punta ancora alla tastiera (verso opposto)"); } },
+    { nome: "DI inclusa con lo strumento fuori",
+      items: [{ id: "i931", type: "tastiera", x: 800, y: 600, diId: "i932", diOff: [0, 40] }, { id: "i932", type: "dimono", x: 350, y: 330, diFor: "i931" }],
+      dentro: ["i932"],
+      verifica: (by) => { eq(by.i932.diFor, "i931", "la DI inclusa punta ancora allo strumento");
+        eq(by.i931.diId, "i932", "e lo strumento rimasto fuori alla DI (verso opposto)"); } },
+    { nome: "ricevitore incluso nel rack rimasto fuori", soloModifica: true,   /* montato nel rack non sta sul palco: entra solo come pezzo del gruppo */
+      items: [{ id: "i941", type: "rack", x: 800, y: 600 }, { id: "i942", type: "rxrf", x: 800, y: 600, rackId: "i941", rackPos: 0 },
+        { id: "i943", type: "rxrf", x: 350, y: 330, rackId: "i941", rackPos: 1 }],
+      dentro: ["i943"],
+      verifica: (by) => { eq([by.i943.rackId, by.i943.rackPos], ["i941", 1], "il posto nel rack");
+        eq([by.i942.rackId, by.i942.rackPos], ["i941", 0], "l'altro apparecchio del rack non si muove"); } },
+  ];
+}
+function c1Palco(caso) {
+  reset();
+  A.state.items = JSON.parse(JSON.stringify(caso.items));
+  A.applyVariantState(JSON.parse(A.stateToJSON()));   /* stato normalizzato: i legami sono validi (i bersagli ci sono) */
+  A.ensureItemIds(); A.save();
+  const by = Object.fromEntries(A.state.items.map((x) => [x.id, x]));
+  caso.verifica(by);   /* controprova: prima dell'editor i legami ci sono */
+}
+const c1By = () => Object.fromEntries(A.state.items.map((x) => [x.id, x]));
+const c1Scheda = { nome: "Postazione", desc: "", watt: null, ins: null, backline: false };
+t("C1: Salva tiene i legami degli inclusi verso gli elementi rimasti fuori (ascolto, RF, DI nei due versi)", () => conModelli(() => {
+  for (const caso of c1Casi().filter((c) => !c.soloModifica)) {
+    c1Palco(caso);
+    ok(A.custEditorApri(C1_R, { includi: true }), caso.nome + ": aperto");
+    eq(A.state.items.map((x) => x.id).sort(), caso.dentro.slice().sort(), caso.nome + ": nell'editor solo gli inclusi");
+    const id = A.custEditorSalva(c1Scheda);
+    const by = c1By();
+    ok(id && by[id], caso.nome + ": salvato");
+    caso.dentro.forEach((d) => ok(by[d] && by[d].grp === by[id].grp, caso.nome + ": l'incluso tiene il suo id ed è nel gruppo"));
+    try { caso.verifica(by); } catch (e) { throw new Error(caso.nome + " (Salva): " + e.message); }
+  }
+}));
+t("C1: Modifica+Salva tiene i legami verso gli elementi fuori dal gruppo (anche due volte di fila, anche il posto nel rack)", () => conModelli(() => {
+  for (const caso of c1Casi()) {
+    c1Palco(caso);
+    /* un elemento personalizzato già posato, con l'incluso nel suo gruppo e i legami intatti */
+    const base = add("custom", 360, 340, { w: 120, d: 80, cust: { nome: "Postazione", shapes: [] } }); A.custNorm(base);
+    base.grp = "gC1"; caso.dentro.forEach((d) => { A.state.items.find((x) => x.id === d).grp = "gC1"; });
+    A.save();
+    for (let giro = 1; giro <= 2; giro++) {
+      ok(A.custEditorApri(null, { baseId: base.id }), caso.nome + ": Modifica aperta");
+      const id = A.custEditorSalva(c1Scheda);
+      eq(id, base.id, caso.nome + ": stessa base");
+      try { caso.verifica(c1By()); } catch (e) { throw new Error(caso.nome + " (Modifica+Salva, giro " + giro + "): " + e.message); }
+    }
+  }
+}));
+t("C1: Salva, poi Modifica+Salva sullo stesso elemento: i legami restano a ogni passaggio", () => conModelli(() => {
+  for (const caso of c1Casi().filter((c) => !c.soloModifica)) {
+    c1Palco(caso);
+    ok(A.custEditorApri(C1_R, { includi: true }));
+    const id = A.custEditorSalva(c1Scheda);
+    ok(A.custEditorApri(null, { baseId: id }), caso.nome + ": Modifica");
+    A.custEditorSalva(c1Scheda);
+    try { caso.verifica(c1By()); } catch (e) { throw new Error(caso.nome + " (Salva → Modifica → Salva): " + e.message); }
+  }
+}));
+t("C1: una scelta fatta nell'editor resta sua; un incluso cancellato nell'editor non lascia riferimenti appesi fuori", () => conModelli(() => {
+  /* il cantante prende un altro ascolto nell'editor: non si rimette il wedge di prima */
+  const [ascolto, , tastiera] = c1Casi();
+  c1Palco(ascolto);
+  ok(A.custEditorApri(C1_R, { includi: true }));
+  A.state.items.find((x) => x.id === "i902").ascolto = "iem";
+  A.custEditorSalva(c1Scheda);
+  let by = c1By();
+  eq([by.i902.ascolto, by.i902.ascoltoId], ["iem", undefined], "l'ascolto scelto nell'editor");
+  /* la tastiera cancellata nell'editor: la DI rimasta fuori non punta a un id che non c'è più */
+  c1Palco(tastiera);
+  ok(A.custEditorApri(C1_R, { includi: true }));
+  A.state.items = A.state.items.filter((x) => x.id !== "i922");
+  A.state.items.push({ id: A.uid(), type: "custshape", k: "rect", x: 60, y: 40, w: 100, d: 60, rot: 0, fill: "#334455", stroke: "#000000", sw: 1 });
+  A.custEditorSalva(c1Scheda);
+  by = c1By();
+  eq(by.i922, undefined, "la tastiera non c'è più");
+  ok(by.i921 && by.i921.diFor === undefined, "la DI resta, libera");
+}));
+
+/* I1 — Annulla rimette lo stato ESATTO: prima un progetto senza production.asked usciva dall'editor con asked:false */
+t("I1: Annulla dell'editor rimette lo stato com'era, byte per byte (niente campi di serie aggiunti)", () => conEditor(() => {
+  reset();
+  add("cantante", 350, 330);
+  delete A.state.production;   /* un progetto mai passato da Esporta: niente production */
+  A.state.lights = { rows: [], blackout: null, mood: "" };   /* non normalizzato (senza notes) */
+  const prima = A.stateToJSON();
+  ok(A.custEditorApri(C1_R, { includi: true }), "aperto");
+  A.custEditorAnnulla();
+  eq(A.stateToJSON(), prima, "lo stato serializzato è identico, chiavi e ordine compresi");
+  ok(!("production" in A.state), "production non nasce");
+}));
+
+/* I2 — la copia di un modello posata vicino a un bordo resta tutta sul palco */
+t("I2: un modello posato dalla ricerca rapida vicino a un angolo resta dentro il palco (base e pezzi)", () => conModelli(() => {
+  reset();
+  A.state.customModels = [A.custModelNorm({ id: "mq1", nome: "Pedana", w: 350, d: 310, shapes: [], membri: [{ type: "cantante", dx: 150, dy: -120, rot: 90 }] })];
+  const dentro = (its) => its.every((it) => {
+    const t = A.itemTypeDef(it) || {}, w = +it.w || t.w, d = +it.d || t.d;   /* un pezzo senza misure ha quelle del suo tipo */
+    const r = (it.rot || 0) * Math.PI / 180, c = Math.abs(Math.cos(r)), s = Math.abs(Math.sin(r));
+    const hw = (w * c + d * s) / 2, hd = (w * s + d * c) / 2;
+    return it.x - hw >= -0.5 && it.y - hd >= -0.5 && it.x + hw <= A.state.stage.w + 0.5 && it.y + hd <= A.state.stage.d + 0.5;
+  });
+  for (const p of [{ x: 5, y: 5 }, { x: 1195, y: 795 }, { x: 5, y: 795 }, { x: 1195, y: 5 }]) {
+    const nuovi = A.custPosaDalCatalogo("mq1", p);
+    ok(nuovi && nuovi.length === 2, "posato");
+    ok(dentro(nuovi), "doppio clic a (" + p.x + "," + p.y + "): tutto dentro — " + nuovi.map((x) => [x.type, x.x, x.y, x.w, x.d, x.rot].join(" ")).join(" | "));
+  }
+  /* lontano dai bordi la copia va dove si è cliccato */
+  const n = A.custPosaDalCatalogo("mq1", { x: 600, y: 400 });
+  eq([n[0].x, n[0].y], [600, 400], "al centro: nel punto del clic");
+  /* un modello più grande del palco si centra */
+  A.state.stage = { w: 300, d: 200, blocks: [{ x: 0, y: 0, w: 300, d: 200 }] };
+  const g = A.custPosaDalCatalogo("mq1", { x: 5, y: 5 });
+  const b = A.custIngombroModello(A.state.customModels[0]);
+  eq([g[0].x, g[0].y], [Math.round(150 - (b.x0 + b.x1) / 2), Math.round(100 - (b.y0 + b.y1) / 2)], "più grande del palco: centrato");
+}));
+
+/* I3 — uscita dall'account in un'altra scheda con l'editor aperto */
+t("I3: uscita dall'account da un'altra scheda con l'editor aperto: si chiude senza rimettere il progetto dell'account", () => conUscitaSandbox(() => {
+  A.loadDoc({ titolo: "Progetto dell'account", items: [{ id: "i1", type: "cantante", x: 350, y: 330 }], inputs: [], outputs: [] });
+  ok(A.custEditorApri(C1_R, { includi: true }), "editor aperto");
+  eq(A.uscitaDaAltraScheda(), true, "gestito");
+  eq(A.custEditorAttivo(), false, "l'editor è chiuso");
+  eq([A.state.titolo, A.state.items.length], ["", 0], "progetto vuoto");
+  /* «Inizia senza account», poi Annulla o Salva: niente torna */
+  A.custEditorAnnulla();
+  eq(A.custEditorSalva(c1Scheda), null, "Salva non fa niente");
+  eq([A.state.titolo, A.state.items.length], ["", 0], "il progetto dell'account non torna");
+  ok(!/Progetto dell'account/.test(A.docToJSON()), "né nel documento che si salverebbe");
+}));
+
+/* I4 — conflitto fra schede con l'editor aperto: il punto di ripristino del progetto vero non si perde */
+t("I4: conflitto fra schede a editor aperto: il punto di ripristino del progetto vero nasce alla chiusura dell'editor", () => conEditor(() => {
+  /* un archivio del browser finto (Map) e i blocchi spenti: così saveVersion scrive davvero */
+  const store = new Map(), salva = {}, nomi = ["localStorage", "__cloud", "__localConflict", "__localStorageUnavailable", "__docLoadBlocked", "__bootVenueUnavailable"];
+  nomi.forEach((k) => { salva[k] = [Object.prototype.hasOwnProperty.call(A, k), A[k]]; });
+  A.localStorage = { get length() { return store.size; }, key: (i) => [...store.keys()][i] ?? null,
+    getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => { store.set(k, String(v)); }, removeItem: (k) => { store.delete(k); } };
+  A.__cloud = { currentId: () => null, user: () => null };
+  A.__localStorageUnavailable = false; A.__docLoadBlocked = null; A.__bootVenueUnavailable = false;
+  const versioni = () => JSON.parse(store.get(A.VER_KEY) || "[]");
+  try {
+    reset();
+    add("cantante", 350, 330, { label: "Voce vera" });
+    A.save();
+    A.__localConflict = false; A.localConflictWarned = false;
+    const prima = versioni().length;
+    ok(A.custEditorApri(C1_R, { includi: true }), "aperto");
+    A.state.items.push({ id: A.uid(), type: "custshape", k: "rect", x: 60, y: 40, w: 100, d: 60, rot: 0, fill: "#334455", stroke: "#000000", sw: 1 });
+    A.markLocalConflict();
+    eq(versioni().length, prima, "a editor aperto nessuna versione del palco temporaneo");
+    A.custEditorAnnulla();
+    const rows = versioni();
+    eq(rows.length, prima + 1, "alla chiusura il punto di ripristino c'è");
+    ok(/^Conflitto tra schede/.test(rows[0].name), "è quello del conflitto: " + rows[0].name);
+    ok(/Voce vera/.test(rows[0].data) && !/custshape/.test(rows[0].data), "con il progetto vero, senza forme dell'editor");
+    A.custEditorApri(C1_R, { includi: true }); A.custEditorAnnulla();
+    eq(versioni().length, prima + 1, "una volta sola");
+  } finally {
+    A.localConflictWarned = false;
+    nomi.forEach((k) => { if (salva[k][0]) A[k] = salva[k][1]; else delete A[k]; });
+  }
+}));
+
+/* M1 — chiudere o ricaricare con un disegno non salvato chiede conferma */
+t("M1: con un disegno non salvato nell'editor, chiudere o ricaricare la pagina chiede conferma", () => conCampi(() => {
+  const flag = ["__localConflict", "__localStorageUnavailable", "__docLoadBlocked"];
+  const had = flag.map((k) => [Object.prototype.hasOwnProperty.call(A, k), A[k]]);
+  /* i tre motivi di sempre spenti subito prima di chiedere: nel sandbox il salvataggio locale può accendere il conflitto */
+  const chiede = () => { flag.forEach((k) => { A[k] = false; }); return A.uscitaDaChiedere(); };
+  try {
+    reset(); add("cantante", 350, 330); A.save();
+    eq(chiede(), false, "nessun motivo: si chiude senza chiedere");
+    ok(A.custApriEditor(C1_R, true), "aperto"); A.custMostraScheda({ nome: "" });
+    eq(chiede(), false, "editor appena aperto: niente da perdere");
+    A.custNuovaForma("ell", { x: 10, y: 10 }, { x: 50, y: 30 }); A.save();
+    eq(chiede(), true, "una forma disegnata: si chiede");
+    A.custEsci(false);
+    eq(chiede(), false, "editor chiuso: niente da chiedere");
+    /* i tre motivi di sempre, ognuno da solo */
+    flag.forEach((k) => { flag.forEach((j) => { A[j] = false; }); A[k] = true; eq(A.uscitaDaChiedere(), true, k + " → si chiede"); });
+    A.__cloudNeedsFlush = () => true;
+    eq(chiede(), false, "il cloud indietro ma il locale sano: non si chiede (il lavoro è nel locale)");
+  } finally { flag.forEach((k, i) => { if (had[i][0]) A[k] = had[i][1]; else delete A[k]; }); delete A.__cloudNeedsFlush; }
+}));
+
+/* M2 — l'invio per revisione non resta «in corso» per sempre se la rete non risponde */
+const salvaManda = A.custManda;   /* quella vera: conInvio la sostituisce con una finta */
+t("M2: invio per revisione senza risposta: dopo 30 s «La rete non risponde, riprova» e l'invio si sblocca", () => conInvio((giro) => {
+  const { base } = elementoDaInviare();
+  const timer = [], stPrima = A.setTimeout, ctPrima = A.clearTimeout, fPrima = A.fetch;
+  A.setTimeout = (fn, ms) => { timer.push({ fn, ms }); return timer.length; };
+  A.clearTimeout = () => {};
+  A.fetch = () => new Promise(() => {});   /* la rete non risponde mai */
+  A.custManda = salvaManda;   /* conInvio la sostituisce: qui serve quella vera */
+  try {
+    const corpo = A.custCorpoRevisione(base, null);
+    const p = A.custManda(corpo, base.id);
+    ok(p && typeof p.then === "function", "restituisce una promessa");
+    eq(A.__custInvio, true, "in corso");
+    const t30 = timer.find((x) => x.ms === 30000);
+    ok(t30, "un tempo massimo di 30 s: " + timer.map((x) => x.ms).join(","));
+    t30.fn();
+    eq(A.__custInvio, false, "scaduto il tempo: non più in corso");
+    const d = giro.dialoghi.pop();
+    eq(d.title, "Non inviato");
+    ok(/^La rete non risponde, riprova\./.test(d.msg), "lo dice: " + d.msg);
+    ok(d.action && d.action.label === "Riprova", "con Riprova");
+    eq(base.cust.rev, undefined, "niente segno «inviato»");
+  } finally { A.setTimeout = stPrima; A.clearTimeout = ctPrima; A.fetch = fPrima; }
+}));
+/* M3 — il segno «inviato» non è un passo di Annulla; le copie non lo portano */
+t("M3: il segno «inviato» non entra nella cronologia (Annulla non lo toglie) e Duplica/Incolla non lo copiano", () => conInvio((giro) => {
+  const { base } = elementoDaInviare();
+  A.save();
+  const mic = A.state.items.find((x) => x.type === "cantante" && x.grp === base.grp);
+  mic.x += 20; A.save();   /* un passo vero da annullare */
+  const passi = A.undoStack.length;
+  eq(A.custEsitoInvio(200, { ok: true }, base.id, "Proiettore"), "ok");
+  giro.dialoghi.pop();
+  eq(A.undoStack.length, passi, "nessun passo di Annulla in più");
+  ok(A.state.items.find((x) => x.id === base.id).cust.rev, "segnato");
+  A.undo();
+  const b = A.state.items.find((x) => x.id === base.id);
+  ok(b.cust.rev && b.cust.rev.inviato, "dopo Annulla (dello spostamento) resta inviato");
+  eq(A.state.items.find((x) => x.id === mic.id).x, mic.x - 20, "e Annulla ha disfatto lo spostamento");
+  A.redo();
+  ok(A.state.items.find((x) => x.id === base.id).cust.rev, "anche dopo Ripeti");
+  /* le copie non sono state inviate */
+  A.selectOne(base.id); A.duplicateSel();
+  const dup = A.state.items.filter((x) => x.type === "custom" && x.id !== base.id && x.id !== undefined).pop();
+  ok(dup && dup.cust && !dup.cust.rev, "Duplica: la copia non è «inviata»");
+  A.selectOne(base.id); A.copySel(); A.pasteClip();
+  const inc = A.state.items.filter((x) => x.type === "custom").pop();
+  ok(inc !== dup && inc.cust && !inc.cust.rev, "Incolla: la copia non è «inviata»");
+  ok(A.state.items.find((x) => x.id === base.id).cust.rev, "l'originale resta inviato");
+}));
+
+/* M4 — incollato in un altro progetto, un elemento non resta legato a un modello diverso con lo stesso id */
+t("M4: Incolla fra progetti: il legame al modello resta solo se il modello d'arrivo è lo stesso", () => conModelli(() => {
+  reset();
+  const base = add("custom", 300, 300, { w: 120, d: 80, cust: { nome: "Pedana A", shapes: [] } }); A.custNorm(base);
+  A.custSalvaComeModello(base.id);
+  const mid = base.cust.modelId;
+  ok(mid, "legato al suo modello");
+  A.selectOne(base.id); A.copySel();
+  A.pasteClip();
+  eq(A.state.items.filter((x) => x.type === "custom").pop().cust.modelId, mid, "nello stesso progetto il legame resta");
+  /* un altro progetto: stesso id di modello, ma è un altro modello */
+  reset();
+  A.state.customModels = [A.custModelNorm({ id: mid, nome: "Altro modello", w: 200, d: 100, shapes: [], membri: [] })];
+  A.pasteClip();
+  const inc = A.state.items.filter((x) => x.type === "custom").pop();
+  ok(inc && inc.cust.nome === "Pedana A", "incollato");
+  eq(inc.cust.modelId, undefined, "non è legato al modello «Altro modello»");
+  /* un progetto senza quel modello */
+  reset(); A.pasteClip();
+  eq(A.state.items.filter((x) => x.type === "custom").pop().cust.modelId, undefined, "senza il modello: niente legame");
+}));
+
+/* M5 — dopo Salva l'elemento torna nel suo punto dell'ordine di disegno; il gruppo dell'utente */
+t("M5: dopo Salva e Modifica l'elemento resta al suo posto nell'ordine di disegno, non sopra gli altri", () => conModelli(() => {
+  reset();
+  const a = add("cantante", 800, 300), c = add("cantante", 350, 330), b = add("cantante", 800, 600);
+  A.save();
+  ok(A.custEditorApri(C1_R, { includi: true }));
+  const id = A.custEditorSalva(c1Scheda);
+  /* a parità di livello si disegna nell'ordine dell'elenco: il blocco prende il posto del primo dei suoi pezzi */
+  const el = () => A.state.items.map((x) => x.id), vis = () => A.sortedItems().map((x) => x.id);
+  eq(el(), [a.id, id, c.id, b.id], "nell'elenco: la base e il cantante incluso dove stava il cantante");
+  let o = vis();
+  ok(o.indexOf(a.id) < o.indexOf(c.id) && o.indexOf(c.id) < o.indexOf(b.id), "a video il cantante incluso resta sotto quello che gli stava sopra: " + o.join(","));
+  ok(A.custEditorApri(null, { baseId: id }));
+  A.custEditorSalva(c1Scheda);
+  eq(el(), [a.id, id, c.id, b.id], "anche dopo Modifica+Salva");
+  o = vis();
+  ok(o.indexOf(c.id) < o.indexOf(b.id), "e a video: " + o.join(","));
+}));
+t("M5: un gruppo dell'utente preso a metà dal rettangolo: gli inclusi vanno nell'elemento, chi resta fuori tiene il suo gruppo", () => conModelli(() => {
+  reset();
+  const c = add("cantante", 350, 330), f1 = add("cantante", 800, 600), f2 = add("cantante", 900, 600);
+  c.grp = f1.grp = f2.grp = "gU"; A.save();
+  ok(A.custEditorApri(C1_R, { includi: true }));
+  const id = A.custEditorSalva(c1Scheda);
+  const by = c1By();
+  ok(by[c.id].grp && by[c.id].grp === by[id].grp, "l'incluso è nel gruppo dell'elemento");
+  ok(by[id].grp !== "gU", "un gruppo suo, non quello dell'utente");
+  eq([by[f1.id].grp, by[f2.id].grp], ["gU", "gU"], "chi è rimasto fuori conserva il suo gruppo");
+}));
+
+/* M6 — i modelli non cambiano l'impronta del PDF */
+t("M6: creare o eliminare un modello non segna «modificato dopo l'ultimo PDF»", () => conModelli(() => {
+  reset();
+  const base = add("custom", 300, 300, { w: 120, d: 80, cust: { nome: "Proiettore", shapes: [] } }); A.custNorm(base);
+  add("cantante", 330, 310);
+  const f0 = A.firmaPdf(A.state);
+  A.custSalvaComeModello(base.id);
+  ok(A.state.customModels && base.cust.modelId, "modello creato e copia legata");
+  eq(A.firmaPdf(A.state), f0, "dopo «Salva come modello»: stessa impronta");
+  A.custTogliModello(base.cust.modelId);
+  eq(A.firmaPdf(A.state), f0, "dopo «Elimina modello»: stessa impronta");
+  base.cust.nome = "Proiettore grande";
+  ok(A.firmaPdf(A.state) !== f0, "controprova: cambiare il nome dell'elemento cambia l'impronta");
+}));
+
+/* M8 — tetto in byte alle forme di un modello */
+t("M8: le forme di un modello stanno sotto i 256 KB; quelle in più restano fuori e si dice", () => conModelli(() => {
+  reset();
+  const pts = Array.from({ length: 200 }, (_, i) => [Math.round(1000 * (0.5 + 0.49 * Math.cos(i / 31.83))) / 10 + 0.123456, Math.round(1000 * (0.5 + 0.49 * Math.sin(i / 31.83))) / 10 + 0.654321]);
+  const shapes = Array.from({ length: 200 }, () => ({ k: "poly", pts, stroke: "#000000", sw: 1 }));
+  const base = add("custom", 300, 300, { w: 100, d: 100, cust: { nome: "Pesante", shapes } }); A.custNorm(base);
+  eq(base.cust.shapes.length, 200, "l'elemento sul palco le tiene tutte");
+  let msg = null; const tp = A.__toast; A.__toast = (s) => { msg = s; };
+  try { A.custSalvaComeModello(base.id); } finally { A.__toast = tp; }
+  const m = A.state.customModels[0];
+  ok(A.custByte(JSON.stringify(m.shapes)) <= 262144, "forme del modello sotto i 256 KB: " + A.custByte(JSON.stringify(m.shapes)));
+  ok(m.shapes.length > 0 && m.shapes.length < 200, "in parte: " + m.shapes.length);
+  ok(new RegExp((200 - m.shapes.length) + " forme oltre il limite di grandezza").test(msg || ""), "si dice: " + msg);
+  /* lo stesso tetto su un file che arriva con un modello gonfiato */
+  const n = A.custModelNorm({ id: "mz", nome: "Z", w: 100, d: 100, shapes, membri: [] });
+  ok(A.custByte(JSON.stringify(n.shapes)) <= 262144, "anche da un file");
+  /* un modello normale non perde niente */
+  const p = A.custModelNorm({ id: "mp", nome: "P", w: 100, d: 100, shapes: shapes.slice(0, 5), membri: [] });
+  eq([p.shapes.length, A.custModelNorm.tolte], [5, 0], "sotto il tetto: tutte");
+}));
+/* ===== Crea elemento, FASE 1 del rilascio: interruttore SPENTO (14/10/2026) =====
+   L'app nuova sa aprire, disegnare, contare ed esportare gli elementi personalizzati, ma nessun punto d'ingresso permette di
+   crearne: così ogni browser ha il codice nuovo prima che un progetto con `custom` possa esistere. */
+A.custIngressiAttivi = _custIngressiOriginale;
+function conIngressiSpenti(fn) {
+  const prima = A.custIngressiAttivi, m = A.state.customModels; A.custIngressiAttivi = () => false;
+  try { return fn(); } finally { A.custIngressiAttivi = prima; if (m === undefined) delete A.state.customModels; else A.state.customModels = m; }
+}
+t("fase 1: di serie l'interruttore è SPENTO (è un letterale, non una var: il boot lo legge subito)", () => {
+  eq(A.custIngressiAttivi(), false, "spento di serie");
+  ok(/function custIngressiAttivi\(\)\{ return false; \}/.test(appjs), "una funzione che torna un letterale");
+  ok(!/var CUST_INGRESSI/.test(appjs), "nessuna var più in basso nel file");
+});
+t("fase 1: «Crea elemento» non si trova in ricerca e non si apre niente", () => conIngressiSpenti(() => {
+  reset();
+  eq(A.__spSearch("crea elemento").some(e => e.nome === "Crea elemento"), false, "la ricerca della colonna non lo propone");
+  eq(A.__spSearch("segnaposto").some(e => e.nome === "Crea elemento"), false, "nemmeno per parola chiave");
+  ok(A.__spSearch("testo libero").some(e => e.nome === "Testo libero"), "le altre voci ci sono");
+  eq(A.custDisegnaArea(""), false, "il rettangolo non parte");
+  eq(A.custApriEditor({ x: 0, y: 0, w: 100, d: 100 }, false), false, "l'editor non si apre");
+  eq(A.custEditorAttivo(), false, "editor chiuso");
+  ok(/creaBtn\.classList\.toggle\("cust-off", !on\)/.test(appjs), "il pulsante appuntato prende cust-off");
+  ok(/#catalog \.cust-crea\.cust-off\{display:none !important\}/.test(stylesCss), "…e cust-off lo nasconde");
+  ok(/function crealoBtn\(dove, testo, fondo\)\{\s*if\(!custIngressiAttivi\(\)/.test(appjs), "«Non c'è? Crealo» non si costruisce");
+}));
+t("fase 1: acceso, la stessa ricerca lo propone (controprova)", () => {
+  A.custIngressiAttivi = () => true;
+  try { ok(A.__spSearch("crea elemento").some(e => e.nome === "Crea elemento"), "acceso: c'è"); }
+  finally { A.custIngressiAttivi = _custIngressiOriginale; }
+});
+t("fase 1: il doppio clic su un elemento personalizzato non apre l'editor; Modifica, Salva come modello, Elimina e Invia non partono", () => conIngressiSpenti(() => {
+  reset(); delete A.state.customModels;
+  const base = add("custom", 300, 300, { w: 120, d: 80, cust: { nome: "Schermo", shapes: [{ k: "rect", x: 0, y: 0, w: 50, h: 30 }] } }); A.custNorm(base);
+  ok(/else if\(dcIt && dcIt\.type==="custom" && custIngressiAttivi\(\)\)/.test(appjs), "doppio clic sull'elemento: l'editor solo se i punti d'ingresso sono accesi");
+  ok(/dcIt\.type!=="forma" && custIngressiAttivi\(\) && custBaseDi\(dcIt\)/.test(appjs), "…e sui suoi pezzi");
+  eq(A.custModificaElemento(base.id), false, "Modifica non parte");
+  eq(A.custEditorAttivo(), false, "editor chiuso");
+  eq(A.custSalvaComeModello(base.id), false, "Salva come modello non scrive");
+  eq(A.custSalvaComeModello(base.id, { nuovo: true }), false, "nemmeno Salva come nuovo modello");
+  eq("customModels" in A.state, false, "nessun modello creato");
+  eq(A.custInviaRevisione(base.id), false, "Invia per revisione non parte");
+  A.state.customModels = [A.custModelNorm({ id: "mf1", nome: "Schermo", w: 120, d: 80, shapes: [], membri: [] })];
+  eq(A.custEliminaModello("mf1"), false, "Elimina modello non parte");
+  eq(A.custPosaDalCatalogo("mf1"), false, "il modello non si posa dal catalogo");
+  eq(A.state.customModels.length, 1, "il modello resta nei dati");
+}));
+t("fase 1: «Elementi di questo progetto» e le voci dei modelli non si vedono né in ricerca né nella ricerca rapida", () => conModelli(() => {
+  A.custIngressiAttivi = () => true;
+  try {
+    reset();
+    A.state.customModels = [A.custModelNorm({ id: "mf2", nome: "Proiettore sala", w: 120, d: 80, shapes: [], membri: [] })];
+    A.__catCustomAggiorna();
+    ok(A.__spSearch("proiettore sala").some(e => e.nome === "Proiettore sala"), "acceso: il modello c'è");
+    ok(A.__qaSearch("proiettore sala").some(e => e.nome === "Proiettore sala"), "acceso: anche nella ricerca rapida");
+    A.custIngressiAttivi = () => false;
+    A.__catCustomAggiorna();
+    eq(A.__spSearch("proiettore sala").some(e => e.nome === "Proiettore sala"), false, "spento: sparisce dalla ricerca della colonna");
+    eq(A.__qaSearch("proiettore sala").some(e => e.nome === "Proiettore sala"), false, "…e dalla ricerca rapida");
+    eq(A.__catEntries.some(e => e.custModello), false, "…e dall'indice");
+    eq(A.state.customModels.length, 1, "ma il modello è ancora nel progetto (si salva, si esporta)");
+    A.custIngressiAttivi = () => true;
+    A.__catCustomAggiorna();
+    ok(A.__spSearch("proiettore sala").some(e => e.nome === "Proiettore sala"), "riacceso: torna");
+  } finally { A.custIngressiAttivi = _custIngressiOriginale; }
+}));
+t("fase 1: il pannello dell'elemento mostra nome e conteggi ma nasconde Modifica, modelli e Invia", () => conModelli(() => {
+  reset();
+  const base = add("custom", 300, 300, { w: 120, d: 80, watt: 300, cust: { nome: "Schermo", shapes: [] } }); A.custNorm(base);
+  const mk = () => { const o = { hidden: false, onclick: () => {}, textContent: "", style: {} }; o.querySelector = () => o._btns; return o; };
+  const campi = {}, btns = { hidden: false };
+  const docPrima = A.document;
+  A.document = new Proxy({}, { get: (t, k) => k === "getElementById" ? (id) => {
+    if (!/^(p|grp)(CustomWrap|CustomRow|Cust)/.test(id)) return docPrima.getElementById(id);
+    return campi[id] || (campi[id] = Object.assign(mk(), { _btns: btns })); } : docPrima[k] });
+  try {
+    A.custPannello("p", base);
+    for (const k of ["pCustModifica", "pCustModello", "pCustModelloNuovo", "pCustInvia", "pCustRev", "pCustModelloHint"])
+      eq([k, campi[k].hidden, campi[k].onclick], [k, true, null], "nascosto e senza azione");
+    eq(btns.hidden, true, "il gruppo dei bottoni è nascosto");
+    eq(campi.pCustConta.textContent, "300 W", "ma cosa conta si legge");
+    ok(!/Modifica elemento/.test(campi.pCustConta.textContent), "senza rinviare a un comando che non c'è");
+    const senza = add("custom", 500, 300, { cust: { nome: "Vuoto", shapes: [] } }); A.custNorm(senza);
+    A.custPannello("p", senza);
+    eq(campi.pCustConta.textContent, "Non conta nelle liste.", "senza conteggi: nessun rinvio a «Modifica elemento»");
+    /* acceso: i bottoni tornano (controprova) */
+    A.custIngressiAttivi = () => true;
+    A.custPannello("p", base);
+    eq([campi.pCustModifica.hidden, typeof campi.pCustModifica.onclick, btns.hidden], [false, "function", false], "acceso: Modifica c'è e agisce");
+  } finally { A.document = docPrima; A.custIngressiAttivi = _custIngressiOriginale; }
+}));
+t("fase 1: un elemento personalizzato già nel progetto (JSON importato) si disegna, si muove, si ruota, conta e si esporta come prima", () => conIngressiSpenti(() => {
+  reset();
+  const doc = A.custNorm({ id: "cx1", type: "custom", x: 400, y: 300, w: 120, d: 80, watt: 250, label: "Totem",
+    cust: { nome: "Totem", shapes: [{ k: "rect", x: 0, y: 0, w: 60, h: 40, stroke: "#000000", sw: 1 }], ins: { n: 2, tipo: "linea" }, backline: true } });
+  A.state.items.push(doc);
+  const svg = A.drawCustom(doc);
+  ok(/<rect/.test(svg) && !/undefined|NaN/.test(svg), "si disegna");
+  eq(A.wattOf(doc), 250, "la potenza conta nei carichi");
+  eq(A.custInputs(doc).length, 2, "gli ingressi per le liste");
+  ok(A.isBackline(doc), "backline");
+  const x0 = doc.x; doc.x += 50; doc.rot = 90; A.render();
+  eq([doc.x - x0, doc.rot], [50, 90], "si sposta e si ruota (stato)");
+  eq(A.custModificaElemento(doc.id), false, "ma non si può riaprire nell'editor");
+  const r = A.patchList().rows.filter(x => x.itemId === doc.id);
+  eq(r.length, 2, "e finisce nella channel list");
+  ok(/Totem/.test(A.channelListCsv({ format: "excel-it" }).csv), "anche nell'export CSV");
+}));
+A.custIngressiAttivi = _custIngressiOriginale;   /* difesa: il resto dei test vede la funzione di serie */
 /* ===== «Solo pedane»: un clic dentro una pedana prende la pedana (13/10, Simone: «se sono in solo pedane e
    clicco su un'altra pedana dove sopra ci sono degli elementi, deve prendere la pedana e restare in solo
    pedane; solo un clic fuori dalle pedane torna alla vista normale») ===== */
@@ -14363,8 +16542,12 @@ t("il feedback non si porta dietro il progetto nascosto nell'indirizzo", () => {
   /* `#p=` contiene il PROGETTO INTERO compresso e `?view=`/`?t=` il token che lo apre: mandare
      `location.href` significava allegarli a ogni segnalazione, anche a chi aveva lasciato vuota la
      casella «Allega il mio progetto», mentre la riga sotto il bottone promette «dati anonimi». */
+  /* le meta stanno in metaInvio() dal 13/10 (le usa anche «Invia per revisione» di Crea elemento): si segue la chiamata */
   const corpo = appjs.slice(appjs.indexOf("function collectAndSend("), appjs.indexOf("function collectAndSend(") + 900);
-  ok(/page_url:\s*pageUrlSicuro\(\)/.test(corpo), "l'URL passa dalla ripulitura");
+  ok(/meta:\s*metaInvio\(\)/.test(corpo), "collectAndSend prende le meta da metaInvio");
+  const meta = appjs.slice(appjs.indexOf("function metaInvio("), appjs.indexOf("function metaInvio(") + 400);
+  ok(/page_url:\s*pageUrlSicuro\(\)/.test(meta), "l'URL passa dalla ripulitura");
+  eq(/page_url:\s*location\.href/.test(meta), false, "e non è più l'indirizzo grezzo (meta)");
   eq(/page_url:\s*location\.href/.test(corpo), false, "e non è più l'indirizzo grezzo");
 
   /* Non basta che la funzione esista: qui viene ESEGUITA su un indirizzo che porta un token e un
@@ -14479,9 +16662,14 @@ t("chiudere la scheda non lascia l'ultima modifica in coda", () => {
   /* la CONDIZIONE, non una finestra di caratteri dopo l'inizio della funzione: il commento sopra la
      riga è lungo, e misurare a caratteri faceva leggere al test il commento invece del codice —
      scoperto sabotando, perché il controllo restava verde col difetto rimesso. */
-  const cond = (appjs.match(/if\(!window\.__localConflict[^\n]*return;/) || [""])[0];
-  ok(cond.length > 40, "la guardia di uscita è stata trovata: " + cond);
-  eq(/__cloudNeedsFlush/.test(cond), false, "e l'avviso di uscita non si allarga a chi ha il locale sano");
+  /* dal 13/10 la guardia è una funzione: si prova il comportamento invece di leggerne il testo */
+  {
+    const fl = ["__localConflict", "__localStorageUnavailable", "__docLoadBlocked", "__cloudNeedsFlush"], had = fl.map((k) => [Object.prototype.hasOwnProperty.call(A, k), A[k]]);
+    try {
+      A.__localConflict = false; A.__localStorageUnavailable = false; A.__docLoadBlocked = null; A.__cloudNeedsFlush = () => true;
+      eq(A.uscitaDaChiedere(), false, "l'avviso di uscita non si allarga a chi ha il locale sano (cloud indietro)");
+    } finally { fl.forEach((k, i) => { if (had[i][0]) A[k] = had[i][1]; else delete A[k]; }); }
+  }
 });
 
 /* ===== L'ILLUSTRAZIONE SI DEFINISCE UNA VOLTA, MA SOLO A VIDEO (14/08) ==================== */
@@ -18238,8 +20426,23 @@ t("il riquadro di selezione sta sul disegno vero, con il tratto costante a scher
   const r = appjs.slice(appjs.indexOf("function render(){"), appjs.indexOf("function render(){") + 1500);
   ok(/reindexItemNodes\(\);\s*aderisciSelezione\(\);/.test(r), "dopo ogni ridisegno");
   ok((appjs.match(/syncMinimap\(\); aderisciSelezionePresto\(\);/g) || []).length === 2, "e dopo zoom e pizzico");
-  const h = appjs.slice(appjs.indexOf("function selHandlesMarkup(){"), appjs.indexOf("function selHandlesMarkup(){") + 1800);
-  ok(/topY=_fit \? _fit\.y1 : -bh/.test(h) && /ky=topY-hSize\(22\)/.test(h), "la maniglia di rotazione sta sul bordo del riquadro nuovo");
+  /* comportamento (non il testo della funzione): la maniglia di rotazione parte dal bordo alto del riquadro misurato
+     sul disegno (_selFit), e senza misura dal bordo del riquadro di calcolo; il pomello sta 22 px sopra */
+  reset();
+  const it = add("cantante", 400, 400);
+  ok(!A.TYPES.cantante.resizable, "un elemento senza maniglia alta di ridimensionamento (non sposta il gambo)");
+  const fit0 = A._selFit; A.sel = it.id; A.selSet = { [it.id]: true };
+  try {
+    const leggi = () => { const mk = A.selHandlesMarkup();
+      return { y1: +mk.match(/class="rh-line" x1="0" y1="(-?[\d.e-]+)"/)[1], ky: +mk.match(/class="rh-knob" cx="0" cy="(-?[\d.e-]+)"/)[1] }; };
+    A._selFit = Object.create(null); A._selFit[it.id] = { x1: -20, y1: -37, x2: 20, y2: 30 };
+    const conFit = leggi();
+    eq(conFit.y1, -37, "il gambo parte dal bordo alto del riquadro misurato");
+    ok(Math.abs(conFit.ky - (-37 - A.hSize(22))) < 1e-9, "il pomello 22 px sopra quel bordo: " + conFit.ky);
+    A._selFit = Object.create(null);
+    const senza = leggi(), bh = it.d / 2 + A.selMargine(it);
+    ok(Math.abs(senza.y1 - (-bh)) < 1e-9, "senza misura, dal bordo del riquadro di calcolo: " + senza.y1 + " contro " + (-bh));
+  } finally { A._selFit = fit0; A.sel = null; A.selSet = {}; reset(); }
 });
 
 t("la maniglia di rotazione resta della stessa misura a ogni zoom", () => {
@@ -18247,8 +20450,22 @@ t("la maniglia di rotazione resta della stessa misura a ogni zoom", () => {
   const r = stylesCss.match(/([^\n{}]*\.rot-handle \.rh-line[^\n{}]*)\{vector-effect:non-scaling-stroke\}/);
   ok(r, "i tratti della maniglia non scalano con lo zoom");
   ["rh-knob", "rh-ico", "lk-knob", "lk-arc"].forEach((k) => ok(r && r[1].indexOf("." + k) > -1, k + " compreso"));
-  const h = appjs.slice(appjs.indexOf("function selHandlesMarkup(){"), appjs.indexOf("function selHandlesMarkup(){") + 1800);
-  ok(/knob=7\*_k/.test(h) && /cmPerPx\(\)/.test(h), "e le misure della maniglia sono in pixel di schermo");
+  /* comportamento: a due zoom diversi pomello, area di presa e tratti misurano gli stessi pixel di schermo */
+  reset();
+  const it = add("cantante", 400, 400), cpp = A.cmPerPx, fit0 = A._selFit;
+  A._selFit = Object.create(null); A.sel = it.id; A.selSet = { [it.id]: true };
+  try {
+    const misura = (k) => { A.cmPerPx = () => k; const mk = A.selHandlesMarkup();
+      const num = (re) => { const m = mk.match(re); return m ? +m[1] : NaN; };
+      return { knob: num(/class="rh-knob"[^>]*\sr="(-?[\d.e-]+)"/), hit: num(/class="rh-hit"[^>]*\sr="(-?[\d.e-]+)"/),
+        lw: num(/class="rh-line"[^>]*stroke-width="(-?[\d.e-]+)"/), kw: num(/class="rh-knob"[^>]*stroke-width="(-?[\d.e-]+)"/) }; };
+    [0.5, 2].forEach((k) => {
+      const m = misura(k);
+      ok(Math.abs(m.knob / k - 7) < 1e-9, "pomello di 7 px a " + k + " cm/px: " + m.knob);
+      ok(Math.abs(m.hit / k - 14) < 1e-9, "area di presa di 14 px a " + k + " cm/px: " + m.hit);
+      ok(Math.abs(m.lw / k - 1.5) < 1e-9 && Math.abs(m.kw / k - 1.8) < 1e-9, "tratti di 1,5 e 1,8 px a " + k + " cm/px");
+    });
+  } finally { A.cmPerPx = cpp; A._selFit = fit0; A.sel = null; A.selSet = {}; reset(); }
 });
 
 t("il riquadro del passaggio del mouse è stretto come quello della selezione", () => {
