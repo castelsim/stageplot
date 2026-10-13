@@ -11044,9 +11044,13 @@ t("con la box quasi piena, cancellare fa spazio davvero", () => {
 // Prima "percussioni" era un blocco unico e immutabile; ora è componibile come batteria e timpani.
 console.log("\n— Set percussioni componibile —");
 
+// Dal 13/10/2026 il set NUOVO nasce come postazione intera (chimes, campanaccio, tavolo): questi test
+// provano il set di base, quello dei progetti salvati prima, spegnendo i pezzi nuovi.
+const soloTamburi = (p) => { Object.assign(A.parts(p), { chimes: false, campanaccio: false, piatto: false, tavolo: false }); A.drawPercussioni(p); return p; };
+
 t("il set nasce a 2 congas + bongos, con la sua misura vera", () => {
   reset();
-  const p = add("percussioni", 400, 400);
+  const p = soloTamburi(add("percussioni", 400, 400));
   eq(A.parts(p).congas, 2, "due congas di partenza");
   eq(A.parts(p).bongos, true, "e i bongos");
   const [w, d] = A.COMP.percussioni.size(p);
@@ -11056,7 +11060,7 @@ t("il set nasce a 2 congas + bongos, con la sua misura vera", () => {
 
 t("togliendo un pezzo il set si stringe, rimettendolo torna com'era", () => {
   reset();
-  const p = add("percussioni", 400, 400);
+  const p = soloTamburi(add("percussioni", 400, 400));
   const largo = p.w;
   A.parts(p).bongos = false; A.drawPercussioni(p);
   ok(p.w < largo, "senza bongos è più stretto: " + p.w + " < " + largo);
@@ -11068,7 +11072,7 @@ t("togliendo un pezzo il set si stringe, rimettendolo torna com'era", () => {
 
 t("i canali seguono i pezzi montati: niente Bongos in lista se i bongos non ci sono", () => {
   reset();
-  const p = add("percussioni", 400, 400);
+  const p = soloTamburi(add("percussioni", 400, 400));
   eq(chans(p).length, 2, "congas + bongos");
   A.parts(p).bongos = false;
   eq(chans(p).map((c) => c.name).join(","), chans(p)[0].name, "resta un canale solo");
@@ -11123,6 +11127,91 @@ t("un progetto vecchio si riapre: l'illustrazione diventa il set, senza perdere 
   eq(it.type, "percussioni", "il tipo illustrato diventa il set componibile");
   eq(it.label, "Perc", "l'etichetta resta");
   eq(it.look, undefined, "e l'aspetto orfano viene ripulito");
+});
+
+// ── POSTAZIONE DEL PERCUSSIONISTA (13/10/2026) ─────────────────────────────────────────────────
+// Simone: «nel software bisogna implementare un percussionista. Con conga, bongo, chimes, le cose da
+// percussionista». Il set componibile diventa la postazione intera; i progetti vecchi non cambiano.
+console.log("\n— Postazione del percussionista —");
+
+t("posato dal catalogo è la postazione intera: congas, bongos, chimes, campanaccio, tavolo", () => {
+  reset();
+  const p = add("percussioni", 400, 400);
+  const pp = A.parts(p);
+  eq([pp.congas, pp.bongos, pp.chimes, pp.campanaccio, pp.tavolo, pp.piatto].join(","), "2,true,true,true,true,false", "i pezzi di partenza");
+  eq(A.COMP.percussioni.name(p), "Congas ×2 + Bongos + Chimes + Campanaccio + Tavolo", "il nome dice cosa c'è");
+  const [w, d] = A.COMP.percussioni.size(p);
+  eq(p.w, w, "la misura segue i pezzi"); eq(p.d, d, "anche in profondità");
+  ok(w > 180 && w < 260, "una postazione intera sta fra 1,8 e 2,6 m: " + w + " cm");
+  eq(A.TYPES.percussioni.nome, "Percussionista", "in catalogo si chiama Percussionista");
+});
+
+t("un set salvato prima si riapre IDENTICO: i pezzi nuovi restano spenti", () => {
+  reset();
+  const s = A.normalizeState({ _v: 2, items: [{ id: "x1", type: "percussioni", x: 300, y: 300, label: "Perc", w: 122, d: 89, parts: { congas: 2, bongos: true, mus: true, stool: false } }], stage: { w: 1200, d: 800 } });
+  const it = s.items[0], pp = A.parts(it);
+  eq([pp.chimes, pp.campanaccio, pp.piatto, pp.tavolo].join(","), "false,false,false,false", "niente pezzi aggiunti di nascosto");
+  eq(A.COMP.percussioni.size(it).join("x"), "110x105", "la misura di prima (quella calcolata da main il 13/10)");
+  eq(chans(it).length, 2, "e i due canali di prima");
+});
+
+t("i pezzi non si sovrappongono fra loro, comunque si componga la postazione", () => {
+  reset();
+  const p = add("percussioni", 400, 400);
+  const box = (sl) => { const rx = sl.hw != null ? sl.hw : sl.r, ry = sl.hd != null ? sl.hd : sl.r; return [sl.x - rx, sl.y - ry, sl.x + rx, sl.y + ry]; };
+  [[0, false], [1, true], [2, true], [3, true]].forEach(([n, b]) => {
+    Object.assign(A.parts(p), { congas: n, bongos: b, chimes: true, campanaccio: true, piatto: true, tavolo: true });
+    const L = A.percSlots(A.parts(p)).map((sl) => sl.seat ? Object.assign({}, sl, { k: "percussionista", hw: 30, hd: 25 }) : sl);   // la persona: ~60 cm di spalle
+    for (let i = 0; i < L.length; i++) for (let j = i + 1; j < L.length; j++) {
+      if (L[i].k !== L[j].k && ["conga", "bongos"].indexOf(L[i].k) > -1 && ["conga", "bongos"].indexOf(L[j].k) > -1) continue;   // i tamburi: geometria di prima (il cerchio dei bongos è approssimato), qui si provano i pezzi nuovi
+      if (L[i].k === "conga" && L[j].k === "conga") continue;   // le congas si sfiorano apposta
+      const a = box(L[i]), c = box(L[j]);
+      ok(a[2] <= c[0] || c[2] <= a[0] || a[3] <= c[1] || c[3] <= a[1], n + " congas: " + L[i].k + " e " + L[j].k + " si toccano");
+    }
+  });
+});
+
+t("ogni pezzo nuovo allarga la postazione, e togliendolo si torna alla misura di prima", () => {
+  reset();
+  const p = soloTamburi(add("percussioni", 400, 400));
+  const base = p.w + "x" + p.d;
+  ["chimes", "campanaccio", "piatto", "tavolo"].forEach((k) => {
+    A.parts(p)[k] = true; A.drawPercussioni(p);
+    ok(p.w + "x" + p.d !== base, k + " cambia l'ingombro: " + p.w + "x" + p.d);
+    A.parts(p)[k] = false; A.drawPercussioni(p);
+    eq(p.w + "x" + p.d, base, "senza " + k + " si torna a " + base);
+  });
+});
+
+t("chimes, campanaccio, piatto e tavolo valgono UN panoramico, non un canale a testa", () => {
+  reset();
+  const p = add("percussioni", 400, 400);
+  A.parts(p).piatto = true;
+  const righe = chans(p).map((c) => c.name.replace(/^.* - /, "") + ":" + c.mic).join(", ");
+  eq(righe, "Congas:e904, Bongos:e904, Perc. OH:KM184", "congas, bongos e un panoramico");
+  Object.assign(A.parts(p), { chimes: false, campanaccio: false, piatto: false, tavolo: false });
+  eq(chans(p).length, 2, "senza piccoli il panoramico sparisce");
+});
+
+t("«Dividi» ridà anche chimes, campanaccio, piatto e il tavolo della sua misura", () => {
+  reset();
+  const p = add("percussioni", 400, 400); p.label = "Perc";
+  A.parts(p).piatto = true;
+  const pezzi = A.COMP.percussioni.explode(p), tipi = pezzi.map((x) => x.type);
+  ["chimes", "campanaccio", "piatto", "tavolopercussioni"].forEach((tp) => ok(tipi.indexOf(tp) > -1, tp + " fra i pezzi: " + tipi));
+  const tv = pezzi.find((x) => x.type === "tavolopercussioni");
+  eq(tv.extra && tv.extra.w + "x" + tv.extra.d, "80x40", "il tavolo resta quello piccolo della postazione");
+  ok(pezzi.every((x) => !x.label || x.label.indexOf("Perc") === 0), "ogni pezzo porta il nome del set");
+});
+
+t("i chimes esistono anche da soli: in catalogo, si trovano, nascono panoramici", () => {
+  reset();
+  ok(A.TYPES.chimes && A.TYPES.chimes.catalog !== false, "in catalogo");
+  const c = add("chimes", 300, 300);
+  ok(c.w > 50 && c.w < 80, "una barra da ~60 cm: " + c.w);
+  eq(chans(c).length, 0, "nasce senza canale, come le altre piccole percussioni");
+  c.miking = "close"; eq(chans(c)[0].mic, "KM184", "da vicino: un condensatore");
+  ok(qaKeys("mark tree").indexOf("chimes") > -1, "«mark tree» trova i chimes");
 });
 
 // ── PICCOLE PERCUSSIONI (30/07, blocco B) ──────────────────────────────────────────────────────
