@@ -16909,7 +16909,13 @@ svg.addEventListener("pointerdown", function(e){
         inlineTextEdit(dcId);
       }
       else if(isMobile()){ document.body.classList.add("props-expanded"); }
-      else { var inp=document.getElementById("pLabel"); if(inp){ inp.focus(); inp.select(); } } }
+      else {
+        /* Il nome, pronto da riscrivere (13/10): il focus da solo non bastava. Come per il testo qui sopra,
+           la default action del mousedown che segue questo pointerdown lo riportava sul BODY: alla fine del
+           doppio clic il campo non era più attivo e scrivere non andava da nessuna parte. preventDefault
+           sul pointerdown sopprime i mousedown/mouseup di compatibilità; il dito non passa di qui. */
+        e.preventDefault();
+        var inp=document.getElementById("pLabel"); if(inp){ inp.focus(); inp.select(); } } }
     else if(!isMobile()){
       var _sp2=svgPoint(e);
       /* IL VUOTO È VUOTO, ANCHE SOPRA LA PLANIMETRIA (Simone 31/07): «se c'è la planimetria devo

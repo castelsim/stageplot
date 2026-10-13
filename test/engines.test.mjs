@@ -7501,6 +7501,19 @@ t("Solo pedane: il clic ripetuto passa fra le pedane sovrapposte, non a chi ci s
   eq(A.soloOn("pedane"), true, "e la vista resta accesa");
 }));
 
+t("doppio clic su un elemento (computer): il nome resta col focus, il mousedown che segue non lo porta via", () => {
+  /* 13/10, trovato nel browser vero: focus() + select() c'erano, ma alla fine del gesto document.activeElement
+     era il BODY — la default action del mousedown dopo il pointerdown spostava il focus. Come per il testo
+     inline, preventDefault sul pointerdown prima di dare il focus al nome. */
+  const m = appjs.match(/else if\(isMobile\(\)\)\{ document\.body\.classList\.add\("props-expanded"\); \}\s*else \{([\s\S]*?)\} \} \}/);
+  ok(m, "il ramo del doppio clic che va al nome c'è");
+  const corpo = m[1].replace(/\/\*[\s\S]*?\*\//g, "");
+  ok(/e\.preventDefault\(\);\s*var inp=document\.getElementById\("pLabel"\); if\(inp\)\{ inp\.focus\(\); inp\.select\(\);/.test(corpo),
+    "preventDefault prima di focus() e select() sul nome: " + corpo.trim().slice(0, 160));
+  ok(/e\.preventDefault\(\);\s*inlineTextEdit\(dcId\);/.test(appjs), "il testo e la forma restano col loro editor sul palco");
+  ok(/else if\(isMobile\(\)\)\{ document\.body\.classList\.add\("props-expanded"\); \}/.test(appjs), "sul telefono si apre ancora il foglio");
+});
+
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");
