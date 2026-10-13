@@ -7461,6 +7461,42 @@ t("elemento personalizzato: non si specchia (i testi uscirebbero a rovescio)", (
   const s = A.normalizeState({ _v: 5, stage: { w: 1200, d: 800 }, items: [{ id: "c5", type: "custom", x: 1, y: 1, w: 120, d: 80, mir: true }] });
   eq(s.items[0].mir, undefined, "mir scartato al caricamento");
 });
+t("elemento personalizzato: conta nei carichi, nella channel list e in backline", () => {
+  reset();
+  add("dm3", 900, 300);
+  const c = add("custom", 300, 300, { w: 120, d: 80, watt: 900, cust: { nome: "Videoproiettore", shapes: [], ins: { n: 2, tipo: "linea" }, backline: true } });
+  A.custNorm(c);
+  A.__elecRes = null; A.__cabRes = null;
+  const carico = A.loadList().rows.find(r => r.loadId === c.id);
+  ok(carico && carico.w === 900, "900 W nella Lista carichi");
+  eq(A.loadName(c), "Videoproiettore", "il carico si chiama come l'elemento, senza « · Elemento personalizzato»");
+  eq(A.cabItemInputs(c).map(x => x.name), ["Videoproiettore 1", "Videoproiettore 2"], "due ingressi linea");
+  eq(A.cabItemInputs(c).map(x => x.mic), ["DI", "DI"], "linea = DI da prevedere");
+  ok(A.isAudioSource(c), "è una sorgente audio");
+  ok(A.patchList().rows.some(r => r.name === "Videoproiettore 1"), "riga in channel list");
+  ok(A.backlineList().rows.some(r => r.name === "Videoproiettore"), "riga in backline");
+});
+
+t("elemento personalizzato senza ingressi né backline non conta", () => {
+  reset();
+  const c = add("custom", 300, 300, { cust: { nome: "Segnaposto", shapes: [] } });
+  A.custNorm(c); A.__cabRes = null;
+  eq(A.cabItemInputs(c).length, 0, "nessun ingresso");
+  eq(A.isAudioSource(c), false, "non è una sorgente");
+  eq(A.backlineList().rows.some(r => r.name === "Segnaposto"), false, "non in backline");
+});
+
+t("agglomerato: gli elementi veri dentro contano da soli", () => {
+  reset();
+  add("dm3", 900, 300);
+  const base = add("custom", 300, 300, { cust: { nome: "Postazione teatro", shapes: [] } });
+  const m1 = add("cantante", 280, 290), m2 = add("cantante", 320, 290);
+  [base, m1, m2].forEach(x => { x.grp = "gT"; });
+  A.__cabRes = null;
+  const righe = A.patchList().rows.filter(r => r.itemId === m1.id || r.itemId === m2.id);
+  eq(righe.length, 2, "due voci = due righe, come posate una a una");
+});
+
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");
