@@ -11214,6 +11214,44 @@ t("i chimes esistono anche da soli: in catalogo, si trovano, nascono panoramici"
   ok(qaKeys("mark tree").indexOf("chimes") > -1, "«mark tree» trova i chimes");
 });
 
+// ── TASTIERA: LEGGIO E SGABELLO (13/10/2026) ───────────────────────────────────────────────────
+// Simone: «controllami quel problema alla tastiera. Perché mette leggio al contrario e poi io voglio
+// che ci sia anche l'opzione sgabello». Il disegno «Strumento solo» ha i tasti verso +y (da lì c'è lo
+// sgabello): il leggio a +y finiva fra i tasti e chi suona.
+console.log("\n— Tastiera: leggio e sgabello —");
+
+t("tastiera: il leggio sta OLTRE la tastiera, girato verso chi suona", () => {
+  reset();
+  const k = add("tastiera", 400, 400); k.leggio = true;
+  const mk = A.itemMarkup(k);
+  ok(mk.indexOf("translate(0,-36) rotate(180)") > -1, "leggio a −(d/2+18), girato");
+  ok(mk.indexOf("translate(0,36)") === -1, "e non più dal lato dei tasti");
+});
+
+t("stage piano «Strumento solo»: leggio dal lato opposto allo sgabello; l'illustrato non cambia", () => {
+  reset();
+  const sp = add("stagepiano", 400, 400); sp.look = "schematico"; sp.w = 138; sp.d = 42; sp.leggio = true;
+  const mk = A.itemMarkup(sp);
+  ok(mk.indexOf("translate(0,-43) rotate(180)") > -1, "schematico: leggio a −(d/2+22), girato");
+  const il = add("stagepiano", 800, 400); il.leggio = true;
+  const mi = A.itemMarkup(il);
+  ok(mi.indexOf("translate(0," + (il.d / 2 + 22) + ")") > -1, "illustrato: leggio davanti al musicista, come prima");
+});
+
+t("tastiera: lo sgabello è un'opzione, spento di partenza (le tastiere già disegnate non cambiano)", () => {
+  reset();
+  const k = add("tastiera", 400, 400);
+  eq(A.hasPanca(k), false, "appena posata, niente sgabello");
+  eq(A.sgabelliTesto(A.state.items), [], "e nessuno sgabello nel rider");
+  const senza = A.itemMarkup(k);
+  k.panca = true;
+  eq(A.hasPanca(k), true, "acceso dal pannello");
+  eq(A.sgabelliTesto(A.state.items), ["1 sgabello tastiere"], "nel rider è uno sgabello tastiere");
+  ok(A.itemMarkup(k).length > senza.length, "e si disegna");
+  const sp = add("stagepiano", 800, 400);
+  eq(A.hasPanca(sp), true, "lo stage piano lo ha di serie, come prima");
+});
+
 // ── PICCOLE PERCUSSIONI (30/07, blocco B) ──────────────────────────────────────────────────────
 // Il rischio del blocco A: dieci percussioni sul palco = dieci canali. Nessuno microfona uno shaker
 // con un canale suo — il banco si riprende con uno o due panoramici.
