@@ -7570,6 +7570,52 @@ t("il cartiglio dei progetti normali resta alto com'era", () => {
     eq(A.cartHFor("Mario Rossi · mario@esempio.it", "a4", "portrait"), 27, "e col riferimento corto");
   } finally { A.pdfTotals = t0; reset(); }
 });
+/* 13/10/2026, stage plot vero: la pagina «Note» del PDF scriveva ogni nota su una riga sola, a partire
+   da metà foglio. Oltre una sessantina di caratteri il testo usciva dal margine e poi dal foglio: la
+   nota c'era nel file ma sulla carta se ne leggeva metà. Stessa regola del cartiglio (#300): mai «…»,
+   si va a capo, e la riga dopo comincia sotto l'ultima riga della nota. */
+t("la pagina Note del PDF va a capo: una nota lunga c'è tutta, dentro il margine", () => {
+  reset();
+  const lunga = "Quattro tastiere per bambini su supporto a X, alimentate a rete: serve una ciabatta accanto e una DI stereo per tastiera, cavi jack corti";
+  ok(lunga.length > 120 && lunga.length <= A.NOTE_MAX, "la nota di prova è lunga quanto il campo permette: " + lunga.length);
+  const k = add("astamic", 300, 300, { label: "Tastiere bambini", note: lunga });
+  const altro = add("astamic", 500, 300, { label: "Leggio", note: "luce da leggio" });
+  ok(k.note === lunga && altro.note, "le note sono sugli elementi");
+  const doc = jsPdfFinto()({ format: "a4", orientation: "portrait" });
+  A.noteListPdf(doc);   /* modalità pacchetto: aggiunge la sua pagina al documento */
+  const testi = doc.pagine.slice(1).flatMap((p) => p.testi);
+  const tutto = testi.map((x) => x.t).join(" ");
+  eq(tutto.indexOf("…"), -1, "nessuna nota tagliata coi puntini");
+  lunga.split(/\s+/).forEach((p) => ok(tutto.indexOf(p) > -1, "manca «" + p + "» della nota"));
+  /* la colonna della nota è quella della sua intestazione; ogni riga ci sta, al corpo del PDF */
+  const xNota = (testi.find((x) => x.t === "Nota") || {}).x;
+  ok(xNota > 16, "intestazione «Nota» non trovata");
+  const righeNota = testi.filter((x) => x.x === xNota && x.t !== "Nota");
+  righeNota.forEach((x) => ok(x.x + A.pdfTxtW(x.t, 9.5, false) <= 194 + 1e-6, "riga oltre il margine destro: «" + x.t + "»"));
+  const dellaLunga = righeNota.filter((x) => lunga.indexOf(x.t) > -1);
+  ok(dellaLunga.length >= 2, "la nota lunga va su più righe: " + dellaLunga.length);
+  const sotto = righeNota.find((x) => x.t === "luce da leggio");
+  ok(sotto && sotto.y > Math.max(...dellaLunga.map((x) => x.y)), "la nota dopo comincia sotto l'ultima riga di quella lunga");
+  /* tante note lunghe: si passa pagina con la riga intera e l'intestazione ripetuta, niente sotto il fondo */
+  reset();
+  for (let i = 0; i < 40; i++) add("astamic", 100 + i * 20, 300, { label: "Asta " + (i + 1), note: lunga });
+  const doc2 = jsPdfFinto()({ format: "a4", orientation: "portrait" });
+  A.noteListPdf(doc2);
+  const pag = doc2.pagine.slice(1);
+  ok(pag.length >= 3, "40 note lunghe stanno su più fogli: " + pag.length);
+  pag.forEach((p, i) => {
+    ok(p.testi.some((x) => x.t === "Nota"), "foglio " + (i + 1) + " senza l'intestazione delle colonne");
+    ok(p.testi.every((x) => x.y <= 287), "foglio " + (i + 1) + ": testo sotto il fondo");
+  });
+  const parole = pag.flatMap((p) => p.testi).map((x) => x.t).join(" ").split(/\s+/);
+  eq(parole.filter((p) => p === "corti").length, 40, "ogni nota arriva fino all'ultima parola");
+  /* anteprima e link condiviso: la stessa nota per intero, in una cella che va a capo */
+  const html = A.listPreviewHtml("notelist");
+  ok(html.indexOf(A.esc(lunga)) > -1, "l'anteprima ha la nota intera");
+  ok(/<td class="a-capo">/.test(html), "la cella della nota va a capo");
+  ok(/\.pdf-list-tbl td\.a-capo\{[^}]*white-space:normal/.test(stylesCss), "manca la regola CSS che manda a capo la cella");
+  reset();
+});
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");
