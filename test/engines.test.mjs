@@ -9850,6 +9850,13 @@ t("la Lista luci del PDF va a capo come le Note, e l'anteprima anche", () => {
   eq(celle.map((c) => c.replace(/ data-w="1"/, "")), ['<td class="n">', '<td class="a-capo">', '<td class="a-capo">', "<td>", '<td class="a-capo">', '<td class="n">'], "le celle che vanno a capo");
   reset();
 });
+t("i controlli del deploy girano anche sulle PR (pr-controlli.yml = pages.yml fino alla pubblicazione)", () => {
+  const leggi = (f) => readFileSync(join(root, ".github/workflows", f), "utf8");
+  const pages = leggi("pages.yml"), pr = leggi("pr-controlli.yml");
+  const passi = (s, fine) => { const i = s.indexOf("      - uses: actions/checkout@"); const j = fine ? s.indexOf(fine) : s.length; return s.slice(i, j).trim(); };
+  eq(passi(pr), passi(pages, "      - name: Prepara la cartella pubblica (allowlist)"), "stessi passi, nello stesso ordine");
+  ok(/on:\s*\n\s*pull_request:/.test(pr), "gira sulle pull request");
+});
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");
