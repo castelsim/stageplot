@@ -1,0 +1,66 @@
+# Gli stessi controlli del deploy, ma sulle PULL REQUEST (13/10/2026).
+#
+# Perché: il deploy (pages.yml) gira dopo il merge, e un suo rosso ferma la pubblicazione in silenzio —
+# è successo il 10/09 (lint di Orchestre) e di nuovo il 13/10 (`deno lint supabase/functions`, PR #303→#304).
+# Qui girano prima del merge, così la PR si vede rossa. I passi sono COPIATI da pages.yml, job build, fino a
+# «Prepara la cartella pubblica»: se cambi i controlli là, cambiali anche qui (il test «i controlli del deploy
+# girano anche sulle PR» in test/engines.test.mjs confronta i due elenchi).
+name: Controlli PR (come il deploy)
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-controlli-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  controlli:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2
+        with:
+          deno-version: v2.7.5
+      - name: Verifica che index.html sia allineato ai sorgenti
+        run: node build.mjs --check
+      - name: Test motori frontend
+        run: node --test test/engines.test.mjs
+      - name: Test pagine della biglietteria
+        run: node --test test/biglietteria.test.mjs test/bgl-*.test.mjs
+      - name: Test funzioni condivise Supabase
+        run: deno test --lock=deno.lock --frozen supabase/functions/_shared/*.test.ts
+      - name: Type-check Edge Functions
+        run: >-
+          deno check --lock=deno.lock --frozen
+          supabase/functions/create-consultation/index.ts
+          supabase/functions/get-shared-project/index.ts
+          supabase/functions/process-consultation-notifications/index.ts
+          supabase/functions/save-shared-project/index.ts
+          supabase/functions/setup-request/index.ts
+          supabase/functions/stripe-webhook/index.ts
+          supabase/functions/submit-feedback/index.ts
+          supabase/functions/orc-respond/index.ts
+          supabase/functions/orc-notify/index.ts
+          supabase/functions/orc-request-notify/index.ts
+          supabase/functions/orc-quote-notify/index.ts
+          supabase/functions/orc-invite-notify/index.ts
+          supabase/functions/retention-purge/index.ts
+          supabase/functions/bgl-prenota/index.ts
+          supabase/functions/bgl-avvisa/index.ts
+          supabase/functions/bgl-account/index.ts
+      - name: Lint backend
+        run: deno lint supabase/functions
+      # Le suite RLS (rls*.test.mjs) hanno bisogno di un Postgres vero: girano in orchestre-rls.yml, che
+      # con ORC_RLS=1 le fa FALLIRE se il locale manca. Qui restano i test puri, che non toccano la rete.
+      - name: Test Orchestre (puri; la sicurezza sta in orchestre-rls.yml)
+        run: node --test orchestre/test/*.test.mjs
+      - name: Lint Orchestre
+        run: deno lint orchestre/src
