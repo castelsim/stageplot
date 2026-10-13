@@ -7611,9 +7611,10 @@ function conEditor(fn) {
 
 t("palco temporaneo: si apre sulla superficie, Annulla lascia il progetto identico", () => conEditor(() => {
   reset();
-  A.applyVariantState(JSON.parse(A.stateToJSON()));   /* reset() scrive `lights` senza `notes`: lo stato dell'app è sempre normalizzato */
+  /* stato NON normalizzato di proposito (revisione finale, I1): reset() scrive `lights` senza `notes`, e il ripristino
+     deve rimetterlo esattamente così — prima un passaggio dal normalizzatore nascondeva i campi aggiunti dall'editor */
   const a = add("cantante", 350, 330), b = add("sedia", 900, 600);
-  const prima = A.docToJSON();
+  const prima = A.docToJSON(), statoPrima = A.stateToJSON();
   ok(A.custEditorApri({ x: 300, y: 300, w: 120, d: 80 }, { includi: true }), "editor aperto");
   ok(A.custEditorAttivo(), "attivo");
   eq([A.state.stage.w, A.state.stage.d], [120, 80], "il palco è la superficie");
@@ -7624,6 +7625,7 @@ t("palco temporaneo: si apre sulla superficie, Annulla lascia il progetto identi
   eq(A.custEditorAttivo(), false, "chiuso");
   const canon = j => JSON.stringify(JSON.parse(j), (k, v) => (v && typeof v === "object" && !Array.isArray(v)) ? Object.fromEntries(Object.keys(v).sort().map(x => [x, v[x]])) : v);
   eq(canon(A.docToJSON()), canon(prima), "progetto identico a prima (a meno dell'ordine delle chiavi)");
+  eq(A.stateToJSON(), statoPrima, "e lo stato vivo identico byte per byte, ordine delle chiavi compreso");
 }));
 
 t("palco temporaneo: Salva rimette tutto al suo posto, raggruppato, con le forme", () => conEditor(() => {
@@ -8039,8 +8041,7 @@ t("crea elemento: Salva senza nome non salva (campo rosso e fuoco); col nome pos
   eq(campi.custNome._cls.has("err"), false, "il rosso non resta per la prossima volta");
 }));
 t("crea elemento: Annulla ed Esc lasciano il progetto identico (chiedono solo se c'è qualcosa da perdere)", () => conCampi((campi) => {
-  reset();
-  A.applyVariantState(JSON.parse(A.stateToJSON()));   /* stato normalizzato come nell'app (vedi i test del palco temporaneo) */
+  reset();   /* stato non normalizzato di proposito: il ripristino è esatto (revisione finale, I1) */
   add("cantante", 350, 330);
   A.save();
   const prima = A.stateToJSON(), undoPrima = A.undoStack.length;
@@ -8056,8 +8057,7 @@ t("crea elemento: Annulla ed Esc lasciano il progetto identico (chiedono solo se
   ok(A.custEditorAttivo(), "«Resta»: l'editor resta aperto");
   A.custEsci(false);
   eq(A.custEditorAttivo(), false, "uscito");
-  const canon = j => JSON.stringify(JSON.parse(j), (k, v) => (v && typeof v === "object" && !Array.isArray(v)) ? Object.fromEntries(Object.keys(v).sort().map(x => [x, v[x]])) : v);
-  eq(canon(A.stateToJSON()), canon(prima), "progetto identico");
+  eq(A.stateToJSON(), prima, "progetto identico, byte per byte");
   eq(A.undoStack.length, undoPrima, "cronologia identica");
   ok(/if\(e\.key==="Escape" && custEditorAttivo\(\) && !selIds\(\)\.length && !catSearching\(\)\)\{ e\.preventDefault\(\); custEsci\(true\); return; \}/.test(appjs), "Esc senza selezione = uscire (chiedendo)");
 }));
@@ -9114,6 +9114,190 @@ t("Ruling 16: i modelli anche nella ricerca rapida del doppio clic, posati nel p
   delete A.state.customModels; A.__catCustomAggiorna();
   eq(A.__qaSearch("proiettore sala").some(e => e.nome === "Proiettore sala"), false, "tolto il modello, sparisce anche da lì");
 }));
+/* ===== Crea elemento — correzioni della revisione finale (13/10/2026): C1, I1–I4 ===== */
+/* C1 — i legami degli inclusi verso elementi rimasti FUORI dal rettangolo. Il palco temporaneo contiene solo gli inclusi e
+   normalizeState toglieva i riferimenti verso gli assenti: al Salva il progetto vero li perdeva (e a ogni Modifica+Salva). */
+const C1_R = { x: 300, y: 300, w: 120, d: 80 };   /* dentro: (350,330); fuori: (800,600) e dintorni */
+function c1Casi() {
+  return [
+    { nome: "cantante con il wedge d'ascolto fuori",
+      items: [{ id: "i901", type: "wedge", x: 800, y: 600 }, { id: "i902", type: "cantante", x: 350, y: 330, ascolto: "wedge", ascoltoId: "i901" }],
+      dentro: ["i902"],
+      verifica: (by) => { eq([by.i902.ascolto, by.i902.ascoltoId], ["wedge", "i901"], "l'ascolto del cantante"); } },
+    { nome: "radiomicrofono con il ricevitore fuori",
+      items: [{ id: "i911", type: "rxrf", x: 800, y: 600 }, { id: "i912", type: "wireless", x: 350, y: 330, rxId: "i911", rxCh: 2 }],
+      dentro: ["i912"],
+      verifica: (by) => { eq([by.i912.rxId, by.i912.rxCh], ["i911", 2], "il ricevitore e il canale del radiomicrofono"); } },
+    { nome: "tastiera con la DI fuori",
+      items: [{ id: "i921", type: "dimono", x: 800, y: 600, diFor: "i922" }, { id: "i922", type: "tastiera", x: 350, y: 330, diId: "i921", diOff: [0, 40] }],
+      dentro: ["i922"],
+      verifica: (by) => { eq([by.i922.diId, by.i922.diOff], ["i921", [0, 40]], "la tastiera conosce la sua DI");
+        eq(by.i921.diFor, "i922", "e la DI rimasta fuori punta ancora alla tastiera (verso opposto)"); } },
+    { nome: "DI inclusa con lo strumento fuori",
+      items: [{ id: "i931", type: "tastiera", x: 800, y: 600, diId: "i932", diOff: [0, 40] }, { id: "i932", type: "dimono", x: 350, y: 330, diFor: "i931" }],
+      dentro: ["i932"],
+      verifica: (by) => { eq(by.i932.diFor, "i931", "la DI inclusa punta ancora allo strumento");
+        eq(by.i931.diId, "i932", "e lo strumento rimasto fuori alla DI (verso opposto)"); } },
+    { nome: "ricevitore incluso nel rack rimasto fuori", soloModifica: true,   /* montato nel rack non sta sul palco: entra solo come pezzo del gruppo */
+      items: [{ id: "i941", type: "rack", x: 800, y: 600 }, { id: "i942", type: "rxrf", x: 800, y: 600, rackId: "i941", rackPos: 0 },
+        { id: "i943", type: "rxrf", x: 350, y: 330, rackId: "i941", rackPos: 1 }],
+      dentro: ["i943"],
+      verifica: (by) => { eq([by.i943.rackId, by.i943.rackPos], ["i941", 1], "il posto nel rack");
+        eq([by.i942.rackId, by.i942.rackPos], ["i941", 0], "l'altro apparecchio del rack non si muove"); } },
+  ];
+}
+function c1Palco(caso) {
+  reset();
+  A.state.items = JSON.parse(JSON.stringify(caso.items));
+  A.applyVariantState(JSON.parse(A.stateToJSON()));   /* stato normalizzato: i legami sono validi (i bersagli ci sono) */
+  A.ensureItemIds(); A.save();
+  const by = Object.fromEntries(A.state.items.map((x) => [x.id, x]));
+  caso.verifica(by);   /* controprova: prima dell'editor i legami ci sono */
+}
+const c1By = () => Object.fromEntries(A.state.items.map((x) => [x.id, x]));
+const c1Scheda = { nome: "Postazione", desc: "", watt: null, ins: null, backline: false };
+t("C1: Salva tiene i legami degli inclusi verso gli elementi rimasti fuori (ascolto, RF, DI nei due versi)", () => conModelli(() => {
+  for (const caso of c1Casi().filter((c) => !c.soloModifica)) {
+    c1Palco(caso);
+    ok(A.custEditorApri(C1_R, { includi: true }), caso.nome + ": aperto");
+    eq(A.state.items.map((x) => x.id).sort(), caso.dentro.slice().sort(), caso.nome + ": nell'editor solo gli inclusi");
+    const id = A.custEditorSalva(c1Scheda);
+    const by = c1By();
+    ok(id && by[id], caso.nome + ": salvato");
+    caso.dentro.forEach((d) => ok(by[d] && by[d].grp === by[id].grp, caso.nome + ": l'incluso tiene il suo id ed è nel gruppo"));
+    try { caso.verifica(by); } catch (e) { throw new Error(caso.nome + " (Salva): " + e.message); }
+  }
+}));
+t("C1: Modifica+Salva tiene i legami verso gli elementi fuori dal gruppo (anche due volte di fila, anche il posto nel rack)", () => conModelli(() => {
+  for (const caso of c1Casi()) {
+    c1Palco(caso);
+    /* un elemento personalizzato già posato, con l'incluso nel suo gruppo e i legami intatti */
+    const base = add("custom", 360, 340, { w: 120, d: 80, cust: { nome: "Postazione", shapes: [] } }); A.custNorm(base);
+    base.grp = "gC1"; caso.dentro.forEach((d) => { A.state.items.find((x) => x.id === d).grp = "gC1"; });
+    A.save();
+    for (let giro = 1; giro <= 2; giro++) {
+      ok(A.custEditorApri(null, { baseId: base.id }), caso.nome + ": Modifica aperta");
+      const id = A.custEditorSalva(c1Scheda);
+      eq(id, base.id, caso.nome + ": stessa base");
+      try { caso.verifica(c1By()); } catch (e) { throw new Error(caso.nome + " (Modifica+Salva, giro " + giro + "): " + e.message); }
+    }
+  }
+}));
+t("C1: Salva, poi Modifica+Salva sullo stesso elemento: i legami restano a ogni passaggio", () => conModelli(() => {
+  for (const caso of c1Casi().filter((c) => !c.soloModifica)) {
+    c1Palco(caso);
+    ok(A.custEditorApri(C1_R, { includi: true }));
+    const id = A.custEditorSalva(c1Scheda);
+    ok(A.custEditorApri(null, { baseId: id }), caso.nome + ": Modifica");
+    A.custEditorSalva(c1Scheda);
+    try { caso.verifica(c1By()); } catch (e) { throw new Error(caso.nome + " (Salva → Modifica → Salva): " + e.message); }
+  }
+}));
+t("C1: una scelta fatta nell'editor resta sua; un incluso cancellato nell'editor non lascia riferimenti appesi fuori", () => conModelli(() => {
+  /* il cantante prende un altro ascolto nell'editor: non si rimette il wedge di prima */
+  const [ascolto, , tastiera] = c1Casi();
+  c1Palco(ascolto);
+  ok(A.custEditorApri(C1_R, { includi: true }));
+  A.state.items.find((x) => x.id === "i902").ascolto = "iem";
+  A.custEditorSalva(c1Scheda);
+  let by = c1By();
+  eq([by.i902.ascolto, by.i902.ascoltoId], ["iem", undefined], "l'ascolto scelto nell'editor");
+  /* la tastiera cancellata nell'editor: la DI rimasta fuori non punta a un id che non c'è più */
+  c1Palco(tastiera);
+  ok(A.custEditorApri(C1_R, { includi: true }));
+  A.state.items = A.state.items.filter((x) => x.id !== "i922");
+  A.state.items.push({ id: A.uid(), type: "custshape", k: "rect", x: 60, y: 40, w: 100, d: 60, rot: 0, fill: "#334455", stroke: "#000000", sw: 1 });
+  A.custEditorSalva(c1Scheda);
+  by = c1By();
+  eq(by.i922, undefined, "la tastiera non c'è più");
+  ok(by.i921 && by.i921.diFor === undefined, "la DI resta, libera");
+}));
+
+/* I1 — Annulla rimette lo stato ESATTO: prima un progetto senza production.asked usciva dall'editor con asked:false */
+t("I1: Annulla dell'editor rimette lo stato com'era, byte per byte (niente campi di serie aggiunti)", () => conEditor(() => {
+  reset();
+  add("cantante", 350, 330);
+  delete A.state.production;   /* un progetto mai passato da Esporta: niente production */
+  A.state.lights = { rows: [], blackout: null, mood: "" };   /* non normalizzato (senza notes) */
+  const prima = A.stateToJSON();
+  ok(A.custEditorApri(C1_R, { includi: true }), "aperto");
+  A.custEditorAnnulla();
+  eq(A.stateToJSON(), prima, "lo stato serializzato è identico, chiavi e ordine compresi");
+  ok(!("production" in A.state), "production non nasce");
+}));
+
+/* I2 — la copia di un modello posata vicino a un bordo resta tutta sul palco */
+t("I2: un modello posato dalla ricerca rapida vicino a un angolo resta dentro il palco (base e pezzi)", () => conModelli(() => {
+  reset();
+  A.state.customModels = [A.custModelNorm({ id: "mq1", nome: "Pedana", w: 350, d: 310, shapes: [], membri: [{ type: "cantante", dx: 150, dy: -120, rot: 90 }] })];
+  const dentro = (its) => its.every((it) => {
+    const t = A.itemTypeDef(it) || {}, w = +it.w || t.w, d = +it.d || t.d;   /* un pezzo senza misure ha quelle del suo tipo */
+    const r = (it.rot || 0) * Math.PI / 180, c = Math.abs(Math.cos(r)), s = Math.abs(Math.sin(r));
+    const hw = (w * c + d * s) / 2, hd = (w * s + d * c) / 2;
+    return it.x - hw >= -0.5 && it.y - hd >= -0.5 && it.x + hw <= A.state.stage.w + 0.5 && it.y + hd <= A.state.stage.d + 0.5;
+  });
+  for (const p of [{ x: 5, y: 5 }, { x: 1195, y: 795 }, { x: 5, y: 795 }, { x: 1195, y: 5 }]) {
+    const nuovi = A.custPosaDalCatalogo("mq1", p);
+    ok(nuovi && nuovi.length === 2, "posato");
+    ok(dentro(nuovi), "doppio clic a (" + p.x + "," + p.y + "): tutto dentro — " + nuovi.map((x) => [x.type, x.x, x.y, x.w, x.d, x.rot].join(" ")).join(" | "));
+  }
+  /* lontano dai bordi la copia va dove si è cliccato */
+  const n = A.custPosaDalCatalogo("mq1", { x: 600, y: 400 });
+  eq([n[0].x, n[0].y], [600, 400], "al centro: nel punto del clic");
+  /* un modello più grande del palco si centra */
+  A.state.stage = { w: 300, d: 200, blocks: [{ x: 0, y: 0, w: 300, d: 200 }] };
+  const g = A.custPosaDalCatalogo("mq1", { x: 5, y: 5 });
+  const b = A.custIngombroModello(A.state.customModels[0]);
+  eq([g[0].x, g[0].y], [Math.round(150 - (b.x0 + b.x1) / 2), Math.round(100 - (b.y0 + b.y1) / 2)], "più grande del palco: centrato");
+}));
+
+/* I3 — uscita dall'account in un'altra scheda con l'editor aperto */
+t("I3: uscita dall'account da un'altra scheda con l'editor aperto: si chiude senza rimettere il progetto dell'account", () => conUscitaSandbox(() => {
+  A.loadDoc({ titolo: "Progetto dell'account", items: [{ id: "i1", type: "cantante", x: 350, y: 330 }], inputs: [], outputs: [] });
+  ok(A.custEditorApri(C1_R, { includi: true }), "editor aperto");
+  eq(A.uscitaDaAltraScheda(), true, "gestito");
+  eq(A.custEditorAttivo(), false, "l'editor è chiuso");
+  eq([A.state.titolo, A.state.items.length], ["", 0], "progetto vuoto");
+  /* «Inizia senza account», poi Annulla o Salva: niente torna */
+  A.custEditorAnnulla();
+  eq(A.custEditorSalva(c1Scheda), null, "Salva non fa niente");
+  eq([A.state.titolo, A.state.items.length], ["", 0], "il progetto dell'account non torna");
+  ok(!/Progetto dell'account/.test(A.docToJSON()), "né nel documento che si salverebbe");
+}));
+
+/* I4 — conflitto fra schede con l'editor aperto: il punto di ripristino del progetto vero non si perde */
+t("I4: conflitto fra schede a editor aperto: il punto di ripristino del progetto vero nasce alla chiusura dell'editor", () => conEditor(() => {
+  /* un archivio del browser finto (Map) e i blocchi spenti: così saveVersion scrive davvero */
+  const store = new Map(), salva = {}, nomi = ["localStorage", "__cloud", "__localConflict", "__localStorageUnavailable", "__docLoadBlocked", "__bootVenueUnavailable"];
+  nomi.forEach((k) => { salva[k] = [Object.prototype.hasOwnProperty.call(A, k), A[k]]; });
+  A.localStorage = { get length() { return store.size; }, key: (i) => [...store.keys()][i] ?? null,
+    getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => { store.set(k, String(v)); }, removeItem: (k) => { store.delete(k); } };
+  A.__cloud = { currentId: () => null, user: () => null };
+  A.__localStorageUnavailable = false; A.__docLoadBlocked = null; A.__bootVenueUnavailable = false;
+  const versioni = () => JSON.parse(store.get(A.VER_KEY) || "[]");
+  try {
+    reset();
+    add("cantante", 350, 330, { label: "Voce vera" });
+    A.save();
+    A.__localConflict = false; A.localConflictWarned = false;
+    const prima = versioni().length;
+    ok(A.custEditorApri(C1_R, { includi: true }), "aperto");
+    A.state.items.push({ id: A.uid(), type: "custshape", k: "rect", x: 60, y: 40, w: 100, d: 60, rot: 0, fill: "#334455", stroke: "#000000", sw: 1 });
+    A.markLocalConflict();
+    eq(versioni().length, prima, "a editor aperto nessuna versione del palco temporaneo");
+    A.custEditorAnnulla();
+    const rows = versioni();
+    eq(rows.length, prima + 1, "alla chiusura il punto di ripristino c'è");
+    ok(/^Conflitto tra schede/.test(rows[0].name), "è quello del conflitto: " + rows[0].name);
+    ok(/Voce vera/.test(rows[0].data) && !/custshape/.test(rows[0].data), "con il progetto vero, senza forme dell'editor");
+    A.custEditorApri(C1_R, { includi: true }); A.custEditorAnnulla();
+    eq(versioni().length, prima + 1, "una volta sola");
+  } finally {
+    A.localConflictWarned = false;
+    nomi.forEach((k) => { if (salva[k][0]) A[k] = salva[k][1]; else delete A[k]; });
+  }
+}));
+
 /* ===== «Solo pedane»: un clic dentro una pedana prende la pedana (13/10, Simone: «se sono in solo pedane e
    clicco su un'altra pedana dove sopra ci sono degli elementi, deve prendere la pedana e restare in solo
    pedane; solo un clic fuori dalle pedane torna alla vista normale») ===== */
