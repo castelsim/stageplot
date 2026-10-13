@@ -9518,6 +9518,12 @@ function shapeGeom(it){
 /* Elemento personalizzato (13/10/2026): le forme arrivano da file altrui (link condivisi, JSON importati), quindi
    sono DATI controllati — tipo da un elenco chiuso, numeri finiti, colori hex — e mai grafica scritta a mano. I limiti
    stanno in una funzione: una var più in basso nel file sarebbe undefined per normalizeState all'avvio. */
+/* INTERRUTTORE DEI PUNTI D'INGRESSO (rilascio in due fasi). FASE 1: l'app nuova sa già aprire e disegnare gli elementi
+   personalizzati (dati, normalizzazione, liste, PDF), ma nessuno può ancora CREARNE: così tutti i browser hanno il codice
+   nuovo prima che un progetto con `custom` possa esistere (un'app vecchia in cache rifiuta i tipi sconosciuti,
+   UNKNOWN_ITEM_TYPE). FASE 2 (24–48 h dopo): cambiare il `false` in `true`. È una funzione che torna un letterale, non una
+   var: una var più in basso nel file sarebbe undefined per il codice di avvio (AGENTS.md §8). I test la sostituiscono. */
+function custIngressiAttivi(){ return false; }   /* FASE 1 del rilascio: metti true per la fase 2 */
 function custLimiti(){ return {NOME:60, DESC:280, TESTO:140, FORME:200, PUNTI:200, WATT:20000, INS:16, MIN:10, MEMBRO:4096, MODELLI:50, FORME_BYTE:262144}; }
 /* un numero vero: un number finito, o una stringa numerica non vuota. null (da JSON), "", true, [] NON sono 0: si scartano */
 function custNumero(v){
@@ -10055,6 +10061,7 @@ function custChiedi(titolo, testo, bottoni, cb, cls){
 
 /* ---------- 1. il rettangolo sul palco ---------- */
 function custDisegnaArea(nomePreso){
+  if(!custIngressiAttivi()) return false;   /* fase 1 del rilascio: nessuno crea ancora */
   if(isMobile()){ guideDialog({title:"Crea elemento", msg:"Si crea dal computer: sul telefono gli elementi personalizzati si vedono, si spostano ed escono nei PDF."}); return false; }
   if(custEditorAttivo()){ custEditorAvvisa(); return false; }
   if(custInvioInCorso()) return false;   /* l'invio legge ancora il palco vero (anteprima): l'editor aspetta */
@@ -10122,6 +10129,7 @@ function custChiediMisureEInclusione(area){
   }, function(){ custTogliAnteprimaArea(); });
 }
 function custApriEditor(area, incl, baseId){
+  if(!custIngressiAttivi()) return false;
   if(custInvioInCorso()) return false;
   var prima={vb:Object.assign({}, vb), utente:vistaUtente};
   if(!custEditorApri(area, baseId!=null ? {baseId:baseId} : {includi:!!incl})){ custToast("Non è stato possibile aprire l'editor: il palco non è cambiato.", true); return false; }
@@ -10157,6 +10165,7 @@ function custBaseDi(it){
 /* riapre l'editor su QUESTA copia (le altre copie e il modello non cambiano): forme, pezzi del gruppo e scheda piena.
    pezzoId: aperto dal doppio clic su un pezzo, che nell'editor si trova già selezionato. */
 function custModificaElemento(id, pezzoId){
+  if(!custIngressiAttivi()) return false;
   var it=(state.items||[]).find(function(x){ return x.id===id && x.type==="custom"; }); if(!it) return false;
   if(isMobile()){ custSoloDalComputer("Modifica elemento"); return false; }
   if(custEditorAttivo()){ custEditorAvvisa(); return false; }
@@ -10174,6 +10183,7 @@ function custModificaElemento(id, pezzoId){
    senza opzioni lo AGGIORNA («Aggiorna il modello»); con {nuovo:true} ne fa uno nuovo e ci aggancia la copia («Salva come
    nuovo modello»). Senza modello: ne fa uno («Salva come modello»). Un passo di Annulla. */
 function custSalvaComeModello(id, opz){
+  if(!custIngressiAttivi()) return false;
   if(custEditorAttivo()){ custEditorAvvisa(); return false; }
   if(custSolaLettura()) return false;
   var it=(state.items||[]).find(function(x){ return x.id===id && x.type==="custom"; }); if(!it) return false;
@@ -10191,6 +10201,7 @@ function custSalvaComeModello(id, opz){
 }
 /* «Elimina modello» (Ruling 16): dalla sua voce in «Elementi di questo progetto», con conferma. Le copie restano. */
 function custEliminaModello(mid){
+  if(!custIngressiAttivi()) return false;
   if(custEditorAttivo()){ custEditorAvvisa(); return false; }
   if(custSolaLettura()) return false;
   var m=(state.customModels||[]).find(function(q){ return q.id===mid; }); if(!m) return false;
@@ -10213,6 +10224,7 @@ function custTogliModello(mid){
 /* una copia dal catalogo: al centro della vista, in un posto libero (come addItem), selezionata tutta. punto = {x,y} del
    doppio clic sul palco vuoto (ricerca rapida): la copia va lì, come addItem con la posizione */
 function custPosaDalCatalogo(mid, punto){
+  if(!custIngressiAttivi()) return false;
   if(custEditorAttivo()){ custEditorAvvisa(); return false; }
   if(custSolaLettura()) return false;
   var m=(state.customModels||[]).find(function(q){ return q.id===mid; }); if(!m) return false;
@@ -10264,6 +10276,7 @@ function custContaTesto(it){
   if(c.ins && c.ins.n>0) p.push(c.ins.n+(c.ins.n===1 ? " ingresso " : " ingressi ")+(c.ins.tipo==="linea" ? "linea" : "microfono"));
   if(c.backline) p.push("backline");
   if(p.length) return p.join(" · ");
+  if(!custIngressiAttivi()) return "Non conta nelle liste.";   /* fase 1: «Modifica elemento» non c'è ancora */
   /* sul telefono «Modifica elemento» non c'è: si dice dove si fa */
   return isMobile() ? "Non conta nelle liste: potenza, ingressi e backline si cambiano dal computer con «Modifica elemento»."
     : "Non conta nelle liste: potenza, ingressi e backline si danno con «Modifica elemento».";
@@ -10276,6 +10289,14 @@ function custPannello(pre, base){
   var L=state.customModels||[], m=c.modelId ? L.find(function(q){ return q.id===c.modelId; }) : null;
   var d=el("Desc"); if(d){ d.textContent=c.desc||""; d.hidden=!c.desc; }
   var n=el("Conta"); if(n) n.textContent=custContaTesto(base);
+  /* fase 1 del rilascio: l'elemento si legge (nome, cosa conta) ma non si modifica, non si salva come modello, non si invia */
+  if(!custIngressiAttivi()){
+    ["Modifica","Modello","ModelloNuovo","Invia","Rev","ModelloHint"].forEach(function(k){ var x=el(k); if(x){ x.hidden=true; x.onclick=null; } });
+    var bt=w.querySelector && w.querySelector(".cust-pan-btns"); if(bt) bt.hidden=true;
+    return;
+  }
+  var bt0=w.querySelector && w.querySelector(".cust-pan-btns"); if(bt0) bt0.hidden=false;
+  ["Modifica","Modello","ModelloHint"].forEach(function(k){ var x=el(k); if(x) x.hidden=false; });
   var bm=el("Modifica"); if(bm) bm.onclick=function(){ custModificaElemento(base.id); };
   /* copia di un modello: «Aggiorna il modello» (sovrascrive quello di partenza) e «Salva come nuovo modello»; senza: «Salva come modello» */
   var bs=el("Modello"); if(bs){ bs.textContent=m ? "Aggiorna il modello" : "Salva come modello"; bs.onclick=function(){ custSalvaComeModello(base.id); }; }
@@ -10291,6 +10312,7 @@ function custPannello(pre, base){
    disegno. Serve l'accesso (la risposta torna nell'app a chi l'ha mandato) e il consenso esplicito della spec. Il
    server rifiuta «elemento» senza un utente vero (401) e scarta i campi fuori regola (_shared/feedback-validation.ts). */
 function custInviaRevisione(id){
+  if(!custIngressiAttivi()) return false;
   var it=(state.items||[]).find(function(x){ return x.id===id && x.type==="custom"; }); if(!it) return false;
   var u=window.__cloud && window.__cloud.user && window.__cloud.user();
   if(isMobile()){ custSoloDalComputer("Invia per revisione"); return false; }
@@ -19304,7 +19326,8 @@ function ricordaRecenteCatalogo(k, nome, over){
   function telefonoDice(b, testo){ var sm=b && b.querySelector("small"); if(!sm) return b; sm.classList.add("cust-pc"); sm.insertAdjacentHTML("afterend", '<small class="cust-tel">'+esc(testo)+'</small>'); return b; }
   pin.appendChild(telefonoDice(makeActionBtn("Crea elemento","disegna o componi, in scala", null, creaElemento, CUST_ICON), "disponibile dal computer"));
   pin.lastChild.classList.add("cust-no", "cust-crea");
-  entries.push({nome:"Crea elemento", dim:"disegna o componi, in scala", telDim:"disponibile dal computer", noQuick:true, custNo:true, action:creaElemento, iconHtml:CUST_ICON,
+  var creaBtn=pin.lastChild;   /* si nasconde/mostra secondo custIngressiAttivi() (vedi __catCustomAggiorna) */
+  entries.push({nome:"Crea elemento", dim:"disegna o componi, in scala", telDim:"disponibile dal computer", noQuick:true, custNo:true, custIngresso:true, action:creaElemento, iconHtml:CUST_ICON,
                 kw:"crea nuovo elemento personalizzato custom segnaposto disegna disegnare componi oggetto"});
 
   /* Ricerca permissiva (generale, nessun hardcoded): per ogni entry un indice normalizzato — minuscole
@@ -19338,6 +19361,15 @@ function ricordaRecenteCatalogo(k, nome, over){
   }
   window.__catCustomAggiorna=function(){
     var L=(typeof state!=="undefined" && state && state.customModels) || [];
+    var on=custIngressiAttivi();
+    creaBtn.classList.toggle("cust-off", !on);   /* fase 1 del rilascio: «Crea elemento» non si vede (la ricerca lo filtra in searchMatches) */
+    if(!on){   /* niente sezione né voci dei modelli: i modelli già nel progetto restano nei dati, non nel catalogo */
+      cc.hidden=true; cc.innerHTML=""; ccFirma=null; ccRif=[];
+      var tolte=false;
+      for(var j=entries.length-1; j>=0; j--) if(entries[j].custModello){ entries.splice(j, 1); tolte=true; }
+      if(tolte){ if(typeof _qaOpts!=="undefined") _qaOpts=null; try{ catRicercaRifai(); }catch(err){} }
+      return false;
+    }
     cc.hidden=!L.length;
     /* firma leggera (render gira a ogni passo di trascinamento): gli stessi oggetti, con gli stessi nomi e le stesse misure.
        Un modello aggiornato, un Annulla o un documento nuovo portano oggetti nuovi, e la sezione si rifà. */
@@ -19371,7 +19403,7 @@ function ricordaRecenteCatalogo(k, nome, over){
   function searchMatches(query){
     var nq=_deacc(String(query||"").trim());
     if(!nq) return [];
-    var m=entries.filter(function(e){ return e._kw.indexOf(nq)>-1 && !(e.custNo && custEditorAttivo()); });   /* substring su nome+categoria+alias; ogni entry una sola volta → nessun duplicato */
+    var m=entries.filter(function(e){ return e._kw.indexOf(nq)>-1 && !(e.custNo && custEditorAttivo()) && !(e.custIngresso && !custIngressiAttivi()); });   /* substring su nome+categoria+alias; ogni entry una sola volta → nessun duplicato */
     /* STESSO ordinamento della finestrella del doppio clic (qaSearch): nome che inizia con la query →
        query a inizio parola nel nome → a inizio parola in un campo forte → a metà parola → sola
        categoria. Prima la barra guardava solo "il nome contiene la query", e cercando "kb" (tastiere)
@@ -19430,7 +19462,7 @@ function ricordaRecenteCatalogo(k, nome, over){
   /* «Non c'è? Crealo» (13/10/2026): l'uscita della ricerca verso «Crea elemento», col nome già scritto. Nell'editor no
      (non si crea un elemento dentro un altro), né dove non si scrive. Sul telefono c'è: dice che si fa dal computer. */
   function crealoBtn(dove, testo, fondo){
-    if(custEditorAttivo() || custSolaLettura()) return;
+    if(!custIngressiAttivi() || custEditorAttivo() || custSolaLettura()) return;   /* fase 1 del rilascio: nessuno crea ancora */
     var b=document.createElement("button"); b.type="button"; b.className=fondo ? "btn cust-crealo cust-crealo-fondo" : "btn cust-crealo";
     b.innerHTML=CUST_ICON+custCrealoHtml(testo);
     b.addEventListener("click", function(){ endCatSearch(); closeMobileDrawers(); custDisegnaArea(custNomeDaRicerca(testo)); });
@@ -20578,9 +20610,9 @@ svg.addEventListener("pointerdown", function(e){
       var dcIt=(state.items||[]).find(function(i){ return i.id===dcId; });
       if(dcIt && dcIt.type==="custshape"){   /* «Crea elemento»: doppio clic su un testo = lo riscrivi lì; sulle altre forme non apre altro */
         e.preventDefault(); if(dcIt.k==="text") custTestoModifica(dcId, false); }
-      else if(dcIt && dcIt.type==="custom"){   /* elemento personalizzato: si riapre nell'editor (sul telefono: «disponibile dal computer») */
+      else if(dcIt && dcIt.type==="custom" && custIngressiAttivi()){   /* elemento personalizzato: si riapre nell'editor (sul telefono: «disponibile dal computer») */
         e.preventDefault(); if(isMobile()) custSoloDalComputer("Modifica elemento"); else custModificaElemento(dcId); }
-      else if(dcIt && !isMobile() && dcIt.type!=="testo" && dcIt.type!=="forma" && custBaseDi(dcIt)){
+      else if(dcIt && !isMobile() && dcIt.type!=="testo" && dcIt.type!=="forma" && custIngressiAttivi() && custBaseDi(dcIt)){
         /* un pezzo dell'elemento personalizzato: l'elemento è uno solo, si riapre l'editor con quel pezzo già selezionato
            (il suo pannello è lì). Le aree d'aggancio dei pezzi coprono buona parte della base: senza questo il doppio clic
            sul disegno prendeva il microfono invece dell'elemento. Testi e forme tengono la scrittura sul posto. */

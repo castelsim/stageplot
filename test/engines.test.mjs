@@ -7600,6 +7600,13 @@ t("modelli del progetto: riferimenti, membri sporchi, id doppi, rotazione, blocc
   }
 });
 
+/* RILASCIO IN DUE FASI: in produzione custIngressiAttivi() torna false (nessuno può ancora CREARE un elemento personalizzato).
+   Tutte le prove di comportamento qui sotto (editor, modelli, Modifica, invio) girano con i punti d'ingresso ACCESI, come
+   alla fase 2: il sandbox lascia sostituire la funzione globale. Si rimette com'era dopo l'ultima prova di «Crea elemento»;
+   subito dopo ci sono le prove con l'interruttore SPENTO. */
+const _custIngressiOriginale = A.custIngressiAttivi;
+A.custIngressiAttivi = () => true;
+
 /* ===== Crea elemento — palco temporaneo (Task 4). Il rischio: con l'editor aperto lo stato vivo è il palco temporaneo,
    e qualunque scrittura (locale, cloud, versioni, varianti, export) lo farebbe passare per il progetto vero. Ogni test
    chiude l'editor nel finally: i test dopo devono trovare il progetto vero. */
@@ -8428,7 +8435,7 @@ t("Modifica: il nome sul palco scritto a mano resta, quello di serie segue il no
   eq(A.state.items.find(i => i.id === y.id).label, "Schermo sinistro", "nome scritto a mano → resta");
 }));
 t("Modifica: doppio clic sul computer, «disponibile dal computer» sul telefono", () => conModelli(() => {
-  ok(/dcIt && dcIt\.type==="custom"\)\{[\s\S]{0,200}custModificaElemento\(dcId\)/.test(appjs), "doppio clic sull'elemento personalizzato");
+  ok(/dcIt && dcIt\.type==="custom" && custIngressiAttivi\(\)\)\{[\s\S]{0,200}custModificaElemento\(dcId\)/.test(appjs), "doppio clic sull'elemento personalizzato");
   reset();
   const x = add("custom", 300, 300, { cust: { nome: "Schermo", shapes: [] } }); A.custNorm(x);
   const mm = A.matchMedia; A.matchMedia = () => ({ matches: true, addEventListener() {}, addListener() {} });
@@ -9508,6 +9515,114 @@ t("M8: le forme di un modello stanno sotto i 256 KB; quelle in più restano fuor
   const p = A.custModelNorm({ id: "mp", nome: "P", w: 100, d: 100, shapes: shapes.slice(0, 5), membri: [] });
   eq([p.shapes.length, A.custModelNorm.tolte], [5, 0], "sotto il tetto: tutte");
 }));
+/* ===== Crea elemento, FASE 1 del rilascio: interruttore SPENTO (14/10/2026) =====
+   L'app nuova sa aprire, disegnare, contare ed esportare gli elementi personalizzati, ma nessun punto d'ingresso permette di
+   crearne: così ogni browser ha il codice nuovo prima che un progetto con `custom` possa esistere. */
+A.custIngressiAttivi = _custIngressiOriginale;
+function conIngressiSpenti(fn) {
+  const prima = A.custIngressiAttivi, m = A.state.customModels; A.custIngressiAttivi = () => false;
+  try { return fn(); } finally { A.custIngressiAttivi = prima; if (m === undefined) delete A.state.customModels; else A.state.customModels = m; }
+}
+t("fase 1: di serie l'interruttore è SPENTO (è un letterale, non una var: il boot lo legge subito)", () => {
+  eq(A.custIngressiAttivi(), false, "spento di serie");
+  ok(/function custIngressiAttivi\(\)\{ return false; \}/.test(appjs), "una funzione che torna un letterale");
+  ok(!/var CUST_INGRESSI/.test(appjs), "nessuna var più in basso nel file");
+});
+t("fase 1: «Crea elemento» non si trova in ricerca e non si apre niente", () => conIngressiSpenti(() => {
+  reset();
+  eq(A.__spSearch("crea elemento").some(e => e.nome === "Crea elemento"), false, "la ricerca della colonna non lo propone");
+  eq(A.__spSearch("segnaposto").some(e => e.nome === "Crea elemento"), false, "nemmeno per parola chiave");
+  ok(A.__spSearch("testo libero").some(e => e.nome === "Testo libero"), "le altre voci ci sono");
+  eq(A.custDisegnaArea(""), false, "il rettangolo non parte");
+  eq(A.custApriEditor({ x: 0, y: 0, w: 100, d: 100 }, false), false, "l'editor non si apre");
+  eq(A.custEditorAttivo(), false, "editor chiuso");
+  ok(/creaBtn\.classList\.toggle\("cust-off", !on\)/.test(appjs), "il pulsante appuntato prende cust-off");
+  ok(/#catalog \.cust-crea\.cust-off\{display:none !important\}/.test(stylesCss), "…e cust-off lo nasconde");
+  ok(/function crealoBtn\(dove, testo, fondo\)\{\s*if\(!custIngressiAttivi\(\)/.test(appjs), "«Non c'è? Crealo» non si costruisce");
+}));
+t("fase 1: acceso, la stessa ricerca lo propone (controprova)", () => {
+  A.custIngressiAttivi = () => true;
+  try { ok(A.__spSearch("crea elemento").some(e => e.nome === "Crea elemento"), "acceso: c'è"); }
+  finally { A.custIngressiAttivi = _custIngressiOriginale; }
+});
+t("fase 1: il doppio clic su un elemento personalizzato non apre l'editor; Modifica, Salva come modello, Elimina e Invia non partono", () => conIngressiSpenti(() => {
+  reset(); delete A.state.customModels;
+  const base = add("custom", 300, 300, { w: 120, d: 80, cust: { nome: "Schermo", shapes: [{ k: "rect", x: 0, y: 0, w: 50, h: 30 }] } }); A.custNorm(base);
+  ok(/else if\(dcIt && dcIt\.type==="custom" && custIngressiAttivi\(\)\)/.test(appjs), "doppio clic sull'elemento: l'editor solo se i punti d'ingresso sono accesi");
+  ok(/dcIt\.type!=="forma" && custIngressiAttivi\(\) && custBaseDi\(dcIt\)/.test(appjs), "…e sui suoi pezzi");
+  eq(A.custModificaElemento(base.id), false, "Modifica non parte");
+  eq(A.custEditorAttivo(), false, "editor chiuso");
+  eq(A.custSalvaComeModello(base.id), false, "Salva come modello non scrive");
+  eq(A.custSalvaComeModello(base.id, { nuovo: true }), false, "nemmeno Salva come nuovo modello");
+  eq("customModels" in A.state, false, "nessun modello creato");
+  eq(A.custInviaRevisione(base.id), false, "Invia per revisione non parte");
+  A.state.customModels = [A.custModelNorm({ id: "mf1", nome: "Schermo", w: 120, d: 80, shapes: [], membri: [] })];
+  eq(A.custEliminaModello("mf1"), false, "Elimina modello non parte");
+  eq(A.custPosaDalCatalogo("mf1"), false, "il modello non si posa dal catalogo");
+  eq(A.state.customModels.length, 1, "il modello resta nei dati");
+}));
+t("fase 1: «Elementi di questo progetto» e le voci dei modelli non si vedono né in ricerca né nella ricerca rapida", () => conModelli(() => {
+  A.custIngressiAttivi = () => true;
+  try {
+    reset();
+    A.state.customModels = [A.custModelNorm({ id: "mf2", nome: "Proiettore sala", w: 120, d: 80, shapes: [], membri: [] })];
+    A.__catCustomAggiorna();
+    ok(A.__spSearch("proiettore sala").some(e => e.nome === "Proiettore sala"), "acceso: il modello c'è");
+    ok(A.__qaSearch("proiettore sala").some(e => e.nome === "Proiettore sala"), "acceso: anche nella ricerca rapida");
+    A.custIngressiAttivi = () => false;
+    A.__catCustomAggiorna();
+    eq(A.__spSearch("proiettore sala").some(e => e.nome === "Proiettore sala"), false, "spento: sparisce dalla ricerca della colonna");
+    eq(A.__qaSearch("proiettore sala").some(e => e.nome === "Proiettore sala"), false, "…e dalla ricerca rapida");
+    eq(A.__catEntries.some(e => e.custModello), false, "…e dall'indice");
+    eq(A.state.customModels.length, 1, "ma il modello è ancora nel progetto (si salva, si esporta)");
+    A.custIngressiAttivi = () => true;
+    A.__catCustomAggiorna();
+    ok(A.__spSearch("proiettore sala").some(e => e.nome === "Proiettore sala"), "riacceso: torna");
+  } finally { A.custIngressiAttivi = _custIngressiOriginale; }
+}));
+t("fase 1: il pannello dell'elemento mostra nome e conteggi ma nasconde Modifica, modelli e Invia", () => conModelli(() => {
+  reset();
+  const base = add("custom", 300, 300, { w: 120, d: 80, watt: 300, cust: { nome: "Schermo", shapes: [] } }); A.custNorm(base);
+  const mk = () => { const o = { hidden: false, onclick: () => {}, textContent: "", style: {} }; o.querySelector = () => o._btns; return o; };
+  const campi = {}, btns = { hidden: false };
+  const docPrima = A.document;
+  A.document = new Proxy({}, { get: (t, k) => k === "getElementById" ? (id) => {
+    if (!/^(p|grp)(CustomWrap|CustomRow|Cust)/.test(id)) return docPrima.getElementById(id);
+    return campi[id] || (campi[id] = Object.assign(mk(), { _btns: btns })); } : docPrima[k] });
+  try {
+    A.custPannello("p", base);
+    for (const k of ["pCustModifica", "pCustModello", "pCustModelloNuovo", "pCustInvia", "pCustRev", "pCustModelloHint"])
+      eq([k, campi[k].hidden, campi[k].onclick], [k, true, null], "nascosto e senza azione");
+    eq(btns.hidden, true, "il gruppo dei bottoni è nascosto");
+    eq(campi.pCustConta.textContent, "300 W", "ma cosa conta si legge");
+    ok(!/Modifica elemento/.test(campi.pCustConta.textContent), "senza rinviare a un comando che non c'è");
+    const senza = add("custom", 500, 300, { cust: { nome: "Vuoto", shapes: [] } }); A.custNorm(senza);
+    A.custPannello("p", senza);
+    eq(campi.pCustConta.textContent, "Non conta nelle liste.", "senza conteggi: nessun rinvio a «Modifica elemento»");
+    /* acceso: i bottoni tornano (controprova) */
+    A.custIngressiAttivi = () => true;
+    A.custPannello("p", base);
+    eq([campi.pCustModifica.hidden, typeof campi.pCustModifica.onclick, btns.hidden], [false, "function", false], "acceso: Modifica c'è e agisce");
+  } finally { A.document = docPrima; A.custIngressiAttivi = _custIngressiOriginale; }
+}));
+t("fase 1: un elemento personalizzato già nel progetto (JSON importato) si disegna, si muove, si ruota, conta e si esporta come prima", () => conIngressiSpenti(() => {
+  reset();
+  const doc = A.custNorm({ id: "cx1", type: "custom", x: 400, y: 300, w: 120, d: 80, watt: 250, label: "Totem",
+    cust: { nome: "Totem", shapes: [{ k: "rect", x: 0, y: 0, w: 60, h: 40, stroke: "#000000", sw: 1 }], ins: { n: 2, tipo: "linea" }, backline: true } });
+  A.state.items.push(doc);
+  const svg = A.drawCustom(doc);
+  ok(/<rect/.test(svg) && !/undefined|NaN/.test(svg), "si disegna");
+  eq(A.wattOf(doc), 250, "la potenza conta nei carichi");
+  eq(A.custInputs(doc).length, 2, "gli ingressi per le liste");
+  ok(A.isBackline(doc), "backline");
+  const x0 = doc.x; doc.x += 50; doc.rot = 90; A.render();
+  eq([doc.x - x0, doc.rot], [50, 90], "si sposta e si ruota (stato)");
+  eq(A.custModificaElemento(doc.id), false, "ma non si può riaprire nell'editor");
+  const r = A.patchList().rows.filter(x => x.itemId === doc.id);
+  eq(r.length, 2, "e finisce nella channel list");
+  ok(/Totem/.test(A.channelListCsv({ format: "excel-it" }).csv), "anche nell'export CSV");
+}));
+A.custIngressiAttivi = _custIngressiOriginale;   /* difesa: il resto dei test vede la funzione di serie */
 /* ===== «Solo pedane»: un clic dentro una pedana prende la pedana (13/10, Simone: «se sono in solo pedane e
    clicco su un'altra pedana dove sopra ci sono degli elementi, deve prendere la pedana e restare in solo
    pedane; solo un clic fuori dalle pedane torna alla vista normale») ===== */

@@ -3806,6 +3806,8 @@ body.dark #custPiede{background:#1b2327;box-shadow:0 -6px 14px -10px rgba(0,0,0,
 #catalog small.cust-tel{display:none}
 @media (max-width:880px){ #catalog small.cust-pc{display:none} #catalog small.cust-tel{display:block} }
 #catCustom[hidden]{display:none}
+/* fase 1 del rilascio (custIngressiAttivi() = false): «Crea elemento» non si vede nel catalogo */
+#catalog .cust-crea.cust-off{display:none !important}
 #catCustom h4{margin-top:10px}
 body.cust-editor #catCustom, body.proj-ro #catCustom, body.viewmode #catCustom{display:none !important}
 /* Ruling 16: dentro ogni voce, sul bordo destro, «Elimina modello» — un bottone suo (mai un bottone dentro un bottone),
