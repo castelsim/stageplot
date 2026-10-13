@@ -110,6 +110,15 @@ function reset() {
 function add(type, x, y, opts) { return A.addItem(type, Object.assign({ x, y }, opts || {})) || A.state.items[A.state.items.length - 1]; }   /* addItem puo' creare anche la DI: vale il valore restituito */
 function chans(it) { return A.cabItemInputs(it); }
 
+/* risultati finti della ricerca del catalogo (catCercaInvio): un bottone «primo», e con `nores` anche «Nessun elemento
+   trovato» col solo «Non c'è? Crealo», che chiamerebbe custDisegnaArea */
+function finteRisultati(nores) {
+  const giro = { clic: [], prevenuto: false };
+  const bottone = (nome) => ({ classList: { contains: (c) => nome === "crealo" && c === "cust-crealo" }, click: () => giro.clic.push(nome) });
+  giro.results = { style: { display: "block" }, querySelector: (sel) => sel === ".nores" ? (nores ? {} : null) : (sel === "button:not(.json-act)" ? bottone(nores ? "crealo" : "primo") : null) };
+  giro.ev = { key: "Enter", isComposing: false, preventDefault: () => { giro.prevenuto = true; } };
+  return giro;
+}
 console.log("StagePlot — test motori\n");
 
 console.log("Microfonazione / cabItemInputs:");
@@ -5337,7 +5346,8 @@ t("ricerca: liste e varianti si trovano per nome", () => {
   eq(primo("nuova variante"), "Nuova variante"); eq(primo("variante"), "Nuova variante");
   ok(!A.__qaSearch("channel list").length, "la finestrella del doppio clic resta per gli elementi");
   ok(!A.__spSearch("channel").some((e) => e.nome === "Esporta"), "«channel» non deve più dare Esporta");
-  ok(/search\.addEventListener\("keydown", function\(ev\)\{\s*if\(ev\.key!=="Enter"[\s\S]{0,200}results\.querySelector\("button:not\(\.json-act\)"\)[\s\S]{0,80}primo\.click\(\);/.test(appjs), "Invio nella ricerca deve prendere il primo risultato");
+  ok(/search\.addEventListener\("keydown", function\(ev\)\{ catCercaInvio\(ev, results\); \}\);/.test(appjs), "la ricerca passa Invio a catCercaInvio");
+  { const giro = finteRisultati(false); eq(A.catCercaInvio(giro.ev, giro.results), true, "Invio nella ricerca deve prendere il primo risultato"); eq(giro.clic, ["primo"], "il primo risultato, una volta"); }
 });
 /* 05/10: giri degli utenti (analisi/workaround/2026-10-05.md) — parole cercate davvero senza risultato.
    «platea» dal 06/10/2026 dà la Platea (file di sedie): è il blocco intero, la sedia singola viene dopo. */
@@ -8759,10 +8769,23 @@ t("rifinitura 13–14: il modello nasce solo da un elemento personalizzato; l'id
   ok(m2.id !== A.state.customModels[0].id && !A.state.customModels.some(q => q.id === m2.id), "id libero: " + m2.id);
 }));
 t("rifinitura 15: le maniglie delle forme dell'editor stanno a 4 px dal disegno, a qualunque zoom", () => {
-  ok(/function selMargine\(it\)\{ return \(it && it\.type==="custshape"\) \? hSize\(4\) : 6; \}/.test(appjs), "margine in pixel per le forme");
-  ok((appjs.match(/var bw = it\.w\/2 \+ selMargine\(it\), bh = it\.d\/2 \+ selMargine\(it\);/g) || []).length === 2, "riquadro e maniglie dalla stessa regola");
-  ok(/var hw = _cs \? it\.w\/2 \+ hSize\(6\)/.test(appjs), "e l'area di clic non copre le forme vicine");
+  const px = A.hSize(1);
+  eq(A.selMargine({ type: "custshape", k: "rect", sw: 0 }), 4 * px, "forma senza linea: 4 px");
+  eq(A.selMargine({ type: "custshape", k: "rect", sw: 2 }), 4 * px + 1, "con una linea di 2 cm: 4 px oltre la mezza linea (le maniglie non stanno sulla linea)");
+  eq(A.selMargine({ type: "custshape", k: "text", sw: 2 }), 4 * px, "il testo non ha linea");
   eq(A.selMargine({ type: "cantante" }), 6, "sul palco come sempre");
+  /* il riquadro e le maniglie vengono dalla stessa regola: le maniglie di destra stanno a w/2 + margine */
+  reset();
+  const f = { id: A.uid(), type: "custshape", k: "rect", x: 300, y: 300, w: 8, d: 6, rot: 0, stroke: "#000000", sw: 2 };
+  A.state.items.push(f); A.sel = f.id; A.selSet = { [f.id]: true };
+  try {
+    const mk = A.selHandlesMarkup(), m = A.selMargine(f), hs = A.hSize(3.25);
+    const r = mk.match(/class="rs-handle rs-r"[^>]*\sx="(-?[\d.e-]+)"/);
+    ok(r && Math.abs(+r[1] - (4 + m - hs)) < 1e-6, "maniglia destra a w/2 + margine: " + (r && r[1]));
+    const sb = A.itemMarkup(f).match(/class="selbox" x="(-?[\d.e-]+)"/), hit = A.itemMarkup(f).match(/class="hit" x="(-?[\d.e-]+)"/);
+    ok(sb && Math.abs(+sb[1] - (-4 - m - 3)) < 1e-6, "riquadro con lo stesso margine: " + (sb && sb[1]));
+    ok(hit && Math.abs(+hit[1] - (-4 - A.hSize(6))) < 1e-6, "area di clic a 6 px, non 35 cm: " + (hit && hit[1]));
+  } finally { A.sel = null; A.selSet = {}; A.state.items = A.state.items.filter(x => x !== f); }
   /* una forma sotto i 10 cm (il minimo della superficie di custNorm) si disegna CENTRATA sul suo ingombro: prima usciva
      spostata di (10 − misura)/2 rispetto alla selezione e alle maniglie */
   const piccola = A.TYPES.custshape.draw({ type: "custshape", k: "rect", x: 0, y: 0, w: 8, d: 6, rot: 0, stroke: "#000000", sw: 1 });
@@ -8786,16 +8809,77 @@ t("rifinitura 16: il nome dell'elemento sta sopra anche ai pezzi che sbordano in
   ok(ly < solo, "più in alto di quando la base era sola");
   const lato = add("wedge", 900, 400); lato.grp = "gN";
   eq(A.lblBaseY(base, 14), ly, "un pezzo lontano di lato non lo sposta");
+  const lassu = add("wedge", 500, 100); lassu.grp = "gN";   /* stessa colonna, 4 m sopra: un «Raggruppa» dell'utente */
+  eq(A.lblBaseY(base, 14), ly, "un pezzo lontano in alto non fa volare il nome");
+  const giu = add("wedge", 500, 900); giu.grp = "gN";
+  eq(A.lblBaseY(base, 14), ly, "e nemmeno uno lontano in basso");
   base.rot = 90; pz.x = 545; pz.y = 500; pz.rot = 90;   /* lo stesso pezzo, col gruppo girato di 90° */
   ok(A.lblBaseY(base, 14) < solo, "anche con il gruppo ruotato");
 });
+t("rifinitura v2: la maniglia di rotazione scavalca il nome scritto sopra (elemento personalizzato e postazione con sedia)", () => {
+  reset();
+  const cima = (it) => { const r = A.selHandlesMarkup().match(/class="rh-line" x1="0" y1="(-?[\d.e-]+)"/); return r ? +r[1] : null; };
+  const prova = (it, cosa) => {
+    const ks = A._lblSchermo; A._lblSchermo = true;
+    try { A.itemMarkup(it); } finally { A._lblSchermo = ks; }   /* il disegno a schermo annota la cima del nome */
+    A.sel = it.id; A.selSet = { [it.id]: true };
+    try {
+      const top = cima(it), lettere = A.lblBaseY(it, 14) - 14 * 0.8;
+      ok(top != null && top <= lettere - A.hSize(4) + 1e-6, cosa + ": la maniglia parte sopra le lettere (" + top + " ≤ " + lettere + ")");
+    } finally { A.sel = null; A.selSet = {}; }
+  };
+  const b = add("custom", 400, 400, { w: 160, d: 80, cust: { nome: "Banco luci", shapes: [] } }); A.custNorm(b);
+  prova(b, "elemento personalizzato");
+  const v = add("vlnpost", 800, 400);
+  ok(A.lblSopraDi(v), "il violino con la sedia ha il nome sopra");
+  prova(v, "postazione con sedia");
+  /* nome nascosto: la maniglia torna al suo posto (nessuna cima annotata) */
+  b.labelMode = "hidden"; const ks = A._lblSchermo; A._lblSchermo = true; try { A.itemMarkup(b); } finally { A._lblSchermo = ks; }
+  A.sel = b.id; A.selSet = { [b.id]: true };
+  try { ok(cima(b) > A.lblBaseY(b, 14) - 14 * 0.8, "senza nome la maniglia resta attaccata all'elemento"); } finally { A.sel = null; A.selSet = {}; }
+});
+t("rifinitura v2: i pezzi troppo grandi lasciati fuori dal modello si dicono", () => conModelli(() => {
+  reset();
+  const msg = []; const tp = A.__toast; A.__toast = (m, err) => msg.push([m, err]);
+  try {
+    const base = add("custom", 300, 300, { w: 120, d: 80, cust: { nome: "Postazione", shapes: [] } }); A.custNorm(base);
+    const ok1 = add("cantante", 310, 300), grosso = add("cantante", 330, 300); grosso.nota = "x".repeat(5000);
+    base.grp = ok1.grp = grosso.grp = "gT";
+    A.custSalvaComeModello(base.id);
+    eq(A.state.customModels[0].membri.length, 1, "il pezzo gonfiato resta fuori");
+    ok(msg.some(([m, err]) => /1 pezzo troppo grande non è entrato nel modello\./.test(m) && err), "e lo dice: " + JSON.stringify(msg));
+    msg.length = 0; ok1.nota = "y".repeat(5000);
+    A.custSalvaComeModello(base.id);
+    ok(msg.some(([m]) => /2 pezzi troppo grandi non sono entrati nel modello\./.test(m)), "al plurale");
+    msg.length = 0; delete ok1.nota; delete grosso.nota;
+    A.custSalvaComeModello(base.id);
+    ok(msg.length === 1 && !/troppo grand/.test(msg[0][0]) && !msg[0][1], "senza scarti nessuna avvertenza");
+    /* il modello automatico del primo Salva */
+    msg.length = 0; delete A.state.customModels;
+    const pz = add("cantante", 820, 330); pz.nota = "z".repeat(5000);
+    ok(A.custApriEditor({ x: 760, y: 280, w: 120, d: 100 }, true), "editor con il pezzo gonfiato dentro");
+    A.custMostraScheda({ nome: "Pedana" }); A.custSalvaDaScheda();
+    ok(msg.some(([m, err]) => /è anche fra gli «Elementi di questo progetto»[\s\S]*1 pezzo troppo grande non è entrato nel modello\./.test(m) && err), "anche al primo Salva: " + JSON.stringify(msg));
+  } finally { A.__toast = tp; }
+}));
 t("rifinitura 17: pannello singolo — la riga dell'elemento in cima, potenza solo nella scheda", () => {
   ok(/<h3 id="selNome">Elemento<\/h3>\s*<!--[\s\S]*?-->\s*<div id="pCustomWrap"/.test(appHtml), "#pCustomWrap subito sotto il titolo, come nel pannello di gruppo");
   eq(A.hasWattItem({ type: "custom" }), false, "il campo generico «Potenza (W)» non compare");
   eq(A.custContaTesto({ cust: {} }), "Non conta nelle liste: potenza, ingressi e backline si danno con «Modifica elemento».", "e il testo dice la via giusta");
+  const mm = A.matchMedia; A.matchMedia = () => ({ matches: true, addEventListener() {}, addListener() {} });
+  try { eq(A.custContaTesto({ cust: {} }), "Non conta nelle liste: potenza, ingressi e backline si cambiano dal computer con «Modifica elemento».", "sul telefono: dove si fa"); }
+  finally { A.matchMedia = mm; }
 });
 t("rifinitura 18: Invio con zero risultati non preme «Crealo»", () => {
-  ok(/search\.addEventListener\("keydown", function\(ev\)\{[\s\S]{0,200}if\(results\.querySelector\("\.nores"\)\) return;\s*var primo=results\.querySelector/.test(appjs), "con «Nessun elemento trovato» Invio non fa niente");
+  const da = A.custDisegnaArea; let chiamate = 0; A.custDisegnaArea = () => { chiamate++; return true; };
+  try {
+    const zero = finteRisultati(true);
+    eq(A.catCercaInvio(zero.ev, zero.results), false, "con «Nessun elemento trovato» Invio non fa niente");
+    eq([zero.clic, zero.prevenuto, chiamate], [[], false, 0], "«Crealo» non premuto, custDisegnaArea non chiamata");
+    const pieni = finteRisultati(false);
+    eq(A.catCercaInvio(pieni.ev, pieni.results), true, "con risultati: il primo");
+    eq(A.catCercaInvio({ key: "a", preventDefault() {} }, pieni.results), false, "un altro tasto: niente");
+  } finally { A.custDisegnaArea = da; }
 });
 t("rifinitura 22: sul telefono «Crea elemento» e «Crealo» dicono «disponibile dal computer»", () => {
   const h = A.custCrealoHtml("videoproiettore");
@@ -8809,8 +8893,26 @@ t("rifinitura 22: sul telefono «Crea elemento» e «Crealo» dicono «disponibi
   ok(/@media \(max-width:880px\)\{ #catalog small\.cust-pc\{display:none\} #catalog small\.cust-tel\{display:block\} \}/.test(stylesCss), "il CSS sceglie quale mostrare");
 });
 t("rifinitura 23: con la ricerca aperta, un cambio dei modelli (anche da Annulla) rifà i risultati", () => {
-  ok(/window\.__catCustomAggiorna=function\(\)\{[\s\S]*?search\.dispatchEvent\(new Event\("input"\)\)[\s\S]*?return true;\s*\};/.test(appjs), "la sezione rifatta rilancia la ricerca scritta");
-  ok(/window\.__catCustomAggiorna=function\(\)\{[\s\S]*?_qaOpts=null;[\s\S]*?return true;\s*\};/.test(appjs), "e la ricerca rapida rifà il suo indice");
+  conModelli(() => {
+    reset(); A.__catCustomAggiorna();
+    const eventi = [], campo = { value: "schermo", dispatchEvent: (e) => { eventi.push(e); return true; } };
+    const d = A.document;
+    A.document = new Proxy({}, { get: (t, k) => k === "getElementById" ? (id) => (id === "catSearch" ? campo : d.getElementById(id)) : d[k] });
+    try {
+      const base = add("custom", 300, 300, { cust: { nome: "Schermo", shapes: [] } }); A.custNorm(base);
+      A.resetHistory();
+      const n0 = eventi.length;
+      A.custSalvaComeModello(base.id);   /* render() → __catCustomAggiorna(): i modelli sono cambiati */
+      ok(eventi.length > n0, "un modello nuovo: la ricerca scritta si rifà");
+      const n1 = eventi.length;
+      eq(A.__catCustomAggiorna(), false, "niente di cambiato…"); eq(eventi.length, n1, "…nessun rinfresco");
+      A.undo();
+      ok(eventi.length > n1 && !("customModels" in A.state), "Annulla toglie il modello e la ricerca si rifà");
+      ok(!A.__qaSearch("schermo").some(e => e.custModello), "e anche la ricerca rapida ha l'indice nuovo");
+      campo.value = "  "; const n2 = eventi.length; A.custSalvaComeModello(base.id);
+      eq(eventi.length, n2, "ricerca vuota: niente da rifare");
+    } finally { A.document = d; }
+  });
 });
 t("rifinitura 21: sola lettura anche da link condiviso (viewmode) e in consulenza", () => {
   ["viewmode", "consulenza"].forEach((modo) => {
@@ -8930,7 +9032,8 @@ t("Ruling 16: nomi dei modelli univoci, anche nei file vecchi", () => conModelli
   const s = A.normalizeState({ _v: 5, stage: { w: 1200, d: 800 }, items: [], customModels: [
     { id: "ma", nome: "Leggio", w: 50, d: 50, shapes: [], membri: [] }, { id: "mb", nome: "Leggio", w: 50, d: 50, shapes: [], membri: [] },
     { id: "mc", nome: "Leggio", w: 50, d: 50, shapes: [], membri: [] }, { id: "md", nome: "Leggio (2)", w: 50, d: 50, shapes: [], membri: [] } ] });
-  eq(s.customModels.map(m => m.nome), ["Leggio", "Leggio (2)", "Leggio (3)", "Leggio (2) (2)"], "il primo tiene il nome, gli altri prendono il numero libero");
+  eq(s.customModels.map(m => m.nome), ["Leggio", "Leggio (3)", "Leggio (4)", "Leggio (2)"], "i nomi scritti restano (anche «Leggio (2)»), i doppioni prendono il primo numero libero");
+  eq(A.normalizeState(JSON.parse(JSON.stringify(s))).customModels.map(m => m.nome), ["Leggio", "Leggio (3)", "Leggio (4)", "Leggio (2)"], "e una seconda apertura non cambia niente");
   const lungo = "L".repeat(60);
   eq(A.custNomeModelloLibero(lungo, [{ id: "x", nome: lungo }]), "L".repeat(56) + " (2)", "entro i 60 caratteri");
   eq(A.custNomeModelloLibero("A", [{ id: "x", nome: "A" }], "x"), "A", "il modello che si aggiorna non fa concorrenza a sé stesso");

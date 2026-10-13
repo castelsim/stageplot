@@ -4964,8 +4964,9 @@ function cmPerPx(){
 }
 function hSize(px){ return px*cmPerPx(); }
 /* aria fra l'ingombro e il riquadro di selezione (e le sue maniglie): 6 cm sul palco; per le forme dell'editor 4 px a
-   qualunque zoom, così le maniglie restano attaccate al disegno anche su una superficie piccola e ingrandita */
-function selMargine(it){ return (it && it.type==="custshape") ? hSize(4) : 6; }
+   qualunque zoom oltre la metà della linea, così le maniglie restano attaccate al disegno anche su una superficie piccola
+   e ingrandita, e non finiscono SOPRA una linea spessa */
+function selMargine(it){ return (it && it.type==="custshape") ? hSize(4)+((it.k!=="text" && +it.sw>0) ? +it.sw/2 : 0) : 6; }   /* forme: anche mezza linea, che sporge dal bordo geometrico */
 function sbLod(it){   /* 2 = XLR con pin · 1 = pastiglie · 0 = barre di riempimento */
   if(window.__scenePrint || window.__cabStatic) return 2;   /* export PDF/PNG: risoluzione alta, dettaglio pieno */
   if(window.__sbMiniLod===true) return 1;   /* anteprima del catalogo: pastiglie, per distinguere 8 / 16 / 24 canali */
@@ -8614,7 +8615,11 @@ function normalizeState(s){
   /* Modelli dell'elemento personalizzato (13/10): solo se ce n'è almeno uno valido; una copia che punta a un modello sparito perde il riferimento */
   var _cm=(Array.isArray(s.customModels)?s.customModels:[]).slice(0,50).map(custModelNorm).filter(Boolean);
   var _cmVisti=Object.create(null); _cm=_cm.filter(function(q){ if(_cmVisti[q.id]) return false; _cmVisti[q.id]=1; return true; });   /* id doppi: si tiene il primo */
-  var _cmPrima=[]; _cm.forEach(function(q){ q.nome=custNomeModelloLibero(q.nome, _cmPrima); _cmPrima.push(q); });   /* nomi doppi (file vecchi): «Nome (2)»… */
+  /* nomi doppi (file vecchi): prima si riservano TUTTI i nomi scritti, poi si numerano solo i doppioni — un «Leggio (2)»
+     scritto dall'utente resta suo, il secondo «Leggio» prende il primo numero libero */
+  var _cmNomi=_cm.map(function(q){ return {id:"", nome:q.nome}; }), _cmVistoNome=Object.create(null);
+  _cm.forEach(function(q){ if(!_cmVistoNome[q.nome]){ _cmVistoNome[q.nome]=1; return; }
+    q.nome=custNomeModelloLibero(q.nome, _cmNomi); _cmNomi.push({id:"", nome:q.nome}); _cmVistoNome[q.nome]=1; });
   if(_cm.length) s.customModels=_cm; else delete s.customModels;   /* solo se serve: l'impronta del PDF non cambia */
   s.items.forEach(function(x){ if(x.type==="custom" && x.cust && x.cust.modelId && !_cm.some(function(q){ return q.id===x.cust.modelId; })) delete x.cust.modelId; });
   s.status = (["bozza","revisione","approvato","superato"].indexOf(s.status)>=0) ? s.status : "bozza";   /* T5: stato di approvazione */
@@ -9562,14 +9567,14 @@ function drawCustom(it){
 /* Campi di un membro che puntano ad altri elementi (id dell'originale) o a un posto numerato: nel modello e nelle copie non hanno senso */
 function custMembroViaggio(){ return ["id","grp","x","y","diFor","diId","rackId","rackPos","ascoltoId","rxId","distOf","sbTo","fila","posto","settore","__proto__","prototype","constructor"]; }
 /* copia pulita di un membro (null se non ammesso): niente modelli dentro modelli, niente riferimenti, numeri finiti, etichetta testuale */
-function custMembroPulito(x){
+function custMembroPulito(x, info){
   if(!x || typeof x!=="object" || Array.isArray(x) || !itemTypeDef(x) || x.type==="custom" || x.type==="custshape") return null;
   var c=JSON.parse(JSON.stringify(x)), n;
   custMembroViaggio().forEach(function(k){ delete c[k]; });
   ["w","d"].forEach(function(k){ if(!(k in c)) return; n=(c[k]===null||typeof c[k]==="boolean") ? NaN : Number(c[k]); if(isFinite(n) && n>0) c[k]=n; else delete c[k]; });   /* altrimenti valgono i default del tipo */
   if("rot" in c){ n=(c.rot===null||typeof c.rot==="boolean") ? NaN : Number(c.rot); if(isFinite(n)) c.rot=Math.round(n); else delete c.rot; }
   if("label" in c){ if(typeof c.label==="string" || typeof c.label==="number") c.label=String(c.label).slice(0,80); else delete c.label; }
-  if(custByte(JSON.stringify(c))>custLimiti().MEMBRO) return null;   /* un membro gonfiato (note lunghissime, campi sconosciuti) non entra: il documento non cresce senza limite */
+  if(custByte(JSON.stringify(c))>custLimiti().MEMBRO){ if(info) info.troppi=(info.troppi||0)+1; return null; }   /* un membro gonfiato (note lunghissime, campi sconosciuti) non entra: il documento non cresce senza limite */
   return c;
 }
 /* byte in UTF-8 di una stringa (senza TextEncoder: c'è anche nel sandbox dei test); un surrogato spaiato = troppo grande */
@@ -9604,9 +9609,13 @@ function custNomeModelloLibero(nome, modelli, escludiId){
   for(var k=2; k<10000; k++){ var suf=" ("+k+")", n=custTaglia(nome, NOME-suf.length).replace(/\s+$/,"")+suf; if(!usati[n]) return n; }
   return nome;
 }
-/* il modello di un elemento posato (con i suoi pezzi), con le regole dell'apertura e un nome libero. idModello: si sovrascrive quello */
+/* il modello di un elemento posato (con i suoi pezzi), con le regole dell'apertura e un nome libero. idModello: si sovrascrive quello.
+   custModelloDaElemento.troppi = pezzi rimasti fuori perché troppo grandi (custTroppiTesto lo dice a chi salva) */
+function custTroppiTesto(n){ return !(n>0) ? "" : (n===1 ? " 1 pezzo troppo grande non è entrato nel modello." : " "+n+" pezzi troppo grandi non sono entrati nel modello."); }
 function custModelloDaElemento(it, idModello){
+  custModelloDaElemento.troppi=0;
   var m=custModelDaAgglomerato(it); if(!m) return null;
+  custModelloDaElemento.troppi=custModelDaAgglomerato.troppi||0;
   if(idModello) m.id=idModello;
   m=custModelNorm(m); if(!m) return null;   /* quello che si salva è quello che si riapre */
   m.nome=custNomeModelloLibero(m.nome, state.customModels, m.id);
@@ -9616,15 +9625,16 @@ function custModelloDaElemento(it, idModello){
    relative al centro della base e con la rotazione della base tolta */
 function custModelDaAgglomerato(base, senzaId){
   if(!base || base.type!=="custom") return null;   /* solo da un elemento personalizzato: altrimenti un modello senza nome */
-  var rot=-(base.rot||0), membri=[];
+  var rot=-(base.rot||0), membri=[], info={troppi:0};
   (base.grp ? state.items.filter(function(x){ return x.grp===base.grp && x.id!==base.id; }) : []).forEach(function(x){
     if(membri.length>=100) return;
-    var c=custMembroPulito(x); if(!c) return;
+    var c=custMembroPulito(x, info); if(!c) return;
     var p=rotatePointAround(x.x, x.y, base.x, base.y, rot);
     c.dx=Math.max(-100000,Math.min(100000,Math.round(p[0]-base.x))); c.dy=Math.max(-100000,Math.min(100000,Math.round(p[1]-base.y)));
     c.rot=(((x.rot||0)+rot)%360+360)%360; membri.push(c); });
   var c=base.cust||{}, m={id:senzaId ? undefined : custModelIdLibero(), nome:c.nome, w:base.w, d:base.d, shapes:JSON.parse(JSON.stringify(c.shapes||[])), membri:membri};
   if(c.desc) m.desc=c.desc; if(base.watt!=null) m.watt=base.watt; if(c.ins) m.ins=c.ins; if(c.backline) m.backline=true;
+  custModelDaAgglomerato.troppi=info.troppi;   /* pezzi scartati perché oltre il tetto in byte: chi salva lo dice */
   return m;
 }
 /* posa una copia del modello: base + membri con id e gruppo nuovi (copie profonde, indipendenti dal modello) */
@@ -9774,9 +9784,11 @@ function custEditorSalva(scheda){
   /* IL PRIMO SALVA DI UN ELEMENTO NUOVO crea anche il modello in «Elementi di questo progetto» (spec, Ruling 17): da lì se
      ne posano altre copie. Stesso passo di Annulla dell'elemento: un Annulla toglie tutti e due. Oltre i 50 modelli
      l'elemento si salva lo stesso, senza modello (lo dice custSalvaDaScheda). */
+  custEditorSalva.troppi=0;
   if(!orig && (state.customModels||[]).length<custLimiti().MODELLI){
     var m=custModelloDaElemento(base);
     if(m){ if(!state.customModels) state.customModels=[]; state.customModels.push(m); base.cust.modelId=m.id; }
+    custEditorSalva.troppi=custModelloDaElemento.troppi||0;
   }
   clearSelection(); selectClick(base.id);
   save(); custEditorRidisegna();
@@ -10067,7 +10079,8 @@ function custSalvaComeModello(id, opz){
   if(!state.customModels) state.customModels=[];
   if(i>=0) state.customModels[i]=m; else { state.customModels.push(m); it.cust.modelId=m.id; }
   render(); save();
-  custToast(i>=0 ? "Modello «"+m.nome+"» aggiornato: le copie già posate restano come sono." : "«"+m.nome+"» è in «Elementi di questo progetto», nel catalogo: da lì ne posi altre copie.");
+  var troppi=custModelloDaElemento.troppi||0;
+  custToast((i>=0 ? "Modello «"+m.nome+"» aggiornato: le copie già posate restano come sono." : "«"+m.nome+"» è in «Elementi di questo progetto», nel catalogo: da lì ne posi altre copie.")+custTroppiTesto(troppi), troppi>0);
   return true;
 }
 /* «Elimina modello» (Ruling 16): dalla sua voce in «Elementi di questo progetto», con conferma. Le copie restano. */
@@ -10125,7 +10138,10 @@ function custContaTesto(it){
   if(it && it.watt>0) p.push(Math.round(it.watt)+" W");
   if(c.ins && c.ins.n>0) p.push(c.ins.n+(c.ins.n===1 ? " ingresso " : " ingressi ")+(c.ins.tipo==="linea" ? "linea" : "microfono"));
   if(c.backline) p.push("backline");
-  return p.length ? p.join(" · ") : "Non conta nelle liste: potenza, ingressi e backline si danno con «Modifica elemento».";
+  if(p.length) return p.join(" · ");
+  /* sul telefono «Modifica elemento» non c'è: si dice dove si fa */
+  return isMobile() ? "Non conta nelle liste: potenza, ingressi e backline si cambiano dal computer con «Modifica elemento»."
+    : "Non conta nelle liste: potenza, ingressi e backline si danno con «Modifica elemento».";
 }
 /* la riga dell'elemento personalizzato, uguale nel pannello singolo (pCust…) e in quello del gruppo (grpCust…) */
 function custPannello(pre, base){
@@ -10578,8 +10594,9 @@ function custSalvaDaScheda(opz){
   custDopoChiusura();
   /* il primo Salva ha messo l'elemento anche fra gli «Elementi di questo progetto»: si dice dove trovarlo */
   var it=id ? (state.items||[]).find(function(x){ return x.id===id; }) : null;
-  if(nuovo && it && !(opz && opz.invia)) custToast(it.cust.modelId ? "«"+it.cust.nome+"» è anche fra gli «Elementi di questo progetto», nel catalogo: da lì ne posi altre copie."
-    : "Salvato. Gli «Elementi di questo progetto» sono già "+custLimiti().MODELLI+": questo non è entrato nel catalogo.", !it.cust.modelId);
+  var troppi=custEditorSalva.troppi||0;
+  if(nuovo && it && !(opz && opz.invia)) custToast((it.cust.modelId ? "«"+it.cust.nome+"» è anche fra gli «Elementi di questo progetto», nel catalogo: da lì ne posi altre copie."
+    : "Salvato. Gli «Elementi di questo progetto» sono già "+custLimiti().MODELLI+": questo non è entrato nel catalogo.")+(it.cust.modelId ? custTroppiTesto(troppi) : ""), !it.cust.modelId || troppi>0);
   if(id && opz && opz.invia && typeof window.custInviaRevisione==="function") window.custInviaRevisione(id);
   return id;
 }
@@ -11083,6 +11100,9 @@ function nomeGiaSullaSpia(it){
    base dell'asta, schienale a 43,5 cm dal centro. */
 var _arteCache=null, _arteSvg=null;
 var _arteDi=null;   /* ultimo riquadro misurato per elemento: lo leggono lblRectOf/lblBandOf, che lavorano fuori dal disegno */
+var _lblCima=null;  /* cima del nome scritto sopra, per elemento (frame dell'elemento): la maniglia di rotazione ci passa sopra */
+/* il corpo minimo dei nomi a schermo (--lblK di aggiornaNomiZoom): quanto il nome cresce attorno al suo perno */
+function lblKAdesso(){ try{ var ppm=svg.clientWidth/vb.w*100; return (isFinite(ppm) && ppm>0) ? Math.max(1, 9/(14*ppm/100)) : 1; }catch(e){ return 1; } }
 function misuraArte(markup){
   if(!markup) return null;
   if(!_arteCache) _arteCache=new Map();
@@ -11147,6 +11167,7 @@ function lblArteConDi(it, ext, fszK){
 function custArteConPezzi(it, ext, fszK){
   if(!it.grp || typeof state==="undefined" || !state || !state.items) return ext;
   var semi=lblTextW(lblText(it.label, it, true), fszK)/2, y0=ext.y0, y1=ext.y1;
+  var striscia=ext.y0-lblStacco(fszK)-fszK;   /* il bordo alto della striscia del nome, appoggiato sulla base */
   state.items.forEach(function(x){
     if(!x || x===it || x.grp!==it.grp || x.type==="custom" || !isFinite(x.x) || !isFinite(x.y)) return;
     var a=arteDi(x), rr=(x.rot||0)*Math.PI/180, c=Math.cos(rr), sn=Math.sin(rr), xs=[], ys=[];
@@ -11154,6 +11175,9 @@ function custArteConPezzi(it, ext, fszK){
       var q=rotatePointAround(x.x+p[0]*c-p[1]*sn, x.y+p[0]*sn+p[1]*c, it.x, it.y, -(it.rot||0));
       xs.push(q[0]-it.x); ys.push(q[1]-it.y); });
     if(Math.max.apply(0,xs) < -semi || Math.min.apply(0,xs) > semi) return;   /* di lato, fuori dalla striscia del nome */
+    /* contano solo i pezzi che toccano la base o la striscia del nome: un pezzo dello stesso gruppo a metri di distanza
+       (un «Raggruppa» dell'utente, un pezzo lontano di un modello) non deve far volare il nome lassù (come la DI qui sotto) */
+    if(Math.min.apply(0,ys) > ext.y1 || Math.max.apply(0,ys) < striscia) return;
     y0=Math.min(y0, Math.min.apply(0,ys)); y1=Math.max(y1, Math.max.apply(0,ys));
   });
   return (y0===ext.y0 && y1===ext.y1) ? ext : {x0:ext.x0, y0:y0, x1:ext.x1, y1:y1};
@@ -11435,6 +11459,7 @@ function itemMarkup(it){
   var _lblOrig = null;   /* perno del corpo minimo a schermo (lblScalaAttorno): null = l'ancora del primo testo */
   var _hid = (it.labelMode==='hidden');
   var fsz0 = _hid ? 0 : ((it.lblSize==null) ? 14 : it.lblSize);   /* 0 = nascosta; 'hidden' = nome nascosto per questo elemento */
+  if(_lblCima && _lblSchermo) delete _lblCima[it.id];   /* si riscrive qui sotto solo se il nome sta sopra e si vede */
   if(!t.innerLabel && !GAZ_TYPES[it.type] && fsz0>0){   /* coperture: etichetta unica gestita a parte (nome+dim, lato scelto) */
     var fsz = fsz0;                             /* dimensione etichetta regolabile (cm reali) */
     var fst = ' style="font-size:'+fsz+'px"';
@@ -11488,6 +11513,9 @@ function itemMarkup(it){
     /* la DI scrive di lato, la pedana ha la quota sopra, la doppia girata al telefono mette i due nomi in
        colonna attorno al primo: loro restano come prima */
     if(!it.diFor && !t.riser && !(_sceneRuota && (it.doppia===true || DOUBLE_TYPES[it.type]))) _lblOrig = [_orX, _orY];
+    /* la cima del nome SOPRA (elemento personalizzato, postazione con sedia): la maniglia di rotazione la scavalca invece di
+       attraversare le lettere (selHandlesMarkup). o = il perno attorno a cui il nome cresce col corpo minimo a schermo */
+    if(_lblSchermo && lblAbove && !_sceneRuota){ if(!_lblCima) _lblCima=Object.create(null); _lblCima[it.id]={y:ly-fszK*0.8, o:_orY}; }
     var _xy = _sceneRuota ? ' x="'+_lxR+'" y="'+_lyR+'"' : ' y="'+ly+'"';
     var _cap = !_sceneRuota && lblCapovolto(it.rot);   /* 06/10: elemento girato oltre 90°/prima di 270°: il nome si rigira, resta dov'è ma si legge dritto */
     var _rot = _sceneRuota ? ' transform="rotate('+_rc+' '+_lxR+' '+_lyR+')"' : lblCapTr(_cap, 0, 0, ly, fszK);
@@ -11574,6 +11602,10 @@ function selHandlesMarkup(){
   var attrId=esc(it.id);
   var bw = it.w/2 + selMargine(it), bh = it.d/2 + selMargine(it);   /* stesso riquadro aderente del selbox: le maniglie ci stanno sopra */
   var _fit=_selFit[it.id], topY=_fit ? _fit.y1 : -bh;     /* bordo alto del riquadro misurato sul disegno (26/09) */
+  /* nome scritto SOPRA l'elemento: la maniglia di rotazione (e il lucchetto, che sta alla sua altezza) partono sopra le lettere */
+  var _lc=_lblCima && _lblCima[it.id], _nascosti=false;
+  try{ _nascosti=svg.classList.contains("names-hidden")===true; }catch(e){}
+  if(_lc && !_nascosti){ var _kl=lblKAdesso(); topY=Math.min(topY, _lc.o+(_lc.y-_lc.o)*_kl-hSize(4)); }
   var s='';
   /* maniglia di rotazione: appare sopra l'elemento quando è l'unico selezionato */
   if((stageEdit ? isRiser(it) : true) && itemEditable(it)){   /* in modalità palco le maniglie sono per le pedane, fuori per tutto il resto; col lucchetto chiuso non si ruota */
@@ -19125,7 +19157,7 @@ function ricordaRecenteCatalogo(k, nome, over){
     });
     if(typeof _qaOpts!=="undefined") _qaOpts=null;   /* la ricerca rapida rifà il suo indice (l'array è lo stesso, il contenuto no) */
     /* la ricerca aperta mostra risultati vecchi (un modello tolto con Annulla, uno nuovo, un nome cambiato): si rifà */
-    try{ if(typeof search!=="undefined" && search && typeof search.value==="string" && search.value.trim() && typeof Event==="function") search.dispatchEvent(new Event("input")); }catch(err){}
+    try{ catRicercaRifai(); }catch(err){}
     return true;
   };
   window.__catCustomAggiorna();
@@ -19200,14 +19232,7 @@ function ricordaRecenteCatalogo(k, nome, over){
   /* Invio = il primo risultato (revisione 25/09): chi scriveva «batteria» e premeva Invio non otteneva
      niente, e doveva andare col mouse sul risultato che aveva già sotto gli occhi.
      Con «Nessun elemento trovato» (.nores) l'unico bottone è «Non c'è? Crealo», che non è un risultato: Invio non fa niente. */
-  search.addEventListener("keydown", function(ev){
-    if(ev.key!=="Enter" || ev.isComposing) return;
-    if(results.style.display==="none") return;
-    if(results.querySelector(".nores")) return;
-    var primo=results.querySelector("button:not(.json-act)");
-    if(!primo) return;
-    ev.preventDefault(); primo.click();
-  });
+  search.addEventListener("keydown", function(ev){ catCercaInvio(ev, results); });
   window.__catEntries=entries;   /* stesso indice per la ricerca rapida (quick-add): include Violino I/II, varianti stagebox, pedane… */
 })();
 /* ===== Anti-sovrapposizione ===== */
@@ -19790,6 +19815,22 @@ function renumberInstr(base){
 }
 /* ===== Drawer mobile (catalogo / pannello) ===== */
 function isMobile(){ return window.matchMedia("(max-width:880px)").matches; }
+/* Invio nella ricerca del catalogo = il primo risultato (revisione 25/09). Con «Nessun elemento trovato» (.nores) l'unico
+   bottone è «Non c'è? Crealo», che non è un risultato: Invio non fa niente (13/10). Fuori dall'IIFE per poterla provare. */
+function catCercaInvio(ev, results){
+  if(!ev || ev.key!=="Enter" || ev.isComposing) return false;
+  if(!results || results.style.display==="none") return false;
+  if(results.querySelector(".nores")) return false;
+  var primo=results.querySelector("button:not(.json-act)");
+  if(!primo) return false;
+  ev.preventDefault(); primo.click(); return true;
+}
+/* la ricerca del catalogo aperta rifà i suoi risultati (i modelli cambiati, anche da Annulla, non restano vecchi a schermo) */
+function catRicercaRifai(){
+  var q=document.getElementById("catSearch");
+  if(!q || typeof q.value!=="string" || !q.value.trim() || typeof Event!=="function") return false;
+  q.dispatchEvent(new Event("input")); return true;
+}
 /* A11y: i drawer mobile (catalogo, menu azioni) si aprono/chiudono solo con una classe CSS (transform
    fuori schermo). Da chiusi restavano nell'albero di accessibilità e focusabili (pulsanti "Chiudi"
    fantasma). Qui: da chiusi e SOLO su mobile → inert + aria-hidden. Su desktop il catalogo è la sidebar
