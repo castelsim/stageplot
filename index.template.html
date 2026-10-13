@@ -5894,7 +5894,7 @@ function commitPreparedDoc(prepared){
 function loadDoc(parsed){ commitPreparedDoc(prepareDoc(parsed)); }
 /* cambia variante attiva: congela l'attuale, carica la target. Reset undo (per-variante). */
 function switchVariant(id, senzaSync){   /* senzaSync: la scena attiva è appena stata tolta (Annulla di «Adatta») e non va riscritta */
-  if(custEditorAttivo()) return;   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo */
+  if(custEditorAttivo()) return custEditorAvvisa();   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo */
   if(id===activeVar) return; var target=null; for(var i=0;i<VARIANTS.length;i++){ if(VARIANTS[i].id===id) target=VARIANTS[i]; }
   if(!target || !target.state) return;
   if(!senzaSync) syncActiveVariant(); activeVar=id; applyVariantState(target.state,true,id);
@@ -5906,7 +5906,7 @@ function switchVariant(id, senzaSync){   /* senzaSync: la scena attiva è appena
 }
 /* crea una nuova variante = copia dell'attiva, poi ci passa sopra */
 function createVariant(name){
-  if(custEditorAttivo()) return null;   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo */
+  if(custEditorAttivo()){ custEditorAvvisa(); return null; }   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo */
   syncActiveVariant(); var src=activeVarObj(); if(!src) return null;
   var copy=JSON.parse(JSON.stringify(src.state)); var id=newVarId();
   delete copy.pdfEsportato;   /* una variante nuova non è mai stata esportata */
@@ -6021,7 +6021,7 @@ function avvisiDopoModifica(){
 }
 function renameVariant(id, name){ name=(name||"").trim(); if(!name) return; for(var i=0;i<VARIANTS.length;i++){ if(VARIANTS[i].id===id){ VARIANTS[i].name=name; break; } }
   persistLocalState(); if(window.scheduleCloudAutosave) scheduleCloudAutosave(); if(window.__consultDirty) window.__consultDirty(); renderVariantBar(); }
-function deleteVariant(id){ if(custEditorAttivo()) return false; if(VARIANTS.length<=1) return false;   /* guardia: mai eliminare l'ultima variante */
+function deleteVariant(id){ if(custEditorAttivo()){ custEditorAvvisa(); return false; } if(VARIANTS.length<=1) return false;   /* guardia: mai eliminare l'ultima variante */
   var idx=-1; for(var i=0;i<VARIANTS.length;i++){ if(VARIANTS[i].id===id) idx=i; } if(idx<0) return false;
   /* La cronologia è per-scena (applyHistory non tocca VARIANTS): ⌘Z dopo questa riga non riporta la
      scena, annulla l'ultima modifica fatta ALTROVE. L'unica rete possibile è il punto di ripristino,
@@ -6812,6 +6812,10 @@ function cloudAutosaveNow(){
       if(saveSeq===_cloudChangeSeq) _cloudDirty=false;
       setDocState("online"); _cloudRetryStep=0;
       if(_cloudDirty) cloudAutosaveNow(); else resolveCloudFlushWhenIdle(true);   /* modifiche durante il volo → secondo snapshot */
+    } else if(motivo==="editor"){
+      /* riserva di saveProject con l'editor «Crea elemento» aperto: non è un errore e non si ritenta; _cloudDirty resta
+         acceso e il salvataggio riparte alla chiusura dell'editor (custRipristina) */
+      resolveCloudFlush(false);
     } else if(motivo==="empty"){
       /* Documento ancora vuoto: saveProject ha deciso di non depositare un guscio nell'elenco e ha
          già messo «Salvato sul dispositivo». Non è un fallimento: niente pastiglia rossa, niente
@@ -7034,7 +7038,8 @@ function applyHistory(snapshot){
   var snap=historySnapshotValue(snapshot);
   var keepFrame=state.printFrame;   /* l'area di stampa non è undoable: la mantengo attraverso undo/redo */
   var nota=notaFuoriCronologia();   /* e nemmeno le note dell'export (30/09): vedi historyStateJSON */
-  state=normalizeState(JSON.parse(snap.json));
+  __custShapeAmmesse=custEditorAttivo();   /* la cronologia del palco temporaneo porta le forme dell'editor */
+  try{ state=normalizeState(JSON.parse(snap.json)); }finally{ __custShapeAmmesse=false; }
   if(keepFrame!=null) state.printFrame=keepFrame;
   if(nota.pe) state.pdfEsportato=nota.pe; else delete state.pdfEsportato;
   if(nota.ask && state.production) state.production.asked=true;
@@ -7077,8 +7082,9 @@ function redo(){ flushHistorySoon(); if(adattaRifaiScena()) return; if(!redoStac
    cronologia: undoStack vuoto). Niente punto di ripristino: la scena è nata un attimo fa da una copia. */
 var adattaScena=null, adattaRifai=null, adattaPasso=null;   /* adattaPasso: vedi adattaAvvertenza */
 /* Ripeti c'è con la cronologia della scena, o per rimettere la scena di «Adatta» appena tolta (adattaRifaiScena) */
-function ripetiDisponibile(){ return redoStack.length>0 || !!(adattaRifai && activeVar===adattaRifai.da && !undoStack.length); }
+function ripetiDisponibile(){ if(custEditorAttivo()) return redoStack.length>0; return redoStack.length>0 || !!(adattaRifai && activeVar===adattaRifai.da && !undoStack.length); }
 function adattaAnnullaScena(){
+  if(custEditorAttivo()) return false;   /* editor «Crea elemento»: Annulla vale solo per il palco temporaneo (e lo stato di Adatta è messo da parte) */
   var A=adattaScena; if(!A || activeVar!==A.id || undoStack.length!==A.passi) return false;
   var idx=-1; for(var i=0;i<VARIANTS.length;i++){ if(VARIANTS[i].id===A.id) idx=i; }
   var da=null; for(var j=0;j<VARIANTS.length;j++){ if(VARIANTS[j].id===A.da) da=VARIANTS[j]; }
@@ -7093,6 +7099,7 @@ function adattaAnnullaScena(){
   return true;
 }
 function adattaRifaiScena(){
+  if(custEditorAttivo()) return false;   /* idem per Ripeti */
   var R=adattaRifai; if(!R || activeVar!==R.da || undoStack.length || redoStack.length) return false;
   syncActiveVariant();
   VARIANTS.splice(Math.min(R.idx, VARIANTS.length), 0, R.v);
@@ -7106,7 +7113,7 @@ function adattaRifaiScena(){
 function activatePreparedProject(prepared, opts){
   /* editor «Crea elemento» aperto: nessun documento entra. Si LANCIA (non return): chi chiama ha il suo ramo d'errore e
      non deve proseguire come se il documento fosse stato aperto (id cloud, revisione, titolo). */
-  if(custEditorAttivo()) throw new Error("Chiudi prima l'elemento che stai disegnando.");
+  if(custEditorAttivo()) throw new Error(custEditorMsg());
   opts=opts||{};
   commitPreparedDoc(prepared);
   window.__docLoadBlocked=null;   /* un documento compatibile aperto esplicitamente sblocca persistenza e cloud */
@@ -7127,7 +7134,7 @@ function activatePreparedProject(prepared, opts){
   render(); renderChannels(); fit(); renderVariantBar();
 }
 function importProject(json, opts){
-  if(custEditorAttivo()) throw new Error("Chiudi prima l'elemento che stai disegnando.");   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo */
+  if(custEditorAttivo()) throw new Error(custEditorMsg());   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo */
   var s=JSON.parse(json);                                   /* lancia se non è JSON valido */
   if(!s || typeof s!=="object") throw new Error("Formato non valido");
   activatePreparedProject(prepareDoc(s),opts);   /* valida tutto prima del primo side effect */
@@ -8165,7 +8172,7 @@ function normalizeLoadedItems(arr){
   arr.forEach(function(it,idx){
     if(!itemTypeDef(it)) throw documentLoadError("UNKNOWN_ITEM_TYPE","Elemento "+(idx+1)+" non supportato.");
     /* custshape vive solo nel palco temporaneo dell'editor «Crea elemento»: da un file (link, JSON, cloud) non deve mai arrivare */
-    if(it.type==="custshape" && !window.__custEditor) throw documentLoadError("UNKNOWN_ITEM_TYPE","Elemento "+(idx+1)+" non supportato.");
+    if(it.type==="custshape" && !(window.__custEditor && __custShapeAmmesse)) throw documentLoadError("UNKNOWN_ITEM_TYPE","Elemento "+(idx+1)+" non supportato.");
     if(it.id==null || it.id==="") return;
     var id=itemIdString(it.id);
     /* id non-safe o duplicato: NON blocca il documento — verrà riassegnato nel map (come gli id vuoti),
@@ -9441,6 +9448,12 @@ function custPosaModello(id, x, y){
    `var` (e non solo window.__custEditor=…): la dichiarazione esiste da subito, anche per il codice di avvio più in alto. */
 var __custEditor=null;   /* null | {salvato, rect:{x,y,w,d}, rot, baseId|null, inclusi:[id…]} */
 function custEditorAttivo(){ return !!window.__custEditor; }
+/* un solo messaggio per tutto ciò che l'editor aperto ferma: chi preme «Nuovo» o cambia scena deve sapere cosa fare */
+function custEditorMsg(){ return "Chiudi prima l'elemento che stai creando (Salva o Annulla)."; }
+function custEditorAvvisa(){ if(window.__toast) window.__toast(custEditorMsg(), true); }
+/* custshape ammessi da normalizeLoadedItems SOLO mentre l'editor costruisce il palco temporaneo o ne applica la cronologia:
+   un documento esterno (prepareDoc: file, link, cloud) li rifiuta anche a editor aperto */
+var __custShapeAmmesse=false;
 function custEditorClasse(on){ try{ document.body.classList[on?"add":"remove"]("cust-editor"); }catch(e){} }
 function custEditorRidisegna(){
   render();
@@ -9468,18 +9481,28 @@ function custEditorApri(rect, opz){
   var rot=base ? (base.rot||0) : 0, cx=r.x+r.w/2, cy=r.y+r.d/2, inclusi=[];
   if(base && base.grp) inclusi=state.items.filter(function(x){ return x.grp===base.grp && x.id!==base.id; });
   else if(!base && opz.includi) inclusi=state.items.filter(function(x){ return x.type!=="custom" && itemPickable(x) && x.x>=r.x && x.x<=r.x+r.w && x.y>=r.y && x.y<=r.y+r.d; });
-  var realNext=nextId;
+  var realNext=nextId, vKey=String(activeVar||"");
+  /* origine INTERA per gli elementi: con una superficie dispari l'angolo cade su x.5 e gli arrotondamenti di andata e
+     ritorno spostavano i compagni di 1 cm a ogni apertura/salvataggio. Stessa origine all'apertura e al salvataggio. */
+  var o={x:Math.floor(r.x), y:Math.floor(r.y)};
   window.__custEditor={ salvato:{attiva:stateToJSON(), undo:undoStack.slice(), redo:redoStack.slice(), lastSnap:lastSnap,
-                                 venueAssets:venueHistoryAssets, activeVar:activeVar},
-                        rect:r, rot:rot, baseId:base?base.id:null, inclusi:inclusi.map(function(x){ return x.id; }) };
+                                 venueAssets:venueHistoryAssets, activeVar:activeVar,
+                                 /* la planimetria in cache della scena: custRipristina la riaggancia da qui, va rimessa esatta */
+                                 venueCache:Object.prototype.hasOwnProperty.call(venueImgCache,vKey) ? Object.assign({},venueImgCache[vKey]) : null,
+                                 /* «Adatta palco»: Annulla/Ripeti della scena nuova agiscono su VARIANTS. Nell'editor si spengono */
+                                 adatta:{scena:adattaScena, rifai:adattaRifai, passo:adattaPasso}},
+                        rect:r, o:o, rot:rot, baseId:base?base.id:null, inclusi:inclusi.map(function(x){ return x.id; }) };
+  adattaScena=null; adattaRifai=null; adattaPasso=null;
   try{
     var tmp=JSON.parse(window.__custEditor.salvato.attiva);
     tmp.stage={w:r.w, d:r.d, blocks:[{x:0,y:0,w:r.w,d:r.d}]};
     /* dentro la superficie dritta: la rotazione dell'elemento si toglie, e si rimette al salvataggio */
     tmp.items=inclusi.map(function(x){ var c=JSON.parse(JSON.stringify(x)), p=rotatePointAround(x.x,x.y,cx,cy,-rot);
-      c.x=Math.round(p[0]-r.x); c.y=Math.round(p[1]-r.y); c.rot=(((x.rot||0)-rot)%360+360)%360; delete c.grp; return c; });
+      c.x=Math.round(p[0]-o.x); c.y=Math.round(p[1]-o.y); c.rot=(((x.rot||0)-rot)%360+360)%360; delete c.grp; return c; });
     if(base) (base.cust.shapes||[]).forEach(function(g){ var c=custShapeDaForma(g); if(c) tmp.items.push(c); });
-    applyVariantState(tmp); ensureItemIds();
+    __custShapeAmmesse=true;
+    try{ applyVariantState(tmp); }finally{ __custShapeAmmesse=false; }
+    ensureItemIds();
     if(nextId<realNext) nextId=realNext;   /* gli elementi nuovi non riprendono id del progetto vero */
     clearSelection(); resetHistory();
   }catch(e){ custRipristina(); return false; }   /* qualcosa non va: si torna subito al progetto vero, intatto */
@@ -9489,11 +9512,13 @@ function custEditorApri(rect, opz){
 /* rimette il progetto vero com'era all'apertura. Il flag si spegne DOPO il ripristino: se questo fallisse, le scritture
    restano ferme e il progetto vero resta quello in memoria locale e nel cloud. */
 function custRipristina(){
-  var E=window.__custEditor, sv=E.salvato;
+  var E=window.__custEditor, sv=E.salvato, vKey=String(sv.activeVar||"");
+  if(sv.venueCache) venueImgCache[vKey]=Object.assign({},sv.venueCache); else delete venueImgCache[vKey];   /* PRIMA: applyVariantState riaggancia da qui */
   applyVariantState(JSON.parse(sv.attiva), true, sv.activeVar); ensureItemIds(); clearSelection();
   undoStack.length=0; Array.prototype.push.apply(undoStack, sv.undo);
   redoStack.length=0; Array.prototype.push.apply(redoStack, sv.redo);
   lastSnap=sv.lastSnap; venueHistoryAssets=sv.venueAssets;   /* le planimetrie della cronologia: senza, un Annulla dopo l'editor la cancellerebbe */
+  adattaScena=sv.adatta.scena; adattaRifai=sv.adatta.rifai; adattaPasso=sv.adatta.passo;
   window.__custEditor=null;
   custEditorClasse(false);
   syncHistoryButtons();
@@ -9511,6 +9536,9 @@ function custEditorSalva(scheda){
   var veri=state.items.filter(function(x){ return x.type!=="custshape"; }).map(function(x){ return JSON.parse(JSON.stringify(x)); });
   custRipristina();
   primaDiAgire();
+  /* ensureItemIds del ripristino rimette nextId sul progetto vero, ma gli elementi nati nell'editor hanno id più alti e
+     stanno per tornare sul palco: senza questo il prossimo elemento nuovo ne ripeterebbe uno */
+  veri.forEach(function(c){ var n=itemIdNum(c.id); if(n>=nextId) nextId=n+1; });
   var orig=E.baseId ? state.items.find(function(x){ return x.id===E.baseId; }) : null;
   state.items=state.items.filter(function(x){ return x.id!==E.baseId && E.inclusi.indexOf(x.id)<0; });
   var gid=veri.length ? "g"+uid() : null;
@@ -9521,7 +9549,7 @@ function custEditorSalva(scheda){
             cust:{nome:scheda.nome, desc:scheda.desc, shapes:forme, ins:scheda.ins, backline:!!scheda.backline}});
   if(scheda.watt!=null && scheda.watt!=="") base.watt=Number(scheda.watt);
   custNorm(base); base.label=base.cust.nome; if(gid) base.grp=gid; state.items.push(base);
-  veri.forEach(function(c){ var p=rotatePointAround(r.x+c.x, r.y+c.y, cx, cy, E.rot);
+  veri.forEach(function(c){ var p=rotatePointAround(E.o.x+c.x, E.o.y+c.y, cx, cy, E.rot);
     c.x=Math.round(p[0]); c.y=Math.round(p[1]); c.rot=(((c.rot||0)+E.rot)%360+360)%360; if(gid) c.grp=gid;
     if(E.inclusi.indexOf(c.id)<0 && state.items.some(function(z){ return z.id===c.id; })) c.id=uid();
     state.items.push(c); });
@@ -21616,13 +21644,14 @@ function downloadProjectCopy(){
 var documentReplacementSeq=0;
 function guardDocumentReplacement(options,action){
   /* apri progetto, link condiviso, ripristina versione: con l'editor «Crea elemento» aperto non si sostituisce niente */
-  if(custEditorAttivo()){ if(window.__toast) window.__toast("Chiudi prima l'elemento che stai disegnando.",true); return null; }
+  if(custEditorAttivo()){ custEditorAvvisa(); return null; }
   options=options||{};
   var request=++documentReplacementSeq, meaningful=hasMeaningfulDocument();
   function current(){ return request===documentReplacementSeq; }
   function abort(message){ if(current()&&message&&window.__toast) window.__toast(message,true); }
   function protectAndRun(){
     if(!current()) return;
+    if(custEditorAttivo()){ custEditorAvvisa(); return; }   /* l'editor si è aperto mentre la conferma era a schermo */
     if(window.__localConflict){
       abort("Un'altra scheda ha modificato il progetto. Esporta questa versione o ricarica prima di sostituirla."); return;
     }
@@ -21680,7 +21709,7 @@ function guardDocumentReplacement(options,action){
   return request;
 }
 function beginNewDocument(initialState,options){
-  if(custEditorAttivo()) return false;   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo: niente documento nuovo */
+  if(custEditorAttivo()){ custEditorAvvisa(); return false; }   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo: niente documento nuovo */
   options=options||{};
   /* Qualsiasi generatore/modello può rimpiazzare lo slot locale: prima conserva l'intero documento,
      incluse varianti e planimetrie. Se il recovery non entra nello storage, non distruggere il lavoro. */
@@ -27978,7 +28007,7 @@ window.confirmDialog=confirmDialog;
 
 /* ============ FILE: nuovo / json / png ============ */
 document.getElementById("bNew").addEventListener("click", function(){
-  if(custEditorAttivo()) return;   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo */
+  if(custEditorAttivo()) return custEditorAvvisa();   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo */
   if(window.__consultMode){
     if(window.__toast) window.__toast("Durante la consulenza non puoi sostituire il progetto. Usa Esporta recupero se ti serve una copia.",true);
     return;
@@ -28469,7 +28498,7 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
     showForProject(id,request);
   } };
   function openShare(){
-    if(custEditorAttivo()) return;   /* editor «Crea elemento» aperto: il link condiviso porterebbe il palco temporaneo */
+    if(custEditorAttivo()) return custEditorAvvisa();   /* editor «Crea elemento» aperto: il link condiviso porterebbe il palco temporaneo */
     var C=window.__cloud, request=++shareRequestSeq, sourceEpoch=window.__docEpoch||0;
     modal.hidden=false;
     _shareIsCurrent=true; shareFillExtras();
@@ -28525,7 +28554,7 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
      versione dal menu — confondevano). Sotto il cofano resta uno snapshot versione SILENZIOSO:
      rete di sicurezza gratuita, zero carico cognitivo. */
   function fileSaveCloud(){
-    if(custEditorAttivo()) return;   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo */
+    if(custEditorAttivo()) return custEditorAvvisa();   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo */
     if(window.__consultMode){
       var liveSave=document.getElementById("viewSave"); if(liveSave&&!liveSave.disabled) liveSave.click();
       if(window.__toast) window.__toast("Salvataggio consulenza richiesto.");
@@ -28716,7 +28745,7 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
   window.jsonSoloCollegati=jsonSoloCollegati;
   document.getElementById("saveJson").addEventListener("click", function(){
     if(!window.jsonSoloCollegati()) return;
-    if(custEditorAttivo()) return;   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo */
+    if(custEditorAttivo()) return custEditorAvvisa();   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo */
     var name=((state.titolo||state.luogo||"stageplot").replace(/[^\w\-]+/g,"_").replace(/^_+|_+$/g,"").slice(0,40)||"stageplot")+".json";
     var data=docToJSONFull();   /* T6: export = documento intero (tutte le varianti); l'attiva porta la planimetria (_dataUrl), nessun limite di dimensione */
     if(typeof window.showSaveFilePicker==="function" && !isMobile()){   /* apre il selettore "dove salvare" */
@@ -31884,7 +31913,7 @@ function renderPdfUltimo(){
   el.classList.toggle("vecchio", /^Modificato/.test(tx));
 }
 function exportPdf(paperKey, scaleSel, orient, header){
-  if(custEditorAttivo()) return Promise.resolve(false);   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo: niente export */
+  if(custEditorAttivo()){ custEditorAvvisa(); return Promise.resolve(false); }   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo: niente export */
   var info=document.getElementById("pdfInfo");
   /* M-04: il gate sugli errori CRITICI vive nel click di #pdfGo, non più qui — perché lì può usare la
      finestra dell'app (Promise) invece del confirm() nativo che alcuni browser lasciano sopprimere.
@@ -31934,7 +31963,7 @@ function exportPdf(paperKey, scaleSel, orient, header){
    fine vera — riuscita o fallita — così il bottone può tornare vivo quando il lavoro è finito. */
 var _pngInCorso=false;
 function exportPng(fatto){
-  if(custEditorAttivo()) return false;   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo: niente export */
+  if(custEditorAttivo()){ custEditorAvvisa(); return false; }   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo: niente export */
   function fine(){ _pngInCorso=false; if(typeof fatto==="function") fatto(); }
   if(_pngInCorso){ if(window.__toast) window.__toast("PNG già in preparazione."); return false; }
   _pngInCorso=true;
@@ -33819,6 +33848,7 @@ function maybeAskStageSize(explicit){
       +'<button type="button" id="cbCopy">Continua qui come copia</button>';
     document.body.appendChild(confBar);
     confBar.querySelector("#cbLoad").addEventListener("click", function(){
+      if(custEditorAttivo()) return custEditorAvvisa();   /* editor «Crea elemento» aperto: prima si chiude */
       /* Rete di sicurezza multi-variante (incluse planimetrie). Se lo snapshot non entra nello storage,
          non sostituire il lavoro locale. */
       var backed=false;
@@ -34282,7 +34312,7 @@ function maybeAskStageSize(explicit){
     if(window.__bootVenueUnavailable){
       fail("Planimetria locale non disponibile: attendi il recupero cloud prima di salvare."); return;
     }
-    if(window.__custEditor){ done(null); return; }   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo (backstop: cloudAutosaveNow lo rimanda già) */
+    if(window.__custEditor){ done(null, "editor"); return; }   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo (backstop: cloudAutosaveNow lo rimanda già) */
     if(window.__projLocked && cloudCurrentId){ done(cloudCurrentId); return; }   /* BLOCCO: mai riscrivere un progetto bloccato (backstop lato client) */
     if(cloudConflict){ done(null); return; }   /* conflitto aperto: nessuna scrittura finché l'utente non sceglie */
     /* Documento NUOVO e ancora vuoto: l'autosave non deve depositare un guscio nell'elenco (audit
@@ -34477,6 +34507,7 @@ function maybeAskStageSize(explicit){
 
   function openProject(id){
     if(!sb || !cloudUser) return;
+    if(custEditorAttivo()) return custEditorAvvisa();   /* editor «Crea elemento» aperto: prima si chiude */
     var request=++cloudOpenSeq, requestUser=cloudUser.id, requestAuth=authGeneration;
     function fetchAndOpen(){
       if(request!==cloudOpenSeq || !authStill(requestUser,requestAuth)) return;
@@ -34510,7 +34541,7 @@ function maybeAskStageSize(explicit){
             var localOk=persistLocalState(); if(localOk!==false) persistVenueImg();
             if(window.applyProjLock) window.applyProjLock(!!r.data.is_locked);   /* bloccato → editor sola-lettura */
             toast(r.data.is_locked?"✓ Progetto aperto (bloccato · sola lettura).":"✓ Progetto aperto."); closeModal();
-          }catch(e){ toast("Il progetto salvato non è valido.", true); }
+          }catch(e){ toast(custEditorAttivo() ? custEditorMsg() : "Il progetto salvato non è valido.", true); }
         });
       });
     }
