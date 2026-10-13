@@ -8864,6 +8864,25 @@ t("rifinitura v2: i pezzi troppo grandi lasciati fuori dal modello si dicono", (
     ok(msg.some(([m, err]) => /è anche fra gli «Elementi di questo progetto»[\s\S]*1 pezzo troppo grande non è entrato nel modello\./.test(m) && err), "anche al primo Salva: " + JSON.stringify(msg));
   } finally { A.__toast = tp; }
 }));
+t("metro: le maniglie tonde agli estremi hanno il bordo da 1,6 px anche col CSS (non 1,4 delle quadrate)", () => {
+  /* .rs-handle fissa stroke-width:1.4 nel CSS e il CSS vince sull'attributo: le maniglie tonde del metro
+     (stroke-width="1.6") hanno bisogno della loro regola, più specifica */
+  reset();
+  const m = add("metro", 400, 400, { w: 300, d: 10 });
+  A.sel = m.id; A.selSet = { [m.id]: true };
+  try {
+    const mk = A.selHandlesMarkup();
+    const tonde = mk.match(/<circle class="rs-handle[^"]*\brs-end\b[^"]*"[^>]*>/g) || [];
+    eq(tonde.length, 2, "due maniglie tonde agli estremi");
+    ok(tonde.every(c => /stroke-width="1\.6"/.test(c)), "l'attributo dice 1,6: " + tonde.join(" "));
+  } finally { A.sel = null; A.selSet = {}; reset(); }
+  const regole = [...stylesCss.matchAll(/(^|[\n}])\s*([^{}\n]*\.rs-handle[^{}\n]*)\{([^}]*)\}/g)].map(r => ({ sel: r[2].trim(), dec: r[3] }));
+  const sw = (r) => { const x = r.dec.match(/stroke-width:\s*([\d.]+)/); return x ? +x[1] : null; };
+  const base = regole.find(r => r.sel === ".rs-handle"), fine = regole.find(r => /^\.rs-handle\.rs-end$/.test(r.sel));
+  eq(base && sw(base), 1.4, "le quadrate: 1,4 px");
+  ok(fine && sw(fine) === 1.6, "le tonde del metro: una regola più specifica a 1,6 px");
+  ok(regole.filter(r => sw(r) != null && r !== base && r !== fine).length === 0, "nessun'altra regola sul bordo delle maniglie");
+});
 t("rifinitura v3: maniglie dell'editor visibili, gambo sopra la maniglia alta, riquadro sotto il nome scritto sopra", () => {
   reset();
   const f = { id: A.uid(), type: "custshape", k: "rect", x: 300, y: 300, w: 20, d: 10, rot: 0, stroke: "#000000", sw: 2 };
@@ -19792,8 +19811,23 @@ t("il riquadro di selezione sta sul disegno vero, con il tratto costante a scher
   const r = appjs.slice(appjs.indexOf("function render(){"), appjs.indexOf("function render(){") + 1500);
   ok(/reindexItemNodes\(\);\s*aderisciSelezione\(\);/.test(r), "dopo ogni ridisegno");
   ok((appjs.match(/syncMinimap\(\); aderisciSelezionePresto\(\);/g) || []).length === 2, "e dopo zoom e pizzico");
-  const h = appjs.slice(appjs.indexOf("function selHandlesMarkup(){"), appjs.indexOf("function selHandlesMarkup(){") + 1800);
-  ok(/topY=_fit \? _fit\.y1 : -bh/.test(h) && /ky=topY-hSize\(22\)/.test(h), "la maniglia di rotazione sta sul bordo del riquadro nuovo");
+  /* comportamento (non il testo della funzione): la maniglia di rotazione parte dal bordo alto del riquadro misurato
+     sul disegno (_selFit), e senza misura dal bordo del riquadro di calcolo; il pomello sta 22 px sopra */
+  reset();
+  const it = add("cantante", 400, 400);
+  ok(!A.TYPES.cantante.resizable, "un elemento senza maniglia alta di ridimensionamento (non sposta il gambo)");
+  const fit0 = A._selFit; A.sel = it.id; A.selSet = { [it.id]: true };
+  try {
+    const leggi = () => { const mk = A.selHandlesMarkup();
+      return { y1: +mk.match(/class="rh-line" x1="0" y1="(-?[\d.e-]+)"/)[1], ky: +mk.match(/class="rh-knob" cx="0" cy="(-?[\d.e-]+)"/)[1] }; };
+    A._selFit = Object.create(null); A._selFit[it.id] = { x1: -20, y1: -37, x2: 20, y2: 30 };
+    const conFit = leggi();
+    eq(conFit.y1, -37, "il gambo parte dal bordo alto del riquadro misurato");
+    ok(Math.abs(conFit.ky - (-37 - A.hSize(22))) < 1e-9, "il pomello 22 px sopra quel bordo: " + conFit.ky);
+    A._selFit = Object.create(null);
+    const senza = leggi(), bh = it.d / 2 + A.selMargine(it);
+    ok(Math.abs(senza.y1 - (-bh)) < 1e-9, "senza misura, dal bordo del riquadro di calcolo: " + senza.y1 + " contro " + (-bh));
+  } finally { A._selFit = fit0; A.sel = null; A.selSet = {}; reset(); }
 });
 
 t("la maniglia di rotazione resta della stessa misura a ogni zoom", () => {
@@ -19801,8 +19835,22 @@ t("la maniglia di rotazione resta della stessa misura a ogni zoom", () => {
   const r = stylesCss.match(/([^\n{}]*\.rot-handle \.rh-line[^\n{}]*)\{vector-effect:non-scaling-stroke\}/);
   ok(r, "i tratti della maniglia non scalano con lo zoom");
   ["rh-knob", "rh-ico", "lk-knob", "lk-arc"].forEach((k) => ok(r && r[1].indexOf("." + k) > -1, k + " compreso"));
-  const h = appjs.slice(appjs.indexOf("function selHandlesMarkup(){"), appjs.indexOf("function selHandlesMarkup(){") + 1800);
-  ok(/knob=7\*_k/.test(h) && /cmPerPx\(\)/.test(h), "e le misure della maniglia sono in pixel di schermo");
+  /* comportamento: a due zoom diversi pomello, area di presa e tratti misurano gli stessi pixel di schermo */
+  reset();
+  const it = add("cantante", 400, 400), cpp = A.cmPerPx, fit0 = A._selFit;
+  A._selFit = Object.create(null); A.sel = it.id; A.selSet = { [it.id]: true };
+  try {
+    const misura = (k) => { A.cmPerPx = () => k; const mk = A.selHandlesMarkup();
+      const num = (re) => { const m = mk.match(re); return m ? +m[1] : NaN; };
+      return { knob: num(/class="rh-knob"[^>]*\sr="(-?[\d.e-]+)"/), hit: num(/class="rh-hit"[^>]*\sr="(-?[\d.e-]+)"/),
+        lw: num(/class="rh-line"[^>]*stroke-width="(-?[\d.e-]+)"/), kw: num(/class="rh-knob"[^>]*stroke-width="(-?[\d.e-]+)"/) }; };
+    [0.5, 2].forEach((k) => {
+      const m = misura(k);
+      ok(Math.abs(m.knob / k - 7) < 1e-9, "pomello di 7 px a " + k + " cm/px: " + m.knob);
+      ok(Math.abs(m.hit / k - 14) < 1e-9, "area di presa di 14 px a " + k + " cm/px: " + m.hit);
+      ok(Math.abs(m.lw / k - 1.5) < 1e-9 && Math.abs(m.kw / k - 1.8) < 1e-9, "tratti di 1,5 e 1,8 px a " + k + " cm/px");
+    });
+  } finally { A.cmPerPx = cpp; A._selFit = fit0; A.sel = null; A.selSet = {}; reset(); }
 });
 
 t("il riquadro del passaggio del mouse è stretto come quello della selezione", () => {
