@@ -2296,7 +2296,8 @@ function hasWatt(type){ return WATT[type]!=null || WATT_BY_AREA[type]!=null; }
    i watt: senza questo, una luce col modello reale mostrava il consumo al motore elettrico ma non
    all'utente, perché il campo Watt del pannello guardava solo la tabella dei tipi (visto in prova
    sul browser il 29/07). */
-function hasWattItem(it){ return !!(it && (hasWatt(it.type) || (typeof lightModelWatt==="function" && lightModelWatt(it)!=null))); }
+function hasWattItem(it){ if(it && it.type==="custom") return true;   /* elemento personalizzato: il campo «Potenza (W)» compare sempre */
+  return !!(it && (hasWatt(it.type) || (typeof lightModelWatt==="function" && lightModelWatt(it)!=null))); }
 /* ===== EQUIPMENT INTELLIGENCE (fase 2, spec H in docs/product-audit/equipment-intelligence/) =====
    Un elemento può portare un MODELLO REALE di attrezzatura: it.modelId (slug del DB globale equip_product)
    + it.modelData (SNAPSHOT dell'oggetto SourcedValue: il progetto resta auto-contenuto e OFFLINE-first)
@@ -8402,7 +8403,8 @@ function zoneAbsorbable(it){
 }
 function effOwnMic(it){ return it.ownMic!=null ? it.ownMic : !zoneAbsorbable(it); }
 /* un elemento è una sorgente audio? (per l'inferenza; esclude la zona stessa e i non-sorgenti) */
-function isAudioSource(it){ if(it.diFor) return false;   /* DI generata da uno strumento: i canali sono i suoi, non si contano due volte */
+function isAudioSource(it){ if(it.diFor) return false;
+  if(it.type==="custom") return custInputs(it).length>0;   /* personalizzato: sorgente solo se ha ingressi dichiarati */   /* DI generata da uno strumento: i canali sono i suoi, non si contano due volte */
   if(VOCE[it.type]) return micModeOf(it)!=="pano"; return it.type!=="miczone" && it.miking!=="__nomic__" && (MIKING[it.type] || IN_MULTI[it.type] || IN_SRC[it.type]!=null || STEREO_TOGGLE[it.type] || it.type==="distereo" || (it.type==="direttore" && it.mic===true)); }   /* direttore = sorgente SOLO se ha il mic talkback */
 function dirMicLabel(it){ return (it && it.micType==="collodoca") ? "Talkback (collo d'oca)" : "Talkback (palmare on/off)"; }   /* microfono del direttore: palmare gelato (default) o collo d'oca da podio */
 /* «PRODUCE CANALI» non è la stessa cosa di «è una sorgente da microfonare» (bug 29/07, quartetto a
@@ -9492,12 +9494,19 @@ function headMicInputs(it){
   var base=it.label||(TYPES[it.type]&&TYPES[it.type].nome)||"Voce";
   return [{name:base+" voce", mic:HEADMIC_MIC[v]||"SM58"}];
 }
+/* Ingressi dichiarati da un elemento personalizzato (it.cust.ins, già pulito da custNorm): n canali,
+   «mic» = microfono (SM57), «linea» = DI da prevedere. Nome unico se n=1, altrimenti «Nome 1».. «Nome n». */
+function custInputs(it){ var c=it.cust||{}, ins=c.ins; if(!ins || !(ins.n>=1)) return [];
+  var nm=c.nome||it.label||TYPES.custom.nome, mic=(ins.tipo==="mic")?"SM57":"DI", o=[];
+  if(ins.n===1) return [{name:nm, mic:mic}];
+  for(var i=1;i<=ins.n;i++) o.push({name:nm+" "+i, mic:mic}); return o; }
 function cabItemInputs(it){
   /* DI generata da uno strumento (diFor): è una TAPPA del cavo, non una sorgente. I canali sono
      quelli dello strumento — contarli anche qui raddoppiava gli ingressi in stage box e le righe
      della lista canali (chitarra classica + DI = 2 ingressi invece di 1). Una DI aggiunta a mano
      dal catalogo NON ha diFor: resta una sorgente con i suoi canali. */
   if(it.diFor && typeof diSourceOf==="function" && diSourceOf(it)) return [];
+  if(it.type==="custom") return custInputs(it);   /* elemento personalizzato: solo gli ingressi che l'utente ha dichiarato */
   /* COMPUTER (31/07): la via scelta non era solo un'etichetta sul cavo — cambia cosa chiedi al
      service. In analogico dalle cuffie serve davvero una DI stereo; in USB o Dante NO, e scriverlo
      lo stesso metteva nel rider una DI che non esiste. Il numero di canali resta quello di it.plCh. */
@@ -24707,6 +24716,7 @@ function toggleMonitorView(){   /* dal catalogo (Monitor da palco): attiva/disat
    prese non poteva distinguerle. Quando l'etichetta è un nome di persona o di postazione, il tipo
    va accanto: «Basso · Wedge monitor», «Basso · Ampli basso» (visto nel PDF, 23/08). */
 function loadName(it){
+  if(it.type==="custom") return String((it.cust&&it.cust.nome)||it.label||TYPES.custom.nome);   /* il nome dell'utente, senza « · Elemento personalizzato» */
   var tipo=(TYPES[it.type]||{}).nome||it.type, lab=String(it.label||"").trim();
   if(!lab) return tipo;
   if(lab.toLowerCase()===tipo.toLowerCase() || lab.toLowerCase().indexOf(tipo.toLowerCase())>=0) return lab;
@@ -27610,7 +27620,8 @@ function loadListPdf(shared){
    (ampli, piani, tastiere, chitarre, batteria…), con "chi la fornisce" per riga. Il service legge cosa
    deve procurare (righe Service), la band cosa porta lei. Auto-derivata dagli elementi sul palco. ===== */
 var BACKLINE_EXTRA={ batteria:1, edrums:1, percussioni:1, timbales:1 };   /* strumenti-backline fuori dalla categoria "Band e backline" */
-function isBackline(it){ var t=TYPES[it.type]; if(!t) return false; return t.cat==="Band e backline" || !!BACKLINE_EXTRA[it.type]; }
+function isBackline(it){ var t=TYPES[it.type]; if(!t) return false; if(it.type==="custom") return !!(it.cust && it.cust.backline);   /* personalizzato: solo se l'utente l'ha segnato */
+  return t.cat==="Band e backline" || !!BACKLINE_EXTRA[it.type]; }
 /* IL NOME DI UNA RIGA DI BACKLINE (12/10, pilota Thomann). Il modello scelto in «Modello del backline»
    (it.bm) non arrivava sul foglio: la lista diceva «Ampli basso» anche quando il pannello sapeva che era
    un Ampeg RB-115, e il service doveva indovinare cosa procurare. Ora:
@@ -27625,6 +27636,7 @@ function isBackline(it){ var t=TYPES[it.type]; if(!t) return false; return t.cat
    Una funzione sola per lo schermo (anteprima dell'Esporta, link condiviso) e il PDF: tutti leggono
    backlineList. */
 function backlineName(it){
+  if(it.type==="custom") return String((it.cust&&it.cust.nome)||it.label||TYPES.custom.nome);
   var t=TYPES[it.type], tipo=t?t.nome:it.type, lab=String(it.label||"").trim();
   var d=(typeof ampModelOf==="function")?ampModelOf(it):null;
   if(!d) return lab || tipo;
