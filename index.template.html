@@ -8448,6 +8448,10 @@ function normalizeState(s){
   /* Scaletta (10/10): sanificata voce per voce; senza voci il campo non c'è (vedi scalettaTipi) */
   var _sc=scalettaNorm(s.scaletta);
   if(_sc.length) s.scaletta=_sc; else delete s.scaletta;
+  /* Modelli dell'elemento personalizzato (13/10): solo se ce n'è almeno uno valido; una copia che punta a un modello sparito perde il riferimento */
+  var _cm=(Array.isArray(s.customModels)?s.customModels:[]).slice(0,50).map(custModelNorm).filter(Boolean);
+  if(_cm.length) s.customModels=_cm; else delete s.customModels;   /* solo se serve: l'impronta del PDF non cambia */
+  s.items.forEach(function(x){ if(x.type==="custom" && x.cust && x.cust.modelId && !_cm.some(function(q){ return q.id===x.cust.modelId; })) delete x.cust.modelId; });
   s.status = (["bozza","revisione","approvato","superato"].indexOf(s.status)>=0) ? s.status : "bozza";   /* T5: stato di approvazione */
   s.approval = (s.approval && typeof s.approval==="object") ? {by:String(s.approval.by||"").slice(0,80), at:String(s.approval.at||"").slice(0,10)} : {by:"",at:""};
   s.namesMode = (["auto","on","off"].indexOf(s.namesMode)>=0) ? s.namesMode : "auto";   /* K: visibilità nomi strumenti */
@@ -9336,6 +9340,44 @@ function drawCustom(it){
   });
   if(!s) s='<rect x="'+f2(ox)+'" y="'+f2(oy)+'" width="'+f2(w)+'" height="'+f2(d)+'" fill="none" stroke="#1d1d1f" stroke-width="1.5" stroke-dasharray="6 4"/>';
   return '<g class="custom-el">'+s+'</g>';
+}
+/* Modelli del progetto (13/10/2026): un elemento personalizzato (con i suoi eventuali compagni di gruppo) salvato nel
+   progetto per posarne copie indipendenti. `state.customModels` esiste solo se non è vuoto: firmaPdf fa l'hash dello
+   stato normalizzato e un [] in più segnerebbe «modificato dopo l'ultimo PDF» su ogni progetto. */
+function custModelNorm(m){
+  if(!m || typeof m!=="object" || typeof m.id!=="string" || !/^[a-z0-9_-]{1,40}$/i.test(m.id)) return null;
+  var finto=custNorm({type:"custom", w:m.w, d:m.d, watt:m.watt, cust:{nome:m.nome, desc:m.desc, shapes:m.shapes, ins:m.ins, backline:m.backline}});
+  var out={id:m.id, nome:finto.cust.nome, w:finto.w, d:finto.d, shapes:finto.cust.shapes, membri:[]};
+  if(finto.cust.desc) out.desc=finto.cust.desc; if(finto.watt!=null) out.watt=finto.watt;
+  if(finto.cust.ins) out.ins=finto.cust.ins; if(finto.cust.backline) out.backline=true;
+  (Array.isArray(m.membri)?m.membri:[]).slice(0,100).forEach(function(x){
+    if(!x || typeof x!=="object" || !itemTypeDef(x) || x.type==="custom") return;   /* niente modelli dentro modelli */
+    var dx=Number(x.dx), dy=Number(x.dy); if(!isFinite(dx)||!isFinite(dy)) return;
+    var c=JSON.parse(JSON.stringify(x)); delete c.id; delete c.grp; delete c.x; delete c.y; c.dx=dx; c.dy=dy; out.membri.push(c);
+  });
+  return out;
+}
+/* membri = elementi con lo stesso grp della base, in coordinate relative al centro della base e con la rotazione della base tolta */
+function custModelDaAgglomerato(base){
+  var rot=-(base.rot||0), membri=[];
+  (base.grp ? state.items.filter(function(x){ return x.grp===base.grp && x.id!==base.id; }) : []).forEach(function(x){
+    var p=rotatePointAround(x.x, x.y, base.x, base.y, rot), c=JSON.parse(JSON.stringify(x));
+    delete c.id; delete c.grp; delete c.x; delete c.y; c.dx=Math.round(p[0]-base.x); c.dy=Math.round(p[1]-base.y);
+    c.rot=(((x.rot||0)+rot)%360+360)%360; membri.push(c); });
+  var c=base.cust||{}, m={id:"m"+uid().slice(1), nome:c.nome, w:base.w, d:base.d, shapes:JSON.parse(JSON.stringify(c.shapes||[])), membri:membri};
+  if(c.desc) m.desc=c.desc; if(base.watt!=null) m.watt=base.watt; if(c.ins) m.ins=c.ins; if(c.backline) m.backline=true;
+  return m;
+}
+/* posa una copia del modello: base + membri con id e gruppo nuovi (copie profonde, indipendenti dal modello) */
+function custPosaModello(id, x, y){
+  var m=(state.customModels||[]).find(function(q){ return q.id===id; }); if(!m) return [];
+  var gid="g"+uid(), base={id:uid(), type:"custom", x:Math.round(x), y:Math.round(y), rot:0, w:m.w, d:m.d, grp:gid,
+    watt:m.watt, cust:{nome:m.nome, desc:m.desc, shapes:JSON.parse(JSON.stringify(m.shapes)), ins:m.ins, backline:m.backline, modelId:m.id}};
+  if(base.watt==null) delete base.watt; custNorm(base); base.label=base.cust.nome; state.items.push(base);
+  var out=[base];
+  m.membri.forEach(function(c){ var it=JSON.parse(JSON.stringify(c)); it.id=uid(); it.grp=gid; it.x=base.x+c.dx; it.y=base.y+c.dy; delete it.dx; delete it.dy; state.items.push(it); out.push(it); });
+  if(m.membri.length===0) delete base.grp;   /* un gruppo di un solo elemento non ha senso */
+  return out;
 }
 function drawShape(it){
   var col=shapeFillOf(it), st=shapeStyleOf(it), op=(it.opacity==null?100:+it.opacity)/100;
