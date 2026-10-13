@@ -3730,6 +3730,17 @@ body.dark #custPiede{background:#1b2327;box-shadow:0 -6px 14px -10px rgba(0,0,0,
 #catCustom[hidden]{display:none}
 #catCustom h4{margin-top:10px}
 body.cust-editor #catCustom, body.proj-ro #catCustom, body.viewmode #catCustom{display:none !important}
+/* Ruling 16: dentro ogni voce, sul bordo destro, «Elimina modello» — un bottone suo (mai un bottone dentro un bottone),
+   quieto, rosso solo al passaggio; sul dito 44 px. Il nome lungo va a capo in sillabe: «(2)» deve restare leggibile. */
+#catCustom .cust-voce{position:relative}
+#catalog #catCustom .cust-voce > button:first-child{padding-right:36px}
+#catCustom .cust-voce > button:first-child span{min-width:0;overflow-wrap:break-word;hyphens:auto}
+#catalog #catCustom .cust-voce-elimina{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:32px;height:32px;min-height:0;margin:0;padding:0;
+  justify-content:center;border-color:transparent;background:transparent;color:var(--text-3)}
+#catalog #catCustom .cust-voce-elimina:hover{color:var(--danger);border-color:var(--danger-solid);background:var(--surface)}
+#catalog #catCustom .cust-voce-elimina:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
+#catalog #catCustom .cust-voce-elimina svg{width:16px;height:16px;flex:0 0 auto}
+@media (max-width:880px){ #catalog #catCustom .cust-voce-elimina{width:44px;height:44px} #catalog #catCustom .cust-voce > button:first-child{padding-right:52px} }
 #catalog #catResults .cust-crealo{justify-content:flex-start;height:auto;margin-top:4px;padding:6px 8px;border:1px dashed var(--border-strong);
   background:transparent;color:var(--text);font-size:13px;font-weight:400;text-align:left;line-height:1.3;white-space:normal}
 #catalog #catResults .cust-crealo:hover{background:var(--accent-tint);border-color:var(--accent-soft)}

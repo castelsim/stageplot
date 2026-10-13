@@ -88,6 +88,7 @@ function reset() {
   A.state.titolo = ""; A.state.luogo = ""; A.state.techContact = ""; A.state.venue = null; A.state.printFrame = null; A.state.zones = [];
   A.state.lights = { rows: [], blackout: null, mood: "" };   /* luci = reparto (blocco A): senza azzeramento le righe di un test finiscono nel rider del successivo */
   delete A.state.scaletta;   /* scaletta (10/10): campo che esiste solo con almeno una voce */
+  delete A.state.customModels;   /* modelli dell'elemento personalizzato (13/10): dal primo Salva di un elemento nuovo nasce anche il modello (Ruling 17), e un test che salva non deve lasciarli ai successivi */
   A.state.stage = { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] };   /* palco default: base per isFreshBlankProject */
   /* cab.home va azzerato come le luci e lookDefault: dal 02/09 un test puo' CREARE il punto
      d'arrivo dei cavi, e se resta scritto il test dopo trova un capolinea che non ha messo lui —
@@ -8294,6 +8295,7 @@ t("crea elemento: su un progetto bloccato o in sola lettura non si apre", () => 
 t("catalogo del progetto: salvare come modello e ritrovarlo", () => conModelli(() => {
   reset(); delete A.state.customModels;
   const base = add("custom", 300, 300, { cust: { nome: "Schermo", shapes: [] } }); A.custNorm(base);
+  A.resetHistory();   /* la cronologia parte da qui: l'Annulla in fondo deve togliere proprio il modello, non l'elemento */
   A.custSalvaComeModello(base.id);
   eq((A.state.customModels || []).length, 1, "un modello");
   eq(A.state.customModels[0].nome, "Schermo");
@@ -8305,13 +8307,15 @@ t("catalogo del progetto: salvare come modello e ritrovarlo", () => conModelli((
   eq(A.__catCustomAggiorna(), false, "modelli uguali: niente da rifare");
   ok(A.__spSearch("schermo").some(e => e.nome === "Schermo"), "la ricerca trova il modello per nome");
   const voce = A.__catEntries.find(e => e.custModello && e.nome === "Schermo");
-  ok(voce && voce.noQuick && voce.custNo, "non nella ricerca rapida, non nell'editor");
+  ok(voce && !voce.noQuick && voce.custNo && voce.custModelloId === A.state.customModels[0].id, "anche nella ricerca rapida (Ruling 16), non nell'editor");
   A.state.customModels[0].nome = "Schermo grande";
   eq(A.__catCustomAggiorna(), true, "nome cambiato: si rifà");
   ok(A.__spSearch("schermo grande").length === 1 && !A.__catEntries.some(e => e.custModello && e.nome === "Schermo"), "una voce sola, aggiornata");
   /* Annulla toglie il modello; vuoto = campo assente, mai [] */
-  A.undo(); A.undo();
-  ok(!("customModels" in A.state) || A.state.customModels.length > 0, "mai un elenco vuoto nello stato");
+  A.undo();   /* il secondo Salva non cambiava niente: nessun passo in più, basta UN Annulla */
+  eq("customModels" in A.state, false, "Annulla toglie il modello: campo assente, mai []");
+  ok(A.state.items.some(x => x.id === base.id), "e solo il modello: l'elemento resta");
+  ok(!A.__spSearch("schermo").some(e => e.nome === "Schermo" || e.nome === "Schermo grande"), "e la ricerca non lo trova più");
 }));
 t("catalogo del progetto: con l'editor aperto «Salva come modello» si ferma e lo dice", () => conModelli(() => {
   reset(); delete A.state.customModels;
@@ -8349,9 +8353,10 @@ t("catalogo del progetto: due copie dal catalogo, modificarne una non cambia l'a
   eq([a2.cust.nome, a2.watt], ["Postazione A", 500], "la copia modificata");
   eq(JSON.stringify(b2.cust), nomiB, "l'altra copia è com'era");
   eq(A.state.customModels[0].nome, "Postazione", "il modello pure");
-  eq(a2.cust.modelId, undefined, "la copia modificata non è più il modello: «Salva come modello» ne fa uno nuovo");
-  A.custSalvaComeModello(a2.id);
+  eq(a2.cust.modelId, mid, "la copia modificata resta legata al suo modello (Ruling 17: dal pannello «Aggiorna il modello» o «Salva come nuovo modello»)");
+  A.custSalvaComeModello(a2.id, { nuovo: true });
   eq(A.state.customModels.map(m => m.nome), ["Postazione", "Postazione A"], "due modelli");
+  eq(a2.cust.modelId, A.state.customModels[1].id, "e la copia passa al modello nuovo");
 }));
 t("Modifica: il nome sul palco scritto a mano resta, quello di serie segue il nome nuovo", () => conModelli(() => {
   reset();
@@ -8407,7 +8412,7 @@ t("editor: Salva e Annulla restano in vista in fondo alla colonna di destra", ()
   const css = readFileSync(join(root, "src/styles.css"), "utf8");
   ok(/#custPiede\{[^}]*position:sticky;[^}]*bottom:/.test(css), "appiccicato in fondo");
   ok(/#custScheda\[hidden\] \+ #custPiede\{display:none\}/.test(css), "nascosto con la scheda");
-  ok(/body\.cust-editor #catCustom|#catCustom[^{]*\{display:none/.test(css), "gli elementi del progetto non si posano nell'editor");
+  ok(/body\.cust-editor #catCustom/.test(css), "gli elementi del progetto non si posano nell'editor");
   ok(/body\.proj-ro #catCustom/.test(css) && /body\.viewmode #catCustom/.test(css), "né su un progetto bloccato o in sola lettura");
 });
 /* ===== Crea elemento, Tappa 5: invio per revisione (13/10/2026) ===== */
@@ -8603,6 +8608,354 @@ t("revisione 7: durante l'invio l'editor non si apre, e «Salva e invia» dice c
   A.custAnteprima = (it, cb) => { const z = add("astamic", 330, 330); z.grp = "gI"; cb(null); };
   A.custInviaRevisione(base.id);
   eq(giro.mandato[0].corpo.tech_context.elemento.membri, ["cantante"], "i pezzi di quando si è dato il consenso");
+}));
+/* ===== Crea elemento, Rifinitura (13/10/2026): le osservazioni rinviate dei revisori e i Ruling 16/17 ===== */
+/* il pannello dell'elemento (pCust…/grpCust…) con un DOM finto che ricorda testi, visibilità e onclick */
+function conPannello(fn) {
+  return conModelli(() => {
+    const d = A.document, finti = {};
+    const mk = (id) => ({ id, nodeType: 1, style: {}, hidden: false, textContent: "", onclick: null });
+    A.document = new Proxy({}, { get: (t, k) => k === "getElementById"
+      ? (id) => (/^(pCust|grpCust)|^(pCustomWrap|grpCustomRow)$/.test(id) ? (finti[id] || (finti[id] = mk(id))) : d.getElementById(id)) : d[k] });
+    try { return fn(finti); } finally { A.document = d; }
+  });
+}
+/* sola lettura come la vede l'app: classe del body (viewmode) o consulenza */
+function conSolaLettura(modo, fn) {
+  return conModelli(() => {
+    const d = A.document, cons = A.__consultMode;
+    const cl = { contains: (c) => modo === "viewmode" && c === "viewmode", add() {}, remove() {}, toggle() {} };
+    const body = new Proxy({}, { get: (t, k) => (k === "classList" ? cl : d.body[k]) });
+    A.document = new Proxy({}, { get: (t, k) => (k === "body" ? body : d[k]) });
+    if (modo === "consulenza") A.__consultMode = true;
+    try { return fn(); } finally { A.document = d; A.__consultMode = cons; }
+  });
+}
+const surrogatoSpaiato = (s) => /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(^|[^\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(s);
+
+t("rifinitura 1: l'etichetta della base è il nome dell'elemento, salvo quella scritta a mano (una regola sola)", () => {
+  ok(!/if\(!it\.label\) it\.label=out\.nome/.test(appjs), "niente ramo quasi morto in custNorm");
+  const s = A.normalizeState({ _v: 5, stage: { w: 1200, d: 800 }, items: [
+    { id: "e1", type: "custom", x: 100, y: 100, w: 120, d: 80, cust: { nome: "Regia", shapes: [] } },
+    { id: "e2", type: "custom", x: 400, y: 100, w: 120, d: 80, label: "Elemento", cust: { nome: "Leggio grande", shapes: [] } },
+    { id: "e3", type: "custom", x: 700, y: 100, w: 120, d: 80, label: "Schermo sinistro", cust: { nome: "Schermo", shapes: [] } } ] });
+  eq(s.items.map(x => x.label), ["Regia", "Leggio grande", "Schermo sinistro"], "senza etichetta e con quella di serie → il nome; scritta a mano → resta");
+  eq(A.custEtichetta("Schermo", "Schermo", "Telo"), "Telo", "uguale al nome di prima → segue il nome nuovo");
+  eq(A.custEtichetta("Schermo sx", "Schermo", "Telo"), "Schermo sx", "scritta a mano → resta");
+  ok(/base\.label=custEtichetta\(orig \? orig\.label : ""/.test(appjs), "Modifica usa la stessa regola");
+});
+t("rifinitura 2: null, \"\", true e [] non sono numeri (prima diventavano 0 o 1)", () => {
+  const forma = (v) => A.custNorm({ type: "custom", w: 120, d: 80, cust: { shapes: [{ k: "rect", x: v, y: 0, w: 10, h: 10 }] } }).cust.shapes.length;
+  [null, "", "  ", true, false, [], {}].forEach((v) => eq(forma(v), 0, "x=" + JSON.stringify(v) + " scartata"));
+  eq(forma(5), 1, "un numero vero resta"); eq(forma("5"), 1, "anche come stringa numerica");
+  eq(A.custNorm({ type: "custom", w: null, d: "", cust: {} }).w, 120, "misura null → quella di serie, non 10");
+  eq(A.custNorm({ type: "custom", w: null, d: "", cust: {} }).d, 80, "misura \"\" → quella di serie");
+  eq("watt" in A.custNorm({ type: "custom", watt: "", cust: {} }), false, "watt \"\" scartato (prima 0)");
+  eq("watt" in A.custNorm({ type: "custom", watt: true, cust: {} }), false, "watt true scartato (prima 1)");
+  eq(A.custNorm({ type: "custom", watt: "450", cust: {} }).watt, 450, "watt da stringa numerica");
+  eq(A.custNorm({ type: "custom", cust: { ins: { n: true, tipo: "mic" } } }).cust.ins, undefined, "ingressi n=true scartati (prima 1)");
+  eq(A.custNorm({ type: "custom", cust: { ins: { n: [], tipo: "mic" } } }).cust.ins, undefined, "ingressi n=[] scartati");
+  eq(A.custNumero(null), null); eq(A.custNumero(""), null); eq(A.custNumero(true), null); eq(A.custNumero([]), null); eq(A.custNumero(" 7 "), 7);
+});
+t("rifinitura 3: la rotazione di linea e poligono si cuoce nei punti, e l'andata e ritorno con l'editor è identica", () => {
+  const n = A.custNorm({ type: "custom", w: 120, d: 80, cust: { shapes: [
+    { k: "line", x1: 10, y1: 40, x2: 110, y2: 40, stroke: "#000000", sw: 1, rot: 90 },
+    { k: "poly", pts: [[20, 20], [60, 20], [60, 40]], stroke: "#000000", sw: 1, rot: 180 } ] } }).cust.shapes;
+  eq("rot" in n[0] || "rot" in n[1], false, "la rotazione non resta salvata dove il disegno non la applicherebbe");
+  eq([n[0].x1, n[0].y1, n[0].x2, n[0].y2], [60, -10, 60, 90], "linea girata di 90° attorno al suo centro");
+  eq(n[1].pts, [[60, 40], [20, 40], [20, 20]], "poligono girato di 180° attorno al centro dell'ingombro");
+  const svg = A.drawCustom({ type: "custom", w: 120, d: 80, cust: { shapes: n } });
+  ok(/<line x1="0" y1="-50" x2="0" y2="50"/.test(svg), "il disegno è quello girato: " + svg.slice(0, 160));
+  const giro = n.map(g => A.custFormaDaShape(A.custShapeDaForma(g)));
+  eq(A.custNorm({ type: "custom", w: 120, d: 80, cust: { shapes: giro } }).cust.shapes, n, "editor ↔ forme: identiche");
+  eq(A.custNorm({ type: "custom", w: 120, d: 80, cust: { shapes: n } }).cust.shapes, n, "e custNorm non le sposta più");
+});
+t("rifinitura 4: i tagli non spezzano un carattere (coppie surrogate)", () => {
+  const nome = "a".repeat(59) + "😀", desc = "b".repeat(279) + "🎸", testo = "c".repeat(139) + "🎤";
+  const n = A.custNorm({ type: "custom", w: 120, d: 80, cust: { nome, desc, shapes: [{ k: "text", x: 10, y: 10, s: testo, size: 10 }] } }).cust;
+  ok(!surrogatoSpaiato(n.nome) && n.nome.length <= 60, "nome intero e entro 60: " + n.nome.length);
+  ok(!surrogatoSpaiato(n.desc) && n.desc.length <= 280, "descrizione");
+  ok(!surrogatoSpaiato(n.shapes[0].s) && n.shapes[0].s.length <= 140, "testo della forma");
+  eq(A.custTaglia("ab😀cd", 4), "ab😀", "la coppia entra intera quando c'è posto");
+  eq(A.custTaglia("abc😀", 4), "abc", "o resta fuori tutta");
+  ok(!surrogatoSpaiato(A.custNomeDaRicerca("x".repeat(59) + "😀")), "anche il nome preso dalla ricerca");
+  ok(!surrogatoSpaiato(A.custSchedaNorm({ nome: "y".repeat(59) + "😀", desc: "z".repeat(279) + "😀" }).nome), "e la scheda dell'editor");
+});
+t("rifinitura 5: drawCustom oltre il caso felice (rotazione, segnaposto, cust storto, __proto__, colori non hex)", () => {
+  const rot = A.drawCustom(A.custNorm({ type: "custom", w: 100, d: 50, cust: { shapes: [{ k: "rect", x: 10, y: 10, w: 20, h: 10, stroke: "#000000", sw: 1, rot: 30 }] } }));
+  ok(/transform="rotate\(30 -30 -10\)"/.test(rot), "rettangolo ruotato attorno al suo centro: " + rot);
+  const vuoto = A.drawCustom(A.custNorm({ type: "custom", w: 100, d: 50, cust: { shapes: [] } }));
+  ok(/stroke-dasharray="6 4"/.test(vuoto) && /<rect x="-50" y="-25" width="100" height="50"/.test(vuoto), "senza forme: il segnaposto tratteggiato sull'ingombro");
+  const arr = A.custNorm({ type: "custom", w: 100, d: 50, cust: [{ nome: "X", shapes: [{ k: "rect", x: 0, y: 0, w: 5, h: 5 }] }] });
+  eq([arr.cust.nome, arr.cust.shapes.length], ["Elemento personalizzato", 0], "cust come array: elemento vuoto col nome di serie");
+  const proto = A.custNorm({ type: "custom", w: 100, d: 50, cust: JSON.parse('{"__proto__":{"nome":"Rubato","shapes":[{"k":"rect","x":0,"y":0,"w":5,"h":5}]}}') });
+  eq([proto.cust.nome, proto.cust.shapes.length], ["Elemento personalizzato", 0], "__proto__ dentro cust non porta niente");
+  ok(!Object.prototype.hasOwnProperty.call(proto.cust, "__proto__") && ({}).nome === undefined, "e non sporca nessun prototipo");
+  const sh = A.custNorm({ type: "custom", w: 100, d: 50, cust: { shapes: [{ k: "rect", x: 0, y: 0, w: 5, h: 5, fill: "rgb(1,2,3)", stroke: "red" }, { k: "ell", cx: 5, cy: 5, rx: 2, ry: 2, fill: null }] } }).cust.shapes;
+  ok(!("fill" in sh[0]) && !("fill" in sh[1]), "rgb() e null: il riempimento è ASSENTE");
+  eq(sh[0].stroke, "#1d1d1f", "linea non hex → quella di serie");
+  ok(/<rect[^>]+fill="none"/.test(A.drawCustom({ type: "custom", w: 100, d: 50, cust: { shapes: sh } })), "disegnato senza riempimento");
+});
+t("rifinitura 6: drawCustom non si fida di chi lo chiama (item non normalizzato)", () => {
+  const svg = A.drawCustom({ cust: { shapes: [{ k: "rect", x: 0, y: 0, w: 10, h: 10 }, { k: "text", x: 5, y: 5, s: "A" }, { k: "line", x1: "a", y1: 0, x2: 1, y2: 1 }] } });
+  ok(!/undefined|NaN|null/.test(svg), "niente undefined/NaN/null: " + svg);
+  ok(/stroke="#1d1d1f" stroke-width="1"/.test(svg), "linea e spessore di ripiego");
+  ok(/<text x="[-\d.]+" y="[-\d.]+"[^>]+fill="#1d1d1f"/.test(svg), "il testo ha x, y e un colore");
+  ok(!/undefined|NaN/.test(A.drawCustom({})) && !/undefined|NaN/.test(A.drawCustom({ cust: null, w: "x" })), "anche senza niente");
+});
+t("rifinitura 7–8: una riga sola per lo specchio, il commento della DI al suo posto", () => {
+  eq((appjs.match(/it\.mir!=null[^\n]*delete it\.mir;/g) || []).length, 1, "platea e personalizzato in una riga");
+  ok(/if\(it\.mir!=null && \(it\.type==="platea" \|\| it\.type==="custom"\)\) delete it\.mir;/.test(appjs), "la riga unica");
+  const s = A.normalizeState({ _v: 5, stage: { w: 1200, d: 800 }, items: [{ id: "p1", type: "platea", x: 300, y: 300, mir: true }, { id: "c1", type: "custom", x: 600, y: 300, mir: true }] });
+  ok(s.items.every(x => !("mir" in x)), "nessuno dei due resta specchiato");
+  ok(/function isAudioSource\(it\)\{ if\(it\.diFor\) return false;   \/\* DI generata da uno strumento/.test(appjs), "il commento della DI sta sulla riga diFor");
+  ok(!/custInputs\(it\)\.length>0;[^\n]*DI generata/.test(appjs), "e non più sulla riga del personalizzato");
+});
+t("rifinitura 10: conteggi — la base senza ingressi non fa righe, un ingresso microfono, la potenza solo dalla scheda", () => {
+  reset();
+  add("dm3", 900, 300);
+  const base = add("custom", 300, 300, { cust: { nome: "Pedana coro", shapes: [] } }); A.custNorm(base);
+  const m1 = add("cantante", 280, 290), m2 = add("cantante", 320, 290); [base, m1, m2].forEach(x => { x.grp = "gK"; });
+  A.__cabRes = null;
+  const righe = A.patchList().rows;
+  eq(righe.filter(r => r.itemId === base.id).length, 0, "la base senza ingressi: zero righe");
+  eq(righe.filter(r => r.itemId === m1.id || r.itemId === m2.id).length, 2, "i pezzi: le loro");
+  eq(A.custInputs({ type: "custom", cust: { nome: "Talkback", ins: { n: 1, tipo: "mic" } } }), [{ name: "Talkback", mic: "SM57" }], "un ingresso microfono: il nome, senza numero");
+  eq(A.hasWattItem({ type: "custom" }), false, "nessun campo «Potenza (W)» generico: si scrive nella scheda dell'elemento");
+  eq(A.wattOf({ type: "custom", watt: 300 }), 300, "ma nei carichi conta");
+});
+t("rifinitura 11: un membro di modello oltre 4 KB non entra", () => {
+  const ok1 = { type: "cantante", dx: 0, dy: 0, label: "Voce" }, grosso = { type: "cantante", dx: 10, dy: 0, nota: "x".repeat(5000) };
+  const m = A.custModelNorm({ id: "mg1", nome: "G", w: 100, d: 50, shapes: [], membri: [ok1, grosso] });
+  eq(m.membri.length, 1, "il membro gonfiato è scartato, l'altro resta");
+  ok(A.custByte(JSON.stringify(m.membri[0])) <= A.custLimiti().MEMBRO, "entro il tetto");
+  eq(A.custByte("è"), 2, "si contano i byte (UTF-8), non i caratteri");
+  reset();
+  const base = add("custom", 300, 300, { w: 120, d: 80, cust: { nome: "G", shapes: [] } }); A.custNorm(base);
+  const v = add("cantante", 310, 300); v.nota = "y".repeat(5000); base.grp = v.grp = "gG";
+  eq(A.custModelDaAgglomerato(base).membri.length, 0, "anche quando il modello nasce dal palco");
+});
+t("rifinitura 12: un gruppo nuovo non riprende mai l'id di un gruppo vivo", () => conModelli(() => {
+  reset();
+  const a = add("cantante", 100, 100), b = add("cantante", 200, 100);
+  const occupato = "gi" + A.nextId;   /* proprio quello che "g"+uid() darebbe adesso */
+  a.grp = b.grp = occupato;
+  const g = A.grpLibero();
+  ok(g !== occupato && !A.state.items.some(x => x.grp === g), "libero: " + g);
+  A.state.customModels = [{ id: "mz1", nome: "Z", w: 100, d: 50, shapes: [], membri: [{ type: "cantante", dx: 10, dy: 0 }] }];
+  const c = add("cantante", 300, 100); c.grp = "gi" + A.nextId;
+  const posati = A.custPosaModello("mz1", 600, 400);
+  ok(posati[0].grp !== c.grp, "la posa di un modello non fonde il suo gruppo con uno vivo");
+  eq((appjs.match(/=\s*"g"\+uid\(\)/g) || []).length, 1, "una fonte sola: grpLibero");
+}));
+t("rifinitura 13–14: il modello nasce solo da un elemento personalizzato; l'id nuovo salta quello occupato", () => conModelli(() => {
+  reset();
+  const c = add("cantante", 300, 300);
+  eq(A.custModelDaAgglomerato(c), null, "da un elemento qualunque: nessun modello (prima: nome undefined)");
+  eq(A.custModelDaAgglomerato(null), null, "né dal nulla");
+  const base = add("custom", 500, 300, { cust: { nome: "K", shapes: [] } }); A.custNorm(base);
+  A.state.customModels = [{ id: "m" + A.nextId, nome: "z", w: 10, d: 10, shapes: [], membri: [] }];   /* l'id che il prossimo uid() darebbe, senza consumarlo */
+  const m2 = A.custModelDaAgglomerato(base);
+  ok(m2.id !== A.state.customModels[0].id && !A.state.customModels.some(q => q.id === m2.id), "id libero: " + m2.id);
+}));
+t("rifinitura 15: le maniglie delle forme dell'editor stanno a 4 px dal disegno, a qualunque zoom", () => {
+  ok(/function selMargine\(it\)\{ return \(it && it\.type==="custshape"\) \? hSize\(4\) : 6; \}/.test(appjs), "margine in pixel per le forme");
+  ok((appjs.match(/var bw = it\.w\/2 \+ selMargine\(it\), bh = it\.d\/2 \+ selMargine\(it\);/g) || []).length === 2, "riquadro e maniglie dalla stessa regola");
+  ok(/var hw = _cs \? it\.w\/2 \+ hSize\(6\)/.test(appjs), "e l'area di clic non copre le forme vicine");
+  eq(A.selMargine({ type: "cantante" }), 6, "sul palco come sempre");
+  /* una forma sotto i 10 cm (il minimo della superficie di custNorm) si disegna CENTRATA sul suo ingombro: prima usciva
+     spostata di (10 − misura)/2 rispetto alla selezione e alle maniglie */
+  const piccola = A.TYPES.custshape.draw({ type: "custshape", k: "rect", x: 0, y: 0, w: 8, d: 6, rot: 0, stroke: "#000000", sw: 1 });
+  ok(/<rect x="-4" y="-3" width="8" height="6"/.test(piccola), "rettangolo 8 × 6 centrato: " + piccola);
+});
+t("rifinitura 15: la superficie piccola è grande quanto l'elemento (non 50 × 50), e i palchi veri restano col minimo", () => conModelli(() => {
+  reset();
+  ok(A.custEditorApri({ x: 400, y: 300, w: 30, d: 20 }, {}), "editor su 30 × 20 cm");
+  eq([A.state.stage.w, A.state.stage.d, A.state.stage.blocks[0].w, A.state.stage.blocks[0].d], [30, 20, 30, 20], "la superficie è quella dell'elemento");
+  A.custEsci(false);
+  const s = A.normalizeState({ _v: 5, stage: { w: 30, d: 20, blocks: [{ x: 0, y: 0, w: 30, d: 20 }] }, items: [] });
+  eq([s.stage.blocks[0].w, s.stage.blocks[0].d], [50, 50], "un palco vero da un file: il minimo di sempre");
+}));
+t("rifinitura 16: il nome dell'elemento sta sopra anche ai pezzi che sbordano in alto", () => {
+  reset();
+  const base = add("custom", 500, 500, { w: 120, d: 80, cust: { nome: "Banco regia", shapes: [] } }); A.custNorm(base);
+  const solo = A.lblBaseY(base, 14);
+  const pz = add("wedge", 500, 455); base.grp = pz.grp = "gN";
+  const ly = A.lblBaseY(base, 14), cima = (pz.y - base.y) + A.arteDi(pz).y0;
+  ok(ly < cima, "il nome (" + ly + ") sopra la cima del pezzo (" + cima + ")");
+  ok(ly < solo, "più in alto di quando la base era sola");
+  const lato = add("wedge", 900, 400); lato.grp = "gN";
+  eq(A.lblBaseY(base, 14), ly, "un pezzo lontano di lato non lo sposta");
+  base.rot = 90; pz.x = 545; pz.y = 500; pz.rot = 90;   /* lo stesso pezzo, col gruppo girato di 90° */
+  ok(A.lblBaseY(base, 14) < solo, "anche con il gruppo ruotato");
+});
+t("rifinitura 17: pannello singolo — la riga dell'elemento in cima, potenza solo nella scheda", () => {
+  ok(/<h3 id="selNome">Elemento<\/h3>\s*<!--[\s\S]*?-->\s*<div id="pCustomWrap"/.test(appHtml), "#pCustomWrap subito sotto il titolo, come nel pannello di gruppo");
+  eq(A.hasWattItem({ type: "custom" }), false, "il campo generico «Potenza (W)» non compare");
+  eq(A.custContaTesto({ cust: {} }), "Non conta nelle liste: potenza, ingressi e backline si danno con «Modifica elemento».", "e il testo dice la via giusta");
+});
+t("rifinitura 18: Invio con zero risultati non preme «Crealo»", () => {
+  ok(/search\.addEventListener\("keydown", function\(ev\)\{[\s\S]{0,200}if\(results\.querySelector\("\.nores"\)\) return;\s*var primo=results\.querySelector/.test(appjs), "con «Nessun elemento trovato» Invio non fa niente");
+});
+t("rifinitura 22: sul telefono «Crea elemento» e «Crealo» dicono «disponibile dal computer»", () => {
+  const h = A.custCrealoHtml("videoproiettore");
+  ok(/<small class="cust-pc">«Videoproiettore», disegnato o composto in scala<\/small>/.test(h), "computer: " + h);
+  ok(/<small class="cust-tel">«Videoproiettore», disponibile dal computer<\/small>/.test(h), "telefono");
+  ok(/cust-tel">disponibile dal computer/.test(A.custCrealoHtml("")), "anche senza nome");
+  ok(A.custCrealoHtml("<b>").indexOf("<b>»") < 0, "il testo cercato passa da esc()");
+  const voce = A.__catEntries.find(e => e.nome === "Crea elemento");
+  eq(voce.telDim, "disponibile dal computer", "la voce di ricerca porta il sottotitolo del telefono");
+  ok(/if\(e\.telDim\) telefonoDice\(b, e\.telDim\);/.test(appjs), "e i risultati lo usano");
+  ok(/@media \(max-width:880px\)\{ #catalog small\.cust-pc\{display:none\} #catalog small\.cust-tel\{display:block\} \}/.test(stylesCss), "il CSS sceglie quale mostrare");
+});
+t("rifinitura 23: con la ricerca aperta, un cambio dei modelli (anche da Annulla) rifà i risultati", () => {
+  ok(/window\.__catCustomAggiorna=function\(\)\{[\s\S]*?search\.dispatchEvent\(new Event\("input"\)\)[\s\S]*?return true;\s*\};/.test(appjs), "la sezione rifatta rilancia la ricerca scritta");
+  ok(/window\.__catCustomAggiorna=function\(\)\{[\s\S]*?_qaOpts=null;[\s\S]*?return true;\s*\};/.test(appjs), "e la ricerca rapida rifà il suo indice");
+});
+t("rifinitura 21: sola lettura anche da link condiviso (viewmode) e in consulenza", () => {
+  ["viewmode", "consulenza"].forEach((modo) => {
+    let base, mid;
+    conModelli(() => {
+      reset();
+      base = add("custom", 300, 300, { cust: { nome: "Schermo", shapes: [] } }); A.custNorm(base);
+      A.custSalvaComeModello(base.id); mid = A.state.customModels[0].id;
+    });
+    const prima = A.state.customModels;
+    conSolaLettura(modo, () => {
+      A.state.customModels = prima;
+      const n = A.state.items.length, json = JSON.stringify(A.state.customModels);
+      eq(A.custSolaLettura(), true, modo + ": sola lettura");
+      eq(A.custModificaElemento(base.id), false, modo + ": Modifica");
+      eq(A.custEditorAttivo(), false, modo + ": editor chiuso");
+      eq(A.custSalvaComeModello(base.id), false, modo + ": Salva come modello");
+      eq(A.custSalvaComeModello(base.id, { nuovo: true }), false, modo + ": Salva come nuovo modello");
+      eq(A.custPosaDalCatalogo(mid), false, modo + ": posa dal catalogo");
+      eq(A.custPosaDalCatalogo(mid, { x: 10, y: 10 }), false, modo + ": posa dalla ricerca rapida");
+      eq(A.custEliminaModello(mid), false, modo + ": Elimina modello");
+      eq(A.custTogliModello(mid), false, modo + ": anche il passo finale");
+      eq([A.state.items.length, JSON.stringify(A.state.customModels)], [n, json], modo + ": niente cambia");
+    });
+  });
+});
+t("Ruling 17: il primo Salva di un elemento nuovo crea anche il modello; un Annulla toglie tutti e due", () => conModelli(() => {
+  reset(); A.resetHistory();   /* la cronologia parte dal palco di questo test */
+  const msg = []; const tp = A.__toast; A.__toast = (m) => msg.push(m);
+  try {
+    ok(A.custApriEditor({ x: 300, y: 300, w: 120, d: 80 }, false), "editor aperto");
+    A.custMostraScheda({ nome: "Videoproiettore", watt: 450 });
+    const id = A.custSalvaDaScheda();
+    const base = A.state.items.find(x => x.id === id);
+    eq((A.state.customModels || []).length, 1, "un modello");
+    eq([A.state.customModels[0].nome, A.state.customModels[0].watt], ["Videoproiettore", 450], "con la scheda dell'elemento");
+    eq(base.cust.modelId, A.state.customModels[0].id, "l'elemento è legato al suo modello");
+    ok(msg.some(m => /è anche fra gli «Elementi di questo progetto»/.test(m)), "lo dice: " + msg.join(" | "));
+    A.undo();
+    ok(!A.state.items.some(x => x.id === id), "Annulla: l'elemento non c'è più");
+    eq("customModels" in A.state, false, "e nemmeno il modello (campo assente, mai [])");
+    A.redo();
+    eq([A.state.items.some(x => x.id === id), (A.state.customModels || []).length], [true, 1], "Ripeti li rimette insieme");
+    /* Modifica di un elemento già posato: nessun modello in più */
+    ok(A.custModificaElemento(id), "Modifica");
+    A.custMostraScheda({ nome: "Videoproiettore sala", watt: 450 }); A.custSalvaDaScheda();
+    eq(A.state.customModels.length, 1, "Modifica non crea modelli");
+    eq(A.state.customModels[0].nome, "Videoproiettore", "e non cambia quello che c'è");
+    eq(A.state.items.find(x => x.id === id).cust.modelId, A.state.customModels[0].id, "la copia resta legata");
+  } finally { A.__toast = tp; }
+}));
+t("Ruling 17: oltre i 50 modelli l'elemento si salva lo stesso, senza modello, e lo dice", () => conModelli(() => {
+  reset();
+  A.state.customModels = Array.from({ length: 50 }, (_, i) => ({ id: "mp" + i, nome: "P" + i, w: 20, d: 20, shapes: [], membri: [] }));
+  const msg = []; const tp = A.__toast; A.__toast = (m, err) => msg.push([m, err]);
+  try {
+    ok(A.custApriEditor({ x: 300, y: 300, w: 120, d: 80 }, false));
+    A.custMostraScheda({ nome: "Cinquantunesimo" });
+    const id = A.custSalvaDaScheda();
+    ok(A.state.items.some(x => x.id === id), "salvato");
+    eq(A.state.customModels.length, 50, "nessun modello in più");
+    eq(A.state.items.find(x => x.id === id).cust.modelId, undefined, "e nessun legame");
+    ok(msg.some(([m, err]) => /non è entrato nel catalogo/.test(m) && err), "lo dice");
+  } finally { A.__toast = tp; }
+}));
+t("Ruling 17: su una copia «Aggiorna il modello» e «Salva come nuovo modello»; senza modello «Salva come modello»", () => conPannello((P) => {
+  reset();
+  const base = add("custom", 300, 300, { w: 120, d: 80, cust: { nome: "Schermo", shapes: [] } }); A.custNorm(base);
+  A.custPannello("p", base);
+  eq([P.pCustModello.textContent, P.pCustModelloNuovo.hidden], ["Salva come modello", true], "senza modello: un'azione sola");
+  A.custSalvaComeModello(base.id);
+  const mid = A.state.customModels[0].id;
+  const copia = A.custPosaDalCatalogo(mid)[0];
+  ["p", "grp"].forEach((pre) => {
+    A.custPannello(pre, copia);
+    eq([P[pre + "CustModello"].textContent, P[pre + "CustModelloNuovo"].hidden], ["Aggiorna il modello", false], pre + ": due azioni distinte");
+  });
+  /* «Aggiorna il modello»: sovrascrive quello di partenza (stesso id) */
+  copia.watt = 900;
+  P.pCustModello.onclick();
+  eq([A.state.customModels.length, A.state.customModels[0].id, A.state.customModels[0].watt], [1, mid, 900], "aggiornato, non duplicato");
+  /* «Salva come nuovo modello»: un modello in più, nome libero, la copia ci si aggancia */
+  P.pCustModelloNuovo.onclick();
+  eq(A.state.customModels.map(m => m.nome), ["Schermo", "Schermo (2)"], "nome univoco");
+  eq(copia.cust.modelId, A.state.customModels[1].id, "la copia ora è del modello nuovo");
+  eq(base.cust.modelId, mid, "l'originale resta col suo");
+  ok(/id="pCustModelloNuovo"[^>]*>Salva come nuovo modello</.test(appHtml) && /id="grpCustModelloNuovo"[^>]*>Salva come nuovo modello</.test(appHtml), "nei due pannelli");
+}));
+t("Ruling 16: «Elimina modello» con conferma: le copie restano, il legame no; l'ultimo toglie il campo; un Annulla", () => conModelli(() => {
+  reset(); A.resetHistory();
+  const base = add("custom", 300, 300, { cust: { nome: "Schermo", shapes: [] } }); A.custNorm(base);
+  A.custSalvaComeModello(base.id);
+  const mid = A.state.customModels[0].id, copia = A.custPosaDalCatalogo(mid)[0];
+  const domande = []; const ch = A.custChiedi;
+  A.custChiedi = (tit, testo, bottoni, cb, cls) => { domande.push({ tit, testo, bottoni, cls }); cb(0); };
+  try {
+    ok(A.custEliminaModello(mid), "chiede");
+    eq([domande[0].tit, domande[0].testo], ["Eliminare il modello «Schermo»?", "Le copie già posate restano."], "la domanda giusta");
+    eq(domande[0].bottoni, ["Annulla", "Elimina"]); eq(domande[0].cls[1], "danger-solid", "Elimina in rosso, il fuoco su Annulla");
+    eq(A.state.customModels.length, 1, "«Annulla»: niente cambia");
+    A.custChiedi = (tit, testo, bottoni, cb) => cb(1);
+    ok(A.custEliminaModello(mid));
+  } finally { A.custChiedi = ch; }
+  eq("customModels" in A.state, false, "l'ultimo modello: il campo sparisce (mai [])");
+  ok(A.state.items.some(x => x.id === copia.id) && A.state.items.some(x => x.id === base.id), "le copie restano sul palco");
+  ok(A.state.items.filter(x => x.type === "custom").every(x => !("modelId" in x.cust)), "senza il legame");
+  A.undo();
+  eq((A.state.customModels || []).map(m => m.id), [mid], "un Annulla lo rimette");
+  eq(A.state.items.find(x => x.id === copia.id).cust.modelId, mid, "col legame delle copie");
+  ok(/cust-voce-elimina/.test(appjs) && /aria-label", "Elimina il modello «"\+m\.nome\+"»"/.test(appjs), "un bottone suo accanto alla voce, con il nome per chi non vede");
+  /* con l'editor aperto: si ferma e lo dice */
+  const msg = []; const tp = A.__toast; A.__toast = (m) => msg.push(m);
+  try { ok(A.custApriEditor({ x: 700, y: 300, w: 100, d: 100 }, false)); eq(A.custEliminaModello(mid), false, "fermo nell'editor"); eq(msg, [A.custEditorMsg()]); A.custEsci(false); }
+  finally { A.__toast = tp; }
+}));
+t("Ruling 16: nomi dei modelli univoci, anche nei file vecchi", () => conModelli(() => {
+  const s = A.normalizeState({ _v: 5, stage: { w: 1200, d: 800 }, items: [], customModels: [
+    { id: "ma", nome: "Leggio", w: 50, d: 50, shapes: [], membri: [] }, { id: "mb", nome: "Leggio", w: 50, d: 50, shapes: [], membri: [] },
+    { id: "mc", nome: "Leggio", w: 50, d: 50, shapes: [], membri: [] }, { id: "md", nome: "Leggio (2)", w: 50, d: 50, shapes: [], membri: [] } ] });
+  eq(s.customModels.map(m => m.nome), ["Leggio", "Leggio (2)", "Leggio (3)", "Leggio (2) (2)"], "il primo tiene il nome, gli altri prendono il numero libero");
+  const lungo = "L".repeat(60);
+  eq(A.custNomeModelloLibero(lungo, [{ id: "x", nome: lungo }]), "L".repeat(56) + " (2)", "entro i 60 caratteri");
+  eq(A.custNomeModelloLibero("A", [{ id: "x", nome: "A" }], "x"), "A", "il modello che si aggiorna non fa concorrenza a sé stesso");
+  /* «Salva come modello» su un elemento che ha il nome di un modello che c'è già */
+  reset();
+  const a = add("custom", 300, 300, { cust: { nome: "Pedana", shapes: [] } }); A.custNorm(a);
+  const b = add("custom", 600, 300, { cust: { nome: "Pedana", shapes: [] } }); A.custNorm(b);
+  A.custSalvaComeModello(a.id); A.custSalvaComeModello(b.id);
+  eq(A.state.customModels.map(m => m.nome), ["Pedana", "Pedana (2)"], "dal pannello");
+}));
+t("Ruling 16: i modelli anche nella ricerca rapida del doppio clic, posati nel punto del clic", () => conModelli(() => {
+  reset();
+  const base = add("custom", 300, 300, { w: 120, d: 80, cust: { nome: "Proiettore sala", shapes: [] } }); A.custNorm(base);
+  const mic = add("cantante", 330, 310); base.grp = mic.grp = "gQ";
+  A.custSalvaComeModello(base.id); A.__catCustomAggiorna();
+  ok(A.__qaSearch("proiettore sala").some(e => e.nome === "Proiettore sala"), "la ricerca rapida lo trova");
+  const nuovi = A.custPosaDalCatalogo(A.state.customModels[0].id, { x: 777.4, y: 333 });
+  eq([nuovi[0].x, nuovi[0].y], [777, 333], "la copia nel punto del doppio clic");
+  eq([nuovi[1].x, nuovi[1].y], [807, 343], "con il suo pezzo al posto giusto");
+  ok(/if\(e\.custModelloId\)\{ custPosaDalCatalogo\(e\.custModelloId, sp2\); \}/.test(appjs), "la scelta nella finestrella passa il punto");
+  ok(A.custApriEditor({ x: 700, y: 500, w: 100, d: 100 }, false));
+  eq(A.__qaSearch("proiettore sala").some(e => e.nome === "Proiettore sala"), false, "dentro l'editor no");
+  A.custEsci(false);
+  delete A.state.customModels; A.__catCustomAggiorna();
+  eq(A.__qaSearch("proiettore sala").some(e => e.nome === "Proiettore sala"), false, "tolto il modello, sparisce anche da lì");
 }));
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);

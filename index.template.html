@@ -518,6 +518,20 @@
   </div>
   <div class="sec" id="selProps" hidden>
     <h3 id="selNome">Elemento</h3>
+    <!-- CREA ELEMENTO (13/10/2026): l'elemento personalizzato da solo, IN CIMA come nel pannello di gruppo (#grpCustomRow):
+         cosa conta, Modifica, i modelli. Potenza, ingressi e backline si scrivono solo nella sua scheda (una via sola). -->
+    <div id="pCustomWrap" class="prop-card cust-pan" style="display:none">
+      <p class="cust-pan-desc" id="pCustDesc" hidden></p>
+      <p class="prop-hint cust-pan-conta" id="pCustConta"></p>
+      <div class="cust-pan-btns">
+        <button class="btn" id="pCustModifica" type="button" title="Riapre l'editor su questa copia: le altre non cambiano">Modifica elemento</button>
+        <button class="btn" id="pCustModello" type="button">Salva come modello</button>
+        <button class="btn" id="pCustModelloNuovo" type="button" hidden title="Un modello in più nel catalogo; quello di partenza resta com'è">Salva come nuovo modello</button>
+        <button class="btn" id="pCustInvia" type="button" hidden title="Lo mandi a StagePlot: se entra nel catalogo, te lo scriviamo nell'app">Invia per revisione</button>
+      </div>
+      <p class="prop-hint cust-pan-rev" id="pCustRev" hidden></p>
+      <p class="prop-hint" id="pCustModelloHint"></p>
+    </div>
     <button type="button" class="btn solo-ped" id="pSoloPed" style="display:none" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg><span>Solo pedane</span></button>
     <!-- 29/09 (Simone): di partenza la pedana si sposta da sola; acceso, chi ci sta sopra la segue. Vedi pedanaAgganciata(). -->
     <div id="pAggWrap" class="agg-ped" style="display:none"><label class="chk" title="Acceso: spostando la pedana si spostano anche i musicisti e gli strumenti che ci stanno sopra, e Duplica e Copia li copiano con lei. Spento: si sposta solo la pedana, il resto rimane dov'è."><input type="checkbox" id="pAgg"> <span>Aggancia gli elementi alla pedana <small class="lbl-note">— spostandola, chi ci sta sopra la segue</small></span></label></div>
@@ -1061,18 +1075,6 @@
         <input type="checkbox" id="pSwRed" style="width:auto"> Ridondanza Dante (Primary + Secondary)</label>
       <div id="pSwKv" style="margin-top:6px;font-size:12px;color:var(--text-2)"></div>
     </div>
-    <!-- CREA ELEMENTO (13/10/2026): l'elemento personalizzato da solo; col gruppo dei suoi pezzi la stessa riga sta in #grpCustomRow -->
-    <div id="pCustomWrap" class="prop-card cust-pan" style="display:none">
-      <p class="cust-pan-desc" id="pCustDesc" hidden></p>
-      <p class="prop-hint cust-pan-conta" id="pCustConta"></p>
-      <div class="cust-pan-btns">
-        <button class="btn" id="pCustModifica" type="button" title="Riapre l'editor su questa copia: le altre non cambiano">Modifica elemento</button>
-        <button class="btn" id="pCustModello" type="button">Salva come modello</button>
-        <button class="btn" id="pCustInvia" type="button" hidden title="Lo mandi a StagePlot: se entra nel catalogo, te lo scriviamo nell'app">Invia per revisione</button>
-      </div>
-      <p class="prop-hint cust-pan-rev" id="pCustRev" hidden></p>
-      <p class="prop-hint" id="pCustModelloHint"></p>
-    </div>
     <div id="pRackWrap" style="display:none">
       <label for="pRackFn">Funzione</label><select id="pRackFn"></select>
       <label for="pRackU">Dimensione</label><select id="pRackU"></select>
@@ -1109,6 +1111,7 @@
       <div class="cust-pan-btns">
         <button class="btn" id="grpCustModifica" type="button" title="Riapre l'editor su questa copia: le altre non cambiano">Modifica elemento</button>
         <button class="btn" id="grpCustModello" type="button">Salva come modello</button>
+        <button class="btn" id="grpCustModelloNuovo" type="button" hidden title="Un modello in più nel catalogo; quello di partenza resta com'è">Salva come nuovo modello</button>
         <button class="btn" id="grpCustInvia" type="button" hidden title="Lo mandi a StagePlot: se entra nel catalogo, te lo scriviamo nell'app">Invia per revisione</button>
       </div>
       <p class="prop-hint cust-pan-rev" id="grpCustRev" hidden></p>
@@ -3472,8 +3475,11 @@ var TYPES = {
      così anche una forma appena creata ha colori e numeri controllati. z:1 come la base `custom`: le forme stanno SOTTO
      gli elementi veri posati sopra, come dopo il salvataggio (quello che si vede nell'editor è quello che si ottiene). */
   custshape:{nome:"Forma dell'elemento", dim:"", cat:"Palco e strutture", w:40,d:40, z:1, catalog:false, resizable:true, innerLabel:true, defLabel:"",
-             draw:function(it){ var w=Math.max(4,+it.w||40), d=Math.max(4,+it.d||40);   /* rot:0: la rotazione dell'item la applica già itemMarkup */
-               return drawCustom(custNorm({w:w, d:d, cust:{shapes:[custFormaDaShape(Object.assign({}, it, {x:w/2, y:d/2, rot:0}))].filter(Boolean)}})); }},
+             draw:function(it){   /* rot:0: la rotazione dell'item la applica già itemMarkup */
+               /* la forma si disegna al CENTRO di una superficie di almeno 10 cm (il minimo di custNorm): con la superficie
+                  grande quanto la forma, una forma sotto i 10 cm usciva spostata rispetto alla selezione e alle maniglie */
+               var M=custLimiti().MIN, w=Math.max(M, +it.w||40), d=Math.max(M, +it.d||40);
+               return drawCustom({w:w, d:d, cust:{shapes:[custFormaDaShape(Object.assign({}, it, {x:w/2, y:d/2, rot:0}))].filter(Boolean)}}); }},
   /* --- ottoni (icone realistiche libreria + seduta chiara) --- */
   corno:    {nome:"Corno", dim:"postazione", cat:"Orchestra", sub:"Ottoni", w:95,d:105,
              draw:function(it){ return station(it, gCorno(), "wind", true); }},
@@ -4572,7 +4578,7 @@ function hasWatt(type){ return WATT[type]!=null || WATT_BY_AREA[type]!=null; }
    i watt: senza questo, una luce col modello reale mostrava il consumo al motore elettrico ma non
    all'utente, perché il campo Watt del pannello guardava solo la tabella dei tipi (visto in prova
    sul browser il 29/07). */
-function hasWattItem(it){ if(it && it.type==="custom") return true;   /* elemento personalizzato: il campo «Potenza (W)» compare sempre */
+function hasWattItem(it){ if(it && it.type==="custom") return false;   /* elemento personalizzato: la potenza si scrive nella sua scheda («Modifica elemento»), con ingressi e backline — una via sola. Nei carichi conta lo stesso (wattOf legge it.watt) */
   return !!(it && (hasWatt(it.type) || (typeof lightModelWatt==="function" && lightModelWatt(it)!=null))); }
 /* ===== EQUIPMENT INTELLIGENCE (fase 2, spec H in docs/product-audit/equipment-intelligence/) =====
    Un elemento può portare un MODELLO REALE di attrezzatura: it.modelId (slug del DB globale equip_product)
@@ -4957,6 +4963,9 @@ function cmPerPx(){
   return (isFinite(k)&&k>0) ? k : 1;
 }
 function hSize(px){ return px*cmPerPx(); }
+/* aria fra l'ingombro e il riquadro di selezione (e le sue maniglie): 6 cm sul palco; per le forme dell'editor 4 px a
+   qualunque zoom, così le maniglie restano attaccate al disegno anche su una superficie piccola e ingrandita */
+function selMargine(it){ return (it && it.type==="custshape") ? hSize(4) : 6; }
 function sbLod(it){   /* 2 = XLR con pin · 1 = pastiglie · 0 = barre di riempimento */
   if(window.__scenePrint || window.__cabStatic) return 2;   /* export PDF/PNG: risoluzione alta, dettaglio pieno */
   if(window.__sbMiniLod===true) return 1;   /* anteprima del catalogo: pastiglie, per distinguere 8 / 16 / 24 canali */
@@ -5505,7 +5514,7 @@ function groupMembers(id){ var it=state.items.find(function(i){ return i.id===id
   if(!it || !it.grp) return [id];
   return state.items.filter(function(i){ return i.grp===it.grp; }).map(function(i){ return i.id; }); }
 function selectClick(id){ var ids=groupMembers(id); selSet={}; ids.forEach(function(x){ selSet[x]=true; }); sel=id; }
-function groupSel(){ var its=selItems(); if(its.length<2) return; var gid="g"+uid(); its.forEach(function(it){ it.grp=gid; }); render(); save(); }
+function groupSel(){ var its=selItems(); if(its.length<2) return; var gid=grpLibero(); its.forEach(function(it){ it.grp=gid; }); render(); save(); }
 function ungroupSel(){ selItems().forEach(function(it){ delete it.grp; }); render(); save(); }
 /* opzioni applicabili in multi-selezione */
 function supportsSedia(it){ return !!POSTAZ[it.type] || !!VOCE[it.type] || !!(TYPES[it.type]&&TYPES[it.type].gtr); }
@@ -5602,6 +5611,15 @@ var vb = {x:-100,y:-150,w:1500,h:1100};
 var svg = document.getElementById("svg");
 
 function uid(){ return "i"+(nextId++); }
+/* id di un GRUPPO nuovo, mai uno già in uso. nextId si ricalcola dagli id degli elementi, i gruppi hanno id propri: dopo una
+   ricarica (o cancellando l'elemento che aveva dato il numero) "g"+uid() poteva ripetere un gruppo vivo e fondere due gruppi
+   al primo Duplica, Incolla o posa di un modello. Unica fonte per tutti i gruppi nuovi. */
+function grpLibero(){
+  var usati=Object.create(null), g;
+  ((typeof state!=="undefined" && state && state.items)||[]).forEach(function(x){ if(x && x.grp) usati[x.grp]=1; });
+  do{ g="g"+uid(); }while(usati[g]);
+  return g;
+}
 /* replacer per serializzare lo state SENZA il file immagine della planimetria (richiesto al ricaricamento) */
 function stateReplacer(k,v){ return (k==='_dataUrl'||k==='_imgW'||k==='_imgH')?undefined:v; }
 function stateToJSON(){
@@ -8377,8 +8395,9 @@ function normalizeLoadedItems(arr){
       if(it.type!=="platea" || typeof it.platea!=="object" || Array.isArray(it.platea)) delete it.platea;
       else { var _pc=plateaCfg(it); it.platea={ passo:_pc.passo, passoFile:_pc.passoFile, corridoio:_pc.corridoio }; }
     }
-    if(it.type==="platea" && it.mir!=null) delete it.mir;   /* non si specchia (NO_MIRROR): da un JSON arriverebbe con «60 posti» a rovescio */
-    if(it.type==="custom" && it.mir!=null) delete it.mir;   /* come la platea: l'elemento si vede esattamente come è stato disegnato, testi leggibili */
+    /* non si specchiano (NO_MIRROR, che qui all'avvio non esiste ancora): la platea arriverebbe da un JSON con «60 posti» a
+       rovescio, l'elemento personalizzato con i testi a rovescio — si vedono esattamente come sono stati disegnati */
+    if(it.mir!=null && (it.type==="platea" || it.type==="custom")) delete it.mir;
     if(Object.prototype.hasOwnProperty.call(COMP,it.type)) normalizeCompositeParts(it);
     else if(it.parts!=null && (!it.parts || typeof it.parts!=="object" || Array.isArray(it.parts))) delete it.parts;
     return it;
@@ -8595,6 +8614,7 @@ function normalizeState(s){
   /* Modelli dell'elemento personalizzato (13/10): solo se ce n'è almeno uno valido; una copia che punta a un modello sparito perde il riferimento */
   var _cm=(Array.isArray(s.customModels)?s.customModels:[]).slice(0,50).map(custModelNorm).filter(Boolean);
   var _cmVisti=Object.create(null); _cm=_cm.filter(function(q){ if(_cmVisti[q.id]) return false; _cmVisti[q.id]=1; return true; });   /* id doppi: si tiene il primo */
+  var _cmPrima=[]; _cm.forEach(function(q){ q.nome=custNomeModelloLibero(q.nome, _cmPrima); _cmPrima.push(q); });   /* nomi doppi (file vecchi): «Nome (2)»… */
   if(_cm.length) s.customModels=_cm; else delete s.customModels;   /* solo se serve: l'impronta del PDF non cambia */
   s.items.forEach(function(x){ if(x.type==="custom" && x.cust && x.cust.modelId && !_cm.some(function(q){ return q.id===x.cust.modelId; })) delete x.cust.modelId; });
   s.status = (["bozza","revisione","approvato","superato"].indexOf(s.status)>=0) ? s.status : "bozza";   /* T5: stato di approvazione */
@@ -8603,7 +8623,10 @@ function normalizeState(s){
   s.stage=s.stage||{w:1200,d:800};
   if(!s.stage.blocks || !s.stage.blocks.length) s.stage.blocks=[{x:0,y:0,w:s.stage.w||1200,d:s.stage.d||800}];
   s.stage.blocks=s.stage.blocks.map(function(r){
-    var o={x:Math.max(0,Math.round(r.x||0)), y:Math.max(0,Math.round(r.y||0)), w:Math.max(50,Math.round(r.w||100)), d:Math.max(50,Math.round(r.d||100))};
+    /* il palco temporaneo di «Crea elemento» è grande quanto l'elemento (anche 10 × 10 cm): con il minimo di 50 cm dei palchi
+       veri, un elemento di 30 × 20 si disegnava su una superficie di 50 × 50 (righello, griglia e controllo «fuori» sbagliati) */
+    var bmin=(typeof __custShapeAmmesse!=="undefined" && __custShapeAmmesse) ? custLimiti().MIN : 50;
+    var o={x:Math.max(0,Math.round(r.x||0)), y:Math.max(0,Math.round(r.y||0)), w:Math.max(bmin,Math.round(r.w||100)), d:Math.max(bmin,Math.round(r.d||100))};
     if(r.shape==="semi"){ o.shape="semi"; o.flat=r.flat||"top"; }
     /* quadrilatero libero (angoli deformati): retrocompat — i progetti vecchi non hanno pts e restano rettangoli */
     else if(r.pts && r.pts.length===4 && r.pts.every(function(p){ return p && isFinite(p[0]) && isFinite(p[1]); })){
@@ -9440,35 +9463,69 @@ function shapeGeom(it){
 /* Elemento personalizzato (13/10/2026): le forme arrivano da file altrui (link condivisi, JSON importati), quindi
    sono DATI controllati — tipo da un elenco chiuso, numeri finiti, colori hex — e mai grafica scritta a mano. I limiti
    stanno in una funzione: una var più in basso nel file sarebbe undefined per normalizeState all'avvio. */
-function custLimiti(){ return {NOME:60, DESC:280, TESTO:140, FORME:200, PUNTI:200, WATT:20000, INS:16, MIN:10}; }
+function custLimiti(){ return {NOME:60, DESC:280, TESTO:140, FORME:200, PUNTI:200, WATT:20000, INS:16, MIN:10, MEMBRO:4096, MODELLI:50}; }
+/* un numero vero: un number finito, o una stringa numerica non vuota. null (da JSON), "", true, [] NON sono 0: si scartano */
+function custNumero(v){
+  if(typeof v==="string"){ if(!v.trim()) return null; v=Number(v); }
+  return (typeof v==="number" && isFinite(v)) ? v : null;
+}
+/* taglia a n unità SENZA spezzare un carattere: una coppia surrogata (emoji, ideogrammi rari) resta intera o fuori tutta.
+   La misura resta quella di String.length (come maxlength dei campi e come il server), quindi mai oltre n. */
+function custTaglia(s, n){
+  s=String(s); if(s.length<=n) return s;
+  var out=""; Array.from(s).some(function(ch){ if(out.length+ch.length>n) return true; out+=ch; return false; });
+  return out;
+}
+/* L'ETICHETTA DELLA BASE (una regola, un posto): è il nome dell'elemento, salvo che l'utente l'abbia scritta a mano.
+   Vuota, quella di serie del tipo («Elemento») o uguale al nome di prima → segue il nome; altrimenti resta la sua. */
+function custEtichetta(etichetta, nomePrima, nome){
+  var e=(typeof etichetta==="string" || typeof etichetta==="number") ? String(etichetta) : "";
+  return (!e.trim() || e===TYPES.custom.defLabel || (nomePrima!=null && e===nomePrima)) ? nome : e;
+}
 function custNorm(it){
   var L=custLimiti(), c=(it.cust && typeof it.cust==="object" && !Array.isArray(it.cust)) ? it.cust : {};
   var hex=function(v){ return (typeof v==="string" && /^#[0-9a-f]{6}$/i.test(v)) ? v : null; };
-  var num=function(v,lo,hi){ v=Number(v); return isFinite(v) ? Math.max(lo,Math.min(hi,v)) : null; };
+  var num=function(v,lo,hi){ v=custNumero(v); return v==null ? null : Math.max(lo,Math.min(hi,v)); };
   it.w=num(it.w,L.MIN,100000)||TYPES.custom.w; it.d=num(it.d,L.MIN,100000)||TYPES.custom.d;
   var W=it.w, D=it.d, mx=Math.max(W,D)*0.1, X=function(v){ return num(v,-mx,W+mx); }, Y=function(v){ return num(v,-mx,D+mx); };
-  var out={ nome:(typeof c.nome==="string" && c.nome.trim()) ? c.nome.trim().slice(0,L.NOME) : "Elemento personalizzato", shapes:[] };
-  if(typeof c.desc==="string" && c.desc.trim()) out.desc=c.desc.trim().slice(0,L.DESC);
+  var LARGO=1e6;   /* prima della rotazione i punti si leggono larghi: si limitano DOPO, dove stanno davvero */
+  var nomePrima=(typeof c.nome==="string") ? c.nome : null;
+  var out={ nome:(typeof c.nome==="string" && c.nome.trim()) ? custTaglia(c.nome.trim(),L.NOME) : "Elemento personalizzato", shapes:[] };
+  if(typeof c.desc==="string" && c.desc.trim()) out.desc=custTaglia(c.desc.trim(),L.DESC);
   (Array.isArray(c.shapes)?c.shapes:[]).forEach(function(f){
     if(out.shapes.length>=L.FORME || !f || typeof f!=="object") return;
-    var g={k:f.k, fill:hex(f.fill), stroke:hex(f.stroke)||"#1d1d1f", sw:num(f.sw,0,50)}; if(g.sw==null) g.sw=1;
-    if(f.rot!=null){ var r=num(f.rot,-360,360); if(r) g.rot=r; }
+    /* il riempimento c'è solo se è un colore valido: «nessuno» = campo assente (un rgb() o un null non lasciano tracce) */
+    var g={k:f.k}, fl=hex(f.fill); if(fl) g.fill=fl;
+    g.stroke=hex(f.stroke)||"#1d1d1f"; g.sw=num(f.sw,0,50); if(g.sw==null) g.sw=1;
+    var rot=(f.rot!=null) ? (num(f.rot,-360,360)||0) : 0;
     if(f.k==="rect"){ g.x=X(f.x); g.y=Y(f.y); g.w=num(f.w,0,W+mx); g.h=num(f.h,0,D+mx); if(f.r!=null) g.r=num(f.r,0,1000)||0;
       if([g.x,g.y,g.w,g.h].some(function(v){ return v==null; })) return; }
     else if(f.k==="ell"){ g.cx=X(f.cx); g.cy=Y(f.cy); g.rx=num(f.rx,0,W); g.ry=num(f.ry,0,D);
       if([g.cx,g.cy,g.rx,g.ry].some(function(v){ return v==null; })) return; }
-    else if(f.k==="line"){ g.x1=X(f.x1); g.y1=Y(f.y1); g.x2=X(f.x2); g.y2=Y(f.y2);
-      if([g.x1,g.y1,g.x2,g.y2].some(function(v){ return v==null; })) return; }
-    else if(f.k==="poly"){ if(!Array.isArray(f.pts)) return; g.pts=[];
-      f.pts.slice(0,L.PUNTI).forEach(function(p){ if(Array.isArray(p)){ var a=X(p[0]), b=Y(p[1]); if(a!=null && b!=null) g.pts.push([a,b]); } });
-      if(g.pts.length<2) return; }
+    else if(f.k==="line" || f.k==="poly"){
+      /* linea e poligono: la rotazione si CUOCE nei punti (attorno al centro dell'ingombro) e non si salva — il disegno
+         e l'editor li leggono così, e andata e ritorno editor ↔ forme restano identici */
+      var P=[];
+      if(f.k==="line") P=[[f.x1,f.y1],[f.x2,f.y2]].map(function(p){ var a=num(p[0],-LARGO,LARGO), b=num(p[1],-LARGO,LARGO); return (a==null||b==null) ? null : [a,b]; });
+      else if(Array.isArray(f.pts)) f.pts.slice(0,L.PUNTI).forEach(function(p){ if(Array.isArray(p)){ var a=num(p[0],-LARGO,LARGO), b=num(p[1],-LARGO,LARGO); if(a!=null && b!=null) P.push([a,b]); } });
+      else return;
+      if(P.some(function(p){ return !p; }) || P.length<2) return;
+      if(rot){
+        var xs=P.map(function(p){ return p[0]; }), ys=P.map(function(p){ return p[1]; });
+        var ccx=(Math.min.apply(0,xs)+Math.max.apply(0,xs))/2, ccy=(Math.min.apply(0,ys)+Math.max.apply(0,ys))/2;
+        P=P.map(function(p){ var q=rotatePointAround(p[0],p[1],ccx,ccy,rot); return [custR6(q[0]), custR6(q[1])]; });
+        rot=0;
+      }
+      P=P.map(function(p){ return [X(p[0]), Y(p[1])]; });
+      if(f.k==="line"){ g.x1=P[0][0]; g.y1=P[0][1]; g.x2=P[1][0]; g.y2=P[1][1]; } else g.pts=P; }
     else if(f.k==="text"){ g.x=X(f.x); g.y=Y(f.y); g.size=num(f.size,2,200)||12;
-      g.s=(typeof f.s==="string") ? f.s.replace(/[\u0000-\u001f]/g," ").slice(0,L.TESTO) : "";
+      g.s=(typeof f.s==="string") ? custTaglia(f.s.replace(/[\u0000-\u001f]/g," "),L.TESTO) : "";
       if(g.x==null || g.y==null || !g.s.trim()) return; g.fill=g.fill||"#1d1d1f"; }
     else return;
+    if(rot) g.rot=rot;
     out.shapes.push(g);
   });
-  if(c.ins && typeof c.ins==="object"){ var n=Number(c.ins.n); if(isFinite(n) && n>=1 && n<=L.INS && (c.ins.tipo==="mic"||c.ins.tipo==="linea")) out.ins={n:Math.round(n), tipo:c.ins.tipo}; }
+  if(c.ins && typeof c.ins==="object"){ var n=custNumero(c.ins.n); if(n!=null && n>=1 && n<=L.INS && (c.ins.tipo==="mic"||c.ins.tipo==="linea")) out.ins={n:Math.round(n), tipo:c.ins.tipo}; }
   if(c.backline===true) out.backline=true;
   if(typeof c.modelId==="string" && /^[a-z0-9_-]{1,40}$/i.test(c.modelId)) out.modelId=c.modelId;
   /* inviato per revisione (Tappa 5): solo la data ISO dell'invio, corta e vera; esiste solo se l'elemento è partito */
@@ -9476,16 +9533,20 @@ function custNorm(it){
      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/.test(c.rev.inviato) && isFinite(Date.parse(c.rev.inviato)))
     out.rev={inviato:c.rev.inviato};
   it.cust=out;
-  if(it.watt!=null){ var w=Number(it.watt); if(isFinite(w)) it.watt=Math.max(0,Math.min(L.WATT,w)); else delete it.watt; }
-  if(!it.label) it.label=out.nome;
+  if(it.watt!=null){ var w=num(it.watt,0,L.WATT); if(w!=null) it.watt=w; else delete it.watt; }
+  it.label=custEtichetta(it.label, nomePrima, out.nome);
   return it;
 }
+/* Disegno vettoriale dell'elemento (palco, miniature, PDF). Non si fida di chi lo chiama: passa dalla stessa
+   normalizzazione di custNorm su una copia, così un elemento non normalizzato (dati vecchi, una chiamata nuova) non
+   scrive mai stroke="undefined", NaN o colori non hex. Su dati già puliti il risultato è identico. */
 function drawCustom(it){
-  var c=it.cust||{}, w=it.w||120, d=it.d||80, ox=-w/2, oy=-d/2, s="";
+  var n=custNorm({type:"custom", w:it && it.w, d:it && it.d, cust:it && it.cust});
+  var c=n.cust, w=n.w, d=n.d, ox=-w/2, oy=-d/2, s="";
   var f2=function(v){ return String(Math.round(v*10)/10); };
   var st=function(g){ return ' fill="'+(g.fill||"none")+'" stroke="'+g.stroke+'" stroke-width="'+f2(g.sw)+'"'; };
   var tr=function(g,cx,cy){ return g.rot ? ' transform="rotate('+f2(g.rot)+' '+f2(cx)+' '+f2(cy)+')"' : ""; };
-  (c.shapes||[]).forEach(function(g){
+  c.shapes.forEach(function(g){
     if(g.k==="rect") s+='<rect x="'+f2(ox+g.x)+'" y="'+f2(oy+g.y)+'" width="'+f2(g.w)+'" height="'+f2(g.h)+'"'+(g.r?' rx="'+f2(g.r)+'"':"")+st(g)+tr(g,ox+g.x+g.w/2,oy+g.y+g.h/2)+'/>';
     else if(g.k==="ell") s+='<ellipse cx="'+f2(ox+g.cx)+'" cy="'+f2(oy+g.cy)+'" rx="'+f2(g.rx)+'" ry="'+f2(g.ry)+'"'+st(g)+tr(g,ox+g.cx,oy+g.cy)+'/>';
     else if(g.k==="line") s+='<line x1="'+f2(ox+g.x1)+'" y1="'+f2(oy+g.y1)+'" x2="'+f2(ox+g.x2)+'" y2="'+f2(oy+g.y2)+'" stroke="'+g.stroke+'" stroke-width="'+f2(g.sw)+'"/>';
@@ -9508,8 +9569,11 @@ function custMembroPulito(x){
   ["w","d"].forEach(function(k){ if(!(k in c)) return; n=(c[k]===null||typeof c[k]==="boolean") ? NaN : Number(c[k]); if(isFinite(n) && n>0) c[k]=n; else delete c[k]; });   /* altrimenti valgono i default del tipo */
   if("rot" in c){ n=(c.rot===null||typeof c.rot==="boolean") ? NaN : Number(c.rot); if(isFinite(n)) c.rot=Math.round(n); else delete c.rot; }
   if("label" in c){ if(typeof c.label==="string" || typeof c.label==="number") c.label=String(c.label).slice(0,80); else delete c.label; }
+  if(custByte(JSON.stringify(c))>custLimiti().MEMBRO) return null;   /* un membro gonfiato (note lunghissime, campi sconosciuti) non entra: il documento non cresce senza limite */
   return c;
 }
+/* byte in UTF-8 di una stringa (senza TextEncoder: c'è anche nel sandbox dei test); un surrogato spaiato = troppo grande */
+function custByte(s){ try{ return encodeURIComponent(String(s)).replace(/%[0-9A-F]{2}/gi,"x").length; }catch(e){ return Infinity; } }
 function custModelNorm(m){
   if(!m || typeof m!=="object" || typeof m.id!=="string" || !/^[a-z0-9_-]{1,40}$/i.test(m.id)) return null;
   var finto=custNorm({type:"custom", w:m.w, d:m.d, watt:m.watt, cust:{nome:m.nome, desc:m.desc, shapes:m.shapes, ins:m.ins, backline:m.backline}});
@@ -9531,9 +9595,27 @@ function custModelIdLibero(){
   do{ id="m"+uid().slice(1); }while(usati.indexOf(id)>=0);
   return id;
 }
+/* NOMI DEI MODELLI UNIVOCI (Ruling 16): nel catalogo due voci uguali non si distinguono. Se il nome c'è già: «Nome (2)»,
+   «Nome (3)»… sempre entro i 60 caratteri. escludiId = il modello che si sta aggiornando (il suo nome non conta). */
+function custNomeModelloLibero(nome, modelli, escludiId){
+  var NOME=custLimiti().NOME, usati=Object.create(null);
+  (modelli||[]).forEach(function(q){ if(q && q.id!==escludiId) usati[q.nome]=1; });
+  if(!usati[nome]) return nome;
+  for(var k=2; k<10000; k++){ var suf=" ("+k+")", n=custTaglia(nome, NOME-suf.length).replace(/\s+$/,"")+suf; if(!usati[n]) return n; }
+  return nome;
+}
+/* il modello di un elemento posato (con i suoi pezzi), con le regole dell'apertura e un nome libero. idModello: si sovrascrive quello */
+function custModelloDaElemento(it, idModello){
+  var m=custModelDaAgglomerato(it); if(!m) return null;
+  if(idModello) m.id=idModello;
+  m=custModelNorm(m); if(!m) return null;   /* quello che si salva è quello che si riapre */
+  m.nome=custNomeModelloLibero(m.nome, state.customModels, m.id);
+  return m;
+}
 /* membri = elementi con lo stesso grp della base (stesse regole di custModelNorm: no custom, max 100), in coordinate
    relative al centro della base e con la rotazione della base tolta */
 function custModelDaAgglomerato(base, senzaId){
+  if(!base || base.type!=="custom") return null;   /* solo da un elemento personalizzato: altrimenti un modello senza nome */
   var rot=-(base.rot||0), membri=[];
   (base.grp ? state.items.filter(function(x){ return x.grp===base.grp && x.id!==base.id; }) : []).forEach(function(x){
     if(membri.length>=100) return;
@@ -9549,9 +9631,9 @@ function custModelDaAgglomerato(base, senzaId){
 function custPosaModello(id, x, y){
   if(window.__projLocked) return [];   /* progetto bloccato: nessun percorso di aggiunta deve poter scrivere */
   var m=(state.customModels||[]).find(function(q){ return q.id===id; }); if(!m) return [];
-  var gid="g"+uid(), base={id:uid(), type:"custom", x:Math.round(x), y:Math.round(y), rot:0, w:m.w, d:m.d, grp:gid,
+  var gid=grpLibero(), base={id:uid(), type:"custom", x:Math.round(x), y:Math.round(y), rot:0, w:m.w, d:m.d, grp:gid,
     watt:m.watt, cust:{nome:m.nome, desc:m.desc, shapes:JSON.parse(JSON.stringify(m.shapes)), ins:m.ins, backline:m.backline, modelId:m.id}};
-  if(base.watt==null) delete base.watt; custNorm(base); base.label=base.cust.nome; state.items.push(base);
+  if(base.watt==null) delete base.watt; custNorm(base); state.items.push(base);   /* l'etichetta è il nome (custEtichetta) */
   var out=[base];
   /* i membri passano dalla normalizzazione degli elementi (id già assegnati e unici: restano); lastDupIds è del caricamento, si rimette com'era */
   var membri=m.membri.map(function(c){ var it=JSON.parse(JSON.stringify(c)); it.id=uid(); it.grp=gid; it.x=base.x+c.dx; it.y=base.y+c.dy; delete it.dx; delete it.dy; return it; });
@@ -9668,17 +9750,19 @@ function custEditorSalva(scheda){
   veri.forEach(function(c){ var n=itemIdNum(c.id); if(n>=nextId) nextId=n+1; });
   var orig=E.baseId ? state.items.find(function(x){ return x.id===E.baseId; }) : null;
   state.items=state.items.filter(function(x){ return x.id!==E.baseId && E.inclusi.indexOf(x.id)<0; });
-  var gid=veri.length ? "g"+uid() : null;
+  var gid=veri.length ? grpLibero() : null;
   /* modifica: si parte dall'elemento com'era (nota, blocco…); forme, misure, scheda e gruppo sono quelli nuovi */
   var base=orig ? JSON.parse(JSON.stringify(orig)) : {};
-  /* il nome sul palco: se era quello di serie (il nome dell'elemento) segue il nome nuovo; se l'utente l'aveva scritto a mano
-     («Schermo sinistro») resta il suo */
-  var etichetta=(orig && typeof orig.label==="string" && orig.label && orig.cust && orig.label!==orig.cust.nome && orig.label!==TYPES.custom.defLabel) ? orig.label : null;
   delete base.grp; delete base.watt; delete base.label;
+  /* una copia modificata resta legata al suo modello (se c'è ancora): dal pannello si sceglie poi «Aggiorna il modello»
+     o «Salva come nuovo modello». Il modello non cambia da solo: le altre copie e il catalogo restano com'erano. */
+  var mid=(orig && orig.cust && orig.cust.modelId && (state.customModels||[]).some(function(q){ return q.id===orig.cust.modelId; })) ? orig.cust.modelId : undefined;
   Object.assign(base, {id:E.baseId||uid(), type:"custom", x:Math.round(cx), y:Math.round(cy), rot:E.rot, w:r.w, d:r.d,
-            cust:{nome:scheda.nome, desc:scheda.desc, shapes:forme, ins:scheda.ins, backline:!!scheda.backline}});
+            cust:{nome:scheda.nome, desc:scheda.desc, shapes:forme, ins:scheda.ins, backline:!!scheda.backline, modelId:mid}});
   if(scheda.watt!=null && scheda.watt!=="") base.watt=Number(scheda.watt);
-  custNorm(base); base.label=etichetta||base.cust.nome; if(gid) base.grp=gid; state.items.push(base);
+  /* il nome sul palco: quello di serie segue il nome nuovo, quello scritto a mano («Schermo sinistro») resta (custEtichetta) */
+  custNorm(base); base.label=custEtichetta(orig ? orig.label : "", (orig && orig.cust) ? orig.cust.nome : null, base.cust.nome);
+  if(gid) base.grp=gid; state.items.push(base);
   /* un id che (per qualunque ragione) esiste già sul palco vero si cambia, e chi lo nominava (la DI del suo strumento, il
      rack, il ricevitore…) segue il cambio: dopo Salva nessun elemento punta a un id del palco temporaneo */
   var nuovi={};
@@ -9687,6 +9771,13 @@ function custEditorSalva(scheda){
     c.x=Math.round(p[0]); c.y=Math.round(p[1]); c.rot=(((c.rot||0)+E.rot)%360+360)%360; if(gid) c.grp=gid;
     ["diFor","diId","rackId","ascoltoId","rxId","distOf","sbTo"].forEach(function(k){ if(c[k]!=null && nuovi[c[k]]) c[k]=nuovi[c[k]]; });
     state.items.push(c); });
+  /* IL PRIMO SALVA DI UN ELEMENTO NUOVO crea anche il modello in «Elementi di questo progetto» (spec, Ruling 17): da lì se
+     ne posano altre copie. Stesso passo di Annulla dell'elemento: un Annulla toglie tutti e due. Oltre i 50 modelli
+     l'elemento si salva lo stesso, senza modello (lo dice custSalvaDaScheda). */
+  if(!orig && (state.customModels||[]).length<custLimiti().MODELLI){
+    var m=custModelloDaElemento(base);
+    if(m){ if(!state.customModels) state.customModels=[]; state.customModels.push(m); base.cust.modelId=m.id; }
+  }
   clearSelection(); selectClick(base.id);
   save(); custEditorRidisegna();
   return base.id;
@@ -9850,7 +9941,7 @@ function custDisegnaArea(nomePreso){
   if(custEditorAttivo()){ custEditorAvvisa(); return false; }
   if(custInvioInCorso()) return false;   /* l'invio legge ancora il palco vero (anteprima): l'editor aspetta */
   if(window.__projLocked || document.body.classList.contains("viewmode") || foreignDoc()) return false;
-  window.__custNomePreso=(typeof nomePreso==="string") ? nomePreso.replace(/[\u0000-\u001f]/g," ").trim().slice(0, custLimiti().NOME) : "";
+  window.__custNomePreso=(typeof nomePreso==="string") ? custTaglia(nomePreso.replace(/[\u0000-\u001f]/g," ").trim(), custLimiti().NOME) : "";
   exitHubModes(); if(inListMode()) exitListMode(); endCatSearch(); clearSelection();
   window.__custDraw={mode:"area"};
   custClasse("cust-draw", true); render(); custGuida();
@@ -9930,8 +10021,14 @@ function custSoloDalComputer(titolo){
 function custSolaLettura(){ return !!window.__projLocked || document.body.classList.contains("viewmode") || foreignDoc(); }
 /* il testo cercato diventa il nome proposto: pulito, al massimo 60 caratteri, con la maiuscola se è tutto minuscolo */
 function custNomeDaRicerca(q){
-  var s=String(q==null?"":q).replace(/[\u0000-\u001f]/g," ").replace(/\s+/g," ").trim().slice(0, custLimiti().NOME);
+  var s=custTaglia(String(q==null?"":q).replace(/[\u0000-\u001f]/g," ").replace(/\s+/g," ").trim(), custLimiti().NOME);
   return (s && s===s.toLowerCase()) ? s.charAt(0).toUpperCase()+s.slice(1) : s;
+}
+/* il testo di «Non c'è? Crealo»: sul computer «disegnato o composto in scala», sul telefono dice che si fa dal computer
+   (il CSS mostra .cust-pc o .cust-tel, come per il pulsante «Crea elemento») */
+function custCrealoHtml(testo){
+  var t=String(testo==null ? "" : testo), nome=t.trim() ? "«"+esc(custNomeDaRicerca(t))+"», " : "";
+  return "<span>Non c'è? <b>Crealo</b><small class=\"cust-pc\">"+nome+"disegnato o composto in scala</small><small class=\"cust-tel\">"+nome+"disponibile dal computer</small></span>";
 }
 /* la base personalizzata del gruppo di un pezzo (una sola: con due non si sa quale) */
 function custBaseDi(it){
@@ -9955,32 +10052,59 @@ function custModificaElemento(id, pezzoId){
   if(pezzoId!=null && state.items.some(function(x){ return x.id===pezzoId; })){ selectOne(pezzoId); render(); }
   return true;
 }
-/* l'elemento (con i suoi pezzi) entra in «Elementi di questo progetto». Se viene già da un modello che esiste ancora, lo
-   aggiorna invece di farne un doppione; una copia modificata nell'editor non ricorda più il modello e ne fa uno nuovo. */
-function custSalvaComeModello(id){
+/* l'elemento (con i suoi pezzi) entra in «Elementi di questo progetto». Su una copia legata a un modello che esiste ancora:
+   senza opzioni lo AGGIORNA («Aggiorna il modello»); con {nuovo:true} ne fa uno nuovo e ci aggancia la copia («Salva come
+   nuovo modello»). Senza modello: ne fa uno («Salva come modello»). Un passo di Annulla. */
+function custSalvaComeModello(id, opz){
   if(custEditorAttivo()){ custEditorAvvisa(); return false; }
   if(custSolaLettura()) return false;
   var it=(state.items||[]).find(function(x){ return x.id===id && x.type==="custom"; }); if(!it) return false;
   var L=state.customModels||[], i=(it.cust && it.cust.modelId) ? L.findIndex(function(q){ return q.id===it.cust.modelId; }) : -1;
-  if(i<0 && L.length>=50){ custToast("Al massimo 50 elementi salvati per progetto.", true); return false; }
-  var m=custModelDaAgglomerato(it); if(i>=0) m.id=L[i].id;
-  m=custModelNorm(m); if(!m) return false;   /* le stesse regole dell'apertura: quello che si salva è quello che si riapre */
+  if(opz && opz.nuovo) i=-1;
+  if(i<0 && L.length>=custLimiti().MODELLI){ custToast("Al massimo "+custLimiti().MODELLI+" elementi salvati per progetto.", true); return false; }
+  var m=custModelloDaElemento(it, i>=0 ? L[i].id : null); if(!m) return false;
   primaDiAgire();
   if(!state.customModels) state.customModels=[];
   if(i>=0) state.customModels[i]=m; else { state.customModels.push(m); it.cust.modelId=m.id; }
   render(); save();
-  custToast(i>=0 ? "Aggiornato in «Elementi di questo progetto»." : "«"+m.nome+"» è in «Elementi di questo progetto», nel catalogo: da lì ne posi altre copie.");
+  custToast(i>=0 ? "Modello «"+m.nome+"» aggiornato: le copie già posate restano come sono." : "«"+m.nome+"» è in «Elementi di questo progetto», nel catalogo: da lì ne posi altre copie.");
   return true;
 }
-/* una copia dal catalogo: al centro della vista, in un posto libero (come addItem), selezionata tutta */
-function custPosaDalCatalogo(mid){
+/* «Elimina modello» (Ruling 16): dalla sua voce in «Elementi di questo progetto», con conferma. Le copie restano. */
+function custEliminaModello(mid){
   if(custEditorAttivo()){ custEditorAvvisa(); return false; }
   if(custSolaLettura()) return false;
   var m=(state.customModels||[]).find(function(q){ return q.id===mid; }); if(!m) return false;
-  var cv=v2w({x:vb.x+vb.w/2, y:vb.y+vb.h/2});
-  if(!isFinite(cv.x) || !isFinite(cv.y)) cv={x:(+state.stage.w||0)/2, y:(+state.stage.d||0)/2};   /* vista non ancora misurata: il centro del palco */
-  var fs=findFreeSpotFor({type:"custom", w:m.w, d:m.d, rot:0, label:m.nome}, Math.round(cv.x+addCascade), Math.round(cv.y+addCascade));
-  addCascade=(addCascade+25)%150;
+  custChiedi("Eliminare il modello «"+m.nome+"»?", "Le copie già posate restano.", ["Annulla", "Elimina"],
+    function(i){ if(i===1) custTogliModello(mid); }, ["", "danger-solid"]);
+  return true;
+}
+/* toglie il modello e il legame delle copie che lo usavano; senza modelli il campo SPARISCE (mai []: firmaPdf). Un passo di Annulla. */
+function custTogliModello(mid){
+  if(custEditorAttivo() || custSolaLettura()) return false;
+  var L=state.customModels||[]; if(!L.some(function(q){ return q.id===mid; })) return false;
+  primaDiAgire();
+  state.customModels=L.filter(function(q){ return q.id!==mid; });
+  if(!state.customModels.length) delete state.customModels;
+  (state.items||[]).forEach(function(x){ if(x.type==="custom" && x.cust && x.cust.modelId===mid) delete x.cust.modelId; });
+  render(); save();
+  custToast("Modello eliminato. Le copie sul palco restano.");
+  return true;
+}
+/* una copia dal catalogo: al centro della vista, in un posto libero (come addItem), selezionata tutta. punto = {x,y} del
+   doppio clic sul palco vuoto (ricerca rapida): la copia va lì, come addItem con la posizione */
+function custPosaDalCatalogo(mid, punto){
+  if(custEditorAttivo()){ custEditorAvvisa(); return false; }
+  if(custSolaLettura()) return false;
+  var m=(state.customModels||[]).find(function(q){ return q.id===mid; }); if(!m) return false;
+  var fs;
+  if(punto && isFinite(punto.x) && isFinite(punto.y)) fs={x:Math.round(punto.x), y:Math.round(punto.y)};
+  else {
+    var cv=v2w({x:vb.x+vb.w/2, y:vb.y+vb.h/2});
+    if(!isFinite(cv.x) || !isFinite(cv.y)) cv={x:(+state.stage.w||0)/2, y:(+state.stage.d||0)/2};   /* vista non ancora misurata: il centro del palco */
+    fs=findFreeSpotFor({type:"custom", w:m.w, d:m.d, rot:0, label:m.nome}, Math.round(cv.x+addCascade), Math.round(cv.y+addCascade));
+    addCascade=(addCascade+25)%150;
+  }
   primaDiAgire();
   var nuovi=custPosaModello(mid, fs.x, fs.y); if(!nuovi.length) return false;
   clearSelection(); selectClick(nuovi[0].id);
@@ -10012,8 +10136,10 @@ function custPannello(pre, base){
   var d=el("Desc"); if(d){ d.textContent=c.desc||""; d.hidden=!c.desc; }
   var n=el("Conta"); if(n) n.textContent=custContaTesto(base);
   var bm=el("Modifica"); if(bm) bm.onclick=function(){ custModificaElemento(base.id); };
+  /* copia di un modello: «Aggiorna il modello» (sovrascrive quello di partenza) e «Salva come nuovo modello»; senza: «Salva come modello» */
   var bs=el("Modello"); if(bs){ bs.textContent=m ? "Aggiorna il modello" : "Salva come modello"; bs.onclick=function(){ custSalvaComeModello(base.id); }; }
-  var h=el("ModelloHint"); if(h) h.textContent=m ? "È fra gli «Elementi di questo progetto», nel catalogo." : "Lo trovi poi nel catalogo, fra gli «Elementi di questo progetto».";
+  var bn=el("ModelloNuovo"); if(bn){ bn.hidden=!m; bn.onclick=function(){ custSalvaComeModello(base.id, {nuovo:true}); }; }
+  var h=el("ModelloHint"); if(h) h.textContent=m ? "Viene da «"+m.nome+"», fra gli «Elementi di questo progetto» nel catalogo." : "Lo trovi poi nel catalogo, fra gli «Elementi di questo progetto».";
   /* Invia per revisione: dal computer e dove si scrive (come l'editor); già inviato → la riga con la data */
   var rv=el("Rev"), rt=custRevTesto(base); if(rv){ rv.textContent=rt; rv.hidden=!rt; }
   var bi=el("Invia"); if(bi){ bi.hidden=!!rt || isMobile() || custSolaLettura(); bi.onclick=function(){ custInviaRevisione(base.id); }; }
@@ -10082,7 +10208,7 @@ function custCorpoRevisione(it, jpeg){
 /* il modello dell'elemento, per rifarlo: forme, misure, scheda e i pezzi (solo tipo, misure e posizione: le
    etichette dei pezzi le scrive l'utente e possono contenere nomi). Oltre 30000 caratteri il server lo scarta: null. */
 function custJsonRevisione(it){
-  var m=custModelDaAgglomerato(it, true);
+  var m=custModelDaAgglomerato(it, true); if(!m) return null;
   m.membri=(m.membri||[]).map(function(x){ var o={type:x.type, dx:x.dx, dy:x.dy, rot:x.rot}; if(x.w!=null) o.w=x.w; if(x.d!=null) o.d=x.d; return o; });
   var s=JSON.stringify(m);
   return s.length<=30000 ? s : null;
@@ -10338,7 +10464,7 @@ function custTestoModifica(id, nuovo){
   var fatto=false, nato=Date.now();
   function fine(ok){
     if(fatto) return; fatto=true; inp.remove();
-    var v=ok ? inp.value.replace(/[\u0000-\u001f]/g," ").trim().slice(0, custLimiti().TESTO) : (it.s||"");
+    var v=ok ? custTaglia(inp.value.replace(/[\u0000-\u001f]/g," ").trim(), custLimiti().TESTO) : (it.s||"");
     if(!v){ state.items=state.items.filter(function(x){ return x.id!==id; }); clearSelection(); if(!nuovo) save(); render(); return; }
     if(v!==it.s || nuovo){ it.s=v; it.w=custTestoLargo(v, it.d/1.3); save(); }
     render();
@@ -10386,8 +10512,8 @@ function custAggiornaGriglia(){
 /* ---------- 5. la scheda ---------- */
 function custSchedaNorm(v){
   v=v||{}; var L=custLimiti();
-  var nome=String(v.nome==null?"":v.nome).replace(/[\u0000-\u001f]/g," ").trim().slice(0, L.NOME);
-  var desc=String(v.desc==null?"":v.desc).replace(/[\u0000-\u0009\u000b-\u001f]/g," ").trim().slice(0, L.DESC);
+  var nome=custTaglia(String(v.nome==null?"":v.nome).replace(/[\u0000-\u001f]/g," ").trim(), L.NOME);   /* tagli senza spezzare un carattere */
+  var desc=custTaglia(String(v.desc==null?"":v.desc).replace(/[\u0000-\u0009\u000b-\u001f]/g," ").trim(), L.DESC);
   var w=(v.watt===""||v.watt==null) ? null : Number(String(v.watt).replace(",","."));
   w=(w==null || !isFinite(w) || w<=0) ? null : Math.min(L.WATT, Math.round(w));
   var n=v.ins && typeof v.ins==="object" ? Number(v.ins.n) : 0; n=isFinite(n) ? Math.max(0, Math.min(L.INS, Math.round(n))) : 0;
@@ -10447,8 +10573,13 @@ function custSalvaDaScheda(opz){
         else { selSet={}; fuori.forEach(function(id){ selSet[id]=true; }); sel=fuori[fuori.length-1]; render(); } });
     return null;
   }
+  var nuovo=!window.__custEditor.baseId;
   var id=custEditorSalva(v);
   custDopoChiusura();
+  /* il primo Salva ha messo l'elemento anche fra gli «Elementi di questo progetto»: si dice dove trovarlo */
+  var it=id ? (state.items||[]).find(function(x){ return x.id===id; }) : null;
+  if(nuovo && it && !(opz && opz.invia)) custToast(it.cust.modelId ? "«"+it.cust.nome+"» è anche fra gli «Elementi di questo progetto», nel catalogo: da lì ne posi altre copie."
+    : "Salvato. Gli «Elementi di questo progetto» sono già "+custLimiti().MODELLI+": questo non è entrato nel catalogo.", !it.cust.modelId);
   if(id && opz && opz.invia && typeof window.custInviaRevisione==="function") window.custInviaRevisione(id);
   return id;
 }
@@ -10582,7 +10713,7 @@ function custBlocca(){ if(!custEditorAttivo()) return false; custEditorAvvisa();
   on("custFRot", "change", function(){ custFormaImposta("rot", this.value); });
   on("custFCorpo", "change", function(){ custFormaImposta("corpo", this.value); });
   on("custFTesto", "change", function(){ var it=getSel(); if(!it || it.k!=="text") return;
-    var v=String(this.value).replace(/[\u0000-\u001f]/g," ").trim().slice(0, custLimiti().TESTO); if(!v){ renderProps(); return; }
+    var v=custTaglia(String(this.value).replace(/[\u0000-\u001f]/g," ").trim(), custLimiti().TESTO); if(!v){ renderProps(); return; }
     primaDiAgire(); it.s=v; it.w=custTestoLargo(v, it.d/1.3); render(); save(); });
   on("custFDup", "click", function(){ duplicateSel(); });
   on("custFDel", "click", function(){ deleteSelGuarded(); });
@@ -10999,6 +11130,7 @@ function lblStacco(fszK){ return Math.max(3, fszK*0.3); }
    scavalcare — a filo dello strumento, «Chitarra acustica 1» si scriveva sopra la scatola (P2-01, 27/07).
    Conta solo se cade davvero nella striscia del nome; trascinata lontano non lo spinge più giù. */
 function lblArteConDi(it, ext, fszK){
+  if(it && it.type==="custom") return custArteConPezzi(it, ext, fszK);
   if(!it || !it.diId || lblSopraDi(it)) return ext;
   var di=diLinked(it); if(!di) return ext;
   var off=(Array.isArray(it.diOff)&&it.diOff.length===2) ? it.diOff : diDefaultOff(it);
@@ -11008,6 +11140,23 @@ function lblArteConDi(it, ext, fszK){
   if(off[0]-dw < semi && off[0]+dw > -semi && off[1]-dd < fondo && off[1]+dd > ext.y1)
     return {x0:ext.x0, y0:ext.y0, x1:ext.x1, y1:Math.max(ext.y1, off[1]+dd)};
   return ext;
+}
+/* Il nome dell'elemento personalizzato sta sopra il suo disegno, ma i suoi PEZZI possono sbordare (l'asta di un microfono
+   oltre il bordo alto): il nome va sopra l'ingombro VERO del gruppo, base + pezzi. Si allarga la misura della base con i
+   pezzi che cadono nella striscia del nome, riportati nel frame della base (rotazioni comprese). */
+function custArteConPezzi(it, ext, fszK){
+  if(!it.grp || typeof state==="undefined" || !state || !state.items) return ext;
+  var semi=lblTextW(lblText(it.label, it, true), fszK)/2, y0=ext.y0, y1=ext.y1;
+  state.items.forEach(function(x){
+    if(!x || x===it || x.grp!==it.grp || x.type==="custom" || !isFinite(x.x) || !isFinite(x.y)) return;
+    var a=arteDi(x), rr=(x.rot||0)*Math.PI/180, c=Math.cos(rr), sn=Math.sin(rr), xs=[], ys=[];
+    [[a.x0,a.y0],[a.x1,a.y0],[a.x0,a.y1],[a.x1,a.y1]].forEach(function(p){
+      var q=rotatePointAround(x.x+p[0]*c-p[1]*sn, x.y+p[0]*sn+p[1]*c, it.x, it.y, -(it.rot||0));
+      xs.push(q[0]-it.x); ys.push(q[1]-it.y); });
+    if(Math.max.apply(0,xs) < -semi || Math.min.apply(0,xs) > semi) return;   /* di lato, fuori dalla striscia del nome */
+    y0=Math.min(y0, Math.min.apply(0,ys)); y1=Math.max(y1, Math.max.apply(0,ys));
+  });
+  return (y0===ext.y0 && y1===ext.y1) ? ext : {x0:ext.x0, y0:y0, x1:ext.x1, y1:y1};
 }
 /* baseline del nome, nel frame dell'elemento (non ruotato) */
 function lblBaseY(it, fszK, ext){
@@ -11222,8 +11371,9 @@ function itemMarkup(it){
   var t = itemTypeDef(it); if(!t) return '';
   var lb='';   /* i NOMI: nella scena vanno nel livello sopra tutto (#layLbl), vedi _lblSink */
   _lucettaOn = (it.lucetta===true);   /* lucetta leggio: valida per tutti i leggioGlyph disegnati da questo elemento (draw + accessori) */
-  var hw = Math.max(it.w,70)/2 + 8, hd = Math.max(it.d,30)/2 + 8;   /* area di click generosa */
-  var bw = it.w/2 + 6, bh = it.d/2 + 6;                             /* riquadro selezione aderente all'ingombro reale */
+  var _cs = it.type==="custshape";   /* forme dell'editor: margini in PIXEL — su una superficie di 20 cm, 8 cm d'aria coprivano le forme vicine */
+  var hw = _cs ? it.w/2 + hSize(6) : Math.max(it.w,70)/2 + 8, hd = _cs ? it.d/2 + hSize(6) : Math.max(it.d,30)/2 + 8;   /* area di click generosa */
+  var bw = it.w/2 + selMargine(it), bh = it.d/2 + selMargine(it);   /* riquadro selezione aderente all'ingombro reale */
   var isOut = isOutsideStage(it);
   var attrId=esc(it.id);
   var s = '<g class="item'+(isOut?' nofloor':'')+(selSet[it.id]?' selected':'')+'" data-id="'+attrId+'" transform="translate('+it.x+' '+it.y+')">';
@@ -11422,7 +11572,7 @@ function selHandlesMarkup(){
   var t=itemTypeDef(it); if(!t) return '';
   if(!itemLiveOnStage(it)) return '';                     /* elemento non disegnato o non manovrabile: niente maniglie sospese nel vuoto */
   var attrId=esc(it.id);
-  var bw = it.w/2 + 6, bh = it.d/2 + 6;                   /* stesso riquadro aderente del selbox: le maniglie ci stanno sopra */
+  var bw = it.w/2 + selMargine(it), bh = it.d/2 + selMargine(it);   /* stesso riquadro aderente del selbox: le maniglie ci stanno sopra */
   var _fit=_selFit[it.id], topY=_fit ? _fit.y1 : -bh;     /* bordo alto del riquadro misurato sul disegno (26/09) */
   var s='';
   /* maniglia di rotazione: appare sopra l'elemento quando è l'unico selezionato */
@@ -11566,8 +11716,8 @@ function zoneAbsorbable(it){
 }
 function effOwnMic(it){ return it.ownMic!=null ? it.ownMic : !zoneAbsorbable(it); }
 /* un elemento è una sorgente audio? (per l'inferenza; esclude la zona stessa e i non-sorgenti) */
-function isAudioSource(it){ if(it.diFor) return false;
-  if(it.type==="custom") return custInputs(it).length>0;   /* personalizzato: sorgente solo se ha ingressi dichiarati */   /* DI generata da uno strumento: i canali sono i suoi, non si contano due volte */
+function isAudioSource(it){ if(it.diFor) return false;   /* DI generata da uno strumento: i canali sono i suoi, non si contano due volte */
+  if(it.type==="custom") return custInputs(it).length>0;   /* personalizzato: sorgente solo se ha ingressi dichiarati */
   if(VOCE[it.type]) return micModeOf(it)!=="pano"; return it.type!=="miczone" && it.miking!=="__nomic__" && (MIKING[it.type] || IN_MULTI[it.type] || IN_SRC[it.type]!=null || STEREO_TOGGLE[it.type] || it.type==="distereo" || (it.type==="direttore" && it.mic===true)); }   /* direttore = sorgente SOLO se ha il mic talkback */
 function dirMicLabel(it){ return (it && it.micType==="collodoca") ? "Talkback (collo d'oca)" : "Talkback (palmare on/off)"; }   /* microfono del direttore: palmare gelato (default) o collo d'oca da podio */
 /* «PRODUCE CANALI» non è la stessa cosa di «è una sorgente da microfonare» (bug 29/07, quartetto a
@@ -16835,7 +16985,7 @@ function setPart(it, key, val){
 /* "Dividi in elementi singoli": esplode un componibile nei suoi pezzi come item indipendenti */
 function explodeComposite(){ primaDiAgire();
   var it=getSel(); if(!it) return; var comp=COMP[it.type]; if(!comp||!comp.explode) return;
-  var pieces=comp.explode(it), rot=(it.rot||0)*Math.PI/180, c=Math.cos(rot), s=Math.sin(rot), made=[], gid="g"+uid();
+  var pieces=comp.explode(it), rot=(it.rot||0)*Math.PI/180, c=Math.cos(rot), s=Math.sin(rot), made=[], gid=grpLibero();
   pieces.forEach(function(pc){
     var T=TYPES[pc.type]; if(!T) return;
     var wx=it.x+(pc.dx*c - pc.dy*s), wy=it.y+(pc.dx*s + pc.dy*c);
@@ -17358,7 +17508,7 @@ function splitDouble(){ primaDiAgire();
 /* split di una postazione singola → strumento (senza sedia/leggio) + sedia + leggio come elementi indipendenti */
 function splitPostaz(){
   var it=getSel(); if(!it || !POSTAZ[it.type]) return;
-  var rot=(it.rot||0)*Math.PI/180, c=Math.cos(rot), s=Math.sin(rot), gid="g"+uid(), made=[];
+  var rot=(it.rot||0)*Math.PI/180, c=Math.cos(rot), s=Math.sin(rot), gid=grpLibero(), made=[];
   function place(type,dx,dy){ var T=TYPES[type]; if(!T) return; made.push({id:uid(),type:type,
     x:Math.round(it.x+dx*c-dy*s), y:Math.round(it.y+dx*s+dy*c), rot:it.rot||0, w:T.w, d:T.d, label:"", grp:gid}); }
   var hadSedia=it.sedia!==false, hadLeggio=it.leggio!==false;
@@ -17374,7 +17524,7 @@ function splitPostaz(){
 function splitVoce(){
   var it=getSel(); if(!it || !VOCE[it.type]) return;
   if(it.leggio===false){ return; }
-  var rot=(it.rot||0)*Math.PI/180, c=Math.cos(rot), s=Math.sin(rot), gid="g"+uid();
+  var rot=(it.rot||0)*Math.PI/180, c=Math.cos(rot), s=Math.sin(rot), gid=grpLibero();
   var T=TYPES.leggio, dx=0, dy=42;
   var lg={id:uid(), type:"leggio", x:Math.round(it.x+dx*c-dy*s), y:Math.round(it.y+dx*s+dy*c), rot:it.rot||0, w:T.w, d:T.d, label:"", grp:gid};
   it.leggio=false; it.grp=gid; state.items.push(lg);
@@ -17397,7 +17547,7 @@ function splitElement(){
 /* "Sedia + leggio" → sedia (nera) + leggio come item indipendenti, nelle stesse posizioni del disegno combinato */
 function splitSediaLeggio(){
   var it=getSel(); if(!it || it.type!=="sedialeggio") return;
-  var rot=(it.rot||0)*Math.PI/180, c=Math.cos(rot), s=Math.sin(rot), gid="g"+uid(), made=[];
+  var rot=(it.rot||0)*Math.PI/180, c=Math.cos(rot), s=Math.sin(rot), gid=grpLibero(), made=[];
   function place(type,dx,dy){ var T=TYPES[type]; if(!T) return; made.push({id:uid(),type:type,
     x:Math.round(it.x+dx*c-dy*s), y:Math.round(it.y+dx*s+dy*c), rot:it.rot||0, w:T.w, d:T.d, label:"", grp:gid}); }
   place("sedia", 0, -25);   /* sedia nella stessa posizione del disegno combinato */
@@ -18159,14 +18309,14 @@ function duplicateSel(noOffset, opts){
   var copies=set.map(function(it){ var c=JSON.parse(JSON.stringify(it)); idmap[it.id]=c.id=uid();
     if(!noOffset){ c.x+=offX; c.y+=offY; }   /* offset solo per duplica con Ctrl+D; ALT+drag parte dalla posizione originale */
     bumpItemLabels(c);
-    if(c.grp){ if(!gmap[c.grp]) gmap[c.grp]="g"+uid(); c.grp=gmap[c.grp]; }
+    if(c.grp){ if(!gmap[c.grp]) gmap[c.grp]=grpLibero(); c.grp=gmap[c.grp]; }
     state.items.push(c); return c; });
   postiCopie(copies);   /* il duplicato di un posto numerato nasce senza numero: quel posto c'è già */
   /* rimappa distOf al nuovo id della pedana copiata (evita che la copia punti alla pedana originale) */
   copies.forEach(function(c){ if(c.distOf && idmap[c.distOf]) c.distOf=idmap[c.distOf]; });
   /* pedana agganciata + elementi duplicati = un BLOCCO unico: si muovono insieme e il trascinamento NON
      aggancia gli originali che la copia (spostata di 40 cm) ha sotto. Sganciata, quel rischio non c'è. */
-  if(hasRiser){ var bg="g"+uid(); copies.forEach(function(c){ c.grp=bg; }); }
+  if(hasRiser){ var bg=grpLibero(); copies.forEach(function(c){ c.grp=bg; }); }
   selSet={}; copies.forEach(function(c){ selSet[c.id]=true; }); sel=copies.length?copies[copies.length-1].id:null;
   render();
   /* Alt + trascina (16/09, Simone: «se sposto oggetti con alt e poi faccio cmd z si creano copie
@@ -18192,10 +18342,10 @@ function pasteClip(){
   var hasRiser=clipboard.some(pedanaAgganciata);   /* blocco solo con una pedana agganciata, come in duplicateSel */
   var gmap={}, idmap={};
   var copies=clipboard.map(function(it){ var c=JSON.parse(JSON.stringify(it)); idmap[it.id]=c.id=uid(); c.x+=off; c.y+=off; bumpItemLabels(c);
-    if(c.grp){ if(!gmap[c.grp]) gmap[c.grp]="g"+uid(); c.grp=gmap[c.grp]; } return c; });
+    if(c.grp){ if(!gmap[c.grp]) gmap[c.grp]=grpLibero(); c.grp=gmap[c.grp]; } return c; });
   /* rimappa distOf al nuovo id della pedana incollata */
   copies.forEach(function(c){ if(c.distOf && idmap[c.distOf]) c.distOf=idmap[c.distOf]; });
-  if(hasRiser){ var bg="g"+uid(); copies.forEach(function(c){ c.grp=bg; }); }   /* pedana+elementi = blocco */
+  if(hasRiser){ var bg=grpLibero(); copies.forEach(function(c){ c.grp=bg; }); }   /* pedana+elementi = blocco */
   copies.forEach(function(c){ state.items.push(c); });
   postiCopie(copies);   /* posto numerato già presente nella scena → la copia resta senza numero */
   selSet={}; copies.forEach(function(c){ selSet[c.id]=true; }); sel=copies.length?copies[copies.length-1].id:null;
@@ -18218,7 +18368,7 @@ function applyDistribute(riser, template, n, eq){
   /* spaziatura SENZA limite minimo: 100% = riempie la pedana in proporzione al numero; 0% = molto stretto → sovrapposti (poi regola l'utente) */
   var spX=(W/perRow)*(0.06+0.94*eq/100);
   var spY=rows>1 ? (D/rows)*(0.18+0.82*eq/100) : 0;
-  var gid=template.grp || ("g"+uid()), made=0;
+  var gid=template.grp || grpLibero(), made=0;
   var auto=autoNumbered(type), base=auto?instrBase(type):"";
   function fine(v){ return Math.round(v*10)/10; }   /* equidistanza LIBERA dallo snap griglia: posizioni continue (0,1 cm) */
   for(var r=0; r<rows && made<n; r++){
@@ -18911,11 +19061,11 @@ function ricordaRecenteCatalogo(k, nome, over){
      Sul telefono resta visibile e dice dove si fa (il sottotitolo cambia col CSS: .cust-pc / .cust-tel). */
   var CUST_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><rect x="5.5" y="8" width="21" height="16" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-dasharray="3.5 2.5"/><path d="M16 12.5v7M12.5 16h7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
   function creaElemento(){ custDisegnaArea(""); }
-  pin.appendChild(makeActionBtn("Crea elemento","disegna o componi, in scala", null, creaElemento, CUST_ICON));
+  /* il sottotitolo del telefono: dove si fa (il CSS mostra .cust-pc o .cust-tel). Anche nei risultati della ricerca (telDim) */
+  function telefonoDice(b, testo){ var sm=b && b.querySelector("small"); if(!sm) return b; sm.classList.add("cust-pc"); sm.insertAdjacentHTML("afterend", '<small class="cust-tel">'+esc(testo)+'</small>'); return b; }
+  pin.appendChild(telefonoDice(makeActionBtn("Crea elemento","disegna o componi, in scala", null, creaElemento, CUST_ICON), "disponibile dal computer"));
   pin.lastChild.classList.add("cust-no", "cust-crea");
-  pin.lastChild.querySelector("small").insertAdjacentHTML("afterend", '<small class="cust-tel">disponibile dal computer</small>');
-  pin.lastChild.querySelector("small").classList.add("cust-pc");
-  entries.push({nome:"Crea elemento", dim:"disegna o componi, in scala", noQuick:true, custNo:true, action:creaElemento, iconHtml:CUST_ICON,
+  entries.push({nome:"Crea elemento", dim:"disegna o componi, in scala", telDim:"disponibile dal computer", noQuick:true, custNo:true, action:creaElemento, iconHtml:CUST_ICON,
                 kw:"crea nuovo elemento personalizzato custom segnaposto disegna disegnare componi oggetto"});
 
   /* Ricerca permissiva (generale, nessun hardcoded): per ogni entry un indice normalizzato — minuscole
@@ -18960,10 +19110,22 @@ function ricordaRecenteCatalogo(k, nome, over){
     L.forEach(function(m){
       var np=(m.membri||[]).length, dim=custMisura(m.w, m.d)+(np ? " · con "+(np===1 ? "1 elemento" : np+" elementi") : "");
       var posa=function(){ custPosaDalCatalogo(m.id); }, ic=custMiniModello(m);
-      cc.appendChild(makeActionBtn(m.nome, dim, null, posa, ic));
-      var e={nome:m.nome, dim:dim, kw:"elemento personalizzato di questo progetto "+(m.desc||""), action:posa, iconHtml:ic, noQuick:true, custNo:true, custModello:true};
+      /* la voce e, accanto, «Elimina modello» (Ruling 16): un bottone suo, non dentro quello della posa */
+      var riga=document.createElement("div"); riga.className="cust-voce";
+      riga.appendChild(makeActionBtn(m.nome, dim, null, posa, ic)); riga.firstChild.title=m.nome+" — "+dim;   /* il nome intero, se finisce coi puntini */
+      var x=document.createElement("button"); x.type="button"; x.className="cust-voce-elimina";
+      x.title="Elimina il modello"; x.setAttribute("aria-label", "Elimina il modello «"+m.nome+"»");
+      x.innerHTML='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg>';
+      x.addEventListener("click", function(ev){ ev.stopPropagation(); custEliminaModello(m.id); });
+      riga.appendChild(x); cc.appendChild(riga);
+      /* nella ricerca della colonna e nella ricerca rapida del doppio clic (posa nel punto del clic: custModelloId) */
+      var e={nome:m.nome, dim:dim, kw:"elemento personalizzato di questo progetto "+(m.desc||""), action:posa, iconHtml:ic, custNo:true, custModello:true,
+             custModelloId:m.id, qaCat:"Progetto"};
       indicizza(e); entries.push(e);
     });
+    if(typeof _qaOpts!=="undefined") _qaOpts=null;   /* la ricerca rapida rifà il suo indice (l'array è lo stesso, il contenuto no) */
+    /* la ricerca aperta mostra risultati vecchi (un modello tolto con Annulla, uno nuovo, un nome cambiato): si rifà */
+    try{ if(typeof search!=="undefined" && search && typeof search.value==="string" && search.value.trim() && typeof Event==="function") search.dispatchEvent(new Event("input")); }catch(err){}
     return true;
   };
   window.__catCustomAggiorna();
@@ -19020,7 +19182,9 @@ function ricordaRecenteCatalogo(k, nome, over){
       if(q.length>=2 && q!==__lastNoRes){ __noResTimer=setTimeout(function(){ __lastNoRes=q; try{ track("search_no_results",{q:q.slice(0,40)}); }catch(e){} }, 900); }   /* cosa cercano gli utenti e non trovano (segnale per il catalogo) */
       return; }
     matched.forEach(function(e){
-      results.appendChild(e.action ? makeActionBtn(e.nome, e.dim, e.icon||"vln1x2", e.action, e.iconHtml) : makeBtn(e.k, e.nome, e.over, e.dim));
+      var b=e.action ? makeActionBtn(e.nome, e.dim, e.icon||"vln1x2", e.action, e.iconHtml) : makeBtn(e.k, e.nome, e.over, e.dim);
+      if(e.telDim) telefonoDice(b, e.telDim);   /* «Crea elemento»: sul telefono dice che si fa dal computer */
+      results.appendChild(b);
     });
     crealoBtn(results, cerca, true);   /* anche quando qualcosa c'è, ma non è quello che si cercava */
   });
@@ -19029,15 +19193,17 @@ function ricordaRecenteCatalogo(k, nome, over){
   function crealoBtn(dove, testo, fondo){
     if(custEditorAttivo() || custSolaLettura()) return;
     var b=document.createElement("button"); b.type="button"; b.className=fondo ? "btn cust-crealo cust-crealo-fondo" : "btn cust-crealo";
-    b.innerHTML=CUST_ICON+"<span>Non c'è? <b>Crealo</b>"+(testo.trim() ? '<small>«'+esc(custNomeDaRicerca(testo))+'», disegnato o composto in scala</small>' : '')+'</span>';
+    b.innerHTML=CUST_ICON+custCrealoHtml(testo);
     b.addEventListener("click", function(){ endCatSearch(); closeMobileDrawers(); custDisegnaArea(custNomeDaRicerca(testo)); });
     dove.appendChild(b);
   }
   /* Invio = il primo risultato (revisione 25/09): chi scriveva «batteria» e premeva Invio non otteneva
-     niente, e doveva andare col mouse sul risultato che aveva già sotto gli occhi. */
+     niente, e doveva andare col mouse sul risultato che aveva già sotto gli occhi.
+     Con «Nessun elemento trovato» (.nores) l'unico bottone è «Non c'è? Crealo», che non è un risultato: Invio non fa niente. */
   search.addEventListener("keydown", function(ev){
     if(ev.key!=="Enter" || ev.isComposing) return;
     if(results.style.display==="none") return;
+    if(results.querySelector(".nores")) return;
     var primo=results.querySelector("button:not(.json-act)");
     if(!primo) return;
     ev.preventDefault(); primo.click();
@@ -19342,13 +19508,13 @@ var _qaOpts=null, _qaName=null, _qaStrong=null, _qaAll=null, _qaCede=null, _qaPr
 function qaCedeDi(e,t){ var v=(e&&e.qaCede)||(t&&t.qaCede); return v ? _deacc(v) : null; }
 function qaPrimoDi(e,t){ var v=(e&&e.qaPrimo)||(t&&t.qaPrimo); return v ? _deacc(v) : null; }
 function qaHaParola(lista,q){ return !!lista && (" "+lista+" ").indexOf(" "+q+" ")>-1; }
-function qaCat(e){ return (e.k && TYPES[e.k] && TYPES[e.k].cat) || (e.dim||""); }
+function qaCat(e){ return (e.k && TYPES[e.k] && TYPES[e.k].cat) || e.qaCat || (e.dim||""); }
 function qaIndex(){
   var src=(window.__catEntries && window.__catEntries.length) ? window.__catEntries : null;
   if(_qaOpts && _qaSrc===src) return;   /* cache: l'indice del catalogo si costruisce una volta sola */
   _qaSrc=src;
   _qaOpts=(src || Object.keys(TYPES).filter(function(t){ return TYPES[t].catalog!==false; }).map(function(t){ return {k:t, nome:TYPES[t].nome}; }))
-    .filter(function(e){ return !e.noQuick; });   /* #15: la ricerca rapida suggerisce solo ELEMENTI, non le liste/azioni */
+    .filter(function(e){ return !e.noQuick; });   /* #15: la ricerca rapida suggerisce solo ELEMENTI, non le liste/azioni (e gli elementi di questo progetto) */
   _qaName=[]; _qaStrong=[]; _qaAll=[]; _qaCede=[]; _qaPrimo=[];
   _qaOpts.forEach(function(e){
     var t=e.k?TYPES[e.k]:null;
@@ -19379,6 +19545,7 @@ function qaSearch(q){
   var hit=[];
   for(var i=0;i<_qaOpts.length;i++){
     if(_qaAll[i].indexOf(q)===-1) continue;
+    if(_qaOpts[i].custNo && custEditorAttivo()) continue;   /* dentro l'editor non si posa un elemento del progetto */
     var n=_qaName[i], s=_qaStrong[i], r;
     if(n.indexOf(q)===0) r=0;
     else if(qaWordStart(n,q)) r=1;
@@ -19457,7 +19624,8 @@ function openQuickAdd(sp, cx, cy){
     fit();
   }
   function pick(e){ var sp2=_qaSp; closeQuickAdd(); if(!sp2 || !e) return;
-    if(e.action){ e.action(); }   /* voci speciali (Violino I/II, liste…): azione propria, posizione automatica */
+    if(e.custModelloId){ custPosaDalCatalogo(e.custModelloId, sp2); }   /* elemento di questo progetto: la copia nel punto del doppio clic */
+    else if(e.action){ e.action(); }   /* voci speciali (Violino I/II, liste…): azione propria, posizione automatica */
     else if(e.k){ var over=e.over?JSON.parse(JSON.stringify(e.over)):{}; over.x=sp2.x; over.y=sp2.y; addItem(e.k, over); }
   }
   function moveSel(d){ var items=list.querySelectorAll(".qa-item"); if(!items.length) return;
