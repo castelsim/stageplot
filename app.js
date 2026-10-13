@@ -27980,22 +27980,32 @@ function pdfListGeneric(doc, key, shared){
   doc.text("STAGE PLOT \u2014 "+cfg.title, M, 9);
   doc.setFont("helvetica","normal"); doc.setFontSize(9);
   doc.text(dataDocumento(), 194, 9, {align:"right"});
-  if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12);
-    doc.text((state.titolo||"")+(state.luogo?" \u2014 "+state.luogo:""), M, y); y+=8; }
+  if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); y=pdfTitoloLuogo(doc, M, y, 8); }
   var sub=cfg.sub?cfg.sub(d):"";
-  if(sub){ doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555"); doc.text(sub, M, y); y+=8; }
+  if(sub){ doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
+    var _sr=pdfTxtRighe(sub, 178, 9.5, false); _sr.forEach(function(t,k){ doc.text(t, M, y+k*4.4); }); y+=8+(_sr.length-1)*4.4; }
   /* colonne larghe in proporzione al testo: le liste tecniche hanno una colonna lunga (l'apparecchio)
      e diverse corte (quantità, altezza), e a larghezza fissa la lunga si troncava */
-  var W=178, nCols=cfg.cols.length, xs=[], acc=M;
+  var W=178, R=M+W, nCols=cfg.cols.length, xs=[], acc=M, PT=9.5, PASSO=4.4, GAP=3;
   cfg.cols.forEach(function(c,i){ xs.push(acc); acc += (c.num?0.5:1.4)*(W/(nCols+0.6)); });
+  /* A CAPO (13/10/2026, stage plot vero): ogni cella si scriveva su una riga sola, e una nota da 140
+     caratteri partiva a metà foglio e usciva dal margine e poi dalla carta — sul foglio se ne leggeva
+     metà. Ora ogni cella va a capo nella sua colonna (fino alla colonna dopo, l'ultima fino al margine),
+     misurata con le metriche Helvetica del PDF come il cartiglio (#300): mai «…», niente testo perso.
+     La riga si alza quanto la cella più lunga; una riga di una cella sola resta alta 5,6 mm come prima. */
+  var ws=xs.map(function(x,i){ return (i<xs.length-1 ? xs[i+1]-GAP : R)-x; });
+  var testa=null;
   function riga(vals, bold, colore){
-    if(y>286){ doc.addPage(); y=18; }
-    doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9.5);
-    vals.forEach(function(v,i){ doc.setTextColor((colore&&colore[i])||(bold?"#0b7a70":"#111827")); doc.text(String(v==null?"":v), xs[i], y); });
-    y+=5.6;
+    var righe=vals.map(function(v,i){ return pdfTxtRighe(v==null?"":String(v), ws[i], PT, bold); });
+    var n=Math.max.apply(null, righe.map(function(r){ return r.length; }));
+    if(y+(n-1)*PASSO>286){ doc.addPage(); y=18; if(testa){ var _t=testa; testa=null; _t(); testa=_t; } }   /* la riga passa di pagina intera, con l'intestazione delle colonne */
+    doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(PT);
+    righe.forEach(function(rr,i){ doc.setTextColor((colore&&colore[i])||(bold?"#0b7a70":"#111827"));
+      rr.forEach(function(t,k){ doc.text(t, xs[i], y+k*PASSO); }); });
+    y+=5.6+(n-1)*PASSO;
   }
-  riga(cfg.cols.map(function(c){ return c.h; }), true);
-  doc.setDrawColor(col); doc.setLineWidth(0.4); doc.line(M, y-3.8, 194, y-3.8);
+  function _testa(){ riga(cfg.cols.map(function(c){ return c.h; }), true); doc.setDrawColor(col); doc.setLineWidth(0.4); doc.line(M, y-3.8, R, y-3.8); }
+  _testa(); testa=_testa;
   d.rows.forEach(function(r){
     var vals=cfg.cols.map(function(c){ return c.f(r,d); });   /* d: alcune colonne dipendono dal dataset (es. hasFoh) */
     var colori=cfg.cols.map(function(c){ return (c.warn && c.warn(r)) ? "#b45309" : "#111827"; });   /* i buchi si vedono anche in stampa */
@@ -28920,7 +28930,7 @@ function pdfListConfig(){
       cols:[{h:"Q.tà",num:1,f:function(r){return r.qty+"×";}},{h:"Attrezzatura",f:function(r){return r.name;}},{h:"Fornito da",f:function(r){return r.by||"—";}}] },
     notelist:{ title:"Note", color:"#6b7280", data:(typeof noteList==="function"?noteList:null),
       sub:function(d){ return d.count+" not"+(d.count===1?"a":"e")+" sugli elementi · sul disegno sono i nomi col puntino"; },
-      cols:[{h:"Elemento",f:function(r){return r.name;}},{h:"Nota",f:function(r){return r.note;}}] },
+      cols:[{h:"Elemento",f:function(r){return r.name;}},{h:"Nota",wrap:1,f:function(r){return r.note;}}] },   /* wrap: nell'anteprima e nel link condiviso la nota va a capo come nel PDF */
     /* Scaletta (10/10): anteprima nell'Esporta e scheda del link condiviso. Il PDF ha la sua pagina
        (scalettaPdf), perché titoli e note lunghi vanno a capo invece di finire sulla colonna accanto. */
     scaletta:{ title:"Scaletta", color:"#475569", data:(typeof scalettaList==="function"?scalettaList:null),
@@ -28942,7 +28952,7 @@ function listPreviewHtml(key){
   var d; try{ d=cfg.data(); }catch(e){ return null; }
   if(!d || !d.rows || !d.rows.length) return '<div class="pdf-list-sheet"><div class="pdf-list-hd" style="background:'+cfg.color+'">'+esc(cfg.title)+'</div><div class="pdf-list-empty">Nessun dato</div></div>';
   var thead='<tr>'+cfg.cols.map(function(c){return '<th'+(c.num?' class="n"':'')+'>'+esc(c.h)+'</th>';}).join('')+'</tr>';
-  var tbody=d.rows.map(function(r){ var rc=cfg.rowCls?cfg.rowCls(r):""; return '<tr'+(rc?' class="'+esc(rc)+'"':'')+'>'+cfg.cols.map(function(c){ var v=c.f(r,d); var w=c.warn&&c.warn(r); return '<td'+(c.num?' class="n"':'')+(w?' data-w="1"':'')+'>'+esc(v==null?'':v)+'</td>'; }).join('')+'</tr>'; }).join('');
+  var tbody=d.rows.map(function(r){ var rc=cfg.rowCls?cfg.rowCls(r):""; return '<tr'+(rc?' class="'+esc(rc)+'"':'')+'>'+cfg.cols.map(function(c){ var v=c.f(r,d); var w=c.warn&&c.warn(r); return '<td'+(c.num?' class="n"':(c.wrap?' class="a-capo"':''))+(w?' data-w="1"':'')+'>'+esc(v==null?'':v)+'</td>'; }).join('')+'</tr>'; }).join('');
   var foot=cfg.foot?cfg.foot(d):null;   /* riga dei totali (la scaletta: la durata della serata) */
   var tfoot=foot ? '<tfoot><tr>'+foot.map(function(v,i){ var c=cfg.cols[i]||{}; return '<td'+(c.num?' class="n"':'')+'>'+esc(v==null?'':v)+'</td>'; }).join('')+'</tr></tfoot>' : '';
   return '<div class="pdf-list-sheet">'+
