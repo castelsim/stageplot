@@ -6049,7 +6049,9 @@ t("senza «Esporta avanzato» il cartiglio non scrive peso, rack e canali", () =
   ok(/function pdfDatiTecnici\(\)\{\s*try\{ return typeof funzOn!=="function" \|\| !!funzOn\("esporta"\);/.test(appjs), "la regola è la funzione Esporta avanzato");
   /* 06/10/2026: il peso in più vuole la casella «Pesi (kg)» (pdfPesiOn), il rack resta com'era */
   ok(/var _tecn=pdfDatiTecnici\(\);[^\n]*\n\s*var _wt=\(_tecn&&pdfPesiOn\(\)\)\?totalWeightKg\(\):0;[^\n]*\n\s*var _ru=_tecn\?totalRackU\(\):0;/.test(appjs), "nel PDF peso e rack seguono la stessa regola");
-  ok(/var _ptecn=pdfDatiTecnici\(\);[^\n]*\n\s*var _pwt=\(_ptecn&&pdfPesiOn\(\)\)\?totalWeightKg\(\):0;[^\n]*_pru=_ptecn\?totalRackU\(\):0;/.test(appjs), "e l'anteprima pure");
+  /* dal 13/10 la riga la compone una funzione sola (pdfCartSub, via pdfCartRighe) per PDF e anteprima */
+  ok(/function pdfCartRighe\([^)]*\)\{[\s\S]{0,300}?pdfCartSub\(\)/.test(appjs), "la riga del cartiglio viene da pdfCartSub");
+  ok(/function pdfCartiglio\([\s\S]{0,900}?pdfCartRighe\(header, titleW\)/.test(appjs) && /function pdfPreviewSvg\([\s\S]{0,3000}?pdfCartRighe\(header, titleColW\)/.test(appjs), "e l'anteprima pure");
 });
 
 /* 06/10/2026 — Simone: «sul pdf che stampo ci sono i kg, dev'essere un'opzione disattivata di default» */
@@ -9093,6 +9095,132 @@ t("Ruling 16: i modelli anche nella ricerca rapida del doppio clic, posati nel p
   delete A.state.customModels; A.__catCustomAggiorna();
   eq(A.__qaSearch("proiettore sala").some(e => e.nome === "Proiettore sala"), false, "tolto il modello, sparisce anche da lì");
 }));
+/* ===== «Solo pedane»: un clic dentro una pedana prende la pedana (13/10, Simone: «se sono in solo pedane e
+   clicco su un'altra pedana dove sopra ci sono degli elementi, deve prendere la pedana e restare in solo
+   pedane; solo un clic fuori dalle pedane torna alla vista normale») ===== */
+t("Solo pedane: pedanaSottoPunto trova la pedana più in alto che contiene il punto, con la rotazione", () => {
+  reset();
+  const p1 = add("pedana", 300, 300, { w: 200, d: 100 });
+  const p2 = add("pedana", 800, 300, { w: 200, d: 100 }); p2.rot = 90;   /* in piedi: 100 di larghezza, 200 di profondità */
+  const v = add("vlnpost", 800, 300);
+  const p3 = add("pedana", 850, 300, { w: 200, d: 100 });                /* si sovrappone a p2, disegnata dopo */
+  ok(A.isRiser(p1) && A.isRiser(p2) && !A.isRiser(v), "premessa: tipi");
+  const S = () => A.sortedItems();
+  eq(A.pedanaSottoPunto(S(), 300, 300), p1, "dentro p1");
+  eq(A.pedanaSottoPunto(S(), 390, 340), p1, "vicino all'angolo di p1, ancora dentro");
+  eq(A.pedanaSottoPunto(S(), 800, 380), p2, "p2 ruotata: 80 cm sotto il centro è dentro (diritta sarebbe fuori)");
+  eq(A.pedanaSottoPunto(S(), 740, 300), null, "p2 ruotata: 60 cm a sinistra è fuori (diritta sarebbe dentro)");
+  eq(A.pedanaSottoPunto(S(), 820, 300), p3, "dove si sovrappongono vince quella disegnata sopra");
+  eq(A.pedanaSottoPunto(S().slice().reverse(), 820, 300), p2, "e l'ordine conta davvero");
+  eq(A.pedanaSottoPunto([v], 800, 300), null, "un elemento che non è una pedana non vale mai");
+  eq(A.pedanaSottoPunto(S(), 1500, 900), null, "fuori da tutte le pedane: niente");
+});
+
+t("Solo pedane: il clic su un elemento sopra una pedana va alla pedana; fuori dalle pedane come prima", () => conSoloPedAuto(() => {
+  reset();
+  const p1 = add("pedana", 300, 300), p2 = add("pedana", 800, 300), v = add("vlnpost", 800, 300), fuori = add("vlnpost", 1400, 700);
+  const svg0 = A.svg, pt0 = A.svgPoint;
+  const gEl = (id) => ({ getAttribute: (k) => (k === "data-id" ? id : null) });
+  const ev = (id, x, y) => ({ target: { closest: (q) => (q === ".item" ? gEl(id) : null) }, _p: { x, y } });
+  A.svgPoint = (e) => e._p;
+  A.svg = { querySelectorAll: () => A.state.items.map((it) => gEl(it.id)) };
+  try {
+    eq(A.pedanaDelClic(ev(v.id, 800, 300)), null, "vista spenta: il clic resta del violinista");
+    scegli([p1.id]);
+    eq(A.soloOn("pedane"), true, "premessa: presa p1, la vista è accesa");
+    const g = A.pedanaDelClic(ev(v.id, 800, 300));
+    eq(g && g.getAttribute("data-id"), p2.id, "clic sul violinista che sta su p2 → p2");
+    scegli([p2.id]);
+    eq(A.soloOn("pedane"), true, "presa p2 col clic: la vista resta accesa");
+    eq(A.pedanaDelClic(ev(fuori.id, 1400, 700)), null, "elemento fuori dalle pedane: lo prende lui");
+    eq(A.pedanaDelClic(ev(p1.id, 300, 300)), null, "clic sulla pedana stessa: nessun dirottamento serve");
+  } finally { A.svg = svg0; A.svgPoint = pt0; }
+  /* il gesto vero (mouse e dito, stesso pointerdown) passa di qui sia per il clic sia per il doppio clic */
+  ok(/var _gPed = pedanaDelClic\(e\);[^\n]*\n\s*var dcG = _gPed \|\| \(e\.target\.closest/.test(appjs), "pointerdown: il doppio clic usa la pedana");
+  ok(/var g = _gPed \|\| \(e\.target\.closest \? e\.target\.closest\("\.item"\)/.test(appjs), "pointerdown: selezione e trascinamento usano la pedana");
+  ok(/function pedanaDelClic\(e\)\{\s*if\(!soloOn\("pedane"\)/.test(appjs), "solo con «Solo pedane» accesa");
+  ok(/pedanaSottoPunto\(sortedItems\(\)\.filter\(function\(x\)\{ return itemPickable\(x\); \}\)/.test(appjs), "ordine di disegno e sole pedane visibili");
+}));
+
+t("Solo pedane: il clic ripetuto passa fra le pedane sovrapposte, non a chi ci sta sopra", () => conSoloPedAuto(() => {
+  reset();
+  const p1 = add("pedana", 300, 300), p2 = add("pedana", 350, 300), v = add("vlnpost", 320, 300);
+  scegli([p1.id]);
+  ok(!A.cicloSotto({ id: p1.id, ids: [v.id, p1.id] }), "una pedana sola sotto il punto: il clic non cambia niente");
+  eq(A.selIds(), [p1.id], "resta la pedana");
+  ok(A.cicloSotto({ id: p1.id, ids: [v.id, p2.id, p1.id] }), "due pedane sovrapposte: si passa all'altra");
+  eq(A.selIds(), [p2.id], "presa p2, il violinista no");
+  A.soloPedaneAuto(); A.pruneSolo();
+  eq(A.soloOn("pedane"), true, "e la vista resta accesa");
+}));
+
+t("doppio clic su un elemento (computer): il nome resta col focus, il mousedown che segue non lo porta via", () => {
+  /* 13/10, trovato nel browser vero: focus() + select() c'erano, ma alla fine del gesto document.activeElement
+     era il BODY — la default action del mousedown dopo il pointerdown spostava il focus. Come per il testo
+     inline, preventDefault sul pointerdown prima di dare il focus al nome. */
+  const m = appjs.match(/else if\(isMobile\(\)\)\{ document\.body\.classList\.add\("props-expanded"\); \}\s*else \{([\s\S]*?)\} \} \}/);
+  ok(m, "il ramo del doppio clic che va al nome c'è");
+  const corpo = m[1].replace(/\/\*[\s\S]*?\*\//g, "");
+  ok(/e\.preventDefault\(\);\s*var inp=document\.getElementById\("pLabel"\); if\(inp\)\{ inp\.focus\(\); inp\.select\(\);/.test(corpo),
+    "preventDefault prima di focus() e select() sul nome: " + corpo.trim().slice(0, 160));
+  ok(/e\.preventDefault\(\);\s*inlineTextEdit\(dcId\);/.test(appjs), "il testo e la forma restano col loro editor sul palco");
+  ok(/else if\(isMobile\(\)\)\{ document\.body\.classList\.add\("props-expanded"\); \}/.test(appjs), "sul telefono si apre ancora il foglio");
+});
+
+/* 13/10 — Simone, esportando il PDF di un progetto vero: «nel cartiglio, nel PDF, devono esserci tutte le
+   informazioni, non i tre puntini». Titolo, riga luogo · data e totali venivano tagliati a una riga con «…».
+   Ora vanno a capo nella colonna di sinistra e il cartiglio cresce quanto serve (testi inventati, stessa lunghezza). */
+t("il cartiglio va a capo invece di tagliare con «…» (titolo, luogo · data, totali)", () => {
+  reset();
+  const t0 = A.pdfTotals;
+  A.state.titolo = "Concerto di Primavera 22.04.27 Auditorium Comunale con orchestra, coro e ospiti";
+  A.state.luogo = "Auditorium Comunale Gianfranco Bertolin, Montebelluna di Sopra (TV)";
+  A.pdfTotals = () => ["31 canali", "16 leggii", "12 sedute", "1 sgabello batteria", "4 personal mixer (1 hub)", "7 spie", "3 in-ear", "2 poltrone"];
+  try {
+    const head = "Riferimento: Mario Rossi Prova · mario.rossi.prova@esempio.it · 333 0000000";
+    const parole = (s) => String(s).split(/\s+/).filter(Boolean);
+    const attese = [].concat(parole(A.state.titolo), parole(A.state.luogo), parole(A.pdfTotals().join(" ")), parole(head));
+    const ch = A.cartHFor(head, "a4", "portrait");
+    ok(ch > 27 + 4, "il cartiglio si alza per le righe in più: " + ch);
+    const L = A.pdfLayout("a4", "portrait", ch), cy = L.ph - L.fondo - L.cartH, titoloW = A.pdfCartTitleW(L.pw, L.M);
+    const doc = jsPdfFinto()({ format: "a4", orientation: "portrait" });
+    A.pdfCartiglio(doc, L, 100, head);
+    const sx = doc.pagine[0].testi.filter((x) => !x.op);   /* la colonna di sinistra (la destra è allineata a destra) */
+    const tutto = sx.map((x) => x.t).join(" ");
+    eq(tutto.indexOf("…"), -1, "nessun testo tagliato: " + tutto);
+    attese.forEach((p) => ok(tutto.indexOf(p) > -1, "c'è «" + p + "»"));
+    ok(sx.every((x) => x.y > cy && x.y <= L.ph - L.fondo - 2), "tutte le righe dentro il cartiglio, sopra il margine della stampante");
+    /* ogni riga sta nella colonna del titolo, misurata con le metriche Helvetica del PDF */
+    const R = A.pdfCartRighe(head, titoloW);
+    ok(R.blocchi.find((b) => b.k === "titolo").righe.length >= 2, "il titolo va su più righe");
+    ok(R.blocchi.find((b) => b.k === "tot").righe.length >= 2, "i totali vanno su più righe");
+    R.blocchi.forEach((b) => b.righe.forEach((r) => ok(A.pdfTxtW(r, b.pt, b.bold) <= titoloW + 1e-6, b.k + " entro la colonna: «" + r + "»")));
+    R.blocchi.forEach((b) => b.righe.forEach((r) => ok(!/^·|·$/.test(r), b.k + ": nessuna riga comincia o finisce col separatore: «" + r + "»")));
+    eq(R.cartH, ch, "una sola altezza per impaginazione e disegno");
+    /* l'anteprima mostra lo stesso cartiglio a capo */
+    const svg = A.pdfPreviewSvg("a4", 100, "portrait", head, { focus: "clean" });
+    eq(svg.indexOf("…"), -1, "nemmeno l'anteprima taglia");
+    const testoSvg = (svg.match(/<text[^>]*>[^<]*<\/text>/g) || []).map((s) => s.replace(/<[^>]+>/g, "")).join(" ")
+      .replace(/&amp;/g, "&");
+    attese.forEach((p) => ok(testoSvg.indexOf(p) > -1, "anteprima: c'è «" + p + "»"));
+    /* con il QR la colonna si stringe: si va a capo di più, e il cartiglio non si accorcia */
+    A.__pdfQr = { n: 21, m: Array(21).fill("0".repeat(21)) };
+    ok(A.cartHFor(head, "a4", "portrait") >= ch, "col QR la colonna è più stretta: righe uguali o in più");
+  } finally { A.pdfTotals = t0; A.__pdfQr = null; reset(); }
+});
+t("il cartiglio dei progetti normali resta alto com'era", () => {
+  reset();
+  const t0 = A.pdfTotals;
+  A.state.titolo = "Trio jazz"; A.state.luogo = "Teatro Comunale";
+  try {
+    A.pdfTotals = () => [];
+    eq(A.cartHFor("", "a4", "landscape"), 22, "senza totali");
+    eq(A.cartHFor("Mario Rossi · mario@esempio.it", "a4", "portrait"), 22, "con un riferimento corto");
+    A.pdfTotals = () => ["8 canali", "3 leggii", "3 sedute", "2 spie"];
+    eq(A.cartHFor("", "a4", "landscape"), 27, "con la riga dei totali");
+    eq(A.cartHFor("Mario Rossi · mario@esempio.it", "a4", "portrait"), 27, "e col riferimento corto");
+  } finally { A.pdfTotals = t0; reset(); }
+});
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");
@@ -20214,16 +20342,18 @@ t("Solo pedane automatico: spento l'occhio resta spento per QUELLA selezione; ri
   eq(A.soloOn("pedane"), true, "un'altra pedana è un'altra selezione: si riaccende");
 }));
 
-t("Solo pedane automatico: un clic su un elemento sfumato lo prende subito e spegne la vista", () => conSoloPedAuto(() => {
+t("Solo pedane automatico: un clic su un elemento sfumato FUORI dalle pedane lo prende subito e spegne la vista", () => conSoloPedAuto(() => {
   reset();
-  const ped = add("pedana", 300, 300), v = add("vlnpost", 300, 300);
+  const ped = add("pedana", 300, 300), v = add("vlnpost", 300, 300), fuori = add("vlnpost", 900, 600);
   scegli([ped.id]);
   eq(A.soloOn("pedane"), true, "premessa: acceso");
-  /* clic fermo sul violinista che sta sopra la pedana presa: il ciclo passa a lui (un clic, non due) */
+  /* 13/10: dentro una pedana il clic resta alla pedana (test più sotto, pedanaDelClic); fuori dalle pedane
+     lo sfumato si prende come il 29/09 e, non essendo una pedana, spegne la vista */
   A.soloPedGesto = false;
-  ok(A.cicloSotto({ id: ped.id, ids: [v.id, ped.id] }), "lo sfumato si prende");
-  eq(A.selIds(), [v.id], "preso il violinista");
-  A.soloPedaneAuto(); A.pruneSolo();
+  ok(!A.cicloSotto({ id: ped.id, ids: [v.id, ped.id] }), "sopra la pedana il clic ripetuto non prende il violinista");
+  eq(A.selIds(), [ped.id], "resta la pedana");
+  scegli([fuori.id]);
+  eq(A.selIds(), [fuori.id], "preso il violinista fuori dalle pedane");
   eq(A.soloOn("pedane"), false, "e la vista si è spenta");
   /* nel disegno lo sfumato delle pedane prende il puntatore, quello dei layer no */
   scegli([ped.id]);
