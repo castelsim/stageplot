@@ -7456,6 +7456,11 @@ t("elemento personalizzato: il tipo esiste ma non sta nel catalogo, e un progett
   const s = A.normalizeState({ _v: 5, stage: { w: 1200, d: 800 }, items: [{ id: "c4", type: "custom", x: 1, y: 1 }] });
   eq(s.items[0].w >= 10 && s.items[0].d >= 10, true, "misure di ripiego almeno 10×10");
 });
+t("elemento personalizzato: non si specchia (i testi uscirebbero a rovescio)", () => {
+  eq(A.canMirror({ type: "custom" }), false, "custom fuori dallo specchio");
+  const s = A.normalizeState({ _v: 5, stage: { w: 1200, d: 800 }, items: [{ id: "c5", type: "custom", x: 1, y: 1, w: 120, d: 80, mir: true }] });
+  eq(s.items[0].mir, undefined, "mir scartato al caricamento");
+});
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");

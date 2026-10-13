@@ -6066,6 +6066,7 @@ function normalizeLoadedItems(arr){
       else { var _pc=plateaCfg(it); it.platea={ passo:_pc.passo, passoFile:_pc.passoFile, corridoio:_pc.corridoio }; }
     }
     if(it.type==="platea" && it.mir!=null) delete it.mir;   /* non si specchia (NO_MIRROR): da un JSON arriverebbe con «60 posti» a rovescio */
+    if(it.type==="custom" && it.mir!=null) delete it.mir;   /* come la platea: l'elemento si vede esattamente come è stato disegnato, testi leggibili */
     if(Object.prototype.hasOwnProperty.call(COMP,it.type)) normalizeCompositeParts(it);
     else if(it.parts!=null && (!it.parts || typeof it.parts!=="object" || Array.isArray(it.parts))) delete it.parts;
     return it;
@@ -14228,7 +14229,7 @@ document.getElementById("pBack").addEventListener("click", function(){
    l'altro lato del palco. Ora è un'azione, nella stessa riga di Duplica ed Elimina.
    Fuori: gli elementi il cui disegno È scrittura (testo, forma, zona) — specchiarli scriverebbe al
    contrario, che non è mai quello che si vuole. */
-var NO_MIRROR={ testo:1, forma:1, miczone:1, metro:1, platea:1 };   /* platea: simmetrica, e il cartellino «60 posti» uscirebbe a rovescio */
+var NO_MIRROR={ testo:1, forma:1, miczone:1, metro:1, platea:1, custom:1 };   /* platea: simmetrica, e il cartellino «60 posti» uscirebbe a rovescio; custom: i suoi testi uscirebbero a rovescio */
 function canMirror(it){ return !!(it && !NO_MIRROR[it.type]); }
 /* Con PIÙ elementi (selezionati o uniti in blocco) specchiare vuol dire ribaltare la DISPOSIZIONE,
    non solo l'arte di ognuno: chi sta a sinistra passa a destra rispetto all'asse verticale del
