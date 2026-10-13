@@ -100,7 +100,7 @@ Deno.test("elemento: la scheda valida passa uguale, e il JSON pure", () => {
   if (!r.ok) return;
   assertEquals(r.value.tech_context.elemento, elOk);
   assertEquals(r.value.tech_context.elemento_json, json);
-  assertEquals(r.value.tech_context.stage_w, 1200, "il resto del contesto resta");
+  assertEquals("stage_w" in r.value.tech_context, false, "il contesto del progetto non viaggia con l'elemento (privacy)");
 });
 
 Deno.test("elemento: con un altro tipo i campi dell'elemento non si salvano", () => {
@@ -118,8 +118,7 @@ Deno.test("elemento: il JSON grande non svuota il resto del contesto (ha il suo 
   const r = validateFeedback({ message: "Elemento: Proiettore", hint: "elemento",
     tech_context: { stage_w: 1200, object_types: { cantante: 2 }, elemento: elOk, elemento_json: json } });
   if (!r.ok) throw new Error("rifiutato");
-  assertEquals(r.value.tech_context.stage_w, 1200);
-  assertEquals(r.value.tech_context.elemento_json, json);
+  assertEquals(r.value.tech_context.elemento_json, json, "il JSON ha il suo tetto, fuori dai 32 KB");
 });
 
 Deno.test("elemento: campi fuori regola scartati, mai salvati com'erano", () => {
@@ -138,6 +137,7 @@ Deno.test("elemento: campi fuori regola scartati, mai salvati com'erano", () => 
   assertEquals([s.w, s.d, s.watt, s.ins, s.backline, s.forme], [null, null, null, null, false, null]);
   assertEquals(s.membri.length, 100, "al massimo 100");
   assertEquals(s.membri.every((m) => m === "cantante" || m === "astamic"), true, "solo nomi di tipo");
+  assertEquals(p({ ...elOk, membri: ["__proto__", "constructor", "prototype", "cantante"] })!.membri, ["cantante"], "niente nomi riservati");
   assertEquals(Object.keys(s).sort(), ["backline", "d", "desc", "forme", "ins", "membri", "nome", "w", "watt"]);
   assertEquals((s as Record<string, unknown>).inquinato, undefined);
   const t = p({ ...elOk, watt: null, ins: { n: 1, tipo: "mic", altro: 1 }, forme: 0, membri: "cantante" })!;
@@ -167,4 +167,34 @@ Deno.test("elemento: scheda non valida → il messaggio passa, l'elemento no", (
   assertEquals(r.value.hint, "elemento");
   assertEquals("elemento" in r.value.tech_context, false);
   assertEquals("elemento_json" in r.value.tech_context, false);
+});
+
+/* ===== revisione di sicurezza (giro 1): privacy dell'elemento, caratteri di controllo e di direzione ===== */
+Deno.test("elemento: arrivano solo disegno, misure e descrizione (niente progetto, pagina, browser)", () => {
+  const r = validateFeedback({ message: "Elemento: Proiettore", hint: "elemento", project_id: "p-1", project_snapshot: { items: [1] },
+    meta: { app_version: "2026.10.13", page_url: "https://stageplot.it/app/ [view]", user_agent: "UA", viewport: "1440x900", language: "it" },
+    tech_context: { stage_w: 1200, stage_d: 800, object_types: { cantante: 2 }, total_objects: 3, selected_object_type: "custom", elemento: elOk, elemento_json: "{}" } });
+  if (!r.ok) throw new Error("rifiutato");
+  assertEquals(Object.keys(r.value.tech_context).sort(), ["elemento", "elemento_json"]);
+  assertEquals(r.value.project_id, null);
+  assertEquals(r.value.project_snapshot, null);
+  assertEquals(r.value.meta, { app_version: "2026.10.13", language: "it" });
+  /* gli altri tipi tengono tutto come prima */
+  const b = validateFeedback({ message: "messaggio vero", hint: "bug", project_id: "p-1", meta: { page_url: "u" }, tech_context: { stage_w: 1200 } });
+  if (!b.ok) throw new Error("rifiutato");
+  assertEquals([b.value.project_id, b.value.meta.page_url, b.value.tech_context.stage_w], ["p-1", "u", 1200]);
+});
+
+Deno.test("messaggio: via i caratteri di controllo e di direzione (restano a capo e tabulazione)", () => {
+  const r = validateFeedback({ message: "ciao\u001b[2J mondo\u009b31m\nriga\tdue‮evil​", hint: "bug" });
+  if (!r.ok) throw new Error("rifiutato");
+  assertEquals(r.value.message, "ciao [2J mondo 31m\nriga\tdue evil");
+  assertEquals(validateFeedback({ message: "\u0007\u0007\u0007\u0007ab" }).ok, false, "senza i controlli è troppo corto");
+});
+
+Deno.test("nome e descrizione: via anche i caratteri invisibili e di direzione", () => {
+  const s = elementoPulito({ ...elOk, nome: "‮abc‏def⁦x⁩", desc: "a​b‪c" })!;
+  assertEquals(s.nome, "abc def x");
+  assertEquals(s.desc, "a b c");
+  assertEquals(elementoPulito({ ...elOk, nome: "‮​" }), null, "fatto solo di invisibili: niente nome");
 });
