@@ -7950,6 +7950,202 @@ t("Testo libero = forma «Solo testo»: scritta in alto a sinistra, nessuna sago
   ok(/makeActionBtn\("Testo libero","box di testo", null, nuovoTestoLibero/.test(appjs), "il pulsante fisso crea la forma «Solo testo»");
   ok(/addItem\("forma", \{shape:"testo"/.test(appjs), "con shape testo");
 });
+/* ===== Crea elemento, Tappa 2: l'interfaccia dell'editor (13/10/2026) ===== */
+const appHtml = readFileSync(join(root, "app/index.html"), "utf8");
+t("crea elemento: modalità rettangolo, domanda di inclusione, Esc annulla", () => {
+  ok(/function custDisegnaArea\(/.test(appjs), "custDisegnaArea definita");
+  ok(/Includere gli /.test(appjs), "domanda «Includere gli N elementi nell'area?»");
+  ok(/__custDraw[\s\S]{0,200}Escape|Escape[\s\S]{0,300}__custDraw/.test(appjs), "Esc esce dalla modalità disegno");
+  ok(/body\.cust-editor/.test(readFileSync(join(root, "src/styles.css"), "utf8")), "stile dell'editor");
+  ok(/id="custScheda"/.test(appHtml) && /id="custNome"/.test(appHtml) && /id="custWatt"/.test(appHtml) && /id="custInsN"/.test(appHtml) && /id="custBackline"/.test(appHtml), "scheda dell'elemento");
+  ok(/id="custSalva"/.test(appHtml) && /id="custInvia"/.test(appHtml) && /id="custAnnulla"/.test(appHtml), "tre pulsanti");
+});
+/* un DOM finto con i soli campi della scheda: valori e classi si ricordano (lo stub del sandbox li ingoia) */
+function conCampi(fn) {
+  const docPrima = A.document, campi = {};
+  const el = (id) => campi[id] || (campi[id] = mk(id));
+  const mk = (id) => { const o = { id, nodeType: 1, value: "", checked: false, hidden: true, disabled: false, textContent: "", _cls: new Set(), attrs: {},
+    classList: { add(c) { this._o._cls.add(c); }, remove(c) { this._o._cls.delete(c); }, toggle(c, on) { if (on === undefined) on = !this._o._cls.has(c); on ? this._o._cls.add(c) : this._o._cls.delete(c); return on; }, contains(c) { return this._o._cls.has(c); } },
+    setAttribute(k, v) { this.attrs[k] = String(v); }, focus() { A.__focused = id; } }; o.classList._o = o; return o; };
+  const cl = { contains: () => false, add() {}, remove() {}, toggle() {} };
+  const body = new Proxy({}, { get: (t, k) => (k === "classList" ? cl : docPrima.body[k]) });
+  /* solo i campi dell'editor (id «cust…»); tutto il resto resta lo stub del sandbox */
+  A.document = new Proxy({}, { get: (t, k) => k === "getElementById" ? (id) => (/^cust/.test(id) ? el(id) : docPrima.getElementById(id)) : (k === "body" ? body : docPrima[k]) });
+  const lock = A.__projLocked, cons = A.__consultMode; A.__projLocked = false; A.__consultMode = false;
+  try { return fn(campi, el); }
+  finally {
+    try { if (A.custEditorAttivo()) A.custEditorAnnulla(); } catch (e) { A.__custEditor = null; }
+    A.document = docPrima; A.__projLocked = lock; A.__consultMode = cons; A.__custDraw = null;
+  }
+}
+t("crea elemento: chi sta dentro l'area (centro dentro; fuori gli elementi personalizzati e i pezzi di un altro)", () => {
+  reset();
+  const a = add("cantante", 330, 320), b = add("astamic", 380, 350), fuori = add("cantante", 600, 600);
+  const altro = add("custom", 360, 330, { cust: { nome: "X", shapes: [] } }); A.custNorm(altro);
+  const pezzo = add("astamic", 340, 340); altro.grp = pezzo.grp = "gA";
+  const dentro = A.custDentroArea({ x: 300, y: 300, w: 120, d: 80 }).map(x => x.id);
+  eq(dentro.sort(), [a.id, b.id].sort(), "i due elementi col centro nell'area");
+  ok(!dentro.includes(fuori.id) && !dentro.includes(altro.id) && !dentro.includes(pezzo.id), "fuori: chi è fuori, l'elemento personalizzato e i suoi pezzi");
+  ok(/opz\.includi\) inclusi=custDentroArea\(r\)/.test(appjs), "l'editor include esattamente quelli della domanda");
+  eq(A.custElencoTipi([a, fuori, b]), "2 × " + A.TYPES.cantante.nome + ", " + A.TYPES.astamic.nome, "la domanda dice chi");
+});
+t("crea elemento: misure in metri con la virgola, passo della griglia 1/5/10 cm secondo lo zoom", () => {
+  eq(A.custMisura(120, 80), "1,20 × 0,80 m");
+  eq(A.custMisura(1205, 7), "12,05 × 0,07 m");
+  eq([0.1, 0.2, 0.3, 0.4, 0.6, 1, 1.5, 3].map(A.custPassoDa), [1, 1, 1, 5, 5, 10, 10, 10], "≈ 8 px di schermo al passo più vicino");
+  ok(/function snapVal\(\)\{ if\(window\.__custEditor\) return custAggancio \? custPasso\(\) : 0;/.test(appjs), "nell'editor l'aggancio usa la griglia fine");
+});
+t("crea elemento: la scheda si riempie e si rilegge uguale (limiti della spec)", () => conCampi((campi) => {
+  const v = A.custMostraScheda({ nome: "  Proiettore\n", desc: "x".repeat(300), watt: "2500", ins: { n: 3, tipo: "linea" }, backline: true });
+  eq(campi.custNome.value, "Proiettore", "nome pulito");
+  eq(A.custLeggiScheda(), { nome: "Proiettore", desc: "x".repeat(280), watt: 2500, ins: { n: 3, tipo: "linea" }, backline: true }, "andata e ritorno");
+  eq(v, A.custLeggiScheda(), "custMostraScheda restituisce ciò che ha scritto");
+  campi.custWatt.value = "99999"; campi.custInsN.value = "40"; campi.custInsTipo.value = "<x>";
+  eq([A.custLeggiScheda().watt, A.custLeggiScheda().ins], [20000, { n: 16, tipo: "mic" }], "watt e ingressi dentro i limiti");
+  campi.custWatt.value = ""; campi.custInsN.value = "0";
+  eq([A.custLeggiScheda().watt, A.custLeggiScheda().ins], [null, null], "vuoti = niente watt, niente ingressi");
+  A.custMostraScheda({ nome: "Schermo" });
+  eq(A.custLeggiScheda(), { nome: "Schermo", desc: "", watt: null, ins: null, backline: false }, "Crea: solo il nome, il resto vuoto");
+}));
+t("crea elemento: Salva senza nome non salva (campo rosso e fuoco); col nome posa l'elemento raggruppato", () => conCampi((campi) => {
+  reset();
+  const v = add("cantante", 350, 330);
+  ok(A.custApriEditor({ x: 300, y: 300, w: 120, d: 80 }, true), "aperto con l'elemento dentro");
+  A.custMostraScheda({ nome: "" });
+  eq(A.custSalvaDaScheda(), null, "senza nome non salva");
+  ok(A.custEditorAttivo() && campi.custNome._cls.has("err") && A.__focused === "custNome", "editor ancora aperto, campo rosso col fuoco");
+  A.custNuovaForma("rect", { x: 10, y: 10 }, { x: 60, y: 40 });
+  campi.custNome.value = "Banco regia"; campi.custWatt.value = "300";
+  const id = A.custSalvaDaScheda();
+  ok(id && !A.custEditorAttivo(), "salvato e chiuso");
+  const base = A.state.items.find(x => x.id === id);
+  eq([base.type, base.cust.nome, base.watt, base.x, base.y, base.w, base.d], ["custom", "Banco regia", 300, 360, 340, 120, 80], "nel rettangolo scelto");
+  eq(base.cust.shapes.length, 1, "con la forma disegnata");
+  const v2 = A.state.items.find(x => x.id === v.id);
+  ok(v2 && v2.grp && v2.grp === base.grp, "il cantante è un pezzo dell'elemento (stesso gruppo)");
+  eq(campi.custNome._cls.has("err"), false, "il rosso non resta per la prossima volta");
+}));
+t("crea elemento: Annulla ed Esc lasciano il progetto identico (chiedono solo se c'è qualcosa da perdere)", () => conCampi((campi) => {
+  reset();
+  A.applyVariantState(JSON.parse(A.stateToJSON()));   /* stato normalizzato come nell'app (vedi i test del palco temporaneo) */
+  add("cantante", 350, 330);
+  A.save();
+  const prima = A.stateToJSON(), undoPrima = A.undoStack.length;
+  ok(A.custApriEditor({ x: 300, y: 300, w: 120, d: 80 }, true), "aperto");
+  A.custMostraScheda({ nome: "" });
+  eq(A.custModificato(), false, "appena aperto: niente da perdere");
+  A.custNuovaForma("ell", { x: 10, y: 10 }, { x: 50, y: 30 }); A.save();
+  ok(A.custModificato(), "una forma disegnata: c'è qualcosa da perdere");
+  let chiesto = null; const chiediPrima = A.custChiedi;
+  A.custChiedi = (tit, testo, bottoni, cb) => { chiesto = tit; cb(0); };   /* «Resta» */
+  try { A.custEsci(true); } finally { A.custChiedi = chiediPrima; }
+  eq(chiesto, "Uscire senza salvare?", "si chiede");
+  ok(A.custEditorAttivo(), "«Resta»: l'editor resta aperto");
+  A.custEsci(false);
+  eq(A.custEditorAttivo(), false, "uscito");
+  const canon = j => JSON.stringify(JSON.parse(j), (k, v) => (v && typeof v === "object" && !Array.isArray(v)) ? Object.fromEntries(Object.keys(v).sort().map(x => [x, v[x]])) : v);
+  eq(canon(A.stateToJSON()), canon(prima), "progetto identico");
+  eq(A.undoStack.length, undoPrima, "cronologia identica");
+  ok(/if\(e\.key==="Escape" && custEditorAttivo\(\) && !selIds\(\)\.length && !catSearching\(\)\)\{ e\.preventDefault\(\); custEsci\(true\); return; \}/.test(appjs), "Esc senza selezione = uscire (chiedendo)");
+}));
+t("crea elemento: le cinque forme disegnate diventano le forme dell'elemento, in cm della superficie", () => conCampi((campi, el) => {
+  reset();
+  ok(A.custApriEditor({ x: 200, y: 200, w: 120, d: 80 }, false), "aperto vuoto");
+  A.custStile.fill = "#334455"; A.custStile.stroke = "#000000"; A.custStile.sw = 2; A.custStile.noFill = false;
+  A.custNuovaForma("rect", { x: 70, y: 50 }, { x: 10, y: 10 });   /* trascinato all'indietro: si normalizza */
+  A.custNuovaForma("ell", { x: 80, y: 20 }, { x: 100, y: 40 });
+  const ln = A.custNuovaForma("line", { x: 0, y: 70 }, { x: 60, y: 70 });
+  A.custNuovaForma("poly", null, null, [{ x: 10, y: 60 }, { x: 30, y: 60 }, { x: 20, y: 75 }]);
+  A.custNuovaForma("text", { x: 90, y: 65 }, null, null, "PROIETTORE");
+  ln.w = 120; ln.x = 60;   /* la linea allungata dalle maniglie (punti in frazioni dell'ingombro) */
+  el("custNome").value = "Postazione";
+  const id = A.custSalvaDaScheda({ fuoriOk: true });
+  const sh = A.state.items.find(x => x.id === id).cust.shapes;
+  eq(sh.map(g => g.k), ["rect", "ell", "line", "poly", "text"], "nell'ordine");
+  eq([sh[0].x, sh[0].y, sh[0].w, sh[0].h, sh[0].fill, sh[0].stroke, sh[0].sw], [10, 10, 60, 40, "#334455", "#000000", 2], "rettangolo");
+  eq([sh[1].cx, sh[1].cy, sh[1].rx, sh[1].ry], [90, 30, 10, 10], "ellisse");
+  eq([sh[2].x1, sh[2].y1, sh[2].x2, sh[2].y2, sh[2].fill], [0, 70, 120, 70, null], "linea allungata dalle maniglie, senza riempimento");
+  eq(sh[3].pts, [[10, 60], [30, 60], [20, 75]], "poligono");
+  eq([sh[4].s, sh[4].x, sh[4].y, sh[4].fill], ["PROIETTORE", 90, 65, "#000000"], "testo: riga di base dove si è cliccato, colore della linea");
+}));
+t("crea elemento: un testo ruotato e ingrandito torna dove si vede (centro a metà delle maiuscole)", () => {
+  const g = { k: "text", x: 50, y: 40, s: "Ciao", size: 12, fill: "#1d1d1f", stroke: "#1d1d1f", sw: 1, rot: 30 };
+  const it = A.custShapeDaForma(g);
+  const ord = (o) => Object.fromEntries(Object.keys(o).sort().map(k => [k, o[k]]));
+  eq(ord(A.custFormaDaShape(it)), ord(g), "andata e ritorno identici, anche ruotato");
+  it.d = it.d * 2;   /* maniglie: l'altezza fa il corpo */
+  eq(A.custFormaDaShape(it).size, 24, "corpo raddoppiato");
+  const poly = A.custShapeDaForma({ k: "poly", pts: [[0, 0], [40, 0], [20, 30]], fill: null, stroke: "#000000", sw: 1 });
+  poly.w *= 2; poly.d *= 2;
+  eq(A.custFormaDaShape(poly).pts, [[-20, -15], [60, -15], [20, 45]], "il poligono si allunga con l'ingombro, attorno al centro");
+});
+t("crea elemento: dopo Salva nessun riferimento a id del palco temporaneo (DI dello strumento, id già usati)", () => conCampi((campi, el) => {
+  reset();
+  const vero = add("cantante", 800, 600);
+  ok(A.custApriEditor({ x: 200, y: 200, w: 200, d: 120 }, false), "aperto");
+  /* uno strumento con la sua DI posato nell'editor, con l'id di un elemento del palco vero (caso forzato) */
+  A.state.items.push({ id: vero.id, type: "tastiera", x: 60, y: 60, rot: 0, w: 130, d: 40 });
+  A.state.items.push({ id: "i99990", type: "di", x: 60, y: 90, rot: 0, diFor: vero.id });
+  el("custNome").value = "Postazione tastiera";
+  const id = A.custSalvaDaScheda();
+  const base = A.state.items.find(x => x.id === id), membri = A.state.items.filter(x => x.grp && x.grp === base.grp && x.id !== id);
+  const tast = membri.find(x => x.type === "tastiera"), di = membri.find(x => x.type === "di");
+  ok(tast && tast.id !== vero.id, "lo strumento ha un id nuovo");
+  eq(di.diFor, tast.id, "la DI punta allo strumento nuovo, non al cantante del palco vero");
+  eq(new Set(A.state.items.map(x => x.id)).size, A.state.items.length, "nessun id doppio");
+}));
+t("crea elemento: nell'editor si fermano Palco, Planimetria, liste, audit, RF, CSV, Adatta e i comandi del progetto", () => conCampi(() => {
+  reset();
+  ok(A.custApriEditor({ x: 200, y: 200, w: 120, d: 80 }, false), "aperto");
+  const msg = []; const toastPrima = A.__toast; A.__toast = (m) => msg.push(m);
+  try {
+    A.toggleStageEdit(); eq(A.stageEdit, false, "Palco: la superficie non si cambia da qui");
+    A.toggleVenueEdit(); eq(A.stageEdit, false, "Planimetria");
+    A.toggleAuditView(); eq(A.auditActive, false, "Audit");
+    A.toggleScaletta(); eq(A.scalettaEdit, false, "Scaletta");
+    A.toggleEvento(); eq(A.eventoEdit, false, "Evento");
+    A.apriListaDaRicerca("cabin"); A.openRfFreq(); A.openCsvExport(); A.showAdattaPalco(); A.clShow(true);
+    eq(A.clOpen, false, "channel list a schermo intero");
+    ok(msg.length >= 9 && msg.every(m => m === A.custEditorMsg()), "ogni volta lo stesso messaggio: chiudi prima l'elemento");
+  } finally { A.__toast = toastPrima; }
+  ok(/var CUST_BLOCCATI="#fileBtn,#fileMenu \[data-file\],#evChip,#variantBar,#variantMenu \[data-vm\],#projStatus,#bChanList,#bRichiedi,#bExportHdr,#bShareHdr,#accountBtn,/.test(appjs), "i comandi dell'intestazione si fermano al clic (anche da scorciatoia)");
+  ok(/body\.cust-editor #noSel, body\.cust-editor #chanlist/.test(stylesCss) && /body\.cust-editor #catalog \.cust-no/.test(stylesCss), "layer, channel list, Palco e Planimetria nascosti");
+  ok(/e\.custNo && custEditorAttivo\(\)/.test(appjs), "la ricerca non propone i comandi del progetto");
+}));
+t("crea elemento: la superficie si disegna con griglia e righello, senza planimetria, cavi, cornice né FONDO PALCO", () => conCampi(() => {
+  reset();
+  A.state.cab.on = true; add("cantante", 350, 330);
+  const fuori = A.sceneMarkup();
+  ok(/FONDO PALCO/.test(fuori), "controprova: fuori dall'editor c'è");
+  ok(A.custApriEditor({ x: 300, y: 300, w: 120, d: 80 }, true), "aperto");
+  const m = A.sceneMarkup();
+  ok(/class="cust-sup"/.test(m) && /class="cust-griglia"/.test(m) && /class="cust-righello"/.test(m), "foglio, griglia, righello");
+  eq(/FONDO PALCO|PUBBLICO/.test(m), false, "niente scritte del palco vero");
+  eq(/cab-line|cab-hit/.test(m), false, "niente cavi");
+  ok(/class="cust-sup"/.test(A.sceneMarkup({ espandi: true })) === false, "l'export (bloccato) non userebbe mai la superficie");
+  A.state.cab.on = false;
+}));
+t("crea elemento: pastiglia di salvataggio, interruttore «Un canale solo» e scorciatoie", () => {
+  ok(/motivo==="editor"\)\{[\s\S]{0,400}setDocState\("local"\);/.test(appjs), "la riserva «editor» non lascia «Salvataggio…» acceso");
+  ok(/var zn=\(isAudioSource\(it\) && it\.type!=="custom"\) \? itemInMicZone\(it\)/.test(appjs), "«Un canale solo / Due canali» non compare sull'elemento personalizzato");
+  ok(/_cd\.mode==="poly" && e\.key==="Enter"\)\{ e\.preventDefault\(\); custChiudiPoligono\(\)/.test(appjs), "Invio chiude il poligono");
+  ok(/if\(window\.__custDraw && custPointerDown\(e\)\) return;/.test(appjs), "col disegno acceso il gesto è un disegno, prima del doppio clic");
+  ok(!/prompt\(|window\.confirm\(|alert\(/.test(String(A.custDisegnaArea) + A.custChiediMisureEInclusione + A.custSalvaDaScheda + A.custEsci + A.custTestoModifica + A.custPointerDown), "niente finestre del browser");
+  eq(A.TYPES.custshape.z, A.TYPES.custom.z, "le forme stanno sotto gli elementi veri, come dopo il salvataggio");
+});
+t("crea elemento: sul telefono, con il progetto bloccato o in sola lettura non parte", () => conCampi(() => {
+  const mm = A.matchMedia; A.matchMedia = () => ({ matches: true, addEventListener() {}, addListener() {} });
+  let titolo = null; const gd = A.guideDialog; A.guideDialog = (o) => { titolo = o.msg; };
+  try { eq(A.custDisegnaArea("x"), false, "telefono"); ok(/Si crea dal computer/.test(titolo), "lo dice"); }
+  finally { A.matchMedia = mm; A.guideDialog = gd; }
+  A.__projLocked = true;
+  try { eq(A.custDisegnaArea(""), false, "bloccato"); eq(A.__custDraw, null, "nessuna modalità accesa"); }
+  finally { A.__projLocked = false; }
+  eq(A.custDisegnaArea("Videoproiettore 4K"), true, "sul computer parte");
+  eq([A.__custDraw && A.__custDraw.mode, A.__custNomePreso], ["area", "Videoproiettore 4K"], "modalità rettangolo, nome preso dalla ricerca");
+  A.custEscDisegno();
+  eq(A.__custDraw, null, "Esc la spegne");
+}));
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");
