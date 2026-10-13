@@ -11403,7 +11403,8 @@ function itemMarkup(it){
   var s = '<g class="item'+(isOut?' nofloor':'')+(selSet[it.id]?' selected':'')+'" data-id="'+attrId+'" transform="translate('+it.x+' '+it.y+')">';
   s += '<g transform="rotate('+(it.rot||0)+')">';
   s += '<rect class="hit" x="'+(-hw)+'" y="'+(-hd)+'" width="'+(2*hw)+'" height="'+(2*hd)+'"/>';
-  if(it.type!=="miczone") s += '<rect class="selbox" x="'+(-bw-3)+'" y="'+(-bh-3)+'" width="'+(2*bw+6)+'" height="'+(2*bh+6)+'" rx="10"/>';
+  /* data-fitpad: la mezza linea delle forme dell'editor, che getBBox non conta (aderisciRiquadro la aggiunge) */
+  if(it.type!=="miczone") s += '<rect class="selbox" x="'+(-bw-3)+'" y="'+(-bh-3)+'" width="'+(2*bw+6)+'" height="'+(2*bh+6)+'" rx="10"'+((_cs && it.k!=="text" && +it.sw>0) ? ' data-fitpad="'+(+it.sw/2)+'"' : '')+'/>';
   var _arteDa = s.length;   /* da qui in poi è il DISEGNO: lo si misura per mettere il nome a filo (lblBaseY) */   /* DS v2.2: outline aderente e arrotondata come il prototipo — le zone mic NIENTE box (il poligono tratteggiato + vertici bastano, Simone 14/07) */
   /* MODIFICATORE (softbox &co.): l'ingombro in pianta è suo, ma l'apparecchio va disegnato con le
      SUE misure, arretrato di mezza sporgenza — altrimenti i draw dei nove userebbero un it.w/it.d
@@ -11515,7 +11516,7 @@ function itemMarkup(it){
     if(!it.diFor && !t.riser && !(_sceneRuota && (it.doppia===true || DOUBLE_TYPES[it.type]))) _lblOrig = [_orX, _orY];
     /* la cima del nome SOPRA (elemento personalizzato, postazione con sedia): la maniglia di rotazione la scavalca invece di
        attraversare le lettere (selHandlesMarkup). o = il perno attorno a cui il nome cresce col corpo minimo a schermo */
-    if(_lblSchermo && lblAbove && !_sceneRuota){ if(!_lblCima) _lblCima=Object.create(null); _lblCima[it.id]={y:ly-fszK*0.8, o:_orY}; }
+    if(_lblSchermo && lblAbove && !_sceneRuota){ if(!_lblCima) _lblCima=Object.create(null); _lblCima[it.id]={y:ly-fszK*0.8, b:ly+fszK*0.2, o:_orY}; }
     var _xy = _sceneRuota ? ' x="'+_lxR+'" y="'+_lyR+'"' : ' y="'+ly+'"';
     var _cap = !_sceneRuota && lblCapovolto(it.rot);   /* 06/10: elemento girato oltre 90°/prima di 270°: il nome si rigira, resta dov'è ma si legge dritto */
     var _rot = _sceneRuota ? ' transform="rotate('+_rc+' '+_lxR+' '+_lyR+')"' : lblCapTr(_cap, 0, 0, ly, fszK);
@@ -11579,6 +11580,21 @@ function itemMarkup(it){
   s += '</g>';
   return s;
 }
+/* Da dove parte il gambo della maniglia di rotazione (e il lucchetto, alla sua altezza), sopra il riquadro:
+   - nome scritto SOPRA l'elemento (personalizzato, postazione con sedia): sopra le lettere, col corpo minimo a schermo;
+   - con la maniglia di ridimensionamento in alto al centro (forme dell'editor, pedane…): sopra di lei, con aria fra lei e il
+     pomello. Prima partiva dal disegno, dentro una linea spessa, e il pomello le stava addosso. bh comprende margine e mezza linea. */
+function selCimaManiglie(it, t, topY, bh){
+  var lc=_lblCima && _lblCima[it.id], nascosti=false;
+  try{ nascosti=svg.classList.contains("names-hidden")===true; }catch(e){}
+  if(lc && !nascosti) topY=Math.min(topY, lc.o+(lc.y-lc.o)*lblKAdesso()-hSize(4));
+  if(selManigliaAlta(it, t)) topY=Math.min(topY, -bh-hSize(6));
+  return topY;
+}
+/* c'è la maniglia di ridimensionamento in alto al centro? (stessa condizione del disegno delle maniglie qui sotto) */
+function selManigliaAlta(it, t){
+  return (stageEdit ? isRiser(it) : true) && itemEditable(it) && !!(t && t.resizable) && it.type!=="miczone" && it.type!=="metro" && it.type!=="parapetto";
+}
 /* ============ MANIGLIE DELL'ELEMENTO SELEZIONATO ============
    Rotazione, lucchetto, ridimensionamento e maniglie della zona microfono: tutte disegnate in un
    layer PROPRIO, l'ultimo della scena, e non dentro il gruppo dell'elemento.
@@ -11602,10 +11618,7 @@ function selHandlesMarkup(){
   var attrId=esc(it.id);
   var bw = it.w/2 + selMargine(it), bh = it.d/2 + selMargine(it);   /* stesso riquadro aderente del selbox: le maniglie ci stanno sopra */
   var _fit=_selFit[it.id], topY=_fit ? _fit.y1 : -bh;     /* bordo alto del riquadro misurato sul disegno (26/09) */
-  /* nome scritto SOPRA l'elemento: la maniglia di rotazione (e il lucchetto, che sta alla sua altezza) partono sopra le lettere */
-  var _lc=_lblCima && _lblCima[it.id], _nascosti=false;
-  try{ _nascosti=svg.classList.contains("names-hidden")===true; }catch(e){}
-  if(_lc && !_nascosti){ var _kl=lblKAdesso(); topY=Math.min(topY, _lc.o+(_lc.y-_lc.o)*_kl-hSize(4)); }
+  topY=selCimaManiglie(it, t, topY, bh);
   var s='';
   /* maniglia di rotazione: appare sopra l'elemento quando è l'unico selezionato */
   if((stageEdit ? isRiser(it) : true) && itemEditable(it)){   /* in modalità palco le maniglie sono per le pedane, fuori per tutto il resto; col lucchetto chiuso non si ruota */
@@ -11648,7 +11661,7 @@ function selHandlesMarkup(){
       var mhs=hSize(3.25), mhg=hSize(7.5);   /* stessa misura fissa delle altre maniglie (variante A) */
       [["tl",-bw,-bh],["tr",bw,-bh],["bl",-bw,bh],["br",bw,bh]].forEach(function(p){
         s += '<rect class="rs-grab" data-id="'+attrId+'" data-edge="'+p[0]+'" x="'+(p[1]-mhg)+'" y="'+(p[2]-mhg)+'" width="'+(2*mhg)+'" height="'+(2*mhg)+'"/>';
-        s += '<rect class="rs-handle rs-'+p[0]+'" data-id="'+attrId+'" data-edge="'+p[0]+'" x="'+(p[1]-mhs)+'" y="'+(p[2]-mhs)+'" width="'+(2*mhs)+'" height="'+(2*mhs)+'" rx="'+hSize(1.2)+'" stroke-width="'+hSize(1.4)+'"/>';
+        s += '<rect class="rs-handle rs-'+p[0]+'" data-id="'+attrId+'" data-edge="'+p[0]+'" x="'+(p[1]-mhs)+'" y="'+(p[2]-mhs)+'" width="'+(2*mhs)+'" height="'+(2*mhs)+'" rx="'+hSize(1.2)+'" stroke-width="1.4"/>';
       });
     }
   }
@@ -11666,11 +11679,13 @@ function selHandlesMarkup(){
     }
     /* variante A: quadratino da 6,5 px SEMPRE, con sotto un'area di presa invisibile da 15 px —
        piccolo da vedere, facile da afferrare col mouse e col dito (come negli editor vettoriali). */
+    /* stroke-width in PIXEL DI SCHERMO: .rs-handle ha vector-effect:non-scaling-stroke, quindi il numero non si scala.
+       Con hSize(1,4) (centimetri) da vicino il bordo diventava 0,03 px e la maniglia spariva sul bianco (13/10/2026). */
     var hs=hSize(3.25), hg=hSize(7.5), hr=hSize(1.2);
     hpts.forEach(function(p){
       s += '<rect class="rs-grab" data-id="'+attrId+'" data-edge="'+p[0]+'" x="'+(p[1]-hg)+'" y="'+(p[2]-hg)+'" width="'+(2*hg)+'" height="'+(2*hg)+'"/>';
-      if(it.type==="metro") s += '<circle class="rs-handle rs-'+p[0]+' rs-end" data-id="'+attrId+'" data-edge="'+p[0]+'" cx="'+p[1]+'" cy="'+p[2]+'" r="'+hSize(4)+'" stroke-width="'+hSize(1.6)+'"/>';
-      else s += '<rect class="rs-handle rs-'+p[0]+'" data-id="'+attrId+'" data-edge="'+p[0]+'" x="'+(p[1]-hs)+'" y="'+(p[2]-hs)+'" width="'+(2*hs)+'" height="'+(2*hs)+'" rx="'+hr+'" stroke-width="'+hSize(1.4)+'"/>';
+      if(it.type==="metro") s += '<circle class="rs-handle rs-'+p[0]+' rs-end" data-id="'+attrId+'" data-edge="'+p[0]+'" cx="'+p[1]+'" cy="'+p[2]+'" r="'+hSize(4)+'" stroke-width="1.6"/>';
+      else s += '<rect class="rs-handle rs-'+p[0]+'" data-id="'+attrId+'" data-edge="'+p[0]+'" x="'+(p[1]-hs)+'" y="'+(p[2]-hs)+'" width="'+(2*hs)+'" height="'+(2*hs)+'" rx="'+hr+'" stroke-width="1.4"/>';
     });
   }
   if(!s) return '';
@@ -15555,7 +15570,13 @@ function aderisciRiquadro(node){
   if(hit){ if(dh==null) hit.removeAttribute("display"); else hit.setAttribute("display",dh); }
   if(db==null) box.removeAttribute("display"); else box.setAttribute("display",db);
   if(!b || !(b.width>0) || !(b.height>0)) return null;
-  var pad=hSize(4), f={x1:b.x-pad, y1:b.y-pad, x2:b.x+b.width+pad, y2:b.y+b.height+pad};
+  var pad=hSize(4)+(+box.getAttribute("data-fitpad")||0), f={x1:b.x-pad, y1:b.y-pad, x2:b.x+b.width+pad, y2:b.y+b.height+pad};
+  /* NOME SCRITTO SOPRA (elemento personalizzato, postazione con sedia): il bordo alto del riquadro resta SOTTO le lettere,
+     come per i nomi scritti sotto, che stanno fuori dal riquadro. Fra disegno e nome c'è lo stacco: il bordo sta lì,
+     2 px sotto le lettere, e al massimo attaccato al disegno. */
+  var _lc=_lblCima && _lblCima[node.getAttribute("data-id")];
+  if(_lc){ var _nh=false; try{ _nh=svg.classList.contains("names-hidden")===true; }catch(e){}
+    if(!_nh){ var _fondo=_lc.o+(_lc.b-_lc.o)*lblKAdesso(); f.y1=Math.max(f.y1, Math.min(_fondo+hSize(2), b.y-hSize(1))); } }
   box.setAttribute("x",f.x1); box.setAttribute("y",f.y1);
   box.setAttribute("width",f.x2-f.x1); box.setAttribute("height",f.y2-f.y1); box.setAttribute("rx",hSize(6));
   node.setAttribute("data-fit","1");

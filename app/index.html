@@ -704,7 +704,7 @@
   /* Maniglie (variante A): segno minuto a misura FISSA — lo spessore arriva dal markup, che lo
      calcola in pixel di schermo. Sotto, un'area di presa invisibile piu' larga: piccole da vedere,
      facili da afferrare. */
-  .rs-handle{fill:#fff;stroke:var(--accent);vector-effect:non-scaling-stroke;pointer-events:none}
+  .rs-handle{fill:#fff;stroke:var(--accent);stroke-width:1.4;vector-effect:non-scaling-stroke;pointer-events:none}   /* 1,4 px di schermo a ogni zoom (non-scaling) */
   .rs-grab{fill:transparent;cursor:pointer}
   .rs-grab:hover ~ .rs-handle,.rs-handle:hover{fill:var(--accent-tint)}
   .rs-handle.rs-end{fill:var(--accent);stroke:#fff}   /* metro: maniglie tonde agli estremi della linea */
