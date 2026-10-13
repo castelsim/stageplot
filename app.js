@@ -1230,7 +1230,7 @@ var TYPES = {
                return s; }},
   rullante: {nome:"Rullante", dim:"su stand · Ø36", cat:"Batteria e percussioni", sub:"Pezzi singoli", w:46,d:46,
              draw:function(){ return drum(0,0,18)+circ(0,21,2.5,'ic fill')+circ(-18,-11,2.5,'ic fill')+circ(18,-11,2.5,'ic fill'); }},
-  percussioni:{nome:"Congas + bongos", dim:"componibile", cat:"Batteria e percussioni", sub:"Percussioni", w:122,d:89,
+  percussioni:{nome:"Percussionista", dim:"congas, bongos, chimes · componibile", cat:"Batteria e percussioni", sub:"Percussioni", w:122,d:89,
              draw:function(it){ return drawPercussioni(it); }},
   conga:    {nome:"Conga", dim:"11¾\" · Ø32", cat:"Batteria e percussioni", sub:"Pezzi singoli", w:32,d:32, defLabel:"Cga",
              draw:function(){ return congaGlyph(16); }},
@@ -1264,7 +1264,9 @@ var TYPES = {
   tamburello:{nome:"Tamburello", dim:"10\" · Ø25 · su stand", cat:"Batteria e percussioni", sub:"Percussioni", w:26,d:26, defLabel:"Tamb",
              draw:function(){ return tamburelloGlyph(12.5); }},
   campanaccio:{nome:"Campanaccio", dim:"8\" · su asta", cat:"Batteria e percussioni", sub:"Percussioni", w:22,d:14, defLabel:"Cwb",
-             draw:function(){ return lin(-11,4,-2,1,'ic thin')+'<path class="ic fBrass" d="M -2,-6 L 10,-4 L 8,4 L -1,2 Z"/>'; }},
+             draw:function(){ return campanaccioGlyph(); }},
+  chimes:   {nome:"Chimes", dim:"mark tree · ~60 cm su stativo", cat:"Batteria e percussioni", sub:"Percussioni", w:64,d:28, defLabel:"Chm",
+             draw:function(){ return chimesGlyph(); }},
   templeblocks:{nome:"Temple blocks", dim:"5 pezzi · 65×28", cat:"Batteria e percussioni", sub:"Percussioni", w:65,d:28, defLabel:"Blk",
              draw:function(){ var s=lin(-28,10,28,10,'ic thin'), r=8.5;   /* cinque blocchi calanti su stativo */
                for(var i=0;i<5;i++){ s += '<ellipse class="ic fWoodL" cx="'+(-26+i*13)+'" cy="-1" rx="'+(r-i*0.9)+'" ry="'+(r-i*0.9)*0.78+'"/>'
@@ -1936,7 +1938,8 @@ var SEARCH_ALIAS = {
   corista:"vox bgv bv backing vox lead vox",
   rullante:"sn snr sd snare", grancassa:"bd",
   piatto:"cym crash ride", piatticoppia:"cym",
-  percussioni:"congas bongos latin perc set percussioni", conga:"congas tumbadora latin perc",
+  percussioni:"congas bongos latin perc set percussioni chimes", conga:"congas tumbadora latin perc",
+  chimes:"chimes mark tree barra campanelli bar chimes wind chimes perc",
   djembe:"djembe djembè percussione africana perc", surdo:"surdo samba batucada percussione brasiliana perc",
   tamburello:"tamburello tamburino tambourine tamb perc", campanaccio:"campanaccio cowbell campana perc",
   templeblocks:"temple blocks blocchi di legno legnetti perc", triangoloperc:"triangolo strumento percussione perc",
@@ -2952,15 +2955,38 @@ function percSlots(p){
     x+=PERC_BONGO.hembra; L.push({k:"bongos", x:x-2, y:8, r:PERC_BONGO.hembra+PERC_BONGO.macho}); x+=PERC_BONGO.hembra+PERC_BONGO.macho*2;
   }
   var half=x/2; L.forEach(function(sl){ sl.x-=half; });  /* centratura orizzontale */
+  /* Il resto della postazione (13/10/2026, Simone: «un percussionista con conga, bongo, chimes, le cose da
+     percussionista»). Sta attorno a chi suona, non fra i tamburi: alla sua DESTRA (x<0) il tavolo dei
+     piccoli accanto a lui e il piatto sospeso vicino alle congas; alla sua SINISTRA (x>0) i chimes accanto
+     a lui e il campanaccio dopo i bongos. */
+  var sx=L.length ? L[0].x-L[0].r : 0, dx=0;          /* bordo sinistro e destro dei tamburi (0,0 senza tamburi) */
+  L.forEach(function(sl){ dx=Math.max(dx, sl.x+sl.r); sx=Math.min(sx, sl.x-sl.r); });
+  if(p.piatto===true) L.push({k:"piatto", x:Math.min(sx,-20)-26, y:-8, hw:23, hd:23});
+  if(p.tavolo===true) L.push({k:"tavolo", x:-33-10-PERC_TAVOLO.w/2, y:-62, hw:PERC_TAVOLO.w/2, hd:PERC_TAVOLO.d/2});
+  if(p.chimes===true) L.push({k:"chimes", x:33+10+32, y:-62, hw:32, hd:14});
+  if(p.campanaccio===true) L.push({k:"campanaccio", x:Math.max(dx,20)+14, y:-14, hw:11, hd:7});
   if(p.mus!==false || p.stool===true) L.push({k:"seat", x:0, y:-62, r:20, seat:true});   /* il percussionista sta DIETRO i tamburi, non dentro come il batterista */
   return L;
 }
+var PERC_TAVOLO={w:80, d:40};   /* il tavolo della postazione: più piccolo di quello da banco (120×60), ci stanno shaker, claves, güiro */
 function percBBox(L){ var minx=1e9,maxx=-1e9,miny=1e9,maxy=-1e9;
-  L.forEach(function(t){ var ry=(t.k==="bongos"?PERC_BONGO.hembra:t.r);
+  L.forEach(function(t){
+    var rx=(t.hw!=null? t.hw : t.r), ry=(t.hd!=null? t.hd : (t.k==="bongos"?PERC_BONGO.hembra:t.r));
     var down=(t.k==="conga"? t.r*1.35 : ry);   /* le gambe dello stand appoggiano davvero a terra: stanno nell'ingombro */
-    minx=Math.min(minx,t.x-t.r); maxx=Math.max(maxx,t.x+t.r); miny=Math.min(miny,t.y-ry); maxy=Math.max(maxy,t.y+down); });
+    minx=Math.min(minx,t.x-rx); maxx=Math.max(maxx,t.x+rx); miny=Math.min(miny,t.y-ry); maxy=Math.max(maxy,t.y+down); });
   return {w:maxx-minx, d:maxy-miny, cx:(minx+maxx)/2, cy:(miny+maxy)/2};
 }
+/* il disegno di un pezzo della postazione che non è un tamburo */
+function percPezzoGlyph(sl){
+  if(sl.k==="bongos") return bongosGlyph();
+  if(sl.k==="chimes") return chimesGlyph();
+  if(sl.k==="campanaccio") return campanaccioGlyph();
+  if(sl.k==="piatto") return TYPES.piatto.draw();
+  if(sl.k==="tavolo") return drawLibFit("tavolopercussioni",PERC_TAVOLO,120,60);
+  return congaGlyph(sl.r);
+}
+/* tipo e nome del pezzo singolo che «Dividi» ridà */
+var PERC_PEZZI={ chimes:["chimes","Chimes"], campanaccio:["campanaccio","Campanaccio"], piatto:["piatto","Piatto"], tavolo:["tavolopercussioni","Tavolo percussioni"] };
 /* Conga vista dall'alto: fusto in legno, cerchione cromato, pelle. */
 function congaGlyph(r){ return circ(0,0,r,'ic fWoodD')+circ(0,0,r-1.6,'ic fSilver')+circ(0,0,r-3.4,'ic thin fHead')+rimlight(0,0,r); }
 /* Djembe: come una conga ma accordato a corda — il bordo porta i tiranti, non i lug. */
@@ -2971,6 +2997,14 @@ function djembeGlyph(r){ var s=circ(0,0,r,'ic fWoodD')+circ(0,0,r-1.4,'ic thin f
 /* Tamburello su stand: cerchio con i sonagli sul telaio. */
 function tamburelloGlyph(r){ var s=circ(0,0,r,'ic fWoodL')+circ(0,0,r-2.2,'ic thin fHead');
   for(var i=0;i<6;i++){ var a=i*Math.PI/3; s += circ(Math.cos(a)*(r-1.1), Math.sin(a)*(r-1.1), 1.5, 'ic fBrass'); }
+  return s; }
+/* Campanaccio su asta: lo stesso disegno del pezzo singolo, condiviso con la postazione del percussionista. */
+function campanaccioGlyph(){ return lin(-11,4,-2,1,'ic thin')+'<path class="ic fBrass" d="M -2,-6 L 10,-4 L 8,4 L -1,2 Z"/>'; }
+/* Chimes / mark tree (13/10/2026): vista dall'alto, la barra lunga ~60 cm con le canne d'ottone appese,
+   sempre più corte da sinistra a destra (si vedono come dischi sempre più piccoli), sul treppiede. */
+function chimesGlyph(){
+  var s=lin(0,-3,-13,12,'ic thin')+lin(0,-3,13,12,'ic thin')+lin(0,-3,0,13,'ic thin')+bar(0,-6,60,3,'ic fill',1.5);
+  for(var i=0;i<12;i++) s+=circ(-27+i*4.9,-6,2-i*0.08,'ic fBrass');
   return s; }
 /* Bongos: coppia solidale, hembra (grande) alla destra del suonatore = x<0. */
 function bongosGlyph(){ var H=PERC_BONGO.hembra, M=PERC_BONGO.macho;
@@ -2994,7 +3028,7 @@ function drawPercussioni(it){
       if(p.mus!==false)  g += libIcon("batteristaPersona");   /* il percussionista sta in piedi: sgabello spento di default */
       s += pre+g+'</g>'; return;
     }
-    s += pre+(sl.k==="bongos" ? bongosGlyph() : congaGlyph(sl.r))+'</g>';
+    s += pre+percPezzoGlyph(sl)+'</g>';
   });
   return s;
 }
@@ -3009,6 +3043,10 @@ function explodePercussioni(it){
       return;
     }
     if(sl.k==="bongos"){ out.push({type:"bongos", dx:dx, dy:dy, label:base+"Bongos"}); return; }
+    var pz=PERC_PEZZI[sl.k];
+    if(pz){ var o={type:pz[0], dx:dx, dy:dy, label:base+pz[1]};
+      if(sl.k==="tavolo") o.extra={w:PERC_TAVOLO.w, d:PERC_TAVOLO.d};
+      out.push(o); return; }
     var c=PERC_CONGA[sl.size];
     out.push({type:c.type, dx:dx, dy:dy, label:base+c.lbl});
   });
@@ -3018,6 +3056,9 @@ function explodePercussioni(it){
 function percChans(it){ var p=parts(it), out=[];
   if((p.congas|0)>0) out.push(["Congas","e904"]);
   if(p.bongos!==false) out.push(["Bongos","e904"]);
+  /* chimes, campanaccio, piatto e tavolo dei piccoli: UN panoramico per tutti, come il banco percussioni
+     (un canale per sonaglio sarebbe un rider falso, vedi PERC_PICCOLE) */
+  if(p.chimes===true || p.campanaccio===true || p.piatto===true || p.tavolo===true) out.push(["Perc. OH","KM184"]);
   return out;   /* set senza pezzi (solo il percussionista) = nessun canale, non due canali finti */
 }
 /* ── Postazione cajon (06/10/2026) ──
@@ -3070,16 +3111,29 @@ function explodeCajonPost(it){
   return out;
 }
 var COMP = {
-  percussioni: { defParts:{congas:2, bongos:true, mus:true, stool:false},
+  /* defParts = i progetti salvati prima del 13/10/2026: parts() li completa con queste chiavi, quindi i
+     pezzi nuovi qui sono SPENTI e un set vecchio si riapre identico. newParts = chi lo posa oggi dal
+     catalogo: la postazione intera del percussionista (Simone, 13/10). */
+  percussioni: { defParts:{congas:2, bongos:true, chimes:false, campanaccio:false, piatto:false, tavolo:false, mus:true, stool:false},
+    newParts:{congas:2, bongos:true, chimes:true, campanaccio:true, piatto:false, tavolo:true, mus:true, stool:false},
     controls:[ {key:"congas",label:"Congas",type:"count",min:0,max:3},
                {key:"bongos",label:"Bongos",type:"toggle"},
+               {key:"chimes",label:"Chimes",type:"toggle"},
+               {key:"campanaccio",label:"Campanaccio",type:"toggle"},
+               {key:"piatto",label:"Piatto sospeso",type:"toggle"},
+               {key:"tavolo",label:"Tavolo piccole percussioni",type:"toggle"},
                {key:"mus",label:"Musicista",type:"toggle"},
                {key:"stool",label:"Sgabello",type:"toggle"} ],
     /* niente "reduced" qui (a differenza della batteria): quante congas ci sono È il dato tecnico del set,
        e comporlo è proprio la richiesta — il configuratore va in pannello, non solo in "Dividi in elementi". */
-    name:function(it){ var p=parts(it), n=p.congas|0;
-      var a=(n>0?(n===1?"Conga":"Congas ×"+n):""), b=(p.bongos!==false?"Bongos":"");
-      return (a&&b)?(a+" + "+b):(a||b||"Percussioni"); },
+    name:function(it){ var p=parts(it), n=p.congas|0, v=[];
+      if(n>0) v.push(n===1?"Conga":"Congas ×"+n);
+      if(p.bongos!==false) v.push("Bongos");
+      if(p.chimes===true) v.push("Chimes");
+      if(p.campanaccio===true) v.push("Campanaccio");
+      if(p.piatto===true) v.push("Piatto");
+      if(p.tavolo===true) v.push("Tavolo");
+      return v.length ? v.join(" + ") : "Percussioni"; },
     chans:percChans, draw:drawPercussioni, size:sizePercussioni, explode:explodePercussioni },
   /* il canale non sta qui ma in IN_SRC (Beta 91A): è uno solo e non dipende dai pezzi */
   cajonpost: { defParts:{mus:true},
@@ -3172,7 +3226,12 @@ function supportsLeggio(it){ return !!POSTAZ[it.type] || !!VOCE[it.type] || !!(T
 /* musicisti-strumento senza leggio "nativo" (arpa, piani, organi, percussioni, mallet…): leggio
    opzionale (OFF di default) reso genericamente davanti allo strumento in itemMarkup. */
 function leggioExtra(it){ return musLayerItem(it.type) && !supportsLeggio(it) && it.type!=="direttore" && it.type!=="batteria"; }
-function leggioExtraY(it){ var m={arpa:70, grancoda:60, mezzacoda:55}; return (m[it.type]!=null) ? m[it.type] : Math.min(it.d/2+18, 90); }   /* posizione leggio: davanti; offset dedicato per gli strumenti grandi/asimmetrici */
+function leggioExtraY(it){ var m={arpa:70, grancoda:60, mezzacoda:55}; if(it.type==="tastiera") return -(it.d/2+18); return (m[it.type]!=null) ? m[it.type] : Math.min(it.d/2+18, 90); }
+/* Da che parte va il leggio di una tastiera (13/10/2026, Simone: «mette il leggio al contrario»). Il disegno
+   «Strumento solo» ha i TASTI verso +y, e da quella parte stanno chi suona e lo sgabello (pianoBench): il
+   leggio a +y finiva fra i tasti e il musicista, sopra lo sgabello. Va dall'altra parte (−1). Nel disegno
+   illustrato il musicista è a −y e il leggio resta davanti a lui (+1). Vale anche per la Tastiera (leggioExtraY). */
+function tastieraLatoLeggio(it, illustrato){ return illustrato ? 1 : -1; }   /* posizione leggio: davanti; offset dedicato per gli strumenti grandi/asimmetrici */
 function optSedia(it){ return (TYPES[it.type]&&TYPES[it.type].gtr) || !!VOCE[it.type] ? it.sedia===true : it.sedia!==false; }
 function applyOptAll(key, val){
   selItems().forEach(function(it){
@@ -7297,6 +7356,10 @@ function stageBlocksOverlay(){
 }
 /* tastiere/pianoforti che hanno lo sgabello di default (togglabile con it.panca=false) */
 var KEYS_BENCH = { grancoda:1, mezzacoda:1, pianoverticale:1, stagepiano:1, doppiatastiera:1, celesta:1 };
+/* tastiere con lo sgabello A SCELTA, spento di partenza (13/10/2026, Simone: «voglio che ci sia anche
+   l'opzione sgabello»). Spento perché le tastiere già disegnate non si trovino uno sgabello in più nel rider. */
+var KEYS_BENCH_OPT = { tastiera:1 };
+function hasPanca(it){ return !!it && ((KEYS_BENCH[it.type] && it.panca!==false) || (KEYS_BENCH_OPT[it.type] && it.panca===true)); }
 /* TIPI DI SGABELLO — qui, PRIMA del catalogo che li legge all'avvio (16/09, Simone: «dobbiamo distinguere i vari tipi di sgabelli, per esempio per
    contrabbassi, per batteria, per piano e tastiere»; poi «aggiungi anche sgabello alto per chi canta
    seduto»). Un solo elemento «Sgabello» col suo Tipo, non cinque voci di catalogo. Chi allestisce deve
@@ -7320,7 +7383,7 @@ function sgabelliDi(it){
   if(it.type==="sgabello") return [[sgabTipo(it),1]];
   if(it.type==="panchetta") return [["piano",1]];
   if(it.type==="stoolR") return [["batteria",1]];
-  if(KEYS_BENCH[it.type] && it.panca!==false) return [[KEYS_PANCA_PIANO[it.type] ? "piano" : "tastiere",1]];
+  if(hasPanca(it)) return [[KEYS_PANCA_PIANO[it.type] ? "piano" : "tastiere",1]];
   if(STOOL_POSTAZ[it.type]!=null && optSedia(it)) return [["contrabbasso", STOOL_POSTAZ[it.type]]];
   if(it.type==="batteria" && parts(it).stool!==false) return [["batteria",1]];
   if(it.type==="direttore" && it.sgab===true) return [["generico",1]];
@@ -7411,7 +7474,7 @@ function misuraArte(markup){
 /* stima senza SVG: il footprint, più quel che si sa sporgere */
 function arteStimata(it){
   var w=+it.w||0, d=+it.d||0, sotto=d/2, sopra=-d/2;
-  if(KEYS_BENCH[it.type] && it.panca!==false) sotto+=36;   /* sgabello */
+  if(hasPanca(it)) sotto+=36;   /* sgabello */
   if(VOCE[it.type]){ var mm=micModeOf(it); if(mm==="tonda"||mm==="giraffa") sotto+=26; }   /* base dell'asta */
   if(lblSopraDi(it)) sopra=Math.min(sopra, -43.5);   /* schienale della sedia */
   return {x0:-w/2, y0:sopra, x1:w/2, y1:sotto};
@@ -7972,18 +8035,18 @@ function itemMarkup(it){
        arriva da davanti e la capsula punta INDIETRO, verso chi canta: il verso si vede. */
     else s += '<g transform="translate(0,'+((it.d||60)/2+16)+')"><circle r="4.6" fill="#2b2e31"/><line x1="0" y1="-4.6" x2="0" y2="-16" class="ic thin"/></g>';
   }
-  if(KEYS_BENCH[it.type] && it.panca!==false && !_la){ s += pianoBench(it); }   /* sgabello tastiere/piano (di default) — NON in illustrato (la figura del musicista lo include) */
+  if(hasPanca(it) && !_la){ s += pianoBench(it); }   /* sgabello tastiere/piano (di default) — NON in illustrato (la figura del musicista lo include) */
   if(t.gtr && _la){   /* chitarre/basso in ILLUSTRATO: ampli/pedaliera/leggio NON sono nell'illustrazione del musicista → disegnati a parte (come nello schematico) */
     if(it.ampli) s += '<g transform="translate(-43,-88) rotate(-30)">'+ampCombo()+'</g>';
     if(it.pedaliera) s += '<g transform="translate(0,72)">'+pedalGlyph()+'</g>';   /* musicista illustrato = seduto → pedaliera ai piedi */
     if(it.leggio) s += '<g transform="translate(0,'+(it.pedaliera?104:60)+')">'+leggioGlyph(0)+'</g>';   /* col pedale: leggio OLTRE la pedaliera (fix 18/07, come lo schematico) */
   }
-  if(TASTIERE[it.type] && (it.leggio || it.leggio2)){   /* leggio/tablet della tastiera: davanti al musicista (lato pubblico, +y) */
-    var _ky=it.d/2+22, _kdx=it.leggio2?34:0;
-    if(it.leggio)  s += '<g transform="translate('+(-_kdx)+','+_ky+')">'+leggioGlyph(0)+'</g>';
-    if(it.leggio2) s += '<g transform="translate('+_kdx+','+_ky+')">'+leggioGlyph(0)+'</g>';
+  if(TASTIERE[it.type] && (it.leggio || it.leggio2)){   /* leggio/tablet della tastiera: oltre la tastiera, dal lato opposto a chi suona */
+    var _kv=tastieraLatoLeggio(it, !!_la), _ky=_kv*(it.d/2+22), _kdx=it.leggio2?34:0, _kr=_kv<0?' rotate(180)':'';
+    if(it.leggio)  s += '<g transform="translate('+(-_kdx)+','+_ky+')'+_kr+'">'+leggioGlyph(0)+'</g>';
+    if(it.leggio2) s += '<g transform="translate('+_kdx+','+_ky+')'+_kr+'">'+leggioGlyph(0)+'</g>';
   }
-  if(it.leggio===true && leggioExtra(it)) s += '<g transform="translate(0,'+leggioExtraY(it)+')">'+leggioGlyph(0)+'</g>';   /* leggio generico: arpa, piani, organi, percussioni, mallet… (off di default, davanti allo strumento) */
+  if(it.leggio===true && leggioExtra(it)) s += '<g transform="translate(0,'+leggioExtraY(it)+')'+(leggioExtraY(it)<0?' rotate(180)':'')+'">'+leggioGlyph(0)+'</g>';   /* leggio generico: arpa, piani, organi, percussioni, mallet… (off di default, davanti allo strumento) */
   if(t.riser){                                       /* quota pedana sul lato scelto/auto (più visibile) */
     var dimT=(it.w/100)+'×'+(it.d/100)+' m · h'+it.h, rside=riserDimSide(it), roff=12, rdx=0, rdy=0, ranc='middle', rtr='', rang=0;
     if(rside==="top"){ rdy=-(it.d/2)-roff; }
@@ -11945,7 +12008,7 @@ function itemEditable(it){ return !(it && it.locked===true && isLockable(it)); }
    piccoli (shaker, claves, güiro) a 20 cm in pianta sono pallini invisibili, ma il service deve
    sapere che ci sono — e poi vale per tutti: «ampli fornito dalla band», «piano da accordare». */
 var NOTE_MAX=140;
-var NOTE_HINT={ tavolopercussioni:"es. shaker, claves, güiro, campanelli", percussioni:"es. campanaccio e shaker sul tavolo",
+var NOTE_HINT={ tavolopercussioni:"es. shaker, claves, güiro, campanelli", percussioni:"es. shaker, claves e güiro sul tavolo",
   comboamp:"es. fornito dalla band", stack:"es. fornito dalla band", grancoda:"es. da accordare la mattina",
   pedana:"es. altezza 40 cm, con scaletta", tavolo:"es. per il merchandising", flightcase:"es. non spostare" };
 function noteOf(it){ var n=it&&it.note; return (typeof n==="string" && n.trim()) ? n.trim() : ""; }
@@ -13237,12 +13300,12 @@ function renderProps(){
   document.getElementById("pDimSideWrap").style.display = (t.riser||isGazCover) ? "block" : "none";
   document.getElementById("pDimSideLbl").textContent = isGazCover ? "Lato etichetta" : "Lato quota";
   if(t.riser||isGazCover){ var _qs=document.getElementById("pDimSide"); _qs.value = it.dimSide || (isGazCover?"top":"auto"); _qs.dispatchEvent(new Event("chips-sync")); }   /* riallinea le chips senza passare da change (che salverebbe) */
-  var isKeys=!!KEYS_BENCH[it.type];
+  var isKeys=!!(KEYS_BENCH[it.type] || KEYS_BENCH_OPT[it.type]);
   /* in ASPETTO ILLUSTRATO gli accessori "inglobati" nella figura (sedia, sgabello) non hanno senso come toggle
      (la figura li include già) → li nascondo. Il leggio degli archi invece lo disegno a parte → resta. */
   var illustrated = hasLookToggle(it) && it.look!=="schematico";
   document.getElementById("pKeysWrap").style.display = (isKeys && !illustrated) ? "block" : "none";
-  if(isKeys) document.getElementById("pPanca").checked = it.panca!==false;
+  if(isKeys) document.getElementById("pPanca").checked = hasPanca(it);
   var sgw=document.getElementById("pSgabWrap");
   if(sgw){ var isSgab=(it.type==="sgabello"); sgw.style.display = isSgab ? "block" : "none";
     if(isSgab){ var sgs=document.getElementById("pSgabTipo");
@@ -15833,7 +15896,7 @@ function addItem(type, over, silenzioso){   /* silenzioso (06/10/2026): crea e m
     }, 0);
     it.label="Voce "+(_voci+1);
   }
-  if(COMP[type]){ it.parts=compClone(COMP[type].defParts); if(COMP[type].size){ var sz=COMP[type].size(it); it.w=sz[0]; it.d=sz[1]; } }
+  if(COMP[type]){ it.parts=compClone(COMP[type].newParts||COMP[type].defParts); if(COMP[type].size){ var sz=COMP[type].size(it); it.w=sz[0]; it.d=sz[1]; } }   /* newParts: un elemento NUOVO può nascere più completo di come si riapre un progetto vecchio (percussioni, 13/10) */
   if(type==="miczone") it.zcol=micZoneFreeColor();   /* ogni zona nasce con un colore diverso */
   if(over) Object.keys(over).forEach(function(k){ it[k]=over[k]; });
   if(isAreaNome(it) && !(over && over.fill)) it.fill=areaFreeColor();   /* anche ogni AREA (06/10/2026): due zone accanto non hanno lo stesso colore */
@@ -20323,7 +20386,7 @@ Object.keys(WIND_MIC).forEach(function(t){ var mic=WIND_MIC[t];
    I tamburi grandi (congas, cajon, timbales…) restano fuori di proposito: si microfonano quasi
    sempre da vicino e dentro una zona TENGONO il loro mic, com'è già stabilito in zoneAbsorbable. */
 var PERC_PICCOLE={ djembe:"e904", surdo:"D6", tamburello:"KM184", campanaccio:"SM57", templeblocks:"KM184", triangoloperc:"KM184",
-  crotali:"KM184", woodblock:"KM184", flexaton:"KM184" };
+  crotali:"KM184", woodblock:"KM184", flexaton:"KM184", chimes:"KM184" };
 Object.keys(PERC_PICCOLE).forEach(function(t){ var mic=PERC_PICCOLE[t];
   MIKING[t]={ options:[["pan","Panoramico — lo prende il mic d'insieme"],["close","Ravvicinato ("+mic+")"]], def:"pan",
     chans:function(m){ return m==="pan" ? [] : [["",mic]]; } };
@@ -21462,7 +21525,7 @@ function countAccessori(){
     else if((it.type==="batteria"||it.type.indexOf("timpani")===0) && parts(it).leggio===true) leggii++;
     // sgabelli
     if(it.type==="sgabello") sgabelli++;
-    else if(KEYS_BENCH[it.type] && it.panca!==false) sgabelli++;
+    else if(hasPanca(it)) sgabelli++;
     else if(isStool) sgabelli+=(STOOL_POSTAZ[it.type]||mult);
     else if(it.type==="batteria" && parts(it).stool!==false) sgabelli++;   /* solo se lo sgabello è attivo (toggle Sgabello) */
     else if(it.type==="direttore" && it.sgab===true) sgabelli++;
@@ -25783,7 +25846,7 @@ function resetCatalogView(){
 var H3D={ pedana:0,scala:40,rampa:40,parapetto:110,fondale:400,quinta:400,truss:30,transenna:120, topattivo:180,
   tappeto:1,tavolo:75,sedia:85,sedialeggio:115,leggio:125,podio:20,pedanacoro:60,sgabello:75,ventilatore:120,
   batteria:120,edrums:110,drumshield:180,rullante:80,percussioni:90,cajon:48,cajonpost:48,timbales:90,
-  conga:76,quinto:76,tumba:76,bongos:65,djembe:60,surdo:95,tamburello:100,campanaccio:100,templeblocks:95,triangoloperc:130,tavolopercussioni:90,
+  conga:76,quinto:76,tumba:76,bongos:65,djembe:60,surdo:95,tamburello:100,campanaccio:100,chimes:140,templeblocks:95,triangoloperc:130,tavolopercussioni:90,
   crotali:120,woodblock:95,flexaton:92,
   timpani:90,timpani3:90,timpani2:90,
   grancassa:130,piatto:140,piatticoppia:40,campane:170,tamtam:180,glockenspiel:90,xilofono:95,vibrafono:95,marimba:95,
