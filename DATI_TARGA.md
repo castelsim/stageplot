@@ -285,6 +285,7 @@ etichetta solo «Marca Modello»), e la **Lista carichi** del PDF scrive accanto
 | `kawai_es120` | Kawai ES120 | 1305 × 280 × 150 | 12,0 | **9** | — | `Kawai_ES120_OwnerManual.pdf` p.33 |
 | `roland_fp40` | Roland FP-40 | 1307 × 332 × 122 | 14,0 | **22** (max) | — | `Roland_FP-40_ReferenceManual.pdf` p.56 |
 | `thomann_sp120` | Thomann SP-120 (73 tasti) | 1070 × 275 × 95 | 6,2 | non dichiarato | — | `Thomann_SP-120_UserManual.pdf` p.22 |
+| `korg_minilogue_xd` | Korg minilogue xd (tastiera) | 500 × 300 × 85 | 2,8 | 8 | — | `Korg_minilogue_xd_OwnerManual.pdf` p.66 |
 | `boss_katana50g3` | Boss Katana-50 Gen 3 | 470 × 238 × 398 | 11,6 | **47** | 50 | `Boss_Katana-Gen3_ReferenceManual.pdf` p.17 |
 | `harleybenton_hb10g` | Harley Benton HB-10G | 289 × 176 × 314 | 4,2 | **20** (max) | 10 | `HarleyBenton_HB-10G_UserManual.pdf` p.16 |
 | `harleybenton_hb20r` | Harley Benton HB-20R | 380 × 175 × 340 | 7 | **40** (max) | 20 | `HarleyBenton_HB-20R_UserManual.pdf` p.16 |
@@ -384,6 +385,18 @@ Stage 4 ed Electro 7, Thomann SP-120, Marshall MG30GFX, Markbass Micromark 801, 
 **Rimasto fuori: Casio CDP-S110** (4° fra gli stage piano). casio.com risponde 403 a ogni accesso
 automatico, e i numeri che girano nei negozi non tornano fra loro (8 W o 10 W): senza il PDF di Casio
 non si scrive niente. Entra appena qualcuno scarica la *User's Guide* dal browser.
+
+### Korg minilogue xd (14/10/2026) — modello con icona propria in scala
+
+Chiave `korg_minilogue_xd`, tipo «Tastiera». Owner's Manual inglese ufficiale Korg
+(`Korg_minilogue_xd_OwnerManual.pdf`, scaricato da korg.com; la pagina PDF coincide con quella stampata).
+p.66 (Specifications): «Keyboard (minilogue xd) 37 keys (slim keyboard, velocity sensitive)» ·
+«Power consumption 8 W (no-load power consumption: 0.1 W at 230 V)» · «Dimensions (W x D x H) minilogue xd:
+500 × 300 × 85 mm» · «Weight minilogue xd: 2.8 kg» · «OUTPUT L/MONO and R jacks (6.3mm monaural phone jack,
+unbalanced)» · «Power AC adapter (DC 9V)». p.8: «To output monaural sound, use the OUTPUT L/MONO jack.»
+⚠ Non è il **xd module** (500 × 179 × 85 mm, 2,6 kg, senza tastiera): stesso manuale, altra riga.
+L'icona (`icons.js`, `korg_minilogue_xd`) è un disegno vettoriale nostro in scala 1 unità = 1 cm, con la
+disposizione dallo schema di p.5 e i colori dalle foto ufficiali Korg; niente immagini Korg nel repo.
 
 ### Il pezzo che il dato di targa non dice: le superfici di controllo
 
