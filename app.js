@@ -7634,7 +7634,9 @@ function custEditorApri(rect, opz){
   syncActiveVariant();   /* VARIANTS porta il progetto vero: con l'editor aperto non si aggiorna più */
   var rot=base ? (base.rot||0) : 0, cx=r.x+r.w/2, cy=r.y+r.d/2, inclusi=[];
   if(base && base.grp) inclusi=state.items.filter(function(x){ return x.grp===base.grp && x.id!==base.id; });
-  else if(!base && opz.includi) inclusi=custDentroArea(r);   /* la stessa regola della domanda «Includere gli N elementi?» */
+  /* chi ha la spunta nella domanda (ids), oppure, con true, chi entra di serie: la stessa regola (custDentroArea) */
+  else if(!base && Array.isArray(opz.includi)){ var _ok=custMaiDentro(); inclusi=state.items.filter(function(x){ return opz.includi.indexOf(x.id)>=0 && !_ok[x.type] && !x.rackId; }); }
+  else if(!base && opz.includi) inclusi=custDentroArea(r);
   var realNext=nextId, vKey=String(activeVar||"");
   /* I LEGAMI DEGLI INCLUSI (revisione finale, C1): il palco temporaneo contiene solo gli inclusi, e normalizeState toglie
      ogni riferimento verso un elemento assente (il wedge d'ascolto, il ricevitore, la DI, il rack rimasti fuori dal
@@ -7850,14 +7852,113 @@ function custAggancia(v, e){ var s=(custAggancio && !(e && (e.metaKey||e.ctrlKey
 function custAgganciaPalco(v, e){ var s=(snapMode==="0" || (e && (e.metaKey||e.ctrlKey))) ? 1 : 5; return Math.round(v/s)*s; }
 /* il rettangolo sta sul palco (spec: «massima il palco»): i capi si fermano ai bordi */
 function custSulPalco(p){ var S=state.stage; return {x:Math.max(0, Math.min(+S.w||0, p.x)), y:Math.max(0, Math.min(+S.d||0, p.y))}; }
-/* chi sta dentro l'area: centro dentro, come la selezione a rettangolo. Fuori: gli elementi personalizzati e i pezzi di un
-   altro elemento personalizzato (lo romperebbero), e ciò che non si vede (rack, occhio chiuso). */
 /* tipi che non sono un pezzo di un oggetto: zone dei microfoni panoramici, metri, blocchi di platea */
 function custMaiDentro(){ return {custom:1, custshape:1, miczone:1, metro:1, platea:1}; }
-function custDentroArea(r){
-  var agglo={}, no=custMaiDentro(); (state.items||[]).forEach(function(x){ if(x.type==="custom" && x.grp) agglo[x.grp]=1; });
-  return (state.items||[]).filter(function(x){ return !no[x.type] && !(x.grp && agglo[x.grp]) && itemPickable(x)
-    && x.x>=r.x && x.x<=r.x+r.w && x.y>=r.y && x.y<=r.y+r.d; });
+/* CHI ENTRA NELL'AREA (14/10/2026, Simone: «faccio crea elemento e poi seleziono una porzione di spazio nella quale ci sono
+   altri strumenti o elementi, non mi chiede se voglio ottenerli o meno»). Prima contava solo il CENTRO: il violinista con
+   testa e violino nel rettangolo e il centro 5 cm fuori restava fuori in silenzio, e l'editor partiva vuoto. Il centro
+   fuori vuol dire al massimo metà dell'ingombro dentro (un rettangolo è simmetrico): era proprio quello che si vedeva.
+   Adesso si misura la parte dell'ingombro vero (ruotato con l'elemento) che cade nel rettangolo, e la domanda arriva ogni
+   volta che nell'area c'è qualcosa che si vede:
+   - centro dentro → proposto CON la spunta (la regola di prima: chi entrava entra ancora);
+   - centro fuori ma almeno un quinto dentro → proposto SENZA spunta, «sporge dall'area»: lo si prende con un clic;
+   - più grande dell'area e dentro per meno di metà → è il fondo su cui la si disegna (la pedana, una forma): non si propone;
+   - chi sporge e viene preso allarga l'area fino a contenerlo (custAreaPer): l'ingombro dell'elemento personalizzato deve
+     contenere i suoi pezzi, o selezione, collisioni e PDF direbbero una misura falsa;
+   - restano fuori, e la finestra lo dice: col lucchetto (nel gruppo non si muoverebbero: drag filtra itemEditable),
+     nascosti o sfumati nella vista attiva, gli altri elementi personalizzati e i loro pezzi (uno non entra in un altro).
+   Zone dei microfoni, metri e platee non sono pezzi di un oggetto (custMaiDentro): non si nominano. */
+var CUST_SFIORA=0.2;   /* sotto un quinto dell'ingombro nell'area un elemento è solo sfiorato (pochi cm sul bordo): non si nomina */
+function custPoligonoArea(P){ var s=0; for(var i=0;i<P.length;i++){ var a=P[i], b=P[(i+1)%P.length]; s+=a[0]*b[1]-b[0]*a[1]; } return Math.abs(s)/2; }
+/* il poligono convesso P tagliato dal rettangolo r (Sutherland–Hodgman sui quattro lati) */
+function custTagliaSuRett(P, r){
+  [[0,r.x,1],[0,r.x+r.w,-1],[1,r.y,1],[1,r.y+r.d,-1]].forEach(function(l){
+    if(!P.length) return;
+    var k=l[0], v=l[1], s=l[2], out=[];
+    for(var i=0;i<P.length;i++){ var a=P[i], b=P[(i+1)%P.length], ia=s*(a[k]-v)>=0, ib=s*(b[k]-v)>=0;
+      if(ia) out.push(a);
+      if(ia!==ib){ var t=(v-a[k])/(b[k]-a[k]); out.push([a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t]); } }
+    P=out; });
+  return P;
+}
+/* i quattro angoli dell'ingombro sul palco, girati con l'elemento (gli stessi di «Adatta palco») */
+function custAngoliSulPalco(it){ return adattaAngoli(it).map(function(p){ return [it.x+p[0], it.y+p[1]]; }); }
+/* quanta parte dell'ingombro cade nel rettangolo: da 0 a 1 */
+function custQuotaDentro(it, r){
+  var P=custAngoliSulPalco(it), A=custPoligonoArea(P);
+  if(!(A>0)) return (it.x>=r.x && it.x<=r.x+r.w && it.y>=r.y && it.y<=r.y+r.d) ? 1 : 0;
+  return Math.min(1, custPoligonoArea(custTagliaSuRett(P, r))/A);
+}
+/* → {candidati:[{it, q, scelto, sporge}], bloccati:[], nascosti:[], sfumati:[], personalizzati:[]} */
+function custInclusione(r){
+  var its=state.items||[], no=custMaiDentro(), basi={}, visti={}, areaR=r.w*r.d;
+  var E={candidati:[], bloccati:[], nascosti:[], sfumati:[], personalizzati:[]};
+  its.forEach(function(x){ if(x && x.type==="custom" && x.grp) basi[x.grp]=x; });
+  its.forEach(function(x){
+    if(!x || x.rackId || x.type==="custshape" || (no[x.type] && x.type!=="custom")) return;   /* nel rack: segue il rack */
+    var P=custAngoliSulPalco(x), A=custPoligonoArea(P), q=custQuotaDentro(x, r);
+    var centro=x.x>=r.x && x.x<=r.x+r.w && x.y>=r.y && x.y<=r.y+r.d;
+    if(!centro && !(q>=CUST_SFIORA)) return;
+    if(A>areaR && q<0.5) return;   /* il fondo su cui si disegna l'area */
+    var b=x.type==="custom" ? x : ((x.grp && basi[x.grp]) || null);
+    if(b){ if(!visti[b.id]){ visti[b.id]=1; E.personalizzati.push(b); } return; }
+    var pieno=centro || q>=0.5;
+    if(!itemPickable(x)){ if(pieno) (itemEyeShown(x) && !isCover(x) ? E.sfumati : E.nascosti).push(x); return; }
+    if(x.locked===true && isLockable(x)){ if(pieno) E.bloccati.push(x); return; }
+    E.candidati.push({it:x, q:q, scelto:pieno && A<=areaR, sporge:q<0.999});
+  });
+  /* prima quelli con la spunta, poi gli altri; dentro, l'ordine del palco */
+  E.candidati=E.candidati.filter(function(c){ return c.scelto; }).concat(E.candidati.filter(function(c){ return !c.scelto; }));
+  return E;
+}
+/* chi entra di serie (la spunta della domanda): lo usa anche l'editor aperto con {includi:true} */
+function custDentroArea(r){ return custInclusione(r).candidati.filter(function(c){ return c.scelto; }).map(function(c){ return c.it; }); }
+/* l'area che contiene anche gli elementi scelti che sporgono (al centimetro, dentro il palco) */
+function custAreaPer(r, its){
+  var S=state.stage, x0=r.x, y0=r.y, x1=r.x+r.w, y1=r.y+r.d;
+  (its||[]).forEach(function(x){ custAngoliSulPalco(x).forEach(function(p){ x0=Math.min(x0,p[0]); y0=Math.min(y0,p[1]); x1=Math.max(x1,p[0]); y1=Math.max(y1,p[1]); }); });
+  x0=Math.max(0, Math.floor(x0+1e-6)); y0=Math.max(0, Math.floor(y0+1e-6));
+  x1=Math.min(Math.max(+S.w||0, r.x+r.w), Math.ceil(x1-1e-6)); y1=Math.min(Math.max(+S.d||0, r.y+r.d), Math.ceil(y1-1e-6));
+  return {x:x0, y:y0, w:x1-x0, d:y1-y0};
+}
+/* il nome che si legge sul palco («Violino I 1»), col tipo quando il nome non lo dice («Archi (Pedana)») */
+function custNomeDi(it){
+  if(it && it.type==="custom") return "«"+((it.cust && it.cust.nome) || "Elemento personalizzato")+"»";
+  var l=String((it && it.label) || "").replace(/\s+/g," ").trim(), tn=(TYPES[it.type] && TYPES[it.type].nome) || it.type;
+  return !l ? tn : (l.toLowerCase().indexOf(String(tn).toLowerCase())>=0 ? l : l+" ("+tn+")");
+}
+/* una riga della domanda: chi sporge lo dice; chi è dentro per meno di metà dice anche quanto */
+function custInclusioneRiga(c){
+  return custNomeDi(c.it)+(!c.sporge ? "" : (c.q<0.5 ? " · sporge, dentro per il "+Math.max(1, Math.round(c.q*100))+"%" : " · sporge dall'area"));
+}
+/* le righe di chi resta fuori, ciascuno col suo motivo */
+function custInclusioneFuori(E){
+  /* per nome finché sono pochi («Archi (Pedana)»), per tipo quando sono tanti («24 × Corista») */
+  var r=[], uno=function(a, s1, sN, perche){ if(a.length) r.push((a.length===1 ? s1 : sN)+" "+perche+": "+(a.length<=6 ? a.map(custNomeDi).join(", ") : custElencoTipi(a))+"."); };
+  uno(E.bloccati, "Resta fuori,", "Restano fuori,", E.bloccati.length===1 ? "bloccato (lucchetto chiuso)" : "bloccati (lucchetto chiuso)");
+  uno(E.nascosti, "Resta fuori,", "Restano fuori,", E.nascosti.length===1 ? "nascosto (occhio chiuso)" : "nascosti (occhio chiuso)");
+  uno(E.sfumati, "Resta fuori,", "Restano fuori,", E.sfumati.length===1 ? "sfumato nella vista attiva" : "sfumati nella vista attiva");
+  if(E.personalizzati.length) r.push((E.personalizzati.length===1 ? "Resta fuori l'elemento personalizzato " : "Restano fuori gli elementi personalizzati ")+
+    E.personalizzati.map(custNomeDi).join(", ")+": uno non entra dentro un altro.");
+  return r;
+}
+/* sotto la lista: di quanto si allarga l'area, e chi ci cade dentro senza esserci stato scelto */
+function custInclusioneNota(r, scelti){
+  var p=custAreaPer(r, scelti);
+  if(p.x===r.x && p.y===r.y && p.w===r.w && p.d===r.d) return "";
+  var s="Per contenere chi sporge, l'area si allarga a "+custMisura(p.w, p.d)+".", id={};
+  scelti.forEach(function(x){ id[x.id]=1; });
+  var anche=custDentroArea(p).filter(function(x){ return !id[x.id]; });
+  if(anche.length) s+=anche.length===1 ? " Nell'area più grande c'è anche "+custNomeDi(anche[0])+": resta fuori."
+                                        : " Nell'area più grande ci sono anche "+custElencoTipi(anche)+": restano fuori.";
+  return s;
+}
+function custInclusioneTitolo(n, candidati){
+  if(!candidati) return "Gli elementi nell'area restano fuori";
+  if(!n) return "Includere elementi nell'area?";
+  /* l'articolo segue il suono del numero: «i 2 elementi», «gli 8 elementi», «gli 11 elementi» */
+  var art=/^(8|11|8\d)$/.test(String(n)) ? "gli" : "i";
+  return n===1 ? "Includere l'elemento nell'area?" : (art==="gli" ? "Includere gli "+n+" elementi nell'area?" : "Includere i "+n+" elementi nell'area?");
 }
 /* «Cantante, 2 × Asta microfono»: chi conta da solo, per nome del tipo */
 function custElencoTipi(its){
@@ -7982,21 +8083,79 @@ function custFinestraMisure(area, cb, annulla){
 /* dopo il rettangolo: misure, domanda di inclusione, editor */
 function custChiediMisureEInclusione(area){
   custFinestraMisure(area, function(a){
-    var dentro=custDentroArea(a);
-    var apri=function(incl){ custTogliAnteprimaArea(); if(custApriEditor(a, incl)) custMostraScheda({nome:(window.__custNomePreso||"")}); };
-    if(!dentro.length) return apri(false);
-    /* l'articolo segue il suono del numero: «i 2 elementi», «gli 8 elementi», «gli 11 elementi» */
-    var n=dentro.length, art=/^(8|11|8\d)$/.test(String(n)) ? "gli" : "i";
-    var tit=n===1 ? "Includere l'elemento nell'area?" : (art==="gli" ? "Includere gli "+n+" elementi nell'area?" : "Includere i "+n+" elementi nell'area?");
-    custChiedi(tit, custElencoTipi(dentro)+".\n\nSe sì, diventano pezzi dell'elemento e restano veri: contano da soli nelle liste. Se no, restano sul palco e l'editor parte vuoto.",
-      ["No", "Sì"], function(i){ if(i<0){ custTogliAnteprimaArea(); custToast("Creazione annullata: il palco non è cambiato."); return; } apri(i===1); });
+    var E=custInclusione(a);
+    var apri=function(incl, r){ custTogliAnteprimaArea(); if(custApriEditor(r||a, incl)) custMostraScheda({nome:(window.__custNomePreso||"")}); };
+    if(!E.candidati.length && !custInclusioneFuori(E).length) return apri(false);   /* nell'area non c'è niente che si veda */
+    custChiediInclusione(a, E, apri, function(){ custTogliAnteprimaArea(); custToast("Creazione annullata: il palco non è cambiato."); });
   }, function(){ custTogliAnteprimaArea(); });
+}
+/* LA DOMANDA (14/10): chi verrebbe incluso, uno per riga con la spunta (tolta a chi sporge per più di metà), chi resta
+   fuori e perché, e di quanto si allarga l'area. Sul palco: verde chi entra, grigio tratteggiato chi resta fuori.
+   apri(ids|false, area) apre l'editor; annulla = Esc o clic fuori. → l'oggetto della finestra, con scegli(id, sì/no). */
+function custChiediInclusione(a, E, apri, annulla){
+  var scelti={}, F=null, nota=null, ci=E.candidati.length;
+  E.candidati.forEach(function(c){ if(c.scelto) scelti[c.it.id]=1; });
+  function lista(){ return E.candidati.filter(function(c){ return scelti[c.it.id]; }).map(function(c){ return c.it; }); }
+  var corpo=null, primaSpunta=null;
+  if(ci){
+    corpo=document.createElement("div"); corpo.className="cust-incl";
+    var righe=document.createElement("div"); righe.className="cust-incl-righe";
+    E.candidati.forEach(function(c){
+      var lab=document.createElement("label"), cb=document.createElement("input"), sp=document.createElement("span");
+      lab.className="cust-incl-riga"; cb.type="checkbox"; cb.checked=!!c.scelto; sp.textContent=custInclusioneRiga(c);
+      cb.addEventListener("change", function(){ scegli(c.it.id, cb.checked); });
+      if(!primaSpunta) primaSpunta=cb;
+      lab.appendChild(cb); lab.appendChild(sp); righe.appendChild(lab); });
+    corpo.appendChild(righe);
+    nota=document.createElement("p"); nota.className="cust-incl-nota"; nota.setAttribute("aria-live","polite"); corpo.appendChild(nota);
+  }
+  function aggiorna(){
+    var l=lista();
+    if(nota) nota.textContent=custInclusioneNota(a, l);
+    try{ var h=F && F.ov && F.ov.querySelector("#custDlgT"); if(h) h.textContent=custInclusioneTitolo(l.length, ci); }catch(e){}
+    if(ci && F && F.bottoni && F.bottoni[1]) F.bottoni[1].disabled=!l.length;
+    custAnteprimaInclusione(a, E, l);
+  }
+  function scegli(id, on){ if(on) scelti[id]=1; else delete scelti[id]; aggiorna(); }
+  var fuori=custInclusioneFuori(E);
+  var o={title:custInclusioneTitolo(lista().length, ci), corpo:corpo, esc:annulla, scegli:scegli,
+    msg:(fuori.length ? fuori.join("\n")+"\n\n" : "")+(ci
+      ? "Se sì, chi ha la spunta diventa un pezzo dell'elemento e resta vero: conta da solo nelle liste. Se no, restano tutti sul palco e l'editor parte vuoto."
+      : "Restano sul palco e l'editor parte vuoto."),
+    bottoni: ci ? [{label:"No", run:function(){ apri(false, a); }},
+                   {label:"Sì", cls:"primary", resta:function(){ return lista().length>0; },
+                    run:function(){ var l=lista(); apri(l.map(function(x){ return x.id; }), custAreaPer(a, l)); }}]
+                : [{label:"Annulla", run:annulla}, {label:"Continua", cls:"primary", run:function(){ apri(false, a); }}]};
+  /* nessuna spunta: il Sì è spento e non prende il fuoco, che va alla prima riga (Spazio la spunta) */
+  if(ci && !lista().length && primaSpunta) o.fuoco=primaSpunta;
+  F=custFinestra(o);
+  aggiorna();
+  /* la finestra si mette dal lato opposto all'area, col velo più leggero: chi entra (verde) e chi no si vede sul palco */
+  try{ var pv=document.getElementById("custarea-preview"), bb=pv && pv.getBoundingClientRect && pv.getBoundingClientRect();
+    if(F && F.ov && bb && bb.width>0) F.ov.classList.add("cust-ov-lato", (bb.left+bb.width/2)<window.innerWidth/2 ? "cust-ov-destra" : "cust-ov-sinistra"); }catch(e){}
+  return o;
+}
+/* sul palco, sotto la domanda: l'area che verrà (allargata se serve, con quella disegnata a filo sottile), chi entra in
+   verde, chi resta fuori in grigio tratteggiato. Solo un disegno: se qualcosa non va, la domanda resta. */
+function custAnteprimaInclusione(a, E, scelti){
+  try{
+    var p=custAreaPer(a, scelti), id={}; scelti.forEach(function(x){ id[x.id]=1; });
+    custAnteprimaArea(p);
+    var g=document.getElementById("custarea-preview"); if(!g || !g.appendChild) return;
+    var v=document.getElementById("custincl-preview"); if(v && v.parentNode) v.parentNode.removeChild(v);
+    v=document.createElementNS("http://www.w3.org/2000/svg","g"); v.id="custincl-preview";
+    var poli=function(x, cls){ return '<polygon class="'+cls+'" points="'+custAngoliSulPalco(x).map(function(q){ return q[0]+","+q[1]; }).join(" ")+'"/>'; };
+    var s=(p.x!==a.x || p.y!==a.y || p.w!==a.w || p.d!==a.d) ? '<rect class="cust-area-prima" x="'+a.x+'" y="'+a.y+'" width="'+a.w+'" height="'+a.d+'"/>' : "";
+    E.candidati.forEach(function(c){ s+=poli(c.it, id[c.it.id] ? "cust-incl-si" : "cust-incl-no"); });
+    E.bloccati.concat(E.personalizzati).forEach(function(x){ s+=poli(x, "cust-incl-no"); });
+    v.innerHTML=s; g.insertBefore(v, g.firstChild ? g.firstChild.nextSibling : null);
+  }catch(e){}
 }
 function custApriEditor(area, incl, baseId){
   if(!custIngressiAttivi()) return false;
   if(custInvioInCorso()) return false;
   var prima={vb:Object.assign({}, vb), utente:vistaUtente};
-  if(!custEditorApri(area, baseId!=null ? {baseId:baseId} : {includi:!!incl})){ custToast("Non è stato possibile aprire l'editor: il palco non è cambiato.", true); return false; }
+  if(!custEditorApri(area, baseId!=null ? {baseId:baseId} : {includi:Array.isArray(incl) ? incl : !!incl})){ custToast("Non è stato possibile aprire l'editor: il palco non è cambiato.", true); return false; }
   custVistaPrima=prima; custStatoIniziale=stateToJSON();
   custStrumento("sel"); custRenderEditor();
   return true;
