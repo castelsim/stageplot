@@ -27264,10 +27264,10 @@ function frameSummaryText(){
   var f=state.printFrame;
   if(!f) return "tutto il palco ("+fmtM(state.stage.w)+" × "+fmtM(state.stage.d)+") con le quote";
   var st=frameStageRect();
-  /* area che coincide col palco: stampa lo stesso rettangolo ma SENZA il margine delle quote —
-     va detto, altrimenti sembra identico a «tutto il palco» e non si capisce perché il PDF cambia */
+  /* area che coincide col palco: va detto, altrimenti sembra un'area qualsiasi. Dal 14/10 le scritte del
+     palco e le quote ci sono (printScene): prima qui si avvisava «senza margine per le quote» */
   if(Math.abs(f.x-st.x)<2 && Math.abs(f.y-st.y)<2 && Math.abs(f.w-st.w)<2 && Math.abs(f.h-st.h)<2)
-    return "il palco esatto ("+fmtM(f.w)+" × "+fmtM(f.h)+"), senza margine per le quote";
+    return "il palco esatto ("+fmtM(f.w)+" × "+fmtM(f.h)+"), con le quote";
   return "area scelta "+fmtM(f.w)+" × "+fmtM(f.h)+(f.x||f.y ? " · da "+fmtM(f.x)+"; "+fmtM(f.y) : "");
 }
 function renderFramePanel(){
@@ -28915,22 +28915,73 @@ function cartHFor(header, paperKey, orient){
 function cartHForHeader(header, titleW){
   return pdfCartRighe(header, titleW).cartH;
 }
+/* RIQUADRO DEL DISEGNO (14/10/2026, Simone: «ho stampato un PDF e non vedo la scritta fondo palco, e la relativa
+   misura»). FONDO PALCO (y=-42), PUBBLICO (D+38) e le quote del palco stanno FUORI dal rettangolo del palco: con
+   l'area automatica ci pensa il margine di 80 cm per parte; con un'area scelta a mano il riquadro ERA l'area
+   esatta, e con «Solo palco» — o con l'area che nasce appena si apre la scelta dell'area — le scritte cadevano
+   fuori dal ritaglio del disegno: nel file c'erano, sul foglio no. Ora l'area si allarga dello stesso margine
+   (printDM: 80 cm, di più solo a scale piccole) su ogni lato in cui contiene il bordo del palco (fin dove non
+   ci arriva già da sé). Se l'area taglia il palco, da quella parte il bordo non c'è e il riquadro resta quello
+   scelto.
+   F = riquadro intero (area + posto per le scritte) · R = ciò che non si deve mai ritagliare se ci sta
+   (con l'area automatica è F stesso, come prima; con quella scelta a mano è l'area). */
+function printScene(k){
+  var A=printArea(), DM=printDM(k);
+  if(!A.custom){ var F0={x:A.x-DM, y:A.y-DM, w:A.w+2*DM, h:A.h+2*DM}; return {A:A, F:F0, R:F0}; }
+  var W=state.stage.w||0, D=state.stage.d||0, e=1, x0=A.x, y0=A.y, x1=A.x+A.w, y1=A.y+A.h;
+  var traX=x0<W && x1>0, traY=y0<D && y1>0;   /* l'area incrocia il palco in orizzontale / in verticale */
+  if(traX && y0<=e && y1>0)  y0=Math.min(y0, -DM);      /* contiene il bordo di fondo → FONDO PALCO e la quota sopra */
+  if(traX && y1>=D-e && y0<D) y1=Math.max(y1, D+DM);   /* il bordo verso il pubblico → PUBBLICO */
+  if(traY && x0<=e && x1>0)  x0=Math.min(x0, -DM);      /* il lato sinistro → profondità e altezza */
+  if(traY && x1>=W-e && x0<W) x1=Math.max(x1, W+DM);   /* il lato destro (e il disegno resta centrato sul palco) */
+  return {A:A, F:{x:x0, y:y0, w:x1-x0, h:y1-y0}, R:{x:A.x, y:A.y, w:A.w, h:A.h}};
+}
+/* Quanto chiedono davvero le scritte del palco su ogni lato dell'area scelta (cm, al corpo k del PDF), mai più
+   del posto che printScene ha aggiunto da quella parte. Serve solo quando a quella scala il foglio non ha posto
+   per tutto il riquadro: lo spazio che c'è va dove sono le scritte, non a metà per parte. Sopra FONDO PALCO
+   (base a -42, salita 0,8 em del corpo 16); sotto PUBBLICO (base a D+38, discesa 0,25 em); a sinistra (o a
+   destra, se lì va la quota) profondità e altezza ruotate (stageDimsMarkup: 16 e 33 cm, corpi 14 e 13).
+   Sopra e sotto si conta il caso peggiore, con una quota sullo stesso bordo (zoneLblY). */
+function printNeeds(S, k){
+  k=k>0 ? k : 1;
+  var F=S.F, R=S.R, b=stageBlocks(), W=state.stage.w||0, l=0, r=0, aria=4;
+  function inBlocco(px,py){ return b.some(function(o){ return px>o.x && px<o.x+o.w && py>o.y && py<o.y+o.d; }); }
+  b.forEach(function(q){
+    var my=q.y+q.d/2, quota=(q.h ? 33+0.8*13*k : 16+0.8*14*k)+aria;
+    if(!inBlocco(q.x-4, my)){ if(q.x<=1) l=Math.max(l, quota); }
+    else if(!inBlocco(q.x+q.w+4, my) && q.x+q.w>=W-1) r=Math.max(r, quota);
+  });
+  /* sopra e sotto: dove zoneLblY mette FONDO PALCO e PUBBLICO quando sullo stesso bordo c'è una quota */
+  var fondo=Math.max(42, 16+0.75*14*k+aria), pubblico=Math.max(38, 22+0.25*14*k+aria+0.75*16*k);
+  return { t:Math.min(R.y-F.y, fondo+0.8*16*k+aria), b:Math.min(F.y+F.h-R.y-R.h, pubblico+0.25*16*k+aria),
+           l:Math.min(R.x-F.x, l), r:Math.min(F.x+F.w-R.x-R.w, r) };
+}
 function scaleFits(N, paperKey, orient, cartH){
-  var L=pdfLayout(paperKey, orient, cartH), A=printArea(), DM=A.custom?0:80;
-  return (A.w+2*DM)*10/N<=L.drawW && (A.h+2*DM)*10/N<=L.drawH;
+  /* «adatta al foglio» vuole tutto il riquadro, scritte del palco comprese */
+  var L=pdfLayout(paperKey, orient, cartH), F=printScene(pdfTextK(N)).F;
+  return F.w*10/N<=L.drawW && F.h*10/N<=L.drawH;
 }
 /* Geometria del disegno sul foglio a scala 1:N (mm). Se il contenuto sfora l'area utile, NON lo rimpicciolisce:
    tiene la scala esatta (10/N mm per cm) e RITAGLIA la parte centrale che ci sta (cropVb). */
 function pdfStageBox(N, paperKey, orient, cartH){
-  var L=pdfLayout(paperKey, orient, cartH), A=printArea(), DM=A.custom?0:80;
+  var L=pdfLayout(paperKey, orient, cartH), S=printScene(pdfTextK(N)), A=S.A, F=S.F, R=S.R;
   var mmPerCm=10/N;
-  var fullMmW=(A.w+2*DM)*mmPerCm, fullMmH=(A.h+2*DM)*mmPerCm;
+  var fullMmW=F.w*mmPerCm, fullMmH=F.h*mmPerCm;
   var visMmW=Math.min(fullMmW, L.drawW), visMmH=Math.min(fullMmH, L.drawH);
   var ix=L.drawX+(L.drawW-visMmW)/2, iy=L.drawY+(L.drawH-visMmH)/2;
   var cropCmW=visMmW/mmPerCm, cropCmH=visMmH/mmPerCm;
-  var cx=A.x-DM+(A.w+2*DM)/2, cy=A.y-DM+(A.h+2*DM)/2;   /* centro della scena (area + margine quote) */
-  var vb={x:cx-cropCmW/2, y:cy-cropCmH/2, w:cropCmW, h:cropCmH};
-  var cropped = visMmW < fullMmW-0.05 || visMmH < fullMmH-0.05;
+  /* La scala resta quella scelta: se il riquadro intero non ci sta si stampa la parte centrale. Ma se ci sta
+     l'area scelta (R) si sacrifica solo il posto delle scritte, mai un pezzo dell'area: la finestra si sposta
+     quanto basta per tenerla tutta. Con l'area automatica R è F, e tutto resta com'era (parte centrale). */
+  var nd=printNeeds(S, pdfTextK(N));
+  function inizio(f0, fw, r0, rw, vis, nA, nB){
+    if(rw>vis+1e-6) return r0+rw/2-vis/2;                 /* l'area stessa non ci sta: la parte centrale */
+    var spare=vis-rw;
+    if(spare>=nA+nB-1e-6) return Math.max(r0+rw+nB-vis, Math.min(r0-nA, f0+fw/2-vis/2));   /* le scritte ci stanno */
+    return r0-(nA+nB>0 ? spare*nA/(nA+nB) : spare/2);     /* non ci stanno del tutto: lo spazio va dove servono */
+  }
+  var vb={x:inizio(F.x, F.w, R.x, R.w, cropCmW, nd.l, nd.r), y:inizio(F.y, F.h, R.y, R.h, cropCmH, nd.t, nd.b), w:cropCmW, h:cropCmH};
+  var cropped = visMmW < R.w*mmPerCm-0.05 || visMmH < R.h*mmPerCm-0.05;
   return {L:L, A:A, ix:ix, iy:iy, mmW:visMmW, mmH:visMmH, vb:vb, cropped:cropped, mmPerCm:mmPerCm};
 }
 /* cartH: altezza REALE del cartiglio (cresce se il riferimento va a capo). Passarla è indispensabile:
@@ -29039,8 +29090,7 @@ function pdfScaleValue(){ var s=document.getElementById("pdfScale"); if(!s) retu
    automatica). Una funzione sola perché lo usa anche la pianta del PDF (pdfVenueLayer), che deve cadere
    esattamente sotto il disegno di svg2pdf. */
 function sceneVbDefault(){
-  var A=printArea(), DM=A.custom?0:80;
-  return {x:A.x-DM, y:A.y-DM, w:A.w+2*DM, h:A.h+2*DM};
+  return printScene().F;   /* area + posto per FONDO PALCO, PUBBLICO e quote (printScene) */
 }
 /* La planimetria va sul foglio quando ha un'immagine e il suo occhio è acceso (venue.enabled: lo stesso
    interruttore del pannello Planimetria e dei Layer). Spenta = resta fuori da PDF, PNG e anteprima. */
@@ -29113,10 +29163,12 @@ function stageSceneSvg(cropVb, opts){
      scala, e una da jsPDF fuori dal riquadro a corpo fisso. Stessa misura, due grafie, e le due si
      accavallavano sopra FONDO PALCO. Su un palco composto invece queste quotano i singoli blocchi e
      dicono qualcosa che l'ingombro totale non dice: lì restano. */
-  var dims = (A.custom || opts.noBlockDims) ? '' : stageDimsMarkup();
-  var W=state.stage.w, D=state.stage.d;
-  var zones='<text fill="#1f2937" font-size="16" letter-spacing="2" text-anchor="middle" x="'+(W/2)+'" y="-42">FONDO PALCO</text>'+
-            '<text fill="#1f2937" font-size="16" letter-spacing="2" text-anchor="middle" x="'+(W/2)+'" y="'+(D+38)+'">PUBBLICO</text>';
+  /* Con l'area scelta a mano le quote prima non c'erano (non avevano posto): ora il riquadro gliene fa
+     (printScene), e la misura del palco va sul foglio anche lì (14/10). */
+  var dims = opts.noBlockDims ? '' : stageDimsMarkup();
+  var W=state.stage.w, D=state.stage.d, zy=zoneLblY(dims, window.__sceneTextK, D);
+  var zones='<text fill="#1f2937" font-size="16" letter-spacing="2" text-anchor="middle" x="'+(W/2)+'" y="'+zy.f+'">FONDO PALCO</text>'+
+            '<text fill="#1f2937" font-size="16" letter-spacing="2" text-anchor="middle" x="'+(W/2)+'" y="'+zy.p+'">PUBBLICO</text>';
   /* overlay cablaggio (statico, senza maniglie di editing), filtrato per focus: audio (cavi+rete+P.M.+legenda)
      ed elettrico separati, così ogni pagina-vista mostra SOLO il proprio layer a piena opacità */
   var _keepCab=selCab, _keepStatic=window.__cabStatic; selCab=null; window.__cabStatic=true;
@@ -29157,6 +29209,29 @@ function stageSceneSvg(cropVb, opts){
     '<style>'+scaleSvgTextHalos(scaleSvgFonts(css, opts.textK), opts.textK)+'</style>'+DEFS+
     (opts.piantaASe ? '' : '<rect x="'+vb.x+'" y="'+vb.y+'" width="'+vb.w+'" height="'+vb.h+'" fill="#ffffff"/>')+   /* nel PDF il foglio è già bianco, e il rettangolo coprirebbe la pianta disegnata sotto */
     venue+scaleSvgFonts(body, opts.textK)+'</svg>';
+}
+/* Dove stanno FONDO PALCO e PUBBLICO nel disegno stampato, perché non si sovrappongano alle quote del palco (14/10).
+   Le quote sono a 16 cm dal bordo, e il testo sul foglio cresce col fattore k (scaleSvgFonts) mentre le posizioni
+   no: col palco a blocchi la larghezza del blocco in basso va SOTTO il bordo, e già a 1:100 «6,6 m» toccava
+   PUBBLICO; a 1:200 la quota in alto sale fino a FONDO PALCO. Di base restano a -42 e D+38 (come a schermo); se
+   sullo stesso bordo c'è una quota, la scritta si scosta quanto basta: altezza delle cifre 0,75 em, 4 cm d'aria. */
+function zoneLblY(dims, k, D){
+  k=k>0 ? k : 1;
+  var f=-42, p=D+38, aria=4;
+  String(dims||"").replace(/<text class="dim-(?:edge|h)" x="[-\d.]+" y="([-\d.]+)"[^>]*>/g, function(tag, y){
+    if(/transform=/.test(tag)) return tag;   /* le quote ruotate stanno sui lati */
+    y=+y;
+    if(y<0) f=Math.min(f, y-0.75*14*k-aria);                 /* quota sopra il palco: FONDO PALCO sopra di lei */
+    else if(y>D) p=Math.max(p, y+0.25*14*k+aria+0.75*16*k);  /* quota sotto il palco: PUBBLICO sotto di lei */
+    return tag;
+  });
+  return {f:Math.round(f*10)/10, p:Math.round(p*10)/10};
+}
+/* Margine del riquadro per le scritte del palco (cm per lato): 80 come sempre, di più solo dove il testo
+   ingrandito (k oltre ~2, da 1:200) e FONDO PALCO scostato sopra la quota non ci starebbero più. */
+function printDM(k){
+  k=k>0 ? k : 1;
+  return Math.max(80, Math.ceil(16+0.75*14*k+4+0.8*16*k+4));
 }
 /* TESTO A DIMENSIONE FISSA SUL FOGLIO (11/08). Le scritte del disegno — nomi, quote, FONDO PALCO —
    sono espresse nelle unità dell'SVG, che sono CENTIMETRI REALI: un corpo 14 diventa 14 cm di palco,
@@ -32030,10 +32105,9 @@ function exportPng(fatto){
   if(_pngInCorso){ if(window.__toast) window.__toast("PNG già in preparazione."); return false; }
   _pngInCorso=true;
   if(window.__toast) window.__toast("Preparo il PNG…");
-  var A=printArea();
   var PX=4000;
   var vbP=pngVbConPianta();   /* con la planimetria accesa il PNG si allarga attorno all'area per mostrarla */
-  var dimP=vbP || A;
+  var dimP=vbP || sceneVbDefault();   /* le proporzioni del riquadro disegnato (area + scritte del palco), non della sola area */
   var sc=PX/Math.max(dimP.w,dimP.h);
   var pxW=Math.round(dimP.w*sc), pxH=Math.round(dimP.h*sc);
   var svgStr=stageSceneSvg(vbP || undefined);
