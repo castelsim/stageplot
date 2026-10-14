@@ -10099,14 +10099,15 @@ t("planimetria con l'area «Solo palco»: nel PDF riempie l'area di disegno del 
     conPianta();
     A.state.printFrame = A.frameStageRect();
     const vb = A.sceneVbDefault();
-    eq(vb, { x: 0, y: 0, w: 1200, h: 800 }, "«Solo palco»: il riquadro è il palco esatto");
-    /* 1:100 su A4 orizzontale: palco 120×80 mm al centro di un'area di disegno 257×156 mm (pdfLayout) */
-    const L = A.pdfLayout("a4", "landscape", 22), ix = L.drawX + (L.drawW - 120) / 2, iy = L.drawY + (L.drawH - 80) / 2;
+    /* dal 14/10 il riquadro è il palco più il posto per FONDO PALCO, PUBBLICO e le quote (printScene) */
+    eq(vb, { x: -80, y: -80, w: 1360, h: 960 }, "«Solo palco»: il palco esatto e le sue scritte");
+    /* 1:100 su A4 orizzontale: riquadro 136×96 mm (palco 120×80 al centro) in un'area di disegno 257×156 mm (pdfLayout) */
+    const L = A.pdfLayout("a4", "landscape", 22), ix = L.drawX + (L.drawW - 136) / 2, iy = L.drawY + (L.drawH - 96) / 2;
     const doc = docConImmagini();
-    A.pdfVenueLayer(doc, ix, iy, 120, 80, vb, { x: L.drawX, y: L.drawY, w: L.drawW, h: L.drawH });
+    A.pdfVenueLayer(doc, ix, iy, 136, 96, vb, { x: L.drawX, y: L.drawY, w: L.drawW, h: L.drawH });
     eq(doc.imm.length, 1, "la pianta c'è");
     const [, , x, y, w, h] = doc.imm[0];
-    ok(x < ix - 1 && y < iy - 1 && x + w > ix + 121 && y + h > iy + 81, "la pianta esce dal riquadro del palco: " + [x, y, w, h].map((n) => n.toFixed(1)));
+    ok(x < ix - 1 && y < iy - 1 && x + w > ix + 137 && y + h > iy + 97, "la pianta esce dal riquadro del disegno: " + [x, y, w, h].map((n) => n.toFixed(1)));
     ok(x >= L.drawX - 1e-6 && y >= L.drawY - 1e-6 && x + w <= L.drawX + L.drawW + 1e-6 && y + h <= L.drawY + L.drawH + 1e-6, "ma resta nell'area di disegno");
     /* stessa scala del disegno: 1 cm del mondo = 0,1 mm; la pianta (3000×2000 cm centrata sul palco) è più grande dell'area */
     eq([x, y, w, h].map((n) => Math.round(n * 1000) / 1000), [L.drawX, L.drawY, L.drawW, L.drawH].map((n) => Math.round(n * 1000) / 1000), "riempie l'area intera");
@@ -10117,13 +10118,14 @@ t("planimetria con l'area «Solo palco»: il PNG si allarga per mostrarla, il di
   A.state.printFrame = A.frameStageRect();
   const vb = A.pngVbConPianta();
   ok(vb, "con la pianta accesa il PNG ha un'area sua");
-  eq([vb.x, vb.y, vb.w, vb.h], [-300, -300, 1800, 1400], "un quarto del lato lungo (1200) per parte, dove la pianta c'è");
+  /* il riquadro di partenza è il palco con le sue scritte (-80…1280 × -80…880, printScene dal 14/10) */
+  eq([vb.x, vb.y, vb.w, vb.h], [-420, -420, 2040, 1640], "un quarto del lato lungo del riquadro (1360) per parte, dove la pianta c'è");
   const svg = A.stageSceneSvg(vb);
   const clip = svg.match(/<clipPath id="paClip"><rect x="([-\d.]+)" y="([-\d.]+)" width="([\d.]+)" height="([\d.]+)"/);
-  eq(clip && clip.slice(1).map(Number), [-300, -300, 1800, 1400], "la pianta si vede attorno al palco");
+  eq(clip && clip.slice(1).map(Number), [-420, -420, 2040, 1640], "la pianta si vede attorno al palco");
   /* la pianta finisce a filo del palco a sinistra: niente bordo bianco inutile da quella parte */
   conPianta({ x: 900, y: 400, w: 1800, h: 2000 }); A.state.printFrame = A.frameStageRect();
-  eq(A.pngVbConPianta().x, 0, "dove la pianta non c'è il PNG non si allarga");
+  eq(A.pngVbConPianta().x, -80, "dove la pianta non c'è il PNG non si allarga oltre il riquadro");
   A.state.venue.enabled = false; eq(A.pngVbConPianta(), null, "occhio spento: PNG come sempre");
   conPianta({ w: 600, h: 400 }); A.state.printFrame = A.frameStageRect();
   eq(A.pngVbConPianta(), null, "pianta tutta dentro l'area: PNG come sempre");
@@ -10217,6 +10219,60 @@ t("Forma «Solo testo» vuota: riquadro tratteggiato a schermo, niente nel PDF e
     st.label = "Palco B";
     ok(!/txt-vuoto/.test(A.drawShapeTesto(st)), "scritto il testo, il tratteggio sparisce");
   } finally { A.__scenePrint = keep; A.inVistaCondivisa = keepVm; }
+});
+/* ===== FONDO PALCO e quote con l'area di stampa personalizzata (14/10, Simone: «ho stampato un PDF e non vedo la
+   scritta fondo palco, e la relativa misura»). Con «Solo palco» (e con l'area che l'Esporta crea appena la si apre)
+   il riquadro del disegno ERA il palco esatto: FONDO PALCO (y=-42), PUBBLICO (D+38) e le quote cadevano fuori dal
+   ritaglio del disegno. Nel file c'erano, sul foglio no. ===== */
+function scrittePalcoDentro(svg, caso) {
+  const v = svg.match(/viewBox="([-\d.]+) ([-\d.]+) ([\d.]+) ([\d.]+)"/).slice(1).map(Number);
+  const [x0, y0, x1, y1] = [v[0], v[1], v[0] + v[2], v[1] + v[3]];
+  const scritta = (nome) => { const m = svg.match(new RegExp('<text[^>]*font-size="([\\d.]+)"[^>]*x="([-\\d.]+)" y="([-\\d.]+)">' + nome + '<'));
+    ok(m, caso + ": " + nome + " non c'è"); return [+m[2], +m[3], +m[1]]; };
+  const [fx, fy, fs] = scritta("FONDO PALCO"), [, py, ps] = scritta("PUBBLICO");
+  ok(fy - 0.8 * fs >= y0 && fx - 70 * fs / 16 >= x0 && fx + 70 * fs / 16 <= x1, caso + ": FONDO PALCO fuori dal riquadro (y=" + fy + ", corpo " + fs + ", riquadro da y=" + y0 + ")");
+  ok(py + 0.25 * ps <= y1, caso + ": PUBBLICO fuori dal riquadro (y=" + py + ", riquadro fino a y=" + y1 + ")");
+  const quote = [...svg.matchAll(/<text class="dim-edge" x="([-\d.]+)" y="([-\d.]+)"[^>]*>([^<]+)</g)];
+  ok(quote.length > 0, caso + ": nessuna quota del palco nel disegno");
+  const qa = 0.8 * 14 * fs / 16;   /* salita del corpo delle quote (14 px, ingrandito come FONDO PALCO) */
+  quote.forEach((q) => {
+    const x = +q[1], y = +q[2], ruotata = /rotate\(-90/.test(q[0]);   /* ruotata: la salita va verso sinistra */
+    ok(x - (ruotata ? qa : 0) >= x0 && x <= x1 && y - (ruotata ? 0 : qa) >= y0 && y <= y1, caso + ": quota «" + q[3] + "» fuori dal riquadro (" + x + ";" + y + ")");
+    /* e non si toccano: la quota sopra il palco sta sotto FONDO PALCO, quella sotto sta sopra PUBBLICO */
+    if (!ruotata && y < 0) ok(fy <= y - qa, caso + ": FONDO PALCO (y=" + fy + ") sopra la quota «" + q[3] + "» (y=" + y + ")");
+    if (!ruotata && y > 0 && y < py) ok(py - 0.75 * ps >= y + 0.25 * qa, caso + ": PUBBLICO (y=" + py + ") tocca la quota «" + q[3] + "» (y=" + y + ")");
+  });
+  return { x0, y0, x1, y1 };
+}
+t("FONDO PALCO, PUBBLICO e quote restano nel disegno anche con l'area di stampa «Solo palco» (palco a blocchi)", () => {
+  reset();
+  /* il palco del Teatro Accademico di Simone (14/10): 12,5 × 13,35 m, boccascena + proscenio + fossa coperta */
+  A.state.stage = { w: 1250, d: 1335, blocks: [{ x: 0, y: 0, w: 1250, d: 1005 }, { x: 298, y: 1005, w: 655, d: 100 }, { x: 298, y: 1105, w: 655, d: 230 }] };
+  A.state.printFrame = A.frameStageRect();
+  const piano = (N, paper, orient) => {
+    const cartH = A.cartHFor("", paper, orient), box = A.pdfStageBox(N, paper, orient, cartH), L = box.L;
+    const caso = "1:" + N + " " + paper + " " + orient;
+    scrittePalcoDentro(A.stageSceneSvg(box.vb, { focus: "clean", textK: A.pdfTextK(N), noBlockDims: !box.A.custom && !box.cropped && A.stageBlocks().length < 2 }), caso);
+    /* il riquadro resta nell'area di disegno del foglio: niente sopra il cartiglio né sopra la barra di scala */
+    ok(box.ix >= L.drawX - 1e-6 && box.iy >= L.drawY - 1e-6 && box.ix + box.mmW <= L.drawX + L.drawW + 1e-6 && box.iy + box.mmH <= L.drawY + L.drawH + 1e-6, caso + ": il disegno esce dall'area");
+    eq(box.cropped, false, caso + ": il palco non si ritaglia");
+    return box;
+  };
+  piano(100, "a3", "landscape");   /* il PDF delle 10:31 */
+  piano(50, "a3", "portrait");     /* quello delle 9:54 */
+  piano(200, "a4", "landscape");   /* scala piccola: il testo ingrandito non deve salire sulle quote */
+  /* «adatta al foglio»: la scala scelta da sola fa entrare palco E scritte */
+  ["a4", "a3"].forEach((p) => ["landscape", "portrait"].forEach((o) => piano(A.autoScale(p, o, A.cartHFor("", p, o)), p, o)));
+  /* il PNG (e l'anteprima, che usa pdfStageBox) partono dallo stesso riquadro */
+  scrittePalcoDentro(A.stageSceneSvg(undefined, { focus: "clean" }), "PNG");
+  /* un'area che parte poco sopra il palco (pianta del teatro) si allarga quanto basta anche lei */
+  A.state.printFrame = { x: -100, y: -30, w: 1450, h: 1400 };
+  scrittePalcoDentro(A.stageSceneSvg(undefined, { focus: "clean" }), "area poco più grande del palco");
+  /* un'area che taglia il palco resta come l'ha scelta l'utente: il bordo di fondo non c'è, non si allarga */
+  A.state.printFrame = { x: 0, y: 400, w: 1250, h: 600 };
+  const vb = A.sceneVbDefault();
+  eq([vb.y, vb.h], [400, 600], "dentro il palco: niente margine sopra né sotto");
+  reset();
 });
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
