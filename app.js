@@ -7824,6 +7824,256 @@ function custShapeDaForma(g){
   else return null;
   return x;
 }
+/* ===== Crea elemento: PRECISIONE (Tappa A, 14/10/2026) — le parti PURE =====
+   Simone (14/10): «l'utente non ha gli strumenti sufficienti per disegnare quello che vuole». Non AutoCAD intero: la
+   precisione da CAD in un'interfaccia semplice. Qui, senza DOM (provate in test/engines.test.mjs):
+   - le misure scritte mentre si disegna («120x80», «150<30») e la forma che ne esce;
+   - i punti d'aggancio (estremi, vertici, punti medi, centri, bordi) di forme, elementi veri e superficie;
+   - l'aggancio di un punto, quello di un ingombro che si sposta (guide) e le distanze dai vicini;
+   - i numeri del pannello della forma (X, Y, L, P, rotazione; per la linea lunghezza e angolo).
+   Convenzioni (spec 2026-10-14-crea-elemento-precisione, Decisioni): cm di serie, virgola decimale; angoli in gradi,
+   0° = verso destra, positivo in senso ORARIO come il campo «Rotazione»; X/Y = angolo in alto a sinistra dell'ingombro. */
+function custR2(v){ return Math.round(v*100)/100; }
+var CUST_MAX_MISURA=10000;   /* 100 m: una forma più grande della superficie più grande che ha senso è un errore di battitura */
+/* «120», «120,5», «1,2m», «35mm» → cm (al centesimo); altro → null */
+function custNumeroDigitato(s){
+  var m=/^([+-]?(?:\d+(?:[.,]\d+)?|[.,]\d+))(mm|cm|m)?$/.exec(String(s==null?"":s).trim().toLowerCase().replace(/\s+/g,""));
+  if(!m) return null;
+  var v=Number(m[1].replace(",",".")); if(!isFinite(v)) return null;
+  if(m[2]==="m") v*=100; else if(m[2]==="mm") v/=10;
+  return custR2(v);
+}
+/* testo digitato → misure. k = rect/ell: {w,d} (un numero solo = quadrato/cerchio); line/poly: {len, ang|null} */
+function custLeggiMisure(testo, k){
+  var s=String(testo==null?"":testo).trim().toLowerCase().replace(/(\d)\s+(mm|cm|m)(?![a-z])/g,"$1$2");
+  var no=function(err){ return {ok:false, err:err}; }, buono=function(v){ return v!=null && v>0 && v<=CUST_MAX_MISURA; };
+  if(k==="rect" || k==="ell"){
+    var parti=s.split(/\s*[x×*;]\s*|\s+/);
+    if(!s || parti.length>2 || parti.some(function(p){ return !p; })) return no("Scrivi le misure in cm: 120x80 (un numero solo = "+(k==="ell"?"cerchio":"quadrato")+").");
+    var w=custNumeroDigitato(parti[0]), d=parti.length>1 ? custNumeroDigitato(parti[1]) : w;
+    if(!buono(w) || !buono(d)) return no("Le misure vanno da 0,01 a "+(CUST_MAX_MISURA/100)+" m: per esempio 120x80.");
+    return {ok:true, w:w, d:d};
+  }
+  s=s.replace(/°/g,"");
+  var m=/^(.*?)\s*[<@]\s*(.*)$/.exec(s), l, a=null;
+  if(m){ l=m[1]; a=m[2]; if(!a) return no("Dopo «<» va l'angolo in gradi: 150<30."); }
+  else { var p=s.split(/\s+/); if(p.length>2) return no("Scrivi la lunghezza in cm, e se serve l'angolo: 150<30."); l=p[0]; if(p.length===2) a=p[1]; }
+  var len=custNumeroDigitato(l);
+  if(!buono(len)) return no("Scrivi la lunghezza in cm, e se serve l'angolo: 150<30.");
+  var ang=null;
+  if(a!=null){ if(!/^[+-]?(\d+([.,]\d+)?|[.,]\d+)$/.test(a)) return no("L'angolo è in gradi, in senso orario: 150<30.");
+    ang=Number(a.replace(",",".")); ang=custR2(((ang%360)+360)%360); }
+  return {ok:true, len:len, ang:ang};
+}
+/* angolo da a verso b: gradi 0–360, 0 = destra, orario (y del palco verso il basso) */
+function custAngolo(a, b){ var g=Math.atan2(b.y-a.y, b.x-a.x)*180/Math.PI; g=((g%360)+360)%360; return Math.round(g*10)/10%360; }
+/* il secondo punto della forma: rettangolo/ellisse nel quadrante del mouse; linea/lato lungo l'angolo (o verso il mouse) */
+function custFormaDaMisure(k, a, cur, mis){
+  cur=cur||a;
+  if(k==="rect" || k==="ell"){ var sx=cur.x<a.x ? -1 : 1, sy=cur.y<a.y ? -1 : 1; return {x:custR6(a.x+sx*mis.w), y:custR6(a.y+sy*mis.d)}; }
+  var ang=(mis.ang!=null) ? mis.ang : ((cur.x===a.x && cur.y===a.y) ? 0 : Math.atan2(cur.y-a.y, cur.x-a.x)*180/Math.PI), r=ang*Math.PI/180;
+  return {x:custR6(a.x+mis.len*Math.cos(r)), y:custR6(a.y+mis.len*Math.sin(r))};
+}
+/* un numero come si scrive in italiano: al decimo (al centesimo se serve), virgola */
+function custCifra(v){ v=custR2(v); var s=String(Math.abs(v-Math.round(v*10)/10)<1e-9 ? Math.round(v*10)/10 : v); return s.replace(".",","); }
+/* le misure correnti come testo che si rilegge: «120 × 80», «150 < 30°» */
+function custMisureVive(k, a, b){
+  if(k==="rect" || k==="ell") return custCifra(Math.abs(b.x-a.x))+" × "+custCifra(Math.abs(b.y-a.y));
+  return custCifra(Math.hypot(b.x-a.x, b.y-a.y))+" < "+custCifra(custAngolo(a, b))+"°";
+}
+
+/* ---- geometria vera delle forme e degli elementi ---- */
+/* i due capi di una linea dell'editor, con la rotazione eventualmente data dalla maniglia */
+function custCapiLinea(it){
+  var w=it.w>0?it.w:1, d=it.d>0?it.d:1, p1=it.p1||[-0.5,0], p2=it.p2||[0.5,0];
+  var f=function(p){ var x=it.x+p[0]*w, y=it.y+p[1]*d; return it.rot ? rotatePointAround(x, y, it.x, it.y, it.rot) : [x, y]; };
+  return {a:f(p1), b:f(p2)};
+}
+/* gli angoli di un rettangolo (centro, misure, rotazione) */
+function custAngoliRett(cx, cy, w, d, rot){
+  return [[-w/2,-d/2],[w/2,-d/2],[w/2,d/2],[-w/2,d/2]].map(function(p){ return rot ? rotatePointAround(cx+p[0], cy+p[1], cx, cy, rot) : [cx+p[0], cy+p[1]]; });
+}
+/* i punti di un'ellisse ruotata (n lati; i primi quattro = i quadranti: destra, giù, sinistra, su) */
+function custPuntiEllisse(cx, cy, rx, ry, rot, n){
+  var out=[], i, t, x, y; for(i=0;i<n;i++){ t=i*2*Math.PI/n; x=cx+rx*Math.cos(t); y=cy+ry*Math.sin(t); out.push(rot ? rotatePointAround(x, y, cx, cy, rot) : [x, y]); }
+  return out;
+}
+/* l'ingombro visibile (assi del palco): geometria vera — capi della linea, punti del poligono, ellisse ruotata esatta */
+function custIngombro(it){
+  var P;
+  if(it.type==="custshape" && it.k==="line"){ var c=custCapiLinea(it); P=[c.a, c.b]; }
+  else if(it.type==="custshape" && it.k==="poly"){ var g=custFormaDaShape(it); P=g ? g.pts : custAngoliRett(it.x, it.y, it.w, it.d, it.rot||0); }
+  else if(it.type==="custshape" && it.k==="ell"){
+    var r=(it.rot||0)*Math.PI/180, rx=it.w/2, ry=it.d/2, hw=Math.hypot(rx*Math.cos(r), ry*Math.sin(r)), hd=Math.hypot(rx*Math.sin(r), ry*Math.cos(r));
+    return {x1:it.x-hw, y1:it.y-hd, x2:it.x+hw, y2:it.y+hd};
+  }
+  else P=custAngoliRett(it.x, it.y, it.w, it.d, it.rot||0);
+  var b={x1:Infinity, y1:Infinity, x2:-Infinity, y2:-Infinity};
+  P.forEach(function(p){ b.x1=Math.min(b.x1,p[0]); b.y1=Math.min(b.y1,p[1]); b.x2=Math.max(b.x2,p[0]); b.y2=Math.max(b.y2,p[1]); });
+  return b;
+}
+/* ---- i bersagli dell'aggancio ---- */
+var CUST_RANGO={estremo:0, vertice:0, quadrante:0, medio:1, centro:2};
+var CUST_NOME_PUNTO={estremo:"Estremo", vertice:"Vertice", quadrante:"Quadrante", medio:"Punto medio", centro:"Centro", bordo:"Sul bordo"};
+/* items: le forme e gli elementi del palco temporaneo; escludi: {id:true} (chi si sta muovendo); sup: {w,d} la superficie.
+   → punti (con il tipo), lati (segmenti per «sul bordo») e box (ingombri, per guide e distanze). Calcolati una volta per
+   gesto: a ogni movimento del mouse si fa solo la ricerca. */
+function custBersagli(items, escludi, sup){
+  escludi=escludi||{};
+  var punti=[], lati=[], box=[];
+  var P=function(p, t){ punti.push({x:p[0], y:p[1], t:t}); };
+  var anello=function(V, chiuso, tv){ var n=V.length, m=chiuso ? n : n-1;
+    V.forEach(function(p){ P(p, tv); });
+    for(var i=0;i<m;i++){ var a=V[i], b=V[(i+1)%n]; lati.push([a[0],a[1],b[0],b[1]]); P([(a[0]+b[0])/2, (a[1]+b[1])/2], "medio"); } };
+  if(sup && sup.w>0 && sup.d>0){
+    anello([[0,0],[sup.w,0],[sup.w,sup.d],[0,sup.d]], true, "vertice"); P([sup.w/2, sup.d/2], "centro");
+  }
+  (items||[]).forEach(function(it){
+    if(!it || escludi[it.id] || !isFinite(it.x) || !isFinite(it.y)) return;
+    var rot=it.rot||0;
+    if(it.type==="custshape"){
+      if(it.k==="line"){ var c=custCapiLinea(it); anello([c.a, c.b], false, "estremo"); }
+      else if(it.k==="poly"){ var g=custFormaDaShape(it); if(g && g.pts) anello(g.pts, true, "vertice"); P([it.x, it.y], "centro"); }
+      else if(it.k==="ell"){
+        var E=custPuntiEllisse(it.x, it.y, it.w/2, it.d/2, rot, 48);
+        [0,12,24,36].forEach(function(i){ P(E[i], "quadrante"); });
+        for(var i=0;i<E.length;i++){ var a=E[i], b=E[(i+1)%E.length]; lati.push([a[0],a[1],b[0],b[1]]); }
+        P([it.x, it.y], "centro");
+      }
+      else if(it.k==="text") P([it.x, it.y], "centro");
+      else { anello(custAngoliRett(it.x, it.y, it.w, it.d, rot), true, "vertice"); P([it.x, it.y], "centro"); }
+    } else {
+      if(!(it.w>0 && it.d>0)) return;
+      anello(custAngoliRett(it.x, it.y, it.w, it.d, rot), true, "vertice"); P([it.x, it.y], "centro");
+    }
+    box.push(custIngombro(it));
+  });
+  /* le linee dei bordi e dei centri, per lo spostamento (custAggancioSposta): calcolate qui, una volta per gesto */
+  var lx=[], ly=[], righe=box.slice(); if(sup && sup.w>0 && sup.d>0) righe.push({x1:0, y1:0, x2:sup.w, y2:sup.d});
+  righe.forEach(function(r){ [r.x1, (r.x1+r.x2)/2, r.x2].forEach(function(v){ lx.push({v:v, a1:r.y1, a2:r.y2}); });
+    [r.y1, (r.y1+r.y2)/2, r.y2].forEach(function(v){ ly.push({v:v, a1:r.x1, a2:r.x2}); }); });
+  return {punti:punti, lati:lati, box:box, lx:lx, ly:ly, sup:sup||null};
+}
+/* il punto del segmento più vicino a p */
+function custSulSegmento(p, s){
+  var dx=s[2]-s[0], dy=s[3]-s[1], l2=dx*dx+dy*dy, t=l2>0 ? ((p.x-s[0])*dx+(p.y-s[1])*dy)/l2 : 0;
+  t=Math.max(0, Math.min(1, t)); return {x:s[0]+t*dx, y:s[1]+t*dy};
+}
+/* AGGANCIO DI UN PUNTO (il clic che fissa un capo): punto (tolP) > bordo (tol) > allineamento per asse (tol) > griglia.
+   → {x, y, t (tipo o null), guide:[{x1,y1,x2,y2}]}. griglia(v) arrotonda un asse rimasto libero (identità = libero). */
+function custAggancioPunto(p, B, tolP, tol, griglia){
+  griglia=griglia||function(v){ return v; };
+  var P=(B && B.punti) || [], S=(B && B.lati) || [], i, q, d, ex, ey, best=null, bd=Infinity;
+  for(i=0;i<P.length;i++){ q=P[i]; ex=q.x-p.x; ey=q.y-p.y; if(ex>tolP || ex<-tolP || ey>tolP || ey<-tolP) continue;
+    d=Math.sqrt(ex*ex+ey*ey); if(d>tolP) continue;
+    if(d<bd-1e-9 || (Math.abs(d-bd)<=1e-9 && CUST_RANGO[q.t]<CUST_RANGO[best.t])){ bd=d; best=q; } }
+  if(best) return {x:best.x, y:best.y, t:best.t, guide:[]};
+  var sb=null, s; bd=Infinity;
+  for(i=0;i<S.length;i++){ s=S[i];   /* fuori dal rettangolo del segmento allargato della tolleranza: lontano */
+    if(p.x<Math.min(s[0],s[2])-tol || p.x>Math.max(s[0],s[2])+tol || p.y<Math.min(s[1],s[3])-tol || p.y>Math.max(s[1],s[3])+tol) continue;
+    q=custSulSegmento(p, s); d=Math.hypot(q.x-p.x, q.y-p.y); if(d<=tol && d<bd){ bd=d; sb=q; } }
+  if(sb) return {x:sb.x, y:sb.y, t:"bordo", guide:[]};
+  var ax=null, ay=null, dx=tol+1e-9, dy=tol+1e-9;
+  for(i=0;i<P.length;i++){ q=P[i]; ex=Math.abs(q.x-p.x); ey=Math.abs(q.y-p.y);
+    if(ex<dx){ dx=ex; ax=q; } if(ey<dy){ dy=ey; ay=q; } }
+  var x=ax ? ax.x : griglia(p.x), y=ay ? ay.y : griglia(p.y), guide=[];
+  if(ax) guide.push({x1:ax.x, y1:ax.y, x2:x, y2:y});
+  if(ay) guide.push({x1:ay.x, y1:ay.y, x2:x, y2:y});
+  return {x:x, y:y, t:(ax||ay) ? "allineato" : null, guide:guide};
+}
+/* AGGANCIO DI UN INGOMBRO CHE SI SPOSTA: le sue facce (sinistra, centro, destra; alto, mezzo, basso) contro quelle degli
+   altri ingombri e della superficie. → {dx, dy, fx, fy, guide}: fx/fy = l'asse è agganciato (l'altro va alla griglia).
+   La guida va da un capo all'altro di tutti gli oggetti allineati su quella linea (come Figma). */
+function custAggancioSposta(box, B, tol){
+  var LX=(B && B.lx) || [], LY=(B && B.ly) || [];
+  var cerca=function(L, f1, f2){
+    var fc=(f1+f2)/2, best=null, bd=tol+1e-9, i, v, d;
+    for(i=0;i<L.length;i++){ v=L[i].v;
+      d=Math.abs(v-f1); if(d<bd-1e-9){ bd=d; best={v:v, f:f1}; }
+      d=Math.abs(v-fc); if(d<bd-1e-9){ bd=d; best={v:v, f:fc}; }
+      d=Math.abs(v-f2); if(d<bd-1e-9){ bd=d; best={v:v, f:f2}; } }
+    return best;
+  };
+  var sx=cerca(LX, box.x1, box.x2), sy=cerca(LY, box.y1, box.y2), dx=sx ? sx.v-sx.f : 0, dy=sy ? sy.v-sy.f : 0, guide=[];
+  /* chi sta sulla linea v: la guida li unisce tutti, compreso chi si sposta */
+  var su=function(L, v, lo, hi){ for(var i=0;i<L.length;i++) if(Math.abs(L[i].v-v)<1e-6){ lo=Math.min(lo, L[i].a1); hi=Math.max(hi, L[i].a2); } return [lo, hi]; };
+  if(sx){ var gx=su(LX, sx.v, box.y1+dy, box.y2+dy); guide.push({x1:sx.v, y1:gx[0], x2:sx.v, y2:gx[1]}); }
+  if(sy){ var gy=su(LY, sy.v, box.x1+dx, box.x2+dx); guide.push({x1:gy[0], y1:sy.v, x2:gy[1], y2:sy.v}); }
+  return {dx:dx, dy:dy, fx:!!sx, fy:!!sy, guide:guide};
+}
+/* DISTANZE DAI VICINI: per ognuno dei quattro lati, il vicino più prossimo che gli sta di fronte (si sovrappone sull'altro
+   asse); se non c'è nessuno, il bordo della superficie (bordo:true). → [{x1,y1,x2,y2,v,bordo,lato}] */
+function custDistanze(box, B, sup){
+  var out=[], E=0.05, altri=(B && B.box) || [];
+  sup=sup || (B && B.sup);
+  var mezzo=function(a1, a2, b1, b2){ return (Math.max(a1,b1)+Math.min(a2,b2))/2; };
+  [["d","x"],["s","x"],["g","y"],["a","y"]].forEach(function(L){
+    var lato=L[0], best=null, bv=Infinity;
+    altri.forEach(function(r){
+      var sov=L[1]==="x" ? (r.y1<box.y2-E && r.y2>box.y1+E) : (r.x1<box.x2-E && r.x2>box.x1+E); if(!sov) return;
+      var v=lato==="d" ? r.x1-box.x2 : lato==="s" ? box.x1-r.x2 : lato==="g" ? r.y1-box.y2 : box.y1-r.y2;
+      if(v>=-E && v<bv){ bv=v; best=r; } });
+    if(best){
+      if(bv<E) return;
+      if(L[1]==="x"){ var y=mezzo(box.y1, box.y2, best.y1, best.y2); out.push(lato==="d" ? {x1:box.x2, y1:y, x2:best.x1, y2:y, v:custR2(bv), bordo:false, lato:lato} : {x1:best.x2, y1:y, x2:box.x1, y2:y, v:custR2(bv), bordo:false, lato:lato}); }
+      else { var x=mezzo(box.x1, box.x2, best.x1, best.x2); out.push(lato==="g" ? {x1:x, y1:box.y2, x2:x, y2:best.y1, v:custR2(bv), bordo:false, lato:lato} : {x1:x, y1:best.y2, x2:x, y2:box.y1, v:custR2(bv), bordo:false, lato:lato}); }
+      return;
+    }
+    if(!sup) return;
+    var cx=(box.x1+box.x2)/2, cy=(box.y1+box.y2)/2, q=null;
+    if(lato==="d") q={x1:box.x2, y1:cy, x2:sup.w, y2:cy, v:sup.w-box.x2};
+    else if(lato==="s") q={x1:0, y1:cy, x2:box.x1, y2:cy, v:box.x1};
+    else if(lato==="g") q={x1:cx, y1:box.y2, x2:cx, y2:sup.d, v:sup.d-box.y2};
+    else q={x1:cx, y1:0, x2:cx, y2:box.y1, v:box.y1};
+    if(q.v>=E){ q.v=custR2(q.v); q.bordo=true; q.lato=lato; out.push(q); }
+  });
+  return out;
+}
+
+/* ---- i numeri del pannello della forma ---- */
+/* forma → i numeri che si leggono: linea {x,y (primo capo), len, ang}; testo {x,y,corpo,rot}; altre {x,y,w,d,rot} */
+function custGeometria(it){
+  if(it.k==="line"){ var c=custCapiLinea(it), a={x:c.a[0], y:c.a[1]}, b={x:c.b[0], y:c.b[1]};
+    return {x:custR2(a.x), y:custR2(a.y), len:custR2(Math.hypot(b.x-a.x, b.y-a.y)), ang:custAngolo(a, b)}; }
+  var bb=custIngombro(it), g={x:custR2(bb.x1), y:custR2(bb.y1), rot:Math.round(((it.rot||0)%360+360)%360)};
+  if(it.k==="text") g.corpo=custR2(it.d/1.3); else { g.w=custR2(it.w); g.d=custR2(it.d); }
+  return g;
+}
+/* una linea dai suoi due capi (assoluti, cm della superficie): stessi campi di custShapeDaForma, rotazione azzerata */
+function custImpostaCapi(it, a, b){
+  var n=custShapeDaForma({k:"line", x1:a[0], y1:a[1], x2:b[0], y2:b[1], fill:it.fill, stroke:it.stroke, sw:it.sw});
+  if(!n) return false;
+  it.x=custR6(n.x); it.y=custR6(n.y); it.w=n.w; it.d=n.d; it.p1=n.p1; it.p2=n.p2; it.rot=0;
+  return true;
+}
+/* applica un numero del pannello. X/Y spostano l'angolo in alto a sinistra dell'ingombro (linea: il primo capo); L/P e
+   il corpo tengono fermo quell'angolo; la rotazione gira attorno al centro; lunghezza e angolo della linea tengono fermo
+   il primo capo. → true se la forma è cambiata. Valori fuori misura → false (il campo rimette il valore di prima). */
+function custImpostaGeometria(it, campo, v){
+  v=(typeof v==="number") ? v : custNumeroDigitato(v);
+  if(v==null || !isFinite(v)) return false;
+  if(it.k==="line"){
+    var c=custCapiLinea(it), a=c.a, b=c.b, len=Math.hypot(b[0]-a[0], b[1]-a[1]), ang=Math.atan2(b[1]-a[1], b[0]-a[0]);
+    if(campo==="x" || campo==="y"){ var dx=campo==="x" ? v-a[0] : 0, dy=campo==="y" ? v-a[1] : 0; if(Math.abs(dx)+Math.abs(dy)<1e-9) return false;
+      it.x=custR6(it.x+dx); it.y=custR6(it.y+dy); return true; }
+    if(campo==="len"){ if(!(v>0 && v<=CUST_MAX_MISURA)) return false; len=v; }
+    else if(campo==="ang"){ ang=v*Math.PI/180; }
+    else return false;
+    return custImpostaCapi(it, a, [custR6(a[0]+len*Math.cos(ang)), custR6(a[1]+len*Math.sin(ang))]);
+  }
+  var bb=custIngombro(it);
+  if(campo==="x"){ it.x=custR6(it.x+v-bb.x1); return true; }
+  if(campo==="y"){ it.y=custR6(it.y+v-bb.y1); return true; }
+  if(campo==="rot"){ it.rot=Math.round(((v%360)+360)%360); return true; }
+  if(campo==="w" || campo==="d" || campo==="corpo"){
+    if(!(v>0 && v<=CUST_MAX_MISURA)) return false;
+    if(campo==="corpo"){ var cp=Math.max(2, Math.min(200, v)); it.d=custR6(custTestoAlto(cp)); it.w=custTestoLargo(it.s, cp); }
+    else it[campo]=v;
+    var nb=custIngombro(it); it.x=custR6(it.x+bb.x1-nb.x1); it.y=custR6(it.y+bb.y1-nb.y1);
+    return true;
+  }
+  return false;
+}
 /* ===== Crea elemento: L'INTERFACCIA (Tappa 2, 13/10/2026) =====
    Sopra il palco temporaneo (custEditorApri/Salva/Annulla, qui sopra) ci sono: il rettangolo trascinato sul palco vero
    con le misure in metri, la finestra per correggerle a numeri, la domanda di inclusione, gli strumenti di disegno, la
