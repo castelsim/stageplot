@@ -24025,6 +24025,57 @@ ta("service worker: il precache dell'installazione scarica dal server, non dalla
   ok(B.cache.precache.some((r) => r.url === "/app.js"), "fra cui app.js");
 });
 
+// ── PDF: SCRITTE NERE PER LA STAMPA (14/10/2026) ───────────────────────────────────────────────
+// Simone, stampando su una laser in bianco e nero: le quote delle pedane (grigie, ~1 mm a 1:100) non si
+// leggevano; con il testo nero «adesso leggo molto meglio … Dobbiamo farlo così».
+console.log("\n— PDF: scritte nere per la stampa —");
+t("PDF: grigi e scuri delle scritte diventano nero pieno; chiari e colorati restano", () => {
+  eq(A.pdfColoreTesto("#6b7280"), "#000000", "il grigio delle quote delle pedane");
+  eq(A.pdfColoreTesto("#1f2937"), "#000000", "il quasi-nero dei nomi");
+  eq(A.pdfColoreTesto("#9ca3af"), "#000000", "anche un grigio chiaro-medio");
+  eq(A.pdfColoreTesto("#ffffff"), "#ffffff", "il bianco su fondo scuro resta bianco");
+  eq(A.pdfColoreTesto("#e5e7eb"), "#e5e7eb", "un grigio molto chiaro resta (è un testo su fondo scuro)");
+  eq(A.pdfColoreTesto("#d97706"), "#d97706", "l'arancio (quota dell'altezza del palco) resta arancio");
+  eq(A.pdfColoreTesto("#dc2626"), "#dc2626", "il rosso degli avvisi resta rosso");
+  eq(A.pdfColoreTesto("#0d9488"), "#0d9488", "il verde acqua resta");
+  eq(A.pdfColoreTesto("none"), "none", "un valore che non è un colore passa intatto");
+});
+t("PDF: anche le scritte di jsPDF (cartiglio, quote, rider) passano dalla regola", () => {
+  const rec = [];
+  const doc = { setTextColor: function () { rec.push([].slice.call(arguments)); } };
+  A.pdfTestoNeroDoc(doc);
+  doc.setTextColor("#6B7280"); doc.setTextColor(107, 114, 128); doc.setTextColor("#1f2937"); doc.setTextColor(0);
+  doc.setTextColor("#d97706"); doc.setTextColor("#ffffff"); doc.setTextColor("#fff"); doc.setTextColor(255, 255, 255);
+  eq(rec.slice(0, 4).map((r) => r.join(",")), ["#000000", "#000000", "#000000", "#000000"], "grigi e scuri, in ogni forma, → nero");
+  eq(rec.slice(4).map((r) => r.join(",")), ["#d97706", "#ffffff", "#fff", "255,255,255"], "colorati e chiari passano intatti, con gli argomenti di prima");
+  const f1 = doc.setTextColor;
+  A.pdfTestoNeroDoc(doc);
+  ok(doc.setTextColor === f1, "avvolto una volta sola: la seconda volta non aggiunge un altro strato");
+});
+t("PDF: il costruttore di jsPDF è avvolto una volta, e ogni documento nuovo è coperto", () => {
+  const prima = A.jspdf;
+  try {
+    const rec = [];
+    const Finto = function (o) { this.o = o; this.setTextColor = function (c) { rec.push(c); }; };
+    Finto.API = { svg: 1 }; Finto.version = "2.5.1";
+    A.jspdf = { jsPDF: Finto };
+    A.pdfTestoNeroInstalla(); A.pdfTestoNeroInstalla();
+    const d = new A.jspdf.jsPDF({ format: "a3" });
+    eq(d.o && d.o.format, "a3", "le opzioni arrivano al costruttore vero");
+    ok(d instanceof Finto, "è un documento jsPDF vero");
+    eq(A.jspdf.jsPDF.API, Finto.API, "i plugin (svg2pdf) restano agganciati");
+    eq(A.jspdf.jsPDF.version, "2.5.1", "e le proprietà della libreria");
+    d.setTextColor("#6B7280");
+    eq(rec, ["#000000"], "il grigio del documento nuovo esce nero, una volta sola");
+  } finally { A.jspdf = prima; }
+  const lj = appjs.slice(appjs.indexOf("function loadJsPDF("), appjs.indexOf("function loadJsPDF(") + 900);
+  ok((lj.match(/pdfTestoNeroInstalla\(\)/g) || []).length >= 2, "loadJsPDF installa la regola sia se la libreria c'è già sia appena caricata");
+});
+t("PDF: l'export applica la regola a ogni scritta (flattenTextStyles)", () => {
+  const f = appjs.slice(appjs.indexOf("function flattenTextStyles("), appjs.indexOf("function gradSolidColor("));
+  ok(/el\.setAttribute\("fill", pdfColoreTesto\(rgbToHex\(cs\.fill\)\)\)/.test(f), "il fill del testo passa da pdfColoreTesto");
+});
+
 await Promise.all(attese);
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
