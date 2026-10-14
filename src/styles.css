@@ -3700,6 +3700,35 @@ body.dark .cust-righello text{fill:#cbd5e1}
 .cust-poly-prev polyline{fill:none;stroke:var(--accent);stroke-width:1.5;stroke-dasharray:6 4;vector-effect:non-scaling-stroke}
 .cust-poly-prev circle{fill:#fff;stroke:var(--accent);stroke-width:1.5;vector-effect:non-scaling-stroke}
 .cust-poly-prev circle.primo{fill:var(--accent)}
+/* PRECISIONE (Tappa A, 14/10/2026): campo delle misure accanto al cursore, segni d'aggancio, guide (magenta, come Figma)
+   e quote delle distanze. Colori in variabili: il tema scuro li schiarisce. */
+:root{--cust-guida:#d6246e;--cust-quota:#d6246e;--cust-quota-bordo:#8a8476}
+body.dark{--cust-guida:#ff5c9f;--cust-quota:#ff5c9f;--cust-quota-bordo:#a8a29a}
+#custDyn{position:fixed;z-index:60;display:flex;flex-direction:column;gap:3px;min-width:170px;max-width:260px;padding:7px 9px 8px;
+  background:var(--surface);color:var(--text);border:1px solid var(--accent);border-radius:var(--r-md);
+  box-shadow:0 6px 18px rgba(38,33,24,.22);font-size:12px;pointer-events:auto}
+#custDyn[hidden]{display:none}
+body.dark #custDyn{box-shadow:0 6px 18px rgba(0,0,0,.5)}
+#custDyn .cd-lbl{color:var(--text-2);font-weight:600}
+#custDyn input{height:28px;font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;padding:0 8px;border:1px solid var(--border-strong);
+  border-radius:var(--r-sm);background:var(--surface-raised);color:var(--text);width:100%;box-sizing:border-box}
+#custDyn input:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring);border-color:var(--accent)}
+#custDyn input.err{border-color:#dc2626}
+#custDyn .cd-aiuto{color:var(--text-3)}
+#custDyn .cd-err{color:#dc2626;font-weight:600}
+body.dark #custDyn .cd-err{color:#f87171}
+.cust-ancora{fill:var(--accent);stroke:#fff;stroke-width:1.5;vector-effect:non-scaling-stroke}
+.cust-snap-lay{pointer-events:none}
+.cust-guida{stroke:var(--cust-guida);stroke-width:1.2;vector-effect:non-scaling-stroke}
+.cust-segno rect,.cust-segno path,.cust-segno circle{fill:none;stroke:var(--cust-guida);stroke-width:2;vector-effect:non-scaling-stroke}
+.cust-segno text{fill:var(--cust-guida);font-weight:700;paint-order:stroke;stroke:var(--canvas-bg);stroke-width:3px;stroke-linejoin:round}
+.cust-quota line{stroke:var(--cust-quota);stroke-width:1.2;vector-effect:non-scaling-stroke}
+.cust-quota rect{fill:var(--cust-quota)}
+.cust-quota text{fill:#fff;font-weight:700;font-variant-numeric:tabular-nums}
+.cust-quota.bordo line{stroke:var(--cust-quota-bordo);stroke-dasharray:4 3}
+.cust-quota.bordo rect{fill:var(--cust-quota-bordo)}
+body.dark .cust-quota text{fill:#1a1814}
+#custForma .cust-num input{font-variant-numeric:tabular-nums}
 /* il testo che si scrive sul palco */
 .cust-testo-inp{position:fixed;z-index:60;border:1.5px solid var(--accent);border-radius:6px;background:var(--sheet);padding:2px 6px;
   font-family:var(--font-ui);font-weight:500;text-align:center;box-shadow:var(--elev-2);outline:none}

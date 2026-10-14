@@ -10945,6 +10945,133 @@ t("precisione: con 200 forme l'aggancio resta sotto 1 ms a movimento (misurato)"
   ok(tM < 1, "a movimento " + tM.toFixed(3) + " ms");
   ok(tB < 20, "bersagli " + tB.toFixed(2) + " ms");
 });
+/* i gestori VERI del puntatore, con svgPoint che legge {x, y} dall'evento (nel sandbox cmPerPx = 1: 1 px = 1 cm) */
+function conPuntatore(fn) {
+  const sp = A.svgPoint; A.svgPoint = (e) => ({ x: e.x, y: e.y });
+  try { return fn((x, y, o) => Object.assign({ x, y, clientX: x, clientY: y, button: 0, pointerId: 1, preventDefault() {} }, o || {})); }
+  finally { A.svgPoint = sp; }
+}
+const precForme = () => A.state.items.filter((x) => x.type === "custshape");
+const precEditor = (w, d) => { reset(); ok(A.custApriEditor({ x: 200, y: 200, w: w || 300, d: d || 200 }, false), "editor aperto"); A.custAggancioPunti = true; A.custAggancio = true; };
+t("precisione: clic, «120x80», Invio → il rettangolo esatto; un passo di Annulla; si salva 120 × 80", () => conCampi((campi, el) => conPuntatore((ev) => {
+  precEditor();
+  A.custAggancio = false;   /* senza griglia (qui il passo sarebbe 10 cm): le misure del mouse al centimetro */
+  A.custStrumento("rect");
+  ok(A.custPointerDown(ev(20, 10)), "primo punto");
+  ok(A.custPointerUp(ev(20, 10)), "clic fermo");
+  eq([A.drag, A.__custDraw.a], [null, { x: 20, y: 10 }], "il primo punto resta, il trascinamento no (clic-clic)");
+  eq(el("custDyn").hidden, false, "il campo delle misure compare");
+  A.custPointerMove(ev(57, 33));
+  eq(el("custDynIn").value, "37 × 23", "le misure seguono il mouse");
+  el("custDynIn").value = "120x80"; A.custDyn.scritto = true;
+  ok(A.custDynInvio(), "Invio");
+  const f = precForme(); eq(f.length, 1, "una forma");
+  eq([f[0].x, f[0].y, f[0].w, f[0].d], [80, 50, 120, 80], "120 × 80 dal primo punto, nel verso del mouse");
+  eq([A.__custDraw, el("custDyn").hidden], [null, true], "lo strumento torna a Seleziona, il campo sparisce");
+  A.undo(); eq(precForme().length, 0, "un Annulla la toglie");
+  A.redo(); eq(precForme().length, 1, "Ripeti la rimette");
+  el("custNome").value = "Banco";
+  const id = A.custSalvaDaScheda({ fuoriOk: true }), sh = A.state.items.find((x) => x.id === id).cust.shapes[0];
+  eq([sh.k, sh.x, sh.y, sh.w, sh.h], ["rect", 20, 10, 120, 80], "salvato esatto");
+})));
+t("precisione: Invio a metà trascinamento crea una forma sola (il rilascio dopo non ne fa un'altra); testo sbagliato non crea niente", () => conCampi((campi, el) => conPuntatore((ev) => {
+  precEditor();
+  A.custStrumento("ell");
+  A.custPointerDown(ev(100, 100)); A.custPointerMove(ev(140, 70));
+  el("custDynIn").value = "abc"; A.custDyn.scritto = true;
+  eq(A.custDynInvio(), false, "non si legge");
+  ok(!el("custDynErr").hidden && /120x80/.test(el("custDynErr").textContent), "l'errore dice cosa scrivere: " + el("custDynErr").textContent);
+  eq(precForme().length, 0, "nessuna forma");
+  el("custDynIn").value = "60"; A.custDyn.scritto = true;
+  ok(A.custDynInvio(), "un numero = cerchio");
+  eq(A.custPointerUp(ev(150, 60)), false, "il rilascio dopo non ha niente da fare");
+  const f = precForme(); eq(f.length, 1, "una forma sola");
+  eq([f[0].k, f[0].w, f[0].d, f[0].x, f[0].y], ["ell", 60, 60, 130, 70], "cerchio da 60 verso l'alto a destra");
+})));
+t("precisione: la linea «150<30» e il poligono a lati digitati; Esc toglie prima il primo punto, poi lo strumento", () => conCampi((campi, el) => conPuntatore((ev) => {
+  precEditor();
+  A.custStrumento("line"); A.custAggancioPunti = false; A.custAggancio = false;
+  A.custPointerDown(ev(20, 20)); A.custPointerUp(ev(20, 20));
+  el("custDynIn").value = "150<30"; A.custDyn.scritto = true; A.custDynInvio();
+  const c = A.custCapiLinea(precForme()[0]);
+  eq([c.a, c.b].map((p) => p.map((v) => Math.round(v * 1000) / 1000)), [[20, 20], [149.904, 95]], "150 cm a 30° (orario)");
+  A.custStrumento("poly");
+  A.custPointerDown(ev(10, 150)); A.custPointerUp(ev(10, 150));
+  A.custPointerMove(ev(60, 150));
+  eq(el("custDynIn").value, "50 < 0°", "lato corrente");
+  el("custDynIn").value = "80"; A.custDyn.scritto = true; A.custDynInvio();
+  el("custDynIn").value = "80<270"; A.custDyn.scritto = true; A.custDynInvio();
+  eq(A.__custDraw.pts, [{ x: 10, y: 150 }, { x: 90, y: 150 }, { x: 90, y: 70 }], "i lati scritti");
+  A.custDyn.scritto = false; ok(A.custDynInvio(), "Invio a vuoto chiude");
+  eq(precForme().length, 2, "poligono creato");
+  A.custStrumento("rect"); A.custPointerDown(ev(5, 5)); A.custPointerUp(ev(5, 5));
+  A.custEscDisegno(); eq([A.__custDraw && A.__custDraw.mode, A.__custDraw.a], ["rect", null], "Esc: via il primo punto, lo strumento resta");
+  A.custEscDisegno(); eq(A.__custDraw, null, "Esc: lo strumento torna a Seleziona");
+})));
+t("precisione: la linea nuova parte esattamente dal punto medio di un'altra (segno «Punto medio»); ⌘ la lascia libera", () => conCampi((campi, el) => conPuntatore((ev) => {
+  precEditor();
+  A.custNuovaForma("line", { x: 20, y: 40 }, { x: 121, y: 40 });   /* punto medio a 70,5 */
+  A.custStrumento("line");
+  A.custPointerDown(ev(73, 43)); A.custPointerUp(ev(73, 43));
+  eq(A.__custDraw.a, { x: 70.5, y: 40 }, "primo punto sul punto medio (70,5)");
+  A.custPointerMove(ev(70, 130));
+  A.custPointerDown(ev(70, 130));
+  const l2 = precForme()[1], c = A.custCapiLinea(l2);
+  eq([c.a, c.b], [[70.5, 40], [70.5, 130]], "il secondo capo allineato in verticale al primo");
+  A.custStrumento("line");
+  A.custPointerDown(ev(73, 43, { metaKey: true })); eq(A.__custDraw.a, { x: 73, y: 43 }, "con ⌘ niente aggancio");
+})));
+t("precisione: pannello a numeri — X/Y/L/P/rotazione e lunghezza/angolo, un passo di Annulla per campo", () => conCampi((campi, el) => {
+  precEditor();
+  const r = A.custNuovaForma("rect", { x: 20, y: 10 }, { x: 140, y: 90 }); A.selectOne(r.id);
+  eq(A.custGeometria(r), { x: 20, y: 10, rot: 0, w: 120, d: 80 });
+  ok(A.custFormaCampo("x", "35,5"), "X"); eq([r.x - r.w / 2, r.y - r.d / 2], [35.5, 10]);
+  ok(A.custFormaCampo("w", "100"), "L"); eq(A.custGeometria(r).x, 35.5, "L tiene fermo l'angolo in alto a sinistra");
+  eq(A.custFormaCampo("w", "100"), false, "stesso valore: nessun passo");
+  eq(A.custFormaCampo("d", "abc"), false, "non si legge: niente");
+  ok(A.custFormaCampo("rot", "90"), "rotazione"); eq([r.x, r.y], [85.5, 50], "attorno al centro");
+  eq(A.custGeometria(r), { x: 45.5, y: 0, rot: 90, w: 100, d: 80 }, "X/Y dell'ingombro visibile");
+  const rr = () => A.state.items.find((x) => x.id === r.id);
+  A.undo(); eq([rr().rot || 0, rr().w], [0, 100], "Annulla: un campo (la rotazione)"); A.undo(); eq(rr().w, 120, "Annulla: L");
+  const ln = A.custNuovaForma("line", { x: 10, y: 10 }, { x: 110, y: 10 }); A.selectOne(ln.id);
+  ln.rot = 30;   /* ruotata dalla maniglia */
+  const g = A.custGeometria(ln); eq([g.len, g.ang], [100, 30], "la linea ruotata si legge giusta");
+  ok(A.custFormaCampo("len", "200"), "lunghezza");
+  let c = A.custCapiLinea(A.getSel()); eq([Math.round(c.a[0] * 100) / 100, Math.round(c.a[1] * 100) / 100, Math.round(A.custGeometria(A.getSel()).len)], [Math.round(g.x * 100) / 100, Math.round(g.y * 100) / 100, 200], "il primo capo resta fermo");
+  ok(A.custFormaCampo("ang", "90"), "angolo"); c = A.custCapiLinea(A.getSel());
+  eq([Math.round(c.b[0] - c.a[0]), Math.round(c.b[1] - c.a[1])], [0, 200], "verticale verso il basso");
+  ok(A.custFormaCampo("x", "0") && A.custFormaCampo("y", "0"), "X/Y del primo capo"); eq(A.custCapiLinea(A.getSel()).a.map((v) => Math.round(v * 1e6) / 1e6), [0, 0]);
+}));
+t("precisione: la linea selezionata ha le maniglie sui capi; trascinare un capo lo aggancia e l'altro resta fermo", () => conCampi((campi, el) => conPuntatore((ev) => {
+  precEditor();
+  const r = A.custNuovaForma("rect", { x: 100, y: 100 }, { x: 200, y: 160 });
+  const ln = A.custNuovaForma("line", { x: 20, y: 20 }, { x: 60, y: 50 }); A.selectOne(ln.id);
+  const m = A.selHandlesMarkup();
+  ok(/data-edge="p1"/.test(m) && /data-edge="p2"/.test(m) && !/data-edge="tl"/.test(m), "due capi, niente maniglie dell'ingombro");
+  const c0 = A.custCapiLinea(ln);
+  A.drag = { mode: "custcapo", id: ln.id, fine: "p2", fisso: c0.a, moved: false };
+  const v = A.custCapoSposta(A.drag, ev(203, 128));
+  eq(A.custCapiLinea(ln).b, [200, 130], "il capo sul punto medio del lato destro del rettangolo");
+  eq(A.custCapiLinea(ln).a, [20, 20], "l'altro capo fermo");
+  eq(v.segno && v.segno.t, "medio", "il segno lo dice"); A.drag = null;
+})));
+t("precisione: spostando una forma si agganciano bordi e centri, l'asse libero va alla griglia; distanze; ⌘ e «Aggancio» spento", () => conCampi((campi, el) => {
+  precEditor(400, 300);
+  const a = A.custNuovaForma("rect", { x: 100, y: 100 }, { x: 163.5, y: 140 });   /* bordo destro a 163,5: né griglia (10) né cm tondi */
+  const b = A.custNuovaForma("rect", { x: 200, y: 200 }, { x: 240, y: 220 });   /* centro 220,210; 40 × 20 */
+  const mk = () => { b.x = 220; b.y = 210; return { mode: "item", items: [{ id: b.id, x0: 220, y0: 210 }], moved: false }; };
+  let r = A.custSpostaEditor(mk(), -38, -41.3, {});   /* bordo sinistro a 162 (1,5 cm dal bordo destro dell'altro); il destro a 202, 2 cm dal centro della superficie: vince il più vicino */
+  eq(b.x, 183.5, "bordo sinistro sul bordo destro dell'altro (163,5), al mezzo centimetro");
+  eq(b.y, 170, "y senza bersagli vicini: alla griglia");
+  ok(r.guide.some((g) => g.x1 === 163.5 && g.x2 === 163.5 && g.y1 === 100 && g.y2 === 180), "guida verticale a 163,5, dall'alto dell'altro al fondo di questo (dopo la griglia): " + JSON.stringify(r.guide));
+  A.custSpostaEditor(mk(), -38, -41.3, { metaKey: true }); eq([b.x, b.y], [182, 169], "⌘: libero, al centimetro");
+  A.custAggancioPunti = false; r = A.custSpostaEditor(mk(), -38, -41.3, {}); eq([b.x, r.guide.length], [180, 0], "Aggancio spento: solo griglia");
+  A.custAggancioPunti = true;
+  r = A.custSpostaEditor(mk(), 0, -90, {});   /* b: x 200–240, y 110–130, a fianco di a */
+  const q = r.quote.find((x) => x.lato === "s"), qd = r.quote.find((x) => x.lato === "d");
+  eq([q.v, q.bordo, q.y1], [36.5, false, 120], "36,5 cm dal vicino a sinistra, a metà della parte in comune");
+  eq([qd.v, qd.bordo], [160, true], "a destra nessuno: 160 cm dal bordo");
+}));
 /* ===== fine Tappa A ===== */
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
