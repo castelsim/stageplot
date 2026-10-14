@@ -8939,6 +8939,125 @@ t("metro: le maniglie tonde agli estremi hanno il bordo da 1,6 px anche col CSS 
   ok(fine && sw(fine) === 1.6, "le tonde del metro: una regola più specifica a 1,6 px");
   ok(regole.filter(r => sw(r) != null && r !== base && r !== fine).length === 0, "nessun'altra regola sul bordo delle maniglie");
 });
+/* METRO «B · linea interrotta» (Simone, 14/10/2026): «non mi piace dove è scritto il numero, ha uno strano
+   contenitore». Numero sull'asse, linea interrotta attorno, frecce piene e trattini ai capi, niente riquadro. */
+const metroDraw = (o) => A.TYPES.metro.draw(Object.assign({ type: "metro", x: 0, y: 0, w: 345, d: 28, rot: 0 }, o || {}));
+const metroTesto = (mk) => { const m = mk.match(/<text class="lbl metro-q"[^>]*>([^<]*)<\/text>/); return m ? { tag: m[0], txt: m[1] } : null; };
+const metroLinee = (mk) => [...mk.matchAll(/<line class="ic" x1="([-\d.]+)" y1="([-\d.]+)" x2="([-\d.]+)" y2="([-\d.]+)"\/>/g)]
+  .map(m => m.slice(1).map(Number)).filter(l => l[1] === 0 && l[3] === 0);   /* solo i pezzi sull'asse, non i trattini */
+const metroFrecce = (mk) => [...mk.matchAll(/<path class="ic fill metro-fr" d="M ([-\d.]+) ([-\d.]+) L ([-\d.]+) ([-\d.]+) L ([-\d.]+) ([-\d.]+) Z"\/>/g)]
+  .map(m => m.slice(1).map(Number));
+t("metro: la misura è al centimetro (3,45 m, non 3,5 m) e fmtM resta com'era per palco e pedane", () => {
+  eq(A.fmtMetro(345), "3,45 m"); eq(A.fmtMetro(350), "3,5 m"); eq(A.fmtMetro(300), "3 m");
+  eq(A.fmtMetro(1234), "12,34 m"); eq(A.fmtMetro(5), "0,05 m"); eq(A.fmtMetro(344.6), "3,45 m", "mezzo centimetro: si arrotonda al cm");
+  eq(metroTesto(metroDraw()).txt, "3,45 m", "il metro disegna la misura al centimetro");
+  eq(A.fmtM(345), "3,5 m", "fmtM (palco, pedane, avvisi) non cambia");
+});
+t("metro: niente riquadro bianco col bordo grigio, numero sull'asse e linea interrotta più larga del testo", () => {
+  const mk = metroDraw();
+  ok(!/<rect/.test(mk), "nessun <rect> nel disegno: " + mk);
+  ok(mk.indexOf("#cbd5e1") < 0, "niente bordo #cbd5e1");
+  const g = A.metroGeom({ w: 345, rot: 0 });
+  ok(g.dentro, "345 cm: il numero sta dentro la linea");
+  const tx = metroTesto(mk), y = +tx.tag.match(/ y="([-\d.]+)"/)[1];
+  ok(Math.abs((y - g.fsK * 0.36)) < 0.05, "baseline a 0,36 corpo: il centro delle lettere è sull'asse (y=" + y + ")");
+  const L = metroLinee(mk);
+  eq(L.length, 2, "la linea è in due pezzi");
+  const buco = L[1][0] - L[0][2];
+  ok(buco > A.metroTestoLargo("3,45 m", 14), "lo spazio (" + buco + ") è più largo del testo stimato");
+  ok(Math.abs(L[0][2] + L[1][0]) < 0.01, "spazio centrato");
+  /* frecce piene ai capi, punta sul trattino */
+  const F = metroFrecce(mk);
+  eq(F.length, 2, "due frecce piene");
+  eq([F[0][0], F[1][0]], [-172.5, 172.5], "le punte sui capi");
+  ok(F[0][2] > F[0][0] && F[1][2] < F[1][0], "puntano verso l'esterno");
+  ok((mk.match(/<line class="ic" x1="([-\d.]+)" y1="-9" x2="\1" y2="9"\/>/g) || []).length === 2, "i due trattini di estremità");
+  ok(!/<circle/.test(mk), "niente più pallini ai capi");
+});
+t("metro: lo spazio nella linea si calcola sul corpo STAMPATO (PDF: scaleSvgFonts)", () => {
+  const k0 = A.__sceneTextK;
+  try {
+    A.__sceneTextK = 1; const g1 = A.metroGeom({ w: 600, rot: 0 });
+    A.__sceneTextK = 2; const g2 = A.metroGeom({ w: 600, rot: 0 });
+    ok(Math.abs(g2.gap - 2 * g1.gap) < 0.01, "corpo doppio, spazio doppio: " + g1.gap + " → " + g2.gap);
+    const mk = metroDraw({ w: 600 });
+    ok(/style="font-size:14px"/.test(metroTesto(mk).tag), "il corpo scritto resta quello nominale: lo moltiplica scaleSvgFonts");
+    const L = metroLinee(mk);
+    ok(L[1][0] - L[0][2] > A.metroTestoLargo("6 m", 28), "a corpo doppio il buco contiene il testo doppio");
+    A.__sceneTextK = 6; const g6 = A.metroGeom({ w: 345, rot: 0 });
+    eq(g6.dentro, false, "a 1:600 il numero non ci sta più: va sopra, la linea resta intera");
+  } finally { A.__sceneTextK = k0; }
+});
+t("metro: il numero si legge sempre dritto (0, 150, 180, -120, 400 gradi e vista ruotata del telefono)", () => {
+  const capovolto = (r) => /rotate\(180 /.test(metroTesto(metroDraw({ rot: r })).tag);
+  eq([0, 150, 180, -120, 400, -200, 300].map(capovolto), [false, true, true, true, false, true, false]);
+  /* verticale: dal basso verso l'alto, come le quote del palco (dim-edge, rotate(-90)) e del disegno tecnico */
+  eq([90, 270, -90, 450].map(capovolto), [true, false, false, true], "a 90° si gira, a 270° no");
+  /* a schermo conta l'angolo che arriva sullo schermo: col telefono la scena gira di -90° */
+  const r0 = A._sceneRuota;
+  try { A._sceneRuota = 90; eq([0, 180, 270, 90].map(capovolto), [false, true, true, false], "vista ruotata: 0→270, 180→90, 270→180, 90→0"); }
+  finally { A._sceneRuota = r0; }
+  const tag = metroTesto(metroDraw({ rot: 150 })).tag;
+  ok(/rotate\(180 0 0\)/.test(tag), "dentro la linea gira sul proprio centro, che è sull'asse: " + tag);
+});
+t("metro corto: linea intera, numero sopra senza riquadro, frecce che non si toccano e non si invertono", () => {
+  const mk = metroDraw({ w: 40 });
+  const g = A.metroGeom({ w: 40, rot: 0 });
+  eq(g.dentro, false, "40 cm: il numero non ci sta");
+  const L = metroLinee(mk);
+  eq(L.length, 1, "la linea non si interrompe");
+  const tx = metroTesto(mk), y = +tx.tag.match(/ y="([-\d.]+)"/)[1];
+  ok(y < 0 && y + g.fsK * 0.15 < -1, "il numero sta sopra la linea (baseline " + y + ")");
+  ok(!/<rect/.test(mk), "senza riquadro");
+  const F = metroFrecce(mk);
+  eq(F.length, 2, "frecce ancora presenti");
+  ok(F[0][2] > F[0][0] && F[1][2] < F[1][0], "verso l'esterno, non invertite");
+  ok(F[0][2] < F[1][2], "le basi non si scavalcano");
+  /* il testo più largo del metro passa sopra i trattini, non attraverso */
+  const gs = A.metroGeom({ w: 20, rot: 0 }), ys = +metroTesto(metroDraw({ w: 20 })).tag.match(/ y="([-\d.]+)"/)[1];
+  ok(ys + gs.fsK * 0.15 < -9, "20 cm: il numero sopra i trattini (" + ys + ")");
+  /* il minimo: 10 cm, niente frecce che si sovrappongono */
+  const F10 = metroFrecce(metroDraw({ w: 10 }));
+  ok(F10.length === 0 || F10[0][2] <= F10[1][2], "a 10 cm le frecce non si sovrappongono");
+  ok(A.metroGeom({ w: 170, rot: 0 }).dentro, "170 cm: dentro");
+});
+t("metro: l'etichetta personalizzata sostituisce la misura, con lo stesso stile", () => {
+  const mk = metroDraw({ label: "Fronte palco", w: 600 });
+  eq(metroTesto(mk).txt, "Fronte palco");
+  ok(!/<rect/.test(mk), "senza riquadro");
+  const L = metroLinee(mk);
+  ok(L.length === 2 && L[1][0] - L[0][2] > A.metroTestoLargo("Fronte palco", 14), "lo spazio segue la sua larghezza");
+  eq(metroTesto(metroDraw({ label: "a<b" })).txt, "a&lt;b", "il testo resta escapato");
+  const zero = metroDraw({ lblSize: 0 });
+  ok(!metroTesto(zero) && metroLinee(zero).length === 1, "corpo 0: niente numero e linea intera");
+  const big = A.metroGeom({ w: 345, rot: 0, lblSize: 30 });
+  ok(big.gap > A.metroGeom({ w: 345, rot: 0 }).gap * 1.9, "lblSize 30: lo spazio cresce col corpo");
+});
+t("metro bloccato: il lucchetto non copre né la linea né il numero, e sta dritto sotto il numero", () => {
+  [{ w: 345 }, { w: 345, rot: 150 }, { w: 40 }, { w: 40, rot: 180 }, { w: 345, lblSize: 30 }, { w: 345, lblSize: 30, rot: 200 }].forEach((o) => {
+    const it = Object.assign({ rot: 0, locked: true }, o), mk = metroDraw(it), g = A.metroGeom(it), q = JSON.stringify(o);
+    const m = mk.match(/<g class="riser-lock" transform="translate\(([-\d.]+),([-\d.]+)\)"/);
+    ok(m, "c'è il lucchetto: " + q);
+    const ly = +m[2], lo = ly - 4.2, hi = ly + 4.2;   /* il glifo, dritto o girato, sta in ±4,2 */
+    ok(lo > 1.5 || hi < -1.5, "non tocca la linea: " + q + " y=" + ly);
+    /* il numero occupa [y-0,72 corpo, y+0,15 corpo] e, capovolto, il suo speculare attorno al centro */
+    const c = g.y - g.fsK * 0.36, h = g.fsK * 0.51 + 1.5;
+    ok(lo > c + h || hi < c - h, "lontano dal numero: " + q);
+    ok(g.flip ? ly < c : ly > c, "dal lato del «sotto» del numero, come lo si legge: " + q);
+    eq(new RegExp('<g transform="rotate\\(180 0 ' + ly + '\\)"><g class="riser-lock"').test(mk), g.flip, "girato col numero, quindi dritto: " + q);
+  });
+  ok(metroDraw().indexOf("riser-lock") < 0, "libero: niente lucchetto");
+});
+t("metro: la miniatura del catalogo è il segno della quota, non un tratto da 0,3 px", () => {
+  const mk = A.miniSvg("metro");
+  ok(/class="mini"/.test(mk) && /viewBox="0 0 32 32"/.test(mk), "icona a misura di 32 px");
+  ok(/currentColor/.test(mk), "segue il colore del tema");
+  ok(A.miniSvg("pedana").indexOf("METRO") < 0 && A.miniSvg("pedana") !== mk, "gli altri tipi restano come sono");
+});
+t("metro: il numero non scende nel PDF e resta visibile coi nomi nascosti (è una quota, non un nome)", () => {
+  ok(/function nudgeLabelsInDom[\s\S]{0,400}metro-q/.test(appjs), "la passata anti-collisione lo salta");
+  ok(/svg\.names-hidden \.item \.lbl\.metro-q\{display:inline\}/.test(stylesCss), "regola CSS che lo tiene acceso");
+});
 t("rifinitura v3: maniglie dell'editor visibili, gambo sopra la maniglia alta, riquadro sotto il nome scritto sopra", () => {
   reset();
   const f = { id: A.uid(), type: "custshape", k: "rect", x: 300, y: 300, w: 20, d: 10, rot: 0, stroke: "#000000", sw: 2 };

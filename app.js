@@ -178,6 +178,77 @@ function bar(cx,cy,w,d,cls,rx){ return '<rect class="'+(cls||'ic')+'" x="'+(cx-w
 function rectSvg(w,d,cls,rx){ return bar(0,0,w,d,cls,rx); }
 function circ(x,y,r,cls){ return '<circle class="'+(cls||'ic')+'" cx="'+x+'" cy="'+y+'" r="'+r+'"/>'; }
 function lin(x1,y1,x2,y2,cls){ return '<line class="'+(cls||'ic')+'" x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'"/>'; }
+/* ============ METRO: QUOTA «B · LINEA INTERROTTA» (14/10/2026) ============
+   Simone: «non mi piace dove è scritto il numero, ha uno strano contenitore nel disegno». Fra le
+   alternative ha scelto la quota delle norme ISO: il numero SULL'ASSE, la linea interrotta attorno a lui,
+   frecce piene ai capi più i trattini di estremità, niente riquadro bianco col bordo grigio.
+   - La misura è al CENTIMETRO (fmtMetro): uno strumento in scala che scrive 3,5 m per 345 cm mente di 5 cm.
+     fmtM resta com'era: lo usano palco, pedane, avvisi e ritaglio di stampa, dove le misure vanno a 25-50 cm.
+   - Lo spazio nella linea segue la larghezza del testo calcolata sul corpo STAMPATO: nel PDF scaleSvgFonts
+     moltiplica le scritte per __sceneTextK, la linea no. Sul corpo nominale il numero scavalcherebbe la linea.
+   - Se testo e frecce non ci stanno, la linea resta intera e il numero va sopra (sopra i trattini se è
+     più largo del metro). Le frecce si accorciano e, sotto i 4 cm, spariscono: non si toccano e non si invertono.
+   - Il numero non va mai sottosopra: se l'angolo che arriva sullo schermo lo capovolge, gira di 180° sul
+     proprio centro e resta dov'è. Come nelle quote del disegno tecnico (e nelle quote del palco, dim-edge),
+     una quota VERTICALE si legge dal basso verso l'alto: a 90° si gira anche lei (metroCapovolto), mentre
+     lblCapovolto, per i nomi, a 90° la lascia scendere dall'alto.
+   - Il lucchetto sta sotto il numero, come lo si legge: fuori dalla linea e dalla fascia del numero, dritto. */
+function fmtMetro(cm){
+  return (Math.round(+cm||0)/100).toLocaleString("it-IT",{maximumFractionDigits:2})+" m";
+}
+/* larghezze in em di un sans grassetto (Helvetica Bold nel PDF, il carattere di sistema a schermo), un
+   poco abbondanti: meglio un filo d'aria in più che il numero sulla linea. Verificate in Chrome. */
+var METRO_EM={",":0.3,".":0.3,";":0.3,":":0.3," ":0.28,"'":0.25,"-":0.36,"(":0.36,")":0.36,"/":0.3,
+  i:0.3,j:0.3,l:0.3,f:0.36,t:0.4,r:0.42,I:0.32,m:0.92,w:0.84,M:0.9,W:1.0,"×":0.6};
+function metroCapovolto(ang){
+  var r=(((+ang||0)%360)+360)%360;
+  return r>=89.5 && r<269.5;
+}
+function metroTestoLargo(s, corpo){
+  var w=0;
+  String(s==null?"":s).split("").forEach(function(c){
+    w += (METRO_EM[c]!=null) ? METRO_EM[c] : (/[0-9]/.test(c) ? 0.6 : (/[A-ZÀ-Ý]/.test(c) ? 0.74 : 0.62));
+  });
+  return w*corpo;
+}
+/* la geometria della quota, nel sistema dell'elemento (asse sull'origine, prima della rotazione) */
+function metroGeom(it){
+  var r2=function(v){ return Math.round(v*100)/100; };
+  var w=Math.max(10, +it.w||200), fs=(it.lblSize==null) ? 14 : (+it.lblSize||0);
+  var txt=it.label || fmtMetro(w);
+  var K=(window.__sceneTextK>0 ? window.__sceneTextK : 1), fsK=fs*K;   /* il corpo con cui il testo verrà stampato */
+  var tw=fs>0 ? metroTestoLargo(txt, fsK) : 0;
+  var gap=fs>0 ? r2(tw + fsK*0.8) : 0;                           /* mezza lettera d'aria per lato, abbondante */
+  var aL=Math.min(12, (w-4)/2); if(aL<4) aL=0;                   /* freccia: 12 cm, più corta sui metri minimi */
+  var aH=aL ? r2(Math.min(4.5, aL*0.375)) : 0; aL=r2(aL);
+  var dentro=fs>0 && (gap + 2*aL + 12 <= w);                     /* 6 cm di linea visibile fra freccia e numero */
+  var y=dentro ? r2(fsK*0.36)                                    /* baseline: il centro delle lettere sull'asse */
+                 : r2(-((tw > w-4 ? 9+3 : 1+3) + fsK*0.15));     /* sopra la linea, o sopra i trattini */
+  var flip=metroCapovolto((+it.rot||0) - (_sceneRuota||0));   /* l'angolo che arriva sullo schermo: col telefono la scena gira di -90° */
+  var c=y - fsK*0.36, mezza=fsK*0.51 + 1.5;                      /* fascia del numero, capovolto o no, con l'alone */
+  var lockY=Math.max(1 + 2 + 3.9, (c + mezza) + 2 + 3.9);        /* il glifo va da -3,9 a +4,2 attorno al suo y */
+  if(flip) lockY=2*c - lockY;                                    /* numero capovolto: il suo «sotto» è dall'altra parte */
+  lockY=r2(lockY);
+  return {w:w, fs:fs, fsK:fsK, txt:txt, tw:tw, gap:gap, aL:aL, aH:aH, dentro:dentro, y:y, flip:flip, lockY:lockY};
+}
+var METRO_MINI='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true">'+
+  '<path d="M3.5 10.5v11M28.5 10.5v11M4 16h6.5M21.5 16h6.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>'+
+  '<path d="M4 16l5-2.6v5.2zM28 16l-5-2.6v5.2z" fill="currentColor"/>'+
+  '<text x="16" y="19.4" text-anchor="middle" font-size="10" font-weight="700" fill="currentColor">m</text></svg>';
+function metroSvg(it){
+  var g=metroGeom(it), x0=-g.w/2, x1=g.w/2, s='';
+  var lx0=x0 + g.aL*0.5, lx1=x1 - g.aL*0.5;                       /* sotto le frecce la linea non serve: il tappo tondo bucherebbe la punta */
+  if(g.dentro) s += lin(lx0,0,-g.gap/2,0,'ic') + lin(g.gap/2,0,lx1,0,'ic');
+  else s += lin(lx0,0,lx1,0,'ic');
+  s += lin(x0,-9,x0,9,'ic') + lin(x1,-9,x1,9,'ic');
+  if(g.aL){
+    s += '<path class="ic fill metro-fr" d="M '+x0+' 0 L '+(x0+g.aL)+' '+(-g.aH)+' L '+(x0+g.aL)+' '+g.aH+' Z"/>'+
+         '<path class="ic fill metro-fr" d="M '+x1+' 0 L '+(x1-g.aL)+' '+(-g.aH)+' L '+(x1-g.aL)+' '+g.aH+' Z"/>';
+  }
+  if(g.fs>0) s += '<text class="lbl metro-q" y="'+g.y+'" style="font-size:'+g.fs+'px"'+lblCapTr(g.flip, 0, 0, g.y, g.fsK)+'>'+esc(g.txt)+'</text>';
+  if(it.locked===true) s += g.flip ? '<g transform="rotate(180 0 '+g.lockY+')">'+lockGlyphAt(0, g.lockY)+'</g>' : lockGlyphAt(0, g.lockY);   /* dritto anche lui */
+  return s;
+}
 /* ===== DI box: ELEMENTO UNICO (Simone 20/07). Due assi indipendenti + aspetto:
    diCh = mono|stereo|multi (canali) · diType = passiva|attiva (topologia) · diSchema = simbolo astratto. */
 var DI_CH_LABEL={mono:"Mono", stereo:"Stereo", multi:"Multicanale"};
@@ -1179,15 +1250,7 @@ var TYPES = {
                return s; }},
   metro:    {nome:"Metro", dim:"linea misura", cat:"Palco e strutture", w:200,d:28, resizable:true, z:4, innerLabel:true,
              draw:function(it){
-               var w=Math.max(10,it.w||200), fs=(it.lblSize==null?14:it.lblSize), txt=it.label||fmtM(w);
-               var tw=Math.max(44, String(txt).length*fs*.55+14), y=-fs*.7;
-               return lin(-w/2,0,w/2,0,'ic')+
-                 lin(-w/2,-9,-w/2,9,'ic')+lin(w/2,-9,w/2,9,'ic')+
-                 circ(-w/2,0,4,'ic fill')+circ(w/2,0,4,'ic fill')+
-                 '<rect x="'+(-tw/2)+'" y="'+(y-fs*.85)+'" width="'+tw+'" height="'+(fs+8)+'" rx="5" fill="#fff" stroke="#cbd5e1" stroke-width="1"/>'+
-                 '<text class="lbl" y="'+y+'" style="font-size:'+fs+'px">'+esc(txt)+'</text>'+
-                 /* bloccato: il lucchettino accanto alla quota, l'unico posto dove non copre la linea */
-                 (it.locked===true ? lockGlyphAt(tw/2+7, y-fs*0.2) : "");
+               return metroSvg(it);
              }},
   /* FORMA (27/07): un solo tipo con l'asse `shape`, come la DI box con mono/stereo/multi. Nel catalogo
      compare come sei voci diverse (rettangolo, cerchio…) così la ricerca le trova tutte, ma nel pannello
@@ -16961,6 +17024,9 @@ function blockMagneticSnap(bi, propX, propY){
 
 /* ============ CATALOGO (UI con anteprime) ============ */
 function miniSvg(k, over, pad){
+  /* il metro in miniatura (14/10/2026): 2 m dentro 32 px erano un tratto da 0,3 px e due puntini, cioè niente.
+     Il suo segno, a misura di icona: trattini, frecce piene e la linea interrotta attorno alla «m». */
+  if(k==="metro" && !over) return METRO_MINI;
   var t=TYPES[k];
   var it={type:k, w:(over&&over.w)||t.w, d:(over&&over.d)||t.d, h:(over&&over.h)||t.h||40};
   if(over) Object.keys(over).forEach(function(kk){ if(it[kk]==null) it[kk]=over[kk]; });   /* flag (sedia/leggio/ampli…) → anteprima coerente */
@@ -30351,6 +30417,7 @@ function nudgeLabelsInDom(svgEl){
   var nodi=[];
   Array.prototype.forEach.call(svgEl.querySelectorAll("text.lbl"), function(el){
     if(el.classList && el.classList.contains("sub")) return;   /* la riga del montaggio segue il suo nome */
+    if(el.classList && el.classList.contains("metro-q")) return;   /* la misura del metro sta nel buco della sua linea (metroSvg): spostata, la linea resterebbe interrotta sul vuoto */
     if(el.getAttribute && el.getAttribute("data-cap")) return;   /* nome rigirato (lblCapTr, 06/10/2026): sta SOPRA il suo elemento, scendendo ci finirebbe addosso */
     var b; try{ b=el.getBBox(); }catch(_e){ return; }
     if(!b || !(b.width>0) || !(b.height>0)) return;
