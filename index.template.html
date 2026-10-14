@@ -16989,14 +16989,11 @@ function renderProps(){
   document.getElementById("pLblFull").className   = "btn"+(_lm==="full"?" primary":"");
   document.getElementById("pLblAbbr").className   = "btn"+(_lm==="abbr"?" primary":"");
   document.getElementById("pLblHidden").className = "btn"+(_lm==="hidden"?" primary":"");
-  document.getElementById("pAbbrWrap").style.display = (_lm==="abbr") ? "block" : "none";
-  document.getElementById("pLabelWrap").style.display = (_lm==="full") ? "block" : "none";   /* Opzione 2: una sola casella — nome pieno in Intero, sigla in Sigla */
+  var _pn=pannelloNomeUi(it);   /* selettore Intero/Sigla/Nascosto e le due caselle: vedi pannelloNomeUi */
+  document.getElementById("pAbbrWrap").style.display = _pn.sigla ? "block" : "none";
+  document.getElementById("pLabelWrap").style.display = _pn.nome ? "block" : "none";   /* Opzione 2: una sola casella — nome pieno in Intero, sigla in Sigla */
+  document.getElementById("pLblModeWrap").style.display=_pn.modo ? "block" : "none";
   var _ab=document.getElementById("pAbbr"); _ab.value=it.abbr||""; _ab.placeholder=abbrOf({type:it.type,label:it.label})||"sigla";
-  if(GAZ_TYPES[it.type]){   /* coperture: un solo campo "Nome" (niente Intero/Sigla) → l'etichetta è nome + dimensione automatica */
-    document.getElementById("pLblModeWrap").style.display="none";
-    document.getElementById("pAbbrWrap").style.display="none";
-    document.getElementById("pLabelWrap").style.display="block";
-  }
   var lookw=document.getElementById("pLookWrap");   /* Unifica icone: toggle Aspetto per le postazioni con illustrazione */
   if(lookw){ var isArt=hasLookToggle(it); lookw.style.display=isArt?"block":"none";
     if(isArt){ var ill=(it.look!=="schematico");
@@ -17372,6 +17369,18 @@ function abbrOf(it){
     num=parts.join("."); }
   if(pro) return num ? (pro+" "+num) : pro;
   return autoAbbr(it.label);
+}
+/* Cosa mostra il pannello per il NOME: il selettore Intero/Sigla/Nascosto (modo), la casella del nome e quella
+   della sigla. Prima stava sparso nel pannello; qui c'è in un posto solo.
+   - testo e forma: si scrive dentro l'elemento, niente selettore;
+   - coperture: un solo campo «Nome» (l'etichetta è nome + dimensione automatica);
+   - metro (14/10/2026): il suo testo è la MISURA. metroSvg non legge labelMode, quindi Intero/Sigla/Nascosto
+     non facevano niente (verificato su main: stesso disegno con tutti e tre); per toglierla c'è il corpo 0.
+     Resta la casella dell'etichetta, che sostituisce la misura, anche se un progetto salvato ha "abbr". */
+function pannelloNomeUi(it){
+  var t=it && it.type, lm=(it && it.labelMode)||"full";
+  if(t==="metro" || GAZ_TYPES[t]) return {modo:false, nome:true, sigla:false};
+  return {modo:!(t==="testo" || t==="forma"), nome:lm==="full", sigla:lm==="abbr"};
 }
 /* testo dell'etichetta da disegnare in base alla modalità per-elemento (full/abbr/hidden) */
 function lblText(raw, it, isPrimary){

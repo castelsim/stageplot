@@ -9054,6 +9054,25 @@ t("metro: la miniatura del catalogo è il segno della quota, non un tratto da 0,
   ok(/currentColor/.test(mk), "segue il colore del tema");
   ok(A.miniSvg("pedana").indexOf("METRO") < 0 && A.miniSvg("pedana") !== mk, "gli altri tipi restano come sono");
 });
+t("metro: il pannello non offre Intero/Sigla/Nascosto (sul metro non fanno niente) e la casella dell'etichetta c'è sempre", () => {
+  /* Il testo del metro è la sua misura: metroSvg non legge labelMode, e per toglierla c'è il corpo 0. I progetti
+     salvati con labelMode "abbr" o "hidden" su un metro restano come si vedevano (nessun effetto, prima e dopo). */
+  ["full", "abbr", "hidden", undefined].forEach((lm) => {
+    const it = { type: "metro", w: 345, labelMode: lm, label: "Fronte palco" };
+    eq(A.pannelloNomeUi(it), { modo: false, nome: true, sigla: false }, "metro, labelMode " + lm);
+  });
+  const base = metroDraw({ label: "Fronte palco" });
+  ["abbr", "hidden"].forEach((lm) => eq(metroDraw({ label: "Fronte palco", labelMode: lm, abbr: "FP" }), base, "labelMode " + lm + ": il disegno non cambia"));
+  /* gli altri tipi restano come prima */
+  eq(A.pannelloNomeUi({ type: "cantante" }), { modo: true, nome: true, sigla: false }, "cantante, Intero");
+  eq(A.pannelloNomeUi({ type: "cantante", labelMode: "abbr" }), { modo: true, nome: false, sigla: true }, "cantante, Sigla");
+  eq(A.pannelloNomeUi({ type: "cantante", labelMode: "hidden" }), { modo: true, nome: false, sigla: false }, "cantante, Nascosto");
+  eq(A.pannelloNomeUi({ type: "forma" }).modo, false, "forma: niente selettore, come prima");
+  const gaz = Object.keys(A.GAZ_TYPES)[0];
+  eq(A.pannelloNomeUi({ type: gaz, labelMode: "abbr" }), { modo: false, nome: true, sigla: false }, "coperture: come prima");
+  /* e il pannello lo usa davvero */
+  ok(/var _pn=pannelloNomeUi\(it\)[\s\S]{0,600}"pLblModeWrap"\)\.style\.display=_pn\.modo/.test(appjs), "il pannello legge pannelloNomeUi");
+});
 t("metro: il numero non scende nel PDF e resta visibile coi nomi nascosti (è una quota, non un nome)", () => {
   ok(/function nudgeLabelsInDom[\s\S]{0,400}metro-q/.test(appjs), "la passata anti-collisione lo salta");
   ok(/svg\.names-hidden \.item \.lbl\.metro-q\{display:inline\}/.test(stylesCss), "regola CSS che lo tiene acceso");
