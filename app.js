@@ -29172,7 +29172,7 @@ function scaleSvgTextHalos(css, k){
     return blocco.replace(/stroke-width:\s*([\d.]+)px/g, function(m,n){ return "stroke-width:"+(+n*k).toFixed(2)+"px"; });
   });
 }
-function svgToDataUrl(svgStr, pxW, pxH, type){
+function svgToDataUrl(svgStr, pxW, pxH, type, trasparente){   /* trasparente: niente fondo bianco (solo PNG) */
   /* iOS Safari rasterizza l'SVG SOLO se il root ha width/height espliciti (non basta il viewBox) */
   svgStr = svgStr.replace(/^<svg /, '<svg width="'+pxW+'" height="'+pxH+'" ');
   return new Promise(function(res,rej){
@@ -29184,7 +29184,7 @@ function svgToDataUrl(svgStr, pxW, pxH, type){
       URL.revokeObjectURL(url);
       try{
         var c=document.createElement("canvas"); c.width=pxW; c.height=pxH;
-        var ctx=c.getContext("2d"); ctx.fillStyle="#fff"; ctx.fillRect(0,0,pxW,pxH);
+        var ctx=c.getContext("2d"); if(!(trasparente && type==="image/png")){ ctx.fillStyle="#fff"; ctx.fillRect(0,0,pxW,pxH); }
         ctx.drawImage(img,0,0,pxW,pxH);
         res(type==="image/png" ? c.toDataURL("image/png") : c.toDataURL("image/jpeg", 0.95));
       }catch(e){ URL.revokeObjectURL(url); rej(e); }
@@ -30415,20 +30415,24 @@ function flattenCssToAttrs(rootEl){
    cade nel catch raster — evita che svg2pdf blocchi il main thread fino a far crashare Chrome. */
 /* ===== PLANIMETRIA NEL PDF (14/10/2026) =====
    La pianta non passa più da svg2pdf: la disegna jsPDF PRIMA del disegno vettoriale, come immagine sola
-   della parte che cade nel riquadro, alla risoluzione che serve al foglio. Perché:
+   della parte che cade nell'AREA DI DISEGNO DEL FOGLIO, alla risoluzione che serve al foglio. Perché:
    - svg2pdf la imbarcava intera e ricodificata (una WebP da 36 KB diventava un JPEG da 560 KB);
    - perdeva l'opacità scelta (flattenCssToAttrs la piega in fill-opacity, che un'immagine non ha);
    - ruotata, trasformata e ritagliata così è esattamente quella dello schermo.
+   Area di disegno del foglio, non riquadro del palco (revisione 14/10): con l'area «Solo palco» (o quella
+   che nasce da sola col PNG) il riquadro è il palco esatto, e lì il fondo bianco del palco copre la pianta
+   tutta. Sul foglio invece c'è spazio attorno, alla stessa scala: la pianta lo riempie, come a schermo
+   riempie la vista. Elementi, quote e cornice restano dove sono; cambia solo fin dove arriva la pianta.
    L'opacità si «cuoce» sul bianco: sotto la pianta c'è solo il foglio bianco, quindi il risultato è
-   identico a un'immagine trasparente, e senza canale alfa si può usare il JPEG.
+   identico a un'immagine trasparente, e senza canale alfa va sempre in JPEG (un PNG da canvas porta
+   l'alfa: jsPDF ne farebbe una maschera inutile, decodificando in JavaScript fino a 2400 px).
    Opacità = quella dell'utente (40 % di serie): è quella con cui ha tarato la pianta per leggerla
-   DIETRO agli elementi; a schermo e in stampa deve dire la stessa cosa. */
+   DIETRO agli elementi; a schermo e in stampa deve dire la stessa cosa. «Solo planimetria» (piena a
+   schermo) non conta: è una vista di lavoro, la stampa usa l'opacità salvata. */
 var VENUE_PDF_DPI=150;      /* 0,17 mm a punto: più fine del tratto più sottile di una pianta, leggero da stampare */
 var VENUE_PDF_MAXPX=2400;   /* lato massimo del raster: un A2 pieno resta sotto ~1 MB */
-/* Geometria pura del raster: quale pezzo di mondo (cm) e quanti pixel. null = niente pianta da stampare.
-   vb = riquadro del disegno (cm), mmPerCm = scala sul foglio (10/N). */
-function venuePdfRaster(v, vb, mmPerCm){
-  if(!v || v.enabled===false || !safeVenueDataUrl(v._dataUrl) || !vb || !(mmPerCm>0)) return null;
+/* Ingombro (cm, mondo) della pianta ruotata. */
+function venueIngombro(v){
   function n(x,f){ x=Number(x); return isFinite(x)?x:f; }
   var w=Math.max(1,n(v.w,1)), h=Math.max(1,n(v.h,1)), cx=n(v.x,0), cy=n(v.y,0), rot=n(v.rot,0);
   var a=rot*Math.PI/180, c=Math.cos(a), si=Math.sin(a), x0=Infinity, y0=Infinity, x1=-Infinity, y1=-Infinity;
@@ -30436,26 +30440,48 @@ function venuePdfRaster(v, vb, mmPerCm){
     var px=cx+p[0]*c-p[1]*si, py=cy+p[0]*si+p[1]*c;
     x0=Math.min(x0,px); y0=Math.min(y0,py); x1=Math.max(x1,px); y1=Math.max(y1,py);
   });
-  /* solo la parte dentro il riquadro: il resto sul foglio non si vedrebbe e peserebbe lo stesso */
-  x0=Math.max(x0,vb.x); y0=Math.max(y0,vb.y); x1=Math.min(x1,vb.x+vb.w); y1=Math.min(y1,vb.y+vb.h);
+  return {x0:x0, y0:y0, x1:x1, y1:y1, w:w, h:h, cx:cx, cy:cy, rot:rot};
+}
+/* Geometria pura del raster: quale pezzo di mondo (cm) e quanti pixel. null = niente pianta da stampare.
+   area = la parte di mondo che il foglio mostra (cm), mmPerCm = scala sul foglio (10/N). */
+function venuePdfRaster(v, area, mmPerCm){
+  if(!v || v.enabled===false || !safeVenueDataUrl(v._dataUrl) || !area || !(mmPerCm>0)) return null;
+  var op=Math.max(0,Math.min(100,Number(v.opacity)))/100; if(!isFinite(op)) op=0.4;
+  if(!(op>0)) return null;   /* opacità 0: sul foglio non si vedrebbe, non si prepara nemmeno */
+  var g=venueIngombro(v);
+  /* solo la parte dentro l'area: il resto sul foglio non si vedrebbe e peserebbe lo stesso */
+  var x0=Math.max(g.x0,area.x), y0=Math.max(g.y0,area.y), x1=Math.min(g.x1,area.x+area.w), y1=Math.min(g.y1,area.y+area.h);
   if(!(x1-x0>0.5) || !(y1-y0>0.5)) return null;
   /* pixel per cm: quanti ne chiede il foglio a VENUE_PDF_DPI, ma mai più di quanti ne ha l'immagine
      (ingrandire non aggiunge dettaglio, solo peso); e il lato più lungo entro VENUE_PDF_MAXPX */
   var ppc=mmPerCm*VENUE_PDF_DPI/25.4;
-  var iw=n(v._imgW,0); if(iw>0) ppc=Math.min(ppc, iw/w);
+  var iw=Number(v._imgW); if(isFinite(iw) && iw>0) ppc=Math.min(ppc, iw/g.w);
   var maxLato=Math.max(x1-x0, y1-y0);
   if(maxLato*ppc>VENUE_PDF_MAXPX) ppc=VENUE_PDF_MAXPX/maxLato;
   var pxW=Math.max(1,Math.round((x1-x0)*ppc)), pxH=Math.max(1,Math.round((y1-y0)*ppc));
-  return { x:x0, y:y0, w:x1-x0, h:y1-y0, pxW:pxW, pxH:pxH, ppc:ppc,
-    op:Math.max(0,Math.min(100,n(v.opacity,40)))/100, cx:cx, cy:cy, vw:w, vh:h, rot:rot };
+  return { x:x0, y:y0, w:x1-x0, h:y1-y0, pxW:pxW, pxH:pxH, ppc:ppc, op:op, cx:g.cx, cy:g.cy, vw:g.w, vh:g.h, rot:g.rot };
 }
-/* Disegna la pianta su un canvas (fondo bianco, opacità cotta) → {dataUrl, fmt}. Fra JPEG e PNG vince il
-   più leggero: una pianta al tratto in PNG pesa poco, una foto o una scansione in JPEG. */
+/* La parte di mondo (cm) che un rettangolo del foglio (mm) mostra, dato dove sta il disegno: il riquadro
+   ix,iy (mm) è vb (cm), a mmPerCm. */
+function areaFoglioMondo(area, ix, iy, vb, mmPerCm){
+  return { x:vb.x+(area.x-ix)/mmPerCm, y:vb.y+(area.y-iy)/mmPerCm, w:area.w/mmPerCm, h:area.h/mmPerCm };
+}
+/* Disegna la pianta su un canvas (fondo bianco, opacità cotta) → {dataUrl, fmt:"JPEG"}.
+   Riduzioni forti a passi di metà: Safari ignora imageSmoothingQuality e, saltando in un colpo da una
+   scansione da 4000 px a 600, perde le linee sottili (campiona invece di fare la media). */
 function venueRasterize(v, r){
   return new Promise(function(res, rej){
     var img=new Image();
     img.onload=function(){
       try{
+        var src=img, sw=img.naturalWidth||img.width, sh=img.naturalHeight||img.height;
+        var finale=r.ppc*r.vw;   /* larghezza in pixel che la pianta intera avrà nel raster */
+        while(sw>1 && finale>0 && sw/2>=finale){
+          var mezzo=document.createElement("canvas"); mezzo.width=Math.max(1,Math.round(sw/2)); mezzo.height=Math.max(1,Math.round(sh/2));
+          var mg=mezzo.getContext("2d"); mg.imageSmoothingEnabled=true; if("imageSmoothingQuality" in mg) mg.imageSmoothingQuality="high";
+          mg.drawImage(src,0,0,mezzo.width,mezzo.height);
+          src=mezzo; sw=mezzo.width; sh=mezzo.height;
+        }
         var cv=document.createElement("canvas"); cv.width=r.pxW; cv.height=r.pxH;
         var g=cv.getContext("2d");
         g.fillStyle="#ffffff"; g.fillRect(0,0,r.pxW,r.pxH);
@@ -30463,35 +30489,43 @@ function venueRasterize(v, r){
         g.globalAlpha=r.op;
         g.setTransform(r.ppc,0,0,r.ppc,-r.x*r.ppc,-r.y*r.ppc);   /* da cm del mondo a pixel del raster */
         g.translate(r.cx,r.cy); g.rotate(r.rot*Math.PI/180);
-        g.drawImage(img,-r.vw/2,-r.vh/2,r.vw,r.vh);
-        var jpg=cv.toDataURL("image/jpeg",0.85), png=cv.toDataURL("image/png");
-        res(png.length<jpg.length ? {dataUrl:png, fmt:"PNG"} : {dataUrl:jpg, fmt:"JPEG"});
+        g.drawImage(src,-r.vw/2,-r.vh/2,r.vw,r.vh);
+        res({dataUrl:cv.toDataURL("image/jpeg",0.85), fmt:"JPEG"});
       }catch(e){ rej(e); }
     };
-    img.onerror=function(){ rej(new Error("planimetria illeggibile")); };
+    img.onerror=function(){ rej(new Error("planimetria illeggibile da questo browser")); };
     img.src=v._dataUrl;
   });
 }
-/* La pianta sul foglio, sotto il disegno: ix,iy,wMm,hMm = riquadro del disegno in mm, vb = lo stesso in cm.
-   Non blocca mai l'export: se non si riesce a disegnarla, il PDF esce senza e lo si dice in console. */
-function pdfVenueLayer(doc, ix, iy, wMm, hMm, vb){
-  if(!venueInStampa() || !vb || !(vb.w>0)) return Promise.resolve(false);
-  var mmPerCm=wMm/vb.w, v=state.venue, r=venuePdfRaster(v, vb, mmPerCm);
+/* La pianta sul foglio, sotto il disegno. ix,iy,wMm,hMm = riquadro del disegno (mm), vb = lo stesso in cm;
+   area = dove la pianta può arrivare sul foglio (mm): l'area di disegno della pagina. Senza area, il riquadro.
+   Non blocca mai l'export: se non si riesce, il PDF esce senza pianta e lo si dice (una volta per file).
+   Risolve vero se l'ha disegnata. */
+function pdfVenueLayer(doc, ix, iy, wMm, hMm, vb, area){
+  if(!venueInStampa() || !vb || !(vb.w>0) || !(wMm>0)) return Promise.resolve(false);
+  area=area || {x:ix, y:iy, w:wMm, h:hMm};
+  var mmPerCm=wMm/vb.w, v=state.venue, r=venuePdfRaster(v, areaFoglioMondo(area, ix, iy, vb, mmPerCm), mmPerCm);
   if(!r) return Promise.resolve(false);
-  /* le pagine-vista hanno lo stesso riquadro: la pianta si prepara una volta e jsPDF, con lo stesso alias,
-     la imbarca una volta sola e la richiama nelle pagine dopo */
+  /* le pagine-vista hanno la stessa area: la pianta si prepara una volta e jsPDF, con lo stesso alias,
+     la imbarca una volta sola e la richiama nelle pagine dopo (e nel ripiego raster della pagina 1) */
   var alias="pianta:"+venueDataHash(v._dataUrl)+":"+[r.x,r.y,r.w,r.h,r.pxW,r.pxH,r.op,r.rot].join(",");
   var cache=doc.__piantaPdf || (doc.__piantaPdf={});
   if(!cache[alias]) cache[alias]=venueRasterize(v, r);
   return cache[alias].then(function(out){
     doc.addImage(out.dataUrl, out.fmt, ix+(r.x-vb.x)*mmPerCm, iy+(r.y-vb.y)*mmPerCm, r.w*mmPerCm, r.h*mmPerCm, alias, "FAST");
     return true;
-  }).catch(function(e){ try{ console.warn("[stageplot] planimetria non disegnata nel PDF:", e); }catch(_){} return false; });
+  }).catch(function(e){
+    try{ console.warn("[stageplot] planimetria non disegnata nel PDF:", e); }catch(_){}
+    if(!doc.__piantaAvvisata){ doc.__piantaAvvisata=true;
+      try{ if(window.__toast) window.__toast("La planimetria non è entrata nel PDF: questo browser non riesce a leggerne l'immagine. Prova a ricaricarla in PNG o JPEG.", true); }catch(_){} }
+    return false;
+  });
 }
 function drawStageVector(doc, ix, iy, wMm, hMm, cropVb, focus, sceneOpts){
+  var area=(sceneOpts && sceneOpts.areaFoglio) || null, piantaFatta=false;
   return loadSvg2Pdf().then(function(){
-    /* prima la pianta (sotto a tutto), poi il disegno vettoriale che la copre dove c'è il palco */
-    return pdfVenueLayer(doc, ix, iy, wMm, hMm, cropVb || sceneVbDefault());
+    /* prima la pianta (sotto a tutto, su tutta l'area di disegno), poi il disegno vettoriale che la copre dove c'è il palco */
+    return pdfVenueLayer(doc, ix, iy, wMm, hMm, cropVb || sceneVbDefault(), area).then(function(f){ piantaFatta=f; });
   }).then(function(){
     var host=document.createElement("div");
     host.style.cssText="position:fixed;left:-99999px;top:0;width:0;height:0;overflow:hidden;opacity:0;pointer-events:none";
@@ -30507,7 +30541,25 @@ function drawStageVector(doc, ix, iy, wMm, hMm, cropVb, focus, sceneOpts){
     var fn=svg2pdfFn();
     var ret = (typeof doc.svg==="function") ? doc.svg(svgEl,{x:ix,y:iy,width:wMm,height:hMm})
                                             : fn(svgEl, doc, {x:ix,y:iy,width:wMm,height:hMm});
-    return Promise.resolve(ret).then(function(){ host.remove(); }, function(e){ host.remove(); _pdfMode=false; throw e; });
+    return Promise.resolve(ret).then(function(){ host.remove(); }, function(e){
+      host.remove(); _pdfMode=false;
+      /* svg2pdf è caduto: la pagina torna com'era prima della pianta (bianca), così una pagina-vista non disegnata
+         non resta con la sola pianta, e il ripiego raster della pagina 1 ripartirà da pulito (pdfRipiegoRaster) */
+      if(piantaFatta){ var c=area || {x:ix, y:iy, w:wMm, h:hMm}; doc.setFillColor(255,255,255); doc.rect(c.x, c.y, c.w, c.h, "F"); }
+      throw e;
+    });
+  });
+}
+/* PAGINA 1 SE svg2pdf CADE: raster del disegno, sopra la pianta. La pianta la rimette pdfVenueLayer (stesso
+   alias → jsPDF la imbarca una volta sola) e il raster ha il fondo TRASPARENTE: con quello bianco avrebbe
+   coperto la pianta, e con la pianta dentro la si sarebbe imbarcata due volte. */
+function pdfRipiegoRaster(doc, ix, iy, stMmW, stMmH, vb, scena){
+  var pxW=Math.round(stMmW/25.4*300), pxH=Math.round(stMmH/25.4*300);
+  var scale=Math.min(1, 4000/Math.max(pxW,pxH,1));
+  pxW=Math.round(pxW*scale); pxH=Math.round(pxH*scale);
+  return pdfVenueLayer(doc, ix, iy, stMmW, stMmH, vb, scena && scena.areaFoglio).then(function(f){
+    var svg=stageSceneSvg(vb, Object.assign({focus:"clean"}, scena, f ? {piantaASe:true} : {}));
+    return svgToDataUrl(svg, pxW, pxH, "image/png", f).then(function(dataUrl){ doc.addImage(dataUrl, "PNG", ix, iy, stMmW, stMmH); });
   });
 }
 function niceBarMeters(N){            /* barra di scala: ~25-40 mm sul foglio */
@@ -30809,6 +30861,18 @@ function pdfCredit(doc){
   }
   doc.setPage(n);
 }
+/* La planimetria nell'anteprima del foglio, come la mette pdfVenueLayer nel PDF: un <svg> annidato grande quanto
+   l'area di disegno (mm), con il viewBox sulla parte di mondo che quell'area mostra alla scala del disegno.
+   L'<svg> annidato ritaglia da sé: niente clipPath con id, che fra le pagine dell'anteprima si ripeterebbero.
+   Vuoto se la pianta non va in stampa (spenta, senza file, opacità 0, fuori dall'area). */
+function venueFoglioSvg(area, ix, iy, vb, mmPerCm){
+  if(!venueInStampa() || !vb || !(mmPerCm>0)) return '';
+  var w=areaFoglioMondo(area, ix, iy, vb, mmPerCm);
+  if(!venuePdfRaster(state.venue, w, mmPerCm)) return '';
+  var keep=window.__scenePrint; window.__scenePrint=true;   /* opacità salvata, anche in «Solo planimetria» */
+  var m; try{ m=venueMarkup(); } finally { window.__scenePrint=keep; }
+  return '<svg x="'+area.x+'" y="'+area.y+'" width="'+area.w+'" height="'+area.h+'" viewBox="'+w.x+' '+w.y+' '+w.w+' '+w.h+'" preserveAspectRatio="none">'+m+'</svg>';
+}
 /* anteprima del foglio (SVG, mm) — rispecchia il layout del PDF: planimetria + quote + cartiglio */
 function pdfPreviewSvg(paperKey, N, orient, header, opts){
   opts=opts||{};   /* opts.focus = clean|cabaudio|elec|sectionmic ; opts.pageLabel = titolo pagina-vista */
@@ -30818,9 +30882,13 @@ function pdfPreviewSvg(paperKey, N, orient, header, opts){
   var box=pdfStageBox(Ng, paperKey, orient, ch), L=box.L, A=box.A;
   var stMmW=box.mmW, stMmH=box.mmH, ix=box.ix, iy=box.iy;
   /* l'anteprima deve dire le stesse cose del file che uscirà: stesso corpo del testo, stesse quote */
-  var scene = stageSceneSvg(box.vb, {focus:opts.focus||null, textK:pdfTextK(Ng),
+  /* la planimetria come nel PDF: su tutta l'area di disegno del foglio, sotto il disegno (venueFoglioSvg) */
+  var areaDis={x:L.drawX, y:L.drawY, w:L.drawW, h:L.drawH};
+  var pianta=venueFoglioSvg(areaDis, ix, iy, box.vb, stMmW/box.vb.w);
+  var scene = stageSceneSvg(box.vb, {focus:opts.focus||null, textK:pdfTextK(Ng), piantaASe:!!pianta,
       noBlockDims:!A.custom && !box.cropped && stageBlocks().length<2})
     .replace(/^<svg /, '<svg x="'+ix+'" y="'+iy+'" width="'+stMmW+'" height="'+stMmH+'" preserveAspectRatio="none" ');
+  scene=pianta+scene;
   var cy=L.ph-L.fondo-L.cartH;
   var stroke = A.custom ? '#9ca3af' : (box.cropped ? '#9ca3af' : (isSingleRect()?'#1f2937':'none'));
   var labels = A.custom ? '' :
@@ -31713,7 +31781,8 @@ function buildPdfDoc(paperKey, N, orient, header){
   /* il disegno viene rimpicciolito di N volte: le scritte vanno ingrandite altrettanto per restare
      della stessa dimensione sulla carta a ogni scala (vedi scaleSvgFonts). Le quote per blocco si
      spengono quando qui sotto ne disegniamo già di nostre — cioè su palco di un pezzo solo. */
-  var scena={textK:pdfTextK(N), noBlockDims:!A.custom && !box.cropped && stageBlocks().length<2};
+  var scena={textK:pdfTextK(N), noBlockDims:!A.custom && !box.cropped && stageBlocks().length<2,
+    areaFoglio:{x:L.drawX, y:L.drawY, w:L.drawW, h:L.drawH}};   /* fin dove arriva la planimetria: tutta l'area di disegno (pdfVenueLayer) */
   return loadJsPDF().then(function(){
     var jsPDF=window.jspdf.jsPDF;
     var doc=new jsPDF({orientation:L.orient, unit:"mm", format:paperKey, compress:true});
@@ -31721,10 +31790,7 @@ function buildPdfDoc(paperKey, N, orient, header){
     return drawStageVector(doc, ix, iy, stMmW, stMmH, box.vb, "clean", scena)
       .catch(function(e){
         /* svg2pdf ha lanciato un'eccezione (non dovrebbe succedere) → raster come ultima spiaggia */
-        var pxW=Math.round(stMmW/25.4*300), pxH=Math.round(stMmH/25.4*300);
-        var scale=Math.min(1, 4000/Math.max(pxW,pxH,1));
-        pxW=Math.round(pxW*scale); pxH=Math.round(pxH*scale);
-        return svgToDataUrl(stageSceneSvg(box.vb, Object.assign({focus:"clean"}, scena)), pxW, pxH, "image/png").then(function(dataUrl){ doc.addImage(dataUrl, "PNG", ix, iy, stMmW, stMmH); });
+        return pdfRipiegoRaster(doc, ix, iy, stMmW, stMmH, box.vb, scena);
       })
       .then(function(){
     if(!A.custom && !box.cropped){
@@ -31756,7 +31822,7 @@ function buildPdfDoc(paperKey, N, orient, header){
         doc.text(v[1], L.M, 11);
         /* stesso corpo del testo di pag. 1; le quote per blocco qui RESTANO: in queste pagine
            jsPDF non ne disegna, quindi sono l'unica quotatura e non fanno doppione */
-        return drawStageVector(doc, ix, iy, stMmW, stMmH, box.vb, v[0], {textK:scena.textK})
+        return drawStageVector(doc, ix, iy, stMmW, stMmH, box.vb, v[0], {textK:scena.textK, areaFoglio:scena.areaFoglio})
           .catch(function(e){   /* se svg2pdf fallisce la pagina resta col solo titolo: non blocca l'export, ma va detto */
             try{ console.error("[stageplot] pagina-vista non disegnata:", v[1], e); }catch(_){}
             _viewFails.push(v[1]);
@@ -31927,6 +31993,22 @@ function exportPdf(paperKey, scaleSel, orient, header){
    dichiarata (messaggio), una guardia contro il doppio scatto, e `fatto` avvisa il chiamante alla
    fine vera — riuscita o fallita — così il bottone può tornare vivo quando il lavoro è finito. */
 var _pngInCorso=false;
+/* PNG CON LA PLANIMETRIA (revisione 14/10). Il PNG è grande quanto l'area di stampa, e l'area che nasce da sola
+   (ensurePrintFrame) è il palco esatto: la pianta stava tutta sotto il fondo bianco del palco e non se ne vedeva
+   niente. Il PNG non ha un foglio attorno come il PDF, quindi con la pianta accesa si allarga lui: fino a un
+   quarto del lato lungo dell'area per parte, e solo dove la pianta c'è davvero (una pianta che finisce a filo
+   del palco non aggiunge bordi bianchi). Il disegno resta alla stessa scala e nello stesso posto del mondo.
+   null = PNG come sempre (pianta spenta, assente o tutta dentro l'area). */
+var PNG_MARGINE_PIANTA=0.25;
+function pngVbConPianta(){
+  if(!venueInStampa()) return null;
+  var base=sceneVbDefault(), g=venueIngombro(state.venue), m=PNG_MARGINE_PIANTA*Math.max(base.w, base.h);
+  var x0=Math.max(g.x0, base.x-m), y0=Math.max(g.y0, base.y-m), x1=Math.min(g.x1, base.x+base.w+m), y1=Math.min(g.y1, base.y+base.h+m);
+  if(!(x1>x0) || !(y1>y0)) return null;   /* la pianta non tocca nemmeno il margine */
+  x0=Math.min(x0, base.x); y0=Math.min(y0, base.y); x1=Math.max(x1, base.x+base.w); y1=Math.max(y1, base.y+base.h);
+  if(x0>=base.x && y0>=base.y && x1<=base.x+base.w && y1<=base.y+base.h) return null;
+  return {x:x0, y:y0, w:x1-x0, h:y1-y0};
+}
 function exportPng(fatto){
   if(custEditorAttivo()){ custEditorAvvisa(); return false; }   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo: niente export */
   function fine(){ _pngInCorso=false; if(typeof fatto==="function") fatto(); }
@@ -31935,9 +32017,11 @@ function exportPng(fatto){
   if(window.__toast) window.__toast("Preparo il PNG…");
   var A=printArea();
   var PX=4000;
-  var sc=PX/Math.max(A.w,A.h);
-  var pxW=Math.round(A.w*sc), pxH=Math.round(A.h*sc);
-  var svgStr=stageSceneSvg();
+  var vbP=pngVbConPianta();   /* con la planimetria accesa il PNG si allarga attorno all'area per mostrarla */
+  var dimP=vbP || A;
+  var sc=PX/Math.max(dimP.w,dimP.h);
+  var pxW=Math.round(dimP.w*sc), pxH=Math.round(dimP.h*sc);
+  var svgStr=stageSceneSvg(vbP || undefined);
   svgStr=svgStr.replace(/^<svg /,'<svg width="'+pxW+'" height="'+pxH+'" ');
   var host=document.createElement("div");
   host.style.cssText="position:fixed;left:-99999px;top:0;width:0;height:0;overflow:hidden;opacity:0;pointer-events:none";
