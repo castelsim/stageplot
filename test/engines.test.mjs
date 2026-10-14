@@ -10846,6 +10846,38 @@ t("crea elemento (14/10): l'area disegnata SOPRA una pedana più grande non la p
     eq(A.__custEditor.inclusi, [a2.id], "solo l'asta con la spunta");
   });
 });
+/* 13/10/2026, stage plot vero: quattro tastiere per bambini su supporto non comparivano né nella lista
+   canali né nei carichi. La «Tastiera» (synth · 1 tastiera, 24/07) era nata per la ricerca nel catalogo
+   e non era mai entrata nelle tabelle dei canali e dei watt: lo Stage piano sì, lei no. */
+t("la Tastiera suona: due canali DI L/R (mono a scelta) e il carico tipico di una tastiera", () => {
+  reset();
+  const k = add("tastiera", 300, 300);
+  const nome = k.label || "Tastiera";   /* l'elemento nasce numerato («Tastiera 1») */
+  eq(chans(k).map((c) => c.name + " · " + c.mic), [nome + " L · DI", nome + " R · DI"], "di serie stereo, come lo Stage piano");
+  const di = A.diLinked(k);
+  ok(di && di.diCh === "stereo", "la DI stereo compare accanto, come per lo Stage piano");
+  k.stereo = false;
+  eq(chans(k).map((c) => c.name + " · " + c.mic), [nome + " · DI"], "in mono: un canale");
+  delete k.stereo;
+  const k2 = add("tastiera", 500, 300, { label: "Tastiera 2" });
+  eq(chans(k2).map((c) => c.name), ["Tastiera 2 L", "Tastiera 2 R"], "il nome dell'elemento nei canali");
+  /* il caso vero: quattro tastiere = otto canali in lista */
+  add("tastiera", 700, 300); add("tastiera", 900, 300);
+  const tast = A.state.items.filter((x) => x.type === "tastiera");
+  eq(A.patchList().rows.filter((r) => tast.some((x) => x.id === r.itemId)).length, 8, "4 tastiere = 8 canali");
+  /* potenza: la stima di famiglia già usata per le tastiere (ricerca assorbimenti 04/07: «strumenti
+     digitali 30-100 W», Stage piano 50, Doppia tastiera 100 = due tastiere), mai un numero di modello */
+  eq(A.WATT.tastiera, A.WATT.stagepiano, "una tastiera assorbe come uno stage piano generico");
+  eq(A.WATT.doppiatastiera, 2 * A.WATT.tastiera, "e la doppia ne vale due");
+  eq([A.wattOf(k), A.wattFonte(k)], [A.WATT.tastiera, "stima"], "stima del tipo, detta come stima");
+  A.__elecRes = null;
+  eq(A.loadList().rows.filter((r) => tast.some((x) => x.id === r.loadId)).length, 4, "le quattro tastiere sono carichi");
+  /* modello senza assorbimento dichiarato dal costruttore: resta la stima del tipo (regola del catalogo) */
+  A.ampModelSetBm(k, "nord_electro7_73");
+  eq(A.AMP_DB.nord_electro7_73.watt, null, "Nord non pubblica l'assorbimento");
+  eq([A.wattOf(k), A.wattFonte(k)], [A.WATT.tastiera, "stima"], "Electro 7: stima del tipo, non un numero inventato");
+  reset();
+});
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");
@@ -16681,7 +16713,9 @@ t("due nomi vicini non si scrivono addosso", () => {
   A.state.items = [];
   /* il caso vero: un corista e la DI che genera stanno a mezzo metro l-uno dall-altra, e i loro
      nomi finivano sulla stessa riga — «Voce 1» con «DI 1» dentro */
-  A.addItem("corista"); A.addItem("tastiera"); A.addItem("bassstand");
+  /* dal 13/10/2026 la Tastiera genera la sua DI (come lo Stage piano): qui serve l'elemento da solo,
+     la scena di prova è quella di sempre */
+  A.addItem("corista"); A.addItem("tastiera", { diBox: false }); A.addItem("bassstand");
   ok(A.state.items.length >= 3, "scena costruita: " + A.state.items.length + " elementi");
   /* La posa automatica li tiene già distanti (findFreeSpotFor): il nodo lo rifà chi li avvicina a
      MANO, ed è il caso da riprodurre — sul foglio non si può zoomare per districare due nomi. */
@@ -16722,7 +16756,7 @@ t("due nomi vicini non si scrivono addosso", () => {
 t("lo sbraccio del nome cresce col corpo con cui verrà stampato", () => {
   reset();
   A.state.items = [];
-  A.addItem("tastiera");
+  A.addItem("tastiera", { diBox: false });   /* senza la DI che genera dal 13/10: si prova il nome della tastiera */
   const it = A.state.items[A.state.items.length - 1];
   /* si misura il bordo BASSO: la baseline si allontana dall-elemento, mentre il bordo alto scende
      appena perché il testo cresce anche verso l-alto */
@@ -16738,7 +16772,7 @@ t("il disegno vero usa il corpo stampato e lo spostamento, non solo il calcolo d
   reset();
   A.state.stage = { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] };
   A.state.items = [];
-  A.addItem("tastiera");
+  A.addItem("tastiera", { diBox: false });   /* senza la DI che genera dal 13/10: si prova il nome della tastiera */
   /* nel sandbox la posa automatica non ha un SVG da misurare e lascia x indefinita: le posizioni
      vanno messe a mano, o i riquadri non si intersecano mai e il controllo non prova niente */
   A.state.items.forEach((it) => { it.x = 600; it.y = 400; });
@@ -16766,7 +16800,7 @@ t("il disegno vero usa il corpo stampato e lo spostamento, non solo il calcolo d
 
   /* e lo stesso deve valere per i nomi scritti SOTTO l-elemento, che sono la maggioranza */
   A.state.items = [];
-  A.addItem("tastiera"); A.addItem("tastiera");
+  A.addItem("tastiera", { diBox: false }); A.addItem("tastiera", { diBox: false });   /* due tastiere, senza le loro DI */
   const due = A.state.items;
   /* affiancati alla STESSA altezza: è così che due nomi finiscono sulla stessa riga. Sfalsandoli
      in verticale di 40 cm non si toccavano nemmeno, perché lo sbraccio ne vale già una quarantina
@@ -18722,7 +18756,10 @@ t("peso e assorbimento del modello arrivano a lista carichi e rider", () => {
   eq([riga(sp).w, riga(sp).fonte], [18, "targa"], "P-525: 18 W di targa, non i 50 della stima");
   eq([riga(co).w, riga(co).fonte], [47, "targa"], "Katana-50 Gen 3: 47 W");
   eq([riga(ba).w, riga(ba).fonte], [280, "targa"], "RB-115: 280 W, non i 400 di un rig 8×10");
-  eq(A.powerTotalW(), 18 + 47 + 280, "il totale del palco è la somma dei tre manuali (il synth senza W dichiarati non è un carico)");
+  /* il synth (Electro 7) l'assorbimento non lo dichiara: dal 13/10/2026 vale la stima della Tastiera,
+     come per gli altri modelli senza watt (prima la Tastiera non aveva stima e contava zero) */
+  eq([riga(sy).w, riga(sy).fonte], [A.WATT.tastiera, "stima"], "Electro 7: stima del tipo");
+  eq(A.powerTotalW(), 18 + 47 + 280 + A.WATT.tastiera, "il totale del palco: i tre manuali più la stima del synth");
   /* le due riserve da palco: il RB-210 assorbe PIÙ della stima di un 8×10 (600 contro 400) */
   A.ampModelSetBm(ba, "ampeg_rb210"); A.ampModelSetBm(co, "boss_katana100g3"); A.__elecRes = null;
   eq([A.wattOf(ba), A.wattFonte(ba), A.wattOf(co), A.wattFonte(co)], [600, "targa", 77, "targa"], "RB-210 600 W, Katana-100 Gen 3 77 W");
