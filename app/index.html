@@ -3795,6 +3795,19 @@ body.dark .cust-righello text{fill:#cbd5e1}
 .cust-mis-x::before{content:"×"}   /* il segno di moltiplicazione delle misure (non un «chiudi»): sta nel foglio di stile */
 .cust-mis-nota{margin-top:8px;font-size:12px;color:var(--text-3);min-height:16px}
 .cust-mis-nota.err{color:var(--danger)}
+/* «Includere gli N elementi nell'area?» (14/10): una riga con la spunta per elemento; sul palco verde chi entra, grigio chi resta fuori */
+.cust-incl{margin-top:12px}
+.guide-ov.cust-ov-lato{background:rgba(15,23,42,.22)}
+.guide-ov.cust-ov-destra{justify-content:flex-end;padding-right:32px}
+.guide-ov.cust-ov-sinistra{justify-content:flex-start;padding-left:32px}
+.cust-incl-righe{max-height:40vh;overflow:auto;display:flex;flex-direction:column;gap:2px;border:1px solid var(--border);border-radius:8px;padding:6px 8px}
+.cust-incl-riga{display:flex;align-items:flex-start;gap:8px;font-size:14px;line-height:1.4;padding:3px 0;cursor:pointer;color:var(--text)}
+.cust-incl-riga input{margin-top:3px;flex:none}
+.cust-incl-nota{margin:8px 0 0;font-size:13px;color:var(--text-2);min-height:0}
+.cust-incl-nota:empty{display:none}
+.cust-incl-si{fill:rgba(13,148,136,.22);stroke:var(--accent);stroke-width:2;vector-effect:non-scaling-stroke;pointer-events:none}
+.cust-incl-no{fill:none;stroke:var(--n-500);stroke-width:1.5;stroke-dasharray:4 3;vector-effect:non-scaling-stroke;pointer-events:none}
+.cust-area-prima{fill:none;stroke:var(--accent);stroke-width:1;stroke-dasharray:2 3;opacity:.7;vector-effect:non-scaling-stroke;pointer-events:none}
 .guide-actions .btn:disabled{opacity:.45;cursor:not-allowed}
 
 /* la scheda dell'elemento e il pannello della forma */
