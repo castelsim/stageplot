@@ -31007,14 +31007,27 @@ function pdfScaleValue(){ var s=document.getElementById("pdfScale"); if(!s) retu
 /* SVG dell'area di stampa: palco + griglia + elementi + quote dimensionali.
    Con area di stampa automatica (non personalizzata) espande il viewBox di 80 unità per lato
    per includere i label di quota (posizionati fuori dal rettangolo palco). */
+/* Riquadro del disegno quando non c'è ritaglio: area di stampa + il margine per le quote (solo con l'area
+   automatica). Una funzione sola perché lo usa anche la pianta del PDF (pdfVenueLayer), che deve cadere
+   esattamente sotto il disegno di svg2pdf. */
+function sceneVbDefault(){
+  var A=printArea(), DM=A.custom?0:80;
+  return {x:A.x-DM, y:A.y-DM, w:A.w+2*DM, h:A.h+2*DM};
+}
+/* La planimetria va sul foglio quando ha un'immagine e il suo occhio è acceso (venue.enabled: lo stesso
+   interruttore del pannello Planimetria e dei Layer). Spenta = resta fuori da PDF, PNG e anteprima. */
+function venueInStampa(){
+  var v=state && state.venue;
+  return !!(v && v.enabled!==false && safeVenueDataUrl(v._dataUrl));
+}
 function stageSceneSvg(cropVb, opts){
   if(vistaDiLavoro()) return senzaVisteDiLavoro(function(){ return stageSceneSvg(cropVb, opts); });   /* né nel PDF: vedi senzaVisteDiLavoro */
   opts=opts||{}; var focus=opts.focus||null;   /* null | clean | cabin | cabout | mond | cabaudio(legacy: i 3 audio fusi) | elec | sectionmic */
   recalcStageBBox();
-  var A=printArea(), DM=A.custom?0:80;
+  var A=printArea();
   /* cropVb (opzionale): finestra ritagliata quando il disegno non entra nel foglio — si stampa solo la
      parte centrale che ci sta, sempre in scala. Senza cropVb = scena intera (area + margine quote). */
-  var vb=cropVb || {x:A.x-DM, y:A.y-DM, w:A.w+2*DM, h:A.h+2*DM};
+  var vb=cropVb || sceneVbDefault();
   var keep=sel, keepSet=selSet; sel=null; selSet={};
   /* Il disegno è per la STAMPA, non per lo schermo: i generatori che semplificano in base a quanto
      l'elemento è grande sul monitor (es. il pannello della stage box, sbLod) devono dare il massimo
@@ -31053,10 +31066,19 @@ function stageSceneSvg(cropVb, opts){
   } finally { _lblSchermo=_keepSchermo; }
   sel=keep; selSet=keepSet;
   var css=document.querySelector("style").textContent.replace(/\/\*[\s\S]*?\*\//g,"");   /* via i commenti: un '<' in un commento romperebbe l'SVG */
-  var hasVenue = state.venue && state.venue.enabled!==false && state.venue._dataUrl;
+  /* PLANIMETRIA NEL FOGLIO (fix 14/10/2026, Simone: «il PDF non contiene la planimetria»).
+     Prima si ritagliava sull'area di stampa A; ma con l'area automatica A È il palco, e il palco ha il
+     fondo bianco pieno (.stage-fill) disegnato sopra: la pianta finiva ritagliata esattamente sotto
+     al rettangolo che la copre — nel file c'era, sul foglio non se ne vedeva un pixel. Ora si ritaglia
+     sul riquadro del disegno (vb: area + margine delle quote, o la parte ritagliata quando il palco
+     non entra), come a schermo: la pianta si vede attorno al palco, sotto il palco la copre il fondo.
+     opts.piantaASe (solo il PDF vettoriale, drawStageVector): la pianta e il fondo bianco NON stanno
+     nell'SVG — la disegna jsPDF prima, come immagine leggera alla risoluzione del foglio
+     (pdfVenueLayer); svg2pdf la ricodificherebbe intera e perderebbe l'opacità. */
+  var hasVenue = !opts.piantaASe && venueInStampa();
   var venue = hasVenue
-    ? '<clipPath id="paClip"><rect x="'+A.x+'" y="'+A.y+'" width="'+A.w+'" height="'+A.h+'"/></clipPath>'+
-      '<g clip-path="url(#paClip)">'+venueMarkup()+'</g>'   /* planimetria di sfondo, ritagliata all'area di stampa */
+    ? '<clipPath id="paClip"><rect x="'+vb.x+'" y="'+vb.y+'" width="'+vb.w+'" height="'+vb.h+'"/></clipPath>'+
+      '<g clip-path="url(#paClip)">'+venueMarkup()+'</g>'   /* planimetria di sfondo, ritagliata al riquadro del disegno */
     : '';
   /* Le quote per blocco restano, TRANNE quando chi esporta le disegna già di suo (opts.noBlockDims):
      su un palco di un pezzo solo «6 m» finiva scritto due volte — una qui, dentro il disegno e in
@@ -31105,7 +31127,7 @@ function stageSceneSvg(cropVb, opts){
   window.__sceneTextK=_keepK; window.__lblNudge=_keepNudge;
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="'+vb.x+' '+vb.y+' '+vb.w+' '+vb.h+'">'+
     '<style>'+scaleSvgTextHalos(scaleSvgFonts(css, opts.textK), opts.textK)+'</style>'+DEFS+
-    '<rect x="'+vb.x+'" y="'+vb.y+'" width="'+vb.w+'" height="'+vb.h+'" fill="#ffffff"/>'+
+    (opts.piantaASe ? '' : '<rect x="'+vb.x+'" y="'+vb.y+'" width="'+vb.w+'" height="'+vb.h+'" fill="#ffffff"/>')+   /* nel PDF il foglio è già bianco, e il rettangolo coprirebbe la pianta disegnata sotto */
     venue+scaleSvgFonts(body, opts.textK)+'</svg>';
 }
 /* TESTO A DIMENSIONE FISSA SUL FOGLIO (11/08). Le scritte del disegno — nomi, quote, FONDO PALCO —
@@ -32366,7 +32388,10 @@ function flattenCssToAttrs(rootEl){
     if(s.strokeLinecap) el.setAttribute('stroke-linecap',s.strokeLinecap);
     if(s.strokeDasharray&&s.strokeDasharray!=='none') el.setAttribute('stroke-dasharray',s.strokeDasharray);
     if(s.fillRule) el.setAttribute('fill-rule',s.fillRule);
-    el.removeAttribute('opacity');   /* piegata in fill/stroke-opacity: mai doppia applicazione */
+    /* un'<image> (la planimetria) non ha fill né stroke: piegata lì la sua opacità spariva e il PNG la
+       stampava piena, nera. Per lei resta `opacity`, già cumulata con gli antenati. */
+    if(el.tagName && el.tagName.toLowerCase()==="image" && s.alpha<1) el.setAttribute('opacity', String(Math.round(s.alpha*1000)/1000));
+    else el.removeAttribute('opacity');   /* piegata in fill/stroke-opacity: mai doppia applicazione */
     el.removeAttribute('class'); el.removeAttribute('style');
   }
   rootEl.querySelectorAll('style').forEach(function(s){ s.parentNode.removeChild(s); });
@@ -32375,13 +32400,91 @@ function flattenCssToAttrs(rootEl){
 /* disegna la planimetria come VETTORE puro nel PDF (qualità infinita). Style isolato in shadow DOM per non toccare la pagina.
    Se l'SVG è troppo complesso (icone persone ad alta fedeltà, archi numerosi) rigetta subito così buildPdfDoc
    cade nel catch raster — evita che svg2pdf blocchi il main thread fino a far crashare Chrome. */
+/* ===== PLANIMETRIA NEL PDF (14/10/2026) =====
+   La pianta non passa più da svg2pdf: la disegna jsPDF PRIMA del disegno vettoriale, come immagine sola
+   della parte che cade nel riquadro, alla risoluzione che serve al foglio. Perché:
+   - svg2pdf la imbarcava intera e ricodificata (una WebP da 36 KB diventava un JPEG da 560 KB);
+   - perdeva l'opacità scelta (flattenCssToAttrs la piega in fill-opacity, che un'immagine non ha);
+   - ruotata, trasformata e ritagliata così è esattamente quella dello schermo.
+   L'opacità si «cuoce» sul bianco: sotto la pianta c'è solo il foglio bianco, quindi il risultato è
+   identico a un'immagine trasparente, e senza canale alfa si può usare il JPEG.
+   Opacità = quella dell'utente (40 % di serie): è quella con cui ha tarato la pianta per leggerla
+   DIETRO agli elementi; a schermo e in stampa deve dire la stessa cosa. */
+var VENUE_PDF_DPI=150;      /* 0,17 mm a punto: più fine del tratto più sottile di una pianta, leggero da stampare */
+var VENUE_PDF_MAXPX=2400;   /* lato massimo del raster: un A2 pieno resta sotto ~1 MB */
+/* Geometria pura del raster: quale pezzo di mondo (cm) e quanti pixel. null = niente pianta da stampare.
+   vb = riquadro del disegno (cm), mmPerCm = scala sul foglio (10/N). */
+function venuePdfRaster(v, vb, mmPerCm){
+  if(!v || v.enabled===false || !safeVenueDataUrl(v._dataUrl) || !vb || !(mmPerCm>0)) return null;
+  function n(x,f){ x=Number(x); return isFinite(x)?x:f; }
+  var w=Math.max(1,n(v.w,1)), h=Math.max(1,n(v.h,1)), cx=n(v.x,0), cy=n(v.y,0), rot=n(v.rot,0);
+  var a=rot*Math.PI/180, c=Math.cos(a), si=Math.sin(a), x0=Infinity, y0=Infinity, x1=-Infinity, y1=-Infinity;
+  [[-w/2,-h/2],[w/2,-h/2],[w/2,h/2],[-w/2,h/2]].forEach(function(p){
+    var px=cx+p[0]*c-p[1]*si, py=cy+p[0]*si+p[1]*c;
+    x0=Math.min(x0,px); y0=Math.min(y0,py); x1=Math.max(x1,px); y1=Math.max(y1,py);
+  });
+  /* solo la parte dentro il riquadro: il resto sul foglio non si vedrebbe e peserebbe lo stesso */
+  x0=Math.max(x0,vb.x); y0=Math.max(y0,vb.y); x1=Math.min(x1,vb.x+vb.w); y1=Math.min(y1,vb.y+vb.h);
+  if(!(x1-x0>0.5) || !(y1-y0>0.5)) return null;
+  /* pixel per cm: quanti ne chiede il foglio a VENUE_PDF_DPI, ma mai più di quanti ne ha l'immagine
+     (ingrandire non aggiunge dettaglio, solo peso); e il lato più lungo entro VENUE_PDF_MAXPX */
+  var ppc=mmPerCm*VENUE_PDF_DPI/25.4;
+  var iw=n(v._imgW,0); if(iw>0) ppc=Math.min(ppc, iw/w);
+  var maxLato=Math.max(x1-x0, y1-y0);
+  if(maxLato*ppc>VENUE_PDF_MAXPX) ppc=VENUE_PDF_MAXPX/maxLato;
+  var pxW=Math.max(1,Math.round((x1-x0)*ppc)), pxH=Math.max(1,Math.round((y1-y0)*ppc));
+  return { x:x0, y:y0, w:x1-x0, h:y1-y0, pxW:pxW, pxH:pxH, ppc:ppc,
+    op:Math.max(0,Math.min(100,n(v.opacity,40)))/100, cx:cx, cy:cy, vw:w, vh:h, rot:rot };
+}
+/* Disegna la pianta su un canvas (fondo bianco, opacità cotta) → {dataUrl, fmt}. Fra JPEG e PNG vince il
+   più leggero: una pianta al tratto in PNG pesa poco, una foto o una scansione in JPEG. */
+function venueRasterize(v, r){
+  return new Promise(function(res, rej){
+    var img=new Image();
+    img.onload=function(){
+      try{
+        var cv=document.createElement("canvas"); cv.width=r.pxW; cv.height=r.pxH;
+        var g=cv.getContext("2d");
+        g.fillStyle="#ffffff"; g.fillRect(0,0,r.pxW,r.pxH);
+        g.imageSmoothingEnabled=true; if("imageSmoothingQuality" in g) g.imageSmoothingQuality="high";
+        g.globalAlpha=r.op;
+        g.setTransform(r.ppc,0,0,r.ppc,-r.x*r.ppc,-r.y*r.ppc);   /* da cm del mondo a pixel del raster */
+        g.translate(r.cx,r.cy); g.rotate(r.rot*Math.PI/180);
+        g.drawImage(img,-r.vw/2,-r.vh/2,r.vw,r.vh);
+        var jpg=cv.toDataURL("image/jpeg",0.85), png=cv.toDataURL("image/png");
+        res(png.length<jpg.length ? {dataUrl:png, fmt:"PNG"} : {dataUrl:jpg, fmt:"JPEG"});
+      }catch(e){ rej(e); }
+    };
+    img.onerror=function(){ rej(new Error("planimetria illeggibile")); };
+    img.src=v._dataUrl;
+  });
+}
+/* La pianta sul foglio, sotto il disegno: ix,iy,wMm,hMm = riquadro del disegno in mm, vb = lo stesso in cm.
+   Non blocca mai l'export: se non si riesce a disegnarla, il PDF esce senza e lo si dice in console. */
+function pdfVenueLayer(doc, ix, iy, wMm, hMm, vb){
+  if(!venueInStampa() || !vb || !(vb.w>0)) return Promise.resolve(false);
+  var mmPerCm=wMm/vb.w, v=state.venue, r=venuePdfRaster(v, vb, mmPerCm);
+  if(!r) return Promise.resolve(false);
+  /* le pagine-vista hanno lo stesso riquadro: la pianta si prepara una volta e jsPDF, con lo stesso alias,
+     la imbarca una volta sola e la richiama nelle pagine dopo */
+  var alias="pianta:"+venueDataHash(v._dataUrl)+":"+[r.x,r.y,r.w,r.h,r.pxW,r.pxH,r.op,r.rot].join(",");
+  var cache=doc.__piantaPdf || (doc.__piantaPdf={});
+  if(!cache[alias]) cache[alias]=venueRasterize(v, r);
+  return cache[alias].then(function(out){
+    doc.addImage(out.dataUrl, out.fmt, ix+(r.x-vb.x)*mmPerCm, iy+(r.y-vb.y)*mmPerCm, r.w*mmPerCm, r.h*mmPerCm, alias, "FAST");
+    return true;
+  }).catch(function(e){ try{ console.warn("[stageplot] planimetria non disegnata nel PDF:", e); }catch(_){} return false; });
+}
 function drawStageVector(doc, ix, iy, wMm, hMm, cropVb, focus, sceneOpts){
   return loadSvg2Pdf().then(function(){
+    /* prima la pianta (sotto a tutto), poi il disegno vettoriale che la copre dove c'è il palco */
+    return pdfVenueLayer(doc, ix, iy, wMm, hMm, cropVb || sceneVbDefault());
+  }).then(function(){
     var host=document.createElement("div");
     host.style.cssText="position:fixed;left:-99999px;top:0;width:0;height:0;overflow:hidden;opacity:0;pointer-events:none";
     document.body.appendChild(host);
     var root=host.attachShadow ? host.attachShadow({mode:"open"}) : host;
-    var _o=Object.assign({focus:focus||null}, sceneOpts||{});
+    var _o=Object.assign({focus:focus||null}, sceneOpts||{}, {piantaASe:true});   /* la pianta l'ha già messa pdfVenueLayer */
     root.innerHTML=stageSceneSvg(cropVb, _o);
     var svgEl=root.querySelector("svg");
     nudgeLabelsInDom(svgEl);   /* i nomi che si toccano scendono, misurati sul disegno vero */
