@@ -10412,6 +10412,11 @@ t("FONDO PALCO, PUBBLICO e quote restano nel disegno anche con l'area di stampa 
   eq([vb.y, vb.h], [400, 600], "dentro il palco: niente margine sopra né sotto");
   reset();
 });
+t("cartiglio: le misure dell'area con la virgola e al centimetro", () => {
+  eq(A.cartAreaTxt({ custom: true, w: 1250, h: 1335 }), "area 12,5×13,35 m", "area scelta a mano");
+  eq(A.cartAreaTxt({ custom: false, w: 1200, h: 800 }), "palco 12×8 m", "palco intero");
+  ok(!/\(_Ac\.w\/100\)\+"×"/.test(appjs), "il cartiglio non scrive più il numero di JavaScript (12.5)");
+});
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");
