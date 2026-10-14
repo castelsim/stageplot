@@ -1,3 +1,18 @@
+# 14/10/2026 — PDF: scritte grigie e scure in nero pieno, per stampare in bianco e nero (ramo `pdf-testo-nero`)
+
+- Simone, stampando su una laser b/n: le quote delle pedane («2×2 m · h60», grigie #6B7280, ~3 pt = ~1 mm a 1:100) non
+  si leggevano; la stampante fa il grigio a puntini. Con il testo nero: «adesso leggo molto meglio … Dobbiamo farlo così».
+- `pdfColoreTesto(hex)`: neutro (max−min ≤ 40) e non chiaro (media < 205) → `#000000`; chiari (bianco su scuro) e
+  colorati (arancio «h 145 cm», rosso avvisi…) restano. Usata in `flattenTextStyles` (scritte dello stage plot via svg2pdf)
+  e in `pdfTestoNeroDoc`, che avvolge `setTextColor` di ogni documento jsPDF: `pdfTestoNeroInstalla()` avvolge una volta
+  il costruttore `window.jspdf.jsPDF` dentro `loadJsPDF` (sia se la libreria c'è già sia appena caricata) → cartiglio,
+  quote del palco, rider e liste A4 sono coperti senza toccare le ~20 creazioni di documenti.
+- Verifica nel browser (porta 9021, progetto vero importato senza account): in `doc.internal.pages` tutte le scritte
+  sono `0 g`, tranne le arancio. Prima: 42 + 9 + 6 + 5 colori grigi diversi.
+- Test: 4 nuovi; 8 mutazioni rosse su 9 (verde solo «Avvolto.API=Orig.API» tolto: mutazione equivalente, la copia
+  delle chiavi lo porta già). engines 1641/1641, collaudo 30/30, orchestre 124/124, biglietteria 47/47, `build --check`.
+- Lato studio: `COWORK/CONCERTI/_strumenti/stampa_stageplot.sh` fa la stessa cosa sui PDF già esportati e stampa sulla Ricoh.
+
 # 14/10/2026 — Elementi fuori dal palco: si stampano, e «Adatta il palco» solo per l'equivoco (ramo `esporta-fuori-palco`, PR #312)
 
 - Simone: «ho messo un oggetto fuori dal palco. In fase di export mi chiede di adattare il palco, troppo rischioso» e
