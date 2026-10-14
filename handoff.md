@@ -11,9 +11,9 @@
 # 15/10/2026 — Tastiera a due piani su supporto a colonna (Apex AX-48 Pro) (ramo `supporto-tastiere-colonna`, PR #315 in bozza, dipende da #313)
 
 - Nuovo tipo `tastierecolonna` (Band e backline › Tastiere e piani): piano digitale 88 tasti sotto (`piano88_colonna`, derivata in `icons.js` dallo stage piano senza i montanti a X), Korg minilogue xd sopra, tastierista in piedi (`singer`, sotto il piano). Disegno `colonna2Draw`, misure in `COLONNA2`; tutto 1 unità = 1 cm. ⚠️ `COLONNA2` è una `var` più in basso del catalogo: in `TYPES` w/d sono numeri letterali.
-- Due canali MONO DI in `IN_MULTI` (`Tastiera`, `Synth`), niente `STEREO_TOGGLE`, niente `KEYS_BENCH` (nessuno sgabello), nessuna DI automatica (`diUsesBox` false). Chi vuole le DI le lega con `diFor`: l'app ne lega una sola per elemento (`diId`).
+- Canali (decisione di Simone 15/10): **Synth mono** (minilogue xd da L/MONO) + **Tastiera L/R stereo** (piano digitale), 3 canali DI in `IN_MULTI`; il piano e' mono a scelta col solito interruttore mono/stereo (`STEREO_TOGGLE.tastierecolonna`, `def:true`, `mono:` = Synth + Tastiera). Niente `KEYS_BENCH` (nessuno sgabello), nessuna DI automatica (`diUsesBox` false: l'app lega una sola DI per elemento, `diId`; chi le vuole, una mono per il synth e una stereo per il piano, le lega con `diFor`).
 - «colonna» non va né nel nome né negli alias: è la parola della «Colonna / palo» (test di ricerca). Dati e fonti: `DATI_TARGA.md`, cartella `CONCERTO_2026-10-16/stageplot/supporto_ax48pro/` (fuori repo). Stime: piedi 60×60 cm, interasse bracci, distanza piani. Limite: il synth sopra è sempre il minilogue xd, nessun selettore.
-- Prove: engines 1646/1646 (6 test nuovi, 9 mutazioni rosse), collaudo 30/30, orchestre 124/124, biglietteria 148/148.
+- Prove: engines 1646/1646 (6 test, mutazioni rosse anche per lo stereo del piano), collaudo 30/30, orchestre 124/124, biglietteria 148/148.
 
 # 14/10/2026 — Elementi fuori dal palco: si stampano, e «Adatta il palco» solo per l'equivoco (ramo `esporta-fuori-palco`, PR #312)
 

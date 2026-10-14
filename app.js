@@ -11422,6 +11422,7 @@ function cabItemInputs(it){
       var snm=it.label||TYPES[it.type].defLabel||TYPES[it.type].nome;
       return [{name:snm+" L",mic:scfg.mic},{name:snm+" R",mic:scfg.mic}].concat(headMicInputs(it));
     }
+    if(scfg.mono) return scfg.mono.map(function(k){ return {name:labelPrefix(it,k[0]), mic:k[1]}; }).concat(headMicInputs(it));   /* mono con canali propri (supporto a due piani: Synth + Tastiera) */
     return [{name:(it.label||TYPES[it.type].nome),mic:scfg.mic}].concat(headMicInputs(it));   /* mono = 1 canale */
   }
   var base;
@@ -22553,6 +22554,9 @@ var STEREO_TOGGLE = {
   grancoda:{mic:"KM184",def:true}, mezzacoda:{mic:"KM184",def:true}, pianoverticale:{mic:"KM184",def:true},
   stagepiano:{mic:"DI",def:true}, organohammond:{mic:"DI",def:true}, clavicembalo:{mic:"KM184",def:true},
   celesta:{mic:"KM184",def:false},
+  /* 15/10: supporto a due piani: il synth (sopra) e' sempre mono; il piano digitale (sotto) e' stereo di default (L/R), mono a scelta.
+     `mono` = i canali quando il piano e' mono (le altre voci di questa tabella ne hanno uno solo, col nome dell'elemento). */
+  tastierecolonna:{mic:"DI",def:true,mono:[["Synth","DI"],["Tastiera","DI"]]},
   laptop:{mic:"DI",def:true}, djset:{mic:"DI",def:true}, pedaliera:{mic:"DI",def:false}
 };
 /* elementi che generano PIÙ canali (stereo o multi-mic) */
@@ -22569,7 +22573,7 @@ var IN_MULTI = {
   mezzacoda:[["Pianoforte L","KM184"],["Pianoforte R","KM184"]],
   pianoverticale:[["Piano vert. L","KM184"],["Piano vert. R","KM184"]],
   stagepiano:[["Tastiere L","DI"],["Tastiere R","DI"]],
-  tastierecolonna:[["Tastiera","DI"],["Synth","DI"]],   /* 15/10: due uscite MONO (piano digitale sotto, synth sopra da L/MONO), nessuno stereo */
+  tastierecolonna:[["Synth","DI"],["Tastiera L","DI"],["Tastiera R","DI"]],   /* 15/10: synth sopra MONO (da L/MONO) + piano digitale sotto STEREO (L/R); mono a scelta: STEREO_TOGGLE.mono */
   doppiatastiera:[["Tastiera sup. L","DI"],["Tastiera sup. R","DI"],["Tastiera inf. L","DI"],["Tastiera inf. R","DI"]],
   djset:    [["DJ L","DI"],["DJ R","DI"]],
   laptop:   [["Playback L","DI"],["Playback R","DI"]],
@@ -26725,6 +26729,7 @@ function diUsesBox(it){   /* questo elemento passa da una DI? (catena dei prelie
   if(hasChain(it)) return chainOf(it).needDi;   /* serve solo se il prelievo di linea è ancora sbilanciato */
   if(MIKING[it.type]) return !!DI_MIKING[it.miking || MIKING[it.type].def];
   if(it.type==="dimono" || it.type==="distereo") return false;   /* la DI non passa da sé stessa */
+  if(it.type==="tastierecolonna") return false;   /* due sorgenti diverse (synth mono + piano stereo): l'app lega una sola DI per elemento, quindi nessuna automatica */
   var st=STEREO_TOGGLE[it.type];
   if(st && String(st.mic||"").indexOf("DI")>-1) return true;
   return String(IN_SRC[it.type]||"").indexOf("DI")>-1;
