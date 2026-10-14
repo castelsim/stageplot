@@ -1,25 +1,28 @@
-# 14/10/2026 — Elementi fuori dal palco: si stampano, e «Adatta il palco» solo per l'equivoco (ramo `esporta-fuori-palco`)
+# 14/10/2026 — Elementi fuori dal palco: si stampano, e «Adatta il palco» solo per l'equivoco (ramo `esporta-fuori-palco`, PR #312)
 
 - Simone: «ho messo un oggetto fuori dal palco. In fase di export mi chiede di adattare il palco, troppo rischioso» e
   «l'elemento che ho messo fuori dal palco non viene stampato nel pdf, come mai?». Provato su PDF veri (origin/main):
   area automatica, «Solo palco» e area scelta → la cassa a 3 m dal palco NON c'è (svg2pdf non la scrive nemmeno);
   «Tutto il contenuto» sì. Il riquadro automatico era palco ± 80 cm (`printScene`), e il PNG/«Area di stampa»
   creavano da soli un'area = palco esatto (`ensurePrintFrame`), salvata nel progetto: da lì in poi anche il PDF tagliava.
-- Ora: con l'area automatica `printScene` allarga F a chi si disegna oltre il bordo (`elementiOltreIlBordo`, nome
-  compreso; R resta palco ± margine: con scala fissa si sacrifica chi sta fuori, mai il palco). `ensurePrintFrame`
-  crea l'area col palco E chi sta fuori (`frameConFuori`). L'area scelta a mano resta com'è: se taglia qualcuno,
-  l'Esporta lo dice col nome e offre «Includili nel foglio» (`includiNelFoglio`, allarga l'area, mai il palco); se è
-  colpa di una scala fissa, lo dice e offre «Scala automatica» (al clic). Un'area che taglia il palco stesso = dettaglio
-  voluto, niente avviso. Le quote jsPDF «8 m / 5 m» ora stanno sul palco (`box.rMm`), non a metà del riquadro.
-- «Adatta il palco» nell'Esporta: solo con la regola dell'audit (≥3 e almeno metà) in `fuoriPalcoEquivoco()`, con «il
-  palco diventa X × Y m». Toglie un'area scelta a mano (misurata sul palco sbagliato) e un solo Annulla la rimette
-  (`adattaCornice` + `adattaCorniceStoria` in `applyHistory`: l'area è fuori dalla cronologia).
-- Esclusi apposta da F: FOH/platea/sedie pubblico (`FUORI_OK`), punti del cablaggio (non sono elementi), apparecchi
-  dentro un rack (non disegnati, ora nemmeno contati «fuori»), avvertenza di Adatta (nasce dentro l'area).
-- Collaudo 30/30 invariato (non misura il PDF). Cambia il PDF di 06, 11 (scena 2), 14 (scena 2), 18: prima e dopo
-  del 18 in `STAGEPLOT/anteprime-fuori-palco/`. 03 e 30 hanno un'area salvata che taglia: ora l'Esporta lo dice.
-- Test: 11 nuovi «fuori dal palco: …» + 1 adattato; 14 mutazioni rosse. engines 1631/1631, collaudo 30/30,
-  biglietteria 148/148, `build --check`. Prova vera in Chromium (porte 8967-8972): PDF, PNG, finestra Esporta.
+- Area automatica: `printScene(k, opz)` aggiunge chi si disegna oltre il bordo (`fuoriNelRiquadro`, dal più vicino,
+  nome vero compreso: `ingombroStampa` usa `lblBaseY`, sopra/sotto, corpo della scala, rotazione; aria solo dal lato in
+  cui esce). **Regola della scala** (`autoScaleConti`): chi sta fuori entra se costa al massimo UNO scatto rispetto al
+  solo palco; se no resta la scala del palco e l'Esporta dice «per tenerlo il disegno andrebbe a 1:M» con «Includili
+  (1:M)» (sceglie la scala; con un'area a mano la allarga). Nemmeno 1:500 → niente bottone, la spiegazione. Il verso
+  automatico rispetta la stessa regola. Senza scala (PNG, area nata da sola) entra chi tiene il riquadro entro il doppio.
+- Quote jsPDF «8 m / 5 m»: posate sul palco (`box.rMm`); se un elemento fuori ci cade sopra (`box.quoteLibere`) le
+  scrive il disegno (`pdfQuoteFuoriDalDisegno`).
+- Esporta: avviso solo per chi perde il foglio (`fuoriPalcoEsporta`), «Adatta il palco» solo con la regola dell'audit
+  (`fuoriPalcoEquivoco`) e la misura nuova. Progetto bloccato: niente «Includili» d'area né «Adatta», e lo dice.
+  Fuoco iniziale (`esportaFuocoIniziale`): nome del progetto col mouse, la finestra col dito (niente tastiera).
+- Adatta toglie l'area a mano e Annulla/Ripeti ripetuti la rimettono/ritolgono (`adattaCornice`, confronto per contenuto
+  e si segue lo snapshot nuovo che applyHistory crea). «Centra» (`centraArea`) non taglia chi stava nell'area.
+- Esclusi apposta: FOH/platea/sedie pubblico (`FUORI_OK`), punti del cablaggio, apparecchi in un rack, avvertenza Adatta.
+- Collaudo 30/30 invariato (non misura il PDF). Cambia il riquadro del PDF di 05, 06, 09, 11 (sc. 1 e 2), 14 (sc. 2),
+  18: tabella nel rapporto della PR; prima/dopo del 18 (scena 1, 16×6,5 m) in `STAGEPLOT/anteprime-fuori-palco/`.
+- Test: 18 «fuori dal palco: …» + 2 adattati; 30 mutazioni rosse (1 equivalente: l'altezza delle righe multiple di un
+  nome sopra). engines 1637/1637, collaudo 30/30, biglietteria 148/148, `build --check`. Prova vera in Chromium (8967-8975).
 
 # 13/10/2026 (3) — Service worker: l'editor si aggiorna alla prima apertura (ramo `cache-aggiornata`)
 

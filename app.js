@@ -5019,7 +5019,6 @@ function applyHistory(snapshot){
   __custShapeAmmesse=custEditorAttivo();   /* la cronologia del palco temporaneo porta le forme dell'editor */
   try{ state=normalizeState(JSON.parse(snap.json)); }finally{ __custShapeAmmesse=false; }
   if(keepFrame!=null) state.printFrame=keepFrame;
-  adattaCorniceStoria(snapshot);   /* l'area tolta da «Adatta il palco» torna con il suo Annulla (14/10) */
   if(nota.pe) state.pdfEsportato=nota.pe; else delete state.pdfEsportato;
   if(nota.ask && state.production) state.production.asked=true;
   custRevRimetti(revs);
@@ -5029,6 +5028,7 @@ function applyHistory(snapshot){
     reattachVenueImg(state,key);
   } else if(key) delete venueImgCache[key];
   ensureItemIds(); lastSnap=historySnapshot(); sel=null; selSet={};
+  adattaCorniceStoria(snapshot);   /* l'area tolta da «Adatta il palco» torna con il suo Annulla (14/10) — dopo lastSnap: vedi lì */
   /* CABLAGGI-09 / B2-09 (review 27/07): le cache dei motori sopravvivevano all'undo — il canvas
      continuava a disegnare il cavo verso la box PRE-undo, e il renderChannels() qui sotto riparava
      la cache per le letture successive SENZA ridisegnare, nascondendo il bug a chi lo cercava.
@@ -6822,16 +6822,24 @@ function fuoriPalcoEquivoco(){
   if(fuori.length<3 || !totali || fuori.length<totali/2) return null;
   return { fuori:fuori, totali:totali, palco:palcoCheContieneTutto() };
 }
-/* INGOMBRO SUL FOGLIO di un elemento (14/10/2026): il corpo ruotato più il nome sotto, al corpo k del PDF (pdfTextK),
-   in cm del palco. Le stesse misure del nome che usano contentBounds e adattaAvvertenzaPosto. */
+/* INGOMBRO SUL FOGLIO di un elemento (14/10/2026): il corpo ruotato più il nome, al corpo k del PDF (pdfTextK), in
+   cm del palco. Il nome dove lo mette itemMarkup: sotto il disegno, o SOPRA per le postazioni con sedia e gli
+   elementi personalizzati (lblSopraDi), alla linea di base vera (lblBaseY) e col corpo della stampa (a 1:200 è il
+   doppio di quello a 1:100); con la seconda riga (label2) e la riga del montaggio; tutto girato con l'elemento. */
 function ingombroStampa(it, k){
   k=k>0 ? k : 1;
   var g=adattaIngombro(it), t=TYPES[it.type]||{}, r={x0:it.x-g.hw, y0:it.y-g.hd, x1:it.x+g.hw, y1:it.y+g.hd};
-  var fs=(it.lblSize==null)?14:+it.lblSize;
-  if((it.label||it.label2) && fs>0 && !t.innerLabel){
-    var mezzo=Math.max(String(it.label||"").length, String(it.label2||"").length)*fs*0.28*k;
-    r.y1+=(fs+10)*k; r.x0=Math.min(r.x0, it.x-mezzo); r.x1=Math.max(r.x1, it.x+mezzo);
-  }
+  var fsz=lblSizeOf(it), t1=lblText(it.label, it, true), t2=lblText(it.label2, it, false);
+  if(t.innerLabel || GAZ_TYPES[it.type] || !(fsz>0) || (!t1 && !t2)) return r;
+  var fk=fsz*k, w=Math.max(lblTextW(t1, fk), lblTextW(t2, fk)), ly=lblBaseY(it, fk), sopra=lblSopraDi(it);
+  var righe=(t1 && t2 ? 2 : 1) + (mountNote(it) ? 1 : 0), alto=fk*1.15*(righe-1);
+  /* rettangolo del testo nelle coordinate dell'elemento (prima della rotazione) */
+  var y0=sopra ? ly-fk*0.85-alto : ly-fk*0.85, y1=sopra ? ly+fk*0.3 : ly+fk*0.3+alto+fk*0.6;   /* sotto: posto anche per la scesa di lblNudges */
+  var a=(it.rot||0)*Math.PI/180, c=Math.cos(a), sn=Math.sin(a);
+  [[-w/2,y0],[w/2,y0],[w/2,y1],[-w/2,y1]].forEach(function(p){
+    var X=it.x+p[0]*c-p[1]*sn, Y=it.y+p[0]*sn+p[1]*c;
+    r.x0=Math.min(r.x0,X); r.x1=Math.max(r.x1,X); r.y0=Math.min(r.y0,Y); r.y1=Math.max(r.y1,Y);
+  });
   return r;
 }
 /* Chi si disegna OLTRE IL BORDO del palco (rettangolo che contiene i blocchi): un elemento fuori, o uno che ci sta
@@ -6847,17 +6855,30 @@ function elementiOltreIlBordo(){
     return it.x-g.hw < -e || it.y-g.hd < -e || it.x+g.hw > W+e || it.y+g.hd > D+e;
   });
 }
-var FUORI_ARIA=30;   /* cm d'aria attorno a chi sta fuori, oltre al suo nome */
-/* Riquadro che contiene tutti quelli oltre il bordo, nome e aria compresi (null se non ce n'è). */
-function ingombroOltreIlPalco(k){
-  var b=null;
+var FUORI_ARIA=30;   /* cm d'aria oltre il nome di chi sta fuori, solo dal lato in cui allarga il riquadro */
+/* CHI ENTRA NEL RIQUADRO DEL DISEGNO (rev. 14/10). Si parte dal riquadro del palco F0 e si aggiunge chi sta oltre il
+   bordo, dal più vicino al più lontano, finché il riquadro «entra» (entra(G) → true; null = tutti). Chi con nome e
+   tutto sta già dentro F0 non allarga niente: l'aria si aggiunge solo dal lato in cui l'elemento esce (prima 30 cm
+   in più anche quando entrava già: un millimetro di differenza su progetti che non dovevano cambiare).
+   → {F:{x,y,w,h}, dentro:[elementi aggiunti], esclusi:[quelli che non ci stavano]} */
+function fuoriNelRiquadro(F0, k, entra){
+  var cand=[], x1F0=F0.x+F0.w, y1F0=F0.y+F0.h;
   elementiOltreIlBordo().forEach(function(it){
     var r=ingombroStampa(it, k);
-    if(!b) b={x0:r.x0, y0:r.y0, x1:r.x1, y1:r.y1};
-    else { b.x0=Math.min(b.x0,r.x0); b.y0=Math.min(b.y0,r.y0); b.x1=Math.max(b.x1,r.x1); b.y1=Math.max(b.y1,r.y1); }
+    if(r.x0>=F0.x && r.y0>=F0.y && r.x1<=x1F0 && r.y1<=y1F0) return;
+    cand.push({it:it, r:r, d:Math.max(F0.x-r.x0, r.x1-x1F0, F0.y-r.y0, r.y1-y1F0)});
   });
-  return b && {x0:b.x0-FUORI_ARIA, y0:b.y0-FUORI_ARIA, x1:b.x1+FUORI_ARIA, y1:b.y1+FUORI_ARIA};
+  cand.sort(function(a,b){ return (a.d-b.d) || String(a.it.id).localeCompare(String(b.it.id)); });
+  var b={x0:F0.x, y0:F0.y, x1:x1F0, y1:y1F0}, dentro=[], esclusi=[], A=FUORI_ARIA;
+  cand.forEach(function(c){
+    var r=c.r, G={x0:r.x0<b.x0 ? r.x0-A : b.x0, y0:r.y0<b.y0 ? r.y0-A : b.y0, x1:r.x1>b.x1 ? r.x1+A : b.x1, y1:r.y1>b.y1 ? r.y1+A : b.y1};
+    if(!entra || entra({x:G.x0, y:G.y0, w:G.x1-G.x0, h:G.y1-G.y0})){ b=G; dentro.push(c.it); } else esclusi.push(c.it);
+  });
+  return { F:{x:b.x0, y:b.y0, w:b.x1-b.x0, h:b.y1-b.y0}, dentro:dentro, esclusi:esclusi };
 }
+/* Senza una scala (PNG, area che nasce da sola): chi sta fuori entra se il disegno non rimpicciolisce più della metà,
+   cioè se il riquadro resta entro il doppio di quello del palco — l'equivalente di «uno scatto di scala». */
+function entraSenzaScala(F0){ var m=2*Math.max(F0.w, F0.h); return function(G){ return Math.max(G.w, G.h)<=m+0.5; }; }
 /* Il palco che contiene tutto, arrotondato al mezzo metro: le misure di un palco si dicono così. */
 function palcoCheContieneTutto(){
   var its=(state.items||[]).filter(function(it){ return !FUORI_OK[it.type] && !it.avvertenza; });
@@ -13410,10 +13431,14 @@ function auditFixFocusTitle(){ var el=document.getElementById("titolo"); if(el &
 var adattaCornice=null;   /* {prima: area tolta, snapPrima, snapDopo} */
 function adattaCorniceStoria(snapshot){
   var c=adattaCornice; if(!c) return;
-  if(snapshot===c.snapPrima && state.printFrame==null) state.printFrame=c.prima;        /* Annulla */
-  else if(snapshot===c.snapDopo && state.printFrame===c.prima) state.printFrame=null;    /* Ripeti */
+  /* Dopo un Annulla lo stesso passo torna nella cronologia come oggetto NUOVO (applyHistory rifà lastSnap, ed è
+     quello che Ripeti mette da parte): con il confronto per identità il secondo Annulla perdeva l'area (revisione
+     14/10). Si confronta per contenuto e, a ogni giro, si segue l'oggetto nuovo. */
+  if(sameHistorySnapshot(snapshot, c.snapPrima) && state.printFrame==null){ state.printFrame=c.prima; c.snapPrima=lastSnap; }          /* Annulla */
+  else if(sameHistorySnapshot(snapshot, c.snapDopo) && state.printFrame===c.prima){ state.printFrame=null; c.snapDopo=lastSnap; }      /* Ripeti */
 }
 function auditFixAdattaPalco(){
+  if(soloLetturaProgetto()) return;   /* progetto bloccato: niente modifiche in memoria che non si possono salvare */
   var p=(typeof palcoCheContieneTutto==="function") ? palcoCheContieneTutto() : null;
   if(!p) return;
   (state.items||[]).forEach(function(it){ it.x+=p.dx; it.y+=p.dy; });
@@ -27380,12 +27405,24 @@ function frameContentRect(){
    e da quel momento PDF e PNG tagliavano in silenzio la cassa in platea, come se l'avesse deciso l'utente. Quella
    scelta a mano («= Palco», «Solo palco») resta il palco esatto: lì un taglio lo dice l'Esporta (fuoriPalcoEsporta). */
 function ensurePrintFrame(){ if(!state.printFrame) state.printFrame=frameConFuori(frameConAvvertenza(frameStageRect())); }
+/* «CENTRA» (revisione 14/10): l'area si centra sul palco con la sua misura, ma chi sta fuori dal palco e ci stava
+   dentro ci resta — l'area si allarga dalla parte opposta quanto basta. Prima l'area nata col sub in platea, centrata,
+   lo tagliava fuori. */
+function centraArea(f){
+  recalcStageBBox();
+  var cx=state.stage.w/2, cy=state.stage.d/2, hw=f.w/2, hh=f.h/2, k=pdfTextK(100);
+  elementiOltreIlBordo().forEach(function(it){
+    if(!corpoDentro(it, f)) return;   /* chi già restava fuori dall'area resta fuori: è una scelta dell'area */
+    var r=ingombroStampa(it, k);
+    hw=Math.max(hw, cx-r.x0+FUORI_ARIA, r.x1-cx+FUORI_ARIA); hh=Math.max(hh, cy-r.y0+FUORI_ARIA, r.y1-cy+FUORI_ARIA);
+  });
+  return {x:Math.round(cx-hw), y:Math.round(cy-hh), w:Math.round(2*hw), h:Math.round(2*hh)};
+}
 /* Allarga f fino a chi sta fuori dal palco, nome compreso (corpo del PDF a 1:100, come frameConAvvertenza). */
 function frameConFuori(f){
-  var o=ingombroOltreIlPalco(pdfTextK(100)); if(!o) return f;
-  var x0=Math.min(f.x, o.x0), y0=Math.min(f.y, o.y0), x1=Math.max(f.x+f.w, o.x1), y1=Math.max(f.y+f.h, o.y1);
-  if(x0===f.x && y0===f.y && x1===f.x+f.w && y1===f.y+f.h) return f;
-  return {x:Math.floor(x0), y:Math.floor(y0), w:Math.ceil(x1-Math.floor(x0)), h:Math.ceil(y1-Math.floor(y0))};
+  var R=fuoriNelRiquadro(f, pdfTextK(100), entraSenzaScala(f)); if(!R.dentro.length) return f;   /* come il PNG: chi è lontanissimo non rimpicciolisce il palco */
+  var o=R.F;
+  return {x:Math.floor(o.x), y:Math.floor(o.y), w:Math.ceil(o.x+o.w-Math.floor(o.x)), h:Math.ceil(o.y+o.h-Math.floor(o.y))};
 }
 /* L'area che nasce da sola (il PNG la crea col palco esatto, senza margine) comprende anche l'avvertenza di «Adatta»
    messa sotto PUBBLICO: è scritta per chi riceve il foglio, e nel PNG spariva (29/09). Ingombro sulla carta a 1:100. */
@@ -27414,14 +27451,17 @@ function finishFrameEdit(){ var tornaEsporta=frameEditFrom!=="menu"; frameEdit=f
 /* riassunto dell'area nella finestra Esporta: dice sempre cosa verrà stampato */
 function frameSummaryText(){
   var f=state.printFrame;
-  if(!f) return "tutto il palco ("+fmtM(state.stage.w)+" × "+fmtM(state.stage.d)+") con le quote";
+  if(!f){
+    var _S=printScene();   /* l'area automatica: chi sta fuori dal palco c'è, se non è troppo lontano (printScene) */
+    return "tutto il palco ("+fmtM(state.stage.w)+" × "+fmtM(state.stage.d)+") con le quote"+(_S.dentro.length ? ", e chi sta fuori dal palco" : "");
+  }
   var st=frameStageRect();
   /* area che coincide col palco: va detto, altrimenti sembra un'area qualsiasi. Dal 14/10 le scritte del
      palco e le quote ci sono (printScene): prima qui si avvisava «senza margine per le quote» */
   if(Math.abs(f.x-st.x)<2 && Math.abs(f.y-st.y)<2 && Math.abs(f.w-st.w)<2 && Math.abs(f.h-st.h)<2)
     return "il palco esatto ("+fmtM(f.w)+" × "+fmtM(f.h)+"), con le quote";
   var nata=frameConFuori(frameConAvvertenza(st));   /* quella che l'app crea da sola: dirlo, o sembra un'area qualsiasi */
-  if(ingombroOltreIlPalco(pdfTextK(100)) && Math.abs(f.x-nata.x)<2 && Math.abs(f.y-nata.y)<2 && Math.abs(f.w-nata.w)<2 && Math.abs(f.h-nata.h)<2)
+  if(nata!==st && fuoriNelRiquadro(st, pdfTextK(100), entraSenzaScala(st)).dentro.length && Math.abs(f.x-nata.x)<2 && Math.abs(f.y-nata.y)<2 && Math.abs(f.w-nata.w)<2 && Math.abs(f.h-nata.h)<2)
     return "il palco e chi sta fuori dal palco ("+fmtM(f.w)+" × "+fmtM(f.h)+"), con le quote";
   return "area scelta "+fmtM(f.w)+" × "+fmtM(f.h)+(f.x||f.y ? " · da "+fmtM(f.x)+"; "+fmtM(f.y) : "");
 }
@@ -27610,9 +27650,8 @@ document.getElementById("frameStage").addEventListener("click", function(){ acti
 document.getElementById("frameAll").addEventListener("click", function(){ activateFrameEdit(); state.printFrame=frameContentRect(); save(); render(); });
 document.getElementById("frameClear").addEventListener("click", function(){ activateFrameEdit(); state.printFrame=null; save(); render(); });
 document.getElementById("frameCenter").addEventListener("click", function(){
-  activateFrameEdit(); ensurePrintFrame(); recalcStageBBox();
-  state.printFrame.x = Math.round(state.stage.w/2 - state.printFrame.w/2);
-  state.printFrame.y = Math.round(state.stage.d/2 - state.printFrame.h/2);
+  activateFrameEdit(); ensurePrintFrame();
+  state.printFrame=centraArea(state.printFrame);
   save(); render();
 });
 document.getElementById("frameSavePdf").addEventListener("click", function(){ ensurePrintFrame(); saveAsOpen=false; frameEdit=false; renderFramePanel(); render(); openPdfExportModal(); });   /* niente activateFrameEdit: non lasciare il pannello Esporta orfano in basso a sx */
@@ -29084,17 +29123,23 @@ function cartHForHeader(header, titleW){
 /* CHI STA FUORI DAL PALCO SI STAMPA (14/10/2026, Simone: «l'elemento che ho messo fuori dal palco non viene stampato
    nel pdf, come mai?»). Con l'area automatica il riquadro era il palco più 80 cm per lato: una cassa in platea a 3 m
    dal bordo cadeva fuori e svg2pdf non la scriveva nemmeno, nel PDF, nel PNG e nell'anteprima. Ora F comprende anche
-   chi si disegna oltre il bordo (elementiOltreIlBordo, nome compreso), e «Adatta al foglio» sceglie la scala su F.
-   R resta il palco col suo margine: con una scala fissa che non basta si sacrifica chi sta fuori, mai il palco
-   (pdfStageBox). __printSoloPalco: lo stesso conto senza chi sta fuori (per dire quanto costa in scala). */
+   chi si disegna oltre il bordo (fuoriNelRiquadro, nome compreso), ma non a ogni costo (revisione 14/10: un sub a
+   60 m portava il palco da 1:50 a 1:500, largo 16 mm, senza dire niente):
+   - opz.lim {w,h} (cm): il posto sul foglio a questa scala — entra chi ci sta, dal più vicino (pdfStageBox);
+   - opz.tutti: tutti, per sapere a che scala ci starebbero (scaleFits, autoScaleConti);
+   - niente: senza scala (PNG), entra chi non rimpicciolisce il disegno più della metà (entraSenzaScala).
+   R resta il palco col suo margine: non si sacrifica mai. __printSoloPalco: il conto senza chi sta fuori.
+   → {A, F, R, dentro, esclusi}: chi sta fuori ed entra nel riquadro, e chi ne resta fuori. */
 var __printSoloPalco=false;
-function printScene(k){
+function printScene(k, opz){
   var A=printArea(), DM=printDM(k);
   if(!A.custom){
-    var F0={x:A.x-DM, y:A.y-DM, w:A.w+2*DM, h:A.h+2*DM}, o=__printSoloPalco ? null : ingombroOltreIlPalco(k);
-    if(!o) return {A:A, F:F0, R:F0};
-    var x0=Math.min(F0.x, o.x0), y0=Math.min(F0.y, o.y0), x1=Math.max(F0.x+F0.w, o.x1), y1=Math.max(F0.y+F0.h, o.y1);
-    return {A:A, F:{x:x0, y:y0, w:x1-x0, h:y1-y0}, R:F0};
+    var F0={x:A.x-DM, y:A.y-DM, w:A.w+2*DM, h:A.h+2*DM};
+    if(__printSoloPalco) return {A:A, F:F0, R:F0, dentro:[], esclusi:[]};
+    opz=opz||{};
+    var lim=opz.lim, entra = opz.tutti ? null : lim ? function(G){ return G.w<=lim.w+1e-6 && G.h<=lim.h+1e-6; } : entraSenzaScala(F0);
+    var Q=fuoriNelRiquadro(F0, k, entra);
+    return {A:A, F:Q.F, R:F0, dentro:Q.dentro, esclusi:Q.esclusi};
   }
   var W=state.stage.w||0, D=state.stage.d||0, e=1, x0=A.x, y0=A.y, x1=A.x+A.w, y1=A.y+A.h;
   var traX=x0<W && x1>0, traY=y0<D && y1>0;   /* l'area incrocia il palco in orizzontale / in verticale */
@@ -29102,7 +29147,7 @@ function printScene(k){
   if(traX && y1>=D-e && y0<D) y1=Math.max(y1, D+DM);   /* il bordo verso il pubblico → PUBBLICO */
   if(traY && x0<=e && x1>0)  x0=Math.min(x0, -DM);      /* il lato sinistro → profondità e altezza */
   if(traY && x1>=W-e && x0<W) x1=Math.max(x1, W+DM);   /* il lato destro (e il disegno resta centrato sul palco) */
-  return {A:A, F:{x:x0, y:y0, w:x1-x0, h:y1-y0}, R:{x:A.x, y:A.y, w:A.w, h:A.h}};
+  return {A:A, F:{x:x0, y:y0, w:x1-x0, h:y1-y0}, R:{x:A.x, y:A.y, w:A.w, h:A.h}, dentro:[], esclusi:[]};
 }
 /* Quanto chiedono davvero le scritte del palco su ogni lato dell'area scelta (cm, al corpo k del PDF), mai più
    del posto che printScene ha aggiunto da quella parte. Serve solo quando a quella scala il foglio non ha posto
@@ -29124,15 +29169,17 @@ function printNeeds(S, k){
   return { t:Math.min(R.y-F.y, fondo+0.8*16*k+aria), b:Math.min(F.y+F.h-R.y-R.h, pubblico+0.25*16*k+aria),
            l:Math.min(R.x-F.x, l), r:Math.min(F.x+F.w-R.x-R.w, r) };
 }
-function scaleFits(N, paperKey, orient, cartH){
-  /* «adatta al foglio» vuole tutto il riquadro, scritte del palco comprese */
-  var L=pdfLayout(paperKey, orient, cartH), F=printScene(pdfTextK(N)).F;
-  return F.w*10/N<=L.drawW && F.h*10/N<=L.drawH;
+function scaleFits(N, paperKey, orient, cartH, soloPalco){
+  /* «adatta al foglio» vuole tutto il riquadro, scritte del palco comprese; chi sta fuori dal palco tutto, o nessuno */
+  var L=pdfLayout(paperKey, orient, cartH), F, sp=__printSoloPalco;
+  if(soloPalco) __printSoloPalco=true;
+  try{ F=printScene(pdfTextK(N), {tutti:true}).F; } finally{ __printSoloPalco=sp; }
+  return F.w*10/N<=L.drawW+1e-6 && F.h*10/N<=L.drawH+1e-6;
 }
 /* Geometria del disegno sul foglio a scala 1:N (mm). Se il contenuto sfora l'area utile, NON lo rimpicciolisce:
    tiene la scala esatta (10/N mm per cm) e RITAGLIA la parte centrale che ci sta (cropVb). */
 function pdfStageBox(N, paperKey, orient, cartH){
-  var L=pdfLayout(paperKey, orient, cartH), S=printScene(pdfTextK(N)), A=S.A, F=S.F, R=S.R;
+  var L=pdfLayout(paperKey, orient, cartH), S=printScene(pdfTextK(N), {lim:{w:L.drawW*N/10, h:L.drawH*N/10}}), A=S.A, F=S.F, R=S.R;
   var mmPerCm=10/N;
   var fullMmW=F.w*mmPerCm, fullMmH=F.h*mmPerCm;
   var visMmW=Math.min(fullMmW, L.drawW), visMmH=Math.min(fullMmH, L.drawH);
@@ -29151,12 +29198,24 @@ function pdfStageBox(N, paperKey, orient, cartH){
   var vb={x:inizio(F.x, F.w, R.x, R.w, cropCmW, nd.l, nd.r), y:inizio(F.y, F.h, R.y, R.h, cropCmH, nd.t, nd.b), w:cropCmW, h:cropCmH};
   var cropped = visMmW < R.w*mmPerCm-0.05 || visMmH < R.h*mmPerCm-0.05;
   /* tutto: con l'area automatica, anche chi sta fuori dal palco è sul foglio (con quella scelta a mano vale cropped) */
-  var tutto = A.custom ? !cropped : (visMmW >= F.w*mmPerCm-0.05 && visMmH >= F.h*mmPerCm-0.05);
+  var tutto = A.custom ? !cropped : !S.esclusi.length;
   /* dove cade sul foglio il palco col suo margine (R): con chi sta fuori dal palco il disegno non è più centrato sul
      palco, e le quote che jsPDF scrive attorno al palco (e le scritte dell'anteprima) vanno messe qui, non a metà
      del riquadro (14/10). Senza nessuno fuori R è il riquadro stesso, e tutto resta dov'era. */
   var rMm={x:ix+(R.x-vb.x)*mmPerCm, y:iy+(R.y-vb.y)*mmPerCm, w:R.w*mmPerCm, h:R.h*mmPerCm};
-  return {L:L, A:A, ix:ix, iy:iy, mmW:visMmW, mmH:visMmH, vb:vb, cropped:cropped, tutto:tutto, rMm:rMm, mmPerCm:mmPerCm};
+  /* Le quote «8 m» (sopra) e «5 m» (a sinistra) che jsPDF scrive fuori dal riquadro del palco: libere, se nessuno di
+     quelli fuori dal palco messi nel disegno ci cade sopra (revisione 14/10: dietro o a sinistra del palco ci finivano
+     addosso). Se no le quote le scrive il disegno, attaccate al bordo del palco (pdfQuoteFuoriDalDisegno). */
+  var quoteLibere=true;
+  if(S.dentro.length){
+    var tw=function(t){ return String(t).length*1.7; }, wq=tw((state.stage.w/100)+" m"), dq=tw((state.stage.d/100)+" m");
+    var zone=[ {x0:rMm.x+rMm.w/2-wq/2-1, y0:rMm.y-8-3.5, x1:rMm.x+rMm.w/2+wq/2+1, y1:rMm.y-8+1.5},
+               {x0:rMm.x-5-3.5, y0:rMm.y+rMm.h/2-dq/2-1, x1:rMm.x-5+1.5, y1:rMm.y+rMm.h/2+dq/2+1} ];
+    S.dentro.forEach(function(it){ var r=ingombroStampa(it, pdfTextK(N));
+      var m={x0:ix+(r.x0-vb.x)*mmPerCm, y0:iy+(r.y0-vb.y)*mmPerCm, x1:ix+(r.x1-vb.x)*mmPerCm, y1:iy+(r.y1-vb.y)*mmPerCm};
+      zone.forEach(function(z){ if(m.x0<z.x1 && z.x0<m.x1 && m.y0<z.y1 && z.y0<m.y1) quoteLibere=false; }); });
+  }
+  return {L:L, A:A, ix:ix, iy:iy, mmW:visMmW, mmH:visMmH, vb:vb, cropped:cropped, tutto:tutto, conFuori:S.dentro.length>0, quoteLibere:quoteLibere, rMm:rMm, mmPerCm:mmPerCm};
 }
 /* cartH: altezza REALE del cartiglio (cresce se il riferimento va a capo). Passarla è indispensabile:
    col default 22 "Automatica" sceglieva una scala che nel PDF non entrava più, e il disegno veniva
@@ -29195,10 +29254,22 @@ function pdfConsiglioA3(paperKey, scaleSel, header){
   var p4=pdfNomiPt(N4), p3=pdfNomiPt(N3);
   return (p4<NOMI_PT_MIN && p3>=NOMI_PT_BUONI) ? {pt:p4, ptA3:p3} : null;
 }
-function autoScale(paperKey, orient, cartH){
-  for(var i=0;i<SCALES.length;i++){ if(scaleFits(SCALES[i],paperKey,orient,cartH)) return SCALES[i]; }
-  return SCALES[SCALES.length-1];  /* non entra nemmeno a 1:500 → usa la scala più piccola e ritaglia ciò che ci sta */
+/* «ADATTA AL FOGLIO» E CHI STA FUORI DAL PALCO (revisione 14/10/2026). n0 = la scala del solo palco, nT = quella che
+   tiene anche tutti quelli fuori (null se nemmeno 1:500 basta). La scala automatica li comprende solo se costano al
+   massimo UNO scatto (1:50 → 1:100): un sub a 60 m non porta il palco a 1:500. Se costano di più, resta n0 e
+   l'Esporta dice chi resta fuori dal foglio e a che scala ci starebbe (fuoriPalcoEsporta). */
+function primaScala(paperKey, orient, cartH, soloPalco){
+  for(var i=0;i<SCALES.length;i++){ if(scaleFits(SCALES[i],paperKey,orient,cartH,soloPalco)) return SCALES[i]; }
+  return null;
 }
+function autoScaleConti(paperKey, orient, cartH){
+  var n0=primaScala(paperKey, orient, cartH, true), nT=primaScala(paperKey, orient, cartH, false);
+  var i0=n0 ? SCALES.indexOf(n0) : SCALES.length-1, N;
+  if(!n0) N=SCALES[SCALES.length-1];   /* non entra nemmeno il palco a 1:500 → la scala più piccola, ritaglia ciò che ci sta */
+  else N=(nT && SCALES.indexOf(nT)-i0<=1) ? nT : n0;
+  return {N:N, n0:n0, nT:nT};
+}
+function autoScale(paperKey, orient, cartH){ return autoScaleConti(paperKey, orient, cartH).N; }
 function resolveScale(paperKey, scaleSel, orient, cartH){
   return scaleSel==="auto" ? autoScale(paperKey, orient, cartH) : parseInt(scaleSel,10);
 }
@@ -29227,11 +29298,42 @@ function areaConFuori(f, list, N){
     x0=Math.min(x0, r.x0-FUORI_ARIA); y0=Math.min(y0, r.y0-FUORI_ARIA); x1=Math.max(x1, r.x1+FUORI_ARIA); y1=Math.max(y1, r.y1+FUORI_ARIA); });
   return {x:Math.floor(x0), y:Math.floor(y0), w:Math.ceil(x1-Math.floor(x0)), h:Math.ceil(y1-Math.floor(y0))};
 }
+/* LE QUOTE DEL PALCO SCRITTE DA jsPDF fuori dal disegno (8 m sopra, 5 m a sinistra, a corpo fisso, posate sul palco:
+   box.rMm): solo con l'area automatica, il palco intero sul foglio e nessuno di quelli fuori dal palco sopra di loro
+   (box.quoteLibere). Se no si usano le quote dentro il disegno (stageDimsMarkup), attaccate al bordo del palco, come
+   con l'area scelta a mano (revisione 14/10). */
+function pdfQuoteFuoriDalDisegno(box){ return !box.A.custom && !box.cropped && box.quoteLibere!==false; }
+/* IL FUOCO ALL'APERTURA DELL'ESPORTA (14/10). Il contratto delle modali lo dà al primo elemento: con l'avviso fuori
+   palco era «Adatta il palco», e un Invio dato d'abitudine spostava tutto. Col mouse si parte dal nome del progetto
+   («titolo»); col dito (telefono, schermo tattile) mai su un campo di testo, che aprirebbe la tastiera sopra la
+   finestra: il fuoco va alla finestra stessa («finestra»). null = la regola di sempre. */
+function esportaFuocoIniziale(avviso, tattile){ return tattile ? "finestra" : (avviso ? "titolo" : null); }
+/* La riga della scala nell'Esporta: se il disegno comprende chi sta fuori dal palco, e quanto costa in scala. */
+function pdfInfoFuori(paperKey, scaleSel, orient, cartH){
+  if(printArea().custom) return "";
+  var N=resolveScale(paperKey, scaleSel, orient, cartH); if(!N) return "";
+  if(!pdfStageBox(N, paperKey, orient, cartH).conFuori) return "";
+  var t=" · comprende chi sta fuori dal palco";
+  if(scaleSel==="auto"){ var c=autoScaleConti(paperKey, orient, cartH); if(c.n0 && c.n0<N) t+=" (solo il palco starebbe a 1:"+c.n0+")"; }
+  return t;
+}
+/* sola lettura: progetto bloccato o vista condivisa (=== true: il DOM finto dei test risponde con un oggetto). La
+   consulenza no: lì si modifica, col suo salvataggio. */
+function soloLetturaProgetto(){ return window.__projLocked===true || document.body.classList.contains("viewmode")===true; }
+/* La prima scala (fra quelle dell'Esporta) a cui il riquadro dell'area f — o dell'area automatica, se f è null — sta
+   sul foglio con tutti quelli fuori dal palco. null: nemmeno a 1:500. */
+function scalaPerTenerli(f, paperKey, orient, cartH){
+  var f0=state.printFrame, n;
+  try{ if(f) state.printFrame=f; else delete state.printFrame; n=primaScala(paperKey, orient, cartH, false); }
+  finally{ if(f0) state.printFrame=f0; else delete state.printFrame; }
+  return n;
+}
 /* Cosa dice la finestra Esporta: l'equivoco sul rettangolo (fuoriPalcoEquivoco, la regola dell'audit) e chi resta
-   fuori dal foglio, con la causa (l'area scelta o la scala) e il rimedio. Pura: non tocca lo stato. */
+   fuori dal foglio, col costo vero per tenerlo e il rimedio. Pura: non tocca lo stato.
+   r.azione: {etichetta, area (l'area allargata, o null), scala (da scegliere, o null)} oppure null. */
 function fuoriPalcoEsporta(paperKey, scaleSel, orient, header){
   var cartH=cartHFor(header, paperKey, orient), N=resolveScale(paperKey, scaleSel, orient, cartH);
-  var r={equivoco:null, tagliati:[], causa:null, titolo:"", testo:"", azione:"", N:N};
+  var r={equivoco:null, tagliati:[], causa:null, titolo:"", testo:"", azione:null, bloccato:soloLetturaProgetto(), N:N};
   var eqv=fuoriPalcoEquivoco();
   if(eqv && eqv.palco){
     var st=state.stage, n=eqv.fuori.length;
@@ -29247,40 +29349,38 @@ function fuoriPalcoEsporta(paperKey, scaleSel, orient, header){
     if(A.x>1 || A.y>1 || A.x+A.w<state.stage.w-1 || A.y+A.h<state.stage.d-1) return r; }   /* l'area taglia il palco: dettaglio voluto */
   var tag=fuoriDalFoglio(N, paperKey, orient, cartH);
   if(!tag.length) return r;
-  var F=printScene(pdfTextK(N)).F, uno=tag.length===1;
+  var uno=tag.length===1, foglio=String(paperKey||"").toUpperCase(), F=printScene(pdfTextK(N)).F;
   r.tagliati=tag;
-  r.causa=tag.some(function(it){ return !corpoDentro(it, F); }) ? "area" : "scala";
   r.titolo=uno ? "1 elemento fuori dal palco resta fuori dal foglio" : tag.length+" elementi fuori dal palco restano fuori dal foglio";
   r.testo=r.titolo+" ("+fuoriPalcoNomi(tag)+"): nel PDF non "+(uno?"si vedrà":"si vedranno")+".";
-  var foglio=String(paperKey||"").toUpperCase();
-  var scalaTxt = scaleSel==="auto"
-    ? " Nemmeno a 1:"+N+" il foglio "+foglio+" basta: scegli un foglio più grande."
-    : " A 1:"+N+" il foglio "+foglio+" non basta: scegli la scala Automatica o un foglio più grande.";
-  if(r.causa==="area"){
+  var area=null, M;
+  if(A.custom && tag.some(function(it){ return !corpoDentro(it, F); })){
+    r.causa="area"; area=areaConFuori(state.printFrame, tag, N);
+    M=scalaPerTenerli(area, paperKey, orient, cartH);
     r.testo+=" L'area di stampa scelta "+(uno?"lo":"li")+" taglia.";
-    r.azione="Includili nel foglio";
-    /* allargata l'area, ci starebbero a questa scala? se no, dirlo subito: il clic da solo non basterebbe */
-    var f0=state.printFrame, resta;
-    try{ state.printFrame=areaConFuori(f0, tag, N); resta=fuoriDalFoglio(N, paperKey, orient, cartH).length; }
-    finally{ state.printFrame=f0; }
-    if(resta && scaleSel!=="auto") r.testo+=" Anche allargando l'area, a 1:"+N+" il foglio "+foglio+" non basta: scegli la scala Automatica o un foglio più grande.";
   } else {
-    r.testo+=scalaTxt;
-    if(scaleSel!=="auto") r.azione="Scala automatica";
+    r.causa="scala";
+    M=scalaPerTenerli(A.custom ? state.printFrame : null, paperKey, orient, cartH);
   }
+  if(!M){
+    r.testo+=" Nemmeno a 1:"+SCALES[SCALES.length-1]+" il foglio "+foglio+" "+(uno?"lo":"li")+" tiene insieme al palco: serve un foglio più grande, o un'area di stampa scelta a mano.";
+    return r;
+  }
+  /* la scala che serve, detta per quello che costa: con «Automatica» e l'area allargata ci si arriva da soli */
+  var scala = (M===N || (scaleSel==="auto" && area)) ? null : M;
+  if(M!==N) r.testo+=" Per "+(uno?"tenerlo":"tenerli")+" il disegno andrebbe a 1:"+M+" (ora 1:"+N+")"+(SCALES.indexOf(M)-SCALES.indexOf(N)>1 ? ": il palco verrebbe molto più piccolo." : ".");
+  if(area && r.bloccato){ r.testo+=" Il progetto è bloccato: l'area di stampa non si può cambiare."; return r; }
+  r.azione={ etichetta: M!==N ? "Includili (1:"+M+")" : "Includili nel foglio", area:area, scala:scala };
   return r;
 }
-/* «Includili nel foglio»: allarga l'area scelta fino a chi resta fuori. Non tocca il palco né gli elementi, e come
-   ogni scelta dell'area non è un passo di Annulla (historyStateJSON). */
+/* «Includili»: allarga l'area scelta (se serve) e dice la scala da scegliere (se serve). Non tocca il palco né gli
+   elementi, e come ogni scelta dell'area non è un passo di Annulla (historyStateJSON). La scala la sceglie chi
+   preme (l'Esporta la mette nel suo menu): qui si restituisce. Progetto bloccato: l'area non si tocca. */
 function includiNelFoglio(paperKey, scaleSel, orient, header){
-  var f=state.printFrame; if(!f) return false;
-  var cartH=cartHFor(header, paperKey, orient), N=resolveScale(paperKey, scaleSel, orient, cartH);
-  if(!N) return false;
-  var tag=fuoriDalFoglio(N, paperKey, orient, cartH).filter(function(it){ return !corpoDentro(it, f); });
-  if(!tag.length) return false;
-  state.printFrame=areaConFuori(f, tag, N);
-  save(); render();
-  return true;
+  var r=fuoriPalcoEsporta(paperKey, scaleSel, orient, header), a=r.azione;
+  if(!a) return null;
+  if(a.area){ if(r.bloccato) return null; state.printFrame=a.area; save(); render(); }
+  return {area:!!a.area, scala:a.scala};
 }
 /* ORIENTAMENTO AUTOMATICO (11/08, chiesto da Simone): un palco largo e poco profondo vuole il foglio
    orizzontale, uno stretto e profondo quello verticale — e sbagliarlo costa una scala intera (1:200
@@ -29289,7 +29389,7 @@ function includiNelFoglio(paperKey, scaleSel, orient, header){
    Nell'ordine: chi non ritaglia batte chi ritaglia · scala più grande (N minore) · a parità, chi
    riempie meglio la pagina. Resta una SCELTA dell'utente: i chip Orizz./Vert. vincono sempre. */
 function pdfBestOrient(paperKey, scaleSel, header){
-  var best=null;
+  var best=null, cand=[];
   /* landscape per primo: è il verso di partenza, e a parità di risultato resta lui — uno stage plot
      si legge come lo si guarda dal pubblico, e a parità di scala il disegno stampato è IDENTICO nei
      due versi, quindi girare il foglio non darebbe niente in cambio. (Un primo tentativo pesava
@@ -29301,7 +29401,13 @@ function pdfBestOrient(paperKey, scaleSel, header){
     var box=pdfStageBox(N, paperKey, o, ch);
     /* quando NESSUNO dei due versi ce la fa, vince chi lascia vedere più palco */
     var visto=box.mmW*box.mmH;
-    var c={o:o, N:N, cropped:!!box.cropped, tutto:box.tutto!==false, visto:visto};
+    cand.push({o:o, N:N, cropped:!!box.cropped, tutto:box.tutto!==false, visto:visto});
+  });
+  /* «tiene anche chi sta fuori» vale solo se costa al massimo UNO scatto rispetto al verso migliore per il solo palco
+     (revisione 14/10: un elemento a 10 m per lato mandava il foglio in verticale a 1:200 invece che a 1:50 orizzontale) */
+  var nMin=Math.min.apply(null, cand.map(function(c){ return c.N; }));
+  cand.forEach(function(c){
+    if(c.tutto && SCALES.indexOf(c.N)-SCALES.indexOf(nMin)>1 && SCALES.indexOf(nMin)>=0) c.tutto=false;
     if(!best){ best=c; return; }
     if(c.cropped!==best.cropped){ if(!c.cropped) best=c; return; }   /* chi entra intero batte chi ritaglia */
     if(c.tutto!==best.tutto){ if(c.tutto) best=c; return; }           /* … e chi tiene sul foglio anche gli elementi fuori dal palco (14/10) */
@@ -31232,7 +31338,7 @@ function pdfPreviewSvg(paperKey, N, orient, header, opts){
   var areaDis={x:L.drawX, y:L.drawY, w:L.drawW, h:L.drawH};
   var pianta=venueFoglioSvg(areaDis, ix, iy, box.vb, stMmW/box.vb.w);
   var scene = stageSceneSvg(box.vb, {focus:opts.focus||null, textK:pdfTextK(Ng), piantaASe:!!pianta,
-      noBlockDims:!A.custom && !box.cropped && stageBlocks().length<2})
+      noBlockDims:pdfQuoteFuoriDalDisegno(box) && stageBlocks().length<2})
     .replace(/^<svg /, '<svg x="'+ix+'" y="'+iy+'" width="'+stMmW+'" height="'+stMmH+'" preserveAspectRatio="none" ');
   scene=pianta+scene;
   var cy=L.ph-L.fondo-L.cartH;
@@ -32128,7 +32234,7 @@ function buildPdfDoc(paperKey, N, orient, header){
   /* il disegno viene rimpicciolito di N volte: le scritte vanno ingrandite altrettanto per restare
      della stessa dimensione sulla carta a ogni scala (vedi scaleSvgFonts). Le quote per blocco si
      spengono quando qui sotto ne disegniamo già di nostre — cioè su palco di un pezzo solo. */
-  var scena={textK:pdfTextK(N), noBlockDims:!A.custom && !box.cropped && stageBlocks().length<2,
+  var scena={textK:pdfTextK(N), noBlockDims:pdfQuoteFuoriDalDisegno(box) && stageBlocks().length<2,
     areaFoglio:{x:L.drawX, y:L.drawY, w:L.drawW, h:L.drawH}};   /* fin dove arriva la planimetria: tutta l'area di disegno (pdfVenueLayer) */
   return loadJsPDF().then(function(){
     var jsPDF=window.jspdf.jsPDF;
@@ -32140,7 +32246,7 @@ function buildPdfDoc(paperKey, N, orient, header){
         return pdfRipiegoRaster(doc, ix, iy, stMmW, stMmH, box.vb, scena);
       })
       .then(function(){
-    if(!A.custom && !box.cropped){
+    if(pdfQuoteFuoriDalDisegno(box)){
       /* quote dimensionali — solo senza area personalizzata e quando il palco intero ci sta (se ritagliato sarebbero fuorvianti) */
       doc.setFont("helvetica","normal"); doc.setTextColor(107,114,128); doc.setFontSize(8.5);
       var q=box.rMm;   /* il palco, non il riquadro: con chi sta fuori dal palco non coincidono (14/10) */
@@ -32596,10 +32702,7 @@ function pdfChannelPage(doc, L, paperKey){
       info.innerHTML="Scala risultante <b>1:"+N+"</b> · disegno "+mmW+"×"+mmH+" mm su "+paper.value.toUpperCase()+" "+oTxt+
         (box.cropped? " — più grande del foglio: <b>verrà stampata la parte centrale che ci sta</b>, sempre in scala. Scegli <b>Automatica</b> o un foglio più grande per averlo tutto." : "");
       /* chi sta fuori dal palco si stampa, e con «Adatta al foglio» può costare una scala: dirlo (14/10) */
-      if(!_A.custom && pdfScaleValue()==="auto" && ingombroOltreIlPalco(pdfTextK(N))){
-        var _N0; __printSoloPalco=true; try{ _N0=resolveScale(paper.value, "auto", _or, _cartH); } finally{ __printSoloPalco=false; }
-        info.innerHTML+=" · comprende chi sta fuori dal palco"+(_N0 && _N0<N ? " (solo il palco starebbe a 1:"+_N0+")" : "");
-      }
+      info.innerHTML+=esc(pdfInfoFuori(paper.value, pdfScaleValue(), _or, _cartH));
       var _a3=pdfConsiglioA3(paper.value, pdfScaleValue(), header.value);
       if(_a3){
         info.className="mstatus warn";
@@ -32652,20 +32755,23 @@ function pdfChannelPage(doc, L, paperKey){
       }
       box.appendChild(d);
     }
+    var _at=function(){ var e=document.getElementById("pdfAreaTxt"); if(e && typeof frameSummaryText==="function") e.textContent=frameSummaryText(); };
     if(r.tagliati.length){
-      if(r.azione==="Includili nel foglio") riga(r.titolo, r.testo, r.azione, "pdfFuoriIncludi", function(){
-        includiNelFoglio(paper.value, pdfScaleValue(), pdfOrientValue(paper.value, pdfScaleValue(), header.value), header.value);
-        var _at=document.getElementById("pdfAreaTxt"); if(_at && typeof frameSummaryText==="function") _at.textContent=frameSummaryText();
-      });
-      else if(r.azione==="Scala automatica") riga(r.titolo, r.testo, r.azione, "pdfFuoriScala", function(){
-        scl.value="auto"; scl.dispatchEvent(new Event("change"));   /* la scala la cambia chi preme, non l'app */
+      if(r.azione) riga(r.titolo, r.testo, r.azione.etichetta, "pdfFuoriIncludi", function(){
+        var fatto=includiNelFoglio(paper.value, pdfScaleValue(), pdfOrientValue(paper.value, pdfScaleValue(), header.value), header.value);
+        if(fatto && fatto.scala){ scl.value=String(fatto.scala); scl.dispatchEvent(new Event("change")); }   /* la scala la sceglie chi preme, e la vede scritta sul bottone */
+        _at();
       });
       else riga(r.titolo, r.testo);
     }
-    if(r.equivoco) riga(r.equivoco.titolo, r.equivoco.testo, "Adatta il palco", "pdfFuoriFix", function(){
-      if(typeof auditFixAdattaPalco==="function") auditFixAdattaPalco();
-      var _at=document.getElementById("pdfAreaTxt"); if(_at && typeof frameSummaryText==="function") _at.textContent=frameSummaryText();
-    });
+    /* progetto bloccato: «Adatta» sposterebbe tutto in memoria senza poterlo salvare — il bottone non c'è, e si dice perché */
+    if(r.equivoco){
+      if(r.bloccato) riga(r.equivoco.titolo, r.equivoco.testo+" Il progetto è bloccato: per adattare il palco va sbloccato.");
+      else riga(r.equivoco.titolo, r.equivoco.testo, "Adatta il palco", "pdfFuoriFix", function(){
+        if(typeof auditFixAdattaPalco==="function") auditFixAdattaPalco();
+        _at();
+      });
+    }
   }
   /* Il coro che nel PDF non ha canali (29/09). Stessa forma dell'avviso qui sopra: quello che si vedrà nel
      foglio, e il rimedio a un clic — gli stessi microfoni d'insieme che aggiunge l'audit. */
@@ -33091,10 +33197,14 @@ function pdfChannelPage(doc, L, paperKey){
     pdfHeaderInit();
     refresh();
     pdfUpdateTechNote();
-    /* Il fuoco della finestra va al primo elemento (contratto delle modali): con l'avviso fuori palco era «Adatta il
-       palco», e un Invio dato d'abitudine spostava tutto (14/10). Si parte dal nome del progetto, come senza avviso. */
+    /* Il fuoco iniziale (esportaFuocoIniziale): mai sul bottone dell'avviso, mai su un campo di testo col dito. */
     var _fp=document.getElementById("pdfFuoriPalco"), _ti=document.getElementById("pdfTitolo");
-    if(_fp && !_fp.hidden && _ti) try{ _ti.focus({preventScroll:true}); }catch(e){}
+    var _tatto=false; try{ _tatto=isMobile() || window.matchMedia("(pointer:coarse)").matches; }catch(e){}
+    var _fu=esportaFuocoIniziale(!!(_fp && !_fp.hidden), _tatto);
+    try{
+      if(_fu==="titolo" && _ti) _ti.focus({preventScroll:true});
+      else if(_fu==="finestra"){ var _mc=modal.querySelector(".mcard")||modal; if(!_mc.hasAttribute("tabindex")) _mc.setAttribute("tabindex","-1"); _mc.focus({preventScroll:true}); }
+    }catch(e){}
     /* niente modale pre-export: il Controllo tecnico vive nel nudge qui sotto.
        asked resta per compatibilità blob (vestigiale). */
     segnaEsportaAperto();
@@ -33185,9 +33295,8 @@ document.getElementById("bPdf").addEventListener("click", function(){ if(window.
   document.getElementById("paPreStage").addEventListener("click", function(){ state.printFrame=frameStageRect(); save(); fillInputs(); });
   document.getElementById("paPreAll").addEventListener("click", function(){ state.printFrame=frameContentRect(); save(); fillInputs(); });
   document.getElementById("paPreCenter").addEventListener("click", function(){
-    ensurePrintFrame(); recalcStageBBox();
-    state.printFrame.x=Math.round(state.stage.w/2-state.printFrame.w/2);
-    state.printFrame.y=Math.round(state.stage.d/2-state.printFrame.h/2);
+    ensurePrintFrame();
+    state.printFrame=centraArea(state.printFrame);
     save(); fillInputs();
   });
   [paW,paH,paX,paY].forEach(function(inp){ inp.addEventListener("change", function(){ if(!custSec.hidden){ applyInputs(); save(); } }); });
