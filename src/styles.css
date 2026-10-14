@@ -1430,6 +1430,8 @@ svg.names-hidden .orc-name{display:none}
      rimpicciolito o l'utente li spegne; il selezionato e quello sotto il mouse restano leggibili */
   svg.names-hidden .item .lbl:not(.sub){display:none}
   svg.names-hidden .item.selected .lbl,svg.names-hidden .item:hover .lbl{display:inline}
+  /* la misura del metro è una quota, non un nome (14/10/2026): sta nel buco della sua linea, e spenta lascerebbe la linea interrotta sul vuoto */
+  svg.names-hidden .item .lbl.metro-q{display:inline}
   /* dal 25/09 i nomi stanno nel livello #layLbl, fuori dal gruppo dell'elemento: stesse regole sul contenitore del nome */
   #svg #layLbl .lblk{scale:var(--lblK,1)}   /* corpo minimo a schermo: il gruppo delle scritte di un elemento cresce attorno all'ancora del nome (lblScalaAttorno, aggiornaNomiZoom) */
   svg.names-hidden .item-lbls .lbl:not(.sub){display:none}
