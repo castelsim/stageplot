@@ -19472,7 +19472,7 @@ svg.addEventListener("pointerup", function(e){
          Il pan non chiude nulla: qui siamo già nel ramo del click fermo (< 4 px). */
       /* Tranne in «Solo planimetria»: lì sotto il dito c'è la pianta, il contenuto che si sta studiando, e un tocco
          per orientarsi non deve spegnere la vista. Si esce dal bottone, dal banner o con Esc (14/10). */
-      if(inListMode() && !soloPiantaPiena()) exitListMode();
+      if(clicVuotoEsceDallaVista()) exitListMode();
       render(); }
     else ensureVisible();   /* pan in panoramica: non lasciare elementi fuori */
   }
@@ -20245,7 +20245,7 @@ document.addEventListener("keydown", function(e){
   /* «Crea elemento»: Esc con niente selezionato = uscire dall'editor (se c'è qualcosa da perdere, si chiede) */
   if(e.key==="Escape" && custEditorAttivo() && !selIds().length && !catSearching()){ e.preventDefault(); custEsci(true); return; }
   /* «Solo planimetria» col pannello aperto: Esc spegne il solo e il pannello resta (un livello per volta) */
-  if(e.key==="Escape" && soloPiantaPiena() && pannelloPiantaAperto()){ e.preventDefault(); soloPlanimetria(false); render(); return; }
+  if(e.key==="Escape" && escSpegneSoloPianta()){ e.preventDefault(); render(); return; }
   if(e.key==="Escape"){ exitHubModes(); clearSelection(); if(!endCatSearch()) collapseCats();   /* con una ricerca aperta, Esc riporta la colonna in stato di partenza (campo vuoto, in cima) */
     exitListMode();   /* ESC: i layer si deselezionano e tornano alla modalità base */
     render(); }
@@ -23719,8 +23719,11 @@ function soloPedaneAuto(){
 /* Gli export (PDF, PNG, anteprima, miniatura) disegnano il progetto, non la vista: col solo pedane
    acceso il PDF perdeva i cavi (layerShown segue il solo) e il PNG usciva sfumato. Lo stesso per «Solo
    planimetria» (14/10): con la S della Planimetria accesa il PNG usciva SENZA un solo elemento (il solo «iso»
-   li toglie) e il PDF senza cavi — provato prima di correggerlo. Le altre S dei layer restano come erano. */
-function vistaDiLavoro(){ return !!(layerSoloUI.pedane || layerSoloUI.venue); }
+   li toglie) e il PDF senza cavi — provato prima di correggerlo. E lo stesso per OGNI S e ogni fuoco dei Livelli
+   (revisione 14/10, provato layer per layer): con la S su Output, Monitor, Elettrico o Palco il PNG usciva con
+   0 elementi, con Input o Musicisti PNG e PDF cambiavano. Gli export non hanno bisogno del solo vivo: le
+   pagine-vista del PDF il loro solo se lo accendono da sé dentro stageSceneSvg (focus). Quindi via tutti. */
+function vistaDiLavoro(){ return anySolo(); }
 function senzaVisteDiLavoro(fn){
   if(!vistaDiLavoro()) return fn();
   var keep=layerSoloUI; layerSoloUI={};
@@ -23767,9 +23770,16 @@ function soloPlanimetriaDisponibile(){ return !!(state.venue && safeVenueDataUrl
 function soloPiantaPiena(){ return soloOn("venue") && layerSoloMode==="iso"; }
 function soloPlanimetria(on){
   if(on && soloPlanimetriaDisponibile()){ layerAccOpen=null; layerSoloUI={venue:true}; layerSoloMode="iso"; soloPiantaPannello=pannelloPiantaAperto(); }
-  else { delete layerSoloUI.venue; soloPiantaPannello=false; }
+  else { delete layerSoloUI.venue; soloPiantaPannello=false; if(layerAccOpen==="venue") layerAccOpen=null; }   /* anche il fuoco della riga: «Nascondi» non lascia la tendina aperta su niente */
   if(typeof renderLayerManager==="function") renderLayerManager();
 }
+/* Esc col pannello aperto: spegne il solo e il pannello resta (un livello per volta). Vero se l'ha spento. */
+function escSpegneSoloPianta(){
+  if(!(soloPiantaPiena() && pannelloPiantaAperto())) return false;
+  soloPlanimetria(false); return true;
+}
+/* il clic fermo sul vuoto esce dalle viste dei Livelli, ma non da «Solo planimetria»: lì sotto c'è la pianta */
+function clicVuotoEsceDallaVista(){ return inListMode() && !soloPiantaPiena(); }
 function aggiornaSoloPlanimetria(){
   var b=document.getElementById("venueSolo"); if(!b) return;
   var si=soloPlanimetriaDisponibile(), on=si && soloPiantaPiena();
@@ -23822,6 +23832,9 @@ function soloMostra(it){ return anySolo() && (!soloOn("pedane") || itemInSoloLay
 /* un layer spento (cestino/toggle) non deve restare in solo fantasma sfumando tutto */
 function pruneSolo(){
   if(!anySolo()){ soloPiantaPannello=false; return; }
+  /* il pannello possiede solo il SUO solo (pieno): passato al fuoco della riga dei Livelli, è dei Livelli e
+     non si spegne più col pannello (prima: tendina della riga aperta su una vista che non c'era più) */
+  if(!soloPiantaPiena()) soloPiantaPannello=false;
   var alive={ cabin:(!!(state.cab&&state.cab.on) || (state.items||[]).some(function(x){ return x.type==="rxrf"||x.type==="rfant"||x.type==="rfsplit"; })),
               cabout:!!(state.cab&&state.cab.on),
               mond:!!(state.mond&&state.mond.on),
@@ -23832,7 +23845,7 @@ function pruneSolo(){
               venue:!!(state.venue&&state.venue._dataUrl) && (!soloPiantaPannello || pannelloPiantaAperto()),   /* accesa dal pannello: vive col pannello (vedi soloPlanimetria) */
               stage:true,
               pedane:soloPedaneDisponibile() };   /* deselezionata la pedana, il solo pedane si spegne da solo */
-  Object.keys(layerSoloUI).forEach(function(k){ if(!alive[k]) delete layerSoloUI[k]; });
+  Object.keys(layerSoloUI).forEach(function(k){ if(!alive[k]){ delete layerSoloUI[k]; if(layerAccOpen===k) layerAccOpen=null; } });   /* niente tendina aperta su una vista spenta */
   if(!soloOn("venue")) soloPiantaPannello=false;
 }
 function resetMetaLayersUI(){ stageLayerUI={vis:true,op:100,lock:false}; micLayerUI={vis:true,op:100,lock:false};
@@ -27639,9 +27652,13 @@ document.getElementById("venueOpacity").addEventListener("input", function(){
 });
 document.getElementById("venueRot").addEventListener("input", function(){ venueSetRot(this.value); });
 document.getElementById("venueRotNum").addEventListener("change", function(){ venueSetRot(this.value); });
-document.getElementById("venueBtnVis").addEventListener("click", function(){
-  if(!state.venue) return; state.venue.enabled=(state.venue.enabled===false)?true:false;
+function venueAlternaVisibile(){
+  if(!state.venue) return false; state.venue.enabled=(state.venue.enabled===false)?true:false;
   if(state.venue.enabled===false && soloOn("venue")) soloPlanimetria(false);   /* come l'occhio dei Livelli: il solo vince sugli occhi, e la pianta resterebbe lì col bottone «Mostra» */
+  return true;
+}
+document.getElementById("venueBtnVis").addEventListener("click", function(){
+  if(!venueAlternaVisibile()) return;
   save(); renderVenuePanel(); render();
 });
 document.getElementById("venueSolo").addEventListener("click", function(e){ e.stopPropagation(); soloPlanimetria(!soloPiantaPiena()); render(); });
@@ -28796,7 +28813,7 @@ function channelTableSvg(x, top, w){
   return s;
 }
 function buildExportSvg(){
-  if(vistaDiLavoro()){ var _ex=senzaVisteDiLavoro(buildExportSvg); render(); return _ex; }   /* «Solo pedane» e «Solo planimetria» non vanno nel PNG; il render() finale qui sotto l'aveva tolta dal canvas */
+  if(vistaDiLavoro()){ var _ex=senzaVisteDiLavoro(buildExportSvg); render(); return _ex; }   /* nessuna vista di lavoro (S, fuoco, «Solo pedane», «Solo planimetria») nel PNG; il render() finale qui sotto l'aveva tolta dal canvas */
   var keep=sel, keepSet=selSet; sel=null; selSet={};
   recalcStageBBox();
   var m=130, W=state.stage.w, D=state.stage.d, head=70;
