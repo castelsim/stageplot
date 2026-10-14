@@ -84,6 +84,7 @@ function reset() {
   A.__consultMode = false;   /* revisione 25/09: la lista manuale conta solo in consulenza; un test che la accende non deve sporcare i successivi */
   A.state.items = []; A.state.inputs = []; A.state.outputs = []; A.state.contacts = []; A.state.rider = {};
   A.state.status = "bozza"; A.state.approval = { by: "", at: "" };
+  delete A.state.stileDefault;   /* stile delle figure (14/10): assente = elegante; un test che lo lascia su «Casual» farebbe nascere casual i successivi */
   A.state.lookDefault = "illustrato";   /* «Postazione» = default del progetto (senza questo, un test che lo lascia su «Strumento solo» inquina i successivi) */
   A.state.titolo = ""; A.state.luogo = ""; A.state.techContact = ""; A.state.venue = null; A.state.printFrame = null; A.state.zones = [];
   A.state.lights = { rows: [], blackout: null, mood: "" };   /* luci = reparto (blocco A): senza azzeramento le righe di un test finiscono nel rider del successivo */
@@ -24135,6 +24136,178 @@ ta("service worker: il precache dell'installazione scarica dal server, non dalla
   ok(B.cache.precache && B.cache.precache.length >= 3, "precache fatto");
   ok(B.cache.precache.every((r) => r.cache === "reload"), "ogni file con cache:reload");
   ok(B.cache.precache.some((r) => r.url === "/app.js"), "fra cui app.js");
+});
+
+
+/* ═══ FIGURE CASUAL E BASSISTA IN PIEDI (14/10/2026, Montecarla) ═══════════════════════════════════════
+   Le figure di sempre sono eleganti (giacca e cravatta, CORO_UOMO_ART). `stile:"casual"` per elemento ne disegna altre (maglietta o felpa, jeans,
+   sneakers), `abito` 1/2 cambia i colori, `donna` ha i capelli lunghi. Assente = elegante: i progetti salvati non cambiano.
+   `posa:"piedi"` fa suonare chitarra e basso in piedi (senza sedia), nell'aspetto «Postazione». */
+t("figure: senza stile resta l'elegante di sempre (arte CORO), e un solo disegno per voce, tastierista e basso in piedi", () => {
+  reset();
+  const v = add("cantante", 200, 200, {});
+  const d0 = A.TYPES.cantante.draw(v);
+  ok(/scale\(0\.08\)/.test(d0) && /coroUomo_st0/.test(d0) && !/persona-casual/.test(d0), "voce senza stile: l'uomo in giacca");
+  const w = add("cantante", 300, 200, { donna: true });
+  ok(/coroDonna_st0/.test(A.TYPES.cantante.draw(w)), "la donna elegante resta l'abito scuro");
+  eq(A.stileFigura({ stile: "casual" }), "casual"); eq(A.stileFigura({ stile: "boh" }), "elegante"); eq(A.stileFigura(null), "elegante");
+});
+t("figure: casual disegna personaCasual (niente arte CORO), colori dell'abito, uomo/donna diversi", () => {
+  reset();
+  const m = add("cantante", 200, 200, { stile: "casual" });
+  const dm = A.TYPES.cantante.draw(m);
+  ok(/persona-casual/.test(dm) && !/coroUomo|scale\(0\.08\)/.test(dm), "voce casual: la figura nuova, non quella in giacca");
+  ok(dm.indexOf(A.ABITI_CASUAL[0].top) >= 0 && dm.indexOf(A.ABITI_CASUAL[0].pant) >= 0, "colori dell'abito 0 (maglietta e jeans)");
+  const d1 = A.TYPES.cantante.draw(Object.assign({}, m, { abito: 1 })), d2 = A.TYPES.cantante.draw(Object.assign({}, m, { abito: 2 }));
+  ok(d1.indexOf(A.ABITI_CASUAL[1].top) >= 0 && d1.indexOf(A.ABITI_CASUAL[0].top) < 0, "abito 1: altri colori");
+  ok(d2.indexOf(A.ABITI_CASUAL[2].top) >= 0, "abito 2: altri colori ancora");
+  eq(A.TYPES.cantante.draw(Object.assign({}, m, { abito: 7 })), dm, "abito fuori elenco = abito 0");
+  const dd = A.TYPES.cantante.draw(Object.assign({}, m, { donna: true }));
+  ok(dd !== dm && dd.length > dm.length, "la donna ha anche i capelli lunghi sulle spalle");
+  eq(A.ABITI_CASUAL.length, 3, "tre abiti");
+  ok(/rx="13"/.test(dd) && !/rx="13"/.test(dm), "i capelli lunghi sono una massa piu' larga della testa, solo per la donna");
+  ok(/lacci|stroke="#f2f2ee"/.test(A.personaCasual({ abito: 1 })) && !/stroke="#f2f2ee"/.test(A.personaCasual({ abito: 0 })), "la felpa (abito 1) ha i lacci, la maglietta no");
+});
+t("figure: pose — braccia giu', microfono in mano, mani sui tasti, basso imbracciato: le mani stanno dove serve", () => {
+  const mani = (pose) => [...A.personaCasual({ pose }).matchAll(/<ellipse cx="(-?[\d.]+)" cy="(-?[\d.]+)" rx="3\.4"/g)].map((m) => [+m[1], +m[2]]);
+  const giu = mani("giu"), mano = mani("mano"), tasti = mani("tastiera"), basso = mani("basso");
+  eq(giu.length, 2, "due mani"); eq(basso.length, 2);
+  ok(giu.every(([x, y]) => Math.abs(x) > 20 && y < 12), "braccia lungo i fianchi");
+  ok(mano.some(([x, y]) => x === 34.6 && y === 24.4) && mano.some(([x]) => x < 0), "mic in mano: la sinistra arriva al microfono (35,32), la destra resta giu'");
+  ok(tasti.every(([x, y]) => Math.abs(x) < 12 && y > 17), "tastiera: le due mani avanti, in mezzo, sopra i tasti");
+  ok(basso.some(([x]) => x > 35) && basso.some(([x, y]) => x < 0 && y > 10), "basso: una mano sul manico, a destra, e una sul corpo");
+});
+t("figure: relatore, moderatore, corista seguono lo stile; in poltrona resta la figura seduta; il PDF resta la sagoma", () => {
+  reset();
+  ["relatore", "moderatore", "corista"].forEach((tp) => {
+    const x = add(tp, 200, 200, { stile: "casual", sedia: false });
+    ok(/persona-casual/.test(A.TYPES[tp].draw(x)), tp + ": casual");
+    ok(!/persona-casual/.test(A.TYPES[tp].draw(Object.assign({}, x, { stile: undefined }))), tp + ": senza stile, elegante");
+  });
+  const p = add("corista", 200, 200, { stile: "casual", poltrona: true });
+  ok(!/persona-casual/.test(A.TYPES.corista.draw(p)), "in poltrona: la persona seduta di icons.js, lo stile non c'entra");
+  A._pdfMode = true;
+  try { ok(!/persona-casual/.test(A.TYPES.cantante.draw({ stile: "casual" })), "PDF: sagoma geometrica, come prima"); } finally { A._pdfMode = false; }
+});
+t("figure: microfono in mano = braccio disteso al microfono (casual)", () => {
+  reset();
+  const m = add("cantante", 200, 200, { stile: "casual", micMode: "mano" });
+  const giu = A.TYPES.cantante.draw(Object.assign({}, m, { micMode: "tonda" }));
+  ok(A.TYPES.cantante.draw(m) !== giu && /translate\(35\.7,32\.1\)/.test(A.TYPES.cantante.draw(m)), "mic in mano al suo posto, braccio diverso");
+});
+t("figure: stile, abito e posa si salvano solo se diversi dal solito, e da file altrui passano solo valori noti", () => {
+  reset();
+  const x = A.sanitizeItems([{ type: "cantante", x: 1, y: 1, stile: "casual", abito: 2 }, { type: "cantante", x: 2, y: 2, stile: "elegante", abito: 0 },
+    { type: "cantante", x: 3, y: 3, stile: "<b>", abito: 9 }, { type: "cantante", x: 4, y: 4, abito: "1" }, { type: "cantante", x: 5, y: 5, posa: "piedi" },
+    { type: "bassstand", x: 6, y: 6, posa: "piedi", stile: "casual" }, { type: "bassstand", x: 7, y: 7, posa: "sdraiato" }]);
+  eq([x[0].stile, x[0].abito], ["casual", 2]);
+  ok(!("stile" in x[1]) && !("abito" in x[1]), "i default non si salvano");
+  ok(!("stile" in x[2]) && !("abito" in x[2]), "valori ignoti o fuori elenco: via");
+  eq(x[3].abito, 1, "abito 1 come testo → numero");
+  ok(!("posa" in x[4]), "la posa vale solo per chitarre e basso");
+  eq([x[5].posa, x[5].stile], ["piedi", "casual"]);
+  ok(!("posa" in x[6]), "posa ignota: via");
+  const l = A.normalizeLoadedItems([{ id: "a", type: "tastierecolonna", x: 0, y: 0, stile: "x", abito: 5, posa: "piedi" }]);
+  ok(!("stile" in l[0]) && !("abito" in l[0]) && !("posa" in l[0]), "anche dal caricamento di un file");
+  const ok2 = A.normalizeLoadedItems([{ id: "b", type: "bassstand", x: 0, y: 0, stile: "casual", abito: 1, posa: "piedi" }]);
+  eq([ok2[0].stile, ok2[0].abito, ok2[0].posa], ["casual", 1, "piedi"], "valori buoni: restano");
+});
+t("figure: un progetto vecchio non cambia (stileDefault assente, nessun campo nuovo) e il nuovo giro salva-riapri conserva tutto", () => {
+  reset();
+  add("cantante", 200, 200, {}); add("bassstand", 300, 200, {});
+  const s0 = JSON.parse(A.stateToJSON());
+  ok(!("stileDefault" in s0), "niente stileDefault");
+  ok(s0.items.every((i) => !("stile" in i) && !("abito" in i) && !("posa" in i)), "nessun campo nuovo sugli elementi");
+  A.state.stileDefault = "boh"; eq("stileDefault" in A.normalizeState(JSON.parse(A.stateToJSON())), false, "valore ignoto: via");
+  reset();
+  const b = add("bassstand", 300, 200, { posa: "piedi", stile: "casual", abito: 2, donna: true });
+  A.state.stileDefault = "casual";
+  const back = A.normalizeState(JSON.parse(A.stateToJSON()));
+  eq(back.stileDefault, "casual", "stile predefinito del progetto");
+  const bb = back.items.find((i) => i.type === "bassstand");
+  eq([bb.posa, bb.stile, bb.abito, bb.donna, bb.w, bb.d], ["piedi", "casual", 2, true, 112, 72], "il basso in piedi torna com'era");
+});
+t("figure: stile predefinito del progetto: i nuovi con persona nascono casual, gli altri no", () => {
+  reset();
+  A.state.stileDefault = "casual";
+  ["cantante", "relatore", "corista", "tastierecolonna", "bassstand", "gtstand"].forEach((tp) => eq(add(tp, 200, 200).stile, "casual", tp));
+  ok(add("wedge", 200, 200).stile === undefined && add("batteria", 400, 200).stile === undefined, "wedge e batteria: niente");
+  delete A.state.stileDefault;
+  ok(add("cantante", 250, 250).stile === undefined, "senza predefinito nasce elegante");
+});
+t("basso/chitarra in piedi: niente sedia, ingombro della persona, illustrazione seduta spenta; seduto com'era", () => {
+  reset();
+  const prima = A.LIB_ICONS; A.LIB_ICONS = iconeVere();   /* le misure del basso seduto sono quelle dell'illustrazione */
+  try {
+  const seduto = add("bassstand", 300, 200, {});
+  eq([seduto.w, seduto.d], [97, 79], "seduto: l'illustrazione di sempre");
+  ok(A.look2Art(seduto) === "musBasso" && !A.gtrPiedi(seduto), "seduto: musBasso");
+  const piedi = add("bassstand", 500, 200, { posa: "piedi" });
+  eq([piedi.w, piedi.d, piedi.sedia === true], [112, 72, false], "in piedi: 112 × 72, niente sedia (anche se `over` non la citava)");
+  ok(A.gtrPiedi(piedi) && A.look2Art(piedi) === null, "in piedi: niente illustrazione seduta");
+  const gt = add("gtstand", 500, 300, { posa: "piedi" }), ac = add("gtacustica", 500, 400, { posa: "piedi" });
+  eq([gt.w, gt.d, ac.w, ac.d], [100, 72, 100, 72]);
+  piedi.leggio = true; piedi.pedaliera = true; A.recalcItemDims(piedi);
+  ok(piedi.d >= 175, "leggio e pedaliera si aggiungono come sempre (" + piedi.d + ")");
+  const nudo = Object.assign({}, piedi, { look: "schematico", sedia: false, leggio: false, pedaliera: false });
+  ok(!A.gtrPiedi(nudo) && !/persona-casual|scale\(0\.08\)/.test(A.TYPES.bassstand.draw(nudo)), "«Strumento solo»: lo strumento e basta, com'era");
+  const sedutaSedia = A.TYPES.bassstand.draw({ sedia: true, look: "schematico" });
+  ok(/<rect/.test(sedutaSedia) && !/persona-casual/.test(sedutaSedia), "schematico con sedia: invariato");
+  eq(A.GTR_PIEDI.w.bass, 112);
+  } finally { A.LIB_ICONS = prima; }
+});
+t("basso in piedi: disegno = persona casual + basso tracolla; elegante = la figura in giacca; PDF = sagoma", () => {
+  reset();
+  const b = add("bassstand", 500, 200, { posa: "piedi", stile: "casual", abito: 1 });
+  const d = A.TYPES.bassstand.draw(b);
+  ok(/persona-casual/.test(d) && d.indexOf(A.ABITI_CASUAL[1].top) >= 0, "casual, abito 1");
+  ok(/fWood/.test(d) && /rotate\(98\)/.test(d), "il basso è davanti alla persona, manico orizzontale");
+  ok(/fWoodD/.test(d.slice(d.indexOf("rotate(98)"))), "col manico prolungato fino al corpo");
+  ok(/y="0" width="5" height="14"/.test(d), "il prolungamento del manico del basso c'e' (14 cm sotto il glifo)");
+  ok(!/y="0" width="5" height="14"/.test(A.TYPES.gtstand.draw(Object.assign({}, b, { type: "gtstand" }))), "e la chitarra non ne ha bisogno");
+  ok(!/chair|sedia/i.test(d), "nessuna sedia");
+  const e = A.TYPES.bassstand.draw(Object.assign({}, b, { stile: undefined }));
+  ok(!/persona-casual/.test(e) && /coroUomo/.test(e) && /rotate\(98\)/.test(e), "elegante: figura in giacca + basso");
+  const g = A.TYPES.gtstand.draw(Object.assign({}, b, { type: "gtstand" }));
+  ok(/persona-casual/.test(g) && /fRed/.test(g), "chitarra elettrica in piedi: stessa persona, strumento rosso");
+  A._pdfMode = true;
+  try { const p = A.TYPES.bassstand.draw(b); ok(!/persona-casual|coroUomo/.test(p) && /fGrey/.test(p) && /fWood/.test(p), "PDF: sagoma grigia + basso"); } finally { A._pdfMode = false; }
+});
+t("basso in piedi: la sedia non lo riporta a sedere, e il resto (ampli, pedaliera, leggio) funziona come in postazione seduta", () => {
+  reset();
+  const b = add("bassstand", 500, 200, { posa: "piedi", sedia: true, ampli: true, pedaliera: true, leggio: true });
+  const d = A.TYPES.bassstand.draw(b);
+  ok(!/<g transform="translate\(0,-22\)">/.test(d) && /persona-casual|coroUomo/.test(d), "in piedi vince sulla sedia");
+  ok(/rotate\(-30\)/.test(d), "ampli dietro, come sempre");
+  ok(/fBlack/.test(d), "pedaliera davanti ai piedi");
+});
+t("tastierista in piedi (supporto a colonna): segue stile, abito e persona dell'elemento, mani avanti sui tasti", () => {
+  reset();
+  const prima = A.LIB_ICONS;
+  A.LIB_ICONS = { piano88_colonna: { vb: [1.5, 2, 132, 36], body: "<g id=\"PIANO\"/>" }, korg_minilogue_xd: { vb: [0, 0, 50, 30], body: "<g id=\"SYNTH\"/>" } };
+  try {
+    const c = add("tastierecolonna", 300, 300, { stile: "casual", abito: 2, donna: true });
+    const d = A.TYPES.tastierecolonna.draw(c);
+    ok(/persona-casual/.test(d) && d.indexOf(A.ABITI_CASUAL[2].top) >= 0, "casual, abito 2");
+    ok(d.indexOf("persona-casual") < d.indexOf("PIANO"), "e sta sotto la tastiera");
+    const uomo = A.TYPES.tastierecolonna.draw(Object.assign({}, c, { donna: false }));
+    ok(uomo !== d, "donna e uomo diversi");
+    const el = A.TYPES.tastierecolonna.draw(Object.assign({}, c, { stile: undefined, donna: false }));
+    ok(/coroUomo/.test(el) && !/persona-casual/.test(el), "senza stile: l'uomo in giacca di sempre");
+    const el2 = A.TYPES.tastierecolonna.draw({ look: "illustrato" });
+    ok(/coroUomo/.test(el2), "e senza item il disegno non si rompe");
+  } finally { A.LIB_ICONS = prima; }
+});
+t("figure: pannello (Stile, Abiti, Persona, Posa, Applica a tutte), gruppo Disegno, tipi ammessi", () => {
+  const html = readFileSync(join(root, "index.template.html"), "utf8");
+  ["pFigura", "pStile", "pAbito", "pGenere", "pPosa", "pStileApplyAll"].forEach((id) => ok(html.indexOf('id="' + id + '"') >= 0, "manca #" + id));
+  ok(/group\("Disegno", null, \["pLookWrap","pFigura"/.test(appjs), "il blocco sta nel gruppo «Disegno»");
+  ok(/getElementById\("pPosa"\)\.addEventListener\("change"[\s\S]{0,300}it\.sedia=false/.test(appjs), "in piedi toglie la sedia");
+  ok(/getElementById\("pStileApplyAll"\)\.addEventListener\("click"[\s\S]{0,500}state\.stileDefault="casual"/.test(appjs), "«Applica a tutte» fissa il predefinito");
+  ["cantante", "relatore", "moderatore", "corista", "tastierecolonna", "bassstand", "gtstand", "gtacustica"].forEach((tp) => ok(A.figuraAmmessa({ type: tp }), tp));
+  ["wedge", "batteria", "stagepiano", "musBasso"].forEach((tp) => ok(!A.figuraAmmessa({ type: tp }), tp + " non ha stile"));
+  ok(A.figuraConStile({ type: "cantante" }) && !A.figuraConStile({ type: "cantante", poltrona: true }), "in poltrona niente stile");
+  ok(!A.figuraConStile({ type: "bassstand" }) && A.figuraConStile({ type: "bassstand", posa: "piedi" }) && !A.figuraConStile({ type: "bassstand", posa: "piedi", look: "schematico" }), "il basso solo in piedi e in «Postazione»");
 });
 
 await Promise.all(attese);

@@ -4791,6 +4791,39 @@ body.cust-editor.m-has-sel #custScheda{border-top:1px solid var(--border);paddin
       <label class="chk" id="pGtrPedalLbl"><input type="checkbox" id="pGtrPedal"> Pedaliera</label>
       <button class="btn" id="pGtrSplit" style="display:none">⇱ Dividi in elementi</button>
     </div>
+    <!-- 14/10/2026: stile delle figure (Elegante / Casual), abiti e uomo/donna; per chitarra e basso anche la posa seduto / in piedi. Si salva solo ciò che differisce dal solito. -->
+    <div id="pFigura" style="display:none;border-top:1px solid #eef0f2;margin-top:10px;padding-top:8px">
+      <div class="stpr-f" id="pPosaWrap" style="display:none"><label>Posa</label>
+        <div class="chips" data-chips="pPosa">
+          <button type="button" data-v="seduto">Seduto</button>
+          <button type="button" data-v="piedi">In piedi</button>
+        </div>
+        <select id="pPosa" hidden><option value="seduto">seduto</option><option value="piedi">in piedi</option></select>
+      </div>
+      <div class="stpr-f" id="pStileWrap"><label>Stile della figura</label>
+        <div class="chips" data-chips="pStile">
+          <button type="button" data-v="elegante">Elegante</button>
+          <button type="button" data-v="casual">Casual</button>
+        </div>
+        <select id="pStile" hidden><option value="elegante">elegante</option><option value="casual">casual</option></select>
+      </div>
+      <div class="stpr-f" id="pAbitoWrap"><label>Abiti</label>
+        <div class="chips" data-chips="pAbito">
+          <button type="button" data-v="0"><i class="fig-dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#3f6db3;margin-right:4px;vertical-align:-1px;box-shadow:0 0 0 1px rgba(0,0,0,.25)"></i>Blu</button>
+          <button type="button" data-v="1"><i class="fig-dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#b4443a;margin-right:4px;vertical-align:-1px;box-shadow:0 0 0 1px rgba(0,0,0,.25)"></i>Rosso</button>
+          <button type="button" data-v="2"><i class="fig-dot" style="display:inline-block;width:9px;height:9px;border-radius:50%;background:#5f9065;margin-right:4px;vertical-align:-1px;box-shadow:0 0 0 1px rgba(0,0,0,.25)"></i>Verde</button>
+        </div>
+        <select id="pAbito" hidden><option value="0">blu</option><option value="1">rosso</option><option value="2">verde</option></select>
+      </div>
+      <div class="stpr-f" id="pGenereWrap"><label>Persona</label>
+        <div class="chips" data-chips="pGenere">
+          <button type="button" data-v="uomo">Uomo</button>
+          <button type="button" data-v="donna">Donna</button>
+        </div>
+        <select id="pGenere" hidden><option value="uomo">uomo</option><option value="donna">donna</option></select>
+      </div>
+      <button class="btn" id="pStileApplyAll" style="border:none;background:none;color:var(--accent);font-size:11px;padding:2px 0;cursor:pointer;text-decoration:underline" title="Usa questo stile per tutte le persone del progetto e per quelle nuove">Applica a tutte le persone</button>
+    </div>
     <div id="pDir" style="display:none;border-top:1px solid #eef0f2;margin-top:10px;padding-top:8px">
       <label class="chk"><input type="checkbox" id="pDirPodio"> Podio</label>
       <label class="chk"><input type="checkbox" id="pDirLeggio"> Leggio</label>
