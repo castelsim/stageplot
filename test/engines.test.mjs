@@ -18707,16 +18707,19 @@ t("minilogue xd: l'icona è 50 × 30 in scala 1:1 e la Tastiera la usa solo col 
 
 /* ═══ SUPPORTO A COLONNA A DUE PIANI (15/10/2026, Montecarla) ═══════════════════════════════════════
    Ultimate Support Apex AX-48 Pro: piano digitale sotto, synth (minilogue xd) sopra, tastierista in piedi.
-   Un elemento solo: due canali MONO (Tastiera, Synth), nessuno sgabello, nessuno stereo. */
-t("colonna 2 piani: due canali mono DI (Tastiera, Synth), nessun L/R", () => {
+   Un elemento solo: Synth mono + Tastiera L/R stereo (mono a scelta), nessuno sgabello. */
+t("colonna 2 piani: synth mono + piano STEREO (Synth, Tastiera L, Tastiera R), mono a scelta", () => {
   reset();
   const c = add("tastierecolonna", 300, 300, { label: "Marco" });
-  const righe = A.patchList().rows.filter(r => /^Marco/.test(r.name));
-  eq(righe.map(r => r.name), ["Marco - Tastiera", "Marco - Synth"]);
-  eq(righe.map(r => r.mic), ["DI", "DI"]);
+  const nomi = () => A.patchList().rows.filter(r => /^Marco/.test(r.name));
+  eq(nomi().map(r => r.name), ["Marco - Synth", "Marco - Tastiera L", "Marco - Tastiera R"], "default: piano stereo");
+  eq(nomi().map(r => r.mic), ["DI", "DI", "DI"]);
+  ok(A.STEREO_TOGGLE.tastierecolonna && A.STEREO_TOGGLE.tastierecolonna.def === true, "default stereo");
+  c.stereo = false; A.__cabRes = null;
+  eq(nomi().map(r => r.name), ["Marco - Synth", "Marco - Tastiera"], "piano mono: il synth resta, un solo canale tastiera");
   c.stereo = true; A.__cabRes = null;
-  eq(A.patchList().rows.filter(r => /^Marco/.test(r.name)).length, 2, "stereo non si applica: restano 2 canali");
-  ok(!A.STEREO_TOGGLE.tastierecolonna, "non e' un tipo mono/stereo");
+  eq(nomi().length, 3, "stereo di nuovo: 3 canali");
+  eq(A.itemChannels(c), 3);
 });
 t("colonna 2 piani: tastierista in piedi, nessuno sgabello (a differenza dello stage piano)", () => {
   reset();
@@ -18734,6 +18737,7 @@ t("colonna 2 piani: nessuna DI aggiunta da sola, 35 W e 31 kg stimati, ingombro 
   eq(A.state.items.length, prima + 1, "solo l'elemento (niente DI automatica: i canali sono gia' DI)");
   eq([c.w, c.d], [132, 127]);
   eq([A.wattOf(c), A.weightOf(c)], [35, 31]);
+  ok(!A.diUsesBox(c), "diUsesBox falso: una DI sola per elemento non basta (synth mono + piano stereo)");
 });
 t("colonna 2 piani: misure del costruttore e disegno in scala 1:1 (piano sotto, synth sopra, persona)", () => {
   eq([A.COLONNA2.arm1, A.COLONNA2.arm2, A.COLONNA2.base], [45.7, 33, 60], "bracci 18\" = 457 mm e 13\" = 330 mm");
