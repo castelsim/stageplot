@@ -9952,11 +9952,54 @@ t("Solo planimetria: vive col pannello, Esc spegne solo lei, il clic sulla piant
   eq(A.soloPiantaPiena(), true, "dalla S dei Livelli resta");
   A.exitListMode();
   eq(A.anySolo(), false, "«Mostra tutto il palco» (exitListMode) la spegne");
-  ok(/if\(e\.key==="Escape" && soloPiantaPiena\(\) && pannelloPiantaAperto\(\)\)\{ e\.preventDefault\(\); soloPlanimetria\(false\); render\(\); return; \}/.test(appjs),
-    "Esc col pannello aperto spegne il solo e lascia il pannello");
-  ok(/if\(inListMode\(\) && !soloPiantaPiena\(\)\) exitListMode\(\);/.test(appjs), "il clic fermo sul disegno non spegne «Solo planimetria»");
-  ok(/if\(state\.venue\.enabled===false && soloOn\("venue"\)\) soloPlanimetria\(false\);/.test(appjs), "«Nascondi» spegne anche il solo, come l'occhio dei Livelli");
+  /* Esc, clic fermo e «Nascondi»: provati sul comportamento, non sul testo del sorgente */
+  A.stageEdit = true; A.stagePanelView = "planimetria"; A.soloPlanimetria(true);
+  eq(A.clicVuotoEsceDallaVista(), false, "il clic fermo sul disegno non spegne «Solo planimetria»");
+  eq(A.escSpegneSoloPianta(), true, "Esc col pannello aperto la spegne…");
+  eq([A.anySolo(), A.pannelloPiantaAperto()], [false, true], "…e il pannello resta aperto");
+  eq(A.escSpegneSoloPianta(), false, "il secondo Esc non è più suo (passa alle regole di sempre)");
+  A.apriLayer("mond");
+  eq(A.clicVuotoEsceDallaVista(), true, "nelle altre viste dei Livelli il clic sul vuoto esce come sempre");
+  A.exitListMode(); A.soloPlanimetria(true);
+  eq(A.venueAlternaVisibile(), true, "«Nascondi»");
+  eq([A.state.venue.enabled, A.anySolo()], [false, false], "«Nascondi» spegne anche il solo, come l'occhio dei Livelli");
+  A.venueAlternaVisibile();
+  eq(A.state.venue.enabled, true, "e «Mostra» la riaccende senza riaccendere il solo");
 }));
+t("Solo planimetria: passata al fuoco dei Livelli, nessuna tendina resta aperta su una vista spenta", () => conPiantaSolo(() => {
+  A.state.venue = A.normalizeVenue({ name: "sala.png", _dataUrl: PIANTA_PNG, w: 2400, h: 1600, opacity: 35 });
+  A.stageEdit = true; A.stagePanelView = "planimetria";
+  A.soloPlanimetria(true);   /* accesa dal pannello… */
+  A.apriLayer("venue");      /* …poi il fuoco della riga Planimetria: ora la vista è dei Livelli */
+  A.stageEdit = false; A.pruneSolo();
+  eq([A.layerAccOpen, A.soloOn("venue")], ["venue", true], "chiuso il pannello, il fuoco dei Livelli resta intero (riga e vista)");
+  A.stageEdit = true; A.stagePanelView = "planimetria"; A.soloPlanimetria(true); A.apriLayer("venue");
+  A.state.venue.enabled = true; A.venueAlternaVisibile();
+  eq([A.layerAccOpen, A.anySolo()], [null, false], "«Nascondi» dal fuoco: niente tendina aperta su niente");
+  A.state.venue.enabled = true; A.apriLayer("venue"); A.state.venue = null; A.pruneSolo();
+  eq([A.layerAccOpen, A.anySolo()], [null, false], "tolta la planimetria: niente vista e niente tendina");
+}));
+t("nessuna vista di lavoro dei Livelli (S o fuoco, layer per layer) entra nel PNG o nel PDF", () => conPiantaSolo(() => {
+  const v = add("vlnpost", 450, 520); add("batteria", 700, 300);
+  A.state.cab.on = true; A.state.mond.on = true; A.state.elec.on = true;
+  A.state.venue = A.normalizeVenue({ name: "sala.png", _dataUrl: PIANTA_PNG, w: 2400, h: 1600, opacity: 35 });
+  const png0 = A.buildExportSvg().svgStr, pdf0 = A.stageSceneSvg(null, {});
+  ok(png0.indexOf('data-id="' + v.id + '"') > -1, "la base ha gli elementi");
+  try {
+    for (const id of ["cabin", "cabout", "mond", "elec", "mus", "stage", "venue", "pedane"]) {
+      for (const mode of ["iso", "focus"]) {
+        A.layerSoloUI = { [id]: true }; A.layerSoloMode = mode; A.layerAccOpen = mode === "focus" ? id : null;
+        eq(A.buildExportSvg().svgStr === png0, true, "PNG con " + id + " (" + mode + ") uguale al progetto");
+        eq(A.stageSceneSvg(null, {}) === pdf0, true, "PDF con " + id + " (" + mode + ") uguale al progetto");
+        if (id !== "pedane") eq(A.soloOn(id), true, "e la vista di lavoro resta com'era (" + id + ")");   /* pedane: senza una pedana selezionata il render dopo il PNG la spegne da sé (pruneSolo), com'è giusto */
+      }
+    }
+  } finally { A.state.cab.on = false; A.state.mond.on = false; A.state.elec.on = false; }
+}));
+t("Solo planimetria: via «Blocco N» dal centro della pianta; in calibrazione il banner della vista lascia il posto al suo", () => {
+  ok(/#layStage\.solo-pianta \.grid, #layStage\.solo-pianta \.stage-empty-hint, #layStage\.solo-pianta \.stageblk-lbl\{display:none\}/.test(stylesCss), "«Blocco N» nascosto in solo");
+  ok(/body\.venue-calib #vistaBanner\{display:none\}/.test(stylesCss), "in calibrazione non si sovrappongono");
+});
 t("Solo planimetria: il comando sta nel pannello Planimetria, con l'occhio, aria-pressed e 44 px col dito", () => {
   const html = readFileSync(join(root, "index.template.html"), "utf8");
   const pannello = html.match(/<div id="venuePanel">[\s\S]*?id="venueBtnDone"/);

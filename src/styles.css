@@ -3171,9 +3171,14 @@ body.dark #props .solo-ped.on, body.dark #props .solo-vista.on{background:#78350
 @media (pointer:coarse){ #props .solo-vista{min-height:44px} }
 /* SOLO PLANIMETRIA (14/10): stesso comando di «Solo pedane», nel pannello Planimetria (vedi soloPlanimetria).
    Del palco resta il perimetro: pavimento bianco e griglia coprirebbero proprio la parte di pianta che sta
-   sotto il palco. Lo slider dell'opacità, fermo in solo, dice perché. */
+   sotto il palco. Via anche «Blocco N», che sta proprio in mezzo alla pianta. Restano di proposito le quote e
+   FONDO PALCO / PUBBLICO: dicono quanto è grande il palco e da che parte guarda, cioè ciò che si controlla
+   sulla pianta. Lo slider dell'opacità, fermo in solo, dice perché. */
 #layStage.solo-pianta .stage-fill{fill:none}
-#layStage.solo-pianta .grid, #layStage.solo-pianta .stage-empty-hint{display:none}
+#layStage.solo-pianta .grid, #layStage.solo-pianta .stage-empty-hint, #layStage.solo-pianta .stageblk-lbl{display:none}
+/* In calibrazione il suo banner (i due punti da cliccare) sta dove sta quello della vista: si leggeva uno
+   sopra l'altro. Durante la calibrazione conta il primo; finita, la vista torna a dichiararsi. */
+body.venue-calib #vistaBanner{display:none}
 #venueOpacitySolo{display:block;margin-top:3px;font-size:12px;line-height:var(--lh-snug);color:var(--text-2)}
 #venueOpacitySolo[hidden]{display:none}
 #venuePanel input[type=range]:disabled{opacity:.45;cursor:not-allowed}
