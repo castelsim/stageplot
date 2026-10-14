@@ -401,6 +401,95 @@ function headMicGlyph(){
     '</g>'+
     '<circle cx="6.2" cy="9.2" r="1.9" fill="#2b2e31" stroke="#fff" stroke-width="1"/>';         /* capsula all'angolo della bocca */
 }
+/* FIGURE: STILE «ELEGANTE» / «CASUAL» (14/10/2026, Montecarla: «troppo eleganti, giacca e cravatta; servono figure casual per pop/rock/indie»).
+   `stile` è per elemento: assente = «elegante» (la figura di sempre, CORO_UOMO_ART / CORO_DONNA_ART), quindi i progetti salvati non cambiano
+   di un pixel. «casual» disegna personaCasual(): vista dall'alto, stessa scala e stesso centro di singer() (testa in (0,−21), piedi fino a +30),
+   contorno nero sottile e campiture piatte come i musicisti seduti di icons.js. `abito` (0, 1, 2) sceglie i colori; `donna` uomo/donna.
+   Tutto è disegnato con attributi in linea (niente classi CSS): l'export PNG appiattisce lo stile e le classi si perderebbero.
+   `posa`: «giu» (braccia lungo i fianchi), «mano» (microfono in mano), «tastiera» (mani avanti sui tasti), «basso» (strumento imbracciato). */
+var ABITI_CASUAL = [
+  {nome:"Blu",   top:"#3f6db3", topD:"#2f5590", lunga:false, pant:"#2f3b55", pantD:"#222c42", scarpa:"#f3f3f0", suola:"#d6d4ce", hair:"#2a221d", hairL:"#4d3d33"},
+  {nome:"Rosso", top:"#b4443a", topD:"#8c332b", lunga:true,  pant:"#3a3d44", pantD:"#2a2c32", scarpa:"#33363c", suola:"#ecebe6", hair:"#5b3b24", hairL:"#82593a"},
+  {nome:"Verde", top:"#5f9065", topD:"#47714d", lunga:false, pant:"#b09d79", pantD:"#8f7d5d", scarpa:"#f3f3f0", suola:"#d6d4ce", hair:"#c7a461", hairL:"#e2c78c"}
+];
+function stileFigura(it){ return (it && it.stile==="casual") ? "casual" : "elegante"; }
+/* Il dato salvato dice solo ciò che è diverso dal solito: stile «casual», abito 1 o 2, posa «piedi». Valori ignoti o di default → via. */
+function figuraSanifica(it){
+  if(it.stile!=="casual") delete it.stile;
+  if(it.abito!=null){ var n=Math.floor(+it.abito); if(n>=1 && n<ABITI_CASUAL.length) it.abito=n; else delete it.abito; }
+  if(it.posa!=="piedi" || !(TYPES[it.type] && TYPES[it.type].gtr)) delete it.posa;
+}
+/* Quali elementi hanno una persona disegnata con stile/abito: le voci (se non sono in poltrona, dove la figura è quella seduta), il supporto a
+   colonna e chitarra/basso in piedi — sempre nell'aspetto «Postazione», nello «Strumento solo» la persona non c'è. */
+function figuraConStile(it){
+  if(!it || !TYPES[it.type]) return false;
+  if(VOCE[it.type]) return it.poltrona!==true;
+  if(it.type==="tastierecolonna") return it.look!=="schematico";
+  return gtrPiedi(it);
+}
+function figuraAmmessa(it){ return !!(it && TYPES[it.type] && (VOCE[it.type] || it.type==="tastierecolonna" || TYPES[it.type].gtr)); }   /* con persona (oggi o con la posa in piedi) */
+function abitoCasual(n){ n=Math.floor(+n); return ABITI_CASUAL[(n>=0 && n<ABITI_CASUAL.length) ? n : 0]; }
+function personaCasual(o){
+  o=o||{};
+  var f=(o.donna===true), a=abitoCasual(o.abito), pose=o.pose||"giu";
+  var K="#17181a", SK="#d6b287", SKD="#b98f62", sw=0.55;
+  function limb(p,w,fill){ var d="M"+p.map(function(q){ return q[0]+","+q[1]; }).join(" L");
+    return '<path d="'+d+'" fill="none" stroke="'+K+'" stroke-width="'+(w+2*sw)+'" stroke-linecap="round" stroke-linejoin="round"/>'+
+           '<path d="'+d+'" fill="none" stroke="'+fill+'" stroke-width="'+w+'" stroke-linecap="round" stroke-linejoin="round"/>'; }
+  function el(cx,cy,rx,ry,fill,rot){ return '<ellipse cx="'+cx+'" cy="'+cy+'" rx="'+rx+'" ry="'+ry+'" fill="'+fill+'" stroke="'+K+'" stroke-width="'+sw+'"'+(rot?' transform="rotate('+rot+' '+cx+' '+cy+')"':'')+'/>'; }
+  function ln(d,c,w){ return '<path d="'+d+'" fill="none" stroke="'+c+'" stroke-width="'+w+'" stroke-linecap="round"/>'; }
+  var W=f?18.2:21, s='';
+  /* gambe e scarpe da ginnastica: sotto tutto, spuntano davanti al busto */
+  [-1,1].forEach(function(l){
+    var x=l*(f?6.3:7.2);
+    s+=limb([[x,0],[x,20]], f?10.6:12, a.pant)+ln("M"+x+",3 L"+x+",18", a.pantD, 0.6);
+    var sw2=(f?9.2:10), sl=(f?14:15.5);
+    s+='<rect x="'+(x-sw2/2)+'" y="15" width="'+sw2+'" height="'+sl+'" rx="'+(sw2/2-0.4)+'" fill="'+a.suola+'" stroke="'+K+'" stroke-width="'+sw+'"/>'+
+       '<rect x="'+(x-sw2/2+0.8)+'" y="15.4" width="'+(sw2-1.6)+'" height="'+(sl-1.6)+'" rx="'+(sw2/2-1.1)+'" fill="'+a.scarpa+'" stroke="#8d8b86" stroke-width="0.3"/>'+
+       ln("M"+(x-sw2/2+1.4)+","+(15+sl-5.2)+" Q"+x+","+(15+sl-3.2)+" "+(x+sw2/2-1.4)+","+(15+sl-5.2),"#a9a7a1",0.5)+
+       ln("M"+(x-2)+",18.6 L"+(x+2)+",18.6 M"+(x-2)+",20.7 L"+(x+2)+",20.7 M"+(x-2)+",22.8 L"+(x+2)+",22.8","#8d8b86",0.45);
+  });
+  /* busto: maglietta o felpa, spalle in alto (verso il fondo del palco) */
+  var Wb=W-5.5, Wc=W-11;
+  s+='<path d="M'+(-W)+',-17 C'+(-W)+',-26 -10,-30 0,-30 C10,-30 '+W+',-26 '+W+',-17 C'+W+',-8 '+(W-2.5)+',0 '+Wb+',3 C'+Wc+',5.5 '+(-Wc)+',5.5 '+(-Wb)+',3 C'+(-(W-2.5))+',0 '+(-W)+',-8 '+(-W)+',-17Z" fill="'+a.top+'" stroke="'+K+'" stroke-width="'+sw+'" stroke-linejoin="round"/>';
+  s+=ln("M"+(-Wb)+",3 C"+(-Wc)+",5.5 "+Wc+",5.5 "+Wb+",3 L"+(Wb-0.4)+",0.6 C"+Wc+",3 "+(-Wc)+",3 "+(-Wb+0.4)+",0.6Z", a.topD, 0.9);
+  [-1,1].forEach(function(l){ s+=ln("M"+(l*(W-5))+",-26.4 Q"+(l*(W-3.2))+",-21 "+(l*(W-2.4))+",-14.6", a.topD, 0.6); });   /* cuciture delle spalle */
+  var davanti=(pose==="basso" ? ln("M11,-23 L-5,5","#2b2d31",2.4)+ln("M11,-23 L-5,5","#8a8d93",0.5) : "")+(o.davanti||"");   /* tracolla sul petto, sotto lo strumento */
+  /* cappuccio della felpa: dietro il collo, spunta sopra la testa */
+  if(a.lunga) s+='<ellipse cx="0" cy="-27.5" rx="11" ry="8" fill="'+a.topD+'" stroke="'+K+'" stroke-width="'+sw+'"/>';
+  /* collo e girocollo */
+  s+=el(0,-14.2,5.2,4.4,SK)+ln("M-6.8,-15.2 Q0,-7.4 6.8,-15.2", a.topD, 1.4);
+  if(a.lunga) s+=ln("M-3.4,-9.2 L-3.6,-3 M3.4,-9.2 L3.6,-3","#f2f2ee",0.7);   /* lacci della felpa */
+  s+=davanti;
+  /* braccia: spalla, gomito, polso */
+  function braccio(l){
+    var S=[l*(W-2.2),-17], E, Wr, H, sx=l;
+    if(pose==="mano" && l>0){ E=[30,-1.5]; Wr=[34,21]; H=[34.6,24.4]; }
+    else if(pose==="tastiera"){ E=[l*(W+1.4),-3]; Wr=[l*10.6,15.6]; H=[l*10.2,19.4]; }
+    else if(pose==="basso"){ if(l<0){ E=[-(W+1.4),-3]; Wr=[-8,10]; H=[-6.2,12.6]; } else { E=[28,-7]; Wr=[35.5,8]; H=[38,12]; } }
+    else { E=[l*(W+2.2),-4.5]; Wr=[l*(W+1.6)*1,6.4]; H=[l*(W+1.4),9.4]; }
+    var ws=f?6.2:7.0, us=f?7.2:8.2, out='';
+    var sm=[S[0]+(E[0]-S[0])*0.9, S[1]+(E[1]-S[1])*0.9];
+    out+=limb([E,Wr], ws, a.lunga?a.top:SK);
+    var ang=Math.round(Math.atan2(H[0]-Wr[0],-(H[1]-Wr[1]))*57.3*-1);
+    out+=el(H[0],H[1],f?3:3.4,f?3.7:4.1,SK,ang)+'<path d="M'+(H[0]-1.1)+','+(H[1]+1.4)+' l0,1.6 M'+H[0]+','+(H[1]+1.6)+' l0,2 M'+(H[0]+1.1)+','+(H[1]+1.4)+' l0,1.6" stroke="'+SKD+'" stroke-width="0.35" fill="none" stroke-linecap="round" transform="rotate('+ang+' '+H[0]+' '+H[1]+')"/>';
+    out+=limb([S,E], us, a.lunga?a.top:SK);
+    if(!a.lunga) out+=limb([S,sm], us+0.6, a.top);
+    else out+=ln("M"+(E[0]-3)+","+(E[1]+0.5)+" L"+(E[0]+3)+","+(E[1]+0.5), a.topD, 0.5);
+    return out;
+  }
+  s+=braccio(-1)+braccio(1);
+  /* testa: capelli visti dall'alto, fronte e naso appena visibili davanti, orecchie ai lati */
+  if(f){
+    s+='<ellipse cx="0" cy="-22" rx="13" ry="12.6" fill="'+a.hair+'" stroke="'+K+'" stroke-width="'+sw+'"/>';
+    s+=limb([[-9.6,-18],[-11,-4.4]],5.4,a.hair)+limb([[9.6,-18],[11,-4.4]],5.4,a.hair);
+  }
+  s+=el(0,-21,9,10.2,SK)+el(-9,-20,1.7,2.6,SK)+el(9,-20,1.7,2.6,SK);
+  s+='<ellipse cx="0" cy="-22.6" rx="9.6" ry="'+(f?10.2:10)+'" fill="'+a.hair+'" stroke="'+K+'" stroke-width="'+sw+'"/>';
+  s+=ln("M-6,-26 Q-1.5,-31 5.2,-27.4",a.hairL,1)+ln("M-6.8,-20.6 Q-2,-27 3.2,-23.6",a.hairL,0.9)+ln("M1.2,-31.2 Q2.4,-26 0.6,-21.4",K,0.4);
+  s+=el(0,-10.2,1.6,1.3,SK);
+  return '<g class="persona-casual">'+s+'</g>';
+}
 function singer(it){
   it=it||{};
   var mm=micModeOf(it), donna=it.donna===true;
@@ -416,7 +505,8 @@ function singer(it){
     /* Figura unica per tutte le voci (Simone 21/07): eliminata l'illustrazione dettagliata
        SINGER_*_ART (giacca) — troppo elaborata e non piaceva. Resta solo la figura "coro",
        più semplice e coerente, usata sia col mic che panoramica. */
-    s+='<g transform="'+(donna?'translate(-29,-34)':'translate(-32,-33)')+' scale(0.08)">'+(donna?CORO_DONNA_ART:CORO_UOMO_ART)+'</g>';
+    if(stileFigura(it)==="casual") s+=personaCasual({donna:donna, abito:it.abito, pose:it.pose||(mm==="mano"?"mano":"giu")});   /* casual (14/10): stesso centro e stessa scala della figura elegante */
+    else s+='<g transform="'+(donna?'translate(-29,-34)':'translate(-32,-33)')+' scale(0.08)">'+(donna?CORO_DONNA_ART:CORO_UOMO_ART)+'</g>';
   }
   /* Microfoni A SCALA REALE, posizionati da Simone con l'editor (mic-editor.html, 22/07):
      su schermo l'icona di libreria vera (astadritta/asta_giraffa) alla scala reale dell'elemento
@@ -486,11 +576,28 @@ function gtrLeggioY(it,kind){
 }
 /* offset della postazione seduta (scala reale) — ricalca le proporzioni del progetto condiviso */
 var GTR_GX=0, GTR_GY=-2;   /* strumento CENTRATO tra sedia e leggio (come gli archi), tenuto dal musicista seduto */
+/* CHITARRA E BASSO SUONATI IN PIEDI (14/10/2026, Isaac dei Montecarla): `posa:"piedi"` (assente = seduto, com'è sempre stato). Niente sedia
+   né sgabello: la figura sta in piedi a gambe larghe, lo strumento a tracolla davanti al busto col manico a sinistra del musicista
+   (a destra sullo schermo, verso il palco come nei musicisti seduti di icons.js). Ha senso solo nell'aspetto «Postazione» (illustrato):
+   nello «Strumento solo» c'è lo strumento e basta, com'era. Sedia e leggio/ampli/pedaliera dell'elemento restano quelli di sempre. */
+var GTR_PIEDI = { w:{bass:112, el:100, ac:100}, cx:{bass:29.5, el:26, ac:26}, d:72 };   /* larghezza, centro orizzontale del disegno (persona + manico) e profondità */
+function gtrPiedi(it){ return !!(it && it.posa==="piedi" && it.look!=="schematico" && TYPES[it.type] && TYPES[it.type].gtr); }
+function guitarPiedi(it,kind){
+  var inst='<g transform="translate(-3,9) rotate(98) translate(0,-30)">'+(kind==='bass'?bar(0,7,5,14,'ic thin fWoodD',1):'')+gtrHead(kind)+gtrGlyph(kind)+'</g>';   /* il manico del basso nel glifo si ferma 7 cm prima del corpo: qui lo si prolunga */   /* corpo davanti alla pancia, manico verso destra e un po' in avanti */
+  var fig;
+  if(_pdfMode) fig=circ(0,-20,15,'ic fGrey')+bar(0,4,32,26,'ic fGrey',9)+inst;   /* PDF: sagoma geometrica come per le voci */
+  else if(stileFigura(it)==="casual") fig=personaCasual({donna:it.donna===true, abito:it.abito, pose:"basso", davanti:inst});
+  else fig='<g transform="'+(it.donna===true?'translate(-29,-34)':'translate(-32,-33)')+' scale(0.08)">'+(it.donna===true?CORO_DONNA_ART:CORO_UOMO_ART)+'</g>'+inst;
+  return '<g transform="translate('+(-(GTR_PIEDI.cx[kind]||26))+',2)">'+fig+'</g>';   /* persona + strumento centrati nel riquadro */
+}
 function guitarDraw(it,kind){
   it=it||{}; var s='';
   if(it.ampli) s+='<g transform="translate(-43,-88) rotate(-30)">'+ampCombo()+'</g>';   /* ampli staccato dietro, angolato (come nel link) */
   if(it.pedaliera) s+='<g transform="translate(0,'+(it.sedia?72:64)+')">'+pedalGlyph()+'</g>';   /* pedaliera ai piedi, disegnata PRIMA: la chitarra imbracciata le passa sopra */
-  if(it.sedia){
+  if(gtrPiedi(it)){
+    s+=guitarPiedi(it,kind);
+    if(it.leggio) s+='<g transform="translate(0,'+gtrLeggioY({pedaliera:it.pedaliera},kind)+')">'+leggioGlyph(0)+'</g>';
+  } else if(it.sedia){
     s+= it.sgab===true ? '<g transform="translate(0,-22)">'+sgabSeduta(true)+'</g>' : chairSvg(0);   /* sedia (origine) — o sgabello, stesso centro della seduta (chitarra classica, 05/10) */
     s+='<g transform="translate('+GTR_GX+','+GTR_GY+')">'+gtrHead(kind)+gtrGlyph(kind)+'</g>';   /* strumento CENTRATO tra sedia e leggio, SCALA REALE */
     if(it.leggio) s+='<g transform="translate(0,'+gtrLeggioY(it,kind)+')">'+leggioGlyph(0)+'</g>';   /* col pedale: leggio OLTRE la pedaliera (fix 18/07: si sovrapponevano) */
@@ -501,7 +608,8 @@ function guitarDraw(it,kind){
   return s;
 }
 function gtrSize(it,t){ var d=t.d, w=t.w;
-  if(it.sedia){ w=Math.max(w,2*(GTR_GX+t.w/2)); d=Math.max(d,it.leggio?138:104); }   /* sedia + strumento centrato + leggio davanti */
+  if(gtrPiedi(it)){ w=Math.max(w,GTR_PIEDI.w[t.gtr]||100); d=GTR_PIEDI.d; if(it.leggio) d+=44; }   /* in piedi: la persona e lo strumento, niente sedia */
+  else if(it.sedia){ w=Math.max(w,2*(GTR_GX+t.w/2)); d=Math.max(d,it.leggio?138:104); }   /* sedia + strumento centrato + leggio davanti */
   else if(it.leggio) d+=44;
   if(it.ampli) w=Math.max(w,80);     /* ampli dietro: NON allunga la profondità → il nome resta vicino */
   if(it.pedaliera) d=Math.max(d, (it.sedia?150:130));   /* pedaliera davanti, ai piedi */
@@ -1532,17 +1640,17 @@ var TYPES = {
      microfono scelto dal pannello, stesso canale — ma nascono con il microfono delle conferenze. */
   relatore: {nome:"Relatore", dim:"conferenza", cat:"Persone e voci", w:70,d:90, voce:true, defLabel:"Relatore", micDef:"lavalier",
              alias:"relatore relatrice relatori speaker oratore oratrice presentatore presentatrice keynote conferenza convegno persona",
-             draw:function(it){ it=it||{}; return singer({micMode:micModeOf(it), leggio:it.leggio===true, donna:it.donna, sedia:it.sedia===true, poltrona:it.poltrona===true, look:it.look, type:"relatore"}); }},
+             draw:function(it){ it=it||{}; return singer({micMode:micModeOf(it), leggio:it.leggio===true, donna:it.donna, sedia:it.sedia===true, poltrona:it.poltrona===true, look:it.look, stile:it.stile, abito:it.abito, type:"relatore"}); }},
   moderatore: {nome:"Moderatore", dim:"conferenza, seduto", cat:"Persone e voci", w:70,d:90, voce:true, defLabel:"Moderatore", micDef:"mano", sediaDef:true,
              alias:"moderatore moderatrice conduttore conduttrice presentatore panel tavola rotonda conferenza convegno persona",
-             draw:function(it){ it=it||{}; return singer({micMode:micModeOf(it), leggio:it.leggio===true, donna:it.donna, sedia:it.sedia===true, poltrona:it.poltrona===true, look:it.look, type:"moderatore"}); }},
+             draw:function(it){ it=it||{}; return singer({micMode:micModeOf(it), leggio:it.leggio===true, donna:it.donna, sedia:it.sedia===true, poltrona:it.poltrona===true, look:it.look, stile:it.stile, abito:it.abito, type:"moderatore"}); }},
   cantante: {nome:"Cantante", dim:"voce", cat:"Persone e voci", w:70,d:90, voce:true, defLabel:"Voce", alias:"cantante cantanti solista soliste voce voci vocalist singer frontman frontwoman lead vocal backing vocal corista coriste coristi coro cori choir chorus cantore persona",
              draw:function(it){ return singer(it); }},
   /* Si chiama «Voce» perché è la figura generica della voce: il catalogo la offre come Uomo/Donna sotto
      la ricerca «voce/cantante/corista», e il pannello deve dire la stessa parola con cui l'hai trovata.
      Prima diceva «Corista» — che in italiano è il cantante di un coro, non il solista (audit 27/07). */
   corista:  {nome:"Voce", dim:"voce coro", cat:"Persone e voci", w:70,d:88, voce:true, defLabel:"", alias:"corista coriste coristi cantante cantanti solista soliste voce voci vocalist singer frontman frontwoman lead vocal backing vocal coro cori choir chorus cantore persona",
-             draw:function(it){ it=it||{}; return singer({micMode:micModeOf(it), leggio:it.leggio!==false, donna:it.donna, sedia:it.sedia===true, poltrona:it.poltrona===true, look:it.look, type:"corista"}); }},
+             draw:function(it){ it=it||{}; return singer({micMode:micModeOf(it), leggio:it.leggio!==false, donna:it.donna, sedia:it.sedia===true, poltrona:it.poltrona===true, look:it.look, stile:it.stile, abito:it.abito, type:"corista"}); }},
   /* --- Musicisti illustrati (top-down, dimensioni CALIBRATE dall utente 14/07/2026). Tipi TECNICI (mic/canali come i corrispettivi), in aggiunta agli schematici. --- */
   musViolino1: {catalog:false, nome:"Violino musicista", dim:"80×81", cat:"Orchestra", sub:"Archi", w:80,d:81, defLabel:"Vln I", draw:function(it){ return drawLibFit("musViolino1",it,80,81); }},
   musViolino2: {nome:"Violino II", dim:"81×82", cat:"Orchestra", sub:"Archi", catalog:false, w:81,d:82, defLabel:"Vln II", draw:function(it){ return drawLibFit("musViolino2",it,81,82); }},
@@ -2332,7 +2440,7 @@ function colonna2Draw(it){
   });
   var pY=yc-3-18;
   /* 2) il tastierista, IN PIEDI, a monte dei tasti (stessa figura delle voci), sotto il piano: le gambe stanno dietro la tastiera; nello «Strumento solo» non c'e' */
-  if(!sch) s+=at(0,pY-18-24,0,singer({type:"corista", micMode:"pano", leggio:false}));
+  if(!sch) s+=at(0,pY-18-24,0,singer({type:"corista", micMode:"pano", leggio:false, donna:it&&it.donna, stile:it&&it.stile, abito:it&&it.abito, pose:"tastiera"}));   /* stesso stile e stessa persona dell'elemento; mani avanti sui tasti (casual) */
   /* 3) bracci del piano basso (18") e piano digitale: tasti verso il musicista (a monte, y<0) */
   s+=bar(-13,yc-C.arm1/2,3,C.arm1,'ic fGrey',1)+bar(13,yc-C.arm1/2,3,C.arm1,'ic fGrey',1);
   s+=at(0,pY,180,libIconScene("piano88_colonna"));
@@ -2665,7 +2773,7 @@ var LOOK_ART = {
    i toggle indipendenti Musicista / Sgabello nel configuratore (non l'Aspetto illustrato/schematico). */
 var DRAW_LOOK = { musChitClassica:1 };   /* il suo draw sa disegnare sia illustrato sia schematico */
 /* illustrazione da disegnare al posto dello schema per i tipi Fase 2 in aspetto illustrato (default) */
-function look2Art(it){ return it && it.look!=="schematico" && LOOK_ART[it.type] ? LOOK_ART[it.type] : null; }
+function look2Art(it){ return it && it.look!=="schematico" && LOOK_ART[it.type] && !gtrPiedi(it) ? LOOK_ART[it.type] : null; }   /* chitarra/basso in piedi (14/10): niente illustrazione seduta, li disegna guitarDraw */
 /* Fase 2 illustrato: il footprint (w/d) = dimensioni dell'illustrazione a scala reale, così il riquadro
    di selezione e le collisioni combaciano con ciò che si vede. In schematico si usano le dims del tipo.
    Se icons.js non è ancora caricato (vb assente) → null, si ricalcola a __onIconsReady. */
@@ -6235,6 +6343,7 @@ function normalizeLoadedItems(arr){
       if(typeof it.label2==="string" || typeof it.label2==="number") it.label2=String(it.label2);
       else delete it.label2;
     }
+    figuraSanifica(it);   /* stile/abito/posa (14/10): da file altrui solo valori noti */
     postoSanifica(it);   /* posti numerati (06/10): fila/posto/settore da file altrui → tipi e lunghezze garantiti, o via */
     if(it.note!=null){   /* nota dell'elemento: testo altrui in arrivo da file/link/cloud → tipo e lunghezza garantiti qui */
       var _nn=(typeof it.note==="string"||typeof it.note==="number") ? String(it.note).slice(0,NOTE_MAX).trim() : "";
@@ -6426,6 +6535,7 @@ function normalizeState(s){
     if(bu.port!=null && !(bu.port>=1&&bu.port<=64)){ delete bu.port; }
     if(bu.boxId!=null && !itemById[bu.boxId]){ delete bu.boxId; delete bu.port; }
   });
+  if(s.stileDefault!=="casual") delete s.stileDefault;   /* stile predefinito delle figure (14/10): assente = elegante, come i progetti di sempre */
   if(s.lookDefault!=="schematico") s.lookDefault="illustrato";   /* B4: aspetto predefinito del progetto (default illustrato); i nuovi elementi lo ereditano */
   s.items.forEach(migrateLabels);   /* etichette auto vecchie (basi abbreviate) → nome pieno professionale */
   /* RACK: rackId orfano (rack eliminato/mancante) → l'apparecchio si libera dov'era; ordine rinumerato */
@@ -6781,7 +6891,8 @@ function sanitizeItems(arr){
     if(t.riser) it.h=(o.h!=null?+o.h:(t.h||40));
     else if(isCover(it) && o.h!=null) it.h=+o.h;   /* coperture: h opzionale (luce sotto); se assente = default coverH() */
     if(Object.prototype.hasOwnProperty.call(COMP,o.type)) it.parts=o.parts?compClone(o.parts):compClone(COMP[o.type].defParts);
-    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","podio","sgab","grp","distOf","distType","aggancia","dimSide","lblSize","plCh","dvsPro","dvsNet","dvsSr","dvsLat","ifaceId","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","poltrona","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic","platea","fila","posto","settore"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });   /* platea: passi e corridoio, ripuliti poi da normalizeLoadedItems; fila/posto/settore: posti numerati */
+    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","podio","sgab","grp","distOf","distType","aggancia","dimSide","lblSize","plCh","dvsPro","dvsNet","dvsSr","dvsLat","ifaceId","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","poltrona","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic","platea","fila","posto","settore","stile","abito","posa"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
+    figuraSanifica(it);   /* stile/abito/posa delle figure (14/10): solo valori noti, i default non si salvano */   /* platea: passi e corridoio, ripuliti poi da normalizeLoadedItems; fila/posto/settore: posti numerati */
     postoSanifica(it);   /* posti numerati (06/10): tipi e lunghezze garantiti */
     if(it.type==="dimono"){   /* DI box: normalizza gli assi + footprint (migra il vecchio diLook del selettore) */
       if(it.diLook){ if(it.diLook==="stereo") it.diCh=it.diCh||"stereo"; else if(it.diLook==="rack") it.diCh=it.diCh||"multi"; else if(it.diLook==="attiva") it.diType=it.diType||"attiva"; else if(it.diLook==="schema") it.diSchema=true; delete it.diLook; }
@@ -15234,6 +15345,16 @@ function renderProps(){
   /* i toggle sedia/leggio/ampli/pedaliera valgono anche per la chitarra classica in aspetto
      schematico: usa lo stesso disegno dell'acustica, e senza i toggle quei flag sarebbero
      irraggiungibili (la sedia, per una classica, serve quasi sempre). */
+  var pFg=document.getElementById("pFigura");   /* stile della figura, abiti, uomo/donna e (chitarra, basso) la posa: vedi figuraConStile */
+  if(pFg){
+    var _fgTipo=!!t.gtr && it.look!=="schematico", _fgStile=figuraConStile(it), _casual=stileFigura(it)==="casual";
+    pFg.style.display = (_fgStile || _fgTipo) ? "block" : "none";
+    document.getElementById("pPosaWrap").style.display = _fgTipo ? "" : "none";
+    ["pStileWrap","pGenereWrap","pStileApplyAll"].forEach(function(id){ document.getElementById(id).style.display = _fgStile ? "" : "none"; });
+    document.getElementById("pAbitoWrap").style.display = (_fgStile && _casual) ? "" : "none";
+    [["pPosa", it.posa==="piedi" ? "piedi" : "seduto"], ["pStile", _casual ? "casual" : "elegante"], ["pAbito", String(ABITI_CASUAL.indexOf(abitoCasual(it.abito)))], ["pGenere", it.donna===true ? "donna" : "uomo"]].forEach(function(p){
+      var s=document.getElementById(p[0]); s.value=p[1]; try{ s.dispatchEvent(new Event("chips-sync")); }catch(e){} });
+  }
   var pg=document.getElementById("pGtr"), isGtr=!!t.gtr || (it.type==="musChitClassica" && it.look==="schematico");
   /* chitarra classica (05/10): «Seduta: Sedia · Sgabello · Niente» al posto della casella Sedia, anche
      nell'illustrato (dove «Niente» non c'è: la figura è seduta) e lì senza leggio/ampli/pedaliera, che
@@ -15917,6 +16038,18 @@ document.getElementById("pSediaV").addEventListener("change", function(){ mutSel
 document.getElementById("pPoltronaV").addEventListener("change", function(){ var on=document.getElementById("pPoltronaV").checked;
   mutSelAll(function(it){ if(VOCE[it.type]) voceInPoltrona(it, on); }); });
 function gtrApply(it){ var sz=gtrSize(it, TYPES[it.type]); it.w=sz[0]; it.d=sz[1]; }
+/* Figure: posa (chitarra, basso), stile, abiti, uomo/donna; «Applica a tutte» fissa lo stile come predefinito del progetto (14/10) */
+document.getElementById("pPosa").addEventListener("change", function(){ var v=this.value; mutSelAll(function(it){
+  if(!(TYPES[it.type] && TYPES[it.type].gtr)) return;
+  if(v==="piedi"){ it.posa="piedi"; it.sedia=false; if(state.stileDefault==="casual") it.stile="casual"; } else delete it.posa;
+  recalcItemDims(it); }); renderProps(); });
+document.getElementById("pStile").addEventListener("change", function(){ var v=this.value; mutSelAll(function(it){ if(!figuraAmmessa(it)) return; if(v==="casual") it.stile="casual"; else delete it.stile; }); renderProps(); });
+document.getElementById("pAbito").addEventListener("change", function(){ var n=+this.value; mutSelAll(function(it){ if(!figuraAmmessa(it)) return; if(n>=1 && n<ABITI_CASUAL.length) it.abito=n; else delete it.abito; }); });
+document.getElementById("pGenere").addEventListener("change", function(){ var d=this.value==="donna"; mutSelAll(function(it){ if(figuraAmmessa(it)) it.donna=d; }); });
+document.getElementById("pStileApplyAll").addEventListener("click", function(){ var sel=getSel(); if(!sel) return; var c=stileFigura(sel)==="casual";
+  primaDiAgire(); if(c) state.stileDefault="casual"; else delete state.stileDefault;
+  state.items.forEach(function(o){ if(figuraAmmessa(o)){ if(c) o.stile="casual"; else delete o.stile; } });
+  render(); save(); renderProps(); if(typeof toast==="function") toast(c?"Tutte le persone del progetto sono Casual":"Tutte le persone del progetto sono Eleganti"); });
 document.getElementById("pSeduta").addEventListener("change", function(){ var v=this.value; mutSel(function(it){ chitClImpostaSeduta(it, v); }); renderProps(); });
 document.getElementById("pGtrSedia").addEventListener("change", function(){ mutSel(function(it){ it.sedia=document.getElementById("pGtrSedia").checked; gtrApply(it); }); });
 document.getElementById("pGtrLeggio").addEventListener("change", function(){ mutSel(function(it){ it.leggio=document.getElementById("pGtrLeggio").checked; gtrApply(it); }); });
@@ -16283,7 +16416,7 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
   var lw=get("pLookWrap"); if(lw) lw.style.marginBottom="0";
   var setHead=function(el){ if(!el) return; var l=el.querySelector("label"); if(l){ l.style.color="var(--text-2)"; l.style.fontWeight="600"; } };
   setHead(get("pLblModeWrap"));
-  ["pPostaz","pVoce","pGtr","pDir","pTastiera","pComp"].forEach(function(id){ var e=get(id); if(e){ e.style.borderTop="none"; e.style.marginTop="0"; e.style.paddingTop="0"; } });
+  ["pPostaz","pVoce","pGtr","pFigura","pDir","pTastiera","pComp"].forEach(function(id){ var e=get(id); if(e){ e.style.borderTop="none"; e.style.marginTop="0"; e.style.paddingTop="0"; } });
   var rr0=get("pRotRow"); if(rr0) rr0.style.borderBottom="none";
   sp.querySelectorAll(".chk").forEach(function(c){ c.style.borderBottom="none"; });   /* l'aria viene dallo spazio, non dalle linee */
 
@@ -16342,7 +16475,7 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
   group("Installazione", null, ["pMountWrap"]);
   group("Dettagli tecnici", null, ["pIfaceWrap","pCompIfaceWrap","pModelWrap","pLocInWrap","pUsoWrap","pBmWrap","pLmWrap","pModWrap","pWattWrap","pRfWrap","pPmWrap"]);   /* la richiesta di setup NON e' un dettaglio tecnico: e' un'azione verso una persona, e sta con la persona */
   group("Nota", "quello che il disegno non dice", ["pNoteWrap"]);
-  group("Disegno", null, ["pLookWrap","pDims","pDimSideWrap","pShapeWrap","pRotRow",
+  group("Disegno", null, ["pLookWrap","pFigura","pDims","pDimSideWrap","pShapeWrap","pRotRow",
         "pLblSizeWrap","pLblSizeAll","pAlignWrap","pTxtColorWrap","pLblPosWrap"]);
 
   /* ── TELEFONO: le cose da scrivania stanno dietro un bottone (02/09, Simone: «da telefono
@@ -17899,6 +18032,7 @@ function addItem(type, over, silenzioso){   /* silenzioso (06/10/2026): crea e m
   if(DOUBLE_TYPES[type]){ it.sep=defSepOf({type:type}); it.w=sepToW(DOUBLE_TYPES[type], it.sep); it.d=DOUBLE_TYPES[type].dbl[1]; }
   if(t.dir){ it.podio=false; it.leggio=true; }
   if(state.lookDefault==="schematico" && hasLookToggle(it)) it.look="schematico";   /* B4: eredita l'aspetto predefinito del progetto */
+  if(state.stileDefault==="casual" && figuraAmmessa(it)) it.stile="casual";   /* stile predefinito delle figure del progetto (14/10) */
   var _ld0=look2Dims(it); if(_ld0){ it.w=_ld0[0]; it.d=_ld0[1]; }   /* Fase 2 illustrato (default): footprint = illustrazione */
   if(autoNumbered(type)){   /* nome progressivo: Flauto 1, Flauto 2, … (doppie = 2 nomi) */
     var seats0=instrSeats(type), base0=instrBase(type);
@@ -17921,6 +18055,7 @@ function addItem(type, over, silenzioso){   /* silenzioso (06/10/2026): crea e m
   if(COMP[type]){ it.parts=compClone(COMP[type].newParts||COMP[type].defParts); if(COMP[type].size){ var sz=COMP[type].size(it); it.w=sz[0]; it.d=sz[1]; } }   /* newParts: un elemento NUOVO può nascere più completo di come si riapre un progetto vecchio (percussioni, 13/10) */
   if(type==="miczone") it.zcol=micZoneFreeColor();   /* ogni zona nasce con un colore diverso */
   if(over) Object.keys(over).forEach(function(k){ it[k]=over[k]; });
+  if(gtrPiedi(it)){ if(over && over.sedia==null) it.sedia=false; recalcItemDims(it); }   /* chitarra/basso in piedi da `over` (14/10): niente sedia, ingombro della persona in piedi */
   if(isAreaNome(it) && !(over && over.fill)) it.fill=areaFreeColor();   /* anche ogni AREA (06/10/2026): due zone accanto non hanno lo stesso colore */
   if(cabIsBox(it)) sbAutoSize(it);   /* misure dai canali (ch/outCh arrivano da over): subito, non al prossimo caricamento */
   if(it.type==="cantante") it.d=cantanteDepth(it);   /* footprint coerente col mic scelto (over può impostare micMode) */
@@ -20813,7 +20948,8 @@ function placeOut(out, fitStage, clearFirst, force){
     if(t.riser) it.h=(o.h!=null?o.h:(t.h||40));
     else if(isCover(it) && o.h!=null) it.h=+o.h;   /* coperture: h opzionale (luce sotto) */
     if(o.parts){ it.parts=compClone(o.parts); if(COMP[o.type] && COMP[o.type].size){ var cz=COMP[o.type].size(it); it.w=cz[0]; it.d=cz[1]; } }
-    ["donna","hair","mano","leggio","sedia","doppia","sep","ampli","pedaliera","vsec","label2","podio","nomic","micMode","hw","ch","outCh","dimSide","rfChi","poltrona"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });   /* flag opzionali dal generatore (hw/ch/outCh = capacità stage box; dimSide = lato della misura pedana) */
+    ["donna","hair","mano","leggio","sedia","doppia","sep","ampli","pedaliera","vsec","label2","podio","nomic","micMode","hw","ch","outCh","dimSide","rfChi","poltrona","stile","abito","posa"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
+    figuraSanifica(it);   /* flag opzionali dal generatore (hw/ch/outCh = capacità stage box; dimSide = lato della misura pedana) */
     return it;
   });
   if(!clearFirst && state.items.length) avoidGroupOverlap(news);   /* non sovrapporsi a ciò che è già sul palco */
