@@ -3162,11 +3162,21 @@ body.dark .ask-all .btn{background:transparent}
 /* SOLO PEDANE (29/09, Simone) — il comando compare nel pannello solo con una pedana selezionata.
    Occhio + parola; acceso = ambra, lo stesso segno del solo dei layer. Sul telefono sta nella testa
    del foglio (#mPeek) come quinta azione: il pannello vero lo ripeterebbe due volte. */
-#props .solo-ped{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin:0 0 10px;font-size:12px;font-weight:600}
-#props .solo-ped svg{width:16px;height:16px;flex:0 0 auto}
-#props .solo-ped.on{background:#fde68a;border-color:#f59e0b;color:#92400e}
-body.dark #props .solo-ped.on{background:#78350f;border-color:#b45309;color:#fbbf24}
+#props .solo-ped, #props .solo-vista{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin:0 0 10px;font-size:12px;font-weight:600}
+#props .solo-ped svg, #props .solo-vista svg{width:16px;height:16px;flex:0 0 auto}
+#props .solo-ped.on, #props .solo-vista.on{background:#fde68a;border-color:#f59e0b;color:#92400e}
+body.dark #props .solo-ped.on, body.dark #props .solo-vista.on{background:#78350f;border-color:#b45309;color:#fbbf24}
+#props .solo-vista[hidden]{display:none}
 @media (pointer:coarse){ #props .solo-ped{min-height:44px} }
+@media (pointer:coarse){ #props .solo-vista{min-height:44px} }
+/* SOLO PLANIMETRIA (14/10): stesso comando di «Solo pedane», nel pannello Planimetria (vedi soloPlanimetria).
+   Del palco resta il perimetro: pavimento bianco e griglia coprirebbero proprio la parte di pianta che sta
+   sotto il palco. Lo slider dell'opacità, fermo in solo, dice perché. */
+#layStage.solo-pianta .stage-fill{fill:none}
+#layStage.solo-pianta .grid, #layStage.solo-pianta .stage-empty-hint{display:none}
+#venueOpacitySolo{display:block;margin-top:3px;font-size:12px;line-height:var(--lh-snug);color:var(--text-2)}
+#venueOpacitySolo[hidden]{display:none}
+#venuePanel input[type=range]:disabled{opacity:.45;cursor:not-allowed}
 @media (max-width:880px){
   body.m-has-sel #props .solo-ped{display:none!important}
   body.ped-sel #mPeek .mpk-acts{grid-template-columns:repeat(5,minmax(0,1fr))}

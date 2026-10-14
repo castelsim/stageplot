@@ -9857,6 +9857,115 @@ t("i controlli del deploy girano anche sulle PR (pr-controlli.yml = pages.yml fi
   eq(passi(pr), passi(pages, "      - name: Prepara la cartella pubblica (allowlist)"), "stessi passi, nello stesso ordine");
   ok(/on:\s*\n\s*pull_request:/.test(pr), "gira sulle pull request");
 });
+/* ===== Solo planimetria (14/10, Simone: «non c'è un modo per mettere la planimetria in solo. Implementa l'opzione
+   solo nell'elemento planimetria»). Il solo c'era come «S» nei Livelli; ora c'è nel pannello Planimetria, ed è la
+   stessa voce della mappa layerSoloUI. ===== */
+function conPiantaSolo(fn) {
+  const keep = { stageEdit: A.stageEdit, view: A.stagePanelView, print: A.__scenePrint };
+  reset();
+  A.layerSoloUI = {}; A.layerAccOpen = null; A.layerSoloMode = "focus";
+  A.__scenePrint = undefined;   /* nel sandbox una window.X mai scritta vale lo stub (vero): sullo schermo è undefined */
+  try { return fn(); } finally {
+    A.layerSoloUI = {}; A.layerAccOpen = null; A.layerSoloMode = "focus";
+    A.stageEdit = keep.stageEdit; A.stagePanelView = keep.view; A.__scenePrint = keep.print; A.state.venue = null;
+  }
+}
+const PIANTA_PNG = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+t("Solo planimetria: il comando del pannello accende e spegne il solo della pianta, lo stesso della S dei Livelli", () => conPiantaSolo(() => {
+  A.stageEdit = true; A.stagePanelView = "planimetria";
+  eq(A.soloPlanimetriaDisponibile(), false, "senza planimetria il comando non c'è");
+  A.soloPlanimetria(true);
+  eq(A.anySolo(), false, "e non si accende");
+  A.state.venue = A.normalizeVenue({ name: "sala.png" });   /* progetto riaperto senza l'immagine: c'è solo il nome */
+  eq(A.soloPlanimetriaDisponibile(), false, "col solo nome da ricaricare nemmeno");
+  A.state.venue = A.normalizeVenue({ name: "sala.png", _dataUrl: PIANTA_PNG, w: 2400, h: 1600, opacity: 35 });
+  eq(A.soloPlanimetriaDisponibile(), true, "con l'immagine sì");
+  A.soloPlanimetria(true);
+  eq([A.soloOn("venue"), A.layerSoloMode, A.soloPiantaPiena()], [true, "iso", true], "acceso: è la S (iso), non il fuoco");
+  A.pruneSolo();
+  eq(A.soloOn("venue"), true, "col pannello aperto resta acceso a ogni render");
+  A.soloPlanimetria(false);
+  eq(A.anySolo(), false, "di nuovo il comando: spento");
+  /* una sola verità con la S dei Livelli: accesa di là, il comando del pannello la vede e la spegne */
+  A.layerSoloUI = { venue: true }; A.layerSoloMode = "iso";
+  eq(A.soloPiantaPiena(), true, "la S dei Livelli è lo stesso stato");
+  A.soloPlanimetria(!A.soloPiantaPiena());
+  eq(A.anySolo(), false, "e il comando del pannello la spegne");
+  /* il FUOCO della riga (tendina, contesto sfumato) non è il solo pieno: lì vive lo slider e la pianta resta all'opacità scelta */
+  A.apriLayer("venue");
+  eq([A.soloOn("venue"), A.soloPiantaPiena()], [true, false], "fuoco della riga: non è «Solo planimetria»");
+  ok(/opacity="0\.35"/.test(A.venueMarkup()), "e la pianta resta al 35%");
+  A.soloPlanimetria(!A.soloPiantaPiena());
+  eq([A.layerAccOpen, A.layerSoloMode, A.soloPiantaPiena()], [null, "iso", true], "dal fuoco il comando passa al solo pieno");
+  /* rimossa la planimetria, il solo non resta a nascondere il palco */
+  A.state.venue = null; A.pruneSolo();
+  eq(A.anySolo(), false, "senza planimetria si spegne");
+}));
+t("Solo planimetria: pianta a piena opacità e palco senza pavimento, ma l'opacità salvata e il progetto non cambiano", () => conPiantaSolo(() => {
+  A.stageEdit = true; A.stagePanelView = "planimetria";
+  const v = add("vlnpost", 450, 520);
+  A.state.venue = A.normalizeVenue({ name: "sala.png", _dataUrl: PIANTA_PNG, w: 2400, h: 1600, opacity: 35 });
+  const prima = JSON.stringify(A.state), undo0 = A.undoStack.length;
+  A.soloPlanimetria(true);
+  ok(/<image[^>]*opacity="1\.00"/.test(A.venueMarkup()), "la pianta a piena opacità");
+  eq(A.state.venue.opacity, 35, "l'opacità salvata resta quella scelta");
+  eq(JSON.stringify(A.state), prima, "il progetto non cambia: è una vista");
+  eq(A.undoStack.length, undo0, "annulla/ripeti non ne sono toccati");
+  const mk = A.sceneMarkup();
+  ok(/<g id="layStage" class="solo-pianta">/.test(mk), "il palco resta come perimetro (classe solo-pianta)");
+  ok(mk.indexOf('data-id="' + v.id + '"') < 0, "gli elementi sono nascosti (iso)");
+  ok(/#layStage\.solo-pianta \.stage-fill\{fill:none\}/.test(stylesCss), "il CSS toglie il pavimento sotto la pianta");
+  A.soloPlanimetria(false);
+  ok(/<image[^>]*opacity="0\.35"/.test(A.venueMarkup()), "spento il solo, la pianta torna al 35%");
+  ok(!/class="solo-pianta"/.test(A.sceneMarkup()), "e il palco col suo pavimento");
+}));
+t("Solo planimetria: non entra mai nel PDF né nel PNG", () => conPiantaSolo(() => {
+  A.stageEdit = true; A.stagePanelView = "planimetria";
+  const v = add("vlnpost", 450, 520);
+  A.state.venue = A.normalizeVenue({ name: "sala.png", _dataUrl: PIANTA_PNG, w: 2400, h: 1600, opacity: 35 });
+  const pngPrima = A.buildExportSvg().svgStr, pdfPrima = A.stageSceneSvg(null, {});
+  A.layerSoloUI = { venue: true }; A.layerSoloMode = "iso";   /* lo stato del comando e della S dei Livelli: la S c'era già, e col solo acceso il PNG usciva senza elementi */
+  /* il PDF: i cavi seguono il solo attraverso layerShown, quindi si guarda cosa vede chi li disegna */
+  const orig = A.cablingMarkup; let soloNelPdf = null;
+  A.cablingMarkup = function () { soloNelPdf = A.anySolo(); return ""; };
+  let pdf;
+  try { pdf = A.stageSceneSvg(null, {}); } finally { A.cablingMarkup = orig; }
+  eq(soloNelPdf, false, "nel PDF nessun solo attivo");
+  ok(/<image[^>]*opacity="0\.35"/.test(pdf), "la pianta del PDF all'opacità salvata");
+  eq(A.stageSceneSvg(null, {}), pdfPrima, "il PDF è lo stesso con e senza «Solo planimetria»");
+  const png = A.buildExportSvg().svgStr;
+  ok(png.indexOf('data-id="' + v.id + '"') > -1, "il PNG ha gli elementi (prima del 14/10 usciva vuoto)");
+  eq(png, pngPrima, "il PNG è lo stesso con e senza «Solo planimetria»");
+  eq([A.soloOn("venue"), A.layerSoloMode], [true, "iso"], "e dopo gli export il solo è ancora lì");
+}));
+t("Solo planimetria: vive col pannello, Esc spegne solo lei, il clic sulla pianta non la spegne", () => conPiantaSolo(() => {
+  A.state.venue = A.normalizeVenue({ name: "sala.png", _dataUrl: PIANTA_PNG, w: 2400, h: 1600, opacity: 35 });
+  A.stageEdit = true; A.stagePanelView = "planimetria";
+  A.soloPlanimetria(true);
+  A.stageEdit = false; A.pruneSolo();
+  eq(A.anySolo(), false, "accesa dal pannello: chiuso il pannello si spegne");
+  A.stageEdit = true; A.stagePanelView = "planimetria"; A.soloPlanimetria(true);
+  A.stagePanelView = "palco"; A.pruneSolo();
+  eq(A.anySolo(), false, "anche passando a «Forma del palco»");
+  /* accesa dalla S dei Livelli, a pannello chiuso: lì la S resta in vista e il solo resta */
+  A.stageEdit = false; A.layerSoloUI = { venue: true }; A.layerSoloMode = "iso"; A.pruneSolo();
+  eq(A.soloPiantaPiena(), true, "dalla S dei Livelli resta");
+  A.exitListMode();
+  eq(A.anySolo(), false, "«Mostra tutto il palco» (exitListMode) la spegne");
+  ok(/if\(e\.key==="Escape" && soloPiantaPiena\(\) && pannelloPiantaAperto\(\)\)\{ e\.preventDefault\(\); soloPlanimetria\(false\); render\(\); return; \}/.test(appjs),
+    "Esc col pannello aperto spegne il solo e lascia il pannello");
+  ok(/if\(inListMode\(\) && !soloPiantaPiena\(\)\) exitListMode\(\);/.test(appjs), "il clic fermo sul disegno non spegne «Solo planimetria»");
+  ok(/if\(state\.venue\.enabled===false && soloOn\("venue"\)\) soloPlanimetria\(false\);/.test(appjs), "«Nascondi» spegne anche il solo, come l'occhio dei Livelli");
+}));
+t("Solo planimetria: il comando sta nel pannello Planimetria, con l'occhio, aria-pressed e 44 px col dito", () => {
+  const html = readFileSync(join(root, "index.template.html"), "utf8");
+  const pannello = html.match(/<div id="venuePanel">[\s\S]*?id="venueBtnDone"/);
+  ok(pannello, "pannello Planimetria non trovato");
+  const m = pannello[0].match(/<button[^>]*id="venueSolo"[^>]*>[\s\S]*?<\/button>/);
+  ok(m && /M1 12s4-7 11-7/.test(m[0]) && /Solo planimetria/.test(m[0]), "occhio e «Solo planimetria» nel pannello");
+  ok(/aria-pressed="false"/.test(m[0]) && /\bhidden\b/.test(m[0]), "parte spento e nascosto (compare con l'immagine)");
+  ok(/@media \(pointer:coarse\)\{ #props \.solo-vista\{min-height:44px\} \}/.test(stylesCss), "44 px col dito");
+});
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");

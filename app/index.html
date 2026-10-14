@@ -24,7 +24,7 @@
      due release nello stesso giorno restano distinguibili in telemetria e supporto. In locale/dev
      resta il placeholder. La sentinella del VALORE è distinta dall'identificatore window.__BUILD_ID__
      così il sed della CI non tocca il nome della variabile. -->
-<script>window.__APP_VERSION__="2026.10.13";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
+<script>window.__APP_VERSION__="2026.10.14";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -3240,11 +3240,21 @@ body.dark .ask-all .btn{background:transparent}
 /* SOLO PEDANE (29/09, Simone) — il comando compare nel pannello solo con una pedana selezionata.
    Occhio + parola; acceso = ambra, lo stesso segno del solo dei layer. Sul telefono sta nella testa
    del foglio (#mPeek) come quinta azione: il pannello vero lo ripeterebbe due volte. */
-#props .solo-ped{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin:0 0 10px;font-size:12px;font-weight:600}
-#props .solo-ped svg{width:16px;height:16px;flex:0 0 auto}
-#props .solo-ped.on{background:#fde68a;border-color:#f59e0b;color:#92400e}
-body.dark #props .solo-ped.on{background:#78350f;border-color:#b45309;color:#fbbf24}
+#props .solo-ped, #props .solo-vista{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin:0 0 10px;font-size:12px;font-weight:600}
+#props .solo-ped svg, #props .solo-vista svg{width:16px;height:16px;flex:0 0 auto}
+#props .solo-ped.on, #props .solo-vista.on{background:#fde68a;border-color:#f59e0b;color:#92400e}
+body.dark #props .solo-ped.on, body.dark #props .solo-vista.on{background:#78350f;border-color:#b45309;color:#fbbf24}
+#props .solo-vista[hidden]{display:none}
 @media (pointer:coarse){ #props .solo-ped{min-height:44px} }
+@media (pointer:coarse){ #props .solo-vista{min-height:44px} }
+/* SOLO PLANIMETRIA (14/10): stesso comando di «Solo pedane», nel pannello Planimetria (vedi soloPlanimetria).
+   Del palco resta il perimetro: pavimento bianco e griglia coprirebbero proprio la parte di pianta che sta
+   sotto il palco. Lo slider dell'opacità, fermo in solo, dice perché. */
+#layStage.solo-pianta .stage-fill{fill:none}
+#layStage.solo-pianta .grid, #layStage.solo-pianta .stage-empty-hint{display:none}
+#venueOpacitySolo{display:block;margin-top:3px;font-size:12px;line-height:var(--lh-snug);color:var(--text-2)}
+#venueOpacitySolo[hidden]{display:none}
+#venuePanel input[type=range]:disabled{opacity:.45;cursor:not-allowed}
 @media (max-width:880px){
   body.m-has-sel #props .solo-ped{display:none!important}
   body.ped-sel #mPeek .mpk-acts{grid-template-columns:repeat(5,minmax(0,1fr))}
@@ -4186,6 +4196,8 @@ body.cust-editor.m-has-sel #custScheda{border-top:1px solid var(--border);paddin
       <!-- pannello planimetria (vista esclusiva: o blocchi o planimetria) -->
       <div id="venuePanel">
         <h3 style="margin:0 0 10px">Planimetria</h3>
+        <!-- «Solo planimetria» (14/10, Simone): la pianta da sola, a piena opacità. C'è solo con un'immagine; vedi soloPlanimetria() -->
+        <button type="button" class="btn solo-vista" id="venueSolo" hidden aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg><span>Solo planimetria</span></button>
         <div class="vstep" id="vstep1">
           <span class="vdot">1</span>
           <div class="vbody">
@@ -4227,6 +4239,7 @@ body.cust-editor.m-has-sel #custScheda{border-top:1px solid var(--border);paddin
             <div id="venueOpacityRow" style="margin-top:6px">
               <label for="venueOpacity">Opacità <span id="venueOpacityVal">40%</span></label>
               <input type="range" id="venueOpacity" min="5" max="100" step="5" value="40">
+              <small id="venueOpacitySolo" hidden>In solo la pianta si vede intera: l'opacità scelta torna quando esci.</small>
             </div>
             <div id="venueRotRow">
               <label>Rotazione <span id="venueRotVal">0°</span></label>
