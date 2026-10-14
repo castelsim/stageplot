@@ -9661,9 +9661,9 @@ function conIngressiSpenti(fn) {
   const prima = A.custIngressiAttivi, m = A.state.customModels; A.custIngressiAttivi = () => false;
   try { return fn(); } finally { A.custIngressiAttivi = prima; if (m === undefined) delete A.state.customModels; else A.state.customModels = m; }
 }
-t("fase 1: di serie l'interruttore è SPENTO (è un letterale, non una var: il boot lo legge subito)", () => {
-  eq(A.custIngressiAttivi(), false, "spento di serie");
-  ok(/function custIngressiAttivi\(\)\{ return false; \}/.test(appjs), "una funzione che torna un letterale");
+t("fase 2 (14/10): l'interruttore è ACCESO (è un letterale, non una var: il boot lo legge subito)", () => {
+  eq(A.custIngressiAttivi(), true, "acceso dopo il deploy di submit-feedback");
+  ok(/function custIngressiAttivi\(\)\{ return true; \}/.test(appjs), "una funzione che torna un letterale");
   ok(!/var CUST_INGRESSI/.test(appjs), "nessuna var più in basso nel file");
 });
 t("fase 1: «Crea elemento» non si trova in ricerca e non si apre niente", () => conIngressiSpenti(() => {
@@ -9719,6 +9719,7 @@ t("fase 1: «Elementi di questo progetto» e le voci dei modelli non si vedono n
   } finally { A.custIngressiAttivi = _custIngressiOriginale; }
 }));
 t("fase 1: il pannello dell'elemento mostra nome e conteggi ma nasconde Modifica, modelli e Invia", () => conModelli(() => {
+  A.custIngressiAttivi = () => false;   /* dalla fase 2 di serie è acceso: qui si prova lo SPENTO (il finally rimette l'originale) */
   reset();
   const base = add("custom", 300, 300, { w: 120, d: 80, watt: 300, cust: { nome: "Schermo", shapes: [] } }); A.custNorm(base);
   const mk = () => { const o = { hidden: false, onclick: () => {}, textContent: "", style: {} }; o.querySelector = () => o._btns; return o; };
