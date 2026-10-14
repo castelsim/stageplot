@@ -18662,6 +18662,49 @@ t("pilota Thomann: ogni modello ha la sua citazione scritta in DATI_TARGA.md", (
   ok(/non dichiarato/.test(doc) && /Casio CDP-S110/.test(doc), "anche quello che manca è scritto: assorbimenti non dichiarati e il Casio senza PDF");
 });
 
+/* ═══ KORG MINILOGUE XD (14/10/2026): modello con icona PROPRIA in scala ═══════════════════════════
+   Dati dal Owner's Manual Korg (specifiche p.66, collegamenti p.7-8): 500 × 300 × 85 mm, 2,8 kg, 8 W,
+   uscite OUTPUT L/MONO e R su jack 6,3 mm mono. Il disegno vive in icons.js (1 unità = 1 cm, vb 50×30). */
+t("minilogue xd: numeri del manuale Korg, solo sulla Tastiera", () => {
+  const d = A.AMP_DB.korg_minilogue_xd;
+  ok(d, "manca korg_minilogue_xd");
+  eq([d.brand, d.model, d.per, d.watt, d.kg, d.mm, d.icona], ["Korg", "minilogue xd", ["tastiera"], 8, 2.8, [500, 300, 85], "korg_minilogue_xd"]);
+  ok(d.fonte.indexOf("Korg_minilogue_xd_OwnerManual.pdf") === 0 && /p\.66/.test(d.fonte), "fonte: PDF e pagina delle specifiche");
+  ok(d.mm[0] > d.mm[1] && d.mm[1] > d.mm[2], "L>P>A: " + d.mm);
+  const doc = readFileSync(join(root, "DATI_TARGA.md"), "utf8");
+  ok(doc.indexOf("`korg_minilogue_xd`") >= 0 && doc.indexOf("Korg_minilogue_xd_OwnerManual.pdf") >= 0, "citazione in DATI_TARGA.md");
+});
+t("minilogue xd: scelto il modello, 50 × 30 cm, 8 W, 2,8 kg", () => {
+  reset(); A.state.lookDefault = "schematico";
+  const sy = add("tastiera", 300, 500);
+  A.ampModelSetBm(sy, "korg_minilogue_xd");
+  eq([sy.w, sy.d, A.wattOf(sy), A.weightOf(sy)], [50, 30, 8, 2.8]);
+  A.ampModelSetBm(sy, "");
+  eq([sy.w, sy.d], [A.TYPES.tastiera.w, A.TYPES.tastiera.d], "senza modello torna al generico");
+});
+t("minilogue xd: l'icona è 50 × 30 in scala 1:1 e la Tastiera la usa solo col modello", () => {
+  const L = iconeVere(), ic = L.korg_minilogue_xd;
+  ok(ic, "icons.js non ha korg_minilogue_xd");
+  eq(ic.vb, [0, 0, 50, 30], "1 unità = 1 cm: 500 × 300 mm");
+  eq((ic.body.match(/class="kxd_white"/g) || []).length, 1, "un solo blocco di tasti bianchi");
+  const sep = ic.body.match(/class="kxd_wsep" d="([^"]+)"/)[1];
+  eq(sep.split("M").length - 1, 21, "22 tasti bianchi = 21 separatori");
+  const neri = ic.body.match(/class="kxd_black" d="([^"]+)"/)[1];
+  eq(neri.split("M").length - 1, 15, "37 tasti = 15 tasti neri");
+  reset(); A.state.lookDefault = "schematico";
+  const prima = A.LIB_ICONS;
+  A.LIB_ICONS = { korg_minilogue_xd: { vb: [0, 0, 50, 30], body: "<g id=\"KXD\"/>" }, stagepiano: { vb: [0, 0, 135, 40], body: "<g id=\"SP\"/>" } };
+  try {
+    const sy = add("tastiera", 300, 500);
+    ok(/SP/.test(A.TYPES.tastiera.draw(sy)) && !/KXD/.test(A.TYPES.tastiera.draw(sy)), "generica: il disegno del tipo");
+    A.ampModelSetBm(sy, "korg_minilogue_xd");
+    const dis = A.TYPES.tastiera.draw(sy);
+    ok(/KXD/.test(dis) && !/SP/.test(dis) && !/scale\(/.test(dis), "col modello: la sua icona, senza scala (50×30 = misura vera)");
+    A.ampModelSetBm(sy, "nord_electro7_73");
+    ok(/SP/.test(A.TYPES.tastiera.draw(sy)), "un altro modello senza icona: disegno del tipo");
+  } finally { A.LIB_ICONS = prima; }
+});
+
 /* ═══ IL MODELLO SCELTO SUL FOGLIO, E DA DOVE VENGONO I WATT (12/10/2026, decisioni di Simone) ═════
    Due limiti visti nelle anteprime del pilota: la lista Backline scriveva l'etichetta e non il modello
    scelto nel pannello, e la Lista carichi del PDF non diceva se i W erano di targa o stimati. */
