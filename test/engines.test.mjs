@@ -10846,6 +10846,106 @@ t("crea elemento (14/10): l'area disegnata SOPRA una pedana più grande non la p
     eq(A.__custEditor.inclusi, [a2.id], "solo l'asta con la spunta");
   });
 });
+/* ===== Crea elemento — Tappa A «Precisione» (14/10/2026): misure digitate, aggancio intelligente, pannello a numeri ===== */
+t("precisione: le misure digitate si leggono (separatori, virgola, unità, un numero = quadrato)", () => {
+  const L = (s, k) => A.custLeggiMisure(s, k || "rect");
+  eq([L("120x80").w, L("120x80").d], [120, 80]); eq([L("120*80").w, L("120 × 80").d, L("120X80").d], [120, 80, 80]);
+  eq([L("120 80").w, L("120;80").d], [120, 80]); eq([L("120,5x80").w, L("120.5x80").w], [120.5, 120.5]);
+  eq([L("1,2m x 80").w, L("35mm*2m").w, L("35mm*2m").d, L("1,2 m x 80 cm").w], [120, 3.5, 200, 120]);
+  eq([L("120").w, L("120").d], [120, 120], "un numero: quadrato");
+  ["", "abc", "120x", "x80", "0x80", "-5x10", "120x80x3", "1e9", "99999x10", "12,3,4"].forEach((s) => ok(!L(s).ok && L(s).err, "rifiuta «" + s + "»"));
+  eq([L("150", "line").len, L("150", "line").ang], [150, null]);
+  eq([L("150<30", "line").ang, L("150@30", "line").ang, L("150 30°", "line").ang, L("150 < -90", "line").ang, L("1,5m<45", "line").len], [30, 30, 30, 270, 150]);
+  eq([L("80", "poly").len, L("80<90", "poly").ang], [80, 90]);
+  ok(!L("abc<30", "line").ok && !L("0", "poly").ok && !L("150<", "line").ok && !L("150<abc", "line").ok, "lunghezza o angolo non validi");
+});
+t("precisione: la forma dalle misure va nel verso del mouse; la linea con l'angolo in senso orario", () => {
+  const a = { x: 100, y: 100 };
+  eq(A.custFormaDaMisure("rect", a, { x: 150, y: 140 }, { w: 120, d: 80 }), { x: 220, y: 180 });
+  eq(A.custFormaDaMisure("ell", a, { x: 50, y: 40 }, { w: 120, d: 80 }), { x: -20, y: 20 }, "verso del mouse");
+  eq(A.custFormaDaMisure("rect", a, a, { w: 10, d: 10 }), { x: 110, y: 110 }, "mouse fermo: in basso a destra");
+  eq(A.custFormaDaMisure("line", a, { x: 300, y: 100 }, { len: 50, ang: null }), { x: 150, y: 100 });
+  eq(A.custFormaDaMisure("line", a, { x: 100, y: 0 }, { len: 50, ang: null }), { x: 100, y: 50 - 0 }, "verso il mouse (in su)");
+  eq(A.custFormaDaMisure("line", a, { x: 0, y: 0 }, { len: 50, ang: 90 }), { x: 100, y: 150 }, "90° = in giù (orario, come «Rotazione»)");
+  eq(A.custAngolo({ x: 0, y: 0 }, { x: 0, y: -10 }), 270);
+  eq(A.custAngolo({ x: 0, y: 0 }, { x: 10, y: 10 }), 45);
+  eq(A.custMisureVive("rect", a, { x: 220.5, y: 180 }), "120,5 × 80");
+  eq(A.custMisureVive("line", a, { x: 100, y: 150 }), "50 < 90°");
+  ok(A.custLeggiMisure(A.custMisureVive("line", a, { x: 130, y: 140 }), "line").ok, "le misure vive si rileggono");
+});
+const PREC_ST = { fill: null, stroke: "#000000", sw: 1 };
+const precForma = (g) => A.custShapeDaForma(Object.assign({}, PREC_ST, g));
+const precTipi = (B, x, y) => B.punti.filter((p) => Math.abs(p.x - x) < 1e-6 && Math.abs(p.y - y) < 1e-6).map((p) => p.t).sort();
+t("precisione: i punti d'aggancio di linea, rettangolo ruotato, poligono, ellisse, superficie ed elemento vero", () => {
+  const ln = precForma({ k: "line", x1: 10, y1: 10, x2: 50, y2: 30 });
+  const rt = precForma({ k: "rect", x: 100, y: 0, w: 40, h: 20 }); rt.rot = 90;   /* ruotato dalla maniglia: centro (120,10) */
+  const pl = precForma({ k: "poly", pts: [[0, 100], [40, 100], [20, 140]] });
+  const el = precForma({ k: "ell", x: 0, y: 0, w: 0, h: 0 }) || {}; Object.assign(el, A.custShapeDaForma(Object.assign({}, PREC_ST, { k: "ell", cx: 200, cy: 100, rx: 30, ry: 10 })));
+  const vero = { id: "v1", type: "astamic", x: 300, y: 200, w: 40, d: 20, rot: 0 };
+  const B = A.custBersagli([ln, rt, pl, el, vero], {}, { w: 400, d: 300 });
+  eq(precTipi(B, 10, 10), ["estremo"]); eq(precTipi(B, 50, 30), ["estremo"]); eq(precTipi(B, 30, 20), ["medio"], "punto medio della linea");
+  eq(precTipi(B, 110, 30), ["vertice"], "angolo del rettangolo ruotato (110,30)"); eq(precTipi(B, 120, 10), ["centro"]);
+  eq(precTipi(B, 130, 10), ["medio"], "medio del lato del rettangolo ruotato");
+  eq(precTipi(B, 20, 140), ["vertice"]); eq(precTipi(B, 10, 120), ["medio"]);
+  eq(precTipi(B, 230, 100), ["quadrante"]); eq(precTipi(B, 200, 90), ["quadrante"]); eq(precTipi(B, 200, 100), ["centro"]);
+  eq(precTipi(B, 0, 0), ["vertice"], "angolo della superficie"); eq(precTipi(B, 200, 0), ["medio"]); eq(precTipi(B, 200, 150), ["centro"]);
+  eq(precTipi(B, 320, 210), ["vertice"], "elemento vero: ingombro"); eq(precTipi(B, 300, 200), ["centro"]);
+  eq(B.box.length, 5, "un ingombro per oggetto (non la superficie)");
+  eq(A.custBersagli([ln, rt], { [ln.id]: true }, null).punti.some((p) => p.x === 10 && p.y === 10), false, "chi si muove non è bersaglio");
+  const be = A.custIngombro(Object.assign({}, el, { rot: 90 }));
+  eq([be.x1, be.x2, be.y1, be.y2].map((v) => Math.round(v * 1e6) / 1e6), [190, 210, 70, 130], "ellisse ruotata: ingombro esatto, non quello del rettangolo");
+});
+t("precisione: aggancio di un punto — punto > bordo > allineamento > griglia, entro la tolleranza", () => {
+  const ln = precForma({ k: "line", x1: 0, y1: 50, x2: 100, y2: 50 });
+  const B = A.custBersagli([ln], {}, null);
+  const g5 = (v) => Math.round(v / 5) * 5;
+  let r = A.custAggancioPunto({ x: 52, y: 53 }, B, 5, 4, g5);
+  eq([r.x, r.y, r.t], [50, 50, "medio"], "il punto medio vince sul bordo");
+  r = A.custAggancioPunto({ x: 2, y: 51 }, B, 5, 4, g5); eq([r.x, r.y, r.t], [0, 50, "estremo"]);
+  r = A.custAggancioPunto({ x: 70, y: 52 }, B, 5, 4, g5); eq([r.x, r.y, r.t], [70, 50, "bordo"], "sul bordo (proiezione)");
+  r = A.custAggancioPunto({ x: 98, y: 90 }, B, 5, 4, g5); eq([r.x, r.y, r.t], [100, 90, "allineato"], "allineato in x all'estremo, y alla griglia");
+  eq(r.guide, [{ x1: 100, y1: 50, x2: 100, y2: 90 }], "guida dall'estremo al punto");
+  r = A.custAggancioPunto({ x: 72, y: 88 }, B, 5, 4, g5); eq([r.x, r.y, r.t, r.guide.length], [70, 90, null, 0], "lontano da tutto: griglia");
+  r = A.custAggancioPunto({ x: 72.3, y: 88.4 }, B, 5, 4); eq([r.x, r.y], [72.3, 88.4], "senza griglia: libero");
+  /* a pari distanza vince l'estremo sul centro */
+  const B2 = { punti: [{ x: 10, y: 0, t: "centro" }, { x: -10, y: 0, t: "estremo" }], lati: [] };
+  eq(A.custAggancioPunto({ x: 0, y: 0 }, B2, 10, 4).t, "estremo");
+});
+t("precisione: spostando un ingombro, bordi e centri si agganciano a quelli degli altri (con la guida) e si leggono le distanze", () => {
+  const B = A.custBersagli([{ id: "q", type: "astamic", x: 130, y: 120, w: 60, d: 40, rot: 0 }], {}, { w: 400, d: 300 });
+  let r = A.custAggancioSposta({ x1: 163, y1: 200, x2: 203, y2: 220 }, B, 5);
+  eq([r.dx, r.fx, r.fy], [-3, true, false], "sinistra su destra");
+  eq(r.guide, [{ x1: 160, y1: 100, x2: 160, y2: 220 }], "la guida unisce i due oggetti");
+  r = A.custAggancioSposta({ x1: 108, y1: 10, x2: 148, y2: 30 }, B, 5); eq(r.dx, 2, "centro su centro (130)");
+  r = A.custAggancioSposta({ x1: 2, y1: 2, x2: 42, y2: 22 }, B, 5); eq([r.dx, r.dy], [-2, -2], "angolo della superficie");
+  r = A.custAggancioSposta({ x1: 300, y1: 60, x2: 340, y2: 80 }, B, 5); eq([r.fx, r.fy, r.guide.length], [false, false, 0], "lontano: niente");
+  const D = A.custDistanze({ x1: 180, y1: 110, x2: 220, y2: 130 }, B, B.sup);
+  const s = D.find((q) => q.lato === "s"), d = D.find((q) => q.lato === "d"), a = D.find((q) => q.lato === "a");
+  eq([s.v, s.bordo, s.x1, s.x2, s.y1], [20, false, 160, 180, 120], "a sinistra il vicino, a 20 cm, in mezzo alla sovrapposizione");
+  eq([d.v, d.bordo], [180, true], "a destra nessuno: il bordo della superficie");
+  eq([a.v, a.bordo], [110, true]);
+  eq(A.custDistanze({ x1: 160, y1: 110, x2: 200, y2: 130 }, B, B.sup).some((q) => q.lato === "s"), false, "a contatto: nessuna quota");
+});
+t("precisione: con 200 forme l'aggancio resta sotto 1 ms a movimento (misurato)", () => {
+  const items = [];
+  for (let i = 0; i < 200; i++) {
+    const k = ["rect", "ell", "line", "poly"][i % 4], x = (i % 20) * 20, y = Math.floor(i / 20) * 20;
+    const g = k === "rect" ? { k, x, y, w: 12, h: 8 } : k === "ell" ? { k, cx: x + 6, cy: y + 4, rx: 6, ry: 4 } : k === "line" ? { k, x1: x, y1: y, x2: x + 12, y2: y + 9 } : { k, pts: [[x, y], [x + 10, y], [x + 5, y + 9]] };
+    const it = precForma(g); it.rot = (i * 7) % 90; items.push(it);
+  }
+  const { performance: P } = globalThis;
+  let t0 = P.now(); const B = A.custBersagli(items, {}, { w: 400, d: 200 }); const tB = P.now() - t0;
+  /* il migliore di tre giri da 1000 movimenti (una macchina carica non deve far fallire il test): a ogni movimento
+     si fanno TUTTE e tre le ricerche, anche se un gesto vero ne usa una o due */
+  const N = 1000; let tM = Infinity;
+  for (let g = 0; g < 3; g++) { t0 = P.now();
+    for (let i = 0; i < N; i++) { A.custAggancioPunto({ x: (i * 37) % 400, y: (i * 53) % 200 }, B, 2, 1.6, Math.round); A.custAggancioSposta({ x1: i % 300, y1: i % 150, x2: i % 300 + 20, y2: i % 150 + 10 }, B, 1.6); A.custDistanze({ x1: i % 300, y1: i % 150, x2: i % 300 + 20, y2: i % 150 + 10 }, B, B.sup); }
+    tM = Math.min(tM, (P.now() - t0) / N); }
+  console.log("      [misura] 200 forme: bersagli " + tB.toFixed(2) + " ms (una volta per gesto), aggancio+guide+distanze " + tM.toFixed(3) + " ms a movimento");
+  ok(tM < 1, "a movimento " + tM.toFixed(3) + " ms");
+  ok(tB < 20, "bersagli " + tB.toFixed(2) + " ms");
+});
+/* ===== fine Tappa A ===== */
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");
