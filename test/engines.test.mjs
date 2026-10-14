@@ -10743,6 +10743,109 @@ t("fuori dal palco: gli apparecchi dentro un rack non sono elementi a sé", () =
   eq(A.fuoriPalcoEquivoco(), null, "un rack in sala non fa un palco sbagliato");
   reset();
 });
+/* ===== Crea elemento: chi entra nell'area (14/10/2026, segnalazione di Simone: «faccio crea elemento e poi seleziono una
+   porzione di spazio nella quale ci sono altri strumenti o elementi, non mi chiede se voglio ottenerli o meno»).
+   Prima contava solo il CENTRO: chi era nel rettangolo per metà (il violinista con testa e violino dentro e il centro 5 cm
+   fuori) restava fuori in silenzio e l'editor partiva vuoto. Si prova il giro vero: misure → finestra → editor. ===== */
+const INCL_R = { x: 300, y: 300, w: 200, d: 120 };   /* 300…500 × 300…420 */
+/* solo gli elementi voluti (addItem può aggiungere la DI della tastiera o l'asta del cantante), con misure fisse */
+function inclPalco(spec) {
+  reset();
+  const its = spec.map(([type, x, y, w, d, extra]) => Object.assign(add(type, x, y), { x, y, w, d, rot: 0 }, extra || {}));
+  A.state.items = its; return its;
+}
+/* il giro di «Crea elemento» dopo il rettangolo: la finestra delle misure dice subito Continua, le finestre dell'app si
+   registrano invece di aprirsi (il DOM del sandbox ingoia tutto) */
+function inclGiro(area, fn) {
+  const fin = [], misPrima = A.custFinestraMisure, finPrima = A.custFinestra;
+  A.custFinestraMisure = (a, cb) => { cb(Object.assign({}, a)); return {}; };
+  A.custFinestra = (o) => { fin.push(o); return { ov: null, bottoni: [], chiudi() {} }; };
+  try { return conCampi(() => { A.custChiediMisureEInclusione(Object.assign({}, area)); return fn(fin); }); }
+  finally { A.custFinestraMisure = misPrima; A.custFinestra = finPrima; }
+}
+const inclBottone = (o, re) => (o.bottoni || []).find((b) => re.test(b.label));
+t("crea elemento (14/10): chi è nell'area solo in parte (centro fuori) fa comparire la domanda, non un editor vuoto", () => {
+  /* il caso di Simone: violinista dentro per il 40% (testa e violino nel rettangolo), wedge dentro per un terzo */
+  const [vl, wg] = inclPalco([["vlnpost", 400, 290, 100, 105], ["wedge", 510, 360, 60, 52]]);
+  inclGiro(INCL_R, (fin) => {
+    eq(fin.length, 1, "si apre la finestra di inclusione");
+    eq(A.custEditorAttivo(), false, "l'editor aspetta la risposta");
+    const o = fin[0];
+    ok(/nell'area/.test(o.title), "la domanda: " + o.title);
+    const E = A.custInclusione(INCL_R);
+    eq(E.candidati.map((c) => c.it.id).sort(), [vl.id, wg.id].sort(), "tutti e due fra quelli da scegliere");
+    ok(E.candidati.every((c) => !c.scelto && c.sporge), "a cavallo: proposti senza spunta, e la finestra dice che sporgono");
+    ok(/sporge/.test(A.custInclusioneRiga(E.candidati[0])), "la riga dice «sporge dall'area»");
+  });
+  /* sfiorato di pochi cm (un decimo): non si nomina, niente domanda */
+  const [sf] = inclPalco([["wedge", 524, 360, 60, 52]]);
+  ok(A.custQuotaDentro(sf, INCL_R) > 0 && A.custQuotaDentro(sf, INCL_R) < 0.2, "premessa: dentro per meno di un quinto");
+  inclGiro(INCL_R, (fin) => { eq(fin.length, 0, "nessuna domanda"); ok(A.custEditorAttivo(), "editor vuoto"); });
+});
+t("crea elemento (14/10): chi sporge ed è incluso allarga l'area fino a contenerlo (e la finestra lo dice)", () => {
+  const [c] = inclPalco([["cantante", 480, 360, 70, 90]]);   /* centro dentro, 15 cm oltre il lato destro */
+  inclGiro(INCL_R, (fin) => {
+    eq(fin.length, 1, "domanda");
+    const si = inclBottone(fin[0], /^Sì$/); ok(si, "c'è il Sì");
+    si.run();
+    ok(A.custEditorAttivo(), "editor aperto");
+    eq(A.__custEditor.rect, { x: 300, y: 300, w: 215, d: 120 }, "la superficie contiene il cantante");
+    eq(A.__custEditor.inclusi, [c.id], "incluso");
+  });
+  const E = A.custInclusione(INCL_R), scelti = E.candidati.filter((x) => x.scelto).map((x) => x.it);
+  eq(A.custAreaPer(INCL_R, scelti), { x: 300, y: 300, w: 215, d: 120 }, "l'area che lo contiene");
+  ok(/2,15 × 1,20 m/.test(A.custInclusioneNota(INCL_R, scelti)), "la finestra dice la misura nuova");
+  /* un'asta che cade nell'area allargata senza essere stata scelta: la nota lo dice */
+  const asta = Object.assign(add("astamic", 508, 340), { x: 508, y: 340, w: 38, d: 52, rot: 0 }); A.state.items = [c, asta];
+  ok(/c'è anche .*resta fuori/.test(A.custInclusioneNota(INCL_R, [c])), A.custInclusioneNota(INCL_R, [c]));
+});
+t("crea elemento (14/10): bloccati, nascosti e altri elementi personalizzati non entrano, ma la finestra li nomina", () => {
+  const [ped, tas, can, cu] = inclPalco([
+    ["pedana", 400, 360, 180, 100, { locked: true }],
+    ["cantante", 340, 330, 70, 90],
+    ["astamic", 460, 330, 38, 52],
+    ["custom", 450, 390, 40, 40, { cust: { nome: "Proiettore", shapes: [] } }]]);
+  A.custNorm(cu);
+  const visPrima = A.musLayerUI.vis; A.musLayerUI.vis = false;   /* occhio dei Musicisti chiuso: il cantante non si vede */
+  try {
+    eq(A.custDentroArea(INCL_R).map((x) => x.id), [can.id], "di serie entra solo l'asta (la pedana col lucchetto non si muoverebbe col gruppo)");
+    const E = A.custInclusione(INCL_R);
+    eq(E.candidati.map((x) => x.it.id), [can.id], "da scegliere solo l'asta");
+    eq([E.bloccati.map((x) => x.id), E.nascosti.map((x) => x.id), E.personalizzati.map((x) => x.id)], [[ped.id], [tas.id], [cu.id]], "gli altri, ciascuno col suo motivo");
+    inclGiro(INCL_R, (fin) => {
+      eq(fin.length, 1, "domanda");
+      ok(/bloccat/.test(fin[0].msg) && /Pedana/.test(fin[0].msg), "nomina la pedana bloccata: " + fin[0].msg);
+      ok(/nascost/.test(fin[0].msg), "nomina il cantante nascosto");
+      ok(/Proiettore/.test(fin[0].msg), "nomina l'elemento personalizzato");
+    });
+    /* solo elementi che restano fuori: la finestra si apre lo stesso e lo dice, invece di un editor vuoto in silenzio */
+    A.state.items = [ped, tas];
+    inclGiro(INCL_R, (fin) => {
+      eq(fin.length, 1, "si apre la finestra");
+      ok(/restano fuori/i.test(fin[0].title) && /bloccat/.test(fin[0].msg) && /nascost/.test(fin[0].msg), fin[0].title + " — " + fin[0].msg);
+      eq(A.custEditorAttivo(), false, "l'editor aspetta");
+    });
+  } finally { A.musLayerUI.vis = visPrima; }
+});
+t("crea elemento (14/10): l'area disegnata SOPRA una pedana più grande non la propone; si sceglie chi includere", () => {
+  const [ped, a1, a2] = inclPalco([["pedana", 400, 360, 600, 200], ["astamic", 340, 330, 38, 52], ["astamic", 460, 330, 38, 52]]);
+  const R2 = { x: 320, y: 300, w: 160, d: 80 };
+  /* solo la pedana sotto: niente domanda, l'editor parte vuoto */
+  A.state.items = [ped];
+  inclGiro(R2, (fin) => { eq(fin.length, 0, "nessuna domanda"); ok(A.custEditorAttivo() && A.__custEditor.inclusi.length === 0, "editor vuoto"); });
+  A.state.items = [ped, a1, a2];
+  const E = A.custInclusione(R2);
+  eq(E.candidati.map((x) => x.it.id), [a1.id, a2.id], "le due aste sì, la pedana (più grande dell'area) no");
+  ok(E.candidati.every((x) => x.scelto), "con la spunta");
+  /* tolta la spunta a un'asta, Sì include solo l'altra */
+  A.state.items = [ped, a1, a2];
+  inclGiro(R2, (fin) => {
+    eq(fin.length, 1, "domanda");
+    fin[0].scegli(a1.id, false);
+    inclBottone(fin[0], /^Sì$/).run();
+    eq(A.__custEditor.inclusi, [a2.id], "solo l'asta con la spunta");
+  });
+});
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");
