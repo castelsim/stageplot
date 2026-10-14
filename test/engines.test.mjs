@@ -10009,6 +10009,90 @@ t("Solo planimetria: il comando sta nel pannello Planimetria, con l'occhio, aria
   ok(/aria-pressed="false"/.test(m[0]) && /\bhidden\b/.test(m[0]), "parte spento e nascosto (compare con l'immagine)");
   ok(/@media \(pointer:coarse\)\{ #props \.solo-vista\{min-height:44px\} \}/.test(stylesCss), "44 px col dito");
 });
+/* PLANIMETRIA NEL PDF (14/10/2026, Simone: «il PDF non contiene la planimetria»). Con l'area di stampa
+   automatica la pianta si ritagliava sul PALCO, e il fondo bianco del palco la copriva tutta: sul foglio
+   non se ne vedeva niente. Ora si ritaglia sul riquadro del disegno (area + margine delle quote) e nel PDF
+   la disegna jsPDF sotto al vettoriale, ridotta alla risoluzione del foglio e con l'opacità scelta. */
+const PIANTA_B64 = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+function conPianta(extra) {
+  reset();
+  A.state.venue = A.normalizeVenue(Object.assign({ name: "pianta.png", x: 600, y: 400, w: 3000, h: 2000, rot: 0, opacity: 40,
+    enabled: true, locked: true, _dataUrl: PIANTA_B64, _imgW: 1500, _imgH: 1000 }, extra || {}));
+}
+/* un thenable che risolve SUBITO: la prova resta sincrona come il resto della suite */
+const subito = (v) => ({ then(f) { let r; try { r = f(v); } catch (e) { return { then: () => ({ catch: (g) => g(e) }), catch: (g) => subito(g(e)) }; } return subito(r); }, catch() { return this; } });
+function docConImmagini() { const imm = []; return { imm, addImage(...a) { imm.push(a); } }; }
+t("planimetria: con l'area automatica non si ritaglia sotto il palco, ma sul riquadro del disegno", () => {
+  conPianta();
+  const svg = A.stageSceneSvg(null, { focus: "clean" });
+  ok(/<image /.test(svg), "la pianta accesa è nel disegno (PNG e anteprima)");
+  const clip = svg.match(/<clipPath id="paClip"><rect x="([-\d.]+)" y="([-\d.]+)" width="([\d.]+)" height="([\d.]+)"/);
+  ok(clip, "c'è il ritaglio della pianta");
+  const vb = { x: -80, y: -80, w: 1360, h: 960 };   /* palco 1200×800 + 80 cm di margine per le quote */
+  eq(clip.slice(1).map(Number), [vb.x, vb.y, vb.w, vb.h],
+    "ritagliata sul riquadro del disegno, non sul palco (che col suo fondo bianco la copre tutta)");
+  eq(A.sceneVbDefault(), vb, "il riquadro del disegno con l'area automatica");
+  ok(vb.w > A.state.stage.w && vb.h > A.state.stage.d, "il riquadro è più grande del palco: la pianta si vede attorno");
+  A.state.venue.enabled = false;
+  ok(!/<image /.test(A.stageSceneSvg(null, { focus: "clean" })), "con l'occhio spento la pianta resta fuori");
+  reset();
+});
+t("planimetria nel PDF vettoriale: fuori dall'SVG di svg2pdf, la disegna jsPDF sotto", () => {
+  conPianta();
+  const svg = A.stageSceneSvg(null, { focus: "clean", piantaASe: true });
+  ok(!/<image /.test(svg), "svg2pdf non la riceve (la ricodificherebbe intera e senza opacità)");
+  ok(!/fill="#ffffff"\/><g clip-path="url\(#paClip\)"/.test(svg) && !/<rect x="-80" y="-80" width="1360" height="960" fill="#ffffff"\/>/.test(svg),
+    "niente fondo bianco pieno sopra la pianta già disegnata");
+  ok(/drawStageVector[\s\S]{0,400}pdfVenueLayer\(/.test(appjs), "drawStageVector disegna la pianta prima del vettoriale");
+  ok(/piantaASe:true/.test(appjs), "e chiede a stageSceneSvg il disegno senza pianta");
+  reset();
+});
+t("planimetria nel PDF: un'immagine sola, al posto e alla scala giusti; nessuna se spenta o senza file", () => {
+  const r0 = A.venueRasterize;
+  try {
+    let chiesto = null;
+    A.venueRasterize = (v, r) => { chiesto = r; return subito({ dataUrl: "data:image/jpeg;base64,AAAA", fmt: "JPEG" }); };
+    conPianta({ w: 3000, h: 2000 });
+    const vb = { x: -80, y: -80, w: 1360, h: 960 }, doc = docConImmagini();
+    /* 1:100 → 0,1 mm per cm: il riquadro di 1360 cm è largo 136 mm */
+    A.pdfVenueLayer(doc, 20, 17, 136, 96, vb);
+    eq(doc.imm.length, 1, "la pianta accesa e con l'immagine arriva al PDF");
+    const [du, fmt, x, y, w, h] = doc.imm[0];
+    eq([du, fmt], ["data:image/jpeg;base64,AAAA", "JPEG"], "il raster preparato");
+    /* la pianta (3000×2000 cm attorno al centro 600,400) copre tutto il riquadro: ne va solo il riquadro */
+    eq([x, y, w, h].map((n) => Math.round(n * 1000) / 1000), [20, 17, 136, 96], "solo la parte nel riquadro, in mm sul foglio");
+    eq(chiesto.op, 0.4, "con l'opacità scelta dall'utente");
+    ok(chiesto.pxW <= Math.ceil(1360 * 0.1 * A.VENUE_PDF_DPI / 25.4) + 1, "non più pixel di quanti ne servono al foglio: " + chiesto.pxW);
+    ok(chiesto.pxW <= Math.ceil(1360 * 1500 / 3000) + 1, "né più di quanti ne ha l'immagine");
+    /* stessa pagina ripetuta (pagine-vista): un raster solo, stesso alias → jsPDF la imbarca una volta */
+    let quante = 0; A.venueRasterize = (v, r) => { quante++; return subito({ dataUrl: "data:image/jpeg;base64,AAAA", fmt: "JPEG" }); };
+    const doc2 = docConImmagini();
+    A.pdfVenueLayer(doc2, 20, 17, 136, 96, vb); A.pdfVenueLayer(doc2, 20, 17, 136, 96, vb);
+    eq([quante, doc2.imm.length, doc2.imm[0][6] === doc2.imm[1][6]], [1, 2, true], "preparata una volta, stesso alias");
+    /* spenta, senza file, fuori dal riquadro: niente immagine */
+    A.state.venue.enabled = false; const d3 = docConImmagini(); A.pdfVenueLayer(d3, 20, 17, 136, 96, vb);
+    eq(d3.imm.length, 0, "occhio spento: niente pianta nel PDF");
+    conPianta(); delete A.state.venue._dataUrl; const d4 = docConImmagini(); A.pdfVenueLayer(d4, 20, 17, 136, 96, vb);
+    eq(d4.imm.length, 0, "senza file (da ricaricare): niente");
+    conPianta({ x: 50000, y: 50000 }); const d5 = docConImmagini(); A.pdfVenueLayer(d5, 20, 17, 136, 96, vb);
+    eq(d5.imm.length, 0, "tutta fuori dal riquadro: niente peso inutile");
+  } finally { A.venueRasterize = r0; reset(); }
+});
+t("planimetria: il pezzo da stampare è l'ingombro ruotato tagliato sul riquadro", () => {
+  const v = { enabled: true, _dataUrl: PIANTA_B64, x: 0, y: 0, w: 200, h: 100, rot: 90, opacity: 25, _imgW: 2000 };
+  const r = A.venuePdfRaster(v, { x: -1000, y: -1000, w: 2000, h: 2000 }, 0.1);
+  eq([r.x, r.y, r.w, r.h].map(Math.round), [-50, -100, 100, 200], "ruotata di 90°: larga 100, alta 200");
+  eq(r.op, 0.25, "opacità");
+  const t2 = A.venuePdfRaster(v, { x: 0, y: 0, w: 1000, h: 1000 }, 0.1);
+  eq([t2.x, t2.y, t2.w, t2.h].map(Math.round), [0, 0, 50, 100], "tagliata sul riquadro");
+  const enorme = A.venuePdfRaster(Object.assign({}, v, { w: 100000, h: 100000, _imgW: 100000 }), { x: -50000, y: -50000, w: 100000, h: 100000 }, 10);
+  ok(Math.max(enorme.pxW, enorme.pxH) <= A.VENUE_PDF_MAXPX, "lato del raster entro il tetto: " + enorme.pxW);
+  eq(A.venuePdfRaster(Object.assign({}, v, { enabled: false }), { x: 0, y: 0, w: 10, h: 10 }, 0.1), null, "spenta: null");
+});
+t("PNG: l'opacità della planimetria sopravvive all'appiattimento degli stili", () => {
+  const src = appjs.slice(appjs.indexOf("function flattenCssToAttrs("), appjs.indexOf("function flattenCssToAttrs(") + 4000);
+  ok(/toLowerCase\(\)==="image" && s\.alpha<1\) el\.setAttribute\('opacity'/.test(src), "un'<image> tiene la sua opacità (fill-opacity non la tocca)");
+});
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");
