@@ -421,6 +421,8 @@
       <!-- pannello planimetria (vista esclusiva: o blocchi o planimetria) -->
       <div id="venuePanel">
         <h3 style="margin:0 0 10px">Planimetria</h3>
+        <!-- «Solo planimetria» (14/10, Simone): la pianta da sola, a piena opacità. C'è solo con un'immagine; vedi soloPlanimetria() -->
+        <button type="button" class="btn solo-vista" id="venueSolo" hidden aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg><span>Solo planimetria</span></button>
         <div class="vstep" id="vstep1">
           <span class="vdot">1</span>
           <div class="vbody">
@@ -462,6 +464,7 @@
             <div id="venueOpacityRow" style="margin-top:6px">
               <label for="venueOpacity">Opacità <span id="venueOpacityVal">40%</span></label>
               <input type="range" id="venueOpacity" min="5" max="100" step="5" value="40">
+              <small id="venueOpacitySolo" hidden>In solo la pianta si vede intera: l'opacità scelta torna quando esci.</small>
             </div>
             <div id="venueRotRow">
               <label>Rotazione <span id="venueRotVal">0°</span></label>
@@ -15721,7 +15724,7 @@ function sceneMarkup(opts){
   var _defs=sceneArtDefs(); _sceneArt=null;   /* i <defs> vanno PRIMA di chi li usa e la raccolta finisce qui */
   return _defs+
          '<g id="layVenue">'+venue+'</g>'+
-         '<g id="layStage">'+(_cust ? custSuperficieMarkup() : stageLayerMarkup())+'</g>'+
+         '<g id="layStage"'+(soloPiantaPiena() && !(opts && opts.espandi) ? ' class="solo-pianta"' : '')+'>'+(_cust ? custSuperficieMarkup() : stageLayerMarkup())+'</g>'+   /* «Solo planimetria»: del palco resta il perimetro (src/styles.css) */
          '<g id="layMicZones"'+mzAttr+'>'+zones+'</g>'+
          '<g id="layItems">'+items+'</g>'+
          '<g id="layLbl" style="pointer-events:none">'+lbls+'</g>'+   /* i nomi sopra tutti gli elementi (revisione 25/09); trasparenti ai clic */
@@ -21454,7 +21457,9 @@ svg.addEventListener("pointerup", function(e){
          casi — dentro il palco «lì si lavora» — ma il vuoto è vuoto, e dover ricordare da che parte
          del bordo si è cliccato per sapere se la lista si chiude è una regola che nessuno tiene a mente.
          Il pan non chiude nulla: qui siamo già nel ramo del click fermo (< 4 px). */
-      if(inListMode()) exitListMode();
+      /* Tranne in «Solo planimetria»: lì sotto il dito c'è la pianta, il contenuto che si sta studiando, e un tocco
+         per orientarsi non deve spegnere la vista. Si esce dal bottone, dal banner o con Esc (14/10). */
+      if(clicVuotoEsceDallaVista()) exitListMode();
       render(); }
     else ensureVisible();   /* pan in panoramica: non lasciare elementi fuori */
   }
@@ -22226,6 +22231,8 @@ document.addEventListener("keydown", function(e){
   }
   /* «Crea elemento»: Esc con niente selezionato = uscire dall'editor (se c'è qualcosa da perdere, si chiede) */
   if(e.key==="Escape" && custEditorAttivo() && !selIds().length && !catSearching()){ e.preventDefault(); custEsci(true); return; }
+  /* «Solo planimetria» col pannello aperto: Esc spegne il solo e il pannello resta (un livello per volta) */
+  if(e.key==="Escape" && escSpegneSoloPianta()){ e.preventDefault(); render(); return; }
   if(e.key==="Escape"){ exitHubModes(); clearSelection(); if(!endCatSearch()) collapseCats();   /* con una ricerca aperta, Esc riporta la colonna in stato di partenza (campo vuoto, in cima) */
     exitListMode();   /* ESC: i layer si deselezionano e tornano alla modalità base */
     render(); }
@@ -25469,7 +25476,7 @@ function layerRegistry(){
     { id:"venue", name:"Planimetria", color:"#9ca3af", active:!!(state.venue && state.venue._dataUrl),
       visible:!state.venue||state.venue.enabled!==false, setVisible:function(v){ state.venue.enabled=v; save(); render(); },
       /* opacità LIVE senza render(): un render pieno ricostruirebbe lo slider a metà trascinamento (bug segnalato da Simone) */
-      opacity:state.venue?(state.venue.opacity||40):40, setOpacity:function(v){ state.venue.opacity=v; var im=document.querySelector('#layVenue image'); if(im) im.setAttribute('opacity',(v/100).toFixed(2)); saveSoon(); },
+      opacity:state.venue?(state.venue.opacity||40):40, setOpacity:function(v){ state.venue.opacity=v; var im=document.querySelector('#layVenue image'); if(im && !soloPiantaPiena()) im.setAttribute('opacity',(v/100).toFixed(2)); saveSoon(); },
       lockable:true, locked:!!(state.venue&&state.venue.locked), setLocked:function(v){ state.venue.locked=v; save(); render(); },
       removable:true, removeLabel:"Rimuovi immagine", remove:function(){ state.venue=null; clearVenueImg(); venueCalibCancel(); save(); render(); } }   /* cestino = rimuove l'immagine planimetria */
     ,{ id:"stage", name:"Palco", color:"#64748b",
@@ -25697,9 +25704,15 @@ function soloPedaneAuto(){
   if(gesto && !soloOn("pedane") && !soloPedaneAutoVietato()) soloPedane(true);
 }
 /* Gli export (PDF, PNG, anteprima, miniatura) disegnano il progetto, non la vista: col solo pedane
-   acceso il PDF perdeva i cavi (layerShown segue il solo) e il PNG usciva sfumato. */
-function senzaSoloPedane(fn){
-  if(!layerSoloUI.pedane) return fn();
+   acceso il PDF perdeva i cavi (layerShown segue il solo) e il PNG usciva sfumato. Lo stesso per «Solo
+   planimetria» (14/10): con la S della Planimetria accesa il PNG usciva SENZA un solo elemento (il solo «iso»
+   li toglie) e il PDF senza cavi — provato prima di correggerlo. E lo stesso per OGNI S e ogni fuoco dei Livelli
+   (revisione 14/10, provato layer per layer): con la S su Output, Monitor, Elettrico o Palco il PNG usciva con
+   0 elementi, con Input o Musicisti PNG e PDF cambiavano. Gli export non hanno bisogno del solo vivo: le
+   pagine-vista del PDF il loro solo se lo accendono da sé dentro stageSceneSvg (focus). Quindi via tutti. */
+function vistaDiLavoro(){ return anySolo(); }
+function senzaVisteDiLavoro(fn){
+  if(!vistaDiLavoro()) return fn();
   var keep=layerSoloUI; layerSoloUI={};
   try{ return fn(); } finally { layerSoloUI=keep; }
 }
@@ -25720,6 +25733,51 @@ function aggiornaSoloPedane(){
     b.addEventListener("click", function(e){ e.stopPropagation(); soloPedane(!soloOn("pedane")); render(); });
   });
 })();
+/* SOLO PLANIMETRIA (14/10, Simone: «non c'è un modo per mettere la planimetria in solo. Implementa l'opzione
+   solo nell'elemento planimetria»). Il solo c'era, ma solo come «S» nella riga Planimetria dei Livelli, che
+   compare solo con alcune funzioni accese: nel pannello Planimetria, quello che si apre davvero, non c'era.
+   Come «Solo pedane» non è un secondo meccanismo: è la voce `venue` della mappa layerSoloUI in modalità «iso»,
+   la stessa della S — lo stato è uno, il bottone del pannello e la S si accendono e si spengono insieme.
+   - la pianta a piena opacità (venueMarkup) senza toccare l'opacità salvata: chi la accende la sta studiando;
+   - elementi, zone e cavi nascosti (iso); del palco resta il perimetro, senza pavimento né griglia, così si
+     vede cosa c'è sotto il palco e dove il palco cade sulla pianta (classe solo-pianta su #layStage);
+   - si sposta, si ruota e si ricalibra come sempre: il pannello resta aperto e funziona;
+   - banner con «Mostra tutto il palco»; Esc spegne il solo e lascia aperto il pannello (un livello per volta);
+   - il clic sul disegno non la spegne: qui la pianta è il contenuto, non il vuoto (vedi il pointerup);
+   - accesa dal pannello vive col pannello: chiuso il pannello (Fatto, Esc, un altro strumento) si spegne
+     (pruneSolo), come «Solo pedane» vive con la pedana selezionata. Senza il pannello il comando che la spegne
+     non si vede più, e un palco senza elementi sembrerebbe un progetto perso. Accesa dalla S dei Livelli
+     resta, perché lì la S resta in vista;
+   - mai negli export (senzaVisteDiLavoro). */
+var soloPiantaPannello=false;   /* accesa dal pannello Planimetria: si spegne quando il pannello si chiude */
+function pannelloPiantaAperto(){ return !!stageEdit && stagePanelView==="planimetria"; }
+function soloPlanimetriaDisponibile(){ return !!(state.venue && safeVenueDataUrl(state.venue._dataUrl)); }
+/* «la pianta da sola»: la S (iso). Il fuoco della riga dei Livelli (focus) sfuma il resto e lascia la pianta
+   all'opacità scelta: è lì che vive lo slider, e lo slider si deve vedere. */
+function soloPiantaPiena(){ return soloOn("venue") && layerSoloMode==="iso"; }
+function soloPlanimetria(on){
+  if(on && soloPlanimetriaDisponibile()){ layerAccOpen=null; layerSoloUI={venue:true}; layerSoloMode="iso"; soloPiantaPannello=pannelloPiantaAperto(); }
+  else { delete layerSoloUI.venue; soloPiantaPannello=false; if(layerAccOpen==="venue") layerAccOpen=null; }   /* anche il fuoco della riga: «Nascondi» non lascia la tendina aperta su niente */
+  if(typeof renderLayerManager==="function") renderLayerManager();
+}
+/* Esc col pannello aperto: spegne il solo e il pannello resta (un livello per volta). Vero se l'ha spento. */
+function escSpegneSoloPianta(){
+  if(!(soloPiantaPiena() && pannelloPiantaAperto())) return false;
+  soloPlanimetria(false); return true;
+}
+/* il clic fermo sul vuoto esce dalle viste dei Livelli, ma non da «Solo planimetria»: lì sotto c'è la pianta */
+function clicVuotoEsceDallaVista(){ return inListMode() && !soloPiantaPiena(); }
+function aggiornaSoloPlanimetria(){
+  var b=document.getElementById("venueSolo"); if(!b) return;
+  var si=soloPlanimetriaDisponibile(), on=si && soloPiantaPiena();
+  b.hidden=!si;
+  b.classList.toggle("on", on);
+  b.setAttribute("aria-pressed", on ? "true" : "false");
+  b.title = on ? "Torna a vedere tutto il palco" : "Mostra solo la planimetria, a piena opacità: elementi e cavi si nascondono";
+  /* in solo lo slider non cambierebbe niente a video: si ferma e dice perché */
+  var op=document.getElementById("venueOpacity"); if(op) op.disabled=on;
+  var nt=document.getElementById("venueOpacitySolo"); if(nt) nt.hidden=!on;
+}
 /* «Aggancia gli elementi alla pedana» (29/09, Simone: «sulla destra oltre all'opzione solo pedane ci sarà
    l'opzione snap elementi con pedane che di default sarà spenta»). Sta sotto «Solo pedane» nel pannello
    dell'elemento e in quello della selezione, e c'è solo con una pedana nella selezione. Sul telefono resta
@@ -25760,7 +25818,10 @@ function itemInSoloLayer(it){
 function soloMostra(it){ return anySolo() && (!soloOn("pedane") || itemInSoloLayer(it)); }
 /* un layer spento (cestino/toggle) non deve restare in solo fantasma sfumando tutto */
 function pruneSolo(){
-  if(!anySolo()) return;
+  if(!anySolo()){ soloPiantaPannello=false; return; }
+  /* il pannello possiede solo il SUO solo (pieno): passato al fuoco della riga dei Livelli, è dei Livelli e
+     non si spegne più col pannello (prima: tendina della riga aperta su una vista che non c'era più) */
+  if(!soloPiantaPiena()) soloPiantaPannello=false;
   var alive={ cabin:(!!(state.cab&&state.cab.on) || (state.items||[]).some(function(x){ return x.type==="rxrf"||x.type==="rfant"||x.type==="rfsplit"; })),
               cabout:!!(state.cab&&state.cab.on),
               mond:!!(state.mond&&state.mond.on),
@@ -25768,9 +25829,11 @@ function pruneSolo(){
               miczone:(state.items||[]).some(function(x){return x.type==="miczone";}),
               mus:(state.items||[]).some(function(x){return musLayerItem(x.type);}),
               cover:(state.items||[]).some(isCover),
-              venue:!!(state.venue&&state.venue._dataUrl), stage:true,
+              venue:!!(state.venue&&state.venue._dataUrl) && (!soloPiantaPannello || pannelloPiantaAperto()),   /* accesa dal pannello: vive col pannello (vedi soloPlanimetria) */
+              stage:true,
               pedane:soloPedaneDisponibile() };   /* deselezionata la pedana, il solo pedane si spegne da solo */
-  Object.keys(layerSoloUI).forEach(function(k){ if(!alive[k]) delete layerSoloUI[k]; });
+  Object.keys(layerSoloUI).forEach(function(k){ if(!alive[k]){ delete layerSoloUI[k]; if(layerAccOpen===k) layerAccOpen=null; } });   /* niente tendina aperta su una vista spenta */
+  if(!soloOn("venue")) soloPiantaPannello=false;
 }
 function resetMetaLayersUI(){ stageLayerUI={vis:true,op:100,lock:false}; micLayerUI={vis:true,op:100,lock:false};
   musLayerUI={vis:true,op:100,lock:false};
@@ -27332,6 +27395,14 @@ function renderVistaBanner(){
     el.hidden=false;
     var bp=document.getElementById("vistaEsci");
     if(bp) bp.addEventListener("click", function(e){ e.stopPropagation(); exitListMode(); render(); });
+    return;
+  }
+  if(id==="venue" && soloPiantaPiena()){   /* Solo planimetria: la pianta intera, il resto nascosto */
+    el.innerHTML='<span class="vb-txt"><b>Solo planimetria</b> \u2014 la pianta a piena opacit\u00e0, elementi e cavi nascosti</span>'
+      + '<button type="button" class="vb-esci" id="vistaEsci">Mostra tutto il palco</button>';
+    el.hidden=false;
+    var bv=document.getElementById("vistaEsci");
+    if(bv) bv.addEventListener("click", function(e){ e.stopPropagation(); exitListMode(); render(); });
     return;
   }
   var iso=soloOn(id) && layerSoloMode==="iso";
@@ -29025,7 +29096,8 @@ function venueMarkup(){
   var durl=safeVenueDataUrl(v._dataUrl); if(!durl) return '';   /* seconda barriera: rivalida al render */
   function n(x,f){ x=Number(x); return isFinite(x)?x:f; }
   var x=n(v.x,0), y=n(v.y,0), w=Math.max(1,n(v.w,1)), h=Math.max(1,n(v.h,1)), rot=n(v.rot,0);
-  var op=(Math.max(0,Math.min(100,n(v.opacity,40)))/100).toFixed(2);
+  /* «Solo planimetria»: la pianta intera, senza toccare l'opacità salvata (mai in stampa: vedi senzaVisteDiLavoro) */
+  var op=((soloPiantaPiena() && !window.__scenePrint) ? 1 : Math.max(0,Math.min(100,n(v.opacity,40)))/100).toFixed(2);
   var hw=w/2, hh=h/2;
   var pe=v.locked?'none':'auto';
   var s='<image href="'+durl+'" x="'+(-hw)+'" y="'+(-hh)+'" width="'+w+'" height="'+h+'"';
@@ -29101,6 +29173,7 @@ function renderVenuePanel(){
   document.getElementById("venueRotRow").style.display = hasImg?"":"none";
   document.getElementById("venueBtnCalib").style.display = hasImg?"":"none";
   document.getElementById("venueBtnDel").style.display = v?"":"none";
+  aggiornaSoloPlanimetria();
 }
 function toggleVenueEdit(){
   if(custEditorAttivo()) return custEditorAvvisa();   /* «Crea elemento» aperto: agirebbe sul palco temporaneo come se fosse il progetto */
@@ -29566,9 +29639,16 @@ document.getElementById("venueOpacity").addEventListener("input", function(){
 });
 document.getElementById("venueRot").addEventListener("input", function(){ venueSetRot(this.value); });
 document.getElementById("venueRotNum").addEventListener("change", function(){ venueSetRot(this.value); });
+function venueAlternaVisibile(){
+  if(!state.venue) return false; state.venue.enabled=(state.venue.enabled===false)?true:false;
+  if(state.venue.enabled===false && soloOn("venue")) soloPlanimetria(false);   /* come l'occhio dei Livelli: il solo vince sugli occhi, e la pianta resterebbe lì col bottone «Mostra» */
+  return true;
+}
 document.getElementById("venueBtnVis").addEventListener("click", function(){
-  if(!state.venue) return; state.venue.enabled=(state.venue.enabled===false)?true:false; save(); renderVenuePanel(); render();
+  if(!venueAlternaVisibile()) return;
+  save(); renderVenuePanel(); render();
 });
+document.getElementById("venueSolo").addEventListener("click", function(e){ e.stopPropagation(); soloPlanimetria(!soloPiantaPiena()); render(); });
 document.getElementById("venueBtnLock").addEventListener("click", function(){
   if(!state.venue) return; state.venue.locked=!state.venue.locked; save(); renderVenuePanel(); render();
 });
@@ -30720,7 +30800,7 @@ function channelTableSvg(x, top, w){
   return s;
 }
 function buildExportSvg(){
-  if(layerSoloUI.pedane){ var _ex=senzaSoloPedane(buildExportSvg); render(); return _ex; }   /* la vista «Solo pedane» non va nel PNG; il render() finale qui sotto l'aveva tolta dal canvas */
+  if(vistaDiLavoro()){ var _ex=senzaVisteDiLavoro(buildExportSvg); render(); return _ex; }   /* nessuna vista di lavoro (S, fuoco, «Solo pedane», «Solo planimetria») nel PNG; il render() finale qui sotto l'aveva tolta dal canvas */
   var keep=sel, keepSet=selSet; sel=null; selSet={};
   recalcStageBBox();
   var m=130, W=state.stage.w, D=state.stage.d, head=70;
@@ -30928,7 +31008,7 @@ function pdfScaleValue(){ var s=document.getElementById("pdfScale"); if(!s) retu
    Con area di stampa automatica (non personalizzata) espande il viewBox di 80 unità per lato
    per includere i label di quota (posizionati fuori dal rettangolo palco). */
 function stageSceneSvg(cropVb, opts){
-  if(layerSoloUI.pedane) return senzaSoloPedane(function(){ return stageSceneSvg(cropVb, opts); });   /* né nel PDF: vedi senzaSoloPedane */
+  if(vistaDiLavoro()) return senzaVisteDiLavoro(function(){ return stageSceneSvg(cropVb, opts); });   /* né nel PDF: vedi senzaVisteDiLavoro */
   opts=opts||{}; var focus=opts.focus||null;   /* null | clean | cabin | cabout | mond | cabaudio(legacy: i 3 audio fusi) | elec | sectionmic */
   recalcStageBBox();
   var A=printArea(), DM=A.custom?0:80;
