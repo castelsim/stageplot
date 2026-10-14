@@ -29649,12 +29649,44 @@ function svgToDataUrl(svgStr, pxW, pxH, type, trasparente){   /* trasparente: ni
    caricate da /vendor/pdf.min.js al primo export, non a ogni avvio. La promise è cachata (un solo
    caricamento); su errore si azzera per consentire un nuovo tentativo. */
 var __pdfLibsPromise=null;
+/* Le scritte che jsPDF disegna da sé (cartiglio, quote del palco, rider, liste) passano dalla stessa regola
+   delle scritte dello stage plot (pdfColoreTesto): grigi e scuri → nero pieno, chiari e colorati intatti.
+   Si avvolge il costruttore una volta sola, appena la libreria c'è: ogni documento creato dopo è coperto. */
+function pdfTestoNeroDoc(d){
+  var orig=d && d.setTextColor; if(typeof orig!=="function" || orig.__nero) return d;
+  function hex2(n){ return ("0"+Math.max(0,Math.min(255,Math.round(n))).toString(16)).slice(-2); }
+  var f=function(a,b,c,e){
+    var hex=null;
+    if(typeof a==="string" && arguments.length===1){
+      var m=/^#?([0-9a-f])([0-9a-f])([0-9a-f])$/i.exec(a);
+      hex = m ? "#"+m[1]+m[1]+m[2]+m[2]+m[3]+m[3] : a;
+    } else if(typeof a==="number" && typeof b==="number" && typeof c==="number" && e===undefined){
+      hex="#"+hex2(a)+hex2(b)+hex2(c);
+    } else if(typeof a==="number" && arguments.length===1){
+      hex="#"+hex2(a)+hex2(a)+hex2(a);
+    }
+    if(hex && pdfColoreTesto(hex)==="#000000") return orig.call(this,"#000000");
+    return orig.apply(this,arguments);
+  };
+  f.__nero=true; d.setTextColor=f; return d;
+}
+function pdfTestoNeroInstalla(){
+  var J=window.jspdf; if(!J || typeof J.jsPDF!=="function" || J.jsPDF.__testoNero) return;
+  var Orig=J.jsPDF;
+  var Avvolto=function(){
+    var d=new (Function.prototype.bind.apply(Orig,[null].concat(Array.prototype.slice.call(arguments))))();
+    return pdfTestoNeroDoc(d);
+  };
+  Object.keys(Orig).forEach(function(k){ Avvolto[k]=Orig[k]; });
+  Avvolto.API=Orig.API; Avvolto.prototype=Orig.prototype; Avvolto.__testoNero=true;
+  J.jsPDF=Avvolto;
+}
 function loadJsPDF(){
-  if(window.jspdf && window.jspdf.jsPDF) return Promise.resolve();
+  if(window.jspdf && window.jspdf.jsPDF){ pdfTestoNeroInstalla(); return Promise.resolve(); }
   if(__pdfLibsPromise) return __pdfLibsPromise;
   __pdfLibsPromise=new Promise(function(res,rej){
     var s=document.createElement("script"); s.src="/vendor/pdf.min.js"; s.async=true;
-    s.onload=function(){ (window.jspdf && window.jspdf.jsPDF) ? res() : rej(new Error("jsPDF non disponibile dopo il caricamento")); };
+    s.onload=function(){ if(window.jspdf && window.jspdf.jsPDF){ pdfTestoNeroInstalla(); res(); } else rej(new Error("jsPDF non disponibile dopo il caricamento")); };
     s.onerror=function(){ __pdfLibsPromise=null; rej(new Error("Impossibile caricare le librerie PDF")); };
     document.head.appendChild(s);
   });
@@ -30700,6 +30732,17 @@ function svg2pdfFn(){ var s=window.svg2pdf; if(typeof s==="function") return s; 
 function loadSvg2Pdf(){ return loadJsPDF().then(function(){ return new Promise(function(res,rej){ svg2pdfFn() ? res() : rej(new Error("svg2pdf non disponibile")); }); }); }
 /* svg2pdf non applica il CSS <style>: appiattisco gli stili del testo (font, colore, allineamento)
    in attributi inline leggendo lo stile calcolato. Niente stroke → niente contorno bianco sopra il testo. */
+/* Colore delle scritte nel PDF (14/10/2026, Simone: «adesso leggo molto meglio le dimensioni delle pedane …
+   Dobbiamo farlo così»). Le quote delle pedane e i nomi secondari sono grigi (#6B7280) e a 1:100 alti ~1 mm:
+   una laser in bianco e nero fa il grigio a puntini e le lettere si sfaldano. Nel PDF quindi ogni scritta
+   NEUTRA (grigia o quasi nera) e non chiara diventa nero pieno; restano come sono le scritte chiare (bianco
+   su fondo scuro) e quelle COLORATE (arancio, rosso, verde…), che portano un significato. */
+function pdfColoreTesto(hex){
+  var m=/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(String(hex||"")); if(!m) return hex;
+  var r=parseInt(m[1],16), g=parseInt(m[2],16), b=parseInt(m[3],16);
+  var neutro=(Math.max(r,g,b)-Math.min(r,g,b))<=40, scuro=(r+g+b)/3<205;
+  return (neutro && scuro) ? "#000000" : hex;
+}
 function rgbToHex(c){ var m=c&&c.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/); return m?'#'+[+m[1],+m[2],+m[3]].map(function(v){return('0'+v.toString(16)).slice(-2)}).join(''):c; }
 /* SECONDA PASSATA sui nomi, con le misure VERE (11/08). lblNudges lavora prima che l'SVG esista, e
    deve quindi STIMARE quanto è largo un nome: la stima sbaglia il centro di qualche centimetro, e su
@@ -30765,7 +30808,7 @@ function flattenTextStyles(rootEl){
     if(cs.fontWeight) el.setAttribute("font-weight", (parseInt(cs.fontWeight,10)>=600?"bold":"normal"));
     if(cs.fontStyle && cs.fontStyle!=="normal") el.setAttribute("font-style", cs.fontStyle);
     if(cs.textAnchor) el.setAttribute("text-anchor", cs.textAnchor);
-    if(/^rgb/.test(cs.fill)) el.setAttribute("fill", rgbToHex(cs.fill));   /* svg2pdf: hex, non rgb() */
+    if(/^rgb/.test(cs.fill)) el.setAttribute("fill", pdfColoreTesto(rgbToHex(cs.fill)));   /* svg2pdf: hex, non rgb(); grigi e scuri → nero (pdfColoreTesto) */
     if(cs.fillOpacity!=="" && +cs.fillOpacity<1) el.setAttribute("fill-opacity", cs.fillOpacity);
     var ls=parseFloat(cs.letterSpacing); if(ls) el.setAttribute("letter-spacing", ls);
     /* Raccoglie info halo per i <text> con tratto chiaro (alone bianco), PRIMA di azzerare stroke */
