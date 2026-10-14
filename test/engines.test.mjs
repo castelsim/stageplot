@@ -10853,6 +10853,7 @@ t("precisione: le misure digitate si leggono (separatori, virgola, unità, un nu
   eq([L("120 80").w, L("120;80").d], [120, 80]); eq([L("120,5x80").w, L("120.5x80").w], [120.5, 120.5]);
   eq([L("1,2m x 80").w, L("35mm*2m").w, L("35mm*2m").d, L("1,2 m x 80 cm").w], [120, 3.5, 200, 120]);
   eq([L("120").w, L("120").d], [120, 120], "un numero: quadrato");
+  ok(/Scrivi le misure/.test(L("abc").err) && /da 0,01 a 100 m/.test(L("0x80").err) && /cerchio/.test(L("abc", "ell").err), "l'errore dice cosa non va: " + L("abc").err);
   ["", "abc", "120x", "x80", "0x80", "-5x10", "120x80x3", "1e9", "99999x10", "12,3,4"].forEach((s) => ok(!L(s).ok && L(s).err, "rifiuta «" + s + "»"));
   eq([L("150", "line").len, L("150", "line").ang], [150, null]);
   eq([L("150<30", "line").ang, L("150@30", "line").ang, L("150 30°", "line").ang, L("150 < -90", "line").ang, L("1,5m<45", "line").len], [30, 30, 30, 270, 150]);
