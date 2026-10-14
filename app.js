@@ -7387,7 +7387,7 @@ function shapeGeom(it){
    nuovo prima che un progetto con `custom` possa esistere (un'app vecchia in cache rifiuta i tipi sconosciuti,
    UNKNOWN_ITEM_TYPE). FASE 2 (24–48 h dopo): cambiare il `false` in `true`. È una funzione che torna un letterale, non una
    var: una var più in basso nel file sarebbe undefined per il codice di avvio (AGENTS.md §8). I test la sostituiscono. */
-function custIngressiAttivi(){ return false; }   /* FASE 1 del rilascio: metti true per la fase 2 */
+function custIngressiAttivi(){ return true; }   /* FASE 2 (14/10/2026): acceso dopo il deploy di submit-feedback (POST anonimo «elemento» → 401 verificato). Per spegnere gli ingressi: false (MAI un revert dell'app: i progetti con elementi personalizzati devono restare leggibili) */
 function custLimiti(){ return {NOME:60, DESC:280, TESTO:140, FORME:200, PUNTI:200, WATT:20000, INS:16, MIN:10, MEMBRO:4096, MODELLI:50, FORME_BYTE:262144}; }
 /* un numero vero: un number finito, o una stringa numerica non vuota. null (da JSON), "", true, [] NON sono 0: si scartano */
 function custNumero(v){
