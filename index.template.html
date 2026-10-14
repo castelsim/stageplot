@@ -4406,6 +4406,11 @@ var WATT = {
   comboamp:150, stack:250, bassamp:400, keysamp:150, leslie:250, edrums:60, djset:350,
   organohammond:250, spdsx:15, pedaliera:30,   /* audit 14/07: strumenti elettronici che assorbono corrente (Hammond ~200-250W dai datasheet, SPD-SX alim. Roland ~15W, pedalboard PSU ~30W) */
   stagepiano:50, doppiatastiera:100, celesta:40,
+  /* Tastiera (synth · 1 tastiera): nata il 24/07 per la ricerca nel catalogo, non era mai entrata qui e
+     contava zero (13/10/2026: quattro tastiere vere sparite dai carichi). Stessa riga della ricerca dello
+     Stage piano («strumenti digitali 30-100 W»): una tastiera, 50 W; la Doppia ne vale due. Stima di
+     famiglia: con un modello che dichiara l'assorbimento vale il modello (AMP_DB). */
+  tastiera:50,
   /* CONSOLE — questi non sono tipi generici ma MODELLI REALI, e per un modello reale il numero
      onesto e' quello di TARGA del costruttore, non un "tipico" che nessuno ha misurato. Verificati
      uno per uno il 29/08 aprendo i documenti ufficiali: dodici valori su quattordici erano sbagliati,
@@ -25055,6 +25060,7 @@ var IN_SRC = {
 var STEREO_TOGGLE = {
   grancoda:{mic:"KM184",def:true}, mezzacoda:{mic:"KM184",def:true}, pianoverticale:{mic:"KM184",def:true},
   stagepiano:{mic:"DI",def:true}, organohammond:{mic:"DI",def:true}, clavicembalo:{mic:"KM184",def:true},
+  tastiera:{mic:"DI",def:true},   /* 13/10/2026: la Tastiera non generava canali; come lo Stage piano, L/R in DI (Tastiera L / Tastiera R) */
   celesta:{mic:"KM184",def:false},
   laptop:{mic:"DI",def:true}, djset:{mic:"DI",def:true}, pedaliera:{mic:"DI",def:false}
 };
