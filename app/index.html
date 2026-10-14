@@ -3858,6 +3858,8 @@ body.cust-editor #catCustom, body.proj-ro #catCustom, body.viewmode #catCustom{d
 body.dark #props .cust-pan .cust-pan-btns .btn{background:#20292e;border-color:#3a4658;color:#e5e7eb}
 #props .cust-pan .prop-hint:last-child{margin:6px 0 0}
 body.cust-editor.m-has-sel #custScheda{border-top:1px solid var(--border);padding-top:12px;margin-top:6px}   /* sotto il pannello di ciò che è selezionato */
+/* Esporta col dito (14/10): il fuoco iniziale va alla finestra stessa (esportaFuocoIniziale), non a un campo che aprirebbe la tastiera; niente anello attorno a tutta la finestra */
+#pdfModal .mcard:focus{outline:none}
 </style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->
 <script async src="/icons.js"></script>
