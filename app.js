@@ -1458,6 +1458,10 @@ var TYPES = {
              draw:function(it){ var mi=modelIcon(it); return mi ? drawLibFit(mi.key,it,mi.w,mi.d) : drawLibFit("stagepiano",it,118,34); }},
   doppiatastiera:{nome:"Doppia tastiera", dim:"120×75", cat:"Band e backline", sub:"Tastiere e piani", w:125,d:78, alias:"tastiera tastiere doppia due keyboard keyboards synth sintetizzatore stack",
              draw:function(it){ return drawLibFit("doppiatastiera",it,105,50); }},
+  tastierecolonna:{nome:"Tastiera a due piani (Apex AX-48)", dim:"piano sotto · synth sopra · in piedi", cat:"Band e backline", sub:"Tastiere e piani", w:132,d:127,   /* = COLONNA2 (definita sotto: qui non esiste ancora) */
+             alias:"tastiere due piani supporto stand apex ax-48 ax48 ultimate support piano digitale synth minilogue sovrapposte in piedi tastierista",
+             qaPrimo:"apex ax-48 ax48 supporto 2 piani",
+             draw:function(it){ return colonna2Draw(it); }},
   celesta:  {nome:"Celesta", dim:"105×62", cat:"Orchestra", sub:"Arpa e celesta", w:107,d:64,
              draw:function(it){ return drawLibFit("celesta",it,115,60); }},
   panchetta:{nome:"Panchetta piano", dim:"75×35", cat:"Band e backline", sub:"Tastiere e piani", w:75,d:35,
@@ -1969,7 +1973,7 @@ var SEARCH_ALIAS = {
   comboamp:"amplificatore amplificatori gtr cab guitar cab", stack:"amplificatore amplificatori",
   batteria:"drummer batterista batteristi kick cassa charleston hi hat hihat piatti tom tamburo dr drs drms drum kit drumkit bd sn snr sd hh ft oh cym crash ride",
   batteristaR:"drummer batteristi dr drs drms", musBatteria:"drummer batterista batteristi",
-  tastiera:"tastierista tastieristi keyboardist kb kys keys", doppiatastiera:"tastierista tastieristi keyboardist",
+  tastiera:"tastierista tastieristi keyboardist kb kys keys", doppiatastiera:"tastierista tastieristi keyboardist", tastierecolonna:"tastierista tastieristi keyboardist kb kys keys",
   direttore:"conductor maestro concertatore",   /* 25/09: «cond» dava solo il Moderatore (conduttore), chi disegnava un'orchestra non trovava il direttore */
   stagepiano:"tastierista tastieristi pianista pianisti pianoforte kb kys keys pno",
   grancoda:"pianista pianisti pianoforte pno", mezzacoda:"pianista pianisti pianoforte",
@@ -2072,7 +2076,7 @@ var ESSENTIAL={ comboamp:1,stack:1,bassamp:1,keysamp:1, astamic:1,giraffa:1,asta
   pedana:1,tappeto:1,fondale:1,sediabianca:1,platea:1,sgabello:1,leggio:1,leggiotablet:1, truss:1,transenna:1,estcarr:1,towergs:1,
   notebook:1,rack2u:1,flightcase:1, cantante:1,corista:1,direttore:1,
   vlnpost:1,violapost:1,violoncello:1,contrabbasso:1,flauto:1,clarinetto:1,saxalto:1,saxtenore:1,tromba:1,trombone:1,corno:1,
-  stagepiano:1,tastiera:1,grancoda:1,doppiatastiera:1,organohammond:1, gtstand:1,gtacustica:1,bassstand:1,pedaliera:1, batteria:1,snareR:1 };
+  stagepiano:1,tastiera:1,grancoda:1,doppiatastiera:1,tastierecolonna:1,organohammond:1, gtstand:1,gtacustica:1,bassstand:1,pedaliera:1, batteria:1,snareR:1 };
 /* Gli STRUMENTI si vedono sempre tutti (niente "Mostra tutti" nella categoria Strumenti): sono il cuore
    dello stage plot, nasconderne di standard (oboe, fagotto, tuba, timpani, arpa…) confondeva. Il filtro
    essenziale-first resta per le categorie ad accessori (Audio/Luci/Elettrico/Palco/Allestimento/…). */
@@ -2114,7 +2118,7 @@ function subOf(k){   /* sottocategoria (nuova) di un tipo */
 var WATT = {
   comboamp:150, stack:250, bassamp:400, keysamp:150, leslie:250, edrums:60, djset:350,
   organohammond:250, spdsx:15, pedaliera:30,   /* audit 14/07: strumenti elettronici che assorbono corrente (Hammond ~200-250W dai datasheet, SPD-SX alim. Roland ~15W, pedalboard PSU ~30W) */
-  stagepiano:50, doppiatastiera:100, celesta:40,
+  stagepiano:50, doppiatastiera:100, celesta:40, tastierecolonna:35,   /* 15/10: piano digitale (25, stima) + minilogue xd (8, manuale Korg) */
   /* CONSOLE — questi non sono tipi generici ma MODELLI REALI, e per un modello reale il numero
      onesto e' quello di TARGA del costruttore, non un "tipico" che nessuno ha misurato. Verificati
      uno per uno il 29/08 aprendo i documenti ufficiali: dodici valori su quattordici erano sbagliati,
@@ -2306,6 +2310,41 @@ function modelIcon(it){
   var w=+d.mm[0]/10, p=+d.mm[1]/10;
   return (isFinite(w)&&isFinite(p)&&w>0&&p>0) ? {key:d.icona, w:w, d:p} : null;
 }
+/* SUPPORTO A COLONNA A DUE PIANI (15/10/2026, Montecarla): Ultimate Support Apex AX-48 Pro con un piano digitale sotto e un synth
+   (Korg minilogue xd) sopra, il tastierista IN PIEDI. Un solo elemento = una sola postazione: niente sgabello (non e' in KEYS_BENCH),
+   due canali mono (Tastiera, Synth) in IN_MULTI, nessun ingombro «stage piano» in piu'.
+   Dati del costruttore (SCHEDA in CONCERTO_2026-10-16/stageplot/supporto_ax48pro): altezza 1168 mm, 8,6 kg, 56,8 kg per piano, due piani
+   con bracci Tribar da 13" (330 mm, piano alto) e 18" (457 mm, piano basso). NON pubblicati dal costruttore, quindi stime da verificare:
+   l'ingombro dei piedi (60 x 60 cm, rivenditore), l'interasse dei bracci e la distanza tra i piani. Vista dall'alto, +y = pubblico:
+   il musicista sta a monte (y<0) con i tasti verso di lui, come in musTastiera; la colonna sta dietro i pannelli (verso il pubblico). */
+var COLONNA2 = { w:132, d:127,
+  arm1:45.7, arm2:33.0,             /* bracci 18" (basso) e 13" (alto), cm */
+  base:60 };                        /* piedi in pianta, cm: STIMA (non nei documenti del costruttore) */
+function colonna2Draw(it){
+  var C=COLONNA2, yc=C.d/2-C.base/2;   /* yc = colonna: i piedi (60) chiudono il lato pubblico */
+  var sch=!!(it && it.look==="schematico");
+  function at(x,y,rot,inner){ return '<g transform="translate('+x+','+y+')'+(rot?' rotate('+rot+')':'')+'">'+inner+'</g>'; }
+  var s='', h=C.base/2;
+  /* 1) piedi: quattro gambe a X sul pavimento (tre a scatto + la quarta a vite, dal manuale), sotto tutto */
+  [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(function(c){
+    s+='<line x1="0" y1="'+yc+'" x2="'+(c[0]*h*0.92)+'" y2="'+(yc+c[1]*h*0.92)+'" stroke="#2a2d31" stroke-width="3.4" stroke-linecap="round"/>'
+      +'<circle cx="'+(c[0]*h*0.92)+'" cy="'+(yc+c[1]*h*0.92)+'" r="2.4" fill="#15171a"/>';
+  });
+  var pY=yc-3-18;
+  /* 2) il tastierista, IN PIEDI, a monte dei tasti (stessa figura delle voci), sotto il piano: le gambe stanno dietro la tastiera; nello «Strumento solo» non c'e' */
+  if(!sch) s+=at(0,pY-18-24,0,singer({type:"corista", micMode:"pano", leggio:false}));
+  /* 3) bracci del piano basso (18") e piano digitale: tasti verso il musicista (a monte, y<0) */
+  s+=bar(-13,yc-C.arm1/2,3,C.arm1,'ic fGrey',1)+bar(13,yc-C.arm1/2,3,C.arm1,'ic fGrey',1);
+  s+=at(0,pY,180,libIconScene("piano88_colonna"));
+  /* 4) piano alto (13"): ombra sul piano sotto, bracci e synth, sopra a tutto */
+  var sY=yc-1.5-15;
+  s+='<rect x="-25" y="'+(sY-15+2.2)+'" width="50" height="30" rx="2" fill="#000" fill-opacity=".30" transform="translate(2.2 0)"/>';
+  s+=bar(-10,yc-C.arm2/2,2.6,C.arm2,'ic fMon',1)+bar(10,yc-C.arm2/2,2.6,C.arm2,'ic fMon',1);
+  s+=at(0,sY,180,libIconScene("korg_minilogue_xd"));
+  /* 5) colonna, dietro i pannelli, verso il pubblico */
+  s+=bar(0,yc+1,7.5,6,'ic fBlack',1.5);
+  return s;
+}
 /* Assorbimento del modello. Mai `out`: quella e' potenza audio. null = non dichiarato dal costruttore. */
 function ampModelWatt(it){ var d=ampModelOf(it); if(!d||d.watt==null) return null;
   var n=+d.watt; return (isFinite(n)&&n>=0) ? n : null; }
@@ -2484,7 +2523,7 @@ if(typeof window!=="undefined") window.techGapCheck=techGapCheck;
 var WEIGHT = {
   /* backline */
   comboamp:25, stack:45, bassamp:40, keysamp:20, leslie:68,
-  grancoda:400, mezzacoda:300, pianoverticale:230, stagepiano:25, doppiatastiera:40, celesta:100,
+  grancoda:400, mezzacoda:300, pianoverticale:230, stagepiano:25, doppiatastiera:40, celesta:100, tastierecolonna:31,   /* 15/10: stand 8,6 (Ultimate Support) + piano ~20 + synth 2,8 (Korg): stima */
   /* batteria e percussioni */
   batteria:55, edrums:35, timpani:180, timpani3:135, timpani2:95, marimba:70, vibrafono:65, xilofono:45,
   glockenspiel:20, campane:90, grancassa:40, tamtam:45, timbales:20, percussioni:30, cajon:6, cajonpost:6,   /* la postazione pesa quanto il cajon: le aste qui non hanno peso */
@@ -2654,7 +2693,7 @@ var VOCE = { cantante:1, corista:1, relatore:1, moderatore:1 };   /* postazioni 
    davanti alla bocca o un palmare su asta. Fiati e archi restano fuori: mentre suonano non cantano,
    e se cantano in un pezzo usano l'asta come tutti — il loro canale mic esiste gia'. */
 var HEADMIC_TYPES = { gtstand:1, gtacustica:1, bassstand:1, musChitClassica:1,
-  stagepiano:1, tastiera:1, doppiatastiera:1, organohammond:1, grancoda:1, mezzacoda:1, pianoverticale:1,
+  stagepiano:1, tastiera:1, doppiatastiera:1, tastierecolonna:1, organohammond:1, grancoda:1, mezzacoda:1, pianoverticale:1,
   batteria:1, percussioni:1, cajon:1, cajonpost:1, fisarmonica:1, arpa:1, djset:1 };
 var HEADMIC_MIC = { archetto:"DPA 4088", asta:"SM58", mano:"SM58" };
 function canHeadMic(it){ return !!(it && (HEADMIC_TYPES[it.type] || (TYPES[it.type]&&TYPES[it.type].gtr))); }
@@ -3283,7 +3322,7 @@ var DEFAULT_LABELS = {
   timpsingolo:"Timp", kickdrum:"Kick", tomdrum:"Tom", hihat:"HH",
   tamtam:"Tam-tam", glockenspiel:"Glock.", xilofono:"Xylo", vibrafono:"Vibes", marimba:"Marimba",
   comboamp:"Gtr amp", stack:"Gtr stack", bassamp:"Bass amp", keysamp:"Keys amp", leslie:"Leslie",
-  grancoda:"Grand", mezzacoda:"Baby grand", pianoverticale:"Upright", stagepiano:"Keys", doppiatastiera:"2 Keys", celesta:"Celesta", panchetta:"Panca",
+  grancoda:"Grand", mezzacoda:"Baby grand", pianoverticale:"Upright", stagepiano:"Keys", doppiatastiera:"2 Keys", tastierecolonna:"Keys + synth", celesta:"Celesta", panchetta:"Panca",
   gtstand:"Gtr", gtacustica:"Ac. gtr", bassstand:"Bass", pedaliera:"Pedalboard", djset:"DJ", direttore:"Direttore",
   vlnpost:"Vln", violapost:"Vla", vln1x2:"Vln I x2", vln2x2:"Vln II x2", violax2:"Vla x2", cellix2:"Vc x2", cbx2:"Cb x2",
   archi2leggio:"Vln x2", violoncello:"Vc", contrabbasso:"Cb", arpa:"Arpa",
@@ -17831,7 +17870,7 @@ var INSTR_BASE = {
   arpa:"Arpa",
   gtstand:"Chitarra", bassstand:"Basso",
   comboamp:"Ampli chitarra", stack:"Stack chitarra", bassamp:"Ampli basso", keysamp:"Ampli tastiere",
-  stagepiano:"Stage piano", grancoda:"Piano", mezzacoda:"Piano", doppiatastiera:"Tastiere",
+  stagepiano:"Stage piano", grancoda:"Piano", mezzacoda:"Piano", doppiatastiera:"Tastiere", tastierecolonna:"Tastiere",
   organoconsole:"Organo", controllermidi:"Controller MIDI", djset:"DJ set", panchetta:"Panchetta",
   rullante:"Rullante", percussioni:"Percussioni", grancassa:"Gran cassa", kickdrum:"Cassa",
   piatto:"Piatto", piatticoppia:"Piatti", campane:"Campane", tamtam:"Tam-tam",
@@ -22394,6 +22433,7 @@ var IN_MULTI = {
   mezzacoda:[["Pianoforte L","KM184"],["Pianoforte R","KM184"]],
   pianoverticale:[["Piano vert. L","KM184"],["Piano vert. R","KM184"]],
   stagepiano:[["Tastiere L","DI"],["Tastiere R","DI"]],
+  tastierecolonna:[["Tastiera","DI"],["Synth","DI"]],   /* 15/10: due uscite MONO (piano digitale sotto, synth sopra da L/MONO), nessuno stereo */
   doppiatastiera:[["Tastiera sup. L","DI"],["Tastiera sup. R","DI"],["Tastiera inf. L","DI"],["Tastiera inf. R","DI"]],
   djset:    [["DJ L","DI"],["DJ R","DI"]],
   laptop:   [["Playback L","DI"],["Playback R","DI"]],
@@ -26050,12 +26090,12 @@ function renderMonitorPanel(){
 function performerKind(it){
   if(it.type==="batteria"||it.type==="edrums") return "batteria";
   if(VOCE[it.type]) return "voce";
-  if(KEYS_BENCH[it.type]||TASTIERE[it.type]) return "tastiere";
+  if(KEYS_BENCH[it.type]||TASTIERE[it.type]||it.type==="tastierecolonna") return "tastiere";
   return "strumento";
 }
 function isPerformer(it){   /* un elemento SUONATO da una persona (non ampli/DI/rack/casse) */
   if(!it) return false; var t=TYPES[it.type]; if(!t) return false;
-  if(POSTAZ[it.type]||VOCE[it.type]||KEYS_BENCH[it.type]||TASTIERE[it.type]||t.gtr) return true;
+  if(POSTAZ[it.type]||VOCE[it.type]||KEYS_BENCH[it.type]||TASTIERE[it.type]||it.type==="tastierecolonna"||t.gtr) return true;
   if(it.type==="batteria"||it.type==="edrums"||it.type==="percussioni"||it.type==="timbales"||it.type==="cajonpost") return true;
   return t.cat==="Orchestra";
 }
@@ -28029,7 +28069,7 @@ var H3D={ pedana:0,scala:40,rampa:40,parapetto:110,fondale:400,quinta:400,truss:
   timpani:90,timpani3:90,timpani2:90,
   grancassa:130,piatto:140,piatticoppia:40,campane:170,tamtam:180,glockenspiel:90,xilofono:95,vibrafono:95,marimba:95,
   comboamp:45,stack:110,bassamp:120,keysamp:50,leslie:105,
-  grancoda:101,mezzacoda:99,pianoverticale:131,stagepiano:95,doppiatastiera:120,celesta:90,panchetta:48,
+  grancoda:101,mezzacoda:99,pianoverticale:131,stagepiano:95,doppiatastiera:120,tastierecolonna:117,celesta:90,panchetta:48,
   gtstand:105,gtacustica:110,bassstand:115,djset:95,arpa:175,archi2leggio:125,vln1x2:125,vln2x2:125,violax2:125,cellix2:130,cbx2:190,
   astamic:160,giraffa:170,astagigante:300,astabassa:60,coppiast:170,podiosp:115,corista:160,
   /* astagigante 300 = quota di LAVORO tipica sopra un coro, scelta nostra: non è un dato di targa.
@@ -28053,7 +28093,7 @@ var DESC3D={ platea:"rows of audience chairs facing the stage", pedana:"black st
   comboamp:"guitar combo amplifier", stack:"guitar head + 4x12 cabinet", bassamp:"bass amp 8x10 fridge cabinet",
   leslie:"Leslie rotary speaker cabinet", grancoda:"concert grand piano, black polished, lid open",
   mezzacoda:"baby grand piano, black polished pno", pianoverticale:"upright piano, black",
-  stagepiano:"88-key stage piano on X stand", doppiatastiera:"two keyboards on double tier stand",
+  stagepiano:"88-key stage piano on X stand", doppiatastiera:"two keyboards on double tier stand", tastierecolonna:"two-tier column keyboard stand, digital piano below and synth above, player standing",
   celesta:"celesta, wooden body", panchetta:"black piano bench", arpa:"concert pedal harp, natural wood",
   gtstand:"electric guitar on stand", gtacustica:"acoustic guitar on stand", bassstand:"electric bass on stand",
   djset:"DJ table with 2 turntables and mixer", astamic:"black straight microphone stand with mic",
@@ -28101,7 +28141,7 @@ var TYPEMAT={ pedana:"stage_riser_black",pedanacoro:"stage_riser_black",podio:"s
   timpani:"copper",timpani3:"copper",timpani2:"copper",grancassa:"dark_varnished_wood",piatto:"brass_polished",piatticoppia:"brass_polished",campane:"silver_metal",tamtam:"brass_polished",
   glockenspiel:"silver_metal",xilofono:"varnished_wood",vibrafono:"silver_metal",marimba:"dark_varnished_wood",
   grancoda:"black_gloss_piano",mezzacoda:"black_gloss_piano",pianoverticale:"black_gloss_piano",celesta:"dark_varnished_wood",
-  stagepiano:"black_metal",doppiatastiera:"black_metal",arpa:"varnished_wood",archi2leggio:"varnished_wood",vln1x2:"varnished_wood",vln2x2:"varnished_wood",violax2:"varnished_wood",cellix2:"varnished_wood",cbx2:"dark_varnished_wood",
+  stagepiano:"black_metal",doppiatastiera:"black_metal",tastierecolonna:"black_metal",arpa:"varnished_wood",archi2leggio:"varnished_wood",vln1x2:"varnished_wood",vln2x2:"varnished_wood",violax2:"varnished_wood",cellix2:"varnished_wood",cbx2:"dark_varnished_wood",
   gtacustica:"varnished_wood gtr gtrs gt acoustic guitar",bassstand:"varnished_wood",gtstand:"varnished_wood",
   violoncello:"varnished_wood",contrabbasso:"dark_varnished_wood",
   drumshield:"plexiglass_clear", schermo:"black_metal", hearback:"black_metal",
