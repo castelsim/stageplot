@@ -10182,6 +10182,42 @@ t("PNG: l'opacità della planimetria sopravvive all'appiattimento degli stili", 
   const src = appjs.slice(appjs.indexOf("function flattenCssToAttrs("), appjs.indexOf("function flattenCssToAttrs(") + 4000);
   ok(/toLowerCase\(\)==="image" && s\.alpha<1\) el\.setAttribute\('opacity'/.test(src), "un'<image> tiene la sua opacità (fill-opacity non la tocca)");
 });
+/* ===== Forma senza testo (14/10, Simone: «se uso l'elemento forma devo avere la possibilità di non inserire testo,
+   attualmente se non inserisco testo c'è banalmente la scritta testo») ===== */
+t("Forma: nasce senza scritta, e il testo confermato vuoto resta vuoto (niente «Forma», niente «Testo…»)", () => {
+  reset();
+  eq(A.defaultLabel("forma"), "", "nessun nome di default per le forme");
+  const f = add("forma", 400, 400);
+  eq(f.label, "", "il rettangolo nasce senza scritta");
+  const mk = A.sceneMarkup(), i = mk.indexOf('data-id="' + f.id + '"');
+  ok(i > -1 && !/<text[^>]*>[^<]+<\/text>/.test(mk.slice(i, mk.indexOf("</g>", i))), "e a schermo non c'è scritto niente");
+  eq(A.testoConfermato(f, ""), "", "doppio clic, niente scritto, conferma: vuoto");
+  eq(A.testoConfermato(f, "Regia"), "Regia", "scritto qualcosa: quello");
+  const st = add("forma", 700, 400, { shape: "testo", w: 200, d: 70 });
+  eq([st.label, A.testoConfermato(st, "")], ["", ""], "anche «Solo testo»");
+  eq(A.testoConfermato({ type: "testo" }, ""), "Testo…", "il vecchio tipo «testo» (progetti salvati) tiene il suo segnaposto");
+  ok(/^Forma, posizione/.test(A.a11yDesc(f)), "lo screen reader la chiama «Forma» anche senza scritta: " + A.a11yDesc(f));
+  ok(!/over\.label="Testo…"/.test(appjs) && !/shape:"testo", w:200, d:70, label:"Testo…"/.test(appjs), "il catalogo e «Testo libero» non scrivono più «Testo…»");
+});
+t("Forma «Solo testo» vuota: riquadro tratteggiato a schermo, niente nel PDF e nel PNG", () => {
+  reset();
+  const keep = A.__scenePrint, keepVm = A.inVistaCondivisa;
+  A.__scenePrint = undefined;   /* nel sandbox una window.X mai scritta vale lo stub (vero): sullo schermo è undefined */
+  A.inVistaCondivisa = () => false;   /* nel sandbox il body è uno stub che risponde sì a tutto */
+  try {
+    const st = add("forma", 600, 400, { shape: "testo", w: 200, d: 70 });
+    ok(/class="txt-vuoto"/.test(A.drawShapeTesto(st)), "a schermo si ritrova");
+    ok(/class="txt-vuoto"/.test(A.sceneMarkup()), "anche nel disegno del palco");
+    const pdf = A.stageSceneSvg(null, {}), png = A.buildExportSvg().svgStr;
+    ok(!/txt-vuoto/.test(pdf) && !/txt-vuoto/.test(png), "né nel PDF né nel PNG");
+    ok(!/>Testo/.test(pdf) && !/>Testo/.test(png), "e nessuna scritta «Testo»");
+    A.inVistaCondivisa = () => true;
+    ok(!/txt-vuoto/.test(A.drawShapeTesto(st)), "nella vista condivisa (link a chi legge) non c'è");
+    A.inVistaCondivisa = () => false;
+    st.label = "Palco B";
+    ok(!/txt-vuoto/.test(A.drawShapeTesto(st)), "scritto il testo, il tratteggio sparisce");
+  } finally { A.__scenePrint = keep; A.inVistaCondivisa = keepVm; }
+});
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");

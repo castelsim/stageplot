@@ -8708,6 +8708,10 @@ function drawShape(it){
 }
 /* Forma «Solo testo»: le righe partono dall'alto, come nel Testo libero (al centro, in un riquadro alto,
    il testo galleggerebbe lontano da dove lo si è scritto). Lucchetto piccolo in alto a destra se bloccata. */
+/* i segni che servono solo a chi disegna: mai nel PDF e nell'anteprima (__scenePrint), nel PNG e nell'SVG
+   scaricato (sceneMarkup con espandi → _lblSchermo falso), né nella vista condivisa (viewmode) */
+function inVistaCondivisa(){ return document.body.classList.contains("viewmode"); }
+function segnapostoSoloSchermo(){ return _lblSchermo!==false && window.__scenePrint!==true && !inVistaCondivisa(); }
 function drawShapeTesto(it){
   var w=Math.max(8,it.w||200), d=Math.max(8,it.d||70), fsz=Math.max(6, it.lblSize==null?14:+it.lblSize||14), pad=8;
   var lines=wrapTextLines(it.label||"", Math.max(20, w-pad*2), fsz), lh=fsz*1.25, y0=-d/2+pad+fsz*0.85;
@@ -8715,6 +8719,10 @@ function drawShapeTesto(it){
   lines.forEach(function(ln,i){
     if(ln) s+='<text class="txtbox-line" x="'+ax[1]+'" y="'+(y0+i*lh)+'" text-anchor="'+ax[0]+'" style="font-size:'+fsz+'px;text-anchor:'+ax[0]+'" fill="'+tc+'">'+esc(ln)+'</text>';
   });
+  /* vuota: un riquadro tratteggiato SOLO a schermo, per ritrovarla e riprenderla; nel PDF, nel PNG e nella
+     vista condivisa non c'è niente (né la scritta «Testo», né il tratteggio) */
+  if(!String(it.label||"").trim() && segnapostoSoloSchermo())
+    s+='<rect class="txt-vuoto" x="'+(-w/2)+'" y="'+(-d/2)+'" width="'+w+'" height="'+d+'" rx="4" fill="none" stroke="#9a948a" stroke-width="1.2" stroke-dasharray="6 4" vector-effect="non-scaling-stroke"/>';
   if(it.locked===true) s+=lockGlyphAt(w/2-8, -d/2+8, "#59544a");
   return s;
 }
@@ -17127,7 +17135,7 @@ function ricordaRecenteCatalogo(k, nome, over){
       SHAPES.forEach(function(sh){
         var over={shape:sh[0]};
         if(sh[0]==="line"){ over.w=300; over.d=6; over.shapeStyle="outline"; }
-        if(sh[0]==="testo"){ over.w=200; over.d=70; over.label="Testo…"; }
+        if(sh[0]==="testo"){ over.w=200; over.d=70; }   /* nasce vuota: il segnaposto è solo a schermo (drawShapeTesto) */
         if(sh[0]==="arrow"){ over.w=220; over.d=90; }
         addToGroup("Forme e note", makeBtn("forma", sh[1], over, ""));
         entries.push({k:"forma", nome:sh[1], over:over, kw:sh[2]+" forma forme area zona evidenzia annotazione"});
@@ -17330,7 +17338,7 @@ function ricordaRecenteCatalogo(k, nome, over){
   });
   /* Testo libero (13/10/2026): è una FORMA «Solo testo» — stesso pannello di forme, colori e testo. Nasce già
      con il cursore dentro, come prima. Il vecchio tipo «testo» resta per i progetti salvati, non si crea più. */
-  function nuovoTestoLibero(){ var it=addItem("forma", {shape:"testo", w:200, d:70, label:"Testo…"}); if(it && !isMobile()) inlineTextEdit(it.id); }
+  function nuovoTestoLibero(){ var it=addItem("forma", {shape:"testo", w:200, d:70}); if(it && !isMobile()) inlineTextEdit(it.id); }
   pin.appendChild(makeActionBtn("Testo libero","box di testo", null, nuovoTestoLibero, miniSvg("testo")));
   entries.push({nome:"Testo libero", dim:"box di testo", action:nuovoTestoLibero, iconHtml:miniSvg("testo"), noQuick:true,
                 kw:"testo testi scritta scritte nota note etichetta didascalia titolo commento"});
@@ -18427,6 +18435,8 @@ function defaultLabel(type){
   var t=TYPES[type]; if(!t) return "";
   if(type==="metro") return "";
   if(t.riser || type==="corista" || type==="miczone") return "";   /* pedane, coristi e zone panoramiche nascono senza nome */
+  if(type==="forma") return "";   /* le forme nascono senza scritta (14/10, Simone: «devo avere la possibilità di non inserire testo»):
+                                     prima ogni rettangolo diceva «Forma». L'«Area con nome» il suo «Zona» lo porta da sé (catalogo). */
   return DEFAULT_LABELS[type] || t.defLabel || t.nome || "";
 }
 
@@ -19706,6 +19716,10 @@ function venueAutoLock(){ if(state.venue && state.venue.calibration && !state.ve
 /* Testo libero: editing inline sul palco (doppio click sul box → textarea sovrapposta, multilinea).
    Enter = a capo; click fuori (blur) o ⌘/Ctrl+Enter = conferma; Esc = annulla.
    Vuoto → torna al placeholder "Testo…" (mai un box invisibile sul palco). */
+/* Il testo confermato vuoto (14/10, Simone: «se non inserisco testo c'è banalmente la scritta testo»): in una
+   Forma — anche «Solo testo» — vuoto vuol dire vuoto. Solo il vecchio tipo «testo» (progetti salvati prima del
+   13/10) torna al suo «Testo…», perché lì non c'è il riquadro tratteggiato che lo fa ritrovare. */
+function testoConfermato(it, v){ return v || (it && it.type==="testo" ? (TYPES.testo.defLabel||"Testo…") : ""); }
 function inlineTextEdit(id){
   var it=(state.items||[]).find(function(i){ return i.id===id; }); if(!it) return;
   var g=itemNode(id); if(!g) return;
@@ -19714,6 +19728,7 @@ function inlineTextEdit(id){
   var fs=Math.max(11, Math.max(6, it.lblSize==null?14:+it.lblSize||14)*scale);
   var ta=document.createElement("textarea");
   ta.value=it.label||"";
+  ta.placeholder="Scrivi qui (si può anche lasciare vuoto)";
   ta.style.cssText="position:fixed;left:"+Math.round(r.left)+"px;top:"+Math.round(r.top)+"px;"
     +"width:"+Math.round(Math.max(150,r.width))+"px;height:"+Math.round(Math.max(56,r.height))+"px;"
     +"font:500 "+fs+"px/1.25 var(--font-ui);padding:"+Math.max(4,Math.round(8*scale))+"px;"
@@ -19726,7 +19741,7 @@ function inlineTextEdit(id){
   var done=false;
   function fin(commit){
     if(done) return; done=true;
-    if(commit){ var v=ta.value.replace(/\s+$/,""); it.label = v || (TYPES.testo.defLabel||"Testo…"); save(); }
+    if(commit){ var v=ta.value.replace(/\s+$/,""); it.label = testoConfermato(it, v); save(); }
     ta.remove(); render();
   }
   ta.addEventListener("keydown", function(ev){
@@ -20066,7 +20081,7 @@ function applyTheme(dark){
 /* ============ TASTIERA ============ */
 /* A11y canvas (audit H-10): annunci per screen reader nella regione #a11yLive. */
 function a11yAnnounce(msg){ var el=document.getElementById("a11yLive"); if(!el) return; el.textContent=""; setTimeout(function(){ el.textContent=msg; }, 30); }
-function a11yDesc(it){ if(!it) return ""; var nm=(it.label!=null&&it.label!=="")?String(it.label):(typeof defaultLabel==="function"?defaultLabel(it.type):String(it.type||"elemento")); return nm+", posizione "+Math.round(it.x)+", "+Math.round(it.y)+(it.rot?(", ruotato "+Math.round(it.rot)+" gradi"):""); }
+function a11yDesc(it){ if(!it) return ""; var nm=(it.label!=null&&it.label!=="")?String(it.label):((typeof defaultLabel==="function"&&defaultLabel(it.type)) || (TYPES[it.type]&&TYPES[it.type].nome) || String(it.type||"elemento")); return nm+", posizione "+Math.round(it.x)+", "+Math.round(it.y)+(it.rot?(", ruotato "+Math.round(it.rot)+" gradi"):""); }
 function a11yItemIndex(id){ var a=state.items||[]; for(var i=0;i<a.length;i++){ if(a[i].id===id) return i; } return -1; }
 /* Finestre costruite fuori dal motore di dialogo: nessuna aveva un gestore di Esc, e «Produzione —
    reparti» restava perfino a intercettare i click. In più un solo Esc chiudeva TRE livelli insieme
