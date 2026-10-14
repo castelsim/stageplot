@@ -10417,6 +10417,331 @@ t("cartiglio: le misure dell'area con la virgola e al centimetro", () => {
   eq(A.cartAreaTxt({ custom: false, w: 1200, h: 800 }), "palco 12×8 m", "palco intero");
   ok(!/\(_Ac\.w\/100\)\+"×"/.test(appjs), "il cartiglio non scrive più il numero di JavaScript (12.5)");
 });
+/* ===== ELEMENTI FUORI DAL PALCO NEL PDF (14/10/2026). Simone: «ho messo un oggetto fuori dal palco. In fase di export
+   mi chiede di adattare il palco, troppo rischioso. L'elemento è messo là fuori perché deve stare là fuori», e poi
+   «l'elemento che ho messo fuori dal palco non viene stampato nel pdf, come mai?». Prima: con l'area automatica e con
+   «Solo palco» il riquadro del disegno era il palco più 80 cm per lato, e una cassa a 3 m dal bordo spariva dal PDF,
+   dal PNG e dall'anteprima — mentre l'Esporta diceva «nel PDF si vedranno lì dove sono» e proponeva di allargare il
+   palco. Ora chi sta fuori dal palco esce sul foglio lì dov'è, se costa al massimo uno scatto di scala; l'avviso resta
+   per chi il foglio lo perde davvero (troppo lontano, area scelta a mano, scala fissa) col costo vero per tenerlo, e
+   «Adatta il palco» solo per l'equivoco (≥3 elementi e almeno metà). Revisione del 14/10: sub a 60 m, nomi sopra,
+   Annulla/Ripeti, Centra, progetto bloccato, telefono. ===== */
+function vbStampa(paper, scala, orient) {
+  paper = paper || "a4"; orient = orient || "landscape";
+  const cartH = A.cartHFor("", paper, orient), N = A.resolveScale(paper, scala || "auto", orient, cartH);
+  return Object.assign(A.pdfStageBox(N, paper, orient, cartH), { N });
+}
+function corpoIn(it, vb) {
+  const g = A.adattaIngombro(it);
+  return it.x - g.hw >= vb.x - 1 && it.x + g.hw <= vb.x + vb.w + 1 && it.y - g.hd >= vb.y - 1 && it.y + g.hd <= vb.y + vb.h + 1;
+}
+function sulFoglio(it, paper, scala, orient) { return corpoIn(it, vbStampa(paper, scala, orient).vb); }   /* il corpo sta tutto nella finestra che si stampa? */
+/* i nomi come li scrive DAVVERO il disegno del PDF: gruppo item-lbls dell'elemento, testo, corpo (rotazione 0) */
+function nomiNelDisegno(svg, it) {
+  const g = svg.match(new RegExp('<g class="item-lbls[^"]*" data-for="' + it.id + '" transform="translate\\(([-\\d.]+) ([-\\d.]+)\\)"><g transform="rotate\\(0\\)">([\\s\\S]*?)</g></g>'));
+  ok(g, "il nome di " + it.id + " non è nel disegno");
+  return [...g[3].matchAll(/<text[^>]*?(?: x="([-\d.]+)")?[^>]*? y="([-\d.]+)"[^>]*?font-size:([\d.]+)px[^>]*>([^<]+)</g)].map((m) => {
+    const fs = +m[3], cx = +g[1] + (+m[1] || 0), base = +g[2] + +m[2], w = A.lblTextW(m[4], fs);
+    return { t: m[4], x0: cx - w / 2, x1: cx + w / 2, y0: base - 0.8 * fs, y1: base + 0.25 * fs };
+  });
+}
+function palcoConCassaFuori(x, y) {   /* palco 8×5 m, tre elementi sopra e un sub in platea a destra */
+  reset();
+  A.state.stage = { w: 800, d: 500, blocks: [{ x: 0, y: 0, w: 800, d: 500 }] };
+  add("batteria", 400, 150); add("cantante", 400, 380); add("wedge", 400, 460);
+  const sub = add("sub18", x || 1100, y || 250, { label: "SUB IN PLATEA" });
+  A.__cabRes = null;
+  return sub;
+}
+t("fuori dal palco: con l'area automatica l'elemento esce nel PDF, nel PNG e nell'anteprima, nome e aria compresi", () => {
+  const sub = palcoConCassaFuori();
+  const box = vbStampa();
+  ok(corpoIn(sub, box.vb), "area automatica: la cassa a 3 m dal palco resta fuori dal foglio");
+  ok(sulFoglio(sub, "a4", "auto", "portrait"), "anche col foglio verticale");
+  eq(box.cropped, false, "con la scala automatica niente ritaglio");
+  /* il nome, dove lo scrive il disegno, e i 30 cm d'aria dopo di lui: dal lato in cui il riquadro si allarga */
+  const svg = A.stageSceneSvg(box.vb, { focus: "clean", textK: A.pdfTextK(box.N) }), n = nomiNelDisegno(svg, sub)[0];
+  ok(n.x1 + 20 <= box.vb.x + box.vb.w && n.y1 <= box.vb.y + box.vb.h, "il nome della cassa tocca il bordo del foglio: " + JSON.stringify([n, box.vb]));
+  eq(box.vb.y, -80, "l'aria si aggiunge solo dove la cassa allarga il riquadro (a destra), non sopra");
+  const F = A.sceneVbDefault(), g = A.adattaIngombro(sub);   /* il PNG e il disegno senza ritaglio partono da qui */
+  ok(F.x + F.w >= sub.x + g.hw && F.y <= sub.y - g.hd && F.y + F.h >= sub.y + g.hd, "il riquadro del PNG taglia la cassa: " + JSON.stringify(F));
+  ok(A.printArea().custom === false && A.printArea().w === 800, "l'area resta «il palco» (cartiglio e misure del disegno)");
+  ok(/e chi sta fuori dal palco/.test(A.frameSummaryText()), "la riga dell'area lo dice: " + A.frameSummaryText());
+  /* le quote «8 m / 5 m» di jsPDF: libere (la cassa è a destra), e posate sul palco, non a metà del riquadro allargato */
+  eq(A.pdfQuoteFuoriDalDisegno(box), true, "la cassa a destra non tocca le quote di jsPDF");
+  const q = box.rMm, cPalco = box.ix + (400 - box.vb.x) * box.mmPerCm;
+  ok(Math.abs(q.x + q.w / 2 - cPalco) < 0.01, "«8 m» non è centrato sul palco: " + (q.x + q.w / 2) + " invece di " + cPalco);
+  ok(Math.abs(q.x + 80 * box.mmPerCm - (box.ix - box.vb.x * box.mmPerCm)) < 0.01, "«5 m» non sta accanto al lato sinistro del palco");
+  ok(/doc\.text\(\(state\.stage\.w\/100\)\+" m", q\.x\+q\.w\/2, q\.y-8/.test(appjs), "e il PDF le scrive lì");
+  /* una cassa dietro il palco, dove jsPDF scrive «8 m»: le quote passano dentro il disegno */
+  const dietro = add("sub18", 400, -250, { label: "SUB DIETRO" }); A.__cabRes = null;
+  const bd = vbStampa();
+  eq(A.pdfQuoteFuoriDalDisegno(bd), false, "jsPDF scriverebbe «8 m» sopra la cassa dietro il palco");
+  ok(/dim-edge/.test(A.stageSceneSvg(bd.vb, { focus: "clean", noBlockDims: A.pdfQuoteFuoriDalDisegno(bd) && A.stageBlocks().length < 2 })), "e allora le quote stanno nel disegno");
+  A.state.items = A.state.items.filter((x) => x !== dietro);
+  /* le scritte dell'anteprima stanno sul palco, non a metà del riquadro */
+  const prev = A.pdfPreviewSvg("a4", box.N, "landscape", "");
+  const fp = prev.match(/<text x="([-\d.]+)" y="([-\d.]+)" font-size="3" fill="#9a9a9a" text-anchor="middle">FONDO PALCO</);
+  const centro = box.ix + (400 - box.vb.x) * box.mmPerCm;
+  ok(fp && Math.abs(+fp[1] - centro) < 0.01, "FONDO PALCO dell'anteprima non è centrato sul palco: " + (fp && fp[1]) + " invece di " + centro);
+  /* senza nessuno fuori tutto resta com'era */
+  A.state.items = A.state.items.filter((x) => x !== sub);
+  const b0 = vbStampa();
+  eq([b0.rMm.x, b0.rMm.y, b0.rMm.w, b0.rMm.h].map((v) => Math.round(v * 1000)), [b0.ix, b0.iy, b0.mmW, b0.mmH].map((v) => Math.round(v * 1000)), "senza nessuno fuori, le scritte restano dov'erano");
+  eq(A.pdfQuoteFuoriDalDisegno(b0), true, "e jsPDF quota il palco come sempre");
+  reset();
+});
+t("fuori dal palco: chi è già dentro il margine del palco non allarga niente (nessun millimetro di differenza)", () => {
+  palcoConCassaFuori(850, 250);   /* sborda di 50 cm a destra, senza nome: sta tutta negli 80 cm del margine */
+  A.state.items[A.state.items.length - 1].label = "";
+  eq(A.sceneVbDefault(), { x: -80, y: -80, w: 960, h: 660 }, "il riquadro è quello di sempre");
+  eq(vbStampa().vb, { x: -80, y: -80, w: 960, h: 660 }, "anche nel PDF");
+  eq(A.pdfQuoteFuoriDalDisegno(vbStampa()), true, "e il disegno è quello di sempre: le quote le scrive jsPDF come prima");
+  eq([A.printScene().dentro.length, A.pdfInfoFuori("a4", "auto", "landscape", A.cartHFor("", "a4", "landscape"))], [0, ""], "e non è «chi sta fuori nel disegno»: niente da dire");
+  ok(!/fuori dal palco/.test(A.frameSummaryText()), "nemmeno nella riga dell'area");
+  /* uno che esce a destra ma sopra resta dentro il margine: il riquadro cresce a destra e basta */
+  A.state.items[A.state.items.length - 1].x = 1100; A.state.items[A.state.items.length - 1].y = -30;
+  const vb = vbStampa().vb;
+  eq(vb.y, -80, "niente aria sopra, dove la cassa (in alto fino a -65) non esce");
+  ok(vb.x + vb.w >= 1130 + 30 - 1, "e l'aria a destra, dove esce: " + JSON.stringify(vb));
+  reset();
+});
+t("fuori dal palco: elemento lontanissimo — il palco non diventa un francobollo, e l'Esporta dice quanto costerebbe", () => {
+  const sub = palcoConCassaFuori(6800);   /* a 60 m */
+  const c = A.autoScaleConti("a4", "landscape", A.cartHFor("", "a4", "landscape"));
+  eq(c.n0, 50, "il solo palco sta a 1:50");
+  eq(vbStampa().N, 50, "e la scala automatica resta 1:50 (prima: 1:500, palco largo 16 mm)");
+  ok(!sulFoglio(sub), "il sub, lontanissimo, resta fuori dal foglio");
+  const r = A.fuoriPalcoEsporta("a4", "auto", "landscape", "");
+  eq(r.tagliati.map((x) => x.id), [sub.id], "e l'Esporta lo dice");
+  ok(/andrebbe a 1:500 \(ora 1:50\)/.test(r.testo), "col costo vero: " + r.testo);
+  eq(r.azione && [r.azione.etichetta, r.azione.scala, r.azione.area], ["Includili (1:500)", 500, null], "e il rimedio dice la scala");
+  ok(sulFoglio(sub, "a4", "500"), "che lo tiene davvero");
+  ok(!corpoIn(sub, A.sceneVbDefault()), "il PNG non rimpicciolisce il palco per lui");
+  /* a 200 m nemmeno 1:500 basta: niente bottone, la spiegazione */
+  sub.x = 20800;
+  const r2 = A.fuoriPalcoEsporta("a4", "auto", "landscape", "");
+  eq([r2.tagliati.length, r2.azione], [1, null], "niente rimedio che non rimedia");
+  ok(/Nemmeno a 1:500/.test(r2.testo) && /foglio più grande/.test(r2.testo), "ma la spiegazione: " + r2.testo);
+  /* due elementi a 10 m per lato: il verso del foglio non scavalca la regola (verticale a 1:200 = due scatti) */
+  sub.x = 1800; const sx = add("sub18", -1000, 250, { label: "SX" }); A.__cabRes = null;
+  eq(A.pdfBestOrient("a4", "auto", ""), "landscape", "resta orizzontale a 1:50");
+  A.state.items = A.state.items.filter((x) => x !== sx);
+  /* una forma enorme centrata sul palco: lo stesso */
+  A.state.items = A.state.items.filter((x) => x !== sub);
+  add("forma", 400, 250, { w: 6000, d: 4000, label: "AREA EVENTO" }); A.__cabRes = null;
+  eq(vbStampa().N, 50, "una forma di 60 m non porta il palco a 1:500");
+  reset();
+});
+t("fuori dal palco: costa uno scatto → la scala automatica lo comprende e la riga della scala lo dice", () => {
+  const sub = palcoConCassaFuori(1500);   /* a 7 m: a 1:50 non sta, a 1:100 sì */
+  const box = vbStampa();
+  eq(box.N, 100, "1:50 → 1:100: uno scatto, si paga");
+  ok(corpoIn(sub, box.vb), "e il sub è sul foglio");
+  const ch = A.cartHFor("", "a4", "landscape");
+  eq(A.pdfInfoFuori("a4", "auto", "landscape", ch), " · comprende chi sta fuori dal palco (solo il palco starebbe a 1:50)", "la riga della scala");
+  sub.x = 1100;
+  eq(A.pdfInfoFuori("a4", "auto", "landscape", ch), " · comprende chi sta fuori dal palco", "gratis: niente costo da dire");
+  reset();
+});
+t("fuori dal palco: «Solo palco» creato dall'Esporta da solo (PNG, scelta dell'area) comprende chi sta fuori", () => {
+  const sub = palcoConCassaFuori();
+  A.ensurePrintFrame();
+  ok(sulFoglio(sub), "l'area creata da sola taglia la cassa: " + JSON.stringify(A.state.printFrame));
+  eq(A.fuoriPalcoEsporta("a4", "auto", "landscape", "").tagliati.length, 0, "e non c'è niente da dire");
+  ok(/fuori dal palco/.test(A.frameSummaryText()), "e la riga dell'area dice cosa comprende: " + A.frameSummaryText());
+  /* «Centra»: l'area si centra sul palco e la cassa ci resta */
+  const c = A.centraArea(A.state.printFrame);
+  ok(Math.abs(c.x + c.w / 2 - 400) <= 1 && Math.abs(c.y + c.h / 2 - 250) <= 1, "centrata sul palco: " + JSON.stringify(c));
+  A.state.printFrame = c;
+  ok(sulFoglio(sub), "«Centra» non taglia la cassa: " + JSON.stringify(c));
+  reset();
+});
+t("fuori dal palco: un elemento che esce sul foglio è una scelta — niente avviso e niente «Adatta il palco»", () => {
+  palcoConCassaFuori();
+  const r = A.fuoriPalcoEsporta("a4", "auto", "landscape", "");
+  eq(r.tagliati.length, 0, "nessun avviso per un elemento che si stampa");
+  eq(r.equivoco, null, "e nessun «Adatta il palco» per un elemento solo");
+  const f = appjs.slice(appjs.indexOf("function renderFuoriPalco"), appjs.indexOf("function renderCoroMuto"));
+  ok(/fuoriPalcoEsporta\(/.test(f), "la finestra Esporta decide con la stessa funzione");
+  ok(!/nel PDF si vedranno lì dove sono/.test(appjs), "sparita la promessa (falsa) di prima");
+  reset();
+});
+t("fuori dal palco: il fuoco all'apertura dell'Esporta non va sul bottone dell'avviso, né su un campo col dito", () => {
+  eq(A.esportaFuocoIniziale(true, false), "titolo", "col mouse e l'avviso: il nome del progetto (Invio non adatta il palco)");
+  eq(A.esportaFuocoIniziale(false, false), null, "senza avviso: la regola di sempre");
+  eq(A.esportaFuocoIniziale(true, true), "finestra", "col dito: la finestra, niente tastiera");
+  eq(A.esportaFuocoIniziale(false, true), "finestra", "col dito anche senza avviso");
+  ok(/esportaFuocoIniziale\(!!\(_fp && !_fp\.hidden\), _tatto\)/.test(appjs), "e la finestra Esporta la usa");
+});
+t("fuori dal palco: un'area scelta a mano che lo taglia → avviso col nome, e «Includili nel foglio» allarga l'area senza toccare il palco", () => {
+  const sub = palcoConCassaFuori();
+  A.save(); A.resetHistory();
+  A.state.printFrame = { x: 0, y: 0, w: 800, h: 500 };   /* «= Palco» scelto a mano */
+  ok(!sulFoglio(sub), "premessa: l'area scelta a mano la taglia");
+  const r = A.fuoriPalcoEsporta("a4", "auto", "landscape", "");
+  eq(r.tagliati.map((x) => x.id), [sub.id], "l'avviso conta la cassa");
+  eq(r.causa, "area", "e dà la colpa all'area");
+  ok(/1 elemento fuori dal palco resta fuori dal foglio/.test(r.testo) && /SUB IN PLATEA/.test(r.testo) && /nel PDF non si vedrà/.test(r.testo), "e lo dice col nome: " + r.testo);
+  eq(r.azione && r.azione.etichetta, "Includili nel foglio", "con il rimedio (stessa scala: niente costo da dire)");
+  const palco = JSON.stringify(A.state.stage), items = JSON.stringify(A.state.items), passi = A.undoStack.length;
+  eq(A.includiNelFoglio("a4", "auto", "landscape", ""), { area: true, scala: null }, "«Includili» allarga l'area");
+  ok(sulFoglio(sub), "dopo «Includili» la cassa è sul foglio: " + JSON.stringify(A.state.printFrame));
+  const f = A.state.printFrame;
+  ok(f.x <= 0 && f.y <= 0 && f.x + f.w >= 800 && f.y + f.h >= 500, "l'area si allarga, non si sposta: " + JSON.stringify(f));
+  eq(JSON.stringify(A.state.stage), palco, "il palco non si tocca");
+  eq(JSON.stringify(A.state.items), items, "e nemmeno gli elementi");
+  eq(A.undoStack.length, passi, "e non è un passo di Annulla (l'area di stampa non lo è mai)");
+  eq(A.fuoriPalcoEsporta("a4", "auto", "landscape", "").tagliati.length, 0, "e l'avviso sparisce");
+  /* un'area che taglia il palco stesso è un dettaglio voluto: chi sta fuori dal palco non va inseguito */
+  A.state.printFrame = { x: 0, y: 0, w: 400, h: 500 };
+  eq(A.fuoriPalcoEsporta("a4", "auto", "landscape", "").tagliati.length, 0, "un dettaglio di mezzo palco non chiede la cassa in platea");
+  reset();
+});
+t("fuori dal palco: progetto bloccato — «Includili» (area) e «Adatta» non ci sono, e si dice perché", () => {
+  const sub = palcoConCassaFuori();
+  A.state.printFrame = { x: 0, y: 0, w: 800, h: 500 };
+  A.__projLocked = true;
+  try {
+    const r = A.fuoriPalcoEsporta("a4", "auto", "landscape", "");
+    eq([r.tagliati.length, r.azione, r.bloccato], [1, null, true], "niente rimedio che cambia il progetto");
+    ok(/bloccato/.test(r.testo), "e lo dice: " + r.testo);
+    eq(A.includiNelFoglio("a4", "auto", "landscape", ""), null, "e chiamato lo stesso non fa niente");
+    eq(A.state.printFrame, { x: 0, y: 0, w: 800, h: 500 }, "l'area resta quella");
+    const st = JSON.stringify([A.state.stage, A.state.items]);
+    A.auditFixAdattaPalco();
+    eq(JSON.stringify([A.state.stage, A.state.items]), st, "«Adatta» non sposta niente in memoria");
+    const rf = appjs.slice(appjs.indexOf("function renderFuoriPalco"), appjs.indexOf("function renderCoroMuto"));
+    ok(/if\(r\.bloccato\) riga\(r\.equivoco\.titolo/.test(rf), "e il bottone «Adatta» non si mostra");
+  } finally { A.__projLocked = false; }
+  ok(sub, "");
+  reset();
+});
+t("fuori dal palco: con una scala fissa che non ci sta lo dice col costo vero, e la scala la sceglie chi preme", () => {
+  const sub = palcoConCassaFuori(1500);   /* a 7 m dal palco: a 1:50 un A4 orizzontale tiene 12,85 m */
+  ok(!sulFoglio(sub, "a4", "50"), "premessa: a 1:50 non ci sta");
+  const r = A.fuoriPalcoEsporta("a4", "50", "landscape", "");
+  eq(r.tagliati.map((x) => x.id), [sub.id], "l'avviso la conta");
+  eq(r.causa, "scala", "e la colpa è della scala, non dell'area");
+  ok(/andrebbe a 1:100 \(ora 1:50\)/.test(r.testo), "e dice il costo: " + r.testo);
+  eq(r.azione && [r.azione.etichetta, r.azione.scala, r.azione.area], ["Includili (1:100)", 100, null], "il bottone dice la scala");
+  const st = JSON.stringify([A.state.stage, A.state.items, A.state.printFrame]);
+  eq(A.includiNelFoglio("a4", "50", "landscape", ""), { area: false, scala: 100 }, "e la restituisce a chi preme");
+  eq(JSON.stringify([A.state.stage, A.state.items, A.state.printFrame]), st, "senza toccare niente da solo");
+  eq(vbStampa("a4", "50").cropped, false, "il palco intero resta sul foglio");
+  ok(sulFoglio(sub, "a4", "100"), "e a 1:100 c'è");
+  /* lontanissimo con la scala fissa: il costo vero, non «Automatica» */
+  sub.x = 6800;
+  const r2 = A.fuoriPalcoEsporta("a4", "50", "landscape", "");
+  ok(/andrebbe a 1:500 \(ora 1:50\): il palco verrebbe molto più piccolo/.test(r2.testo), "più di uno scatto, detto: " + r2.testo);
+  ok(!/Automatica/.test(r2.testo), "e non si propone «Automatica», che non lo terrebbe");
+  reset();
+});
+t("fuori dal palco: il nome SOPRA (postazioni con sedia) e il corpo di 1:200 restano sul foglio", () => {
+  const sub = palcoConCassaFuori(1100);
+  sub.label = "SUB IN PLATEA LATO DESTRO";   /* nome lungo a destra: a 1:200 è largo due volte e mezzo */
+  const vc = add("violoncello", 400, -350, { label: "VIOLONCELLO SOLISTA" });   /* dietro il palco, nome sopra */
+  A.__cabRes = null;
+  ok(A.lblSopraDi(vc), "premessa: il violoncello ha il nome sopra");
+  ["200", "auto"].forEach((sc) => {
+    const box = vbStampa("a4", sc), svg = A.stageSceneSvg(box.vb, { focus: "clean", textK: A.pdfTextK(box.N) });
+    [vc, sub].forEach((it) => nomiNelDisegno(svg, it).forEach((n) => ok(n.y0 >= box.vb.y - 0.5 && n.y1 <= box.vb.y + box.vb.h + 0.5 && n.x0 >= box.vb.x - 0.5 && n.x1 <= box.vb.x + box.vb.w + 0.5,
+      "a " + sc + " il nome «" + n.t + "» esce dal foglio: " + JSON.stringify([n, box.vb]))));
+    if (sc === "200") eq(A.pdfQuoteFuoriDalDisegno(box), false, "a 1:200 «8 m» di jsPDF cadrebbe sul violoncello: lo scrive il disegno");
+  });
+  reset();
+});
+t("fuori dal palco: 30 elementi su 30 → «Adatta il palco» dice la misura nuova, e Annulla/Ripeti ripetuti rimettono tutto (area compresa)", () => {
+  reset();
+  A.state.stage = { w: 50, d: 50, blocks: [{ x: 0, y: 0, w: 50, d: 50 }] };
+  for (let i = 0; i < 30; i++) add("cantante", 300 + (i % 10) * 120, 300 + Math.floor(i / 10) * 150);
+  A.__cabRes = null; A.save(); A.resetHistory();   /* cronologia pulita: lo stack si ferma a 120 passi */
+  const r = A.fuoriPalcoEsporta("a4", "auto", "landscape", "");
+  ok(r.equivoco, "30 su 30 fuori: l'equivoco sul rettangolo va detto");
+  const p = A.palcoCheContieneTutto();
+  ok(r.equivoco.testo.indexOf("il palco diventa " + A.fmtM(p.w) + " × " + A.fmtM(p.d)) >= 0, "e dice cosa cambia: " + r.equivoco.testo);
+  ok(A.auditEngine().findings.some((x) => x.rule === "fuoripalco"), "l'audit dice la stessa cosa");
+  A.state.printFrame = { x: -10, y: -10, w: 70, h: 70 };   /* un'area scelta a mano attorno al palco sbagliato */
+  const prima = JSON.stringify([A.state.stage, A.state.items, A.state.printFrame]);
+  const passi = A.undoStack.length;
+  A.auditFixAdattaPalco();
+  eq([A.state.stage.w, A.state.stage.d], [p.w, p.d], "il palco adattato");
+  eq(A.undoStack.length, passi + 1, "un passo solo di Annulla");
+  eq(A.state.printFrame, null, "l'area misurata sul palco sbagliato non taglia quello nuovo");
+  const dopo = JSON.stringify([A.state.stage, A.state.items, A.state.printFrame]);
+  for (let giro = 1; giro <= 3; giro++) {
+    A.undo();
+    eq(JSON.stringify([A.state.stage, A.state.items, A.state.printFrame]), prima, "Annulla n. " + giro + " rimette palco, elementi e area");
+    A.redo();
+    eq(JSON.stringify([A.state.stage, A.state.items, A.state.printFrame]), dopo, "Ripeti n. " + giro + " rifà tutto");
+  }
+  reset();
+});
+t("fuori dal palco: «Adatta» nell'Esporta e nell'audit seguono la stessa regola (≥3 e almeno metà), in una funzione sola", () => {
+  reset();
+  add("wedge", 1400, 900); A.__cabRes = null;
+  eq(A.fuoriPalcoEquivoco(), null, "1 fuori su 1: una cassa sola, non un palco sbagliato");
+  add("wedge", 1500, 900); add("cantante", 600, 400); A.__cabRes = null;
+  eq(A.fuoriPalcoEquivoco(), null, "2 fuori su 3: la maggioranza, ma sotto i 3 resta una scelta");
+  reset();
+  for (let i = 0; i < 4; i++) add("cantante", 200 + i * 200, 400);
+  add("wedge", 1400, 900); add("wedge", 1500, 900); A.__cabRes = null;
+  eq(A.fuoriPalcoEquivoco(), null, "2 fuori su 6: una scelta");
+  add("wedge", 1600, 900); A.__cabRes = null;
+  eq(A.fuoriPalcoEquivoco(), null, "3 fuori su 7: meno della metà");
+  add("wedge", 1700, 900); A.__cabRes = null;
+  ok(A.fuoriPalcoEquivoco(), "4 fuori su 8: metà");
+  ok(A.auditEngine().findings.some((x) => x.rule === "fuoripalco"), "e l'audit concorda");
+  const au = appjs.slice(appjs.indexOf("GLI STRUMENTI SONO FUORI DAL PALCO"), appjs.indexOf('"fuoripalco");'));
+  ok(/fuoriPalcoEquivoco\(\)/.test(au) && !/fuori\.length>=3/.test(au), "l'audit usa la regola comune, non una sua copia");
+  reset();
+});
+t("fuori dal palco: FOH, platea e sedie del pubblico non contano mai — né avviso, né Adatta, né foglio allargato", () => {
+  reset();
+  A.state.stage = { w: 800, d: 500, blocks: [{ x: 0, y: 0, w: 800, d: 500 }] };
+  add("cantante", 400, 300);
+  add("foh", 400, 2500); add("platea", 400, 1200); add("sediapubblico", 1500, 900); add("sediapubblico", 1600, 900);
+  A.__cabRes = null;
+  eq(A.sceneVbDefault(), { x: -80, y: -80, w: 960, h: 660 }, "il FOH a 20 m non rimpicciolisce il palco");
+  const r = A.fuoriPalcoEsporta("a4", "auto", "landscape", "");
+  eq([r.tagliati.length, r.equivoco], [0, null], "nessun avviso");
+  A.state.printFrame = { x: 0, y: 0, w: 800, h: 500 };
+  eq(A.fuoriPalcoEsporta("a4", "auto", "landscape", "").tagliati.length, 0, "nemmeno con l'area che li taglia");
+  reset();
+});
+t("fuori dal palco: chi tocca il bordo o sborda di poco sta sul palco, e nel PDF esce intero", () => {
+  reset();
+  A.state.stage = { w: 800, d: 500, blocks: [{ x: 0, y: 0, w: 800, d: 500 }] };
+  add("cantante", 400, 300);
+  const bordo = add("wedge", 800, 250);                    /* centro sul bordo destro */
+  const sborda = add("wedge", 400, 480);                   /* sborda di qualche cm verso il pubblico */
+  const truss = add("truss", 800, 100, { w: 400, d: 30 }); /* truss a terra di 4 m centrato sul bordo: 2 m fuori */
+  A.__cabRes = null;
+  eq(A.elementiFuoriDalPalco().length, 0, "nessuno è «fuori dal palco»");
+  ok(sulFoglio(bordo) && sulFoglio(sborda), "quelli sul bordo escono interi");
+  ok(sulFoglio(truss), "anche il truss che sborda di 2 m: il PDF non ne taglia metà");
+  A.state.printFrame = A.frameStageRect();
+  ok(sulFoglio(bordo) && sulFoglio(sborda), "anche con «Solo palco» scelto a mano");
+  const r = A.fuoriPalcoEsporta("a4", "auto", "landscape", "");
+  eq(r.tagliati.map((x) => x.id), [truss.id], "col «Solo palco» scelto a mano il truss tagliato a metà va detto");
+  reset();
+});
+t("fuori dal palco: con una scala fissa il verso automatico del foglio sceglie quello che tiene anche chi sta fuori", () => {
+  const sub = palcoConCassaFuori(400, 1700);   /* 12 m davanti al palco: a 1:100 ci sta solo col foglio verticale */
+  eq(A.pdfBestOrient("a4", "100", ""), "portrait", "il verso che stampa anche la cassa");
+  ok(sulFoglio(sub, "a4", "100", "portrait") && !sulFoglio(sub, "a4", "100", "landscape"), "premessa: in orizzontale si perde");
+  reset();
+});
+t("fuori dal palco: gli apparecchi dentro un rack non sono elementi a sé", () => {
+  reset();
+  for (let i = 0; i < 4; i++) add("cantante", 200 + i * 200, 400);
+  const rack = add("rack", 1500, 900);
+  for (let i = 0; i < 4; i++) { const x = add("wedge", 1500, 900); x.rackId = rack.id; }
+  A.__cabRes = null;
+  eq(A.elementiFuoriDalPalco().map((x) => x.id), [rack.id], "fuori c'è il rack, non i suoi apparecchi");
+  eq(A.fuoriPalcoEquivoco(), null, "un rack in sala non fa un palco sbagliato");
+  reset();
+});
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");
@@ -16234,8 +16559,12 @@ t("nel PDF ogni quota è scritta una volta sola", () => {
   const aElle = (A.stageSceneSvg(null, { focus: "clean" }).match(/dim-edge/g) || []).length;
   eq(aElle, 4, "due quote per blocco: larghezza e profondità");
   const src = readFileSync(join(root, "app.js"), "utf8");
-  ok(/noBlockDims:!A\.custom && !box\.cropped && stageBlocks\(\)\.length<2/.test(src),
+  ok(/noBlockDims:pdfQuoteFuoriDalDisegno\(box\) && stageBlocks\(\)\.length<2/.test(src),
     "la condizione del doppione non è quella attesa");
+  /* jsPDF scrive le sue quote (e il disegno spegne le sue) solo con l'area automatica, il palco intero e nessuno fuori
+     dal palco nel disegno (14/10: con chi sta fuori le quote di jsPDF gli cadevano addosso) */
+  const q = (custom, cropped, coperte) => A.pdfQuoteFuoriDalDisegno({ A: { custom }, cropped, quoteLibere: !coperte });
+  eq([q(false, false, false), q(true, false, false), q(false, true, false), q(false, false, true)], [true, false, false, false], "quando jsPDF quota il palco");
   /* e l'anteprima deve dire le stesse cose del file che uscirà */
   const prev = src.slice(src.indexOf("function pdfPreviewSvg"), src.indexOf("function pdfPreviewSvg") + 2000);
   ok(/textK:pdfTextK\(Ng\)/.test(prev), "l'anteprima non compensa il testo come il PDF");
@@ -19625,12 +19954,14 @@ t("prima di esportare, si viene avvisati se qualcosa è fuori dal palco", () => 
   ok(/function renderFuoriPalco\(\)/.test(appjs), "qualcuno lo riempie");
   ok(/renderFuoriPalco\(\);/.test(appjs.slice(appjs.indexOf("renderProdInline();\n    renderFuoriPalco"), appjs.indexOf("renderProdInline();\n    renderFuoriPalco") + 80)) ||
      /renderProdInline\(\);\s*renderFuoriPalco\(\);/.test(appjs), "e viene chiamato all'apertura della finestra");
-  /* Se non c'e' niente fuori, non c'e' nemmeno l'avviso: un avviso sempre acceso non si legge piu'. */
-  ok(/if\(!fuori\.length\)\{ box\.hidden=true; return; \}/.test(appjs), "e sparisce quando non serve");
-  /* Il rimedio e' li' dentro, non altrove: «Adatta il palco» esiste gia' nell'audit. */
-  ok(/auditFixAdattaPalco\(\);/.test(appjs.slice(appjs.indexOf("function renderFuoriPalco"), appjs.indexOf("function renderProdInline"))),
-     "e porta il rimedio con se'");
-  ok(/fuori\.length===1 \? "1 elemento è fuori dal palco"/.test(appjs), "al singolare quando e' uno solo");
+  /* Se non c'e' niente da dire, non c'e' nemmeno l'avviso: un avviso sempre acceso non si legge piu'.
+     Dal 14/10 «niente da dire» vuol dire: nessuno perde il foglio e nessun equivoco sul rettangolo (vedi i test
+     «fuori dal palco:» e fuoriPalcoEsporta) — un elemento fuori che si stampa è una scelta. */
+  const rf = appjs.slice(appjs.indexOf("function renderFuoriPalco"), appjs.indexOf("function renderCoroMuto"));
+  ok(/if\(!r \|\| \(!r\.tagliati\.length && !r\.equivoco\)\)\{ box\.hidden=true; return; \}/.test(rf), "e sparisce quando non serve");
+  /* I rimedi sono li' dentro, non altrove: «Adatta il palco» (solo per l'equivoco) e «Includili nel foglio». */
+  ok(/auditFixAdattaPalco\(\);/.test(rf) && /includiNelFoglio\(/.test(rf), "e porta i rimedi con se'");
+  ok(/uno \? "1 elemento fuori dal palco resta fuori dal foglio"/.test(appjs), "al singolare quando e' uno solo");
   /* Colori del design system, non hex crudi. */
   ok(/\.nudge\.warn\{background:var\(--warning-bg\);border-color:var\(--warning-border\);color:var\(--warning\)/.test(stylesCss),
      "e usa i colori dell'avviso, non un arancione inventato");
