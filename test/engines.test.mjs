@@ -18705,6 +18705,75 @@ t("minilogue xd: l'icona è 50 × 30 in scala 1:1 e la Tastiera la usa solo col 
   } finally { A.LIB_ICONS = prima; }
 });
 
+/* ═══ SUPPORTO A COLONNA A DUE PIANI (15/10/2026, Montecarla) ═══════════════════════════════════════
+   Ultimate Support Apex AX-48 Pro: piano digitale sotto, synth (minilogue xd) sopra, tastierista in piedi.
+   Un elemento solo: Synth mono + Tastiera L/R stereo (mono a scelta), nessuno sgabello. */
+t("colonna 2 piani: synth mono + piano STEREO (Synth, Tastiera L, Tastiera R), mono a scelta", () => {
+  reset();
+  const c = add("tastierecolonna", 300, 300, { label: "Marco" });
+  const nomi = () => A.patchList().rows.filter(r => /^Marco/.test(r.name));
+  eq(nomi().map(r => r.name), ["Marco - Synth", "Marco - Tastiera L", "Marco - Tastiera R"], "default: piano stereo");
+  eq(nomi().map(r => r.mic), ["DI", "DI", "DI"]);
+  ok(A.STEREO_TOGGLE.tastierecolonna && A.STEREO_TOGGLE.tastierecolonna.def === true, "default stereo");
+  c.stereo = false; A.__cabRes = null;
+  eq(nomi().map(r => r.name), ["Marco - Synth", "Marco - Tastiera"], "piano mono: il synth resta, un solo canale tastiera");
+  c.stereo = true; A.__cabRes = null;
+  eq(nomi().length, 3, "stereo di nuovo: 3 canali");
+  eq(A.itemChannels(c), 3);
+});
+t("colonna 2 piani: tastierista in piedi, nessuno sgabello (a differenza dello stage piano)", () => {
+  reset();
+  const c = add("tastierecolonna", 300, 300), sp = add("stagepiano", 600, 300);
+  eq(A.sgabelliDi(c), [], "nessuno sgabello");
+  eq(A.sgabelliDi(sp), [["tastiere", 1]], "controprova: lo stage piano ha il suo");
+  eq(A.sgabelliTesto([c]), [], "nessuna riga sgabelli nel rider");
+  ok(!A.hasPanca(c), "niente panca");
+  ok(A.isPerformer(c), "e' un elemento suonato da una persona");
+});
+t("colonna 2 piani: nessuna DI aggiunta da sola, 35 W e 31 kg stimati, ingombro del tipo", () => {
+  reset();
+  const prima = A.state.items.length;
+  const c = add("tastierecolonna", 300, 300);
+  eq(A.state.items.length, prima + 1, "solo l'elemento (niente DI automatica: i canali sono gia' DI)");
+  eq([c.w, c.d], [132, 127]);
+  eq([A.wattOf(c), A.weightOf(c)], [35, 31]);
+  ok(!A.diUsesBox(c), "diUsesBox falso: una DI sola per elemento non basta (synth mono + piano stereo)");
+});
+t("colonna 2 piani: misure del costruttore e disegno in scala 1:1 (piano sotto, synth sopra, persona)", () => {
+  eq([A.COLONNA2.arm1, A.COLONNA2.arm2, A.COLONNA2.base], [45.7, 33, 60], "bracci 18\" = 457 mm e 13\" = 330 mm");
+  const L = iconeVere(), pi = L.piano88_colonna;
+  ok(pi && L.stagepiano, "icone presenti");
+  eq(pi.vb, [1.5, 2, 132, 36], "88 tasti: 132 × 36 cm, 1 unita' = 1 cm");
+  ok(L.stagepiano.body.indexOf("<path class=\"stagepiano_leg\"") >= 0 && pi.body.indexOf("<path class=\"stagepiano_leg\"") < 0, "senza i montanti dello stand a X");
+  ok(pi.body.indexOf("stagepiano_white") >= 0, "ma con la tastiera");
+  const prima = A.LIB_ICONS;
+  A.LIB_ICONS = { piano88_colonna: { vb: [1.5, 2, 132, 36], body: "<g id=\"PIANO\"/>" }, korg_minilogue_xd: { vb: [0, 0, 50, 30], body: "<g id=\"SYNTH\"/>" } };
+  try {
+    reset();
+    const c = add("tastierecolonna", 300, 300);
+    const vivo = A.TYPES.tastierecolonna.draw(c);
+    ok(/PIANO/.test(vivo) && /SYNTH/.test(vivo), "i due strumenti");
+    ok(vivo.indexOf("PIANO") < vivo.indexOf("SYNTH"), "il synth e' disegnato sopra il piano");
+    ok(/scale\(0\.08\)/.test(vivo), "il tastierista in piedi c'e'");
+    ok(vivo.indexOf("scale(0.08)") < vivo.indexOf("PIANO"), "e sta sotto la tastiera (le gambe dietro i tasti)");
+    c.look = "schematico";
+    const nudo = A.TYPES.tastierecolonna.draw(c);
+    ok(!/scale\(/.test(nudo) && /PIANO/.test(nudo) && /SYNTH/.test(nudo), "«Strumento solo»: niente persona, nessuna scala applicata");
+  } finally { A.LIB_ICONS = prima; }
+});
+t("colonna 2 piani: si trova in catalogo cercando apex, ax-48, due piani; «colonna» resta alla colonna/palo", () => {
+  ["apex", "ax-48", "ax48", "due piani", "supporto"].forEach(q => ok(A.__qaSearch(q).some(r => r.k === "tastierecolonna"), "«" + q + "» non lo trova"));
+  eq(A.__qaSearch("colonna")[0].nome, "Colonna / palo", "«colonna» non gli viene rubata");
+  ok(!/colonna/i.test(A.TYPES.tastierecolonna.nome + " " + A.TYPES.tastierecolonna.alias), "né nel nome né negli alias: la parola e' della Colonna / palo");
+  eq(A.TYPES.tastierecolonna.cat + "/" + A.TYPES.tastierecolonna.sub, "Band e backline/Tastiere e piani");
+});
+t("colonna 2 piani: i dati del costruttore sono citati in DATI_TARGA.md", () => {
+  const doc = readFileSync(join(root, "DATI_TARGA.md"), "utf8");
+  ok(doc.indexOf("`tastierecolonna`") >= 0 && /Apex AX-48 Pro/.test(doc), "sezione");
+  ["Ultimate-Support_AX-48-Pro_OneSheet.pdf", "Ultimate-Support_AX-48-Pro_Manual_17351.pdf", "1168 mm", "56.8 kg", "457mm"].forEach(s => ok(doc.indexOf(s) >= 0, "manca: " + s));
+  ok(/Stime, perch/.test(doc), "dice cosa NON e' pubblicato");
+});
+
 /* ═══ IL MODELLO SCELTO SUL FOGLIO, E DA DOVE VENGONO I WATT (12/10/2026, decisioni di Simone) ═════
    Due limiti visti nelle anteprime del pilota: la lista Backline scriveva l'etichetta e non il modello
    scelto nel pannello, e la Lista carichi del PDF non diceva se i W erano di targa o stimati. */

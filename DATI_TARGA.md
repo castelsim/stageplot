@@ -398,6 +398,22 @@ unbalanced)» · «Power AC adapter (DC 9V)». p.8: «To output monaural sound, 
 L'icona (`icons.js`, `korg_minilogue_xd`) è un disegno vettoriale nostro in scala 1 unità = 1 cm, con la
 disposizione dallo schema di p.5 e i colori dalle foto ufficiali Korg; niente immagini Korg nel repo.
 
+### Ultimate Support Apex AX-48 Pro, supporto a colonna a due piani (15/10/2026) — elemento `tastierecolonna`
+
+Documenti del costruttore (ultimatesupport.com, copie in `STAGE PLOT/MANUALI_PDF/backline/`): One Sheet
+`Ultimate-Support_AX-48-Pro_OneSheet.pdf` («Standing Height: 46"» · «Weight: 19 lbs.» · «Folded Length: 52"» ·
+«Load Capacity: Up to 125 lbs. per tier or 250 lbs. total» · «The top tier has 13" long arms and the bottom tier
+arms are 18" long. The tiers are clamped onto the column … and can be adjusted up or down»); pagina prodotto SKU 17351
+(«Height: 46" (1168 mm) · Weight: 19 lbs. (8.6 kg) · Load Capacity … 125 lbs. per tier (56.8 kg)» · «includes two CMP-485
+super clamps, and 13" and 18" tribars»); pagina TBR-180 («Length: 18" (457mm)»); manuale `Ultimate-Support_AX-48-Pro_Manual_17351.pdf`
+p.2 («pull out support legs … Turn the knob on the fourth leg and extend to floor for greater stability»).
+Nel disegno: bracci 18" = 45,7 cm (piano basso) e 13" = 33,0 cm (piano alto; la pagina TBR-130 scrive «457mm», errore
+evidente, 13" = 330 mm). ⚠ **Stime, perché il costruttore non le pubblica**: i piedi in pianta (60 × 60 cm, ingombro
+indicato da un rivenditore), l'interasse dei bracci e la distanza fra i piani. Peso stimato di postazione 31 kg
+(stand 8,6 + piano digitale circa 20 + minilogue xd 2,8) e 35 W (piano digitale circa 25 stima + minilogue xd 8 W
+dal manuale Korg): sono `stima`, non di targa. Il disegno ha il piano digitale generico da 88 tasti (132 × 36 cm,
+lo stage piano di serie senza i montanti a X) sotto e il Korg minilogue xd (50 × 30 cm) sopra.
+
 ### Il pezzo che il dato di targa non dice: le superfici di controllo
 
 `csr3/csr5/csr10` e `dlives5/dlives7` **non sono console intere**: il DSP sta in un rack a parte, che
