@@ -3665,6 +3665,14 @@ body.dark #custBar{box-shadow:0 6px 20px rgba(0,0,0,.4)}
 #custBar .cb-chk input{margin:0;accent-color:var(--accent)}
 #custBar .cb-chk input:disabled+*{opacity:.45}
 #custBar .cb-snap #custPassoLbl{color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}
+/* «Aggancio» come interruttore a icona (calamita): acceso = pieno, come lo strumento scelto */
+#custBar .cb-ico{position:relative;display:inline-flex;flex:none;cursor:pointer}
+#custBar .cb-ico input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+#custBar .cb-ico-v{display:inline-flex;align-items:center;justify-content:center;width:32px;height:30px;border-radius:var(--r-sm);
+  background:var(--surface-raised);color:var(--text-2)}
+#custBar .cb-ico:hover .cb-ico-v{color:var(--text)}
+#custBar .cb-ico input:checked+.cb-ico-v{background:var(--accent);color:#fff}
+#custBar .cb-ico input:focus-visible+.cb-ico-v{box-shadow:0 0 0 3px var(--focus-ring)}
 /* la riga di aiuto del gesto in corso: sotto la barra nell'editor, in cima al palco mentre si traccia il rettangolo */
 #custGuida{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:30;display:flex;align-items:center;gap:10px;
   max-width:calc(100% - 24px);background:var(--surface);color:var(--text);border:1px solid var(--border-strong);border-radius:999px;
@@ -3702,11 +3710,14 @@ body.dark .cust-righello text{fill:#cbd5e1}
 .cust-poly-prev circle.primo{fill:var(--accent)}
 /* PRECISIONE (Tappa A, 14/10/2026): campo delle misure accanto al cursore, segni d'aggancio, guide (magenta, come Figma)
    e quote delle distanze. Colori in variabili: il tema scuro li schiarisce. */
-:root{--cust-guida:#d6246e;--cust-quota:#d6246e;--cust-quota-bordo:#8a8476}
+:root{--cust-guida:#d6246e;--cust-quota:#d6246e;--cust-quota-bordo:#6b665b}   /* bianco sopra: 5,7:1 (era #8a8476, 3,7:1) */
 body.dark{--cust-guida:#ff5c9f;--cust-quota:#ff5c9f;--cust-quota-bordo:#a8a29a}
 #custDyn{position:fixed;z-index:60;display:flex;flex-direction:column;gap:3px;min-width:170px;max-width:260px;padding:7px 9px 8px;
   background:var(--surface);color:var(--text);border:1px solid var(--accent);border-radius:var(--r-md);
-  box-shadow:0 6px 18px rgba(38,33,24,.22);font-size:12px;pointer-events:auto}
+  box-shadow:0 6px 18px rgba(38,33,24,.22);font-size:12px;pointer-events:none}
+/* il campo non prende MAI il puntatore (nemmeno l'input: il fuoco ce l'ha già e si scrive senza cliccarlo): un salto del
+   mouse sopra di lui arriva comunque al palco, e il secondo clic chiude la forma */
+#custDyn *{pointer-events:none}
 #custDyn[hidden]{display:none}
 body.dark #custDyn{box-shadow:0 6px 18px rgba(0,0,0,.5)}
 #custDyn .cd-lbl{color:var(--text-2);font-weight:600}

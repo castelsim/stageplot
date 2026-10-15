@@ -24,7 +24,7 @@
      due release nello stesso giorno restano distinguibili in telemetria e supporto. In locale/dev
      resta il placeholder. La sentinella del VALORE è distinta dall'identificatore window.__BUILD_ID__
      così il sed della CI non tocca il nome della variabile. -->
-<script>window.__APP_VERSION__="2026.10.14";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
+<script>window.__APP_VERSION__="2026.10.15";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -3743,6 +3743,14 @@ body.dark #custBar{box-shadow:0 6px 20px rgba(0,0,0,.4)}
 #custBar .cb-chk input{margin:0;accent-color:var(--accent)}
 #custBar .cb-chk input:disabled+*{opacity:.45}
 #custBar .cb-snap #custPassoLbl{color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}
+/* «Aggancio» come interruttore a icona (calamita): acceso = pieno, come lo strumento scelto */
+#custBar .cb-ico{position:relative;display:inline-flex;flex:none;cursor:pointer}
+#custBar .cb-ico input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+#custBar .cb-ico-v{display:inline-flex;align-items:center;justify-content:center;width:32px;height:30px;border-radius:var(--r-sm);
+  background:var(--surface-raised);color:var(--text-2)}
+#custBar .cb-ico:hover .cb-ico-v{color:var(--text)}
+#custBar .cb-ico input:checked+.cb-ico-v{background:var(--accent);color:#fff}
+#custBar .cb-ico input:focus-visible+.cb-ico-v{box-shadow:0 0 0 3px var(--focus-ring)}
 /* la riga di aiuto del gesto in corso: sotto la barra nell'editor, in cima al palco mentre si traccia il rettangolo */
 #custGuida{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:30;display:flex;align-items:center;gap:10px;
   max-width:calc(100% - 24px);background:var(--surface);color:var(--text);border:1px solid var(--border-strong);border-radius:999px;
@@ -3780,11 +3788,14 @@ body.dark .cust-righello text{fill:#cbd5e1}
 .cust-poly-prev circle.primo{fill:var(--accent)}
 /* PRECISIONE (Tappa A, 14/10/2026): campo delle misure accanto al cursore, segni d'aggancio, guide (magenta, come Figma)
    e quote delle distanze. Colori in variabili: il tema scuro li schiarisce. */
-:root{--cust-guida:#d6246e;--cust-quota:#d6246e;--cust-quota-bordo:#8a8476}
+:root{--cust-guida:#d6246e;--cust-quota:#d6246e;--cust-quota-bordo:#6b665b}   /* bianco sopra: 5,7:1 (era #8a8476, 3,7:1) */
 body.dark{--cust-guida:#ff5c9f;--cust-quota:#ff5c9f;--cust-quota-bordo:#a8a29a}
 #custDyn{position:fixed;z-index:60;display:flex;flex-direction:column;gap:3px;min-width:170px;max-width:260px;padding:7px 9px 8px;
   background:var(--surface);color:var(--text);border:1px solid var(--accent);border-radius:var(--r-md);
-  box-shadow:0 6px 18px rgba(38,33,24,.22);font-size:12px;pointer-events:auto}
+  box-shadow:0 6px 18px rgba(38,33,24,.22);font-size:12px;pointer-events:none}
+/* il campo non prende MAI il puntatore (nemmeno l'input: il fuoco ce l'ha già e si scrive senza cliccarlo): un salto del
+   mouse sopra di lui arriva comunque al palco, e il secondo clic chiude la forma */
+#custDyn *{pointer-events:none}
 #custDyn[hidden]{display:none}
 body.dark #custDyn{box-shadow:0 6px 18px rgba(0,0,0,.5)}
 #custDyn .cd-lbl{color:var(--text-2);font-weight:600}
@@ -4085,14 +4096,15 @@ body.cust-editor.m-has-sel #custScheda{border-top:1px solid var(--border);paddin
     <select id="custSw" aria-label="Spessore della linea"><option value="0.5">0,5 cm</option><option value="1" selected>1 cm</option><option value="1.5">1,5 cm</option><option value="2">2 cm</option><option value="3">3 cm</option><option value="5">5 cm</option><option value="10">10 cm</option></select>
   </span>
   <label class="cb-chk cb-snap" title="Aggancia alla griglia: il passo segue lo zoom (1, 5 o 10 cm). Tieni ⌘ (Ctrl) per muovere libero."><input type="checkbox" id="custSnap" checked> Griglia <span id="custPassoLbl">1 cm</span></label>
-  <label class="cb-chk" title="Aggancia a estremi, punti medi, centri e bordi delle altre forme, con le guide d'allineamento e le distanze. Tieni ⌘ (Ctrl) per un gesto senza aggancio."><input type="checkbox" id="custSnapPunti" checked> Aggancio</label>
+  <!-- un interruttore a icona (calamita): con un'etichetta in più la barra andava a capo fra 1366 e 1536 px (revisione 14/10) -->
+  <label class="cb-ico" title="Aggancio: estremi, punti medi, centri e bordi delle altre forme, con guide e distanze. Tieni ⌘ (Ctrl) per un gesto senza aggancio."><input type="checkbox" id="custSnapPunti" checked aria-label="Aggancio a punti, bordi e guide"><span class="cb-ico-v" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4v7a6 6 0 0 0 12 0V4"/><path d="M6 8h4M14 8h4"/><path d="M10 4v7a2 2 0 0 0 4 0V4"/></svg></span></label>
 </div>
 <div id="custGuida" role="status" aria-live="polite" hidden><span class="vb-txt" id="custGuidaTxt"></span><button type="button" class="vb-esci" id="custGuidaEsci">Annulla</button></div>
 <!-- CREA ELEMENTO, PRECISIONE (14/10/2026): il campo delle misure accanto al cursore («dynamic input»). Compare fissato il
      primo punto di rettangolo, ellisse, linea o poligono: si scrive 120x80 (o 150<30) e Invio crea la forma esatta. -->
 <div id="custDyn" hidden>
   <label class="cd-lbl" id="custDynLbl" for="custDynIn">L × P (cm)</label>
-  <input type="text" id="custDynIn" inputmode="decimal" autocomplete="off" spellcheck="false" aria-describedby="custDynAiuto custDynErr">
+  <input type="text" id="custDynIn" maxlength="40" inputmode="decimal" autocomplete="off" spellcheck="false" aria-describedby="custDynAiuto custDynErr">
   <span class="cd-aiuto" id="custDynAiuto"></span>
   <span class="cd-err" id="custDynErr" role="alert" hidden></span>
 </div>
