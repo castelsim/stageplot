@@ -24,7 +24,7 @@
      due release nello stesso giorno restano distinguibili in telemetria e supporto. In locale/dev
      resta il placeholder. La sentinella del VALORE è distinta dall'identificatore window.__BUILD_ID__
      così il sed della CI non tocca il nome della variabile. -->
-<script>window.__APP_VERSION__="2026.10.14";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
+<script>window.__APP_VERSION__="2026.10.15";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -3727,6 +3727,7 @@ body.cust-editor #layLbl{display:none}
 body.dark #custBar{box-shadow:0 6px 20px rgba(0,0,0,.4)}
 #custBar .cb-tit{white-space:nowrap;color:var(--text-2);font-variant-numeric:tabular-nums}
 #custBar .cb-tit b{color:var(--text);font-weight:700}
+@media (max-width:1439px){ #custBar .cb-tit b{display:none} }   /* fra 1366 e 1439 px la barra sta su una riga: restano le misure, il titolo lo dice il tooltip */
 #custBar .cb-seg{display:flex;gap:2px;padding:2px;border-radius:var(--r-md);background:var(--surface-raised)}
 #custBar .cb-tool{display:inline-flex;align-items:center;justify-content:center;width:32px;height:30px;border:0;border-radius:var(--r-sm);
   background:transparent;color:var(--text-2);cursor:pointer}
@@ -3743,6 +3744,14 @@ body.dark #custBar{box-shadow:0 6px 20px rgba(0,0,0,.4)}
 #custBar .cb-chk input{margin:0;accent-color:var(--accent)}
 #custBar .cb-chk input:disabled+*{opacity:.45}
 #custBar .cb-snap #custPassoLbl{color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}
+/* «Aggancio» come interruttore a icona (calamita): acceso = pieno, come lo strumento scelto */
+#custBar .cb-ico{position:relative;display:inline-flex;flex:none;cursor:pointer}
+#custBar .cb-ico input{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
+#custBar .cb-ico-v{display:inline-flex;align-items:center;justify-content:center;width:32px;height:30px;border-radius:var(--r-sm);
+  background:var(--surface-raised);color:var(--text-2)}
+#custBar .cb-ico:hover .cb-ico-v{color:var(--text)}
+#custBar .cb-ico input:checked+.cb-ico-v{background:var(--accent);color:#fff}
+#custBar .cb-ico input:focus-visible+.cb-ico-v{box-shadow:0 0 0 3px var(--focus-ring)}
 /* la riga di aiuto del gesto in corso: sotto la barra nell'editor, in cima al palco mentre si traccia il rettangolo */
 #custGuida{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:30;display:flex;align-items:center;gap:10px;
   max-width:calc(100% - 24px);background:var(--surface);color:var(--text);border:1px solid var(--border-strong);border-radius:999px;
@@ -3778,6 +3787,39 @@ body.dark .cust-righello text{fill:#cbd5e1}
 .cust-poly-prev polyline{fill:none;stroke:var(--accent);stroke-width:1.5;stroke-dasharray:6 4;vector-effect:non-scaling-stroke}
 .cust-poly-prev circle{fill:#fff;stroke:var(--accent);stroke-width:1.5;vector-effect:non-scaling-stroke}
 .cust-poly-prev circle.primo{fill:var(--accent)}
+/* PRECISIONE (Tappa A, 14/10/2026): campo delle misure accanto al cursore, segni d'aggancio, guide (magenta, come Figma)
+   e quote delle distanze. Colori in variabili: il tema scuro li schiarisce. */
+:root{--cust-guida:#d6246e;--cust-quota:#d6246e;--cust-quota-bordo:#6b665b}   /* bianco sopra: 5,7:1 (era #8a8476, 3,7:1) */
+body.dark{--cust-guida:#ff5c9f;--cust-quota:#ff5c9f;--cust-quota-bordo:#a8a29a}
+#custDyn{position:fixed;z-index:60;display:flex;flex-direction:column;gap:3px;min-width:170px;max-width:260px;padding:7px 9px 8px;
+  background:var(--surface);color:var(--text);border:1px solid var(--accent);border-radius:var(--r-md);
+  box-shadow:0 6px 18px rgba(38,33,24,.22);font-size:12px;pointer-events:none}
+/* il campo non prende MAI il puntatore (nemmeno l'input: il fuoco ce l'ha già e si scrive senza cliccarlo): un salto del
+   mouse sopra di lui arriva comunque al palco, e il secondo clic chiude la forma */
+#custDyn *{pointer-events:none}
+#custDyn[hidden]{display:none}
+body.dark #custDyn{box-shadow:0 6px 18px rgba(0,0,0,.5)}
+#custDyn .cd-lbl{color:var(--text-2);font-weight:600}
+#custDyn input{height:28px;font-size:15px;font-weight:600;font-variant-numeric:tabular-nums;padding:0 8px;border:1px solid var(--border-strong);
+  border-radius:var(--r-sm);background:var(--surface-raised);color:var(--text);width:100%;box-sizing:border-box}
+#custDyn input:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring);border-color:var(--accent)}
+#custDyn input.err{border-color:#dc2626}
+#custDyn .cd-aiuto{color:var(--text-3)}
+#custDyn .cd-err{color:#dc2626;font-weight:600}
+body.dark #custDyn .cd-err{color:#f87171}
+.cust-ancora{fill:var(--accent);stroke:#fff;stroke-width:1.5;vector-effect:non-scaling-stroke}
+.cust-snap-lay{pointer-events:none}
+.cust-guida{stroke:var(--cust-guida);stroke-width:1.2;vector-effect:non-scaling-stroke}
+.cust-segno rect,.cust-segno path,.cust-segno circle{fill:none;stroke:var(--cust-guida);stroke-width:2;vector-effect:non-scaling-stroke}
+.cust-segno text{fill:var(--cust-guida);font-weight:700;paint-order:stroke;stroke:var(--canvas-bg);stroke-width:3px;stroke-linejoin:round}
+.cust-quota line{stroke:var(--cust-quota);stroke-width:1.2;vector-effect:non-scaling-stroke}
+.cust-quota rect{fill:var(--cust-quota)}
+.cust-quota text{fill:#fff;font-weight:700;font-variant-numeric:tabular-nums}
+.cust-quota.bordo line{stroke:var(--cust-quota-bordo);stroke-dasharray:4 3}
+.cust-quota.bordo rect{fill:var(--cust-quota-bordo)}
+body.dark .cust-quota text{fill:#1a1814}
+#custForma .cust-num input{font-variant-numeric:tabular-nums}
+#props #custForma .cust-num>*{flex:1 1 84px}   /* X|Y, L|P, lunghezza|angolo: a due a due anche nella colonna stretta */
 /* il testo che si scrive sul palco */
 .cust-testo-inp{position:fixed;z-index:60;border:1.5px solid var(--accent);border-radius:6px;background:var(--sheet);padding:2px 6px;
   font-family:var(--font-ui);font-weight:500;text-align:center;box-shadow:var(--elev-2);outline:none}
@@ -4037,7 +4079,7 @@ body.cust-editor.m-has-sel #custScheda{border-top:1px solid var(--border);paddin
 <!-- CREA ELEMENTO (13/10/2026): la barra degli strumenti dell'editor e la riga di aiuto del gesto in corso. La barra si
      vede solo con l'editor aperto (body.cust-editor); la riga anche mentre si trascina il rettangolo sul palco. -->
 <div id="custBar" role="toolbar" aria-label="Strumenti per disegnare l'elemento" hidden>
-  <span class="cb-tit"><b>Elemento</b> <span id="custDim"></span></span>
+  <span class="cb-tit" title="Misure dell'elemento"><b>Elemento</b> <span id="custDim"></span></span>
   <span class="cb-seg" role="group" aria-label="Strumento">
     <button type="button" class="cb-tool on" data-cust-tool="sel" aria-pressed="true" aria-label="Seleziona" title="Seleziona, sposta, ridimensiona e ruota"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3.5 18.5 11l-5.6 1.6-2.7 5.4z"/></svg></button>
     <button type="button" class="cb-tool" data-cust-tool="rect" aria-pressed="false" aria-label="Rettangolo" title="Rettangolo — trascina per disegnarlo; con Maiusc un quadrato"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="6" width="16" height="12" rx="1"/></svg></button>
@@ -4055,8 +4097,18 @@ body.cust-editor.m-has-sel #custScheda{border-top:1px solid var(--border);paddin
     <select id="custSw" aria-label="Spessore della linea"><option value="0.5">0,5 cm</option><option value="1" selected>1 cm</option><option value="1.5">1,5 cm</option><option value="2">2 cm</option><option value="3">3 cm</option><option value="5">5 cm</option><option value="10">10 cm</option></select>
   </span>
   <label class="cb-chk cb-snap" title="Aggancia alla griglia: il passo segue lo zoom (1, 5 o 10 cm). Tieni ⌘ (Ctrl) per muovere libero."><input type="checkbox" id="custSnap" checked> Griglia <span id="custPassoLbl">1 cm</span></label>
+  <!-- un interruttore a icona (calamita): con un'etichetta in più la barra andava a capo fra 1366 e 1536 px (revisione 14/10) -->
+  <label class="cb-ico" title="Aggancio: estremi, punti medi, centri e bordi delle altre forme, con guide e distanze. Tieni ⌘ (Ctrl) per un gesto senza aggancio."><input type="checkbox" id="custSnapPunti" checked aria-label="Aggancio a punti, bordi e guide"><span class="cb-ico-v" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 4v7a6 6 0 0 0 12 0V4"/><path d="M6 8h4M14 8h4"/><path d="M10 4v7a2 2 0 0 0 4 0V4"/></svg></span></label>
 </div>
 <div id="custGuida" role="status" aria-live="polite" hidden><span class="vb-txt" id="custGuidaTxt"></span><button type="button" class="vb-esci" id="custGuidaEsci">Annulla</button></div>
+<!-- CREA ELEMENTO, PRECISIONE (14/10/2026): il campo delle misure accanto al cursore («dynamic input»). Compare fissato il
+     primo punto di rettangolo, ellisse, linea o poligono: si scrive 120x80 (o 150<30) e Invio crea la forma esatta. -->
+<div id="custDyn" hidden>
+  <label class="cd-lbl" id="custDynLbl" for="custDynIn">L × P (cm)</label>
+  <input type="text" id="custDynIn" maxlength="40" inputmode="decimal" autocomplete="off" spellcheck="false" aria-describedby="custDynAiuto custDynErr">
+  <span class="cd-aiuto" id="custDynAiuto"></span>
+  <span class="cd-err" id="custDynErr" role="alert" hidden></span>
+</div>
 <div id="venueCalibPop" hidden>
   <label>Distanza reale tra i 2 punti (m)</label>
   <div style="display:flex;gap:6px;align-items:center">
@@ -4999,15 +5051,25 @@ body.cust-editor.m-has-sel #custScheda{border-top:1px solid var(--border);paddin
   <!-- CREA ELEMENTO (13/10/2026): la forma selezionata nell'editor (colori e linea stanno nella barra in alto) -->
   <div class="sec" id="custForma" hidden>
     <h3 id="custFormaNome">Forma</h3>
-    <div class="row" id="custFormaDims">
-      <span><label for="custFW">L (cm)</label><input type="number" id="custFW" min="1" step="1"></span>
-      <span><label for="custFD">P (cm)</label><input type="number" id="custFD" min="1" step="1"></span>
+    <!-- PRECISIONE (14/10/2026): tutto a numeri, in cm dall'origine del righello. Campi di testo (la virgola è decimale). -->
+    <div class="row cust-num" id="custFormaPos">
+      <span><label for="custFX">X (cm)</label><input type="text" inputmode="decimal" autocomplete="off" id="custFX"></span>
+      <span><label for="custFY">Y (cm)</label><input type="text" inputmode="decimal" autocomplete="off" id="custFY"></span>
+    </div>
+    <div class="row cust-num" id="custFormaDims">
+      <span><label for="custFW">L (cm)</label><input type="text" inputmode="decimal" autocomplete="off" id="custFW"></span>
+      <span><label for="custFD">P (cm)</label><input type="text" inputmode="decimal" autocomplete="off" id="custFD"></span>
+    </div>
+    <div class="row cust-num" id="custFormaLinea" hidden>
+      <span><label for="custFLen">Lunghezza (cm)</label><input type="text" inputmode="decimal" autocomplete="off" id="custFLen"></span>
+      <span><label for="custFAng">Angolo (°)</label><input type="text" inputmode="decimal" autocomplete="off" id="custFAng"></span>
     </div>
     <div id="custFormaTxt" hidden>
       <label for="custFTesto">Testo</label><input type="text" id="custFTesto" maxlength="140">
-      <div class="row"><span><label for="custFCorpo">Corpo (cm)</label><input type="number" id="custFCorpo" min="2" max="200" step="0.5"></span></div>
+      <div class="row cust-num"><span><label for="custFCorpo">Corpo (cm)</label><input type="text" inputmode="decimal" autocomplete="off" id="custFCorpo"></span></div>
     </div>
-    <div class="row"><span><label for="custFRot">Rotazione (°)</label><input type="number" id="custFRot" min="-360" max="360" step="5"></span></div>
+    <div class="row cust-num" id="custFormaRot"><span><label for="custFRot">Rotazione (°)</label><input type="text" inputmode="decimal" autocomplete="off" id="custFRot"></span></div>
+    <p class="prop-hint" id="custFormaNota"></p>
     <div class="btns">
       <button class="btn" id="custFFront" type="button" title="Porta questa forma sopra le altre">⬆ Primo piano</button>
       <button class="btn" id="custFBack" type="button" title="Mandala dietro alle altre">⬇ In fondo</button>

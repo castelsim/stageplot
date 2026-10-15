@@ -1,3 +1,37 @@
+# 14/10/2026 — Crea elemento, Tappa A «Precisione»: misure digitate e aggancio intelligente (ramo `crea-elemento-precisione`)
+
+- Simone: «l'utente non ha gli strumenti sufficienti per disegnare quello che vuole … approccio più stile AutoCAD?».
+  Approvata la Tappa A: la precisione da CAD in un'interfaccia semplice. Spec con la tabella «Decisioni» (D1–D17) in
+  `docs/superpowers/specs/2026-10-14-crea-elemento-precisione-design.md`, piano in `docs/superpowers/plans/` (ignorati).
+- **Numeri mentre disegni**: clic-clic oltre al trascinamento (`__custDraw.a` = primo punto, `drag` non resta acceso);
+  campo `#custDyn` accanto al cursore con le misure vive già selezionate: `120x80` / `120*80` / `120` (= quadrato),
+  `150<30` (angolo in senso ORARIO come «Rotazione», 0° = destra), lato del poligono; virgola decimale, `m`/`mm`.
+  Invio crea (un passo di Annulla), Esc toglie il testo poi il primo punto. Pure: `custLeggiMisure`, `custFormaDaMisure`.
+- **Pannello della forma a numeri**: X/Y (angolo in alto a sinistra dell'ingombro visibile, dallo 0 del righello), L, P,
+  rotazione; linea: X/Y del primo capo, lunghezza, angolo (`custGeometria` / `custImpostaGeometria` / `custFormaCampo`).
+  L/P tengono fermo l'angolo in alto a sinistra. La linea ha due maniglie sui capi (`drag.mode==="custcapo"`).
+- **Aggancio intelligente** (solo nell'editor): `custBersagli` (estremi, vertici, punti medi, centri, quadranti, bordi di
+  forme, elementi veri e superficie) → `custAggancioPunto` (punto 10 px > bordo 8 px > allineamento con guida > griglia),
+  `custAggancioSposta` (bordi/centri dell'ingombro che si sposta, guide magenta), `custDistanze` (quote dai vicini o dal
+  bordo), `custAggancioLati` (ridimensionamento). ⌘/Ctrl = libero; casella «Aggancio» nella barra. Posizioni al
+  centesimo di cm; nel ridimensionamento il centro non si arrotonda più (il lato fermo si spostava di 5 mm).
+- Prestazioni, 200 forme: node 0,67 ms a movimento (le tre ricerche insieme); Chrome 0,12 ms (aggancio + disegno di guide e
+  quote), gestore vero del palco 0,05 ms per pointermove; bersagli 1–3 ms una volta per gesto.
+- Prova vera in Chromium (porta 8969): schermate `STAGEPLOT/anteprime-crea-elemento/2026-10-14_precisione_*`, script in
+  `…_precisione_script/prova.cjs`. Test: 13 «precisione: …» (prima di «la nota interna…»), mutazioni rosse 6/6.
+- **Revisione indipendente (14-15/10), chiusa nella stessa PR**: il campo delle misure non prende il puntatore
+  (`#custDyn{pointer-events:none}`, figli compresi) e sta dalla parte del cursore lontana dal primo punto; Invio senza
+  scrivere finisce sul punto agganciato (`custDyn.cur`), non sul testo arrotondato; logica del gestore estratta e provata
+  (`custMuoviNellEditor`, `custCapoRilascio`, `custRidimensionaCentro`, `custRidimensionaAggancio`); «Aggancio» è un
+  interruttore a icona e sotto 1440 px sparisce la parola «Elemento» (barra su una riga da 1366); maxlength 40 e testi
+  oltre 40 caratteri rifiutati subito; «1.200» e «120,80» rifiutati con la spiegazione; sotto 2 cm si conferma col secondo
+  Invio; X/Y/L/P e misure scritte dentro la superficie ±10% (`custLimitiCampo`, `custLimita`); quota verso il bordo
+  #6b665b; cache dei bersagli rifatta dopo Annulla/Ripeti; ⌫ dal palco aggiorna il campo (`custPolyTogliUltimo`).
+  Mutazioni: 19 su 19 rosse (le 12 del revisore + 7 sulle correzioni). Nel sandbox `renderSnapGuides`/`redrawSelHandles`
+  girano all'infinito sul DOM finto (`while(g.firstChild)`): un test che passa da lì li spegne.
+- ⚠️ `origin/main` (PR #319 Tastiera) fa fallire il collaudo 07 e 11 (canali DI delle tastiere): non è di questo ramo
+  (output identico a origin/main), va aggiornato con `--aggiorna` da chi ha fatto #319, col perché.
+
 # 14/10/2026 — PDF: scritte grigie e scure in nero pieno, per stampare in bianco e nero (ramo `pdf-testo-nero`)
 
 - Simone, stampando su una laser b/n: le quote delle pedane («2×2 m · h60», grigie #6B7280, ~3 pt = ~1 mm a 1:100) non
