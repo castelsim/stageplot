@@ -3649,6 +3649,7 @@ body.cust-editor #layLbl{display:none}
 body.dark #custBar{box-shadow:0 6px 20px rgba(0,0,0,.4)}
 #custBar .cb-tit{white-space:nowrap;color:var(--text-2);font-variant-numeric:tabular-nums}
 #custBar .cb-tit b{color:var(--text);font-weight:700}
+@media (max-width:1439px){ #custBar .cb-tit b{display:none} }   /* fra 1366 e 1439 px la barra sta su una riga: restano le misure, il titolo lo dice il tooltip */
 #custBar .cb-seg{display:flex;gap:2px;padding:2px;border-radius:var(--r-md);background:var(--surface-raised)}
 #custBar .cb-tool{display:inline-flex;align-items:center;justify-content:center;width:32px;height:30px;border:0;border-radius:var(--r-sm);
   background:transparent;color:var(--text-2);cursor:pointer}
