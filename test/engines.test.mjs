@@ -11073,6 +11073,139 @@ t("precisione: spostando una forma si agganciano bordi e centri, l'asse libero v
   eq([q.v, q.bordo, q.y1], [36.5, false, 120], "36,5 cm dal vicino a sinistra, a metà della parte in comune");
   eq([qd.v, qd.bordo], [160, true], "a destra nessuno: 160 cm dal bordo");
 }));
+/* ===== Precisione — correzioni della revisione indipendente (14/10/2026) ===== */
+t("precisione (rev.): Invio senza scrivere finisce ESATTO sul punto agganciato (non sul testo arrotondato del campo)", () => conCampi((campi, el) => conPuntatore((ev) => {
+  precEditor();
+  A.custNuovaForma("line", { x: 20, y: 150 }, { x: 181, y: 150 });   /* punto medio 100,5 */
+  A.custStrumento("line");
+  A.custPointerDown(ev(37, 113)); A.custPointerUp(ev(37, 113));
+  A.custPointerMove(ev(101.5, 151));
+  eq(A.custDyn.cur, { x: 100.5, y: 150 }, "il mouse è sul punto medio");
+  ok(A.custDynInvio(), "Invio a campo non toccato");
+  const c = A.custCapiLinea(precForme()[1]);
+  eq(c.b.map((v) => Math.round(v * 1e6) / 1e6), [100.5, 150], "il capo è il punto medio, al millesimo");
+  A.custStrumento("rect"); A.custPointerDown(ev(50, 50)); A.custPointerUp(ev(50, 50));
+  eq(A.custDynInvio(), false, "mouse fermo sul primo punto: Invio non fa niente…");
+  eq(A.__custDraw.a, { x: 50, y: 50 }, "…e il primo punto resta");
+})));
+t("precisione (rev.): letture ambigue rifiutate con la spiegazione, testo lungo rifiutato subito, sotto 2 cm si conferma", () => conCampi((campi, el) => conPuntatore((ev) => {
+  const L = (s, k) => A.custLeggiMisure(s, k || "rect");
+  ok(!L("1.200x80").ok && /migliaia/.test(L("1.200x80").err) && /1200/.test(L("1.200x80").err), L("1.200x80").err);
+  ok(!L("120,80").ok && /120x80/.test(L("120,80").err), "«120,80» non diventa un quadrato da 120,8: " + L("120,80").err);
+  ok(!L("1.500<30", "line").ok, "anche la lunghezza");
+  eq([L("0,25m").w, L("1,2m x 80").w, L("120,5").w, L("12.5x8").w], [25, 120, 120.5, 12.5], "le letture chiare restano");
+  eq([L("1,5x80").ok, !!L("1,5x80").avviso, !!L("120x80").avviso, !!L("1,5", "line").avviso], [true, true, false, true], "sotto 2 cm: avviso");
+  const lungo = "1" + " ".repeat(20000) + "1"; const t0 = globalThis.performance.now();
+  ok(!L(lungo, "line").ok && !L(lungo).ok, "rifiutato"); ok(globalThis.performance.now() - t0 < 20, "e subito (niente regex su 20 000 caratteri)");
+  ok(/maxlength="40"/.test(appHtml.match(/<input[^>]*id="custDynIn"[^>]*>/)[0]), "il campo ha maxlength");
+  precEditor(); A.custAggancio = false;
+  A.custStrumento("rect"); A.custPointerDown(ev(20, 20)); A.custPointerUp(ev(20, 20)); A.custPointerMove(ev(40, 40));
+  el("custDynIn").value = "1,5x80"; A.custDyn.scritto = true;
+  eq(A.custDynInvio(), false, "primo Invio: avviso"); ok(/2 cm/.test(el("custDynErr").textContent), el("custDynErr").textContent);
+  eq(precForme().length, 0, "ancora niente");
+  ok(A.custDynInvio(), "secondo Invio: conferma"); eq([precForme()[0].w, precForme()[0].d], [1.5, 80]);
+})));
+t("precisione (rev.): X/Y del pannello e misure scritte restano nella superficie (±10%)", () => conCampi((campi, el) => conPuntatore((ev) => {
+  precEditor(300, 200);
+  const r = A.custNuovaForma("rect", { x: 20, y: 10 }, { x: 140, y: 90 }); A.selectOne(r.id);
+  ok(A.custFormaCampo("x", "99999"), "X enorme"); eq(A.custGeometria(A.getSel()).x, 330, "fermata a 300 + 30");
+  ok(A.custFormaCampo("y", "-500"), "Y negativa"); eq(A.custGeometria(A.getSel()).y, -30);
+  ok(A.custFormaCampo("w", "99999"), "L enorme"); eq(A.getSel().w, 360, "al massimo 1,2 volte la superficie");
+  eq(A.custLimitiCampo("x", 99999, null), 99999, "senza superficie la funzione pura non limita");
+  A.custAggancio = false; A.custStrumento("rect"); A.custPointerDown(ev(20, 20)); A.custPointerUp(ev(20, 20)); A.custPointerMove(ev(40, 40));
+  el("custDynIn").value = "5000x10"; A.custDyn.scritto = true; ok(A.custDynInvio(), "scritto");
+  const f = precForme().slice(-1)[0]; eq([f.x + f.w / 2, f.w], [330, 310], "il secondo punto si ferma al bordo +10%");
+})));
+t("precisione (rev.): le quote verso il bordo si leggono (contrasto ≥ 4,5:1 in chiaro e in scuro)", () => {
+  const v = (re) => { const m = stylesCss.match(re); ok(m, "variabile " + re); return m[1]; };
+  const lum = (h) => { const c = [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).map((x) => (x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4))); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+  const cr = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+  const chiaro = stylesCss.match(/:root\{--cust-guida:[^}]*\}/)[0], scuro = stylesCss.match(/body\.dark\{--cust-guida:[^}]*\}/)[0];
+  const g = (blk, n) => blk.match(new RegExp("--" + n + ":(#[0-9a-f]{6})", "i"))[1];
+  ok(cr(g(chiaro, "cust-quota-bordo"), "#ffffff") >= 4.5, "bordo, chiaro: " + cr(g(chiaro, "cust-quota-bordo"), "#ffffff").toFixed(2));
+  ok(cr(g(chiaro, "cust-quota"), "#ffffff") >= 4.5, "vicino, chiaro");
+  ok(cr(g(scuro, "cust-quota-bordo"), "#1a1814") >= 4.5 && cr(g(scuro, "cust-quota"), "#1a1814") >= 4.5, "scuro (testo #1a1814)");
+  ok(/body\.dark \.cust-quota text\{fill:#1a1814\}/.test(stylesCss), "in scuro il testo delle quote è #1a1814");
+  void v;
+});
+t("precisione (rev.): il campo delle misure non prende il puntatore (un salto del mouse sopra di lui arriva al palco)", () => {
+  ok(/#custDyn\{[^}]*pointer-events:none/.test(stylesCss) && /#custDyn \*\{pointer-events:none\}/.test(stylesCss), "contenitore e figli senza puntatore");
+});
+t("precisione (rev.): ⌘Z nel mezzo di un clic-clic rifà i bersagli; ⌫ dal palco aggiorna il campo del poligono", () => conCampi((campi, el) => conPuntatore((ev) => {
+  precEditor();
+  A.custStrumento("rect");
+  const D = A.__custDraw, n0 = A.custBersagliDisegno(D).punti.length;
+  A.custNuovaForma("rect", { x: 40, y: 40 }, { x: 80, y: 80 }); A.save();
+  ok(A.custBersagliDisegno(D).punti.length > n0, "la forma nuova è un bersaglio");
+  A.undo();
+  eq(A.custBersagliDisegno(A.__custDraw || D).punti.length, n0, "annullata, non lo è più");
+  A.custStrumento("poly"); A.custAggancio = false; A.custAggancioPunti = false;
+  A.custPointerDown(ev(10, 10)); A.custPointerDown(ev(60, 10)); A.custPointerMove(ev(60, 40));
+  eq(el("custDynIn").value, "30 < 90°", "lato corrente dal secondo punto");
+  ok(A.custPolyTogliUltimo(), "⌫");
+  eq([A.__custDraw.pts.length, el("custDynIn").value], [1, "58,31 < 31°"], "il campo riparte dal primo punto");
+  A.custPolyTogliUltimo(); eq([A.__custDraw.pts.length, el("custDyn").hidden], [0, true], "senza punti il campo sparisce");
+})));
+t("precisione (rev.): Esc col primo punto chiude anche il campo delle misure", () => conCampi((campi, el) => conPuntatore((ev) => {
+  precEditor();
+  A.custStrumento("ell"); A.custPointerDown(ev(30, 30)); A.custPointerUp(ev(30, 30));
+  eq(el("custDyn").hidden, false, "aperto");
+  A.custEscDisegno();
+  eq([el("custDyn").hidden, A.__custDraw.a], [true, null], "chiuso, primo punto tolto");
+})));
+t("precisione (rev.): il capo di una linea non aggancia la linea stessa; il rilascio fa UN passo di Annulla", () => conCampi((campi, el) => conPuntatore((ev) => {
+  precEditor(); A.custAggancio = false;
+  const ln = A.custNuovaForma("line", { x: 100, y: 60 }, { x: 230, y: 60 }); A.save(); A.selectOne(ln.id);
+  const c0 = A.custCapiLinea(ln);
+  A.drag = { mode: "custcapo", id: ln.id, fine: "p2", fisso: c0.a, moved: false };
+  A.custCapoSposta(A.drag, ev(167, 63));   /* vicino al SUO punto medio di prima (165,60); niente altro nei dintorni */
+  eq(A.custCapiLinea(ln).b, [167, 63], "libero: il suo punto medio non è un bersaglio");
+  const passi = A.undoStack.length;
+  eq(A.custCapoRilascio(), true, "rilascio"); eq([A.drag, A.undoStack.length - passi], [null, 1], "un passo");
+  A.undo(); eq(A.custCapiLinea(A.state.items.find((x) => x.id === ln.id)).b, [230, 60], "Annulla rimette il capo");
+})));
+t("precisione (rev.): spostando, la forma non aggancia la propria posizione di partenza", () => conCampi(() => {
+  precEditor(400, 300); A.custAggancio = false;
+  const b = A.custNuovaForma("rect", { x: 250, y: 40 }, { x: 290, y: 60 });   /* centro 270,50; lontano da superficie e altri */
+  b.x = 270; b.y = 50;
+  A.custSpostaEditor({ mode: "item", items: [{ id: b.id, x0: 270, y0: 50 }], moved: false }, 4, 30, {});
+  eq([b.x, b.y], [274, 80], "4 cm a destra restano 4 cm (non torna indietro sul suo bordo di prima)");
+}));
+t("precisione (rev.): l'aggancio dell'editor non tocca il palco vero (D14)", () => {
+  reset();
+  const it = add("astamic", 300, 300); A.selectOne(it.id);
+  const d = { mode: "item", sp0: { x: 300, y: 300 }, items: [{ id: it.id, x0: 300, y0: 300 }], moved: false }; A.drag = d;
+  eq(A.custEditorAttivo(), false, "premessa: fuori dall'editor");
+  eq(A.custMuoviNellEditor({ x: 310, y: 300 }), false, "il gestore dell'editor non lo prende");
+  eq([it.x, d.custB], [300, undefined], "niente spostamento né bersagli dell'editor");
+  A.drag = null;
+});
+t("precisione (rev.): ridimensionando nell'editor il centro non va alla griglia, e il lato aggancia gli altri", () => conCampi(() => {
+  precEditor(400, 300);
+  const a = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 101, y: 60 }); a.x = 60.5;
+  eq([A.custRidimensionaCentro(a, true), a.x], [false, 60.5], "nell'editor il centro resta (il lato fermo non si sposta)");
+  const b = A.custNuovaForma("rect", { x: 161, y: 100 }, { x: 200, y: 140 });
+  const r = A.custNuovaForma("rect", { x: 100, y: 100 }, { x: 156, y: 140 });   /* lato destro a 156, l'altro a 161 */
+  const g = A.custRidimensionaAggancio({ rot: 0 }, r, "r", {});
+  eq([r.x - r.w / 2, r.x + r.w / 2], [100, 161], "il lato destro va sul bordo dell'altro, il sinistro resta");
+  ok(g && g.guide.some((q) => q.x1 === 161), "con la guida");
+  eq(A.custRidimensionaAggancio({ rot: 0 }, r, "r", { metaKey: true }), null, "⌘: niente");
+  A.custEditorAnnulla();
+  const v = add("pedana", 300, 300); v.x = 300.5;
+  eq([A.custRidimensionaCentro(v, true), v.x], [true, A.snap(300.5)], "sul palco vero il centro va alla griglia come prima");
+  void b;
+}));
+t("precisione (rev.): le tolleranze seguono lo zoom (10 px di schermo, non 10 cm)", () => conCampi(() => conPuntatore((ev) => {
+  precEditor(); A.custAggancio = false;
+  A.custNuovaForma("line", { x: 20, y: 150 }, { x: 180, y: 150 });   /* punto medio 100,150 */
+  const B = A.custBersagli(A.state.items, {}, { w: 300, d: 200 }), k0 = A.cmPerPx;
+  try {
+    A.cmPerPx = () => 0.25;   /* ingrandito: 10 px = 2,5 cm */
+    eq(A.custPuntoAgganciato(ev(104, 150), B).info.t, "bordo", "a 4 cm (16 px) dal punto medio: solo il bordo");
+    A.cmPerPx = () => 4;      /* rimpicciolito: 10 px = 40 cm */
+    const p = A.custPuntoAgganciato(ev(125, 170), B); eq([p.x, p.y, p.info.t], [100, 150, "medio"], "a 32 cm (8 px): il punto medio");
+  } finally { A.cmPerPx = k0; }
+})));
 /* ===== fine Tappa A ===== */
 /* 13/10/2026, stage plot vero: quattro tastiere per bambini su supporto non comparivano né nella lista
    canali né nei carichi. La «Tastiera» (synth · 1 tastiera, 24/07) era nata per la ricerca nel catalogo
