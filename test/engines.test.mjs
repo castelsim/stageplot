@@ -11090,7 +11090,7 @@ t("precisione (rev.): Invio senza scrivere finisce ESATTO sul punto agganciato (
 })));
 t("precisione (rev.): letture ambigue rifiutate con la spiegazione, testo lungo rifiutato subito, sotto 2 cm si conferma", () => conCampi((campi, el) => conPuntatore((ev) => {
   const L = (s, k) => A.custLeggiMisure(s, k || "rect");
-  ok(!L("1.200x80").ok && /migliaia/.test(L("1.200x80").err) && /1200/.test(L("1.200x80").err), L("1.200x80").err);
+  ok(!L("1.200x80").ok && /migliaia/.test(L("1.200x80").err) && /Scrivi 1200 oppure 1,2\./.test(L("1.200x80").err), L("1.200x80").err);
   ok(!L("120,80").ok && /120x80/.test(L("120,80").err), "«120,80» non diventa un quadrato da 120,8: " + L("120,80").err);
   ok(!L("1.500<30", "line").ok, "anche la lunghezza");
   eq([L("0,25m").w, L("1,2m x 80").w, L("120,5").w, L("12.5x8").w], [25, 120, 120.5, 12.5], "le letture chiare restano");
@@ -11176,9 +11176,14 @@ t("precisione (rev.): l'aggancio dell'editor non tocca il palco vero (D14)", () 
   const it = add("astamic", 300, 300); A.selectOne(it.id);
   const d = { mode: "item", sp0: { x: 300, y: 300 }, items: [{ id: it.id, x0: 300, y0: 300 }], moved: false }; A.drag = d;
   eq(A.custEditorAttivo(), false, "premessa: fuori dall'editor");
-  eq(A.custMuoviNellEditor({ x: 310, y: 300 }), false, "il gestore dell'editor non lo prende");
-  eq([it.x, d.custB], [300, undefined], "niente spostamento né bersagli dell'editor");
-  A.drag = null;
+  /* le funzioni di disegno nel sandbox girerebbero all'infinito sul DOM finto (firstChild sempre pieno): spente qui, così
+     un gestore che sbagliasse strada fa fallire il test invece di bloccare la suite */
+  const sg = A.renderSnapGuides, rh = A.redrawSelHandles, sp = A.svgPoint;
+  A.renderSnapGuides = () => {}; A.redrawSelHandles = () => {}; A.svgPoint = (e) => ({ x: e.x, y: e.y });
+  try {
+    eq(A.custMuoviNellEditor({ x: 310, y: 300 }), false, "il gestore dell'editor non lo prende");
+    eq([it.x, d.custB], [300, undefined], "niente spostamento né bersagli dell'editor");
+  } finally { A.renderSnapGuides = sg; A.redrawSelHandles = rh; A.svgPoint = sp; A.drag = null; }
 });
 t("precisione (rev.): ridimensionando nell'editor il centro non va alla griglia, e il lato aggancia gli altri", () => conCampi(() => {
   precEditor(400, 300);

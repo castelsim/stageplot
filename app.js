@@ -7855,7 +7855,7 @@ function custNumeroDigitato(s){
    misura è possibile ma rara (un dettaglio, o un errore di unità): si avvisa e il secondo Invio conferma. */
 var CUST_MIN_SICURA=2, CUST_MAX_TESTO=40;
 function custAmbiguo(tok, solo){
-  if(/^\d{1,3}\.\d{3}(cm|mm)?$/.test(tok)) return "«"+tok+"»: il punto delle migliaia non si usa. Scrivi "+tok.replace(/\.|cm|mm/g,"")+" oppure "+tok.replace(".",",")+".";
+  if(/^\d{1,3}\.\d{3}(cm|mm)?$/.test(tok)) return "«"+tok+"»: il punto delle migliaia non si usa. Scrivi "+tok.replace(/\.|cm|mm/g,"")+" oppure "+custCifra(Number(tok.replace(/cm|mm/g,"")))+".";
   if(solo && /^\d+[.,]\d{2,}(cm|mm)?$/.test(tok)) return "«"+tok+"» è un lato solo da "+String(custNumeroDigitato(tok)).replace(".",",")+" cm? Per due misure scrivi "+tok.replace(/[.,]/,"x")+".";
   return null;
 }
@@ -9512,7 +9512,11 @@ function custBlocca(){ if(!custEditorAttivo()) return false; custEditorAvvisa();
   [["custFX","x"],["custFY","y"],["custFW","w"],["custFD","d"],["custFRot","rot"],["custFCorpo","corpo"],["custFLen","len"],["custFAng","ang"]].forEach(function(c){
     on(c[0], "change", function(){ custFormaCampo(c[1], this.value); });
     on(c[0], "keydown", function(ev){
-      if(ev.key==="Enter"){ ev.preventDefault(); custFormaCampo(c[1], this.value); var it=getSel(); if(it && it.type==="custshape") custRenderForma(it); try{ this.select(); }catch(e){} }
+      if(ev.key==="Enter"){ ev.preventDefault(); custFormaCampo(c[1], this.value); var it=getSel();
+        /* il campo col fuoco non si aggiorna da solo (custRenderForma lo salta): si riscrive qui il valore VERO, che può
+           essere stato fermato ai limiti della superficie (X = 99999 → 330) */
+        if(it && it.type==="custshape"){ custRenderForma(it); var gv=custGeometria(it)[c[1]]; if(gv!=null) this.value=custCifra(gv); }
+        try{ this.select(); }catch(e){} }
       else if(ev.key==="Escape"){ var it2=getSel(); if(it2 && it2.type==="custshape"){ var g=custGeometria(it2); if(g[c[1]]!=null) this.value=custCifra(g[c[1]]); } }
     });
   });
