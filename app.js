@@ -33925,17 +33925,18 @@ function pdfChannelPage(doc, L, paperKey){
     var cs=document.getElementById("pdfAltCsv");
     if(cs) cs.addEventListener("click", function(){ if(window.openCsvExport){ modal.hidden=true; window.openCsvExport(); } });
   })();
-  /* SCALETTA nell'Esporta (10/10): la casella c'è solo se la scaletta ha almeno una voce, e allora
-     parte spuntata — chi l'ha scritta la vuole nel PDF; chi non l'ha scritta non vede niente. Come le
-     pagine tecniche, la scelta non si ricorda: vale per questa apertura. */
+  /* SCALETTA nell'Esporta (10/10): la casella c'è solo se la scaletta ha almeno una voce. Dal 16/10 parte
+     SPENTA anche allora (Simone: «se la scaletta è presente, quell'opzione dovrebbe essere comunque chiusa di
+     default»): la scaletta è una pagina in più che si aggiunge quando serve, come le pagine tecniche. La scelta
+     non si ricorda: vale per questa apertura. */
   var scChk=document.getElementById("pdfScaletta");
   function pdfScalettaInit(){
     var row=document.getElementById("pdfScalettaRow"), nota=document.getElementById("pdfScalettaNota");
     var d=scalettaList();
     if(row) row.style.display = d.count ? "" : "none";
     if(nota) nota.textContent = d.count ? "— una pagina: "+(d.brani===1?"1 brano":d.brani+" brani")+(d.tot?", "+d.totTxt:"") : "";
-    if(scChk) scChk.checked = d.count>0;
-    window.__pdfScaletta = d.count>0;
+    if(scChk) scChk.checked = false;
+    window.__pdfScaletta = false;
   }
   if(scChk) scChk.addEventListener("change", function(){ window.__pdfScaletta=!!scChk.checked; renderPreview(); });
   /* QR verso la versione online (10/10). Spento a ogni apertura; la riga compare solo quando il
