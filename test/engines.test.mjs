@@ -11252,6 +11252,55 @@ t("Esporta: col mouse la scelta della scala si vede anche in Semplice (16/10); s
   ok(/body:not\(\.f-esporta\) #pdfScaleRow,/.test(stylesCss.slice(0, stylesCss.indexOf("/* ── SEMPLICE, COL MOUSE"))), "sul telefono resta dietro «Altre opzioni»");
   ok(/<div id="pdfScaleRow">[\s\S]{0,120}<select id="pdfScale">/.test(appjs + readFileSync(join(root, "app/index.html"), "utf8")), "il selettore è accanto a formato e orientamento");
 });
+/* 16/10 — Simone: «mi sembra che lo sgabello per timpani non ci sia». Nel disegno c'era (parts.stool!==false), nel cartiglio
+   e nei conteggi no: sgabelliDi() non conosceva i timpani e countAccessori() contava solo quello della batteria. */
+t("lo sgabello dei timpani si conta come quello della batteria: cartiglio, Stato e liste dicono la stessa cosa", () => {
+  ["timpani", "timpani2", "timpani3"].forEach((tipo) => {
+    reset();
+    const tp = add(tipo, 400, 300); A.parts(tp).stool = true;
+    eq(JSON.stringify(A.sgabelliDi(tp)), JSON.stringify([["timpani", 1]]), tipo + ": uno sgabello «timpani»");
+    eq(JSON.stringify(A.sgabelliTesto()), JSON.stringify(["1 sgabello timpani"]), tipo + ": il testo del cartiglio");
+    eq(A.countAccessori().sgabelli, 1, tipo + ": il riepilogo Stato lo conta");
+    ok(A.pdfTotals({ tecnici: false }).indexOf("1 sgabello timpani") > -1, tipo + ": è nel cartiglio del PDF");
+  });
+  reset();
+  const due = add("timpani", 300, 300), tre = add("timpani3", 700, 300);
+  A.parts(due).stool = true; A.parts(tre).stool = true;
+  eq(JSON.stringify(A.sgabelliTesto()), JSON.stringify(["2 sgabelli timpani"]), "due set di timpani: plurale");
+  eq(A.countAccessori().sgabelli, 2);
+});
+t("timpani con lo sgabello spento (o di serie spento): nessuno sgabello contato", () => {
+  reset();
+  const tp = add("timpani", 400, 300); A.parts(tp).stool = false; A.parts(tp).mus = true;
+  eq(JSON.stringify(A.sgabelliDi(tp)), "[]", "sgabello spento → niente");
+  eq(A.sgabelliTesto().length, 0); eq(A.countAccessori().sgabelli, 0);
+  ok(!A.pdfTotals({ tecnici: false }).some((x) => /timpani/.test(x)), "e il cartiglio non ne parla");
+  /* stessa condizione del disegno (!==false): tutto ciò che non è esattamente false = acceso, come lo disegna drawTimpani */
+  const tp2 = add("timpani2", 800, 300); A.parts(tp2).stool = null;
+  ok(A.timpSlots(A.parts(tp2)).some((s) => s.seat), "il disegno ha il posto con lo sgabello");
+  eq(JSON.stringify(A.sgabelliDi(tp2)), JSON.stringify([["timpani", 1]]), "stool non-false = sgabello presente (come nel disegno)");
+});
+t("batteria + timpani + contrabbasso + tastiere: i quattro sgabelli, nell'ordine di SGAB_ORDINE", () => {
+  reset();
+  add("tastiera", 1100, 300).panca = true;
+  A.parts(add("timpani", 800, 300)).stool = true;
+  add("contrabbasso", 500, 300);
+  add("batteria", 200, 300);
+  eq(JSON.stringify(A.sgabelliPerTipo()), JSON.stringify([["batteria", 1], ["timpani", 1], ["contrabbasso", 1], ["tastiere", 1]]));
+  eq(JSON.stringify(A.sgabelliTesto()), JSON.stringify(["1 sgabello batteria", "1 sgabello timpani", "1 sgabello alto contrabbasso", "1 sgabello tastiere"]));
+  eq(A.countAccessori().sgabelli, 4, "il riepilogo Stato somma gli stessi quattro");
+});
+t("il totale degli sgabelli del riepilogo Stato è la somma di sgabelliDi: un tipo nuovo si conta da solo", () => {
+  reset();
+  add("sgabello", 100, 100); add("batteria", 300, 300); A.parts(add("timpani", 600, 300)).stool = true;
+  add("contrabbasso", 900, 300); add("cbx2", 1100, 300); add("grancoda", 1300, 500); add("stagepiano", 1500, 300);
+  const dir = add("direttore", 100, 600); dir.sgab = true;
+  const somma = A.state.items.reduce((n, it) => n + A.sgabelliDi(it).reduce((m, p) => m + p[1], 0), 0);
+  ok(somma >= 8, "la scena ha davvero molti sgabelli: " + somma);
+  ok(A.sgabelliPerTipo().some((p) => p[0] === "timpani"), "fra cui quello dei timpani");
+  eq(A.countAccessori().sgabelli, somma, "Stato = somma di sgabelliDi");
+  eq(A.sgabelliPerTipo().reduce((n, p) => n + p[1], 0), somma, "e il cartiglio somma lo stesso numero");
+});
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");
