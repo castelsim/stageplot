@@ -3440,11 +3440,12 @@ body.venue-calib #vistaBanner{display:none}
    «Scarica». Le pagine tecniche (che partono comunque spente), l'area di stampa, la scala e
    l'intestazione stanno dietro «Altre opzioni», cioè la stessa preferenza. Un'area di stampa scelta a
    mano cambia il PDF, quindi la sua riga resta (`.in-uso`). */
+/* la SCALA resta in vista anche in Semplice (16/10, Simone: «non vedo la possibilità di selezionare la
+     scala»): è la scelta che decide quanto si leggono i nomi, accanto a formato e orientamento. La riga
+     della scala personalizzata segue il suo attributo hidden (compare solo con «Personalizzata…»). */
 @media (min-width:881px){
   body:not(.f-esporta) #pdfTechBox,
   body:not(.f-esporta) #pdfAreaRow:not(.in-uso),
-  body:not(.f-esporta) #pdfScaleRow,
-  body:not(.f-esporta) #pdfScaleCustomRow,
   body:not(.f-esporta) #pdfHdrRow,
   body:not(.f-esporta) #pdfPesiRow,
   body:not(.f-esporta) #pdfTechRow{display:none !important}

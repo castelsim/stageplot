@@ -11244,6 +11244,14 @@ t("la Tastiera suona: due canali DI L/R (mono a scelta) e il carico tipico di un
   eq([A.wattOf(k), A.wattFonte(k)], [A.WATT.tastiera, "stima"], "Electro 7: stima del tipo, non un numero inventato");
   reset();
 });
+t("Esporta: col mouse la scelta della scala si vede anche in Semplice (16/10); sul telefono resta in «Altre opzioni»", () => {
+  const desk = stylesCss.slice(stylesCss.indexOf("/* ── SEMPLICE, COL MOUSE: ESPORTA E LISTE (14/09)"));
+  const blocco = desk.slice(desk.indexOf("@media (min-width:881px){"), desk.indexOf("{display:none !important}"));
+  ok(blocco.length > 0 && !/#pdfScaleRow/.test(blocco), "col mouse #pdfScaleRow non è più nascosta");
+  ok(!/#pdfScaleCustomRow/.test(blocco), "la riga della scala personalizzata segue solo il suo hidden");
+  ok(/body:not\(\.f-esporta\) #pdfScaleRow,/.test(stylesCss.slice(0, stylesCss.indexOf("/* ── SEMPLICE, COL MOUSE"))), "sul telefono resta dietro «Altre opzioni»");
+  ok(/<div id="pdfScaleRow">[\s\S]{0,120}<select id="pdfScale">/.test(appjs + readFileSync(join(root, "app/index.html"), "utf8")), "il selettore è accanto a formato e orientamento");
+});
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");
@@ -20340,7 +20348,8 @@ t("in Base, col mouse, Esporta chiede poco e le liste non ci sono", () => {
   /* 14/09 — Simone: «aggiungi anche esporta e liste tecniche semplificate», poi «la versione
      semplificata non ha liste». Dalla sera del 14/09 sono due funzioni a se': Esporta avanzato e Liste tecniche. */
   const desk = stylesCss.slice(stylesCss.lastIndexOf("SEMPLICE, COL MOUSE: ESPORTA E LISTE"));
-  ["#pdfTechBox", "#pdfAreaRow:not(.in-uso)", "#pdfScaleRow", "#pdfScaleCustomRow", "#pdfHdrRow", "#pdfTechRow"].forEach((sel) =>
+  /* #pdfScaleRow e #pdfScaleCustomRow non più: dal 16/10 la scala si vede anche in Semplice (test «Esporta: col mouse la scelta della scala…») */
+  ["#pdfTechBox", "#pdfAreaRow:not(.in-uso)", "#pdfHdrRow", "#pdfTechRow"].forEach((sel) =>
     ok(desk.includes("body:not(.f-esporta) " + sel), "senza Esporta avanzato, dietro «Altre opzioni»: " + sel));
   ok(/@media \(min-width:881px\)\{\s*body:not\(\.f-esporta\) #pdfTechBox/.test(desk), "e vale col mouse (il telefono ha gia' le sue)");
   ok(/#pdfModal \.exp-pro\{display:block/.test(desk), "col mouse il bottone «Altre opzioni» si vede");
@@ -24373,12 +24382,13 @@ t("scaletta nell'anteprima e nel link condiviso: stesse righe, voci vuote fuori"
   } finally { reset(); }
 });
 
-t("Esporta: la casella della scaletta c'è e parte spuntata solo con almeno una voce", () => {
+t("Esporta: la casella della scaletta c'è solo con almeno una voce, e parte SPENTA (16/10)", () => {
   /* la finestra vive nel DOM (qui c'è solo uno stub): si legge la regola dove sta */
   const f = appjs.slice(appjs.indexOf("function pdfScalettaInit(){"), appjs.indexOf("function pdfScalettaInit(){") + 700);
   ok(/var d=scalettaList\(\);/.test(f), "decide sulle voci che escono davvero (le vuote non contano)");
   ok(/row\.style\.display = d\.count \? "" : "none";/.test(f), "la riga si vede solo se c'è qualcosa");
-  ok(/scChk\.checked = d\.count>0;/.test(f) && /window\.__pdfScaletta = d\.count>0;/.test(f), "spuntata di partenza solo con almeno una voce");
+  ok(/scChk\.checked = false;/.test(f) && /window\.__pdfScaletta = false;/.test(f), "spenta di partenza anche con la scaletta scritta");
+  ok(!/scChk\.checked = d\.count>0/.test(f), "non si accende più da sola");
   ok(/function _pdfExportModalCore\(\)\{[^}]*?pdfScalettaInit\(\); pdfQrInit\(\);/.test(appjs), "e si rifà a ogni apertura (la scelta non si ricorda)");
   ok(/if\(window\.__pdfScaletta===true\) scalettaPdf\(doc\);/.test(appjs), "il PDF segue la casella");
 });
