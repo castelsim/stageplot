@@ -1,3 +1,12 @@
+# 16/10/2026 — Lo sgabello dei timpani entra nei conteggi (ramo `sgabello-timpani`)
+
+- Segnalazione di Simone: il disegno dei timpani con «Sgabello» acceso (`parts.stool!==false`) ha lo sgabello, ma cartiglio e Stato no.
+  `SGAB_TIPI.timpani` («sgabello timpani», dopo `batteria` in `SGAB_ORDINE`; NON in `SGAB_SCELTE`: uno «Sgabello» a parte non diventa timpani);
+  `sgabelliDi()` lo restituisce con la stessa condizione del disegno (`it.type.indexOf("timpani")===0 && parts(it).stool!==false`).
+- `countAccessori().sgabelli` ora **somma `sgabelliDi()`**: Stato e cartiglio non si separano più e un tipo nuovo si conta da solo.
+  Effetto collaterale voluto: `stoolR` e `panchetta` (e il contrabbasso con sedia spenta) prima erano nel cartiglio ma non nello Stato.
+- Aperto, stessa famiglia: `percussioni` con `parts.stool===true` disegna lo sgabello e non è contato (condizione del disegno diversa: `===true`).
+
 # 14/10/2026 — Crea elemento, Tappa A «Precisione»: misure digitate e aggancio intelligente (ramo `crea-elemento-precisione`)
 
 - Simone: «l'utente non ha gli strumenti sufficienti per disegnare quello che vuole … approccio più stile AutoCAD?».

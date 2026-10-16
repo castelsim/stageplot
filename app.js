@@ -9836,12 +9836,13 @@ function hasPanca(it){ return !!it && ((KEYS_BENCH[it.type] && it.panca!==false)
 var SGAB_TIPI = {
   generico:    {nome:"Sgabello",                   uno:"sgabello",                    tanti:"sgabelli",                    scelta:"Generico"},
   batteria:    {nome:"Sgabello batteria",          uno:"sgabello batteria",           tanti:"sgabelli batteria",           scelta:"Batteria",                kw:"sgabello batteria seggiolino trono batterista drum throne"},
+  timpani:     {nome:"Sgabello timpani",         uno:"sgabello timpani",            tanti:"sgabelli timpani",            kw:"sgabello timpani timpanista"},
   contrabbasso:{nome:"Sgabello alto contrabbasso", uno:"sgabello alto contrabbasso",  tanti:"sgabelli alti contrabbasso",  scelta:"Contrabbasso (alto)",     kw:"sgabello contrabbasso sgabello alto contrabbassista"},
   tastiere:    {nome:"Sgabello tastiere",          uno:"sgabello tastiere",           tanti:"sgabelli tastiere",           scelta:"Tastiere",                kw:"sgabello tastiere sgabello tastiera tastierista keyboard"},
   voce:        {nome:"Sgabello alto voce",         uno:"sgabello alto per chi canta", tanti:"sgabelli alti per chi canta", scelta:"Alto, per chi canta seduto", kw:"sgabello alto voce sgabello cantante seduto sgabello da bar sgabello bar"},
   piano:       {nome:"Panca piano",                uno:"panca piano",                 tanti:"panche piano"}
 };
-var SGAB_ORDINE = ["batteria","contrabbasso","piano","tastiere","voce","generico"];
+var SGAB_ORDINE = ["batteria","timpani","contrabbasso","piano","tastiere","voce","generico"];
 var SGAB_SCELTE = ["generico","batteria","contrabbasso","tastiere","voce"];   /* quelli che uno «Sgabello» può essere */
 var KEYS_PANCA_PIANO = {grancoda:1, mezzacoda:1, pianoverticale:1, celesta:1};   /* le altre tastiere hanno lo sgabello */
 function sgabTipo(it){ var v=it && it.sgabTipo; return (typeof v==="string" && SGAB_SCELTE.indexOf(v)>-1) ? v : "generico"; }
@@ -9854,6 +9855,8 @@ function sgabelliDi(it){
   if(hasPanca(it)) return [[KEYS_PANCA_PIANO[it.type] ? "piano" : "tastiere",1]];
   if(STOOL_POSTAZ[it.type]!=null && optSedia(it)) return [["contrabbasso", STOOL_POSTAZ[it.type]]];
   if(it.type==="batteria" && parts(it).stool!==false) return [["batteria",1]];
+  if(it.type.indexOf("timpani")===0 && parts(it).stool!==false) return [["timpani",1]];   /* stessa condizione del disegno (drawTimpani/timpSlots) — 16/10 */
+  if(it.type==="percussioni" && parts(it).stool===true) return [["batteria",1]];   /* il percussionista seduto ha lo sgabello della batteria (drawPercussioni disegna «sgabellobatt», di serie spento: ===true come il disegno) — 16/10 */
   if(it.type==="direttore" && it.sgab===true) return [["generico",1]];
   if(chitClSeduta(it)==="sgabello") return [["generico",1]];   /* chitarra classica su sgabello (05/10): è uno sgabello, non una sedia */
   return [];
@@ -24344,13 +24347,8 @@ function countAccessori(){
     else if(t.gtr && it.leggio===true) leggii++;
     else if(it.type==="direttore" && (it.leggio===true||it.podio===true)) leggii++;
     else if((it.type==="batteria"||it.type.indexOf("timpani")===0) && parts(it).leggio===true) leggii++;
-    // sgabelli
-    if(it.type==="sgabello") sgabelli++;
-    else if(hasPanca(it)) sgabelli++;
-    else if(isStool) sgabelli+=(STOOL_POSTAZ[it.type]||mult);
-    else if(it.type==="batteria" && parts(it).stool!==false) sgabelli++;   /* solo se lo sgabello è attivo (toggle Sgabello) */
-    else if(it.type==="direttore" && it.sgab===true) sgabelli++;
-    else if(chitClSeduta(it)==="sgabello") sgabelli++;   /* chitarra classica su sgabello (05/10) */
+    // sgabelli: fonte unica sgabelliDi() (la stessa del cartiglio), così disegno, Stato e PDF non si separano e un tipo nuovo si conta da solo (16/10)
+    sgabelliDi(it).forEach(function(p){ sgabelli+=p[1]; });
     // hearback
     if(it.type==="hearback") hearbacks++;
   });
