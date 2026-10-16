@@ -12148,6 +12148,7 @@ function sgabelliDi(it){
   if(STOOL_POSTAZ[it.type]!=null && optSedia(it)) return [["contrabbasso", STOOL_POSTAZ[it.type]]];
   if(it.type==="batteria" && parts(it).stool!==false) return [["batteria",1]];
   if(it.type.indexOf("timpani")===0 && parts(it).stool!==false) return [["timpani",1]];   /* stessa condizione del disegno (drawTimpani/timpSlots) — 16/10 */
+  if(it.type==="percussioni" && parts(it).stool===true) return [["batteria",1]];   /* il percussionista seduto ha lo sgabello della batteria (drawPercussioni disegna «sgabellobatt», di serie spento: ===true come il disegno) — 16/10 */
   if(it.type==="direttore" && it.sgab===true) return [["generico",1]];
   if(chitClSeduta(it)==="sgabello") return [["generico",1]];   /* chitarra classica su sgabello (05/10): è uno sgabello, non una sedia */
   return [];

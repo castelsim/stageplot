@@ -11301,6 +11301,16 @@ t("il totale degli sgabelli del riepilogo Stato è la somma di sgabelliDi: un ti
   eq(A.countAccessori().sgabelli, somma, "Stato = somma di sgabelliDi");
   eq(A.sgabelliPerTipo().reduce((n, p) => n + p[1], 0), somma, "e il cartiglio somma lo stesso numero");
 });
+t("sgabelli: il percussionista seduto conta lo sgabello della batteria, come lo disegna (di serie in piedi: nessuno)", () => {
+  reset();
+  const inPiedi = add("percussioni", 300, 300);
+  eq(A.sgabelliDi(inPiedi), [], "di serie in piedi: niente sgabello, come nel disegno");
+  const seduto = add("percussioni", 600, 300, { parts: { stool: true } });
+  ok(/sgabellobatt|translate\(0,-22\)/.test(A.TYPES.percussioni.draw(seduto)), "lo sgabello si disegna");
+  eq(A.sgabelliDi(seduto), [["batteria", 1]], "e si conta");
+  ok(/1 sgabello batteria/.test(A.sgabelliTesto()), "nel cartiglio: " + A.sgabelliTesto());
+  reset();
+});
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");
