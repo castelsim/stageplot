@@ -11757,6 +11757,63 @@ t("contorni (rev.): una forma ruotata dalla maniglia, al primo gesto, cuoce la r
   eq(dopo.slice(1), prima.slice(1), "gli altri punti restano dove si vedevano");
   eq(dopo[0], [150, 60], "solo quello trascinato si sposta");
 }))));
+const ccTasto = (key, o) => Object.assign({ key, preventDefault() {}, target: { tagName: "svg" } }, o || {});
+t("contorni: tastiera — frecce 1 cm (Maiusc 10) un passo per pressione; ⌫ toglie il punto e senza punto non cancella la forma; Esc un livello per volta; Invio esce", () => conCampi((campi, el) => conContorni(() => {
+  precEditor(400, 300);
+  const p = ccForma({ k: "poly", pts: [[20, 20], [20, 180], [150, 200], [280, 180], [280, 20]] });
+  A.custContornoEntra(p.id); Object.assign(A.__custContorno, { punto: 2 });
+  const passi = A.undoStack.length;
+  ok(A.custContornoTasto(ccTasto("ArrowRight"))); ok(A.custContornoTasto(ccTasto("ArrowDown", { shiftKey: true })));
+  eq([A.custAnelliDi(ccDi(p.id))[0][2], A.undoStack.length - passi], [[151, 210], 2], "1 cm a destra, 10 in giù: due passi");
+  ok(A.custContornoTasto(ccTasto("Backspace"))); eq(A.custAnelliDi(ccDi(p.id))[0].length, 4, "⌫ toglie il punto");
+  Object.assign(A.__custContorno, { punto: null, lato: null });
+  ok(A.custContornoTasto(ccTasto("Delete"))); ok(ccDi(p.id), "senza punto selezionato la forma NON si cancella");
+  ok(/Seleziona un punto per toglierlo/.test(el("custGuidaTxt").innerHTML), "lo dice la riga d'aiuto");
+  eq(A.custContornoTasto(ccTasto("ArrowLeft")), false, "frecce senza punto: quelle di sempre (spostano la forma)");
+  Object.assign(A.__custContorno, { lato: 1 });
+  A.custContornoTasto(ccTasto("Escape")); ok(A.__custContorno && A.__custContorno.lato === null, "Esc: deseleziona il lato");
+  A.custContornoTasto(ccTasto("Escape")); eq(A.__custContorno, null, "Esc: esce dal contorno"); ok(A.getSel() && A.getSel().id === p.id, "la forma resta selezionata");
+  A.custContornoEntra(p.id); A.custContornoTasto(ccTasto("Enter")); eq(A.__custContorno, null, "Invio = Fine");
+  ok(/if\(window\.__custContorno && !\/INPUT\|SELECT\|TEXTAREA\/\.test\(e\.target\.tagName\|\|""\) && custContornoTasto\(e\)\) return;/.test(appjs), "agganciato al gestore dei tasti, fuori dai campi");
+})));
+t("contorni: pannello — X/Y del punto, freccia e raggio del lato (virgola, m, mm), raggio sotto c/2 rifiutato, Dritto; un passo ciascuno", () => conCampi((campi, el) => conContorni(() => {
+  precEditor(400, 300);
+  const p = ccForma({ k: "poly", pts: [[20, 20], [20, 100], [320, 100], [320, 20]] });
+  A.custContornoEntra(p.id); Object.assign(A.__custContorno, { punto: 1 }); A.render();
+  eq([el("custCcPNome").textContent, el("custCcX").value, el("custCcY").value], ["Punto 2 di 4", "20", "100"]);
+  const passi = A.undoStack.length;
+  ok(A.custContornoCampo("x", "0,25m")); eq(A.custAnelliDi(ccDi(p.id))[0][1], [25, 100], "0,25 m = 25 cm");
+  eq(A.custContornoCampo("x", "25"), false, "uguale: niente"); eq(A.custContornoCampo("y", "abc"), false, "non si legge: niente");
+  ok(A.custContornoCampo("x", "20")); 
+  Object.assign(A.__custContorno, { punto: null, lato: 1 }); A.render();
+  eq([el("custCcLNome").textContent, el("custCcCorda").textContent, el("custCcRaggio").value], ["Lato 2 di 4", "Corda 300 cm", ""], "lato dritto: niente raggio");
+  ok(A.custContornoCampo("freccia", "300mm")); let R = A.custAnelliDi(ccDi(p.id))[0];
+  eq([r6(A.custFrecciaMostrata(R, 1)), A.custArco(R[1], R[2], R[1][2]).mezzo[1] > 100], [30, true], "+30 = in fuori");
+  eq(A.custContornoCampo("freccia", "151"), false, "oltre mezzo cerchio: rifiutata");
+  eq(A.custContornoCampo("raggio", "140"), false, "raggio sotto 150 (c/2): rifiutato");
+  ok(A.custContornoCampo("raggio", "150")); R = A.custAnelliDi(ccDi(p.id))[0]; eq(R[1][2], 1, "150 = mezzo cerchio, nel verso di prima");
+  ok(A.custContornoDritto()); eq(A.custAnelliDi(ccDi(p.id))[0][1].length, 2, "Dritto");
+  ok(A.custContornoCampo("raggio", "390")); eq(r6(A.custFrecciaMostrata(A.custAnelliDi(ccDi(p.id))[0], 1)), 30, "un raggio su un lato dritto: in fuori");
+  eq(A.undoStack.length - passi, 6, "un passo per campo applicato e per Dritto");
+  ok(/\["custCcX","x"\],\["custCcY","y"\],\["custCcFreccia","freccia"\]/.test(appjs), "i campi sono collegati");
+  ok(/<label for="custCcFreccia">/.test(appjs + readFileSync(join(root, "app/index.html"), "utf8")) && /aria-label="Punto successivo"/.test(readFileSync(join(root, "app/index.html"), "utf8")), "etichette e nomi leggibili");
+})));
+t("contorni: Arrotonda dal pannello — un angolo (raggio ridotto lo dice), tutti gli angoli, il rettangolo non convertito prende r e resta rettangolo", () => conCampi(() => conContorni(() => {
+  precEditor(400, 300);
+  const toast = []; const t0 = A.__toast; A.__toast = (s) => toast.push(s);
+  try {
+    const p = ccForma({ k: "poly", pts: [[20, 20], [20, 26], [220, 26], [220, 20]] });   /* 200 × 6 */
+    A.custContornoEntra(p.id); Object.assign(A.__custContorno, { punto: 1 }); A.custCcRaggio = 20;
+    ok(A.custContornoArrotonda(), "un angolo"); ok(/Raggio ridotto a 6 cm/.test(toast.pop()), "lo dice");
+    A.custContornoEsci();
+    eq(A.custAnelliDi(ccDi(p.id))[0].length, 4, "con r = 6 il raccordo prende tutto il lato corto: il punto doppio si fonde");
+    ok(A.custArrotondaForma(ccDi(p.id), 2), "tutti"); eq(A.custAnelliDi(ccDi(p.id))[0].length, 6, "i due angoli fra lati dritti in più; quelli accanto all'arco restano");
+    const r = A.custNuovaForma("rect", { x: 20, y: 100 }, { x: 120, y: 160 });
+    ok(A.custArrotondaForma(r, 10), "rettangolo"); eq([ccDi(r.id).k, ccDi(r.id).r, ccDi(r.id).pts], ["rect", 10, undefined], "resta un rettangolo, con r");
+    const c = A.custNuovaForma("ell", { x: 200, y: 100 }, { x: 260, y: 160 });
+    eq(A.custArrotondaForma(c, 5), false, "un'ellisse non ha angoli"); ok(/Non ci sono angoli/.test(toast.pop()));
+  } finally { A.__toast = t0; }
+})));
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");
