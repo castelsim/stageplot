@@ -24,7 +24,7 @@
      due release nello stesso giorno restano distinguibili in telemetria e supporto. In locale/dev
      resta il placeholder. La sentinella del VALORE è distinta dall'identificatore window.__BUILD_ID__
      così il sed della CI non tocca il nome della variabile. -->
-<script>window.__APP_VERSION__="2026.10.16";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
+<script>window.__APP_VERSION__="2026.10.17";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -3916,6 +3916,31 @@ body.dark #props .cust-pan .cust-pan-btns .btn{background:#20292e;border-color:#
 body.cust-editor.m-has-sel #custScheda{border-top:1px solid var(--border);padding-top:12px;margin-top:6px}   /* sotto il pannello di ciò che è selezionato */
 /* Esporta col dito (14/10): il fuoco iniziale va alla finestra stessa (esportaFuocoIniziale), non a un campo che aprirebbe la tastiera; niente anello attorno a tutta la finestra */
 #pdfModal .mcard:focus{outline:none}
+/* ── CREA ELEMENTO · CONTORNI (16/10/2026): punti (quadratini), tondo a metà lato, fascia del lato, punto fantasma, scritte.
+   Bordi a 1,6 px di schermo (non-scaling) come le maniglie; selezionato = pieno (si distingue anche senza colore). */
+body.cust-contorno .item.selected .selbox{display:none}
+.cust-cc .cc-lato{fill:none;stroke:transparent;pointer-events:stroke;cursor:copy}
+.cust-cc .cc-lato:hover,.cust-cc .cc-lato.on{stroke:var(--accent);stroke-opacity:.28}
+.cust-cc .cc-tondo{fill:var(--sheet);stroke:var(--accent);stroke-width:1.6;vector-effect:non-scaling-stroke;cursor:grab}
+#svg.dragging .cust-cc .cc-tondo{cursor:grabbing}
+.cust-cc .cc-pt{fill:var(--sheet);stroke:var(--accent);stroke-width:1.6;vector-effect:non-scaling-stroke;cursor:move}
+.cust-cc .cc-pt.on,.cust-cc .cc-tondo.on{fill:var(--accent)}
+.cust-snap-lay .cust-corda{stroke:var(--cust-guida);stroke-width:1.2;stroke-dasharray:4 3;vector-effect:non-scaling-stroke}
+.cust-snap-lay .cust-fantasma circle{fill:var(--sheet);stroke:var(--accent);stroke-width:1.6;vector-effect:non-scaling-stroke}
+.cust-snap-lay .cust-fantasma path{stroke:var(--accent);stroke-width:1.6;vector-effect:non-scaling-stroke}
+.cust-snap-lay .cust-scritta rect{fill:var(--n-800);opacity:.92}
+.cust-snap-lay .cust-scritta text{fill:#fff;font-weight:600;font-variant-numeric:tabular-nums}
+#custFormaCc[hidden],#custContorno[hidden],#custCcPunto[hidden],#custCcLato[hidden],#custCcTutti[hidden],#custCcArrNota[hidden]{display:none}
+#custFormaCc{margin:0 0 10px}
+#custFormaCc>.btn{width:100%}
+#props #custForma .cust-cc-riga{flex-wrap:wrap;align-items:flex-end}
+#props #custForma .cust-cc-riga>.btn{flex:1 1 100%}
+#props #custContorno .cust-cc-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+#props #custContorno .cust-cc-head>span{flex:1 1 auto;min-width:0}
+#props #custContorno .cust-cc-nav{display:flex;align-items:center;gap:6px;margin:2px 0 6px;font-weight:600}
+#props #custContorno .cust-cc-nav>span{flex:1 1 auto;min-width:0;text-align:center}
+/* `#props .btn` è largo tutta la riga: nella testata e accanto a «Punto 3 di 12» i bottoni stanno alla loro misura */
+#props #custContorno .cust-cc-head>.btn,#props #custContorno .cust-cc-nav>.btn{width:auto;flex:0 0 auto;margin-top:0;padding:4px 10px}
 </style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->
 <script async src="/icons.js"></script>
@@ -5052,6 +5077,42 @@ body.cust-editor.m-has-sel #custScheda{border-top:1px solid var(--border);paddin
   <!-- CREA ELEMENTO (13/10/2026): la forma selezionata nell'editor (colori e linea stanno nella barra in alto) -->
   <div class="sec" id="custForma" hidden>
     <h3 id="custFormaNome">Forma</h3>
+    <!-- CONTORNI (16/10/2026): fuori dalla modalità contorno, l'ingresso da tastiera e «Arrotonda gli angoli» (interruttore acceso) -->
+    <div id="custFormaCc" hidden>
+      <button class="btn" id="custFContorno" type="button" title="Punti, lati che si piegano ad arco, Arrotonda (anche doppio clic sulla forma)">Modifica contorno</button>
+      <div class="row cust-num cust-cc-riga"><span><label for="custFRaggio">Raggio (cm)</label><input type="text" inputmode="decimal" autocomplete="off" id="custFRaggio"></span>
+        <button class="btn" id="custFArrotonda" type="button">Arrotonda gli angoli</button></div>
+    </div>
+    <!-- la sezione «Contorno»: punto o lato selezionato, a numeri (tutto anche senza mouse) -->
+    <div id="custContorno" class="prop-card" hidden>
+      <div class="prop-card__head cust-cc-head"><span id="custCcTitolo">Contorno</span><button class="btn" id="custCcFine" type="button">Fine</button></div>
+      <div id="custCcPunto" hidden>
+        <div class="cust-cc-nav"><button class="btn" id="custCcPPrec" type="button" aria-label="Punto precedente">◀</button><span id="custCcPNome"></span><button class="btn" id="custCcPSucc" type="button" aria-label="Punto successivo">▶</button></div>
+        <div class="row cust-num">
+          <span><label for="custCcX">X (cm)</label><input type="text" inputmode="decimal" autocomplete="off" id="custCcX"></span>
+          <span><label for="custCcY">Y (cm)</label><input type="text" inputmode="decimal" autocomplete="off" id="custCcY"></span>
+        </div>
+        <div class="row cust-num cust-cc-riga"><span><label for="custCcRaggioA">Raggio (cm)</label><input type="text" inputmode="decimal" autocomplete="off" id="custCcRaggioA"></span>
+          <button class="btn" id="custCcArrotonda" type="button">Arrotonda l'angolo</button></div>
+        <p class="prop-hint" id="custCcArrNota" hidden></p>
+        <div class="btns"><button class="btn" id="custCcTogli" type="button">Togli punto</button><button class="btn danger" id="custCcTogliForo" type="button" hidden>Togli il foro</button></div>
+      </div>
+      <div id="custCcLato" hidden>
+        <div class="cust-cc-nav"><button class="btn" id="custCcLPrec" type="button" aria-label="Lato precedente">◀</button><span id="custCcLNome"></span><button class="btn" id="custCcLSucc" type="button" aria-label="Lato successivo">▶</button></div>
+        <p class="prop-hint" id="custCcCorda"></p>
+        <div class="row cust-num">
+          <span><label for="custCcFreccia">Freccia (cm)</label><input type="text" inputmode="decimal" autocomplete="off" id="custCcFreccia" aria-describedby="custCcFrecciaNota"></span>
+          <span><label for="custCcRaggio">Raggio (cm)</label><input type="text" inputmode="decimal" autocomplete="off" id="custCcRaggio"></span>
+        </div>
+        <p class="prop-hint" id="custCcFrecciaNota"></p>
+        <div class="btns"><button class="btn" id="custCcDritto" type="button">Dritto</button></div>
+      </div>
+      <div id="custCcTutti" hidden>
+        <div class="row cust-num cust-cc-riga"><span><label for="custCcRaggioT">Raggio (cm)</label><input type="text" inputmode="decimal" autocomplete="off" id="custCcRaggioT"></span>
+          <button class="btn" id="custCcArrTutti" type="button">Arrotonda tutti gli angoli</button></div>
+        <p class="prop-hint">Clic su un punto o su un tondo per lavorarci; ◀ ▶ per passare al successivo.</p>
+      </div>
+    </div>
     <!-- PRECISIONE (14/10/2026): tutto a numeri, in cm dall'origine del righello. Campi di testo (la virgola è decimale). -->
     <div class="row cust-num" id="custFormaPos">
       <span><label for="custFX">X (cm)</label><input type="text" inputmode="decimal" autocomplete="off" id="custFX"></span>

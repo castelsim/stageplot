@@ -77,7 +77,8 @@ Deno.test("meta enorme o non stringa: tagliato e scartato (16/09)", () => {
 
 
 /* ===== Crea elemento: invio per revisione (13/10/2026) ===== */
-const elOk = { nome: "Proiettore", desc: "Su carrello", w: 120, d: 80, watt: 300, ins: { n: 2, tipo: "linea" }, backline: false, forme: 3, membri: ["cantante", "astamic"] };
+const elOk = { nome: "Proiettore", desc: "Su carrello", w: 120, d: 80, watt: 300, ins: { n: 2, tipo: "linea" }, backline: false, forme: 3, membri: ["cantante", "astamic"],
+  punti: 148, archi: 12, fori: 1 };
 
 Deno.test("hint elemento: accettato", () => {
   const r = validateFeedback({ message: "Elemento: Proiettore", hint: "elemento", tech_context: {} });
@@ -138,7 +139,7 @@ Deno.test("elemento: campi fuori regola scartati, mai salvati com'erano", () => 
   assertEquals(s.membri.length, 100, "al massimo 100");
   assertEquals(s.membri.every((m) => m === "cantante" || m === "astamic"), true, "solo nomi di tipo");
   assertEquals(p({ ...elOk, membri: ["__proto__", "constructor", "prototype", "cantante"] })!.membri, ["cantante"], "niente nomi riservati");
-  assertEquals(Object.keys(s).sort(), ["backline", "d", "desc", "forme", "ins", "membri", "nome", "w", "watt"]);
+  assertEquals(Object.keys(s).sort(), ["archi", "backline", "d", "desc", "fori", "forme", "ins", "membri", "nome", "punti", "w", "watt"]);
   assertEquals((s as Record<string, unknown>).inquinato, undefined);
   const t = p({ ...elOk, watt: null, ins: { n: 1, tipo: "mic", altro: 1 }, forme: 0, membri: "cantante" })!;
   assertEquals([t.watt, t.ins, t.forme, t.membri], [null, { n: 1, tipo: "mic" }, 0, []]);
@@ -148,7 +149,7 @@ Deno.test("elemento: campi fuori regola scartati, mai salvati com'erano", () => 
   assertEquals(p({ ...elOk, w: 5 })!.w, null, "sotto i 10 cm");
 });
 
-Deno.test("elemento_json: solo una stringa di JSON d'oggetto entro i 30000 caratteri", () => {
+Deno.test("elemento_json: solo una stringa di JSON d'oggetto entro i 300 000 caratteri", () => {
   const q = elementoJsonPulito;
   assertEquals(q('{"w":120}'), '{"w":120}');
   assertEquals(q(null), null);
@@ -156,8 +157,24 @@ Deno.test("elemento_json: solo una stringa di JSON d'oggetto entro i 30000 carat
   assertEquals(q("non json"), null);
   assertEquals(q("[1,2]"), null, "un elenco non è un elemento");
   assertEquals(q("42"), null);
-  assertEquals(q(JSON.stringify({ pad: "x".repeat(30_000) })), null, "oltre 30000 caratteri");
-  assertEquals(q(JSON.stringify({ pad: "x".repeat(29_980) }))!.length <= 30_000, true);
+  /* {"pad":"…"} = 10 caratteri più il riempimento: 300 000 esatti passano, 300 001 no (Contorni, 16/10/2026) */
+  const giusto = JSON.stringify({ pad: "x".repeat(299_990) }), oltre = JSON.stringify({ pad: "x".repeat(299_991) });
+  assertEquals([giusto.length, oltre.length], [300_000, 300_001]);
+  assertEquals(q(giusto), giusto, "300 000 caratteri: passa");
+  assertEquals(q(oltre), null, "300 001: scartato");
+});
+
+Deno.test("elemento: i conteggi dei contorni — interi nei limiti, altrimenti null; senza (client vecchio) null", () => {
+  const p = (x: Record<string, unknown>) => elementoPulito({ ...elOk, ...x })!;
+  assertEquals([p({}).punti, p({}).archi, p({}).fori], [148, 12, 1]);
+  assertEquals([p({ punti: 40_000, archi: 40_000, fori: 10_000 }).punti, p({ archi: 40_000 }).archi, p({ fori: 10_000 }).fori], [40_000, 40_000, 10_000], "il tetto passa");
+  const v = p({ punti: -1, archi: 2.5, fori: 10_001 });
+  assertEquals([v.punti, v.archi, v.fori], [null, null, null], "negativi, decimali, oltre il tetto");
+  const w = p({ punti: 40_001, archi: "12", fori: null });
+  assertEquals([w.punti, w.archi, w.fori], [null, null, null], "oltre il tetto, non numerici");
+  const vecchio: Record<string, unknown> = { ...elOk }; delete vecchio.punti; delete vecchio.archi; delete vecchio.fori;
+  const o = elementoPulito(vecchio)!;
+  assertEquals([o.punti, o.archi, o.fori], [null, null, null], "un client vecchio non li manda");
 });
 
 Deno.test("elemento: scheda non valida → il messaggio passa, l'elemento no", () => {

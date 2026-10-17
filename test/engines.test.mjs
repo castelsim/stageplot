@@ -8532,7 +8532,7 @@ t("invio per revisione: con l'accesso chiede il consenso, poi manda nome, misure
   eq(giro.mandato[0].id, base.id);
   eq([c.hint, c.honeypot, c.message, c.project_snapshot, c.project_id], ["elemento", "", "Elemento: Proiettore — Su carrello", null, null]);
   ok(c.message.length >= 5 && c.message.length <= 1000, "regola 5–1000 del server");
-  eq(c.tech_context.elemento, { nome: "Proiettore", desc: "Su carrello", w: 120, d: 80, watt: 300, ins: { n: 2, tipo: "linea" }, backline: false, forme: 2, membri: ["cantante"] });
+  eq(c.tech_context.elemento, { nome: "Proiettore", desc: "Su carrello", w: 120, d: 80, watt: 300, ins: { n: 2, tipo: "linea" }, backline: false, forme: 2, membri: ["cantante"], punti: 0, archi: 0, fori: 0 });
   /* privacy (revisione): solo quello che dice il consenso — disegno, misure, descrizione */
   eq(Object.keys(c.tech_context).sort(), ["elemento", "elemento_json"], "niente contesto del progetto");
   ok(Object.keys(c.meta).every((k) => ["app_version", "build_id", "language"].includes(k)), "meta: solo versione e lingua, " + JSON.stringify(c.meta));
@@ -8550,7 +8550,7 @@ t("invio per revisione: con l'accesso chiede il consenso, poi manda nome, misure
   /* un JSON troppo grande non parte (il server lo scarterebbe): resta la scheda */
   base.cust.shapes = Array.from({ length: 200 }, (_, i) => ({ k: "poly", pts: Array.from({ length: 200 }, (_, k) => [i % 120, k % 80]), stroke: "#000000", sw: 1 }));
   A.custInviaRevisione(base.id);
-  eq(giro.mandato[2].corpo.tech_context.elemento_json, null, "oltre 30000 caratteri: null");
+  eq(giro.mandato[2].corpo.tech_context.elemento_json, null, "oltre 300 000 caratteri: null");
   eq(giro.mandato[2].corpo.tech_context.elemento.forme, 200);
 }));
 t("invio per revisione: sul telefono, in sola lettura, con l'editor aperto o due volte di fila non parte", () => conInvio((giro) => {
@@ -8625,7 +8625,7 @@ t("invio per revisione: i tipi dei pezzi passano il controllo del server (letter
   ok(/\/\^\[A-Za-z0-9_-\]\{1,40\}\$\//.test(server), "la regola del server");
   const no = Object.keys(A.TYPES).filter((k) => !/^[A-Za-z0-9_-]{1,40}$/.test(k));
   eq(no, [], "tutti i tipi del catalogo");
-  ok(/MAX_ELEMENTO_JSON_CHARS = 30_000/.test(server) && /function custJsonRevisione[\s\S]{0,900}30000/.test(appjs), "stesso tetto del JSON");
+  ok(/MAX_ELEMENTO_JSON_CHARS = 300_000/.test(server) && /function custJsonRevisione[\s\S]{0,900}custLimiti\(\)\.JSON_REV/.test(appjs) && A.custLimiti().JSON_REV === 300000, "stesso tetto del JSON (Contorni: 300 000)");
 });
 t("invio per revisione: la finestra del consenso (casella da spuntare, Invia spento finché non c'è la spunta)", () => {
   ok(/Disegno, misure e descrizione arrivano a StagePlot\. Se lo aggiungiamo al catalogo sarà disponibile per tutti, senza il tuo nome\./.test(appjs), "la frase della spec, uguale");
@@ -11311,6 +11311,615 @@ t("sgabelli: il percussionista seduto conta lo sgabello della batteria, come lo 
   ok(/1 sgabello batteria/.test(A.sgabelliTesto()), "nel cartiglio: " + A.sgabelliTesto());
   reset();
 });
+/* ===== Crea elemento — Contorni (16/10/2026): archi, fori, modalità «contorno», Arrotonda ===== */
+const CC_ST = { fill: "#e5e7eb", stroke: "#1d1d1f", sw: 1 };
+const ccPoly = (pts, extra) => Object.assign({ k: "poly", pts }, CC_ST, extra || {});
+const ccNorm = (shapes, w, d) => A.custNorm({ type: "custom", w: w || 400, d: d || 300, cust: { nome: "Prova", shapes } }).cust.shapes;
+t("contorni: i limiti nuovi e l'interruttore SPENTO (un letterale, come custIngressiAttivi)", () => {
+  const L = A.custLimiti();
+  eq([L.PUNTI, L.FORI, L.PUNTI_FORMA, L.PUNTI_EL, L.FORME, L.FORME_BYTE, L.JSON_REV], [200, 50, 1000, 40000, 200, 262144, 300000]);
+  eq(A.custContorniAttivi(), false, "fase 1: spento");
+  ok(/function custContorniAttivi\(\)\{ return false; \}/.test(appjs), "una funzione che torna un letterale");
+});
+t("contorni: custNorm legge la curvatura [x, y, b] — tagliata a ±1, al milionesimo, sotto 1e-6 o non numero = lato dritto", () => {
+  const g = ccNorm([ccPoly([[10, 10, 0.5], [50, 10, 3], [50, 40, -7], [10, 40, "abc"], [5, 30, null], [5, 20, 1e-9], [5, 15, "0.25"], [5, 12, 0.1234567891]])])[0];
+  eq(g.pts, [[10, 10, 0.5], [50, 10, 1], [50, 40, -1], [10, 40], [5, 30], [5, 20], [5, 15, 0.25], [5, 12, 0.123457]]);
+  const h = ccNorm([ccPoly([[0, 0, "<b>"], [10, 0, Infinity], [10, 10, NaN], [0, 10, true]])])[0];
+  eq(h.pts, [[0, 0], [10, 0], [10, 10], [0, 10]], "markup, Infinity, NaN, true: lato dritto, punto salvo");
+});
+t("contorni: custNorm dei fori — da 3 a 200 punti, al massimo 50, entro 1000 punti per forma; holes vuoto non si scrive", () => {
+  const sq = (x, y, l, n) => { const o = []; for (let i = 0; i < (n || 4); i++) o.push([x + (i % 2) * l, y + Math.floor(i / 2) * l]); return o; };
+  const g = ccNorm([ccPoly([[0, 0], [100, 0], [100, 100], [0, 100]], { holes: [sq(10, 10, 5), [[1, 1], [2, 2]], "no", [[20, 20, 2], [30, 20], [25, 30]]] })])[0];
+  eq(g.holes, [sq(10, 10, 5), [[20, 20, 1], [30, 20], [25, 30]]], "il foro di 2 punti e quello non valido via; b tagliata anche nei fori");
+  eq(ccNorm([ccPoly([[0, 0], [100, 0], [100, 100]], { holes: [] })])[0].holes, undefined, "holes vuoto: niente campo");
+  eq(ccNorm([ccPoly([[0, 0], [100, 0], [100, 100]], { holes: "x" })])[0].holes, undefined, "holes non array: niente campo");
+  const tanti = []; for (let i = 0; i < 60; i++) tanti.push([[i, 0], [i + 0.5, 0], [i, 0.5]]);
+  eq(ccNorm([ccPoly([[0, 0], [100, 0], [100, 100]], { holes: tanti })])[0].holes.length, 50, "60 fori → 50");
+  const lungo = []; for (let i = 0; i < 250; i++) lungo.push([i % 100, Math.floor(i / 100)]);
+  eq(ccNorm([ccPoly(lungo)])[0].pts.length, 200, "anello da 250 punti → 200");
+  const ft = []; for (let i = 0; i < 6; i++) ft.push(lungo.slice(0, 200));
+  const f = ccNorm([ccPoly(lungo.slice(0, 200), { holes: ft })])[0];
+  eq([f.pts.length, f.holes.length], [200, 4], "200 + 4×200 = 1000: i fori in coda oltre il tetto restano fuori");
+  const big = [];   /* 41 forme da 1000 punti: la quarantunesima porterebbe l'elemento oltre 40 000 */
+  for (let i = 0; i < 41; i++) big.push(ccPoly(lungo.slice(0, 200), { holes: ft.slice(0, 4) }));
+  big.push(ccPoly([[0, 0], [10, 0], [10, 10]]));
+  const n = ccNorm(big);
+  eq(n.length, 40, "oltre 40 000 punti: le forme in coda che non ci stanno restano fuori (anche la piccola: 40 000 + 3)");
+});
+t("contorni: custNorm — rot su una poly con fori cuoce anche i fori attorno al centro del contorno; le coordinate dentro ±10%", () => {
+  const g = ccNorm([ccPoly([[0, 0, 0.5], [100, 0], [100, 50], [0, 50]], { rot: 90, holes: [[[40, 20], [60, 20], [50, 30]]] })], 400, 300)[0];
+  eq(g.rot, undefined, "la rotazione si cuoce");
+  eq(g.pts, [[75, -25, 0.5], [75, 75], [25, 75], [25, -25]], "attorno a (50, 25); la curvatura resta");
+  eq(g.holes, [[[55, 15], [55, 35], [45, 25]]], "il foro gira con lo stesso centro");
+  const f = ccNorm([ccPoly([[0, 0], [100, 0], [100, 100]], { holes: [[[-500, 0], [10, 900], [10, 10]]] })], 400, 300)[0];
+  eq(f.holes[0], [[-40, 0], [10, 340], [10, 10]], "anche i fori dentro la superficie ±10% (400 × 300: da −40 a 340)");
+});
+t("contorni: una poly di oggi esce IDENTICA (anche di 2 punti), e custNorm è idempotente sulle forme nuove", () => {
+  const oggi = [ccPoly([[10, 10], [50, 10], [30, 40]]), ccPoly([[0, 0], [20, 5]]), { k: "rect", x: 1, y: 2, w: 30, h: 20, r: 4, stroke: "#1d1d1f", sw: 1 }];
+  eq(JSON.stringify(ccNorm(JSON.parse(JSON.stringify(oggi)))),
+    '[{"k":"poly","fill":"#e5e7eb","stroke":"#1d1d1f","sw":1,"pts":[[10,10],[50,10],[30,40]]},{"k":"poly","fill":"#e5e7eb","stroke":"#1d1d1f","sw":1,"pts":[[0,0],[20,5]]},{"k":"rect","stroke":"#1d1d1f","sw":1,"x":1,"y":2,"w":30,"h":20,"r":4}]');
+  const nuova = ccNorm([ccPoly([[0, 0, 0.3], [100, 0], [100, 80, -1], [0, 80]], { holes: [[[10, 10], [20, 10, 0.2], [15, 20]]] })]);
+  eq(JSON.stringify(ccNorm(JSON.parse(JSON.stringify(nuova)))), JSON.stringify(nuova), "due passaggi = uno");
+});
+const r6 = (v) => Math.round(v * 1e6) / 1e6, r6a = (p) => p.map(r6);
+t("contorni: l'esempio fisso del verso — da (0,0) a (10,0) con b = 1 il semicerchio passa per (5, 5) e il path è A5 5 0 0 0 10 0", () => {
+  const a = A.custArco([0, 0], [10, 0], 1);
+  eq([r6(a.c), r6(a.s), r6(a.r), r6(a.cx), r6(a.cy), r6(a.theta), r6a(a.mezzo)], [10, 5, 5, 5, 0, r6(Math.PI), [5, 5]]);
+  eq(A.custPathAnelli([[[0, 0, 1], [10, 0], [10, 10]]]), "M0 0A5 5 0 0 0 10 0L10 10Z", "b > 0 → sweep 0; l'ultimo lato dritto lo chiude Z");
+  ok(/A5 5 0 0 1 10 0/.test(A.custPathAnelli([[[0, 0, -1], [10, 0], [10, -10]]])), "b < 0 → sweep 1");
+  const q = A.custArco([0, 0], [10, 0], A.CUST_TAN8);
+  eq([r6(q.r), r6(q.cx), r6(q.cy), r6a(q.mezzo), r6(q.theta * 180 / Math.PI)], [7.071068, 5, -5, [5, 2.071068], 90], "quarto di cerchio");
+  const m = A.custArco([0, 0], [10, 0], -0.5);
+  eq([r6(m.r), r6(m.cx), r6(m.cy), r6a(m.mezzo)], [6.25, 5, 3.75, [5, -2.5]], "b = −0,5: dall'altra parte");
+  /* DXF (E2): nel DXF (y in su) b > 0 è antiorario, la metà arco sta a DESTRA del verso: M + (d.y, −d.x)/c · s. Letto con
+     y' = −y e la stessa b, l'arco si vede uguale */
+  const da = [2, 3], db = [12, 9], bd = 0.4, dd = [db[0] - da[0], db[1] - da[1]], dc = Math.hypot(dd[0], dd[1]), ds = bd * dc / 2;
+  const Sdxf = [(da[0] + db[0]) / 2 + dd[1] / dc * ds, (da[1] + db[1]) / 2 - dd[0] / dc * ds];
+  eq(r6a(A.custArco([da[0], -da[1]], [db[0], -db[1]], bd).mezzo), r6a([Sdxf[0], -Sdxf[1]]), "un DXF con y' = −y e la stessa b si vede uguale");
+});
+t("contorni: freccia ↔ bulge ↔ raggio (andata e ritorno) e arco per tre punti", () => {
+  eq([A.custBulgeDaFreccia(10, 5), A.custBulgeDaFreccia(10, -2.5), A.custBulgeDaFreccia(10, 99), A.custBulgeDaFreccia(0, 3)], [1, -0.5, 1, 0]);
+  eq([A.custBulgeDaRaggio(10, 5, 1), r6(A.custBulgeDaRaggio(10, 6.25, -1)), A.custBulgeDaRaggio(10, 4.9, 1)], [1, -0.5, null], "sotto c/2 non esiste");
+  [0.2, 0.5, 0.9, -0.3].forEach((b) => { const a = A.custArco([3, 4], [53, 24], b);
+    eq(r6(A.custBulgeDaFreccia(a.c, a.s)), b, "freccia → bulge " + b);
+    eq(r6(A.custBulgeDaRaggio(a.c, a.r, Math.sign(b))), b, "raggio → bulge " + b);
+    eq(r6(A.custBulgeDa3Punti([3, 4], [53, 24], a.mezzo)), b, "tre punti → bulge " + b); });
+  eq([r6(A.custBulgeDa3Punti([0, 0], [10, 0], [5, 5])), A.custBulgeDa3Punti([0, 0], [10, 0], [5, 0]), A.custBulgeDa3Punti([0, 0], [10, 0], [5, 8]), A.custBulgeDa3Punti([0, 0], [10, 0], [20, 0]), A.custBulgeDa3Punti([0, 0], [10, 0], [0, 0])],
+    [1, 0, null, null, null], "sulla corda 0; oltre il mezzo cerchio, sul prolungamento o su un capo: null");
+});
+t("contorni: ingombro vero — semicerchio, quarto, arco che passa per 90°; area e segno «in fuori» su anelli antiorari, orari e fori", () => {
+  eq(A.custIngombroAnelli([[[0, 0, 1], [10, 0]]]), { x1: 0, y1: 0, x2: 10, y2: 5 }, "semicerchio");
+  eq(A.custIngombroAnelli([[[0, 0, A.CUST_TAN8], [10, 0]]]), { x1: 0, y1: 0, x2: 10, y2: r6(5 * Math.SQRT2 - 5) }, "quarto: la freccia");
+  const P = (g) => [10 * Math.cos(g * Math.PI / 180), 10 * Math.sin(g * Math.PI / 180)];
+  const b = A.custBulgeDa3Punti(P(30), P(150), P(90)), bb = A.custIngombroAnelli([[P(30).concat([b]), P(150)]]);
+  eq([r6(bb.x1), r6(bb.y1), r6(bb.x2), r6(bb.y2)], [r6(-10 * Math.cos(Math.PI / 6)), 5, r6(10 * Math.cos(Math.PI / 6)), 10], "da 30° a 150° per 90°: in basso tocca 10");
+  const ccw = [[0, 0], [0, 80], [300, 80], [300, 0]];   /* alto-sinistra → basso-sinistra → basso-destra → alto-destra */
+  ok(A.custAreaAnello(ccw) < 0, "antiorario a vista = area negativa");
+  const s = A.custBulgeDaFreccia(300, 30);
+  const ring = ccw.map((p, i) => i === 1 ? p.concat([s]) : p);
+  eq(r6(A.custFrecciaMostrata(ring, 1)), 30, "il lato davanti piegato in fuori: +30");
+  ok(A.custArco(ring[1], ring[2], s).mezzo[1] > 80, "…e sta davvero fuori (y più grande del lato)");
+  const cw = ring.slice().reverse().map((p) => [p[0], p[1]]);   /* lo stesso rettangolo in senso orario */
+  cw[1] = cw[1].concat([-s]);   /* da (300,80) a (0,80): stesso arco fuori */
+  ok(A.custAreaAnello(cw) > 0 && r6(A.custFrecciaMostrata(cw, 1)) === 30, "orario: il segno si legge uguale (in fuori = +)");
+  const foro = [[40, 40], [40, 60, -0.4], [60, 60], [60, 40]];   /* un foro antiorario: b < 0 sul lato di sinistra lo porta verso il centro */
+  ok(A.custFrecciaMostrata(foro, 1) < 0 && A.custArco(foro[1], foro[2], -0.4).mezzo[1] < 60, "nel foro: freccia negativa = il foro si stringe");
+});
+t("contorni: drawCustom — senza archi il <polygon> di oggi; con archi o fori un path pari-dispari; freccia sotto 0,01 cm → L; niente NaN", () => {
+  const el = (shapes) => A.drawCustom({ w: 100, d: 100, cust: { nome: "x", shapes } });
+  eq(el([ccPoly([[10, 10], [60, 10], [35, 50]])]), '<g class="custom-el"><polygon points="-40,-40 10,-40 -15,0" fill="#e5e7eb" stroke="#1d1d1f" stroke-width="1"/></g>', "identico a oggi");
+  const a = el([ccPoly([[50, 50, 1], [60, 50], [60, 60]])]);
+  ok(/<path d="M0 0A5 5 0 0 0 10 0L10 10Z" fill-rule="evenodd" fill="#e5e7eb"/.test(a), "path con l'arco: " + a);
+  const h = el([ccPoly([[0, 0], [100, 0], [100, 100], [0, 100]], { holes: [[[40, 40], [60, 40], [50, 60]]] })]);
+  ok(/fill-rule="evenodd"/.test(h) && (h.match(/M/g) || []).length === 2, "un foro: due sottopercorsi, pari-dispari");
+  ok(/L10 0/.test(el([ccPoly([[50, 50, 0.001], [60, 50], [60, 60]])])), "freccia 0,005 cm: un segmento, niente arco");
+  ok(!/NaN|undefined|Infinity/.test(a + h), "niente NaN/undefined nel markup");
+});
+t("contorni (rev.): un lato di lunghezza zero (due punti coincidenti, o una poly vecchia di 2 punti) non scrive NaN", () => {
+  const z = A.custArco([5, 5], [5, 5], 0.7);
+  eq([z.c, z.s, z.r, z.cx, z.mezzo], [0, 0, Infinity, null, [5, 5]], "arco di lunghezza zero: niente centro");
+  const R = [[0, 0, 0.5], [0, 0, 0.5], [10, 0, 1], [10, 10]];
+  ok(!/NaN|Infinity/.test(A.custPathAnelli([R])), "il lato nullo si salta: " + A.custPathAnelli([R]));
+  const b = A.custIngombroAnelli([R]); ok([b.x1, b.y1, b.x2, b.y2].every(Number.isFinite), "ingombro finito");
+  ok(Number.isFinite(A.custFrecciaMostrata(R, 0)), "freccia finita");
+  const due = A.drawCustom({ w: 100, d: 100, cust: { nome: "x", shapes: [ccPoly([[10, 10, 1], [10, 10]])] } });
+  ok(!/NaN|Infinity|undefined/.test(due), "poly di 2 punti coincidenti con b: " + due);
+});
+t("contorni: drawCustom di 200 forme da 200 punti (40 000) con archi costa al massimo il doppio delle stesse forme dritte (misurato)", () => {
+  const forme = (b) => { const shapes = []; for (let f = 0; f < 200; f++) { const pts = []; for (let i = 0; i < 200; i++) { const g = i / 200 * 2 * Math.PI; pts.push([200 + 150 * Math.cos(g), 150 + 100 * Math.sin(g), i % 2 ? b : 0]); } shapes.push(ccPoly(pts)); } return { w: 400, d: 300, cust: { nome: "x", shapes } }; };
+  const P = globalThis.performance, misura = (it) => { let m = Infinity; for (let g = 0; g < 3; g++) { const t0 = P.now(); A.drawCustom(it); m = Math.min(m, P.now() - t0); } return m; };
+  const dritte = misura(forme(0)), curve = misura(forme(0.05));
+  console.log("      [misura] drawCustom 40 000 punti: dritte " + dritte.toFixed(1) + " ms, con archi " + curve.toFixed(1) + " ms");
+  ok(curve < 2 * dritte + 5, "con archi " + curve.toFixed(1) + " ms contro " + dritte.toFixed(1) + " ms dritte");
+});
+const ccCampioni = (R, k) => { const out = []; for (let i = 0; i < R.length; i++) out.push(...A.custPuntiArco(R[i], R[(i + 1) % R.length], +R[i][2] || 0, k)); return out; };
+const ccSuCerchio = (P, cx, cy, r) => P.every((p) => Math.abs(Math.hypot(p[0] - cx, p[1] - cy) - r) < 1e-6);
+t("contorni: un punto aggiunto non cambia la forma — sul lato dritto sta sulla corda, sull'arco lo spezza in due archi dello stesso cerchio", () => {
+  const Q = [[0, 0], [0, 80], [300, 80], [300, 0]];
+  const p = A.custSulLato(Q, 1, [120, 95]); eq(p, [120, 80], "proiezione sulla corda");
+  const Q2 = A.custInserisciPunto(Q, 1, p); eq(Q2, [[0, 0], [0, 80], [120, 80], [300, 80], [300, 0]]);
+  const C = [[10, 0, A.CUST_TAN8], [0, -10, A.CUST_TAN8], [-10, 0, A.CUST_TAN8], [0, 10, A.CUST_TAN8]];   /* cerchio r = 10 */
+  const q = A.custSulLato(C, 0, [8, -8]); eq(q.map(r6), [7.071068, -7.071068], "sull'arco, a 45°");
+  const C2 = A.custInserisciPunto(C, 0, q);
+  eq([C2.length, r6(C2[0][2]), r6(C2[1][2])], [5, r6(Math.tan(Math.PI / 16)), r6(Math.tan(Math.PI / 16))], "due archi da 45°");
+  ok(ccSuCerchio(ccCampioni(C2, 16), 0, 0, 10), "ogni campione resta sul cerchio (entro 1e-6)");
+  const lontano = A.custSulLato(C, 0, [-30, 30]); ok(r6a(lontano).join() === "10,0" || r6a(lontano).join() === "0,-10", "fuori dall'arco: il capo più vicino");
+});
+t("contorni: togliere un punto — minimo 3; due archi dello stesso cerchio tornano uno; archi diversi → lato dritto", () => {
+  const C = [[10, 0, A.CUST_TAN8], [0, -10, A.CUST_TAN8], [-10, 0, A.CUST_TAN8], [0, 10, A.CUST_TAN8]];
+  const C2 = A.custInserisciPunto(C, 0, A.custSulLato(C, 0, [8, -8]));
+  eq(A.custTogliPunto(C2, 1).map(r6a), C.map(r6a), "via il punto aggiunto: il quarto di cerchio di prima");
+  const M = A.custTogliPunto(C, 1); eq([M.length, r6(M[0][2])], [3, 1], "due quarti = mezzo cerchio");
+  const E = [[0, 0, 0.3], [100, 0, 0.6], [100, 50], [0, 50]];
+  eq(A.custTogliPunto(E, 1)[0], [0, 0], "archi di cerchi diversi: il lato nuovo è dritto");
+  eq(A.custTogliPunto([[0, 0], [10, 0], [5, 9]], 0), null, "un triangolo non scende sotto 3");
+  eq(A.custTogliPunto(M, 0), null, "neanche dopo un'unione");
+  const P = (g) => [10 * Math.cos(g * Math.PI / 180), 10 * Math.sin(g * Math.PI / 180)], t30 = Math.tan(Math.PI / 6), t15 = Math.tan(Math.PI / 12);
+  const T = [P(0).concat([t30]), P(-120).concat([t30]), P(-240).concat([t15]), P(-300).concat([t15])];   /* archi da 120°, 120°, 60°, 60° */
+  eq(A.custTogliPunto(T, 1)[0].length, 2, "due archi dello stesso cerchio che insieme superano il mezzo cerchio: dritto");
+  eq(r6(A.custTogliPunto(T, 3)[2][2]), r6(Math.tan(Math.PI / 6)), "60° + 60° = 120°: un arco solo");
+});
+t("contorni: curvare un lato e pulire a fine gesto (punti doppi via, mai sotto 3)", () => {
+  const Q = [[0, 0], [0, 80], [300, 80], [300, 0]];
+  eq(A.custCurvaLato(Q, 1, 0.2)[1], [0, 80, 0.2]); eq(A.custCurvaLato(Q, 1, 7)[1], [0, 80, 1], "al massimo mezzo cerchio");
+  eq(A.custCurvaLato(A.custCurvaLato(Q, 1, 0.2), 1, 1e-9)[1], [0, 80], "quasi zero = dritto");
+  const D = [[0, 0], [0, 80, 0.3], [0.001, 80.002, 0.2], [300, 80], [300, 0]];
+  eq(A.custPulisciAnello(D), [[0, 0], [0, 80, 0.2], [300, 80], [300, 0]], "il doppio se ne va, il lato che resta tiene la curvatura del secondo");
+  eq(A.custPulisciAnello([[0, 0], [0, 0.001], [10, 0]]).length, 3, "mai sotto 3");
+  eq(A.custPulisciAnello(Q), Q, "niente da pulire: uguale");
+});
+t("contorni: i limiti dei punti si dicono (200 per contorno, 1000 per forma, 40 000 per elemento)", () => {
+  const anello = (n) => Array.from({ length: n }, (_, i) => [i, 0]);
+  eq(A.custSpazioPunti([anello(200)], 0), null);
+  eq(A.custSpazioPunti([anello(201)], 0), "Al massimo 200 punti per contorno.");
+  eq(A.custSpazioPunti([anello(200), anello(200), anello(200), anello(200), anello(200), anello(3)], 0), "Al massimo 1 000 punti per forma.");
+  eq(A.custSpazioPunti([anello(10)], 39995), "Al massimo 40 000 punti per elemento.");
+});
+const ccForma = (g) => { const it = A.custShapeDaForma(Object.assign({}, CC_ST, g)); A.primaDiAgire(); A.state.items.push(it); A.selectOne(it.id); A.save(); return it; };
+const ccDi = (id) => A.state.items.find((x) => x.id === id);
+t("contorni: rettangolo → 4 punti antiorari; con r = 10 → 8 punti con b = tan(π/8); a metà lato mezzi cerchi; cerchio → 4 archi esatti", () => {
+  const R = A.custRettInAnello({ x: 0, y: 0, w: 100, h: 60 });
+  eq(R, [[0, 0], [0, 60], [100, 60], [100, 0]]); ok(A.custAreaAnello(R) < 0, "antiorario a vista");
+  const T = A.custRettInAnello({ x: 0, y: 0, w: 100, h: 60, r: 10 });
+  eq([T.length, T.filter((p) => p[2]).map((p) => r6(p[2]))], [8, [0.414214, 0.414214, 0.414214, 0.414214]]);
+  ok(A.custFrecciaMostrata(T, 1) > 0, "gli archi d'angolo stanno fuori");
+  eq(A.custIngombroAnelli([T]), { x1: 0, y1: 0, x2: 100, y2: 60 }, "l'ingombro resta quello del rettangolo");
+  eq(A.custRettInAnello({ x: 0, y: 0, w: 100, h: 60, r: 30 }).map(r6a), [[30, 60], [70, 60, 1], [70, 0], [30, 0, 1]], "r = metà del lato corto: due mezzi cerchi");
+  eq(A.custRettInAnello({ x: 0, y: 0, w: 100, h: 60, r: 99 }).length, 4, "r oltre metà lato: tagliato come fa SVG");
+  const C = A.custEllisseInAnello({ cx: 50, cy: 50, rx: 20, ry: 20 });
+  eq(C.map(r6a), [[70, 50, 0.414214], [50, 30, 0.414214], [30, 50, 0.414214], [50, 70, 0.414214]], "destra, alto, sinistra, basso");
+  ok(C.every((p, i) => Math.abs(Math.hypot(A.custArco(p, C[(i + 1) % 4], p[2]).mezzo[0] - 50, A.custArco(p, C[(i + 1) % 4], p[2]).mezzo[1] - 50) - 20) < 1e-9), "metà arco a distanza r dal centro");
+  eq(A.custRettInAnello({ x: 0, y: 0, w: 40, h: 40, r: 20 }).map(r6a), A.custEllisseInAnello({ cx: 20, cy: 20, rx: 20, ry: 20 }).map(r6a), "quadrato con r a metà: un cerchio");
+});
+t("contorni: ellisse 200 × 100 ruotata di 30° → il minimo di archi entro 0,05 cm (campionato), punti sull'ellisse", () => {
+  const g = { k: "ell", cx: 150, cy: 100, rx: 100, ry: 50, rot: 30 };
+  const R = A.custContornoDaForma(g).pts;
+  ok([8, 16, 32, 64].indexOf(R.length) >= 0, "8, 16, 32 o 64 archi: " + R.length);
+  const giu = R.map((p) => { const q = A.rotatePointAround(p[0], p[1], 150, 100, -30); return p[2] ? [q[0], q[1], p[2]] : q; });   /* si torna dritti per misurare */
+  const s = A.custScartoEllisse(giu, g);
+  ok(s <= 0.05, "scarto " + s.toFixed(4) + " cm");
+  ok(A.custScartoEllisse(A.custEllisseInAnello({ cx: 0, cy: 0, rx: 100, ry: 50 }).filter((p, i) => i % 2 === 0), { cx: 0, cy: 0, rx: 100, ry: 50 }) > 0.05, "con metà archi non basterebbe: è il minimo");
+});
+t("contorni: andata e ritorno custShapeDaForma ↔ custFormaDaShape identiche al milionesimo con archi e fori; w/d = ingombro vero", () => {
+  const g = Object.assign({ k: "poly" }, CC_ST, { pts: [[20, 20, 0.5], [120, 20], [120, 80, -0.3], [20, 80]], holes: [[[50, 40], [70, 40], [60, 60, 0.2]]] });
+  const x = A.custShapeDaForma(g);
+  const bb = A.custIngombroAnelli([g.pts].concat(g.holes));
+  eq([r6(x.w), r6(x.d), r6(x.x), r6(x.y)], [r6(bb.x2 - bb.x1), r6(bb.y2 - bb.y1), r6((bb.x1 + bb.x2) / 2), r6((bb.y1 + bb.y2) / 2)], "w, d, centro dall'ingombro vero");
+  eq([bb.y1, r6(bb.y2)], [20, 95], "l'arco del lato in basso (b < 0, da (120,80) a (20,80)) sporge di 15 cm; quello in alto (b > 0 su un anello orario) va dentro");
+  eq(A.custFormaDaShape(x), g, "andata e ritorno");
+  eq(A.custIngombro(x), { x1: bb.x1, y1: bb.y1, x2: bb.x2, y2: bb.y2 }, "custIngombro = ingombro vero");
+  const v = A.custShapeDaForma(Object.assign({ k: "poly", pts: [[0, 0], [40, 0], [20, 30]] }, CC_ST));
+  eq([v.x, v.y, v.w, v.d, v.pts, v.holes], [20, 15, 40, 30, [[-0.5, -0.5], [0.5, -0.5], [0, 0.5]], undefined], "senza archi: come prima");
+});
+t("contorni (rev.): L e P scritti su una forma con archi danno l'ingombro VERO; ridimensionata dalle maniglie riprende l'ingombro vero", () => conCampi(() => {
+  precEditor(400, 300);
+  const it = ccForma({ k: "poly", pts: [[20, 80], [20, 180], [120, 180], [120, 80, 0.6]] });   /* antiorario: il lato in alto si gonfia in su di 30 */
+  ok(A.custFormaCampo("w", "200"), "L");
+  const b = A.custIngombro(ccDi(it.id)); eq([r6(b.x2 - b.x1), r6(b.y2 - b.y1)], [200, 160], "L = 200 vere; la freccia cresce con la corda (100 + 60)");
+  ok(A.custFormaCampo("d", "180"), "P"); const c = A.custIngombro(ccDi(it.id)); eq([r6(c.y2 - c.y1), r6(c.x2 - c.x1)], [180, 200], "P = 180 vere, non 180 di soli punti");
+  ok(A.custFormaCampo("d", "40"), "P che gli archi da soli superano");
+  const g40 = A.custFormaDaShape(ccDi(it.id)), ys = g40.pts.map((p) => p[1]);
+  ok(A.custGeometria(ccDi(it.id)).d > 40 && Math.max(...ys) - Math.min(...ys) > 1, "si scala come prima e si rilegge la misura vera (la forma non si schiaccia a zero)");
+  const q = ccDi(it.id); q.w = q.w * 1.5;   /* come la maniglia del lato destro */
+  ok(A.custRiallinea(q), "a fine ridimensionamento"); const d = A.custIngombro(q); eq([r6(q.w), r6(q.d)], [r6(d.x2 - d.x1), r6(d.y2 - d.y1)], "w e d = ingombro vero");
+  ok(/custRiallinea\(_rz\)/.test(appjs), "il rilascio della maniglia la chiama");
+  const r = ccForma({ k: "poly", pts: [[0, 0], [40, 0], [20, 30]] }); eq(A.custRiallinea(r), false, "senza archi non serve");
+}));
+t("contorni (rev.): nell'editor Annulla/Ripeti, Duplica, Copia/Incolla e Salva tengono archi e fori; anche il modello e la copia posata", () => conCampi((campi, el) => {
+  precEditor(300, 200);
+  const it = ccForma({ k: "poly", pts: [[20, 20, 0.5], [120, 20], [120, 80, -0.3], [20, 80]], holes: [[[50, 40], [70, 40], [60, 60, 0.2]]] });
+  const g0 = A.custFormaDaShape(it);
+  A.primaDiAgire(); ccDi(it.id).x += 10; A.save();
+  A.undo(); eq(A.custFormaDaShape(ccDi(it.id)), g0, "Annulla: archi e fori com'erano");
+  A.redo(); eq(A.custFormaDaShape(ccDi(it.id)).holes[0][2][2], 0.2, "Ripeti: anche");
+  A.selectOne(it.id); A.duplicateSel(); const du = A.getSel();
+  ok(du.id !== it.id && du.holes && du.holes.length === 1 && du.pts[0][2] === 0.5, "Duplica");
+  A.selectOne(it.id); A.copySel(); A.pasteClip(); const inc = A.getSel();
+  ok(inc.id !== it.id && inc.id !== du.id && inc.holes && inc.pts[2][2] === -0.3, "Copia e incolla");
+  el("custNome").value = "Banco";
+  const id = A.custSalvaDaScheda({ fuoriOk: true }), base = ccDi(id);
+  const conFori = base.cust.shapes.filter((s) => s.holes);
+  eq([conFori.length, conFori[0].pts[0][2], conFori[0].holes[0].length], [3, 0.5, 3], "Salva: tre forme con archi e foro in cust.shapes");
+  const m = A.state.customModels.find((q) => q.id === base.cust.modelId);
+  ok(m && m.shapes.filter((s) => s.holes).length === 3, "il modello li tiene");
+  const posati = A.custPosaModello(m.id, 800, 600);
+  ok(posati[0].cust.shapes.filter((s) => s.holes && s.pts[0][2] === 0.5).length === 3, "la copia posata pure");
+}));
+t("contorni: Arrotonda un angolo — quadrato 100, r = 10 → 5 punti, metà arco a r(√2 − 1) dall'angolo; lato corto → raggio ridotto", () => {
+  const Q = A.custRettInAnello({ x: 0, y: 0, w: 100, h: 100 });   /* (0,0) (0,100) (100,100) (100,0) */
+  const o = A.custArrotonda(Q, 1, 10);
+  eq([o.anello.length, r6(o.r), o.ridotto], [5, 10, false]);
+  eq(o.anello.map(r6a), [[0, 0], [0, 90, 0.414214], [10, 100], [100, 100], [100, 0]], "T1, T2 a 10 cm dall'angolo; l'arco verso l'angolo");
+  const m = A.custArco(o.anello[1], o.anello[2], o.anello[1][2]).mezzo;
+  eq(r6(Math.hypot(m[0] - 0, m[1] - 100)), r6(10 * (Math.SQRT2 - 1)), "metà arco a 4,142 cm dall'angolo");
+  const S = A.custRettInAnello({ x: 0, y: 0, w: 100, h: 6 });
+  const c = A.custArrotonda(S, 1, 20); eq([r6(c.r), c.ridotto], [6, true], "il lato è lungo 6: raggio ridotto a 6");
+  eq(A.custArrotonda([[0, 0], [50, 0], [100, 0], [100, 50]], 1, 5).no, "piatto", "angolo piatto: niente");
+  eq(A.custArrotonda([[0, 0, 0.3], [50, 0], [50, 50]], 1, 5).no, "arco", "fra un arco e un lato: rifiuto");
+  eq(A.custArrotonda(Q, 1, 0).no, "raggio");
+});
+t("contorni: Arrotonda tutti gli angoli — 8 punti; un lato corto ne cede metà per capo e il conteggio lo dice", () => {
+  const Q = A.custRettInAnello({ x: 0, y: 0, w: 100, h: 100 });
+  const o = A.custArrotondaTutto(Q, 10); eq([o.anello.length, o.ridotti, o.fatti], [8, 0, 4]);
+  const B = A.custArrotondaTutto(A.custRettInAnello({ x: 0, y: 0, w: 100, h: 6 }), 5);
+  eq([B.ridotti, B.fatti, B.anello.map(r6a)], [4, 4, [[3, 0, 1], [3, 6], [97, 6, 1], [97, 0]]], "i lati da 6: due mezzi cerchi di raggio 3");
+  const T = [[0, 0], [100, 0, 0.3], [100, 50], [0, 50]];
+  const t2 = A.custArrotondaTutto(T, 5); eq([t2.fatti, t2.anello.length], [2, 6], "gli angoli accanto all'arco restano");
+  eq(A.custArrotondaTutto(A.custEllisseInAnello({ cx: 0, cy: 0, rx: 10, ry: 10 }), 5).anello, null, "un cerchio non ha angoli");
+});
+t("contorni: bersagli — metà arco «Punto medio», centro dell'arco «Centro» (non quello di un arco quasi dritto), «Sul bordo» sull'arco", () => {
+  const sup = { w: 400, d: 300 };
+  const it = A.custShapeDaForma(Object.assign({ k: "poly" }, CC_ST, { pts: [[100, 100], [100, 200, 1], [200, 200], [200, 100, 0.001]] }));   /* in basso un mezzo cerchio verso il basso; in alto un arco quasi dritto */
+  const B = A.custBersagli([it], {}, sup);
+  eq(precTipi(B, 150, 250), ["medio"], "metà del mezzo cerchio");
+  eq(precTipi(B, 150, 200), ["centro"], "il centro del mezzo cerchio");
+  ok(!B.punti.some((p) => p.t === "centro" && Math.abs(p.y) > 1000), "il centro dell'arco quasi dritto (lontanissimo) non c'è");
+  const r = A.custAggancioPunto({ x: 150 + 50 * Math.cos(Math.PI / 5) + 0.4, y: 200 + 50 * Math.sin(Math.PI / 5) }, B, 0.2, 2, Math.round);
+  eq(r.t, "bordo", "sul mezzo cerchio, fra due punti: «Sul bordo»");
+  ok(Math.abs(Math.hypot(r.x - 150, r.y - 200) - 50) < 1, "sull'arco spezzato in 8 segmenti (scarto massimo 50·(1 − cos 11,25°) = 0,96 cm)");
+});
+t("contorni: bersagli del punto che si muove — gli altri punti della stessa forma sì, lui e i medi dei suoi due lati no", () => {
+  const an = [[[0, 0], [0, 80], [300, 80], [300, 0]]];
+  const B = A.custBersagliContorno([], "x", an, 0, 1, { w: 400, d: 300 });
+  ok(precTipi(B, 0, 0).indexOf("vertice") >= 0 && precTipi(B, 300, 80).indexOf("vertice") >= 0, "gli altri vertici");
+  eq(precTipi(B, 0, 80), [], "non sé stesso");
+  eq([precTipi(B, 0, 40), precTipi(B, 150, 80)], [[], []], "né i medi dei suoi due lati");
+  eq(precTipi(B, 150, 0), ["medio"], "il medio di un lato che non si muove sì");
+});
+t("contorni: aggancio del tondo — dritto, mezzo cerchio, passa per un punto, griglia; ⌘ libero", () => {
+  const a = [0, 80], b = [300, 80], o = { tol: 8, tolP: 10, passo: 5 };   /* nel sandbox 1 px = 1 cm */
+  eq(A.custAggancioFreccia(a, b, [150, 86], null, o).t, "dritto");
+  eq(A.custAggancioFreccia(a, b, [150, 86], null, o).bulge, 0);
+  const m = A.custAggancioFreccia(a, b, [150, 225], null, o); eq([m.t, m.bulge, m.s], ["mezzo", 1, 150], "freccia 145 → mezzo cerchio 150");
+  const B = { punti: [{ x: 150, y: 120, t: "vertice" }] };
+  const p = A.custAggancioFreccia(a, b, [152, 114], B, o);
+  eq([p.t, r6(p.s), p.punto.t], ["punto", 40, "vertice"], "l'arco passa per (150,120): freccia 40");
+  eq(A.custAggancioFreccia(a, b, [150, 113], null, o).s, 35, "griglia: 33 → 35");
+  eq(r6(A.custAggancioFreccia(a, b, [150, 113], B, Object.assign({ libero: true }, o)).s), 33, "⌘: libero");
+  eq(A.custAggancioFreccia(a, b, [150, 999], null, Object.assign({}, o, { libero: true })).s, 150, "mai oltre mezzo cerchio");
+  eq([A.custScrittaLato(300, 30, 0.2, null), A.custScrittaLato(300, 150, 1, "mezzo"), A.custScrittaLato(300, 0, 0, "dritto")],
+    ["Freccia 30 cm · Raggio 390 cm", "Mezzo cerchio · Raggio 150 cm", "Dritto"]);
+  eq(A.custScrittaPunto([[0, 0], [0, 82.5], [120, 82.5]], 1), "← 82,5 cm · 120 cm →");
+});
+t("contorni: con 200 forme da 50 punti con archi l'aggancio sta largo dentro un fotogramma (misurato)", () => {
+  const items = [];
+  for (let f = 0; f < 200; f++) { const cx = (f % 20) * 20 + 10, cy = Math.floor(f / 20) * 20 + 10, pts = [];
+    for (let i = 0; i < 50; i++) { const g = -i / 50 * 2 * Math.PI; pts.push([cx + 8 * Math.cos(g), cy + 8 * Math.sin(g), 0.3]); }
+    items.push(A.custShapeDaForma(Object.assign({ k: "poly" }, CC_ST, { pts }))); }
+  const P = globalThis.performance;
+  let t0 = P.now(); const B = A.custBersagli(items, {}, { w: 400, d: 200 }); const tB = P.now() - t0;
+  const N = 1000; let tM = Infinity;
+  for (let g = 0; g < 3; g++) { t0 = P.now();
+    for (let i = 0; i < N; i++) A.custAggancioPunto({ x: (i * 37) % 400, y: (i * 53) % 200 }, B, 2, 1.6, Math.round);
+    tM = Math.min(tM, (P.now() - t0) / N); }
+  let tF = Infinity;
+  for (let g = 0; g < 3; g++) { t0 = P.now(); for (let i = 0; i < N; i++) A.custAggancioFreccia([0, 0], [100, 0], [(i * 37) % 400, (i * 53) % 200], B, { tol: 1.6, tolP: 2, passo: 1 }); tF = Math.min(tF, (P.now() - t0) / N); }
+  console.log("      [misura] tondo a movimento " + tF.toFixed(3) + " ms");
+  ok(tF < 8, "tondo a movimento " + tF.toFixed(3) + " ms");
+  console.log("      [misura] 200 forme × 50 punti con archi: bersagli " + tB.toFixed(1) + " ms, aggancio a movimento " + tM.toFixed(3) + " ms (" + B.lati.length + " lati)");
+  ok(tM < 8, "a movimento " + tM.toFixed(3) + " ms (budget: mezzo fotogramma a 60 Hz, come la Tappa A)");
+  ok(tB < 500, "bersagli " + tB.toFixed(1) + " ms, una volta per gesto (65 ms sul Mac; CI ~3× più lenta)");
+});
+/* l'interruttore acceso solo dentro la prova (in produzione resta spento fino alla PR di accensione) */
+function conContorni(fn) { const prima = A.custContorniAttivi; A.custContorniAttivi = () => true; try { return fn(); } finally { A.custContorniAttivi = prima; A.__custContorno = null; } }
+t("contorni: interruttore SPENTO — doppio clic e «Modifica contorno» non entrano; i pulsanti nuovi non si vedono; archi e fori si disegnano lo stesso", () => conCampi((campi, el) => {
+  precEditor(300, 200);
+  const r = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 120, y: 80 }); A.selectOne(r.id); A.render();
+  eq(A.custContornoEntra(r.id), false, "spento: non si entra"); eq(A.__custContorno, null);
+  ok(/if\(dcIt\.k==="text"\) custTestoModifica\(dcId, false\); else custContornoEntra\(dcId\);/.test(appjs), "il doppio clic passa da custContornoEntra (che guarda l'interruttore)");
+  eq([el("custFormaCc").hidden, el("custContorno").hidden], [true, true], "niente «Modifica contorno», niente sezione Contorno");
+  const p = ccForma({ k: "poly", pts: [[150, 20, 0.5], [250, 20], [250, 80]], holes: [[[200, 40], [220, 40], [210, 60]]] });
+  ok(/fill-rule="evenodd"/.test(A.TYPES.custshape.draw(p)), "le forme con archi e fori si disegnano anche a interruttore spento");
+}));
+t("contorni: si entra (una sola forma), le maniglie sono punti, tondi e lati; niente maniglie dell'ingombro; Fine esce e la forma resta selezionata", () => conCampi((campi, el) => conContorni(() => {
+  precEditor(300, 200);
+  const r = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 120, y: 80 }); A.selectOne(r.id);
+  const prima = JSON.stringify(r);
+  ok(A.custContornoEntra(r.id), "dentro"); eq(A.__custContorno, { id: r.id, r: 0, punto: null, lato: null });
+  eq(JSON.stringify(ccDi(r.id)), prima, "entrare non cambia niente (il rettangolo diventa contorno solo al primo gesto)");
+  const m = A.selHandlesMarkup();
+  eq([(m.match(/data-cc="pt"/g) || []).length, (m.match(/data-cc="tondo"/g) || []).length, (m.match(/data-cc="lato"/g) || []).length], [4, 4, 4]);
+  ok(!/rs-handle|rot-handle/.test(m), "niente maniglie dell'ingombro né di rotazione");
+  ok(m.indexOf('data-cc="lato"') < m.indexOf('data-cc="tondo"') && m.indexOf('data-cc="tondo"') < m.indexOf('data-cc="pt"'), "ordine: lati, tondi, punti (al clic vince il punto)");
+  ok(/body\.cust-contorno \.item\.selected \.selbox\{display:none\}/.test(stylesCss), "il riquadro di selezione sparisce");
+  eq([el("custContorno").hidden, el("custFormaCc").hidden], [false, true], "il pannello mostra «Contorno»");
+  ok(/<b>Contorno<\/b>/.test(el("custGuidaTxt").innerHTML || ""), "la riga d'aiuto");
+  const k0 = A.cmPerPx; try { A.cmPerPx = () => 6; eq((A.selHandlesMarkup().match(/data-cc="tondo"/g) || []).length, 0, "lati sotto 20 px (100 cm a 6 cm/px): niente tondo"); } finally { A.cmPerPx = k0; }
+  ok(A.custContornoEsci(), "Fine"); eq(A.__custContorno, null); ok(A.getSel() && A.getSel().id === r.id, "la forma resta selezionata");
+  A.custStrumento("rect"); eq(A.custContornoEntra(r.id), false, "con uno strumento di disegno acceso non si entra"); A.custStrumento("sel");
+  const ln = A.custNuovaForma("line", { x: 10, y: 150 }, { x: 90, y: 150 }); eq(A.custContornoEntra(ln.id), false, "la linea no");
+})));
+t("contorni (rev.): Annulla con un punto selezionato in un foro che non c'è più — si resta nel contorno, la selezione si toglie, niente errori", () => conCampi(() => conContorni(() => {
+  precEditor(300, 200);
+  const p = ccForma({ k: "poly", pts: [[20, 20], [20, 180], [280, 180], [280, 20]] });
+  A.primaDiAgire(); const q = ccDi(p.id); q.holes = [[[0.0, 0.0], [0.1, 0.0], [0.05, 0.1], [0.0, 0.1]]]; A.save();   /* un foro arriva (Piano 2: da Sottrai) */
+  ok(A.custContornoEntra(p.id), "dentro");
+  Object.assign(A.__custContorno, { r: 1, punto: 3 });
+  A.undo();
+  eq(A.__custContorno && A.__custContorno.id, p.id, "si resta nel contorno della stessa forma");
+  eq([A.__custContorno.r, A.__custContorno.punto], [0, null], "il foro non c'è più: selezione tolta");
+  eq(A.getSel() && A.getSel().id, p.id, "la forma resta selezionata dopo l'Annulla");
+  A.redo(); eq(A.__custContorno.id, p.id, "Ripeti: idem");
+  A.state.items = A.state.items.filter((x) => x.id !== p.id); A.custContornoDopoStoria();
+  eq(A.__custContorno, null, "se la forma non c'è più, si esce");
+})));
+/* un bersaglio finto del contorno per i gestori veri: e.target.closest("[data-cc]") */
+const ccSu = (t, r, i) => ({ closest: (s) => (s === "[data-cc]" ? { getAttribute: (k) => ({ "data-cc": t, "data-r": String(r), "data-i": String(i) })[k] } : null) });
+const ccDentro = (id) => ({ closest: (s) => (s === ".item" ? { getAttribute: (k) => (k === "data-id" ? id : null) } : null) });
+t("contorni: trascinare un punto — aggancio al vertice di un'altra forma, i lati tengono la curvatura, un passo di Annulla; un clic fermo seleziona soltanto", () => conCampi(() => conContorni(() => conPuntatore((ev) => {
+  precEditor(400, 300); A.custAggancio = false;
+  const altro = ccForma({ k: "poly", pts: [[300, 20], [380, 20], [340, 80]] });
+  const p = ccForma({ k: "poly", pts: [[20, 20], [20, 180, 0.4], [280, 180], [280, 20]] });
+  ok(A.custContornoEntra(p.id), "dentro");
+  const passi = A.undoStack.length;
+  ok(A.custContornoDown(ev(280, 180, { target: ccSu("pt", 0, 2) })), "preso il punto 3");
+  eq([A.drag.mode, A.__custContorno.punto], ["ccpunto", 2]);
+  A.custContornoRilascio(); eq(A.undoStack.length, passi, "clic fermo: niente passo");
+  A.custContornoDown(ev(280, 180, { target: ccSu("pt", 0, 2) }));
+  A.custContornoMuovi(ev(296, 24));   /* a 5 cm dal vertice (300,20) dell'altra forma */
+  A.custContornoRilascio();
+  const an = A.custAnelliDi(ccDi(p.id));
+  eq(an[0][2].slice(0, 2), [300, 20], "agganciato al vertice");
+  eq(an[0][1][2], 0.4, "il lato prima tiene la sua curvatura (l'arco si allunga con lo stesso angolo)");
+  eq(A.undoStack.length - passi, 1, "un passo");
+  A.undo(); eq(A.custAnelliDi(ccDi(p.id))[0][2], [280, 180], "Annulla");
+  void altro;
+}))));
+t("contorni: clic su un lato aggiunge un punto (la forma non cambia) e «premi e trascina» lo sposta subito: un passo solo", () => conCampi(() => conContorni(() => conPuntatore((ev) => {
+  precEditor(400, 300); A.custAggancio = false; A.custAggancioPunti = false;
+  const p = ccForma({ k: "poly", pts: [[20, 20], [20, 180], [280, 180], [280, 20]] });
+  A.custContornoEntra(p.id); const passi = A.undoStack.length;
+  const disegna = A.custDisegnaAggancio; let vis = null; A.custDisegnaAggancio = (o) => { vis = o; };
+  try { ok(A.custContornoSopra(ev(150, 183, { target: ccSu("lato", 0, 1) })), "passando sul lato"); } finally { A.custDisegnaAggancio = disegna; }
+  eq(vis.fantasma, { x: 150, y: 180 }, "il punto fantasma «+» sta sul lato");
+  ok(A.custContornoDown(ev(150, 183, { target: ccSu("lato", 0, 1) })), "clic sul lato in basso");
+  A.custContornoRilascio();
+  eq(A.custAnelliDi(ccDi(p.id))[0], [[20, 20], [20, 180], [150, 180], [280, 180], [280, 20]], "il punto nasce sul lato, la forma non cambia");
+  eq([A.__custContorno.punto, A.undoStack.length - passi], [2, 1], "selezionato; un passo");
+  A.custContornoDown(ev(100, 181, { target: ccSu("lato", 0, 1) })); A.custContornoMuovi(ev(100, 230)); A.custContornoRilascio();
+  eq(A.custAnelliDi(ccDi(p.id))[0][2], [100, 230], "aggiungi e sposta");
+  eq(A.undoStack.length - passi, 2, "un passo per «aggiungi e sposta»");
+  A.undo(); eq(A.custAnelliDi(ccDi(p.id))[0].length, 5, "Annulla toglie il punto aggiunto e spostato insieme");
+}))));
+t("contorni: il tondo curva il lato — aggancio dritto e mezzo cerchio, scritta con freccia e raggio, un passo; un clic fermo seleziona il lato", () => conCampi(() => conContorni(() => conPuntatore((ev) => {
+  precEditor(400, 300); A.custAggancio = false; A.custAggancioPunti = false;
+  const p = ccForma({ k: "poly", pts: [[20, 20], [20, 100], [320, 100], [320, 20]] });   /* antiorario: il lato 1 è quello in basso */
+  A.custContornoEntra(p.id); const passi = A.undoStack.length;
+  A.custContornoDown(ev(170, 100, { target: ccSu("tondo", 0, 1) })); A.custContornoRilascio();
+  eq([A.__custContorno.lato, A.__custContorno.punto, A.undoStack.length - passi], [1, null, 0], "clic fermo: il lato selezionato, niente passo");
+  const disegna = A.custDisegnaAggancio; let vis = null; A.custDisegnaAggancio = (o) => { vis = o; };
+  try { A.custContornoDown(ev(170, 100, { target: ccSu("tondo", 0, 1) })); A.custContornoMuovi(ev(170, 130)); } finally { A.custDisegnaAggancio = disegna; }
+  eq([vis.scritta.testo, vis.corda, vis.guide.length], ["Freccia 30 cm · Raggio 390 cm", { x1: 20, y1: 100, x2: 320, y2: 100 }, 1], "scritta, corda tratteggiata e perpendicolare");
+  A.custContornoRilascio();
+  const R = A.custAnelliDi(ccDi(p.id))[0];
+  eq([r6(R[1][2]), r6(A.custFrecciaMostrata(R, 1))], [0.2, 30], "freccia +30 (in fuori)");
+  eq(A.undoStack.length - passi, 1, "un passo");
+  A.custContornoDown(ev(170, 130, { target: ccSu("tondo", 0, 1) })); A.custContornoMuovi(ev(170, 104)); A.custContornoRilascio();
+  eq(A.custAnelliDi(ccDi(p.id))[0][1].length, 2, "entro 8 px da dritto: dritto");
+  A.custContornoDown(ev(170, 100, { target: ccSu("tondo", 0, 1) })); A.custContornoMuovi(ev(170, 245)); A.custContornoRilascio();
+  eq(A.custAnelliDi(ccDi(p.id))[0][1][2], 1, "entro 8 px da mezzo cerchio: mezzo cerchio");
+}))));
+t("contorni: Alt+clic e ⌫ tolgono un punto (minimo 3); clic dentro la forma la sposta; clic altrove esce dal contorno", () => conCampi(() => conContorni(() => conPuntatore((ev) => {
+  precEditor(400, 300);
+  const p = ccForma({ k: "poly", pts: [[20, 20], [20, 180], [150, 200], [280, 180], [280, 20]] });
+  A.custContornoEntra(p.id);
+  ok(A.custContornoDown(ev(150, 200, { target: ccSu("pt", 0, 2), altKey: true })), "Alt+clic");
+  eq(A.custAnelliDi(ccDi(p.id))[0].length, 4);
+  A.custContornoTogli(0, 0); eq(A.custAnelliDi(ccDi(p.id))[0].length, 3);
+  eq(A.custContornoTogli(0, 0), false, "non sotto 3"); eq(A.custAnelliDi(ccDi(p.id))[0].length, 3);
+  eq(A.custContornoDown(ev(100, 100, { target: ccDentro(p.id) })), false, "dentro la forma: il gestore di sempre (la sposta)");
+  ok(A.__custContorno, "…e si resta nel contorno");
+  eq(A.custContornoDown(ev(390, 290, { target: { closest: () => null } })), false, "a vuoto: il gestore di sempre");
+  eq(A.__custContorno, null, "…e si esce");
+}))));
+t("contorni (rev.): Esc durante «aggiungi e sposta» su un rettangolo non ancora convertito — rettangolo identico, nessun passo di Annulla", () => conCampi(() => conContorni(() => conPuntatore((ev) => {
+  precEditor(400, 300);
+  const r = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 220, y: 120 }); A.save();
+  const prima = JSON.stringify(ccDi(r.id)), passi = A.undoStack.length;
+  A.custContornoEntra(r.id);
+  A.custContornoDown(ev(120, 121, { target: ccSu("lato", 0, 1) })); A.custContornoMuovi(ev(120, 160));
+  eq(ccDi(r.id).k, "poly", "durante il gesto è già un contorno");
+  ok(A.custContornoAnnullaGesto(), "Esc");
+  eq([JSON.stringify(ccDi(r.id)), A.undoStack.length, A.drag], [prima, passi, null], "com'era, nessun passo");
+  A.custContornoDown(ev(20, 20, { target: ccSu("pt", 0, 0) })); A.custContornoMuovi(ev(30, 30)); ok(A.custContornoAnnullaGesto(), "Esc trascinando un punto");
+  eq(JSON.stringify(ccDi(r.id)), prima, "anche qui");
+  A.custContornoDown(ev(20, 20, { target: ccSu("pt", 0, 0) })); A.custContornoMuovi(ev(30, 30)); A.custContornoRilascio();
+  A.undo(); const u = ccDi(r.id); eq([u.k, u.x, u.y, u.w, u.d, u.pts], ["rect", 120, 70, 200, 100, undefined], "dopo il primo gesto vero, un Annulla lo riporta rettangolo");
+}))));
+t("contorni (rev.): una forma ruotata dalla maniglia, al primo gesto, cuoce la rotazione senza spostare niente", () => conCampi(() => conContorni(() => conPuntatore((ev) => {
+  precEditor(400, 300); A.custAggancio = false; A.custAggancioPunti = false;
+  const r = A.custNuovaForma("rect", { x: 100, y: 100 }, { x: 260, y: 160 }); r.rot = 30; A.save();
+  const prima = A.custAnelliDi(ccDi(r.id))[0].map(r6a);
+  A.custContornoEntra(r.id);
+  A.custContornoDown(ev(prima[0][0], prima[0][1], { target: ccSu("pt", 0, 0) })); A.custContornoMuovi(ev(150, 60)); A.custContornoRilascio();
+  const dopo = A.custAnelliDi(ccDi(r.id))[0].map(r6a);
+  eq(ccDi(r.id).rot, 0, "la rotazione è nei punti");
+  eq(dopo.slice(1), prima.slice(1), "gli altri punti restano dove si vedevano");
+  eq(dopo[0], [150, 60], "solo quello trascinato si sposta");
+}))));
+const ccTasto = (key, o) => Object.assign({ key, preventDefault() {}, target: { tagName: "svg" } }, o || {});
+t("contorni: tastiera — frecce 1 cm (Maiusc 10) un passo per pressione; ⌫ toglie il punto e senza punto non cancella la forma; Esc un livello per volta; Invio esce", () => conCampi((campi, el) => conContorni(() => {
+  precEditor(400, 300);
+  const p = ccForma({ k: "poly", pts: [[20, 20], [20, 180], [150, 200], [280, 180], [280, 20]] });
+  A.custContornoEntra(p.id); Object.assign(A.__custContorno, { punto: 2 });
+  const passi = A.undoStack.length;
+  ok(A.custContornoTasto(ccTasto("ArrowRight"))); ok(A.custContornoTasto(ccTasto("ArrowDown", { shiftKey: true })));
+  eq([A.custAnelliDi(ccDi(p.id))[0][2], A.undoStack.length - passi], [[151, 210], 2], "1 cm a destra, 10 in giù: due passi");
+  ok(A.custContornoTasto(ccTasto("Backspace"))); eq(A.custAnelliDi(ccDi(p.id))[0].length, 4, "⌫ toglie il punto");
+  Object.assign(A.__custContorno, { punto: null, lato: null });
+  ok(A.custContornoTasto(ccTasto("Delete"))); ok(ccDi(p.id), "senza punto selezionato la forma NON si cancella");
+  ok(/Seleziona un punto per toglierlo/.test(el("custGuidaTxt").innerHTML), "lo dice la riga d'aiuto");
+  eq(A.custContornoTasto(ccTasto("ArrowLeft")), false, "frecce senza punto: quelle di sempre (spostano la forma)");
+  Object.assign(A.__custContorno, { lato: 1 });
+  A.custContornoTasto(ccTasto("Escape")); ok(A.__custContorno && A.__custContorno.lato === null, "Esc: deseleziona il lato");
+  A.custContornoTasto(ccTasto("Escape")); eq(A.__custContorno, null, "Esc: esce dal contorno"); ok(A.getSel() && A.getSel().id === p.id, "la forma resta selezionata");
+  A.custContornoEntra(p.id); A.custContornoTasto(ccTasto("Enter")); eq(A.__custContorno, null, "Invio = Fine");
+  ok(/if\(window\.__custContorno && !\/INPUT\|SELECT\|TEXTAREA\/\.test\(e\.target\.tagName\|\|""\) && custContornoTasto\(e\)\) return;/.test(appjs), "agganciato al gestore dei tasti, fuori dai campi");
+})));
+t("contorni: pannello — X/Y del punto, freccia e raggio del lato (virgola, m, mm), raggio sotto c/2 rifiutato, Dritto; un passo ciascuno", () => conCampi((campi, el) => conContorni(() => {
+  precEditor(400, 300);
+  const p = ccForma({ k: "poly", pts: [[20, 20], [20, 100], [320, 100], [320, 20]] });
+  A.custContornoEntra(p.id); Object.assign(A.__custContorno, { punto: 1 }); A.render();
+  eq([el("custCcPNome").textContent, el("custCcX").value, el("custCcY").value], ["Punto 2 di 4", "20", "100"]);
+  const passi = A.undoStack.length;
+  ok(A.custContornoCampo("x", "0,25m")); eq(A.custAnelliDi(ccDi(p.id))[0][1], [25, 100], "0,25 m = 25 cm");
+  eq(A.custContornoCampo("x", "25"), false, "uguale: niente"); eq(A.custContornoCampo("y", "abc"), false, "non si legge: niente");
+  ok(A.custContornoCampo("x", "20")); 
+  Object.assign(A.__custContorno, { punto: null, lato: 1 }); A.render();
+  eq([el("custCcLNome").textContent, el("custCcCorda").textContent, el("custCcRaggio").value], ["Lato 2 di 4", "Corda 300 cm", ""], "lato dritto: niente raggio");
+  ok(A.custContornoCampo("freccia", "300mm")); let R = A.custAnelliDi(ccDi(p.id))[0];
+  eq([r6(A.custFrecciaMostrata(R, 1)), A.custArco(R[1], R[2], R[1][2]).mezzo[1] > 100], [30, true], "+30 = in fuori");
+  eq(A.custContornoCampo("freccia", "151"), false, "oltre mezzo cerchio: rifiutata");
+  eq(A.custContornoCampo("raggio", "140"), false, "raggio sotto 150 (c/2): rifiutato");
+  ok(A.custContornoCampo("raggio", "150")); R = A.custAnelliDi(ccDi(p.id))[0]; eq(R[1][2], 1, "150 = mezzo cerchio, nel verso di prima");
+  ok(A.custContornoDritto()); eq(A.custAnelliDi(ccDi(p.id))[0][1].length, 2, "Dritto");
+  ok(A.custContornoCampo("raggio", "390")); eq(r6(A.custFrecciaMostrata(A.custAnelliDi(ccDi(p.id))[0], 1)), 30, "un raggio su un lato dritto: in fuori");
+  eq(A.undoStack.length - passi, 6, "un passo per campo applicato e per Dritto");
+  ok(/\["custCcX","x"\],\["custCcY","y"\],\["custCcFreccia","freccia"\]/.test(appjs), "i campi sono collegati");
+  ok(/<label for="custCcFreccia">/.test(appjs + readFileSync(join(root, "app/index.html"), "utf8")) && /aria-label="Punto successivo"/.test(readFileSync(join(root, "app/index.html"), "utf8")), "etichette e nomi leggibili");
+})));
+t("contorni: Arrotonda dal pannello — un angolo (raggio ridotto lo dice), tutti gli angoli, il rettangolo non convertito prende r e resta rettangolo", () => conCampi(() => conContorni(() => {
+  precEditor(400, 300);
+  const toast = []; const t0 = A.__toast; A.__toast = (s) => toast.push(s);
+  try {
+    const p = ccForma({ k: "poly", pts: [[20, 20], [20, 26], [220, 26], [220, 20]] });   /* 200 × 6 */
+    A.custContornoEntra(p.id); Object.assign(A.__custContorno, { punto: 1 }); A.custCcRaggio = 20;
+    ok(A.custContornoArrotonda(), "un angolo"); ok(/Raggio ridotto a 6 cm/.test(toast.pop()), "lo dice");
+    A.custContornoEsci();
+    eq(A.custAnelliDi(ccDi(p.id))[0].length, 4, "con r = 6 il raccordo prende tutto il lato corto: il punto doppio si fonde");
+    ok(A.custArrotondaForma(ccDi(p.id), 2), "tutti"); eq(A.custAnelliDi(ccDi(p.id))[0].length, 6, "i due angoli fra lati dritti in più; quelli accanto all'arco restano");
+    const r = A.custNuovaForma("rect", { x: 20, y: 100 }, { x: 120, y: 160 });
+    ok(A.custArrotondaForma(r, 10), "rettangolo"); eq([ccDi(r.id).k, ccDi(r.id).r, ccDi(r.id).pts], ["rect", 10, undefined], "resta un rettangolo, con r");
+    const c = A.custNuovaForma("ell", { x: 200, y: 100 }, { x: 260, y: 160 });
+    eq(A.custArrotondaForma(c, 5), false, "un'ellisse non ha angoli"); ok(/Non ci sono angoli/.test(toast.pop()));
+  } finally { A.__toast = t0; }
+})));
+t("contorni: l'invio per revisione conta punti, archi e fori; il JSON fino a 300 000 caratteri, oltre null (e la finestra lo dice)", () => conInvio((giro) => {
+  const { base } = elementoDaInviare();
+  base.cust.shapes = [Object.assign({ k: "poly" }, CC_ST, { pts: [[0, 0, 0.5], [120, 0], [120, 80, -0.2], [0, 80]], holes: [[[40, 20], [60, 20, 0.3], [50, 40]]] }), { k: "rect", x: 0, y: 0, w: 10, h: 10, stroke: "#000000", sw: 1 }];
+  A.custNorm(base);
+  const c = A.custCorpoRevisione(base, null), e = c.tech_context.elemento;
+  eq([e.forme, e.punti, e.archi, e.fori], [2, 7, 3, 1], "4 + 3 punti, 3 archi, 1 foro");
+  ok(c.tech_context.elemento_json && JSON.parse(c.tech_context.elemento_json).shapes[0].holes.length === 1, "il JSON porta i fori");
+  const anello = Array.from({ length: 200 }, (_, k) => [k % 120 + 0.123456, Math.floor(k / 3) % 80 + 0.654321, 0.123456]);
+  base.cust.shapes = Array.from({ length: 30 }, () => Object.assign({ k: "poly" }, CC_ST, { pts: anello }));
+  ok(A.custJsonRevisione(base).length > 30000 && A.custJsonRevisione(base).length <= 300000, "un disegno dettagliato (oltre i 30 000 di prima) adesso arriva: " + A.custJsonRevisione(base).length);
+  base.cust.shapes = Array.from({ length: 200 }, () => Object.assign({ k: "poly" }, CC_ST, { pts: anello }));
+  eq(A.custJsonRevisione(base), null, "oltre 300 000: null");
+  const corpo = A.custCorpoRevisione(base, null);
+  eq(A.custEsitoInvio(200, { ok: true }, base.id, "Proiettore", corpo), "ok");
+  ok(/Il disegno era troppo grande per allegarlo: è arrivata l'anteprima\./.test(giro.dialoghi.pop().msg), "la finestra lo dice");
+}));
+t("contorni (rev. finale): Invio su un pulsante del pannello lo preme, non esce dal contorno", () => conCampi(() => conContorni(() => {
+  precEditor(400, 300);
+  const p = ccForma({ k: "poly", pts: [[20, 20], [20, 180], [150, 200], [280, 180], [280, 20]] });
+  A.custContornoEntra(p.id); Object.assign(A.__custContorno, { punto: 2 });
+  eq(A.custContornoTasto(ccTasto("Enter", { target: { tagName: "BUTTON" } })), false, "Invio su un pulsante: al pulsante");
+  ok(A.__custContorno && A.__custContorno.punto === 2, "si resta nel contorno, col punto selezionato");
+  eq(A.custContornoTasto(ccTasto(" ", { target: { tagName: "BUTTON" } })), false, "anche lo spazio");
+  ok(A.custContornoTasto(ccTasto("Escape", { target: { tagName: "BUTTON" } })), "Esc da un pulsante resta del contorno");
+  eq(A.__custContorno.punto, null, "…e deseleziona il punto");
+})));
+t("contorni (rev. finale): i campi del pannello si rileggono dopo Invio («1 m» → 100) e Esc rimette il valore; il raggio di serie si vede", () => conCampi((campi, el) => conContorni(() => {
+  precEditor(400, 300);
+  const p = ccForma({ k: "poly", pts: [[20, 20], [20, 100], [320, 100], [320, 20]] });
+  A.custContornoEntra(p.id); Object.assign(A.__custContorno, { punto: 1 }); A.render();
+  const x = el("custCcX"), d = A.document;
+  A.document = new Proxy({}, { get: (t, k) => (k === "activeElement" ? x : d[k]) });   /* il campo ha il fuoco */
+  try {
+    x.value = "1 m"; A.custContornoCampoTasto(x, "x", ccTasto("Enter"));
+    eq([A.custAnelliDi(ccDi(p.id))[0][1][0], x.value], [100, "100"], "applicato e riletto");
+    x.value = "abc"; A.custContornoCampoTasto(x, "x", ccTasto("Escape"));
+    eq(x.value, "100", "Esc rimette il valore di prima");
+    x.value = "99999"; A.custContornoCampoTasto(x, "x", ccTasto("Enter"));
+    eq(x.value, A.custCifra(A.custAnelliDi(ccDi(p.id))[0][1][0]), "un valore tagliato alla superficie si rilegge tagliato");
+  } finally { A.document = d; }
+  A.custContornoEsci(); A.selectOne(p.id); A.render();
+  eq(el("custFRaggio").value, "5", "«Arrotonda gli angoli»: il raggio di serie (la prima volta 5 cm) si vede");
+})));
+t("contorni (rev. finale): curvare un lato si annuncia (tondo e campi), come chiede l'accessibilità", () => conCampi(() => conContorni(() => conPuntatore((ev) => {
+  precEditor(400, 300); A.custAggancio = false; A.custAggancioPunti = false;
+  const detti = [], a0 = A.a11yAnnounce; A.a11yAnnounce = (s) => detti.push(s);
+  try {
+    const p = ccForma({ k: "poly", pts: [[20, 20], [20, 100], [320, 100], [320, 20]] });
+    A.custContornoEntra(p.id);
+    A.custContornoDown(ev(170, 100, { target: ccSu("tondo", 0, 1) })); A.custContornoMuovi(ev(170, 130)); A.custContornoRilascio();
+    ok(detti.includes("Lato curvato: freccia 30 cm"), "il tondo: " + JSON.stringify(detti));
+    Object.assign(A.__custContorno, { lato: 1, punto: null });
+    ok(A.custContornoCampo("freccia", "20")); ok(detti.includes("Lato curvato: freccia 20 cm"), "il campo: " + JSON.stringify(detti));
+  } finally { A.a11yAnnounce = a0; }
+}))));
+t("contorni (minori): pointercancel o un secondo dito durante un gesto del contorno lo annullano tutto — com'era, nessun passo di Annulla", () => conCampi(() => conContorni(() => conPuntatore((ev) => {
+  precEditor(400, 300);
+  const r = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 220, y: 120 }); A.save();
+  const prima = JSON.stringify(ccDi(r.id)), passi = A.undoStack.length;
+  A.custContornoEntra(r.id);
+  A.custContornoDown(ev(120, 121, { target: ccSu("lato", 0, 1) })); A.custContornoMuovi(ev(120, 160));
+  eq(ccDi(r.id).k, "poly", "a metà gesto è già un contorno");
+  ok(A.custContornoInterrotto(), "interrotto");
+  eq([JSON.stringify(ccDi(r.id)), A.undoStack.length, A.drag], [prima, passi, null], "com'era prima del gesto, nessun passo");
+  A.custContornoDown(ev(20, 20, { target: ccSu("pt", 0, 0) })); A.custContornoMuovi(ev(40, 50)); ok(A.custContornoInterrotto(), "anche trascinando un punto");
+  eq([JSON.stringify(ccDi(r.id)), A.undoStack.length], [prima, passi]);
+  ok(A.__custContorno && A.__custContorno.id === r.id, "si resta nel contorno");
+  eq(A.custContornoInterrotto(), false, "senza un gesto del contorno: niente");
+  ok(/svg\.addEventListener\("pointercancel", function\(e\)\{[\s\S]{0,260}if\(custContornoInterrotto\(\)\)\{/.test(appjs), "pointercancel lo chiama prima di chiudere il drag");
+  ok(/due dita = pinch zoom: annulla drag in corso \*\/\s*custContornoInterrotto\(true\);/.test(appjs), "il secondo dito pure");
+}))));
+t("contorni (minori): un gesto che non cambia niente non converte il rettangolo né l'ellisse e non lascia un passo di Annulla", () => conCampi(() => conContorni(() => conPuntatore((ev) => {
+  precEditor(400, 300); A.custAggancio = false; A.custAggancioPunti = false;
+  const r = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 220, y: 120 }); A.save();
+  const prima = JSON.stringify(ccDi(r.id)), passi = A.undoStack.length;
+  A.custContornoEntra(r.id);
+  A.custContornoDown(ev(120, 120, { target: ccSu("tondo", 0, 1) })); A.custContornoMuovi(ev(120, 150)); A.custContornoMuovi(ev(120, 121)); A.custContornoRilascio();
+  eq([JSON.stringify(ccDi(r.id)), A.undoStack.length], [prima, passi], "tondo tirato e tornato dritto: rettangolo identico, nessun passo");
+  A.custContornoDown(ev(20, 20, { target: ccSu("pt", 0, 0) })); A.custContornoMuovi(ev(60, 70)); A.custContornoMuovi(ev(20, 20)); A.custContornoRilascio();
+  eq([JSON.stringify(ccDi(r.id)), A.undoStack.length], [prima, passi], "punto tornato dove era: idem");
+  A.custContornoDown(ev(20, 20, { target: ccSu("pt", 0, 0) })); A.custContornoRilascio();
+  eq([JSON.stringify(ccDi(r.id)), A.undoStack.length], [prima, passi], "clic fermo: idem");
+  const e = A.custNuovaForma("ell", { x: 250, y: 150 }, { x: 350, y: 250 }); A.save();
+  const pe = JSON.stringify(ccDi(e.id)), pp = A.undoStack.length;
+  A.custContornoEntra(e.id); const R0 = A.custAnelliDi(ccDi(e.id))[0];
+  A.custContornoDown(ev(R0[0][0], R0[0][1], { target: ccSu("pt", 0, 0) })); A.custContornoMuovi(ev(R0[0][0] + 30, R0[0][1])); A.custContornoMuovi(ev(R0[0][0], R0[0][1])); A.custContornoRilascio();
+  eq([JSON.stringify(ccDi(e.id)), A.undoStack.length], [pe, pp], "ellisse: idem");
+  A.custContornoDown(ev(R0[0][0], R0[0][1], { target: ccSu("pt", 0, 0) })); A.custContornoMuovi(ev(R0[0][0] + 30, R0[0][1])); A.custContornoRilascio();
+  eq([ccDi(e.id).k, A.undoStack.length - pp], ["poly", 1], "un gesto vero converte, un passo");
+}))));
+t("contorni (minori): gli archi restano dentro la superficie ±10% come i punti — custNorm, il tondo e il campo Freccia si fermano al bordo", () => conCampi(() => conContorni(() => conPuntatore((ev) => {
+  const g = ccNorm([ccPoly([[0, 0], [100, 0, -1], [100, 100], [0, 100]])], 100, 100)[0];   /* il lato destro, mezzo cerchio in fuori: fino a x = 150 */
+  ok(Math.abs(g.pts[1][2] + 0.2) < 1e-5, "bulge fermato a −0,2 (freccia 10: x = 110): " + g.pts[1][2]);
+  ok(A.custIngombroAnelli([g.pts]).x2 <= 110 + 1e-6, "ingombro dentro");
+  eq(JSON.stringify(ccNorm(JSON.parse(JSON.stringify([g])), 100, 100)), JSON.stringify([g]), "idempotente");
+  eq(ccNorm([ccPoly([[10, 10, 0.5], [90, 10], [90, 90], [10, 90]])], 100, 100)[0].pts[0][2], 0.5, "un arco che ci sta non cambia");
+  precEditor(400, 300); A.custAggancio = false; A.custAggancioPunti = false;   /* superficie 400 × 300: x fino a 440 */
+  const p = ccForma({ k: "poly", pts: [[340, 100], [340, 200], [420, 200], [420, 100]] });   /* antiorario: il lato 2 (x = 420) si gonfia a destra */
+  A.custContornoEntra(p.id);
+  A.custContornoDown(ev(420, 150, { target: ccSu("tondo", 0, 2) })); A.custContornoMuovi(ev(500, 150)); A.custContornoRilascio();
+  let R = A.custAnelliDi(ccDi(p.id))[0];
+  ok(Math.abs(R[2][2] - 0.4) < 1e-5 && A.custIngombroAnelli([R]).x2 <= 440 + 1e-6, "il tondo si ferma al bordo: " + R[2][2]);
+  ok(A.custContornoDritto ? (Object.assign(A.__custContorno, { lato: 2, punto: null }), A.custContornoDritto()) : false, "dritto");
+  ok(A.custContornoCampo("freccia", "50")); R = A.custAnelliDi(ccDi(p.id))[0];
+  ok(Math.abs(R[2][2] - 0.4) < 1e-5, "anche il campo Freccia: " + R[2][2]);
+}))));
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");

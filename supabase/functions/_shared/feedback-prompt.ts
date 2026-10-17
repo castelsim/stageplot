@@ -13,6 +13,10 @@ function righeElemento(f: FeedbackInput): string[] {
   if (f.hint !== "elemento" || !e) return [];
   const ins = e.ins as { n: number; tipo: string } | null;
   const membri = Array.isArray(e.membri) ? e.membri as string[] : [];
+  /* Contorni (16/10/2026): «(148 punti, 12 archi, 1 foro)»; da un client vecchio (senza conteggi) la riga resta quella di prima */
+  const quanti = (k: unknown, uno: string, tanti: string) => typeof k === "number" ? `${k} ${k === 1 ? uno : tanti}` : null;
+  const p = quanti(e.punti, "punto", "punti"), a = quanti(e.archi, "arco", "archi"), fo = quanti(e.fori, "foro", "fori");
+  const contorni = (p && a && fo) ? ` (${p}, ${a}, ${fo})` : "";
   return [
     ``,
     `Elemento inviato per revisione:`,
@@ -21,7 +25,7 @@ function righeElemento(f: FeedbackInput): string[] {
     `- Descrizione: ${e.desc || "nessuna"}`,
     `- Potenza: ${e.watt != null ? e.watt + " W" : "non indicata"}`,
     `- Ingressi: ${ins ? ins.n + " " + ins.tipo : "nessuno"} · backline: ${e.backline ? "sì" : "no"}`,
-    `- Forme disegnate: ${e.forme ?? "?"} · elementi del catalogo dentro: ${membri.length ? membri.join(", ") : "nessuno"}`,
+    `- Forme disegnate: ${e.forme ?? "?"}${contorni} · elementi del catalogo dentro: ${membri.length ? membri.join(", ") : "nessuno"}`,
     `- JSON dell'elemento: ${(f.tech_context as Record<string, unknown>).elemento_json ? "sì (tech_context.elemento_json)" : "no"}`,
     `- Anteprima del disegno: ${f.screenshot ? "sì, allegata" : "no"}`,
   ];
