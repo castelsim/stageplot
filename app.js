@@ -8316,6 +8316,53 @@ function custSpazioPunti(anelli, altri){
 }
 /* una poly ha archi o fori? (senza, si disegna e si tratta esattamente come prima) */
 function custHaCurve(g){ return !!(g && ((g.holes && g.holes.length) || (Array.isArray(g.pts) && g.pts.some(function(p){ return Array.isArray(p) && +p[2]; })))); }
+/* ---- Contorni: Arrotonda (§3.5, E19) ---- */
+/* l'angolo nel punto i: solo fra due lati dritti, non piatto. → {ux,uy, vx,vy (versori verso il punto prima e quello dopo),
+   lu, lv (lunghezze dei due lati), al (angolo fra i lati)} oppure {no:"arco"|"piatto"} */
+function custAngoloDi(R, i){
+  var n=R.length; if(n<3) return {no:"piatto"};
+  var P=R[(i+n-1)%n], V=R[i], N=R[(i+1)%n];
+  if(+P[2] || +V[2]) return {no:"arco"};
+  var ux=P[0]-V[0], uy=P[1]-V[1], vx=N[0]-V[0], vy=N[1]-V[1], lu=Math.sqrt(ux*ux+uy*uy), lv=Math.sqrt(vx*vx+vy*vy);
+  if(!(lu>1e-9 && lv>1e-9)) return {no:"piatto"};
+  var al=Math.atan2(Math.abs(ux*vy-uy*vx), ux*vx+uy*vy);
+  if(al>Math.PI-1e-6 || al<1e-6) return {no:"piatto"};
+  return {ux:ux/lu, uy:uy/lu, vx:vx/lv, vy:vy/lv, lu:lu, lv:lv, al:al};
+}
+/* il raccordo: V diventa T1 (a distanza t lungo il lato di prima, con l'arco tangente) e T2 (lungo il lato dopo).
+   b = ±tan((π − α)/4), col segno che porta l'arco verso V. */
+function custRaccordo(V, D, t){
+  var T1=[V[0]+D.ux*t, V[1]+D.uy*t], T2=[V[0]+D.vx*t, V[1]+D.vy*t];
+  var cr=(T2[0]-T1[0])*(V[1]-T1[1])-(T2[1]-T1[1])*(V[0]-T1[0]);
+  return [[T1[0], T1[1], (cr<0 ? -1 : 1)*Math.tan((Math.PI-D.al)/4)], [T2[0], T2[1]]];
+}
+/* un angolo con raggio r: t = r / tan(α/2); se i lati sono corti, il raggio più grande che ci sta (ridotto: true).
+   → {anello, r (quello usato), ridotto} oppure {anello:null, no} */
+function custArrotonda(R, i, r){
+  var D=custAngoloDi(R, i); if(D.no) return {anello:null, no:D.no};
+  if(!(r>0)) return {anello:null, no:"raggio"};
+  var tg=Math.tan(D.al/2), t=r/tg, lim=Math.min(D.lu, D.lv), rid=t>lim+1e-9;
+  if(rid) t=lim;
+  var out=custCopiaAnello(R); Array.prototype.splice.apply(out, [i, 1].concat(custRaccordo(R[i], D, t)));
+  return {anello:custPulisciAnello(out), r:t*tg, ridotto:rid};
+}
+/* tutti gli angoli fra due lati dritti con lo stesso raggio; un lato con tutti e due i capi da arrotondare ne cede al massimo
+   metà a ciascuno. → {anello (null se non c'è niente da arrotondare), ridotti, fatti} */
+function custArrotondaTutto(R, r){
+  var n=R.length, D=R.map(function(p, i){ var d=custAngoloDi(R, i); return d.no ? null : d; }), t=[], ridotti=0, fatti=0, out=[], i;
+  if(!(r>0) || !D.some(Boolean)) return {anello:null, ridotti:0, fatti:0};
+  for(i=0;i<n;i++){
+    if(!D[i]){ t.push(0); continue; }
+    var lim=Math.min(D[i].lu*(D[(i+n-1)%n] ? 0.5 : 1), D[i].lv*(D[(i+1)%n] ? 0.5 : 1)), ti=r/Math.tan(D[i].al/2);
+    if(ti>lim+1e-9){ ti=lim; ridotti++; }
+    t.push(ti);
+  }
+  for(i=0;i<n;i++){
+    if(!D[i] || !(t[i]>1e-9)){ out.push(R[i].slice()); continue; }
+    Array.prototype.push.apply(out, custRaccordo(R[i], D[i], t[i])); fatti++;
+  }
+  return {anello:custPulisciAnello(out), ridotti:ridotti, fatti:fatti};
+}
 /* ---- Contorni: rettangolo, ellisse e poligono come anelli (E10–E12) ---- */
 /* rettangolo → 4 punti antiorari a vista (alto-sinistra, basso-sinistra, basso-destra, alto-destra); con gli angoli
    arrotondati (r tagliato a metà del lato più corto, come fa SVG) 8 punti con archi d'angolo b = tan(π/8). Con r a metà di

@@ -11545,6 +11545,28 @@ t("contorni (rev.): nell'editor Annulla/Ripeti, Duplica, Copia/Incolla e Salva t
   const posati = A.custPosaModello(m.id, 800, 600);
   ok(posati[0].cust.shapes.filter((s) => s.holes && s.pts[0][2] === 0.5).length === 3, "la copia posata pure");
 }));
+t("contorni: Arrotonda un angolo — quadrato 100, r = 10 → 5 punti, metà arco a r(√2 − 1) dall'angolo; lato corto → raggio ridotto", () => {
+  const Q = A.custRettInAnello({ x: 0, y: 0, w: 100, h: 100 });   /* (0,0) (0,100) (100,100) (100,0) */
+  const o = A.custArrotonda(Q, 1, 10);
+  eq([o.anello.length, r6(o.r), o.ridotto], [5, 10, false]);
+  eq(o.anello.map(r6a), [[0, 0], [0, 90, 0.414214], [10, 100], [100, 100], [100, 0]], "T1, T2 a 10 cm dall'angolo; l'arco verso l'angolo");
+  const m = A.custArco(o.anello[1], o.anello[2], o.anello[1][2]).mezzo;
+  eq(r6(Math.hypot(m[0] - 0, m[1] - 100)), r6(10 * (Math.SQRT2 - 1)), "metà arco a 4,142 cm dall'angolo");
+  const S = A.custRettInAnello({ x: 0, y: 0, w: 100, h: 6 });
+  const c = A.custArrotonda(S, 1, 20); eq([r6(c.r), c.ridotto], [6, true], "il lato è lungo 6: raggio ridotto a 6");
+  eq(A.custArrotonda([[0, 0], [50, 0], [100, 0], [100, 50]], 1, 5).no, "piatto", "angolo piatto: niente");
+  eq(A.custArrotonda([[0, 0, 0.3], [50, 0], [50, 50]], 1, 5).no, "arco", "fra un arco e un lato: rifiuto");
+  eq(A.custArrotonda(Q, 1, 0).no, "raggio");
+});
+t("contorni: Arrotonda tutti gli angoli — 8 punti; un lato corto ne cede metà per capo e il conteggio lo dice", () => {
+  const Q = A.custRettInAnello({ x: 0, y: 0, w: 100, h: 100 });
+  const o = A.custArrotondaTutto(Q, 10); eq([o.anello.length, o.ridotti, o.fatti], [8, 0, 4]);
+  const B = A.custArrotondaTutto(A.custRettInAnello({ x: 0, y: 0, w: 100, h: 6 }), 5);
+  eq([B.ridotti, B.fatti, B.anello.map(r6a)], [4, 4, [[3, 0, 1], [3, 6], [97, 6, 1], [97, 0]]], "i lati da 6: due mezzi cerchi di raggio 3");
+  const T = [[0, 0], [100, 0, 0.3], [100, 50], [0, 50]];
+  const t2 = A.custArrotondaTutto(T, 5); eq([t2.fatti, t2.anello.length], [2, 6], "gli angoli accanto all'arco restano");
+  eq(A.custArrotondaTutto(A.custEllisseInAnello({ cx: 0, cy: 0, rx: 10, ry: 10 }), 5).anello, null, "un cerchio non ha angoli");
+});
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");
