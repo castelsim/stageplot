@@ -9808,6 +9808,8 @@ function custNorm(it){
       }
       var dentro=function(p){ return conB(p, X(p[0]), Y(p[1])); };
       P=P.map(dentro); H=H.map(function(R){ return R.map(dentro); });
+      if(f.k==="poly"){   /* anche gli archi dentro la superficie ±10%, come i punti (senza archi: niente cambia) */
+        var box={x1:-mx, y1:-mx, x2:W+mx, y2:D+mx}; P=custArchiDentro(P, box); H=H.map(function(R){ return custArchiDentro(R, box); }); }
       if(f.k==="line"){ g.x1=P[0][0]; g.y1=P[0][1]; g.x2=P[1][0]; g.y2=P[1][1]; } else { g.pts=P; if(H.length) g.holes=H; } }
     else if(f.k==="text"){ g.x=X(f.x); g.y=Y(f.y); g.size=num(f.size,2,200)||12;
       g.s=(typeof f.s==="string") ? custTaglia(f.s.replace(/[\u0000-\u001f]/g," "),L.TESTO) : "";
@@ -10644,6 +10646,26 @@ function custSpazioPunti(anelli, altri){
   if(tot+(altri||0)>L.PUNTI_EL) return "Al massimo "+custMigliaia(L.PUNTI_EL)+" punti per elemento.";
   return null;
 }
+/* GLI ARCHI DENTRO UN RIQUADRO (la superficie ±10%, come i punti): un arco il cui ingombro ne uscirebbe si appiattisce, stesso
+   verso, fino al bordo (bisezione; |b| arrotondato verso lo 0, così si resta dentro). I punti devono essere già dentro.
+   box = {x1, y1, x2, y2}. → un anello nuovo (lo stesso contenuto se niente esce) */
+function custArchiDentro(R, box){
+  var n=R.length, out=R, EPS=1e-5;
+  var esce=function(a, q, bu){ var g=custIngombroAnelli([[[a[0], a[1], bu], [q[0], q[1]]]]); return g.x1<box.x1-EPS || g.y1<box.y1-EPS || g.x2>box.x2+EPS || g.y2>box.y2+EPS; };
+  for(var i=0;i<n;i++){ var a=R[i], q=R[(i+1)%n], bu=+a[2]||0; if(!bu) continue;
+    /* scorciatoia: un arco fino al mezzo cerchio sta fra la corda e la sua parallela a distanza |s| = |b|·c/2, sopra la corda */
+    var s=Math.abs(bu)*Math.sqrt((q[0]-a[0])*(q[0]-a[0])+(q[1]-a[1])*(q[1]-a[1]))/2;
+    if(Math.min(a[0], q[0])-s>=box.x1 && Math.max(a[0], q[0])+s<=box.x2 && Math.min(a[1], q[1])-s>=box.y1 && Math.max(a[1], q[1])+s<=box.y2) continue;
+    if(!esce(a, q, bu)) continue;
+    var lo=0, hi=1, k; for(k=0;k<50;k++){ var m=(lo+hi)/2; if(esce(a, q, bu*m)) hi=m; else lo=m; }
+    var nb=(bu<0 ? -1 : 1)*Math.floor(Math.abs(bu*lo)*1e6)/1e6;
+    if(out===R) out=custCopiaAnello(R);
+    out[i]=nb ? [a[0], a[1], nb] : [a[0], a[1]];
+  }
+  return out;
+}
+/* il riquadro dei punti nell'editor: la superficie ±10% (come custLimita) */
+function custBoxSup(){ var S=state.stage, w=+S.w||0, d=+S.d||0, mx=Math.max(w, d)*0.1; return {x1:-mx, y1:-mx, x2:w+mx, y2:d+mx}; }
 /* una poly ha archi o fori? (senza, si disegna e si tratta esattamente come prima) */
 function custHaCurve(g){ return !!(g && ((g.holes && g.holes.length) || (Array.isArray(g.pts) && g.pts.some(function(p){ return Array.isArray(p) && +p[2]; })))); }
 /* ---- Contorni: Arrotonda (§3.5, E19) ---- */
@@ -10804,6 +10826,7 @@ function custScrittaLato(c, f, bulge, t){
 function custAnelliDi(it){ var R=custContornoDaForma(custFormaDaShape(it)); return R ? [R.pts].concat(R.holes) : null; }
 /* scrive gli anelli nella forma: diventa (o resta) una poly senza rotazione, con l'ingombro vero (E12). Tiene id e stile. */
 function custScriviAnelli(it, anelli){
+  anelli=anelli.map(function(R){ return custArchiDentro(R, custBoxSup()); });   /* un arco non esce dalla superficie ±10% */
   var n=custShapeDaForma({k:"poly", pts:anelli[0], holes:anelli.slice(1), fill:it.fill, stroke:it.stroke, sw:it.sw}); if(!n) return false;
   it.k="poly"; it.x=n.x; it.y=n.y; it.w=n.w; it.d=n.d; it.rot=0; it.pts=n.pts;
   if(n.holes) it.holes=n.holes; else delete it.holes;
@@ -12313,6 +12336,12 @@ function custContornoBersaglio(e){
   var t=el.getAttribute("data-cc"), r=+el.getAttribute("data-r"), i=+el.getAttribute("data-i");
   return ((t==="pt" || t==="tondo" || t==="lato") && r>=0 && i>=0) ? {t:t, r:r, i:i} : null;
 }
+/* due elenchi di anelli uguali (punti e curvature entro 1e-6)? */
+function custAnelliUguali(A1, A2){
+  if(!A1 || !A2 || A1.length!==A2.length) return false;
+  return A1.every(function(R, ri){ var S=A2[ri]; return R.length===S.length && R.every(function(p, i){ var q=S[i];
+    return Math.abs(p[0]-q[0])<1e-6 && Math.abs(p[1]-q[1])<1e-6 && Math.abs((+p[2]||0)-(+q[2]||0))<1e-6; }); });
+}
 function custRimettiForma(it, json){ var o=JSON.parse(json); Object.keys(it).forEach(function(k){ delete it[k]; }); Object.assign(it, o); }
 /* pointerdown sul palco in modalità contorno. true = gestito. Dentro la forma (non su punto, tondo o lato) → false: la si
    sposta come sempre (Tappa A). Altrove → si esce e il clic fa quello di sempre (seleziona, deseleziona, Maiusc…). */
@@ -12362,7 +12391,8 @@ function custContornoMuovi(e){
   } else {
     var a=R0[d.i], b=R0[(d.i+1)%R0.length], sp=svgPoint(e), libero=custLibero(e);
     var ag=custAggancioFreccia(a, b, [sp.x, sp.y], custAggancioPunti ? d.B : null, {tol:hSize(8), tolP:hSize(10), passo:custAggancio ? custPasso() : 0, libero:libero});
-    an[d.r]=custCurvaLato(R0, d.i, ag.bulge);
+    an[d.r]=custArchiDentro(custCurvaLato(R0, d.i, ag.bulge), custBoxSup());   /* fermo al bordo della superficie ±10% */
+    var buV=+an[d.r][d.i][2]||0; if(Math.abs(buV-ag.bulge)>1e-9) ag={bulge:buV, s:buV*custArco(a, b, 0).c/2, t:null, punto:null};
     var A=custArco(a, b, ag.bulge), f=custAreaAnello(R0)>0 ? -ag.s : ag.s, m=custArco(a, b, 0).mezzo;
     vis={guide:[{x1:m[0]-A.nx*A.c/2, y1:m[1]-A.ny*A.c/2, x2:m[0]+A.nx*A.c/2, y2:m[1]+A.ny*A.c/2}], corda:{x1:a[0], y1:a[1], x2:b[0], y2:b[1]},
          segno:(ag.t==="punto" && ag.punto) ? {x:ag.punto.x, y:ag.punto.y, t:ag.punto.t} : null,
@@ -12377,6 +12407,9 @@ function custContornoRilascio(){
   var d=drag; drag=null; if(!d) return false;
   var it=(state.items||[]).find(function(x){ return x.id===d.id; }), C=window.__custContorno, fatto=!!(it && (d.moved || d.nuovo));
   custPulisciAggancio();
+  if(fatto && !d.nuovo && custAnelliUguali(custAnelliDi(it).map(function(R, ri){ return ri===d.r ? custPulisciAnello(R) : R; }), d.an0)){
+    custRimettiForma(it, d.prima); fatto=false;   /* niente è cambiato: la forma com'era (rettangolo ed ellisse non si convertono), nessun passo */
+  }
   if(fatto){
     var an=custAnelliDi(it), R=custPulisciAnello(an[d.r]);
     if(R.length!==an[d.r].length && C) C.punto=null;   /* il punto si è fuso col vicino */
@@ -12388,14 +12421,20 @@ function custContornoRilascio(){
   return fatto;
 }
 /* Esc durante un trascinamento del contorno: la forma torna com'era all'inizio del gesto, nessun passo di Annulla (§3.8) */
-function custContornoAnnullaGesto(){
+function custContornoAnnullaGesto(tieni){
   var d=drag; if(!d || (d.mode!=="ccpunto" && d.mode!=="cctondo")) return false;
   drag=null;
   var it=(state.items||[]).find(function(x){ return x.id===d.id; }); if(it) custRimettiForma(it, d.prima);
-  try{ svg.classList.remove("dragging"); Object.keys(pointers).forEach(function(k){ try{ svg.releasePointerCapture(+k); }catch(_e){} }); }catch(e){}
+  try{ svg.classList.remove("dragging"); if(!tieni) Object.keys(pointers).forEach(function(k){ try{ svg.releasePointerCapture(+k); }catch(_e){} }); }catch(e){}
   var C=window.__custContorno; if(C && d.nuovo) C.punto=null;
   custPulisciAggancio(); render();
   return true;
+}
+/* pointercancel o un secondo dito durante un gesto del contorno: si ANNULLA tutto, come Esc (§3.8) — l'interruzione non è una
+   scelta dell'utente, e una conversione pigra a metà non deve restare. tieni = non liberare la cattura (il pinch la usa). */
+function custContornoInterrotto(tieni){
+  if(!drag || (drag.mode!=="ccpunto" && drag.mode!=="cctondo")) return false;
+  return custContornoAnnullaGesto(tieni);
 }
 /* passando su un lato (senza trascinare): il punto fantasma «+» dove nascerebbe il punto */
 function custContornoSopra(e){
@@ -22311,6 +22350,7 @@ svg.addEventListener("pointerdown", function(e){
   endCatSearch();   /* una ricerca in corso finisce appena si torna al palco, in qualunque punto (Simone 30/07) */
   pointers[e.pointerId]={x:e.clientX, y:e.clientY};
   if(Object.keys(pointers).length===2){            /* due dita = pinch zoom: annulla drag in corso */
+    custContornoInterrotto(true);   /* Contorni: il gesto del contorno si annulla tutto (com'era, nessun passo) */
     if(drag && drag.el && drag.el.parentNode) drag.el.parentNode.removeChild(drag.el);
     drag=null; svg.classList.remove("dragging"); lastDown=null;
     var ids=Object.keys(pointers), pa=pointers[ids[0]], pb=pointers[ids[1]];
@@ -23248,6 +23288,7 @@ svg.addEventListener("pointerup", function(e){
 svg.addEventListener("pointercancel", function(e){   /* touch interrotto (2° dito, gesture iOS, rotazione device): chiudi la transazione di drag in modo atomico (audit M-21) */
   delete pointers[e.pointerId];
   if(Object.keys(pointers).length<2) pinch=null;
+  if(custContornoInterrotto()){ svg.classList.remove("dragging"); return; }   /* Contorni: com'era, nessun passo di Annulla */
   if(!drag){ svg.classList.remove("dragging"); return; }
   if(drag.el && drag.el.parentNode) drag.el.parentNode.removeChild(drag.el);   /* via il cavo-fantasma (mode port) */
   if(drag.mode==="custarea") custTogliAnteprimaArea();   /* il rettangolo di «Crea elemento» interrotto: la modalità resta, si riprova */

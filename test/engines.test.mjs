@@ -11869,6 +11869,57 @@ t("contorni (rev. finale): curvare un lato si annuncia (tondo e campi), come chi
     ok(A.custContornoCampo("freccia", "20")); ok(detti.includes("Lato curvato: freccia 20 cm"), "il campo: " + JSON.stringify(detti));
   } finally { A.a11yAnnounce = a0; }
 }))));
+t("contorni (minori): pointercancel o un secondo dito durante un gesto del contorno lo annullano tutto — com'era, nessun passo di Annulla", () => conCampi(() => conContorni(() => conPuntatore((ev) => {
+  precEditor(400, 300);
+  const r = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 220, y: 120 }); A.save();
+  const prima = JSON.stringify(ccDi(r.id)), passi = A.undoStack.length;
+  A.custContornoEntra(r.id);
+  A.custContornoDown(ev(120, 121, { target: ccSu("lato", 0, 1) })); A.custContornoMuovi(ev(120, 160));
+  eq(ccDi(r.id).k, "poly", "a metà gesto è già un contorno");
+  ok(A.custContornoInterrotto(), "interrotto");
+  eq([JSON.stringify(ccDi(r.id)), A.undoStack.length, A.drag], [prima, passi, null], "com'era prima del gesto, nessun passo");
+  A.custContornoDown(ev(20, 20, { target: ccSu("pt", 0, 0) })); A.custContornoMuovi(ev(40, 50)); ok(A.custContornoInterrotto(), "anche trascinando un punto");
+  eq([JSON.stringify(ccDi(r.id)), A.undoStack.length], [prima, passi]);
+  ok(A.__custContorno && A.__custContorno.id === r.id, "si resta nel contorno");
+  eq(A.custContornoInterrotto(), false, "senza un gesto del contorno: niente");
+  ok(/svg\.addEventListener\("pointercancel", function\(e\)\{[\s\S]{0,260}if\(custContornoInterrotto\(\)\)\{/.test(appjs), "pointercancel lo chiama prima di chiudere il drag");
+  ok(/due dita = pinch zoom: annulla drag in corso \*\/\s*custContornoInterrotto\(true\);/.test(appjs), "il secondo dito pure");
+}))));
+t("contorni (minori): un gesto che non cambia niente non converte il rettangolo né l'ellisse e non lascia un passo di Annulla", () => conCampi(() => conContorni(() => conPuntatore((ev) => {
+  precEditor(400, 300); A.custAggancio = false; A.custAggancioPunti = false;
+  const r = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 220, y: 120 }); A.save();
+  const prima = JSON.stringify(ccDi(r.id)), passi = A.undoStack.length;
+  A.custContornoEntra(r.id);
+  A.custContornoDown(ev(120, 120, { target: ccSu("tondo", 0, 1) })); A.custContornoMuovi(ev(120, 150)); A.custContornoMuovi(ev(120, 121)); A.custContornoRilascio();
+  eq([JSON.stringify(ccDi(r.id)), A.undoStack.length], [prima, passi], "tondo tirato e tornato dritto: rettangolo identico, nessun passo");
+  A.custContornoDown(ev(20, 20, { target: ccSu("pt", 0, 0) })); A.custContornoMuovi(ev(60, 70)); A.custContornoMuovi(ev(20, 20)); A.custContornoRilascio();
+  eq([JSON.stringify(ccDi(r.id)), A.undoStack.length], [prima, passi], "punto tornato dove era: idem");
+  A.custContornoDown(ev(20, 20, { target: ccSu("pt", 0, 0) })); A.custContornoRilascio();
+  eq([JSON.stringify(ccDi(r.id)), A.undoStack.length], [prima, passi], "clic fermo: idem");
+  const e = A.custNuovaForma("ell", { x: 250, y: 150 }, { x: 350, y: 250 }); A.save();
+  const pe = JSON.stringify(ccDi(e.id)), pp = A.undoStack.length;
+  A.custContornoEntra(e.id); const R0 = A.custAnelliDi(ccDi(e.id))[0];
+  A.custContornoDown(ev(R0[0][0], R0[0][1], { target: ccSu("pt", 0, 0) })); A.custContornoMuovi(ev(R0[0][0] + 30, R0[0][1])); A.custContornoMuovi(ev(R0[0][0], R0[0][1])); A.custContornoRilascio();
+  eq([JSON.stringify(ccDi(e.id)), A.undoStack.length], [pe, pp], "ellisse: idem");
+  A.custContornoDown(ev(R0[0][0], R0[0][1], { target: ccSu("pt", 0, 0) })); A.custContornoMuovi(ev(R0[0][0] + 30, R0[0][1])); A.custContornoRilascio();
+  eq([ccDi(e.id).k, A.undoStack.length - pp], ["poly", 1], "un gesto vero converte, un passo");
+}))));
+t("contorni (minori): gli archi restano dentro la superficie ±10% come i punti — custNorm, il tondo e il campo Freccia si fermano al bordo", () => conCampi(() => conContorni(() => conPuntatore((ev) => {
+  const g = ccNorm([ccPoly([[0, 0], [100, 0, -1], [100, 100], [0, 100]])], 100, 100)[0];   /* il lato destro, mezzo cerchio in fuori: fino a x = 150 */
+  ok(Math.abs(g.pts[1][2] + 0.2) < 1e-5, "bulge fermato a −0,2 (freccia 10: x = 110): " + g.pts[1][2]);
+  ok(A.custIngombroAnelli([g.pts]).x2 <= 110 + 1e-6, "ingombro dentro");
+  eq(JSON.stringify(ccNorm(JSON.parse(JSON.stringify([g])), 100, 100)), JSON.stringify([g]), "idempotente");
+  eq(ccNorm([ccPoly([[10, 10, 0.5], [90, 10], [90, 90], [10, 90]])], 100, 100)[0].pts[0][2], 0.5, "un arco che ci sta non cambia");
+  precEditor(400, 300); A.custAggancio = false; A.custAggancioPunti = false;   /* superficie 400 × 300: x fino a 440 */
+  const p = ccForma({ k: "poly", pts: [[340, 100], [340, 200], [420, 200], [420, 100]] });   /* antiorario: il lato 2 (x = 420) si gonfia a destra */
+  A.custContornoEntra(p.id);
+  A.custContornoDown(ev(420, 150, { target: ccSu("tondo", 0, 2) })); A.custContornoMuovi(ev(500, 150)); A.custContornoRilascio();
+  let R = A.custAnelliDi(ccDi(p.id))[0];
+  ok(Math.abs(R[2][2] - 0.4) < 1e-5 && A.custIngombroAnelli([R]).x2 <= 440 + 1e-6, "il tondo si ferma al bordo: " + R[2][2]);
+  ok(A.custContornoDritto ? (Object.assign(A.__custContorno, { lato: 2, punto: null }), A.custContornoDritto()) : false, "dritto");
+  ok(A.custContornoCampo("freccia", "50")); R = A.custAnelliDi(ccDi(p.id))[0];
+  ok(Math.abs(R[2][2] - 0.4) < 1e-5, "anche il campo Freccia: " + R[2][2]);
+}))));
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");
