@@ -3838,3 +3838,28 @@ body.dark #props .cust-pan .cust-pan-btns .btn{background:#20292e;border-color:#
 body.cust-editor.m-has-sel #custScheda{border-top:1px solid var(--border);padding-top:12px;margin-top:6px}   /* sotto il pannello di ciò che è selezionato */
 /* Esporta col dito (14/10): il fuoco iniziale va alla finestra stessa (esportaFuocoIniziale), non a un campo che aprirebbe la tastiera; niente anello attorno a tutta la finestra */
 #pdfModal .mcard:focus{outline:none}
+/* ── CREA ELEMENTO · CONTORNI (16/10/2026): punti (quadratini), tondo a metà lato, fascia del lato, punto fantasma, scritte.
+   Bordi a 1,6 px di schermo (non-scaling) come le maniglie; selezionato = pieno (si distingue anche senza colore). */
+body.cust-contorno .item.selected .selbox{display:none}
+.cust-cc .cc-lato{fill:none;stroke:transparent;pointer-events:stroke;cursor:copy}
+.cust-cc .cc-lato:hover,.cust-cc .cc-lato.on{stroke:var(--accent);stroke-opacity:.28}
+.cust-cc .cc-tondo{fill:var(--sheet);stroke:var(--accent);stroke-width:1.6;vector-effect:non-scaling-stroke;cursor:grab}
+#svg.dragging .cust-cc .cc-tondo{cursor:grabbing}
+.cust-cc .cc-pt{fill:var(--sheet);stroke:var(--accent);stroke-width:1.6;vector-effect:non-scaling-stroke;cursor:move}
+.cust-cc .cc-pt.on,.cust-cc .cc-tondo.on{fill:var(--accent)}
+.cust-snap-lay .cust-corda{stroke:var(--cust-guida);stroke-width:1.2;stroke-dasharray:4 3;vector-effect:non-scaling-stroke}
+.cust-snap-lay .cust-fantasma circle{fill:var(--sheet);stroke:var(--accent);stroke-width:1.6;vector-effect:non-scaling-stroke}
+.cust-snap-lay .cust-fantasma path{stroke:var(--accent);stroke-width:1.6;vector-effect:non-scaling-stroke}
+.cust-snap-lay .cust-scritta rect{fill:var(--n-800);opacity:.92}
+.cust-snap-lay .cust-scritta text{fill:#fff;font-weight:600;font-variant-numeric:tabular-nums}
+#custFormaCc[hidden],#custContorno[hidden],#custCcPunto[hidden],#custCcLato[hidden],#custCcTutti[hidden],#custCcArrNota[hidden]{display:none}
+#custFormaCc{margin:0 0 10px}
+#custFormaCc>.btn{width:100%}
+#props #custForma .cust-cc-riga{flex-wrap:wrap;align-items:flex-end}
+#props #custForma .cust-cc-riga>.btn{flex:1 1 100%}
+#props #custContorno .cust-cc-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+#props #custContorno .cust-cc-head>span{flex:1 1 auto;min-width:0}
+#props #custContorno .cust-cc-nav{display:flex;align-items:center;gap:6px;margin:2px 0 6px;font-weight:600}
+#props #custContorno .cust-cc-nav>span{flex:1 1 auto;min-width:0;text-align:center}
+/* `#props .btn` è largo tutta la riga: nella testata e accanto a «Punto 3 di 12» i bottoni stanno alla loro misura */
+#props #custContorno .cust-cc-head>.btn,#props #custContorno .cust-cc-nav>.btn{width:auto;flex:0 0 auto;margin-top:0;padding:4px 10px}
