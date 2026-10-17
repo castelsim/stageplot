@@ -11361,6 +11361,77 @@ t("contorni: una poly di oggi esce IDENTICA (anche di 2 punti), e custNorm è id
   const nuova = ccNorm([ccPoly([[0, 0, 0.3], [100, 0], [100, 80, -1], [0, 80]], { holes: [[[10, 10], [20, 10, 0.2], [15, 20]]] })]);
   eq(JSON.stringify(ccNorm(JSON.parse(JSON.stringify(nuova)))), JSON.stringify(nuova), "due passaggi = uno");
 });
+const r6 = (v) => Math.round(v * 1e6) / 1e6, r6a = (p) => p.map(r6);
+t("contorni: l'esempio fisso del verso — da (0,0) a (10,0) con b = 1 il semicerchio passa per (5, 5) e il path è A5 5 0 0 0 10 0", () => {
+  const a = A.custArco([0, 0], [10, 0], 1);
+  eq([r6(a.c), r6(a.s), r6(a.r), r6(a.cx), r6(a.cy), r6(a.theta), r6a(a.mezzo)], [10, 5, 5, 5, 0, r6(Math.PI), [5, 5]]);
+  eq(A.custPathAnelli([[[0, 0, 1], [10, 0], [10, 10]]]), "M0 0A5 5 0 0 0 10 0L10 10Z", "b > 0 → sweep 0; l'ultimo lato dritto lo chiude Z");
+  ok(/A5 5 0 0 1 10 0/.test(A.custPathAnelli([[[0, 0, -1], [10, 0], [10, -10]]])), "b < 0 → sweep 1");
+  const q = A.custArco([0, 0], [10, 0], A.CUST_TAN8);
+  eq([r6(q.r), r6(q.cx), r6(q.cy), r6a(q.mezzo), r6(q.theta * 180 / Math.PI)], [7.071068, 5, -5, [5, 2.071068], 90], "quarto di cerchio");
+  const m = A.custArco([0, 0], [10, 0], -0.5);
+  eq([r6(m.r), r6(m.cx), r6(m.cy), r6a(m.mezzo)], [6.25, 5, 3.75, [5, -2.5]], "b = −0,5: dall'altra parte");
+  /* DXF (E2): nel DXF (y in su) b > 0 è antiorario, la metà arco sta a DESTRA del verso: M + (d.y, −d.x)/c · s. Letto con
+     y' = −y e la stessa b, l'arco si vede uguale */
+  const da = [2, 3], db = [12, 9], bd = 0.4, dd = [db[0] - da[0], db[1] - da[1]], dc = Math.hypot(dd[0], dd[1]), ds = bd * dc / 2;
+  const Sdxf = [(da[0] + db[0]) / 2 + dd[1] / dc * ds, (da[1] + db[1]) / 2 - dd[0] / dc * ds];
+  eq(r6a(A.custArco([da[0], -da[1]], [db[0], -db[1]], bd).mezzo), r6a([Sdxf[0], -Sdxf[1]]), "un DXF con y' = −y e la stessa b si vede uguale");
+});
+t("contorni: freccia ↔ bulge ↔ raggio (andata e ritorno) e arco per tre punti", () => {
+  eq([A.custBulgeDaFreccia(10, 5), A.custBulgeDaFreccia(10, -2.5), A.custBulgeDaFreccia(10, 99), A.custBulgeDaFreccia(0, 3)], [1, -0.5, 1, 0]);
+  eq([A.custBulgeDaRaggio(10, 5, 1), r6(A.custBulgeDaRaggio(10, 6.25, -1)), A.custBulgeDaRaggio(10, 4.9, 1)], [1, -0.5, null], "sotto c/2 non esiste");
+  [0.2, 0.5, 0.9, -0.3].forEach((b) => { const a = A.custArco([3, 4], [53, 24], b);
+    eq(r6(A.custBulgeDaFreccia(a.c, a.s)), b, "freccia → bulge " + b);
+    eq(r6(A.custBulgeDaRaggio(a.c, a.r, Math.sign(b))), b, "raggio → bulge " + b);
+    eq(r6(A.custBulgeDa3Punti([3, 4], [53, 24], a.mezzo)), b, "tre punti → bulge " + b); });
+  eq([r6(A.custBulgeDa3Punti([0, 0], [10, 0], [5, 5])), A.custBulgeDa3Punti([0, 0], [10, 0], [5, 0]), A.custBulgeDa3Punti([0, 0], [10, 0], [5, 8]), A.custBulgeDa3Punti([0, 0], [10, 0], [20, 0]), A.custBulgeDa3Punti([0, 0], [10, 0], [0, 0])],
+    [1, 0, null, null, null], "sulla corda 0; oltre il mezzo cerchio, sul prolungamento o su un capo: null");
+});
+t("contorni: ingombro vero — semicerchio, quarto, arco che passa per 90°; area e segno «in fuori» su anelli antiorari, orari e fori", () => {
+  eq(A.custIngombroAnelli([[[0, 0, 1], [10, 0]]]), { x1: 0, y1: 0, x2: 10, y2: 5 }, "semicerchio");
+  eq(A.custIngombroAnelli([[[0, 0, A.CUST_TAN8], [10, 0]]]), { x1: 0, y1: 0, x2: 10, y2: r6(5 * Math.SQRT2 - 5) }, "quarto: la freccia");
+  const P = (g) => [10 * Math.cos(g * Math.PI / 180), 10 * Math.sin(g * Math.PI / 180)];
+  const b = A.custBulgeDa3Punti(P(30), P(150), P(90)), bb = A.custIngombroAnelli([[P(30).concat([b]), P(150)]]);
+  eq([r6(bb.x1), r6(bb.y1), r6(bb.x2), r6(bb.y2)], [r6(-10 * Math.cos(Math.PI / 6)), 5, r6(10 * Math.cos(Math.PI / 6)), 10], "da 30° a 150° per 90°: in basso tocca 10");
+  const ccw = [[0, 0], [0, 80], [300, 80], [300, 0]];   /* alto-sinistra → basso-sinistra → basso-destra → alto-destra */
+  ok(A.custAreaAnello(ccw) < 0, "antiorario a vista = area negativa");
+  const s = A.custBulgeDaFreccia(300, 30);
+  const ring = ccw.map((p, i) => i === 1 ? p.concat([s]) : p);
+  eq(r6(A.custFrecciaMostrata(ring, 1)), 30, "il lato davanti piegato in fuori: +30");
+  ok(A.custArco(ring[1], ring[2], s).mezzo[1] > 80, "…e sta davvero fuori (y più grande del lato)");
+  const cw = ring.slice().reverse().map((p) => [p[0], p[1]]);   /* lo stesso rettangolo in senso orario */
+  cw[1] = cw[1].concat([-s]);   /* da (300,80) a (0,80): stesso arco fuori */
+  ok(A.custAreaAnello(cw) > 0 && r6(A.custFrecciaMostrata(cw, 1)) === 30, "orario: il segno si legge uguale (in fuori = +)");
+  const foro = [[40, 40], [40, 60, -0.4], [60, 60], [60, 40]];   /* un foro antiorario: b < 0 sul lato di sinistra lo porta verso il centro */
+  ok(A.custFrecciaMostrata(foro, 1) < 0 && A.custArco(foro[1], foro[2], -0.4).mezzo[1] < 60, "nel foro: freccia negativa = il foro si stringe");
+});
+t("contorni: drawCustom — senza archi il <polygon> di oggi; con archi o fori un path pari-dispari; freccia sotto 0,01 cm → L; niente NaN", () => {
+  const el = (shapes) => A.drawCustom({ w: 100, d: 100, cust: { nome: "x", shapes } });
+  eq(el([ccPoly([[10, 10], [60, 10], [35, 50]])]), '<g class="custom-el"><polygon points="-40,-40 10,-40 -15,0" fill="#e5e7eb" stroke="#1d1d1f" stroke-width="1"/></g>', "identico a oggi");
+  const a = el([ccPoly([[50, 50, 1], [60, 50], [60, 60]])]);
+  ok(/<path d="M0 0A5 5 0 0 0 10 0L10 10Z" fill-rule="evenodd" fill="#e5e7eb"/.test(a), "path con l'arco: " + a);
+  const h = el([ccPoly([[0, 0], [100, 0], [100, 100], [0, 100]], { holes: [[[40, 40], [60, 40], [50, 60]]] })]);
+  ok(/fill-rule="evenodd"/.test(h) && (h.match(/M/g) || []).length === 2, "un foro: due sottopercorsi, pari-dispari");
+  ok(/L10 0/.test(el([ccPoly([[50, 50, 0.001], [60, 50], [60, 60]])])), "freccia 0,005 cm: un segmento, niente arco");
+  ok(!/NaN|undefined|Infinity/.test(a + h), "niente NaN/undefined nel markup");
+});
+t("contorni (rev.): un lato di lunghezza zero (due punti coincidenti, o una poly vecchia di 2 punti) non scrive NaN", () => {
+  const z = A.custArco([5, 5], [5, 5], 0.7);
+  eq([z.c, z.s, z.r, z.cx, z.mezzo], [0, 0, Infinity, null, [5, 5]], "arco di lunghezza zero: niente centro");
+  const R = [[0, 0, 0.5], [0, 0, 0.5], [10, 0, 1], [10, 10]];
+  ok(!/NaN|Infinity/.test(A.custPathAnelli([R])), "il lato nullo si salta: " + A.custPathAnelli([R]));
+  const b = A.custIngombroAnelli([R]); ok([b.x1, b.y1, b.x2, b.y2].every(Number.isFinite), "ingombro finito");
+  ok(Number.isFinite(A.custFrecciaMostrata(R, 0)), "freccia finita");
+  const due = A.drawCustom({ w: 100, d: 100, cust: { nome: "x", shapes: [ccPoly([[10, 10, 1], [10, 10]])] } });
+  ok(!/NaN|Infinity|undefined/.test(due), "poly di 2 punti coincidenti con b: " + due);
+});
+t("contorni: drawCustom di 200 forme da 200 punti (40 000) con archi costa al massimo il doppio delle stesse forme dritte (misurato)", () => {
+  const forme = (b) => { const shapes = []; for (let f = 0; f < 200; f++) { const pts = []; for (let i = 0; i < 200; i++) { const g = i / 200 * 2 * Math.PI; pts.push([200 + 150 * Math.cos(g), 150 + 100 * Math.sin(g), i % 2 ? b : 0]); } shapes.push(ccPoly(pts)); } return { w: 400, d: 300, cust: { nome: "x", shapes } }; };
+  const P = globalThis.performance, misura = (it) => { let m = Infinity; for (let g = 0; g < 3; g++) { const t0 = P.now(); A.drawCustom(it); m = Math.min(m, P.now() - t0); } return m; };
+  const dritte = misura(forme(0)), curve = misura(forme(0.05));
+  console.log("      [misura] drawCustom 40 000 punti: dritte " + dritte.toFixed(1) + " ms, con archi " + curve.toFixed(1) + " ms");
+  ok(curve < 2 * dritte + 5, "con archi " + curve.toFixed(1) + " ms contro " + dritte.toFixed(1) + " ms dritte");
+});
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");
