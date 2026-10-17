@@ -9774,6 +9774,7 @@ function custRenderForma(it){
   /* Contorni: «Modifica contorno» e «Arrotonda gli angoli» (interruttore acceso); in modalità contorno la sua sezione */
   var cc=!!(window.__custContorno && window.__custContorno.id===it.id);
   vis("custFormaCc", custContorniAttivi() && custContornoAmmesso(it) && !cc); vis("custContorno", cc);
+  var fRa=custEl("custFRaggio"); if(fRa && fRa!==document.activeElement) fRa.value=custCifra(custCcRaggio);   /* l'ultimo usato, la prima volta 5 cm */
   if(cc) custRenderContorno(it);
   var nota=custEl("custFormaNota"); if(nota) nota.textContent=linea ? "X e Y del primo capo, dall'angolo in alto a sinistra. Angolo in senso orario, 0° = verso destra. Invio applica, Esc annulla."
     : "X e Y dell'angolo in alto a sinistra, dall'origine del righello. Invio applica, Esc annulla.";
@@ -10052,6 +10053,8 @@ function custContornoRilascio(){
     var an=custAnelliDi(it), R=custPulisciAnello(an[d.r]);
     if(R.length!==an[d.r].length && C) C.punto=null;   /* il punto si è fuso col vicino */
     an[d.r]=R; custScriviAnelli(it, an); save();
+    if(d.mode==="cctondo" && R.length===d.an0[d.r].length && R[d.i])   /* §8: «Lato curvato: freccia 12 cm» */
+      a11yAnnounce(+R[d.i][2] ? "Lato curvato: freccia "+custCifra(custFrecciaMostrata(R, d.i))+" cm" : "Lato dritto");
   }
   render(); custGuida();
   return fatto;
@@ -10096,6 +10099,8 @@ function custContornoTasto(e){
     if(C.punto!=null || C.lato!=null){ C.punto=null; C.lato=null; render(); return true; }
     custContornoEsci(); return true; }
   if(e.metaKey || e.ctrlKey || e.altKey) return false;   /* ⌘Z, ⌘C…: quelli di sempre */
+  /* Invio o spazio su un pulsante (◀ ▶, Togli punto, Dritto, Arrotonda… del pannello): li preme lui, non è «Fine» (§8) */
+  if((k==="Enter" || k===" ") && /^(BUTTON|A|SUMMARY)$/.test((e.target && e.target.tagName)||"")) return false;
   if(k==="Enter"){ e.preventDefault(); custContornoEsci(); return true; }
   if(k==="Backspace" || k==="Delete"){ e.preventDefault();   /* MAI la forma intera (E16) */
     if(C.punto==null){ custCcNota="Seleziona un punto per toglierlo."; custGuida(); return true; }
@@ -10141,6 +10146,7 @@ function custContornoCampo(campo, raw){
     an[C.r]=custCurvaLato(R, C.lato, bu);
   } else return false;
   primaDiAgire(); custScriviAnelli(it, an); render(); save();
+  if(campo==="freccia" || campo==="raggio") a11yAnnounce(+an[C.r][C.lato][2] ? "Lato curvato: freccia "+custCifra(custFrecciaMostrata(an[C.r], C.lato))+" cm" : "Lato dritto");
   return true;
 }
 function custContornoDritto(){
@@ -10191,10 +10197,18 @@ function custContornoNaviga(cosa, passo){
   render(); a11yAnnounce((cosa==="punto" ? "Punto " : "Lato ")+(C[cosa]+1)+" selezionato");
   return true;
 }
+/* Invio e Esc in un campo della sezione Contorno (§3.6, come la Tappa A): Invio applica (un passo) e il campo si rilegge
+   com'è davvero (al centesimo, tagliato alla superficie); Esc rimette il valore di prima e torna al palco. */
+function custContornoCampoTasto(f, campo, ev){
+  var K;
+  if(ev.key==="Enter"){ ev.preventDefault(); custContornoCampo(campo, f.value); K=custContorno(); if(K) custRenderContorno(K.it, true); try{ f.select(); }catch(e){} return true; }
+  if(ev.key==="Escape"){ f.value=""; K=custContorno(); if(K) custRenderContorno(K.it, true); try{ f.blur(); }catch(e){} return true; }
+  return false;
+}
 /* LA SEZIONE «CONTORNO» del pannello: segue la selezione (un punto, un lato, niente) */
-function custRenderContorno(it){
+function custRenderContorno(it, forza){   /* forza: riscrive anche il campo che ha il fuoco (dopo Invio o Esc) */
   var C=window.__custContorno, an=custAnelliDi(it); if(!C || !an) return;
-  var att=document.activeElement, set=function(id, v){ var e=custEl(id); if(e && e!==att) e.value=(v==null || !isFinite(v)) ? "" : custCifra(v); };
+  var att=document.activeElement, set=function(id, v){ var e=custEl(id); if(e && (forza || e!==att)) e.value=(v==null || !isFinite(v)) ? "" : custCifra(v); };
   var vis=function(id, on){ var e=custEl(id); if(e) e.hidden=!on; }, txt=function(id, s){ var e=custEl(id); if(e) e.textContent=s; };
   var nf=an.length-1, R=an[C.r]||an[0], n=R.length, pre=C.r>0 ? "Foro "+C.r+" · " : "";
   txt("custCcTitolo", "Contorno · "+custContaAnelli(an)+" punti"+(nf ? " · "+nf+(nf===1 ? " foro" : " fori") : ""));
@@ -10280,10 +10294,11 @@ function custBlocca(){ if(!custEditorAttivo()) return false; custEditorAvvisa();
   [["custCcX","x"],["custCcY","y"],["custCcFreccia","freccia"],["custCcRaggio","raggio"],["custCcRaggioA","raggioA"],["custCcRaggioT","raggioT"],["custFRaggio","raggioT"]].forEach(function(c){
     on(c[0], "change", function(){ if(c[0]==="custFRaggio"){ var v=custNumeroDigitato(this.value); if(v!=null && v>0) custCcRaggio=v; return; } custContornoCampo(c[1], this.value); });
     on(c[0], "keydown", function(ev){
-      if(ev.key==="Enter"){ ev.preventDefault();
-        if(c[0]==="custFRaggio"){ var it=getSel(), v=custNumeroDigitato(this.value); if(it && v!=null && v>0) custArrotondaForma(it, v); return; }
-        custContornoCampo(c[1], this.value); var K=custContorno(); if(K) custRenderContorno(K.it); try{ this.select(); }catch(e){} }
-      else if(ev.key==="Escape"){ var K2=custContorno(); this.value=""; if(K2) custRenderContorno(K2.it); }
+      if(c[0]==="custFRaggio"){
+        if(ev.key==="Enter"){ ev.preventDefault(); var it=getSel(), v=custNumeroDigitato(this.value); if(it && v!=null && v>0) custArrotondaForma(it, v); }
+        else if(ev.key==="Escape") this.value=custCifra(custCcRaggio);
+        return; }
+      custContornoCampoTasto(this, c[1], ev);
     });
   });
   on("custFContorno", "click", function(){ var it=getSel(); if(it) custContornoEntra(it.id); });
