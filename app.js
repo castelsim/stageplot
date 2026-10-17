@@ -7835,7 +7835,13 @@ function custFormaDaShape(x){
   if(x.k==="rect"){ if(w==null || d==null) return null; g.x=custR6(cx-w/2); g.y=custR6(cy-d/2); g.w=w; g.h=d; if(x.r) g.r=x.r; }
   else if(x.k==="ell"){ if(w==null || d==null) return null; g.cx=cx; g.cy=cy; g.rx=custR6(w/2); g.ry=custR6(d/2); }
   else if(x.k==="line"){ var a=pt(x.p1), b=pt(x.p2); if(!a || !b) return null; g.x1=a[0]; g.y1=a[1]; g.x2=b[0]; g.y2=b[1]; return g; }
-  else if(x.k==="poly"){ if(!Array.isArray(x.pts)) return null; g.pts=x.pts.map(pt).filter(Boolean); if(g.pts.length<2) return null; return g; }
+  else if(x.k==="poly"){ if(!Array.isArray(x.pts)) return null;
+    /* Contorni: la curvatura (terzo numero) non cambia né con la scala né con la rotazione; i fori come i punti */
+    var ptb=function(p){ var q=pt(p); if(q){ var k=custBulgeNorm(p[2]); if(k) q.push(k); } return q; };
+    g.pts=x.pts.map(ptb).filter(Boolean); if(g.pts.length<2) return null;
+    if(Array.isArray(x.holes)){ var H=x.holes.filter(Array.isArray).map(function(h){ return h.map(ptb).filter(Boolean); }).filter(function(h){ return h.length>=3; });
+      if(H.length) g.holes=H; }
+    return g; }
   else if(x.k==="text"){
     var size=(d>0) ? d/1.3 : n(x.size); if(size==null) return null;   /* il corpo segue l'altezza: le maniglie lo ingrandiscono */
     var off=0.35*size, r=rot*Math.PI/180;
@@ -7855,10 +7861,11 @@ function custShapeDaForma(g){
   else if(g.k==="line"){ x.rot=0; x.x=(g.x1+g.x2)/2; x.y=(g.y1+g.y2)/2;
     x.w=Math.max(4,Math.abs(g.x2-g.x1)); x.d=Math.max(4,Math.abs(g.y2-g.y1));
     x.p1=[fr(g.x1,x.x,x.w), fr(g.y1,x.y,x.d)]; x.p2=[fr(g.x2,x.x,x.w), fr(g.y2,x.y,x.d)]; }
-  else if(g.k==="poly"){ var xs=g.pts.map(function(p){ return p[0]; }), ys=g.pts.map(function(p){ return p[1]; });
-    x.rot=0; x.x=(Math.min.apply(0,xs)+Math.max.apply(0,xs))/2; x.y=(Math.min.apply(0,ys)+Math.max.apply(0,ys))/2;
-    x.w=Math.max(4,Math.max.apply(0,xs)-Math.min.apply(0,xs)); x.d=Math.max(4,Math.max.apply(0,ys)-Math.min.apply(0,ys));
-    x.pts=g.pts.map(function(p){ return [fr(p[0],x.x,x.w), fr(p[1],x.y,x.d)]; }); }
+  else if(g.k==="poly"){   /* l'ingombro VERO (archi e fori compresi, Contorni): senza archi è quello dei punti, come prima */
+    var bb=custIngombroAnelli([g.pts].concat(g.holes||[]));
+    x.rot=0; x.x=(bb.x1+bb.x2)/2; x.y=(bb.y1+bb.y2)/2; x.w=Math.max(4,bb.x2-bb.x1); x.d=Math.max(4,bb.y2-bb.y1);
+    var frp=function(p){ var q=[fr(p[0],x.x,x.w), fr(p[1],x.y,x.d)]; if(p[2]) q.push(p[2]); return q; };
+    x.pts=g.pts.map(frp); if(g.holes && g.holes.length) x.holes=g.holes.map(function(h){ return h.map(frp); }); }
   else if(g.k==="text"){ var off=0.35*g.size, r=(g.rot||0)*Math.PI/180;
     x.x=g.x+off*Math.sin(r); x.y=g.y-off*Math.cos(r); x.s=g.s; x.size=g.size;
     x.w=custTestoLargo(g.s, g.size); x.d=custTestoAlto(g.size); }
@@ -7961,7 +7968,7 @@ function custPuntiEllisse(cx, cy, rx, ry, rot, n){
 function custIngombro(it){
   var P;
   if(it.type==="custshape" && it.k==="line"){ var c=custCapiLinea(it); P=[c.a, c.b]; }
-  else if(it.type==="custshape" && it.k==="poly"){ var g=custFormaDaShape(it); P=g ? g.pts : custAngoliRett(it.x, it.y, it.w, it.d, it.rot||0); }
+  else if(it.type==="custshape" && it.k==="poly"){ var g=custFormaDaShape(it); if(g) return custIngombroAnelli([g.pts].concat(g.holes||[])); P=custAngoliRett(it.x, it.y, it.w, it.d, it.rot||0); }
   else if(it.type==="custshape" && it.k==="ell"){
     var r=(it.rot||0)*Math.PI/180, rx=it.w/2, ry=it.d/2, hw=Math.hypot(rx*Math.cos(r), ry*Math.sin(r)), hd=Math.hypot(rx*Math.sin(r), ry*Math.cos(r));
     return {x1:it.x-hw, y1:it.y-hd, x2:it.x+hw, y2:it.y+hd};
@@ -8138,6 +8145,7 @@ function custImpostaGeometria(it, campo, v, sup){
   if(campo==="w" || campo==="d" || campo==="corpo"){
     if(!(v>0 && v<=CUST_MAX_MISURA)) return false;
     if(campo==="corpo"){ var cp=Math.max(2, Math.min(200, v)); it.d=custR6(custTestoAlto(cp)); it.w=custTestoLargo(it.s, cp); }
+    else if(it.k==="poly" && custHaCurve(it)) custScalaVera(it, campo, v);   /* Contorni: L e P = ingombro vero */
     else it[campo]=v;
     var nb=custIngombro(it); it.x=custR6(it.x+bb.x1-nb.x1); it.y=custR6(it.y+bb.y1-nb.y1);
     return true;
@@ -8308,6 +8316,94 @@ function custSpazioPunti(anelli, altri){
 }
 /* una poly ha archi o fori? (senza, si disegna e si tratta esattamente come prima) */
 function custHaCurve(g){ return !!(g && ((g.holes && g.holes.length) || (Array.isArray(g.pts) && g.pts.some(function(p){ return Array.isArray(p) && +p[2]; })))); }
+/* ---- Contorni: rettangolo, ellisse e poligono come anelli (E10–E12) ---- */
+/* rettangolo → 4 punti antiorari a vista (alto-sinistra, basso-sinistra, basso-destra, alto-destra); con gli angoli
+   arrotondati (r tagliato a metà del lato più corto, come fa SVG) 8 punti con archi d'angolo b = tan(π/8). Con r a metà di
+   un lato i due punti di quel lato coincidono e la pulizia li fonde (mezzo cerchio); con r a metà di un quadrato è un cerchio. */
+function custRettInAnello(g){
+  var x=g.x, y=g.y, w=g.w, h=g.h, r=Math.max(0, Math.min(+g.r||0, w/2, h/2)), k=CUST_TAN8;
+  if(!(r>1e-9)) return [[x, y], [x, y+h], [x+w, y+h], [x+w, y]];
+  if(Math.abs(w-h)<1e-9 && Math.abs(r-w/2)<1e-9) return custEllisseInAnello({cx:x+r, cy:y+r, rx:r, ry:r}, 0.05);
+  return custPulisciAnello([[x, y+r], [x, y+h-r, k], [x+r, y+h], [x+w-r, y+h, k], [x+w, y+h-r], [x+w, y+r, k], [x+w-r, y], [x+r, y, k]]);
+}
+/* lo scarto massimo fra gli archi di R e l'ellisse g (16 campioni per arco; distanza al primo ordine |F|/|∇F|) */
+function custScartoEllisse(R, g){
+  var m=0, n=R.length;
+  for(var i=0;i<n;i++) custPuntiArco(R[i], R[(i+1)%n], +R[i][2]||0, 16).forEach(function(p){
+    var x=(p[0]-g.cx)/g.rx, y=(p[1]-g.cy)/g.ry, F=x*x+y*y-1, gx=2*x/g.rx, gy=2*y/g.ry, d=Math.abs(F)/(Math.sqrt(gx*gx+gy*gy)||1);
+    if(d>m) m=d; });
+  return m;
+}
+/* ellisse → archi (E11): cerchio = 4 archi esatti (destra, alto, sinistra, basso); altrimenti il minimo fra 8, 16, 32, 64
+   archi che resta entro eps (0,05 cm), punti sull'ellisse, ogni arco per tre punti dell'ellisse; antiorario a vista */
+function custEllisseInAnello(g, eps){
+  var cx=g.cx, cy=g.cy, rx=g.rx, ry=g.ry, k=CUST_TAN8, R=null;
+  if(Math.abs(rx-ry)<1e-9) return [[cx+rx, cy, k], [cx, cy-ry, k], [cx-rx, cy, k], [cx, cy+ry, k]];
+  var P=function(t){ return [cx+rx*Math.cos(t), cy+ry*Math.sin(t)]; };
+  [8, 16, 32, 64].some(function(N){
+    R=[];
+    for(var i=0;i<N;i++){ var t0=-CUST_GIRO*i/N, a=P(t0), bu=custBulgeDa3Punti(a, P(t0-CUST_GIRO/N), P(t0-Math.PI/N))||0;
+      R.push(Math.abs(bu)>=1e-9 ? [a[0], a[1], bu] : [a[0], a[1]]); }
+    return custScartoEllisse(R, g)<=(eps||0.05); });
+  return R;
+}
+/* una forma (cm della superficie, come la dà custFormaDaShape) → {pts, holes} in cm, con la rotazione cotta nei punti */
+function custContornoDaForma(g){
+  if(!g) return null;
+  if(g.k==="poly") return {pts:custCopiaAnello(g.pts), holes:(g.holes||[]).map(custCopiaAnello)};
+  var R, cx, cy;
+  if(g.k==="rect"){ R=custRettInAnello(g); cx=g.x+g.w/2; cy=g.y+g.h/2; }
+  else if(g.k==="ell"){ R=custEllisseInAnello(g, 0.05); cx=g.cx; cy=g.cy; }
+  else return null;
+  var rot=+g.rot||0;
+  if(rot) R=R.map(function(p){ var q=rotatePointAround(p[0], p[1], cx, cy, rot), o=[custR6(q[0]), custR6(q[1])]; if(p[2]) o.push(p[2]); return o; });
+  return {pts:R, holes:[]};
+}
+/* ---- Contorni: la forma dell'editor (custshape) letta e scritta come anelli ---- */
+/* gli anelli di una forma dell'editor, in cm della superficie: [contorno, foro1, …] (rettangolo ed ellisse convertiti al
+   volo: la forma vera non cambia finché non c'è un gesto, E10) */
+function custAnelliDi(it){ var R=custContornoDaForma(custFormaDaShape(it)); return R ? [R.pts].concat(R.holes) : null; }
+/* scrive gli anelli nella forma: diventa (o resta) una poly senza rotazione, con l'ingombro vero (E12). Tiene id e stile. */
+function custScriviAnelli(it, anelli){
+  var n=custShapeDaForma({k:"poly", pts:anelli[0], holes:anelli.slice(1), fill:it.fill, stroke:it.stroke, sw:it.sw}); if(!n) return false;
+  it.k="poly"; it.x=n.x; it.y=n.y; it.w=n.w; it.d=n.d; it.rot=0; it.pts=n.pts;
+  if(n.holes) it.holes=n.holes; else delete it.holes;
+  delete it.r;
+  return true;
+}
+/* dopo un ridimensionamento (E13: i punti si scalano, i bulge restano) l'ingombro si rifà dalla geometria vera; la
+   rotazione della maniglia resta. Solo per le poly con archi o fori: le altre hanno già l'ingombro giusto. */
+function custRiallinea(it){
+  if(!it || it.type!=="custshape" || it.k!=="poly" || !custHaCurve(it)) return false;
+  var g=custFormaDaShape(Object.assign({}, it, {rot:0}));
+  return !!g && custScriviLocale(it, [g.pts].concat(g.holes||[]));
+}
+/* anelli nel riferimento della forma SENZA la sua rotazione (attorno a it.x, it.y): ingombro, centro e frazioni nuovi, la
+   rotazione della maniglia resta */
+function custScriviLocale(it, anelli){
+  var n=custShapeDaForma({k:"poly", pts:anelli[0], holes:anelli.slice(1)}); if(!n) return false;
+  var rot=+it.rot||0, c=rot ? rotatePointAround(n.x, n.y, it.x, it.y, rot) : [n.x, n.y];
+  it.x=c[0]; it.y=c[1]; it.w=n.w; it.d=n.d; it.pts=n.pts;
+  if(n.holes) it.holes=n.holes; else delete it.holes;
+  return true;
+}
+/* L o P scritti su una poly con archi o fori: la scala dei punti lungo quell'asse che dà l'ingombro VERO v (gli archi restano
+   archi di cerchio, E13, e l'ingombro non cresce in proporzione: bisezione). Se v non si raggiunge (gli archi da soli sono
+   già più larghi), si scala come prima e il pannello rilegge la misura vera. */
+function custScalaVera(it, campo, v){
+  var g=custFormaDaShape(Object.assign({}, it, {rot:0})); if(!g) return false;
+  var ax=campo==="w" ? 0 : 1, c=ax ? it.y : it.x, an=[g.pts].concat(g.holes||[]);
+  var scala=function(k){ return an.map(function(R){ return R.map(function(p){ var q=p.slice(); q[ax]=c+(p[ax]-c)*k; return q; }); }); };
+  var misura=function(k){ var b=custIngombroAnelli(scala(k)); return ax ? b.y2-b.y1 : b.x2-b.x1; };
+  var lo=1e-6, hi=1, i;
+  if(misura(lo)>v){ it[campo]=v; custRiallinea(it); return true; }
+  while(misura(hi)<v && hi<1e6) hi*=2;
+  for(i=0;i<60;i++){ var k=(lo+hi)/2; if(misura(k)<v) lo=k; else hi=k; }
+  return custScriviLocale(it, scala((lo+hi)/2));
+}
+/* i punti di una forma dell'editor e quelli di tutte le altre (per PUNTI_EL) */
+function custPuntiDi(it){ return (it && it.type==="custshape" && it.k==="poly") ? custContaAnelli([it.pts||[]].concat(it.holes||[])) : 0; }
+function custPuntiEditor(tranneId){ return (state.items||[]).reduce(function(s, x){ return s+(x.id===tranneId ? 0 : custPuntiDi(x)); }, 0); }
 /* ===== Crea elemento: L'INTERFACCIA (Tappa 2, 13/10/2026) =====
    Sopra il palco temporaneo (custEditorApri/Salva/Annulla, qui sopra) ci sono: il rettangolo trascinato sul palco vero
    con le misure in metri, la finestra per correggerle a numeri, la domanda di inclusione, gli strumenti di disegno, la
@@ -8457,8 +8553,11 @@ function custFuoriEditor(its){ return custEditorAttivo() ? its : (its||[]).filte
 function custSpazioForme(nuove){
   if(!custEditorAttivo()) return true;
   var n=(nuove||[]).filter(function(x){ return x && x.type==="custshape"; }).length; if(!n) return true;
-  if(state.items.filter(function(x){ return x.type==="custshape"; }).length+n<=custLimiti().FORME) return true;
-  custToast("Al massimo "+custLimiti().FORME+" forme per elemento.", true); return false;
+  if(state.items.filter(function(x){ return x.type==="custshape"; }).length+n>custLimiti().FORME){ custToast("Al massimo "+custLimiti().FORME+" forme per elemento.", true); return false; }
+  /* Contorni: anche i punti (40 000 per elemento): una copia che li supera non si fa, invece di sparire al salvataggio */
+  var np=(nuove||[]).reduce(function(s, x){ return s+custPuntiDi(x); }, 0);
+  if(np && custPuntiEditor(null)+np>custLimiti().PUNTI_EL){ custToast("Al massimo "+custMigliaia(custLimiti().PUNTI_EL)+" punti per elemento.", true); return false; }
+  return true;
 }
 function custTogliFormeOrfane(){
   if(custEditorAttivo() || !state || !Array.isArray(state.items) || !state.items.some(function(x){ return x && x.type==="custshape"; })) return;
@@ -20559,6 +20658,7 @@ svg.addEventListener("pointerup", function(e){
   if(drag && drag.mode==="itemresize"){ if(drag.moved){
       var _rz=state.items.find(function(i){ return i.id===drag.id; });
       if(_rz && _rz.type==="custshape" && _rz.k==="text") _rz.w=custTestoLargo(_rz.s, _rz.d/1.3);   /* testo: l'altezza fa il corpo, la larghezza la riga */
+      custRiallinea(_rz);   /* Contorni: una forma con archi o fori riprende l'ingombro vero (E12) */
       save(); ensureVisible(); } render(); drag=null; return; }
   if(drag && drag.mode==="metroend"){ if(drag.moved){ save(); ensureVisible(); } render(); drag=null; return; }
   if(drag && drag.mode==="custcapo"){ custCapoRilascio(); return; }
