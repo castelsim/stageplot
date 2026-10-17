@@ -5033,6 +5033,7 @@ function applyHistory(snapshot){
     reattachVenueImg(state,key);
   } else if(key) delete venueImgCache[key];
   ensureItemIds(); lastSnap=historySnapshot(); sel=null; selSet={};
+  custContornoDopoStoria();   /* Contorni: si resta nel contorno della forma, se c'è ancora */
   adattaCorniceStoria(snapshot);   /* l'area tolta da «Adatta il palco» torna con il suo Annulla (14/10) — dopo lastSnap: vedi lì */
   /* CABLAGGI-09 / B2-09 (review 27/07): le cache dei motori sopravvivevano all'undo — il canvas
      continuava a disegnare il cavo verso la box PRE-undo, e il renderChannels() qui sotto riparava
@@ -7393,11 +7394,24 @@ function shapeGeom(it){
    UNKNOWN_ITEM_TYPE). FASE 2 (24–48 h dopo): cambiare il `false` in `true`. È una funzione che torna un letterale, non una
    var: una var più in basso nel file sarebbe undefined per il codice di avvio (AGENTS.md §8). I test la sostituiscono. */
 function custIngressiAttivi(){ return true; }   /* FASE 2 (14/10/2026): acceso dopo il deploy di submit-feedback (POST anonimo «elemento» → 401 verificato). Per spegnere gli ingressi: false (MAI un revert dell'app: i progetti con elementi personalizzati devono restare leggibili) */
-function custLimiti(){ return {NOME:60, DESC:280, TESTO:140, FORME:200, PUNTI:200, WATT:20000, INS:16, MIN:10, MEMBRO:4096, MODELLI:50, FORME_BYTE:262144}; }
+/* INTERRUTTORE DEI CONTORNI (16/10/2026, stesso rilascio in due fasi): FASE 1 = l'app sa leggere, disegnare ed esportare
+   archi e fori, ma nessun gesto li crea (doppio clic, «Modifica contorno», Arrotonda restano spenti). Un'app vecchia che
+   salva un contorno lo perde (archi dritti, fori via): prima tutti devono avere quella nuova. FASE 2 (24–48 h dopo, dopo il
+   deploy di submit-feedback): true. Per spegnere dopo: false, MAI un revert (i progetti con archi devono restare leggibili). */
+function custContorniAttivi(){ return false; }
+function custLimiti(){ return {NOME:60, DESC:280, TESTO:140, FORME:200, PUNTI:200, WATT:20000, INS:16, MIN:10, MEMBRO:4096, MODELLI:50, FORME_BYTE:262144,
+  FORI:50, PUNTI_FORMA:1000, PUNTI_EL:40000, JSON_REV:300000}; }   /* Contorni: fori per forma, punti per forma (contorno + fori), punti per elemento, caratteri del JSON di revisione */
 /* un numero vero: un number finito, o una stringa numerica non vuota. null (da JSON), "", true, [] NON sono 0: si scartano */
 function custNumero(v){
   if(typeof v==="string"){ if(!v.trim()) return null; v=Number(v); }
   return (typeof v==="number" && isFinite(v)) ? v : null;
+}
+/* CURVATURA DI UN LATO (Contorni, 16/10/2026): il terzo numero di un punto [x, y, b] è il «bulge» del lato che parte da lì
+   (0 = dritto, ±1 = mezzo cerchio). Tagliata a [-1, 1] e al milionesimo; sotto 1e-6, o non un numero, il lato è dritto
+   (il punto resta). → 0 oppure il numero da scrivere */
+function custBulgeNorm(v){
+  v=custNumero(v); if(v==null || Math.abs(v)<1e-6) return 0;
+  return custR6(Math.max(-1, Math.min(1, v)));
 }
 /* taglia a n unità SENZA spezzare un carattere: una coppia surrogata (emoji, ideogrammi rari) resta intera o fuori tutta.
    La misura resta quella di String.length (come maxlength dei campi e come il server), quindi mai oltre n. */
@@ -7419,7 +7433,7 @@ function custNorm(it){
   it.w=num(it.w,L.MIN,100000)||TYPES.custom.w; it.d=num(it.d,L.MIN,100000)||TYPES.custom.d;
   var W=it.w, D=it.d, mx=Math.max(W,D)*0.1, X=function(v){ return num(v,-mx,W+mx); }, Y=function(v){ return num(v,-mx,D+mx); };
   var LARGO=1e6;   /* prima della rotazione i punti si leggono larghi: si limitano DOPO, dove stanno davvero */
-  var nomePrima=(typeof c.nome==="string") ? c.nome : null;
+  var nomePrima=(typeof c.nome==="string") ? c.nome : null, puntiEl=0;   /* punti di contorni e fori, in tutte le forme (PUNTI_EL) */
   var out={ nome:(typeof c.nome==="string" && c.nome.trim()) ? custTaglia(c.nome.trim(),L.NOME) : "Elemento personalizzato", shapes:[] };
   if(typeof c.desc==="string" && c.desc.trim()) out.desc=custTaglia(c.desc.trim(),L.DESC);
   (Array.isArray(c.shapes)?c.shapes:[]).forEach(function(f){
@@ -7435,19 +7449,40 @@ function custNorm(it){
     else if(f.k==="line" || f.k==="poly"){
       /* linea e poligono: la rotazione si CUOCE nei punti (attorno al centro dell'ingombro) e non si salva — il disegno
          e l'editor li leggono così, e andata e ritorno editor ↔ forme restano identici */
-      var P=[];
+      /* CONTORNI (16/10/2026): il punto di una poly può portare la curvatura del lato che parte da lì ([x, y, b], b solo
+         se ≠ 0) e la poly può avere dei fori (`holes`, stesso formato). Niente altro cambia: una poly di oggi esce identica. */
+      var P=[], H=[], leggi=function(arr, curve){ var out=[];
+        arr.slice(0,L.PUNTI).forEach(function(p){ if(!Array.isArray(p)) return;
+          var a=num(p[0],-LARGO,LARGO), b=num(p[1],-LARGO,LARGO); if(a==null || b==null) return;
+          var q=[a,b], k=curve ? custBulgeNorm(p[2]) : 0; if(k) q.push(k); out.push(q); });
+        return out; };
       if(f.k==="line") P=[[f.x1,f.y1],[f.x2,f.y2]].map(function(p){ var a=num(p[0],-LARGO,LARGO), b=num(p[1],-LARGO,LARGO); return (a==null||b==null) ? null : [a,b]; });
-      else if(Array.isArray(f.pts)) f.pts.slice(0,L.PUNTI).forEach(function(p){ if(Array.isArray(p)){ var a=num(p[0],-LARGO,LARGO), b=num(p[1],-LARGO,LARGO); if(a!=null && b!=null) P.push([a,b]); } });
+      else if(Array.isArray(f.pts)){
+        P=leggi(f.pts, true);
+        /* i fori: da 3 a PUNTI punti ciascuno, al massimo FORI, e in ordine finché la forma resta entro PUNTI_FORMA */
+        if(Array.isArray(f.holes)){ var tot=P.length, pieno=false;
+          f.holes.forEach(function(h){ if(pieno || H.length>=L.FORI || !Array.isArray(h)) return;
+            var R=leggi(h, true); if(R.length<3) return;
+            if(tot+R.length>L.PUNTI_FORMA){ pieno=true; return; }
+            tot+=R.length; H.push(R); }); }
+      }
       else return;
       if(P.some(function(p){ return !p; }) || P.length<2) return;
-      if(rot){
+      if(f.k==="poly"){   /* l'elemento intero: oltre PUNTI_EL la forma resta fuori (come la duecentunesima forma) */
+        var nP=H.reduce(function(s,R){ return s+R.length; }, P.length); if(puntiEl+nP>L.PUNTI_EL) return; puntiEl+=nP; }
+      var conB=function(p, x, y){ var o=[x, y]; if(p[2]) o.push(p[2]); return o; };
+      if(rot){   /* la curvatura non cambia con la rotazione; i fori girano attorno allo stesso centro del contorno */
         var xs=P.map(function(p){ return p[0]; }), ys=P.map(function(p){ return p[1]; });
         var ccx=(Math.min.apply(0,xs)+Math.max.apply(0,xs))/2, ccy=(Math.min.apply(0,ys)+Math.max.apply(0,ys))/2;
-        P=P.map(function(p){ var q=rotatePointAround(p[0],p[1],ccx,ccy,rot); return [custR6(q[0]), custR6(q[1])]; });
+        var gira=function(p){ var q=rotatePointAround(p[0],p[1],ccx,ccy,rot); return conB(p, custR6(q[0]), custR6(q[1])); };
+        P=P.map(gira); H=H.map(function(R){ return R.map(gira); });
         rot=0;
       }
-      P=P.map(function(p){ return [X(p[0]), Y(p[1])]; });
-      if(f.k==="line"){ g.x1=P[0][0]; g.y1=P[0][1]; g.x2=P[1][0]; g.y2=P[1][1]; } else g.pts=P; }
+      var dentro=function(p){ return conB(p, X(p[0]), Y(p[1])); };
+      P=P.map(dentro); H=H.map(function(R){ return R.map(dentro); });
+      if(f.k==="poly"){   /* anche gli archi dentro la superficie ±10%, come i punti (senza archi: niente cambia) */
+        var box={x1:-mx, y1:-mx, x2:W+mx, y2:D+mx}; P=custArchiDentro(P, box); H=H.map(function(R){ return custArchiDentro(R, box); }); }
+      if(f.k==="line"){ g.x1=P[0][0]; g.y1=P[0][1]; g.x2=P[1][0]; g.y2=P[1][1]; } else { g.pts=P; if(H.length) g.holes=H; } }
     else if(f.k==="text"){ g.x=X(f.x); g.y=Y(f.y); g.size=num(f.size,2,200)||12;
       g.s=(typeof f.s==="string") ? custTaglia(f.s.replace(/[\u0000-\u001f]/g," "),L.TESTO) : "";
       if(g.x==null || g.y==null || !g.s.trim()) return; g.fill=g.fill||"#1d1d1f"; }
@@ -7480,7 +7515,11 @@ function drawCustom(it){
     if(g.k==="rect") s+='<rect x="'+f2(ox+g.x)+'" y="'+f2(oy+g.y)+'" width="'+f2(g.w)+'" height="'+f2(g.h)+'"'+(g.r?' rx="'+f2(g.r)+'"':"")+st(g)+tr(g,ox+g.x+g.w/2,oy+g.y+g.h/2)+'/>';
     else if(g.k==="ell") s+='<ellipse cx="'+f2(ox+g.cx)+'" cy="'+f2(oy+g.cy)+'" rx="'+f2(g.rx)+'" ry="'+f2(g.ry)+'"'+st(g)+tr(g,ox+g.cx,oy+g.cy)+'/>';
     else if(g.k==="line") s+='<line x1="'+f2(ox+g.x1)+'" y1="'+f2(oy+g.y1)+'" x2="'+f2(ox+g.x2)+'" y2="'+f2(oy+g.y2)+'" stroke="'+g.stroke+'" stroke-width="'+f2(g.sw)+'"/>';
-    else if(g.k==="poly") s+='<polygon points="'+g.pts.map(function(p){ return f2(ox+p[0])+","+f2(oy+p[1]); }).join(" ")+'"'+st(g)+'/>';
+    else if(g.k==="poly"){
+      /* senza archi né fori: il <polygon> di sempre (disegni, PDF e firme di oggi non cambiano, E7); con archi o fori un
+         <path> pari-dispari, un sottopercorso per anello (Contorni, 16/10/2026) */
+      if(!custHaCurve(g)) s+='<polygon points="'+g.pts.map(function(p){ return f2(ox+p[0])+","+f2(oy+p[1]); }).join(" ")+'"'+st(g)+'/>';
+      else s+='<path d="'+custPathAnelli([g.pts].concat(g.holes||[]), ox, oy, f2)+'" fill-rule="evenodd"'+st(g)+'/>'; }
     else if(g.k==="text") s+='<text x="'+f2(ox+g.x)+'" y="'+f2(oy+g.y)+'" font-size="'+f2(g.size)+'" font-family="helvetica" text-anchor="middle" fill="'+g.fill+'"'+tr(g,ox+g.x,oy+g.y)+'>'+esc(g.s)+'</text>';
   });
   if(!s) s='<rect x="'+f2(ox)+'" y="'+f2(oy)+'" width="'+f2(w)+'" height="'+f2(d)+'" fill="none" stroke="#1d1d1f" stroke-width="1.5" stroke-dasharray="6 4"/>';
@@ -7681,6 +7720,7 @@ function custEditorApri(rect, opz){
    restano ferme e il progetto vero resta quello in memoria locale e nel cloud. */
 function custRipristina(){
   var E=window.__custEditor, sv=E.salvato, vKey=String(sv.activeVar||"");
+  custContornoSpegni();   /* Salva o Annulla dell'editor: la modalità contorno finisce */
   if(sv.venueCache) venueImgCache[vKey]=Object.assign({},sv.venueCache); else delete venueImgCache[vKey];   /* PRIMA: applyVariantState riaggancia da qui */
   /* ripristino ESATTO (revisione finale, I1): lo stato com'era, byte per byte. Ripassarlo dal normalizzatore
      (applyVariantState) aggiungeva i campi di serie mancanti — production.asked:false su un progetto che non l'aveva —
@@ -7799,7 +7839,13 @@ function custFormaDaShape(x){
   if(x.k==="rect"){ if(w==null || d==null) return null; g.x=custR6(cx-w/2); g.y=custR6(cy-d/2); g.w=w; g.h=d; if(x.r) g.r=x.r; }
   else if(x.k==="ell"){ if(w==null || d==null) return null; g.cx=cx; g.cy=cy; g.rx=custR6(w/2); g.ry=custR6(d/2); }
   else if(x.k==="line"){ var a=pt(x.p1), b=pt(x.p2); if(!a || !b) return null; g.x1=a[0]; g.y1=a[1]; g.x2=b[0]; g.y2=b[1]; return g; }
-  else if(x.k==="poly"){ if(!Array.isArray(x.pts)) return null; g.pts=x.pts.map(pt).filter(Boolean); if(g.pts.length<2) return null; return g; }
+  else if(x.k==="poly"){ if(!Array.isArray(x.pts)) return null;
+    /* Contorni: la curvatura (terzo numero) non cambia né con la scala né con la rotazione; i fori come i punti */
+    var ptb=function(p){ var q=pt(p); if(q){ var k=custBulgeNorm(p[2]); if(k) q.push(k); } return q; };
+    g.pts=x.pts.map(ptb).filter(Boolean); if(g.pts.length<2) return null;
+    if(Array.isArray(x.holes)){ var H=x.holes.filter(Array.isArray).map(function(h){ return h.map(ptb).filter(Boolean); }).filter(function(h){ return h.length>=3; });
+      if(H.length) g.holes=H; }
+    return g; }
   else if(x.k==="text"){
     var size=(d>0) ? d/1.3 : n(x.size); if(size==null) return null;   /* il corpo segue l'altezza: le maniglie lo ingrandiscono */
     var off=0.35*size, r=rot*Math.PI/180;
@@ -7819,10 +7865,11 @@ function custShapeDaForma(g){
   else if(g.k==="line"){ x.rot=0; x.x=(g.x1+g.x2)/2; x.y=(g.y1+g.y2)/2;
     x.w=Math.max(4,Math.abs(g.x2-g.x1)); x.d=Math.max(4,Math.abs(g.y2-g.y1));
     x.p1=[fr(g.x1,x.x,x.w), fr(g.y1,x.y,x.d)]; x.p2=[fr(g.x2,x.x,x.w), fr(g.y2,x.y,x.d)]; }
-  else if(g.k==="poly"){ var xs=g.pts.map(function(p){ return p[0]; }), ys=g.pts.map(function(p){ return p[1]; });
-    x.rot=0; x.x=(Math.min.apply(0,xs)+Math.max.apply(0,xs))/2; x.y=(Math.min.apply(0,ys)+Math.max.apply(0,ys))/2;
-    x.w=Math.max(4,Math.max.apply(0,xs)-Math.min.apply(0,xs)); x.d=Math.max(4,Math.max.apply(0,ys)-Math.min.apply(0,ys));
-    x.pts=g.pts.map(function(p){ return [fr(p[0],x.x,x.w), fr(p[1],x.y,x.d)]; }); }
+  else if(g.k==="poly"){   /* l'ingombro VERO (archi e fori compresi, Contorni): senza archi è quello dei punti, come prima */
+    var bb=custIngombroAnelli([g.pts].concat(g.holes||[]));
+    x.rot=0; x.x=(bb.x1+bb.x2)/2; x.y=(bb.y1+bb.y2)/2; x.w=Math.max(4,bb.x2-bb.x1); x.d=Math.max(4,bb.y2-bb.y1);
+    var frp=function(p){ var q=[fr(p[0],x.x,x.w), fr(p[1],x.y,x.d)]; if(p[2]) q.push(p[2]); return q; };
+    x.pts=g.pts.map(frp); if(g.holes && g.holes.length) x.holes=g.holes.map(function(h){ return h.map(frp); }); }
   else if(g.k==="text"){ var off=0.35*g.size, r=(g.rot||0)*Math.PI/180;
     x.x=g.x+off*Math.sin(r); x.y=g.y-off*Math.cos(r); x.s=g.s; x.size=g.size;
     x.w=custTestoLargo(g.s, g.size); x.d=custTestoAlto(g.size); }
@@ -7925,7 +7972,7 @@ function custPuntiEllisse(cx, cy, rx, ry, rot, n){
 function custIngombro(it){
   var P;
   if(it.type==="custshape" && it.k==="line"){ var c=custCapiLinea(it); P=[c.a, c.b]; }
-  else if(it.type==="custshape" && it.k==="poly"){ var g=custFormaDaShape(it); P=g ? g.pts : custAngoliRett(it.x, it.y, it.w, it.d, it.rot||0); }
+  else if(it.type==="custshape" && it.k==="poly"){ var g=custFormaDaShape(it); if(g) return custIngombroAnelli([g.pts].concat(g.holes||[])); P=custAngoliRett(it.x, it.y, it.w, it.d, it.rot||0); }
   else if(it.type==="custshape" && it.k==="ell"){
     var r=(it.rot||0)*Math.PI/180, rx=it.w/2, ry=it.d/2, hw=Math.hypot(rx*Math.cos(r), ry*Math.sin(r)), hd=Math.hypot(rx*Math.sin(r), ry*Math.cos(r));
     return {x1:it.x-hw, y1:it.y-hd, x2:it.x+hw, y2:it.y+hd};
@@ -7956,7 +8003,7 @@ function custBersagli(items, escludi, sup){
     var rot=it.rot||0;
     if(it.type==="custshape"){
       if(it.k==="line"){ var c=custCapiLinea(it); anello([c.a, c.b], false, "estremo"); }
-      else if(it.k==="poly"){ var g=custFormaDaShape(it); if(g && g.pts) anello(g.pts, true, "vertice"); P([it.x, it.y], "centro"); }
+      else if(it.k==="poly"){ var g=custFormaDaShape(it); if(g && g.pts) custBersagliAnelli(punti, lati, [g.pts].concat(g.holes||[]), sup, null); P([it.x, it.y], "centro"); }   /* Contorni: archi e fori */
       else if(it.k==="ell"){
         var E=custPuntiEllisse(it.x, it.y, it.w/2, it.d/2, rot, 48);
         [0,12,24,36].forEach(function(i){ P(E[i], "quadrante"); });
@@ -8102,12 +8149,395 @@ function custImpostaGeometria(it, campo, v, sup){
   if(campo==="w" || campo==="d" || campo==="corpo"){
     if(!(v>0 && v<=CUST_MAX_MISURA)) return false;
     if(campo==="corpo"){ var cp=Math.max(2, Math.min(200, v)); it.d=custR6(custTestoAlto(cp)); it.w=custTestoLargo(it.s, cp); }
+    else if(it.k==="poly" && custHaCurve(it)) custScalaVera(it, campo, v);   /* Contorni: L e P = ingombro vero */
     else it[campo]=v;
     var nb=custIngombro(it); it.x=custR6(it.x+bb.x1-nb.x1); it.y=custR6(it.y+bb.y1-nb.y1);
     return true;
   }
   return false;
 }
+/* ===== Crea elemento: CONTORNI (16/10/2026) — le parti PURE =====
+   Simone (14-16/10): «più libertà di disegnare quello che si vuole», anche per chi non sa disegnare: punti, lati che si
+   piegano ad arco, fori. Spec: crea-elemento-registro/tappa-contorni/2026-10-16-crea-elemento-contorni-design.md.
+   Un anello è un elenco di punti [x, y] o [x, y, b] in cm della superficie, chiuso (l'ultimo lato torna al primo punto e
+   prende la b dell'ultimo). b = bulge del DXF con y capovolto: per il lato da A a B, n = (−d.y, d.x)/c sta alla DESTRA del
+   verso di percorrenza come si vede sullo schermo (y in giù); freccia s = b·c/2 lungo n; b > 0 = arco antiorario a vista.
+   |b| ≤ 1: al massimo mezzo cerchio. Esempio fisso (è un test): da (0,0) a (10,0) con b = 1 → semicerchio per (5, 5). */
+var CUST_TAN8=Math.tan(Math.PI/8);   /* il bulge di un quarto di cerchio */
+var CUST_GIRO=2*Math.PI;
+/* l'arco del lato da a a b: corda c, freccia s (con segno, lungo n), raggio r, centro, angolo al centro, punto di metà arco.
+   Lato dritto (b = 0) o di lunghezza zero: r = Infinity, cx/cy = null, mezzo = metà corda. */
+function custArco(a, b, bulge){
+  var dx=b[0]-a[0], dy=b[1]-a[1], c=Math.sqrt(dx*dx+dy*dy), mx=(a[0]+b[0])/2, my=(a[1]+b[1])/2;
+  bulge=+bulge||0;
+  if(!(c>1e-9)) return {c:0, s:0, r:Infinity, cx:null, cy:null, theta:0, nx:0, ny:0, mezzo:[mx, my]};
+  var nx=-dy/c, ny=dx/c;
+  if(!bulge) return {c:c, s:0, r:Infinity, cx:null, cy:null, theta:0, nx:nx, ny:ny, mezzo:[mx, my]};
+  var s=bulge*c/2, r=c*(1+bulge*bulge)/(4*Math.abs(bulge)), k=s-(bulge>0 ? 1 : -1)*r;
+  return {c:c, s:s, r:r, cx:mx+nx*k, cy:my+ny*k, theta:4*Math.atan(Math.abs(bulge)), nx:nx, ny:ny, mezzo:[mx+nx*s, my+ny*s]};
+}
+function custBulgeDaFreccia(c, s){ return c>1e-9 ? Math.max(-1, Math.min(1, 2*s/c)) : 0; }
+/* il raggio dà l'arco MINORE (|b| ≤ 1); sotto c/2 non esiste → null. segno = verso (+1 / −1) */
+function custBulgeDaRaggio(c, r, segno){
+  if(!(c>1e-9) || !(r>0) || r<c/2-1e-9) return null;
+  var s=r-Math.sqrt(Math.max(0, r*r-c*c/4));
+  return (segno<0 ? -1 : 1)*Math.min(1, 2*s/c);
+}
+/* l'arco da a a b che passa per q (angolo inscritto in q = π − θ/2). Oltre il mezzo cerchio, o q su un capo o sul
+   prolungamento della corda → null; q sulla corda → 0 */
+function custBulgeDa3Punti(a, b, q){
+  var dx=b[0]-a[0], dy=b[1]-a[1], ux=a[0]-q[0], uy=a[1]-q[1], vx=b[0]-q[0], vy=b[1]-q[1];
+  if(!(dx*dx+dy*dy>1e-18) || !(ux*ux+uy*uy>1e-18) || !(vx*vx+vy*vy>1e-18)) return null;
+  var ang=Math.atan2(Math.abs(ux*vy-uy*vx), ux*vx+uy*vy), bb=Math.tan((Math.PI-ang)/2);
+  if(!(bb<=1+1e-9)) return null;
+  if(bb<1e-12) return 0;
+  return (dx*(q[1]-a[1])-dy*(q[0]-a[0])<0 ? -1 : 1)*Math.min(1, bb);
+}
+/* k+1 punti lungo il lato (capi compresi, esatti). Con y in giù l'angolo di atan2 cresce in senso orario a vista: un arco
+   con b > 0 va dal capo a verso b DIMINUENDO l'angolo. */
+function custPuntiArco(a, b, bulge, k){
+  var out=[], j, A=custArco(a, b, bulge);
+  if(A.cx==null){ for(j=0;j<=k;j++) out.push([a[0]+(b[0]-a[0])*j/k, a[1]+(b[1]-a[1])*j/k]); return out; }
+  var f0=Math.atan2(a[1]-A.cy, a[0]-A.cx), sg=bulge>0 ? -1 : 1;
+  for(j=0;j<=k;j++){ var f=f0+sg*A.theta*j/k; out.push([A.cx+A.r*Math.cos(f), A.cy+A.r*Math.sin(f)]); }
+  out[0]=[a[0], a[1]]; out[k]=[b[0], b[1]];
+  return out;
+}
+/* area con segno sui soli punti, nelle coordinate dell'app: < 0 = anello antiorario a vista */
+function custAreaAnello(R){ var A=0, n=R.length; for(var i=0;i<n;i++){ var p=R[i], q=R[(i+1)%n]; A+=p[0]*q[1]-q[0]*p[1]; } return A/2; }
+/* la freccia come la legge l'utente: > 0 = il lato si gonfia verso l'esterno dell'anello (in un foro: il foro si allarga) */
+function custFrecciaMostrata(R, i){ var n=R.length, A=custArco(R[i], R[(i+1)%n], +R[i][2]||0); return custAreaAnello(R)>0 ? -A.s : A.s; }
+/* l'angolo φ cade dentro l'arco che parte da fa e gira di theta (verso del bulge)? */
+function custNellArco(fa, f, theta, bulge){ var d=bulge>0 ? fa-f : f-fa; d=((d%CUST_GIRO)+CUST_GIRO)%CUST_GIRO; return d<=theta+1e-12; }
+/* ingombro VERO di uno o più anelli: i punti più gli estremi dei cerchi (0°, 90°, 180°, 270°) che cadono dentro gli archi.
+   Gli estremi si arrotondano al milionesimo (cos(π/2) non è 0 in virgola mobile). */
+function custIngombroAnelli(anelli){
+  var b={x1:Infinity, y1:Infinity, x2:-Infinity, y2:-Infinity}, add=function(x, y){ if(x<b.x1) b.x1=x; if(x>b.x2) b.x2=x; if(y<b.y1) b.y1=y; if(y>b.y2) b.y2=y; };
+  (anelli||[]).forEach(function(R){ var n=R.length;
+    R.forEach(function(p, i){ add(p[0], p[1]); var bu=+p[2]||0; if(!bu || n<2) return;
+      var A=custArco(p, R[(i+1)%n], bu); if(A.cx==null) return;
+      var fa=Math.atan2(p[1]-A.cy, p[0]-A.cx);
+      for(var k=0;k<4;k++){ var f=k*Math.PI/2; if(custNellArco(fa, f, A.theta, bu)) add(custR6(A.cx+A.r*Math.cos(f)), custR6(A.cy+A.r*Math.sin(f))); } }); });
+  return b;
+}
+/* la stringa d di un <path>: un sottopercorso per anello. Freccia sotto 0,01 cm → segmento (E8); lato di lunghezza zero:
+   saltato; SVG: «A r r 0 0 f x y» con f = (b > 0 ? 0 : 1), large-arc sempre 0 (|b| ≤ 1). fmt = come si scrivono i numeri */
+function custPathAnelli(anelli, ox, oy, fmt){
+  ox=ox||0; oy=oy||0; fmt=fmt||function(v){ return String(custR6(v)); };
+  var d="";
+  (anelli||[]).forEach(function(R){ var n=R.length; if(n<2) return;
+    d+="M"+fmt(ox+R[0][0])+" "+fmt(oy+R[0][1]);
+    for(var i=0;i<n;i++){ var a=R[i], b=R[(i+1)%n], bu=+a[2]||0, A=custArco(a, b, bu);
+      if(!A.c) continue;
+      if(bu && Math.abs(A.s)>=0.01) d+="A"+fmt(A.r)+" "+fmt(A.r)+" 0 0 "+(bu>0 ? 0 : 1)+" "+fmt(ox+b[0])+" "+fmt(oy+b[1]);
+      else if(i<n-1) d+="L"+fmt(ox+b[0])+" "+fmt(oy+b[1]);   /* l'ultimo lato dritto lo chiude Z */
+    }
+    d+="Z"; });
+  return d;
+}
+/* ---- Contorni: le modifiche di un anello (pure: ricevono un anello e ne restituiscono uno NUOVO) ---- */
+function custCopiaAnello(R){ return R.map(function(p){ return p.slice(); }); }
+function custVicini(p, q){ var dx=p[0]-q[0], dy=p[1]-q[1]; return dx*dx+dy*dy<0.005*0.005; }   /* meno di 0,005 cm */
+/* il punto i fra due archi DELLO STESSO CERCHIO (centro e raggio entro 0,01 cm, stesso verso) che insieme non superano il
+   mezzo cerchio: via il punto, un arco solo. Altrimenti null. */
+function custUnisciArchi(R, i){
+  var n=R.length, h=(i+n-1)%n, k=(i+1)%n, b1=+R[h][2]||0, b2=+R[i][2]||0;
+  if(n<=3 || !b1 || !b2 || (b1>0)!==(b2>0)) return null;
+  var A1=custArco(R[h], R[i], b1), A2=custArco(R[i], R[k], b2);
+  if(A1.cx==null || A2.cx==null || Math.abs(A1.cx-A2.cx)>0.01 || Math.abs(A1.cy-A2.cy)>0.01 || Math.abs(A1.r-A2.r)>0.01 ||
+     A1.theta+A2.theta>Math.PI+1e-9) return null;
+  var out=custCopiaAnello(R);
+  out[h]=[out[h][0], out[h][1], (b1>0 ? 1 : -1)*Math.tan((A1.theta+A2.theta)/4)];
+  out.splice(i, 1);
+  return out;
+}
+/* LA PULIZIA A FINE GESTO (§2.5 punto 8): un punto a meno di 0,005 cm dal precedente se ne va (il lato fra i due non c'era:
+   il precedente prende la curvatura di quello tolto) e, se lì si toccano due archi dello stesso cerchio, diventano uno (i
+   due quarti di un rettangolo arrotondato a metà lato = mezzo cerchio). Mai sotto 3 punti. custNorm NON la fa (E6). */
+function custPulisciAnello(R){
+  var out=custCopiaAnello(R), giro=true;
+  while(giro && out.length>3){
+    giro=false;
+    for(var j=0;j<out.length && out.length>3;j++){
+      var n=out.length, i=(j+n-1)%n;
+      if(!custVicini(out[i], out[j])) continue;
+      var b=+out[j][2]||0; out[i]=b ? [out[i][0], out[i][1], b] : [out[i][0], out[i][1]];
+      out.splice(j, 1); giro=true;
+      var u=custUnisciArchi(out, (j-1+out.length)%out.length); if(u) out=u;
+      break;
+    }
+  }
+  return out;
+}
+/* togliere il punto i: i due lati diventano uno — un arco solo se erano archi dello stesso cerchio (entro il mezzo cerchio),
+   altrimenti dritto. Mai sotto 3 punti: null. */
+function custTogliPunto(R, i){
+  var n=R.length; if(n<=3 || !(i>=0 && i<n)) return null;
+  var u=custUnisciArchi(R, i); if(u) return u;
+  var out=custCopiaAnello(R), h=(i+n-1)%n;
+  out[h]=[out[h][0], out[h][1]]; out.splice(i, 1);
+  return out;
+}
+/* il punto del lato i più vicino a q (sul segmento, o sull'arco dentro i suoi capi): dove nascerebbe un punto nuovo */
+function custSulLato(R, i, q){
+  var n=R.length, a=R[i], b=R[(i+1)%n], bu=+a[2]||0, A=custArco(a, b, bu);
+  if(A.cx==null){ var s=custSulSegmento({x:q[0], y:q[1]}, [a[0], a[1], b[0], b[1]]); return [s.x, s.y]; }
+  var fa=Math.atan2(a[1]-A.cy, a[0]-A.cx), f=Math.atan2(q[1]-A.cy, q[0]-A.cx), d=bu>0 ? fa-f : f-fa;
+  d=((d%CUST_GIRO)+CUST_GIRO)%CUST_GIRO; if(d>A.theta) d=(d-A.theta<CUST_GIRO-d) ? A.theta : 0;
+  var g=fa+(bu>0 ? -1 : 1)*d;
+  return [A.cx+A.r*Math.cos(g), A.cy+A.r*Math.sin(g)];
+}
+/* un punto nuovo p sul lato i (p viene da custSulLato): LA FORMA NON CAMBIA. Su un arco: due archi dello stesso cerchio,
+   b1 = ±tan(θ1/4), b2 = ±tan(θ2/4) con θ1 + θ2 = θ. Il punto nuovo sta all'indice i+1. */
+function custInserisciPunto(R, i, p){
+  var n=R.length, a=R[i], b=R[(i+1)%n], bu=+a[2]||0, A=custArco(a, b, bu), out=custCopiaAnello(R), P=[p[0], p[1]];
+  out[i]=[a[0], a[1]];
+  if(A.cx!=null){
+    var fa=Math.atan2(a[1]-A.cy, a[0]-A.cx), fp=Math.atan2(P[1]-A.cy, P[0]-A.cx), d=bu>0 ? fa-fp : fp-fa, sg=bu>0 ? 1 : -1;
+    d=((d%CUST_GIRO)+CUST_GIRO)%CUST_GIRO; if(d>A.theta) d=(d-A.theta<CUST_GIRO-d) ? A.theta : 0;
+    var b1=sg*Math.tan(d/4), b2=sg*Math.tan((A.theta-d)/4);
+    if(Math.abs(b1)>=1e-9) out[i].push(b1); if(Math.abs(b2)>=1e-9) P.push(b2);
+  }
+  out.splice(i+1, 0, P);
+  return out;
+}
+/* la curvatura del lato i (tagliata a ±1; sotto 1e-6 dritto) */
+function custCurvaLato(R, i, bulge){
+  var out=custCopiaAnello(R), b=Math.max(-1, Math.min(1, +bulge||0));
+  out[i]=Math.abs(b)<1e-6 ? [out[i][0], out[i][1]] : [out[i][0], out[i][1], b];
+  return out;
+}
+/* ---- i limiti dei punti (§2.4): un gesto che li supera non si fa e lo dice ---- */
+function custContaAnelli(anelli){ return (anelli||[]).reduce(function(s, R){ return s+R.length; }, 0); }
+function custMigliaia(n){ return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, " "); }   /* 40000 → «40 000» */
+/* anelli = la forma dopo il gesto; altri = i punti delle altre forme dell'elemento. → null (si può) o il messaggio */
+function custSpazioPunti(anelli, altri){
+  var L=custLimiti(), tot=custContaAnelli(anelli);
+  if((anelli||[]).some(function(R){ return R.length>L.PUNTI; })) return "Al massimo "+L.PUNTI+" punti per contorno.";
+  if(tot>L.PUNTI_FORMA) return "Al massimo "+custMigliaia(L.PUNTI_FORMA)+" punti per forma.";
+  if(tot+(altri||0)>L.PUNTI_EL) return "Al massimo "+custMigliaia(L.PUNTI_EL)+" punti per elemento.";
+  return null;
+}
+/* GLI ARCHI DENTRO UN RIQUADRO (la superficie ±10%, come i punti): un arco il cui ingombro ne uscirebbe si appiattisce, stesso
+   verso, fino al bordo (bisezione; |b| arrotondato verso lo 0, così si resta dentro). I punti devono essere già dentro.
+   box = {x1, y1, x2, y2}. → un anello nuovo (lo stesso contenuto se niente esce) */
+function custArchiDentro(R, box){
+  var n=R.length, out=R, EPS=1e-5;
+  var esce=function(a, q, bu){ var g=custIngombroAnelli([[[a[0], a[1], bu], [q[0], q[1]]]]); return g.x1<box.x1-EPS || g.y1<box.y1-EPS || g.x2>box.x2+EPS || g.y2>box.y2+EPS; };
+  for(var i=0;i<n;i++){ var a=R[i], q=R[(i+1)%n], bu=+a[2]||0; if(!bu) continue;
+    /* scorciatoia: un arco fino al mezzo cerchio sta fra la corda e la sua parallela a distanza |s| = |b|·c/2, sopra la corda */
+    var s=Math.abs(bu)*Math.sqrt((q[0]-a[0])*(q[0]-a[0])+(q[1]-a[1])*(q[1]-a[1]))/2;
+    if(Math.min(a[0], q[0])-s>=box.x1 && Math.max(a[0], q[0])+s<=box.x2 && Math.min(a[1], q[1])-s>=box.y1 && Math.max(a[1], q[1])+s<=box.y2) continue;
+    if(!esce(a, q, bu)) continue;
+    var lo=0, hi=1, k; for(k=0;k<50;k++){ var m=(lo+hi)/2; if(esce(a, q, bu*m)) hi=m; else lo=m; }
+    var nb=(bu<0 ? -1 : 1)*Math.floor(Math.abs(bu*lo)*1e6)/1e6;
+    if(out===R) out=custCopiaAnello(R);
+    out[i]=nb ? [a[0], a[1], nb] : [a[0], a[1]];
+  }
+  return out;
+}
+/* il riquadro dei punti nell'editor: la superficie ±10% (come custLimita) */
+function custBoxSup(){ var S=state.stage, w=+S.w||0, d=+S.d||0, mx=Math.max(w, d)*0.1; return {x1:-mx, y1:-mx, x2:w+mx, y2:d+mx}; }
+/* una poly ha archi o fori? (senza, si disegna e si tratta esattamente come prima) */
+function custHaCurve(g){ return !!(g && ((g.holes && g.holes.length) || (Array.isArray(g.pts) && g.pts.some(function(p){ return Array.isArray(p) && +p[2]; })))); }
+/* ---- Contorni: Arrotonda (§3.5, E19) ---- */
+/* l'angolo nel punto i: solo fra due lati dritti, non piatto. → {ux,uy, vx,vy (versori verso il punto prima e quello dopo),
+   lu, lv (lunghezze dei due lati), al (angolo fra i lati)} oppure {no:"arco"|"piatto"} */
+function custAngoloDi(R, i){
+  var n=R.length; if(n<3) return {no:"piatto"};
+  var P=R[(i+n-1)%n], V=R[i], N=R[(i+1)%n];
+  if(+P[2] || +V[2]) return {no:"arco"};
+  var ux=P[0]-V[0], uy=P[1]-V[1], vx=N[0]-V[0], vy=N[1]-V[1], lu=Math.sqrt(ux*ux+uy*uy), lv=Math.sqrt(vx*vx+vy*vy);
+  if(!(lu>1e-9 && lv>1e-9)) return {no:"piatto"};
+  var al=Math.atan2(Math.abs(ux*vy-uy*vx), ux*vx+uy*vy);
+  if(al>Math.PI-1e-6 || al<1e-6) return {no:"piatto"};
+  return {ux:ux/lu, uy:uy/lu, vx:vx/lv, vy:vy/lv, lu:lu, lv:lv, al:al};
+}
+/* il raccordo: V diventa T1 (a distanza t lungo il lato di prima, con l'arco tangente) e T2 (lungo il lato dopo).
+   b = ±tan((π − α)/4), col segno che porta l'arco verso V. */
+function custRaccordo(V, D, t){
+  var T1=[V[0]+D.ux*t, V[1]+D.uy*t], T2=[V[0]+D.vx*t, V[1]+D.vy*t];
+  var cr=(T2[0]-T1[0])*(V[1]-T1[1])-(T2[1]-T1[1])*(V[0]-T1[0]);
+  return [[T1[0], T1[1], (cr<0 ? -1 : 1)*Math.tan((Math.PI-D.al)/4)], [T2[0], T2[1]]];
+}
+/* un angolo con raggio r: t = r / tan(α/2); se i lati sono corti, il raggio più grande che ci sta (ridotto: true).
+   → {anello, r (quello usato), ridotto} oppure {anello:null, no} */
+function custArrotonda(R, i, r){
+  var D=custAngoloDi(R, i); if(D.no) return {anello:null, no:D.no};
+  if(!(r>0)) return {anello:null, no:"raggio"};
+  var tg=Math.tan(D.al/2), t=r/tg, lim=Math.min(D.lu, D.lv), rid=t>lim+1e-9;
+  if(rid) t=lim;
+  var out=custCopiaAnello(R); Array.prototype.splice.apply(out, [i, 1].concat(custRaccordo(R[i], D, t)));
+  return {anello:custPulisciAnello(out), r:t*tg, ridotto:rid};
+}
+/* tutti gli angoli fra due lati dritti con lo stesso raggio; un lato con tutti e due i capi da arrotondare ne cede al massimo
+   metà a ciascuno. → {anello (null se non c'è niente da arrotondare), ridotti, fatti} */
+function custArrotondaTutto(R, r){
+  var n=R.length, D=R.map(function(p, i){ var d=custAngoloDi(R, i); return d.no ? null : d; }), t=[], ridotti=0, fatti=0, out=[], i;
+  if(!(r>0) || !D.some(Boolean)) return {anello:null, ridotti:0, fatti:0};
+  for(i=0;i<n;i++){
+    if(!D[i]){ t.push(0); continue; }
+    var lim=Math.min(D[i].lu*(D[(i+n-1)%n] ? 0.5 : 1), D[i].lv*(D[(i+1)%n] ? 0.5 : 1)), ti=r/Math.tan(D[i].al/2);
+    if(ti>lim+1e-9){ ti=lim; ridotti++; }
+    t.push(ti);
+  }
+  for(i=0;i<n;i++){
+    if(!D[i] || !(t[i]>1e-9)){ out.push(R[i].slice()); continue; }
+    Array.prototype.push.apply(out, custRaccordo(R[i], D[i], t[i])); fatti++;
+  }
+  return {anello:custPulisciAnello(out), ridotti:ridotti, fatti:fatti};
+}
+/* ---- Contorni: rettangolo, ellisse e poligono come anelli (E10–E12) ---- */
+/* rettangolo → 4 punti antiorari a vista (alto-sinistra, basso-sinistra, basso-destra, alto-destra); con gli angoli
+   arrotondati (r tagliato a metà del lato più corto, come fa SVG) 8 punti con archi d'angolo b = tan(π/8). Con r a metà di
+   un lato i due punti di quel lato coincidono e la pulizia li fonde (mezzo cerchio); con r a metà di un quadrato è un cerchio. */
+function custRettInAnello(g){
+  var x=g.x, y=g.y, w=g.w, h=g.h, r=Math.max(0, Math.min(+g.r||0, w/2, h/2)), k=CUST_TAN8;
+  if(!(r>1e-9)) return [[x, y], [x, y+h], [x+w, y+h], [x+w, y]];
+  if(Math.abs(w-h)<1e-9 && Math.abs(r-w/2)<1e-9) return custEllisseInAnello({cx:x+r, cy:y+r, rx:r, ry:r}, 0.05);
+  return custPulisciAnello([[x, y+r], [x, y+h-r, k], [x+r, y+h], [x+w-r, y+h, k], [x+w, y+h-r], [x+w, y+r, k], [x+w-r, y], [x+r, y, k]]);
+}
+/* lo scarto massimo fra gli archi di R e l'ellisse g (16 campioni per arco; distanza al primo ordine |F|/|∇F|) */
+function custScartoEllisse(R, g){
+  var m=0, n=R.length;
+  for(var i=0;i<n;i++) custPuntiArco(R[i], R[(i+1)%n], +R[i][2]||0, 16).forEach(function(p){
+    var x=(p[0]-g.cx)/g.rx, y=(p[1]-g.cy)/g.ry, F=x*x+y*y-1, gx=2*x/g.rx, gy=2*y/g.ry, d=Math.abs(F)/(Math.sqrt(gx*gx+gy*gy)||1);
+    if(d>m) m=d; });
+  return m;
+}
+/* ellisse → archi (E11): cerchio = 4 archi esatti (destra, alto, sinistra, basso); altrimenti il minimo fra 8, 16, 32, 64
+   archi che resta entro eps (0,05 cm), punti sull'ellisse, ogni arco per tre punti dell'ellisse; antiorario a vista */
+function custEllisseInAnello(g, eps){
+  var cx=g.cx, cy=g.cy, rx=g.rx, ry=g.ry, k=CUST_TAN8, R=null;
+  if(Math.abs(rx-ry)<1e-9) return [[cx+rx, cy, k], [cx, cy-ry, k], [cx-rx, cy, k], [cx, cy+ry, k]];
+  var P=function(t){ return [cx+rx*Math.cos(t), cy+ry*Math.sin(t)]; };
+  [8, 16, 32, 64].some(function(N){
+    R=[];
+    for(var i=0;i<N;i++){ var t0=-CUST_GIRO*i/N, a=P(t0), bu=custBulgeDa3Punti(a, P(t0-CUST_GIRO/N), P(t0-Math.PI/N))||0;
+      R.push(Math.abs(bu)>=1e-9 ? [a[0], a[1], bu] : [a[0], a[1]]); }
+    return custScartoEllisse(R, g)<=(eps||0.05); });
+  return R;
+}
+/* una forma (cm della superficie, come la dà custFormaDaShape) → {pts, holes} in cm, con la rotazione cotta nei punti */
+function custContornoDaForma(g){
+  if(!g) return null;
+  if(g.k==="poly") return {pts:custCopiaAnello(g.pts), holes:(g.holes||[]).map(custCopiaAnello)};
+  var R, cx, cy;
+  if(g.k==="rect"){ R=custRettInAnello(g); cx=g.x+g.w/2; cy=g.y+g.h/2; }
+  else if(g.k==="ell"){ R=custEllisseInAnello(g, 0.05); cx=g.cx; cy=g.cy; }
+  else return null;
+  var rot=+g.rot||0;
+  if(rot) R=R.map(function(p){ var q=rotatePointAround(p[0], p[1], cx, cy, rot), o=[custR6(q[0]), custR6(q[1])]; if(p[2]) o.push(p[2]); return o; });
+  return {pts:R, holes:[]};
+}
+/* ---- Contorni: l'aggancio (Tappa A estesa, E15, E32) ---- */
+function custDentroSup(x, y, sup){ var mx=Math.max(sup.w, sup.d)*0.1; return x>=-mx && x<=sup.w+mx && y>=-mx && y<=sup.d+mx; }
+/* i bersagli di uno o più anelli: i punti = «Vertice»; lato dritto: metà = «Punto medio» e il segmento per «Sul bordo»;
+   arco: metà arco = «Punto medio», centro = «Centro» (solo dentro la superficie +10%: gli archi quasi dritti hanno centri
+   lontanissimi), e l'arco spezzato in 2…8 segmenti (uno ogni 22,5° circa) per «Sul bordo».
+   salta(ri, i, "punto"|"lato") → true = non lo si mette (il punto che si muove e i suoi due lati). */
+function custBersagliAnelli(punti, lati, anelli, sup, salta){
+  (anelli||[]).forEach(function(R, ri){ var n=R.length;
+    for(var i=0;i<n;i++){
+      if(!(salta && salta(ri, i, "punto"))) punti.push({x:R[i][0], y:R[i][1], t:"vertice"});
+      if(salta && salta(ri, i, "lato")) continue;
+      var a=R[i], b=R[(i+1)%n], bu=+a[2]||0, A=custArco(a, b, bu);
+      if(!A.c) continue;
+      punti.push({x:A.mezzo[0], y:A.mezzo[1], t:"medio"});
+      if(A.cx==null){ lati.push([a[0], a[1], b[0], b[1]]); continue; }
+      if(sup && custDentroSup(A.cx, A.cy, sup)) punti.push({x:A.cx, y:A.cy, t:"centro"});
+      var k=Math.max(2, Math.min(8, Math.ceil(A.theta/(Math.PI/8)))), Q=custPuntiArco(a, b, bu, k);
+      for(var j=0;j<k;j++) lati.push([Q[j][0], Q[j][1], Q[j+1][0], Q[j+1][1]]);
+    }
+  });
+}
+/* i bersagli mentre si trascina il punto i dell'anello r della forma id: le altre forme, gli elementi veri, la superficie e
+   gli ALTRI punti e lati della stessa forma (non il punto che si muove, né i suoi due lati, né il centro della forma) */
+function custBersagliContorno(items, id, anelli, r, i, sup){
+  var esc={}; esc[id]=true;
+  var B=custBersagli(items, esc, sup), n=anelli[r].length;
+  custBersagliAnelli(B.punti, B.lati, anelli, sup, function(ri, j, cosa){ return ri===r && (j===i || (cosa==="lato" && j===(i+n-1)%n)); });
+  return B;
+}
+/* AGGANCIO DEL TONDO (E15): la freccia è la proiezione del mouse sulla perpendicolare a metà del lato a→b. In quest'ordine:
+   dritto (entro tol), mezzo cerchio (entro tol da c/2), passa per un punto (un bersaglio entro tolP dal cursore, se ne
+   viene |b| ≤ 1), griglia sulla freccia (passo). o = {tol, tolP, passo, libero} in cm; libero (⌘) = niente aggancio.
+   → {bulge, s, t:"dritto"|"mezzo"|"punto"|null, punto} */
+function custAggancioFreccia(a, b, cur, B, o){
+  o=o||{}; var A=custArco(a, b, 0);
+  if(!A.c) return {bulge:0, s:0, t:null, punto:null};
+  var mz=A.c/2, s=(cur[0]-A.mezzo[0])*A.nx+(cur[1]-A.mezzo[1])*A.ny, tol=o.tol||0, tp=o.tolP||0;
+  var fine=function(v, t, q){ v=Math.max(-mz, Math.min(mz, v)); return {bulge:custBulgeDaFreccia(A.c, v), s:v, t:t||null, punto:q||null}; };
+  if(o.libero) return fine(s);
+  if(Math.abs(s)<=tol) return fine(0, "dritto");
+  if(Math.abs(Math.abs(s)-mz)<=tol) return fine(s<0 ? -mz : mz, "mezzo");
+  if(B && B.punti && tp>0){
+    var best=null, bd=tp+1e-9, P=B.punti;
+    for(var i=0;i<P.length;i++){ var q=P[i], ex=q.x-cur[0], ey=q.y-cur[1]; if(ex>tp || ex<-tp || ey>tp || ey<-tp) continue;
+      var d=Math.sqrt(ex*ex+ey*ey); if(d>=bd) continue;
+      var bu=custBulgeDa3Punti(a, b, [q.x, q.y]); if(bu==null || Math.abs(bu)<1e-9) continue;
+      bd=d; best={q:q, bu:bu}; }
+    if(best) return {bulge:best.bu, s:best.bu*A.c/2, t:"punto", punto:best.q};
+  }
+  if(o.passo>0) s=Math.round(s/o.passo)*o.passo;
+  return fine(s);
+}
+/* le scritte accanto al cursore durante i gesti (E18: si leggono, non si scrivono) */
+function custScrittaPunto(R, i){
+  var n=R.length, p=R[i], a=R[(i+n-1)%n], b=R[(i+1)%n];
+  return "← "+custCifra(Math.hypot(p[0]-a[0], p[1]-a[1]))+" cm · "+custCifra(Math.hypot(b[0]-p[0], b[1]-p[1]))+" cm →";
+}
+function custScrittaLato(c, f, bulge, t){
+  if(!bulge) return "Dritto";
+  var r=custArco([0, 0], [c, 0], bulge).r;
+  return (t==="mezzo" ? "Mezzo cerchio" : "Freccia "+custCifra(f)+" cm")+" · Raggio "+custCifra(r)+" cm";
+}
+/* ---- Contorni: la forma dell'editor (custshape) letta e scritta come anelli ---- */
+/* gli anelli di una forma dell'editor, in cm della superficie: [contorno, foro1, …] (rettangolo ed ellisse convertiti al
+   volo: la forma vera non cambia finché non c'è un gesto, E10) */
+function custAnelliDi(it){ var R=custContornoDaForma(custFormaDaShape(it)); return R ? [R.pts].concat(R.holes) : null; }
+/* scrive gli anelli nella forma: diventa (o resta) una poly senza rotazione, con l'ingombro vero (E12). Tiene id e stile. */
+function custScriviAnelli(it, anelli){
+  anelli=anelli.map(function(R){ return custArchiDentro(R, custBoxSup()); });   /* un arco non esce dalla superficie ±10% */
+  var n=custShapeDaForma({k:"poly", pts:anelli[0], holes:anelli.slice(1), fill:it.fill, stroke:it.stroke, sw:it.sw}); if(!n) return false;
+  it.k="poly"; it.x=n.x; it.y=n.y; it.w=n.w; it.d=n.d; it.rot=0; it.pts=n.pts;
+  if(n.holes) it.holes=n.holes; else delete it.holes;
+  delete it.r;
+  return true;
+}
+/* dopo un ridimensionamento (E13: i punti si scalano, i bulge restano) l'ingombro si rifà dalla geometria vera; la
+   rotazione della maniglia resta. Solo per le poly con archi o fori: le altre hanno già l'ingombro giusto. */
+function custRiallinea(it){
+  if(!it || it.type!=="custshape" || it.k!=="poly" || !custHaCurve(it)) return false;
+  var g=custFormaDaShape(Object.assign({}, it, {rot:0}));
+  return !!g && custScriviLocale(it, [g.pts].concat(g.holes||[]));
+}
+/* anelli nel riferimento della forma SENZA la sua rotazione (attorno a it.x, it.y): ingombro, centro e frazioni nuovi, la
+   rotazione della maniglia resta */
+function custScriviLocale(it, anelli){
+  var n=custShapeDaForma({k:"poly", pts:anelli[0], holes:anelli.slice(1)}); if(!n) return false;
+  var rot=+it.rot||0, c=rot ? rotatePointAround(n.x, n.y, it.x, it.y, rot) : [n.x, n.y];
+  it.x=c[0]; it.y=c[1]; it.w=n.w; it.d=n.d; it.pts=n.pts;
+  if(n.holes) it.holes=n.holes; else delete it.holes;
+  return true;
+}
+/* L o P scritti su una poly con archi o fori: la scala dei punti lungo quell'asse che dà l'ingombro VERO v (gli archi restano
+   archi di cerchio, E13, e l'ingombro non cresce in proporzione: bisezione). Se v non si raggiunge (gli archi da soli sono
+   già più larghi), si scala come prima e il pannello rilegge la misura vera. */
+function custScalaVera(it, campo, v){
+  var g=custFormaDaShape(Object.assign({}, it, {rot:0})); if(!g) return false;
+  var ax=campo==="w" ? 0 : 1, c=ax ? it.y : it.x, an=[g.pts].concat(g.holes||[]);
+  var scala=function(k){ return an.map(function(R){ return R.map(function(p){ var q=p.slice(); q[ax]=c+(p[ax]-c)*k; return q; }); }); };
+  var misura=function(k){ var b=custIngombroAnelli(scala(k)); return ax ? b.y2-b.y1 : b.x2-b.x1; };
+  var lo=1e-6, hi=1, i;
+  if(misura(lo)>v){ it[campo]=v; custRiallinea(it); return true; }
+  while(misura(hi)<v && hi<1e6) hi*=2;
+  for(i=0;i<60;i++){ var k=(lo+hi)/2; if(misura(k)<v) lo=k; else hi=k; }
+  return custScriviLocale(it, scala((lo+hi)/2));
+}
+/* i punti di una forma dell'editor e quelli di tutte le altre (per PUNTI_EL) */
+function custPuntiDi(it){ return (it && it.type==="custshape" && it.k==="poly") ? custContaAnelli([it.pts||[]].concat(it.holes||[])) : 0; }
+function custPuntiEditor(tranneId){ return (state.items||[]).reduce(function(s, x){ return s+(x.id===tranneId ? 0 : custPuntiDi(x)); }, 0); }
 /* ===== Crea elemento: L'INTERFACCIA (Tappa 2, 13/10/2026) =====
    Sopra il palco temporaneo (custEditorApri/Salva/Annulla, qui sopra) ci sono: il rettangolo trascinato sul palco vero
    con le misure in metri, la finestra per correggerle a numeri, la domanda di inclusione, gli strumenti di disegno, la
@@ -8257,8 +8687,11 @@ function custFuoriEditor(its){ return custEditorAttivo() ? its : (its||[]).filte
 function custSpazioForme(nuove){
   if(!custEditorAttivo()) return true;
   var n=(nuove||[]).filter(function(x){ return x && x.type==="custshape"; }).length; if(!n) return true;
-  if(state.items.filter(function(x){ return x.type==="custshape"; }).length+n<=custLimiti().FORME) return true;
-  custToast("Al massimo "+custLimiti().FORME+" forme per elemento.", true); return false;
+  if(state.items.filter(function(x){ return x.type==="custshape"; }).length+n>custLimiti().FORME){ custToast("Al massimo "+custLimiti().FORME+" forme per elemento.", true); return false; }
+  /* Contorni: anche i punti (40 000 per elemento): una copia che li supera non si fa, invece di sparire al salvataggio */
+  var np=(nuove||[]).reduce(function(s, x){ return s+custPuntiDi(x); }, 0);
+  if(np && custPuntiEditor(null)+np>custLimiti().PUNTI_EL){ custToast("Al massimo "+custMigliaia(custLimiti().PUNTI_EL)+" punti per elemento.", true); return false; }
+  return true;
 }
 function custTogliFormeOrfane(){
   if(custEditorAttivo() || !state || !Array.isArray(state.items) || !state.items.some(function(x){ return x && x.type==="custshape"; })) return;
@@ -8667,21 +9100,31 @@ function custCorpoRevisione(it, jpeg){
   var c=it.cust||{};
   var membri=(it.grp ? state.items.filter(function(x){ return x.grp===it.grp && x.id!==it.id && x.type!=="custom" && x.type!=="custshape"; }) : [])
     .map(function(x){ return x.type; }).slice(0, 100);
+  var cc=custContaContorni(c.shapes);   /* Contorni: punti, archi e fori, per la mail e per ops/segnalazioni.sh */
   var el={nome:c.nome, desc:c.desc||"", w:it.w, d:it.d, watt:(it.watt==null ? null : it.watt), ins:c.ins||null, backline:!!c.backline,
-    forme:(c.shapes||[]).length, membri:membri};
+    forme:(c.shapes||[]).length, membri:membri, punti:cc.punti, archi:cc.archi, fori:cc.fori};
   var lingua=null; try{ lingua=(typeof navigator!=="undefined" && typeof navigator.language==="string") ? navigator.language : null; }catch(e){}
   return {message:("Elemento: "+c.nome+(c.desc ? " — "+c.desc : "")).slice(0, 1000), hint:"elemento", honeypot:"",
     tech_context:{elemento:el, elemento_json:custJsonRevisione(it)},
     meta:{app_version:window.__APP_VERSION__||null, build_id:window.__BUILD_ID__||null, language:lingua},
     screenshot:custJpegValido(jpeg), project_snapshot:null, project_id:null};
 }
+/* i punti (contorni e fori), gli archi (punti con b ≠ 0) e i fori delle forme di un elemento */
+function custContaContorni(shapes){
+  var o={punti:0, archi:0, fori:0};
+  (shapes||[]).forEach(function(g){ if(!g || g.k!=="poly") return;
+    [g.pts||[]].concat(g.holes||[]).forEach(function(R){ o.punti+=R.length; R.forEach(function(p){ if(+p[2]) o.archi++; }); });
+    o.fori+=(g.holes||[]).length; });
+  return o;
+}
 /* il modello dell'elemento, per rifarlo: forme, misure, scheda e i pezzi (solo tipo, misure e posizione: le
-   etichette dei pezzi le scrive l'utente e possono contenere nomi). Oltre 30000 caratteri il server lo scarta: null. */
+   etichette dei pezzi le scrive l'utente e possono contenere nomi). Oltre JSON_REV caratteri (300 000, Contorni: un anello
+   da 1000 punti sono ~16 KB) il server lo scarta: null, e arriva solo l'anteprima. */
 function custJsonRevisione(it){
   var m=custModelDaAgglomerato(it, true); if(!m) return null;
   m.membri=(m.membri||[]).map(function(x){ var o={type:x.type, dx:x.dx, dy:x.dy, rot:x.rot}; if(x.w!=null) o.w=x.w; if(x.d!=null) o.d=x.d; return o; });
   var s=JSON.stringify(m);
-  return s.length<=30000 ? s : null;
+  return s.length<=custLimiti().JSON_REV ? s : null;
 }
 /* M2 (revisione finale): oltre questo tempo senza risposta l'invio si chiude con «La rete non risponde» — senza, una
    rete appesa lasciava «Invio già in corso» acceso per sempre (e l'editor non si riapriva più fino alla ricarica) */
@@ -8715,7 +9158,8 @@ function custEsitoInvio(status, j, id, nome, corpo, tempo){
   if(status===200 && j && j.ok){
     var it=(state.items||[]).find(function(x){ return x.id===id && x.type==="custom" && x.cust && x.cust.nome===nome; });
     if(it && !custEditorAttivo() && !custSolaLettura()){ it.cust.rev={inviato:new Date().toISOString()}; custSegnaFuoriCronologia(); render(); }
-    guideDialog({title:"Inviato", msg:"Grazie: lo guardiamo e, se lo aggiungiamo al catalogo, te lo scriviamo qui.", okLabel:"Chiudi"});
+    var senzaJson=!!(corpo && corpo.tech_context && corpo.tech_context.elemento_json===null);   /* Contorni: il disegno oltre il tetto */
+    guideDialog({title:"Inviato", msg:"Grazie: lo guardiamo e, se lo aggiungiamo al catalogo, te lo scriviamo qui."+(senzaJson ? " Il disegno era troppo grande per allegarlo: è arrivata l'anteprima." : ""), okLabel:"Chiudi"});
     return "ok";
   }
   if(tempo){ guideDialog({title:"Non inviato", msg:"La rete non risponde, riprova. L'elemento resta salvato nel progetto.",
@@ -8806,6 +9250,7 @@ function custAnteprima(it, cb){
 /* ---------- 3. strumenti di disegno ---------- */
 function custStrumento(t){
   if(!custEditorAttivo() && t!=="sel") return;
+  if(t && t!=="sel") custContornoSpegni();   /* uno strumento di disegno acceso chiude il contorno */
   custPolyClic=null; var p=document.getElementById("custpoly-preview"); if(p && p.parentNode) p.parentNode.removeChild(p);
   custTogliAnteprimaForma(); custDynChiudi(); custPulisciAggancio();
   window.__custDraw=(t && t!=="sel" && CUST_STRUMENTI[t]) ? {mode:t, pts:[]} : null;
@@ -8825,6 +9270,7 @@ function custGuida(){
   else if(m==="line") s="<b>Linea</b> · trascina, o clic e scrivi lunghezza e angolo (150<30) · Maiusc = 45° · ⌘ = senza aggancio";
   else if(m==="poly") s="<b>Poligono</b> · un clic per punto, o scrivi il lato (80<90) · Invio, doppio clic o clic sul primo punto chiude · ⌫ toglie l'ultimo";
   else if(m==="text") s="<b>Testo</b> · clic dove scrivere · ⌘ = senza aggancio";
+  else if(!m && window.__custContorno) s=custCcNota ? esc(custCcNota) : "<b>Contorno</b> · trascina un punto · clic su un lato per aggiungerne uno · trascina il tondo per curvare · ⌫ toglie il punto · Invio o Esc per finire · ⌘ = senza aggancio";
   el.hidden=!s; tx.innerHTML=s; if(bt) bt.textContent=b;
   custPosizionaGuida();
 }
@@ -9045,6 +9491,12 @@ function custDisegnaAggancio(o){
     var bw=txt.length*fs*0.58+hSize(10), bh=fs*1.6;
     s+='<rect rx="'+hSize(3)+'" x="'+(cx-bw/2)+'" y="'+(cy-bh/2)+'" width="'+bw+'" height="'+bh+'"/><text text-anchor="middle" x="'+cx+'" y="'+(cy+fs*0.36)+'" font-size="'+fs+'">'+esc(txt)+'</text></g>';
   });
+  /* Contorni: la corda tratteggiata del lato che si curva, il punto fantasma «+», la scritta con le misure */
+  if(o.corda) s+='<line class="cust-corda" x1="'+o.corda.x1+'" y1="'+o.corda.y1+'" x2="'+o.corda.x2+'" y2="'+o.corda.y2+'"/>';
+  if(o.fantasma){ var fx=o.fantasma.x, fy=o.fantasma.y, fr=hSize(5), fp=fr*0.55;
+    s+='<g class="cust-fantasma"><circle cx="'+fx+'" cy="'+fy+'" r="'+fr+'"/><path d="M'+(fx-fp)+' '+fy+'H'+(fx+fp)+'M'+fx+' '+(fy-fp)+'V'+(fy+fp)+'"/></g>'; }
+  if(o.scritta && o.scritta.testo){ var sw=o.scritta.testo.length*fs*0.58+hSize(12), sh=fs*1.6, sx=o.scritta.x+hSize(14), sy=o.scritta.y-hSize(14)-sh;
+    s+='<g class="cust-scritta"><rect rx="'+hSize(3)+'" x="'+sx+'" y="'+sy+'" width="'+sw+'" height="'+sh+'"/><text x="'+(sx+hSize(6))+'" y="'+(sy+sh*0.7)+'" font-size="'+fs+'">'+esc(o.scritta.testo)+'</text></g>'; }
   var m=o.segno;
   if(m && m.t && CUST_NOME_PUNTO[m.t]){
     var x=m.x, y=m.y, f;
@@ -9316,6 +9768,8 @@ function custRenderEditor(){
   var bar=custEl("custBar"), sch=custEl("custScheda"), fo=custEl("custForma");
   if(bar) bar.hidden=!on; if(sch) sch.hidden=!on;
   var one=on && selIds().length===1 ? getSel() : null, forma=one && one.type==="custshape" ? one : null;
+  /* Contorni: la modalità vale solo con la sua forma selezionata da sola (clic altrove, selezione multipla, editor chiuso) */
+  var C=window.__custContorno; if(C && (!forma || forma.id!==C.id || !custContornoAmmesso(forma))) custContornoSpegni();
   custClasse("cust-forma-sel", !!forma);
   if(fo) fo.hidden=!forma;
   if(!on){ var gd=custEl("custGuida"); if(gd && !window.__custDraw) gd.hidden=true; return; }
@@ -9340,6 +9794,11 @@ function custRenderForma(it){
   var testo=it.k==="text", linea=it.k==="line", a=document.activeElement, g=custGeometria(it);
   var vis=function(id, on){ var e=custEl(id); if(e) e.hidden=!on; };
   vis("custFormaDims", !testo && !linea); vis("custFormaTxt", testo); vis("custFormaLinea", linea); vis("custFormaRot", !linea);
+  /* Contorni: «Modifica contorno» e «Arrotonda gli angoli» (interruttore acceso); in modalità contorno la sua sezione */
+  var cc=!!(window.__custContorno && window.__custContorno.id===it.id);
+  vis("custFormaCc", custContorniAttivi() && custContornoAmmesso(it) && !cc); vis("custContorno", cc);
+  var fRa=custEl("custFRaggio"); if(fRa && fRa!==document.activeElement) fRa.value=custCifra(custCcRaggio);   /* l'ultimo usato, la prima volta 5 cm */
+  if(cc) custRenderContorno(it);
   var nota=custEl("custFormaNota"); if(nota) nota.textContent=linea ? "X e Y del primo capo, dall'angolo in alto a sinistra. Angolo in senso orario, 0° = verso destra. Invio applica, Esc annulla."
     : "X e Y dell'angolo in alto a sinistra, dall'origine del righello. Invio applica, Esc annulla.";
   var set=function(id, v){ var e=custEl(id); if(e && e!==a) e.value=custCifra(v); };
@@ -9436,6 +9895,7 @@ function custMuoviNellEditor(e){
     var one=selIds().length===1 ? getSel() : null; if(one && one.type==="custshape") custRenderForma(one);   /* X e Y del pannello seguono la forma */
     return true;
   }
+  if(drag.mode==="ccpunto" || drag.mode==="cctondo") return custContornoMuovi(e);   /* Contorni */
   if(drag.mode==="custcapo"){
     var v=custCapoSposta(drag, e), it=state.items.find(function(i){ return i.id===drag.id; });
     if(it){ redrawItemNode(it); redrawSelHandles(); custRenderForma(it); } custDisegnaAggancio(v);
@@ -9473,6 +9933,340 @@ function custCapoSposta(drag, e){
   return vis;
 }
 
+/* ---------- CONTORNI (16/10/2026): la modalità «contorno» ----------
+   Doppio clic su un rettangolo, un'ellisse o un poligono dell'editor (o «Modifica contorno» nel pannello) → si vedono i
+   punti (quadratini), un tondo a metà di ogni lato e, passando su un lato, il punto fantasma «+». La modalità è uno stato
+   dell'interfaccia (window.__custContorno = {id, r (anello: 0 = contorno, 1… = fori), punto, lato}), non un dato: non va
+   nella cronologia né nel documento. Rettangolo ed ellisse diventano contorno solo al primo gesto (E10). Tutto dietro
+   custContorniAttivi(): spento, il doppio clic e il pannello sono quelli di prima. */
+var custCcRaggio=5;   /* il raggio di Arrotonda: l'ultimo usato (la prima volta 5 cm) */
+var custCcNota="";    /* una riga d'aiuto al posto di quella di serie («Seleziona un punto per toglierlo») */
+function custContornoAmmesso(it){ return !!(it && it.type==="custshape" && (it.k==="rect" || it.k==="ell" || it.k==="poly")); }
+/* la forma in modalità contorno, se c'è ancora: {C, it} */
+function custContorno(){
+  var C=window.__custContorno; if(!C) return null;
+  var it=(state.items||[]).find(function(x){ return x.id===C.id; });
+  return custContornoAmmesso(it) ? {C:C, it:it} : null;
+}
+function custContornoEntra(id){
+  if(!custContorniAttivi() || !custEditorAttivo() || window.__custDraw) return false;
+  var it=(state.items||[]).find(function(x){ return x.id===id; }); if(!custContornoAmmesso(it)) return false;
+  selectOne(id); custCcNota="";
+  window.__custContorno={id:id, r:0, punto:null, lato:null};
+  custClasse("cust-contorno", true); custPulisciAggancio();
+  render(); custGuida();
+  a11yAnnounce("Contorno: "+custContaAnelli(custAnelliDi(it))+" punti");
+  return true;
+}
+/* spegne la modalità senza ridisegnare (lo usa anche il pannello mentre si disegna) */
+function custContornoSpegni(){
+  if(!window.__custContorno) return false;
+  window.__custContorno=null; custCcNota=""; custClasse("cust-contorno", false); custPulisciAggancio();
+  return true;
+}
+function custContornoEsci(){ if(!custContornoSpegni()) return false; render(); custGuida(); return true; }
+/* dopo Annulla/Ripeti (applyHistory toglie la selezione): si resta nel contorno se la forma c'è ancora, e punto o lato che
+   non esistono più si deselezionano */
+function custContornoDopoStoria(){
+  var C=window.__custContorno; if(!C) return;
+  var K=custContorno(); if(!K){ custContornoSpegni(); return; }
+  selectOne(C.id);
+  var an=custAnelliDi(K.it)||[[]];
+  if(!(C.r>=0 && C.r<an.length)){ C.r=0; C.punto=null; C.lato=null; return; }
+  var n=an[C.r].length;
+  if(C.punto!=null && !(C.punto<n)) C.punto=null;
+  if(C.lato!=null && !(C.lato<n)) C.lato=null;
+}
+/* un lato solo come path (per la fascia di presa) */
+function custPathLato(a, b){
+  var bu=+a[2]||0, A=custArco(a, b, bu), d="M"+custR6(a[0])+" "+custR6(a[1]);
+  return d+((A.cx!=null && Math.abs(A.s)>=0.01) ? "A"+custR6(A.r)+" "+custR6(A.r)+" 0 0 "+(bu>0 ? 0 : 1)+" " : "L")+custR6(b[0])+" "+custR6(b[1]);
+}
+/* LE MANIGLIE DEL CONTORNO (E33: niente maniglie dell'ingombro, rotazione e riquadro). In ordine di disegno: fasce dei lati,
+   tondi, punti — così al clic vince punto > tondo > lato (> interno della forma, che sta sotto). Il tondo non c'è sui lati
+   più corti di 20 px. Decorazione: aria-hidden (la strada da tastiera è il pannello). */
+function custContornoMarkup(it){
+  var C=window.__custContorno, an=custAnelliDi(it); if(!C || !an) return "";
+  var k=cmPerPx(), q=hSize(4.5), rt=hSize(5), banda=hSize(12), id=esc(it.id), lati="", tondi="", punti="";
+  var dati=function(t, ri, i){ return ' data-cc="'+t+'" data-id="'+id+'" data-r="'+ri+'" data-i="'+i+'"'; };
+  an.forEach(function(R, ri){ var n=R.length;
+    for(var i=0;i<n;i++){ var a=R[i], b=R[(i+1)%n], A=custArco(a, b, +a[2]||0); if(!A.c) continue;
+      var onL=(C.r===ri && C.lato===i) ? " on" : "";
+      lati+='<path class="cc-lato'+onL+'"'+dati("lato", ri, i)+' d="'+custPathLato(a, b)+'" stroke-width="'+banda+'"/>';
+      if(A.c/k>=20) tondi+='<circle class="cc-tondo'+onL+'"'+dati("tondo", ri, i)+' cx="'+custR6(A.mezzo[0])+'" cy="'+custR6(A.mezzo[1])+'" r="'+rt+'"/>';
+    }
+    R.forEach(function(p, i){ var onP=(C.r===ri && C.punto===i) ? " on" : "";
+      punti+='<rect class="cc-pt'+onP+'"'+dati("pt", ri, i)+' x="'+custR6(p[0]-q)+'" y="'+custR6(p[1]-q)+'" width="'+custR6(2*q)+'" height="'+custR6(2*q)+'"/>'; });
+  });
+  return '<g class="cust-cc" aria-hidden="true">'+lati+tondi+punti+'</g>';
+}
+
+/* ---- Contorni: i gesti col puntatore (§3.1–3.4, §3.8) ---- */
+/* cosa c'è sotto il puntatore: {t:"pt"|"tondo"|"lato", r, i} o null */
+function custContornoBersaglio(e){
+  var el=(e && e.target && e.target.closest) ? e.target.closest("[data-cc]") : null; if(!el) return null;
+  var t=el.getAttribute("data-cc"), r=+el.getAttribute("data-r"), i=+el.getAttribute("data-i");
+  return ((t==="pt" || t==="tondo" || t==="lato") && r>=0 && i>=0) ? {t:t, r:r, i:i} : null;
+}
+/* due elenchi di anelli uguali (punti e curvature entro 1e-6)? */
+function custAnelliUguali(A1, A2){
+  if(!A1 || !A2 || A1.length!==A2.length) return false;
+  return A1.every(function(R, ri){ var S=A2[ri]; return R.length===S.length && R.every(function(p, i){ var q=S[i];
+    return Math.abs(p[0]-q[0])<1e-6 && Math.abs(p[1]-q[1])<1e-6 && Math.abs((+p[2]||0)-(+q[2]||0))<1e-6; }); });
+}
+function custRimettiForma(it, json){ var o=JSON.parse(json); Object.keys(it).forEach(function(k){ delete it[k]; }); Object.assign(it, o); }
+/* pointerdown sul palco in modalità contorno. true = gestito. Dentro la forma (non su punto, tondo o lato) → false: la si
+   sposta come sempre (Tappa A). Altrove → si esce e il clic fa quello di sempre (seleziona, deseleziona, Maiusc…). */
+function custContornoDown(e){
+  var K=custContorno(); if(!K){ custContornoSpegni(); return false; }
+  if(e.button>0) return false;
+  var h=custContornoBersaglio(e), C=K.C, it=K.it;
+  if(!h){
+    var g=(e.target && e.target.closest) ? e.target.closest(".item") : null;
+    if(g && g.getAttribute("data-id")===it.id && !e.shiftKey) return false;
+    custContornoSpegni(); return false;
+  }
+  e.preventDefault(); lastDown=null; custCcNota="";
+  var an=custAnelliDi(it); if(!an || !an[h.r] || !(h.i<an[h.r].length)) return true;
+  if(h.t==="pt" && e.altKey){ custContornoTogli(h.r, h.i); return true; }   /* Alt+clic toglie, come nelle zone microfoniche */
+  var prima=JSON.stringify(it), sup=custSup(), base={id:it.id, r:h.r, prima:prima, moved:false, sx:e.clientX||0, sy:e.clientY||0};
+  if(h.t==="pt"){
+    C.r=h.r; C.punto=h.i; C.lato=null;
+    drag=Object.assign(base, {mode:"ccpunto", i:h.i, an0:an, B:custBersagliContorno(state.items, it.id, an, h.r, h.i, sup)});
+  } else if(h.t==="tondo"){
+    var esc0={}; esc0[it.id]=true;
+    C.r=h.r; C.lato=h.i; C.punto=null;
+    drag=Object.assign(base, {mode:"cctondo", i:h.i, an0:an, B:custBersagli(state.items, esc0, sup)});
+  } else {   /* il lato: nasce un punto dove c'è il fantasma (la forma non cambia), e si trascina subito */
+    var an1=an.slice(), sp=svgPoint(e);
+    an1[h.r]=custInserisciPunto(an[h.r], h.i, custSulLato(an[h.r], h.i, [sp.x, sp.y]));
+    var lim=custSpazioPunti(an1, custPuntiEditor(it.id)); if(lim){ custToast(lim, true); return true; }
+    primaDiAgire(); custScriviAnelli(it, an1);
+    C.r=h.r; C.punto=h.i+1; C.lato=null;
+    drag=Object.assign(base, {mode:"ccpunto", i:h.i+1, an0:an1, nuovo:true, B:custBersagliContorno(state.items, it.id, an1, h.r, h.i+1, sup)});
+    a11yAnnounce("Punto aggiunto: "+custContaAnelli(an1)+" punti");
+  }
+  try{ svg.setPointerCapture(e.pointerId); }catch(_e){}
+  render(); return true;
+}
+/* il trascinamento (dal gestore del palco): il punto aggancia come nella Tappa A; il tondo come in custAggancioFreccia */
+function custContornoMuovi(e){
+  var d=drag; if(!d || (d.mode!=="ccpunto" && d.mode!=="cctondo")) return false;
+  var it=(state.items||[]).find(function(x){ return x.id===d.id; }); if(!it){ drag=null; return true; }
+  if(!d.moved && !d.nuovo && Math.hypot((e.clientX||0)-d.sx, (e.clientY||0)-d.sy)<3) return true;   /* un clic fermo seleziona soltanto */
+  if(!d.moved){ d.moved=true; if(!d.nuovo) primaDiAgire(); }   /* il primo movimento: qui il rettangolo diventa contorno (E10) */
+  var R0=d.an0[d.r], an=d.an0.slice(), vis;
+  if(d.mode==="ccpunto"){
+    var pp=custPuntoAgganciato(e, d.B), R=custCopiaAnello(R0);
+    R[d.i][0]=pp.x; R[d.i][1]=pp.y; an[d.r]=R;
+    vis=custSegnoDa(pp); vis.scritta={x:pp.x, y:pp.y, testo:custScrittaPunto(R, d.i)};
+  } else {
+    var a=R0[d.i], b=R0[(d.i+1)%R0.length], sp=svgPoint(e), libero=custLibero(e);
+    var ag=custAggancioFreccia(a, b, [sp.x, sp.y], custAggancioPunti ? d.B : null, {tol:hSize(8), tolP:hSize(10), passo:custAggancio ? custPasso() : 0, libero:libero});
+    an[d.r]=custArchiDentro(custCurvaLato(R0, d.i, ag.bulge), custBoxSup());   /* fermo al bordo della superficie ±10% */
+    var buV=+an[d.r][d.i][2]||0; if(Math.abs(buV-ag.bulge)>1e-9) ag={bulge:buV, s:buV*custArco(a, b, 0).c/2, t:null, punto:null};
+    var A=custArco(a, b, ag.bulge), f=custAreaAnello(R0)>0 ? -ag.s : ag.s, m=custArco(a, b, 0).mezzo;
+    vis={guide:[{x1:m[0]-A.nx*A.c/2, y1:m[1]-A.ny*A.c/2, x2:m[0]+A.nx*A.c/2, y2:m[1]+A.ny*A.c/2}], corda:{x1:a[0], y1:a[1], x2:b[0], y2:b[1]},
+         segno:(ag.t==="punto" && ag.punto) ? {x:ag.punto.x, y:ag.punto.y, t:ag.punto.t} : null,
+         scritta:{x:A.mezzo[0], y:A.mezzo[1], testo:custScrittaLato(A.c, f, ag.bulge, ag.t)}};
+  }
+  custScriviAnelli(it, an);
+  redrawItemNode(it); custDisegnaAggancio(vis); custRenderForma(it);
+  return true;
+}
+/* il rilascio: pulizia (§2.5 punto 8), un passo di Annulla se qualcosa è cambiato (anche «aggiungi e sposta» = uno solo) */
+function custContornoRilascio(){
+  var d=drag; drag=null; if(!d) return false;
+  var it=(state.items||[]).find(function(x){ return x.id===d.id; }), C=window.__custContorno, fatto=!!(it && (d.moved || d.nuovo));
+  custPulisciAggancio();
+  if(fatto && !d.nuovo && custAnelliUguali(custAnelliDi(it).map(function(R, ri){ return ri===d.r ? custPulisciAnello(R) : R; }), d.an0)){
+    custRimettiForma(it, d.prima); fatto=false;   /* niente è cambiato: la forma com'era (rettangolo ed ellisse non si convertono), nessun passo */
+  }
+  if(fatto){
+    var an=custAnelliDi(it), R=custPulisciAnello(an[d.r]);
+    if(R.length!==an[d.r].length && C) C.punto=null;   /* il punto si è fuso col vicino */
+    an[d.r]=R; custScriviAnelli(it, an); save();
+    if(d.mode==="cctondo" && R.length===d.an0[d.r].length && R[d.i])   /* §8: «Lato curvato: freccia 12 cm» */
+      a11yAnnounce(+R[d.i][2] ? "Lato curvato: freccia "+custCifra(custFrecciaMostrata(R, d.i))+" cm" : "Lato dritto");
+  }
+  render(); custGuida();
+  return fatto;
+}
+/* Esc durante un trascinamento del contorno: la forma torna com'era all'inizio del gesto, nessun passo di Annulla (§3.8) */
+function custContornoAnnullaGesto(tieni){
+  var d=drag; if(!d || (d.mode!=="ccpunto" && d.mode!=="cctondo")) return false;
+  drag=null;
+  var it=(state.items||[]).find(function(x){ return x.id===d.id; }); if(it) custRimettiForma(it, d.prima);
+  try{ svg.classList.remove("dragging"); if(!tieni) Object.keys(pointers).forEach(function(k){ try{ svg.releasePointerCapture(+k); }catch(_e){} }); }catch(e){}
+  var C=window.__custContorno; if(C && d.nuovo) C.punto=null;
+  custPulisciAggancio(); render();
+  return true;
+}
+/* pointercancel o un secondo dito durante un gesto del contorno: si ANNULLA tutto, come Esc (§3.8) — l'interruzione non è una
+   scelta dell'utente, e una conversione pigra a metà non deve restare. tieni = non liberare la cattura (il pinch la usa). */
+function custContornoInterrotto(tieni){
+  if(!drag || (drag.mode!=="ccpunto" && drag.mode!=="cctondo")) return false;
+  return custContornoAnnullaGesto(tieni);
+}
+/* passando su un lato (senza trascinare): il punto fantasma «+» dove nascerebbe il punto */
+function custContornoSopra(e){
+  var h=custContornoBersaglio(e), K=custContorno();
+  if(!K || !h || h.t!=="lato"){ custPulisciAggancio(); return false; }
+  var R=(custAnelliDi(K.it)||[])[h.r]; if(!R || !(h.i<R.length)) return false;
+  var sp=svgPoint(e), p=custSulLato(R, h.i, [sp.x, sp.y]);
+  custDisegnaAggancio({fantasma:{x:p[0], y:p[1]}});
+  return true;
+}
+/* togliere il punto i dell'anello r (⌫, Canc, Alt+clic, «Togli punto»): mai sotto 3 punti */
+function custContornoTogli(r, i){
+  var K=custContorno(); if(!K) return false;
+  var an=custAnelliDi(K.it); if(!an || !an[r] || !(i<an[r].length)) return false;
+  var R=custTogliPunto(an[r], i);
+  if(!R){ custToast("Un contorno ha almeno 3 punti."+(r>0 ? " Il foro si toglie con «Togli il foro»." : ""), true); return false; }
+  primaDiAgire(); an[r]=R; custScriviAnelli(K.it, an); save();
+  K.C.r=r; K.C.punto=i % R.length; K.C.lato=null;   /* resta selezionato il punto che veniva dopo: ⌫ di seguito li toglie uno a uno */
+  render(); a11yAnnounce("Punto tolto: "+custContaAnelli(an)+" punti");
+  return true;
+}
+/* ---- Contorni: tastiera e pannello (§3.6, §8) ---- */
+/* i tasti nel palco (fuori dai campi) in modalità contorno. true = gestito */
+function custContornoTasto(e){
+  var K=custContorno(); if(!K){ custContornoSpegni(); return false; }
+  var C=K.C, k=e.key;
+  if(k==="Escape"){ e.preventDefault();
+    if(custContornoAnnullaGesto()) return true;   /* durante un trascinamento: annulla il gesto */
+    if(C.punto!=null || C.lato!=null){ C.punto=null; C.lato=null; render(); return true; }
+    custContornoEsci(); return true; }
+  if(e.metaKey || e.ctrlKey || e.altKey) return false;   /* ⌘Z, ⌘C…: quelli di sempre */
+  /* Invio o spazio su un pulsante (◀ ▶, Togli punto, Dritto, Arrotonda… del pannello): li preme lui, non è «Fine» (§8) */
+  if((k==="Enter" || k===" ") && /^(BUTTON|A|SUMMARY)$/.test((e.target && e.target.tagName)||"")) return false;
+  if(k==="Enter"){ e.preventDefault(); custContornoEsci(); return true; }
+  if(k==="Backspace" || k==="Delete"){ e.preventDefault();   /* MAI la forma intera (E16) */
+    if(C.punto==null){ custCcNota="Seleziona un punto per toglierlo."; custGuida(); return true; }
+    custContornoTogli(C.r, C.punto); return true; }
+  if(/^Arrow/.test(k) && C.punto!=null){ e.preventDefault(); var st=e.shiftKey ? 10 : 1;   /* 1 cm, Maiusc 10 (E17) */
+    custContornoSpostaPunto(k==="ArrowLeft" ? -st : k==="ArrowRight" ? st : 0, k==="ArrowUp" ? -st : k==="ArrowDown" ? st : 0); return true; }
+  return false;
+}
+/* il punto selezionato si sposta di dx, dy (dentro la superficie ±10%): un passo di Annulla per pressione */
+function custContornoSpostaPunto(dx, dy){
+  var K=custContorno(); if(!K || K.C.punto==null) return false;
+  var C=K.C, an=custAnelliDi(K.it), R=custCopiaAnello(an[C.r]), p=R[C.punto]; if(!p) return false;
+  var q=custLimita({x:p[0]+dx, y:p[1]+dy}); p[0]=q.x; p[1]=q.y;
+  primaDiAgire(); var P=custPulisciAnello(R); if(P.length!==R.length) C.punto=null;
+  an[C.r]=P; custScriviAnelli(K.it, an); render(); save();
+  if(C.punto!=null) a11yAnnounce("Punto "+(C.punto+1)+": "+custCifra(q.x)+", "+custCifra(q.y)+" cm");
+  return true;
+}
+/* un campo della sezione Contorno (Invio o uscita dal campo). Un valore che non si legge, uguale a quello che c'è o fuori
+   regola non cambia niente; altrimenti un passo di Annulla. campo: x, y (punto), freccia, raggio (lato), raggioA/raggioT */
+function custContornoCampo(campo, raw){
+  var K=custContorno(); if(!K) return false;
+  var C=K.C, it=K.it, v=custNumeroDigitato(raw), an=custAnelliDi(it), R=an && an[C.r];
+  if(campo==="raggioA" || campo==="raggioT"){ if(v!=null && v>0) custCcRaggio=v; renderProps(); return false; }   /* solo il raggio da usare */
+  if(v==null || !R){ renderProps(); return false; }
+  if(campo==="x" || campo==="y"){
+    if(C.punto==null || !R[C.punto]){ renderProps(); return false; }
+    var p=R[C.punto], q=custLimita({x:campo==="x" ? v : p[0], y:campo==="y" ? v : p[1]});
+    if(Math.abs(q.x-p[0])<0.005 && Math.abs(q.y-p[1])<0.005){ renderProps(); return false; }
+    R=custCopiaAnello(R); R[C.punto][0]=q.x; R[C.punto][1]=q.y; an[C.r]=R;
+  } else if(campo==="freccia" || campo==="raggio"){
+    if(C.lato==null || !R[C.lato]){ renderProps(); return false; }
+    var a=R[C.lato], b=R[(C.lato+1)%R.length], c=custArco(a, b, 0).c, fuori=custAreaAnello(R)>0 ? -1 : 1, bu;
+    if(!c){ renderProps(); return false; }
+    if(campo==="freccia"){
+      if(Math.abs(v)>c/2+1e-9){ custToast("Con questo lato la freccia va al massimo a "+custCifra(c/2)+" cm (mezzo cerchio).", true); renderProps(); return false; }
+      bu=custBulgeDaFreccia(c, v*fuori);
+    } else {
+      bu=custBulgeDaRaggio(c, v, (+a[2]||0) ? (+a[2]>0 ? 1 : -1) : fuori);   /* tiene il verso; su un lato dritto: in fuori */
+      if(bu==null){ custToast("Con questo lato il raggio minimo è "+custCifra(c/2)+" cm, mezzo cerchio.", true); renderProps(); return false; }
+    }
+    if(Math.abs(bu-(+a[2]||0))<1e-9){ renderProps(); return false; }
+    an[C.r]=custCurvaLato(R, C.lato, bu);
+  } else return false;
+  primaDiAgire(); custScriviAnelli(it, an); render(); save();
+  if(campo==="freccia" || campo==="raggio") a11yAnnounce(+an[C.r][C.lato][2] ? "Lato curvato: freccia "+custCifra(custFrecciaMostrata(an[C.r], C.lato))+" cm" : "Lato dritto");
+  return true;
+}
+function custContornoDritto(){
+  var K=custContorno(); if(!K || K.C.lato==null) return false;
+  var an=custAnelliDi(K.it), R=an[K.C.r]; if(!R || !+(R[K.C.lato]||[])[2]) return false;
+  primaDiAgire(); an[K.C.r]=custCurvaLato(R, K.C.lato, 0); custScriviAnelli(K.it, an); render(); save();
+  a11yAnnounce("Lato dritto"); return true;
+}
+/* Arrotonda l'angolo selezionato col raggio del campo (l'ultimo usato) */
+function custContornoArrotonda(){
+  var K=custContorno(); if(!K || K.C.punto==null) return false;
+  var C=K.C, an=custAnelliDi(K.it), o=custArrotonda(an[C.r], C.punto, custCcRaggio);
+  if(!o.anello){ custToast(o.no==="arco" ? "Arrotonda va fra due lati dritti." : "Un angolo piatto non si arrotonda.", true); return false; }
+  var an1=an.slice(); an1[C.r]=o.anello;
+  var lim=custSpazioPunti(an1, custPuntiEditor(K.it.id)); if(lim){ custToast(lim, true); return false; }
+  primaDiAgire(); custScriviAnelli(K.it, an1); C.punto=null; C.lato=null; render(); save();
+  custToast(o.ridotto ? "Raggio ridotto a "+custCifra(o.r)+" cm: il lato è corto." : "Angolo arrotondato."); a11yAnnounce("Angolo arrotondato");
+  return true;
+}
+/* Arrotonda tutti gli angoli (dal pannello normale o dal contorno senza selezione). Su un rettangolo non ancora convertito
+   imposta il suo r e resta un rettangolo (E19). */
+function custArrotondaForma(it, r){
+  if(!custContorniAttivi() || !custContornoAmmesso(it) || !(r>0)) return false;
+  custCcRaggio=r;
+  if(it.k==="rect"){ primaDiAgire(); it.r=r; render(); save(); custToast("Angoli arrotondati."); a11yAnnounce("Angoli arrotondati"); return true; }
+  var an=custAnelliDi(it), rid=0, fatti=0;
+  var an1=an.map(function(R){ var o=custArrotondaTutto(R, r); if(!o.anello) return R; rid+=o.ridotti; fatti+=o.fatti; return o.anello; });
+  if(!fatti){ custToast("Non ci sono angoli fra due lati dritti da arrotondare.", true); return false; }
+  var lim=custSpazioPunti(an1, custPuntiEditor(it.id)); if(lim){ custToast(lim, true); return false; }
+  primaDiAgire(); custScriviAnelli(it, an1);
+  var C=window.__custContorno; if(C && C.id===it.id){ C.punto=null; C.lato=null; }
+  render(); save();
+  custToast(rid ? rid+(rid===1 ? " angolo con raggio ridotto." : " angoli con raggio ridotto.") : "Angoli arrotondati."); a11yAnnounce("Angoli arrotondati");
+  return true;
+}
+function custContornoTogliForo(){
+  var K=custContorno(); if(!K || !(K.C.r>0)) return false;
+  var an=custAnelliDi(K.it); if(!an[K.C.r]) return false;
+  primaDiAgire(); an.splice(K.C.r, 1); custScriviAnelli(K.it, an); K.C.r=0; K.C.punto=null; K.C.lato=null; render(); save();
+  a11yAnnounce("Foro tolto"); return true;
+}
+/* ◀ ▶: il punto (o il lato) prima o dopo, nello stesso anello */
+function custContornoNaviga(cosa, passo){
+  var K=custContorno(); if(!K) return false;
+  var C=K.C, R=(custAnelliDi(K.it)||[])[C.r]; if(!R || !R.length) return false;
+  var n=R.length, i=C[cosa]!=null ? C[cosa] : (passo>0 ? -1 : 0);
+  C[cosa]=((i+passo)%n+n)%n; C[cosa==="punto" ? "lato" : "punto"]=null;
+  render(); a11yAnnounce((cosa==="punto" ? "Punto " : "Lato ")+(C[cosa]+1)+" selezionato");
+  return true;
+}
+/* Invio e Esc in un campo della sezione Contorno (§3.6, come la Tappa A): Invio applica (un passo) e il campo si rilegge
+   com'è davvero (al centesimo, tagliato alla superficie); Esc rimette il valore di prima e torna al palco. */
+function custContornoCampoTasto(f, campo, ev){
+  var K;
+  if(ev.key==="Enter"){ ev.preventDefault(); custContornoCampo(campo, f.value); K=custContorno(); if(K) custRenderContorno(K.it, true); try{ f.select(); }catch(e){} return true; }
+  if(ev.key==="Escape"){ f.value=""; K=custContorno(); if(K) custRenderContorno(K.it, true); try{ f.blur(); }catch(e){} return true; }
+  return false;
+}
+/* LA SEZIONE «CONTORNO» del pannello: segue la selezione (un punto, un lato, niente) */
+function custRenderContorno(it, forza){   /* forza: riscrive anche il campo che ha il fuoco (dopo Invio o Esc) */
+  var C=window.__custContorno, an=custAnelliDi(it); if(!C || !an) return;
+  var att=document.activeElement, set=function(id, v){ var e=custEl(id); if(e && (forza || e!==att)) e.value=(v==null || !isFinite(v)) ? "" : custCifra(v); };
+  var vis=function(id, on){ var e=custEl(id); if(e) e.hidden=!on; }, txt=function(id, s){ var e=custEl(id); if(e) e.textContent=s; };
+  var nf=an.length-1, R=an[C.r]||an[0], n=R.length, pre=C.r>0 ? "Foro "+C.r+" · " : "";
+  txt("custCcTitolo", "Contorno · "+custContaAnelli(an)+" punti"+(nf ? " · "+nf+(nf===1 ? " foro" : " fori") : ""));
+  vis("custCcPunto", C.punto!=null); vis("custCcLato", C.lato!=null); vis("custCcTutti", C.punto==null && C.lato==null);
+  if(C.punto!=null && R[C.punto]){
+    var p=R[C.punto], D=custAngoloDi(R, C.punto), no=D.no==="arco" ? "Arrotonda va fra due lati dritti." : D.no ? "Un angolo piatto non si arrotonda." : "";
+    txt("custCcPNome", pre+"Punto "+(C.punto+1)+" di "+n); set("custCcX", p[0]); set("custCcY", p[1]); set("custCcRaggioA", custCcRaggio);
+    var ba=custEl("custCcArrotonda"); if(ba) ba.disabled=!!no; txt("custCcArrNota", no); vis("custCcArrNota", !!no);
+    var bt=custEl("custCcTogli"); if(bt) bt.disabled=n<=3;
+    vis("custCcTogliForo", C.r>0);
+  }
+  if(C.lato!=null && R[C.lato]){
+    var A=custArco(R[C.lato], R[(C.lato+1)%n], +R[C.lato][2]||0);
+    txt("custCcLNome", pre+"Lato "+(C.lato+1)+" di "+n); txt("custCcCorda", "Corda "+custCifra(A.c)+" cm");
+    set("custCcFreccia", custFrecciaMostrata(R, C.lato)); set("custCcRaggio", A.cx==null ? null : A.r);
+    txt("custCcFrecciaNota", C.r>0 ? "Freccia: + allarga il foro, − lo stringe." : "Freccia: + in fuori, − in dentro. Raggio: almeno metà della corda.");
+  }
+  if(C.punto==null && C.lato==null) set("custCcRaggioT", custCcRaggio);
+}
 /* ---------- 7. le azioni del progetto vero sono ferme mentre l'editor è aperto ---------- */
 /* Comandi che agirebbero sul progetto vero (o lo esporterebbero leggendo il palco temporaneo): sono nascosti dal CSS
    (body.cust-editor) e, se arrivano lo stesso (scorciatoie, proxy, ricerca), si fermano qui col messaggio unico. */
@@ -9498,7 +10292,7 @@ function custBlocca(){ if(!custEditorAttivo()) return false; custEditorAvvisa();
     Array.prototype.forEach.call(document.querySelectorAll("#custBar [data-cust-tool]") || [], function(b){
       b.addEventListener("click", function(){ custStrumento(b.getAttribute("data-cust-tool")); }); });
   }catch(e){}
-  on("custGuidaEsci", "click", function(){ var m=window.__custDraw && window.__custDraw.mode; if(m==="area"){ custAreaFine(); render(); } else custStrumento("sel"); });
+  on("custGuidaEsci", "click", function(){ var m=window.__custDraw && window.__custDraw.mode; if(m==="area"){ custAreaFine(); render(); } else if(!m && window.__custContorno) custContornoEsci(); else custStrumento("sel"); });
   on("custFill", "input", function(){ custApplicaStile("fill", this.value, false); });
   on("custFill", "change", function(){ custApplicaStile("fill", this.value, true); });
   on("custNoFill", "change", function(){ custApplicaStile("noFill", this.checked, true); });
@@ -9535,6 +10329,29 @@ function custBlocca(){ if(!custEditorAttivo()) return false; custEditorAvvisa();
   on("custFTesto", "change", function(){ var it=getSel(); if(!it || it.k!=="text") return;
     var v=custTaglia(String(this.value).replace(/[\u0000-\u001f]/g," ").trim(), custLimiti().TESTO); if(!v){ renderProps(); return; }
     primaDiAgire(); it.s=v; it.w=custTestoLargo(v, it.d/1.3); render(); save(); });
+  /* Contorni (16/10/2026): la sezione «Contorno» e «Modifica contorno»; Invio applica, Esc rimette e torna al palco */
+  [["custCcX","x"],["custCcY","y"],["custCcFreccia","freccia"],["custCcRaggio","raggio"],["custCcRaggioA","raggioA"],["custCcRaggioT","raggioT"],["custFRaggio","raggioT"]].forEach(function(c){
+    on(c[0], "change", function(){ if(c[0]==="custFRaggio"){ var v=custNumeroDigitato(this.value); if(v!=null && v>0) custCcRaggio=v; return; } custContornoCampo(c[1], this.value); });
+    on(c[0], "keydown", function(ev){
+      if(c[0]==="custFRaggio"){
+        if(ev.key==="Enter"){ ev.preventDefault(); var it=getSel(), v=custNumeroDigitato(this.value); if(it && v!=null && v>0) custArrotondaForma(it, v); }
+        else if(ev.key==="Escape") this.value=custCifra(custCcRaggio);
+        return; }
+      custContornoCampoTasto(this, c[1], ev);
+    });
+  });
+  on("custFContorno", "click", function(){ var it=getSel(); if(it) custContornoEntra(it.id); });
+  on("custFArrotonda", "click", function(){ var it=getSel(), f=custEl("custFRaggio"), v=f ? custNumeroDigitato(f.value) : null; if(it) custArrotondaForma(it, v!=null && v>0 ? v : custCcRaggio); });
+  on("custCcFine", "click", function(){ custContornoEsci(); });
+  on("custCcPPrec", "click", function(){ custContornoNaviga("punto", -1); });
+  on("custCcPSucc", "click", function(){ custContornoNaviga("punto", 1); });
+  on("custCcLPrec", "click", function(){ custContornoNaviga("lato", -1); });
+  on("custCcLSucc", "click", function(){ custContornoNaviga("lato", 1); });
+  on("custCcTogli", "click", function(){ var K=custContorno(); if(K && K.C.punto!=null) custContornoTogli(K.C.r, K.C.punto); });
+  on("custCcTogliForo", "click", function(){ custContornoTogliForo(); });
+  on("custCcDritto", "click", function(){ custContornoDritto(); });
+  on("custCcArrotonda", "click", function(){ var f=custEl("custCcRaggioA"), v=f ? custNumeroDigitato(f.value) : null; if(v!=null && v>0) custCcRaggio=v; custContornoArrotonda(); });
+  on("custCcArrTutti", "click", function(){ var K=custContorno(), f=custEl("custCcRaggioT"), v=f ? custNumeroDigitato(f.value) : null; if(K) custArrotondaForma(K.it, v!=null && v>0 ? v : custCcRaggio); });
   on("custFDup", "click", function(){ duplicateSel(); });
   on("custFDel", "click", function(){ deleteSelGuarded(); });
   on("custFFront", "click", function(){ custFormaOrdine(true); });
@@ -10714,6 +11531,7 @@ function selHandlesMarkup(){
   if(!it) return '';
   var t=itemTypeDef(it); if(!t) return '';
   if(!itemLiveOnStage(it)) return '';                     /* elemento non disegnato o non manovrabile: niente maniglie sospese nel vuoto */
+  if(window.__custContorno && window.__custContorno.id===it.id) return custContornoMarkup(it);   /* Contorni: punti, tondi e lati al posto delle maniglie */
   var attrId=esc(it.id);
   var bw = it.w/2 + selMargine(it), bh = it.d/2 + selMargine(it);   /* stesso riquadro aderente del selbox: le maniglie ci stanno sopra */
   var _fit=_selFit[it.id], topY=_fit ? _fit.y1 : -bh;     /* bordo alto del riquadro misurato sul disegno (26/09) */
@@ -19489,6 +20307,7 @@ svg.addEventListener("pointerdown", function(e){
   endCatSearch();   /* una ricerca in corso finisce appena si torna al palco, in qualunque punto (Simone 30/07) */
   pointers[e.pointerId]={x:e.clientX, y:e.clientY};
   if(Object.keys(pointers).length===2){            /* due dita = pinch zoom: annulla drag in corso */
+    custContornoInterrotto(true);   /* Contorni: il gesto del contorno si annulla tutto (com'era, nessun passo) */
     if(drag && drag.el && drag.el.parentNode) drag.el.parentNode.removeChild(drag.el);
     drag=null; svg.classList.remove("dragging"); lastDown=null;
     var ids=Object.keys(pointers), pa=pointers[ids[0]], pb=pointers[ids[1]];
@@ -19505,6 +20324,7 @@ svg.addEventListener("pointerdown", function(e){
   /* «Crea elemento»: con una modalità di disegno accesa (rettangolo sul palco, strumenti dell'editor) il gesto è un
      disegno, anche sopra un elemento: niente selezione, trascinamento o doppio clic dell'elemento sotto */
   if(window.__custDraw && custPointerDown(e)) return;
+  if(window.__custContorno && custContornoDown(e)) return;   /* Contorni: punti, tondi e lati (prima del doppio clic e delle maniglie) */
   /* doppio-click manuale: robusto al re-render dell'SVG (il dblclick nativo si perde perché render() ricrea il bersaglio) */
   var _gPed = pedanaDelClic(e);   /* «Solo pedane»: dentro una pedana il clic è della pedana, non di chi ci sta sopra (13/10) */
   var dcG = _gPed || (e.target.closest ? e.target.closest(".item") : null);
@@ -19555,7 +20375,7 @@ svg.addEventListener("pointerdown", function(e){
     if(dcId){ selectOne(dcId); render();
       var dcIt=(state.items||[]).find(function(i){ return i.id===dcId; });
       if(dcIt && dcIt.type==="custshape"){   /* «Crea elemento»: doppio clic su un testo = lo riscrivi lì; sulle altre forme non apre altro */
-        e.preventDefault(); if(dcIt.k==="text") custTestoModifica(dcId, false); }
+        e.preventDefault(); if(dcIt.k==="text") custTestoModifica(dcId, false); else custContornoEntra(dcId); }   /* Contorni: le altre forme entrano nel contorno (se l'interruttore è acceso) */
       else if(dcIt && dcIt.type==="custom" && custIngressiAttivi()){   /* elemento personalizzato: si riapre nell'editor (sul telefono: «disponibile dal computer») */
         e.preventDefault(); if(isMobile()) custSoloDalComputer("Modifica elemento"); else custModificaElemento(dcId); }
       else if(dcIt && !isMobile() && dcIt.type!=="testo" && dcIt.type!=="forma" && custIngressiAttivi() && custBaseDi(dcIt)){
@@ -19904,6 +20724,7 @@ svg.addEventListener("pointermove", function(e){
   }
   /* «Crea elemento»: rettangolo sul palco, forma che si disegna, poligono che segue il puntatore */
   if((drag && (drag.mode==="custarea" || drag.mode==="custforma")) || (!drag && window.__custDraw)){ if(custPointerMove(e)) return; }
+  if(!drag && window.__custContorno){ custContornoSopra(e); return; }   /* Contorni: il punto fantasma sul lato */
   if(!drag) return;
   var sp;
   if(drag.mode==="cabseg"){   /* editing Max: trascina il LATO in perpendicolare; gli angoli si formano da soli */
@@ -20359,9 +21180,11 @@ svg.addEventListener("pointerup", function(e){
   if(drag && drag.mode==="itemresize"){ if(drag.moved){
       var _rz=state.items.find(function(i){ return i.id===drag.id; });
       if(_rz && _rz.type==="custshape" && _rz.k==="text") _rz.w=custTestoLargo(_rz.s, _rz.d/1.3);   /* testo: l'altezza fa il corpo, la larghezza la riga */
+      custRiallinea(_rz);   /* Contorni: una forma con archi o fori riprende l'ingombro vero (E12) */
       save(); ensureVisible(); } render(); drag=null; return; }
   if(drag && drag.mode==="metroend"){ if(drag.moved){ save(); ensureVisible(); } render(); drag=null; return; }
   if(drag && drag.mode==="custcapo"){ custCapoRilascio(); return; }
+  if(drag && (drag.mode==="ccpunto" || drag.mode==="cctondo")){ custContornoRilascio(); return; }   /* Contorni: un passo di Annulla */
   if(drag && drag.mode==="item" && !drag.moved && drag.dupIds){   /* Alt+clic senza trascinare: la copia non serviva, via */
     var _dup={}; drag.dupIds.forEach(function(x){ _dup[x]=1; });
     state.items=state.items.filter(function(x){ return !_dup[x.id]; });
@@ -20422,6 +21245,7 @@ svg.addEventListener("pointerup", function(e){
 svg.addEventListener("pointercancel", function(e){   /* touch interrotto (2° dito, gesture iOS, rotazione device): chiudi la transazione di drag in modo atomico (audit M-21) */
   delete pointers[e.pointerId];
   if(Object.keys(pointers).length<2) pinch=null;
+  if(custContornoInterrotto()){ svg.classList.remove("dragging"); return; }   /* Contorni: com'era, nessun passo di Annulla */
   if(!drag){ svg.classList.remove("dragging"); return; }
   if(drag.el && drag.el.parentNode) drag.el.parentNode.removeChild(drag.el);   /* via il cavo-fantasma (mode port) */
   if(drag.mode==="custarea") custTogliAnteprimaArea();   /* il rettangolo di «Crea elemento» interrotto: la modalità resta, si riprova */
@@ -21047,6 +21871,8 @@ document.addEventListener("keydown", function(e){
     if(_cd.mode==="poly" && _cd.pts.length && (e.key==="Backspace" || e.key==="Delete" || ((e.metaKey||e.ctrlKey) && (e.key==="z"||e.key==="Z") && !e.shiftKey))){
       e.preventDefault(); custPolyTogliUltimo(); return; }
   }
+  /* «Crea elemento», modalità contorno (fuori dai campi): Esc, Invio, ⌫/Canc e frecce sono del contorno (Contorni, §3.6) */
+  if(window.__custContorno && !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName||"") && custContornoTasto(e)) return;
   /* durante la scelta dell'area di stampa Esc vale «annulla questo passo»: riporta alla finestra
      Esporta da cui si è partiti, invece di lasciare sul canvas senza né finestra né pannello */
   if(e.key==="Escape" && typeof frameEdit!=="undefined" && frameEdit && typeof finishFrameEdit==="function"){

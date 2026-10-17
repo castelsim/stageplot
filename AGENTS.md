@@ -157,3 +157,9 @@ I prossimi moduli previsti (vedi piano): `src/` per canvas, objects, data/serial
   (set null) i suoi dati. Il test «ogni tabella che punta a un account» in `rls-bgl-google` fallisce finché non c'è.
 - **Email di contatto dell'organizzatore**: in pagina va solo quella salvata (vuota = nessuna). Mai un ripiego su
   `auth.users.email` nelle letture pubbliche: è spesso l'email personale (revisione del 07/10).
+- **Contorni (16/10/2026)**: una `poly` di «Crea elemento» può avere il terzo numero nel punto (`[x, y, b]`, bulge: b > 0 =
+  antiorario a vista, esempio fisso nel test) e `holes`. `custNorm` li legge, non pulisce e non riordina (un documento di
+  oggi esce identico); i gesti stanno dietro `custContorniAttivi()`. Un'app vecchia che salva un contorno lo perde (archi
+  dritti, fori via): **ogni cambio di formato delle forme si rilascia in due fasi** (lettore, poi 24–48 h dopo i gesti) e
+  si spegne con `false`, mai con un revert. La modalità contorno è uno stato dell'interfaccia (`window.__custContorno`):
+  `applyHistory` la riallinea (`custContornoDopoStoria`), non va mai nel documento.
