@@ -20,8 +20,14 @@
 - Misure (Mac, 17/10): drawCustom 40 000 punti dritte 73 ms, con archi 103 ms (la soglia è relativa: il codice di oggi è già
   sopra i 5 ms della spec, vedi Note del piano); aggancio 200 forme × 50 punti con archi 1,85 ms a movimento (30 004 lati,
   soglia 8 ms), bersagli 65 ms una volta per gesto (soglia 500 ms), tondo 0,12 ms.
-- Prove: engines 1716/1716 (39 test nuovi «contorni…»), collaudo 30/30, biglietteria 148/148, orchestre 124/124, Deno 208/208,
-  lint pulito; mutazioni 18/18 uccise; build `51c5c61` apre banco curvo e anello senza errori (lati dritti, niente foro);
+- **Revisione indipendente** (subagente, sola lettura): nessun Critical; corretti nella stessa PR Invio/spazio sui pulsanti del
+  pannello (uscivano dal contorno), campi riletti dopo Invio e Esc (`custContornoCampoTasto`, `custRenderContorno(it, forza)`),
+  raggio di serie visibile in «Arrotonda gli angoli», annuncio «Lato curvato: freccia N cm». Rimandati (da fare prima o con
+  l'accensione): pointercancel durante un trascinamento del contorno (`liveMut` non conosce `ccpunto`/`cctondo`: chiamare
+  `custContornoAnnullaGesto`), un gesto che non cambia niente converte comunque il rettangolo e lascia un passo, archi che
+  escono dalla superficie ±10% (si tagliano solo i punti).
+- Prove: engines 1719/1719 (42 test nuovi «contorni…»), collaudo 30/30, biglietteria 148/148, orchestre 124/124, Deno 208/208,
+  lint pulito; mutazioni 18/18 uccise (più 3/3 sulle correzioni della revisione); build `51c5c61` apre banco curvo e anello senza errori (lati dritti, niente foro);
   Chromium (porta 8975): banco curvo, mezzaluna, anello da JSON col foro modificato, cursori, «+», Esc, ⌘Z, tema scuro.
   Schermate e script in `STAGEPLOT/anteprime-crea-elemento/2026-10-17_contorni_*`.
 - **Rilascio**: 1) merge della PR 1; 2) Simone: `supabase functions deploy submit-feedback --project-ref vsodplqkuvnsdiikvmjb`
