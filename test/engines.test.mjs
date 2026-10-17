@@ -11311,6 +11311,56 @@ t("sgabelli: il percussionista seduto conta lo sgabello della batteria, come lo 
   ok(/1 sgabello batteria/.test(A.sgabelliTesto()), "nel cartiglio: " + A.sgabelliTesto());
   reset();
 });
+/* ===== Crea elemento — Contorni (16/10/2026): archi, fori, modalità «contorno», Arrotonda ===== */
+const CC_ST = { fill: "#e5e7eb", stroke: "#1d1d1f", sw: 1 };
+const ccPoly = (pts, extra) => Object.assign({ k: "poly", pts }, CC_ST, extra || {});
+const ccNorm = (shapes, w, d) => A.custNorm({ type: "custom", w: w || 400, d: d || 300, cust: { nome: "Prova", shapes } }).cust.shapes;
+t("contorni: i limiti nuovi e l'interruttore SPENTO (un letterale, come custIngressiAttivi)", () => {
+  const L = A.custLimiti();
+  eq([L.PUNTI, L.FORI, L.PUNTI_FORMA, L.PUNTI_EL, L.FORME, L.FORME_BYTE, L.JSON_REV], [200, 50, 1000, 40000, 200, 262144, 300000]);
+  eq(A.custContorniAttivi(), false, "fase 1: spento");
+  ok(/function custContorniAttivi\(\)\{ return false; \}/.test(appjs), "una funzione che torna un letterale");
+});
+t("contorni: custNorm legge la curvatura [x, y, b] — tagliata a ±1, al milionesimo, sotto 1e-6 o non numero = lato dritto", () => {
+  const g = ccNorm([ccPoly([[10, 10, 0.5], [50, 10, 3], [50, 40, -7], [10, 40, "abc"], [5, 30, null], [5, 20, 1e-9], [5, 15, "0.25"], [5, 12, 0.1234567891]])])[0];
+  eq(g.pts, [[10, 10, 0.5], [50, 10, 1], [50, 40, -1], [10, 40], [5, 30], [5, 20], [5, 15, 0.25], [5, 12, 0.123457]]);
+  const h = ccNorm([ccPoly([[0, 0, "<b>"], [10, 0, Infinity], [10, 10, NaN], [0, 10, true]])])[0];
+  eq(h.pts, [[0, 0], [10, 0], [10, 10], [0, 10]], "markup, Infinity, NaN, true: lato dritto, punto salvo");
+});
+t("contorni: custNorm dei fori — da 3 a 200 punti, al massimo 50, entro 1000 punti per forma; holes vuoto non si scrive", () => {
+  const sq = (x, y, l, n) => { const o = []; for (let i = 0; i < (n || 4); i++) o.push([x + (i % 2) * l, y + Math.floor(i / 2) * l]); return o; };
+  const g = ccNorm([ccPoly([[0, 0], [100, 0], [100, 100], [0, 100]], { holes: [sq(10, 10, 5), [[1, 1], [2, 2]], "no", [[20, 20, 2], [30, 20], [25, 30]]] })])[0];
+  eq(g.holes, [sq(10, 10, 5), [[20, 20, 1], [30, 20], [25, 30]]], "il foro di 2 punti e quello non valido via; b tagliata anche nei fori");
+  eq(ccNorm([ccPoly([[0, 0], [100, 0], [100, 100]], { holes: [] })])[0].holes, undefined, "holes vuoto: niente campo");
+  eq(ccNorm([ccPoly([[0, 0], [100, 0], [100, 100]], { holes: "x" })])[0].holes, undefined, "holes non array: niente campo");
+  const tanti = []; for (let i = 0; i < 60; i++) tanti.push([[i, 0], [i + 0.5, 0], [i, 0.5]]);
+  eq(ccNorm([ccPoly([[0, 0], [100, 0], [100, 100]], { holes: tanti })])[0].holes.length, 50, "60 fori → 50");
+  const lungo = []; for (let i = 0; i < 250; i++) lungo.push([i % 100, Math.floor(i / 100)]);
+  eq(ccNorm([ccPoly(lungo)])[0].pts.length, 200, "anello da 250 punti → 200");
+  const ft = []; for (let i = 0; i < 6; i++) ft.push(lungo.slice(0, 200));
+  const f = ccNorm([ccPoly(lungo.slice(0, 200), { holes: ft })])[0];
+  eq([f.pts.length, f.holes.length], [200, 4], "200 + 4×200 = 1000: i fori in coda oltre il tetto restano fuori");
+  const big = [];   /* 41 forme da 1000 punti: la quarantunesima porterebbe l'elemento oltre 40 000 */
+  for (let i = 0; i < 41; i++) big.push(ccPoly(lungo.slice(0, 200), { holes: ft.slice(0, 4) }));
+  big.push(ccPoly([[0, 0], [10, 0], [10, 10]]));
+  const n = ccNorm(big);
+  eq(n.length, 40, "oltre 40 000 punti: le forme in coda che non ci stanno restano fuori (anche la piccola: 40 000 + 3)");
+});
+t("contorni: custNorm — rot su una poly con fori cuoce anche i fori attorno al centro del contorno; le coordinate dentro ±10%", () => {
+  const g = ccNorm([ccPoly([[0, 0, 0.5], [100, 0], [100, 50], [0, 50]], { rot: 90, holes: [[[40, 20], [60, 20], [50, 30]]] })], 400, 300)[0];
+  eq(g.rot, undefined, "la rotazione si cuoce");
+  eq(g.pts, [[75, -25, 0.5], [75, 75], [25, 75], [25, -25]], "attorno a (50, 25); la curvatura resta");
+  eq(g.holes, [[[55, 15], [55, 35], [45, 25]]], "il foro gira con lo stesso centro");
+  const f = ccNorm([ccPoly([[0, 0], [100, 0], [100, 100]], { holes: [[[-500, 0], [10, 900], [10, 10]]] })], 400, 300)[0];
+  eq(f.holes[0], [[-40, 0], [10, 340], [10, 10]], "anche i fori dentro la superficie ±10% (400 × 300: da −40 a 340)");
+});
+t("contorni: una poly di oggi esce IDENTICA (anche di 2 punti), e custNorm è idempotente sulle forme nuove", () => {
+  const oggi = [ccPoly([[10, 10], [50, 10], [30, 40]]), ccPoly([[0, 0], [20, 5]]), { k: "rect", x: 1, y: 2, w: 30, h: 20, r: 4, stroke: "#1d1d1f", sw: 1 }];
+  eq(JSON.stringify(ccNorm(JSON.parse(JSON.stringify(oggi)))),
+    '[{"k":"poly","fill":"#e5e7eb","stroke":"#1d1d1f","sw":1,"pts":[[10,10],[50,10],[30,40]]},{"k":"poly","fill":"#e5e7eb","stroke":"#1d1d1f","sw":1,"pts":[[0,0],[20,5]]},{"k":"rect","stroke":"#1d1d1f","sw":1,"x":1,"y":2,"w":30,"h":20,"r":4}]');
+  const nuova = ccNorm([ccPoly([[0, 0, 0.3], [100, 0], [100, 80, -1], [0, 80]], { holes: [[[10, 10], [20, 10, 0.2], [15, 20]]] })]);
+  eq(JSON.stringify(ccNorm(JSON.parse(JSON.stringify(nuova)))), JSON.stringify(nuova), "due passaggi = uno");
+});
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");

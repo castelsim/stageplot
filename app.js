@@ -7393,11 +7393,24 @@ function shapeGeom(it){
    UNKNOWN_ITEM_TYPE). FASE 2 (24–48 h dopo): cambiare il `false` in `true`. È una funzione che torna un letterale, non una
    var: una var più in basso nel file sarebbe undefined per il codice di avvio (AGENTS.md §8). I test la sostituiscono. */
 function custIngressiAttivi(){ return true; }   /* FASE 2 (14/10/2026): acceso dopo il deploy di submit-feedback (POST anonimo «elemento» → 401 verificato). Per spegnere gli ingressi: false (MAI un revert dell'app: i progetti con elementi personalizzati devono restare leggibili) */
-function custLimiti(){ return {NOME:60, DESC:280, TESTO:140, FORME:200, PUNTI:200, WATT:20000, INS:16, MIN:10, MEMBRO:4096, MODELLI:50, FORME_BYTE:262144}; }
+/* INTERRUTTORE DEI CONTORNI (16/10/2026, stesso rilascio in due fasi): FASE 1 = l'app sa leggere, disegnare ed esportare
+   archi e fori, ma nessun gesto li crea (doppio clic, «Modifica contorno», Arrotonda restano spenti). Un'app vecchia che
+   salva un contorno lo perde (archi dritti, fori via): prima tutti devono avere quella nuova. FASE 2 (24–48 h dopo, dopo il
+   deploy di submit-feedback): true. Per spegnere dopo: false, MAI un revert (i progetti con archi devono restare leggibili). */
+function custContorniAttivi(){ return false; }
+function custLimiti(){ return {NOME:60, DESC:280, TESTO:140, FORME:200, PUNTI:200, WATT:20000, INS:16, MIN:10, MEMBRO:4096, MODELLI:50, FORME_BYTE:262144,
+  FORI:50, PUNTI_FORMA:1000, PUNTI_EL:40000, JSON_REV:300000}; }   /* Contorni: fori per forma, punti per forma (contorno + fori), punti per elemento, caratteri del JSON di revisione */
 /* un numero vero: un number finito, o una stringa numerica non vuota. null (da JSON), "", true, [] NON sono 0: si scartano */
 function custNumero(v){
   if(typeof v==="string"){ if(!v.trim()) return null; v=Number(v); }
   return (typeof v==="number" && isFinite(v)) ? v : null;
+}
+/* CURVATURA DI UN LATO (Contorni, 16/10/2026): il terzo numero di un punto [x, y, b] è il «bulge» del lato che parte da lì
+   (0 = dritto, ±1 = mezzo cerchio). Tagliata a [-1, 1] e al milionesimo; sotto 1e-6, o non un numero, il lato è dritto
+   (il punto resta). → 0 oppure il numero da scrivere */
+function custBulgeNorm(v){
+  v=custNumero(v); if(v==null || Math.abs(v)<1e-6) return 0;
+  return custR6(Math.max(-1, Math.min(1, v)));
 }
 /* taglia a n unità SENZA spezzare un carattere: una coppia surrogata (emoji, ideogrammi rari) resta intera o fuori tutta.
    La misura resta quella di String.length (come maxlength dei campi e come il server), quindi mai oltre n. */
@@ -7419,7 +7432,7 @@ function custNorm(it){
   it.w=num(it.w,L.MIN,100000)||TYPES.custom.w; it.d=num(it.d,L.MIN,100000)||TYPES.custom.d;
   var W=it.w, D=it.d, mx=Math.max(W,D)*0.1, X=function(v){ return num(v,-mx,W+mx); }, Y=function(v){ return num(v,-mx,D+mx); };
   var LARGO=1e6;   /* prima della rotazione i punti si leggono larghi: si limitano DOPO, dove stanno davvero */
-  var nomePrima=(typeof c.nome==="string") ? c.nome : null;
+  var nomePrima=(typeof c.nome==="string") ? c.nome : null, puntiEl=0;   /* punti di contorni e fori, in tutte le forme (PUNTI_EL) */
   var out={ nome:(typeof c.nome==="string" && c.nome.trim()) ? custTaglia(c.nome.trim(),L.NOME) : "Elemento personalizzato", shapes:[] };
   if(typeof c.desc==="string" && c.desc.trim()) out.desc=custTaglia(c.desc.trim(),L.DESC);
   (Array.isArray(c.shapes)?c.shapes:[]).forEach(function(f){
@@ -7435,19 +7448,38 @@ function custNorm(it){
     else if(f.k==="line" || f.k==="poly"){
       /* linea e poligono: la rotazione si CUOCE nei punti (attorno al centro dell'ingombro) e non si salva — il disegno
          e l'editor li leggono così, e andata e ritorno editor ↔ forme restano identici */
-      var P=[];
+      /* CONTORNI (16/10/2026): il punto di una poly può portare la curvatura del lato che parte da lì ([x, y, b], b solo
+         se ≠ 0) e la poly può avere dei fori (`holes`, stesso formato). Niente altro cambia: una poly di oggi esce identica. */
+      var P=[], H=[], leggi=function(arr, curve){ var out=[];
+        arr.slice(0,L.PUNTI).forEach(function(p){ if(!Array.isArray(p)) return;
+          var a=num(p[0],-LARGO,LARGO), b=num(p[1],-LARGO,LARGO); if(a==null || b==null) return;
+          var q=[a,b], k=curve ? custBulgeNorm(p[2]) : 0; if(k) q.push(k); out.push(q); });
+        return out; };
       if(f.k==="line") P=[[f.x1,f.y1],[f.x2,f.y2]].map(function(p){ var a=num(p[0],-LARGO,LARGO), b=num(p[1],-LARGO,LARGO); return (a==null||b==null) ? null : [a,b]; });
-      else if(Array.isArray(f.pts)) f.pts.slice(0,L.PUNTI).forEach(function(p){ if(Array.isArray(p)){ var a=num(p[0],-LARGO,LARGO), b=num(p[1],-LARGO,LARGO); if(a!=null && b!=null) P.push([a,b]); } });
+      else if(Array.isArray(f.pts)){
+        P=leggi(f.pts, true);
+        /* i fori: da 3 a PUNTI punti ciascuno, al massimo FORI, e in ordine finché la forma resta entro PUNTI_FORMA */
+        if(Array.isArray(f.holes)){ var tot=P.length, pieno=false;
+          f.holes.forEach(function(h){ if(pieno || H.length>=L.FORI || !Array.isArray(h)) return;
+            var R=leggi(h, true); if(R.length<3) return;
+            if(tot+R.length>L.PUNTI_FORMA){ pieno=true; return; }
+            tot+=R.length; H.push(R); }); }
+      }
       else return;
       if(P.some(function(p){ return !p; }) || P.length<2) return;
-      if(rot){
+      if(f.k==="poly"){   /* l'elemento intero: oltre PUNTI_EL la forma resta fuori (come la duecentunesima forma) */
+        var nP=H.reduce(function(s,R){ return s+R.length; }, P.length); if(puntiEl+nP>L.PUNTI_EL) return; puntiEl+=nP; }
+      var conB=function(p, x, y){ var o=[x, y]; if(p[2]) o.push(p[2]); return o; };
+      if(rot){   /* la curvatura non cambia con la rotazione; i fori girano attorno allo stesso centro del contorno */
         var xs=P.map(function(p){ return p[0]; }), ys=P.map(function(p){ return p[1]; });
         var ccx=(Math.min.apply(0,xs)+Math.max.apply(0,xs))/2, ccy=(Math.min.apply(0,ys)+Math.max.apply(0,ys))/2;
-        P=P.map(function(p){ var q=rotatePointAround(p[0],p[1],ccx,ccy,rot); return [custR6(q[0]), custR6(q[1])]; });
+        var gira=function(p){ var q=rotatePointAround(p[0],p[1],ccx,ccy,rot); return conB(p, custR6(q[0]), custR6(q[1])); };
+        P=P.map(gira); H=H.map(function(R){ return R.map(gira); });
         rot=0;
       }
-      P=P.map(function(p){ return [X(p[0]), Y(p[1])]; });
-      if(f.k==="line"){ g.x1=P[0][0]; g.y1=P[0][1]; g.x2=P[1][0]; g.y2=P[1][1]; } else g.pts=P; }
+      var dentro=function(p){ return conB(p, X(p[0]), Y(p[1])); };
+      P=P.map(dentro); H=H.map(function(R){ return R.map(dentro); });
+      if(f.k==="line"){ g.x1=P[0][0]; g.y1=P[0][1]; g.x2=P[1][0]; g.y2=P[1][1]; } else { g.pts=P; if(H.length) g.holes=H; } }
     else if(f.k==="text"){ g.x=X(f.x); g.y=Y(f.y); g.size=num(f.size,2,200)||12;
       g.s=(typeof f.s==="string") ? custTaglia(f.s.replace(/[\u0000-\u001f]/g," "),L.TESTO) : "";
       if(g.x==null || g.y==null || !g.s.trim()) return; g.fill=g.fill||"#1d1d1f"; }
