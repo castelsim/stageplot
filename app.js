@@ -5033,6 +5033,7 @@ function applyHistory(snapshot){
     reattachVenueImg(state,key);
   } else if(key) delete venueImgCache[key];
   ensureItemIds(); lastSnap=historySnapshot(); sel=null; selSet={};
+  custContornoDopoStoria();   /* Contorni: si resta nel contorno della forma, se c'è ancora */
   adattaCorniceStoria(snapshot);   /* l'area tolta da «Adatta il palco» torna con il suo Annulla (14/10) — dopo lastSnap: vedi lì */
   /* CABLAGGI-09 / B2-09 (review 27/07): le cache dei motori sopravvivevano all'undo — il canvas
      continuava a disegnare il cavo verso la box PRE-undo, e il renderChannels() qui sotto riparava
@@ -7717,6 +7718,7 @@ function custEditorApri(rect, opz){
    restano ferme e il progetto vero resta quello in memoria locale e nel cloud. */
 function custRipristina(){
   var E=window.__custEditor, sv=E.salvato, vKey=String(sv.activeVar||"");
+  custContornoSpegni();   /* Salva o Annulla dell'editor: la modalità contorno finisce */
   if(sv.venueCache) venueImgCache[vKey]=Object.assign({},sv.venueCache); else delete venueImgCache[vKey];   /* PRIMA: applyVariantState riaggancia da qui */
   /* ripristino ESATTO (revisione finale, I1): lo stato com'era, byte per byte. Ripassarlo dal normalizzatore
      (applyVariantState) aggiungeva i campi di serie mancanti — production.asked:false su un progetto che non l'aveva —
@@ -9214,6 +9216,7 @@ function custAnteprima(it, cb){
 /* ---------- 3. strumenti di disegno ---------- */
 function custStrumento(t){
   if(!custEditorAttivo() && t!=="sel") return;
+  if(t && t!=="sel") custContornoSpegni();   /* uno strumento di disegno acceso chiude il contorno */
   custPolyClic=null; var p=document.getElementById("custpoly-preview"); if(p && p.parentNode) p.parentNode.removeChild(p);
   custTogliAnteprimaForma(); custDynChiudi(); custPulisciAggancio();
   window.__custDraw=(t && t!=="sel" && CUST_STRUMENTI[t]) ? {mode:t, pts:[]} : null;
@@ -9233,6 +9236,7 @@ function custGuida(){
   else if(m==="line") s="<b>Linea</b> · trascina, o clic e scrivi lunghezza e angolo (150<30) · Maiusc = 45° · ⌘ = senza aggancio";
   else if(m==="poly") s="<b>Poligono</b> · un clic per punto, o scrivi il lato (80<90) · Invio, doppio clic o clic sul primo punto chiude · ⌫ toglie l'ultimo";
   else if(m==="text") s="<b>Testo</b> · clic dove scrivere · ⌘ = senza aggancio";
+  else if(!m && window.__custContorno) s=custCcNota ? esc(custCcNota) : "<b>Contorno</b> · trascina un punto · clic su un lato per aggiungerne uno · trascina il tondo per curvare · ⌫ toglie il punto · Invio o Esc per finire · ⌘ = senza aggancio";
   el.hidden=!s; tx.innerHTML=s; if(bt) bt.textContent=b;
   custPosizionaGuida();
 }
@@ -9724,6 +9728,8 @@ function custRenderEditor(){
   var bar=custEl("custBar"), sch=custEl("custScheda"), fo=custEl("custForma");
   if(bar) bar.hidden=!on; if(sch) sch.hidden=!on;
   var one=on && selIds().length===1 ? getSel() : null, forma=one && one.type==="custshape" ? one : null;
+  /* Contorni: la modalità vale solo con la sua forma selezionata da sola (clic altrove, selezione multipla, editor chiuso) */
+  var C=window.__custContorno; if(C && (!forma || forma.id!==C.id || !custContornoAmmesso(forma))) custContornoSpegni();
   custClasse("cust-forma-sel", !!forma);
   if(fo) fo.hidden=!forma;
   if(!on){ var gd=custEl("custGuida"); if(gd && !window.__custDraw) gd.hidden=true; return; }
@@ -9748,6 +9754,10 @@ function custRenderForma(it){
   var testo=it.k==="text", linea=it.k==="line", a=document.activeElement, g=custGeometria(it);
   var vis=function(id, on){ var e=custEl(id); if(e) e.hidden=!on; };
   vis("custFormaDims", !testo && !linea); vis("custFormaTxt", testo); vis("custFormaLinea", linea); vis("custFormaRot", !linea);
+  /* Contorni: «Modifica contorno» e «Arrotonda gli angoli» (interruttore acceso); in modalità contorno la sua sezione */
+  var cc=!!(window.__custContorno && window.__custContorno.id===it.id);
+  vis("custFormaCc", custContorniAttivi() && custContornoAmmesso(it) && !cc); vis("custContorno", cc);
+  if(cc) custRenderContorno(it);
   var nota=custEl("custFormaNota"); if(nota) nota.textContent=linea ? "X e Y del primo capo, dall'angolo in alto a sinistra. Angolo in senso orario, 0° = verso destra. Invio applica, Esc annulla."
     : "X e Y dell'angolo in alto a sinistra, dall'origine del righello. Invio applica, Esc annulla.";
   var set=function(id, v){ var e=custEl(id); if(e && e!==a) e.value=custCifra(v); };
@@ -9881,6 +9891,97 @@ function custCapoSposta(drag, e){
   return vis;
 }
 
+/* ---------- CONTORNI (16/10/2026): la modalità «contorno» ----------
+   Doppio clic su un rettangolo, un'ellisse o un poligono dell'editor (o «Modifica contorno» nel pannello) → si vedono i
+   punti (quadratini), un tondo a metà di ogni lato e, passando su un lato, il punto fantasma «+». La modalità è uno stato
+   dell'interfaccia (window.__custContorno = {id, r (anello: 0 = contorno, 1… = fori), punto, lato}), non un dato: non va
+   nella cronologia né nel documento. Rettangolo ed ellisse diventano contorno solo al primo gesto (E10). Tutto dietro
+   custContorniAttivi(): spento, il doppio clic e il pannello sono quelli di prima. */
+var custCcRaggio=5;   /* il raggio di Arrotonda: l'ultimo usato (la prima volta 5 cm) */
+var custCcNota="";    /* una riga d'aiuto al posto di quella di serie («Seleziona un punto per toglierlo») */
+function custContornoAmmesso(it){ return !!(it && it.type==="custshape" && (it.k==="rect" || it.k==="ell" || it.k==="poly")); }
+/* la forma in modalità contorno, se c'è ancora: {C, it} */
+function custContorno(){
+  var C=window.__custContorno; if(!C) return null;
+  var it=(state.items||[]).find(function(x){ return x.id===C.id; });
+  return custContornoAmmesso(it) ? {C:C, it:it} : null;
+}
+function custContornoEntra(id){
+  if(!custContorniAttivi() || !custEditorAttivo() || window.__custDraw) return false;
+  var it=(state.items||[]).find(function(x){ return x.id===id; }); if(!custContornoAmmesso(it)) return false;
+  selectOne(id); custCcNota="";
+  window.__custContorno={id:id, r:0, punto:null, lato:null};
+  custClasse("cust-contorno", true); custPulisciAggancio();
+  render(); custGuida();
+  a11yAnnounce("Contorno: "+custContaAnelli(custAnelliDi(it))+" punti");
+  return true;
+}
+/* spegne la modalità senza ridisegnare (lo usa anche il pannello mentre si disegna) */
+function custContornoSpegni(){
+  if(!window.__custContorno) return false;
+  window.__custContorno=null; custCcNota=""; custClasse("cust-contorno", false); custPulisciAggancio();
+  return true;
+}
+function custContornoEsci(){ if(!custContornoSpegni()) return false; render(); custGuida(); return true; }
+/* dopo Annulla/Ripeti (applyHistory toglie la selezione): si resta nel contorno se la forma c'è ancora, e punto o lato che
+   non esistono più si deselezionano */
+function custContornoDopoStoria(){
+  var C=window.__custContorno; if(!C) return;
+  var K=custContorno(); if(!K){ custContornoSpegni(); return; }
+  selectOne(C.id);
+  var an=custAnelliDi(K.it)||[[]];
+  if(!(C.r>=0 && C.r<an.length)){ C.r=0; C.punto=null; C.lato=null; return; }
+  var n=an[C.r].length;
+  if(C.punto!=null && !(C.punto<n)) C.punto=null;
+  if(C.lato!=null && !(C.lato<n)) C.lato=null;
+}
+/* un lato solo come path (per la fascia di presa) */
+function custPathLato(a, b){
+  var bu=+a[2]||0, A=custArco(a, b, bu), d="M"+custR6(a[0])+" "+custR6(a[1]);
+  return d+((A.cx!=null && Math.abs(A.s)>=0.01) ? "A"+custR6(A.r)+" "+custR6(A.r)+" 0 0 "+(bu>0 ? 0 : 1)+" " : "L")+custR6(b[0])+" "+custR6(b[1]);
+}
+/* LE MANIGLIE DEL CONTORNO (E33: niente maniglie dell'ingombro, rotazione e riquadro). In ordine di disegno: fasce dei lati,
+   tondi, punti — così al clic vince punto > tondo > lato (> interno della forma, che sta sotto). Il tondo non c'è sui lati
+   più corti di 20 px. Decorazione: aria-hidden (la strada da tastiera è il pannello). */
+function custContornoMarkup(it){
+  var C=window.__custContorno, an=custAnelliDi(it); if(!C || !an) return "";
+  var k=cmPerPx(), q=hSize(4.5), rt=hSize(5), banda=hSize(12), id=esc(it.id), lati="", tondi="", punti="";
+  var dati=function(t, ri, i){ return ' data-cc="'+t+'" data-id="'+id+'" data-r="'+ri+'" data-i="'+i+'"'; };
+  an.forEach(function(R, ri){ var n=R.length;
+    for(var i=0;i<n;i++){ var a=R[i], b=R[(i+1)%n], A=custArco(a, b, +a[2]||0); if(!A.c) continue;
+      var onL=(C.r===ri && C.lato===i) ? " on" : "";
+      lati+='<path class="cc-lato'+onL+'"'+dati("lato", ri, i)+' d="'+custPathLato(a, b)+'" stroke-width="'+banda+'"/>';
+      if(A.c/k>=20) tondi+='<circle class="cc-tondo'+onL+'"'+dati("tondo", ri, i)+' cx="'+custR6(A.mezzo[0])+'" cy="'+custR6(A.mezzo[1])+'" r="'+rt+'"/>';
+    }
+    R.forEach(function(p, i){ var onP=(C.r===ri && C.punto===i) ? " on" : "";
+      punti+='<rect class="cc-pt'+onP+'"'+dati("pt", ri, i)+' x="'+custR6(p[0]-q)+'" y="'+custR6(p[1]-q)+'" width="'+custR6(2*q)+'" height="'+custR6(2*q)+'"/>'; });
+  });
+  return '<g class="cust-cc" aria-hidden="true">'+lati+tondi+punti+'</g>';
+}
+
+/* LA SEZIONE «CONTORNO» del pannello: segue la selezione (un punto, un lato, niente) */
+function custRenderContorno(it){
+  var C=window.__custContorno, an=custAnelliDi(it); if(!C || !an) return;
+  var att=document.activeElement, set=function(id, v){ var e=custEl(id); if(e && e!==att) e.value=(v==null || !isFinite(v)) ? "" : custCifra(v); };
+  var vis=function(id, on){ var e=custEl(id); if(e) e.hidden=!on; }, txt=function(id, s){ var e=custEl(id); if(e) e.textContent=s; };
+  var nf=an.length-1, R=an[C.r]||an[0], n=R.length, pre=C.r>0 ? "Foro "+C.r+" · " : "";
+  txt("custCcTitolo", "Contorno · "+custContaAnelli(an)+" punti"+(nf ? " · "+nf+(nf===1 ? " foro" : " fori") : ""));
+  vis("custCcPunto", C.punto!=null); vis("custCcLato", C.lato!=null); vis("custCcTutti", C.punto==null && C.lato==null);
+  if(C.punto!=null && R[C.punto]){
+    var p=R[C.punto], D=custAngoloDi(R, C.punto), no=D.no==="arco" ? "Arrotonda va fra due lati dritti." : D.no ? "Un angolo piatto non si arrotonda." : "";
+    txt("custCcPNome", pre+"Punto "+(C.punto+1)+" di "+n); set("custCcX", p[0]); set("custCcY", p[1]); set("custCcRaggioA", custCcRaggio);
+    var ba=custEl("custCcArrotonda"); if(ba) ba.disabled=!!no; txt("custCcArrNota", no); vis("custCcArrNota", !!no);
+    var bt=custEl("custCcTogli"); if(bt) bt.disabled=n<=3;
+    vis("custCcTogliForo", C.r>0);
+  }
+  if(C.lato!=null && R[C.lato]){
+    var A=custArco(R[C.lato], R[(C.lato+1)%n], +R[C.lato][2]||0);
+    txt("custCcLNome", pre+"Lato "+(C.lato+1)+" di "+n); txt("custCcCorda", "Corda "+custCifra(A.c)+" cm");
+    set("custCcFreccia", custFrecciaMostrata(R, C.lato)); set("custCcRaggio", A.cx==null ? null : A.r);
+    txt("custCcFrecciaNota", C.r>0 ? "Freccia: + allarga il foro, − lo stringe." : "Freccia: + in fuori, − in dentro. Raggio: almeno metà della corda.");
+  }
+  if(C.punto==null && C.lato==null) set("custCcRaggioT", custCcRaggio);
+}
 /* ---------- 7. le azioni del progetto vero sono ferme mentre l'editor è aperto ---------- */
 /* Comandi che agirebbero sul progetto vero (o lo esporterebbero leggendo il palco temporaneo): sono nascosti dal CSS
    (body.cust-editor) e, se arrivano lo stesso (scorciatoie, proxy, ricerca), si fermano qui col messaggio unico. */
@@ -9906,7 +10007,7 @@ function custBlocca(){ if(!custEditorAttivo()) return false; custEditorAvvisa();
     Array.prototype.forEach.call(document.querySelectorAll("#custBar [data-cust-tool]") || [], function(b){
       b.addEventListener("click", function(){ custStrumento(b.getAttribute("data-cust-tool")); }); });
   }catch(e){}
-  on("custGuidaEsci", "click", function(){ var m=window.__custDraw && window.__custDraw.mode; if(m==="area"){ custAreaFine(); render(); } else custStrumento("sel"); });
+  on("custGuidaEsci", "click", function(){ var m=window.__custDraw && window.__custDraw.mode; if(m==="area"){ custAreaFine(); render(); } else if(!m && window.__custContorno) custContornoEsci(); else custStrumento("sel"); });
   on("custFill", "input", function(){ custApplicaStile("fill", this.value, false); });
   on("custFill", "change", function(){ custApplicaStile("fill", this.value, true); });
   on("custNoFill", "change", function(){ custApplicaStile("noFill", this.checked, true); });
@@ -11122,6 +11223,7 @@ function selHandlesMarkup(){
   if(!it) return '';
   var t=itemTypeDef(it); if(!t) return '';
   if(!itemLiveOnStage(it)) return '';                     /* elemento non disegnato o non manovrabile: niente maniglie sospese nel vuoto */
+  if(window.__custContorno && window.__custContorno.id===it.id) return custContornoMarkup(it);   /* Contorni: punti, tondi e lati al posto delle maniglie */
   var attrId=esc(it.id);
   var bw = it.w/2 + selMargine(it), bh = it.d/2 + selMargine(it);   /* stesso riquadro aderente del selbox: le maniglie ci stanno sopra */
   var _fit=_selFit[it.id], topY=_fit ? _fit.y1 : -bh;     /* bordo alto del riquadro misurato sul disegno (26/09) */
@@ -19963,7 +20065,7 @@ svg.addEventListener("pointerdown", function(e){
     if(dcId){ selectOne(dcId); render();
       var dcIt=(state.items||[]).find(function(i){ return i.id===dcId; });
       if(dcIt && dcIt.type==="custshape"){   /* «Crea elemento»: doppio clic su un testo = lo riscrivi lì; sulle altre forme non apre altro */
-        e.preventDefault(); if(dcIt.k==="text") custTestoModifica(dcId, false); }
+        e.preventDefault(); if(dcIt.k==="text") custTestoModifica(dcId, false); else custContornoEntra(dcId); }   /* Contorni: le altre forme entrano nel contorno (se l'interruttore è acceso) */
       else if(dcIt && dcIt.type==="custom" && custIngressiAttivi()){   /* elemento personalizzato: si riapre nell'editor (sul telefono: «disponibile dal computer») */
         e.preventDefault(); if(isMobile()) custSoloDalComputer("Modifica elemento"); else custModificaElemento(dcId); }
       else if(dcIt && !isMobile() && dcIt.type!=="testo" && dcIt.type!=="forma" && custIngressiAttivi() && custBaseDi(dcIt)){

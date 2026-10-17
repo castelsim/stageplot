@@ -11620,6 +11620,49 @@ t("contorni: con 200 forme da 50 punti con archi l'aggancio sta largo dentro un 
   ok(tM < 8, "a movimento " + tM.toFixed(3) + " ms (budget: mezzo fotogramma a 60 Hz, come la Tappa A)");
   ok(tB < 500, "bersagli " + tB.toFixed(1) + " ms, una volta per gesto (65 ms sul Mac; CI ~3× più lenta)");
 });
+/* l'interruttore acceso solo dentro la prova (in produzione resta spento fino alla PR di accensione) */
+function conContorni(fn) { const prima = A.custContorniAttivi; A.custContorniAttivi = () => true; try { return fn(); } finally { A.custContorniAttivi = prima; A.__custContorno = null; } }
+t("contorni: interruttore SPENTO — doppio clic e «Modifica contorno» non entrano; i pulsanti nuovi non si vedono; archi e fori si disegnano lo stesso", () => conCampi((campi, el) => {
+  precEditor(300, 200);
+  const r = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 120, y: 80 }); A.selectOne(r.id); A.render();
+  eq(A.custContornoEntra(r.id), false, "spento: non si entra"); eq(A.__custContorno, null);
+  ok(/if\(dcIt\.k==="text"\) custTestoModifica\(dcId, false\); else custContornoEntra\(dcId\);/.test(appjs), "il doppio clic passa da custContornoEntra (che guarda l'interruttore)");
+  eq([el("custFormaCc").hidden, el("custContorno").hidden], [true, true], "niente «Modifica contorno», niente sezione Contorno");
+  const p = ccForma({ k: "poly", pts: [[150, 20, 0.5], [250, 20], [250, 80]], holes: [[[200, 40], [220, 40], [210, 60]]] });
+  ok(/fill-rule="evenodd"/.test(A.TYPES.custshape.draw(p)), "le forme con archi e fori si disegnano anche a interruttore spento");
+}));
+t("contorni: si entra (una sola forma), le maniglie sono punti, tondi e lati; niente maniglie dell'ingombro; Fine esce e la forma resta selezionata", () => conCampi((campi, el) => conContorni(() => {
+  precEditor(300, 200);
+  const r = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 120, y: 80 }); A.selectOne(r.id);
+  const prima = JSON.stringify(r);
+  ok(A.custContornoEntra(r.id), "dentro"); eq(A.__custContorno, { id: r.id, r: 0, punto: null, lato: null });
+  eq(JSON.stringify(ccDi(r.id)), prima, "entrare non cambia niente (il rettangolo diventa contorno solo al primo gesto)");
+  const m = A.selHandlesMarkup();
+  eq([(m.match(/data-cc="pt"/g) || []).length, (m.match(/data-cc="tondo"/g) || []).length, (m.match(/data-cc="lato"/g) || []).length], [4, 4, 4]);
+  ok(!/rs-handle|rot-handle/.test(m), "niente maniglie dell'ingombro né di rotazione");
+  ok(m.indexOf('data-cc="lato"') < m.indexOf('data-cc="tondo"') && m.indexOf('data-cc="tondo"') < m.indexOf('data-cc="pt"'), "ordine: lati, tondi, punti (al clic vince il punto)");
+  ok(/body\.cust-contorno \.item\.selected \.selbox\{display:none\}/.test(stylesCss), "il riquadro di selezione sparisce");
+  eq([el("custContorno").hidden, el("custFormaCc").hidden], [false, true], "il pannello mostra «Contorno»");
+  ok(/<b>Contorno<\/b>/.test(el("custGuidaTxt").innerHTML || ""), "la riga d'aiuto");
+  const k0 = A.cmPerPx; try { A.cmPerPx = () => 6; eq((A.selHandlesMarkup().match(/data-cc="tondo"/g) || []).length, 0, "lati sotto 20 px (100 cm a 6 cm/px): niente tondo"); } finally { A.cmPerPx = k0; }
+  ok(A.custContornoEsci(), "Fine"); eq(A.__custContorno, null); ok(A.getSel() && A.getSel().id === r.id, "la forma resta selezionata");
+  A.custStrumento("rect"); eq(A.custContornoEntra(r.id), false, "con uno strumento di disegno acceso non si entra"); A.custStrumento("sel");
+  const ln = A.custNuovaForma("line", { x: 10, y: 150 }, { x: 90, y: 150 }); eq(A.custContornoEntra(ln.id), false, "la linea no");
+})));
+t("contorni (rev.): Annulla con un punto selezionato in un foro che non c'è più — si resta nel contorno, la selezione si toglie, niente errori", () => conCampi(() => conContorni(() => {
+  precEditor(300, 200);
+  const p = ccForma({ k: "poly", pts: [[20, 20], [20, 180], [280, 180], [280, 20]] });
+  A.primaDiAgire(); const q = ccDi(p.id); q.holes = [[[0.0, 0.0], [0.1, 0.0], [0.05, 0.1], [0.0, 0.1]]]; A.save();   /* un foro arriva (Piano 2: da Sottrai) */
+  ok(A.custContornoEntra(p.id), "dentro");
+  Object.assign(A.__custContorno, { r: 1, punto: 3 });
+  A.undo();
+  eq(A.__custContorno && A.__custContorno.id, p.id, "si resta nel contorno della stessa forma");
+  eq([A.__custContorno.r, A.__custContorno.punto], [0, null], "il foro non c'è più: selezione tolta");
+  eq(A.getSel() && A.getSel().id, p.id, "la forma resta selezionata dopo l'Annulla");
+  A.redo(); eq(A.__custContorno.id, p.id, "Ripeti: idem");
+  A.state.items = A.state.items.filter((x) => x.id !== p.id); A.custContornoDopoStoria();
+  eq(A.__custContorno, null, "se la forma non c'è più, si esce");
+})));
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");
