@@ -1,3 +1,34 @@
+# 17/10/2026 — Crea elemento, Contorni: lettore e gesti spenti (Piano 1, PR 1, ramo `crea-elemento-contorni`)
+
+- Simone (14-16/10): «più libertà di disegnare». Spec `crea-elemento-registro/tappa-contorni/2026-10-16-crea-elemento-contorni-design.md`
+  (fuori dal repo, E1–E33), piano 1 accanto; approvato il 17/10. Le booleane (Unisci/Sottrai/Interseca) sono il Piano 2.
+- **Formato**: la `poly` di sempre con il terzo numero nel punto (`[x, y, b]`, bulge del DXF con y capovolto: b > 0 = antiorario
+  a vista; esempio fisso: da (0,0) a (10,0) con b = 1 il semicerchio passa per (5,5)) e `holes` (anelli, pari-dispari). Limiti
+  nuovi in `custLimiti()`: `FORI` 50, `PUNTI_FORMA` 1000, `PUNTI_EL` 40 000, `JSON_REV` 300 000. `custNorm` legge e taglia, non
+  pulisce: un progetto di oggi esce identico (collaudo 30/30).
+- **Disegno**: senza archi né fori il `<polygon>` di sempre; con archi o fori `<path fill-rule="evenodd">` (`custPathAnelli`).
+  Ingombro vero con gli archi (`custIngombroAnelli`): `w/d` della `custshape`, X/Y/L/P del pannello (L/P per bisezione,
+  `custScalaVera`), maniglie (`custRiallinea` al rilascio). PDF vettoriale: 30 curve `c` e 2 riempimenti `f*` nel PDF di prova,
+  foro vuoto; PNG e miniature passano da `drawCustom`.
+- **Gesti** (dietro `custContorniAttivi()` = **false**): doppio clic o «Modifica contorno» → `window.__custContorno` (stato
+  dell'interfaccia, mai nel documento); punti, tondo a metà lato (curva, aggancio dritto/mezzo cerchio/passa per un punto/griglia),
+  clic sul lato = punto nuovo senza cambiare la forma, Alt+clic e ⌫ tolgono (mai sotto 3, ⌫ non cancella mai la forma), Esc
+  durante il gesto = niente passo, Arrotonda un angolo o tutti (rettangolo non convertito: prende `r`), pannello «Contorno» con
+  X/Y, freccia, raggio, Dritto, ◀ ▶. Rettangolo ed ellisse diventano contorno solo al primo gesto, nello stesso passo di Annulla.
+- **Server** (`_shared/feedback-validation.ts`, `feedback-prompt.ts`): JSON di revisione fino a 300 000 caratteri, conteggi
+  `punti/archi/fori` (interi o null). **Deploy di `submit-feedback` da Simone dopo il merge**, prima dell'accensione.
+- Misure (Mac, 17/10): drawCustom 40 000 punti dritte 73 ms, con archi 103 ms (la soglia è relativa: il codice di oggi è già
+  sopra i 5 ms della spec, vedi Note del piano); aggancio 200 forme × 50 punti con archi 1,85 ms a movimento (30 004 lati,
+  soglia 8 ms), bersagli 65 ms una volta per gesto (soglia 500 ms), tondo 0,12 ms.
+- Prove: engines 1716/1716 (39 test nuovi «contorni…»), collaudo 30/30, biglietteria 148/148, orchestre 124/124, Deno 208/208,
+  lint pulito; mutazioni 18/18 uccise; build `51c5c61` apre banco curvo e anello senza errori (lati dritti, niente foro);
+  Chromium (porta 8975): banco curvo, mezzaluna, anello da JSON col foro modificato, cursori, «+», Esc, ⌘Z, tema scuro.
+  Schermate e script in `STAGEPLOT/anteprime-crea-elemento/2026-10-17_contorni_*`.
+- **Rilascio**: 1) merge della PR 1; 2) Simone: `supabase functions deploy submit-feedback --project-ref vsodplqkuvnsdiikvmjb`
+  e verifica (POST anonimo «elemento» → 401 `login_richiesto`); 3) dopo 24–48 h la PR 2 di accensione (Appendice A del piano:
+  `custContorniAttivi()` → `true`, una riga, e il test dell'interruttore spento con `conContorniSpenti`). Per spegnere dopo:
+  `false`, mai un revert.
+
 # 16/10/2026 — Lo sgabello dei timpani entra nei conteggi (ramo `sgabello-timpani`)
 
 - Segnalazione di Simone: il disegno dei timpani con «Sgabello» acceso (`parts.stool!==false`) ha lo sgabello, ma cartiglio e Stato no.
