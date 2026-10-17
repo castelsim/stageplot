@@ -11567,6 +11567,59 @@ t("contorni: Arrotonda tutti gli angoli — 8 punti; un lato corto ne cede metà
   const t2 = A.custArrotondaTutto(T, 5); eq([t2.fatti, t2.anello.length], [2, 6], "gli angoli accanto all'arco restano");
   eq(A.custArrotondaTutto(A.custEllisseInAnello({ cx: 0, cy: 0, rx: 10, ry: 10 }), 5).anello, null, "un cerchio non ha angoli");
 });
+t("contorni: bersagli — metà arco «Punto medio», centro dell'arco «Centro» (non quello di un arco quasi dritto), «Sul bordo» sull'arco", () => {
+  const sup = { w: 400, d: 300 };
+  const it = A.custShapeDaForma(Object.assign({ k: "poly" }, CC_ST, { pts: [[100, 100], [100, 200, 1], [200, 200], [200, 100, 0.001]] }));   /* in basso un mezzo cerchio verso il basso; in alto un arco quasi dritto */
+  const B = A.custBersagli([it], {}, sup);
+  eq(precTipi(B, 150, 250), ["medio"], "metà del mezzo cerchio");
+  eq(precTipi(B, 150, 200), ["centro"], "il centro del mezzo cerchio");
+  ok(!B.punti.some((p) => p.t === "centro" && Math.abs(p.y) > 1000), "il centro dell'arco quasi dritto (lontanissimo) non c'è");
+  const r = A.custAggancioPunto({ x: 150 + 50 * Math.cos(Math.PI / 5) + 0.4, y: 200 + 50 * Math.sin(Math.PI / 5) }, B, 0.2, 2, Math.round);
+  eq(r.t, "bordo", "sul mezzo cerchio, fra due punti: «Sul bordo»");
+  ok(Math.abs(Math.hypot(r.x - 150, r.y - 200) - 50) < 1, "sull'arco spezzato in 8 segmenti (scarto massimo 50·(1 − cos 11,25°) = 0,96 cm)");
+});
+t("contorni: bersagli del punto che si muove — gli altri punti della stessa forma sì, lui e i medi dei suoi due lati no", () => {
+  const an = [[[0, 0], [0, 80], [300, 80], [300, 0]]];
+  const B = A.custBersagliContorno([], "x", an, 0, 1, { w: 400, d: 300 });
+  ok(precTipi(B, 0, 0).indexOf("vertice") >= 0 && precTipi(B, 300, 80).indexOf("vertice") >= 0, "gli altri vertici");
+  eq(precTipi(B, 0, 80), [], "non sé stesso");
+  eq([precTipi(B, 0, 40), precTipi(B, 150, 80)], [[], []], "né i medi dei suoi due lati");
+  eq(precTipi(B, 150, 0), ["medio"], "il medio di un lato che non si muove sì");
+});
+t("contorni: aggancio del tondo — dritto, mezzo cerchio, passa per un punto, griglia; ⌘ libero", () => {
+  const a = [0, 80], b = [300, 80], o = { tol: 8, tolP: 10, passo: 5 };   /* nel sandbox 1 px = 1 cm */
+  eq(A.custAggancioFreccia(a, b, [150, 86], null, o).t, "dritto");
+  eq(A.custAggancioFreccia(a, b, [150, 86], null, o).bulge, 0);
+  const m = A.custAggancioFreccia(a, b, [150, 225], null, o); eq([m.t, m.bulge, m.s], ["mezzo", 1, 150], "freccia 145 → mezzo cerchio 150");
+  const B = { punti: [{ x: 150, y: 120, t: "vertice" }] };
+  const p = A.custAggancioFreccia(a, b, [152, 114], B, o);
+  eq([p.t, r6(p.s), p.punto.t], ["punto", 40, "vertice"], "l'arco passa per (150,120): freccia 40");
+  eq(A.custAggancioFreccia(a, b, [150, 113], null, o).s, 35, "griglia: 33 → 35");
+  eq(r6(A.custAggancioFreccia(a, b, [150, 113], B, Object.assign({ libero: true }, o)).s), 33, "⌘: libero");
+  eq(A.custAggancioFreccia(a, b, [150, 999], null, Object.assign({}, o, { libero: true })).s, 150, "mai oltre mezzo cerchio");
+  eq([A.custScrittaLato(300, 30, 0.2, null), A.custScrittaLato(300, 150, 1, "mezzo"), A.custScrittaLato(300, 0, 0, "dritto")],
+    ["Freccia 30 cm · Raggio 390 cm", "Mezzo cerchio · Raggio 150 cm", "Dritto"]);
+  eq(A.custScrittaPunto([[0, 0], [0, 82.5], [120, 82.5]], 1), "← 82,5 cm · 120 cm →");
+});
+t("contorni: con 200 forme da 50 punti con archi l'aggancio sta largo dentro un fotogramma (misurato)", () => {
+  const items = [];
+  for (let f = 0; f < 200; f++) { const cx = (f % 20) * 20 + 10, cy = Math.floor(f / 20) * 20 + 10, pts = [];
+    for (let i = 0; i < 50; i++) { const g = -i / 50 * 2 * Math.PI; pts.push([cx + 8 * Math.cos(g), cy + 8 * Math.sin(g), 0.3]); }
+    items.push(A.custShapeDaForma(Object.assign({ k: "poly" }, CC_ST, { pts }))); }
+  const P = globalThis.performance;
+  let t0 = P.now(); const B = A.custBersagli(items, {}, { w: 400, d: 200 }); const tB = P.now() - t0;
+  const N = 1000; let tM = Infinity;
+  for (let g = 0; g < 3; g++) { t0 = P.now();
+    for (let i = 0; i < N; i++) A.custAggancioPunto({ x: (i * 37) % 400, y: (i * 53) % 200 }, B, 2, 1.6, Math.round);
+    tM = Math.min(tM, (P.now() - t0) / N); }
+  let tF = Infinity;
+  for (let g = 0; g < 3; g++) { t0 = P.now(); for (let i = 0; i < N; i++) A.custAggancioFreccia([0, 0], [100, 0], [(i * 37) % 400, (i * 53) % 200], B, { tol: 1.6, tolP: 2, passo: 1 }); tF = Math.min(tF, (P.now() - t0) / N); }
+  console.log("      [misura] tondo a movimento " + tF.toFixed(3) + " ms");
+  ok(tF < 8, "tondo a movimento " + tF.toFixed(3) + " ms");
+  console.log("      [misura] 200 forme × 50 punti con archi: bersagli " + tB.toFixed(1) + " ms, aggancio a movimento " + tM.toFixed(3) + " ms (" + B.lati.length + " lati)");
+  ok(tM < 8, "a movimento " + tM.toFixed(3) + " ms (budget: mezzo fotogramma a 60 Hz, come la Tappa A)");
+  ok(tB < 500, "bersagli " + tB.toFixed(1) + " ms, una volta per gesto (65 ms sul Mac; CI ~3× più lenta)");
+});
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");
