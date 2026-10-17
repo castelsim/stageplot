@@ -11663,6 +11663,100 @@ t("contorni (rev.): Annulla con un punto selezionato in un foro che non c'è pi�
   A.state.items = A.state.items.filter((x) => x.id !== p.id); A.custContornoDopoStoria();
   eq(A.__custContorno, null, "se la forma non c'è più, si esce");
 })));
+/* un bersaglio finto del contorno per i gestori veri: e.target.closest("[data-cc]") */
+const ccSu = (t, r, i) => ({ closest: (s) => (s === "[data-cc]" ? { getAttribute: (k) => ({ "data-cc": t, "data-r": String(r), "data-i": String(i) })[k] } : null) });
+const ccDentro = (id) => ({ closest: (s) => (s === ".item" ? { getAttribute: (k) => (k === "data-id" ? id : null) } : null) });
+t("contorni: trascinare un punto — aggancio al vertice di un'altra forma, i lati tengono la curvatura, un passo di Annulla; un clic fermo seleziona soltanto", () => conCampi(() => conContorni(() => conPuntatore((ev) => {
+  precEditor(400, 300); A.custAggancio = false;
+  const altro = ccForma({ k: "poly", pts: [[300, 20], [380, 20], [340, 80]] });
+  const p = ccForma({ k: "poly", pts: [[20, 20], [20, 180, 0.4], [280, 180], [280, 20]] });
+  ok(A.custContornoEntra(p.id), "dentro");
+  const passi = A.undoStack.length;
+  ok(A.custContornoDown(ev(280, 180, { target: ccSu("pt", 0, 2) })), "preso il punto 3");
+  eq([A.drag.mode, A.__custContorno.punto], ["ccpunto", 2]);
+  A.custContornoRilascio(); eq(A.undoStack.length, passi, "clic fermo: niente passo");
+  A.custContornoDown(ev(280, 180, { target: ccSu("pt", 0, 2) }));
+  A.custContornoMuovi(ev(296, 24));   /* a 5 cm dal vertice (300,20) dell'altra forma */
+  A.custContornoRilascio();
+  const an = A.custAnelliDi(ccDi(p.id));
+  eq(an[0][2].slice(0, 2), [300, 20], "agganciato al vertice");
+  eq(an[0][1][2], 0.4, "il lato prima tiene la sua curvatura (l'arco si allunga con lo stesso angolo)");
+  eq(A.undoStack.length - passi, 1, "un passo");
+  A.undo(); eq(A.custAnelliDi(ccDi(p.id))[0][2], [280, 180], "Annulla");
+  void altro;
+}))));
+t("contorni: clic su un lato aggiunge un punto (la forma non cambia) e «premi e trascina» lo sposta subito: un passo solo", () => conCampi(() => conContorni(() => conPuntatore((ev) => {
+  precEditor(400, 300); A.custAggancio = false; A.custAggancioPunti = false;
+  const p = ccForma({ k: "poly", pts: [[20, 20], [20, 180], [280, 180], [280, 20]] });
+  A.custContornoEntra(p.id); const passi = A.undoStack.length;
+  const disegna = A.custDisegnaAggancio; let vis = null; A.custDisegnaAggancio = (o) => { vis = o; };
+  try { ok(A.custContornoSopra(ev(150, 183, { target: ccSu("lato", 0, 1) })), "passando sul lato"); } finally { A.custDisegnaAggancio = disegna; }
+  eq(vis.fantasma, { x: 150, y: 180 }, "il punto fantasma «+» sta sul lato");
+  ok(A.custContornoDown(ev(150, 183, { target: ccSu("lato", 0, 1) })), "clic sul lato in basso");
+  A.custContornoRilascio();
+  eq(A.custAnelliDi(ccDi(p.id))[0], [[20, 20], [20, 180], [150, 180], [280, 180], [280, 20]], "il punto nasce sul lato, la forma non cambia");
+  eq([A.__custContorno.punto, A.undoStack.length - passi], [2, 1], "selezionato; un passo");
+  A.custContornoDown(ev(100, 181, { target: ccSu("lato", 0, 1) })); A.custContornoMuovi(ev(100, 230)); A.custContornoRilascio();
+  eq(A.custAnelliDi(ccDi(p.id))[0][2], [100, 230], "aggiungi e sposta");
+  eq(A.undoStack.length - passi, 2, "un passo per «aggiungi e sposta»");
+  A.undo(); eq(A.custAnelliDi(ccDi(p.id))[0].length, 5, "Annulla toglie il punto aggiunto e spostato insieme");
+}))));
+t("contorni: il tondo curva il lato — aggancio dritto e mezzo cerchio, scritta con freccia e raggio, un passo; un clic fermo seleziona il lato", () => conCampi(() => conContorni(() => conPuntatore((ev) => {
+  precEditor(400, 300); A.custAggancio = false; A.custAggancioPunti = false;
+  const p = ccForma({ k: "poly", pts: [[20, 20], [20, 100], [320, 100], [320, 20]] });   /* antiorario: il lato 1 è quello in basso */
+  A.custContornoEntra(p.id); const passi = A.undoStack.length;
+  A.custContornoDown(ev(170, 100, { target: ccSu("tondo", 0, 1) })); A.custContornoRilascio();
+  eq([A.__custContorno.lato, A.__custContorno.punto, A.undoStack.length - passi], [1, null, 0], "clic fermo: il lato selezionato, niente passo");
+  const disegna = A.custDisegnaAggancio; let vis = null; A.custDisegnaAggancio = (o) => { vis = o; };
+  try { A.custContornoDown(ev(170, 100, { target: ccSu("tondo", 0, 1) })); A.custContornoMuovi(ev(170, 130)); } finally { A.custDisegnaAggancio = disegna; }
+  eq([vis.scritta.testo, vis.corda, vis.guide.length], ["Freccia 30 cm · Raggio 390 cm", { x1: 20, y1: 100, x2: 320, y2: 100 }, 1], "scritta, corda tratteggiata e perpendicolare");
+  A.custContornoRilascio();
+  const R = A.custAnelliDi(ccDi(p.id))[0];
+  eq([r6(R[1][2]), r6(A.custFrecciaMostrata(R, 1))], [0.2, 30], "freccia +30 (in fuori)");
+  eq(A.undoStack.length - passi, 1, "un passo");
+  A.custContornoDown(ev(170, 130, { target: ccSu("tondo", 0, 1) })); A.custContornoMuovi(ev(170, 104)); A.custContornoRilascio();
+  eq(A.custAnelliDi(ccDi(p.id))[0][1].length, 2, "entro 8 px da dritto: dritto");
+  A.custContornoDown(ev(170, 100, { target: ccSu("tondo", 0, 1) })); A.custContornoMuovi(ev(170, 245)); A.custContornoRilascio();
+  eq(A.custAnelliDi(ccDi(p.id))[0][1][2], 1, "entro 8 px da mezzo cerchio: mezzo cerchio");
+}))));
+t("contorni: Alt+clic e ⌫ tolgono un punto (minimo 3); clic dentro la forma la sposta; clic altrove esce dal contorno", () => conCampi(() => conContorni(() => conPuntatore((ev) => {
+  precEditor(400, 300);
+  const p = ccForma({ k: "poly", pts: [[20, 20], [20, 180], [150, 200], [280, 180], [280, 20]] });
+  A.custContornoEntra(p.id);
+  ok(A.custContornoDown(ev(150, 200, { target: ccSu("pt", 0, 2), altKey: true })), "Alt+clic");
+  eq(A.custAnelliDi(ccDi(p.id))[0].length, 4);
+  A.custContornoTogli(0, 0); eq(A.custAnelliDi(ccDi(p.id))[0].length, 3);
+  eq(A.custContornoTogli(0, 0), false, "non sotto 3"); eq(A.custAnelliDi(ccDi(p.id))[0].length, 3);
+  eq(A.custContornoDown(ev(100, 100, { target: ccDentro(p.id) })), false, "dentro la forma: il gestore di sempre (la sposta)");
+  ok(A.__custContorno, "…e si resta nel contorno");
+  eq(A.custContornoDown(ev(390, 290, { target: { closest: () => null } })), false, "a vuoto: il gestore di sempre");
+  eq(A.__custContorno, null, "…e si esce");
+}))));
+t("contorni (rev.): Esc durante «aggiungi e sposta» su un rettangolo non ancora convertito — rettangolo identico, nessun passo di Annulla", () => conCampi(() => conContorni(() => conPuntatore((ev) => {
+  precEditor(400, 300);
+  const r = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 220, y: 120 }); A.save();
+  const prima = JSON.stringify(ccDi(r.id)), passi = A.undoStack.length;
+  A.custContornoEntra(r.id);
+  A.custContornoDown(ev(120, 121, { target: ccSu("lato", 0, 1) })); A.custContornoMuovi(ev(120, 160));
+  eq(ccDi(r.id).k, "poly", "durante il gesto è già un contorno");
+  ok(A.custContornoAnnullaGesto(), "Esc");
+  eq([JSON.stringify(ccDi(r.id)), A.undoStack.length, A.drag], [prima, passi, null], "com'era, nessun passo");
+  A.custContornoDown(ev(20, 20, { target: ccSu("pt", 0, 0) })); A.custContornoMuovi(ev(30, 30)); ok(A.custContornoAnnullaGesto(), "Esc trascinando un punto");
+  eq(JSON.stringify(ccDi(r.id)), prima, "anche qui");
+  A.custContornoDown(ev(20, 20, { target: ccSu("pt", 0, 0) })); A.custContornoMuovi(ev(30, 30)); A.custContornoRilascio();
+  A.undo(); const u = ccDi(r.id); eq([u.k, u.x, u.y, u.w, u.d, u.pts], ["rect", 120, 70, 200, 100, undefined], "dopo il primo gesto vero, un Annulla lo riporta rettangolo");
+}))));
+t("contorni (rev.): una forma ruotata dalla maniglia, al primo gesto, cuoce la rotazione senza spostare niente", () => conCampi(() => conContorni(() => conPuntatore((ev) => {
+  precEditor(400, 300); A.custAggancio = false; A.custAggancioPunti = false;
+  const r = A.custNuovaForma("rect", { x: 100, y: 100 }, { x: 260, y: 160 }); r.rot = 30; A.save();
+  const prima = A.custAnelliDi(ccDi(r.id))[0].map(r6a);
+  A.custContornoEntra(r.id);
+  A.custContornoDown(ev(prima[0][0], prima[0][1], { target: ccSu("pt", 0, 0) })); A.custContornoMuovi(ev(150, 60)); A.custContornoRilascio();
+  const dopo = A.custAnelliDi(ccDi(r.id))[0].map(r6a);
+  eq(ccDi(r.id).rot, 0, "la rotazione è nei punti");
+  eq(dopo.slice(1), prima.slice(1), "gli altri punti restano dove si vedevano");
+  eq(dopo[0], [150, 60], "solo quello trascinato si sposta");
+}))));
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");

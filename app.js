@@ -9457,6 +9457,12 @@ function custDisegnaAggancio(o){
     var bw=txt.length*fs*0.58+hSize(10), bh=fs*1.6;
     s+='<rect rx="'+hSize(3)+'" x="'+(cx-bw/2)+'" y="'+(cy-bh/2)+'" width="'+bw+'" height="'+bh+'"/><text text-anchor="middle" x="'+cx+'" y="'+(cy+fs*0.36)+'" font-size="'+fs+'">'+esc(txt)+'</text></g>';
   });
+  /* Contorni: la corda tratteggiata del lato che si curva, il punto fantasma «+», la scritta con le misure */
+  if(o.corda) s+='<line class="cust-corda" x1="'+o.corda.x1+'" y1="'+o.corda.y1+'" x2="'+o.corda.x2+'" y2="'+o.corda.y2+'"/>';
+  if(o.fantasma){ var fx=o.fantasma.x, fy=o.fantasma.y, fr=hSize(5), fp=fr*0.55;
+    s+='<g class="cust-fantasma"><circle cx="'+fx+'" cy="'+fy+'" r="'+fr+'"/><path d="M'+(fx-fp)+' '+fy+'H'+(fx+fp)+'M'+fx+' '+(fy-fp)+'V'+(fy+fp)+'"/></g>'; }
+  if(o.scritta && o.scritta.testo){ var sw=o.scritta.testo.length*fs*0.58+hSize(12), sh=fs*1.6, sx=o.scritta.x+hSize(14), sy=o.scritta.y-hSize(14)-sh;
+    s+='<g class="cust-scritta"><rect rx="'+hSize(3)+'" x="'+sx+'" y="'+sy+'" width="'+sw+'" height="'+sh+'"/><text x="'+(sx+hSize(6))+'" y="'+(sy+sh*0.7)+'" font-size="'+fs+'">'+esc(o.scritta.testo)+'</text></g>'; }
   var m=o.segno;
   if(m && m.t && CUST_NOME_PUNTO[m.t]){
     var x=m.x, y=m.y, f;
@@ -9854,6 +9860,7 @@ function custMuoviNellEditor(e){
     var one=selIds().length===1 ? getSel() : null; if(one && one.type==="custshape") custRenderForma(one);   /* X e Y del pannello seguono la forma */
     return true;
   }
+  if(drag.mode==="ccpunto" || drag.mode==="cctondo") return custContornoMuovi(e);   /* Contorni */
   if(drag.mode==="custcapo"){
     var v=custCapoSposta(drag, e), it=state.items.find(function(i){ return i.id===drag.id; });
     if(it){ redrawItemNode(it); redrawSelHandles(); custRenderForma(it); } custDisegnaAggancio(v);
@@ -9959,6 +9966,115 @@ function custContornoMarkup(it){
   return '<g class="cust-cc" aria-hidden="true">'+lati+tondi+punti+'</g>';
 }
 
+/* ---- Contorni: i gesti col puntatore (§3.1–3.4, §3.8) ---- */
+/* cosa c'è sotto il puntatore: {t:"pt"|"tondo"|"lato", r, i} o null */
+function custContornoBersaglio(e){
+  var el=(e && e.target && e.target.closest) ? e.target.closest("[data-cc]") : null; if(!el) return null;
+  var t=el.getAttribute("data-cc"), r=+el.getAttribute("data-r"), i=+el.getAttribute("data-i");
+  return ((t==="pt" || t==="tondo" || t==="lato") && r>=0 && i>=0) ? {t:t, r:r, i:i} : null;
+}
+function custRimettiForma(it, json){ var o=JSON.parse(json); Object.keys(it).forEach(function(k){ delete it[k]; }); Object.assign(it, o); }
+/* pointerdown sul palco in modalità contorno. true = gestito. Dentro la forma (non su punto, tondo o lato) → false: la si
+   sposta come sempre (Tappa A). Altrove → si esce e il clic fa quello di sempre (seleziona, deseleziona, Maiusc…). */
+function custContornoDown(e){
+  var K=custContorno(); if(!K){ custContornoSpegni(); return false; }
+  if(e.button>0) return false;
+  var h=custContornoBersaglio(e), C=K.C, it=K.it;
+  if(!h){
+    var g=(e.target && e.target.closest) ? e.target.closest(".item") : null;
+    if(g && g.getAttribute("data-id")===it.id && !e.shiftKey) return false;
+    custContornoSpegni(); return false;
+  }
+  e.preventDefault(); lastDown=null; custCcNota="";
+  var an=custAnelliDi(it); if(!an || !an[h.r] || !(h.i<an[h.r].length)) return true;
+  if(h.t==="pt" && e.altKey){ custContornoTogli(h.r, h.i); return true; }   /* Alt+clic toglie, come nelle zone microfoniche */
+  var prima=JSON.stringify(it), sup=custSup(), base={id:it.id, r:h.r, prima:prima, moved:false, sx:e.clientX||0, sy:e.clientY||0};
+  if(h.t==="pt"){
+    C.r=h.r; C.punto=h.i; C.lato=null;
+    drag=Object.assign(base, {mode:"ccpunto", i:h.i, an0:an, B:custBersagliContorno(state.items, it.id, an, h.r, h.i, sup)});
+  } else if(h.t==="tondo"){
+    var esc0={}; esc0[it.id]=true;
+    C.r=h.r; C.lato=h.i; C.punto=null;
+    drag=Object.assign(base, {mode:"cctondo", i:h.i, an0:an, B:custBersagli(state.items, esc0, sup)});
+  } else {   /* il lato: nasce un punto dove c'è il fantasma (la forma non cambia), e si trascina subito */
+    var an1=an.slice(), sp=svgPoint(e);
+    an1[h.r]=custInserisciPunto(an[h.r], h.i, custSulLato(an[h.r], h.i, [sp.x, sp.y]));
+    var lim=custSpazioPunti(an1, custPuntiEditor(it.id)); if(lim){ custToast(lim, true); return true; }
+    primaDiAgire(); custScriviAnelli(it, an1);
+    C.r=h.r; C.punto=h.i+1; C.lato=null;
+    drag=Object.assign(base, {mode:"ccpunto", i:h.i+1, an0:an1, nuovo:true, B:custBersagliContorno(state.items, it.id, an1, h.r, h.i+1, sup)});
+    a11yAnnounce("Punto aggiunto: "+custContaAnelli(an1)+" punti");
+  }
+  try{ svg.setPointerCapture(e.pointerId); }catch(_e){}
+  render(); return true;
+}
+/* il trascinamento (dal gestore del palco): il punto aggancia come nella Tappa A; il tondo come in custAggancioFreccia */
+function custContornoMuovi(e){
+  var d=drag; if(!d || (d.mode!=="ccpunto" && d.mode!=="cctondo")) return false;
+  var it=(state.items||[]).find(function(x){ return x.id===d.id; }); if(!it){ drag=null; return true; }
+  if(!d.moved && !d.nuovo && Math.hypot((e.clientX||0)-d.sx, (e.clientY||0)-d.sy)<3) return true;   /* un clic fermo seleziona soltanto */
+  if(!d.moved){ d.moved=true; if(!d.nuovo) primaDiAgire(); }   /* il primo movimento: qui il rettangolo diventa contorno (E10) */
+  var R0=d.an0[d.r], an=d.an0.slice(), vis;
+  if(d.mode==="ccpunto"){
+    var pp=custPuntoAgganciato(e, d.B), R=custCopiaAnello(R0);
+    R[d.i][0]=pp.x; R[d.i][1]=pp.y; an[d.r]=R;
+    vis=custSegnoDa(pp); vis.scritta={x:pp.x, y:pp.y, testo:custScrittaPunto(R, d.i)};
+  } else {
+    var a=R0[d.i], b=R0[(d.i+1)%R0.length], sp=svgPoint(e), libero=custLibero(e);
+    var ag=custAggancioFreccia(a, b, [sp.x, sp.y], custAggancioPunti ? d.B : null, {tol:hSize(8), tolP:hSize(10), passo:custAggancio ? custPasso() : 0, libero:libero});
+    an[d.r]=custCurvaLato(R0, d.i, ag.bulge);
+    var A=custArco(a, b, ag.bulge), f=custAreaAnello(R0)>0 ? -ag.s : ag.s, m=custArco(a, b, 0).mezzo;
+    vis={guide:[{x1:m[0]-A.nx*A.c/2, y1:m[1]-A.ny*A.c/2, x2:m[0]+A.nx*A.c/2, y2:m[1]+A.ny*A.c/2}], corda:{x1:a[0], y1:a[1], x2:b[0], y2:b[1]},
+         segno:(ag.t==="punto" && ag.punto) ? {x:ag.punto.x, y:ag.punto.y, t:ag.punto.t} : null,
+         scritta:{x:A.mezzo[0], y:A.mezzo[1], testo:custScrittaLato(A.c, f, ag.bulge, ag.t)}};
+  }
+  custScriviAnelli(it, an);
+  redrawItemNode(it); custDisegnaAggancio(vis); custRenderForma(it);
+  return true;
+}
+/* il rilascio: pulizia (§2.5 punto 8), un passo di Annulla se qualcosa è cambiato (anche «aggiungi e sposta» = uno solo) */
+function custContornoRilascio(){
+  var d=drag; drag=null; if(!d) return false;
+  var it=(state.items||[]).find(function(x){ return x.id===d.id; }), C=window.__custContorno, fatto=!!(it && (d.moved || d.nuovo));
+  custPulisciAggancio();
+  if(fatto){
+    var an=custAnelliDi(it), R=custPulisciAnello(an[d.r]);
+    if(R.length!==an[d.r].length && C) C.punto=null;   /* il punto si è fuso col vicino */
+    an[d.r]=R; custScriviAnelli(it, an); save();
+  }
+  render(); custGuida();
+  return fatto;
+}
+/* Esc durante un trascinamento del contorno: la forma torna com'era all'inizio del gesto, nessun passo di Annulla (§3.8) */
+function custContornoAnnullaGesto(){
+  var d=drag; if(!d || (d.mode!=="ccpunto" && d.mode!=="cctondo")) return false;
+  drag=null;
+  var it=(state.items||[]).find(function(x){ return x.id===d.id; }); if(it) custRimettiForma(it, d.prima);
+  try{ svg.classList.remove("dragging"); Object.keys(pointers).forEach(function(k){ try{ svg.releasePointerCapture(+k); }catch(_e){} }); }catch(e){}
+  var C=window.__custContorno; if(C && d.nuovo) C.punto=null;
+  custPulisciAggancio(); render();
+  return true;
+}
+/* passando su un lato (senza trascinare): il punto fantasma «+» dove nascerebbe il punto */
+function custContornoSopra(e){
+  var h=custContornoBersaglio(e), K=custContorno();
+  if(!K || !h || h.t!=="lato"){ custPulisciAggancio(); return false; }
+  var R=(custAnelliDi(K.it)||[])[h.r]; if(!R || !(h.i<R.length)) return false;
+  var sp=svgPoint(e), p=custSulLato(R, h.i, [sp.x, sp.y]);
+  custDisegnaAggancio({fantasma:{x:p[0], y:p[1]}});
+  return true;
+}
+/* togliere il punto i dell'anello r (⌫, Canc, Alt+clic, «Togli punto»): mai sotto 3 punti */
+function custContornoTogli(r, i){
+  var K=custContorno(); if(!K) return false;
+  var an=custAnelliDi(K.it); if(!an || !an[r] || !(i<an[r].length)) return false;
+  var R=custTogliPunto(an[r], i);
+  if(!R){ custToast("Un contorno ha almeno 3 punti."+(r>0 ? " Il foro si toglie con «Togli il foro»." : ""), true); return false; }
+  primaDiAgire(); an[r]=R; custScriviAnelli(K.it, an); save();
+  K.C.r=r; K.C.punto=i % R.length; K.C.lato=null;   /* resta selezionato il punto che veniva dopo: ⌫ di seguito li toglie uno a uno */
+  render(); a11yAnnounce("Punto tolto: "+custContaAnelli(an)+" punti");
+  return true;
+}
 /* LA SEZIONE «CONTORNO» del pannello: segue la selezione (un punto, un lato, niente) */
 function custRenderContorno(it){
   var C=window.__custContorno, an=custAnelliDi(it); if(!C || !an) return;
@@ -20015,6 +20131,7 @@ svg.addEventListener("pointerdown", function(e){
   /* «Crea elemento»: con una modalità di disegno accesa (rettangolo sul palco, strumenti dell'editor) il gesto è un
      disegno, anche sopra un elemento: niente selezione, trascinamento o doppio clic dell'elemento sotto */
   if(window.__custDraw && custPointerDown(e)) return;
+  if(window.__custContorno && custContornoDown(e)) return;   /* Contorni: punti, tondi e lati (prima del doppio clic e delle maniglie) */
   /* doppio-click manuale: robusto al re-render dell'SVG (il dblclick nativo si perde perché render() ricrea il bersaglio) */
   var _gPed = pedanaDelClic(e);   /* «Solo pedane»: dentro una pedana il clic è della pedana, non di chi ci sta sopra (13/10) */
   var dcG = _gPed || (e.target.closest ? e.target.closest(".item") : null);
@@ -20414,6 +20531,7 @@ svg.addEventListener("pointermove", function(e){
   }
   /* «Crea elemento»: rettangolo sul palco, forma che si disegna, poligono che segue il puntatore */
   if((drag && (drag.mode==="custarea" || drag.mode==="custforma")) || (!drag && window.__custDraw)){ if(custPointerMove(e)) return; }
+  if(!drag && window.__custContorno){ custContornoSopra(e); return; }   /* Contorni: il punto fantasma sul lato */
   if(!drag) return;
   var sp;
   if(drag.mode==="cabseg"){   /* editing Max: trascina il LATO in perpendicolare; gli angoli si formano da soli */
@@ -20873,6 +20991,7 @@ svg.addEventListener("pointerup", function(e){
       save(); ensureVisible(); } render(); drag=null; return; }
   if(drag && drag.mode==="metroend"){ if(drag.moved){ save(); ensureVisible(); } render(); drag=null; return; }
   if(drag && drag.mode==="custcapo"){ custCapoRilascio(); return; }
+  if(drag && (drag.mode==="ccpunto" || drag.mode==="cctondo")){ custContornoRilascio(); return; }   /* Contorni: un passo di Annulla */
   if(drag && drag.mode==="item" && !drag.moved && drag.dupIds){   /* Alt+clic senza trascinare: la copia non serviva, via */
     var _dup={}; drag.dupIds.forEach(function(x){ _dup[x]=1; });
     state.items=state.items.filter(function(x){ return !_dup[x.id]; });
