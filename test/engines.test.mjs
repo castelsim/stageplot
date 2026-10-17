@@ -11432,6 +11432,49 @@ t("contorni: drawCustom di 200 forme da 200 punti (40 000) con archi costa al ma
   console.log("      [misura] drawCustom 40 000 punti: dritte " + dritte.toFixed(1) + " ms, con archi " + curve.toFixed(1) + " ms");
   ok(curve < 2 * dritte + 5, "con archi " + curve.toFixed(1) + " ms contro " + dritte.toFixed(1) + " ms dritte");
 });
+const ccCampioni = (R, k) => { const out = []; for (let i = 0; i < R.length; i++) out.push(...A.custPuntiArco(R[i], R[(i + 1) % R.length], +R[i][2] || 0, k)); return out; };
+const ccSuCerchio = (P, cx, cy, r) => P.every((p) => Math.abs(Math.hypot(p[0] - cx, p[1] - cy) - r) < 1e-6);
+t("contorni: un punto aggiunto non cambia la forma — sul lato dritto sta sulla corda, sull'arco lo spezza in due archi dello stesso cerchio", () => {
+  const Q = [[0, 0], [0, 80], [300, 80], [300, 0]];
+  const p = A.custSulLato(Q, 1, [120, 95]); eq(p, [120, 80], "proiezione sulla corda");
+  const Q2 = A.custInserisciPunto(Q, 1, p); eq(Q2, [[0, 0], [0, 80], [120, 80], [300, 80], [300, 0]]);
+  const C = [[10, 0, A.CUST_TAN8], [0, -10, A.CUST_TAN8], [-10, 0, A.CUST_TAN8], [0, 10, A.CUST_TAN8]];   /* cerchio r = 10 */
+  const q = A.custSulLato(C, 0, [8, -8]); eq(q.map(r6), [7.071068, -7.071068], "sull'arco, a 45°");
+  const C2 = A.custInserisciPunto(C, 0, q);
+  eq([C2.length, r6(C2[0][2]), r6(C2[1][2])], [5, r6(Math.tan(Math.PI / 16)), r6(Math.tan(Math.PI / 16))], "due archi da 45°");
+  ok(ccSuCerchio(ccCampioni(C2, 16), 0, 0, 10), "ogni campione resta sul cerchio (entro 1e-6)");
+  const lontano = A.custSulLato(C, 0, [-30, 30]); ok(r6a(lontano).join() === "10,0" || r6a(lontano).join() === "0,-10", "fuori dall'arco: il capo più vicino");
+});
+t("contorni: togliere un punto — minimo 3; due archi dello stesso cerchio tornano uno; archi diversi → lato dritto", () => {
+  const C = [[10, 0, A.CUST_TAN8], [0, -10, A.CUST_TAN8], [-10, 0, A.CUST_TAN8], [0, 10, A.CUST_TAN8]];
+  const C2 = A.custInserisciPunto(C, 0, A.custSulLato(C, 0, [8, -8]));
+  eq(A.custTogliPunto(C2, 1).map(r6a), C.map(r6a), "via il punto aggiunto: il quarto di cerchio di prima");
+  const M = A.custTogliPunto(C, 1); eq([M.length, r6(M[0][2])], [3, 1], "due quarti = mezzo cerchio");
+  const E = [[0, 0, 0.3], [100, 0, 0.6], [100, 50], [0, 50]];
+  eq(A.custTogliPunto(E, 1)[0], [0, 0], "archi di cerchi diversi: il lato nuovo è dritto");
+  eq(A.custTogliPunto([[0, 0], [10, 0], [5, 9]], 0), null, "un triangolo non scende sotto 3");
+  eq(A.custTogliPunto(M, 0), null, "neanche dopo un'unione");
+  const P = (g) => [10 * Math.cos(g * Math.PI / 180), 10 * Math.sin(g * Math.PI / 180)], t30 = Math.tan(Math.PI / 6), t15 = Math.tan(Math.PI / 12);
+  const T = [P(0).concat([t30]), P(-120).concat([t30]), P(-240).concat([t15]), P(-300).concat([t15])];   /* archi da 120°, 120°, 60°, 60° */
+  eq(A.custTogliPunto(T, 1)[0].length, 2, "due archi dello stesso cerchio che insieme superano il mezzo cerchio: dritto");
+  eq(r6(A.custTogliPunto(T, 3)[2][2]), r6(Math.tan(Math.PI / 6)), "60° + 60° = 120°: un arco solo");
+});
+t("contorni: curvare un lato e pulire a fine gesto (punti doppi via, mai sotto 3)", () => {
+  const Q = [[0, 0], [0, 80], [300, 80], [300, 0]];
+  eq(A.custCurvaLato(Q, 1, 0.2)[1], [0, 80, 0.2]); eq(A.custCurvaLato(Q, 1, 7)[1], [0, 80, 1], "al massimo mezzo cerchio");
+  eq(A.custCurvaLato(A.custCurvaLato(Q, 1, 0.2), 1, 1e-9)[1], [0, 80], "quasi zero = dritto");
+  const D = [[0, 0], [0, 80, 0.3], [0.001, 80.002, 0.2], [300, 80], [300, 0]];
+  eq(A.custPulisciAnello(D), [[0, 0], [0, 80, 0.2], [300, 80], [300, 0]], "il doppio se ne va, il lato che resta tiene la curvatura del secondo");
+  eq(A.custPulisciAnello([[0, 0], [0, 0.001], [10, 0]]).length, 3, "mai sotto 3");
+  eq(A.custPulisciAnello(Q), Q, "niente da pulire: uguale");
+});
+t("contorni: i limiti dei punti si dicono (200 per contorno, 1000 per forma, 40 000 per elemento)", () => {
+  const anello = (n) => Array.from({ length: n }, (_, i) => [i, 0]);
+  eq(A.custSpazioPunti([anello(200)], 0), null);
+  eq(A.custSpazioPunti([anello(201)], 0), "Al massimo 200 punti per contorno.");
+  eq(A.custSpazioPunti([anello(200), anello(200), anello(200), anello(200), anello(200), anello(3)], 0), "Al massimo 1 000 punti per forma.");
+  eq(A.custSpazioPunti([anello(10)], 39995), "Al massimo 40 000 punti per elemento.");
+});
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");
