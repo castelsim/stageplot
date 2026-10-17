@@ -9804,7 +9804,11 @@ function drawCustom(it){
     if(g.k==="rect") s+='<rect x="'+f2(ox+g.x)+'" y="'+f2(oy+g.y)+'" width="'+f2(g.w)+'" height="'+f2(g.h)+'"'+(g.r?' rx="'+f2(g.r)+'"':"")+st(g)+tr(g,ox+g.x+g.w/2,oy+g.y+g.h/2)+'/>';
     else if(g.k==="ell") s+='<ellipse cx="'+f2(ox+g.cx)+'" cy="'+f2(oy+g.cy)+'" rx="'+f2(g.rx)+'" ry="'+f2(g.ry)+'"'+st(g)+tr(g,ox+g.cx,oy+g.cy)+'/>';
     else if(g.k==="line") s+='<line x1="'+f2(ox+g.x1)+'" y1="'+f2(oy+g.y1)+'" x2="'+f2(ox+g.x2)+'" y2="'+f2(oy+g.y2)+'" stroke="'+g.stroke+'" stroke-width="'+f2(g.sw)+'"/>';
-    else if(g.k==="poly") s+='<polygon points="'+g.pts.map(function(p){ return f2(ox+p[0])+","+f2(oy+p[1]); }).join(" ")+'"'+st(g)+'/>';
+    else if(g.k==="poly"){
+      /* senza archi né fori: il <polygon> di sempre (disegni, PDF e firme di oggi non cambiano, E7); con archi o fori un
+         <path> pari-dispari, un sottopercorso per anello (Contorni, 16/10/2026) */
+      if(!custHaCurve(g)) s+='<polygon points="'+g.pts.map(function(p){ return f2(ox+p[0])+","+f2(oy+p[1]); }).join(" ")+'"'+st(g)+'/>';
+      else s+='<path d="'+custPathAnelli([g.pts].concat(g.holes||[]), ox, oy, f2)+'" fill-rule="evenodd"'+st(g)+'/>'; }
     else if(g.k==="text") s+='<text x="'+f2(ox+g.x)+'" y="'+f2(oy+g.y)+'" font-size="'+f2(g.size)+'" font-family="helvetica" text-anchor="middle" fill="'+g.fill+'"'+tr(g,ox+g.x,oy+g.y)+'>'+esc(g.s)+'</text>';
   });
   if(!s) s='<rect x="'+f2(ox)+'" y="'+f2(oy)+'" width="'+f2(w)+'" height="'+f2(d)+'" fill="none" stroke="#1d1d1f" stroke-width="1.5" stroke-dasharray="6 4"/>';
@@ -10432,6 +10436,87 @@ function custImpostaGeometria(it, campo, v, sup){
   }
   return false;
 }
+/* ===== Crea elemento: CONTORNI (16/10/2026) — le parti PURE =====
+   Simone (14-16/10): «più libertà di disegnare quello che si vuole», anche per chi non sa disegnare: punti, lati che si
+   piegano ad arco, fori. Spec: crea-elemento-registro/tappa-contorni/2026-10-16-crea-elemento-contorni-design.md.
+   Un anello è un elenco di punti [x, y] o [x, y, b] in cm della superficie, chiuso (l'ultimo lato torna al primo punto e
+   prende la b dell'ultimo). b = bulge del DXF con y capovolto: per il lato da A a B, n = (−d.y, d.x)/c sta alla DESTRA del
+   verso di percorrenza come si vede sullo schermo (y in giù); freccia s = b·c/2 lungo n; b > 0 = arco antiorario a vista.
+   |b| ≤ 1: al massimo mezzo cerchio. Esempio fisso (è un test): da (0,0) a (10,0) con b = 1 → semicerchio per (5, 5). */
+var CUST_TAN8=Math.tan(Math.PI/8);   /* il bulge di un quarto di cerchio */
+var CUST_GIRO=2*Math.PI;
+/* l'arco del lato da a a b: corda c, freccia s (con segno, lungo n), raggio r, centro, angolo al centro, punto di metà arco.
+   Lato dritto (b = 0) o di lunghezza zero: r = Infinity, cx/cy = null, mezzo = metà corda. */
+function custArco(a, b, bulge){
+  var dx=b[0]-a[0], dy=b[1]-a[1], c=Math.sqrt(dx*dx+dy*dy), mx=(a[0]+b[0])/2, my=(a[1]+b[1])/2;
+  bulge=+bulge||0;
+  if(!(c>1e-9)) return {c:0, s:0, r:Infinity, cx:null, cy:null, theta:0, nx:0, ny:0, mezzo:[mx, my]};
+  var nx=-dy/c, ny=dx/c;
+  if(!bulge) return {c:c, s:0, r:Infinity, cx:null, cy:null, theta:0, nx:nx, ny:ny, mezzo:[mx, my]};
+  var s=bulge*c/2, r=c*(1+bulge*bulge)/(4*Math.abs(bulge)), k=s-(bulge>0 ? 1 : -1)*r;
+  return {c:c, s:s, r:r, cx:mx+nx*k, cy:my+ny*k, theta:4*Math.atan(Math.abs(bulge)), nx:nx, ny:ny, mezzo:[mx+nx*s, my+ny*s]};
+}
+function custBulgeDaFreccia(c, s){ return c>1e-9 ? Math.max(-1, Math.min(1, 2*s/c)) : 0; }
+/* il raggio dà l'arco MINORE (|b| ≤ 1); sotto c/2 non esiste → null. segno = verso (+1 / −1) */
+function custBulgeDaRaggio(c, r, segno){
+  if(!(c>1e-9) || !(r>0) || r<c/2-1e-9) return null;
+  var s=r-Math.sqrt(Math.max(0, r*r-c*c/4));
+  return (segno<0 ? -1 : 1)*Math.min(1, 2*s/c);
+}
+/* l'arco da a a b che passa per q (angolo inscritto in q = π − θ/2). Oltre il mezzo cerchio, o q su un capo o sul
+   prolungamento della corda → null; q sulla corda → 0 */
+function custBulgeDa3Punti(a, b, q){
+  var dx=b[0]-a[0], dy=b[1]-a[1], ux=a[0]-q[0], uy=a[1]-q[1], vx=b[0]-q[0], vy=b[1]-q[1];
+  if(!(dx*dx+dy*dy>1e-18) || !(ux*ux+uy*uy>1e-18) || !(vx*vx+vy*vy>1e-18)) return null;
+  var ang=Math.atan2(Math.abs(ux*vy-uy*vx), ux*vx+uy*vy), bb=Math.tan((Math.PI-ang)/2);
+  if(!(bb<=1+1e-9)) return null;
+  if(bb<1e-12) return 0;
+  return (dx*(q[1]-a[1])-dy*(q[0]-a[0])<0 ? -1 : 1)*Math.min(1, bb);
+}
+/* k+1 punti lungo il lato (capi compresi, esatti). Con y in giù l'angolo di atan2 cresce in senso orario a vista: un arco
+   con b > 0 va dal capo a verso b DIMINUENDO l'angolo. */
+function custPuntiArco(a, b, bulge, k){
+  var out=[], j, A=custArco(a, b, bulge);
+  if(A.cx==null){ for(j=0;j<=k;j++) out.push([a[0]+(b[0]-a[0])*j/k, a[1]+(b[1]-a[1])*j/k]); return out; }
+  var f0=Math.atan2(a[1]-A.cy, a[0]-A.cx), sg=bulge>0 ? -1 : 1;
+  for(j=0;j<=k;j++){ var f=f0+sg*A.theta*j/k; out.push([A.cx+A.r*Math.cos(f), A.cy+A.r*Math.sin(f)]); }
+  out[0]=[a[0], a[1]]; out[k]=[b[0], b[1]];
+  return out;
+}
+/* area con segno sui soli punti, nelle coordinate dell'app: < 0 = anello antiorario a vista */
+function custAreaAnello(R){ var A=0, n=R.length; for(var i=0;i<n;i++){ var p=R[i], q=R[(i+1)%n]; A+=p[0]*q[1]-q[0]*p[1]; } return A/2; }
+/* la freccia come la legge l'utente: > 0 = il lato si gonfia verso l'esterno dell'anello (in un foro: il foro si allarga) */
+function custFrecciaMostrata(R, i){ var n=R.length, A=custArco(R[i], R[(i+1)%n], +R[i][2]||0); return custAreaAnello(R)>0 ? -A.s : A.s; }
+/* l'angolo φ cade dentro l'arco che parte da fa e gira di theta (verso del bulge)? */
+function custNellArco(fa, f, theta, bulge){ var d=bulge>0 ? fa-f : f-fa; d=((d%CUST_GIRO)+CUST_GIRO)%CUST_GIRO; return d<=theta+1e-12; }
+/* ingombro VERO di uno o più anelli: i punti più gli estremi dei cerchi (0°, 90°, 180°, 270°) che cadono dentro gli archi.
+   Gli estremi si arrotondano al milionesimo (cos(π/2) non è 0 in virgola mobile). */
+function custIngombroAnelli(anelli){
+  var b={x1:Infinity, y1:Infinity, x2:-Infinity, y2:-Infinity}, add=function(x, y){ if(x<b.x1) b.x1=x; if(x>b.x2) b.x2=x; if(y<b.y1) b.y1=y; if(y>b.y2) b.y2=y; };
+  (anelli||[]).forEach(function(R){ var n=R.length;
+    R.forEach(function(p, i){ add(p[0], p[1]); var bu=+p[2]||0; if(!bu || n<2) return;
+      var A=custArco(p, R[(i+1)%n], bu); if(A.cx==null) return;
+      var fa=Math.atan2(p[1]-A.cy, p[0]-A.cx);
+      for(var k=0;k<4;k++){ var f=k*Math.PI/2; if(custNellArco(fa, f, A.theta, bu)) add(custR6(A.cx+A.r*Math.cos(f)), custR6(A.cy+A.r*Math.sin(f))); } }); });
+  return b;
+}
+/* la stringa d di un <path>: un sottopercorso per anello. Freccia sotto 0,01 cm → segmento (E8); lato di lunghezza zero:
+   saltato; SVG: «A r r 0 0 f x y» con f = (b > 0 ? 0 : 1), large-arc sempre 0 (|b| ≤ 1). fmt = come si scrivono i numeri */
+function custPathAnelli(anelli, ox, oy, fmt){
+  ox=ox||0; oy=oy||0; fmt=fmt||function(v){ return String(custR6(v)); };
+  var d="";
+  (anelli||[]).forEach(function(R){ var n=R.length; if(n<2) return;
+    d+="M"+fmt(ox+R[0][0])+" "+fmt(oy+R[0][1]);
+    for(var i=0;i<n;i++){ var a=R[i], b=R[(i+1)%n], bu=+a[2]||0, A=custArco(a, b, bu);
+      if(!A.c) continue;
+      if(bu && Math.abs(A.s)>=0.01) d+="A"+fmt(A.r)+" "+fmt(A.r)+" 0 0 "+(bu>0 ? 0 : 1)+" "+fmt(ox+b[0])+" "+fmt(oy+b[1]);
+      else if(i<n-1) d+="L"+fmt(ox+b[0])+" "+fmt(oy+b[1]);   /* l'ultimo lato dritto lo chiude Z */
+    }
+    d+="Z"; });
+  return d;
+}
+/* una poly ha archi o fori? (senza, si disegna e si tratta esattamente come prima) */
+function custHaCurve(g){ return !!(g && ((g.holes && g.holes.length) || (Array.isArray(g.pts) && g.pts.some(function(p){ return Array.isArray(p) && +p[2]; })))); }
 /* ===== Crea elemento: L'INTERFACCIA (Tappa 2, 13/10/2026) =====
    Sopra il palco temporaneo (custEditorApri/Salva/Annulla, qui sopra) ci sono: il rettangolo trascinato sul palco vero
    con le misure in metri, la finestra per correggerle a numeri, la domanda di inclusione, gli strumenti di disegno, la
