@@ -11830,6 +11830,45 @@ t("contorni: l'invio per revisione conta punti, archi e fori; il JSON fino a 300
   eq(A.custEsitoInvio(200, { ok: true }, base.id, "Proiettore", corpo), "ok");
   ok(/Il disegno era troppo grande per allegarlo: è arrivata l'anteprima\./.test(giro.dialoghi.pop().msg), "la finestra lo dice");
 }));
+t("contorni (rev. finale): Invio su un pulsante del pannello lo preme, non esce dal contorno", () => conCampi(() => conContorni(() => {
+  precEditor(400, 300);
+  const p = ccForma({ k: "poly", pts: [[20, 20], [20, 180], [150, 200], [280, 180], [280, 20]] });
+  A.custContornoEntra(p.id); Object.assign(A.__custContorno, { punto: 2 });
+  eq(A.custContornoTasto(ccTasto("Enter", { target: { tagName: "BUTTON" } })), false, "Invio su un pulsante: al pulsante");
+  ok(A.__custContorno && A.__custContorno.punto === 2, "si resta nel contorno, col punto selezionato");
+  eq(A.custContornoTasto(ccTasto(" ", { target: { tagName: "BUTTON" } })), false, "anche lo spazio");
+  ok(A.custContornoTasto(ccTasto("Escape", { target: { tagName: "BUTTON" } })), "Esc da un pulsante resta del contorno");
+  eq(A.__custContorno.punto, null, "…e deseleziona il punto");
+})));
+t("contorni (rev. finale): i campi del pannello si rileggono dopo Invio («1 m» → 100) e Esc rimette il valore; il raggio di serie si vede", () => conCampi((campi, el) => conContorni(() => {
+  precEditor(400, 300);
+  const p = ccForma({ k: "poly", pts: [[20, 20], [20, 100], [320, 100], [320, 20]] });
+  A.custContornoEntra(p.id); Object.assign(A.__custContorno, { punto: 1 }); A.render();
+  const x = el("custCcX"), d = A.document;
+  A.document = new Proxy({}, { get: (t, k) => (k === "activeElement" ? x : d[k]) });   /* il campo ha il fuoco */
+  try {
+    x.value = "1 m"; A.custContornoCampoTasto(x, "x", ccTasto("Enter"));
+    eq([A.custAnelliDi(ccDi(p.id))[0][1][0], x.value], [100, "100"], "applicato e riletto");
+    x.value = "abc"; A.custContornoCampoTasto(x, "x", ccTasto("Escape"));
+    eq(x.value, "100", "Esc rimette il valore di prima");
+    x.value = "99999"; A.custContornoCampoTasto(x, "x", ccTasto("Enter"));
+    eq(x.value, A.custCifra(A.custAnelliDi(ccDi(p.id))[0][1][0]), "un valore tagliato alla superficie si rilegge tagliato");
+  } finally { A.document = d; }
+  A.custContornoEsci(); A.selectOne(p.id); A.render();
+  eq(el("custFRaggio").value, "5", "«Arrotonda gli angoli»: il raggio di serie (la prima volta 5 cm) si vede");
+})));
+t("contorni (rev. finale): curvare un lato si annuncia (tondo e campi), come chiede l'accessibilità", () => conCampi(() => conContorni(() => conPuntatore((ev) => {
+  precEditor(400, 300); A.custAggancio = false; A.custAggancioPunti = false;
+  const detti = [], a0 = A.a11yAnnounce; A.a11yAnnounce = (s) => detti.push(s);
+  try {
+    const p = ccForma({ k: "poly", pts: [[20, 20], [20, 100], [320, 100], [320, 20]] });
+    A.custContornoEntra(p.id);
+    A.custContornoDown(ev(170, 100, { target: ccSu("tondo", 0, 1) })); A.custContornoMuovi(ev(170, 130)); A.custContornoRilascio();
+    ok(detti.includes("Lato curvato: freccia 30 cm"), "il tondo: " + JSON.stringify(detti));
+    Object.assign(A.__custContorno, { lato: 1, punto: null });
+    ok(A.custContornoCampo("freccia", "20")); ok(detti.includes("Lato curvato: freccia 20 cm"), "il campo: " + JSON.stringify(detti));
+  } finally { A.a11yAnnounce = a0; }
+}))));
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");
