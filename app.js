@@ -7999,7 +7999,7 @@ function custBersagli(items, escludi, sup){
     var rot=it.rot||0;
     if(it.type==="custshape"){
       if(it.k==="line"){ var c=custCapiLinea(it); anello([c.a, c.b], false, "estremo"); }
-      else if(it.k==="poly"){ var g=custFormaDaShape(it); if(g && g.pts) anello(g.pts, true, "vertice"); P([it.x, it.y], "centro"); }
+      else if(it.k==="poly"){ var g=custFormaDaShape(it); if(g && g.pts) custBersagliAnelli(punti, lati, [g.pts].concat(g.holes||[]), sup, null); P([it.x, it.y], "centro"); }   /* Contorni: archi e fori */
       else if(it.k==="ell"){
         var E=custPuntiEllisse(it.x, it.y, it.w/2, it.d/2, rot, 48);
         [0,12,24,36].forEach(function(i){ P(E[i], "quadrante"); });
@@ -8405,6 +8405,68 @@ function custContornoDaForma(g){
   var rot=+g.rot||0;
   if(rot) R=R.map(function(p){ var q=rotatePointAround(p[0], p[1], cx, cy, rot), o=[custR6(q[0]), custR6(q[1])]; if(p[2]) o.push(p[2]); return o; });
   return {pts:R, holes:[]};
+}
+/* ---- Contorni: l'aggancio (Tappa A estesa, E15, E32) ---- */
+function custDentroSup(x, y, sup){ var mx=Math.max(sup.w, sup.d)*0.1; return x>=-mx && x<=sup.w+mx && y>=-mx && y<=sup.d+mx; }
+/* i bersagli di uno o più anelli: i punti = «Vertice»; lato dritto: metà = «Punto medio» e il segmento per «Sul bordo»;
+   arco: metà arco = «Punto medio», centro = «Centro» (solo dentro la superficie +10%: gli archi quasi dritti hanno centri
+   lontanissimi), e l'arco spezzato in 2…8 segmenti (uno ogni 22,5° circa) per «Sul bordo».
+   salta(ri, i, "punto"|"lato") → true = non lo si mette (il punto che si muove e i suoi due lati). */
+function custBersagliAnelli(punti, lati, anelli, sup, salta){
+  (anelli||[]).forEach(function(R, ri){ var n=R.length;
+    for(var i=0;i<n;i++){
+      if(!(salta && salta(ri, i, "punto"))) punti.push({x:R[i][0], y:R[i][1], t:"vertice"});
+      if(salta && salta(ri, i, "lato")) continue;
+      var a=R[i], b=R[(i+1)%n], bu=+a[2]||0, A=custArco(a, b, bu);
+      if(!A.c) continue;
+      punti.push({x:A.mezzo[0], y:A.mezzo[1], t:"medio"});
+      if(A.cx==null){ lati.push([a[0], a[1], b[0], b[1]]); continue; }
+      if(sup && custDentroSup(A.cx, A.cy, sup)) punti.push({x:A.cx, y:A.cy, t:"centro"});
+      var k=Math.max(2, Math.min(8, Math.ceil(A.theta/(Math.PI/8)))), Q=custPuntiArco(a, b, bu, k);
+      for(var j=0;j<k;j++) lati.push([Q[j][0], Q[j][1], Q[j+1][0], Q[j+1][1]]);
+    }
+  });
+}
+/* i bersagli mentre si trascina il punto i dell'anello r della forma id: le altre forme, gli elementi veri, la superficie e
+   gli ALTRI punti e lati della stessa forma (non il punto che si muove, né i suoi due lati, né il centro della forma) */
+function custBersagliContorno(items, id, anelli, r, i, sup){
+  var esc={}; esc[id]=true;
+  var B=custBersagli(items, esc, sup), n=anelli[r].length;
+  custBersagliAnelli(B.punti, B.lati, anelli, sup, function(ri, j, cosa){ return ri===r && (j===i || (cosa==="lato" && j===(i+n-1)%n)); });
+  return B;
+}
+/* AGGANCIO DEL TONDO (E15): la freccia è la proiezione del mouse sulla perpendicolare a metà del lato a→b. In quest'ordine:
+   dritto (entro tol), mezzo cerchio (entro tol da c/2), passa per un punto (un bersaglio entro tolP dal cursore, se ne
+   viene |b| ≤ 1), griglia sulla freccia (passo). o = {tol, tolP, passo, libero} in cm; libero (⌘) = niente aggancio.
+   → {bulge, s, t:"dritto"|"mezzo"|"punto"|null, punto} */
+function custAggancioFreccia(a, b, cur, B, o){
+  o=o||{}; var A=custArco(a, b, 0);
+  if(!A.c) return {bulge:0, s:0, t:null, punto:null};
+  var mz=A.c/2, s=(cur[0]-A.mezzo[0])*A.nx+(cur[1]-A.mezzo[1])*A.ny, tol=o.tol||0, tp=o.tolP||0;
+  var fine=function(v, t, q){ v=Math.max(-mz, Math.min(mz, v)); return {bulge:custBulgeDaFreccia(A.c, v), s:v, t:t||null, punto:q||null}; };
+  if(o.libero) return fine(s);
+  if(Math.abs(s)<=tol) return fine(0, "dritto");
+  if(Math.abs(Math.abs(s)-mz)<=tol) return fine(s<0 ? -mz : mz, "mezzo");
+  if(B && B.punti && tp>0){
+    var best=null, bd=tp+1e-9, P=B.punti;
+    for(var i=0;i<P.length;i++){ var q=P[i], ex=q.x-cur[0], ey=q.y-cur[1]; if(ex>tp || ex<-tp || ey>tp || ey<-tp) continue;
+      var d=Math.sqrt(ex*ex+ey*ey); if(d>=bd) continue;
+      var bu=custBulgeDa3Punti(a, b, [q.x, q.y]); if(bu==null || Math.abs(bu)<1e-9) continue;
+      bd=d; best={q:q, bu:bu}; }
+    if(best) return {bulge:best.bu, s:best.bu*A.c/2, t:"punto", punto:best.q};
+  }
+  if(o.passo>0) s=Math.round(s/o.passo)*o.passo;
+  return fine(s);
+}
+/* le scritte accanto al cursore durante i gesti (E18: si leggono, non si scrivono) */
+function custScrittaPunto(R, i){
+  var n=R.length, p=R[i], a=R[(i+n-1)%n], b=R[(i+1)%n];
+  return "← "+custCifra(Math.hypot(p[0]-a[0], p[1]-a[1]))+" cm · "+custCifra(Math.hypot(b[0]-p[0], b[1]-p[1]))+" cm →";
+}
+function custScrittaLato(c, f, bulge, t){
+  if(!bulge) return "Dritto";
+  var r=custArco([0, 0], [c, 0], bulge).r;
+  return (t==="mezzo" ? "Mezzo cerchio" : "Freccia "+custCifra(f)+" cm")+" · Raggio "+custCifra(r)+" cm";
 }
 /* ---- Contorni: la forma dell'editor (custshape) letta e scritta come anelli ---- */
 /* gli anelli di una forma dell'editor, in cm della superficie: [contorno, foro1, …] (rettangolo ed ellisse convertiti al
