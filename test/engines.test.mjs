@@ -11475,6 +11475,76 @@ t("contorni: i limiti dei punti si dicono (200 per contorno, 1000 per forma, 40 
   eq(A.custSpazioPunti([anello(200), anello(200), anello(200), anello(200), anello(200), anello(3)], 0), "Al massimo 1 000 punti per forma.");
   eq(A.custSpazioPunti([anello(10)], 39995), "Al massimo 40 000 punti per elemento.");
 });
+const ccForma = (g) => { const it = A.custShapeDaForma(Object.assign({}, CC_ST, g)); A.primaDiAgire(); A.state.items.push(it); A.selectOne(it.id); A.save(); return it; };
+const ccDi = (id) => A.state.items.find((x) => x.id === id);
+t("contorni: rettangolo → 4 punti antiorari; con r = 10 → 8 punti con b = tan(π/8); a metà lato mezzi cerchi; cerchio → 4 archi esatti", () => {
+  const R = A.custRettInAnello({ x: 0, y: 0, w: 100, h: 60 });
+  eq(R, [[0, 0], [0, 60], [100, 60], [100, 0]]); ok(A.custAreaAnello(R) < 0, "antiorario a vista");
+  const T = A.custRettInAnello({ x: 0, y: 0, w: 100, h: 60, r: 10 });
+  eq([T.length, T.filter((p) => p[2]).map((p) => r6(p[2]))], [8, [0.414214, 0.414214, 0.414214, 0.414214]]);
+  ok(A.custFrecciaMostrata(T, 1) > 0, "gli archi d'angolo stanno fuori");
+  eq(A.custIngombroAnelli([T]), { x1: 0, y1: 0, x2: 100, y2: 60 }, "l'ingombro resta quello del rettangolo");
+  eq(A.custRettInAnello({ x: 0, y: 0, w: 100, h: 60, r: 30 }).map(r6a), [[30, 60], [70, 60, 1], [70, 0], [30, 0, 1]], "r = metà del lato corto: due mezzi cerchi");
+  eq(A.custRettInAnello({ x: 0, y: 0, w: 100, h: 60, r: 99 }).length, 4, "r oltre metà lato: tagliato come fa SVG");
+  const C = A.custEllisseInAnello({ cx: 50, cy: 50, rx: 20, ry: 20 });
+  eq(C.map(r6a), [[70, 50, 0.414214], [50, 30, 0.414214], [30, 50, 0.414214], [50, 70, 0.414214]], "destra, alto, sinistra, basso");
+  ok(C.every((p, i) => Math.abs(Math.hypot(A.custArco(p, C[(i + 1) % 4], p[2]).mezzo[0] - 50, A.custArco(p, C[(i + 1) % 4], p[2]).mezzo[1] - 50) - 20) < 1e-9), "metà arco a distanza r dal centro");
+  eq(A.custRettInAnello({ x: 0, y: 0, w: 40, h: 40, r: 20 }).map(r6a), A.custEllisseInAnello({ cx: 20, cy: 20, rx: 20, ry: 20 }).map(r6a), "quadrato con r a metà: un cerchio");
+});
+t("contorni: ellisse 200 × 100 ruotata di 30° → il minimo di archi entro 0,05 cm (campionato), punti sull'ellisse", () => {
+  const g = { k: "ell", cx: 150, cy: 100, rx: 100, ry: 50, rot: 30 };
+  const R = A.custContornoDaForma(g).pts;
+  ok([8, 16, 32, 64].indexOf(R.length) >= 0, "8, 16, 32 o 64 archi: " + R.length);
+  const giu = R.map((p) => { const q = A.rotatePointAround(p[0], p[1], 150, 100, -30); return p[2] ? [q[0], q[1], p[2]] : q; });   /* si torna dritti per misurare */
+  const s = A.custScartoEllisse(giu, g);
+  ok(s <= 0.05, "scarto " + s.toFixed(4) + " cm");
+  ok(A.custScartoEllisse(A.custEllisseInAnello({ cx: 0, cy: 0, rx: 100, ry: 50 }).filter((p, i) => i % 2 === 0), { cx: 0, cy: 0, rx: 100, ry: 50 }) > 0.05, "con metà archi non basterebbe: è il minimo");
+});
+t("contorni: andata e ritorno custShapeDaForma ↔ custFormaDaShape identiche al milionesimo con archi e fori; w/d = ingombro vero", () => {
+  const g = Object.assign({ k: "poly" }, CC_ST, { pts: [[20, 20, 0.5], [120, 20], [120, 80, -0.3], [20, 80]], holes: [[[50, 40], [70, 40], [60, 60, 0.2]]] });
+  const x = A.custShapeDaForma(g);
+  const bb = A.custIngombroAnelli([g.pts].concat(g.holes));
+  eq([r6(x.w), r6(x.d), r6(x.x), r6(x.y)], [r6(bb.x2 - bb.x1), r6(bb.y2 - bb.y1), r6((bb.x1 + bb.x2) / 2), r6((bb.y1 + bb.y2) / 2)], "w, d, centro dall'ingombro vero");
+  eq([bb.y1, r6(bb.y2)], [20, 95], "l'arco del lato in basso (b < 0, da (120,80) a (20,80)) sporge di 15 cm; quello in alto (b > 0 su un anello orario) va dentro");
+  eq(A.custFormaDaShape(x), g, "andata e ritorno");
+  eq(A.custIngombro(x), { x1: bb.x1, y1: bb.y1, x2: bb.x2, y2: bb.y2 }, "custIngombro = ingombro vero");
+  const v = A.custShapeDaForma(Object.assign({ k: "poly", pts: [[0, 0], [40, 0], [20, 30]] }, CC_ST));
+  eq([v.x, v.y, v.w, v.d, v.pts, v.holes], [20, 15, 40, 30, [[-0.5, -0.5], [0.5, -0.5], [0, 0.5]], undefined], "senza archi: come prima");
+});
+t("contorni (rev.): L e P scritti su una forma con archi danno l'ingombro VERO; ridimensionata dalle maniglie riprende l'ingombro vero", () => conCampi(() => {
+  precEditor(400, 300);
+  const it = ccForma({ k: "poly", pts: [[20, 80], [20, 180], [120, 180], [120, 80, 0.6]] });   /* antiorario: il lato in alto si gonfia in su di 30 */
+  ok(A.custFormaCampo("w", "200"), "L");
+  const b = A.custIngombro(ccDi(it.id)); eq([r6(b.x2 - b.x1), r6(b.y2 - b.y1)], [200, 160], "L = 200 vere; la freccia cresce con la corda (100 + 60)");
+  ok(A.custFormaCampo("d", "180"), "P"); const c = A.custIngombro(ccDi(it.id)); eq([r6(c.y2 - c.y1), r6(c.x2 - c.x1)], [180, 200], "P = 180 vere, non 180 di soli punti");
+  ok(A.custFormaCampo("d", "40"), "P che gli archi da soli superano");
+  const g40 = A.custFormaDaShape(ccDi(it.id)), ys = g40.pts.map((p) => p[1]);
+  ok(A.custGeometria(ccDi(it.id)).d > 40 && Math.max(...ys) - Math.min(...ys) > 1, "si scala come prima e si rilegge la misura vera (la forma non si schiaccia a zero)");
+  const q = ccDi(it.id); q.w = q.w * 1.5;   /* come la maniglia del lato destro */
+  ok(A.custRiallinea(q), "a fine ridimensionamento"); const d = A.custIngombro(q); eq([r6(q.w), r6(q.d)], [r6(d.x2 - d.x1), r6(d.y2 - d.y1)], "w e d = ingombro vero");
+  ok(/custRiallinea\(_rz\)/.test(appjs), "il rilascio della maniglia la chiama");
+  const r = ccForma({ k: "poly", pts: [[0, 0], [40, 0], [20, 30]] }); eq(A.custRiallinea(r), false, "senza archi non serve");
+}));
+t("contorni (rev.): nell'editor Annulla/Ripeti, Duplica, Copia/Incolla e Salva tengono archi e fori; anche il modello e la copia posata", () => conCampi((campi, el) => {
+  precEditor(300, 200);
+  const it = ccForma({ k: "poly", pts: [[20, 20, 0.5], [120, 20], [120, 80, -0.3], [20, 80]], holes: [[[50, 40], [70, 40], [60, 60, 0.2]]] });
+  const g0 = A.custFormaDaShape(it);
+  A.primaDiAgire(); ccDi(it.id).x += 10; A.save();
+  A.undo(); eq(A.custFormaDaShape(ccDi(it.id)), g0, "Annulla: archi e fori com'erano");
+  A.redo(); eq(A.custFormaDaShape(ccDi(it.id)).holes[0][2][2], 0.2, "Ripeti: anche");
+  A.selectOne(it.id); A.duplicateSel(); const du = A.getSel();
+  ok(du.id !== it.id && du.holes && du.holes.length === 1 && du.pts[0][2] === 0.5, "Duplica");
+  A.selectOne(it.id); A.copySel(); A.pasteClip(); const inc = A.getSel();
+  ok(inc.id !== it.id && inc.id !== du.id && inc.holes && inc.pts[2][2] === -0.3, "Copia e incolla");
+  el("custNome").value = "Banco";
+  const id = A.custSalvaDaScheda({ fuoriOk: true }), base = ccDi(id);
+  const conFori = base.cust.shapes.filter((s) => s.holes);
+  eq([conFori.length, conFori[0].pts[0][2], conFori[0].holes[0].length], [3, 0.5, 3], "Salva: tre forme con archi e foro in cust.shapes");
+  const m = A.state.customModels.find((q) => q.id === base.cust.modelId);
+  ok(m && m.shapes.filter((s) => s.holes).length === 3, "il modello li tiene");
+  const posati = A.custPosaModello(m.id, 800, 600);
+  ok(posati[0].cust.shapes.filter((s) => s.holes && s.pts[0][2] === 0.5).length === 3, "la copia posata pure");
+}));
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");
