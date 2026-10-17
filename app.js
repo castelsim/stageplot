@@ -8223,6 +8223,89 @@ function custPathAnelli(anelli, ox, oy, fmt){
     d+="Z"; });
   return d;
 }
+/* ---- Contorni: le modifiche di un anello (pure: ricevono un anello e ne restituiscono uno NUOVO) ---- */
+function custCopiaAnello(R){ return R.map(function(p){ return p.slice(); }); }
+function custVicini(p, q){ var dx=p[0]-q[0], dy=p[1]-q[1]; return dx*dx+dy*dy<0.005*0.005; }   /* meno di 0,005 cm */
+/* il punto i fra due archi DELLO STESSO CERCHIO (centro e raggio entro 0,01 cm, stesso verso) che insieme non superano il
+   mezzo cerchio: via il punto, un arco solo. Altrimenti null. */
+function custUnisciArchi(R, i){
+  var n=R.length, h=(i+n-1)%n, k=(i+1)%n, b1=+R[h][2]||0, b2=+R[i][2]||0;
+  if(n<=3 || !b1 || !b2 || (b1>0)!==(b2>0)) return null;
+  var A1=custArco(R[h], R[i], b1), A2=custArco(R[i], R[k], b2);
+  if(A1.cx==null || A2.cx==null || Math.abs(A1.cx-A2.cx)>0.01 || Math.abs(A1.cy-A2.cy)>0.01 || Math.abs(A1.r-A2.r)>0.01 ||
+     A1.theta+A2.theta>Math.PI+1e-9) return null;
+  var out=custCopiaAnello(R);
+  out[h]=[out[h][0], out[h][1], (b1>0 ? 1 : -1)*Math.tan((A1.theta+A2.theta)/4)];
+  out.splice(i, 1);
+  return out;
+}
+/* LA PULIZIA A FINE GESTO (§2.5 punto 8): un punto a meno di 0,005 cm dal precedente se ne va (il lato fra i due non c'era:
+   il precedente prende la curvatura di quello tolto) e, se lì si toccano due archi dello stesso cerchio, diventano uno (i
+   due quarti di un rettangolo arrotondato a metà lato = mezzo cerchio). Mai sotto 3 punti. custNorm NON la fa (E6). */
+function custPulisciAnello(R){
+  var out=custCopiaAnello(R), giro=true;
+  while(giro && out.length>3){
+    giro=false;
+    for(var j=0;j<out.length && out.length>3;j++){
+      var n=out.length, i=(j+n-1)%n;
+      if(!custVicini(out[i], out[j])) continue;
+      var b=+out[j][2]||0; out[i]=b ? [out[i][0], out[i][1], b] : [out[i][0], out[i][1]];
+      out.splice(j, 1); giro=true;
+      var u=custUnisciArchi(out, (j-1+out.length)%out.length); if(u) out=u;
+      break;
+    }
+  }
+  return out;
+}
+/* togliere il punto i: i due lati diventano uno — un arco solo se erano archi dello stesso cerchio (entro il mezzo cerchio),
+   altrimenti dritto. Mai sotto 3 punti: null. */
+function custTogliPunto(R, i){
+  var n=R.length; if(n<=3 || !(i>=0 && i<n)) return null;
+  var u=custUnisciArchi(R, i); if(u) return u;
+  var out=custCopiaAnello(R), h=(i+n-1)%n;
+  out[h]=[out[h][0], out[h][1]]; out.splice(i, 1);
+  return out;
+}
+/* il punto del lato i più vicino a q (sul segmento, o sull'arco dentro i suoi capi): dove nascerebbe un punto nuovo */
+function custSulLato(R, i, q){
+  var n=R.length, a=R[i], b=R[(i+1)%n], bu=+a[2]||0, A=custArco(a, b, bu);
+  if(A.cx==null){ var s=custSulSegmento({x:q[0], y:q[1]}, [a[0], a[1], b[0], b[1]]); return [s.x, s.y]; }
+  var fa=Math.atan2(a[1]-A.cy, a[0]-A.cx), f=Math.atan2(q[1]-A.cy, q[0]-A.cx), d=bu>0 ? fa-f : f-fa;
+  d=((d%CUST_GIRO)+CUST_GIRO)%CUST_GIRO; if(d>A.theta) d=(d-A.theta<CUST_GIRO-d) ? A.theta : 0;
+  var g=fa+(bu>0 ? -1 : 1)*d;
+  return [A.cx+A.r*Math.cos(g), A.cy+A.r*Math.sin(g)];
+}
+/* un punto nuovo p sul lato i (p viene da custSulLato): LA FORMA NON CAMBIA. Su un arco: due archi dello stesso cerchio,
+   b1 = ±tan(θ1/4), b2 = ±tan(θ2/4) con θ1 + θ2 = θ. Il punto nuovo sta all'indice i+1. */
+function custInserisciPunto(R, i, p){
+  var n=R.length, a=R[i], b=R[(i+1)%n], bu=+a[2]||0, A=custArco(a, b, bu), out=custCopiaAnello(R), P=[p[0], p[1]];
+  out[i]=[a[0], a[1]];
+  if(A.cx!=null){
+    var fa=Math.atan2(a[1]-A.cy, a[0]-A.cx), fp=Math.atan2(P[1]-A.cy, P[0]-A.cx), d=bu>0 ? fa-fp : fp-fa, sg=bu>0 ? 1 : -1;
+    d=((d%CUST_GIRO)+CUST_GIRO)%CUST_GIRO; if(d>A.theta) d=(d-A.theta<CUST_GIRO-d) ? A.theta : 0;
+    var b1=sg*Math.tan(d/4), b2=sg*Math.tan((A.theta-d)/4);
+    if(Math.abs(b1)>=1e-9) out[i].push(b1); if(Math.abs(b2)>=1e-9) P.push(b2);
+  }
+  out.splice(i+1, 0, P);
+  return out;
+}
+/* la curvatura del lato i (tagliata a ±1; sotto 1e-6 dritto) */
+function custCurvaLato(R, i, bulge){
+  var out=custCopiaAnello(R), b=Math.max(-1, Math.min(1, +bulge||0));
+  out[i]=Math.abs(b)<1e-6 ? [out[i][0], out[i][1]] : [out[i][0], out[i][1], b];
+  return out;
+}
+/* ---- i limiti dei punti (§2.4): un gesto che li supera non si fa e lo dice ---- */
+function custContaAnelli(anelli){ return (anelli||[]).reduce(function(s, R){ return s+R.length; }, 0); }
+function custMigliaia(n){ return String(n).replace(/\B(?=(\d{3})+(?!\d))/g, " "); }   /* 40000 → «40 000» */
+/* anelli = la forma dopo il gesto; altri = i punti delle altre forme dell'elemento. → null (si può) o il messaggio */
+function custSpazioPunti(anelli, altri){
+  var L=custLimiti(), tot=custContaAnelli(anelli);
+  if((anelli||[]).some(function(R){ return R.length>L.PUNTI; })) return "Al massimo "+L.PUNTI+" punti per contorno.";
+  if(tot>L.PUNTI_FORMA) return "Al massimo "+custMigliaia(L.PUNTI_FORMA)+" punti per forma.";
+  if(tot+(altri||0)>L.PUNTI_EL) return "Al massimo "+custMigliaia(L.PUNTI_EL)+" punti per elemento.";
+  return null;
+}
 /* una poly ha archi o fori? (senza, si disegna e si tratta esattamente come prima) */
 function custHaCurve(g){ return !!(g && ((g.holes && g.holes.length) || (Array.isArray(g.pts) && g.pts.some(function(p){ return Array.isArray(p) && +p[2]; })))); }
 /* ===== Crea elemento: L'INTERFACCIA (Tappa 2, 13/10/2026) =====
