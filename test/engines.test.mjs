@@ -8532,7 +8532,7 @@ t("invio per revisione: con l'accesso chiede il consenso, poi manda nome, misure
   eq(giro.mandato[0].id, base.id);
   eq([c.hint, c.honeypot, c.message, c.project_snapshot, c.project_id], ["elemento", "", "Elemento: Proiettore — Su carrello", null, null]);
   ok(c.message.length >= 5 && c.message.length <= 1000, "regola 5–1000 del server");
-  eq(c.tech_context.elemento, { nome: "Proiettore", desc: "Su carrello", w: 120, d: 80, watt: 300, ins: { n: 2, tipo: "linea" }, backline: false, forme: 2, membri: ["cantante"] });
+  eq(c.tech_context.elemento, { nome: "Proiettore", desc: "Su carrello", w: 120, d: 80, watt: 300, ins: { n: 2, tipo: "linea" }, backline: false, forme: 2, membri: ["cantante"], punti: 0, archi: 0, fori: 0 });
   /* privacy (revisione): solo quello che dice il consenso — disegno, misure, descrizione */
   eq(Object.keys(c.tech_context).sort(), ["elemento", "elemento_json"], "niente contesto del progetto");
   ok(Object.keys(c.meta).every((k) => ["app_version", "build_id", "language"].includes(k)), "meta: solo versione e lingua, " + JSON.stringify(c.meta));
@@ -8550,7 +8550,7 @@ t("invio per revisione: con l'accesso chiede il consenso, poi manda nome, misure
   /* un JSON troppo grande non parte (il server lo scarterebbe): resta la scheda */
   base.cust.shapes = Array.from({ length: 200 }, (_, i) => ({ k: "poly", pts: Array.from({ length: 200 }, (_, k) => [i % 120, k % 80]), stroke: "#000000", sw: 1 }));
   A.custInviaRevisione(base.id);
-  eq(giro.mandato[2].corpo.tech_context.elemento_json, null, "oltre 30000 caratteri: null");
+  eq(giro.mandato[2].corpo.tech_context.elemento_json, null, "oltre 300 000 caratteri: null");
   eq(giro.mandato[2].corpo.tech_context.elemento.forme, 200);
 }));
 t("invio per revisione: sul telefono, in sola lettura, con l'editor aperto o due volte di fila non parte", () => conInvio((giro) => {
@@ -8625,7 +8625,7 @@ t("invio per revisione: i tipi dei pezzi passano il controllo del server (letter
   ok(/\/\^\[A-Za-z0-9_-\]\{1,40\}\$\//.test(server), "la regola del server");
   const no = Object.keys(A.TYPES).filter((k) => !/^[A-Za-z0-9_-]{1,40}$/.test(k));
   eq(no, [], "tutti i tipi del catalogo");
-  ok(/MAX_ELEMENTO_JSON_CHARS = 30_000/.test(server) && /function custJsonRevisione[\s\S]{0,900}30000/.test(appjs), "stesso tetto del JSON");
+  ok(/MAX_ELEMENTO_JSON_CHARS = 300_000/.test(server) && /function custJsonRevisione[\s\S]{0,900}custLimiti\(\)\.JSON_REV/.test(appjs) && A.custLimiti().JSON_REV === 300000, "stesso tetto del JSON (Contorni: 300 000)");
 });
 t("invio per revisione: la finestra del consenso (casella da spuntare, Invia spento finché non c'è la spunta)", () => {
   ok(/Disegno, misure e descrizione arrivano a StagePlot\. Se lo aggiungiamo al catalogo sarà disponibile per tutti, senza il tuo nome\./.test(appjs), "la frase della spec, uguale");
@@ -11814,6 +11814,22 @@ t("contorni: Arrotonda dal pannello — un angolo (raggio ridotto lo dice), tutt
     eq(A.custArrotondaForma(c, 5), false, "un'ellisse non ha angoli"); ok(/Non ci sono angoli/.test(toast.pop()));
   } finally { A.__toast = t0; }
 })));
+t("contorni: l'invio per revisione conta punti, archi e fori; il JSON fino a 300 000 caratteri, oltre null (e la finestra lo dice)", () => conInvio((giro) => {
+  const { base } = elementoDaInviare();
+  base.cust.shapes = [Object.assign({ k: "poly" }, CC_ST, { pts: [[0, 0, 0.5], [120, 0], [120, 80, -0.2], [0, 80]], holes: [[[40, 20], [60, 20, 0.3], [50, 40]]] }), { k: "rect", x: 0, y: 0, w: 10, h: 10, stroke: "#000000", sw: 1 }];
+  A.custNorm(base);
+  const c = A.custCorpoRevisione(base, null), e = c.tech_context.elemento;
+  eq([e.forme, e.punti, e.archi, e.fori], [2, 7, 3, 1], "4 + 3 punti, 3 archi, 1 foro");
+  ok(c.tech_context.elemento_json && JSON.parse(c.tech_context.elemento_json).shapes[0].holes.length === 1, "il JSON porta i fori");
+  const anello = Array.from({ length: 200 }, (_, k) => [k % 120 + 0.123456, Math.floor(k / 3) % 80 + 0.654321, 0.123456]);
+  base.cust.shapes = Array.from({ length: 30 }, () => Object.assign({ k: "poly" }, CC_ST, { pts: anello }));
+  ok(A.custJsonRevisione(base).length > 30000 && A.custJsonRevisione(base).length <= 300000, "un disegno dettagliato (oltre i 30 000 di prima) adesso arriva: " + A.custJsonRevisione(base).length);
+  base.cust.shapes = Array.from({ length: 200 }, () => Object.assign({ k: "poly" }, CC_ST, { pts: anello }));
+  eq(A.custJsonRevisione(base), null, "oltre 300 000: null");
+  const corpo = A.custCorpoRevisione(base, null);
+  eq(A.custEsitoInvio(200, { ok: true }, base.id, "Proiettore", corpo), "ok");
+  ok(/Il disegno era troppo grande per allegarlo: è arrivata l'anteprima\./.test(giro.dialoghi.pop().msg), "la finestra lo dice");
+}));
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");

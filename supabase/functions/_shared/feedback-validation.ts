@@ -45,9 +45,16 @@ function jsonSize(v: unknown): number {
 export type ElementoInviato = {
   nome: string; desc: string; w: number | null; d: number | null; watt: number | null;
   ins: { n: number; tipo: "mic" | "linea" } | null; backline: boolean; forme: number | null; membri: string[];
+  /* Contorni (16/10/2026): quanti punti, archi e fori hanno le forme (interi nei limiti, altrimenti null; un client
+     vecchio non li manda) — si leggono nella mail e in ops/segnalazioni.sh */
+  punti: number | null; archi: number | null; fori: number | null;
 };
 const EL_NOME = 60, EL_DESC = 280, EL_FORME = 200, EL_MEMBRI = 100, EL_WATT = 20_000, EL_INS = 16;
-export const MAX_ELEMENTO_JSON_CHARS = 30_000;
+const EL_PUNTI = 40_000, EL_ARCHI = 40_000, EL_FORI = 10_000;
+/* 300 000 (Contorni, 16/10/2026; prima 30 000): un contorno da 1000 punti sono ~16 KB, e il disegno esatto deve arrivare.
+   Il corpo resta entro MAX_BODY_BYTES (4,5 MB): anteprima ≤ 2,8 MB + JSON ≤ 0,3 MB + il resto. Il JSON non si valida
+   dentro: lo rilegge solo l'app, che lo passa da custNorm. */
+export const MAX_ELEMENTO_JSON_CHARS = 300_000;
 /* Caratteri che non si vedono e che cambiano quello che si vede: di controllo C0/C1 (sequenze ANSI nel terminale di
    ops/segnalazioni.sh), di larghezza zero e di direzione (U+200B, U+200E–U+200F, U+202A–U+202E, U+2066–U+2069: girano
    il testo a schermo). Diventano spazi. RESTANO U+200C (ZWNJ) e U+200D (ZWJ): fanno parte del testo (emoji composte
@@ -62,6 +69,7 @@ export const messaggioPulito = (s: string) => s.replace(/\r\n?/g, "\n").replace(
 const senzaControllo = (s: string) => s.replace(INVISIBILI, " ").replace(/\s+/g, " ").trim();
 const numeroIn = (v: unknown, lo: number, hi: number) =>
   (typeof v === "number" && Number.isFinite(v) && v >= lo && v <= hi) ? v : null;
+const conteggio = (v: unknown, hi: number) => (Number.isInteger(v) && (v as number) >= 0 && (v as number) <= hi) ? v as number : null;
 
 export function elementoPulito(x: unknown): ElementoInviato | null {
   if (!x || typeof x !== "object" || Array.isArray(x)) return null;
@@ -87,10 +95,11 @@ export function elementoPulito(x: unknown): ElementoInviato | null {
     w: numeroIn(e.w, 10, 100_000), d: numeroIn(e.d, 10, 100_000),
     watt: numeroIn(e.watt, 0, EL_WATT),
     ins, backline: e.backline === true, forme, membri,
+    punti: conteggio(e.punti, EL_PUNTI), archi: conteggio(e.archi, EL_ARCHI), fori: conteggio(e.fori, EL_FORI),
   };
 }
 
-/* il modello dell'elemento: una STRINGA di JSON (un oggetto), entro 30000 caratteri; altrimenti niente */
+/* il modello dell'elemento: una STRINGA di JSON (un oggetto), entro MAX_ELEMENTO_JSON_CHARS caratteri; altrimenti niente */
 export function elementoJsonPulito(x: unknown): string | null {
   if (typeof x !== "string" || x.length > MAX_ELEMENTO_JSON_CHARS) return null;
   try {

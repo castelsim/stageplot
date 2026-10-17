@@ -9077,21 +9077,31 @@ function custCorpoRevisione(it, jpeg){
   var c=it.cust||{};
   var membri=(it.grp ? state.items.filter(function(x){ return x.grp===it.grp && x.id!==it.id && x.type!=="custom" && x.type!=="custshape"; }) : [])
     .map(function(x){ return x.type; }).slice(0, 100);
+  var cc=custContaContorni(c.shapes);   /* Contorni: punti, archi e fori, per la mail e per ops/segnalazioni.sh */
   var el={nome:c.nome, desc:c.desc||"", w:it.w, d:it.d, watt:(it.watt==null ? null : it.watt), ins:c.ins||null, backline:!!c.backline,
-    forme:(c.shapes||[]).length, membri:membri};
+    forme:(c.shapes||[]).length, membri:membri, punti:cc.punti, archi:cc.archi, fori:cc.fori};
   var lingua=null; try{ lingua=(typeof navigator!=="undefined" && typeof navigator.language==="string") ? navigator.language : null; }catch(e){}
   return {message:("Elemento: "+c.nome+(c.desc ? " — "+c.desc : "")).slice(0, 1000), hint:"elemento", honeypot:"",
     tech_context:{elemento:el, elemento_json:custJsonRevisione(it)},
     meta:{app_version:window.__APP_VERSION__||null, build_id:window.__BUILD_ID__||null, language:lingua},
     screenshot:custJpegValido(jpeg), project_snapshot:null, project_id:null};
 }
+/* i punti (contorni e fori), gli archi (punti con b ≠ 0) e i fori delle forme di un elemento */
+function custContaContorni(shapes){
+  var o={punti:0, archi:0, fori:0};
+  (shapes||[]).forEach(function(g){ if(!g || g.k!=="poly") return;
+    [g.pts||[]].concat(g.holes||[]).forEach(function(R){ o.punti+=R.length; R.forEach(function(p){ if(+p[2]) o.archi++; }); });
+    o.fori+=(g.holes||[]).length; });
+  return o;
+}
 /* il modello dell'elemento, per rifarlo: forme, misure, scheda e i pezzi (solo tipo, misure e posizione: le
-   etichette dei pezzi le scrive l'utente e possono contenere nomi). Oltre 30000 caratteri il server lo scarta: null. */
+   etichette dei pezzi le scrive l'utente e possono contenere nomi). Oltre JSON_REV caratteri (300 000, Contorni: un anello
+   da 1000 punti sono ~16 KB) il server lo scarta: null, e arriva solo l'anteprima. */
 function custJsonRevisione(it){
   var m=custModelDaAgglomerato(it, true); if(!m) return null;
   m.membri=(m.membri||[]).map(function(x){ var o={type:x.type, dx:x.dx, dy:x.dy, rot:x.rot}; if(x.w!=null) o.w=x.w; if(x.d!=null) o.d=x.d; return o; });
   var s=JSON.stringify(m);
-  return s.length<=30000 ? s : null;
+  return s.length<=custLimiti().JSON_REV ? s : null;
 }
 /* M2 (revisione finale): oltre questo tempo senza risposta l'invio si chiude con «La rete non risponde» — senza, una
    rete appesa lasciava «Invio già in corso» acceso per sempre (e l'editor non si riapriva più fino alla ricarica) */
@@ -9125,7 +9135,8 @@ function custEsitoInvio(status, j, id, nome, corpo, tempo){
   if(status===200 && j && j.ok){
     var it=(state.items||[]).find(function(x){ return x.id===id && x.type==="custom" && x.cust && x.cust.nome===nome; });
     if(it && !custEditorAttivo() && !custSolaLettura()){ it.cust.rev={inviato:new Date().toISOString()}; custSegnaFuoriCronologia(); render(); }
-    guideDialog({title:"Inviato", msg:"Grazie: lo guardiamo e, se lo aggiungiamo al catalogo, te lo scriviamo qui.", okLabel:"Chiudi"});
+    var senzaJson=!!(corpo && corpo.tech_context && corpo.tech_context.elemento_json===null);   /* Contorni: il disegno oltre il tetto */
+    guideDialog({title:"Inviato", msg:"Grazie: lo guardiamo e, se lo aggiungiamo al catalogo, te lo scriviamo qui."+(senzaJson ? " Il disegno era troppo grande per allegarlo: è arrivata l'anteprima." : ""), okLabel:"Chiudi"});
     return "ok";
   }
   if(tempo){ guideDialog({title:"Non inviato", msg:"La rete non risponde, riprova. L'elemento resta salvato nel progetto.",

@@ -84,3 +84,15 @@ Deno.test("prompt dell'elemento: niente progetto né pagina", () => {
   assertEquals(p.includes("Dimensione palco"), false);
   assertStringIncludes(buildFeedbackPrompt(base), "Progetto: nessuno", "gli altri tipi come prima");
 });
+
+
+/* ===== Contorni (16/10/2026): punti, archi e fori nella riga delle forme ===== */
+Deno.test("prompt dell'elemento: punti, archi e fori fra parentesi; senza conteggi (client vecchio) la riga di prima", () => {
+  const el = { nome: "Banco", desc: "", w: 300, d: 110, watt: null, ins: null, backline: false, forme: 3, membri: [] };
+  const f = (extra: Record<string, unknown>) => buildFeedbackPrompt({ ...base, message: "Elemento: Banco", hint: "elemento",
+    tech_context: { elemento: { ...el, ...extra } } });
+  assertStringIncludes(f({ punti: 148, archi: 12, fori: 1 }), "- Forme disegnate: 3 (148 punti, 12 archi, 1 foro) · elementi del catalogo dentro: nessuno");
+  assertStringIncludes(f({ punti: 1, archi: 1, fori: 0 }), "(1 punto, 1 arco, 0 fori)");
+  assertStringIncludes(f({}), "- Forme disegnate: 3 · elementi del catalogo dentro: nessuno");
+  assertStringIncludes(f({ punti: null, archi: null, fori: null }), "- Forme disegnate: 3 · elementi del catalogo dentro: nessuno");
+});
