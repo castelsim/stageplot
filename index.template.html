@@ -3783,7 +3783,7 @@ var TYPES = {
              draw:function(it){ return drawLibFit("stagepiano",it,135,40); }},
   tastiera: {nome:"Tastiera", dim:"synth · 1 tastiera", cat:"Band e backline", sub:"Tastiere e piani", w:120,d:36, alias:"tastiera tastiere keyboard synth sintetizzatore synthesizer piano digitale master keyboard workstation singola nord korg roland",
              qaPrimo:"synth sintetizzatore synthesizer",   /* 06/10/2026: un synth è uno strumento solo; vinceva la Doppia tastiera per ordine alfabetico */
-             draw:function(it){ return drawLibFit("stagepiano",it,118,34); }},
+             draw:function(it){ var mi=modelIcon(it); return mi ? drawLibFit(mi.key,it,mi.w,mi.d) : drawLibFit("stagepiano",it,118,34); }},
   doppiatastiera:{nome:"Doppia tastiera", dim:"120×75", cat:"Band e backline", sub:"Tastiere e piani", w:125,d:78, alias:"tastiera tastiere doppia due keyboard keyboards synth sintetizzatore stack",
              draw:function(it){ return drawLibFit("doppiatastiera",it,105,50); }},
   celesta:  {nome:"Celesta", dim:"105×62", cat:"Orchestra", sub:"Arpa e celesta", w:107,d:64,
@@ -4576,6 +4576,8 @@ var AMP_DB = {
                     fonte:"Roland_FP-40_ReferenceManual.pdf p.56", note:"22 W è il massimo dichiarato (5 W suonando a metà volume). Le misure sono senza leggio, il peso è con il leggio"},
   "thomann_sp120": {brand:"Thomann", model:"SP-120", per:["stagepiano","tastiera"], watt:null, kg:6.2, mm:[1070,275,95], v:true,
                     fonte:"Thomann_SP-120_UserManual.pdf p.22", note:"73 tasti leggeri, non 88. Alimentatore esterno da 9-12 V: l'assorbimento a rete non è dichiarato"},
+  "korg_minilogue_xd":{brand:"Korg", model:"minilogue xd", per:["tastiera"], watt:8, kg:2.8, mm:[500,300,85], icona:"korg_minilogue_xd", v:true,
+                    fonte:"Korg_minilogue_xd_OwnerManual.pdf p.66", note:"37 tasti slim. Uscite OUTPUT L/MONO e R su jack 6,3 mm mono sbilanciati: in mono basta L/MONO. Alimentatore esterno DC 9 V incluso; 8 W è il consumo dichiarato. Non è il modello modulo (500×179 mm, senza tastiera)"},
   /* — Combo per chitarra — */
   "boss_katana50g3":{brand:"Boss", model:"Katana-50 Gen 3", per:["comboamp"], watt:47, out:50, kg:11.6, mm:[470,238,398], v:true,
                     fonte:"Boss_Katana-Gen3_ReferenceManual.pdf p.17", note:"misure con maniglia e piedini. Stessi numeri del Katana-50 MkII, ma è un altro prodotto"},
@@ -4627,6 +4629,16 @@ function ampModelApplies(it){
 function ampModelOf(it){ var d=(it && it.bm && AMP_DB[it.bm]) || null;
   /* un modello scelto e poi rimasto appiccicato a un tipo che non copre non deve piu' contare */
   return (d && d.per && it && d.per.indexOf(it.type)>=0) ? d : null; }
+/* Disegno PROPRIO del modello scelto (14/10/2026, Korg minilogue xd): se la riga di AMP_DB ha `icona` (chiave di
+   LIB_ICONS) e la libreria l'ha gia' caricata, l'elemento si disegna con quell'icona, in scala 1 unita = 1 cm sulle
+   misure `mm` del costruttore. Altrimenti (modello senza icona, icons.js non ancora arrivato) vale il disegno del tipo.
+   Il fattore di scala resta quello di drawLibFit, che non deforma: un elemento ridimensionato a mano resta proporzionato. */
+function modelIcon(it){
+  var d=ampModelOf(it);
+  if(!d || !d.icona || !Array.isArray(d.mm) || typeof LIB_ICONS==="undefined" || !LIB_ICONS[d.icona]) return null;
+  var w=+d.mm[0]/10, p=+d.mm[1]/10;
+  return (isFinite(w)&&isFinite(p)&&w>0&&p>0) ? {key:d.icona, w:w, d:p} : null;
+}
 /* Assorbimento del modello. Mai `out`: quella e' potenza audio. null = non dichiarato dal costruttore. */
 function ampModelWatt(it){ var d=ampModelOf(it); if(!d||d.watt==null) return null;
   var n=+d.watt; return (isFinite(n)&&n>=0) ? n : null; }
