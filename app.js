@@ -211,11 +211,20 @@ function metroTestoLargo(s, corpo){
   });
   return w*corpo;
 }
+/* Testo della quota (19/10/2026): «testo · misura». Prima l'etichetta personale SOSTITUIVA la misura.
+   Regola per i progetti esistenti: se l'etichetta contiene già un numero seguito da m/cm/mm (scritto a mano,
+   es. «Palco 8,5 m») resta com'è, per non mostrare la misura due volte. Senza etichetta: solo la misura. */
+function metroTestoQuota(it, w){
+  var lab=String(it.label==null?"":it.label).trim();
+  if(!lab) return fmtMetro(w);
+  if(/\d\s*(cm|mm|m|mt)(?![a-zà-ù])/i.test(lab)) return lab;
+  return lab+" \u00b7 "+fmtMetro(w);
+}
 /* la geometria della quota, nel sistema dell'elemento (asse sull'origine, prima della rotazione) */
 function metroGeom(it){
   var r2=function(v){ return Math.round(v*100)/100; };
   var w=Math.max(10, +it.w||200), fs=(it.lblSize==null) ? 14 : (+it.lblSize||0);
-  var txt=it.label || fmtMetro(w);
+  var txt=metroTestoQuota(it, w);
   var K=(window.__sceneTextK>0 ? window.__sceneTextK : 1), fsK=fs*K;   /* il corpo con cui il testo verrà stampato */
   var tw=fs>0 ? metroTestoLargo(txt, fsK) : 0;
   var gap=fs>0 ? r2(tw + fsK*0.8) : 0;                           /* mezza lettera d'aria per lato, abbondante */
@@ -7346,6 +7355,20 @@ function shapeStyleOf(it){ var v=it&&it.shapeStyle; return (v==="outline"||v==="
    `shapeStyle`: «area» = velatura tenue, bordo sottile, nome grande in grassetto in alto (al centro
    finirebbe sotto i musicisti che ci stanno dentro). Nel catalogo è la voce «Area con nome». */
 function isAreaNome(it){ return !!(it && it.type==="forma" && it.shapeStyle==="area"); }
+/* Pedana che fa da zona (19/10/2026): alta 0 cm, o col nome che comincia per «zona», «area», «settore».
+   Il pannello propone la conversione in Area con nome (mai in automatico, mai all'apertura di un progetto). */
+function pedanaPareZona(it){
+  if(!it || it.type!=="pedana") return false;
+  return (+it.h===0 && it.h!==undefined && it.h!==null && it.h!=="") || /^\s*(zona|area|settore)\b/i.test(String(it.label||""));
+}
+/* Stessa posizione, misure, rotazione e nome; la pedana smette di essere pedana (via rider e carichi). */
+function pedanaInArea(it){
+  if(!it || it.type!=="pedana") return false;
+  ["h","dimSide","aggancia","rackId"].forEach(function(k){ delete it[k]; });
+  it.type="forma"; it.shape="rect"; it.shapeStyle="area"; it.lblSize=AREA_LBL;
+  if(!it.fill) it.fill=areaFreeColor();
+  return true;
+}
 var AREA_LBL=32;   /* corpo di partenza del nome (cm sul palco): a 1:100 sono ~3 mm sul foglio, il doppio dei nomi degli strumenti */
 /* Ordine dei colori per le aree nuove: tinte vicine fra loro (blu, verde, ambra) prima di quelle
    «d'allarme», e ogni area nuova prende la prima non ancora usata — due zone accanto si distinguono. */
@@ -16696,6 +16719,7 @@ function renderProps(){
     if(t.riser) document.getElementById("pH").value = it.h;
     else if(isCover(it)) document.getElementById("pH").value = coverH(it);
   }
+  var _zw=document.getElementById("pZonaWrap"); if(_zw) _zw.style.display = pedanaPareZona(it) ? "block" : "none";   /* suggerimento zona (19/10/2026) */
   var isGazCover=!!GAZ_TYPES[it.type];   /* coperture: stesso controllo "Lato" dei riser, ma per l'etichetta unica */
   document.getElementById("pDimSideWrap").style.display = (t.riser||isGazCover) ? "block" : "none";
   document.getElementById("pDimSideLbl").textContent = isGazCover ? "Lato etichetta" : "Lato quota";
@@ -17084,6 +17108,7 @@ function mutSelAll(fn){ primaDiAgire(); var it=getSel(); if(!it) return;
   if(!tutti.length) tutti=[it];
   tutti.forEach(fn); render(); save(); }
 function mutSelSoon(fn){ var it=getSel(); if(!it) return; fn(it); render(); saveSoon(); }   /* per la digitazione: snapshot di cronologia debounce-ato */
+document.getElementById("bPedanaInArea").addEventListener("click", function(){ mutSel(function(it){ pedanaInArea(it); }); });   /* un passo di Annulla (19/10/2026) */
 document.getElementById("pLabel").addEventListener("input", function(){ mutSelSoon(function(it){ it.label=document.getElementById("pLabel").value; }); });
 /* Segnalazione 68b902d9 (13/10/2026): nella Nota la barra spaziatrice non scriveva, «Fornitodallacompagnia».
    Mentre si scrive il testo va salvato COM'È: con .trim() a ogni tasto lo spazio appena battuto in fondo
