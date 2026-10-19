@@ -1301,8 +1301,8 @@ var TYPES = {
   /* --- ritmica: batteria e percussioni --- */
   batteria: {nome:"Batteria", dim:"componibile", cat:"Batteria e percussioni", sub:"Batterie", w:240,d:200,
              draw:function(it){ return drawBatteria(it); }},
-  edrums:   {nome:"E-drums", dim:"140×120", cat:"Batteria e percussioni", sub:"Batterie", catalog:false, w:140,d:120,
-             draw:function(it){ return drawLibFit("edrums",it,140,120); }},                             /* modulo */
+  edrums:   {nome:"E-drums", dim:"140×120", cat:"Batteria e percussioni", sub:"Batterie", w:140,d:120,
+             draw:function(it){ return drawLibFit("edrums",it,140,120); }},                             /* 19/10/2026: ora in catalogo («batteria elettronica», «e-drums»); prima era fuori e chi la cercava non la trovava. Due canali DI come sempre */
   drumshield:{nome:"Drum shield", dim:"~250", cat:"Batteria e percussioni", sub:"Batterie", w:250,d:110,
              draw:function(){ var s='<polyline class="plex" points="-125,52 -125,-22 -62,-52 62,-52 125,-22 125,52"/>';
                [[-125,-22],[-62,-52],[62,-52],[125,-22]].forEach(function(p){ s+=circ(p[0],p[1],2.5,'ic fill'); });
@@ -1473,6 +1473,19 @@ var TYPES = {
              draw:function(it){ return guitarDraw(it,"bass"); }},
   pedaliera:{nome:"Pedaliera", dim:"50×30", cat:"Band e backline", sub:"Chitarre e bassi", w:52,d:32, defLabel:"Pedalboard",
              draw:function(it){ return drawLibFit("pedalierafx",it,62,32); }},
+  /* 19/10/2026, dai giri: loop station, theremin e generatore di sync erano fatti con pedaliere, forme e testi liberi. */
+  loopstation:{nome:"Loop station / effetti da tavolo", dim:"60×44 · su tavolino", cat:"Band e backline", sub:"DJ ed elettronica", w:62,d:44, defLabel:"Loop",
+             draw:function(it){ var w=it.w||62, d=it.d||44;   /* tavolino chiaro + macchina scura con manopole e due pulsanti a pedale */
+               return bar(0,0,w,d,'ic fWoodL',4)+bar(0,-3,w-12,d-18,'ic fBlack',3)+
+                 circ(-w/4,-9,3,'ic thin fGrey')+circ(0,-9,3,'ic thin fGrey')+circ(w/4,-9,3,'ic thin fGrey')+
+                 bar(-w/6,d/4,10,7,'ic thin fGrey',2)+bar(w/6,d/4,10,7,'ic thin fGrey',2); }},
+  theremin: {nome:"Theremin", dim:"antenne · 50×45", cat:"Band e backline", sub:"DJ ed elettronica", w:50,d:45, defLabel:"Theremin",
+             draw:function(it){ var w=it.w||50, d=it.d||45;   /* dall'alto: il corpo, l'antenna dell'altezza a destra (linea), l'anello del volume a sinistra */
+               return bar(0,d/6,w-14,d/2,'ic fBlack',3)+lin(w/2-5,d/6,w/2-5,-d/2+2,'ic')+circ(w/2-5,-d/2+4,2,'ic thin fGrey')+
+                 '<circle class="ic thin" fill="none" cx="'+(-w/2+Math.min(d/4,w/4)+1)+'" cy="'+(-d/6)+'" r="'+Math.min(d/4,w/4)+'"/>'+circ(0,d/6,3,'ic thin fGrey'); }},
+  syncgen:  {nome:"Generatore sync / timecode / word clock", dim:"rack 1U o da tavolo · senza canale", cat:"Dispositivi", w:48,d:24, defLabel:"SYNC",
+             draw:function(it){ var w=it.w||48, d=it.d||24;   /* una unità bassa: frontale con display e tre connettori */
+               return bar(0,0,w,d,'ic fGrey',3)+bar(-w/6,0,w/3,d/3,'ic mon',1.5)+circ(w/8,0,2.2,'ic thin fBlack')+circ(w/4,0,2.2,'ic thin fBlack')+circ(3*w/8,0,2.2,'ic thin fBlack'); }},   /* revisione: i connettori in proporzione (a w/6+16 il terzo usciva dal bordo) */
   djset:    {nome:"DJ set su tavolo", dim:"180×60", cat:"Band e backline", sub:"DJ ed elettronica", catalog:false, w:182,d:64, defLabel:"DJ",
              draw:function(it){ return drawLibFit("djset",it,182,64); }},
   /* --- archi (icone realistiche libreria + seduta chiara) --- */
@@ -1680,6 +1693,7 @@ var TYPES = {
              draw:function(it){ return drawLibFit("mixermonitor",it,95,65); }},
   laptop:   {nome:"Mac portatile", dim:"38×28", cat:"Regia e console", sub:"Postazioni regia", w:44,d:34, defLabel:"MAC",
              qaCede:"live",   /* 06/10/2026: l'alias «live electronics» faceva uscire il Mac prima dei dLive cercando «live» */
+             qaPrimo:"elettronica",   /* 19/10/2026: «batteria elettronica» (E-drums) mette la parola anche altrove, e il tie-break alfabetico avrebbe tolto il primo posto al Mac */
              draw:function(it){ return drawLibFit("laptopstand",it,45,40); }},
   audiointerface:{nome:"Interfaccia audio", dim:"32×22", cat:"Regia e console", sub:"Postazioni regia", w:42,d:30, defLabel:"I/O",
              draw:function(){ return bar(0,0,38,24,'ic tec fGrey',3)+
@@ -1687,6 +1701,7 @@ var TYPES = {
                circ(-16,-9,1.8,'tec fill')+circ(-9,-9,1.8,'tec fill')+circ(4,-9,1.8,'dotS')+circ(12,-9,1.8,'dotS')+
                lin(-11,12,-18,20,'sil')+lin(11,12,18,20,'sil'); }},
   schermo:  {nome:"LED wall", dim:"schermo 400×30", cat:"Video", w:400,d:30, resizable:true, z:1, defLabel:"SCREEN",
+             qaPrimo:"proiezione telo",   /* 19/10/2026: «proiezione» e «telo» sono dello schermo; il proiettore aveva il vantaggio del tie-break alfabetico */
              draw:function(it){ return bar(0,0,it.w,it.d,'ic fBlack',2)+bar(0,0,it.w-18,Math.max(8,it.d-10),'ic thin fGrey',1); }},
   proiettore:{nome:"Proiettore", dim:"45×35", cat:"Video", w:48,d:38, defLabel:"PJ",
              draw:function(){ return bar(0,0,44,32,'ic fGrey',4)+circ(11,0,8,'ic thin fBlack')+
@@ -2046,12 +2061,22 @@ var SEARCH_ALIAS_GIRI = {
   cajonpost:"cajonista cajonisti percussionista percussionisti",   /* 06/10/2026: era sul cajon da solo, ora fuori catalogo */
   /* 06/10/2026, giro P-725a15 (live electronics): Moog, Soma Lyra, Polytempo, «MIDI Drum Kit» e webcam erano stati messi su
      tablet, rack2u, notebook, batteria e testo libero perché la ricerca non conosceva queste parole. Tipi già esistenti, scelti da fonico.
-     edrums è fuori catalogo (modulo), perciò «midi drum» va sull'SPD-SX. Niente «beatbox» (è un cantante col microfono) né «drone»
-     (sul palco è anche quello che vola). Manca ancora un elemento per il sync dedicato (generatore/distributore di timecode e word clock) e per il theremin. */
+     edrums era fuori catalogo (modulo), perciò «midi drum» va sull'SPD-SX. Niente «beatbox» (è un cantante col microfono) né «drone»
+     (sul palco è anche quello che vola). Sync dedicato e theremin hanno il loro elemento dal 19/10/2026 (syncgen, theremin). */
   tastiera:"moog",
   rack2u:"modulare eurorack lyra soma lyra",
   spdsx:"drum machine drummachine midi kit midi drum midi drum kit",
   audiointerface:"scheda audio word clock wordclock",
+  /* 19/10/2026, dai giri e dagli esemplari: parole cercate davvero e senza risultato, o sul tipo sbagliato. La ricerca è a sottostringa
+     sulla FRASE intera: le frasi che si digitano («telo di proiezione», «scala di scena») vanno scritte per intero. */
+  schermo:"telo di proiezione telo proiezione schermo di proiezione schermo proiezione proiezione videoproiezione",
+  tamtam:"gong gongs",
+  flightcase:"baule bauli baule da viaggio trunk",
+  scala:"scala di scena scala del palco scalino scalini gradini",
+  edrums:"batteria elettronica batterie elettroniche e drum e drums edrum drum elettronica electronic drum electronic drums",
+  loopstation:"loop station loopstation looper loop pedal effetti da tavolo effetti tavolo multieffetto da tavolo pedaliera da tavolo pedaliera su tavolino",
+  theremin:"theremin teremin etherwave strumento elettronico ad antenne",
+  syncgen:"sync generatore sync generatore di sync timecode time code smpte ltc word clock wordclock master clock distributore di clock generatore di timecode generatore timecode",
 };
 [SEARCH_ALIAS, SEARCH_ALIAS_GIRI].forEach(function(tab){ Object.keys(tab).forEach(function(k){   /* fuso nei tipi: le due ricerche leggono solo TYPES[k].alias */
   if(TYPES[k]) TYPES[k].alias=((TYPES[k].alias||"")+" "+tab[k]).trim();
@@ -2113,7 +2138,7 @@ function subOf(k){   /* sottocategoria (nuova) di un tipo */
    Casse passive (array, sub, wedge, fill) = 0: la potenza vive sugli amp rack (no doppio conteggio). */
 var WATT = {
   comboamp:150, stack:250, bassamp:400, keysamp:150, leslie:250, edrums:60, djset:350,
-  organohammond:250, spdsx:15, pedaliera:30,   /* audit 14/07: strumenti elettronici che assorbono corrente (Hammond ~200-250W dai datasheet, SPD-SX alim. Roland ~15W, pedalboard PSU ~30W) */
+  organohammond:250, spdsx:15, pedaliera:30, loopstation:25, theremin:15, syncgen:15,   /* audit 14/07: strumenti elettronici che assorbono corrente (Hammond ~200-250W dai datasheet, SPD-SX alim. Roland ~15W, pedalboard PSU ~30W) */
   stagepiano:50, doppiatastiera:100, celesta:40,
   /* Tastiera (synth · 1 tastiera): nata il 24/07 per la ricerca nel catalogo, non era mai entrata qui e
      contava zero (13/10/2026: quattro tastiere vere sparite dai carichi). Stessa riga della ricerca dello
@@ -2478,6 +2503,7 @@ var WEIGHT = {
   /* backline */
   comboamp:25, stack:45, bassamp:40, keysamp:20, leslie:68,
   grancoda:400, mezzacoda:300, pianoverticale:230, stagepiano:25, doppiatastiera:40, celesta:100,
+  loopstation:3, theremin:4, syncgen:2,   /* 19/10/2026: stime di famiglia (macchina da tavolo, strumento ad antenne, unità sync) */
   /* batteria e percussioni */
   batteria:55, edrums:35, timpani:180, timpani3:135, timpani2:95, marimba:70, vibrafono:65, xilofono:45,
   glockenspiel:20, campane:90, grancassa:40, tamtam:45, timbales:20, percussioni:30, cajon:6, cajonpost:6,   /* la postazione pesa quanto il cajon: le aste qui non hanno peso */
@@ -3277,7 +3303,7 @@ var DEFAULT_LABELS = {
   tamtam:"Tam-tam", glockenspiel:"Glock.", xilofono:"Xylo", vibrafono:"Vibes", marimba:"Marimba",
   comboamp:"Gtr amp", stack:"Gtr stack", bassamp:"Bass amp", keysamp:"Keys amp", leslie:"Leslie",
   grancoda:"Grand", mezzacoda:"Baby grand", pianoverticale:"Upright", stagepiano:"Keys", doppiatastiera:"2 Keys", celesta:"Celesta", panchetta:"Panca",
-  gtstand:"Gtr", gtacustica:"Ac. gtr", bassstand:"Bass", pedaliera:"Pedalboard", djset:"DJ", direttore:"Direttore",
+  gtstand:"Gtr", gtacustica:"Ac. gtr", bassstand:"Bass", pedaliera:"Pedalboard", loopstation:"Loop", theremin:"Theremin", syncgen:"Sync", djset:"DJ", direttore:"Direttore",
   vlnpost:"Vln", violapost:"Vla", vln1x2:"Vln I x2", vln2x2:"Vln II x2", violax2:"Vla x2", cellix2:"Vc x2", cbx2:"Cb x2",
   archi2leggio:"Vln x2", violoncello:"Vc", contrabbasso:"Cb", arpa:"Arpa",
   astamic:"Mic", giraffa:"Boom", astabassa:"Low mic", astagigante:"Boom XL", coppiast:"ST L/R", wireless:"WL", headset:"HS", podiosp:"Podio relatore", cantante:"Voce", corista:"Coro",
@@ -18905,6 +18931,14 @@ function ricordaRecenteCatalogo(k, nome, over){
         entries.push({k:"forma", nome:"Area con nome", over:over, dim:"zona colorata col suo nome",
                       kw:"area aree zona zone settore settori reparto spazio riservato", qaPrimo:"area aree zona zone settore settori"});
       })();
+      /* MARCATORE DI CENTRO (19/10/2026): un progetto aveva quattro DI chiamate «Centro», contate come quattro canali. Il segno di
+         mezzeria è una forma (triangolo «Centro»): nessun canale, niente nel rider; qui si trova con «centro», «asse», «mezzeria». */
+      (function(){
+        var over={shape:"tri", shapeStyle:"outline", w:56, d:44, label:"Centro", lblSize:9};
+        addToGroup("Forme e note", makeBtn("forma", "Marcatore di centro", over, "segno sul palco · senza canale"));
+        entries.push({k:"forma", nome:"Marcatore di centro", over:over, dim:"segno sul palco · senza canale",
+                      kw:"centro asse mezzeria asse centrale centro palco linea centrale marcatore marker segno di centro punto centrale", qaPrimo:"centro asse mezzeria"});
+      })();
       SHAPES.forEach(function(sh){
         var over={shape:sh[0]};
         if(sh[0]==="line"){ over.w=300; over.d=6; over.shapeStyle="outline"; }
@@ -18928,7 +18962,8 @@ function ricordaRecenteCatalogo(k, nome, over){
       if(TYPES.ostacolo) [
         ["Colonna / palo", "COLONNA", 40, 40, "colonna colonne palo pilastro pilone cippo"],
         ["Croce", "CROCE", 60, 30, "croce crocifisso chiesa"],
-        ["Altare", "ALTARE", 200, 90, "altare chiesa ambone"],
+        ["Altare", "ALTARE", 200, 90, "altare chiesa"],
+        ["Ambone / leggio da chiesa", "AMBONE", 60, 50, "ambone pulpito pergamo leggio da chiesa leggio chiesa lettore chiesa"],   /* 19/10/2026: «ambone» e «pulpito» non trovavano niente (l'ambone era una parola dentro l'Altare) */
         ["Porta", "PORTA", 120, 20, "porta portone ingresso uscita"],
         ["Finestra", "FINESTRA", 140, 20, "finestra finestre vetrata"],
         ["Lampadario", "LAMPADARIO", 120, 120, "lampadario lampadari chandelier"],
@@ -18945,8 +18980,19 @@ function ricordaRecenteCatalogo(k, nome, over){
     if(c==="Strumenti"){   /* postazioni violini con nome progressivo, in cima al gruppo Archi */
       addToGroup("Archi", makeActionBtn("Violino I", "postazione · nome progressivo", "vlnpost", function(){ addViolin(1); }));
       addToGroup("Archi", makeActionBtn("Violino II", "postazione · nome progressivo", "vlnpost", function(){ addViolin(2); }, miniSvg("vlnpost",{vsec:2})));   /* thumbnail = illustrazione Vln II (vsec=2) */
-      entries.push({nome:"Violino I", dim:"postazione", icon:"vlnpost", action:function(){ addViolin(1); }});
+      entries.push({nome:"Violino I", dim:"postazione", icon:"vlnpost", action:function(){ addViolin(1); }, kw:"violinista violinisti",
+                    qaPrimo:"violinista violinisti violini"});   /* revisione 19/10/2026: «violinista» da solo è il violino seduto, non quello in piedi */
       entries.push({nome:"Violino II", dim:"postazione", icon:"vlnpost", action:function(){ addViolin(2); }});
+      /* 19/10/2026: «violino in piedi» non trovava niente, ma la postazione senza sedia esiste (sedia:false, anche dal pannello):
+         qui è una voce a sé, con la numerazione di Violino I. */
+      addToGroup("Archi", makeActionBtn("Violinista in piedi", "postazione senza sedia · Violino I", "vlnpost", function(){ addViolin(1, true); }));
+      entries.push({nome:"Violinista in piedi", dim:"postazione senza sedia", icon:"vlnpost", action:function(){ addViolin(1, true); },
+                    kw:"violino in piedi violinista in piedi violini in piedi violinisti in piedi violino senza sedia violinista senza sedia violino solista in piedi violinista solista"});
+      /* LAPTOP SU TAVOLO (19/10/2026): una postazione unica — il tavolo e il Mac, in un gruppo (si spostano insieme) */
+      addToGroup("DJ ed elettronica", makeActionBtn("Laptop su tavolo", "tavolo + Mac · postazione unica", "djset", aggiungiLaptopTavolo));
+      entries.push({nome:"Laptop su tavolo", dim:"tavolo + Mac · postazione unica", icon:"djset", action:aggiungiLaptopTavolo,
+                    qaCede:"laptop computer",   /* revisione 19/10/2026: «laptop» e «computer» restano del Laptop e del Mac (nel doppio clic passava prima la postazione) */
+                    kw:"laptop su tavolo laptop sul tavolo computer su tavolo computer sul tavolo mac su tavolo postazione laptop postazione computer postazione elettronica tavolo con laptop"});
     }
     if(c==="Persone"){
       var dirPov={leggio:true};
@@ -19431,6 +19477,7 @@ var INSTR_BASE = {
   rullante:"Rullante", percussioni:"Percussioni", grancassa:"Gran cassa", kickdrum:"Cassa",
   piatto:"Piatto", piatticoppia:"Piatti", campane:"Campane", tamtam:"Tam-tam",
   marimba:"Marimba", timpani3:"Timpani", timpani2:"Timpani", spdsx:"SPD-SX",
+  loopstation:"Loop station",   /* 19/10/2026 (revisione): il nome del catalogo «Loop station / effetti da tavolo» finiva intero sul palco e in channel list */
   /* hardware numerato */
   wedge:"Wedge", sidefill:"Side fill", drumfill:"Drum fill", iem:"IEM", sub18:"Sub", topattivo:"Diffusore",
   dimono:"DI", distereo:"DI stereo", ciabatta:"Multipresa",
@@ -19706,7 +19753,24 @@ function openQuickAdd(sp, cx, cy){
 }
 /* numerazione progressiva violini per sezione (1 = Violini I, 2 = Violini II); le doppie contano 2 leggii */
 function vlnSeats(sec){ var n=0; state.items.forEach(function(x){ if(x.type==="vlnpost" && x.vsec===sec) n += (x.doppia?2:1); }); return n; }
-function addViolin(sec){ var base=vlnSeats(sec); addItem("vlnpost",{vsec:sec, label:"Violino "+toRoman(sec)+" "+(base+1)}); }
+function addViolin(sec, inPiedi){ var base=vlnSeats(sec), o={vsec:sec, label:"Violino "+toRoman(sec)+" "+(base+1)};
+  if(inPiedi===true) o.sedia=false;   /* in piedi: la stessa postazione, senza sedia (la scelta del pannello «Sedia») */
+  addItem("vlnpost",o); }
+/* LAPTOP SU TAVOLO (19/10/2026): il tavolo e il laptop veri (con le loro uscite audio e il collegamento), posati insieme e
+   raggruppati: un solo gesto, un solo passo di annulla. Il Mac sta sopra (z 2 contro z 1 del tavolo). */
+function aggiungiLaptopTavolo(){
+  primaDiAgire();
+  var c=v2w({x:vb.x+vb.w/2, y:vb.y+vb.h/2}), gid=grpLibero();
+  /* revisione 19/10/2026: il posto lo cerca il tavolo, come ogni elemento posato dal catalogo (findFreeSpotFor): al centro della
+     vista e basta finiva sopra chi c'era già, o fuori dal palco */
+  var fs=findFreeSpotFor({type:"tavolo", w:120, d:60, label:defaultLabel("tavolo")}, Math.round(c.x), Math.round(c.y)), x=fs.x, y=fs.y;
+  var tav=addItem("tavolo", {x:x, y:y, w:120, d:60, grp:gid}, true);
+  var lap=addItem("laptop", {x:x, y:y, grp:gid}, true);
+  if(!tav || !lap) return null;
+  selSet={}; selSet[tav.id]=true; selSet[lap.id]=true; sel=lap.id;
+  render(); save(); ensureVisible();
+  return [tav, lap];
+}
 /* ANELLO DI ALTOPARLANTI (06/10/2026). Un progetto aveva un impianto ottofonico disegnato a mano: otto
    casse G1–G8 attorno al pubblico, ciascuna da posare, girare e nominare. Qui si pongono in un colpo.
    Le posizioni sono una funzione pura (la prova la suite): n casse, in CERCHIO o in RETTANGOLO attorno a
@@ -23995,7 +24059,8 @@ var STEREO_TOGGLE = {
   stagepiano:{mic:"DI",def:true}, organohammond:{mic:"DI",def:true}, clavicembalo:{mic:"KM184",def:true},
   tastiera:{mic:"DI",def:true},   /* 13/10/2026: la Tastiera non generava canali; come lo Stage piano, L/R in DI (Tastiera L / Tastiera R) */
   celesta:{mic:"KM184",def:false},
-  laptop:{mic:"DI",def:true}, djset:{mic:"DI",def:true}, pedaliera:{mic:"DI",def:false}
+  laptop:{mic:"DI",def:true}, djset:{mic:"DI",def:true}, pedaliera:{mic:"DI",def:false},
+  loopstation:{mic:"DI",def:false}, theremin:{mic:"DI",def:false}   /* 19/10/2026: ingresso di linea/DI, mono; stereo dal pannello. Il generatore di sync NON c'è: nessun canale */
 };
 /* elementi che generano PIÙ canali (stereo o multi-mic) */
 var IN_MULTI = {
@@ -29659,6 +29724,7 @@ function resetCatalogView(){
 /* altezze tipiche in cm (override per tipo; fallback per categoria) */
 var H3D={ pedana:0,scala:40,rampa:40,parapetto:110,fondale:400,quinta:400,truss:30,transenna:120, topattivo:180,
   tappeto:1,tavolo:75,sedia:85,sedialeggio:115,leggio:125,podio:20,pedanacoro:60,sgabello:75,ventilatore:120,
+  loopstation:90,theremin:100,syncgen:10,
   batteria:120,edrums:110,drumshield:180,rullante:80,percussioni:90,cajon:48,cajonpost:48,timbales:90,
   conga:76,quinto:76,tumba:76,bongos:65,djembe:60,surdo:95,tamburello:100,campanaccio:100,chimes:140,templeblocks:95,triangoloperc:130,tavolopercussioni:90,
   crotali:120,woodblock:95,flexaton:92,
@@ -29692,6 +29758,7 @@ var DESC3D={ platea:"rows of audience chairs facing the stage", pedana:"black st
   stagepiano:"88-key stage piano on X stand", doppiatastiera:"two keyboards on double tier stand",
   celesta:"celesta, wooden body", panchetta:"black piano bench", arpa:"concert pedal harp, natural wood",
   gtstand:"electric guitar on stand", gtacustica:"acoustic guitar on stand", bassstand:"electric bass on stand",
+  loopstation:"loop station and effects unit on a small table", theremin:"theremin with pitch antenna and volume loop", syncgen:"small sync / timecode / word clock generator unit",
   djset:"DJ table with 2 turntables and mixer", astamic:"black straight microphone stand with mic",
   giraffa:"black boom microphone stand", astagigante:"very tall black overhead microphone stand, wide heavy tripod base, long telescopic boom with counterweight, over a choir",
   astabassa:"short/low microphone stand", coppiast:"stereo microphone pair on single stand with stereo bar",
