@@ -14528,6 +14528,8 @@ t("il violino I è una postazione configurabile: la distanza ha senso solo a due
 });
 
 console.log("\n— DI presa dal catalogo: adozione —");
+/* una DI «sciolta» = come arriva da un progetto salvato: posata in silenzio, senza l'aggancio alla posa (19/10/2026) */
+function diSciolta(x, y) { return A.addItem("dimono", { x, y }, true); }
 
 /* Il caso reale: una DI trascinata dal catalogo accanto a una chitarra acustica. Visivamente
    sono collegate, nel dato no: la DI resta una sorgente e dichiara canali che non esistono. */
@@ -14538,7 +14540,7 @@ function chitarraConDiSciolta(stereo) {
      e ha posato accanto una DI presa dal catalogo (o di un progetto salvato prima). */
   const gen = A.diLinked(gt);
   if (gen) { A.state.items = A.state.items.filter((x) => x.id !== gen.id); delete gt.diId; delete gt.diOff; }
-  const di = add("dimono", 225, 200);
+  const di = diSciolta(225, 200);
   if (stereo) di.diCh = "stereo";
   A.__cabRes = null;
   return { gt, di };
@@ -14570,7 +14572,7 @@ t("la DI adottata resta dove l'utente l'aveva messa", () => {
 t("non si adotta una DI per uno strumento che non passa da DI", () => {
   reset();
   const voce = add("cantante", 300, 200);
-  const di = add("dimono", 225, 200);
+  const di = diSciolta(225, 200);
   eq(A.diAdopt(di, voce), false, "una voce non ha bisogno di una DI");
   ok(!di.diFor);
 });
@@ -14607,14 +14609,14 @@ t("gli strumenti candidati sono quelli vicini, che passano da DI e non ne hanno 
 t("uno strumento che ha già la sua DI non compare fra i candidati", () => {
   reset();
   add("gtacustica", 300, 200);        /* nasce con la sua DI generata */
-  const di = add("dimono", 225, 260);
+  const di = diSciolta(225, 260);
   eq(A.diCandidates(di).length, 0, "una chitarra già servita non deve adottarne un'altra");
 });
 
 t("una DI in più accanto a uno strumento già servito non viene contestata", () => {
   reset();
   add("gtacustica", 300, 200);
-  const di = add("dimono", 225, 260); di.diCh = "stereo";
+  const di = diSciolta(225, 260); di.diCh = "stereo";
   A.__cabRes = null;
   ok(!hasRule("di-orfana"), "è una DI in più, legittima: lo strumento ha già la sua");
 });
@@ -14653,7 +14655,7 @@ t("la regola tace se la DI è adottata", () => {
 
 t("la regola tace su una DI usata da sola, senza strumenti intorno", () => {
   reset();
-  add("dimono", 225, 200);
+  diSciolta(225, 200);
   A.__cabRes = null;
   ok(!hasRule("di-orfana"), "una DI isolata è una scelta legittima");
 });
@@ -14674,7 +14676,7 @@ t("la chiave della regola è unica: un solo rilievo «di-orfana» anche con due 
   const gt2 = add("gtacustica", 800, 200);
   const gen2 = A.diLinked(gt2);
   if (gen2) { A.state.items = A.state.items.filter((x) => x.id !== gen2.id); delete gt2.diId; delete gt2.diOff; }
-  add("dimono", 730, 200);
+  diSciolta(730, 200);
   A.__cabRes = null;
   const rilievi = A.auditEngine().findings.filter((x) => x.rule === "di-orfana");
   eq(rilievi.length, 1, "la dedup è per chiave: un rilievo solo");
@@ -25259,6 +25261,189 @@ t("PDF: il costruttore di jsPDF è avvolto una volta, e ogni documento nuovo è 
 t("PDF: l'export applica la regola a ogni scritta (flattenTextStyles)", () => {
   const f = appjs.slice(appjs.indexOf("function flattenTextStyles("), appjs.indexOf("function gradSolidColor("));
   ok(/el\.setAttribute\("fill", pdfColoreTesto\(rgbToHex\(cs\.fill\)\)\)/.test(f), "il fill del testo passa da pdfColoreTesto");
+});
+
+/* ===== Duplicare / incollare non lascia i legami condivisi (19/10/2026) ===== */
+console.log("\n— Duplica e incolla: i legami puntano alle copie —");
+function selezione(...items) { A.selSet = {}; items.forEach((i) => { A.selSet[i.id] = true; }); A.sel = items[items.length - 1].id; }
+const nuovi = (prima) => A.state.items.filter((x) => prima.indexOf(x.id) < 0);
+t("duplica strumento + DI: la copia usa la SUA DI, i canali sono giusti", () => {
+  reset(); A.state.cab.on = true; A.__cabRes = null;
+  const gt = add("gtacustica", 300, 300); const di = A.diLinked(gt);
+  ok(di, "la chitarra nasce con la sua DI");
+  const prima = A.state.items.map((x) => x.id);
+  selezione(gt, di); A.duplicateSel();
+  const n = nuovi(prima); eq(n.length, 2, "una chitarra e una DI nuove, non tre");
+  const gt2 = n.find((x) => x.type === "gtacustica"), di2 = n.find((x) => x.type === "dimono");
+  eq(gt2.diId, di2.id, "la copia della chitarra punta alla copia della DI");
+  eq(di2.diFor, gt2.id, "la copia della DI punta alla copia della chitarra");
+  eq(gt.diId, di.id, "l'originale non cambia"); eq(di.diFor, gt.id, "la DI originale non cambia");
+  A.__cabRes = null;
+  eq(A.patchList().rows.length, 2, "due strumenti = due canali (la DI non ne aggiunge)");
+});
+t("duplica solo lo strumento: niente legame con la DI dell'originale, ne nasce una sua", () => {
+  reset(); A.state.cab.on = true; A.__cabRes = null;
+  const gt = add("gtacustica", 300, 300); const di = A.diLinked(gt);
+  const prima = A.state.items.map((x) => x.id);
+  selezione(gt); A.duplicateSel();
+  const gt2 = nuovi(prima).find((x) => x.type === "gtacustica");
+  ok(gt2.diId && gt2.diId !== di.id, "la copia non punta alla DI dell'originale");
+  const di2 = A.diLinked(gt2); ok(di2 && di2.diFor === gt2.id, "la sua DI nuova punta alla copia");
+  eq(di.diFor, gt.id, "la DI dell'originale serve ancora solo l'originale"); eq(gt.diId, di.id, "e l'originale la tiene");
+  A.__cabRes = null; eq(A.patchList().rows.length, 2, "due canali, non tre");
+});
+t("duplica solo la DI generata: la copia non resta legata allo strumento dell'originale", () => {
+  reset(); const gt = add("gtacustica", 300, 300); const di = A.diLinked(gt);
+  const prima = A.state.items.map((x) => x.id);
+  selezione(di); A.duplicateSel();
+  const di2 = nuovi(prima)[0]; eq(di2.type, "dimono");
+  ok(di2.diFor == null, "la copia della DI non punta più alla chitarra");
+  eq(gt.diId, di.id, "la chitarra tiene la sua DI");
+});
+t("duplica senza DI: uno strumento che non ne aveva non ne riceve una", () => {
+  reset(); const gt = add("gtacustica", 300, 300); const di = A.diLinked(gt);
+  A.state.items = A.state.items.filter((x) => x.id !== di.id); delete gt.diId; delete gt.diOff; gt.diBox = false;
+  selezione(gt); A.duplicateSel();
+  eq(A.state.items.filter((x) => x.type === "dimono").length, 0, "nessuna DI comparsa dal nulla");
+});
+t("incolla strumento + DI: la copia usa la SUA DI; incolla solo lo strumento: niente DI dell'originale", () => {
+  reset(); A.state.cab.on = true; A.__cabRes = null;
+  const gt = add("gtacustica", 300, 300); const di = A.diLinked(gt);
+  let prima = A.state.items.map((x) => x.id);
+  selezione(gt, di); A.copySel(); A.pasteClip();
+  let n = nuovi(prima); eq(n.length, 2);
+  const gt2 = n.find((x) => x.type === "gtacustica"), di2 = n.find((x) => x.type === "dimono");
+  eq(gt2.diId, di2.id, "incolla: la chitarra nuova punta alla DI nuova"); eq(di2.diFor, gt2.id, "e la DI nuova alla chitarra nuova");
+  prima = A.state.items.map((x) => x.id);
+  selezione(gt); A.copySel(); A.pasteClip();
+  const gt3 = nuovi(prima).find((x) => x.type === "gtacustica");
+  ok(gt3.diId && gt3.diId !== di.id && gt3.diId !== di2.id, "incollata da sola non prende la DI di nessun altro");
+  eq(A.diLinked(gt3).diFor, gt3.id, "ne ha una sua");
+  eq(di.diFor, gt.id, "la DI dell'originale è ancora sua");
+  A.__cabRes = null; eq(A.patchList().rows.length, 3, "tre chitarre = tre canali");
+});
+t("duplica musicista + monitor d'ascolto: la copia ha il SUO monitor; da solo, nessuno", () => {
+  reset(); const v = add("cantante", 400, 300); A.setAscolto(v, "wedge"); const mon = A.state.items.find((x) => x.id === v.ascoltoId);
+  let prima = A.state.items.map((x) => x.id);
+  selezione(v, mon); A.duplicateSel();
+  let n = nuovi(prima); const v2 = n.find((x) => x.type === "cantante"), mon2 = n.find((x) => x.type === "wedge");
+  eq(v2.ascoltoId, mon2.id, "la copia del cantante punta alla copia del wedge"); eq(v2.ascolto, "wedge");
+  prima = A.state.items.map((x) => x.id);
+  selezione(v); A.duplicateSel();
+  const v3 = nuovi(prima)[0];
+  ok(v3.ascoltoId == null && v3.ascolto == null, "da solo non usa il monitor dell'originale");
+  eq(v.ascoltoId, mon.id, "l'originale tiene il suo");
+});
+t("duplica radiomicrofono + ricevitore: stesso canale ma sul ricevitore COPIATO; da solo, senza ricevitore", () => {
+  reset();
+  const rx = add("rxrf", 260, 180), tx = add("wireless", 400, 300); tx.rxId = rx.id; tx.rxCh = 2;
+  let prima = A.state.items.map((x) => x.id);
+  selezione(tx, rx); A.duplicateSel();
+  let n = nuovi(prima); const rx2 = n.find((x) => x.type === "rxrf"), tx2 = n.find((x) => x.type === "wireless");
+  eq(tx2.rxId, rx2.id, "il trasmettitore nuovo punta al ricevitore nuovo"); eq(tx2.rxCh, 2, "con lo stesso canale");
+  prima = A.state.items.map((x) => x.id);
+  selezione(tx); A.duplicateSel();
+  const tx3 = nuovi(prima)[0];
+  ok(tx3.rxId == null && tx3.rxCh == null, "da solo non si siede sul canale del ricevitore dell'originale");
+  eq(tx.rxId, rx.id, "l'originale resta sul suo");
+});
+t("duplica un oggetto del rack senza il rack: non occupa la stessa posizione; col rack, il rack nuovo", () => {
+  reset();
+  const rk = add("rack", 200, 200), ap = add("dimono", 500, 500); ap.rackId = rk.id; ap.rackPos = 0;
+  let prima = A.state.items.map((x) => x.id);
+  selezione(ap); A.duplicateSel();
+  const ap2 = nuovi(prima)[0];
+  ok(ap2.rackId == null && ap2.rackPos == null, "la copia non finisce nello stesso rack, stessa posizione");
+  prima = A.state.items.map((x) => x.id);
+  selezione(rk, ap); A.duplicateSel();
+  const n = nuovi(prima), rk2 = n.find((x) => x.type === "rack"), ap3 = n.find((x) => x.type === "dimono");
+  eq(ap3.rackId, rk2.id, "col rack copiato punta al rack nuovo");
+});
+t("duplica un computer con la sua interfaccia: punta alla copia; da solo no", () => {
+  reset();
+  const ifc = add("audiointerface", 200, 200), pc = add("laptop", 400, 300); pc.ifaceId = ifc.id;
+  let prima = A.state.items.map((x) => x.id);
+  selezione(pc); A.duplicateSel();
+  ok(nuovi(prima)[0].ifaceId == null, "da solo non si lega all'interfaccia dell'originale");
+  prima = A.state.items.map((x) => x.id);
+  selezione(pc, ifc); A.duplicateSel();
+  const n = nuovi(prima); eq(n.find((x) => x.type === "laptop").ifaceId, n.find((x) => x.type === "audiointerface").id);
+});
+t("la copia di un elemento di una distribuzione non resta etichettata con la pedana dell'originale", () => {
+  reset();
+  const rs = add("pedana", 300, 300), a = add("gtacustica", 300, 300); a.distOf = rs.id; a.distType = "gtacustica";
+  const prima = A.state.items.map((x) => x.id);
+  selezione(a); A.duplicateSel();
+  const a2 = nuovi(prima).find((x) => x.type === "gtacustica");
+  ok(a2.distOf == null && a2.distType == null, "senza la pedana, nessun legame (rigenerare la distribuzione non la cancella)");
+});
+t("la box di destinazione (sbTo) resta: più oggetti possono andare alla stessa box", () => {
+  reset();
+  const b = add("stagebox", 800, 200), g = add("gtacustica", 300, 300); g.sbTo = b.id;
+  const prima = A.state.items.map((x) => x.id);
+  selezione(g); A.duplicateSel();
+  eq(nuovi(prima).find((x) => x.type === "gtacustica").sbTo, b.id);
+  const prima2 = A.state.items.map((x) => x.id);
+  selezione(g, b); A.duplicateSel();
+  const n2 = nuovi(prima2); eq(n2.find((x) => x.type === "gtacustica").sbTo, n2.find((x) => x.type === "stagebox").id, "copiata anche la box: punta alla copia");
+});
+t("«Nuova variante» non cambia gli id: i legami della copia restano quelli di prima", () => {
+  reset(); const gt = add("gtacustica", 300, 300); const di = A.diLinked(gt);
+  A.createVariant();
+  const g2 = A.state.items.find((x) => x.type === "gtacustica"), d2 = A.state.items.find((x) => x.type === "dimono");
+  eq(g2.diId, d2.id, "legame DI intatto nella variante"); eq(d2.diFor, g2.id);
+  eq(A.state.items.length, 2, "nessun elemento in più");
+});
+
+console.log("\n— DI posata accanto a uno strumento: si aggancia da sola se il caso è chiaro —");
+function gtSenzaDi(x, y) {
+  const gt = add("gtacustica", x, y); const gen = A.diLinked(gt);
+  if (gen) { A.state.items = A.state.items.filter((i) => i.id !== gen.id); delete gt.diId; delete gt.diOff; }
+  return gt;
+}
+t("DI posata accanto a una chitarra senza DI: agganciata, con avviso che si annulla", () => {
+  reset(); A.state.cab.on = true; A.__cabRes = null;
+  const gt = gtSenzaDi(300, 200);
+  const toast = []; A.__toast = (m, e, az) => toast.push({ m, az });
+  try {
+    const di = A.addItem("dimono", { x: 225, y: 200 });
+    eq(di.diFor, gt.id, "la DI punta alla chitarra"); eq(gt.diId, di.id, "la chitarra punta alla DI");
+    ok(!A.isAudioSource(di), "non dichiara canali suoi"); eq(toast.length, 1, "un avviso"); ok(toast[0].az && toast[0].az.label === "Annulla", "con Annulla");
+    ok(/DI associata/.test(toast[0].m), "dice cosa è successo");
+    A.__cabRes = null; eq(A.patchList().rows.length, 1, "un canale solo");
+    toast[0].az.run();
+    ok(di.diFor == null && gt.diId == null, "Annulla toglie l'aggancio"); ok(A.state.items.indexOf(di) >= 0, "la DI resta sul palco");
+  } finally { delete A.__toast; }
+});
+t("due candidati vicini: la DI non si aggancia (resta l'avviso «di-orfana»)", () => {
+  reset();
+  const g1 = gtSenzaDi(300, 200), g2 = gtSenzaDi(380, 200);
+  const di = A.addItem("dimono", { x: 340, y: 260 });
+  ok(di.diFor == null && g1.diId == null && g2.diId == null, "ambiguo: niente aggancio");
+});
+t("DI lontana dagli strumenti (oltre DI_ADOPT_RANGE) o accanto a chi ha già la sua DI: non si aggancia", () => {
+  reset();
+  const gt = gtSenzaDi(300, 200);
+  const lontana = A.addItem("dimono", { x: 300 + A.DI_ADOPT_RANGE + 200, y: 200 });
+  ok(lontana.diFor == null && gt.diId == null, "troppo lontana");
+  reset();
+  const bs = add("bassstand", 300, 400), sua = A.diLinked(bs);
+  const extra = A.addItem("dimono", { x: 240, y: 400 });
+  ok(extra.diFor == null && bs.diId === sua.id, "lo strumento già servito tiene la sua DI");
+});
+t("uno strumento a cui l'utente ha tolto la DI (diBox falso) non la riceve da solo", () => {
+  reset();
+  const gt = gtSenzaDi(300, 200); gt.diBox = false;
+  const di = A.addItem("dimono", { x: 225, y: 200 });
+  ok(di.diFor == null && gt.diId == null, "scelta dell'utente rispettata");
+});
+t("un progetto aperto non cambia: una DI sciolta già salvata resta sciolta (nessun aggancio all'apertura)", () => {
+  reset(); const gt = gtSenzaDi(300, 200);
+  const di = A.addItem("dimono", { x: 225, y: 200 }, true);   /* come da progetto salvato: addItem silenzioso */
+  const json = JSON.stringify(A.state);
+  A.state = A.normalizeState(JSON.parse(json));
+  const di2 = A.state.items.find((x) => x.type === "dimono");
+  ok(di2.diFor == null, "normalizeState non aggancia");
 });
 
 await Promise.all(attese);
