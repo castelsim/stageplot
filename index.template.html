@@ -138,6 +138,7 @@
   <div class="hdrmenu var-menu" id="variantMenu" role="menu" hidden>
     <button type="button" class="mi" data-vm="ren">Rinomina…</button>
     <button type="button" class="mi" data-vm="new">Duplica in una nuova variante</button>
+    <button type="button" class="mi" data-vm="diff">Cosa cambia rispetto a…</button>
     <hr>
     <button type="button" class="mi mi-danger" data-vm="del">Elimina variante</button>
   </div>
@@ -1591,6 +1592,7 @@
     <div class="mrow mrow-var" id="mVarRow" hidden><span class="mrow-t" id="mVarHead">Variante</span><select id="mVariantSel" aria-label="Variante attiva"></select></div>
     <div class="mrow-acts" id="mVarGrid">
       <button data-act="var-ren" id="mVarRen" hidden>Rinomina</button>
+      <button data-act="var-diff" id="mVarDiff" hidden>Cosa cambia…</button>
       <button data-act="var-del" id="mVarDel" class="danger" hidden>Elimina</button>
       <button data-act="var-new">+ Nuova variante</button>
     </div>
@@ -6309,6 +6311,181 @@ function avvisiDopoModifica(){
   if(!avvisoDisegnato || avvisoDisegnato==="{}") return;
   clearTimeout(avvisiVarT); avvisiVarT=setTimeout(rinfrescaAvvisiVarianti, 600);
 }
+/* «Cosa cambia rispetto a…» (19/10/2026). Un progetto reale aveva 10 varianti quasi uguali: per sapere cosa
+   cambia da una all'altra bisognava aprirle a turno. Il confronto è una funzione PURA fra due stati (base =
+   la variante scelta, nuovo = quella attiva): elenca aggiunti, tolti, spostati (oltre CFR_SOGLIA cm, con la
+   distanza), rinominati, misure/altezza cambiate, ruotati, e il palco. Non tocca niente e si calcola solo
+   quando si apre la finestra (o si cambia la variante scelta): nessun costo a riposo.
+   ABBINAMENTO degli elementi, in tre passi, ognuno sui soli elementi rimasti liberi:
+   1) stesso id E stesso tipo: una variante nata come copia ha gli stessi id. Ma uid() riparte dal massimo
+      esistente, quindi due varianti che crescono per conto loro possono dare lo stesso id a elementi diversi:
+      se il nome è diverso E sono lontani più di CFR_COLLISIONE cm, l'id è una coincidenza e non si abbina;
+   2) stesso tipo + stesso nome (senza maiuscole/spazi doppi): si accoppia il più vicino (a coppie, dal più
+      vicino: con dieci «Voce» identiche ognuna trova la sua);
+   3) stesso tipo, nome diverso, entro CFR_VICINO cm: è lo stesso elemento rinominato.
+   Quello che resta è tolto (solo nella base) o aggiunto (solo nel nuovo). Unità: cm, come nello stato. */
+var CFR_SOGLIA=10, CFR_VICINO=40, CFR_COLLISIONE=100, CFR_RIGHE=25;
+function cfrNome(it){
+  var l=String((it && it.label) || "").replace(/\s+/g," ").trim();
+  return l || (it && TYPES[it.type] && TYPES[it.type].nome) || String((it && it.type) || "elemento");
+}
+function cfrNorm(s){ return String(s==null ? "" : s).replace(/\s+/g," ").trim().toLowerCase(); }
+function confrontaVarianti(base, nuovo, opz){
+  opz=opz||{};
+  var soglia=(opz.soglia>=0) ? opz.soglia : CFR_SOGLIA, nomeDi=opz.nome||cfrNome;
+  function lista(s){ return (s && Array.isArray(s.items) ? s.items : []).filter(function(x){ return x && typeof x==="object"; }); }
+  var A=lista(base), B=lista(nuovo), usaA=[], usaB=[], coppie=[], i, j;
+  function dist(a,b){ return Math.hypot((+a.x||0)-(+b.x||0), (+a.y||0)-(+b.y||0)); }
+  function accoppia(ia, ib){ usaA[ia]=true; usaB[ib]=true; coppie.push([A[ia], B[ib]]); }
+  /* 1) stesso id (e stesso tipo, senza coincidenza di id riusato) */
+  var perId=Object.create(null);
+  for(i=0;i<A.length;i++){ var ka=A[i].id; if(ka!=null && ka!=="" && !(String(ka) in perId)) perId[String(ka)]=i; }
+  for(j=0;j<B.length;j++){
+    var kb=B[j].id; if(kb==null || kb==="") continue;
+    i=perId[String(kb)]; if(i==null || usaA[i] || A[i].type!==B[j].type) continue;
+    if(cfrNorm(nomeDi(A[i]))!==cfrNorm(nomeDi(B[j])) && dist(A[i],B[j])>CFR_COLLISIONE) continue;
+    accoppia(i,j);
+  }
+  /* 2) e 3) per gruppi: si elencano le coppie possibili, dalla più vicina, e si prendono se i due sono ancora liberi */
+  function passo(chiave, maxDist){
+    var gruppi=Object.create(null), cand=[];
+    for(i=0;i<A.length;i++){ if(usaA[i]) continue; var g=chiave(A[i]); (gruppi[g]=gruppi[g]||[]).push(i); }
+    for(j=0;j<B.length;j++){
+      if(usaB[j]) continue; var lst=gruppi[chiave(B[j])]; if(!lst) continue;
+      for(var q=0;q<lst.length;q++){ var d=dist(A[lst[q]],B[j]); if(d<=maxDist) cand.push([d, lst[q], j]); }
+    }
+    cand.sort(function(p,q){ return p[0]-q[0] || p[1]-q[1] || p[2]-q[2]; });
+    cand.forEach(function(c){ if(!usaA[c[1]] && !usaB[c[2]]) accoppia(c[1], c[2]); });
+  }
+  passo(function(it){ return String(it.type)+"|"+cfrNorm(nomeDi(it)); }, Infinity);
+  passo(function(it){ return String(it.type); }, CFR_VICINO);
+  var out={ aggiunti:[], tolti:[], spostati:[], rinominati:[], misure:[], ruotati:[], palco:[], abbinati:coppie.length };
+  for(j=0;j<B.length;j++) if(!usaB[j]) out.aggiunti.push({ id:B[j].id, nome:nomeDi(B[j]) });
+  for(i=0;i<A.length;i++) if(!usaA[i]) out.tolti.push({ id:A[i].id, nome:nomeDi(A[i]) });
+  var CAMPI=[["w","larghezza"],["d","profondità"],["h","altezza"]];
+  function ang(r){ return (((+r||0)%360)+360)%360; }
+  coppie.forEach(function(c){
+    var a=c[0], b=c[1], nb=nomeDi(b), d=dist(a,b);
+    if(d>soglia) out.spostati.push({ id:b.id, nome:nb, dist:Math.round(d) });
+    if(cfrNorm(nomeDi(a))!==cfrNorm(nb)) out.rinominati.push({ id:b.id, da:nomeDi(a), a:nb });
+    var cambi=[];
+    CAMPI.forEach(function(f){
+      var va=(a[f[0]]==null||a[f[0]]==="") ? null : +a[f[0]], vb=(b[f[0]]==null||b[f[0]]==="") ? null : +b[f[0]];
+      if(va!=null && isNaN(va)) va=null; if(vb!=null && isNaN(vb)) vb=null;
+      if(va===null && vb===null) return;
+      if(va===null || vb===null || Math.abs(va-vb)>0.5) cambi.push({ campo:f[1], da:va, a:vb });
+    });
+    if(cambi.length) out.misure.push({ id:b.id, nome:nb, cambi:cambi });
+    var ra=ang(a.rot), rb=ang(b.rot), dr=Math.abs(ra-rb); dr=Math.min(dr, 360-dr);
+    if(dr>1) out.ruotati.push({ id:b.id, nome:nb, da:Math.round(ra), a:Math.round(rb) });
+  });
+  /* più lontani per primi: sono quelli che si cercano */
+  out.spostati.sort(function(p,q){ return q.dist-p.dist; });
+  out.palco=cfrPalco(base, nuovo);
+  out.uguali=!(out.aggiunti.length||out.tolti.length||out.spostati.length||out.rinominati.length||out.misure.length||out.ruotati.length||out.palco.length);
+  return out;
+}
+/* il palco: misure complessive e, a parità di misure, forma a blocchi o altezze (frasi già pronte) */
+function cfrPalco(base, nuovo){
+  var sa=(base && base.stage) || {}, sb=(nuovo && nuovo.stage) || {}, r=[];
+  function m(cm){ return String(Math.round((+cm||0))/100).replace(".",","); }
+  function blocchi(s){ return JSON.stringify((Array.isArray(s.blocks) ? s.blocks : []).map(function(b){
+    return [+b.x||0, +b.y||0, +b.w||0, +b.d||0, b.h==null ? null : +b.h]; })); }
+  if(Math.abs((+sa.w||0)-(+sb.w||0))>0.5 || Math.abs((+sa.d||0)-(+sb.d||0))>0.5)
+    r.push("Misure del palco: "+m(sa.w)+" × "+m(sa.d)+" m → "+m(sb.w)+" × "+m(sb.d)+" m");
+  else if(blocchi(sa)!==blocchi(sb)) r.push("Forma o altezze del palco diverse (stesse misure complessive)");
+  return r;
+}
+/* L'elenco come HTML (funzione pura, si prova senza DOM). `aperte` = categorie da mostrare per intero. */
+function confrontoHtml(res, nomeBase, aperte, altroDiverso){
+  aperte=aperte||{};
+  var n=function(k){ return res[k].length; };
+  function metri(cm){ return cm>=100 ? (Math.round(cm/10)/10+"").replace(".",",")+" m" : cm+" cm"; }
+  function num(v){ return v==null ? "—" : (Math.round(v*10)/10+"").replace(".",","); }
+  var html='<p class="cfr-sub">Questa variante rispetto a «'+esc(nomeBase)+'»</p>';
+  if(res.uguali){
+    return html+'<p class="cfr-nulla">Nessuna differenza negli elementi e nel palco.'+(altroDiverso ? ' I due progetti però non sono identici in altri dettagli (spostamenti minimi, liste, collegamenti, note).' : '')+'</p>';
+  }
+  var sommario=[]; [["aggiunti","aggiunt","o","i"],["tolti","tolt","o","i"],["spostati","spostat","o","i"],["rinominati","rinominat","o","i"],["misure","con misure cambiate","",""],["ruotati","ruotat","o","i"]].forEach(function(c){
+    if(n(c[0])) sommario.push(n(c[0])+" "+(c[2]==="" ? c[1] : c[1]+(n(c[0])===1 ? c[2] : c[3]))); });
+  if(res.palco.length) sommario.push("palco cambiato");
+  html+='<p class="cfr-sum">'+esc(sommario.join(" · "))+'</p>';
+  function sezione(chiave, titolo, righe){
+    if(!righe.length) return "";
+    var tutte=!!aperte[chiave], vis=tutte ? righe : righe.slice(0, CFR_RIGHE);
+    var h='<section class="cfr-sez"><h4>'+esc(titolo)+' <span class="cfr-n">'+righe.length+'</span></h4><div class="cfr-righe">';
+    vis.forEach(function(r){ h+=r; });
+    h+='</div>';
+    if(!tutte && righe.length>vis.length) h+='<button type="button" class="cfr-piu" data-cfr-piu="'+chiave+'">Mostra altri '+(righe.length-vis.length)+'</button>';
+    return h+'</section>';
+  }
+  function riga(id, testo, dettaglio){   /* con id = si può cliccare (l'elemento è sul palco di questa variante) */
+    var t='<span class="cfr-t">'+esc(testo)+'</span>'+(dettaglio ? '<span class="cfr-d">'+esc(dettaglio)+'</span>' : '');
+    return id!=null ? '<button type="button" class="cfr-riga" data-id="'+esc(id)+'">'+t+'</button>' : '<div class="cfr-riga fermo">'+t+'</div>';
+  }
+  if(res.palco.length) html+='<section class="cfr-sez"><h4>Palco</h4><div class="cfr-righe">'+res.palco.map(function(p){ return riga(null, p); }).join("")+'</div></section>';
+  html+=sezione("aggiunti","Aggiunti",res.aggiunti.map(function(x){ return riga(x.id, x.nome, "c'è solo in questa variante"); }));
+  html+=sezione("tolti","Tolti",res.tolti.map(function(x){ return riga(null, x.nome, "c'è solo in «"+nomeBase+"»"); }));
+  html+=sezione("spostati","Spostati",res.spostati.map(function(x){ return riga(x.id, x.nome, "spostato di "+metri(x.dist)); }));
+  html+=sezione("rinominati","Rinominati",res.rinominati.map(function(x){ return riga(x.id, "«"+x.da+"» → «"+x.a+"»"); }));
+  html+=sezione("misure","Misure e altezza",res.misure.map(function(x){
+    return riga(x.id, x.nome, x.cambi.map(function(c){ return c.campo+" "+num(c.da)+" → "+num(c.a)+" cm"; }).join(" · ")); }));
+  html+=sezione("ruotati","Ruotati",res.ruotati.map(function(x){ return riga(x.id, x.nome, "da "+x.da+"° a "+x.a+"°"); }));
+  return html;
+}
+/* La finestra. Si apre dal menu della variante attiva (e da quello del telefono) con almeno due varianti. */
+var cfrAperte={}, cfrUltima=null;
+function cfrStatoVariante(v){ return (v && v.id===activeVar && typeof state!=="undefined" && state) ? state : (v && v.state); }
+function cfrDisegna(){
+  var ov=document.getElementById("varDiffModal"); if(!ov) return;
+  var sel=ov.querySelector("#varDiffSel"), box=ov.querySelector("#varDiffRis"), v=null, att=activeVarObj(), i;
+  for(i=0;i<VARIANTS.length;i++){ if(VARIANTS[i].id===sel.value) v=VARIANTS[i]; }
+  if(!v || !att){ box.innerHTML='<p class="cfr-nulla">Scegli una variante da confrontare.</p>'; return; }
+  var res=confrontaVarianti(cfrStatoVariante(v), cfrStatoVariante(att)); cfrUltima=res;
+  var altro=false;
+  if(res.uguali){ try{ altro=firmaVariante(v)!==firmaVariante(att); }catch(_cfrErr){ altro=false; } }
+  box.innerHTML=confrontoHtml(res, v.name||"l'altra variante", cfrAperte, altro);
+}
+function apriConfrontoVarianti(){
+  if(VARIANTS.length<2){ if(window.__toast) window.__toast("Serve almeno un'altra variante da confrontare."); return false; }
+  var ov=document.getElementById("varDiffModal");
+  if(!ov){ ov=document.createElement("div"); ov.id="varDiffModal";
+    ov.innerHTML='<div class="cfr-box" role="dialog" aria-modal="true" aria-labelledby="varDiffTit">'+
+      '<div class="cfr-testa"><h3 id="varDiffTit">Cosa cambia rispetto a…</h3><button type="button" class="cfr-chiudi" aria-label="Chiudi">✕</button></div>'+
+      '<label class="cfr-scelta" for="varDiffSel">Confronta con<select id="varDiffSel"></select></label>'+
+      '<div id="varDiffRis" class="cfr-ris" aria-live="polite"></div></div>';
+    document.body.appendChild(ov);
+    var chiudi=function(){ ov.style.display="none"; if(ov._prev && ov._prev.focus){ try{ ov._prev.focus(); }catch(_e){} } };
+    ov._chiudi=chiudi;
+    ov.addEventListener("click", function(e){
+      if(e.target===ov || e.target.closest(".cfr-chiudi")){ chiudi(); return; }
+      var piu=e.target.closest("[data-cfr-piu]");
+      if(piu){ cfrAperte[piu.getAttribute("data-cfr-piu")]=true; cfrDisegna(); return; }
+      var r=e.target.closest(".cfr-riga[data-id]");
+      if(r){ var id=r.getAttribute("data-id"); chiudi(); cfrVaiA(id); }
+    });
+    ov.querySelector("#varDiffSel").addEventListener("change", function(){ cfrAperte={}; cfrDisegna(); });
+    ov.addEventListener("keydown", function(e){ if(e.key==="Escape"){ e.stopPropagation(); chiudi(); } });
+  }
+  ov._prev=document.activeElement;
+  /* proposta: la variante che precede quella attiva (o la successiva se è la prima) */
+  var idx=0, i; for(i=0;i<VARIANTS.length;i++){ if(VARIANTS[i].id===activeVar) idx=i; }
+  var prop=VARIANTS[idx>0 ? idx-1 : 1], sel=ov.querySelector("#varDiffSel"), h="";
+  for(i=0;i<VARIANTS.length;i++){ if(VARIANTS[i].id===activeVar) continue;
+    h+='<option value="'+esc(VARIANTS[i].id)+'">'+esc(VARIANTS[i].name||("Variante "+(i+1)))+'</option>'; }
+  sel.innerHTML=h; sel.value=prop.id; cfrAperte={};
+  ov.style.display="flex"; cfrDisegna();
+  setTimeout(function(){ sel.focus(); },30);
+  return true;
+}
+/* clic su una riga: seleziona l'elemento sul palco della variante attiva (se c'è ancora) */
+function cfrVaiA(id){
+  var it=(state.items||[]).filter(function(x){ return x.id===id; })[0]; if(!it) return false;
+  selectOne(it.id); render(); if(typeof renderProps==="function") renderProps();
+  if(typeof flashItem==="function") flashItem(it.id);
+  if(typeof ensureVisible==="function") ensureVisible();
+  return true;
+}
 function renameVariant(id, name){ name=(name||"").trim(); if(!name) return; for(var i=0;i<VARIANTS.length;i++){ if(VARIANTS[i].id===id){ VARIANTS[i].name=name; break; } }
   persistLocalState(); if(window.scheduleCloudAutosave) scheduleCloudAutosave(); if(window.__consultDirty) window.__consultDirty(); renderVariantBar(); }
 function deleteVariant(id){ if(custEditorAttivo()){ custEditorAvvisa(); return false; } if(VARIANTS.length<=1) return false;   /* guardia: mai eliminare l'ultima variante */
@@ -6381,12 +6558,12 @@ function variantTabsHtml(){
 function renderVariantMobile(){
   var head=document.getElementById("mVarHead"), row=document.getElementById("mVarRow"),
       grid=document.getElementById("mVarGrid"), sel=document.getElementById("mVariantSel"),
-      ren=document.getElementById("mVarRen"), del=document.getElementById("mVarDel");
+      ren=document.getElementById("mVarRen"), del=document.getElementById("mVarDel"), dif=document.getElementById("mVarDiff");
   if(!grid) return;
   var ospite=document.body.classList.contains("viewmode") || document.body.classList.contains("consult-viewer");
   if(head) head.hidden=ospite; grid.hidden=ospite;
   var multi=!ospite && VARIANTS.length>1;
-  if(row) row.hidden=!multi; if(ren) ren.hidden=!multi; if(del) del.hidden=!multi;
+  if(row) row.hidden=!multi; if(ren) ren.hidden=!multi; if(del) del.hidden=!multi; if(dif) dif.hidden=!multi;
   if(ospite || !sel) return;
   var uguali=VARIANTS.length>1 ? variantiUguali() : {}, html=""; for(var i=0;i<VARIANTS.length;i++){ var v=VARIANTS[i];
     html+='<option value="'+esc(v.id)+'"'+(v.id===activeVar?" selected":"")+'>'+esc(v.name||("Variante "+(i+1)))+(uguali[v.id]?' (uguale a «'+esc(uguali[v.id])+'»)':'')+'</option>'; }
@@ -6432,6 +6609,7 @@ function confirmDeleteVariant(id){
     if(!menu.hidden){ chiudiMenu(); return; }                        /* la scheda attiva: apre e chiude i comandi */
     document.querySelectorAll(".hdrmenu").forEach(function(x){ x.hidden=true; });
     var del=menu.querySelector('[data-vm="del"]'); if(del) del.hidden = VARIANTS.length<=1;   /* l'ultima non si elimina */
+    var dif=menu.querySelector('[data-vm="diff"]'); if(dif) dif.hidden = VARIANTS.length<=1;   /* con una variante sola non c'è da confrontare */
     var r=t.getBoundingClientRect();
     menu.style.top=(r.bottom+6)+"px"; menu.style.left=Math.max(8, Math.min(r.left, innerWidth-250))+"px";
     menu.hidden=false;
@@ -6446,6 +6624,7 @@ function confirmDeleteVariant(id){
     if(a==="ren") promptRenameVariant(activeVar);
     else if(a==="new") createVariant();
     else if(a==="del") confirmDeleteVariant(activeVar);
+    else if(a==="diff") apriConfrontoVarianti();
   });
   /* l'attiva può essere cambiata dall'ultimo disegno: ci si passa sopra e l'avviso si ricalcola (solo se cambia) */
   if(bar){ bar.addEventListener("mouseenter", rinfrescaAvvisiVarianti); bar.addEventListener("focusin", rinfrescaAvvisiVarianti); }
@@ -22190,6 +22369,7 @@ function renderMobileList(){
       if(a==="var-new"){ createVariant(); return; }
       if(a==="var-ren"){ promptRenameVariant(activeVar); return; }
       if(a==="var-del"){ confirmDeleteVariant(activeVar); return; }
+      if(a==="var-diff"){ if(window.toggleMobileMenu) window.toggleMobileMenu(false); apriConfrontoVarianti(); return; }
       if(a==="import") document.getElementById("bHdrImport").click();
       else if(a==="download") proxy("saveJson");
       else if(a==="cloud" || a==="account") proxy("bCloud");
