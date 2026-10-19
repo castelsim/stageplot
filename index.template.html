@@ -9131,10 +9131,17 @@ function stageBlocks(){ var b=state.stage.blocks; return (b&&b.length)?b:[{x:0,y
    tutte, taceva.
    La postazione FOH sta in sala per definizione: non conta. */
 var FUORI_OK = { foh:1, platea:1, sediapubblico:1 };   /* platea e sedia del pubblico (06/10/2026): stanno in sala per definizione, come il FOH */
+/* CHI PER NATURA STA FUORI (19/10/2026, dagli esemplari). Le scale e le rampe di accesso si appoggiano al bordo e le
+   quote (metro) si tirano da un lato all'altro: che il centro cada fuori dal rettangolo non è un errore di disegno.
+   Un set a parte e NON dentro FUORI_OK: FUORI_OK decide anche il riquadro di stampa e «Adatta al palco», dove una
+   scala fuori dal bordo deve restare nel foglio. Questo set serve solo all'avviso «fuori dal palco» (e a «il palco che
+   contiene tutto»): la regola «basta il centro dentro un blocco» resta quella di prima. Non esiste un tipo «marcatore». */
+var FUORI_PER_NATURA = { scala:1, rampa:1, metro:1 };
+function fuoriAttesoDalPalco(it){ return !!(it && (FUORI_OK[it.type] || FUORI_PER_NATURA[it.type])); }
 function elementiFuoriDalPalco(){
   var bl=stageBlocks(), out=[];
   (state.items||[]).forEach(function(it){
-    if(!it || FUORI_OK[it.type] || it.avvertenza) return;   /* l'avvertenza di Adatta sta sotto «PUBBLICO» apposta */
+    if(!it || fuoriAttesoDalPalco(it) || it.avvertenza) return;   /* l'avvertenza di Adatta sta sotto «PUBBLICO» apposta */
     if(it.rackId) return;   /* dentro un rack (14/10): non si disegna, ha le coordinate del rack — sei apparecchi in un rack fuori non sono sette elementi fuori */
     var t=TYPES[it.type]||{}, hw=(it.w||t.w||60)/2, hd=(it.d||t.d||60)/2;
     /* Basta che il CENTRO sia dentro un blocco: un elemento che sborda di poco dal bordo è una cosa
@@ -9152,7 +9159,7 @@ function elementiFuoriDalPalco(){
    Restituisce null, oppure quanti sono fuori, su quanti, e il palco che li conterrebbe tutti. */
 function fuoriPalcoEquivoco(){
   var fuori=elementiFuoriDalPalco();
-  var totali=(state.items||[]).filter(function(it){ return it && !FUORI_OK[it.type] && !it.avvertenza && !it.rackId; }).length;
+  var totali=(state.items||[]).filter(function(it){ return it && !fuoriAttesoDalPalco(it) && !it.avvertenza && !it.rackId; }).length;
   if(fuori.length<3 || !totali || fuori.length<totali/2) return null;
   return { fuori:fuori, totali:totali, palco:palcoCheContieneTutto() };
 }
@@ -9215,7 +9222,7 @@ function fuoriNelRiquadro(F0, k, entra){
 function entraSenzaScala(F0){ var m=2*Math.max(F0.w, F0.h); return function(G){ return Math.max(G.w, G.h)<=m+0.5; }; }
 /* Il palco che contiene tutto, arrotondato al mezzo metro: le misure di un palco si dicono così. */
 function palcoCheContieneTutto(){
-  var its=(state.items||[]).filter(function(it){ return !FUORI_OK[it.type] && !it.avvertenza; });
+  var its=(state.items||[]).filter(function(it){ return !fuoriAttesoDalPalco(it) && !it.avvertenza; });   /* 19/10: una scala d'accesso non allarga il palco proposto */
   if(!its.length) return null;
   var x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
   its.forEach(function(it){
@@ -16557,15 +16564,106 @@ function modFillProps(it){
 /* ===== AUDIT / DIAGNOSTICA — "AI" deterministica: aggrega le criticità dei motori + regole
    trasversali + punteggio di prontezza + suggerimenti. Client-side, gratis, spiegabile. ===== */
 var AUDIT_MON_NEAR=350;   /* T1 — soglia prossimità monitor (~3,5 m a 100 px/m); tarabile */
+/* DOPPIONI SOVRAPPOSTI (19/10/2026, dagli esemplari: un intero gruppo copiato nelle stesse coordinate, un oboe sopra
+   un altro). Si vede un elemento solo, ma nel rider e nella channel list ne contano due: nessuno se ne accorge.
+   Doppione = stesso tipo, stessa misura, stessa rotazione e stesso piano, col CENTRO entro DOPPIONE_CM dall'altro.
+   Soglia 5 cm: sono corpi larghi almeno 30 cm, a meno di 5 cm di scarto coprono oltre l'85% l'uno dell'altro (non si
+   distinguono più), mentre la griglia di snap parte da 25 cm, quindi due elementi messi a mano «vicini» restano sopra.
+   Non contano: ciò che si sovrappone per natura (forme/aree, testi, quote, tappeti, pedane accostate e ogni tipo a
+   misura libera: transenne, americane, parapetti, fondali…), le zone microfoniche, ciò che sta nel rack, la DI generata
+   da uno strumento, gli elementi distribuiti su una pedana (distOf: la distribuzione con «equidistanza» bassa li
+   accosta apposta), l'avvertenza di Adatta. La batteria componibile divisa nei pezzi non cade qui: i pezzi sono tipi
+   diversi (cassa, rullante, tom…) e due tom stanno a decine di cm. Restituisce [{tieni, doppi:[...]}]: si tiene il
+   primo posato, i doppioni sono quelli venuti dopo. */
+var DOPPIONE_CM=5;
+var DOPPIONE_ESCLUSI={ forma:1, custshape:1, testo:1, metro:1, tappeto:1, platea:1, miczone:1 };
+function doppioneEsente(it){
+  if(!it || !it.type || !TYPES[it.type]) return true;
+  var t=TYPES[it.type];
+  if(DOPPIONE_ESCLUSI[it.type] || t.resizable || t.riser || isRiser(it)) return true;
+  if(it.rackId || it.diFor || it.distOf || it.avvertenza) return true;
+  return false;
+}
+function doppioniSovrapposti(){
+  var its=(state.items||[]).filter(function(it){ return !doppioneEsente(it); });
+  var presi={}, out=[];
+  function dim(it){ var t=TYPES[it.type]||{}; return [it.w||t.w||60, it.d||t.d||60]; }
+  function giro(a){ a=((a||0)%360+360)%360; return a; }
+  its.forEach(function(a, i){
+    if(presi[a.id]) return;
+    var da=dim(a), g=null;
+    for(var j=i+1;j<its.length;j++){
+      var b=its[j]; if(presi[b.id] || b.type!==a.type) continue;
+      if(Math.hypot((b.x||0)-(a.x||0), (b.y||0)-(a.y||0))>DOPPIONE_CM) continue;
+      var db=dim(b); if(Math.abs(da[0]-db[0])>1 || Math.abs(da[1]-db[1])>1) continue;
+      var dr=Math.abs(giro(a.rot)-giro(b.rot)); if(Math.min(dr, 360-dr)>1) continue;
+      if(effZ(a)!==effZ(b)) continue;   /* un piano diverso è una sovrapposizione voluta (uno davanti all'altro) */
+      if(!g){ g={tieni:a, doppi:[]}; out.push(g); }
+      g.doppi.push(b); presi[b.id]=1;
+    }
+  });
+  return out;
+}
+/* Mostra: seleziona i doppioni e li porta in vista (stessa via di «Mostra il primo» delle luci). */
+function auditFixMostraDoppioni(list){
+  var ids=(list||[]).map(function(x){ return x.id; }); if(!ids.length) return;
+  selSet={}; ids.forEach(function(id){ selSet[id]=true; }); sel=ids[ids.length-1];
+  render(); if(typeof renderProps==="function") renderProps();
+  if(typeof ensureVisible==="function") ensureVisible();
+  if(typeof flashItem==="function") flashItem(ids[0]);
+}
+/* Togli il doppione: via la copia venuta dopo, resta il primo. Passa da deleteSel, cioè dallo stesso gesto di Elimina:
+   si annulla con Annulla (e col bottone del toast), la sua DI se ne va con lei, i posti si rinumerano. */
+function auditFixTogliDoppioni(list){
+  if(soloLetturaProgetto()) return;
+  var ids=(list||[]).filter(function(x){ return (state.items||[]).indexOf(x)>=0; }).map(function(x){ return x.id; });
+  if(!ids.length) return;
+  selSet={}; ids.forEach(function(id){ selSet[id]=true; }); sel=ids[ids.length-1];
+  deleteSel();
+}
+/* STRUMENTO SENZA RIPRESA (19/10/2026, dagli esemplari: chitarre e bassi senza ampli né DI sparivano dalla lista).
+   Le postazioni con catena (chitarra elettrica/acustica, basso) hanno un canale solo per ogni prelievo acceso: se la
+   catena è vuota (ampli tolto, niente DI) lo strumento esce dalla channel list in silenzio, e il disegno non lo dice.
+   Le tastiere (stage piano, tastiera, organo…) e gli ampli del catalogo hanno sempre almeno un canale, quindi non
+   possono finire qui; «Nessun microfono» scelto a mano sugli altri strumenti è una scelta e non si contesta.
+   Non si contesta: chi sta in una zona microfonica (la ripresa c'è, è d'insieme), chi ha accanto una DI dal catalogo
+   (è lei la sua sorgente: vedi diCandidates / «di-orfana») e chi ha accanto, entro 2 m (come la regola «dueampli»), un
+   ampli del catalogo che a sua volta ha un canale: la postazione senza ampli + il combo posato a parte è il modo
+   normale di disegnarlo, e il canale c'è (quello del combo). */
+var RIPRESA_AMPLI_CATALOGO={ comboamp:1, stack:1, bassamp:1, keysamp:1, leslie:1 };
+var RIPRESA_AMPLI_CM=200;
+function strumentiSenzaRipresa(){
+  var items=state.items||[];
+  return items.filter(function(it){
+    if(!it || it.rackId || it.diFor || !hasChain(it)) return false;
+    if(chainInputs(it).length) return false;
+    if(itemInMicZone(it)) return false;
+    var vicino=function(o, cm){ return Math.hypot((o.x||0)-(it.x||0), (o.y||0)-(it.y||0))<=cm; };
+    if(items.some(function(d){ return (d.type==="dimono" || d.type==="distereo") && !d.diFor && vicino(d, DI_ADOPT_RANGE); })) return false;
+    return !items.some(function(a){ return RIPRESA_AMPLI_CATALOGO[a.type] && vicino(a, RIPRESA_AMPLI_CM) && cabItemInputs(a).length>0; });
+  });
+}
+/* Aggiungi DI: la stessa mossa del pallino «linea» sulla postazione (chainToggle), che crea anche la DI accanto. */
+function auditFixAggiungiDi(list){
+  if(soloLetturaProgetto()) return;
+  var n=0;
+  (list||[]).forEach(function(it){
+    if(!it || !hasChain(it) || chainOf(it).tapLine) return;
+    chainToggle(it, "line"); n++;
+  });
+  if(!n) return;
+  __cabRes=null; save(); render(); if(typeof renderChannels==="function") renderChannels();
+  showToast(n===1 ? "DI aggiunta: lo strumento ora ha un canale" : "DI aggiunte a "+n+" strumenti");
+}
 function auditEngine(){
   var items=state.items||[], Rc=cabResult(true), Re=elecResult(true), f=[];
   /* Dedup per CHIAVE, non per testo (audit 27/07): la stessa regola dichiarata sia qui sia dentro un
      motore usciva due volte — con due formulazioni diverse e due gravità diverse — perché il confronto
      era sulla stringa. Chi la dichiara per primo vince: qui le regole hanno l'azione a un click. */
   var seen={};
-  function add(lvl,msg,cat,fix,act,rule){
+  function add(lvl,msg,cat,fix,act,rule,act2){
     if(rule){ if(seen[rule]) return; seen[rule]=1; }
-    f.push({lvl:lvl, msg:msg, cat:cat||"Generale", fix:fix||"", act:act||null, rule:rule||""});
+    f.push({lvl:lvl, msg:msg, cat:cat||"Generale", fix:fix||"", act:act||null, act2:act2||null, rule:rule||""});
   }
   var audioSrc=Rc.totIn||0, monitors=(Rc.mixes||[]).length, loadsN=(Re.loads||[]).length;
   var realBox=items.some(cabIsDest), realDistro=items.some(elecIsDistro);   /* un mixer con ingressi locali È una destinazione reale: non chiedere una stage box che non serve */
@@ -16722,6 +16820,31 @@ function auditEngine(){
       ? "Una postazione «"+(TYPES[_doppioAmpli[0].type].nome)+"» ha già il microfono sull'ampli e accanto c'è un ampli dal catalogo: in lista escono due canali per lo stesso strumento."
       : _doppioAmpli.length+" postazioni hanno il microfono sull'ampli con un altro ampli accanto: in lista escono due canali per lo stesso strumento.",
     "Audio","Se l'ampli è uno solo: nella catena della postazione spegni il «mic» sull'ampli, oppure togli l'ampli del catalogo. Se sono due davvero, rinominali (es. «Gtr ampli A» / «Gtr ampli B»).",null,"dueampli");   /* 25/09: «dueampli» finiva come azione, non come regola */
+  /* STRUMENTO SENZA RIPRESA (19/10): catena vuota = nessun canale, e lo strumento sparisce dalla lista. Un avviso
+     solo, con i nomi; la regola gemella «voxless» sta sopra ed è per le voci, questa per chitarre e bassi. */
+  (function(){
+    var senza=strumentiSenzaRipresa(); if(!senza.length) return;
+    var nome=function(it){ return (String(it.label||"").trim()) || (TYPES[it.type]&&TYPES[it.type].nome) || "Strumento"; };
+    var nomi=senza.map(nome);
+    add("warn", senza.length===1
+        ? "«"+nomi[0]+"» non ha né ampli microfonato né DI: non entra nella channel list."
+        : senza.length+" strumenti ("+nomi.slice(0,3).join(", ")+(senza.length>3?"…":"")+") non hanno né ampli microfonato né DI: non entrano nella channel list.",
+      "Audio","Senza un prelievo lo strumento non ha canali. Aggiungi la DI, oppure nella catena della postazione accendi il microfono sull'ampli.",
+      {label:"Aggiungi DI", run:function(){ auditFixAggiungiDi(senza); }}, "senza-ripresa");
+  })();
+  /* DOPPIONI SOVRAPPOSTI (19/10): un avviso solo per tutto il progetto, anche se a coprirsi è un gruppo copiato di 30. */
+  (function(){
+    var gr=doppioniSovrapposti(); if(!gr.length) return;
+    var doppi=[]; gr.forEach(function(g){ g.doppi.forEach(function(d){ doppi.push(d); }); });
+    var nome=function(it){ return (String(it.label||"").trim()) || (TYPES[it.type]&&TYPES[it.type].nome) || "Elemento"; };
+    var esempi=[]; gr.forEach(function(g){ var n=nome(g.tieni); if(esempi.indexOf(n)<0) esempi.push(n); });
+    add("warn", doppi.length===1
+        ? "«"+nome(doppi[0])+"» sta esattamente sopra un altro elemento uguale: se ne vede uno solo, ma nel rider e in lista contano due."
+        : doppi.length+" elementi stanno esattamente sopra un altro uguale ("+esempi.slice(0,3).join(", ")+(esempi.length>3?"…":"")+"): se ne vede uno solo, ma nel rider e in lista contano due.",
+      "Palco","Probabilmente è una copia finita nello stesso punto. «Mostra» li seleziona; se sono davvero doppioni, toglili: si annulla.",
+      {label:"Mostra", run:function(){ auditFixMostraDoppioni(doppi); }}, "doppioni",
+      {label:(doppi.length===1?"Togli il doppione":"Togli i "+doppi.length+" doppioni"), run:function(){ auditFixTogliDoppioni(doppi); }});
+  })();
   /* B4 (casi reali) — due canali con lo STESSO nome = probabile doppione non dichiarato (visto davvero:
      la stessa voce microfonata due volte, senza nota). Lista manuale se presente,
      altrimenti quella derivata dagli elementi. */
@@ -30592,10 +30715,15 @@ function renderAuditPanel(){
     var lv=x.lvl==="err"?"Errore":(x.lvl==="todef"?"Da definire":"Avviso");
     var row=document.createElement("div"); row.className="audit-find";
     row.innerHTML='<div class="audit-find-txt"><span class="audit-lv" style="color:'+c+'">● '+lv+'</span> · <b>'+esc((x.cat==="Rider" && eventoConferenza())?"Scheda":x.cat)+'</b> — '+esc(x.msg)+(x.fix?'<div class="audit-hint">↳ '+esc(x.fix)+'</div>':'')+'</div>';
-    if(x.act && typeof x.act.run==="function"){
-      var b=document.createElement("button"); b.type="button"; b.className="audit-fix"; b.textContent=x.act.label;
-      b.addEventListener("click", function(){ x.act.run(); });   /* la fix persiste e ridisegna da sé */
-      row.appendChild(b);
+    var azioni=[x.act, x.act2].filter(function(a){ return a && typeof a.run==="function"; });   /* act2 (19/10): un secondo rimedio, es. «Mostra» + «Togli il doppione» */
+    if(azioni.length){
+      var hostB=row;
+      if(azioni.length>1){ hostB=document.createElement("div"); hostB.className="audit-acts"; row.appendChild(hostB); }
+      azioni.forEach(function(a){
+        var b=document.createElement("button"); b.type="button"; b.className="audit-fix"; b.textContent=a.label;
+        b.addEventListener("click", function(){ a.run(); });   /* la fix persiste e ridisegna da sé */
+        hostB.appendChild(b);
+      });
     }
     host.appendChild(row);
   });
