@@ -25694,6 +25694,231 @@ t("pedana-zona: convertita in modalità palco, la sua chip «Pedana N» sparisce
   eq(A.riderData().pedane, [], "dopo: il rider non chiede pedane");
   ok(/getElementById\("bPedanaInArea"\)\.addEventListener\("click", function\(\)\{ mutSel\(function\(it\)\{ pedanaInArea\(it\); \}\); if\(stageEdit\) renderStagePanel\(\);/.test(appjs),
     "il bottone ridisegna il pannello del palco (le chip delle pedane) se si è in modalità palco");
+
+});
+/* 19/10/2026 — «Cosa cambia rispetto a…»: confronto fra due varianti (progetto P-725a15: 10 varianti quasi uguali) */
+console.log("\n— Confronto fra varianti: cosa cambia —");
+const palcoCfr = (w, d) => ({ w, d, blocks: [{ x: 0, y: 0, w, d }] });
+const stCfr = (items, stage) => ({ items, stage: stage || palcoCfr(1200, 800) });
+t("confronto: aggiunti, tolti, spostati (con distanza), rinominati, misure, ruotati e palco", () => {
+  const base = stCfr([
+    itV("i1", { label: "Voce 1", x: 100, y: 100 }),
+    itV("i2", { label: "Chitarra", type: "amp", x: 300, y: 100 }),
+    itV("i3", { label: "Pedana", type: "riser", x: 500, y: 300, w: 200, d: 200, h: 40 }),
+    itV("i4", { label: "Batteria", type: "drums", x: 700, y: 300 }),
+    itV("i5", { label: "Spia", type: "wedge", x: 900, y: 300, rot: 0 }),
+    itV("i6", { label: "Tastiera", type: "keys", x: 50, y: 500 }),
+  ]);
+  const nuovo = stCfr([
+    itV("i1", { label: "Voce 1", x: 100, y: 105 }),                                  /* 5 cm: sotto soglia, non conta */
+    itV("i2", { label: "Chitarra", type: "amp", x: 435, y: 100 }),                    /* spostata di 135 cm */
+    itV("i3", { label: "Pedana", type: "riser", x: 500, y: 300, w: 240, d: 200, h: 60 }),   /* più larga e più alta */
+    itV("i4", { label: "Cassa", type: "drums", x: 700, y: 300 }),                     /* rinominata, stesso posto */
+    itV("i5", { label: "Spia", type: "wedge", x: 900, y: 300, rot: 90 }),            /* ruotata */
+    itV("i9", { label: "Basso", type: "amp", x: 40, y: 40 }),                         /* nuova; Tastiera è sparita */
+  ], palcoCfr(1000, 800));
+  const r = A.confrontaVarianti(base, nuovo);
+  eq(r.aggiunti.map((x) => x.nome), ["Basso"], "aggiunto");
+  eq(r.tolti.map((x) => x.nome), ["Tastiera"], "tolto");
+  eq(r.spostati.map((x) => [x.nome, x.dist]), [["Chitarra", 135]], "spostato oltre la soglia, con la distanza (e 5 cm no)");
+  eq(r.rinominati.map((x) => [x.da, x.a]), [["Batteria", "Cassa"]], "rinominato");
+  eq(r.misure.length, 1, "misure cambiate su un solo elemento");
+  eq(r.misure[0].cambi.map((c) => [c.campo, c.da, c.a]), [["larghezza", 200, 240], ["altezza", 40, 60]], "larghezza e altezza");
+  eq(r.ruotati.map((x) => [x.nome, x.da, x.a]), [["Spia", 0, 90]], "ruotato");
+  eq(r.palco, ["Misure del palco: 12 × 8 m → 10 × 8 m"], "palco");
+  eq(r.uguali, false, "non uguali");
+  eq(r.abbinati, 5, "cinque coppie");
+});
+t("confronto: una variante nata come copia (stessi id) si abbina per id anche se spostato e rinominato un poco", () => {
+  const base = stCfr([itV("i1", { label: "Voce" , x: 100, y: 100 }), itV("i2", { label: "Voce", x: 130, y: 100 })]);
+  const nuovo = stCfr([itV("i1", { label: "Voce", x: 130, y: 100 }), itV("i2", { label: "Voce", x: 100, y: 100 })]);
+  const r = A.confrontaVarianti(base, nuovo);
+  eq(r.spostati.map((x) => [x.id, x.dist]), [["i1", 30], ["i2", 30]], "i due scambiati: con lo stesso id si seguono, non si scambiano le coppie");
+  eq(r.aggiunti.length + r.tolti.length, 0, "nessun aggiunto o tolto");
+});
+t("confronto: id diversi → si abbina per tipo + nome + vicinanza (dieci «Voce» uguali, ognuna trova la sua)", () => {
+  const items = [], items2 = [];
+  for (let k = 0; k < 10; k++) {
+    items.push(itV("a" + k, { label: "Voce", x: 100 + k * 100, y: 200 }));
+    items2.push(itV("z" + (50 - k), { label: "voce ", x: 100 + k * 100 + (k === 3 ? 60 : 2), y: 200 }));   /* id tutti diversi; maiuscole e spazi non contano */
+  }
+  items.push(itV("a99", { label: "Piano", type: "keys", x: 900, y: 600 }));
+  items2.push(itV("z1", { label: "Piano", type: "keys", x: 900, y: 600 }));
+  const r = A.confrontaVarianti(stCfr(items), stCfr(items2));
+  eq(r.aggiunti.length + r.tolti.length, 0, "tutti abbinati: nessun aggiunto, nessun tolto");
+  eq(r.spostati.map((x) => [x.id, x.dist]), [["z47", 60]], "solo la quarta si è spostata (di 60 cm)");
+  eq(r.rinominati.length, 0, "«voce » e «Voce» sono lo stesso nome");
+  eq(r.abbinati, 11, "undici coppie");
+});
+t("confronto: id diversi, nome diverso ma stesso punto e stesso tipo → rinominato; lontano → tolto + aggiunto", () => {
+  const r1 = A.confrontaVarianti(stCfr([itV("a1", { label: "Voce lead", x: 100, y: 100 })]), stCfr([itV("b7", { label: "Voce solista", x: 110, y: 100 })]));
+  eq(r1.rinominati.map((x) => [x.da, x.a]), [["Voce lead", "Voce solista"]], "rinominato");
+  eq(r1.aggiunti.length + r1.tolti.length, 0);
+  const r2 = A.confrontaVarianti(stCfr([itV("a1", { label: "Voce lead", x: 100, y: 100 })]), stCfr([itV("b7", { label: "Voce solista", x: 900, y: 600 })]));
+  eq([r2.aggiunti.length, r2.tolti.length, r2.rinominati.length], [1, 1, 0], "nome diverso e lontano: sono elementi diversi");
+  const r3 = A.confrontaVarianti(stCfr([itV("a1", { label: "Voce", type: "cantante" })]), stCfr([itV("b7", { label: "Voce", type: "amp" })]));
+  eq([r3.aggiunti.length, r3.tolti.length], [1, 1], "tipo diverso: mai lo stesso elemento");
+});
+t("confronto: lo stesso id riusato per un elemento diverso (nome diverso e lontano) non si abbina", () => {
+  /* uid() riparte dal massimo: due varianti che crescono per conto loro danno lo stesso id a cose diverse */
+  const r = A.confrontaVarianti(stCfr([itV("i7", { label: "Voce", x: 100, y: 100 })]), stCfr([itV("i7", { label: "Coro", x: 900, y: 600 })]));
+  eq([r.aggiunti.map((x) => x.nome), r.tolti.map((x) => x.nome), r.spostati.length, r.rinominati.length], [["Coro"], ["Voce"], 0, 0]);
+  /* ma lo stesso id con nome diverso nello stesso punto è un rinominato */
+  const r2 = A.confrontaVarianti(stCfr([itV("i7", { label: "Voce", x: 100, y: 100 })]), stCfr([itV("i7", { label: "Coro", x: 100, y: 100 })]));
+  eq([r2.rinominati.length, r2.aggiunti.length + r2.tolti.length], [1, 0]);
+});
+t("confronto: varianti identiche (anche con id diversi) → «nessuna differenza»", () => {
+  const r = A.confrontaVarianti(stCfr([itV("a1", { label: "Voce" }), itV("a2", { label: "Coro", x: 300 })]), stCfr([itV("q1", { label: "Voce" }), itV("q2", { label: "Coro", x: 300 })]));
+  eq(r.uguali, true, "uguali");
+  eq([r.aggiunti, r.tolti, r.spostati, r.rinominati, r.misure, r.ruotati, r.palco], [[], [], [], [], [], [], []], "tutti gli elenchi vuoti");
+  const h = A.confrontoHtml(r, "Piena", {}, false);
+  ok(/Nessuna differenza negli elementi e nel palco\./.test(h) && !/cfr-sez/.test(h), "il testo dice che non cambia niente");
+  ok(!/non sono identici/.test(h), "senza altre differenze non aggiunge la nota");
+  ok(/non sono identici in altri dettagli/.test(A.confrontoHtml(r, "Piena", {}, true)), "con differenze minori lo dice");
+  eq(A.confrontaVarianti(null, undefined).uguali, true, "stati vuoti o mancanti: nessun errore");
+});
+t("confronto: stesso id ma tipo diverso non è lo stesso elemento; con due candidati si prende il più vicino", () => {
+  const r = A.confrontaVarianti(stCfr([itV("i1", { label: "Voce", type: "cantante" })]), stCfr([itV("i1", { label: "Voce", type: "amp" })]));
+  eq([r.aggiunti.length, r.tolti.length, r.spostati.length], [1, 1, 0], "tipo diverso: aggiunto + tolto");
+  /* due «Voce» a 100 e 200, ne resta una a 190: è la seconda che si è mossa di 10 cm (non la prima di 90) */
+  const r2 = A.confrontaVarianti(stCfr([itV("a1", { label: "Voce", x: 100 }), itV("a2", { label: "Voce", x: 200 })]), stCfr([itV("b1", { label: "Voce", x: 190 })]));
+  eq([r2.tolti.length, r2.spostati.length, r2.aggiunti.length], [1, 0, 0], "la più vicina trova la sua coppia, l'altra risulta tolta");
+});
+t("confronto: finestra aperta su due varianti uguali negli elementi ma non identiche → lo dice", () => {
+  reset();
+  docDueVarianti([itV("i1", { label: "Voce", x: 100 })], [itV("i1", { label: "Voce", x: 105 })]);   /* 5 cm: sotto la soglia */
+  const oldDoc = A.document; const box = { innerHTML: "" };
+  const sel = { value: "vB" }, ov = { querySelector: (q) => (q === "#varDiffSel" ? sel : box) };
+  try {
+    A.document = { getElementById: (id) => (id === "varDiffModal" ? ov : null) };
+    A.cfrDisegna();
+    ok(/Nessuna differenza negli elementi e nel palco/.test(box.innerHTML), "nessuna differenza fra gli elementi");
+    ok(/non sono identici in altri dettagli/.test(box.innerHTML), "ma i due progetti non sono gemelli: lo dice");
+    docDueVarianti([itV("i1", { label: "Voce", x: 100 })], [itV("i1", { label: "Voce", x: 100 })]);
+    A.cfrDisegna();
+    ok(!/non sono identici/.test(box.innerHTML), "gemelli veri: niente nota");
+  } finally { A.document = oldDoc; }
+});
+t("confronto: palco con le stesse misure ma forma o altezze diverse", () => {
+  const b = { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800, h: 40 }] };
+  const n = { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800, h: 60 }] };
+  eq(A.confrontaVarianti({ items: [], stage: b }, { items: [], stage: n }).palco, ["Forma o altezze del palco diverse (stesse misure complessive)"]);
+  eq(A.confrontaVarianti({ items: [], stage: b }, { items: [], stage: b }).palco, [], "palco uguale");
+});
+t("confronto: con 150 elementi (id tutti diversi) è rapido e abbina tutto", () => {
+  const items = [], items2 = [];
+  for (let k = 0; k < 150; k++) {
+    items.push(itV("a" + k, { label: "Elemento " + (k % 15), x: 50 + (k % 25) * 45, y: 50 + Math.floor(k / 25) * 100 }));
+    items2.push(itV("b" + k, { label: "Elemento " + (k % 15), x: 50 + (k % 25) * 45 + 1, y: 50 + Math.floor(k / 25) * 100 }));
+  }
+  const t0 = Date.now(), r = A.confrontaVarianti(stCfr(items), stCfr(items2)), ms = Date.now() - t0;
+  eq(r.abbinati, 150, "tutti abbinati");
+  eq(r.aggiunti.length + r.tolti.length + r.spostati.length, 0, "nessuna differenza vera");
+  ok(ms < 1000, "calcolo in " + ms + " ms");
+  /* nel caso peggiore (100 elementi identici per tipo e nome) le coppie possibili sono 10.000: ancora istantaneo */
+  const uguali = (p) => Array.from({ length: 120 }, (_, k) => itV(p + k, { label: "Voce", x: 20 + k * 9, y: 100 }));
+  const t1 = Date.now(), r2 = A.confrontaVarianti(stCfr(uguali("c")), stCfr(uguali("d"))), ms2 = Date.now() - t1;
+  eq(r2.abbinati, 120); ok(ms2 < 1500, "caso peggiore in " + ms2 + " ms");
+});
+t("confronto: l'elenco in HTML: righe cliccabili solo se l'elemento è sul palco attivo, testi sanificati, «Mostra altri»", () => {
+  const base = stCfr([itV("t1", { label: "Tolto <b>x</b>" }), itV("m1", { label: "Mosso", x: 100 })]);
+  const nuovo = stCfr([itV("m1", { label: "Mosso", x: 180 }), itV("n1", { label: "Nuovo \"q\"", x: 600, y: 600 })]);
+  const r = A.confrontaVarianti(base, nuovo), h = A.confrontoHtml(r, "Base <i>", {}, false);
+  ok(/data-id="n1"/.test(h) && /data-id="m1"/.test(h), "aggiunto e spostato si cliccano");
+  ok(!/data-id="t1"/.test(h) && /cfr-riga fermo/.test(h), "il tolto non si clicca: non è sul palco");
+  ok(!/<b>x<\/b>/.test(h) && !/<i>/.test(h) && /&lt;b&gt;x/.test(h), "i nomi sono dati: mai HTML");
+  ok(/spostato di 80 cm/.test(h) && /1 aggiunto · 1 tolto · 1 spostato/.test(h), "distanza e riepilogo");
+  /* oltre 25 righe per categoria: il resto dietro «Mostra altri» */
+  const molti = Array.from({ length: 40 }, (_, k) => itV("n" + k, { label: "Nuovo " + k, x: k * 20 }));
+  const r2 = A.confrontaVarianti(stCfr([]), stCfr(molti)), h2 = A.confrontoHtml(r2, "Vuota", {}, false);
+  eq((h2.match(/class="cfr-riga"/g) || []).length, 25, "25 righe subito");
+  ok(/data-cfr-piu="aggiunti">Mostra altri 15</.test(h2), "il bottone dice quante mancano");
+  eq((A.confrontoHtml(r2, "Vuota", { aggiunti: true }, false).match(/class="cfr-riga"/g) || []).length, 40, "aperto: tutte");
+});
+t("confronto: sul progetto aperto = attiva (stato vivo) contro un'altra variante; il clic sulla riga seleziona l'elemento", () => {
+  reset();
+  docDueVarianti([itV("i1", { label: "Voce" }), itV("i2", { label: "Coro", x: 300 })], [itV("i1", { label: "Voce" })]);
+  const v = A.VARIANTS[1], att = A.activeVarObj();
+  const r = A.confrontaVarianti(A.cfrStatoVariante(v), A.cfrStatoVariante(att));
+  eq(r.aggiunti.map((x) => x.nome), ["Coro"], "il Coro c'è solo nell'attiva");
+  A.state.items[1].x = 400;   /* lo stato vivo conta senza passare dal salvataggio */
+  eq(A.confrontaVarianti(A.cfrStatoVariante(v), A.cfrStatoVariante(att)).aggiunti.length, 1, "ancora aggiunto");
+  eq(A.cfrVaiA("i2"), true, "la riga porta all'elemento");
+  eq(A.sel, "i2", "selezionato sul palco");
+  eq(A.cfrVaiA("i-che-non-c-e"), false, "un elemento che non c'è più non fa niente");
+});
+t("confronto: voce nei menu (desktop e telefono), solo con 2+ varianti; si calcola solo all'apertura", () => {
+  ok(/data-vm="diff">Cosa cambia rispetto a…</.test(readFileSync(join(root, "index.template.html"), "utf8")), "voce nel menu della variante");
+  ok(/menu\.querySelector\('\[data-vm="diff"\]'\); if\(dif\) dif\.hidden = VARIANTS\.length<=1/.test(appjs), "nascosta con una variante sola");
+  ok(/data-act="var-diff" id="mVarDiff" hidden/.test(readFileSync(join(root, "app/index.html"), "utf8")), "bottone sul telefono, nascosto di partenza");
+  ok(/if\(dif\) dif\.hidden=!multi/.test(appjs), "sul telefono compare con almeno due varianti");
+  ok(/a==="var-diff"[^}]*apriConfrontoVarianti\(\)/.test(appjs) && /a==="diff"\) apriConfrontoVarianti\(\)/.test(appjs), "i due bottoni aprono la finestra");
+  const fuori = appjs.slice(appjs.indexOf("function renderVariantBar(){"), appjs.indexOf("function promptRenameVariant("));
+  ok(!/confrontaVarianti\(/.test(fuori), "disegno della barra, avvisi e menu non calcolano mai il confronto");
+  const apri = appjs.slice(appjs.indexOf("function cfrDisegna("), appjs.indexOf("function cfrVaiA("));
+  ok((apri.match(/confrontaVarianti\(/g) || []).length === 1 && /sel\.addEventListener|"change"/.test(apri), "il calcolo è solo in cfrDisegna (apertura e cambio di variante scelta)");
+  ok(/@media \(max-width:600px\)\{ #varDiffModal\{padding:0;align-items:stretch\}/.test(stylesCss), "al telefono la finestra è a tutta larghezza");
+  ok(/#varDiffModal \.cfr-riga\{[^}]*min-height:44px/.test(stylesCss), "righe alte 44 px");
+});
+/* Revisione 19/10: la finestra del confronto su una pagina finta (il sandbox ingoia il DOM): ascoltatori di document,
+   finestra, tendina, riquadro dei risultati e righe di una sezione, con il fuoco annotato. */
+function cfrFintaPagina() {
+  const pag = { asc: [], fuoco: null, appesa: false };
+  const el = (extra) => Object.assign({ style: {}, _asc: {}, addEventListener(tipo, fn) { this._asc[tipo] = fn; },
+    getAttribute() { return null; }, focus() { pag.fuoco = this.nome || "?"; } }, extra || {});
+  const sel = el({ nome: "tendina", value: "", innerHTML: "" });
+  const box = el({ nome: "risultati", innerHTML: "",
+    querySelectorAll(q) {   /* solo '[data-cfr-sez="k"] .cfr-riga': le righe della sezione k, in ordine */
+      const m = /data-cfr-sez="(\w+)"/.exec(q); if (!m) return [];
+      const i = this.innerHTML.indexOf('data-cfr-sez="' + m[1] + '"'); if (i < 0) return [];
+      const pezzo = this.innerHTML.slice(i, this.innerHTML.indexOf("</section>", i));
+      return (pezzo.match(/class="cfr-riga/g) || []).map((_, k) => el({ nome: "riga " + m[1] + " " + k }));
+    } });
+  const ov = el({ nome: "finestra", innerHTML: "", querySelector: (q) => (q === "#varDiffSel" ? sel : q === "#varDiffRis" ? box : el()) });
+  pag.ov = ov; pag.box = box;
+  pag.doc = { activeElement: null, body: { appendChild() { pag.appesa = true; } }, createElement: () => ov,
+    getElementById: (id) => (id === "varDiffModal" && pag.appesa ? ov : null),
+    addEventListener(tipo, fn, cattura) { pag.asc.push({ tipo, fn, cattura: !!cattura }); }, querySelectorAll: () => [] };
+  /* un tasto premuto con il fuoco sulla pagina (fuori dalla finestra): passa per gli ascoltatori di document in cattura */
+  pag.tasto = (key) => {
+    const ev = { key, target: pag.doc.body, fermato: false, stopImmediatePropagation() { this.fermato = true; }, stopPropagation() { this.fermato = true; }, preventDefault() {} };
+    pag.asc.filter((a) => a.tipo === "keydown" && a.cattura).forEach((a) => { if (!ev.fermato) a.fn(ev); });
+    return ev;
+  };
+  return pag;
+}
+t("confronto, revisione: a finestra aperta i tasti non arrivano al palco (Canc cancellava l'elemento selezionato dietro)", () => {
+  reset();
+  docDueVarianti([itV("i1", { label: "Voce" }), itV("i2", { label: "Coro", x: 300 })], [itV("i1", { label: "Voce" })]);
+  const oldDoc = A.document, pag = cfrFintaPagina();
+  try {
+    A.document = pag.doc;
+    A.selectOne("i2");
+    eq(A.apriConfrontoVarianti(), true, "la finestra si apre");
+    eq(pag.ov.style.display, "flex", "aperta");
+    for (const k of ["Delete", "Backspace", "ArrowRight", "r", "d", " ", "z"]) eq(pag.tasto(k).fermato, true, "«" + k + "» si ferma alla finestra");
+    eq(A.state.items.length, 2, "nessun elemento toccato");
+    eq(pag.tasto("Escape").fermato, true, "Esc si ferma anche lui…");
+    eq(pag.ov.style.display, "none", "… e chiude la finestra");
+    eq(pag.tasto("Delete").fermato, false, "a finestra chiusa i tasti tornano al palco");
+    A.apriConfrontoVarianti();
+    eq(pag.asc.filter((a) => a.tipo === "keydown").length, 1, "riaprendola l'ascoltatore non si raddoppia");
+  } finally { A.document = oldDoc; }
+});
+t("confronto, revisione: «Mostra altri» porta il fuoco sulla prima riga nuova (prima cadeva sulla pagina)", () => {
+  reset();
+  const molti = Array.from({ length: 40 }, (_, k) => itV("n" + k, { label: "Nuovo " + k, x: 20 + k * 20 }));
+  docDueVarianti(molti, []);
+  ok(/<section class="cfr-sez" data-cfr-sez="aggiunti">/.test(A.confrontoHtml(A.confrontaVarianti({ items: [] }, { items: molti.slice(0, 1) }), "B", {}, false)), "la sezione dice la sua categoria");
+  const oldDoc = A.document, pag = cfrFintaPagina();
+  try {
+    A.document = pag.doc;
+    A.apriConfrontoVarianti();
+    pag.fuoco = null;
+    pag.ov._asc.click({ target: { closest: (q) => (q === "[data-cfr-piu]" ? { getAttribute: () => "aggiunti" } : null) } });
+    eq((pag.box.innerHTML.match(/class="cfr-riga"/g) || []).length, 40, "tutte le righe in vista");
+    eq(pag.fuoco, "riga aggiunti 25", "il fuoco sulla ventiseiesima riga, la prima che prima non c'era");
+  } finally { A.document = oldDoc; }
 });
 
 await Promise.all(attese);
