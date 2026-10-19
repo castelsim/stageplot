@@ -4083,7 +4083,7 @@ function confrontoHtml(res, nomeBase, aperte, altroDiverso){
   function sezione(chiave, titolo, righe){
     if(!righe.length) return "";
     var tutte=!!aperte[chiave], vis=tutte ? righe : righe.slice(0, CFR_RIGHE);
-    var h='<section class="cfr-sez"><h4>'+esc(titolo)+' <span class="cfr-n">'+righe.length+'</span></h4><div class="cfr-righe">';
+    var h='<section class="cfr-sez" data-cfr-sez="'+chiave+'"><h4>'+esc(titolo)+' <span class="cfr-n">'+righe.length+'</span></h4><div class="cfr-righe">';
     vis.forEach(function(r){ h+=r; });
     h+='</div>';
     if(!tutte && righe.length>vis.length) h+='<button type="button" class="cfr-piu" data-cfr-piu="'+chiave+'">Mostra altri '+(righe.length-vis.length)+'</button>';
@@ -4130,12 +4130,25 @@ function apriConfrontoVarianti(){
     ov.addEventListener("click", function(e){
       if(e.target===ov || e.target.closest(".cfr-chiudi")){ chiudi(); return; }
       var piu=e.target.closest("[data-cfr-piu]");
-      if(piu){ cfrAperte[piu.getAttribute("data-cfr-piu")]=true; cfrDisegna(); return; }
+      /* Revisione 19/10: il bottone sparisce col ridisegno e il fuoco cadeva sulla pagina; va sulla prima riga nuova */
+      if(piu){ var kp=piu.getAttribute("data-cfr-piu"); cfrAperte[kp]=true; cfrDisegna();
+        var nuova=ov.querySelector("#varDiffRis").querySelectorAll('[data-cfr-sez="'+kp+'"] .cfr-riga')[CFR_RIGHE];
+        if(nuova && nuova.focus) nuova.focus();
+        return; }
       var r=e.target.closest(".cfr-riga[data-id]");
       if(r){ var id=r.getAttribute("data-id"); chiudi(); cfrVaiA(id); }
     });
     ov.querySelector("#varDiffSel").addEventListener("change", function(){ cfrAperte={}; cfrDisegna(); });
-    ov.addEventListener("keydown", function(e){ if(e.key==="Escape"){ e.stopPropagation(); chiudi(); } });
+    /* Revisione 19/10: la finestra è modale anche per la tastiera. Con il fuoco su una riga (o sulla pagina, dopo un
+       clic su una parte non attiva) Canc, frecce, r, d e ⌘Z arrivavano al gestore del palco e agivano sull'elemento
+       selezionato dietro la finestra: provato nel browser, Canc lo cancellava; e Spazio non premeva la riga (il palco
+       lo prende per la mano). Finché è aperta i tasti si fermano qui, in cattura; restano le azioni del browser
+       (Tab, Invio e Spazio sui bottoni, frecce nella tendina). Un solo ascoltatore, messo quando nasce la finestra. */
+    document.addEventListener("keydown", function(e){
+      if(ov.style.display!=="flex") return;
+      e.stopImmediatePropagation();
+      if(e.key==="Escape"){ e.preventDefault(); chiudi(); }
+    }, true);
   }
   ov._prev=document.activeElement;
   /* proposta: la variante che precede quella attiva (o la successiva se è la prima) */
