@@ -24,7 +24,7 @@
      due release nello stesso giorno restano distinguibili in telemetria e supporto. In locale/dev
      resta il placeholder. La sentinella del VALORE è distinta dall'identificatore window.__BUILD_ID__
      così il sed della CI non tocca il nome della variabile. -->
-<script>window.__APP_VERSION__="2026.10.17";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
+<script>window.__APP_VERSION__="2026.10.19";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -4684,6 +4684,10 @@ body.cust-contorno .item.selected .selbox{display:none}
       <span><label for="pW">L (cm)</label><input type="number" id="pW" min="10" step="5"></span>
       <span><label for="pD">P (cm)</label><input type="number" id="pD" min="10" step="5"></span>
       <span id="pHwrap"><label for="pH">h (cm)</label><input type="number" id="pH" min="0" step="10"></span>
+    </div>
+    <div id="pZonaWrap" style="display:none;font-size:11px;color:var(--text-2);margin-top:8px;line-height:1.5">
+      <span id="pZonaTesto">È una zona? Trasformala in Area con nome.</span>
+      <button id="bPedanaInArea" class="btn" type="button" style="margin-top:6px;width:auto">Trasforma in Area con nome</button>
     </div>
     <div id="pDimSideWrap" style="display:none">
       <label id="pDimSideLbl">Lato quota</label>
