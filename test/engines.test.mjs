@@ -25425,6 +25425,66 @@ t("confronto: voce nei menu (desktop e telefono), solo con 2+ varianti; si calco
   ok(/@media \(max-width:600px\)\{ #varDiffModal\{padding:0;align-items:stretch\}/.test(stylesCss), "al telefono la finestra è a tutta larghezza");
   ok(/#varDiffModal \.cfr-riga\{[^}]*min-height:44px/.test(stylesCss), "righe alte 44 px");
 });
+/* Revisione 19/10: la finestra del confronto su una pagina finta (il sandbox ingoia il DOM): ascoltatori di document,
+   finestra, tendina, riquadro dei risultati e righe di una sezione, con il fuoco annotato. */
+function cfrFintaPagina() {
+  const pag = { asc: [], fuoco: null, appesa: false };
+  const el = (extra) => Object.assign({ style: {}, _asc: {}, addEventListener(tipo, fn) { this._asc[tipo] = fn; },
+    getAttribute() { return null; }, focus() { pag.fuoco = this.nome || "?"; } }, extra || {});
+  const sel = el({ nome: "tendina", value: "", innerHTML: "" });
+  const box = el({ nome: "risultati", innerHTML: "",
+    querySelectorAll(q) {   /* solo '[data-cfr-sez="k"] .cfr-riga': le righe della sezione k, in ordine */
+      const m = /data-cfr-sez="(\w+)"/.exec(q); if (!m) return [];
+      const i = this.innerHTML.indexOf('data-cfr-sez="' + m[1] + '"'); if (i < 0) return [];
+      const pezzo = this.innerHTML.slice(i, this.innerHTML.indexOf("</section>", i));
+      return (pezzo.match(/class="cfr-riga/g) || []).map((_, k) => el({ nome: "riga " + m[1] + " " + k }));
+    } });
+  const ov = el({ nome: "finestra", innerHTML: "", querySelector: (q) => (q === "#varDiffSel" ? sel : q === "#varDiffRis" ? box : el()) });
+  pag.ov = ov; pag.box = box;
+  pag.doc = { activeElement: null, body: { appendChild() { pag.appesa = true; } }, createElement: () => ov,
+    getElementById: (id) => (id === "varDiffModal" && pag.appesa ? ov : null),
+    addEventListener(tipo, fn, cattura) { pag.asc.push({ tipo, fn, cattura: !!cattura }); }, querySelectorAll: () => [] };
+  /* un tasto premuto con il fuoco sulla pagina (fuori dalla finestra): passa per gli ascoltatori di document in cattura */
+  pag.tasto = (key) => {
+    const ev = { key, target: pag.doc.body, fermato: false, stopImmediatePropagation() { this.fermato = true; }, stopPropagation() { this.fermato = true; }, preventDefault() {} };
+    pag.asc.filter((a) => a.tipo === "keydown" && a.cattura).forEach((a) => { if (!ev.fermato) a.fn(ev); });
+    return ev;
+  };
+  return pag;
+}
+t("confronto, revisione: a finestra aperta i tasti non arrivano al palco (Canc cancellava l'elemento selezionato dietro)", () => {
+  reset();
+  docDueVarianti([itV("i1", { label: "Voce" }), itV("i2", { label: "Coro", x: 300 })], [itV("i1", { label: "Voce" })]);
+  const oldDoc = A.document, pag = cfrFintaPagina();
+  try {
+    A.document = pag.doc;
+    A.selectOne("i2");
+    eq(A.apriConfrontoVarianti(), true, "la finestra si apre");
+    eq(pag.ov.style.display, "flex", "aperta");
+    for (const k of ["Delete", "Backspace", "ArrowRight", "r", "d", " ", "z"]) eq(pag.tasto(k).fermato, true, "«" + k + "» si ferma alla finestra");
+    eq(A.state.items.length, 2, "nessun elemento toccato");
+    eq(pag.tasto("Escape").fermato, true, "Esc si ferma anche lui…");
+    eq(pag.ov.style.display, "none", "… e chiude la finestra");
+    eq(pag.tasto("Delete").fermato, false, "a finestra chiusa i tasti tornano al palco");
+    A.apriConfrontoVarianti();
+    eq(pag.asc.filter((a) => a.tipo === "keydown").length, 1, "riaprendola l'ascoltatore non si raddoppia");
+  } finally { A.document = oldDoc; }
+});
+t("confronto, revisione: «Mostra altri» porta il fuoco sulla prima riga nuova (prima cadeva sulla pagina)", () => {
+  reset();
+  const molti = Array.from({ length: 40 }, (_, k) => itV("n" + k, { label: "Nuovo " + k, x: 20 + k * 20 }));
+  docDueVarianti(molti, []);
+  ok(/<section class="cfr-sez" data-cfr-sez="aggiunti">/.test(A.confrontoHtml(A.confrontaVarianti({ items: [] }, { items: molti.slice(0, 1) }), "B", {}, false)), "la sezione dice la sua categoria");
+  const oldDoc = A.document, pag = cfrFintaPagina();
+  try {
+    A.document = pag.doc;
+    A.apriConfrontoVarianti();
+    pag.fuoco = null;
+    pag.ov._asc.click({ target: { closest: (q) => (q === "[data-cfr-piu]" ? { getAttribute: () => "aggiunti" } : null) } });
+    eq((pag.box.innerHTML.match(/class="cfr-riga"/g) || []).length, 40, "tutte le righe in vista");
+    eq(pag.fuoco, "riga aggiunti 25", "il fuoco sulla ventiseiesima riga, la prima che prima non c'era");
+  } finally { A.document = oldDoc; }
+});
 
 await Promise.all(attese);
 
