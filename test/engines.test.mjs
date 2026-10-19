@@ -25304,9 +25304,9 @@ t("doppione sovrapposto: soglia 5 cm sul centro, stessa rotazione, stessa misura
   reset(); add("oboe", 500, 300); add("oboe", 500, 300, { w: 120, d: 80 });
   eq(A.doppioniSovrapposti().length, 0, "misura diversa: non è una copia");
 });
-t("doppione sovrapposto: aree, testi, quote, tappeti, pedane e tipi a misura libera sovrapposti per natura non contano", () => {
+t("doppione sovrapposto: aree, testi, quote, tappeti, platee e zone sovrapposte per natura non contano", () => {
   reset();
-  ["forma", "testo", "metro", "tappeto", "pedana", "pedanacoro", "transenna", "truss", "parapetto", "fondale", "platea", "miczone"].forEach((tp) => { add(tp, 500, 300); add(tp, 500, 300); });
+  ["forma", "testo", "metro", "tappeto", "platea", "miczone"].forEach((tp) => { add(tp, 500, 300); add(tp, 500, 300); });
   eq(A.doppioniSovrapposti().length, 0, "niente doppioni: " + JSON.stringify(A.doppioniSovrapposti().map((g) => g.tieni.type)));
   eq(dopp().length, 0, "e niente avviso");
 });
@@ -25421,6 +25421,57 @@ t("fuori dal palco: la scala fuori dal bordo resta nel riquadro di stampa (FUORI
   add("cantante", 600, 400); const s = add("scala", -100, 400);
   ok(A.elementiOltreIlBordo().some((i) => i.id === s.id), "la scala fuori dal bordo si disegna ancora sul foglio");
   eq(Object.keys(A.FUORI_OK).sort(), ["foh", "platea", "sediapubblico"], "FUORI_OK resta com'era");
+});
+
+
+/* Revisione 19/10/2026: il gruppo copiato dell'esemplare P-1bd0b9 aveva dentro la sua pedana, che restava doppia */
+t("doppione sovrapposto (revisione): pedane, mixer e tavoli copiati nello stesso punto sono doppioni; le pedane accostate no", () => {
+  reset();
+  ["pedana", "pedanacoro", "mixer", "tavolo", "transenna"].forEach((tp, i) => { add(tp, 300 + i * 500, 300); add(tp, 300 + i * 500, 300); });
+  eq(A.doppioniSovrapposti().map((g) => g.tieni.type).sort(), ["mixer", "pedana", "pedanacoro", "tavolo", "transenna"]);
+  reset();
+  add("pedana", 300, 300); add("pedana", 500, 300); add("pedana", 300, 400);   /* accostate: 2×1 m fianco a fianco e dietro */
+  eq(A.doppioniSovrapposti().length, 0, "pedane accostate: nessun doppione");
+  reset();
+  add("pedana", 300, 300, { h: 20 }); add("pedana", 300, 300, { h: 60 });
+  eq(A.doppioniSovrapposti().length, 0, "stessa pianta ma altezza diversa: non è una copia");
+});
+t("doppione sovrapposto (revisione): «Togli i doppioni» su un gruppo copiato con la sua pedana toglie anche la pedana", () => {
+  reset(); A.resetHistory();
+  const p = add("pedana", 450, 100, { w: 400, d: 200 }); add("batteria", 350, 100); add("hearback", 300, 40);
+  A.selSet = {}; A.state.items.forEach((i) => { A.selSet[i.id] = true; });
+  A.duplicateSel(true);   /* Alt+trascina rilasciato senza spostare: la copia resta sopra l'originale */
+  eq(A.state.items.length, 6, "premessa: gruppo copiato in posto");
+  const f = dopp()[0];
+  ok(f && /3 elementi/.test(f.msg), "tre doppioni, pedana compresa: " + (f && f.msg));
+  f.act2.run();
+  eq(A.state.items.filter((i) => i.type === "pedana").map((i) => i.id), [p.id], "resta la pedana originale, una sola");
+  eq(A.state.items.length, 3, "resta il gruppo originale");
+});
+t("Togli il doppione (revisione): la copia di una chitarra con la sua DI se ne va, la DI dell'originale resta", () => {
+  reset(); A.resetHistory();
+  const g = add("gtacustica", 400, 300);
+  const di = A.state.items.find((i) => i.diFor === g.id);
+  ok(di, "premessa: l'acustica nasce con la DI");
+  A.selectOne(g.id); A.duplicateSel(true);
+  const copia = A.state.items.find((i) => i.type === "gtacustica" && i.id !== g.id);
+  eq(copia.diId, di.id, "premessa: la copia porta il diId dell'originale");
+  dopp()[0].act2.run();
+  eq(A.state.items.map((i) => i.id).sort(), [g.id, di.id].sort(), "restano la chitarra e la SUA DI");
+  eq(g.diId, di.id, "l'originale è ancora legato alla DI");
+  /* e lo stesso con Elimina: togliere la copia a mano non porta via la DI dell'altro */
+  A.selectOne(g.id); A.duplicateSel(true);
+  const c2 = A.state.items.find((i) => i.type === "gtacustica" && i.id !== g.id);
+  A.selectOne(c2.id); A.deleteSel();
+  ok(A.state.items.some((i) => i.id === di.id), "Elimina sulla copia lascia la DI dell'originale");
+  /* e la DI di chi si cancella se ne va ancora con lui */
+  A.selectOne(g.id); A.deleteSel();
+  eq(A.state.items.length, 0, "cancellando l'originale la sua DI va via");
+});
+
+t("pannello avvisi (revisione): con due rimedi i bottoni hanno la stessa larghezza (lo stretch non è annullato da .audit-fix)", () => {
+  ok(/\.audit-acts\{[^}]*align-items:stretch/.test(stylesCss), "la colonna dei rimedi chiede lo stretch");
+  ok(/\.audit-acts \.audit-fix\{[^}]*align-self:stretch/.test(stylesCss), "e il bottone dentro la colonna non lo annulla col suo align-self:center");
 });
 
 

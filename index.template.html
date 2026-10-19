@@ -16569,8 +16569,8 @@ var AUDIT_MON_NEAR=350;   /* T1 — soglia prossimità monitor (~3,5 m a 100 px/
    Doppione = stesso tipo, stessa misura, stessa rotazione e stesso piano, col CENTRO entro DOPPIONE_CM dall'altro.
    Soglia 5 cm: sono corpi larghi almeno 30 cm, a meno di 5 cm di scarto coprono oltre l'85% l'uno dell'altro (non si
    distinguono più), mentre la griglia di snap parte da 25 cm, quindi due elementi messi a mano «vicini» restano sopra.
-   Non contano: ciò che si sovrappone per natura (forme/aree, testi, quote, tappeti, pedane accostate e ogni tipo a
-   misura libera: transenne, americane, parapetti, fondali…), le zone microfoniche, ciò che sta nel rack, la DI generata
+   Non contano: ciò che si sovrappone per natura (forme/aree, testi, quote, tappeti, platee; le pedane accostate non
+   hanno il centro a 5 cm e non ci arrivano), le zone microfoniche, ciò che sta nel rack, la DI generata
    da uno strumento, gli elementi distribuiti su una pedana (distOf: la distribuzione con «equidistanza» bassa li
    accosta apposta), l'avvertenza di Adatta. La batteria componibile divisa nei pezzi non cade qui: i pezzi sono tipi
    diversi (cassa, rullante, tom…) e due tom stanno a decine di cm. Restituisce [{tieni, doppi:[...]}]: si tiene il
@@ -16579,15 +16579,19 @@ var DOPPIONE_CM=5;
 var DOPPIONE_ESCLUSI={ forma:1, custshape:1, testo:1, metro:1, tappeto:1, platea:1, miczone:1 };
 function doppioneEsente(it){
   if(!it || !it.type || !TYPES[it.type]) return true;
-  var t=TYPES[it.type];
-  if(DOPPIONE_ESCLUSI[it.type] || t.resizable || t.riser || isRiser(it)) return true;
+  /* Revisione 19/10/2026: pedane e tipi a misura libera NON sono più esenti in blocco. Il gruppo copiato
+     dell'esemplare P-1bd0b9 aveva dentro la sua pedana: «Togli i doppioni» toglieva batteria, timpani e hearback e
+     lasciava la pedana doppia (due pedane 4×2 m nel rider). Le pedane ACCOSTATE non cadono mai qui (i centri distano
+     quanto la loro larghezza); due pedane con la stessa misura e lo stesso centro sono una copia, come un mixer o un
+     tavolo. Restano esenti solo i tipi che si sovrappongono per natura (DOPPIONE_ESCLUSI). */
+  if(DOPPIONE_ESCLUSI[it.type]) return true;
   if(it.rackId || it.diFor || it.distOf || it.avvertenza) return true;
   return false;
 }
 function doppioniSovrapposti(){
   var its=(state.items||[]).filter(function(it){ return !doppioneEsente(it); });
   var presi={}, out=[];
-  function dim(it){ var t=TYPES[it.type]||{}; return [it.w||t.w||60, it.d||t.d||60]; }
+  function dim(it){ var t=TYPES[it.type]||{}; return [it.w||t.w||60, it.d||t.d||60, isRiser(it) ? (it.h||t.h||0) : 0]; }   /* pedana: conta anche l'altezza (19/10) */
   function giro(a){ a=((a||0)%360+360)%360; return a; }
   its.forEach(function(a, i){
     if(presi[a.id]) return;
@@ -16595,7 +16599,7 @@ function doppioniSovrapposti(){
     for(var j=i+1;j<its.length;j++){
       var b=its[j]; if(presi[b.id] || b.type!==a.type) continue;
       if(Math.hypot((b.x||0)-(a.x||0), (b.y||0)-(a.y||0))>DOPPIONE_CM) continue;
-      var db=dim(b); if(Math.abs(da[0]-db[0])>1 || Math.abs(da[1]-db[1])>1) continue;
+      var db=dim(b); if(Math.abs(da[0]-db[0])>1 || Math.abs(da[1]-db[1])>1 || Math.abs(da[2]-db[2])>1) continue;
       var dr=Math.abs(giro(a.rot)-giro(b.rot)); if(Math.min(dr, 360-dr)>1) continue;
       if(effZ(a)!==effZ(b)) continue;   /* un piano diverso è una sovrapposizione voluta (uno davanti all'altro) */
       if(!g){ g={tieni:a, doppi:[]}; out.push(g); }
@@ -20594,7 +20598,10 @@ function deleteSel(){
   state.items.forEach(function(i){   /* accessori legati: la DI di uno strumento cancellato se ne va con lui */
     if(i.diId && _delIds[i.diId]) { delete i.diId; delete i.diOff; }
     if(i.diFor && _delIds[i.diFor]) _delIds[i.id]=1;
-    if(i.diId && _delIds[i.id]) _delIds[i.diId]=1;
+    /* …ma solo la SUA (19/10/2026): una copia fatta con Duplica / Alt+trascina si porta dietro il diId dell'originale,
+       e togliendo la copia (anche con «Togli il doppione» dell'audit) se ne andava la DI dello strumento che resta.
+       Una DI legata a un altro strumento (diFor diverso) non si tocca. */
+    if(i.diId && _delIds[i.id]){ var _suaDi=diLinked(i); if(!_suaDi || !_suaDi.diFor || _suaDi.diFor===i.id) _delIds[i.diId]=1; }
   });
   state.items.forEach(function(i){ if(i.diFor && _delIds[i.diFor]) _delIds[i.id]=1; });
   state.items = state.items.filter(function(i){ return !_delIds[i.id]; });
