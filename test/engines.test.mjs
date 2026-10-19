@@ -25305,6 +25305,21 @@ t("quota: il testo personale si affianca alla misura e la misura segue la lunghe
   ok(/function metroSvg[\s\S]{0,400}metroGeom\(it\)/.test(appjs) && /txt=metroTestoQuota\(it, w\)/.test(appjs), "palco e PDF disegnano con la stessa funzione");
 });
 
+/* Revisione 19/10/2026 del lotto pedana-zona / quota */
+t("quota: la misura scritta per esteso («12 metri», «250 centimetri») non si raddoppia", () => {
+  ["Fondo 12 metri", "Larghezza 8,5 metri", "1 metro", "Altezza 250 centimetri"].forEach((n) => eq(metroTesto(metroDraw({ label: n, w: 850 })).txt, n, n));
+  eq(metroTesto(metroDraw({ label: "Fronte 2 metronomi", w: 850 })).txt, "Fronte 2 metronomi \u00b7 8,5 m", "una parola più lunga non è un'unità");
+});
+t("pedana-zona: convertita in modalità palco, la sua chip «Pedana N» sparisce e il rider non la chiede più", () => {
+  reset();
+  const p = add("pedana", 420, 380, { w: 300, d: 120 }); p.h = 0; p.label = "Zona coro";
+  eq(A.riderData().pedane.length, 1, "prima: una pedana nel rider");
+  A.pedanaInArea(p);
+  eq(A.riderData().pedane, [], "dopo: il rider non chiede pedane");
+  ok(/getElementById\("bPedanaInArea"\)\.addEventListener\("click", function\(\)\{ mutSel\(function\(it\)\{ pedanaInArea\(it\); \}\); if\(stageEdit\) renderStagePanel\(\);/.test(appjs),
+    "il bottone ridisegna il pannello del palco (le chip delle pedane) se si è in modalità palco");
+});
+
 await Promise.all(attese);
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
