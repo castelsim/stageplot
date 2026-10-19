@@ -25446,6 +25446,33 @@ t("un progetto aperto non cambia: una DI sciolta già salvata resta sciolta (nes
   ok(di2.diFor == null, "normalizeState non aggancia");
 });
 
+console.log("\n— Revisione (19/10/2026): Alt+clic senza trascinare, Annulla dell'aggancio dopo la cronologia —");
+t("Alt+clic fermo su uno strumento con DI: via la copia E la DI nuova che le era nata (niente DI sciolta in più)", () => {
+  reset(); A.state.cab.on = true; A.__cabRes = null;
+  const gt = add("gtacustica", 300, 300); const di = A.diLinked(gt);
+  const prima = A.state.items.map((x) => x.id);
+  selezione(gt); A.duplicateSel(true, { rinviaStoria: true });
+  eq(nuovi(prima).length, 2, "la copia nasce con la sua DI");
+  A.togliCopieAltClic(Object.keys(A.selSet));
+  eq(A.state.items.map((x) => x.id), prima, "il palco torna com'era: nessuna DI orfana");
+  eq(gt.diId, di.id, "l'originale tiene la sua DI");
+  A.__cabRes = null; eq(A.patchList().rows.length, 1, "un canale, non due");
+  ok(/drag\.dupIds\)\{[^]*?togliCopieAltClic\(drag\.dupIds\)/.test(appjs), "il rilascio dell'Alt+clic passa da togliCopieAltClic");
+});
+t("Annulla dell'aggancio dopo un Annulla della cronologia: non tocca gli oggetti che non sono più sul palco", () => {
+  reset();
+  const gt = gtSenzaDi(300, 200);
+  const prima = JSON.stringify(A.state);
+  const toast = []; A.__toast = (m, e, az) => toast.push({ m, az });
+  try {
+    const di = A.addItem("dimono", { x: 225, y: 200 });
+    eq(di.diFor, gt.id, "agganciata alla posa");
+    A.state = A.normalizeState(JSON.parse(prima));   /* come applyHistory: lo stato è un altro */
+    toast[0].az.run();
+    eq(di.diFor, gt.id, "la DI fuori dal palco non viene sciolta"); eq(gt.diId, di.id, "neanche lo strumento");
+  } finally { delete A.__toast; }
+});
+
 await Promise.all(attese);
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");

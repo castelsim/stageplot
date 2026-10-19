@@ -20365,6 +20365,13 @@ function rimappaLegamiCopie(copies, idmap){
 function diNuoveCopie(senzaDi){
   senzaDi.forEach(function(c){ try{ if(typeof diUsesBox==="function" && diUsesBox(c)) diApply(c, {quiet:true}); }catch(_e){} });
 }
+/* Alt+clic senza trascinare (19/10/2026): la copia non serviva e se ne va, e con lei la DI che le aveva fatto nascere
+   diNuoveCopie. Quella DI non è fra le selezionate (drag.dupIds): restava sul palco sciolta, con un canale in più. */
+function togliCopieAltClic(ids){
+  var via={}; (ids||[]).forEach(function(x){ via[x]=1; });
+  (state.items||[]).forEach(function(x){ if(x.diFor && via[x.diFor]) via[x.id]=1; });
+  state.items=(state.items||[]).filter(function(x){ return !via[x.id]; });
+}
 function duplicateSel(noOffset, opts){
   primaDiAgire();
   var its=custFuoriEditor(selItems()); if(!its.length) return false;   /* «Crea elemento»: una forma dell'editor non si duplica fuori dall'editor */
@@ -23258,8 +23265,7 @@ svg.addEventListener("pointerup", function(e){
   if(drag && drag.mode==="custcapo"){ custCapoRilascio(); return; }
   if(drag && (drag.mode==="ccpunto" || drag.mode==="cctondo")){ custContornoRilascio(); return; }   /* Contorni: un passo di Annulla */
   if(drag && drag.mode==="item" && !drag.moved && drag.dupIds){   /* Alt+clic senza trascinare: la copia non serviva, via */
-    var _dup={}; drag.dupIds.forEach(function(x){ _dup[x]=1; });
-    state.items=state.items.filter(function(x){ return !_dup[x.id]; });
+    togliCopieAltClic(drag.dupIds);
     selSet={}; (drag.selPrima||[]).forEach(function(x){ selSet[x]=true; }); sel=(drag.selPrima||[]).slice(-1)[0]||null;
     drag=null; render(); return;
   }
@@ -30270,7 +30276,10 @@ function diAgganciaAllaPosa(di){
   var src=cand[0], tipoPrima=di.diType, utentePrima=di.diTypeUtente;
   if(!diAdopt(di, src)) return null;
   try{ if(window.__toast) window.__toast("DI associata a «"+(src.label||(TYPES[src.type]&&TYPES[src.type].nome)||"strumento")+"»: ne porta il canale.", false, {label:"Annulla", run:function(){
-    /* annulla solo l'aggancio (la DI resta dov'è): se nel frattempo il legame è cambiato, non tocca niente */
+    /* annulla solo l'aggancio (la DI resta dov'è): se nel frattempo il legame è cambiato, non tocca niente. Neanche se
+       DI e strumento non sono più quelli del palco (Annulla della cronologia, cambio di scena: lo stato è un altro): li
+       scioglierebbe fuori dal palco e il save() taglierebbe il Ripeti. */
+    if((state.items||[]).indexOf(di)<0 || (state.items||[]).indexOf(src)<0) return;
     if(di.diFor!==src.id || src.diId!==di.id) return;
     delete di.diFor; delete src.diId; delete src.diOff;
     if(tipoPrima==null) delete di.diType; else di.diType=tipoPrima;
