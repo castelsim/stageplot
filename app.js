@@ -213,11 +213,13 @@ function metroTestoLargo(s, corpo){
 }
 /* Testo della quota (19/10/2026): «testo · misura». Prima l'etichetta personale SOSTITUIVA la misura.
    Regola per i progetti esistenti: se l'etichetta contiene già un numero seguito da m/cm/mm (scritto a mano,
-   es. «Palco 8,5 m») resta com'è, per non mostrare la misura due volte. Senza etichetta: solo la misura. */
+   es. «Palco 8,5 m») resta com'è, per non mostrare la misura due volte. Senza etichetta: solo la misura.
+   Revisione 19/10/2026: valgono anche le unità scritte per esteso («Fondo 12 metri», «250 centimetri»),
+   che prima uscivano doppie («Fondo 12 metri · 12 m»). */
 function metroTestoQuota(it, w){
   var lab=String(it.label==null?"":it.label).trim();
   if(!lab) return fmtMetro(w);
-  if(/\d\s*(cm|mm|m|mt)(?![a-zà-ù])/i.test(lab)) return lab;
+  if(/\d\s*(cm|mm|m|mt|metri|metro|centimetri)(?![a-zà-ù])/i.test(lab)) return lab;
   return lab+" \u00b7 "+fmtMetro(w);
 }
 /* la geometria della quota, nel sistema dell'elemento (asse sull'origine, prima della rotazione) */
@@ -17075,7 +17077,7 @@ function abbrOf(it){
    - coperture: un solo campo «Nome» (l'etichetta è nome + dimensione automatica);
    - metro (14/10/2026): il suo testo è la MISURA. metroSvg non legge labelMode, quindi Intero/Sigla/Nascosto
      non facevano niente (verificato su main: stesso disegno con tutti e tre); per toglierla c'è il corpo 0.
-     Resta la casella dell'etichetta, che sostituisce la misura, anche se un progetto salvato ha "abbr". */
+     Resta la casella dell'etichetta, che dal 19/10/2026 si affianca alla misura (metroTestoQuota), anche se un progetto salvato ha "abbr". */
 function pannelloNomeUi(it){
   var t=it && it.type, lm=(it && it.labelMode)||"full";
   if(t==="metro" || GAZ_TYPES[t]) return {modo:false, nome:true, sigla:false};
@@ -17108,7 +17110,7 @@ function mutSelAll(fn){ primaDiAgire(); var it=getSel(); if(!it) return;
   if(!tutti.length) tutti=[it];
   tutti.forEach(fn); render(); save(); }
 function mutSelSoon(fn){ var it=getSel(); if(!it) return; fn(it); render(); saveSoon(); }   /* per la digitazione: snapshot di cronologia debounce-ato */
-document.getElementById("bPedanaInArea").addEventListener("click", function(){ mutSel(function(it){ pedanaInArea(it); }); });   /* un passo di Annulla (19/10/2026) */
+document.getElementById("bPedanaInArea").addEventListener("click", function(){ mutSel(function(it){ pedanaInArea(it); }); if(stageEdit) renderStagePanel(); });   /* un passo di Annulla (19/10/2026). In modalità palco la chip «Pedana N» della pedana convertita restava lì (revisione 19/10/2026) */
 document.getElementById("pLabel").addEventListener("input", function(){ mutSelSoon(function(it){ it.label=document.getElementById("pLabel").value; }); });
 /* Segnalazione 68b902d9 (13/10/2026): nella Nota la barra spaziatrice non scriveva, «Fornitodallacompagnia».
    Mentre si scrive il testo va salvato COM'È: con .trim() a ogni tasto lo spazio appena battuto in fondo
