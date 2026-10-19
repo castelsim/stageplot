@@ -20339,6 +20339,32 @@ function bumpItemLabels(c){
   if(c.label) reserved[c.label]=true;
   if(c.label2 && (auto || num.test(c.label2))){ c.label2=bumpLabel(c.label2, reserved); reserved[c.label2]=true; }
 }
+/* LEGAMI DELLE COPIE (19/10/2026). Duplicare o incollare copia anche i riferimenti per id (la DI dello strumento, il
+   monitor d'ascolto, il ricevitore del radiomicrofono, il rack, l'interfaccia del computer, la pedana della
+   distribuzione). Lasciati com'erano, la copia puntava alle cose dell'ORIGINALE: due strumenti sulla stessa DI (e due
+   canali in più), due radiomicrofoni sullo stesso canale del ricevitore, due oggetti nella stessa posizione del rack.
+   Regola: se anche la cosa nominata è stata copiata, la copia punta alla SUA copia; se no, il legame se ne va insieme
+   ai suoi compagni (le stesse coppie di custLegami e di normalizeState), e l'app ripropone la sua DI. `sbTo` (la box
+   di destinazione) resta: più oggetti possono andare alla stessa box. Ritorna le copie che avevano una DI e l'hanno
+   persa: chi chiama, a copie già nello stato, ne fa nascere una nuova (diApply). */
+var LEGAMI_COPIA=[["ascoltoId","ascolto"],["diId","diOff"],["diFor"],["rxId","rxCh"],["rackId","rackPos"],["ifaceId"],["distOf","distType"]];
+function rimappaLegamiCopie(copies, idmap){
+  var senzaDi=[];
+  copies.forEach(function(c){
+    LEGAMI_COPIA.forEach(function(g){
+      var k=g[0]; if(c[k]==null) return;
+      if(Object.prototype.hasOwnProperty.call(idmap, c[k])){ c[k]=idmap[c[k]]; return; }
+      g.forEach(function(f){ delete c[f]; });
+      if(k==="diId") senzaDi.push(c);
+    });
+    if(c.sbTo!=null && c.sbTo!=="main" && Object.prototype.hasOwnProperty.call(idmap, c.sbTo)) c.sbTo=idmap[c.sbTo];
+  });
+  return senzaDi;
+}
+/* la DI che una copia ha perso, rifatta come per ogni strumento nuovo (diApply decide se serve e dove va) */
+function diNuoveCopie(senzaDi){
+  senzaDi.forEach(function(c){ try{ if(typeof diUsesBox==="function" && diUsesBox(c)) diApply(c, {quiet:true}); }catch(_e){} });
+}
 function duplicateSel(noOffset, opts){
   primaDiAgire();
   var its=custFuoriEditor(selItems()); if(!its.length) return false;   /* «Crea elemento»: una forma dell'editor non si duplica fuori dall'editor */
@@ -20360,8 +20386,8 @@ function duplicateSel(noOffset, opts){
     if(c.grp){ if(!gmap[c.grp]) gmap[c.grp]=grpLibero(); c.grp=gmap[c.grp]; }
     state.items.push(c); return c; });
   postiCopie(copies);   /* il duplicato di un posto numerato nasce senza numero: quel posto c'è già */
-  /* rimappa distOf al nuovo id della pedana copiata (evita che la copia punti alla pedana originale) */
-  copies.forEach(function(c){ if(c.distOf && idmap[c.distOf]) c.distOf=idmap[c.distOf]; });
+  /* i legami per id (distOf, DI, ascolto, ricevitore, rack…) puntano alle COPIE, o se ne vanno (rimappaLegamiCopie) */
+  var _senzaDi=rimappaLegamiCopie(copies, idmap); diNuoveCopie(_senzaDi);
   /* pedana agganciata + elementi duplicati = un BLOCCO unico: si muovono insieme e il trascinamento NON
      aggancia gli originali che la copia (spostata di 40 cm) ha sotto. Sganciata, quel rischio non c'è. */
   if(hasRiser){ var bg=grpLibero(); copies.forEach(function(c){ c.grp=bg; }); }
@@ -20405,10 +20431,12 @@ function pasteClip(){
   var gmap={}, idmap={};
   var copies=clipboard.map(function(it){ var c=JSON.parse(JSON.stringify(it)); idmap[it.id]=c.id=uid(); c.x+=off; c.y+=off; bumpItemLabels(c); custCopiaPulita(c, true);
     if(c.grp){ if(!gmap[c.grp]) gmap[c.grp]=grpLibero(); c.grp=gmap[c.grp]; } return c; });
-  /* rimappa distOf al nuovo id della pedana incollata */
-  copies.forEach(function(c){ if(c.distOf && idmap[c.distOf]) c.distOf=idmap[c.distOf]; });
+  /* i legami per id puntano alle COPIE incollate, o se ne vanno (rimappaLegamiCopie): incollare lo strumento da solo,
+     anche nella stessa scena, non lo lega alla DI dell'originale */
+  var _senzaDi=rimappaLegamiCopie(copies, idmap);
   if(hasRiser){ var bg=grpLibero(); copies.forEach(function(c){ c.grp=bg; }); }   /* pedana+elementi = blocco */
   copies.forEach(function(c){ state.items.push(c); });
+  diNuoveCopie(_senzaDi);
   postiCopie(copies);   /* posto numerato già presente nella scena → la copia resta senza numero */
   selSet={}; copies.forEach(function(c){ selSet[c.id]=true; }); sel=copies.length?copies[copies.length-1].id:null;
   render(); save(); ensureVisible();
@@ -21500,6 +21528,7 @@ function addItem(type, over, silenzioso){   /* silenzioso (06/10/2026): crea e m
      solo toccando la tendina, e il pannello diceva "serve una DI" mostrando un palco senza DI. */
   try{ if(typeof diUsesBox==="function" && diUsesBox(it)) diApply(it, {quiet:true}); }catch(_e){}
   if(silenzioso) return it;
+  if(type==="dimono" && !(over && over.diFor)){ try{ diAgganciaAllaPosa(it); }catch(_e){} }   /* DI posata a mano accanto a uno strumento senza DI: se è l'unico, la lega (19/10/2026) */
   selectOne(it.id); render(); save(); ensureVisible();
   /* Layer v2 (21/07): CABLAGGIO AUTOMATICO — appena sul palco ci sono stage box e sorgenti, il
      cablaggio si collega da solo (niente bottoni, niente gesti da scoprire). Solo sugli inserimenti
@@ -30228,6 +30257,27 @@ function diAdopt(di, src){
   diSaveOff(di);            /* memorizza dove sta ORA, così non salta al posto di default */
   __cabRes=null;
   return true;
+}
+/* AGGANCIO ALLA POSA (19/10/2026). Una DI presa dal catalogo e posata accanto a uno strumento che passa da DI e non ne
+   ha una: se il candidato è UNO SOLO (diCandidates, lo stesso elenco dell'avviso «di-orfana») la lega subito, come
+   farebbe «Associa allo strumento», e lo dice con un avviso che si annulla. Con due candidati o più, o con uno
+   strumento a cui l'utente ha tolto la DI (diBox:false), non decide: resta l'avviso. Si chiama solo da addItem, cioè alla
+   posa a mano: aprire un progetto non passa di qui, e un progetto salvato non cambia. Ritorna lo strumento agganciato. */
+function diAgganciaAllaPosa(di){
+  if(!di || di.type!=="dimono" || di.diFor || typeof diCandidates!=="function") return null;
+  var cand=diCandidates(di);
+  if(cand.length!==1 || cand[0].diBox===false) return null;
+  var src=cand[0], tipoPrima=di.diType, utentePrima=di.diTypeUtente;
+  if(!diAdopt(di, src)) return null;
+  try{ if(window.__toast) window.__toast("DI associata a «"+(src.label||(TYPES[src.type]&&TYPES[src.type].nome)||"strumento")+"»: ne porta il canale.", false, {label:"Annulla", run:function(){
+    /* annulla solo l'aggancio (la DI resta dov'è): se nel frattempo il legame è cambiato, non tocca niente */
+    if(di.diFor!==src.id || src.diId!==di.id) return;
+    delete di.diFor; delete src.diId; delete src.diOff;
+    if(tipoPrima==null) delete di.diType; else di.diType=tipoPrima;
+    if(utentePrima==null) delete di.diTypeUtente; else di.diTypeUtente=utentePrima;
+    __cabRes=null; save(); render(); renderChannels(); renderProps();
+  }}); }catch(_e){}
+  return src;
 }
 function diSaveOff(di){   /* la DI è stata trascinata: memorizza il nuovo offset nel frame dello strumento */
   var src=diSourceOf(di); if(!src) return;
