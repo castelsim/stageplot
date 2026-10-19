@@ -25378,6 +25378,52 @@ t("Marcatore di centro: una forma triangolare «Centro», senza canale e senza D
   ok(!A.state.items.some((i) => i.type === "dimono" || i.type === "distereo"), "nessuna DI nata dal marcatore");
 });
 
+/* Revisione del 19/10/2026 sul lotto del catalogo */
+t("revisione catalogo: la Loop station porta sul palco e in channel list un nome da palco, non quello del catalogo", () => {
+  reset();
+  const l = add("loopstation", 300, 300), l2 = add("loopstation", 500, 300);
+  eq([l.label, l2.label], ["Loop station 1", "Loop station 2"], "numerazione col nome corto");
+  ok(chans(l).every((c) => !/effetti da tavolo/.test(c.name || "")), "il canale non si chiama «… / effetti da tavolo»: " + JSON.stringify(chans(l)));
+});
+t("revisione catalogo: «violinista» da solo è il Violino I seduto; «violinista in piedi» resta in piedi", () => {
+  ["violinista", "violinisti", "violini"].forEach((q) => {
+    eq((A.__spSearch(q)[0] || {}).nome, "Violino I", "barra «" + q + "»");
+    eq((A.__qaSearch(q)[0] || {}).nome, "Violino I", "doppio clic «" + q + "»");
+  });
+  eq((A.__qaSearch("violinista in piedi")[0] || {}).nome, "Violinista in piedi");
+});
+t("revisione catalogo: «laptop» e «computer» restano del Laptop/Mac anche nel doppio clic", () => {
+  eq((A.__qaSearch("laptop")[0] || {}).k, "notebook", "doppio clic «laptop»");
+  eq((A.__qaSearch("computer")[0] || {}).k, "laptop", "doppio clic «computer»");
+  eq((A.__spSearch("laptop")[0] || {}).k, "notebook", "barra «laptop»");
+  eq((A.__qaSearch("laptop su tavolo")[0] || {}).nome, "Laptop su tavolo", "la frase intera trova la postazione");
+});
+t("revisione catalogo: Laptop su tavolo cerca un posto libero sul palco, non si posa sopra chi c'è", () => {
+  reset();
+  const vb0 = A.vb; A.vb = { x: 0, y: 0, w: 1000, h: 800 };   // il centro della vista: (500, 400)
+  try {
+    const occ = add("tavolo", 500, 400, { label: "Occupato" });
+    A.__catEntries.find((x) => x.nome === "Laptop su tavolo").action();
+    const tav = A.state.items.filter((i) => i.type === "tavolo" && i.id !== occ.id)[0], lap = A.state.items.filter((i) => i.type === "laptop")[0];
+    ok(Number.isFinite(tav.x) && Number.isFinite(tav.y), "coordinate vere: " + tav.x + "," + tav.y);
+    ok(Math.abs(tav.x - occ.x) >= 120 || Math.abs(tav.y - occ.y) >= 60, "il tavolo nuovo non si sovrappone a quello che c'era: " + tav.x + "," + tav.y);
+    eq([lap.x, lap.y], [tav.x, tav.y], "il Mac resta sul suo tavolo");
+    ok(A.elementiFuoriDalPalco().indexOf(tav) < 0, "posato dentro il palco");
+  } finally { A.vb = vb0; }
+});
+
+t("revisione catalogo: i disegni nuovi restano dentro il loro ingombro, anche ridimensionati", () => {
+  ["loopstation", "theremin", "syncgen"].forEach((k) => {
+    [1, 0.6, 2].forEach((f) => {
+      const T = A.TYPES[k], w = Math.round(T.w * f), d = Math.round(T.d * f);
+      const svg = T.draw({ type: k, w, d });
+      [...svg.matchAll(/<circle[^>]*cx="([-\d.]+)"[^>]*cy="([-\d.]+)"[^>]*r="([-\d.]+)"/g)].forEach((m) => {
+        const cx = +m[1], cy = +m[2], r = +m[3];
+        ok(Math.abs(cx) + r <= w / 2 + 0.5 && Math.abs(cy) + r <= d / 2 + 0.5, k + " " + w + "×" + d + ": cerchio fuori dal corpo a " + cx + "," + cy + " r" + r);
+      });
+    });
+  });
+});
 await Promise.all(attese);
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
