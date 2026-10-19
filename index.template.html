@@ -3810,10 +3810,10 @@ var TYPES = {
   theremin: {nome:"Theremin", dim:"antenne · 50×45", cat:"Band e backline", sub:"DJ ed elettronica", w:50,d:45, defLabel:"Theremin",
              draw:function(it){ var w=it.w||50, d=it.d||45;   /* dall'alto: il corpo, l'antenna dell'altezza a destra (linea), l'anello del volume a sinistra */
                return bar(0,d/6,w-14,d/2,'ic fBlack',3)+lin(w/2-5,d/6,w/2-5,-d/2+2,'ic')+circ(w/2-5,-d/2+4,2,'ic thin fGrey')+
-                 '<circle class="ic thin" fill="none" cx="'+(-w/2+12)+'" cy="'+(-d/6)+'" r="'+(d/4)+'"/>'+circ(0,d/6,3,'ic thin fGrey'); }},
+                 '<circle class="ic thin" fill="none" cx="'+(-w/2+Math.min(d/4,w/4)+1)+'" cy="'+(-d/6)+'" r="'+Math.min(d/4,w/4)+'"/>'+circ(0,d/6,3,'ic thin fGrey'); }},
   syncgen:  {nome:"Generatore sync / timecode / word clock", dim:"rack 1U o da tavolo · senza canale", cat:"Dispositivi", w:48,d:24, defLabel:"SYNC",
              draw:function(it){ var w=it.w||48, d=it.d||24;   /* una unità bassa: frontale con display e tre connettori */
-               return bar(0,0,w,d,'ic fGrey',3)+bar(-w/6,0,w/3,d/3,'ic mon',1.5)+circ(w/6,0,2.2,'ic thin fBlack')+circ(w/6+8,0,2.2,'ic thin fBlack')+circ(w/6+16,0,2.2,'ic thin fBlack'); }},
+               return bar(0,0,w,d,'ic fGrey',3)+bar(-w/6,0,w/3,d/3,'ic mon',1.5)+circ(w/8,0,2.2,'ic thin fBlack')+circ(w/4,0,2.2,'ic thin fBlack')+circ(3*w/8,0,2.2,'ic thin fBlack'); }},   /* revisione: i connettori in proporzione (a w/6+16 il terzo usciva dal bordo) */
   djset:    {nome:"DJ set su tavolo", dim:"180×60", cat:"Band e backline", sub:"DJ ed elettronica", catalog:false, w:182,d:64, defLabel:"DJ",
              draw:function(it){ return drawLibFit("djset",it,182,64); }},
   /* --- archi (icone realistiche libreria + seduta chiara) --- */
@@ -4389,8 +4389,8 @@ var SEARCH_ALIAS_GIRI = {
   cajonpost:"cajonista cajonisti percussionista percussionisti",   /* 06/10/2026: era sul cajon da solo, ora fuori catalogo */
   /* 06/10/2026, giro P-725a15 (live electronics): Moog, Soma Lyra, Polytempo, «MIDI Drum Kit» e webcam erano stati messi su
      tablet, rack2u, notebook, batteria e testo libero perché la ricerca non conosceva queste parole. Tipi già esistenti, scelti da fonico.
-     edrums è fuori catalogo (modulo), perciò «midi drum» va sull'SPD-SX. Niente «beatbox» (è un cantante col microfono) né «drone»
-     (sul palco è anche quello che vola). Manca ancora un elemento per il sync dedicato (generatore/distributore di timecode e word clock) e per il theremin. */
+     edrums era fuori catalogo (modulo), perciò «midi drum» va sull'SPD-SX. Niente «beatbox» (è un cantante col microfono) né «drone»
+     (sul palco è anche quello che vola). Sync dedicato e theremin hanno il loro elemento dal 19/10/2026 (syncgen, theremin). */
   tastiera:"moog",
   rack2u:"modulare eurorack lyra soma lyra",
   spdsx:"drum machine drummachine midi kit midi drum midi drum kit",
@@ -4831,8 +4831,8 @@ var WEIGHT = {
   /* backline */
   comboamp:25, stack:45, bassamp:40, keysamp:20, leslie:68,
   grancoda:400, mezzacoda:300, pianoverticale:230, stagepiano:25, doppiatastiera:40, celesta:100,
-  /* batteria e percussioni */
   loopstation:3, theremin:4, syncgen:2,   /* 19/10/2026: stime di famiglia (macchina da tavolo, strumento ad antenne, unità sync) */
+  /* batteria e percussioni */
   batteria:55, edrums:35, timpani:180, timpani3:135, timpani2:95, marimba:70, vibrafono:65, xilofono:45,
   glockenspiel:20, campane:90, grancassa:40, tamtam:45, timbales:20, percussioni:30, cajon:6, cajonpost:6,   /* la postazione pesa quanto il cajon: le aste qui non hanno peso */
   /* sedie (peso per il rider) */
@@ -20988,7 +20988,8 @@ function ricordaRecenteCatalogo(k, nome, over){
     if(c==="Strumenti"){   /* postazioni violini con nome progressivo, in cima al gruppo Archi */
       addToGroup("Archi", makeActionBtn("Violino I", "postazione · nome progressivo", "vlnpost", function(){ addViolin(1); }));
       addToGroup("Archi", makeActionBtn("Violino II", "postazione · nome progressivo", "vlnpost", function(){ addViolin(2); }, miniSvg("vlnpost",{vsec:2})));   /* thumbnail = illustrazione Vln II (vsec=2) */
-      entries.push({nome:"Violino I", dim:"postazione", icon:"vlnpost", action:function(){ addViolin(1); }, kw:"violinista violinisti"});
+      entries.push({nome:"Violino I", dim:"postazione", icon:"vlnpost", action:function(){ addViolin(1); }, kw:"violinista violinisti",
+                    qaPrimo:"violinista violinisti violini"});   /* revisione 19/10/2026: «violinista» da solo è il violino seduto, non quello in piedi */
       entries.push({nome:"Violino II", dim:"postazione", icon:"vlnpost", action:function(){ addViolin(2); }});
       /* 19/10/2026: «violino in piedi» non trovava niente, ma la postazione senza sedia esiste (sedia:false, anche dal pannello):
          qui è una voce a sé, con la numerazione di Violino I. */
@@ -20998,6 +20999,7 @@ function ricordaRecenteCatalogo(k, nome, over){
       /* LAPTOP SU TAVOLO (19/10/2026): una postazione unica — il tavolo e il Mac, in un gruppo (si spostano insieme) */
       addToGroup("DJ ed elettronica", makeActionBtn("Laptop su tavolo", "tavolo + Mac · postazione unica", "djset", aggiungiLaptopTavolo));
       entries.push({nome:"Laptop su tavolo", dim:"tavolo + Mac · postazione unica", icon:"djset", action:aggiungiLaptopTavolo,
+                    qaCede:"laptop computer",   /* revisione 19/10/2026: «laptop» e «computer» restano del Laptop e del Mac (nel doppio clic passava prima la postazione) */
                     kw:"laptop su tavolo laptop sul tavolo computer su tavolo computer sul tavolo mac su tavolo postazione laptop postazione computer postazione elettronica tavolo con laptop"});
     }
     if(c==="Persone"){
@@ -21483,6 +21485,7 @@ var INSTR_BASE = {
   rullante:"Rullante", percussioni:"Percussioni", grancassa:"Gran cassa", kickdrum:"Cassa",
   piatto:"Piatto", piatticoppia:"Piatti", campane:"Campane", tamtam:"Tam-tam",
   marimba:"Marimba", timpani3:"Timpani", timpani2:"Timpani", spdsx:"SPD-SX",
+  loopstation:"Loop station",   /* 19/10/2026 (revisione): il nome del catalogo «Loop station / effetti da tavolo» finiva intero sul palco e in channel list */
   /* hardware numerato */
   wedge:"Wedge", sidefill:"Side fill", drumfill:"Drum fill", iem:"IEM", sub18:"Sub", topattivo:"Diffusore",
   dimono:"DI", distereo:"DI stereo", ciabatta:"Multipresa",
@@ -21764,7 +21767,10 @@ function addViolin(sec, inPiedi){ var base=vlnSeats(sec), o={vsec:sec, label:"Vi
    raggruppati: un solo gesto, un solo passo di annulla. Il Mac sta sopra (z 2 contro z 1 del tavolo). */
 function aggiungiLaptopTavolo(){
   primaDiAgire();
-  var c=v2w({x:vb.x+vb.w/2, y:vb.y+vb.h/2}), gid=grpLibero(), x=Math.round(c.x), y=Math.round(c.y);
+  var c=v2w({x:vb.x+vb.w/2, y:vb.y+vb.h/2}), gid=grpLibero();
+  /* revisione 19/10/2026: il posto lo cerca il tavolo, come ogni elemento posato dal catalogo (findFreeSpotFor): al centro della
+     vista e basta finiva sopra chi c'era già, o fuori dal palco */
+  var fs=findFreeSpotFor({type:"tavolo", w:120, d:60, label:defaultLabel("tavolo")}, Math.round(c.x), Math.round(c.y)), x=fs.x, y=fs.y;
   var tav=addItem("tavolo", {x:x, y:y, w:120, d:60, grp:gid}, true);
   var lap=addItem("laptop", {x:x, y:y, grp:gid}, true);
   if(!tav || !lap) return null;
