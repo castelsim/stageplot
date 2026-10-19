@@ -24167,8 +24167,10 @@ t("Elettronica: ogni gruppo di parole porta per primo il tipo da fonico", () => 
     tastiera: ["moog", "synth", "sintetizzatore"],
     rack2u: ["eurorack", "lyra", "soma lyra"],
     spdsx: ["drum machine", "midi kit", "midi drum", "midi drum kit"],
-    laptop: ["polytempo", "max msp", "ableton", "live electronics", "elettronica", "click", "timecode", "smpte", "mtc"],
-    audiointerface: ["interfaccia audio", "scheda audio", "word clock"],
+    laptop: ["polytempo", "max msp", "ableton", "live electronics", "elettronica", "click", "mtc"],
+    /* 19/10/2026: timecode, SMPTE e word clock hanno ora il loro apparecchio (Generatore sync), che passa prima del Mac e dell'interfaccia */
+    syncgen: ["timecode", "smpte", "word clock", "sync", "generatore di timecode"],
+    audiointerface: ["interfaccia audio", "scheda audio"],
     camera: ["motion tracking", "tracking"],
   };
   Object.keys(gruppi).forEach((k) => gruppi[k].forEach((q) => {
@@ -24197,9 +24199,10 @@ t("Elettronica: le parole nuove non cancellano quelle vecchie (laptop: sequenze,
   ok(searchKeys("playback").slice(0, 2).indexOf("laptop") > -1, "«playback» non trova più il laptop");
   eq((A.__spSearch("webcam")[0] || {}).k, "camera", "«webcam» dava camera prima");
 });
-t("Elettronica: sync e theremin non hanno un elemento giusto, e non si forza", () => {
-  eq(searchKeys("sync").length, 0, "«sync» non deve dare risultati a caso");
-  eq(searchKeys("theremin").length, 0, "«theremin» non deve dare risultati a caso");
+/* 19/10/2026: ora un elemento giusto c'è (Generatore sync, Theremin): il test di prima («non si forza») è superato e diventa il suo contrario */
+t("Elettronica: «sync» e «theremin» trovano il loro elemento, e solo quello", () => {
+  eq(searchKeys("sync"), ["syncgen"], "«sync» = il generatore di sync");
+  eq(searchKeys("theremin"), ["theremin"], "«theremin» = il theremin");
 });
 
 /* ANELLO DI ALTOPARLANTI (06/10/2026): un progetto aveva un impianto ottofonico disegnato a mano, con le
@@ -25259,6 +25262,120 @@ t("PDF: il costruttore di jsPDF è avvolto una volta, e ogni documento nuovo è 
 t("PDF: l'export applica la regola a ogni scritta (flattenTextStyles)", () => {
   const f = appjs.slice(appjs.indexOf("function flattenTextStyles("), appjs.indexOf("function gradSolidColor("));
   ok(/el\.setAttribute\("fill", pdfColoreTesto\(rgbToHex\(cs\.fill\)\)\)/.test(f), "il fill del testo passa da pdfColoreTesto");
+});
+
+/* ===== Catalogo: le parole e gli oggetti che gli utenti non trovavano (19/10/2026, dagli esemplari e dai giri) ===== */
+console.log("\nCatalogo: parole e oggetti mancanti (19/10/2026):");
+t("ricerca: ogni parola porta per prima la voce attesa, nella barra e nella finestrella del doppio clic", () => {
+  const attese = {
+    schermo: ["telo di proiezione", "proiezione", "schermo proiezione", "telo"],
+    tamtam: ["gong"],
+    frontfill: ["front fill", "frontfill"],
+    scala: ["scala di scena"],
+    flightcase: ["baule"],
+    loopstation: ["loop station", "effetti da tavolo"],
+    theremin: ["theremin"],
+    edrums: ["batteria elettronica", "edrums", "e-drums"],
+    syncgen: ["timecode", "word clock", "sync", "generatore sync"],
+  };
+  Object.keys(attese).forEach((k) => attese[k].forEach((q) => {
+    eq((A.__spSearch(q)[0] || {}).k, k, "barra «" + q + "»");
+    eq((A.__qaSearch(q)[0] || {}).k, k, "doppio clic «" + q + "»");
+  }));
+  ["pulpito", "ambone"].forEach((q) => {
+    const primo = A.__spSearch(q)[0] || {};
+    eq([primo.k, primo.nome], ["ostacolo", "Ambone / leggio da chiesa"], "barra «" + q + "»");
+    eq((A.__qaSearch(q)[0] || {}).nome, "Ambone / leggio da chiesa", "doppio clic «" + q + "»");
+  });
+  ["centro", "asse", "mezzeria"].forEach((q) => {
+    eq((A.__spSearch(q)[0] || {}).nome, "Marcatore di centro", "barra «" + q + "»");
+    eq((A.__qaSearch(q)[0] || {}).nome, "Marcatore di centro", "doppio clic «" + q + "»");
+  });
+  ["violino in piedi", "violinista in piedi"].forEach((q) => {
+    eq((A.__spSearch(q)[0] || {}).nome, "Violinista in piedi", "barra «" + q + "»");
+    eq((A.__qaSearch(q)[0] || {}).nome, "Violinista in piedi", "doppio clic «" + q + "»");
+  });
+  ["laptop su tavolo"].forEach((q) => {
+    eq((A.__spSearch(q)[0] || {}).nome, "Laptop su tavolo", "barra «" + q + "»");
+    eq((A.__qaSearch(q)[0] || {}).nome, "Laptop su tavolo", "doppio clic «" + q + "»");
+  });
+});
+t("ricerca: «front fill» dà una cassa, mai un ampli; «ambone» non è più una parola dell'Altare", () => {
+  const prima = A.TYPES[(A.__spSearch("front fill")[0] || {}).k] || {};
+  ok(/PA/.test(prima.cat || ""), "il front fill è un diffusore: " + prima.cat);
+  const altare = A.__catEntries.find((e) => e.nome === "Altare");
+  ok(altare && !/ambone/.test(altare.kw), "«ambone» sta solo sulla sua voce");
+});
+t("ricerca: le parole vecchie restano al loro posto (elettronica, pedaliera, leggio, scaletta, altare)", () => {
+  eq((A.__spSearch("elettronica")[0] || {}).k, "laptop", "«elettronica» resta del Mac");
+  eq((A.__spSearch("pedaliera")[0] || {}).k, "pedaliera", "«pedaliera» resta della pedaliera");
+  eq((A.__spSearch("leggio")[0] || {}).k, "leggio", "«leggio» resta del leggio");
+  eq((A.__spSearch("batteria")[0] || {}).k, "batteria", "«batteria» resta della batteria vera");
+  eq((A.__spSearch("altare")[0] || {}).nome, "Altare");
+  eq((A.__spSearch("scaletta")[0] || {}).nome, "Scaletta", "la scaletta dei brani non diventa la scala");
+});
+t("Violinista in piedi: la postazione del Violino I senza sedia, con la numerazione", () => {
+  reset();
+  const e = A.__catEntries.find((x) => x.nome === "Violinista in piedi"); ok(e && typeof e.action === "function", "voce di catalogo con azione");
+  e.action();
+  const v = A.state.items.filter((i) => i.type === "vlnpost");
+  eq(v.length, 1); eq(v[0].sedia, false, "senza sedia"); eq(v[0].vsec, 1); eq(v[0].label, "Violino I 1");
+  A.__catEntries.find((x) => x.nome === "Violino I").action();
+  const seduto = A.state.items.filter((i) => i.type === "vlnpost")[1];
+  eq(seduto.sedia, true, "il Violino I normale resta con la sedia"); eq(seduto.label, "Violino I 2", "i due contano insieme");
+});
+t("Laptop su tavolo: tavolo + laptop in un gruppo, il Mac sopra, le uscite sono quelle del laptop", () => {
+  reset();
+  const e = A.__catEntries.find((x) => x.nome === "Laptop su tavolo"); ok(e && typeof e.action === "function", "voce di catalogo con azione");
+  e.action();
+  const tav = A.state.items.filter((i) => i.type === "tavolo"), lap = A.state.items.filter((i) => i.type === "laptop");
+  eq([tav.length, lap.length], [1, 1]);
+  eq(A.state.items.filter((i) => i.type !== "dimono" && i.type !== "distereo").length, 2, "solo tavolo e Mac (la DI nasce da sola, come per ogni laptop)");
+  ok(tav[0].grp && tav[0].grp === lap[0].grp, "stesso gruppo: si spostano insieme");
+  eq([lap[0].x, lap[0].y], [tav[0].x, tav[0].y], "il Mac sta sul tavolo");
+  ok(A.effZ(lap[0]) > A.effZ(tav[0]), "il Mac si disegna sopra il tavolo");
+  eq(chans(lap[0]).map((c) => c.mic), ["DI", "DI"], "Playback L/R in DI");
+  eq(chans(tav[0]).length, 0, "il tavolo non ha canali");
+});
+t("Loop station e Theremin: un ingresso DI mono (stereo a scelta), come la pedaliera", () => {
+  ["loopstation", "theremin"].forEach((k) => {
+    reset();
+    ok(A.TYPES[k] && A.TYPES[k].catalog !== false, k + " in catalogo");
+    const it = add(k, 300, 300);
+    eq(chans(it).map((c) => c.mic), ["DI"], k + ": mono di default");
+    it.stereo = true; A.__cabRes = null;
+    eq(chans(it).length, 2, k + ": stereo = 2 canali");
+    ok(A.wattOf(add(k, 500, 300)) > 0, k + " assorbe corrente");
+    ok(A.WEIGHT[k] > 0, k + " ha il peso");
+  });
+  eq(A.TYPES.loopstation.nome, "Loop station / effetti da tavolo");
+  eq(A.TYPES.loopstation.cat, A.TYPES.pedaliera.cat, "nel gruppo della pedaliera (Band e backline)");
+});
+t("Generatore sync / timecode / word clock: un apparecchio senza canale audio, con la sua corrente", () => {
+  reset();
+  ok(A.TYPES.syncgen && A.TYPES.syncgen.catalog !== false, "in catalogo");
+  const g = add("syncgen", 300, 300);
+  eq(chans(g).length, 0, "nessun canale audio");
+  A.state.inputs = []; A.autoInputs(true);
+  eq(A.state.inputs.length, 0, "né in channel list");
+  eq(A.wattOf(g), 15, "assorbe 15 W");
+  ok(A.WEIGHT.syncgen > 0 && A.TYPES.syncgen.cat === "Dispositivi", "peso e categoria dei dispositivi");
+});
+t("Batteria elettronica: ora in catalogo, con i suoi due canali DI", () => {
+  ok(A.TYPES.edrums.catalog !== false, "E-drums non più fuori catalogo");
+  ok(A.__catEntries.some((e) => e.k === "edrums"), "è una voce di catalogo");
+  reset(); eq(chans(add("edrums", 300, 300)).map((c) => c.mic), ["DI", "DI"]);
+});
+t("Marcatore di centro: una forma triangolare «Centro», senza canale e senza DI", () => {
+  reset();
+  const e = A.__catEntries.find((x) => x.nome === "Marcatore di centro"); ok(e && e.k === "forma", "voce di catalogo sulla forma");
+  eq([e.over.shape, e.over.label], ["tri", "Centro"]);
+  const m = A.addItem("forma", Object.assign({}, e.over, { x: 600, y: 400 }));
+  eq(chans(m).length, 0, "nessun canale");
+  add("forma", 700, 400, e.over); add("forma", 500, 400, e.over); add("forma", 400, 300, e.over);
+  A.state.inputs = []; A.autoInputs(true);
+  eq(A.state.inputs.length, 0, "quattro marcatori «Centro» = zero canali (prima: quattro DI contate come quattro canali)");
+  ok(!A.state.items.some((i) => i.type === "dimono" || i.type === "distereo"), "nessuna DI nata dal marcatore");
 });
 
 await Promise.all(attese);
