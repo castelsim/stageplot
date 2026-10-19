@@ -25261,6 +25261,169 @@ t("PDF: l'export applica la regola a ogni scritta (flattenTextStyles)", () => {
   ok(/el\.setAttribute\("fill", pdfColoreTesto\(rgbToHex\(cs\.fill\)\)\)/.test(f), "il fill del testo passa da pdfColoreTesto");
 });
 
+/* ===== Avvisi: doppioni sovrapposti, strumento senza ripresa, cosa non è «fuori dal palco» (19/10/2026) ===== */
+console.log("\nAudit — doppioni, strumento senza ripresa, fuori dal palco (19/10/2026):");
+const dopp = () => A.auditEngine().findings.filter((f) => f.rule === "doppioni");
+const senzaRip = () => A.auditEngine().findings.filter((f) => f.rule === "senza-ripresa");
+
+t("doppione sovrapposto: due oboi nello stesso punto → un avviso con «Mostra» e «Togli il doppione»", () => {
+  reset();
+  add("oboe", 500, 300); const b = add("oboe", 500, 300);
+  const f = dopp();
+  eq(f.length, 1, "un avviso");
+  eq(f[0].lvl, "warn");
+  eq(f[0].act.label, "Mostra"); eq(f[0].act2.label, "Togli il doppione");
+  eq(A.doppioniSovrapposti().map((g) => g.doppi.map((d) => d.id)), [[b.id]], "il doppione è il secondo, resta il primo");
+});
+t("doppione sovrapposto: un gruppo copiato nelle stesse coordinate dà UN avviso solo, non uno per elemento", () => {
+  reset();
+  for (let i = 0; i < 30; i++) add(["vlnpost", "violoncello", "oboe"][i % 3], 200 + i * 31, 200 + (i % 7) * 40);
+  const orig = A.state.items.slice();
+  orig.forEach((o) => add(o.type, o.x, o.y));
+  eq(A.doppioniSovrapposti().reduce((n, g) => n + g.doppi.length, 0), 30, "30 doppioni");
+  eq(dopp().length, 1, "un avviso per tutto il gruppo");
+  ok(/30 elementi/.test(dopp()[0].msg), "e dice quanti: " + dopp()[0].msg);
+  eq(dopp()[0].act2.label, "Togli i 30 doppioni");
+});
+t("doppione sovrapposto: soglia 5 cm sul centro, stessa rotazione, stessa misura, stesso piano", () => {
+  reset();
+  add("oboe", 500, 300); add("oboe", 504, 303);
+  eq(A.doppioniSovrapposti().length, 1, "a 5 cm (3-4-5) è un doppione");
+  reset(); add("oboe", 500, 300); add("oboe", 506, 300);
+  eq(A.doppioniSovrapposti().length, 0, "a 6 cm no: si distinguono");
+  reset(); add("oboe", 500, 300); add("oboe", 525, 300);
+  eq(A.doppioniSovrapposti().length, 0, "a un passo di griglia (25 cm) no");
+  reset(); add("oboe", 500, 300); add("oboe", 500, 300, { rot: 90 });
+  eq(A.doppioniSovrapposti().length, 0, "rotazione diversa: due oggetti messi in croce, non una copia");
+  reset(); add("oboe", 500, 300, { rot: 359.5 }); add("oboe", 500, 300, { rot: 0 });
+  eq(A.doppioniSovrapposti().length, 1, "359,5° e 0° sono la stessa rotazione");
+  reset(); add("oboe", 500, 300); add("clarinetto", 500, 300);
+  eq(A.doppioniSovrapposti().length, 0, "tipi diversi: non sono doppioni");
+  reset(); add("oboe", 500, 300); add("oboe", 500, 300, { z: 5 });
+  eq(A.doppioniSovrapposti().length, 0, "piano diverso: uno sta davanti all'altro apposta");
+  reset(); add("oboe", 500, 300); add("oboe", 500, 300, { w: 120, d: 80 });
+  eq(A.doppioniSovrapposti().length, 0, "misura diversa: non è una copia");
+});
+t("doppione sovrapposto: aree, testi, quote, tappeti, pedane e tipi a misura libera sovrapposti per natura non contano", () => {
+  reset();
+  ["forma", "testo", "metro", "tappeto", "pedana", "pedanacoro", "transenna", "truss", "parapetto", "fondale", "platea", "miczone"].forEach((tp) => { add(tp, 500, 300); add(tp, 500, 300); });
+  eq(A.doppioniSovrapposti().length, 0, "niente doppioni: " + JSON.stringify(A.doppioniSovrapposti().map((g) => g.tieni.type)));
+  eq(dopp().length, 0, "e niente avviso");
+});
+t("doppione sovrapposto: accessori agganciati, apparecchi nel rack e DI generate non contano", () => {
+  reset();
+  const a = add("sgabello", 500, 300); a.distOf = "i99"; const b = add("sgabello", 500, 300); b.distOf = "i99";
+  const r1 = add("dimono", 700, 300); r1.rackId = "r1"; const r2 = add("dimono", 700, 300); r2.rackId = "r1";
+  const d1 = add("dimono", 900, 300); d1.diFor = "x1"; const d2 = add("dimono", 900, 300); d2.diFor = "x2";
+  eq(A.doppioniSovrapposti().length, 0, "nessuno");
+});
+t("doppione sovrapposto: la batteria divisa nei pezzi (componibile del 25/09) non ne produce", () => {
+  reset();
+  const b = add("batteria", 400, 400); b.parts = Object.assign({}, A.COMP.batteria.defParts, { tom: 3, crash: 2, ride: true, kick2: true });
+  A.selectOne(b.id); A.explodeComposite();
+  ok(A.state.items.length >= 8, "kit diviso: " + A.state.items.length);
+  eq(A.doppioniSovrapposti().length, 0, "i pezzi stanno a distanza: nessun doppione");
+});
+t("Mostra: seleziona i doppioni; Togli il doppione: toglie la copia, tiene il primo e si annulla", () => {
+  reset(); A.resetHistory();
+  const a = add("oboe", 500, 300); const b = add("oboe", 500, 300); add("cantante", 800, 300); A.save();
+  const f = dopp()[0];
+  f.act.run();
+  eq(Object.keys(A.selSet), [b.id], "Mostra seleziona il doppione");
+  const passiPrima = A.undoStack.length;
+  f.act2.run();
+  eq(A.undoStack.length, passiPrima + 1, "togliere il doppione è un passo di Annulla");
+  eq(A.state.items.map((i) => i.id).includes(b.id), false, "la copia è andata");
+  eq(A.state.items.map((i) => i.id).includes(a.id), true, "il primo resta");
+  eq(dopp().length, 0, "l'avviso è sparito");
+  A.undo();
+  eq(A.state.items.filter((i) => i.type === "oboe").length, 2, "Annulla riporta il doppione");
+  eq(A.state.items.filter((i) => i.type === "cantante").length, 1, "e non porta via altro");
+  eq(dopp().length, 1, "e l'avviso");
+});
+
+t("strumento senza ripresa: chitarra senza ampli né DI → avviso con «Aggiungi DI»", () => {
+  reset();
+  const g = add("gtstand", 400, 300); g.ampli = false; g._chain = 1; A.__cabRes = null;
+  eq(chans(g).length, 0, "premessa: la chitarra non ha canali");
+  const f = senzaRip();
+  eq(f.length, 1); eq(f[0].lvl, "warn"); eq(f[0].cat, "Audio");
+  ok(/non ha né ampli microfonato né DI: non entra nella channel list/.test(f[0].msg), f[0].msg);
+  eq(f[0].act.label, "Aggiungi DI");
+});
+t("strumento senza ripresa: «Aggiungi DI» dà un canale alla chitarra e l'avviso sparisce", () => {
+  reset();
+  const g = add("gtstand", 400, 300); g.ampli = false; g._chain = 1;
+  const b = add("bassstand", 600, 300); b.ampli = false; b.tapLine = false; b.ampMic = false; b._chain = 1;
+  A.__cabRes = null;
+  const f = senzaRip()[0];
+  ok(/2 strumenti/.test(f.msg), "un avviso solo per due strumenti: " + f.msg);
+  f.act.run();
+  eq(chans(g).length, 1, "la chitarra ora ha un canale"); eq(chans(g)[0].mic, "DI");
+  eq(chans(b).length, 1, "anche il basso");
+  eq(senzaRip().length, 0, "avviso sparito");
+});
+t("strumento senza ripresa: non si contesta se c'è una ripresa (ampli, DI, tastiere, zona, ampli o DI accanto)", () => {
+  reset();
+  add("gtstand", 400, 300); add("gtacustica", 600, 300); add("bassstand", 800, 300); add("tastiera", 1000, 300); add("stagepiano", 1100, 400);
+  eq(senzaRip().length, 0, "gli strumenti di partenza hanno tutti un canale");
+  reset();
+  const g = add("gtstand", 400, 300); g.ampli = false; g._chain = 1; g.tapLine = true;
+  eq(senzaRip().length, 0, "con la DI");
+  reset();
+  const g2 = add("gtstand", 400, 300); g2.ampli = true; g2.ampMic = true; g2._chain = 1;
+  eq(senzaRip().length, 0, "con il microfono sull'ampli");
+  reset();
+  const g3 = add("gtstand", 400, 300); g3.ampli = false; g3._chain = 1; add("comboamp", 480, 300);
+  eq(senzaRip().length, 0, "col combo del catalogo accanto (ha il suo canale)");
+  reset();
+  const g4 = add("gtstand", 400, 300); g4.ampli = false; g4._chain = 1; add("comboamp", 900, 300);
+  eq(senzaRip().length, 1, "col combo a 5 m non basta");
+  reset();
+  const g5 = add("gtstand", 400, 300); g5.ampli = false; g5._chain = 1; add("dimono", 480, 300);
+  eq(senzaRip().length, 0, "con una DI del catalogo accanto (è lei la sorgente)");
+  reset();
+  const g6 = add("gtstand", 400, 300); g6.ampli = false; g6._chain = 1; const z = add("miczone", 400, 300); z.w = 400; z.d = 300;
+  eq(senzaRip().length, 0, "dentro una zona microfonica");
+});
+
+t("fuori dal palco: scale, rampe d'accesso e quote stanno fuori per natura, ma gli altri elementi no", () => {
+  reset();
+  add("cantante", 600, 400);
+  add("scala", -40, 400); add("rampa", 1250, 700); add("metro", 600, -60);
+  eq(A.elementiFuoriDalPalco().length, 0, "scala, rampa e metro fuori dal bordo non sono «fuori dal palco»");
+  add("wedge", 600, 900);
+  eq(A.elementiFuoriDalPalco().map((i) => i.type), ["wedge"], "una spia nello stesso modo sì");
+});
+t("fuori dal palco: la regola «basta il centro dentro» non cambia", () => {
+  reset();
+  add("wedge", 1195, 400);   /* sborda di 40 cm dal bordo ma il centro è dentro */
+  eq(A.elementiFuoriDalPalco().length, 0, "centro dentro = dentro");
+  add("wedge", 1205, 400);
+  eq(A.elementiFuoriDalPalco().length, 1, "centro appena fuori = fuori");
+});
+t("fuori dal palco: le scale non pesano né sul «quanti fuori su quanti» né sul palco proposto", () => {
+  reset();
+  for (let i = 0; i < 3; i++) add("wedge", 1400 + i * 100, 400);   /* 3 fuori */
+  for (let i = 0; i < 2; i++) add("cantante", 300 + i * 200, 400); /* 2 dentro */
+  for (let i = 0; i < 4; i++) add("scala", 100 + i * 100, 700);    /* 4 scale dentro: per natura non fanno numero */
+  const e = A.fuoriPalcoEquivoco();
+  ok(e, "3 fuori su 5 elementi veri: è un equivoco sul rettangolo");
+  eq([e.fuori.length, e.totali], [3, 5]);
+  reset();
+  for (let i = 0; i < 3; i++) add("cantante", 300 + i * 200, 400);
+  const prima = JSON.stringify(A.palcoCheContieneTutto());
+  add("scala", 3000, 400);
+  eq(JSON.stringify(A.palcoCheContieneTutto()), prima, "una scala lontana non allarga il palco che «contiene tutto»");
+});
+t("fuori dal palco: la scala fuori dal bordo resta nel riquadro di stampa (FUORI_OK non cambia)", () => {
+  reset();
+  add("cantante", 600, 400); const s = add("scala", -100, 400);
+  ok(A.elementiOltreIlBordo().some((i) => i.id === s.id), "la scala fuori dal bordo si disegna ancora sul foglio");
+  eq(Object.keys(A.FUORI_OK).sort(), ["foh", "platea", "sediapubblico"], "FUORI_OK resta com'era");
+});
+
+
 await Promise.all(attese);
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");

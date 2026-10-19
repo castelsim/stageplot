@@ -24,7 +24,7 @@
      due release nello stesso giorno restano distinguibili in telemetria e supporto. In locale/dev
      resta il placeholder. La sentinella del VALORE è distinta dall'identificatore window.__BUILD_ID__
      così il sed della CI non tocca il nome della variabile. -->
-<script>window.__APP_VERSION__="2026.10.17";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
+<script>window.__APP_VERSION__="2026.10.19";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -1217,6 +1217,7 @@
   .audit-fix{flex:0 0 auto;align-self:center;border:1px solid var(--accent);background:var(--surface);color:var(--accent);
     font-size:11px;font-weight:600;padding:3px 9px;border-radius:999px;cursor:pointer;white-space:nowrap;line-height:1.3}
   .audit-fix:hover{background:var(--accent);color:#fff}
+  .audit-acts{flex:0 0 auto;align-self:center;display:flex;flex-direction:column;gap:4px;align-items:stretch}   /* due rimedi sulla stessa voce (19/10/2026) */
   body.dark .audit-fix{background:#141a1d}
   body.dark .audit-fix:hover{background:var(--accent);color:#fff}
   .cabfld{display:block;font-size:11px;color:var(--text-2);margin-top:8px}
