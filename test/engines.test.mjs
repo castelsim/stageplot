@@ -9021,13 +9021,13 @@ t("metro corto: linea intera, numero sopra senza riquadro, frecce che non si toc
   ok(F10.length === 0 || F10[0][2] <= F10[1][2], "a 10 cm le frecce non si sovrappongono");
   ok(A.metroGeom({ w: 170, rot: 0 }).dentro, "170 cm: dentro");
 });
-t("metro: l'etichetta personalizzata sostituisce la misura, con lo stesso stile", () => {
+t("metro: l'etichetta personalizzata si affianca alla misura (testo · misura), con lo stesso stile", () => {
   const mk = metroDraw({ label: "Fronte palco", w: 600 });
-  eq(metroTesto(mk).txt, "Fronte palco");
+  eq(metroTesto(mk).txt, "Fronte palco · 6 m");
   ok(!/<rect/.test(mk), "senza riquadro");
   const L = metroLinee(mk);
-  ok(L.length === 2 && L[1][0] - L[0][2] > A.metroTestoLargo("Fronte palco", 14), "lo spazio segue la sua larghezza");
-  eq(metroTesto(metroDraw({ label: "a<b" })).txt, "a&lt;b", "il testo resta escapato");
+  ok(L.length === 2 && L[1][0] - L[0][2] > A.metroTestoLargo("Fronte palco · 6 m", 14), "lo spazio segue la sua larghezza");
+  eq(metroTesto(metroDraw({ label: "a<b" })).txt, "a&lt;b · 3,45 m", "il testo resta escapato");
   const zero = metroDraw({ lblSize: 0 });
   ok(!metroTesto(zero) && metroLinee(zero).length === 1, "corpo 0: niente numero e linea intera");
   const big = A.metroGeom({ w: 345, rot: 0, lblSize: 30 });
@@ -25636,6 +25636,66 @@ t("revisione catalogo: i disegni nuovi restano dentro il loro ingombro, anche ri
     });
   });
 });
+
+/* ===== 19/10/2026 — pedana che fa da zona: suggerimento «Area con nome»; quota con testo + misura ===== */
+t("pedana-zona: il suggerimento compare con h=0 o nome «zona/area/settore», mai su pedane normali", () => {
+  reset();
+  const ok1 = add("pedana", 400, 400); ok1.label = "Batteria";
+  eq(A.pedanaPareZona(ok1), false, "pedana normale: niente suggerimento");
+  const h0 = add("pedana", 500, 400); h0.h = 0; h0.label = "Pedana 2";
+  eq(A.pedanaPareZona(h0), true, "alta 0 cm");
+  ["zona fiati", "Area coro", " SETTORE B", "zona"].forEach((n) => { const p = add("pedana", 600, 400); p.label = n; eq(A.pedanaPareZona(p), true, n); });
+  ["zonale", "Arealto", "Fiati zona"].forEach((n) => { const p = add("pedana", 600, 400); p.label = n; eq(A.pedanaPareZona(p), false, n); });
+  eq(A.pedanaPareZona(add("cantante", 300, 300)), false, "non pedane: no");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="pZonaWrap"/.test(html) && /pedanaPareZona\(it\) \? "block"/.test(appjs), "il pannello mostra il suggerimento");
+  ok(!/function normalizeState[\s\S]{0,3000}pedanaInArea/.test(appjs), "nessuna conversione automatica all'apertura");
+});
+t("pedana-zona: il bottone converte in Area con nome (stessa posizione, misure, rotazione, nome), via da rider/carichi, un passo di Annulla", () => {
+  reset(); A.resetHistory();
+  const p = add("pedana", 420, 380, { w: 300, d: 120, rot: 15 }); p.h = 0; p.label = "Zona fiati"; p.dimSide = "top";
+  const id = p.id; A.resetHistory();
+  A.selectOne(id);
+  A.mutSel((it) => { A.pedanaInArea(it); });
+  const f = A.state.items.find((x) => x.id === id);
+  eq([f.type, f.x, f.y, f.w, f.d, f.rot, f.label], ["forma", 420, 380, 300, 120, 15, "Zona fiati"], "stessi posto, misure, rotazione e nome");
+  ok(A.isAreaNome(f), "è una Area con nome");
+  ok(f.h === undefined && f.dimSide === undefined, "via i campi della pedana");
+  ok(/^#[0-9a-f]{6}$/i.test(f.fill), "ha un colore");
+  eq(A.state.items.filter((x) => x.type === "pedana").length, 0, "non è più una pedana (rider e carichi la ignorano)");
+  eq(A.undoStack.length, 1, "un passo di Annulla");
+  A.undo();
+  const b = A.state.items.find((x) => x.id === id);
+  eq([b.type, b.h, b.w, b.label], ["pedana", 0, 300, "Zona fiati"], "Annulla riporta la pedana");
+  eq(A.pedanaInArea(add("cantante", 100, 100)), false, "su altro che pedana non fa niente");
+  ok(/getElementById\("bPedanaInArea"\)\.addEventListener\("click"/.test(appjs), "il bottone è collegato");
+});
+t("quota: il testo personale si affianca alla misura e la misura segue la lunghezza", () => {
+  eq(metroTesto(metroDraw({ label: "Larghezza palco", w: 850 })).txt, "Larghezza palco \u00b7 8,5 m");
+  eq(metroTesto(metroDraw({ label: "Larghezza palco", w: 900 })).txt, "Larghezza palco \u00b7 9 m", "allungata: la misura si aggiorna");
+  eq(metroTesto(metroDraw({ w: 850 })).txt, "8,5 m", "senza testo: solo la misura");
+  eq(metroTesto(metroDraw({ label: "   ", w: 850 })).txt, "8,5 m", "testo di soli spazi: solo la misura");
+  /* progetti esistenti: la misura già scritta a mano non si raddoppia */
+  ["Palco 8,50 m", "Fondo 12 m", "3 m", "Altezza 250 cm", "8.5m"].forEach((n) => eq(metroTesto(metroDraw({ label: n, w: 850 })).txt, n, n));
+  eq(metroTesto(metroDraw({ label: "Fronte 2 mic", w: 850 })).txt, "Fronte 2 mic \u00b7 8,5 m", "«2 mic» non è una misura");
+  ok(/function metroSvg[\s\S]{0,400}metroGeom\(it\)/.test(appjs) && /txt=metroTestoQuota\(it, w\)/.test(appjs), "palco e PDF disegnano con la stessa funzione");
+});
+
+/* Revisione 19/10/2026 del lotto pedana-zona / quota */
+t("quota: la misura scritta per esteso («12 metri», «250 centimetri») non si raddoppia", () => {
+  ["Fondo 12 metri", "Larghezza 8,5 metri", "1 metro", "Altezza 250 centimetri"].forEach((n) => eq(metroTesto(metroDraw({ label: n, w: 850 })).txt, n, n));
+  eq(metroTesto(metroDraw({ label: "Fronte 2 metronomi", w: 850 })).txt, "Fronte 2 metronomi \u00b7 8,5 m", "una parola più lunga non è un'unità");
+});
+t("pedana-zona: convertita in modalità palco, la sua chip «Pedana N» sparisce e il rider non la chiede più", () => {
+  reset();
+  const p = add("pedana", 420, 380, { w: 300, d: 120 }); p.h = 0; p.label = "Zona coro";
+  eq(A.riderData().pedane.length, 1, "prima: una pedana nel rider");
+  A.pedanaInArea(p);
+  eq(A.riderData().pedane, [], "dopo: il rider non chiede pedane");
+  ok(/getElementById\("bPedanaInArea"\)\.addEventListener\("click", function\(\)\{ mutSel\(function\(it\)\{ pedanaInArea\(it\); \}\); if\(stageEdit\) renderStagePanel\(\);/.test(appjs),
+    "il bottone ridisegna il pannello del palco (le chip delle pedane) se si è in modalità palco");
+});
+
 await Promise.all(attese);
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
