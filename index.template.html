@@ -29667,15 +29667,24 @@ function renderMonitorPanel(){
 /* Proattivo: attivare "Monitor list" = "penso servano monitor" → se ci sono musicisti ma nessun monitor,
    propone un wedge per gruppo di strumenti, DAVANTI al gruppo (verso il pubblico), con mix distinti. */
 /* ── Pilastro 1: POSTAZIONI MUSICISTI (non sorgenti audio). Base per monitor + personal mixer. ── */
+/* Suonati da una persona ma fuori dalle tabelle qui sopra (segnalazione del 19/10: una «Tastiera» non
+   offriva l'ascolto). Solo lo strumento principale di chi suona: accessori (controller, panchetta,
+   pedaliera, ampli) e pezzi singoli di batteria/percussioni restano fuori, non sono una persona in più.
+   I mus* sono le figure illustrate (fuori catalogo) che i progetti vecchi possono ancora avere. */
+var SUONATI_ALTRI = { tastiera:"tastiere", organohammond:"tastiere", djset:1,
+  timpani:1, timpani2:1, timpani3:1, glockenspiel:1, xilofono:1, vibrafono:1, marimba:1,
+  musTastiera:"tastiere", musPianoGranCoda:"tastiere", musPianoMezzaCoda:"tastiere", musFisarmonica:1,
+  musChitElettrica:1, musChitAcustica:1, musChitClassica:1, musBasso:1,
+  musBatteria:"batteria", musTimpani:1, musPercussioni:1 };
 function performerKind(it){
-  if(it.type==="batteria"||it.type==="edrums") return "batteria";
+  if(it.type==="batteria"||it.type==="edrums"||SUONATI_ALTRI[it.type]==="batteria") return "batteria";
   if(VOCE[it.type]) return "voce";
-  if(KEYS_BENCH[it.type]||TASTIERE[it.type]) return "tastiere";
+  if(KEYS_BENCH[it.type]||TASTIERE[it.type]||SUONATI_ALTRI[it.type]==="tastiere") return "tastiere";
   return "strumento";
 }
 function isPerformer(it){   /* un elemento SUONATO da una persona (non ampli/DI/rack/casse) */
   if(!it) return false; var t=TYPES[it.type]; if(!t) return false;
-  if(POSTAZ[it.type]||VOCE[it.type]||KEYS_BENCH[it.type]||TASTIERE[it.type]||t.gtr) return true;
+  if(POSTAZ[it.type]||VOCE[it.type]||KEYS_BENCH[it.type]||TASTIERE[it.type]||SUONATI_ALTRI[it.type]||t.gtr) return true;
   if(it.type==="batteria"||it.type==="edrums"||it.type==="percussioni"||it.type==="timbales"||it.type==="cajonpost") return true;
   return t.cat==="Orchestra";
 }
@@ -30263,7 +30272,7 @@ function diNextLabel(){   /* numerazione progressiva come gli altri hardware: DI
   var n=0; (state.items||[]).forEach(function(x){ var m=/^DI\s+(\d+)$/.exec(x.label||""); if(m) n=Math.max(n,+m[1]); });
   return "DI "+(n+1);
 }
-function ascoltoEligible(it){ return !!it && (isPerformer(it) || it.type==="direttore"); }
+function ascoltoEligible(it){ return !!it && (isPerformer(it) || it.type==="direttore" || it.type==="musDirettore"); }
 function ascoltoPos(it, kind){   /* posizione del monitor rispetto al performer (locale → mondo con rotazione) */
   var d=(it.d||60), w=(it.w||60), local;
   if(kind==="wedge") local=[0, d/2+45];            /* spia DAVANTI, verso il pubblico */
