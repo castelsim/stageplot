@@ -2599,6 +2599,30 @@ body.viewmode.consult-viewer.cl-view #props #chanlist{ display:block; max-width:
 .hdr-variants .vtab:focus-visible,.hdr-variants .vtab-add:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
 .var-menu .mi-danger{color:var(--danger)}
 .var-menu .mi[hidden]{display:none}
+/* «Cosa cambia rispetto a…» (19/10/2026): finestra con l'elenco delle differenze fra due varianti; a tutta larghezza sul telefono */
+#varDiffModal{position:fixed;inset:0;z-index:320;background:rgba(15,23,42,.55);display:none;align-items:center;justify-content:center;padding:18px}
+#varDiffModal .cfr-box{background:var(--surface);color:var(--text);border-radius:var(--r-xl);width:100%;max-width:560px;max-height:min(86vh,720px);display:flex;flex-direction:column;box-shadow:var(--elev-4);font-family:var(--font-ui);overflow:hidden}
+#varDiffModal .cfr-testa{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:16px 18px 6px}
+#varDiffModal h3{margin:0;font-size:18px}
+#varDiffModal .cfr-chiudi{min-width:44px;min-height:44px;border:0;background:transparent;color:var(--text-2);font-size:26px;line-height:1;cursor:pointer;border-radius:var(--r-md)}
+#varDiffModal .cfr-scelta{display:flex;flex-direction:column;gap:4px;padding:6px 18px 10px;font-size:13px;color:var(--text-2)}
+#varDiffModal .cfr-scelta select{min-height:44px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);color:var(--text);font-size:15px;padding:0 10px}
+#varDiffModal .cfr-ris{overflow:auto;padding:0 18px 18px;-webkit-overflow-scrolling:touch}
+#varDiffModal .cfr-sub{margin:0 0 4px;font-size:13px;color:var(--text-2)}
+#varDiffModal .cfr-sum{margin:0 0 8px;font-size:14px;font-weight:600}
+#varDiffModal .cfr-nulla{margin:12px 0 4px;font-size:15px}
+#varDiffModal .cfr-sez{margin-top:12px}
+#varDiffModal .cfr-sez h4{margin:0 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-2)}
+#varDiffModal .cfr-n{font-weight:500;opacity:.7}
+#varDiffModal .cfr-riga{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px;width:100%;box-sizing:border-box;text-align:left;min-height:44px;padding:8px 10px;margin:0 0 4px;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);color:var(--text);font:inherit;font-size:14px}
+#varDiffModal button.cfr-riga{cursor:pointer}
+#varDiffModal button.cfr-riga:hover{background:var(--accent-tint)}
+#varDiffModal .cfr-riga.fermo{background:transparent;color:var(--text-2)}
+#varDiffModal .cfr-t{font-weight:600;overflow-wrap:anywhere}
+#varDiffModal .cfr-d{font-size:13px;color:var(--text-2);overflow-wrap:anywhere}
+#varDiffModal .cfr-piu{min-height:44px;padding:0 14px;border:1px solid var(--border);border-radius:var(--r-md);background:transparent;color:var(--accent-strong);font:600 14px var(--font-ui);cursor:pointer}
+#varDiffModal button:focus-visible,#varDiffModal select:focus-visible{outline:none;box-shadow:0 0 0 3px var(--focus-ring)}
+@media (max-width:600px){ #varDiffModal{padding:0;align-items:stretch} #varDiffModal .cfr-box{max-width:none;max-height:none;border-radius:0} }
 body.dark .hdr-variants{background:#141a1d}
 body.dark .hdr-variants .vtab.on{background:#2a3138;color:#e5e7eb}
 @media (pointer:coarse){ .hdr-variants{height:auto} .hdr-variants .vtab,.hdr-variants .vtab-add{min-height:44px} }
@@ -4003,6 +4027,7 @@ body.cust-contorno .item.selected .selbox{display:none}
   <div class="hdrmenu var-menu" id="variantMenu" role="menu" hidden>
     <button type="button" class="mi" data-vm="ren">Rinomina…</button>
     <button type="button" class="mi" data-vm="new">Duplica in una nuova variante</button>
+    <button type="button" class="mi" data-vm="diff">Cosa cambia rispetto a…</button>
     <hr>
     <button type="button" class="mi mi-danger" data-vm="del">Elimina variante</button>
   </div>
@@ -4684,6 +4709,10 @@ body.cust-contorno .item.selected .selbox{display:none}
       <span><label for="pW">L (cm)</label><input type="number" id="pW" min="10" step="5"></span>
       <span><label for="pD">P (cm)</label><input type="number" id="pD" min="10" step="5"></span>
       <span id="pHwrap"><label for="pH">h (cm)</label><input type="number" id="pH" min="0" step="10"></span>
+    </div>
+    <div id="pZonaWrap" style="display:none;font-size:11px;color:var(--text-2);margin-top:8px;line-height:1.5">
+      <span id="pZonaTesto">È una zona? Trasformala in Area con nome.</span>
+      <button id="bPedanaInArea" class="btn" type="button" style="margin-top:6px;width:auto">Trasforma in Area con nome</button>
     </div>
     <div id="pDimSideWrap" style="display:none">
       <label id="pDimSideLbl">Lato quota</label>
@@ -5456,6 +5485,7 @@ body.cust-contorno .item.selected .selbox{display:none}
     <div class="mrow mrow-var" id="mVarRow" hidden><span class="mrow-t" id="mVarHead">Variante</span><select id="mVariantSel" aria-label="Variante attiva"></select></div>
     <div class="mrow-acts" id="mVarGrid">
       <button data-act="var-ren" id="mVarRen" hidden>Rinomina</button>
+      <button data-act="var-diff" id="mVarDiff" hidden>Cosa cambia…</button>
       <button data-act="var-del" id="mVarDel" class="danger" hidden>Elimina</button>
       <button data-act="var-new">+ Nuova variante</button>
     </div>

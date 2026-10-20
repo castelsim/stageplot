@@ -9043,13 +9043,13 @@ t("metro corto: linea intera, numero sopra senza riquadro, frecce che non si toc
   ok(F10.length === 0 || F10[0][2] <= F10[1][2], "a 10 cm le frecce non si sovrappongono");
   ok(A.metroGeom({ w: 170, rot: 0 }).dentro, "170 cm: dentro");
 });
-t("metro: l'etichetta personalizzata sostituisce la misura, con lo stesso stile", () => {
+t("metro: l'etichetta personalizzata si affianca alla misura (testo · misura), con lo stesso stile", () => {
   const mk = metroDraw({ label: "Fronte palco", w: 600 });
-  eq(metroTesto(mk).txt, "Fronte palco");
+  eq(metroTesto(mk).txt, "Fronte palco · 6 m");
   ok(!/<rect/.test(mk), "senza riquadro");
   const L = metroLinee(mk);
-  ok(L.length === 2 && L[1][0] - L[0][2] > A.metroTestoLargo("Fronte palco", 14), "lo spazio segue la sua larghezza");
-  eq(metroTesto(metroDraw({ label: "a<b" })).txt, "a&lt;b", "il testo resta escapato");
+  ok(L.length === 2 && L[1][0] - L[0][2] > A.metroTestoLargo("Fronte palco · 6 m", 14), "lo spazio segue la sua larghezza");
+  eq(metroTesto(metroDraw({ label: "a<b" })).txt, "a&lt;b · 3,45 m", "il testo resta escapato");
   const zero = metroDraw({ lblSize: 0 });
   ok(!metroTesto(zero) && metroLinee(zero).length === 1, "corpo 0: niente numero e linea intera");
   const big = A.metroGeom({ w: 345, rot: 0, lblSize: 30 });
@@ -14582,6 +14582,8 @@ t("il violino I è una postazione configurabile: la distanza ha senso solo a due
 });
 
 console.log("\n— DI presa dal catalogo: adozione —");
+/* una DI «sciolta» = come arriva da un progetto salvato: posata in silenzio, senza l'aggancio alla posa (19/10/2026) */
+function diSciolta(x, y) { return A.addItem("dimono", { x, y }, true); }
 
 /* Il caso reale: una DI trascinata dal catalogo accanto a una chitarra acustica. Visivamente
    sono collegate, nel dato no: la DI resta una sorgente e dichiara canali che non esistono. */
@@ -14592,7 +14594,7 @@ function chitarraConDiSciolta(stereo) {
      e ha posato accanto una DI presa dal catalogo (o di un progetto salvato prima). */
   const gen = A.diLinked(gt);
   if (gen) { A.state.items = A.state.items.filter((x) => x.id !== gen.id); delete gt.diId; delete gt.diOff; }
-  const di = add("dimono", 225, 200);
+  const di = diSciolta(225, 200);
   if (stereo) di.diCh = "stereo";
   A.__cabRes = null;
   return { gt, di };
@@ -14624,7 +14626,7 @@ t("la DI adottata resta dove l'utente l'aveva messa", () => {
 t("non si adotta una DI per uno strumento che non passa da DI", () => {
   reset();
   const voce = add("cantante", 300, 200);
-  const di = add("dimono", 225, 200);
+  const di = diSciolta(225, 200);
   eq(A.diAdopt(di, voce), false, "una voce non ha bisogno di una DI");
   ok(!di.diFor);
 });
@@ -14661,14 +14663,14 @@ t("gli strumenti candidati sono quelli vicini, che passano da DI e non ne hanno 
 t("uno strumento che ha già la sua DI non compare fra i candidati", () => {
   reset();
   add("gtacustica", 300, 200);        /* nasce con la sua DI generata */
-  const di = add("dimono", 225, 260);
+  const di = diSciolta(225, 260);
   eq(A.diCandidates(di).length, 0, "una chitarra già servita non deve adottarne un'altra");
 });
 
 t("una DI in più accanto a uno strumento già servito non viene contestata", () => {
   reset();
   add("gtacustica", 300, 200);
-  const di = add("dimono", 225, 260); di.diCh = "stereo";
+  const di = diSciolta(225, 260); di.diCh = "stereo";
   A.__cabRes = null;
   ok(!hasRule("di-orfana"), "è una DI in più, legittima: lo strumento ha già la sua");
 });
@@ -14707,7 +14709,7 @@ t("la regola tace se la DI è adottata", () => {
 
 t("la regola tace su una DI usata da sola, senza strumenti intorno", () => {
   reset();
-  add("dimono", 225, 200);
+  diSciolta(225, 200);
   A.__cabRes = null;
   ok(!hasRule("di-orfana"), "una DI isolata è una scelta legittima");
 });
@@ -14728,7 +14730,7 @@ t("la chiave della regola è unica: un solo rilievo «di-orfana» anche con due 
   const gt2 = add("gtacustica", 800, 200);
   const gen2 = A.diLinked(gt2);
   if (gen2) { A.state.items = A.state.items.filter((x) => x.id !== gen2.id); delete gt2.diId; delete gt2.diOff; }
-  add("dimono", 730, 200);
+  diSciolta(730, 200);
   A.__cabRes = null;
   const rilievi = A.auditEngine().findings.filter((x) => x.rule === "di-orfana");
   eq(rilievi.length, 1, "la dedup è per chiave: un rilievo solo");
@@ -24221,8 +24223,10 @@ t("Elettronica: ogni gruppo di parole porta per primo il tipo da fonico", () => 
     tastiera: ["moog", "synth", "sintetizzatore"],
     rack2u: ["eurorack", "lyra", "soma lyra"],
     spdsx: ["drum machine", "midi kit", "midi drum", "midi drum kit"],
-    laptop: ["polytempo", "max msp", "ableton", "live electronics", "elettronica", "click", "timecode", "smpte", "mtc"],
-    audiointerface: ["interfaccia audio", "scheda audio", "word clock"],
+    laptop: ["polytempo", "max msp", "ableton", "live electronics", "elettronica", "click", "mtc"],
+    /* 19/10/2026: timecode, SMPTE e word clock hanno ora il loro apparecchio (Generatore sync), che passa prima del Mac e dell'interfaccia */
+    syncgen: ["timecode", "smpte", "word clock", "sync", "generatore di timecode"],
+    audiointerface: ["interfaccia audio", "scheda audio"],
     camera: ["motion tracking", "tracking"],
   };
   Object.keys(gruppi).forEach((k) => gruppi[k].forEach((q) => {
@@ -24251,9 +24255,10 @@ t("Elettronica: le parole nuove non cancellano quelle vecchie (laptop: sequenze,
   ok(searchKeys("playback").slice(0, 2).indexOf("laptop") > -1, "«playback» non trova più il laptop");
   eq((A.__spSearch("webcam")[0] || {}).k, "camera", "«webcam» dava camera prima");
 });
-t("Elettronica: sync e theremin non hanno un elemento giusto, e non si forza", () => {
-  eq(searchKeys("sync").length, 0, "«sync» non deve dare risultati a caso");
-  eq(searchKeys("theremin").length, 0, "«theremin» non deve dare risultati a caso");
+/* 19/10/2026: ora un elemento giusto c'è (Generatore sync, Theremin): il test di prima («non si forza») è superato e diventa il suo contrario */
+t("Elettronica: «sync» e «theremin» trovano il loro elemento, e solo quello", () => {
+  eq(searchKeys("sync"), ["syncgen"], "«sync» = il generatore di sync");
+  eq(searchKeys("theremin"), ["theremin"], "«theremin» = il theremin");
 });
 
 /* ANELLO DI ALTOPARLANTI (06/10/2026): un progetto aveva un impianto ottofonico disegnato a mano, con le
@@ -25313,6 +25318,661 @@ t("PDF: il costruttore di jsPDF è avvolto una volta, e ogni documento nuovo è 
 t("PDF: l'export applica la regola a ogni scritta (flattenTextStyles)", () => {
   const f = appjs.slice(appjs.indexOf("function flattenTextStyles("), appjs.indexOf("function gradSolidColor("));
   ok(/el\.setAttribute\("fill", pdfColoreTesto\(rgbToHex\(cs\.fill\)\)\)/.test(f), "il fill del testo passa da pdfColoreTesto");
+});
+
+/* ===== Duplicare / incollare non lascia i legami condivisi (19/10/2026) ===== */
+console.log("\n— Duplica e incolla: i legami puntano alle copie —");
+function selezione(...items) { A.selSet = {}; items.forEach((i) => { A.selSet[i.id] = true; }); A.sel = items[items.length - 1].id; }
+const nuovi = (prima) => A.state.items.filter((x) => prima.indexOf(x.id) < 0);
+t("duplica strumento + DI: la copia usa la SUA DI, i canali sono giusti", () => {
+  reset(); A.state.cab.on = true; A.__cabRes = null;
+  const gt = add("gtacustica", 300, 300); const di = A.diLinked(gt);
+  ok(di, "la chitarra nasce con la sua DI");
+  const prima = A.state.items.map((x) => x.id);
+  selezione(gt, di); A.duplicateSel();
+  const n = nuovi(prima); eq(n.length, 2, "una chitarra e una DI nuove, non tre");
+  const gt2 = n.find((x) => x.type === "gtacustica"), di2 = n.find((x) => x.type === "dimono");
+  eq(gt2.diId, di2.id, "la copia della chitarra punta alla copia della DI");
+  eq(di2.diFor, gt2.id, "la copia della DI punta alla copia della chitarra");
+  eq(gt.diId, di.id, "l'originale non cambia"); eq(di.diFor, gt.id, "la DI originale non cambia");
+  A.__cabRes = null;
+  eq(A.patchList().rows.length, 2, "due strumenti = due canali (la DI non ne aggiunge)");
+});
+t("duplica solo lo strumento: niente legame con la DI dell'originale, ne nasce una sua", () => {
+  reset(); A.state.cab.on = true; A.__cabRes = null;
+  const gt = add("gtacustica", 300, 300); const di = A.diLinked(gt);
+  const prima = A.state.items.map((x) => x.id);
+  selezione(gt); A.duplicateSel();
+  const gt2 = nuovi(prima).find((x) => x.type === "gtacustica");
+  ok(gt2.diId && gt2.diId !== di.id, "la copia non punta alla DI dell'originale");
+  const di2 = A.diLinked(gt2); ok(di2 && di2.diFor === gt2.id, "la sua DI nuova punta alla copia");
+  eq(di.diFor, gt.id, "la DI dell'originale serve ancora solo l'originale"); eq(gt.diId, di.id, "e l'originale la tiene");
+  A.__cabRes = null; eq(A.patchList().rows.length, 2, "due canali, non tre");
+});
+t("duplica solo la DI generata: la copia non resta legata allo strumento dell'originale", () => {
+  reset(); const gt = add("gtacustica", 300, 300); const di = A.diLinked(gt);
+  const prima = A.state.items.map((x) => x.id);
+  selezione(di); A.duplicateSel();
+  const di2 = nuovi(prima)[0]; eq(di2.type, "dimono");
+  ok(di2.diFor == null, "la copia della DI non punta più alla chitarra");
+  eq(gt.diId, di.id, "la chitarra tiene la sua DI");
+});
+t("duplica senza DI: uno strumento che non ne aveva non ne riceve una", () => {
+  reset(); const gt = add("gtacustica", 300, 300); const di = A.diLinked(gt);
+  A.state.items = A.state.items.filter((x) => x.id !== di.id); delete gt.diId; delete gt.diOff; gt.diBox = false;
+  selezione(gt); A.duplicateSel();
+  eq(A.state.items.filter((x) => x.type === "dimono").length, 0, "nessuna DI comparsa dal nulla");
+});
+t("incolla strumento + DI: la copia usa la SUA DI; incolla solo lo strumento: niente DI dell'originale", () => {
+  reset(); A.state.cab.on = true; A.__cabRes = null;
+  const gt = add("gtacustica", 300, 300); const di = A.diLinked(gt);
+  let prima = A.state.items.map((x) => x.id);
+  selezione(gt, di); A.copySel(); A.pasteClip();
+  let n = nuovi(prima); eq(n.length, 2);
+  const gt2 = n.find((x) => x.type === "gtacustica"), di2 = n.find((x) => x.type === "dimono");
+  eq(gt2.diId, di2.id, "incolla: la chitarra nuova punta alla DI nuova"); eq(di2.diFor, gt2.id, "e la DI nuova alla chitarra nuova");
+  prima = A.state.items.map((x) => x.id);
+  selezione(gt); A.copySel(); A.pasteClip();
+  const gt3 = nuovi(prima).find((x) => x.type === "gtacustica");
+  ok(gt3.diId && gt3.diId !== di.id && gt3.diId !== di2.id, "incollata da sola non prende la DI di nessun altro");
+  eq(A.diLinked(gt3).diFor, gt3.id, "ne ha una sua");
+  eq(di.diFor, gt.id, "la DI dell'originale è ancora sua");
+  A.__cabRes = null; eq(A.patchList().rows.length, 3, "tre chitarre = tre canali");
+});
+t("duplica musicista + monitor d'ascolto: la copia ha il SUO monitor; da solo, nessuno", () => {
+  reset(); const v = add("cantante", 400, 300); A.setAscolto(v, "wedge"); const mon = A.state.items.find((x) => x.id === v.ascoltoId);
+  let prima = A.state.items.map((x) => x.id);
+  selezione(v, mon); A.duplicateSel();
+  let n = nuovi(prima); const v2 = n.find((x) => x.type === "cantante"), mon2 = n.find((x) => x.type === "wedge");
+  eq(v2.ascoltoId, mon2.id, "la copia del cantante punta alla copia del wedge"); eq(v2.ascolto, "wedge");
+  prima = A.state.items.map((x) => x.id);
+  selezione(v); A.duplicateSel();
+  const v3 = nuovi(prima)[0];
+  ok(v3.ascoltoId == null && v3.ascolto == null, "da solo non usa il monitor dell'originale");
+  eq(v.ascoltoId, mon.id, "l'originale tiene il suo");
+});
+t("duplica radiomicrofono + ricevitore: stesso canale ma sul ricevitore COPIATO; da solo, senza ricevitore", () => {
+  reset();
+  const rx = add("rxrf", 260, 180), tx = add("wireless", 400, 300); tx.rxId = rx.id; tx.rxCh = 2;
+  let prima = A.state.items.map((x) => x.id);
+  selezione(tx, rx); A.duplicateSel();
+  let n = nuovi(prima); const rx2 = n.find((x) => x.type === "rxrf"), tx2 = n.find((x) => x.type === "wireless");
+  eq(tx2.rxId, rx2.id, "il trasmettitore nuovo punta al ricevitore nuovo"); eq(tx2.rxCh, 2, "con lo stesso canale");
+  prima = A.state.items.map((x) => x.id);
+  selezione(tx); A.duplicateSel();
+  const tx3 = nuovi(prima)[0];
+  ok(tx3.rxId == null && tx3.rxCh == null, "da solo non si siede sul canale del ricevitore dell'originale");
+  eq(tx.rxId, rx.id, "l'originale resta sul suo");
+});
+t("duplica un oggetto del rack senza il rack: non occupa la stessa posizione; col rack, il rack nuovo", () => {
+  reset();
+  const rk = add("rack", 200, 200), ap = add("dimono", 500, 500); ap.rackId = rk.id; ap.rackPos = 0;
+  let prima = A.state.items.map((x) => x.id);
+  selezione(ap); A.duplicateSel();
+  const ap2 = nuovi(prima)[0];
+  ok(ap2.rackId == null && ap2.rackPos == null, "la copia non finisce nello stesso rack, stessa posizione");
+  prima = A.state.items.map((x) => x.id);
+  selezione(rk, ap); A.duplicateSel();
+  const n = nuovi(prima), rk2 = n.find((x) => x.type === "rack"), ap3 = n.find((x) => x.type === "dimono");
+  eq(ap3.rackId, rk2.id, "col rack copiato punta al rack nuovo");
+});
+t("duplica un computer con la sua interfaccia: punta alla copia; da solo no", () => {
+  reset();
+  const ifc = add("audiointerface", 200, 200), pc = add("laptop", 400, 300); pc.ifaceId = ifc.id;
+  let prima = A.state.items.map((x) => x.id);
+  selezione(pc); A.duplicateSel();
+  ok(nuovi(prima)[0].ifaceId == null, "da solo non si lega all'interfaccia dell'originale");
+  prima = A.state.items.map((x) => x.id);
+  selezione(pc, ifc); A.duplicateSel();
+  const n = nuovi(prima); eq(n.find((x) => x.type === "laptop").ifaceId, n.find((x) => x.type === "audiointerface").id);
+});
+t("la copia di un elemento di una distribuzione non resta etichettata con la pedana dell'originale", () => {
+  reset();
+  const rs = add("pedana", 300, 300), a = add("gtacustica", 300, 300); a.distOf = rs.id; a.distType = "gtacustica";
+  const prima = A.state.items.map((x) => x.id);
+  selezione(a); A.duplicateSel();
+  const a2 = nuovi(prima).find((x) => x.type === "gtacustica");
+  ok(a2.distOf == null && a2.distType == null, "senza la pedana, nessun legame (rigenerare la distribuzione non la cancella)");
+});
+t("la box di destinazione (sbTo) resta: più oggetti possono andare alla stessa box", () => {
+  reset();
+  const b = add("stagebox", 800, 200), g = add("gtacustica", 300, 300); g.sbTo = b.id;
+  const prima = A.state.items.map((x) => x.id);
+  selezione(g); A.duplicateSel();
+  eq(nuovi(prima).find((x) => x.type === "gtacustica").sbTo, b.id);
+  const prima2 = A.state.items.map((x) => x.id);
+  selezione(g, b); A.duplicateSel();
+  const n2 = nuovi(prima2); eq(n2.find((x) => x.type === "gtacustica").sbTo, n2.find((x) => x.type === "stagebox").id, "copiata anche la box: punta alla copia");
+});
+t("«Nuova variante» non cambia gli id: i legami della copia restano quelli di prima", () => {
+  reset(); const gt = add("gtacustica", 300, 300); const di = A.diLinked(gt);
+  A.createVariant();
+  const g2 = A.state.items.find((x) => x.type === "gtacustica"), d2 = A.state.items.find((x) => x.type === "dimono");
+  eq(g2.diId, d2.id, "legame DI intatto nella variante"); eq(d2.diFor, g2.id);
+  eq(A.state.items.length, 2, "nessun elemento in più");
+});
+
+console.log("\n— DI posata accanto a uno strumento: si aggancia da sola se il caso è chiaro —");
+function gtSenzaDi(x, y) {
+  const gt = add("gtacustica", x, y); const gen = A.diLinked(gt);
+  if (gen) { A.state.items = A.state.items.filter((i) => i.id !== gen.id); delete gt.diId; delete gt.diOff; }
+  return gt;
+}
+t("DI posata accanto a una chitarra senza DI: agganciata, con avviso che si annulla", () => {
+  reset(); A.state.cab.on = true; A.__cabRes = null;
+  const gt = gtSenzaDi(300, 200);
+  const toast = []; A.__toast = (m, e, az) => toast.push({ m, az });
+  try {
+    const di = A.addItem("dimono", { x: 225, y: 200 });
+    eq(di.diFor, gt.id, "la DI punta alla chitarra"); eq(gt.diId, di.id, "la chitarra punta alla DI");
+    ok(!A.isAudioSource(di), "non dichiara canali suoi"); eq(toast.length, 1, "un avviso"); ok(toast[0].az && toast[0].az.label === "Annulla", "con Annulla");
+    ok(/DI associata/.test(toast[0].m), "dice cosa è successo");
+    A.__cabRes = null; eq(A.patchList().rows.length, 1, "un canale solo");
+    toast[0].az.run();
+    ok(di.diFor == null && gt.diId == null, "Annulla toglie l'aggancio"); ok(A.state.items.indexOf(di) >= 0, "la DI resta sul palco");
+  } finally { delete A.__toast; }
+});
+t("due candidati vicini: la DI non si aggancia (resta l'avviso «di-orfana»)", () => {
+  reset();
+  const g1 = gtSenzaDi(300, 200), g2 = gtSenzaDi(380, 200);
+  const di = A.addItem("dimono", { x: 340, y: 260 });
+  ok(di.diFor == null && g1.diId == null && g2.diId == null, "ambiguo: niente aggancio");
+});
+t("DI lontana dagli strumenti (oltre DI_ADOPT_RANGE) o accanto a chi ha già la sua DI: non si aggancia", () => {
+  reset();
+  const gt = gtSenzaDi(300, 200);
+  const lontana = A.addItem("dimono", { x: 300 + A.DI_ADOPT_RANGE + 200, y: 200 });
+  ok(lontana.diFor == null && gt.diId == null, "troppo lontana");
+  reset();
+  const bs = add("bassstand", 300, 400), sua = A.diLinked(bs);
+  const extra = A.addItem("dimono", { x: 240, y: 400 });
+  ok(extra.diFor == null && bs.diId === sua.id, "lo strumento già servito tiene la sua DI");
+});
+t("uno strumento a cui l'utente ha tolto la DI (diBox falso) non la riceve da solo", () => {
+  reset();
+  const gt = gtSenzaDi(300, 200); gt.diBox = false;
+  const di = A.addItem("dimono", { x: 225, y: 200 });
+  ok(di.diFor == null && gt.diId == null, "scelta dell'utente rispettata");
+});
+t("un progetto aperto non cambia: una DI sciolta già salvata resta sciolta (nessun aggancio all'apertura)", () => {
+  reset(); const gt = gtSenzaDi(300, 200);
+  const di = A.addItem("dimono", { x: 225, y: 200 }, true);   /* come da progetto salvato: addItem silenzioso */
+  const json = JSON.stringify(A.state);
+  A.state = A.normalizeState(JSON.parse(json));
+  const di2 = A.state.items.find((x) => x.type === "dimono");
+  ok(di2.diFor == null, "normalizeState non aggancia");
+});
+
+console.log("\n— Revisione (19/10/2026): Alt+clic senza trascinare, Annulla dell'aggancio dopo la cronologia —");
+t("Alt+clic fermo su uno strumento con DI: via la copia E la DI nuova che le era nata (niente DI sciolta in più)", () => {
+  reset(); A.state.cab.on = true; A.__cabRes = null;
+  const gt = add("gtacustica", 300, 300); const di = A.diLinked(gt);
+  const prima = A.state.items.map((x) => x.id);
+  selezione(gt); A.duplicateSel(true, { rinviaStoria: true });
+  eq(nuovi(prima).length, 2, "la copia nasce con la sua DI");
+  A.togliCopieAltClic(Object.keys(A.selSet));
+  eq(A.state.items.map((x) => x.id), prima, "il palco torna com'era: nessuna DI orfana");
+  eq(gt.diId, di.id, "l'originale tiene la sua DI");
+  A.__cabRes = null; eq(A.patchList().rows.length, 1, "un canale, non due");
+  ok(/drag\.dupIds\)\{[^]*?togliCopieAltClic\(drag\.dupIds\)/.test(appjs), "il rilascio dell'Alt+clic passa da togliCopieAltClic");
+});
+t("Annulla dell'aggancio dopo un Annulla della cronologia: non tocca gli oggetti che non sono più sul palco", () => {
+  reset();
+  const gt = gtSenzaDi(300, 200);
+  const prima = JSON.stringify(A.state);
+  const toast = []; A.__toast = (m, e, az) => toast.push({ m, az });
+  try {
+    const di = A.addItem("dimono", { x: 225, y: 200 });
+    eq(di.diFor, gt.id, "agganciata alla posa");
+    A.state = A.normalizeState(JSON.parse(prima));   /* come applyHistory: lo stato è un altro */
+    toast[0].az.run();
+    eq(di.diFor, gt.id, "la DI fuori dal palco non viene sciolta"); eq(gt.diId, di.id, "neanche lo strumento");
+  } finally { delete A.__toast; }
+});
+
+/* ===== Catalogo: le parole e gli oggetti che gli utenti non trovavano (19/10/2026, dagli esemplari e dai giri) ===== */
+console.log("\nCatalogo: parole e oggetti mancanti (19/10/2026):");
+t("ricerca: ogni parola porta per prima la voce attesa, nella barra e nella finestrella del doppio clic", () => {
+  const attese = {
+    schermo: ["telo di proiezione", "proiezione", "schermo proiezione", "telo"],
+    tamtam: ["gong"],
+    frontfill: ["front fill", "frontfill"],
+    scala: ["scala di scena"],
+    flightcase: ["baule"],
+    loopstation: ["loop station", "effetti da tavolo"],
+    theremin: ["theremin"],
+    edrums: ["batteria elettronica", "edrums", "e-drums"],
+    syncgen: ["timecode", "word clock", "sync", "generatore sync"],
+  };
+  Object.keys(attese).forEach((k) => attese[k].forEach((q) => {
+    eq((A.__spSearch(q)[0] || {}).k, k, "barra «" + q + "»");
+    eq((A.__qaSearch(q)[0] || {}).k, k, "doppio clic «" + q + "»");
+  }));
+  ["pulpito", "ambone"].forEach((q) => {
+    const primo = A.__spSearch(q)[0] || {};
+    eq([primo.k, primo.nome], ["ostacolo", "Ambone / leggio da chiesa"], "barra «" + q + "»");
+    eq((A.__qaSearch(q)[0] || {}).nome, "Ambone / leggio da chiesa", "doppio clic «" + q + "»");
+  });
+  ["centro", "asse", "mezzeria"].forEach((q) => {
+    eq((A.__spSearch(q)[0] || {}).nome, "Marcatore di centro", "barra «" + q + "»");
+    eq((A.__qaSearch(q)[0] || {}).nome, "Marcatore di centro", "doppio clic «" + q + "»");
+  });
+  ["violino in piedi", "violinista in piedi"].forEach((q) => {
+    eq((A.__spSearch(q)[0] || {}).nome, "Violinista in piedi", "barra «" + q + "»");
+    eq((A.__qaSearch(q)[0] || {}).nome, "Violinista in piedi", "doppio clic «" + q + "»");
+  });
+  ["laptop su tavolo"].forEach((q) => {
+    eq((A.__spSearch(q)[0] || {}).nome, "Laptop su tavolo", "barra «" + q + "»");
+    eq((A.__qaSearch(q)[0] || {}).nome, "Laptop su tavolo", "doppio clic «" + q + "»");
+  });
+});
+t("ricerca: «front fill» dà una cassa, mai un ampli; «ambone» non è più una parola dell'Altare", () => {
+  const prima = A.TYPES[(A.__spSearch("front fill")[0] || {}).k] || {};
+  ok(/PA/.test(prima.cat || ""), "il front fill è un diffusore: " + prima.cat);
+  const altare = A.__catEntries.find((e) => e.nome === "Altare");
+  ok(altare && !/ambone/.test(altare.kw), "«ambone» sta solo sulla sua voce");
+});
+t("ricerca: le parole vecchie restano al loro posto (elettronica, pedaliera, leggio, scaletta, altare)", () => {
+  eq((A.__spSearch("elettronica")[0] || {}).k, "laptop", "«elettronica» resta del Mac");
+  eq((A.__spSearch("pedaliera")[0] || {}).k, "pedaliera", "«pedaliera» resta della pedaliera");
+  eq((A.__spSearch("leggio")[0] || {}).k, "leggio", "«leggio» resta del leggio");
+  eq((A.__spSearch("batteria")[0] || {}).k, "batteria", "«batteria» resta della batteria vera");
+  eq((A.__spSearch("altare")[0] || {}).nome, "Altare");
+  eq((A.__spSearch("scaletta")[0] || {}).nome, "Scaletta", "la scaletta dei brani non diventa la scala");
+});
+t("Violinista in piedi: la postazione del Violino I senza sedia, con la numerazione", () => {
+  reset();
+  const e = A.__catEntries.find((x) => x.nome === "Violinista in piedi"); ok(e && typeof e.action === "function", "voce di catalogo con azione");
+  e.action();
+  const v = A.state.items.filter((i) => i.type === "vlnpost");
+  eq(v.length, 1); eq(v[0].sedia, false, "senza sedia"); eq(v[0].vsec, 1); eq(v[0].label, "Violino I 1");
+  A.__catEntries.find((x) => x.nome === "Violino I").action();
+  const seduto = A.state.items.filter((i) => i.type === "vlnpost")[1];
+  eq(seduto.sedia, true, "il Violino I normale resta con la sedia"); eq(seduto.label, "Violino I 2", "i due contano insieme");
+});
+t("Laptop su tavolo: tavolo + laptop in un gruppo, il Mac sopra, le uscite sono quelle del laptop", () => {
+  reset();
+  const e = A.__catEntries.find((x) => x.nome === "Laptop su tavolo"); ok(e && typeof e.action === "function", "voce di catalogo con azione");
+  e.action();
+  const tav = A.state.items.filter((i) => i.type === "tavolo"), lap = A.state.items.filter((i) => i.type === "laptop");
+  eq([tav.length, lap.length], [1, 1]);
+  eq(A.state.items.filter((i) => i.type !== "dimono" && i.type !== "distereo").length, 2, "solo tavolo e Mac (la DI nasce da sola, come per ogni laptop)");
+  ok(tav[0].grp && tav[0].grp === lap[0].grp, "stesso gruppo: si spostano insieme");
+  eq([lap[0].x, lap[0].y], [tav[0].x, tav[0].y], "il Mac sta sul tavolo");
+  ok(A.effZ(lap[0]) > A.effZ(tav[0]), "il Mac si disegna sopra il tavolo");
+  eq(chans(lap[0]).map((c) => c.mic), ["DI", "DI"], "Playback L/R in DI");
+  eq(chans(tav[0]).length, 0, "il tavolo non ha canali");
+});
+t("Loop station e Theremin: un ingresso DI mono (stereo a scelta), come la pedaliera", () => {
+  ["loopstation", "theremin"].forEach((k) => {
+    reset();
+    ok(A.TYPES[k] && A.TYPES[k].catalog !== false, k + " in catalogo");
+    const it = add(k, 300, 300);
+    eq(chans(it).map((c) => c.mic), ["DI"], k + ": mono di default");
+    it.stereo = true; A.__cabRes = null;
+    eq(chans(it).length, 2, k + ": stereo = 2 canali");
+    ok(A.wattOf(add(k, 500, 300)) > 0, k + " assorbe corrente");
+    ok(A.WEIGHT[k] > 0, k + " ha il peso");
+  });
+  eq(A.TYPES.loopstation.nome, "Loop station / effetti da tavolo");
+  eq(A.TYPES.loopstation.cat, A.TYPES.pedaliera.cat, "nel gruppo della pedaliera (Band e backline)");
+});
+t("Generatore sync / timecode / word clock: un apparecchio senza canale audio, con la sua corrente", () => {
+  reset();
+  ok(A.TYPES.syncgen && A.TYPES.syncgen.catalog !== false, "in catalogo");
+  const g = add("syncgen", 300, 300);
+  eq(chans(g).length, 0, "nessun canale audio");
+  A.state.inputs = []; A.autoInputs(true);
+  eq(A.state.inputs.length, 0, "né in channel list");
+  eq(A.wattOf(g), 15, "assorbe 15 W");
+  ok(A.WEIGHT.syncgen > 0 && A.TYPES.syncgen.cat === "Dispositivi", "peso e categoria dei dispositivi");
+});
+t("Batteria elettronica: ora in catalogo, con i suoi due canali DI", () => {
+  ok(A.TYPES.edrums.catalog !== false, "E-drums non più fuori catalogo");
+  ok(A.__catEntries.some((e) => e.k === "edrums"), "è una voce di catalogo");
+  reset(); eq(chans(add("edrums", 300, 300)).map((c) => c.mic), ["DI", "DI"]);
+});
+t("Marcatore di centro: una forma triangolare «Centro», senza canale e senza DI", () => {
+  reset();
+  const e = A.__catEntries.find((x) => x.nome === "Marcatore di centro"); ok(e && e.k === "forma", "voce di catalogo sulla forma");
+  eq([e.over.shape, e.over.label], ["tri", "Centro"]);
+  const m = A.addItem("forma", Object.assign({}, e.over, { x: 600, y: 400 }));
+  eq(chans(m).length, 0, "nessun canale");
+  add("forma", 700, 400, e.over); add("forma", 500, 400, e.over); add("forma", 400, 300, e.over);
+  A.state.inputs = []; A.autoInputs(true);
+  eq(A.state.inputs.length, 0, "quattro marcatori «Centro» = zero canali (prima: quattro DI contate come quattro canali)");
+  ok(!A.state.items.some((i) => i.type === "dimono" || i.type === "distereo"), "nessuna DI nata dal marcatore");
+});
+
+/* Revisione del 19/10/2026 sul lotto del catalogo */
+t("revisione catalogo: la Loop station porta sul palco e in channel list un nome da palco, non quello del catalogo", () => {
+  reset();
+  const l = add("loopstation", 300, 300), l2 = add("loopstation", 500, 300);
+  eq([l.label, l2.label], ["Loop station 1", "Loop station 2"], "numerazione col nome corto");
+  ok(chans(l).every((c) => !/effetti da tavolo/.test(c.name || "")), "il canale non si chiama «… / effetti da tavolo»: " + JSON.stringify(chans(l)));
+});
+t("revisione catalogo: «violinista» da solo è il Violino I seduto; «violinista in piedi» resta in piedi", () => {
+  ["violinista", "violinisti", "violini"].forEach((q) => {
+    eq((A.__spSearch(q)[0] || {}).nome, "Violino I", "barra «" + q + "»");
+    eq((A.__qaSearch(q)[0] || {}).nome, "Violino I", "doppio clic «" + q + "»");
+  });
+  eq((A.__qaSearch("violinista in piedi")[0] || {}).nome, "Violinista in piedi");
+});
+t("revisione catalogo: «laptop» e «computer» restano del Laptop/Mac anche nel doppio clic", () => {
+  eq((A.__qaSearch("laptop")[0] || {}).k, "notebook", "doppio clic «laptop»");
+  eq((A.__qaSearch("computer")[0] || {}).k, "laptop", "doppio clic «computer»");
+  eq((A.__spSearch("laptop")[0] || {}).k, "notebook", "barra «laptop»");
+  eq((A.__qaSearch("laptop su tavolo")[0] || {}).nome, "Laptop su tavolo", "la frase intera trova la postazione");
+});
+t("revisione catalogo: Laptop su tavolo cerca un posto libero sul palco, non si posa sopra chi c'è", () => {
+  reset();
+  const vb0 = A.vb; A.vb = { x: 0, y: 0, w: 1000, h: 800 };   // il centro della vista: (500, 400)
+  try {
+    const occ = add("tavolo", 500, 400, { label: "Occupato" });
+    A.__catEntries.find((x) => x.nome === "Laptop su tavolo").action();
+    const tav = A.state.items.filter((i) => i.type === "tavolo" && i.id !== occ.id)[0], lap = A.state.items.filter((i) => i.type === "laptop")[0];
+    ok(Number.isFinite(tav.x) && Number.isFinite(tav.y), "coordinate vere: " + tav.x + "," + tav.y);
+    ok(Math.abs(tav.x - occ.x) >= 120 || Math.abs(tav.y - occ.y) >= 60, "il tavolo nuovo non si sovrappone a quello che c'era: " + tav.x + "," + tav.y);
+    eq([lap.x, lap.y], [tav.x, tav.y], "il Mac resta sul suo tavolo");
+    ok(A.elementiFuoriDalPalco().indexOf(tav) < 0, "posato dentro il palco");
+  } finally { A.vb = vb0; }
+});
+
+t("revisione catalogo: i disegni nuovi restano dentro il loro ingombro, anche ridimensionati", () => {
+  ["loopstation", "theremin", "syncgen"].forEach((k) => {
+    [1, 0.6, 2].forEach((f) => {
+      const T = A.TYPES[k], w = Math.round(T.w * f), d = Math.round(T.d * f);
+      const svg = T.draw({ type: k, w, d });
+      [...svg.matchAll(/<circle[^>]*cx="([-\d.]+)"[^>]*cy="([-\d.]+)"[^>]*r="([-\d.]+)"/g)].forEach((m) => {
+        const cx = +m[1], cy = +m[2], r = +m[3];
+        ok(Math.abs(cx) + r <= w / 2 + 0.5 && Math.abs(cy) + r <= d / 2 + 0.5, k + " " + w + "×" + d + ": cerchio fuori dal corpo a " + cx + "," + cy + " r" + r);
+      });
+    });
+  });
+});
+
+/* ===== 19/10/2026 — pedana che fa da zona: suggerimento «Area con nome»; quota con testo + misura ===== */
+t("pedana-zona: il suggerimento compare con h=0 o nome «zona/area/settore», mai su pedane normali", () => {
+  reset();
+  const ok1 = add("pedana", 400, 400); ok1.label = "Batteria";
+  eq(A.pedanaPareZona(ok1), false, "pedana normale: niente suggerimento");
+  const h0 = add("pedana", 500, 400); h0.h = 0; h0.label = "Pedana 2";
+  eq(A.pedanaPareZona(h0), true, "alta 0 cm");
+  ["zona fiati", "Area coro", " SETTORE B", "zona"].forEach((n) => { const p = add("pedana", 600, 400); p.label = n; eq(A.pedanaPareZona(p), true, n); });
+  ["zonale", "Arealto", "Fiati zona"].forEach((n) => { const p = add("pedana", 600, 400); p.label = n; eq(A.pedanaPareZona(p), false, n); });
+  eq(A.pedanaPareZona(add("cantante", 300, 300)), false, "non pedane: no");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="pZonaWrap"/.test(html) && /pedanaPareZona\(it\) \? "block"/.test(appjs), "il pannello mostra il suggerimento");
+  ok(!/function normalizeState[\s\S]{0,3000}pedanaInArea/.test(appjs), "nessuna conversione automatica all'apertura");
+});
+t("pedana-zona: il bottone converte in Area con nome (stessa posizione, misure, rotazione, nome), via da rider/carichi, un passo di Annulla", () => {
+  reset(); A.resetHistory();
+  const p = add("pedana", 420, 380, { w: 300, d: 120, rot: 15 }); p.h = 0; p.label = "Zona fiati"; p.dimSide = "top";
+  const id = p.id; A.resetHistory();
+  A.selectOne(id);
+  A.mutSel((it) => { A.pedanaInArea(it); });
+  const f = A.state.items.find((x) => x.id === id);
+  eq([f.type, f.x, f.y, f.w, f.d, f.rot, f.label], ["forma", 420, 380, 300, 120, 15, "Zona fiati"], "stessi posto, misure, rotazione e nome");
+  ok(A.isAreaNome(f), "è una Area con nome");
+  ok(f.h === undefined && f.dimSide === undefined, "via i campi della pedana");
+  ok(/^#[0-9a-f]{6}$/i.test(f.fill), "ha un colore");
+  eq(A.state.items.filter((x) => x.type === "pedana").length, 0, "non è più una pedana (rider e carichi la ignorano)");
+  eq(A.undoStack.length, 1, "un passo di Annulla");
+  A.undo();
+  const b = A.state.items.find((x) => x.id === id);
+  eq([b.type, b.h, b.w, b.label], ["pedana", 0, 300, "Zona fiati"], "Annulla riporta la pedana");
+  eq(A.pedanaInArea(add("cantante", 100, 100)), false, "su altro che pedana non fa niente");
+  ok(/getElementById\("bPedanaInArea"\)\.addEventListener\("click"/.test(appjs), "il bottone è collegato");
+});
+t("quota: il testo personale si affianca alla misura e la misura segue la lunghezza", () => {
+  eq(metroTesto(metroDraw({ label: "Larghezza palco", w: 850 })).txt, "Larghezza palco \u00b7 8,5 m");
+  eq(metroTesto(metroDraw({ label: "Larghezza palco", w: 900 })).txt, "Larghezza palco \u00b7 9 m", "allungata: la misura si aggiorna");
+  eq(metroTesto(metroDraw({ w: 850 })).txt, "8,5 m", "senza testo: solo la misura");
+  eq(metroTesto(metroDraw({ label: "   ", w: 850 })).txt, "8,5 m", "testo di soli spazi: solo la misura");
+  /* progetti esistenti: la misura già scritta a mano non si raddoppia */
+  ["Palco 8,50 m", "Fondo 12 m", "3 m", "Altezza 250 cm", "8.5m"].forEach((n) => eq(metroTesto(metroDraw({ label: n, w: 850 })).txt, n, n));
+  eq(metroTesto(metroDraw({ label: "Fronte 2 mic", w: 850 })).txt, "Fronte 2 mic \u00b7 8,5 m", "«2 mic» non è una misura");
+  ok(/function metroSvg[\s\S]{0,400}metroGeom\(it\)/.test(appjs) && /txt=metroTestoQuota\(it, w\)/.test(appjs), "palco e PDF disegnano con la stessa funzione");
+});
+
+/* Revisione 19/10/2026 del lotto pedana-zona / quota */
+t("quota: la misura scritta per esteso («12 metri», «250 centimetri») non si raddoppia", () => {
+  ["Fondo 12 metri", "Larghezza 8,5 metri", "1 metro", "Altezza 250 centimetri"].forEach((n) => eq(metroTesto(metroDraw({ label: n, w: 850 })).txt, n, n));
+  eq(metroTesto(metroDraw({ label: "Fronte 2 metronomi", w: 850 })).txt, "Fronte 2 metronomi \u00b7 8,5 m", "una parola più lunga non è un'unità");
+});
+t("pedana-zona: convertita in modalità palco, la sua chip «Pedana N» sparisce e il rider non la chiede più", () => {
+  reset();
+  const p = add("pedana", 420, 380, { w: 300, d: 120 }); p.h = 0; p.label = "Zona coro";
+  eq(A.riderData().pedane.length, 1, "prima: una pedana nel rider");
+  A.pedanaInArea(p);
+  eq(A.riderData().pedane, [], "dopo: il rider non chiede pedane");
+  ok(/getElementById\("bPedanaInArea"\)\.addEventListener\("click", function\(\)\{ mutSel\(function\(it\)\{ pedanaInArea\(it\); \}\); if\(stageEdit\) renderStagePanel\(\);/.test(appjs),
+    "il bottone ridisegna il pannello del palco (le chip delle pedane) se si è in modalità palco");
+
+});
+/* 19/10/2026 — «Cosa cambia rispetto a…»: confronto fra due varianti (progetto P-725a15: 10 varianti quasi uguali) */
+console.log("\n— Confronto fra varianti: cosa cambia —");
+const palcoCfr = (w, d) => ({ w, d, blocks: [{ x: 0, y: 0, w, d }] });
+const stCfr = (items, stage) => ({ items, stage: stage || palcoCfr(1200, 800) });
+t("confronto: aggiunti, tolti, spostati (con distanza), rinominati, misure, ruotati e palco", () => {
+  const base = stCfr([
+    itV("i1", { label: "Voce 1", x: 100, y: 100 }),
+    itV("i2", { label: "Chitarra", type: "amp", x: 300, y: 100 }),
+    itV("i3", { label: "Pedana", type: "riser", x: 500, y: 300, w: 200, d: 200, h: 40 }),
+    itV("i4", { label: "Batteria", type: "drums", x: 700, y: 300 }),
+    itV("i5", { label: "Spia", type: "wedge", x: 900, y: 300, rot: 0 }),
+    itV("i6", { label: "Tastiera", type: "keys", x: 50, y: 500 }),
+  ]);
+  const nuovo = stCfr([
+    itV("i1", { label: "Voce 1", x: 100, y: 105 }),                                  /* 5 cm: sotto soglia, non conta */
+    itV("i2", { label: "Chitarra", type: "amp", x: 435, y: 100 }),                    /* spostata di 135 cm */
+    itV("i3", { label: "Pedana", type: "riser", x: 500, y: 300, w: 240, d: 200, h: 60 }),   /* più larga e più alta */
+    itV("i4", { label: "Cassa", type: "drums", x: 700, y: 300 }),                     /* rinominata, stesso posto */
+    itV("i5", { label: "Spia", type: "wedge", x: 900, y: 300, rot: 90 }),            /* ruotata */
+    itV("i9", { label: "Basso", type: "amp", x: 40, y: 40 }),                         /* nuova; Tastiera è sparita */
+  ], palcoCfr(1000, 800));
+  const r = A.confrontaVarianti(base, nuovo);
+  eq(r.aggiunti.map((x) => x.nome), ["Basso"], "aggiunto");
+  eq(r.tolti.map((x) => x.nome), ["Tastiera"], "tolto");
+  eq(r.spostati.map((x) => [x.nome, x.dist]), [["Chitarra", 135]], "spostato oltre la soglia, con la distanza (e 5 cm no)");
+  eq(r.rinominati.map((x) => [x.da, x.a]), [["Batteria", "Cassa"]], "rinominato");
+  eq(r.misure.length, 1, "misure cambiate su un solo elemento");
+  eq(r.misure[0].cambi.map((c) => [c.campo, c.da, c.a]), [["larghezza", 200, 240], ["altezza", 40, 60]], "larghezza e altezza");
+  eq(r.ruotati.map((x) => [x.nome, x.da, x.a]), [["Spia", 0, 90]], "ruotato");
+  eq(r.palco, ["Misure del palco: 12 × 8 m → 10 × 8 m"], "palco");
+  eq(r.uguali, false, "non uguali");
+  eq(r.abbinati, 5, "cinque coppie");
+});
+t("confronto: una variante nata come copia (stessi id) si abbina per id anche se spostato e rinominato un poco", () => {
+  const base = stCfr([itV("i1", { label: "Voce" , x: 100, y: 100 }), itV("i2", { label: "Voce", x: 130, y: 100 })]);
+  const nuovo = stCfr([itV("i1", { label: "Voce", x: 130, y: 100 }), itV("i2", { label: "Voce", x: 100, y: 100 })]);
+  const r = A.confrontaVarianti(base, nuovo);
+  eq(r.spostati.map((x) => [x.id, x.dist]), [["i1", 30], ["i2", 30]], "i due scambiati: con lo stesso id si seguono, non si scambiano le coppie");
+  eq(r.aggiunti.length + r.tolti.length, 0, "nessun aggiunto o tolto");
+});
+t("confronto: id diversi → si abbina per tipo + nome + vicinanza (dieci «Voce» uguali, ognuna trova la sua)", () => {
+  const items = [], items2 = [];
+  for (let k = 0; k < 10; k++) {
+    items.push(itV("a" + k, { label: "Voce", x: 100 + k * 100, y: 200 }));
+    items2.push(itV("z" + (50 - k), { label: "voce ", x: 100 + k * 100 + (k === 3 ? 60 : 2), y: 200 }));   /* id tutti diversi; maiuscole e spazi non contano */
+  }
+  items.push(itV("a99", { label: "Piano", type: "keys", x: 900, y: 600 }));
+  items2.push(itV("z1", { label: "Piano", type: "keys", x: 900, y: 600 }));
+  const r = A.confrontaVarianti(stCfr(items), stCfr(items2));
+  eq(r.aggiunti.length + r.tolti.length, 0, "tutti abbinati: nessun aggiunto, nessun tolto");
+  eq(r.spostati.map((x) => [x.id, x.dist]), [["z47", 60]], "solo la quarta si è spostata (di 60 cm)");
+  eq(r.rinominati.length, 0, "«voce » e «Voce» sono lo stesso nome");
+  eq(r.abbinati, 11, "undici coppie");
+});
+t("confronto: id diversi, nome diverso ma stesso punto e stesso tipo → rinominato; lontano → tolto + aggiunto", () => {
+  const r1 = A.confrontaVarianti(stCfr([itV("a1", { label: "Voce lead", x: 100, y: 100 })]), stCfr([itV("b7", { label: "Voce solista", x: 110, y: 100 })]));
+  eq(r1.rinominati.map((x) => [x.da, x.a]), [["Voce lead", "Voce solista"]], "rinominato");
+  eq(r1.aggiunti.length + r1.tolti.length, 0);
+  const r2 = A.confrontaVarianti(stCfr([itV("a1", { label: "Voce lead", x: 100, y: 100 })]), stCfr([itV("b7", { label: "Voce solista", x: 900, y: 600 })]));
+  eq([r2.aggiunti.length, r2.tolti.length, r2.rinominati.length], [1, 1, 0], "nome diverso e lontano: sono elementi diversi");
+  const r3 = A.confrontaVarianti(stCfr([itV("a1", { label: "Voce", type: "cantante" })]), stCfr([itV("b7", { label: "Voce", type: "amp" })]));
+  eq([r3.aggiunti.length, r3.tolti.length], [1, 1], "tipo diverso: mai lo stesso elemento");
+});
+t("confronto: lo stesso id riusato per un elemento diverso (nome diverso e lontano) non si abbina", () => {
+  /* uid() riparte dal massimo: due varianti che crescono per conto loro danno lo stesso id a cose diverse */
+  const r = A.confrontaVarianti(stCfr([itV("i7", { label: "Voce", x: 100, y: 100 })]), stCfr([itV("i7", { label: "Coro", x: 900, y: 600 })]));
+  eq([r.aggiunti.map((x) => x.nome), r.tolti.map((x) => x.nome), r.spostati.length, r.rinominati.length], [["Coro"], ["Voce"], 0, 0]);
+  /* ma lo stesso id con nome diverso nello stesso punto è un rinominato */
+  const r2 = A.confrontaVarianti(stCfr([itV("i7", { label: "Voce", x: 100, y: 100 })]), stCfr([itV("i7", { label: "Coro", x: 100, y: 100 })]));
+  eq([r2.rinominati.length, r2.aggiunti.length + r2.tolti.length], [1, 0]);
+});
+t("confronto: varianti identiche (anche con id diversi) → «nessuna differenza»", () => {
+  const r = A.confrontaVarianti(stCfr([itV("a1", { label: "Voce" }), itV("a2", { label: "Coro", x: 300 })]), stCfr([itV("q1", { label: "Voce" }), itV("q2", { label: "Coro", x: 300 })]));
+  eq(r.uguali, true, "uguali");
+  eq([r.aggiunti, r.tolti, r.spostati, r.rinominati, r.misure, r.ruotati, r.palco], [[], [], [], [], [], [], []], "tutti gli elenchi vuoti");
+  const h = A.confrontoHtml(r, "Piena", {}, false);
+  ok(/Nessuna differenza negli elementi e nel palco\./.test(h) && !/cfr-sez/.test(h), "il testo dice che non cambia niente");
+  ok(!/non sono identici/.test(h), "senza altre differenze non aggiunge la nota");
+  ok(/non sono identici in altri dettagli/.test(A.confrontoHtml(r, "Piena", {}, true)), "con differenze minori lo dice");
+  eq(A.confrontaVarianti(null, undefined).uguali, true, "stati vuoti o mancanti: nessun errore");
+});
+t("confronto: stesso id ma tipo diverso non è lo stesso elemento; con due candidati si prende il più vicino", () => {
+  const r = A.confrontaVarianti(stCfr([itV("i1", { label: "Voce", type: "cantante" })]), stCfr([itV("i1", { label: "Voce", type: "amp" })]));
+  eq([r.aggiunti.length, r.tolti.length, r.spostati.length], [1, 1, 0], "tipo diverso: aggiunto + tolto");
+  /* due «Voce» a 100 e 200, ne resta una a 190: è la seconda che si è mossa di 10 cm (non la prima di 90) */
+  const r2 = A.confrontaVarianti(stCfr([itV("a1", { label: "Voce", x: 100 }), itV("a2", { label: "Voce", x: 200 })]), stCfr([itV("b1", { label: "Voce", x: 190 })]));
+  eq([r2.tolti.length, r2.spostati.length, r2.aggiunti.length], [1, 0, 0], "la più vicina trova la sua coppia, l'altra risulta tolta");
+});
+t("confronto: finestra aperta su due varianti uguali negli elementi ma non identiche → lo dice", () => {
+  reset();
+  docDueVarianti([itV("i1", { label: "Voce", x: 100 })], [itV("i1", { label: "Voce", x: 105 })]);   /* 5 cm: sotto la soglia */
+  const oldDoc = A.document; const box = { innerHTML: "" };
+  const sel = { value: "vB" }, ov = { querySelector: (q) => (q === "#varDiffSel" ? sel : box) };
+  try {
+    A.document = { getElementById: (id) => (id === "varDiffModal" ? ov : null) };
+    A.cfrDisegna();
+    ok(/Nessuna differenza negli elementi e nel palco/.test(box.innerHTML), "nessuna differenza fra gli elementi");
+    ok(/non sono identici in altri dettagli/.test(box.innerHTML), "ma i due progetti non sono gemelli: lo dice");
+    docDueVarianti([itV("i1", { label: "Voce", x: 100 })], [itV("i1", { label: "Voce", x: 100 })]);
+    A.cfrDisegna();
+    ok(!/non sono identici/.test(box.innerHTML), "gemelli veri: niente nota");
+  } finally { A.document = oldDoc; }
+});
+t("confronto: palco con le stesse misure ma forma o altezze diverse", () => {
+  const b = { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800, h: 40 }] };
+  const n = { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800, h: 60 }] };
+  eq(A.confrontaVarianti({ items: [], stage: b }, { items: [], stage: n }).palco, ["Forma o altezze del palco diverse (stesse misure complessive)"]);
+  eq(A.confrontaVarianti({ items: [], stage: b }, { items: [], stage: b }).palco, [], "palco uguale");
+});
+t("confronto: con 150 elementi (id tutti diversi) è rapido e abbina tutto", () => {
+  const items = [], items2 = [];
+  for (let k = 0; k < 150; k++) {
+    items.push(itV("a" + k, { label: "Elemento " + (k % 15), x: 50 + (k % 25) * 45, y: 50 + Math.floor(k / 25) * 100 }));
+    items2.push(itV("b" + k, { label: "Elemento " + (k % 15), x: 50 + (k % 25) * 45 + 1, y: 50 + Math.floor(k / 25) * 100 }));
+  }
+  const t0 = Date.now(), r = A.confrontaVarianti(stCfr(items), stCfr(items2)), ms = Date.now() - t0;
+  eq(r.abbinati, 150, "tutti abbinati");
+  eq(r.aggiunti.length + r.tolti.length + r.spostati.length, 0, "nessuna differenza vera");
+  ok(ms < 1000, "calcolo in " + ms + " ms");
+  /* nel caso peggiore (100 elementi identici per tipo e nome) le coppie possibili sono 10.000: ancora istantaneo */
+  const uguali = (p) => Array.from({ length: 120 }, (_, k) => itV(p + k, { label: "Voce", x: 20 + k * 9, y: 100 }));
+  const t1 = Date.now(), r2 = A.confrontaVarianti(stCfr(uguali("c")), stCfr(uguali("d"))), ms2 = Date.now() - t1;
+  eq(r2.abbinati, 120); ok(ms2 < 1500, "caso peggiore in " + ms2 + " ms");
+});
+t("confronto: l'elenco in HTML: righe cliccabili solo se l'elemento è sul palco attivo, testi sanificati, «Mostra altri»", () => {
+  const base = stCfr([itV("t1", { label: "Tolto <b>x</b>" }), itV("m1", { label: "Mosso", x: 100 })]);
+  const nuovo = stCfr([itV("m1", { label: "Mosso", x: 180 }), itV("n1", { label: "Nuovo \"q\"", x: 600, y: 600 })]);
+  const r = A.confrontaVarianti(base, nuovo), h = A.confrontoHtml(r, "Base <i>", {}, false);
+  ok(/data-id="n1"/.test(h) && /data-id="m1"/.test(h), "aggiunto e spostato si cliccano");
+  ok(!/data-id="t1"/.test(h) && /cfr-riga fermo/.test(h), "il tolto non si clicca: non è sul palco");
+  ok(!/<b>x<\/b>/.test(h) && !/<i>/.test(h) && /&lt;b&gt;x/.test(h), "i nomi sono dati: mai HTML");
+  ok(/spostato di 80 cm/.test(h) && /1 aggiunto · 1 tolto · 1 spostato/.test(h), "distanza e riepilogo");
+  /* oltre 25 righe per categoria: il resto dietro «Mostra altri» */
+  const molti = Array.from({ length: 40 }, (_, k) => itV("n" + k, { label: "Nuovo " + k, x: k * 20 }));
+  const r2 = A.confrontaVarianti(stCfr([]), stCfr(molti)), h2 = A.confrontoHtml(r2, "Vuota", {}, false);
+  eq((h2.match(/class="cfr-riga"/g) || []).length, 25, "25 righe subito");
+  ok(/data-cfr-piu="aggiunti">Mostra altri 15</.test(h2), "il bottone dice quante mancano");
+  eq((A.confrontoHtml(r2, "Vuota", { aggiunti: true }, false).match(/class="cfr-riga"/g) || []).length, 40, "aperto: tutte");
+});
+t("confronto: sul progetto aperto = attiva (stato vivo) contro un'altra variante; il clic sulla riga seleziona l'elemento", () => {
+  reset();
+  docDueVarianti([itV("i1", { label: "Voce" }), itV("i2", { label: "Coro", x: 300 })], [itV("i1", { label: "Voce" })]);
+  const v = A.VARIANTS[1], att = A.activeVarObj();
+  const r = A.confrontaVarianti(A.cfrStatoVariante(v), A.cfrStatoVariante(att));
+  eq(r.aggiunti.map((x) => x.nome), ["Coro"], "il Coro c'è solo nell'attiva");
+  A.state.items[1].x = 400;   /* lo stato vivo conta senza passare dal salvataggio */
+  eq(A.confrontaVarianti(A.cfrStatoVariante(v), A.cfrStatoVariante(att)).aggiunti.length, 1, "ancora aggiunto");
+  eq(A.cfrVaiA("i2"), true, "la riga porta all'elemento");
+  eq(A.sel, "i2", "selezionato sul palco");
+  eq(A.cfrVaiA("i-che-non-c-e"), false, "un elemento che non c'è più non fa niente");
+});
+t("confronto: voce nei menu (desktop e telefono), solo con 2+ varianti; si calcola solo all'apertura", () => {
+  ok(/data-vm="diff">Cosa cambia rispetto a…</.test(readFileSync(join(root, "index.template.html"), "utf8")), "voce nel menu della variante");
+  ok(/menu\.querySelector\('\[data-vm="diff"\]'\); if\(dif\) dif\.hidden = VARIANTS\.length<=1/.test(appjs), "nascosta con una variante sola");
+  ok(/data-act="var-diff" id="mVarDiff" hidden/.test(readFileSync(join(root, "app/index.html"), "utf8")), "bottone sul telefono, nascosto di partenza");
+  ok(/if\(dif\) dif\.hidden=!multi/.test(appjs), "sul telefono compare con almeno due varianti");
+  ok(/a==="var-diff"[^}]*apriConfrontoVarianti\(\)/.test(appjs) && /a==="diff"\) apriConfrontoVarianti\(\)/.test(appjs), "i due bottoni aprono la finestra");
+  const fuori = appjs.slice(appjs.indexOf("function renderVariantBar(){"), appjs.indexOf("function promptRenameVariant("));
+  ok(!/confrontaVarianti\(/.test(fuori), "disegno della barra, avvisi e menu non calcolano mai il confronto");
+  const apri = appjs.slice(appjs.indexOf("function cfrDisegna("), appjs.indexOf("function cfrVaiA("));
+  ok((apri.match(/confrontaVarianti\(/g) || []).length === 1 && /sel\.addEventListener|"change"/.test(apri), "il calcolo è solo in cfrDisegna (apertura e cambio di variante scelta)");
+  ok(/@media \(max-width:600px\)\{ #varDiffModal\{padding:0;align-items:stretch\}/.test(stylesCss), "al telefono la finestra è a tutta larghezza");
+  ok(/#varDiffModal \.cfr-riga\{[^}]*min-height:44px/.test(stylesCss), "righe alte 44 px");
+});
+/* Revisione 19/10: la finestra del confronto su una pagina finta (il sandbox ingoia il DOM): ascoltatori di document,
+   finestra, tendina, riquadro dei risultati e righe di una sezione, con il fuoco annotato. */
+function cfrFintaPagina() {
+  const pag = { asc: [], fuoco: null, appesa: false };
+  const el = (extra) => Object.assign({ style: {}, _asc: {}, addEventListener(tipo, fn) { this._asc[tipo] = fn; },
+    getAttribute() { return null; }, focus() { pag.fuoco = this.nome || "?"; } }, extra || {});
+  const sel = el({ nome: "tendina", value: "", innerHTML: "" });
+  const box = el({ nome: "risultati", innerHTML: "",
+    querySelectorAll(q) {   /* solo '[data-cfr-sez="k"] .cfr-riga': le righe della sezione k, in ordine */
+      const m = /data-cfr-sez="(\w+)"/.exec(q); if (!m) return [];
+      const i = this.innerHTML.indexOf('data-cfr-sez="' + m[1] + '"'); if (i < 0) return [];
+      const pezzo = this.innerHTML.slice(i, this.innerHTML.indexOf("</section>", i));
+      return (pezzo.match(/class="cfr-riga/g) || []).map((_, k) => el({ nome: "riga " + m[1] + " " + k }));
+    } });
+  const ov = el({ nome: "finestra", innerHTML: "", querySelector: (q) => (q === "#varDiffSel" ? sel : q === "#varDiffRis" ? box : el()) });
+  pag.ov = ov; pag.box = box;
+  pag.doc = { activeElement: null, body: { appendChild() { pag.appesa = true; } }, createElement: () => ov,
+    getElementById: (id) => (id === "varDiffModal" && pag.appesa ? ov : null),
+    addEventListener(tipo, fn, cattura) { pag.asc.push({ tipo, fn, cattura: !!cattura }); }, querySelectorAll: () => [] };
+  /* un tasto premuto con il fuoco sulla pagina (fuori dalla finestra): passa per gli ascoltatori di document in cattura */
+  pag.tasto = (key) => {
+    const ev = { key, target: pag.doc.body, fermato: false, stopImmediatePropagation() { this.fermato = true; }, stopPropagation() { this.fermato = true; }, preventDefault() {} };
+    pag.asc.filter((a) => a.tipo === "keydown" && a.cattura).forEach((a) => { if (!ev.fermato) a.fn(ev); });
+    return ev;
+  };
+  return pag;
+}
+t("confronto, revisione: a finestra aperta i tasti non arrivano al palco (Canc cancellava l'elemento selezionato dietro)", () => {
+  reset();
+  docDueVarianti([itV("i1", { label: "Voce" }), itV("i2", { label: "Coro", x: 300 })], [itV("i1", { label: "Voce" })]);
+  const oldDoc = A.document, pag = cfrFintaPagina();
+  try {
+    A.document = pag.doc;
+    A.selectOne("i2");
+    eq(A.apriConfrontoVarianti(), true, "la finestra si apre");
+    eq(pag.ov.style.display, "flex", "aperta");
+    for (const k of ["Delete", "Backspace", "ArrowRight", "r", "d", " ", "z"]) eq(pag.tasto(k).fermato, true, "«" + k + "» si ferma alla finestra");
+    eq(A.state.items.length, 2, "nessun elemento toccato");
+    eq(pag.tasto("Escape").fermato, true, "Esc si ferma anche lui…");
+    eq(pag.ov.style.display, "none", "… e chiude la finestra");
+    eq(pag.tasto("Delete").fermato, false, "a finestra chiusa i tasti tornano al palco");
+    A.apriConfrontoVarianti();
+    eq(pag.asc.filter((a) => a.tipo === "keydown").length, 1, "riaprendola l'ascoltatore non si raddoppia");
+  } finally { A.document = oldDoc; }
+});
+t("confronto, revisione: «Mostra altri» porta il fuoco sulla prima riga nuova (prima cadeva sulla pagina)", () => {
+  reset();
+  const molti = Array.from({ length: 40 }, (_, k) => itV("n" + k, { label: "Nuovo " + k, x: 20 + k * 20 }));
+  docDueVarianti(molti, []);
+  ok(/<section class="cfr-sez" data-cfr-sez="aggiunti">/.test(A.confrontoHtml(A.confrontaVarianti({ items: [] }, { items: molti.slice(0, 1) }), "B", {}, false)), "la sezione dice la sua categoria");
+  const oldDoc = A.document, pag = cfrFintaPagina();
+  try {
+    A.document = pag.doc;
+    A.apriConfrontoVarianti();
+    pag.fuoco = null;
+    pag.ov._asc.click({ target: { closest: (q) => (q === "[data-cfr-piu]" ? { getAttribute: () => "aggiunti" } : null) } });
+    eq((pag.box.innerHTML.match(/class="cfr-riga"/g) || []).length, 40, "tutte le righe in vista");
+    eq(pag.fuoco, "riga aggiunti 25", "il fuoco sulla ventiseiesima riga, la prima che prima non c'era");
+  } finally { A.document = oldDoc; }
 });
 
 await Promise.all(attese);
