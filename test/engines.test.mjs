@@ -12118,6 +12118,11 @@ t("booleane: una forma con un foro come operando — in Sottrai il foro resta fo
   eq([u1.esito, u1.pezzi.length, u1.pezzi[0].holes.length, bArea(u1.pezzi[0])], ["ok", 1, 0, 40000], "il foro riempito si chiude");
   const u2 = bOp("unisci", P, bq(80, 80, 40, 40));
   eq(u2.esito, "niente", "un quadrato dentro il foro, senza toccarlo: non si toccano, restano separate");
+  /* §2.3: un foro è vuoto anche se è disegnato nello stesso verso del contorno (pari-dispari, come lo si vede) */
+  const P2 = bp([[0, 0], [0, 200], [200, 200], [200, 0]], [[[50, 50], [50, 150], [150, 150], [150, 50]]]);
+  ok(Math.sign(A.custAreaAnello(P2.pts)) === Math.sign(A.custAreaAnello(P2.holes[0])), "stesso verso");
+  const s2 = bOp("sottrai", P2, bq(0, 0, 20, 20));
+  eq([s2.esito, s2.pezzi[0].holes.length, bArea(s2.pezzi[0])], ["ok", 1, 40000 - 10000 - 400], "il foro resta foro");
 });
 t("booleane: forma autointersecante (a farfalla) — si legge come la si vede, pari-dispari", () => {
   const F = bp([[0, 0], [100, 100], [100, 0], [0, 100]]);
@@ -12274,6 +12279,15 @@ t("booleane (rev.): la libreria arriva dopo — si usano le forme del clic; se u
     bSel(c, d); A.custCombina("sottrai"); attesa.ko(new Error("offline"));
     eq(msg.pop(), "!Serve la rete la prima volta che si combinano le forme.");
   } finally { A.ClipperLib = c0; A.custCaricaClipper = k0; }
+}))));
+t("booleane (rev.): una modifica ancora in sospeso (500 ms) non finisce nello stesso Annulla della combinazione", () => conCampi(() => conContorni(() => conToast(() => {
+  precEditor(400, 300);
+  const a = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 120, y: 80 }), b = A.custNuovaForma("rect", { x: 100, y: 60 }, { x: 160, y: 120 });
+  A.save(); A.flushHistorySoon();
+  a.fill = "#123456"; A.saveSoon();   /* come un colore scelto dalla barra: lo snapshot parte dopo 500 ms */
+  bSel(a, b); eq(A.custCombina("unisci"), true);
+  A.undo();
+  const F = bForme(); eq(F.length, 2, "Annulla toglie solo l'unione…"); eq(F[0].fill, "#123456", "…e il colore scelto prima resta");
 }))));
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
