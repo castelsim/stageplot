@@ -12165,6 +12165,116 @@ t("booleane: 10 forme da 200 punti sotto i 100 ms (misurato; soglia 300 ms per l
   console.log("      [misura] Unisci di 10 forme da 200 punti: " + m.toFixed(1) + " ms");
   eq(r.esito, "ok"); ok(m < 300, m.toFixed(1) + " ms");
 });
+/* nell'editor: due o più forme selezionate (la prima nell'array è la più in basso) */
+const bSel = (...its) => { A.selectOne(its[0].id); its.slice(1).forEach((x) => { A.selSet[x.id] = true; }); };
+const bForme = () => A.state.items.filter((x) => x.type === "custshape");
+const conToast = (fn) => { const t0 = A.__toast, msg = []; A.__toast = (s, err) => msg.push((err ? "!" : "") + s); try { return fn(msg); } finally { A.__toast = t0; } };
+t("booleane: il blocco «Combina le forme» — solo nell'editor con due forme combinabili; con una linea o un elemento vero i pulsanti sono spenti e lo dice; «▣ Unisci» diventa «Raggruppa» nel title", () => conCampi((campi, el) => conContorni(() => {
+  ok(/custPannello\("grp", _cs \? _cs\.base : null\);\s*custCombinaRender\(its\);/.test(appjs), "renderProps (selezione multipla) chiama custCombinaRender");
+  ok(/id="custCombina"[\s\S]{0,400}id="custCombUnisci"[^>]*>[\s\S]{0,700}Unisci in una forma<\/button>[\s\S]{0,900}id="custCombSottrai"[\s\S]{0,900}id="custCombInterseca"/.test(appHtml), "tre pulsanti nel pannello della selezione multipla");
+  ok(/<div class="sec" id="groupProps"[\s\S]*id="custCombina"[\s\S]*<div class="sec" id="custForma"/.test(appHtml), "dentro #groupProps");
+  ok(/gg\.title=custEditorAttivo\(\) \? "Raggruppa: si muovono insieme, restano forme separate" : ""/.test(appjs), "«▣ Unisci» raggruppa: nell'editor il title lo dice (E28)");
+  precEditor(400, 300);
+  const a = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 120, y: 80 }), b = A.custNuovaForma("ell", { x: 60, y: 40 }, { x: 160, y: 120 });
+  bSel(a, b); A.custCombinaRender(A.selItems());
+  eq([el("custCombina").hidden, el("custCombUnisci").disabled, el("custCombSottrai").disabled, el("custCombInterseca").disabled], [false, false, false, false]);
+  eq(el("custCombNota").textContent, "Il risultato prende colori e posto della forma più in basso.");
+  const ln = A.custNuovaForma("line", { x: 10, y: 150 }, { x: 90, y: 150 }); bSel(a, b, ln); A.custCombinaRender(A.selItems());
+  eq([el("custCombina").hidden, el("custCombUnisci").disabled, el("custCombNota").textContent], [false, true, "Combina solo rettangoli, ellissi e poligoni."], "con una linea: spenti, e il perché");
+  const vero = add("cantante", 250, 200); bSel(a, vero); A.custCombinaRender(A.selItems());
+  eq(el("custCombSottrai").disabled, true, "con un elemento vero: spenti");
+  A.custEditorAnnulla(); A.custCombinaRender([]);
+  eq(el("custCombina").hidden, true, "fuori dall'editor non esiste");
+})));
+t("booleane: interruttore SPENTO — nessun «Combina», custCombina non fa niente", () => conSpenti(() => conCampi((campi, el) => {
+  precEditor(400, 300);
+  const a = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 120, y: 80 }), b = A.custNuovaForma("rect", { x: 60, y: 40 }, { x: 160, y: 120 });
+  bSel(a, b); A.custCombinaRender(A.selItems());
+  eq(el("custCombina").hidden, true);
+  const prima = JSON.stringify(A.state.items); eq(A.custCombina("unisci"), false); eq(JSON.stringify(A.state.items), prima);
+})));
+t("booleane: Sottrai nell'editor — anello: una forma con un foro al posto di quella sotto, con il suo stile, selezionata; un passo di Annulla; Annulla e Ripeti esatti", () => conCampi(() => conContorni(() => conToast((msg) => {
+  precEditor(400, 300);
+  const x0 = A.custNuovaForma("rect", { x: 0, y: 0 }, { x: 10, y: 10 });
+  const sotto = A.custNuovaForma("ell", { x: 140, y: 90 }, { x: 260, y: 210 }), sopra = A.custNuovaForma("ell", { x: 160, y: 110 }, { x: 240, y: 190 });
+  const z0 = A.custNuovaForma("rect", { x: 300, y: 0 }, { x: 310, y: 10 });
+  A.primaDiAgire(); Object.assign(sotto, { fill: "#ff0000", stroke: "#00ff00", sw: 3 }); Object.assign(sopra, { fill: "#0000ff" }); A.save();
+  bSel(sopra, sotto);   /* l'ordine della selezione non conta: conta quello in cui si vedono */
+  const prima = JSON.stringify(A.state.items), passi = A.undoStack.length;
+  eq(A.custCombina("sottrai"), true);
+  const F = bForme();
+  eq(F.length, 3, "x0, il risultato, z0"); eq([F[0].id, F[2].id], [x0.id, z0.id], "al posto di quella sotto");
+  const R = F[1]; eq([R.k, R.holes && R.holes.length, R.fill, R.stroke, R.sw], ["poly", 1, "#ff0000", "#00ff00", 3], "la forma più in basso dà lo stile (E21)");
+  eq(A.selIds(), [R.id], "il risultato resta selezionato");
+  const g = A.custFormaDaShape(R), bb = A.custIngombroAnelli([g.pts]);
+  ok(Math.abs(bb.x1 - 140) < 0.1 && Math.abs(bb.x2 - 260) < 0.1, "al suo posto: " + JSON.stringify(bb));
+  eq(A.undoStack.length, passi + 1, "un passo di Annulla");
+  ok(/^Sottratta 1 forma da quella sotto\. Le curve sono diventate tanti piccoli lati/.test(msg[msg.length - 1]), "il messaggio, con le curve la prima volta: " + msg[msg.length - 1]);
+  const senzaEtichetta = () => JSON.stringify(A.state.items.map((x) => { const o = Object.assign({}, x); delete o.label; return o; }));   /* la cronologia rilegge gli elementi e dà l'etichetta di serie */
+  A.undo(); eq(senzaEtichetta(), prima, "Annulla: le due forme di prima, identiche e nello stesso ordine");
+  A.redo(); eq(bForme().length, 3); eq(bForme()[1].holes.length, 1, "Ripeti: il risultato");
+}))));
+t("booleane: Unisci con un pezzo staccato — due forme selezionate, il messaggio dei pezzi; le curve si dicono una volta per apertura dell'editor", () => conCampi(() => conContorni(() => conToast((msg) => {
+  precEditor(400, 300);
+  const a = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 120, y: 80 }), b = A.custNuovaForma("rect", { x: 100, y: 60 }, { x: 160, y: 120 }), c = A.custNuovaForma("ell", { x: 250, y: 150 }, { x: 300, y: 200 }), d = A.custNuovaForma("ell", { x: 270, y: 170 }, { x: 320, y: 220 });
+  bSel(a, b, c, d); eq(A.custCombina("unisci"), true);
+  eq([bForme().length, A.selIds().length], [2, 2], "due pezzi = due forme, tutte e due selezionate");
+  eq(msg.pop(), "Unite 4 forme. Il risultato è in 2 pezzi: sono 2 forme. Le curve sono diventate tanti piccoli lati: i punti si spostano, il tondo non le curva più come prima.");
+  const e = A.custNuovaForma("ell", { x: 20, y: 200 }, { x: 80, y: 260 }), f = A.custNuovaForma("rect", { x: 40, y: 220 }, { x: 120, y: 280 });
+  bSel(e, f); eq(A.custCombina("interseca"), true); eq(msg.pop(), "Intersecate 2 forme.", "la seconda volta le curve non si ripetono");
+}))));
+t("booleane: niente da fare, vuoto, troppi fori, errore — niente cambia, nessun passo, il messaggio giusto", () => conCampi(() => conContorni(() => conToast((msg) => {
+  precEditor(1000, 1000);
+  const a = A.custNuovaForma("rect", { x: 0, y: 0 }, { x: 50, y: 50 }), b = A.custNuovaForma("rect", { x: 200, y: 200 }, { x: 250, y: 250 });
+  const prova = (op, atteso, its) => { bSel(...its); const prima = JSON.stringify(A.state.items), passi = A.undoStack.length;
+    eq(A.custCombina(op), false, op); eq(JSON.stringify(A.state.items), prima, op + ": niente cambia"); eq(A.undoStack.length, passi, op + ": nessun passo"); eq(msg.pop(), "!" + atteso, op); };
+  prova("unisci", "Le forme non si toccano: restano separate.", [a, b]);
+  prova("interseca", "Le forme non hanno parti in comune.", [a, b]);
+  prova("sottrai", "Niente da togliere: le forme sopra non toccano quella sotto.", [a, b]);
+  const g = A.custNuovaForma("rect", { x: 0, y: 300 }, { x: 900, y: 900 }), buchi = [];
+  for (let i = 0; i < 51; i++) buchi.push(A.custNuovaForma("rect", { x: 20 + (i % 10) * 80, y: 320 + Math.floor(i / 10) * 90 }, { x: 30 + (i % 10) * 80, y: 330 + Math.floor(i / 10) * 90 }));
+  prova("sottrai", "Verrebbero 51 fori: al massimo 50 per forma.", [g, ...buchi]);
+  const c0 = A.ClipperLib, e0 = console.error, err = []; console.error = (...x) => err.push(x.join(" "));
+  try { A.ClipperLib = Object.assign({}, c0, { Clipper: function () { throw new Error("rotta"); } });
+    prova("unisci", "Non sono riuscito a combinare queste forme.", [a, g]);
+    ok(err.some((x) => /rotta/.test(x)), "l'errore va nella console");
+  } finally { A.ClipperLib = c0; console.error = e0; }
+}))));
+t("booleane (rev.): oltre 200 forme o 40 000 punti nell'elemento non si fa", () => conCampi(() => conContorni(() => conToast((msg) => {
+  precEditor(400, 300);
+  const p = A.custNuovaForma("rect", { x: 0, y: 0 }, { x: 200, y: 100 });
+  const croce = A.custShapeDaForma(Object.assign({ k: "poly", pts: [[90, -10], [90, 45], [-10, 45], [-10, 55], [90, 55], [90, 110], [110, 110], [110, 55], [210, 55], [210, 45], [110, 45], [110, -10]] }, CC_ST));
+  A.primaDiAgire(); A.state.items.push(croce); A.save();
+  const L0 = A.custLimiti, prima = JSON.stringify(A.state.items), passi = A.undoStack.length;
+  try {
+    A.custLimiti = () => Object.assign(L0(), { FORME: 3 }); bSel(p, croce);
+    eq(A.custCombina("sottrai"), false, "4 pezzi oltre 3 forme"); eq(msg.pop(), "!Al massimo 3 forme per elemento.");
+    A.custLimiti = () => Object.assign(L0(), { PUNTI_EL: 10 }); bSel(p, croce);
+    eq(A.custCombina("sottrai"), false, "16 punti oltre 10"); eq(msg.pop(), "!Al massimo 10 punti per elemento.");
+    eq([JSON.stringify(A.state.items), A.undoStack.length], [prima, passi], "niente cambia, nessun passo");
+  } finally { A.custLimiti = L0; }
+  bSel(p, croce); eq(A.custCombina("sottrai"), true, "nei limiti si fa"); eq(bForme().length, 4, "quattro pezzi");
+}))));
+t("booleane (rev.): la libreria arriva dopo — si usano le forme del clic; se una è sparita non cambia niente; senza rete lo dice", () => conCampi(() => conContorni(() => conToast((msg) => {
+  precEditor(400, 300);
+  const c0 = A.ClipperLib, k0 = A.custCaricaClipper; let attesa = null, chiamate = 0;
+  try {
+    A.ClipperLib = undefined;
+    A.custCaricaClipper = () => { chiamate++; return { then(ok, ko) { attesa = { ok, ko }; return this; } }; };
+    const a = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 120, y: 80 }), b = A.custNuovaForma("rect", { x: 100, y: 60 }, { x: 160, y: 120 }), c = A.custNuovaForma("rect", { x: 200, y: 200 }, { x: 260, y: 260 });
+    bSel(a, b); A.custCombina("unisci"); eq(chiamate, 1, "la libreria si chiede");
+    eq(bForme().length, 3, "finché non arriva, niente cambia");
+    bSel(b, c); attesa.ok(c0);
+    eq(bForme().length, 2, "unite a e b (quelle del clic), non b e c"); ok(bForme().some((x) => x.id === c.id), "c resta");
+    const d = A.custNuovaForma("rect", { x: 300, y: 10 }, { x: 360, y: 60 }), e = A.custNuovaForma("rect", { x: 320, y: 30 }, { x: 390, y: 90 });
+    bSel(d, e); A.custCombina("interseca");
+    A.primaDiAgire(); A.state.items = A.state.items.filter((x) => x.id !== e.id); A.save();
+    const prima = JSON.stringify(A.state.items); attesa.ok(c0);
+    eq(JSON.stringify(A.state.items), prima, "una forma sparita nel frattempo: niente cambia"); eq(msg.pop(), "!Le forme sono cambiate nel frattempo: non ho combinato niente.");
+    bSel(c, d); A.custCombina("sottrai"); attesa.ko(new Error("offline"));
+    eq(msg.pop(), "!Serve la rete la prima volta che si combinano le forme.");
+  } finally { A.ClipperLib = c0; A.custCaricaClipper = k0; }
+}))));
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");
