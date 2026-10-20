@@ -15405,7 +15405,7 @@ function auditEngine(){
     add("warn", vd.length===1
         ? "Voce ripresa due volte: «"+nome(vd[0].voce)+"» ha già il suo microfono e accanto c'è «"+nome(vd[0].mic)+"». Nella channel list escono due canali."
         : vd.length+" voci sono riprese due volte ("+nomi.slice(0,3).join(", ")+(vd.length>3?"…":"")+"): hanno già il loro microfono e accanto c'è anche un microfono posato. Nella channel list escono due canali per ciascuna.",
-      "Audio","La voce ha il suo microfono dal pannello e quello posato accanto ne aggiunge un altro. Se sono lo stesso, tieni quello posato: la voce passa in panoramica e resta un canale. Se ne servono due (uno di riserva), dillo nel nome del canale (es. «Voce spare»).",
+      "Audio","Se è lo stesso microfono, tieni quello posato: resta un canale. Se ne servono due, dillo nel nome (es. «Voce spare»).",
       {label:"Mostra", run:function(){ var sel0=[]; vd.forEach(function(c){ sel0.push(c.voce); c.mics.forEach(function(m){ sel0.push(m); }); }); auditFixMostraDoppioni(sel0); }}, "voce-doppia",
       {label:(vd.length===1?"Tieni solo il microfono posato":"Tieni solo i microfoni posati"), run:function(){ auditFixVoceSoloMicPosato(vd); }});
   })();
