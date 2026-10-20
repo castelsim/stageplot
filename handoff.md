@@ -17,8 +17,14 @@
 - Scelta del piano: «Niente da togliere» in Sottrai si misura sull'area tolta (< 1 mm²), non sullo 0,1% dell'area della spec
   (una tacca di 1 cm² in un piano di 2 m² si deve poter togliere); «niente» in Unisci = stessi pezzi e stessa area (due forme
   affiancate si fondono). Le curve perse si dicono una volta per apertura dell'editor.
-- Prove: engines 1804 (25 test nuovi «booleane…»), collaudo 30/30, biglietteria 148, Deno 208, lint pulito; mutazioni 12/12;
-  Chromium (porta 8979, rete esterna bloccata) 26/26 senza override, nessun errore; Unisci di 10 forme da 200 punti ~5 ms.
+- **Revisione indipendente** («pronto con correzioni»), tutto corretto nello stesso ramo: l'operazione che aspetta la libreria è
+  legata all'APERTURA dell'editor (`custCombSessione`: chiuso e riaperto, gli id ripartono e i1, i2 sarebbero forme nuove), una
+  sola in attesa con i pulsanti spenti e «Preparo le forme…», `custCaricaClipper` rinuncia dopo 15 s; archi dei fori = curve perse;
+  forme senza area (2 punti, allineate) restano com'erano fuori dalla combinazione e lo si dice; pulsanti `aria-disabled` +
+  `aria-describedby`; risultato di una forma sola → fuoco su «Modifica contorno».
+- Prove: engines 1811 (32 test nuovi «booleane…»), collaudo 30/30, biglietteria 148, Deno 208, lint pulito; mutazioni 12/12 +
+  16/16 sulle correzioni; Chromium (porta 8979, rete esterna bloccata) 26/26 e caricamento lento 7/7 (file ritardato di 3 s,
+  service worker bloccato), nessun errore; Unisci di 10 forme da 200 punti ~5 ms.
   Schermate e script in `STAGEPLOT/anteprime-crea-elemento/2026-10-20_booleane_*`.
 
 # 20/10/2026 — ascolto per le tastiere, contorni accesi, esemplari online, chitarre senza canale
