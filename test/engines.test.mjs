@@ -476,6 +476,28 @@ t("layer Input: il pallino del musicista è maniglia del cavo, non lo sposta", (
   ok(mk.indexOf('class="hit"') < 0, "niente hit di spostamento nel layer Input");
   A.layerSoloUI = {}; A.__cabStatic = wasStatic;
 });
+t("ascolto: tastiera, Hammond, DJ, timpani e mallets sono musicisti (segnalazione 19/10)", () => {
+  reset();
+  // Un utente ha selezionato una «Tastiera» e non trovava dove dirle con cosa si ascolta: non era un musicista.
+  ["tastiera", "organohammond", "djset", "timpani", "timpani2", "timpani3", "glockenspiel", "xilofono", "vibrafono", "marimba",
+   "musTastiera", "musPianoGranCoda", "musPianoMezzaCoda", "musFisarmonica", "musChitElettrica", "musChitAcustica",
+   "musChitClassica", "musBasso", "musBatteria", "musTimpani", "musPercussioni"].forEach((ty) => {
+    ok(A.TYPES[ty], ty + " esiste nel catalogo");
+    ok(A.isPerformer({ type: ty }), ty + " è suonato da una persona");
+    ok(A.ascoltoEligible({ type: ty }), ty + " può avere il suo ascolto");
+  });
+  ok(A.ascoltoEligible({ type: "musDirettore" }), "il direttore illustrato come quello schematico");
+  // ma gli accessori e i pezzi singoli restano fuori: non sono una persona in più da far sentire
+  ["controllermidi", "panchetta", "pedaliera", "keysamp", "conga", "kickR", "stoolR", "drumshield"].forEach((ty) => {
+    ok(!A.isPerformer({ type: ty }), ty + " NON è un musicista");
+  });
+  const k = add("tastiera", 400, 300);
+  A.setAscolto(k, "cuffie");
+  const mon = A.state.items.find((x) => x.id === k.ascoltoId);
+  ok(k.ascolto === "cuffie" && mon && mon.type === "cuffie", "la tastiera riceve le sue cuffie collegate");
+  eq(A.performerSpots().filter((s) => s.id === k.id).length, 1, "e la proposta automatica dei monitor la conta");
+  eq(A.performerKind(k), "tastiere", "come tastierista");
+});
 t("ascolto per performer: crea/sostituisce/rimuove il monitor collegato", () => {
   reset();
   const v = add("cantante", 400, 300);
