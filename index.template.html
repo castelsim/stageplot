@@ -1211,9 +1211,9 @@
     <div id="custCombina" class="prop-card" hidden>
       <div class="prop-card__head">Combina le forme</div>
       <div class="cust-comb-btns">
-        <button class="btn" id="custCombUnisci" type="button" title="L'area coperta da almeno una forma diventa una forma sola"><svg class="cust-comb-ico" viewBox="0 0 22 14" width="22" height="14" aria-hidden="true"><path d="M11 1.8A6 6 0 1 0 11 12.2A6 6 0 1 0 11 1.8Z" fill="currentColor"/></svg>Unisci in una forma</button>
-        <button class="btn" id="custCombSottrai" type="button" title="Dalla forma più in basso si tolgono quelle sopra"><svg class="cust-comb-ico" viewBox="0 0 22 14" width="22" height="14" aria-hidden="true"><path d="M11 1.8A6 6 0 1 0 11 12.2A6 6 0 0 1 11 1.8Z" fill="currentColor"/><circle cx="14" cy="7" r="6" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="2 1.6"/></svg>Sottrai</button>
-        <button class="btn" id="custCombInterseca" type="button" title="Resta solo l'area comune a tutte le forme selezionate"><svg class="cust-comb-ico" viewBox="0 0 22 14" width="22" height="14" aria-hidden="true"><circle cx="8" cy="7" r="6" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="14" cy="7" r="6" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M11 1.8A6 6 0 0 0 11 12.2A6 6 0 0 0 11 1.8Z" fill="currentColor"/></svg>Interseca</button>
+        <button class="btn" id="custCombUnisci" type="button" aria-describedby="custCombNota" title="L'area coperta da almeno una forma diventa una forma sola"><svg class="cust-comb-ico" viewBox="0 0 22 14" width="22" height="14" aria-hidden="true"><path d="M11 1.8A6 6 0 1 0 11 12.2A6 6 0 1 0 11 1.8Z" fill="currentColor"/></svg>Unisci in una forma</button>
+        <button class="btn" id="custCombSottrai" type="button" aria-describedby="custCombNota" title="Dalla forma più in basso si tolgono quelle sopra"><svg class="cust-comb-ico" viewBox="0 0 22 14" width="22" height="14" aria-hidden="true"><path d="M11 1.8A6 6 0 1 0 11 12.2A6 6 0 0 1 11 1.8Z" fill="currentColor"/><circle cx="14" cy="7" r="6" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="2 1.6"/></svg>Sottrai</button>
+        <button class="btn" id="custCombInterseca" type="button" aria-describedby="custCombNota" title="Resta solo l'area comune a tutte le forme selezionate"><svg class="cust-comb-ico" viewBox="0 0 22 14" width="22" height="14" aria-hidden="true"><circle cx="8" cy="7" r="6" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="14" cy="7" r="6" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M11 1.8A6 6 0 0 0 11 12.2A6 6 0 0 0 11 1.8Z" fill="currentColor"/></svg>Interseca</button>
       </div>
       <p class="prop-hint" id="custCombNota"></p>
     </div>
@@ -11095,7 +11095,7 @@ function custSemplifica(anelli, maxAnello, maxForma){
 var CUST_BOOL_SCARTO=0.05;   /* cm: archi in segmenti (E23) */
 var CUST_BOOL_BRICIOLA=100;  /* unità² (centesimi di cm al quadrato) = 1 mm²: sotto, è un frammento numerico (E24) */
 function custBooleana(op, forme, CL){
-  var ris={esito:"errore", pezzi:[], semplificato:null, curvePerse:false};
+  var ris={esito:"errore", pezzi:[], semplificato:null, curvePerse:false, esclusi:[]};
   try{
     if(!CL || !CL.Clipper || (op!=="unisci" && op!=="sottrai" && op!=="interseca")) return ris;
     var L=custLimiti(), CT=CL.ClipType, PT=CL.PolyType, PF=CL.PolyFillType;
@@ -11104,19 +11104,25 @@ function custBooleana(op, forme, CL){
     /* una operazione: soggetto e clip (elenchi di percorsi interi), riempimento; albero = uscita PolyTree */
     var esegui=function(tipo, sogg, clip, riemp, albero){
       var c=new CL.Clipper(), out=albero ? new CL.PolyTree() : new CL.Paths();
-      if(sogg.length) c.AddPaths(sogg, PT.ptSubject, true);
-      if(clip && clip.length) c.AddPaths(clip, PT.ptClip, true);
+      var conS=sogg.length ? c.AddPaths(sogg, PT.ptSubject, true) : false, conC=(clip && clip.length) ? c.AddPaths(clip, PT.ptClip, true) : false;
+      if(!conS && !conC) return out;   /* niente con un'area (punti allineati): la libreria non ha niente da fare, e non è un errore */
       if(!c.Execute(tipo, out, riemp, riemp)) throw new Error("Execute della libreria non riuscito");
       return out;
     };
-    /* 1–2. ogni forma → anelli interi → la sua regione (pari-dispari) */
-    var regioni=(forme||[]).map(function(g){
-      if(g && (g.k==="ell" || (g.k==="rect" && +g.r>0) || (g.k==="poly" && custHaCurve({pts:g.pts})))) ris.curvePerse=true;
-      var C=custContornoDaForma(g); if(!C) return [];
-      var anelli=[C.pts].concat(C.holes||[]).map(function(R){ return custAnelloInInteri(R, CUST_BOOL_SCARTO); }).filter(function(P){ return P.length>=3; });
-      return anelli.length ? esegui(CT.ctUnion, anelli, null, PF.pftEvenOdd) : [];
+    /* 1–2. ogni forma → anelli interi → la sua regione (pari-dispari). Una forma SENZA AREA (2 punti di un documento vecchio,
+       punti allineati) resta fuori e com'è: la si indica in esclusi (indici in forme), non sparisce in silenzio. */
+    var curva=function(g){ return g.k==="ell" || (g.k==="rect" && +g.r>0) ||
+      (g.k==="poly" && [g.pts||[]].concat(g.holes||[]).some(function(R){ return R.some(function(p){ return Array.isArray(p) && +p[2]; }); })); };
+    var regioni=[];
+    (forme||[]).forEach(function(g, i){
+      var C=g ? custContornoDaForma(g) : null, P=[];
+      if(C){ var anelli=[C.pts].concat(C.holes||[]).map(function(R){ return custAnelloInInteri(R, CUST_BOOL_SCARTO); }).filter(function(Q){ return Q.length>=3; });
+        if(anelli.length) P=esegui(CT.ctUnion, anelli, null, PF.pftEvenOdd); }
+      if(!P.length || Math.abs(area(P))<CUST_BOOL_BRICIOLA){ ris.esclusi.push(i); return; }
+      if(curva(g)) ris.curvePerse=true;
+      regioni.push(P);
     });
-    if(regioni.length<2) return ris;
+    if(regioni.length<2){ if(ris.esclusi.length && (forme||[]).length>=2) ris.esito="poche"; return ris; }
     var NZ=PF.pftNonZero, albero, i;
     /* 3. le regioni in nonzero */
     if(op==="unisci") albero=esegui(CT.ctUnion, [].concat.apply([], regioni), null, NZ, true);
@@ -11161,11 +11167,14 @@ function custBooleanaMessaggio(op, ris, n, curve){
   if(e==="niente") return op==="sottrai" ? "Niente da togliere: le forme sopra non toccano quella sotto." : "Le forme non si toccano: restano separate.";
   if(e==="troppi-fori") return "Verrebbero "+ris.fori+" fori: al massimo "+custLimiti().FORI+" per forma.";
   if(e==="troppi-punti") return "Il risultato ha troppi punti anche semplificato: le forme restano come sono.";
+  var x=(ris && ris.esclusi || []).length;
+  if(e==="poche") return "Servono almeno due forme con un'area: "+x+(x===1 ? " forma senza area non si può combinare." : " forme senza area non si possono combinare.");
   if(e!=="ok") return "Non sono riuscito a combinare queste forme.";
   var k=(ris.pezzi||[]).length, m=op==="sottrai" ? n-1 : n;
   var s=op==="unisci" ? "Unite "+n+" forme." : (op==="interseca" ? "Intersecate "+n+" forme." : (m===1 ? "Sottratta 1 forma da quella sotto." : "Sottratte "+m+" forme da quella sotto."));
   if(k>1) s+=" Il risultato è in "+k+" pezzi: sono "+k+" forme.";
   if(ris.semplificato) s+=" Il risultato aveva "+custMigliaia(ris.semplificato.da)+" punti: semplificato a "+custMigliaia(ris.semplificato.a)+" (scarto massimo "+custCifra(ris.semplificato.scarto)+" cm).";
+  if(x) s+=x===1 ? " 1 forma senza area è rimasta com'era." : " "+x+" forme senza area sono rimaste com'erano.";
   if(curve && ris.curvePerse) s+=" Le curve sono diventate tanti piccoli lati: i punti si spostano, il tondo non le curva più come prima.";
   return s;
 }
@@ -11323,15 +11332,21 @@ function custEl(id){ try{ var e=document.getElementById(id); return (e && e.node
 function custToast(s, err){ if(window.__toast) window.__toast(s, !!err); }
 /* LA LIBRERIA DELLE BOOLEANE (Contorni, Piano 2, 20/10/2026): clipper-lib 6.4.2, self-hosted in /vendor/ come il QR e il PDF.
    Si scarica al PRIMO «Unisci in una forma / Sottrai / Interseca», non all'avvio (25 KB gzip che quasi nessuno usa); poi sta
-   nel precache del service worker. Una promessa sola; su errore si azzera, così il clic dopo riprova. */
+   nel precache del service worker. Una promessa sola; su errore si azzera, così il clic dopo riprova. Una rete appesa non
+   deve lasciare l'operazione in attesa per sempre (revisione del 20/10): dopo CUST_CLIPPER_ATTESA_MS si rinuncia, come un errore
+   (se il file arriva dopo, il clic successivo lo trova già lì). */
 var custClipperPromessa=null;
+var CUST_CLIPPER_ATTESA_MS=15000;
 function custCaricaClipper(){
   if(window.ClipperLib) return Promise.resolve(window.ClipperLib);
   if(custClipperPromessa) return custClipperPromessa;
   custClipperPromessa=new Promise(function(res, rej){
+    var fatto=false, tm=null;
+    var fine=function(err, L){ if(fatto) return; fatto=true; clearTimeout(tm); if(err){ custClipperPromessa=null; rej(err); } else res(L); };
+    tm=setTimeout(function(){ fine(new Error("La libreria delle forme non è arrivata in "+Math.round(CUST_CLIPPER_ATTESA_MS/1000)+" s")); }, CUST_CLIPPER_ATTESA_MS);
     var s=document.createElement("script"); s.src="/vendor/clipper.min.js"; s.async=true;
-    s.onload=function(){ if(window.ClipperLib) res(window.ClipperLib); else { custClipperPromessa=null; rej(new Error("clipper-lib non disponibile dopo il caricamento")); } };
-    s.onerror=function(){ custClipperPromessa=null; rej(new Error("Impossibile caricare la libreria delle forme")); };
+    s.onload=function(){ if(window.ClipperLib) fine(null, window.ClipperLib); else fine(new Error("clipper-lib non disponibile dopo il caricamento")); };
+    s.onerror=function(){ fine(new Error("Impossibile caricare la libreria delle forme")); };
     document.head.appendChild(s);
   });
   return custClipperPromessa;
@@ -11658,6 +11673,7 @@ function custApriEditor(area, incl, baseId){
   if(!custEditorApri(area, baseId!=null ? {baseId:baseId} : {includi:Array.isArray(incl) ? incl : !!incl})){ custToast("Non è stato possibile aprire l'editor: il palco non è cambiato.", true); return false; }
   custVistaPrima=prima; custStatoIniziale=stateToJSON();
   custCombCurveDette=false;   /* «le curve sono diventate lati» si dice una volta per apertura */
+  custCombSessione++;          /* un'operazione in attesa della libreria vale solo per l'apertura in cui è nata */
   custStrumento("sel"); custRenderEditor();
   return true;
 }
@@ -13010,6 +13026,10 @@ function custArrotondaForma(it, r){
    ellissi e poligoni (E20); il risultato prende stile e posto della forma più in basso (E21) e resta selezionato. Un'operazione
    riuscita = un passo di Annulla; tutto il resto (vuoto, niente da fare, limiti, errori) non cambia niente e lo dice. */
 var custCombCurveDette=false;
+/* revisione del 20/10: l'operazione che aspetta la libreria è legata all'APERTURA dell'editor (gli id ripartono da capo a ogni
+   apertura: dopo Annulla e riapertura i1, i2 sarebbero forme nuove). Una sola in attesa per apertura, pulsanti spenti intanto. */
+var custCombSessione=0, custCombAttesa=null;
+function custCombInAttesa(){ return !!(custCombAttesa && custCombAttesa.sessione===custCombSessione); }
 /* le forme da combinare, nell'ordine in cui si vedono (la prima è la più in basso); null se non si può */
 function custCombinabili(its){
   if(!its || its.length<2 || !its.every(custContornoAmmesso)) return null;
@@ -13020,31 +13040,39 @@ function custCombinaRender(its){
   if(gg) gg.title=custEditorAttivo() ? "Raggruppa: si muovono insieme, restano forme separate" : "";
   var box=custEl("custCombina"); if(!box) return;
   var on=custEditorAttivo() && custContorniAttivi(); box.hidden=!on; if(!on) return;
-  var si=!!custCombinabili(its);
-  ["custCombUnisci", "custCombSottrai", "custCombInterseca"].forEach(function(id){ var b=custEl(id); if(b) b.disabled=!si; });
-  var nt=custEl("custCombNota"); if(nt) nt.textContent=si ? "Il risultato prende colori e posto della forma più in basso." : "Combina solo rettangoli, ellissi e poligoni.";
+  var att=custCombInAttesa(), si=!att && !!custCombinabili(its);
+  /* aria-disabled e non disabled: spenti si raggiungono ancora da tastiera e la nota (aria-describedby) dice perché */
+  ["custCombUnisci", "custCombSottrai", "custCombInterseca"].forEach(function(id){ var b=custEl(id); if(b) b.setAttribute("aria-disabled", si ? "false" : "true"); });
+  var nt=custEl("custCombNota"); if(nt) nt.textContent=att ? "Preparo le forme…" : (si ? "Il risultato prende colori e posto della forma più in basso." : "Combina solo rettangoli, ellissi e poligoni.");
 }
 function custCombinaDetto(msg, err){ custToast(msg, err); a11yAnnounce(msg); }
 /* il clic: gli id si prendono ADESSO; la libreria al primo uso si scarica (poi è subito lì) */
 function custCombina(op){
   if(!custContorniAttivi() || !custEditorAttivo()) return false;
+  if(custCombInAttesa()){ custCombinaDetto("Preparo le forme…"); return false; }   /* una sola operazione in attesa */
   var fs=custCombinabili(selItems()); if(!fs){ custCombinaDetto("Combina solo rettangoli, ellissi e poligoni.", true); return false; }
-  var ids=fs.map(function(x){ return x.id; });
-  if(window.ClipperLib) return custCombinaCon(op, ids, window.ClipperLib);
-  custCaricaClipper().then(function(CL){ custCombinaCon(op, ids, CL); },
-    function(e){ try{ console.error(e); }catch(_e){} custCombinaDetto("Serve la rete la prima volta che si combinano le forme.", true); });
+  var ids=fs.map(function(x){ return x.id; }), sess=custCombSessione;
+  if(window.ClipperLib) return custCombinaCon(op, ids, window.ClipperLib, sess);
+  var mia={sessione:sess}, fine=function(){ if(custCombAttesa===mia) custCombAttesa=null; };
+  custCombAttesa=mia; custCombinaRender(selItems());
+  custCaricaClipper().then(function(CL){ fine(); custCombinaCon(op, ids, CL, sess); if(custEditorAttivo()) custCombinaRender(selItems()); },
+    function(e){ fine(); try{ console.error(e); }catch(_e){}
+      if(!custEditorAttivo() || sess!==custCombSessione) return;   /* editor chiuso o riaperto: niente da dire */
+      custCombinaDetto("Serve la rete la prima volta che si combinano le forme.", true); custCombinaRender(selItems()); });
   return true;
 }
-/* l'operazione sulle forme del clic, rilette per id (una sparita nel frattempo = niente) */
-function custCombinaCon(op, ids, CL){
-  if(!custContorniAttivi() || !custEditorAttivo()) return false;
+/* l'operazione sulle forme del clic, rilette per id (una sparita nel frattempo = niente). sessione = l'apertura dell'editor del
+   clic: se l'editor è stato chiuso, o chiuso e riaperto, non si fa niente e non si dice niente (non sono più quelle forme). */
+function custCombinaCon(op, ids, CL, sessione){
+  if(!custContorniAttivi() || !custEditorAttivo() || sessione!==custCombSessione) return false;
   var fs=state.items.filter(function(x){ return ids.indexOf(x.id)>=0; });
   if(fs.length!==ids.length || !custCombinabili(fs)){ custCombinaDetto("Le forme sono cambiate nel frattempo: non ho combinato niente.", true); return false; }
   var ris=custBooleana(op, fs.map(custFormaDaShape), CL);
   if(ris.errore){ try{ console.error("Combina le forme:", ris.errore); }catch(_e){} }
   if(ris.esito!=="ok"){ custCombinaDetto(custBooleanaMessaggio(op, ris, fs.length), true); return false; }
-  var L=custLimiti(), base=fs[0], via={};
-  ids.forEach(function(id){ via[id]=true; });
+  /* le forme senza area restano dove sono: non entrano, non spariscono */
+  var dentro=fs.filter(function(x, i){ return ris.esclusi.indexOf(i)<0; }), L=custLimiti(), base=dentro[0], via={};
+  dentro.forEach(function(x){ via[x.id]=true; });
   var nuove=ris.pezzi.map(function(pz){ return custShapeDaForma({k:"poly", pts:pz.pts, holes:pz.holes, fill:base.fill, stroke:base.stroke, sw:base.sw}); });
   if(!nuove.length || nuove.some(function(x){ return !x; })){ custCombinaDetto(custBooleanaMessaggio(op, {esito:"errore"}, fs.length), true); return false; }
   var forme=state.items.filter(function(x){ return x.type==="custshape" && !via[x.id]; }).length+nuove.length;
@@ -13058,8 +13086,10 @@ function custCombinaCon(op, ids, CL){
   state.items=state.items.slice(0, pos).filter(resta).concat(nuove, state.items.slice(pos+1).filter(resta));
   sel=nuove[0].id; selSet={}; nuove.forEach(function(x){ selSet[x.id]=true; });
   render(); save();
+  /* una forma sola: il pannello della selezione multipla sparisce, il fuoco va sul pannello della forma (non si perde) */
+  if(nuove.length===1){ var cc=custEl("custFormaCc"), fo=custEl(cc && !cc.hidden ? "custFContorno" : "custFX"); if(fo) try{ fo.focus(); }catch(_e){} }
   var curve=!!ris.curvePerse && !custCombCurveDette; if(curve) custCombCurveDette=true;
-  custCombinaDetto(custBooleanaMessaggio(op, ris, fs.length, curve));
+  custCombinaDetto(custBooleanaMessaggio(op, ris, dentro.length, curve));
   return true;
 }
 function custContornoTogliForo(){
