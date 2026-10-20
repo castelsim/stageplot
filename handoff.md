@@ -1,3 +1,53 @@
+# 20/10/2026 — Crea elemento, Contorni Piano 2: Unisci / Sottrai / Interseca (ramo `contorni-booleane`, PR 3)
+
+- Spec `crea-elemento-registro/tappa-contorni/2026-10-16-crea-elemento-contorni-design.md` §4 (E20–E28), piano 2 e registro
+  accanto (fuori dal repo). Dietro `custContorniAttivi()` (già acceso): **va online al merge**. Formato dei dati invariato.
+- **Libreria**: `vendor/clipper.min.js` = clipper-lib 6.4.2 (minificazione di jsDelivr senza `sourceMappingURL`, con
+  l'intestazione di licenza di `clipper.js`: Boost 1.0); SHA-256 in `vendor/README.md` (un test lo confronta). Si scarica al
+  primo uso (`custCaricaClipper`, come `loadQrLib`), sta nel `PRECACHE` di `sw.js`.
+- **Pure** (provate nel sandbox con la libreria vera): `custSegmentiArco`/`custAnelloInInteri` (archi entro 0,05 cm, al massimo
+  64 segmenti, centesimi di cm), `custDouglasPeucker`/`custSemplifica` (da 0,05 a 5 cm oltre 200/1000 punti), `custBooleana(op,
+  forme, CL)` (ogni forma da sola in pari-dispari, poi nonzero; PolyTree → contorno + fori; pulizia a 1 unità; frammenti sotto
+  1 mm² via; contorni antiorari e fori orari a vista; esiti ok/vuoto/niente/troppi-fori/troppi-punti/errore, mai un'eccezione),
+  `custBooleanaMessaggio` (testi della spec §4.4).
+- **Interfaccia**: blocco «Combina le forme» (`#custCombina`) nel pannello della selezione multipla, solo nell'editor; tre
+  pulsanti con icona; con linee, testi o elementi veri spenti con il perché; risultato con stile e posto della forma più in
+  basso, selezionato, un passo di Annulla; gli id si prendono al clic (se la libreria arriva dopo e una forma è sparita, niente).
+  «▣ Unisci» (raggruppa) nell'editor ha il title «Raggruppa…».
+- Scelta del piano: «Niente da togliere» in Sottrai si misura sull'area tolta (< 1 mm²), non sullo 0,1% dell'area della spec
+  (una tacca di 1 cm² in un piano di 2 m² si deve poter togliere); «niente» in Unisci = stessi pezzi e stessa area (due forme
+  affiancate si fondono). Le curve perse si dicono una volta per apertura dell'editor.
+- **Revisione indipendente** («pronto con correzioni»), tutto corretto nello stesso ramo: l'operazione che aspetta la libreria è
+  legata all'APERTURA dell'editor (`custCombSessione`: chiuso e riaperto, gli id ripartono e i1, i2 sarebbero forme nuove), una
+  sola in attesa con i pulsanti spenti e «Preparo le forme…», `custCaricaClipper` rinuncia dopo 15 s; archi dei fori = curve perse;
+  forme senza area (2 punti, allineate) restano com'erano fuori dalla combinazione e lo si dice; pulsanti `aria-disabled` +
+  `aria-describedby`; risultato di una forma sola → fuoco su «Modifica contorno».
+- Prove: engines 1811 (32 test nuovi «booleane…»), collaudo 30/30, biglietteria 148, Deno 208, lint pulito; mutazioni 12/12 +
+  16/16 sulle correzioni; Chromium (porta 8979, rete esterna bloccata) 26/26 e caricamento lento 7/7 (file ritardato di 3 s,
+  service worker bloccato), nessun errore; Unisci di 10 forme da 200 punti ~5 ms.
+  Schermate e script in `STAGEPLOT/anteprime-crea-elemento/2026-10-20_booleane_*`.
+
+# 20/10/2026 — ascolto per le tastiere, contorni accesi, esemplari online, chitarre senza canale
+
+- **#324** (segnalazione dall'app del 19/10): `isPerformer` non contava Tastiera, Organo Hammond, DJ set, timpani,
+  glockenspiel, xilofono, vibrafono, marimba e le figure `mus*` → niente Ascolto nel pannello e fuori dalla proposta dei
+  monitor. Tabella `SUONATI_ALTRI` (solo lo strumento principale: accessori e pezzi singoli fuori); `musDirettore` come `direttore`.
+- **#325 contorni ACCESI** (`custContorniAttivi()` = true; per spegnere `false`, mai revert). L/P del pannello e rilascio della
+  maniglia appiattiscono gli archi che uscirebbero dalla superficie ±10% (`custArchiAlBordo` → `custArchiDentroLocale`): a gesto
+  FINITO, perché L/P scalano attorno al centro e poi riancorano l'angolo in alto a sinistra (a metà strada i punti possono stare
+  fuori), e sulla forma ruotata; cambiano solo i bulge, un lato con un capo fuori non si tocca. Il test dell'interruttore spento
+  ora forza `false` (`conSpenti`).
+- **#326 es-insieme**: legami rimappati in Duplica/Incolla (`rimappaLegamiCopie`), DI posata accanto a uno strumento unico che
+  si aggancia (`diAgganciaAllaPosa`, toast con Annulla), catalogo (loop station, theremin, sync, ambone, violinista in piedi,
+  laptop su tavolo, «Centro»), pedane-zona → «Trasforma in Area con nome», quota con testo + misura, «Cosa cambia rispetto a…».
+- **#327** casella «Ampli»: scriveva solo `it.ampli`; spuntata e tolta su un'elettrica (SM57 sul cono di serie) lasciava zero
+  canali. Ora `gtrAmpCasella` → `chainToggle(it,"amp")` quando cambia l'ampli della catena (niente ampli = torna la linea).
+- **#328** «Scomponi» la chitarra: il pezzo chitarra nasceva nuovo con `ampli:false` (elettrica fuori dalla channel list, catena,
+  DI e spia perse). Ora è la stessa chitarra (stesso id), perde solo i pezzi staccati. Nei 30 progetti del collaudo ci sono
+  **25 elettriche senza canale** con questa firma: le segnala l'avviso «strumento senza ripresa» di #329.
+- **#329 es-audit** (aperta): avvisi «doppioni sovrapposti» e «strumento senza ripresa»; cambia gli avvisi di 17 progetti del
+  collaudo (tutti veri) → prima del merge Simone lancia `node test/collaudo.test.mjs --aggiorna`.
+
 # 17/10/2026 — Crea elemento, Contorni: lettore e gesti spenti (Piano 1, PR 1, ramo `crea-elemento-contorni`)
 
 - Simone (14-16/10): «più libertà di disegnare». Spec `crea-elemento-registro/tappa-contorni/2026-10-16-crea-elemento-contorni-design.md`

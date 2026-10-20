@@ -35,6 +35,7 @@ var PRECACHE = [
   "/vendor/pdf.min.js",
   "/vendor/supabase.min.js",
   "/vendor/qrcode.min.js",
+  "/vendor/clipper.min.js",    /* Unisci/Sottrai/Interseca di «Crea elemento» (20/10/2026): si carica al primo uso, offline dopo la prima visita */
   "/favicon.svg",
   "/manifest.webmanifest"
 ];
