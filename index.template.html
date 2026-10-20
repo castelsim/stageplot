@@ -19759,10 +19759,18 @@ document.getElementById("pSediaV").addEventListener("change", function(){ mutSel
 document.getElementById("pPoltronaV").addEventListener("change", function(){ var on=document.getElementById("pPoltronaV").checked;
   mutSelAll(function(it){ if(VOCE[it.type]) voceInPoltrona(it, on); }); });
 function gtrApply(it){ var sz=gtrSize(it, TYPES[it.type]); it.w=sz[0]; it.d=sz[1]; }
+/* la casella «Ampli»: se cambia l'ampli della catena, la stessa regola del pallino (chainToggle: niente ampli = torna la
+   linea, ampli aggiunto = microfono sul cono), così non si resta mai a zero canali (es-audit 19/10). Se la catena ha già
+   quell'ampli (la chitarra elettrica nasce col microfono sul cono ma senza ampli disegnato) cambia solo il disegno. */
+function gtrAmpCasella(it, on){
+  if(hasChain(it) && chainOf(it).amp!==!!on) chainToggle(it, "amp");
+  else it.ampli=!!on;
+  gtrApply(it);
+}
 document.getElementById("pSeduta").addEventListener("change", function(){ var v=this.value; mutSel(function(it){ chitClImpostaSeduta(it, v); }); renderProps(); });
 document.getElementById("pGtrSedia").addEventListener("change", function(){ mutSel(function(it){ it.sedia=document.getElementById("pGtrSedia").checked; gtrApply(it); }); });
 document.getElementById("pGtrLeggio").addEventListener("change", function(){ mutSel(function(it){ it.leggio=document.getElementById("pGtrLeggio").checked; gtrApply(it); }); });
-document.getElementById("pGtrAmp").addEventListener("change", function(){ mutSel(function(it){ it.ampli=document.getElementById("pGtrAmp").checked; gtrApply(it); }); });
+document.getElementById("pGtrAmp").addEventListener("change", function(){ var on=this.checked; mutSel(function(it){ gtrAmpCasella(it, on); }); });
 document.getElementById("pGtrPedal").addEventListener("change", function(){ mutSel(function(it){ it.pedaliera=document.getElementById("pGtrPedal").checked; gtrApply(it); }); });
 document.getElementById("pDirPodio").addEventListener("change", function(){ mutSel(function(it){ it.podio=document.getElementById("pDirPodio").checked; var sz=dirSize(it); it.w=sz[0]; it.d=sz[1]; }); });
 document.getElementById("pDirLeggio").addEventListener("change", function(){ mutSel(function(it){ it.leggio=document.getElementById("pDirLeggio").checked; var sz=dirSize(it); it.w=sz[0]; it.d=sz[1]; }); });
