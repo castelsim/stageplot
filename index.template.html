@@ -11162,6 +11162,21 @@ var CUST_STRUMENTI={sel:"Seleziona", rect:"Rettangolo", ell:"Ellisse", line:"Lin
 function custClasse(c, on){ try{ document.body.classList[on?"add":"remove"](c); }catch(e){} }
 function custEl(id){ try{ var e=document.getElementById(id); return (e && e.nodeType===1) ? e : null; }catch(e){ return null; } }
 function custToast(s, err){ if(window.__toast) window.__toast(s, !!err); }
+/* LA LIBRERIA DELLE BOOLEANE (Contorni, Piano 2, 20/10/2026): clipper-lib 6.4.2, self-hosted in /vendor/ come il QR e il PDF.
+   Si scarica al PRIMO «Unisci in una forma / Sottrai / Interseca», non all'avvio (25 KB gzip che quasi nessuno usa); poi sta
+   nel precache del service worker. Una promessa sola; su errore si azzera, così il clic dopo riprova. */
+var custClipperPromessa=null;
+function custCaricaClipper(){
+  if(window.ClipperLib) return Promise.resolve(window.ClipperLib);
+  if(custClipperPromessa) return custClipperPromessa;
+  custClipperPromessa=new Promise(function(res, rej){
+    var s=document.createElement("script"); s.src="/vendor/clipper.min.js"; s.async=true;
+    s.onload=function(){ if(window.ClipperLib) res(window.ClipperLib); else { custClipperPromessa=null; rej(new Error("clipper-lib non disponibile dopo il caricamento")); } };
+    s.onerror=function(){ custClipperPromessa=null; rej(new Error("Impossibile caricare la libreria delle forme")); };
+    document.head.appendChild(s);
+  });
+  return custClipperPromessa;
+}
 /* «1,20 × 0,80 m»: le misure si dicono in metri, con la virgola */
 function custMetri(cm){ return (Math.round(cm)/100).toFixed(2).replace(".",","); }
 function custMisura(w, d){ return custMetri(w)+" × "+custMetri(d)+" m"; }
