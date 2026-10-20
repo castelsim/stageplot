@@ -1,3 +1,19 @@
+# 20/10/2026 — avviso «voce ripresa due volte» (ramo `voce-doppia`, backlog L3)
+
+- Regola d'audit `voce-doppia` (warn, Audio), forma di `doppioni`/`senza-ripresa`: `vociRipreseDueVolte()` trova la voce
+  (VOCE, microfono suo: micMode ≠ pano) con accanto un microfono PERSONALE posato dal catalogo che dà un canale (o passa da un
+  ricevitore): asta dritta, giraffa, radiomic, archetto, da tavolo. Fuori i microfoni d'insieme (coro, asta gigante, coppia
+  stereo) e l'asta bassa.
+- Soglia `VOCE_DOPPIA_CM` = 80 cm dal centro della voce, microfono davanti o di fianco (fino a 20 cm dietro, secondo `rot`).
+  Non scatta: microfono nel rack, in una zona, raggruppato con uno strumento (e non con la voce), più vicino a un'altra voce o
+  quasi alla pari (15 cm), con uno strumento vicino al microfono almeno quanto la voce (acustica, ampli).
+- Rimedi: «Mostra» (voce + microfoni, `auditFixMostraDoppioni`) e «Tieni solo il microfono posato»
+  (`auditFixVoceSoloMicPosato`: micMode «pano» come il pannello, ingombro compreso, un passo di Annulla, rispetta la sola lettura).
+- `coristiSenzaRipresa`: un microfono personale entro 80 cm è la ripresa del corista in panoramica (se no il rimedio faceva
+  nascere «coromuto»).
+- Collaudo: cambia solo il progetto 08 (Scena 1, `+ warn | voce-doppia`, vero doppio: radiomic a 79 cm davanti alla voce
+  che ha già la giraffa). Attesi NON aggiornati: `--aggiorna` lo lancia Simone.
+
 # 20/10/2026 — Crea elemento, Contorni Piano 2: Unisci / Sottrai / Interseca (ramo `contorni-booleane`, PR 3)
 
 - Spec `crea-elemento-registro/tappa-contorni/2026-10-16-crea-elemento-contorni-design.md` §4 (E20–E28), piano 2 e registro
