@@ -3963,7 +3963,8 @@ body.cust-contorno .item.selected .selbox{display:none}
 #props #custCombina .cust-comb-btns{display:flex;flex-direction:column;gap:6px}
 #props #custCombina .cust-comb-btns .btn{margin-top:0;justify-content:flex-start;gap:10px;white-space:normal;text-align:left}
 #props #custCombina .cust-comb-ico{flex:0 0 auto;color:var(--accent)}
-#props #custCombina .btn:disabled .cust-comb-ico{color:inherit}
+#props #custCombina .btn[aria-disabled="true"]{opacity:.45;cursor:not-allowed}
+#props #custCombina .btn[aria-disabled="true"] .cust-comb-ico{color:inherit}
 #props #custCombina .prop-hint{margin:8px 0 0}
 #props #custForma .cust-cc-riga>.btn{flex:1 1 100%}
 #props #custContorno .cust-cc-head{display:flex;justify-content:space-between;align-items:center;gap:8px}
@@ -5107,9 +5108,9 @@ body.cust-contorno .item.selected .selbox{display:none}
     <div id="custCombina" class="prop-card" hidden>
       <div class="prop-card__head">Combina le forme</div>
       <div class="cust-comb-btns">
-        <button class="btn" id="custCombUnisci" type="button" title="L'area coperta da almeno una forma diventa una forma sola"><svg class="cust-comb-ico" viewBox="0 0 22 14" width="22" height="14" aria-hidden="true"><path d="M11 1.8A6 6 0 1 0 11 12.2A6 6 0 1 0 11 1.8Z" fill="currentColor"/></svg>Unisci in una forma</button>
-        <button class="btn" id="custCombSottrai" type="button" title="Dalla forma più in basso si tolgono quelle sopra"><svg class="cust-comb-ico" viewBox="0 0 22 14" width="22" height="14" aria-hidden="true"><path d="M11 1.8A6 6 0 1 0 11 12.2A6 6 0 0 1 11 1.8Z" fill="currentColor"/><circle cx="14" cy="7" r="6" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="2 1.6"/></svg>Sottrai</button>
-        <button class="btn" id="custCombInterseca" type="button" title="Resta solo l'area comune a tutte le forme selezionate"><svg class="cust-comb-ico" viewBox="0 0 22 14" width="22" height="14" aria-hidden="true"><circle cx="8" cy="7" r="6" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="14" cy="7" r="6" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M11 1.8A6 6 0 0 0 11 12.2A6 6 0 0 0 11 1.8Z" fill="currentColor"/></svg>Interseca</button>
+        <button class="btn" id="custCombUnisci" type="button" aria-describedby="custCombNota" title="L'area coperta da almeno una forma diventa una forma sola"><svg class="cust-comb-ico" viewBox="0 0 22 14" width="22" height="14" aria-hidden="true"><path d="M11 1.8A6 6 0 1 0 11 12.2A6 6 0 1 0 11 1.8Z" fill="currentColor"/></svg>Unisci in una forma</button>
+        <button class="btn" id="custCombSottrai" type="button" aria-describedby="custCombNota" title="Dalla forma più in basso si tolgono quelle sopra"><svg class="cust-comb-ico" viewBox="0 0 22 14" width="22" height="14" aria-hidden="true"><path d="M11 1.8A6 6 0 1 0 11 12.2A6 6 0 0 1 11 1.8Z" fill="currentColor"/><circle cx="14" cy="7" r="6" fill="none" stroke="currentColor" stroke-width="1.2" stroke-dasharray="2 1.6"/></svg>Sottrai</button>
+        <button class="btn" id="custCombInterseca" type="button" aria-describedby="custCombNota" title="Resta solo l'area comune a tutte le forme selezionate"><svg class="cust-comb-ico" viewBox="0 0 22 14" width="22" height="14" aria-hidden="true"><circle cx="8" cy="7" r="6" fill="none" stroke="currentColor" stroke-width="1.2"/><circle cx="14" cy="7" r="6" fill="none" stroke="currentColor" stroke-width="1.2"/><path d="M11 1.8A6 6 0 0 0 11 12.2A6 6 0 0 0 11 1.8Z" fill="currentColor"/></svg>Interseca</button>
       </div>
       <p class="prop-hint" id="custCombNota"></p>
     </div>

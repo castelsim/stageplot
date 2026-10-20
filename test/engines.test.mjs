@@ -12,8 +12,8 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import vm from "node:vm";
 import { inflateSync } from "node:zlib";   /* il testo dei PDF pubblicati sta in stream compressi */
-import { execFileSync } from "node:child_process";
-import { createHash } from "node:crypto";   /* lo SHA-256 delle librerie in vendor/ (booleane, 20/10/2026) */   /* per far controllare app.js al parser vero */
+import { execFileSync } from "node:child_process";   /* per far controllare app.js al parser vero */
+import { createHash } from "node:crypto";   /* lo SHA-256 delle librerie in vendor/ (booleane, 20/10/2026) */
 import { datiDallaLanding } from "../ops/anteprima-social.mjs";   /* l'anteprima social si pesca dalla landing: qui si verifica che sia ancora quella */
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -12009,7 +12009,6 @@ t("booleane: custCaricaClipper — al primo uso, un solo script da /vendor/, la 
   ok(typeof A.custCaricaClipper === "function", "c'è");
   const src = String(A.custCaricaClipper);
   eq((appjs.match(/\/vendor\/clipper\.min\.js/g) || []).length, 1, "un solo punto dell'app chiede il file");
-  ok(/s\.onerror=function\(\)\{ custClipperPromessa=null;/.test(appjs), "errore: la promessa si azzera per poter riprovare");
   ok(/if\(window\.ClipperLib\) return Promise\.resolve\(window\.ClipperLib\);/.test(src), "già caricata: subito");
   const p = A.custCaricaClipper(); ok(p && typeof p.then === "function", "una promessa anche quando c'è già");
 });
@@ -12182,12 +12181,12 @@ t("booleane: il blocco «Combina le forme» — solo nell'editor con due forme c
   precEditor(400, 300);
   const a = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 120, y: 80 }), b = A.custNuovaForma("ell", { x: 60, y: 40 }, { x: 160, y: 120 });
   bSel(a, b); A.custCombinaRender(A.selItems());
-  eq([el("custCombina").hidden, el("custCombUnisci").disabled, el("custCombSottrai").disabled, el("custCombInterseca").disabled], [false, false, false, false]);
+  eq([el("custCombina").hidden, el("custCombUnisci").attrs["aria-disabled"], el("custCombSottrai").attrs["aria-disabled"], el("custCombInterseca").attrs["aria-disabled"]], [false, "false", "false", "false"]);
   eq(el("custCombNota").textContent, "Il risultato prende colori e posto della forma più in basso.");
   const ln = A.custNuovaForma("line", { x: 10, y: 150 }, { x: 90, y: 150 }); bSel(a, b, ln); A.custCombinaRender(A.selItems());
-  eq([el("custCombina").hidden, el("custCombUnisci").disabled, el("custCombNota").textContent], [false, true, "Combina solo rettangoli, ellissi e poligoni."], "con una linea: spenti, e il perché");
+  eq([el("custCombina").hidden, el("custCombUnisci").attrs["aria-disabled"], el("custCombNota").textContent], [false, "true", "Combina solo rettangoli, ellissi e poligoni."], "con una linea: spenti, e il perché");
   const vero = add("cantante", 250, 200); bSel(a, vero); A.custCombinaRender(A.selItems());
-  eq(el("custCombSottrai").disabled, true, "con un elemento vero: spenti");
+  eq(el("custCombSottrai").attrs["aria-disabled"], "true", "con un elemento vero: spenti");
   A.custEditorAnnulla(); A.custCombinaRender([]);
   eq(el("custCombina").hidden, true, "fuori dall'editor non esiste");
 })));
@@ -12288,6 +12287,95 @@ t("booleane (rev.): una modifica ancora in sospeso (500 ms) non finisce nello st
   bSel(a, b); eq(A.custCombina("unisci"), true);
   A.undo();
   const F = bForme(); eq(F.length, 2, "Annulla toglie solo l'unione…"); eq(F[0].fill, "#123456", "…e il colore scelto prima resta");
+}))));
+/* ===== Booleane — revisione indipendente (20/10/2026) ===== */
+t("booleane (rev. 2): gli archi dei FORI contano come curve perse", () => {
+  const P = bp([[0, 0], [0, 200], [200, 200], [200, 0]], [[[50, 50, 0.4], [150, 50], [150, 150], [50, 150]]]);
+  const r = bOp("sottrai", P, bq(0, 0, 20, 20));
+  eq([r.esito, r.curvePerse], ["ok", true], "un foro con un lato ad arco");
+  eq(bOp("sottrai", bp([[0, 0], [0, 200], [200, 200], [200, 0]], [[[50, 50], [150, 50], [150, 150], [50, 150]]]), bq(0, 0, 20, 20)).curvePerse, false, "fori dritti: niente da dire");
+});
+t("booleane (rev. 2): una forma senza area (2 punti, punti allineati) resta com'è, fuori dalla combinazione, e il messaggio lo dice", () => {
+  const due = bp([[300, 300], [350, 300]]), piatta = bp([[0, 400], [50, 400], [100, 400]]);
+  const r = bOp("unisci", bq(0, 0, 100, 100), due, bq(50, 50, 100, 100), piatta);
+  eq([r.esito, r.pezzi.length, r.esclusi], ["ok", 1, [1, 3]], "combinate solo le due con un'area; le altre indicate");
+  eq(A.custBooleanaMessaggio("unisci", r, 2), "Unite 2 forme. 2 forme senza area sono rimaste com'erano.");
+  eq(A.custBooleanaMessaggio("unisci", Object.assign({}, r, { esclusi: [1] }), 2), "Unite 2 forme. 1 forma senza area è rimasta com'era.");
+  const s1 = bOp("sottrai", due, bq(0, 0, 100, 100), bq(50, 50, 10, 10));
+  eq([s1.esito, s1.esclusi, s1.pezzi[0].holes.length], ["ok", [0], 1], "Sottrai: la forma sotto senza area non conta, quella sotto è la prima con un'area");
+  const s2 = bOp("unisci", due, bq(0, 0, 100, 100));
+  eq([s2.esito, s2.esclusi], ["poche", [0]], "con meno di due forme con un'area non si fa");
+  eq(A.custBooleanaMessaggio("unisci", s2, 2), "Servono almeno due forme con un'area: 1 forma senza area non si può combinare.");
+});
+t("booleane (rev. 2): nell'editor la forma senza area resta al suo posto, le altre si combinano, stile e posto dalla più in basso con un'area", () => conCampi(() => conContorni(() => conToast((msg) => {
+  precEditor(400, 300);
+  const due = A.custShapeDaForma(Object.assign({ k: "poly", pts: [[300, 250], [350, 250]] }, CC_ST, { fill: "#aa0000" }));
+  A.primaDiAgire(); A.state.items.push(due); A.save();
+  const a = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 120, y: 80 }), b = A.custNuovaForma("rect", { x: 100, y: 60 }, { x: 160, y: 120 });
+  A.primaDiAgire(); a.fill = "#00aa00"; A.save();
+  bSel(due, a, b); eq(A.custCombina("unisci"), true);
+  const F = bForme(); eq(F.length, 2, "la forma senza area e il risultato");
+  eq([F[0].id, F[1].fill], [due.id, "#00aa00"], "la forma senza area resta dov'era; lo stile viene dalla più in basso CON un'area");
+  eq(msg.pop(), "Unite 2 forme. 1 forma senza area è rimasta com'era.");
+}))));
+t("booleane (rev. 2): il risultato eredita il gruppo della forma più in basso solo se nel gruppo resta qualcuno", () => conCampi(() => conContorni(() => conToast(() => {
+  precEditor(400, 300);
+  const a = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 120, y: 80 }), b = A.custNuovaForma("rect", { x: 100, y: 60 }, { x: 160, y: 120 }), c = A.custNuovaForma("rect", { x: 250, y: 20 }, { x: 300, y: 80 });
+  A.primaDiAgire(); a.grp = b.grp = c.grp = "gProva"; A.save();
+  bSel(a, b); eq(A.custCombina("unisci"), true);
+  eq(A.getSel().grp, "gProva", "c resta nel gruppo: il risultato pure");
+  const d = A.custNuovaForma("rect", { x: 20, y: 200 }, { x: 120, y: 260 }), e = A.custNuovaForma("rect", { x: 100, y: 220 }, { x: 160, y: 280 });
+  A.primaDiAgire(); d.grp = e.grp = "gSoli"; A.save();
+  bSel(d, e); eq(A.custCombina("unisci"), true);
+  eq(A.getSel().grp, undefined, "il gruppo era fatto solo delle forme combinate: niente gruppo di una forma sola");
+}))));
+t("booleane (rev. 2): accessibilità — pulsanti spenti con aria-disabled (restano raggiungibili) e descritti dalla nota; risultato di una forma sola = fuoco sul pannello della forma", () => conCampi((campi, el) => conContorni(() => conToast(() => {
+  ok(["custCombUnisci", "custCombSottrai", "custCombInterseca"].every((id) => new RegExp('id="' + id + '"[^>]*aria-describedby="custCombNota"').test(appHtml)), "aria-describedby sulla nota");
+  precEditor(400, 300);
+  const a = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 120, y: 80 }), ln = A.custNuovaForma("line", { x: 10, y: 150 }, { x: 90, y: 150 });
+  bSel(a, ln); A.custCombinaRender(A.selItems());
+  eq([el("custCombUnisci").attrs["aria-disabled"], el("custCombUnisci").disabled], ["true", false], "spento ma raggiungibile da tastiera");
+  const b = A.custNuovaForma("rect", { x: 100, y: 60 }, { x: 160, y: 120 });
+  bSel(a, b); A.custCombinaRender(A.selItems()); eq(el("custCombUnisci").attrs["aria-disabled"], "false");
+  A.__focused = null; eq(A.custCombina("unisci"), true);
+  eq(A.__focused, "custFContorno", "il pannello della selezione multipla sparisce: il fuoco va su «Modifica contorno»");
+  const c = A.custNuovaForma("rect", { x: 20, y: 200 }, { x: 200, y: 260 }), d = A.custNuovaForma("rect", { x: 100, y: 180 }, { x: 120, y: 280 });
+  bSel(c, d); A.__focused = "custCombSottrai"; eq(A.custCombina("sottrai"), true);
+  eq(A.__focused, "custCombSottrai", "più pezzi: il pannello resta, il fuoco pure");
+}))));
+t("booleane (rev. 1): l'operazione in attesa della libreria è di QUELLA apertura dell'editor; una sola in attesa, con i pulsanti spenti e «Preparo le forme…»", () => conCampi((campi, el) => conContorni(() => conToast((msg) => {
+  const c0 = A.ClipperLib, k0 = A.custCaricaClipper; let attese = [];
+  try {
+    A.ClipperLib = undefined;
+    A.custCaricaClipper = () => ({ then(ok, ko) { attese.push({ ok, ko }); return this; } });
+    /* A: si chiude l'editor e lo si riapre mentre la libreria arriva; gli id ripartono uguali */
+    precEditor(400, 300);
+    let a = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 120, y: 80 }), b = A.custNuovaForma("rect", { x: 60, y: 40 }, { x: 160, y: 120 });
+    const ids = [a.id, b.id]; bSel(a, b); eq(A.custCombina("sottrai"), true);
+    A.custEditorAnnulla(); precEditor(400, 300);
+    a = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 120, y: 80 }); b = A.custNuovaForma("rect", { x: 60, y: 40 }, { x: 160, y: 120 });
+    eq([a.id, b.id], ids, "stessi id nella nuova apertura"); A.selectOne(null);
+    let prima = JSON.stringify(A.state.items); attese.shift().ok(c0);
+    eq(JSON.stringify(A.state.items), prima, "l'operazione della vecchia apertura non tocca le forme nuove"); eq(msg.length, 0, "e non dice niente");
+    /* l'editor è chiuso quando arriva: niente, e nessun messaggio fuorviante */
+    bSel(a, b); eq(A.custCombina("unisci"), true); A.custEditorAnnulla();
+    prima = JSON.stringify(A.state.items); attese.shift().ok(c0);
+    eq([JSON.stringify(A.state.items), msg.length], [prima, 0], "editor chiuso: niente cambia, niente messaggi");
+    precEditor(400, 300); a = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 120, y: 80 }); b = A.custNuovaForma("rect", { x: 60, y: 40 }, { x: 160, y: 120 });
+    bSel(a, b); eq(A.custCombina("unisci"), true); A.custEditorAnnulla(); attese.shift().ko(new Error("offline"));
+    eq(msg.length, 0, "fallita a editor chiuso: niente messaggi");
+    /* B: un secondo clic mentre si aspetta non parte; i pulsanti sono spenti con la nota */
+    precEditor(400, 300); a = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 120, y: 80 }); b = A.custNuovaForma("rect", { x: 60, y: 40 }, { x: 160, y: 120 });
+    bSel(a, b); eq(A.custCombina("unisci"), true); A.custCombinaRender(A.selItems());
+    eq([el("custCombSottrai").attrs["aria-disabled"], el("custCombNota").textContent], ["true", "Preparo le forme…"], "in attesa: spenti, e lo dice");
+    eq(A.custCombina("sottrai"), false, "il secondo clic non parte"); eq(attese.length, 1, "una sola operazione in attesa");
+    attese.shift().ok(c0);
+    eq([bForme().length, msg.pop()], [1, "Unite 2 forme."], "arriva: l'Unisci, senza il falso «le forme sono cambiate»");
+    const c = A.custNuovaForma("rect", { x: 200, y: 20 }, { x: 260, y: 80 }), d = A.custNuovaForma("rect", { x: 240, y: 40 }, { x: 300, y: 100 });
+    bSel(c, d); A.custCombinaRender(A.selItems()); eq(el("custCombSottrai").attrs["aria-disabled"], "false", "dopo, di nuovo accesi");
+    eq(A.custCombina("sottrai"), true); attese.shift().ko(new Error("offline"));
+    eq(msg.pop(), "!Serve la rete la prima volta che si combinano le forme."); eq(A.custCombina("sottrai"), true, "e si può riprovare"); eq(attese.length, 1);
+  } finally { A.ClipperLib = c0; A.custCaricaClipper = k0; }
 }))));
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
@@ -25021,6 +25109,32 @@ t("posti numerati: elenco CSV per fila dal palco, protetto dalle formule", () =>
 /* test asincroni: si accodano e si attendono prima del riepilogo (t() non aspetterebbe e un rosso passerebbe inosservato) */
 const attese = [];
 function ta(name, fn) { attese.push(Promise.resolve().then(fn).then(() => { pass++; console.log("  ✓ " + name); }, (e) => { fail++; console.log("  ✗ " + name + "\n      " + e.message); })); }
+/* Booleane (rev. 1 e 5, 20/10/2026): custCaricaClipper eseguita davvero, con un DOM e dei timer finti. Tutto il lavoro che
+   cambia i globali del sandbox avviene in un colpo solo (nessun await nel mezzo), poi si guardano gli esiti delle promesse. */
+ta("booleane (rev. 2): custCaricaClipper — caricata ma senza ClipperLib, errore, 15 s senza risposta: la promessa si azzera e si rifiuta; caricata: risolve", () => {
+  const d0 = A.document, st0 = A.setTimeout, ct0 = A.clearTimeout, c0 = A.ClipperLib, script = [], timer = [], tolti = [];
+  const esiti = [];
+  try {
+    A.document = { createElement: () => ({}), head: { appendChild: (s) => script.push(s) } };
+    A.setTimeout = (fn, ms) => { timer.push({ fn, ms }); return timer.length; }; A.clearTimeout = (id) => tolti.push(id);
+    A.ClipperLib = undefined; A.custClipperPromessa = null;
+    const p1 = A.custCaricaClipper(); eq(A.custCaricaClipper(), p1, "una promessa sola finché si aspetta"); eq(script.length, 1);
+    eq([script[0].src, timer[0].ms], ["/vendor/clipper.min.js", 15000], "lo script e l'attesa massima di 15 s");
+    script[0].onload(); eq(A.custClipperPromessa, null, "caricata ma senza ClipperLib: azzerata"); ok(tolti.includes(1), "timer tolto");
+    esiti.push(p1.then(() => "risolta", (e) => e.message));
+    const p2 = A.custCaricaClipper(); eq(script.length, 2, "si riprova con uno script nuovo");
+    script[1].onerror(); eq(A.custClipperPromessa, null); esiti.push(p2.then(() => "risolta", (e) => e.message));
+    const p3 = A.custCaricaClipper(); timer[2].fn(); eq(A.custClipperPromessa, null, "15 s senza risposta: azzerata");
+    script[2].onload();   /* arriva tardi: non cambia l'esito già dato */
+    esiti.push(p3.then(() => "risolta", (e) => e.message));
+    const p4 = A.custCaricaClipper(); A.ClipperLib = c0; script[3].onload(); ok(tolti.includes(4), "timer tolto anche quando va bene");
+    esiti.push(p4.then((L) => (L === c0 ? "risolta" : "altro")));
+  } finally { A.document = d0; A.setTimeout = st0; A.clearTimeout = ct0; A.ClipperLib = c0; A.custClipperPromessa = null; }
+  return Promise.all(esiti).then((v) => {
+    ok(/non disponibile/.test(v[0]) && /Impossibile caricare/.test(v[1]) && /non è arrivata/.test(v[2]), "i tre rifiuti: " + JSON.stringify(v.slice(0, 3)));
+    eq(v[3], "risolta");
+  });
+});
 /* Una platea con palco in alto: palco 1000×800 a x 100–1100, una pedana, 2 file da 6 sedie sotto il palco (guardano in su),
    una sedia senza numero, e dati «personali» appiccicati agli elementi (non devono MAI finire nella foto). `gradi` gira
    TUTTA la scena (posizioni, palco, pedana e rotazioni delle sedie) attorno all'origine: la foto deve uscire uguale. */
