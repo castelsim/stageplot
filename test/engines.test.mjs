@@ -12,7 +12,8 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import vm from "node:vm";
 import { inflateSync } from "node:zlib";   /* il testo dei PDF pubblicati sta in stream compressi */
-import { execFileSync } from "node:child_process";   /* per far controllare app.js al parser vero */
+import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";   /* lo SHA-256 delle librerie in vendor/ (booleane, 20/10/2026) */   /* per far controllare app.js al parser vero */
 import { datiDallaLanding } from "../ops/anteprima-social.mjs";   /* l'anteprima social si pesca dalla landing: qui si verifica che sia ancora quella */
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -11987,6 +11988,31 @@ t("contorni (minori): gli archi restano dentro la superficie ±10% come i punti 
   ok(A.custContornoCampo("freccia", "50")); R = A.custAnelliDi(ccDi(p.id))[0];
   ok(Math.abs(R[2][2] - 0.4) < 1e-5, "anche il campo Freccia: " + R[2][2]);
 }))));
+/* ===== Crea elemento — Contorni, Piano 2 (20/10/2026): Unisci / Sottrai / Interseca (clipper-lib 6.4.2) ===== */
+const clipperSrc = existsSync(join(root, "vendor/clipper.min.js")) ? readFileSync(join(root, "vendor/clipper.min.js"), "utf8") : "";
+/* la libreria si carica nel sandbox come nel browser (senza module, con document: si appende a window) */
+if (clipperSrc) { try { vm.runInContext(clipperSrc, A); } catch (e) { console.log("      clipper nel sandbox: " + e.message); } }
+const CLIPPER = A.ClipperLib;
+t("booleane: la libreria clipper-lib 6.4.2 è in vendor con la licenza, senza sourceMappingURL, con lo SHA-256 nel README e nel precache", () => {
+  ok(clipperSrc.length > 90000, "vendor/clipper.min.js c'è");
+  ok(/Boost Software License/.test(clipperSrc) && /Angus Johnson/.test(clipperSrc) && /Tom Wu/.test(clipperSrc), "l'intestazione con la licenza (Boost 1.0 chiede di tenerla) e i copyright");
+  eq(/sourceMappingURL/.test(clipperSrc), false, "la riga sourceMappingURL (puntava a jsDelivr) è tolta");
+  const sha = createHash("sha256").update(readFileSync(join(root, "vendor/clipper.min.js"))).digest("hex");
+  const rd = readFileSync(join(root, "vendor/README.md"), "utf8"), sez = rd.slice(rd.indexOf("## clipper.min.js"));
+  ok(rd.indexOf("## clipper.min.js") > -1 && sez.indexOf(sha) > -1, "lo SHA-256 della nostra copia nel README: " + sha);
+  ok(/clipper-lib@6\.4\.2\/clipper\.min\.js/.test(sez) && /Boost/.test(sez), "fonte e licenza nel README");
+  const sw = readFileSync(join(root, "sw.js"), "utf8"), pre = sw.slice(sw.indexOf("var PRECACHE = ["), sw.indexOf("];", sw.indexOf("var PRECACHE = [")));
+  ok(pre.indexOf('"/vendor/clipper.min.js"') > -1, "nel precache del service worker: offline dopo la prima visita");
+  ok(CLIPPER && CLIPPER.version === "6.4.2.2" && typeof CLIPPER.Clipper === "function" && CLIPPER.JS && typeof CLIPPER.JS.PolyTreeToExPolygons === "function", "nel sandbox la libreria si appende a window");
+});
+t("booleane: custCaricaClipper — al primo uso, un solo script da /vendor/, la promessa si azzera sull'errore (come loadQrLib)", () => {
+  ok(typeof A.custCaricaClipper === "function", "c'è");
+  const src = String(A.custCaricaClipper);
+  eq((appjs.match(/\/vendor\/clipper\.min\.js/g) || []).length, 1, "un solo punto dell'app chiede il file");
+  ok(/s\.onerror=function\(\)\{ custClipperPromessa=null;/.test(appjs), "errore: la promessa si azzera per poter riprovare");
+  ok(/if\(window\.ClipperLib\) return Promise\.resolve\(window\.ClipperLib\);/.test(src), "già caricata: subito");
+  const p = A.custCaricaClipper(); ok(p && typeof p.then === "function", "una promessa anche quando c'è già");
+});
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");
