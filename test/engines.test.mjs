@@ -476,6 +476,19 @@ t("layer Input: il pallino del musicista è maniglia del cavo, non lo sposta", (
   ok(mk.indexOf('class="hit"') < 0, "niente hit di spostamento nel layer Input");
   A.layerSoloUI = {}; A.__cabStatic = wasStatic;
 });
+t("casella «Ampli» della chitarra: toglierla non lascia lo strumento senza canali (come il pallino della catena)", () => {
+  reset();
+  const nomi = (it) => chans(it).map((c) => c.mic).join(",");
+  const g = add("gtstand", 300, 300);
+  eq(nomi(g), "SM57", "nuova: microfono sul cono, come è sempre nata");
+  A.gtrAmpCasella(g, true); eq([g.ampli, nomi(g)], [true, "SM57"], "spuntata: l'ampli si disegna, stesso canale");
+  A.gtrAmpCasella(g, false); eq([g.ampli, nomi(g)], [false, "DI"], "tolta: torna la linea in DI, non zero canali");
+  ok(A.diLinked(g), "e la DI c'è sul palco");
+  A.gtrAmpCasella(g, true); eq(nomi(g), "DI,SM57", "rimessa: si riprende anche l'ampli col microfono");
+  const b = add("bassstand", 600, 300);
+  A.gtrAmpCasella(b, true); A.gtrAmpCasella(b, false); eq(nomi(b), "DI", "basso: la sua linea resta");
+  ok(/getElementById\("pGtrAmp"\)\.addEventListener\("change", function\(\)\{ var on=this\.checked; mutSel\(function\(it\)\{ gtrAmpCasella\(it, on\);/.test(appjs), "la casella passa da gtrAmpCasella");
+});
 t("ascolto: tastiera, Hammond, DJ, timpani e mallets sono musicisti (segnalazione 19/10)", () => {
   reset();
   // Un utente ha selezionato una «Tastiera» e non trovava dove dirle con cosa si ascolta: non era un musicista.
