@@ -476,6 +476,28 @@ t("layer Input: il pallino del musicista è maniglia del cavo, non lo sposta", (
   ok(mk.indexOf('class="hit"') < 0, "niente hit di spostamento nel layer Input");
   A.layerSoloUI = {}; A.__cabStatic = wasStatic;
 });
+t("ascolto: tastiera, Hammond, DJ, timpani e mallets sono musicisti (segnalazione 19/10)", () => {
+  reset();
+  // Un utente ha selezionato una «Tastiera» e non trovava dove dirle con cosa si ascolta: non era un musicista.
+  ["tastiera", "organohammond", "djset", "timpani", "timpani2", "timpani3", "glockenspiel", "xilofono", "vibrafono", "marimba",
+   "musTastiera", "musPianoGranCoda", "musPianoMezzaCoda", "musFisarmonica", "musChitElettrica", "musChitAcustica",
+   "musChitClassica", "musBasso", "musBatteria", "musTimpani", "musPercussioni"].forEach((ty) => {
+    ok(A.TYPES[ty], ty + " esiste nel catalogo");
+    ok(A.isPerformer({ type: ty }), ty + " è suonato da una persona");
+    ok(A.ascoltoEligible({ type: ty }), ty + " può avere il suo ascolto");
+  });
+  ok(A.ascoltoEligible({ type: "musDirettore" }), "il direttore illustrato come quello schematico");
+  // ma gli accessori e i pezzi singoli restano fuori: non sono una persona in più da far sentire
+  ["controllermidi", "panchetta", "pedaliera", "keysamp", "conga", "kickR", "stoolR", "drumshield"].forEach((ty) => {
+    ok(!A.isPerformer({ type: ty }), ty + " NON è un musicista");
+  });
+  const k = add("tastiera", 400, 300);
+  A.setAscolto(k, "cuffie");
+  const mon = A.state.items.find((x) => x.id === k.ascoltoId);
+  ok(k.ascolto === "cuffie" && mon && mon.type === "cuffie", "la tastiera riceve le sue cuffie collegate");
+  eq(A.performerSpots().filter((s) => s.id === k.id).length, 1, "e la proposta automatica dei monitor la conta");
+  eq(A.performerKind(k), "tastiere", "come tastierista");
+});
 t("ascolto per performer: crea/sostituisce/rimuove il monitor collegato", () => {
   reset();
   const v = add("cantante", 400, 300);
@@ -11318,8 +11340,8 @@ const ccNorm = (shapes, w, d) => A.custNorm({ type: "custom", w: w || 400, d: d 
 t("contorni: i limiti nuovi e l'interruttore SPENTO (un letterale, come custIngressiAttivi)", () => {
   const L = A.custLimiti();
   eq([L.PUNTI, L.FORI, L.PUNTI_FORMA, L.PUNTI_EL, L.FORME, L.FORME_BYTE, L.JSON_REV], [200, 50, 1000, 40000, 200, 262144, 300000]);
-  eq(A.custContorniAttivi(), false, "fase 1: spento");
-  ok(/function custContorniAttivi\(\)\{ return false; \}/.test(appjs), "una funzione che torna un letterale");
+  eq(A.custContorniAttivi(), true, "fase 2 (PR 2, accensione): acceso");
+  ok(/function custContorniAttivi\(\)\{ return true; \}/.test(appjs), "una funzione che torna un letterale");
 });
 t("contorni: custNorm legge la curvatura [x, y, b] — tagliata a ±1, al milionesimo, sotto 1e-6 o non numero = lato dritto", () => {
   const g = ccNorm([ccPoly([[10, 10, 0.5], [50, 10, 3], [50, 40, -7], [10, 40, "abc"], [5, 30, null], [5, 20, 1e-9], [5, 15, "0.25"], [5, 12, 0.1234567891]])])[0];
@@ -11525,6 +11547,36 @@ t("contorni (rev.): L e P scritti su una forma con archi danno l'ingombro VERO; 
   ok(/custRiallinea\(_rz\)/.test(appjs), "il rilascio della maniglia la chiama");
   const r = ccForma({ k: "poly", pts: [[0, 0], [40, 0], [20, 30]] }); eq(A.custRiallinea(r), false, "senza archi non serve");
 }));
+t("contorni (accensione): L/P del pannello e maniglie non portano un arco oltre la superficie ±10%, anche ruotato", () => conCampi(() => {
+  precEditor(400, 300);   /* superficie 400×300: i punti e gli archi stanno fra -40 e 440 / 340 */
+  const box = A.custBoxSup(); eq([box.x1, box.y1, box.x2, box.y2], [-40, -40, 440, 340]);
+  const dentro = (it) => { const b = A.custIngombro(ccDi(it.id)); return b.x1 >= -40 - 1e-4 && b.y1 >= -40 - 1e-4 && b.x2 <= 440 + 1e-4 && b.y2 <= 340 + 1e-4; };
+  /* L e P tengono fermo l'angolo in alto a sinistra dell'ingombro: si cresce verso destra e verso il basso */
+  const it = ccForma({ k: "poly", pts: [[20, 200], [20, 290, 0.6], [120, 290], [120, 200]] });   /* il lato in basso si gonfia in giù di 30: fino a 320 */
+  eq(r6(A.custIngombro(ccDi(it.id)).y2), 320, "prima: dentro");
+  ok(A.custFormaCampo("w", "300"), "L = 300: la freccia vorrebbe 90 cm, fino a 380");
+  ok(dentro(it), "l'arco si ferma al bordo della superficie ±10%");
+  const bu = A.custFormaDaShape(ccDi(it.id)).pts.find((p) => p[2]);
+  ok(bu && bu[2] > 0 && bu[2] < 0.6, "stesso verso, più piatto (" + (bu && bu[2]) + ")");
+  ok(Math.abs(A.custIngombro(ccDi(it.id)).y2 - 340) < 0.01, "e arriva al bordo, non oltre né molto prima");
+  const q = ccForma({ k: "poly", pts: [[250, 230], [250, 280, 0.8], [330, 280], [330, 230]] });   /* in giù di 32: fino a 312 */
+  ccDi(q.id).w = ccDi(q.id).w * 2.5; A.custRiallinea(ccDi(q.id)); A.custArchiAlBordo(ccDi(q.id));   /* come il rilascio della maniglia del lato destro: corda 200, freccia 80 */
+  ok(/custRiallinea\(_rz\); custArchiAlBordo\(_rz\);/.test(appjs), "il rilascio della maniglia chiama tutte e due");
+  ok(dentro(q), "maniglia: anche");
+  ok(Math.abs(A.custIngombro(ccDi(q.id)).y2 - 340) < 0.01, "fino al bordo");
+  /* ruotata: il controllo si fa sulla forma come la si vede. Un quadrato di 60 attorno a (400, 150) con mezzo cerchio sul lato
+     in alto: senza rotazione sta dentro; girato di ±90° il mezzo cerchio va a destra (oltre 440) o a sinistra (dentro). */
+  const R = [[370, 120], [370, 180], [430, 180], [430, 120, 1]];
+  eq(A.custArchiDentroLocale([R], 400, 150, 0)[0], R, "dritta: niente da toccare");
+  const mondo = (an, rot) => A.custIngombroAnelli(an.map((X) => X.map((p) => { const w = A.rotatePointAround(p[0], p[1], 400, 150, rot); return p[2] ? [w[0], w[1], p[2]] : w; })));
+  const due = [90, -90].map((rot) => { const an = A.custArchiDentroLocale([R], 400, 150, rot); const g = mondo(an, rot); ok(g.x2 <= 440 + 1e-4, rot + "°: dentro (" + g.x2 + ")"); return an[0][3][2]; });
+  ok((due[0] === 1) !== (due[1] === 1), "da una parte si appiattisce, dall'altra no: " + due.join(" / "));
+  eq(A.custArchiDentroLocale([R], 400, 150, 90)[0].map((p) => p.slice(0, 2)), R.map((p) => p.slice(0, 2)), "i punti restano quelli");
+  const fuori = ccForma({ k: "poly", pts: [[-60, 100], [-60, 200], [20, 200], [20, 100, 0.4]] });   /* un capo già oltre il bordo */
+  const b0 = A.custFormaDaShape(ccDi(fuori.id)).pts[3][2];
+  eq(A.custArchiAlBordo(ccDi(fuori.id)), false, "niente da fare");
+  eq(A.custFormaDaShape(ccDi(fuori.id)).pts[3][2], b0, "un arco con un capo già fuori non si appiattisce per colpa del punto");
+}));
 t("contorni (rev.): nell'editor Annulla/Ripeti, Duplica, Copia/Incolla e Salva tengono archi e fori; anche il modello e la copia posata", () => conCampi((campi, el) => {
   precEditor(300, 200);
   const it = ccForma({ k: "poly", pts: [[20, 20, 0.5], [120, 20], [120, 80, -0.3], [20, 80]], holes: [[[50, 40], [70, 40], [60, 60, 0.2]]] });
@@ -11621,8 +11673,10 @@ t("contorni: con 200 forme da 50 punti con archi l'aggancio sta largo dentro un 
   ok(tB < 500, "bersagli " + tB.toFixed(1) + " ms, una volta per gesto (65 ms sul Mac; CI ~3× più lenta)");
 });
 /* l'interruttore acceso solo dentro la prova (in produzione resta spento fino alla PR di accensione) */
+/* PR 2 (accensione): l'interruttore è acceso; per provare la strada spenta (per spegnere: false, mai un revert) */
+function conSpenti(fn) { const prima = A.custContorniAttivi; A.custContorniAttivi = () => false; try { return fn(); } finally { A.custContorniAttivi = prima; A.__custContorno = null; } }
 function conContorni(fn) { const prima = A.custContorniAttivi; A.custContorniAttivi = () => true; try { return fn(); } finally { A.custContorniAttivi = prima; A.__custContorno = null; } }
-t("contorni: interruttore SPENTO — doppio clic e «Modifica contorno» non entrano; i pulsanti nuovi non si vedono; archi e fori si disegnano lo stesso", () => conCampi((campi, el) => {
+t("contorni: interruttore SPENTO — doppio clic e «Modifica contorno» non entrano; i pulsanti nuovi non si vedono; archi e fori si disegnano lo stesso", () => conSpenti(() => conCampi((campi, el) => {
   precEditor(300, 200);
   const r = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 120, y: 80 }); A.selectOne(r.id); A.render();
   eq(A.custContornoEntra(r.id), false, "spento: non si entra"); eq(A.__custContorno, null);
@@ -11630,7 +11684,7 @@ t("contorni: interruttore SPENTO — doppio clic e «Modifica contorno» non ent
   eq([el("custFormaCc").hidden, el("custContorno").hidden], [true, true], "niente «Modifica contorno», niente sezione Contorno");
   const p = ccForma({ k: "poly", pts: [[150, 20, 0.5], [250, 20], [250, 80]], holes: [[[200, 40], [220, 40], [210, 60]]] });
   ok(/fill-rule="evenodd"/.test(A.TYPES.custshape.draw(p)), "le forme con archi e fori si disegnano anche a interruttore spento");
-}));
+})));
 t("contorni: si entra (una sola forma), le maniglie sono punti, tondi e lati; niente maniglie dell'ingombro; Fine esce e la forma resta selezionata", () => conCampi((campi, el) => conContorni(() => {
   precEditor(300, 200);
   const r = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 120, y: 80 }); A.selectOne(r.id);
