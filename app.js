@@ -535,17 +535,21 @@ function dirSize(it){ return (it&&it.podio) ? [120,120] : [90,114]; }   /* diret
 function explodeGuitar(){
   var it=getSel(), t=it&&TYPES[it.type]; if(!t||!t.gtr) return;
   var kind=t.gtr, base=it.label?it.label+" ":"", pcs=[], seated=it.sedia;
-  pcs.push({type:it.type, dx:seated?GTR_GX:0, dy:seated?GTR_GY:0, label:it.label||"", extra:{sedia:false,leggio:false,ampli:false}});   /* chitarra (di fianco e a livello sedia) */
+  /* la chitarra resta LEI (stesso id, catena, DI, ascolto: 20/10/2026, prima nasceva nuova con ampli:false e un'elettrica
+     usciva dalla channel list); perde solo i pezzi che diventano elementi a parte */
+  var gx={sedia:false, leggio:false}; if(it.ampli) gx.ampli=false; if(it.pedaliera) gx.pedaliera=false;
+  pcs.push({type:it.type, dx:seated?GTR_GX:0, dy:seated?GTR_GY:0, label:it.label||"", extra:gx, stessa:true});   /* chitarra (di fianco e a livello sedia) */
   if(seated) pcs.push({type:"sedia", dx:0, dy:-25, label:""});
   if(it.leggio) pcs.push({type:"leggio", dx:0, dy:gtrLeggioY(it,kind), label:""});
   if(it.ampli) pcs.push({type:"comboamp",dx:-43, dy:-88, rot:-30, label:base+"Ampli"});
   if(it.pedaliera) pcs.push({type:"pedaliera", dx:0, dy:(seated?72:64), label:base+"Pedalboard"});
   var rot=(it.rot||0)*Math.PI/180, c=Math.cos(rot), s=Math.sin(rot), made=[];
   pcs.forEach(function(pc){ var T=TYPES[pc.type]; if(!T) return;
-    var ni={id:uid(), type:pc.type, x:Math.round(it.x+(pc.dx*c-pc.dy*s)), y:Math.round(it.y+(pc.dx*s+pc.dy*c)),
-            rot:((it.rot||0)+(pc.rot||0)), w:T.w, d:T.d, label:pc.label||""};
+    var pos={x:Math.round(it.x+(pc.dx*c-pc.dy*s)), y:Math.round(it.y+(pc.dx*s+pc.dy*c)), rot:((it.rot||0)+(pc.rot||0))};
+    var ni=pc.stessa ? Object.assign(JSON.parse(JSON.stringify(it)), pos) : Object.assign({id:uid(), type:pc.type, w:T.w, d:T.d, label:pc.label||""}, pos);
     if(T.riser) ni.h=T.h||40;
     if(pc.extra) Object.keys(pc.extra).forEach(function(k){ ni[k]=pc.extra[k]; });
+    if(pc.stessa){ var sz=gtrSize(ni, T); ni.w=sz[0]; ni.d=sz[1]; delete ni.diOff; }   /* ingombro senza i pezzi staccati; la DI torna al suo posto */
     if(ni.label && pc.type!==it.type) ni.labelMode="hidden";   /* ampli e pedaliera staccati: nome nascosto (26/09); la chitarra tiene il suo */
     made.push(ni);
   });

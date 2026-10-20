@@ -22553,6 +22553,33 @@ t("il kit di batteria si compone dal pannello, e i microfoni seguono i pezzi", (
   ok(/\["full","Completa \(un mic per pezzo\)"\]/.test(appjs), "e la microfonazione dice cosa fa");
 });
 
+t("Scomponi la chitarra: la chitarra resta la stessa (id, canali, DI, catena); l'ampli staccato porta il suo canale", () => {
+  /* 20/10: il pezzo chitarra nasceva nuovo con ampli:false — una chitarra elettrica (SM57 sul cono di serie) usciva dalla
+     channel list, e le scelte della catena, la DI e l'ascolto si perdevano. Nei progetti del collaudo: 25 chitarre così. */
+  reset();
+  const mic = (it) => chans(it).map((c) => c.mic).join(",");
+  const g = add("gtstand", 400, 300); g.sedia = true; g.label = "Gtr"; A.gtrApply(g);
+  eq(mic(g), "SM57", "premessa: elettrica nuova, microfono sul cono");
+  A.selectOne(g.id); A.explodeGuitar();
+  const pg = A.state.items.find((i) => i.type === "gtstand");
+  eq([pg.id, pg.label, pg.sedia], [g.id, "Gtr", false], "stessa chitarra, la sedia è un pezzo a parte");
+  eq(mic(pg), "SM57", "e il suo canale c'è ancora (prima: nessuno)");
+  ok(A.state.items.some((i) => i.type === "sedia"), "la sedia staccata");
+  reset();
+  const b = add("gtstand", 400, 300); b.sedia = true; A.chainToggle(b, "line"); A.setAscolto(b, "wedge"); A.gtrApply(b);
+  const di = A.diLinked(b), asc = b.ascoltoId; ok(di && asc, "premessa: linea in DI e spia");
+  A.selectOne(b.id); A.explodeGuitar();
+  const pb = A.state.items.find((i) => i.type === "gtstand");
+  eq([pb.id, pb.diId, pb.ascoltoId, mic(pb)], [b.id, di.id, asc, "DI,SM57"], "DI, spia e prelievi restano suoi");
+  reset();
+  const a = add("gtstand", 400, 300); A.gtrAmpCasella(a, true); a.pedaliera = true; A.gtrApply(a);
+  A.selectOne(a.id); A.explodeGuitar();
+  const pa = A.state.items.find((i) => i.type === "gtstand"), combo = A.state.items.find((i) => i.type === "comboamp");
+  ok(combo && chans(combo).length >= 1, "l'ampli staccato è un combo col suo canale");
+  eq([pa.ampli, pa.pedaliera], [false, false], "la chitarra non disegna più ampli e pedaliera: sono pezzi a parte");
+  ok(A.state.items.some((i) => i.type === "pedaliera"), "la pedaliera staccata");
+  eq(A.strumentiSenzaRipresa ? A.strumentiSenzaRipresa().length : 0, 0, "nessuno strumento senza ripresa");
+});
 t("dividere uno strumento non riempie il palco di nomi: restano, ma nascosti", () => {
   /* 26/09 — Simone: «quando si dividono gli strumenti i nomi vanno tolti in automatico e se l'utente li vuole li rimette» */
   reset();
