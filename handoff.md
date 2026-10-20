@@ -1,3 +1,24 @@
+# 20/10/2026 — ascolto per le tastiere, contorni accesi, esemplari online, chitarre senza canale
+
+- **#324** (segnalazione dall'app del 19/10): `isPerformer` non contava Tastiera, Organo Hammond, DJ set, timpani,
+  glockenspiel, xilofono, vibrafono, marimba e le figure `mus*` → niente Ascolto nel pannello e fuori dalla proposta dei
+  monitor. Tabella `SUONATI_ALTRI` (solo lo strumento principale: accessori e pezzi singoli fuori); `musDirettore` come `direttore`.
+- **#325 contorni ACCESI** (`custContorniAttivi()` = true; per spegnere `false`, mai revert). L/P del pannello e rilascio della
+  maniglia appiattiscono gli archi che uscirebbero dalla superficie ±10% (`custArchiAlBordo` → `custArchiDentroLocale`): a gesto
+  FINITO, perché L/P scalano attorno al centro e poi riancorano l'angolo in alto a sinistra (a metà strada i punti possono stare
+  fuori), e sulla forma ruotata; cambiano solo i bulge, un lato con un capo fuori non si tocca. Il test dell'interruttore spento
+  ora forza `false` (`conSpenti`).
+- **#326 es-insieme**: legami rimappati in Duplica/Incolla (`rimappaLegamiCopie`), DI posata accanto a uno strumento unico che
+  si aggancia (`diAgganciaAllaPosa`, toast con Annulla), catalogo (loop station, theremin, sync, ambone, violinista in piedi,
+  laptop su tavolo, «Centro»), pedane-zona → «Trasforma in Area con nome», quota con testo + misura, «Cosa cambia rispetto a…».
+- **#327** casella «Ampli»: scriveva solo `it.ampli`; spuntata e tolta su un'elettrica (SM57 sul cono di serie) lasciava zero
+  canali. Ora `gtrAmpCasella` → `chainToggle(it,"amp")` quando cambia l'ampli della catena (niente ampli = torna la linea).
+- **#328** «Scomponi» la chitarra: il pezzo chitarra nasceva nuovo con `ampli:false` (elettrica fuori dalla channel list, catena,
+  DI e spia perse). Ora è la stessa chitarra (stesso id), perde solo i pezzi staccati. Nei 30 progetti del collaudo ci sono
+  **25 elettriche senza canale** con questa firma: le segnala l'avviso «strumento senza ripresa» di #329.
+- **#329 es-audit** (aperta): avvisi «doppioni sovrapposti» e «strumento senza ripresa»; cambia gli avvisi di 17 progetti del
+  collaudo (tutti veri) → prima del merge Simone lancia `node test/collaudo.test.mjs --aggiorna`.
+
 # 17/10/2026 — Crea elemento, Contorni: lettore e gesti spenti (Piano 1, PR 1, ramo `crea-elemento-contorni`)
 
 - Simone (14-16/10): «più libertà di disegnare». Spec `crea-elemento-registro/tappa-contorni/2026-10-16-crea-elemento-contorni-design.md`
