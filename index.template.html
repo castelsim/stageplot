@@ -9726,7 +9726,7 @@ function custIngressiAttivi(){ return true; }   /* FASE 2 (14/10/2026): acceso d
    archi e fori, ma nessun gesto li crea (doppio clic, «Modifica contorno», Arrotonda restano spenti). Un'app vecchia che
    salva un contorno lo perde (archi dritti, fori via): prima tutti devono avere quella nuova. FASE 2 (24–48 h dopo, dopo il
    deploy di submit-feedback): true. Per spegnere dopo: false, MAI un revert (i progetti con archi devono restare leggibili). */
-function custContorniAttivi(){ return false; }
+function custContorniAttivi(){ return true; }
 function custLimiti(){ return {NOME:60, DESC:280, TESTO:140, FORME:200, PUNTI:200, WATT:20000, INS:16, MIN:10, MEMBRO:4096, MODELLI:50, FORME_BYTE:262144,
   FORI:50, PUNTI_FORMA:1000, PUNTI_EL:40000, JSON_REV:300000}; }   /* Contorni: fori per forma, punti per forma (contorno + fori), punti per elemento, caratteri del JSON di revisione */
 /* un numero vero: un number finito, o una stringa numerica non vuota. null (da JSON), "", true, [] NON sono 0: si scartano */
@@ -10480,6 +10480,7 @@ function custImpostaGeometria(it, campo, v, sup){
     else if(it.k==="poly" && custHaCurve(it)) custScalaVera(it, campo, v);   /* Contorni: L e P = ingombro vero */
     else it[campo]=v;
     var nb=custIngombro(it); it.x=custR6(it.x+bb.x1-nb.x1); it.y=custR6(it.y+bb.y1-nb.y1);
+    custArchiAlBordo(it);
     return true;
   }
   return false;
@@ -10835,6 +10836,17 @@ function custScriviAnelli(it, anelli){
 }
 /* dopo un ridimensionamento (E13: i punti si scalano, i bulge restano) l'ingombro si rifà dalla geometria vera; la
    rotazione della maniglia resta. Solo per le poly con archi o fori: le altre hanno già l'ingombro giusto. */
+/* a gesto FINITO (L/P scritti, maniglia rilasciata), con la forma già al suo posto: un arco che esce dalla superficie ±10%
+   si appiattisce fino al bordo, come per il tondo (§3.3). Non prima: L e P scalano attorno al centro e solo dopo rimettono
+   l'angolo in alto a sinistra, e a metà strada i punti possono stare fuori. I punti non si muovono (custScriviLocale tiene
+   la loro posizione sulla superficie). → true se ha cambiato qualcosa */
+function custArchiAlBordo(it){
+  if(!it || it.type!=="custshape" || it.k!=="poly" || !custHaCurve(it)) return false;
+  var g=custFormaDaShape(Object.assign({}, it, {rot:0})); if(!g) return false;
+  var an=[g.pts].concat(g.holes||[]), nu=custArchiDentroLocale(an, it.x, it.y, +it.rot||0);
+  if(nu.every(function(R, i){ return R===an[i]; })) return false;
+  return custScriviLocale(it, nu);
+}
 function custRiallinea(it){
   if(!it || it.type!=="custshape" || it.k!=="poly" || !custHaCurve(it)) return false;
   var g=custFormaDaShape(Object.assign({}, it, {rot:0}));
@@ -10848,6 +10860,24 @@ function custScriviLocale(it, anelli){
   it.x=c[0]; it.y=c[1]; it.w=n.w; it.d=n.d; it.pts=n.pts;
   if(n.holes) it.holes=n.holes; else delete it.holes;
   return true;
+}
+/* custArchiDentro per anelli SENZA la rotazione della forma (attorno a cx, cy): il controllo si fa sulla forma ruotata, come
+   la si vede, e degli anelli cambiano solo i bulge (i punti restano al milionesimo). Un lato con un capo già fuori dal
+   riquadro non si tocca: appiattirlo non lo farebbe rientrare. */
+function custArchiDentroLocale(anelli, cx, cy, rot){
+  var box=custBoxSup(), EPS=1e-5;
+  var dentro=function(p){ return p[0]>=box.x1-EPS && p[1]>=box.y1-EPS && p[0]<=box.x2+EPS && p[1]<=box.y2+EPS; };
+  return anelli.map(function(R){
+    var W=rot ? R.map(function(p){ var q=rotatePointAround(p[0], p[1], cx, cy, rot); return +p[2] ? [q[0], q[1], p[2]] : q; }) : R;
+    var F=custArchiDentro(W, box); if(F===W) return R;
+    var out=R, n=R.length;
+    for(var i=0;i<n;i++){
+      var b0=+R[i][2]||0, b=+F[i][2]||0; if(b===b0 || !dentro(W[i]) || !dentro(W[(i+1)%n])) continue;
+      if(out===R) out=custCopiaAnello(R);
+      out[i]=b ? [R[i][0], R[i][1], b] : [R[i][0], R[i][1]];
+    }
+    return out;
+  });
 }
 /* L o P scritti su una poly con archi o fori: la scala dei punti lungo quell'asse che dà l'ingombro VERO v (gli archi restano
    archi di cerchio, E13, e l'ingombro non cresce in proporzione: bisezione). Se v non si raggiunge (gli archi da soli sono
@@ -23223,7 +23253,7 @@ svg.addEventListener("pointerup", function(e){
   if(drag && drag.mode==="itemresize"){ if(drag.moved){
       var _rz=state.items.find(function(i){ return i.id===drag.id; });
       if(_rz && _rz.type==="custshape" && _rz.k==="text") _rz.w=custTestoLargo(_rz.s, _rz.d/1.3);   /* testo: l'altezza fa il corpo, la larghezza la riga */
-      custRiallinea(_rz);   /* Contorni: una forma con archi o fori riprende l'ingombro vero (E12) */
+      custRiallinea(_rz); custArchiAlBordo(_rz);   /* Contorni: ingombro vero (E12), archi dentro la superficie ±10% */
       save(); ensureVisible(); } render(); drag=null; return; }
   if(drag && drag.mode==="metroend"){ if(drag.moved){ save(); ensureVisible(); } render(); drag=null; return; }
   if(drag && drag.mode==="custcapo"){ custCapoRilascio(); return; }
