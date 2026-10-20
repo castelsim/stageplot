@@ -9313,6 +9313,7 @@ function custApriEditor(area, incl, baseId){
   var prima={vb:Object.assign({}, vb), utente:vistaUtente};
   if(!custEditorApri(area, baseId!=null ? {baseId:baseId} : {includi:Array.isArray(incl) ? incl : !!incl})){ custToast("Non è stato possibile aprire l'editor: il palco non è cambiato.", true); return false; }
   custVistaPrima=prima; custStatoIniziale=stateToJSON();
+  custCombCurveDette=false;   /* «le curve sono diventate lati» si dice una volta per apertura */
   custStrumento("sel"); custRenderEditor();
   return true;
 }
@@ -10660,6 +10661,63 @@ function custArrotondaForma(it, r){
   custToast(rid ? rid+(rid===1 ? " angolo con raggio ridotto." : " angoli con raggio ridotto.") : "Angoli arrotondati."); a11yAnnounce("Angoli arrotondati");
   return true;
 }
+/* ---------- CONTORNI, Piano 2 (20/10/2026): «Combina le forme» — Unisci in una forma / Sottrai / Interseca ----------
+   Nel pannello della selezione multipla, solo nell'editor e con l'interruttore dei contorni. Si combinano solo rettangoli,
+   ellissi e poligoni (E20); il risultato prende stile e posto della forma più in basso (E21) e resta selezionato. Un'operazione
+   riuscita = un passo di Annulla; tutto il resto (vuoto, niente da fare, limiti, errori) non cambia niente e lo dice. */
+var custCombCurveDette=false;
+/* le forme da combinare, nell'ordine in cui si vedono (la prima è la più in basso); null se non si può */
+function custCombinabili(its){
+  if(!its || its.length<2 || !its.every(custContornoAmmesso)) return null;
+  return state.items.filter(function(x){ return its.indexOf(x)>=0; });
+}
+function custCombinaRender(its){
+  var gg=document.getElementById("grpGroup");   /* «▣ Unisci» RAGGRUPPA: nell'editor, accanto a «Unisci in una forma», lo dice (E28) */
+  if(gg) gg.title=custEditorAttivo() ? "Raggruppa: si muovono insieme, restano forme separate" : "";
+  var box=custEl("custCombina"); if(!box) return;
+  var on=custEditorAttivo() && custContorniAttivi(); box.hidden=!on; if(!on) return;
+  var si=!!custCombinabili(its);
+  ["custCombUnisci", "custCombSottrai", "custCombInterseca"].forEach(function(id){ var b=custEl(id); if(b) b.disabled=!si; });
+  var nt=custEl("custCombNota"); if(nt) nt.textContent=si ? "Il risultato prende colori e posto della forma più in basso." : "Combina solo rettangoli, ellissi e poligoni.";
+}
+function custCombinaDetto(msg, err){ custToast(msg, err); a11yAnnounce(msg); }
+/* il clic: gli id si prendono ADESSO; la libreria al primo uso si scarica (poi è subito lì) */
+function custCombina(op){
+  if(!custContorniAttivi() || !custEditorAttivo()) return false;
+  var fs=custCombinabili(selItems()); if(!fs){ custCombinaDetto("Combina solo rettangoli, ellissi e poligoni.", true); return false; }
+  var ids=fs.map(function(x){ return x.id; });
+  if(window.ClipperLib) return custCombinaCon(op, ids, window.ClipperLib);
+  custCaricaClipper().then(function(CL){ custCombinaCon(op, ids, CL); },
+    function(e){ try{ console.error(e); }catch(_e){} custCombinaDetto("Serve la rete la prima volta che si combinano le forme.", true); });
+  return true;
+}
+/* l'operazione sulle forme del clic, rilette per id (una sparita nel frattempo = niente) */
+function custCombinaCon(op, ids, CL){
+  if(!custContorniAttivi() || !custEditorAttivo()) return false;
+  var fs=state.items.filter(function(x){ return ids.indexOf(x.id)>=0; });
+  if(fs.length!==ids.length || !custCombinabili(fs)){ custCombinaDetto("Le forme sono cambiate nel frattempo: non ho combinato niente.", true); return false; }
+  var ris=custBooleana(op, fs.map(custFormaDaShape), CL);
+  if(ris.errore){ try{ console.error("Combina le forme:", ris.errore); }catch(_e){} }
+  if(ris.esito!=="ok"){ custCombinaDetto(custBooleanaMessaggio(op, ris, fs.length), true); return false; }
+  var L=custLimiti(), base=fs[0], via={};
+  ids.forEach(function(id){ via[id]=true; });
+  var nuove=ris.pezzi.map(function(pz){ return custShapeDaForma({k:"poly", pts:pz.pts, holes:pz.holes, fill:base.fill, stroke:base.stroke, sw:base.sw}); });
+  if(!nuove.length || nuove.some(function(x){ return !x; })){ custCombinaDetto(custBooleanaMessaggio(op, {esito:"errore"}, fs.length), true); return false; }
+  var forme=state.items.filter(function(x){ return x.type==="custshape" && !via[x.id]; }).length+nuove.length;
+  if(forme>L.FORME){ custCombinaDetto("Al massimo "+L.FORME+" forme per elemento.", true); return false; }
+  var punti=state.items.reduce(function(s, x){ return s+(via[x.id] ? 0 : custPuntiDi(x)); }, 0)+nuove.reduce(function(s, x){ return s+custPuntiDi(x); }, 0);
+  if(punti>L.PUNTI_EL){ custCombinaDetto("Al massimo "+custMigliaia(L.PUNTI_EL)+" punti per elemento.", true); return false; }
+  primaDiAgire();
+  /* la forma più in basso era raggruppata con altre che restano: il risultato resta nel gruppo */
+  if(base.grp && state.items.some(function(x){ return x.grp===base.grp && !via[x.id]; })) nuove.forEach(function(x){ x.grp=base.grp; });
+  var pos=state.items.indexOf(base), resta=function(x){ return !via[x.id]; };
+  state.items=state.items.slice(0, pos).filter(resta).concat(nuove, state.items.slice(pos+1).filter(resta));
+  sel=nuove[0].id; selSet={}; nuove.forEach(function(x){ selSet[x.id]=true; });
+  render(); save();
+  var curve=!!ris.curvePerse && !custCombCurveDette; if(curve) custCombCurveDette=true;
+  custCombinaDetto(custBooleanaMessaggio(op, ris, fs.length, curve));
+  return true;
+}
 function custContornoTogliForo(){
   var K=custContorno(); if(!K || !(K.C.r>0)) return false;
   var an=custAnelliDi(K.it); if(!an[K.C.r]) return false;
@@ -10781,6 +10839,9 @@ function custBlocca(){ if(!custEditorAttivo()) return false; custEditorAvvisa();
   });
   on("custFContorno", "click", function(){ var it=getSel(); if(it) custContornoEntra(it.id); });
   on("custFArrotonda", "click", function(){ var it=getSel(), f=custEl("custFRaggio"), v=f ? custNumeroDigitato(f.value) : null; if(it) custArrotondaForma(it, v!=null && v>0 ? v : custCcRaggio); });
+  on("custCombUnisci", "click", function(){ custCombina("unisci"); });
+  on("custCombSottrai", "click", function(){ custCombina("sottrai"); });
+  on("custCombInterseca", "click", function(){ custCombina("interseca"); });
   on("custCcFine", "click", function(){ custContornoEsci(); });
   on("custCcPPrec", "click", function(){ custContornoNaviga("punto", -1); });
   on("custCcPSucc", "click", function(){ custContornoNaviga("punto", 1); });
@@ -16609,6 +16670,7 @@ function renderProps(){
     document.getElementById("grpNome").textContent = _cs && _cs.intero ? _cs.base.cust.nome : n+" elementi selezionati";
     setPeekName(_cs && _cs.intero ? _cs.base.cust.nome : n+" elementi");
     custPannello("grp", _cs ? _cs.base : null);
+    custCombinaRender(its);   /* Contorni, Piano 2: «Combina le forme» (solo nell'editor) */
     /* Specchia su più elementi = ribalta la DISPOSIZIONE: vale anche per una selezione di soli testi,
        che si spostano senza ribaltarsi. Qui non è un interruttore ma un'azione: niente stato acceso. */
     var gmir=document.getElementById("grpMirror");
