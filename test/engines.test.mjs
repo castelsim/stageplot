@@ -12052,6 +12052,119 @@ t("booleane: custSemplifica — sotto i limiti anelli identici e scarto 0; oltre
   const zz = []; for (let i = 0; i < 400; i++) zz.push([i * 10, (i % 2) * 20]);
   eq(A.custSemplifica([zz], 200, 1000), null, "uno zig-zag di 20 cm non scende a 200 punti entro 5 cm: null");
 });
+/* forme in cm come le dà custFormaDaShape: la prima della lista è la più in basso */
+const bq = (x, y, w, h, extra) => Object.assign({ k: "rect", x, y, w, h }, CC_ST, extra || {});
+const bc = (cx, cy, r) => Object.assign({ k: "ell", cx, cy, rx: r, ry: r }, CC_ST);
+const bp = (pts, holes) => Object.assign({ k: "poly", pts }, CC_ST, holes ? { holes } : {});
+const bArea = (pz) => Math.abs(A.custAreaAnello(pz.pts)) - (pz.holes || []).reduce((s, h) => s + Math.abs(A.custAreaAnello(h)), 0);
+const bTot = (r) => r.pezzi.reduce((s, pz) => s + bArea(pz), 0);
+const bOp = (op, ...forme) => A.custBooleana(op, forme, CLIPPER);
+t("booleane: Unisci — due quadrati sovrapposti un pezzo con l'area giusta; due affiancati un rettangolo di 4 punti; lontani «niente»", () => {
+  const r = bOp("unisci", bq(0, 0, 100, 100), bq(50, 50, 100, 100));
+  eq([r.esito, r.pezzi.length, r.pezzi[0].holes.length], ["ok", 1, 0]);
+  ok(Math.abs(bArea(r.pezzi[0]) - 17500) < 0.5, "area " + bArea(r.pezzi[0]));
+  eq([r.curvePerse, r.semplificato], [false, null], "niente curve da perdere, niente da semplificare");
+  const f = bOp("unisci", bq(0, 0, 100, 100), bq(100, 0, 100, 100));
+  eq([f.esito, f.pezzi.length, f.pezzi[0].pts.length, bArea(f.pezzi[0])], ["ok", 1, 4, 20000], "affiancati: un rettangolo di 4 punti (la pulizia toglie i punti in mezzo ai lati)");
+  ok(A.custAreaAnello(f.pezzi[0].pts) < 0, "antiorario a vista, come le conversioni dell'app");
+  eq(bOp("unisci", bq(0, 0, 100, 100), bq(300, 0, 100, 100)).esito, "niente", "le forme non si toccano");
+});
+t("booleane: anello — cerchio 120 meno cerchio 80 concentrico: una forma con un foro, area π(60² − 40²) entro lo 0,5%", () => {
+  const r = bOp("sottrai", bc(300, 300, 60), bc(300, 300, 40));
+  eq([r.esito, r.pezzi.length, r.pezzi[0].holes.length], ["ok", 1, 1]);
+  const atteso = Math.PI * (3600 - 1600);
+  ok(Math.abs(bArea(r.pezzi[0]) - atteso) / atteso < 0.005, "area " + bArea(r.pezzi[0]) + " contro " + atteso);
+  ok(A.custAreaAnello(r.pezzi[0].pts) < 0 && A.custAreaAnello(r.pezzi[0].holes[0]) > 0, "contorno antiorario, foro nel verso opposto");
+  ok(r.pezzi[0].pts.every((p) => p.length === 2 && Math.abs(Math.hypot(p[0] - 300, p[1] - 300) - 60) < 0.07), "punti sul cerchio esterno, senza curvatura (gli archi diventano lati)");
+  eq(r.curvePerse, true, "c'erano archi: lo si dice");
+  ok(r.pezzi[0].pts.every((p) => Math.round(p[0] * 100) === p[0] * 100 || Math.abs(Math.round(p[0] * 100) - p[0] * 100) < 1e-6), "al centesimo");
+});
+t("booleane: mezzaluna e ritaglio — cerchio meno cerchio spostato un pezzo; 200 × 100 meno 40 × 40 nell'angolo 6 punti; rettangolo meno striscia centrale 2 pezzi", () => {
+  const m = bOp("sottrai", bc(200, 200, 60), bc(230, 200, 60));
+  eq([m.esito, m.pezzi.length, m.pezzi[0].holes.length], ["ok", 1, 0], "mezzaluna");
+  const t1 = bOp("sottrai", bq(0, 0, 200, 100), bq(160, 0, 40, 40));
+  eq([t1.esito, t1.pezzi.length, t1.pezzi[0].pts.length, bArea(t1.pezzi[0])], ["ok", 1, 6, 18400], "ritaglio con la tacca a filo dell'angolo");
+  const t2 = bOp("sottrai", bq(0, 0, 200, 100), bq(90, -10, 20, 120));
+  eq([t2.esito, t2.pezzi.length, bTot(t2)], ["ok", 2, 18000], "tagliato in due");
+});
+t("booleane: vuoto e niente — Interseca di forme lontane «vuoto», Sottrai che copre tutto «vuoto», Sottrai che non tocca «niente», una tacca di 1 cm² in un piano 200 × 100 si toglie", () => {
+  eq(bOp("interseca", bq(0, 0, 50, 50), bq(200, 200, 50, 50)).esito, "vuoto");
+  eq(bOp("sottrai", bq(10, 10, 50, 50), bq(0, 0, 100, 100)).esito, "vuoto");
+  eq(bOp("sottrai", bq(0, 0, 50, 50), bq(100, 0, 50, 50)).esito, "niente", "a filo ma senza area in comune");
+  const t1 = bOp("sottrai", bq(0, 0, 200, 100), bq(199, 99, 5, 5));
+  eq([t1.esito, bArea(t1.pezzi[0])], ["ok", 19999], "anche una tacca minuscola si toglie (non «niente» per lo 0,1%)");
+  eq(bOp("unisci", bq(0, 0, 100, 100), bq(20, 20, 10, 10)).esito, "ok", "una forma dentro l'altra si unisce (resta quella grande)");
+});
+t("booleane: Interseca di tre forme — l'area comune a tutte", () => {
+  const r = bOp("interseca", bq(0, 0, 100, 100), bq(30, 30, 100, 100), bq(60, 60, 100, 100));
+  eq([r.esito, r.pezzi.length, bArea(r.pezzi[0]), r.pezzi[0].pts.length], ["ok", 1, 1600, 4]);
+  eq(bOp("interseca", bq(0, 0, 100, 100), bq(30, 30, 100, 100), bq(500, 500, 10, 10)).esito, "vuoto", "una che non tocca: vuoto");
+});
+t("booleane: forme ruotate — un rettangolo a 45° intersecato con un quadrato che lo copre resta dove si vede", () => {
+  const r = bOp("interseca", bq(50, 90, 100, 20, { rot: 45 }), bq(0, 0, 200, 200));
+  eq([r.esito, r.pezzi[0].pts.length], ["ok", 4]);
+  ok(Math.abs(bArea(r.pezzi[0]) - 2000) < 2, "area 100 × 20 (i punti a 45° al centesimo spostano l'area di 1 cm² su 2000): " + bArea(r.pezzi[0]));
+  const bb = A.custIngombroAnelli([r.pezzi[0].pts]), e = 50 * Math.SQRT1_2 + 10 * Math.SQRT1_2;
+  ok([bb.x1 - (100 - e), bb.x2 - (100 + e), bb.y1 - (100 - e), bb.y2 - (100 + e)].every((d) => Math.abs(d) < 0.02), "l'ingombro della forma ruotata: " + JSON.stringify(bb));
+  const el = bOp("unisci", Object.assign(bc(100, 100, 0), { rx: 80, ry: 20, rot: 90 }), bq(90, 0, 20, 30));
+  const be = A.custIngombroAnelli([el.pezzi[0].pts]);
+  ok(Math.abs(be.y1 - 0) < 0.05 && Math.abs(be.y2 - 180) < 0.1 && Math.abs(be.x2 - be.x1 - 40) < 0.1, "un'ellisse girata di 90° è alta, non larga: " + JSON.stringify(be));
+});
+t("booleane: una forma con un foro come operando — in Sottrai il foro resta foro, in Unisci una forma che lo riempie lo chiude", () => {
+  const P = bp([[0, 0], [0, 200], [200, 200], [200, 0]], [[[50, 50], [150, 50], [150, 150], [50, 150]]]);
+  const s1 = bOp("sottrai", P, bq(0, 0, 20, 20));
+  eq([s1.esito, s1.pezzi.length, s1.pezzi[0].holes.length, bArea(s1.pezzi[0])], ["ok", 1, 1, 40000 - 10000 - 400]);
+  const u1 = bOp("unisci", P, bq(40, 40, 120, 120));
+  eq([u1.esito, u1.pezzi.length, u1.pezzi[0].holes.length, bArea(u1.pezzi[0])], ["ok", 1, 0, 40000], "il foro riempito si chiude");
+  const u2 = bOp("unisci", P, bq(80, 80, 40, 40));
+  eq(u2.esito, "niente", "un quadrato dentro il foro, senza toccarlo: non si toccano, restano separate");
+});
+t("booleane: forma autointersecante (a farfalla) — si legge come la si vede, pari-dispari", () => {
+  const F = bp([[0, 0], [100, 100], [100, 0], [0, 100]]);
+  const r = bOp("interseca", F, bq(-10, -10, 120, 120));
+  eq(r.esito, "ok"); ok(Math.abs(bTot(r) - 5000) < 0.5, "due triangoli: area " + bTot(r));
+});
+t("booleane: 60 fori → «troppi-fori»; un anello oltre 200 punti si semplifica e lo dice; un frammento sotto 1 mm² non resta", () => {
+  const buchi = []; for (let i = 0; i < 60; i++) buchi.push(bq(20 + (i % 10) * 90, 20 + Math.floor(i / 10) * 90, 10, 10));
+  const r = bOp("sottrai", bq(0, 0, 1000, 1000), ...buchi);
+  eq([r.esito, r.fori, r.pezzi], ["troppi-fori", 60, []]);
+  eq(bOp("sottrai", bq(0, 0, 1000, 1000), ...buchi.slice(0, 50)).esito, "ok", "50 fori sì");
+  const s = bOp("unisci", bc(500, 500, 450), bq(490, 490, 20, 20));
+  eq(s.esito, "ok");
+  ok(s.semplificato && s.semplificato.da > 200 && s.semplificato.a <= 200 && s.semplificato.scarto >= 0.05, "semplificato: " + JSON.stringify(s.semplificato));
+  ok(s.pezzi[0].pts.length <= 200, "≤ 200 punti per anello");
+  eq(bOp("interseca", bq(0, 0, 100, 100), bq(99.95, 0, 10, 0.1)).esito, "vuoto", "0,05 × 0,1 cm = 0,005 cm²: un frammento numerico");
+});
+t("booleane: un errore della libreria non esce — esito «errore»", () => {
+  const rotta = Object.assign({}, CLIPPER, { Clipper: function () { throw new Error("rotta"); } });
+  const r = A.custBooleana("unisci", [bq(0, 0, 10, 10), bq(5, 5, 10, 10)], rotta);
+  eq([r.esito, r.pezzi], ["errore", []]); ok(r.errore && /rotta/.test(r.errore.message), "l'errore resta per la console");
+  eq(A.custBooleana("unisci", [bq(0, 0, 10, 10), bq(5, 5, 10, 10)], null).esito, "errore", "senza libreria");
+  eq(A.custBooleana("boh", [bq(0, 0, 10, 10), bq(5, 5, 10, 10)], CLIPPER).esito, "errore", "operazione sconosciuta");
+});
+t("booleane: i messaggi per l'utente (spec §4.4)", () => {
+  const M = (op, r, n, c) => A.custBooleanaMessaggio(op, r, n, c);
+  eq(M("interseca", { esito: "vuoto" }, 2), "Le forme non hanno parti in comune.");
+  eq(M("sottrai", { esito: "vuoto" }, 2), "Non resta niente: le forme sopra coprono tutta quella sotto.");
+  eq(M("unisci", { esito: "niente" }, 2), "Le forme non si toccano: restano separate.");
+  eq(M("sottrai", { esito: "niente" }, 3), "Niente da togliere: le forme sopra non toccano quella sotto.");
+  eq(M("unisci", { esito: "troppi-fori", fori: 63 }, 2), "Verrebbero 63 fori: al massimo 50 per forma.");
+  eq(M("unisci", { esito: "troppi-punti" }, 2), "Il risultato ha troppi punti anche semplificato: le forme restano come sono.");
+  eq(M("unisci", { esito: "errore" }, 2), "Non sono riuscito a combinare queste forme.");
+  eq(M("unisci", { esito: "ok", pezzi: [{}] }, 3), "Unite 3 forme.");
+  eq(M("sottrai", { esito: "ok", pezzi: [{}, {}] }, 2), "Sottratta 1 forma da quella sotto. Il risultato è in 2 pezzi: sono 2 forme.");
+  eq(M("sottrai", { esito: "ok", pezzi: [{}] }, 3), "Sottratte 2 forme da quella sotto.");
+  eq(M("interseca", { esito: "ok", pezzi: [{}], semplificato: { da: 340, a: 200, scarto: 0.2 }, curvePerse: true }, 2, true),
+    "Intersecate 2 forme. Il risultato aveva 340 punti: semplificato a 200 (scarto massimo 0,2 cm). Le curve sono diventate tanti piccoli lati: i punti si spostano, il tondo non le curva più come prima.");
+  eq(M("interseca", { esito: "ok", pezzi: [{}], curvePerse: true }, 2, false), "Intersecate 2 forme.", "le curve si dicono solo quando lo chiede l'interfaccia (una volta)");
+});
+t("booleane: 10 forme da 200 punti sotto i 100 ms (misurato; soglia 300 ms per la CI, ~3× più lenta)", () => {
+  const forme = []; for (let f = 0; f < 10; f++) { const pts = []; for (let i = 0; i < 200; i++) { const g = -i / 200 * 2 * Math.PI; pts.push([200 + f * 30 + 100 * Math.cos(g), 200 + 100 * Math.sin(g)]); } forme.push(bp(pts)); }
+  const P = globalThis.performance; let m = Infinity, r;
+  for (let g = 0; g < 3; g++) { const t0 = P.now(); r = A.custBooleana("unisci", forme, CLIPPER); m = Math.min(m, P.now() - t0); }
+  console.log("      [misura] Unisci di 10 forme da 200 punti: " + m.toFixed(1) + " ms");
+  eq(r.esito, "ok"); ok(m < 300, m.toFixed(1) + " ms");
+});
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");

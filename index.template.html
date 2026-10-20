@@ -11075,6 +11075,90 @@ function custSemplifica(anelli, maxAnello, maxForma){
     if(eps>=5) return null;
   }
 }
+/* LE BOOLEANE (§4.2–4.4). op = "unisci" | "sottrai" | "interseca"; forme = forme in cm come le dà custFormaDaShape, NELL'ORDINE
+   in cui si vedono (la prima è la più in basso); CL = ClipperLib. Ogni forma prima da sola in PARI-DISPARI (il contorno meno i
+   suoi fori, come si vede), poi le regioni si combinano in NONZERO (E22: con un'unica operazione pari-dispari due forme
+   sovrapposte farebbero un buco). Unisci = l'area coperta da almeno una; Sottrai = la più in basso meno tutte le altre;
+   Interseca = l'area comune a tutte. Mai un'eccezione: anche un errore della libreria è un esito.
+   → {esito:"ok"|"vuoto"|"niente"|"troppi-fori"|"troppi-punti"|"errore", pezzi:[{pts, holes}] in cm (antiorari a vista, fori nel
+   verso opposto, al centesimo), semplificato:null|{da, a, scarto}, curvePerse, fori (con «troppi-fori»), errore (con «errore»)} */
+var CUST_BOOL_SCARTO=0.05;   /* cm: archi in segmenti (E23) */
+var CUST_BOOL_BRICIOLA=100;  /* unità² (centesimi di cm al quadrato) = 1 mm²: sotto, è un frammento numerico (E24) */
+function custBooleana(op, forme, CL){
+  var ris={esito:"errore", pezzi:[], semplificato:null, curvePerse:false};
+  try{
+    if(!CL || !CL.Clipper || (op!=="unisci" && op!=="sottrai" && op!=="interseca")) return ris;
+    var L=custLimiti(), CT=CL.ClipType, PT=CL.PolyType, PF=CL.PolyFillType;
+    var area=function(paths){ return paths.reduce(function(s, P){ return s+CL.Clipper.Area(P); }, 0); };
+    var pezziDi=function(paths){ return paths.filter(function(P){ return CL.Clipper.Area(P)>0; }).length; };
+    /* una operazione: soggetto e clip (elenchi di percorsi interi), riempimento; albero = uscita PolyTree */
+    var esegui=function(tipo, sogg, clip, riemp, albero){
+      var c=new CL.Clipper(), out=albero ? new CL.PolyTree() : new CL.Paths();
+      if(sogg.length) c.AddPaths(sogg, PT.ptSubject, true);
+      if(clip && clip.length) c.AddPaths(clip, PT.ptClip, true);
+      if(!c.Execute(tipo, out, riemp, riemp)) throw new Error("Execute della libreria non riuscito");
+      return out;
+    };
+    /* 1–2. ogni forma → anelli interi → la sua regione (pari-dispari) */
+    var regioni=(forme||[]).map(function(g){
+      if(g && (g.k==="ell" || (g.k==="rect" && +g.r>0) || (g.k==="poly" && custHaCurve({pts:g.pts})))) ris.curvePerse=true;
+      var C=custContornoDaForma(g); if(!C) return [];
+      var anelli=[C.pts].concat(C.holes||[]).map(function(R){ return custAnelloInInteri(R, CUST_BOOL_SCARTO); }).filter(function(P){ return P.length>=3; });
+      return anelli.length ? esegui(CT.ctUnion, anelli, null, PF.pftEvenOdd) : [];
+    });
+    if(regioni.length<2) return ris;
+    var NZ=PF.pftNonZero, albero, i;
+    /* 3. le regioni in nonzero */
+    if(op==="unisci") albero=esegui(CT.ctUnion, [].concat.apply([], regioni), null, NZ, true);
+    else if(op==="sottrai"){
+      var sopra=[].concat.apply([], regioni.slice(1));
+      if(Math.abs(area(esegui(CT.ctIntersection, regioni[0], sopra, NZ)))<CUST_BOOL_BRICIOLA){ ris.esito="niente"; return ris; }
+      albero=esegui(CT.ctDifference, regioni[0], sopra, NZ, true);
+    } else {
+      var acc=regioni[0];
+      for(i=1;i<regioni.length-1 && acc.length;i++) acc=esegui(CT.ctIntersection, acc, regioni[i], NZ);
+      albero=esegui(CT.ctIntersection, acc, regioni[regioni.length-1], NZ, true);
+    }
+    /* 4–5. contorno + fori; pulizia a 1 unità; anelli sotto 1 mm² via (un contorno che va via si porta via i suoi fori) */
+    var pulito=function(P){ P=CL.Clipper.CleanPolygon(P, 1); return (P.length>=3 && Math.abs(CL.Clipper.Area(P))>=CUST_BOOL_BRICIOLA) ? P : null; };
+    var ex=CL.JS.PolyTreeToExPolygons(albero).map(function(e){ var o=pulito(e.outer); return o ? {outer:o, holes:(e.holes||[]).map(pulito).filter(Boolean)} : null; }).filter(Boolean);
+    if(!ex.length){ ris.esito="vuoto"; return ris; }
+    if(op==="unisci"){   /* niente da fare: tanti pezzi quante le regioni di partenza e la stessa area (le forme non si toccano) */
+      var aIn=regioni.reduce(function(s, P){ return s+area(P); }, 0), aOut=ex.reduce(function(s, e){ return s+CL.Clipper.Area(e.outer)+area(e.holes); }, 0);
+      if(ex.length===regioni.reduce(function(s, P){ return s+pezziDi(P); }, 0) && Math.abs(Math.abs(aOut)-Math.abs(aIn))<=Math.abs(aIn)*0.001){ ris.esito="niente"; return ris; }
+    }
+    var troppi=ex.reduce(function(m, e){ return Math.max(m, e.holes.length); }, 0);
+    if(troppi>L.FORI){ ris.esito="troppi-fori"; ris.fori=troppi; return ris; }
+    /* 6–7. in cm al centesimo; contorno antiorario a vista, fori nel verso opposto; oltre i limiti si semplifica */
+    var inCm=function(P, antiorario){ var R=P.map(function(q){ return [custR2(q.X/100), custR2(q.Y/100)]; }); if((custAreaAnello(R)<0)!==antiorario) R.reverse(); return R; };
+    var da=0, a=0, scarto=0, pezzi=[];
+    for(i=0;i<ex.length;i++){
+      var an=[inCm(ex[i].outer, true)].concat(ex[i].holes.map(function(P){ return inCm(P, false); }));
+      var sm=custSemplifica(an, L.PUNTI, L.PUNTI_FORMA); if(!sm){ ris.esito="troppi-punti"; return ris; }
+      if(sm.scarto){ da+=custContaAnelli(an); a+=custContaAnelli(sm.anelli); scarto=Math.max(scarto, sm.scarto); }
+      pezzi.push({pts:sm.anelli[0], holes:sm.anelli.slice(1)});
+    }
+    if(scarto) ris.semplificato={da:da, a:a, scarto:scarto};
+    ris.esito="ok"; ris.pezzi=pezzi;
+    return ris;
+  }catch(e){ ris.esito="errore"; ris.pezzi=[]; ris.errore=e; return ris; }
+}
+/* il messaggio per l'utente (§4.4). n = forme combinate; curve = dire anche che gli archi sono diventati lati (l'interfaccia lo
+   chiede una volta per apertura dell'editor) */
+function custBooleanaMessaggio(op, ris, n, curve){
+  var e=ris && ris.esito;
+  if(e==="vuoto") return op==="interseca" ? "Le forme non hanno parti in comune." : (op==="sottrai" ? "Non resta niente: le forme sopra coprono tutta quella sotto." : "Non resta niente da unire.");
+  if(e==="niente") return op==="sottrai" ? "Niente da togliere: le forme sopra non toccano quella sotto." : "Le forme non si toccano: restano separate.";
+  if(e==="troppi-fori") return "Verrebbero "+ris.fori+" fori: al massimo "+custLimiti().FORI+" per forma.";
+  if(e==="troppi-punti") return "Il risultato ha troppi punti anche semplificato: le forme restano come sono.";
+  if(e!=="ok") return "Non sono riuscito a combinare queste forme.";
+  var k=(ris.pezzi||[]).length, m=op==="sottrai" ? n-1 : n;
+  var s=op==="unisci" ? "Unite "+n+" forme." : (op==="interseca" ? "Intersecate "+n+" forme." : (m===1 ? "Sottratta 1 forma da quella sotto." : "Sottratte "+m+" forme da quella sotto."));
+  if(k>1) s+=" Il risultato è in "+k+" pezzi: sono "+k+" forme.";
+  if(ris.semplificato) s+=" Il risultato aveva "+custMigliaia(ris.semplificato.da)+" punti: semplificato a "+custMigliaia(ris.semplificato.a)+" (scarto massimo "+custCifra(ris.semplificato.scarto)+" cm).";
+  if(curve && ris.curvePerse) s+=" Le curve sono diventate tanti piccoli lati: i punti si spostano, il tondo non le curva più come prima.";
+  return s;
+}
 /* ---- Contorni: l'aggancio (Tappa A estesa, E15, E32) ---- */
 function custDentroSup(x, y, sup){ var mx=Math.max(sup.w, sup.d)*0.1; return x>=-mx && x<=sup.w+mx && y>=-mx && y<=sup.d+mx; }
 /* i bersagli di uno o più anelli: i punti = «Vertice»; lato dritto: metà = «Punto medio» e il segmento per «Sul bordo»;
