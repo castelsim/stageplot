@@ -8676,6 +8676,164 @@ function custContornoDaForma(g){
   if(rot) R=R.map(function(p){ var q=rotatePointAround(p[0], p[1], cx, cy, rot), o=[custR6(q[0]), custR6(q[1])]; if(p[2]) o.push(p[2]); return o; });
   return {pts:R, holes:[]};
 }
+/* ===== CONTORNI, Piano 2 (20/10/2026): UNISCI / SOTTRAI / INTERSECA — le parti PURE =====
+   Spec §4 (E20–E27). La libreria (clipper-lib 6.4.2, coordinate INTERE) arriva come parametro: queste funzioni non toccano
+   il DOM e si provano nel sandbox con la libreria vera. Gli archi diventano segmenti entro 0,05 cm dall'arco vero (E23), le
+   coordinate × 100 (0,01 cm, E27). */
+/* quanti segmenti per un arco di raggio r e angolo theta perché lo scarto (la freccia di ogni segmento) resti entro eps:
+   r·(1 − cos(θ/2k)) ≤ eps. Almeno 1, al massimo 64 (oltre, lo scarto cresce di poco: 0,15 cm su un mezzo cerchio di 5 m). */
+function custSegmentiArco(r, theta, eps){
+  if(!(r>0) || !(theta>0)) return 1;
+  var c=Math.max(-1, 1-eps/r), mezzo=Math.acos(c);
+  if(!(mezzo>0)) return 64;
+  return Math.max(1, Math.min(64, Math.ceil(theta/(2*mezzo)-1e-9)));
+}
+/* un anello in cm (con archi) → punti interi della libreria {X, Y} in centesimi di cm. Due punti uguali di fila (anche
+   l'ultimo col primo) diventano uno. */
+function custAnelloInInteri(R, eps){
+  var out=[], n=R.length, push=function(x, y){ var X=Math.round(x*100), Y=Math.round(y*100), u=out[out.length-1];
+    if(!u || u.X!==X || u.Y!==Y) out.push({X:X, Y:Y}); };
+  for(var i=0;i<n;i++){
+    var a=R[i], b=R[(i+1)%n], bu=+a[2]||0, A=bu ? custArco(a, b, bu) : null;
+    if(!A || A.cx==null){ push(a[0], a[1]); continue; }
+    var Q=custPuntiArco(a, b, bu, custSegmentiArco(A.r, A.theta, eps));
+    for(var j=0;j<Q.length-1;j++) push(Q[j][0], Q[j][1]);
+  }
+  while(out.length>1 && out[0].X===out[out.length-1].X && out[0].Y===out[out.length-1].Y) out.pop();
+  return out;
+}
+/* distanza del punto p dal segmento a–b */
+function custDistSegmento(p, a, b){
+  var dx=b[0]-a[0], dy=b[1]-a[1], L=dx*dx+dy*dy, t=L>0 ? ((p[0]-a[0])*dx+(p[1]-a[1])*dy)/L : 0;
+  t=Math.max(0, Math.min(1, t));
+  return Math.hypot(p[0]-a[0]-t*dx, p[1]-a[1]-t*dy);
+}
+/* DOUGLAS-PEUCKER su un anello CHIUSO di punti [x, y] (cm): si tengono il punto 0 e il più lontano da lui, poi su ogni
+   catena il punto più lontano dalla sua corda finché è oltre eps. Restano solo punti di partenza, nell'ordine; mai sotto 3. */
+function custDouglasPeucker(R, eps){
+  var n=R.length; if(n<=3) return R.map(function(p){ return [p[0], p[1]]; });
+  var far=0, dm=-1, i;
+  for(i=1;i<n;i++){ var d=Math.hypot(R[i][0]-R[0][0], R[i][1]-R[0][1]); if(d>dm){ dm=d; far=i; } }
+  var tieni=new Array(n), pila=[[0, far], [far, n]];
+  tieni[0]=tieni[far]=true;
+  while(pila.length){
+    var s=pila.pop(), a=s[0], b=s[1], A=R[a], B=R[b%n], best=-1, bi=-1;
+    for(i=a+1;i<b;i++){ var di=custDistSegmento(R[i], A, B); if(di>best){ best=di; bi=i; } }
+    if(bi>0 && best>eps){ tieni[bi]=true; pila.push([a, bi], [bi, b]); }
+  }
+  var out=[]; for(i=0;i<n;i++) if(tieni[i]) out.push([R[i][0], R[i][1]]);
+  if(out.length<3){   /* un anello quasi piatto: il punto più lontano dalla corda resta, per tenere un'area */
+    var bj=-1, bd=-1; for(i=1;i<n;i++){ if(i===far) continue; var dd=custDistSegmento(R[i], R[0], R[far]); if(dd>bd){ bd=dd; bj=i; } }
+    tieni[bj]=true; out=[]; for(i=0;i<n;i++) if(tieni[i]) out.push([R[i][0], R[i][1]]);
+  }
+  return out;
+}
+/* OLTRE I LIMITI (E25): gli anelli oltre maxAnello punti (tutti, se la forma supera maxForma) si semplificano con uno scarto
+   che parte da 0,05 cm e raddoppia fino a 5 cm. → {anelli, scarto} (scarto 0 = niente da fare) o null (non ci sta) */
+function custSemplifica(anelli, maxAnello, maxForma){
+  var conta=function(an){ return an.reduce(function(s, R){ return s+R.length; }, 0); };
+  var dentro=function(an){ return conta(an)<=maxForma && an.every(function(R){ return R.length<=maxAnello; }); };
+  if(dentro(anelli)) return {anelli:anelli, scarto:0};
+  var tutti=conta(anelli)>maxForma;
+  for(var eps=0.05;;eps=Math.min(5, eps*2)){
+    var out=anelli.map(function(R){ return (tutti || R.length>maxAnello) ? custDouglasPeucker(R, eps) : R; });
+    if(dentro(out)) return {anelli:out, scarto:eps};
+    if(eps>=5) return null;
+  }
+}
+/* LE BOOLEANE (§4.2–4.4). op = "unisci" | "sottrai" | "interseca"; forme = forme in cm come le dà custFormaDaShape, NELL'ORDINE
+   in cui si vedono (la prima è la più in basso); CL = ClipperLib. Ogni forma prima da sola in PARI-DISPARI (il contorno meno i
+   suoi fori, come si vede), poi le regioni si combinano in NONZERO (E22: con un'unica operazione pari-dispari due forme
+   sovrapposte farebbero un buco). Unisci = l'area coperta da almeno una; Sottrai = la più in basso meno tutte le altre;
+   Interseca = l'area comune a tutte. Mai un'eccezione: anche un errore della libreria è un esito.
+   → {esito:"ok"|"vuoto"|"niente"|"troppi-fori"|"troppi-punti"|"errore", pezzi:[{pts, holes}] in cm (antiorari a vista, fori nel
+   verso opposto, al centesimo), semplificato:null|{da, a, scarto}, curvePerse, fori (con «troppi-fori»), errore (con «errore»)} */
+var CUST_BOOL_SCARTO=0.05;   /* cm: archi in segmenti (E23) */
+var CUST_BOOL_BRICIOLA=100;  /* unità² (centesimi di cm al quadrato) = 1 mm²: sotto, è un frammento numerico (E24) */
+function custBooleana(op, forme, CL){
+  var ris={esito:"errore", pezzi:[], semplificato:null, curvePerse:false, esclusi:[]};
+  try{
+    if(!CL || !CL.Clipper || (op!=="unisci" && op!=="sottrai" && op!=="interseca")) return ris;
+    var L=custLimiti(), CT=CL.ClipType, PT=CL.PolyType, PF=CL.PolyFillType;
+    var area=function(paths){ return paths.reduce(function(s, P){ return s+CL.Clipper.Area(P); }, 0); };
+    var pezziDi=function(paths){ return paths.filter(function(P){ return CL.Clipper.Area(P)>0; }).length; };
+    /* una operazione: soggetto e clip (elenchi di percorsi interi), riempimento; albero = uscita PolyTree */
+    var esegui=function(tipo, sogg, clip, riemp, albero){
+      var c=new CL.Clipper(), out=albero ? new CL.PolyTree() : new CL.Paths();
+      var conS=sogg.length ? c.AddPaths(sogg, PT.ptSubject, true) : false, conC=(clip && clip.length) ? c.AddPaths(clip, PT.ptClip, true) : false;
+      if(!conS && !conC) return out;   /* niente con un'area (punti allineati): la libreria non ha niente da fare, e non è un errore */
+      if(!c.Execute(tipo, out, riemp, riemp)) throw new Error("Execute della libreria non riuscito");
+      return out;
+    };
+    /* 1–2. ogni forma → anelli interi → la sua regione (pari-dispari). Una forma SENZA AREA (2 punti di un documento vecchio,
+       punti allineati) resta fuori e com'è: la si indica in esclusi (indici in forme), non sparisce in silenzio. */
+    var curva=function(g){ return g.k==="ell" || (g.k==="rect" && +g.r>0) ||
+      (g.k==="poly" && [g.pts||[]].concat(g.holes||[]).some(function(R){ return R.some(function(p){ return Array.isArray(p) && +p[2]; }); })); };
+    var regioni=[];
+    (forme||[]).forEach(function(g, i){
+      var C=g ? custContornoDaForma(g) : null, P=[];
+      if(C){ var anelli=[C.pts].concat(C.holes||[]).map(function(R){ return custAnelloInInteri(R, CUST_BOOL_SCARTO); }).filter(function(Q){ return Q.length>=3; });
+        if(anelli.length) P=esegui(CT.ctUnion, anelli, null, PF.pftEvenOdd); }
+      if(!P.length || Math.abs(area(P))<CUST_BOOL_BRICIOLA){ ris.esclusi.push(i); return; }
+      if(curva(g)) ris.curvePerse=true;
+      regioni.push(P);
+    });
+    if(regioni.length<2){ if(ris.esclusi.length && (forme||[]).length>=2) ris.esito="poche"; return ris; }
+    var NZ=PF.pftNonZero, albero, i;
+    /* 3. le regioni in nonzero */
+    if(op==="unisci") albero=esegui(CT.ctUnion, [].concat.apply([], regioni), null, NZ, true);
+    else if(op==="sottrai"){
+      var sopra=[].concat.apply([], regioni.slice(1));
+      if(Math.abs(area(esegui(CT.ctIntersection, regioni[0], sopra, NZ)))<CUST_BOOL_BRICIOLA){ ris.esito="niente"; return ris; }
+      albero=esegui(CT.ctDifference, regioni[0], sopra, NZ, true);
+    } else {
+      var acc=regioni[0];
+      for(i=1;i<regioni.length-1 && acc.length;i++) acc=esegui(CT.ctIntersection, acc, regioni[i], NZ);
+      albero=esegui(CT.ctIntersection, acc, regioni[regioni.length-1], NZ, true);
+    }
+    /* 4–5. contorno + fori; pulizia a 1 unità; anelli sotto 1 mm² via (un contorno che va via si porta via i suoi fori) */
+    var pulito=function(P){ P=CL.Clipper.CleanPolygon(P, 1); return (P.length>=3 && Math.abs(CL.Clipper.Area(P))>=CUST_BOOL_BRICIOLA) ? P : null; };
+    var ex=CL.JS.PolyTreeToExPolygons(albero).map(function(e){ var o=pulito(e.outer); return o ? {outer:o, holes:(e.holes||[]).map(pulito).filter(Boolean)} : null; }).filter(Boolean);
+    if(!ex.length){ ris.esito="vuoto"; return ris; }
+    if(op==="unisci"){   /* niente da fare: tanti pezzi quante le regioni di partenza e la stessa area (le forme non si toccano) */
+      var aIn=regioni.reduce(function(s, P){ return s+area(P); }, 0), aOut=ex.reduce(function(s, e){ return s+CL.Clipper.Area(e.outer)+area(e.holes); }, 0);
+      if(ex.length===regioni.reduce(function(s, P){ return s+pezziDi(P); }, 0) && Math.abs(Math.abs(aOut)-Math.abs(aIn))<=Math.abs(aIn)*0.001){ ris.esito="niente"; return ris; }
+    }
+    var troppi=ex.reduce(function(m, e){ return Math.max(m, e.holes.length); }, 0);
+    if(troppi>L.FORI){ ris.esito="troppi-fori"; ris.fori=troppi; return ris; }
+    /* 6–7. in cm al centesimo; contorno antiorario a vista, fori nel verso opposto; oltre i limiti si semplifica */
+    var inCm=function(P, antiorario){ var R=P.map(function(q){ return [custR2(q.X/100), custR2(q.Y/100)]; }); if((custAreaAnello(R)<0)!==antiorario) R.reverse(); return R; };
+    var da=0, a=0, scarto=0, pezzi=[];
+    for(i=0;i<ex.length;i++){
+      var an=[inCm(ex[i].outer, true)].concat(ex[i].holes.map(function(P){ return inCm(P, false); }));
+      var sm=custSemplifica(an, L.PUNTI, L.PUNTI_FORMA); if(!sm){ ris.esito="troppi-punti"; return ris; }
+      if(sm.scarto){ da+=custContaAnelli(an); a+=custContaAnelli(sm.anelli); scarto=Math.max(scarto, sm.scarto); }
+      pezzi.push({pts:sm.anelli[0], holes:sm.anelli.slice(1)});
+    }
+    if(scarto) ris.semplificato={da:da, a:a, scarto:scarto};
+    ris.esito="ok"; ris.pezzi=pezzi;
+    return ris;
+  }catch(e){ ris.esito="errore"; ris.pezzi=[]; ris.errore=e; return ris; }
+}
+/* il messaggio per l'utente (§4.4). n = forme combinate; curve = dire anche che gli archi sono diventati lati (l'interfaccia lo
+   chiede una volta per apertura dell'editor) */
+function custBooleanaMessaggio(op, ris, n, curve){
+  var e=ris && ris.esito;
+  if(e==="vuoto") return op==="interseca" ? "Le forme non hanno parti in comune." : (op==="sottrai" ? "Non resta niente: le forme sopra coprono tutta quella sotto." : "Non resta niente da unire.");
+  if(e==="niente") return op==="sottrai" ? "Niente da togliere: le forme sopra non toccano quella sotto." : "Le forme non si toccano: restano separate.";
+  if(e==="troppi-fori") return "Verrebbero "+ris.fori+" fori: al massimo "+custLimiti().FORI+" per forma.";
+  if(e==="troppi-punti") return "Il risultato ha troppi punti anche semplificato: le forme restano come sono.";
+  var x=(ris && ris.esclusi || []).length;
+  if(e==="poche") return "Servono almeno due forme con un'area: "+x+(x===1 ? " forma senza area non si può combinare." : " forme senza area non si possono combinare.");
+  if(e!=="ok") return "Non sono riuscito a combinare queste forme.";
+  var k=(ris.pezzi||[]).length, m=op==="sottrai" ? n-1 : n;
+  var s=op==="unisci" ? "Unite "+n+" forme." : (op==="interseca" ? "Intersecate "+n+" forme." : (m===1 ? "Sottratta 1 forma da quella sotto." : "Sottratte "+m+" forme da quella sotto."));
+  if(k>1) s+=" Il risultato è in "+k+" pezzi: sono "+k+" forme.";
+  if(ris.semplificato) s+=" Il risultato aveva "+custMigliaia(ris.semplificato.da)+" punti: semplificato a "+custMigliaia(ris.semplificato.a)+" (scarto massimo "+custCifra(ris.semplificato.scarto)+" cm).";
+  if(x) s+=x===1 ? " 1 forma senza area è rimasta com'era." : " "+x+" forme senza area sono rimaste com'erano.";
+  if(curve && ris.curvePerse) s+=" Le curve sono diventate tanti piccoli lati: i punti si spostano, il tondo non le curva più come prima.";
+  return s;
+}
 /* ---- Contorni: l'aggancio (Tappa A estesa, E15, E32) ---- */
 function custDentroSup(x, y, sup){ var mx=Math.max(sup.w, sup.d)*0.1; return x>=-mx && x<=sup.w+mx && y>=-mx && y<=sup.d+mx; }
 /* i bersagli di uno o più anelli: i punti = «Vertice»; lato dritto: metà = «Punto medio» e il segmento per «Sul bordo»;
@@ -8828,6 +8986,27 @@ var CUST_STRUMENTI={sel:"Seleziona", rect:"Rettangolo", ell:"Ellisse", line:"Lin
 function custClasse(c, on){ try{ document.body.classList[on?"add":"remove"](c); }catch(e){} }
 function custEl(id){ try{ var e=document.getElementById(id); return (e && e.nodeType===1) ? e : null; }catch(e){ return null; } }
 function custToast(s, err){ if(window.__toast) window.__toast(s, !!err); }
+/* LA LIBRERIA DELLE BOOLEANE (Contorni, Piano 2, 20/10/2026): clipper-lib 6.4.2, self-hosted in /vendor/ come il QR e il PDF.
+   Si scarica al PRIMO «Unisci in una forma / Sottrai / Interseca», non all'avvio (25 KB gzip che quasi nessuno usa); poi sta
+   nel precache del service worker. Una promessa sola; su errore si azzera, così il clic dopo riprova. Una rete appesa non
+   deve lasciare l'operazione in attesa per sempre (revisione del 20/10): dopo CUST_CLIPPER_ATTESA_MS si rinuncia, come un errore
+   (se il file arriva dopo, il clic successivo lo trova già lì). */
+var custClipperPromessa=null;
+var CUST_CLIPPER_ATTESA_MS=15000;
+function custCaricaClipper(){
+  if(window.ClipperLib) return Promise.resolve(window.ClipperLib);
+  if(custClipperPromessa) return custClipperPromessa;
+  custClipperPromessa=new Promise(function(res, rej){
+    var fatto=false, tm=null;
+    var fine=function(err, L){ if(fatto) return; fatto=true; clearTimeout(tm); if(err){ custClipperPromessa=null; rej(err); } else res(L); };
+    tm=setTimeout(function(){ fine(new Error("La libreria delle forme non è arrivata in "+Math.round(CUST_CLIPPER_ATTESA_MS/1000)+" s")); }, CUST_CLIPPER_ATTESA_MS);
+    var s=document.createElement("script"); s.src="/vendor/clipper.min.js"; s.async=true;
+    s.onload=function(){ if(window.ClipperLib) fine(null, window.ClipperLib); else fine(new Error("clipper-lib non disponibile dopo il caricamento")); };
+    s.onerror=function(){ fine(new Error("Impossibile caricare la libreria delle forme")); };
+    document.head.appendChild(s);
+  });
+  return custClipperPromessa;
+}
 /* «1,20 × 0,80 m»: le misure si dicono in metri, con la virgola */
 function custMetri(cm){ return (Math.round(cm)/100).toFixed(2).replace(".",","); }
 function custMisura(w, d){ return custMetri(w)+" × "+custMetri(d)+" m"; }
@@ -9149,6 +9328,8 @@ function custApriEditor(area, incl, baseId){
   var prima={vb:Object.assign({}, vb), utente:vistaUtente};
   if(!custEditorApri(area, baseId!=null ? {baseId:baseId} : {includi:Array.isArray(incl) ? incl : !!incl})){ custToast("Non è stato possibile aprire l'editor: il palco non è cambiato.", true); return false; }
   custVistaPrima=prima; custStatoIniziale=stateToJSON();
+  custCombCurveDette=false;   /* «le curve sono diventate lati» si dice una volta per apertura */
+  custCombSessione++;          /* un'operazione in attesa della libreria vale solo per l'apertura in cui è nata */
   custStrumento("sel"); custRenderEditor();
   return true;
 }
@@ -10496,6 +10677,77 @@ function custArrotondaForma(it, r){
   custToast(rid ? rid+(rid===1 ? " angolo con raggio ridotto." : " angoli con raggio ridotto.") : "Angoli arrotondati."); a11yAnnounce("Angoli arrotondati");
   return true;
 }
+/* ---------- CONTORNI, Piano 2 (20/10/2026): «Combina le forme» — Unisci in una forma / Sottrai / Interseca ----------
+   Nel pannello della selezione multipla, solo nell'editor e con l'interruttore dei contorni. Si combinano solo rettangoli,
+   ellissi e poligoni (E20); il risultato prende stile e posto della forma più in basso (E21) e resta selezionato. Un'operazione
+   riuscita = un passo di Annulla; tutto il resto (vuoto, niente da fare, limiti, errori) non cambia niente e lo dice. */
+var custCombCurveDette=false;
+/* revisione del 20/10: l'operazione che aspetta la libreria è legata all'APERTURA dell'editor (gli id ripartono da capo a ogni
+   apertura: dopo Annulla e riapertura i1, i2 sarebbero forme nuove). Una sola in attesa per apertura, pulsanti spenti intanto. */
+var custCombSessione=0, custCombAttesa=null;
+function custCombInAttesa(){ return !!(custCombAttesa && custCombAttesa.sessione===custCombSessione); }
+/* le forme da combinare, nell'ordine in cui si vedono (la prima è la più in basso); null se non si può */
+function custCombinabili(its){
+  if(!its || its.length<2 || !its.every(custContornoAmmesso)) return null;
+  return state.items.filter(function(x){ return its.indexOf(x)>=0; });
+}
+function custCombinaRender(its){
+  var gg=document.getElementById("grpGroup");   /* «▣ Unisci» RAGGRUPPA: nell'editor, accanto a «Unisci in una forma», lo dice (E28) */
+  if(gg) gg.title=custEditorAttivo() ? "Raggruppa: si muovono insieme, restano forme separate" : "";
+  var box=custEl("custCombina"); if(!box) return;
+  var on=custEditorAttivo() && custContorniAttivi(); box.hidden=!on; if(!on) return;
+  var att=custCombInAttesa(), si=!att && !!custCombinabili(its);
+  /* aria-disabled e non disabled: spenti si raggiungono ancora da tastiera e la nota (aria-describedby) dice perché */
+  ["custCombUnisci", "custCombSottrai", "custCombInterseca"].forEach(function(id){ var b=custEl(id); if(b) b.setAttribute("aria-disabled", si ? "false" : "true"); });
+  var nt=custEl("custCombNota"); if(nt) nt.textContent=att ? "Preparo le forme…" : (si ? "Il risultato prende colori e posto della forma più in basso." : "Combina solo rettangoli, ellissi e poligoni.");
+}
+function custCombinaDetto(msg, err){ custToast(msg, err); a11yAnnounce(msg); }
+/* il clic: gli id si prendono ADESSO; la libreria al primo uso si scarica (poi è subito lì) */
+function custCombina(op){
+  if(!custContorniAttivi() || !custEditorAttivo()) return false;
+  if(custCombInAttesa()){ custCombinaDetto("Preparo le forme…"); return false; }   /* una sola operazione in attesa */
+  var fs=custCombinabili(selItems()); if(!fs){ custCombinaDetto("Combina solo rettangoli, ellissi e poligoni.", true); return false; }
+  var ids=fs.map(function(x){ return x.id; }), sess=custCombSessione;
+  if(window.ClipperLib) return custCombinaCon(op, ids, window.ClipperLib, sess);
+  var mia={sessione:sess}, fine=function(){ if(custCombAttesa===mia) custCombAttesa=null; };
+  custCombAttesa=mia; custCombinaRender(selItems());
+  custCaricaClipper().then(function(CL){ fine(); custCombinaCon(op, ids, CL, sess); if(custEditorAttivo()) custCombinaRender(selItems()); },
+    function(e){ fine(); try{ console.error(e); }catch(_e){}
+      if(!custEditorAttivo() || sess!==custCombSessione) return;   /* editor chiuso o riaperto: niente da dire */
+      custCombinaDetto("Serve la rete la prima volta che si combinano le forme.", true); custCombinaRender(selItems()); });
+  return true;
+}
+/* l'operazione sulle forme del clic, rilette per id (una sparita nel frattempo = niente). sessione = l'apertura dell'editor del
+   clic: se l'editor è stato chiuso, o chiuso e riaperto, non si fa niente e non si dice niente (non sono più quelle forme). */
+function custCombinaCon(op, ids, CL, sessione){
+  if(!custContorniAttivi() || !custEditorAttivo() || sessione!==custCombSessione) return false;
+  var fs=state.items.filter(function(x){ return ids.indexOf(x.id)>=0; });
+  if(fs.length!==ids.length || !custCombinabili(fs)){ custCombinaDetto("Le forme sono cambiate nel frattempo: non ho combinato niente.", true); return false; }
+  var ris=custBooleana(op, fs.map(custFormaDaShape), CL);
+  if(ris.errore){ try{ console.error("Combina le forme:", ris.errore); }catch(_e){} }
+  if(ris.esito!=="ok"){ custCombinaDetto(custBooleanaMessaggio(op, ris, fs.length), true); return false; }
+  /* le forme senza area restano dove sono: non entrano, non spariscono */
+  var dentro=fs.filter(function(x, i){ return ris.esclusi.indexOf(i)<0; }), L=custLimiti(), base=dentro[0], via={};
+  dentro.forEach(function(x){ via[x.id]=true; });
+  var nuove=ris.pezzi.map(function(pz){ return custShapeDaForma({k:"poly", pts:pz.pts, holes:pz.holes, fill:base.fill, stroke:base.stroke, sw:base.sw}); });
+  if(!nuove.length || nuove.some(function(x){ return !x; })){ custCombinaDetto(custBooleanaMessaggio(op, {esito:"errore"}, fs.length), true); return false; }
+  var forme=state.items.filter(function(x){ return x.type==="custshape" && !via[x.id]; }).length+nuove.length;
+  if(forme>L.FORME){ custCombinaDetto("Al massimo "+L.FORME+" forme per elemento.", true); return false; }
+  var punti=state.items.reduce(function(s, x){ return s+(via[x.id] ? 0 : custPuntiDi(x)); }, 0)+nuove.reduce(function(s, x){ return s+custPuntiDi(x); }, 0);
+  if(punti>L.PUNTI_EL){ custCombinaDetto("Al massimo "+custMigliaia(L.PUNTI_EL)+" punti per elemento.", true); return false; }
+  primaDiAgire();
+  /* la forma più in basso era raggruppata con altre che restano: il risultato resta nel gruppo */
+  if(base.grp && state.items.some(function(x){ return x.grp===base.grp && !via[x.id]; })) nuove.forEach(function(x){ x.grp=base.grp; });
+  var pos=state.items.indexOf(base), resta=function(x){ return !via[x.id]; };
+  state.items=state.items.slice(0, pos).filter(resta).concat(nuove, state.items.slice(pos+1).filter(resta));
+  sel=nuove[0].id; selSet={}; nuove.forEach(function(x){ selSet[x.id]=true; });
+  render(); save();
+  /* una forma sola: il pannello della selezione multipla sparisce, il fuoco va sul pannello della forma (non si perde) */
+  if(nuove.length===1){ var cc=custEl("custFormaCc"), fo=custEl(cc && !cc.hidden ? "custFContorno" : "custFX"); if(fo) try{ fo.focus(); }catch(_e){} }
+  var curve=!!ris.curvePerse && !custCombCurveDette; if(curve) custCombCurveDette=true;
+  custCombinaDetto(custBooleanaMessaggio(op, ris, dentro.length, curve));
+  return true;
+}
 function custContornoTogliForo(){
   var K=custContorno(); if(!K || !(K.C.r>0)) return false;
   var an=custAnelliDi(K.it); if(!an[K.C.r]) return false;
@@ -10617,6 +10869,9 @@ function custBlocca(){ if(!custEditorAttivo()) return false; custEditorAvvisa();
   });
   on("custFContorno", "click", function(){ var it=getSel(); if(it) custContornoEntra(it.id); });
   on("custFArrotonda", "click", function(){ var it=getSel(), f=custEl("custFRaggio"), v=f ? custNumeroDigitato(f.value) : null; if(it) custArrotondaForma(it, v!=null && v>0 ? v : custCcRaggio); });
+  on("custCombUnisci", "click", function(){ custCombina("unisci"); });
+  on("custCombSottrai", "click", function(){ custCombina("sottrai"); });
+  on("custCombInterseca", "click", function(){ custCombina("interseca"); });
   on("custCcFine", "click", function(){ custContornoEsci(); });
   on("custCcPPrec", "click", function(){ custContornoNaviga("punto", -1); });
   on("custCcPSucc", "click", function(){ custContornoNaviga("punto", 1); });
@@ -16445,6 +16700,7 @@ function renderProps(){
     document.getElementById("grpNome").textContent = _cs && _cs.intero ? _cs.base.cust.nome : n+" elementi selezionati";
     setPeekName(_cs && _cs.intero ? _cs.base.cust.nome : n+" elementi");
     custPannello("grp", _cs ? _cs.base : null);
+    custCombinaRender(its);   /* Contorni, Piano 2: «Combina le forme» (solo nell'editor) */
     /* Specchia su più elementi = ribalta la DISPOSIZIONE: vale anche per una selezione di soli testi,
        che si spostano senza ribaltarsi. Qui non è un interruttore ma un'azione: niente stato acceso. */
     var gmir=document.getElementById("grpMirror");

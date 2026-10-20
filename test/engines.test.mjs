@@ -13,6 +13,7 @@ import { dirname, join } from "node:path";
 import vm from "node:vm";
 import { inflateSync } from "node:zlib";   /* il testo dei PDF pubblicati sta in stream compressi */
 import { execFileSync } from "node:child_process";   /* per far controllare app.js al parser vero */
+import { createHash } from "node:crypto";   /* lo SHA-256 delle librerie in vendor/ (booleane, 20/10/2026) */
 import { datiDallaLanding } from "../ops/anteprima-social.mjs";   /* l'anteprima social si pesca dalla landing: qui si verifica che sia ancora quella */
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -11986,6 +11987,395 @@ t("contorni (minori): gli archi restano dentro la superficie ±10% come i punti 
   ok(A.custContornoDritto ? (Object.assign(A.__custContorno, { lato: 2, punto: null }), A.custContornoDritto()) : false, "dritto");
   ok(A.custContornoCampo("freccia", "50")); R = A.custAnelliDi(ccDi(p.id))[0];
   ok(Math.abs(R[2][2] - 0.4) < 1e-5, "anche il campo Freccia: " + R[2][2]);
+}))));
+/* ===== Crea elemento — Contorni, Piano 2 (20/10/2026): Unisci / Sottrai / Interseca (clipper-lib 6.4.2) ===== */
+const clipperSrc = existsSync(join(root, "vendor/clipper.min.js")) ? readFileSync(join(root, "vendor/clipper.min.js"), "utf8") : "";
+/* la libreria si carica nel sandbox come nel browser (senza module, con document: si appende a window) */
+if (clipperSrc) { try { vm.runInContext(clipperSrc, A); } catch (e) { console.log("      clipper nel sandbox: " + e.message); } }
+const CLIPPER = A.ClipperLib;
+t("booleane: la libreria clipper-lib 6.4.2 è in vendor con la licenza, senza sourceMappingURL, con lo SHA-256 nel README e nel precache", () => {
+  ok(clipperSrc.length > 90000, "vendor/clipper.min.js c'è");
+  ok(/Boost Software License/.test(clipperSrc) && /Angus Johnson/.test(clipperSrc) && /Tom Wu/.test(clipperSrc), "l'intestazione con la licenza (Boost 1.0 chiede di tenerla) e i copyright");
+  eq(/sourceMappingURL/.test(clipperSrc), false, "la riga sourceMappingURL (puntava a jsDelivr) è tolta");
+  const sha = createHash("sha256").update(readFileSync(join(root, "vendor/clipper.min.js"))).digest("hex");
+  const rd = readFileSync(join(root, "vendor/README.md"), "utf8"), sez = rd.slice(rd.indexOf("## clipper.min.js"));
+  ok(rd.indexOf("## clipper.min.js") > -1 && sez.indexOf(sha) > -1, "lo SHA-256 della nostra copia nel README: " + sha);
+  ok(/clipper-lib@6\.4\.2\/clipper\.min\.js/.test(sez) && /Boost/.test(sez), "fonte e licenza nel README");
+  const sw = readFileSync(join(root, "sw.js"), "utf8"), pre = sw.slice(sw.indexOf("var PRECACHE = ["), sw.indexOf("];", sw.indexOf("var PRECACHE = [")));
+  ok(pre.indexOf('"/vendor/clipper.min.js"') > -1, "nel precache del service worker: offline dopo la prima visita");
+  ok(CLIPPER && CLIPPER.version === "6.4.2.2" && typeof CLIPPER.Clipper === "function" && CLIPPER.JS && typeof CLIPPER.JS.PolyTreeToExPolygons === "function", "nel sandbox la libreria si appende a window");
+});
+t("booleane: custCaricaClipper — al primo uso, un solo script da /vendor/, la promessa si azzera sull'errore (come loadQrLib)", () => {
+  ok(typeof A.custCaricaClipper === "function", "c'è");
+  const src = String(A.custCaricaClipper);
+  eq((appjs.match(/\/vendor\/clipper\.min\.js/g) || []).length, 1, "un solo punto dell'app chiede il file");
+  ok(/if\(window\.ClipperLib\) return Promise\.resolve\(window\.ClipperLib\);/.test(src), "già caricata: subito");
+  const p = A.custCaricaClipper(); ok(p && typeof p.then === "function", "una promessa anche quando c'è già");
+});
+t("booleane: un arco si spezza entro 0,05 cm, al massimo 64 segmenti — un cerchio di 1 m ≈ 72 punti, uno di 2 m ≈ 100", () => {
+  const giro = (r) => A.custAnelloInInteri(A.custEllisseInAnello({ cx: 300, cy: 300, rx: r, ry: r }, 0.05), 0.05);
+  const c1 = giro(50), c2 = giro(100);
+  eq([c1.length, c2.length], [72, 100], "18 e 25 segmenti per quarto");
+  [[c1, 50], [c2, 100]].forEach(([P, r]) => P.forEach((p) => { const d = Math.hypot(p.X / 100 - 300, p.Y / 100 - 300);
+    ok(d <= r + 0.01 && d >= r - 0.06, "punto sul cerchio entro 0,05 cm (più l'arrotondamento al centesimo): " + d); }));
+  ok(c1.every((p) => Number.isInteger(p.X) && Number.isInteger(p.Y)), "coordinate intere (× 100)");
+  eq([A.custSegmentiArco(500, Math.PI, 0.05), A.custSegmentiArco(5, Math.PI / 2, 0.05), A.custSegmentiArco(0.01, Math.PI, 0.05)], [64, 6, 1], "al massimo 64; un quarto di raggio 5 sei; un arco minuscolo uno");
+  eq(A.custAnelloInInteri([[0, 0], [0, 100], [100.004, 100], [100, 0.006]], 0.05), [{ X: 0, Y: 0 }, { X: 0, Y: 10000 }, { X: 10000, Y: 10000 }, { X: 10000, Y: 1 }], "i lati dritti: un punto per capo, al centesimo");
+  eq(A.custAnelloInInteri([[0, 0], [0, 0.001], [0, 100], [100, 100]], 0.05).length, 3, "due punti uguali al centesimo diventano uno");
+});
+t("booleane: Douglas-Peucker su un anello chiuso — toglie i punti entro lo scarto, tiene gli angoli, mai sotto 3", () => {
+  const Q = []; const lato = (x0, y0, x1, y1, nx, ny) => { for (let i = 0; i < 100; i++) { const k = i / 100, z = (i % 2 ? 0.01 : -0.01); Q.push([x0 + (x1 - x0) * k + nx * z * (i ? 1 : 0), y0 + (y1 - y0) * k + ny * z * (i ? 1 : 0)]); } };
+  lato(0, 0, 0, 100, 1, 0); lato(0, 100, 100, 100, 0, 1); lato(100, 100, 100, 0, 1, 0); lato(100, 0, 0, 0, 0, 1);
+  eq(Q.length, 400);
+  const S = A.custDouglasPeucker(Q, 0.05);
+  eq(S.map((p) => p.join(",")).sort(), ["0,0", "0,100", "100,0", "100,100"], "i quattro angoli");
+  eq(A.custDouglasPeucker([[0, 0], [0, 10], [10, 0]], 5), [[0, 0], [0, 10], [10, 0]], "un triangolo resta un triangolo");
+  eq(A.custDouglasPeucker([[0, 0], [0, 10], [0.001, 20], [0, 30]], 1).length, 3, "un anello quasi piatto: mai sotto 3");
+  const C = []; for (let i = 0; i < 340; i++) { const g = -i / 340 * 2 * Math.PI; C.push([200 + 100 * Math.cos(g), 200 + 100 * Math.sin(g)]); }
+  const r = A.custSemplifica([C], 200, 1000);
+  ok(r && r.anelli[0].length <= 200 && r.anelli[0].length >= 60, "340 punti → " + (r && r.anelli[0].length));
+  eq(r.scarto, 0.05, "lo scarto con cui ci sta (il primo)");
+  const chiave = new Set(C.map((p) => p.join(",")));
+  ok(r.anelli[0].every((p) => chiave.has(p.join(","))), "ogni punto tenuto è un punto di partenza");
+  ok(r.anelli[0].every((p) => Math.abs(Math.hypot(p[0] - 200, p[1] - 200) - 100) < 1e-9), "sul cerchio");
+});
+t("booleane: custSemplifica — sotto i limiti anelli identici e scarto 0; oltre 1000 punti per forma semplifica tutti; oltre 5 cm null", () => {
+  const cerchio = (cx, n, r) => { const o = []; for (let i = 0; i < n; i++) { const g = -i / n * 2 * Math.PI; o.push([cx + r * Math.cos(g), 200 + r * Math.sin(g)]); } return o; };
+  const due = [cerchio(100, 150, 50), cerchio(300, 20, 10)];
+  const r0 = A.custSemplifica(due, 200, 1000);
+  eq([r0.scarto, r0.anelli], [0, due], "niente da semplificare");
+  const sei = [0, 1, 2, 3, 4, 5].map((k) => cerchio(100 + k * 200, 190, 80));
+  const r1 = A.custSemplifica(sei, 200, 1000), tot = r1.anelli.reduce((s, R) => s + R.length, 0);
+  ok(tot <= 1000 && r1.anelli.every((R) => R.length < 190), "1140 punti → " + tot + ", tutti gli anelli più leggeri");
+  ok(r1.scarto >= 0.05 && r1.scarto <= 5, "scarto " + r1.scarto);
+  const zz = []; for (let i = 0; i < 400; i++) zz.push([i * 10, (i % 2) * 20]);
+  eq(A.custSemplifica([zz], 200, 1000), null, "uno zig-zag di 20 cm non scende a 200 punti entro 5 cm: null");
+});
+/* forme in cm come le dà custFormaDaShape: la prima della lista è la più in basso */
+const bq = (x, y, w, h, extra) => Object.assign({ k: "rect", x, y, w, h }, CC_ST, extra || {});
+const bc = (cx, cy, r) => Object.assign({ k: "ell", cx, cy, rx: r, ry: r }, CC_ST);
+const bp = (pts, holes) => Object.assign({ k: "poly", pts }, CC_ST, holes ? { holes } : {});
+const bArea = (pz) => Math.abs(A.custAreaAnello(pz.pts)) - (pz.holes || []).reduce((s, h) => s + Math.abs(A.custAreaAnello(h)), 0);
+const bTot = (r) => r.pezzi.reduce((s, pz) => s + bArea(pz), 0);
+const bOp = (op, ...forme) => A.custBooleana(op, forme, CLIPPER);
+t("booleane: Unisci — due quadrati sovrapposti un pezzo con l'area giusta; due affiancati un rettangolo di 4 punti; lontani «niente»", () => {
+  const r = bOp("unisci", bq(0, 0, 100, 100), bq(50, 50, 100, 100));
+  eq([r.esito, r.pezzi.length, r.pezzi[0].holes.length], ["ok", 1, 0]);
+  ok(Math.abs(bArea(r.pezzi[0]) - 17500) < 0.5, "area " + bArea(r.pezzi[0]));
+  eq([r.curvePerse, r.semplificato], [false, null], "niente curve da perdere, niente da semplificare");
+  const f = bOp("unisci", bq(0, 0, 100, 100), bq(100, 0, 100, 100));
+  eq([f.esito, f.pezzi.length, f.pezzi[0].pts.length, bArea(f.pezzi[0])], ["ok", 1, 4, 20000], "affiancati: un rettangolo di 4 punti (la pulizia toglie i punti in mezzo ai lati)");
+  ok(A.custAreaAnello(f.pezzi[0].pts) < 0, "antiorario a vista, come le conversioni dell'app");
+  eq(bOp("unisci", bq(0, 0, 100, 100), bq(300, 0, 100, 100)).esito, "niente", "le forme non si toccano");
+});
+t("booleane: anello — cerchio 120 meno cerchio 80 concentrico: una forma con un foro, area π(60² − 40²) entro lo 0,5%", () => {
+  const r = bOp("sottrai", bc(300, 300, 60), bc(300, 300, 40));
+  eq([r.esito, r.pezzi.length, r.pezzi[0].holes.length], ["ok", 1, 1]);
+  const atteso = Math.PI * (3600 - 1600);
+  ok(Math.abs(bArea(r.pezzi[0]) - atteso) / atteso < 0.005, "area " + bArea(r.pezzi[0]) + " contro " + atteso);
+  ok(A.custAreaAnello(r.pezzi[0].pts) < 0 && A.custAreaAnello(r.pezzi[0].holes[0]) > 0, "contorno antiorario, foro nel verso opposto");
+  ok(r.pezzi[0].pts.every((p) => p.length === 2 && Math.abs(Math.hypot(p[0] - 300, p[1] - 300) - 60) < 0.07), "punti sul cerchio esterno, senza curvatura (gli archi diventano lati)");
+  eq(r.curvePerse, true, "c'erano archi: lo si dice");
+  ok(r.pezzi[0].pts.every((p) => Math.round(p[0] * 100) === p[0] * 100 || Math.abs(Math.round(p[0] * 100) - p[0] * 100) < 1e-6), "al centesimo");
+});
+t("booleane: mezzaluna e ritaglio — cerchio meno cerchio spostato un pezzo; 200 × 100 meno 40 × 40 nell'angolo 6 punti; rettangolo meno striscia centrale 2 pezzi", () => {
+  const m = bOp("sottrai", bc(200, 200, 60), bc(230, 200, 60));
+  eq([m.esito, m.pezzi.length, m.pezzi[0].holes.length], ["ok", 1, 0], "mezzaluna");
+  const t1 = bOp("sottrai", bq(0, 0, 200, 100), bq(160, 0, 40, 40));
+  eq([t1.esito, t1.pezzi.length, t1.pezzi[0].pts.length, bArea(t1.pezzi[0])], ["ok", 1, 6, 18400], "ritaglio con la tacca a filo dell'angolo");
+  const t2 = bOp("sottrai", bq(0, 0, 200, 100), bq(90, -10, 20, 120));
+  eq([t2.esito, t2.pezzi.length, bTot(t2)], ["ok", 2, 18000], "tagliato in due");
+});
+t("booleane: vuoto e niente — Interseca di forme lontane «vuoto», Sottrai che copre tutto «vuoto», Sottrai che non tocca «niente», una tacca di 1 cm² in un piano 200 × 100 si toglie", () => {
+  eq(bOp("interseca", bq(0, 0, 50, 50), bq(200, 200, 50, 50)).esito, "vuoto");
+  eq(bOp("sottrai", bq(10, 10, 50, 50), bq(0, 0, 100, 100)).esito, "vuoto");
+  eq(bOp("sottrai", bq(0, 0, 50, 50), bq(100, 0, 50, 50)).esito, "niente", "a filo ma senza area in comune");
+  const t1 = bOp("sottrai", bq(0, 0, 200, 100), bq(199, 99, 5, 5));
+  eq([t1.esito, bArea(t1.pezzi[0])], ["ok", 19999], "anche una tacca minuscola si toglie (non «niente» per lo 0,1%)");
+  eq(bOp("unisci", bq(0, 0, 100, 100), bq(20, 20, 10, 10)).esito, "ok", "una forma dentro l'altra si unisce (resta quella grande)");
+});
+t("booleane: Interseca di tre forme — l'area comune a tutte", () => {
+  const r = bOp("interseca", bq(0, 0, 100, 100), bq(30, 30, 100, 100), bq(60, 60, 100, 100));
+  eq([r.esito, r.pezzi.length, bArea(r.pezzi[0]), r.pezzi[0].pts.length], ["ok", 1, 1600, 4]);
+  eq(bOp("interseca", bq(0, 0, 100, 100), bq(30, 30, 100, 100), bq(500, 500, 10, 10)).esito, "vuoto", "una che non tocca: vuoto");
+});
+t("booleane: forme ruotate — un rettangolo a 45° intersecato con un quadrato che lo copre resta dove si vede", () => {
+  const r = bOp("interseca", bq(50, 90, 100, 20, { rot: 45 }), bq(0, 0, 200, 200));
+  eq([r.esito, r.pezzi[0].pts.length], ["ok", 4]);
+  ok(Math.abs(bArea(r.pezzi[0]) - 2000) < 2, "area 100 × 20 (i punti a 45° al centesimo spostano l'area di 1 cm² su 2000): " + bArea(r.pezzi[0]));
+  const bb = A.custIngombroAnelli([r.pezzi[0].pts]), e = 50 * Math.SQRT1_2 + 10 * Math.SQRT1_2;
+  ok([bb.x1 - (100 - e), bb.x2 - (100 + e), bb.y1 - (100 - e), bb.y2 - (100 + e)].every((d) => Math.abs(d) < 0.02), "l'ingombro della forma ruotata: " + JSON.stringify(bb));
+  const el = bOp("unisci", Object.assign(bc(100, 100, 0), { rx: 80, ry: 20, rot: 90 }), bq(90, 0, 20, 30));
+  const be = A.custIngombroAnelli([el.pezzi[0].pts]);
+  ok(Math.abs(be.y1 - 0) < 0.05 && Math.abs(be.y2 - 180) < 0.1 && Math.abs(be.x2 - be.x1 - 40) < 0.1, "un'ellisse girata di 90° è alta, non larga: " + JSON.stringify(be));
+});
+t("booleane: una forma con un foro come operando — in Sottrai il foro resta foro, in Unisci una forma che lo riempie lo chiude", () => {
+  const P = bp([[0, 0], [0, 200], [200, 200], [200, 0]], [[[50, 50], [150, 50], [150, 150], [50, 150]]]);
+  const s1 = bOp("sottrai", P, bq(0, 0, 20, 20));
+  eq([s1.esito, s1.pezzi.length, s1.pezzi[0].holes.length, bArea(s1.pezzi[0])], ["ok", 1, 1, 40000 - 10000 - 400]);
+  const u1 = bOp("unisci", P, bq(40, 40, 120, 120));
+  eq([u1.esito, u1.pezzi.length, u1.pezzi[0].holes.length, bArea(u1.pezzi[0])], ["ok", 1, 0, 40000], "il foro riempito si chiude");
+  const u2 = bOp("unisci", P, bq(80, 80, 40, 40));
+  eq(u2.esito, "niente", "un quadrato dentro il foro, senza toccarlo: non si toccano, restano separate");
+  /* §2.3: un foro è vuoto anche se è disegnato nello stesso verso del contorno (pari-dispari, come lo si vede) */
+  const P2 = bp([[0, 0], [0, 200], [200, 200], [200, 0]], [[[50, 50], [50, 150], [150, 150], [150, 50]]]);
+  ok(Math.sign(A.custAreaAnello(P2.pts)) === Math.sign(A.custAreaAnello(P2.holes[0])), "stesso verso");
+  const s2 = bOp("sottrai", P2, bq(0, 0, 20, 20));
+  eq([s2.esito, s2.pezzi[0].holes.length, bArea(s2.pezzi[0])], ["ok", 1, 40000 - 10000 - 400], "il foro resta foro");
+});
+t("booleane: forma autointersecante (a farfalla) — si legge come la si vede, pari-dispari", () => {
+  const F = bp([[0, 0], [100, 100], [100, 0], [0, 100]]);
+  const r = bOp("interseca", F, bq(-10, -10, 120, 120));
+  eq(r.esito, "ok"); ok(Math.abs(bTot(r) - 5000) < 0.5, "due triangoli: area " + bTot(r));
+});
+t("booleane: 60 fori → «troppi-fori»; un anello oltre 200 punti si semplifica e lo dice; un frammento sotto 1 mm² non resta", () => {
+  const buchi = []; for (let i = 0; i < 60; i++) buchi.push(bq(20 + (i % 10) * 90, 20 + Math.floor(i / 10) * 90, 10, 10));
+  const r = bOp("sottrai", bq(0, 0, 1000, 1000), ...buchi);
+  eq([r.esito, r.fori, r.pezzi], ["troppi-fori", 60, []]);
+  eq(bOp("sottrai", bq(0, 0, 1000, 1000), ...buchi.slice(0, 50)).esito, "ok", "50 fori sì");
+  const s = bOp("unisci", bc(500, 500, 450), bq(490, 490, 20, 20));
+  eq(s.esito, "ok");
+  ok(s.semplificato && s.semplificato.da > 200 && s.semplificato.a <= 200 && s.semplificato.scarto >= 0.05, "semplificato: " + JSON.stringify(s.semplificato));
+  ok(s.pezzi[0].pts.length <= 200, "≤ 200 punti per anello");
+  eq(bOp("interseca", bq(0, 0, 100, 100), bq(99.95, 0, 10, 0.1)).esito, "vuoto", "0,05 × 0,1 cm = 0,005 cm²: un frammento numerico");
+});
+t("booleane: un errore della libreria non esce — esito «errore»", () => {
+  const rotta = Object.assign({}, CLIPPER, { Clipper: function () { throw new Error("rotta"); } });
+  const r = A.custBooleana("unisci", [bq(0, 0, 10, 10), bq(5, 5, 10, 10)], rotta);
+  eq([r.esito, r.pezzi], ["errore", []]); ok(r.errore && /rotta/.test(r.errore.message), "l'errore resta per la console");
+  eq(A.custBooleana("unisci", [bq(0, 0, 10, 10), bq(5, 5, 10, 10)], null).esito, "errore", "senza libreria");
+  eq(A.custBooleana("boh", [bq(0, 0, 10, 10), bq(5, 5, 10, 10)], CLIPPER).esito, "errore", "operazione sconosciuta");
+});
+t("booleane: i messaggi per l'utente (spec §4.4)", () => {
+  const M = (op, r, n, c) => A.custBooleanaMessaggio(op, r, n, c);
+  eq(M("interseca", { esito: "vuoto" }, 2), "Le forme non hanno parti in comune.");
+  eq(M("sottrai", { esito: "vuoto" }, 2), "Non resta niente: le forme sopra coprono tutta quella sotto.");
+  eq(M("unisci", { esito: "niente" }, 2), "Le forme non si toccano: restano separate.");
+  eq(M("sottrai", { esito: "niente" }, 3), "Niente da togliere: le forme sopra non toccano quella sotto.");
+  eq(M("unisci", { esito: "troppi-fori", fori: 63 }, 2), "Verrebbero 63 fori: al massimo 50 per forma.");
+  eq(M("unisci", { esito: "troppi-punti" }, 2), "Il risultato ha troppi punti anche semplificato: le forme restano come sono.");
+  eq(M("unisci", { esito: "errore" }, 2), "Non sono riuscito a combinare queste forme.");
+  eq(M("unisci", { esito: "ok", pezzi: [{}] }, 3), "Unite 3 forme.");
+  eq(M("sottrai", { esito: "ok", pezzi: [{}, {}] }, 2), "Sottratta 1 forma da quella sotto. Il risultato è in 2 pezzi: sono 2 forme.");
+  eq(M("sottrai", { esito: "ok", pezzi: [{}] }, 3), "Sottratte 2 forme da quella sotto.");
+  eq(M("interseca", { esito: "ok", pezzi: [{}], semplificato: { da: 340, a: 200, scarto: 0.2 }, curvePerse: true }, 2, true),
+    "Intersecate 2 forme. Il risultato aveva 340 punti: semplificato a 200 (scarto massimo 0,2 cm). Le curve sono diventate tanti piccoli lati: i punti si spostano, il tondo non le curva più come prima.");
+  eq(M("interseca", { esito: "ok", pezzi: [{}], curvePerse: true }, 2, false), "Intersecate 2 forme.", "le curve si dicono solo quando lo chiede l'interfaccia (una volta)");
+});
+t("booleane: 10 forme da 200 punti sotto i 100 ms (misurato; soglia 300 ms per la CI, ~3× più lenta)", () => {
+  const forme = []; for (let f = 0; f < 10; f++) { const pts = []; for (let i = 0; i < 200; i++) { const g = -i / 200 * 2 * Math.PI; pts.push([200 + f * 30 + 100 * Math.cos(g), 200 + 100 * Math.sin(g)]); } forme.push(bp(pts)); }
+  const P = globalThis.performance; let m = Infinity, r;
+  for (let g = 0; g < 3; g++) { const t0 = P.now(); r = A.custBooleana("unisci", forme, CLIPPER); m = Math.min(m, P.now() - t0); }
+  console.log("      [misura] Unisci di 10 forme da 200 punti: " + m.toFixed(1) + " ms");
+  eq(r.esito, "ok"); ok(m < 300, m.toFixed(1) + " ms");
+});
+/* nell'editor: due o più forme selezionate (la prima nell'array è la più in basso) */
+const bSel = (...its) => { A.selectOne(its[0].id); its.slice(1).forEach((x) => { A.selSet[x.id] = true; }); };
+const bForme = () => A.state.items.filter((x) => x.type === "custshape");
+const conToast = (fn) => { const t0 = A.__toast, msg = []; A.__toast = (s, err) => msg.push((err ? "!" : "") + s); try { return fn(msg); } finally { A.__toast = t0; } };
+t("booleane: il blocco «Combina le forme» — solo nell'editor con due forme combinabili; con una linea o un elemento vero i pulsanti sono spenti e lo dice; «▣ Unisci» diventa «Raggruppa» nel title", () => conCampi((campi, el) => conContorni(() => {
+  ok(/custPannello\("grp", _cs \? _cs\.base : null\);\s*custCombinaRender\(its\);/.test(appjs), "renderProps (selezione multipla) chiama custCombinaRender");
+  ok(/id="custCombina"[\s\S]{0,400}id="custCombUnisci"[^>]*>[\s\S]{0,700}Unisci in una forma<\/button>[\s\S]{0,900}id="custCombSottrai"[\s\S]{0,900}id="custCombInterseca"/.test(appHtml), "tre pulsanti nel pannello della selezione multipla");
+  ok(/<div class="sec" id="groupProps"[\s\S]*id="custCombina"[\s\S]*<div class="sec" id="custForma"/.test(appHtml), "dentro #groupProps");
+  ok(/gg\.title=custEditorAttivo\(\) \? "Raggruppa: si muovono insieme, restano forme separate" : ""/.test(appjs), "«▣ Unisci» raggruppa: nell'editor il title lo dice (E28)");
+  precEditor(400, 300);
+  const a = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 120, y: 80 }), b = A.custNuovaForma("ell", { x: 60, y: 40 }, { x: 160, y: 120 });
+  bSel(a, b); A.custCombinaRender(A.selItems());
+  eq([el("custCombina").hidden, el("custCombUnisci").attrs["aria-disabled"], el("custCombSottrai").attrs["aria-disabled"], el("custCombInterseca").attrs["aria-disabled"]], [false, "false", "false", "false"]);
+  eq(el("custCombNota").textContent, "Il risultato prende colori e posto della forma più in basso.");
+  const ln = A.custNuovaForma("line", { x: 10, y: 150 }, { x: 90, y: 150 }); bSel(a, b, ln); A.custCombinaRender(A.selItems());
+  eq([el("custCombina").hidden, el("custCombUnisci").attrs["aria-disabled"], el("custCombNota").textContent], [false, "true", "Combina solo rettangoli, ellissi e poligoni."], "con una linea: spenti, e il perché");
+  const vero = add("cantante", 250, 200); bSel(a, vero); A.custCombinaRender(A.selItems());
+  eq(el("custCombSottrai").attrs["aria-disabled"], "true", "con un elemento vero: spenti");
+  A.custEditorAnnulla(); A.custCombinaRender([]);
+  eq(el("custCombina").hidden, true, "fuori dall'editor non esiste");
+})));
+t("booleane: interruttore SPENTO — nessun «Combina», custCombina non fa niente", () => conSpenti(() => conCampi((campi, el) => {
+  precEditor(400, 300);
+  const a = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 120, y: 80 }), b = A.custNuovaForma("rect", { x: 60, y: 40 }, { x: 160, y: 120 });
+  bSel(a, b); A.custCombinaRender(A.selItems());
+  eq(el("custCombina").hidden, true);
+  const prima = JSON.stringify(A.state.items); eq(A.custCombina("unisci"), false); eq(JSON.stringify(A.state.items), prima);
+})));
+t("booleane: Sottrai nell'editor — anello: una forma con un foro al posto di quella sotto, con il suo stile, selezionata; un passo di Annulla; Annulla e Ripeti esatti", () => conCampi(() => conContorni(() => conToast((msg) => {
+  precEditor(400, 300);
+  const x0 = A.custNuovaForma("rect", { x: 0, y: 0 }, { x: 10, y: 10 });
+  const sotto = A.custNuovaForma("ell", { x: 140, y: 90 }, { x: 260, y: 210 }), sopra = A.custNuovaForma("ell", { x: 160, y: 110 }, { x: 240, y: 190 });
+  const z0 = A.custNuovaForma("rect", { x: 300, y: 0 }, { x: 310, y: 10 });
+  A.primaDiAgire(); Object.assign(sotto, { fill: "#ff0000", stroke: "#00ff00", sw: 3 }); Object.assign(sopra, { fill: "#0000ff" }); A.save();
+  bSel(sopra, sotto);   /* l'ordine della selezione non conta: conta quello in cui si vedono */
+  const prima = JSON.stringify(A.state.items), passi = A.undoStack.length;
+  eq(A.custCombina("sottrai"), true);
+  const F = bForme();
+  eq(F.length, 3, "x0, il risultato, z0"); eq([F[0].id, F[2].id], [x0.id, z0.id], "al posto di quella sotto");
+  const R = F[1]; eq([R.k, R.holes && R.holes.length, R.fill, R.stroke, R.sw], ["poly", 1, "#ff0000", "#00ff00", 3], "la forma più in basso dà lo stile (E21)");
+  eq(A.selIds(), [R.id], "il risultato resta selezionato");
+  const g = A.custFormaDaShape(R), bb = A.custIngombroAnelli([g.pts]);
+  ok(Math.abs(bb.x1 - 140) < 0.1 && Math.abs(bb.x2 - 260) < 0.1, "al suo posto: " + JSON.stringify(bb));
+  eq(A.undoStack.length, passi + 1, "un passo di Annulla");
+  ok(/^Sottratta 1 forma da quella sotto\. Le curve sono diventate tanti piccoli lati/.test(msg[msg.length - 1]), "il messaggio, con le curve la prima volta: " + msg[msg.length - 1]);
+  const senzaEtichetta = () => JSON.stringify(A.state.items.map((x) => { const o = Object.assign({}, x); delete o.label; return o; }));   /* la cronologia rilegge gli elementi e dà l'etichetta di serie */
+  A.undo(); eq(senzaEtichetta(), prima, "Annulla: le due forme di prima, identiche e nello stesso ordine");
+  A.redo(); eq(bForme().length, 3); eq(bForme()[1].holes.length, 1, "Ripeti: il risultato");
+}))));
+t("booleane: Unisci con un pezzo staccato — due forme selezionate, il messaggio dei pezzi; le curve si dicono una volta per apertura dell'editor", () => conCampi(() => conContorni(() => conToast((msg) => {
+  precEditor(400, 300);
+  const a = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 120, y: 80 }), b = A.custNuovaForma("rect", { x: 100, y: 60 }, { x: 160, y: 120 }), c = A.custNuovaForma("ell", { x: 250, y: 150 }, { x: 300, y: 200 }), d = A.custNuovaForma("ell", { x: 270, y: 170 }, { x: 320, y: 220 });
+  bSel(a, b, c, d); eq(A.custCombina("unisci"), true);
+  eq([bForme().length, A.selIds().length], [2, 2], "due pezzi = due forme, tutte e due selezionate");
+  eq(msg.pop(), "Unite 4 forme. Il risultato è in 2 pezzi: sono 2 forme. Le curve sono diventate tanti piccoli lati: i punti si spostano, il tondo non le curva più come prima.");
+  const e = A.custNuovaForma("ell", { x: 20, y: 200 }, { x: 80, y: 260 }), f = A.custNuovaForma("rect", { x: 40, y: 220 }, { x: 120, y: 280 });
+  bSel(e, f); eq(A.custCombina("interseca"), true); eq(msg.pop(), "Intersecate 2 forme.", "la seconda volta le curve non si ripetono");
+}))));
+t("booleane: niente da fare, vuoto, troppi fori, errore — niente cambia, nessun passo, il messaggio giusto", () => conCampi(() => conContorni(() => conToast((msg) => {
+  precEditor(1000, 1000);
+  const a = A.custNuovaForma("rect", { x: 0, y: 0 }, { x: 50, y: 50 }), b = A.custNuovaForma("rect", { x: 200, y: 200 }, { x: 250, y: 250 });
+  const prova = (op, atteso, its) => { bSel(...its); const prima = JSON.stringify(A.state.items), passi = A.undoStack.length;
+    eq(A.custCombina(op), false, op); eq(JSON.stringify(A.state.items), prima, op + ": niente cambia"); eq(A.undoStack.length, passi, op + ": nessun passo"); eq(msg.pop(), "!" + atteso, op); };
+  prova("unisci", "Le forme non si toccano: restano separate.", [a, b]);
+  prova("interseca", "Le forme non hanno parti in comune.", [a, b]);
+  prova("sottrai", "Niente da togliere: le forme sopra non toccano quella sotto.", [a, b]);
+  const g = A.custNuovaForma("rect", { x: 0, y: 300 }, { x: 900, y: 900 }), buchi = [];
+  for (let i = 0; i < 51; i++) buchi.push(A.custNuovaForma("rect", { x: 20 + (i % 10) * 80, y: 320 + Math.floor(i / 10) * 90 }, { x: 30 + (i % 10) * 80, y: 330 + Math.floor(i / 10) * 90 }));
+  prova("sottrai", "Verrebbero 51 fori: al massimo 50 per forma.", [g, ...buchi]);
+  const c0 = A.ClipperLib, e0 = console.error, err = []; console.error = (...x) => err.push(x.join(" "));
+  try { A.ClipperLib = Object.assign({}, c0, { Clipper: function () { throw new Error("rotta"); } });
+    prova("unisci", "Non sono riuscito a combinare queste forme.", [a, g]);
+    ok(err.some((x) => /rotta/.test(x)), "l'errore va nella console");
+  } finally { A.ClipperLib = c0; console.error = e0; }
+}))));
+t("booleane (rev.): oltre 200 forme o 40 000 punti nell'elemento non si fa", () => conCampi(() => conContorni(() => conToast((msg) => {
+  precEditor(400, 300);
+  const p = A.custNuovaForma("rect", { x: 0, y: 0 }, { x: 200, y: 100 });
+  const croce = A.custShapeDaForma(Object.assign({ k: "poly", pts: [[90, -10], [90, 45], [-10, 45], [-10, 55], [90, 55], [90, 110], [110, 110], [110, 55], [210, 55], [210, 45], [110, 45], [110, -10]] }, CC_ST));
+  A.primaDiAgire(); A.state.items.push(croce); A.save();
+  const L0 = A.custLimiti, prima = JSON.stringify(A.state.items), passi = A.undoStack.length;
+  try {
+    A.custLimiti = () => Object.assign(L0(), { FORME: 3 }); bSel(p, croce);
+    eq(A.custCombina("sottrai"), false, "4 pezzi oltre 3 forme"); eq(msg.pop(), "!Al massimo 3 forme per elemento.");
+    A.custLimiti = () => Object.assign(L0(), { PUNTI_EL: 10 }); bSel(p, croce);
+    eq(A.custCombina("sottrai"), false, "16 punti oltre 10"); eq(msg.pop(), "!Al massimo 10 punti per elemento.");
+    eq([JSON.stringify(A.state.items), A.undoStack.length], [prima, passi], "niente cambia, nessun passo");
+  } finally { A.custLimiti = L0; }
+  bSel(p, croce); eq(A.custCombina("sottrai"), true, "nei limiti si fa"); eq(bForme().length, 4, "quattro pezzi");
+}))));
+t("booleane (rev.): la libreria arriva dopo — si usano le forme del clic; se una è sparita non cambia niente; senza rete lo dice", () => conCampi(() => conContorni(() => conToast((msg) => {
+  precEditor(400, 300);
+  const c0 = A.ClipperLib, k0 = A.custCaricaClipper; let attesa = null, chiamate = 0;
+  try {
+    A.ClipperLib = undefined;
+    A.custCaricaClipper = () => { chiamate++; return { then(ok, ko) { attesa = { ok, ko }; return this; } }; };
+    const a = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 120, y: 80 }), b = A.custNuovaForma("rect", { x: 100, y: 60 }, { x: 160, y: 120 }), c = A.custNuovaForma("rect", { x: 200, y: 200 }, { x: 260, y: 260 });
+    bSel(a, b); A.custCombina("unisci"); eq(chiamate, 1, "la libreria si chiede");
+    eq(bForme().length, 3, "finché non arriva, niente cambia");
+    bSel(b, c); attesa.ok(c0);
+    eq(bForme().length, 2, "unite a e b (quelle del clic), non b e c"); ok(bForme().some((x) => x.id === c.id), "c resta");
+    const d = A.custNuovaForma("rect", { x: 300, y: 10 }, { x: 360, y: 60 }), e = A.custNuovaForma("rect", { x: 320, y: 30 }, { x: 390, y: 90 });
+    bSel(d, e); A.custCombina("interseca");
+    A.primaDiAgire(); A.state.items = A.state.items.filter((x) => x.id !== e.id); A.save();
+    const prima = JSON.stringify(A.state.items); attesa.ok(c0);
+    eq(JSON.stringify(A.state.items), prima, "una forma sparita nel frattempo: niente cambia"); eq(msg.pop(), "!Le forme sono cambiate nel frattempo: non ho combinato niente.");
+    bSel(c, d); A.custCombina("sottrai"); attesa.ko(new Error("offline"));
+    eq(msg.pop(), "!Serve la rete la prima volta che si combinano le forme.");
+  } finally { A.ClipperLib = c0; A.custCaricaClipper = k0; }
+}))));
+t("booleane (rev.): una modifica ancora in sospeso (500 ms) non finisce nello stesso Annulla della combinazione", () => conCampi(() => conContorni(() => conToast(() => {
+  precEditor(400, 300);
+  const a = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 120, y: 80 }), b = A.custNuovaForma("rect", { x: 100, y: 60 }, { x: 160, y: 120 });
+  A.save(); A.flushHistorySoon();
+  a.fill = "#123456"; A.saveSoon();   /* come un colore scelto dalla barra: lo snapshot parte dopo 500 ms */
+  bSel(a, b); eq(A.custCombina("unisci"), true);
+  A.undo();
+  const F = bForme(); eq(F.length, 2, "Annulla toglie solo l'unione…"); eq(F[0].fill, "#123456", "…e il colore scelto prima resta");
+}))));
+/* ===== Booleane — revisione indipendente (20/10/2026) ===== */
+t("booleane (rev. 2): gli archi dei FORI contano come curve perse", () => {
+  const P = bp([[0, 0], [0, 200], [200, 200], [200, 0]], [[[50, 50, 0.4], [150, 50], [150, 150], [50, 150]]]);
+  const r = bOp("sottrai", P, bq(0, 0, 20, 20));
+  eq([r.esito, r.curvePerse], ["ok", true], "un foro con un lato ad arco");
+  eq(bOp("sottrai", bp([[0, 0], [0, 200], [200, 200], [200, 0]], [[[50, 50], [150, 50], [150, 150], [50, 150]]]), bq(0, 0, 20, 20)).curvePerse, false, "fori dritti: niente da dire");
+});
+t("booleane (rev. 2): una forma senza area (2 punti, punti allineati) resta com'è, fuori dalla combinazione, e il messaggio lo dice", () => {
+  const due = bp([[300, 300], [350, 300]]), piatta = bp([[0, 400], [50, 400], [100, 400]]);
+  const r = bOp("unisci", bq(0, 0, 100, 100), due, bq(50, 50, 100, 100), piatta);
+  eq([r.esito, r.pezzi.length, r.esclusi], ["ok", 1, [1, 3]], "combinate solo le due con un'area; le altre indicate");
+  eq(A.custBooleanaMessaggio("unisci", r, 2), "Unite 2 forme. 2 forme senza area sono rimaste com'erano.");
+  eq(A.custBooleanaMessaggio("unisci", Object.assign({}, r, { esclusi: [1] }), 2), "Unite 2 forme. 1 forma senza area è rimasta com'era.");
+  const s1 = bOp("sottrai", due, bq(0, 0, 100, 100), bq(50, 50, 10, 10));
+  eq([s1.esito, s1.esclusi, s1.pezzi[0].holes.length], ["ok", [0], 1], "Sottrai: la forma sotto senza area non conta, quella sotto è la prima con un'area");
+  const s2 = bOp("unisci", due, bq(0, 0, 100, 100));
+  eq([s2.esito, s2.esclusi], ["poche", [0]], "con meno di due forme con un'area non si fa");
+  eq(A.custBooleanaMessaggio("unisci", s2, 2), "Servono almeno due forme con un'area: 1 forma senza area non si può combinare.");
+});
+t("booleane (rev. 2): nell'editor la forma senza area resta al suo posto, le altre si combinano, stile e posto dalla più in basso con un'area", () => conCampi(() => conContorni(() => conToast((msg) => {
+  precEditor(400, 300);
+  const due = A.custShapeDaForma(Object.assign({ k: "poly", pts: [[300, 250], [350, 250]] }, CC_ST, { fill: "#aa0000" }));
+  A.primaDiAgire(); A.state.items.push(due); A.save();
+  const a = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 120, y: 80 }), b = A.custNuovaForma("rect", { x: 100, y: 60 }, { x: 160, y: 120 });
+  A.primaDiAgire(); a.fill = "#00aa00"; A.save();
+  bSel(due, a, b); eq(A.custCombina("unisci"), true);
+  const F = bForme(); eq(F.length, 2, "la forma senza area e il risultato");
+  eq([F[0].id, F[1].fill], [due.id, "#00aa00"], "la forma senza area resta dov'era; lo stile viene dalla più in basso CON un'area");
+  eq(msg.pop(), "Unite 2 forme. 1 forma senza area è rimasta com'era.");
+}))));
+t("booleane (rev. 2): il risultato eredita il gruppo della forma più in basso solo se nel gruppo resta qualcuno", () => conCampi(() => conContorni(() => conToast(() => {
+  precEditor(400, 300);
+  const a = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 120, y: 80 }), b = A.custNuovaForma("rect", { x: 100, y: 60 }, { x: 160, y: 120 }), c = A.custNuovaForma("rect", { x: 250, y: 20 }, { x: 300, y: 80 });
+  A.primaDiAgire(); a.grp = b.grp = c.grp = "gProva"; A.save();
+  bSel(a, b); eq(A.custCombina("unisci"), true);
+  eq(A.getSel().grp, "gProva", "c resta nel gruppo: il risultato pure");
+  const d = A.custNuovaForma("rect", { x: 20, y: 200 }, { x: 120, y: 260 }), e = A.custNuovaForma("rect", { x: 100, y: 220 }, { x: 160, y: 280 });
+  A.primaDiAgire(); d.grp = e.grp = "gSoli"; A.save();
+  bSel(d, e); eq(A.custCombina("unisci"), true);
+  eq(A.getSel().grp, undefined, "il gruppo era fatto solo delle forme combinate: niente gruppo di una forma sola");
+}))));
+t("booleane (rev. 2): accessibilità — pulsanti spenti con aria-disabled (restano raggiungibili) e descritti dalla nota; risultato di una forma sola = fuoco sul pannello della forma", () => conCampi((campi, el) => conContorni(() => conToast(() => {
+  ok(["custCombUnisci", "custCombSottrai", "custCombInterseca"].every((id) => new RegExp('id="' + id + '"[^>]*aria-describedby="custCombNota"').test(appHtml)), "aria-describedby sulla nota");
+  precEditor(400, 300);
+  const a = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 120, y: 80 }), ln = A.custNuovaForma("line", { x: 10, y: 150 }, { x: 90, y: 150 });
+  bSel(a, ln); A.custCombinaRender(A.selItems());
+  eq([el("custCombUnisci").attrs["aria-disabled"], el("custCombUnisci").disabled], ["true", false], "spento ma raggiungibile da tastiera");
+  const b = A.custNuovaForma("rect", { x: 100, y: 60 }, { x: 160, y: 120 });
+  bSel(a, b); A.custCombinaRender(A.selItems()); eq(el("custCombUnisci").attrs["aria-disabled"], "false");
+  A.__focused = null; eq(A.custCombina("unisci"), true);
+  eq(A.__focused, "custFContorno", "il pannello della selezione multipla sparisce: il fuoco va su «Modifica contorno»");
+  const c = A.custNuovaForma("rect", { x: 20, y: 200 }, { x: 200, y: 260 }), d = A.custNuovaForma("rect", { x: 100, y: 180 }, { x: 120, y: 280 });
+  bSel(c, d); A.__focused = "custCombSottrai"; eq(A.custCombina("sottrai"), true);
+  eq(A.__focused, "custCombSottrai", "più pezzi: il pannello resta, il fuoco pure");
+}))));
+t("booleane (rev. 1): l'operazione in attesa della libreria è di QUELLA apertura dell'editor; una sola in attesa, con i pulsanti spenti e «Preparo le forme…»", () => conCampi((campi, el) => conContorni(() => conToast((msg) => {
+  const c0 = A.ClipperLib, k0 = A.custCaricaClipper; let attese = [];
+  try {
+    A.ClipperLib = undefined;
+    A.custCaricaClipper = () => ({ then(ok, ko) { attese.push({ ok, ko }); return this; } });
+    /* A: si chiude l'editor e lo si riapre mentre la libreria arriva; gli id ripartono uguali */
+    precEditor(400, 300);
+    let a = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 120, y: 80 }), b = A.custNuovaForma("rect", { x: 60, y: 40 }, { x: 160, y: 120 });
+    const ids = [a.id, b.id]; bSel(a, b); eq(A.custCombina("sottrai"), true);
+    A.custEditorAnnulla(); precEditor(400, 300);
+    a = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 120, y: 80 }); b = A.custNuovaForma("rect", { x: 60, y: 40 }, { x: 160, y: 120 });
+    eq([a.id, b.id], ids, "stessi id nella nuova apertura"); A.selectOne(null);
+    let prima = JSON.stringify(A.state.items); attese.shift().ok(c0);
+    eq(JSON.stringify(A.state.items), prima, "l'operazione della vecchia apertura non tocca le forme nuove"); eq(msg.length, 0, "e non dice niente");
+    /* l'editor è chiuso quando arriva: niente, e nessun messaggio fuorviante */
+    bSel(a, b); eq(A.custCombina("unisci"), true); A.custEditorAnnulla();
+    prima = JSON.stringify(A.state.items); attese.shift().ok(c0);
+    eq([JSON.stringify(A.state.items), msg.length], [prima, 0], "editor chiuso: niente cambia, niente messaggi");
+    precEditor(400, 300); a = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 120, y: 80 }); b = A.custNuovaForma("rect", { x: 60, y: 40 }, { x: 160, y: 120 });
+    bSel(a, b); eq(A.custCombina("unisci"), true); A.custEditorAnnulla(); attese.shift().ko(new Error("offline"));
+    eq(msg.length, 0, "fallita a editor chiuso: niente messaggi");
+    /* B: un secondo clic mentre si aspetta non parte; i pulsanti sono spenti con la nota */
+    precEditor(400, 300); a = A.custNuovaForma("rect", { x: 20, y: 20 }, { x: 120, y: 80 }); b = A.custNuovaForma("rect", { x: 60, y: 40 }, { x: 160, y: 120 });
+    bSel(a, b); eq(A.custCombina("unisci"), true); A.custCombinaRender(A.selItems());
+    eq([el("custCombSottrai").attrs["aria-disabled"], el("custCombNota").textContent], ["true", "Preparo le forme…"], "in attesa: spenti, e lo dice");
+    eq(A.custCombina("sottrai"), false, "il secondo clic non parte"); eq(attese.length, 1, "una sola operazione in attesa");
+    attese.shift().ok(c0);
+    eq([bForme().length, msg.pop()], [1, "Unite 2 forme."], "arriva: l'Unisci, senza il falso «le forme sono cambiate»");
+    const c = A.custNuovaForma("rect", { x: 200, y: 20 }, { x: 260, y: 80 }), d = A.custNuovaForma("rect", { x: 240, y: 40 }, { x: 300, y: 100 });
+    bSel(c, d); A.custCombinaRender(A.selItems()); eq(el("custCombSottrai").attrs["aria-disabled"], "false", "dopo, di nuovo accesi");
+    eq(A.custCombina("sottrai"), true); attese.shift().ko(new Error("offline"));
+    eq(msg.pop(), "!Serve la rete la prima volta che si combinano le forme."); eq(A.custCombina("sottrai"), true, "e si può riprovare"); eq(attese.length, 1);
+  } finally { A.ClipperLib = c0; A.custCaricaClipper = k0; }
 }))));
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
@@ -24719,6 +25109,32 @@ t("posti numerati: elenco CSV per fila dal palco, protetto dalle formule", () =>
 /* test asincroni: si accodano e si attendono prima del riepilogo (t() non aspetterebbe e un rosso passerebbe inosservato) */
 const attese = [];
 function ta(name, fn) { attese.push(Promise.resolve().then(fn).then(() => { pass++; console.log("  ✓ " + name); }, (e) => { fail++; console.log("  ✗ " + name + "\n      " + e.message); })); }
+/* Booleane (rev. 1 e 5, 20/10/2026): custCaricaClipper eseguita davvero, con un DOM e dei timer finti. Tutto il lavoro che
+   cambia i globali del sandbox avviene in un colpo solo (nessun await nel mezzo), poi si guardano gli esiti delle promesse. */
+ta("booleane (rev. 2): custCaricaClipper — caricata ma senza ClipperLib, errore, 15 s senza risposta: la promessa si azzera e si rifiuta; caricata: risolve", () => {
+  const d0 = A.document, st0 = A.setTimeout, ct0 = A.clearTimeout, c0 = A.ClipperLib, script = [], timer = [], tolti = [];
+  const esiti = [];
+  try {
+    A.document = { createElement: () => ({}), head: { appendChild: (s) => script.push(s) } };
+    A.setTimeout = (fn, ms) => { timer.push({ fn, ms }); return timer.length; }; A.clearTimeout = (id) => tolti.push(id);
+    A.ClipperLib = undefined; A.custClipperPromessa = null;
+    const p1 = A.custCaricaClipper(); eq(A.custCaricaClipper(), p1, "una promessa sola finché si aspetta"); eq(script.length, 1);
+    eq([script[0].src, timer[0].ms], ["/vendor/clipper.min.js", 15000], "lo script e l'attesa massima di 15 s");
+    script[0].onload(); eq(A.custClipperPromessa, null, "caricata ma senza ClipperLib: azzerata"); ok(tolti.includes(1), "timer tolto");
+    esiti.push(p1.then(() => "risolta", (e) => e.message));
+    const p2 = A.custCaricaClipper(); eq(script.length, 2, "si riprova con uno script nuovo");
+    script[1].onerror(); eq(A.custClipperPromessa, null); esiti.push(p2.then(() => "risolta", (e) => e.message));
+    const p3 = A.custCaricaClipper(); timer[2].fn(); eq(A.custClipperPromessa, null, "15 s senza risposta: azzerata");
+    script[2].onload();   /* arriva tardi: non cambia l'esito già dato */
+    esiti.push(p3.then(() => "risolta", (e) => e.message));
+    const p4 = A.custCaricaClipper(); A.ClipperLib = c0; script[3].onload(); ok(tolti.includes(4), "timer tolto anche quando va bene");
+    esiti.push(p4.then((L) => (L === c0 ? "risolta" : "altro")));
+  } finally { A.document = d0; A.setTimeout = st0; A.clearTimeout = ct0; A.ClipperLib = c0; A.custClipperPromessa = null; }
+  return Promise.all(esiti).then((v) => {
+    ok(/non disponibile/.test(v[0]) && /Impossibile caricare/.test(v[1]) && /non è arrivata/.test(v[2]), "i tre rifiuti: " + JSON.stringify(v.slice(0, 3)));
+    eq(v[3], "risolta");
+  });
+});
 /* Una platea con palco in alto: palco 1000×800 a x 100–1100, una pedana, 2 file da 6 sedie sotto il palco (guardano in su),
    una sedia senza numero, e dati «personali» appiccicati agli elementi (non devono MAI finire nella foto). `gradi` gira
    TUTTA la scena (posizioni, palco, pedana e rotazioni delle sedie) attorno all'origine: la foto deve uscire uguale. */
