@@ -12013,6 +12013,45 @@ t("booleane: custCaricaClipper — al primo uso, un solo script da /vendor/, la 
   ok(/if\(window\.ClipperLib\) return Promise\.resolve\(window\.ClipperLib\);/.test(src), "già caricata: subito");
   const p = A.custCaricaClipper(); ok(p && typeof p.then === "function", "una promessa anche quando c'è già");
 });
+t("booleane: un arco si spezza entro 0,05 cm, al massimo 64 segmenti — un cerchio di 1 m ≈ 72 punti, uno di 2 m ≈ 100", () => {
+  const giro = (r) => A.custAnelloInInteri(A.custEllisseInAnello({ cx: 300, cy: 300, rx: r, ry: r }, 0.05), 0.05);
+  const c1 = giro(50), c2 = giro(100);
+  eq([c1.length, c2.length], [72, 100], "18 e 25 segmenti per quarto");
+  [[c1, 50], [c2, 100]].forEach(([P, r]) => P.forEach((p) => { const d = Math.hypot(p.X / 100 - 300, p.Y / 100 - 300);
+    ok(d <= r + 0.01 && d >= r - 0.06, "punto sul cerchio entro 0,05 cm (più l'arrotondamento al centesimo): " + d); }));
+  ok(c1.every((p) => Number.isInteger(p.X) && Number.isInteger(p.Y)), "coordinate intere (× 100)");
+  eq([A.custSegmentiArco(500, Math.PI, 0.05), A.custSegmentiArco(5, Math.PI / 2, 0.05), A.custSegmentiArco(0.01, Math.PI, 0.05)], [64, 6, 1], "al massimo 64; un quarto di raggio 5 sei; un arco minuscolo uno");
+  eq(A.custAnelloInInteri([[0, 0], [0, 100], [100.004, 100], [100, 0.006]], 0.05), [{ X: 0, Y: 0 }, { X: 0, Y: 10000 }, { X: 10000, Y: 10000 }, { X: 10000, Y: 1 }], "i lati dritti: un punto per capo, al centesimo");
+  eq(A.custAnelloInInteri([[0, 0], [0, 0.001], [0, 100], [100, 100]], 0.05).length, 3, "due punti uguali al centesimo diventano uno");
+});
+t("booleane: Douglas-Peucker su un anello chiuso — toglie i punti entro lo scarto, tiene gli angoli, mai sotto 3", () => {
+  const Q = []; const lato = (x0, y0, x1, y1, nx, ny) => { for (let i = 0; i < 100; i++) { const k = i / 100, z = (i % 2 ? 0.01 : -0.01); Q.push([x0 + (x1 - x0) * k + nx * z * (i ? 1 : 0), y0 + (y1 - y0) * k + ny * z * (i ? 1 : 0)]); } };
+  lato(0, 0, 0, 100, 1, 0); lato(0, 100, 100, 100, 0, 1); lato(100, 100, 100, 0, 1, 0); lato(100, 0, 0, 0, 0, 1);
+  eq(Q.length, 400);
+  const S = A.custDouglasPeucker(Q, 0.05);
+  eq(S.map((p) => p.join(",")).sort(), ["0,0", "0,100", "100,0", "100,100"], "i quattro angoli");
+  eq(A.custDouglasPeucker([[0, 0], [0, 10], [10, 0]], 5), [[0, 0], [0, 10], [10, 0]], "un triangolo resta un triangolo");
+  eq(A.custDouglasPeucker([[0, 0], [0, 10], [0.001, 20], [0, 30]], 1).length, 3, "un anello quasi piatto: mai sotto 3");
+  const C = []; for (let i = 0; i < 340; i++) { const g = -i / 340 * 2 * Math.PI; C.push([200 + 100 * Math.cos(g), 200 + 100 * Math.sin(g)]); }
+  const r = A.custSemplifica([C], 200, 1000);
+  ok(r && r.anelli[0].length <= 200 && r.anelli[0].length >= 60, "340 punti → " + (r && r.anelli[0].length));
+  eq(r.scarto, 0.05, "lo scarto con cui ci sta (il primo)");
+  const chiave = new Set(C.map((p) => p.join(",")));
+  ok(r.anelli[0].every((p) => chiave.has(p.join(","))), "ogni punto tenuto è un punto di partenza");
+  ok(r.anelli[0].every((p) => Math.abs(Math.hypot(p[0] - 200, p[1] - 200) - 100) < 1e-9), "sul cerchio");
+});
+t("booleane: custSemplifica — sotto i limiti anelli identici e scarto 0; oltre 1000 punti per forma semplifica tutti; oltre 5 cm null", () => {
+  const cerchio = (cx, n, r) => { const o = []; for (let i = 0; i < n; i++) { const g = -i / n * 2 * Math.PI; o.push([cx + r * Math.cos(g), 200 + r * Math.sin(g)]); } return o; };
+  const due = [cerchio(100, 150, 50), cerchio(300, 20, 10)];
+  const r0 = A.custSemplifica(due, 200, 1000);
+  eq([r0.scarto, r0.anelli], [0, due], "niente da semplificare");
+  const sei = [0, 1, 2, 3, 4, 5].map((k) => cerchio(100 + k * 200, 190, 80));
+  const r1 = A.custSemplifica(sei, 200, 1000), tot = r1.anelli.reduce((s, R) => s + R.length, 0);
+  ok(tot <= 1000 && r1.anelli.every((R) => R.length < 190), "1140 punti → " + tot + ", tutti gli anelli più leggeri");
+  ok(r1.scarto >= 0.05 && r1.scarto <= 5, "scarto " + r1.scarto);
+  const zz = []; for (let i = 0; i < 400; i++) zz.push([i * 10, (i % 2) * 20]);
+  eq(A.custSemplifica([zz], 200, 1000), null, "uno zig-zag di 20 cm non scende a 200 punti entro 5 cm: null");
+});
 t("la nota interna di un contatto non finisce nel PDF", () => {
   const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
   ok(src, "sezione contatti del rider non trovata");

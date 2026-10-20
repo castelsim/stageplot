@@ -11010,6 +11010,71 @@ function custContornoDaForma(g){
   if(rot) R=R.map(function(p){ var q=rotatePointAround(p[0], p[1], cx, cy, rot), o=[custR6(q[0]), custR6(q[1])]; if(p[2]) o.push(p[2]); return o; });
   return {pts:R, holes:[]};
 }
+/* ===== CONTORNI, Piano 2 (20/10/2026): UNISCI / SOTTRAI / INTERSECA — le parti PURE =====
+   Spec §4 (E20–E27). La libreria (clipper-lib 6.4.2, coordinate INTERE) arriva come parametro: queste funzioni non toccano
+   il DOM e si provano nel sandbox con la libreria vera. Gli archi diventano segmenti entro 0,05 cm dall'arco vero (E23), le
+   coordinate × 100 (0,01 cm, E27). */
+/* quanti segmenti per un arco di raggio r e angolo theta perché lo scarto (la freccia di ogni segmento) resti entro eps:
+   r·(1 − cos(θ/2k)) ≤ eps. Almeno 1, al massimo 64 (oltre, lo scarto cresce di poco: 0,15 cm su un mezzo cerchio di 5 m). */
+function custSegmentiArco(r, theta, eps){
+  if(!(r>0) || !(theta>0)) return 1;
+  var c=Math.max(-1, 1-eps/r), mezzo=Math.acos(c);
+  if(!(mezzo>0)) return 64;
+  return Math.max(1, Math.min(64, Math.ceil(theta/(2*mezzo)-1e-9)));
+}
+/* un anello in cm (con archi) → punti interi della libreria {X, Y} in centesimi di cm. Due punti uguali di fila (anche
+   l'ultimo col primo) diventano uno. */
+function custAnelloInInteri(R, eps){
+  var out=[], n=R.length, push=function(x, y){ var X=Math.round(x*100), Y=Math.round(y*100), u=out[out.length-1];
+    if(!u || u.X!==X || u.Y!==Y) out.push({X:X, Y:Y}); };
+  for(var i=0;i<n;i++){
+    var a=R[i], b=R[(i+1)%n], bu=+a[2]||0, A=bu ? custArco(a, b, bu) : null;
+    if(!A || A.cx==null){ push(a[0], a[1]); continue; }
+    var Q=custPuntiArco(a, b, bu, custSegmentiArco(A.r, A.theta, eps));
+    for(var j=0;j<Q.length-1;j++) push(Q[j][0], Q[j][1]);
+  }
+  while(out.length>1 && out[0].X===out[out.length-1].X && out[0].Y===out[out.length-1].Y) out.pop();
+  return out;
+}
+/* distanza del punto p dal segmento a–b */
+function custDistSegmento(p, a, b){
+  var dx=b[0]-a[0], dy=b[1]-a[1], L=dx*dx+dy*dy, t=L>0 ? ((p[0]-a[0])*dx+(p[1]-a[1])*dy)/L : 0;
+  t=Math.max(0, Math.min(1, t));
+  return Math.hypot(p[0]-a[0]-t*dx, p[1]-a[1]-t*dy);
+}
+/* DOUGLAS-PEUCKER su un anello CHIUSO di punti [x, y] (cm): si tengono il punto 0 e il più lontano da lui, poi su ogni
+   catena il punto più lontano dalla sua corda finché è oltre eps. Restano solo punti di partenza, nell'ordine; mai sotto 3. */
+function custDouglasPeucker(R, eps){
+  var n=R.length; if(n<=3) return R.map(function(p){ return [p[0], p[1]]; });
+  var far=0, dm=-1, i;
+  for(i=1;i<n;i++){ var d=Math.hypot(R[i][0]-R[0][0], R[i][1]-R[0][1]); if(d>dm){ dm=d; far=i; } }
+  var tieni=new Array(n), pila=[[0, far], [far, n]];
+  tieni[0]=tieni[far]=true;
+  while(pila.length){
+    var s=pila.pop(), a=s[0], b=s[1], A=R[a], B=R[b%n], best=-1, bi=-1;
+    for(i=a+1;i<b;i++){ var di=custDistSegmento(R[i], A, B); if(di>best){ best=di; bi=i; } }
+    if(bi>0 && best>eps){ tieni[bi]=true; pila.push([a, bi], [bi, b]); }
+  }
+  var out=[]; for(i=0;i<n;i++) if(tieni[i]) out.push([R[i][0], R[i][1]]);
+  if(out.length<3){   /* un anello quasi piatto: il punto più lontano dalla corda resta, per tenere un'area */
+    var bj=-1, bd=-1; for(i=1;i<n;i++){ if(i===far) continue; var dd=custDistSegmento(R[i], R[0], R[far]); if(dd>bd){ bd=dd; bj=i; } }
+    tieni[bj]=true; out=[]; for(i=0;i<n;i++) if(tieni[i]) out.push([R[i][0], R[i][1]]);
+  }
+  return out;
+}
+/* OLTRE I LIMITI (E25): gli anelli oltre maxAnello punti (tutti, se la forma supera maxForma) si semplificano con uno scarto
+   che parte da 0,05 cm e raddoppia fino a 5 cm. → {anelli, scarto} (scarto 0 = niente da fare) o null (non ci sta) */
+function custSemplifica(anelli, maxAnello, maxForma){
+  var conta=function(an){ return an.reduce(function(s, R){ return s+R.length; }, 0); };
+  var dentro=function(an){ return conta(an)<=maxForma && an.every(function(R){ return R.length<=maxAnello; }); };
+  if(dentro(anelli)) return {anelli:anelli, scarto:0};
+  var tutti=conta(anelli)>maxForma;
+  for(var eps=0.05;;eps=Math.min(5, eps*2)){
+    var out=anelli.map(function(R){ return (tutti || R.length>maxAnello) ? custDouglasPeucker(R, eps) : R; });
+    if(dentro(out)) return {anelli:out, scarto:eps};
+    if(eps>=5) return null;
+  }
+}
 /* ---- Contorni: l'aggancio (Tappa A estesa, E15, E32) ---- */
 function custDentroSup(x, y, sup){ var mx=Math.max(sup.w, sup.d)*0.1; return x>=-mx && x<=sup.w+mx && y>=-mx && y<=sup.d+mx; }
 /* i bersagli di uno o più anelli: i punti = «Vertice»; lato dritto: metà = «Punto medio» e il segmento per «Sul bordo»;
