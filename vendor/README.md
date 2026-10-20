@@ -45,6 +45,33 @@ shasum -a 256 vendor/qrcode.min.js   # aggiorna l'hash qui sopra
 
 Dopo: ritestare "Condividi → Mostra QR" nel browser (con e senza login).
 
+## clipper.min.js
+
+Le operazioni **Unisci in una forma / Sottrai / Interseca** di «Crea elemento» (Contorni, Piano 2, 20/10/2026).
+Caricata **on-demand** al primo uso da `custCaricaClipper()` (come `loadQrLib()`), nel precache di `sw.js`.
+Scelta perché lavora a coordinate **intere** (algoritmo di Vatti): niente errori di virgola mobile sui casi degeneri.
+
+- **Pacchetto:** `clipper-lib` (Angus Johnson, port JavaScript di Timo; Boost Software License 1.0; dentro, JSBN di Tom Wu)
+- **Versione:** 6.4.2 (`ClipperLib.version` = `6.4.2.2`)
+- **Fonte:** https://cdn.jsdelivr.net/npm/clipper-lib@6.4.2/clipper.min.js (minificazione automatica di jsDelivr di `clipper.js`)
+- **Scaricato:** 2026-10-20. Il file minificato non ha l'intestazione con la licenza e ha una riga `sourceMappingURL` finale
+  (puntava a jsDelivr): la riga è **tolta** e in cima è **rimessa l'intestazione** di
+  https://cdn.jsdelivr.net/npm/clipper-lib@6.4.2/clipper.js (righe 1–65: copyright e licenza, che la Boost chiede di tenere).
+- **SHA-256** (della nostra copia, non di quella di jsDelivr: i file minificati al volo possono cambiare):
+  `1b0a942d1e924f474ff0f04db219fd091a2526eb7c1094100a58536e543e1132`
+
+### Come aggiornare
+
+```
+curl -sL "https://cdn.jsdelivr.net/npm/clipper-lib@<VERSIONE>/clipper.min.js" -o /tmp/c/clipper.min.js
+curl -sL "https://cdn.jsdelivr.net/npm/clipper-lib@<VERSIONE>/clipper.js" -o /tmp/c/clipper.js
+# intestazione di clipper.js (fino alla riga prima di "(function ()") + clipper.min.js SENZA la riga sourceMappingURL:
+{ sed -n '1,/^(function ()/p' /tmp/c/clipper.js | sed '$d'; grep -v sourceMappingURL /tmp/c/clipper.min.js; } > vendor/clipper.min.js
+shasum -a 256 vendor/clipper.min.js   # aggiorna l'hash qui sopra (il test di engines lo confronta)
+```
+
+Dopo: `node test/engines.test.mjs` (le booleane girano sulla libreria vera nel sandbox) e una prova nel browser.
+
 ## pdf.min.js
 
 Librerie per l'export PDF, **estratte dal monolite** (erano inline in `index.html`, ~449 KB parsati
