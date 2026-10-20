@@ -1,3 +1,26 @@
+# 20/10/2026 — Crea elemento, Contorni Piano 2: Unisci / Sottrai / Interseca (ramo `contorni-booleane`, PR 3)
+
+- Spec `crea-elemento-registro/tappa-contorni/2026-10-16-crea-elemento-contorni-design.md` §4 (E20–E28), piano 2 e registro
+  accanto (fuori dal repo). Dietro `custContorniAttivi()` (già acceso): **va online al merge**. Formato dei dati invariato.
+- **Libreria**: `vendor/clipper.min.js` = clipper-lib 6.4.2 (minificazione di jsDelivr senza `sourceMappingURL`, con
+  l'intestazione di licenza di `clipper.js`: Boost 1.0); SHA-256 in `vendor/README.md` (un test lo confronta). Si scarica al
+  primo uso (`custCaricaClipper`, come `loadQrLib`), sta nel `PRECACHE` di `sw.js`.
+- **Pure** (provate nel sandbox con la libreria vera): `custSegmentiArco`/`custAnelloInInteri` (archi entro 0,05 cm, al massimo
+  64 segmenti, centesimi di cm), `custDouglasPeucker`/`custSemplifica` (da 0,05 a 5 cm oltre 200/1000 punti), `custBooleana(op,
+  forme, CL)` (ogni forma da sola in pari-dispari, poi nonzero; PolyTree → contorno + fori; pulizia a 1 unità; frammenti sotto
+  1 mm² via; contorni antiorari e fori orari a vista; esiti ok/vuoto/niente/troppi-fori/troppi-punti/errore, mai un'eccezione),
+  `custBooleanaMessaggio` (testi della spec §4.4).
+- **Interfaccia**: blocco «Combina le forme» (`#custCombina`) nel pannello della selezione multipla, solo nell'editor; tre
+  pulsanti con icona; con linee, testi o elementi veri spenti con il perché; risultato con stile e posto della forma più in
+  basso, selezionato, un passo di Annulla; gli id si prendono al clic (se la libreria arriva dopo e una forma è sparita, niente).
+  «▣ Unisci» (raggruppa) nell'editor ha il title «Raggruppa…».
+- Scelta del piano: «Niente da togliere» in Sottrai si misura sull'area tolta (< 1 mm²), non sullo 0,1% dell'area della spec
+  (una tacca di 1 cm² in un piano di 2 m² si deve poter togliere); «niente» in Unisci = stessi pezzi e stessa area (due forme
+  affiancate si fondono). Le curve perse si dicono una volta per apertura dell'editor.
+- Prove: engines 1804 (25 test nuovi «booleane…»), collaudo 30/30, biglietteria 148, Deno 208, lint pulito; mutazioni 12/12;
+  Chromium (porta 8979, rete esterna bloccata) 26/26 senza override, nessun errore; Unisci di 10 forme da 200 punti ~5 ms.
+  Schermate e script in `STAGEPLOT/anteprime-crea-elemento/2026-10-20_booleane_*`.
+
 # 20/10/2026 — ascolto per le tastiere, contorni accesi, esemplari online, chitarre senza canale
 
 - **#324** (segnalazione dall'app del 19/10): `isPerformer` non contava Tastiera, Organo Hammond, DJ set, timpani,

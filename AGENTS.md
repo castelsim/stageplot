@@ -162,4 +162,6 @@ I prossimi moduli previsti (vedi piano): `src/` per canvas, objects, data/serial
   oggi esce identico); i gesti stanno dietro `custContorniAttivi()`. Un'app vecchia che salva un contorno lo perde (archi
   dritti, fori via): **ogni cambio di formato delle forme si rilascia in due fasi** (lettore, poi 24–48 h dopo i gesti) e
   si spegne con `false`, mai con un revert. La modalità contorno è uno stato dell'interfaccia (`window.__custContorno`):
-  `applyHistory` la riallinea (`custContornoDopoStoria`), non va mai nel documento.
+  `applyHistory` la riallinea (`custContornoDopoStoria`), non va mai nel documento. Le booleane (Unisci/Sottrai/Interseca, 20/10)
+  usano `vendor/clipper.min.js` (caricata al primo uso): se la si aggiorna, lo SHA-256 in `vendor/README.md` va rifatto (un test
+  lo confronta) e `custBooleana` riceve la libreria come parametro (nei test: la stessa, caricata nel sandbox).
