@@ -5707,6 +5707,10 @@ function supportsLeggio(it){ return !!POSTAZ[it.type] || !!VOCE[it.type] || !!(T
 /* musicisti-strumento senza leggio "nativo" (arpa, piani, organi, percussioni, mallet…): leggio
    opzionale (OFF di default) reso genericamente davanti allo strumento in itemMarkup. */
 function leggioExtra(it){ return musLayerItem(it.type) && !supportsLeggio(it) && it.type!=="direttore" && it.type!=="batteria"; }
+/* strumenti col leggio generico che nascono col leggio ACCESO (Simone 20/10/2026: «perché l'arpa non ha il leggio?
+   dovrebbe sempre averlo»). Solo gli elementi nuovi: un'arpa salvata prima resta com'era, perché chi aveva aggiunto un
+   leggio a parte se lo ritroverebbe doppio. */
+var LEGGIO_DI_SERIE = { arpa:1 };
 function leggioExtraY(it){ var m={arpa:70, grancoda:60, mezzacoda:55}; if(it.type==="tastiera") return -(it.d/2+18); return (m[it.type]!=null) ? m[it.type] : Math.min(it.d/2+18, 90); }
 /* Da che parte va il leggio di una tastiera (13/10/2026, Simone: «mette il leggio al contrario»). Il disegno
    «Strumento solo» ha i TASTI verso +y, e da quella parte stanno chi suona e lo sgabello (pianoBench): il
@@ -13663,6 +13667,9 @@ function lblStacco(fszK){ return Math.max(3, fszK*0.3); }
    Conta solo se cade davvero nella striscia del nome; trascinata lontano non lo spinge più giù. */
 function lblArteConDi(it, ext, fszK){
   if(it && it.type==="custom") return custArteConPezzi(it, ext, fszK);
+  /* anche il leggio generico davanti allo strumento (arpa, piani…): «Arpa 1» si scriveva sopra la mensola (21/10/2026) */
+  if(it && it.leggio===true && !lblSopraDi(it) && leggioExtra(it)){ var _ly=leggioExtraY(it);
+    if(_ly>0 && _ly+14>ext.y1) ext={x0:ext.x0, y0:ext.y0, x1:ext.x1, y1:_ly+14}; }
   if(!it || !it.diId || lblSopraDi(it)) return ext;
   var di=diLinked(it); if(!di) return ext;
   var off=(Array.isArray(it.diOff)&&it.diOff.length===2) ? it.diOff : diDefaultOff(it);
@@ -22205,6 +22212,7 @@ function addItem(type, over, silenzioso){   /* silenzioso (06/10/2026): crea e m
   if(POSTAZ[type] && state.lookDefault==="schematico"){ it.sedia=false; it.leggio=false; }   /* «Strumento solo»: nasce nudo, sedia e leggio si aggiungono a mano */
   if(DOUBLE_TYPES[type]){ it.sep=defSepOf({type:type}); it.w=sepToW(DOUBLE_TYPES[type], it.sep); it.d=DOUBLE_TYPES[type].dbl[1]; }
   if(t.dir){ it.podio=false; it.leggio=true; }
+  if(LEGGIO_DI_SERIE[type]) it.leggio=true;   /* l'arpa nasce col suo leggio (Simone 20/10/2026) */
   if(state.lookDefault==="schematico" && hasLookToggle(it)) it.look="schematico";   /* B4: eredita l'aspetto predefinito del progetto */
   var _ld0=look2Dims(it); if(_ld0){ it.w=_ld0[0]; it.d=_ld0[1]; }   /* Fase 2 illustrato (default): footprint = illustrazione */
   if(autoNumbered(type)){   /* nome progressivo: Flauto 1, Flauto 2, … (doppie = 2 nomi) */
@@ -25160,6 +25168,7 @@ function placeOut(out, fitStage, clearFirst, force){
     else if(isCover(it) && o.h!=null) it.h=+o.h;   /* coperture: h opzionale (luce sotto) */
     if(o.parts){ it.parts=compClone(o.parts); if(COMP[o.type] && COMP[o.type].size){ var cz=COMP[o.type].size(it); it.w=cz[0]; it.d=cz[1]; } }
     ["donna","hair","mano","leggio","sedia","doppia","sep","ampli","pedaliera","vsec","label2","podio","nomic","micMode","hw","ch","outCh","dimSide","rfChi","poltrona"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });   /* flag opzionali dal generatore (hw/ch/outCh = capacità stage box; dimSide = lato della misura pedana) */
+    if(LEGGIO_DI_SERIE[o.type] && o.leggio==null) it.leggio=true;   /* modelli e organico: come dal catalogo */
     return it;
   });
   if(!clearFirst && state.items.length) avoidGroupOverlap(news);   /* non sovrapporsi a ciò che è già sul palco */
@@ -27978,6 +27987,7 @@ function countAccessori(){
     else if(t.gtr && it.leggio===true) leggii++;
     else if(it.type==="direttore" && (it.leggio===true||it.podio===true)) leggii++;
     else if((it.type==="batteria"||it.type.indexOf("timpani")===0) && parts(it).leggio===true) leggii++;
+    else if(it.leggio===true && leggioExtra(it)) leggii++;   /* leggio generico (arpa, piani, percussioni…): si disegna, quindi si conta (20/10/2026) */
     // sgabelli: fonte unica sgabelliDi() (la stessa del cartiglio), così disegno, Stato e PDF non si separano e un tipo nuovo si conta da solo (16/10)
     sgabelliDi(it).forEach(function(p){ sgabelli+=p[1]; });
     // hearback
