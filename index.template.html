@@ -17212,6 +17212,67 @@ function auditFixAggiungiDi(list){
   __cabRes=null; save(); render(); if(typeof renderChannels==="function") renderChannels();
   showToast(n===1 ? "DI aggiunta: lo strumento ora ha un canale" : "DI aggiunte a "+n+" strumenti");
 }
+/* VOCE RIPRESA DUE VOLTE (20/10/2026, backlog L3). Una voce (VOCE: cantante, corista, relatore, moderatore) porta già
+   il SUO microfono e il suo canale, salvo la panoramica (micModeOf). Se accanto si posa anche un microfono dal
+   catalogo, la stessa voce entra due volte nella channel list (SM58 della voce + Beta 58A del radiomic), e nessuno
+   lo diceva: «voxless» avvisa solo quando il microfono manca.
+   Microfoni personali = quelli che fanno il lavoro della modalità della voce: asta dritta (tonda), giraffa, radiomic
+   (mano), archetto, da tavolo (relatori). Fuori: i microfoni d'insieme (coro, asta gigante, coppia stereo), che
+   riprendono una sezione, e l'asta bassa (SM57 a 45 cm: ampli, cajon, cassa), che a una bocca non arriva.
+   Soglia 80 cm dal centro della voce, misurata sui disegni: la voce è larga 70 e profonda 90, l'asta posata davanti
+   alla bocca finisce col centro a 50-80 cm (la griglia è di 25: tre passi avanti e uno di lato = 79 cm, il caso vero
+   del collaudo); a un metro è già il microfono di qualcun altro. Il microfono deve stare davanti o di fianco (fino a
+   20 cm dietro il centro, per l'archetto e il radiomic in mano): dietro la voce c'è il palco, non la bocca.
+   NON si avvisa, perché il microfono serve chiaramente ad altro (nel dubbio meglio tacere: un falso allarme costa più
+   di un mancato): nel rack, dentro una zona microfonica, raggruppato con uno strumento e non con la voce, più vicino a
+   un'altra voce (o quasi alla pari: non si sa di chi è), o con uno strumento vicino al microfono almeno quanto la voce
+   (il cantante con l'acustica: l'asta può essere per la chitarra; l'ampli davanti alla voce). Il microfono deve dare
+   un canale suo (cabItemInputs) o passare da un ricevitore (il canale allora è del ricevitore).
+   Restituisce [{voce, mic, mics:[...], cm}] in ordine di disegno, una voce una volta sola (mic = il più vicino). */
+var VOCE_DOPPIA_MIC={ astamic:1, giraffa:1, wireless:1, headset:1, mictavolo:1 };
+var VOCE_DOPPIA_CM=80, VOCE_DOPPIA_DIETRO_CM=20, VOCE_DOPPIA_PARI_CM=15;
+function voceDoppiaStrumento(o){
+  if(!o || !o.type || !TYPES[o.type] || VOCE[o.type] || o.type==="miczone" || o.diFor || o.rackId) return false;
+  if(TYPES[o.type].sub==="Aste e microfoni") return false;   /* un altro microfono non è uno strumento */
+  return hasChain(o) || cabItemInputs(o).length>0 || isAudioSource(o);
+}
+function vociRipreseDueVolte(){
+  var items=state.items||[], perVoce={}, out=[];
+  var dist=function(a, b){ return Math.hypot((a.x||0)-(b.x||0), (a.y||0)-(b.y||0)); };
+  var voci=items.filter(function(it){ return VOCE[it.type] && !it.rackId && !it.avvertenza; });
+  items.forEach(function(m){
+    if(!VOCE_DOPPIA_MIC[m.type] || m.rackId || m.avvertenza || m.distOf) return;
+    if(!(cabItemInputs(m).length || (RF_TX[m.type] && rfAssign().byTx[m.id]))) return;   /* nessun canale: niente doppio */
+    if(itemInMicZone(m)) return;
+    var v=null, dv=Infinity;
+    voci.forEach(function(o){ var d=dist(o, m); if(d<dv){ dv=d; v=o; } });
+    if(!v || dv>VOCE_DOPPIA_CM) return;
+    if(micModeOf(v)==="pano" || !cabItemInputs(v).length) return;   /* in panoramica il microfono posato È la sua ripresa */
+    if(voci.some(function(o){ return o!==v && dist(o, m)<=dv+VOCE_DOPPIA_PARI_CM; })) return;
+    var a=(v.rot||0)*Math.PI/180;   /* a rotazione 0 la voce guarda il pubblico (+y); rotate() gira in senso orario */
+    if(((m.x||0)-(v.x||0))*(-Math.sin(a)) + ((m.y||0)-(v.y||0))*Math.cos(a) < -VOCE_DOPPIA_DIETRO_CM) return;
+    if(m.grp && m.grp!==v.grp && items.some(function(o){ return o!==m && o.grp===m.grp && voceDoppiaStrumento(o); })) return;
+    if(items.some(function(o){ return o!==m && voceDoppiaStrumento(o) && dist(o, m)<=dv; })) return;
+    var c=perVoce[v.id];
+    if(!c){ c=perVoce[v.id]={voce:v, mic:m, mics:[], cm:Math.round(dv)}; out.push(c); }
+    c.mics.push(m);
+    if(Math.round(dv)<c.cm){ c.mic=m; c.cm=Math.round(dv); }
+  });
+  return out.sort(function(p, q){ return items.indexOf(p.voce)-items.indexOf(q.voce); });
+}
+/* Tieni solo il microfono posato: la voce passa in panoramica (nessun microfono suo), la stessa mossa del pannello
+   (pMicMode), ingombro compreso. Un passo di Annulla, come gli altri rimedi. */
+function auditFixVoceSoloMicPosato(list){
+  if(soloLetturaProgetto()) return;
+  var voci=(list||[]).map(function(c){ var id=c && c.voce && c.voce.id; return (state.items||[]).find(function(i){ return i.id===id; }); })
+    .filter(function(v){ return v && VOCE[v.type] && micModeOf(v)!=="pano"; });
+  if(!voci.length) return;
+  primaDiAgire();
+  voci.forEach(function(it){ it.micMode="pano"; delete it.mano; delete it.nomic;
+    if(it.type==="cantante" || it.poltrona===true){ var vm=voceMisure(it); it.w=vm[0]; it.d=vm[1]; } });
+  __cabRes=null; save(); render(); if(typeof renderChannels==="function") renderChannels();
+  showToast(voci.length===1 ? "Resta il microfono posato: la voce ha un canale solo" : "Restano i microfoni posati: "+voci.length+" voci con un canale solo");
+}
 function auditEngine(){
   var items=state.items||[], Rc=cabResult(true), Re=elecResult(true), f=[];
   /* Dedup per CHIAVE, non per testo (audit 27/07): la stessa regola dichiarata sia qui sia dentro un
@@ -17401,6 +17462,18 @@ function auditEngine(){
       "Palco","Probabilmente è una copia finita nello stesso punto. «Mostra» li seleziona; se sono davvero doppioni, toglili: si annulla.",
       {label:"Mostra", run:function(){ auditFixMostraDoppioni(doppi); }}, "doppioni",
       {label:(doppi.length===1?"Togli il doppione":"Togli i "+doppi.length+" doppioni"), run:function(){ auditFixTogliDoppioni(doppi); }});
+  })();
+  /* VOCE RIPRESA DUE VOLTE (20/10): un avviso solo, coi nomi della voce e del microfono posato accanto. */
+  (function(){
+    var vd=vociRipreseDueVolte(); if(!vd.length) return;
+    var nome=function(it){ return (String(it.label||"").trim()) || (TYPES[it.type]&&TYPES[it.type].nome) || "Voce"; };
+    var nomi=vd.map(function(c){ return "«"+nome(c.voce)+"»"; });
+    add("warn", vd.length===1
+        ? "Voce ripresa due volte: «"+nome(vd[0].voce)+"» ha già il suo microfono e accanto c'è «"+nome(vd[0].mic)+"». Nella channel list escono due canali."
+        : vd.length+" voci sono riprese due volte ("+nomi.slice(0,3).join(", ")+(vd.length>3?"…":"")+"): hanno già il loro microfono e accanto c'è anche un microfono posato. Nella channel list escono due canali per ciascuna.",
+      "Audio","Se è lo stesso microfono, tieni quello posato: resta un canale. Se ne servono due, dillo nel nome (es. «Voce spare»).",
+      {label:"Mostra", run:function(){ var sel0=[]; vd.forEach(function(c){ sel0.push(c.voce); c.mics.forEach(function(m){ sel0.push(m); }); }); auditFixMostraDoppioni(sel0); }}, "voce-doppia",
+      {label:(vd.length===1?"Tieni solo il microfono posato":"Tieni solo i microfoni posati"), run:function(){ auditFixVoceSoloMicPosato(vd); }});
   })();
   /* B4 (casi reali) — due canali con lo STESSO nome = probabile doppione non dichiarato (visto davvero:
      la stessa voce microfonata due volte, senza nota). Lista manuale se presente,
@@ -17687,7 +17760,10 @@ var AUDIT_ENSEMBLE_MICS={micchoir:1,micover:1,giraffa:1,astagigante:1,coppiast:1
 function coristiSenzaRipresa(items){
   items=items||state.items||[];
   return items.filter(function(it){ return it.type==="corista" && micModeOf(it)==="pano" && !itemInMicZone(it)
-    && !items.some(function(m){ return AUDIT_ENSEMBLE_MICS[m.type] && Math.hypot(m.x-it.x,m.y-it.y)<450; }); });
+    && !items.some(function(m){ return AUDIT_ENSEMBLE_MICS[m.type] && Math.hypot(m.x-it.x,m.y-it.y)<450; })
+    /* 20/10: un microfono personale accanto (radiomic, archetto, da tavolo) è la sua ripresa — è quello che lascia
+       il rimedio «Tieni solo il microfono posato» della regola «voce-doppia» */
+    && !items.some(function(m){ return VOCE_DOPPIA_MIC[m.type] && Math.hypot(m.x-it.x,m.y-it.y)<=VOCE_DOPPIA_CM; }); });
 }
 function auditFixChoirMics(list){
   var cs=(list||[]).map(function(v){ return state.items.find(function(i){ return i.id===v.id; }); }).filter(Boolean);

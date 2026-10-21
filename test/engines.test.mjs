@@ -26666,6 +26666,139 @@ t("confronto, revisione: «Mostra altri» porta il fuoco sulla prima riga nuova 
   } finally { A.document = oldDoc; }
 });
 
+/* ===== Avviso: voce ripresa due volte (20/10/2026, backlog L3) ===== */
+console.log("\nAudit — voce ripresa due volte (20/10/2026):");
+const voceDoppia = () => A.auditEngine().findings.filter((f) => f.rule === "voce-doppia");
+const coppieVD = () => A.vociRipreseDueVolte().map((c) => [c.voce.label, c.mic.label]);
+
+t("voce ripresa due volte: cantante col suo microfono e un'asta posata davanti → un avviso con «Mostra» e «Tieni solo il microfono posato»", () => {
+  reset();
+  const v = add("cantante", 600, 400, { label: "Voce Alfa" });
+  const m = add("astamic", 600, 460, { label: "Asta Beta" });
+  eq(chans(v).length, 1, "premessa: la voce ha il suo canale");
+  eq(chans(m).length, 1, "premessa: l'asta ha il suo canale");
+  eq(coppieVD(), [["Voce Alfa", "Asta Beta"]]);
+  const f = voceDoppia();
+  eq(f.length, 1, "un avviso");
+  eq(f[0].lvl, "warn"); eq(f[0].cat, "Audio");
+  eq(f[0].msg, "Voce ripresa due volte: «Voce Alfa» ha già il suo microfono e accanto c'è «Asta Beta». Nella channel list escono due canali.");
+  eq(f[0].act.label, "Mostra"); eq(f[0].act2.label, "Tieni solo il microfono posato");
+});
+t("voce ripresa due volte: vale per ogni voce e ogni microfono personale (giraffa, radiomic, archetto, microfono da tavolo)", () => {
+  reset();
+  add("corista", 300, 400, { label: "C1" }); add("giraffa", 325, 470, { label: "G1" });
+  add("cantante", 600, 400, { label: "C2", micMode: "mano" }); add("wireless", 630, 420, { label: "W1" });
+  add("relatore", 900, 400, { label: "R1" }); add("mictavolo", 900, 450, { label: "T1" });
+  add("moderatore", 1100, 400, { label: "M1" }); add("headset", 1100, 400, { label: "H1" });
+  eq(coppieVD().sort(), [["C1", "G1"], ["C2", "W1"], ["M1", "H1"], ["R1", "T1"]]);
+  const f = voceDoppia();
+  eq(f.length, 1, "un avviso solo per tutte");
+  ok(/^4 voci sono riprese due volte \(«C1», «C2», «R1»…\)/.test(f[0].msg), f[0].msg);
+  eq(f[0].act2.label, "Tieni solo i microfoni posati");
+});
+t("voce ripresa due volte: soglia 80 cm dal centro della voce, il microfono davanti o di fianco (non dietro)", () => {
+  reset(); add("cantante", 600, 400); add("astamic", 600, 480);
+  eq(A.vociRipreseDueVolte().length, 1, "a 80 cm davanti sì");
+  reset(); add("cantante", 600, 400); add("astamic", 625, 475);
+  eq(A.vociRipreseDueVolte().length, 1, "a un passo di griglia di lato e tre davanti (79 cm) sì");
+  reset(); add("cantante", 600, 400); add("astamic", 600, 482);
+  eq(A.vociRipreseDueVolte().length, 0, "a 82 cm no");
+  reset(); add("cantante", 600, 400); add("wireless", 670, 400);
+  eq(A.vociRipreseDueVolte().length, 1, "di fianco (radiomic accanto) sì");
+  reset(); add("cantante", 600, 400); add("astamic", 600, 340);
+  eq(A.vociRipreseDueVolte().length, 0, "dietro la voce no: è il microfono di qualcos'altro");
+  reset(); add("cantante", 600, 400, { rot: 180 }); add("astamic", 600, 340);
+  eq(A.vociRipreseDueVolte().length, 1, "la voce girata verso il fondo: davanti è dall'altra parte");
+  reset(); add("cantante", 600, 400, { rot: 90 }); add("astamic", 540, 400);
+  eq(A.vociRipreseDueVolte().length, 1, "girata di 90°: davanti è a sinistra");
+  reset(); add("cantante", 600, 400, { rot: 90 }); add("astamic", 660, 400);
+  eq(A.vociRipreseDueVolte().length, 0, "girata di 90°: a destra è dietro");
+});
+t("voce ripresa due volte: la voce in panoramica non ha un microfono suo, e allora l'asta è la sua ripresa", () => {
+  reset(); add("cantante", 600, 400, { micMode: "pano" }); add("astamic", 600, 460);
+  add("corista", 900, 400, { micMode: "pano" }); add("wireless", 900, 430);
+  eq(A.vociRipreseDueVolte().length, 0);
+  eq(voceDoppia().length, 0);
+});
+t("voce ripresa due volte: microfoni d'insieme o da strumento (coro, asta gigante, coppia stereo, asta bassa) non contano", () => {
+  reset(); add("cantante", 300, 400); add("micchoir", 300, 460);
+  add("cantante", 600, 400); add("astagigante", 600, 460);
+  add("cantante", 900, 400); add("coppiast", 900, 460);
+  add("cantante", 1100, 400); add("astabassa", 1100, 460);
+  eq(A.vociRipreseDueVolte().length, 0);
+});
+t("voce ripresa due volte: non scatta se il microfono serve ad altro (rack, zona, gruppo con uno strumento, strumento più vicino)", () => {
+  reset(); add("cantante", 600, 400); const r = add("wireless", 600, 450); r.rackId = "r1";
+  eq(A.vociRipreseDueVolte().length, 0, "nel rack");
+  reset(); add("cantante", 600, 400); add("astamic", 600, 460); const z = add("miczone", 600, 470); z.w = 200; z.d = 100;
+  eq(A.vociRipreseDueVolte().length, 0, "dentro una zona microfonica");
+  reset(); add("cantante", 600, 400); const a = add("astamic", 600, 460); const s = add("saxalto", 900, 400); a.grp = "g1"; s.grp = "g1";
+  eq(A.vociRipreseDueVolte().length, 0, "raggruppato con uno strumento");
+  reset(); const v2 = add("cantante", 600, 400); const a2 = add("astamic", 600, 460); a2.grp = "g2"; v2.grp = "g2";
+  eq(A.vociRipreseDueVolte().length, 1, "raggruppato con la voce stessa: è il suo microfono, si avvisa");
+  reset(); add("cantante", 600, 400); add("gtacustica", 600, 430); add("astamic", 600, 470);
+  eq(A.vociRipreseDueVolte().length, 0, "cantante con l'acustica: l'asta può essere per la chitarra");
+  reset(); add("cantante", 600, 400); add("gtacustica", 600, 400); add("astamic", 600, 460);
+  eq(A.vociRipreseDueVolte().length, 0, "acustica nello stesso punto della voce: nel dubbio no");
+  reset(); add("cantante", 600, 400); add("comboamp", 640, 470); add("astamic", 620, 460);
+  eq(A.vociRipreseDueVolte().length, 0, "ampli davanti alla voce: l'asta è per l'ampli");
+  reset(); add("cantante", 600, 400); add("gtacustica", 900, 400); add("astamic", 600, 460);
+  eq(A.vociRipreseDueVolte().length, 1, "uno strumento lontano non conta");
+});
+t("voce ripresa due volte: il microfono è della voce più vicina; se due voci sono alla pari, nel dubbio no", () => {
+  reset(); add("cantante", 600, 400, { label: "V1" }); add("corista", 600, 520, { label: "V2", micMode: "pano" }); add("astamic", 600, 470);
+  eq(A.vociRipreseDueVolte().length, 0, "l'asta è più vicina al corista in panoramica: è la sua");
+  reset(); add("cantante", 560, 400, { label: "V1" }); add("cantante", 640, 400, { label: "V2" }); add("astamic", 600, 450);
+  eq(A.vociRipreseDueVolte().length, 0, "a metà fra due voci: non si sa di chi è");
+  reset(); add("cantante", 500, 400, { label: "V1" }); add("cantante", 700, 400, { label: "V2" }); add("astamic", 500, 460);
+  eq(coppieVD(), [["V1", "Asta 1"]], "con l'altra voce lontana sì");
+});
+t("voce ripresa due volte: il radiomicrofono passato dal ricevitore conta (il canale è del ricevitore)", () => {
+  reset(); add("cantante", 600, 400); const w = add("wireless", 620, 440); add("rxrf", 100, 100);
+  eq(chans(w).length, 0, "premessa: il canale non è più del trasmettitore");
+  ok(A.rfAssign().byTx[w.id], "premessa: è assegnato al ricevitore");
+  eq(A.vociRipreseDueVolte().length, 1);
+});
+t("«Mostra» seleziona voce e microfono; «Tieni solo il microfono posato» mette la voce in panoramica, un passo di Annulla", () => {
+  reset(); A.resetHistory();
+  const v = add("cantante", 600, 400, { label: "Voce Alfa" }); const m = add("astamic", 600, 460); add("oboe", 1000, 300); A.save();
+  const nPrima = A.patchList().rows.length;
+  const f = voceDoppia()[0];
+  f.act.run();
+  eq(Object.keys(A.selSet).sort(), [v.id, m.id].sort(), "Mostra seleziona la voce e il microfono");
+  const passiPrima = A.undoStack.length;
+  f.act2.run();
+  eq(A.undoStack.length, passiPrima + 1, "un passo di Annulla");
+  eq(A.micModeOf(v), "pano", "la voce è in panoramica");
+  eq(chans(v).length, 0, "la voce non ha più il canale suo");
+  eq(A.patchList().rows.length, nPrima - 1, "un canale in meno nella lista");
+  eq(v.d, A.cantanteDepth(v), "l'ingombro segue il microfono (come dal pannello)");
+  eq(voceDoppia().length, 0, "l'avviso è sparito");
+  A.undo();
+  const v2 = A.state.items.find((i) => i.id === v.id);
+  eq(A.micModeOf(v2), "tonda", "Annulla riporta il microfono della voce");
+  eq(A.patchList().rows.length, nPrima, "e il canale");
+  eq(voceDoppia().length, 1, "e l'avviso");
+});
+t("«Tieni solo il microfono posato»: in sola lettura non tocca niente", () => {
+  reset();
+  const v = add("cantante", 600, 400); add("astamic", 600, 460);
+  const f = voceDoppia()[0];
+  const old = A.__projLocked;
+  try { A.__projLocked = true; f.act2.run(); } finally { A.__projLocked = old; }
+  eq(A.micModeOf(v), "tonda", "la voce resta col suo microfono");
+});
+t("«Tieni solo il microfono posato» su un corista col radiomic: non nasce l'avviso «coro senza ripresa»", () => {
+  reset();
+  const c = add("corista", 600, 400, { label: "Corista X" }); add("wireless", 620, 440);
+  voceDoppia()[0].act2.run();
+  eq(A.micModeOf(c), "pano");
+  eq(A.coristiSenzaRipresa().length, 0, "il radiomic accanto è la sua ripresa");
+  eq(A.auditEngine().findings.filter((f) => f.rule === "coromuto" || f.rule === "voce-doppia").length, 0, "nessun avviso");
+  reset(); add("corista", 600, 400, { micMode: "pano" }); add("wireless", 600, 520);
+  eq(A.coristiSenzaRipresa().length, 1, "un radiomic a 1,2 m non è il suo: resta senza ripresa");
+});
+
 await Promise.all(attese);
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
