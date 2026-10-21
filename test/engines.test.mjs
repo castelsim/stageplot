@@ -490,6 +490,27 @@ t("casella «Ampli» della chitarra: toglierla non lascia lo strumento senza can
   A.gtrAmpCasella(b, true); A.gtrAmpCasella(b, false); eq(nomi(b), "DI", "basso: la sua linea resta");
   ok(/getElementById\("pGtrAmp"\)\.addEventListener\("change", function\(\)\{ var on=this\.checked; mutSel\(function\(it\)\{ gtrAmpCasella\(it, on\);/.test(appjs), "la casella passa da gtrAmpCasella");
 });
+t("arpa: nasce col leggio (regola di Simone del 20/10) e il cartiglio conta i leggii di arpa, piani e percussioni", () => {
+  reset();
+  const a = add("arpa", 300, 300);
+  eq(a.leggio, true, "arpa nuova dal catalogo: leggio acceso");
+  eq(A.countAccessori().leggii, 1, "e il cartiglio lo conta");
+  const yCon = A.lblBaseY(a, 14, { x0: -27, y0: -67, x1: 27, y1: 67 });
+  ok(yCon > A.leggioExtraY(a) + 14, "il nome sta sotto il leggio, non sopra la mensola (" + yCon + ")");
+  a.leggio = false; ok(A.lblBaseY(a, 14, { x0: -27, y0: -67, x1: 27, y1: 67 }) < yCon, "senza leggio torna a filo dell'arpa"); a.leggio = true;
+  a.leggio = false; eq(A.countAccessori().leggii, 0, "spento a mano: non c'è");
+  reset();
+  const vecchia = { id: "v1", type: "arpa", x: 300, y: 300, rot: 0, w: 54, d: 134, label: "Arpa" };   /* progetto salvato prima: nessun campo */
+  A.state.items.push(vecchia);
+  eq(A.countAccessori().leggii, 0, "un'arpa di un progetto vecchio non cambia (chi aveva aggiunto un leggio a parte non se lo ritrova doppio)");
+  reset();
+  const p = add("grancoda", 300, 300); p.leggio = true;
+  eq(A.countAccessori().leggii, 1, "piano col leggio acceso dal pannello: contato (prima no)");
+  reset();
+  A.placeOut([{ type: "arpa", x: 0, y: 0, label: "Arpa" }, { type: "timpani", x: 200, y: 0, label: "Timpani" }], false, true, true);
+  const ga = A.state.items.find((i) => i.type === "arpa"), gt = A.state.items.find((i) => i.type === "timpani");
+  eq([ga && ga.leggio, gt && gt.leggio], [true, undefined], "anche l'arpa dei modelli e dell'organico nasce col leggio; gli altri come prima");
+});
 t("ascolto: tastiera, Hammond, DJ, timpani e mallets sono musicisti (segnalazione 19/10)", () => {
   reset();
   // Un utente ha selezionato una «Tastiera» e non trovava dove dirle con cosa si ascolta: non era un musicista.
