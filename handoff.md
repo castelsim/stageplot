@@ -1,3 +1,21 @@
+# 22/10/2026 — coerenza dei dati (#334) e programma di sala (#335, #336)
+
+- **#334 (ramo `worktree-coerenza-dati`)** — due difetti del 05/10 che facevano perdere dati dell'utente:
+  - `normalizeState` ricostruiva le mappe dei collegamenti con liste chiuse: ora tiene `line` (1–64), `conn`
+    (schuko/cee/powercon) e `seg` di `elec.manual`, `seg` di `mond.manual`, `via` (usb/dante) di `cab.manual`. Prima
+    sparivano a ogni riapertura e a ogni Annulla. Le scelte già perse nei progetti salvati non si recuperano.
+  - `dropOrphanLinks` toglie `distOf`/`distType` che puntano a un elemento che non c'è. Caso riprodotto: modello
+    distribuito su una pedana, pedana cancellata, `syncNextId()` (Annulla, cambio scena, riapertura), pedana nuova con lo
+    stesso id → «Distribuisci» su di lei toglieva il vecchio strumento come «copia precedente».
+  - Test «linea, connettore, cavo squadrato e via del computer sopravvivono a reload e undo» e «cancellata la pedana, i
+    suoi strumenti distribuiti non vengono adottati né tolti da una pedana nuova»; mutazioni 6/6. Il test dei doppioni
+    usava `distOf` verso un id inesistente: ora una pedana vera. Collaudo 30/30. Trappola in `AGENTS.md` aggiornata.
+  - Nota per i test: `reset()` non riporta `elec.mode` a «manual»; un test che assegna `A.state` lo rimette alla fine.
+- **#335 + #336 (altra sessione)** — programma di sala a indirizzo fisso `/programma/<slug>` (migrazioni 0082
+  `prg_programmi`/`prg_salva`, solo account abilitati della biglietteria, e 0083 bucket immagini), versione grafica con
+  tema «notte», logo, nastro, data e galleria. Un QR stampato su materiali permanenti punta a quell'indirizzo: lo slug
+  di un programma pubblicato non va mai cambiato né riusato.
+
 # 20/10/2026 — avviso «voce ripresa due volte» (ramo `voce-doppia`, backlog L3)
 
 - Regola d'audit `voce-doppia` (warn, Audio), forma di `doppioni`/`senza-ripresa`: `vociRipreseDueVolte()` trova la voce
