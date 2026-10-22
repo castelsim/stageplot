@@ -43,6 +43,8 @@ jobs:
         run: node --test test/engines.test.mjs
       - name: Test pagine della biglietteria
         run: node --test test/biglietteria.test.mjs test/bgl-*.test.mjs
+      - name: Test del programma di sala
+        run: node --test test/programma-di-sala.test.mjs
       - name: Test funzioni condivise Supabase
         run: deno test --lock=deno.lock --frozen supabase/functions/_shared/*.test.ts
       - name: Type-check Edge Functions
@@ -81,7 +83,7 @@ jobs:
             robots.txt sitemap.xml llms.txt \
             favicon.ico favicon.svg favicon-48.png favicon-96.png \
             apple-touch-icon.png icon-192.png icon-512.png logo-512.png preview.png \
-            accedi alternative biglietteria consulenza guida img orchestre privacy richiesta stage-plot termini vendor voce \
+            accedi alternative biglietteria consulenza guida img orchestre privacy programma richiesta stage-plot termini vendor voce \
             ./_site/
       - name: Timbra il build ID (SHA del commit) negli asset pubblicati (audit L-03)
         # il placeholder sta nella shell dell'editor (app/index.html), non nella landing
