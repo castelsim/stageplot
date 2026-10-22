@@ -59,3 +59,86 @@ a{color:var(--accent)}
 .prg-piede{margin-top:32px;text-align:center;color:var(--text-3);font-size:14px}
 @media (min-width:700px){.prg-pagina{padding-top:56px}.prg-persone li{flex-direction:row;justify-content:space-between;gap:16px}}
 @media print{body{background:#fff;color:#000}.prg-link a{border:0;padding:0}}
+
+/* ====================================================================== VERSIONE GRAFICA (0083)
+   Tutto ciò che segue vale solo per i campi nuovi o per il tema: un documento v1 senza di loro non cambia.
+   Le variabili del tema (--accent, --fondo, --fondo2, --text…) arrivano da prg.js via CSSOM sul <html>. */
+.prg-nascosto{position:absolute!important;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0}
+.prg-img{display:block;max-width:100%;height:auto}
+.prg-copertina{margin:-28px -18px 22px}
+.prg-copertina .prg-img{width:100%;aspect-ratio:16/9;object-fit:cover;background:var(--surface)}
+.prg-logo{margin:4px 0 14px}
+.prg-logo .prg-img{margin:0 auto;width:auto;max-height:200px;max-width:100%}
+.prg-nastro-riga{margin:6px 0 18px;padding:.5em 0;overflow-x:clip}
+.prg-nastro{display:inline-block;max-width:100%;transform:rotate(-4deg);background:var(--accent);color:var(--su-accent,var(--on-accent));
+  font-weight:800;text-transform:uppercase;letter-spacing:.06em;padding:.35em 1.1em;line-height:1.25}
+.prg-data{display:inline-block;margin:6px auto 14px;min-width:11em;padding:.7em 1.3em .8em;border:2px solid var(--text);text-align:center;line-height:1.1}
+.prg-data-giorno,.prg-data-mese,.prg-data-ora{text-transform:uppercase;letter-spacing:.14em;font-weight:600;font-size:.95rem}
+.prg-data-numero{font-size:4.2rem;font-weight:800;line-height:1;margin:.08em 0 .1em}
+.prg-data-ora{margin-top:.5em;color:var(--accent)}
+.prg-luogo{margin:4px 0 10px}
+.prg-luogo-nome{font-weight:800;text-transform:uppercase;letter-spacing:.08em}
+.prg-luogo-ind{color:var(--text-2);font-size:15.5px}
+.prg-fig{margin:0}
+.prg-fig .prg-img{width:100%;aspect-ratio:4/3;object-fit:contain;background:var(--surface);border-radius:10px}
+.prg-didascalia{margin-top:8px;color:var(--text-2);font-size:15px;font-style:italic}
+.prg-galleria{list-style:none;display:flex;gap:14px;overflow-x:auto;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;
+  padding:2px 2px 10px;margin:0 -2px;scroll-padding:0 2px}
+.prg-galleria-voce{flex:0 0 82%;scroll-snap-align:start}
+@media (min-width:700px){
+  .prg-copertina{margin:-28px 0 26px}
+  .prg-copertina .prg-img{border-radius:12px}
+  .prg-galleria{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));overflow:visible;scroll-snap-type:none}
+  .prg-galleria-voce{flex:none}
+}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important;animation:none!important}.prg-galleria{scroll-snap-type:none}}
+
+/* sfondo sfumato quando il tema dà un colore di fondo (o è «notte») */
+html.prg-tinta body,html.prg-notte body{min-height:100vh;
+  background:linear-gradient(180deg,var(--fondo,var(--bg)) 0%,var(--fondo2,var(--fondo,var(--bg))) 100%)}
+html.prg-tinta{background:var(--fondo2,var(--fondo,var(--bg)))}
+
+/* ---------------------------------------------------------------- stile «notte» (ricalca le locandine) */
+html.prg-notte{color-scheme:dark;background:#16345f;
+  --bg:#0a1830;--surface:rgba(255,255,255,.07);--border:rgba(255,255,255,.24);
+  --text:#f4f6fb;--text-2:#cbd3e5;--text-3:#adb8d0;
+  --accent:#ff8a1f;--on-accent:#0b1220;--su-accent:#0b1220;--focus:#ffd29a;
+  --fondo:#0a1830;--fondo2:#16345f;
+  --ui:"Avenir Next","Avenir","Montserrat",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --serif:"Avenir Next","Avenir","Montserrat",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.prg-notte body{font-weight:400}
+.prg-notte .prg-pagina{max-width:720px}
+.prg-notte .prg-testa{border-bottom:2px solid var(--accent);padding-bottom:30px}
+.prg-notte .prg-sopra,.prg-notte .prg-etichetta{font-weight:600;letter-spacing:.22em;font-variant-caps:all-small-caps;text-transform:none;font-size:15px}
+.prg-notte .prg-sopra{color:var(--accent)}
+.prg-notte .prg-titolo{font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+.prg-notte .prg-titolo em{font-weight:400;font-style:italic;text-transform:none;letter-spacing:0}
+.prg-notte .prg-quando,.prg-notte .prg-riga{color:var(--text-2)}
+.prg-notte .prg-quando{font-weight:600}
+.prg-notte .prg-sez{border-bottom:1px solid var(--border)}
+.prg-notte .prg-sez-titolo{font-weight:800;text-transform:uppercase;letter-spacing:.06em;font-size:clamp(20px,5.4vw,26px)}
+.prg-notte .prg-persone li{border-top:1px solid var(--border);flex-direction:row;flex-wrap:wrap;align-items:baseline;justify-content:flex-start;gap:.15em .6em}
+.prg-notte .prg-nome{font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+.prg-notte .prg-ruolo{font-style:italic;font-weight:300;color:var(--text-2)}
+.prg-notte .prg-voci{list-style:none;padding:0;counter-reset:brano}
+.prg-notte .prg-voci li{counter-increment:brano;display:grid;grid-template-columns:2.4rem 1fr;column-gap:.7rem;align-items:start;padding:14px 0;border-top:1px solid var(--border)}
+.prg-notte .prg-voci li:first-child{border-top:0}
+.prg-notte .prg-voci li::before{content:counter(brano);grid-column:1;grid-row:1 / span 6;font-size:2.6rem;font-weight:800;line-height:.95;color:var(--accent);text-align:center}
+.prg-notte .prg-voci li>*{grid-column:2}
+.prg-notte .prg-voce-titolo{font-family:var(--serif);font-style:normal;font-weight:800;font-size:1.12em;letter-spacing:.01em}
+.prg-notte .prg-dettaglio{font-style:italic;font-weight:300;color:var(--text-2)}
+.prg-notte .prg-brani{color:var(--text-2)}
+.prg-notte .prg-nota{font-weight:300}
+.prg-notte .prg-link a{background:transparent;border:2px solid var(--accent);border-radius:4px;text-transform:uppercase;letter-spacing:.08em;font-weight:800;color:var(--text)}
+.prg-notte .prg-link a:hover{background:var(--accent);color:var(--su-accent)}
+.prg-notte .prg-btn{border-radius:4px}
+.prg-notte .prg-fig .prg-img{border-radius:4px}
+.prg-notte .prg-copertina .prg-img{border-radius:0}
+@media (min-width:700px){.prg-notte .prg-copertina .prg-img{border-radius:6px}}
+@media (prefers-reduced-motion:no-preference){.prg-notte .prg-link a{transition:background-color .15s,color .15s}}
+@media print{
+  html.prg-notte,html.prg-tinta{background:#fff}
+  html.prg-notte body,html.prg-tinta body{background:#fff}
+  html.prg-notte{--text:#000;--text-2:#222;--text-3:#333;--border:#999;--accent:#a33c00}
+  .prg-galleria{display:block;overflow:visible}.prg-galleria-voce{margin-bottom:12px;break-inside:avoid}
+}
