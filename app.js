@@ -4853,6 +4853,10 @@ function dropOrphanLinks(s){
   var ids=Object.create(null), n=0;
   s.items.forEach(function(it){ if(it && it.id!=null) ids[String(it.id)]=1; });
   function esiste(v){ return v!=null && v!=="" && ids[String(v)]===1; }
+  /* 22/10/2026: anche il segno di «Distribuisci» (distOf = id della pedana) è un collegamento per id. Restava sugli
+     strumenti di una pedana cancellata; quando una pedana nuova riprendeva quell'id (Annulla, cambio scena,
+     riapertura), «Distribuisci» su di lei toglieva come «copie precedenti» gli strumenti della vecchia. */
+  s.items.forEach(function(it){ if(it && it.distOf!=null && !esiste(it.distOf)){ delete it.distOf; delete it.distType; n++; } });
   function oggetto(o){ return !!o && typeof o==="object" && !Array.isArray(o); }
   function vuota(o){ for(var k in o) if(Object.prototype.hasOwnProperty.call(o,k)) return false; return true; }
   /* mappa {chiave→voce}: `legata(k)` dice se la chiave è di un elemento (true/false) o di nessuno (null);
@@ -6788,6 +6792,7 @@ function normalizeState(s){
     if(m.p48===true||m.p48===false) o.p48=m.p48;                   /* phantom forzato (o tolto) a mano */
     if(m.micOff) o.micOff=1;
     if(m.seg) o.seg=1;                                             /* cavo segmentato */
+    if(m.via==="usb"||m.via==="dante") o.via=m.via;                /* via digitale del computer (22/10: si perdeva; «an» non si salva) */
     var _pt=+m.port; if(_pt>=1 && _pt<=64) o.port=Math.round(_pt);
     if(Object.keys(o).length) man[String(k).slice(0,ROUTE_KEY_MAX)]=o; }); }
   s.cab={ on:!!cb.on, opacity:Math.min(100,Math.max(15,Math.round((cb.opacity==null||cb.opacity===70)?100:cb.opacity))), auto:cb.auto!==false,
@@ -6803,7 +6808,7 @@ function normalizeState(s){
     order:Array.isArray(cb.order)?cb.order.filter(function(k){return typeof k==="string";}):null,           /* ordine manuale Input list */
     monOrder:Array.isArray(cb.monOrder)?cb.monOrder.filter(function(k){return typeof k==="string";}):null }; /* ordine manuale Monitor list */
   var eb=s.elec||{};   /* cablaggio elettrico calcolato */
-  var eman=Object.create(null);   /* override elettrici per carico: {distro, pts, deleted} — legacy stringa = solo distro */
+  var eman=Object.create(null);   /* override elettrici per carico: {distro, pts, deleted, auto, line, conn, seg} — legacy stringa = solo distro */
   if(eb.manual && typeof eb.manual==="object"){ Object.keys(eb.manual).forEach(function(k){ var v=eb.manual[k], o={};
     if(typeof v==="string" && v){ o.distro=v.slice(0,ITEM_ID_MAX); }
     else if(v && typeof v==="object"){
@@ -6811,6 +6816,11 @@ function normalizeState(s){
       if(Array.isArray(v.pts)) o.pts=v.pts.filter(function(p){ return p&&isFinite(p[0])&&isFinite(p[1]); }).map(function(p){ return [Math.round(p[0]),Math.round(p[1])]; });
       if(v.deleted) o.deleted=true;
       if(v.auto) o.auto=1;
+      /* 22/10/2026: la lista era chiusa come quella dei cavi audio prima del 28/07 — la linea del distro e il
+         connettore scelti nel pannello e il cavo «Segmenta» sparivano a ogni riapertura e a ogni Annulla */
+      var _ln=+v.line; if(_ln>=1 && _ln<=64) o.line=Math.round(_ln);
+      if(["schuko","cee","powercon"].indexOf(v.conn)>=0) o.conn=v.conn;
+      if(v.seg) o.seg=1;
     }
     if(Object.keys(o).length) eman[String(k).slice(0,ITEM_ID_MAX)]=o; }); }
   var eups=Object.create(null);   /* tier 2 (Simone): ciabatta/distro → quadro, SOLO manuale */
@@ -6830,6 +6840,7 @@ function normalizeState(s){
     if(Array.isArray(v.pts)) o.pts=v.pts.filter(function(p){ return p&&isFinite(p[0])&&isFinite(p[1]); }).map(function(p){ return [Math.round(p[0]),Math.round(p[1])]; });
     if(v.deleted) o.deleted=true;
     if(v.auto) o.auto=1;
+    if(v.seg) o.seg=1;   /* cavo «Segmenta» del personal monitor (22/10: si perdeva) */
     if(Object.keys(o).length) mman[String(k).slice(0,ITEM_ID_MAX)]=o; }); }
   s.mond={ on:!!mb.on, visible:mb.visible!==false, opacity:Math.min(100,Math.max(15,Math.round((mb.opacity==null||mb.opacity===70)?100:mb.opacity))), locked:!!mb.locked, style:normCabStyle(mb.style), manual:mman };
   if(s.printFrame){ var f=s.printFrame; s.printFrame={x:Math.round(f.x||0), y:Math.round(f.y||0), w:Math.max(50,Math.round(f.w||100)), h:Math.max(50,Math.round(f.h||100))}; }
