@@ -3457,6 +3457,46 @@ t("le scelte fatte sul canale sopravvivono a reload e undo", () => {
   eq(A.state.cab.manual.k2.port, undefined, "porta fuori range scartata");
   eq(A.state.cab.manual.k2.short.length, 12, "nome breve troncato");
 });
+
+t("linea, connettore, cavo squadrato e via del computer sopravvivono a reload e undo", () => {
+  /* 22/10/2026 (difetto visto il 05/10, trappola in AGENTS.md) — i ricostruttori di normalizeState
+     tenevano di elec.manual solo distro/pts/deleted/auto, di mond.manual solo to/pts/deleted/auto e di
+     cab.manual non la via: la linea numerata del distro e il connettore scelti nel pannello, il cavo
+     «Segmenta» della corrente e del personal monitor e la via USB/Dante del computer sparivano a ogni
+     riapertura E a ogni Annulla (applyHistory ripassa di qui). */
+  reset();
+  const prima = A.state;   /* «salva e riapri» passa dallo stato vero: alla fine si rimette quello di prima
+                              (reset() non riporta elec.mode a «manual», e un test dopo vedrebbe l'auto) */
+  try {
+  const doc = { _v: A.SCHEMA_VERSION, inputs: [], outputs: [], items: [
+    { id: "ld", type: "tastiera", x: 0, y: 0 }, { id: "ds", type: "ciabatta", x: 100, y: 0 },
+    { id: "mm", type: "hearback", x: 0, y: 200 }, { id: "hb", type: "mixhub", x: 100, y: 200 },
+    { id: "pc", type: "laptop", x: 0, y: 300 } ],
+    elec: { on: true, manual: { ld: { distro: "ds", line: 3, conn: "powercon", seg: 1, pts: [[5, 5]] } } },
+    mond: { on: true, manual: { mm: { to: "hb", seg: 1 } } },
+    cab: { on: true, manual: { "grp:pc": { via: "usb", label: "Mac" } } } };
+  for (const [nome, giro] of [["riapertura", (d) => A.normalizeState(JSON.parse(JSON.stringify(d)))],
+                              ["salva e riapri", (d) => { A.state = A.normalizeState(JSON.parse(JSON.stringify(d)));
+                                                          return A.normalizeState(JSON.parse(A.stateToJSON())); }]]) {
+    const s = giro(doc);
+    eq(s.elec.manual.ld.line, 3, nome + ": linea del distro scelta a mano");
+    eq(s.elec.manual.ld.conn, "powercon", nome + ": connettore scelto a mano");
+    eq(s.elec.manual.ld.seg, 1, nome + ": cavo della corrente squadrato");
+    eq(s.elec.manual.ld.distro, "ds", nome + ": e il distro resta");
+    eq(s.mond.manual.mm.seg, 1, nome + ": cavo del personal monitor squadrato");
+    eq(s.cab.manual["grp:pc"].via, "usb", nome + ": via USB del computer");
+  }
+  /* i valori fuori scala restano fuori, come prima */
+  const bad = A.normalizeState({ _v: A.SCHEMA_VERSION, inputs: [], outputs: [],
+    items: [{ id: "ld", type: "tastiera" }, { id: "ds", type: "ciabatta" }, { id: "pc", type: "laptop" }],
+    elec: { manual: { ld: { distro: "ds", line: 99, conn: "xlr", seg: "si" } } },
+    cab: { manual: { "grp:pc": { via: "<script>", label: "Mac" } } } });
+  eq(bad.elec.manual.ld.line, undefined, "linea fuori 1–64 scartata");
+  eq(bad.elec.manual.ld.conn, undefined, "connettore sconosciuto scartato");
+  eq(bad.elec.manual.ld.seg, 1, "seg vero = 1");
+  eq(bad.cab.manual["grp:pc"].via, undefined, "via sconosciuta scartata");
+  } finally { A.state = prima; reset(); }
+});
 t("etichetta: il campo sta staccato dai bottoni in TUTTE le modalità", () => {
   /* 28/07 — il riordino B3 ha messo i bottoni Intero/Sigla/Nascosto SOPRA il campo, ma il margine di
      stacco stava sul blocco dei bottoni: con «Intero» il riquadro finiva incollato, con «Sigla» il
@@ -25848,7 +25888,9 @@ t("doppione sovrapposto: aree, testi, quote, tappeti, platee e zone sovrapposte 
 });
 t("doppione sovrapposto: accessori agganciati, apparecchi nel rack e DI generate non contano", () => {
   reset();
-  const a = add("sgabello", 500, 300); a.distOf = "i99"; const b = add("sgabello", 500, 300); b.distOf = "i99";
+  /* la pedana della distribuzione deve esistere: un distOf verso un id che non c'è lo toglie dropOrphanLinks (22/10) */
+  const ped = add("pedana", 1100, 700);
+  const a = add("sgabello", 500, 300); a.distOf = ped.id; const b = add("sgabello", 500, 300); b.distOf = ped.id;
   const r1 = add("dimono", 700, 300); r1.rackId = "r1"; const r2 = add("dimono", 700, 300); r2.rackId = "r1";
   const d1 = add("dimono", 900, 300); d1.diFor = "x1"; const d2 = add("dimono", 900, 300); d2.diFor = "x2";
   eq(A.doppioniSovrapposti().length, 0, "nessuno");
@@ -26124,6 +26166,24 @@ t("la copia di un elemento di una distribuzione non resta etichettata con la ped
   selezione(a); A.duplicateSel();
   const a2 = nuovi(prima).find((x) => x.type === "gtacustica");
   ok(a2.distOf == null && a2.distType == null, "senza la pedana, nessun legame (rigenerare la distribuzione non la cancella)");
+});
+t("cancellata la pedana, i suoi strumenti distribuiti non vengono adottati né tolti da una pedana nuova", () => {
+  /* 22/10/2026 (difetto visto il 05/10) — «Distribuisci» segna le copie con distOf = id della pedana, e
+     rigenerando toglie le copie con quel segno. Cancellata la pedana il segno restava, e uid() riparte dal
+     massimo esistente: la pedana nuova nasceva con lo stesso id, e «Distribuisci» su di lei portava via gli
+     strumenti rimasti della vecchia, come se fossero copie sue. */
+  reset();
+  const tpl = add("gtacustica", 300, 300), rs = add("pedana", 300, 300);   /* la chitarra c'era prima della pedana */
+  A.applyDistribute(rs, tpl, 1, 50);   /* una sola: il modello resta, segnato con la pedana */
+  eq(tpl.distOf, rs.id, "il modello è segnato con la pedana");
+  A.selectOne(rs.id); A.deleteSel();
+  ok(!A.state.items.some((x) => x.id === rs.id), "pedana cancellata");
+  ok(tpl.distOf == null && tpl.distType == null, "la chitarra rimasta non è più segnata con la pedana che non c'è");
+  A.syncNextId();   /* come dopo Annulla, cambio scena o riapertura: uid() riparte dal massimo esistente */
+  const rs2 = add("pedana", 900, 300), tpl2 = add("gtacustica", 900, 300);
+  eq(rs2.id, rs.id, "la pedana nuova riprende l'id di quella cancellata (è il caso che rompeva)");
+  A.applyDistribute(rs2, tpl2, 2, 50);
+  ok(A.state.items.some((x) => x.id === tpl.id), "la chitarra della pedana cancellata c'è ancora");
 });
 t("la box di destinazione (sbTo) resta: più oggetti possono andare alla stessa box", () => {
   reset();
