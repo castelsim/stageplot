@@ -11,6 +11,22 @@
     "link":[{"testo":"…","url":"https://…"}]}
    Le voci «brani» sono numerate 1, 2, 3…; il «titolo» delle voci è in corsivo.
 
+   CAMPI FACOLTATIVI DELLA VERSIONE GRAFICA (dalla 0083; restano dentro v:1: un documento senza questi campi si disegna
+   identico a prima, e il server della 0082 accetta solo v = 1):
+   "tema":{"stile":"carta"|"notte" (default carta), "accento":"#RRGGBB", "fondo":"#RRGGBB", "fondo2":"#RRGGBB", "testo":"#RRGGBB"}
+     colori non validi ignorati; "notte" = fondo blu notte sfumato, testo chiaro, accento arancio (stile locandina).
+   "copertina":{"url","alt"}                       immagine a tutta larghezza in testa
+   intestazione.logo:{"url","alt"}                 sostituisce titolo/titolo_corsivo (il testo resta in un <h1> nascosto alla vista)
+   intestazione.nastro:"…"                         nastro inclinato color accento
+   intestazione.data:{"giorno","numero","mese","ora"}   riquadro data come sulle locandine
+   intestazione.luogo:{"nome","indirizzo"}
+   sezioni: {"tipo":"immagine","etichetta","titolo","url","alt","didascalia"}
+            {"tipo":"galleria","etichetta","titolo","immagini":[{"url","alt","didascalia"}]}
+   IMMAGINI: solo URL del bucket pubblico `prg-immagini` (https://<progetto>.supabase.co/storage/v1/object/public/prg-immagini/
+   <uid>/<32 hex>.(webp|jpg|png); da localhost anche lo stack locale 127.0.0.1:54321). Ogni altro URL: immagine scartata
+   (una sezione immagine senza immagine valida, o una galleria vuota, sparisce). I colori del tema si applicano con
+   style.setProperty (CSSOM): la CSP resta senza 'unsafe-inline'.
+
    SICUREZZA: il documento lo scrive un utente e lo legge chiunque. Si disegna SOLO con createElement/createTextNode/
    textContent (mai innerHTML); i link sono accettati solo se https:. validaDati() ripulisce ogni campo (tipo, lunghezza).
    Funzioni pure in testa (validaDati, costruisci, configura): le prova Node (test/programma-di-sala.test.mjs). */
@@ -20,7 +36,10 @@
   /* La stessa anon key della biglietteria e dell'editor: è pubblica per costruzione (decidono la RLS e i grant). */
   var ANON_PROD = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzb2RwbHFrdXZuc2RpaWt2bWpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2MTkyNjksImV4cCI6MjA5ODE5NTI2OX0.rZmZSvOnrNY3cC2JQ8XnbMTKIfjP5WmtbCtQ6l8zPrc";
   var TIMEOUT_MS = 15000;
-  var MAX_SEZIONI = 40, MAX_ELENTO = 300, MAX_LINK = 30, MAX_RIGHE = 20;
+  var MAX_SEZIONI = 40, MAX_ELENTO = 300, MAX_LINK = 30, MAX_RIGHE = 20, MAX_IMMAGINI = 30;
+  var IMG_PROD = API_PROD + "/storage/v1/object/public/prg-immagini/";
+  var IMG_LOCALE = "http://127.0.0.1:54321/storage/v1/object/public/prg-immagini/";
+  var IMG_RESTO = /^[0-9a-f-]{1,64}\/[0-9a-f]{32}\.(webp|jpg|png)$/;
   var PRGI = root.PRGIndirizzo || (typeof require === "function" ? require("./indirizzo.js") : null);
 
   /* ================================================================== FUNZIONI PURE */
@@ -57,8 +76,55 @@
     return u.href;
   }
 
-  /* Il documento ripulito, o null se non è un documento v1. Non lancia mai. */
-  function validaDati(d) {
+  /* immagine: solo il bucket pubblico prg-immagini (percorso <uid>/<32 hex>.ext, senza query né frammenti);
+     opt.locale = pagina aperta da localhost → vale anche lo stack locale. Restituisce {url, alt} o null. */
+  function immagine(o, opt) {
+    if (!oggetto(o) || typeof o.url !== "string" || o.url.length > 400) return null;
+    var u = o.url, resto = null;
+    if (u.indexOf(IMG_PROD) === 0) resto = u.slice(IMG_PROD.length);
+    else if (opt && opt.locale && u.indexOf(IMG_LOCALE) === 0) resto = u.slice(IMG_LOCALE.length);
+    if (resto === null || !IMG_RESTO.test(resto)) return null;
+    return { url: u, alt: riga(o.alt, 300) };
+  }
+  function colore(v) { return typeof v === "string" && /^#[0-9a-fA-F]{6}$/.test(v) ? v.toLowerCase() : ""; }
+  function tema(t) {
+    if (!oggetto(t)) return null;
+    var out = { stile: t.stile === "notte" ? "notte" : "carta" };
+    ["accento", "fondo", "fondo2", "testo"].forEach(function (k) { var c = colore(t[k]); if (c) out[k] = c; });
+    return out;
+  }
+  /* colori: mescola(a, b, t) = a*t + b*(1-t); luminanza WCAG; testo scuro o bianco da mettere SOPRA un colore */
+  function rgb(h) { return [1, 3, 5].map(function (i) { return parseInt(h.substr(i, 2), 16); }); }
+  function mescola(a, b, t) {
+    var x = rgb(a), y = rgb(b);
+    return "#" + [0, 1, 2].map(function (i) { var n = Math.round(x[i] * t + y[i] * (1 - t)); return (n < 16 ? "0" : "") + n.toString(16); }).join("");
+  }
+  function luminanza(h) {
+    var c = rgb(h).map(function (n) { n /= 255; return n <= 0.03928 ? n / 12.92 : Math.pow((n + 0.055) / 1.055, 2.4); });
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  }
+  function suColore(h) {
+    var l = luminanza(h);
+    return (l + 0.05) / (luminanza("#0b1220") + 0.05) >= 1.05 / (l + 0.05) ? "#0b1220" : "#ffffff";
+  }
+  /* le variabili CSS del tema scelto (coppie nome/valore); vuote se il tema usa solo i colori di serie */
+  var BASE = { carta: { fondo: "#f5f4f0", testo: "#292620" }, notte: { fondo: "#0a1830", testo: "#f4f6fb" } };
+  function proprietaTema(t) {
+    var p = [];
+    if (!t) return p;
+    if (t.accento) { p.push(["--accent", t.accento]); p.push(["--su-accent", suColore(t.accento)]); p.push(["--on-accent", suColore(t.accento)]); }
+    if (t.fondo) p.push(["--fondo", t.fondo]);
+    if (t.fondo2) p.push(["--fondo2", t.fondo2]);
+    if (t.testo || t.fondo) {
+      var tx = t.testo || BASE[t.stile].testo, bg = t.fondo2 || t.fondo || BASE[t.stile].fondo;
+      p.push(["--text", tx], ["--text-2", mescola(tx, bg, 0.82)], ["--text-3", mescola(tx, bg, 0.7)],
+        ["--border", mescola(tx, bg, 0.24)], ["--surface", mescola(tx, bg, 0.07)]);
+    }
+    return p;
+  }
+
+  /* Il documento ripulito, o null se non è un documento v1. Non lancia mai. opt.locale: vedi immagine(). */
+  function validaDati(d, opt) {
     if (!oggetto(d) || d.v !== 1) return null;
     var out = { v: 1, intestazione: null, sezioni: [], link: [] };
     if (oggetto(d.intestazione)) {
@@ -68,7 +134,23 @@
         righe: lista(i.righe, MAX_RIGHE).map(function (x) { return riga(x, 300); }).filter(Boolean),
         quando: riga(i.quando, 200)
       };
+      /* campi della versione grafica: presenti solo se validi (un documento senza di loro esce com'era) */
+      var logo = immagine(i.logo, opt);
+      if (logo) out.intestazione.logo = logo;
+      if (riga(i.nastro, 60)) out.intestazione.nastro = riga(i.nastro, 60);
+      if (oggetto(i.data)) {
+        var dt = { giorno: riga(i.data.giorno, 40), numero: riga(i.data.numero, 12), mese: riga(i.data.mese, 40), ora: riga(i.data.ora, 40) };
+        if (dt.giorno || dt.numero || dt.mese || dt.ora) out.intestazione.data = dt;
+      }
+      if (oggetto(i.luogo)) {
+        var lg = { nome: riga(i.luogo.nome, 200), indirizzo: riga(i.luogo.indirizzo, 300) };
+        if (lg.nome || lg.indirizzo) out.intestazione.luogo = lg;
+      }
     }
+    var tm = tema(d.tema);
+    if (tm) out.tema = tm;
+    var cop = immagine(d.copertina, opt);
+    if (cop) out.copertina = cop;
     lista(d.sezioni, MAX_SEZIONI).forEach(function (s) {
       if (!oggetto(s)) return;
       var base = { tipo: s.tipo, etichetta: riga(s.etichetta, 120), titolo: riga(s.titolo, 200) };
@@ -86,6 +168,16 @@
       } else if (s.tipo === "testo") {
         base.paragrafi = lista(s.paragrafi, MAX_ELENTO).map(function (p) { return testo(p, 5000); }).filter(Boolean);
         out.sezioni.push(base);
+      } else if (s.tipo === "immagine") {
+        var im = immagine(s, opt);
+        if (im) { base.url = im.url; base.alt = im.alt; base.didascalia = riga(s.didascalia, 300); out.sezioni.push(base); }
+      } else if (s.tipo === "galleria") {
+        base.immagini = [];
+        lista(s.immagini, MAX_IMMAGINI).forEach(function (g) {
+          var gi = immagine(g, opt);
+          if (gi) base.immagini.push({ url: gi.url, alt: gi.alt, didascalia: riga(g.didascalia, 300) });
+        });
+        if (base.immagini.length) out.sezioni.push(base);
       }
       /* tipi sconosciuti: ignorati */
     });
@@ -99,8 +191,8 @@
   }
 
   /* Il DOM del programma. `doc` = document (o una finta nei test): si usano solo createElement e createTextNode. */
-  function costruisci(dati, doc) {
-    var v = validaDati(dati);
+  function costruisci(dati, doc, opt) {
+    var v = validaDati(dati, opt);
     if (!v) return null;
     function el(tag, cls, txt) {
       var e = doc.createElement(tag);
@@ -111,17 +203,60 @@
     function righeDi(parent, cls, t) {
       t.split("\n").forEach(function (r) { if (r) parent.appendChild(el("p", cls, r)); });
     }
+    /* immagine: alt sempre presente (vuoto = decorativa); la galleria e le immagini sotto la prima schermata sono pigre */
+    function img(cls, i, w, h2, pigra) {
+      var e = el("img", cls);
+      e.setAttribute("src", i.url);
+      e.setAttribute("alt", i.alt || "");
+      e.setAttribute("width", String(w));
+      e.setAttribute("height", String(h2));
+      e.setAttribute("decoding", "async");
+      if (pigra) e.setAttribute("loading", "lazy");
+      e.setAttribute("referrerpolicy", "no-referrer");
+      return e;
+    }
+    function figura(cls, i, w, h2, pigra, didascalia) {
+      var f = el("figure", cls);
+      f.appendChild(img("prg-img", i, w, h2, pigra));
+      if (didascalia) f.appendChild(el("figcaption", "prg-didascalia", didascalia));
+      return f;
+    }
     var radice = el("div", "prg-doc");
+    var props = proprietaTema(v.tema);
+    if (v.tema) radice.setAttribute("data-stile", v.tema.stile);
+    if (radice.style && radice.style.setProperty) props.forEach(function (c) { radice.style.setProperty(c[0], c[1]); });
+    if (v.copertina) radice.appendChild(figura("prg-copertina", v.copertina, 1600, 900, false, ""));
     var h = v.intestazione;
-    if (h && (h.sopratitolo || h.titolo || h.titolo_corsivo || h.righe.length || h.quando)) {
+    if (h && (h.sopratitolo || h.titolo || h.titolo_corsivo || h.righe.length || h.quando || h.logo || h.nastro || h.data || h.luogo)) {
       var testa = el("header", "prg-testa");
       if (h.sopratitolo) testa.appendChild(el("p", "prg-sopra", h.sopratitolo));
       if (h.titolo || h.titolo_corsivo) {
-        var t1 = el("h1", "prg-titolo");
+        /* con il logo il titolo resta nel documento (h1 per chi legge con lo screen reader) ma non si vede */
+        var t1 = el("h1", h.logo ? "prg-titolo prg-nascosto" : "prg-titolo");
         if (h.titolo) t1.appendChild(doc.createTextNode(h.titolo));
         if (h.titolo && h.titolo_corsivo) t1.appendChild(doc.createTextNode(" "));
         if (h.titolo_corsivo) t1.appendChild(el("em", null, h.titolo_corsivo));
         testa.appendChild(t1);
+      }
+      if (h.logo) {
+        var lp = el("p", "prg-logo");
+        lp.appendChild(img("prg-img", { url: h.logo.url, alt: h.titolo || h.titolo_corsivo ? "" : h.logo.alt }, 600, 300, false));
+        testa.appendChild(lp);
+      }
+      if (h.nastro) { var nw = el("p", "prg-nastro-riga"); nw.appendChild(el("span", "prg-nastro", h.nastro)); testa.appendChild(nw); }
+      if (h.data) {
+        var bx = el("div", "prg-data");
+        if (h.data.giorno) bx.appendChild(el("p", "prg-data-giorno", h.data.giorno));
+        if (h.data.numero) bx.appendChild(el("p", "prg-data-numero", h.data.numero));
+        if (h.data.mese) bx.appendChild(el("p", "prg-data-mese", h.data.mese));
+        if (h.data.ora) bx.appendChild(el("p", "prg-data-ora", h.data.ora));
+        testa.appendChild(bx);
+      }
+      if (h.luogo) {
+        var lu = el("div", "prg-luogo");
+        if (h.luogo.nome) lu.appendChild(el("p", "prg-luogo-nome", h.luogo.nome));
+        if (h.luogo.indirizzo) lu.appendChild(el("p", "prg-luogo-ind", h.luogo.indirizzo));
+        testa.appendChild(lu);
       }
       h.righe.forEach(function (r) { testa.appendChild(el("p", "prg-riga", r)); });
       if (h.quando) testa.appendChild(el("p", "prg-quando", h.quando));
@@ -156,6 +291,20 @@
           });
           sez.appendChild(ol);
         }
+      } else if (s.tipo === "immagine") {
+        sez.appendChild(figura("prg-fig", { url: s.url, alt: s.alt }, 1200, 900, true, s.didascalia));
+      } else if (s.tipo === "galleria") {
+        var gl = el("ul", "prg-galleria");
+        /* scorre in orizzontale: raggiungibile anche da tastiera */
+        gl.setAttribute("tabindex", "0");
+        gl.setAttribute("role", "list");
+        gl.setAttribute("aria-label", s.titolo || s.etichetta || "Galleria di immagini");
+        s.immagini.forEach(function (g) {
+          var li = el("li", "prg-galleria-voce");
+          li.appendChild(figura("prg-fig", g, 1200, 900, true, g.didascalia));
+          gl.appendChild(li);
+        });
+        sez.appendChild(gl);
       } else {
         s.paragrafi.forEach(function (p) { righeDi(sez, "prg-par", p); });
       }
@@ -185,8 +334,8 @@
     return t ? t + " — Programma di sala" : "Programma di sala";
   }
 
-  var P = { API_PROD: API_PROD, ANON_PROD: ANON_PROD, configura: configura, validaDati: validaDati, urlHttps: urlHttps,
-    costruisci: costruisci, titoloPagina: titoloPagina };
+  var P = { API_PROD: API_PROD, ANON_PROD: ANON_PROD, IMG_PROD: IMG_PROD, configura: configura, validaDati: validaDati, urlHttps: urlHttps,
+    costruisci: costruisci, titoloPagina: titoloPagina, proprietaTema: proprietaTema, suColore: suColore };
   root.PRGProgramma = P;
   if (typeof module === "object" && module && module.exports) module.exports = P;
 
@@ -207,6 +356,16 @@
     a.appendChild(document.createTextNode("stageplot.it"));
     p.appendChild(a);
     return p;
+  }
+  /* il tema vale per tutta la pagina (sfondo compreso): classe e variabili sul <html>, solo via CSSOM */
+  function applicaTema(t) {
+    var r = document.documentElement;
+    r.classList.remove("prg-notte", "prg-tinta");
+    ["--accent", "--su-accent", "--on-accent", "--fondo", "--fondo2", "--text", "--text-2", "--text-3", "--border", "--surface"].forEach(function (k) { r.style.removeProperty(k); });
+    if (!t) return;
+    if (t.stile === "notte") r.classList.add("prg-notte");
+    if (t.fondo || t.fondo2) r.classList.add("prg-tinta");
+    proprietaTema(t).forEach(function (c) { r.style.setProperty(c[0], c[1]); });
   }
   function mostra(nodo, stato) {
     app.setAttribute("aria-busy", "false");
@@ -256,9 +415,10 @@
       if (!res.ok) throw new Error("http " + res.status);
       return res.json();
     }).then(function (r) {
-      var nodo = r && costruisci(r.dati, document);
+      var nodo = r && costruisci(r.dati, document, { locale: cfg.locale });
       if (!nodo) { mostra(messaggio("Programma non disponibile", "Questo programma non è ancora pubblicato o non esiste."), "non-disponibile"); return; }
       document.title = titoloPagina(r.dati);
+      applicaTema(validaDati(r.dati, { locale: cfg.locale }).tema);
       mostra(nodo, "ok");
     }).catch(function () {
       mostra(messaggio("Non riesco a caricare il programma", "Controlla la connessione e riprova.", true), "errore");
