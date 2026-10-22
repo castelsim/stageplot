@@ -1,0 +1,61 @@
+/* Programma di sala — pagina pubblica. Prima il telefono, poi il computer. Stessi token sobri del resto del sito;
+   titoli in serif (è un programma di sala), tema chiaro e scuro. */
+:root{
+  --bg:#f5f4f0;--surface:#fff;--border:#ddd9cd;
+  --text:#292620;--text-2:#5f594d;--text-3:#746e60;
+  --accent:#0b7a70;--focus:#1d4ed8;--on-accent:#fff;
+  --ui:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --serif:Georgia,"Iowan Old Style","Times New Roman",serif;
+}
+@media (prefers-color-scheme: dark){
+  :root{--bg:#12181b;--surface:#1b2327;--border:#2c3a3f;--text:#e5e7eb;--text-2:#b4c0bd;--text-3:#96a5a1;
+    --accent:#2dd4bf;--focus:#93c5fd;--on-accent:#06201d}
+}
+*{box-sizing:border-box;margin:0;padding:0}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--bg);color:var(--text);font-family:var(--ui);font-size:17px;line-height:1.55;overflow-wrap:anywhere}
+a{color:var(--accent)}
+:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.prg-pagina{max-width:600px;margin:0 auto;padding:28px 18px 40px}
+.prg-carico{color:var(--text-2);text-align:center;padding:48px 0}
+
+.prg-testa{text-align:center;padding:12px 0 28px;border-bottom:1px solid var(--border)}
+.prg-sopra{font-size:13px;letter-spacing:.12em;text-transform:uppercase;color:var(--text-2);margin-bottom:10px}
+.prg-titolo{font-family:var(--serif);font-weight:600;font-size:clamp(28px,8vw,40px);line-height:1.15;margin-bottom:12px}
+.prg-titolo em{font-style:italic;font-weight:400}
+.prg-riga{color:var(--text-2)}
+.prg-quando{margin-top:12px;font-weight:600;color:var(--text)}
+
+.prg-sez{padding:26px 0;border-bottom:1px solid var(--border)}
+.prg-etichetta{font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);font-weight:700;margin-bottom:6px}
+.prg-sez-titolo{font-family:var(--serif);font-weight:600;font-size:clamp(22px,6vw,28px);line-height:1.2;margin-bottom:14px}
+.prg-persone{list-style:none}
+.prg-persone li{display:flex;flex-direction:column;padding:8px 0;border-top:1px solid var(--border)}
+.prg-persone li:first-child{border-top:0}
+.prg-nome{font-weight:600}
+.prg-ruolo{color:var(--text-2);font-size:15.5px}
+.prg-voci{padding-left:1.8em}
+.prg-voci li{padding:10px 0 10px .3em}
+.prg-voci li::marker{color:var(--accent);font-weight:700}
+.prg-voce-titolo{font-family:var(--serif);font-size:1.12em}
+.prg-dettaglio{display:block;color:var(--text-2);font-size:15.5px}
+.prg-brani{color:var(--text-2);font-size:15.5px;margin-top:4px;white-space:pre-line}
+.prg-nota{color:var(--text-3);font-size:15px;margin-top:8px;font-style:italic}
+.prg-par{margin-bottom:12px;max-width:34em}
+.prg-par:last-child{margin-bottom:0}
+
+.prg-link{padding:24px 0}
+.prg-link ul{list-style:none;display:flex;flex-direction:column;gap:10px}
+.prg-link a{display:flex;align-items:center;min-height:48px;padding:10px 16px;border:1px solid var(--border);
+  border-radius:12px;background:var(--surface);text-decoration:none;font-weight:600}
+.prg-link a:hover{border-color:var(--accent)}
+
+.prg-msg{text-align:center;padding:56px 0 24px}
+.prg-msg h1{font-family:var(--serif);font-size:26px;margin-bottom:10px}
+.prg-msg p{color:var(--text-2);margin-bottom:20px}
+.prg-btn{min-height:48px;padding:10px 22px;border:0;border-radius:12px;background:var(--accent);color:var(--on-accent);
+  font:inherit;font-weight:700;cursor:pointer}
+.prg-piede{margin-top:32px;text-align:center;color:var(--text-3);font-size:14px}
+@media (min-width:700px){.prg-pagina{padding-top:56px}.prg-persone li{flex-direction:row;justify-content:space-between;gap:16px}}
+@media print{body{background:#fff;color:#000}.prg-link a{border:0;padding:0}}
