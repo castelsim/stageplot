@@ -143,7 +143,8 @@ I prossimi moduli previsti (vedi piano): `src/` per canvas, objects, data/serial
   tenere mai in una mappa nuova un id senza elemento: la pulizia è `dropOrphanLinks` (in `normalizeState` e `save()`);
   una mappa nuova indicizzata per id va aggiunta lì, con test e mutazione. Ricostruire una voce nel normalizzatore
   scartando campi la rende invisibile a quella pulizia ma anche all'utente: ogni campo nuovo di `*.manual` va
-  elencato nel ricostruttore di `normalizeState` (oggi `line`/`conn`/`seg` di `elec.manual` non ci sono: si perdono).
+  elencato nel ricostruttore di `normalizeState` (dal 22/10 ci sono `line`/`conn`/`seg` di `elec.manual`, `seg` di
+  `mond.manual` e `via` di `cab.manual`, che prima si perdevano; test «linea, connettore, cavo squadrato e via del computer»).
 - **Pianta dei posti** (area biglietteria): `biglietteria/pianta-posti.js` è GENERATO da `src/pianta-posti.js` (`node build.mjs`);
   nel template c'è solo il marcatore PIANTA_POSTI. Una funzione della pianta riscritta nel template o in `gst*.js` è una seconda
   copia: il test `bgl-pianta-posti` lo vieta (il confronto «sala cambiata» diventerebbe falso).
