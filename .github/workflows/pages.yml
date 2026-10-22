@@ -44,7 +44,7 @@ jobs:
       - name: Test pagine della biglietteria
         run: node --test test/biglietteria.test.mjs test/bgl-*.test.mjs
       - name: Test del programma di sala
-        run: node --test test/programma-di-sala.test.mjs
+        run: node --test test/programma-di-sala.test.mjs test/programma-grafica.test.mjs
       - name: Test funzioni condivise Supabase
         run: deno test --lock=deno.lock --frozen supabase/functions/_shared/*.test.ts
       - name: Type-check Edge Functions
