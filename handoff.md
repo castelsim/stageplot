@@ -1,3 +1,12 @@
+# 23/10/2026 — Landing: esemplare vero, band e orchestra (ramo `landing-esemplare`)
+
+- Al posto di «Band rock 5 elementi» la landing mostra «Tributo pop · band e orchestra»: un esemplare anonimo da un concerto vero (palco 12 × 13 m, 94 elementi, 64 canali, 6 pagine A4 con «N di T»). Il progetto grezzo e lo script di anonimizzazione stanno fuori dal repo; qui entrano solo PDF e immagini già neutri.
+- File nuovi: `img/esemplare-tributo-{apertura,palco,rider,channel-list,backline}.jpg` e `img/esemplare-tributo-pop-band-orchestra.pdf` (esportato dall'app, circa 6 MB: il palco vettoriale è pesante). Il PDF band rock della guida `scheda-tecnica-band` resta dov'è.
+- La sezione #rider mostra palco, rider tecnico, channel list e backline: l'esemplare non ha monitor in scena, e la lista carichi ha una sola riga, quindi quelle pagine non sono in vetrina (sono comunque nel PDF: la lista carichi è a pagina 5).
+- L'apertura è quasi quadrata (palco alto): `.foglio` ha larghezza massima 720 px su computer; il test dell'apertura ora chiede un ritaglio sul palco, non più «più largo di un A4».
+- `preview.png` e `ops/anteprima-social.json` rigenerati (nome e misure vengono dalla landing).
+- Test: aggiornati quelli su immagini e PDF; nuovo test che nel testo del PDF, nella landing e nei nomi dei file non compaiano nomi, luoghi o email (provato con mutazioni).
+
 # 23/10/2026 — Landing nuova: una promessa, un pulsante, il rider vero (ramo `landing-nuova`)
 
 - Decisione del proprietario (23/10): `index.html` rifatta sulla bozza approvata (`MODELLI_PRO/_prove/landing/bozza-landing.html`). Sei sezioni: apertura (H1 «Lo stage plot che il service capisce.», un solo pulsante «Disegna il tuo palco», link «Guarda un rider finito»), tre passi, «Cosa riceve il service» (#rider, pagine vere del PDF), per chi, chi lo fa, 5 domande + finale. Intestazione minima; guide, formazioni, consulenza, Orchestre, privacy nel piè di pagina.

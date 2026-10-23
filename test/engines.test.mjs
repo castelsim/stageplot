@@ -17638,12 +17638,12 @@ t("le immagini del rider sono le pagine vere del PDF d'esempio, esistono e hanno
      non danno errore da nessuna parte: la pagina va online con i buchi, e Google non sa cosa mostrano. */
   const sez = (landing.match(/<div class="pagine"[\s\S]*?<\/div>/) || [])[0] || "";
   const tags = sez.match(/<img[^>]*>/g) || [];
-  eq(tags.length, 4, "le pagine del PDF sono quattro (palco, channel list, monitor, carichi)");
+  eq(tags.length, 4, "le pagine del PDF sono quattro (palco, rider, channel list, backline)");
   const tutte = [...tags, ...(aperturaLanding.match(/<img[^>]*>/g) || [])];
   eq(tutte.length, 5, "più l'immagine dell'apertura");
   for (const tag of tutte) {
     const src = (tag.match(/src="([^"]+)"/) || [])[1] || "";
-    ok(/^\/img\/esempio-band-rock-[\w-]+\.jpg$/.test(src), "immagine del PDF d'esempio nella cartella pubblicata: " + src);
+    ok(/^\/img\/esemplare-tributo-[\w-]+\.jpg$/.test(src), "immagine del PDF d'esempio nella cartella pubblicata: " + src);
     const f = join(root, src.slice(1));
     ok(existsSync(f) && statSync(f).size > 20000, src + " esiste su disco ed è un file vero");
     const d = dimensioniJpeg(readFileSync(f));
@@ -17654,6 +17654,7 @@ t("le immagini del rider sono le pagine vere del PDF d'esempio, esistono e hanno
     ok(alt.length >= 60, src + ": l'alt descrive cosa mostra (" + alt.length + " caratteri)");
   }
   for (const tag of tags) ok(/loading="lazy"/.test(tag), "le pagine sotto la prima schermata sono lazy");
+  ok(!/\.pdf/.test(sez.replace(/href="[^"]*"/g, "")), "il percorso del PDF compare solo nei link, mai dentro i testi e gli alt");
   const apertura = (aperturaLanding.match(/<img[^>]*>/) || [""])[0];
   ok(/fetchpriority="high"/.test(apertura) && !/loading="lazy"/.test(apertura), "l'immagine dell'apertura è l'LCP: niente lazy");
   /* e il deploy pubblica la cartella img/ (allowlist del workflow) */
@@ -17662,7 +17663,7 @@ t("le immagini del rider sono le pagine vere del PDF d'esempio, esistono e hanno
 });
 
 t("il PDF d'esempio è linkato dalla landing, esiste e ha le pagine che la landing dice", () => {
-  const pdf = "/guida/scheda-tecnica-band/esempio-scheda-tecnica-band-rock.pdf";
+  const pdf = "/img/esemplare-tributo-pop-band-orchestra.pdf";
   const link = landing.match(new RegExp('<a href="' + pdf + '">([^<]*)</a>'));
   ok(link, "c'è un link al PDF intero");
   const dich = +((link[1].match(/(\d+) pagine/) || [])[1] || 0);
@@ -17674,6 +17675,28 @@ t("il PDF d'esempio è linkato dalla landing, esiste e ha le pagine che la landi
   for (const m of landing.matchAll(new RegExp(pdf.replace(/\./g, "\\.") + "#page=(\\d+)", "g")))
     ok(+m[1] >= 1 && +m[1] <= vere, "il link a pagina " + m[1] + " cade dentro il PDF");
   ok(landing.indexOf('href="/guida/scheda-tecnica-band/"') > -1, "e c'è la guida che spiega come si fa");
+});
+
+t("l'esemplare della landing (PDF, HTML, immagini) non contiene dati reali", () => {
+  /* L'esemplare nasce da un concerto vero, anonimizzato fuori dal repo (pubblico). Se il PDF o la pagina
+     lasciano passare un nome, un luogo o un contatto, finisce online: qui si cerca nel testo del PDF
+     (stream compressi) e nell'HTML della landing. */
+  /* le parole vietate sono spezzate di proposito: il repo è pubblico e non deve contenerle nemmeno qui */
+  const vietate = new RegExp(["die" + "go", "po" + "oh", "tre" + "viso", "[\\w.-]+@[\\w-]+\\.[a-z]{2,}"].join("|"), "i");
+  const pdfPath = "/img/esemplare-tributo-pop-band-orchestra.pdf";
+  const pdf = readFileSync(join(root, pdfPath));
+  const raw = pdf.toString("latin1");
+  let testo = raw;
+  for (const m of raw.matchAll(/stream\r?\n/g)) {
+    const da = m.index + m[0].length, a = raw.indexOf("endstream", da);
+    try { testo += inflateSync(pdf.subarray(da, a)).toString("latin1"); } catch (_e) { /* stream non compressi */ }
+  }
+  ok(/Tributo pop/.test(testo), "il test legge davvero il testo del PDF (sentinella: il titolo anonimo)");
+  const trovato = testo.match(vietate);
+  ok(!trovato, "il PDF dell'esemplare contiene «" + (trovato || [""])[0] + "»");
+  const htmlTesto = landing + " " + readdirSync(join(root, "img")).filter((n) => /^esemplare-/.test(n)).join(" ");
+  const trovatoH = htmlTesto.match(vietate);
+  ok(!trovatoH, "la landing o i nomi dei file dell'esemplare contengono «" + (trovatoH || [""])[0] + "»");
 });
 
 t("ogni link interno della landing porta a una pagina che esiste", () => {
@@ -17698,8 +17721,9 @@ t("su telefono le pagine del PDF scorrono dentro il loro riquadro, e il palco de
      (zona quote–PUBBLICO del PDF d'esempio), su ogni schermo, senza ingrandimenti in CSS. */
   const m = mq(760);
   ok(/\.pagine\{[^}]*overflow-x:auto[^}]*scroll-snap-type:x mandatory/.test(m), "la fila delle pagine scorre in orizzontale con scatti");
-  const ap = landing.match(/<img src="\/img\/esempio-band-rock-apertura\.jpg" width="(\d+)" height="(\d+)"/);
-  ok(ap && (+ap[1]) / (+ap[2]) > 1.55, "l'immagine d'apertura è ritagliata sul palco (più larga di un A4 orizzontale, 1,414)");
+  const ap = landing.match(/<img src="\/img\/esemplare-tributo-apertura\.jpg" width="(\d+)" height="(\d+)"/);
+  ok(ap && (+ap[1]) / (+ap[2]) > 0.9 && (+ap[1]) / (+ap[2]) < 1.2, "l'immagine d'apertura è ritagliata sul palco (quasi quadrata: 12 × 13 m), non è la pagina A4 intera");
+  ok(/\.foglio\{[^}]*max-width:\d+px[^}]*margin:\d+px auto 0/.test(landing), "e su computer il foglio ha una larghezza massima, perché un palco alto non diventi enorme");
   ok(!/\.ritaglio img\{[^}]*width:1\d\d%/.test(landing), "e nessun ingrandimento in CSS che taglierebbe il palco già ritagliato");
   ok(/class="pagine" role="group" aria-label="[^"]+" tabindex="0"/.test(landing), "e il riquadro scorrevole si raggiunge anche da tastiera");
   ok(/\.pagine\{[^}]*grid-template-columns:1\.414fr 1fr 1fr 1fr/.test(landing), "su computer le quattro pagine stanno in fila, alla stessa altezza (A4: 1,414)");
