@@ -17518,243 +17518,11 @@ t("la landing mostra il prodotto vero, e il prodotto vero arriva in produzione",
   ok(!/<img[^>]+fetchpriority="high"[^>]+loading="lazy"/.test(landing), "l'immagine dell'hero non è lazy (è l'LCP)");
 });
 
-t("la dimostrazione «una modifica, tutto aggiornato» è completa", () => {
-  /* È la sezione che porta il messaggio della pagina: se un pezzo si scollega, resta un bottone che
-     non fa niente — e nessun test di layout se ne accorgerebbe. */
-  for (const k of ["mic", "mon", "par"]) {
-    ok(landing.indexOf('data-add="' + k + '"') > -1, "c'è il bottone " + k);
-    ok(landing.indexOf('id="add-' + k + '"') > -1, "c'è l'elemento che compare sul palco per " + k);
-    ok(landing.indexOf('id="row-' + k + '"') > -1, "c'è la riga di documento che ne discende per " + k);
-    ok(landing.indexOf("'" + k + "'") > -1 || landing.indexOf('add-' + k) > -1, "il JS collega " + k);
-  }
-  ok(landing.indexOf('id="syReset"') > -1, "si può ricominciare");
-  /* Il claim dell'hero e la promessa di questa sezione devono dire la stessa cosa. Dal 22/08 l'H1
-     porta il differenziatore — «in scala», parola che compariva dodici volte in pagina e mai nel
-     titolo — e la promessa del rider è scesa nel sottotitolo. Vanno presidiati SEPARATAMENTE: un
-     test sull'intera pagina resterebbe verde anche se il sottotitolo perdesse la promessa, perché
-     la frase ricorre altrove. */
-  const h1 = (landing.match(/<h1[^>]*>([\s\S]*?)<\/h1>/) || [])[1] || "";
-  ok(/in scala/i.test(h1), "l'H1 porta il differenziatore: " + h1.replace(/<[^>]*>/g, " ").trim());
-  const subHero = (landing.match(/<p class="sub">([\s\S]*?)<\/p>/) || [])[1] || "";
-  ok(/il rider si costruisce da solo/i.test(subHero), "e il sottotitolo dell'hero porta la promessa");
-});
 
-t("i numeri elettrici della landing tornano, e il quadro dice di che tipo è", () => {
-  /* Trovato il 22/08 leggendo la pagina come la leggerebbe un fonico. Due difetti veri:
 
-     1. lo schema elettrico dichiarava LUCI 4,6 kW, ma la lista sotto — 8 PAR LED 0,8 + 2 Fresnel
-        1,3 + 2 sagomatori 1,3 — somma 3,4 kW. Due numeri diversi per la stessa cosa, nella stessa
-        sezione. È esattamente il difetto che la pagina promette di NON fare («non allegati composti
-        a mano: sono lo stesso dato del disegno»).
 
-     2. «8,6 kW su 32A ✓ dentro i margini» non diceva se il quadro è mono o trifase. A 230V
-        monofase un 32A porta 7,36 kW (IEC 60309), quindi 8,6 kW era OLTRE il limite e il ✓ una
-        bugia; a 400V trifase porta ~22 kW e il ✓ è giusto. L'editor usa il trifase —
-        `distro32:{a:32, ph:3}` in app.js — ma la landing non lo scriveva.
 
-     Il test rifà i conti invece di controllare le stringhe: così vale anche per i numeri di domani. */
-  const num = (t) => parseFloat(String(t).replace(",", "."));
 
-  /* la somma della lista luci */
-  const righeLuci = [...landing.matchAll(/<tr>\s*<td[^>]*>(\d+)<\/td>[\s\S]{0,220}?<td[^>]*>([\d,]+) kW<\/td>\s*<\/tr>/g)]
-    .map((m) => num(m[2]));
-  ok(righeLuci.length >= 3, "la lista luci ha le sue righe: " + righeLuci.length);
-  const sommaLuci = Math.round(righeLuci.reduce((a, b) => a + b, 0) * 10) / 10;
-
-  /* le tre voci dello schema elettrico e il totale dichiarato */
-  const voci = {};
-  for (const m of landing.matchAll(/<span class="kw-lab">([^<]+)<\/span>[\s\S]{0,120}?<span class="kw-val">([\d,]+) kW<\/span>/g))
-    voci[m[1].trim()] = num(m[2]);
-  const tot = num((landing.match(/<b>([\d,]+) kW ✓ dentro i margini<\/b>/) || [])[1]);
-
-  eq(voci["LUCI"], sommaLuci, "la voce LUCI dello schema è la somma della lista luci");
-  const sommaVoci = Math.round(Object.values(voci).reduce((a, b) => a + b, 0) * 10) / 10;
-  eq(tot, sommaVoci, "e il totale sul quadro è la somma delle tre voci");
-
-  /* il ✓ regge solo se il quadro e' quello giusto: 32A monofase a 230V porta 7,36 kW */
-  const quadro = (landing.match(/TOTALE SU QUADRO (\d+)A( trifase)?/) || []);
-  const ampere = +quadro[1], trifase = !!quadro[2];
-  const monofaseMax = ampere * 230 / 1000;
-  ok(trifase || tot <= monofaseMax,
-    `${tot} kW su ${ampere}A: oltre i ${monofaseMax.toFixed(2)} kW del monofase, quindi va detto «trifase»`);
-  ok(!trifase || tot <= ampere * 400 * Math.sqrt(3) / 1000, "e sta dentro il trifase");
-
-  /* la stessa potenza va scritta uguale ovunque: compariva in cinque punti */
-  const scritti = [...landing.matchAll(/([\d,]+) kW/g)].map((m) => m[1]);
-  ok(scritti.filter((x) => num(x) === tot).length >= 4,
-    "il totale è ripetuto identico nei punti in cui la pagina lo cita: " + scritti.join(" "));
-});
-
-t("la channel list dice quali canali vogliono il phantom, e lo dice giusto", () => {
-  /* Aggiunta il 22/08. Fra gli essenziali di un input list secondo ProSoundWeb («Simple Yet Vital:
-     Best Practices In Developing Input Lists And Stage Plots») e SoundGirls («How to Make an
-     Awesome Audio Rider») c'è dire QUALI canali richiedono l'alimentazione phantom: chi riceve il
-     rider deve saperlo prima di arrivare. L'editor la colonna ce l'ha dal 28/07, la landing no.
-
-     Il test non si fida di quello che ho scritto a mano: confronta riga per riga con MIC_DB, che è
-     il database del programma, compilato sulle schede dei costruttori. Un dinamico che risultasse
-     col 48V acceso è un errore che sul palco costa — su un nastro passivo costa il microfono. */
-  const dentro = (h) => h.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
-  const tab = (landing.match(/<table id="chlist">([\s\S]*?)<\/table>/) || [])[1] || "";
-  ok(tab, "la channel list c'è");
-  ok(/<th class="p48h">48V<\/th>/.test(tab), "e ha la colonna 48V");
-
-  const righe = [...tab.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)].slice(1)
-    .map((m) => [...m[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((c) => dentro(c[1])));
-  eq(righe.length, 10, "dieci canali");
-
-  let conPhantom = 0;
-  for (const [ch, sorgente, mic, p48] of righe) {
-    const acceso = /48V/.test(p48);
-    if (acceso) conPhantom++;
-    const info = A.MIC_DB[mic] || Object.values(A.MIC_DB).find((m) => m.model === mic);
-    if (info) {
-      eq(acceso, !!info.p48,
-        `CH${ch} ${sorgente} (${mic}): il 48V dichiarato deve essere quello di MIC_DB`);
-    } else {
-      /* Non è un microfono del catalogo: l'unico caso qui è la DI. Una DI ATTIVA richiede
-         alimentazione per definizione — phantom o batteria (Radial Engineering «DI Questions»;
-         Countryman Type 85: col phantom presente stacca da sola la batteria). Una PASSIVA no:
-         è un trasformatore. */
-      if (/DI attiva/i.test(mic)) ok(acceso, `CH${ch}: una DI attiva va alimentata, il 48V va acceso`);
-      else if (/^DI$/i.test(mic)) ok(!acceso, `CH${ch}: una DI passiva non vuole il phantom`);
-    }
-  }
-  ok(conPhantom > 0 && conPhantom < righe.length,
-    "l'esempio mostra sia canali col phantom sia senza: " + conPhantom + "/10");
-
-  /* «Timpano» era il nome dato al tom: ma nel catalogo dell'editor «Timpani» sono lo strumento
-     ORCHESTRALE (Ø81/74/66, categoria Percussioni) e MIC_DB dichiara per l'e604 uso:"tom,
-     rullante". Su un editor che supporta le orchestre quella parola è già presa. */
-  ok(!/Timpan[oi]/.test(landing), "nella batteria si chiama «Tom», non «Timpano»");
-});
-
-t("le due channel list della pagina raccontano lo stesso palco", () => {
-  /* Il 22/08 ho corretto «Timpano» → «Tom» nella channel list della sezione «L'output» e l'ho dato
-     per fatto: le liste erano DUE. L'altra è il mini-rider del prima/dopo, che mostra lo stesso
-     progetto esempio in forma di documento, e lì «Timpano» è rimasto — pubblicato. Il test di
-     allora non se n'è accorto perché guardava dentro <table id="chlist"> e basta.
-
-     La lezione è la stessa che avevo scritto nel commit e che non ho applicato a me stesso: il
-     difetto è il dato ripetuto in due posti che nessuno tiene insieme. Quindi qui non si cerca una
-     parola: si confrontano le DUE liste riga per riga. Sono lo stesso quartetto d'esempio, devono
-     dire le stesse cose — o il prima/dopo mostra un palco e la sezione dopo un altro. */
-  const pulisci = (h) => h.replace(/<[^>]*>/g, "\u0000").split("\u0000").filter((x) => x.trim()).map((x) => x.trim());
-
-  const tab = (landing.match(/<table id="chlist">([\s\S]*?)<\/table>/) || [])[1] || "";
-  const grande = [...tab.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/g)].slice(1).map((m) => {
-    const c = [...m[1].matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].map((x) => x[1].replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim());
-    return { n: c[0], sorgente: c[1], mic: c[2] };
-  });
-
-  const mini = [...landing.matchAll(/<div class="mr-row"><i>(\d+)<\/i><b>([^<]*)<\/b>([^<]*)<\/div>/g)]
-    .map((m) => ({ n: m[1], sorgente: m[2].trim(), mic: m[3].trim() }));
-
-  ok(grande.length >= 10, "la channel list grande ha le sue righe: " + grande.length);
-  ok(mini.length >= 10, "il mini-rider ha le sue righe: " + mini.length);
-  eq(mini.length, grande.length, "e sono lo stesso numero di canali");
-
-  for (let i = 0; i < mini.length; i++) {
-    eq(mini[i].n, grande[i].n, `riga ${i + 1}: stesso numero di canale`);
-    eq(mini[i].sorgente, grande[i].sorgente,
-      `CH${mini[i].n}: la sorgente è la stessa nelle due liste`);
-    eq(mini[i].mic, grande[i].mic, `CH${mini[i].n}: il microfono è lo stesso nelle due liste`);
-  }
-});
-
-t("la dimostrazione non tiene i suoi numeri da nessuna parte: li conta", () => {
-  /* STORIA. I totali della sezione «Cambi il palco» stavano scritti in TRE posti: l'HTML che si
-     vede al primo sguardo, un oggetto `syTot` nel JS che li faceva salire al clic, e la tabella di
-     testi del pulsante «rimetti com'era». Tre copie che nessuno teneva insieme — e su una pagina
-     che promette «il rider si aggiorna da solo», due numeri che non tornano smentiscono il
-     prodotto proprio mentre lo si sta dimostrando. Segnalato da Simone il 31/08.
-
-     Fino ad allora questo test verificava che le tre copie COINCIDESSERO. Ora le copie non ci sono
-     più: i totali si contano dalle righe che si vedono, e i kW si sommano da quello che ogni riga
-     dichiara. Quindi qui si presidia che non tornino. */
-  const num = (t) => parseFloat(String(t).replace(",", "."));
-
-  ok(!/var syTot/.test(landing), "nessun totale tenuto a parte nel JS");
-  ok(!/docChN: *'6 CH'/.test(landing), "nessuna tabella di testi fissi nel «rimetti com'era»");
-  ok(/function syAggiorna/.test(landing), "c'è una sola funzione che decide i numeri");
-  ok(/syRighe\('doc-mic'\)\.length/.test(landing), "i canali si contano dalle righe");
-  ok(/syRighe\('doc-mon'\)\.length/.test(landing), "e così i mix");
-
-  /* Le righe si contano dalla CLASSE, non dall'altezza: in una scheda in secondo piano le
-     transizioni CSS non avanzano e l'altezza resta 0 — misurarla darebbe totali sbagliati proprio
-     mentre l'utente non sta guardando. */
-  const fn = landing.slice(landing.indexOf("function syRighe"), landing.indexOf("function syNum"));
-  ok(/classList\.contains\('new'\)/.test(fn) && !/getBoundingClientRect/.test(fn),
-    "si guarda la classe della riga, non quanto è alta");
-
-  /* Lo stato di partenza scritto nell'HTML deve comunque essere quello giusto: senza JS è l'unico
-     che si vede, e con JS è il primo fotogramma. */
-  const righe = (docId) => {
-    /* Il blocco finisce dove comincia il documento successivo: una fetta a lunghezza fissa
-       sconfinava e contava anche le righe del vicino (visto: 10 canali invece di 7). */
-    const i = landing.indexOf('id="' + docId + '"');
-    const dopo = landing.indexOf('class="sy-doc"', i + 10);
-    const blocco = landing.slice(i, dopo > 0 ? dopo : landing.indexOf("Nell'editor vero"));
-    const tutte = (blocco.match(/<div[^>]*>\s*<i>/g) || []).length;
-    const nuove = (blocco.match(/<div class="new"/g) || []).length;
-    return { tutte, iniziali: tutte - nuove };
-  };
-  const ch = righe("doc-mic"), mon = righe("doc-mon");
-  eq(+((landing.match(/<b id="syCh">(\d+)<\/b>/) || [])[1]), ch.iniziali, "canali dichiarati = righe iniziali");
-  eq(+((landing.match(/<b id="syMix">(\d+)<\/b>/) || [])[1]), mon.iniziali, "mix dichiarati = righe iniziali");
-  eq(+((landing.match(/id="docChN">(\d+) CH/) || [])[1]), ch.iniziali, "e lo dice anche l'intestazione");
-  eq(+((landing.match(/id="docMonN">(\d+) mix/) || [])[1]), mon.iniziali);
-  eq(ch.tutte, ch.iniziali + 1, "col clic si aggiunge una riga sola");
-  eq(mon.tutte, mon.iniziali + 1);
-
-  /* I carichi: ogni riga dichiara il suo valore in data-kw (centesimi), e il totale è la somma.
-     È il difetto trovato il 22/08 nello schema elettrico, dove LUCI diceva 4,6 e la lista 3,4. */
-  const blocco = landing.slice(landing.indexOf('id="doc-par"'), landing.indexOf("Nell'editor vero"));
-  const dichiarati = [...blocco.matchAll(/data-kw="(\d+)"/g)].map((m) => +m[1]);
-  const scritti = [...blocco.matchAll(/<span>[^<·]+· ([\d,]+) kW<\/span>/g)].map((m) => Math.round(num(m[1]) * 100));
-  eq(dichiarati.length, scritti.length, "ogni riga dei carichi dichiara il suo valore");
-  ok(dichiarati.length >= 3, "le voci dei carichi ci sono: " + dichiarati.length);
-  for (let i = 0; i < dichiarati.length; i++)
-    eq(dichiarati[i], scritti[i], "riga " + (i + 1) + ": data-kw e testo devono dire la stessa cosa");
-  const kwHtml = num((landing.match(/<b id="syKw">([\d,]+)<\/b>/) || [])[1]);
-  const visibili = dichiarati.slice(0, -1).reduce((a, b) => a + b, 0);   /* l'ultima compare al clic */
-  eq(visibili / 100, kwHtml, "le voci visibili sommano al totale di partenza");
-  eq(dichiarati.reduce((a, b) => a + b, 0) / 100, kwHtml + 1,
-    "e col faro acceso fanno il kW in più che il bottone promette");
-});
-
-t("il palco d'esempio è lo stesso in cima e in fondo alla pagina", () => {
-  /* STORIA (10/09, segnalato da Simone guardando il risultato su Google). La landing racconta UN
-     progetto d'esempio, quartetto-rock, e lo racconta in due punti lontani: la sezione «L'output»,
-     con la channel list e lo schema elettrico, e la barra della console interattiva più sotto.
-
-     Nella PR #59 avevo corretto il totale elettrico da 8,6 a 7,4 kW — la voce LUCI non sommava alla
-     lista dei fari — ma solo nell'output. Nella barra della console «8,6 kW» è rimasto, e ci è
-     rimasto venti giorni: la stessa pagina dichiarava due potenze diverse per lo stesso palco.
-
-     È la terza volta che lo stesso difetto torna nella stessa forma (channel list doppia il 22/08,
-     totali della dimostrazione il 31/08). Quindi qui non si controlla un numero: si controlla che i
-     due racconti coincidano, contando ogni volta dalle righe che si vedono. */
-  const num = (t) => parseFloat(String(t).replace(",", "."));
-  const barra = (landing.match(/<span id="con-sum">([\s\S]*?)<\/span>/) || [])[1] || "";
-  const dice = (unita) => {
-    const m = barra.match(new RegExp('<b data-n="([^"]+)">[^<]*<\\/b>\\s*' + unita));
-    ok(m, "la barra della console dichiara i " + unita);
-    return num(m[1]);
-  };
-
-  /* i canali: quanti ne ha davvero la channel list dell'output */
-  const tab = (landing.match(/<table id="chlist">([\s\S]*?)<\/table>/) || [])[1] || "";
-  eq(dice("CH"), (tab.match(/<tr[^>]*>\s*<td/g) || []).length, "i canali della barra sono le righe della channel list");
-
-  /* i kW: quelli che lo schema elettrico somma sul quadro */
-  eq(dice("kW"), num((landing.match(/<b>([\d,]+) kW ✓ dentro i margini<\/b>/) || [])[1]),
-    "i kW della barra sono il totale dello schema elettrico");
-
-  /* i wedge: quelli che il rider dichiara nella sua pagina monitor */
-  eq(dice("wedge"), num((landing.match(/Monitor <span class="t">(\d+) wedge/) || [])[1]),
-    "i wedge della barra sono quelli della pagina monitor del rider");
-});
 
 t("l'anteprima social è disegnata sulla landing di oggi", () => {
   /* STORIA (10/09). preview.png è l'immagine che Google, WhatsApp e i social mostrano al posto del
@@ -17783,21 +17551,6 @@ t("l'anteprima social è disegnata sulla landing di oggi", () => {
   ok(statSync(join(root, "preview.png")).size > 20000, "e il PNG c'è, e non è vuoto");
 });
 
-t("le cifre che la landing rivendica sono quelle che il programma ha davvero", () => {
-  /* Il precedente è del 12/08: la home dichiarava 155 microfoni e il programma ne aveva 223, perché
-     erano due cose separate. I microfoni da allora sono presidiati; i FARI no, e sono l'altra cifra
-     che la pagina mette in vetrina nella tabella «Elementi nel catalogo / Microfoni / Modelli di
-     faro». Una cifra sbagliata lì è una promessa che l'editor non mantiene. */
-  const fari = Object.keys(A.LIGHT_MODEL_DB || {}).length;
-  ok(fari > 0, "il catalogo dei fari si legge: " + fari);
-  const dichiarati = +((landing.match(/Modelli di faro<\/span><b>(\d+)<\/b>/) || [])[1] || 0);
-  eq(dichiarati, fari, "i modelli di faro dichiarati sono quelli di LIGHT_MODEL_DB");
-
-  /* i microfoni: stessa verifica, nello stesso posto, così le due cifre non si separano di nuovo */
-  const mic = Object.keys(A.MIC_DB || {}).length;
-  eq(+((landing.match(/Microfoni riconosciuti<\/span><b>(\d+)<\/b>/) || [])[1] || 0), mic,
-    "e i microfoni sono quelli di MIC_DB");
-});
 
 t("l'anteprima social ha la forma che i social pretendono", () => {
   /* Perché esiste: fino all'08/08 preview.png mostrava il dominio simonecastellan.com/stageplot,
@@ -17819,16 +17572,18 @@ t("l'anteprima social ha la forma che i social pretendono", () => {
     "e lo sono anche le pagine di contenuto, che condividono la stessa immagine");
 });
 
-/* --- La landing letta da un telefono (11/08) -------------------------------------------------
-   Il redesign era stato verificato a 390px guardando lo scrollWidth: nessun overflow, verde. Ma
-   `body{overflow-x:hidden}` rende quella misura sempre verde per costruzione, e intanto quattro
-   blocchi erano tagliati dentro il loro contenitore. Si vedeva solo guardando lo screenshot.
-   Questi test presidiano le cause, che sono tutte nel CSS. */
+/* --- La landing rifatta (23/10/2026) -------------------------------------------------------------
+   La landing è stata riscritta sulla bozza approvata dal proprietario: una promessa, un solo pulsante, il
+   rider vero (le pagine del PDF d'esempio) al posto delle dimostrazioni interattive. I test sulla vecchia
+   pagina (dimostrazione «una modifica, tutto aggiornato», numeri elettrici, channel list in HTML, prima/dopo,
+   registro delle modifiche, riquadro «È nuovo», messaggio per chi riceve i rider) descrivevano sezioni che non
+   esistono più e sono stati tolti; restano e valgono come prima il rimbalzo dei link, canonical, JSON-LD,
+   description, anteprima social, link alle guide e alle pagine per formazione, niente modelli pronti. */
 const giornoLocale = (d = new Date()) =>
   d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
 
-const mq = (maxpx) => {          /* TUTTI i blocchi @media(max-width:Npx): nel file sono più d'uno */
-  const tag = "@media(max-width:" + maxpx + "px)";
+const mq = (maxpx) => {          /* TUTTI i blocchi @media (max-width:Npx): nel file può essere più d'uno */
+  const tag = "@media (max-width:" + maxpx + "px)";
   let out = "", i = landing.indexOf(tag);
   while (i > -1) {
     const s = landing.indexOf("{", i);
@@ -17839,50 +17594,113 @@ const mq = (maxpx) => {          /* TUTTI i blocchi @media(max-width:Npx): nel f
   }
   return out;
 };
+/* sezione dell'apertura e blocchi che i test sotto guardano: se la struttura cambia, falliscono qui con un nome chiaro */
+const aperturaLanding = (landing.match(/<section class="hero">([\s\S]*?)<\/section>/) || [])[1] || "";
+const testoVisibile = (h) => h.replace(/<(script|style|svg)[\s\S]*?<\/\1>/g, " ").replace(/<!--[\s\S]*?-->/g, " ")
+  .replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ").trim();
+/* dimensioni vere di un JPEG (marcatore SOF): serve a non dichiarare nell'HTML numeri diversi dal file */
+const dimensioniJpeg = (buf) => {
+  let i = 2;
+  while (i < buf.length) {
+    if (buf[i] !== 0xff) { i++; continue; }
+    const m = buf[i + 1];
+    if (m >= 0xc0 && m <= 0xcf && m !== 0xc4 && m !== 0xc8 && m !== 0xcc) return { h: buf.readUInt16BE(i + 5), w: buf.readUInt16BE(i + 7) };
+    i += 2 + buf.readUInt16BE(i + 2);
+  }
+  return null;
+};
 
-t("su un telefono il rider a otto pagine si legge fino in fondo", () => {
-  /* Le righe erano 523px dentro 336 con white-space:nowrap: si leggeva «PAG 2 · Input list 10 CH —
-     mic, 48V, patch de» e il resto viveva in uno scroll orizzontale invisibile. */
-  ok(/\.tl\{[^}]*white-space:\s*normal/.test(mq(760)), "sotto i 760px le righe del terminale vanno a capo");
-  ok(/\.tl\{[^}]*text-indent:\s*-/.test(mq(760)), "e la seconda riga rientra sotto il «PAG n ·»");
+t("l'apertura ha un solo pulsante principale, e porta all'editor a palco vuoto", () => {
+  /* Fino al 23/10/2026 l'apertura offriva tre porte («Apri l'editor», «Parti da un palco vuoto», «Guarda prima un
+     rider finito»): chi arriva per la prima volta non sapeva quale scegliere. Ora UN pulsante («Disegna il tuo
+     palco») e un link discreto verso il rider finito. */
+  ok(aperturaLanding.length > 500, "la sezione dell'apertura c'è");
+  const pulsanti = aperturaLanding.match(/<a class="btn[^"]*"[^>]*>[^<]*<\/a>/g) || [];
+  eq(pulsanti.length, 1, "un solo pulsante nell'apertura: " + pulsanti.join(" | "));
+  ok(/>Disegna il tuo palco</.test(pulsanti[0]), "e dice «Disegna il tuo palco»: " + pulsanti[0]);
+  ok(/href="\/app\/\?from=hero-modello"/.test(pulsanti[0]), "porta a /app/ con il marcatore storico del pulsante principale");
+  ok(!/model=/.test(aperturaLanding), "e non a un modello (modelli spenti)");
+  const link = aperturaLanding.match(/<a class="sec" href="#rider">([^<]*)<\/a>/);
+  ok(link && /rider finito/i.test(link[1]), "il rider finito è un link, non un secondo pulsante");
+  ok(landing.indexOf('id="rider"') > -1, "e l'ancora #rider esiste");
+  for (const f of ["Gratis", "In italiano", "Senza account", "Nessuna filigrana"])
+    ok(aperturaLanding.indexOf("<span>" + f + "</span>") > -1, "fra i fatti c'è «" + f + "»");
+  /* tutta la pagina: ogni pulsante pieno porta a /app/ marcato, e quello finale dice lo stesso del primo */
+  const pieni = [...landing.matchAll(/<a class="btn btn-l"[^>]*href="([^"]+)"[^>]*>([^<]+)</g)];
+  eq(pieni.length, 2, "i pulsanti grandi sono due: apertura e finale");
+  eq(pieni[1][2].trim(), pieni[0][2].trim(), "la CTA principale è la stessa in cima e in fondo");
+  ok(/^\/app\/\?from=finale$/.test(pieni[1][1]), "e il finale porta all'editor con il suo marcatore: " + pieni[1][1]);
 });
 
-t("la colonna «Monitor» della channel list entra nello schermo di un telefono", () => {
-  /* 385px in 336: MIX 1 / MIX 3 restavano oltre il bordo. Il difetto vero però era l'ORDINE: la
-     media query stava PRIMA di th{padding:11px 16px}, che la sovrascriveva senza dire niente. */
-  const stretta = landing.search(/@media\(max-width:760px\)\{[^@]*th,td\{padding-left:/);
-  const larga = landing.search(/\n\s*th\{[^}]*padding:\s*11px 16px/);
-  ok(stretta > -1, "esiste la regola che stringe le celle su telefono");
-  ok(larga > -1 && stretta > larga, "e viene DOPO quella base, altrimenti perde la cascata");
+t("le immagini del rider sono le pagine vere del PDF d'esempio, esistono e hanno un alt", () => {
+  /* Perché esiste: al posto delle mini-tabelle disegnate a mano, la landing mostra quattro pagine del PDF
+     già pubblicato in /guida/scheda-tecnica-band/. Una cartella dimenticata dal deploy o un alt vuoto
+     non danno errore da nessuna parte: la pagina va online con i buchi, e Google non sa cosa mostrano. */
+  const sez = (landing.match(/<div class="pagine"[\s\S]*?<\/div>/) || [])[0] || "";
+  const tags = sez.match(/<img[^>]*>/g) || [];
+  eq(tags.length, 4, "le pagine del PDF sono quattro (palco, channel list, monitor, carichi)");
+  const tutte = [...tags, ...(aperturaLanding.match(/<img[^>]*>/g) || [])];
+  eq(tutte.length, 5, "più l'immagine dell'apertura");
+  for (const tag of tutte) {
+    const src = (tag.match(/src="([^"]+)"/) || [])[1] || "";
+    ok(/^\/img\/esempio-band-rock-[\w-]+\.jpg$/.test(src), "immagine del PDF d'esempio nella cartella pubblicata: " + src);
+    const f = join(root, src.slice(1));
+    ok(existsSync(f) && statSync(f).size > 20000, src + " esiste su disco ed è un file vero");
+    const d = dimensioniJpeg(readFileSync(f));
+    ok(d, src + " è un JPEG leggibile");
+    eq(+(tag.match(/width="(\d+)"/) || [])[1], d.w, src + ": width dichiarata = larghezza vera");
+    eq(+(tag.match(/height="(\d+)"/) || [])[1], d.h, src + ": height dichiarata = altezza vera");
+    const alt = (tag.match(/alt="([^"]*)"/) || [])[1] || "";
+    ok(alt.length >= 60, src + ": l'alt descrive cosa mostra (" + alt.length + " caratteri)");
+  }
+  for (const tag of tags) ok(/loading="lazy"/.test(tag), "le pagine sotto la prima schermata sono lazy");
+  const apertura = (aperturaLanding.match(/<img[^>]*>/) || [""])[0];
+  ok(/fetchpriority="high"/.test(apertura) && !/loading="lazy"/.test(apertura), "l'immagine dell'apertura è l'LCP: niente lazy");
+  /* e il deploy pubblica la cartella img/ (allowlist del workflow) */
+  const wf = readFileSync(join(root, ".github/workflows/pages.yml"), "utf8");
+  ok(/\bimg\b/.test(wf.slice(wf.indexOf("rsync -a"), wf.indexOf("./_site/"))), "img/ sta nell'allowlist del deploy");
 });
 
-t("le immagini della landing sono ritagliate ognuna per quello che deve mostrare", () => {
-  /* Un solo `.shot img{object-position:52% 78%}` valeva per tutte e tre: buono per l'editor,
-     tagliava l'intestazione della pagina del rider e riduceva la finestra di export a 3px. */
-  ok(/\.shot-hero img\{[^}]*object-position/.test(landing), "il ritaglio sul palco è agganciato all'hero");
-  ok(!/[^-]\.shot img\{[^}]*object-fit/.test(landing), "e non alla classe generica .shot");
-  ok(/<figure class="shot shot-hero">/.test(landing), "l'hero porta davvero quella classe");
-  ok(/\.shot-exp img\{display:none\}/.test(mq(700)), "su telefono la finestra di export non si mostra illeggibile");
-  ok(/class="exp-m"/.test(landing) && /Scala<\/span><b>1:100/.test(landing),
-    "al suo posto ci sono le stesse scelte scritte in chiaro");
+t("il PDF d'esempio è linkato dalla landing, esiste e ha le pagine che la landing dice", () => {
+  const pdf = "/guida/scheda-tecnica-band/esempio-scheda-tecnica-band-rock.pdf";
+  const link = landing.match(new RegExp('<a href="' + pdf + '">([^<]*)</a>'));
+  ok(link, "c'è un link al PDF intero");
+  const dich = +((link[1].match(/(\d+) pagine/) || [])[1] || 0);
+  const bin = readFileSync(join(root, pdf.slice(1))).toString("latin1");
+  ok(bin.startsWith("%PDF"), "il file è un PDF");
+  const vere = Math.max(...[...bin.matchAll(/\/Count (\d+)/g)].map((m) => +m[1]));
+  eq(dich, vere, "«" + link[1] + "» dichiara le pagine che il PDF ha davvero");
+  /* i link alle singole pagine puntano allo stesso file, con #page=N dentro le sue pagine */
+  for (const m of landing.matchAll(new RegExp(pdf.replace(/\./g, "\\.") + "#page=(\\d+)", "g")))
+    ok(+m[1] >= 1 && +m[1] <= vere, "il link a pagina " + m[1] + " cade dentro il PDF");
+  ok(landing.indexOf('href="/guida/scheda-tecnica-band/"') > -1, "e c'è la guida che spiega come si fa");
 });
 
-t("chi ha un dito e non un mouse riceve un invito che può accettare", () => {
-  ok(/<span class="mouse">Passa il mouse sulla channel list<\/span><span class="touch">Tocca/.test(landing),
-    "l'invito ha le sue due versioni");
-  ok(/\n\s*\.touch\{display:none\}/.test(landing), "la variante per il dito è nascosta di default");
-  ok(/\.mouse\{display:none\}[^}]*\.touch\{display:inline\}/.test(mq(700)), "e si scambiano sotto i 700px");
-  /* e soprattutto: toccare deve fare qualcosa, altrimenti è una promessa vuota */
-  ok(/tr\.addEventListener\('click'/.test(landing), "toccare una riga accende il legame");
-  ok(/el\.addEventListener\('click'/.test(landing), "e vale anche toccando l'elemento sul palco");
+t("ogni link interno della landing porta a una pagina che esiste", () => {
+  const corpo = landing.replace(/<script[\s\S]*?<\/script>/g, "").replace(/<!--[\s\S]*?-->/g, "");
+  const rotti = [];
+  for (const m of corpo.matchAll(/<a\b[^>]*href="([^"]+)"/g)) {
+    const h = m[1];
+    if (h.startsWith("#")) { if (corpo.indexOf('id="' + h.slice(1) + '"') < 0) rotti.push(h); continue; }
+    if (!h.startsWith("/")) continue;
+    const pulito = h.split(/[?#]/)[0];
+    if (pulito === "/" || pulito === "/app/") continue;      /* radice e editor: generati dal build */
+    const f = join(root, pulito.slice(1));
+    if (!(existsSync(f) && (statSync(f).isFile() || existsSync(join(f, "index.html"))))) rotti.push(h);
+  }
+  eq(rotti, [], "link interni rotti nella landing");
 });
 
-t("un layer spento resta leggibile: si spegne il disegno, non il suo nome", () => {
-  /* opacity .1 sull'intero gruppo rendeva «CABLAGGIO» e «RF & RETE» invisibili: sembrava un
-     errore di rendering. L'opacità di un gruppo SVG è un tetto, non si recupera dai figli. */
-  ok(!/\.plane\.ghost \.fader\{opacity:\.1\}/.test(landing), "l'opacità non è più sul gruppo intero");
-  const et = (landing.match(/\.plane\.ghost \.fader>text\{opacity:([\d.]+)\}/) || [])[1];
-  ok(et && parseFloat(et) >= 0.3, "l'etichetta di un layer spento resta leggibile (opacity " + et + ")");
+t("su telefono le pagine del PDF scorrono dentro il loro riquadro, e il palco dell'apertura è ingrandito", () => {
+  /* Perché: su un iPhone la vecchia landing era alta 18.237 px. Quattro pagine A4 una sotto l'altra ne
+     aggiungerebbero 2.000: sotto i 760px stanno su una sola fila scorrevole, e il palco (poco più di un
+     terzo dell'immagine, il resto è carta bianca) si mostra ritagliato. */
+  const m = mq(760);
+  ok(/\.pagine\{[^}]*overflow-x:auto[^}]*scroll-snap-type:x mandatory/.test(m), "la fila delle pagine scorre in orizzontale con scatti");
+  ok(/\.foglio \.ritaglio\{[^}]*overflow:hidden/.test(m) && /\.foglio \.ritaglio img\{[^}]*width:1\d\d%/.test(m), "il palco dell'apertura è ritagliato e ingrandito");
+  ok(/class="pagine" role="group" aria-label="[^"]+" tabindex="0"/.test(landing), "e il riquadro scorrevole si raggiunge anche da tastiera");
+  ok(/\.pagine\{[^}]*grid-template-columns:1\.414fr 1fr 1fr 1fr/.test(landing), "su computer le quattro pagine stanno in fila, alla stessa altezza (A4: 1,414)");
+  ok(!/body\{[^}]*overflow-x:hidden/.test(landing), "e non si nasconde lo scorrimento orizzontale invece di evitarlo");
 });
 
 t("dalla home si arriva a ogni pagina per formazione", () => {
@@ -17951,12 +17769,19 @@ t("la home dice a Google di cosa parla: le parole che si cercano stanno nel titl
      rider si costruisce da solo» (09/08) → «disegna il palco in scala, il rider esce con lui» (22/08).
      Alla fine non c'era più né «stage plot» né «scheda tecnica»: per «stage plot online gratis» la
      home era in posizione 68, per «scheda tecnica band» 85 — le due cose che l'editor è.
-     Il marchio nel title non serve: Google mostra già il nome del sito sopra il risultato. */
+     Il marchio nel title non serve: Google mostra già il nome del sito sopra il risultato.
+     23/10/2026: l'H1 della nuova landing è «Lo stage plot che il service capisce.» (decisione del proprietario):
+     porta «stage plot»; «scheda tecnica» e «rider» stanno nell'etichetta sopra l'H1 (stesso blocco, primo
+     schermo), nel title e nella description, che restano invariati. */
   const title = (landing.match(/<title>([^<]*)<\/title>/) || [])[1] || "";
   for (const k of ["stage plot", "scheda tecnica", "online", "gratis"])
     ok(title.toLowerCase().includes(k), "il title della home contiene «" + k + "»: " + title);
   const h1 = ((landing.match(/<h1[^>]*>([\s\S]*?)<\/h1>/) || [])[1] || "").replace(/<[^>]*>/g, " ").toLowerCase();
-  ok(h1.includes("stage plot") && h1.includes("scheda tecnica"), "e l'H1 le porta anche lui: " + h1.trim());
+  ok(h1.includes("stage plot"), "l'H1 porta «stage plot»: " + h1.trim());
+  const eyebrow = (landing.match(/<p class="eyebrow">([^<]*)<\/p>/) || [])[1] || "";
+  ok(/stage plot/i.test(eyebrow) && /scheda tecnica/i.test(eyebrow) && /rider/i.test(eyebrow),
+    "e l'etichetta sopra l'H1 dice stage plot, scheda tecnica e rider: " + eyebrow);
+  eq(landing.match(/<h1[\s>]/g).length, 1, "un solo H1");
   const desc = (landing.match(/<meta name="description" content="([^"]*)"/) || [])[1] || "";
   ok(/stage plot/i.test(desc) && /scheda tecnica/i.test(desc) && /rider tecnico/i.test(desc),
     "la description nomina stage plot, scheda tecnica e rider tecnico: " + desc);
@@ -17974,6 +17799,19 @@ t("le domande della home sono le stesse a video e nello schema", () => {
   const sez = landing.slice(i, landing.indexOf("</section>", i));
   const visibili = [...sez.matchAll(/<h3>([^<]*)<\/h3>/g)].map((m) => m[1]);
   eq(visibili, inLd, "stesse domande, stesso ordine");
+});
+
+t("le risposte delle domande sono le stesse a video e nello schema, e sono cinque", () => {
+  /* Google può togliere il rich result se il testo nello schema non è quello che si vede in pagina. */
+  const ld = JSON.parse((landing.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/) || [])[1]);
+  const dom = ld["@graph"].find((n) => n["@type"] === "FAQPage").mainEntity;
+  eq(dom.length, 5, "cinque domande, come la bozza approvata");
+  const i = landing.indexOf('id="domande"');
+  const sez = landing.slice(i, landing.indexOf("</section>", i));
+  const visibili = [...sez.matchAll(/<details><summary><h3>([^<]*)<\/h3><\/summary><p>([\s\S]*?)<\/p><\/details>/g)]
+    .map((m) => m[2].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim());   /* i link restano dentro la frase: niente spazi aggiunti */
+  eq(visibili.length, 5, "cinque risposte a video");
+  eq(dom.map((q) => q.acceptedAnswer.text), visibili, "stesso testo a video e nello schema");
 });
 
 t("llms.txt e la home non promettono modelli pronti (modelli spenti)", () => {
@@ -18178,20 +18016,13 @@ t("il contatore della landing non conta chi sviluppa il sito, e conta tutti gli 
   eq(A.uscitaChiaveDaCancellare("sp_founder", "local"), true, "all'uscita dall'account il segno si cancella");
 });
 
-t("sul telefono il riquadro prima/dopo non blocca lo scorrimento della pagina", () => {
-  /* 29/09, misurato sulla landing viva a 390 px: il cursore invisibile copre 340×338 px con
-     touch-action:none — chi ci appoggia il pollice per scendere sposta il confronto e la pagina resta
-     ferma. pan-y lascia lo scorrimento verticale alla pagina e il trascinamento orizzontale al cursore. */
-  const regola = (landing.match(/\.ba-range\{[^}]*\}/) || [""])[0];
-  ok(/touch-action:pan-y/.test(regola), "il cursore lascia scorrere in verticale: " + regola);
-});
 
 t("gli ingressi verso l'editor sono gli stessi in pagina, nel codice e nel database", () => {
   /* Tre elenchi che devono coincidere. Se in pagina nasce un from= che il database non conosce,
      il CHECK rifiuta la riga e quel clic sparisce senza un errore visibile da nessuna parte:
      il contatore continuerebbe a funzionare, contando meno del vero. */
   const inPagina = new Set([...landing.matchAll(/href="\/app\/[^"]*?from=([\w-]{1,24})/g)].map((m) => m[1]));
-  ok(inPagina.size >= 4, "la landing marca i suoi ingressi: " + [...inPagina].join(", "));
+  ok(inPagina.size >= 3, "la landing marca i suoi ingressi (23/10: nav, hero-modello, finale): " + [...inPagina].join(", "));
 
   const ts = readFileSync(join(root, "supabase/functions/_shared/landing-metrics.ts"), "utf8");
   const blocco = (ts.match(/export const SORGENTI = \[([\s\S]*?)\] as const/) || [])[1] || "";
@@ -18411,81 +18242,47 @@ t("il disegno vero usa il corpo stampato e lo spostamento, non solo il calcolo d
    mano: la sezione che parla a chi i rider LI RICEVE era la più corta della pagina (59 parole) benché
    sia il fronte dichiarato, e il sito dichiarava 155 microfoni mentre il catalogo ne conteneva 223. */
 
-t("il numero di microfoni in pagina è quello del catalogo vero", () => {
+t("il numero di microfoni, dove una pagina lo cita, è quello del catalogo vero", () => {
   /* Il difetto non era il numero: era che NESSUNO legava la pagina al catalogo, così l'ampliamento
      del 12/08 (155 → 223) ha lasciato indietro home, llms.txt e la sezione «Disegni il palco».
-     Qui il legame c'è: se domani il catalogo cresce ancora, questo test lo reclama. */
+     Qui il legame c'è: se domani il catalogo cresce ancora, questo test lo reclama.
+     23/10/2026: la nuova landing non cita più il totale (e non deve essere obbligata a farlo); se lo
+     ricitasse, il numero deve essere quello vero. Restano obbligati llms.txt e la guida. */
   const veri = Object.keys(A.MIC_DB).length;
   ok(veri > 100, "il catalogo è caricato: " + veri + " microfoni");
-  /* Solo i numeri che dichiarano il TOTALE, in tutti i modi in cui la pagina lo scrive: «223
-     microfoni», «Microfoni riconosciuti | 223», «ne riconosce 223». Escluso «68 microfoni in più»
-     del registro, che è una differenza e non un totale. */
   const inPagina = [
     ...[...landing.matchAll(/(\d{2,4})\s*microfoni(?!\s+in\s+più)/gi)].map((m) => +m[1]),
-    ...[...landing.matchAll(/Microfoni riconosciuti<\/span><b>(\d+)<\/b>/g)].map((m) => +m[1]),
     ...[...landing.matchAll(/ne riconosce (\d{2,4})/g)].map((m) => +m[1]),
   ];
-  ok(inPagina.length >= 2, "la home cita il numero di microfoni: " + inPagina.join(", "));
   for (const n of inPagina) eq(n, veri, "un numero in pagina non coincide col catalogo");
-  const dichiarato = +((landing.match(/Microfoni riconosciuti<\/span><b>(\d+)<\/b>/) || [])[1] || 0);
-  eq(dichiarato, veri, "la scheda numeri dice quanti ne ha davvero");
   const l = readFileSync(join(root, "llms.txt"), "utf8");
   const inLlms = [...l.matchAll(/(\d{2,4}) microfoni/gi)].map((m) => +m[1]);
+  ok(inLlms.length >= 1, "llms.txt cita il numero");
   for (const n of inLlms) eq(n, veri, "llms.txt racconta lo stesso numero alle AI");
 });
 
-t("la pagina promette un tempo solo", () => {
-  /* Diceva «parte in dieci minuti», «la scheda tecnica in una sera» e «domani il rider è già fatto»:
-     per una band «una sera» e «domani» sono un costo, non una promessa, e tre numeri diversi non
-     sono una promessa affatto. */
-  const testo = landing.replace(/<(script|style|svg)[\s\S]*?<\/\1>/g, " ").replace(/<!--[\s\S]*?-->/g, " ")
-    .replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
-  ok(/dieci minuti/.test(testo), "il tempo promesso c'è");
-  ok(!/scheda tecnica in una sera/i.test(testo), "non convive con «in una sera»");
-  ok(!/Domani il rider è già fatto/i.test(testo), "né con «domani»");
+t("la pagina non promette tempi che nessuno può mantenere", () => {
+  /* Fino al 22/10 la home diceva «parte in dieci minuti» (e prima «in una sera», «domani il rider è già
+     fatto»): per una band «una sera» e «domani» sono un costo, non una promessa. La nuova landing non
+     promette nessun tempo: il test lo tiene così. */
+  const testo = testoVisibile(landing);
+  ok(!/scheda tecnica in una sera/i.test(testo), "niente «in una sera»");
+  ok(!/Domani il rider è già fatto/i.test(testo), "niente «domani»");
+  ok(!/\b(in|entro) (\d+|dieci|cinque|quindici) minuti/i.test(testo), "e nessun «in N minuti»");
 });
 
-t("chi i rider li riceve trova qualcosa da usare, non da leggere", () => {
-  /* La sezione era 59 parole e trattava il service come destinatario. Ora ha un testo pronto da
-     mandare alle band: è l'unico pezzo della pagina che può portare visite invece di convertirle. */
-  const sez = landing.slice(landing.indexOf('id="condivisione"'), landing.indexOf('id="layers"'));
-  ok(sez.length > 1500, "la sezione non è più un francobollo");
-  ok(/Se i rider li ricevi tu/i.test(sez), "parla a chi li riceve");
-  const msg = (sez.match(/<blockquote class="venue-msg" id="venueMsg">([\s\S]*?)<\/blockquote>/) || [])[1] || "";
-  ok(msg.length > 150, "c'è il messaggio da copiare (" + msg.length + " caratteri)");
-  ok(msg.indexOf("stageplot.it") > -1, "il messaggio contiene il link");
-  ok(/gratis/.test(msg) && /non serve registrarsi/.test(msg), "dice le due cose che convincono una band");
-  /* i due bottoni devono esistere E avere il codice che li raccoglie: un bottone che non copia
-     è peggio di nessun bottone */
-  ok((sez.match(/class="btn2 copia"/g) || []).length === 2, "ci sono i due bottoni");
-  ok(/data-copia="venueMsg"/.test(sez), "il primo copia il testo del messaggio");
-  ok(/data-copia-testo="https:\/\/stageplot\.it\/"/.test(sez), "il secondo copia il link");
-  ok(/querySelectorAll\('\.copia'\)/.test(landing), "il JS aggancia i bottoni");
-  ok(/execCommand\('copy'\)/.test(landing), "c'è il ripiego per quando la clipboard è negata");
-  ok(/copia a mano/.test(landing), "e se fallisce anche quello lo dice, invece di fingere");
-});
-
-t("dalla prima schermata il bottone primario apre l'editor", () => {
-  /* Fino al 22/10/2026 il primario apriva un modello («Prova un palco già pronto»). Con i modelli spenti
-     apre l'editor a palco vuoto; il secondo bottone resta e la porta «rider finito» pure. */
-  const cta = landing.slice(landing.indexOf('<div class="cta-row">'), landing.indexOf('</div>', landing.indexOf('<div class="cta-row">')));
-  const primo = (cta.match(/<a class="btn"[^>]*>([^<]+)</) || [])[1] || "";
-  ok(/apri l'editor/i.test(primo), "il bottone primario dice «Apri l'editor»: «" + primo + "»");
-  ok(!/model=/.test(cta), "e non porta a un modello");
-  ok(/href="\/app\/\?from=hero-modello"/.test(cta.split("</a>")[0]), "porta a /app/ (marcatore from= invariato)");
-  ok(/palco vuoto/i.test(cta), "il foglio bianco resta, in seconda battuta");
-  ok(/class="btn2"/.test(cta), "ed e' un bottone secondario, non il primario");
-  ok(/rider finito/i.test(cta), "e c'è la porta per chi vuole solo vedere il documento");
-});
 
 t("il prezzo è dichiarato nella pagina, non solo nel piede", () => {
   /* Tutti i concorrenti dichiarano il prezzo in home. Il gratis non spiegato, su un professionista,
-     genera sospetto invece che gratitudine. */
-  const corpo = landing.slice(landing.indexOf('id="chi"'), landing.indexOf('id="domande"'));
-  ok(/resta gratis/.test(corpo), "dice che l'editor resta gratis");
-  ok(/29 €/.test(corpo), "e dove sta il pagamento");
-  ok(/href="\/consulenza\/"/.test(corpo), "con il link alla consulenza fuori dal piede");
-  ok(/È nuovo, e te lo dico/.test(landing), "e c'è la dichiarazione di novità al posto della prova che non c'è");
+     genera sospetto invece che gratitudine. Dal 23/10 lo dice la domanda «È davvero gratis?»: cosa è
+     gratis, dove sta il pagamento (consulenza 29 € / da 149 €), con il link fuori dal piede. */
+  const i = landing.indexOf('id="domande"');
+  const dom = landing.slice(i, landing.indexOf("</section>", i));
+  const gratis = (dom.match(/<summary><h3>È davvero gratis\?<\/h3><\/summary><p>([\s\S]*?)<\/p>/) || [])[1] || "";
+  ok(/gratis e senza filigrana/.test(gratis), "dice che palco, liste e PDF sono gratis e senza filigrana");
+  ok(/29 €/.test(gratis) && /da 149 €/.test(gratis), "e dove sta il pagamento");
+  ok(/href="\/consulenza\/"/.test(gratis), "con il link alla consulenza fuori dal piede");
+  ok(/Gratis<\/span>/.test(aperturaLanding), "e il gratis è già nei fatti dell'apertura");
 });
 
 /* ===== MENU FILE ESSENZIALE (13/08) — da 17 voci a 5 ===================================== */
@@ -19034,54 +18831,7 @@ t("la differenza fra i quattro documenti è in una tabella, non solo in prosa", 
   eq(righe, 4, "quattro documenti a confronto");
 });
 
-t("il registro delle modifiche dice il vero, ed è ancora fresco", () => {
-  /* Una sezione «cosa è cambiato» è prova che il prodotto è vivo — ma solo finché è aggiornata.
-     Ferma da mesi dimostra l'opposto di quello per cui esiste, ed è il modo tipico in cui questa
-     idea si ritorce contro: nessuno se ne accorge, perché la pagina continua a funzionare.
-     Qui il test fa da promemoria: oltre i 120 giorni o si aggiorna o si toglie. */
-  /* Le date del sito sono GIORNI LOCALI: `allinea-date.mjs` le prende da `git log --format=%cs`,
-     che stampa la data del committer nel suo fuso. Confrontarle con un istante UTC — com'era
-     fatto qui, `new Date(iso + "T12:00:00Z") > new Date()` — rende «futura» qualunque pagina
-     toccata oggi fino alle 12:00 UTC: la suite diventava rossa ogni mattina, per un difetto suo.
-     Si confrontano giorni con giorni, come stringhe ISO, che sono ordinabili così come sono. */
-  const sez = landing.slice(landing.indexOf('class="registro"'));
-  const voci = [...sez.matchAll(/<time datetime="(\d{4}-\d{2}-\d{2})">([^<]+)<\/time>\s*<p>([\s\S]*?)<\/p>/g)]
-    .map((m) => ({ iso: m[1], mostrata: m[2], testo: m[3].replace(/<[^>]+>/g, "").trim() }));
-  ok(voci.length >= 4, "il registro ha almeno quattro voci: " + voci.length);
 
-  const oggi = new Date();
-  for (const v of voci) {
-    const d = new Date(v.iso + "T12:00:00Z");
-    ok(!isNaN(d), "data leggibile dalla macchina: " + v.iso);
-    ok(v.iso <= giornoLocale(oggi), "nessuna voce datata nel futuro: " + v.iso);
-    ok(v.testo.length > 30, "ogni voce dice cosa è cambiato, non solo che è cambiato: «" + v.testo.slice(0, 40) + "…»");
-    /* la data mostrata deve corrispondere a quella leggibile dalla macchina: due date diverse
-       nello stesso elemento sono una bugia che nessuno noterebbe */
-    const mese = ["gen","feb","mar","apr","mag","giu","lug","ago","set","ott","nov","dic"][d.getUTCMonth()];
-    eq(v.mostrata.trim(), d.getUTCDate() + " " + mese, "la data scritta è quella del datetime");
-  }
-  const piuRecente = voci.map((v) => new Date(v.iso + "T12:00:00Z")).sort((a, b) => b - a)[0];
-  const giorni = Math.floor((oggi - piuRecente) / 86400000);
-  ok(giorni <= 120,
-    "il registro è fermo da " + giorni + " giorni: aggiornalo con le ultime modifiche, o togli la sezione " +
-    "(una pagina che si vanta di essere viva e non lo è dimostra il contrario)");
-});
-
-t("quello che il riquadro «È nuovo» promette di far verificare, si può verificare", () => {
-  /* Nella prima stesura (mia, del 12/08) diceva «il rider che scarichi», «il catalogo che apri» e
-     «una persona con nome, cognome e mail» — e nella sezione non c'era UN link, in tutta la pagina
-     zero PDF e zero indirizzi. Chi va a cliccare capisce che era retorica, e il riquadro ottiene
-     l'opposto di quello per cui esiste. */
-  const sez = landing.slice(landing.indexOf('id="novita"'), landing.indexOf('id="domande"'));
-  const link = [...sez.matchAll(/<a[^>]+href="([^"]+)"/g)].map((m) => m[1]);
-  ok(link.length >= 3, "le verifiche promesse sono raggiungibili: " + link.join(", "));
-  ok(link.some((h) => h.startsWith("mailto:")), "l'indirizzo c'è davvero, non è solo nominato");
-  for (const a of link.filter((h) => h.startsWith("#"))) {
-    ok(landing.indexOf('id="' + a.slice(1) + '"') > -1, "l'ancora «" + a + "» punta a qualcosa che esiste");
-  }
-  ok(!/che\s+scarichi/.test(sez) || /\.pdf/.test(landing),
-    "non si promette un file da scaricare se in pagina non c'è");
-});
 
 t("gli alt descrivono l'immagine che c'è, non quella che vorremmo", () => {
   /* Due anteprime per formazione sono lo stesso file byte per byte (band=festival, chiesa=coro):
@@ -19099,30 +18849,6 @@ t("gli alt descrivono l'immagine che c'è, non quella che vorremmo", () => {
   }
 });
 
-t("nel prima/dopo il disegno regge il paragone con lo scarabocchio", () => {
-  /* Il foglietto di sinistra ha nove annotazioni a mano; il disegno di destra ne aveva UNA, e per
-     giunta stava nella metà coperta dal cursore. Chi non trascinava vedeva una colonna di testo, e
-     il confronto su cui poggia la pagina argomentava contro il prodotto. */
-  const ba = landing.slice(landing.indexOf('id="ba"'), landing.indexOf('class="ba-caption"'));
-  const prima = ba.slice(0, ba.indexOf("ba-after"));
-  const dopo = ba.slice(ba.indexOf("ba-after"));
-  const conta = (s) => (s.match(/<text[^>]*>[^<]{2,}<\/text>/g) || []).length;
-  ok(conta(dopo) >= conta(prima) - 2,
-    "il «dopo» ha etichette quanto il «prima» (" + conta(dopo) + " contro " + conta(prima) + ")");
-
-  /* i numeri sul disegno devono essere quelli della lista accanto: è il punto del prodotto */
-  const canaliDisegno = [...dopo.matchAll(/<text[^>]*>[^<]*?·\s*(?:CH\s*)?(\d+)(?:–(\d+))?<\/text>/g)]
-    .flatMap((m) => (m[2] ? [+m[1], +m[2]] : [+m[1]]));
-  ok(canaliDisegno.length >= 4, "il disegno porta i numeri di canale: " + canaliDisegno.join(", "));
-  const inLista = [...dopo.matchAll(/<div class="mr-row"><i>(\d+)<\/i>/g)].map((m) => +m[1]);
-  ok(inLista.length >= 8, "la lista accanto ha i suoi canali: " + inLista.length);
-  for (const c of canaliDisegno)
-    ok(inLista.includes(c), "il canale " + c + " scritto sul disegno esiste anche nella lista");
-
-  /* e il disegno deve stare nella metà che si vede senza trascinare */
-  ok(/\.mini-rider \.mr-l\{order:2/.test(landing), "il disegno è nella colonna di destra");
-  ok(/\.mini-rider \.mr-r\{order:1\}/.test(landing), "la lista in quella di sinistra");
-});
 
 t("le due date di ogni pagina dicono la stessa cosa", () => {
   /* La data di modifica è scritta in due posti — <lastmod> nella sitemap e dateModified nel JSON-LD —
@@ -19275,14 +19001,15 @@ t("gli ampere del pannello dicono da dove viene il numero", () => {
   ok(/fonte:wattFonte\(/.test(appjs), "la riga porta con sé la provenienza");
 });
 
-t("la home porta a Orchestre, dal menu e dal piè di pagina", () => {
-  /* Audit esterno del 15/09: nella home non c'era nessun collegamento al servizio Orchestre. Il menu
-     sparisce sotto i 940 px, quindi il piè di pagina lo ripete: sul telefono resta raggiungibile. */
+t("la home porta a Orchestre dal piè di pagina", () => {
+  /* Audit esterno del 15/09: nella home non c'era nessun collegamento al servizio Orchestre. Dal 23/10 la
+     landing non ha più il menu (intestazione minima: logo e «Apri l'editor»): il piè di pagina lo dice,
+     con cosa fa. */
   const landing = readFileSync(join(root, "index.html"), "utf8");
-  const nav = landing.slice(landing.indexOf('<div class="nav-links">'), landing.indexOf('<a class="nav-cta"'));
-  ok(/<a href="\/orchestre\/"[^>]*>Orchestre<\/a>/.test(nav), "nel menu");
   const foot = landing.slice(landing.indexOf("<footer"), landing.indexOf("</footer>"));
-  ok(/<a href="\/orchestre\/">Orchestre — musicisti per il tuo evento<\/a>/.test(foot), "e nel piè di pagina, con cosa fa");
+  ok(/<a href="\/orchestre\/"[^>]*>Orchestre — musicisti per il tuo evento<\/a>/.test(foot), "nel piè di pagina, con cosa fa");
+  const head = landing.slice(landing.indexOf("<header"), landing.indexOf("</header>"));
+  eq((head.match(/<a /g) || []).length, 2, "e l'intestazione è minima: logo e «Apri l'editor»");
 });
 
 t("audit del 15/09: il file del progetto è per chi ha l'account, e l'account dice a cosa serve", () => {
@@ -19304,8 +19031,8 @@ t("audit del 15/09: il file del progetto è per chi ha l'account, e l'account di
   ok(!/\n\s*\.nudge\{/.test(stylesCss) || !/cls\+=" nudge"/.test(appjs), "la pastiglia usa di nuovo una classe che è già di un altro componente");
   ok(/\.doc-chip\{[^}]*max-width:\s*\d+px[^}]*text-overflow:ellipsis/.test(stylesCss), "la pastiglia deve avere una larghezza massima: un testo lungo allarga la barra e copre i comandi");
   ok(appjs.indexOf('{ id:"elec", name:"Elettrico"') > -1 && appjs.indexOf('name:"Power"') === -1 && !/lista Power/.test(appjs), "la lista si chiama Elettrico, anche nei rimedi");
-  ok(!/<span>Link di sola lettura<\/span>/.test(landing) && /<span>Link sempre aggiornato, con l'account<\/span>/.test(landing), "la home dice che il link aggiornato è dell'account");
-  ok(/con l'account, un link di sola lettura sempre aggiornato/.test(landing) && /Il link no: con l'account,/.test(landing), "anche nelle domande frequenti e nella sezione Condivisione");
+  ok(/con l'account, un link in sola lettura/.test(landing), "la home dice che il link in sola lettura è dell'account (domanda «Il service riesce ad aprirlo?»)");
+  ok(!/senza account[^.<]{0,40}link in sola lettura|link in sola lettura[^.<]{0,40}senza account/i.test(testoVisibile(landing.slice(landing.indexOf('id="domande"')))), "e le domande non lo promettono a chi non ha l'account");
 });
 
 t("il link senza account non promette la sincronia che non ha", () => {
@@ -20621,16 +20348,6 @@ function righeDemo(docId, soloIniziali) {
   return soloIniziali ? righe.length - nuove.length : righe.length;
 }
 
-t("il PDF d'esempio dichiara tante pagine quante ne elenca", () => {
-  const i = home.indexOf('id="term"');
-  const blocco = home.slice(i, home.indexOf("</section>", i));
-  const dichiarate = (blocco.match(/id="termPag">(\d+) pagine/) || [])[1];
-  const elencate = (blocco.match(/<b>PAG \d+<\/b>/g) || []).length;
-  eq(+dichiarate, elencate, "«" + dichiarate + " pagine» ma ne elenca " + elencate);
-  /* E deve dire che e' un progetto DIVERSO da quello della demo: ha altri numeri (10 CH, 3 mix)
-     e chi scorre la pagina li confrontava con quelli della demo trovandoli incoerenti. */
-  ok(/non quello della demo/.test(blocco), "il testo distingue i due progetti");
-});
 
 t("niente promette a pagamento quello che e' gratis", () => {
   /* «rider completo su consulenza» stava in uno sr-only dell'editor: lo leggono gli screen reader e
@@ -20645,8 +20362,8 @@ t("niente promette a pagamento quello che e' gratis", () => {
   ok(!/Channel list \(input patch \/ monitor\) — consulenza/.test(app),
      "il tooltip diceva che la channel list e' «consulenza»");
   /* E la homepage deve continuare a dirlo chiaro. */
-  ok(/L'editor è gratis e resta gratis/.test(home), "la homepage dichiara il gratis");
-  ok(/29 €, facoltativa/.test(home), "e dichiara il prezzo della revisione, dicendo che e' facoltativa");
+  ok(/sono gratis e senza filigrana/.test(home), "la homepage dichiara il gratis");
+  ok(/Si paga solo se vuoi che un tecnico/.test(home) && /29 €/.test(home), "e dichiara che il pagamento è solo per il lavoro di una persona, col prezzo della revisione");
 });
 
 t("su uno schermo stretto le colonne cedono spazio al palco", () => {
@@ -20742,31 +20459,16 @@ t("il pulsante principale dice dove porta", () => {
 });
 
 t("la CTA finale porta dove porta quella iniziale", () => {
-  const finale = landing.slice(landing.indexOf('<section class="final'));
-  const primario = (finale.match(/<a class="btn"[^>]*href="([^"]+)"[^>]*>([^<]+)</) || []);
+  const finale = landing.slice(landing.indexOf('<section class="finale">'));
+  const primario = (finale.match(/<a class="btn btn-l"[^>]*href="([^"]+)"[^>]*>([^<]+)</) || []);
   ok(/^\/app\/(\?from=finale)?$/.test(primario[1] || ""), "il bottone primario del finale apre l'editor: " + primario[1]);
   /* Stesse parole all'inizio e alla fine: una CTA che cambia nome a metà pagina sembra un'altra cosa. */
-  const hero = landing.slice(landing.indexOf('<div class="cta-row">'), landing.indexOf('</div>', landing.indexOf('<div class="cta-row">')));
-  const testoHero = (hero.match(/<a class="btn"[^>]*>([^<]+)</) || [])[1] || "";
+  const testoHero = (aperturaLanding.match(/<a class="btn btn-l"[^>]*>([^<]+)</) || [])[1] || "";
   eq((primario[2] || "").trim(), testoHero.trim(), "la CTA principale è la stessa in cima e in fondo");
-  /* E il palco vuoto resta raggiungibile anche dal finale, come seconda scelta. */
-  ok(/class="btn2"[^>]*>[^<]*palco vuoto/i.test(finale), "il foglio bianco resta, in seconda battuta");
+  /* Dal 23/10 non c'è più il «palco vuoto» come seconda scelta: la sezione finale ha un solo pulsante. */
+  eq((finale.match(/<a class="btn/g) || []).length, 1, "e nel finale c'è un solo pulsante");
 });
 
-t("il registro non si contraddice: dice «ultimi giorni» e lo è", () => {
-  /* C'era già un presidio, ma la soglia è 120 giorni: il registro poteva restare fermo quattro mesi
-     mentre la sezione prometteva «le ultime cose sistemate… degli ultimi giorni». Il 31/08 era
-     fermo da 19 giorni, con tre PR importanti nel mezzo che nessuno raccontava. Trenta giorni è il
-     punto in cui quella frase comincia a essere una bugia. */
-  const sez = landing.slice(landing.indexOf('class="registro"'));
-  const date = [...sez.matchAll(/<time datetime="(\d{4}-\d{2}-\d{2})">/g)].map((m) => m[1]).sort();
-  ok(date.length >= 4, "il registro ha le sue voci: " + date.length);
-  const ultima = date[date.length - 1];
-  const giorni = Math.floor((Date.now() - new Date(ultima + "T12:00:00Z")) / 86400000);
-  ok(giorni <= 30,
-    "il registro è fermo da " + giorni + " giorni ma la sezione promette «gli ultimi giorni»: " +
-    "aggiungi le ultime cose fatte, o cambia quella promessa");
-});
 
 /* ═══ ACCESSIBILITÀ MISURATA (31/08) ══════════════════════════════════════════════════════════════
    Non «sembra leggibile»: i contrasti si calcolano con la formula WCAG, come si fa per i dati di
@@ -20831,10 +20533,10 @@ t("la homepage ha il salto al contenuto e il suo landmark", () => {
   /* Deve essere nascosto finché non prende il fuoco, e allora vedersi: se restasse fuori schermo
      anche col fuoco sarebbe peggio di non averlo — un bersaglio invisibile nel giro dei tab. */
   ok(/\.skip\{[^}]*left:-9999px/.test(landing), "sta fuori schermo di suo");
-  ok(/\.skip:focus\{left:0\}/.test(landing), "e col fuoco rientra");
+  ok(/\.skip:focus\{left:\d+px\}/.test(landing), "e col fuoco rientra");
   /* Ed è il PRIMO elemento raggiungibile: dopo la nav non servirebbe a niente. */
   const corpo = landing.slice(landing.indexOf("<body>"));
-  ok(corpo.indexOf('class="skip"') < corpo.indexOf("<nav"), "viene prima della navigazione");
+  ok(corpo.indexOf('class="skip"') < corpo.indexOf("<header"), "viene prima dell'intestazione");
 });
 
 /* ═══ COMPLESSITÀ PROGRESSIVA (31/08) ═════════════════════════════════════════════════════════════
