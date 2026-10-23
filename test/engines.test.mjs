@@ -5441,12 +5441,44 @@ t("la home non promette modelli o formazioni pronte (modelli spenti)", () => {
 /* Revisione 25/09: le ricerche degli utenti che davano il risultato sbagliato per primo o niente. */
 t("ricerca: voce e cantante al cantante, basso al bassista", () => {
   const primo = (q) => (A.__spSearch(q)[0] || {}).nome, primoQa = (q) => (A.__qaSearch(q)[0] || {}).nome;
-  ok(["Uomo","Donna"].includes(primo("voce")) && ["Uomo","Donna"].includes(primoQa("voce")), "«voce» deve dare il cantante: " + primo("voce") + " / " + primoQa("voce"));
-  ok(["Uomo","Donna"].includes(A.__spSearch("cantante")[1].nome), "«cantante»: i due cantanti prima dello sgabello");
+  eq(primo("voce"), "Cantante", "«voce» deve dare la voce principale nella barra"); eq(primoQa("voce"), "Cantante", "«voce» nella finestrella");
+  ok(/^Corista/.test(A.__spSearch("cantante")[1].nome), "«cantante»: la voce principale, poi i cori, prima dello sgabello");
   eq(primo("basso"), "Postazione basso elettrico", "«basso» nella barra");
   eq(primoQa("basso"), "Postazione basso elettrico", "«basso» nella finestrella");
   ok(A.__spSearch("basso").some((e) => e.nome === "Ampli basso"), "l'ampli resta fra i risultati");
   eq(primo("ampli basso"), "Ampli basso");
+});
+/* 23/10/2026, analisi esterna: cercando «voce» uscivano «Uomo» e «Donna» (l'aspetto come nome). Ora vince il RUOLO:
+   voce principale (cantante) per prima, poi i cori; uomo/donna è un dettaglio del Corista. Nessun dato cambia. */
+t("ricerca voce: la voce principale per prima, i cori subito dopo, in barra e in finestrella", () => {
+  for (const q of ["voce", "voci", "cantante", "solista", "lead", "vocalist", "singer", "frontman", "frontwoman", "prima voce", "voce principale"]) {
+    const sp = A.__spSearch(q), qa = A.__qaSearch(q);
+    eq(sp[0].k, "cantante", "barra «" + q + "»: " + sp.slice(0, 3).map((x) => x.nome).join(", "));
+    eq(qa[0].k, "cantante", "finestrella «" + q + "»: " + qa.slice(0, 3).map((x) => x.nome).join(", "));
+    ok(/^Corista/.test(sp[1].nome) && /^Corista/.test(sp[2].nome), "barra «" + q + "»: i cori subito dopo: " + sp.slice(1, 3).map((x) => x.nome).join(", "));
+    ok(/^Corista/.test(qa[1].nome) && /^Corista/.test(qa[2].nome), "finestrella «" + q + "»: i cori subito dopo");
+    ok(!sp.slice(0, 3).some((x) => x.nome === "Uomo" || x.nome === "Donna"), "«uomo»/«donna» non sono più il nome di un risultato");
+  }
+  for (const q of ["cori", "corista", "coriste", "coristi", "backing vocals", "seconda voce"]) {
+    eq(A.__spSearch(q)[0].k, "corista", "barra «" + q + "»"); eq(A.__qaSearch(q)[0].k, "corista", "finestrella «" + q + "»");
+  }
+  ok(A.__spSearch("voce").some((x) => x.nome === "Corista \u00b7 donna"), "il Corista donna c'è ancora");
+});
+t("ricerca voce: il nome nel catalogo e nel pannello è lo stesso, i tipi salvati non cambiano", () => {
+  eq(A.TYPES.corista.nome, "Voce", "il nome del tipo resta: è il ripiego dei canali dei progetti già fatti");
+  reset(); const c1 = add("corista", 300, 300, { donna: true }), c2 = add("corista", 400, 300);
+  eq([c1.label, c2.label], ["Corista 1", "Corista 2"], "la voce nuova dal catalogo si chiama come l'hai cercata, numerata");
+  reset(); add("corista", 300, 300, { label: "Voce 4" }); eq(add("corista", 400, 300).label, "Corista 5", "i «Voce N» dei progetti vecchi contano nella numerazione");
+  eq(A.TYPES.cantante.nome, "Cantante", "il nome del cantante non cambia: finisce nei canali dei progetti già fatti");
+  for (const nome of ["Corista \u00b7 uomo", "Corista \u00b7 donna"]) { const e = A.__catEntries.find((x) => x.nome === nome); ok(e && e.k === "corista", nome + " è del tipo corista"); }
+  eq(A.__catEntries.find((x) => x.nome === "Corista \u00b7 donna").over.donna, true);
+  eq(A.__catEntries.find((x) => x.nome === "Cantante" && x.k === "cantante").k, "cantante");
+  ok(!A.__catEntries.some((x) => x.nome === "Uomo" || x.nome === "Donna"), "niente voci chiamate per aspetto");
+});
+t("ricerca voce: le ricerche di prima non cambiano (asta, monitor, mic, wedge, chitarra)", () => {
+  eq(searchKeys("monitor")[0], "wedge"); eq(qaKeys("monitor")[0], "wedge"); ok(qaKeys("mic").indexOf("micover") > -1);
+  ok(searchKeys("asta").length > 0 && A.__spSearch("chitarra").length > 0 && A.__spSearch("wedge")[0].k === "wedge");
+  ok(A.__spSearch("voce").some((x) => x.k === "sgabello"), "lo sgabello «voce» resta, dopo");
 });
 t("ricerca: liste e varianti si trovano per nome", () => {
   const primo = (q) => (A.__spSearch(q)[0] || {}).nome;
@@ -5498,7 +5530,7 @@ t("ricerca: poltrona, uomo poltrona, ospite seduto, divano", () => {
     eq(primo(q), "Ospite in poltrona", "«" + q + "» nella barra:"); eq(primoQa(q), "Ospite in poltrona", "«" + q + "» nella finestrella:");
   }
   eq(primo("divano"), "Poltrona"); eq(primo("armchair"), "Poltrona");
-  eq(primo("uomo"), "Uomo", "«uomo» resta della voce in piedi");
+  eq(primo("uomo"), "Corista \u00b7 uomo", "«uomo» resta della voce in piedi (ora si chiama per ruolo)");
 });
 t("ospite in poltrona: è una voce seduta, col lavalier e il suo canale", () => {
   reset();

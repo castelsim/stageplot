@@ -3916,12 +3916,13 @@ var TYPES = {
   moderatore: {nome:"Moderatore", dim:"conferenza, seduto", cat:"Persone e voci", w:70,d:90, voce:true, defLabel:"Moderatore", micDef:"mano", sediaDef:true,
              alias:"moderatore moderatrice conduttore conduttrice presentatore panel tavola rotonda conferenza convegno persona",
              draw:function(it){ it=it||{}; return singer({micMode:micModeOf(it), leggio:it.leggio===true, donna:it.donna, sedia:it.sedia===true, poltrona:it.poltrona===true, look:it.look, type:"moderatore"}); }},
-  cantante: {nome:"Cantante", dim:"voce", cat:"Persone e voci", w:70,d:90, voce:true, defLabel:"Voce", alias:"cantante cantanti solista soliste voce voci vocalist singer frontman frontwoman lead vocal backing vocal corista coriste coristi coro cori choir chorus cantore persona",
+  cantante: {nome:"Cantante", dim:"voce principale, solista", cat:"Persone e voci", w:70,d:90, voce:true, defLabel:"Voce", alias:"voce principale prima voce cantante cantanti solista soliste voce voci vocalist singer frontman frontwoman lead vocal backing vocal backing vocals seconda voce corista coriste coristi coro cori choir chorus cantore persona",
              draw:function(it){ return singer(it); }},
-  /* Si chiama «Voce» perché è la figura generica della voce: il catalogo la offre come Uomo/Donna sotto
-     la ricerca «voce/cantante/corista», e il pannello deve dire la stessa parola con cui l'hai trovata.
-     Prima diceva «Corista» — che in italiano è il cantante di un coro, non il solista (audit 27/07). */
-  corista:  {nome:"Voce", dim:"voce coro", cat:"Persone e voci", w:70,d:88, voce:true, defLabel:"", alias:"corista coriste coristi cantante cantanti solista soliste voce voci vocalist singer frontman frontwoman lead vocal backing vocal coro cori choir chorus cantore persona",
+  /* 23/10/2026: la ricerca dà precedenza al RUOLO. «Voce principale» (cantante) è la voce solista; questa
+     è il «Corista»: il catalogo la offre come «Corista · uomo» / «Corista · donna» (l'aspetto è un
+     dettaglio, non il nome) e la voce NUOVA nasce col nome «Corista N», la stessa parola con cui l'hai
+     trovata. `nome` resta «Voce»: è il ripiego dei canali dei progetti già fatti, che non devono cambiare. */
+  corista:  {nome:"Voce", dim:"voce di coro", cat:"Persone e voci", w:70,d:88, voce:true, defLabel:"", alias:"corista coriste coristi backing vocals seconda voce prima voce voce principale cantante cantanti solista soliste voce voci vocalist singer frontman frontwoman lead vocal backing vocal coro cori choir chorus cantore persona",
              draw:function(it){ it=it||{}; return singer({micMode:micModeOf(it), leggio:it.leggio!==false, donna:it.donna, sedia:it.sedia===true, poltrona:it.poltrona===true, look:it.look, type:"corista"}); }},
   /* --- Musicisti illustrati (top-down, dimensioni CALIBRATE dall utente 14/07/2026). Tipi TECNICI (mic/canali come i corrispettivi), in aggiunta agli schematici. --- */
   musViolino1: {catalog:false, nome:"Violino musicista", dim:"80×81", cat:"Orchestra", sub:"Archi", w:80,d:81, defLabel:"Vln I", draw:function(it){ return drawLibFit("musViolino1",it,80,81); }},
@@ -21863,10 +21864,19 @@ function ricordaRecenteCatalogo(k, nome, over){
          invisibili in UI) — nessun caso speciale qui. Default = mic su asta base tonda (chi lascia una
          "voce" si aspetta un microfono); panoramico si imposta dal pannello per il coro. */
       var corU={donna:false, micMode:"tonda"}, corD={donna:true, micMode:"tonda"};
-      body.appendChild(makeBtn("corista","Uomo", corU, "voce")); n++;
-      entries.push({k:"corista", nome:"Uomo", over:corU, dim:"voce"});
-      body.appendChild(makeBtn("corista","Donna", corD, "voce")); n++;
-      entries.push({k:"corista", nome:"Donna", over:corD, dim:"voce"});
+      /* 23/10/2026, analisi esterna: cercando «voce» uscivano «Uomo» e «Donna» (l'aspetto del personaggio
+         come nome). Ora il primo è la VOCE PRINCIPALE (il cantante, `qaPrimo`), poi i cori (`qaSecondo`);
+         uomo/donna è un dettaglio del Corista. Nessun tipo né campo nuovo: cambiano nomi, alias e ordine. */
+      var VOCE_Q1="voce|voci|cantante|cantanti|solista|soliste|lead|vocalist|singer|frontman|frontwoman|prima voce|voce principale|lead vocal",
+          CORI_Q1="cori|corista|coriste|coristi|backing vocals|backing vocal|seconda voce";
+      /* nome «Cantante» (e non «Voce principale») perché il pannello, la Channel list e i PDF usano il nome del tipo
+         («Cantante 1», «Cantante 2»…): cambiarlo riscriverebbe i canali dei progetti già fatti */
+      body.appendChild(makeBtn("cantante","Cantante", null, "voce principale, solista")); n++;
+      entries.push({k:"cantante", nome:"Cantante", dim:"voce principale, solista", qaPrimo:VOCE_Q1});
+      body.appendChild(makeBtn("corista","Corista \u00b7 uomo", corU, "voce di coro")); n++;
+      entries.push({k:"corista", nome:"Corista \u00b7 uomo", over:corU, dim:"voce di coro", qaPrimo:CORI_Q1, qaSecondo:VOCE_Q1+"|uomo"});
+      body.appendChild(makeBtn("corista","Corista \u00b7 donna", corD, "voce di coro")); n++;
+      entries.push({k:"corista", nome:"Corista \u00b7 donna", over:corD, dim:"voce di coro", qaPrimo:CORI_Q1, qaSecondo:VOCE_Q1+"|donna"});
       /* conferenze (24/09): il relatore col lavalier, il moderatore seduto col palmare */
       ["relatore","moderatore"].forEach(function(k){
         body.appendChild(makeBtn(k, TYPES[k].nome, null, TYPES[k].dim)); n++;
@@ -22049,6 +22059,7 @@ function ricordaRecenteCatalogo(k, nome, over){
     e._kw=_deacc(strong.concat(weak).filter(Boolean).join(" "));   /* _deacc: minuscole + diacritici rimossi */
     e._cede=qaCedeDi(e,t);     /* query che questo elemento lascia a chi le aveva già */
     e._primo=qaPrimoDi(e,t);   /* query esatta che questo elemento prende davanti a tutti */
+    e._secondo=qaSecondoDi(e);   /* …e quella che prende subito dopo */
   }
   entries.forEach(indicizza);
 
@@ -22119,6 +22130,7 @@ function ricordaRecenteCatalogo(k, nome, over){
          qui. Si vedeva su «monitor»: nel quick-add usciva il wedge, nella barra l'Hub monitoraggio
          (11/08). Due copie della stessa regola divergono sempre: ora la seconda copia c'è. */
       if(qaHaParola(e._cede,nq)) e._rank=6;
+      if(qaHaParola(e._secondo,nq)) e._rank=-0.5;
       if(qaHaParola(e._primo,nq)) e._rank=-1;
     });
     m.sort(function(a,b){ return (a._rank-b._rank) || a._nname.localeCompare(b._nname); });
@@ -22376,10 +22388,10 @@ function addItem(type, over, silenzioso){   /* silenzioso (06/10/2026): crea e m
      I coristi creati in massa dal generatore coro passano il LORO label in `over` e non toccano questo. */
   if(type==="corista" && !(over && over.label!=null)){
     var _voci=(state.items||[]).reduce(function(m,o){
-      var mm=(o.type==="corista" && typeof o.label==="string") ? o.label.match(/^Voce\s+(\d+)$/) : null;
+      var mm=(o.type==="corista" && typeof o.label==="string") ? o.label.match(/^(?:Voce|Corista)\s+(\d+)$/) : null;
       return mm ? Math.max(m, +mm[1]) : m;
     }, 0);
-    it.label="Voce "+(_voci+1);
+    it.label="Corista "+(_voci+1);
   }
   if(COMP[type]){ it.parts=compClone(COMP[type].newParts||COMP[type].defParts); if(COMP[type].size){ var sz=COMP[type].size(it); it.w=sz[0]; it.d=sz[1]; } }   /* newParts: un elemento NUOVO può nascere più completo di come si riapre un progetto vecchio (percussioni, 13/10) */
   if(type==="miczone") it.zcol=micZoneFreeColor();   /* ogni zona nasce con un colore diverso */
@@ -22470,13 +22482,21 @@ function closeQuickAdd(){ var b=document.getElementById("quickAdd"); if(b) b.rem
    chiave tecnica, alias: l'utente sta nominando proprio quell'elemento). Con un indice unico
    "stagebox" perdeva gli Stage box 8/16/24 — nome con lo spazio, quindi pari merito con tutti i
    vicini di sottocategoria e fuori dai primi 8. */
-var _qaOpts=null, _qaName=null, _qaStrong=null, _qaAll=null, _qaCede=null, _qaPrimo=null, _qaSrc=false;
+var _qaOpts=null, _qaName=null, _qaStrong=null, _qaAll=null, _qaCede=null, _qaPrimo=null, _qaSecondo=null, _qaSrc=false;
 /* `qaCede` e `qaPrimo` stanno sul tipo o sulla singola voce di catalogo (uno sgabello ha cinque voci,
    una sola cede «voce»). `qaPrimo` è il contrario di `qaCede`: la query esatta che l'elemento PRENDE
    davanti a tutti (rango -1), per quando il nome giusto perde col tie-break alfabetico. */
 function qaCedeDi(e,t){ var v=(e&&e.qaCede)||(t&&t.qaCede); return v ? _deacc(v) : null; }
 function qaPrimoDi(e,t){ var v=(e&&e.qaPrimo)||(t&&t.qaPrimo); return v ? _deacc(v) : null; }
-function qaHaParola(lista,q){ return !!lista && (" "+lista+" ").indexOf(" "+q+" ")>-1; }
+/* `qaSecondo`: come `qaPrimo` ma un gradino dopo (rango -0.5): le voci che seguono subito chi prende la query (cantante → poi i cori). */
+function qaSecondoDi(e){ var v=e&&e.qaSecondo; return v ? _deacc(v) : null; }
+/* Elenco di parole separate da spazio (una parola = una voce) oppure, se contiene «|», di FRASI separate da «|»
+   (23/10/2026: «seconda voce» deve prendere solo «seconda voce», non anche «voce»). */
+function qaHaParola(lista,q){
+  if(!lista) return false;
+  if(lista.indexOf("|")>-1) return ("|"+lista+"|").indexOf("|"+q+"|")>-1;
+  return (" "+lista+" ").indexOf(" "+q+" ")>-1;
+}
 function qaCat(e){ return (e.k && TYPES[e.k] && TYPES[e.k].cat) || e.qaCat || (e.dim||""); }
 function qaIndex(){
   var src=(window.__catEntries && window.__catEntries.length) ? window.__catEntries : null;
@@ -22484,7 +22504,7 @@ function qaIndex(){
   _qaSrc=src;
   _qaOpts=(src || Object.keys(TYPES).filter(function(t){ return TYPES[t].catalog!==false; }).map(function(t){ return {k:t, nome:TYPES[t].nome}; }))
     .filter(function(e){ return !e.noQuick; });   /* #15: la ricerca rapida suggerisce solo ELEMENTI, non le liste/azioni (e gli elementi di questo progetto) */
-  _qaName=[]; _qaStrong=[]; _qaAll=[]; _qaCede=[]; _qaPrimo=[];
+  _qaName=[]; _qaStrong=[]; _qaAll=[]; _qaCede=[]; _qaPrimo=[]; _qaSecondo=[];
   _qaOpts.forEach(function(e){
     var t=e.k?TYPES[e.k]:null;
     var nome=_deacc(e.nome||"");
@@ -22495,6 +22515,7 @@ function qaIndex(){
     _qaAll.push(_deacc(strong.concat(weak).filter(Boolean).join(" ")));
     _qaCede.push(qaCedeDi(e,t));
     _qaPrimo.push(qaPrimoDi(e,t));
+    _qaSecondo.push(qaSecondoDi(e));
   });
 }
 /* la query cade all'inizio di una parola? "mic" sta a inizio parola in "Mic coro" e "microfoniche",
@@ -22529,6 +22550,7 @@ function qaSearch(q){
        di rango il tie-break manda avanti le categorie musicali. Resta comunque nei risultati,
        e le query più lunghe non sono toccate — "flexa" continua a dare il Flexaton per primo. */
     if(qaHaParola(_qaCede[i],q)) r=6;
+    if(qaHaParola(_qaSecondo[i],q)) r=-0.5;
     if(qaHaParola(_qaPrimo[i],q)) r=-1;
     hit.push({e:_qaOpts[i], n:n, r:r});
   }
