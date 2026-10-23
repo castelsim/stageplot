@@ -2207,8 +2207,20 @@
     <div class="pdf-exp-body">
     <div class="pdf-exp-grid">
       <div class="pdf-exp-side">
+        <!-- LE DUE SCELTE (22/10/2026): sempre in vista, con Esporta avanzato spento o acceso, da computer e da
+             telefono. Fuori da #pdfTechBox, che in versione base sta dietro «Altre opzioni». Le pillole qui sotto
+             restano la regolazione fine e seguono la scelta. -->
+        <div id="pdfScelte" class="pdf-scelte">
+          <div class="pdf-side-h">Cosa esportare</div>
+          <div class="pdf-sc-btns" role="radiogroup" aria-label="Contenuto del PDF">
+            <button type="button" role="radio" aria-checked="false" id="pdfScSolo" class="pdf-sc"><b>Solo palco</b><small>il disegno, una pagina</small></button>
+            <button type="button" role="radio" aria-checked="false" id="pdfScScheda" class="pdf-sc"><b>Palco e scheda tecnica</b><small>con le pagine che servono al service</small></button>
+          </div>
+          <div class="pdf-sc-riep" id="pdfScRiepilogo" role="status" aria-live="polite"></div>
+          <div class="pdf-sc-nota" id="pdfScNota" hidden></div>
+        </div>
         <div id="pdfTechBox" style="display:none">
-          <div class="pdf-side-h" id="pdfPillsTitle">Il tuo PDF</div>
+          <div class="pdf-side-h" id="pdfPillsTitle">Pagine del PDF, una per una</div>
           <div id="pdfPills" class="pillrow"></div>
           <div id="pdfTechNote"></div>
         </div>
@@ -8635,6 +8647,28 @@ var PDF_SUGGESTED=["view-cabin","view-cabout","view-mond","inputlist","pmlist","
 function pdfSuggestedKeys(pages){
   var have={}; (pages||[]).forEach(function(p){ have[p.key]=true; });
   return PDF_SUGGESTED.filter(function(k){ return have[k]; });
+}
+/* LE DUE SCELTE DELL'ESPORTA (22/10/2026, decisione di Simone: supera «il PDF parte a una pagina» del 16/08).
+   Chi esportava il disegno non si accorgeva di poter avere anche la documentazione tecnica. All'apertura ci
+   sono due scelte sempre in vista: «Solo palco» (una pagina) e «Palco e scheda tecnica» (il palco più le
+   pagine SUGGERITE dal progetto), con la seconda preselezionata quando il progetto ne ha. Funzioni pure,
+   senza DOM: la scelta non e' un campo del progetto e non si salva (10/09: niente memoria delle pagine). */
+function pdfScelteEsporta(pages){
+  var sugg=pdfSuggestedKeys(pages);
+  return { sugg:sugg, schedaDisponibile:sugg.length>0, preselezione:sugg.length>0?"scheda":"solo" };
+}
+/* Quale delle due scelte descrive la selezione corrente: «solo» (nessuna pagina tecnica), «scheda» (esattamente
+   le suggerite) oppure «custom» (ritoccata a mano dalle pillole: nessuna delle due si evidenzia). */
+function pdfModoScelta(selKeys, sugg){
+  var sel=(selKeys||[]).slice().sort().join("|"), sg=(sugg||[]).slice().sort().join("|");
+  if(!sel) return "solo";
+  return (sg && sel===sg) ? "scheda" : "custom";
+}
+/* Riepilogo sotto le due scelte: «4 pagine: palco · channel list · …». Oltre sei nomi si abbrevia. */
+function pdfRiepilogoPagine(titoli){
+  var n=(titoli||[]).length, nomi=(titoli||[]).map(function(t){ return String(t||"").toLowerCase(); });
+  if(nomi.length>6) nomi=nomi.slice(0,5).concat(["altre "+(n-5)]);
+  return n+" pagin"+(n===1?"a":"e")+": "+nomi.join(" \u00b7 ");
 }
 /* Inviti mirati per il nudge: elemento regia presente + sistema NON ancora dichiarato → domanda concreta.
    Mai assumere la risposta: la domanda porta l'utente a dichiararla nel Controllo tecnico. */
@@ -37265,8 +37299,35 @@ function pdfChannelPage(doc, L, paperKey){
       + '@media(max-width:880px){svg{max-height:34vh}}</style>';
     return { set innerHTML(v){ r.innerHTML = STILE + v; } };
   }
+  /* Le due scelte in cima alla finestra: evidenziata quella che descrive la selezione, riepilogo delle pagine
+     che usciranno (stesso elenco dell'anteprima), seconda scelta spenta con la ragione se il progetto non ha
+     niente da allegare. Se le pillole sono state ritoccate a mano non si evidenzia nessuna delle due. */
+  function pdfRenderScelte(){
+    var bs=document.getElementById("pdfScSolo"), bt=document.getElementById("pdfScScheda");
+    if(!bs || !bt) return;
+    var sc=pdfScelteEsporta(_pdfTechPages), modo=pdfModoScelta(Object.keys(pdfSelectedPages()), sc.sugg);
+    bs.setAttribute("aria-checked", modo==="solo"?"true":"false");
+    bt.setAttribute("aria-checked", modo==="scheda"?"true":"false");
+    bs.classList.toggle("on", modo==="solo"); bt.classList.toggle("on", modo==="scheda");
+    bt.disabled=!sc.schedaDisponibile;
+    var nota=document.getElementById("pdfScNota");
+    if(nota){ nota.hidden=sc.schedaDisponibile;
+      nota.textContent=sc.schedaDisponibile?"":"Il progetto non ha ancora canali, monitor o personal monitor da allegare."; }
+    var rp=document.getElementById("pdfScRiepilogo");
+    if(rp){ var tit; try{ tit=previewPages().map(function(p){ return p.title; }); }catch(_e){ tit=["Palco"]; }
+      rp.textContent=(modo==="custom"?"Personalizzato \u00b7 ":"")+pdfRiepilogoPagine(tit); }
+  }
+  (function(){
+    var bs=document.getElementById("pdfScSolo"), bt=document.getElementById("pdfScScheda");
+    if(bs) bs.addEventListener("click", function(){ _pdfPillSel={}; pdfRenderPills(); pdfUpdateTechNote(); });
+    if(bt) bt.addEventListener("click", function(){
+      var sc=pdfScelteEsporta(_pdfTechPages); if(!sc.schedaDisponibile) return;
+      _pdfPillSel={}; sc.sugg.forEach(function(k){ _pdfPillSel[k]=true; });
+      pdfRenderPills(); pdfUpdateTechNote(); });
+  })();
   function renderPreview(){
     var host=document.getElementById("pdfPreview"); if(!host) return;
+    pdfRenderScelte();   /* riepilogo e scelta seguono ogni cambio (pillole, scaletta, avviso «Aggiungi») */
     /* stessa altezza di cartiglio di refresh() e dell'export: senza, l'anteprima poteva disegnare a
        una scala e la riga di stato dichiararne un'altra */
     var _or=pdfOrientValue(paper.value, pdfScaleValue(), header.value);   /* «auto» risolto: l'anteprima mostra il foglio che uscirà */
@@ -37514,14 +37575,12 @@ function pdfChannelPage(doc, L, paperKey){
     if(box) box.style.display=has?"block":"none";
     window.__pdfPages = has ? pdfSelectedPages() : {};
     window.__pdfScope = "full";
-    if(note){ var n=Object.keys(window.__pdfPages).length;
-      note.textContent = n ? ("PDF: 1 pagina palco + "+n+" pagin"+(n===1?"a":"e")+" tecnic"+(n===1?"a":"he")+".")
-                           : "Solo palco (1 pagina). Aggiungi qui sopra le pagine tecniche da allegare."; }
+    if(note) note.textContent="";   /* il conto delle pagine sta nel riepilogo sotto le due scelte (22/10) */
     pdfAvvisoIngressi();
     renderPreview();   /* le pagine spuntate compaiono subito nell'anteprima */
   }
   /* Revisione 25/09: chi esporta il PDF «solo palco» lascia fuori la lista ingressi senza saperlo — ed
-     è il foglio che il service chiede per primo. Le pagine restano spente per scelta (16/08): qui si
+     è il foglio che il service chiede per primo. Con «Solo palco» (o pillole ritoccate) la lista puo' mancare (22/10: la preselezione e' «Palco e scheda tecnica»): qui si
      dice solo cosa manca, con il comando per metterla. */
   function pdfAvvisoIngressi(){
     var host=document.getElementById("pdfPills"); if(!host) return;
@@ -37544,8 +37603,8 @@ function pdfChannelPage(doc, L, paperKey){
   function pdfRenderPills(){
     /* Pagine come pillole: TUTTE le disponibili (attivate dagli elementi del progetto) sono visibili —
        piene = nel PDF (× toglie), tratteggiate = click per aggiungere.
-       Alla prima apertura sono TUTTE tratteggiate: il PDF parte a una pagina e le tecniche si
-       aggiungono con un clic (16/08). Il bordo verde dice quali servirebbero, senza deciderlo. */
+       Dal 22/10 all'apertura le suggerite sono gia' piene se vale «Palco e scheda tecnica» (le due scelte in cima);
+       qui si regola il dettaglio e le due scelte si riallineano. Il bordo verde dice quali servirebbero, senza deciderlo. */
     var host=document.getElementById("pdfPills"); if(!host) return;
     host.innerHTML="";
     var nSel=0, nSugg=0;
@@ -37608,8 +37667,6 @@ function pdfChannelPage(doc, L, paperKey){
       if(typeof premibile==="function") premibile(all, _tutte, "Aggiungi al PDF tutte le pagine tecniche");
       host.appendChild(all);
     }
-    var tt=document.getElementById("pdfPillsTitle");
-    if(tt) tt.textContent = nSel ? ("Il tuo PDF: palco + "+nSel+" pagin"+(nSel===1?"a":"e")+" tecnic"+(nSel===1?"a":"he")) : "Il tuo PDF: solo palco";
   }
   /* Riferimento cartiglio (variante B): persistente nel progetto + tendina dalla rubrica */
   function pdfHeaderAccount(){
@@ -37781,12 +37838,15 @@ function pdfChannelPage(doc, L, paperKey){
     var _at=document.getElementById("pdfAreaTxt");
     if(_at && typeof frameSummaryText==="function") _at.textContent=frameSummaryText();
     _pdfTechPages=pdfComputeTechPages();
-    /* IL PDF PARTE A UNA PAGINA (decisione di Simone, 16/08): il palco, e basta. Le pagine tecniche
-       restano SUGGERITE — bordo verde, un clic per aggiungerle — ma nessuna è già dentro.
-       Prima si partiva con le suggerite già selezionate: chi premeva Esporta di fretta si ritrovava
-       un PDF di cinque pagine che non aveva chiesto, e il costo di quell'errore lo paga chi lo riceve.
-       Chi le vuole tutte ha «Aggiungi tutte» lì accanto; dalla seconda apertura vale la sua scelta. */
+    /* DUE SCELTE ALL'APERTURA (decisione di Simone, 22/10, che supera «il PDF parte a una pagina» del 16/08).
+       Il 16/08 il PDF partiva dal solo palco per non costringere chi preme Esporta di fretta a un PDF di cinque
+       pagine; l'analisi esterna ha mostrato l'effetto opposto: si esportava il disegno senza accorgersi che
+       c'era anche la documentazione tecnica. Ora «Palco e scheda tecnica» (palco + le pagine SUGGERITE dal
+       progetto) e' preselezionata quando ce ne sono, e «Solo palco» e' a un clic, sempre in vista.
+       Senza pagine suggerite si parte dal solo palco. La scelta NON si salva nel progetto (10/09: niente
+       `pdfPages`): vive quanto la finestra, e alla riapertura si riparte da qui. */
     _pdfPillSel={};
+    if(pdfScelteEsporta(_pdfTechPages).preselezione==="scheda") pdfScelteEsporta(_pdfTechPages).sugg.forEach(function(k){ _pdfPillSel[k]=true; });
     _prodOpen=false;
     pdfRenderPills();
     renderProdInline();

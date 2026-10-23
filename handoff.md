@@ -1,3 +1,13 @@
+# 23/10/2026 — Esporta: due scelte visibili (ramo `esporta-due-scelte`)
+
+- Decisione del proprietario (22/10), che **supera «il PDF parte a una pagina» del 16/08**: l'analisi esterna ha mostrato che si esportava il disegno senza accorgersi della documentazione tecnica. In cima alla finestra Esporta, sempre in vista (versione base e avanzata, computer e telefono): «Solo palco» e «Palco e scheda tecnica», con la seconda preselezionata e sotto il riepilogo («4 pagine: palco · ingressi · …», stesso elenco dell'anteprima).
+- Funzioni pure vicino a `pdfSuggestedKeys`: `pdfScelteEsporta(pages)` (suggerite, disponibilita', preselezione), `pdfModoScelta(sel, sugg)` (`solo`/`scheda`/`custom`), `pdfRiepilogoPagine(titoli)`. Il DOM sta in `pdfRenderScelte()` (chiamata da `renderPreview`, quindi segue pillole, scaletta e avviso «Aggiungi»). Markup `#pdfScelte` FUORI da `#pdfTechBox` (che in base sta dietro «Altre opzioni»).
+- Forma scelta: «Palco e scheda tecnica» = palco + le SOLE pagine di `pdfSuggestedKeys`; se le pillole si ritoccano a mano non si evidenzia nessuna delle due e il riepilogo comincia con «Personalizzato · ». Senza pagine suggerite la seconda scelta e' spenta con la riga «Il progetto non ha ancora canali, monitor o personal monitor da allegare.» e si parte da «Solo palco». L'avviso «Channel list non inclusa → Aggiungi» e' invariato (compare con lista disponibile e non scelta).
+- La scelta NON si salva nel progetto (10/09 resta valido: niente `pdfPages`). Le pillole in «Altre opzioni» restano il controllo fine; titolo ora «Pagine del PDF, una per una», nota col conteggio tolta (c'e' il riepilogo).
+- Test: 5 nuovi/aggiornati in `test/engines.test.mjs` (il vecchio «l'export parte dal solo palco» riscritto); mutazioni provate: preselezione sempre «solo», preselezione tolta, modo sempre «scheda», conteggio sbagliato, seconda scelta mai spenta, «Solo palco» che non svuota, seconda sempre disponibile, regola CSS che nasconde le scelte in base: tutte rosse.
+- Prova nel browser (Playwright, computer e iPhone 13, base e avanzato, progetto collaudo 01 e progetto vuoto): screenshot in `MODELLI_PRO/_prove/esporta/`.
+- Da decidere: `PDF_SUGGESTED` non comprende `view-elec` ne' `loadlist`, quindi «scheda» non include l'elettrico (l'esempio del brief lo citava).
+
 # 23/10/2026 — «Connessioni» spenta: i cavi non si vedono sul palco (ramo `funz-cavi`)
 
 - Decisione del proprietario: «se l'utente spegne tutte le funzioni avanzate, mi aspetto che le cose che permettono le funzioni avanzate non si vedano». Prima, con `conn` spenta, i cavi del progetto (`state.cab/elec/mond.on`) si disegnavano comunque.

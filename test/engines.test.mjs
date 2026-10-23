@@ -18450,7 +18450,7 @@ t("la finestra Esporta rilegge il nome del progetto quando si apre", () => {
      campo «Nome del progetto» dell'export restava vuoto e la riga sotto prometteva «stage-plot.pdf».
      Due verità nella stessa schermata. La sincronia si fa all'APERTURA, così vale per ogni strada
      che imposta un titolo — modello, cloud, copia, import — senza che ognuna debba ricordarsene. */
-  const core = appjs.slice(appjs.indexOf("function _pdfExportModalCore"), appjs.indexOf("function _pdfExportModalCore") + 1600);
+  const core = appjs.slice(appjs.indexOf("function _pdfExportModalCore"), appjs.indexOf("function _pdfExportModalCore") + 3000);   /* 22/10: il commento delle due scelte allunga l'inizio */
   ok(/setEventInputs\(\)/.test(core), "l'apertura dell'export chiama setEventInputs()");
   ok(core.indexOf("setEventInputs()") < core.indexOf("pdfRenderPills"), "prima di disegnare il resto della finestra");
   /* e setEventInputs deve davvero riempire pdfTitolo e la riga del nome file */
@@ -19687,29 +19687,73 @@ t("il generatore orchestrale non lascia nessuno fuori dal palco", () => {
 });
 
 /* ===== IL PDF PARTE A UNA PAGINA, SEMPRE (16/08, esteso il 10/09) ========================== */
-t("l'export parte dal solo palco: le pagine tecniche si suggeriscono, non si aggiungono da sole", () => {
-  /* Decisione di Simone: chi preme Esporta di fretta non deve ritrovarsi un PDF di cinque pagine
-     che non ha chiesto — il costo di quell'errore lo paga chi lo riceve. Il suggerimento resta
-     (bordo verde), la scelta no.
-     ⚠️ Dal 10/09 la scelta non si RICORDA piu' («togli anche la memoria della scelta»): prima le
-     pagine scelte una volta finivano in `state.pdfPages` e tornavano a ogni apertura. Su un
-     progetto vero se n'erano accumulate diciassette — tutte quelle disponibili — e chi riapriva
-     Esporta trovava un PDF da quattordici pagine senza averlo chiesto in quel momento. */
-  /* ⚠️ Ancorato al COMMENTO dell'inizializzazione, non alla prima occorrenza di `_pdfPillSel={}`:
-     ce n'e' un'altra dentro «Solo il palco», e agganciandosi a quella il test passava per il
-     motivo sbagliato — provato, restava verde anche col ripescaggio ancora al suo posto. */
-  const iInit = appjs.indexOf("IL PDF PARTE A UNA PAGINA");
+t("l'export si apre con DUE SCELTE: «Palco e scheda tecnica» preselezionata se ci sono pagine suggerite", () => {
+  /* Decisione di Simone, 22/10, che SUPERA «il PDF parte a una pagina» del 16/08: l'analisi esterna ha
+     mostrato che si esportava il disegno senza accorgersi che c'era anche la documentazione tecnica.
+     Ora all'apertura la selezione e' «palco + pagine suggerite» (se ce ne sono); «Solo palco» e' a un clic.
+     ⚠️ Resta valido il 10/09: la scelta NON si RICORDA nel progetto (niente `state.pdfPages`): vive quanto
+     la finestra. Ancorato al COMMENTO dell'inizializzazione, non alla prima `_pdfPillSel={}`. */
+  const iInit = appjs.indexOf("DUE SCELTE ALL'APERTURA");
   ok(iInit > -1, "il punto dove si inizializzano le pillole non si trova piu': ricontrollare");
-  const ap = appjs.slice(iInit, iInit + 900);
-  ok(/_pdfPillSel=\{\};/.test(ap), "l'inizializzazione non e' piu' li' dentro");
+  const ap = appjs.slice(iInit, iInit + 1800);
+  ok(/_pdfPillSel=\{\};/.test(ap), "l'inizializzazione riparte da zero (niente ripescaggio)");
   eq(/state\.pdfPages/.test(ap), false, "l'apertura ripesca ancora le pagine scelte la volta prima");
-  eq(/pdfSuggestedKeys\(_pdfTechPages\)\.forEach\(function\(k\)\{ _pdfPillSel\[k\]=true/.test(ap), false,
-     "ma alla prima apertura NON si preseleziona niente");
-  /* il suggerimento dev'essere ancora visibile, o si perde l'informazione utile */
+  ok(/pdfScelteEsporta\(_pdfTechPages\)\.preselezione==="scheda"/.test(ap) && /\.sugg\.forEach\(function\(k\)\{ _pdfPillSel\[k\]=true/.test(ap),
+     "con pagine suggerite si preseleziona «Palco e scheda tecnica»");
+  /* il suggerimento dev'essere ancora visibile nelle pillole */
   ok(/pdfSuggestedKeys/.test(appjs.slice(appjs.indexOf("function pdfRenderPills"), appjs.indexOf("function pdfRenderPills") + 900)),
      "le pillole sanno ancora quali pagine sono suggerite");
   ok(/pill ghost"\+\(isSugg\?" sugg":""\)/.test(appjs), "e le marcano col bordo verde");
   ok(/Suggerita dagli elementi sul palco/.test(appjs), "spiegando perché lo sono");
+  /* la scelta non finisce nel progetto: nessuna scrittura di pdfPages dalle due scelte */
+  const sc = appjs.slice(appjs.indexOf("function pdfRenderScelte"), appjs.indexOf("function renderPreview"));
+  eq(/state\.pdfPages|save\(\)/.test(sc), false, "le due scelte non scrivono nel progetto");
+});
+
+const _pg = (...k) => k.map((key) => ({ key, label: key }));
+t("due scelte: con pagine suggerite la preselezione e' «scheda», senza e' «solo palco» e la seconda e' spenta", () => {
+  const conCanali = A.pdfScelteEsporta(_pg("rider", "inputlist", "monitorlist", "backline"));
+  eq(conCanali.preselezione, "scheda");
+  eq(conCanali.schedaDisponibile, true);
+  eq(JSON.stringify(conCanali.sugg), JSON.stringify(["inputlist"]), "la scheda = le SOLE suggerite, non tutte le disponibili");
+  const vuoto = A.pdfScelteEsporta([]);
+  eq(vuoto.preselezione, "solo");
+  eq(vuoto.schedaDisponibile, false, "progetto vuoto: «Palco e scheda tecnica» spenta");
+  /* pagine disponibili ma nessuna suggerita (solo rider/backline): niente da proporre come scheda */
+  const soloNeutre = A.pdfScelteEsporta(_pg("rider", "backline"));
+  eq(soloNeutre.schedaDisponibile, false);
+  eq(soloNeutre.preselezione, "solo");
+});
+
+t("due scelte: quale e' evidenziata segue le pillole (solo · scheda · personalizzato)", () => {
+  const sg = ["view-cabin", "inputlist"];
+  eq(A.pdfModoScelta([], sg), "solo");
+  eq(A.pdfModoScelta(["inputlist", "view-cabin"], sg), "scheda", "stesse pagine in ordine diverso = scheda");
+  eq(A.pdfModoScelta(["inputlist"], sg), "custom", "una suggerita tolta a mano: ne' l'una ne' l'altra");
+  eq(A.pdfModoScelta(["inputlist", "view-cabin", "rider"], sg), "custom", "una in piu': personalizzato");
+  eq(A.pdfModoScelta(["rider"], []), "custom", "senza suggerite, una pagina scelta a mano non e' «scheda»");
+});
+
+t("due scelte: il riepilogo dice quante pagine e quali (nomi brevi)", () => {
+  eq(A.pdfRiepilogoPagine(["Palco"]), "1 pagina: palco");
+  eq(A.pdfRiepilogoPagine(["Palco", "Ingressi", "Monitor", "Channel list"]), "4 pagine: palco · ingressi · monitor · channel list");
+  const lungo = A.pdfRiepilogoPagine(["Palco", "a", "b", "c", "d", "e", "f", "g"]);
+  ok(/^8 pagine: palco/.test(lungo) && /altre 3$/.test(lungo), "oltre sei nomi si abbrevia ma il numero resta vero: " + lungo);
+});
+
+t("due scelte: markup sempre in vista (fuori da #pdfTechBox), clic che allineano le pillole, nessun salvataggio", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  const iSc = html.indexOf('id="pdfScelte"'), iBox = html.indexOf('id="pdfTechBox"');
+  ok(iSc > -1 && iSc < iBox, "le due scelte stanno PRIMA e FUORI dal contenitore delle pillole");
+  ok(/id="pdfScSolo"/.test(html) && /id="pdfScScheda"/.test(html) && /role="radiogroup"/.test(html), "i due bottoni radio");
+  eq(/pdfScelte/.test(stylesCss.slice(stylesCss.indexOf("body:not(.f-esporta) #pdfTechBox"), stylesCss.indexOf("body:not(.f-esporta) #pdfTechBox") + 400)), false,
+     "nessuna regola della versione base nasconde le due scelte");
+  ok(!/body:not\(\.f-esporta\) #pdfScelte/.test(stylesCss), "ne' col mouse ne' col dito");
+  const h = appjs.slice(appjs.indexOf("function pdfRenderScelte"), appjs.indexOf("function renderPreview"));
+  ok(/getElementById\("pdfScSolo"\)[\s\S]{0,400}_pdfPillSel=\{\}; pdfRenderPills\(\); pdfUpdateTechNote\(\);/.test(h), "«Solo palco» svuota la selezione");
+  ok(/sc\.sugg\.forEach\(function\(k\)\{ _pdfPillSel\[k\]=true; \}\)/.test(h), "«Palco e scheda tecnica» seleziona le sole suggerite");
+  ok(/bt\.disabled=!sc\.schedaDisponibile/.test(h) && /Il progetto non ha ancora canali, monitor o personal monitor da allegare\./.test(h), "spenta con la ragione");
+  ok(/pdfRenderScelte\(\);[\s\S]{0,200}stessa altezza di cartiglio/.test(appjs.slice(appjs.indexOf("function renderPreview"), appjs.indexOf("function renderPreview") + 400)), "l'anteprima aggiorna le scelte a ogni cambio");
 });
 
 /* ===== LA SCHERMATA ALLEGATA ALLA SEGNALAZIONE (17/08) =================================== */
