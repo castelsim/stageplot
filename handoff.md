@@ -1,3 +1,12 @@
+# 23/10/2026 — modelli spenti (ramo `modelli-spenti`)
+
+- Decisione del proprietario: nessun modello / formazione pronta nell'interfaccia (telefono e computer) finché non ci sono tre modelli professionali. Nuovo progetto = palco vuoto.
+- Interruttore `modelliAttivi()` (vicino a `custContorniAttivi`), `false`. Si riaccende con `true` quando i 3 modelli sono approvati; si spegne con `false`, mai con un revert. `START_MODELS`, `ORGANICI`, `chiediOrganico`, `formationData`, i generatori e `MODEL_ALIAS` restano.
+- Primo avvio: niente `#welcome`; si apre `#stageSize` alle stesse condizioni (`!deep`, progetto nuovo e vuoto). «Nuovo» fa direttamente «Palco vuoto» (`bNew`). `?model=` ignorato e tolto dall'URL come prima. Guida: tolto «Organici pronti».
+- Pagine statiche: nessun `?model=` né «Apri il modello» (landing, `/stage-plot/*`, guide, `llms.txt`); le guide per formazione restano.
+- Test: 5 aggiornati (home, scheda tecnica, llms.txt, CTA iniziale e finale), 5 nuovi «modelli spenti», ORC-02 con il controllo dell'interruttore; mutazioni provate (vedi PR). I test sul codice dormiente (welcome telefono, picker, ORC-01) restano veri e proteggono la riaccensione.
+- Da fare: ridisegnare `#stageSize` come ingresso; quando i 3 modelli sono pronti, riaccendere e rivedere landing/llms.txt.
+
 # 22/10/2026 — coerenza dei dati (#334) e programma di sala (#335, #336)
 
 - **#334 (ramo `worktree-coerenza-dati`)** — due difetti del 05/10 che facevano perdere dati dell'utente:
