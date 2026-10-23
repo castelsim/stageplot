@@ -27053,6 +27053,47 @@ t("Connessioni spenta: il filtro è uno solo, in overlayLayerMarkup (non sparso 
   ok(/function funzRenderAvviso\(\)\{[\s\S]{0,900}Accendi/.test(appjs), "l'avviso «Questo progetto usa… che hai spento» resta");
 });
 
+/* ---- Consulenza: gratis · revisione 29 € · da 149 € su preventivo (23/10/2026, decisioni del proprietario) ---- */
+const _consPagine = ["consulenza/index.html", "llms.txt", "index.html", "alternative/index.html", "alternative/ridermaker/index.html"]
+  .map((f) => [f, readFileSync(join(root, f), "utf8")]);
+const _cons = _consPagine[0][1];
+t("consulenza: nessuna pagina promette alla revisione «documento pronto per il service»", () => {
+  _consPagine.forEach(([f, txt]) =>
+    ok(!/documento pronto per il service/i.test(txt), f + " promette ancora un documento pronto per il service"));
+  ok(!/Revisione[^.]{0,80}documentazione pronta per il service/i.test(_cons), "la revisione promette documentazione pronta");
+  ok(/restituisce[^<]{0,40}sistemato entro 48 ore/.test(_cons), "la revisione dice: progetto sistemato entro 48 ore");
+  ok(/Nessun PDF consegnato/.test(_cons), "la revisione dice che il PDF non è consegnato");
+});
+t("consulenza: il pulsante della produzione tecnica non porta a Stripe, è un preventivo", () => {
+  const m = _cons.match(/<a class="btn primary" id="btnPreventivo"[^>]*>([^<]*)<\/a>/);
+  ok(m, "il pulsante preventivo c'è");
+  ok(!/buy\.stripe\.com/.test(m[0]), "il pulsante punta a Stripe");
+  ok(/href="mailto:simone@stageplot\.it\?subject=Preventivo%20produzione%20tecnica/.test(m[0]), "mailto con l'oggetto del preventivo");
+  eq(m[1], "Chiedi un preventivo", "etichetta");
+  ok(!/data-product="production-pack"/.test(_cons), "nessun pulsante con data-product production-pack");
+  ok(!/currentProduct\s*=\s*["']production-pack/.test(_cons) && !/fillDrawer\("production-pack"\)/.test(_cons), "nessun percorso JS verso il pagamento da 149");
+  ok(!/"production-pack": \{/.test(_cons), "production-pack non è tra i prodotti del riepilogo");
+});
+t("consulenza: la card da 149 dice «da» e «preventivo»", () => {
+  const c = _cons.slice(_cons.indexOf('id="cardProduzione"'), _cons.indexOf("</article>", _cons.indexOf('id="cardProduzione"')));
+  ok(/<span class="from">da<\/span> 149/.test(c), "prezzo «da 149»");
+  ok(/preventivo/i.test(c), "parla di preventivo");
+  ok(/paghi solo dopo la conferma/.test(c), "si paga dopo la conferma");
+  ok(/chiamate alla band, mail al service, revisioni dopo il sopralluogo/.test(c), "limiti dichiarati");
+  const ld = JSON.parse(_cons.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/)[1]);
+  const off = ld["@graph"].find((x) => x["@type"] === "Service").offers.find((o) => o.price === "149" || (o.priceSpecification && o.priceSpecification.minPrice === "149"));
+  ok(off && off.priceSpecification && off.priceSpecification.minPrice === "149", "JSON-LD: Offer con minPrice 149");
+});
+t("consulenza: il confronto in tre colonne c'è e usa un termine solo per la lista canali", () => {
+  const conf = _cons.slice(_cons.indexOf('id="confronto"'), _cons.indexOf('<div class="grid">'));
+  eq((conf.match(/<div class="cmp-col">/g) || []).length, 3, "tre colonne");
+  ["Gratis, fai da te", "Revisione 29 &euro;", "Da 149 &euro; &mdash; lo disegniamo noi"].forEach((h) => ok(conf.includes(h), "manca " + h));
+  ["Cosa fai tu", "Cosa facciamo noi", "Cosa ricevi", "Tempi", "Limiti"].forEach((d) =>
+    eq((conf.match(new RegExp("<dt>" + d + "</dt>", "g")) || []).length, 3, d + " in ogni colonna"));
+  ok(/channel list[^<]{0,12}e[^<]{0,12}input list[^<]{0,12}sono la stessa cosa/.test(_cons), "spiega che channel list e input list sono la stessa cosa");
+  ok(/id="cardRiderPronto" hidden/.test(_cons), "la card «Rider pronto» resta nascosta");
+});
+
 await Promise.all(attese);
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");

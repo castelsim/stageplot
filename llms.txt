@@ -18,7 +18,7 @@ Uno stage plot (o stage plan) è lo schema in scala del palco che mostra la disp
 - Salvataggio locale automatico; salvataggio cloud opzionale con login Google
 
 ## Fatti chiave
-- Prezzo: gratis, senza registrazione e senza filigrana sui documenti (la consulenza è un servizio umano a parte, da 29 €)
+- Prezzo: gratis, senza registrazione e senza filigrana sui documenti (il lavoro di una persona è a parte: revisione del progetto 29 €, progetto disegnato da zero da 149 € su preventivo)
 - Catalogo: oltre 200 elementi trascinabili, 223 microfoni riconosciuti (tipo, polare, phantom e asta presi dalle schede dei costruttori), 42 modelli di faro
 - Guide per formazione (band, jazz combo, coro, orchestra, big band, tributo, matrimonio, DJ set e altre): spiegano come disporre il palco; nell'editor si parte da un palco vuoto
 - Lingua dell'interfaccia e dei documenti: italiano
@@ -30,7 +30,7 @@ Uno stage plot (o stage plan) è lo schema in scala del palco che mostra la disp
 - [Editor gratuito](https://stageplot.it/app/): l'app dove si disegna il palco (nessuna registrazione)
 - [Guida](https://stageplot.it/guida/): indice delle guide su stage plot, channel list e rider tecnico
 - [Stage plot per formazione](https://stageplot.it/stage-plot/): indice delle undici formazioni (band, orchestra, coro, big band, jazz, acustico, tributo, chiesa, matrimonio, DJ set, festival)
-- [Consulenza tecnica](https://stageplot.it/consulenza/): un sound engineer revisiona e completa il tuo stage plot, input list ed email tecnica in PDF (da 29 €)
+- [Revisione e produzione tecnica](https://stageplot.it/consulenza/): gratis l'app genera palco, lista canali, monitor, elettrico e rider PDF; revisione 29 € (un tecnico corregge direttamente il tuo progetto e lo restituisce entro 48 ore, senza PDF); da 149 € lo disegniamo noi da zero, su preventivo
 - [Privacy policy](https://stageplot.it/privacy/)
 
 ## Guide
