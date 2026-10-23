@@ -23,7 +23,7 @@
 <!-- stessa CSP delle pagine di contenuto (/guida/, /stage-plot/): la landing è tutta self-contained -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' https://vsodplqkuvnsdiikvmjb.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- Fino al 2026-08 la radice ERA l'editor: in giro ci sono link di sola lettura (?view=), progetti
-     dentro l'URL (#p=/#d=), modelli (?model=) e la PWA installata (?utm_source=pwa). Quei link devono
+     dentro l'URL (#p=/#d=), i vecchi link ai modelli (parametro model) e la PWA installata (?utm_source=pwa). Quei link devono
      continuare a funzionare, quindi rimbalzano su /app/ con query e hash intatti. Sincrono e prima di
      qualunque pittura: chi ha un link non deve vedere il lampo della landing. GitHub Pages non ha
      redirect lato server — questa è l'unica leva possibile. -->
@@ -188,7 +188,7 @@ addEventListener("hashchange", go);})();</script>
         {
           "@type": "Question",
           "name": "Da dove si parte se non si sa da dove partire?",
-          "acceptedAnswer": { "@type": "Answer", "text": "Da un palco già fatto: sette modelli pronti da modificare — acustico, band, jazz combo, coro, orchestra, orchestra pop, conferenza." }
+          "acceptedAnswer": { "@type": "Answer", "text": "Da un palco vuoto: apri l'editor e posa uno strumento alla volta, in scala. Le guide per formazione (band, jazz combo, coro, orchestra, big band e altre) spiegano come disporre il palco." }
         }
       ]
     }
@@ -671,18 +671,18 @@ addEventListener("hashchange", go);})();</script>
   <div class="cta-row">
     <!-- Le CTA sono le stesse in tutta la pagina: principale = un palco gia' pronto (che e' il modo
          in cui un musicista arriva a un PDF in dieci minuti), secondaria = il palco vuoto. -->
-    <a class="btn" href="/app/?model=band&amp;from=hero-modello">Prova un palco già pronto</a>
+    <a class="btn" href="/app/?from=hero-modello">Apri l'editor</a>
     <a class="btn2" href="/app/?from=hero">Parti da un palco vuoto</a>
     <a class="btn2" href="#output">Guarda prima un rider finito ↓</a>
   </div>
-  <p class="trust">Sette modelli pronti da cambiare · <span>gratis</span> · nessuna registrazione</p>
+  <p class="trust"><span>Gratis</span> · nessuna registrazione</p>
 
   <!-- Schermata vera dell'editor (modello «Band pop/rock» incluso), non un'illustrazione: chi arriva
        deve riconoscere il prodotto che sta per aprire. È l'LCP della pagina → niente lazy. -->
   <figure class="shot shot-hero">
     <img src="/img/editor.jpg" width="1400" height="643" fetchpriority="high" decoding="async"
          alt="L'editor di StagePlot con lo stage plot di una band pop/rock: batteria su pedana, ampli, tastiere, tre voci, monitor spia e side fill, catalogo degli elementi a sinistra e layer del progetto a destra.">
-    <figcaption>Il modello «Band pop/rock» incluso, aperto nell'editor. <a class="ghost" href="/app/?model=band&amp;from=hero-didascalia">provalo</a></figcaption>
+    <figcaption>Lo stage plot di una band pop/rock, aperto nell'editor. <a class="ghost" href="/app/?from=hero-didascalia">provalo</a></figcaption>
   </figure>
 
   <!-- Una frase che dice cos'è, in chiaro e per intero. Serve a chi arriva senza contesto e ai
@@ -810,7 +810,7 @@ addEventListener("hashchange", go);})();</script>
   </div>
   <div class="ba-caption">
     <span>il foglietto scattato in sala prove e girato su WhatsApp</span>
-    <span><b>lo stesso palco, esportato da StagePlot</b> — parti da un modello pronto: <a class="ghost" href="/app/?model=band&amp;from=confronto">stageplot.it/app/?model=band</a></span>
+    <span><b>lo stesso palco, esportato da StagePlot</b> — prova l'editor: <a class="ghost" href="/app/?from=confronto">stageplot.it/app/</a></span>
   </div>
 </div></section>
 <!-- La sezione più importante della pagina: la promessa «i documenti si aggiornano da soli» non si
@@ -1429,7 +1429,7 @@ addEventListener("hashchange", go);})();</script>
     </div>
     <div>
       <h3>Da dove si parte se non si sa da dove partire?</h3>
-      <p>Apri un <a href="/app/?model=band&amp;from=domande">palco già fatto</a> e cambialo. Sette modelli pronti: acustico, band, jazz combo, coro, orchestra, orchestra pop, conferenza.</p>
+      <p>Apri l'<a href="/app/?from=domande">editor</a> a palco vuoto e comincia da chi suona: un clic posa lo strumento sul palco, in scala.</p>
       <p class="q-more">Come si imposta il palco, formazione per formazione: <a href="/stage-plot/band/">band</a>, <a href="/stage-plot/jazz/">jazz combo</a>, <a href="/stage-plot/coro/">coro</a>, <a href="/stage-plot/bigband/">big band</a>, <a href="/stage-plot/acustica/">acustico</a>, <a href="/stage-plot/tributo/">tribute band</a>, <a href="/stage-plot/orchestra/">orchestra</a>, <a href="/stage-plot/chiesa/">chiesa</a>, <a href="/stage-plot/matrimonio/">matrimonio</a>, <a href="/stage-plot/dj/">DJ set</a>, <a href="/stage-plot/festival/">festival</a>.</p>
     </div>
   </div>
@@ -1439,7 +1439,7 @@ addEventListener("hashchange", go);})();</script>
   <h2>Il palco lo disegni stasera. Il rider esce con lui.</h2>
   <!-- Portava a un palco vuoto: l'ultima spinta della pagina mandava chi non sa da dove
        cominciare esattamente dove ci si blocca. Ora e' la stessa CTA dell'inizio. -->
-  <a class="btn" href="/app/?model=band&amp;from=finale">Prova un palco già pronto</a>
+  <a class="btn" href="/app/?from=finale">Apri l'editor</a>
   <!-- «finale» per tutti e due: le sorgenti sono un elenco chiuso, vincolato anche da un CHECK sul
        database (migration 0036). Un nome nuovo qui vorrebbe dire una migrazione, e non vale la
        pena per distinguere due bottoni della stessa sezione. -->
