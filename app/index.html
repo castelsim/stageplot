@@ -3622,6 +3622,22 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
 .pdf-inmissing{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:8px 0 2px;padding:6px 8px;border-radius:8px;background:var(--warning-bg);border:1px solid var(--warning-border);color:var(--text);font-size:13px}
 .pdf-inmissing[hidden]{display:none}
 .pdf-inmissing .btn{min-height:32px;padding:4px 12px}
+/* Le due scelte dell'Esporta (22/10/2026): sempre in vista, anche in versione base e sul telefono */
+.pdf-scelte{margin:0 0 12px}
+.pdf-scelte .pdf-side-h{margin-bottom:6px}
+.pdf-sc-btns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pdf-sc{display:flex;flex-direction:column;gap:2px;align-items:flex-start;text-align:left;min-height:56px;padding:8px 10px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;font:inherit}
+.pdf-sc b{font-size:13px;font-weight:600;line-height:1.25}
+.pdf-sc small{font-size:11px;color:var(--text-3);line-height:1.3}
+.pdf-sc:hover:not(:disabled):not(.on){background:var(--surface-raised)}
+.pdf-sc.on{border-color:var(--accent);background:var(--accent-tint);box-shadow:inset 0 0 0 1px var(--accent)}
+.pdf-sc.on b{color:var(--accent-strong)}
+.pdf-sc:disabled{opacity:.55;cursor:not-allowed}
+.pdf-sc:focus-visible{outline:2px solid var(--text-2);outline-offset:2px}   /* grigio, non verde: il verde dice «scelta», il fuoco iniziale cade sul primo bottone */
+.pdf-sc-riep{font-size:12px;color:var(--text-2);margin-top:7px;line-height:1.4}
+.pdf-sc-nota{font-size:11px;color:var(--text-3);margin-top:3px;line-height:1.4}
+.pdf-sc-nota[hidden]{display:none}
+.pdf-scelte+#pdfTechBox{margin-top:4px}
 #pdfUltimo.vecchio{color:var(--warning);font-weight:600}
 
 /* Anteprima dei progetti nell'elenco «I tuoi progetti» (26/09, variante A) */
@@ -6106,8 +6122,20 @@ body.cust-contorno .item.selected .selbox{display:none}
     <div class="pdf-exp-body">
     <div class="pdf-exp-grid">
       <div class="pdf-exp-side">
+        <!-- LE DUE SCELTE (22/10/2026): sempre in vista, con Esporta avanzato spento o acceso, da computer e da
+             telefono. Fuori da #pdfTechBox, che in versione base sta dietro «Altre opzioni». Le pillole qui sotto
+             restano la regolazione fine e seguono la scelta. -->
+        <div id="pdfScelte" class="pdf-scelte">
+          <div class="pdf-side-h">Cosa esportare</div>
+          <div class="pdf-sc-btns" role="radiogroup" aria-label="Contenuto del PDF">
+            <button type="button" role="radio" aria-checked="false" id="pdfScSolo" class="pdf-sc"><b>Solo palco</b><small>il disegno, una pagina</small></button>
+            <button type="button" role="radio" aria-checked="false" id="pdfScScheda" class="pdf-sc"><b>Palco e scheda tecnica</b><small>con le pagine che servono al service</small></button>
+          </div>
+          <div class="pdf-sc-riep" id="pdfScRiepilogo" role="status" aria-live="polite"></div>
+          <div class="pdf-sc-nota" id="pdfScNota" hidden></div>
+        </div>
         <div id="pdfTechBox" style="display:none">
-          <div class="pdf-side-h" id="pdfPillsTitle">Il tuo PDF</div>
+          <div class="pdf-side-h" id="pdfPillsTitle">Pagine del PDF, una per una</div>
           <div id="pdfPills" class="pillrow"></div>
           <div id="pdfTechNote"></div>
         </div>
