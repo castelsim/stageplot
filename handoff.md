@@ -1,3 +1,12 @@
+# 23/10/2026 — /consulenza/: gratis · revisione 29 € · da 149 € su preventivo (ramo `consulenza-testi`)
+
+- Decisioni del proprietario (22/10): revisione 29 € = un tecnico corregge direttamente il progetto e lo restituisce entro 48 ore, NIENTE PDF consegnato; produzione tecnica «da 149 €» = lo disegniamo da zero dal materiale del cliente, prezzo di partenza con preventivo, si paga dopo la conferma; non comprende chiamate alla band, mail al service, revisioni dopo il sopralluogo.
+- `consulenza/index.html`: confronto in tre colonne (`#confronto`) in testa ai pacchetti, glossario «channel list = input list = lista canali», card 29 € e «da 149 €» riscritte, FAQ e JSON-LD (Offer 149 con `priceSpecification.minPrice`) allineati, upsell del riepilogo (120 € in più) tolto. `llms.txt` aggiornato.
+- Pulsante 149 = `mailto:simone@stageplot.it` con oggetto «Preventivo produzione tecnica» e corpo precompilato (nessun flusso di richiesta senza pagamento esisteva: `create-consultation` crea sempre la richiesta per Stripe). `PAY["production-pack"]` resta nel codice (documentato) ma nessun percorso lo usa; la Edge Function non è toccata. Card «Rider pronto» ancora nascosta.
+- Frase dopo l'export nell'app («Revisione da 29 €») e landing: già corrette, invariate.
+- Test: 4 nuovi «consulenza: …» in `engines.test.mjs`, mutazioni provate (Stripe nel pulsante, frase vecchia, «da» tolto, colonne). Prove nel browser: screenshot in `MODELLI_PRO/_prove/consulenza/`.
+- Da fare dopo il merge: guardare online; Simone decide se il Payment Link da 149 € va disattivato in Stripe.
+
 # 23/10/2026 — «Connessioni» spenta: i cavi non si vedono sul palco (ramo `funz-cavi`)
 
 - Decisione del proprietario: «se l'utente spegne tutte le funzioni avanzate, mi aspetto che le cose che permettono le funzioni avanzate non si vedano». Prima, con `conn` spenta, i cavi del progetto (`state.cab/elec/mond.on`) si disegnavano comunque.
