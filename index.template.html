@@ -8643,10 +8643,13 @@ function productionStatusLine(s){
 }
 /* Pagine SUGGERITE dagli elementi sul palco (mai preselezionate: l'utente resta al comando).
    Tra le disponibili: viste cablaggio/monitor/PM, liste canali/PM, criticità quando offerta. */
-var PDF_SUGGESTED=["view-cabin","view-cabout","view-mond","inputlist","pmlist","todefine"];
+var PDF_SUGGESTED=["view-cabin","view-cabout","view-mond","view-elec","inputlist","loadlist","pmlist","todefine"];
 function pdfSuggestedKeys(pages){
   var have={}; (pages||[]).forEach(function(p){ have[p.key]=true; });
-  return PDF_SUGGESTED.filter(function(k){ return have[k]; });
+  /* L'ELETTRICO (23/10, correzione del proprietario alle due scelte): vista e lista carichi si suggeriscono INSIEME e
+     solo se ci sono carichi veri (la vista c'e' appena l'elettrico e' acceso, anche vuoto: da sola e' neutra). */
+  var elettrico=!!(have["view-elec"] && have.loadlist);
+  return PDF_SUGGESTED.filter(function(k){ return have[k] && ((k!=="view-elec" && k!=="loadlist") || elettrico); });
 }
 /* LE DUE SCELTE DELL'ESPORTA (22/10/2026, decisione di Simone: supera «il PDF parte a una pagina» del 16/08).
    Chi esportava il disegno non si accorgeva di poter avere anche la documentazione tecnica. All'apertura ci
