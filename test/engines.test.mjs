@@ -26912,6 +26912,91 @@ t("«Tieni solo il microfono posato» su un corista col radiomic: non nasce l'av
   eq(A.coristiSenzaRipresa().length, 1, "un radiomic a 1,2 m non è il suo: resta senza ripresa");
 });
 
+/* «Connessioni» spenta = i cavi non si vedono sul palco (23/10/2026). Un solo interruttore, connessioniVisibili(),
+   dentro overlayLayerMarkup: vale per il palco a schermo sul computer; PDF, PNG, telefono e link condiviso non cambiano. */
+console.log("\nConnessioni spente: i cavi non si vedono sul palco:");
+function palcoConCavi() {
+  reset();
+  add("astamic", 300, 300); add("stagebox", 600, 400); add("comboamp", 200, 300); add("distro32", 250, 480);
+  A.state.cab.on = true; A.state.elec.on = true; A.__cabRes = null; A.__elecRes = null;
+  cabla(); A.elecConnectAll(); A.__elecRes = null;
+  A.__cabStatic = false; A.layerSoloUI = {}; A.layerAccOpen = null;
+}
+function conFunz(conn, { mobile = false, viewmode = false } = {}, fn) {
+  const f0 = A.funzOn, m0 = A.isMobile, d0 = A.document, s0 = A.__cabStatic;
+  A.funzOn = (id) => id === "conn" ? conn : false;
+  A.isMobile = () => mobile;
+  const cl = new Proxy(d0.body.classList, { get: (t, k) => k === "contains" ? ((c) => c === "viewmode" && viewmode) : t[k] });
+  const corpo = new Proxy(d0.body, { get: (t, k) => k === "classList" ? cl : t[k] });   /* il resto del documento resta lo stub: gli export lo toccano */
+  A.document = new Proxy(d0, { get: (t, k) => k === "body" ? corpo : t[k] });
+  try { return fn(); } finally { A.funzOn = f0; A.isMobile = m0; A.document = d0; A.__cabStatic = s0; }
+}
+t("Connessioni spenta: il palco a schermo non contiene cavi, etichette di linea, badge prese, legenda", () => {
+  palcoConCavi();
+  const acceso = conFunz(true, {}, () => A.sceneMarkup());
+  ok(acceso.indexOf("cab-line") >= 0 && acceso.indexOf("elec-line") >= 0, "controllo: con Connessioni accesa il progetto ha cavi audio ed elettrici");
+  ok(acceso.indexOf("elec-badge") >= 0, "controllo: e il badge delle prese");
+  const spento = conFunz(false, {}, () => A.sceneMarkup());
+  ["cab-line", "cab-srcdot", "elec-line", "elec-badge", "cab-legend", "cab-boxdot", "cab-loom", "net-line", "mond-line", "cab-return", "cab-startlbl", "elec-lbl", "cab-lbl"].forEach((c) =>
+    ok(spento.indexOf(c) < 0, "con Connessioni spenta non c'è «" + c + "» sul palco"));
+  ok(!/\d+\/\d+ prese/.test(spento), "né il badge «Qn · x/y prese»");
+  ok(spento.indexOf('id="layItems"') > 0, "gli elementi restano disegnati");
+});
+t("Connessioni: riaccesa, il palco torna identico; i dati del progetto non cambiano mai", () => {
+  palcoConCavi();
+  const a1 = conFunz(true, {}, () => A.sceneMarkup());
+  const dati0 = JSON.stringify([A.state.cab, A.state.elec, A.state.mond]);
+  const spento = conFunz(false, {}, () => A.sceneMarkup());
+  eq(JSON.stringify([A.state.cab, A.state.elec, A.state.mond]), dati0, "state.cab/elec/mond identici dopo il disegno a funzione spenta");
+  ok(A.state.cab.on === true && A.state.elec.on === true, "nessun on=false");
+  ok(spento.length < a1.length, "controllo: davvero più corto senza i cavi");
+  eq(conFunz(true, {}, () => A.sceneMarkup()) === a1, true, "riaccesa: markup identico a prima");
+});
+t("Connessioni spenta: il percorso di PDF e PNG disegna i cavi come prima", () => {
+  palcoConCavi();
+  const png1 = conFunz(true, {}, () => A.buildExportSvg().svgStr), pdf1 = conFunz(true, {}, () => A.stageSceneSvg(null, {}));
+  const png0 = conFunz(false, {}, () => A.buildExportSvg().svgStr), pdf0 = conFunz(false, {}, () => A.stageSceneSvg(null, {}));
+  ok(png1.indexOf("cab-line") >= 0, "controllo: il PNG ha i cavi");
+  eq(png0 === png1, true, "PNG uguale con Connessioni spenta");
+  eq(pdf0 === pdf1, true, "PDF uguale con Connessioni spenta");
+  const e0 = conFunz(false, {}, () => A.sceneMarkup({ espandi: true }));
+  ok(e0.indexOf("cab-line") >= 0 && e0.indexOf("elec-line") >= 0, "la scena d'esportazione ha cavi ed elettrico");
+  A.__cabStatic = true;
+  ok(conFunz(false, {}, () => { A.__cabStatic = true; return A.overlayLayerMarkup(); }).indexOf("cab-line") >= 0, "con __cabStatic (PDF) i cavi ci sono");
+  A.__cabStatic = false;
+  ok(conFunz(false, {}, () => A.cablingMarkup()).indexOf("cab-line") >= 0, "i motori di disegno usati dal PDF non guardano la funzione");
+});
+t("Connessioni spenta: sul telefono e nel link condiviso il palco è quello di sempre", () => {
+  palcoConCavi();
+  eq(conFunz(false, { mobile: true }, () => A.sceneMarkup()) === conFunz(true, { mobile: true }, () => A.sceneMarkup()), true, "telefono: spenta = accesa");
+  ok(conFunz(false, { mobile: true }, () => A.sceneMarkup()).indexOf("cab-line") >= 0, "telefono: i cavi si vedono");
+  ok(conFunz(false, { viewmode: true }, () => A.sceneMarkup()).indexOf("cab-line") >= 0, "link condiviso in sola lettura: i cavi si vedono");
+  eq(conFunz(false, {}, () => A.connessioniVisibili()), false, "computer, spenta: non visibili");
+  eq(conFunz(true, {}, () => A.connessioniVisibili()), true, "computer, accesa: visibili");
+});
+t("Connessioni spenta: i cavi coassiali RF spariscono, i coni di copertura restano", () => {
+  palcoConCavi();
+  add("rxrf", 500, 300); add("rfant", 200, 150);
+  const COAX = 'stroke="#7c3aed" stroke-width="2.2"', CONO = 'fill="#7c3aed" opacity="0.07"';
+  const on = conFunz(true, {}, () => A.sceneMarkup()), off = conFunz(false, {}, () => A.sceneMarkup());
+  ok(on.indexOf(COAX) >= 0 && on.indexOf(CONO) >= 0, "controllo: con Connessioni accesa ci sono coax e coni");
+  ok(off.indexOf(COAX) < 0, "spenta: niente coax");
+  ok(off.indexOf(CONO) >= 0 && off.indexOf("rf-layer") >= 0, "spenta: i coni di copertura restano");
+  ok(conFunz(false, { mobile: true }, () => A.sceneMarkup()).indexOf(COAX) >= 0, "telefono: coax visibile");
+  ok(conFunz(false, { viewmode: true }, () => A.sceneMarkup()).indexOf(COAX) >= 0, "link condiviso: coax visibile");
+  ok(conFunz(false, {}, () => A.sceneMarkup({ espandi: true })).indexOf(COAX) >= 0, "export: coax visibile");
+});
+t("Connessioni spenta: il filtro è uno solo, in overlayLayerMarkup (non sparso nei motori)", () => {
+  const i = appjs.indexOf("function overlayLayerMarkup(esporta){");
+  ok(i > 0, "la funzione c'è");
+  const corpo = appjs.slice(i, appjs.indexOf("\n}", i));
+  ok(/connessioniVisibili\(esporta\)/.test(corpo), "decide con connessioniVisibili");
+  ok(/overlayLayerMarkup\(!!\(opts && opts\.espandi\)\)/.test(appjs), "la scena d'esportazione passa esporta=true");
+  ["cablingMarkup", "elecMarkup", "monDigMarkup", "cableLegendMarkup", "netMarkup"].forEach((f) =>
+    ok(!new RegExp("function " + f + "\\(\\)\\{[^}]{0,200}funzOn\\(").test(appjs), f + " non guarda la funzione da sola"));
+  ok(/function funzRenderAvviso\(\)\{[\s\S]{0,900}Accendi/.test(appjs), "l'avviso «Questo progetto usa… che hai spento» resta");
+});
+
 await Promise.all(attese);
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");

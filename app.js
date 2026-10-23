@@ -16060,7 +16060,7 @@ function mzMicHitMarkup(){
   var ax=z.x+mp[0]*c-mp[1]*s, ay=z.y+mp[0]*s+mp[1]*c;
   return '<circle class="mz-mic" data-id="'+esc(z.id)+'" cx="'+ax.toFixed(1)+'" cy="'+ay.toFixed(1)+'" r="12"><title>Posizione del microfono · il cavo parte da qui · trascina per spostarla</title></circle>';
 }
-function rfMarkup(){
+function rfMarkup(esporta){
   if(!layerShown("rf")) return '';
   if(!cabLayerLive("cabin")) return '';   /* RF = infrastruttura Input: segue la vista Input */
   var C; try{ C=rfChain(); }catch(_e){ return ''; }
@@ -16078,14 +16078,32 @@ function rfMarkup(){
         '<path d="M'+an.x+' '+an.y+' L'+x1.toFixed(1)+' '+y1.toFixed(1)+'" stroke="#7c3aed" stroke-width="1" stroke-dasharray="5 5" fill="none" opacity="0.45"/>';
   });
   var LBL=window.__cabStatic || (state.cab&&state.cab.labelMode==="always") || document.body.classList.contains("viewmode");
-  C.links.forEach(function(l){
+  /* i coax sono cavi: con «Connessioni» spenta non si vedono (i coni di copertura sì) */
+  (connessioniVisibili(esporta) ? C.links : []).forEach(function(l){
     s2+='<path d="'+orthPathD(l.pts)+'" fill="none" stroke="#7c3aed" stroke-width="2.2" opacity="0.9"/>';
     if(LBL){ var mid=cabMidpoint(l.pts);
       s2+='<text x="'+mid[0]+'" y="'+(mid[1]-4)+'" text-anchor="middle" font-size="9" fill="#7c3aed" font-weight="700" paint-order="stroke" stroke="#ffffff" stroke-width="2.6">coax '+Math.ceil(l.lenM)+' m</text>'; }
   });
   return s2+'</g>';
 }
-function overlayLayerMarkup(){ return cablingMarkup()+netMarkup()+rfMarkup()+elecMarkup()+monDigMarkup()+lightsLabelsMarkup()+cableLegendMarkup()+sectionLegendMarkup()+stageBlocksOverlay()+frameMarkup()+portsMarkup()+mzMicHitMarkup(); }
+/* CON «CONNESSIONI» SPENTA I CAVI NON SI VEDONO SUL PALCO (23/10/2026, Simone: «se l'utente spegne tutte le
+   funzioni avanzate, mi aspetto che le cose che permettono le funzioni avanzate non si vedano»). UNA condizione
+   sola, per tutto il cablaggio disegnato a schermo: cavi audio e ritorni, elettrico (con badge e linee),
+   personal monitor, multicore/rete, legenda. I DATI (state.cab/elec/mond) non si toccano: riaccesa la
+   funzione, il disegno torna identico. Vale solo per il palco dell'editor sul computer:
+   - `esporta` (sceneMarkup({espandi:true}), cioè il PNG) e `__cabStatic` (PDF) disegnano come sempre;
+   - il telefono (isMobile) non ha queste funzioni: resta com'era;
+   - il link condiviso in sola lettura (`viewmode`) mostra i cavi che l'autore ha voluto mostrare: chi guarda non
+     ha niente da accendere. */
+function connessioniVisibili(esporta){
+  if(esporta || window.__cabStatic || isMobile()) return true;
+  if(document.body.classList.contains("viewmode")) return true;
+  return funzOn("conn");
+}
+function overlayLayerMarkup(esporta){
+  var cavi = connessioniVisibili(esporta);
+  return (cavi ? cablingMarkup()+netMarkup() : '')+rfMarkup(esporta)+(cavi ? elecMarkup()+monDigMarkup() : '')+lightsLabelsMarkup()+(cavi ? cableLegendMarkup() : '')+sectionLegendMarkup()+stageBlocksOverlay()+frameMarkup()+portsMarkup()+mzMicHitMarkup();
+}
 /* Le etichette delle richieste luci, al posto dei cartelli scritti a mano. Seguono l'occhio
    del layer: spegnere le Luci le spegne insieme alle icone, come per ogni altro reparto. */
 function lightsLabelsMarkup(){
@@ -16232,7 +16250,7 @@ function sceneMarkup(opts){
          '<g id="layItems">'+items+'</g>'+
          '<g id="layLbl" style="pointer-events:none">'+lbls+'</g>'+   /* i nomi sopra tutti gli elementi (revisione 25/09); trasparenti ai clic */
          (function(){ var m=(opts && opts.espandi) ? '' : orcSeatsMarkup(); return m ? '<g id="layOrcSeats">'+m+'</g>' : ''; })()+   /* Orchestre: chi c'è sul posto (solo schermo, solo staff); in stampa/export il layer non esiste */
-         '<g id="layOverlay">'+(_cust ? mzMicHitMarkup()+custRighelloMarkup() : overlayLayerMarkup())+'</g>'+
+         '<g id="layOverlay">'+(_cust ? mzMicHitMarkup()+custRighelloMarkup() : overlayLayerMarkup(!!(opts && opts.espandi)))+'</g>'+
          '<g id="layHandles">'+selHandlesMarkup()+'</g>';   /* ULTIMO: le maniglie di ciò che è selezionato stanno sopra a tutto (anche ai blocchi del palco) */
 }
 /* sostituisce il contenuto di un nodo SVG in modo robusto (non si affida a <g>.innerHTML, meno universale di <svg>.innerHTML) */
