@@ -16060,7 +16060,7 @@ function mzMicHitMarkup(){
   var ax=z.x+mp[0]*c-mp[1]*s, ay=z.y+mp[0]*s+mp[1]*c;
   return '<circle class="mz-mic" data-id="'+esc(z.id)+'" cx="'+ax.toFixed(1)+'" cy="'+ay.toFixed(1)+'" r="12"><title>Posizione del microfono · il cavo parte da qui · trascina per spostarla</title></circle>';
 }
-function rfMarkup(){
+function rfMarkup(esporta){
   if(!layerShown("rf")) return '';
   if(!cabLayerLive("cabin")) return '';   /* RF = infrastruttura Input: segue la vista Input */
   var C; try{ C=rfChain(); }catch(_e){ return ''; }
@@ -16078,7 +16078,8 @@ function rfMarkup(){
         '<path d="M'+an.x+' '+an.y+' L'+x1.toFixed(1)+' '+y1.toFixed(1)+'" stroke="#7c3aed" stroke-width="1" stroke-dasharray="5 5" fill="none" opacity="0.45"/>';
   });
   var LBL=window.__cabStatic || (state.cab&&state.cab.labelMode==="always") || document.body.classList.contains("viewmode");
-  C.links.forEach(function(l){
+  /* i coax sono cavi: con «Connessioni» spenta non si vedono (i coni di copertura sì) */
+  (connessioniVisibili(esporta) ? C.links : []).forEach(function(l){
     s2+='<path d="'+orthPathD(l.pts)+'" fill="none" stroke="#7c3aed" stroke-width="2.2" opacity="0.9"/>';
     if(LBL){ var mid=cabMidpoint(l.pts);
       s2+='<text x="'+mid[0]+'" y="'+(mid[1]-4)+'" text-anchor="middle" font-size="9" fill="#7c3aed" font-weight="700" paint-order="stroke" stroke="#ffffff" stroke-width="2.6">coax '+Math.ceil(l.lenM)+' m</text>'; }
@@ -16101,7 +16102,7 @@ function connessioniVisibili(esporta){
 }
 function overlayLayerMarkup(esporta){
   var cavi = connessioniVisibili(esporta);
-  return (cavi ? cablingMarkup()+netMarkup() : '')+rfMarkup()+(cavi ? elecMarkup()+monDigMarkup() : '')+lightsLabelsMarkup()+(cavi ? cableLegendMarkup() : '')+sectionLegendMarkup()+stageBlocksOverlay()+frameMarkup()+portsMarkup()+mzMicHitMarkup();
+  return (cavi ? cablingMarkup()+netMarkup() : '')+rfMarkup(esporta)+(cavi ? elecMarkup()+monDigMarkup() : '')+lightsLabelsMarkup()+(cavi ? cableLegendMarkup() : '')+sectionLegendMarkup()+stageBlocksOverlay()+frameMarkup()+portsMarkup()+mzMicHitMarkup();
 }
 /* Le etichette delle richieste luci, al posto dei cartelli scritti a mano. Seguono l'occhio
    del layer: spegnere le Luci le spegne insieme alle icone, come per ogni altro reparto. */
