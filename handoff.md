@@ -1,3 +1,11 @@
+# 23/10/2026 — Landing: l'esemplare ha monitor ed elettrico (ramo `esemplare-monitor`)
+
+- L'esemplare «Tributo pop · band e orchestra» ora ha il monitoraggio e la corrente: 6 mix (3 in-ear stereo per tastiera, batteria e timpani; «Side coro» e «Side orchestra», due side fill ciascuno, stessa etichetta = un mix; un wedge per il direttore) su 9 uscite, più rack dei trasmettitori in-ear, 5 multiprese e un quadro da 32 A (3,3 kW stimati, cavi ad angolo retto). Nessuna stage box: il patch resta del service, come nella channel list.
+- Il PDF d'esempio passa da 6 a 10 pagine (palco 1, monitor 2, elettrico 3, rider 4, channel list 5-6, monitor list 7, lista carichi 8, alimentazioni 9, backline 10), «N di T» su ogni pagina. Pesa circa 10 MB (ricompresso con Ghostscript: l'originale dell'app era 18 MB, il palco vettoriale è pesante).
+- La sezione #rider mostra palco · channel list · monitor · elettrico (il rider resta nel PDF). Nuove: `img/esemplare-tributo-{monitor,elettrico}.jpg`; tolte `-rider.jpg` e `-backline.jpg` (non più usate). Apertura, palco e channel list rifatte dal PDF nuovo; misure dell'apertura invariate (JSON-LD e anteprima social invariati).
+- Test: aggiornati quelli su colonne e conteggio; nuovo test sulla vetrina (ordine, link `#page=N`, alt e didascalie «pagina N di T» coerenti col PDF, 6 mix, 3,3 kW), provato con 5 mutazioni. Il test privacy esistente resta verde.
+- Prove nel browser (computer 1440 e iPhone 13, rete bloccata): nessuno scorrimento orizzontale, 5 immagini caricate.
+
 # 23/10/2026 — Landing: esemplare vero, band e orchestra (ramo `landing-esemplare`)
 
 - Al posto di «Band rock 5 elementi» la landing mostra «Tributo pop · band e orchestra»: un esemplare anonimo da un concerto vero (palco 12 × 13 m, 94 elementi, 64 canali, 6 pagine A4 con «N di T»). Il progetto grezzo e lo script di anonimizzazione stanno fuori dal repo; qui entrano solo PDF e immagini già neutri.
