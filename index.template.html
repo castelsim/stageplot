@@ -14289,9 +14289,9 @@ function itemLiveOnStage(it){
   return true;
 }
 function esc(x){ return String(x).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
-/* misure dell'area nel cartiglio: alla maniera italiana e al centimetro («area 12,5×13,35 m»; prima «12.5×13.35») */
+/* misure del palco nel cartiglio: alla maniera italiana e al centimetro («palco 12,5×13,35 m»; prima «12.5×13.35») */
 function cartAreaTxt(A){ var n=function(cm){ return (cm/100).toLocaleString("it-IT",{maximumFractionDigits:2}); };
-  return (A.custom?"area ":"palco ")+n(A.w)+"×"+n(A.h)+" m"; }
+  return "palco "+n(A.w)+"×"+n(A.h)+" m"; }
 function fmtM(cm){ return (cm/100).toLocaleString("it-IT",{maximumFractionDigits:1})+" m"; }
 /* PORTA IN PRIMO PIANO / IN FONDO (26/08, segnalazione). Il comando c'era solo per le forme libere,
    e per giunta non faceva quello che prometteva: «Sopra» scriveva un 3 fisso — due elementi «sopra»
@@ -35852,7 +35852,9 @@ function pdfCartBlocco(k, s, w, pt, minPt, maxR, passo, bold){
 function pdfCartSub(){
   var sub=[]; if(state.luogo) sub.push(state.luogo);
   sub.push(dataDocumento());
-  var _Ac=printArea(); sub.push(cartAreaTxt(_Ac));
+  /* il cartiglio dice sempre il PALCO: la cornice di stampa personalizzata è solo il taglio del foglio (printArea) e
+     non serve a chi legge (23/10, segnalazione del proprietario: «area 9,3×6,57 m» al posto di «palco 8×6 m») */
+  recalcStageBBox(); sub.push(cartAreaTxt({w:state.stage.w, h:state.stage.d}));
   var _tecn=pdfDatiTecnici();   /* peso e rack solo con «Esporta avanzato» (16/09) */
   var _wt=(_tecn&&pdfPesiOn())?totalWeightKg():0; if(_wt>0) sub.push(fmtKg(_wt));   /* L2: peso di trasporto stimato, solo con «Pesi (kg)» */
   var _ru=_tecn?totalRackU():0; if(_ru>0) sub.push(_ru+" U rack");

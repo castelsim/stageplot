@@ -10548,10 +10548,28 @@ t("FONDO PALCO, PUBBLICO e quote restano nel disegno anche con l'area di stampa 
   eq([vb.y, vb.h], [400, 600], "dentro il palco: niente margine sopra né sotto");
   reset();
 });
-t("cartiglio: le misure dell'area con la virgola e al centimetro", () => {
-  eq(A.cartAreaTxt({ custom: true, w: 1250, h: 1335 }), "area 12,5×13,35 m", "area scelta a mano");
-  eq(A.cartAreaTxt({ custom: false, w: 1200, h: 800 }), "palco 12×8 m", "palco intero");
+t("cartiglio: le misure del palco con la virgola e al centimetro", () => {
+  eq(A.cartAreaTxt({ w: 1250, h: 1335 }), "palco 12,5×13,35 m", "palco con i decimali");
+  eq(A.cartAreaTxt({ w: 1200, h: 800 }), "palco 12×8 m", "palco intero");
   ok(!/\(_Ac\.w\/100\)\+"×"/.test(appjs), "il cartiglio non scrive più il numero di JavaScript (12.5)");
+});
+/* 23/10/2026, segnalazione del proprietario: con una cornice di stampa personalizzata il cartiglio scriveva «area 9,3×6,57 m»
+   al posto di «palco 8×6 m». La cornice è solo il taglio del foglio: il cartiglio dice sempre il palco. */
+t("cartiglio: dice il palco, anche con la cornice di stampa personalizzata", () => {
+  reset();
+  const palco = (w, d) => { A.state.stage = { w, d, blocks: [{ x: 0, y: 0, w, d }] }; };
+  const riga = () => A.pdfCartSub().filter((x) => /m$/.test(x) && /×/.test(x));
+  palco(800, 600);
+  eq(riga(), ["palco 8×6 m"], "senza cornice");
+  A.state.printFrame = { x: -95, y: -57, w: 930, h: 657 };
+  eq(riga(), ["palco 8×6 m"], "con la cornice personalizzata: niente «area»");
+  ok(!A.pdfCartSub().some((x) => /area/.test(x)), "nessuna voce «area» nel cartiglio");
+  eq(A.printArea().custom, true, "la cornice resta quella per scala e impaginazione");
+  /* palco a due blocchi: l'ingombro, calcolato dai blocchi */
+  A.state.printFrame = null;
+  A.state.stage = { w: 100, d: 100, blocks: [{ x: 0, y: 0, w: 600, d: 400 }, { x: 600, y: 200, w: 400, d: 400 }] };
+  eq(riga(), ["palco 10×6 m"], "palco a due blocchi");
+  reset();
 });
 /* ===== ELEMENTI FUORI DAL PALCO NEL PDF (14/10/2026). Simone: «ho messo un oggetto fuori dal palco. In fase di export
    mi chiede di adattare il palco, troppo rischioso. L'elemento è messo là fuori perché deve stare là fuori», e poi
