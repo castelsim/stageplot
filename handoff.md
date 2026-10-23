@@ -6,7 +6,7 @@
 - La scelta NON si salva nel progetto (10/09 resta valido: niente `pdfPages`). Le pillole in «Altre opzioni» restano il controllo fine; titolo ora «Pagine del PDF, una per una», nota col conteggio tolta (c'e' il riepilogo).
 - Test: 5 nuovi/aggiornati in `test/engines.test.mjs` (il vecchio «l'export parte dal solo palco» riscritto); mutazioni provate: preselezione sempre «solo», preselezione tolta, modo sempre «scheda», conteggio sbagliato, seconda scelta mai spenta, «Solo palco» che non svuota, seconda sempre disponibile, regola CSS che nasconde le scelte in base: tutte rosse.
 - Prova nel browser (Playwright, computer e iPhone 13, base e avanzato, progetto collaudo 01 e progetto vuoto): screenshot in `MODELLI_PRO/_prove/esporta/`.
-- Da decidere: `PDF_SUGGESTED` non comprende `view-elec` ne' `loadlist`, quindi «scheda» non include l'elettrico (l'esempio del brief lo citava).
+- Correzione del proprietario (23/10): `PDF_SUGGESTED` comprende ora `view-elec` e `loadlist`, suggerite INSIEME e solo se le pagine disponibili hanno entrambe (elettrico acceso con carichi); la vista da sola o la lista senza elettrico acceso restano neutre. Test «l'elettrico con carichi veri e' suggerito…», provato con mutazioni.
 
 # 23/10/2026 — «Connessioni» spenta: i cavi non si vedono sul palco (ramo `funz-cavi`)
 

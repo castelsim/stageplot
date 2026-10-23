@@ -4140,6 +4140,18 @@ t("productionStatusLine: conteggi risposte e da-definire", () => {
   eq(A.productionStatusLine(A.state).todef, 3, "luci da_definire conta");
 });
 
+t("pdfSuggestedKeys: l'elettrico con carichi veri e' suggerito (vista + lista), senza carichi no", () => {
+  /* 23/10, proprietario: «Palco e scheda tecnica» deve includere l'elettrico quando e' acceso con almeno un carico. Non e'
+     una pagina neutra come rider/cabmap (sempre presenti): senza carichi la vista elettrica da sola resta fuori. */
+  const conCarichi=[{key:"view-elec"},{key:"rider"},{key:"loadlist"},{key:"elecmap"}];
+  eq(JSON.stringify(A.pdfSuggestedKeys(conCarichi)), JSON.stringify(["view-elec","loadlist"]));
+  eq(A.pdfSuggestedKeys([{key:"view-elec"},{key:"rider"}]).length, 0, "elettrico acceso ma vuoto: niente");
+  eq(A.pdfSuggestedKeys([{key:"loadlist"}]).length, 0, "lista carichi senza elettrico acceso: niente");
+  const sc=A.pdfScelteEsporta(conCarichi);
+  eq(sc.preselezione, "scheda");
+  eq(A.pdfRiepilogoPagine(["Palco"].concat(sc.sugg.map((k)=>k==="view-elec"?"Elettrico":"Lista carichi elettrici"))), "3 pagine: palco \u00b7 elettrico \u00b7 lista carichi elettrici");
+});
+
 t("pdfSuggestedKeys: suggerite tra le disponibili, mai le neutre", () => {
   const pages=[{key:"view-cabin"},{key:"rider"},{key:"pmlist"},{key:"cabmap"},{key:"todefine"}];
   eq(JSON.stringify(A.pdfSuggestedKeys(pages)), JSON.stringify(["view-cabin","pmlist","todefine"]));
