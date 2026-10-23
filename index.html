@@ -10,8 +10,9 @@
   Sei sezioni: apertura · tre passi · cosa riceve il service (#rider) · per chi · chi lo fa · domande + finale.
   Stesso carattere e stessi colori di prima (nero fumo #0a0e0e, pannelli #101616, teal #14b8a6), scala più
   piccola. Nessun framework, nessuna dipendenza, JS solo per il contatore delle visite in fondo.
-  Le immagini sono le pagine VERE del PDF d'esempio «Band rock 5 elementi» (guida/scheda-tecnica-band/),
-  in img/esempio-band-rock-*.jpg: se si rifà il PDF d'esempio vanno rifatte anche loro (ops/esempio-scheda-tecnica.cjs).
+  Le immagini sono le pagine VERE del PDF d'esempio «Tributo pop · band e orchestra» (img/esemplare-tributo-pop-band-orchestra.pdf),
+  in img/esemplare-tributo-*.jpg: l'esemplare nasce da un progetto vero, anonimizzato fuori dal repo; se si rifà il PDF vanno rifatte anche loro.
+  (Il PDF «Band rock 5 elementi» della guida scheda-tecnica-band resta dov'è e non è più usato qui.)
   Marcatori ?from= sui link verso /app/: elenco chiuso, vincolato anche da un CHECK sul database
   (migration 0036): nav, hero-modello (pulsante principale), finale.
 -->
@@ -144,7 +145,7 @@ addEventListener("hashchange", go);})();</script>
       "inLanguage": "it",
       "isPartOf": { "@id": "https://stageplot.it/#website" },
       "about": { "@id": "https://stageplot.it/#app" },
-      "primaryImageOfPage": { "@type": "ImageObject", "url": "https://stageplot.it/img/esempio-band-rock-apertura.jpg", "width": 1600, "height": 956 },
+      "primaryImageOfPage": { "@type": "ImageObject", "url": "https://stageplot.it/img/esemplare-tributo-apertura.jpg", "width": 1600, "height": 1550 },
       "datePublished": "2026-08-08",
       "dateModified": "2026-10-23"
     },
@@ -226,7 +227,7 @@ addEventListener("hashchange", go);})();</script>
   .fatti{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:16px;font:12.5px/1.4 var(--mono);color:var(--mut)}
   .fatti span::before{content:"✓ ";color:var(--teal-l)}
   .hero{padding-top:44px}
-  .foglio{margin:34px 0 0;background:var(--paper);border-radius:12px;padding:14px 14px 10px;box-shadow:0 30px 60px -30px #000,0 0 0 1px var(--line2)}
+  .foglio{max-width:720px;margin:34px auto 0;background:var(--paper);border-radius:12px;padding:14px 14px 10px;box-shadow:0 30px 60px -30px #000,0 0 0 1px var(--line2)}
   .foglio img{display:block;width:100%;height:auto;border-radius:4px}
   .foglio figcaption{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 12px;color:var(--paper-mut);font:11.5px/1.4 var(--mono);padding:8px 2px 0;border-top:1px solid #e7e4dc;margin-top:8px}
   .foglio figcaption b{color:var(--paper-ink);font-weight:600}
@@ -317,9 +318,9 @@ addEventListener("hashchange", go);})();</script>
       </div>
       <div class="fatti"><span>Gratis</span><span>In italiano</span><span>Senza account</span><span>Nessuna filigrana</span></div>
       <figure class="foglio">
-        <div class="ritaglio"><img src="/img/esempio-band-rock-apertura.jpg" width="1600" height="956" fetchpriority="high" decoding="async"
-          alt="Prima pagina della scheda tecnica d'esempio «Band rock 5 elementi»: lo stage plot visto dall'alto, su un palco di 11,5 per 6,5 metri, con batteria al centro, tastiere, due chitarre e basso, ognuno con la sua spia, scala 1:100."></div>
-        <figcaption><span><b>Band rock · 5 elementi</b> · scheda tecnica di esempio fatta con StagePlot</span><span>palco 11,5 × 6,5 m · scala 1:100</span></figcaption>
+        <div class="ritaglio"><img src="/img/esemplare-tributo-apertura.jpg" width="1600" height="1550" fetchpriority="high" decoding="async"
+          alt="Prima pagina della scheda tecnica d'esempio «Tributo pop · band e orchestra»: lo stage plot visto dall'alto, su un palco di 12 per 13 metri, con batteria, timpani, tastiere, arpa, archi, fiati su pedane e direttore, scala 1:100."></div>
+        <figcaption><span><b>Tributo pop · band e orchestra</b> · scheda tecnica fatta con StagePlot</span><span>palco 12 × 13 m · scala 1:100</span></figcaption>
       </figure>
     </div>
   </section>
@@ -341,28 +342,28 @@ addEventListener("hashchange", go);})();</script>
   <section id="rider">
     <div class="wrap">
       <h2>Cosa riceve il service.</h2>
-      <p class="sub">Quattro pagine vere del PDF d'esempio «Band rock 5 elementi», generate dal disegno senza scriverle a mano. Toccane una per aprire il PDF.</p>
+      <p class="sub">Quattro pagine vere del PDF d'esempio «Tributo pop · band e orchestra», uno spettacolo con band e orchestra: generate dal disegno senza scriverle a mano. Toccane una per aprire il PDF.</p>
       <div class="pagine" role="group" aria-label="Pagine del PDF d'esempio" tabindex="0">
       <figure>
-        <a href="/guida/scheda-tecnica-band/esempio-scheda-tecnica-band-rock.pdf#page=1"><img src="/img/esempio-band-rock-pagina-1.jpg" width="1287" height="910" loading="lazy" decoding="async" alt="Pagina 1 del PDF d'esempio: lo stage plot della band rock in scala 1:100, con titolo, data, misure del palco e referente tecnico nel cartiglio."></a>
-        <figcaption><b>Palco</b> · scala 1:100 · pagina 1 di 6</figcaption>
+        <a href="/img/esemplare-tributo-pop-band-orchestra.pdf#page=1"><img src="/img/esemplare-tributo-palco.jpg" width="1287" height="910" loading="lazy" decoding="async" alt="Pagina 1 del PDF d'esempio: lo stage plot di un tributo pop con band e orchestra, su un palco di 12 per 13 metri in scala 1:100, con titolo, misure e conteggio di leggii e sedute."></a>
+        <figcaption><b>Palco</b> · 12 × 13 m · pagina 1 di 6</figcaption>
       </figure>
       <figure>
-        <a href="/guida/scheda-tecnica-band/esempio-scheda-tecnica-band-rock.pdf#page=3"><img src="/img/esempio-band-rock-pagina-3.jpg" width="910" height="1287" loading="lazy" decoding="async" alt="Pagina 3 del PDF d'esempio: la channel list con diciassette canali, dalla cassa alle voci, ciascuno con microfono o DI, asta e patch."></a>
-        <figcaption><b>Channel list</b> · 17 canali · pagina 3 di 6</figcaption>
+        <a href="/img/esemplare-tributo-pop-band-orchestra.pdf#page=2"><img src="/img/esemplare-tributo-rider.jpg" width="910" height="1287" loading="lazy" decoding="async" alt="Pagina 2 del PDF d'esempio: il rider tecnico, con 64 canali di ingresso, il riepilogo di microfoni e aste, le pedane, l'alimentazione e il personale richiesto al service."></a>
+        <figcaption><b>Rider tecnico</b> · 64 canali · pagina 2 di 6</figcaption>
       </figure>
       <figure>
-        <a href="/guida/scheda-tecnica-band/esempio-scheda-tecnica-band-rock.pdf#page=4"><img src="/img/esempio-band-rock-pagina-4.jpg" width="910" height="1287" loading="lazy" decoding="async" alt="Pagina 4 del PDF d'esempio: la monitor list con cinque mix su wedge, uno per batteria, basso, tastiere e le due chitarre."></a>
-        <figcaption><b>Monitor list</b> · 5 mix · pagina 4 di 6</figcaption>
+        <a href="/img/esemplare-tributo-pop-band-orchestra.pdf#page=3"><img src="/img/esemplare-tributo-channel-list.jpg" width="910" height="1287" loading="lazy" decoding="async" alt="Pagina 3 del PDF d'esempio: la channel list, dalla cassa della batteria agli archi, ciascun canale con microfono o DI, asta e patch."></a>
+        <figcaption><b>Channel list</b> · 64 canali · pagine 3 e 4 di 6</figcaption>
       </figure>
       <figure>
-        <a href="/guida/scheda-tecnica-band/esempio-scheda-tecnica-band-rock.pdf#page=5"><img src="/img/esempio-band-rock-pagina-5.jpg" width="910" height="1287" loading="lazy" decoding="async" alt="Pagina 5 del PDF d'esempio: la lista dei carichi elettrici, con la potenza di ogni apparecchio e un totale di 2,8 kW e 12 ampere."></a>
-        <figcaption><b>Lista carichi</b> · 2,8 kW · pagina 5 di 6</figcaption>
+        <a href="/img/esemplare-tributo-pop-band-orchestra.pdf#page=6"><img src="/img/esemplare-tributo-backline.jpg" width="910" height="1287" loading="lazy" decoding="async" alt="Pagina 6 del PDF d'esempio: la lista del backline, con batteria e stage piano e chi li fornisce."></a>
+        <figcaption><b>Backline</b> · 2 elementi · pagina 6 di 6</figcaption>
       </figure>
       </div>
-      <p class="didascalia">Cambi il disegno e rigeneri il PDF: channel list, monitor e carichi si ricalcolano dal palco. Le potenze sono stime del tipo di apparecchio, e il PDF lo dice.</p>
+      <p class="didascalia">Cambi il disegno e rigeneri il PDF: rider, channel list e backline si ricalcolano dal palco. Le potenze sono stime del tipo di apparecchio, e il PDF lo dice.</p>
       <p class="link-rider">
-        <a href="/guida/scheda-tecnica-band/esempio-scheda-tecnica-band-rock.pdf">Scarica il PDF d'esempio, 6 pagine</a>
+        <a href="/img/esemplare-tributo-pop-band-orchestra.pdf">Scarica il PDF d'esempio, 6 pagine</a>
         <a href="/guida/scheda-tecnica-band/">Come si fa una scheda tecnica per la band</a>
       </p>
     </div>
