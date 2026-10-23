@@ -1,3 +1,13 @@
+# 23/10/2026 — Cercando «voce» viene prima il ruolo (ramo `ricerca-voce`)
+
+- Problema (analisi esterna 22/10): «voce» dava per primi «Uomo» e «Donna» (varianti del tipo `corista`), cioè l'aspetto come nome. Il `cantante` non era nemmeno nel catalogo.
+- Soluzione (la più semplice e sicura): nessun tipo, campo o dato nuovo. Solo nomi mostrati, alias e ordine. Catalogo «Persone»: «Cantante» (nuova voce, tipo `cantante`, sottotitolo «voce principale, solista»), «Corista · uomo» e «Corista · donna» (stesso tipo `corista`, stessi `over` di prima). Scelta «una sola voce Corista con uomo/donna nel pannello» scartata: la ricerca «uomo»/«donna» e i recenti salvati sul dispositivo si reggono sulle due voci.
+- Ordine: nuovo campo `qaSecondo` (rango -0,5, subito dopo `qaPrimo`). `qaPrimo`/`qaSecondo` accettano anche un elenco di FRASI separate da «|» (`qaHaParola`), perché «seconda voce» non deve prendere anche «voce». «voce, voci, cantante, solista, lead, vocalist, singer, frontman, frontwoman, prima voce, voce principale» → Cantante, poi i cori; «cori, corista, coriste, coristi, backing vocals, seconda voce» → Corista, poi Cantante. Stesso ordine nella barra e nella finestrella del doppio clic.
+- Alias nuovi: `backing vocals`, `seconda voce`, `prima voce`, `voce principale` (su `corista` e `cantante`). Nessun «mic»/«monitor» nei nomi nuovi: asta, monitor, mic, wedge invariati (test).
+- Nome nel pannello: la voce NUOVA dal catalogo nasce «Corista N» (prima «Voce N»), la stessa parola con cui l'hai trovata; i «Voce N» già nei progetti contano nella numerazione. `TYPES.corista.nome` resta «Voce» e `TYPES.cantante.nome` «Cantante»: sono il ripiego dei canali (Channel list, PDF) e cambiarli riscriveva i progetti già fatti (il collaudo 12/15/… lo ha mostrato: «Voce»→«Corista» nei canali). Per lo stesso motivo il catalogo dice «Cantante» e non «Voce principale».
+- Test: 3 nuovi in `engines.test.mjs` («ricerca voce: …»), 2 esistenti aggiornati («voce» → Cantante; «uomo» → «Corista · uomo»); mutazioni provate (senza `qaPrimo`, senza `qaSecondo`, nome del tipo, nome della voce uomo, etichetta nuova). Collaudo 30/30 senza `--aggiorna`.
+- Prove nel browser (computer e iPhone 13): `MODELLI_PRO/_prove/voce/`.
+
 # 23/10/2026 — Esporta: due scelte visibili (ramo `esporta-due-scelte`)
 
 - Decisione del proprietario (22/10), che **supera «il PDF parte a una pagina» del 16/08**: l'analisi esterna ha mostrato che si esportava il disegno senza accorgersi della documentazione tecnica. In cima alla finestra Esporta, sempre in vista (versione base e avanzata, computer e telefono): «Solo palco» e «Palco e scheda tecnica», con la seconda preselezionata e sotto il riepilogo («4 pagine: palco · ingressi · …», stesso elenco dell'anteprima).
