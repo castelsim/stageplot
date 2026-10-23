@@ -17681,7 +17681,7 @@ t("le immagini del rider sono le pagine vere del PDF d'esempio, esistono e hanno
      non danno errore da nessuna parte: la pagina va online con i buchi, e Google non sa cosa mostrano. */
   const sez = (landing.match(/<div class="pagine"[\s\S]*?<\/div>/) || [])[0] || "";
   const tags = sez.match(/<img[^>]*>/g) || [];
-  eq(tags.length, 4, "le pagine del PDF in vetrina sono quattro (palco, channel list, monitor, elettrico)");
+  eq(tags.length, 4, "le pagine del PDF in vetrina sono quattro (palco, rider, channel list, elettrico)");
   const tutte = [...tags, ...(aperturaLanding.match(/<img[^>]*>/g) || [])];
   eq(tutte.length, 5, "più l'immagine dell'apertura");
   for (const tag of tutte) {
@@ -17720,27 +17720,28 @@ t("il PDF d'esempio è linkato dalla landing, esiste e ha le pagine che la landi
   ok(landing.indexOf('href="/guida/scheda-tecnica-band/"') > -1, "e c'è la guida che spiega come si fa");
 });
 
-t("la vetrina dell'esemplare mostra palco, channel list, monitor ed elettrico, e ogni didascalia dice la pagina giusta del PDF", () => {
-  /* Perché esiste: l'esemplare ora ha monitor e corrente, quindi il PDF è di 10 pagine e le pagine non sono più
-     quelle di prima (palco 1, monitor 2, elettrico 3, rider 4, channel list 5-6). Una didascalia «pagina 3 di 6»
-     rimasta dalla versione vecchia manda chi tocca l'immagine su una pagina che non è quella mostrata. */
+t("la vetrina dell'esemplare mostra palco, rider, channel list ed elettrico, e ogni didascalia dice la pagina giusta del PDF", () => {
+  /* Perché esiste: le pagine del PDF d'esempio cambiano a ogni revisione (v3: 10 pagine; v4: 8, senza «Alimentazioni»
+     e «Backline», disegni in A3 1:50). Una didascalia «pagina 3 di 10» rimasta dalla versione vecchia manda chi tocca
+     l'immagine su una pagina che non è quella mostrata, e un numero vecchio (77 canali, 3,5 kW) smentisce il PDF. */
   const pdf = "/img/esemplare-tributo-pop-band-orchestra.pdf";
   const sez = (landing.match(/<div class="pagine"[\s\S]*?<\/div>/) || [])[0] || "";
   const figure = [...sez.matchAll(/<figure>([\s\S]*?)<\/figure>/g)].map((m) => m[1]);
   eq(figure.length, 4, "quattro figure");
-  const attesi = [["palco", 1], ["channel-list", 5], ["monitor", 2], ["elettrico", 3]];
+  const attesi = [["palco", 1], ["rider", 4], ["channel-list", 5], ["elettrico", 3]];
   const bin = readFileSync(join(root, pdf.slice(1))).toString("latin1");
   const vere = Math.max(...[...bin.matchAll(/\/Count (\d+)/g)].map((m) => +m[1]));
   figure.forEach((f, i) => {
     const [nome, pag] = attesi[i];
-    ok(f.indexOf('/img/esemplare-tributo-' + nome + '.jpg') > -1, "figura " + (i + 1) + ": l'immagine è «" + nome + "» (ordine palco · channel list · monitor · elettrico)");
+    ok(f.indexOf('/img/esemplare-tributo-' + nome + '.jpg') > -1, "figura " + (i + 1) + ": l'immagine è «" + nome + "» (ordine palco · rider · channel list · elettrico)");
     ok(f.indexOf(pdf + "#page=" + pag + '"') > -1, nome + ": il link porta a pagina " + pag + " del PDF");
     ok(new RegExp("Pagina " + pag + " del PDF").test(f), nome + ": l'alt dice pagina " + pag);
     const cap = (f.match(/<figcaption>([\s\S]*?)<\/figcaption>/) || [])[1] || "";
     ok(new RegExp("pagin[ae] " + pag + "(?: e \\d+)? di " + vere + "\\b").test(cap), nome + ": la didascalia dice «pagina " + pag + " di " + vere + "» (il PDF ha " + vere + " pagine): " + cap);
   });
-  ok(/77 canali/.test(figure[1]) && /6 mix/.test(figure[2]) && /3,5 kW/.test(figure[3]), "i numeri di channel list, monitor ed elettrico sono quelli del PDF (77 canali, 6 mix, 3,5 kW)");
-  ok(/sei multiprese collegate ciascuna direttamente al quadro/.test(figure[3]), "l'alt dell'elettrico dice com'è fatto: multiprese direttamente al quadro, nessuna in cascata");
+  ok(/approvato/.test(figure[1]) && /63 canali/.test(figure[2]) && /3,3 kW/.test(figure[3]), "i numeri di rider, channel list ed elettrico sono quelli del PDF (approvato, 63 canali, 3,3 kW)");
+  ok(/una linea per ogni carico/.test(figure[3]) && !/multipres/.test(figure[3]), "l'alt dell'elettrico dice com'è fatto: una linea dal quadro per ogni carico, nessuna multipresa");
+  ok(/microfono per leggio/.test(figure[2]), "l'alt della channel list dice la regola di casa: un microfono per leggio sugli archi");
   /* il PDF è un download da telefono: ricompresso, sta sotto i 4 MB (la v2 pesava 10 MB) */
   ok(statSync(join(root, pdf.slice(1))).size <= 4 * 1024 * 1024, "il PDF d'esempio pesa al massimo 4 MB: " + Math.round(statSync(join(root, pdf.slice(1))).size / 1024) + " KB");
 });
@@ -17794,8 +17795,8 @@ t("su telefono le pagine del PDF scorrono dentro il loro riquadro, e il palco de
   ok(/\.foglio\{[^}]*max-width:\d+px[^}]*margin:\d+px auto 0/.test(landing), "e su computer il foglio ha una larghezza massima, perché un palco alto non diventi enorme");
   ok(!/\.ritaglio img\{[^}]*width:1\d\d%/.test(landing), "e nessun ingrandimento in CSS che taglierebbe il palco già ritagliato");
   ok(/class="pagine" role="group" aria-label="[^"]+" tabindex="0"/.test(landing), "e il riquadro scorrevole si raggiunge anche da tastiera");
-  ok(/\.pagine\{[^}]*grid-template-columns:1\.414fr \.707fr 1\.414fr 1\.414fr/.test(landing), "su computer le quattro pagine stanno in fila, alla stessa altezza (palco, monitor ed elettrico orizzontali: 1,414; channel list verticale: metà)");
-  ok(/\.pagine figure:nth-child\(2\)\{flex-basis:46%\}/.test(m) && /\.pagine figure:nth-child\(n\+3\)\{flex-basis:88%\}/.test(m), "e su telefono la channel list verticale è stretta, le tre pagine orizzontali larghe");
+  ok(/\.pagine\{[^}]*grid-template-columns:repeat\(4,1fr\)/.test(landing), "su computer le quattro pagine stanno in fila alla stessa altezza: sono tutte verticali (disegni A3, rider e liste A4)");
+  ok(/\.pagine figure\{flex:0 0 62%/.test(m) && !/\.pagine figure:(first|nth)-child/.test(m), "e su telefono le quattro pagine verticali hanno la stessa larghezza, senza eccezioni per le orizzontali di prima");
   ok(!/body\{[^}]*overflow-x:hidden/.test(landing), "e non si nasconde lo scorrimento orizzontale invece di evitarlo");
 });
 
