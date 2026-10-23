@@ -26974,6 +26974,18 @@ t("Connessioni spenta: sul telefono e nel link condiviso il palco è quello di s
   eq(conFunz(false, {}, () => A.connessioniVisibili()), false, "computer, spenta: non visibili");
   eq(conFunz(true, {}, () => A.connessioniVisibili()), true, "computer, accesa: visibili");
 });
+t("Connessioni spenta: i cavi coassiali RF spariscono, i coni di copertura restano", () => {
+  palcoConCavi();
+  add("rxrf", 500, 300); add("rfant", 200, 150);
+  const COAX = 'stroke="#7c3aed" stroke-width="2.2"', CONO = 'fill="#7c3aed" opacity="0.07"';
+  const on = conFunz(true, {}, () => A.sceneMarkup()), off = conFunz(false, {}, () => A.sceneMarkup());
+  ok(on.indexOf(COAX) >= 0 && on.indexOf(CONO) >= 0, "controllo: con Connessioni accesa ci sono coax e coni");
+  ok(off.indexOf(COAX) < 0, "spenta: niente coax");
+  ok(off.indexOf(CONO) >= 0 && off.indexOf("rf-layer") >= 0, "spenta: i coni di copertura restano");
+  ok(conFunz(false, { mobile: true }, () => A.sceneMarkup()).indexOf(COAX) >= 0, "telefono: coax visibile");
+  ok(conFunz(false, { viewmode: true }, () => A.sceneMarkup()).indexOf(COAX) >= 0, "link condiviso: coax visibile");
+  ok(conFunz(false, {}, () => A.sceneMarkup({ espandi: true })).indexOf(COAX) >= 0, "export: coax visibile");
+});
 t("Connessioni spenta: il filtro è uno solo, in overlayLayerMarkup (non sparso nei motori)", () => {
   const i = appjs.indexOf("function overlayLayerMarkup(esporta){");
   ok(i > 0, "la funzione c'è");

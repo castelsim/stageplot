@@ -2,10 +2,10 @@
 
 - Decisione del proprietario: «se l'utente spegne tutte le funzioni avanzate, mi aspetto che le cose che permettono le funzioni avanzate non si vedano». Prima, con `conn` spenta, i cavi del progetto (`state.cab/elec/mond.on`) si disegnavano comunque.
 - Una condizione sola: `connessioniVisibili(esporta)` (vicino a `overlayLayerMarkup`), usata da `overlayLayerMarkup(esporta)`. Con `conn` spenta, sul palco a schermo del computer non si disegnano `cablingMarkup` (cavi audio, ritorni, pallini sorgente, multicore, etichette), `netMarkup`, `elecMarkup` (linee, badge «Qn · x/y prese»), `monDigMarkup` (personal monitor), `cableLegendMarkup`. I pallini erano già dietro `f-conn` (`portsMarkup`).
-- Sempre visibili: PNG (`sceneMarkup({espandi:true})` passa `esporta=true`), PDF (`__cabStatic` e chiamate dirette ai motori), telefono (`isMobile()`), link condiviso in sola lettura (`viewmode`: chi guarda non ha niente da accendere). RF (coni e coax) non è toccato.
+- Sempre visibili: PNG (`sceneMarkup({espandi:true})` passa `esporta=true`), PDF (`__cabStatic` e chiamate dirette ai motori), telefono (`isMobile()`), link condiviso in sola lettura (`viewmode`: chi guarda non ha niente da accendere). RF: i cavi coassiali di `rfMarkup(esporta)` seguono la stessa condizione; i coni di copertura restano sempre.
 - I dati non si toccano (nessun `on=false`); riaccesa la funzione il disegno è identico. `funzRenderAvviso` invariato.
 - Test: 5 nuovi «Connessioni spenta…» in `test/engines.test.mjs`; mutazioni provate (sempre/mai visibili, senza `esporta`, senza telefono, senza viewmode, scena che non passa `esporta`, elettrico fuori dal filtro): tutte rosse.
-- Da decidere: nascondere anche RF/coax; mostrare o no i cavi nel link condiviso se chi guarda ha le funzioni spente.
+- Da decidere: mostrare o no i cavi nel link condiviso se chi guarda ha le funzioni spente.
 
 # 23/10/2026 — modelli spenti (ramo `modelli-spenti`)
 
