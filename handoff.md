@@ -1,3 +1,13 @@
+# 23/10/2026 — PDF: cartiglio col palco e niente caratteri rotti nell'elettrico (ramo `pdf-cartiglio-elettrico`)
+
+- Cartiglio: la riga sotto il titolo dice sempre «palco L×P m» (ingombro dei blocchi, `recalcStageBBox`), mai l'area della cornice di stampa personalizzata. `printArea()` non cambia (scala, impaginazione, taglio). `cartAreaTxt` scrive solo «palco».
+- Caratteri rotti: i font standard di jsPDF hanno solo WinAnsi; «→» (U+2192) veniva scritto come UTF-16 a pezzi e usciva «!’» con le lettere distanziate (anche le etichette «Q4 > Q6 · 6 A · 2,5 mm²» sembravano troncate perché la larghezza era sbagliata). Le scritte del disegno le scrive svg2pdf con `doc.text`, quindi il guasto era in tutto il PDF, non solo in quella pagina.
+- Correzione alla radice: `pdfTestoWinAnsi` / `pdfTestoWinAnsiDoc` avvolgono `text`, `getTextWidth`, `splitTextToSize`, `getStringUnitWidth` di ogni documento (installati con `pdfTestoNeroInstalla`). Sostituti: «→»>, «←»<, «↔»<>, «≈»~, «≤»<=, «≥»>=, «≠»!=, meno tipografico e trattini speciali «-», spazi stretti «␣», «✓»v, «✗»x; lettere accentate fuori WinAnsi senza accento (Ł→L...), emoji e il resto «?». Lo schermo e il JSON restano com'erano.
+- Test: «cartiglio: dice il palco, anche con la cornice...» e «PDF: nessun carattere fuori WinAnsi...»; provati con 4 mutazioni (cartiglio torna «area», `text` non pulito, freccia non sostituita, wrapper non installato): tutte rosse.
+- NON risolto (dubbio): le etichette dell'elettrico (`.elec-lbl`, ~9,5 px in coordinate palco) stanno a metà del percorso del cavo, senza controllo delle collisioni: a scala 1:100 si sovrappongono ai nomi (es. «Direttore», «Wedge direttore»). Una soluzione pulita richiede un posizionamento con evitamento delle collisioni (anche per le etichette audio): è un lavoro a sé, non una toppa.
+- B5 della revisione (arrotondamenti dell'amperaggio, L1/L2/L3 sulle monofase, sezione Q6) non toccato.
+- Prova vera: PDF esportato in locale con Playwright (rete bloccata): cartiglio «palco 8×6 m» sul progetto con cornice personalizzata; nessun «!’» nell'elettrico dell'esemplare; collaudo 30/30 senza `--aggiorna`.
+
 # 23/10/2026 — Landing: esemplare vero, band e orchestra (ramo `landing-esemplare`)
 
 - Al posto di «Band rock 5 elementi» la landing mostra «Tributo pop · band e orchestra»: un esemplare anonimo da un concerto vero (palco 12 × 13 m, 94 elementi, 64 canali, 6 pagine A4 con «N di T»). Il progetto grezzo e lo script di anonimizzazione stanno fuori dal repo; qui entrano solo PDF e immagini già neutri.

@@ -10571,6 +10571,31 @@ t("cartiglio: dice il palco, anche con la cornice di stampa personalizzata", () 
   eq(riga(), ["palco 10×6 m"], "palco a due blocchi");
   reset();
 });
+/* 23/10/2026, PDF vero: nella pagina ELETTRICO le frecce «Q1 → Q2» uscivano «Q1 !’ Q2». I font standard di jsPDF hanno solo i
+   glifi WinAnsi: un carattere fuori viene scritto come UTF-16 a pezzi. La correzione sta sul documento, per tutto il PDF. */
+const fuoriWinAnsi = (x) => Array.from(x).filter((c) => !/[\t\n\r\u0020-\u007E\u00A0-\u00FF]/.test(c) && "€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ".indexOf(c) < 0);
+t("PDF: nessun carattere fuori WinAnsi arriva ai font standard di jsPDF", () => {
+  eq(A.pdfTestoWinAnsi("Q1 → Q3 · 6 A · 2,5 mm²"), "Q1 > Q3 · 6 A · 2,5 mm²", "la freccia diventa «>», il resto (· ² ×) resta");
+  eq(A.pdfTestoWinAnsi("≈ 3 kW, ≤ 16 A, ≥ 2 m, a−b"), "~ 3 kW, <= 16 A, >= 2 m, a-b", "approssimato, minore/maggiore uguale, meno tipografico");
+  eq(A.pdfTestoWinAnsi("Łódź ✓ 😀"), "Lódz v ?", "accenti tolti, simboli noti sostituiti, il resto «?»");
+  eq(A.pdfTestoWinAnsi("Perché è già «ok» – 20 € × 2 … “x” ’"), "Perché è già «ok» – 20 € × 2 … “x” ’", "ciò che WinAnsi ha resta com'è");
+  const sporco = "→←↔≈≤≥≠−‑✓✗●○★ŁłąęśźżČčŠšŽžĐđ😀 ünï";
+  eq(fuoriWinAnsi(A.pdfTestoWinAnsi(sporco)), [], "nessun carattere fuori WinAnsi in uscita");
+  /* il documento: scritto, misurato e spezzato passano dalla stessa regola (svg2pdf scrive con doc.text) */
+  const doc = A.pdfTestoWinAnsiDoc(jsPdfFinto()({ format: "a4", orientation: "landscape" }));
+  doc.text("Q1 → Q2", 10, 10); doc.text(["A → B", "C ≈ D"], 10, 20);
+  eq(doc.pagine[0].testi.map((x) => x.t), ["Q1 > Q2", "A > B", "C ~ D"], "testi scritti");
+  eq(doc.getTextWidth("→"), doc.getTextWidth(">"), "la larghezza misurata è quella del testo che si scrive");
+  eq(doc.splitTextToSize("a → b", 100), ["a > b"], "testo spezzato");
+  /* la libreria vera passa dall'installazione: ogni documento creato dopo è coperto */
+  const prima = A.jspdf;
+  try {
+    A.jspdf = { jsPDF: jsPdfFinto() }; A.pdfTestoNeroInstalla();
+    const d2 = new A.jspdf.jsPDF({ format: "a4", orientation: "landscape" });
+    d2.text("Q4 → Q6", 5, 5);
+    eq(d2.pagine[0].testi.map((x) => x.t), ["Q4 > Q6"], "documento creato dopo l'installazione");
+  } finally { A.jspdf = prima; }
+});
 /* ===== ELEMENTI FUORI DAL PALCO NEL PDF (14/10/2026). Simone: «ho messo un oggetto fuori dal palco. In fase di export
    mi chiede di adattare il palco, troppo rischioso. L'elemento è messo là fuori perché deve stare là fuori», e poi
    «l'elemento che ho messo fuori dal palco non viene stampato nel pdf, come mai?». Prima: con l'area automatica e con

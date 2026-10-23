@@ -32213,12 +32213,46 @@ function pdfTestoNeroDoc(d){
   };
   f.__nero=true; d.setTextColor=f; return d;
 }
+/* CARATTERI FUORI DAL FONT DEL PDF (23/10). I font standard di jsPDF (Helvetica, Times, Courier) hanno solo i glifi
+   di WinAnsi: un carattere fuori (la freccia «→» delle etichette dell'elettrico, «≈», «≤», il meno tipografico...)
+   non viene scartato ma scritto come UTF-16 a pezzi, e sul foglio esce «!’» con le lettere distanziate. Il guasto
+   stava in TUTTO il PDF (anche svg2pdf scrive le scritte del disegno con doc.text), quindi si corregge una volta sola
+   sul documento: ogni testo scritto o misurato passa da qui. Sostituti ASCII per i simboli noti, il resto delle
+   lettere perde l'accento, ciò che non ha equivalente diventa «?». Le scritte sullo schermo e nel JSON restano come sono. */
+var PDF_SOSTITUTI={"\u2192":">","\u2190":"<","\u2194":"<>","\u21D2":">","\u2191":"^","\u2193":"v","\u2248":"~","\u2264":"<=","\u2265":">=",
+  "\u2260":"!=","\u2212":"-","\u2011":"-","\u2010":"-","\u2012":"-","\u2015":"-","\u202F":" ","\u2009":" ","\u2002":" ","\u2003":" ",
+  "\u200B":"","\u00AD":"-","\u2713":"v","\u2714":"v","\u2717":"x","\u2718":"x","\u25CF":"\u2022","\u25CB":"o","\u2605":"*","\u2606":"*",
+  "\u0141":"L","\u0142":"l","\u0110":"D","\u0111":"d","\u0131":"i","\u2032":"'","\u2033":"\"","\u2236":":","\u2715":"x","\u2716":"x"};
+var PDF_WINANSI_EXTRA="\u20AC\u201A\u0192\u201E\u2026\u2020\u2021\u02C6\u2030\u0160\u2039\u0152\u017D\u2018\u2019\u201C\u201D\u2022\u2013\u2014\u02DC\u2122\u0161\u203A\u0153\u017E\u0178";
+function pdfTestoWinAnsi(t){
+  if(typeof t!=="string") return t;
+  if(!/[^\u0009\u000A\u000D\u0020-\u007E\u00A0-\u00FF]/.test(t)) return t;
+  var out="", i, c;
+  t=t.replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g,"?");   /* un carattere fuori dal piano base (emoji) = un solo «?» */
+  for(i=0;i<t.length;i++){
+    c=t.charAt(i);
+    if(/[\u0009\u000A\u000D\u0020-\u007E\u00A0-\u00FF]/.test(c) || PDF_WINANSI_EXTRA.indexOf(c)>=0){ out+=c; continue; }
+    if(PDF_SOSTITUTI.hasOwnProperty(c)){ out+=PDF_SOSTITUTI[c]; continue; }
+    var base=c.normalize ? c.normalize("NFD").replace(/[\u0300-\u036F]/g,"") : c;
+    out+= (base!==c && /^[\u0020-\u007E\u00A0-\u00FF]+$/.test(base)) ? base : "?";
+  }
+  return out;
+}
+function pdfTestoWinAnsiDoc(d){
+  if(!d || d.__winansi) return d;
+  var puliscil=function(x){ return Array.isArray(x) ? x.map(pdfTestoWinAnsi) : pdfTestoWinAnsi(x); };
+  ["text","getTextWidth","splitTextToSize","getStringUnitWidth"].forEach(function(nome){
+    var orig=d[nome]; if(typeof orig!=="function") return;
+    d[nome]=function(){ var a=Array.prototype.slice.call(arguments); a[0]=puliscil(a[0]); return orig.apply(this,a); };
+  });
+  d.__winansi=true; return d;
+}
 function pdfTestoNeroInstalla(){
   var J=window.jspdf; if(!J || typeof J.jsPDF!=="function" || J.jsPDF.__testoNero) return;
   var Orig=J.jsPDF;
   var Avvolto=function(){
     var d=new (Function.prototype.bind.apply(Orig,[null].concat(Array.prototype.slice.call(arguments))))();
-    return pdfTestoNeroDoc(d);
+    return pdfTestoWinAnsiDoc(pdfTestoNeroDoc(d));
   };
   Object.keys(Orig).forEach(function(k){ Avvolto[k]=Orig[k]; });
   Avvolto.API=Orig.API; Avvolto.prototype=Orig.prototype; Avvolto.__testoNero=true;
