@@ -7,13 +7,13 @@
   <script>/* anti-clickjacking: incorniciata da un ALTRO sito, la pagina si nasconde e prova a uscire. Si nasconde PRIMA di provare a uscire: in Chrome l'uscita bloccata lancia (provato l'11/09), ma un browser che la rifiutasse in silenzio lascerebbe la pagina cliccabile, e nascondersi prima non costa niente. frame-ancestors dentro un <meta> il browser lo ignora, e GitHub Pages non manda header: questa è l'unica difesa. Stessa logica di /orchestre/src/frame.js. */try{if(window.self!==window.top){var _so=false;try{_so=window.top.location.origin===window.location.origin;}catch(_e){}if(!_so){document.documentElement.style.visibility="hidden";document.addEventListener("DOMContentLoaded",function(){var p=document.createElement("p");p.style.cssText="visibility:visible;font:16px/1.5 system-ui,sans-serif;padding:24px;max-width:34em";p.textContent="StagePlot non si apre dentro la pagina di un altro sito. ";var a=document.createElement("a");a.href=window.location.href;a.target="_top";a.rel="noopener";a.textContent="Aprila da sola";p.appendChild(a);document.body.replaceChildren(p);});try{window.top.location.replace(window.location.href);}catch(_e){}}}}catch(_e){}</script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Revisione stage plot e rider tecnico | StagePlot</title>
-  <meta name="description" content="Fai revisionare stage plot, input list e rider tecnico da un sound engineer: verifica, correzioni e documenti pronti per il service. Da 29 €.">
+  <meta name="description" content="L'app genera tutto gratis. Un sound engineer corregge il tuo progetto in 48 ore (29 €) o lo disegna da zero per te (da 149 €, su preventivo).">
   <meta name="author" content="Simone Castellan">
   <link rel="canonical" href="https://stageplot.it/consulenza/">
   <meta property="og:type" content="website">
   <meta property="og:locale" content="it_IT">
   <meta property="og:title" content="Revisione stage plot e rider tecnico">
-  <meta property="og:description" content="Un sound engineer revisiona e completa il tuo stage plot: verifica tecnica, correzioni, channel list, input list, rider ed email tecnica pronti per il service. Da 29 €.">
+  <meta property="og:description" content="Gratis: l'app genera palco, lista canali, monitor, elettrico e rider PDF. Revisione 29 €: un tecnico corregge il tuo progetto in 48 ore. Da 149 €: lo disegniamo noi, su preventivo.">
   <meta property="og:url" content="https://stageplot.it/consulenza/">
   <meta property="og:image" content="https://stageplot.it/preview.png?v=4">
   <meta property="og:image:width" content="1200">
@@ -21,7 +21,7 @@
   <meta property="og:image:alt" content="Esempio di stage plot in scala creato con StagePlot">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Revisione stage plot e rider tecnico">
-  <meta name="twitter:description" content="Un sound engineer revisiona stage plot, input list e rider e ti dà la documentazione pronta per il service. Da 29 €.">
+  <meta name="twitter:description" content="Gratis: genera tutto dall'app. Revisione 29 €: un tecnico corregge il tuo progetto in 48 ore. Da 149 €: lo disegniamo noi, su preventivo.">
   <meta name="twitter:image" content="https://stageplot.it/preview.png?v=4">
   <meta name="twitter:image:alt" content="Esempio di stage plot in scala creato con StagePlot">
   <meta name="robots" content="index,follow,max-image-preview:large">
@@ -294,6 +294,23 @@
 
     .card .btn { margin-top: auto; }
 
+    .glossary { max-width: 1100px; margin: 0 auto 18px; color: var(--muted); font-size: 15px; }
+    .glossary strong { color: var(--ink); }
+    .compare {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+      max-width: 1100px; margin: 0 auto 28px;
+    }
+    .cmp-col { border: 1px solid var(--line); border-radius: var(--r-lg); padding: 22px; background: var(--white); }
+    .cmp-col:nth-child(3) { border-color: var(--accent); }
+    .cmp-col h3 { margin: 0; font-size: 18px; }
+    .cmp-price { margin: 4px 0 12px; font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
+    .cmp-col dl { margin: 0; display: grid; gap: 2px; }
+    .cmp-col dt { margin-top: 10px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+    .cmp-col dd { margin: 0; font-size: 15px; color: var(--ink); }
+    .price .from { font-size: 16px; font-weight: 700; color: var(--muted); margin-right: 4px; }
+    a.btn.primary { text-decoration: none; text-align: center; }
+    @media (max-width: 900px) { .compare { grid-template-columns: 1fr; } }
+
     .reassure {
       max-width: 860px;
       margin: 18px auto 0;
@@ -489,15 +506,15 @@
         "@type": "BreadcrumbList",
         "itemListElement": [
           { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://stageplot.it/" },
-          { "@type": "ListItem", "position": 2, "name": "Consulenza Tecnica", "item": "https://stageplot.it/consulenza/" }
+          { "@type": "ListItem", "position": 2, "name": "Revisione e produzione tecnica", "item": "https://stageplot.it/consulenza/" }
         ]
       },
       {
         "@type": "Service",
         "name": "Revisione rider tecnico e stage plot",
-        "serviceType": "Revisione professionale e documentazione tecnica per spettacoli dal vivo (stage plot, channel list, input list, rider)",
+        "serviceType": "Revisione e produzione tecnica di stage plot e rider per spettacoli dal vivo",
         "url": "https://stageplot.it/consulenza/",
-        "description": "Un sound engineer revisiona e completa il tuo stage plot: verifica tecnica, correzioni, channel list, input list, rider ed email tecnica pronti per musicisti, service e produzione.",
+        "description": "L'app genera gratis palco, lista canali, monitor, elettrico e rider PDF. Un sound engineer può correggere il tuo progetto (revisione, 29 €, restituito entro 48 ore) oppure disegnarlo da zero dal tuo materiale (da 149 €, su preventivo).",
         "areaServed": "IT",
         "provider": {
           "@type": "Person",
@@ -509,11 +526,11 @@
         "offers": [
           {
             "@type": "Offer",
-            "name": "Consulenza Tecnica",
+            "name": "Revisione del progetto",
             "price": "29",
             "priceCurrency": "EUR",
             "url": "https://stageplot.it/consulenza/#offerte",
-            "description": "Verifica tecnica, correzioni e suggerimenti professionali sul tuo Stage Plot, con documento pronto per il service."
+            "description": "Un tecnico apre il tuo progetto, corregge direttamente errori e incongruenze (canali, monitor, DI, corrente) e te lo restituisce sistemato entro 48 ore. Il PDF lo esporti tu dall'app."
           },
           {
             "@type": "Offer",
@@ -525,11 +542,11 @@
           },
           {
             "@type": "Offer",
-            "name": "Produzione Tecnica Completa",
-            "price": "149",
+            "name": "Produzione tecnica",
+            "priceSpecification": { "@type": "PriceSpecification", "minPrice": "149", "priceCurrency": "EUR" },
             "priceCurrency": "EUR",
             "url": "https://stageplot.it/consulenza/#offerte",
-            "description": "Documentazione tecnica completa: stage plot definitivo, channel list, input list, rider tecnico, email tecnica e note di produzione."
+            "description": "Prezzo di partenza, con preventivo. Disegniamo noi il progetto da zero dal tuo materiale (vecchio rider, lista, descrizione). Non comprende chiamate alla band, mail al service né revisioni dopo il sopralluogo, salvo accordi."
           }
         ]
       },
@@ -538,38 +555,33 @@
         "mainEntity": [
           {
             "@type": "Question",
-            "name": "Devo creare io lo stage plot?",
-            "acceptedAnswer": { "@type": "Answer", "text": "Crei il tuo Stage Plot col tool gratuito, che disegna il palco in scala. Con la Consulenza Tecnica un sound engineer lo trasforma in documentazione pronta per service e produzione." }
+            "name": "Cosa fa l'app gratis e cosa si paga?",
+            "acceptedAnswer": { "@type": "Answer", "text": "L'app genera da sola il palco in scala, la lista dei canali del mixer (channel list e input list sono la stessa cosa), i monitor, l'elettrico e il rider in PDF, senza costi. Si paga solo il lavoro di una persona: la revisione del progetto (29 €) o il progetto disegnato da zero (da 149 €, su preventivo)." }
           },
           {
             "@type": "Question",
-            "name": "Cosa ricevo con la Consulenza Tecnica?",
-            "acceptedAnswer": { "@type": "Answer", "text": "Verifica tecnica, correzioni e suggerimenti professionali sul tuo Stage Plot, con un documento pronto per il service. Con la Produzione Tecnica Completa anche channel list, input list, rider ed email tecnica." }
+            "name": "Cosa ricevo con la Revisione da 29 €?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Un tecnico apre il tuo progetto, corregge direttamente errori e incongruenze (canali, monitor, DI, corrente) e te lo restituisce sistemato entro 48 ore. Non ricevi un PDF: il PDF lo esporti tu dall'app, quando vuoi." }
           },
           {
             "@type": "Question",
-            "name": "Cosa serve da parte mia?",
-            "acceptedAnswer": { "@type": "Answer", "text": "Accedi con Google, seleziona il tuo Stage Plot creato nel tool e richiedi la Consulenza Tecnica. Al resto pensiamo insieme al consulente." }
+            "name": "Cosa significa «da 149 €»?",
+            "acceptedAnswer": { "@type": "Answer", "text": "È il prezzo di partenza della produzione tecnica: lo stage plot lo disegniamo noi da zero, partendo dal tuo materiale (vecchio rider, lista, descrizione). Mandi il materiale, Simone conferma il prezzo e paghi solo dopo la conferma." }
           },
           {
             "@type": "Question",
-            "name": "In che formato ricevo la documentazione?",
-            "acceptedAnswer": { "@type": "Answer", "text": "Documentazione tecnica pronta per il service: stage plot in scala, channel e input list, rider ed email tecnica già scritta." }
+            "name": "Cosa non comprende la produzione tecnica?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Chiamate alla band, mail al service e revisioni dopo il sopralluogo, salvo accordi presi nel preventivo. Non comprende nemmeno il noleggio di attrezzatura né la presenza all'evento." }
+          },
+          {
+            "@type": "Question",
+            "name": "Cosa serve da parte mia per la revisione?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Accedi con Google, scegli il progetto salvato nell'app e richiedi la revisione." }
           },
           {
             "@type": "Question",
             "name": "Posso avere fattura?",
             "acceptedAnswer": { "@type": "Answer", "text": "Sì, su richiesta: indicala nella prima email con i dati di fatturazione." }
-          },
-          {
-            "@type": "Question",
-            "name": "In quanto tempo ricevo la documentazione?",
-            "acceptedAnswer": { "@type": "Answer", "text": "Entro 3 giorni lavorativi dalla conferma della richiesta. Se l'evento è vicino, indicalo nella prima email: i progetti con una data ravvicinata hanno la precedenza." }
-          },
-          {
-            "@type": "Question",
-            "name": "Cosa non è incluso nella consulenza?",
-            "acceptedAnswer": { "@type": "Answer", "text": "È una revisione tecnica documentale: non include il noleggio o la fornitura di attrezzatura, la presenza all'evento né la gestione tecnica dal vivo. Ricevi documentazione corretta e pronta da inviare a service e produzione." }
           }
         ]
       }
@@ -590,8 +602,8 @@
     <section class="hero-section">
       <div class="hero">
         <div>
-          <h1>Il tuo stage plot, pronto per il service.</h1>
-          <p class="lead">Crea gratuitamente il tuo stage plot. Quando ti serve la certezza che sia corretto e completo, un sound engineer revisiona stage plot, input list e rider e ti consegna la documentazione pronta per musicisti, service e produzione.</p>
+          <h1>Gratis lo fai tu. Se vuoi, lo facciamo noi.</h1>
+          <p class="lead">L&rsquo;app genera da sola palco, lista canali, monitor, elettrico e rider PDF, senza pagare. Se vuoi una persona che ci metta le mani, un sound engineer corregge il tuo progetto in 48 ore oppure lo disegna da zero per te.</p>
           <div class="hero-actions">
             <a class="btn primary" href="#offerte">Vedi le offerte</a>
             <a class="btn" href="/app/">Apri il Tool gratuito</a>
@@ -599,7 +611,7 @@
         </div>
         <div class="hero-right">
           <div id="heroPicker" hidden>
-            <span class="hero-q">Per quale progetto vuoi la Consulenza Tecnica?</span>
+            <span class="hero-q">Per quale progetto vuoi la revisione?</span>
             <select id="heroProject"></select>
           </div>
           <figure class="shot" id="heroArt" aria-label="Anteprima Stage Plot">
@@ -622,12 +634,12 @@
     <section id="come-funziona" class="dark-band">
       <div class="head">
         <h2>Come funziona</h2>
-        <p>Tre passaggi, accesso con Google. Dal palco disegnato alla documentazione tecnica.</p>
+        <p>Tre passaggi per la revisione, accesso con Google. Per la produzione tecnica basta una mail.</p>
       </div>
       <div class="steps">
         <div class="step"><div class="n">1</div><strong>Crea il tuo Stage Plot</strong><span>Col tool gratuito disegni il palco in scala e lo salvi col suo nome.</span></div>
-        <div class="step"><div class="n">2</div><strong>Richiedi la Consulenza Tecnica</strong><span>Accedi con Google, scegli il pacchetto e selezioni lo Stage Plot da inviare.</span></div>
-        <div class="step"><div class="n">3</div><strong>Ricevi la documentazione tecnica</strong><span>Stage plot definitivo e documenti pronti per musicisti, service e produzione.</span></div>
+        <div class="step"><div class="n">2</div><strong>Richiedi la revisione</strong><span>Accedi con Google e scegli il progetto da far controllare.</span></div>
+        <div class="step"><div class="n">3</div><strong>Ritrovi il progetto corretto</strong><span>Entro 48 ore lo stesso progetto, già sistemato. I PDF li esporti tu dall&rsquo;app.</span></div>
       </div>
     </section>
 
@@ -649,23 +661,60 @@
 
     <section id="offerte">
       <div class="head">
-        <h2>Scegli la consulenza tecnica</h2>
-        <p>Un solo pagamento. Accedi con Google. Seleziona il tuo Stage Plot. Richiedi la consulenza. Documentazione tecnica pronta per il service.</p>
+        <h2>Tre strade: gratis, revisione, produzione</h2>
+        <p>L&rsquo;app genera tutto da sola. Si paga solo quando una persona lavora per te.</p>
       </div>
+      <p class="glossary"><strong>Una parola sola:</strong> &laquo;channel list&raquo; e &laquo;input list&raquo; sono la stessa cosa, la lista dei canali del mixer (cosa entra su ogni canale). Nell&rsquo;app la trovi come <em>lista canali</em>.</p>
+
+      <div class="compare" id="confronto" role="group" aria-label="Confronto fra gratis, revisione e produzione tecnica">
+        <div class="cmp-col">
+          <h3>Gratis, fai da te</h3>
+          <p class="cmp-price">0 &euro;</p>
+          <dl>
+            <dt>Cosa fai tu</dt><dd>Disegni il palco nell&rsquo;app e scegli gli strumenti.</dd>
+            <dt>Cosa facciamo noi</dt><dd>Niente: l&rsquo;app genera da sola palco, lista canali, monitor, elettrico e rider PDF.</dd>
+            <dt>Cosa ricevi</dt><dd>Tutti i documenti, subito, senza filigrana.</dd>
+            <dt>Tempi</dt><dd>Immediati.</dd>
+            <dt>Limiti</dt><dd>Nessuno che ti controlli: errori e dimenticanze li trovi tu.</dd>
+          </dl>
+        </div>
+        <div class="cmp-col">
+          <h3>Revisione 29 &euro;</h3>
+          <p class="cmp-price">29 &euro;</p>
+          <dl>
+            <dt>Cosa fai tu</dt><dd>Disegni il progetto nell&rsquo;app e ce lo affidi.</dd>
+            <dt>Cosa facciamo noi</dt><dd>Un tecnico apre il tuo progetto e corregge direttamente errori e incongruenze (canali, monitor, DI, corrente).</dd>
+            <dt>Cosa ricevi</dt><dd>Il tuo progetto, sistemato, nell&rsquo;app.</dd>
+            <dt>Tempi</dt><dd>Entro 48 ore.</dd>
+            <dt>Limiti</dt><dd>Nessun PDF consegnato: il PDF lo esporti tu, quando vuoi.</dd>
+          </dl>
+        </div>
+        <div class="cmp-col">
+          <h3>Da 149 &euro; &mdash; lo disegniamo noi</h3>
+          <p class="cmp-price">da 149 &euro;</p>
+          <dl>
+            <dt>Cosa fai tu</dt><dd>Mandi il materiale che hai: vecchio rider, lista, descrizione.</dd>
+            <dt>Cosa facciamo noi</dt><dd>Disegniamo il progetto da zero.</dd>
+            <dt>Cosa ricevi</dt><dd>Il progetto pronto nell&rsquo;app, che puoi cambiare da solo.</dd>
+            <dt>Tempi</dt><dd>Li concordiamo nel preventivo.</dd>
+            <dt>Limiti</dt><dd>Prezzo di partenza, confermato con preventivo. Non comprende chiamate alla band, mail al service, revisioni dopo il sopralluogo, salvo accordi.</dd>
+          </dl>
+        </div>
+      </div>
+
       <div class="grid">
         <article class="card">
-          <span class="tag">Essenziale</span>
-          <h3>Consulenza Tecnica</h3>
+          <span class="tag">Revisione</span>
+          <h3>Revisione del progetto</h3>
           <p class="price">29 &euro;</p>
-          <p class="desc">Per chi ha già creato il palco e desidera una verifica professionale.</p>
+          <p class="desc">Hai gi&agrave; il progetto nell&rsquo;app e vuoi che un tecnico lo controlli e lo sistemi.</p>
           <ul>
-            <li>Verifica tecnica</li>
-            <li>Correzioni</li>
-            <li>Suggerimenti professionali</li>
-            <li>Stage Plot definitivo</li>
-            <li>Documento pronto per il service</li>
+            <li>Un tecnico apre il tuo progetto</li>
+            <li>Corregge direttamente errori e incongruenze: canali, monitor, DI, corrente</li>
+            <li>Ti restituisce il progetto sistemato entro 48 ore</li>
+            <li>Nessun PDF consegnato: lo esporti tu dall&rsquo;app</li>
           </ul>
-          <button class="btn primary" type="button" data-product="pro-review">Richiedi consulenza</button>
+          <button class="btn primary" type="button" data-product="pro-review">Richiedi la revisione</button>
         </article>
         <!-- «Rider pronto» (01/10/2026): il cliente manda quello che ha, riceve stage plot + channel list + rider.
              La card resta nascosta finché PAY["rider-pronto"] è vuoto: senza il link di pagamento non si vende. -->
@@ -683,25 +732,22 @@
           </ul>
           <button class="btn primary" type="button" data-product="rider-pronto">Richiedi il rider</button>
         </article>
-        <article class="card featured">
-          <span class="tag">&#11088; Consigliato</span>
-          <h3>Produzione Tecnica Completa</h3>
-          <p class="price">149 &euro;</p>
-          <p class="desc">Tutto il pacchetto Consulenza Tecnica, più la documentazione completa dell'evento.</p>
-          <p class="plus">Include tutto il pacchetto base, più:</p>
+        <article class="card featured" id="cardProduzione">
+          <span class="tag">Su preventivo</span>
+          <h3>Produzione tecnica</h3>
+          <p class="price"><span class="from">da</span> 149 &euro;</p>
+          <p class="desc">Lo disegniamo noi da zero, partendo dal tuo materiale. Prezzo di partenza: lo confermiamo con un preventivo.</p>
           <ul>
-            <li>Channel List</li>
-            <li>Input List</li>
-            <li>Rider Tecnico</li>
-            <li>Email tecnica pronta da inviare</li>
-            <li>Note di produzione</li>
-            <li>Documentazione completa</li>
+            <li>Mandi il materiale: vecchio rider, lista o descrizione</li>
+            <li>Disegniamo noi il progetto da zero</li>
+            <li>Simone conferma il prezzo e paghi solo dopo la conferma</li>
+            <li>Non comprende chiamate alla band, mail al service, revisioni dopo il sopralluogo, salvo accordi</li>
           </ul>
-          <button class="btn primary" type="button" data-product="production-pack">Ottieni il pacchetto completo</button>
+          <a class="btn primary" id="btnPreventivo" href="mailto:simone@stageplot.it?subject=Preventivo%20produzione%20tecnica&amp;body=Ciao%20Simone%2C%20vorrei%20un%20preventivo%20per%20la%20produzione%20tecnica.%0A%0AAllego%3A%20vecchio%20rider%20o%20lista%20canali%20(o%20descrizione%20qui%20sotto)%0ANumero%20di%20musicisti%3A%20%0AData%20e%20luogo%20(se%20ci%20sono)%3A%20%0A">Chiedi un preventivo</a>
         </article>
       </div>
-      <p class="reassure">Pagamento sicuro con Stripe (carta, Apple Pay, Google Pay). Consegna entro 3 giorni lavorativi dalla conferma della richiesta. Fattura su richiesta. Documentazione tecnica pronta per il service.</p>
-      <p class="presale">Una domanda prima di richiederla? <a href="mailto:castellansimone@gmail.com?subject=Domanda%20sulla%20Consulenza%20Tecnica">Scrivi direttamente a Simone</a>: risposta senza impegno.</p>
+      <p class="reassure">Revisione: pagamento sicuro con Stripe (carta, Apple Pay, Google Pay), fattura su richiesta. Produzione tecnica: nessun pagamento prima del preventivo.</p>
+      <p class="presale">Una domanda prima di richiederla? <a href="mailto:castellansimone@gmail.com?subject=Domanda%20su%20StagePlot">Scrivi direttamente a Simone</a>: risposta senza impegno.</p>
     </section>
 
     <section id="faq">
@@ -711,32 +757,28 @@
       </div>
       <div class="faq">
         <details>
-          <summary>Devo creare io lo stage plot?</summary>
-          <p>Crei il tuo Stage Plot col <a href="/app/">tool gratuito</a>, che disegna il palco in scala. Con la Consulenza Tecnica un sound engineer lo trasforma in documentazione pronta per service e produzione.</p>
+          <summary>Cosa fa l&rsquo;app gratis e cosa si paga?</summary>
+          <p>L&rsquo;app genera da sola il palco in scala, la lista dei canali del mixer (channel list e input list sono la stessa cosa), i monitor, l&rsquo;elettrico e il rider in PDF, senza costi. Si paga solo il lavoro di una persona: la revisione del progetto (29 &euro;) o il progetto disegnato da zero (da 149 &euro;, su preventivo).</p>
         </details>
         <details>
-          <summary>Cosa ricevo con la Consulenza Tecnica?</summary>
-          <p>Verifica tecnica, correzioni e suggerimenti professionali sul tuo Stage Plot, con un documento pronto per il service. Con la Produzione Tecnica Completa anche channel list, input list, rider ed email tecnica.</p>
+          <summary>Cosa ricevo con la Revisione da 29 &euro;?</summary>
+          <p>Un tecnico apre il tuo progetto, corregge direttamente errori e incongruenze (canali, monitor, DI, corrente) e te lo restituisce sistemato entro 48 ore. Non ricevi un PDF: il PDF lo esporti tu dall&rsquo;app, quando vuoi.</p>
         </details>
         <details>
-          <summary>Cosa serve da parte mia?</summary>
-          <p>Accedi con Google, seleziona il tuo Stage Plot creato nel tool e richiedi la Consulenza Tecnica. Al resto pensiamo insieme al consulente.</p>
+          <summary>Cosa significa &laquo;da 149 &euro;&raquo;?</summary>
+          <p>&Egrave; il prezzo di partenza della produzione tecnica: lo stage plot lo disegniamo noi da zero, partendo dal tuo materiale (vecchio rider, lista, descrizione). Mandi il materiale, Simone conferma il prezzo e paghi solo dopo la conferma.</p>
         </details>
         <details>
-          <summary>In che formato ricevo la documentazione?</summary>
-          <p>Documentazione tecnica pronta per il service: stage plot in scala, channel e input list, rider ed email tecnica già scritta.</p>
+          <summary>Cosa non comprende la produzione tecnica?</summary>
+          <p>Chiamate alla band, mail al service e revisioni dopo il sopralluogo, salvo accordi presi nel preventivo. Non comprende nemmeno il noleggio di attrezzatura n&eacute; la presenza all&rsquo;evento.</p>
+        </details>
+        <details>
+          <summary>Cosa serve da parte mia per la revisione?</summary>
+          <p>Accedi con Google, scegli il progetto salvato nell&rsquo;<a href="/app/">app</a> e richiedi la revisione.</p>
         </details>
         <details>
           <summary>Posso avere fattura?</summary>
-          <p>Sì, su richiesta: indicala nella prima email con i dati di fatturazione.</p>
-        </details>
-        <details>
-          <summary>In quanto tempo ricevo la documentazione?</summary>
-          <p>Entro 3 giorni lavorativi dalla conferma della richiesta. Se l'evento è vicino, indicalo nella prima email: i progetti con una data ravvicinata hanno la precedenza.</p>
-        </details>
-        <details>
-          <summary>Cosa non è incluso nella consulenza?</summary>
-          <p>È una revisione tecnica documentale: non include il noleggio o la fornitura di attrezzatura, la presenza all'evento né la gestione tecnica dal vivo. Ricevi documentazione corretta e pronta da inviare a service e produzione.</p>
+          <p>S&igrave;, su richiesta: indicala nella prima email con i dati di fatturazione.</p>
         </details>
       </div>
     </section>
@@ -749,7 +791,7 @@
         <a href="/app/">Tool gratuito</a>
         <a href="#faq">FAQ</a>
       </p>
-      <p>Pagamenti gestiti da Stripe: i dati della carta non passano né restano su questo sito. Ogni Consulenza Tecnica è personalizzata sulla richiesta.</p>
+      <p>Pagamenti gestiti da Stripe: i dati della carta non passano né restano su questo sito. Ogni revisione è fatta a mano sul progetto di chi la richiede.</p>
       <p>Servizi a cura di Simone Castellan &mdash; P. IVA 04196010245. I dati sono trattati per gestire la richiesta tramite i fornitori descritti nell’<a href="/privacy/">informativa privacy</a> (fra cui Supabase, Google, Stripe e Resend). &copy; 2026 StagePlot.</p>
     </div>
   </footer>
@@ -774,18 +816,6 @@
       <ul class="od-includes" id="odIncludes"></ul>
     </div>
 
-    <div class="od-upsell od-sec" id="odUpsell" hidden style="border-top:none">
-      <strong>Con 120 &euro; in più ricevi anche</strong>
-      <ul>
-        <li>Rider Tecnico</li>
-        <li>Channel List</li>
-        <li>Input List</li>
-        <li>Email tecnica pronta da inviare</li>
-        <li>Documentazione completa</li>
-      </ul>
-      <button class="btn small" type="button" id="odUpgrade">Passa al pacchetto completo</button>
-    </div>
-
     <button class="btn primary" type="button" id="odPay" style="margin-top:8px">Vai al pagamento</button>
     <p class="od-msg" id="odMsg" role="status"></p>
   </aside>
@@ -800,15 +830,15 @@
     var PAY = {
       "pro-review": "https://buy.stripe.com/9B64gzaJR7ZF7wifS67ok07",
       "rider-pronto": "",   /* Payment Link Stripe da 59 € da creare: finché è vuoto la card non si vede */
+      /* Dal 23/10/2026 nessun pulsante della pagina porta qui: la produzione tecnica si chiede con un preventivo (mailto), si paga dopo la conferma.
+         Il link resta per chi ha un accordo già preso (e perché la funzione create-consultation conosce ancora il prodotto). */
       "production-pack": "https://buy.stripe.com/aFa9AT9FN1Bh8AmgWa7ok08"
     };
     var META = {
-      "pro-review": { name: "Consulenza Tecnica", price: "29 €",
-        includes: ["Verifica tecnica", "Correzioni", "Suggerimenti professionali", "Stage Plot definitivo", "Documento pronto per il service"] },
+      "pro-review": { name: "Revisione del progetto", price: "29 €",
+        includes: ["Un tecnico apre il tuo progetto", "Corregge errori e incongruenze: canali, monitor, DI, corrente", "Progetto sistemato entro 48 ore", "Nessun PDF: lo esporti tu dall'app"] },
       "rider-pronto": { name: "Rider pronto", price: "59 €",
-        includes: ["Stage plot in scala, disegnato da noi", "Channel list e input list", "Rider tecnico pronto per il service", "Progetto apribile nel tool", "Consegna entro 48 ore"] },
-      "production-pack": { name: "Produzione Tecnica Completa", price: "149 €",
-        includes: ["Stage Plot definitivo", "Channel List", "Input List", "Rider Tecnico", "Email tecnica pronta da inviare", "Note di produzione", "Documentazione completa"] }
+        includes: ["Stage plot in scala, disegnato da noi", "Channel list e input list", "Rider tecnico pronto per il service", "Progetto apribile nel tool", "Consegna entro 48 ore"] }
     };
     (function(){ var c = document.getElementById("cardRiderPronto"); if (c && PAY["rider-pronto"]) c.hidden = false; })();
     if (!window.supabase || !window.supabase.createClient) return;
@@ -822,7 +852,6 @@
     var odProject = document.getElementById("odProject");
     var odEmpty = document.getElementById("odEmpty");
     var odIncludes = document.getElementById("odIncludes");
-    var odUpsell = document.getElementById("odUpsell");
     var odMsg = document.getElementById("odMsg");
     var currentProduct = null;
 
@@ -863,7 +892,6 @@
       odPack.textContent = m.name;
       odPrice.textContent = m.price;
       odIncludes.innerHTML = m.includes.map(function(x){ return "<li>" + esc(x) + "</li>"; }).join("");
-      odUpsell.hidden = (product !== "pro-review");
       odMsg.textContent = "";
     }
 
@@ -979,7 +1007,6 @@
     document.getElementById("orderClose").addEventListener("click", closeDrawer);
     overlay.addEventListener("click", closeDrawer);
     document.getElementById("odPay").addEventListener("click", pay);
-    document.getElementById("odUpgrade").addEventListener("click", function(){ fillDrawer("production-pack"); });
     var lb0 = document.getElementById("loginBtn");
     if (lb0) lb0.addEventListener("click", function(){ startLogin(null); });
 
