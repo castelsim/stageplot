@@ -1,3 +1,13 @@
+# 23/10/2026 (notte) — Landing: esemplare v4 dopo la terza revisione (ramo `esemplare-monitor`, PR #345, NON unita)
+
+- Batteria come nel progetto di partenza: 1 tom e timpano, 8 canali (overhead 7-8); il terzo tom della v4 era aggiunto solo per la numerazione ed è stato tolto. 61 ingressi, ogni coppia stereo su L dispari senza spare.
+- Violini I rinumerati: il leggio 1-2 (spalla) è quello al bordo del primo arco, subito a sinistra del podio.
+- Cartiglio: «39 leggii · 48 sedute», come la frase della landing («contata nel cartiglio del PDF»): leggio dei timpani e sedia dell'arpista sono elementi a sé (il disegno dei timpani e dell'arpa non li contava).
+- Elettrico: le linee che scendono passano in quinta (fuori dal rettangolo del palco), nessun cavo né treppiede al piede delle scalette del coro; quadro spostato più in basso nell'angolo a monte sinistro.
+- Rider: podio h 30-40 cm con ringhiera posteriore, quinte libere per almeno 1,2 m, side coro a 2,8-3 m, luci da leggio a LED a batteria della produzione, timpani e arpa a cura della produzione, DPA sullo strumento esterno del leggio.
+- Landing: «61 canali», alt dell'elettrico (presa in quinta, quadro nell'angolo), commento HTML senza riferimenti al progetto d'origine. Test aggiornati.
+- Non fatto: contrabbassi fuori dalle linee di vista dei fiati verso il direttore (provato col posizionatore, palco saturo: rimandato).
+
 # 23/10/2026 (sera) — Landing: esemplare v4 dopo la seconda revisione tecnica (ramo `esemplare-monitor`, PR #345, NON unita)
 
 - Archi ridisegnati su tre archi concentrici attorno al podio (disposizione americana: Violini I a sinistra con la spalla al leggio più vicino al direttore, Violini II al centro sinistra, viole al centro destra, violoncelli davanti a destra, contrabbassi in fila sul fondo), tutti rivolti al podio, nessun leggio sulla linea del podio, leggii doppi con l'ultimo singolo nelle sezioni dispari. Un canale DPA per leggio (63 ingressi in tutto, rider e channel list concordi).
