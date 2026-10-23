@@ -5,18 +5,16 @@
   LANDING DI PRODOTTO (radice del sito). L'editor sta su /app/ ed è generato da index.template.html
   via build.mjs: QUESTO file è scritto a mano e il build NON lo tocca.
 
-  «Regia di notte»: nero fumo #0a0e0e, pannelli #101616, testo #e9f1ef, teal #14b8a6 con alone,
-  ambra #d4a72c riservata al layer Luci, carta #ece5d3 solo nel «prima». Mono ovunque ci sono dati.
-  Interattività in vanilla JS inline, zero dipendenze, prefers-reduced-motion rispettato:
-    1. hero: chip CAVI/ELETTRICO/MONITOR + tooltip (mouse e tocco) + spotlight che segue il mouse
-    2. numeri della barra console che contano all'apertura
-    3. rider.pdf che si «digita» riga per riga quando entra in vista
-    4. comparatore PRIMA/DOPO col cursore: foglietto scarabocchiato vs rider generato
-    5. documenti a schede; la channel list è AGGANCIATA al disegno: riga ↔ elemento
-    6. pila isometrica con interruttori veri e contatore
-    7. reveal delle sezioni allo scroll; focus visibile per la tastiera
+  Rifatta il 23/10/2026 sulla bozza approvata dal proprietario: una promessa («Lo stage plot che il
+  service capisce»), un solo pulsante (Disegna il tuo palco), il rider vero al posto delle descrizioni.
+  Sei sezioni: apertura · tre passi · cosa riceve il service (#rider) · per chi · chi lo fa · domande + finale.
+  Stesso carattere e stessi colori di prima (nero fumo #0a0e0e, pannelli #101616, teal #14b8a6), scala più
+  piccola. Nessun framework, nessuna dipendenza, JS solo per il contatore delle visite in fondo.
+  Le immagini sono le pagine VERE del PDF d'esempio «Band rock 5 elementi» (guida/scheda-tecnica-band/),
+  in img/esempio-band-rock-*.jpg: se si rifà il PDF d'esempio vanno rifatte anche loro (ops/esempio-scheda-tecnica.cjs).
+  Marcatori ?from= sui link verso /app/: elenco chiuso, vincolato anche da un CHECK sul database
+  (migration 0036): nav, hero-modello (pulsante principale), finale.
 -->
-<html lang="it">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -56,14 +54,14 @@ addEventListener("hashchange", go);})();</script>
 <meta property="og:title" content="Stage plot online gratis, in scala: scheda tecnica e rider">
 <meta property="og:description" content="Disegni il palco in scala e scheda tecnica, channel list, elettrico e rider tecnico escono dal disegno. Gratis, nel browser, senza registrazione.">
 <meta property="og:url" content="https://stageplot.it/">
-<meta property="og:image" content="https://stageplot.it/preview.png?v=4">
+<meta property="og:image" content="https://stageplot.it/preview.png?v=5">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta property="og:image:alt" content="Esempio di stage plot in scala creato con StagePlot">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Stage plot online gratis, in scala: scheda tecnica e rider">
 <meta name="twitter:description" content="Disegni il palco in scala e scheda tecnica, channel list, elettrico e rider tecnico escono dal disegno. Gratis, nel browser, senza registrazione.">
-<meta name="twitter:image" content="https://stageplot.it/preview.png?v=4">
+<meta name="twitter:image" content="https://stageplot.it/preview.png?v=5">
 <meta name="twitter:image:alt" content="Esempio di stage plot in scala creato con StagePlot">
 <script type="application/ld+json">
 {
@@ -146,9 +144,9 @@ addEventListener("hashchange", go);})();</script>
       "inLanguage": "it",
       "isPartOf": { "@id": "https://stageplot.it/#website" },
       "about": { "@id": "https://stageplot.it/#app" },
-      "primaryImageOfPage": { "@type": "ImageObject", "url": "https://stageplot.it/img/editor.jpg", "width": 1400, "height": 643 },
+      "primaryImageOfPage": { "@type": "ImageObject", "url": "https://stageplot.it/img/esempio-band-rock-apertura.jpg", "width": 1600, "height": 1131 },
       "datePublished": "2026-08-08",
-      "dateModified": "2026-10-10"
+      "dateModified": "2026-10-23"
     },
     {
       "@type": "FAQPage",
@@ -157,18 +155,18 @@ addEventListener("hashchange", go);})();</script>
       "mainEntity": [
         {
           "@type": "Question",
-          "name": "Stage plot, scheda tecnica e rider tecnico: che differenza c'è?",
-          "acceptedAnswer": { "@type": "Answer", "text": "Lo stage plot è la pianta del palco in scala: dove stanno musicisti, strumenti, amplificatori, monitor e prese. La scheda tecnica, che i service chiamano rider tecnico, è il documento che lo accompagna: channel list, monitor, alimentazione e richieste per il concerto. Con StagePlot si disegna online il primo, e il resto esce in PDF dallo stesso disegno." }
-        },
-        {
-          "@type": "Question",
           "name": "Devo registrarmi?",
-          "acceptedAnswer": { "@type": "Answer", "text": "No: apri e disegni, e il progetto resta su questo computer anche se chiudi il browser. Prima di mandarlo scarica il PDF — quello è tuo e non dipende da noi. L'account, con Google, serve solo per ritrovare il progetto da un altro computer." }
+          "acceptedAnswer": { "@type": "Answer", "text": "No. Apri l'editor e disegni subito; il progetto resta salvato nel browser. L'accesso con Google serve solo per ritrovarlo su un altro dispositivo. Prima di mandarlo scarica il PDF: quello è tuo e non dipende da noi." }
         },
         {
           "@type": "Question",
-          "name": "Il service riesce ad aprire lo stage plot?",
-          "acceptedAnswer": { "@type": "Answer", "text": "Gli mandi un PDF o, con l'account, un link di sola lettura sempre aggiornato che si apre nel browser. Dall'altra parte non deve installare né imparare niente." }
+          "name": "È davvero gratis?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Sì: palco, channel list, monitor, elettrico e PDF sono gratis e senza filigrana. Si paga solo se vuoi che un tecnico corregga il progetto (29 €) o lo disegni per te (da 149 €, su preventivo): è la consulenza." }
+        },
+        {
+          "@type": "Question",
+          "name": "Il service riesce ad aprirlo?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Sì. Gli mandi il PDF oppure, con l'account, un link in sola lettura che si apre nel browser, anche dal telefono. Dall'altra parte non c'è niente da installare." }
         },
         {
           "@type": "Question",
@@ -177,18 +175,8 @@ addEventListener("hashchange", go);})();</script>
         },
         {
           "@type": "Question",
-          "name": "StagePlot è davvero gratis?",
-          "acceptedAnswer": { "@type": "Answer", "text": "Sì: editor, PDF ed export. Niente carta di credito, niente prova a tempo, nessuna filigrana sui documenti." }
-        },
-        {
-          "@type": "Question",
-          "name": "Serve saperci fare col disegno tecnico?",
-          "acceptedAnswer": { "@type": "Answer", "text": "No. Trascini strumenti veri sul palco; canali, watt e monitor li mette in fila l'editor. Se qualcosa manca, te lo segnala." }
-        },
-        {
-          "@type": "Question",
-          "name": "Da dove si parte se non si sa da dove partire?",
-          "acceptedAnswer": { "@type": "Answer", "text": "Da un palco vuoto: apri l'editor e posa uno strumento alla volta, in scala. Le guide per formazione (band, jazz combo, coro, orchestra, big band e altre) spiegano come disporre il palco." }
+          "name": "Stage plot, scheda tecnica e rider: che differenza c'è?",
+          "acceptedAnswer": { "@type": "Answer", "text": "Lo stage plot è la pianta del palco in scala. La scheda tecnica, che i service chiamano anche rider tecnico, aggiunge channel list, monitor, alimentazione e richieste per il concerto. Con StagePlot escono tutti dallo stesso disegno." }
         }
       ]
     }
@@ -197,1584 +185,280 @@ addEventListener("hashchange", go);})();</script>
 </script>
 <style>
   :root{
-    --bg:#0a0e0e; --panel:#101616; --panel2:#0d1313; --line:#1f2a29; --line2:#2b3a38;
-    --text:#e9f1ef; --mut:#8ca39e; --teal:#14b8a6; --teal-l:#2dd4bf; --teal-d:#0d9488;
-    --amber:#d4a72c; --glow:rgba(20,184,166,.16);
+    --bg:#0a0e0e; --panel:#101616; --line:#1f2a29; --line2:#2b3a38;
+    --text:#e9f1ef; --mut:#8ca39e; --teal:#14b8a6; --teal-l:#2dd4bf; --ink:#0b2b27;
+    --paper:#fbfaf6; --paper-ink:#1f2421; --paper-mut:#6c726e;
     --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
     --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-    --hand:"Bradley Hand","Segoe Print","Comic Sans MS",cursive;
+    color-scheme:dark;
   }
-  *{margin:0;padding:0;box-sizing:border-box}
+  *{box-sizing:border-box}
   html{scroll-behavior:smooth}
-  body{background:var(--bg);color:var(--text);font-family:var(--font);-webkit-font-smoothing:antialiased;line-height:1.55;overflow-x:hidden}
-  .wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+  body{margin:0;background:var(--bg);color:var(--text);font:16px/1.6 var(--font);-webkit-font-smoothing:antialiased;
+    padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+  body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--bg)}
   a{color:inherit}
-  button{font-family:inherit}
-  a:focus-visible,button:focus-visible,.ba-range:focus-visible ~ .ba-divider{outline:2px solid var(--teal);outline-offset:3px;border-radius:4px}
-
-  .rv{opacity:0;transform:translateY(18px);transition:opacity .55s ease,transform .55s ease}
-  .rv.in{opacity:1;transform:none}
-  @media (prefers-reduced-motion: reduce){
-    .rv{opacity:1;transform:none;transition:none}
-    .tl{opacity:1 !important;transform:none !important}
-    html{scroll-behavior:auto}
+  .wrap{max-width:1080px;margin:0 auto}
+  .skip{position:absolute;left:-9999px;top:8px;z-index:20;background:var(--teal);color:var(--ink);padding:8px 14px;border-radius:8px;font-weight:650}
+  .skip:focus{left:16px}
+  header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);
+    -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  header .wrap{display:flex;align-items:center;justify-content:space-between;padding-block:12px}
+  .logo{display:flex;gap:9px;align-items:center;font-weight:700;font-size:15px;letter-spacing:-.01em;text-decoration:none}
+  .btn{display:inline-flex;align-items:center;justify-content:center;border-radius:10px;font-weight:650;text-decoration:none;
+    transition:transform .15s ease,background .15s ease}
+  .btn:focus-visible,a:focus-visible,summary:focus-visible,.pagine:focus-visible{outline:2px solid var(--teal-l);outline-offset:3px}
+  .btn-s{font-size:13.5px;padding:8px 14px;background:var(--teal);color:var(--ink)}
+  .btn-l{font-size:15.5px;padding:13px 22px;background:var(--teal);color:var(--ink)}
+  .btn:hover{transform:translateY(-1px);background:var(--teal-l)}
+  section{padding-block:56px;border-bottom:1px solid var(--line);scroll-margin-top:56px}
+  .eyebrow{font:12px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--teal-l);margin:0 0 14px}
+  h1,h2,h3{text-wrap:balance;letter-spacing:-.02em;margin:0}
+  h1{font-size:clamp(30px,5.2vw,48px);line-height:1.08;font-weight:750}
+  h1 em{font-style:normal;color:var(--teal-l)}
+  h2{font-size:clamp(22px,3.4vw,30px);line-height:1.18;font-weight:720;margin-bottom:10px}
+  h3{font-size:16.5px;font-weight:680;letter-spacing:-.01em}
+  .lead{color:var(--mut);font-size:clamp(15.5px,1.7vw,17px);max-width:58ch;margin:16px 0 24px}
+  .lead b{color:var(--text);font-weight:600}
+  .cta{display:flex;flex-wrap:wrap;align-items:center;gap:14px 20px}
+  .cta .sec{font-size:14.5px;color:var(--mut);text-underline-offset:4px}
+  .cta .sec:hover{color:var(--text)}
+  .fatti{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:16px;font:12.5px/1.4 var(--mono);color:var(--mut)}
+  .fatti span::before{content:"✓ ";color:var(--teal-l)}
+  .hero{padding-top:44px}
+  .foglio{margin:34px 0 0;background:var(--paper);border-radius:12px;padding:14px 14px 10px;box-shadow:0 30px 60px -30px #000,0 0 0 1px var(--line2)}
+  .foglio img{display:block;width:100%;height:auto;border-radius:4px}
+  .foglio figcaption{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 12px;color:var(--paper-mut);font:11.5px/1.4 var(--mono);padding:8px 2px 0;border-top:1px solid #e7e4dc;margin-top:8px}
+  .foglio figcaption b{color:var(--paper-ink);font-weight:600}
+  .sub{color:var(--mut);max-width:60ch;margin:0}
+  .passi{list-style:none;padding:0;margin:28px 0 0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;counter-reset:p}
+  .passi li{border:1px solid var(--line);border-radius:12px;padding:18px;background:var(--panel);counter-increment:p}
+  .passi li::before{content:counter(p);display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;
+    border:1px solid var(--teal);color:var(--teal-l);font:12px var(--mono);margin-bottom:10px}
+  .passi p{color:var(--mut);margin:6px 0 0;font-size:14.5px}
+  .pagine{display:grid;grid-template-columns:1.414fr 1fr 1fr 1fr;gap:14px;margin:28px 0 0;padding:0}
+  .pagine figure{margin:0;min-width:0}
+  .pagine a{display:block;background:var(--paper);border-radius:8px;overflow:hidden;box-shadow:0 0 0 1px var(--line2);transition:transform .15s ease}
+  .pagine a:hover{transform:translateY(-2px)}
+  .pagine img{display:block;width:100%;height:auto}
+  .pagine figcaption{font:11.5px/1.4 var(--mono);color:var(--mut);margin-top:8px}
+  .pagine figcaption b{color:var(--text);font-weight:600}
+  .didascalia{color:var(--mut);font-size:14.5px;margin:18px 0 0;max-width:62ch}
+  .link-rider{display:flex;flex-wrap:wrap;gap:8px 22px;margin:14px 0 0;font-size:14.5px}
+  .link-rider a{color:var(--teal-l);text-underline-offset:4px}
+  .chi{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin-top:24px}
+  .chi div{border-top:2px solid var(--teal);padding-top:12px}
+  .chi p{color:var(--mut);margin:6px 0 0;font-size:14.5px}
+  .regole{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:28px;align-items:start}
+  .regole ul{list-style:none;padding:0;margin:0;display:grid;gap:10px}
+  .regole li{display:grid;grid-template-columns:auto 1fr;gap:10px;font-size:14.5px;color:var(--mut)}
+  .regole li b{color:var(--text);font-weight:600}
+  .regole li::before{content:"";width:8px;height:8px;margin-top:8px;border-radius:2px;background:var(--teal)}
+  details{border-bottom:1px solid var(--line);padding-block:14px}
+  summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:12px}
+  summary::-webkit-details-marker{display:none}
+  summary h3{font-size:16px;font-weight:620;letter-spacing:0}
+  summary::after{content:"+";color:var(--teal-l);font:18px/1 var(--mono)}
+  details[open] summary::after{content:"–"}
+  details p{color:var(--mut);margin:8px 0 0;max-width:62ch;font-size:15px}
+  details p a{color:var(--text);text-underline-offset:3px}
+  .finale{border-bottom:0}
+  footer{padding-block:28px 40px;color:var(--mut);font-size:13.5px;border-top:1px solid var(--line)}
+  footer .wrap{display:grid;gap:18px}
+  footer .gruppo{display:flex;flex-wrap:wrap;gap:4px 16px;align-items:baseline}
+  footer .gruppo span{font:11.5px/1.4 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--teal-l);flex:0 0 100%}
+  footer a{text-decoration:none}
+  footer a:hover{color:var(--text);text-decoration:underline}
+  footer .firma{font-size:12.5px}
+  @media (max-width:760px){
+    section{padding-block:36px}
+    .hero{padding-top:24px}
+    .foglio{margin-top:24px;padding:10px 10px 8px}
+    .foglio .ritaglio{overflow:hidden;aspect-ratio:8/5;border-radius:4px}
+    .foglio .ritaglio img{width:176%;max-width:none;margin:-20% 0 0 -38%;border-radius:0}
+    .passi,.chi,.regole{grid-template-columns:1fr}
+    .passi{gap:10px;margin-top:20px}
+    .passi li{padding:14px 16px}
+    .passi li::before{float:left;margin:0 12px 0 0}
+    .passi p{margin-top:4px}
+    .chi{gap:16px}
+    .pagine{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:12px;margin-inline:-16px;padding:2px 16px 10px;scrollbar-width:thin}
+    .pagine figure{flex:0 0 64%;scroll-snap-align:center}
+    .pagine figure:first-child{flex-basis:88%}
+    .regole{gap:18px}
   }
-
-  nav{position:sticky;top:0;background:rgba(10,14,14,.82);backdrop-filter:blur(12px);border-bottom:1px solid var(--line);z-index:10}
-  .nav-in{display:flex;align-items:center;justify-content:space-between;gap:18px;height:60px}
-  .logo{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:-.02em;font-size:17px;text-decoration:none;flex:0 0 auto}
-  .nav-links{display:flex;gap:26px;font-size:14px;color:var(--mut)}
-  .nav-links a{text-decoration:none;transition:color .15s}
-  .nav-links a:hover{color:var(--text)}
-  @media(max-width:940px){.nav-links{display:none}}
-  .nav-cta{font-size:14px;font-weight:600;text-decoration:none;background:var(--teal);color:#04211d;padding:9px 18px;border-radius:8px;transition:filter .15s;flex:0 0 auto}
-  .nav-cta:hover{filter:brightness(1.12)}
-
-  header{padding:72px 0 84px;position:relative;overflow:hidden;
-    background:
-      radial-gradient(900px 420px at 50% -160px, var(--glow), transparent 70%),
-      radial-gradient(700px 300px at 85% 30%, rgba(20,184,166,.05), transparent 70%)}
-  .kicker{font-family:var(--mono);font-size:12.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--teal);margin-bottom:20px}
-  /* Il claim era stato abbassato a 68px perché quello vecchio («Il rider si costruisce da solo»)
-     a 96px faceva tre righe e spingeva la schermata dell'editor sotto la piega. Da oggi è corto —
-     due righe da 17 e 9 caratteri — e può risalire senza rischio: misurato a 390px, 768px e 1440px.
-     «in scala» è scritto MINUSCOLO nel sorgente e reso maiuscolo dal CSS, per tre motivi: il
-     letter-spacing negativo dell'h1 chiuderebbe le lettere maiuscole fino a impastarle (qui è
-     riaperto), alcuni screen reader compitano le parole tutte maiuscole nel testo, e la resa
-     resta una scelta grafica che si cambia in una riga. */
-  h1{font-size:clamp(40px,6.2vw,84px);line-height:1.02;letter-spacing:-.028em;font-weight:800;max-width:19ch}
-  h1 .scala{color:var(--teal-l);text-transform:uppercase;letter-spacing:.012em}
-  h1 .kicker{display:block;font-weight:400;line-height:1.5;max-width:none}
-  .sub{margin-top:24px;font-size:clamp(17px,2vw,20px);color:var(--mut);max-width:54ch}
-  .sub b{color:var(--text);font-weight:600}
-  .cta-row{margin-top:32px;display:flex;gap:18px;align-items:center;flex-wrap:wrap}
-  .btn{display:inline-block;background:var(--teal);color:#04211d;font-weight:700;font-size:17px;padding:15px 30px;border-radius:10px;text-decoration:none;box-shadow:0 0 34px rgba(20,184,166,.28);transition:filter .15s,transform .15s}
-  .btn:hover{filter:brightness(1.1);transform:translateY(-1px)}
-  .btn2{display:inline-block;background:transparent;color:var(--text);font-weight:600;font-size:16px;padding:14px 26px;border:1px solid var(--line2);border-radius:10px;text-decoration:none;transition:border-color .18s,color .18s}
-  .btn2:hover{border-color:var(--teal-d);color:var(--teal-l)}
-  .ghost{font-size:15px;color:var(--mut);text-decoration:none;border-bottom:1px solid var(--line2)}
-  .ghost:hover{color:var(--text)}
-  .trust{margin-top:22px;font-family:var(--mono);font-size:13px;color:var(--mut)}
-  /* la definizione sotto la schermata: deve leggersi come una didascalia lunga, non come un secondo
-     sottotitolo che compete con l'H1 */
-  .def{margin-top:34px;max-width:74ch;color:var(--mut);font-size:15.5px;line-height:1.75}
-  .def b{color:var(--text);font-weight:600}
-  @media(max-width:700px){.def{margin-top:26px;font-size:14.5px}}
-  .trust span{color:var(--teal)}
-
-  .console{margin-top:78px;border:1px solid var(--line2);border-radius:16px;background:var(--panel);overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.5), 0 0 0 1px rgba(20,184,166,.06);position:relative}
-  .spot{position:absolute;inset:0;pointer-events:none;opacity:0;transition:opacity .3s;z-index:1;
-    background:radial-gradient(340px circle at var(--mx,50%) var(--my,50%), rgba(45,212,191,.07), transparent 70%)}
-  .console:hover .spot{opacity:1}
-  .con-bar{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 18px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12px;color:var(--mut);flex-wrap:wrap;position:relative;z-index:2}
-  .con-bar em{font-style:normal;color:var(--teal)}
-  .con-bar b{color:var(--teal-l);font-weight:500}
-  .dots{display:flex;gap:6px}
-  .dots i{width:9px;height:9px;border-radius:50%;background:#223230;display:block}
-  .chips{display:flex;gap:8px;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line);flex-wrap:wrap;position:relative;z-index:2}
-  .chips .lab{font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--mut);margin-right:6px}
-  .chip{font-family:var(--mono);font-size:12px;letter-spacing:.06em;background:#0a1211;color:var(--mut);border:1px solid var(--line2);border-radius:999px;padding:8px 16px;cursor:pointer;transition:all .18s}
-  .chip:hover{color:var(--text)}
-  .chip[aria-pressed="true"]{background:rgba(20,184,166,.12);border-color:var(--teal-d);color:var(--teal-l)}
-  .chip[aria-pressed="true"]::before{content:"● ";font-size:9px;vertical-align:1px}
-  .hint{font-family:var(--mono);font-size:11.5px;color:var(--mut);margin-left:auto}
-  .touch{display:none}
-  @media(max-width:700px){.hint{margin-left:0;width:100%}.mouse{display:none}.touch{display:inline}}
-  .console svg{display:block;width:100%;height:auto}
-  #ly-cavi,#ly-elet,#ly-mon{transition:opacity .35s ease}
-  .off{opacity:0 !important;pointer-events:none}
-  [data-tip]{cursor:pointer}
-  [data-tip]:hover{filter:brightness(1.3)}
-  #tip{position:fixed;z-index:50;background:#0c1514;border:1px solid var(--teal-d);color:var(--text);
-    font-family:var(--mono);font-size:12px;padding:8px 12px;border-radius:8px;pointer-events:none;
-    box-shadow:0 8px 30px rgba(0,0,0,.6);opacity:0;transition:opacity .12s;max-width:260px;line-height:1.5}
-  #tip b{color:var(--teal-l);font-weight:500}
-
-  section{padding:110px 0;border-top:1px solid var(--line);scroll-margin-top:60px}
-  .tinted{background:#0c1211}
-  @media(max-width:760px){section{padding:72px 0}}
-  .sec-k{font-family:var(--mono);font-size:12.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--teal)}
-  h2{font-size:clamp(30px,4.4vw,50px);letter-spacing:-.028em;line-height:1.06;font-weight:800;margin-top:14px;max-width:24ch}
-  .lead{margin-top:18px;color:var(--mut);font-size:18px;max-width:56ch}
-  .lead b{color:var(--text)}
-
-  .steps{margin-top:60px;display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
-  @media(max-width:1080px){.steps{grid-template-columns:repeat(2,1fr)}}
-  @media(max-width:560px){.steps{grid-template-columns:1fr}}
-  .step{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:28px 24px 30px;transition:border-color .2s,transform .2s}
-  .step:hover{border-color:var(--line2);transform:translateY(-2px)}
-  .step-n{font-family:var(--mono);font-size:13px;color:var(--teal)}
-  .step h3{margin-top:12px;font-size:20px;letter-spacing:-.014em}
-  .step p{margin-top:10px;color:var(--mut);font-size:15px}
-
-  .term{margin-top:60px;border:1px solid var(--line2);border-radius:14px;background:var(--panel2);overflow:hidden;font-family:var(--mono)}
-  .term-h{padding:11px 18px;border-bottom:1px solid var(--line);font-size:12px;color:var(--mut);display:flex;justify-content:space-between}
-  .term-b{padding:26px 28px;font-size:13.5px;line-height:2.05;color:var(--mut);overflow-x:auto}
-  /* su telefono le righe erano 523px dentro 336: si leggeva «…patch de» e il resto stava in uno
-     scroll orizzontale che nessuno vede. Vanno a capo, rientrate sotto il «PAG n · ». */
-  @media(max-width:760px){
-    .term-b{padding:20px 16px;font-size:11.5px;line-height:1.9;overflow-x:hidden}
-    .term-b .tl{white-space:normal;padding-left:4.8em;text-indent:-4.8em}
-  }
-  .term-b b{color:var(--text);font-weight:500}
-  .term-b .t{color:var(--teal)}
-  .ok{color:var(--teal)}
-  .tl{opacity:0;transform:translateX(-8px);transition:opacity .3s ease,transform .3s ease;white-space:nowrap}
-  .tl.on{opacity:1;transform:none}
-  .cursor::after{content:"▌";color:var(--teal);animation:blink 1s steps(1) infinite}
-  @keyframes blink{50%{opacity:0}}
-  @media (prefers-reduced-motion: reduce){.cursor::after{animation:none}}
-
-  /* ---------- PRIMA / DOPO ---------- */
-  .ba{margin-top:60px;position:relative;border-radius:16px;overflow:hidden;border:1px solid var(--line2);
-    height:clamp(340px,46vw,460px);user-select:none;-webkit-user-select:none}
-  .ba-pane{position:absolute;inset:0}
-  .ba-before{background:
-      radial-gradient(120px 90px at 78% 84%, rgba(139,94,60,.16), transparent 70%),
-      linear-gradient(160deg,#efe8d6,#e6ddc6)}
-  .ba-before svg{display:block;width:100%;height:100%}
-  /* mini rider dentro il DOPO */
-  /* Il pannello «dopo» è ritagliato DA SINISTRA (clip-path inset a --cut): senza trascinare si vede
-     solo la sua metà destra. Col disegno a sinistra, la cosa che convince — il palco in scala con i
-     canali — restava sempre coperta, e alla prima occhiata si vedeva una colonna di testo.
-     Invertite le colonne: il disegno sta a destra, cioè nella metà che si vede subito. */
-  .mini-rider{position:absolute;inset:0;display:grid;grid-template-columns:1fr 1.1fr;gap:0}
-  .mini-rider .mr-l{order:2;border-left:1px solid var(--line);padding:22px 20px;display:flex;flex-direction:column}
-  .mini-rider .mr-r{order:1}
-  /* padding-right: con il disegno passato a destra, l'intestazione finisce sotto il badge DOPO
-     (che sta a right:14px) e «pag. 1/5» si legge «paDOPO5». Le si lascia lo spazio del badge. */
-  .mr-h{font-family:var(--mono);font-size:11px;color:var(--mut);display:flex;justify-content:space-between;border-bottom:1px solid var(--line);padding-bottom:9px;padding-right:78px}
-  .mr-h b{color:var(--teal-l);font-weight:500}
-  .mini-rider svg{flex:1;min-height:0;display:block;width:100%;height:100%}
-  .mr-r{padding:22px 20px;font-family:var(--mono);font-size:12px;color:var(--mut);overflow:hidden}
-  .mr-row{display:flex;gap:10px;padding:7px 0;border-bottom:1px solid #151f1e;white-space:nowrap}
-  .mr-row i{font-style:normal;color:var(--teal-l);width:20px;flex:0 0 auto}
-  .mr-row b{color:var(--text);font-weight:500;width:104px;flex:0 0 auto}
-  .mr-foot{margin-top:12px;font-size:11px;color:var(--mut)}
-  .mr-foot .ok{color:var(--teal-l)}
-  /* «pag. 1/5» finiva esattamente sotto il badge DOPO, che sta in alto a destra: su telefono
-     resta solo «SCHEDA TECNICA», che è l'unica parte che serve leggere lì. */
-  @media(max-width:760px){
-    .mini-rider{grid-template-columns:1fr}
-    .mini-rider .mr-r{display:none}
-    /* l'intestazione scende sotto il badge DOPO e si allinea a destra: a sinistra del cursore
-       finirebbe sotto il foglietto, cioè invisibile. */
-    .mini-rider .mr-l{border-left:0;padding-top:46px}
-    /* su telefono l'intestazione sta SOTTO il badge (padding-top sopra), non accanto: lo spazio
-       riservato al badge non serve, e anzi spingerebbe il testo a cavallo del taglio del cursore */
-    .mr-h{justify-content:flex-end;padding-right:0}
-    .mr-meta{display:none}
-  }
-  .ba-after{background:var(--panel2);clip-path:inset(0 0 0 var(--cut,45%))}
-  .ba-divider{position:absolute;top:0;bottom:0;left:var(--cut,45%);width:2px;background:var(--teal);z-index:3;
-    box-shadow:0 0 18px rgba(20,184,166,.55)}
-  .ba-divider::after{content:"⇄";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
-    background:var(--teal);color:#04211d;font-size:16px;line-height:1;font-weight:700;
-    padding:8px 10px;border-radius:999px;white-space:nowrap}
-  .ba-range{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:ew-resize;z-index:4;margin:0;touch-action:pan-y}
-  .ba-tag{position:absolute;top:14px;font-family:var(--mono);font-size:11px;letter-spacing:.14em;padding:6px 12px;border-radius:999px;z-index:2}
-  .ba-tag.prima{left:14px;background:rgba(58,52,40,.85);color:#efe8d6}
-  .ba-tag.dopo{right:14px;background:rgba(20,184,166,.15);border:1px solid var(--teal-d);color:var(--teal-l)}
-  .ba-caption{margin-top:16px;display:grid;grid-template-columns:1fr 1fr;gap:12px 24px;font-family:var(--mono);font-size:12.5px;color:var(--mut)}
-  .ba-caption span:last-child{text-align:right}
-  @media(max-width:760px){.ba-caption{grid-template-columns:1fr}.ba-caption span:last-child{text-align:left}}
-  .ba-caption b{color:var(--teal-l);font-weight:500}
-
-  /* ---------- documenti a schede ---------- */
-  .tabs{margin-top:60px}
-  .tab-row{display:flex;gap:8px;flex-wrap:wrap}
-  .tab{font-family:var(--mono);font-size:13px;background:transparent;color:var(--mut);border:1px solid var(--line2);border-radius:10px 10px 0 0;border-bottom:none;padding:11px 22px;cursor:pointer;transition:all .18s;position:relative;top:1px}
-  .tab:hover{color:var(--text)}
-  .tab[aria-selected="true"]{background:var(--panel);color:var(--teal-l);border-color:var(--line2)}
-  .panel{display:none;border:1px solid var(--line2);border-radius:0 14px 14px 14px;background:var(--panel);overflow:hidden}
-  .panel.show{display:block}
-  .panel-h{padding:12px 18px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:12px;color:var(--mut);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
-  .tblwrap{overflow-x:auto}
-  table{width:100%;border-collapse:collapse;font-size:13.5px}
-  th{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);text-align:left;padding:11px 16px;border-bottom:1px solid var(--line);font-weight:500}
-  td{padding:10px 16px;border-bottom:1px solid #151f1e}
-  tr:last-child td{border-bottom:0}
-  tbody tr{transition:background .15s;cursor:default}
-  tbody tr:hover,tbody tr.hl{background:#152321}
-  td.n{font-family:var(--mono);color:var(--teal-l);width:38px}
-  td.m{font-family:var(--mono);font-size:12.5px;color:var(--mut)}
-  /* La colonna 48V (22/08): l'input list deve dire QUALI canali vogliono il phantom — e' fra gli
-     essenziali secondo ProSoundWeb e SoundGirls, e l'editor la colonna ce l'ha dal 28/07. Sta
-     stretta apposta: la tabella a 390px aveva gia' un problema di larghezza (vedi sotto), e questa
-     e' una colonna che porta un solo bit. Il «48V» acceso e' teal, lo spento e' un trattino. */
-  th.p48h,td.p48{width:52px;text-align:center;padding-left:6px;padding-right:6px}
-  td.p48 .on{font-family:var(--mono);font-size:10.5px;letter-spacing:.02em;color:var(--teal-l);
-    border:1px solid rgba(45,212,191,.34);border-radius:5px;padding:2px 5px;white-space:nowrap}
-  /* a 390px la tabella misurava 385px dentro 336: la colonna «Monitor» restava mozzata oltre il
-     bordo, e lo scroll orizzontale che l'avrebbe recuperata non si vede. Celle più strette. */
-  @media(max-width:760px){
-    th,td{padding-left:8px;padding-right:8px}
-    table{font-size:12.5px}
-    td.m,th{font-size:11px}
-    td.n{width:22px}
-  }
-  .ch-split{display:grid;grid-template-columns:1.25fr 1fr;align-items:stretch}
-  .ch-plot{border-left:1px solid var(--line);padding:18px;display:flex;flex-direction:column;gap:10px}
-  .ch-plot svg{display:block;width:100%;height:auto}
-  .ch-plot .cap{font-family:var(--mono);font-size:11.5px;color:var(--mut);text-align:center}
-  .ch-plot .cap b{color:var(--teal-l);font-weight:500}
-  @media(max-width:820px){.ch-split{grid-template-columns:1fr}.ch-plot{border-left:0;border-top:1px solid var(--line)}}
-  .el{transition:opacity .2s}
-  .el .shape{stroke:#d7e6e2;transition:stroke .15s}
-  svg.dimmed .el{opacity:.28}
-  svg.dimmed .el.hl{opacity:1}
-  .el.hl .shape{stroke:#2dd4bf}
-  .kw{padding:26px 22px}
-  .kw-row{display:grid;grid-template-columns:110px 1fr 70px;align-items:center;gap:14px;margin-bottom:18px;font-size:13.5px}
-  .kw-row:last-child{margin-bottom:0}
-  .kw-lab{font-family:var(--mono);font-size:12px;color:var(--mut)}
-  .kw-bar{height:10px;border-radius:5px;background:#0a1211;border:1px solid var(--line);overflow:hidden}
-  .kw-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--teal-d),var(--teal-l));border-radius:5px;width:0;transition:width 1s cubic-bezier(.2,.7,.2,1)}
-  .show .kw-bar i{width:var(--w)}
-  @media (prefers-reduced-motion: reduce){.kw-bar i{transition:none;width:var(--w)}}
-  .kw-val{font-family:var(--mono);font-size:12.5px;text-align:right}
-  .kw-tot{margin-top:22px;padding-top:18px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:10px;font-family:var(--mono);font-size:13px;flex-wrap:wrap}
-  .kw-tot b{color:var(--teal-l)}
-
-  .layer-grid{margin-top:60px;display:grid;grid-template-columns:1fr 1fr;gap:44px;align-items:center}
-  @media(max-width:900px){.layer-grid{grid-template-columns:1fr}}
-  .layer-list{display:flex;flex-direction:column;gap:6px}
-  .lrow{display:flex;align-items:center;gap:14px;padding:15px 18px;background:transparent;border:1px solid transparent;border-radius:12px;font-size:15.5px;color:var(--text);cursor:pointer;text-align:left;width:100%;transition:all .2s}
-  .lrow:hover{border-color:var(--line)}
-  .lrow[aria-pressed="true"]{background:var(--panel);border-color:var(--line2)}
-  .lrow .sw{width:34px;height:19px;border-radius:10px;background:#1c2827;position:relative;flex:0 0 auto;transition:background .2s}
-  .lrow .sw::after{content:"";position:absolute;top:2.5px;left:3px;width:14px;height:14px;border-radius:50%;background:#4a5f5c;transition:left .2s,background .2s}
-  .lrow[aria-pressed="true"] .sw{background:var(--teal-d)}
-  .lrow[aria-pressed="true"] .sw::after{left:17px;background:#eafffb}
-  .lrow small{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--mut)}
-  .lcount{margin-top:18px;font-family:var(--mono);font-size:12.5px;color:var(--teal-l)}
-  .stack svg{display:block;width:100%;height:auto}
-  /* spegnere l'intero gruppo al 10% rendeva illeggibili anche le etichette (CABLAGGIO, LUCI,
-     RF & RETE): sembrava un errore di rendering, non un layer spento. Il disegno si spegne,
-     il nome resta leggibile — è così che si legge una pila di livelli. */
-  .plane .fader>*{transition:opacity .4s ease}
-  .plane.ghost .fader>:not(text){opacity:.12}
-  .plane.ghost .fader>text{opacity:.45}
-
-  /* --- Hero: schermata vera dell'editor --- */
-  .shot{margin-top:42px;border:1px solid var(--line2);border-radius:14px;overflow:hidden;background:var(--panel);
-        box-shadow:0 30px 90px rgba(0,0,0,.55), 0 0 0 1px rgba(20,184,166,.06)}
-  .shot img{display:block;width:100%;height:auto}
-  .shot figcaption{padding:12px 18px;border-top:1px solid var(--line);font-family:var(--mono);font-size:12.5px;color:var(--mut)}
-  .shot figcaption a{font-size:inherit}   /* il .ghost ereditava 15px e sballava la riga */
-  .exp-m{display:none;padding:20px 18px;font-family:var(--mono);font-size:12px}
-  .exp-r{display:flex;justify-content:space-between;gap:14px;padding:9px 0;border-bottom:1px solid #151f1e}
-  .exp-r:last-child{border-bottom:0}
-  .exp-r span{color:var(--mut);flex:0 0 auto}
-  .exp-r b{color:var(--text);font-weight:500;text-align:right}
-  .shots{margin-top:56px;display:grid;grid-template-columns:.85fr 1.15fr;gap:20px;align-items:start}
-  @media(max-width:860px){.shots{grid-template-columns:1fr;gap:16px}}
-  /* Su telefono l'app intera a 342px diventa una macchia: si inquadra il palco (la parte che si
-     capisce) invece di rimpicciolire anche i pannelli, che lì non si leggerebbero comunque. */
-  @media(max-width:700px){
-    .shot{margin-top:40px}
-    .shot figcaption{font-size:11.5px;padding:10px 14px}
-    /* il ritaglio sul palco vale SOLO per la schermata dell'hero: applicato a tutte le .shot
-       tagliava l'intestazione della pagina del rider e schiacciava la finestra di export. */
-    .shot-hero img{aspect-ratio:5/4;object-fit:cover;object-position:52% 78%}
-    /* 1200px di finestra dentro 336 sono testo a 3px: illeggibile e inutile. Al suo posto,
-       su telefono, le stesse scelte scritte in chiaro. */
-    .shot-exp img{display:none}
-    .exp-m{display:block}
-  }
-
-  /* --- «Una modifica, tutto aggiornato»: la dimostrazione, non la promessa --- */
-  .sy{margin-top:46px;display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:26px;align-items:start}
-  @media(max-width:900px){.sy{grid-template-columns:1fr;gap:20px}}
-  .sy-acts{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
-  .sbtn{font-family:var(--mono);font-size:12.5px;background:#0a1211;color:var(--text);border:1px solid var(--line2);
-        border-radius:999px;padding:10px 18px;cursor:pointer;transition:border-color .18s,color .18s,background .18s}
-  .sbtn:hover{border-color:var(--teal-d);color:var(--teal-l)}
-  .sbtn[data-done="1"]{background:rgba(20,184,166,.1);border-color:var(--teal-d);color:var(--teal-l);cursor:default}
-  .sbtn[data-done="1"]::after{content:" ✓"}
-  .sbtn.reset{color:var(--mut)}
-  .sy-plot{border:1px solid var(--line2);border-radius:14px;background:var(--panel2);overflow:hidden}
-  .sy-plot svg{display:block;width:100%;height:auto}
-  .sy-add{opacity:0;transform:scale(.82);transform-origin:center;transition:opacity .45s ease,transform .45s cubic-bezier(.2,1.3,.4,1)}
-  .sy-add.on{opacity:1;transform:none}
-  .sy-doc{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:14px 16px 12px;transition:border-color .35s,box-shadow .35s}
-  .sy-doc + .sy-doc{margin-top:12px}
-  .sy-doc.hit{border-color:var(--teal-d);box-shadow:0 0 0 1px rgba(20,184,166,.18),0 10px 30px rgba(20,184,166,.07)}
-  .sy-doc h3{font-family:var(--mono);font-size:11.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--mut);font-weight:500;
-             display:flex;justify-content:space-between;gap:10px}
-  .sy-doc.hit h3{color:var(--teal-l)}
-  .sy-rows{margin-top:9px;font-family:var(--mono);font-size:12.5px;color:var(--mut);line-height:1.85}
-  .sy-rows div{display:flex;gap:12px}
-  .sy-rows i{font-style:normal;color:#4d635f;min-width:34px}
-  .sy-rows .new{max-height:0;opacity:0;overflow:hidden;transition:max-height .4s ease,opacity .4s ease .1s}
-  .sy-rows .new.on{max-height:32px;opacity:1;color:var(--teal-l)}
-  .sy-rows .new.on i{color:var(--teal)}
-  .sy-sum{margin-top:16px;font-family:var(--mono);font-size:12.5px;color:var(--mut)}
-  .sy-sum b{color:var(--text);font-weight:500;transition:color .3s}
-  .sy-sum b.up{color:var(--teal-l)}
-  .sy-note{margin-top:14px;font-size:14.5px;color:var(--mut);max-width:52ch}
-  @media(prefers-reduced-motion:reduce){.sy-add,.sy-rows .new{transition:none}}
-
-  /* --- Due profili: la band non deve spaventarsi davanti al Dante --- */
-  .prof{margin-top:52px;display:grid;grid-template-columns:1fr 1fr;gap:20px}
-  @media(max-width:860px){.prof{grid-template-columns:1fr}}
-  .prof-c{border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:26px 26px 28px}
-  .prof-c.pro{background:var(--panel2);border-color:var(--line2)}
-  .prof-k{font-family:var(--mono);font-size:11.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--teal)}
-  .prof-c.pro .prof-k{color:var(--amber)}
-  .prof-c h3{margin-top:12px;font-size:21px;letter-spacing:-.016em}
-  .prof-c p{margin-top:10px;color:var(--mut);font-size:15px}
-  .tags{margin-top:18px;display:flex;flex-wrap:wrap;gap:8px}
-  .tags span{font-family:var(--mono);font-size:12px;border:1px solid var(--line2);border-radius:999px;padding:6px 13px;color:var(--mut)}
-  .prof-c.pro .tags span{border-color:#3a3320;color:#c9b98a}
-
-  .share{margin-top:60px;display:grid;grid-template-columns:1fr 1fr;gap:16px}
-  @media(max-width:860px){.share{grid-template-columns:1fr}}
-  .share-card{border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:32px;transition:border-color .2s}
-  .share-card:hover{border-color:var(--line2)}
-  .share-card h3{font-size:20px;letter-spacing:-.014em}
-  .share-card p{margin-top:12px;color:var(--mut);font-size:15px}
-  .pill{margin-top:22px;display:inline-block;font-family:var(--mono);font-size:12.5px;background:#0a1211;border:1px solid var(--line2);border-radius:999px;padding:8px 16px;color:var(--teal)}
-
-  /* --- Condivisione: la tabella «chi tocca cosa» e il blocco per chi i rider li riceve --- */
-  /* Skip link: fuori dallo schermo finché non prende il fuoco da tastiera. */
-  .skip{position:absolute;left:-9999px;top:0;z-index:100;background:var(--teal);color:#04110f;
-    padding:12px 18px;border-radius:0 0 8px 0;font-weight:700;text-decoration:none}
-  .skip:focus{left:0}
-  .who-table{width:100%;border-collapse:collapse;font-size:14.5px}
-  .who-table th{font-family:var(--mono);font-size:11px;letter-spacing:.07em;text-transform:uppercase;
-    color:var(--mut);text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);font-weight:500}
-  .who-table td{padding:14px;border-bottom:1px solid #151f1e;vertical-align:top}
-  .who-table tbody tr:last-child td{border-bottom:0}
-  .who-table td.m{color:var(--mut)}
-  @media(max-width:760px){
-    .who-table{font-size:13px}
-    .who-table th,.who-table td{padding:10px 8px}
-  }
-  /* il blocco venue si distingue dal resto: è l'unico pezzo di pagina rivolto a chi RICEVE i rider */
-  .venue{margin-top:52px;border:1px solid #4a4128;border-radius:16px;background:#12110c;padding:34px}
-  @media(max-width:700px){.venue{padding:24px 20px}}
-  .venue-h{font-size:clamp(21px,2.4vw,26px);letter-spacing:-.018em;margin-bottom:12px}
-  .venue p{color:var(--mut);font-size:16px;max-width:64ch}
-  .venue-msg{margin:20px 0 0;padding:20px 22px;background:#0d1313;border:1px solid var(--line2);
-    border-left:3px solid var(--amber);border-radius:12px;color:var(--text);font-size:15.5px;line-height:1.75}
-  .venue-act{margin-top:18px;display:flex;gap:12px;flex-wrap:wrap;align-items:center}
-  .venue-act .btn2{cursor:pointer;font-family:var(--font)}
-  .copia-ok{font-family:var(--mono);font-size:13px;color:var(--teal-l)}
-  .venue-out{margin-top:22px;padding-top:20px;border-top:1px solid var(--line)}
-
-  /* --- «È nuovo, e te lo dico»: il posto della prova sociale, finché non ce n'è una vera --- */
-  .onesto{border:1px solid var(--line2);border-left:3px solid var(--teal);border-radius:14px;
-          background:var(--panel);padding:34px}
-  @media(max-width:700px){.onesto{padding:24px 20px}}
-  .onesto-h{font-size:clamp(22px,2.6vw,28px);letter-spacing:-.02em;margin-bottom:16px}
-  .onesto p{color:var(--mut);font-size:16px;max-width:68ch}
-  .onesto p+p{margin-top:14px}
-  .onesto b{color:var(--text);font-weight:600}
-  /* il registro sta dentro il riquadro della trasparenza: è la prosecuzione dello stesso discorso */
-  .registro{margin-top:26px;padding-top:22px;border-top:1px solid var(--line)}
-  .reg-k{font-family:var(--mono);font-size:11.5px;letter-spacing:.12em;text-transform:uppercase;
-         color:var(--mut);margin-bottom:14px}
-  .reg-r{display:flex;gap:16px;padding:9px 0;border-bottom:1px solid #151f1e;align-items:baseline}
-  .reg-r:last-of-type{border-bottom:0}
-  .reg-r time{font-family:var(--mono);font-size:12.5px;color:var(--teal-l);flex:0 0 54px}
-  .reg-r p{margin:0;font-size:15px;color:var(--mut);max-width:62ch}
-  .reg-r b{color:var(--text);font-weight:600}
-  .mono-s{font-family:var(--mono);font-size:13.5px}
-  .reg-note{margin-top:16px;font-size:14px;color:var(--mut);opacity:.85}
-  @media(max-width:700px){
-    .reg-r{flex-direction:column;gap:2px;padding:11px 0}
-    .reg-r time{flex:none}
-  }
-
-  /* .who — regole della sezione «Per chi è», tolte insieme alla sezione il 31/08.
-     Il CSS di una sezione che non esiste più non è innocuo: resta a far peso e il prossimo che
-     legge non sa se serva ancora. (.who-table, più sotto, è un'altra cosa e resta.) */
-
-  /* ---------- chi lo fa ---------- */
-  .maker{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:56px;align-items:start}
-  @media(max-width:900px){.maker{grid-template-columns:1fr;gap:32px}}
-  .maker-txt p{color:var(--mut);font-size:17px;max-width:56ch}
-  .maker-txt p + p{margin-top:16px}
-  .maker-txt b{color:var(--text);font-weight:600}
-  .sign{margin-top:26px;padding-left:18px;border-left:2px solid var(--teal-d);font-family:var(--mono);font-size:13px;color:var(--mut);line-height:1.7}
-  .sign b{display:block;color:var(--text);font-weight:500;letter-spacing:.01em}
-  .maker-card{border:1px solid var(--line);border-radius:14px;background:var(--panel);padding:24px 26px;font-family:var(--mono);font-size:12.5px;color:var(--mut)}
-  .maker-card div{display:flex;justify-content:space-between;gap:14px;padding:9px 0;border-bottom:1px solid #151f1e}
-  .maker-card div:last-child{border-bottom:0;padding-bottom:0}
-  .maker-card b{color:var(--teal-l);font-weight:500}
-
-  /* ---------- domande ---------- */
-  .faq{margin-top:56px;display:grid;grid-template-columns:1fr 1fr;gap:0 56px}
-  @media(max-width:860px){.faq{grid-template-columns:1fr;gap:0}}
-  .faq div{padding:22px 0;border-top:1px solid var(--line)}
-  .faq h3{font-size:16.5px;font-weight:600;letter-spacing:-.008em}
-  .faq p{margin-top:8px;color:var(--mut);font-size:15px;max-width:46ch}
-  .faq a{color:var(--teal-l)}
-  /* le undici pagine per formazione esistono da giugno e dalla home non le linkava nessuno:
-     ci arrivava solo chi passava dall'indice nel footer. */
-  .faq .q-more{margin-top:10px;font-size:14px;line-height:1.85;max-width:52ch}
-
-  .final{padding:140px 0;text-align:center;position:relative;overflow:hidden;
-    background:radial-gradient(700px 340px at 50% 115%, var(--glow), transparent 70%)}
-  .final h2{margin:14px auto 0;max-width:18ch}
-  .final .btn{margin-top:38px;font-size:18px;padding:17px 38px}
-
-  footer{border-top:1px solid var(--line);padding:44px 0 60px;font-size:14px;color:var(--mut)}
-  .foot{display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap}
-  .foot a{color:var(--mut);text-decoration:none;margin-right:22px}
-  .foot a:hover{color:var(--text)}
+  @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
 </style>
 </head>
 <body>
-<!-- Salta al contenuto: la prima cosa che incontra chi naviga da tastiera o con uno screen reader.
-     Invisibile finché non prende il fuoco, e allora si vede eccome. -->
 <a class="skip" href="#contenuto">Salta al contenuto</a>
 
-<div id="tip" role="tooltip"></div>
-
-<nav><div class="wrap nav-in">
-  <a class="logo" href="/">
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none"><rect x="2" y="4" width="20" height="14" rx="2" stroke="#14b8a6" stroke-width="2"/><circle cx="9" cy="10" r="2" fill="#14b8a6"/><path d="M14 14h4" stroke="#14b8a6" stroke-width="2" stroke-linecap="round"/></svg>
-    StagePlot
-  </a>
-  <div class="nav-links">
-    <a href="#confronto">Prima / Dopo</a>
-    <a href="#sync">Una modifica</a>
-    <a href="#output">L'output</a>
-    <a href="#layers">Professionale</a>
-    <a href="#domande">Domande</a>
-    <a href="/guida/">Guide</a>
-    <!-- 15/09, audit esterno: Orchestre non era raggiungibile dalla home. È un servizio a parte (musicisti
-         per l'evento), non una sezione dell'editor: il title lo dice, il piè di pagina lo ripete per il telefono. -->
-    <a href="/orchestre/" title="Musicisti per concerti ed eventi: un servizio a parte dall'editor">Orchestre</a>
+<header>
+  <div class="wrap">
+    <a class="logo" href="/">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="2" y="4" width="20" height="14" rx="2" stroke="#14b8a6" stroke-width="2"/><circle cx="9" cy="10" r="2" fill="#14b8a6"/><path d="M14 14h4" stroke="#14b8a6" stroke-width="2" stroke-linecap="round"/></svg>
+      StagePlot
+    </a>
+    <a class="btn btn-s" href="/app/?from=nav">Apri l'editor</a>
   </div>
-  <a class="nav-cta" href="/app/?from=nav">Apri l'editor</a>
-</div></nav>
+</header>
 
-<!-- <main> mancava: senza questo landmark chi usa uno screen reader non ha il salto al contenuto
-     principale e deve attraversare la navigazione ogni volta. Nessuna regola CSS dipendeva da
-     «body >», quindi avvolgere non sposta niente di quello che si vede. -->
 <main id="contenuto">
-<header><div class="wrap">
-  <!-- 27/09: il kicker sta DENTRO l'H1. Da solo l'H1 era uno slogan senza una parola di quelle che si
-       cercano; le parole chiave stavano in un <p> sopra. Stesso aspetto, ma ora per Google e per chi usa
-       uno screen reader il titolo della pagina dice di cosa parla. -->
-  <h1><span class="kicker">Stage plot · scheda tecnica · rider</span>Disegna il palco.<br><span class="scala">in scala.</span></h1>
-  <p class="sub"><b>Il rider si costruisce da solo</b>: channel list, monitor, cablaggi, elettrico e luci restano collegati al disegno. Sposti un microfono e i documenti si aggiornano con lui — in metri veri, non icone su una griglia.</p>
-  <!-- Tre porte, non due, e il palco pronto è la prima. Il bottone primario apriva l'editor VUOTO: il
-       foglio bianco è il modo più efficiente di perdere chi arriva la prima volta — e che il problema
-       esistesse lo diceva già la pagina, con una domanda intitolata «Non so da dove partire».
-       La terza porta è per il fonico di service, che al primo giro non disegna niente: vuole vedere che
-       documento esce. I marcatori `from=` restano quelli di prima (hero-modello, hero) perché il
-       contatore li conosce già: cambia quale bottone li porta, non l'elenco. -->
-  <div class="cta-row">
-    <!-- Le CTA sono le stesse in tutta la pagina: principale = un palco gia' pronto (che e' il modo
-         in cui un musicista arriva a un PDF in dieci minuti), secondaria = il palco vuoto. -->
-    <a class="btn" href="/app/?from=hero-modello">Apri l'editor</a>
-    <a class="btn2" href="/app/?from=hero">Parti da un palco vuoto</a>
-    <a class="btn2" href="#output">Guarda prima un rider finito ↓</a>
-  </div>
-  <p class="trust"><span>Gratis</span> · nessuna registrazione</p>
-
-  <!-- Schermata vera dell'editor (modello «Band pop/rock» incluso), non un'illustrazione: chi arriva
-       deve riconoscere il prodotto che sta per aprire. È l'LCP della pagina → niente lazy. -->
-  <figure class="shot shot-hero">
-    <img src="/img/editor.jpg" width="1400" height="643" fetchpriority="high" decoding="async"
-         alt="L'editor di StagePlot con lo stage plot di una band pop/rock: batteria su pedana, ampli, tastiere, tre voci, monitor spia e side fill, catalogo degli elementi a sinistra e layer del progetto a destra.">
-    <figcaption>Lo stage plot di una band pop/rock, aperto nell'editor. <a class="ghost" href="/app/?from=hero-didascalia">provalo</a></figcaption>
-  </figure>
-
-  <!-- Una frase che dice cos'è, in chiaro e per intero. Serve a chi arriva senza contesto e ai
-       motori generativi, che citano volentieri un blocco autocontenuto e quasi sempre lo prendono
-       dall'inizio della pagina: prima di questa riga la home non conteneva un solo «StagePlot è…». -->
-  <p class="def"><b>StagePlot è l'editor gratuito, nel browser, per disegnare lo stage plot in scala di un concerto</b>
-     e ricavarne i documenti che il service chiede: channel list, lista monitor, carichi elettrici, lista luci
-     e il rider tecnico in PDF, tutti allineati al disegno. In italiano, senza registrazione, con i progetti
-     salvati sul tuo dispositivo. <a class="ghost" href="/guida/cos-e-uno-stage-plot/">Cos'è uno stage plot</a></p>
-</div></header>
-
-
-
-
-
-
-
-
-
-<section class="rv tinted" id="confronto"><div class="wrap">
-  <p class="sec-k">Prima / Dopo</p>
-  <h2>Dal foglietto delle prove alla scheda tecnica.</h2>
-  <p class="lead">A sinistra: la scheda tecnica come gira davvero nelle band. A destra: lo stesso palco, uscito da StagePlot. <b>Trascina il cursore.</b></p>
-
-  <div class="ba" id="ba" style="--cut:45%">
-    <div class="ba-pane ba-before" aria-hidden="true">
-      <svg viewBox="0 0 960 440" preserveAspectRatio="xMidYMid slice">
-        <defs>
-          <filter id="rough"><feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="3" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5"/></filter>
-        </defs>
-        <g filter="url(#rough)" fill="none" stroke="#3a3428" stroke-width="2" opacity=".85">
-          <rect x="150" y="90" width="560" height="250"/>
-          <circle cx="430" cy="160" r="34"/>
-          <rect x="205" y="140" width="60" height="40"/>
-          <rect x="600" y="140" width="60" height="40"/>
-          <path d="M430 290 L430 310 M420 300 L440 300"/>
-          <path d="M250 285 L250 305 M240 295 L260 295"/>
-          <path d="M560 285 L560 305 M550 295 L570 295"/>
-          <path d="M700 200 C 740 180, 760 220, 730 240"/>
-          <path d="M735 235 L728 243 L740 244 Z" fill="#3a3428"/>
-        </g>
-        <g font-family="Bradley Hand,Segoe Print,Comic Sans MS,cursive" fill="#3a3428">
-          <text x="150" y="60" font-size="26" transform="rotate(-2 150 60)">palco sabato?!?</text>
-          <text x="400" y="215" font-size="15" transform="rotate(-1 400 215)">batteria (?)</text>
-          <text x="185" y="205" font-size="14">ampli</text>
-          <text x="585" y="205" font-size="14">ampli Gigi</text>
-          <text x="390" y="335" font-size="14">voce qui??</text>
-          <text x="300" y="245" font-size="14" transform="rotate(-2 300 245)">e le tastiere dove?</text>
-          <text x="745" y="255" font-size="15" transform="rotate(3 745 255)">manca la DI!!</text>
-          <text x="150" y="395" font-size="16" transform="rotate(-1 150 395)">3 monitor? chiedere al fonico</text>
-          <text x="560" y="395" font-size="16" fill="#7a3b2e" transform="rotate(1 560 395)">CORRENTE???</text>
-        </g>
-        <g fill="none" stroke="rgba(139,94,60,.35)" stroke-width="3">
-          <circle cx="760" cy="368" r="34"/>
-          <circle cx="760" cy="368" r="27" stroke-width="1.5"/>
-        </g>
-      </svg>
+  <!-- 1. APERTURA. Un solo pulsante principale (Disegna il tuo palco); «Guarda un rider finito» è un link, non un
+       secondo pulsante. Il marcatore hero-modello è quello storico del pulsante principale: il contatore lo
+       conosce già e il database accetta solo nomi di un elenco chiuso. La definizione «StagePlot è …» sta nel
+       lead, in alto: la citano i motori generativi (test «la home dice cos'è StagePlot»). -->
+  <section class="hero">
+    <div class="wrap">
+      <p class="eyebrow">Stage plot · scheda tecnica · rider</p>
+      <h1>Lo stage plot che il <em>service capisce</em>.</h1>
+      <p class="lead"><b>StagePlot è un editor gratuito nel browser</b> per disegnare il palco in scala: channel list, monitor, elettrico e rider tecnico in PDF escono dallo stesso disegno, senza riscriverli a mano.</p>
+      <div class="cta">
+        <a class="btn btn-l" href="/app/?from=hero-modello">Disegna il tuo palco</a>
+        <a class="sec" href="#rider">Guarda un rider finito ↓</a>
+      </div>
+      <div class="fatti"><span>Gratis</span><span>In italiano</span><span>Senza account</span><span>Nessuna filigrana</span></div>
+      <figure class="foglio">
+        <div class="ritaglio"><img src="/img/esempio-band-rock-apertura.jpg" width="1600" height="1131" fetchpriority="high" decoding="async"
+          alt="Prima pagina della scheda tecnica d'esempio «Band rock 5 elementi»: lo stage plot visto dall'alto, su un palco di 11,5 per 6,5 metri, con batteria al centro, tastiere, due chitarre e basso, ognuno con la sua spia, scala 1:100."></div>
+        <figcaption><span><b>Band rock · 5 elementi</b> · scheda tecnica di esempio fatta con StagePlot</span><span>palco 11,5 × 6,5 m · scala 1:100</span></figcaption>
+      </figure>
     </div>
+  </section>
 
-    <div class="ba-pane ba-after" aria-hidden="true">
-      <div class="mini-rider">
-        <div class="mr-l">
-          <div class="mr-h"><span><b>SCHEDA TECNICA</b><span class="mr-meta"> — Quartetto (esempio) · v3</span></span><span class="mr-meta">pag. 1/5</span></div>
-          <!-- Il foglietto di sinistra ha nove annotazioni scritte a mano; questo disegno ne aveva UNA.
-               Così il confronto perde: lo scarabocchio dice almeno COSA c'è, il disegno pulito no.
-               Ogni elemento porta ora il suo nome e il numero di canale della lista accanto — che è
-               poi il punto del prodotto: la riga e l'elemento sono la stessa cosa. -->
-          <svg viewBox="0 0 560 320">
-            <rect x="30" y="24" width="500" height="240" fill="none" stroke="#33443f" stroke-width="1.3"/>
-            <rect x="220" y="40" width="120" height="80" fill="none" stroke="#2dd4bf" stroke-width="1" stroke-dasharray="4 3" opacity=".7"/>
-            <g stroke="#d7e6e2" fill="none" stroke-width="1.2">
-              <circle cx="280" cy="82" r="19"/>
-              <circle cx="257" cy="64" r="8"/><circle cx="303" cy="64" r="8"/>
-              <rect x="90" y="66" width="44" height="30"/>
-              <rect x="426" y="66" width="44" height="30"/>
-            </g>
-            <g stroke="#2dd4bf" stroke-width="1.4" fill="none">
-              <circle cx="280" cy="196" r="8"/><path d="M275 191 L285 201 M285 191 L275 201"/>
-              <circle cx="150" cy="182" r="8"/><path d="M145 177 L155 187 M155 177 L145 187"/>
-              <circle cx="410" cy="182" r="8"/><path d="M405 177 L415 187 M415 177 L405 187"/>
-            </g>
-            <g fill="none" stroke="#d7e6e2" stroke-width="1.2">
-              <path d="M100 258 L124 258 L118 244 L106 244 Z"/>
-              <path d="M212 258 L236 258 L230 244 L218 244 Z"/>
-              <path d="M324 258 L348 258 L342 244 L330 244 Z"/>
-              <path d="M436 258 L460 258 L454 244 L442 244 Z"/>
-            </g>
-            <!-- le etichette: nome + canale, gli stessi numeri della lista qui accanto -->
-            <g font-family="ui-monospace,monospace" font-size="9.5" fill="#8ca39e" text-anchor="middle">
-              <text x="280" y="132" fill="#d7e6e2">BATTERIA · CH 1–6</text>
-              <text x="112" y="110">AMPLI BASSO · 7</text>
-              <text x="448" y="110">AMPLI CHIT. · 8</text>
-              <text x="280" y="216" fill="#2dd4bf">VOCE · 9</text>
-              <text x="150" y="202">CORO L · 10</text>
-              <text x="410" y="202">CORO R · 10</text>
-              <text x="112" y="272">MIX 1</text>
-              <text x="224" y="272">MIX 2</text>
-              <text x="336" y="272">MIX 2</text>
-              <text x="448" y="272">MIX 3</text>
-            </g>
-            <text x="280" y="16" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" fill="#5c6f6b">FONDO PALCO</text>
-            <text x="280" y="298" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="#8ca39e">PALCO 10 × 6 m — SCALA 1:50 — 4 WEDGE / 3 MIX</text>
-          </svg>
-        </div>
-        <div class="mr-r">
-          <div class="mr-row"><i>1</i><b>Cassa</b>Beta 52A</div>
-          <div class="mr-row"><i>2</i><b>Rullante</b>SM57</div>
-          <div class="mr-row"><i>3</i><b>Hi-hat</b>SM81</div>
-          <div class="mr-row"><i>4</i><b>Tom</b>e604</div>
-          <div class="mr-row"><i>5</i><b>Panoramico L</b>C214</div>
-          <div class="mr-row"><i>6</i><b>Panoramico R</b>C214</div>
-          <div class="mr-row"><i>7</i><b>Basso</b>DI attiva</div>
-          <div class="mr-row"><i>8</i><b>Chitarra</b>SM57</div>
-          <div class="mr-row"><i>9</i><b>Voce</b>SM58</div>
-          <div class="mr-row"><i>10</i><b>Coro</b>SM58</div>
-          <div class="mr-foot">ELETTRICO 7,4 kW su 32A trifase <span class="ok">✓</span> · CAVI tutti collegati <span class="ok">✓</span><br>generato con stageplot.it</div>
-        </div>
+  <!-- 2. TRE PASSI. «Palco di 12 × 8 m» = stage di partenza dell'editor (1200×800 cm). -->
+  <section>
+    <div class="wrap">
+      <h2>Tre passi, dal palco vuoto al PDF.</h2>
+      <p class="sub">Si parte da un palco vuoto di 12 × 8 m: se le misure le sai, le cambi; se no cominci a disegnare.</p>
+      <ol class="passi">
+        <li><h3>Dai le misure del palco</h3><p>Larghezza e profondità in metri. Pedane e blocchi si aggiungono quando servono.</p></li>
+        <li><h3>Metti musicisti e strumenti</h3><p>Ogni strumento ha il suo ingombro in scala. Microfoni e monitor finiscono da soli nelle liste.</p></li>
+        <li><h3>Esporta il PDF</h3><p>Solo il palco, oppure palco e scheda tecnica. Si stampa al 100%, in scala.</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- 3. COSA RICEVE IL SERVICE. Le pagine vere (1, 3, 4, 5) del PDF d'esempio, non mini-tabelle disegnate a mano. -->
+  <section id="rider">
+    <div class="wrap">
+      <h2>Cosa riceve il service.</h2>
+      <p class="sub">Quattro pagine vere del PDF d'esempio «Band rock 5 elementi», generate dal disegno senza scriverle a mano. Toccane una per aprire il PDF.</p>
+      <div class="pagine" role="group" aria-label="Pagine del PDF d'esempio" tabindex="0">
+      <figure>
+        <a href="/guida/scheda-tecnica-band/esempio-scheda-tecnica-band-rock.pdf#page=1"><img src="/img/esempio-band-rock-pagina-1.jpg" width="1287" height="910" loading="lazy" decoding="async" alt="Pagina 1 del PDF d'esempio: lo stage plot della band rock in scala 1:100, con titolo, data, misure del palco e referente tecnico nel cartiglio."></a>
+        <figcaption><b>Palco</b> · scala 1:100 · pagina 1 di 6</figcaption>
+      </figure>
+      <figure>
+        <a href="/guida/scheda-tecnica-band/esempio-scheda-tecnica-band-rock.pdf#page=3"><img src="/img/esempio-band-rock-pagina-3.jpg" width="910" height="1287" loading="lazy" decoding="async" alt="Pagina 3 del PDF d'esempio: la channel list con diciassette canali, dalla cassa alle voci, ciascuno con microfono o DI, asta e patch."></a>
+        <figcaption><b>Channel list</b> · 17 canali · pagina 3 di 6</figcaption>
+      </figure>
+      <figure>
+        <a href="/guida/scheda-tecnica-band/esempio-scheda-tecnica-band-rock.pdf#page=4"><img src="/img/esempio-band-rock-pagina-4.jpg" width="910" height="1287" loading="lazy" decoding="async" alt="Pagina 4 del PDF d'esempio: la monitor list con cinque mix su wedge, uno per batteria, basso, tastiere e le due chitarre."></a>
+        <figcaption><b>Monitor list</b> · 5 mix · pagina 4 di 6</figcaption>
+      </figure>
+      <figure>
+        <a href="/guida/scheda-tecnica-band/esempio-scheda-tecnica-band-rock.pdf#page=5"><img src="/img/esempio-band-rock-pagina-5.jpg" width="910" height="1287" loading="lazy" decoding="async" alt="Pagina 5 del PDF d'esempio: la lista dei carichi elettrici, con la potenza di ogni apparecchio e un totale di 2,8 kW e 12 ampere."></a>
+        <figcaption><b>Lista carichi</b> · 2,8 kW · pagina 5 di 6</figcaption>
+      </figure>
+      </div>
+      <p class="didascalia">Cambi il disegno e rigeneri il PDF: channel list, monitor e carichi si ricalcolano dal palco. Le potenze sono stime del tipo di apparecchio, e il PDF lo dice.</p>
+      <p class="link-rider">
+        <a href="/guida/scheda-tecnica-band/esempio-scheda-tecnica-band-rock.pdf">Scarica il PDF d'esempio, 6 pagine</a>
+        <a href="/guida/scheda-tecnica-band/">Come si fa una scheda tecnica per la band</a>
+      </p>
+    </div>
+  </section>
+
+  <!-- 4. PER CHI -->
+  <section>
+    <div class="wrap">
+      <h2>Per chi sale sul palco e per chi lo monta.</h2>
+      <div class="chi">
+        <div><h3>Musicisti e band</h3><p>Mandi una scheda tecnica chiara e in scala: il service sa cosa portare e dove metterlo.</p></div>
+        <div><h3>Tecnici e service</h3><p>Ricevi canali, monitor e carichi già ordinati. Con un link in sola lettura li apri nel browser, anche dal telefono.</p></div>
+        <div><h3>Organizzatori e teatri</h3><p>Vedi in scala se l'organico ci sta sul palco e che cosa chiede al service.</p></div>
       </div>
     </div>
+  </section>
 
-    <span class="ba-tag prima">PRIMA</span>
-    <span class="ba-tag dopo">DOPO</span>
-    <div class="ba-divider" aria-hidden="true"></div>
-    <input class="ba-range" type="range" min="4" max="96" value="45" step="0.5" aria-label="Confronto prima e dopo: trascina per rivelare il rider generato">
-  </div>
-  <div class="ba-caption">
-    <span>il foglietto scattato in sala prove e girato su WhatsApp</span>
-    <span><b>lo stesso palco, esportato da StagePlot</b> — prova l'editor: <a class="ghost" href="/app/?from=confronto">stageplot.it/app/</a></span>
-  </div>
-</div></section>
-<!-- La sezione più importante della pagina: la promessa «i documenti si aggiornano da soli» non si
-     capisce leggendola, si capisce vedendola. Tre azioni, tre effetti visibili. -->
-<section class="rv" id="sync"><div class="wrap">
-  <p class="sec-k">Una modifica</p>
-  <h2>Cambi il palco. I documenti cambiano con lui.</h2>
-  <!-- «la colonna a destra» sarebbe sbagliato su telefono, dove i documenti finiscono sotto -->
-  <p class="lead">Il disegno è la fonte: canali, mix monitor e watt non si scrivono a mano da nessuna parte. <b>Aggiungi qualcosa al palco e guarda i documenti.</b></p>
-
-  <div class="sy">
-    <div>
-      <div class="sy-acts">
-        <button class="sbtn" type="button" data-add="mic">+ Microfono voce</button>
-        <button class="sbtn" type="button" data-add="mon">+ Monitor spia</button>
-        <button class="sbtn" type="button" data-add="par">+ Faro PC</button>
-        <button class="sbtn reset" type="button" id="syReset" hidden>Ricomincia</button>
+  <!-- 5. CHI LO FA. Le quattro regole sono quelle approvate da Simone per i suoi palchi (stageplot-assistant/kb/conventions). -->
+  <section>
+    <div class="wrap regole">
+      <div>
+        <h2>Lo scrive un sound engineer, sui suoi palchi.</h2>
+        <p class="sub">StagePlot nasce dal lavoro dal vivo di Simone Castellan. Queste sono quattro delle regole con cui disegna i suoi palchi: vengono dai concerti veri, non da un manuale.</p>
       </div>
-      <div class="sy-plot">
-        <svg viewBox="0 0 560 360" role="img" aria-label="Mini stage plot: batteria, ampli, due voci e due monitor; aggiungendo elementi compaiono sul palco">
-          <rect x="0" y="0" width="560" height="360" fill="#0b1111"/>
-          <rect x="20" y="20" width="520" height="290" fill="none" stroke="#33443f" stroke-width="1.3"/>
-          <!-- batteria su pedana -->
-          <rect x="228" y="48" width="104" height="70" fill="none" stroke="#2b3a38" stroke-width="1.1" stroke-dasharray="4 3"/>
-          <g fill="none" stroke="#d7e6e2" stroke-width="1.3">
-            <circle cx="280" cy="92" r="15"/><circle cx="269" cy="70" r="6.5"/><circle cx="291" cy="70" r="6.5"/>
-            <ellipse cx="246" cy="66" rx="9" ry="3.8" stroke="#7f938f"/><ellipse cx="314" cy="66" rx="9" ry="3.8" stroke="#7f938f"/>
-          </g>
-          <text x="280" y="132" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#8ca39e">BATTERIA</text>
-          <!-- ampli -->
-          <g fill="none" stroke="#d7e6e2" stroke-width="1.3"><rect x="112" y="76" width="42" height="26"/><rect x="406" y="76" width="42" height="26"/></g>
-          <text x="133" y="116" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#8ca39e">CHITARRA</text>
-          <text x="427" y="116" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#8ca39e">BASSO</text>
-          <!-- voci -->
-          <g fill="none" stroke="#2dd4bf" stroke-width="1.5">
-            <circle cx="190" cy="196" r="8"/><path d="M190 204v16"/>
-            <circle cx="370" cy="196" r="8"/><path d="M370 204v16"/>
-          </g>
-          <text x="190" y="236" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#8ca39e">VOCE 1</text>
-          <text x="370" y="236" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#8ca39e">VOCE 2</text>
-          <!-- wedge esistenti -->
-          <g fill="none" stroke="#d4a72c" stroke-width="1.5">
-            <path d="M166 258h48l-9 15h-30z"/><path d="M346 258h48l-9 15h-30z"/>
-          </g>
-          <!-- quadro elettrico -->
-          <g fill="none" stroke="#e0574a" stroke-width="1.3"><rect x="480" y="40" width="26" height="26" rx="3"/><path d="M494 46l-5 8h7l-5 8"/></g>
-          <!-- fronte palco -->
-          <path d="M20 310h520" stroke="#14b8a6" stroke-width="2" stroke-linecap="round"/>
-          <text x="280" y="332" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="#5c706d" letter-spacing="1.6">PUBBLICO</text>
+      <ul>
+        <li><span><b>Archi a leggii doppi</b>, con l'ultimo singolo nelle sezioni dispari.</span></li>
+        <li><span><b>Phantom solo dove serve</b>: condensatori e DI attive, mai su dinamici e radio.</span></li>
+        <li><span><b>Canali nell'ordine che il banco si aspetta</b>: ritmica, voci, poi click e playback in coda.</span></li>
+        <li><span><b>Ogni musicista ha la sua seduta</b>, contata nel cartiglio del PDF.</span></li>
+      </ul>
+    </div>
+  </section>
 
-          <!-- elementi che compaiono -->
-          <g class="sy-add" id="add-mic">
-            <g fill="none" stroke="#2dd4bf" stroke-width="1.5"><circle cx="280" cy="196" r="8"/><path d="M280 204v16"/></g>
-            <text x="280" y="236" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#2dd4bf">VOCE 3</text>
-          </g>
-          <g class="sy-add" id="add-mon">
-            <path d="M256 258h48l-9 15h-30z" fill="none" stroke="#d4a72c" stroke-width="1.5"/>
-          </g>
-          <g class="sy-add" id="add-par">
-            <g fill="none" stroke="#d4a72c" stroke-width="1.4">
-              <rect x="60" y="26" width="30" height="16" rx="2"/><path d="M75 42l-14 24M75 42l14 24"/>
-            </g>
-            <text x="75" y="80" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9" fill="#d4a72c">PC 1 kW</text>
-          </g>
-        </svg>
-      </div>
-      <p class="sy-sum" aria-live="polite">Totali del progetto: <b id="syCh">6</b> canali · <b id="syMix">2</b> mix monitor · <b id="syKw">3,6</b> kW</p>
+  <!-- 6. DOMANDE + FINALE. Le domande a video sono le stesse del JSON-LD FAQPage (test «le domande della home»). -->
+  <section id="domande">
+    <div class="wrap">
+      <h2>Domande</h2>
+      <details><summary><h3>Devo registrarmi?</h3></summary><p>No. Apri l'editor e disegni subito; il progetto resta salvato nel browser. L'accesso con Google serve solo per ritrovarlo su un altro dispositivo. Prima di mandarlo scarica il PDF: quello è tuo e non dipende da noi.</p></details>
+      <details><summary><h3>È davvero gratis?</h3></summary><p>Sì: palco, channel list, monitor, elettrico e PDF sono gratis e senza filigrana. Si paga solo se vuoi che un tecnico corregga il progetto (29 €) o lo disegni per te (da 149 €, su preventivo): è la <a href="/consulenza/">consulenza</a>.</p></details>
+      <details><summary><h3>Il service riesce ad aprirlo?</h3></summary><p>Sì. Gli mandi il PDF oppure, con l'account, un link in sola lettura che si apre nel browser, anche dal telefono. Dall'altra parte non c'è niente da installare.</p></details>
+      <details><summary><h3>Funziona dal telefono?</h3></summary><p>Sì per guardare, ritoccare e mostrarlo in sala. Per disegnare un palco da zero uno schermo grande resta più comodo.</p></details>
+      <details><summary><h3>Stage plot, scheda tecnica e rider: che differenza c'è?</h3></summary><p>Lo <a href="/guida/cos-e-uno-stage-plot/">stage plot</a> è la pianta del palco in scala. La <a href="/guida/scheda-tecnica-band/">scheda tecnica</a>, che i service chiamano anche <a href="/guida/rider-tecnico/">rider tecnico</a>, aggiunge channel list, monitor, alimentazione e richieste per il concerto. Con StagePlot escono tutti dallo stesso disegno.</p></details>
     </div>
+  </section>
 
-    <div class="sy-docs">
-      <div class="sy-doc" id="doc-mic">
-        <h3><span>Channel list</span><span id="docChN">6 CH</span></h3>
-        <div class="sy-rows">
-          <div><i>1</i><span>Cassa · Beta 52A</span></div>
-          <div><i>2</i><span>Rullante · SM57</span></div>
-          <div><i>3</i><span>Chitarra · SM57</span></div>
-          <div><i>4</i><span>Basso · DI attiva</span></div>
-          <div><i>5</i><span>Voce 1 · SM58</span></div>
-          <div><i>6</i><span>Voce 2 · SM58</span></div>
-          <div class="new" id="row-mic"><i>7</i><span>Voce 3 · SM58</span></div>
-        </div>
-      </div>
-      <div class="sy-doc" id="doc-mon">
-        <h3><span>Lista monitor</span><span id="docMonN">2 mix</span></h3>
-        <div class="sy-rows">
-          <div><i>M1</i><span>Voce 1 · wedge</span></div>
-          <div><i>M2</i><span>Voce 2 · wedge</span></div>
-          <div class="new" id="row-mon"><i>M3</i><span>Voce 3 · wedge</span></div>
-        </div>
-      </div>
-      <div class="sy-doc" id="doc-par">
-        <h3><span>Carichi elettrici</span><span id="docKwN">3,6 kW</span></h3>
-        <!-- I watt li dichiara OGNI RIGA (data-kw, in centesimi di kW per non fare i conti in
-             virgola mobile): il totale è la loro somma, non un numero scritto a parte. -->
-        <div class="sy-rows">
-          <div data-kw="140"><i>—</i><span>Backline · 1,4 kW</span></div>
-          <div data-kw="220"><i>—</i><span>Impianto e FOH · 2,2 kW</span></div>
-          <div class="new" id="row-par" data-kw="100"><i>—</i><span>Faro PC · 1,0 kW</span></div>
-        </div>
-      </div>
+  <section class="finale">
+    <div class="wrap">
+      <h2>Il palco lo disegni stasera. Il rider esce con lui.</h2>
+      <p class="lead">Gratis, in italiano, senza account.</p>
+      <a class="btn btn-l" href="/app/?from=finale">Disegna il tuo palco</a>
     </div>
-  </div>
-
-  <p class="sy-note">Nell'editor vero vale per tutto il resto allo stesso modo: sposti la batteria e cambiano i percorsi dei cavi, aggiungi un radiomicrofono e nasce la lista RF, togli le luci e la pagina luci sparisce dal PDF.</p>
-</div></section>
-
-<section class="rv" id="come"><div class="wrap">
-  <p class="sec-k">Come funziona</p>
-  <h2>Lo stage plot in tre passaggi, dalla prima pedana al PDF.</h2>
-  <p class="lead">Nessuna configurazione da fare prima di cominciare: si apre e si trascina. <b>Il resto viene dopo, e solo se serve.</b></p>
-  <!-- Erano quattro, ma «i dati si collegano» e «il progetto si controlla» sono la stessa cosa
-       raccontata due volte: l'editor tiene insieme i dati, e quando qualcosa non torna lo dice.
-       Tre passaggi sono anche il numero che una persona tiene a mente. -->
-  <div class="steps">
-    <div class="step"><p class="step-n">01</p><h3>Disegni il palco</h3><p>Oltre 200 elementi reali da trascinare: strumenti, backline, DI, mixer, 42 fari. Niente rettangoli anonimi. E quando dichiari il modello del microfono, l'editor ne riconosce 223.</p></div>
-    <div class="step"><p class="step-n">02</p><h3>I dati si collegano, e si controllano</h3><p>Canali, mix, consumi, percorsi cavi: ogni elemento dichiara cosa gli serve, e sposti la batteria mentre la channel list si aggiorna. Un microfono senza canale o un mix dimenticato te lo dice l'editor, prima che te lo chieda il service.</p></div>
-    <div class="step"><p class="step-n">03</p><h3>Esporti il rider</h3><p>PDF multipagina, PNG o CSV. Le pagine nascono dai layer accesi: se non hai luci, la pagina luci non esiste.</p></div>
-  </div>
-
-  <!-- Questo è un progetto DIVERSO e più grande di quello della demo qui sopra (che ha 6 canali e
-       2 mix): è un rider completo da otto pagine. Prima non lo diceva, e chi scorreva la pagina
-       trovava due serie di numeri che non tornavano fra loro — segnalato da Simone il 31/08. -->
-  <div class="term" id="term">
-    <div class="term-h"><span>rider.pdf — un progetto completo, non quello della demo</span><span id="termPag">8 pagine</span></div>
-    <div class="term-b">
-      <div class="tl"><b>PAG 1</b> · Stage plot in scala <span class="t">10 × 6 m</span> con planimetria della venue</div>
-      <div class="tl"><b>PAG 2</b> · Input list <span class="t">10 CH</span> — mic, 48V, patch della stage box</div>
-      <div class="tl"><b>PAG 3</b> · Monitor <span class="t">4 wedge / 3 mix</span> + richieste dei musicisti</div>
-      <div class="tl"><b>PAG 4</b> · Schema elettrico <span class="t">7,4 kW</span> — carichi, distro, quadro 32A trifase <span class="ok">✓</span></div>
-      <div class="tl"><b>PAG 5</b> · Lista luci <span class="t">12 fari</span> — apparecchio, colore, posizione</div>
-      <div class="tl"><b>PAG 6</b> · Backline — <span class="t">chi porta cosa</span>, band o service</div>
-      <div class="tl"><b>PAG 7</b> · Note per il fonico — appuntate sugli elementi del disegno</div>
-      <div class="tl"><b>PAG 8</b> · Responsabilità — <span class="t">chi fa cosa</span> in produzione, con i referenti</div>
-      <div class="tl">— e se domani aggiungi un radiomicrofono, compare la lista RF. Da sola.</div>
-    </div>
-  </div>
-</div></section>
-<!-- Il rischio dell'editor «professionale» è che un chitarrista veda Dante, DMX e distro 32A e concluda
-     che non è roba per lui. Qui i due mondi sono separati e dichiarati: il secondo è spento finché non serve. -->
-<section class="rv tinted" id="profili"><div class="wrap">
-  <p class="sec-k">Due modi di usarlo</p>
-  <h2>Semplice o professionale, quanto ti serve.</h2>
-  <p class="lead">Una band accende poco e parte in dieci minuti. Una produzione accende tutto e controlla ogni dettaglio. <b>Il disegno è lo stesso</b>: cambia solo quanto ne chiedi. E chi il rider lo riceve — fonico o service — trova canali numerati, carichi sommati e monitor chiari: il soundcheck parte prima.</p>
-  <div class="prof">
-    <div class="prof-c">
-      <p class="prof-k">Band e setup semplici</p>
-      <h3>Il palco, i canali, il PDF.</h3>
-      <p>Trascini gli strumenti veri, l'editor conta i canali e i monitor, esporti il documento da mandare al locale. Non devi sapere niente di quello che c'è nell'altra colonna.</p>
-      <div class="tags"><span>Stage plot in scala</span><span>Channel list</span><span>Monitor</span><span>PDF e PNG</span><span>Link sempre aggiornato, con l'account</span></div>
-    </div>
-    <div class="prof-c pro">
-      <p class="prof-k">Produzione e service</p>
-      <h3>Quando la sera si complica.</h3>
-      <p>Gli stessi elementi portano con sé cavi, assorbimenti, frequenze e indirizzi. Si accende quello che serve, e ogni layer acceso diventa una pagina del rider.</p>
-      <div class="tags"><span>Cablaggi e percorsi</span><span>Elettrico, fasi e distro</span><span>RF e intermodulazione</span><span>Dante e rete</span><span>Luci e DMX</span><span>Personal monitor</span><span>Varianti di scena</span></div>
-    </div>
-  </div>
-  <p class="sy-note">Si comincia sempre dalla colonna di sinistra: l'altra resta spenta finché non la accendi tu.</p>
-</div></section>
-
-<section class="rv" id="output"><div class="wrap">
-  <p class="sec-k">L'output</p>
-  <h2>Scheda tecnica e rider che il service prende sul serio.</h2>
-  <p class="lead">Non allegati composti a mano: sono lo stesso dato del disegno. <b><span class="mouse">Passa il mouse sulla channel list</span><span class="touch">Tocca una riga della channel list</span></b> — la riga e l'elemento sul palco sono la stessa cosa.</p>
-  <div class="tabs">
-    <div class="tab-row" role="tablist" aria-label="Documenti generati">
-      <button class="tab" role="tab" aria-selected="true" data-panel="p-ch">CHANNEL LIST</button>
-      <button class="tab" role="tab" aria-selected="false" data-panel="p-kw">ELETTRICO</button>
-      <button class="tab" role="tab" aria-selected="false" data-panel="p-lx">LUCI</button>
-    </div>
-    <div class="panel show" id="p-ch" role="tabpanel">
-      <div class="panel-h"><span>CHANNEL LIST — quartetto (esempio)</span><span>10 CH · numerazione viva</span></div>
-      <div class="ch-split">
-        <div class="tblwrap">
-          <table id="chlist">
-            <thead><tr><th>CH</th><th>Sorgente</th><th>Mic / DI</th><th class="p48h">48V</th><th>Asta</th><th>Monitor</th></tr></thead>
-            <tbody>
-            <tr data-el="drums"><td class="n">1</td><td>Cassa</td><td class="m">Beta 52A</td><td class="m p48">—</td><td class="m">corta</td><td class="m">—</td></tr>
-            <tr data-el="drums"><td class="n">2</td><td>Rullante</td><td class="m">SM57</td><td class="m p48">—</td><td class="m">corta</td><td class="m">—</td></tr>
-            <tr data-el="drums"><td class="n">3</td><td>Hi-hat</td><td class="m">SM81</td><td class="m p48"><span class="on" aria-label="richiede alimentazione phantom">48V</span></td><td class="m">corta</td><td class="m">—</td></tr>
-            <tr data-el="drums"><td class="n">4</td><td>Tom</td><td class="m">e604</td><td class="m p48">—</td><td class="m">clip</td><td class="m">—</td></tr>
-            <tr data-el="drums"><td class="n">5</td><td>Panoramico L</td><td class="m">C214</td><td class="m p48"><span class="on" aria-label="richiede alimentazione phantom">48V</span></td><td class="m">alta</td><td class="m">—</td></tr>
-            <tr data-el="drums"><td class="n">6</td><td>Panoramico R</td><td class="m">C214</td><td class="m p48"><span class="on" aria-label="richiede alimentazione phantom">48V</span></td><td class="m">alta</td><td class="m">—</td></tr>
-            <tr data-el="bass"><td class="n">7</td><td>Basso</td><td class="m">DI attiva</td><td class="m p48"><span class="on" aria-label="richiede alimentazione phantom">48V</span></td><td class="m">—</td><td class="m">MIX 1</td></tr>
-            <tr data-el="gtr"><td class="n">8</td><td>Chitarra</td><td class="m">SM57</td><td class="m p48">—</td><td class="m">corta</td><td class="m">MIX 3</td></tr>
-            <tr data-el="voce"><td class="n">9</td><td>Voce</td><td class="m">SM58</td><td class="m p48">—</td><td class="m">alta</td><td class="m">MIX 2</td></tr>
-            <tr data-el="coro"><td class="n">10</td><td>Coro</td><td class="m">SM58</td><td class="m p48">—</td><td class="m">alta</td><td class="m">MIX 1·3</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="ch-plot">
-          <svg id="miniplot" viewBox="0 0 420 260">
-            <rect x="14" y="12" width="392" height="212" fill="none" stroke="#33443f" stroke-width="1.2"/>
-            <g class="el" data-el="drums">
-              <rect x="150" y="24" width="120" height="76" fill="none" stroke="#2dd4bf" stroke-width="1" stroke-dasharray="4 3" opacity=".5"/>
-              <!-- kick + due tom + i piatti come ellissi: con i soli tre cerchi la batteria vista
-                   dall'alto sembrava un topolino, ed è la prima cosa che un fonico nota -->
-              <g class="shape" fill="none" stroke-width="1.3" stroke="#d7e6e2">
-                <circle cx="210" cy="68" r="16"/>
-                <circle cx="198" cy="46" r="7"/><circle cx="222" cy="46" r="7"/>
-                <ellipse cx="174" cy="42" rx="9.5" ry="4" stroke="#7f938f"/>
-                <ellipse cx="246" cy="42" rx="9.5" ry="4" stroke="#7f938f"/>
-              </g>
-              <text x="210" y="116" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#8ca39e">BATTERIA · CH 1–6</text>
-            </g>
-            <g class="el" data-el="bass">
-              <rect class="shape" x="52" y="52" width="38" height="26" fill="none" stroke="#d7e6e2" stroke-width="1.3"/>
-              <text x="71" y="94" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#8ca39e">BASSO · 7</text>
-            </g>
-            <g class="el" data-el="gtr">
-              <rect class="shape" x="330" y="52" width="38" height="26" fill="none" stroke="#d7e6e2" stroke-width="1.3"/>
-              <text x="349" y="94" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#8ca39e">CHIT. · 8</text>
-            </g>
-            <g class="el" data-el="voce">
-              <g class="shape" stroke="#d7e6e2" stroke-width="1.4" fill="none">
-                <circle cx="210" cy="168" r="8"/><path d="M205 163 L215 173 M215 163 L205 173"/>
-              </g>
-              <text x="210" y="192" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#8ca39e">VOCE · 9</text>
-            </g>
-            <g class="el" data-el="coro">
-              <g class="shape" stroke="#d7e6e2" stroke-width="1.4" fill="none">
-                <circle cx="110" cy="158" r="8"/><path d="M105 153 L115 163 M115 153 L105 163"/>
-                <circle cx="310" cy="158" r="8"/><path d="M305 153 L315 163 M315 153 L305 163"/>
-              </g>
-              <text x="110" y="182" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#8ca39e">CORO · 10</text>
-              <text x="310" y="182" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#8ca39e">CORO · 10</text>
-            </g>
-          </svg>
-          <p class="cap">riga ↔ elemento: <b>è lo stesso dato</b></p>
-        </div>
-      </div>
-    </div>
-    <div class="panel" id="p-kw" role="tabpanel">
-      <div class="panel-h"><span>SCHEMA ELETTRICO</span><span>somma automatica sul quadro</span></div>
-      <div class="kw">
-        <div class="kw-row"><span class="kw-lab">BACKLINE</span><span class="kw-bar"><i style="--w:18%"></i></span><span class="kw-val">1,2 kW</span></div>
-        <div class="kw-row"><span class="kw-lab">AUDIO</span><span class="kw-bar"><i style="--w:38%"></i></span><span class="kw-val">2,8 kW</span></div>
-        <div class="kw-row"><span class="kw-lab">LUCI</span><span class="kw-bar"><i style="--w:46%"></i></span><span class="kw-val">3,4 kW</span></div>
-        <div class="kw-tot"><span>TOTALE SU QUADRO 32A trifase</span><b>7,4 kW ✓ dentro i margini</b></div>
-      </div>
-    </div>
-    <div class="panel" id="p-lx" role="tabpanel">
-      <div class="panel-h"><span>LISTA LUCI</span><span>12 fari · 3 tipologie</span></div>
-      <div class="tblwrap">
-        <table>
-          <thead><tr><th>Q.tà</th><th>Faro</th><th>Montaggio</th><th>DMX</th><th>Carico</th></tr></thead>
-          <tbody>
-          <tr><td class="n">8</td><td>PAR LED RGBW</td><td class="m">su stativo</td><td class="m">1–32</td><td class="m">0,8 kW</td></tr>
-          <tr><td class="n">2</td><td>Fresnel 650 W</td><td class="m">appeso</td><td class="m">33–34</td><td class="m">1,3 kW</td></tr>
-          <tr><td class="n">2</td><td>Sagomatore</td><td class="m">appeso</td><td class="m">35–36</td><td class="m">1,3 kW</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-
-  <!-- Una pagina vera del PDF accanto alla finestra da cui esce: il documento e il modo di ottenerlo -->
-  <div class="shots">
-    <figure class="shot">
-      <img src="/img/rider.jpg" width="710" height="720" loading="lazy" decoding="async"
-           alt="Pagina «Input list» del rider generato da StagePlot per il modello Band pop/rock: undici canali numerati con sorgente e microfono — Kick D6, Rullante top SM57, Hi-Hat SM81 con phantom, Overhead KM184, Ampli basso DI e MD421, Ampli chitarra SM57/e906.">
-      <figcaption>Una pagina vera del PDF, così come esce.</figcaption>
-    </figure>
-    <figure class="shot shot-exp">
-      <img src="/img/export.jpg" width="1200" height="632" loading="lazy" decoding="async"
-           alt="La finestra «Esporta PDF in scala» di StagePlot: le pagine da includere (rider tecnico, lista ingressi, monitor, carichi elettrici, backline, RF, criticità), formato A4, scala 1:100 e l'anteprima della pagina del palco.">
-      <div class="exp-m">
-        <div class="exp-r"><span>Pagine</span><b>palco + liste accese</b></div>
-        <div class="exp-r"><span>Liste</span><b>ingressi · monitor · elettrico · RF</b></div>
-        <div class="exp-r"><span>Formato</span><b>A4 · A3 · A2, oriz. o vert.</b></div>
-        <div class="exp-r"><span>Scala</span><b>1:100 — 160×65 mm su A4</b></div>
-        <div class="exp-r"><span>Esce come</span><b>PDF · PNG · CSV</b></div>
-      </div>
-      <figcaption>Le pagine le scegli tu; la scala è vera, 1:100 su A4.</figcaption>
-    </figure>
-  </div>
-</div></section>
-<!-- ================================================================================================
-     CONDIVISIONE — la sezione che parla al lato venue, cioè al fronte che conta.
-     Fino al 12/08 erano 59 parole, le meno di tutta la pagina, e trattavano il service come oggetto
-     («link di sola lettura PER il service»). Qui la frase è ribaltata: chi riceve i rider diventa
-     il soggetto, e riceve una cosa da usare — un testo da mandare alle band prima della data.
-     È l'unico pezzo della pagina che può portare visite invece di limitarsi a convertirle.
-     ============================================================================================ -->
-<section class="rv" id="condivisione"><div class="wrap">
-  <p class="sec-k">Condivisione</p>
-  <h2>Un link solo, e tutti guardano lo stesso palco.</h2>
-  <p class="lead">Il PDF girato su WhatsApp invecchia il giorno dopo, e nessuno sa più quale sia l'ultimo.
-    Il link no: con l'account, chi lo apre vede il palco com'è adesso. E le versioni restano — <b>la v3 che hai mandato
-    a marzo resta la v3</b>, anche se intanto il palco è cambiato.</p>
-
-  <div class="tblwrap" style="margin-top:34px">
-    <table class="who-table">
-      <thead><tr><th>Chi apre il link</th><th>Cosa vede</th><th>Cosa può fare</th><th>Cosa non può fare</th></tr></thead>
-      <tbody>
-        <tr><td><b>Il service o il locale</b></td><td>Palco, liste, rider</td>
-            <td>Guardare, stampare, scaricare il PDF, farne una copia sua</td>
-            <td class="m">Modificare il tuo progetto</td></tr>
-        <tr><td><b>I musicisti della band</b></td><td>Solo la loro parte</td>
-            <td>Dire strumenti, canali e cosa vogliono nel monitor</td>
-            <td class="m">Vedere o spostare il resto del palco</td></tr>
-      </tbody>
-    </table>
-  </div>
-  <!-- 15/09: senza account il link porta una copia di oggi, non il palco vivo (audit esterno; Simone:
-       «link sempre aggiornato, con l'account»). L'account serve a chi manda, mai a chi guarda. -->
-  <p class="sy-note">Nessuno installa niente, e nessuno si registra per guardare: l'account serve a te, per tenere il link aggiornato.</p>
-
-  <!-- Il ribaltamento: qui il service smette di essere il destinatario e diventa chi usa lo strumento -->
-  <div class="venue">
-    <p class="sec-k" style="color:var(--amber)">Se i rider li ricevi tu</p>
-    <h3 class="venue-h">Dodici schede tecniche fatte in dodici modi diversi.</h3>
-    <p>Se gestisci un locale, un festival o un service, il problema non è disegnare: è che arriva di tutto,
-      e tre volte su dodici è la foto di un foglio. Manda alle band questo, prima della data:</p>
-    <blockquote class="venue-msg" id="venueMsg">Per la serata ci serve la scheda tecnica. Se non ce l'hai, falla qui in dieci minuti — è gratis e non serve registrarsi: stageplot.it — e rimandaci il link o il PDF. Se hai già la tua va benissimo lo stesso: ci basta che ci sia il palco, i canali e cosa vuoi nei monitor.</blockquote>
-    <div class="venue-act">
-      <button class="btn2 copia" type="button" data-copia="venueMsg">Copia il testo</button>
-      <button class="btn2 copia" type="button" data-copia-testo="https://stageplot.it/">Copia solo il link</button>
-      <span class="copia-ok" id="copiaOk" role="status" aria-live="polite"></span>
-    </div>
-    <p class="venue-out">Tornano indietro documenti che si assomigliano tutti, con i canali numerati e i
-      carichi già sommati. Il soundcheck parte prima.</p>
-  </div>
-</div></section>
-<section class="rv" id="layers"><div class="wrap">
-  <p class="sec-k">Profondità</p>
-  <h2>Sette livelli sopra lo stesso palco.</h2>
-  <p class="lead">Un layer acceso è insieme una cosa che vedi sul disegno e una pagina che compare nel rider. <b>Accendi i primi tre qui sotto</b>, poi guarda la pila: sono gli stessi.</p>
-  <figure class="console" id="console">
-    <div class="spot"></div>
-    <div class="con-bar">
-      <span class="dots"><i></i><i></i><i></i></span>
-      <span>quartetto-rock.stageplot — <em>esempio</em></span>
-      <span id="con-sum"><b data-n="10">0</b> CH · <b data-n="7,4">0</b> kW · <b data-n="4">0</b> wedge</span>
-    </div>
-    <div class="chips" role="group" aria-label="Layer del disegno">
-      <span class="lab">LAYER</span>
-      <button class="chip" data-layer="ly-cavi" aria-pressed="true">CAVI</button>
-      <button class="chip" data-layer="ly-elet" aria-pressed="true">ELETTRICO</button>
-      <button class="chip" data-layer="ly-mon" aria-pressed="true">MONITOR</button>
-      <span class="hint"><span class="mouse">passa il mouse sugli elementi ↓</span><span class="touch">tocca gli elementi del palco ↓</span></span>
-    </div>
-    <svg viewBox="0 0 960 500" role="img" aria-label="Stage plot interattivo: batteria, amplificatori, microfoni, monitor; i layer cavi, elettrico e monitor si accendono e spengono">
-      <defs>
-        <pattern id="gridB" width="40" height="40" patternUnits="userSpaceOnUse">
-          <path d="M40 0H0V40" fill="none" stroke="#152020" stroke-width="1"/>
-        </pattern>
-        <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
-          <feGaussianBlur stdDeviation="2.4" result="b"/>
-          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-        </filter>
-      </defs>
-      <rect x="0" y="0" width="960" height="500" fill="#0c1212"/>
-      <rect x="80" y="34" width="800" height="392" fill="url(#gridB)" stroke="#33443f" stroke-width="1.4"/>
-
-      <g id="ly-cavi" fill="none" stroke="#0f766e" stroke-width="1.3" opacity=".8">
-        <path d="M212 162 L212 250 L480 250 L480 426"/>
-        <path d="M738 162 L738 250 L520 250 L520 426"/>
-        <path d="M480 200 L480 250"/>
-        <path d="M260 336 L260 386 L480 386"/>
-        <path d="M700 336 L700 386 L520 386"/>
-        <path d="M812 120 L812 250 L738 250" stroke-dasharray="4 3"/>
-      </g>
-
-      <g id="ly-elet">
-        <rect x="790" y="76" width="44" height="44" fill="none" stroke="#2dd4bf" stroke-width="1.4"/>
-        <path d="M806 86 L800 100 L810 100 L804 112" fill="none" stroke="#2dd4bf" stroke-width="1.4"/>
-        <text x="812" y="132" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="#2dd4bf">32A trifase · 7,4 kW</text>
-        <text x="212" y="176" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#2dd4bf">0,3 kW</text>
-        <text x="738" y="176" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#2dd4bf">0,4 kW</text>
-        <text x="480" y="222" text-anchor="middle" font-family="ui-monospace,monospace" font-size="9.5" fill="#2dd4bf">0,2 kW</text>
-      </g>
-
-      <g id="ly-mon">
-        <path d="M212 424 L248 424 L240 402 L220 402 Z" fill="rgba(45,212,191,.22)"/>
-        <path d="M392 424 L428 424 L420 402 L400 402 Z" fill="rgba(94,234,212,.28)"/>
-        <path d="M532 424 L568 424 L560 402 L540 402 Z" fill="rgba(94,234,212,.28)"/>
-        <path d="M712 424 L748 424 L740 402 L720 402 Z" fill="rgba(45,212,191,.22)"/>
-        <text x="230" y="444" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="#2dd4bf">MIX 1</text>
-        <text x="410" y="444" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="#2dd4bf">MIX 2</text>
-        <text x="550" y="444" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="#2dd4bf">MIX 2</text>
-        <text x="730" y="444" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10" fill="#2dd4bf">MIX 3</text>
-      </g>
-
-      <rect x="390" y="62" width="180" height="128" fill="none" stroke="#2dd4bf" stroke-width="1.1" stroke-dasharray="5 4" opacity=".7"/>
-      <g stroke="#d7e6e2" fill="none" stroke-width="1.4">
-        <circle cx="480" cy="136" r="29"/>
-        <circle cx="444" cy="108" r="12"/><circle cx="516" cy="108" r="12"/>
-        <circle cx="424" cy="142" r="13" stroke-dasharray="3 3"/><circle cx="536" cy="142" r="13" stroke-dasharray="3 3"/>
-      </g>
-      <text x="480" y="208" text-anchor="middle" font-family="ui-monospace,monospace" font-size="11" fill="#d7e6e2">BATTERIA</text>
-      <rect x="180" y="118" width="64" height="42" fill="none" stroke="#d7e6e2" stroke-width="1.4"/>
-      <text x="212" y="108" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10.5" fill="#8ca39e">AMP BASSO</text>
-      <rect x="706" y="118" width="64" height="42" fill="none" stroke="#d7e6e2" stroke-width="1.4"/>
-      <text x="738" y="108" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10.5" fill="#8ca39e">AMP CHITARRA</text>
-      <g stroke="#2dd4bf" stroke-width="1.6" filter="url(#glow)">
-        <circle cx="480" cy="330" r="10" fill="none"/><path d="M474 324 L486 336 M486 324 L474 336"/>
-        <circle cx="260" cy="310" r="10" fill="none"/><path d="M254 304 L266 316 M266 304 L254 316"/>
-        <circle cx="700" cy="310" r="10" fill="none"/><path d="M694 304 L706 316 M706 304 L694 316"/>
-      </g>
-      <text x="480" y="362" text-anchor="middle" font-family="ui-monospace,monospace" font-size="10.5" fill="#2dd4bf">VOCE · SM58</text>
-      <g fill="none" stroke="#d7e6e2" stroke-width="1.4">
-        <path d="M212 424 L248 424 L240 402 L220 402 Z"/>
-        <path d="M392 424 L428 424 L420 402 L400 402 Z"/>
-        <path d="M532 424 L568 424 L560 402 L540 402 Z"/>
-        <path d="M712 424 L748 424 L740 402 L720 402 Z"/>
-      </g>
-
-      <g fill="transparent" stroke="none">
-        <rect x="400" y="80" width="160" height="120" data-tip="<b>Batteria</b> · CH 1–6<br>Beta 52A · SM57 · SM81 · e604 · 2× C214"/>
-        <rect x="176" y="100" width="76" height="70" data-tip="<b>Amp basso</b> · CH 7 · DI attiva<br>0,3 kW sul quadro"/>
-        <rect x="702" y="100" width="76" height="70" data-tip="<b>Amp chitarra</b> · CH 8 · SM57<br>0,4 kW sul quadro"/>
-        <circle cx="480" cy="330" r="18" data-tip="<b>Voce</b> · CH 9 · SM58 · asta alta<br>ascolta MIX 2"/>
-        <circle cx="260" cy="310" r="18" data-tip="<b>Coro L</b> · CH 10 · SM58<br>ascolta MIX 1"/>
-        <circle cx="700" cy="310" r="18" data-tip="<b>Coro R</b> · CH 10 · SM58<br>ascolta MIX 3"/>
-        <rect x="208" y="398" width="46" height="32" data-tip="<b>Wedge 1</b> · MIX 1 · coro L"/>
-        <rect x="388" y="398" width="46" height="32" data-tip="<b>Wedge 2</b> · MIX 2 · voce"/>
-        <rect x="528" y="398" width="46" height="32" data-tip="<b>Wedge 3</b> · MIX 2 · voce"/>
-        <rect x="708" y="398" width="46" height="32" data-tip="<b>Wedge 4</b> · MIX 3 · coro R"/>
-        <rect x="786" y="72" width="52" height="64" data-tip="<b>Quadro 32A trifase</b><br>7,4 kW totali · somma automatica"/>
-      </g>
-    </svg>
-  </figure>
-
-  <div class="layer-grid">
-    <div>
-      <div class="layer-list" role="group" aria-label="Interruttori dei layer">
-        <button class="lrow" data-plane="pl-in" aria-pressed="true"><span class="sw"></span>Ingressi &amp; Uscite<small>channel list</small></button>
-        <button class="lrow" data-plane="pl-mon" aria-pressed="true"><span class="sw"></span>Monitoraggio<small>wedge · in-ear</small></button>
-        <button class="lrow" data-plane="pl-elet" aria-pressed="true"><span class="sw"></span>Elettrico<small>carichi · fasi</small></button>
-        <button class="lrow" data-plane="pl-cavi" aria-pressed="false"><span class="sw"></span>Cablaggio<small>percorsi cavi</small></button>
-        <button class="lrow" data-plane="pl-luci" aria-pressed="false"><span class="sw"></span>Luci<small>DMX · montaggio</small></button>
-        <button class="lrow" data-plane="pl-rf" aria-pressed="false"><span class="sw"></span>RF &amp; Rete<small>frequenze · Dante</small></button>
-      </div>
-      <p class="lcount" id="lcount">3 layer accesi + il palco</p>
-    </div>
-    <div class="stack">
-      <!-- viewBox più largo del disegno (520): le etichette a fine linea sporgevano fino a 23px e
-           l'overflow:hidden dell'SVG le tagliava («PALCO +», «ELETTRIC…»). Allargare qui scala tutto
-           insieme, quindi regge a qualsiasi larghezza di finestra. -->
-      <svg viewBox="0 0 556 640" role="img" aria-label="Pila dei layer del palco in prospettiva: si accendono e spengono con gli interruttori">
-        <defs>
-          <linearGradient id="lg1" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stop-color="#14b8a6" stop-opacity=".16"/><stop offset="1" stop-color="#14b8a6" stop-opacity=".04"/>
-          </linearGradient>
-        </defs>
-        <g class="plane ghost" id="pl-rf" transform="translate(0,330)"><g class="fader">
-          <path d="M60 155 L260 60 L460 155 L260 250 Z" fill="#0f1615" stroke="#2b3a38" stroke-width="1.2"/>
-          <circle cx="200" cy="150" r="3" fill="#5eead4"/><circle cx="320" cy="150" r="3" fill="#5eead4"/>
-          <path d="M200 150 Q260 110 320 150" fill="none" stroke="#2b3a38" stroke-width="1" stroke-dasharray="3 3"/>
-          <text x="470" y="160" font-family="ui-monospace,monospace" font-size="11" fill="#8ca39e">RF &amp; RETE</text>
-        </g></g>
-        <g class="plane ghost" id="pl-luci" transform="translate(0,264)"><g class="fader">
-          <path d="M60 155 L260 60 L460 155 L260 250 Z" fill="#141310" stroke="#4a4128" stroke-width="1.2"/>
-          <circle cx="180" cy="150" r="4" fill="#d4a72c"/><circle cx="260" cy="112" r="4" fill="#d4a72c"/><circle cx="340" cy="150" r="4" fill="#d4a72c"/>
-          <text x="470" y="160" font-family="ui-monospace,monospace" font-size="11" fill="#d4a72c">LUCI</text>
-        </g></g>
-        <g class="plane ghost" id="pl-cavi" transform="translate(0,198)"><g class="fader">
-          <path d="M60 155 L260 60 L460 155 L260 250 Z" fill="#0f1615" stroke="#2b3a38" stroke-width="1.2"/>
-          <path d="M160 155 L260 108 L360 155 M210 178 L310 130" fill="none" stroke="#0f766e" stroke-width="1.3"/>
-          <text x="470" y="160" font-family="ui-monospace,monospace" font-size="11" fill="#8ca39e">CABLAGGIO</text>
-        </g></g>
-        <g class="plane" id="pl-elet" transform="translate(0,132)"><g class="fader">
-          <path d="M60 155 L260 60 L460 155 L260 250 Z" fill="url(#lg1)" stroke="#14b8a6" stroke-width="1.2"/>
-          <circle cx="215" cy="150" r="4" fill="#2dd4bf"/><circle cx="305" cy="150" r="4" fill="#2dd4bf"/><circle cx="260" cy="122" r="4" fill="#2dd4bf"/>
-          <text x="470" y="160" font-family="ui-monospace,monospace" font-size="11" fill="#2dd4bf">ELETTRICO</text>
-        </g></g>
-        <g class="plane" id="pl-mon" transform="translate(0,66)"><g class="fader">
-          <path d="M60 155 L260 60 L460 155 L260 250 Z" fill="#0f1615" stroke="#2b3a38" stroke-width="1.2"/>
-          <path d="M190 190 L214 190 L208 176 L196 176 Z M250 214 L274 214 L268 200 L256 200 Z M310 190 L334 190 L328 176 L316 176 Z" fill="none" stroke="#5eead4" stroke-width="1.2"/>
-          <text x="470" y="160" font-family="ui-monospace,monospace" font-size="11" fill="#8ca39e">MONITOR</text>
-        </g></g>
-        <g class="plane" id="pl-in" transform="translate(0,0)"><g class="fader">
-          <path d="M60 155 L260 60 L460 155 L260 250 Z" fill="#121b1a" stroke="#d7e6e2" stroke-width="1.2"/>
-          <circle cx="260" cy="130" r="13" fill="none" stroke="#d7e6e2" stroke-width="1.2"/>
-          <rect x="170" y="146" width="26" height="16" fill="none" stroke="#d7e6e2" stroke-width="1.2" transform="skewY(-8)"/>
-          <rect x="316" y="104" width="26" height="16" fill="none" stroke="#d7e6e2" stroke-width="1.2" transform="skewY(8)"/>
-          <circle cx="260" cy="196" r="5" fill="none" stroke="#2dd4bf" stroke-width="1.4"/>
-          <text x="470" y="160" font-family="ui-monospace,monospace" font-size="11" fill="#d7e6e2">PALCO + I/O</text>
-        </g></g>
-      </svg>
-    </div>
-  </div>
-</div></section>
-<!-- «Per chi è» (BAND / FONICI & SERVICE / PRODUZIONE) tolta il 31/08: diceva gli STESSI tre
-     pubblici della sezione «Due modi di usarlo» qui sopra, subito dopo averli già letti. La sua
-     unica informazione nuova — cosa ci guadagna chi RICEVE il rider — è passata lì dentro. -->
-<section class="rv" id="chi"><div class="wrap">
-  <p class="sec-k">Chi lo fa</p>
-  <h2>Lo scrive un sound engineer, non un'agenzia.</h2>
-  <div class="maker" style="margin-top:46px">
-    <div class="maker-txt">
-      <p>StagePlot nasce da troppe serate passate a ricostruire un palco dalla foto di un foglietto: <b>i dati c'erano già, solo non erano in un posto solo</b>.</p>
-      <p>Lo sviluppo da solo e lo uso al lavoro, in studio e in sala: quello che manca la sera stessa finisce nella lista. Il box «Cosa manca?» dentro l'editor arriva a me.</p>
-      <!-- 4B: il modello di business detto in chiaro. Tutti i concorrenti dichiarano il prezzo in home;
-           qui i 29 € vivevano solo in un link nel piede, e su un professionista il gratis non spiegato
-           genera sospetto invece che gratitudine. -->
-      <p><b>L'editor è gratis e resta gratis</b>: nessuna versione a pagamento, nessuna filigrana sui
-        documenti, nessun limite al numero di palchi. Ci campo con la revisione dei rider — 29 €, facoltativa,
-        e la gran parte di chi usa StagePlot non ne ha bisogno. <a class="ghost" href="/consulenza/">Come funziona</a></p>
-      <p class="sign"><b>Simone Castellan</b>sound engineer · studio e live</p>
-    </div>
-    <div class="maker-card">
-      <div><span>Elementi nel catalogo</span><b>200+</b></div>
-      <div><span>Microfoni riconosciuti</span><b>223</b></div>
-      <div><span>Modelli di faro</span><b>42</b></div>
-      <div><span>Lingua</span><b>italiano</b></div>
-      <div><span>Prezzo</span><b>gratis</b></div>
-    </div>
-  </div>
-</div></section>
-<!-- ========================= PROVA SOCIALE — STRUTTURA PRONTA, DISATTIVATA =========================
-     Deliberatamente NON pubblicata: al 09/08/2026 non ci sono numeri che aiutino (la home fa ~21 clic
-     in 28 giorni) e non esistono testimonianze raccolte. Un «3 progetti creati» farebbe più danno del
-     silenzio, e numeri inventati non sono un'opzione.
-
-     Quando accenderla: quando esiste almeno UNA delle due cose —
-       a) un numero vero e non imbarazzante (progetti creati / rider esportati, letti dal DB, aggregati);
-       b) due o tre frasi di persone reali che hanno dato il consenso, con nome e ruolo veri.
-     Per accenderla: togliere questo commento attorno alla sezione e riempire i valori. I numeri vanno
-     scritti a mano al momento della pubblicazione (nessun conteggio automatico in pagina: la landing
-     è statica e non deve interrogare il database).
-
-<section class="rv" id="prova"><div class="wrap">
-  <p class="sec-k">Chi lo usa</p>
-  <h2>Non è un prototipo: gira sui palchi.</h2>
-  <div class="who" style="margin-top:46px">
-    <div class="w-c"><h3>—</h3><p>progetti creati</p></div>
-    <div class="w-c"><h3>—</h3><p>rider esportati</p></div>
-    <div class="w-c"><h3>—</h3><p>link mandati ai service</p></div>
-  </div>
-</div></section>
-
-================================================================================================ -->
-
-<!-- Finché quei numeri non esistono, il posto non resta vuoto: si dice come stanno le cose. A un
-     professionista diffidente «è nuovo e te lo dico» vale più di dodici stelline non verificabili,
-     e soprattutto è vero. Quando arriveranno numeri o testimonianze, questa cede il posto. -->
-<section class="rv" id="novita"><div class="wrap">
-  <div class="onesto">
-    <p class="sec-k">Trasparenza</p>
-    <h2 class="onesto-h">È nuovo, e te lo dico.</h2>
-    <!-- Le tre «verifiche» devono essere davvero raggiungibili da qui. Nella prima stesura erano
-         parole: prometteva un rider «da scaricare» che non esiste, un catalogo senza link e una
-         mail che in tutta la pagina non compariva. Chi va a cliccare e non trova niente capisce
-         che era retorica, e il riquadro ottiene il contrario di quello che vuole. -->
-    <p>StagePlot è online da poco e non ho testimonianze da farti leggere. Non me le invento.
-      Quello che posso mostrarti sono tre cose che verifichi da solo, adesso:
-      <b><a class="ghost" href="#output">una pagina vera del rider</a></b>, da leggere riga per riga;
-      <b><a class="ghost" href="/guida/microfoni/">i 223 microfoni riconosciuti</a></b>, con tipo, polare e
-      phantom presi dalle schede dei costruttori;
-      <b><a class="ghost" href="#registro">cosa ho sistemato negli ultimi giorni</a></b>, con le date;
-      e il fatto che dietro c'è <b>una persona sola, con nome, cognome e indirizzo</b> — non un modulo
-      di contatto: <a class="ghost" href="mailto:castellansimone@gmail.com">castellansimone@gmail.com</a>.</p>
-    <p>Se lo provi e non funziona, il box «Cosa manca?» dentro l'editor arriva a me, e rispondo io.</p>
-
-    <!-- Il registro. Non è un changelog per sviluppatori: sono cose che un fonico riconosce, prese
-         dai commit veri e tradotte. Serve a dimostrare l'unica cosa che si può dimostrare senza
-         clienti — che il prodotto è vivo e che chi lo scrive lo usa. Ogni voce dev'essere vera e
-         datata: se un giorno resta ferma per mesi, questa sezione dice il contrario di quello che
-         deve dire, e un test lo ricorda. -->
-    <div class="registro" id="registro">
-      <p class="reg-k">Le ultime cose sistemate</p>
-      <!-- Aggiornato il 31/08: le voci si erano fermate al 12 agosto mentre la sezione diceva
-           «le ultime cose sistemate… degli ultimi giorni». Una pagina che si vanta di essere viva
-           e mostra date di venti giorni prima dimostra il contrario di quello per cui esiste. -->
-      <div class="reg-r"><time datetime="2026-09-26">26 set</time>
-        <p>In «I tuoi progetti» ogni riga ha la sua <b>miniatura</b>, e un clic apre l'anteprima grande con le varianti: si ritrova il palco giusto senza aprirli tutti.</p></div>
-      <div class="reg-r"><time datetime="2026-09-25">25 set</time>
-        <p>Il PDF porta la <b>data dell'evento</b>, e se esporti senza channel list l'editor te lo dice prima: è il foglio che il service chiede per primo.</p></div>
-      <div class="reg-r"><time datetime="2026-09-24">24 set</time>
-        <p>Si disegnano anche le <b>conferenze</b>: relatori e moderatore, lavalier o microfono da tavolo, confidence monitor. Se un relatore resta senza microfono, l'editor lo segnala.</p></div>
-      <div class="reg-r"><time datetime="2026-09-17">17 set</time>
-        <p>«Nuovo» non cancella più un progetto bloccato: ne apre uno accanto e l'altro resta com'era.</p></div>
-      <div class="reg-r"><time datetime="2026-09-01">1 set</time>
-        <p>I cavi si collegano <b>direttamente al mixer</b>, se il banco lo tieni sul palco: prima serviva per forza una stage box, e chi non ce l'ha restava con i canali appesi. Segnalato da chi lo usa.</p></div>
-      <div class="reg-r"><time datetime="2026-08-31">31 ago</time>
-        <p>Aprendo un modello, il riepilogo delle ipotesi non copre più il palco appena creato: era finito proprio sopra le voci e i cori di cui parla.</p></div>
-      <div class="reg-r"><time datetime="2026-08-30">30 ago</time>
-        <p>Il backline porta marca e modello veri: un <b>Ampeg SVT-CL</b> dichiara i suoi 460 W letti sul manuale, non una media di categoria.</p></div>
-      <div class="reg-r"><time datetime="2026-08-29">29 ago</time>
-        <p>Consumi e pesi delle console presi dai documenti dei costruttori: la <b>CS-R10 pesa 85 kg</b>, e il rider ne dichiarava 30. Sul camion è una differenza che si sente.</p></div>
-      <p class="reg-note">Sono le voci degli ultimi giorni. Nascono dalle serate in cui è mancato qualcosa —
-        le mie, per ora.</p>
-    </div>
-  </div>
-</div></section>
-
-<section class="rv tinted" id="domande"><div class="wrap">
-  <p class="sec-k">Domande</p>
-  <h2>Quello che chiedono tutti sullo stage plot.</h2>
-  <div class="faq">
-    <div>
-      <h3>Stage plot, scheda tecnica e rider tecnico: che differenza c'è?</h3>
-      <p>Lo <a href="/guida/cos-e-uno-stage-plot/">stage plot</a> è la pianta del palco in scala: dove stanno musicisti, strumenti, amplificatori, monitor e prese. La <a href="/guida/scheda-tecnica-band/">scheda tecnica</a>, che i service chiamano <a href="/guida/rider-tecnico/">rider tecnico</a>, è il documento che lo accompagna: channel list, monitor, alimentazione e richieste per il concerto. Con StagePlot si disegna online il primo, e il resto esce in PDF dallo stesso disegno.</p>
-    </div>
-    <div>
-      <h3>Devo registrarmi?</h3>
-      <p>No: apri e disegni, e il progetto resta su questo computer anche se chiudi il browser. Prima di mandarlo scarica il PDF — quello è tuo e non dipende da noi. L'account, con Google, serve solo per ritrovare il progetto da un altro computer.</p>
-    </div>
-    <div>
-      <h3>Il service riesce ad aprire lo stage plot?</h3>
-      <p>Gli mandi un PDF, o un link di sola lettura che si apre nel browser. Dall'altra parte non deve installare né imparare niente.</p>
-    </div>
-    <div>
-      <h3>Funziona dal telefono?</h3>
-      <p>Sì per guardare, ritoccare e mostrarlo in sala. Per disegnare un palco da zero uno schermo grande resta più comodo.</p>
-    </div>
-    <div>
-      <h3>StagePlot è davvero gratis?</h3>
-      <p>Sì: editor, PDF ed export. Niente carta di credito, niente prova a tempo, nessuna filigrana sui documenti.</p>
-    </div>
-    <div>
-      <h3>Serve saperci fare col disegno tecnico?</h3>
-      <p>No. Trascini strumenti veri sul palco; canali, watt e monitor li mette in fila l'editor. Se qualcosa manca, te lo segnala.</p>
-    </div>
-    <div>
-      <h3>Da dove si parte se non si sa da dove partire?</h3>
-      <p>Apri l'<a href="/app/?from=domande">editor</a> a palco vuoto e comincia da chi suona: un clic posa lo strumento sul palco, in scala.</p>
-      <p class="q-more">Come si imposta il palco, formazione per formazione: <a href="/stage-plot/band/">band</a>, <a href="/stage-plot/jazz/">jazz combo</a>, <a href="/stage-plot/coro/">coro</a>, <a href="/stage-plot/bigband/">big band</a>, <a href="/stage-plot/acustica/">acustico</a>, <a href="/stage-plot/tributo/">tribute band</a>, <a href="/stage-plot/orchestra/">orchestra</a>, <a href="/stage-plot/chiesa/">chiesa</a>, <a href="/stage-plot/matrimonio/">matrimonio</a>, <a href="/stage-plot/dj/">DJ set</a>, <a href="/stage-plot/festival/">festival</a>.</p>
-    </div>
-  </div>
-</div></section>
-<section class="final rv"><div class="wrap">
-  <p class="sec-k">Pronto quando lo sei tu</p>
-  <h2>Il palco lo disegni stasera. Il rider esce con lui.</h2>
-  <!-- Portava a un palco vuoto: l'ultima spinta della pagina mandava chi non sa da dove
-       cominciare esattamente dove ci si blocca. Ora e' la stessa CTA dell'inizio. -->
-  <a class="btn" href="/app/?from=finale">Apri l'editor</a>
-  <!-- «finale» per tutti e due: le sorgenti sono un elenco chiuso, vincolato anche da un CHECK sul
-       database (migration 0036). Un nome nuovo qui vorrebbe dire una migrazione, e non vale la
-       pena per distinguere due bottoni della stessa sezione. -->
-  <a class="btn2" href="/app/?from=finale">Parti da un palco vuoto</a>
-  <p class="trust"><span>Gratis</span> · nel browser · senza registrazione</p>
-</div></section>
-
+  </section>
 </main>
 
-<footer><div class="wrap foot">
-  <div>
-    <a href="/guida/cos-e-uno-stage-plot/">Cos'è uno stage plot</a>
-    <a href="/guida/come-fare-uno-stage-plot/">Come fare uno stage plot</a>
-    <a href="/guida/stage-plot-in-scala/">Stage plot in scala</a>
-    <a href="/guida/scheda-tecnica-band/">Scheda tecnica</a>
-    <a href="/guida/rider-tecnico/">Rider tecnico</a>
-    <a href="/guida/channel-list-input-list/">Channel list</a>
-    <a href="/guida/assorbimento-elettrico-palco/">Assorbimento elettrico</a>
-    <a href="/guida/esempi-stage-plot/">Esempi di stage plot</a>
+<!-- Piè di pagina: qui stanno i link che prima vivevano nelle sezioni tolte (guide, pagine per formazione,
+     confronti, consulenza, Orchestre). Servono a Google e a chi cerca: un test vuole ogni /stage-plot/<formazione>/. -->
+<footer>
+  <div class="wrap">
+    <nav class="gruppo" aria-label="Guide"><span>Guide</span>
+      <a href="/guida/cos-e-uno-stage-plot/">Cos'è uno stage plot</a>
+      <a href="/guida/come-fare-uno-stage-plot/">Come fare uno stage plot</a>
+      <a href="/guida/stage-plot-in-scala/">Stage plot in scala</a>
+      <a href="/guida/scheda-tecnica-band/">Scheda tecnica</a>
+      <a href="/guida/rider-tecnico/">Rider tecnico</a>
+      <a href="/guida/channel-list-input-list/">Channel list</a>
+      <a href="/guida/assorbimento-elettrico-palco/">Assorbimento elettrico</a>
+      <a href="/guida/esempi-stage-plot/">Esempi di stage plot</a>
+      <a href="/guida/microfoni/">Microfoni riconosciuti</a>
+      <a href="/guida/">Tutte le guide</a>
+    </nav>
+    <nav class="gruppo" aria-label="Stage plot per formazione"><span>Stage plot per formazione</span>
+      <a href="/stage-plot/band/">Band</a>
+      <a href="/stage-plot/jazz/">Jazz combo</a>
+      <a href="/stage-plot/coro/">Coro</a>
+      <a href="/stage-plot/bigband/">Big band</a>
+      <a href="/stage-plot/acustica/">Acustico</a>
+      <a href="/stage-plot/tributo/">Tribute band</a>
+      <a href="/stage-plot/orchestra/">Orchestra</a>
+      <a href="/stage-plot/chiesa/">Chiesa</a>
+      <a href="/stage-plot/matrimonio/">Matrimonio</a>
+      <a href="/stage-plot/dj/">DJ set</a>
+      <a href="/stage-plot/festival/">Festival</a>
+      <a href="/stage-plot/">Tutte le formazioni</a>
+    </nav>
+    <nav class="gruppo" aria-label="Altro"><span>Altro</span>
+      <a href="/consulenza/">Consulenza</a>
+      <a href="/alternative/">Alternative a Ridermaker e TecRider</a>
+      <a href="/orchestre/" title="Musicisti per concerti ed eventi: un servizio a parte dall'editor">Orchestre — musicisti per il tuo evento</a>
+      <a href="/termini/">Termini</a>
+      <a href="/privacy/">Privacy</a>
+    </nav>
+    <p class="firma">© 2026 StagePlot — Simone Castellan</p>
   </div>
-  <div>
-    <a href="/stage-plot/">Esempi per formazione</a>
-    <a href="/guida/">Tutte le guide</a>
-    <a href="/alternative/">Alternative a Ridermaker e TecRider</a>
-    <a href="/consulenza/">Consulenza</a>
-    <a href="/orchestre/">Orchestre — musicisti per il tuo evento</a>
-  </div>
-  <div>
-    <a href="/termini/">Termini</a>
-    <a href="/privacy/">Privacy</a>
-    <span>© 2026 StagePlot — Simone Castellan</span>
-  </div>
-</div></footer>
-
-<script>
-(function(){
-  var reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-  /* 1 — chip layer nell'hero */
-  document.querySelectorAll('.chip').forEach(function(chip){
-    chip.addEventListener('click', function(){
-      var on = chip.getAttribute('aria-pressed') === 'true';
-      chip.setAttribute('aria-pressed', String(!on));
-      var g = document.getElementById(chip.dataset.layer);
-      if (g) g.classList.toggle('off', on);
-    });
-  });
-
-  /* 2 — tooltip: mouse + tocco */
-  var tip = document.getElementById('tip');
-  function placeTip(x, y){
-    var tx = Math.min(x + 14, innerWidth - tip.offsetWidth - 10);
-    var ty = Math.min(y + 16, innerHeight - tip.offsetHeight - 10);
-    tip.style.left = tx + 'px'; tip.style.top = ty + 'px';
-  }
-  document.querySelectorAll('[data-tip]').forEach(function(el){
-    el.addEventListener('mouseenter', function(){ tip.innerHTML = el.dataset.tip; tip.style.opacity = 1; });
-    el.addEventListener('mousemove', function(e){ placeTip(e.clientX, e.clientY); });
-    el.addEventListener('mouseleave', function(){ tip.style.opacity = 0; });
-    el.addEventListener('pointerdown', function(e){
-      if (e.pointerType !== 'touch') return;
-      e.preventDefault(); e.stopPropagation();
-      tip.innerHTML = el.dataset.tip; tip.style.opacity = 1;
-      placeTip(e.clientX, e.clientY - 70);
-    });
-  });
-  document.addEventListener('pointerdown', function(e){
-    if (e.pointerType === 'touch' && !e.target.closest('[data-tip]')) tip.style.opacity = 0;
-  });
-
-  /* 3 — spotlight sulla console */
-  var con = document.getElementById('console');
-  con.addEventListener('mousemove', function(e){
-    var r = con.getBoundingClientRect();
-    con.style.setProperty('--mx', (e.clientX - r.left) + 'px');
-    con.style.setProperty('--my', (e.clientY - r.top) + 'px');
-  });
-
-  /* 4 — numeri che contano */
-  function countUp(el){
-    var raw = el.dataset.n, dec = raw.indexOf(',') > -1;
-    var target = parseFloat(raw.replace(',', '.'));
-    if (reduced) { el.textContent = raw; return; }
-    var t0 = null, dur = 950, done = false;
-    function fmt(v){ return dec ? v.toFixed(1).replace('.', ',') : String(Math.round(v)); }
-    function step(t){
-      if (done) return;
-      if (!t0) t0 = t;
-      var p = Math.min(1, (t - t0) / dur);
-      el.textContent = fmt(target * (1 - Math.pow(1 - p, 3)));
-      if (p < 1) requestAnimationFrame(step); else { done = true; el.textContent = raw; }
-    }
-    requestAnimationFrame(step);
-    /* rete di sicurezza: nelle schede in background il rAF non scatta — il valore finale arriva comunque */
-    setTimeout(function(){ if (!done) { done = true; el.textContent = raw; } }, dur + 400);
-  }
-  document.querySelectorAll('#con-sum b').forEach(countUp);
-
-  /* 5 — rider.pdf che si digita */
-  var lines = document.querySelectorAll('#term .tl');
-  function typeLines(){
-    lines.forEach(function(l, i){
-      setTimeout(function(){
-        l.classList.add('on');
-        if (i === lines.length - 1) l.classList.add('cursor');
-        else if (i > 0) lines[i-1].classList.remove('cursor');
-      }, reduced ? 0 : 260 * i);
-    });
-    if (!reduced && lines.length) lines[0].classList.add('cursor');
-  }
-
-  /* 5-bis — «copia il testo» per chi i rider li riceve.
-     Nessuna dipendenza: clipboard API dove c'è (serve HTTPS), altrimenti il vecchio execCommand su
-     una textarea temporanea, che funziona anche dove la API è negata. Se fallisce tutto, si dice —
-     un bottone che finge di aver copiato è peggio di un bottone che non c'è. */
-  var okMsg = document.getElementById('copiaOk');
-  function segnala(testo){
-    if (!okMsg) return;
-    okMsg.textContent = testo;
-    clearTimeout(okMsg.__t);
-    okMsg.__t = setTimeout(function(){ okMsg.textContent = ''; }, 2600);
-  }
-  function copiaTesto(testo){
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(testo).then(function(){ segnala('copiato ✓'); },
-                                                function(){ ripiego(testo); });
-    } else ripiego(testo);
-  }
-  function ripiego(testo){
-    try{
-      var ta = document.createElement('textarea');
-      ta.value = testo; ta.setAttribute('readonly','');
-      ta.style.cssText = 'position:fixed;top:-1000px;opacity:0';
-      document.body.appendChild(ta); ta.select();
-      var fatto = document.execCommand('copy');
-      document.body.removeChild(ta);
-      segnala(fatto ? 'copiato ✓' : 'copia a mano: il testo è qui sopra');
-    }catch(e){ segnala('copia a mano: il testo è qui sopra'); }
-  }
-  document.querySelectorAll('.copia').forEach(function(b){
-    b.addEventListener('click', function(){
-      var diretto = b.dataset.copiaTesto;
-      if (diretto) return copiaTesto(diretto);
-      var el = document.getElementById(b.dataset.copia);
-      if (el) copiaTesto(el.textContent.trim());
-    });
-  });
-
-  /* 6 — comparatore prima/dopo */
-  var ba = document.getElementById('ba');
-  ba.querySelector('.ba-range').addEventListener('input', function(){
-    ba.style.setProperty('--cut', this.value + '%');
-  });
-
-  /* Il foglietto è un viewBox 960×440 con «slice»: dentro un riquadro largo va bene, ma su un
-     telefono (quasi quadrato) slice tagliava i lati e spariva proprio quello che fa ridere —
-     il titolo «palco sabato?!?» e il «CORRENTE???» in fondo. Su schermo stretto si inquadra la
-     parte scritta e si entra tutti dentro. Il fondo è già color carta, le bande non si vedono. */
-  var foglio = ba.querySelector('.ba-before svg');
-  var stretto = matchMedia('(max-width:760px)');
-  function inquadra(){
-    if (stretto.matches) {
-      foglio.setAttribute('viewBox', '125 20 730 410');
-      foglio.setAttribute('preserveAspectRatio', 'xMidYMid meet');
-    } else {
-      foglio.setAttribute('viewBox', '0 0 960 440');
-      foglio.setAttribute('preserveAspectRatio', 'xMidYMid slice');
-    }
-  }
-  inquadra();
-  stretto.addEventListener('change', inquadra);
-
-  /* 7 — documenti a schede */
-  var tabs = document.querySelectorAll('.tab');
-  tabs.forEach(function(tab){
-    tab.addEventListener('click', function(){
-      tabs.forEach(function(t){ t.setAttribute('aria-selected','false'); });
-      document.querySelectorAll('.panel').forEach(function(p){ p.classList.remove('show'); });
-      tab.setAttribute('aria-selected','true');
-      document.getElementById(tab.dataset.panel).classList.add('show');
-    });
-  });
-
-  /* 8 — channel list agganciata al mini-plot */
-  var mini = document.getElementById('miniplot');
-  function light(key, on){
-    if (!key) return;
-    mini.classList.toggle('dimmed', on);
-    mini.querySelectorAll('.el').forEach(function(el){
-      el.classList.toggle('hl', on && el.dataset.el === key);
-    });
-    document.querySelectorAll('#chlist tbody tr').forEach(function(tr){
-      tr.classList.toggle('hl', on && tr.dataset.el === key);
-    });
-  }
-  /* col dito non esiste «passare sopra»: si tocca, e il legame resta acceso finché
-     non si tocca altrove. Senza questo, su telefono l'invito era una promessa vuota. */
-  var held = null;
-  function tap(key){
-    if (held === key) { light(key, false); held = null; return; }
-    if (held) light(held, false);
-    light(key, true); held = key;
-  }
-  document.querySelectorAll('#chlist tbody tr').forEach(function(tr){
-    tr.addEventListener('mouseenter', function(){ if (!held) light(tr.dataset.el, true); });
-    tr.addEventListener('mouseleave', function(){ if (!held) light(tr.dataset.el, false); });
-    tr.addEventListener('click', function(){ tap(tr.dataset.el); });
-  });
-  mini.querySelectorAll('.el').forEach(function(el){
-    el.addEventListener('mouseenter', function(){ if (!held) light(el.dataset.el, true); });
-    el.addEventListener('mouseleave', function(){ if (!held) light(el.dataset.el, false); });
-    el.addEventListener('click', function(){ tap(el.dataset.el); });
-  });
-
-  /* 9 — interruttori della pila layer */
-  function refreshCount(){
-    var n = document.querySelectorAll('.lrow[aria-pressed="true"]').length;
-    document.getElementById('lcount').textContent =
-      n === 0 ? 'solo il palco: il disegno resta pulito'
-      : n + (n === 1 ? ' layer acceso' : ' layer accesi') + ' + il palco';
-  }
-  document.querySelectorAll('.lrow').forEach(function(row){
-    row.addEventListener('click', function(){
-      var on = row.getAttribute('aria-pressed') === 'true';
-      row.setAttribute('aria-pressed', String(!on));
-      var pl = document.getElementById(row.dataset.plane);
-      if (pl) pl.classList.toggle('ghost', on);
-      refreshCount();
-    });
-  });
-  refreshCount();
-
-  /* 10 — reveal allo scroll (+ innesco del typewriter)
-     Rete di sicurezza: con uno scroll molto rapido l'observer può perdere
-     l'attraversamento e la sezione resterebbe invisibile — quindi si rivela
-     anche tutto ciò che è già stato superato. */
-  var typed = false;
-  function reveal(s){
-    if (s.classList.contains('in')) return;
-    s.classList.add('in');
-    if (!typed && s.querySelector('#term')){ typed = true; typeLines(); }
-  }
-  var sections = Array.prototype.slice.call(document.querySelectorAll('.rv'));
-  if ('IntersectionObserver' in window && !reduced){
-    var io = new IntersectionObserver(function(entries){
-      entries.forEach(function(en){
-        if (en.isIntersecting || en.boundingClientRect.top < innerHeight) reveal(en.target);
-      });
-    }, {threshold:.05});
-    sections.forEach(function(s){ io.observe(s); });
-    var sweep = function(){
-      sections = sections.filter(function(s){ return !s.classList.contains('in'); });
-      sections.forEach(function(s){
-        if (s.getBoundingClientRect().top < innerHeight * .95) reveal(s);
-      });
-      if (!sections.length) removeEventListener('scroll', sweep);
-    };
-    addEventListener('scroll', sweep, {passive:true});
-  } else {
-    sections.forEach(function(s){ s.classList.add('in'); });
-    typeLines();
-  }
-
-  /* --- demo «una modifica, tutto aggiornato» ---
-     Ogni azione accende l'elemento sul palco E la riga del documento che ne discende, così il nesso
-     causa-effetto si vede invece di doverlo leggere.
-
-     UNA SOLA FONTE (31/08). Prima i numeri stavano scritti a mano in TRE posti — l'HTML iniziale, un
-     oggetto `syTot` nel JS e la tabella del pulsante «rimetti com'era» — e nulla impediva alle tre
-     copie di divergere: bastava aggiungere una riga alla channel list e dimenticarsi di ritoccare il
-     contatore. Su una pagina che promette «il rider si aggiorna da solo», due numeri che non tornano
-     smentiscono il prodotto proprio mentre lo si dimostra.
-     Ora i totali NON sono memorizzati da nessuna parte: si CONTANO dalle righe visibili, e i kW si
-     sommano da quello che ogni riga dichiara in data-kw. Se un giorno qualcuno aggiunge una riga, il
-     numero la segue senza che nessuno debba ricordarsene. */
-  var syReset = document.getElementById('syReset');
-  function syFlash(el){ if(!el) return; el.classList.add('up'); setTimeout(function(){ el.classList.remove('up'); }, 1400); }
-
-  /* Una riga conta se non è una di quelle «nuove» ancora spente. Si guarda la classe e non
-     l'altezza: in una scheda in secondo piano le transizioni non avanzano e l'altezza resta 0 —
-     misurarla darebbe totali sbagliati proprio mentre l'utente non sta guardando. */
-  function syRighe(doc){
-    return [].filter.call(document.querySelectorAll('#' + doc + ' .sy-rows > div'), function(r){
-      return !r.classList.contains('new') || r.classList.contains('on');
-    });
-  }
-  function syNum(v){ return (v/100).toFixed(1).replace('.', ','); }
-
-  /* L'unico posto dove i numeri della demo vengono decisi. */
-  function syAggiorna(flash){
-    var ch = syRighe('doc-mic').length;
-    var mix = syRighe('doc-mon').length;
-    var kw = syRighe('doc-par').reduce(function(a, r){ return a + (parseInt(r.dataset.kw, 10) || 0); }, 0);
-    var testi = {
-      docChN: ch + ' CH', docMonN: mix + ' mix', docKwN: syNum(kw) + ' kW',
-      syCh: String(ch), syMix: String(mix), syKw: syNum(kw)
-    };
-    Object.keys(testi).forEach(function(id){
-      var e = document.getElementById(id); if (!e || e.textContent === testi[id]) return;
-      e.textContent = testi[id];
-      if (flash && id.indexOf('sy') === 0) syFlash(e);
-    });
-  }
-
-  var SY_DOC = { mic:'doc-mic', mon:'doc-mon', par:'doc-par' };
-
-  document.querySelectorAll('.sbtn[data-add]').forEach(function(b){
-    b.addEventListener('click', function(){
-      var k = b.dataset.add;
-      if (b.dataset.done === '1' || !SY_DOC[k]) return;
-      b.dataset.done = '1';
-      var g = document.getElementById('add-' + k); if (g) g.classList.add('on');
-      var row = document.getElementById('row-' + k); if (row) row.classList.add('on');
-      var doc = document.getElementById(SY_DOC[k]);
-      if (doc) { doc.classList.add('hit'); setTimeout(function(){ doc.classList.remove('hit'); }, 2600); }
-      syAggiorna(true);
-      if (syReset) syReset.hidden = false;
-    });
-  });
-
-  if (syReset) syReset.addEventListener('click', function(){
-    ['mic','mon','par'].forEach(function(k){
-      var g = document.getElementById('add-' + k); if (g) g.classList.remove('on');
-      var row = document.getElementById('row-' + k); if (row) row.classList.remove('on');
-    });
-    document.querySelectorAll('.sbtn[data-add]').forEach(function(b){ b.dataset.done = '0'; });
-    syAggiorna(false);
-    syReset.hidden = true;
-  });
-
-  /* All'avvio si riallinea comunque: se l'HTML statico e le righe non tornassero, vince ciò che si
-     vede. Senza JS resta l'HTML, che è scritto coerente. */
-  syAggiorna(false);
-})();
-</script>
+</footer>
 
 <!-- ============================================================================================
      CONTATORE DELLA LANDING
