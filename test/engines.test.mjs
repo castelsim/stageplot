@@ -17739,7 +17739,10 @@ t("la vetrina dell'esemplare mostra palco, channel list, monitor ed elettrico, e
     const cap = (f.match(/<figcaption>([\s\S]*?)<\/figcaption>/) || [])[1] || "";
     ok(new RegExp("pagin[ae] " + pag + "(?: e \\d+)? di " + vere + "\\b").test(cap), nome + ": la didascalia dice «pagina " + pag + " di " + vere + "» (il PDF ha " + vere + " pagine): " + cap);
   });
-  ok(/6 mix/.test(figure[2]) && /3,3 kW/.test(figure[3]), "i numeri di monitor ed elettrico sono quelli del PDF (6 mix, 3,3 kW)");
+  ok(/77 canali/.test(figure[1]) && /6 mix/.test(figure[2]) && /3,5 kW/.test(figure[3]), "i numeri di channel list, monitor ed elettrico sono quelli del PDF (77 canali, 6 mix, 3,5 kW)");
+  ok(/sei multiprese collegate ciascuna direttamente al quadro/.test(figure[3]), "l'alt dell'elettrico dice com'è fatto: multiprese direttamente al quadro, nessuna in cascata");
+  /* il PDF è un download da telefono: ricompresso, sta sotto i 4 MB (la v2 pesava 10 MB) */
+  ok(statSync(join(root, pdf.slice(1))).size <= 4 * 1024 * 1024, "il PDF d'esempio pesa al massimo 4 MB: " + Math.round(statSync(join(root, pdf.slice(1))).size / 1024) + " KB");
 });
 
 t("l'esemplare della landing (PDF, HTML, immagini) non contiene dati reali", () => {
