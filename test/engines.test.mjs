@@ -17739,7 +17739,7 @@ t("la vetrina dell'esemplare mostra palco, rider, channel list ed elettrico, e o
     const cap = (f.match(/<figcaption>([\s\S]*?)<\/figcaption>/) || [])[1] || "";
     ok(new RegExp("pagin[ae] " + pag + "(?: e \\d+)? di " + vere + "\\b").test(cap), nome + ": la didascalia dice «pagina " + pag + " di " + vere + "» (il PDF ha " + vere + " pagine): " + cap);
   });
-  ok(/approvato/.test(figure[1]) && /63 canali/.test(figure[2]) && /3,3 kW/.test(figure[3]), "i numeri di rider, channel list ed elettrico sono quelli del PDF (approvato, 63 canali, 3,3 kW)");
+  ok(/approvato/.test(figure[1]) && /61 canali/.test(figure[2]) && /3,3 kW/.test(figure[3]), "i numeri di rider, channel list ed elettrico sono quelli del PDF (approvato, 61 canali, 3,3 kW)");
   ok(/una linea per ogni carico/.test(figure[3]) && !/multipres/.test(figure[3]), "l'alt dell'elettrico dice com'è fatto: una linea dal quadro per ogni carico, nessuna multipresa");
   ok(/microfono per leggio/.test(figure[2]), "l'alt della channel list dice la regola di casa: un microfono per leggio sugli archi");
   /* il PDF è un download da telefono: ricompresso, sta sotto i 4 MB (la v2 pesava 10 MB) */
@@ -17747,7 +17747,7 @@ t("la vetrina dell'esemplare mostra palco, rider, channel list ed elettrico, e o
 });
 
 t("l'esemplare della landing (PDF, HTML, immagini) non contiene dati reali", () => {
-  /* L'esemplare nasce da un concerto vero, anonimizzato fuori dal repo (pubblico). Se il PDF o la pagina
+  /* L'esemplare è un esempio anonimo generato fuori dal repo (pubblico). Se il PDF o la pagina
      lasciano passare un nome, un luogo o un contatto, finisce online: qui si cerca nel testo del PDF
      (stream compressi) e nell'HTML della landing. */
   /* le parole vietate sono spezzate di proposito: il repo è pubblico e non deve contenerle nemmeno qui */
@@ -17766,6 +17766,8 @@ t("l'esemplare della landing (PDF, HTML, immagini) non contiene dati reali", () 
   const htmlTesto = landing + " " + readdirSync(join(root, "img")).filter((n) => /^esemplare-/.test(n)).join(" ");
   const trovatoH = htmlTesto.match(vietate);
   ok(!trovatoH, "la landing o i nomi dei file dell'esemplare contengono «" + (trovatoH || [""])[0] + "»");
+  /* nemmeno nei commenti dell'HTML, che sono pubblici: l'esemplare non si presenta come «nato da un progetto/concerto vero» */
+  ok(!/(progetto|concerto) ver[oi]\b/i.test(landing.replace(/<script[\s\S]*?<\/script>/g, "")), "la landing non dice che l'esemplare viene da un progetto o un concerto vero");
 });
 
 t("ogni link interno della landing porta a una pagina che esiste", () => {
