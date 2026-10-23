@@ -10,7 +10,7 @@
  * poteva tenerlo allineato: non c'era niente da modificare, solo pixel.
  *
  * Quindi l'anteprima non RIPETE i dati della landing: LI LEGGE. Titolo, promessa, nome del progetto
- * d'esempio e i suoi totali arrivano da index.html. Se domani la landing cambia lo slogan o i kW,
+ * d'esempio e le sue misure arrivano da index.html. Se domani la landing cambia lo slogan o i kW,
  * qui cambiano da soli — e finche' nessuno rigenera il PNG il presidio in test/engines.test.mjs
  * diventa rosso, perche' confronta la landing di oggi con ops/anteprima-social.json.
  *
@@ -37,22 +37,22 @@ export function datiDallaLanding(landing) {
     return m;
   };
 
-  /* Il titolo e' l'H1, spezzato dove lo spezza la pagina: «Disegna il palco.» + «in scala.» */
-  /* Dal 27/09 l'H1 porta dentro anche il kicker con le parole chiave: nell'immagine il kicker ha già
-     la sua riga sopra il titolo, quindi qui si scarta. */
-  const h1 = scava(/<h1[^>]*>([\s\S]*?)<\/h1>/, "l'H1")[1].replace(/<span class="kicker">[\s\S]*?<\/span>/, "");
-  const righe = h1.split(/<br\s*\/?>/i).map((x) => x.replace(/<[^>]*>/g, "").trim()).filter(Boolean);
+  /* Il titolo e' l'H1, spezzato dove lo spezza la pagina: il testo normale + la parte in evidenza <em>
+     («Lo stage plot che il» + «service capisce.»). Dalla landing del 23/10 non c'e' piu' il kicker nell'H1
+     ne' il <br>: l'accento e' l'<em>. */
+  const h1 = scava(/<h1[^>]*>([\s\S]*?)<\/h1>/, "l'H1")[1].replace(/<\/em>([.!?])/, "$1</em>");
+  const righe = h1.split(/<em>|<\/em>/i).map((x) => x.replace(/<[^>]*>/g, "").trim()).filter(Boolean);
 
-  /* La promessa: la prima frase del sottotitolo dell'hero, col suo grassetto */
-  const sub = scava(/<p class="sub">([\s\S]*?)<\/p>/, "il sottotitolo dell'hero")[1];
-  const forte = (sub.match(/<b>([\s\S]*?)<\/b>/) || [, ""])[1].replace(/<[^>]*>/g, "").trim();
-  const piano = sub.replace(/<[^>]*>/g, "").trim().slice(forte.length).replace(/^[:\s]+/, "").split(/(?<=\.)\s/)[0].trim();
+  /* La promessa: il grassetto del lead dell'apertura («StagePlot e' un editor gratuito nel browser») e
+     il resto della frase fino ai due punti («per disegnare il palco in scala») */
+  const lead = scava(/<p class="lead">([\s\S]*?)<\/p>/, "il lead dell'apertura")[1];
+  const forte = (lead.match(/<b>([\s\S]*?)<\/b>/) || [, ""])[1].replace(/<[^>]*>/g, "").trim();
+  const piano = lead.replace(/<[^>]*>/g, "").trim().slice(forte.length).split(/[:.]/)[0].trim();
 
-  /* Il progetto d'esempio e i suoi totali, dalla barra della console interattiva */
-  const progetto = scava(/<span>([\w-]+\.stageplot) — <em>esempio<\/em><\/span>/, "il nome del progetto d'esempio")[1];
-  const barra = scava(/<span id="con-sum">([\s\S]*?)<\/span>/, "i totali del progetto d'esempio")[1];
-  const totali = [...barra.matchAll(/<b data-n="([^"]+)">[^<]*<\/b>\s*([^<]*)/g)]
-    .map((m) => ({ n: m[1], unita: m[2].replace(/[·\s]+$/, "").trim() }));
+  /* Il documento d'esempio mostrato nell'apertura: il nome dalla didascalia, le misure dal suo secondo pezzo */
+  const progetto = scava(/<figcaption><span><b>([^<]+)<\/b>/, "il nome del documento d'esempio")[1].trim();
+  const misure = scava(/<span>palco ([\d,]+ × [\d,]+) m · scala ([\d:]+)<\/span>/, "le misure e la scala del documento d'esempio");
+  const totali = [{ n: misure[1], unita: "m" }, { n: "scala", unita: misure[2] }];
 
   /* Anche il marchio arriva da li: e' lo stesso SVG dell'intestazione, ingrandito */
   const logo = scava(/<a class="logo" href="\/">\s*(<svg[\s\S]*?<\/svg>)/, "il logo dell'intestazione")[1]
@@ -96,7 +96,7 @@ export function paginaAnteprima(d) {
     </div>
     <div class="k">Stage plot · Scheda tecnica · Rider</div>
     <h1>${prima}<br><span class="scala">${resto.join(" ")}</span></h1>
-    <p class="sub"><b>${d.forte}</b>${d.piano ? ": " + d.piano : ""}</p>
+    <p class="sub"><b>${d.forte}</b>${d.piano ? " " + d.piano : ""}.</p>
     <div class="url">stageplot.it</div>
   </div>
   <div class="dx">
