@@ -20,7 +20,7 @@ Uno stage plot (o stage plan) è lo schema in scala del palco che mostra la disp
 ## Fatti chiave
 - Prezzo: gratis, senza registrazione e senza filigrana sui documenti (la consulenza è un servizio umano a parte, da 29 €)
 - Catalogo: oltre 200 elementi trascinabili, 223 microfoni riconosciuti (tipo, polare, phantom e asta presi dalle schede dei costruttori), 42 modelli di faro
-- Modelli pronti: 7 palchi (acustico, band, jazz combo, coro, orchestra, orchestra pop, conferenza); altre formazioni (tributo, big band, matrimonio, DJ set) hanno una pagina di esempio
+- Guide per formazione (band, jazz combo, coro, orchestra, big band, tributo, matrimonio, DJ set e altre): spiegano come disporre il palco; nell'editor si parte da un palco vuoto
 - Lingua dell'interfaccia e dei documenti: italiano
 - Dove girano i dati: nel browser, sul dispositivo di chi disegna (local-first)
 - Chi lo sviluppa: Simone Castellan, sound engineer per spettacoli dal vivo, da solo
@@ -72,7 +72,7 @@ Musicisti, band, orchestre, cori, direttori di palco, fonici, service audio, tea
 
 ## Domande frequenti
 - Qual è la differenza fra stage plot, scheda tecnica e rider tecnico? Lo stage plot è la pianta del palco in scala; la scheda tecnica (che i service chiamano rider tecnico) è il documento che lo accompagna, con channel list, monitor, alimentazione e richieste. StagePlot li produce entrambi dallo stesso disegno.
-- Come si fa uno stage plot online gratis? Si apre https://stageplot.it/app/, si parte da un modello pronto o da un palco vuoto, si trascinano strumenti e musicisti sulle pedane in scala e si esporta il PDF: channel list, monitor e carichi elettrici sono già compilati.
+- Come si fa uno stage plot online gratis? Si apre https://stageplot.it/app/, si parte da un palco vuoto, si trascinano strumenti e musicisti sulle pedane in scala e si esporta il PDF: channel list, monitor e carichi elettrici sono già compilati.
 - Serve un account? No. Il progetto resta nel browser; l'account Google serve solo per ritrovarlo su un altro computer o condividerlo con un link.
 
 ## Contatti

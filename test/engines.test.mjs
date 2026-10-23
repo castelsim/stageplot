@@ -5420,17 +5420,11 @@ t("elenco progetti: miniature leggere, sicure, e anteprima grande", () => {
   ok(/chiudiAnteprima\(true\); openProject\(pid\);/.test(g), "«Apri» apre il progetto con la strada di sempre");
   ok(/class="cloudThumb attesa" data-id="'\+pid\+'" aria-label="Anteprima di '\+esc\(/.test(appjs), "la miniatura è un pulsante con il nome del progetto, testo passato da esc()");
 });
-/* Revisione 25/09: la home prometteva «otto formazioni», con un «tributo» che nell'app non c'è. */
-t("la home conta i modelli che la vetrina ha davvero", () => {
-  const m = appjs.match(/var START_MODELS = (\[[^;]*\]);/);
-  ok(m, "START_MODELS non trovato");
-  const n = JSON.parse(m[1]).length;
-  const parole = ["zero","uno","due","tre","quattro","cinque","sei","sette","otto","nove","dieci"];
-  const home = readFileSync(join(root, "index.html"), "utf8");
-  const dette = [...home.matchAll(/\b(\w+) (?:modelli|formazioni) pront/gi)].map((x) => x[1].toLowerCase());
-  ok(dette.length >= 2, "la home dice quanti modelli ci sono");
-  dette.forEach((d) => eq(d, parole[n], "la home dice «" + d + "», la vetrina ne ha " + n));
-  ok(!/tributo/i.test(home.match(/modelli pronti[^<]*/gi).join(" ")), "nessun modello che non esiste");
+/* Revisione 25/09: la home prometteva «otto formazioni». Dal 23/10/2026 i modelli sono spenti (modelliAttivi): la home non ne promette nessuno. */
+t("la home non promette modelli o formazioni pronte (modelli spenti)", () => {
+  const home = readFileSync(join(root, "index.html"), "utf8").replace(/<!--[\s\S]*?-->/g, "").replace(/<script[\s\S]*?<\/script>/g, "");   /* commenti e script non sono testo pubblicato */
+  ok(!/\b\w+ (?:modelli|formazioni) pront/i.test(home), "nessun «N modelli pronti» in home");
+  ok(!/palco già (?:pronto|fatto)|modello pronto/i.test(home), "nessun «palco già pronto» in home");
 });
 /* Revisione 25/09: le ricerche degli utenti che davano il risultato sbagliato per primo o niente. */
 t("ricerca: voce e cantante al cantante, basso al bassista", () => {
@@ -17272,14 +17266,9 @@ t("scheda tecnica: il modello PDF esiste, è pubblicato, e ogni pagina dice «N 
   ok(img && existsSync(join(root, img)), "l'anteprima della prima pagina esiste: " + img);
 });
 
-t("scheda tecnica: il link «apri nell'editor» punta a un modello che l'editor conosce", () => {
-  const modelli = [...schedaHtml.matchAll(/href="\/app\/\?model=([\w-]+)"/g)].map((m) => m[1]);
-  ok(modelli.length >= 1, "c'è almeno un link a un modello");
-  for (const k of modelli) {
-    const d = A.formationData(k);
-    ok(d && d.out && d.out.length > 0, "?model=" + k + " apre un palco con dentro qualcosa");
-    ok(d.out.filter((i) => i.type === "gtstand" || i.type === "stack").length >= 2, "?model=" + k + ": due chitarre, come la band dell'esempio");
-  }
+t("scheda tecnica: il link «apri nell'editor» porta all'editor, non a un modello (modelli spenti)", () => {
+  ok(!/\?model=/.test(schedaHtml), "nessun link con ?model=");
+  ok(/href="\/app\/"/.test(schedaHtml), "c'è almeno un link all'editor");
 });
 
 /* --- Pagine «alternativa a…» (10/10) ---------------------------------------------------------
@@ -17943,16 +17932,14 @@ t("le domande della home sono le stesse a video e nello schema", () => {
   eq(visibili, inLd, "stesse domande, stesso ordine");
 });
 
-t("llms.txt e la home elencano gli stessi modelli pronti", () => {
-  /* 27/09: llms.txt diceva «8 formazioni» col tributo e senza la conferenza, la home sette. È il testo
-     che gli assistenti AI leggono per primo: avrebbero promesso un modello che non c'è più. */
+t("llms.txt e la home non promettono modelli pronti (modelli spenti)", () => {
+  /* 23/10/2026: per ora nessun modello pronto nell'interfaccia (decisione del proprietario). llms.txt è il
+     testo che gli assistenti AI leggono per primo: non deve promettere ciò che l'editor non offre. */
   const l = readFileSync(join(root, "llms.txt"), "utf8");
-  const dallaHome = ((landing.match(/Sette modelli pronti: ([^.<]*)\./) || [])[1] || "").split(/,\s*/).map((x) => x.trim());
-  ok(dallaHome.length === 7, "la home elenca sette modelli: " + dallaHome.join(", "));
-  const riga = (l.match(/Modelli pronti: (\d+) [^(]*\(([^)]*)\)/) || []);
-  ok(riga.length, "llms.txt ha la riga dei modelli pronti");
-  eq(Number(riga[1]), dallaHome.length, "llms.txt dice quanti sono");
-  eq(riga[2].split(/,\s*/).map((x) => x.trim()), dallaHome, "e quali sono");
+  ok(!/modell[oi] pront/i.test(l), "llms.txt non dice «modelli pronti»");
+  ok(!/da un modello/i.test(l), "llms.txt non manda a partire da un modello");
+  ok(l.includes("/stage-plot/") || /stage-plot/.test(l), "le guide per formazione restano elencate");
+  ok(!/modell[oi] pront|\bsette modelli/i.test(landing.replace(/<!--[\s\S]*?-->/g, "")), "la home non lo dice nemmeno");
 });
 
 t("nessuna pagina vende su consulenza quello che l'editor fa gratis", () => {
@@ -18434,15 +18421,14 @@ t("chi i rider li riceve trova qualcosa da usare, non da leggere", () => {
   ok(/copia a mano/.test(landing), "e se fallisce anche quello lo dice, invece di fingere");
 });
 
-t("dalla prima schermata si parte da un palco pieno, non da un foglio bianco", () => {
+t("dalla prima schermata il bottone primario apre l'editor", () => {
+  /* Fino al 22/10/2026 il primario apriva un modello («Prova un palco già pronto»). Con i modelli spenti
+     apre l'editor a palco vuoto; il secondo bottone resta e la porta «rider finito» pure. */
   const cta = landing.slice(landing.indexOf('<div class="cta-row">'), landing.indexOf('</div>', landing.indexOf('<div class="cta-row">')));
   const primo = (cta.match(/<a class="btn"[^>]*>([^<]+)</) || [])[1] || "";
-  ok(/palco già pronto/i.test(primo), "il bottone primario apre un modello: «" + primo + "»");
-  ok(/model=band/.test(cta.split("</a>")[0]), "e porta davvero a un modello");
-  /* Il testo del secondo bottone e' passato da «Palco vuoto» a «Parti da un palco vuoto» il 31/08:
-     le due CTA ora dicono la stessa cosa in tutta la pagina, hero e finale, con lo stesso verbo.
-     Il test guarda la SOSTANZA — che il foglio bianco resti disponibile in seconda battuta — e non
-     la formulazione esatta, che e' materia di prodotto e puo' cambiare. */
+  ok(/apri l'editor/i.test(primo), "il bottone primario dice «Apri l'editor»: «" + primo + "»");
+  ok(!/model=/.test(cta), "e non porta a un modello");
+  ok(/href="\/app\/\?from=hero-modello"/.test(cta.split("</a>")[0]), "porta a /app/ (marcatore from= invariato)");
   ok(/palco vuoto/i.test(cta), "il foglio bianco resta, in seconda battuta");
   ok(/class="btn2"/.test(cta), "ed e' un bottone secondario, non il primario");
   ok(/rider finito/i.test(cta), "e c'è la porta per chi vuole solo vedere il documento");
@@ -18697,6 +18683,77 @@ t("ORC-02: il parametro ?model= si consuma dopo l'uso", () => {
   ok(/searchParams\.delete\("model"\)/.test(f) && /searchParams\.delete\("form"\)/.test(f), "toglie model e form");
   ok(/_u\.pathname\+\(_u\.search\|\|""\)\+_u\.hash/.test(f), "e conserva gli altri parametri e l'hash");
   ok(f.indexOf("startFromTemplate(mkResolved)") < f.indexOf("history.replaceState"), "solo DOPO aver usato il parametro");
+  ok(/if\(qModel \&\& modelliAttivi\(\)\)/.test(f), "e solo se i modelli sono accesi (altrimenti il parametro si toglie e basta)");
+});
+
+/* ===== MODELLI SPENTI (23/10/2026) =====
+   Decisione del proprietario: per ora nessun modello / formazione pronta nell'interfaccia, né su telefono né su
+   computer, finché non ci sono tre modelli professionali. Nuovo progetto = palco vuoto. START_MODELS, ORGANICI,
+   formationData e i generatori restano nel codice, dietro modelliAttivi(). I test sul codice (regex) sono
+   completati dalla prova nel browser fatta a mano (AGENTS.md § 4.5): qui non c'è DOM. */
+t("modelli spenti: modelliAttivi() è false, e l'interruttore sta vicino a custContorniAttivi", () => {
+  eq(A.modelliAttivi(), false, "l'interruttore è spento");
+  const tpl = readFileSync(join(root, "index.template.html"), "utf8");
+  ok(tpl.indexOf("function modelliAttivi(){ return false; }") > tpl.indexOf("function custContorniAttivi()"), "definito dopo custContorniAttivi");
+  ok(/si spegne con false, mai con un revert/.test(tpl.slice(tpl.indexOf("function custContorniAttivi()"), tpl.indexOf("function modelliAttivi()") + 40)), "con il perché");
+  /* i dati restano: si riaccendono girando l'interruttore, senza riscrivere niente */
+  ok(typeof A.formationData === "function" && A.formationData("band") && A.formationData("band").out.length > 0, "formationData('band') funziona ancora");
+  ok(/var START_MODELS = \[/.test(appjs) && typeof A.chiediOrganico === "function" && typeof A.ORGANICI === "object" && /var MODEL_ALIAS=/.test(appjs), "START_MODELS, ORGANICI, chiediOrganico e MODEL_ALIAS non sono stati cancellati");
+});
+
+t("modelli spenti: il primo avvio apre «Quanto è grande il tuo palco?», non il benvenuto", () => {
+  const i = appjs.indexOf("Finestra di benvenuto (prima apertura assoluta)");
+  const blocco = appjs.slice(i, i + 6000);
+  const k = blocco.indexOf("if(!modelliAttivi()){");
+  ok(k > -1, "il blocco del benvenuto controlla modelliAttivi()");
+  const ramoSpento = blocco.slice(k, blocco.indexOf("} else if(!deep && !seen){", k));
+  ok(/if\(!deep\) maybeAskStageSize\(false\);/.test(ramoSpento), "spenti: si chiedono le misure del palco, a palco vuoto e senza deep-link");
+  ok(!/wl\.hidden=false/.test(ramoSpento), "e il benvenuto non si apre");
+  ok(/\} else if\(!deep && !seen\)\{[\s\S]{0,900}wl\.hidden=false;/.test(blocco), "il vecchio ramo (benvenuto) resta, solo per quando i modelli si riaccendono");
+  /* la finestra #stageSize è quella di prima, e chi ha già un lavoro non la rivede */
+  ok(/function maybeAskStageSize\(explicit\)\{[\s\S]{0,400}isFreshBlankProject\(explicit\)\) return;\s*showStageSizeModal\(\);/.test(appjs), "maybeAskStageSize si apre solo su progetto nuovo e vuoto");
+  ok(/localStorage\.setItem\("sp_welcome","1"\)/.test(appjs.slice(appjs.indexOf("function confirm()"), appjs.indexOf("function confirm()") + 900)), "sp_welcome si scrive come prima quando si misura il palco");
+});
+
+t("modelli spenti: «Nuovo» non apre #modelPicker ma fa «Palco vuoto»", () => {
+  const i = appjs.indexOf("window.openModelPicker=function");
+  const f = appjs.slice(i, i + 700);
+  ok(/window\.openNewDialog=function\(\)\{ if\(modelliAttivi\(\)\) window\.openModelPicker\(\); else if\(window\.proxyClick\) window\.proxyClick\("bNew"\); \};/.test(f), "openNewDialog: spenti → proxyClick('bNew'), come #mpEmpty");
+  ok(!/openNewDialog=window\.openModelPicker/.test(appjs), "non è più un alias del picker");
+  /* #mpEmpty fa la stessa cosa (chiude il picker e passa a bNew): conferme e consulenza stanno in bNew */
+  ok(/mpe\.addEventListener\("click", function\(\)\{ mp\.hidden=true; if\(window\.proxyClick\) window\.proxyClick\("bNew"\); \}\)/.test(appjs), "«Palco vuoto» passa da bNew");
+  /* i punti d'ingresso (menu File, sheet mobile) passano tutti da openNewDialog */
+  ok(/a==="new"\)\{ if\(window\.openNewDialog\) window\.openNewDialog\(\); else proxy\("bNew"\); \}/.test(appjs), "menu File → openNewDialog");
+  ok(/"new":function\(\)\{ if\(window\.openNewDialog\) window\.openNewDialog\(\); else proxyClick\("bNew"\); \}/.test(appjs), "sheet mobile → openNewDialog");
+});
+
+t("modelli spenti: ?model= si ignora, si apre il palco vuoto e il parametro sparisce dall'URL", () => {
+  const i = appjs.indexOf("var qModel=");
+  const f = appjs.slice(i, i + 1700);
+  ok(/if\(qModel && modelliAttivi\(\)\)\{ var mkResolved=/.test(f), "il modello si applica solo se modelliAttivi()");
+  ok(/startFromTemplate\(mkResolved\)/.test(f) && f.indexOf("startFromTemplate(mkResolved)") < f.indexOf("history.replaceState"), "il resto è invariato");
+  /* la riga che toglie il parametro NON dipende dall'interruttore: i vecchi link non lasciano il parametro nell'URL */
+  ok(/\nif\(qModel \|\| qForm\)\{ try\{ var _u=new URL/.test(f) && /searchParams\.delete\("model"\)/.test(f), "il parametro si toglie sempre (replaceState), senza errori");
+  /* ?form= (QA) con i modelli spenti non ha più effetto: stesso trattamento */
+  ok(!/\?model=|\?form=/.test(appjs.slice(appjs.indexOf("Finestra di benvenuto"), appjs.indexOf("Finestra di benvenuto") + 4000)), "il benvenuto non cita link ai modelli");
+});
+
+t("modelli spenti: l'app non promette modelli (Guida) e nessuna pagina pubblicata ha ?model= o «Apri il modello»", () => {
+  const tpl = readFileSync(join(root, "index.template.html"), "utf8");
+  const learn = tpl.slice(tpl.indexOf('<section id="learn"'), tpl.indexOf("</section>", tpl.indexOf('<section id="learn"')));
+  ok(learn.length > 1000, "pannello Guida delimitato");
+  ok(!/Organici pronti|modell[oi] pront|formazion[ei] pront/i.test(learn), "la Guida non promette organici o modelli pronti");
+  const pagine = readdirSync(root, { recursive: true, withFileTypes: true })
+    .filter((d) => d.isFile() && /\.(html|txt|xml)$/.test(d.name) && d.name !== "index.template.html")
+    .map((d) => join(d.parentPath || d.path, d.name))
+    .filter((p) => pubblicata(p.slice(root.length)) && !/[\\/]app[\\/]|[\\/]orchestre[\\/]|[\\/]node_modules[\\/]/.test(p.slice(root.length)));
+  ok(pagine.length > 20, "pagine esaminate: " + pagine.length);
+  const sbagliate = [];
+  for (const p of pagine) {
+    const tx = readFileSync(p, "utf8");
+    if (/\?model=|Apri il modello/i.test(tx)) sbagliate.push(p.slice(root.length));
+  }
+  eq(sbagliate, [], "pagine con ?model= o «Apri il modello»");
 });
 
 /* ============ export console: snippet X32/M32 (23/08) ============ */
@@ -18854,7 +18911,7 @@ t("niente di quello che è uscito dal menu è diventato irraggiungibile", () => 
     eq(etichette.indexOf(x), -1, "«" + x + "» non è più nel menu: era già a un clic nell'header"));
 });
 
-t("«Nuovo…» apre la scelta, e non avvisa di un lavoro che non c'è", () => {
+t("«Nuovo…» non avvisa di un lavoro che non c'è (la scelta dei modelli resta dormiente)", () => {
   const html = readFileSync(join(root, "app/index.html"), "utf8");
   const picker = html.slice(html.indexOf('id="modelPicker"'), html.indexOf('id="csvPicker"'));
   ok(/Nuovo stage plot/.test(picker), "la finestra si chiama come il comando che la apre");
@@ -20597,13 +20654,9 @@ t("il pulsante principale dice dove porta", () => {
 });
 
 t("la CTA finale porta dove porta quella iniziale", () => {
-  /* Fino al 31/08 l'ultima spinta della pagina diceva «Apri l'editor» e portava a un palco VUOTO:
-     chi era arrivato in fondo senza sapere da dove cominciare veniva mandato esattamente dove ci si
-     blocca, dopo che tutta la pagina gli aveva detto di partire da un modello. */
   const finale = landing.slice(landing.indexOf('<section class="final'));
   const primario = (finale.match(/<a class="btn"[^>]*href="([^"]+)"[^>]*>([^<]+)</) || []);
-  ok(/model=band/.test(primario[1] || ""), "il bottone primario del finale apre un modello: " + primario[1]);
-  ok(/palco già pronto/i.test(primario[2] || ""), "e lo dice: «" + primario[2] + "»");
+  ok(/^\/app\/(\?from=finale)?$/.test(primario[1] || ""), "il bottone primario del finale apre l'editor: " + primario[1]);
   /* Stesse parole all'inizio e alla fine: una CTA che cambia nome a metà pagina sembra un'altra cosa. */
   const hero = landing.slice(landing.indexOf('<div class="cta-row">'), landing.indexOf('</div>', landing.indexOf('<div class="cta-row">')));
   const testoHero = (hero.match(/<a class="btn"[^>]*>([^<]+)</) || [])[1] || "";
