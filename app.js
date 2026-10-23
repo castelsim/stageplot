@@ -7666,6 +7666,12 @@ function custIngressiAttivi(){ return true; }   /* FASE 2 (14/10/2026): acceso d
    salva un contorno lo perde (archi dritti, fori via): prima tutti devono avere quella nuova. FASE 2 (24–48 h dopo, dopo il
    deploy di submit-feedback): true. Per spegnere dopo: false, MAI un revert (i progetti con archi devono restare leggibili). */
 function custContorniAttivi(){ return true; }
+/* Interruttore «modelli» (23/10/2026, decisione del proprietario): finché non ci sono tre modelli professionali
+   approvati, nell'interfaccia NON compare nessun modello o formazione pronta (né su telefono né su computer):
+   un progetto nuovo è un palco vuoto. START_MODELS, ORGANICI, chiediOrganico, formationData, i generatori e
+   MODEL_ALIAS restano nel codice, dietro questo interruttore. Si riaccende (true) quando i 3 modelli sono
+   approvati; si spegne con false, mai con un revert. */
+function modelliAttivi(){ return false; }
 function custLimiti(){ return {NOME:60, DESC:280, TESTO:140, FORME:200, PUNTI:200, WATT:20000, INS:16, MIN:10, MEMBRO:4096, MODELLI:50, FORME_BYTE:262144,
   FORI:50, PUNTI_FORMA:1000, PUNTI_EL:40000, JSON_REV:300000}; }   /* Contorni: fori per forma, punti per forma (contorno + fori), punti per elemento, caratteri del JSON di revisione */
 /* un numero vero: un number finito, o una stringa numerica non vuota. null (da JSON), "", true, [] NON sono 0: si scartano */
@@ -36326,7 +36332,8 @@ if(qForm){
    Alias per gli slug delle landing esistenti (orchestra→camera, chiesa/festival→coro/band). */
 var MODEL_ALIAS={orchestra:"camera", chiesa:"coro", festival:"band", acustica:"acoustic", jazz:"jazzcombo"};
 var qModel=allowStartupScenario?(location.search.match(/model=([\w-]+)/)||[])[1]:null;
-if(qModel){ var mkResolved=MODEL_ALIAS[qModel]||qModel; if(typeof formationData==="function" && formationData(mkResolved)) startFromTemplate(mkResolved); }
+/* modelli spenti: la chiave si ignora (avvio normale a palco vuoto) e il parametro si toglie lo stesso dall'URL, qui sotto */
+if(qModel && modelliAttivi()){ var mkResolved=MODEL_ALIAS[qModel]||qModel; if(typeof formationData==="function" && formationData(mkResolved)) startFromTemplate(mkResolved); }
 /* ORC-02 (audit esterno 23/08, riprodotto): il parametro restava nell'URL dopo l'uso. Chi entrava da
    /app/?model=band, poi creava un'Orchestra, e ricaricava, si vedeva chiedere «Creare il modello Band
    pop/rock?» sul lavoro che aveva davanti — la finestra si poteva annullare, ma la fiducia nel
@@ -36539,7 +36546,9 @@ if(typeof renderVariantBar==="function") renderVariantBar();   /* T6: mostra la 
     mp.addEventListener("click", function(ev){ if(ev.target===mp) mp.hidden=true; });
     document.addEventListener("keydown", function(ev){ if(ev.key==="Escape" && !mp.hidden) mp.hidden=true; });
     window.openModelPicker=function(){ mp.hidden=false; };
-    window.openNewDialog=window.openModelPicker;   /* unico ingresso di "Nuovo…": menu File e sheet mobile */
+    /* unico ingresso di "Nuovo…": menu File e sheet mobile. Con i modelli spenti non c'è niente da scegliere:
+       si fa direttamente «Palco vuoto» (conferme e consulenza le gestisce il comando bNew). */
+    window.openNewDialog=function(){ if(modelliAttivi()) window.openModelPicker(); else if(window.proxyClick) window.proxyClick("bNew"); };
   }
 })();
 /* ===== Dimensioni del primo palco (progetto nuovo, ancora senza palco) =====
@@ -36676,7 +36685,11 @@ function maybeAskStageSize(explicit){
     if(go) go.textContent="Crea il palco";
     wlRender();
   }
-  if(!deep && !seen){
+  /* modelli spenti: il benvenuto (che è la vetrina dei modelli) non si apre; al suo posto, alle stesse condizioni
+     (primo avvio a palco vuoto, !deep && !seen), si apre direttamente «Quanto è grande il tuo palco?». */
+  if(!modelliAttivi()){
+    if(!deep) maybeAskStageSize(false);
+  } else if(!deep && !seen){
     document.getElementById("wlGo").addEventListener("click", function(){ if(isMobile()) wlCrea(); else close(); });
     (function(){ var v=document.getElementById("wlVuoto"); if(v) v.addEventListener("click", close); })();
     if(isMobile()) wlPreparaTelefono();
