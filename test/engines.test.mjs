@@ -17691,13 +17691,16 @@ t("ogni link interno della landing porta a una pagina che esiste", () => {
   eq(rotti, [], "link interni rotti nella landing");
 });
 
-t("su telefono le pagine del PDF scorrono dentro il loro riquadro, e il palco dell'apertura è ingrandito", () => {
+t("su telefono le pagine del PDF scorrono dentro il loro riquadro, e il palco dell'apertura riempie l'immagine", () => {
   /* Perché: su un iPhone la vecchia landing era alta 18.237 px. Quattro pagine A4 una sotto l'altra ne
-     aggiungerebbero 2.000: sotto i 760px stanno su una sola fila scorrevole, e il palco (poco più di un
-     terzo dell'immagine, il resto è carta bianca) si mostra ritagliato. */
+     aggiungerebbero 2.000: sotto i 760px stanno su una sola fila scorrevole. Il palco occupava poco più di un
+     terzo della pagina 1, il resto era carta bianca: dal 23/10 l'immagine d'apertura è già ritagliata sul palco
+     (zona quote–PUBBLICO del PDF d'esempio), su ogni schermo, senza ingrandimenti in CSS. */
   const m = mq(760);
   ok(/\.pagine\{[^}]*overflow-x:auto[^}]*scroll-snap-type:x mandatory/.test(m), "la fila delle pagine scorre in orizzontale con scatti");
-  ok(/\.foglio \.ritaglio\{[^}]*overflow:hidden/.test(m) && /\.foglio \.ritaglio img\{[^}]*width:1\d\d%/.test(m), "il palco dell'apertura è ritagliato e ingrandito");
+  const ap = landing.match(/<img src="\/img\/esempio-band-rock-apertura\.jpg" width="(\d+)" height="(\d+)"/);
+  ok(ap && (+ap[1]) / (+ap[2]) > 1.55, "l'immagine d'apertura è ritagliata sul palco (più larga di un A4 orizzontale, 1,414)");
+  ok(!/\.ritaglio img\{[^}]*width:1\d\d%/.test(landing), "e nessun ingrandimento in CSS che taglierebbe il palco già ritagliato");
   ok(/class="pagine" role="group" aria-label="[^"]+" tabindex="0"/.test(landing), "e il riquadro scorrevole si raggiunge anche da tastiera");
   ok(/\.pagine\{[^}]*grid-template-columns:1\.414fr 1fr 1fr 1fr/.test(landing), "su computer le quattro pagine stanno in fila, alla stessa altezza (A4: 1,414)");
   ok(!/body\{[^}]*overflow-x:hidden/.test(landing), "e non si nasconde lo scorrimento orizzontale invece di evitarlo");
