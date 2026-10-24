@@ -13,7 +13,7 @@
     },
     {
       "n": "scala",
-      "unita": "1:100"
+      "unita": "1:50"
     }
   ],
   "logo": "<svg width=\"30\" height=\"30\" viewBox=\"0 0 24 24\" fill=\"none\" aria-hidden=\"true\"><rect x=\"2\" y=\"4\" width=\"20\" height=\"14\" rx=\"2\" stroke=\"#14b8a6\" stroke-width=\"2\"/><circle cx=\"9\" cy=\"10\" r=\"2\" fill=\"#14b8a6\"/><path d=\"M14 14h4\" stroke=\"#14b8a6\" stroke-width=\"2\" stroke-linecap=\"round\"/></svg>"

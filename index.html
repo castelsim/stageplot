@@ -11,7 +11,7 @@
   Stesso carattere e stessi colori di prima (nero fumo #0a0e0e, pannelli #101616, teal #14b8a6), scala più
   piccola. Nessun framework, nessuna dipendenza, JS solo per il contatore delle visite in fondo.
   Le immagini sono le pagine VERE del PDF d'esempio «Tributo pop · band e orchestra» (img/esemplare-tributo-pop-band-orchestra.pdf),
-  in img/esemplare-tributo-*.jpg: l'esemplare nasce da un progetto vero, anonimizzato fuori dal repo; se si rifà il PDF vanno rifatte anche loro.
+  in img/esemplare-tributo-*.jpg: è un esempio anonimo, generato fuori dal repo; se si rifà il PDF vanno rifatte anche loro.
   (Il PDF «Band rock 5 elementi» della guida scheda-tecnica-band resta dov'è e non è più usato qui.)
   Marcatori ?from= sui link verso /app/: elenco chiuso, vincolato anche da un CHECK sul database
   (migration 0036): nav, hero-modello (pulsante principale), finale.
@@ -145,7 +145,7 @@ addEventListener("hashchange", go);})();</script>
       "inLanguage": "it",
       "isPartOf": { "@id": "https://stageplot.it/#website" },
       "about": { "@id": "https://stageplot.it/#app" },
-      "primaryImageOfPage": { "@type": "ImageObject", "url": "https://stageplot.it/img/esemplare-tributo-apertura.jpg", "width": 1600, "height": 1550 },
+      "primaryImageOfPage": { "@type": "ImageObject", "url": "https://stageplot.it/img/esemplare-tributo-apertura.jpg", "width": 1600, "height": 1734 },
       "datePublished": "2026-08-08",
       "dateModified": "2026-10-23"
     },
@@ -237,7 +237,7 @@ addEventListener("hashchange", go);})();</script>
   .passi li::before{content:counter(p);display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;
     border:1px solid var(--teal);color:var(--teal-l);font:12px var(--mono);margin-bottom:10px}
   .passi p{color:var(--mut);margin:6px 0 0;font-size:14.5px}
-  .pagine{display:grid;grid-template-columns:1.414fr 1fr 1fr 1fr;gap:14px;margin:28px 0 0;padding:0}
+  .pagine{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:28px 0 0;padding:0}
   .pagine figure{margin:0;min-width:0}
   .pagine a{display:block;background:var(--paper);border-radius:8px;overflow:hidden;box-shadow:0 0 0 1px var(--line2);transition:transform .15s ease}
   .pagine a:hover{transform:translateY(-2px)}
@@ -282,8 +282,7 @@ addEventListener("hashchange", go);})();</script>
     .passi p{margin-top:4px}
     .chi{gap:16px}
     .pagine{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:12px;margin-inline:-16px;padding:2px 16px 10px;scrollbar-width:thin}
-    .pagine figure{flex:0 0 64%;scroll-snap-align:center}
-    .pagine figure:first-child{flex-basis:88%}
+    .pagine figure{flex:0 0 62%;scroll-snap-align:center}
     .regole{gap:18px}
   }
   @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*{transition:none!important}}
@@ -318,9 +317,9 @@ addEventListener("hashchange", go);})();</script>
       </div>
       <div class="fatti"><span>Gratis</span><span>In italiano</span><span>Senza account</span><span>Nessuna filigrana</span></div>
       <figure class="foglio">
-        <div class="ritaglio"><img src="/img/esemplare-tributo-apertura.jpg" width="1600" height="1550" fetchpriority="high" decoding="async"
-          alt="Prima pagina della scheda tecnica d'esempio «Tributo pop · band e orchestra»: lo stage plot visto dall'alto, su un palco di 12 per 13 metri, con batteria, timpani, tastiere, arpa, archi, fiati su pedane e direttore, scala 1:100."></div>
-        <figcaption><span><b>Tributo pop · band e orchestra</b> · scheda tecnica fatta con StagePlot</span><span>palco 12 × 13 m · scala 1:100</span></figcaption>
+        <div class="ritaglio"><img src="/img/esemplare-tributo-apertura.jpg" width="1600" height="1734" fetchpriority="high" decoding="async"
+          alt="Prima pagina della scheda tecnica d'esempio «Tributo pop · band e orchestra»: lo stage plot visto dall'alto, su un palco di 12 per 13 metri: coro di 50 persone in piedi su quattro gradoni con scalette e parapetti, fiati, tastiere e timpani su due pedane, archi su archi concentrici attorno al podio del direttore, batteria con schermo e arpa ai lati, con side fill, wedge e in-ear, scala 1:50."></div>
+        <figcaption><span><b>Tributo pop · band e orchestra</b> · scheda tecnica fatta con StagePlot</span><span>palco 12 × 13 m · scala 1:50</span></figcaption>
       </figure>
     </div>
   </section>
@@ -338,32 +337,34 @@ addEventListener("hashchange", go);})();</script>
     </div>
   </section>
 
-  <!-- 3. COSA RICEVE IL SERVICE. Le pagine vere (1, 3, 4, 5) del PDF d'esempio, non mini-tabelle disegnate a mano. -->
+  <!-- 3. COSA RICEVE IL SERVICE. Quattro pagine vere (1, 4, 5, 3) del PDF d'esempio da 8 pagine, non mini-tabelle disegnate a mano.
+       I disegni sono A3 verticali a 1:50, rider e liste A4 verticali: stessa forma, stessa altezza in fila.
+       I monitor (pag. 2), la monitor list e la lista carichi restano nel PDF. -->
   <section id="rider">
     <div class="wrap">
       <h2>Cosa riceve il service.</h2>
-      <p class="sub">Quattro pagine vere del PDF d'esempio «Tributo pop · band e orchestra», uno spettacolo con band e orchestra: generate dal disegno senza scriverle a mano. Toccane una per aprire il PDF.</p>
+      <p class="sub">Quattro delle otto pagine del PDF d'esempio «Tributo pop · band e orchestra», uno spettacolo con band, orchestra e coro: palco, rider tecnico, channel list ed elettrico, generati dal disegno senza scriverli a mano. Toccane una per aprire il PDF.</p>
       <div class="pagine" role="group" aria-label="Pagine del PDF d'esempio" tabindex="0">
       <figure>
-        <a href="/img/esemplare-tributo-pop-band-orchestra.pdf#page=1"><img src="/img/esemplare-tributo-palco.jpg" width="1287" height="910" loading="lazy" decoding="async" alt="Pagina 1 del PDF d'esempio: lo stage plot di un tributo pop con band e orchestra, su un palco di 12 per 13 metri in scala 1:100, con titolo, misure e conteggio di leggii e sedute."></a>
-        <figcaption><b>Palco</b> · 12 × 13 m · pagina 1 di 6</figcaption>
+        <a href="/img/esemplare-tributo-pop-band-orchestra.pdf#page=1"><img src="/img/esemplare-tributo-palco.jpg" width="1287" height="1819" loading="lazy" decoding="async" alt="Pagina 1 del PDF d'esempio: lo stage plot di un tributo pop con band, orchestra e coro su un palco di 12 per 13 metri in scala 1:50, con il coro su quattro gradoni con scalette e parapetti, i fiati su due pedane, gli archi attorno al podio del direttore, i monitor e il conteggio di leggii e sedute."></a>
+        <figcaption><b>Palco</b> · 12 × 13 m · pagina 1 di 8</figcaption>
       </figure>
       <figure>
-        <a href="/img/esemplare-tributo-pop-band-orchestra.pdf#page=2"><img src="/img/esemplare-tributo-rider.jpg" width="910" height="1287" loading="lazy" decoding="async" alt="Pagina 2 del PDF d'esempio: il rider tecnico, con 64 canali di ingresso, il riepilogo di microfoni e aste, le pedane, l'alimentazione e il personale richiesto al service."></a>
-        <figcaption><b>Rider tecnico</b> · 64 canali · pagina 2 di 6</figcaption>
+        <a href="/img/esemplare-tributo-pop-band-orchestra.pdf#page=4"><img src="/img/esemplare-tributo-rider.jpg" width="910" height="1287" loading="lazy" decoding="async" alt="Pagina 4 del PDF d'esempio: il rider tecnico approvato, con microfoni e aste contati, monitor, pedane, scalette e parapetti del coro, corrente richiesta, luci, personale e il contenuto dei sei mix monitor."></a>
+        <figcaption><b>Rider tecnico</b> · approvato · pagina 4 di 8</figcaption>
       </figure>
       <figure>
-        <a href="/img/esemplare-tributo-pop-band-orchestra.pdf#page=3"><img src="/img/esemplare-tributo-channel-list.jpg" width="910" height="1287" loading="lazy" decoding="async" alt="Pagina 3 del PDF d'esempio: la channel list, dalla cassa della batteria agli archi, ciascun canale con microfono o DI, asta e patch."></a>
-        <figcaption><b>Channel list</b> · 64 canali · pagine 3 e 4 di 6</figcaption>
+        <a href="/img/esemplare-tributo-pop-band-orchestra.pdf#page=5"><img src="/img/esemplare-tributo-channel-list.jpg" width="910" height="1287" loading="lazy" decoding="async" alt="Pagina 5 del PDF d'esempio: la channel list, dalla cassa della batteria agli archi con un microfono per leggio, ciascun canale con microfono o DI, phantom e asta."></a>
+        <figcaption><b>Channel list</b> · 61 canali · pagine 5 e 6 di 8</figcaption>
       </figure>
       <figure>
-        <a href="/img/esemplare-tributo-pop-band-orchestra.pdf#page=6"><img src="/img/esemplare-tributo-backline.jpg" width="910" height="1287" loading="lazy" decoding="async" alt="Pagina 6 del PDF d'esempio: la lista del backline, con batteria e stage piano e chi li fornisce."></a>
-        <figcaption><b>Backline</b> · 2 elementi · pagina 6 di 6</figcaption>
+        <a href="/img/esemplare-tributo-pop-band-orchestra.pdf#page=3"><img src="/img/esemplare-tributo-elettrico.jpg" width="1287" height="1819" loading="lazy" decoding="async" alt="Pagina 3 del PDF d'esempio: l'elettrico sul palco, con la presa in quinta, un quadro trifase da 32 ampere nell'angolo a monte sinistro e una linea per ogni carico (side fill, wedge, tastiere e computer del playback), per 3,3 kW stimati, con i cavi ad angolo retto in quinta e lungo la ribalta, lontani dalle scalette del coro."></a>
+        <figcaption><b>Elettrico</b> · 3,3 kW stimati · pagina 3 di 8</figcaption>
       </figure>
       </div>
-      <p class="didascalia">Cambi il disegno e rigeneri il PDF: rider, channel list e backline si ricalcolano dal palco. Le potenze sono stime del tipo di apparecchio, e il PDF lo dice.</p>
+      <p class="didascalia">Cambi il disegno e rigeneri il PDF: rider, channel list ed elettrico si ricalcolano dal palco. Nel PDF ci sono anche i monitor, la monitor list e la lista carichi. Le potenze sono stime del tipo di apparecchio, e il PDF lo dice.</p>
       <p class="link-rider">
-        <a href="/img/esemplare-tributo-pop-band-orchestra.pdf">Scarica il PDF d'esempio, 6 pagine</a>
+        <a href="/img/esemplare-tributo-pop-band-orchestra.pdf">Scarica il PDF d'esempio, 8 pagine</a>
         <a href="/guida/scheda-tecnica-band/">Come si fa una scheda tecnica per la band</a>
       </p>
     </div>
