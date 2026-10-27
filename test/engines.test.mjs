@@ -6224,7 +6224,57 @@ t("il cartiglio conta il leggio disegnato di batteria e timpani, come lo Stato",
   reset();
   A.state.items.push({ id: "t4", type: "timpani3", x: 400, y: 300, rot: 0, w: 230, d: 133, parts: {} }, { id: "b4", type: "batteria", x: 800, y: 300, rot: 0, w: 240, d: 200 });
   eq([A.countAccessori().leggii, A.pdfTotals({ tecnici: false }).filter((r) => /legg/.test(r))], [0, []], "progetto vecchio senza la chiave leggio: niente leggio, come nel disegno");
-  ok(/function leggioDiParts\(it\)/.test(appjs) && (appjs.match(/leggioDiParts\(/g) || []).length >= 3, "una regola sola per Stato e cartiglio");
+});
+/* UNA REGOLA SOLA PER TUTTI I LEGGII DISEGNATI (27/10/2026, decisione di Simone: «si conta ciò che si disegna»).
+   Stato e cartiglio contavano con due regole diverse e su certi progetti non coincidevano (tastiere, voci,
+   leggio tablet, doppie del generatore). Ora leggiiDiItem() per tutti e due; il direttore resta a parte (#348)
+   e il leggio tablet va su una riga sua: nel disegno è un supporto per tablet, un articolo diverso. */
+function leggiiNelCartiglio(tot) { const r = tot.find((s) => /^\d+ legg(io|ii)$/.test(s)); return r ? +r.split(" ")[0] : 0; }
+t("leggii: un caso per ogni tipo, Stato e cartiglio con la stessa regola", () => {
+  reset();
+  const casi = [
+    ["leggio", {}, 1], ["sedialeggio", {}, 1], ["vlnpost", {}, 1], ["vlnpost", { leggio: false }, 0], ["vln1x2", {}, 1],
+    ["corista", {}, 1], ["cantante", {}, 0], ["cantante", { leggio: true }, 1], ["relatore", { leggio: true }, 1],
+    ["stagepiano", { leggio: true }, 1], ["doppiatastiera", { leggio: true, leggio2: true }, 2], ["gtacustica", { leggio: true }, 1],
+    ["arpa", {}, 1], ["grancoda", { leggio: true }, 1], ["batteria", { parts: { leggio: true } }, 1], ["timpani", { parts: { leggio: true } }, 1],
+    ["direttore", {}, 0], ["leggiotablet", {}, 0],
+    ["cantante", { leggio: undefined }, 0], ["corista", { leggio: undefined }, 1], ["relatore", { leggio: undefined }, 0],   /* progetti vecchi: la chiave non c'è */
+  ];
+  let somma = 0;
+  casi.forEach(([tipo, opz, atteso], i) => {
+    const it = add(tipo, 100 + 150 * i, 300);
+    Object.keys(opz).forEach((k) => { if (k === "parts") Object.assign(A.parts(it), opz.parts); else if (opz[k] === undefined) delete it[k]; else it[k] = opz[k]; });
+    eq(A.leggiiDiItem(it), atteso, tipo + " " + JSON.stringify(opz)); somma += atteso;
+  });
+  const c = A.countAccessori(), tot = A.pdfTotals({ tecnici: false });
+  eq([c.leggii, c.leggiiDirettore, c.leggiiTablet], [somma, 1, 1], "Stato");
+  eq(leggiiNelCartiglio(tot), somma, "cartiglio = Stato: " + tot.join(" · "));
+  ok(tot.indexOf("1 leggio direttore") > -1 && tot.indexOf("1 leggio tablet") > -1, "direttore e tablet su righe loro: " + tot.join(" · "));
+  ok(/if\(c\.leggiiTablet\)\s*s\+=ir\("Leggio tablet", c\.leggiiTablet\);/.test(appjs), "riga «Leggio tablet» nello Stato");
+  ok(/function countAccessori\(\)\{[\s\S]{0,1500}?leggiiConteggio\(/.test(appjs) && /function pdfTotals\([^)]*\)\{[\s\S]{0,1500}?leggiiConteggio\(/.test(appjs), "Stato e cartiglio usano leggiiConteggio");
+});
+t("leggii: il conteggio è quello del disegno, per ogni tipo del catalogo", () => {
+  /* Il disegno chiama leggioGlyph una volta per leggio: si conta quello, tipo per tipo e con le opzioni che lo cambiano. */
+  const orig = A.leggioGlyph; let disegnati = 0;
+  A.leggioGlyph = function (y) { disegnati++; return orig(y); };
+  const varianti = [{}, { leggio: true }, { leggio: false }, { leggio: true, leggio2: true }, { doppia: true }, { doppia: true, leggio: false },
+    { look: "schematico" }, { look: "schematico", doppia: true, leggio: false }, { parts: { leggio: true } }, { parts: { leggio: true }, leggio: true }, { leggio: undefined }];
+  const sbagliati = [];
+  try {
+    Object.keys(A.TYPES).forEach((tipo) => {
+      reset();
+      const base = add(tipo, 500, 500); if (!base) return;
+      const b = JSON.stringify(base);
+      varianti.forEach((v) => {
+        const it = JSON.parse(b); Object.keys(v).forEach((k) => { if (k === "parts") it.parts = Object.assign({}, it.parts || {}, v.parts); else if (v[k] === undefined) delete it[k]; else it[k] = v[k]; });
+        A.state.items = [it]; disegnati = 0;
+        try { A.itemMarkup(it); } catch (e) { return; }
+        const contati = A.leggiiDiItem(it) + (it.type === "direttore" && it.leggio ? 1 : 0);
+        if (contati !== disegnati) sbagliati.push(tipo + " " + JSON.stringify(v) + ": disegnati " + disegnati + ", contati " + contati);
+      });
+    });
+  } finally { A.leggioGlyph = orig; reset(); }
+  eq(sbagliati.length, 0, "conteggio diverso dal disegno:\n  " + sbagliati.slice(0, 15).join("\n  "));
 });
 t("senza «Esporta avanzato» il cartiglio non scrive peso, rack e canali", () => {
   /* 16/09 — Simone: «ho appena fatto un export pdf ed escono in basso a destra i kg e i canali, sto
