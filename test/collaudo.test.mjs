@@ -46,6 +46,9 @@ if (!existsSync(DIR)) { console.log("✗ collaudo: " + DIR + " non esiste (STAGE
 const AGGIORNA = process.argv.includes("--aggiorna");
 
 const A = loadApp();
+/* il disegno chiama leggioGlyph una volta per leggio: lo si conta per confrontarlo con Stato e cartiglio */
+const _leggioGlyph = A.leggioGlyph; let _glifi = 0;
+A.leggioGlyph = function (y) { _glifi++; return _leggioGlyph(y); };
 
 /* Quello che conta per chi riceve il PDF, una riga per cosa: le differenze si leggono al volo. */
 function impronta() {
@@ -140,6 +143,15 @@ for (const f of casi) {
       if (JSON.stringify(PP.piantaDaDocumento(salvatoFoto, v.id)) !== ed) throw new Error("foto della scena «" + v.name + "»: area diversa dall'editor (file salvato)");
       const daGrezzo = PP.piantaDaDocumento(grezzoFoto, grezzoPiatto ? null : v.id);
       if (JSON.stringify(daGrezzo) !== ed) throw new Error("foto della scena «" + v.name + "»: area diversa dall'editor (file grezzo)");
+      /* LEGGII: STATO = CARTIGLIO = DISEGNO (27/10/2026, decisione di Simone: «si conta ciò che si disegna»). Prima lo
+         Stato e il cartiglio del PDF contavano con due regole e su un progetto d'orchestra dicevano 33 e 31. */
+      const acc = A.countAccessori(), tot = A.pdfTotals({ tecnici: false });
+      const nel = (re) => { const r = tot.find((x) => re.test(x)); return r ? +r.split(" ")[0] : 0; };
+      let dis = 0, disDir = 0;
+      for (const it of A.state.items) { _glifi = 0; A.itemMarkup(it); if (it.type === "direttore") disDir += _glifi; else dis += _glifi; }
+      const leg = [acc.leggii, nel(/^\d+ legg(io|ii)$/), dis], dir = [acc.leggiiDirettore, nel(/ direttore$/), disDir];
+      if (new Set(leg).size > 1 || new Set(dir).size > 1)
+        throw new Error("scena «" + v.name + "»: leggii Stato/cartiglio/disegno " + leg.join("/") + ", direttore " + dir.join("/"));
     }
     const ora = improntaDocumento();
     /* salvare e riaprire non deve cambiare niente */

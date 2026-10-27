@@ -28139,7 +28139,7 @@ function standNeeds(){
 }
 function standTotal(n){ var t=0; STAND_KINDS.forEach(function(k){ if(k[0]!=="clip"&&k[0]!=="headset"&&k[0]!=="terra") t+=n[k[0]].tot; }); return t; }   /* "aste" vere: clip e headset non lo sono */
 function countAccessori(){
-  var sedie=0, leggii=0, sgabelli=0, hearbacks=0, poltrone=poltroneDi(state.items), leggiiDirettore=leggiiDirettoreDi(state.items);
+  var sedie=0, sgabelli=0, hearbacks=0, poltrone=poltroneDi(state.items), L=leggiiConteggio(state.items);
   state.items.forEach(function(it){
     var t=TYPES[it.type]; if(!t) return;
     var isDouble = it.doppia===true || !!DOUBLE_TYPES[it.type];
@@ -28150,24 +28150,43 @@ function countAccessori(){
     else if(POSTAZ[it.type] && it.sedia!==false && !isStool) sedie+=mult;
     else if(VOCE[it.type] && it.sedia===true && it.poltrona!==true) sedie++;   /* in poltrona: conta fra le poltrone */
     else if(t.gtr && it.sedia===true) sedie++;
-    // leggii
-    if(it.type==="leggio"||it.type==="sedialeggio") leggii++;
-    else if(POSTAZ[it.type] && it.leggio!==false) leggii++;       /* doppia = 1 leggio condiviso */
-    else if(VOCE[it.type] && it.leggio!==false) leggii++;
-    else if(t.gtr && it.leggio===true) leggii++;
-    else if(it.type==="direttore"){}   /* il suo leggio è un altro articolo: contato a parte (leggiiDirettoreDi) */
-    else if((it.type==="batteria"||it.type.indexOf("timpani")===0) && parts(it).leggio===true) leggii++;
-    else if(it.leggio===true && leggioExtra(it)) leggii++;   /* leggio generico (arpa, piani, percussioni…): si disegna, quindi si conta (20/10/2026) */
+    // leggii: contati fuori dal giro, con leggiiConteggio() (la stessa regola del cartiglio)
     // sgabelli: fonte unica sgabelliDi() (la stessa del cartiglio), così disegno, Stato e PDF non si separano e un tipo nuovo si conta da solo (16/10)
     sgabelliDi(it).forEach(function(p){ sgabelli+=p[1]; });
     // hearback
     if(it.type==="hearback") hearbacks++;
   });
-  return {sedie:sedie, leggii:leggii, leggiiDirettore:leggiiDirettore, sgabelli:sgabelli, hearbacks:hearbacks, poltrone:poltrone};
+  return {sedie:sedie, leggii:L.leggii, leggiiDirettore:L.direttore, leggiiTablet:L.tablet, sgabelli:sgabelli, hearbacks:hearbacks, poltrone:poltrone};
+}
+/* LEGGII DISEGNATI (27/10/2026, decisione di Simone: una regola sola per Stato e cartiglio, «si conta ciò che si
+   disegna»). Prima i due contavano ciascuno a modo suo e su certi progetti non coincidevano. Qui si seguono gli
+   stessi passi del disegno: prima quello dell'elemento (draw, station, singer, guitarDraw, parti di batteria e
+   timpani), poi i leggii che itemMarkup aggiunge sopra (tastiere, leggio generico). Il test «il conteggio è quello
+   del disegno» lo confronta con leggioGlyph per ogni tipo del catalogo: se cambia il disegno, cambia anche qui.
+   Fuori dal conto: il leggio del direttore e il leggio tablet, articoli diversi con una riga loro. */
+function leggiiDiItem(it){
+  var t=it && TYPES[it.type]; if(!t || it.type==="direttore") return 0;   /* il leggio tablet non ha leggioGlyph: nessun ramo lo conta */
+  var n=0;
+  if(it.type==="leggio"||it.type==="sedialeggio"||DOUBLE_TYPES[it.type]) n++;   /* le doppie del generatore hanno UN leggio, sempre */
+  else if(POSTAZ[it.type]) n+=((it.doppia && !postArt(it)) || it.leggio!==false) ? 1 : 0;   /* doppia = 1 leggio condiviso; nello schematico si disegna sempre */
+  else if(VOCE[it.type]) n+=(it.type==="corista" ? it.leggio!==false : (it.type==="cantante" ? !!it.leggio : it.leggio===true)) ? 1 : 0;   /* come i draw delle voci */
+  else if(t.gtr) n+=it.leggio ? 1 : 0;
+  else if(leggioDiParts(it)) n++;
+  if(TASTIERE[it.type]) n+=(it.leggio?1:0)+(it.leggio2?1:0);   /* leggio e secondo leggio della tastiera */
+  if(it.leggio===true && leggioExtra(it)) n++;   /* leggio generico: arpa, piani, percussioni… (20/10/2026) */
+  return n;
+}
+function leggiiConteggio(items){
+  var out={leggii:0, direttore:leggiiDirettoreDi(items), tablet:0};
+  (items||[]).forEach(function(it){ if(!it) return; out.leggii+=leggiiDiItem(it); if(it.type==="leggiotablet") out.tablet++; });
+  return out;
 }
 /* LEGGIO DEL DIRETTORE (27/10/2026, Simone: «il direttore ha il leggio del direttore ed è diverso, è più grande,
    quindi andrebbe conteggiato a parte rispetto a quello dei musicisti»). È il leggio acceso sull'elemento
    Direttore (lo stesso che si disegna: col solo podio non c'è); Stato e cartiglio lo scrivono su una riga sua. */
+/* Leggio acceso nelle PARTI di batteria e timpani (parts.leggio, di serie spento): si disegna accanto allo
+   strumento, quindi si conta. Una regola sola per Stato e cartiglio (27/10/2026: lo Stato lo contava, il PDF no). */
+function leggioDiParts(it){ return !!it && (it.type==="batteria"||String(it.type).indexOf("timpani")===0) && parts(it).leggio===true; }
 function leggiiDirettoreDi(items){
   var n=0; (items||[]).forEach(function(it){ if(it && it.type==="direttore" && it.leggio===true) n++; }); return n;
 }
@@ -31721,6 +31740,7 @@ function renderInspectorB(){
     if(c.poltrone)  s+=ir("Poltrone", c.poltrone);
     if(c.leggii)    s+=ir("Leggii", c.leggii);
     if(c.leggiiDirettore) s+=ir("Leggio direttore", c.leggiiDirettore);
+    if(c.leggiiTablet) s+=ir("Leggio tablet", c.leggiiTablet);
     if(c.sgabelli)  s+=ir("Sgabelli", c.sgabelli);
     if(c.hearbacks) s+=ir("Hearback", c.hearbacks);
     /* distinta PERSONAL MONITOR model-driven (B1): modelli, porte hub, alimentatori locali */
@@ -35737,16 +35757,10 @@ function pdfTotals(opts){
   var tecn=(opts && ("tecnici" in opts)) ? !!opts.tecnici : pdfDatiTecnici();
   function n(f){ var c=0; it.forEach(function(x){ if(f(x)) c++; }); return c; }
   var canali=0; it.forEach(function(x){ try{ canali+=cabItemInputs(x).length; }catch(e){} });
-  /* leggii: elementi a sé + il leggio acceso su una postazione + le postazioni che lo hanno di serie */
-  /* LEGGII — elementi a sé, leggio acceso su una postazione, e le postazioni che lo hanno di serie
-     (archi/legni/ottoni, comprese le doppie: due musicisti condividono UN leggio). */
-  var isPost=function(x){ return !!POSTAZ[x.type] || !!DOUBLE_TYPES[x.type]; };
-  var leggii=n(function(x){
-    if(x.type==="direttore") return false;   /* il leggio del direttore va su una riga sua (27/10/2026) */
-    if(x.type==="leggio"||x.type==="leggiotablet"||x.type==="sedialeggio") return true;
-    if(x.leggio===true) return true;
-    return isPost(x) && x.leggio!==false;
-  });
+  /* LEGGII — la stessa regola dello Stato, leggiiConteggio(): si conta ciò che si disegna (27/10/2026);
+     direttore e leggio tablet su righe loro. */
+  var L=leggiiConteggio(it), leggii=L.leggii;
+  var isPost=function(x){ return !!POSTAZ[x.type] || !!DOUBLE_TYPES[x.type]; };   /* per le sedute, qui sotto */
   /* SEDUTE — sedie e sgabelli veri, più quelle incluse nelle postazioni: una doppia ne vuole due. */
   var sedie=0;
   it.forEach(function(x){
@@ -35762,7 +35776,8 @@ function pdfTotals(opts){
   var iem=n(function(x){ return x.type==="iem"; });
   if(canali && tecn) out.push(canali+" canali");
   if(leggii) out.push(leggii+(leggii===1?" leggio":" leggii"));
-  var legDir=leggiiDirettoreDi(it); if(legDir) out.push(legDir+(legDir===1?" leggio direttore":" leggii direttore"));
+  if(L.direttore) out.push(L.direttore+(L.direttore===1?" leggio direttore":" leggii direttore"));
+  if(L.tablet)    out.push(L.tablet+(L.tablet===1?" leggio tablet":" leggii tablet"));
   if(sedie)  out.push(sedie+(sedie===1?" seduta":" sedute"));
   var poltr=poltroneDi(it); if(poltr) out.push(poltr+(poltr===1?" poltrona":" poltrone"));
   sgabelliTesto(it).forEach(function(t){ out.push(t); });   /* quali sgabelli, non solo quanti (16/09) */
