@@ -6205,6 +6205,27 @@ t("il leggio del direttore si conta a parte, non fra i leggii dei musicisti", ()
   eq(tot, ["1 leggio direttore"], "e nel cartiglio nessun «1 leggio»");
   ok(/if\(c\.leggiiDirettore\)\s*s\+=ir\("Leggio direttore", c\.leggiiDirettore\);/.test(appjs), "riga «Leggio direttore» nello Stato");
 });
+/* LEGGIO DI BATTERIA E TIMPANI NEL CARTIGLIO (27/10/2026, Simone: «lo correggiamo?» → «1»). Il leggio acceso
+   nelle parti (parts.leggio) si disegna e lo Stato lo contava, il cartiglio del PDF no: su un progetto d'orchestra
+   lo Stato diceva 33 leggii e il foglio stampato 31. Ora una regola sola, leggioDiParts(), per tutti e due. */
+t("il cartiglio conta il leggio disegnato di batteria e timpani, come lo Stato", () => {
+  reset();
+  const b = add("batteria", 300, 300), tp = add("timpani", 700, 300);
+  add("vlnpost", 500, 600);
+  eq([A.parts(b).leggio, A.parts(tp).leggio], [false, false], "di serie spenti");
+  eq(A.countAccessori().leggii, 1, "Stato: solo la postazione");
+  ok(A.pdfTotals({ tecnici: false }).indexOf("1 leggio") > -1, "cartiglio: " + A.pdfTotals({ tecnici: false }).join(" · "));
+  A.parts(b).leggio = true; A.parts(tp).leggio = true;
+  eq(A.countAccessori().leggii, 3, "Stato: postazione + batteria + timpani");
+  ok(A.pdfTotals({ tecnici: false }).indexOf("3 leggii") > -1, "cartiglio come lo Stato: " + A.pdfTotals({ tecnici: false }).join(" · "));
+  reset();
+  A.state.items.push({ id: "t3", type: "timpani3", x: 400, y: 300, rot: 0, w: 230, d: 133, parts: { leggio: true } });   /* progetto salvato prima */
+  eq([A.countAccessori().leggii, A.pdfTotals({ tecnici: false }).indexOf("1 leggio") > -1], [1, true], "anche i timpani ×3 di un progetto vecchio");
+  reset();
+  A.state.items.push({ id: "t4", type: "timpani3", x: 400, y: 300, rot: 0, w: 230, d: 133, parts: {} }, { id: "b4", type: "batteria", x: 800, y: 300, rot: 0, w: 240, d: 200 });
+  eq([A.countAccessori().leggii, A.pdfTotals({ tecnici: false }).filter((r) => /legg/.test(r))], [0, []], "progetto vecchio senza la chiave leggio: niente leggio, come nel disegno");
+  ok(/function leggioDiParts\(it\)/.test(appjs) && (appjs.match(/leggioDiParts\(/g) || []).length >= 3, "una regola sola per Stato e cartiglio");
+});
 t("senza «Esporta avanzato» il cartiglio non scrive peso, rack e canali", () => {
   /* 16/09 — Simone: «ho appena fatto un export pdf ed escono in basso a destra i kg e i canali, sto
      usando la versione base e non dovrebbero esserci». */

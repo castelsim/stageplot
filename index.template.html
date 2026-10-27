@@ -28156,7 +28156,7 @@ function countAccessori(){
     else if(VOCE[it.type] && it.leggio!==false) leggii++;
     else if(t.gtr && it.leggio===true) leggii++;
     else if(it.type==="direttore"){}   /* il suo leggio è un altro articolo: contato a parte (leggiiDirettoreDi) */
-    else if((it.type==="batteria"||it.type.indexOf("timpani")===0) && parts(it).leggio===true) leggii++;
+    else if(leggioDiParts(it)) leggii++;
     else if(it.leggio===true && leggioExtra(it)) leggii++;   /* leggio generico (arpa, piani, percussioni…): si disegna, quindi si conta (20/10/2026) */
     // sgabelli: fonte unica sgabelliDi() (la stessa del cartiglio), così disegno, Stato e PDF non si separano e un tipo nuovo si conta da solo (16/10)
     sgabelliDi(it).forEach(function(p){ sgabelli+=p[1]; });
@@ -28168,6 +28168,9 @@ function countAccessori(){
 /* LEGGIO DEL DIRETTORE (27/10/2026, Simone: «il direttore ha il leggio del direttore ed è diverso, è più grande,
    quindi andrebbe conteggiato a parte rispetto a quello dei musicisti»). È il leggio acceso sull'elemento
    Direttore (lo stesso che si disegna: col solo podio non c'è); Stato e cartiglio lo scrivono su una riga sua. */
+/* Leggio acceso nelle PARTI di batteria e timpani (parts.leggio, di serie spento): si disegna accanto allo
+   strumento, quindi si conta. Una regola sola per Stato e cartiglio (27/10/2026: lo Stato lo contava, il PDF no). */
+function leggioDiParts(it){ return !!it && (it.type==="batteria"||String(it.type).indexOf("timpani")===0) && parts(it).leggio===true; }
 function leggiiDirettoreDi(items){
   var n=0; (items||[]).forEach(function(it){ if(it && it.type==="direttore" && it.leggio===true) n++; }); return n;
 }
@@ -35745,6 +35748,7 @@ function pdfTotals(opts){
     if(x.type==="direttore") return false;   /* il leggio del direttore va su una riga sua (27/10/2026) */
     if(x.type==="leggio"||x.type==="leggiotablet"||x.type==="sedialeggio") return true;
     if(x.leggio===true) return true;
+    if(leggioDiParts(x)) return true;   /* batteria e timpani: il leggio sta nelle parti */
     return isPost(x) && x.leggio!==false;
   });
   /* SEDUTE — sedie e sgabelli veri, più quelle incluse nelle postazioni: una doppia ne vuole due. */
