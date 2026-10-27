@@ -6178,6 +6178,33 @@ t("il cartiglio riassume canali, leggii, sedute, personal mixer e ascolti", () =
   ok(/1 personal mixer \(1 hub\)/.test(t2), "personal mixer con l'hub: " + t2);
   ok(/1 spia/.test(t2), "spie al singolare: " + t2);
 });
+/* LEGGIO DEL DIRETTORE A PARTE (27/10/2026, Simone, guardando un A3 stampato: «il direttore ha il leggio del
+   direttore ed è diverso, è più grande, quindi andrebbe conteggiato a parte rispetto a quello dei musicisti»).
+   È un articolo diverso in magazzino: nello Stato e nel cartiglio esce su una riga sua, fuori dai leggii. */
+t("il leggio del direttore si conta a parte, non fra i leggii dei musicisti", () => {
+  reset();
+  const d = add("direttore", 500, 500);
+  eq(d.leggio, true, "il direttore nasce col suo leggio");
+  add("vlnpost", 300, 300); add("leggio", 700, 300);
+  let c = A.countAccessori();
+  eq(c.leggii, 2, "leggii dei musicisti: postazione + leggio sciolto, senza il direttore");
+  eq(c.leggiiDirettore, 1, "Stato: leggio del direttore a parte");
+  let tot = A.pdfTotals({ tecnici: false });
+  ok(tot.indexOf("2 leggii") > -1 && tot.indexOf("1 leggio direttore") > -1, "cartiglio: " + tot.join(" · "));
+  ok(tot.indexOf("2 leggii") < tot.indexOf("1 leggio direttore"), "subito dopo i leggii: " + tot.join(" · "));
+  d.podio = true;
+  eq([A.countAccessori().leggii, A.countAccessori().leggiiDirettore], [2, 1], "sul podio è sempre lo stesso leggio");
+  d.leggio = false;
+  c = A.countAccessori(); tot = A.pdfTotals({ tecnici: false }).join(" · ");
+  eq([c.leggii, c.leggiiDirettore], [2, 0], "leggio spento: non si disegna, quindi non si conta (anche col podio)");
+  ok(!/direttore/.test(tot), "niente riga del direttore: " + tot);
+  reset();
+  A.state.items.push({ id: "dv", type: "direttore", x: 500, y: 500, rot: 0, w: 120, d: 120, label: "M°", leggio: true, podio: true });   /* progetto salvato prima */
+  c = A.countAccessori(); tot = A.pdfTotals({ tecnici: false });
+  eq([c.leggii, c.leggiiDirettore], [0, 1], "progetto vecchio: stesso conteggio, senza toccare i dati");
+  eq(tot, ["1 leggio direttore"], "e nel cartiglio nessun «1 leggio»");
+  ok(/if\(c\.leggiiDirettore\)\s*s\+=ir\("Leggio direttore", c\.leggiiDirettore\);/.test(appjs), "riga «Leggio direttore» nello Stato");
+});
 t("senza «Esporta avanzato» il cartiglio non scrive peso, rack e canali", () => {
   /* 16/09 — Simone: «ho appena fatto un export pdf ed escono in basso a destra i kg e i canali, sto
      usando la versione base e non dovrebbero esserci». */
