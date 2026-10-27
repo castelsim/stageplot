@@ -6253,6 +6253,25 @@ t("leggii: un caso per ogni tipo, Stato e cartiglio con la stessa regola", () =>
   ok(/if\(c\.leggiiTablet\)\s*s\+=ir\("Leggio tablet", c\.leggiiTablet\);/.test(appjs), "riga «Leggio tablet» nello Stato");
   ok(/function countAccessori\(\)\{[\s\S]{0,1500}?leggiiConteggio\(/.test(appjs) && /function pdfTotals\([^)]*\)\{[\s\S]{0,1500}?leggiiConteggio\(/.test(appjs), "Stato e cartiglio usano leggiiConteggio");
 });
+/* LEGGIO AGGIUNTO DA SOLO (27/10/2026, Simone: «il cartiglio deve contare anche se io aggiungo un leggio come solo
+   elemento: deve contare tutti i leggii all'interno dello stage plot»). Uno o più, su una pedana, in un gruppo, in
+   ogni scena: Stato e cartiglio della scena li contano tutti. */
+t("leggii aggiunti da soli: contati in Stato e cartiglio, su pedana, in gruppo e in ogni scena", () => {
+  reset();
+  add("pedana", 600, 300);
+  const sulPalco = add("leggio", 200, 300), sullaPedana = add("leggio", 600, 300);
+  const g1 = add("leggio", 900, 500), g2 = add("leggio", 1000, 500); g1.grp = g2.grp = "gL";
+  add("vlnpost", 400, 600);
+  eq([sulPalco.type, sullaPedana.type], ["leggio", "leggio"], "leggii dal catalogo");
+  const conta = () => [A.countAccessori().leggii, leggiiNelCartiglio(A.pdfTotals({ tecnici: false }))];
+  eq(conta(), [5, 5], "4 leggii da soli (uno sulla pedana, due in gruppo) + 1 postazione: Stato e cartiglio");
+  const s1 = A.activeVar, s2 = A.createVariant("Scena 2");
+  add("leggio", 300, 800); add("leggio", 500, 800);
+  eq(conta(), [7, 7], "scena 2: i leggii copiati + 2 aggiunti");
+  A.switchVariant(s1); eq(conta(), [5, 5], "scena 1: invariata");
+  A.switchVariant(s2); eq(conta(), [7, 7], "di nuovo la scena 2");
+  reset();
+});
 t("leggii: il conteggio è quello del disegno, per ogni tipo del catalogo", () => {
   /* Il disegno chiama leggioGlyph una volta per leggio: si conta quello, tipo per tipo e con le opzioni che lo cambiano. */
   const orig = A.leggioGlyph; let disegnati = 0;
