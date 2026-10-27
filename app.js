@@ -26068,7 +26068,7 @@ function standNeeds(){
 }
 function standTotal(n){ var t=0; STAND_KINDS.forEach(function(k){ if(k[0]!=="clip"&&k[0]!=="headset"&&k[0]!=="terra") t+=n[k[0]].tot; }); return t; }   /* "aste" vere: clip e headset non lo sono */
 function countAccessori(){
-  var sedie=0, leggii=0, sgabelli=0, hearbacks=0, poltrone=poltroneDi(state.items);
+  var sedie=0, leggii=0, sgabelli=0, hearbacks=0, poltrone=poltroneDi(state.items), leggiiDirettore=leggiiDirettoreDi(state.items);
   state.items.forEach(function(it){
     var t=TYPES[it.type]; if(!t) return;
     var isDouble = it.doppia===true || !!DOUBLE_TYPES[it.type];
@@ -26084,7 +26084,7 @@ function countAccessori(){
     else if(POSTAZ[it.type] && it.leggio!==false) leggii++;       /* doppia = 1 leggio condiviso */
     else if(VOCE[it.type] && it.leggio!==false) leggii++;
     else if(t.gtr && it.leggio===true) leggii++;
-    else if(it.type==="direttore" && (it.leggio===true||it.podio===true)) leggii++;
+    else if(it.type==="direttore"){}   /* il suo leggio è un altro articolo: contato a parte (leggiiDirettoreDi) */
     else if((it.type==="batteria"||it.type.indexOf("timpani")===0) && parts(it).leggio===true) leggii++;
     else if(it.leggio===true && leggioExtra(it)) leggii++;   /* leggio generico (arpa, piani, percussioni…): si disegna, quindi si conta (20/10/2026) */
     // sgabelli: fonte unica sgabelliDi() (la stessa del cartiglio), così disegno, Stato e PDF non si separano e un tipo nuovo si conta da solo (16/10)
@@ -26092,7 +26092,13 @@ function countAccessori(){
     // hearback
     if(it.type==="hearback") hearbacks++;
   });
-  return {sedie:sedie, leggii:leggii, sgabelli:sgabelli, hearbacks:hearbacks, poltrone:poltrone};
+  return {sedie:sedie, leggii:leggii, leggiiDirettore:leggiiDirettore, sgabelli:sgabelli, hearbacks:hearbacks, poltrone:poltrone};
+}
+/* LEGGIO DEL DIRETTORE (27/10/2026, Simone: «il direttore ha il leggio del direttore ed è diverso, è più grande,
+   quindi andrebbe conteggiato a parte rispetto a quello dei musicisti»). È il leggio acceso sull'elemento
+   Direttore (lo stesso che si disegna: col solo podio non c'è); Stato e cartiglio lo scrivono su una riga sua. */
+function leggiiDirettoreDi(items){
+  var n=0; (items||[]).forEach(function(it){ if(it && it.type==="direttore" && it.leggio===true) n++; }); return n;
 }
 /* Le poltrone da portare: quelle vuote (anche allargate a divano: una per elemento) e quelle con una
    voce seduta sopra. Sono arredo di scena, non sedie: chi allestisce le cerca altrove (05/10). */
@@ -29643,6 +29649,7 @@ function renderInspectorB(){
     if(c.sedie)     s+=ir("Sedie", c.sedie);
     if(c.poltrone)  s+=ir("Poltrone", c.poltrone);
     if(c.leggii)    s+=ir("Leggii", c.leggii);
+    if(c.leggiiDirettore) s+=ir("Leggio direttore", c.leggiiDirettore);
     if(c.sgabelli)  s+=ir("Sgabelli", c.sgabelli);
     if(c.hearbacks) s+=ir("Hearback", c.hearbacks);
     /* distinta PERSONAL MONITOR model-driven (B1): modelli, porte hub, alimentatori locali */
@@ -33664,6 +33671,7 @@ function pdfTotals(opts){
      (archi/legni/ottoni, comprese le doppie: due musicisti condividono UN leggio). */
   var isPost=function(x){ return !!POSTAZ[x.type] || !!DOUBLE_TYPES[x.type]; };
   var leggii=n(function(x){
+    if(x.type==="direttore") return false;   /* il leggio del direttore va su una riga sua (27/10/2026) */
     if(x.type==="leggio"||x.type==="leggiotablet"||x.type==="sedialeggio") return true;
     if(x.leggio===true) return true;
     return isPost(x) && x.leggio!==false;
@@ -33683,6 +33691,7 @@ function pdfTotals(opts){
   var iem=n(function(x){ return x.type==="iem"; });
   if(canali && tecn) out.push(canali+" canali");
   if(leggii) out.push(leggii+(leggii===1?" leggio":" leggii"));
+  var legDir=leggiiDirettoreDi(it); if(legDir) out.push(legDir+(legDir===1?" leggio direttore":" leggii direttore"));
   if(sedie)  out.push(sedie+(sedie===1?" seduta":" sedute"));
   var poltr=poltroneDi(it); if(poltr) out.push(poltr+(poltr===1?" poltrona":" poltrone"));
   sgabelliTesto(it).forEach(function(t){ out.push(t); });   /* quali sgabelli, non solo quanti (16/09) */
