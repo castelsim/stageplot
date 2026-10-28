@@ -412,6 +412,38 @@ function headMicGlyph(){
     '</g>'+
     '<circle cx="6.2" cy="9.2" r="1.9" fill="#2b2e31" stroke="#fff" stroke-width="1"/>';         /* capsula all'angolo della bocca */
 }
+/* CUFFIA DELL'INTERCOM vista dall'alto: la stessa staffa dell'archetto, ma con due padiglioni pieni (il tecnico
+   di palco la porta per sentire la regia) e nessuna capsula alla bocca. Origine = centro della testa. */
+function cuffiaIntercomGlyph(){
+  var staffa='M-8.6,-1.2 C -9.6,-6.2 -5.4,-9.4 0,-9.4 C 5.4,-9.4 9.6,-6.2 8.6,-1.2';
+  return '<g fill="none" stroke-linecap="round" stroke-linejoin="round">'+
+      '<path d="'+staffa+'" stroke="#fff" stroke-width="4.1"/><path d="'+staffa+'" stroke="#2b2e31" stroke-width="1.5"/>'+
+      '<rect x="-12" y="-5.2" width="5.4" height="8.6" rx="2.4" fill="#2b2e31" stroke="#fff" stroke-width="1.1"/>'+
+      '<rect x="6.6" y="-5.2" width="5.4" height="8.6" rx="2.4" fill="#2b2e31" stroke="#fff" stroke-width="1.1"/>'+
+    '</g>';
+}
+/* RICETRASMITTENTE alla cintura (intercom): scatoletta scura con l'antenna, appoggiata sul fianco destro. */
+function ricetrasmittenteGlyph(){
+  return '<g stroke="#fff" stroke-width="1.1" stroke-linejoin="round">'+
+    '<rect x="-4" y="-7" width="8" height="14" rx="2" fill="#2b2e31"/></g>'+
+    '<line x1="2" y1="-7" x2="2" y2="-13" stroke="#2b2e31" stroke-width="1.6" stroke-linecap="round"/>'+
+    '<rect x="-2.2" y="-3" width="4.4" height="3" rx="0.8" fill="#8b9096"/>';
+}
+/* TECNICO / TECNICA (28/10/2026, richiesta di un tecnico di teatro): persona di palco SENZA microfono né canale.
+   Stessa figura dall'alto delle voci (uomo/donna), con la cuffia dell'intercom e la ricetrasmittente alla cintura:
+   così si legge che non è un artista. Tutto vettoriale; nel PDF la sagoma geometrica scura. */
+function tecnicoFigura(it){
+  it=it||{};
+  var donna=it.donna===true, s='';
+  if(_pdfMode || it.look==="schematico"){
+    s+=circ(0,-20,15,'ic fBlack')+bar(0,4,32,26,'ic fBlack',9);
+  } else {
+    s+='<g transform="'+(donna?'translate(-29,-34)':'translate(-32,-33)')+' scale(0.08)">'+(donna?CORO_DONNA_ART:CORO_UOMO_ART)+'</g>';
+  }
+  s+='<g transform="translate(0,-19)">'+cuffiaIntercomGlyph()+'</g>';
+  s+='<g transform="translate(23,14)">'+ricetrasmittenteGlyph()+'</g>';
+  return s;
+}
 function singer(it){
   it=it||{};
   var mm=micModeOf(it), donna=it.donna===true;
@@ -1560,6 +1592,17 @@ var TYPES = {
   moderatore: {nome:"Moderatore", dim:"conferenza, seduto", cat:"Persone e voci", w:70,d:90, voce:true, defLabel:"Moderatore", micDef:"mano", sediaDef:true,
              alias:"moderatore moderatrice conduttore conduttrice presentatore panel tavola rotonda conferenza convegno persona",
              draw:function(it){ it=it||{}; return singer({micMode:micModeOf(it), leggio:it.leggio===true, donna:it.donna, sedia:it.sedia===true, poltrona:it.poltrona===true, look:it.look, type:"moderatore"}); }},
+  /* TEATRO (28/10/2026, richiesta di un tecnico di teatro): l'attore e l'attrice sono una voce come le altre (stessa figura,
+     microfono dal pannello, canale, Uomo/Donna), ma nascono col radiomicrofono indossato — in prosa si porta lavalier o
+     archetto, non l'asta. «Attrice» è lo stesso tipo con Donna acceso (nomeF: la parola con cui si numera). */
+  attore:   {nome:"Attore", nomeF:"Attrice", dim:"teatro, radiomicrofono", cat:"Persone e voci", w:70,d:90, voce:true, defLabel:"Attore", micDef:"lavalier",
+             alias:"attore attrice attori attrici interprete interpreti recitante recitanti performer protagonista teatro prosa spettacolo persona",
+             draw:function(it){ it=it||{}; return singer({micMode:micModeOf(it), leggio:it.leggio===true, donna:it.donna, sedia:it.sedia===true, poltrona:it.poltrona===true, look:it.look, type:"attore"}); }},
+  /* Il tecnico di palco non suona e non parla: nessun microfono, nessun canale (non è in VOCE). Si numera «Tecnico 1»,
+     «Tecnica 1»; cuffia dell'intercom e ricetrasmittente lo distinguono dagli artisti. */
+  tecnico:  {nome:"Tecnico", nomeF:"Tecnica", dim:"palco, intercom", cat:"Persone e voci", w:70,d:90, defLabel:"Tecnico",
+             alias:"tecnico tecnica tecnici tecniche macchinista macchinisti attrezzista attrezzisti stagehand crew runner assistente palco scena backstage intercom persona",
+             draw:function(it){ return tecnicoFigura(it); }},
   cantante: {nome:"Cantante", dim:"voce principale, solista", cat:"Persone e voci", w:70,d:90, voce:true, defLabel:"Voce", alias:"voce principale prima voce cantante cantanti solista soliste voce voci vocalist singer frontman frontwoman lead vocal backing vocal backing vocals seconda voce corista coriste coristi coro cori choir chorus cantore persona",
              draw:function(it){ return singer(it); }},
   /* 23/10/2026: la ricerca dà precedenza al RUOLO. «Voce principale» (cantante) è la voce solista; questa
@@ -2680,7 +2723,7 @@ function sepCfg(it){
   return null;
 }
 function sepToW(cfg, sep){ return Math.round(sep + (cfg.dbl[0]-cfg.sep)); }   /* larghezza ingombro dalla distanza */
-var VOCE = { cantante:1, corista:1, relatore:1, moderatore:1 };   /* postazioni voce: opzioni mic in mano / leggio */
+var VOCE = { cantante:1, corista:1, relatore:1, moderatore:1, attore:1 };   /* postazioni voce: opzioni mic in mano / leggio */
 /* ===== MICROFONO VOCE DELLO STRUMENTISTA (Simone 27/07: «negli strumenti idonei l'opzione per
    aggiungere il microfono ad archetto in testa») =====
    Idonei = chi suona con le MANI OCCUPATE e canta lo stesso: chitarre e basso, tastiere, batteria,
@@ -19831,6 +19874,17 @@ function ricordaRecenteCatalogo(k, nome, over){
         body.appendChild(makeBtn(k, TYPES[k].nome, null, TYPES[k].dim)); n++;
         entries.push({k:k, nome:TYPES[k].nome, dim:TYPES[k].dim, kw:TYPES[k].alias});
       });
+      /* TEATRO (28/10/2026): Attore e Attrice (voce col radiomicrofono) e Tecnico e Tecnica (persona di palco, senza canale).
+         Attrice e Tecnica sono lo stesso tipo con Donna acceso: addItem le numera con la loro parola («Attrice 1»). */
+      var attF={donna:true}, tecF={donna:true};
+      body.appendChild(makeBtn("attore","Attore", null, "teatro, radiomicrofono")); n++;
+      entries.push({k:"attore", nome:"Attore", dim:"teatro, radiomicrofono", kw:TYPES.attore.alias});
+      body.appendChild(makeBtn("attore","Attrice", attF, "teatro, radiomicrofono")); n++;
+      entries.push({k:"attore", nome:"Attrice", over:attF, dim:"teatro, radiomicrofono", kw:TYPES.attore.alias});
+      body.appendChild(makeBtn("tecnico","Tecnico", null, "palco, intercom")); n++;
+      entries.push({k:"tecnico", nome:"Tecnico", dim:"palco, intercom", kw:TYPES.tecnico.alias});
+      body.appendChild(makeBtn("tecnico","Tecnica", tecF, "palco, intercom")); n++;
+      entries.push({k:"tecnico", nome:"Tecnica", over:tecF, dim:"palco, intercom", kw:TYPES.tecnico.alias});
       /* OSPITE IN POLTRONA (05/10, segnalazione «mi serve un uomo su una poltrona»): non un tipo nuovo ma la
          Voce con «Poltrona» acceso — stessa figura, microfono dal pannello, canale, Uomo/Donna. Lavalier di
          serie: seduto, legge o parla con le mani libere. La ricerca è a sottostringa sulla frase intera:
@@ -19856,7 +19910,7 @@ function ricordaRecenteCatalogo(k, nome, over){
       if(k==="stagebox") return;  /* gestita sopra come varianti 8/16/24 canali */
       if(k==="vlnpost") return;   /* violini gestiti sopra (Violino I / II con nome progressivo) */
       if(k==="direttore") return; /* gestito sopra */
-      if(k==="cantante"||k==="corista"||k==="relatore"||k==="moderatore") return; /* gestiti sopra */
+      if(k==="cantante"||k==="corista"||k==="relatore"||k==="moderatore"||k==="attore"||k==="tecnico") return; /* gestiti sopra */
       var sub=subOf(k)||null;
       var target=body, group=null;
       if(sub){ group=rhythmGroup(sub); target=group.body; }   /* ogni sottocategoria = menu a scomparsa, uniforme in tutte le categorie */
@@ -20304,10 +20358,12 @@ var INSTR_BASE = {
   distro63:"Distro", distro32:"Distro", distro125:"Quadro", quadro:"Quadro",
   astamic:"Asta", giraffa:"Giraffa", astabassa:"Asta bassa", astagigante:"Asta gigante"
 };
+/* «Attrice 2», «Tecnica 1»: l'elemento si chiama con la parola al femminile (TYPES[..].nomeF), quindi ha una numerazione sua. */
+function etichettaFemminile(x){ var t=x && TYPES[x.type]; return !!(t && t.nomeF && typeof x.label==="string" && x.label.indexOf(t.nomeF+" ")===0 && /^\d+$/.test(x.label.slice(t.nomeF.length+1))); }
 function instrBase(type){ return INSTR_BASE[type] || (TYPES[type]&&TYPES[type].nome) || ""; }
 /* "posti" già usati per quello strumento (una postazione a 2 conta 2) */
 function instrSeats(type){ var base=instrBase(type), n=0;
-  state.items.forEach(function(x){ if(x.type && autoNumbered(x.type) && instrBase(x.type)===base) n += ((x.doppia||DOUBLE_TYPES[x.type])?2:1); });
+  state.items.forEach(function(x){ if(x.type && autoNumbered(x.type) && instrBase(x.type)===base && !etichettaFemminile(x)) n += ((x.doppia||DOUBLE_TYPES[x.type])?2:1); });
   return n; }
 function addItem(type, over, silenzioso){   /* silenzioso (06/10/2026): crea e mette nello stato, ma non disegna, non salva e non seleziona — lo usa chi ne posa molti in un colpo (anello di altoparlanti) e salva UNA volta */
   if(window.__projLocked) return null;   /* BLOCCO progetti: nessuna aggiunta di elementi (backstop di TUTTI i path: catalogo, quick-add, drag-drop, fix audit, auto-add cablaggio) */
@@ -20345,6 +20401,10 @@ function addItem(type, over, silenzioso){   /* silenzioso (06/10/2026): crea e m
   if(COMP[type]){ it.parts=compClone(COMP[type].newParts||COMP[type].defParts); if(COMP[type].size){ var sz=COMP[type].size(it); it.w=sz[0]; it.d=sz[1]; } }   /* newParts: un elemento NUOVO può nascere più completo di come si riapre un progetto vecchio (percussioni, 13/10) */
   if(type==="miczone") it.zcol=micZoneFreeColor();   /* ogni zona nasce con un colore diverso */
   if(over) Object.keys(over).forEach(function(k){ it[k]=over[k]; });
+  if(t.nomeF && it.donna===true && !(over && over.label!=null)){   /* Attrice, Tecnica: si numerano con la loro parola, non «Attore 3» */
+    var _nF=(state.items||[]).reduce(function(m,o){ return (o.type===type && etichettaFemminile(o)) ? Math.max(m, +o.label.slice(t.nomeF.length+1)) : m; }, 0);
+    it.label=t.nomeF+" "+(_nF+1);
+  }
   if(isAreaNome(it) && !(over && over.fill)) it.fill=areaFreeColor();   /* anche ogni AREA (06/10/2026): due zone accanto non hanno lo stesso colore */
   if(cabIsBox(it)) sbAutoSize(it);   /* misure dai canali (ch/outCh arrivano da over): subito, non al prossimo caricamento */
   if(it.type==="cantante") it.d=cantanteDepth(it);   /* footprint coerente col mic scelto (over può impostare micMode) */
@@ -34295,7 +34355,7 @@ function riderData(){
     sedie: (r.sedie!=null && String(r.sedie).trim()!=="") ? r.sedie : "",
     /* Chi sta sul palco è metà del lavoro del service (gradoni, sedie, leggii): un coro da 24 non
        compariva da nessuna parte nel documento consegnato, mentre il pannello dei layer lo contava. */
-    persone: cnt("corista")+cnt("cantante")+cnt("relatore")+cnt("moderatore"), leggii: cnt("leggio")+cnt("sedialeggio"),
+    persone: cnt("corista")+cnt("cantante")+cnt("relatore")+cnt("moderatore")+cnt("attore")+cnt("tecnico"), leggii: cnt("leggio")+cnt("sedialeggio"),
     pesoKg: (typeof totalWeightKg==="function" && pdfPesiOn()) ? totalWeightKg() : 0,   /* «Pesi (kg)» spenta: niente peso nel rider */
     /* Quanta corrente serve è una domanda che il service fa SEMPRE, e il rider non la nominava mai:
        i watt erano solo nella Lista carichi, una pagina tecnica separata e facoltativa (06/08). */

@@ -23014,6 +23014,38 @@ t("relatore e moderatore: persone con il microfono delle conferenze e il loro ca
   ok(A.__qaSearch("collo d'oca").some((x) => x.k === "mictavolo") && A.__qaSearch("confidence").some((x) => x.k === "confidence"), "anche il microfono da tavolo e il confidence monitor");
 });
 
+t("teatro: attore/attrice sono voci col radiomicrofono, tecnico/tecnica persone di palco senza canale", () => {
+  reset();
+  const a = add("attore", 300, 300), f = A.addItem("attore", { x: 500, y: 300, donna: true }), a2 = add("attore", 700, 300);
+  const t1 = add("tecnico", 300, 500), t2 = A.addItem("tecnico", { x: 500, y: 500, donna: true }), t3 = add("tecnico", 700, 500);
+  eq(A.micModeOf(a), "lavalier", "l'attore nasce col radiomicrofono indossato, non con l'asta");
+  eq(A.cabItemInputs(a).map((c) => c.mic).join(), "TL47", "un canale, col suo modello");
+  ok(A.VOCE.attore === 1 && !A.VOCE.tecnico, "l'attore è una voce, il tecnico no");
+  eq(A.cabItemInputs(t1).length, 0, "il tecnico non genera canali");
+  eq([a.label, f.label, a2.label], ["Attore 1", "Attrice 1", "Attore 2"], "le attrici si numerano con la loro parola, senza bucare gli attori");
+  eq([t1.label, t2.label, t3.label], ["Tecnico 1", "Tecnica 1", "Tecnico 2"], "e così i tecnici");
+  ok(f.donna === true && t2.donna === true, "Donna acceso: stessa figura, aspetto femminile");
+  ok(A.rfList().rows.some((r) => r.name === "Attore 1" && /lavalier/i.test(r.kind)), "il radiomicrofono dell'attore entra nella Lista RF");
+  const q = (x) => A.__qaSearch(x).map((r) => r.nome);
+  ok(q("attrice").indexOf("Attrice") > -1 && q("attore").indexOf("Attore") > -1, "si trovano cercando attore e attrice: " + q("attrice"));
+  ok(q("tecnica").indexOf("Tecnica") > -1 && q("tecnico").indexOf("Tecnico") > -1, "e tecnico e tecnica: " + q("tecnica"));
+  /* disegno: vettoriale sia a schermo sia in PDF, mai immagini raster */
+  for (const pdf of [false, true]) {
+    const prima = A._pdfMode; A._pdfMode = pdf;
+    try {
+      const sa = A.TYPES.attore.draw({ type: "attore", micMode: "lavalier" }), st = A.TYPES.tecnico.draw({ type: "tecnico" });
+      ok(!/<image|data:image|\.png|\.jpe?g/i.test(sa + st), "nessun raster (pdf=" + pdf + ")");
+      ok(st.indexOf('rx="2.4"') > -1, "il tecnico porta la cuffia dell'intercom (pdf=" + pdf + ")");
+      ok(st.indexOf('x1="2" y1="-7"') > -1, "e la ricetrasmittente alla cintura, con l'antenna (pdf=" + pdf + ")");
+      ok(sa.indexOf('rx="2.4"') === -1 && sa.indexOf('x1="2" y1="-7"') === -1, "l'attore non le ha (pdf=" + pdf + ")");
+      ok(st.length > 300 && sa.length > 100, "disegno non vuoto (pdf=" + pdf + ")");
+    } finally { A._pdfMode = prima; }
+  }
+  eq(A.TYPES.tecnico.draw({ type: "tecnico" }) === A.TYPES.tecnico.draw({ type: "tecnico", donna: true }), false, "uomo e donna hanno la loro figura");
+  /* il rider conta chi sta sul palco, tecnici compresi */
+  ok(/\bcnt\("attore"\)\+cnt\("tecnico"\)/.test(appjs), "attori e tecnici sono tra le persone del rider");
+});
+
 t("il modello Conferenza: podio, panel, domande dal pubblico, e il progetto nasce conferenza", () => {
   const fd = A.formationData("conferenza"), out = fd.out;
   const conta = (t) => out.filter((i) => i.type === t).length;
