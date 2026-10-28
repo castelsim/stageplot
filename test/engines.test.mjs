@@ -26526,6 +26526,36 @@ t("Omnichord: misure del manuale Suzuki, ingresso DI mono, ricerca, solo vettori
   ok((svg.match(/<circle/g) || []).length >= 15, "i tasti degli accordi e le manopole ci sono");
 });
 
+/* 28/10/2026 — Omnichord: l'icona vera, dal disegno ufficiale del manuale Suzuki (sagoma, disposizione e colori misurati; niente ricalco, niente marchi).
+   Decisioni di Simone: fedeltà massima e proporzioni reali; peso sotto i 20 KB per icona; niente loghi, marchi o scritte. */
+t("Omnichord: icona in cm del manuale, leggera, senza scritte né raster, con la disposizione dello strumento", () => {
+  conIcone(["omnichord"], (L) => {
+    const o = L.omnichord;
+    ok(o && o.body, "manca omnichord in icons.js");
+    eq(o.vb, [0, 0, 45.7, 25], "viewBox = 45,7 × 25,0 cm del manuale");
+    ok(o.body.length < 20 * 1024, "peso sotto i 20 KB: " + o.body.length + " byte");
+    ok(!/<text|<tspan|<image|<script|<title|<desc|font-|data:|href=|NaN|undefined/i.test(o.body), "niente scritte, raster, riferimenti, valori rotti");
+    const classi = [...new Set([...o.body.matchAll(/class="([^"]+)"/g)].flatMap((m) => m[1].split(/\s+/)))];
+    ok(classi.length > 8 && classi.every((c) => c.startsWith("omc_")), "ogni classe ha il prefisso omc_: " + classi.filter((c) => !c.startsWith("omc_")));
+    ok(!/_cls-/.test(o.body), "nessun nome «_cls-»: libIconCon lo riprefisserebbe e perderebbe lo stile");
+    const n = (c) => (o.body.match(new RegExp('class="' + c + '"', "g")) || []).length;
+    eq(n("omc_manopola"), 7, "sette manopole (strumplate 3, ritmo 2, accordi 1, master 1)");
+    eq(n("omc_led"), 21, "ventuno LED");
+    eq(n("omc_tasto_grigio"), 18, "tasti accordo grigi (con i tre simboli del manuale e i tasti di riferimento)");
+    eq(n("omc_tasto") + n("omc_tasto_grigio") + n("omc_giallo") + n("omc_rosso") + n("omc_blu") + n("omc_tasto_scuro"), 18 + 31 + 2 + 1 + 2 + 1,
+       "38 tasti accordo (12+13+13) più i 17 di funzione, tutti disegnati");
+    ok(/fill-rule:evenodd/.test(o.body), "le righe sottili sono contorni con foro (evenodd)");
+    /* sul palco: la scena ne fa una copia con id propri, una per volta, e le scale seguono w e d */
+    const a = A.TYPES.omnichord.draw({ type: "omnichord", w: 46, d: 25 }), b = A.TYPES.omnichord.draw({ type: "omnichord", w: 92, d: 50 });
+    ok(a.indexOf("omc_corpo") > -1 && !/<image/.test(a), "il disegno è l'icona vera");
+    ok(/^<g transform="scale\(2\)">/.test(b), "raddoppiando w e d l'icona si scala senza deformarsi");
+    const rif = [...a.matchAll(/url\(#([^)]+)\)/g)].map((m) => m[1]);
+    ok(rif.length > 0 && rif.every((id) => a.indexOf('id="' + id + '"') > -1), "ogni gradiente richiamato esiste, con l'id riprefissato");
+  });
+  /* senza icons.js (non ancora arrivato) resta il disegno schematico: il test precedente lo verifica */
+  eq(A.TYPES.omnichord.draw({ type: "omnichord", w: 46, d: 25 }).indexOf("omc_"), -1, "ripiego schematico finché la libreria non c'è");
+});
+
 /* Revisione del 19/10/2026 sul lotto del catalogo */
 t("revisione catalogo: la Loop station porta sul palco e in channel list un nome da palco, non quello del catalogo", () => {
   reset();
