@@ -445,6 +445,26 @@ va corretta e il modello può entrare.
 
 ---
 
+### 3c. Luci per il teatro (aggiunto il 28/10/2026)
+
+Richieste di un tecnico di teatro: in Italia i teatri passano dal PC alogeno al PC LED e dalla ribalta alla barra LED. Per ogni elemento un modello
+rappresentativo con **manuale o scheda tecnica del produttore**; le quote in cm sono quelle dei documenti, arrotondate a interi nel catalogo.
+Disegni vettoriali senza scritte né marchi; le due parametriche sono generate dal codice (`barraLedSvg`, `dmxSplitSvg`).
+
+| Tipo | Modello | Ingombro del documento → disegnato | kg | W | Fonte |
+|---|---|---|---|---|---|
+| `pcled` | Spotlight PC HY LED 200 (versione bianco variabile / RGBW / 6C) | 45 × 30 × 39 cm → **30 × 45** (L×P in pianta, H 39) | 7,5 | 200 | manuale utente serie Hyperion p.17 e datasheet 200 W p.2 (`spotlight.it`): lente piano-convessa Ø150 mm; la versione bianco fisso è 36 × 30 × 35 cm, 6 kg |
+| `ribaltaled` | Chauvet Professional COLORado Solo Edge 3 | 100 × 22,5 × 6,4 cm → **100 × 23** | 10 | 242 | manuale Rev. 2 p.5 «Product Dimensions» e datasheet (`chauvetprofessional.com`); posizioni di asole e cerniere misurate sulla vista dall'alto |
+| `barraled` | Eurolite LED BAR-12 QCL RGBW | 108,5 × 6,5 × 10 cm → **109 × 7**, allungabile | 2,85 | 24 | disegno quotato e scheda tecnica (`steinigke.de`): 12 LED RGBW da 4 W → un'ottica ogni ≈ 8,4 cm |
+| `dimmerport` | Stairville DDS-405 DMX, 4 canali | 20 × 6,5 × 18 cm (prese comprese) → **20 × 18** | 2 | — | manuale ufficiale, tabella tecnica e disegno «Vorderseite»; 5 A per canale, **16 A in totale**; sul piano elettrico 4 canali di default (`DIMMER_DEF`), monofase |
+| `dmxsplit` | Eurolite DMX Split 8X (rack 19″ 1U) | 48,3 × 14,5 × 4,45 cm → **48 × 15** | 2,22 | 5 | scheda tecnica (`steinigke.de`) e manuale Split 6X p.8: 1 ingresso, 8 uscite isolate; tutti gli splitter rack da 4 uscite in su hanno larghezza fissa 483 mm, cambia la profondità (134–200 mm) |
+
+Limiti dichiarati: il manuale Spotlight non ha un disegno quotato (la testa è ridisegnata sulle quote di tabella, [DEDOTTO]); la ribalta alogena classica
+(es. Teclumen) non ha quote del corpo in catalogo e non è disegnata; lo splitter ha una presa per uscita (nella realtà l'Eurolite ne ha due, XLR 3 e 5 poli).
+Briteq non ha un PC nel catalogo (i BT-THEATRE sono Fresnel): da chiarire con chi lo usa.
+
+---
+
 ## 4. Cosa NON è verificato (e perché resta una stima)
 
 Va detto chiaro, perché il valore di questo documento sta anche in ciò che non promette.

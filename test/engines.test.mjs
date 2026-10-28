@@ -27146,6 +27146,87 @@ t("consulenza: il confronto in tre colonne c'è e usa un termine solo per la lis
   ok(/id="cardRiderPronto" hidden/.test(_cons), "la card «Rider pronto» resta nascosta");
 });
 
+/* ====== LUCI PER IL TEATRO (28/10/2026): PC LED, ribalta LED, barra LED RGB, dimmer portatile, splitter DMX ======
+   Richieste di un tecnico di teatro. Regole di Simone: scala reale con le misure dai manuali ufficiali dei produttori; icone vettoriali
+   leggere (< 20 KB), senza loghi, marchi o scritte; due elementi sono GENERICI e parametrici (barra: lunghezza; splitter: ingressi e uscite). */
+console.log("\n— Luci per il teatro —");
+t("luci teatro: PC LED, ribalta e dimmer portatile hanno l'icona in cm del manuale, leggera e senza scritte né marchi", () => {
+  conIcone(["pcled", "ribaltaled", "dimmerport"], (L) => {
+    const spec = { pcled: [[0, 0, 30, 45], "pcl_"], ribaltaled: [[0, 0, 100, 22.5], "rbl_"], dimmerport: [[0, 0, 20, 18], "dmp_"] };
+    for (const [k, [vb, pre]] of Object.entries(spec)) {
+      const o = L[k]; ok(o && o.body, "manca " + k + " in icons.js");
+      eq(o.vb, vb, k + ": viewBox = misure del manuale (cm)");
+      ok(o.body.length < 20 * 1024, k + ": peso sotto i 20 KB: " + o.body.length + " byte");
+      ok(!/<text|<tspan|<image|<script|<title|<desc|font-|data:|href=|NaN|undefined/i.test(o.body), k + ": niente scritte, raster, riferimenti, valori rotti");
+      const classi = [...new Set([...o.body.matchAll(/class="([^"]+)"/g)].flatMap((m) => m[1].split(/\s+/)))];
+      ok(classi.length > 3 && classi.every((c) => c.startsWith(pre)), k + ": ogni classe ha il prefisso " + pre + ": " + classi.filter((c) => !c.startsWith(pre)));
+      ok(!/_cls-/.test(o.body), k + ": nessun nome «_cls-»");
+    }
+    const n = (k, c) => (L[k].body.match(new RegExp('class="' + c + '"', "g")) || []).length;
+    eq(n("ribaltaled", "rbl_cerniera"), 16, "otto cerniere del portafiltro su due file, come nel disegno del manuale");
+    eq(n("dimmerport", "dmp_presa"), 4, "quattro prese, una per canale");
+    eq(n("dimmerport", "dmp_led"), 4, "quattro LED di stato");
+    eq(n("dimmerport", "dmp_tasto"), 4, "quattro tasti (Left, Menu, Down, Up)");
+    ok(/dmp_pannello/.test(A.TYPES.dimmerport.draw({ type: "dimmerport", w: 20, d: 18 })), "il tipo usa l'icona vera");
+    ok(/rbl_corpo/.test(A.TYPES.ribaltaled.draw({ type: "ribaltaled", w: 100, d: 23 })), "la ribalta usa l'icona vera");
+    ok(/pcl_corpo/.test(A.TYPES.pcled.draw({ type: "pcled", w: 30, d: 45 })), "il PC LED usa l'icona vera");
+  });
+  eq(A.TYPES.pcled.draw({ type: "pcled", w: 30, d: 45 }).indexOf("pcl_"), -1, "senza icons.js il PC LED ripiega sul faro schematico");
+});
+t("luci teatro: tipi, misure, potenza e peso di targa, rider", () => {
+  [["pcled", 30, 45], ["ribaltaled", 100, 23], ["barraled", 109, 7], ["dimmerport", 20, 18], ["dmxsplit", 48, 15]].forEach(([k, w, d]) => {
+    ok(A.TYPES[k], k + ": manca nel catalogo"); eq([A.TYPES[k].w, A.TYPES[k].d], [w, d], k + ": ingombro del manuale (arrotondato)"); });
+  ["pcled", "ribaltaled", "barraled"].forEach((k) => ok(A.lightsIsGear(k) && A.LIGHT_GEAR[k].plur, k + ": entra nella lista luci col suo nome"));
+  eq(A.LIGHT_GEAR.pcled.plur, "PC LED"); eq(A.LIGHT_GEAR.barraled.plur, "barre LED RGB");
+  ["dimmerport", "dmxsplit"].forEach((k) => ok(!A.lightsIsGear(k), k + ": è regia/cablaggio, non un apparecchio da chiedere nel rider"));
+  reset();
+  eq(A.wattOf(add("pcled", 300, 300)), 200, "PC HY LED 200: 200 W");
+  eq(A.wattOf(add("ribaltaled", 600, 300)), 242, "Solo Edge 3: 242 W");
+  eq(A.wattOf(add("barraled", 900, 300)), 24, "LED BAR-12: 24 W");
+  eq(A.wattOf(add("dmxsplit", 300, 500)), 5, "DMX Split 8X: 5 W");
+  eq(A.wattOf(add("dimmerport", 600, 500)), 0, "il dimmer non ha un numero fisso: assorbe ciò che porta");
+  eq([A.WEIGHT.pcled, A.WEIGHT.ribaltaled, A.WEIGHT.barraled, A.WEIGHT.dimmerport, A.WEIGHT.dmxsplit], [7.5, 10, 2.85, 2, 2.2], "pesi di targa");
+  eq(A.TYPES.pcled.cat, "Luci"); eq(A.TYPES.dmxsplit.cat, "Cablaggio e segnale");
+  const cerca = (q) => Object.keys(A.TYPES).filter((k) => ((A.TYPES[k].nome || "") + " " + (A.TYPES[k].alias || "")).toLowerCase().indexOf(q) > -1);
+  ok(cerca("ribalta").indexOf("ribaltaled") > -1 && cerca("splitter dmx").indexOf("dmxsplit") > -1 && cerca("pc led").indexOf("pcled") > -1, "si trovano con le parole del mestiere");
+});
+t("luci teatro: il dimmer portatile ha 4 canali, 16 A monofase, e porta le luci come il rack", () => {
+  reset();
+  eq(A.DIMMER_DEF.dimmerport, 4, "4 canali di default (DDS-405)"); eq(A.DIMMER_DEF.dimmerluci, 12, "il rack resta a 12");
+  const dim = add("dimmerport", 850, 250), q = add("quadro", 950, 80);
+  ok(A.elecIsDistro(dim), "è una destinazione elettrica");
+  for (let i = 0; i < 4; i++) add("pcled", 200 + i * 140, 250);
+  A.state.elec.on = true; A.state.elec.mode = "auto"; A.__elecRes = null;
+  const R = A.elecResult(true);
+  const alDimmer = (R.loadLinks || []).filter((l) => l.distro.it && l.distro.it.type === "dimmerport");
+  eq(alDimmer.length, 4, "i quattro PC LED vanno sul dimmer");
+  const d = (R.distros || []).filter((x) => x.it && x.it.type === "dimmerport")[0];
+  eq(Math.round(d.loadW), 800, "e il dimmer porta la loro potenza (4 × 200 W)");
+  eq([d.a, d.ph], [16, 1], "16 A totali, monofase (manuale)");
+  const d2 = A.normalizeState({ stage: { w: 1200, d: 800 }, items: [{ id: "i1", type: "dimmerport", x: 100, y: 100, prese: 900 }] }).items[0];
+  ok(d2.prese <= 48, "un numero di canali assurdo viene riportato nei limiti: " + d2.prese);
+});
+t("luci teatro: la barra LED è parametrica in lunghezza (una ottica ogni ~8,4 cm), senza scritte", () => {
+  const lenti = (s) => (s.match(/<circle/g) || []).length - 2;   /* meno le due manopole delle staffe */
+  const a = A.barraLedSvg({ w: 109, d: 7 }), b = A.barraLedSvg({ w: 218, d: 7 }), c = A.barraLedSvg({ w: 50, d: 7 });
+  eq(lenti(a), 12, "109 cm = i 12 LED della LED BAR-12");
+  ok(lenti(b) >= 24 && lenti(b) <= 26, "il doppio di lunghezza ≈ il doppio delle ottiche: " + lenti(b));
+  ok(lenti(c) >= 4 && lenti(c) <= 6, "mezza barra ≈ metà delle ottiche: " + lenti(c));
+  ok(!/<text|<image|href=|NaN|undefined/i.test(a + b + c), "niente scritte, raster, valori rotti");
+  ok(A.TYPES.barraled.resizable === true, "si allunga dal pannello");
+  const xs = [...b.matchAll(/ x="(-?[\d.]+)"/g)].map((m) => +m[1]);
+  ok(Math.min(...xs) >= -109 - 0.01, "il disegno resta dentro la lunghezza dell'elemento");
+});
+t("luci teatro: lo splitter DMX ha ingressi e uscite variabili e si salva", () => {
+  const prese = (s) => (s.match(/<circle/g) || []).length;
+  eq(prese(A.dmxSplitSvg({ w: 48, d: 15 })), 9, "predefinito: 1 ingresso + 8 uscite (DMX Split 8X)");
+  eq(prese(A.dmxSplitSvg({ w: 48, d: 15, dmxIn: 2, dmxOut: 12 })), 14, "2 ingressi + 12 uscite");
+  eq(prese(A.dmxSplitSvg({ w: 48, d: 15, dmxIn: 99, dmxOut: 99 })), 20, "i limiti sono 4 ingressi e 16 uscite");
+  ok(!/<text|<image|href=|NaN|undefined/i.test(A.dmxSplitSvg({ w: 48, d: 15 })), "niente scritte né valori rotti");
+  const it = A.normalizeState({ stage: { w: 1200, d: 800 }, items: [{ id: "s1", type: "dmxsplit", x: 100, y: 100, dmxIn: 2, dmxOut: 99 }] }).items[0];
+  eq([it.dmxIn, it.dmxOut], [2, 16], "ingressi e uscite sopravvivono al salvataggio, riportati nei limiti");
+});
+
 await Promise.all(attese);
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
