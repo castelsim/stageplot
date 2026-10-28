@@ -463,6 +463,19 @@ Limiti dichiarati: il manuale Spotlight non ha un disegno quotato (la testa è r
 (es. Teclumen) non ha quote del corpo in catalogo e non è disegnata; lo splitter ha una presa per uscita (nella realtà l'Eurolite ne ha due, XLR 3 e 5 poli).
 Briteq non ha un PC nel catalogo (i BT-THEATRE sono Fresnel): da chiarire con chi lo usa.
 
+**Lotto 2 (28/10/2026)** — stessi criteri; le misure sono quelle dei documenti, arrotondate a interi nel catalogo; i modelli veri **affiancano** i generici, che restano.
+
+| Tipo | Modello | Ingombro del documento → disegnato | kg | W | Fonte |
+|---|---|---|---|---|---|
+| `lucciola` | Spotlight SUPERLUT LED 30 (Serie Lucciola, pinspot, **ipotesi da confermare**) | 18 × 16 × 22 cm → **18 × 16** | — | 30 | datasheet «Architectural line» 29/05/2024: LED COB 30 W, ottica Ø70 mm, dimmerabile da rete; assi non etichettati, peso non dichiarato |
+| `sagomatoreled` | Spotlight PR HY LED 200 ZS (Serie Hyperion) | 47 × 34 × 76 cm (H·P·L) → **34 × 76** | 11,5 | 200 | datasheet 200 W p.2 «DIMENSIONS»: PR (ZS) 11,5 kg 470*340*760 mm |
+| `ribaltaalogena` | Eurolite Fluter-Rampe 4 × R7s con telaio filtro (art. 41906350) | 70,5 × 16 × 15,5 cm → **71 × 16** | 5,35 | 2000 | scheda tecnica (`steinigke.at`): 4 lampade alogene R7s, nessun DMX; passo cella 705/4 = 17,6 cm |
+| `etccs40` | ETC ColorSource 40 | 66,8 × 27,9 × 6 cm → **67 × 28** | 4,33 | — | datasheet ETC Rev H 08/2026 p.4: 40 fader da 45 mm, 1 porta DMX; alimentatore esterno 12 V, **watt non dichiarati** → nessun numero |
+| `fumoz1500` | Antari Z-1500 III | 67,4 × 23,5 × 27,8 cm → **24 × 67** | 13,3 | 1500 | manuale Rev.05 p.9 e §16: serbatoio 6 l, DMX 1 canale |
+| `hazerhz400` | Antari HZ-400 | 51 × 32 × 32,5 cm → **32 × 51** | 18,5 | 470 | manuale Rev.09 p.7 e §15: serbatoio 2,5 l, DMX 1 canale |
+
+Limiti: per tutti i disegni in pianta la disposizione dei dettagli è dedotta (nessuna fonte ha una vista dall'alto quotata di questi apparecchi): sono vere le misure, indicative la forma. La console ha le colonne di fader misurate sulla vista frontale quotata. La console ETC è stata scelta perché elencata nelle schede tecniche di teatri italiani; nessuna statistica su quale sia la più diffusa. Console luci e macchine d'atmosfera ereditano il comportamento dei generici (`LIGHT_DESKS`, `FOG_GEAR`).
+
 ---
 
 ## 4. Cosa NON è verificato (e perché resta una stima)

@@ -27227,6 +27227,61 @@ t("luci teatro: lo splitter DMX ha ingressi e uscite variabili e si salva", () =
   eq([it.dmxIn, it.dmxOut], [2, 16], "ingressi e uscite sopravvivono al salvataggio, riportati nei limiti");
 });
 
+/* ====== LUCI PER IL TEATRO, LOTTO 2 (28/10/2026): lucciola, sagomatore LED, ribalta alogena, console ColorSource 40, fumo Z-1500, hazer HZ-400 ======
+   Stesse regole del lotto 1: scala reale dai manuali ufficiali, icone vettoriali < 20 KB senza loghi, marchi o scritte; qui si aggiunge che i modelli veri
+   affiancano i generici (che restano) e ne ereditano il comportamento (console luci → produzione, fumo/hazer → niente colore nella lista luci). */
+t("luci teatro 2: sei icone in cm del manuale, leggere e senza scritte né marchi", () => {
+  const spec = { lucciola: [[0, 0, 18, 16], "lcc_"], sagomatoreled: [[0, 0, 34, 76], "sgl_"], ribaltaalogena: [[0, 0, 70.5, 16], "rba_"],
+    etccs40: [[0, 0, 66.8, 27.9], "ecs_"], fumoz1500: [[0, 0, 23.5, 67.4], "fmz_"], hazerhz400: [[0, 0, 32, 51], "hzr_"] };
+  conIcone(Object.keys(spec), (L) => {
+    for (const [k, [vb, pre]] of Object.entries(spec)) {
+      const o = L[k]; ok(o && o.body, "manca " + k + " in icons.js");
+      eq(o.vb, vb, k + ": viewBox = misure del documento (cm)");
+      ok(o.body.length < 20 * 1024, k + ": peso sotto i 20 KB: " + o.body.length + " byte");
+      ok(!/<text|<tspan|<image|<script|<title|<desc|font-|data:|href=|NaN|undefined/i.test(o.body), k + ": niente scritte, raster, riferimenti, valori rotti");
+      const classi = [...new Set([...o.body.matchAll(/class="([^"]+)"/g)].flatMap((m) => m[1].split(/\s+/)))];
+      ok(classi.length > 2 && classi.every((c) => c.startsWith(pre)), k + ": ogni classe ha il prefisso " + pre + ": " + classi.filter((c) => !c.startsWith(pre)));
+      ok(!/_cls-/.test(o.body), k + ": nessun nome «_cls-»");
+      ok(A.TYPES[k].draw({ type: k, w: A.TYPES[k].w, d: A.TYPES[k].d }).indexOf(pre) > -1, k + ": il tipo usa l'icona vera");
+    }
+    const n = (k, c) => (L[k].body.match(new RegExp('class="' + c + '"', "g")) || []).length;
+    eq(n("etccs40", "ecs_capsula"), 24, "20 fader di canale (2 gruppi da 10, dalla vista frontale quotata) + 4 master");
+    eq(n("etccs40", "ecs_bump"), 20, "un tasto bump per fader di canale");
+    eq(n("etccs40", "ecs_tastino"), 6, "sei tastini sotto lo schermo");
+    eq(n("ribaltaalogena", "rba_telaio"), 4, "quattro celle con telaio filtro e griglia");
+    eq(n("sagomatoreled", "sgl_leva"), 4, "quattro leve per le lame");
+  });
+  eq(A.TYPES.etccs40.draw({ type: "etccs40", w: 67, d: 28 }).indexOf("ecs_"), -1, "senza icons.js la console ripiega sulla barra grigia");
+});
+t("luci teatro 2: tipi, misure, potenze, pesi e rider; i generici restano", () => {
+  [["lucciola", 18, 16], ["sagomatoreled", 34, 76], ["ribaltaalogena", 71, 16], ["etccs40", 67, 28], ["fumoz1500", 24, 67], ["hazerhz400", 32, 51]].forEach(([k, w, d]) => {
+    ok(A.TYPES[k], k + ": manca nel catalogo"); eq([A.TYPES[k].w, A.TYPES[k].d], [w, d], k + ": ingombro del documento (arrotondato)"); });
+  ["sagomatore", "fumomachine", "hazer", "consolaluci", "farope", "fresnel"].forEach((k) => ok(A.TYPES[k], k + ": il generico resta nel catalogo"));
+  ["lucciola", "sagomatoreled", "ribaltaalogena", "fumoz1500", "hazerhz400"].forEach((k) => ok(A.lightsIsGear(k) && A.LIGHT_GEAR[k].plur, k + ": entra nella lista luci"));
+  ok(!A.lightsIsGear("etccs40"), "la console è regia, non un apparecchio da chiedere nel rider");
+  reset();
+  eq(A.wattOf(add("lucciola", 300, 300)), 30, "SUPERLUT LED 30: 30 W");
+  eq(A.wattOf(add("sagomatoreled", 600, 300)), 200, "PR HY LED 200: 200 W");
+  eq(A.wattOf(add("ribaltaalogena", 900, 300)), 2000, "Eurolite Fluter-Rampe 4 × R7s: 2000 W");
+  eq(A.wattOf(add("fumoz1500", 300, 500)), 1500, "Z-1500 III: 1500 W");
+  eq(A.wattOf(add("hazerhz400", 600, 500)), 470, "HZ-400: 470 W");
+  eq(A.wattOf(add("etccs40", 900, 500)), 0, "ColorSource 40: watt non dichiarati dal produttore → nessun numero inventato");
+  eq([A.WEIGHT.sagomatoreled, A.WEIGHT.ribaltaalogena, A.WEIGHT.etccs40, A.WEIGHT.fumoz1500, A.WEIGHT.hazerhz400], [11.5, 5.35, 4.33, 13.3, 18.5], "pesi di targa");
+  eq(A.WEIGHT.lucciola, undefined, "il datasheet della lucciola non dichiara il peso: nessun numero");
+  const cerca = (q) => Object.keys(A.TYPES).filter((k) => ((A.TYPES[k].nome || "") + " " + (A.TYPES[k].alias || "")).toLowerCase().indexOf(q) > -1);
+  ok(cerca("lucciol").indexOf("lucciola") > -1 && cerca("colorsource").indexOf("etccs40") > -1 && cerca("antari").indexOf("fumoz1500") > -1 && cerca("antari").indexOf("hazerhz400") > -1
+     && cerca("sagomatore led").indexOf("sagomatoreled") > -1 && cerca("ribalta alogena").indexOf("ribaltaalogena") > -1, "si trovano con le parole del mestiere");
+});
+t("luci teatro 2: la ColorSource 40 si comporta come la console luci; fumo e hazer veri come i generici", () => {
+  eq(A.LIGHT_DESKS, { consolaluci: 1, etccs40: 1 }, "tabella unica delle console");
+  ok(A.ITEM_USO.etccs40 && A.ITEM_USO.etccs40.label === "Operatore luci", "dichiara l'operatore luci come la generica");
+  eq(A.usoSystemKey("etccs40", "produzione"), "luci", "attiva il sistema luci della produzione");
+  eq(A.usoSystemKey("consolaluci", "produzione"), "luci", "la generica è invariata");
+  eq(A.FOG_GEAR, { fumomachine: 1, hazer: 1, fumoz1500: 1, hazerhz400: 1 }, "fumo e hazer (generici e veri) non vogliono il colore in lista luci");
+  reset(); add("etccs40", 300, 300);
+  ok(A.state.items.some((i) => i.type === "etccs40"), "si aggiunge al palco");
+});
+
 await Promise.all(attese);
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
