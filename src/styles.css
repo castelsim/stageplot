@@ -1400,6 +1400,8 @@
   /* sagome cantanti: pelle, capelli, vestiti */
   .dotS{fill:#cfd4da}
   .rug{fill:rgba(176,58,58,.16);stroke:#8e2b26;stroke-width:2;stroke-dasharray:10 7}
+  .rug.rug-nero{fill:rgba(17,24,39,.82);stroke:#111827}   /* tappeto danza nero */
+  .rug.rug-bianco{fill:rgba(255,255,255,.94);stroke:#6b7280}   /* tappeto danza bianco: il contorno lo stacca dal palco chiaro */
   .plex{fill:rgba(165,196,222,.18);stroke:#7f96a8;stroke-width:2;stroke-linejoin:round}
   .lbl{font-size:14px;fill:#111827;text-anchor:middle;font-weight:600;paint-order:stroke;stroke:#fff;stroke-width:3;stroke-linejoin:round;stroke-linecap:round}
   /* Orchestre: chi c'è sul posto, sotto l'etichetta della postazione (solo schermo) */

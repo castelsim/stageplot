@@ -24,7 +24,7 @@
      due release nello stesso giorno restano distinguibili in telemetria e supporto. In locale/dev
      resta il placeholder. La sentinella del VALORE è distinta dall'identificatore window.__BUILD_ID__
      così il sed della CI non tocca il nome della variabile. -->
-<script>window.__APP_VERSION__="2026.10.27";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
+<script>window.__APP_VERSION__="2026.10.28";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -1478,6 +1478,8 @@
   /* sagome cantanti: pelle, capelli, vestiti */
   .dotS{fill:#cfd4da}
   .rug{fill:rgba(176,58,58,.16);stroke:#8e2b26;stroke-width:2;stroke-dasharray:10 7}
+  .rug.rug-nero{fill:rgba(17,24,39,.82);stroke:#111827}   /* tappeto danza nero */
+  .rug.rug-bianco{fill:rgba(255,255,255,.94);stroke:#6b7280}   /* tappeto danza bianco: il contorno lo stacca dal palco chiaro */
   .plex{fill:rgba(165,196,222,.18);stroke:#7f96a8;stroke-width:2;stroke-linejoin:round}
   .lbl{font-size:14px;fill:#111827;text-anchor:middle;font-weight:600;paint-order:stroke;stroke:#fff;stroke-width:3;stroke-linejoin:round;stroke-linecap:round}
   /* Orchestre: chi c'è sul posto, sotto l'etichetta della postazione (solo schermo) */
@@ -4559,6 +4561,16 @@ body.cust-contorno .item.selected .selbox{display:none}
         <button type="button" class="adv-btn" data-sz="front">Sopra</button>
       </div>
       <div class="prop-hint">Doppio clic sulla forma per scriverci dentro.</div>
+    </div>
+    <!-- TAPPETO: colore del telo (tappeto danza nero o bianco, richiesta di un utente 23/10/2026). Il rosso resta il segno di serie. -->
+    <div id="pRugWrap" class="prop-card" style="display:none">
+      <div class="prop-card__head">Tappeto</div>
+      <label>Colore</label>
+      <div class="seg" role="group" aria-label="Colore del tappeto">
+        <button type="button" class="adv-btn" data-rug="rosso" title="Tappeto rosso, come nei disegni di orchestra">Rosso</button>
+        <button type="button" class="adv-btn" data-rug="nero" title="Tappeto danza nero">Nero</button>
+        <button type="button" class="adv-btn" data-rug="bianco" title="Tappeto danza bianco">Bianco</button>
+      </div>
     </div>
     <div id="pAlignWrap" style="display:none;margin-top:8px">
       <label>Allineamento</label>
