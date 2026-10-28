@@ -206,9 +206,14 @@ sta in `SPEC_TARGA` e non fra le famiglie. Fonte: manuale ufficiale Suzuki, pagi
 |---|---|---|---|---|---|
 | `omnichord` | Suzuki OM-108 | 45,7 × 25,0 × 5,18 → disegnato **46 × 25** | 1,2 | **3,7** | LINE OUT jack standard **mono** → una DI, mono (stereo non previsto); cuffie mini stereo; MIDI OUT |
 
-Il disegno è schematico (tasti degli accordi a sinistra, piastra da strimpellare a destra): le fonti non descrivono la
-posizione dei comandi, quindi la disposizione non è una misura. Il modello storico **OM-84** (1981) non ha una scheda
-ufficiale trovata: se un utente ne ha uno, usa le stesse misure come approssimazione [DA VERIFICARE].
+**Icona** (dal 28/10/2026, `icons.js` → `omnichord`): sagoma, disposizione dei comandi e colori sono **misurati dal disegno ufficiale
+del pannello superiore** dello stesso manuale (`manual/om-108_en/OM-108_En/Introduction_En/Introduction_En-2.htm`, figura
+`…/assets/OM-108_top.png`: in scala con le misure della specifica, scarto 0,3 %). Non è un ricalco: i componenti sono stati ridisegnati
+(38 tasti accordo = 12 + 13 + 13 come da manuale, 7 manopole, 21 LED, piastra a righe, altoparlante forato) e **non c'è nessun logo,
+marchio o scritta**. Viewbox 45,7 × 25 cm, 17 KB, classi e id col prefisso `omc_`. Il manuale non dà le quote di piastra, tasti e
+altoparlante: la loro posizione e dimensione sono quelle del disegno [DEDOTTO dal disegno, entro la sua precisione].
+Il modello storico **OM-84** (1981) non ha una scheda ufficiale trovata: se un utente ne ha uno, usa le stesse misure come
+approssimazione, ma con comandi e colori diversi [DA VERIFICARE].
 
 ### La regola che questo catalogo smonta
 

@@ -3900,7 +3900,9 @@ var TYPES = {
      uscita dal manuale ufficiale (DATI_TARGA.md). Disegno schematico dall'alto, in proporzione a w e d: a sinistra i tasti degli
      accordi, a destra la piastra da strimpellare (strumento suonato dal lato lungo, rivolto al pubblico). Uscita LINE OUT mono: DI. */
   omnichord:{nome:"Omnichord", dim:"46×25 · Suzuki OM-108", cat:"Band e backline", sub:"DJ ed elettronica", w:46,d:25, defLabel:"Omnichord",
-             draw:function(it){ var w=it.w||46, d=it.d||25, x0=-w/2, y0=-d/2, s='';
+             draw:function(it){
+               if(typeof LIB_ICONS==="object" && LIB_ICONS.omnichord) return drawLibFit("omnichord",it,46,25);   /* l'icona vera (icons.js, dal disegno ufficiale Suzuki); sotto, il ripiego schematico finché icons.js non è arrivato */
+               var w=it.w||46, d=it.d||25, x0=-w/2, y0=-d/2, s='';
                s+=bar(0,0,w,d,'ic soft',3);                                                  /* il corpo, chiaro */
                var pw=w*0.55, px=w/2-0.04*w-pw/2;
                s+=bar(px,d*0.06,pw,d*0.62,'ic fBlack',1.5);                                    /* la piastra */
