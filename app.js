@@ -1216,7 +1216,7 @@ var TYPES = {
   tappeto:  {nome:"Tappeto", dim:"2×1,6 m", cat:"Palco e strutture", w:200,d:160, resizable:true, z:1,
              /* bloccato: stesso segno della pedana — perimetro marcato e lucchettino nell'angolo */
              draw:function(it){ var lk=it.locked===true;
-               return rectSvg(it.w,it.d,'rug'+(lk?' rug-fixed':''),8) + (lk?riserLockGlyph(it.w/2,it.d/2):''); }},
+               return rectSvg(it.w,it.d,'rug'+rugClasse(it)+(lk?' rug-fixed':''),8) + (lk?riserLockGlyph(it.w/2,it.d/2):''); }},
   tavolo:   {nome:"Tavolo", dim:"120×60", cat:"Palco e strutture", w:120,d:60, resizable:true, z:1,
              draw:function(it){ return rectSvg(it.w,it.d,'ic fWoodL',5)+
                '<rect class="ic thin" fill="none" x="'+(-it.w/2+7)+'" y="'+(-it.d/2+7)+'" width="'+(it.w-14)+'" height="'+(it.d-14)+'" rx="3"/>'; }},
@@ -6502,6 +6502,7 @@ function normalizeLoadedItems(arr){
         if(!_mt.mode && _mt.h==null && !_mt.safety && !_mt.note) delete it.mount;
       }
     }
+    if(it.rug!=null && (it.type!=="tappeto" || (it.rug!=="nero" && it.rug!=="bianco"))) delete it.rug;   /* tappeto: colore fuori elenco → rosso di serie, mai markup arbitrario */
     if(it.type==="forma"){   /* forma: valori fuori elenco → si torna al default, mai markup arbitrario */
       if(it.fill!=null && !/^#[0-9a-f]{6}$/i.test(String(it.fill))) delete it.fill;
       if(it.shape!=null && !SHAPES.some(function(x){ return x[0]===it.shape; })) delete it.shape;
@@ -7664,6 +7665,10 @@ function areaLblSize(it){
   while(f>8 && wrapTextLines(it.label||"", mw, f).length*f*1.25 + 2*Math.max(6, f*0.3) > d) f--;
   return f;
 }
+/* Tappeto: colore del telo. Solo due valori memorizzati (nero, bianco); il rosso è il segno di serie e non si salva. */
+var RUG_COLORI=["rosso","nero","bianco"];
+function rugColoreOf(it){ return (it && (it.rug==="nero" || it.rug==="bianco")) ? it.rug : "rosso"; }
+function rugClasse(it){ var c=rugColoreOf(it); return c==="rosso" ? "" : " rug-"+c; }
 function shapeFillOf(it){ return (it && /^#[0-9a-f]{6}$/i.test(it.fill||"")) ? it.fill : "#0d9488"; }
 /* geometria della forma nel riquadro w×d, centrata sull'origine come tutti gli elementi */
 function shapeGeom(it){
@@ -17164,6 +17169,12 @@ function renderProps(){
       shw.querySelectorAll("[data-sz]").forEach(function(b){ b.classList.toggle("on", (b.getAttribute("data-sz")==="front")===davanti); });
     }
   }
+  var rgw=document.getElementById("pRugWrap");   /* pannello del TAPPETO: colore del telo */
+  if(rgw){
+    var isRug = it.type==="tappeto";
+    rgw.style.display = isRug ? "block" : "none";
+    if(isRug){ var rc=rugColoreOf(it); rgw.querySelectorAll("[data-rug]").forEach(function(b){ b.classList.toggle("on", b.getAttribute("data-rug")===rc); }); }
+  }
   var isTxt = it.type==="testo";
   var inner = isTxt || it.type==="forma";   /* si scrive dentro l'elemento: niente Intero/Sigla, il testo è quello che si vede */
   document.getElementById("pLabelWrap").style.display = inner ? "none" : "block";
@@ -17964,6 +17975,15 @@ document.getElementById("pLblSizeAllYes").addEventListener("click", function(){
     renderProps();
   });
 })();
+(function(){   /* TAPPETO: colore del telo (rosso di serie, nero, bianco) */
+  var wrap=document.getElementById("pRugWrap"); if(!wrap) return;
+  wrap.addEventListener("click", function(e){
+    var b=e.target.closest("[data-rug]"); if(!b) return;
+    var v=b.getAttribute("data-rug");
+    mutSelAll(function(it){ if(it.type!=="tappeto") return; if(v==="nero" || v==="bianco") it.rug=v; else delete it.rug; });   /* il rosso, di serie, non si memorizza */
+    renderProps();
+  });
+})();
 (function(){   /* FORMA: geometria, stile, colore, ordine */
   var wrap=document.getElementById("pShapeWrap"); if(!wrap) return;
   function mut(fn){ mutSel(fn); renderProps(); }
@@ -18674,7 +18694,7 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
   group("Installazione", null, ["pMountWrap"]);
   group("Dettagli tecnici", null, ["pIfaceWrap","pCompIfaceWrap","pModelWrap","pLocInWrap","pUsoWrap","pBmWrap","pLmWrap","pModWrap","pWattWrap","pRfWrap","pPmWrap"]);   /* la richiesta di setup NON e' un dettaglio tecnico: e' un'azione verso una persona, e sta con la persona */
   group("Nota", "quello che il disegno non dice", ["pNoteWrap"]);
-  group("Disegno", null, ["pLookWrap","pDims","pDimSideWrap","pShapeWrap","pRotRow",
+  group("Disegno", null, ["pLookWrap","pDims","pDimSideWrap","pShapeWrap","pRugWrap","pRotRow",
         "pLblSizeWrap","pLblSizeAll","pAlignWrap","pTxtColorWrap","pLblPosWrap"]);
 
   /* ── TELEFONO: le cose da scrivania stanno dietro un bottone (02/09, Simone: «da telefono

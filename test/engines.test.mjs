@@ -5923,6 +5923,24 @@ t("il tappeto bloccato si riconosce: perimetro marcato e lucchettino", () => {
   ok(chiuso.indexOf("riser-lock") > -1, "bloccato: lucchettino nell'angolo");
   ok(stylesCss.indexOf(".rug.rug-fixed{stroke-width:3.6}") > -1, "il bordo piu' spesso arriva dal CSS");
 });
+t("tappeto: colore del telo (rosso di serie, nero, bianco), solo valori dell'elenco", () => {
+  reset();
+  const classe = (o) => (A.TYPES.tappeto.draw(Object.assign({ w: 200, d: 160 }, o)).match(/class="([^"]*rug[^"]*)"/) || [])[1];
+  eq(classe({}), "rug", "di serie: il segno rosso di sempre, nessuna classe in più");
+  eq(classe({ rug: "nero" }), "rug rug-nero", "nero");
+  eq(classe({ rug: "bianco" }), "rug rug-bianco", "bianco");
+  eq(classe({ rug: "rosso" }), "rug", "«rosso» scritto a mano è il default");
+  eq(classe({ rug: "x\" onload=\"1" }), "rug", "un valore fuori elenco non entra nel markup");
+  eq(classe({ rug: "nero", locked: true }), "rug rug-nero rug-fixed", "il colore convive col blocco");
+  const out = A.normalizeLoadedItems([
+    { id: "r1", type: "tappeto", x: 1, y: 1, w: 200, d: 160, rug: "nero" },
+    { id: "r2", type: "tappeto", x: 1, y: 1, w: 200, d: 160, rug: "<script>" },
+    { id: "r3", type: "tappeto", x: 1, y: 1, w: 200, d: 160, rug: "rosso" },
+    { id: "r4", type: "pedana", x: 1, y: 1, w: 200, d: 160, rug: "nero" }]);
+  eq([out[0].rug, out[1].rug, out[2].rug, out[3].rug], ["nero", undefined, undefined, undefined], "all'apertura: tiene nero e bianco sul tappeto, il resto torna al rosso");
+  ok(stylesCss.indexOf(".rug.rug-nero{") > -1 && stylesCss.indexOf(".rug.rug-bianco{") > -1, "i due colori arrivano dal CSS (nitidi a ogni scala, PDF compreso)");
+  ok(appjs.indexOf('id="pRugWrap"') > -1 || appjs.indexOf("pRugWrap") > -1, "il pannello Tappeto esiste");
+});
 t("la forma bloccata: bordo piu' marcato, colore suo, lucchetto DENTRO la figura", () => {
   reset();
   const libera = A.TYPES.forma.draw({ w: 200, d: 140, shape: "circle", fill: "#b45309" });
