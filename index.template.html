@@ -826,6 +826,12 @@
       <label>Ingressi (prese)</label>
       <div class="cnt-row"><button class="btn cnt-b" id="pPreseMinus" type="button">−</button><span class="cnt-v" id="pPreseVal">6</span><button class="btn cnt-b" id="pPresePlus" type="button">+</button></div>
     </div>
+    <div id="pDmxWrap" style="display:none">
+      <label>Ingressi DMX</label>
+      <div class="cnt-row"><button class="btn cnt-b" id="pDmxInMinus" type="button" aria-label="Un ingresso in meno">−</button><span class="cnt-v" id="pDmxInVal">1</span><button class="btn cnt-b" id="pDmxInPlus" type="button" aria-label="Un ingresso in più">+</button></div>
+      <label>Uscite DMX</label>
+      <div class="cnt-row"><button class="btn cnt-b" id="pDmxOutMinus" type="button" aria-label="Un'uscita in meno">−</button><span class="cnt-v" id="pDmxOutVal">8</span><button class="btn cnt-b" id="pDmxOutPlus" type="button" aria-label="Un'uscita in più">+</button></div>
+    </div>
     <div class="row" id="pDims">
       <span><label for="pW">L (cm)</label><input type="number" id="pW" min="10" step="5"></span>
       <span><label for="pD">P (cm)</label><input type="number" id="pD" min="10" step="5"></span>
@@ -2502,6 +2508,38 @@ function faroTeatroSvg(it, fres){
          diventerebbe rumore — il nome sotto l'icona dice quale dei due è */
   return s;
 }
+/* BARRA LED (richiesta di un tecnico di teatro, 28/10/2026): in teatro prende il posto della ribalta. PARAMETRICA in
+   lunghezza (elemento ridimensionabile). Riferimento: Eurolite LED BAR-12 QCL RGBW, 1085×65 mm dal disegno quotato del
+   produttore, 12 LED da 4 W su ~101 cm di corpo → un'ottica ogni ~8,4 cm: allungando o accorciando la barra le ottiche
+   restano a quel passo. Le staffe a U con le manopole sporgono ~3,8 cm per lato [DEDOTTO dal disegno]. Fronte = +y. Niente
+   scritte né marchi. Colori in attributi (come la stage box): il disegno è vettoriale e non dipende dal CSS dell'app. */
+function barraLedSvg(it){
+  var W=Math.max(20,it.w||109), D=Math.max(5,it.d||7), r2=function(v){ return Math.round(v*100)/100; };
+  var kn=Math.min(3.8,W*0.06), bw=W-2*kn, n=Math.max(2,Math.round(bw/8.4)), pitch=(bw-1.6)/n;
+  var s2='<rect x="'+r2(-bw/2)+'" y="'+r2(-D/2)+'" width="'+r2(bw)+'" height="'+r2(D)+'" rx="'+r2(Math.min(1.2,D*0.18))+'" fill="#2b2d31" stroke="#0f1012" stroke-width="0.14"/>'
+    +'<rect x="'+r2(-bw/2+0.8)+'" y="'+r2(D*0.04)+'" width="'+r2(bw-1.6)+'" height="'+r2(D*0.42)+'" rx="0.4" fill="#0f1012"/>';
+  for(var i2=0;i2<n;i2++) s2+='<circle cx="'+r2(-bw/2+0.8+pitch*(i2+0.5))+'" cy="'+r2(D*0.25)+'" r="'+r2(Math.min(1.15,pitch*0.34,D*0.17))+'" fill="#dde8ee" stroke="#6c7a84" stroke-width="0.1"/>';
+  [-1,1].forEach(function(k){
+    s2+='<rect x="'+r2(k<0?-W/2:bw/2)+'" y="'+r2(-D*0.4)+'" width="'+r2(kn)+'" height="'+r2(D*0.8)+'" rx="0.5" fill="#5a5f66" stroke="#1d2024" stroke-width="0.1"/>'
+      +'<circle cx="'+r2(k*(W/2-kn*0.45))+'" cy="0" r="'+r2(Math.min(1,D*0.2))+'" fill="#8d9298" stroke="#2a2c30" stroke-width="0.08"/>'; });
+  return s2;
+}
+/* SPLITTER DMX (richiesta di un tecnico di teatro, 28/10/2026): elemento GENERICO con ingressi e uscite variabili
+   (it.dmxIn 1–4, it.dmxOut 1–16; predefiniti 1 e 8). Formato rack 19" 1U come tutti gli splitter da 4 uscite in su:
+   larghezza fissa 483 mm, cambia solo la profondità (134–200 mm). Riferimento: Eurolite DMX Split 8X, 483×145×44,5 mm
+   (scheda tecnica del produttore). In pianta si vede il coperchio: i connettori stanno sui bordi (uscite davanti, ingressi
+   dietro), una presa per uscita (nella realtà l'Eurolite ne ha due, XLR 3 e 5 poli: disegno semplificato). Fronte = +y. */
+function dmxSplitSvg(it){
+  var W=Math.max(24,it.w||48), D=Math.max(8,it.d||15), r2=function(v){ return Math.round(v*100)/100; };
+  var nIn=Math.max(1,Math.min(4,Math.round(it.dmxIn||1))), nOut=Math.max(1,Math.min(16,Math.round(it.dmxOut||8)));
+  var ear=Math.min(1.65,W*0.04), body=W-2*ear;
+  var s2='<rect x="'+r2(-body/2)+'" y="'+r2(-D/2)+'" width="'+r2(body)+'" height="'+r2(D-0.4)+'" rx="0.5" fill="#2c2e32" stroke="#0f1012" stroke-width="0.14"/>'
+    +'<rect x="'+r2(-W/2)+'" y="'+r2(D/2-0.6)+'" width="'+r2(W)+'" height="0.6" rx="0.15" fill="#1a1b1d"/>';
+  var po=(body-3)/nOut, ro=Math.min(0.75,po*0.36), i2;
+  for(i2=0;i2<nOut;i2++) s2+='<circle cx="'+r2(-body/2+1.5+po*(i2+0.5))+'" cy="'+r2(D/2-0.3)+'" r="'+r2(ro)+'" fill="#0c0d0e" stroke="#9aa0a6" stroke-width="0.12"/>';
+  for(i2=0;i2<nIn;i2++) s2+='<circle cx="'+r2(-body/2+2.2+i2*2.6)+'" cy="'+r2(-D/2+0.3)+'" r="0.75" fill="#0c0d0e" stroke="#14b8a6" stroke-width="0.14"/>';
+  return s2;
+}
 /* ===== LUCE CONTINUA DA STUDIO/VIDEO — pezzi di disegno comuni (Simone 29/07) =====
    Stessa famiglia grafica dei fari da palco (corpo .ic fGrey, ottica bianca, tratti .ic thin) e stessa
    convenzione: il FRONTE è +y (verso il basso), il fascio esce da lì. Le coordinate sono in cm reali:
@@ -4162,6 +4200,12 @@ var TYPES = {
       lin(-it.w/2+8,it.d/2-10,it.w/2-8,it.d/2-10,'ic thin')+
       lin(-it.w/2+8,it.d/2-20,it.w/2-8,it.d/2-20,'ic thin')+
       lin(-it.w/2+8,it.d/2-30,it.w/2-8,it.d/2-30,'ic thin'); }},
+  /* Dimmer PORTATILE (richiesta di un tecnico di teatro, 28/10/2026): il pack da compagnia, accanto al rack. Modello rappresentativo:
+     Stairville DDS-405 DMX, 4 canali da 5 A (16 A in totale), 200 (B, prese comprese) × 65 × 180 (H) mm, 2 kg — manuale ufficiale,
+     tabella tecnica e disegno «Vorderseite» (posizioni misurate sul disegno). Sul piano elettrico si comporta come il rack. */
+  dimmerport: {nome:"Dimmer portatile", dim:"20×18 · 4 canali", cat:"Luci", w:20,d:18,
+    alias:"dimmer pack portatile 4 canali compagnia teatro stairville dds405 dds 405 dimmer da tavolo",
+    draw:function(it){ return drawLibFit("dimmerport",it,20,18); }},
   testamobile:{nome:"Testa mobile", dim:"40×40", cat:"Luci", w:40,d:40,
     draw:function(it){ return drawLibFit("testamobile",it,42,48); }},
   parluci:    {nome:"PAR / Wash", dim:"22×22", cat:"Luci", w:22,d:22,
@@ -4179,6 +4223,21 @@ var TYPES = {
   fresnel:   {nome:"Fresnel", dim:"24×28 · 500 W", cat:"Luci", w:24,d:28,
     alias:"fresnel faro fresnel lente anelli proiettore teatrale faro alogeno luce teatro sfumato",
     draw:function(it){ return faroTeatroSvg(it,true); }},
+  /* PC LED, RIBALTA LED, BARRA LED (richieste di un tecnico di teatro, 28/10/2026): in Italia i teatri passano dal PC alogeno
+     al PC LED e dalla ribalta alla barra LED. Tre modelli rappresentativi, con manuale ufficiale (misure in DATI_TARGA.md):
+     · pcled: Spotlight PC HY LED 200 (Milano), lente piano-convessa Ø150 mm, 45×30 cm (versione bianco variabile/RGBW), 7,5 kg, 200 W;
+     · ribaltaled: Chauvet COLORado Solo Edge 3, 1000×225×64 mm, 10 kg, 242 W — ribalta LED a basso profilo (la ribalta alogena
+       classica non ha quote nei cataloghi: non si inventano);
+     · barraled: Eurolite LED BAR-12 QCL RGBW, 1085×65 mm, 24 W; parametrica in lunghezza (barraLedSvg). */
+  pcled:     {nome:"PC LED", dim:"30×45 · 200 W", cat:"Luci", w:30,d:45,
+    alias:"pc led faro pc led teatro proiettore teatrale led bianco variabile spotlight hyperion briteq luce teatro",   /* niente «piano convesso»: «piano» deve trovare il pianoforte */
+    draw:function(it){ if(typeof LIB_ICONS==="object" && LIB_ICONS.pcled) return drawLibFit("pcled",it,30,45); return faroTeatroSvg(it,false); }},
+  ribaltaled:{nome:"Ribalta LED", dim:"100×23 · 242 W", cat:"Luci", w:100,d:23,
+    alias:"ribalta led ribalta teatro proscenio footlight barra a terra luce di proscenio chauvet colorado solo edge",
+    draw:function(it){ if(typeof LIB_ICONS==="object" && LIB_ICONS.ribaltaled) return drawLibFit("ribaltaled",it,100,22.5); return bar(0,0,it.w,it.d,'ic fGrey',2); }},
+  barraled:  {nome:"Barra LED RGB", dim:"109×7 · 24 W", cat:"Luci", w:109,d:7, resizable:true,
+    alias:"barra led rgb led bar batten ribalta led barra luce rgbw eurolite bar 12 lunghezza regolabile",
+    draw:function(it){ return barraLedSvg(it); }},
   /* ========== LUCI VIDEO E STUDIO (Simone 29/07) — luce CONTINUA da set, non fari da palco ==========
      Sono TIPOLOGIE tecniche (la famiglia di apparecchio), non modelli commerciali. Le misure sono
      l'INGOMBRO IN PIANTA TIPICO della categoria, ricavato ogni volta da un apparecchio rappresentativo
@@ -4366,6 +4425,11 @@ var TYPES = {
     draw:function(it){ return drawLibFit("delaytower",it,220,220); }},
   substg: {nome:"Sub-stagebox", dim:"di zona", cat:"Cablaggio e segnale", w:33,d:14,
     draw:function(it){ return sbDraw(it); }},   /* stesso pannello generato: capacità 8/4 di default */
+  /* Splitter DMX: elemento generico con ingressi/uscite variabili (richiesta di un tecnico di teatro, 28/10/2026). Rack 19" 1U. Riferimento:
+     Eurolite DMX Split 8X, 483×145×44,5 mm, 2,22 kg (scheda tecnica). Misure intere: 48×15 (14,5 arrotondato). */
+  dmxsplit: {nome:"Splitter DMX", dim:"rack 1U · 1→8", cat:"Cablaggio e segnale", w:48,d:15, defLabel:"SPLIT DMX",
+    alias:"splitter dmx booster dmx ripartitore dmx distributore dmx split 4 split 8 luci dmx",
+    draw:function(it){ return dmxSplitSvg(it); }},
   splitrack: {nome:"Splitter rack", dim:"60×70", cat:"Cablaggio e segnale", w:60,d:70,
     draw:function(it){ return drawLibFit("splitrack",it,60,70); }},
   mcorereel: {nome:"Bobina multicore", dim:"Ø45", cat:"Cablaggio e segnale", w:45,d:45,
@@ -4488,7 +4552,7 @@ var SEARCH_ALIAS = {
   arraylarge:"casse cassa", arraymid:"casse cassa", sub218:"casse cassa", frontfill:"casse cassa",
   tromba:"tpt trp trumpet", corno:"hrn horn", tuba:"tba", fagotto:"fg",
   violapost:"vla", violoncello:"vc vlc cello", contrabbasso:"db cb upright", arpa:"harp",
-  consolaluci:"lx light desk", parluci:"lx", dimmerluci:"lx", testamobile:"lx", sagomatore:"lx",
+  consolaluci:"lx light desk", parluci:"lx", dimmerluci:"lx", dimmerport:"lx dimmer", testamobile:"lx", sagomatore:"lx",
 };
 /* 05/10, dai giri degli utenti (analisi/workaround/2026-10-05.md): parole cercate davvero senza risultato,
    o scritte a mano su un elemento preso al posto di quello giusto. Tabella a parte e AGGIUNTA in coda:
@@ -4526,12 +4590,15 @@ var SEARCH_ALIAS_GIRI = {
    La rimappa cat/sub avviene in fase di build (catOf/subOf), i tipi NON vengono mutati. */
 /* Semplificazione 08/07: nomi corti (una riga), gigante spezzato (Palco e pedane / Allestimento),
    Monitor separato dai Microfoni. "Allestimento" = rigging+strutture+sicurezza+site, in coda. */
+/* DIMMER: tipo → canali di default. Il rack da sala (12) e il pack portatile (4: Stairville DDS-405, 5 A per canale) condividono lo stesso
+   comportamento: canali occupati dai carichi, nome «Canali del dimmer», nessun kW (assorbe ciò che porta). */
+var DIMMER_DEF={ dimmerluci:12, dimmerport:4 };
 var CAT_ORDER = ["Strumenti","Persone","Backline","Microfoni e DI","Monitor","Audio","Luci e video","Elettrico","Palco e pedane","Dispositivi","Allestimento"];   /* "Liste tecniche" tolta (17/07): le liste vivono sotto i layer */
 /* Semplificazione 08/07 (curatela validata da Simone): questi elementi si vedono SUBITO in ogni
    categoria; il resto sotto "Mostra tutti (+N)". Le azioni (Violino I/II, Blocco palco…) sono sempre essenziali. */
 var ESSENTIAL={ comboamp:1,stack:1,bassamp:1,keysamp:1, astamic:1,giraffa:1,astabassa:1,astagigante:1,wireless:1,dimono:1,distereo:1,
   wedge:1,sidefill:1,iem:1,hearback:1, mixer:1,stagebox:1,foh:1,arraylarge:1,sub218:1,frontfill:1,amprack:1, topattivo:1,
-  parluci:1,testamobile:1,sagomatore:1,farope:1,fresnel:1,schermo:1,proiettore:1,fumomachine:1, ciabatta:1,quadro:1,distro63:1,corrente:1,
+  parluci:1,testamobile:1,sagomatore:1,farope:1,fresnel:1,pcled:1,schermo:1,proiettore:1,fumomachine:1, ciabatta:1,quadro:1,distro63:1,corrente:1,
   /* video e studio: essenziali le sorgenti LED che si montano ogni giorno; HMI, Fresnel LED e
      open-face restano sotto «Mostra tutti» (set più strutturati, non il kit di tutti i giorni) */
   ledcob:1,ledmono:1,ledpanel:1,ledflex:1,ledtube:1,softlight:1,
@@ -4600,6 +4667,7 @@ var WATT = {
   mixer:80,
   amprack:2500,
   consolaluci:100, testamobile:350, parluci:150, sagomatore:400,   /* il dimmer NON e' qui: assorbe quello che porta, e lo somma il motore (29/07) */
+  pcled:200, ribaltaled:242, barraled:24, dmxsplit:5,   /* da scheda tecnica: PC HY LED 200 = 200 W, Solo Edge 3 = 242 W, LED BAR-12 = 24 W, DMX Split 8X = 5 W */
   farope:500, fresnel:500,   /* alogeni: lampada 300/500 W, il default e' il massimo — si abbassa dal pannello */
   /* LUCE CONTINUA DA STUDIO/VIDEO: un solo numero non descrive una categoria che va da 60 a 600 W, quindi
      qui c'e' il TAGLIO PIU' DIFFUSO della famiglia + il rincaro di alimentatore e ventole (~10%), e si
@@ -4881,7 +4949,7 @@ function equipName(it){ if(!it||!it.modelData) return null; var d=it.modelData;
 var EQUIP_CATS_BY_TYPE={ dimono:["di"], distereo:["di"],
   /* fari: il modello reale sta sul faro, non su tutta la categoria Luci — console, dimmer e macchine
      del fumo non hanno un catalogo di «fari» da cui scegliere (Simone 29/07) */
-  farope:["faro"], fresnel:["faro"], parluci:["faro"], sagomatore:["faro"], testamobile:["faro"], followspot:["faro"],
+  farope:["faro"], fresnel:["faro"], pcled:["faro"], ribaltaled:["faro"], barraled:["faro"], parluci:["faro"], sagomatore:["faro"], testamobile:["faro"], followspot:["faro"],
   /* anche la luce continua da studio porta un modello reale, e la categoria del DB prodotti è la stessa
      dei fari: un apparecchio è un apparecchio, e chi noleggia scrive marca+modello sul rider */
   ledcob:["faro"], ledmono:["faro"], ledpanel:["faro"], ledflex:["faro"], ledtube:["faro"],
@@ -4976,6 +5044,7 @@ var WEIGHT = {
   stagebox:9, splitter:10, multicore:12, rack2u:15, rack4u:25, amprack:60,
   /* luci */
   consolaluci:12, dimmerluci:40, testamobile:25, parluci:8, sagomatore:15, followspot:30, farope:6, fresnel:6,
+  dimmerport:2, pcled:7.5, ribaltaled:10, barraled:2.85, dmxsplit:2.2,   /* kg di targa: DDS-405 2, PC HY LED 200 7,5, Solo Edge 3 10, LED BAR-12 2,85, Split 8X 2,22 */
   strobo:8, fumomachine:15, hazer:12, torrefaro:60,
   /* luce continua studio/video: peso dell'apparecchio di riferimento della categoria, arrotondato
      (LS 300d II testa ~3,2 · amaran 300c ~2,9 · Astra 6X ~3,2 · F22c telo+driver ~2 · Titan Tube 1,35 ·
@@ -8091,6 +8160,9 @@ var LIGHT_GEAR={
   parluci:    {sing:"proiettore PAR / wash", plur:"proiettori PAR / wash"},
   farope:     {sing:"faro PC",               plur:"fari PC"},
   fresnel:    {sing:"fresnel",               plur:"fresnel"},
+  pcled:      {sing:"PC LED",                plur:"PC LED"},
+  ribaltaled: {sing:"ribalta LED",           plur:"ribalte LED"},
+  barraled:   {sing:"barra LED RGB",         plur:"barre LED RGB"},
   sagomatore: {sing:"sagomatore",            plur:"sagomatori"},
   testamobile:{sing:"testa mobile",          plur:"teste mobili"},
   followspot: {sing:"follow spot",           plur:"follow spot"},
@@ -8894,7 +8966,7 @@ function normalizeLoadedItems(arr){
       n=Number(it[k]); if(isFinite(n)&&n>0) it[k]=n; else delete it[k];
     });
     ["h","z","sep","antAng","antH","kg","watt","rackU","rackPos","rackUh","sbId","ch","outCh",
-      "rxN","rxCh","swPorts","pmFeedCh","prese"].forEach(function(k){
+      "rxN","rxCh","swPorts","pmFeedCh","prese","dmxIn","dmxOut"].forEach(function(k){
       if(it[k]==null) return; n=Number(it[k]); if(isFinite(n)) it[k]=n; else delete it[k];
     });
     if(it.lblSize!=null){ n=Number(it.lblSize); if(isFinite(n)) it.lblSize=Math.max(0,Math.min(lblSizeMax(it.type),n)); else delete it.lblSize; }
@@ -9121,7 +9193,8 @@ function normalizeState(s){
     if(it.w==null) it.w=t.w; if(it.d==null) it.d=t.d;
     var _ldn=look2Dims(it); if(_ldn){ it.w=_ldn[0]; it.d=_ldn[1]; }   /* Fase 2 illustrato: footprint = illustrazione (anche progetti vecchi; se icons non pronte → __onIconsReady ricalcola) */
     if(it.type==="testo" && (+it.w||0)<=20){ it.w=200; it.d=70; }   /* 11/07: il testo libero è diventato un box (era un punto 10×10) */
-    if((it.type==="ciabatta"||it.type==="dimmerluci") && it.prese!=null) it.prese=Math.max(1,Math.min(48,Math.round(it.prese)));   /* prese della multipresa / canali del dimmer */
+    if((it.type==="ciabatta"||DIMMER_DEF[it.type]) && it.prese!=null) it.prese=Math.max(1,Math.min(48,Math.round(it.prese)));   /* prese della multipresa / canali del dimmer */
+    if(it.type==="dmxsplit"){ if(it.dmxIn!=null) it.dmxIn=Math.max(1,Math.min(4,Math.round(it.dmxIn))); if(it.dmxOut!=null) it.dmxOut=Math.max(1,Math.min(16,Math.round(it.dmxOut))); }   /* ingressi/uscite DMX dello splitter */
   });
   if(s.elec && s.elec.manual && typeof s.elec.manual==="object"){   /* F4: linea/connettore sanificati */
     Object.keys(s.elec.manual).forEach(function(k){ var m=s.elec.manual[k]; if(!m||typeof m!=="object") return;
@@ -16617,7 +16690,7 @@ function elettricoIniziato(){
    attaccano a lui e lui al quadro — prima era un carico da 3600 W fissi e i PAR gli passavano
    accanto per andare dritti al quadro, che e' il contrario di come si cabla davvero.
    32 A trifase e 12 canali sono la taglia tipica di un rack da 12 kW: si cambiano dal pannello. */
-var ELEC_DISTRO ={ distro125:{a:125,ph:3,name:"Quadro 125A"}, distro63:{a:63,ph:3,name:"Distro 63A"}, distro32:{a:32,ph:3,name:"Distro 32A"}, quadro:{a:63,ph:3,name:"Quadro"}, ciabatta:{a:16,ph:1,name:"Ciabatta"}, dimmerluci:{a:32,ph:3,name:"Dimmer"} };
+var ELEC_DISTRO ={ distro125:{a:125,ph:3,name:"Quadro 125A"}, distro63:{a:63,ph:3,name:"Distro 63A"}, distro32:{a:32,ph:3,name:"Distro 32A"}, quadro:{a:63,ph:3,name:"Quadro"}, ciabatta:{a:16,ph:1,name:"Ciabatta"}, dimmerluci:{a:32,ph:3,name:"Dimmer"}, dimmerport:{a:16,ph:1,name:"Dimmer"} };   /* il pack portatile: 16 A totali, monofase (manuale DDS-405) */
 var ELEC_SECTIONS = [[16,"2,5 mm²"],[32,"6 mm²"],[63,"16 mm²"],[125,"35 mm²"],[250,"70 mm²"]];
 function elecIsDistro(it){ return !!ELEC_DISTRO[it.type]; }
 function elecIsGen(it){ return GEN_KVA[it.type]!=null; }
@@ -16750,8 +16823,8 @@ function elecMarkup(){
   R.distros.forEach(function(d){
     if(d.auto) s+='<g class="elec-ghost"><rect x="'+(d.x-34)+'" y="'+(d.y-22)+'" width="68" height="44" rx="7"/><text x="'+d.x+'" y="'+(d.y+4)+'" text-anchor="middle">'+esc(d.name)+'</text></g>';
     var isCiab=d.it && d.it.type==="ciabatta";   /* multipresa: mostra prese occupate/disponibili, non kW/A */
-    var isDim=d.it && d.it.type==="dimmerluci";   /* dimmer: canali occupati, non kW — e' cosi' che lo si legge */
-    var bt=isDim ? (d.letter+' · '+(d.nLoads||0)+'/'+((d.it&&d.it.prese)||12)+' canali')
+    var isDim=d.it && DIMMER_DEF[d.it.type];   /* dimmer: canali occupati, non kW — e' cosi' che lo si legge */
+    var bt=isDim ? (d.letter+' · '+(d.nLoads||0)+'/'+((d.it&&d.it.prese)||DIMMER_DEF[d.it.type])+' canali')
       : isCiab ? (d.letter+' · '+(d.nLoads||0)+'/'+((d.it&&d.it.prese)||6)+' prese')
                   : (d.letter+' · '+(d.loadW/1000).toFixed(1).replace(".",",")+'kW · '+Math.max.apply(null,d.phLoad.slice(0,d.ph)).toFixed(0)+'/'+d.a+'A');
     var bw=Math.max(58,8+bt.length*4.6);
@@ -19582,10 +19655,13 @@ function renderProps(){
   var mpw=document.getElementById("pPreseWrap");   /* multipresa: prese; dimmer: canali (stesso contatore, nome del mestiere) */
   if(mpw){ var isMp=it.type==="ciabatta"; mpw.style.display=isMp?"block":"none";
     if(isMp) document.getElementById("pPreseVal").textContent=(it.prese||6); }
-  if(mpw && it.type==="dimmerluci"){ mpw.style.display="block";
+  if(mpw && DIMMER_DEF[it.type]){ mpw.style.display="block";
     var _pl=mpw.querySelector("label"); if(_pl) _pl.textContent="Canali del dimmer";
-    document.getElementById("pPreseVal").textContent=(it.prese||12); }
+    document.getElementById("pPreseVal").textContent=(it.prese||DIMMER_DEF[it.type]); }
   else if(mpw && it.type==="ciabatta"){ var _pl2=mpw.querySelector("label"); if(_pl2) _pl2.textContent="Prese"; }
+  var dxw=document.getElementById("pDmxWrap");   /* splitter DMX: quanti ingressi e quante uscite */
+  if(dxw){ var isDx=it.type==="dmxsplit"; dxw.style.display=isDx?"block":"none";
+    if(isDx){ document.getElementById("pDmxInVal").textContent=(it.dmxIn||1); document.getElementById("pDmxOutVal").textContent=(it.dmxOut||8); } }
   var mnw=document.getElementById("pMountWrap");   /* INSTALLAZIONE: solo i campi della modalità scelta */
   if(mnw){ var canMnt=isMountable(it); mnw.style.display=canMnt?"block":"none";
     if(canMnt){
@@ -20054,11 +20130,16 @@ document.getElementById("pNote").addEventListener("change", function(){ mutSelSo
   if(v) it.note=v; else delete it.note;
   document.getElementById("pNote").value=v;
 }); });
-(function(){ function setPrese(d){ var it=getSel(); if(!it||(it.type!=="ciabatta"&&it.type!=="dimmerluci")) return;
-  var dim=it.type==="dimmerluci", def=dim?12:6, max=dim?48:12;
+(function(){ function setPrese(d){ var it=getSel(); if(!it||(it.type!=="ciabatta"&&!DIMMER_DEF[it.type])) return;
+  var dim=!!DIMMER_DEF[it.type], def=dim?DIMMER_DEF[it.type]:6, max=dim?48:12;
   it.prese=Math.max(1,Math.min(max,(it.prese||def)+d)); document.getElementById("pPreseVal").textContent=it.prese; __elecRes=null; save(); render(); }
   var mm=document.getElementById("pPreseMinus"), mp=document.getElementById("pPresePlus");
   if(mm) mm.addEventListener("click", function(){ setPrese(-1); }); if(mp) mp.addEventListener("click", function(){ setPrese(1); }); })();
+(function(){ function setDmx(k,d){ var it=getSel(); if(!it||it.type!=="dmxsplit") return;
+  var lim=k==="dmxIn"?[1,4,1]:[1,16,8]; it[k]=Math.max(lim[0],Math.min(lim[1],(it[k]||lim[2])+d));
+  document.getElementById(k==="dmxIn"?"pDmxInVal":"pDmxOutVal").textContent=it[k]; save(); render(); }
+  [["pDmxInMinus","dmxIn",-1],["pDmxInPlus","dmxIn",1],["pDmxOutMinus","dmxOut",-1],["pDmxOutPlus","dmxOut",1]].forEach(function(a){
+    var b=document.getElementById(a[0]); if(b) b.addEventListener("click", function(){ setDmx(a[1],a[2]); }); }); })();
 document.getElementById("pLabel2").addEventListener("input", function(){ mutSelSoon(function(it){ it.label2=document.getElementById("pLabel2").value; }); });
 document.getElementById("pLblSize").addEventListener("input", function(){ var v=+document.getElementById("pLblSize").value; document.getElementById("pLblSizeVal").textContent=v; var it=getSel(); if(!it) return; it.lblSize=v; redrawItemNode(it); saveSoon(); });   /* perf: nodo parziale durante il trascinamento */   /* perf (ciclo 8): nodo parziale durante il trascinamento, non render pieno */
 document.getElementById("pLblSize").addEventListener("change", function(){ var it=getSel(); if(it){ _lblSizeAsk=it.id; render(); save(); renderLblSizeAsk(); } });
@@ -20831,7 +20912,7 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
   group("Microfono", null, ["pOutCard","pStereoWrap","pOwnMicWrap","pZoneWrap"]);
   group("Stage box", null, ["pSbChWrap"]);
   group("Ascolto", "cosa usa per sentirsi", ["pAscoltoWrap"]);
-  group("Accessori", null, ["pPostaz","pVoce","pGtr","pDir","pTastiera","pComp","pKeysWrap","pSgabWrap","pLeggioGenWrap","pLucettaWrap","pRampWrap","pGazWrap","pPreseWrap"]);
+  group("Accessori", null, ["pPostaz","pVoce","pGtr","pDir","pTastiera","pComp","pKeysWrap","pSgabWrap","pLeggioGenWrap","pLucettaWrap","pRampWrap","pGazWrap","pPreseWrap","pDmxWrap"]);
   group("Installazione", null, ["pMountWrap"]);
   group("Dettagli tecnici", null, ["pIfaceWrap","pCompIfaceWrap","pModelWrap","pLocInWrap","pUsoWrap","pBmWrap","pLmWrap","pModWrap","pWattWrap","pRfWrap","pPmWrap"]);   /* la richiesta di setup NON e' un dettaglio tecnico: e' un'azione verso una persona, e sta con la persona */
   group("Nota", "quello che il disegno non dice", ["pNoteWrap"]);
@@ -28550,7 +28631,7 @@ function layerFgItem(id, it){
     case "elec":   return !!(it.type==="corrente" || elecIsDistro(it) || elecIsGen(it) || wattOf(it)>0);
     case "mus":    return musLayerItem(it.type);   /* layer Musicisti: persone + strumenti suonati */
     case "cover":  return isCover(it);                 /* layer Coperture: gazebo/tende/copertura palco */
-    case "luci":   return lightsIsGear(it.type) || it.type==="americana" || it.type==="consolaluci" || it.type==="dimmerluci";   /* la vista Luci mostra anche struttura e regia: chi monta le vuole tutte insieme */
+    case "luci":   return lightsIsGear(it.type) || it.type==="americana" || it.type==="consolaluci" || !!DIMMER_DEF[it.type];   /* la vista Luci mostra anche struttura e regia: chi monta le vuole tutte insieme */
     /* Il SOLO del Palco mostra il palco e le pedane, non tutto (16/09, Simone: «lista palco in solo deve
        mostrare solo palco e pedane»). Prima era true — «Palco = tutto» — e il solo non isolava niente.
        L'occhio del Palco resta la vista d'insieme (itemEyeShown non passa di qui). */
