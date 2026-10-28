@@ -4238,6 +4238,30 @@ var TYPES = {
   barraled:  {nome:"Barra LED RGB", dim:"109×7 · 24 W", cat:"Luci", w:109,d:7, resizable:true,
     alias:"barra led rgb led bar batten ribalta led barra luce rgbw eurolite bar 12 lunghezza regolabile",
     draw:function(it){ return barraLedSvg(it); }},
+  /* LUCCIOLA LED (richiesta di un tecnico di teatro, 28/10/2026): ipotesi da confermare = Spotlight «Serie Lucciola», pinspot LED 30 W dimmerabile da rete (SUPERLUT LED 30, 18×16×22 cm, ottica PMMA Ø70 mm; datasheet «Architectural line» 29/05/2024). Quote senza assi etichettati: la costruzione è [DEDOTTO]. */
+  lucciola:   {nome:"Lucciola LED", dim:"18×16 · 30 W · pinspot", cat:"Luci", w:18,d:16,
+    alias:"lucciola lucciole pinspot led mini spot piccola luce di scena spotlight superlut dimmer teatro",
+    draw:function(it){ if(typeof LIB_ICONS==="object" && LIB_ICONS.lucciola) return drawLibFit("lucciola",it,18,16); return bar(0,0,it.w,it.d,'ic fGrey',2); }},
+  /* SAGOMATORE LED con zoom e 4 lame: Spotlight PR HY LED 200 ZS (Serie Hyperion), 11,5 kg, 470×340×760 mm (ordine H·P·L del datasheet 200 W); a fianco del «Sagomatore» generico, che resta. Costruzione [DEDOTTO]: il datasheet non ha un disegno quotato. */
+  sagomatoreled: {nome:"Sagomatore LED", dim:"34×76 · 200 W", cat:"Luci", w:34,d:76,
+    alias:"sagomatore led profilo profile ellissoidale zoom lame teatro spotlight hyperion pr proiettore sagomato",
+    draw:function(it){ if(typeof LIB_ICONS==="object" && LIB_ICONS.sagomatoreled) return drawLibFit("sagomatoreled",it,34,76); return bar(0,0,it.w,it.d,'ic fGrey',2); }},
+  /* RIBALTA ALOGENA a 4 celle: Eurolite Fluter-Rampe 4 x R7s con telaio filtro (art. 41906350, fuori catalogo, scheda ancora online): 705×160×155 mm, 5,35 kg, 2000 W; luce alogena, il dimmer è esterno. Il disegno è ricavato dalla foto della scheda (passo cella 705/4 = 17,6 cm) [DEDOTTO]. */
+  ribaltaalogena: {nome:"Ribalta alogena", dim:"71×16 · 4 celle · 2000 W", cat:"Luci", w:71,d:16,
+    alias:"ribalta alogena ribalta teatro proscenio footlight 4 celle r7s lampade alogene fluter rampe eurolite",
+    draw:function(it){ if(typeof LIB_ICONS==="object" && LIB_ICONS.ribaltaalogena) return drawLibFit("ribaltaalogena",it,70.5,16); return bar(0,0,it.w,it.d,'ic fGrey',2); }},
+  /* CONSOLE LUCI ETC ColorSource 40 (richiesta della regia, 28/10/2026), a fianco della «Console luci» generica che resta: 668×279×60 mm, 4,33 kg, 40 fader da 45 mm, 1 porta DMX (datasheet ETC Rev H 08/2026 p.4). Le colonne di fader e i master sono misurati sulla vista frontale quotata; la profondità dei comandi è dedotta dal manuale [DEDOTTO]. Assorbimento: alimentatore esterno 12 V, watt non dichiarati → nessun numero. */
+  etccs40:    {nome:"Console luci ETC ColorSource 40", dim:"67×28 · 40 fader · 1 universo", cat:"Luci", w:67,d:28,
+    alias:"console luci etc colorsource colour source 40 cs40 mixer luci dmx banco luci teatro regia luci",
+    draw:function(it){ if(typeof LIB_ICONS==="object" && LIB_ICONS.etccs40) return drawLibFit("etccs40",it,66.8,27.9); return bar(0,0,it.w,it.d,'ic fGrey',2); }},
+  /* MACCHINA DEL FUMO Antari Z-1500 III (richiesta della regia, 28/10/2026), a fianco del generico che resta: manuale Rev.05 p.9, L674 W235 H278 mm, 13,3 kg, 1500 W, serbatoio 6 l, DMX 1 canale. Forma in pianta [DEDOTTO] dalle viste laterale e posteriore. */
+  fumoz1500:  {nome:"Macchina del fumo Z-1500", dim:"24×67 · 1500 W", cat:"Luci", w:24,d:67,
+    alias:"macchina del fumo fumo antari z1500 z 1500 fog nebbia teatro fumogeno 1500 w",
+    draw:function(it){ if(typeof LIB_ICONS==="object" && LIB_ICONS.fumoz1500) return drawLibFit("fumoz1500",it,23.5,67.4); return bar(0,0,it.w,it.d,'ic fGrey',2); }},
+  /* HAZER Antari HZ-400 (richiesta della regia, 28/10/2026), a fianco dell'hazer generico che resta: manuale Rev.09 p.7, L510 W320 H325 mm, 18,5 kg, 470 W, serbatoio 2,5 l, DMX 1 canale. Forma in pianta [DEDOTTO]. */
+  hazerhz400: {nome:"Hazer HZ-400", dim:"32×51 · 470 W", cat:"Luci", w:32,d:51,
+    alias:"hazer haze antari hz400 hz 400 nebbia leggera foschia atmosfera teatro",
+    draw:function(it){ if(typeof LIB_ICONS==="object" && LIB_ICONS.hazerhz400) return drawLibFit("hazerhz400",it,32,51); return bar(0,0,it.w,it.d,'ic fGrey',2); }},
   /* ========== LUCI VIDEO E STUDIO (Simone 29/07) — luce CONTINUA da set, non fari da palco ==========
      Sono TIPOLOGIE tecniche (la famiglia di apparecchio), non modelli commerciali. Le misure sono
      l'INGOMBRO IN PIANTA TIPICO della categoria, ricavato ogni volta da un apparecchio rappresentativo
@@ -4593,6 +4617,10 @@ var SEARCH_ALIAS_GIRI = {
 /* DIMMER: tipo → canali di default. Il rack da sala (12) e il pack portatile (4: Stairville DDS-405, 5 A per canale) condividono lo stesso
    comportamento: canali occupati dai carichi, nome «Canali del dimmer», nessun kW (assorbe ciò che porta). */
 var DIMMER_DEF={ dimmerluci:12, dimmerport:4 };
+/* CONSOLLE LUCI: la generica e i modelli veri (ETC ColorSource 40). Stesso trattamento: operatore luci, sistema «luci» della produzione, vista Luci. */
+var LIGHT_DESKS={ consolaluci:1, etccs40:1 };
+/* MACCHINE D'ATMOSFERA (fumo e hazer, generici e modelli veri): in lista luci non hanno bisogno del colore. */
+var FOG_GEAR={ fumomachine:1, hazer:1, fumoz1500:1, hazerhz400:1 };
 var CAT_ORDER = ["Strumenti","Persone","Backline","Microfoni e DI","Monitor","Audio","Luci e video","Elettrico","Palco e pedane","Dispositivi","Allestimento"];   /* "Liste tecniche" tolta (17/07): le liste vivono sotto i layer */
 /* Semplificazione 08/07 (curatela validata da Simone): questi elementi si vedono SUBITO in ogni
    categoria; il resto sotto "Mostra tutti (+N)". Le azioni (Violino I/II, Blocco palco…) sono sempre essenziali. */
@@ -4667,7 +4695,9 @@ var WATT = {
   mixer:80,
   amprack:2500,
   consolaluci:100, testamobile:350, parluci:150, sagomatore:400,   /* il dimmer NON e' qui: assorbe quello che porta, e lo somma il motore (29/07) */
-  pcled:200, ribaltaled:242, barraled:24, dmxsplit:5,   /* da scheda tecnica: PC HY LED 200 = 200 W, Solo Edge 3 = 242 W, LED BAR-12 = 24 W, DMX Split 8X = 5 W */
+  pcled:200, ribaltaled:242, barraled:24, dmxsplit:5, fumoz1500:1500, hazerhz400:470,
+  lucciola:30, sagomatoreled:200, ribaltaalogena:2000,
+    /* da scheda tecnica: PC HY LED 200 = 200 W, Solo Edge 3 = 242 W, LED BAR-12 = 24 W, DMX Split 8X = 5 W */
   farope:500, fresnel:500,   /* alogeni: lampada 300/500 W, il default e' il massimo — si abbassa dal pannello */
   /* LUCE CONTINUA DA STUDIO/VIDEO: un solo numero non descrive una categoria che va da 60 a 600 W, quindi
      qui c'e' il TAGLIO PIU' DIFFUSO della famiglia + il rincaro di alimentatore e ventole (~10%), e si
@@ -4949,7 +4979,7 @@ function equipName(it){ if(!it||!it.modelData) return null; var d=it.modelData;
 var EQUIP_CATS_BY_TYPE={ dimono:["di"], distereo:["di"],
   /* fari: il modello reale sta sul faro, non su tutta la categoria Luci — console, dimmer e macchine
      del fumo non hanno un catalogo di «fari» da cui scegliere (Simone 29/07) */
-  farope:["faro"], fresnel:["faro"], pcled:["faro"], ribaltaled:["faro"], barraled:["faro"], parluci:["faro"], sagomatore:["faro"], testamobile:["faro"], followspot:["faro"],
+  farope:["faro"], fresnel:["faro"], pcled:["faro"], ribaltaled:["faro"], barraled:["faro"], lucciola:["faro"], sagomatoreled:["faro"], ribaltaalogena:["faro"], parluci:["faro"], sagomatore:["faro"], testamobile:["faro"], followspot:["faro"],
   /* anche la luce continua da studio porta un modello reale, e la categoria del DB prodotti è la stessa
      dei fari: un apparecchio è un apparecchio, e chi noleggia scrive marca+modello sul rider */
   ledcob:["faro"], ledmono:["faro"], ledpanel:["faro"], ledflex:["faro"], ledtube:["faro"],
@@ -5044,7 +5074,7 @@ var WEIGHT = {
   stagebox:9, splitter:10, multicore:12, rack2u:15, rack4u:25, amprack:60,
   /* luci */
   consolaluci:12, dimmerluci:40, testamobile:25, parluci:8, sagomatore:15, followspot:30, farope:6, fresnel:6,
-  dimmerport:2, pcled:7.5, ribaltaled:10, barraled:2.85, dmxsplit:2.2,   /* kg di targa: DDS-405 2, PC HY LED 200 7,5, Solo Edge 3 10, LED BAR-12 2,85, Split 8X 2,22 */
+  dimmerport:2, pcled:7.5, ribaltaled:10, barraled:2.85, dmxsplit:2.2, etccs40:4.33, fumoz1500:13.3, hazerhz400:18.5, sagomatoreled:11.5, ribaltaalogena:5.35,   /* kg di targa: DDS-405 2, PC HY LED 200 7,5, Solo Edge 3 10, LED BAR-12 2,85, Split 8X 2,22 */
   strobo:8, fumomachine:15, hazer:12, torrefaro:60,
   /* luce continua studio/video: peso dell'apparecchio di riferimento della categoria, arrotondato
      (LS 300d II testa ~3,2 · amaran 300c ~2,9 · Astra 6X ~3,2 · F22c telo+driver ~2 · Titan Tube 1,35 ·
@@ -8035,6 +8065,7 @@ var ITEM_USO={
   consolaluci:   {label:"Operatore luci", opts:[["produzione","Della produzione"],["service","Del service tecnico"],
                   ["venue","Della venue"],["da_definire","Da definire"]]}
 };
+ITEM_USO.etccs40=ITEM_USO.consolaluci;   /* la ColorSource 40 si dichiara come la console luci generica */
 /* ponte uso→sistema di produzione (per le regole di coerenza, fase 4): quale sistema attiva questo item? */
 function usoSystemKey(type, uso){
   if(type==="laptop"){ return ({playback_audio:"playback",playback_video:"video",rec_audio:"recaudio",
@@ -8042,7 +8073,7 @@ function usoSystemKey(type, uso){
   if(type==="audiointerface"){ return ({playback:"playback",registrazione:"recaudio",entrambe:"recaudio"})[uso]||null; }
   if(type==="camera"){ return ({rec_pro:"recvideo",streaming:"streaming",rec_streaming:"streaming"})[uso]||null; }
   if(type==="proiettore"||type==="schermo"||type==="ledwallmod") return "video";
-  if(type==="consolaluci") return "luci";
+  if(LIGHT_DESKS[type]) return "luci";
   return null;
 }
 /* ===== PRODUZIONE (fase 1, brief 17/07): i 6 sistemi NON deducibili dal disegno =====
@@ -8163,6 +8194,11 @@ var LIGHT_GEAR={
   pcled:      {sing:"PC LED",                plur:"PC LED"},
   ribaltaled: {sing:"ribalta LED",           plur:"ribalte LED"},
   barraled:   {sing:"barra LED RGB",         plur:"barre LED RGB"},
+  fumoz1500:  {sing:"macchina del fumo", plur:"macchine del fumo"},
+  hazerhz400: {sing:"hazer", plur:"hazer"},
+  lucciola:   {sing:"lucciola LED", plur:"lucciole LED"},
+  sagomatoreled: {sing:"sagomatore LED", plur:"sagomatori LED"},
+  ribaltaalogena: {sing:"ribalta alogena", plur:"ribalte alogene"},
   sagomatore: {sing:"sagomatore",            plur:"sagomatori"},
   testamobile:{sing:"testa mobile",          plur:"teste mobili"},
   followspot: {sing:"follow spot",           plur:"follow spot"},
@@ -17800,7 +17836,7 @@ function auditEngine(){
       add("warn","Hai indicato una diretta streaming già configurata, ma nessun elemento la supporta (computer o camera con utilizzo Streaming).","Produzione","");
     /* 3) elemento attiva un sistema NON dichiarato nel Controllo tecnico → da definire (allineare) */
     var seen={};
-    items.forEach(function(it){ if(!it.uso && !(it.type==="proiettore"||it.type==="schermo"||it.type==="ledwallmod"||it.type==="consolaluci")) return;
+    items.forEach(function(it){ if(!it.uso && !(it.type==="proiettore"||it.type==="schermo"||it.type==="ledwallmod"||LIGHT_DESKS[it.type])) return;
       var k=usoSystemKey(it.type, it.uso); if(!k || seen[k]) return; seen[k]=true;
       var o=pr[k]; if(o && o.ans) return;   /* già dichiarato: ok */
       var NAME={playback:"le sequenze/contributi audio",video:"i contributi video",recaudio:"la registrazione audio",recvideo:"la registrazione video",streaming:"la diretta streaming",luci:"le luci"}[k]||k;
@@ -17868,7 +17904,7 @@ function auditEngine(){
         "luci-mod-attacco");
     }
     /* L3 — «bianco» non è un'informazione: 3200 K sì. Le macchine d'atmosfera non hanno colore. */
-    var noCol=rows.filter(function(r){ return LIGHT_GEAR[r.gear] && r.gear!=="fumomachine" && r.gear!=="hazer" && !String(r.color||"").trim(); });
+    var noCol=rows.filter(function(r){ return LIGHT_GEAR[r.gear] && !FOG_GEAR[r.gear] && !String(r.color||"").trim(); });
     if(noCol.length) add("info","Alcune luci non dicono la temperatura o il colore.","Luci",
       "Scrivi 3200 K, RGBW o quello che serve: «bianco» lascia decidere al service.", null, "luci-colore");
     /* L4 — il caso osservato: delega dichiarata e lista vuota. Si delega senza dire cosa serve. */
@@ -28631,7 +28667,7 @@ function layerFgItem(id, it){
     case "elec":   return !!(it.type==="corrente" || elecIsDistro(it) || elecIsGen(it) || wattOf(it)>0);
     case "mus":    return musLayerItem(it.type);   /* layer Musicisti: persone + strumenti suonati */
     case "cover":  return isCover(it);                 /* layer Coperture: gazebo/tende/copertura palco */
-    case "luci":   return lightsIsGear(it.type) || it.type==="americana" || it.type==="consolaluci" || !!DIMMER_DEF[it.type];   /* la vista Luci mostra anche struttura e regia: chi monta le vuole tutte insieme */
+    case "luci":   return lightsIsGear(it.type) || it.type==="americana" || !!LIGHT_DESKS[it.type] || !!DIMMER_DEF[it.type];   /* la vista Luci mostra anche struttura e regia: chi monta le vuole tutte insieme */
     /* Il SOLO del Palco mostra il palco e le pedane, non tutto (16/09, Simone: «lista palco in solo deve
        mostrare solo palco e pedane»). Prima era true — «Palco = tutto» — e il solo non isolava niente.
        L'occhio del Palco resta la vista d'insieme (itemEyeShown non passa di qui). */
