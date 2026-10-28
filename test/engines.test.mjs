@@ -11960,7 +11960,11 @@ t("contorni: con 200 forme da 50 punti con archi l'aggancio sta largo dentro un 
   console.log("      [misura] tondo a movimento " + tF.toFixed(3) + " ms");
   ok(tF < 8, "tondo a movimento " + tF.toFixed(3) + " ms");
   console.log("      [misura] 200 forme × 50 punti con archi: bersagli " + tB.toFixed(1) + " ms, aggancio a movimento " + tM.toFixed(3) + " ms (" + B.lati.length + " lati)");
-  ok(tM < 8, "a movimento " + tM.toFixed(3) + " ms (budget: mezzo fotogramma a 60 Hz, come la Tappa A)");
+  /* Il budget a movimento è mezzo fotogramma a 60 Hz (8 ms) sul Mac, dove il test misura ~1,9 ms. In CI diventa un fotogramma intero (16 ms): i runner misurano di solito
+     4,6–5,4 ms (2,6× il Mac) e il 28/10/2026 un rallentamento momentaneo del runner ha dato 8,4 ms e fermato un deploy che non c'entrava (run 40737258430). Una regressione
+     vera (algoritmo più lento di 3× o più) resta rossa in entrambi i casi; ciò che non si vuole è un deploy fermato dal rumore del runner. */
+  const budgetMs = process.env.CI ? 16 : 8;
+  ok(tM < budgetMs, "a movimento " + tM.toFixed(3) + " ms (budget " + budgetMs + " ms: " + (process.env.CI ? "un fotogramma a 60 Hz, in CI" : "mezzo fotogramma a 60 Hz, come la Tappa A") + ")");
   ok(tB < 500, "bersagli " + tB.toFixed(1) + " ms, una volta per gesto (65 ms sul Mac; CI ~3× più lenta)");
 });
 /* l'interruttore acceso solo dentro la prova (in produzione resta spento fino alla PR di accensione) */
