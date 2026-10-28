@@ -26454,6 +26454,28 @@ t("Marcatore di centro: una forma triangolare «Centro», senza canale e senza D
   ok(!A.state.items.some((i) => i.type === "dimono" || i.type === "distereo"), "nessuna DI nata dal marcatore");
 });
 
+/* 28/10/2026 — Omnichord: strumento fuori catalogo chiesto da un tecnico di teatro. Misure e uscita dal manuale ufficiale Suzuki (OM-108). */
+t("Omnichord: misure del manuale Suzuki, ingresso DI mono, ricerca, solo vettoriale", () => {
+  reset();
+  const T = A.TYPES.omnichord;
+  eq([T.w, T.d], [46, 25], "45,7 × 25,0 cm del manuale, arrotondati");
+  eq([T.cat, T.sub], ["Band e backline", "DJ ed elettronica"], "nel gruppo di theremin e loop station");
+  const o = add("omnichord", 300, 300);
+  eq(o.label, "Omnichord 1", "si numera col suo nome");
+  eq(chans(o).map((c) => c.mic), ["DI"], "LINE OUT mono: una DI, un canale");
+  eq(A.WATT.omnichord, 3.7, "3,7 W dichiarati dal costruttore");
+  eq(A.wattFonte(o), "targa", "il numero è di targa, non una stima di famiglia");
+  eq(A.WEIGHT.omnichord, 1.2, "1,2 kg");
+  ["omnichord", "omni chord", "suzuki", "om-108"].forEach((q) => {
+    eq((A.__spSearch(q)[0] || {}).k, "omnichord", "barra «" + q + "»");
+    eq((A.__qaSearch(q)[0] || {}).k, "omnichord", "doppio clic «" + q + "»");
+  });
+  const svg = T.draw({ type: "omnichord", w: 46, d: 25 }), grande = T.draw({ type: "omnichord", w: 92, d: 50 });
+  ok(svg.length > 400 && svg !== grande, "il disegno segue le misure");
+  ok(!/<image|data:image|\.png|\.jpe?g/i.test(svg), "nessun raster");
+  ok((svg.match(/<circle/g) || []).length >= 15, "i tasti degli accordi e le manopole ci sono");
+});
+
 /* Revisione del 19/10/2026 sul lotto del catalogo */
 t("revisione catalogo: la Loop station porta sul palco e in channel list un nome da palco, non quello del catalogo", () => {
   reset();
@@ -26489,7 +26511,7 @@ t("revisione catalogo: Laptop su tavolo cerca un posto libero sul palco, non si 
 });
 
 t("revisione catalogo: i disegni nuovi restano dentro il loro ingombro, anche ridimensionati", () => {
-  ["loopstation", "theremin", "syncgen"].forEach((k) => {
+  ["loopstation", "theremin", "omnichord", "syncgen"].forEach((k) => {
     [1, 0.6, 2].forEach((f) => {
       const T = A.TYPES[k], w = Math.round(T.w * f), d = Math.round(T.d * f);
       const svg = T.draw({ type: k, w, d });

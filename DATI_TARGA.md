@@ -196,6 +196,20 @@ le luci e per il personal monitor.
 | `nord_stage4_c` | Nord Stage 4 Compact | non dich. | — | 10,4 | idem |
 | `hammond_skxpro` | Hammond SkxPro | **22** | — | 16,9 | hammondorganco.com/skxpro-specs |
 
+### 3b. Omnichord (aggiunto il 28/10/2026)
+
+Richiesta di un tecnico di teatro («strumenti fuori catalogo, per esempio l'Omnichord»). È un **modello preciso**, quindi
+sta in `SPEC_TARGA` e non fra le famiglie. Fonte: manuale ufficiale Suzuki, pagina *Specifications* (suzuki-music.co.jp,
+`manual/om-108_en/…/Appendix_En-39.htm`, manuale del 12/02/2024), confermata dalla scheda prodotto dello stesso sito.
+
+| tipo | modello | cm (L × P × H) | kg | W assorbiti | uscita |
+|---|---|---|---|---|---|
+| `omnichord` | Suzuki OM-108 | 45,7 × 25,0 × 5,18 → disegnato **46 × 25** | 1,2 | **3,7** | LINE OUT jack standard **mono** → una DI, mono (stereo non previsto); cuffie mini stereo; MIDI OUT |
+
+Il disegno è schematico (tasti degli accordi a sinistra, piastra da strimpellare a destra): le fonti non descrivono la
+posizione dei comandi, quindi la disposizione non è una misura. Il modello storico **OM-84** (1981) non ha una scheda
+ufficiale trovata: se un utente ne ha uno, usa le stesse misure come approssimazione [DA VERIFICARE].
+
 ### La regola che questo catalogo smonta
 
 La ricerca del 04/07 diceva: «regola pratica ampli: **~2× la potenza di uscita audio**». Vale per i

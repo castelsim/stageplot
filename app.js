@@ -1498,6 +1498,19 @@ var TYPES = {
              draw:function(it){ var w=it.w||50, d=it.d||45;   /* dall'alto: il corpo, l'antenna dell'altezza a destra (linea), l'anello del volume a sinistra */
                return bar(0,d/6,w-14,d/2,'ic fBlack',3)+lin(w/2-5,d/6,w/2-5,-d/2+2,'ic')+circ(w/2-5,-d/2+4,2,'ic thin fGrey')+
                  '<circle class="ic thin" fill="none" cx="'+(-w/2+Math.min(d/4,w/4)+1)+'" cy="'+(-d/6)+'" r="'+Math.min(d/4,w/4)+'"/>'+circ(0,d/6,3,'ic thin fGrey'); }},
+  /* 28/10/2026, richiesta di un tecnico di teatro («strumenti fuori catalogo, per esempio l'Omnichord»): Suzuki OM-108, misure e
+     uscita dal manuale ufficiale (DATI_TARGA.md). Disegno schematico dall'alto, in proporzione a w e d: a sinistra i tasti degli
+     accordi, a destra la piastra da strimpellare (strumento suonato dal lato lungo, rivolto al pubblico). Uscita LINE OUT mono: DI. */
+  omnichord:{nome:"Omnichord", dim:"46×25 · Suzuki OM-108", cat:"Band e backline", sub:"DJ ed elettronica", w:46,d:25, defLabel:"Omnichord",
+             draw:function(it){ var w=it.w||46, d=it.d||25, x0=-w/2, y0=-d/2, s='';
+               s+=bar(0,0,w,d,'ic soft',3);                                                  /* il corpo, chiaro */
+               var pw=w*0.55, px=w/2-0.04*w-pw/2;
+               s+=bar(px,d*0.06,pw,d*0.62,'ic fBlack',1.5);                                    /* la piastra */
+               for(var i=1;i<7;i++) s+=lin(px-pw/2+3, y0+d*0.06+d*0.5+ (i-3.5)*d*0.62/7.4, px+pw/2-3, y0+d*0.06+d*0.5+(i-3.5)*d*0.62/7.4,'sil');   /* le corde virtuali */
+               var bx=x0+w*0.05, bw=w*0.33;                                                    /* i tasti degli accordi: tre file da quattro */
+               for(var r=0;r<3;r++) for(var c=0;c<4;c++) s+=circ(bx+bw*(c+0.5)/4, d*0.04+(r-1)*d*0.2, Math.min(w*0.028,d*0.062),'ic thin fGrey');
+               for(var k=0;k<3;k++) s+=circ(bx+bw*(k+0.5)/3, y0+d*0.14, Math.min(w*0.02,d*0.045),'ic thin fBlack');   /* tre manopole in alto */
+               return s; }},
   syncgen:  {nome:"Generatore sync / timecode / word clock", dim:"rack 1U o da tavolo · senza canale", cat:"Dispositivi", w:48,d:24, defLabel:"SYNC",
              draw:function(it){ var w=it.w||48, d=it.d||24;   /* una unità bassa: frontale con display e tre connettori */
                return bar(0,0,w,d,'ic fGrey',3)+bar(-w/6,0,w/3,d/3,'ic mon',1.5)+circ(w/8,0,2.2,'ic thin fBlack')+circ(w/4,0,2.2,'ic thin fBlack')+circ(3*w/8,0,2.2,'ic thin fBlack'); }},   /* revisione: i connettori in proporzione (a w/6+16 il terzo usciva dal bordo) */
@@ -2092,6 +2105,7 @@ var SEARCH_ALIAS_GIRI = {
   edrums:"batteria elettronica batterie elettroniche e drum e drums edrum drum elettronica electronic drum electronic drums",
   loopstation:"loop station loopstation looper loop pedal effetti da tavolo effetti tavolo multieffetto da tavolo pedaliera da tavolo pedaliera su tavolino",
   theremin:"theremin teremin etherwave strumento elettronico ad antenne",
+  omnichord:"omnichord omni chord suzuki om-108 om108 om-84 om84 arpa elettronica strumming strimpellare autoarpa tastiera ad accordi",
   syncgen:"sync generatore sync generatore di sync timecode time code smpte ltc word clock wordclock master clock distributore di clock generatore di timecode generatore timecode",
 };
 [SEARCH_ALIAS, SEARCH_ALIAS_GIRI].forEach(function(tab){ Object.keys(tab).forEach(function(k){   /* fuso nei tipi: le due ricerche leggono solo TYPES[k].alias */
@@ -2154,7 +2168,7 @@ function subOf(k){   /* sottocategoria (nuova) di un tipo */
    Casse passive (array, sub, wedge, fill) = 0: la potenza vive sugli amp rack (no doppio conteggio). */
 var WATT = {
   comboamp:150, stack:250, bassamp:400, keysamp:150, leslie:250, edrums:60, djset:350,
-  organohammond:250, spdsx:15, pedaliera:30, loopstation:25, theremin:15, syncgen:15,   /* audit 14/07: strumenti elettronici che assorbono corrente (Hammond ~200-250W dai datasheet, SPD-SX alim. Roland ~15W, pedalboard PSU ~30W) */
+  organohammond:250, spdsx:15, pedaliera:30, loopstation:25, theremin:15, omnichord:3.7, syncgen:15,   /* audit 14/07: strumenti elettronici che assorbono corrente (Hammond ~200-250W dai datasheet, SPD-SX alim. Roland ~15W, pedalboard PSU ~30W) */
   stagepiano:50, doppiatastiera:100, celesta:40,
   /* Tastiera (synth · 1 tastiera): nata il 24/07 per la ricerca nel catalogo, non era mai entrata qui e
      contava zero (13/10/2026: quattro tastiere vere sparite dai carichi). Stessa riga della ricerca dello
@@ -2208,7 +2222,8 @@ var WATT = {
    sapere quali righe hanno una fonte da ricontrollare quando esce un modello nuovo.
    Le citazioni riga per riga stanno in DATI_TARGA.md, in radice del repo. */
 var SPEC_TARGA = { dm3:1, dm7c:1, dm7:1, csr3:1, csr5:1, csr10:1,
-  sq5:1, sq6:1, sq7:1, avantis:1, dlives5:1, dlives7:1, q338:1, hd96:1 };
+  sq5:1, sq6:1, sq7:1, avantis:1, dlives5:1, dlives7:1, q338:1, hd96:1,
+  omnichord:1 };   /* 28/10/2026: Suzuki OM-108, W e kg dal manuale ufficiale (DATI_TARGA.md § 3b) */
 /* ═══ BACKLINE REALE ══════════════════════════════════════════════════════════════════════════
    L'ultima lacuna dichiarata in CONOSCENZA/FONTI.md: «un catalogo con dimensioni/pesi/assorbimenti
    dei modelli reali» per il backline. Fino al 29/08 combo, testate, ampli basso, tastiere e organi
@@ -2519,7 +2534,7 @@ var WEIGHT = {
   /* backline */
   comboamp:25, stack:45, bassamp:40, keysamp:20, leslie:68,
   grancoda:400, mezzacoda:300, pianoverticale:230, stagepiano:25, doppiatastiera:40, celesta:100,
-  loopstation:3, theremin:4, syncgen:2,   /* 19/10/2026: stime di famiglia (macchina da tavolo, strumento ad antenne, unità sync) */
+  loopstation:3, theremin:4, omnichord:1.2, syncgen:2,   /* omnichord 28/10/2026: 1,2 kg dal manuale Suzuki. 19/10/2026: stime di famiglia (macchina da tavolo, strumento ad antenne, unità sync) */
   /* batteria e percussioni */
   batteria:55, edrums:35, timpani:180, timpani3:135, timpani2:95, marimba:70, vibrafono:65, xilofono:45,
   glockenspiel:20, campane:90, grancassa:40, tamtam:45, timbales:20, percussioni:30, cajon:6, cajonpost:6,   /* la postazione pesa quanto il cajon: le aste qui non hanno peso */
@@ -3319,7 +3334,7 @@ var DEFAULT_LABELS = {
   tamtam:"Tam-tam", glockenspiel:"Glock.", xilofono:"Xylo", vibrafono:"Vibes", marimba:"Marimba",
   comboamp:"Gtr amp", stack:"Gtr stack", bassamp:"Bass amp", keysamp:"Keys amp", leslie:"Leslie",
   grancoda:"Grand", mezzacoda:"Baby grand", pianoverticale:"Upright", stagepiano:"Keys", doppiatastiera:"2 Keys", celesta:"Celesta", panchetta:"Panca",
-  gtstand:"Gtr", gtacustica:"Ac. gtr", bassstand:"Bass", pedaliera:"Pedalboard", loopstation:"Loop", theremin:"Theremin", syncgen:"Sync", djset:"DJ", direttore:"Direttore",
+  gtstand:"Gtr", gtacustica:"Ac. gtr", bassstand:"Bass", pedaliera:"Pedalboard", loopstation:"Loop", theremin:"Theremin", omnichord:"Omnichord", syncgen:"Sync", djset:"DJ", direttore:"Direttore",
   vlnpost:"Vln", violapost:"Vla", vln1x2:"Vln I x2", vln2x2:"Vln II x2", violax2:"Vla x2", cellix2:"Vc x2", cbx2:"Cb x2",
   archi2leggio:"Vln x2", violoncello:"Vc", contrabbasso:"Cb", arpa:"Arpa",
   astamic:"Mic", giraffa:"Boom", astabassa:"Low mic", astagigante:"Boom XL", coppiast:"ST L/R", wireless:"WL", headset:"HS", podiosp:"Podio relatore", cantante:"Voce", corista:"Coro",
@@ -24873,7 +24888,7 @@ var STEREO_TOGGLE = {
   tastiera:{mic:"DI",def:true},   /* 13/10/2026: la Tastiera non generava canali; come lo Stage piano, L/R in DI (Tastiera L / Tastiera R) */
   celesta:{mic:"KM184",def:false},
   laptop:{mic:"DI",def:true}, djset:{mic:"DI",def:true}, pedaliera:{mic:"DI",def:false},
-  loopstation:{mic:"DI",def:false}, theremin:{mic:"DI",def:false}   /* 19/10/2026: ingresso di linea/DI, mono; stereo dal pannello. Il generatore di sync NON c'è: nessun canale */
+  loopstation:{mic:"DI",def:false}, theremin:{mic:"DI",def:false}, omnichord:{mic:"DI",def:false}   /* 19/10/2026: ingresso di linea/DI, mono; stereo dal pannello. Il generatore di sync NON c'è: nessun canale */
 };
 /* elementi che generano PIÙ canali (stereo o multi-mic) */
 var IN_MULTI = {
@@ -30579,7 +30594,7 @@ function resetCatalogView(){
 /* altezze tipiche in cm (override per tipo; fallback per categoria) */
 var H3D={ pedana:0,scala:40,rampa:40,parapetto:110,fondale:400,quinta:400,truss:30,transenna:120, topattivo:180,
   tappeto:1,tavolo:75,sedia:85,sedialeggio:115,leggio:125,podio:20,pedanacoro:60,sgabello:75,ventilatore:120,
-  loopstation:90,theremin:100,syncgen:10,
+  loopstation:90,theremin:100,omnichord:85,syncgen:10,
   batteria:120,edrums:110,drumshield:180,rullante:80,percussioni:90,cajon:48,cajonpost:48,timbales:90,
   conga:76,quinto:76,tumba:76,bongos:65,djembe:60,surdo:95,tamburello:100,campanaccio:100,chimes:140,templeblocks:95,triangoloperc:130,tavolopercussioni:90,
   crotali:120,woodblock:95,flexaton:92,
@@ -30613,7 +30628,7 @@ var DESC3D={ platea:"rows of audience chairs facing the stage", pedana:"black st
   stagepiano:"88-key stage piano on X stand", doppiatastiera:"two keyboards on double tier stand",
   celesta:"celesta, wooden body", panchetta:"black piano bench", arpa:"concert pedal harp, natural wood",
   gtstand:"electric guitar on stand", gtacustica:"acoustic guitar on stand", bassstand:"electric bass on stand",
-  loopstation:"loop station and effects unit on a small table", theremin:"theremin with pitch antenna and volume loop", syncgen:"small sync / timecode / word clock generator unit",
+  loopstation:"loop station and effects unit on a small table", theremin:"theremin with pitch antenna and volume loop", omnichord:"small cream electronic strum-plate instrument (Suzuki Omnichord) on a table or stand", syncgen:"small sync / timecode / word clock generator unit",
   djset:"DJ table with 2 turntables and mixer", astamic:"black straight microphone stand with mic",
   giraffa:"black boom microphone stand", astagigante:"very tall black overhead microphone stand, wide heavy tripod base, long telescopic boom with counterweight, over a choir",
   astabassa:"short/low microphone stand", coppiast:"stereo microphone pair on single stand with stereo bar",
