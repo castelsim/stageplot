@@ -4262,6 +4262,26 @@ var TYPES = {
   hazerhz400: {nome:"Hazer HZ-400", dim:"32×51 · 470 W", cat:"Luci", w:32,d:51,
     alias:"hazer haze antari hz400 hz 400 nebbia leggera foschia atmosfera teatro",
     draw:function(it){ if(typeof LIB_ICONS==="object" && LIB_ICONS.hazerhz400) return drawLibFit("hazerhz400",it,32,51); return bar(0,0,it.w,it.d,'ic fGrey',2); }},
+  /* DIMMER RACK Showtec DDP-610 MKII (lotto 3, 29/10/2026), a fianco del «Dimmer rack» generico che resta: manuale V1 p.6 e p.16, 483×380×88 mm (19" 2U), 12 kg, 6 canali × 10 A, max 60 A, alimentazione 230 V o 400 V trifase (32 A per fase). Disegnato in pianta: coperchio con feritoie e orecchie del rack; il pannello frontale è nel disegno del manuale, non visibile dall'alto. */
+  dimmerddp610: {nome:"Dimmer rack Showtec DDP-610 MKII", dim:"48×38 · 6 canali · 10 A", cat:"Luci", w:48,d:38,
+    alias:"dimmer rack showtec ddp 610 ddp610 mkii mk2 6 canali 19 pollici 2u dimmer pack teatro luci",
+    draw:function(it){ if(typeof LIB_ICONS==="object" && LIB_ICONS.dimmerddp610) return drawLibFit("dimmerddp610",it,48.3,38); return bar(0,0,it.w,it.d,'ic fGrey',2); }},
+  /* STROBOSCOPIO Martin Atomic 3000 LED (lotto 3), a fianco dello «Stroboscopio» generico: manuale P/N 35000290 Rev. C p.2 «Dimensions» 442 (424) × 245 × 160 mm, p.35 7,8 kg, consumo massimo 740 W (642 W tipici a 230 V). Forma in pianta [DEDOTTO] dalle viste frontale e laterale. */
+  stroboatomic: {nome:"Stroboscopio Martin Atomic 3000 LED", dim:"44×16 · 740 W", cat:"Luci", w:44,d:16,
+    alias:"stroboscopio strobo flash martin atomic 3000 led blinder harman effetto luci discoteca",
+    draw:function(it){ if(typeof LIB_ICONS==="object" && LIB_ICONS.stroboatomic) return drawLibFit("stroboatomic",it,44.2,16); return bar(0,0,it.w,it.d,'ic fGrey',2); }},
+  /* PAR LED Chauvet DJ SlimPAR Pro H USB (lotto 3), a fianco del «PAR / Wash» generico: manuale Rev. 6 p.3 (disegno quotato) e p.17: 253×98×290 mm (larghezza con le manopole, profondità del fusto, altezza con la forcella), 3,3 kg, 12 LED da 10 W, 96 W a 230 V. Fusto Ø210 mm dal disegno. */
+  parslimpar: {nome:"PAR LED Chauvet SlimPAR Pro H USB", dim:"25×10 · 96 W · 12 LED", cat:"Luci", w:25,d:10,
+    alias:"par led slimpar slim par pro h usb chauvet wash rgbw proiettore par 12 led luci teatro",
+    draw:function(it){ if(typeof LIB_ICONS==="object" && LIB_ICONS.parslimpar) return drawLibFit("parslimpar",it,25.3,9.8); return bar(0,0,it.w,it.d,'ic fGrey',2); }},
+  /* TESTA MOBILE Chauvet DJ Intimidator Spot 360X (lotto 3), a fianco della «Testa mobile» generica: manuale Rev. 1 p.3 (disegno quotato: base 323×220, testa 297×176, altezza 423 mm) e p.19: 322×220×423 mm, 11,4 kg, LED 100 W, 211 W a 230 V. Pianta con la testa verso l'alto. */
+  testaspot360x: {nome:"Testa mobile Chauvet Intimidator Spot 360X", dim:"32×22 · 211 W · spot LED 100 W", cat:"Luci", w:32,d:22,
+    alias:"testa mobile moving head spot led chauvet intimidator 360x 360 x 100 w luci teatro",
+    draw:function(it){ if(typeof LIB_ICONS==="object" && LIB_ICONS.testaspot360x) return drawLibFit("testaspot360x",it,32.3,22); return bar(0,0,it.w,it.d,'ic fGrey',2); }},
+  /* OCCHIO DI BUE Robert Juliat Roxie sul treppiede GT800 (lotto 3), a fianco del «Follow spot» generico: scheda Roxie2 1166-2 p.3, L 1045 (418 dietro il perno, 627 davanti), W 321, 20,5 kg, LED 300 W, 286 W a 230 V; treppiede GT800 (scheda DN41005300 p.2): «Foot print» cerchio Ø120 cm, 8 kg (peso totale 28,5 kg). Il perno sta sull'asse del treppiede; gambe disegnate [DEDOTTO]. */
+  followroxie: {nome:"Occhio di bue Robert Juliat Roxie", dim:"120×123 · 286 W · LED 300 W · treppiede", cat:"Luci", w:120,d:123,
+    alias:"occhio di bue follow spot followspot inseguitore seguipersona cannone robert juliat roxie led 300 treppiede gt800 teatro",
+    draw:function(it){ if(typeof LIB_ICONS==="object" && LIB_ICONS.followroxie) return drawLibFit("followroxie",it,120,122.7); return bar(0,0,it.w,it.d,'ic fGrey',2); }},
   /* ========== LUCI VIDEO E STUDIO (Simone 29/07) — luce CONTINUA da set, non fari da palco ==========
      Sono TIPOLOGIE tecniche (la famiglia di apparecchio), non modelli commerciali. Le misure sono
      l'INGOMBRO IN PIANTA TIPICO della categoria, ricavato ogni volta da un apparecchio rappresentativo
@@ -4576,7 +4596,7 @@ var SEARCH_ALIAS = {
   arraylarge:"casse cassa", arraymid:"casse cassa", sub218:"casse cassa", frontfill:"casse cassa",
   tromba:"tpt trp trumpet", corno:"hrn horn", tuba:"tba", fagotto:"fg",
   violapost:"vla", violoncello:"vc vlc cello", contrabbasso:"db cb upright", arpa:"harp",
-  consolaluci:"lx light desk", parluci:"lx", dimmerluci:"lx", dimmerport:"lx dimmer", testamobile:"lx", sagomatore:"lx",
+  consolaluci:"lx light desk", parluci:"lx", dimmerluci:"lx", dimmerport:"lx dimmer", dimmerddp610:"lx dimmer", testamobile:"lx", sagomatore:"lx",
 };
 /* 05/10, dai giri degli utenti (analisi/workaround/2026-10-05.md): parole cercate davvero senza risultato,
    o scritte a mano su un elemento preso al posto di quello giusto. Tabella a parte e AGGIUNTA in coda:
@@ -4616,7 +4636,7 @@ var SEARCH_ALIAS_GIRI = {
    Monitor separato dai Microfoni. "Allestimento" = rigging+strutture+sicurezza+site, in coda. */
 /* DIMMER: tipo → canali di default. Il rack da sala (12) e il pack portatile (4: Stairville DDS-405, 5 A per canale) condividono lo stesso
    comportamento: canali occupati dai carichi, nome «Canali del dimmer», nessun kW (assorbe ciò che porta). */
-var DIMMER_DEF={ dimmerluci:12, dimmerport:4 };
+var DIMMER_DEF={ dimmerluci:12, dimmerport:4, dimmerddp610:6 };
 /* CONSOLLE LUCI: la generica e i modelli veri (ETC ColorSource 40). Stesso trattamento: operatore luci, sistema «luci» della produzione, vista Luci. */
 var LIGHT_DESKS={ consolaluci:1, etccs40:1 };
 /* MACCHINE D'ATMOSFERA (fumo e hazer, generici e modelli veri): in lista luci non hanno bisogno del colore. */
@@ -4696,7 +4716,7 @@ var WATT = {
   amprack:2500,
   consolaluci:100, testamobile:350, parluci:150, sagomatore:400,   /* il dimmer NON e' qui: assorbe quello che porta, e lo somma il motore (29/07) */
   pcled:200, ribaltaled:242, barraled:24, dmxsplit:5, fumoz1500:1500, hazerhz400:470,
-  lucciola:30, sagomatoreled:200, ribaltaalogena:2000,
+  lucciola:30, sagomatoreled:200, ribaltaalogena:2000, stroboatomic:740, parslimpar:96, testaspot360x:211, followroxie:286,
     /* da scheda tecnica: PC HY LED 200 = 200 W, Solo Edge 3 = 242 W, LED BAR-12 = 24 W, DMX Split 8X = 5 W */
   farope:500, fresnel:500,   /* alogeni: lampada 300/500 W, il default e' il massimo — si abbassa dal pannello */
   /* LUCE CONTINUA DA STUDIO/VIDEO: un solo numero non descrive una categoria che va da 60 a 600 W, quindi
@@ -4979,7 +4999,7 @@ function equipName(it){ if(!it||!it.modelData) return null; var d=it.modelData;
 var EQUIP_CATS_BY_TYPE={ dimono:["di"], distereo:["di"],
   /* fari: il modello reale sta sul faro, non su tutta la categoria Luci — console, dimmer e macchine
      del fumo non hanno un catalogo di «fari» da cui scegliere (Simone 29/07) */
-  farope:["faro"], fresnel:["faro"], pcled:["faro"], ribaltaled:["faro"], barraled:["faro"], lucciola:["faro"], sagomatoreled:["faro"], ribaltaalogena:["faro"], parluci:["faro"], sagomatore:["faro"], testamobile:["faro"], followspot:["faro"],
+  farope:["faro"], fresnel:["faro"], pcled:["faro"], ribaltaled:["faro"], barraled:["faro"], lucciola:["faro"], sagomatoreled:["faro"], ribaltaalogena:["faro"], stroboatomic:["faro"], parslimpar:["faro"], testaspot360x:["faro"], followroxie:["faro"], parluci:["faro"], sagomatore:["faro"], testamobile:["faro"], followspot:["faro"],
   /* anche la luce continua da studio porta un modello reale, e la categoria del DB prodotti è la stessa
      dei fari: un apparecchio è un apparecchio, e chi noleggia scrive marca+modello sul rider */
   ledcob:["faro"], ledmono:["faro"], ledpanel:["faro"], ledflex:["faro"], ledtube:["faro"],
@@ -5074,7 +5094,7 @@ var WEIGHT = {
   stagebox:9, splitter:10, multicore:12, rack2u:15, rack4u:25, amprack:60,
   /* luci */
   consolaluci:12, dimmerluci:40, testamobile:25, parluci:8, sagomatore:15, followspot:30, farope:6, fresnel:6,
-  dimmerport:2, pcled:7.5, ribaltaled:10, barraled:2.85, dmxsplit:2.2, etccs40:4.33, fumoz1500:13.3, hazerhz400:18.5, sagomatoreled:11.5, ribaltaalogena:5.35,   /* kg di targa: DDS-405 2, PC HY LED 200 7,5, Solo Edge 3 10, LED BAR-12 2,85, Split 8X 2,22 */
+  dimmerport:2, pcled:7.5, ribaltaled:10, barraled:2.85, dmxsplit:2.2, etccs40:4.33, fumoz1500:13.3, hazerhz400:18.5, sagomatoreled:11.5, ribaltaalogena:5.35, dimmerddp610:12, stroboatomic:7.8, parslimpar:3.3, testaspot360x:11.4, followroxie:28.5,   /* kg di targa: DDS-405 2, PC HY LED 200 7,5, Solo Edge 3 10, LED BAR-12 2,85, Split 8X 2,22 */
   strobo:8, fumomachine:15, hazer:12, torrefaro:60,
   /* luce continua studio/video: peso dell'apparecchio di riferimento della categoria, arrotondato
      (LS 300d II testa ~3,2 · amaran 300c ~2,9 · Astra 6X ~3,2 · F22c telo+driver ~2 · Titan Tube 1,35 ·
@@ -8198,6 +8218,10 @@ var LIGHT_GEAR={
   hazerhz400: {sing:"hazer", plur:"hazer"},
   lucciola:   {sing:"lucciola LED", plur:"lucciole LED"},
   sagomatoreled: {sing:"sagomatore LED", plur:"sagomatori LED"},
+  stroboatomic: {sing:"stroboscopio", plur:"stroboscopi"},
+  parslimpar: {sing:"proiettore PAR / wash", plur:"proiettori PAR / wash"},
+  testaspot360x: {sing:"testa mobile", plur:"teste mobili"},
+  followroxie: {sing:"follow spot", plur:"follow spot"},
   ribaltaalogena: {sing:"ribalta alogena", plur:"ribalte alogene"},
   sagomatore: {sing:"sagomatore",            plur:"sagomatori"},
   testamobile:{sing:"testa mobile",          plur:"teste mobili"},
@@ -16726,7 +16750,7 @@ function elettricoIniziato(){
    attaccano a lui e lui al quadro — prima era un carico da 3600 W fissi e i PAR gli passavano
    accanto per andare dritti al quadro, che e' il contrario di come si cabla davvero.
    32 A trifase e 12 canali sono la taglia tipica di un rack da 12 kW: si cambiano dal pannello. */
-var ELEC_DISTRO ={ distro125:{a:125,ph:3,name:"Quadro 125A"}, distro63:{a:63,ph:3,name:"Distro 63A"}, distro32:{a:32,ph:3,name:"Distro 32A"}, quadro:{a:63,ph:3,name:"Quadro"}, ciabatta:{a:16,ph:1,name:"Ciabatta"}, dimmerluci:{a:32,ph:3,name:"Dimmer"}, dimmerport:{a:16,ph:1,name:"Dimmer"} };   /* il pack portatile: 16 A totali, monofase (manuale DDS-405) */
+var ELEC_DISTRO ={ distro125:{a:125,ph:3,name:"Quadro 125A"}, distro63:{a:63,ph:3,name:"Distro 63A"}, distro32:{a:32,ph:3,name:"Distro 32A"}, quadro:{a:63,ph:3,name:"Quadro"}, ciabatta:{a:16,ph:1,name:"Ciabatta"}, dimmerluci:{a:32,ph:3,name:"Dimmer"}, dimmerport:{a:16,ph:1,name:"Dimmer"}, dimmerddp610:{a:32,ph:3,name:"Dimmer"} };   /* il pack portatile: 16 A totali, monofase (manuale DDS-405) */
 var ELEC_SECTIONS = [[16,"2,5 mm²"],[32,"6 mm²"],[63,"16 mm²"],[125,"35 mm²"],[250,"70 mm²"]];
 function elecIsDistro(it){ return !!ELEC_DISTRO[it.type]; }
 function elecIsGen(it){ return GEN_KVA[it.type]!=null; }
