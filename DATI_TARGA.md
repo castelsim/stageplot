@@ -476,6 +476,18 @@ Briteq non ha un PC nel catalogo (i BT-THEATRE sono Fresnel): da chiarire con ch
 
 Limiti: per tutti i disegni in pianta la disposizione dei dettagli è dedotta (nessuna fonte ha una vista dall'alto quotata di questi apparecchi): sono vere le misure, indicative la forma. La console ha le colonne di fader misurate sulla vista frontale quotata. La console ETC è stata scelta perché elencata nelle schede tecniche di teatri italiani; nessuna statistica su quale sia la più diffusa. Console luci e macchine d'atmosfera ereditano il comportamento dei generici (`LIGHT_DESKS`, `FOG_GEAR`).
 
+**Lotto 3 (29/10/2026)** — modelli veri di dimmer rack, stroboscopio, PAR, testa mobile e occhio di bue; stessi criteri, i generici restano. Tutti in pianta (fronte/fascio verso il basso).
+
+| Tipo | Modello | Ingombro del documento → disegnato | kg | W | Fonte |
+|---|---|---|---|---|---|
+| `dimmerddp610` | Showtec DDP-610 MKII (rack 19" 2U, 6 canali × 10 A) | 48,3 × 38 × 8,8 cm → **48 × 38** | 12 | — | manuale V1 p.6 e p.16; 230 V o 400 V trifase, 32 A per fase (p.7, fig. 02); stesse misure per le varianti 610M/S/T |
+| `stroboatomic` | Martin Atomic 3000 LED | 44,2 × 24,5 × 16 cm → **44 × 16** | 7,8 | 740 | manuale Rev. C p.2 «Dimensions» (442/424 × 245/234 × 160 mm) e p.35; 740 W massimi, 642 W tipici a 230 V |
+| `parslimpar` | Chauvet DJ SlimPAR Pro H USB (12 × 10 W) | 25,3 × 9,8 × 29 cm → **25 × 10** | 3,3 | 96 | manuale Rev. 6 p.3 (disegno quotato) e p.17; 96 W a 230 V; fusto Ø21 cm dal disegno frontale |
+| `testaspot360x` | Chauvet DJ Intimidator Spot 360X (LED 100 W) | 32,3 × 22 × 42,3 cm → **32 × 22** | 11,4 | 211 | manuale Rev. 1 p.3 (base 323 × 220, testa 297 × 176, altezza 423 mm) e p.19; 211 W a 230 V |
+| `followroxie` | Robert Juliat Roxie (LED 300 W) su treppiede GT800 | 104,5 × 32,1 cm di corpo, ingombro a terra Ø120 cm → **120 × 123** | 28,5 | 286 | scheda Roxie2 1166-2 CW p.3 (L 1045 = 418 dietro il perno + 627 davanti, W 321, 20,5 kg, 286 W a 230 V); treppiede GT800 scheda DN41005300 p.2: «Foot print» cerchio Ø120 cm, 8 kg |
+
+Limiti: i PDF scaricati sono copie ospitate da rivenditori o distributori (jpleisure.co.uk, goknight.com, chauvetdj.com), non dai siti dei produttori; nessun manuale ha una vista dall'alto: sono vere le quote, indicativi i dettagli in pianta (feritoie, nervature, bracci). Il dimmer non mostra il pannello frontale (nel manuale: 6 interruttori, LCD, tasti) perché in pianta non si vede. Il PAR è in pianta (25 × 10 cm): il generico resta una vista frontale. Occhio di bue: le gambe del treppiede sono disegnate dietro/davanti [DEDOTTO], l'ingombro Ø120 cm è del produttore; l'altezza del corpo sul treppiede è 90–160 cm.
+
 ---
 
 ## 4. Cosa NON è verificato (e perché resta una stima)

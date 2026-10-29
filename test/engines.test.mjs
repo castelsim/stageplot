@@ -27286,6 +27286,65 @@ t("luci teatro 2: la ColorSource 40 si comporta come la console luci; fumo e haz
   ok(A.state.items.some((i) => i.type === "etccs40"), "si aggiunge al palco");
 });
 
+/* ====== LUCI PER IL TEATRO, LOTTO 3 (29/10/2026): dimmer rack DDP-610 MKII, stroboscopio Atomic 3000 LED, PAR SlimPAR Pro H USB, testa mobile Intimidator Spot 360X, occhio di bue Roxie ======
+   Stesse regole dei lotti 1 e 2: scala reale dai manuali, icone vettoriali < 20 KB senza loghi, marchi o scritte, in pianta; i modelli veri affiancano i generici, che restano. */
+t("luci teatro 3: cinque icone in cm del manuale, leggere e senza scritte né marchi", () => {
+  const spec = { dimmerddp610: [[0, 0, 48.3, 38], "ddp_"], stroboatomic: [[0, 0, 44.2, 16], "sta_"], parslimpar: [[0, 0, 25.3, 9.8], "psp_"],
+    testaspot360x: [[0, 0, 32.3, 22], "tsp_"], followroxie: [[0, 0, 120, 122.7], "fsr_"] };
+  conIcone(Object.keys(spec), (L) => {
+    for (const [k, [vb, pre]] of Object.entries(spec)) {
+      const o = L[k]; ok(o && o.body, "manca " + k + " in icons.js");
+      eq(o.vb, vb, k + ": viewBox = misure del documento (cm)");
+      ok(o.body.length < 20 * 1024, k + ": peso sotto i 20 KB: " + o.body.length + " byte");
+      ok(!/<text|<tspan|<image|<script|<title|<desc|font-|data:|href=|NaN|undefined/i.test(o.body), k + ": niente scritte, raster, riferimenti, valori rotti");
+      const classi = [...new Set([...o.body.matchAll(/class="([^"]+)"/g)].flatMap((m) => m[1].split(/\s+/)))];
+      ok(classi.length > 2 && classi.every((c) => c.startsWith(pre)), k + ": ogni classe ha il prefisso " + pre + ": " + classi.filter((c) => !c.startsWith(pre)));
+      ok(!/_cls-/.test(o.body), k + ": nessun nome «_cls-»");
+      ok(A.TYPES[k].draw({ type: k, w: A.TYPES[k].w, d: A.TYPES[k].d }).indexOf(pre) > -1, k + ": il tipo usa l'icona vera");
+    }
+    const n = (k, c) => (L[k].body.match(new RegExp('class="' + c + '"', "g")) || []).length;
+    eq(n("dimmerddp610", "ddp_aletta"), 2, "due campi di feritoie sul coperchio");
+    eq(n("followroxie", "fsr_gamba"), 3, "treppiede a tre gambe");
+    eq(n("followroxie", "fsr_cerchio"), 1, "il cerchio dell'ingombro a terra (Ø120 cm, scheda GT800)");
+    eq(n("testaspot360x", "tsp_perno"), 2, "due perni di inclinazione");
+    eq(n("parslimpar", "psp_perno"), 2, "due manopole di bloccaggio della forcella");
+    eq(n("stroboatomic", "sta_staffa"), 2, "due manopole laterali (442 − 424 mm)");
+  });
+  eq(A.TYPES.followroxie.draw({ type: "followroxie", w: 120, d: 123 }).indexOf("fsr_"), -1, "senza icons.js l'occhio di bue ripiega sulla barra grigia");
+});
+t("luci teatro 3: tipi, misure, potenze, pesi e rider; i generici restano", () => {
+  [["dimmerddp610", 48, 38], ["stroboatomic", 44, 16], ["parslimpar", 25, 10], ["testaspot360x", 32, 22], ["followroxie", 120, 123]].forEach(([k, w, d]) => {
+    ok(A.TYPES[k], k + ": manca nel catalogo"); eq([A.TYPES[k].w, A.TYPES[k].d], [w, d], k + ": ingombro del documento (arrotondato)"); });
+  ["dimmerluci", "strobo", "parluci", "testamobile", "followspot"].forEach((k) => ok(A.TYPES[k], k + ": il generico resta nel catalogo"));
+  ["stroboatomic", "parslimpar", "testaspot360x", "followroxie"].forEach((k) => ok(A.lightsIsGear(k) && A.LIGHT_GEAR[k].plur, k + ": entra nella lista luci"));
+  ok(!A.lightsIsGear("dimmerddp610"), "il dimmer è regia/cablaggio, non un apparecchio da chiedere nel rider");
+  reset();
+  eq(A.wattOf(add("stroboatomic", 300, 300)), 740, "Atomic 3000 LED: 740 W al massimo dichiarato");
+  eq(A.wattOf(add("parslimpar", 600, 300)), 96, "SlimPAR Pro H USB: 96 W a 230 V");
+  eq(A.wattOf(add("testaspot360x", 900, 300)), 211, "Intimidator Spot 360X: 211 W a 230 V");
+  eq(A.wattOf(add("followroxie", 300, 600)), 286, "Roxie: 286 W a 230 V");
+  eq(A.wattOf(add("dimmerddp610", 800, 600)), 0, "il dimmer non ha un numero fisso: assorbe ciò che porta");
+  eq([A.WEIGHT.dimmerddp610, A.WEIGHT.stroboatomic, A.WEIGHT.parslimpar, A.WEIGHT.testaspot360x, A.WEIGHT.followroxie], [12, 7.8, 3.3, 11.4, 28.5], "pesi di targa (occhio di bue: 20,5 + treppiede GT800 8 kg)");
+  const cerca = (q) => Object.keys(A.TYPES).filter((k) => ((A.TYPES[k].nome || "") + " " + (A.TYPES[k].alias || "")).toLowerCase().indexOf(q) > -1);
+  ok(cerca("ddp-610").indexOf("dimmerddp610") > -1 && cerca("atomic").indexOf("stroboatomic") > -1 && cerca("slimpar").indexOf("parslimpar") > -1
+     && cerca("intimidator").indexOf("testaspot360x") > -1 && cerca("occhio di bue").indexOf("followroxie") > -1, "si trovano con le parole del mestiere");
+});
+t("luci teatro 3: il dimmer DDP-610 ha 6 canali e 32 A per fase, e porta le luci come il rack", () => {
+  reset();
+  eq(A.DIMMER_DEF.dimmerddp610, 6, "6 canali di default (DDP-610 MKII)"); eq([A.DIMMER_DEF.dimmerluci, A.DIMMER_DEF.dimmerport], [12, 4], "gli altri dimmer restano invariati");
+  const dim = add("dimmerddp610", 850, 250); add("quadro", 950, 80);
+  ok(A.elecIsDistro(dim), "è una destinazione elettrica");
+  for (let i = 0; i < 6; i++) add("pcled", 150 + i * 120, 250);
+  A.state.elec.on = true; A.state.elec.mode = "auto"; A.__elecRes = null;
+  const R = A.elecResult(true);
+  const d = (R.distros || []).filter((x) => x.it && x.it.type === "dimmerddp610")[0];
+  ok(d, "il dimmer compare tra le destinazioni");
+  eq(Math.round(d.loadW), 1200, "porta la potenza dei sei PC LED (6 × 200 W)");
+  eq([d.a, d.ph], [32, 3], "32 A per fase, trifase (manuale p.7, fig. 02)");
+  const d2 = A.normalizeState({ stage: { w: 1200, d: 800 }, items: [{ id: "i1", type: "dimmerddp610", x: 100, y: 100, prese: 900 }] }).items[0];
+  ok(d2.prese <= 48, "un numero di canali assurdo viene riportato nei limiti: " + d2.prese);
+});
+
 await Promise.all(attese);
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
