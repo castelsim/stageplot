@@ -38,7 +38,8 @@ right-sized per la realtà del progetto, non un framework enterprise. Leggilo pr
 
 ## 4. Un lotto, dall'inizio alla fine
 
-1. Aggiornare il ramo (sopra) e leggere `handoff.md` in cima: dice cosa è cambiato di recente.
+1. Aggiornare il ramo (sopra) e leggere in cima il diario tecnico `../note/handoff_codice.md` (cartella privata
+   accanto al repo, come `collaudo/`; dal 29/10 fuori dal repo pubblico): dice cosa è cambiato di recente.
 2. Modificare `index.template.html` / `src/` (mai `app/index.html`), poi `node build.mjs`.
 3. **Ogni correzione ha il suo test** in `test/engines.test.mjs` (o `orchestre/test/`), e il test va
    provato **con mutazioni**: base verde, si rompe il codice apposta, il test deve diventare rosso,
@@ -57,7 +58,8 @@ right-sized per la realtà del progetto, non un framework enterprise. Leggilo pr
    stageplot.it (es. `curl https://stageplot.it/app.js | grep <funzione nuova>`). Si dice «fatto» solo dopo.
 7. Edge Function toccate (anche solo un modulo in `_shared/`): ridistribuire tutte quelle che lo importano
    con `supabase functions deploy <nome> --project-ref vsodplqkuvnsdiikvmjb --use-api`.
-8. Fine sessione: una sezione nuova **in cima** a `handoff.md`.
+8. Fine sessione: una sezione nuova **in cima** al diario tecnico `../note/handoff_codice.md`. Mai un `handoff.md`
+   dentro il repo: è in `.gitignore`.
 
 ## 5. Commit (Conventional Commits)
 
