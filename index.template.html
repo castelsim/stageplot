@@ -4093,8 +4093,11 @@ var TYPES = {
              draw:function(it){ return drawLibFit("sidefill",it,60,70); }},
   drumfill: {nome:"Drum fill", dim:"62×62", cat:"Monitor da palco", catalog:false, w:64,d:64, defLabel:"DRUM FILL",
              draw:function(it){ return drawLibFit("drumfill",it,64,70); }},
-  iem:      {nome:"IEM beltpack", dim:"simbolo", cat:"Monitor da palco", w:24,d:18, defLabel:"IEM",
-             draw:function(){ return bar(0,1,18,14,'ic mon fMon',2)+bar(0,-1,11,7,'sil',1)+
+  iem:      {nome:"IEM beltpack", dim:"7×11 · bodypack", cat:"Monitor da palco", w:7,d:11, defLabel:"IEM",
+             /* 02/11: il bodypack vero in scala (Shure PSM 300 P3R, 64×110 mm, dalla scheda tecnica del produttore); prima un simbolo 24×18 */
+             draw:function(it){
+               if(typeof LIB_ICONS==="object" && LIB_ICONS.beltpack_p3r) return drawLibFit("beltpack_p3r",it,6.4,11);
+               return bar(0,1,18,14,'ic mon fMon',2)+bar(0,-1,11,7,'sil',1)+
                lin(8,-6,13,-13,'ic mon')+circ(13,-13,2,'mon fill'); }},
   iemant:   {nome:"Rack TX in-ear", dim:"rack+antenne", cat:"Monitor da palco", catalog:false, w:60,d:46, defLabel:"TX IEM",
              draw:function(){ return bar(0,4,48,28,'ic mon fMon',4)+
@@ -4102,7 +4105,9 @@ var TYPES = {
                lin(18,-10,28,-22,'ic mon')+circ(28,-22,2.5,'mon fill')+
                bar(-12,4,12,8,'sil',1)+circ(13,4,5,'sil')+circ(13,4,1.6,'mon fill'); }},
   hearback: {nome:"Personal mixer", dim:"hearback", cat:"Monitor da palco", w:15,d:26, defLabel:"HEARBACK",
-             draw:function(){
+             draw:function(it){
+               /* 02/11: l'unità vera in scala (Behringer Powerplay P16-M, 134×257 mm da listino, pannello dal disegno del Quick Start); sotto il ripiego schematico */
+               if(typeof LIB_ICONS==="object" && LIB_ICONS.personalmixer_p16m) return drawLibFit("personalmixer_p16m",it,13.4,25.7);
                /* sola unità personal mixer 13×24 cm (scala reale), senza asta */
                var s='<rect class="ic mon fMon" x="-6.5" y="-12" width="13" height="24" rx="2.5"/>';   /* unità 13×24 */
                s+=bar(0,-7.5,9,4,'sil',1);                                                             /* display */

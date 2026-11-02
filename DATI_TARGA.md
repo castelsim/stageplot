@@ -196,6 +196,17 @@ le luci e per il personal monitor.
 | `nord_stage4_c` | Nord Stage 4 Compact | non dich. | — | 10,4 | idem |
 | `hammond_skxpro` | Hammond SkxPro | **22** | — | 16,9 | hammondorganco.com/skxpro-specs |
 
+### 3b-bis. Monitor personali: personal mixer e bodypack in-ear (aggiunto il 02/11/2026)
+
+Icone vere in scala al posto dei disegni schematici (richiesta di un utente sulle icone dei monitor). Wedge e side fill avevano già l'icona dettagliata.
+
+| tipo | modello di riferimento | cm | kg | fonte | nota |
+|---|---|---|---|---|---|
+| `hearback` (Personal mixer) | Behringer Powerplay P16-M | 13,4 × 25,7 (× 6,3) | 0,8 | rivenditori (Soundhouse 63×257×134 mm, Thomann); **il produttore non pubblica le quote** [DEDOTTO] | disposizione dei comandi dal disegno «P16-M Controls» del Quick Start Guide ufficiale: 16 tasti canale, 6 manopole equalizzatore/uscita, pan e volume con LED. Chiave `personalmixer_p16m`, prefisso `pm16_`, 6,8 KB |
+| `iem` (IEM beltpack) | Shure PSM 300 P3R | 6,4 × 11,0 (× 2,1) | 0,098 | scheda tecnica Shure PSM 300 (content-files.shure.com/Pubs/PSM300/PSM300_Spec_Sheet.pdf): 110 × 64 × 21 mm, 98 g senza batterie [CERTO] | posizione dei comandi dalla guida del produttore e dalla forma tipica [DEDOTTO]. Chiave `beltpack_p3r`, prefisso `iem3_`, 2,1 KB. Il tipo passa da 24×18 (simbolo) a 7×11 cm: i progetti già salvati tengono il vecchio ingombro e l'icona vi si adatta |
+
+Nessun logo, marchio o scritta nelle icone. Il rack TX in-ear (`iemant`, un rack da 6U) e l'hub (`mixhub`, parametrico) restano com'erano.
+
 ### 3b. Omnichord (aggiunto il 28/10/2026)
 
 Richiesta di un tecnico di teatro («strumenti fuori catalogo, per esempio l'Omnichord»). È un **modello preciso**, quindi
