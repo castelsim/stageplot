@@ -26560,6 +26560,33 @@ t("Omnichord: icona in cm del manuale, leggera, senza scritte né raster, con la
   eq(A.TYPES.omnichord.draw({ type: "omnichord", w: 46, d: 25 }).indexOf("omc_"), -1, "ripiego schematico finché la libreria non c'è");
 });
 
+/* 02/11/2026 — icone dei monitor (richiesta di un utente): personal mixer e bodypack in-ear veri, in scala, senza scritte né raster. */
+t("monitor: personal mixer P16-M e bodypack in-ear P3R hanno l'icona in cm, leggera, senza scritte né raster", () => {
+  conIcone(["personalmixer_p16m", "beltpack_p3r"], (L) => {
+    [["personalmixer_p16m", [0, 0, 13.4, 25.7], "pm16_", 16, "hearback", 15, 26], ["beltpack_p3r", [0, 0, 6.4, 11], "iem3_", 3, "iem", 7, 11]].forEach(([k, vb, pre, minTasti, tipo, w, d]) => {
+      const o = L[k];
+      ok(o && o.body, "manca " + k + " in icons.js");
+      eq(o.vb, vb, k + ": viewBox = misure in cm");
+      ok(o.body.length < 20 * 1024, k + ": peso sotto i 20 KB: " + o.body.length);
+      ok(!/<text|<tspan|<image|<script|<title|<desc|font-|data:|href=|NaN|undefined/i.test(o.body), k + ": niente scritte, raster, riferimenti, valori rotti");
+      const classi = [...new Set([...o.body.matchAll(/class="([^"]+)"/g)].flatMap((m) => m[1].split(/\s+/)))];
+      ok(classi.length > 3 && classi.every((c) => c.startsWith(pre)), k + ": ogni classe ha il prefisso " + pre + ": " + classi.filter((c) => !c.startsWith(pre)));
+      ok(!/_cls-/.test(o.body), k + ": nessun nome «_cls-»");
+      ok((o.body.match(/class="[a-z0-9]+_tasto"/g) || []).length >= minTasti, k + ": i tasti del pannello ci sono");
+      const a = A.TYPES[tipo].draw({ type: tipo, w, d });
+      ok(a.indexOf(pre) > -1 && !/<image/.test(a), k + ": il tipo " + tipo + " disegna l'icona vera");
+      const rif = [...a.matchAll(/url\(#([^)]+)\)/g)].map((m) => m[1]);
+      ok(rif.length > 0 && rif.every((id) => a.indexOf('id="' + id + '"') > -1), k + ": ogni gradiente richiamato esiste, con l'id riprefissato");
+    });
+    const n = (L.personalmixer_p16m.body.match(/class="pm16_tasto"/g) || []).length;
+    eq(n, 16 + 4 + 3, "P16-M: 16 tasti canale + 4 SETUP + MAIN/SOLO/MUTE");
+    eq((L.personalmixer_p16m.body.match(/class="pm16_manopola"/g) || []).length, 8, "P16-M: 8 manopole (bass, mid, freq, treble, limiter, level, pan, volume)");
+    eq(A.TYPES.iem.w + "x" + A.TYPES.iem.d, "7x11", "il bodypack in pianta è 7×11 cm, non più il simbolo 24×18");
+  });
+  eq(A.TYPES.hearback.draw({ type: "hearback", w: 15, d: 26 }).indexOf("pm16_"), -1, "ripiego schematico finché la libreria non c'è");
+  eq(A.TYPES.iem.draw({ type: "iem", w: 7, d: 11 }).indexOf("iem3_"), -1, "ripiego schematico anche per l'IEM");
+});
+
 /* Revisione del 19/10/2026 sul lotto del catalogo */
 t("revisione catalogo: la Loop station porta sul palco e in channel list un nome da palco, non quello del catalogo", () => {
   reset();
