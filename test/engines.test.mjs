@@ -27372,6 +27372,55 @@ t("luci teatro 3: il dimmer DDP-610 ha 6 canali e 32 A per fase, e porta le luci
   ok(d2.prese <= 48, "un numero di canali assurdo viene riportato nei limiti: " + d2.prese);
 });
 
+t("pagine pubbliche: lingua dichiarata, FAQPage solo con FAQ visibili, PDF modello raggiungibile, niente promesse false", () => {
+  /* Audit SEO del 02/11/2026. Quattro cose che si rompono in silenzio: la home riscritta a mano il
+     23/10 perse <html lang="it"> senza che nessun controllo se ne accorgesse; /guida/microfoni/
+     dichiarava a Google tre FAQ che in pagina non c'erano (markup che mente); il title di
+     rider-tecnico prometteva un «modello PDF» che la pagina non linkava; e dopo lo spegnimento dei
+     modelli (23/10) quattro pagine e llms.txt continuavano a parlare di «generatore di organico». */
+  const salta = (rel) => /(^|[\\/])[._]|[\\/]node_modules[\\/]/.test(rel);
+  const pagine = [];
+  (function scendi(dir, rel) {
+    for (const n of readdirSync(dir)) {
+      const p = join(dir, n), r = rel ? rel + "/" + n : n;
+      if (salta(r)) continue;
+      if (statSync(p).isDirectory()) scendi(p, r);
+      else if (n === "index.html") pagine.push({ rel: (rel ? rel + "/" : ""), html: readFileSync(p, "utf8") });
+    }
+  })(root, "");
+  const indicizzabili = pagine.filter((x) => !/name="robots" content="noindex/.test(x.html));
+  ok(indicizzabili.length >= 30, "il giro delle pagine non ha trovato niente: " + indicizzabili.length);
+
+  eq(indicizzabili.filter((x) => !/<html[^>]*\blang="it"/.test(x.html)).map((x) => "/" + x.rel),
+    [], "pagine indicizzabili senza <html lang=\"it\">");
+
+  /* Si confrontano le sole lettere e cifre: indipendente da entità (&euro;, &laquo;), apostrofi e spazi. */
+  const pulisci = (h) => h.replace(/<script[\s\S]*?<\/script>/g, " ").replace(/<[^>]+>/g, " ")
+    .replace(/&([aeiou])(?:grave|acute);/gi, "$1").replace(/&[a-z0-9#]+;/gi, " ").toLowerCase().normalize("NFD").replace(/\p{M}/gu, "").replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  for (const x of indicizzabili) {
+    const visibile = pulisci(x.html);
+    for (const m of x.html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)) {
+      const ld = JSON.parse(m[1]);
+      for (const n of (ld["@graph"] || [ld])) {
+        if (n["@type"] !== "FAQPage") continue;
+        for (const q of n.mainEntity) {
+          ok(visibile.indexOf(pulisci(q.name)) > -1, "/" + x.rel + ": domanda nel JSON-LD ma non in pagina: " + q.name);
+          ok(visibile.indexOf(pulisci(q.acceptedAnswer.text).slice(0, 60)) > -1, "/" + x.rel + ": risposta nel JSON-LD ma non in pagina: " + q.name);
+        }
+      }
+    }
+  }
+
+  const rider = readFileSync(join(root, "guida/rider-tecnico/index.html"), "utf8");
+  const pdf = "/guida/scheda-tecnica-band/esempio-scheda-tecnica-band-rock.pdf";
+  ok(rider.indexOf('href="' + pdf + '"') > -1, "rider-tecnico linka il modello PDF che il title promette");
+  ok(existsSync(join(root, pdf.slice(1))), "e il PDF esiste nel repo");
+
+  const llms = readFileSync(join(root, "llms.txt"), "utf8");
+  const tutte = pagine.map((x) => x.html).concat([llms]).join("\n");
+  ok(!/generator[ei] di organico/i.test(tutte), "nessuna pagina né llms.txt promette un «generatore di organico»");
+});
+
 await Promise.all(attese);
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
