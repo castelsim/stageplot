@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<!-- Regia delle domande del workshop. Si apre col codice di regia (lo tiene Simone; nel database c'è solo la sua impronta
+     cifrata). Il codice resta nella scheda (sessionStorage), mai nell'URL. Stessa CSP della bacheca: nessuno script inline. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src https://cbsxooaacnwtxnbwwomm.supabase.co; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="color-scheme" content="light dark">
+<title>Regia delle domande · Il suono del corto</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="../ws.css?v=1">
+</head>
+<body>
+<main class="ws-pagina ws-regia">
+  <p class="ws-sopra">Workshop di Simone Castellan</p>
+  <h1 class="ws-titolo"><span class="ws-titolo-regia">Regia delle domande</span><span class="ws-titolo-grande">Le domande del gruppo</span></h1>
+  <form id="accesso" class="ws-riga">
+    <label for="codice">Codice di regia</label>
+    <input type="password" id="codice" autocomplete="current-password" required>
+    <button class="primo" type="submit">Entra</button>
+  </form>
+  <p class="ws-errore" id="errore" role="alert" hidden></p>
+  <div id="dentro" hidden>
+    <div class="ws-controlli ws-riga">
+      <select id="f-chi" aria-label="Filtra per persona">
+        <option value="">Tutte le persone</option><option value="simone">Per Simone</option>
+        <option value="marco">Per Marco</option><option value="entrambi">Per tutti e due</option><option value="non-so">Non so</option>
+      </select>
+      <select id="f-arg" aria-label="Filtra per argomento"><option value="">Tutti gli argomenti</option></select>
+      <select id="f-stato" aria-label="Filtra per stato">
+        <option value="">Tutte</option><option value="aperte">Senza risposta</option><option value="nascoste">Nascoste</option>
+      </select>
+      <button type="button" id="grande">Vista grande</button>
+      <span id="agg" class="ws-nota"></span>
+    </div>
+    <div class="ws-conti" id="conti"></div>
+    <div id="elenco"></div>
+  </div>
+  <button type="button" class="ws-esci" id="esci">Esci dalla vista grande</button>
+</main>
+<script src="../comune.js?v=1"></script>
+<script src="regia.js?v=1"></script>
+</body>
+</html>
