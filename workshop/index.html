@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<!-- CSP: la pagina parla SOLO con il progetto dedicato «workshop-domande» (funzioni pubbliche bacheca, invia_domanda, vota).
+     Nessun terzo, nessuna statistica, nessuno script o stile inline. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src https://cbsxooaacnwtxnbwwomm.supabase.co; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="referrer" content="no-referrer">
+<meta name="color-scheme" content="light dark">
+<title>Domande del workshop · Il suono del corto</title>
+<meta name="description" content="La bacheca delle domande del workshop di Simone Castellan: scrivi una domanda o vota quelle degli altri.">
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="ws.css?v=1">
+</head>
+<body>
+<main class="ws-pagina">
+  <p class="ws-sopra">Workshop di Simone Castellan</p>
+  <h1 class="ws-titolo">Il suono del corto</h1>
+  <p class="ws-sotto">Le domande del gruppo</p>
+
+  <div class="ws-schede" role="tablist">
+    <button id="tab-bacheca" role="tab" aria-selected="true" aria-controls="bacheca">Più votate</button>
+    <button id="tab-nuova" role="tab" aria-selected="false" aria-controls="nuova">Nuova domanda</button>
+  </div>
+
+  <section id="bacheca" role="tabpanel" aria-labelledby="tab-bacheca">
+    <div id="elenco" aria-live="polite"><p class="ws-vuoto">Carico le domande…</p></div>
+  </section>
+
+  <section id="nuova" role="tabpanel" aria-labelledby="tab-nuova" hidden>
+    <form id="modulo" class="ws-modulo" novalidate>
+      <fieldset>
+        <legend>1 · Di cosa parla?</legend>
+        <div class="ws-scelte" id="argomenti"></div>
+      </fieldset>
+      <fieldset>
+        <legend>2 · A chi la fai?</legend>
+        <div class="ws-scelte" id="perchi"></div>
+      </fieldset>
+      <fieldset>
+        <legend><label for="testo">3 · La tua domanda</label></legend>
+        <textarea id="testo" maxlength="500" placeholder="Es. come si toglie il rumore del vento dalla voce?"></textarea>
+        <div class="ws-conta"><span id="conta">0</span>/500</div>
+      </fieldset>
+      <button class="ws-invia" id="invia" type="submit">Invia</button>
+      <div class="ws-avviso" id="avviso" role="status" hidden></div>
+      <p class="ws-nota">Anonima: non chiediamo il nome. Puoi mandare tutte le domande che vuoi.</p>
+    </form>
+  </section>
+
+  <noscript><p class="ws-vuoto">Per usare la bacheca serve JavaScript: attivalo nel browser e ricarica la pagina.</p></noscript>
+  <p class="ws-piede">Nessun account, nessun tracciamento.</p>
+</main>
+<script src="comune.js?v=1"></script>
+<script src="domande.js?v=1"></script>
+</body>
+</html>

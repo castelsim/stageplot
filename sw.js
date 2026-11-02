@@ -145,6 +145,8 @@ self.addEventListener("fetch", function (e) {
   if (url.pathname === "/biglietteria" || url.pathname.indexOf("/biglietteria/") === 0) return;
   /* Il programma di sala (/programma/*): il contenuto cambia a ogni concerto, sempre dalla rete. */
   if (url.pathname === "/programma" || url.pathname.indexOf("/programma/") === 0) return;
+  /* Il workshop (/workshop/*): bacheca delle domande e regia, sempre dalla rete (le domande cambiano ogni secondo). */
+  if (url.pathname === "/workshop" || url.pathname.indexOf("/workshop/") === 0) return;
   /* Analisi vocale (/voce/*) è un programma separato (GPL-3, github.com/castelsim/voce):
      il SW dell'editor non la cacha, così ogni aggiornamento arriva intero e mai mescolato. */
   if (url.pathname === "/voce" || url.pathname.indexOf("/voce/") === 0) return;
