@@ -27476,6 +27476,12 @@ t("caso Zuliani: «Aggiungi distro» posa un quadro libero e collega i carichi",
 });
 
 
+t("menu del telefono: «Funzioni avanzate» dice PRIMA che connessioni e liste tecniche sono solo sul computer", () => {
+  const tpl = readFileSync(join(root, "index.template.html"), "utf8");
+  ok(/data-act="funzioni"><span class="mrow-t">Funzioni avanzate<small class="mrow-s">[^<]*solo sul computer/.test(tpl), "nota nella riga del menu");
+  ok(/#mActions \.mrow-s\{/.test(stylesCss), "stile della nota");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
 
