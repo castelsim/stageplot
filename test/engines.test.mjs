@@ -25022,6 +25022,22 @@ function docDueVarianti(itemsA, itemsB, extraB) {
     { id: "vA", name: "Piena", state: { titolo: "T", items: itemsA, inputs: [], outputs: [] } },
     { id: "vB", name: "Copia dimenticata", state: Object.assign({ titolo: "T", items: itemsB, inputs: [], outputs: [] }, extraB || {}) } ] });
 }
+t("molte varianti: «Tutte (N)» elenca ogni variante e il «+» resta ultimo", () => {
+  /* segnalazione 03/11: con tante varianti la barra scorre e le schede fuori vista non si trovano */
+  const v0 = A.VARIANTS, a0 = A.activeVar;
+  try {
+    A.VARIANTS = [1, 2, 3, 4].map(i => ({ id: "v" + i, name: "V" + i })); A.activeVar = "v1";
+    ok(!/vtab-all/.test(A.variantTabsHtml()), "con 4 varianti il menu non serve");
+    A.VARIANTS = [1, 2, 3, 4, 5, 6].map(i => ({ id: "v" + i, name: i === 3 ? "<X>" : "V" + i })); A.activeVar = "v3";
+    const h = A.variantTabsHtml();
+    ok(/class="vtab-all"[^>]*>Tutte \(6\)<\/button>/.test(h), "da 5 in su compare «Tutte (N)»");
+    ok(/>\+<\/button>$/.test(h) && h.indexOf("vtab-all") < h.indexOf("vtab-add"), "il «+» resta l'ultimo");
+    const m = A.variantAllHtml();
+    eq((m.match(/data-vgo=/g) || []).length, 6, "una voce per variante");
+    ok(/data-vgo="v3" aria-current="true">✓ &lt;X&gt;/.test(m), "l'attiva e' segnata e il nome e' testo");
+  } finally { A.VARIANTS = v0; A.activeVar = a0; }
+  ok(/function mostraVarianteAttiva\(\)/.test(appjs) && /bar\.innerHTML=variantTabsHtml\(\);\s*mostraVarianteAttiva\(\);/.test(appjs), "la scheda attiva viene portata in vista a ogni disegno");
+});
 t("variante identica: due varianti uguali, avviso su entrambe", () => {
   reset();
   docDueVarianti([itV("i1"), itV("i2", { x: 300 })], [itV("i1"), itV("i2", { x: 300 })]);
