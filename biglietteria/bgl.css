@@ -40,7 +40,7 @@ h1:focus,h2:focus{outline:none}
 
 /* --- intestazione dell'evento --- */
 .ev{padding:22px 0 14px}
-.ev-marchio{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3);font-weight:700}
+.ev-marchio{margin:0;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-3);font-weight:700}
 .ev-titolo{font-size:26px;line-height:1.2;letter-spacing:-.015em;margin:4px 0 8px;overflow-wrap:anywhere}
 .ev-quando{font-weight:600;font-size:17px}
 .ev-quando::first-letter{text-transform:uppercase}
