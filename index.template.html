@@ -3582,6 +3582,12 @@ var TYPES = {
   /* --- revisione 05/07: nuove voci (lotto 1) --- */
   tavolopercussioni: {nome:"Tavolo percussioni", dim:"120×60", cat:"Batteria e percussioni", sub:"Percussioni", w:120,d:60,
              draw:function(it){ return drawLibFit("tavolopercussioni",it,120,60); }},
+  /* A2 (esemplari 03/11): il paravento in plexiglass della batteria stava nei progetti veri solo come «forma» o «testo».
+     Pannello trasparente ridimensionabile (3-4 in fila o ruotati a U attorno al kit): 150 cm di pannello, 6 di spessore. */
+  paraventobatt: {nome:"Plexiglass batteria", dim:"pannello 150×6", cat:"Batteria e percussioni", sub:"Percussioni", w:150,d:6, resizable:true, z:2, defLabel:"Plexi",
+             draw:function(it){ var w=it.w||150, d=it.d||6;
+               return '<rect class="ic thin" x="'+(-w/2)+'" y="'+(-d/2)+'" width="'+w+'" height="'+d+'" rx="1" fill="#8fd0e8" fill-opacity=".45" stroke="#2b6f8e"/>'
+                 + bar(-w/2+3,0,5,d+4,'ic fGrey',1)+bar(w/2-3,0,5,d+4,'ic fGrey',1); }},
   spdsx: {nome:"SPD-SX (pad)", dim:"40×36", cat:"Batteria e percussioni", sub:"Percussioni", w:40,d:36,
              draw:function(it){ return drawLibFit("spdsx",it,40,36); }},
   organoconsole: {nome:"Organo a canne", dim:"150×90", cat:"Orchestra", sub:"Organo e clavicembalo", w:150,d:90,
@@ -4596,6 +4602,7 @@ var SEARCH_ALIAS = {
   crotali:"crotali crotalo cimbalino cimbali antichi antique cymbals dischi ottone perc",
   woodblock:"wood block woodblock blocco di legno cassa cinese legnetto perc",
   flexaton:"flexaton flexatone lamella lamina flessibile perc",
+  paraventobatt:"paravento batteria plexi parasuoni parasuoni schermo trasparente drum shield batterista",
   tavolopercussioni:"tavolo percussioni appoggio piccoli perc trap table",   /* niente "piano d'appoggio": la ricerca è a sottostringa e "piano" deve dare il pianoforte */
   quinto:"congas latin perc", tumba:"congas tumbadora latin perc", bongos:"bongo macho hembra latin perc",
   micover:"oh",
@@ -33026,7 +33033,7 @@ function resetCatalogView(){
    regole di render e validazione. Le coordinate dei components sono RELATIVE al
    centro dell'item padre (relative_to_parent). */
 /* altezze tipiche in cm (override per tipo; fallback per categoria) */
-var H3D={ pedana:0,scala:40,rampa:40,parapetto:110,fondale:400,quinta:400,truss:30,transenna:120, topattivo:180,
+var H3D={ paraventobatt:150, pedana:0,scala:40,rampa:40,parapetto:110,fondale:400,quinta:400,truss:30,transenna:120, topattivo:180,
   tappeto:1,tavolo:75,sedia:85,sedialeggio:115,leggio:125,podio:20,pedanacoro:60,sgabello:75,ventilatore:120,
   loopstation:90,theremin:100,omnichord:85,syncgen:10,
   batteria:120,edrums:110,drumshield:180,rullante:80,percussioni:90,cajon:48,cajonpost:48,timbales:90,
