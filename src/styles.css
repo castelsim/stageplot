@@ -3519,6 +3519,7 @@ body:not(.f-controllo) #prodInline{display:none !important}
 #funzModal .funz-master b, #funzModal .funz-voce b{display:block;font-size:13px;font-weight:600;color:var(--text)}
 #funzModal .funz-master b{font-size:14px}
 #funzModal .funz-master small, #funzModal .funz-voce small{display:block;margin-top:1px;font-size:12px;line-height:1.35;color:var(--text-2)}
+#mActions .mrow-s{display:block;margin-top:2px;font-size:12px;font-weight:400;color:var(--text-3);line-height:1.3;white-space:normal}
 #funzModal .funz-pc{display:none;font-style:normal;font-weight:400;color:var(--text-3)}
 #funzModal .funz-nota{margin:12px 0 0;font-size:12px;line-height:1.4;color:var(--text-3)}
 #funzModal .funz-azioni{display:flex;justify-content:flex-end;margin-top:14px}
