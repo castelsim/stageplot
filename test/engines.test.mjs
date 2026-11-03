@@ -27485,6 +27485,18 @@ t("menu del telefono: «Funzioni avanzate» dice PRIMA che connessioni e liste t
   ok(/data-act="funzioni"><span class="mrow-t">Funzioni avanzate<small class="mrow-s">[^<]*solo sul computer/.test(tpl), "nota nella riga del menu");
   ok(/#mActions \.mrow-s\{/.test(stylesCss), "stile della nota");
 });
+t("A3 coro «N su K file»: le voci si spartiscono in file pari, ognuna con il suo gradone; senza il parametro resta per sezioni", () => {
+  const c = { sop: 8, con: 8, ten: 6, bas: 6 };   /* 28 voci */
+  const out = A.buildVoiceOrganicoOut(c, { riser: true, file: 4 });
+  const ys = [...new Set(out.filter((o) => o.type === "corista").map((o) => o.y))];
+  eq(ys.length, 4, "quattro file");
+  eq(out.filter((o) => o.type === "corista").length, 28, "tutte le voci ci sono");
+  eq(out.filter((o) => o.type === "pedanacoro").length, 4, "un gradone per fila");
+  eq(out.filter((o) => o.type === "pedanacoro").map((p) => p.h).sort((a, b) => a - b).join(","), "20,40,60,80", "alzati di 20 cm a fila");
+  const orig = A.buildVoiceOrganicoOut(c, { riser: true });
+  eq([...new Set(orig.filter((o) => o.type === "corista").map((o) => o.y))].length, 2, "senza file: le due file di sempre");
+  eq(A.buildVoiceOrganicoOut(c, { file: 9 }).filter((o) => o.type === "corista").map((o) => o.y).filter((y, i, a) => a.indexOf(y) === i).length <= 6, true, "massimo 6 file");
+});
 
 t("ricerca «chitarra»: per prima la chitarra elettrica, poi le altre", () => {
   const r = A.__spSearch("chitarra").map((x) => x.k);
