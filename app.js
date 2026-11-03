@@ -24124,9 +24124,19 @@ function buildVoiceOrganicoOut(counts, opts){
   /* S/C = voci femminili, T/B = maschili; capelli variati per realismo */
   var out=[], rowsDef=[ [["sop","S",true],["con","C",true]], [["ten","T",false],["bas","B",false]] ];   /* davanti S+C, dietro T+B */
   var sp=64, rowGap=130, frontY=-220;
-  rowsDef.forEach(function(rowSecs, ri){
+  /* A3 (03/11/2026, esemplari): «N coristi su K file». Con opts.file (2-6) le voci, in ordine S C T B, si spartiscono in K file
+     pari su altrettanti gradoni (nei progetti veri: 36 pedane a mano, coristi impilati). Senza, resta il coro per sezioni di sempre. */
+  var K=Math.max(0, Math.min(6, Math.round(+opts.file)||0)), perFila=null;
+  if(K>=2){
+    var tutti=[]; rowsDef.forEach(function(rowSecs){ rowSecs.forEach(function(sec){ var n=counts[sec[0]]||0; for(var i=0;i<n;i++) tutti.push({lbl:sec[1]+" "+(i+1), donna:sec[2]}); }); });
+    var per=Math.ceil(tutti.length/K), file=[];
+    for(var f=0; f<K; f++){ var parte=tutti.slice(f*per,(f+1)*per); if(parte.length) file.push(parte); }
+    perFila=file;
+  }
+  (perFila ? perFila.map(function(parte){ return {singers:parte}; }) : rowsDef).forEach(function(rowSecs, ri){
     var singers=[];
-    rowSecs.forEach(function(sec){ var n=counts[sec[0]]||0; for(var i=0;i<n;i++) singers.push({lbl:sec[1]+" "+(i+1), donna:sec[2]}); });
+    if(perFila) singers=rowSecs.singers;
+    else rowSecs.forEach(function(sec){ var n=counts[sec[0]]||0; for(var i=0;i<n;i++) singers.push({lbl:sec[1]+" "+(i+1), donna:sec[2]}); });
     var m=singers.length; if(!m) return;
     var totW=(m-1)*sp, x0=-totW/2, y=frontY-ri*rowGap;
     if(opts.riser) out.push({type:"pedanacoro", x:0, y:y-12, w:Math.max(400,totW+150), d:120, h:20+ri*20, label:""});
@@ -24156,7 +24166,7 @@ function genVoiceOrganico(counts, opts, fitStage, clearFirst, force){
   document.getElementById("voiceGo").addEventListener("click", function(){
     var counts=readVoiceCounts();
     if(!voiceTotal(counts)){ alert("Inserisci almeno una voce."); return; }
-    var opts={ director:document.getElementById("voiceDir").checked, mics:document.getElementById("voiceMics").checked, riser:document.getElementById("voiceRiser").checked };
+    var opts={ director:document.getElementById("voiceDir").checked, mics:document.getElementById("voiceMics").checked, riser:document.getElementById("voiceRiser").checked, file:+document.getElementById("voiceFile").value||0 };
     if(genVoiceOrganico(counts, opts, document.getElementById("voiceFit").checked, document.getElementById("voiceClear").checked)){ modal.hidden=true; fit(); }
   });
 })();
