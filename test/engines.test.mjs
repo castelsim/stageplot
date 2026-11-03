@@ -6496,7 +6496,7 @@ t("stampando al 100% il cartiglio non finisce dove la stampante non arriva", () 
   /* il disegno non si rimpicciolisce: lo spazio era già riservato sotto */
   eq(L.drawH, L.ph - L.M - 27 - 5 - (L.M + 7), "l'area del disegno è quella di prima");
   ok((L.ph - L.M - 27 - 5) <= (L.ph - L.fondo - 27) - 5, "e fra disegno e cartiglio restano 5 mm per «PUBBLICO»");
-  ok(/doc\.text\("Creato con stageplot\.it", pw-10, ph-4\.5,/.test(appjs), "anche il credito si alza dal bordo");
+  ok(/ph-4\.5, \{url:"https:\/\/stageplot\.it\/\?utm_source=pdf/.test(appjs) && /doc\.text\(credito, pw-10, ph-4\.5,/.test(appjs), "anche il credito si alza dal bordo");
 });
 
 t("il cartiglio si alza quando c'e' la riga dei totali", () => {
@@ -23283,6 +23283,8 @@ function docFinto(pagine, larghezzaMm) {
     internal: { pageSize: { getWidth: () => larghezzaMm || 210, getHeight: () => 297 } },
     setFont() {}, setFontSize() {}, setTextColor() {},
     text: (t, x, y, o) => testi.push({ t: String(t), x, y, o }),
+    textWithLink: (t, x, y, o) => testi.push({ t: String(t), x, y, o }),
+    getTextWidth: (t) => String(t).length * 1.2,
     /* 1 carattere ≈ 2,1 mm a 12 pt: abbastanza per decidere se va a capo */
     splitTextToSize: (t, w) => { const max = Math.floor(w / 2.1), out = []; let r = "";
       String(t).split(" ").forEach((p) => { if ((r + " " + p).trim().length > max && r) { out.push(r); r = p; } else r = (r + " " + p).trim(); });
@@ -23296,6 +23298,8 @@ t("PDF: «N di T» su ogni foglio, anche quando il foglio è uno solo", () => {
   eq(d3.testi.filter((x) => /^\d+ di 3$/.test(x.t || "")).map((x) => x.t), ["1 di 3", "2 di 3", "3 di 3"], "«N di 3» su tutte");
   ok(d3.testi.filter((x) => x.t === "Creato con stageplot.it").length === 3, "e il credito resta");
   ok(!d3.testi.some((x) => /^pag /.test(x.t || "")), "niente più «pag N/M»");
+  const cr = d3.testi.filter((x) => x.t === "Creato con stageplot.it");
+  ok(cr.every((x) => x.o && /^https:\/\/stageplot\.it\/\?utm_source=pdf&/.test(x.o.url)), "il credito è un link tracciato (utm_source=pdf)");
   const d1 = docFinto(1); A.pdfCredit(d1);
   eq(d1.testi.filter((x) => /^\d+ di \d+$/.test(x.t || "")).map((x) => x.t), ["1 di 1"], "un foglio solo dice «1 di 1»");
 });

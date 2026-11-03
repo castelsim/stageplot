@@ -36381,7 +36381,12 @@ function pdfCredit(doc){
     doc.setPage(i);
     var ps=doc.internal.pageSize, pw=ps.getWidth(), ph=ps.getHeight();
     doc.setFont("helvetica","normal"); doc.setFontSize(6.5); doc.setTextColor(156,163,175);
-    doc.text("Creato con stageplot.it", pw-10, ph-4.5, {align:"right"});   /* a 2,8 mm dal bordo la stampante non arrivava */
+    /* Il credito è un link tracciato (03/11): i PDF vanno a service e locali, e senza link non si sapeva
+       se qualcuno arrivava da lì. `utm_source=pdf` lo legge il contatore della home (ref «pdf»). */
+    var credito="Creato con stageplot.it";
+    if(typeof doc.textWithLink==="function" && typeof doc.getTextWidth==="function")
+      doc.textWithLink(credito, pw-10-doc.getTextWidth(credito), ph-4.5, {url:"https://stageplot.it/?utm_source=pdf&utm_medium=export"});
+    else doc.text(credito, pw-10, ph-4.5, {align:"right"});   /* a 2,8 mm dal bordo la stampante non arrivava */
     /* il numero di pagina (revisione 28/09: su 30 pagine controllate, nessuna numerata — fogli separati fra
        regia e palco non si rimettevano in ordine). Più scuro del credito: questo si deve leggere.
        «1 di N» su ogni foglio, anche quando è uno solo (regola del 06/10 per ogni PDF che esce da qui). */

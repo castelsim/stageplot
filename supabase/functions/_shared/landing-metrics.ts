@@ -50,6 +50,8 @@ export function normalizzaProvenienza(host: unknown): string {
   if (typeof host !== "string" || host.trim() === "") return "diretto";
   const h = host.trim().toLowerCase().replace(/^www\./, "").slice(0, 120);
   if (!/^[a-z0-9.:-]+$/.test(h)) return "altro";
+  // il credito «Creato con stageplot.it» dei PDF esportati porta ?utm_source=pdf: l'unico utm riconosciuto
+  if (h === "utm:pdf") return "pdf";
   if (PROVENIENZE[h]) return PROVENIENZE[h];
   // un motore o un social ha molti sottodomini (it.search.yahoo.com, m.facebook.com…):
   // si guarda se una chiave nota compare come pezzo del nome, non come sottostringa qualsiasi
