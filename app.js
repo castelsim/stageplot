@@ -4443,6 +4443,7 @@ function renderVariantBar(){
   bar.hidden=ospite;
   if(ospite){ var vm=document.getElementById("variantMenu"); if(vm) vm.hidden=true; return; }
   bar.innerHTML=variantTabsHtml();
+  mostraVarianteAttiva();
 }
 /* Le schede delle varianti, come testo: una funzione pura, così si prova senza DOM. */
 function variantTabsHtml(){
@@ -4454,9 +4455,26 @@ function variantTabsHtml(){
       (gemella ? ' — contenuto uguale a «'+esc(gemella)+'»' : '')+'">'+esc(nome)+
       (gemella ? '<span class="vtab-eq" aria-label="uguale a '+esc(gemella)+'">= '+esc(gemella)+'</span>' : '')+'</button>';
   }
+  /* Con molte varianti la barra scorre e le schede fuori vista non si trovano (segnalazione 03/11): da 5 in su
+     compare «Tutte (N)», che elenca ogni variante in un menu. Prima del «+», che resta sempre l'ultimo. */
+  if(VARIANTS.length>=VARIANTI_MENU_MIN) html+='<button type="button" class="vtab-all" aria-haspopup="menu" title="Elenco di tutte le varianti">Tutte ('+VARIANTS.length+')</button>';
   /* con una sola variante il «+» dice cosa fa; con più varianti le schede lo spiegano già */
   html+='<button type="button" class="vtab-add" title="Nuova variante: copia di quella attiva" aria-label="Nuova variante">'+(VARIANTS.length>1 ? '+' : '+<span class="hdr-lbl"> Variante</span>')+'</button>';
   return html;
+}
+var VARIANTI_MENU_MIN=5;
+function variantAllHtml(){
+  var uguali=VARIANTS.length>1 ? variantiUguali() : {}, h="";
+  for(var i=0;i<VARIANTS.length;i++){ var v=VARIANTS[i], on=(v.id===activeVar), nome=v.name||("Variante "+(i+1));
+    h+='<button type="button" class="mi'+(on?' on':'')+'" role="menuitem" data-vgo="'+esc(v.id)+'"'+(on?' aria-current="true"':'')+'>'+(on?'✓ ':'')+esc(nome)+(uguali[v.id]?' <small>= '+esc(uguali[v.id])+'</small>':'')+'</button>'; }
+  return h;
+}
+/* la scheda attiva sempre in vista, senza scorrere la pagina: si muove solo la barra */
+function mostraVarianteAttiva(){
+  var bar=document.getElementById("variantBar"); if(!bar || bar.hidden) return;
+  var on=bar.querySelector(".vtab.on"); if(!on) return;
+  var l=on.offsetLeft, r=l+on.offsetWidth;
+  if(l<bar.scrollLeft) bar.scrollLeft=Math.max(0,l-8); else if(r>bar.scrollLeft+bar.clientWidth) bar.scrollLeft=r-bar.clientWidth+8;
 }
 /* La stessa barra, nel menu del telefono. Si ridisegna DENTRO renderVariantBar, che ogni cambio di
    variante già chiama: un secondo aggancio da tenere allineato a mano prima o poi si dimentica.
@@ -4507,8 +4525,21 @@ function confirmDeleteVariant(id){
 (function(){
   var bar=document.getElementById("variantBar"), menu=document.getElementById("variantMenu");
   function chiudiMenu(){ if(menu) menu.hidden=true; }
+  var all=document.getElementById("variantAll");
+  function chiudiTutte(){ if(all) all.hidden=true; }
+  if(all) all.addEventListener("click", function(e){
+    var b=e.target.closest("[data-vgo]"); if(!b) return;
+    var id=b.getAttribute("data-vgo"); chiudiTutte(); if(id!==activeVar) switchVariant(id);
+  });
   if(bar) bar.addEventListener("click", function(e){
-    if(e.target.closest(".vtab-add")){ chiudiMenu(); createVariant(); return; }
+    if(e.target.closest(".vtab-add")){ chiudiMenu(); chiudiTutte(); createVariant(); return; }
+    var tt=e.target.closest(".vtab-all");
+    if(tt){ chiudiMenu(); if(all && !all.hidden){ chiudiTutte(); return; }
+      document.querySelectorAll(".hdrmenu").forEach(function(x){ x.hidden=true; });
+      if(!all) return; all.innerHTML=variantAllHtml(); var rr=tt.getBoundingClientRect();
+      all.style.top=(rr.bottom+6)+"px"; all.style.left=Math.max(8, Math.min(rr.left, innerWidth-250))+"px"; all.hidden=false;
+      var cur=all.querySelector(".on"); if(cur && cur.scrollIntoView) cur.scrollIntoView({block:"nearest"}); return; }
+    chiudiTutte();
     var t=e.target.closest(".vtab"); if(!t) return;
     var id=t.getAttribute("data-var");
     if(id!==activeVar){ chiudiMenu(); switchVariant(id); return; }   /* un'altra scheda: ci si passa */
@@ -4535,8 +4566,9 @@ function confirmDeleteVariant(id){
   });
   /* l'attiva può essere cambiata dall'ultimo disegno: ci si passa sopra e l'avviso si ricalcola (solo se cambia) */
   if(bar){ bar.addEventListener("mouseenter", rinfrescaAvvisiVarianti); bar.addEventListener("focusin", rinfrescaAvvisiVarianti); }
-  document.addEventListener("click", function(e){ if(menu && !menu.hidden && !e.target.closest("#variantMenu") && !e.target.closest("#variantBar")) chiudiMenu(); });
-  document.addEventListener("keydown", function(e){ if(e.key==="Escape") chiudiMenu(); });
+  document.addEventListener("click", function(e){ if(menu && !menu.hidden && !e.target.closest("#variantMenu") && !e.target.closest("#variantBar")) chiudiMenu();
+    if(all && !all.hidden && !e.target.closest("#variantAll") && !e.target.closest(".vtab-all")) chiudiTutte(); });
+  document.addEventListener("keydown", function(e){ if(e.key==="Escape"){ chiudiMenu(); chiudiTutte(); } });
   var msel=document.getElementById("mVariantSel");
   if(msel) msel.addEventListener("change", function(){ switchVariant(this.value); if(window.toggleMobileMenu) window.toggleMobileMenu(false); });
 })();
