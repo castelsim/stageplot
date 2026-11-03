@@ -1752,7 +1752,7 @@ var TYPES = {
              draw:function(it){ return diDraw(it); }},
   distereo: {nome:"DI box stereo", dim:"19×13", cat:"Microfoni e DI", sub:"DI", catalog:false, w:19,d:13, defLabel:"DI",
              draw:function(it){ return diDraw(it); }},   /* catalog:false: sostituito dal DI box unico; resta per i progetti vecchi (migrato a dimono+stereo) */
-  stagebox: {nome:"Stagebox", dim:"33×17", cat:"Cablaggio e segnale", w:33,d:17, defLabel:"STAGEBOX",
+  stagebox: {nome:"Stagebox", dim:"33×17", cat:"Cablaggio e segnale", w:33,d:17, defLabel:"Stage box",
              /* la taglia segue i canali via sbAutoSize (18/07): 8in/0out = ciabattina 34×26.
                 Il pannello è generato sui canali reali (sbDraw): niente più icona fissa a 24 XLR. */
              draw:function(it){ return sbDraw(it); }},
@@ -28442,7 +28442,7 @@ function renderPatchPanel(){
     txt.innerHTML = boxReali.length
       ? ('<b>'+freeRows.length+'</b> '+(freeRows.length===1?"canale da collegare":"canali da collegare"))
       : ('<b>'+freeRows.length+'</b> '+(freeRows.length===1?"canale":"canali")+
-         ' <span class="lbl-note">— li collega il service. Aggiungi una stage box se vuoi disegnarlo tu</span>');
+         ' <span class="lbl-note">— il service li collega. Aggiungi una stage box se vuoi disegnarli tu</span>');
   } else txt.innerHTML='\u2713 Tutti i canali sono cablati';
   bar.appendChild(txt);
   if(cap){ var cs=document.createElement("span"); cs.className="cab-bar-cap"; cs.textContent=cap;
@@ -36747,6 +36747,7 @@ if(qForm){
     state.inputs=qd.inp.map(normalizeChannelRow);
     state.outputs=qd.outp.map(normalizeChannelRow);
     linkChannelsToItems(); save(); }   /* aggancia patch→oggetti per il test del link */
+  else { try{ setTimeout(function(){ if(typeof showToast==="function") showToast("Il modello «"+qForm+"» non esiste: parti da un palco vuoto o scegli un modello dal menu."); },600); }catch(_e){} }
 }
 /* Modelli pubblici (landing SEO /stage-plot/…): ?model=<key> apre l'editor con la formazione pronta.
    Alias per gli slug delle landing esistenti (orchestra→camera, chiesa/festival→coro/band). */

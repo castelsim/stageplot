@@ -22176,8 +22176,8 @@ t("a chi non ha la stage box non si dice che ha sbagliato", () => {
      NESSUNA box parla a chi il cablaggio non lo fa. */
   const fn = appjs.slice(appjs.indexOf("txt.innerHTML = boxReali.length"), appjs.indexOf("txt.innerHTML = boxReali.length") + 600);
   ok(/canali da collegare/.test(fn), "con la box: quanti canali restano");
-  ok(/li collega il service/.test(fn), "senza box: chi li collegherà");
-  ok(/Aggiungi una stage box se vuoi disegnarlo tu/.test(fn), "e la porta resta aperta");
+  ok(/il service li collega/.test(fn), "senza box: chi li collegherà");
+  ok(/Aggiungi una stage box se vuoi disegnarli tu/.test(fn), "e la porta resta aperta");
 });
 
 t("le pagine suggerite si prendono con un clic solo", () => {
@@ -27441,3 +27441,12 @@ await Promise.all(attese);
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
+
+
+t("piccole 03/11: etichetta «Stage box», ?form= sconosciuto avvisa, biglietteria con h1 statico", () => {
+  const tpl = readFileSync(join(root, "index.template.html"), "utf8");
+  ok(/defLabel:"Stage box"/.test(tpl) && !/defLabel:"STAGEBOX"/.test(tpl), "etichetta stage box non in maiuscolo");
+  ok(/Il modello «"\+qForm\+"» non esiste/.test(tpl), "avviso per ?form= sconosciuto");
+  const bg = readFileSync(join(root, "biglietteria/index.html"), "utf8");
+  ok(/<h1 class="ev-marchio">/.test(bg), "h1 statico in /biglietteria/");
+});
