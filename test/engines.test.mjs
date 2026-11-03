@@ -27538,6 +27538,19 @@ t("A2 plexiglass della batteria: si trova con «plexiglass» e «paravento», si
 });
 
 
+t("SEO/prestazioni: la hero della home ha varianti WebP leggere con ripiego JPEG; IndexNow pronto ma a secco di serie", () => {
+  const home = readFileSync(join(root, "index.html"), "utf8");
+  const jpg = statSync(join(root, "img/esemplare-tributo-apertura.jpg")).size;
+  const w800 = statSync(join(root, "img/esemplare-tributo-apertura-800.webp")).size;
+  const w1600 = statSync(join(root, "img/esemplare-tributo-apertura.webp")).size;
+  ok(w800 < jpg / 3 && w1600 < jpg * 0.7, "le varianti WebP pesano molto meno del JPEG (" + w800 + " / " + w1600 + " contro " + jpg + ")");
+  ok(/<picture><source type="image\/webp" srcset="\/img\/esemplare-tributo-apertura-800\.webp 800w, \/img\/esemplare-tributo-apertura\.webp 1600w"[^>]*><img src="\/img\/esemplare-tributo-apertura\.jpg" width="1600" height="1734" fetchpriority="high"/.test(home), "picture con ripiego JPEG, dimensioni e priorità invariate");
+  const sh = readFileSync(join(root, "scripts/indexnow.sh"), "utf8");
+  const key = (sh.match(/^KEY=([0-9a-f]{32})$/m) || [])[1];
+  ok(key && readFileSync(join(root, key + ".txt"), "utf8") === key, "il file chiave in radice contiene la chiave dello script");
+  ok(/!= "--invia" \]; then[^\n]*exit 0/.test(sh), "senza --invia lo script non manda niente");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
 
