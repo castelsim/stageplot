@@ -82,7 +82,7 @@ jobs:
           rsync -a --exclude='.DS_Store' --exclude='README.md' --exclude='orchestre/test/' --exclude='orchestre/demo/' \
             .nojekyll 404.html CNAME LICENSE \
             index.html app app.js icons.js sw.js manifest.webmanifest \
-            robots.txt sitemap.xml llms.txt \
+            robots.txt sitemap.xml llms.txt 4d1fdc8b5b357ff5353a9e928c187bff.txt \
             favicon.ico favicon.svg favicon-48.png favicon-96.png \
             apple-touch-icon.png icon-192.png icon-512.png logo-512.png preview.png \
             accedi alternative biglietteria consulenza guida img orchestre privacy programma richiesta stage-plot termini vendor voce workshop \

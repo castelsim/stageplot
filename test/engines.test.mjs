@@ -27551,6 +27551,12 @@ t("SEO/prestazioni: la hero della home ha varianti WebP leggere con ripiego JPEG
   ok(/!= "--invia" \]; then[^\n]*exit 0/.test(sh), "senza --invia lo script non manda niente");
 });
 
+t("IndexNow: il file chiave è nell'allowlist del deploy (altrimenti online risponde 404)", () => {
+  const wf = readFileSync(join(root, ".github/workflows/pages.yml"), "utf8");
+  const key = (readFileSync(join(root, "scripts/indexnow.sh"), "utf8").match(/^KEY=([0-9a-f]{32})$/m) || [])[1];
+  ok(key && wf.indexOf(key + ".txt") > -1, "pages.yml copia " + key + ".txt nella cartella pubblica");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
 
