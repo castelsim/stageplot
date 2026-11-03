@@ -484,6 +484,9 @@ addEventListener("hashchange", go);})();</script>
     function manda(event, source){
       var ref = "";
       try{ ref = document.referrer ? new URL(document.referrer).hostname : ""; }catch(e){}
+      /* link tracciato nei PDF esportati (?utm_source=pdf): il referrer lì è vuoto (si apre da un lettore PDF).
+         Solo questo valore, e il server lo riconosce da un elenco chiuso. */
+      try{ if (new URLSearchParams(location.search).get("utm_source") === "pdf") ref = "utm:pdf"; }catch(e){}
       var corpo = JSON.stringify({ event:event, source:source||"", ref:ref });
       try{
         /* text/plain di proposito: con application/json il browser vorrebbe una preflight, che

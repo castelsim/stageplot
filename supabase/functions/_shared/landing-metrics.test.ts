@@ -61,3 +61,9 @@ Deno.test("«googlefake.com» non si spaccia per Google", () => {
   assertEquals(normalizzaProvenienza("googlefake.com"), "altro");
   assertEquals(normalizzaProvenienza("instagram-clone.net"), "altro");
 });
+
+Deno.test("arrivo dal link del PDF esportato: «pdf»; un host qualunque col nome pdf resta «altro»", () => {
+  assertEquals(normalizzaProvenienza("utm:pdf"), "pdf");
+  assertEquals(normalizzaProvenienza("pdf.example.com"), "altro");
+  assertEquals(normalizzaProvenienza("utm:altro"), "altro");
+});
