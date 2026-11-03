@@ -27493,6 +27493,27 @@ t("ricerca «chitarra»: per prima la chitarra elettrica, poi le altre", () => {
 });
 
 
+t("A1 «per chi»: la spia prende il nome della persona nel canale di uscita; senza il campo resta l'etichetta", () => {
+  reset();
+  const w1 = add("wedge", 300, 300), w2 = add("wedge", 340, 300), w3 = add("wedge", 700, 300), pm = add("hearback", 500, 200);
+  w1.perChi = "Basso"; w2.perChi = " basso "; w3.label = "Spia coro"; pm.perChi = "Sara"; const dr = add("drumfill", 600, 500); dr.perChi = "Batteria";
+  A.state.cab.on = true; A.__cabRes = null;
+  const nomi = A.audioCablingEngine().mixes.map((m) => m.name);
+  ok(nomi.indexOf("Spia – Basso") >= 0, "spia per il basso: " + nomi.join(" | "));
+  eq(nomi.filter((n) => /basso/i.test(n)).length, 1, "due spie per la stessa persona sono un mix solo");
+  ok(nomi.indexOf("Spia coro") >= 0, "senza «per chi» vale l'etichetta di sempre");
+  ok(nomi.indexOf("Drum fill – Batteria") >= 0, "anche drum fill e IEM");
+  eq(A.nomeAscolto(pm, "x"), "PM – Sara", "il PM prende il nome nei messaggi");
+  const ch = add("cantante", 100, 100); ch.perChi = "Mario";
+  A.__cabRes = null;
+  ok(!A.audioCablingEngine().mixes.some((m) => /Mario/.test(m.name)), "il campo conta solo su spie e PM");
+  /* il campo sopravvive al salvataggio e alla riapertura */
+  const ri = A.sanitizeItems ? null : null;
+  const tpl = readFileSync(join(root, "index.template.html"), "utf8");
+  eq((tpl.match(/"label2","perChi","podio"/g) || []).length, 2, "perChi nelle due liste dei campi conservati");
+});
+
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
 

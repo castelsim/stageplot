@@ -7234,7 +7234,7 @@ function sanitizeItems(arr){
     if(t.riser) it.h=(o.h!=null?+o.h:(t.h||40));
     else if(isCover(it) && o.h!=null) it.h=+o.h;   /* coperture: h opzionale (luce sotto); se assente = default coverH() */
     if(Object.prototype.hasOwnProperty.call(COMP,o.type)) it.parts=o.parts?compClone(o.parts):compClone(COMP[o.type].defParts);
-    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","podio","sgab","grp","distOf","distType","aggancia","dimSide","lblSize","plCh","dvsPro","dvsNet","dvsSr","dvsLat","ifaceId","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","poltrona","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic","platea","fila","posto","settore"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });   /* platea: passi e corridoio, ripuliti poi da normalizeLoadedItems; fila/posto/settore: posti numerati */
+    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","perChi","podio","sgab","grp","distOf","distType","aggancia","dimSide","lblSize","plCh","dvsPro","dvsNet","dvsSr","dvsLat","ifaceId","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","poltrona","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic","platea","fila","posto","settore"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });   /* platea: passi e corridoio, ripuliti poi da normalizeLoadedItems; fila/posto/settore: posti numerati */
     postoSanifica(it);   /* posti numerati (06/10): tipi e lunghezze garantiti */
     if(it.type==="dimono"){   /* DI box: normalizza gli assi + footprint (migra il vecchio diLook del selettore) */
       if(it.diLook){ if(it.diLook==="stereo") it.diCh=it.diCh||"stereo"; else if(it.diLook==="rack") it.diCh=it.diCh||"multi"; else if(it.diLook==="attiva") it.diType=it.diType||"attiva"; else if(it.diLook==="schema") it.diSchema=true; delete it.diLook; }
@@ -13716,6 +13716,15 @@ function cabClusters(groups, thr){
   });
   return cl;
 }
+/* «PER CHI» (A1, 03/11/2026): sulle spie e sui PM il campo dice a chi va l'ascolto, e il canale di uscita si chiama
+   «Spia – Basso» invece di «MIX 2» (nei progetti veri 25 spie su 66 portavano già un nome di persona nell'etichetta).
+   Senza il campo vale l'etichetta di sempre: i progetti esistenti non cambiano. Spie con lo stesso «per chi» = stesso mix. */
+var PER_CHI={wedge:"Spia", sidefill:"Side fill", drumfill:"Drum fill", iem:"IEM", hearback:"PM"};
+function mixLabelOf(it){
+  var pc=PER_CHI[it.type] && typeof it.perChi==="string" ? it.perChi.trim().slice(0,40) : "";
+  return pc ? PER_CHI[it.type]+" – "+pc : (it.label||"").trim();
+}
+function nomeAscolto(it,fallback){ var n=mixLabelOf(it); return n||fallback; }   /* per i messaggi sui PM */
 function audioCablingEngine(){
   var man=(state.cab&&state.cab.manual)||{};
   /* MANUAL-FIRST (Simone 08/07: "non è possibile fare il cablaggio in modo automatico"):
@@ -13979,7 +13988,7 @@ function audioCablingEngine(){
     .sort(function(a,b){ return (clBank(a.it.type)-clBank(b.it.type))||(a.idx-b.idx); })
     .filter(function(o){ return OUT_SET[o.it.type]!=null && o.it.type!=="monmix" && !MON_DIG_NODE[o.it.type]; }).map(function(o){ return o.it; });   /* i personal mixer NON sono sink analogici: vanno via Cat5 all'hub (motore mond) */
   var mixMap={}, mixes=[];
-  sinks.forEach(function(it){ var lbl=(it.label||"").trim(), key=lbl?("L:"+lbl.toUpperCase()):("I:"+it.id);
+  sinks.forEach(function(it){ var lbl=mixLabelOf(it), key=lbl?("L:"+lbl.toUpperCase()):("I:"+it.id);
     if(!mixMap[key]){ mixMap[key]={name:lbl, sinks:[], stereo:false, key:key}; mixes.push(mixMap[key]); }
     mixMap[key].sinks.push(it); if(MON_STEREO[it.type]) mixMap[key].stereo=true; });
   mixes.forEach(function(m,i){ m.n=i+1; if(!m.name) m.name="MIX "+m.n; m.ch=m.stereo?2:1; });
@@ -15095,11 +15104,11 @@ function monDigEngine(){
     var o0=man[m.id]; if(!o0||!o0.to||o0.deleted) return;
     var cur=m, seen={}, reached=false, guard=0;
     while(cur && guard++<200){
-      if(seen[cur.id]){ issues.push({lvl:"err", msg:"Loop nella catena monitor: "+(m.label||"mixerino")}); reached=true; break; }
+      if(seen[cur.id]){ issues.push({lvl:"err", msg:"Loop nella catena monitor: "+nomeAscolto(m,"mixerino")}); reached=true; break; }
       seen[cur.id]=1; var o=man[cur.id]; if(!o||!o.to||o.deleted) break;
       var nx=byId[o.to]; if(!nx) break; if(isHub(nx)){ reached=true; break; } cur=nx;
     }
-    if(!reached) issues.push({lvl:"warn", msg:"Catena monitor senza hub: "+(m.label||"mixerino")});
+    if(!reached) issues.push({lvl:"warn", msg:"Catena monitor senza hub: "+nomeAscolto(m,"mixerino")});
   });
   var hubs=items.filter(isHub);
   if(!hubs.length && items.filter(isMix).length) issues.push({lvl:"info", msg:"Nessun hub monitoraggio: aggiungine uno dal catalogo (Monitor da palco)."});
@@ -15122,7 +15131,7 @@ function monDigEngine(){
         power[l.from.id]="invalid";
       } else {
         power[l.from.id]="psu";                         /* la serie non porta alimentazione → PSU locale */
-        if(pmM){ psuCount++; issues.push({lvl:"warn", msg:(l.from.label||pmM.model)+": collegato in serie — serve l'alimentatore locale (dal cavo dati non arriva alimentazione)."}); }
+        if(pmM){ psuCount++; issues.push({lvl:"warn", msg:nomeAscolto(l.from,pmM.model)+": collegato in serie — serve l'alimentatore locale (dal cavo dati non arriva alimentazione)."}); }
       }
     }
     if(pmM && pmT && !pmSysCompatible(pmM.sys, pmT.sys)){
@@ -15130,7 +15139,7 @@ function monDigEngine(){
     }
     /* B3: lunghezza massima del cavo per sistema (solo dove validata dai datasheet) */
     if(pmM && PM_SYS[pmM.sys] && PM_SYS[pmM.sys].maxm && l.lenM>PM_SYS[pmM.sys].maxm){
-      issues.push({lvl:"warn", msg:(l.from.label||pmM.model)+": tratta di "+Math.round(l.lenM)+" m — oltre i ~"+PM_SYS[pmM.sys].maxm+" m consigliati per "+pmSysName(pmM.sys)+"."});
+      issues.push({lvl:"warn", msg:nomeAscolto(l.from,pmM.model)+": tratta di "+Math.round(l.lenM)+" m — oltre i ~"+PM_SYS[pmM.sys].maxm+" m consigliati per "+pmSysName(pmM.sys)+"."});
     }
   });
   /* B3: una porta Thru = una sola discesa (fisicamente 1 connettore) — solo per modelli noti */
@@ -17368,6 +17377,11 @@ function renderProps(){
     hint.textContent = feed==="console" ? pmFeedChOf(it)+" uscite console occupate (vedi «Uscite console»)." : "Canali dalla rete: nessuna uscita console fisica.";
   })();
   document.getElementById("pLabel").value = it.label||"";
+  (function(){   /* «Per chi» (A1, 03/11): sulle spie e sui PM il canale prende il nome della persona, non «MIX 2» */
+    var w=document.getElementById("pPerChiWrap"), inp=document.getElementById("pPerChi"); if(!w||!inp) return;
+    w.style.display = PER_CHI[it.type] ? "" : "none";
+    if(PER_CHI[it.type] && document.activeElement!==inp) inp.value = it.perChi||"";
+  })();
   var _pn=document.getElementById("pNote");
   if(document.activeElement!==_pn) _pn.value = it.note||"";   /* mentre si scrive non si riscrive (segnalazione 68b902d9) */
   _pn.placeholder = NOTE_HINT[it.type] || "es. fornito dalla band";   /* il suggerimento parla del pezzo che si ha davanti */
@@ -18143,6 +18157,9 @@ function mutSelAll(fn){ primaDiAgire(); var it=getSel(); if(!it) return;
   tutti.forEach(fn); render(); save(); }
 function mutSelSoon(fn){ var it=getSel(); if(!it) return; fn(it); render(); saveSoon(); }   /* per la digitazione: snapshot di cronologia debounce-ato */
 document.getElementById("bPedanaInArea").addEventListener("click", function(){ mutSel(function(it){ pedanaInArea(it); }); if(stageEdit) renderStagePanel(); });   /* un passo di Annulla (19/10/2026). In modalità palco la chip «Pedana N» della pedana convertita restava lì (revisione 19/10/2026) */
+document.getElementById("pPerChi").addEventListener("input", function(){ mutSelSoon(function(it){
+  if(!PER_CHI[it.type]) return; var v=document.getElementById("pPerChi").value.slice(0,40);
+  if(v.trim()) it.perChi=v; else delete it.perChi; __cabRes=null; }); });
 document.getElementById("pLabel").addEventListener("input", function(){ mutSelSoon(function(it){ it.label=document.getElementById("pLabel").value; }); });
 /* Segnalazione 68b902d9 (13/10/2026): nella Nota la barra spaziatrice non scriveva, «Fornitodallacompagnia».
    Mentre si scrive il testo va salvato COM'È: con .trim() a ogni tasto lo spazio appena battuto in fondo
@@ -23587,7 +23604,7 @@ function placeOut(out, fitStage, clearFirst, force){
     if(t.riser) it.h=(o.h!=null?o.h:(t.h||40));
     else if(isCover(it) && o.h!=null) it.h=+o.h;   /* coperture: h opzionale (luce sotto) */
     if(o.parts){ it.parts=compClone(o.parts); if(COMP[o.type] && COMP[o.type].size){ var cz=COMP[o.type].size(it); it.w=cz[0]; it.d=cz[1]; } }
-    ["donna","hair","mano","leggio","sedia","doppia","sep","ampli","pedaliera","vsec","label2","podio","nomic","micMode","hw","ch","outCh","dimSide","rfChi","poltrona"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });   /* flag opzionali dal generatore (hw/ch/outCh = capacità stage box; dimSide = lato della misura pedana) */
+    ["donna","hair","mano","leggio","sedia","doppia","sep","ampli","pedaliera","vsec","label2","perChi","podio","nomic","micMode","hw","ch","outCh","dimSide","rfChi","poltrona"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });   /* flag opzionali dal generatore (hw/ch/outCh = capacità stage box; dimSide = lato della misura pedana) */
     if(LEGGIO_DI_SERIE[o.type] && o.leggio==null) it.leggio=true;   /* modelli e organico: come dal catalogo */
     return it;
   });
