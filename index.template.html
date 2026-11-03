@@ -18006,7 +18006,18 @@ function auditEngine(){
 /* Audit azionabile: ogni criticità strutturale ha una fix a un click. Le fix aggiungono l'elemento
    mancante e lo lasciano SELEZIONATO (l'utente lo posiziona subito, come per il drag dal catalogo);
    l'avviso sparisce dall'audit alla deselezione. Le fix "di impostazione" (rete) restano nell'audit. */
-function auditFixAddBox(){ state.cab.on=true; __cabRes=null; addItem("stagebox"); }
+/* «Aggiungi stage box» (caso Zuliani, 03/11): prima posava UNA box al centro della vista, spesso sopra
+   un altro elemento, e non tracciava nessun cavo («metri 0»). Ora la posa in un punto libero vicino ai
+   gruppi di strumenti (come il wizard) e collega subito tutto; i collegamenti restano modificabili. */
+function auditFixAddBox(){
+  state.cab.on=true; __cabRes=null;
+  var needs=cabPlanNeeds(), haBox=(state.items||[]).some(cabIsDest);
+  var sizes = haBox ? [8] : (needs.totIn>0 ? cabSuggestBoxes(needs) : [8]);
+  cabPlaceBoxes(sizes, needs);
+  var n=cabConnectAll();
+  if(window.__toast) window.__toast((sizes.length===1?"Stage box aggiunta":sizes.length+" stage box aggiunte")+" e "+n+(n===1?" collegamento tracciato":" collegamenti tracciati")+". Trascinala dove vuoi: i cavi la seguono.", false);
+  return n;
+}
 function auditFixAddWedge(){ addItem("wedge"); }
 /* Adotta ogni DI orfana con lo strumento più vicino fra i candidati. Qui indovinare è legittimo: il
    candidato deve già passare da DI ed essere entro 2,5 m — non è una deduzione sul contenuto, è
@@ -18087,7 +18098,12 @@ function auditFixChoirMics(list){
 }
 function auditFixAddDistro(){
   if(!state.elec.on){ state.elec.on=true; state.elec.visible=true; if(!state.elec.supply) state.elec.supply={kind:"rete",x:0,y:0}; }
-  __elecRes=null; addItem("distro63");
+  __elecRes=null;
+  var sp=cabSpotLibero("distro63", Math.round(state.stage.w-60), 60);   /* in un angolo del fondo, libero (03/11) */
+  addItem("distro63", {x:sp.x, y:sp.y});
+  var n=elecConnectAll();
+  if(window.__toast) window.__toast("Quadro aggiunto e "+n+(n===1?" carico collegato":" carichi collegati")+". Spostalo dove sta davvero.", false);
+  return n;
 }
 function auditFixFocusTitle(){ var el=document.getElementById("titolo"); if(el && el.offsetParent===null) el=document.getElementById("mTitle");
   if(el){ try{ el.focus(); el.select(); }catch(e){} } }
@@ -20863,16 +20879,51 @@ function funzUsateDalProgetto(s){
   var tecn=!!((s.cab&&s.cab.on) || (s.elec&&s.elec.on) || (s.mond&&s.mond.on));
   return tecn ? ["conn","liste"] : [];
 }
+/* «Cavi e corrente» (caso Zuliani, 03/11): per vedere metri e potenza servivano tre passi nascosti
+   (Funzioni avanzate, lista Input, stage box). Se il progetto ha ingressi audio ma nessuna stage box,
+   o carichi elettrici ma nessun quadro, e il cablaggio è spento, lo si propone in chiaro con UN
+   pulsante. Calcolato solo quando cambia l'elenco degli elementi. */
+var __cavoMemo={k:null,v:null};
+function cavoSuggerimento(){
+  if(state.cab.on || state.elec.on) return null;
+  var its=state.items||[], k=its.map(function(i){ return i.id+i.type+(i.ch||""); }).join("|");
+  if(__cavoMemo.k===k) return __cavoMemo.v;
+  var v=null;
+  try{
+    var haBox=its.some(cabIsDest), haDistro=its.some(elecIsDistro);
+    var ing=haBox?0:cabPlanNeeds().totIn, W=haDistro?0:(elecResult(true).totW||0);
+    var boxServe=ing>AUDIT_MIN_CH, distroServe=W>AUDIT_MIN_W;
+    if(boxServe||distroServe) v={box:boxServe, distro:distroServe, ing:ing, W:W};
+  }catch(e){ v=null; }
+  __cavoMemo={k:k,v:v}; return v;
+}
+function cavoCorrenteAccendi(){
+  var c=cavoSuggerimento();
+  funzImposta({conn:true, liste:true});
+  if(c && c.box) auditFixAddBox();
+  if(c && c.distro) auditFixAddDistro();
+  __cavoMemo={k:null,v:null};
+}
 function funzRenderAvviso(){
   var el=document.getElementById("funzBanner"); if(!el) return;
   var vista=document.getElementById("vistaBanner");
   var mancano=funzUsateDalProgetto(state).filter(function(id){ return !funzOn(id); });
   /* Sul telefono no: lì pallini e liste non dipendono da queste funzioni. E una riga alla volta: se la
      vista attiva si sta dichiarando, parla lei. */
-  var zitto = !mancano.length || isMobile() || (vista && !vista.hidden) || window.__funzAvvisoNo===(window.__docEpoch||0);
+  var cavo = mancano.length ? null : cavoSuggerimento();
+  var zitto = (!mancano.length && !cavo) || isMobile() || (vista && !vista.hidden) || window.__funzAvvisoNo===(window.__docEpoch||0);
   if(zitto){ el.hidden=true; el.innerHTML=""; el.__k=""; return; }
-  var k=mancano.join(",");
-  if(el.__k!==k){
+  var k=cavo ? "cavo:"+(cavo.box?"b":"")+(cavo.distro?"d":"") : mancano.join(",");
+  if(el.__k!==k && cavo){
+    var cosa=(cavo.box&&cavo.distro)?"una stage box e un quadro":(cavo.box?"una stage box":"un quadro");
+    el.innerHTML='<span class="vb-txt">Vuoi vedere <b>cavi, metri e potenza</b>? Aggiungo io '+cosa+' e traccio i collegamenti</span>'
+      + '<button type="button" class="vb-esci vb-si" id="funzAccendi">Mostra cavi e corrente</button>'
+      + '<button type="button" class="vb-esci" id="funzNonOra">Non ora</button>';
+    el.__k=k;
+    el.querySelector("#funzAccendi").addEventListener("click", function(e){ e.stopPropagation(); cavoCorrenteAccendi(); });
+    el.querySelector("#funzNonOra").addEventListener("click", function(e){ e.stopPropagation(); window.__funzAvvisoNo=(window.__docEpoch||0); funzRenderAvviso(); });
+  }
+  else if(el.__k!==k){
     var nomi=mancano.map(function(id){ var n=""; FUNZIONI.forEach(function(f){ if(f.id===id) n="<b>"+esc(f.nome)+"</b>"; }); return n; });
     el.innerHTML='<span class="vb-txt">Questo progetto usa '+nomi.join(" e ")+', che hai spento</span>'
       + '<button type="button" class="vb-esci vb-si" id="funzAccendi">Accendi</button>'
@@ -29733,6 +29784,27 @@ function cabWizCover(){
   ro.textContent="Copertura: "+cap+" / "+needs.totIn+" canali"+(ok?" ✓":" — mancano "+(needs.totIn-cap));
   var go=document.getElementById("cabWizGo"); if(go) go.disabled=!__cabWizSizes.length;
 }
+/* Punto libero più vicino a (x,y) per un elemento di tipo `type`: a spirale, scartando i punti dove
+   il suo ingombro (più 15 cm di respiro) tocca un altro elemento o esce dal palco. Ingombri
+   prudenti: un elemento ruotato conta col lato maggiore. Se non c'è posto, resta (x,y). */
+function cabSpotLibero(type, x, y){
+  var t=TYPES[type]||{}, w=t.w||40, d=t.d||40, S=state.stage, PAD=15, its=state.items||[];
+  function libero(px,py){
+    if(px-w/2<0 || py-d/2<0 || px+w/2>S.w || py+d/2>S.d) return false;
+    return !its.some(function(o){
+      var m=Math.max(o.w||0,o.d||0)/2;
+      return Math.abs(o.x-px) < m+PAD+w/2 && Math.abs(o.y-py) < m+PAD+d/2;
+    });
+  }
+  if(libero(x,y)) return {x:x,y:y};
+  for(var r=30; r<=Math.max(S.w,S.d); r+=30){
+    for(var a=0; a<24; a++){
+      var px=Math.round(x+r*Math.cos(a*Math.PI/12)), py=Math.round(y+r*Math.sin(a*Math.PI/12));
+      if(libero(px,py)) return {x:px,y:py};
+    }
+  }
+  return {x:x,y:y};
+}
 function cabPlaceBoxes(sizes, needs){   /* posiziona le box vicino ai gruppi: box grandi ai gruppi più fitti */
   var clusters=(needs.clusters||[]).slice().sort(function(a,b){ return b.n-a.n; });
   if(!clusters.length) clusters=[{cx:Math.round(state.stage.w/2), cy:Math.round(state.stage.d/2), n:0}];
@@ -29741,6 +29813,7 @@ function cabPlaceBoxes(sizes, needs){   /* posiziona le box vicino ai gruppi: bo
     var ci=idx % clusters.length, c=clusters[ci]; var k=per[ci]||0; per[ci]=k+1;
     var x=Math.round(Math.min(state.stage.w-40, Math.max(40, c.cx + k*70)));
     var y=Math.round(Math.min(state.stage.d-40, Math.max(40, c.cy - 90)));
+    var sp=cabSpotLibero("stagebox", x, y); x=sp.x; y=sp.y;   /* mai sopra un altro elemento (caso Zuliani, 03/11) */
     addItem("stagebox", {ch:sz, x:x, y:y});
   });
   __cabRes=null; clearSelection(); techAccordionOpen("cab"); save(); render();
