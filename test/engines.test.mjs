@@ -27514,6 +27514,18 @@ t("A1 «per chi»: la spia prende il nome della persona nel canale di uscita; se
 });
 
 
+t("A2 plexiglass della batteria: si trova con «plexiglass» e «paravento», si ridimensiona, si disegna e sta nel palco", () => {
+  eq((A.__spSearch("plexiglass")[0] || {}).k, "paraventobatt", "«plexiglass» lo dà per primo");
+  ok(A.__spSearch("paravento").some((x) => x.k === "paraventobatt"), "«paravento» lo trova");
+  eq((A.__spSearch("par")[0] || {}).k, "parluci", "«par» resta del PAR da palco");
+  reset();
+  const p = add("paraventobatt", 300, 300, { w: 240 });
+  eq(p.w, 240, "ridimensionabile");
+  ok(A.TYPES.paraventobatt.resizable && /fill-opacity/.test(A.TYPES.paraventobatt.draw(p)), "disegno trasparente");
+  ok(A.sceneMarkup().indexOf("fill-opacity=\".45\"") > -1, "compare nel palco");
+});
+
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
 
