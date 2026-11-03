@@ -27149,7 +27149,7 @@ t("Connessioni spenta: il filtro è uno solo, in overlayLayerMarkup (non sparso 
   ok(/overlayLayerMarkup\(!!\(opts && opts\.espandi\)\)/.test(appjs), "la scena d'esportazione passa esporta=true");
   ["cablingMarkup", "elecMarkup", "monDigMarkup", "cableLegendMarkup", "netMarkup"].forEach((f) =>
     ok(!new RegExp("function " + f + "\\(\\)\\{[^}]{0,200}funzOn\\(").test(appjs), f + " non guarda la funzione da sola"));
-  ok(/function funzRenderAvviso\(\)\{[\s\S]{0,900}Accendi/.test(appjs), "l'avviso «Questo progetto usa… che hai spento» resta");
+  ok(/function funzRenderAvviso\(\)\{[\s\S]{0,2500}Accendi/.test(appjs), "l'avviso «Questo progetto usa… che hai spento» resta");
 });
 
 /* ---- Consulenza: gratis · revisione 29 € · da 149 € su preventivo (23/10/2026, decisioni del proprietario) ---- */
@@ -27439,10 +27439,6 @@ t("pagine pubbliche: lingua dichiarata, FAQPage solo con FAQ visibili, PDF model
 
 await Promise.all(attese);
 
-console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
-process.exit(fail === 0 ? 0 : 1);
-
-
 t("piccole 03/11: etichetta «Stage box», ?form= sconosciuto avvisa, biglietteria con h1 statico", () => {
   const tpl = readFileSync(join(root, "index.template.html"), "utf8");
   ok(/defLabel:"Stage box"/.test(tpl) && !/defLabel:"STAGEBOX"/.test(tpl), "etichetta stage box non in maiuscolo");
@@ -27450,3 +27446,36 @@ t("piccole 03/11: etichetta «Stage box», ?form= sconosciuto avvisa, biglietter
   const bg = readFileSync(join(root, "biglietteria/index.html"), "utf8");
   ok(/<h1 class="ev-marchio">/.test(bg), "h1 statico in /biglietteria/");
 });
+t("caso Zuliani: «Aggiungi stage box» posa in un punto libero e traccia i cavi; il suggerimento «Cavi e corrente» compare a cavi spenti", () => {
+  reset();
+  /* una conferenza: microfoni al tavolo, nessuna stage box */
+  for (let i = 0; i < 6; i++) add("astamic", 400 + i * 40, 300);
+  add("wireless", 300, 300);
+  const cn = A.cabPlanNeeds().clusters[0];
+  add("tavolo", cn.cx, cn.cy - 90);   /* il tavolo dei relatori proprio dove il wizard poserebbe la box */
+  A.__cavoMemo = { k: null, v: null };
+  const sug = A.cavoSuggerimento();
+  ok(sug && sug.box, "ingressi audio e nessuna box, cavi spenti: il suggerimento c'è");
+  A.auditFixAddBox();
+  const box = A.state.items.filter((i) => i.type === "stagebox");
+  eq(box.length >= 1, true, "stage box posata");
+  const b = box[0], m = Math.max(b.w || 0, b.d || 0) / 2;
+  const sopra = A.state.items.some((o) => o !== b && o.type !== "stagebox" && Math.abs(o.x - b.x) < Math.max(o.w || 0, o.d || 0) / 2 + m && Math.abs(o.y - b.y) < Math.max(o.w || 0, o.d || 0) / 2 + m);
+  eq(sopra, false, "la stage box non copre nessun altro elemento");
+  ok(Object.keys(A.state.cab.manual).length > 0, "i collegamenti sono tracciati (cabConnectAll)");
+  A.__cavoMemo = { k: null, v: null };
+  eq(A.cavoSuggerimento(), null, "a cablaggio acceso il suggerimento sparisce");
+});
+t("caso Zuliani: «Aggiungi distro» posa un quadro libero e collega i carichi", () => {
+  reset();
+  add("wedge", 300, 300); add("proiettore", 500, 300); add("parluci", 600, 300); add("parluci", 700, 300);
+  A.state.elec.on = false;
+  A.auditFixAddDistro();
+  ok(A.state.items.some((i) => /^distro/.test(i.type)), "quadro presente");
+  ok(A.state.elec.on, "elettrico acceso");
+});
+
+
+console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
+process.exit(fail === 0 ? 0 : 1);
+
