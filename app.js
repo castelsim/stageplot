@@ -1545,6 +1545,7 @@ var TYPES = {
                return s; }},
   /* --- ritmica: chitarre --- */
   gtstand:  {nome:"Chitarra elettrica", dim:"sedia · leggio · ampli", cat:"Band e backline", sub:"Chitarre e bassi", w:44,d:104, gtr:"el",
+             qaPrimo:"chitarra chitarre guitar",   /* 03/11/2026 (collaudo): «chitarra» dava per prima la classica (alfabetico); per una band è l'elettrica */
              draw:function(it){ return guitarDraw(it,"el"); }},
   gtacustica:{nome:"Chitarra acustica", dim:"sedia · leggio · ampli", cat:"Band e backline", sub:"Chitarre e bassi", w:46,d:110, gtr:"ac",
              draw:function(it){ return guitarDraw(it,"ac"); }},

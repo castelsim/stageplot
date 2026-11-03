@@ -27486,6 +27486,13 @@ t("menu del telefono: «Funzioni avanzate» dice PRIMA che connessioni e liste t
   ok(/#mActions \.mrow-s\{/.test(stylesCss), "stile della nota");
 });
 
+t("ricerca «chitarra»: per prima la chitarra elettrica, poi le altre", () => {
+  const r = A.__spSearch("chitarra").map((x) => x.k);
+  eq(r[0], "gtstand", "«chitarra» dà per prima l'elettrica");
+  ok(r.indexOf("gtacustica") > 0 && r.indexOf("musChitClassica") > 0, "acustica e classica restano trovabili");
+});
+
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
 
