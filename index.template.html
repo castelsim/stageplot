@@ -864,6 +864,15 @@
     <div id="pSgabWrap" style="display:none"><label for="pSgabTipo">Tipo di sgabello <small class="lbl-note">— per il pianoforte c'è la «Panchetta piano»</small></label><select id="pSgabTipo"></select></div>
     <div id="pLeggioGenWrap" style="display:none"><label class="chk"><input type="checkbox" id="pLeggioGen"> Leggio</label></div>
     <div id="pLucettaWrap" style="display:none"><label class="chk"><input type="checkbox" id="pLucetta"> Lucetta leggio</label></div>
+    <!-- DISTANZA LEGGIO (05/11/2026, Simone): cursore come «Distanza tra i 2», perché la distanza giusta si
+         capisce guardando il leggio che si muove. 0 = la posizione standard di quello strumento. -->
+    <div id="pLegDistWrap" class="legdist" style="display:none">
+      <div class="sldrow"><label for="pLegDist">Distanza leggio</label>
+        <input type="range" id="pLegDist" min="-30" max="60" step="1" value="0" aria-describedby="pLegDistNota">
+        <output id="pLegDistVal" for="pLegDist">standard</output></div>
+      <div class="legdist__nota"><span id="pLegDistNota" class="prop-hint">dallo strumento</span>
+        <button type="button" class="legdist__reset" id="pLegDistReset" hidden>Standard</button></div>
+    </div>
     <!-- RICHIESTA SETUP: il tecnico chiede al musicista com'è fatta la sua postazione. La risposta
          torna nel progetto e diventa una proposta, non una modifica automatica del palco. -->
     <!-- «Canta?» TOLTO il 26/08 (segnalazione): se il musicista canta si aggiunge l'elemento
@@ -1159,6 +1168,15 @@
       <div class="hint" style="font-size:11px;color:var(--text-3);margin-bottom:4px">Applica a tutti gli elementi selezionati:</div>
       <label class="chk" id="grpSediaWrap"><input type="checkbox" id="grpSedia"> Sedia</label>
       <label class="chk" id="grpLeggioWrap"><input type="checkbox" id="grpLeggio"> Leggio</label>
+    </div>
+    <!-- Distanza leggio per TUTTI gli elementi selezionati che hanno un leggio (05/11/2026): stesso cursore del
+         pannello singolo; valori diversi → «diversi», muovendolo diventano uguali. -->
+    <div id="grpLegDistWrap" class="legdist" style="display:none;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><label for="grpLegDist">Distanza leggio</label>
+        <output id="grpLegDistVal" for="grpLegDist" style="color:var(--text);font-weight:600">standard</output></div>
+      <input type="range" id="grpLegDist" min="-30" max="60" step="1" value="0" style="width:100%;padding:0">
+      <div class="legdist__nota"><span class="prop-hint" id="grpLegDistHint"></span>
+        <button type="button" class="legdist__reset" id="grpLegDistReset" hidden>Standard</button></div>
     </div>
     <!-- Distanza tra i 2 per TUTTE le postazioni a 2 selezionate (29/09, segnalazione di Simone): lo stesso
          cursore del pannello singolo. Valori diversi → «diversi» al posto dei centimetri. -->
@@ -2758,13 +2776,32 @@ function postaz(glyph){
 }
 /* glifo leggio (vista dall'alto) per l'elemento "leggio" e per "Sedia + leggio" */
 var _lucettaOn=false;   /* impostato da itemMarkup prima del draw: aggiunge la lucetta al leggio (standalone o accessorio) senza passare it a ogni chiamata */
+/* DISTANZA DEL LEGGIO (05/11/2026, Simone: «il leggio è troppo distante dalla tastiera… mettiamo un comando
+   "distanza leggio dallo strumento", in modo tale che me lo regolo»; poi anche chitarra e timpani).
+   `it.leggioDist` = centimetri IN PIÙ (+) o IN MENO (−) rispetto alla posizione standard del leggio di quello
+   strumento; assente o 0 = standard, quindi i progetti di prima restano dove li mette la regola standard.
+   Lo applica leggioGlyph stesso, spostando la mensola lungo il SUO asse +y: in ogni posizione in cui lo
+   strumento disegna il leggio quell'asse va dal musicista verso fuori (le gambe del treppiede stanno dalla
+   parte opposta al lettore), anche ruotato (tastiere, batteria). Unica eccezione il direttore, che lo
+   compensa nel suo draw. Il valore lo imposta itemMarkup per l'elemento che sta disegnando (come la lucetta)
+   e lo rimette a 0 subito dopo: il leggio a sé e la sedia+leggio non si spostano mai. */
+var LEGGIO_DIST_MIN=-30, LEGGIO_DIST_MAX=60;
+var _leggioDistOn=0;
+function leggioDist(it){ var v=Math.round(+((it&&it.leggioDist)||0)); if(!isFinite(v)) return 0; return Math.max(LEGGIO_DIST_MIN, Math.min(LEGGIO_DIST_MAX, v)); }
+/* elementi che disegnano un leggio come accessorio (quindi col cursore «Distanza leggio») */
+function leggioDistSupported(it){
+  var t=it&&it.type; if(!t || !TYPES[t]) return false;   /* il leggio a sé e la sedia+leggio non passano nessuna delle regole sotto */
+  return supportsLeggio(it) || leggioExtra(it) || t==="direttore" || !!DOUBLE_TYPES[t] || ((t==="batteria" || /^timpani/.test(t)) && !!COMP[t]);
+}
+/* nota sotto il cursore: i centimetri li dice il numero accanto, qui solo da che parte */
+function leggioDistScritta(v){ v=Math.round(+v||0); return v===0 ? "dallo strumento" : v<0 ? "più vicino allo strumento" : "più lontano dallo strumento"; }
 function leggioLamp(y){
   y=y||2;
   /* lucetta da leggio (tipo Littlelite): braccetto dal bordo alto della mensola + testa illuminata (ambra) */
   return lin(0,y-8,0,y-17,'ic thin')+bar(0,y-19,16,5,'ic fBlack',2)+'<circle cx="0" cy="'+(y-19)+'" r="2.3" fill="#f4c430"/>';
 }
 function leggioGlyph(y){
-  y=y||2;
+  y=(y||2)+_leggioDistOn;   /* distanza regolata dall'utente (0 = standard), vedi leggioDist */
   /* tripode a 3 gambe (base ~32 cm) + colonna + mensola 50×16 (Manhasset Symphony) */
   var s=lin(0,y-8,-16,y+13,'ic thin')+lin(0,y-8,0,y+14,'ic thin')+lin(0,y-8,16,y+13,'ic thin')+
     circ(0,y-8,2.6,'ic fill')+
@@ -2938,10 +2975,18 @@ function gtrHead(kind){ var y=kind==="bass"?-52:kind==="ac"?-45:-44, h=kind==="b
 function ampCombo(){ return bar(0,0,64,26,'ic fMon',3)+bar(0,3,24,6,'ic fill',3)+kn(-15,-8.5,6,6); }
 function gtrLegY(it,kind){ return it.sedia ? 38 : (kind==="bass"?60:56); }
 /* posizione del leggio nella postazione: con la PEDALIERA va OLTRE i pedali (nella realtà si legge
-   sopra la pedalboard); senza, resta vicino allo strumento. Un solo punto di verità (draw + Dividi). */
+   sopra la pedalboard); senza, resta vicino allo strumento. Un solo punto di verità (draw + Dividi).
+   05/11/2026 (Simone: «il leggio è troppo distante… idem per la chitarra»): senza pedaliera il leggio sta
+   dove lo hanno gli archi (violino 46), cioè sopra i piedi del musicista seduto, non 14 cm più in là (era 60);
+   con la pedaliera la mensola sta 3 cm oltre i pedali (era 11 cm). In piedi senza pedaliera resta com'era
+   (gtrLegY, 56/60): la chitarra sul supporto arriva a +50 e la mensola le sta già a filo. Il chitarrista ILLUSTRATO è seduto,
+   anche con `sedia` spenta: prima il draw illustrato usava 60/104 e Dividi questa funzione (56/96 in
+   piedi), e il leggio diviso finiva in un altro punto. La distanza regolata (leggioDist) si aggiunge sopra. */
+var GTR_LEGGIO = { seduto:46, sedutoPed:96, piediPed:88 };
 function gtrLeggioY(it,kind){
-  if(it.sedia) return it.pedaliera ? 104 : 60;
-  return it.pedaliera ? (kind==="bass"?100:96) : gtrLegY(it,kind);
+  var seduto = !!it.sedia || !!look2Art(it);
+  if(seduto) return it.pedaliera ? GTR_LEGGIO.sedutoPed : GTR_LEGGIO.seduto;
+  return it.pedaliera ? GTR_LEGGIO.piediPed : gtrLegY(it,kind);
 }
 /* offset della postazione seduta (scala reale) — ricalca le proporzioni del progetto condiviso */
 var GTR_GX=0, GTR_GY=-2;   /* strumento CENTRATO tra sedia e leggio (come gli archi), tenuto dal musicista seduto */
@@ -2988,7 +3033,7 @@ function explodeGuitar(){
   var gx={sedia:false, leggio:false}; if(it.ampli) gx.ampli=false; if(it.pedaliera) gx.pedaliera=false;
   pcs.push({type:it.type, dx:seated?GTR_GX:0, dy:seated?GTR_GY:0, label:it.label||"", extra:gx, stessa:true});   /* chitarra (di fianco e a livello sedia) */
   if(seated) pcs.push({type:"sedia", dx:0, dy:-25, label:""});
-  if(it.leggio) pcs.push({type:"leggio", dx:0, dy:gtrLeggioY(it,kind), label:""});
+  if(it.leggio) pcs.push({type:"leggio", dx:0, dy:gtrLeggioY(it,kind)+leggioDist(it), label:""});
   if(it.ampli) pcs.push({type:"comboamp",dx:-43, dy:-88, rot:-30, label:base+"Ampli"});
   if(it.pedaliera) pcs.push({type:"pedaliera", dx:0, dy:(seated?72:64), label:base+"Pedalboard"});
   var rot=(it.rot||0)*Math.PI/180, c=Math.cos(rot), s=Math.sin(rot), made=[];
@@ -4097,7 +4142,9 @@ var TYPES = {
                var s='';
                s+=(it.podio?podioBase():'')+conductor();
                /* leggìo davanti (verso orchestra) — con podio esce fuori dalla piattaforma */
-               if(it.leggio) s+='<g transform="translate(0,'+(it.podio?-70:-66)+')">'+leggioGlyph(0)+'</g>';
+               /* il leggio del direttore guarda il direttore (+y verso di lui): leggioGlyph sposta la mensola di
+                  +_leggioDistOn, qui si toglie due volte perché «più lontano» vada verso l'orchestra (05/11/2026) */
+               if(it.leggio) s+='<g transform="translate(0,'+((it.podio?-70:-66)-2*_leggioDistOn)+')">'+leggioGlyph(0)+'</g>';
                /* sgabello dietro (verso pubblico, +y) — dentro il box 120×120 */
                if(it.sgab){ var sy=it.podio?44:42; s+=circ(0,sy,17,'ic soft')+circ(0,sy,5,'dotS'); }
                if(it.mic){   /* microfono talkback: collo d'oca da podio o palmare "gelato" in mano */
@@ -5590,7 +5637,7 @@ function explodeBatteria(it){
       var sdx=sl.x-B.cx, sdy=sl.y-B.cy;
       if(p.stool!==false) out.push({type:"stoolR", dx:sdx, dy:sdy+18, label:""});
       if(p.mus!==false)   out.push({type:"batteristaR", dx:sdx, dy:sdy+36, label:base+"Batterista"});
-      if(p.leggio===true) out.push({type:"leggio", dx:sdx+(p.lefty?56:-56), dy:sdy+36, label:"", extra:{rot:(p.lefty?-90:90)}});
+      if(p.leggio===true) out.push({type:"leggio", dx:sdx+(p.lefty?1:-1)*(56+leggioDist(it)), dy:sdy+36, label:"", extra:{rot:(p.lefty?-90:90)}});   /* di fianco, più in là della distanza regolata */
       return;
     }
     var nm=lab[sl.k];
@@ -5616,18 +5663,28 @@ function drawTimpani(it){
       /* scala 0,9 (24/09, Simone: «il timpanista è grande rispetto a batterista e percussionista»): l'icona è
          75×89, il batterista 65×81 — ridotta del 10% torna alla stessa corporatura (67×80) */
       if(pp.mus!==false)   g += '<g transform="translate(0,8) scale(0.9)">'+libIcon("timpanistaPersona")+'</g>';
-      if(pp.leggio===true) g += '<g transform="translate(0,34)">'+leggioGlyph(0)+'</g>';   /* leggio DAVANTI al timpanista, la mensola alta sta sopra il bordo dei timpani (18/07 v2) */
+      if(pp.leggio===true) g += '<g transform="translate(0,'+timpLeggioY(L, t)+')">'+leggioGlyph(0)+'</g>';   /* leggio DAVANTI al timpanista, fra i timpani (05/11/2026, vedi timpLeggioY) */
       s += pre+g+'</g>';
     } else s += pre+libIcon(t.icon)+'</g>';
   });
   return s;
+}
+/* LEGGIO DEL TIMPANISTA (05/11/2026, Simone: «mi piacerebbe che il leggio fosse più realistico, davanti, vicino ai
+   timpani»). Prima stava a +34 dal posto, cioè sulle mani del timpanista, a metà strada fra lui e i fusti. Ora la
+   mensola sta sulla linea dei centri dei timpani più vicini al musicista: in mezzo ai fusti, dove il treppiede
+   entra nello spazio fra le caldaie e la mensola si legge sopra i bordi. Restituisce la y (dal posto) a cui
+   appoggiare leggioGlyph(0), che ha la mensola a +2. Senza timpani: la regola di prima. */
+function timpLeggioY(L, seat){
+  var ys=(L||[]).filter(function(t){ return !t.seat && !t.stool; }).map(function(t){ return t.y; });
+  if(!ys.length || !seat) return 34;
+  return Math.round(Math.min.apply(null, ys) - seat.y - 2);
 }
 function sizeTimpani(it){ var B=timpBBox(timpSlots(parts(it))); return [Math.round(B.w), Math.round(B.d)]; }
 var TIMP_R_TYPE={timp51:"timp51R",timp58:"timp58R",timp66:"timp66R",timp74:"timp74R",timp81:"timp81R"};
 function explodeTimpani(it){
   var L=timpSlots(parts(it)), B=timpBBox(L), base=it.label?it.label+" ":"", out=[];
   var _seat=L.filter(function(t){ return t.seat; })[0];
-  if(_seat && parts(it).leggio===true) out.push({type:"leggio", dx:Math.round(_seat.x-B.cx), dy:Math.round(_seat.y-B.cy+34), label:""});
+  if(_seat && parts(it).leggio===true) out.push({type:"leggio", dx:Math.round(_seat.x-B.cx), dy:Math.round(_seat.y-B.cy+timpLeggioY(L,_seat)+leggioDist(it)), label:""});   /* stesso punto del disegno, distanza regolata compresa */
   L.forEach(function(t){
     var dx=Math.round((t.x-B.cx)*10)/10, dy=Math.round((t.y-B.cy)*10)/10;
     if(t.stool){ out.push({type:"stoolR", dx:dx, dy:dy, label:""}); return; }
@@ -5938,12 +5995,37 @@ function leggioExtra(it){ return musLayerItem(it.type) && !supportsLeggio(it) &&
    dovrebbe sempre averlo»). Solo gli elementi nuovi: un'arpa salvata prima resta com'era, perché chi aveva aggiunto un
    leggio a parte se lo ritroverebbe doppio. */
 var LEGGIO_DI_SERIE = { arpa:1 };
-function leggioExtraY(it){ var m={arpa:70, grancoda:60, mezzacoda:55}; if(it.type==="tastiera") return -(it.d/2+18); return (m[it.type]!=null) ? m[it.type] : Math.min(it.d/2+18, 90); }
+/* 05/11/2026: il leggio generico (percussionista, mallet, organi…) passa da it.d/2+18 a it.d/2+12: la mensola
+   sta 6 cm oltre l'ingombro invece di 12, come chiesto per tastiere e chitarre («deve stare molto più vicino»). */
+function leggioExtraY(it){ var m={arpa:70, grancoda:60, mezzacoda:55}; if(it.type==="tastiera") return -tastieraLeggioY(it, false); return (m[it.type]!=null) ? m[it.type] : Math.min(it.d/2+12, 90); }
 /* Da che parte va il leggio di una tastiera (13/10/2026, Simone: «mette il leggio al contrario»). Il disegno
    «Strumento solo» ha i TASTI verso +y, e da quella parte stanno chi suona e lo sgabello (pianoBench): il
    leggio a +y finiva fra i tasti e il musicista, sopra lo sgabello. Va dall'altra parte (−1). Nel disegno
    illustrato il musicista è a −y e il leggio resta davanti a lui (+1). Vale anche per la Tastiera (leggioExtraY). */
-function tastieraLatoLeggio(it, illustrato){ return illustrato ? 1 : -1; }   /* posizione leggio: davanti; offset dedicato per gli strumenti grandi/asimmetrici */
+function tastieraLatoLeggio(it, illustrato){ return illustrato ? 1 : -1; }
+/* DOVE STA IL LEGGIO DI UNA TASTIERA (05/11/2026, Simone: «il leggio è troppo distante dalla tastiera… deve
+   stare molto più vicino allo strumento»). Prima era a it.d/2+22 dal centro, cioè dal bordo dell'INGOMBRO:
+   nello stage piano illustrato l'ingombro (132×117) comprende il musicista e i piedi del supporto, e la
+   mensola finiva 41 cm oltre la tastiera; nella doppia tastiera 28. Ora si misura dal bordo del CORPO
+   disegnato, dalla parte del leggio (bordo del disegno × la scala con cui drawLibFit lo adatta all'ingombro),
+   e la mensola sta TASTIERA_LEGGIO_ARIA cm oltre: un leggio vero si appoggia quasi alla tastiera.
+   `bordo` = mezza profondità del disegno dalla parte del leggio, `bw`/`bd` = le misure passate a drawLibFit. */
+var TASTIERA_LEGGIO_ARIA = 3;
+var TASTIERA_CORPO = {
+  musTastiera:   {bw:132, bd:117, bordo:33},   /* stage piano illustrato: il fronte del corpo rosso, verso il pubblico */
+  stagepiano:    {bw:135, bd:40,  bordo:18},
+  tastiera:      {bw:118, bd:34,  bordo:18},
+  doppiatastiera:{bw:105, bd:50,  bordo:23},
+  celesta:       {bw:115, bd:60,  bordo:28},
+  pianoverticale:{bw:150, bd:62,  bordo:29}
+};
+/* distanza dal centro dell'elemento al punto in cui si appoggia leggioGlyph(0) (mensola a +2, mezza profondità 8) */
+function tastieraLeggioY(it, illustrato){
+  var c = TASTIERA_CORPO[illustrato ? (look2Art(it)||it.type) : it.type];
+  if(!c) return (it.d||40)/2+22;   /* tastiera senza misura del corpo: la regola di prima */
+  var k = Math.min((it.w||c.bw)/c.bw, (it.d||c.bd)/c.bd);
+  return Math.round((c.bordo*k + TASTIERA_LEGGIO_ARIA + 6)*10)/10;
+}   /* posizione leggio: davanti; offset dedicato per gli strumenti grandi/asimmetrici */
 function optSedia(it){ return (TYPES[it.type]&&TYPES[it.type].gtr) || !!VOCE[it.type] ? it.sedia===true : it.sedia!==false; }
 function applyOptAll(key, val){
   selItems().forEach(function(it){
@@ -9625,7 +9707,8 @@ function sanitizeItems(arr){
     if(t.riser) it.h=(o.h!=null?+o.h:(t.h||40));
     else if(isCover(it) && o.h!=null) it.h=+o.h;   /* coperture: h opzionale (luce sotto); se assente = default coverH() */
     if(Object.prototype.hasOwnProperty.call(COMP,o.type)) it.parts=o.parts?compClone(o.parts):compClone(COMP[o.type].defParts);
-    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","perChi","podio","sgab","grp","distOf","distType","aggancia","dimSide","lblSize","plCh","dvsPro","dvsNet","dvsSr","dvsLat","ifaceId","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","poltrona","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic","platea","fila","posto","settore"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });   /* platea: passi e corridoio, ripuliti poi da normalizeLoadedItems; fila/posto/settore: posti numerati */
+    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","perChi","podio","sgab","grp","distOf","distType","aggancia","dimSide","lblSize","plCh","dvsPro","dvsNet","dvsSr","dvsLat","ifaceId","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","leggioDist","poltrona","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic","platea","fila","posto","settore"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });   /* platea: passi e corridoio, ripuliti poi da normalizeLoadedItems; fila/posto/settore: posti numerati */
+    if(it.leggioDist!=null){ var _ld=leggioDist(it); if(_ld && leggioDistSupported(it)) it.leggioDist=_ld; else delete it.leggioDist; }   /* distanza del leggio: numero intero nei limiti, solo dove c'è un leggio da spostare; 0 = standard, non si scrive */
     postoSanifica(it);   /* posti numerati (06/10): tipi e lunghezze garantiti */
     if(it.type==="dimono"){   /* DI box: normalizza gli assi + footprint (migra il vecchio diLook del selettore) */
       if(it.diLook){ if(it.diLook==="stereo") it.diCh=it.diCh||"stereo"; else if(it.diLook==="rack") it.diCh=it.diCh||"multi"; else if(it.diLook==="attiva") it.diType=it.diType||"attiva"; else if(it.diLook==="schema") it.diSchema=true; delete it.diLook; }
@@ -14234,6 +14317,7 @@ function itemMarkup(it){
   var t = itemTypeDef(it); if(!t) return '';
   var lb='';   /* i NOMI: nella scena vanno nel livello sopra tutto (#layLbl), vedi _lblSink */
   _lucettaOn = (it.lucetta===true);   /* lucetta leggio: valida per tutti i leggioGlyph disegnati da questo elemento (draw + accessori) */
+  _leggioDistOn = leggioDistSupported(it) ? leggioDist(it) : 0;   /* distanza del leggio regolata (05/11/2026): torna a 0 dopo gli accessori */
   var _cs = it.type==="custshape";   /* forme dell'editor: margini in PIXEL — su una superficie di 20 cm, 8 cm d'aria coprivano le forme vicine */
   var hw = _cs ? it.w/2 + hSize(6) : Math.max(it.w,70)/2 + 8, hd = _cs ? it.d/2 + hSize(6) : Math.max(it.d,30)/2 + 8;   /* area di click generosa */
   var bw = it.w/2 + selMargine(it), bh = it.d/2 + selMargine(it);   /* riquadro selezione aderente all'ingombro reale */
@@ -14279,14 +14363,15 @@ function itemMarkup(it){
   if(t.gtr && _la){   /* chitarre/basso in ILLUSTRATO: ampli/pedaliera/leggio NON sono nell'illustrazione del musicista → disegnati a parte (come nello schematico) */
     if(it.ampli) s += '<g transform="translate(-43,-88) rotate(-30)">'+ampCombo()+'</g>';
     if(it.pedaliera) s += '<g transform="translate(0,72)">'+pedalGlyph()+'</g>';   /* musicista illustrato = seduto → pedaliera ai piedi */
-    if(it.leggio) s += '<g transform="translate(0,'+(it.pedaliera?104:60)+')">'+leggioGlyph(0)+'</g>';   /* col pedale: leggio OLTRE la pedaliera (fix 18/07, come lo schematico) */
+    if(it.leggio) s += '<g transform="translate(0,'+gtrLeggioY(it,t.gtr)+')">'+leggioGlyph(0)+'</g>';   /* col pedale: leggio OLTRE la pedaliera (fix 18/07, come lo schematico); stessa regola di Dividi (05/11/2026) */
   }
   if(TASTIERE[it.type] && (it.leggio || it.leggio2)){   /* leggio/tablet della tastiera: oltre la tastiera, dal lato opposto a chi suona */
-    var _kv=tastieraLatoLeggio(it, !!_la), _ky=_kv*(it.d/2+22), _kdx=it.leggio2?34:0, _kr=_kv<0?' rotate(180)':'';
+    var _kv=tastieraLatoLeggio(it, !!_la), _ky=_kv*tastieraLeggioY(it, !!_la), _kdx=it.leggio2?34:0, _kr=_kv<0?' rotate(180)':'';
     if(it.leggio)  s += '<g transform="translate('+(-_kdx)+','+_ky+')'+_kr+'">'+leggioGlyph(0)+'</g>';
     if(it.leggio2) s += '<g transform="translate('+_kdx+','+_ky+')'+_kr+'">'+leggioGlyph(0)+'</g>';
   }
   if(it.leggio===true && leggioExtra(it)) s += '<g transform="translate(0,'+leggioExtraY(it)+')'+(leggioExtraY(it)<0?' rotate(180)':'')+'">'+leggioGlyph(0)+'</g>';   /* leggio generico: arpa, piani, organi, percussioni, mallet… (off di default, davanti allo strumento) */
+  _leggioDistOn = 0;   /* finiti gli accessori: nessun altro leggioGlyph (anteprime, catalogo, leggio a sé) eredita la distanza */
   if(t.riser){                                       /* quota pedana sul lato scelto/auto (più visibile) */
     var dimT=(it.w/100)+'×'+(it.d/100)+' m · h'+it.h, rside=riserDimSide(it), roff=12, rdx=0, rdy=0, ranc='middle', rtr='', rang=0;
     if(rside==="top"){ rdy=-(it.d/2)-roff; }
@@ -19345,6 +19430,7 @@ function renderProps(){
     if(allSedia) document.getElementById("grpSedia").checked = its.every(function(it){ return optSedia(it); });
     if(allLeggio) document.getElementById("grpLeggio").checked = its.every(function(it){ return it.leggio!==false; });
     grpSepRender(its);   /* distanza tra i 2, se nella selezione ci sono postazioni a 2 */
+    grpLegDistRender(its);   /* distanza leggio, se nella selezione ci sono leggii da spostare (05/11/2026) */
     /* --- batch STAGE BOX (Simone 21/07): input/uscite/modello per TUTTE le box selezionate insieme --- */
     var gsb=document.getElementById("grpSbWrap");
     if(gsb){ var boxes=its.filter(cabIsBox);
@@ -19956,6 +20042,7 @@ function renderProps(){
   document.getElementById("pLeggioGenWrap").style.display = _isLegX ? "" : "none";
   if(_isLegX) document.getElementById("pLeggioGen").checked = it.leggio===true;
   document.getElementById("pLucettaWrap").style.display = canHaveLucetta(it) ? "" : "none";   /* lucetta leggio: standalone + accessorio */
+  leggioDistRender(it);   /* distanza leggio: solo se l'elemento disegna un leggio (05/11/2026) */
   document.getElementById("pLucetta").checked = it.lucetta===true;
 
   var reqW=document.getElementById("pReqWrap");   /* richiesta setup: solo persone/postazioni, e solo su progetto cloud */
@@ -20622,6 +20709,82 @@ document.getElementById("grpSep").addEventListener("input", function(){
   grpSepApply(false);
 });
 document.getElementById("grpSep").addEventListener("change", function(){ grpSepApply(true); });
+/* ===== DISTANZA LEGGIO NEL PANNELLO (05/11/2026). Il valore è `it.leggioDist` (vedi leggioDist): il cursore va da
+   −30 a +60 cm attorno alla posizione standard, «Standard» lo riporta a 0 (e toglie la chiave). Vale per gli
+   elementi della selezione che DISEGNANO un leggio (quelli col leggio spento non si toccano: riaccendendolo
+   torna nella posizione standard). Come «Distanza tra i 2»: durante il trascinamento si ridisegna senza
+   salvare, al rilascio un solo save(), quindi un solo passo di Annulla. */
+function leggioDistVisibile(it){ return leggioDistSupported(it) && (leggiiDiItem(it)>0 || (it.type==="direttore" && it.leggio===true)); }
+function leggioDistElementi(its){ return (its||[]).filter(leggioDistVisibile); }
+function leggioDistApplica(its, v){
+  var ls=leggioDistElementi(its), n=Math.max(LEGGIO_DIST_MIN, Math.min(LEGGIO_DIST_MAX, Math.round(+v||0)));
+  ls.forEach(function(it){ if(n) it.leggioDist=n; else delete it.leggioDist; });
+  return ls.length;
+}
+function leggioDistStato(its){
+  var ls=leggioDistElementi(its); if(!ls.length) return null;
+  var vals=ls.map(leggioDist), lo=Math.min.apply(null, vals), hi=Math.max.apply(null, vals);
+  return { n:ls.length, altri:(its||[]).length-ls.length, lo:lo, hi:hi, misto:lo!==hi };
+}
+function leggioDistNum(v){ v=Math.round(+v||0); return v===0 ? "standard" : (v>0?"+":"\u2212")+Math.abs(v)+" cm"; }
+var legDistTrascina=false;
+/* gli elementi a cui si applica il cursore del pannello singolo: la selezione (anche di tipi diversi), o l'elemento */
+function legDistSel(){ var its=selItems(); if(!its.length){ var it=getSel(); if(it) its=[it]; } return its; }
+/* Lucetta e distanza stanno sotto il leggio, rientrate. Il loro riquadro nasce dentro «Postazione» (pFlags), che però
+   si vede solo per le postazioni: per tastiere, chitarre, voci, timpani… la «Lucetta leggio» c'era ma restava
+   nascosta con lui (visto il 05/11/2026). Fuori dalle postazioni il riquadro va in fondo agli Accessori. */
+function leggioNestPosto(it){
+  var nest=document.getElementById("pLegNest"); if(!nest) return;
+  var flags=document.getElementById("pFlags"), dop=document.getElementById("pDoppia"), dopLbl=(dop && dop.closest) ? dop.closest("label") : null;
+  if(it && POSTAZ[it.type] && flags && dopLbl){ if(nest.parentElement!==flags) flags.insertBefore(nest, dopLbl); return; }
+  var acc=document.querySelector('#selProps .pgrp[data-grp="accessori"]');
+  if(acc && nest.parentElement!==acc) acc.appendChild(nest);
+}
+function leggioDistRender(it){
+  leggioNestPosto(it);
+  var w=document.getElementById("pLegDistWrap"); if(!w) return;
+  var on=!!it && leggioDistVisibile(it); w.style.display = on ? "" : "none";
+  if(!on || legDistTrascina) return;
+  var v=leggioDist(it);
+  document.getElementById("pLegDist").value=v;
+  leggioDistScrivi("p", v);
+}
+function leggioDistScrivi(pre, v, misto){
+  var o=document.getElementById(pre+"LegDistVal"), n=document.getElementById(pre==="p"?"pLegDistNota":"grpLegDistHint"), r=document.getElementById(pre+"LegDistReset");
+  if(o) o.textContent = misto ? "diversi" : leggioDistNum(v);
+  if(n && pre==="p") n.textContent = leggioDistScritta(v);
+  if(r) r.hidden = !misto && v===0;
+}
+function legDistApplySel(doSave, val, its){   /* val/its: dai test; dall'interfaccia valore del cursore e selezione */
+  primaDiAgire();
+  if(doSave) legDistTrascina=false;
+  if(!leggioDistApplica(its||legDistSel(), val)) return;
+  render(); if(doSave) save();
+}
+document.getElementById("pLegDist").addEventListener("input", function(){
+  legDistTrascina=true; leggioDistScrivi("p", Math.round(+this.value||0));   /* la scritta segue il cursore */
+  legDistApplySel(false, this.value);
+});
+document.getElementById("pLegDist").addEventListener("change", function(){ legDistApplySel(true, this.value); });
+document.getElementById("pLegDistReset").addEventListener("click", function(){ legDistApplySel(true, 0); });
+function grpLegDistRender(its){
+  var w=document.getElementById("grpLegDistWrap"); if(!w) return;
+  var st=leggioDistStato(its); w.style.display = st ? "block" : "none";
+  if(!st || legDistTrascina) return;
+  var r=document.getElementById("grpLegDist"); r.value=st.lo; r.classList.toggle("misto", st.misto);
+  leggioDistScrivi("grp", st.lo, st.misto);
+  var h=document.getElementById("grpLegDistHint");
+  if(h) h.textContent = (st.misto ? "Distanze diverse: muovendo il cursore diventano tutte uguali. " : "")
+    + (st.n===1 ? "Vale per l'unico leggio selezionato." : "Vale per i "+st.n+" elementi selezionati col leggio.")
+    + (st.altri ? (st.altri===1 ? " L'altro elemento resta com'è." : " Gli altri "+st.altri+" restano come sono.") : "");
+}
+document.getElementById("grpLegDist").addEventListener("input", function(){
+  legDistTrascina=true; this.classList.remove("misto");
+  var o=document.getElementById("grpLegDistVal"); if(o) o.textContent=leggioDistNum(this.value);
+  legDistApplySel(false, this.value, selItems());
+});
+document.getElementById("grpLegDist").addEventListener("change", function(){ legDistApplySel(true, this.value, selItems()); });
+document.getElementById("grpLegDistReset").addEventListener("click", function(){ legDistApplySel(true, 0, selItems()); });
 document.getElementById("pDonna").addEventListener("change", function(){ var c=document.getElementById("pDonna").checked; mutSelAll(function(it){ it.donna=c; }); });
 document.getElementById("pMicMode").addEventListener("change", function(){ var v=this.value; mutSelAll(function(it){ it.micMode=v; delete it.mano; delete it.nomic; if(it.type==="cantante"||it.poltrona===true){ var vm=voceMisure(it); it.w=vm[0]; it.d=vm[1]; } }); __cabRes=null; render(); });
 document.getElementById("pLeggioV").addEventListener("change", function(){ mutSel(function(it){
@@ -20724,7 +20887,7 @@ function splitPostaz(){
   it.sedia=false; it.leggio=false; it.doppia=false; it.grp=gid;   /* lo strumento resta in posizione, nudo */
   var isStool=STOOL_POSTAZ[it.type]!=null;
   if(hadSedia) place(isStool ? "sgabello" : "sedia", 0, isStool ? -26 : -22);
-  if(hadLeggio) place("leggio", 0, 38);
+  if(hadLeggio) place("leggio", 0, 38+leggioDist(it));   /* distanza regolata compresa (05/11/2026) */
   made.forEach(function(m){ state.items.push(m); });
   selSet={}; selSet[it.id]=true; made.forEach(function(m){ selSet[m.id]=true; }); sel=it.id;
   render(); save();
@@ -20734,7 +20897,7 @@ function splitVoce(){
   var it=getSel(); if(!it || !VOCE[it.type]) return;
   if(it.leggio===false){ return; }
   var rot=(it.rot||0)*Math.PI/180, c=Math.cos(rot), s=Math.sin(rot), gid=grpLibero();
-  var T=TYPES.leggio, dx=0, dy=42;
+  var T=TYPES.leggio, dx=0, dy=42+leggioDist(it);   /* distanza regolata compresa (05/11/2026) */
   var lg={id:uid(), type:"leggio", x:Math.round(it.x+dx*c-dy*s), y:Math.round(it.y+dx*s+dy*c), rot:it.rot||0, w:T.w, d:T.d, label:"", grp:gid};
   it.leggio=false; it.grp=gid; state.items.push(lg);
   selSet={}; selSet[it.id]=true; selSet[lg.id]=true; sel=it.id; render(); save();
@@ -21051,8 +21214,8 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
      postazione è a 2. */
   var flags=get("pFlags"), luc=get("pLucettaWrap"), dopLbl=(get("pDoppia")||{}).closest ? get("pDoppia").closest("label") : null;
   if(flags && luc && dopLbl){
-    var nest=document.createElement("div"); nest.className="pnest"; nest.appendChild(luc);
-    flags.insertBefore(nest, dopLbl);
+    var nest=document.createElement("div"); nest.className="pnest"; nest.id="pLegNest"; nest.appendChild(luc); if(get("pLegDistWrap")) nest.appendChild(get("pLegDistWrap"));
+    flags.insertBefore(nest, dopLbl);   /* qui per le postazioni; per gli altri strumenti col leggio lo sposta leggioNestPosto */
   }
   var postaz=get("pPostaz"), sep=get("pSepWrap");
   if(postaz && sep){
@@ -21097,7 +21260,7 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
   group("Microfono", null, ["pOutCard","pStereoWrap","pOwnMicWrap","pZoneWrap"]);
   group("Stage box", null, ["pSbChWrap"]);
   group("Ascolto", "cosa usa per sentirsi", ["pAscoltoWrap"]);
-  group("Accessori", null, ["pPostaz","pVoce","pGtr","pDir","pTastiera","pComp","pKeysWrap","pSgabWrap","pLeggioGenWrap","pLucettaWrap","pRampWrap","pGazWrap","pPreseWrap","pDmxWrap"]);
+  group("Accessori", null, ["pPostaz","pVoce","pGtr","pDir","pTastiera","pComp","pKeysWrap","pSgabWrap","pLeggioGenWrap","pLucettaWrap","pLegDistWrap","pRampWrap","pGazWrap","pPreseWrap","pDmxWrap"]);
   group("Installazione", null, ["pMountWrap"]);
   group("Dettagli tecnici", null, ["pIfaceWrap","pCompIfaceWrap","pModelWrap","pLocInWrap","pUsoWrap","pBmWrap","pLmWrap","pModWrap","pWattWrap","pRfWrap","pPmWrap"]);   /* la richiesta di setup NON e' un dettaglio tecnico: e' un'azione verso una persona, e sta con la persona */
   group("Nota", "quello che il disegno non dice", ["pNoteWrap"]);
