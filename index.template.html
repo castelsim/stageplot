@@ -3789,7 +3789,7 @@ var TYPES = {
   bongos:   {nome:"Bongos", dim:"7\"+8½\" · 44×24", cat:"Batteria e percussioni", sub:"Pezzi singoli", w:44,d:24, defLabel:"Bng",
              draw:function(){ return bongosGlyph(); }},
   percussionistaR:{nome:"Percussionista", dim:"persona · 65 cm", cat:"Batteria e percussioni", sub:"Pezzi singoli", catalog:false, w:65,d:81, z:1, defLabel:"Perc",
-             draw:function(it){ return percFigura(!(it && it.inPiedi===true)); }},   /* inPiedi: nato dal «Dividi» della postazione (13/10/2026) */
+             draw:function(it){ return (it && it.inPiedi===true) ? percFigura() : libIcon("batteristaPersona"); }},   /* inPiedi: nato dal «Dividi» della postazione (13/10/2026); senza, i progetti di prima restano come li si è visti */
   /* il cajon da solo esce dal catalogo il 06/10/2026: al suo posto c'è la postazione (sotto). Resta come
      tipo perché i progetti salvati con i tre pezzi (percussionista + cajon + asta bassa) devono riaprirsi
      identici, e perché «Dividi» sulla postazione lo ridà come pezzo singolo. */
@@ -5654,7 +5654,8 @@ var PERC_BONGO={ hembra:12, macho:10 };   /* raggi cerchione: hembra 8½" ≈ Ø
    è quella seduta. Le misure sono in cm, l'origine è il centro di chi suona spostato di PERC_CHI. */
 var PERC_CHI={x:0, y:-42}, PERC_ARCO=60;
 var PERC_ANGOLI={ 1:[90], 2:[107,73], 3:[124,90,56] };   /* gradi: 90 = dritto davanti a lui; >90 = alla sua destra (x<0) */
-var PERC_IN_PIEDI={hw:45, hd:34}, PERC_SEDUTO={hw:33, hd:40};   /* ingombro della figura: braccia avanti / seduto */
+var PERC_IN_PIEDI={hw:45, hd:34};   /* ingombro della figura (braccia avanti), con o senza sgabello */
+var PERC_SGABELLO={dy:-38, r:20};   /* lo sgabello (sgabellobatt, Ø40) dietro la figura, verso la sua schiena: a −22 la figura lo copriva tutto (05/11/2026) */
 function percSlots(p){
   var L=[], n=Math.max(0,Math.min(3,p.congas|0));
   if(n>0) PERC_CONGA_SET[n].forEach(function(k,i){
@@ -5669,8 +5670,10 @@ function percSlots(p){
   if(p.piatto===true) L.push({k:"piatto", x:Math.max(62, dx+3+23), y:2, hw:23, hd:23});
   if(p.chimes===true) L.push({k:"chimes", x:66, y:-56, hw:14, hd:32, rot:270});   /* 270: il treppiede verso fuori, la barra verso chi suona */
   if(p.tavolo===true) L.push({k:"tavolo", x:-100, y:-70, hw:PERC_TAVOLO.d/2, hd:PERC_TAVOLO.w/2, rot:90});
-  if(p.mus!==false || p.stool===true){ var fig=(p.stool===true)?PERC_SEDUTO:PERC_IN_PIEDI;
-    L.push({k:"seat", x:PERC_CHI.x, y:PERC_CHI.y, r:20, hw:fig.hw, hd:fig.hd, seat:true}); }
+  if(p.mus!==false || p.stool===true){   /* posto di chi suona: la figura (sempre la stessa) e, se c'è, lo sgabello dietro di lei */
+    var fig=(p.mus!==false)?PERC_IN_PIEDI:{hw:0, hd:0}, st=(p.stool===true)?PERC_SGABELLO:null;
+    var hw=Math.max(fig.hw, st?st.r:0), hd=Math.max(fig.hd, st?(-st.dy+st.r):0);   /* simmetrico: lo sgabello sta a PERC_SGABELLO.dy, raggio 20 */
+    L.push({k:"seat", x:PERC_CHI.x, y:PERC_CHI.y, r:20, hw:hw, hd:hd, seat:true}); }
   return L;
 }
 var PERC_TAVOLO={w:80, d:40};   /* il tavolo della postazione: più piccolo di quello da banco (120×60), ci stanno shaker, claves, güiro */
@@ -5681,8 +5684,11 @@ function percBBox(L){ var minx=1e9,maxx=-1e9,miny=1e9,maxy=-1e9;
     minx=Math.min(minx,t.x-rx); maxx=Math.max(maxx,t.x+rx); miny=Math.min(miny,t.y-ry); maxy=Math.max(maxy,t.y+down); });
   return {w:maxx-minx, d:maxy-miny, cx:(minx+maxx)/2, cy:(miny+maxy)/2};
 }
-/* chi suona: in piedi (percussionistaInPiedi di icons.js) o seduto sullo sgabello (la figura del batterista) */
-function percFigura(seduto){ return libIcon(seduto ? "batteristaPersona" : "percussionistaInPiedi"); }
+/* chi suona: SEMPRE la figura del percussionista (percussionistaInPiedi di icons.js), con o senza sgabello.
+   Fino al 05/11/2026 con lo sgabello acceso si disegnava la figura del batterista (batteristaPersona): Simone,
+   «quando gli metto lo sgabello cambia la forma dell'uomo. Deve semplicemente aggiungere uno sgabello». Ora lo
+   sgabello si aggiunge sotto la stessa figura, che non cambia né forma né posizione. */
+function percFigura(){ return libIcon("percussionistaInPiedi"); }
 /* il disegno di un pezzo della postazione che non è un tamburo */
 function percPezzoGlyph(sl){
   if(sl.k==="bongos") return bongosGlyph();
@@ -5731,8 +5737,8 @@ function drawPercussioni(it){
     var pre='<g transform="translate('+(Math.round((sl.x-B.cx)*10)/10)+' '+(Math.round((sl.y-B.cy)*10)/10)+')">';
     if(sl.seat){
       var g='';
-      if(p.stool===true) g += '<g transform="translate(0,-22)">'+libIcon("sgabellobatt")+'</g>';
-      if(p.mus!==false)  g += percFigura(p.stool===true);   /* in piedi di serie; con lo sgabello, seduto */
+      if(p.stool===true) g += '<g transform="translate(0,'+PERC_SGABELLO.dy+')">'+libIcon("sgabellobatt")+'</g>';
+      if(p.mus!==false)  g += percFigura();   /* la stessa figura con e senza sgabello: lo sgabello si aggiunge sotto */
       s += pre+g+'</g>'; return;
     }
     s += pre+percPezzoGlyph(sl)+'</g>';
@@ -5745,8 +5751,8 @@ function explodePercussioni(it){
   L.forEach(function(sl){
     var dx=Math.round((sl.x-B.cx)*10)/10, dy=Math.round((sl.y-B.cy)*10)/10;
     if(sl.seat){
-      if(p.stool===true) out.push({type:"stoolR", dx:dx, dy:dy-22, label:""});
-      if(p.mus!==false)  out.push({type:"percussionistaR", dx:dx, dy:dy, label:base+"Percussionista", extra:(p.stool===true ? null : {inPiedi:true, w:2*PERC_IN_PIEDI.hw, d:2*PERC_IN_PIEDI.hd})});
+      if(p.stool===true) out.push({type:"stoolR", dx:dx, dy:dy+PERC_SGABELLO.dy, label:""});
+      if(p.mus!==false)  out.push({type:"percussionistaR", dx:dx, dy:dy, label:base+"Percussionista", extra:{inPiedi:true, w:2*PERC_IN_PIEDI.hw, d:2*PERC_IN_PIEDI.hd}});   /* la stessa figura del disegno, anche con lo sgabello */
       return;
     }
     if(sl.k==="bongos"){ out.push({type:"bongos", dx:dx, dy:dy, label:base+"Bongos"}); return; }
