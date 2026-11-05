@@ -3922,3 +3922,20 @@ body.cust-contorno .item.selected .selbox{display:none}
 #props #custContorno .cust-cc-nav>span{flex:1 1 auto;min-width:0;text-align:center}
 /* `#props .btn` è largo tutta la riga: nella testata e accanto a «Punto 3 di 12» i bottoni stanno alla loro misura */
 #props #custContorno .cust-cc-head>.btn,#props #custContorno .cust-cc-nav>.btn{width:auto;flex:0 0 auto;margin-top:0;padding:4px 10px}
+/* Distanza leggio (05/11/2026): cursore come «Distanza tra i 2», sotto una riga con la nota e «Standard»
+   per tornare alla posizione di serie. Il bottone è un testo d'azione nel colore d'accento, alla sua misura
+   (non la riga intera di `#props .btn`); sul telefono l'area di tocco arriva a 44 px senza cambiare il disegno. */
+#props .legdist .sldrow{border-bottom:none;padding-bottom:2px}
+#props .legdist .sldrow>output{min-width:64px}
+#props .legdist__nota{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 6px}
+#props .legdist__nota .prop-hint{margin:0}
+#props .legdist__reset{position:relative;flex:0 0 auto;background:none;border:none;padding:2px 0;margin:0;cursor:pointer;
+  font:inherit;font-size:var(--t-label);font-weight:600;color:var(--accent-strong);border-radius:var(--r-sm);
+  transition:color var(--dur-fast) var(--ease)}
+#props .legdist__reset:hover{color:var(--accent);text-decoration:underline}
+#props .legdist__reset:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+#props .legdist__reset[hidden]{display:none}
+#props #groupProps #grpLegDist.misto{opacity:.45}
+@media (max-width:560px),(pointer:coarse){
+  #props .legdist__reset::after{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:44px;transform:translate(-50%,-50%)}
+}
