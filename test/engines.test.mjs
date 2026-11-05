@@ -6385,20 +6385,23 @@ t("distanza leggio: il cursore sposta OGNI leggio disegnato, per ogni tipo del c
   ["stagepiano", "tastiera", "doppiatastiera", "gtstand", "bassstand", "gtacustica", "vlnpost", "timpani", "batteria", "direttore", "cantante", "corista", "arpa", "percussioni"]
     .forEach((tp) => ok(visti.has(tp), tp + " deve essere fra gli strumenti provati"));
 });
+/* Le misure standard sono quelle della v5 di un progetto vero, sistemata a mano e approvata dal proprietario il 05/11/2026
+   («perfetti, voglio che sia sempre così»): tastiere a 44 cm (mensola appena oltre la tastiera), chitarra seduta a 44 cm
+   (a filo delle punte dei piedi), timpani davanti ai fusti, nella V, mensola a 1 cm dai bordi. */
 t("distanza leggio: posizioni standard vicine allo strumento (tastiere, chitarre, timpani, percussioni)", () => {
   reset();
-  /* tastiere: la mensola (mezza profondità 8) sta 3 cm oltre il CORPO disegnato, non oltre l'ingombro */
+  /* tastiere: la mensola (mezza profondità 8) sta 5 cm oltre il CORPO disegnato, non oltre l'ingombro */
   const vicino = (tipo, opz, bordo, verso, msg) => {
     const it = add(tipo, 500, 500, opz); it.leggio = true; Object.assign(it, opz || {});
     const k = Math.min(it.w / A.TASTIERA_CORPO[bordo].bw, it.d / A.TASTIERA_CORPO[bordo].bd), corpo = A.TASTIERA_CORPO[bordo].bordo * k;
     const m = mensole(it); eq(m.length, 1, msg + ": un leggio");
     const aria = verso * m[0].y - 8 - corpo;
-    ok(Math.abs(aria - 3) < 0.6, msg + ": mensola a " + aria.toFixed(1) + " cm dal corpo (attesi 3)");
+    ok(Math.abs(aria - 5) < 0.6, msg + ": mensola a " + aria.toFixed(1) + " cm dal corpo (attesi 5)");
     return it;
   };
   /* misure esplicite: nel sandbox le illustrazioni non sono caricate e l'ingombro illustrato resterebbe 0 */
   const sp = vicino("stagepiano", { w: 132, d: 117 }, "musTastiera", 1, "stage piano illustrato 132×117");
-  ok(mensole(sp)[0].y < 50, "stage piano illustrato: prima la mensola stava a 82,5 cm dal centro, ora " + mensole(sp)[0].y);
+  ok(Math.abs(mensole(sp)[0].y - 46) < 0.6, "stage piano illustrato 132×117: mensola a 46 cm dal centro come nella v5 (prima 82,5), ora " + mensole(sp)[0].y);
   vicino("stagepiano", { look: "schematico", w: 138, d: 42 }, "stagepiano", -1, "stage piano schematico");
   vicino("tastiera", { w: 120, d: 36 }, "tastiera", -1, "tastiera");
   vicino("doppiatastiera", { w: 125, d: 78 }, "doppiatastiera", -1, "doppia tastiera");
@@ -6407,25 +6410,29 @@ t("distanza leggio: posizioni standard vicine allo strumento (tastiere, chitarre
   const lungo = vicino("stagepiano", { look: "schematico", w: 138, d: 42 }, "stagepiano", -1, "stage piano schematico");
   const y0 = mensole(lungo)[0].y; lungo.d = 90;
   eq(mensole(lungo)[0].y, y0, "allungare l'ingombro non allontana il leggio (prima: d/2+22)");
-  /* chitarre: seduto la mensola sta dove l'hanno gli archi (48 dal centro), illustrato o no; con la pedaliera 3 cm oltre i pedali */
+  /* chitarre: seduto la mensola sta a 46 dal centro (il leggio a 44, come nella v5), illustrato o no; con la pedaliera 3 cm oltre i pedali */
   [["gtstand", {}], ["gtstand", { look: "schematico", sedia: true }], ["bassstand", {}], ["gtacustica", {}], ["gtstand", { sedia: false }]].forEach(([tp, o]) => {
     reset(); const it = add(tp, 500, 500); Object.assign(it, { leggio: true }, o);
-    eq(mensole(it).map((p) => p.y), [48], tp + " " + JSON.stringify(o) + ": mensola a 48 cm dal centro (prima 62)");
-    eq(A.gtrLeggioY(it, A.TYPES[tp].gtr) + 2, 48, tp + ": Dividi usa lo stesso punto del disegno");
+    eq(mensole(it).map((p) => p.y), [46], tp + " " + JSON.stringify(o) + ": mensola a 46 cm dal centro (prima 62)");
+    eq(A.gtrLeggioY(it, A.TYPES[tp].gtr) + 2, 46, tp + ": Dividi usa lo stesso punto del disegno");
   });
   reset(); const ped = add("gtstand", 500, 500); Object.assign(ped, { leggio: true, sedia: true, pedaliera: true });
   eq(mensole(ped)[0].y - 8 - (72 + 15), 3, "pedaliera: mensola 3 cm oltre i pedali (prima 11)");
   reset(); const piedi = add("gtstand", 500, 500); Object.assign(piedi, { leggio: true, sedia: false, look: "schematico" });
   eq(mensole(piedi)[0].y, 58, "chitarra schematica in piedi: invariata, la chitarra sul supporto arriva a +50");
-  /* timpani: la mensola sta sulla linea dei centri dei fusti più vicini, davanti al timpanista */
+  /* timpani: la mensola sta davanti ai fusti, nella V, a 1 cm dal fusto più vicino e fuori da tutti */
   ["timpani", "timpani2", "timpani3"].forEach((tp) => {
     reset(); const it = add(tp, 500, 500); it.parts = Object.assign({}, it.parts, { leggio: true });
     A.itemMarkup(it);
     const L = A.timpSlots(A.parts(it)), B = A.timpBBox(L), fusti = L.filter((s) => !s.seat && !s.stool), seat = L.find((s) => s.seat);
     const m = mensole(it); eq(m.length, 1, tp + ": un leggio");
-    const linea = Math.min(...fusti.map((f) => f.y)) - B.cy;
-    ok(Math.abs(m[0].y - linea) < 0.6, tp + ": mensola a " + m[0].y + ", linea dei fusti a " + linea);
-    ok(m[0].y - (seat.y - B.cy) > 40, tp + ": la mensola non sta più sulle mani del timpanista (+36)");
+    /* distanza minima fra il rettangolo della mensola (50×16) e il bordo di ogni fusto */
+    const aria = fusti.map((f) => { const fx = f.x - B.cx, fy = f.y - B.cy;
+      const px = Math.max(m[0].x - 25, Math.min(m[0].x + 25, fx)), py = Math.max(m[0].y - 8, Math.min(m[0].y + 8, fy));
+      return Math.hypot(fx - px, fy - py) - f.r; });
+    ok(Math.min(...aria) > 0.5 && Math.min(...aria) < 1.6, tp + ": mensola a " + Math.min(...aria).toFixed(1) + " cm dal fusto più vicino (attesi 1)");
+    ok(fusti.every((f) => m[0].y > f.y - B.cy), tp + ": davanti ai fusti, oltre la loro linea");
+    ok(m[0].y - (seat.y - B.cy) > 90, tp + ": la mensola non sta più sulle mani del timpanista (+36)");
     it.leggioDist = 20; eq(Math.round(mensole(it)[0].y - m[0].y), 20, tp + ": «più lontano» va verso il pubblico, lontano dal timpanista");
   });
   /* leggio generico (percussionista, mallet…): 6 cm oltre l'ingombro invece di 12 */
@@ -6458,8 +6465,8 @@ t("distanza leggio: si salva, si rilegge nei limiti, e Dividi lascia il leggio d
   const lg = A.state.items.find((i) => i.type === "leggio");
   ok(lg, "Dividi: c'è il leggio");
   eq(Math.round(lg.y - 500 + 2), Math.round(prima.y), "Dividi chitarra: il leggio resta dove si vedeva");
-  reset(); const tp = add("timpani", 500, 500); tp.parts = Object.assign({}, tp.parts, { leggio: true }); tp.leggioDist = 10;
-  const mt = mensole(tp)[0]; A.selectOne(tp.id); A.explodeComposite();
+  reset(); const tp = add("timpani3", 500, 500); tp.parts = Object.assign({}, tp.parts, { leggio: true }); tp.leggioDist = 10;   /* ×3: il leggio sta nella V di lato, x ≠ 0 */
+  const mt = mensole(tp)[0]; ok(Math.abs(mt.x) > 10, "timpani ×3: leggio di lato, nella V (" + mt.x + ")"); A.selectOne(tp.id); A.explodeComposite();
   const lt = A.state.items.find((i) => i.type === "leggio");
   ok(lt && Math.abs(lt.x - 500 - mt.x) <= 1 && Math.abs(lt.y - 500 + 2 - mt.y) <= 1, "Dividi timpani: il leggio resta dove si vedeva " + JSON.stringify(mt) + " / " + (lt && [lt.x - 500, lt.y - 500]));
   reset();

@@ -575,12 +575,12 @@ function gtrLegY(it,kind){ return it.sedia ? 38 : (kind==="bass"?60:56); }
 /* posizione del leggio nella postazione: con la PEDALIERA va OLTRE i pedali (nella realtà si legge
    sopra la pedalboard); senza, resta vicino allo strumento. Un solo punto di verità (draw + Dividi).
    05/11/2026 (Simone: «il leggio è troppo distante… idem per la chitarra»): senza pedaliera il leggio sta
-   dove lo hanno gli archi (violino 46), cioè sopra i piedi del musicista seduto, non 14 cm più in là (era 60);
+   a 44 dal centro, a filo delle punte dei piedi del musicista seduto, non 16 cm più in là (era 60);
    con la pedaliera la mensola sta 3 cm oltre i pedali (era 11 cm). In piedi senza pedaliera resta com'era
    (gtrLegY, 56/60): la chitarra sul supporto arriva a +50 e la mensola le sta già a filo. Il chitarrista ILLUSTRATO è seduto,
    anche con `sedia` spenta: prima il draw illustrato usava 60/104 e Dividi questa funzione (56/96 in
    piedi), e il leggio diviso finiva in un altro punto. La distanza regolata (leggioDist) si aggiunge sopra. */
-var GTR_LEGGIO = { seduto:46, sedutoPed:96, piediPed:88 };
+var GTR_LEGGIO = { seduto:44, sedutoPed:96, piediPed:88 };   /* seduto 44: la misura della v5 approvata da Simone (a 38 la mensola copriva le ginocchia) */
 function gtrLeggioY(it,kind){
   var seduto = !!it.sedia || !!look2Art(it);
   if(seduto) return it.pedaliera ? GTR_LEGGIO.sedutoPed : GTR_LEGGIO.seduto;
@@ -3261,28 +3261,37 @@ function drawTimpani(it){
       /* scala 0,9 (24/09, Simone: «il timpanista è grande rispetto a batterista e percussionista»): l'icona è
          75×89, il batterista 65×81 — ridotta del 10% torna alla stessa corporatura (67×80) */
       if(pp.mus!==false)   g += '<g transform="translate(0,8) scale(0.9)">'+libIcon("timpanistaPersona")+'</g>';
-      if(pp.leggio===true) g += '<g transform="translate(0,'+timpLeggioY(L, t)+')">'+leggioGlyph(0)+'</g>';   /* leggio DAVANTI al timpanista, fra i timpani (05/11/2026, vedi timpLeggioY) */
+      if(pp.leggio===true){ var _tl=timpLeggioPos(L, t); g += '<g transform="translate('+_tl.x+','+_tl.y+')">'+leggioGlyph(0)+'</g>'; }   /* leggio davanti ai fusti, nella V (05/11/2026, vedi timpLeggioPos) */
       s += pre+g+'</g>';
     } else s += pre+libIcon(t.icon)+'</g>';
   });
   return s;
 }
 /* LEGGIO DEL TIMPANISTA (05/11/2026, Simone: «mi piacerebbe che il leggio fosse più realistico, davanti, vicino ai
-   timpani»). Prima stava a +34 dal posto, cioè sulle mani del timpanista, a metà strada fra lui e i fusti. Ora la
-   mensola sta sulla linea dei centri dei timpani più vicini al musicista: in mezzo ai fusti, dove il treppiede
-   entra nello spazio fra le caldaie e la mensola si legge sopra i bordi. Restituisce la y (dal posto) a cui
-   appoggiare leggioGlyph(0), che ha la mensola a +2. Senza timpani: la regola di prima. */
-function timpLeggioY(L, seat){
-  var ys=(L||[]).filter(function(t){ return !t.seat && !t.stool; }).map(function(t){ return t.y; });
-  if(!ys.length || !seat) return 34;
-  return Math.round(Math.min.apply(null, ys) - seat.y - 2);
+   timpani»; poi, sulla v5 di un progetto vero, «perfetti, voglio che sia sempre così»). Prima stava a +34 dal posto,
+   cioè sulle mani del timpanista, sopra i bordi interni dei fusti. Ora sta DAVANTI ai fusti, nella V fra i due più
+   vicini al centro di chi suona, con il bordo della mensola (50×16) a TIMP_LEGGIO_ARIA cm dai bordi dei fusti: il
+   timpanista legge sopra i timpani. Restituisce lo spostamento dal posto a cui appoggiare leggioGlyph(0) (mensola a
+   +2). Senza timpani: la regola di prima. */
+var TIMP_LEGGIO_ARIA = 1;
+function timpLeggioPos(L, seat){
+  var fusti=(L||[]).filter(function(t){ return !t.seat && !t.stool && t.r; });
+  if(!fusti.length || !seat) return {x:0, y:34};
+  var xs=fusti.map(function(t){ return t.x; }).sort(function(a,b){ return a-b; }), X=seat.x, best=1e9;
+  if(xs.length>1) for(var i=0;i<xs.length-1;i++){ var m=(xs[i]+xs[i+1])/2; if(Math.abs(m-seat.x)<best){ best=Math.abs(m-seat.x); X=m; } }   /* la V più vicina a chi suona */
+  var vicino=Math.min.apply(null, fusti.map(function(t){ return t.y; }));   /* almeno sulla linea dei fusti più vicini */
+  fusti.forEach(function(t){
+    var px=Math.max(X-25, Math.min(X+25, t.x)), h=Math.abs(t.x-px), R=t.r+TIMP_LEGGIO_ARIA;
+    if(h<R) vicino=Math.max(vicino, t.y+Math.sqrt(R*R-h*h));   /* il bordo vicino della mensola resta fuori dal fusto */
+  });
+  return {x:Math.round((X-seat.x)*10)/10, y:Math.round((vicino+8-2-seat.y)*10)/10};
 }
 function sizeTimpani(it){ var B=timpBBox(timpSlots(parts(it))); return [Math.round(B.w), Math.round(B.d)]; }
 var TIMP_R_TYPE={timp51:"timp51R",timp58:"timp58R",timp66:"timp66R",timp74:"timp74R",timp81:"timp81R"};
 function explodeTimpani(it){
   var L=timpSlots(parts(it)), B=timpBBox(L), base=it.label?it.label+" ":"", out=[];
   var _seat=L.filter(function(t){ return t.seat; })[0];
-  if(_seat && parts(it).leggio===true) out.push({type:"leggio", dx:Math.round(_seat.x-B.cx), dy:Math.round(_seat.y-B.cy+timpLeggioY(L,_seat)+leggioDist(it)), label:""});   /* stesso punto del disegno, distanza regolata compresa */
+  if(_seat && parts(it).leggio===true){ var _tl=timpLeggioPos(L,_seat); out.push({type:"leggio", dx:Math.round(_seat.x-B.cx+_tl.x), dy:Math.round(_seat.y-B.cy+_tl.y+leggioDist(it)), label:""}); }   /* stesso punto del disegno, distanza regolata compresa */   /* stesso punto del disegno, distanza regolata compresa */
   L.forEach(function(t){
     var dx=Math.round((t.x-B.cx)*10)/10, dy=Math.round((t.y-B.cy)*10)/10;
     if(t.stool){ out.push({type:"stoolR", dx:dx, dy:dy, label:""}); return; }
@@ -3606,9 +3615,9 @@ function tastieraLatoLeggio(it, illustrato){ return illustrato ? 1 : -1; }
    nello stage piano illustrato l'ingombro (132×117) comprende il musicista e i piedi del supporto, e la
    mensola finiva 41 cm oltre la tastiera; nella doppia tastiera 28. Ora si misura dal bordo del CORPO
    disegnato, dalla parte del leggio (bordo del disegno × la scala con cui drawLibFit lo adatta all'ingombro),
-   e la mensola sta TASTIERA_LEGGIO_ARIA cm oltre: un leggio vero si appoggia quasi alla tastiera.
+   e la mensola sta TASTIERA_LEGGIO_ARIA cm oltre: appena oltre il bordo lontano della tastiera, sopra il supporto.
    `bordo` = mezza profondità del disegno dalla parte del leggio, `bw`/`bd` = le misure passate a drawLibFit. */
-var TASTIERA_LEGGIO_ARIA = 3;
+var TASTIERA_LEGGIO_ARIA = 5;   /* 5 cm: la misura della v5 approvata da Simone (mensola a 46 cm dal centro dello stage piano illustrato) */
 var TASTIERA_CORPO = {
   musTastiera:   {bw:132, bd:117, bordo:33},   /* stage piano illustrato: il fronte del corpo rosso, verso il pubblico */
   stagepiano:    {bw:135, bd:40,  bordo:18},
