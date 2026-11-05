@@ -11801,7 +11801,7 @@ t("sgabelli: il percussionista seduto conta lo sgabello della batteria, come lo 
   const inPiedi = add("percussioni", 300, 300);
   eq(A.sgabelliDi(inPiedi), [], "di serie in piedi: niente sgabello, come nel disegno");
   const seduto = add("percussioni", 600, 300, { parts: { stool: true } });
-  ok(/sgabellobatt|translate\(0,-22\)/.test(A.TYPES.percussioni.draw(seduto)), "lo sgabello si disegna");
+  ok(/sgabellobatt/.test(A.TYPES.percussioni.draw(seduto)) || A.TYPES.percussioni.draw(seduto).indexOf("translate(0," + A.PERC_SGABELLO.dy + ")") > -1, "lo sgabello si disegna");
   eq(A.sgabelliDi(seduto), [["batteria", 1]], "e si conta");
   ok(/1 sgabello batteria/.test(A.sgabelliTesto()), "nel cartiglio: " + A.sgabelliTesto());
   reset();
@@ -16656,16 +16656,30 @@ t("disposizione: congas ad arco davanti a chi suona, bongos e tavolo alla sua de
   });
 });
 
-t("il percussionista è IN PIEDI; con lo sgabello acceso è seduto", () => {
-  conIcone(["percussionistaInPiedi", "batteristaPersona"], () => {
+/* 05/11/2026, Simone: «il percussionista ha un problema. Quando gli metto lo sgabello cambia la forma dell'uomo. Deve
+   semplicemente aggiungere uno sgabello. Perché cambia anche la forma e mette il batterista?». Prima questo test diceva
+   «con lo sgabello: seduto» (la figura del batterista): ora lo sgabello si aggiunge e la figura resta la stessa. */
+t("il percussionista è IN PIEDI; lo sgabello si AGGIUNGE sotto la stessa figura, mai il batterista", () => {
+  conIcone(["percussionistaInPiedi", "batteristaPersona", "sgabellobatt"], () => {
     reset();
     const p = add("percussioni", 400, 400);
     const piedi = A.drawPercussioni(p);
     ok(piedi.indexOf("musPercussioni_cls-99") > -1, "la figura in piedi (camicia di musPercussioni)");
     ok(piedi.indexOf("batteristaPersona") < 0, "non quella seduta del batterista");
+    /* segni stabili dentro le icone (libIcon rinomina le classi con un prefisso a ogni chiamata) */
+    const figura = "musPercussioni_cls-99", sgabello = "sgabellobatt_leg", batterista = "batteristaPersona_st";
+    ok(piedi.indexOf(sgabello) < 0, "senza sgabello: niente sgabello");
     A.parts(p).stool = true;
-    const seduto = A.drawPercussioni(p);
-    ok(seduto.indexOf("batteristaPersona") > -1 && seduto.indexOf("musPercussioni_cls-99") < 0, "con lo sgabello: seduto");
+    const conSgabello = A.drawPercussioni(p);
+    ok(conSgabello.indexOf(batterista) < 0, "con lo sgabello NON diventa il batterista");
+    ok(conSgabello.indexOf(figura) > -1, "con lo sgabello: la stessa identica figura del percussionista");
+    ok(conSgabello.indexOf(sgabello) > -1 && conSgabello.indexOf(sgabello) < conSgabello.indexOf(figura), "lo sgabello c'è, disegnato sotto la figura");
+    eq(conSgabello.split(figura).length, piedi.split(figura).length, "la stessa figura, una volta sola");
+    /* la figura sta nello stesso punto rispetto ai suoi strumenti: i posti del set non cambiano con lo sgabello */
+    const posti = (q) => A.percSlots(q).map((x) => x.k + ":" + x.x + "," + x.y).join(" ");
+    eq(posti(Object.assign({}, A.parts(p), { stool: true })), posti(Object.assign({}, A.parts(p), { stool: false })), "congas, bongos e chi suona restano dove erano");
+    const posto = A.percSlots(Object.assign({}, A.parts(p), { stool: true })).find((x) => x.seat);
+    ok(posto.hd >= -A.PERC_SGABELLO.dy + 20 && posto.hw >= 45, "l'ingombro comprende lo sgabello (raggio 20) e le braccia della figura: " + posto.hw + "×" + posto.hd);
   });
 });
 
@@ -16698,9 +16712,10 @@ t("«Dividi»: il percussionista resta in piedi, chimes e tavolo restano girati"
   ok(chi && chi.extra && chi.extra.inPiedi === true, "il percussionista diviso è in piedi");
   eq(pezzi.find((x) => x.type === "chimes").extra.rot, 270, "i chimes girati col treppiede verso fuori");
   eq(pezzi.find((x) => x.type === "tavolopercussioni").extra.rot, 90, "il tavolo per lungo");
-  A.parts(p).stool = true;
-  const seduto = A.COMP.percussioni.explode(p).find((x) => x.type === "percussionistaR");
-  ok(!(seduto.extra && seduto.extra.inPiedi), "con lo sgabello il percussionista diviso è seduto");
+  A.parts(p).stool = true;   /* 05/11/2026: con lo sgabello resta la stessa figura (prima diventava il batterista seduto) */
+  const div = A.COMP.percussioni.explode(p), conSgabello = div.find((x) => x.type === "percussionistaR");
+  ok(conSgabello.extra && conSgabello.extra.inPiedi === true, "con lo sgabello il percussionista diviso è la stessa figura");
+  ok(div.some((x) => x.type === "stoolR"), "e lo sgabello diventa un elemento suo");
 });
 
 t("chimes, campanaccio, piatto e tavolo valgono UN panoramico, non un canale a testa", () => {
