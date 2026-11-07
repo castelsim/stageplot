@@ -3535,6 +3535,99 @@ t("dimensione, rotazione e distanza fra i due: slider su una riga", () => {
 });
 /* Pannello layer (27/07): la riga chiusa dice quanto contiene, e il cestino esce dalla riga. */
 /* ===== Regressioni della review 27-28/07 (harness Playwright in COWORK/STAGEPLOT/review/) ===== */
+/* ============ A2 avvisi sulle pedane (07/11/2026, ok di Simone): 1 m protezione e accesso, 2 m Decreto Palchi ============ */
+const pedRilievi = () => A.auditEngine().findings.filter((f) => /^(pedana-alta|pedana-decreto|palco-decreto)$/.test(f.rule));
+t("A2: una pedana da 1 m senza parapetto né scala ha un avviso; sotto 1 m niente", () => {
+  reset();
+  add("pedana", 300, 300, { h: 90 });
+  eq(pedRilievi().length, 0, "90 cm: nessun avviso");
+  reset();
+  add("pedana", 300, 300, { h: 100 });
+  const r = pedRilievi();
+  eq(r.length, 1, "un avviso");
+  eq([r[0].lvl, r[0].cat, r[0].rule], ["warn", "Palco", "pedana-alta"], "Avviso (non Errore: non blocca l'esportazione), Palco");
+  eq(r[0].msg, "Pedana alta 1 m senza parapetto né scala: sopra 1 m si consigliano una protezione dalle cadute e un accesso.", "testo");
+  ok(/Verifica con chi monta il palco/.test(r[0].fix) && !/a norma|obbligatori/i.test(r[0].msg + r[0].fix), "«verifica», mai «a norma» né «obbligatorio»");
+  ok(/Buona pratica \(INAIL/.test(r[0].fix), "dice da dove viene: buona pratica, non legge italiana");
+  ok(r[0].act && r[0].act.label === "Mostra", "«Mostra» seleziona le pedane");
+  reset();
+});
+
+t("A2: parapetto e scala che toccano la pedana spengono l'avviso; ne manca uno, l'avviso dice quale", () => {
+  reset();
+  const p = add("pedana", 400, 300, { h: 120 });   /* 200×100: x 300-500, y 250-350 */
+  add("parapetto", 400, 245, { w: 200, d: 8 });   /* sul retro */
+  eq(pedRilievi()[0].msg, "Pedana alta 1,2 m senza scala: sopra 1 m si consiglia un accesso.", "solo la scala manca");
+  add("scala", 535, 300);   /* 60×90 sul fianco destro */
+  eq(pedRilievi().length, 0, "parapetto e scala: niente avviso");
+  reset();
+  add("pedana", 400, 300, { h: 120 }); add("scala", 535, 300);
+  eq(pedRilievi()[0].msg, "Pedana alta 1,2 m senza parapetto: sopra 1 m si consiglia una protezione dalle cadute.", "solo il parapetto manca");
+  add("scala", 900, 300); add("parapetto", 900, 600, { w: 200, d: 8 });   /* lontani: non contano */
+  eq(pedRilievi()[0].msg, "Pedana alta 1,2 m senza parapetto: sopra 1 m si consiglia una protezione dalle cadute.", "un parapetto lontano non protegge");
+  reset();
+});
+
+t("A2: le pedane alte che si toccano sono una piattaforma sola; una pedana 40 cm più bassa accanto è un gradino", () => {
+  reset();
+  /* tre moduli h120 affiancati: parapetto su uno, scala su un altro → la piattaforma è a posto */
+  add("pedana", 300, 300, { h: 120 }); add("pedana", 500, 300, { h: 120 }); add("pedana", 700, 300, { h: 120 });
+  add("parapetto", 300, 245, { w: 200, d: 8 }); add("scala", 835, 300);
+  eq(pedRilievi().length, 0, "una piattaforma, protetta e con accesso");
+  /* gradinata d'orchestra: h80 davanti alla h120 è un gradino */
+  reset();
+  add("pedana", 400, 300, { h: 120 }); add("pedana", 400, 400, { h: 80 }); add("parapetto", 400, 245, { w: 200, d: 8 });
+  eq(pedRilievi().length, 0, "40 cm di gradino: è un accesso");
+  reset();
+  add("pedana", 400, 300, { h: 120 }); add("pedana", 400, 400, { h: 60 }); add("parapetto", 400, 245, { w: 200, d: 8 });
+  eq(pedRilievi()[0].msg, "Pedana alta 1,2 m senza scala: sopra 1 m si consiglia un accesso.", "60 cm sotto non è un gradino");
+  /* due piattaforme separate: un avviso solo, col conto */
+  reset();
+  add("pedana", 300, 300, { h: 100 }); add("pedana", 900, 300, { h: 160 });
+  const r = pedRilievi();
+  eq(r.length, 1, "un avviso per tutto il progetto");
+  eq(r[0].msg, "2 pedane alte più di 1 m (fino a 1,6 m) senza parapetto o scala: sopra 1 m si consigliano una protezione dalle cadute e un accesso.", "testo con il conto");
+  reset();
+});
+
+t("A2: la pedana ruotata si misura ruotata", () => {
+  reset();
+  add("pedana", 500, 400, { h: 100, rot: 90 });   /* 200×100 ruotata: x 450-550, y 300-500 */
+  add("parapetto", 445, 400, { w: 8, d: 200 }); add("scala", 500, 545);   /* scala sotto il capo ruotato */
+  eq(pedRilievi().length, 0, "ruotata: scala e parapetto la toccano");
+  A.state.items.find((x) => x.type === "pedana").rot = 0;   /* non ruotata: y 350-450, la scala a 500-590 è lontana */
+  eq(pedRilievi()[0].msg, "Pedana alta 1 m senza scala: sopra 1 m si consiglia un accesso.", "dritta: la scala non la tocca più");
+  reset();
+});
+
+t("A2: oltre 2 m il Decreto Palchi, per la pedana e per il palco", () => {
+  reset();
+  add("pedana", 300, 300, { h: 200 }); add("parapetto", 300, 245, { w: 200, d: 8 }); add("scala", 435, 300);
+  eq(pedRilievi().length, 0, "2 m esatti: fuori dal Decreto (art. 1 c. 3 lett. b)");
+  A.state.items.find((x) => x.type === "pedana").h = 220;
+  const d = pedRilievi().find((f) => f.rule === "pedana-decreto");
+  ok(d && d.lvl === "warn", "Avviso");
+  eq(d.msg, "Pedana alta 2,2 m: oltre 2 m il montaggio rientra nel Decreto Palchi (D.I. 22/07/2014).", "testo");
+  ok(/D\.Lgs\. 81\/08, Titolo IV\): verifica con il service/.test(d.fix), "cantiere e verifica: " + d.fix);
+  reset();
+  A.state.stage.blocks = [{ x: 0, y: 0, w: 1200, d: 800, h: 250 }];
+  const pd = pedRilievi().find((f) => f.rule === "palco-decreto");
+  ok(pd && pd.lvl === "warn" && pd.msg === "Palco alto 2,5 m: se è montato per l'evento, oltre 2 m rientra nel Decreto Palchi (D.I. 22/07/2014).", "palco: " + (pd && pd.msg));
+  A.state.stage.blocks = [{ x: 0, y: 0, w: 1200, d: 800, h: 120 }];
+  eq(pedRilievi().length, 0, "palco da 1,2 m: niente (il fronte è il bordo di esibizione)");
+  reset();
+});
+
+t("A2: con «Controllo tecnico» spento gli avvisi sulle pedane non compaiono", () => {
+  reset();
+  add("pedana", 300, 300, { h: 160 }); add("pedana", 900, 300, { h: 240 });
+  ok(pedRilievi().length >= 2, "acceso: compaiono");
+  const orig = A.funzOn;
+  A.funzOn = (id) => id !== "controllo";
+  try { eq(pedRilievi().length, 0, "spento: niente"); } finally { A.funzOn = orig; }
+  reset();
+});
+
 t("CANVAS-01: una pedana NON si aggancia fuori dal palco; un wedge sì (è voluto)", () => {
   reset();
   const ped = add("pedana", 100, 100);   // 200×100: minX=0, maxX=200
@@ -18941,99 +19034,6 @@ t("il rider dice quanta corrente serve, e sotto quale protezione — in HTML e i
   ok(/heading\("ALIMENTAZIONE"\)/.test(pdf) && /riderAlimentazioneText\(d\.elettrico\)/.test(pdf), "il PDF ha la sezione, dalla stessa frase");
   const html = appjs.slice(appjs.indexOf("function riderHtml"), appjs.indexOf("function riderHtml") + 4000);
   ok(/riderAlimentazioneText\(d\.elettrico\)/.test(html), "e l'HTML la prende dalla stessa funzione");
-});
-
-/* ============ A2 avvisi sulle pedane (07/11/2026, ok di Simone): 1 m protezione e accesso, 2 m Decreto Palchi ============ */
-const pedRilievi = () => A.auditEngine().findings.filter((f) => /^(pedana-alta|pedana-decreto|palco-decreto)$/.test(f.rule));
-t("A2: una pedana da 1 m senza parapetto né scala ha un avviso; sotto 1 m niente", () => {
-  reset();
-  add("pedana", 300, 300, { h: 90 });
-  eq(pedRilievi().length, 0, "90 cm: nessun avviso");
-  reset();
-  add("pedana", 300, 300, { h: 100 });
-  const r = pedRilievi();
-  eq(r.length, 1, "un avviso");
-  eq([r[0].lvl, r[0].cat, r[0].rule], ["warn", "Palco", "pedana-alta"], "Avviso (non Errore: non blocca l'esportazione), Palco");
-  eq(r[0].msg, "Pedana alta 1 m senza parapetto né scala: sopra 1 m si consigliano una protezione dalle cadute e un accesso.", "testo");
-  ok(/Verifica con chi monta il palco/.test(r[0].fix) && !/a norma|obbligatori/i.test(r[0].msg + r[0].fix), "«verifica», mai «a norma» né «obbligatorio»");
-  ok(/Buona pratica \(INAIL/.test(r[0].fix), "dice da dove viene: buona pratica, non legge italiana");
-  ok(r[0].act && r[0].act.label === "Mostra", "«Mostra» seleziona le pedane");
-  reset();
-});
-
-t("A2: parapetto e scala che toccano la pedana spengono l'avviso; ne manca uno, l'avviso dice quale", () => {
-  reset();
-  const p = add("pedana", 400, 300, { h: 120 });   /* 200×100: x 300-500, y 250-350 */
-  add("parapetto", 400, 245, { w: 200, d: 8 });   /* sul retro */
-  eq(pedRilievi()[0].msg, "Pedana alta 1,2 m senza scala: sopra 1 m si consiglia un accesso.", "solo la scala manca");
-  add("scala", 535, 300);   /* 60×90 sul fianco destro */
-  eq(pedRilievi().length, 0, "parapetto e scala: niente avviso");
-  reset();
-  add("pedana", 400, 300, { h: 120 }); add("scala", 535, 300);
-  eq(pedRilievi()[0].msg, "Pedana alta 1,2 m senza parapetto: sopra 1 m si consiglia una protezione dalle cadute.", "solo il parapetto manca");
-  add("scala", 900, 300); add("parapetto", 900, 600, { w: 200, d: 8 });   /* lontani: non contano */
-  eq(pedRilievi()[0].msg, "Pedana alta 1,2 m senza parapetto: sopra 1 m si consiglia una protezione dalle cadute.", "un parapetto lontano non protegge");
-  reset();
-});
-
-t("A2: le pedane alte che si toccano sono una piattaforma sola; una pedana 40 cm più bassa accanto è un gradino", () => {
-  reset();
-  /* tre moduli h120 affiancati: parapetto su uno, scala su un altro → la piattaforma è a posto */
-  add("pedana", 300, 300, { h: 120 }); add("pedana", 500, 300, { h: 120 }); add("pedana", 700, 300, { h: 120 });
-  add("parapetto", 300, 245, { w: 200, d: 8 }); add("scala", 835, 300);
-  eq(pedRilievi().length, 0, "una piattaforma, protetta e con accesso");
-  /* gradinata d'orchestra: h80 davanti alla h120 è un gradino */
-  reset();
-  add("pedana", 400, 300, { h: 120 }); add("pedana", 400, 400, { h: 80 }); add("parapetto", 400, 245, { w: 200, d: 8 });
-  eq(pedRilievi().length, 0, "40 cm di gradino: è un accesso");
-  reset();
-  add("pedana", 400, 300, { h: 120 }); add("pedana", 400, 400, { h: 60 }); add("parapetto", 400, 245, { w: 200, d: 8 });
-  eq(pedRilievi()[0].msg, "Pedana alta 1,2 m senza scala: sopra 1 m si consiglia un accesso.", "60 cm sotto non è un gradino");
-  /* due piattaforme separate: un avviso solo, col conto */
-  reset();
-  add("pedana", 300, 300, { h: 100 }); add("pedana", 900, 300, { h: 160 });
-  const r = pedRilievi();
-  eq(r.length, 1, "un avviso per tutto il progetto");
-  eq(r[0].msg, "2 pedane alte più di 1 m (fino a 1,6 m) senza parapetto o scala: sopra 1 m si consigliano una protezione dalle cadute e un accesso.", "testo con il conto");
-  reset();
-});
-
-t("A2: la pedana ruotata si misura ruotata", () => {
-  reset();
-  add("pedana", 500, 400, { h: 100, rot: 90 });   /* 200×100 ruotata: x 450-550, y 300-500 */
-  add("parapetto", 445, 400, { w: 8, d: 200 }); add("scala", 500, 545);   /* scala sotto il capo ruotato */
-  eq(pedRilievi().length, 0, "ruotata: scala e parapetto la toccano");
-  A.state.items.find((x) => x.type === "pedana").rot = 0;   /* non ruotata: y 350-450, la scala a 500-590 è lontana */
-  eq(pedRilievi()[0].msg, "Pedana alta 1 m senza scala: sopra 1 m si consiglia un accesso.", "dritta: la scala non la tocca più");
-  reset();
-});
-
-t("A2: oltre 2 m il Decreto Palchi, per la pedana e per il palco", () => {
-  reset();
-  add("pedana", 300, 300, { h: 200 }); add("parapetto", 300, 245, { w: 200, d: 8 }); add("scala", 435, 300);
-  eq(pedRilievi().length, 0, "2 m esatti: fuori dal Decreto (art. 1 c. 3 lett. b)");
-  A.state.items.find((x) => x.type === "pedana").h = 220;
-  const d = pedRilievi().find((f) => f.rule === "pedana-decreto");
-  ok(d && d.lvl === "warn", "Avviso");
-  eq(d.msg, "Pedana alta 2,2 m: oltre 2 m il montaggio rientra nel Decreto Palchi (D.I. 22/07/2014).", "testo");
-  ok(/D\.Lgs\. 81\/08, Titolo IV\): verifica con il service/.test(d.fix), "cantiere e verifica: " + d.fix);
-  reset();
-  A.state.stage.blocks = [{ x: 0, y: 0, w: 1200, d: 800, h: 250 }];
-  const pd = pedRilievi().find((f) => f.rule === "palco-decreto");
-  ok(pd && pd.lvl === "warn" && pd.msg === "Palco alto 2,5 m: se è montato per l'evento, oltre 2 m rientra nel Decreto Palchi (D.I. 22/07/2014).", "palco: " + (pd && pd.msg));
-  A.state.stage.blocks = [{ x: 0, y: 0, w: 1200, d: 800, h: 120 }];
-  eq(pedRilievi().length, 0, "palco da 1,2 m: niente (il fronte è il bordo di esibizione)");
-  reset();
-});
-
-t("A2: con «Controllo tecnico» spento gli avvisi sulle pedane non compaiono", () => {
-  reset();
-  add("pedana", 300, 300, { h: 160 }); add("pedana", 900, 300, { h: 240 });
-  ok(pedRilievi().length >= 2, "acceso: compaiono");
-  const orig = A.funzOn;
-  A.funzOn = (id) => id !== "controllo";
-  try { eq(pedRilievi().length, 0, "spento: niente"); } finally { A.funzOn = orig; }
-  reset();
 });
 
 /* ============ audit esterno del 23/08 (Manuale operativo): i due P0, riprodotti e corretti ============ */
