@@ -15585,6 +15585,54 @@ function auditFixVoceSoloMicPosato(list){
   __cabRes=null; save(); render(); if(typeof renderChannels==="function") renderChannels();
   showToast(voci.length===1 ? "Resta il microfono posato: la voce ha un canale solo" : "Restano i microfoni posati: "+voci.length+" voci con un canale solo");
 }
+/* ═══ A2 · AVVISI SULLE PEDANE (ok di Simone del 07/11/2026) ════════════════════════════════════════
+   Due soglie che l'app ricorda senza calcolare niente. Sopra 1 m si CONSIGLIANO una protezione dalle
+   cadute e un accesso: è buona pratica (DGUV V17 § 6, Germania; INAIL 2017 § 2.7: parapetti su tutti
+   i lati tranne il fronte di esibizione, scale d'accesso), non un obbligo di legge italiano, e il testo
+   lo dice così. Oltre 2 m il montaggio rientra nel Decreto Palchi (D.I. 22/07/2014, art. 1 c. 3 lett. b:
+   fuori solo le pedane fino a 2 m non connesse ad altre strutture), cioè nel Titolo IV del D.Lgs. 81/08.
+   NON si usano: il «palco all'aperto ≤ 0,8 m» del DM 96 (tolto dal DM 18/12/2012) e la balaustra da 1 m
+   (riguarda le gallerie). Testi riscontrati dalla sessione RICERCA 2 del 07/11. Fonti: STAGEPLOT/CONOSCENZA/studi/palchi_e_pedane.md.
+   Le pedane alte che si toccano sono UNA piattaforma: l'avviso è per piattaforma, non per modulo. Un
+   parapetto o una scala/rampa che la toccano contano; una pedana più bassa accanto, al massimo 40 cm
+   sotto, è un gradino, cioè un accesso (le gradinate d'orchestra salgono così). */
+var PEDANA_PROTEZIONE_CM=100, PEDANA_DECRETO_CM=200, PEDANA_GRADINO_CM=40;
+function pedanaH(it){ var T=TYPES[it.type]||{}; return (it.h!=null && isFinite(+it.h)) ? +it.h : (T.h||40); }
+function itemAabb(it, pad){
+  var T=TYPES[it.type]||{}, w=+(it.w||T.w||0), d=+(it.d||T.d||0), r=((+it.rot||0)%360)*Math.PI/180;
+  var c=Math.abs(Math.cos(r)), s=Math.abs(Math.sin(r)), hw=(w*c+d*s)/2+(pad||0), hd=(w*s+d*c)/2+(pad||0);
+  return {x0:it.x-hw, x1:it.x+hw, y0:it.y-hd, y1:it.y+hd};
+}
+function aabbTocca(a,b){ return a.x0<=b.x1 && b.x0<=a.x1 && a.y0<=b.y1 && b.y0<=a.y1; }
+function pedaneSicurezza(items){
+  items=items||state.items||[];
+  var risers=items.filter(function(it){ return TYPES[it.type] && TYPES[it.type].riser; });
+  var alte=risers.filter(function(it){ return pedanaH(it)>=PEDANA_PROTEZIONE_CM; });
+  var preso=[], gruppi=[];
+  alte.forEach(function(it){
+    if(preso.indexOf(it)>=0) return;
+    var g=[it], coda=[it]; preso.push(it);
+    while(coda.length){ var A=itemAabb(coda.pop(),5);
+      alte.forEach(function(b){ if(preso.indexOf(b)<0 && aabbTocca(A,itemAabb(b,5))){ preso.push(b); g.push(b); coda.push(b); } }); }
+    gruppi.push(g);
+  });
+  var parapetti=items.filter(function(it){ return it.type==="parapetto"; });
+  var accessi=items.filter(function(it){ return it.type==="scala" || it.type==="rampa"; });
+  var scoperte=[];
+  gruppi.forEach(function(g){
+    var hs=g.map(pedanaH), hMin=Math.min.apply(null,hs), hMax=Math.max.apply(null,hs);
+    var box=g.map(function(it){ return itemAabb(it,15); });
+    function tocca(x){ var B=itemAabb(x,0); return box.some(function(a){ return aabbTocca(a,B); }); }
+    var parapetto=parapetti.some(tocca);
+    var accesso=accessi.some(tocca) || risers.some(function(r){
+      if(g.indexOf(r)>=0) return false; var h=pedanaH(r); return h<hMin && h>=hMin-PEDANA_GRADINO_CM && tocca(r); });
+    if(!parapetto || !accesso) scoperte.push({items:g, h:hMax, parapetto:parapetto, accesso:accesso});
+  });
+  var blocchi=(typeof stageBlocks==="function")?stageBlocks():((state.stage&&state.stage.blocks)||[]);
+  return { scoperte:scoperte,
+           decreto:risers.filter(function(it){ return pedanaH(it)>PEDANA_DECRETO_CM; }),
+           palcoH:Math.max.apply(null,[0].concat(blocchi.map(function(b){ return +b.h||0; }))) };
+}
 function auditEngine(){
   var items=state.items||[], Rc=cabResult(true), Re=elecResult(true), f=[];
   /* Dedup per CHIAVE, non per testo (audit 27/07): la stessa regola dichiarata sia qui sia dentro un
@@ -15774,6 +15822,35 @@ function auditEngine(){
       "Palco","Probabilmente è una copia finita nello stesso punto. «Mostra» li seleziona; se sono davvero doppioni, toglili: si annulla.",
       {label:"Mostra", run:function(){ auditFixMostraDoppioni(doppi); }}, "doppioni",
       {label:(doppi.length===1?"Togli il doppione":"Togli i "+doppi.length+" doppioni"), run:function(){ auditFixTogliDoppioni(doppi); }});
+  })();
+  /* A2 · PEDANE ALTE E DECRETO PALCHI (07/11/2026): solo con «Controllo tecnico» acceso e solo «Avviso»,
+     che non blocca l'esportazione (gli «Errore» la fermano con una finestra). Mai «a norma»: «verifica». */
+  (function(){
+    if(!(typeof funzOn==="function" && funzOn("controllo"))) return;
+    var S=pedaneSicurezza(items);
+    if(S.scoperte.length){
+      var tutte=[]; S.scoperte.forEach(function(sc){ sc.items.forEach(function(it){ tutte.push(it); }); });
+      var u=S.scoperte[0], msg;
+      if(S.scoperte.length===1){
+        msg="Pedana alta "+fmtM(u.h)+" senza "+(!u.parapetto && !u.accesso ? "parapetto né scala" : (!u.parapetto ? "parapetto" : "scala"))+
+            ": sopra 1 m "+(!u.parapetto && !u.accesso ? "si consigliano una protezione dalle cadute e un accesso" : (!u.parapetto ? "si consiglia una protezione dalle cadute" : "si consiglia un accesso"))+".";
+      } else {
+        msg=S.scoperte.length+" pedane alte più di 1 m (fino a "+fmtM(Math.max.apply(null,S.scoperte.map(function(x){ return x.h; })))+
+            ") senza parapetto o scala: sopra 1 m si consigliano una protezione dalle cadute e un accesso.";
+      }
+      add("warn", msg, "Palco",
+          "Buona pratica (INAIL, palchi 2017): parapetto verso fondo e quinte e una scala d'accesso. Verifica con chi monta il palco.",   /* corto: il PDF dell'audit non va a capo */
+          {label:"Mostra", run:function(){ auditFixMostraDoppioni(tutte); }}, "pedana-alta");
+    }
+    if(S.decreto.length){
+      var d0=S.decreto;
+      add("warn", (d0.length===1 ? "Pedana alta "+fmtM(pedanaH(d0[0])) : d0.length+" pedane alte più di 2 m")+": oltre 2 m il montaggio rientra nel Decreto Palchi (D.I. 22/07/2014).",
+          "Palco", "Il montaggio si gestisce come un cantiere (D.Lgs. 81/08, Titolo IV): verifica con il service.",
+          {label:"Mostra", run:function(){ auditFixMostraDoppioni(d0); }}, "pedana-decreto");
+    }
+    if(S.palcoH>PEDANA_DECRETO_CM)
+      add("warn", "Palco alto "+fmtM(S.palcoH)+": se è montato per l'evento, oltre 2 m rientra nel Decreto Palchi (D.I. 22/07/2014).",
+          "Palco", "Il montaggio si gestisce come un cantiere (D.Lgs. 81/08, Titolo IV): verifica con il service.", null, "palco-decreto");
   })();
   /* VOCE RIPRESA DUE VOLTE (20/10): un avviso solo, coi nomi della voce e del microfono posato accanto. */
   (function(){
