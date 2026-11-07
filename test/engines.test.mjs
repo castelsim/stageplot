@@ -18943,6 +18943,146 @@ t("il rider dice quanta corrente serve, e sotto quale protezione — in HTML e i
   ok(/riderAlimentazioneText\(d\.elettrico\)/.test(html), "e l'HTML la prende dalla stessa funzione");
 });
 
+/* ============ A1 «elettrico onesto» (07/11/2026, ok di Simone): tipico e massimo, prese, generatore, frase di legge ============ */
+t("A1: PA e monitor stimati hanno un massimo doppio; targa, valore scritto a mano e backline restano uguali", () => {
+  reset();
+  const w = add("wedge", 300, 300), top = add("topattivo", 600, 300), co = add("comboamp", 800, 300), fbt = add("topattivo", 900, 300);
+  eq(A.wattMaxOf(w), 2 * A.WATT.wedge, "wedge stimato: 2 × tipico (LA12X 1850→4200 W, D12 640→1230 W)");
+  eq(A.wattMaxOf(top), 2 * A.WATT.topattivo, "diffusore attivo stimato: 2 × tipico");
+  eq(A.wattMaxOf(co), A.wattOf(co), "il combo non è PA: massimo = tipico");
+  A.ampModelSetBm(fbt, "fbt_evomaxx6a");
+  eq(A.wattMaxOf(fbt), 450, "modello di targa (450 VA): si tiene il numero del costruttore");
+  w.watt = 300;
+  eq(A.wattMaxOf(w), 300, "W scritti dall'utente: si tengono");
+  eq(A.powerTotalW(), 300 + A.WATT.topattivo + A.wattOf(co) + 450, "il totale del motore resta sul tipico");
+  reset();
+});
+
+t("A1: elecPotenza — tipico, massimo, prese separate per audio e luci, generatore alla taglia di noleggio", () => {
+  reset(); A.state.elec.on = true;
+  add("topattivo", 200, 200); add("topattivo", 1000, 200);   /* 2 × 250 */
+  for (let i = 0; i < 4; i++) add("wedge", 300 + i * 150, 600);   /* 4 × 400 */
+  add("sub18", 300, 100); add("sub18", 900, 100);   /* 2 × 800 */
+  add("comboamp", 500, 400);   /* 150, backline */
+  for (let i = 0; i < 4; i++) add("pcled", 200 + i * 200, 50);   /* 4 × 200, luci */
+  A.__elecRes = null;
+  const P = A.elecPotenza();
+  eq(P.tipW, 500 + 1600 + 1600 + 150 + 800, "tipico = somma del motore");
+  eq(P.maxW, 1000 + 3200 + 3200 + 150 + 800, "massimo: PA e monitor raddoppiano, combo e luci no");
+  ok(P.picco, "c'è un picco");
+  eq(P.preseTxt, "1 presa CEE 32 A trifase 5 poli per l'audio e 1 presa 16 A monofase per luci e video", "prese");
+  eq(P.genKva, 15, "8,35 kW / 0,8 + 20% = 12,5 kVA → taglia 15");
+  /* la presa si sceglie fino all'85%, come il «quasi al limite» del motore */
+  eq(A.elecPresaPer(18768), { n: 1, a: 32, poli: 5 }, "18,8 kW stanno su una 32 A");
+  eq(A.elecPresaPer(18800), { n: 1, a: 63, poli: 5 }, "appena sopra: 63 A");
+  eq(A.elecPresaPer(3128), { n: 1, a: 16, poli: 3 }, "3,1 kW: 16 A");
+  eq(A.elecPresaPer(200000), { n: 3, a: 125, poli: 5 }, "oltre la 125 A: più prese da 125 A");
+  eq([A.elecGenKva(8000), A.elecGenKva(20000), A.elecGenKva(400000)], [15, 30, 600], "taglie del generatore");
+  reset();
+});
+
+t("A1: un impianto piccolo chiede una presa da 16 A e non nomina il generatore", () => {
+  reset(); A.state.elec.on = true;
+  add("topattivo", 300, 300); add("stagepiano", 600, 300);
+  A.__elecRes = null;
+  const P = A.elecPotenza();
+  eq(P.maxW, 2 * A.WATT.topattivo + A.WATT.stagepiano, "massimo");
+  eq(P.preseTxt, "1 presa 16 A monofase", "una presa, senza dividere audio e luci");
+  eq(P.genKva, null, "niente generatore");
+  const t1 = A.riderAlimentazioneText(A.riderData().elettrico);
+  ok(/Servono 1 presa 16 A monofase/.test(t1) && !/generatore/.test(t1), "rider: la presa sì, il generatore no: " + t1);
+  reset();
+});
+
+t("A1: il rider scrive tipico e massimo, le prese a ≤10 m, il generatore e la frase del DM 96 Titolo IX", () => {
+  reset(); A.state.elec.on = true;
+  for (let i = 0; i < 4; i++) add("amprack", 200 + i * 200, 700);   /* 4 × 2500 W tipici */
+  add("pcled", 600, 50);
+  A.__elecRes = null;
+  const e = A.riderData().elettrico;
+  const t1 = A.riderAlimentazioneText(e);
+  ok(/Assorbimento tipico 10,2 kW · massimo 20,2 kW \(audio a piena potenza\)/.test(t1), "due numeri: " + t1);
+  ok(/Servono 1 presa CEE 63 A trifase 5 poli per l'audio e 1 presa 16 A monofase per luci e video, a uso esclusivo e a non più di 10 m dal palco/.test(t1), "prese sul massimo: " + t1);
+  ok(/almeno 40 kVA, da confermare con il noleggiatore/.test(t1), "generatore: 20,2/0,8×1,2 = 30,3 → 40 kVA: " + t1);
+  ok(/non sostituisce il progetto né la dichiarazione di un tecnico abilitato \(spazi all'aperto: DM 19\/08\/1996, Titolo IX\)/.test(t1), "frase di legge");
+  ok(!/a norma/.test(t1), "mai «a norma»");
+  ok(/differenziale 30 mA/.test(t1) && /prolunghe completamente svolte/.test(t1), "restano differenziale e prolunghe");
+  /* il vecchio formato (senza massimo) resta leggibile */
+  const vecchio = A.riderAlimentazioneText({ w: 2600, a: 11.3, distro: [], fasi: false });
+  ok(/Assorbimento stimato 2,6 kW · 12 A/.test(vecchio) && /bordo palco/.test(vecchio), "senza massimo: un numero solo");
+  reset();
+});
+
+t("A1: con i quadri dichiarati si chiede la presa di ogni quadro di testa, e se il massimo non ci sta si avvisa", () => {
+  reset(); A.state.elec.on = true; A.state.elec.mode = "auto";
+  for (let i = 0; i < 4; i++) add("amprack", 200 + i * 200, 700);   /* tipico 10 kW, massimo 20 kW */
+  const q = add("distro63", 600, 760), c = add("ciabatta", 300, 760);
+  A.state.elec.uplinks = { [c.id]: { to: q.id } };   /* la ciabatta prende dal quadro: non è di testa */
+  A.__elecRes = null;
+  let P = A.elecPotenza();
+  eq(P.preseTxt, "1 presa CEE 63 A trifase 5 poli per il quadro Q1", "la presa del quadro dichiarato, non un'altra misura");
+  eq(P.oltreTxt, "", "20 kW stanno nei 43,5 kW del 63 A");
+  let t1 = A.riderAlimentazioneText(A.riderData().elettrico);
+  ok(/quadri: Q1 63A/.test(t1) && /Servono 1 presa CEE 63 A trifase 5 poli per il quadro Q1/.test(t1), "quadro e presa concordi: " + t1);
+  /* ciabatte non ancora collegate: prendono dal quadro, nessuna presa in più */
+  add("ciabatta", 900, 760); A.__elecRes = null;
+  eq(A.elecPotenza().preseTxt, "1 presa CEE 63 A trifase 5 poli per il quadro Q1", "la ciabatta da alimentare non chiede una presa sua");
+  /* due quadri uguali: una riga sola */
+  add("distro63", 1150, 760); add("amprack", 1150, 700); A.__elecRes = null;   /* un carico vicino: il secondo quadro lavora */
+  ok(/^2 prese CEE 63 A trifase 5 poli per i quadri Q\d e Q\d$/.test(A.elecPotenza().preseTxt), "due quadri uguali: " + A.elecPotenza().preseTxt);
+  A.state.items = A.state.items.filter((x) => x.x !== 1150 && !(x.type === "ciabatta" && x.x === 900)); A.__elecRes = null;
+  /* un quadro piccolo per un massimo grande */
+  A.state.items = A.state.items.filter((x) => x.type !== "distro63" && x.type !== "ciabatta"); A.state.elec.uplinks = {};
+  add("distro32", 600, 760); A.__elecRes = null;
+  P = A.elecPotenza();
+  eq(P.oltreTxt, "", "il 32 A regge 22,1 kW: il massimo di 20 kW ci sta");
+  add("amprack", 1000, 600); A.__elecRes = null;   /* massimo 25 kW su un 32 A */
+  P = A.elecPotenza();
+  ok(/Nel caso peggiore servono circa 25,0 kW, più di quanto reggono i quadri dichiarati \(22,1 kW\): verifica con il service\./.test(P.oltreTxt), "avviso: " + P.oltreTxt);
+  t1 = A.riderAlimentazioneText(A.riderData().elettrico);
+  ok(t1.indexOf(P.oltreTxt) > 0, "e il rider lo dice");
+  reset();
+});
+
+t("A1: il generatore si controlla sul massimo in kVA (cosφ 0,8), non sul tipico", () => {
+  reset(); A.state.elec.on = true;
+  add("gen20", 100, 700);
+  add("amprack", 400, 700); add("amprack", 700, 700);   /* tipico 5 kW, massimo 10 kW → 12,5 kVA: basta */
+  A.__elecRes = null;
+  let R = A.elecResult(true);
+  ok(!R.issues.some((i) => /Generatore/.test(i.msg)), "20 kVA per 12,5 kVA: nessun avviso");
+  add("amprack", 900, 700); add("amprack", 1100, 700);   /* tipico 10 kW (prima: nessun avviso), massimo 20 kW → 25 kVA */
+  A.__elecRes = null; R = A.elecResult(true);
+  const g = R.issues.find((i) => /Generatore/.test(i.msg));
+  ok(g && g.lvl === "err" && /nel caso peggiore servono circa 25 kVA \(massimo 20,0 kW\)/.test(g.msg), "sottodimensionato sul massimo: " + (g && g.msg));
+  reset();
+});
+
+t("A1: piano elettrico e lista carichi del PDF dicono tipico, massimo, prese e generatore", () => {
+  reset(); A.state.elec.on = true;
+  add("topattivo", 200, 200); add("topattivo", 1000, 200); add("sub18", 300, 100); add("sub18", 900, 100);
+  for (let i = 0; i < 4; i++) add("wedge", 300 + i * 150, 600);
+  add("distro32", 600, 700);
+  A.__elecRes = null;
+  const doc = Object.assign(jsPdfFinto()({ format: "a4", orientation: "portrait" }), { roundedRect() {} });
+  A.elecReportPdf(doc);
+  const tx = doc.pagine[1].testi.map((x) => x.t).join("\n");
+  ok(/Assorbimento tipico: 3,7 kW/.test(tx) && /massimo: 7,4 kW \(audio a piena potenza\)/.test(tx), "riepilogo:\n" + tx);
+  ok(/Da chiedere: 1 presa CEE 32 A trifase 5 poli per il quadro Q1, a non più di 10 m dal palco/.test(tx), "presa del quadro dichiarato:\n" + tx);
+  ok(!/cosφ|cos\?/.test(tx), "niente «φ»: l'Helvetica del PDF non ce l'ha e stampava «cos?»");
+  ok(/Generatore consigliato: almeno 15 kVA/.test(tx), "generatore:\n" + tx);
+  ok(/Titolo IX/.test(tx.replace(/\n/g, " ")), "frase di legge nel riquadro della stima");
+  const doc2 = jsPdfFinto()({ format: "a4", orientation: "portrait" });
+  A.loadListPdf(doc2);
+  const tx2 = doc2.pagine[1].testi.map((x) => x.t).join("\n");
+  ok(/Totale tipico: 3,7 kW · massimo 7,4 kW/.test(tx2), "lista carichi, intestazione:\n" + tx2);
+  ok(/Da chiedere: 1 presa CEE 32 A trifase 5 poli per il quadro Q1 · con un generatore almeno 15 kVA/.test(tx2), "lista carichi, presa:\n" + tx2);
+  ok(/Massimo = PA e monitor a piena potenza/.test(tx2.replace(/\n/g, " ")), "lista carichi, cosa vuol dire massimo");
+  const html = A.listPreviewHtml("loadlist");
+  ok(/Totale tipico 3,7 kW · massimo 7,4 kW · da chiedere: 1 presa CEE 32 A/.test(html), "anteprima e link condiviso: stessi numeri");
+  reset();
+});
+
 /* ============ audit esterno del 23/08 (Manuale operativo): i due P0, riprodotti e corretti ============ */
 t("ORC-01: dal picker «Nuovo stage plot», il configuratore dell'organico resta solo in primo piano", () => {
   /* Riprodotto con click veri: «Quanti in orchestra?» si apriva DIETRO «Nuovo stage plot», e bisognava
