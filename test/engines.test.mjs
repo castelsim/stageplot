@@ -2723,6 +2723,27 @@ t("platea: si trova con platea, pubblico, sedie pubblico, posti a sedere", () =>
 });
 /* Revisione 06/10/2026: la platea sta in sala per definizione. Contata «fuori dal palco», l'Esporta mostrava
    sempre «1 elemento è fuori dal palco» e il suo «Adatta il palco» allargava il palco fino al pubblico. */
+t("Adatta a un altro palco: dopo un palco pieno si centra, non si amplifica 1 cm di margine (8 → 16 m)", () => {
+  /* Sessione VIDEO 07/11: band adattata a 8 m (margini 1 cm e 0), poi a 16 m: tutte le x +8 m, la band
+     nella metà destra. La proporzione «margine sinistro / spazio libero» su 1 cm di spazio è rumore. */
+  const pieno = [{ c: 101, h: 100 }, { c: 400, h: 100 }, { c: 700, h: 100 }];   /* da 1 a 800 cm su 800: 1 cm a sinistra, 0 a destra */
+  const R = A.adattaAsse(pieno, [], 1600, 800, -1);
+  const sin = R.pos[0] - 100, des = 1600 - (R.pos[2] + 100);
+  ok(Math.abs(sin - des) <= 2, "centrata: sinistra " + sin + ", destra " + des);
+  /* uno spazio libero vero si divide ancora come prima: chi stava tutto a sinistra resta a sinistra */
+  const sx = A.adattaAsse([{ c: 100, h: 100 }, { c: 300, h: 100 }], [], 1600, 800, -1);
+  eq(Math.round(sx.pos[0] - 100), 0, "a filo a sinistra su 8 m, a filo a sinistra su 16 m");
+  const quasi = A.adattaAsse([{ c: 200, h: 100 }, { c: 400, h: 100 }], [], 1600, 800, -1);   /* 100 a sinistra, 300 a destra */
+  eq(Math.round(quasi.pos[0] - 100), 300, "un quarto dello spazio libero a sinistra resta un quarto (1200 / 4)");
+});
+
+t("le quote del palco nel PDF e nel PNG scrivono «11,5 m» con la virgola, come il cartiglio", () => {
+  eq(A.adattaM(1150), "11,5", "virgola");
+  eq(A.adattaM(650), "6,5", "virgola");
+  ok(!/\(state\.stage\.[wd]\/100\)\+" m"/.test(appjs), "nessuna quota del palco con il punto (state.stage.w/100)");
+  ok(!/palco '\+\(W\/100\)/.test(appjs), "nemmeno nella didascalia del PNG");
+});
+
 t("platea: in sala non è «fuori dal palco» e «Adatta il palco» non la ingloba", () => {
   reset();
   for (let i = 0; i < 4; i++) add("cantante", 300 + i * 150, 400);   /* dentro il palco 12×8 */
@@ -10968,7 +10989,7 @@ t("fuori dal palco: con l'area automatica l'elemento esce nel PDF, nel PNG e nel
   const q = box.rMm, cPalco = box.ix + (400 - box.vb.x) * box.mmPerCm;
   ok(Math.abs(q.x + q.w / 2 - cPalco) < 0.01, "«8 m» non è centrato sul palco: " + (q.x + q.w / 2) + " invece di " + cPalco);
   ok(Math.abs(q.x + 80 * box.mmPerCm - (box.ix - box.vb.x * box.mmPerCm)) < 0.01, "«5 m» non sta accanto al lato sinistro del palco");
-  ok(/doc\.text\(\(state\.stage\.w\/100\)\+" m", q\.x\+q\.w\/2, q\.y-8/.test(appjs), "e il PDF le scrive lì");
+  ok(/doc\.text\(adattaM\(state\.stage\.w\)\+" m", q\.x\+q\.w\/2, q\.y-8/.test(appjs), "e il PDF le scrive lì");   /* con la virgola dal 07/11 */
   /* una cassa dietro il palco, dove jsPDF scrive «8 m»: le quote passano dentro il disegno */
   const dietro = add("sub18", 400, -250, { label: "SUB DIETRO" }); A.__cabRes = null;
   const bd = vbStampa();

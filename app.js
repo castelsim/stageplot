@@ -7516,13 +7516,17 @@ function adattaIngombro(it){
   return { hw:(w*c+d*s)/2, hd:(w*s+d*c)/2 };
 }
 /* posizioni lungo un asse: el=[{c,h,id}], cop=[[i,j,req]] con c_i<c_j, L=lunghezza utile, L0=quella di prima */
+var ADATTA_LIBERO_MIN=50;   /* cm: sotto, il palco di prima era pieno e non c'è un'asimmetria da conservare */
 function adattaAsse(el, cop, L, L0, TOL){
   var n=el.length;
   if(!n) return { pos:[], serve:0, map:function(c){ return c*L/(L0||L); } };
   var b0=1e9, b1=-1e9; el.forEach(function(e){ b0=Math.min(b0,e.c-e.h); b1=Math.max(b1,e.c+e.h); });
   var ext=b1-b0, s=Math.min(1, L/Math.max(1,ext)), nb0;
   if(s<1) nb0=0;
-  else { var lib0=L0-ext, lib=L-ext; nb0=(lib0>0 && b0>=0) ? Math.min(lib, b0*lib/lib0) : lib/2; nb0=Math.max(0,nb0); }
+  /* Lo spazio libero si divide come prima (chi stava a sinistra resta a sinistra). Ma se prima non ce
+     n'era quasi (meno di ADATTA_LIBERO_MIN), quella proporzione è rumore: 1 cm su 1 cm diventava
+     «tutto a sinistra», e da 8 a 16 m la band finiva nella metà destra (sessione VIDEO, 07/11). Lì si centra. */
+  else { var lib0=L0-ext, lib=L-ext; nb0=(lib0>=ADATTA_LIBERO_MIN && b0>=0) ? Math.min(lib, b0*lib/lib0) : lib/2; nb0=Math.max(0,nb0); }
   function map(c){ return nb0+(c-b0)*s; }
   /* blocchi: stessa coordinata (±2 cm) */
   var ord=el.map(function(_,i){ return i; }).sort(function(a,b){ return el[a].c-el[b].c; });
@@ -16869,7 +16873,7 @@ function render(){
      dell'editor, si ingrandiscono attorno al loro centro fino a 9 px; il testo in sé non cambia, quindi
      PDF e PNG (che hanno un loro SVG e la loro scala, pdfTextK) restano come sono. */
   document.getElementById("scaleInfo").textContent =
-    (custEditorAttivo() ? "elemento "+custMisura(state.stage.w, state.stage.d) : "palco "+(state.stage.w/100)+"×"+(state.stage.d/100)+" m"+stageHeightNote())+" · zoom "+ppm.toFixed(0)+" px/m";
+    (custEditorAttivo() ? "elemento "+custMisura(state.stage.w, state.stage.d) : "palco "+adattaM(state.stage.w)+"×"+adattaM(state.stage.d)+" m"+stageHeightNote())+" · zoom "+ppm.toFixed(0)+" px/m";
   /* sp_onboarded = "ha già piazzato qualcosa almeno una volta": tiene spenta la finestra di benvenuto */
   if(state.items.length>0){ try{ localStorage.setItem("sp_onboarded","1"); }catch(e){} }
   /* C (ciclo #3): a palco vuoto + non loggato, non mostrare l'indicatore di salvataggio — niente rumore al primo impatto */
@@ -32149,7 +32153,7 @@ function buildExportSvg(){
     '<style>'+css+'</style>'+DEFS+
     '<rect x="'+(-m)+'" y="'+(-m-head)+'" width="'+vbW+'" height="'+vbH+'" fill="#ffffff"/>'+
     '<text x="'+(-m+30)+'" y="'+(-m-head+44)+'" font-size="34" font-weight="700" fill="#111827">'+titolo+(luogo?'<tspan font-size="22" font-weight="400" fill="#6b7280">   ·   '+luogo+'</tspan>':'')+'</text>'+
-    '<text x="'+(W+m-30)+'" y="'+(-m-head+44)+'" font-size="20" fill="#6b7280" text-anchor="end">'+oggi+' · simonecastellan.com · griglia 0,5 m · palco '+(W/100)+'×'+(D/100)+' m'+stageHeightNote()+'</text>'+
+    '<text x="'+(W+m-30)+'" y="'+(-m-head+44)+'" font-size="20" fill="#6b7280" text-anchor="end">'+oggi+' · simonecastellan.com · griglia 0,5 m · palco '+adattaM(W)+'×'+adattaM(D)+' m'+stageHeightNote()+'</text>'+
     inner+
     '<line x1="0" y1="'+(D+m-40)+'" x2="100" y2="'+(D+m-40)+'" stroke="#111827" stroke-width="6"/>'+
     '<text x="50" y="'+(D+m-52)+'" font-size="18" fill="#111827" text-anchor="middle">1 m</text>'+
@@ -32315,7 +32319,7 @@ function pdfStageBox(N, paperKey, orient, cartH){
      addosso). Se no le quote le scrive il disegno, attaccate al bordo del palco (pdfQuoteFuoriDalDisegno). */
   var quoteLibere=true;
   if(S.dentro.length){
-    var tw=function(t){ return String(t).length*1.7; }, wq=tw((state.stage.w/100)+" m"), dq=tw((state.stage.d/100)+" m");
+    var tw=function(t){ return String(t).length*1.7; }, wq=tw(adattaM(state.stage.w)+" m"), dq=tw(adattaM(state.stage.d)+" m");
     var zone=[ {x0:rMm.x+rMm.w/2-wq/2-1, y0:rMm.y-8-3.5, x1:rMm.x+rMm.w/2+wq/2+1, y1:rMm.y-8+1.5},
                {x0:rMm.x-5-3.5, y0:rMm.y+rMm.h/2-dq/2-1, x1:rMm.x-5+1.5, y1:rMm.y+rMm.h/2+dq/2+1} ];
     S.dentro.forEach(function(it){ var r=ingombroStampa(it, pdfTextK(N));
@@ -35438,8 +35442,8 @@ function buildPdfDoc(paperKey, N, orient, header){
       /* quote dimensionali — solo senza area personalizzata e quando il palco intero ci sta (se ritagliato sarebbero fuorvianti) */
       doc.setFont("helvetica","normal"); doc.setTextColor(107,114,128); doc.setFontSize(8.5);
       var q=box.rMm;   /* il palco, non il riquadro: con chi sta fuori dal palco non coincidono (14/10) */
-      doc.text((state.stage.w/100)+" m", q.x+q.w/2, q.y-8, {align:"center"});
-      doc.text((state.stage.d/100)+" m", q.x-5, q.y+q.h/2, {align:"center", angle:90});
+      doc.text(adattaM(state.stage.w)+" m", q.x+q.w/2, q.y-8, {align:"center"});   /* «11,5 m» con la virgola, come il cartiglio (07/11) */
+      doc.text(adattaM(state.stage.d)+" m", q.x-5, q.y+q.h/2, {align:"center", angle:90});
     }
     pdfScaleBar(doc, ix, pdfScaleBarY(L, iy, stMmH), N);
     pdfCartiglio(doc, L, N, header);
