@@ -28061,21 +28061,57 @@ function cabWizCover(){
    prudenti: un elemento ruotato conta col lato maggiore. Se non c'è posto, resta (x,y). */
 function cabSpotLibero(type, x, y){
   var t=TYPES[type]||{}, w=t.w||40, d=t.d||40, S=state.stage, PAD=15, its=state.items||[];
-  function libero(px,py){
+  /* I NOMI (analisi esterna 08/11): «Mostra cavi e corrente» posava le box lontano dai corpi ma sopra i nomi degli altri,
+     «Vl I 2» con STAGEBOX dentro. Si cerca prima un punto che lascia liberi anche i nomi, col corpo con cui escono in
+     stampa. Su un palco saturo un punto così può non esserci: allora conta solo non stare sopra un elemento, come prima. */
+  var Kn=nomiKStampa(), nomi=nomiIngombri(its, Kn), Hn=14*Kn;
+  function liberoCorpi(px,py){
     if(px-w/2<0 || py-d/2<0 || px+w/2>S.w || py+d/2>S.d) return false;
     return !its.some(function(o){
       var m=Math.max(o.w||0,o.d||0)/2;
       return Math.abs(o.x-px) < m+PAD+w/2 && Math.abs(o.y-py) < m+PAD+d/2;
     });
   }
-  if(libero(x,y)) return {x:x,y:y};
-  for(var r=30; r<=Math.max(S.w,S.d); r+=30){
-    for(var a=0; a<24; a++){
-      var px=Math.round(x+r*Math.cos(a*Math.PI/12)), py=Math.round(y+r*Math.sin(a*Math.PI/12));
-      if(libero(px,py)) return {x:px,y:py};
-    }
+  function liberoNomi(px,py){
+    /* il corpo più la striscia sotto, dove la box scrive il suo nome */
+    var x0=px-Math.max(w/2,Hn*3), x1=px+Math.max(w/2,Hn*3), y0=py-d/2, y1=py+d/2+Hn*1.5;
+    return !nomi.some(function(n){ return n.x0<x1 && x0<n.x1 && n.y0<y1 && y0<n.y1; });
   }
-  return {x:x,y:y};
+  function cerca(prova){
+    if(prova(x,y)) return {x:x,y:y};
+    for(var r=30; r<=Math.max(S.w,S.d); r+=30){
+      for(var a=0; a<24; a++){
+        var px=Math.round(x+r*Math.cos(a*Math.PI/12)), py=Math.round(y+r*Math.sin(a*Math.PI/12));
+        if(prova(px,py)) return {x:px,y:py};
+      }
+    }
+    return null;
+  }
+  return cerca(function(px,py){ return liberoCorpi(px,py) && liberoNomi(px,py); }) || cerca(liberoCorpi) || {x:x,y:y};
+}
+/* Il corpo dei nomi nella stampa più probabile: A4, scala automatica. Fuori dall'editor o a dati incompleti, quello base. */
+function nomiKStampa(){
+  try{ var o=pdfOrientValue("a4","auto",true); return pdfTextK(resolveScale("a4","auto",o,cartHFor(true,"a4",o))); }catch(_e){ return 1; }
+}
+/* Dove cadono i nomi degli elementi sul palco, come rettangoli dritti: i ruotati col rettangolo che li contiene. Serve a
+   sapere quanto spazio tenere libero, non a disegnare: la stima è la stessa di lblRectOf. */
+function nomiIngombri(items, K){
+  var out=[];
+  (items||[]).forEach(function(it){
+    if(!it || it.labelMode==="hidden") return;
+    var t=TYPES[it.type]||{}; if(t.innerLabel || GAZ_TYPES[it.type]) return;
+    var txt=lblText(it.label, it, true); if(!txt) return;
+    var fszK=(lblSizeOf(it)||14)*(K>0?K:1), lw=lblTextW(txt, fszK), by;
+    try{ by=lblBaseY(it, fszK); }catch(_e){ by=(it.d||0)/2+fszK; }
+    var doppia=it.doppia===true || !!DOUBLE_TYPES[it.type], ang=(it.rot||0)*Math.PI/180, co=Math.cos(ang), si=Math.sin(ang);
+    (doppia ? [-1,1] : [0]).forEach(function(lato){
+      var lx=lato ? lato*Math.max((it.sep||DEFAULT_SEP)/2, 40, fszK*1.4) : 0;
+      var lc=lx*co-(by-fszK*0.3)*si, ly=lx*si+(by-fszK*0.3)*co;
+      var mw=(lw/2)*Math.abs(co)+(fszK*0.5)*Math.abs(si), mh=(lw/2)*Math.abs(si)+(fszK*0.5)*Math.abs(co);
+      out.push({x0:it.x+lc-mw, x1:it.x+lc+mw, y0:it.y+ly-mh, y1:it.y+ly+mh});
+    });
+  });
+  return out;
 }
 function cabPlaceBoxes(sizes, needs){   /* posiziona le box vicino ai gruppi: box grandi ai gruppi più fitti */
   var clusters=(needs.clusters||[]).slice().sort(function(a,b){ return b.n-a.n; });
@@ -34076,18 +34112,19 @@ function rgbToHex(c){ var m=c&&c.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/); return
    Va chiamata prima di flattenTextStyles, che sposta i nomi in cloni per l'alone. */
 function nudgeLabelsInDom(svgEl){
   if(!svgEl || typeof svgEl.querySelectorAll!=="function") return;
-  var nodi=[];
+  var nodi=[], girati=[];
   Array.prototype.forEach.call(svgEl.querySelectorAll("text.lbl"), function(el){
     if(el.classList && el.classList.contains("sub")) return;   /* la riga del montaggio segue il suo nome */
     if(el.classList && el.classList.contains("metro-q")) return;   /* la misura del metro sta nel buco della sua linea (metroSvg): spostata, la linea resterebbe interrotta sul vuoto */
-    if(el.getAttribute && el.getAttribute("data-cap")) return;   /* nome rigirato (lblCapTr, 06/10/2026): sta SOPRA il suo elemento, scendendo ci finirebbe addosso */
     var b; try{ b=el.getBBox(); }catch(_e){ return; }
     if(!b || !(b.width>0) || !(b.height>0)) return;
     var m; try{ m=el.getCTM ? el.getCTM() : null; }catch(_e2){ m=null; }
     if(!m) return;
+    /* nome rigirato (lblCapTr, 06/10/2026): sta SOPRA il suo elemento, scendendo ci finirebbe addosso. Nome inclinato
+       (elemento ruotato, postazione doppia): «scendere» non vuol dire niente. Vanno alla passata qui sotto. */
+    if((el.getAttribute && el.getAttribute("data-cap")) || Math.abs(m.b)>0.01 || Math.abs(m.c)>0.01){ girati.push({el:el, b:b, m:m}); return; }
     /* dal sistema dell'elemento a quello del disegno: basta l'angolo alto-sinistro e la dimensione,
        perché le etichette che entrano qui non sono ruotate (chi ruota porta il nome con sé) */
-    if(Math.abs(m.b)>0.01 || Math.abs(m.c)>0.01) return;
     nodi.push({el:el, x0:m.a*b.x+m.e, x1:m.a*(b.x+b.width)+m.e,
                y0:m.d*b.y+m.f, y1:m.d*(b.y+b.height)+m.f, h:m.d*b.height, sy:m.d});
   });
@@ -34117,6 +34154,83 @@ function nudgeLabelsInDom(svgEl){
     }
     fatti.push({x0:r.x0, x1:r.x1, y0:r.y0+dy, y1:r.y1+dy, h:r.h});
   });
+  /* I NOMI RUOTATI (analisi esterna 08/11). Erano saltati apposta, e su 30 progetti veri stampati in A4 restavano
+     88 coppie di nomi sovrapposti, 78 con un nome ruotato: archi su un arco, doppie con le sedute a ±12°. I nomi
+     dritti restano dove la passata qui sopra li ha messi, così un plot senza nomi ruotati esce identico. */
+  if(!girati.length) return;
+  var fissi=fatti.map(function(f){ return {P:[[f.x0,f.y0],[f.x1,f.y0],[f.x1,f.y1],[f.x0,f.y1]], h:f.h}; });
+  var mobili=girati.map(function(g){ var o=nomeOrigineDi(g.el); return nomeGiratoDa(g.b, g.m, o); });
+  var ordine=mobili.map(function(_m,i){ return i; }).sort(function(a,b){ return (mobili[a].cy-mobili[b].cy)||(mobili[a].cx-mobili[b].cx)||(a-b); });
+  var dopo=nomiGiratiScosta(fissi, ordine.map(function(i){ return mobili[i]; }));
+  ordine.forEach(function(i,k){ var d=dopo[k]; if(d.dx||d.dy) nomeSposta(girati[i].el, d.dx, d.dy); });
+}
+/* Riquadro di un nome sul disegno, dai dati del suo testo: quattro angoli (le lettere non riempiono tutta l'altezza del
+   riquadro), l'asse lungo cui scostarlo e il verso che lo porta VIA dal suo elemento. o = centro dell'elemento. */
+function nomeGiratoDa(b, m, o){
+  var sh=b.height*0.15;
+  function pt(x,y){ return [m.a*x+m.c*y+m.e, m.b*x+m.d*y+m.f]; }
+  var P=[pt(b.x,b.y+sh), pt(b.x+b.width,b.y+sh), pt(b.x+b.width,b.y+b.height-sh), pt(b.x,b.y+b.height-sh)];
+  var sx=Math.hypot(m.a,m.b)||1, sy=Math.hypot(m.c,m.d)||1, ux=m.a/sx, uy=m.b/sx, vx=m.c/sy, vy=m.d/sy;
+  var cx=(P[0][0]+P[2][0])/2, cy=(P[0][1]+P[2][1])/2;
+  if(o && ((cx-o[0])*vx+(cy-o[1])*vy)<0){ vx=-vx; vy=-vy; }
+  return {P:P, h:b.height*sy, u:[ux,uy], v:[vx,vy], cx:cx, cy:cy};
+}
+/* Due rettangoli comunque orientati si toccano, con `aria` di margine? Assi separatori: i lati di tutti e due. */
+function nomiToccano(A, B, aria){
+  for(var q=0;q<2;q++){ var poly=q?B:A;
+    for(var i=0;i<2;i++){ var p=poly[i], r=poly[i+1], nx=r[1]-p[1], ny=p[0]-r[0], l=Math.hypot(nx,ny); if(!l) continue;
+      nx/=l; ny/=l;
+      var a0=Infinity,a1=-Infinity,b0=Infinity,b1=-Infinity;
+      A.forEach(function(c){ var t=c[0]*nx+c[1]*ny; if(t<a0)a0=t; if(t>a1)a1=t; });
+      B.forEach(function(c){ var t=c[0]*nx+c[1]*ny; if(t<b0)b0=t; if(t>b1)b1=t; });
+      if(a1+aria<=b0 || b1+aria<=a0) return false;
+    } }
+  return true;
+}
+var NOMI_GIRATI_ARIA=0.12;     /* in lettere: quel tanto che a occhio fa due scritte. I nomi inclinati si avvicinano per forza agli angoli */
+var NOMI_GIRATI_TETTO=3;       /* in lettere: come la passata dei nomi dritti; oltre, il nome non direbbe più di chi è */
+/* Per ogni nome, nell'ordine dato, il primo punto libero: prima lungo il proprio asse via dall'elemento, a passi di un
+   quarto di lettera, e con un piccolo scorrimento di lato solo se serve. Pura, senza DOM: stessi dati, stesso disegno.
+   Se entro il tetto non c'è posto il nome resta dov'è. Torna {dx,dy} in coordinate del disegno. */
+function nomiGiratiScosta(fissi, mobili){
+  var fatti=(fissi||[]).slice();
+  return mobili.map(function(n){
+    var scelto=null;
+    function libero(dx,dy){
+      var Q=n.P.map(function(c){ return [c[0]+dx,c[1]+dy]; });
+      return !fatti.some(function(f){ return nomiToccano(Q, f.P, Math.max(n.h,f.h)*NOMI_GIRATI_ARIA); });
+    }
+    var cand=[];
+    for(var k=0;k<=NOMI_GIRATI_TETTO*4;k++) [0,0.5,-0.5,1,-1,1.5,-1.5].forEach(function(l){
+      var a=k/4; if(Math.hypot(a,l)<=NOMI_GIRATI_TETTO) cand.push({a:a, l:l, c:a+Math.abs(l)*1.5});
+    });
+    cand.sort(function(x,y){ return (x.c-y.c)||(x.a-y.a)||(y.l-x.l); });
+    for(var i=0;i<cand.length && !scelto;i++){
+      var dx=(n.v[0]*cand[i].a+n.u[0]*cand[i].l)*n.h, dy=(n.v[1]*cand[i].a+n.u[1]*cand[i].l)*n.h;
+      if(libero(dx,dy)) scelto={dx:dx, dy:dy};
+    }
+    var d=scelto||{dx:0,dy:0};
+    fatti.push({P:n.P.map(function(c){ return [c[0]+d.dx,c[1]+d.dy]; }), h:n.h});
+    return d;
+  });
+}
+/* Il centro dell'elemento a cui appartiene il nome, in coordinate del disegno: l'origine del gruppo che lo contiene. */
+function nomeOrigineDi(el){
+  try{ var pm=el.parentNode && el.parentNode.getCTM ? el.parentNode.getCTM() : null; return pm ? [pm.e, pm.f] : null; }catch(_e){ return null; }
+}
+/* Sposta un nome (e la sua riga del montaggio) di dx,dy del disegno: un translate davanti alla trasformazione che ha già.
+   Non tocca x e y: una doppia o un nome rigirato ruotano attorno a quel punto, e il perno non deve muoversi. */
+function nomeSposta(el, dx, dy){
+  var pm; try{ pm=el.parentNode&&el.parentNode.getCTM?el.parentNode.getCTM():null; }catch(_e){ pm=null; }
+  var det=pm?(pm.a*pm.d-pm.b*pm.c):1; if(!det) return;
+  var px=pm?(pm.d*dx-pm.c*dy)/det:dx, py=pm?(pm.a*dy-pm.b*dx)/det:dy;
+  function trasla(t){ var o=t.getAttribute("transform"); t.setAttribute("transform","translate("+px.toFixed(2)+" "+py.toFixed(2)+")"+(o?" "+o:"")); }
+  trasla(el);
+  var pa=el.parentNode;
+  if(pa && typeof pa.querySelectorAll==="function"){
+    var nomi=pa.querySelectorAll("text.lbl:not(.sub)"), sub=pa.querySelector("text.lbl.sub");
+    if(sub && nomi.length===1) trasla(sub);   /* su una doppia i nomi sono due e il montaggio non è di uno solo: resta */
+  }
 }
 function flattenTextStyles(rootEl){
   /* svg2pdf ignora paint-order:stroke, quindi disegnerebbe il bordo bianco sopra il fill.

@@ -25459,6 +25459,154 @@ t("nome rigirato: porta data-cap, e la passata anti-sovrapposizione del PDF non 
   ok(prova(false) > 56, "controllo: un nome dritto che tocca il vicino scende (" + prova(false) + ")");
   eq(prova(true), 56, "il nome rigirato resta dov'è");
 });
+/* ═══ ANALISI ESTERNA 08/11, punto 2b ═══ Su 30 progetti veri in A4: 88 coppie di nomi sovrapposti, 78 con un nome ruotato,
+   perché la passata anti-collisione li saltava apposta. E le stage box di «Mostra cavi e corrente» finivano sui nomi. */
+const nomeMobile = (x0, y0, x1, y1, v = [0, 1], u = [1, 0]) => ({ P: rett(x0, y0, x1, y1), h: y1 - y0, u, v, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 });
+
+t("nomi ruotati: due rettangoli si toccano anche quando sono girati", () => {
+  ok(A.nomiToccano(rett(0, 0, 10, 10), rett(5, 5, 15, 15), 0), "sovrapposti");
+  ok(!A.nomiToccano(rett(0, 0, 10, 10), rett(20, 0, 30, 10), 0), "lontani");
+  ok(!A.nomiToccano(rett(0, 0, 10, 10), rett(11, 0, 20, 10), 0), "vicini ma staccati");
+  ok(A.nomiToccano(rett(0, 0, 10, 10), rett(11, 0, 20, 10), 2), "con l'aria richiesta, quei due sono troppo vicini");
+  /* il caso che un confronto fra rettangoli dritti sbaglia: un rombo con la punta verso l'angolo, nel riquadro ma senza contatto */
+  const rombo = [[12, 6], [18, 12], [12, 18], [6, 12]];
+  ok(!A.nomiToccano(rett(0, 0, 8, 8), rombo, 0), "riquadri sovrapposti, figure staccate");
+  ok(A.nomiToccano(rett(0, 0, 11, 11), rombo, 0), "figure che si toccano");
+});
+
+t("nomi ruotati: si scostano lungo il proprio asse, entro tre lettere, e chi è libero non si muove", () => {
+  const H = 10, sposta = (d) => Math.hypot(d.dx, d.dy) / H;
+  /* libero: resta dov'è */
+  eq(A.nomiGiratiScosta([], [nomeMobile(0, 0, 60, H)]), [{ dx: 0, dy: 0 }], "nessun urto, nessuno spostamento");
+  /* urta un fisso: scende lungo v, il minimo per non toccarlo più */
+  const fisso = { P: rett(0, 0, 60, H), h: H };
+  let [d] = A.nomiGiratiScosta([fisso], [nomeMobile(0, 4, 60, 4 + H)]);
+  ok(d.dy > 0 && d.dx === 0, "scende lungo il suo asse: " + JSON.stringify(d));
+  ok(d.dy <= H, "e non più del necessario: " + d.dy);
+  const moved = rett(0, 4 + d.dy, 60, 4 + H + d.dy);
+  ok(!A.nomiToccano(moved, fisso.P, H * A.NOMI_GIRATI_ARIA), "dopo non si tocca più, con l'aria");
+  /* l'asse è il suo: un nome verticale si scosta di lato */
+  [d] = A.nomiGiratiScosta([{ P: rett(0, 0, H, 60), h: H }], [nomeMobile(4, 0, 4 + H, 60, [1, 0], [0, 1])]);
+  ok(d.dx > 0 && d.dy === 0, "asse orizzontale: " + JSON.stringify(d));
+  /* due mobili: il primo resta, il secondo si scosta; lo stesso input dà lo stesso disegno */
+  const due = () => [nomeMobile(0, 0, 60, H), nomeMobile(0, 3, 60, 3 + H)];
+  const r = A.nomiGiratiScosta([], due());
+  eq(r[0], { dx: 0, dy: 0 }, "il primo resta");
+  ok(sposta(r[1]) > 0, "il secondo si scosta");
+  eq(A.nomiGiratiScosta([], due()), r, "deterministico");
+  /* senza posto entro il tetto: resta dov'è, non vola lontano */
+  const muro = { P: rett(-500, -500, 500, 500), h: H };
+  eq(A.nomiGiratiScosta([muro], [nomeMobile(0, 0, 60, H)]), [{ dx: 0, dy: 0 }], "nessun posto: fermo");
+  /* il tetto: mai oltre tre lettere, in nessun caso */
+  const fitti = []; for (let i = 0; i < 30; i++) fitti.push(nomeMobile(0, i * 2, 60, i * 2 + H));
+  A.nomiGiratiScosta([], fitti).forEach((x) => ok(sposta(x) <= A.NOMI_GIRATI_TETTO + 1e-9, "oltre tre lettere: " + sposta(x)));
+  eq(A.NOMI_GIRATI_TETTO, 3, "tre lettere, come i nomi dritti");
+});
+
+t("nomi ruotati: il verso è quello che li porta via dal loro elemento", () => {
+  const b = { x: -30, y: 20, width: 60, height: 14 };
+  const dritta = { a: 1, b: 0, c: 0, d: 1, e: 100, f: 100 };
+  let n = A.nomeGiratoDa(b, dritta, [100, 100]);
+  eq(n.v, [0, 1], "nome sotto l'elemento: scende");
+  /* elemento girato di 180° e nome rigirato: sul foglio sta sopra, e «via» è verso l'alto */
+  n = A.nomeGiratoDa(b, { a: -1, b: 0, c: 0, d: -1, e: 100, f: 100 }, [100, 100]);
+  ok(n.v[1] < 0 || n.cy > 100, "via dall'elemento: " + JSON.stringify(n.v));
+  ok(n.cy < 100 && n.v[1] < 0, "il nome è sopra e va in su");
+  /* nome scritto sopra, con il riquadro al di là dell'origine: l'asse si ribalta */
+  n = A.nomeGiratoDa({ x: -30, y: -40, width: 60, height: 14 }, dritta, [100, 100]);
+  eq(n.v, [-0, -1], "nome sopra: sale");
+  /* girato di 90° */
+  n = A.nomeGiratoDa(b, { a: 0, b: 1, c: -1, d: 0, e: 100, f: 100 }, [100, 100]);
+  ok(n.v[0] < 0 && Math.abs(n.v[1]) < 1e-9, "a 90° il nome sta a sinistra e si scosta a sinistra: " + JSON.stringify(n.v));
+  /* senza un centro noto: il suo +y */
+  n = A.nomeGiratoDa(b, dritta, null);
+  eq(n.v, [0, 1], "senza elemento");
+  /* i riquadri non comprendono tutta l'altezza del font: si guarda alle lettere */
+  n = A.nomeGiratoDa(b, dritta, null);
+  ok(Math.abs((n.P[3][1] - n.P[0][1]) - 14 * 0.7) < 1e-9, "tagliato del 15% sopra e sotto");
+});
+
+t("nomi ruotati: sul disegno vero si sposta con un translate, e i nomi dritti non cambiano", () => {
+  const finto = ({ y, cap, m, parentCTM, sub }) => {
+    const at = { y: String(y) };
+    if (cap) at["data-cap"] = "1";
+    const pa = { getCTM: parentCTM ? () => parentCTM : undefined, querySelector: () => sub || null, querySelectorAll: () => [1] };
+    return { classList: { contains: () => false }, getAttribute: (k) => (k in at ? at[k] : null), setAttribute: (k, v) => { at[k] = String(v); },
+      getBBox: () => ({ x: 0, y: +at.y - 10, width: 60, height: 14 }), getCTM: () => m, parentNode: pa, at };
+  };
+  const eDritto = { a: 1, b: 0, c: 0, d: 1, e: 100, f: 100 };
+  const rad = 30 * Math.PI / 180, co = Math.cos(rad), si = Math.sin(rad);
+  const eRuotato = { a: co, b: si, c: -si, d: co, e: 100, f: 100 };
+  /* un dritto e un ruotato che lo tocca: il dritto non si muove, il ruotato sì */
+  const pad = { a: 1, b: 0, c: 0, d: 1, e: 100, f: 90 };
+  const subAt = {}; const sub = { getAttribute: (k) => subAt[k] || null, setAttribute: (k, v) => { subAt[k] = v; } };
+  const dritto = finto({ y: 50, m: eDritto, parentCTM: pad });
+  const ruotato = finto({ y: 50, m: eRuotato, parentCTM: pad, sub });
+  ruotato.at.transform = "rotate(30 0 50)";
+  A.nudgeLabelsInDom({ querySelectorAll: () => [dritto, ruotato] });
+  eq(dritto.at.y, "50", "il dritto resta");
+  ok(!dritto.at.transform, "e non riceve trasformazioni");
+  eq(ruotato.at.y, "50", "il ruotato non cambia y: è il perno della sua rotazione");
+  ok(/^translate\(-?[\d.]+ -?[\d.]+\) rotate\(30 0 50\)$/.test(ruotato.at.transform || ""), "translate davanti a quello che aveva: " + ruotato.at.transform);
+  ok(/^translate\(/.test(subAt.transform || ""), "la riga del montaggio segue il suo nome");
+  /* due ruotati lontani: nessuno si muove */
+  const l1 = finto({ y: 50, m: eRuotato, parentCTM: pad }), l2 = finto({ y: 50, m: { ...eRuotato, e: 900, f: 900 }, parentCTM: pad });
+  A.nudgeLabelsInDom({ querySelectorAll: () => [l1, l2] });
+  ok(!l1.at.transform && !l2.at.transform, "liberi: disegno invariato");
+  /* solo nomi dritti: la passata nuova non parte, il plot esce identico (è il caso di ogni plot già approvato senza rotazioni) */
+  const d1 = finto({ y: 50, m: eDritto }), d2 = finto({ y: 56, m: eDritto });
+  A.nudgeLabelsInDom({ querySelectorAll: () => [d1, d2] });
+  ok(+d2.at.y > 56 && !d2.at.transform, "dritti: scende come prima, con la y");
+  /* un altro asse nel gruppo genitore: lo spostamento va riportato nelle sue coordinate */
+  const pscale = { a: 2, b: 0, c: 0, d: 2, e: 0, f: 0 };
+  const q = finto({ y: 50, m: eRuotato, parentCTM: pscale });
+  A.nomeSposta(q, 10, 20);
+  ok(/^translate\(5\.00 10\.00\)/.test(q.at.transform), "con il genitore in scala 2, 10 e 20 diventano 5 e 10: " + q.at.transform);
+  /* gruppo con due nomi (postazione doppia): il montaggio non è di uno solo */
+  const s2At = {}; const s2 = { getAttribute: (k) => s2At[k] || null, setAttribute: (k, v) => { s2At[k] = v; } };
+  const dop = finto({ y: 50, m: eRuotato, parentCTM: pad, sub: s2 });
+  dop.parentNode.querySelectorAll = () => [1, 2];
+  A.nomeSposta(dop, 5, 5);
+  ok(!s2At.transform, "sulla doppia il montaggio resta");
+});
+
+t("stage box e quadri automatici: non si posano sui nomi degli altri, se c'è posto", () => {
+  reset(); A.state.stage = { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] };
+  const it = add("vlnpost", 400, 300, { label: "Violino 1" });
+  const nomi = A.nomiIngombri(A.state.items, 1);
+  ok(nomi.length >= 1, "il nome c'è");
+  const n = nomi[0];
+  const sopra = { x: (n.x0 + n.x1) / 2, y: (n.y0 + n.y1) / 2 };
+  const sp = A.cabSpotLibero("stagebox", Math.round(sopra.x), Math.round(sopra.y));
+  const K = A.nomiKStampa(), Hn = 14 * K, w = A.TYPES.stagebox.w || 40, d = A.TYPES.stagebox.d || 40;
+  const x0 = sp.x - Math.max(w / 2, Hn * 3), x1 = sp.x + Math.max(w / 2, Hn * 3), y0 = sp.y - d / 2, y1 = sp.y + d / 2 + Hn * 1.5;
+  const nK = A.nomiIngombri(A.state.items, K);
+  ok(!nK.some((r) => r.x0 < x1 && x0 < r.x1 && r.y0 < y1 && y0 < r.y1), "punto lontano dai nomi: " + JSON.stringify(sp));
+  ok(Math.hypot(sp.x - sopra.x, sp.y - sopra.y) < 400, "e comunque vicino a dove si voleva: " + JSON.stringify(sp));
+  /* nomi nascosti o senza testo non occupano spazio */
+  it.labelMode = "hidden";
+  eq(A.nomiIngombri(A.state.items, 1), [], "nome nascosto");
+  it.labelMode = undefined;
+  /* la doppia ha due nomi, e l'elemento ruotato li porta con sé */
+  reset(); const dd = add("vlnpost", 400, 300, { label: "A", label2: "B" }); dd.doppia = true;
+  eq(A.nomiIngombri(A.state.items, 1).length, 2, "doppia: due nomi");
+  reset(); const r0 = add("vlnpost", 400, 300, { label: "Violino 1" }), a0 = A.nomiIngombri(A.state.items, 1)[0];
+  r0.rot = 180; const a1 = A.nomiIngombri(A.state.items, 1)[0];
+  ok((a0.y1 < 300) !== (a1.y1 < 300) && Math.abs((a0.y0 + a0.y1) / 2 - 300) - Math.abs((a1.y0 + a1.y1) / 2 - 300) < 1, "girato di 180° il nome passa dall'altra parte, alla stessa distanza: " + JSON.stringify([a0, a1]));
+  /* palco saturo di nomi: vince non stare sopra un elemento, come prima */
+  reset(); A.state.stage = { w: 500, d: 300, blocks: [{ x: 0, y: 0, w: 500, d: 300 }] };
+  for (let i = 0; i < 10; i++) add("vlnpost", 30 + i * 50, 40, { label: "Un nome molto lungo per occupare il palco " + i, labelMode: "full" });
+  const era = A.nomiIngombri; 
+  try {
+    A.nomiIngombri = () => [{ x0: -1e4, x1: 1e4, y0: -1e4, y1: 1e4 }];
+    const s2 = A.cabSpotLibero("stagebox", 250, 250);
+    ok(s2.x >= 0 && s2.y >= 0 && s2.x <= 500 && s2.y <= 300, "un punto sul palco lo trova comunque: " + JSON.stringify(s2));
+    const toccaCorpo = A.state.items.some((o) => { const m = Math.max(o.w || 0, o.d || 0) / 2; return Math.abs(o.x - s2.x) < m + 15 + w / 2 && Math.abs(o.y - s2.y) < m + 15 + d / 2; });
+    ok(!toccaCorpo, "e non sopra un elemento");
+  } finally { A.nomiIngombri = era; }
+  reset();
+});
+
 t("anello: la finestra aperta mette il fuoco su «Aggiungi» (Esc e Invio si ascoltano su di lei)", () => {
   const oldDoc = A.document; let fuoco = null;
   const el = (id) => ({ id, hidden: true, value: "", focus() { fuoco = id; }, querySelectorAll: () => [], classList: { toggle() {} } });
