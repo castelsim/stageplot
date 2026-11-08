@@ -5307,6 +5307,28 @@ function elecPotenza(R){
    sola in rider, lista carichi e audit (decisione di Simone, 08/11: nessuna ipotesi su service o organizzazione).
    Il foglio va a chi monta il palco: un'assunzione scritta lì diventa un impegno. */
 var ELEC_QUADRO_APERTO="Quadro da confermare · responsabile da assegnare";
+/* IL CAMPO `corrente` (analisi esterna 08/11): chi porta il quadro, in state.production.systems.corrente = {ans, note}.
+   Assente o non valido = non si sa = «da confermare»: così i progetti vecchi sono già a posto. Si rilascia in due fasi,
+   come ogni cambio di formato: prima l'app lo conserva e lo legge, poi (24-48 ore dopo) arriva il comando per scriverlo.
+   Un'app vecchia che salva un progetto cancellerebbe la voce: normalizeState teneva solo le voci note. */
+var ELEC_RESPONSABILI={ service:"a cura del service", venue:"a cura della venue", produzione:"a cura della produzione" };
+function elecResponsabile(s){
+  var o=s&&s.production&&s.production.systems&&s.production.systems.corrente;
+  return (o && ELEC_RESPONSABILI.hasOwnProperty(o.ans)) ? o.ans : null;
+}
+/* La frase su chi porta il quadro, una sola per PDF, rider, anteprima, link condiviso, audit e pannello. Vuota quando il
+   quadro è disegnato e nessuno ha detto di chi è: su quel quadro nessuno ha ancora potuto rispondere. */
+function elecQuadroFrase(s, nQuadri){
+  var ans=elecResponsabile(s);
+  if(ans) return "Quadro "+ELEC_RESPONSABILI[ans];
+  return nQuadri ? "" : ELEC_QUADRO_APERTO;
+}
+/* La riga della testata di lista carichi (PDF e anteprima): i quadri disegnati e chi li porta. */
+function elecQuadriRiga(s, R){
+  var d=(R&&R.distros)||[], ans=elecResponsabile(s);
+  if(!d.length) return elecQuadroFrase(s, 0);
+  return "Distro: "+d.map(function(q){ return q.letter+" "+q.a+"A"; }).join("  ·  ")+(ans?" · "+ELEC_RESPONSABILI[ans]:"");
+}
 var ELEC_DISCLAIMER_LEGGE="Stima per il service: non sostituisce il progetto né la dichiarazione di un tecnico abilitato (spazi all'aperto: DM 19/08/1996, Titolo IX).";
 /* distanza interna MINIMA per le postazioni doppie (limite fisico dello slider): la più stretta possibile.
    Gli strumenti larghi (contrabbasso, violoncello) hanno un minimo maggiore per non sovrapporsi. */
@@ -9593,9 +9615,20 @@ function normalizeState(s){
       return { ans:(valid.indexOf(o.ans)>=0)?o.ans:null, note:String(o.note||"").slice(0,300) }; }
     var depts=(Array.isArray(pr.depts)?pr.depts:[]).filter(function(d){ return d && typeof d.name==="string" && d.name.trim(); })
       .map(function(d){ return { id:d.id||("dp"+Math.random().toString(36).slice(2,9)), name:d.name.trim().slice(0,40) }; });
-    s.production={ asked:!!pr.asked, systems:{
+    var sysOut={
       playback:nrm("playback",A), video:nrm("video",A), recaudio:nrm("recaudio",A),
-      recvideo:nrm("recvideo",A), streaming:nrm("streaming",A), luci:nrm("luci",L) }, depts:depts };
+      recvideo:nrm("recvideo",A), streaming:nrm("streaming",A), luci:nrm("luci",L) };
+    /* `corrente` si scrive solo se c'è una risposta: un progetto che non l'ha mai avuta resta identico.
+       Le voci che questa versione non conosce non si cancellano: vengono da un'app più nuova, e chi riapre
+       il progetto con questa non deve perdere la risposta di chi l'ha data (stessa forma ans/note, troncata). */
+    var _cor=nrm("corrente", Object.keys(ELEC_RESPONSABILI));
+    if(_cor.ans || _cor.note) sysOut.corrente=_cor;
+    Object.keys(sys).forEach(function(k){
+      if(k==="corrente" || sysOut[k] || !/^[a-z][a-z0-9_]{0,23}$/.test(k)) return;
+      var o=sys[k]; if(!o || typeof o!=="object") return;
+      sysOut[k]={ ans:(typeof o.ans==="string" && o.ans) ? o.ans.slice(0,40) : null, note:String(o.note||"").slice(0,300) };
+    });
+    s.production={ asked:!!pr.asked, systems:sysOut, depts:depts };
   })();
   var cb=s.cab||{};   /* cablaggio audio calcolato: layer + preferenze + override manuali del tecnico */
   var man=Object.create(null);
@@ -17883,8 +17916,9 @@ function auditEngine(){
   if(audioSrc>AUDIT_MIN_CH && !realBox) add("warn","Ci sono "+audioSrc+" ingressi audio e nessuna stage box: la porta il service, se non la disegni tu.","Audio","Serve solo se vuoi far vedere TU dove entrano i canali: apri la lista Input, nella colonna a destra, e trascina una stage box.",{label:"Aggiungi stage box",run:auditFixAddBox},"nobox");
   /* «err» come la gemella nel motore elettrico: la dedup per `rule` tiene questa (che ha il fix a un
      click) e scarta quella, quindi il livello dev'essere lo stesso o la severità si perde per strada. */
-  if(loadsN>0 && !realDistro && Re.totW>AUDIT_MIN_W) add(elettricoIniziato()?"err":"warn",
-    "Carichi elettrici presenti ("+elecKW(Re.totW)+") ma nessun quadro/distro. "+ELEC_QUADRO_APERTO+".",
+  /* chi porta il quadro è stato detto: non è più una questione aperta, solo un'informazione */
+  if(loadsN>0 && !realDistro && Re.totW>AUDIT_MIN_W) add(elecResponsabile(state)?"info":(elettricoIniziato()?"err":"warn"),
+    "Carichi elettrici presenti ("+elecKW(Re.totW)+") ma nessun quadro/distro. "+elecQuadroFrase(state, 0)+".",
     "Elettrico","Apri la lista Elettrico, nella colonna a destra, e piazza un distro.",{label:"Aggiungi distro",run:auditFixAddDistro},"nodistro");
   /* SUPERFICIE SENZA MOTORE (29/08). Rivage e dLive S-Class non sono console intere: sono SUPERFICI
      DI CONTROLLO, e il DSP sta in un rack separato che va alimentato, trasportato e messo da qualche
@@ -32183,7 +32217,7 @@ function renderLoadPanel(){
   var txt=document.createElement("span"); txt.className="cab-bar-txt";
   if(daFare){
     txt.innerHTML='<b>'+daFare+'</b> '+(daFare===1?"carico da collegare":"carichi da collegare")
-      + (R.distros.length ? "" : ' <span class="lbl-note">— manca un quadro</span>');
+      + (R.distros.length ? "" : ' <span class="lbl-note">— '+(elecResponsabile(state)?esc(elecQuadroFrase(state,0).toLowerCase()):"manca un quadro")+'</span>');
   } else if(upDaFare){
     txt.innerHTML='Carichi a posto · <b>'+upDaFare+'</b> '+(upDaFare===1?"ciabatta da alimentare":"ciabatte da alimentare")
       + ' <span class="lbl-note">— selezionala e trascina dal pallino ambra al quadro</span>';
@@ -35388,7 +35422,7 @@ function loadListPdf(shared){
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); y=pdfTitoloLuogo(doc, M, y, 8); }
     doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
     var P=elecPotenza(R);
-    y=pdfACapo(doc, (P.picco?"Totale tipico: "+elecKW(R.totW)+" · massimo "+elecKW(P.maxW):"Totale: "+elecKW(R.totW))+" · "+R.totA.toFixed(0)+" A   ·   "+(R.distros.length ? "Distro: "+R.distros.map(function(d){ return d.letter+" "+d.a+"A"; }).join("  ·  ") : ELEC_QUADRO_APERTO), M, y, 178, 5);
+    y=pdfACapo(doc, (P.picco?"Totale tipico: "+elecKW(R.totW)+" · massimo "+elecKW(P.maxW):"Totale: "+elecKW(R.totW))+" · "+R.totA.toFixed(0)+" A   ·   "+elecQuadriRiga(state, R), M, y, 178, 5);
     /* A1: la presa da chiedere, dimensionata sul massimo, sotto il totale */
     if(P.preseTxt){ doc.setFontSize(8.5); y=pdfACapo(doc, "Da chiedere: "+P.preseTxt+(P.genKva?" · con un generatore almeno "+P.genKva+" kVA":""), M, y, 178, 3.8)-0.8; }
     y+=3;
@@ -36954,7 +36988,7 @@ function pdfListConfig(){
       cols:[{h:"#",num:1,f:function(r){return r.n;}},{h:"Mix",f:function(r){return r.mix;}},{h:"Tipo",f:function(r){return r.tipo+(r.stereo?" · st":"");}},{h:"Monitor",f:function(r){return r.name;}},{h:"Uscita",f:function(r){return r.patch;},warn:function(r){return !r.box;}}] },
     loadlist:{ title:"Lista carichi", color:"#d97706", data:(typeof loadList==="function"?loadList:null),
       sub:function(d){ if(!d.R) return ""; var P=elecPotenza(d.R);
-        return (P.picco?"Totale tipico "+elecKW(d.R.totW)+" · massimo "+elecKW(P.maxW):"Totale "+elecKW(d.R.totW)+" · "+d.R.totA.toFixed(0)+" A")+(P.preseTxt?" · da chiedere: "+P.preseTxt:""); },
+        return (P.picco?"Totale tipico "+elecKW(d.R.totW)+" · massimo "+elecKW(P.maxW):"Totale "+elecKW(d.R.totW)+" · "+d.R.totA.toFixed(0)+" A")+(P.preseTxt?" · da chiedere: "+P.preseTxt:"")+" · "+elecQuadriRiga(state, d.R); },
       cols:[{h:"#",num:1,f:function(r){return r.n;}},{h:"Carico",f:function(r){return r.name;}},{h:"W",num:1,f:function(r){return r.w;}},{h:"Fonte W",f:function(r){return wattFonteBreve(r.fonte)||"—";}},{h:"A",num:1,f:function(r){return r.a.toFixed(1);}},{h:"Distro / fase",f:function(r){return r.ok?(r.distro+" / "+r.phase):"— senza distro";},warn:function(r){return !r.ok;}}] },
     backline:{ title:"Backline", color:"#0d9488", data:(typeof backlineList==="function"?backlineList:null),
       sub:function(d){ return d.totItems+" element"+(d.totItems===1?"o":"i")+(d.byService?" · "+d.byService+" da Service":""); },
@@ -37139,7 +37173,9 @@ function riderData(){
     elettrico: (function(){ try{ var E=(typeof elecResult==="function")?elecResult(true):null;
       if(!E || !E.totW) return null;
       var P=elecPotenza(E);
-      return { w:E.totW, a:E.totA, distro:(E.distros||[]).map(function(d){ return d.letter+" "+d.a+"A"; }), fasi:!!E.phase3,
+      return { w:E.totW, a:E.totA, distro:(E.distros||[]).map(function(d){ return d.letter+" "+d.a+"A"; }),
+               /* «trifase» solo se c'è davvero un quadro trifase: phase3 nasce vero di default, e il rider scriveva «distribuzione trifase» accanto a «1 presa 16 A monofase» per un wedge (analisi esterna 08/11) */
+               fasi:(E.distros||[]).some(function(d){ return !d.auto && d.ph===3; }), quadroFrase:elecQuadroFrase(state,(E.distros||[]).length),
                maxW:P.maxW, preseTxt:P.preseTxt, genKva:P.genKva, oltreTxt:P.oltreTxt }; }catch(_e){ return null; } })(),
     note: r.note||""
   };
@@ -37207,12 +37243,13 @@ function riderAlimentazioneText(e){
   var pot = (e.maxW && e.maxW>e.w)
     ? "Assorbimento tipico "+elecKW(e.w)+" · massimo "+elecKW(e.maxW)+" (audio a piena potenza)"
     : "Assorbimento stimato "+elecKW(e.w)+" · "+Math.ceil(e.a)+" A";
+  var _quadro = e.quadroFrase!=null ? e.quadroFrase : (e.distro.length?"":ELEC_QUADRO_APERTO);   /* senza il dato (chi chiama con un riassunto vecchio): come un progetto senza risposta */
   return pot+
     (e.distro.length?" · quadri: "+e.distro.join(", "):"")+(e.fasi?" · distribuzione trifase":"")+". "+
     (e.preseTxt ? "Servono "+e.preseTxt+", a uso esclusivo e a non più di 10 m dal palco. " : "Presa di corrente disponibile a bordo palco. ")+
     (e.oltreTxt ? e.oltreTxt+" " : "")+
     (e.genKva ? "Con un generatore: almeno "+e.genKva+" kVA, da confermare con il noleggiatore. " : "")+
-    (e.distro.length?"":ELEC_QUADRO_APERTO+". ")+"Tutte le linee di palco protette da interruttore differenziale 30 mA (HSE GS50 / CEI 64-8), prolunghe completamente svolte, ciabatte multipresa e non adattatori multipli. "+
+    (_quadro?_quadro+". ":"")+"Tutte le linee di palco protette da interruttore differenziale 30 mA (HSE GS50 / CEI 64-8), prolunghe completamente svolte, ciabatte multipresa e non adattatori multipli. "+
     ELEC_DISCLAIMER_LEGGE;
 }
 function riderMonitorText(m){
