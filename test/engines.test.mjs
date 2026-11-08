@@ -19380,9 +19380,44 @@ t("corrente, fase 1: stessa risposta su lista carichi, anteprima, rider, audit e
   ok(/Distro: Q1 32A · a cura della produzione/.test(anteprima()), "anteprima col quadro");
   ok(rider().includes("Quadro a cura della produzione."), "rider col quadro");
   senzaCorrente();
-  ok(/Distro: Q1 32A/.test(pdf()) && !/responsabile|a cura/.test(pdf().slice(0, pdf().indexOf("Da chiedere"))), "col quadro e senza risposta: solo i quadri");
-  ok(!rider().includes(APERTO), "e il rider non dice «da confermare» di un quadro che c'è");
+  ok(/Distro: Q1 32A · responsabile da assegnare/.test(pdf()), "col quadro e senza risposta: i quadri, e chi li porta è da assegnare:\n" + pdf().slice(0, 200));
+  ok(/Distro: Q1 32A · responsabile da assegnare/.test(anteprima()), "anteprima, stessa riga");
+  ok(rider().includes("Responsabile del quadro da assegnare.") && !rider().includes(APERTO), "e il rider non dice «da confermare» di un quadro che c'è: " + rider());
   reset();
+});
+
+t("corrente, fase 2: il comando scrive e toglie la risposta, e i fogli lo seguono", () => {
+  reset(); A.state.elec.mode = "manual"; add("topattivo", 200, 200); add("topattivo", 1000, 200); add("wedge", 500, 600); add("wedge", 700, 600); A.__elecRes = null;
+  const rider = () => A.riderAlimentazioneText(A.riderData().elettrico);
+  A.elecResponsabileImposta(A.state, "service");
+  eq(A.state.production.systems.corrente, { ans: "service", note: "" }, "scritta");
+  ok(rider().includes("Quadro a cura del service."), "il rider la segue");
+  /* la risposta sopravvive a salva-riapri */
+  const giro = JSON.parse(JSON.stringify(A.state)); A.normalizeState(giro);
+  eq(A.elecResponsabile(giro), "service", "dopo una riapertura");
+  /* tornare a «da confermare» riporta il progetto com'era */
+  A.elecResponsabileImposta(A.state, null);
+  ok(!("corrente" in A.state.production.systems), "«da confermare» toglie la voce");
+  ok(rider().includes(A.ELEC_QUADRO_APERTO), "e i fogli tornano alla frase aperta");
+  A.elecResponsabileImposta(A.state, "constructor");
+  ok(!("corrente" in A.state.production.systems), "un valore non in elenco non si scrive");
+  /* la domanda c'è solo con dei carichi, e non diventa un aspetto da definire */
+  ok(A.elecDomandaQuadro(A.state), "con dei carichi sì");
+  reset();
+  ok(!A.elecDomandaQuadro(A.state), "a palco vuoto no");
+  add("distro32", 600, 700);
+  ok(!A.elecDomandaQuadro(A.state), "un quadro da solo non è un carico");
+  reset();
+  /* la riga dell'Esporta */
+  const f = appjs.slice(appjs.indexOf("function pdfRigaQuadro"), appjs.indexOf("function pdfRenderPills"));
+  ok(f.length > 200, "c'è la riga nell'Esporta");
+  ok(/elecDomandaQuadro\(state\) && !!\(_pdfPillSel\.rider \|\| _pdfPillSel\.loadlist\)/.test(f), "solo con dei carichi e con una pagina che scrive il quadro");
+  ok(/\["","Da confermare"\],\["service","A cura del service"\],\["venue","A cura della venue"\],\["produzione","A cura della produzione"\]/.test(f), "quattro risposte, «da confermare» per prima");
+  ok(/elecResponsabileImposta\(state, sel\.value\|\|null\);\s*save\(\); pdfRefreshPages\(\);/.test(f), "scrive, salva, ricalcola le pagine");
+  ok(!/missing/.test(f), "facoltativa: non si segna mai come mancante");
+  ok(/if\(a\[0\]===\(elecResponsabile\(state\)\|\|""\)\) op\.selected=true/.test(f), "riaprendo mostra la risposta salvata");
+  ok(/insertBefore\(el, pro\)/.test(f), "sopra «Altre opzioni», quindi fuori dal Controllo tecnico spento di serie");
+  ok(/function pdfUpdateTechNote\(\)\{\s*pdfRigaQuadro\(\);/.test(appjs), "si riallinea a ogni cambio delle pagine");
 });
 
 t("rider: «distribuzione trifase» solo con un quadro trifase disegnato", () => {

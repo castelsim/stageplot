@@ -2914,18 +2914,27 @@ function elecResponsabile(s){
   var o=s&&s.production&&s.production.systems&&s.production.systems.corrente;
   return (o && ELEC_RESPONSABILI.hasOwnProperty(o.ans)) ? o.ans : null;
 }
-/* La frase su chi porta il quadro, una sola per PDF, rider, anteprima, link condiviso, audit e pannello. Vuota quando il
-   quadro è disegnato e nessuno ha detto di chi è: su quel quadro nessuno ha ancora potuto rispondere. */
+/* La frase su chi porta il quadro, una sola per PDF, rider, anteprima, link condiviso, audit e pannello. */
 function elecQuadroFrase(s, nQuadri){
   var ans=elecResponsabile(s);
   if(ans) return "Quadro "+ELEC_RESPONSABILI[ans];
-  return nQuadri ? "" : ELEC_QUADRO_APERTO;
+  return nQuadri ? "Responsabile del quadro da assegnare" : ELEC_QUADRO_APERTO;
+}
+/* Il comando (fase 2): «da confermare» toglie la voce, così il progetto torna identico a uno che non ha mai risposto. */
+function elecResponsabileImposta(s, ans){
+  var sys=s&&s.production&&s.production.systems; if(!sys) return;
+  if(ELEC_RESPONSABILI.hasOwnProperty(ans)) sys.corrente={ ans:ans, note:(sys.corrente&&sys.corrente.note)||"" };
+  else delete sys.corrente;
+}
+/* La domanda ha senso solo se c'è qualcosa da alimentare. */
+function elecDomandaQuadro(s){
+  return ((s&&s.items)||[]).some(function(it){ return !elecIsDistro(it) && !elecIsGen(it) && wattOf(it)>0; });
 }
 /* La riga della testata di lista carichi (PDF e anteprima): i quadri disegnati e chi li porta. */
 function elecQuadriRiga(s, R){
   var d=(R&&R.distros)||[], ans=elecResponsabile(s);
   if(!d.length) return elecQuadroFrase(s, 0);
-  return "Distro: "+d.map(function(q){ return q.letter+" "+q.a+"A"; }).join("  ·  ")+(ans?" · "+ELEC_RESPONSABILI[ans]:"");
+  return "Distro: "+d.map(function(q){ return q.letter+" "+q.a+"A"; }).join("  ·  ")+" · "+(ans?ELEC_RESPONSABILI[ans]:"responsabile da assegnare");
 }
 var ELEC_DISCLAIMER_LEGGE="Stima per il service: non sostituisce il progetto né la dichiarazione di un tecnico abilitato (spazi all'aperto: DM 19/08/1996, Titolo IX).";
 /* distanza interna MINIMA per le postazioni doppie (limite fisico dello slider): la più stretta possibile.
@@ -36373,6 +36382,7 @@ function pdfChannelPage(doc, L, paperKey){
     return sel;
   }
   function pdfUpdateTechNote(){
+    pdfRigaQuadro();
     var box=document.getElementById("pdfTechBox"), note=document.getElementById("pdfTechNote");
     var has=_pdfTechPages.length>0;
     if(box) box.style.display=has?"block":"none";
@@ -36402,6 +36412,29 @@ function pdfChannelPage(doc, L, paperKey){
     var b=document.createElement("button"); b.type="button"; b.className="btn"; b.textContent="Aggiungi";
     b.addEventListener("click", function(){ _pdfPillSel.inputlist=true; pdfRenderPills(); pdfUpdateTechNote(); });
     el.appendChild(sp); el.appendChild(b);
+  }
+  /* CHI PORTA IL QUADRO (analisi esterna 08/11). Sopra «Altre opzioni», come il richiamo della channel list: il Controllo
+     tecnico è spento di serie, e chi legge «Quadro da confermare» sul suo foglio deve poterlo cambiare da qui. Compare solo
+     se nel PDF c'è una pagina che lo scrive (rider, lista carichi) e c'è qualcosa da alimentare. Facoltativa: non conta fra
+     gli «aspetti da definire», non è mai segnata come mancante e non ferma l'esporta. «Da confermare» è il punto di partenza. */
+  function pdfRigaQuadro(){
+    var pro=document.getElementById("pdfProBtn"); if(!pro || !pro.parentNode) return;
+    var el=document.getElementById("pdfQuadroRow");
+    var mostra=elecDomandaQuadro(state) && !!(_pdfPillSel.rider || _pdfPillSel.loadlist);
+    if(!mostra){ if(el) el.hidden=true; return; }
+    if(!el){ el=document.createElement("div"); el.id="pdfQuadroRow"; el.className="pdf-quadro ctrow"; pro.parentNode.insertBefore(el, pro); }
+    el.innerHTML=""; el.hidden=false;
+    var k=document.createElement("label"); k.className="k"; k.htmlFor="prodCorrente"; k.textContent="Chi porta il quadro";
+    var sel=document.createElement("select"); sel.id="prodCorrente";
+    [["","Da confermare"],["service","A cura del service"],["venue","A cura della venue"],["produzione","A cura della produzione"]].forEach(function(a){
+      var op=document.createElement("option"); op.value=a[0]; op.textContent=a[1];
+      if(a[0]===(elecResponsabile(state)||"")) op.selected=true; sel.appendChild(op);
+    });
+    sel.addEventListener("change", function(){
+      elecResponsabileImposta(state, sel.value||null);
+      save(); pdfRefreshPages();
+    });
+    el.appendChild(k); el.appendChild(sel);
   }
   function pdfRenderPills(){
     /* Pagine come pillole: TUTTE le disponibili (attivate dagli elementi del progetto) sono visibili —
