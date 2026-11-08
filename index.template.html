@@ -5303,6 +5303,10 @@ function elecPotenza(R){
            preseTxt:prese.map(elecPresaTxt).join(" e "),
            genKva: piccolo ? null : elecGenKva(maxW) };   /* una presa da 16 A basta: il generatore non si nomina */
 }
+/* Chi porta il quadro non è un dato del progetto: finché nessuno lo dice, si scrive che è aperto, con UNA frase
+   sola in rider, lista carichi e audit (decisione di Simone, 08/11: nessuna ipotesi su service o organizzazione).
+   Il foglio va a chi monta il palco: un'assunzione scritta lì diventa un impegno. */
+var ELEC_QUADRO_APERTO="Quadro da confermare · responsabile da assegnare";
 var ELEC_DISCLAIMER_LEGGE="Stima per il service: non sostituisce il progetto né la dichiarazione di un tecnico abilitato (spazi all'aperto: DM 19/08/1996, Titolo IX).";
 /* distanza interna MINIMA per le postazioni doppie (limite fisico dello slider): la più stretta possibile.
    Gli strumenti larghi (contrabbasso, violoncello) hanno un minimo maggiore per non sovrapporsi. */
@@ -17880,7 +17884,7 @@ function auditEngine(){
   /* «err» come la gemella nel motore elettrico: la dedup per `rule` tiene questa (che ha il fix a un
      click) e scarta quella, quindi il livello dev'essere lo stesso o la severità si perde per strada. */
   if(loadsN>0 && !realDistro && Re.totW>AUDIT_MIN_W) add(elettricoIniziato()?"err":"warn",
-    "Carichi elettrici presenti ("+elecKW(Re.totW)+") ma nessun quadro/distro."+(elettricoIniziato()?"":" Lo aggiunge il service, o tu quando apri l'elettrico."),
+    "Carichi elettrici presenti ("+elecKW(Re.totW)+") ma nessun quadro/distro. "+ELEC_QUADRO_APERTO+".",
     "Elettrico","Apri la lista Elettrico, nella colonna a destra, e piazza un distro.",{label:"Aggiungi distro",run:auditFixAddDistro},"nodistro");
   /* SUPERFICIE SENZA MOTORE (29/08). Rivage e dLive S-Class non sono console intere: sono SUPERFICI
      DI CONTROLLO, e il DSP sta in un rack separato che va alimentato, trasportato e messo da qualche
@@ -35130,10 +35134,9 @@ function cabReportPdf(shared){
     if(shared) doc.addPage("a4","portrait");
     var W=210, M=16, y=0;
     function line(txt, size, bold, color, dy){
-      if(y>282){ doc.addPage(); y=16; }
       doc.setFontSize(size||10); doc.setFont("helvetica", bold?"bold":"normal");
       doc.setTextColor(color||"#1f2937");
-      doc.text(String(txt), M, y); y+=(dy||5);
+      y=pdfACapo(doc, txt, M, y, W-2*M, dy||5);
     }
     doc.setFillColor("#0d9488"); doc.rect(0,0,W,14,"F");
     doc.setTextColor("#ffffff"); doc.setFontSize(11); doc.setFont("helvetica","bold");
@@ -35204,7 +35207,7 @@ function patchListPdf(shared){
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); y=pdfTitoloLuogo(doc, M, y, 8); }
     doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
     if(R.mixer&&MIXER_DB[R.mixer]) { doc.text("Mixer: "+hwLabel(R.mixer,MIXER_DB), M, y); y+=5; }
-    doc.text(R.boxes.length ? "Stage box: "+R.boxes.map(function(b){ return b.letter+" "+(b.hw&&STAGEBOX_DB[b.hw]?STAGEBOX_DB[b.hw].model:b.cap+"ch")+(b.auto?" (auto)":""); }).join("  ·  ") : "Nessuna stage box dichiarata: il patch lo assegna il service", M, y); y+=8;
+    y=pdfACapo(doc, R.boxes.length ? "Stage box: "+R.boxes.map(function(b){ return b.letter+" "+(b.hw&&STAGEBOX_DB[b.hw]?STAGEBOX_DB[b.hw].model:b.cap+"ch")+(b.auto?" (auto)":""); }).join("  ·  ") : "Nessuna stage box dichiarata: il patch lo assegna il service", M, y, 178, 4.6)+3.4;
     /* Il buco si vede nella SUA cella — il patch — e la riga resta nera. Prima un canale senza stage
        box dipingeva di rosso l'intera riga: su una band appena creata (stage box quasi mai dichiarata)
        TUTTA la input list usciva rossa, e chi la riceveva leggeva «errore» su dati giusti (23/08). */
@@ -35336,7 +35339,7 @@ function riderPdf(shared){
         /* SOLO ruolo, nome e recapito: la NOTA del contatto è un appunto interno del tecnico
            («non risponde mai, chiama la moglie») e non deve finire nel PDF che si manda al locale. */
         body(head+(c.contact?" — "+c.contact:"")); }); }
-    else if(d.contatto){ if(y>282){ doc.addPage(); y=18; } doc.setFont("helvetica","italic"); doc.setFontSize(9); doc.setTextColor("#374151"); doc.text("Riferimento tecnico: "+d.contatto, M, y); y+=5; }
+    else if(d.contatto){ if(y>282){ doc.addPage(); y=18; } doc.setFont("helvetica","italic"); doc.setFontSize(9); doc.setTextColor("#374151"); y=pdfACapo(doc, "Riferimento tecnico: "+d.contatto, M, y, 178, 5); }
     if(shared) return;
     pdfCredit(doc);
     pdfSave(doc, fileName()+"-rider.pdf");
@@ -35356,7 +35359,7 @@ function monitorListPdf(shared){
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); y=pdfTitoloLuogo(doc, M, y, 8); }
     doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
     /* «5 / 0» con nessuna stage box dichiarata sembrava un errore: la capacità si scrive solo se c'è */
-    doc.text("Uscite usate: "+R.mixChTot+(R.capOutTot?" / "+R.capOutTot:"")+(R.boxes.length?"   ·   Stage box: "+R.boxes.map(function(b){ return b.letter+" (out "+b.usedOut+"/"+b.outCap+")"; }).join("  ·  "):"   ·   nessuna stage box dichiarata"), M, y); y+=8;
+    y=pdfACapo(doc, "Uscite usate: "+R.mixChTot+(R.capOutTot?" / "+R.capOutTot:"")+(R.boxes.length?"   ·   Stage box: "+R.boxes.map(function(b){ return b.letter+" (out "+b.usedOut+"/"+b.outCap+")"; }).join("  ·  "):"   ·   nessuna stage box dichiarata"), M, y, 178, 4.6)+3.4;
     var _testaTab=null;
     function trow(a,b,c,d,e,bold,color,lastColor){ if(y>286){ doc.addPage(); y=18; if(_testaTab){ var _t=_testaTab; _testaTab=null; _t(); _testaTab=_t; } } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y);
       doc.setTextColor(lastColor||color||"#111827"); doc.text(String(e),cols[4],y); y+=5.4; }   /* l'uscita mancante si vede nella sua cella, non su tutta la riga */
@@ -35385,9 +35388,9 @@ function loadListPdf(shared){
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); y=pdfTitoloLuogo(doc, M, y, 8); }
     doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
     var P=elecPotenza(R);
-    doc.text((P.picco?"Totale tipico: "+elecKW(R.totW)+" · massimo "+elecKW(P.maxW):"Totale: "+elecKW(R.totW))+" · "+R.totA.toFixed(0)+" A   ·   "+(R.distros.length ? "Distro: "+R.distros.map(function(d){ return d.letter+" "+d.a+"A"; }).join("  ·  ") : "nessun quadro dichiarato: lo fornisce il service"), M, y); y+=5;
+    y=pdfACapo(doc, (P.picco?"Totale tipico: "+elecKW(R.totW)+" · massimo "+elecKW(P.maxW):"Totale: "+elecKW(R.totW))+" · "+R.totA.toFixed(0)+" A   ·   "+(R.distros.length ? "Distro: "+R.distros.map(function(d){ return d.letter+" "+d.a+"A"; }).join("  ·  ") : ELEC_QUADRO_APERTO), M, y, 178, 5);
     /* A1: la presa da chiedere, dimensionata sul massimo, sotto il totale */
-    if(P.preseTxt){ doc.setFontSize(8.5); doc.text("Da chiedere: "+P.preseTxt+(P.genKva?" · con un generatore almeno "+P.genKva+" kVA":""), M, y); y+=3; }
+    if(P.preseTxt){ doc.setFontSize(8.5); y=pdfACapo(doc, "Da chiedere: "+P.preseTxt+(P.genKva?" · con un generatore almeno "+P.genKva+" kVA":""), M, y, 178, 3.8)-0.8; }
     y+=3;
     var _testaTab=null;
     function trow(a,b,c,d,e,bold,color,lastColor){ if(y>286){ doc.addPage(); y=18; if(_testaTab){ var _t=_testaTab; _testaTab=null; _t(); _testaTab=_t; } } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y);
@@ -36030,7 +36033,7 @@ function rfListPdf(shared){
     doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
     var bandKeys=Object.keys(pl.bands);
     var sommario = pl.count+" frequenz"+(pl.count===1?"a":"e")+" RF" + (bandKeys.length ? "   ·   "+bandKeys.map(function(b){ return b+": "+pl.bands[b]; }).join("  ·  ") : "");
-    doc.text(sommario, M, y); y+=6;
+    y=pdfACapo(doc, sommario, M, y, 178, 4.6)+1.4;
     doc.setFontSize(8.5); doc.setTextColor("#9ca3af"); doc.text("Documentazione per il coordinamento frequenze (a cura del service).", M, y); y+=7;
     var _testaTab=null;
     function trow(a,b,c,d,e,bold,color){ if(y>286){ doc.addPage(); y=18; if(_testaTab){ var _t=_testaTab; _testaTab=null; _t(); _testaTab=_t; } } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9.5); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y); doc.text(String(e),cols[4],y); y+=5.6; }
@@ -36059,7 +36062,7 @@ function pmListPdf(shared){
     doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text("STAGE PLOT — Personal monitor", M, 9);
     doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), 194, 9, {align:"right"});
     if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); y=pdfTitoloLuogo(doc, M, y, 8); }
-    function line(txt,size,bold,color,dy){ if(y>282){ doc.addPage(); y=16; } doc.setFontSize(size||9.5); doc.setFont("helvetica",bold?"bold":"normal"); doc.setTextColor(color||"#111827"); doc.text(String(txt),M,y); y+=(dy||5.4); }
+    function line(txt,size,bold,color,dy){ doc.setFontSize(size||9.5); doc.setFont("helvetica",bold?"bold":"normal"); doc.setTextColor(color||"#111827"); y=pdfACapo(doc, txt, M, y, 210-2*M, dy||5.4); }
     var R=monDigEngine();   /* fresh: la distinta deve riflettere lo stato reale, non la cache */
     var sys={}; mixers.concat(pmhubs).forEach(function(x){ var d=pmOf(x); if(d) sys[d.sys]=1; });
     line("Sistema: "+Object.keys(sys).map(function(s2){ return pmSysName(s2)+" ("+((PM_SYS[s2]||{}).cable||"")+")"; }).join(" · "), 9.5, false, "#555555", 7);
@@ -36101,7 +36104,7 @@ function elecReportPdf(shared){
   var run=function(doc){
     if(shared) doc.addPage("a4","portrait");
     var W=210, M=16, y=0;
-    function line(txt, size, bold, color, dy){ if(y>282){ doc.addPage(); y=16; } doc.setFontSize(size||10); doc.setFont("helvetica", bold?"bold":"normal"); doc.setTextColor(color||"#1f2937"); doc.text(String(txt), M, y); y+=(dy||5); }
+    function line(txt, size, bold, color, dy){ doc.setFontSize(size||10); doc.setFont("helvetica", bold?"bold":"normal"); doc.setTextColor(color||"#1f2937"); y=pdfACapo(doc, txt, M, y, W-2*M, dy||5); }
     doc.setFillColor("#d97706"); doc.rect(0,0,W,14,"F");
     doc.setTextColor("#ffffff"); doc.setFontSize(11); doc.setFont("helvetica","bold"); doc.text("STAGE PLOT — Piano elettrico", M, 9);
     doc.setFontSize(9); doc.setFont("helvetica","normal"); doc.text(dataDocumento(), W-M, 9, {align:"right"});
@@ -36145,7 +36148,7 @@ function auditReportPdf(shared){
   var run=function(doc){
     if(shared) doc.addPage("a4","portrait");
     var W=210, M=16, y=0;
-    function line(txt,size,bold,color,dy){ if(y>282){ doc.addPage("a4","portrait"); y=16; } doc.setFontSize(size||10); doc.setFont("helvetica", bold?"bold":"normal"); doc.setTextColor(color||"#1f2937"); doc.text(String(txt), M, y); y+=(dy||5); }
+    function line(txt,size,bold,color,dy){ doc.setFontSize(size||10); doc.setFont("helvetica", bold?"bold":"normal"); doc.setTextColor(color||"#1f2937"); y=pdfACapo(doc, txt, M, y, W-2*M, dy||5); }
     doc.setFillColor(col); doc.rect(0,0,W,14,"F");
     doc.setTextColor("#ffffff"); doc.setFontSize(11); doc.setFont("helvetica","bold"); doc.text("STAGE PLOT — Audit progetto", M, 9);
     doc.setFontSize(9); doc.setFont("helvetica","normal"); doc.text(dataDocumento(), W-M, 9, {align:"right"});
@@ -36782,6 +36785,17 @@ function pdfTitoloLuogo(doc, M, y, passo){
   righe.forEach(function(r, i){ doc.text(r, M, y+i*5.2); });
   return y+(righe.length-1)*5.2+passo;
 }
+/* Testo libero o elenco di lunghezza ignota nelle pagine testuali: va a capo nella larghezza data e, a pagina
+   piena, continua sulla successiva. doc.text non va mai a capo da solo: l'avviso del report cablaggio arrivava a
+   598 pt su un foglio da 595 e la fine della frase si perdeva (analisi esterna 08/11). Font e colore li ha già
+   scelti chi chiama. Torna la y sotto l'ultima riga; una stringa vuota occupa comunque una riga. */
+function pdfACapo(doc, txt, x, y, larg, passo){
+  doc.splitTextToSize(String(txt), larg).forEach(function(r){
+    if(y>282){ doc.addPage("a4","portrait"); y=16; }
+    doc.text(r, x, y); y+=passo;
+  });
+  return y;
+}
 function pdfCredit(doc){
   var n=doc.getNumberOfPages();
   for(var i=1;i<=n;i++){
@@ -37198,7 +37212,7 @@ function riderAlimentazioneText(e){
     (e.preseTxt ? "Servono "+e.preseTxt+", a uso esclusivo e a non più di 10 m dal palco. " : "Presa di corrente disponibile a bordo palco. ")+
     (e.oltreTxt ? e.oltreTxt+" " : "")+
     (e.genKva ? "Con un generatore: almeno "+e.genKva+" kVA, da confermare con il noleggiatore. " : "")+
-    "Alimentazione a cura dell'organizzazione; tutte le linee di palco protette da interruttore differenziale 30 mA (HSE GS50 / CEI 64-8), prolunghe completamente svolte, ciabatte multipresa e non adattatori multipli. "+
+    (e.distro.length?"":ELEC_QUADRO_APERTO+". ")+"Tutte le linee di palco protette da interruttore differenziale 30 mA (HSE GS50 / CEI 64-8), prolunghe completamente svolte, ciabatte multipresa e non adattatori multipli. "+
     ELEC_DISCLAIMER_LEGGE;
 }
 function riderMonitorText(m){

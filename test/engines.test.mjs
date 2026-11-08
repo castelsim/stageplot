@@ -19180,21 +19180,132 @@ t("A1: piano elettrico e lista carichi del PDF dicono tipico, massimo, prese e g
   A.__elecRes = null;
   const doc = Object.assign(jsPdfFinto()({ format: "a4", orientation: "portrait" }), { roundedRect() {} });
   A.elecReportPdf(doc);
-  const tx = doc.pagine[1].testi.map((x) => x.t).join("\n");
+  const tx = doc.pagine[1].testi.map((x) => x.t).join(" ");   /* spazio, non a capo: una riga lunga può andare a capo (analisi esterna 08/11) */
   ok(/Assorbimento tipico: 3,7 kW/.test(tx) && /massimo: 7,4 kW \(audio a piena potenza\)/.test(tx), "riepilogo:\n" + tx);
   ok(/Da chiedere: 1 presa CEE 32 A trifase 5 poli per il quadro Q1, a non più di 10 m dal palco/.test(tx), "presa del quadro dichiarato:\n" + tx);
   ok(!/cosφ|cos\?/.test(tx), "niente «φ»: l'Helvetica del PDF non ce l'ha e stampava «cos?»");
   ok(/Generatore consigliato: almeno 15 kVA/.test(tx), "generatore:\n" + tx);
-  ok(/Titolo IX/.test(tx.replace(/\n/g, " ")), "frase di legge nel riquadro della stima");
+  ok(/Titolo IX/.test(tx), "frase di legge nel riquadro della stima");
   const doc2 = jsPdfFinto()({ format: "a4", orientation: "portrait" });
   A.loadListPdf(doc2);
-  const tx2 = doc2.pagine[1].testi.map((x) => x.t).join("\n");
+  const tx2 = doc2.pagine[1].testi.map((x) => x.t).join(" ");
   ok(/Totale tipico: 3,7 kW · massimo 7,4 kW/.test(tx2), "lista carichi, intestazione:\n" + tx2);
   ok(/Da chiedere: 1 presa CEE 32 A trifase 5 poli per il quadro Q1 · con un generatore almeno 15 kVA/.test(tx2), "lista carichi, presa:\n" + tx2);
-  ok(/Massimo = PA e monitor a piena potenza/.test(tx2.replace(/\n/g, " ")), "lista carichi, cosa vuol dire massimo");
+  ok(/Massimo = PA e monitor a piena potenza/.test(tx2), "lista carichi, cosa vuol dire massimo");
   const html = A.listPreviewHtml("loadlist");
   ok(/Totale tipico 3,7 kW · massimo 7,4 kW · da chiedere: 1 presa CEE 32 A/.test(html), "anteprima e link condiviso: stessi numeri");
   reset();
+});
+
+/* ═══ ANALISI ESTERNA 08/11, punto 2a ═══ doc.text non va mai a capo: l'avviso del report cablaggio arrivava a
+   598 pt su un foglio da 595 e la fine della frase si perdeva. Stesso difetto con molte stage box o molti quadri.
+   Il doc finto va a capo a floor(larghezza/2,1) caratteri: a sinistra del margine di 16 mm stanno al massimo 84
+   caratteri, quindi una riga più lunga è una riga che non è passata da splitTextToSize. */
+const PDF_RIGA_MAX = 84;
+const pdfTesti = (doc) => doc.pagine.flatMap((p) => p.testi);
+const pdfRigheLunghe = (doc, M = 16) => pdfTesti(doc).filter((x) => x.x === M && !x.op && x.t.length > PDF_RIGA_MAX).map((x) => x.t);
+const docACapo = () => Object.assign(jsPdfFinto()({ format: "a4", orientation: "portrait" }), { roundedRect() {} });
+const FRASE_LUNGA = "Una frase che da sola non ci sta su una riga del foglio A4, perché è fatta apposta per essere molto più lunga di quello che la pagina può contenere in larghezza.";
+
+t("PDF, a capo: pdfACapo spezza, cambia pagina e non perde parole", () => {
+  const doc = docACapo();
+  const y = A.pdfACapo(doc, FRASE_LUNGA, 16, 22, 178, 5);
+  const righe = doc.pagine[0].testi.map((x) => x.t);
+  ok(righe.length >= 2, "va su più righe: " + JSON.stringify(righe));
+  ok(righe.every((r) => r.length <= PDF_RIGA_MAX), "nessuna riga oltre la larghezza");
+  eq(righe.join(" "), FRASE_LUNGA, "e nessuna parola persa");
+  eq(y, 22 + righe.length * 5, "torna la y sotto l'ultima riga");
+  /* a fondo pagina le righe continuano sulla pagina dopo, non sotto il bordo */
+  const d2 = docACapo();
+  A.pdfACapo(d2, FRASE_LUNGA, 16, 281, 178, 5);
+  eq(d2.pagine.length, 2, "finita la pagina ne apre un'altra");
+  ok(pdfTesti(d2).every((x) => x.y <= 287), "nessuna riga sotto il margine basso");
+  /* una riga vuota occupa comunque il suo spazio: è così che le pagine fanno i distacchi */
+  const d3 = docACapo();
+  eq(A.pdfACapo(d3, "", 16, 50, 178, 6), 56, "stringa vuota: una riga");
+});
+
+t("PDF, a capo: report cablaggio, piano elettrico, audit e personal monitor non escono dal foglio", () => {
+  const conFrase = (nome, prova) => { const c = A[nome]; try { prova(); } finally { A[nome] = c; } };
+  reset(); add("astamic", 200, 400); add("wedge", 400, 600); add("wedge", 600, 600); A.state.titolo = FRASE_LUNGA;
+  A.__elecRes = null; A.__cabRes = null;
+  let doc = docACapo(); A.cabReportPdf(doc);
+  ok(pdfTesti(doc).some((x) => x.t.startsWith("Una frase che")), "cablaggio: il testo lungo c'è");
+  eq(pdfRigheLunghe(doc), [], "report cablaggio");
+  doc = docACapo(); A.elecReportPdf(doc);
+  ok(pdfTesti(doc).some((x) => x.t.startsWith("Una frase che")), "elettrico: il testo lungo c'è");
+  eq(pdfRigheLunghe(doc), [], "piano elettrico");
+  /* audit: la riga «Carichi… nessun quadro» con la frase del quadro è lunga, da sola */
+  A.__elecRes = null; add("topattivo", 200, 200); add("topattivo", 1000, 200); A.__elecRes = null;
+  doc = docACapo(); A.auditReportPdf(doc);
+  ok(pdfTesti(doc).some((x) => /Carichi elettrici presenti/.test(x.t)), "audit: la riga dei carichi c'è");
+  eq(pdfRigheLunghe(doc), [], "audit");
+  /* personal monitor: l'unica riga dinamica è il sistema, che qui si allunga apposta */
+  reset(); const pmx = add("hearback", 300, 300); pmx.pm = "p16m";
+  conFrase("pmSysName", () => {
+    A.pmSysName = () => FRASE_LUNGA;
+    doc = docACapo(); A.pmListPdf(doc);
+    ok(pdfTesti(doc).some((x) => /^Sistema: /.test(x.t)), "personal monitor: la riga del sistema c'è");
+    eq(pdfRigheLunghe(doc), [], "personal monitor");
+  });
+  reset();
+});
+
+t("PDF, a capo: con molte stage box o molti quadri le testate delle liste restano intere", () => {
+  /* sinfonica vera: «… M 8ch · N» e il resto perso */
+  reset(); for (let i = 0; i < 16; i++) add("stagebox", 100 + i * 80, 150);
+  for (let i = 0; i < 4; i++) { add("astamic", 200 + i * 150, 500); add("wedge", 200 + i * 150, 700); }
+  A.__cabRes = null; A.__elecRes = null;
+  let doc = docACapo(); A.patchListPdf(doc);
+  const inp = pdfTesti(doc).map((x) => x.t).join(" ");
+  ok(/Stage box: /.test(inp), "channel list: testata:\n" + inp.slice(0, 300));
+  eq(pdfRigheLunghe(doc), [], "channel list");
+  /* si legge fino all'ultima box */
+  const ultima = A.cabResult(true).boxes.slice(-1)[0].letter;
+  ok(new RegExp("\\b" + ultima + " \\d+ch|\\b" + ultima + " ").test(inp), "c'è anche l'ultima box, " + ultima);
+  doc = docACapo(); A.monitorListPdf(doc);
+  ok(/Uscite usate: /.test(pdfTesti(doc).map((x) => x.t).join(" ")), "monitor list: testata");
+  eq(pdfRigheLunghe(doc), [], "monitor list");
+  reset(); for (let i = 0; i < 14; i++) add("distro32", 100 + i * 80, 700);
+  add("topattivo", 200, 200); A.__elecRes = null;
+  doc = docACapo(); A.loadListPdf(doc);
+  ok(/Distro: /.test(pdfTesti(doc).map((x) => x.t).join(" ")), "lista carichi: testata");
+  eq(pdfRigheLunghe(doc), [], "lista carichi");
+  reset();
+});
+
+/* ═══ ANALISI ESTERNA 08/11, punto 3 ═══ Tre frasi fisse davano tre risposte diverse su chi porta il quadro, e nessuna
+   era un dato. Decisione di Simone: quando non si sa, «Quadro da confermare · responsabile da assegnare», ovunque. */
+t("quadro: senza un quadro disegnato rider, lista carichi e audit dicono la stessa frase", () => {
+  const FRASE = "Quadro da confermare · responsabile da assegnare";
+  eq(A.ELEC_QUADRO_APERTO, FRASE, "la frase è una sola");
+  ok(!/lo fornisce il service/.test(appjs), "sparita «lo fornisce il service»");
+  ok(!/a cura dell'organizzazione/.test(appjs), "sparita «a cura dell'organizzazione»");
+  ok(!/Lo aggiunge il service, o tu/.test(appjs), "sparita la versione dell'audit");
+  reset(); A.state.elec.on = false; A.state.elec.mode = "manual"; add("topattivo", 200, 200); add("topattivo", 1000, 200); add("wedge", 500, 600); add("wedge", 700, 600);   /* sopra 1 kW: sotto, l'audit non chiede un quadro */
+  A.__elecRes = null;
+  /* lista carichi, sul PDF */
+  let doc = docACapo(); A.loadListPdf(doc);
+  ok(pdfTesti(doc).map((x) => x.t).join(" ").includes(FRASE), "lista carichi PDF:\n" + pdfTesti(doc).map((x) => x.t).slice(0, 6).join("\n"));
+  /* rider: PDF e anteprima usano la stessa funzione */
+  let r = A.riderAlimentazioneText(A.riderData().elettrico);
+  ok(r.includes(FRASE + "."), "rider: " + r);
+  /* audit, sia con l'elettrico spento sia con l'elettrico iniziato */
+  const nodistro = () => A.auditEngine().findings.find((x) => /^Carichi elettrici presenti/.test(x.msg));
+  const msg = () => nodistro().msg;
+  ok(msg().includes(FRASE), "audit, elettrico mai aperto: " + msg());
+  A.state.elec.on = true; A.state.elec.supply = { kind: "rete", x: 0, y: 0 }; A.__elecRes = null;
+  ok(A.elettricoIniziato(), "qui l'elettrico è iniziato davvero (acceso non basta)");
+  ok(msg().includes(FRASE), "audit, elettrico iniziato: " + msg());
+  /* con un quadro disegnato la frase sparisce da tutti e tre: il quadro c'è */
+  add("distro32", 600, 700); A.__elecRes = null;
+  doc = docACapo(); A.loadListPdf(doc);
+  const tl = pdfTesti(doc).map((x) => x.t).join(" ");
+  ok(!tl.includes(FRASE) && /Distro: /.test(tl), "lista carichi col quadro:\n" + tl.slice(0, 300));
+  r = A.riderAlimentazioneText(A.riderData().elettrico);
+  ok(!r.includes(FRASE), "rider col quadro: " + r);
+  ok(!nodistro(), "audit col quadro: nessun rilievo");
+  A.state.elec.supply = null; reset();
 });
 
 /* ============ audit esterno del 23/08 (Manuale operativo): i due P0, riprodotti e corretti ============ */
