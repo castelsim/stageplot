@@ -3716,6 +3716,20 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
 #pdfConsulenza{margin:0 0 8px;font-size:12px;color:var(--text-2)}
 #pdfConsulenza a{color:var(--accent);font-weight:600}
 
+/* Invito a salvare dopo il PDF (09/11/2026): riga SOTTO il piede della finestra, fuori dalla sua fila (dentro,
+   mandandola a capo, spezzava «✓ PDF scaricato» e i bottoni su due righe). Fondo tenue, mai un popup.
+   Su telefono testo e bottoni si impilano. */
+#pdfInvitoSalva{flex:0 0 auto;display:flex;align-items:center;gap:12px;margin:12px 0 0;padding:10px 12px;
+  border-radius:10px;background:var(--accent-tint);border:1px solid var(--accent-soft);font-size:13px;line-height:var(--lh-snug);color:var(--text)}
+#pdfInvitoSalva[hidden]{display:none}
+#pdfInvitoSalva p{margin:0;flex:1 1 auto;min-width:0}
+#pdfInvitoSalva .pis-azioni{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+#pdfInvitoSalva .btn{white-space:nowrap;background:var(--surface);border:1px solid var(--accent-soft)}
+#pdfInvitoSalva .pis-no{border:0;background:none;color:var(--text-2);font:inherit;font-size:13px;padding:8px 6px;cursor:pointer;white-space:nowrap}
+#pdfInvitoSalva .pis-no:hover{color:var(--text);text-decoration:underline}
+@media (max-width:720px){ #pdfInvitoSalva{flex-direction:column;align-items:stretch;gap:8px}
+  #pdfInvitoSalva .pis-azioni{justify-content:flex-end} #pdfInvitoSalva .pis-no{min-height:44px} #pdfInvitoSalva .btn{min-height:44px} }
+
 /* ── SCALETTA (10/10/2026) ───────────────────────────────────────────────────────────────────────
    Pannello come «Evento»: con la scaletta aperta la colonna (o il cassetto del telefono) mostra solo
    lei. `display` su id e non l'attributo hidden: `.sec` lo batterebbe (stessa cosa per #eventoSec). */
@@ -6354,6 +6368,16 @@ body.cust-contorno .item.selected .selbox{display:none}
              chiude senza fare niente, e va distinto a colpo d'occhio. (Simone, 02/09) -->
         <button class="btn danger" id="pdfCancel">Annulla</button>
         <button class="btn primary" id="pdfGo">Esporta PDF</button>
+      </div>
+    </div>
+    <!-- Invito a salvare dopo il PDF (09/11/2026): sotto il piede, fuori dalla sua fila (che resta com'era).
+         Solo senza account, una volta per sessione, al massimo due volte in tutto; «No, grazie» lo spegne per
+         sempre. Non blocca niente: il PDF è già scaricato. -->
+    <div id="pdfInvitoSalva" role="status" hidden>
+      <p><b>Vuoi ritrovarlo la prossima volta?</b> Ora il progetto è solo in questo browser. Salvalo nel tuo account gratuito e lo riapri quando serve, anche dal telefono.</p>
+      <div class="pis-azioni">
+        <button type="button" class="btn tint" id="pdfInvitoAccedi">Salva con Google</button>
+        <button type="button" class="pis-no" id="pdfInvitoNo">No, grazie</button>
       </div>
     </div>
   </div>

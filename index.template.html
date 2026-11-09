@@ -2396,6 +2396,16 @@
         <button class="btn primary" id="pdfGo">Esporta PDF</button>
       </div>
     </div>
+    <!-- Invito a salvare dopo il PDF (09/11/2026): sotto il piede, fuori dalla sua fila (che resta com'era).
+         Solo senza account, una volta per sessione, al massimo due volte in tutto; «No, grazie» lo spegne per
+         sempre. Non blocca niente: il PDF è già scaricato. -->
+    <div id="pdfInvitoSalva" role="status" hidden>
+      <p><b>Vuoi ritrovarlo la prossima volta?</b> Ora il progetto è solo in questo browser. Salvalo nel tuo account gratuito e lo riapri quando serve, anche dal telefono.</p>
+      <div class="pis-azioni">
+        <button type="button" class="btn tint" id="pdfInvitoAccedi">Salva con Google</button>
+        <button type="button" class="pis-no" id="pdfInvitoNo">No, grazie</button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -7215,12 +7225,78 @@ window.applyProjLock=applyProjLock;
    che il progetto vive solo su questo dispositivo. Una volta sola, mai in viewer/consulenza. */
 var loginNudgeShown=false;
 function maybeLoginNudge(){
-  if(loginNudgeShown || foreignDoc()) return;
+  if(loginNudgeShown || foreignDoc() || invitoSalvaChiuso()) return;   /* invito rifiutato o esaurito: tace anche il toast */
   if(window.__cloud && window.__cloud.user && window.__cloud.user()) return;
   loginNudgeShown=true;
   try{ if(window.__toast) window.__toast("Export fatto. Il progetto però vive solo su questo dispositivo — accedi per ritrovarlo su computer e telefono."); }catch(e){}
 }
 window.maybeLoginNudge=maybeLoginNudge;
+/* INVITO A SALVARE DOPO IL PDF (09/11/2026, ricerca «100 utenti», azione 4). L'88% di chi apre l'editor non crea
+   un account: esporta il PDF e il progetto resta solo nel browser, quindi non torna e non si ritrova. Al posto del
+   toast (che spariva da solo, coprendo i bottoni sul telefono, e tornava a ogni sessione) una riga nel piede
+   dell'Esporta, sotto «✓ PDF scaricato», con due strade: «Salva con Google» e «No, grazie».
+   Regole, decise per non diventare un tormento (il percorso gratuito senza account resta intero):
+   - mai con un account, mai su un documento altrui (viewer, consulenza);
+   - una volta per sessione (pagina), al massimo INVITO_SALVA_MAX volte in tutto su questo browser;
+   - «No, grazie» la spegne per sempre, e con lei il toast di maybeLoginNudge; «Salva con Google» pure, e
+     così anche l'ultima volta prevista (invitoSalvaChiuso).
+   Stato in localStorage INVITO_SALVA_KEY: "1", "2"… (volte mostrato), "no", "accesso". È una preferenza
+   dell'interfaccia: all'uscita dall'account si tiene (USCITA_TIENI_LOCAL). */
+var INVITO_SALVA_KEY="sp_invitoSalva", INVITO_SALVA_MAX=2;
+function invitoSalvaDecidi(o){
+  if(!o || o.utente || o.altrui || o.giaInSessione) return false;
+  var s=String(o.stato==null?"":o.stato);
+  if(s==="no" || s==="accesso") return false;
+  var n=parseInt(s,10); if(!(n>=0)) n=0;
+  return n<INVITO_SALVA_MAX;
+}
+function invitoSalvaStatoDopo(stato, azione){
+  if(azione==="no" || azione==="accesso") return azione;
+  var s=String(stato==null?"":stato);
+  if(s==="no" || s==="accesso") return s;
+  var n=parseInt(s,10); if(!(n>=0)) n=0;
+  return String(n+1);   /* azione "mostrato" */
+}
+function invitoSalvaLeggi(){ try{ return localStorage.getItem(INVITO_SALVA_KEY); }catch(e){ return null; } }
+function invitoSalvaScrivi(v){ try{ localStorage.setItem("sp_invitoSalva", v); }catch(e){} }   /* chiave scritta per esteso: la cerca il test dell'uscita */
+/* «spento»: rifiutato, accesso già chiesto, o mostrato tutte le volte previste. Allora tace anche il toast
+   di maybeLoginNudge, altrimenti quello tornerebbe a ogni sessione al posto dell'invito. */
+function invitoSalvaChiuso(){ var s=String(invitoSalvaLeggi()||""); if(s==="no" || s==="accesso") return true; var n=parseInt(s,10); return n>=INVITO_SALVA_MAX; }
+var invitoSalvaInSessione=false;
+/* Chiamata a PDF scaricato. true = l'invito è comparso (allora niente toast: un messaggio solo). */
+function invitoSalvaDopoPdf(){
+  var el=document.getElementById("pdfInvitoSalva"); if(!el) return false;
+  var C=window.__cloud;
+  if(!invitoSalvaDecidi({ utente:!!(C && C.user && C.user()), altrui:foreignDoc(), stato:invitoSalvaLeggi(), giaInSessione:invitoSalvaInSessione })) return false;
+  invitoSalvaInSessione=true; loginNudgeShown=true;
+  invitoSalvaScrivi(invitoSalvaStatoDopo(invitoSalvaLeggi(), "mostrato"));
+  el.hidden=false;
+  return true;
+}
+function invitoSalvaNascondi(){ var el=document.getElementById("pdfInvitoSalva"); if(el) el.hidden=true; }
+/* Da dove è partito un accesso: letto (e tolto) da login_success al ritorno da Google. Va nella chiave «from»,
+   l'unica ammessa dalla policy di analytics_events (0035) per dire una provenienza: una chiave nuova farebbe
+   rifiutare l'intero evento. */
+var ACCESSO_DA_KEY="sp_accessoDa";
+function accessoDaProps(){
+  try{ var v=sessionStorage.getItem(ACCESSO_DA_KEY); if(v){ sessionStorage.removeItem(ACCESSO_DA_KEY); if(/^[\w-]{1,24}$/.test(v)) return {from:v}; } }catch(e){}
+  return {};
+}
+(function(){
+  var a=document.getElementById("pdfInvitoAccedi"), no=document.getElementById("pdfInvitoNo");
+  if(a) a.addEventListener("click", function(){
+    invitoSalvaScrivi("accesso");
+    try{ sessionStorage.setItem("sp_accessoDa", "invito-pdf"); }catch(e){}
+    invitoSalvaNascondi();
+    var m=document.getElementById("pdfModal"); if(m) m.hidden=true;
+    try{ if(window.__cloud && window.__cloud.signIn) window.__cloud.signIn(); else if(window.proxyClick) window.proxyClick("bCloud"); }catch(e){}
+  });
+  if(no) no.addEventListener("click", function(){
+    invitoSalvaScrivi("no");
+    invitoSalvaNascondi();
+    var go=document.getElementById("pdfGo"); if(go) go.focus();
+  });
+})();
 /* Popup login al salvataggio esplicito (Cmd+S / menu Salva) se non loggato: una volta a sessione, non bloccante (il salvataggio locale è già avvenuto). Obiettivo: convertire al login/cloud senza forzare. */
 var loginPromptShown=false;
 function maybeLoginPromptOnSave(localOk){
@@ -7403,6 +7479,8 @@ window.addEventListener("storage",function(e){
    | sp_sid, sp_accesso_google               | session | CANCELLA   | sessione delle statistiche (legata all'utente), segno del login
    | sp_google_accesso                       | session | CANCELLA   | stato dell'accesso Google in corso (accedi/google/avvio.js)
    | sp_loginPrompt                          | session | tieni      | «invito già mostrato in questa sessione»: interfaccia
+   | sp_accessoDa                            | session | tieni      | da dove è partito l'accesso (es. invito-pdf): si toglie al ritorno
+   | sp_invitoSalva                          | local   | tieni      | invito a salvare dopo il PDF: volte mostrato, «no», «accesso»
    | stageplot_theme                         | local   | tieni      | tema chiaro/scuro
    | sp_welcome, sp_onboarded, sp_dragHint   | local   | tieni      | benvenuto e suggerimenti già visti
    | sp_funzioni (+ vecchia sp_props_pro)    | local   | tieni      | funzioni avanzate (preferenza, sta anche nell'account)
@@ -7413,8 +7491,8 @@ window.addEventListener("storage",function(e){
    Una chiave nuova va aggiunta qui: il test «ogni chiave scritta dall'app è classificata» la cerca. */
 var USCITA_SEGNALE="sp_uscita";
 var USCITA_TIENI_LOCAL={stageplot_theme:1, sp_welcome:1, sp_onboarded:1, sp_dragHint:1, sp_funzioni:1, sp_props_pro:1,
-  sp_catRecenti:1, sp_advListe:1, sp_assPos:1, sp_noAssunzioni:1, sp_rail:1, sp_vistaRuotata:1};
-var USCITA_TIENI_SESSION={sp_loginPrompt:1};
+  sp_catRecenti:1, sp_advListe:1, sp_assPos:1, sp_noAssunzioni:1, sp_rail:1, sp_vistaRuotata:1, sp_invitoSalva:1};
+var USCITA_TIENI_SESSION={sp_loginPrompt:1, sp_accessoDa:1};
 function uscitaChiaveDaCancellare(k, area){
   k=String(k||"");
   if(area==="session"){
@@ -38138,7 +38216,7 @@ function exportPdf(paperKey, scaleSel, orient, header){
     _ponte.addEventListener("click", function(){ document.getElementById("pdfModal").hidden=true; var sh=document.getElementById("bShareHdr"); if(sh) sh.click(); });
     info.appendChild(document.createElement("br")); info.appendChild(_ponte);
     var _chiudi=document.getElementById("pdfCancel"); if(_chiudi) _chiudi.textContent="Chiudi";
-    maybeLoginNudge();
+    if(!invitoSalvaDopoPdf()) maybeLoginNudge();   /* l'invito a salvare (una riga nel piede) prende il posto del toast */
   }).catch(function(e){
     info.className="mstatus err"; info.textContent="Errore: "+(e&&e.message||e); window.__pdfScope="full";
   });
@@ -38900,6 +38978,7 @@ function pdfChannelPage(doc, L, paperKey){
   });
   function _pdfExportModalCore(){ modal.hidden=false; prevIdx=0;
     var _ann=document.getElementById("pdfCancel"); if(_ann) _ann.textContent="Annulla";   /* dopo un export era diventato «Chiudi» */
+    invitoSalvaNascondi();   /* l'invito vale per l'export appena fatto: riaprendo la finestra non resta lì */
     pdfScalettaInit(); pdfQrInit();   /* scaletta spuntata se c'è; QR sempre spento all'apertura (10/10) */
     /* Il nome del progetto si rilegge dallo STATO ogni volta che la finestra si apre. Un modello
        scrive state.titolo («Band pop/rock») e l'header lo mostrava, ma questo campo restava vuoto e
@@ -41527,7 +41606,7 @@ function maybeAskStageSize(explicit){
         else setTimeout(function(){ if(!cloudUser) invitoAlBoot(false, false); }, 8000);   /* accesso non andato a buon fine */
       }
       if(!oauthReturn) hadSessionAtBoot=!!cloudUser;
-      if(accessoAppenaFatto && cloudUser && !loginTracked){ loginTracked=true; window.__sendEvent({event:"login_success",props:{}}); }
+      if(accessoAppenaFatto && cloudUser && !loginTracked){ loginTracked=true; window.__sendEvent({event:"login_success",props:accessoDaProps()}); }
       updateBtn();
       if(orcOpen){
         if(cloudUser){ try{ sessionStorage.removeItem("orcOpenProject"); }catch(e){} var _oid=orcOpen; orcOpen=null; openProject(_oid); return; }
@@ -41553,7 +41632,7 @@ function maybeAskStageSize(explicit){
          «nessuna sessione al boot», ma supabase-js emette SIGNED_IN anche per una sessione già salvata, spesso
          prima che getSession() risponda: ogni ricarica di chi era già dentro contava un login (88 login su 113
          aperture reali in 30 giorni; una sessione ne aveva 34). */
-      if(ev==="SIGNED_IN" && cloudUser && !loginTracked && oauthReturn){ loginTracked=true; window.__sendEvent({event:"login_success",props:{}}); }
+      if(ev==="SIGNED_IN" && cloudUser && !loginTracked && oauthReturn){ loginTracked=true; window.__sendEvent({event:"login_success",props:accessoDaProps()}); }
       window.__flushEvents();
       if(cloudUser && !cloudCurrentId && window.__bootCloudId) cloudCurrentId=window.__bootCloudId;   /* riaggancio dopo un re-login nella stessa sessione */
       if(cloudUser && window.__invitoAccesso) chiudiInvitoAccesso();   /* accesso fatto (anche da un'altra scheda): l'invito non serve più */
