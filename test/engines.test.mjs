@@ -19309,6 +19309,96 @@ t("quadro: senza un quadro disegnato rider, lista carichi e audit dicono la stes
 });
 
 /* ============ audit esterno del 23/08 (Manuale operativo): i due P0, riprodotti e corretti ============ */
+/* ═══ ANALISI ESTERNA 08/11, campo `corrente`, FASE 1 ═══ L'app conserva e legge il dato; nessun comando ancora per scriverlo. */
+const conCorrente = (ans) => { A.state.production.systems.corrente = { ans, note: "" }; };
+const senzaCorrente = () => { delete A.state.production.systems.corrente; };
+
+t("corrente, fase 1: il normalizzatore conserva il campo e le voci che non conosce", () => {
+  reset();
+  const norm = (systems) => { const s = JSON.parse(JSON.stringify(A.state)); s.production = { systems }; A.normalizeState(s); return s.production.systems; };
+  /* la risposta sopravvive a una riapertura */
+  eq(norm({ corrente: { ans: "service", note: "" } }).corrente, { ans: "service", note: "" }, "con la risposta");
+  /* progetto vecchio: identico a prima, nessuna voce nuova */
+  ok(!("corrente" in norm({ luci: { ans: "venue", note: "" } })), "senza il campo non nasce niente");
+  eq(A.elecResponsabile({ production: { systems: {} } }), null, "assente = da confermare");
+  eq(A.elecResponsabile({}), null, "nemmeno production");
+  /* risposta non valida: si tratta come «non si sa», non si scrive su un foglio */
+  ok(!("corrente" in norm({ corrente: { ans: "boh" } })), "valore fuori elenco scartato");
+  eq(A.elecResponsabile({ production: { systems: { corrente: { ans: "boh" } } } }), null, "e letto come da confermare");
+  eq(A.elecResponsabile({ production: { systems: { corrente: { ans: "constructor" } } } }), null, "le proprietà dell'oggetto non valgono come risposta");
+  /* una voce di una versione più nuova non si perde */
+  eq(norm({ futura: { ans: "x", note: "n", altro: 1 } }).futura, { ans: "x", note: "n" }, "voce sconosciuta conservata, ridotta a ans e note");
+  /* però resta una forma sotto controllo */
+  const inquinato = norm(JSON.parse('{"__proto__":{"ans":"x"}}'));
+  ok(!Object.keys(inquinato).includes("__proto__") && inquinato.ans === undefined, "__proto__ non diventa una voce e non cambia il prototipo");
+  ok(!("Strana-Voce" in norm({ "Strana-Voce": { ans: "x" } })), "chiave strana scartata");
+  ok(!("numero" in norm({ numero: 3 })), "valore che non è un oggetto scartato");
+  eq(norm({ lunga: { ans: "y".repeat(99), note: "z".repeat(999) } }).lunga, { ans: "y".repeat(40), note: "z".repeat(300) }, "troncata");
+  /* il giro completo: salva-riapri */
+  conCorrente("venue");
+  const giro = JSON.parse(JSON.stringify(A.state)); A.normalizeState(giro); A.normalizeState(giro);
+  eq(giro.production.systems.corrente.ans, "venue", "due passaggi, stesso dato");
+  senzaCorrente();
+});
+
+t("corrente, fase 1: la risposta non conta come domanda aperta e non entra nel riepilogo di produzione", () => {
+  reset();
+  const prima = A.productionStatusLine(A.state);
+  conCorrente("service");
+  eq(A.productionStatusLine(A.state), prima, "«aspetti da definire» invariati");
+  ok(!A.productionSummary(A.state).some((r) => r.key === "corrente"), "non è una voce del Controllo tecnico");
+  senzaCorrente();
+});
+
+t("corrente, fase 1: stessa risposta su lista carichi, anteprima, rider, audit e pannello", () => {
+  reset(); A.state.elec.mode = "manual"; add("topattivo", 200, 200); add("topattivo", 1000, 200); add("wedge", 500, 600); add("wedge", 700, 600);
+  const pdf = () => { const d = docACapo(); A.__elecRes = null; A.loadListPdf(d); return pdfTesti(d).map((x) => x.t).join(" "); };
+  const rider = () => A.riderAlimentazioneText(A.riderData().elettrico);
+  const anteprima = () => A.listPreviewHtml("loadlist");
+  const audit = () => A.auditEngine().findings.find((x) => /^Carichi elettrici presenti/.test(x.msg));
+  const pannello = appjs.slice(appjs.indexOf('carico da collegare"'), appjs.indexOf('carico da collegare"') + 300);
+  ok(/elecQuadroFrase\(state,0\)/.test(pannello), "il pannello legge la stessa frase");
+  const APERTO = A.ELEC_QUADRO_APERTO;
+  /* nessuno ha detto niente */
+  ok(pdf().includes(APERTO), "PDF, da confermare"); ok(rider().includes(APERTO), "rider, da confermare");
+  ok(anteprima().includes(APERTO), "anteprima, da confermare"); ok(audit().msg.includes(APERTO), "audit, da confermare");
+  const liv = audit().lvl;
+  ok(liv === "warn" || liv === "err", "e l'audit la tiene aperta");
+  /* lo porta il service */
+  conCorrente("service");
+  const F = "Quadro a cura del service";
+  ok(pdf().includes(F) && !pdf().includes(APERTO), "PDF:\n" + pdf().slice(0, 200));
+  ok(rider().includes(F + ".") && !rider().includes(APERTO), "rider: " + rider());
+  ok(anteprima().includes(F) && !anteprima().includes(APERTO), "anteprima");
+  ok(audit().msg.includes(F) && !audit().msg.includes(APERTO), "audit: " + audit().msg);
+  eq(audit().lvl, "info", "chi lo porta è detto: non è più un avviso né un errore");
+  conCorrente("venue"); ok(rider().includes("Quadro a cura della venue."), "venue");
+  conCorrente("produzione"); ok(rider().includes("Quadro a cura della produzione."), "produzione");
+  /* quadro disegnato: dice i quadri e, se noto, di chi sono; se non è noto la frase del quadro aperto non c'è */
+  add("distro32", 600, 700); A.__elecRes = null;
+  ok(/Distro: Q1 32A · a cura della produzione/.test(pdf()), "PDF col quadro:\n" + pdf().slice(0, 200));
+  ok(/Distro: Q1 32A · a cura della produzione/.test(anteprima()), "anteprima col quadro");
+  ok(rider().includes("Quadro a cura della produzione."), "rider col quadro");
+  senzaCorrente();
+  ok(/Distro: Q1 32A/.test(pdf()) && !/responsabile|a cura/.test(pdf().slice(0, pdf().indexOf("Da chiedere"))), "col quadro e senza risposta: solo i quadri");
+  ok(!rider().includes(APERTO), "e il rider non dice «da confermare» di un quadro che c'è");
+  reset();
+});
+
+t("rider: «distribuzione trifase» solo con un quadro trifase disegnato", () => {
+  reset(); A.state.elec.mode = "manual"; A.state.elec.phase3 = true;
+  add("wedge", 500, 600); A.__elecRes = null;
+  let r = A.riderAlimentazioneText(A.riderData().elettrico);
+  ok(!/trifase/.test(r), "un wedge su una presa da 16 A monofase: " + r);
+  add("ciabatta", 400, 700); A.__elecRes = null;
+  r = A.riderAlimentazioneText(A.riderData().elettrico);
+  ok(!/distribuzione trifase/.test(r), "una ciabatta è monofase: " + r);
+  add("distro32", 600, 700); A.__elecRes = null;
+  r = A.riderAlimentazioneText(A.riderData().elettrico);
+  ok(/distribuzione trifase/.test(r), "un distro trifase sì: " + r);
+  reset();
+});
+
 t("ORC-01: dal picker «Nuovo stage plot», il configuratore dell'organico resta solo in primo piano", () => {
   /* Riprodotto con click veri: «Quanti in orchestra?» si apriva DIETRO «Nuovo stage plot», e bisognava
      premere Annulla su quella sopra per raggiungere quella sotto. Un dialogo modale alla volta. */
