@@ -210,6 +210,48 @@ function bar(cx,cy,w,d,cls,rx){ return '<rect class="'+(cls||'ic')+'" x="'+(cx-w
 function rectSvg(w,d,cls,rx){ return bar(0,0,w,d,cls,rx); }
 function circ(x,y,r,cls){ return '<circle class="'+(cls||'ic')+'" cx="'+x+'" cy="'+y+'" r="'+r+'"/>'; }
 function lin(x1,y1,x2,y2,cls){ return '<line class="'+(cls||'ic')+'" x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'"/>'; }
+/* ===== ELEMENTI DEL CATALOGO VERIFICATO (09/11/2026) — telo, cabina interpreti, altare, ambone =====
+   Disegni in pianta, 1 unità = 1 cm, fondo palco in alto. Le misure e le fonti sono sui loro TYPES. */
+/* taglie del telo Da-Lite Fast-Fold Deluxe 16:9 (Specification Data DL-0219 rev.4, p.1): telaio e superficie visibile, cm */
+var TELO_TAGLIE = [
+  {w:427, nome:"Telo di proiezione 4 m",   dim:"16:9 · visibile 4,13 × 2,30 m", vis:[413,230]},
+  {w:366, nome:"Telo di proiezione 3,5 m", dim:"16:9 · visibile 3,52 × 1,97 m", vis:[352,197]},
+  {w:305, nome:"Telo di proiezione 3 m",   dim:"16:9 · visibile 2,91 × 1,61 m", vis:[291,161]}
+];
+var TELO_TUBO = 3.2;        /* «1¼" square… aluminum tubing» */
+var TELO_BORDO = 7;         /* telaio − visibile = 14 cm in tutte le taglie della scheda: 7 per lato */
+function teloDraw(it){
+  var w=Math.max(40,+(it&&it.w)||427), d=Math.max(20,+(it&&it.d)||150), t=TELO_TUBO, xg=w/2-3;   /* gamba (6 cm vista dall'alto) e piede dentro il riquadro */
+  var s=bar(-xg,0,t,d,'ic fGrey',1)+bar(xg,0,t,d,'ic fGrey',1);              /* i due piedi a T, metà avanti e metà dietro */
+  s+=bar(0,0,w,t,'ic fBlack',0.8);                                            /* il telaio, di taglio */
+  s+=bar(0,t/2+1.6,Math.max(4,w-2*TELO_BORDO),2.4,'ic thin soft',0);          /* la superficie, dalla parte del pubblico */
+  s+=bar(-xg,0,6,6,'ic fill',1)+bar(xg,0,6,6,'ic fill',1);                    /* le gambe, viste dall'alto */
+  return s;
+}
+/* ISO 4043: interno 160 × 160, pareti 7,5; finestra davanti (in alto, verso il palco) e sui fianchi vicino al fronte;
+   piano di lavoro profondo 45 sotto la finestra con le due consolle; due sedie; porta da 70 sul retro (solo il vano:
+   il verso di apertura nessuna fonte lo dice). */
+function cabinaInterpretiDraw(){
+  var s=bar(0,0,160,160,'ic thin',0);                                         /* il pavimento della cabina */
+  s+='<path class="ic fGrey" d="M -87.5,-87.5 L 87.5,-87.5 L 87.5,87.5 L 35,87.5 L 35,80 L 80,80 L 80,-80 L -80,-80 L -80,80 L -35,80 L -35,87.5 L -87.5,87.5 Z"/>';   /* le pareti, col vano della porta */
+  s+=bar(0,-83.75,148,7.5,'plex',0)+bar(-83.75,-44,7.5,60,'plex',0)+bar(83.75,-44,7.5,60,'plex',0);
+  s+=bar(0,-57.5,158,45,'ic thin soft',1);                                    /* piano di lavoro */
+  s+=bar(-38,-64,26,12,'ic thin fGrey',2)+bar(38,-64,26,12,'ic thin fGrey',2);/* le consolle degli interpreti */
+  [-38,38].forEach(function(x){ s+=circ(x,-12,19,'ic')+circ(x,-12,12,'ic thin soft')+bar(x,9,30,6,'ic fill',3); });   /* sedia: seduta e schienale */
+  s+=lin(-35,83.75,35,83.75,'ic thin');                                       /* la soglia della porta */
+  return s;
+}
+function altareDraw(it){
+  var w=Math.max(40,+(it&&it.w)||200), d=Math.max(30,+(it&&it.d)||90), c=Math.min(w,d);
+  return bar(0,0,w,d,'ic soft',2)+bar(0,0,w-12,d-12,'ic thin',1)+
+    lin(0,-c*0.2,0,c*0.2,'ic thin')+lin(-c*0.12,-c*0.07,c*0.12,-c*0.07,'ic thin');   /* la mensa e la croce incisa al centro */
+}
+function amboneDraw(it){
+  var w=Math.max(30,+(it&&it.w)||60), d=Math.max(26,+(it&&it.d)||50), lw=w-14, ld=d-18, ly=-2;
+  return bar(0,0,w,d,'ic fWoodL',3)+
+    bar(0,ly,lw,ld,'ic thin',2)+                                              /* il piano inclinato del libro */
+    bar(0,ly-ld/2+1.5,lw,3,'ic fill',1);                                      /* il bordo d'appoggio, dalla parte di chi legge (-y) */
+}
 /* ============ METRO: QUOTA «B · LINEA INTERROTTA» (14/10/2026) ============
    Simone: «non mi piace dove è scritto il numero, ha uno strano contenitore nel disegno». Fra le
    alternative ha scelto la quota delle norme ISO: il numero SULL'ASSE, la linea interrotta attorno a lui,
@@ -1343,6 +1385,15 @@ var TYPES = {
   leggio:   {nome:"Leggio", dim:"48×35", cat:"Palco e strutture", w:50,d:35,
              alias:"leggio leggii music stand spartito",
              draw:function(){ return leggioGlyph(2); }},
+  /* ALTARE e AMBONE (09/11/2026): dal 05/10 erano un «Ostacolo di sito» con la scritta (un rettangolo vuoto). Ora hanno il
+     loro disegno, leggibile anche in bianco e nero; si trovano cercando, dal blocco «elementi del luogo» del catalogo.
+     Misure tipiche [DEDOTTE], ridimensionabili: altare 200 × 90 come prima; ambone 60 × 50 come prima. Chi legge
+     all'ambone sta dietro (-y) e guarda il pubblico, come al podio: il bordo d'appoggio del libro è dalla sua parte.
+     I progetti salvati con l'ostacolo «ALTARE»/«AMBONE» restano come sono. */
+  altare:   {nome:"Altare", dim:"200×90 · elemento del luogo", cat:"Palco e strutture", w:200,d:90, resizable:true, z:1, defLabel:"ALTARE",
+             draw:function(it){ return altareDraw(it); }},
+  ambone:   {nome:"Ambone", dim:"60×50 · elemento del luogo", cat:"Palco e strutture", w:60,d:50, resizable:true, z:1, defLabel:"AMBONE",
+             draw:function(it){ return amboneDraw(it); }},
   podio:    {nome:"Podio direttore", dim:"100×100", cat:"Palco e strutture", w:100,d:100,
              draw:function(){ return bar(0,0,100,100,'ic fFloor',3)+bar(0,0,84,84,'ic thin',2)+
                bar(0,-38,52,13,'ic fBlack',2)+circ(0,-27,2.5,'ic fill'); }},
@@ -1842,14 +1893,30 @@ var TYPES = {
              qaCede:"live",   /* 06/10/2026: l'alias «live electronics» faceva uscire il Mac prima dei dLive cercando «live» */
              qaPrimo:"elettronica",   /* 19/10/2026: «batteria elettronica» (E-drums) mette la parola anche altrove, e il tie-break alfabetico avrebbe tolto il primo posto al Mac */
              draw:function(it){ return drawLibFit("laptopstand",it,45,40); }},
+  /* CABINA INTERPRETI (09/11/2026, catalogo verificato del 07/11): ISO 4043:1981 § 4, «width: for up to two interpreters
+     1,60 m (min 1,50)», «depth 1,60 m (min 1,50)», piano di lavoro profondo «not less than 0,45 m»: interno 160 × 160,
+     pareti 7,5 cm → 175 × 175 [pareti DEDOTTE]. Girata come i mixer: chi ci lavora sta in basso e guarda il palco, quindi
+     la finestra grande è in alto (-y), con le due finestre laterali vicine, il piano coi due posti sotto la finestra e
+     la porta dietro (+y). Due interpreti per lingua: una cabina = una lingua. */
+  cabinterp:{nome:"Cabina interpreti", dim:"ISO 4043 · interno 1,60 × 1,60 m", cat:"Regia e console", sub:"Postazioni regia", w:175,d:175, defLabel:"INTERPRETI",
+             alias:"cabina interpreti cabina di traduzione cabina traduzione traduzione simultanea interpretariato interpreti interprete simultanea booth interpreter booth",
+             draw:function(){ return cabinaInterpretiDraw(); }},
   audiointerface:{nome:"Interfaccia audio", dim:"32×22", cat:"Regia e console", sub:"Postazioni regia", w:42,d:30, defLabel:"I/O",
              draw:function(){ return bar(0,0,38,24,'ic tec fGrey',3)+
                circ(-11,0,5,'ic thin fBlack')+circ(11,0,5,'ic thin fBlack')+
                circ(-16,-9,1.8,'tec fill')+circ(-9,-9,1.8,'tec fill')+circ(4,-9,1.8,'dotS')+circ(12,-9,1.8,'dotS')+
                lin(-11,12,-18,20,'sil')+lin(11,12,18,20,'sil'); }},
   schermo:  {nome:"LED wall", dim:"schermo 400×30", cat:"Video", w:400,d:30, resizable:true, z:1, defLabel:"SCREEN",
-             qaPrimo:"proiezione telo",   /* 19/10/2026: «proiezione» e «telo» sono dello schermo; il proiettore aveva il vantaggio del tie-break alfabetico */
+             /* 19/10/2026 qui c'era qaPrimo «proiezione telo»; dal 09/11/2026 quelle parole sono del Telo di proiezione (TYPES.telo) */
              draw:function(it){ return bar(0,0,it.w,it.d,'ic fBlack',2)+bar(0,0,it.w-18,Math.max(8,it.d-10),'ic thin fGrey',1); }},
+  /* TELO DI PROIEZIONE (09/11/2026, catalogo verificato del 07/11): fino a ieri chi cercava «telo» trovava il LED wall,
+     una barra nera senza piedi. Misure dalla scheda Da-Lite Fast-Fold Deluxe (Specification Data DL-0219 rev.4):
+     telaio 16:9 «8' x 14' · 244 x 427 · visibile 230 x 413», tubo «1¼" square… aluminum tubing» (3,2 cm), gambe
+     «Inverted "T" legs» e piede quotato «59¼"» (150 cm) nel disegno di p.2. In pianta: il telaio, la superficie verso
+     il pubblico (+y) e alle due estremità il piede a T, centrato sulla gamba (metà avanti, metà dietro): d = 150 è
+     l'ingombro vero dei piedi. Nessun assorbimento (è passivo). Le tre taglie sono voci del catalogo (telaioTelo). */
+  telo:     {nome:"Telo di proiezione", dim:"16:9 · telaio 4,27 m · piedi 1,5 m", cat:"Video", w:427,d:150, resizable:true, z:1, defLabel:"TELO",
+             draw:function(it){ return teloDraw(it); }},
   proiettore:{nome:"Proiettore", dim:"45×35", cat:"Video", w:48,d:38, defLabel:"PJ",
              draw:function(){ return bar(0,0,44,32,'ic fGrey',4)+circ(11,0,8,'ic thin fBlack')+
                '<path class="ic dash" d="M 23,-7 L 62,-22 M 23,7 L 62,22"/>'; }},
@@ -2287,7 +2354,8 @@ var SEARCH_ALIAS_GIRI = {
   audiointerface:"scheda audio word clock wordclock",
   /* 19/10/2026, dai giri e dagli esemplari: parole cercate davvero e senza risultato, o sul tipo sbagliato. La ricerca è a sottostringa
      sulla FRASE intera: le frasi che si digitano («telo di proiezione», «scala di scena») vanno scritte per intero. */
-  schermo:"telo di proiezione telo proiezione schermo di proiezione schermo proiezione proiezione videoproiezione",
+  /* 09/11/2026: queste parole erano del LED wall perché il telo non c'era; ora c'è (TYPES.telo, misure Da-Lite) */
+  telo:"telo di proiezione telo proiezione schermo di proiezione schermo proiezione proiezione videoproiezione projection screen fast fold fastfold",
   tamtam:"gong gongs",
   flightcase:"baule bauli baule da viaggio trunk",
   scala:"scala di scena scala del palco scalino scalini gradini",
@@ -20478,14 +20546,18 @@ function ricordaRecenteCatalogo(k, nome, over){
       if(TYPES.ostacolo) [
         ["Colonna / palo", "COLONNA", 40, 40, "colonna colonne palo pilastro pilone cippo"],
         ["Croce", "CROCE", 60, 30, "croce crocifisso chiesa"],
-        ["Altare", "ALTARE", 200, 90, "altare chiesa"],
-        ["Ambone / leggio da chiesa", "AMBONE", 60, 50, "ambone pulpito pergamo leggio da chiesa leggio chiesa lettore chiesa"],   /* 19/10/2026: «ambone» e «pulpito» non trovavano niente (l'ambone era una parola dentro l'Altare) */
         ["Porta", "PORTA", 120, 20, "porta portone ingresso uscita"],
         ["Finestra", "FINESTRA", 140, 20, "finestra finestre vetrata"],
         ["Lampadario", "LAMPADARIO", 120, 120, "lampadario lampadari chandelier"],
         ["Albero", "ALBERO", 150, 150, "albero alberi pianta"]
       ].forEach(function(v){
         entries.push({k:"ostacolo", nome:v[0], over:{label:v[1], w:v[2], d:v[3]}, dim:"elemento del luogo", kw:v[4]});
+      });
+      /* ALTARE e AMBONE (09/11/2026): stesse voci e stesse parole di prima, ma con il loro disegno (TYPES.altare, TYPES.ambone) */
+      [["altare", "Altare", "altare chiesa mensa"],
+       ["ambone", "Ambone / leggio da chiesa", "ambone pulpito pergamo leggio da chiesa leggio chiesa lettore chiesa"]   /* 19/10/2026: «ambone» e «pulpito» non trovavano niente (l'ambone era una parola dentro l'Altare) */
+      ].forEach(function(v){
+        if(TYPES[v[0]]) entries.push({k:v[0], nome:v[1], dim:"elemento del luogo", kw:v[2]});
       });
       /* gli sgabelli con il loro tipo: si trovano cercando, nel catalogo resta uno solo (16/09) */
       if(TYPES.sgabello) SGAB_SCELTE.filter(function(k){ return k!=="generico"; }).forEach(function(k){
@@ -20572,6 +20644,7 @@ function ricordaRecenteCatalogo(k, nome, over){
       if(TYPES[k].cat==="Palco e strutture" && c==="Palco e pedane") return;   /* i palco/pedane li fa il blocco speciale; truss/transenna passano di qui (in Rigging e sicurezza) */
       if(k==="pedana") return;
       if(k==="stagebox") return;  /* gestita sopra come varianti 8/16/24 canali */
+      if(k==="telo") return;      /* le tre taglie Da-Lite, dopo il ciclo (TELO_TAGLIE) */
       if(k==="vlnpost") return;   /* violini gestiti sopra (Violino I / II con nome progressivo) */
       if(k==="direttore") return; /* gestito sopra */
       if(k==="cantante"||k==="corista"||k==="relatore"||k==="moderatore"||k==="attore"||k==="tecnico") return; /* gestiti sopra */
@@ -20590,6 +20663,14 @@ function ricordaRecenteCatalogo(k, nome, over){
         addBtn(TYPES[k].nome);
       }
     });
+    if(c==="Luci e video" && TYPES.telo){   /* TELO DI PROIEZIONE (09/11/2026): tre taglie vere, Da-Lite Fast-Fold Deluxe 16:9 */
+      TELO_TAGLIE.forEach(function(tg, i){
+        var over={w:tg.w};
+        addToGroup("Video", makeBtn("telo", tg.nome, over, tg.dim));
+        entries.push({k:"telo", nome:tg.nome, over:over, dim:tg.dim, kw:TYPES.telo.alias,
+                      qaPrimo:(i===0 ? "telo|proiezione|telo di proiezione|telo proiezione|schermo proiezione|schermo di proiezione|projection screen" : null)});   /* «telo» e «proiezione» danno per primo il 4 m; le altre taglie seguono */
+      });
+    }
     if(c==="Audio"){   /* dopo i tipi: il gruppo «Impianto piccolo» esiste già e conserva il suo posto nell'ordine */
       /* ANELLO DI ALTOPARLANTI (06/10/2026): una voce che apre una piccola scelta (quante casse, cerchio o
          rettangolo, nome) e posa l'impianto multicanale in un colpo, nel gruppo «Impianto piccolo» dei diffusori */
