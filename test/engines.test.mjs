@@ -25462,6 +25462,13 @@ t("nome rigirato: porta data-cap, e la passata anti-sovrapposizione del PDF non 
 /* ═══ ANALISI ESTERNA 08/11, punto 2b ═══ Su 30 progetti veri in A4: 88 coppie di nomi sovrapposti, 78 con un nome ruotato,
    perché la passata anti-collisione li saltava apposta. E le stage box di «Mostra cavi e corrente» finivano sui nomi. */
 const nomeMobile = (x0, y0, x1, y1, v = [0, 1], u = [1, 0]) => ({ P: rett(x0, y0, x1, y1), h: y1 - y0, u, v, cx: (x0 + x1) / 2, cy: (y0 + y1) / 2 });
+const finto = ({ y, cap, m, parentCTM, sub }) => {
+  const at = { y: String(y) };
+  if (cap) at["data-cap"] = "1";
+  const pa = { getCTM: parentCTM ? () => parentCTM : undefined, querySelector: () => sub || null, querySelectorAll: () => [1] };
+  return { classList: { contains: () => false }, getAttribute: (k) => (k in at ? at[k] : null), setAttribute: (k, v) => { at[k] = String(v); },
+    getBBox: () => ({ x: 0, y: +at.y - 10, width: 60, height: 14 }), getCTM: () => m, parentNode: pa, at };
+};
 
 t("nomi ruotati: due rettangoli si toccano anche quando sono girati", () => {
   ok(A.nomiToccano(rett(0, 0, 10, 10), rett(5, 5, 15, 15), 0), "sovrapposti");
@@ -25527,13 +25534,6 @@ t("nomi ruotati: il verso è quello che li porta via dal loro elemento", () => {
 });
 
 t("nomi ruotati: sul disegno vero si sposta con un translate, e i nomi dritti non cambiano", () => {
-  const finto = ({ y, cap, m, parentCTM, sub }) => {
-    const at = { y: String(y) };
-    if (cap) at["data-cap"] = "1";
-    const pa = { getCTM: parentCTM ? () => parentCTM : undefined, querySelector: () => sub || null, querySelectorAll: () => [1] };
-    return { classList: { contains: () => false }, getAttribute: (k) => (k in at ? at[k] : null), setAttribute: (k, v) => { at[k] = String(v); },
-      getBBox: () => ({ x: 0, y: +at.y - 10, width: 60, height: 14 }), getCTM: () => m, parentNode: pa, at };
-  };
   const eDritto = { a: 1, b: 0, c: 0, d: 1, e: 100, f: 100 };
   const rad = 30 * Math.PI / 180, co = Math.cos(rad), si = Math.sin(rad);
   const eRuotato = { a: co, b: si, c: -si, d: co, e: 100, f: 100 };
@@ -25570,6 +25570,40 @@ t("nomi ruotati: sul disegno vero si sposta con un translate, e i nomi dritti no
   ok(!s2At.transform, "sulla doppia il montaggio resta");
 });
 
+t("nomi ruotati: chi viene dopo evita i posati dove sono ADESSO, e il tetto vale anche di lato", () => {
+  const H = 10;
+  /* il secondo scende proprio dove si troverebbe il terzo: guardando il suo punto di prima, il terzo crederebbe di essere libero */
+  const nomi = [nomeMobile(0, 0, 60, H), nomeMobile(0, 3, 60, 3 + H), nomeMobile(0, 16, 60, 16 + H)];
+  const r = A.nomiGiratiScosta([], nomi);
+  const finali = nomi.map((n, i) => n.P.map((c) => [c[0] + r[i].dx, c[1] + r[i].dy]));
+  for (let i = 0; i < 3; i++) for (let j = i + 1; j < 3; j++) ok(!A.nomiToccano(finali[i], finali[j], H * A.NOMI_GIRATI_ARIA), "si toccano " + i + " e " + j + ": " + JSON.stringify(r));
+  /* l'unico punto libero è in diagonale, a 3 in giù e 1,5 di lato: lontano 3,35 lettere, oltre il tetto. Resta dov'è */
+  const sopra = { P: rett(-1000, -1000, 1000, 28), h: H }, aSinistra = { P: rett(-1000, 28, 12, 45), h: H };
+  eq(A.nomiGiratiScosta([sopra, aSinistra], [nomeMobile(0, 0, 60, H)]), [{ dx: 0, dy: 0 }], "oltre il tetto, in diagonale: fermo");
+});
+
+t("nomi ruotati: sul disegno l'esito non dipende dall'ordine nel file, e lo spostamento va al nome giusto", () => {
+  const a = 2 * Math.PI / 180, co = Math.cos(a), si = Math.sin(a), pad = { a: 1, b: 0, c: 0, d: 1, e: 100, f: 90 };
+  const crea = () => ({ alto: finto({ y: 50, m: { a: co, b: si, c: -si, d: co, e: 100, f: 100 }, parentCTM: pad }), basso: finto({ y: 50, m: { a: co, b: si, c: -si, d: co, e: 100, f: 104 }, parentCTM: pad }) });
+  let n = crea();
+  A.nudgeLabelsInDom({ querySelectorAll: () => [n.alto, n.basso] });
+  ok(!n.alto.at.transform && /^translate\(/.test(n.basso.at.transform || ""), "alto fermo, basso scostato: " + JSON.stringify([n.alto.at, n.basso.at]));
+  const atteso = n.basso.at.transform;
+  n = crea();
+  A.nudgeLabelsInDom({ querySelectorAll: () => [n.basso, n.alto] });
+  ok(!n.alto.at.transform, "al contrario nel file: l'alto resta fermo");
+  eq(n.basso.at.transform, atteso, "e il basso finisce nello stesso punto");
+});
+
+t("nomi ruotati: sul disegno si allontanano dal LORO elemento, anche quando il nome sta sopra", () => {
+  const a = 2 * Math.PI / 180, co = Math.cos(a), si = Math.sin(a);
+  const dritto = finto({ y: 50, m: { a: 1, b: 0, c: 0, d: 1, e: 100, f: 100 }, parentCTM: { a: 1, b: 0, c: 0, d: 1, e: 100, f: 90 } });
+  const r = finto({ y: 50, m: { a: co, b: si, c: -si, d: co, e: 100, f: 100 }, parentCTM: { a: 1, b: 0, c: 0, d: 1, e: 100, f: 400 } });
+  A.nudgeLabelsInDom({ querySelectorAll: () => [dritto, r] });
+  const m = /^translate\((-?[\d.]+) (-?[\d.]+)\)/.exec(r.at.transform || "");
+  ok(m && +m[2] < 0, "l'elemento è più in basso: il nome sale, non gli scende addosso: " + r.at.transform);
+});
+
 t("stage box e quadri automatici: non si posano sui nomi degli altri, se c'è posto", () => {
   reset(); A.state.stage = { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] };
   const it = add("vlnpost", 400, 300, { label: "Violino 1" });
@@ -25590,6 +25624,11 @@ t("stage box e quadri automatici: non si posano sui nomi degli altri, se c'è po
   /* la doppia ha due nomi, e l'elemento ruotato li porta con sé */
   reset(); const dd = add("vlnpost", 400, 300, { label: "A", label2: "B" }); dd.doppia = true;
   eq(A.nomiIngombri(A.state.items, 1).length, 2, "doppia: due nomi");
+  /* il corpo in stampa cambia l'ingombro: al doppio, il doppio di larghezza; un corpo senza senso vale 1 */
+  reset(); add("vlnpost", 400, 300, { label: "Violino 1" });
+  const largo = (K) => { const n = A.nomiIngombri(A.state.items, K)[0]; return n.x1 - n.x0; };
+  ok(Math.abs(largo(2) / largo(1) - 2) < 1e-9, "doppio corpo, doppia larghezza: " + largo(2) + " su " + largo(1));
+  eq(largo(0), largo(1), "corpo zero: come 1");
   reset(); const r0 = add("vlnpost", 400, 300, { label: "Violino 1" }), a0 = A.nomiIngombri(A.state.items, 1)[0];
   r0.rot = 180; const a1 = A.nomiIngombri(A.state.items, 1)[0];
   ok((a0.y1 < 300) !== (a1.y1 < 300) && Math.abs((a0.y0 + a0.y1) / 2 - 300) - Math.abs((a1.y0 + a1.y1) / 2 - 300) < 1, "girato di 180° il nome passa dall'altra parte, alla stessa distanza: " + JSON.stringify([a0, a1]));
@@ -25599,7 +25638,7 @@ t("stage box e quadri automatici: non si posano sui nomi degli altri, se c'è po
   const era = A.nomiIngombri; 
   try {
     A.nomiIngombri = () => [{ x0: -1e4, x1: 1e4, y0: -1e4, y1: 1e4 }];
-    const s2 = A.cabSpotLibero("stagebox", 250, 250);
+    const s2 = A.cabSpotLibero("stagebox", 30, 40);   /* si parte da sopra il primo elemento: senza il ripiego resterebbe lì */
     ok(s2.x >= 0 && s2.y >= 0 && s2.x <= 500 && s2.y <= 300, "un punto sul palco lo trova comunque: " + JSON.stringify(s2));
     const toccaCorpo = A.state.items.some((o) => { const m = Math.max(o.w || 0, o.d || 0) / 2; return Math.abs(o.x - s2.x) < m + 15 + w / 2 && Math.abs(o.y - s2.y) < m + 15 + d / 2; });
     ok(!toccaCorpo, "e non sopra un elemento");

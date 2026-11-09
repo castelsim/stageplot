@@ -30215,7 +30215,7 @@ function nomiKStampa(){
 function nomiIngombri(items, K){
   var out=[];
   (items||[]).forEach(function(it){
-    if(!it || it.labelMode==="hidden") return;
+    if(!it) return;
     var t=TYPES[it.type]||{}; if(t.innerLabel || GAZ_TYPES[it.type]) return;
     var txt=lblText(it.label, it, true); if(!txt) return;
     var fszK=(lblSizeOf(it)||14)*(K>0?K:1), lw=lblTextW(txt, fszK), by;
