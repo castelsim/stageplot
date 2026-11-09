@@ -239,6 +239,7 @@
 <div id="venueCalibBanner" hidden></div>
 <div id="vistaBanner" hidden></div>
 <div id="funzBanner" hidden role="status"></div>
+<div id="riapriBanner" hidden role="status"></div>
 <!-- CREA ELEMENTO (13/10/2026): la barra degli strumenti dell'editor e la riga di aiuto del gesto in corso. La barra si
      vede solo con l'editor aperto (body.cust-editor); la riga anche mentre si trascina il rettangolo sul palco. -->
 <div id="custBar" role="toolbar" aria-label="Strumenti per disegnare l'elemento" hidden>
@@ -21321,14 +21322,50 @@ function cavoCorrenteAccendi(){
   if(c && c.distro) auditFixAddDistro();
   __cavoMemo={k:null,v:null};
 }
+/* ANALISI ESTERNA 08/11, punto 1 (decisione di Simone: modelli spenti + avviso). Chi arrivava da un vecchio link
+   ?model= trovava un palco vuoto senza una parola; chi tornava dalla home con una bozza nel browser si ritrovava
+   il vecchio progetto, e lo scambiava per quello che il link prometteva. Regole in un posto solo:
+   - «riapri» solo se si arriva DA UN LINK (?from=, ?model=) e c'è del lavoro: mai a una semplice ricarica, perché
+     il parametro si consuma all'avvio. Se un modello si apre davvero la bozza la protegge già la sua conferma. */
+var MODELLI_NON_DISPONIBILI="I modelli pronti non sono disponibili";
+var RIAPRI_DURATA_MS=20000;
+function arrivoDaLink(qModel, qFrom, bozza){
+  var modelloSiApre=!!qModel && modelliAttivi();
+  return { modelliSpenti:!!qModel && !modelliAttivi(), riapri:!!(qModel||qFrom) && !modelloSiApre && !!bozza };
+}
+function riapriTestoHtml(titolo){
+  titolo=String(titolo||"").trim();
+  return "Stai riaprendo "+(titolo?"<b>"+esc(titolo)+"</b>, salvato":"il progetto salvato")+" su questo dispositivo";
+}
+function riapriChiudi(){
+  var el=document.getElementById("riapriBanner"); if(!el || el.hidden) return;
+  if(el.__t) clearTimeout(el.__t);
+  el.hidden=true; el.innerHTML=""; el.__t=null;
+}
+function riapriMostra(){
+  var el=document.getElementById("riapriBanner"); if(!el) return;
+  el.innerHTML='<span class="vb-txt">'+riapriTestoHtml(state.titolo)+'</span>'
+    + '<button type="button" class="vb-esci vb-si" id="riapriContinua">Continua</button>'
+    + '<button type="button" class="vb-esci" id="riapriNuovo">Nuovo palco</button>';
+  el.__epoch=window.__docEpoch||0;
+  el.hidden=false;
+  el.querySelector("#riapriContinua").addEventListener("click", function(e){ e.stopPropagation(); riapriChiudi(); funzRenderAvviso(); });
+  /* Stessa strada di File → Nuovo: conferma e punto di recupero «Prima di nuovo progetto» stanno lì */
+  el.querySelector("#riapriNuovo").addEventListener("click", function(e){ e.stopPropagation(); riapriChiudi(); funzRenderAvviso();
+    if(window.openNewDialog) window.openNewDialog(); else if(window.proxyClick) window.proxyClick("bNew"); });
+  el.__t=setTimeout(function(){ riapriChiudi(); funzRenderAvviso(); }, RIAPRI_DURATA_MS);   /* non blocca niente: se la si ignora, se ne va */
+}
 function funzRenderAvviso(){
   var el=document.getElementById("funzBanner"); if(!el) return;
   var vista=document.getElementById("vistaBanner");
+  /* la riga «Stai riaprendo» parla del documento con cui si è arrivati: un altro documento o una vista attiva la chiudono */
+  var riapri=document.getElementById("riapriBanner");
+  if(riapri && !riapri.hidden && ((vista && !vista.hidden) || riapri.__epoch!==(window.__docEpoch||0))) riapriChiudi();
   var mancano=funzUsateDalProgetto(state).filter(function(id){ return !funzOn(id); });
   /* Sul telefono no: lì pallini e liste non dipendono da queste funzioni. E una riga alla volta: se la
      vista attiva si sta dichiarando, parla lei. */
   var cavo = mancano.length ? null : cavoSuggerimento();
-  var zitto = (!mancano.length && !cavo) || isMobile() || (vista && !vista.hidden) || window.__funzAvvisoNo===(window.__docEpoch||0);
+  var zitto = (!mancano.length && !cavo) || isMobile() || (vista && !vista.hidden) || (riapri && !riapri.hidden) || window.__funzAvvisoNo===(window.__docEpoch||0);
   if(zitto){ el.hidden=true; el.innerHTML=""; el.__k=""; return; }
   var k=cavo ? "cavo:"+(cavo.box?"b":"")+(cavo.distro?"d":"") : mancano.join(",");
   if(el.__k!==k && cavo){
@@ -39390,6 +39427,7 @@ if(qForm){
    Alias per gli slug delle landing esistenti (orchestra→camera, chiesa/festival→coro/band). */
 var MODEL_ALIAS={orchestra:"camera", chiesa:"coro", festival:"band", acustica:"acoustic", jazz:"jazzcombo"};
 var qModel=allowStartupScenario?(location.search.match(/model=([\w-]+)/)||[])[1]:null;
+var qFrom=allowStartupScenario?(location.search.match(/[?&]from=([\w-]{1,24})/)||[])[1]:null;
 /* modelli spenti: la chiave si ignora (avvio normale a palco vuoto) e il parametro si toglie lo stesso dall'URL, qui sotto */
 if(qModel && modelliAttivi()){ var mkResolved=MODEL_ALIAS[qModel]||qModel; if(typeof formationData==="function" && formationData(mkResolved)) startFromTemplate(mkResolved); }
 /* ORC-02 (audit esterno 23/08, riprodotto): il parametro restava nell'URL dopo l'uso. Chi entrava da
@@ -39398,8 +39436,16 @@ if(qModel && modelliAttivi()){ var mkResolved=MODEL_ALIAS[qModel]||qModel; if(ty
    salvataggio no. Il link ha fatto il suo lavoro una volta: dopo, l'URL torna a essere quello del
    progetto. replaceState, senza ricaricare, lasciando gli altri parametri (view, ecc.). */
 if(qModel || qForm){ try{ var _u=new URL(location.href); _u.searchParams.delete("model"); _u.searchParams.delete("form"); history.replaceState(history.state, "", _u.pathname+(_u.search||"")+_u.hash); }catch(_e){} }
+/* Anche «from» si consuma, sempre (il conteggio di app_open l'ha già letto): altrimenti chi arriva su un palco vuoto,
+   disegna e ricarica si sentirebbe dire «Stai riaprendo» sul lavoro che ha davanti. */
+if(qFrom){ try{ var _uf=new URL(location.href); _uf.searchParams.delete("from"); history.replaceState(history.state, "", _uf.pathname+(_uf.search||"")+_uf.hash); }catch(_e){} }
 setEventInputs();
 normalizeState(state); renderChannels();
+(function(){
+  var arrivo=arrivoDaLink(qModel, qForm?null:qFrom, hasMeaningfulDocument());
+  if(arrivo.modelliSpenti) setTimeout(function(){ showToast(MODELLI_NON_DISPONIBILI); },600);   /* __toast nasce più in basso, come per ?form= */
+  if(arrivo.riapri) riapriMostra();
+})();
 if(allowStartupScenario && location.search.indexOf("inputaudit=1")>-1){   /* QA: un esemplare di ogni sorgente + Auto */
   beginNewDocument({titolo:"QA input audit",luogo:"",stage:{w:1200,d:800,blocks:[{x:0,y:0,w:1200,d:800}]},items:[],inputs:[],outputs:[]});
   Object.keys(IN_SRC).concat(Object.keys(IN_MULTI)).forEach(function(k){ if(TYPES[k]) addItem(k); });

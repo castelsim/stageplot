@@ -2860,6 +2860,25 @@ body.consult-viewer .clrow-out{ grid-template-columns:22px 1fr 116px 1fr 84px; }
   #funzBanner .vb-si:hover{background:var(--accent-deep);border-color:var(--accent-deep)}
   #funzBanner .vb-esci:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   body.dark #funzBanner{box-shadow:0 6px 20px rgba(0,0,0,.4)}
+  /* «Stai riaprendo…» (analisi esterna 08/11): stessa pastiglia, e mai insieme alle altre due */
+  #riapriBanner{position:absolute;left:50%;top:12px;transform:translateX(-50%);z-index:29;
+    display:flex;align-items:center;gap:8px;width:max-content;max-width:calc(100% - 24px);
+    background:var(--surface);color:var(--text);border:1px solid var(--border-strong);
+    border-radius:999px;padding:6px 8px 6px 16px;font-size:13px;line-height:1.35;
+    box-shadow:0 6px 20px rgba(38,33,24,.16)}
+  #riapriBanner .vb-txt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-2)}
+  #riapriBanner .vb-txt b{color:var(--text)}
+  #riapriBanner .vb-esci{flex:none;border:1px solid var(--border-strong);background:var(--surface);
+    color:var(--text);border-radius:999px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;min-height:32px;white-space:nowrap}
+  #riapriBanner .vb-esci:hover{background:var(--accent-tint);border-color:var(--accent)}
+  #riapriBanner .vb-si{background:var(--accent-strong);border-color:var(--accent-strong);color:#fff}
+  #riapriBanner .vb-si:hover{background:var(--accent-deep);border-color:var(--accent-deep)}
+  #riapriBanner .vb-esci:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  body.dark #riapriBanner{box-shadow:0 6px 20px rgba(0,0,0,.4)}
+  @media (max-width:560px){
+    #riapriBanner{border-radius:14px;flex-wrap:wrap;padding:8px 10px;width:calc(100% - 24px)}
+    #riapriBanner .vb-txt{flex:1 0 100%;white-space:normal}
+  }
   /* Sul telefono: stessa specificità (#vistaBanner) e SUBITO DOPO la regola base, o non vince —
      è la lezione già pagata otto volte dentro #props. Il bottone resta un bersaglio da dito. */
   @media (max-width:880px){
@@ -3682,7 +3701,7 @@ body.dark #props #scalettaSec .sc-b:hover:not(:disabled){background:#222b38}
 body.cust-editor #fileBtn, body.cust-editor header .tbdiv, body.cust-editor #titolo, body.cust-editor #evChip,
 body.cust-editor #variantBar, body.cust-editor #projStatus, body.cust-editor #projApprovedBy, body.cust-editor #docState,
 body.cust-editor header .snapwrap, body.cust-editor header .hdr-actions,
-body.cust-editor #vistaBanner, body.cust-editor #funzBanner, body.cust-editor #assunzioni,
+body.cust-editor #vistaBanner, body.cust-editor #funzBanner, body.cust-editor #riapriBanner, body.cust-editor #assunzioni,
 body.cust-editor #noSel, body.cust-editor #chanlist, body.cust-editor #areaEditPanel, body.cust-editor #stageEditPanel,
 body.cust-editor #eventoSec, body.cust-editor #scalettaSec, body.cust-editor #cabPropsSec,
 body.cust-editor #catalog .cust-no{display:none !important}

@@ -19472,6 +19472,65 @@ t("modelli spenti: ?model= si ignora, si apre il palco vuoto e il parametro spar
   ok(!/\?model=|\?form=/.test(appjs.slice(appjs.indexOf("Finestra di benvenuto"), appjs.indexOf("Finestra di benvenuto") + 4000)), "il benvenuto non cita link ai modelli");
 });
 
+/* ═══ ANALISI ESTERNA 08/11, punto 1 ═══ Il link non apriva un modello sbagliato: non apriva nessun modello, e l'orchestra
+   che si vedeva era una vecchia bozza del browser, ripresa senza dirlo. Decisione di Simone: A subito, modelli spenti + avviso. */
+t("arrivo da un link: avvisa dei modelli spenti e dice che si riapre una bozza, mai a una ricarica", () => {
+  eq(A.MODELLI_NON_DISPONIBILI, "I modelli pronti non sono disponibili", "la frase decisa");
+  const caso = (m, f, b) => { const r = A.arrivoDaLink(m, f, b); return [r.modelliSpenti, r.riapri]; };
+  /* [modelli spenti, riapri] */
+  eq(caso("band", null, false), [true, false], "?model= su profilo vuoto: solo l'avviso sui modelli");
+  eq(caso("band", "hero-modello", true), [true, true], "?model= con una bozza: avviso e riga");
+  eq(caso(null, "hero-modello", true), [false, true], "?from= con una bozza: la riga");
+  eq(caso(null, "hero-modello", false), [false, false], "?from= su profilo vuoto: niente da riaprire");
+  eq(caso(null, null, true), [false, false], "ricarica con una bozza (nessun parametro): silenzio");
+  eq(caso(null, null, false), [false, false], "nessun parametro e nessuna bozza: silenzio");
+  /* il giorno in cui i modelli si riaccendono (opzione C): niente avviso, e la bozza la protegge già la conferma del modello */
+  const era = A.modelliAttivi;
+  try {
+    A.modelliAttivi = () => true;
+    eq(caso("band", "x", true), [false, false], "modelli accesi: il modello si apre, nessuna riga");
+    eq(caso(null, "x", true), [false, true], "modelli accesi, solo ?from=: la riga resta");
+  } finally { A.modelliAttivi = era; }
+});
+
+t("arrivo da un link: la riga dice quale progetto e il titolo non diventa HTML", () => {
+  eq(A.riapriTestoHtml("Orchestra da camera"), "Stai riaprendo <b>Orchestra da camera</b>, salvato su questo dispositivo", "con il titolo");
+  eq(A.riapriTestoHtml(""), "Stai riaprendo il progetto salvato su questo dispositivo", "senza titolo");
+  eq(A.riapriTestoHtml("   "), "Stai riaprendo il progetto salvato su questo dispositivo", "titolo di soli spazi");
+  ok(!/<img/.test(A.riapriTestoHtml("<img src=x onerror=alert(1)>")), "il titolo è testo dell'utente: si esegue l'escape");
+});
+
+t("arrivo da un link: l'avvio consuma ?from=, mostra gli avvisi e lascia stare la bozza", () => {
+  const i = appjs.indexOf("var qFrom=");
+  ok(i > 0, "c'è la lettura di ?from=");
+  const f = appjs.slice(i, i + 2800);
+  ok(/if\(qFrom\)\{ try\{ var _uf=new URL\(location\.href\); _uf\.searchParams\.delete\("from"\); history\.replaceState/.test(f), "from si toglie sempre dall'URL");
+  ok(/arrivoDaLink\(qModel, qForm\?null:qFrom, hasMeaningfulDocument\(\)\)/.test(f), "decide arrivoDaLink, con il documento vero");
+  ok(/arrivo\.modelliSpenti\) setTimeout\(function\(\)\{ showToast\(MODELLI_NON_DISPONIBILI\)/.test(f), "avviso dei modelli");
+  ok(/arrivo\.riapri\) riapriMostra\(\)/.test(f), "riga di riapertura");
+  /* il conteggio delle porte d'ingresso legge from prima che venga tolto */
+  ok(appjs.indexOf('track("app_open"') < i, "app_open conta il from prima che sparisca");
+  ok(/\[\?&\]view=/.test(appjs.slice(appjs.indexOf("var allowStartupScenario="), appjs.indexOf("var allowStartupScenario=") + 90)), "?view= e link condivisi restano fuori (allowStartupScenario)");
+  /* la riga */
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/<div id="riapriBanner" hidden role="status">/.test(html), "l'elemento c'è, nascosto e annunciato");
+  const m = appjs.slice(appjs.indexOf("function riapriMostra"), appjs.indexOf("function funzRenderAvviso"));
+  ok(/>Continua</.test(m) && />Nuovo palco</.test(m), "due bottoni: Continua e Nuovo palco");
+  ok(/window\.openNewDialog\(\)/.test(m), "«Nuovo palco» passa dalla stessa strada di File → Nuovo (conferma e punto di recupero)");
+  ok(/setTimeout\(function\(\)\{ riapriChiudi\(\); funzRenderAvviso\(\); \}, RIAPRI_DURATA_MS\)/.test(m), "se la si ignora se ne va");
+  /* una riga alla volta */
+  const r = appjs.slice(appjs.indexOf("function funzRenderAvviso"), appjs.indexOf("function funzRenderAvviso") + 900);
+  ok(/\(riapri && !riapri\.hidden\) \|\|/.test(r), "mentre c'è la riga, l'altro avviso tace");
+  ok(/riapri\.__epoch!==\(window\.__docEpoch\|\|0\)\)\) riapriChiudi\(\)/.test(r), "un altro documento la chiude");
+  ok(/body\.cust-editor #riapriBanner/.test(stylesCss), "l'editor «Crea elemento» la nasconde, come le altre");
+});
+
+t("il generatore della guida microfoni non scrive più ?model=", () => {
+  const g = readFileSync(join(root, "ops/genera-catalogo-mic.mjs"), "utf8");
+  ok(!/\?model=/.test(g), "un generatore che lo riscrive rimetterebbe il link alla prossima rigenerazione");
+  ok(/\/app\/\?from=catalogo-mic/.test(g), "stesso link della pagina pubblicata");
+});
+
 t("modelli spenti: l'app non promette modelli (Guida) e nessuna pagina pubblicata ha ?model= o «Apri il modello»", () => {
   const tpl = readFileSync(join(root, "index.template.html"), "utf8");
   const learn = tpl.slice(tpl.indexOf('<section id="learn"'), tpl.indexOf("</section>", tpl.indexOf('<section id="learn"')));
