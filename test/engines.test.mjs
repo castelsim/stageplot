@@ -28516,6 +28516,140 @@ t("monitor: nei modelli i side fill suonano verso il centro del palco e il fondo
   ok(visti >= 10, "i modelli hanno i loro side fill (" + visti + ")");
 });
 
+/* ---- «PUNTA VERSO…» (09/11/2026) ---- */
+function palcoMonitor(elementi) {
+  A.state.stage.w = 1000; A.state.stage.d = 800;
+  A.state.items = elementi.map((e, i) => ({ id: "m" + i, rot: 0, w: A.TYPES[e.type].w, d: A.TYPES[e.type].d, label: "", ...e }));
+  return A.state.items;
+}
+t("punta verso: la rotazione fa suonare il monitor proprio verso il punto, per tutti e tre i tipi", () => {
+  ["wedge", "sidefill", "drumfill"].forEach(tipo => {
+    [[0, -100], [0, 100], [100, 0], [-100, 0], [70, -70], [-30, 90]].forEach(([dx, dy]) => {
+      const rot = A.monRotVerso(tipo, dx, dy), e = A.monEmissione(tipo, rot), n = Math.hypot(dx, dy);
+      ok(Math.abs(e.x - dx / n) < 1e-9 && Math.abs(e.y - dy / n) < 1e-9, tipo + " verso " + dx + "," + dy + ": esce " + e.x + "," + e.y);
+      ok(rot > -180 && rot <= 180, tipo + ": angolo nel campo del cursore (" + rot + ")");
+    });
+  });
+  eq(A.monRotVerso("wedge", 0, -100), 0, "wedge davanti al musicista = rot 0, come nei progetti veri");
+  eq(A.monRotVerso("sidefill", 0, 100), 0, "side fill verso il pubblico = rot 0");
+});
+t("punta verso: davanti alla persona il wedge si raddrizza e si mette sull'asse, alla stessa distanza", () => {
+  const [v, w] = palcoMonitor([{ type: "cantante", x: 500, y: 300 }, { type: "wedge", x: 530, y: 400, rot: 17 }]);
+  const r = A.monPuntaCalcola(w, A.monPersone()[0]);
+  eq(r, { x: 500, y: 400, rot: 0 }, "dritto a 0° e centrato sul cantante");
+  /* la postazione inclinata: stesso angolo della postazione, non 0 */
+  v.rot = 12;
+  const f = { x: -Math.sin(12 * Math.PI / 180), y: Math.cos(12 * Math.PI / 180) };
+  w.x = 500 + Math.round(f.x * 100) + 5; w.y = 300 + Math.round(f.y * 100); w.rot = 0;
+  const r2 = A.monPuntaCalcola(w, A.monPersone()[0]);
+  eq(r2.rot, 12, "prende l'angolo della postazione");
+  const d = Math.hypot(r2.x - 500, r2.y - 300);
+  ok(Math.abs(d - 100) < 6, "resta alla stessa distanza (" + d + ")");
+  ok(Math.abs(A.monScarto(A.monRotVerso("wedge", 500 - r2.x, 300 - r2.y), 12)) < 2, "e sta sull'asse della postazione");
+});
+t("punta verso: di lato o in diagonale il monitor punta dritto alla persona e non si sposta", () => {
+  const [, w] = palcoMonitor([{ type: "cantante", x: 500, y: 300 }, { type: "wedge", x: 650, y: 450, rot: 0 }]);
+  eq(A.monPuntaCalcola(w, A.monPersone()[0]), { x: 650, y: 450, rot: -45 }, "45° esatti verso la persona, stesso posto");
+  /* quasi dritto ma troppo lontano dall'asse: si raddrizza e non salta */
+  w.x = 500 + 90; w.y = 300 + 400;
+  const r = A.monPuntaCalcola(w, A.monPersone()[0]);
+  eq([r.x, r.y, r.rot], [590, 700, 0], "oltre 60 cm di lato non si sposta da solo");
+  /* il drum fill si raddrizza ma non salta: solo il wedge va sull'asse */
+  const df = { type: "drumfill", x: 520, y: 400 };
+  eq(A.monPuntaCalcola(df, A.monPersone()[0]), { x: 520, y: 400, rot: 180 }, "drum fill dritto, stesso posto");
+  /* subito sotto la tolleranza e subito sopra: 20° raddrizza, 21° no */
+  const dentro = { type: "wedge", x: 500 + Math.round(400 * Math.tan(19.9 * Math.PI / 180)), y: 700 };
+  eq(A.monPuntaCalcola(dentro, A.monPersone()[0]).rot, 0, "entro 20° è dritto");
+  const fuori = { type: "wedge", x: 500 + Math.round(400 * Math.tan(21 * Math.PI / 180)), y: 700 };
+  eq(A.monPuntaCalcola(fuori, A.monPersone()[0]).rot, -21, "oltre 20° punta davvero alla persona");
+});
+t("punta verso: chi è il bersaglio — ascolto dichiarato, nome, vicinanza; le aste valgono meno; il side fill guarda il centro", () => {
+  const its = palcoMonitor([
+    { type: "gtstand", x: 300, y: 300, label: "Lontano" }, { type: "cantante", x: 500, y: 300, label: "Vicino" },
+    { type: "astamic", x: 500, y: 365, label: "Asta" }, { type: "wedge", x: 500, y: 400 },
+    { type: "sidefill", x: 50, y: 400 }, { type: "batteria", x: 800, y: 200, label: "Kit" }, { type: "drumfill", x: 480, y: 410 },
+  ]);
+  const w = its[3];
+  eq(A.monBersaglio(w).nome, "Vicino", "il più vicino, e l'asta a 35 cm non batte la persona a 100");
+  w.label = "lontano ";
+  eq(A.monBersaglio(w).nome, "Lontano", "il nome del monitor vince sulla vicinanza, senza maiuscole né spazi");
+  w.label = ""; w.perChi = "Lontano";
+  eq(A.monBersaglio(w).nome, "Lontano", "anche il campo «Per chi»");
+  delete w.perChi; its[0].ascoltoId = w.id;
+  eq(A.monBersaglio(w).nome, "Lontano", "il performer che ha dichiarato quel monitor come suo ascolto vince");
+  delete its[0].ascoltoId;
+  const c = A.monBersaglio(its[4]);
+  ok(c.centro && c.x === 500 && c.y === 400, "il side fill ha per bersaglio il centro del palco");
+  eq(A.monPuntaCalcola(its[4], c).rot, -90, "e lo guarda davvero");
+  /* verso il centro non c'è un «dritto»: l'angolo è quello vero anche se è vicino a 90° */
+  const sfBasso = { type: "sidefill", x: 50, y: 300 };
+  eq(A.monPuntaCalcola(sfBasso, c), { x: 50, y: 300, rot: Math.round(A.monRotVerso("sidefill", 450, 100)) }, "il side fill non si raddrizza e non si sposta");
+  eq(A.monBersaglio(its[6]).nome, "Kit", "il drum fill cerca il batterista anche se qualcuno è più vicino");
+});
+t("punta verso: il batterista è il suo posto a sedere, che ruota col kit, non il centro della batteria", () => {
+  const [kit] = palcoMonitor([{ type: "batteria", x: 500, y: 300 }]);
+  A.TYPES.batteria.draw(kit);   /* riallinea w/d al kit reale */
+  const p = A.monPuntoPersona(kit);
+  ok(p.y < 300 - 20, "a rot 0 siede verso il fondo (" + p.y + ")");
+  kit.rot = 180;
+  const q = A.monPuntoPersona(kit);
+  ok(Math.abs((q.x - 500) + (p.x - 500)) <= 1 && Math.abs((q.y - 300) + (p.y - 300)) <= 1, "girato di 180° il posto è dall'altra parte");
+  kit.rot = 0;
+  const lui = A.monPersone()[0];
+  eq([lui.x, lui.y, lui.batteria], [p.x, p.y, true], "monPersone usa quel punto");
+});
+t("punta verso: posato davanti a qualcuno il wedge si aggancia; di lato o lontano resta com'è", () => {
+  palcoMonitor([{ type: "cantante", x: 500, y: 300 }]);
+  const davanti = { type: "wedge", x: 520, y: 390, rot: 0 };
+  ok(A.monAggancioPosa(davanti), "davanti: si aggancia");
+  eq([davanti.x, davanti.y, davanti.rot], [500, 390, 0], "dritto e sull'asse");
+  const girato = palcoMonitor([{ type: "cantante", x: 500, y: 300, rot: 180 }]);
+  const sopra = { type: "wedge", x: 500, y: 210, rot: 0 };
+  ok(A.monAggancioPosa(sopra), "il davanti è quello della persona: girata di 180° è verso il fondo");
+  eq(sopra.rot, 180, "e il wedge si gira"); ok(girato[0].rot === 180, "la persona non si tocca");
+  palcoMonitor([{ type: "cantante", x: 500, y: 300 }]);
+  const dietro = { type: "wedge", x: 500, y: 210, rot: 33 };
+  ok(!A.monAggancioPosa(dietro) && dietro.rot === 33, "dietro alla persona: non si aggancia");
+  const lato = { type: "wedge", x: 600, y: 300, rot: 33 };
+  ok(!A.monAggancioPosa(lato) && lato.rot === 33, "di fianco: non si aggancia");
+  const lontano = { type: "wedge", x: 500, y: 300 + 171, rot: 33 };
+  ok(!A.monAggancioPosa(lontano) && lontano.rot === 33, "oltre 170 cm: non si aggancia");
+  const sf = { type: "sidefill", x: 500, y: 390, rot: 33 };
+  ok(!A.monAggancioPosa(sf) && sf.rot === 33, "il side fill non si aggancia");
+});
+t("punta verso: la spia creata dall'Ascolto ha l'angolo della postazione, il drum fill proposto guarda il batterista", () => {
+  const prima = A.state.items;
+  const [v] = palcoMonitor([{ type: "cantante", x: 500, y: 300, rot: 30, label: "Voce" }]);
+  A.setAscolto(v, "wedge");
+  const w = A.state.items.find(x => x.type === "wedge");
+  ok(w, "la spia è stata creata");
+  eq(w.rot, 30, "stesso angolo della postazione");
+  const sp = A.monEmissione("wedge", w.rot), n = Math.hypot(500 - w.x, 300 - w.y);
+  ok(Math.abs(sp.x - (500 - w.x) / n) < .05 && Math.abs(sp.y - (300 - w.y) / n) < .05, "suona verso il cantante");
+  const [kit] = palcoMonitor([{ type: "batteria", x: 500, y: 300, label: "Kit" }]);
+  A.TYPES.batteria.draw(kit);
+  eq(A.monProposeWedges(), 1, "un drum fill proposto");
+  const df = A.state.items.find(x => x.type === "drumfill"), posto = A.monPuntoPersona(kit);
+  ok(df, "è un drum fill");
+  ok(A.monScarto(df.rot, A.monRotVerso("drumfill", posto.x - df.x, posto.y - df.y)) <= 20, "suona verso il batterista (rot " + df.rot + ")");
+  A.state.items = prima;
+});
+t("punta verso: il comando sul gruppo gira ogni monitor verso il suo bersaglio e ignora gli altri elementi", () => {
+  const its = palcoMonitor([{ type: "cantante", x: 200, y: 300, label: "A" }, { type: "cantante", x: 700, y: 300, label: "B" },
+    { type: "wedge", x: 205, y: 400, rot: 40 }, { type: "wedge", x: 690, y: 400, rot: 300 }, { type: "sidefill", x: 950, y: 400, rot: 0 }]);
+  eq(A.monPuntaTutti([its[2], its[3], its[4]]), 3, "tre monitor girati");
+  eq([its[2].x, its[2].rot, its[3].x, its[3].rot], [200, 0, 700, 0], "ognuno dritto davanti alla sua persona");
+  eq(its[4].rot, 90, "il side fill di destra guarda il centro");
+  eq(its[0].rot, 0, "le persone non si toccano");
+});
+t("punta verso: il comando è nel pannello, nel gruppo Disegno, e parla da solo", () => {
+  const html = readFileSync(join(root, "index.template.html"), "utf8");
+  ok(/id="pPuntaWrap"[\s\S]{0,300}id="pPunta"[\s\S]{0,200}id="pPuntaGo"/.test(html), "tendina e bottone nel markup");
+  ok(/group\("Disegno", null, \[[^\]]*"pPuntaWrap","pRotRow"/.test(html), "accanto alla rotazione, così sul telefono resta in vista");
+  ok(/id="grpPuntaRow"/.test(html) && /getElementById\("grpPunta"\)\.addEventListener/.test(html), "e il bottone per il gruppo");
+  ok(/monAggancioPosa\(_posa\)\)\{ over\.x=_posa\.x; over\.y=_posa\.y; over\.rot=_posa\.rot; \}\s*addItem\(data\.k, over\);/.test(html), "il drop dal catalogo aggancia il wedge prima di crearlo: Annulla lo toglie in un colpo solo");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
 
