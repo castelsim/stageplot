@@ -4155,11 +4155,11 @@ var TYPES = {
                return s; }},
   /* --- monitoraggio --- */
   wedge:    {nome:"Wedge monitor", dim:"58×50", cat:"Monitor da palco", w:60,d:52, defLabel:"MIX 1",
-             draw:function(it){ return drawLibFit("wedge_monitor",it,60,45); }},
+             draw:function(it){ return drawMonitor("wedge_monitor",it,60,45,"wedge"); }},
   sidefill: {nome:"Side fill", dim:"58×68", cat:"Monitor da palco", w:60,d:70, defLabel:"SIDE",
-             draw:function(it){ return drawLibFit("sidefill",it,60,70); }},
+             draw:function(it){ return drawMonitor("sidefill",it,60,70,"sidefill"); }},
   drumfill: {nome:"Drum fill", dim:"62×62", cat:"Monitor da palco", catalog:false, w:64,d:64, defLabel:"DRUM FILL",
-             draw:function(it){ return drawLibFit("drumfill",it,64,70); }},
+             draw:function(it){ return drawMonitor("drumfill",it,64,70,"drumfill"); }},
   iem:      {nome:"IEM beltpack", dim:"7×11 · bodypack", cat:"Monitor da palco", w:7,d:11, defLabel:"IEM",
              /* 02/11: il bodypack vero in scala (Shure PSM 300 P3R, 64×110 mm, dalla scheda tecnica del produttore); prima un simbolo 24×18 */
              draw:function(it){
@@ -5670,6 +5670,27 @@ function sbAutoSize(it){
    muove di un millimetro. Fuori dalla scena — catalogo, anteprime, export — si comporta come prima. */
 function drawLibFit(key,it,bw,bd){ var k=Math.min((it&&it.w||bw)/bw,(it&&it.d||bd)/bd); k=Math.round(k*1000)/1000;
   return (k===1)?libIconScene(key):'<g transform="scale('+k+')">'+libIconScene(key)+'</g>'; }
+/* DA CHE PARTE SUONA UN MONITOR (09/11/2026, osservazione di un tecnico confermata da Simone: dall'icona non si capiva).
+   Il lato che suona, a rotazione 0, è sull'asse y locale: il wedge suona verso −y (davanti al musicista = rot 0), side fill
+   e drum fill verso +y, dove le icone hanno griglia e cono e dove i progetti veri li puntano. I due sensi NON si unificano
+   girando l'icona: ogni monitor già disegnato si capovolgerebbe.
+   Il segno: freccia bianca sulla griglia (resta dentro il corpo, si legge su nero anche a 1:100) e due archi di suono fuori
+   dal corpo. Sta fuori da icons.js perché vale per tutti e tre, e i colori sono scritti sugli attributi: svg2pdf li porta
+   così come sono e in bianco e nero restano nero pieno e bianco pieno. */
+function monFronte(type){ return type==="wedge" ? -1 : ((type==="sidefill"||type==="drumfill") ? 1 : 0); }
+function monSegno(bw,bd,type){
+  var v=monFronte(type); if(!v) return "";
+  var f=bd/2, W=bw/2;
+  function P(x,y){ return x+","+(v*y); }   /* y = distanza dal centro verso il lato che suona */
+  return '<g class="mon-dir" pointer-events="none">'+
+    '<path d="M'+P(-W*.45,f-18)+' L'+P(0,f-5)+' L'+P(W*.45,f-18)+'" fill="none" stroke="#fff" stroke-width="5.5" stroke-linejoin="miter" stroke-linecap="butt"/>'+
+    '<path d="M'+P(-W*.5,f+4)+' Q'+P(0,f+12)+' '+P(W*.5,f+4)+'" fill="none" stroke="#111" stroke-width="2.4" stroke-linecap="round"/>'+
+    '<path d="M'+P(-W*.75,f+9)+' Q'+P(0,f+21)+' '+P(W*.75,f+9)+'" fill="none" stroke="#111" stroke-width="2.4" stroke-linecap="round"/>'+
+  '</g>';
+}
+function drawMonitor(key,it,bw,bd,type){ var k=Math.min((it&&it.w||bw)/bw,(it&&it.d||bd)/bd); k=Math.round(k*1000)/1000;
+  var arte=libIconScene(key)+monSegno(bw,bd,type);
+  return (k===1)?arte:'<g transform="scale('+k+')">'+arte+'</g>'; }
 /* come drawLibFit ma con stiramento LIBERO su w e d (coperture: pianta vista dall'alto, deformabile) */
 function drawLibStretch(key,it,bw,bd){ var sx=((it&&it.w||bw)/bw).toFixed(4), sy=((it&&it.d||bd)/bd).toFixed(4);
   return (sx==1&&sy==1)?libIconScene(key):'<g transform="scale('+sx+' '+sy+')">'+libIconScene(key)+'</g>'; }
@@ -26296,8 +26317,8 @@ function buildMatrimonioOut(){
     {type:"wireless", x:70, y:-72, label:"Voce 2"},
     {type:"wedge", x:-70, y:35, label:"Voce 1"},
     {type:"wedge", x:70, y:35, label:"Voce 2"},
-    {type:"sidefill", x:-670, y:30, rot:35, label:"Side fill DX"},
-    {type:"sidefill", x:670, y:30, rot:-35, label:"Side fill SX"},
+    {type:"sidefill", x:-670, y:30, rot:-115, label:"Side fill DX"},
+    {type:"sidefill", x:670, y:30, rot:115, label:"Side fill SX"},
     {type:"stagebox", x:600, y:-260, label:"Stage box", ch:32, outCh:12},
     {type:"corrente", x:-590, y:-340, label:""},
     {type:"corrente", x:590, y:-340, label:""}
@@ -26314,8 +26335,8 @@ function buildDjOut(){
     {type:"wedge", x:-150, y:35, label:"MC"},
     {type:"saxalto", x:350, y:-120, rot:-12, label:"Sax"},
     {type:"wedge", x:350, y:-18, label:"Sax"},
-    {type:"sidefill", x:-560, y:20, rot:35, label:"Side fill DX"},
-    {type:"sidefill", x:560, y:20, rot:-35, label:"Side fill SX"},
+    {type:"sidefill", x:-560, y:20, rot:-115, label:"Side fill DX"},
+    {type:"sidefill", x:560, y:20, rot:115, label:"Side fill SX"},
     {type:"stagebox", x:430, y:-220, label:"Stage box"},
     {type:"corrente", x:-390, y:-290, label:""},
     {type:"corrente", x:390, y:-290, label:""}
@@ -26342,8 +26363,8 @@ function buildTributoOut(){
     {type:"wedge", x:130, y:32, label:"Cori"},
     {type:"wireless", x:-60, y:-72, label:"Voce"},
     {type:"wedge", x:-60, y:35, label:"Voce"},
-    {type:"sidefill", x:-690, y:30, rot:35, label:"Side fill DX"},
-    {type:"sidefill", x:690, y:30, rot:-35, label:"Side fill SX"},
+    {type:"sidefill", x:-690, y:30, rot:-115, label:"Side fill DX"},
+    {type:"sidefill", x:690, y:30, rot:115, label:"Side fill SX"},
     {type:"iemant", x:-610, y:-270, label:"TX in-ear"},
     {type:"stagebox", x:610, y:-270, label:"Stage box", ch:32, outCh:16},
     {type:"corrente", x:-600, y:-350, label:""},
@@ -26389,8 +26410,8 @@ function buildCoroOut(){
     {type:"wedge", x:-130, y:45, rot:0, label:"Solista 1"},
     {type:"wedge", x:130, y:45, rot:0, label:"Solista 2"},
     /* side fill */
-    {type:"sidefill", x:-600, y:10, rot:35, label:"Side fill DX"},
-    {type:"sidefill", x:600, y:10, rot:-35, label:"Side fill SX"}
+    {type:"sidefill", x:-600, y:10, rot:-115, label:"Side fill DX"},
+    {type:"sidefill", x:600, y:10, rot:115, label:"Side fill SX"}
   ];
 }
 function buildQuartettoOut(){
@@ -26456,8 +26477,8 @@ function buildOrchBandOut(){
     {type:"astamic", x:0, y:120, label:"Voce"},
     {type:"wedge", x:0, y:215, rot:0, label:"Voce"},
     {type:"wedge", x:-250, y:225, rot:0, label:"Tastiere"},
-    {type:"sidefill", x:-700, y:200, rot:35, label:"Side fill DX"},
-    {type:"sidefill", x:700, y:200, rot:-35, label:"Side fill SX"}
+    {type:"sidefill", x:-700, y:200, rot:-115, label:"Side fill DX"},
+    {type:"sidefill", x:700, y:200, rot:115, label:"Side fill SX"}
   ];
   return out.concat(band);
 }
