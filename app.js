@@ -15970,6 +15970,24 @@ function auditEngine(){
       {label:"Mostra", run:function(){ auditFixMostraDoppioni(doppi); }}, "doppioni",
       {label:(doppi.length===1?"Togli il doppione":"Togli i "+doppi.length+" doppioni"), run:function(){ auditFixTogliDoppioni(doppi); }});
   })();
+  /* MONITOR STORTI (09/11/2026): solo con «Controllo tecnico» acceso e di livello «nota»: si legge nel pannello, non toglie punti, non
+     entra in nessun PDF (quelli filtrano err/warn/todef) e non ferma l'esportazione. È un aiuto a chi disegna, non è affare del service. */
+  (function(){
+    if(!(typeof funzOn==="function" && funzOn("controllo"))) return;
+    var L=monitorDaRivedere(); if(!L.length) return;
+    var mons=L.map(function(x){ return x.mon; });
+    var nome=function(it){ return String(it.label||"").trim() || TYPES[it.type].nome; };
+    var u=L[0], msg;
+    if(L.length>1){
+      var nomi=mons.slice(0,3).map(nome).join(", ")+(mons.length>3?"…":"");
+      msg=L.length+" monitor sono storti o non suonano verso nessuno ("+nomi+").";
+    } else if(u.perche==="storto") msg="«"+nome(u.mon)+"» è storto rispetto a "+u.verso.nome+".";
+    else if(u.perche==="palco") msg="«"+nome(u.mon)+"» non suona verso il palco.";
+    else msg="«"+nome(u.mon)+"» non suona verso "+(u.verso.nome||"nessuno")+".";
+    add("nota", msg, "Monitor", "Il wedge sta dritto davanti a chi ascolta, il side fill guarda il centro del palco.",
+        {label:"Mostra", run:function(){ auditFixMostraDoppioni(mons); }}, "monitor-direzione",
+        {label:"Punta verso chi ascolta", run:function(){ monPuntaTutti(mons); }});
+  })();
   /* A2 · PEDANE ALTE E DECRETO PALCHI (07/11/2026): solo con «Controllo tecnico» acceso e solo «Avviso»,
      che non blocca l'esportazione (gli «Errore» la fermano con una finestra). Mai «a norma»: «verifica». */
   (function(){
@@ -24222,8 +24240,8 @@ function buildDjOut(){
   return [
     {type:"pedana", x:0, y:-270, w:260, d:150, h:40, label:"Postazione DJ"},
     {type:"djset", x:0, y:-270, label:"Consolle DJ"},
-    {type:"wedge", x:-190, y:-185, rot:22, label:"DJ"},
-    {type:"wedge", x:190, y:-185, rot:-22, label:"DJ"},
+    {type:"wedge", x:-190, y:-185, rot:65, label:"DJ"},
+    {type:"wedge", x:190, y:-185, rot:-65, label:"DJ"},
     {type:"wireless", x:-150, y:-72, label:"MC"},
     {type:"wedge", x:-150, y:35, label:"MC"},
     {type:"saxalto", x:350, y:-120, rot:-12, label:"Sax"},
@@ -24279,7 +24297,7 @@ function buildAcousticOut(){
        al cajon: i tre pezzi restano dov'erano (cajon a -217, musicista a -235, asta a -170). E il canale
        è uno, il Beta 91A della channel list: l'asta bassa separata ne aggiungeva un secondo (SM57). */
     {type:"cajonpost", x:0, y:-212, label:"Cajon"},
-    {type:"wedge", x:110, y:-190, rot:-35, label:"Cajon"}
+    {type:"wedge", x:110, y:-190, rot:-80, label:"Cajon"}
   ];
 }
 function buildCoroOut(){
@@ -24327,7 +24345,7 @@ function buildBigBandOut(){
     {type:"astamic", x:0, y:10, label:"Voce"},
     {type:"wedge", x:0, y:105, label:"Voce"},
     {type:"batteria", x:520, y:-410, label:""},
-    {type:"wedge", x:410, y:-345, rot:-8, label:"Batteria"},
+    {type:"wedge", x:410, y:-345, rot:45, label:"Batteria"},
     {type:"bassamp", x:670, y:-240, label:"Ampli basso"},
     {type:"stack", x:-670, y:-240, label:"Ampli chitarra"},
     {type:"stagepiano", x:-520, y:-80, rot:-15, label:"Piano"},
@@ -24352,7 +24370,7 @@ function buildJazzComboOut(){
     {type:"wedge", x:-400, y:-20, label:"Piano"},
     {type:"contrabbasso", x:20, y:-290, leggio:false, label:"Contrabbasso"},
     {type:"bassamp", x:125, y:-365, label:""},
-    {type:"wedge", x:-110, y:-345, rot:-60, label:"Contrabbasso"},
+    {type:"wedge", x:20, y:-190, label:"Contrabbasso"},
     {type:"batteria", x:300, y:-270, label:"Batteria"},
     {type:"wedge", x:300, y:-120, label:"Batteria"},
     {type:"saxalto", x:40, y:-60, leggio:false, label:"Sax"},
@@ -29523,6 +29541,40 @@ function monPuntaPannello(it){
   sel.innerHTML=voci.join("");
   sel.selectedIndex=0;
 }
+/* MONITOR STORTI (09/11/2026): un monitor è a posto se suona verso qualcuno ed è dritto. Il cono è largo apposta: si segnala chi guarda il
+   vuoto, non chi è un po' di lato. Dritto vuol dire: un angolo retto col palco o l'angolo della postazione di chi ha davanti (±3°: 5° si vedono già
+   storti), oppure puntato su di lui (±6°, il suo punto non è esatto; così il risultato di «Punta verso…» è sempre a posto).
+   Il drum fill conta solo se guarda il batterista: di lato al kit l'angolo è per forza libero. Un monitor fuori dal palco è di scorta. */
+var MON_CONO=60, MON_CONO_SIDE=75, MON_PORTATA=400, MON_PORTATA_SIDE=600, MON_RETTO_TOLL=3, MON_MIRA_TOLL=6;
+function monAnalisi(mon){
+  var S=state.stage||{};
+  if(mon.x<0 || mon.y<0 || mon.x>(S.w||0) || mon.y>(S.d||0)) return null;
+  var rot=mon.rot||0;
+  function scarto(p){ return monScarto(rot, monRotVerso(mon.type, p.x-mon.x, p.y-mon.y)); }
+  var pers=monPersoneOrdinate(mon);
+  if(mon.type==="sidefill"){   /* il centro del palco, oppure una sezione: un side fill può servire il coro in fondo a sinistra */
+    var c=monCentroPalco();
+    if(scarto(c)<=MON_CONO_SIDE || pers.some(function(p){ return monDistanza(mon,p)<=MON_PORTATA_SIDE && scarto(p)<=MON_CONO; })) return null;
+    return {mon:mon, perche:"palco", verso:c};
+  }
+  if(!pers.length) return null;
+  var nome=String(mon.perChi||mon.label||"").trim().toLowerCase();
+  var suo=pers[0].ascoltoId===mon.id || (nome && pers[0].nome.toLowerCase()===nome) ? pers[0] : null;
+  if(mon.type==="drumfill"){
+    var kit=pers.filter(function(p){ return p.batteria; })[0];
+    if(kit) return scarto(kit)<=MON_CONO ? null : {mon:mon, perche:"nessuno", verso:kit};
+  }
+  var cono=pers.filter(function(p){ return monDistanza(mon,p)<=MON_PORTATA && scarto(p)<=MON_CONO; });
+  if(suo ? scarto(suo)>MON_CONO : !cono.length) return {mon:mon, perche:"nessuno", verso:suo||pers[0]};
+  if(mon.type==="drumfill") return null;
+  if([0,90,180,-90].some(function(c){ return monScarto(rot,c)<=MON_RETTO_TOLL; })) return null;
+  var vicini=suo ? [suo] : cono;
+  if(vicini.some(function(p){ return monScarto(rot,p.rot)<=MON_RETTO_TOLL || scarto(p)<=MON_MIRA_TOLL; })) return null;
+  return {mon:mon, perche:"storto", verso:suo||vicini.slice().sort(function(a,b){ return scarto(a)-scarto(b); })[0]};
+}
+function monitorDaRivedere(){
+  return (state.items||[]).filter(function(x){ return monFronte(x.type)!==0; }).map(monAnalisi).filter(Boolean);
+}
 /* ── ASCOLTO per performer (Simone 21/07): musicisti, cantanti, direttori dichiarano COSA usano per
    sentirsi → l'app crea/associa l'elemento monitor giusto vicino a loro, nel layer competente. ── */
 var ASCOLTO_TYPE = { wedge:"wedge", iem:"iem", pm:"hearback", cuffie:"cuffie" };
@@ -30452,17 +30504,17 @@ function renderAuditPanel(){
     +(A.weightKg>0?' · ⚖ '+fmtKg(A.weightKg):'')+(A.rackU>0?' · ▭ '+A.rackU+' U':'');
   var host=document.getElementById("auditFindings");
   host.innerHTML="";
-  var probs=A.findings.filter(function(x){ return x.lvl==="err"||x.lvl==="warn"||x.lvl==="todef"; });   /* todef = aspetto da definire (fase 4): visibile ma non penalizza lo score */
+  var probs=A.findings.filter(function(x){ return x.lvl==="err"||x.lvl==="warn"||x.lvl==="todef"||x.lvl==="nota"; });   /* todef = aspetto da definire (fase 4): visibile ma non penalizza lo score. nota (09/11): solo qui, mai nei PDF */
   /* palco vuoto: «il rider sembra pronto» sotto un voto «Vuoto · 0» era il contrario del vero (revisione 25/09) */
   if(!probs.length && !(state.items||[]).length){ host.innerHTML='<div style="color:var(--text-2);font-size:12px">Palco vuoto: aggiungi strumenti, voci o microfoni dal catalogo, poi torna qui.</div>'; return; }
   if(!probs.length){ host.innerHTML='<div style="color:var(--accent-strong);font-size:12px">✓ Nessuna criticità: '+(eventoConferenza()?"la scheda sembra pronta.":"il rider sembra pronto.")+'</div>'; return; }
-  var ORD={err:0,warn:1,todef:2};
+  var ORD={err:0,warn:1,todef:2,nota:3};
   probs.sort(function(a,b){ return (ORD[a.lvl]||3)-(ORD[b.lvl]||3); });
   probs.forEach(function(x){
     /* la gravità si dice anche a parole, non solo col colore del pallino (WCAG 1.4.1), e i colori vengono dai
        token: gli esadecimali scritti a mano restavano quelli del tema chiaro anche in scuro (3,1–3,3:1) — revisione 25/09 */
-    var c=x.lvl==="err"?"var(--danger)":(x.lvl==="todef"?"var(--info)":"var(--warning)");
-    var lv=x.lvl==="err"?"Errore":(x.lvl==="todef"?"Da definire":"Avviso");
+    var c=x.lvl==="err"?"var(--danger)":(x.lvl==="todef"?"var(--info)":(x.lvl==="nota"?"var(--text-2)":"var(--warning)"));
+    var lv=x.lvl==="err"?"Errore":(x.lvl==="todef"?"Da definire":(x.lvl==="nota"?"Nota":"Avviso"));
     var row=document.createElement("div"); row.className="audit-find";
     row.innerHTML='<div class="audit-find-txt"><span class="audit-lv" style="color:'+c+'">● '+lv+'</span> · <b>'+esc((x.cat==="Rider" && eventoConferenza())?"Scheda":x.cat)+'</b> — '+esc(x.msg)+(x.fix?'<div class="audit-hint">↳ '+esc(x.fix)+'</div>':'')+'</div>';
     var azioni=[x.act, x.act2].filter(function(a){ return a && typeof a.run==="function"; });   /* act2 (19/10): un secondo rimedio, es. «Mostra» + «Togli il doppione» */
