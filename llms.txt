@@ -49,6 +49,8 @@ Uno stage plot (o stage plan) è lo schema in scala del palco che mostra la disp
 - [Schema di cablaggio del palco](https://stageplot.it/guida/cablaggio-palco/): il percorso del segnale audio dal microfono al mixer — cavi bilanciati, multicore (snake), stagebox, split e patch, e come evitare il ronzio da loop di massa
 - [Rete Dante e rack audio](https://stageplot.it/guida/rack-audio-dante/): cos'è la rete Dante (audio digitale su Ethernet), quando conviene sull'analogico, cosa contiene un rack audio, Device ID e routing, clock e latenza, ridondanza
 - [Rider tecnico per DJ set](https://stageplot.it/guida/rider-tecnico-dj/): come scrivere il rider di un DJ — lettori e mixer, monitor da booth, uscita stereo, alimentazione pulita; con esempio e differenza dalla scheda tecnica di una band
+- [Scheda tecnica di un convegno](https://stageplot.it/guida/scheda-tecnica-convegno/): cosa scrivere per microfoni, video, schermo, regia e corrente di un convegno
+- [Disposizione del coro sul palco](https://stageplot.it/guida/disposizione-coro/): sezioni, file, gradoni, direttore e pianoforte
 
 ## Confronti con altri editor (fatti verificati il 10/10/2026)
 - [Alternative a Ridermaker, TecRider e Stage Plot Pro](https://stageplot.it/alternative/): tabella riassuntiva dei tre editor confrontati con StagePlot (lingua, prezzo, PDF senza account, scala, channel list, funzioni in più)

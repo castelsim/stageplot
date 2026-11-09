@@ -20,7 +20,7 @@
   </url>
   <url>
     <loc>https://stageplot.it/guida/cos-e-uno-stage-plot/</loc>
-    <lastmod>2026-11-02</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -62,7 +62,7 @@
   </url>
   <url>
     <loc>https://stageplot.it/guida/assorbimento-elettrico-palco/</loc>
-    <lastmod>2026-10-10</lastmod>
+    <lastmod>2026-11-09</lastmod>
     <changefreq>monthly</changefreq>
     <priority>0.7</priority>
   </url>
@@ -197,5 +197,17 @@
     <lastmod>2026-08-08</lastmod>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
+  </url>
+  <url>
+    <loc>https://stageplot.it/guida/scheda-tecnica-convegno/</loc>
+    <lastmod>2026-11-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://stageplot.it/guida/disposizione-coro/</loc>
+    <lastmod>2026-11-09</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
   </url>
 </urlset>
