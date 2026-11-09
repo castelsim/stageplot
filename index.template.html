@@ -7491,8 +7491,8 @@ window.addEventListener("storage",function(e){
    Una chiave nuova va aggiunta qui: il test «ogni chiave scritta dall'app è classificata» la cerca. */
 var USCITA_SEGNALE="sp_uscita";
 var USCITA_TIENI_LOCAL={stageplot_theme:1, sp_welcome:1, sp_onboarded:1, sp_dragHint:1, sp_funzioni:1, sp_props_pro:1,
-  sp_catRecenti:1, sp_advListe:1, sp_assPos:1, sp_noAssunzioni:1, sp_rail:1, sp_vistaRuotata:1, sp_invitoSalva:1};
-var USCITA_TIENI_SESSION={sp_loginPrompt:1, sp_accessoDa:1};
+  sp_catRecenti:1, sp_advListe:1, sp_assPos:1, sp_noAssunzioni:1, sp_rail:1, sp_vistaRuotata:1};
+var USCITA_TIENI_SESSION={sp_loginPrompt:1};
 function uscitaChiaveDaCancellare(k, area){
   k=String(k||"");
   if(area==="session"){
@@ -7508,6 +7508,9 @@ function uscitaChiavi(st){
   try{ var n=st.length; for(var i=0;i<n&&i<5000;i++){ var k=st.key(i); if(k!=null) ks.push(k); } }catch(e){}
   return ks;
 }
+/* Invito a salvare dopo il PDF (09/11/2026): due chiavi da tenere. Aggiunte qui e non nelle righe sopra, che
+   altre PR aperte toccano: così i rami si uniscono senza conflitti. */
+USCITA_TIENI_LOCAL.sp_invitoSalva=1; USCITA_TIENI_SESSION.sp_accessoDa=1;
 /* Lo stato in memoria torna quello di un progetto vuoto, senza passare da save(): niente punto di
    ripristino (conterrebbe il progetto che si sta togliendo) e niente scrittura locale. */
 function azzeraMemoriaDocumento(){
