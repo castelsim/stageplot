@@ -12890,6 +12890,55 @@ function zDietroA(items, escludi){
     var z=effZ(it); if(mn===null || z<mn) mn=z; });
   return mn===null ? 2 : mn-1;
 }
+/* ORDINE DI SOVRAPPOSIZIONE PER LA SELEZIONE (10/11, segnalazione: «come faccio a mettere in primo piano una
+   cosa e in secondo un'altra»). Il comando c'era ma stava nascosto dietro «Mostra tutte le opzioni», funzionava su
+   un solo elemento e andava solo in cima o in fondo: con palco, pedane, gazebo e tavoli sovrapposti serve anche
+   «un livello su / giù». Pura: riceve gli elementi e gli id selezionati, restituisce {id: z} solo per chi cambia.
+   dir: "primo" · "fondo" (in cima/in fondo, la selezione tiene l'ordine fra sé) · "su" · "giu" (un livello, saltando
+   gli elementi che non si toccano: altrimenti il clic non cambierebbe niente di visibile). */
+function ingombraConElemento(a,b){ var ra=Math.hypot(a.w||0,a.d||0)/2, rb=Math.hypot(b.w||0,b.d||0)/2;
+  return Math.hypot((a.x||0)-(b.x||0),(a.y||0)-(b.y||0)) < ra+rb; }
+function zRiordina(items, ids, dir, tocca){
+  var sel={}; (ids||[]).forEach(function(i){ sel[i]=1; });
+  var ord=(items||[]).map(function(it,i){ return {it:it,i:i}; }).sort(function(a,b){ return (effZ(a.it)-effZ(b.it)) || (a.i-b.i); })
+    .map(function(o){ return o.it; }).filter(function(it){ return it.type!=="custshape"; });
+  var mosse=ord.filter(function(it){ return sel[it.id]; });
+  if(!mosse.length) return {};
+  var out={};
+  if(dir==="primo" || dir==="fondo"){
+    var altri=ord.filter(function(it){ return !sel[it.id]; });
+    if(!altri.length) return {};
+    var zs=altri.map(effZ);
+    if(dir==="primo"){ var mx=Math.max.apply(null,zs);
+      mosse.forEach(function(it,k){ var z=mx+1+k; if(effZ(it)!==z) out[it.id]=z; }); }
+    else { var mn=Math.min.apply(null,zs);
+      mosse.forEach(function(it,k){ var z=mn-mosse.length+k; if(effZ(it)!==z) out[it.id]=z; }); }
+    return out;
+  }
+  /* un livello: ogni elemento scavalca il primo vicino che si tocca (da su: dall'alto verso il basso, così un blocco
+     selezionato sale insieme senza scavalcarsi). «giu» è lo stesso algoritmo sull'elenco rovesciato. */
+  var giu = dir==="giu", L = giu ? ord.slice().reverse() : ord.slice();
+  var tc = tocca || ingombraConElemento;
+  for(var i=L.length-2;i>=0;i--){
+    if(!sel[L[i].id]) continue;
+    for(var j=i+1;j<L.length;j++){
+      if(sel[L[j].id]) break;          /* un compagno di selezione davanti: si ferma sotto di lui */
+      if(tc(L[i],L[j])){ var t=L[i]; for(var k=i;k<j;k++) L[k]=L[k+1]; L[j]=t; break; }
+    }
+  }
+  /* ordine nuovo → z: chi non rispetta più l'ordine crescente prende un valore fra i vicini */
+  var sg = giu ? -1 : 1, nuovo={}, prev=-Infinity;
+  for(var a=0;a<L.length;a++){
+    var z0=sg*effZ(L[a]);
+    if(z0>prev){ nuovo[L[a].id]=z0; prev=z0; continue; }
+    var b=a; while(b<L.length && sg*effZ(L[b])<=prev) b++;
+    var U = b<L.length ? sg*effZ(L[b]) : prev+(b-a)+1, m=b-a;
+    for(var c=0;c<m;c++){ nuovo[L[a+c].id]=Math.round((prev+(U-prev)*(c+1)/(m+1))*10000)/10000; }
+    prev=nuovo[L[b-1].id]; a=b-1;
+  }
+  ord.forEach(function(it){ var z=sg*nuovo[it.id]; if(z!==effZ(it)) out[it.id]=z; });
+  return out;
+}
 /* ordine di sovrapposizione: z per tipo, con override manuale it.z (Porta sopra/sotto); stabile sull'ordine d'inserimento */
 function effZ(it){
   /* le forme di «Crea elemento» stanno SEMPRE sotto i pezzi veri (dopo il salvataggio sono la base, z 1, posata prima dei
@@ -19356,12 +19405,22 @@ document.getElementById("pCompSplit").addEventListener("click", explodeComposite
 document.getElementById("pDup").addEventListener("click", function(){ duplicateSel(); });   /* no-arg: applica l'offset (l'evento come noOffset lo disattivava) */
 /* Primo piano / in fondo: il z si calcola sugli elementi presenti, così premendolo due volte su due
    oggetti diversi il secondo finisce davvero sopra il primo (26/08, segnalazione). */
-document.getElementById("pFront").addEventListener("click", function(){
-  mutSel(function(it){ it.z=zDavantiA(state.items, it); }); save(); render(); renderProps();
-});
-document.getElementById("pBack").addEventListener("click", function(){
-  mutSel(function(it){ it.z=zDietroA(state.items, it); }); save(); render(); renderProps();
-});
+/* 10/11: vale per TUTTA la selezione (prima solo per l'elemento principale), con «sopra/sotto di uno» e le
+   scorciatoie ] [ (con Maiusc: in cima / in fondo). Se non cambia niente lo dice, invece di restare muto. */
+var ORDINE_MSG={primo:"È già in primo piano", fondo:"È già in fondo", su:"Non c’è niente da scavalcare: nessun elemento sopra lo tocca", giu:"Non c’è niente da scavalcare: nessun elemento sotto lo tocca"};
+function ordinaSel(dir){
+  var ids=selIds(); if(!ids.length && sel) ids=[sel]; if(!ids.length) return;
+  primaDiAgire();
+  var ch=zRiordina(state.items, ids, dir), n=Object.keys(ch).length;
+  if(!n){ if(window.__toast) window.__toast(ORDINE_MSG[dir]); return; }
+  state.items.forEach(function(it){ if(ch[it.id]!=null) it.z=ch[it.id]; });
+  save(); render(); renderProps();
+  if(typeof a11yAnnounce==="function") a11yAnnounce({primo:"In primo piano",fondo:"In fondo",su:"Salito di un livello",giu:"Sceso di un livello"}[dir]);
+}
+document.getElementById("pFront").addEventListener("click", function(){ ordinaSel("primo"); });
+document.getElementById("pBack").addEventListener("click", function(){ ordinaSel("fondo"); });
+document.getElementById("pUp").addEventListener("click", function(){ ordinaSel("su"); });
+document.getElementById("pDown").addEventListener("click", function(){ ordinaSel("giu"); });
 /* SPECCHIA (Simone 29/07): era una spunta sepolta nei Dettagli tecnici e solo per i musicisti
    illustrati — ma serve su quinte, scale, rampe, casse: si duplica un elemento e lo si ribalta per
    l'altro lato del palco. Ora è un'azione, nella stessa riga di Duplica ed Elimina.
@@ -23928,7 +23987,7 @@ document.addEventListener("keydown", function(e){
   var _soloLettura = window.__projLocked || document.body.classList.contains("viewmode");
   if(_soloLettura && !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName) && !(e.target&&e.target.isContentEditable)){
     var _modifica = e.key==="Delete" || e.key==="Backspace" || /^Arrow/.test(e.key)
-      || (!e.metaKey && !e.ctrlKey && !e.altKey && /^[rd]$/i.test(e.key))            /* r/R ruota, d/D duplica */
+      || (!e.metaKey && !e.ctrlKey && !e.altKey && /^[rd\[\]{}]$/i.test(e.key))            /* r/R ruota, d/D duplica, [ ] { } ordine di sovrapposizione */
       || ((e.metaKey||e.ctrlKey) && /^(v|z|y|d|x)$/i.test(e.key))
       || ((e.metaKey||e.ctrlKey) && /^s$/i.test(e.key) && window.__projLocked);
     if(e.key!=="Escape" && _modifica){
@@ -24032,6 +24091,11 @@ document.addEventListener("keydown", function(e){
   else if(e.key==="r"){ rotateSel(15); a11yAnnounce("Ruotato a "+Math.round((getSel()||it).rot||0)+" gradi"); }
   else if(e.key==="R"){ rotateSel(-15); a11yAnnounce("Ruotato a "+Math.round((getSel()||it).rot||0)+" gradi"); }
   else if(e.key==="d"||e.key==="D"){ duplicateSel(); a11yAnnounce("Duplicato: "+a11yDesc(getSel())); }
+  else if(!e.ctrlKey && !e.metaKey && !e.altKey && (e.code==="BracketRight"||e.code==="BracketLeft"||e.key==="]"||e.key==="["||e.key==="}"||e.key==="{")){
+    /* ordine di sovrapposizione: ] sopra di uno · [ sotto di uno · con Maiusc in primo piano / in fondo.
+       Si legge e.key (la tastiera italiana li fa con AltGr) e e.code (la americana), con Maiusc = } e { */
+    var _dx=(e.key==="]"||e.key==="}"||e.code==="BracketRight"), _top=(e.shiftKey||e.key==="}"||e.key==="{");
+    e.preventDefault(); ordinaSel(_dx ? (_top?"primo":"su") : (_top?"fondo":"giu")); }
   else if(e.key.indexOf("Arrow")===0){
     e.preventDefault();
     var dx=0,dy=0;

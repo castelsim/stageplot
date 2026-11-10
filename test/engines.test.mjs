@@ -20209,6 +20209,59 @@ t("«Primo piano» porta davvero sopra, anche premuto due volte su elementi dive
   eq(A.zDietroA([], null), 2, "idem in fondo");
 });
 
+t("ordine di sovrapposizione (10/11): un livello su/giù saltando chi non si tocca, e vale per tutta la selezione", () => {
+  /* segnalazione dall'app: «come faccio a mettere in primo piano una cosa e in secondo un'altra». Il comando
+     c'era ma nascosto, valeva per un solo elemento e andava solo in cima o in fondo. */
+  const mk = (id, x, z) => ({ id, type: "wedge", x, y: 0, w: 100, d: 100, z });
+  const applica = (items, ch) => items.forEach((it) => { if (ch[it.id] != null) it.z = ch[it.id]; });
+  const ordine = (items) => { A.state.items = items; return A.sortedItems().map((x) => x.id).join(""); };
+  /* a, b, c si sovrappongono (x vicini), d è lontano; tutti allo stesso z: contano l'ordine d'inserimento */
+  const items = [mk("a", 0, 2), mk("b", 50, 2), mk("c", 100, 2), mk("d", 5000, 2)];
+  eq(ordine(items), "abcd", "partenza");
+  /* A sale di uno: scavalca B, non C */
+  applica(items, A.zRiordina(items, ["a"], "su"));
+  eq(ordine(items), "bacd", "a sopra b, ancora sotto c");
+  /* di nuovo: scavalca C */
+  applica(items, A.zRiordina(items, ["a"], "su"));
+  eq(ordine(items), "bcad", "a sopra c");
+  /* D non si tocca con nessuno: «su» non cambia niente (e lo dice, non resta muto) */
+  eq(Object.keys(A.zRiordina(items, ["d"], "su")).length, 0, "d lontano: nessun cambiamento");
+  /* giù: A torna sotto C, poi sotto B */
+  applica(items, A.zRiordina(items, ["a"], "giu"));
+  eq(ordine(items), "bacd", "a sotto c");
+  applica(items, A.zRiordina(items, ["a"], "giu"));
+  eq(ordine(items), "abcd", "a sotto b");
+  /* z diversi: l'elemento scende davvero sotto un vicino che ha uno z più basso */
+  const m = [mk("p", 0, 5), mk("q", 40, 3), mk("r", 80, 1)];
+  applica(m, A.zRiordina(m, ["p"], "giu"));
+  eq(ordine(m), "rpq", "p scende sotto q (restando sopra r)");
+  /* selezione multipla: salgono insieme senza scavalcarsi */
+  const g = [mk("a", 0, 2), mk("b", 30, 2), mk("c", 60, 2), mk("e", 90, 2)];
+  applica(g, A.zRiordina(g, ["a", "b"], "su"));
+  eq(ordine(g), "cabe", "a e b salgono insieme sopra c, tenendo l'ordine fra loro");
+  /* un elemento lontano nel mezzo non conta: A salta X e passa sopra B (che tocca) */
+  const sk = [mk("a", 0, 2), mk("x", 5000, 2), mk("b", 50, 2)];
+  applica(sk, A.zRiordina(sk, ["a"], "su"));
+  eq(ordine(sk), "xba", "a scavalca b saltando x, che non lo tocca");
+  /* due selezionati bloccati: se quello davanti non può salire, l'altro non lo scavalca */
+  const bl = [mk("a", 0, 2), mk("b", 30, 2), mk("d", 5000, 2)];
+  applica(bl, A.zRiordina(bl, ["a", "b"], "su"));
+  eq(ordine(bl), "abd", "b non ha niente da scavalcare, a resta sotto b");
+  /* in cima / in fondo per più elementi: tengono l'ordine fra sé */
+  const h = [mk("a", 0, 2), mk("b", 30, 2), mk("c", 60, 2), mk("e", 90, 2)];
+  applica(h, A.zRiordina(h, ["a", "c"], "primo"));
+  eq(ordine(h), "beac", "a e c in primo piano, a sotto c");
+  applica(h, A.zRiordina(h, ["e"], "fondo"));
+  eq(ordine(h), "ebac", "e in fondo");
+  /* z diversi: portati in primo piano insieme, chi era sopra resta sopra (c ha z più basso di a, quindi finisce sotto) */
+  const zd = [mk("a", 0, 4), mk("c", 30, 3), mk("b", 60, 2)];
+  applica(zd, A.zRiordina(zd, ["a", "c"], "primo"));
+  eq(ordine(zd), "bca", "c (era sotto) resta sotto a, entrambi sopra b");
+  /* niente da riordinare: tutta la scena selezionata, o selezione vuota */
+  eq(Object.keys(A.zRiordina(h, h.map((x) => x.id), "primo")).length, 0, "tutti selezionati: nessun altro da scavalcare");
+  eq(Object.keys(A.zRiordina(h, [], "su")).length, 0, "selezione vuota");
+});
+
 t("il microfono voce sta DAVANTI alla bocca, cioè verso il pubblico", () => {
   /* Stava a -(d/2+16): sedici centimetri oltre il bordo di FONDO, quindi dietro la nuca. In pianta
      il pallino sopra la testa si legge come un archetto indossato — segnalato il 26/08, «questo
