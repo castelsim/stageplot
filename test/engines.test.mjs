@@ -29282,6 +29282,29 @@ t("più schede: la scrittura locale va avanti se l'altra scheda ha un altro prog
   }
 });
 
+/* 10/11/2026 — Simone: «vado su File, i miei progetti, premo l'anteprima e poi ho problemi ad andare avanti e indietro».
+   Le frecce che scorrono l'anteprima arrivavano anche al palco sotto: l'elemento selezionato si spostava di 5 cm a
+   freccia (⌫ lo cancellava, ⌘Z annullava), e la modifica si salvava online. */
+t("«I miei progetti» e l'anteprima aperti: i tasti sono della finestra, il palco sotto non si tocca", () => {
+  const oldDoc = A.document;
+  const finta = (lista, anteprima) => ({ getElementById: (id) => id === "cloudModal" ? (lista == null ? null : { style: { display: lista } })
+    : id === "cloudPrev" ? (anteprima == null ? null : { hidden: !anteprima }) : null });
+  try {
+    A.document = finta("none", null); eq(A.finestraProgettiAperta(), false, "chiusa (anteprima mai aperta)");
+    A.document = finta("flex", null); eq(A.finestraProgettiAperta(), true, "elenco aperto");
+    A.document = finta("none", true); eq(A.finestraProgettiAperta(), true, "anteprima aperta");
+    A.document = finta("none", false); eq(A.finestraProgettiAperta(), false, "anteprima chiusa");
+    A.document = finta(null, null); eq(A.finestraProgettiAperta(), false, "finestre non ancora create");
+  } finally { A.document = oldDoc; }
+  /* il gestore dei tasti del palco si ferma lì, subito dopo Esc (che chiude la finestra più in alto) e prima di frecce,
+     ⌫/Canc, ⌘Z/⌘D, Tab sul palco */
+  const i = appjs.indexOf('if(e.key==="Escape" && escCloseTopModal(e.target)) return;');
+  ok(i > 0, "gestore dei tasti del palco trovato");
+  const dopo = appjs.slice(i, i + 400);
+  ok(/escCloseTopModal\(e\.target\)\) return;\s*\n\s*if\(finestraProgettiAperta\(\)\) return;/.test(dopo), "la riga successiva a Esc rimanda alla finestra dei progetti");
+  ok(appjs.indexOf('e.key==="ArrowLeft") dx=-step;', i) > i, "e viene prima delle frecce che spostano gli elementi");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
 

@@ -25962,6 +25962,14 @@ function a11yItemIndex(id){ var a=state.items||[]; for(var i=0;i<a.length;i++){ 
 /* Finestre costruite fuori dal motore di dialogo: nessuna aveva un gestore di Esc, e «Produzione —
    reparti» restava perfino a intercettare i click. In più un solo Esc chiudeva TRE livelli insieme
    (finestra + selezione sul palco + ricerca nel catalogo): ora chiude un livello per volta. (06/08) */
+/* «I MIEI PROGETTI» E L'ANTEPRIMA (10/11/2026, Simone: «premo l'anteprima e poi ho problemi ad andare avanti e
+   indietro»). Le due finestre non hanno la classe .modal e il gestore dei tasti del palco non le vedeva: le frecce
+   che scorrono l'anteprima spostavano anche l'elemento selezionato del progetto aperto (5 cm a freccia), ⌫ lo
+   cancellava, ⌘Z annullava — e la modifica si salvava online. Con una delle due aperta il palco non riceve tasti. */
+function finestraProgettiAperta(){
+  var m=document.getElementById("cloudModal"), pv=document.getElementById("cloudPrev");
+  return !!((m && m.style && m.style.display && m.style.display!=="none") || (pv && pv.hidden===false));
+}
 var ESC_MODALS=["prodModal","rubModal","learn","clDlg","csvPicker","cloudModal"];
 function escCloseTopModal(target){
   var inField=target && /INPUT|SELECT|TEXTAREA/.test(target.tagName||"");
@@ -25980,6 +25988,7 @@ function escCloseTopModal(target){
 document.addEventListener("keydown", function(e){
   if(clOpen && e.key==="Escape"){ clShow(false); return; }   /* channel list a schermo intero */
   if(e.key==="Escape" && escCloseTopModal(e.target)) return;
+  if(finestraProgettiAperta()) return;   /* «I miei progetti» o la sua anteprima: frecce, ⌫, ⌘Z sono della finestra (10/11) */
   /* «Crea elemento», disegno in corso (fuori dai campi): Esc lo chiude un livello per volta — il poligono a metà si butta,
      lo strumento torna a Seleziona, il rettangolo sul palco si annulla. Invio chiude il poligono, ⌫ e ⌘Z tolgono
      l'ultimo punto. Prima di tutto il resto: la stessa Esc altrimenti deselezionerebbe o chiederebbe di uscire. */
