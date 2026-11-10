@@ -15992,7 +15992,22 @@ function auditEngine(){
   /* I personal mixer (hearback) non sono mandate della console: prima non contavano, e un'orchestra con 19
      personal mixer si sentiva dire «Nessun monitor sul palco» con il pulsante per aggiungere un wedge (revisione 28/09) */
   var _personali=items.some(function(it){ return it.type==="hearback"||it.type==="iem"; });
-  if(audioSrc>AUDIT_MIN_CH && monitors===0 && !_personali && !eventoConferenza()) add("warn","Nessun monitor sul palco: i musicisti non si sentono.","Monitor","Aggiungi wedge o IEM dal catalogo Monitor da palco.",{label:"Aggiungi wedge",run:auditFixAddWedge},"nomon");
+  /* Front fill usati come SPIE (giro utenti 10/11/2026): due account della stessa band hanno disegnato
+     le spie dei musicisti con il «Front fill» del catalogo PA, uno chiamandole proprio «SPIA VOCE»,
+     «SPIA BASSO»… Il front fill è una cassa per il PUBBLICO: non entra nella Lista monitor, il rider
+     esce senza spie e l'audit diceva «Nessun monitor sul palco» a chi ne aveva quattro disegnate.
+     - se il NOME dice spia, glielo si dice col suo nome e il generico «nomon» tace;
+     - se hanno il nome di fabbrica, NON si afferma niente (in una sala intera disegnata come palco i front
+       fill sono veri, visto nel corpus degli esemplari): resta il «Nessun monitor» di sempre, con la seconda via a un click. */
+  var _ff=frontfillComeSpie(items);
+  if(_ff.nome.length)
+    add("warn",(_ff.nome.length===1?"Un «Front fill» sembra una spia":_ff.nome.length+" «Front fill» sembrano spie")+
+        " per i musicisti: il front fill è una cassa per il pubblico, quindi non entra nella Lista monitor e nel rider le spie non ci sono.",
+      "Monitor","Se sono spie, trasformale in wedge: restano dove sono, col loro nome.",
+      {label:"Trasforma in wedge",run:function(){ auditFixFrontfillSpie(_ff.nome); }},"frontfill_spia");
+  var _ffFix=_ff.fabbrica.length ? "Se i front fill sul palco sono le spie dei musicisti, trasformali in wedge: il front fill è una cassa per il pubblico e non entra nella Lista monitor. Altrimenti aggiungi wedge o IEM dal catalogo Monitor da palco." : "Aggiungi wedge o IEM dal catalogo Monitor da palco.";
+  var _ffAct=_ff.fabbrica.length ? {label:"Trasforma in wedge",run:function(){ auditFixFrontfillSpie(_ff.fabbrica); }} : null;
+  if(!_ff.nome.length && audioSrc>AUDIT_MIN_CH && monitors===0 && !_personali && !eventoConferenza()) add("warn","Nessun monitor sul palco: i musicisti non si sentono.","Monitor",_ffFix,{label:"Aggiungi wedge",run:auditFixAddWedge},"nomon",_ffAct);
   /* L6 — prontezza a livello RIDER: un documento consegnabile ha titolo e console dichiarata.
      (Il luogo NO: un rider di band è tipicamente valido per tutte le date.) */
   if(items.length && !String(state.titolo||"").trim()) add("warn","Il progetto non ha un titolo: è l'intestazione del"+(eventoConferenza()?"la scheda tecnica.":" rider."),"Rider","Dai un nome al progetto (in alto): finisce nel PDF e nell'oggetto della mail di condivisione.",{label:"Scrivi il titolo",run:auditFixFocusTitle});
@@ -16411,6 +16426,44 @@ function auditFixAddBox(){
   return n;
 }
 function auditFixAddWedge(){ addItem("wedge"); }
+/* Front fill che fanno da spia (10/11/2026), divisi in due liste:
+   - `nome`: il nome lo dice («SPIA VOCE», «MON 2», «monitor batteria») → è una spia, ci siano o no altri monitor;
+   - `fabbrica`: nome di fabbrica (o vuoto) e posati SUL palco → potrebbero esserlo; li si offre da trasformare
+     solo dentro il «Nessun monitor sul palco», senza affermarlo. «MAIN L», «ARCS»… sono diffusori veri e non
+     finiscono in nessuna delle due. In conferenza i front fill sono normali. */
+var FF_SPIA_RE=/(^|[^a-zà-ú])(spia|spie|monitor|mon|wedge|ritorn[oi])([^a-zà-ú]|$)/i;
+function frontfillComeSpie(items){
+  var r={nome:[], fabbrica:[]};
+  if(eventoConferenza()) return r;
+  var st=state.stage||{}, W=+st.w||0, D=+st.d||0, nomeFabbrica=(TYPES.frontfill&&TYPES.frontfill.nome||"").toLowerCase();
+  (items||[]).forEach(function(it){
+    if(!it || it.type!=="frontfill") return;
+    var lbl=String(it.label||"").trim();
+    if(FF_SPIA_RE.test(lbl)){ r.nome.push(it); return; }
+    if((!lbl || lbl.toLowerCase()===nomeFabbrica) && it.x>=0 && it.y>=0 && it.x<=W && it.y<=D) r.fabbrica.push(it);
+  });
+  return r;
+}
+function auditFixFrontfillSpie(list){
+  if(window.__projLocked) return 0;
+  var ids={}; (list||[]).forEach(function(it){ if(it&&it.id) ids[it.id]=1; });
+  var usati={}; (state.items||[]).forEach(function(it){ if(it&&it.type==="wedge") usati[String(it.label||"").trim().toUpperCase()]=1; });
+  var nomeFabbrica=(TYPES.frontfill&&TYPES.frontfill.nome||"").toLowerCase(), n=0;
+  (state.items||[]).forEach(function(it){
+    if(!it || !ids[it.id] || it.type!=="frontfill") return;
+    var lbl=String(it.label||"").trim();
+    it.type="wedge"; it.w=TYPES.wedge.w; it.d=TYPES.wedge.d;
+    if(!lbl || lbl.toLowerCase()===nomeFabbrica){   /* nome di fabbrica: una mandata per spia, MIX 1, MIX 2… liberi */
+      var k=1; while(usati["MIX "+k]) k++;
+      it.label="MIX "+k; usati["MIX "+k]=1;
+    }
+    n++;
+  });
+  if(!n) return 0;
+  __cabRes=null; save(); render(); if(typeof renderChannels==="function") renderChannels();
+  if(window.__toast) window.__toast(n===1?"Front fill trasformato in wedge":n+" front fill trasformati in wedge", false);
+  return n;
+}
 /* Adotta ogni DI orfana con lo strumento più vicino fra i candidati. Qui indovinare è legittimo: il
    candidato deve già passare da DI ed essere entro 2,5 m — non è una deduzione sul contenuto, è
    l'unica lettura possibile di due oggetti posati accanto. */

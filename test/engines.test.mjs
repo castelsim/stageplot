@@ -23951,6 +23951,57 @@ t("con i personal mixer sul palco non esce «Nessun monitor sul palco»", () => 
   ok(!hasMsg(/Nessun monitor sul palco/), "con un personal mixer tace; findings: " + auditMsgs().join(" | "));
 });
 
+t("front fill usati come spie: l'audit lo dice col suo nome e li trasforma in wedge", () => {
+  /* giro utenti 10/11/2026: due account della stessa band hanno disegnato le spie con il «Front fill»
+     del catalogo PA (uno le ha chiamate «SPIA VOCE», «SPIA BASSO»…). L'audit diceva «Nessun monitor
+     sul palco» a chi ne aveva quattro disegnate, e il rider usciva senza spie. */
+  const band = () => { reset(); for (let i = 0; i < 6; i++) add("cantante", 200 + i * 120, 300); };
+  const ffMsg = /«Front fill» sembr/;
+  /* 1. il nome dice «spia»: si riconosce anche se ci sono altri monitor */
+  band(); const s = add("frontfill", 400, 700); s.label = "SPIA VOCE";
+  ok(hasMsg(ffMsg), "atteso l'avviso mirato; findings: " + auditMsgs().join(" | "));
+  ok(!hasMsg(/Nessun monitor sul palco/), "il generico «Nessun monitor» tace quando c'è quello mirato");
+  const f1 = auditFind(ffMsg)[0];
+  eq(f1.lvl, "warn", "è un avviso, non un errore");
+  eq(f1.act && f1.act.label, "Trasforma in wedge", "con la correzione a un click");
+  f1.act.run();
+  eq(s.type, "wedge", "diventa un wedge"); eq(s.label, "SPIA VOCE", "col suo nome");
+  eq(s.x, 400, "resta dove era"); eq(s.w, A.TYPES.wedge.w, "con le misure del wedge");
+  A.__cabRes = null;
+  ok(!hasMsg(ffMsg) && !hasMsg(/Nessun monitor sul palco/), "dopo la correzione l'audit tace; findings: " + auditMsgs().join(" | "));
+  band(); const w = add("wedge", 300, 600); w.label = "MIX 1"; const s2 = add("frontfill", 500, 700); s2.label = "monitor batteria";
+  ok(hasMsg(ffMsg), "il nome vale anche con un wedge vero già sul palco");
+  /* 2. nome di fabbrica, sul palco, nessun monitor: NON si afferma che siano spie (in una sala intera
+        disegnata come palco i front fill sono veri). Resta il «Nessun monitor» di sempre, con la
+        seconda via a un click accanto ad «Aggiungi wedge». */
+  band(); const a = add("frontfill", 300, 750), b = add("frontfill", 700, 750);
+  eq(a.label, "Front fill", "premessa: nome di fabbrica");
+  ok(!hasMsg(ffMsg), "col nome di fabbrica non si dice che «sembrano spie»");
+  const nm = auditFind(/Nessun monitor sul palco/)[0];
+  ok(nm, "resta il generico; findings: " + auditMsgs().join(" | "));
+  eq(nm.act && nm.act.label, "Aggiungi wedge", "la prima via resta quella di sempre");
+  eq(nm.act2 && nm.act2.label, "Trasforma in wedge", "la seconda: trasformare i front fill");
+  ok(/front fill è una cassa per il pubblico/.test(nm.fix), "e il perché sta nel consiglio");
+  nm.act2.run();
+  eq([a.type, b.type].join(), "wedge,wedge", "trasformati tutti e due");
+  eq([a.label, b.label].join(), "MIX 1,MIX 2", "una mandata per spia, non due spie sulla stessa");
+  A.__cabRes = null;
+  ok(!hasMsg(/Nessun monitor sul palco/), "e il palco ha i suoi monitor");
+  /* controlli negativi: diffusori veri e casi in cui il front fill è giusto */
+  const conTrasforma = () => { const f = auditFind(/Nessun monitor sul palco/)[0]; return !!(f && f.act2); };
+  band(); const m = add("frontfill", 300, 750); m.label = "MAIN L";
+  ok(!hasMsg(ffMsg) && !conTrasforma(), "«MAIN L» è un diffusore vero"); ok(hasMsg(/Nessun monitor sul palco/), "e resta il generico");
+  band(); add("frontfill", 300, 900);
+  ok(!hasMsg(ffMsg) && !conTrasforma(), "fuori dal palco (in sala) è un front fill vero");
+  band();
+  ok(!conTrasforma(), "senza front fill il «Nessun monitor» ha solo «Aggiungi wedge»");
+  band(); const w2 = add("wedge", 300, 600); w2.label = "MIX 1"; add("frontfill", 500, 750);
+  ok(!hasMsg(ffMsg) && !hasMsg(/Nessun monitor sul palco/), "nome di fabbrica + wedge veri sul palco: il front fill è un front fill");
+  const t0 = A.state.tipoEvento;
+  try { band(); A.state.tipoEvento = "conferenza"; const c = add("frontfill", 500, 750); c.label = "spia relatore";
+    ok(!hasMsg(ffMsg), "in conferenza non si discute"); } finally { A.state.tipoEvento = t0; }
+});
+
 t("il 48V messo a mano che contraddice il microfono si vede, e cambiando microfono si riallinea", () => {
   /* revisione 28/09: il phantom forzato a mano restava anche cambiando microfono, e fuori dalla
      consulenza nessun controllo lo guardava: un condensatore muto al soundcheck finiva nel rider. */
