@@ -37195,9 +37195,18 @@ function pdfDatiTecnici(){
    stimato») e nell'audit. È una stima per chi carica il furgone, non per chi riceve il rider: si stampa solo
    con la casella «Pesi (kg)» accesa in «Altre opzioni», e la scelta resta nel progetto (state.pdfPesi). */
 function pdfPesiOn(){ return !!(state && state.pdfPesi===true) && pdfDatiTecnici(); }
+/* CANALI NEL CARTIGLIO (10/11/2026, Simone: «quella deve essere una cosa avanzata: l'utente va volontariamente a
+   lavorare sui canali, e allora vengono fuori scritti in basso a sinistra del cartiglio; altrimenti non devono esserci»).
+   Il numero si conta dagli elementi che AVREBBERO un canale (cabItemInputs): con le Liste tecniche spente nessuno l'ha
+   guardato né corretto, e sul foglio che va al service può essere un'informazione sbagliata. Quindi: solo con le Liste
+   tecniche accese, oltre a Esporta avanzato (pdfDatiTecnici). Fuori dall'editor (senza le funzioni) come prima. */
+function pdfCanaliOn(){
+  try{ return typeof funzOn!=="function" || !!funzOn("liste"); }catch(e){ return true; }
+}
 function pdfTotals(opts){
   var it=state.items||[], out=[];
   var tecn=(opts && ("tecnici" in opts)) ? !!opts.tecnici : pdfDatiTecnici();
+  var conCanali=(opts && ("canali" in opts)) ? !!opts.canali : (tecn && pdfCanaliOn());
   function n(f){ var c=0; it.forEach(function(x){ if(f(x)) c++; }); return c; }
   var canali=0; it.forEach(function(x){ try{ canali+=cabItemInputs(x).length; }catch(e){} });
   /* LEGGII — la stessa regola dello Stato, leggiiConteggio(): si conta ciò che si disegna (27/10/2026);
@@ -37217,7 +37226,7 @@ function pdfTotals(opts){
   var hub=n(function(x){ return x.type==="mixhub"; });
   var wedge=n(function(x){ return x.type==="wedge"||x.type==="sidefill"; });
   var iem=n(function(x){ return x.type==="iem"; });
-  if(canali && tecn) out.push(canali+" canali");
+  if(canali && conCanali) out.push(canali+" canali");
   if(leggii) out.push(leggii+(leggii===1?" leggio":" leggii"));
   if(L.direttore) out.push(L.direttore+(L.direttore===1?" leggio direttore":" leggii direttore"));
   if(L.tablet)    out.push(L.tablet+(L.tablet===1?" leggio tablet":" leggii tablet"));
