@@ -4878,6 +4878,8 @@ body.cust-contorno .item.selected .selbox{display:none}
     <div id="pGazWrap" style="display:none"><label for="pGaz">Taglia</label><select id="pGaz"></select><div style="font-size:11px;color:var(--text-3);margin-top:3px">Poi trascinabile a piacimento.</div></div>
     <!-- B3 (27/07): campo numerico al posto dello slider — mezza riga invece di una intera, e dà il valore
          esatto. Il gesto rapido resta la maniglia di rotazione sul canvas. -->
+    <div id="pPuntaWrap" style="display:none"><label for="pPunta">Punta verso <small class="lbl-note">— lo gira verso chi ascolta e lo allinea</small></label>
+      <div style="display:flex;gap:6px;align-items:center"><select id="pPunta" style="flex:1 1 auto;min-width:0"></select><button class="btn" type="button" id="pPuntaGo" style="flex:0 0 auto;width:auto;height:auto">Punta</button></div></div>
     <div class="sldrow" id="pRotRow"><label for="pRot">Rotazione</label>
       <input type="range" id="pRot" min="-180" max="180" step="1" value="0">
       <output id="pRotVal">0°</output></div>
@@ -5196,6 +5198,9 @@ body.cust-contorno .item.selected .selbox{display:none}
     <div class="row">
       <button class="btn" id="grpRotL">⟲ 15</button>
       <button class="btn" id="grpRotR">⟳ 15</button>
+    </div>
+    <div class="row" id="grpPuntaRow" style="display:none">
+      <button class="btn" id="grpPunta" style="flex:1" title="Ogni monitor selezionato si gira verso chi lo ascolta e si allinea; i side fill verso il centro del palco">Punta i monitor verso chi ascolta</button>
     </div>
     <div class="row">
       <button class="btn" id="grpLineDist" title="Mette gli elementi selezionati in linea orizzontale, equidistanti, tra il più a sinistra e il più a destra" style="flex:1">⇿ Allinea equidistanti</button>

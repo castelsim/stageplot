@@ -918,6 +918,8 @@
     <div id="pGazWrap" style="display:none"><label for="pGaz">Taglia</label><select id="pGaz"></select><div style="font-size:11px;color:var(--text-3);margin-top:3px">Poi trascinabile a piacimento.</div></div>
     <!-- B3 (27/07): campo numerico al posto dello slider — mezza riga invece di una intera, e dà il valore
          esatto. Il gesto rapido resta la maniglia di rotazione sul canvas. -->
+    <div id="pPuntaWrap" style="display:none"><label for="pPunta">Punta verso <small class="lbl-note">— lo gira verso chi ascolta e lo allinea</small></label>
+      <div style="display:flex;gap:6px;align-items:center"><select id="pPunta" style="flex:1 1 auto;min-width:0"></select><button class="btn" type="button" id="pPuntaGo" style="flex:0 0 auto;width:auto;height:auto">Punta</button></div></div>
     <div class="sldrow" id="pRotRow"><label for="pRot">Rotazione</label>
       <input type="range" id="pRot" min="-180" max="180" step="1" value="0">
       <output id="pRotVal">0°</output></div>
@@ -1236,6 +1238,9 @@
     <div class="row">
       <button class="btn" id="grpRotL">⟲ 15</button>
       <button class="btn" id="grpRotR">⟳ 15</button>
+    </div>
+    <div class="row" id="grpPuntaRow" style="display:none">
+      <button class="btn" id="grpPunta" style="flex:1" title="Ogni monitor selezionato si gira verso chi lo ascolta e si allinea; i side fill verso il centro del palco">Punta i monitor verso chi ascolta</button>
     </div>
     <div class="row">
       <button class="btn" id="grpLineDist" title="Mette gli elementi selezionati in linea orizzontale, equidistanti, tra il più a sinistra e il più a destra" style="flex:1">⇿ Allinea equidistanti</button>
@@ -19716,6 +19721,7 @@ function renderProps(){
         if(typeof bglAbilitatoAggiorna==="function") bglAbilitatoAggiorna();
       } }
     /* --- dimensione etichetta per tutti (normalizza) --- */
+    document.getElementById("grpPuntaRow").style.display = (!window.__projLocked && selItems().some(function(x){ return monFronte(x.type)!==0; })) ? "" : "none";
     document.getElementById("grpLblWrap").style.display="block";
     var cs=(its[0].lblSize==null?14:its[0].lblSize); document.getElementById("grpLblSize").value=cs; document.getElementById("grpLblSizeVal").textContent=cs;
     /* --- posizione etichetta (solo postazioni con sedia) --- */
@@ -19814,6 +19820,7 @@ function renderProps(){
     w.style.display = PER_CHI[it.type] ? "" : "none";
     if(PER_CHI[it.type] && document.activeElement!==inp) inp.value = it.perChi||"";
   })();
+  monPuntaPannello(it);
   var _pn=document.getElementById("pNote");
   if(document.activeElement!==_pn) _pn.value = it.note||"";   /* mentre si scrive non si riscrive (segnalazione 68b902d9) */
   _pn.placeholder = NOTE_HINT[it.type] || "es. fornito dalla band";   /* il suggerimento parla del pezzo che si ha davanti */
@@ -20590,6 +20597,10 @@ function mutSelAll(fn){ primaDiAgire(); var it=getSel(); if(!it) return;
   tutti.forEach(fn); render(); save(); }
 function mutSelSoon(fn){ var it=getSel(); if(!it) return; fn(it); render(); saveSoon(); }   /* per la digitazione: snapshot di cronologia debounce-ato */
 document.getElementById("bPedanaInArea").addEventListener("click", function(){ mutSel(function(it){ pedanaInArea(it); }); if(stageEdit) renderStagePanel(); });   /* un passo di Annulla (19/10/2026). In modalità palco la chip «Pedana N» della pedana convertita restava lì (revisione 19/10/2026) */
+document.getElementById("pPuntaGo").addEventListener("click", function(){
+  var it=getSel(), v=document.getElementById("pPunta").value; if(!it) return;
+  monPuntaVerso(it, v==="centro" ? monCentroPalco() : monPersone().filter(function(p){ return String(p.id)===v; })[0]);
+});
 document.getElementById("pPerChi").addEventListener("input", function(){ mutSelSoon(function(it){
   if(!PER_CHI[it.type]) return; var v=document.getElementById("pPerChi").value.slice(0,40);
   if(v.trim()) it.perChi=v; else delete it.perChi; __cabRes=null; }); });
@@ -21540,7 +21551,7 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
   group("Installazione", null, ["pMountWrap"]);
   group("Dettagli tecnici", null, ["pIfaceWrap","pCompIfaceWrap","pModelWrap","pLocInWrap","pUsoWrap","pBmWrap","pLmWrap","pModWrap","pWattWrap","pRfWrap","pPmWrap"]);   /* la richiesta di setup NON e' un dettaglio tecnico: e' un'azione verso una persona, e sta con la persona */
   group("Nota", "quello che il disegno non dice", ["pNoteWrap"]);
-  group("Disegno", null, ["pLookWrap","pDims","pDimSideWrap","pShapeWrap","pRugWrap","pRotRow",
+  group("Disegno", null, ["pLookWrap","pDims","pDimSideWrap","pShapeWrap","pRugWrap","pPuntaWrap","pRotRow",
         "pLblSizeWrap","pLblSizeAll","pAlignWrap","pTxtColorWrap","pLblPosWrap"]);
 
   /* ── TELEFONO: le cose da scrivania stanno dietro un bottone (02/09, Simone: «da telefono
@@ -21767,6 +21778,9 @@ function renderUsoField(it){
 })();
 document.getElementById("pDel").addEventListener("click", deleteSelGuarded);
 document.getElementById("grpRotL").addEventListener("click", function(){ rotateSel(-15); });
+document.getElementById("grpPunta").addEventListener("click", function(){
+  monPuntaTutti(selItems().filter(function(x){ return monFronte(x.type)!==0; }));
+});
 document.getElementById("grpRotR").addEventListener("click", function(){ rotateSel(15); });
 document.getElementById("grpLineDist").addEventListener("click", distributeSelInLine);
 document.getElementById("grpDup").addEventListener("click", function(){ duplicateSel(); });
@@ -25088,6 +25102,8 @@ svg.addEventListener("drop", function(e){
   e.preventDefault(); svg.classList.remove("drop-target");
   var p=svgPoint(e), over=data.over?JSON.parse(JSON.stringify(data.over)):{};
   over.x=placeCoord(p.x,e); over.y=placeCoord(p.y,e);
+  var _posa={type:data.k, x:over.x, y:over.y, rot:0};
+  if(monAggancioPosa(_posa)){ over.x=_posa.x; over.y=_posa.y; over.rot=_posa.rot; }
   addItem(data.k, over);
   catCompactSoon();   /* elemento scelto via drag&drop: il catalogo si ricompatta dopo 10 s di inutilizzo */
 });
@@ -31540,6 +31556,96 @@ function performerSpots(){
     return { id:it.id, x:it.x, y:it.y, rot:(it.rot||0), kind:performerKind(it), label:(it.label||TYPES[it.type].nome) };
   });
 }
+/* «PUNTA VERSO…» (09/11/2026): il monitor selezionato si gira verso chi lo ascolta e si allinea.
+   Regola di Simone per chi disegna: un wedge sta dritto e davanti alla persona, a 0° o 180° rispetto al bordo del palco oppure
+   allo stesso angolo della postazione, mai ad angoli casuali. I side fill guardano il centro del palco, il drum fill il batterista.
+   Le aste contano come persone: spesso un cantante è disegnato solo con la sua asta (anche nei modelli). */
+var MON_MIC_PERSONA={astamic:1, astabassa:1, giraffa:1, wireless:1, headset:1};
+var MON_DRITTO_TOLL=20, MON_ALLINEA_MAX=60, MON_AGGANCIO_MAX=170, MON_ASTA_PENALE=80;
+function monGradi(a){ a=((a%360)+360)%360; return a>180 ? a-360 : a; }   /* (−180, 180], come il cursore della rotazione */
+function monScarto(a,b){ return Math.abs(monGradi(a-b)); }
+function monRotVerso(type,dx,dy){ var v=monFronte(type); return monGradi(Math.atan2(-v*dx, v*dy)*180/Math.PI); }
+function monEmissione(type,rot){ var v=monFronte(type), r=(rot||0)*Math.PI/180; return {x:-v*Math.sin(r), y:v*Math.cos(r)}; }
+/* Dove sta la persona: il centro dell'elemento, tranne il batterista, che siede dietro il suo kit. */
+function monPuntoPersona(x){
+  if(x.type!=="batteria") return {x:x.x, y:x.y};
+  var L=drumSlots(parts(x)), B=drumBBox(L), S=L.filter(function(sl){ return sl.seat; })[0];
+  if(!S) return {x:x.x, y:x.y};
+  var lx=S.x-B.cx, ly=S.y-B.cy, r=(x.rot||0)*Math.PI/180;
+  return {x:Math.round(x.x+lx*Math.cos(r)-ly*Math.sin(r)), y:Math.round(x.y+lx*Math.sin(r)+ly*Math.cos(r))};
+}
+function monPersone(){
+  return (state.items||[]).filter(function(x){ return ascoltoEligible(x) || MON_MIC_PERSONA[x.type]; }).map(function(x){
+    var p=monPuntoPersona(x);
+    return {id:x.id, x:p.x, y:p.y, rot:x.rot||0, asse:true, asta:!!MON_MIC_PERSONA[x.type], batteria:performerKind(x)==="batteria",
+            ascoltoId:x.ascoltoId, nome:String(x.label||"").trim()||TYPES[x.type].nome};
+  });
+}
+function monCentroPalco(){ return {x:(state.stage.w||0)/2, y:(state.stage.d||0)/2, asse:false, centro:true, nome:"Centro del palco"}; }
+function monDistanza(mon,p){ return Math.hypot(p.x-mon.x, p.y-mon.y); }
+/* Dal più adatto al meno: chi l'ha dichiarato come suo ascolto, chi si chiama come il monitor, poi il più vicino. Le aste pesano meno
+   di una persona disegnata, a pari distanza: un'asta davanti a un chitarrista non deve rubargli la spia. Il drum fill cerca il batterista. */
+function monPersoneOrdinate(mon){
+  var nome=String(mon.perChi||mon.label||"").trim().toLowerCase();
+  function peso(p){
+    if(p.ascoltoId && p.ascoltoId===mon.id) return -2e6;
+    if(nome && p.nome.toLowerCase()===nome) return -1e6+monDistanza(mon,p);
+    if(mon.type==="drumfill" && p.batteria) return -5e5+monDistanza(mon,p);
+    return monDistanza(mon,p)+(p.asta?MON_ASTA_PENALE:0);
+  }
+  return monPersone().filter(function(p){ return p.id!==mon.id; }).sort(function(a,b){ return peso(a)-peso(b); });
+}
+function monBersaglio(mon){ return mon.type==="sidefill" ? monCentroPalco() : (monPersoneOrdinate(mon)[0]||null); }
+/* Il conto, senza toccare niente. Se la persona è quasi dritta davanti (asse della sua postazione, o i quattro angoli del palco) il monitor
+   prende quell'angolo esatto e il wedge si sposta sull'asse, alla stessa distanza, purché basti poco. Altrimenti (una spia di lato, in diagonale)
+   punta dritto alla persona e resta dov'è. */
+function monPuntaCalcola(mon,t){
+  var dx=t.x-mon.x, dy=t.y-mon.y;
+  if(Math.hypot(dx,dy)<1) return {x:mon.x, y:mon.y, rot:mon.rot||0};
+  var a0=monRotVerso(mon.type,dx,dy), esito={x:mon.x, y:mon.y, rot:Math.round(a0)};
+  if(!t.asse) return esito;
+  var asse=monGradi(t.rot+(monFronte(mon.type)<0 ? 0 : 180)), scelto=monScarto(a0,asse)<=MON_DRITTO_TOLL ? asse : null;   /* l'asse della postazione vince sui quattro angoli */
+  if(scelto===null) [0,90,180,-90].forEach(function(c){ if(monScarto(a0,c)<=MON_DRITTO_TOLL && (scelto===null || monScarto(a0,c)<monScarto(a0,scelto))) scelto=c; });
+  if(scelto===null) return esito;
+  esito.rot=scelto;
+  if(mon.type==="wedge"){
+    var e=monEmissione(mon.type,scelto), lungo=dx*e.x+dy*e.y, lato=Math.abs(dx*e.y-dy*e.x);
+    if(lato<=MON_ALLINEA_MAX){ esito.x=Math.round(t.x-e.x*lungo); esito.y=Math.round(t.y-e.y*lungo); }
+  }
+  return esito;
+}
+function monApplica(mon,t){ var r=monPuntaCalcola(mon,t); mon.rot=r.rot; mon.x=r.x; mon.y=r.y; }
+function monPuntaFine(){ __cabRes=null; __mondRes=null; render(); save(); if(typeof renderProps==="function") renderProps(); }
+function monPuntaVerso(mon,t){ if(!mon || !t || window.__projLocked) return; primaDiAgire(); monApplica(mon,t); monPuntaFine(); }
+function monPuntaTutti(list){
+  if(window.__projLocked || !list || !list.length) return 0;
+  primaDiAgire(); var n=0;
+  list.forEach(function(mon){ var t=monBersaglio(mon); if(t){ monApplica(mon,t); n++; } });
+  if(n) monPuntaFine();
+  return n;
+}
+/* Un wedge POSATO davanti a qualcuno dal catalogo si aggancia da solo. Solo quello appena posato e solo davanti (entro 60° dalla direzione in
+   cui guarda la persona): spostare un monitor che c'è già non gli cambia mai l'angolo, altrimenti non si potrebbe metterlo di lato apposta. */
+function monAggancioPosa(mon){
+  if(mon.type!=="wedge") return false;
+  var t=monPersoneOrdinate({type:"wedge", x:mon.x, y:mon.y})[0];
+  if(!t || monDistanza(mon,t)>MON_AGGANCIO_MAX) return false;
+  var r=t.rot*Math.PI/180, fx=-Math.sin(r), fy=Math.cos(r), dx=mon.x-t.x, dy=mon.y-t.y, n=Math.hypot(dx,dy)||1;
+  if((dx*fx+dy*fy)/n<Math.cos(Math.PI/3)) return false;
+  monApplica(mon,t); return true;
+}
+/* Il pannello: il bersaglio proposto per primo, poi gli altri dal più vicino. Si ricostruisce solo se la tendina non è aperta. */
+function monPuntaPannello(it){
+  var w=document.getElementById("pPuntaWrap"), sel=document.getElementById("pPunta"); if(!w||!sel) return;
+  var on=monFronte(it.type)!==0 && !window.__projLocked, pers=on ? monPersoneOrdinate(it).slice(0,15) : [];
+  if(!on || (!pers.length && it.type!=="sidefill")){ w.style.display="none"; return; }
+  w.style.display="";
+  if(document.activeElement===sel) return;
+  var voci=(it.type==="sidefill" ? ['<option value="centro">Centro del palco</option>'] : []).concat(pers.map(function(p){
+    return '<option value="'+p.id+'">'+esc(p.nome)+' · '+(monDistanza(it,p)/100).toFixed(1).replace(".",",")+' m</option>'; }));
+  sel.innerHTML=voci.join("");
+  sel.selectedIndex=0;
+}
 /* ── ASCOLTO per performer (Simone 21/07): musicisti, cantanti, direttori dichiarano COSA usano per
    sentirsi → l'app crea/associa l'elemento monitor giusto vicino a loro, nel layer competente. ── */
 var ASCOLTO_TYPE = { wedge:"wedge", iem:"iem", pm:"hearback", cuffie:"cuffie" };
@@ -32162,7 +32268,9 @@ function setAscolto(it, kind){
   if(!kind || kind==="none"){ delete it.ascolto; __cabRes=null; __mondRes=null; save(); render(); renderProps(); return; }
   var type=ASCOLTO_TYPE[kind]; if(!type){ delete it.ascolto; return; }
   var pos=ascoltoPos(it, kind);
-  var created=addItem(type, {x:pos[0], y:pos[1], label:(it.label||TYPES[it.type].nome||"MIX")});   /* etichetta = nome del performer → suo mix */
+  var _over={x:pos[0], y:pos[1], label:(it.label||TYPES[it.type].nome||"MIX")};
+  if(kind==="wedge") _over.rot=monGradi(it.rot||0);   /* davanti a una postazione inclinata la spia ha il suo stesso angolo: a rot 0 usciva storta */
+  var created=addItem(type, _over);   /* etichetta = nome del performer → suo mix */
   it.ascolto=kind; if(created && created.id) it.ascoltoId=created.id;
   selectOne(it.id);   /* torna al performer (addItem aveva selezionato il monitor) */
   __cabRes=null; __mondRes=null; save(); render(); renderProps();
@@ -32197,7 +32305,8 @@ function monProposeWedges(){
     if(drummer){ type="drumfill"; x=Math.round(g.cx+80); y=Math.round(g.cy); }   /* drum-fill accanto al kit */
     else { type="wedge"; x=Math.round(g.cx); y=Math.round(g.cy+90); }             /* wedge davanti, verso il pubblico */
     x=Math.min(state.stage.w-40, Math.max(40, x)); y=Math.min(state.stage.d-30, Math.max(60, y));
-    addItem(type, {x:Math.round(x), y:Math.round(y), label:"MIX "+(mixBase+i+1)});   /* orientamento default: etichetta leggibile (il rot 180 la capovolgeva) */
+    var _nuovo=addItem(type, {x:Math.round(x), y:Math.round(y), label:"MIX "+(mixBase+i+1)});   /* orientamento default: etichetta leggibile (il rot 180 la capovolgeva) */
+    if(_nuovo && drummer){ var _sB=monPersoneOrdinate(_nuovo).filter(function(p){ return p.batteria; })[0]; if(_sB) monApplica(_nuovo,_sB); }   /* a rot 0 il drum fill suonava verso il pubblico */
     n++;
   });
   return n;
