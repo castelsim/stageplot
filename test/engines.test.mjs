@@ -14322,7 +14322,7 @@ t("contrasti misurati sui valori del CSS: tema scuro e pulsante del benvenuto", 
   ok(/#props input\[type=range\]:focus-visible\{[^}]*box-shadow:0 0 0 3px var\(--focus-ring\)/.test(stylesCss), "i cursori del pannello non mostrano il focus");
 });
 t("l'audit dice la gravità a parole, e non dice «pronto» a un palco vuoto", () => {
-  ok(/var lv=x\.lvl==="err"\?"Errore":\(x\.lvl==="todef"\?"Da definire":"Avviso"\);/.test(appjs) && /● '\+lv\+'</.test(appjs), "la gravità dei rilievi è data solo dal colore");
+  ok(/var lv=x\.lvl==="err"\?"Errore":\(x\.lvl==="todef"\?"Da definire":\(x\.lvl==="nota"\?"Nota":"Avviso"\)\);/.test(appjs) && /● '\+lv\+'</.test(appjs), "la gravità dei rilievi è data solo dal colore");
   ok(/if\(!probs\.length && !\(state\.items\|\|\[\]\)\.length\)\{ host\.innerHTML='<div[^>]*>Palco vuoto/.test(appjs), "sul palco vuoto l'audit dice ancora «il rider sembra pronto»");
 });
 t("da tastiera si entra nel pannello proprietà (Invio) e si torna al palco (Esc)", () => {
@@ -28648,6 +28648,120 @@ t("punta verso: il comando è nel pannello, nel gruppo Disegno, e parla da solo"
   ok(/group\("Disegno", null, \[[^\]]*"pPuntaWrap","pRotRow"/.test(html), "accanto alla rotazione, così sul telefono resta in vista");
   ok(/id="grpPuntaRow"/.test(html) && /getElementById\("grpPunta"\)\.addEventListener/.test(html), "e il bottone per il gruppo");
   ok(/monAggancioPosa\(_posa\)\)\{ over\.x=_posa\.x; over\.y=_posa\.y; over\.rot=_posa\.rot; \}\s*addItem\(data\.k, over\);/.test(html), "il drop dal catalogo aggancia il wedge prima di crearlo: Annulla lo toglie in un colpo solo");
+});
+
+/* ---- MONITOR STORTI nell'audit (09/11/2026) ---- */
+function esitoMonitor(mon, altri) {   /* un palco 10×8 con una persona a 500,300 (salvo altri) e un monitor */
+  palcoMonitor([...(altri || [{ type: "cantante", x: 500, y: 300, label: "Voce" }]), mon]);
+  const L = A.monitorDaRivedere();
+  return L.length ? L[0].perche : "ok";
+}
+t("monitor storti: davanti e dritto va bene, un po' storto no, chi suona nel vuoto no", () => {
+  eq(esitoMonitor({ type: "wedge", x: 500, y: 400 }), "ok", "dritto davanti");
+  eq(esitoMonitor({ type: "wedge", x: 560, y: 400 }), "ok", "dritto anche un po' di lato: è un wedge a 0°");
+  eq(esitoMonitor({ type: "wedge", x: 500, y: 400, rot: 3 }), "ok", "3° sono ancora dritti");
+  eq(esitoMonitor({ type: "wedge", x: 500, y: 400, rot: 357 }), "ok", "anche scritti come 357");
+  eq(esitoMonitor({ type: "wedge", x: 620, y: 400, rot: 8 }), "storto", "8° senza una ragione: storto");
+  eq(esitoMonitor({ type: "wedge", x: 620, y: 400, rot: 3 }), "ok", "di lato alla persona, 3° sono ancora dritti");
+  eq(esitoMonitor({ type: "wedge", x: 620, y: 400, rot: 4 }), "storto", "4° no");
+  eq(esitoMonitor({ type: "wedge", x: 500, y: 400, rot: 180 }), "nessuno", "rot 180 suona verso il pubblico, la persona gli resta dietro");
+  eq(esitoMonitor({ type: "wedge", x: 500, y: 300 + 401 }), "nessuno", "oltre 4 m non serve nessuno");
+  eq(esitoMonitor({ type: "wedge", x: 500, y: 300 + 399 }), "ok", "entro 4 m sì");
+});
+t("monitor storti: l'angolo vale se è quello della postazione o se punta alla persona; il cono si ferma a 60°", () => {
+  const voce = (rot) => [{ type: "cantante", x: 500, y: 300, rot, label: "Voce" }];
+  eq(esitoMonitor({ type: "wedge", x: 480, y: 400, rot: 12 }, voce(12)), "ok", "stesso angolo della postazione");
+  eq(esitoMonitor({ type: "wedge", x: 480, y: 400, rot: 33 }, voce(30)), "ok", "3° dalla postazione, anche se la persona è a 11°");
+  eq(esitoMonitor({ type: "wedge", x: 480, y: 400, rot: 34 }, voce(30)), "storto", "4° dalla postazione e 23° dalla persona: storto");
+  eq(esitoMonitor({ type: "wedge", x: 480, y: 400, rot: 18 }, voce(0)), "storto", "18° con una postazione a 0 e la persona a 11°: storto");
+  eq(esitoMonitor({ type: "wedge", x: 650, y: 450, rot: -45 }), "ok", "in diagonale, esatto sulla persona");
+  eq(esitoMonitor({ type: "wedge", x: 650, y: 450, rot: -39 }), "ok", "entro 6° dalla persona");
+  eq(esitoMonitor({ type: "wedge", x: 650, y: 450, rot: -38 }), "storto", "oltre 6° dalla persona");
+  eq(esitoMonitor({ type: "wedge", x: 700, y: 300, rot: -31 }), "storto", "59° dalla persona: nel cono, ma storto");
+  eq(esitoMonitor({ type: "wedge", x: 700, y: 300, rot: -29 }), "nessuno", "61°: fuori dal cono");
+});
+t("monitor storti: conta il monitor della persona giusta, se ha un nome; il drum fill guarda il batterista; il side fill il palco o una sezione", () => {
+  const due = [{ type: "cantante", x: 100, y: 400, label: "Basso" }, { type: "cantante", x: 500, y: 300, label: "Voce" }];
+  eq(esitoMonitor({ type: "wedge", x: 500, y: 400, label: "Voce" }, due), "ok", "il suo");
+  eq(esitoMonitor({ type: "wedge", x: 500, y: 400, label: "Basso" }, due), "nessuno", "dice Basso e guarda la voce");
+  const kit = [{ type: "batteria", x: 500, y: 300, label: "Kit" }, { type: "cantante", x: 800, y: 300, label: "Voce" }];
+  A.TYPES.batteria.draw(kit[0]);
+  const posto = () => A.monPuntoPersona(A.state.items[0]);
+  eq(esitoMonitor({ type: "drumfill", x: 700, y: 300, rot: 0 }, kit), "nessuno", "a rot 0 suona verso il pubblico");
+  const r = (() => { palcoMonitor(kit); return A.monRotVerso("drumfill", posto().x - 700, posto().y - 300); })();
+  eq(esitoMonitor({ type: "drumfill", x: 700, y: 300, rot: Math.round(r) + 25 }, kit), "ok", "di lato al kit l'angolo è libero, basta che lo guardi");
+  eq(esitoMonitor({ type: "drumfill", x: 300, y: 500, rot: 180 }, [{ type: "cantante", x: 300, y: 400, label: "Voce" }]), "ok", "senza batteria vale la persona davanti");
+  eq(esitoMonitor({ type: "drumfill", x: 300, y: 500, rot: 165 }, [{ type: "cantante", x: 300, y: 400, label: "Voce" }]), "ok", "e l'angolo resta libero anche lì");
+  eq(esitoMonitor({ type: "drumfill", x: 700, y: 300, rot: -90 }, kit), "nessuno", "guarda la voce e non il batterista: non serve");
+  eq(esitoMonitor({ type: "sidefill", x: 50, y: 400, rot: -90 }), "ok", "guarda il centro");
+  eq(esitoMonitor({ type: "sidefill", x: 50, y: 400, rot: 90 }), "palco", "guarda fuori dal palco");
+  eq(esitoMonitor({ type: "sidefill", x: 900, y: 400, rot: -90 }, [{ type: "cantante", x: 970, y: 400, label: "Coro" }]), "ok", "guarda fuori ma ha una sezione davanti");
+  eq(esitoMonitor({ type: "sidefill", x: 100, y: 400, rot: 180 }, [{ type: "cantante", x: 100, y: -190, label: "Fondo" }]), "ok", "verso il fondo, con una sezione entro 6 m");
+  eq(esitoMonitor({ type: "sidefill", x: 100, y: 400, rot: 180 }, [{ type: "cantante", x: 100, y: -210, label: "Lontano" }]), "palco", "con la sezione oltre i 6 m no");
+});
+t("monitor storti: fuori dal palco o con nessuna persona non si giudica", () => {
+  eq(esitoMonitor({ type: "wedge", x: -80, y: 300, rot: 33 }), "ok", "fuori a sinistra: è di scorta");
+  eq(esitoMonitor({ type: "wedge", x: 500, y: 900, rot: 33 }), "ok", "fuori in basso");
+  eq(esitoMonitor({ type: "wedge", x: 1100, y: 300, rot: 33 }), "ok", "fuori a destra");
+  eq(esitoMonitor({ type: "wedge", x: 500, y: -50, rot: 33 }), "ok", "fuori in alto");
+  eq(esitoMonitor({ type: "wedge", x: 500, y: 400, rot: 33 }, []), "ok", "nessuna persona sul palco");
+});
+t("monitor storti: dopo «Punta verso…» nessun monitor è più da rivedere, a 500 prove", () => {
+  let seme = 12345; const caso = (n) => { seme = (seme * 1103515245 + 12345) & 0x7fffffff; return seme % n; };
+  for (let i = 0; i < 500; i++) {
+    const p = { type: "cantante", x: 300 + caso(400), y: 200 + caso(400), rot: caso(72) * 5, label: "P" };
+    const ang = caso(360) * Math.PI / 180, dist = 80 + caso(300);
+    const m = { type: ["wedge", "wedge", "drumfill", "sidefill"][caso(4)], x: Math.round(p.x + Math.cos(ang) * dist), y: Math.round(p.y + Math.sin(ang) * dist), rot: caso(360), label: "" };
+    const its = palcoMonitor([p, m]);
+    A.monPuntaTutti([its[1]]);
+    const L = A.monitorDaRivedere();
+    eq(L.length, 0, "caso " + i + ": " + JSON.stringify(m) + " di " + JSON.stringify(p) + " → " + JSON.stringify({ rot: its[1].rot, x: its[1].x, y: its[1].y }) + " " + (L[0] && L[0].perche));
+  }
+});
+t("monitor storti: nell'audit è una nota — niente punti tolti, azioni pronte, spenta col Controllo tecnico", () => {
+  const its = palcoMonitor([{ type: "cantante", x: 500, y: 300, label: "Voce" }, { type: "wedge", x: 500, y: 400, rot: 8, label: "Spia" }]);
+  const r = A.auditEngine(), f = r.findings.find(x => x.rule === "monitor-direzione");
+  ok(f, "c'è la voce");
+  eq(f.lvl, "nota", "livello nota");
+  ok(/«Spia» è storto rispetto a Voce/.test(f.msg), "dice quale e rispetto a chi: " + f.msg);
+  eq(f.act.label, "Mostra", "«Mostra» per primo");
+  eq(f.act2.label, "Punta verso chi ascolta", "poi il rimedio");
+  its[1].rot = 0;
+  const pulito = A.auditEngine();
+  ok(!pulito.findings.some(x => x.rule === "monitor-direzione"), "raddrizzato non c'è più");
+  eq(pulito.score, r.score, "non toglie punti");
+  eq(pulito.warns, r.warns, "non conta come avviso"); eq(pulito.errs, r.errs, "né come errore");
+  its[1].rot = 8;
+  const af = A.funzOn; A.funzOn = (k) => k !== "controllo";
+  try { ok(!A.auditEngine().findings.some(x => x.rule === "monitor-direzione"), "col Controllo tecnico spento non c'è"); } finally { A.funzOn = af; }
+  /* il rimedio funziona davvero */
+  A.auditEngine().findings.find(x => x.rule === "monitor-direzione").act2.run();
+  eq([its[1].x, its[1].y, its[1].rot], [500, 400, 0], "«Punta verso chi ascolta» lo raddrizza");
+  ok(!A.auditEngine().findings.some(x => x.rule === "monitor-direzione"), "e la voce sparisce");
+  /* frasi degli altri casi */
+  its[1].rot = 180;
+  ok(/«Spia» non suona verso Voce/.test(A.auditEngine().findings.find(x => x.rule === "monitor-direzione").msg), "suona nel vuoto");
+  const altri = palcoMonitor([{ type: "cantante", x: 500, y: 300, label: "Voce" }, { type: "sidefill", x: 50, y: 400, rot: 90, label: "SF" }]);
+  ok(/«SF» non suona verso il palco/.test(A.auditEngine().findings.find(x => x.rule === "monitor-direzione").msg), "side fill");
+  altri.push({ id: "z", type: "wedge", x: 500, y: 400, rot: 180, w: 60, d: 52, label: "Spia" });
+  ok(/^2 monitor sono storti o non suonano verso nessuno \(SF, Spia\)\.$/.test(A.auditEngine().findings.find(x => x.rule === "monitor-direzione").msg), "più di uno: conta e nomi");
+});
+t("monitor storti: la nota si legge nel pannello ma non entra in nessun PDF e non ferma l'esportazione", () => {
+  const html = readFileSync(join(root, "index.template.html"), "utf8");
+  ok(/var probs=A\.findings\.filter\(function\(x\)\{ return x\.lvl==="err"\|\|x\.lvl==="warn"\|\|x\.lvl==="todef"\|\|x\.lvl==="nota"; \}\);/.test(html), "nel pannello sì");
+  ok(/x\.lvl==="nota"\?"Nota":"Avviso"/.test(html), "con la parola «Nota», non «Avviso»");
+  const righe = [...html.matchAll(/findings(?:\|\|\[\])?\)?\.filter\(function\(x\)\{\s*return [^}]*\}\)/g)].map(m => m[0]);
+  ok(righe.length >= 5, "le letture degli avvisi sono state trovate (" + righe.length + ")");
+  eq(righe.filter(r => /nota/.test(r)).length, 1, "una sola lettura conosce le note: il pannello");
+});
+t("monitor storti: i monitor dei modelli sono tutti a posto", () => {
+  ["buildMatrimonioOut", "buildDjOut", "buildTributoOut", "buildAcousticOut", "buildCoroOut", "buildBigBandOut", "buildJazzComboOut", "buildOrchBandOut"].forEach(nome => {
+    A.state.stage.w = 6000; A.state.stage.d = 4000;
+    A.state.items = A[nome]().map((o, i) => ({ id: "t" + i, rot: 0, w: (A.TYPES[o.type] || {}).w, d: (A.TYPES[o.type] || {}).d, label: "", ...o, x: o.x + 3000, y: o.y + 2000, rot: Math.round((o.rot || 0) / 5) * 5 }));
+    const L = A.monitorDaRivedere();
+    ok(A.state.items.some(x => A.monFronte(x.type)), nome + ": ha monitor");
+    eq(L.map(x => x.mon.label + " " + x.perche + " " + x.verso.nome), [], nome);
+  });
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
