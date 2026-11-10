@@ -25159,6 +25159,93 @@ t("la riga esiste nel template, nascosta finché non c'è stato un export, e com
   ok(/#pdfConsulenza\{/.test(stylesCss), "ha il suo stile");
 });
 
+console.log("\n— Invito a salvare dopo il primo PDF (09/11/2026) —");
+
+/* Ricerca «100 utenti» (09/11): l'88% di chi apre l'editor non crea un account; esporta e il progetto resta solo nel
+   browser. Dopo il PDF una riga discreta con «Salva con Google» e «No, grazie»: solo senza account, una volta per
+   sessione, al massimo due volte in tutto; rifiutata o esaurita tace anche il vecchio toast. */
+t("invitoSalvaDecidi: chi può vederlo e quante volte", () => {
+  const d = (o) => A.invitoSalvaDecidi(Object.assign({ utente: false, altrui: false, stato: null, giaInSessione: false }, o));
+  eq(A.INVITO_SALVA_KEY, "sp_invitoSalva", "la chiave è quella classificata nell'uscita");
+  eq(A.INVITO_SALVA_MAX, 2, "al massimo due volte in tutto");
+  ok(d({}), "prima volta, senza account: sì");
+  ok(d({ stato: "1" }), "mostrato una volta: ancora una");
+  ok(!d({ stato: "2" }), "mostrato due volte: basta");
+  ok(!d({ stato: "7" }), "oltre il tetto: basta");
+  ok(!d({ stato: "no" }), "«No, grazie»: mai più");
+  ok(!d({ stato: "accesso" }), "accesso già chiesto: mai più");
+  ok(!d({ utente: true }), "con un account non serve");
+  ok(!d({ altrui: true }), "mai sul documento di un altro (viewer, consulenza)");
+  ok(!d({ giaInSessione: true }), "una volta per sessione, non a ogni export");
+  ok(d({ stato: "rotto" }), "un valore illeggibile vale zero, non spegne né rompe");
+  ok(!A.invitoSalvaDecidi(null), "senza dati: no");
+});
+t("invitoSalvaStatoDopo: conta le volte, «no» e «accesso» restano", () => {
+  const f = A.invitoSalvaStatoDopo;
+  eq(f(null, "mostrato"), "1"); eq(f("1", "mostrato"), "2"); eq(f("x", "mostrato"), "1");
+  eq(f("1", "no"), "no"); eq(f(null, "accesso"), "accesso");
+  eq(f("no", "mostrato"), "no", "un rifiuto non torna conteggio"); eq(f("accesso", "mostrato"), "accesso");
+});
+t("invitoSalvaDopoPdf: prima volta sì, poi non nella stessa sessione, alla terza sessione no; il toast tace quando è spento", () => {
+  const old = { doc: A.document, ls: A.localStorage, cloud: A.__cloud, toast: A.__toast, cons: A.__consultMode, inSess: A.invitoSalvaInSessione, nudge: A.loginNudgeShown };
+  const mem = {}; const el = { hidden: true };
+  const toasts = [];
+  try {
+    A.document = { body: { classList: { contains: () => false } }, getElementById: (id) => (id === "pdfInvitoSalva" ? el : null) };
+    A.localStorage = { getItem: (k) => (k in mem ? mem[k] : null), setItem: (k, v) => { mem[k] = String(v); }, removeItem: (k) => { delete mem[k]; } };
+    A.__cloud = { user: () => null }; A.__consultMode = false; A.__toast = (m) => toasts.push(m);
+    const sessione = () => { A.invitoSalvaInSessione = false; A.loginNudgeShown = false; el.hidden = true; };
+    sessione();
+    ok(A.invitoSalvaDopoPdf(), "primo PDF: compare"); ok(!el.hidden, "la riga è visibile"); eq(mem.sp_invitoSalva, "1");
+    A.maybeLoginNudge(); eq(toasts.length, 0, "comparso l'invito, niente toast in più");
+    el.hidden = true;
+    ok(!A.invitoSalvaDopoPdf(), "secondo PDF nella stessa sessione: no"); ok(el.hidden, "e la riga non torna");
+    sessione(); ok(A.invitoSalvaDopoPdf(), "seconda sessione: ancora una volta"); eq(mem.sp_invitoSalva, "2");
+    sessione(); ok(!A.invitoSalvaDopoPdf(), "terza sessione: basta"); eq(mem.sp_invitoSalva, "2", "il conteggio non sale più");
+    A.maybeLoginNudge(); eq(toasts.length, 0, "esaurito l'invito, il toast non torna a ogni sessione");
+    sessione(); mem.sp_invitoSalva = "no";
+    ok(!A.invitoSalvaDopoPdf(), "dopo «No, grazie»: no"); A.maybeLoginNudge(); eq(toasts.length, 0, "e niente toast");
+    sessione(); delete mem.sp_invitoSalva; A.__cloud = { user: () => ({ id: "u-1" }) };
+    ok(!A.invitoSalvaDopoPdf(), "con un account: no"); eq(mem.sp_invitoSalva, undefined, "e non conta");
+    sessione(); A.__cloud = { user: () => null }; A.__consultMode = true;
+    ok(!A.invitoSalvaDopoPdf(), "in consulenza (documento altrui): no");
+    sessione(); A.__consultMode = false; A.maybeLoginNudge(); eq(toasts.length, 1, "senza invito mai visto il toast di prima resta (PNG, CSV, file)");
+  } finally {
+    A.document = old.doc; A.localStorage = old.ls; A.__cloud = old.cloud; A.__toast = old.toast; A.__consultMode = old.cons;
+    A.invitoSalvaInSessione = old.inSess; A.loginNudgeShown = old.nudge;
+  }
+});
+t("invito a salvare: nel template nasce nascosto, sotto il piede, con le due strade; si chiama solo a PDF riuscito", () => {
+  const src = readFileSync(join(root, "index.template.html"), "utf8");
+  const i = src.indexOf('<div id="pdfInvitoSalva" role="status" hidden>'); ok(i > 0, "la riga nasce nascosta");
+  const piede = src.lastIndexOf('<div class="pdf-exp-foot">', i);
+  ok(piede > 0 && src.slice(piede, i).includes('id="pdfGo"') && /<\/div>\s*<\/div>\s*<!-- Invito/.test(src.slice(piede, i + 200)), "fuori dalla fila del piede, dopo i bottoni");
+  ok(/id="pdfInvitoAccedi">Salva con Google</.test(src) && /id="pdfInvitoNo">No, grazie</.test(src), "le due strade");
+  ok(/gratuito/.test(src.slice(i, i + 600)), "dice che l'account è gratuito");
+  const fine = appjs.indexOf('track("export",{format:"pdf"});');
+  const dopo = appjs.slice(fine, fine + 1600), catchI = dopo.indexOf("}).catch(");
+  ok(catchI > 0 && /if\(!invitoSalvaDopoPdf\(\)\) maybeLoginNudge\(\);/.test(dopo.slice(0, catchI)), "a PDF scaricato, prima del catch; altrimenti il toast di prima");
+  ok(/function _pdfExportModalCore\(\)\{[\s\S]{0,300}invitoSalvaNascondi\(\);/.test(appjs), "riaprendo l'Esporta la riga non resta lì");
+  ok(/#pdfInvitoSalva\{/.test(stylesCss) && /#pdfInvitoSalva\[hidden\]\{display:none\}/.test(stylesCss), "ha il suo stile, e hidden vince sul display:flex");
+});
+t("invito a salvare: «No, grazie» e «Salva con Google» scrivono lo stato; l'accesso porta from=invito-pdf", () => {
+  ok(/getElementById\("pdfInvitoNo"\)/.test(appjs) && /if\(no\) no\.addEventListener\("click", function\(\)\{\s*invitoSalvaScrivi\("no"\);\s*invitoSalvaNascondi\(\);/.test(appjs), "«No, grazie» spegne e nasconde");
+  ok(/invitoSalvaScrivi\("accesso"\);\s*try\{ sessionStorage\.setItem\("sp_accessoDa", "invito-pdf"\); \}catch\(e\)\{\}[\s\S]{0,300}__cloud\.signIn\(\)/.test(appjs), "«Salva con Google» segna la provenienza e apre l'accesso");
+  eq((appjs.match(/event:"login_success",props:accessoDaProps\(\)/g) || []).length, 2, "i due punti che contano l'accesso portano la provenienza");
+  const ss = {}; const old = A.sessionStorage;
+  try {
+    A.sessionStorage = { getItem: (k) => (k in ss ? ss[k] : null), setItem: (k, v) => { ss[k] = v; }, removeItem: (k) => { delete ss[k]; } };
+    eq(JSON.stringify(A.accessoDaProps()), "{}", "senza provenienza: props vuote");
+    ss.sp_accessoDa = "invito-pdf"; eq(A.accessoDaProps().from, "invito-pdf"); ok(!("sp_accessoDa" in ss), "letta una volta, poi tolta");
+    ss.sp_accessoDa = "x'; drop"; eq(JSON.stringify(A.accessoDaProps()), "{}", "un valore strano non passa");
+  } finally { A.sessionStorage = old; }
+  /* La policy di analytics_events rifiuta l'INSERT intero se compare una chiave non elencata (0035): la provenienza
+     deve stare in una chiave già ammessa. */
+  const pol = readFileSync(join(root, "supabase/migrations/0035_analytics_props_allowlist.sql"), "utf8");
+  ok(/'from'/.test(pol) && /'login_success'/.test(pol), "«from» e login_success sono ammessi dalla policy");
+  ok(A.USCITA_TIENI_LOCAL.sp_invitoSalva && A.USCITA_TIENI_SESSION.sp_accessoDa, "le due chiavi sono classificate per l'uscita");
+});
+
 console.log("\n— Collegamenti orfani: un id riusato non eredita i cavi di chi c'era prima (05/10) —");
 
 /* Visto su un progetto vero: `elec.manual` aveva 16 voci con la chiave e/o il `distro` di elementi che non esistevano piu'
