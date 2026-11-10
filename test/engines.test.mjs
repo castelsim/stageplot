@@ -26491,26 +26491,35 @@ taPdf("la barra di scala non tocca mai il cartiglio", async () => {
           const doc = await A.buildPdfDoc(paper, N, orient, T.head);
           const p = doc.pagine[0], cartTop = L.ph - L.fondo - L.cartH;
           ok(p.linee.some((l) => l.x1 === L.M && l.x2 === L.pw - L.M && Math.abs(l.y1 - cartTop) < 1e-6), caso + ": linea del cartiglio non trovata");
-          /* la barra: la linea orizzontale che parte dal bordo sinistro del disegno, le sue tacche e le due scritte */
-          const barra = p.linee.find((l) => l.x1 === box.ix && l.y1 === l.y2 && l.x2 > l.x1);
+          /* la barra: la linea orizzontale lunga quanto i metri della barra, le sue tacche e le due scritte CENTRATE sulle
+             tacche (10/11). Lo «0» sta sul bordo sinistro del palco, o all'inizio del disegno se il palco è tagliato. */
+          const lung = A.niceBarMeters(N) * 1000 / N;
+          const barra = p.linee.find((l) => l.y1 === l.y2 && Math.abs(l.x2 - l.x1 - lung) < 1e-6);
           ok(barra, caso + ": barra di scala non trovata");
+          const xPalco = box.ix + (0 - box.vb.x) * box.mmPerCm;
+          ok(Math.abs(barra.x1 - (xPalco < box.ix - 0.05 ? box.ix : xPalco)) < 1e-6, caso + ": lo «0» a " + barra.x1.toFixed(2) + ", il bordo sinistro del palco a " + xPalco.toFixed(2));
           const tacche = p.linee.filter((l) => l.x1 === l.x2 && l.x1 >= barra.x1 && l.x1 <= barra.x2);
-          const scritte = p.testi.filter((x) => (x.t === "0" && x.x === barra.x1) || (/^\d+ m$/.test(x.t) && x.x === barra.x2));
-          eq(scritte.length, 2, caso + ": «0» e «N m» sotto la barra");
+          const scritte = p.testi.filter((x) => ((x.t === "0" && x.x === barra.x1) || (/^\d+ m$/.test(x.t) && x.x === barra.x2)) && Math.abs(x.y - barra.y1 - 3.6) < 1e-6 && x.op && x.op.align === "center");
+          eq(scritte.length, 2, caso + ": «0» e «N m» centrati sotto le tacche");
           const alto = Math.min(...tacche.map((l) => Math.min(l.y1, l.y2))), basso = Math.max(...scritte.map((x) => x.y), ...tacche.map((l) => Math.max(l.y1, l.y2)));
           /* l'aria: 1,5 mm dal disegno e 2,5 dal cartiglio; se la fascia non basta (disegno a tutta pagina:
              8 mm per una barra alta 5) la differenza si toglie in parti uguali, mai fino a toccare */
           const fondoDis = box.iy + box.mmH, fascia = cartTop - fondoDis, ariaDis = alto - fondoDis, ariaCart = cartTop - basso;
           ok(fascia >= 8 - 1e-6, caso + ": fra disegno e cartiglio restano " + fascia.toFixed(2) + " mm (attesi almeno 8)");
           ok(Math.abs(alto - (barra.y1 - 1.4)) < 1e-6 && Math.abs(basso - (barra.y1 + 3.6)) < 1e-6, caso + ": la barra è alta 1,4 sopra la linea e 3,6 sotto");
-          if (fascia >= 1.5 + 5 + 2.5 - 1e-6) {
-            ok(ariaDis >= 1.5 - 1e-6, caso + ": dal disegno solo " + ariaDis.toFixed(2) + " mm");
+          const fronte = box.iy + (A.state.stage.d - box.vb.y) * box.mmPerCm;
+          if (fronte > box.iy + box.mmH + 0.05) {   /* il bordo verso il pubblico non è sul foglio: la barra sotto il disegno, come prima */
+            if (fascia >= 1.5 + 5 + 2.5 - 1e-6) {
+              ok(ariaDis >= 1.5 - 1e-6, caso + ": dal disegno solo " + ariaDis.toFixed(2) + " mm");
+              ok(ariaCart >= 2.5 - 1e-6, caso + ": dal cartiglio solo " + ariaCart.toFixed(2) + " mm");
+            } else {
+              ok(Math.abs((1.5 - ariaDis) - (2.5 - ariaCart)) < 1e-6, caso + ": l'aria mancante non è tolta in parti uguali (" + ariaDis.toFixed(2) + " / " + ariaCart.toFixed(2) + ")");
+              ok(ariaDis >= 1 - 1e-6 && ariaCart >= 2 - 1e-6, caso + ": troppo vicina (" + ariaDis.toFixed(2) + " dal disegno, " + ariaCart.toFixed(2) + " dal cartiglio)");
+            }
+          } else {   /* il palco intero sul foglio: la barra sotto il suo bordo verso il pubblico, mai nel cartiglio */
+            ok(alto >= fronte + 2.5 - 1e-6, caso + ": la barra tocca il palco (" + (alto - fronte).toFixed(2) + " mm dal bordo)");
             ok(ariaCart >= 2.5 - 1e-6, caso + ": dal cartiglio solo " + ariaCart.toFixed(2) + " mm");
-          } else {
-            ok(Math.abs((1.5 - ariaDis) - (2.5 - ariaCart)) < 1e-6, caso + ": l'aria mancante non è tolta in parti uguali (" + ariaDis.toFixed(2) + " / " + ariaCart.toFixed(2) + ")");
-            ok(ariaDis >= 1 - 1e-6 && ariaCart >= 2 - 1e-6, caso + ": troppo vicina (" + ariaDis.toFixed(2) + " dal disegno, " + ariaCart.toFixed(2) + " dal cartiglio)");
           }
-          if (palco[0] === 400) eq(barra.y1, box.iy + box.mmH + 10, caso + ": con spazio la barra resta dov'era, 10 mm sotto il disegno");
           /* l'anteprima dell'Esporta disegna la stessa barra, alla stessa altezza */
           const svg = A.pdfPreviewSvg(paper, N, orient, T.head, { focus: "clean" });
           const m = svg.match(/<line class="scala-barra" x1="([\d.]+)" y1="([\d.]+)"/);
@@ -26519,6 +26528,83 @@ taPdf("la barra di scala non tocca mai il cartiglio", async () => {
         }
   } finally {
     A.jspdf = prima.jspdf; A.loadJsPDF = prima.l; A.drawStageVector = prima.d; A.__pdfPages = prima.pg; A.__pdfQr = prima.qr; A.pdfTotals = prima.t; reset();
+  }
+});
+/* BARRA DI SCALA SOTTO IL PALCO (10/11/2026, Simone: «dà fastidio che il metro di misura non sia allineato con il lato
+   del palco»). Lo «0» sul bordo sinistro del palco, la barra a distanza fissa sotto il bordo verso il pubblico, sotto chi
+   ci sta davanti (PUBBLICO, un sub) se serve; nel PDF, nelle pagine-vista e nell'anteprima nello stesso punto. */
+taPdf("la barra di scala sta sotto il palco, con lo «0» sul suo bordo sinistro", async () => {
+  const prima = { jspdf: A.jspdf, l: A.loadJsPDF, d: A.drawStageVector, pg: A.__pdfPages, qr: A.__pdfQr };
+  A.jspdf = { jsPDF: jsPdfFinto() }; A.loadJsPDF = () => Promise.resolve(); A.drawStageVector = () => Promise.resolve();
+  A.__pdfQr = null;
+  const sovrappone = (a, b) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+  async function misura(caso, N, paper, orient) {
+    const head = "", cartH = A.cartHFor(head, paper, orient), box = A.pdfStageBox(N, paper, orient, cartH), L = box.L;
+    A.__pdfPages = { "view-elec": true };   /* una pagina-vista: anche lì la barra sta nello stesso punto */
+    const doc = await A.buildPdfDoc(paper, N, orient, head);
+    const lung = A.niceBarMeters(N) * 1000 / N, barre = doc.pagine.slice(0, 2).map((p) => p.linee.find((l) => l.y1 === l.y2 && Math.abs(l.x2 - l.x1 - lung) < 1e-6));
+    ok(barre[0] && barre[1], caso + ": barra non trovata nel PDF o nella pagina-vista");
+    const b = barre[0];
+    ok(Math.abs(barre[1].x1 - b.x1) < 1e-6 && Math.abs(barre[1].y1 - b.y1) < 1e-6, caso + ": nella pagina-vista la barra è altrove");
+    const m = A.pdfPreviewSvg(paper, N, orient, head, { focus: "clean" }).match(/<line class="scala-barra" x1="([-\d.]+)" y1="([-\d.]+)"/);
+    ok(m && Math.abs(+m[1] - b.x1) < 0.01 && Math.abs(+m[2] - b.y1) < 0.01, caso + ": l'anteprima non mette la barra dove la mette il PDF");
+    const hm = (String(A.niceBarMeters(N)).length + 2) * 0.556 * 7.5 * 25.4 / 72 / 2;
+    const xPalco = box.ix + (0 - box.vb.x) * box.mmPerCm, fronte = box.iy + (A.state.stage.d - box.vb.y) * box.mmPerCm;
+    return { b, box, L, xPalco, fronte, alto: b.y1 - 1.4, basso: b.y1 + 3.6, rett: { x0: b.x1 - 1, y0: b.y1 - 1.4, x1: b.x2 + hm, y1: b.y1 + 3.6 },
+      mm: (r) => ({ x0: box.ix + (r.x0 - box.vb.x) * box.mmPerCm, y0: box.iy + (r.y0 - box.vb.y) * box.mmPerCm, x1: box.ix + (r.x1 - box.vb.x) * box.mmPerCm, y1: box.iy + (r.y1 - box.vb.y) * box.mmPerCm }),
+      cartTop: L.ph - L.fondo - L.cartH };
+  }
+  function pubblico(N) {   /* il riquadro di «PUBBLICO» come lo scrive stageSceneSvg, corpo 16 e spaziatura 2 ingranditi di k */
+    const k = A.pdfTextK(N), D = A.state.stage.d, W = A.state.stage.w, fp = 16 * k, w = 8 * fp * 0.58 + 16 * k, y = A.zoneLblY("", k, D).p;
+    return { x0: W / 2 - w / 2, y0: y - 0.75 * fp, x1: W / 2 + w / 2, y1: y + 0.25 * fp };
+  }
+  const rett = (w, d) => { A.state.stage = { w, d, blocks: [{ x: 0, y: 0, w, d }] }; };
+  try {
+    /* 1. palco 8×6 vuoto, A4 1:100: lo «0» sul bordo, la barra 2,5 mm sotto il palco, e non 10 mm sotto il riquadro */
+    reset(); rett(800, 600);
+    let r = await misura("8×6 m 1:100", 100, "a4", "landscape");
+    ok(Math.abs(r.b.x1 - r.xPalco) < 1e-6, "8×6: lo «0» a " + r.b.x1.toFixed(2) + " mm, il bordo sinistro del palco a " + r.xPalco.toFixed(2));
+    ok(Math.abs(r.alto - (r.fronte + 2.5)) < 1e-6, "8×6: la barra deve stare 2,5 mm sotto il palco, sta a " + (r.alto - r.fronte).toFixed(2));
+    ok(!sovrappone(r.rett, r.mm(pubblico(100))), "8×6: la barra copre «PUBBLICO»");
+    /* 2. palco stretto, 3×2 a 1:50 (anche A4 verticale): «PUBBLICO» è sotto la barra → la barra gli passa sotto */
+    for (const orient of ["landscape", "portrait"]) {
+      reset(); rett(300, 200);
+      r = await misura("3×2 m 1:50 " + orient, 50, "a4", orient);
+      const pb = r.mm(pubblico(50));
+      ok(pb.x0 < r.rett.x1 && r.rett.x0 < pb.x1, "3×2 " + orient + ": il caso non prova niente, «PUBBLICO» non sta sopra la barra");
+      ok(r.alto >= pb.y1 + 1.5 - 1e-6, "3×2 " + orient + ": la barra non passa sotto «PUBBLICO» (" + r.alto.toFixed(2) + " contro " + pb.y1.toFixed(2) + ")");
+      ok(Math.abs(r.b.x1 - r.xPalco) < 1e-6, "3×2 " + orient + ": lo «0» non è sul bordo del palco");
+      ok(r.basso <= r.cartTop - 2.5 + 1e-6, "3×2 " + orient + ": la barra entra nel cartiglio");
+    }
+    /* 3. un sub davanti al palco, a sinistra: la barra gli passa sotto, senza toccare il nome */
+    reset(); rett(800, 600);
+    const sub = add("sub218", 120, 690);
+    r = await misura("sub davanti", 100, "a4", "landscape");
+    const ing = r.mm(A.ingombroStampa(sub, A.pdfTextK(100)));
+    ok(ing.y0 < r.fronte + 2.5 + 5 && ing.x0 < r.rett.x1, "sub: il caso non prova niente, il sub non sta dove andrebbe la barra");
+    ok(!sovrappone(r.rett, ing), "sub: la barra copre il sub o il suo nome (barra " + r.alto.toFixed(2) + "–" + r.basso.toFixed(2) + ", sub " + ing.y0.toFixed(2) + "–" + ing.y1.toFixed(2) + ")");
+    ok(Math.abs(r.b.x1 - r.xPalco) < 1e-6, "sub: lo «0» non è più sul bordo del palco");
+    /* 4. palco con proscenio (due blocchi) e palco a trapezio: lo «0» sullo spigolo più a sinistra, la barra sotto il punto più avanzato */
+    for (const [nome, blocchi] of [
+      ["proscenio", [{ x: 0, y: 0, w: 800, d: 500 }, { x: 250, y: 500, w: 300, d: 150 }]],
+      ["trapezio", [{ x: 0, y: 0, w: 800, d: 500, pts: [[100, 0], [700, 0], [800, 500], [0, 500]] }]],
+      ["pedana", [{ x: 0, y: 0, w: 600, d: 400 }, { x: 0, y: 400, w: 200, d: 100, h: 40 }]]]) {
+      reset(); A.state.stage = { w: 1, d: 1, blocks: blocchi }; A.recalcStageBBox();
+      r = await misura(nome, 100, "a4", "landscape");
+      ok(Math.abs(r.b.x1 - r.xPalco) < 1e-6, nome + ": lo «0» non è sul bordo sinistro del palco");
+      ok(r.alto >= r.fronte + 2.5 - 1e-6 && r.alto <= r.fronte + 12, nome + ": la barra non sta sotto il palco (" + (r.alto - r.fronte).toFixed(2) + " mm)");
+    }
+    /* 5. A3 a 1:50: stesso allineamento */
+    reset(); rett(1200, 800);
+    r = await misura("12×8 A3 1:50", 50, "a3", "landscape");
+    ok(Math.abs(r.b.x1 - r.xPalco) < 1e-6 && Math.abs(r.alto - (r.fronte + 2.5)) < 1e-6, "12×8 A3 1:50: barra fuori posto");
+    /* 6. area scelta a mano che taglia il lato sinistro del palco: lo «0» all'inizio del disegno (il bordo non c'è) */
+    reset(); rett(1200, 800); A.state.printFrame = { x: 400, y: -100, w: 900, h: 1000 };
+    r = await misura("area tagliata", 100, "a4", "landscape");
+    ok(r.xPalco < r.box.ix - 0.05, "area tagliata: il caso non prova niente, il bordo è sul foglio");
+    ok(Math.abs(r.b.x1 - r.box.ix) < 1e-6, "area tagliata: lo «0» deve stare all'inizio del disegno");
+  } finally {
+    A.jspdf = prima.jspdf; A.loadJsPDF = prima.l; A.drawStageVector = prima.d; A.__pdfPages = prima.pg; A.__pdfQr = prima.qr; delete A.state.printFrame; reset();
   }
 });
 taPdf("PDF: il peso dei modelli reali arriva nella testata del palco", async () => {

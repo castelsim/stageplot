@@ -36972,7 +36972,7 @@ function pdfScaleBarSvg(x, y, N){
    (pdfScaleBarY). Una funzione sola per PDF, pagine-vista e anteprima dell'Esporta.
    opz.blockDims: nel disegno ci sono le quote per blocco (stageDimsMarkup); opz.quoteJs: jsPDF scrive le sue quote
    attorno al palco (pdfQuoteFuoriDalDisegno). → {x, y, sottoPalco} in mm sul foglio (y = la linea della barra). */
-var SCALEBAR_DAL_PALCO=2.5, SCALEBAR_ARIA_OST=1;
+var SCALEBAR_DAL_PALCO=2.5, SCALEBAR_ARIA_OST=1.5;
 /* larghezza di una scritta della barra (Helvetica 7,5 pt, in mm): cifre 0,556 em, spazio e virgola 0,278, «m» 0,833 */
 function scalaBarTestoW(t){
   var em=0; String(t).split("").forEach(function(c){ em+= c==="m" ? 0.833 : (c===" "||c===","||c===".") ? 0.278 : 0.556; });
@@ -37003,10 +37003,12 @@ function scalaBarOstacoli(box, N, opz){
   return out;
 }
 function pdfScaleBarPosa(box, N, opz){
+  recalcStageBBox();
   var L=box.L, mpc=box.mmPerCm, vb=box.vb, D=state.stage.d||0;
   var bm=niceBarMeters(N), len=bm*1000/N, h0=scalaBarTestoW("0")/2, hm=scalaBarTestoW(bm+" m")/2;
   var dx0=box.ix, dx1=box.ix+box.mmW, dy1=box.iy+box.mmH;
-  var x=box.ix+(0-vb.x)*mpc, fronte=box.iy+(D-vb.y)*mpc;
+  var sx=Infinity; stageBlocks().forEach(function(r){ blockCorners(r).forEach(function(c){ sx=Math.min(sx, c[0]); }); });   /* di norma 0 */
+  var x=box.ix+((isFinite(sx) ? sx : 0)-vb.x)*mpc, fronte=box.iy+(D-vb.y)*mpc;
   if(x<dx0-0.05 || x>dx1+0.05) x=dx0;                          /* il bordo sinistro non è sul foglio: inizio del disegno */
   x=Math.min(Math.max(x, L.M+h0), L.pw-L.M-len-hm);            /* le scritte restano dentro i margini del foglio */
   if(fronte>dy1+0.05 || fronte<box.iy-0.05) return {x:x, y:pdfScaleBarY(L, box.iy, box.mmH), sottoPalco:false};
