@@ -28458,6 +28458,64 @@ t("IndexNow: il file chiave è nell'allowlist del deploy (altrimenti online risp
   ok(key && wf.indexOf(key + ".txt") > -1, "pages.yml copia " + key + ".txt nella cartella pubblica");
 });
 
+/* ---- DIREZIONE DEI MONITOR (09/11/2026) ---- */
+/* Gli y di un disegno, in ordine: il primo path della freccia bianca e i due archi. */
+function segnoMonitor(markup) {
+  const m = /<g class="mon-dir"[^>]*>(.*?)<\/g>/.exec(markup);
+  if (!m) return null;
+  const tratti = [...m[1].matchAll(/<path d="([^"]+)" fill="none" stroke="([^"]+)"/g)].map(([, d, stroke]) => ({
+    stroke, punti: [...d.matchAll(/(-?[\d.]+),(-?[\d.]+)/g)].map(([, x, y]) => ({ x: +x, y: +y })),
+  }));
+  return { freccia: tratti.filter(x => x.stroke === "#fff"), archi: tratti.filter(x => x.stroke === "#111") };
+}
+t("monitor: la freccia e gli archi stanno dal lato che suona, fuori dal corpo gli archi, dentro la freccia", () => {
+  [["wedge", -1, 22.5], ["sidefill", 1, 35], ["drumfill", 1, 35]].forEach(([tipo, verso, bordo]) => {
+    const T = A.TYPES[tipo], s = segnoMonitor(T.draw({ type: tipo, w: T.w, d: tipo === "drumfill" ? 70 : T.d }));
+    ok(s, tipo + ": il disegno ha il segno");
+    eq(s.freccia.length, 1, tipo + ": una freccia");
+    eq(s.archi.length, 2, tipo + ": due archi");
+    const [a, punta, b] = s.freccia[0].punti;
+    ok(punta.x === 0 && a.x === -b.x && a.y === b.y, tipo + ": la freccia è simmetrica, con la punta sull'asse");
+    ok(verso * punta.y > verso * a.y, tipo + ": la punta è verso il lato che suona");
+    ok(verso * punta.y > 0 && verso * punta.y < bordo, tipo + ": la punta sta dentro il corpo, sul lato che suona");
+    s.archi.forEach((arco, i) => arco.punti.forEach(q => ok(verso * q.y > bordo, tipo + ": arco " + i + " fuori dal corpo")));
+    const y0 = s.archi[0].punti[1].y, y1 = s.archi[1].punti[1].y;
+    ok(verso * y1 > verso * y0, tipo + ": il secondo arco è più lontano del primo");
+  });
+});
+t("monitor: il verso del segno è quello della griglia dell'icona vera (wedge −y, side e drum fill +y)", () => {
+  const L = iconeVere();
+  [["wedge", "wedge_monitor", /wedge_monitor_grill" d="M [\d.]+,([\d.]+) .*?L [\d.]+,([\d.]+) L/],
+    ["sidefill", "sidefill", /sidefill_grill" x="[\d.]+" y="([\d.]+)" width="[\d.]+" height="([\d.]+)"/],
+    ["drumfill", "drumfill", /drumfill_grill" x="[\d.]+" y="([\d.]+)" width="[\d.]+" height="([\d.]+)"/]].forEach(([tipo, chiave, re]) => {
+    const m = re.exec(L[chiave].body);
+    ok(m, chiave + ": griglia trovata nell'icona");
+    const inizio = +m[1], fine = tipo === "wedge" ? +m[2] : +m[1] + +m[2], meta = L[chiave].vb[3] / 2;
+    const lato = (inizio + fine) / 2 < meta ? -1 : 1;
+    eq(A.monFronte(tipo), lato, tipo + ": monFronte è il lato della griglia");
+  });
+});
+t("monitor: il segno scala col corpo e non c'è sugli altri tipi", () => {
+  const tutto = A.TYPES.wedge.draw({ type: "wedge", w: 30, d: 26 });
+  ok(/^<g transform="scale\(0\.5\)">.*<g class="mon-dir".*<\/g><\/g>$/s.test(tutto), "col wedge rimpicciolito il segno sta dentro la stessa scala dell'icona");
+  ["frontfill", "topattivo", "iem", "hearback", "sub18"].forEach(tipo =>
+    ok(!/mon-dir/.test(A.TYPES[tipo].draw({ type: tipo, w: A.TYPES[tipo].w, d: A.TYPES[tipo].d })), tipo + ": niente segno"));
+  eq(A.monFronte("topattivo"), 0, "chi non è un monitor da palco non ha un lato");
+});
+t("monitor: nei modelli i side fill suonano verso il centro del palco e il fondo, non verso il pubblico", () => {
+  let visti = 0;
+  ["buildMatrimonioOut", "buildDjOut", "buildTributoOut", "buildCoroOut", "buildOrchBandOut"].forEach(nome => {
+    const fuori = A[nome]().filter(x => x.type === "sidefill");
+    fuori.forEach(sf => {
+      visti++;
+      const r = (sf.rot || 0) * Math.PI / 180, ex = -Math.sin(r), ey = Math.cos(r);   /* il +y locale, girato */
+      ok(ex * sf.x < 0, nome + ": " + sf.label + " suona verso il centro");
+      ok(ey < 0, nome + ": " + sf.label + " non suona verso il pubblico");
+    });
+  });
+  ok(visti >= 10, "i modelli hanno i loro side fill (" + visti + ")");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
 
