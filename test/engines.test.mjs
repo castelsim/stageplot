@@ -29212,6 +29212,182 @@ t("side fill dei modelli: DX a destra e SX a sinistra guardando dalla platea (de
   lr.forEach(x => ok(x === "LSX" || x === "RDX", "Side fill L = lato SX, R = lato DX: " + x));
 });
 
+/* ===== «I miei progetti», anteprima e più schede (10/11/2026) =====
+   Segnalazione: con due schede aperte la prima finiva in «Aperto in un'altra scheda — salvataggio sospeso» appena se ne
+   apriva un'altra. Causa: historyStateJSON toglieva e rimetteva production.asked, printFrame e pdfEsportato, e rimettendoli
+   li spostava in fondo all'oggetto. Stesso contenuto, stringa diversa, firma diversa: chi rileggeva il documento lo
+   credeva modificato e lo riscriveva online, e la scheda di prima restava indietro. */
+t("la cronologia non sposta le chiavi: chi riapre il progetto dallo spazio locale non lo trova «da salvare»", () => {
+  const before = A.docToJSON(), oldStorage = A.localStorage, oldCloud = A.__cloud, oldDocument = A.document;
+  const old = { dirty: A._cloudDirty, saving: A._cloudSaving, pend: A.__bootCloudPending, sig: A.__bootCloudSig, known: A.__bootCloudSigKnown, conflict: A.__localConflict };
+  const store = new Map();
+  try {
+    reset();
+    A.state.production = Object.assign({ asked: false }, A.state.production || {}, { asked: false });
+    A.state.printFrame = { x: 0, y: 0, w: 1200, h: 800 };
+    A.state.pdfEsportato = { at: "2026-11-10T10:00:00Z", firma: "f-prova" };
+    A.loadDoc(JSON.parse(A.docToJSON()));   /* come un progetto appena aperto: già passato dal normalizzatore */
+    ok("asked" in A.state.production && A.state.printFrame && A.state.pdfEsportato, "le tre annotazioni ci sono");
+    const ordine = A.docToJSON();
+    const h = A.historyStateJSON();
+    eq(A.docToJSON(), ordine, "dopo historyStateJSON lo stato è identico, anche nell'ordine delle chiavi");
+    ok(!/"asked"|"printFrame"|"pdfEsportato"/.test(h), "le annotazioni restano fuori dalla cronologia");
+    ok("asked" in A.state.production && A.state.printFrame && A.state.pdfEsportato && A.state.pdfEsportato.firma === "f-prova", "e restano nello stato");
+    /* il giro vero: salvataggio (cronologia + spazio locale) pari al cloud, poi un'altra scheda rilegge lo spazio locale */
+    A.localStorage = { getItem: (k) => store.has(k) ? store.get(k) : null, setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) };
+    A.__cloud = { currentId: () => "progetto-A", currentRev: () => "rev-1", user: () => ({ id: "utente-prova" }) };
+    A.document = { body: { classList: { contains: () => false } }, getElementById: () => null };
+    A.__localConflict = false; A._cloudDirty = false; A._cloudSaving = false; A.__bootCloudPending = false;
+    A.recordHistory();
+    A.__bootCloudSig = A.projectContentSig(JSON.parse(A.docToJSON()), A.venueImageBundleSig()); A.__bootCloudSigKnown = true;
+    eq(A.persistLocalState(), true, "spazio locale scritto");
+    eq(JSON.parse(store.get(A.LS_KEY))._local.cloudPending, false, "lo spazio locale è pari al cloud");
+    A.load();
+    eq(A.__bootCloudPending, false, "la scheda che rilegge il documento non lo crede modificato (niente scrittura online all'avvio)");
+  } finally {
+    A.localStorage = oldStorage; A.__cloud = oldCloud; A.document = oldDocument;
+    A._cloudDirty = old.dirty; A._cloudSaving = old.saving; A.__bootCloudPending = old.pend; A.__bootCloudSig = old.sig;
+    A.__bootCloudSigKnown = old.known; A.__localConflict = old.conflict;
+    A.loadDoc(JSON.parse(before)); reset();
+  }
+});
+
+t("documento identico all'ultima versione online: niente scrittura (updated_at resta, l'altra scheda non va in conflitto)", () => {
+  const before = A.docToJSON(), oldSig = A.__bootCloudSig, oldKnown = A.__bootCloudSigKnown, oldPend = A.__bootCloudPending;
+  try {
+    reset(); A.state.titolo = "Progetto di prova"; A.loadDoc(JSON.parse(A.docToJSON()));
+    let scritture = 0;
+    const r = conCloudFinto(A, (cb) => { scritture++; cb("progetto-A"); }, (stati) => {
+      A.__cloud.currentId = () => "progetto-A";
+      A.__bootCloudSig = A.projectContentSig(JSON.parse(A.docToJSON()), A.venueImageBundleSig()); A.__bootCloudSigKnown = true;
+      /* save() senza modifiche (cambio progetto, annotazione rimessa com'era) arma comunque il salvataggio */
+      A._cloudDirty = true; A._cloudSaving = false;
+      let esito = null; A.flushCloudAutosave((ok) => { esito = ok; });
+      const identico = { esito, scritture, dirty: A._cloudDirty, ultimo: stati[stati.length - 1] };
+      /* una modifica vera si scrive */
+      A.state.titolo = "Progetto di prova (modificato)";
+      A._cloudDirty = true; let esito2 = null; A.flushCloudAutosave((ok) => { esito2 = ok; });
+      /* firma sconosciuta (progetto vecchio, apertura non conclusa): si scrive come prima */
+      A.__bootCloudSig = A.projectContentSig(JSON.parse(A.docToJSON()), A.venueImageBundleSig()); A.__bootCloudSigKnown = false;
+      A._cloudDirty = true; A.flushCloudAutosave(() => {});
+      const ignota = scritture;
+      /* progetto mai salvato online: si crea sempre */
+      A.__bootCloudSigKnown = true; A.__cloud.currentId = () => null; A._cloudDirty = true; A.flushCloudAutosave(() => {});
+      return { identico, esito2, dopoModifica: ignota - 1, ignota, nuovo: scritture };
+    });
+    eq(r.identico, { esito: true, scritture: 0, dirty: false, ultimo: "online" }, "identico: via libera senza scrivere");
+    eq([r.esito2, r.dopoModifica], [true, 1], "modificato: una scrittura");
+    eq(r.ignota, 2, "firma del cloud sconosciuta: si scrive");
+    eq(r.nuovo, 3, "progetto non ancora online: si crea");
+  } finally {
+    A.__bootCloudSig = oldSig; A.__bootCloudSigKnown = oldKnown; A.__bootCloudPending = oldPend;
+    A.loadDoc(JSON.parse(before)); reset();
+  }
+});
+t("più schede: chi lavora su un altro progetto già online non ferma questa scheda (slotAltraScheda)", () => {
+  const slot = (o) => JSON.stringify({ _doc: 1, _local: Object.assign({ localRevision: "altra:1" }, o) });
+  eq(A.slotAltraScheda(slot({ cloudId: "B", cloudPending: false, contentSig: "x" }), "A", "s"), "prendi", "altro progetto, al sicuro online");
+  eq(A.slotAltraScheda(slot({ cloudId: "B", cloudPending: true, contentSig: "x" }), "A", "s"), "aspetta", "altro progetto con modifiche non ancora online");
+  eq(A.slotAltraScheda(slot({ cloudId: "B", venueUnavailable: true }), "A", "s"), "aspetta", "altro progetto con la planimetria non ancora al sicuro");
+  eq(A.slotAltraScheda(slot({ cloudId: "A", cloudPending: false, contentSig: "s" }), "A", "s"), "uguale", "stesso progetto, stesso contenuto");
+  eq(A.slotAltraScheda(slot({ cloudId: "A", cloudPending: false, contentSig: "t" }), "A", "s"), "conflitto", "stesso progetto, contenuto diverso");
+  eq(A.slotAltraScheda(slot({ cloudId: "A", cloudPending: true, contentSig: "s" }), "A", "s"), "conflitto", "stesso progetto, l'altra ha modifiche non online");
+  eq(A.slotAltraScheda(slot({ cloudId: null, contentSig: "s" }), null, "s"), "conflitto", "documento senza progetto online: vive solo qui");
+  eq(A.slotAltraScheda(slot({ cloudId: "B" }), null, "s"), "conflitto", "questa scheda non ha un progetto online");
+  eq(A.slotAltraScheda(slot({ cloudId: null, cloudPending: false }), "A", "s"), "aspetta", "l'altra scheda ha un documento solo locale (o è a metà di un'apertura): non si tocca, ma questa non si ferma");
+  eq(A.slotAltraScheda(null, "A", "s"), "conflitto", "spazio locale vuoto (uscita da un'altra scheda)");
+  eq(A.slotAltraScheda("{rotto", "A", "s"), "conflitto", "illeggibile");
+});
+t("più schede: la scrittura locale va avanti se l'altra scheda ha un altro progetto al sicuro, aspetta se no", () => {
+  const before = A.docToJSON(), oldStorage = A.localStorage, oldCloud = A.__cloud, oldDocument = A.document;
+  const old = { conflict: A.__localConflict, dirty: A._cloudDirty, saving: A._cloudSaving, sig: A.__bootContentSig };
+  const store = new Map();
+  try {
+    reset(); A.state.titolo = "Progetto A"; A.loadDoc(JSON.parse(A.docToJSON()));
+    A.localStorage = { getItem: (k) => store.has(k) ? store.get(k) : null, setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) };
+    A.__cloud = { currentId: () => "progetto-A", currentRev: () => "rev-A", user: () => ({ id: "u" }) };
+    A.document = { body: { classList: { contains: () => false } }, getElementById: () => null };
+    A.__localConflict = false; A._cloudDirty = false; A._cloudSaving = false;
+    eq(A.persistLocalState(), true, "prima scrittura");
+    const altra = (o) => { const d = JSON.parse(store.get(A.LS_KEY)); d.titolo = "Progetto B"; d._local = Object.assign({}, d._local, { localRevision: "altra:" + Math.random() }, o); store.set(A.LS_KEY, JSON.stringify(d)); return store.get(A.LS_KEY); };
+    /* 1. l'altra scheda ha aperto il progetto B, con modifiche non ancora online: non si sovrascrive, e non ci si ferma */
+    const conB = altra({ cloudId: "progetto-B", cloudPending: true });
+    A.state.titolo = "Progetto A modificato";
+    eq(A.persistLocalState(), true, "nessun errore");
+    eq([A.__localConflict, store.get(A.LS_KEY) === conB], [false, true], "niente conflitto, lo spazio resta all'altra scheda");
+    /* 2. B è salvato online: lo spazio si riprende */
+    altra({ cloudId: "progetto-B", cloudPending: false });
+    eq(A.persistLocalState(), true, "scritto");
+    eq([A.__localConflict, JSON.parse(store.get(A.LS_KEY))._local.cloudId, JSON.parse(store.get(A.LS_KEY)).variants[0].state.titolo],
+      [false, "progetto-A", "Progetto A modificato"], "lo spazio torna a questa scheda");
+    /* 3. l'altra scheda ha riscritto lo STESSO progetto con lo stesso contenuto: è ancora il nostro */
+    altra({ cloudId: "progetto-A", cloudPending: false, contentSig: A.__bootContentSig });
+    A.state.titolo = "Progetto A modificato due volte";
+    eq([A.persistLocalState(), A.__localConflict], [true, false], "stesso contenuto: nessun conflitto");
+    /* 4. stesso progetto, contenuto diverso: conflitto, come prima */
+    const div = altra({ cloudId: "progetto-A", cloudPending: false, contentSig: "diversa" });
+    A.state.titolo = "Progetto A modificato tre volte";
+    eq([A.persistLocalState(), A.__localConflict, store.get(A.LS_KEY) === div], [false, true, true], "conflitto, root dell'altra scheda intatto");
+  } finally {
+    A.localStorage = oldStorage; A.__cloud = oldCloud; A.document = oldDocument;
+    A.__localConflict = old.conflict; A._cloudDirty = old.dirty; A._cloudSaving = old.saving; A.__bootContentSig = old.sig;
+    A.loadDoc(JSON.parse(before)); reset();
+  }
+});
+
+/* 10/11/2026 — Simone: «vado su File, i miei progetti, premo l'anteprima e poi ho problemi ad andare avanti e indietro».
+   Le frecce che scorrono l'anteprima arrivavano anche al palco sotto: l'elemento selezionato si spostava di 5 cm a
+   freccia (⌫ lo cancellava, ⌘Z annullava), e la modifica si salvava online. */
+t("«I miei progetti» e l'anteprima aperti: i tasti sono della finestra, il palco sotto non si tocca", () => {
+  const oldDoc = A.document;
+  const finta = (lista, anteprima) => ({ getElementById: (id) => id === "cloudModal" ? (lista == null ? null : { style: { display: lista } })
+    : id === "cloudPrev" ? (anteprima == null ? null : { hidden: !anteprima }) : null });
+  try {
+    A.document = finta("none", null); eq(A.finestraProgettiAperta(), false, "chiusa (anteprima mai aperta)");
+    A.document = finta("flex", null); eq(A.finestraProgettiAperta(), true, "elenco aperto");
+    A.document = finta("none", true); eq(A.finestraProgettiAperta(), true, "anteprima aperta");
+    A.document = finta("none", false); eq(A.finestraProgettiAperta(), false, "anteprima chiusa");
+    A.document = finta(null, null); eq(A.finestraProgettiAperta(), false, "finestre non ancora create");
+  } finally { A.document = oldDoc; }
+  /* il gestore dei tasti del palco si ferma lì, subito dopo Esc (che chiude la finestra più in alto) e prima di frecce,
+     ⌫/Canc, ⌘Z/⌘D, Tab sul palco */
+  const i = appjs.indexOf('if(e.key==="Escape" && escCloseTopModal(e.target)) return;');
+  ok(i > 0, "gestore dei tasti del palco trovato");
+  const dopo = appjs.slice(i, i + 400);
+  ok(/escCloseTopModal\(e\.target\)\) return;\s*\n\s*if\(finestraProgettiAperta\(\)\) return;/.test(dopo), "la riga successiva a Esc rimanda alla finestra dei progetti");
+  ok(appjs.indexOf('e.key==="ArrowLeft") dx=-step;', i) > i, "e viene prima delle frecce che spostano gli elementi");
+});
+
+/* 10/11/2026 — un link ?view= aperto sul sito vero: per 1-2 secondi, finché app.js (~3 MB) scarica, si vedeva lo scheletro
+   dell'editor con «Senza titolo» e «Accedi», come se chi l'apre fosse uscito dall'account. Il cartello «Sto aprendo il
+   progetto…» lo mette app.js: arrivava dopo. Ora lo mette lo script in testa, che gira prima di tutto. */
+t("link ?view=: «Sto aprendo il progetto…» da subito, non l'editor vuoto con «Accedi»", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  const testa = html.slice(0, html.indexOf("</head>"));
+  const script = [...testa.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]).find((x) => /\[\?&\]view=/.test(x));
+  ok(script, "lo script in testa per i link ?view= c'è");
+  const prova = (search) => {
+    const classi = new Set(), stili = [], meta = [];
+    const doc = {
+      documentElement: { classList: { add: (c) => classi.add(c), remove: (c) => classi.delete(c) } },
+      head: { appendChild: (el) => (el.tag === "style" ? stili : meta).push(el) },
+      createElement: (tag) => ({ tag }),
+    };
+    vm.runInNewContext(script, { location: { search }, document: doc });
+    return { classi, stili, meta };
+  };
+  const v = prova("?view=TOK");
+  ok(v.classi.has("view-attesa"), "con ?view= la pagina parte in attesa");
+  const css = v.stili.map((x) => x.textContent).join("");
+  ok(/html\.view-attesa body>\*\{visibility:hidden/.test(css), "l'editor sotto non si vede: " + css.slice(0, 80));
+  ok(/html\.view-attesa body::before\{content:"Sto aprendo il progetto…"/.test(css), "e al suo posto c'è il cartello");
+  eq(v.meta.length, 1, "il noindex resta");
+  const n = prova("?p=abc");
+  eq([n.classi.size, n.stili.length, n.meta.length], [0, 0, 0], "senza ?view= non cambia niente");
+  /* il cartello vero (mostraAttesa, in app.js) prende il posto di quello in testa */
+  const ma = appjs.slice(appjs.indexOf("function mostraAttesa(){"), appjs.indexOf("function togliAttesa(){"));
+  ok(/document\.body\.appendChild\(w\);\s*document\.documentElement\.classList\.remove\("view-attesa"\);/.test(ma), "mostraAttesa toglie la copertura appena mette il suo cartello");
+});
 /* 10/11/2026 — Simone: «io non voglio che in basso a sinistra del PDF vengano fuori i canali, a meno che non siano
    attive le funzioni avanzate e si vadano a lavorare anche i canali». */
 t("cartiglio del PDF: i canali solo con le Liste tecniche accese (oltre a Esporta avanzato)", () => {

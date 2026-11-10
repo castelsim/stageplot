@@ -3957,8 +3957,8 @@ function grpLibero(){
 }
 /* replacer per serializzare lo state SENZA il file immagine della planimetria (richiesto al ricaricamento) */
 function stateReplacer(k,v){ return (k==='_dataUrl'||k==='_imgW'||k==='_imgH')?undefined:v; }
-function stateToJSON(){
-  var st=state;
+function stateToJSON(src){
+  var st=src||state;   /* src: una copia dello stato (historyStateJSON), che non va toccato */
   /* rete di sicurezza: fuori dall'editor «Crea elemento» una forma custshape non si scrive MAI (un documento che la
      contiene non si riaprirebbe: normalizzeLoadedItems la rifiuta) */
   if(!window.__custEditor && st && Array.isArray(st.items) && st.items.some(function(x){ return x && x.type==="custshape"; }))
@@ -5020,6 +5020,34 @@ function localRevisionFromRaw(raw){
   }catch(e){}
   return "legacy:"+venueDataHash(raw);
 }
+/* PIÙ SCHEDE (10/11, Simone: «lavoro spesso con più schede»). Lo spazio locale (LS_KEY) è uno solo per tutte le schede.
+   Fino a oggi bastava che un'altra scheda ci scrivesse — anche un ALTRO progetto, già al sicuro online — perché questa
+   andasse in «Aperto in un'altra scheda — salvataggio sospeso» per sempre: le modifiche successive non andavano più da
+   nessuna parte. La protezione serve quando l'altra scheda ha nello spazio locale lavoro che esiste SOLO lì; negli altri
+   casi si va avanti. Chi lo dice: il blocco _local che ogni scheda scrive insieme al documento.
+   - "uguale":   stesso progetto online e stesso contenuto che questa scheda aveva scritto (l'altra l'ha solo riscritto) → niente conflitto;
+   - "prendi":   un altro progetto online, senza modifiche in sospeso → il suo lavoro è al sicuro nel cloud, lo spazio si può riprendere;
+   - "aspetta":  un altro progetto con modifiche non ancora online → non lo si sovrascrive, ma questa scheda non si ferma:
+                 il suo progetto continua a salvarsi online e riprende lo spazio locale quando l'altro è al sicuro;
+                 Vale anche per un documento dell'altra scheda senza progetto online (vive solo lì);
+   - "conflitto": lo stesso progetto con un contenuto diverso, il documento di QUESTA scheda senza progetto online (vive
+                 solo nello spazio locale), o un blocco illeggibile → come prima. */
+function slotAltraScheda(raw, mioCloudId, mioContentSig){
+  var L=null; try{ L=raw?JSON.parse(raw)._local:null; }catch(e){ L=null; }
+  if(!L || typeof L!=="object") return "conflitto";
+  var suo=(typeof L.cloudId==="string" && L.cloudId) ? L.cloudId : null;
+  mioCloudId=mioCloudId||null;
+  if(suo===mioCloudId) return (mioCloudId && mioContentSig && L.contentSig===mioContentSig && L.cloudPending!==true) ? "uguale" : "conflitto";
+  if(!mioCloudId) return "conflitto";   /* il documento di QUESTA scheda vive solo nello spazio locale: è lui a rischio */
+  /* un altro documento: se vive solo lì (nessun id: anche la scrittura a metà di un'apertura, prima che l'id arrivi)
+     o ha modifiche non ancora online, non si tocca; il nostro è online e non corre rischi */
+  return (!suo || L.cloudPending===true || L.venueUnavailable===true) ? "aspetta" : "prendi";
+}
+function mioCloudIdLocale(){
+  var C=window.__cloud;
+  if(C && typeof C.currentId==="function") return C.currentId()||null;
+  return window.__bootCloudId||null;
+}
 function markLocalConflict(){
   window.__localConflict=true;
   if(window.setDocState) window.setDocState("conflict");
@@ -5067,7 +5095,10 @@ function persistLocalState(forceLockedMetadata){
       localStorageIdentity=localStorage; localExpectedRevision=localRevisionFromRaw(existingRaw);
       window.__localConflict=false; localConflictWarned=false;
     } else if(localExpectedRevision!=null && localRevisionFromRaw(existingRaw)!==localExpectedRevision){
-      markLocalConflict(); return false;
+      var _altra=slotAltraScheda(existingRaw, mioCloudIdLocale(), window.__bootContentSig);
+      if(_altra==="aspetta") return true;   /* il progetto di questa scheda è online: lo spazio locale resta all'altra finché non salva */
+      if(_altra==="conflitto"){ markLocalConflict(); return false; }
+      /* "uguale" / "prendi": si scrive sopra, come prima di ogni altra scheda */
     }
     if(C && typeof C.currentId==="function"){
       cloudId=C.currentId()||null;
@@ -5131,7 +5162,11 @@ window.persistLocalState=persistLocalState;
 window.addEventListener("storage",function(e){
   if(!e || e.key!==LS_KEY || foreignDoc()) return;
   var incoming=localRevisionFromRaw(e.newValue);
-  if(localExpectedRevision!=null && incoming!==localExpectedRevision) markLocalConflict();
+  if(localExpectedRevision==null || incoming===localExpectedRevision) return;
+  var esito=slotAltraScheda(e.newValue, mioCloudIdLocale(), window.__bootContentSig);
+  if(esito==="uguale") localExpectedRevision=incoming;   /* stesso documento riscritto dall'altra scheda: è ancora il nostro */
+  else if(esito==="conflitto") markLocalConflict();
+  /* "prendi" / "aspetta": l'altra scheda lavora su un altro progetto; questa continua, e la prossima scrittura decide */
 });
 /* ===== USCITA PULITA (29/09, Simone) =====
    «Sono uscito dall'account ma vedo ancora il progetto aperto. Dovrebbe esserci qualcosa che invita al
@@ -5563,6 +5598,18 @@ function scheduleCloudRetry(){
   _cloudRetryStep++;
   clearTimeout(_cloudRetryT); _cloudRetryT=setTimeout(cloudAutosaveNow, delay);
 }
+/* IL DOCUMENTO È GIÀ QUELLO ONLINE (10/11). save() arma sempre il salvataggio online, anche quando non è cambiato niente:
+   prima di cambiare progetto (guardDocumentReplacement), all'avvio di una scheda, dopo un'annotazione rimessa com'era.
+   Riscrivere un documento identico non serve e fa danni: cambia updated_at, e un'altra scheda aperta sullo stesso
+   progetto si ritrova con una revisione vecchia e la barra «modificato altrove». Si confronta la firma del documento
+   con quella dell'ultima versione confermata dal cloud (__bootCloudSig: apertura, salvataggio riuscito, «Carica la
+   versione più recente»). Un progetto non ancora online (currentId vuoto) si crea sempre. */
+function cloudGiaAllineato(){
+  var C=window.__cloud;
+  if(!C || typeof C.currentId!=="function" || !C.currentId()) return false;
+  if(!window.__bootCloudSigKnown || typeof window.__bootCloudSig!=="string" || !window.__bootCloudSig || window.__bootVenueUnavailable) return false;
+  try{ return projectContentSig(JSON.parse(docToJSON()),venueImageBundleSig())===window.__bootCloudSig; }catch(e){ return false; }
+}
 function cloudAutosaveNow(){
   var C=window.__cloud;
   clearTimeout(_cloudAsT); _cloudAsT=null;
@@ -5578,6 +5625,10 @@ function cloudAutosaveNow(){
   if(!C || !C.user()){ setDocState(window.__localStorageUnavailable?"local-error":"offline-warn"); _cloudRetryStep=0; resolveCloudFlush(false); return; }
   if(window.__cloudConflict){ setDocState("conflict"); resolveCloudFlush(false); return; }   /* guardia di versione: mai sovrascrivere durante un conflitto */
   if(!_cloudDirty){ resolveCloudFlushWhenIdle(true); return; }
+  if(cloudGiaAllineato()){   /* niente da mandare: vedi cloudGiaAllineato */
+    _cloudDirty=false; window.__bootCloudPending=false; _cloudRetryStep=0;
+    setDocState("online"); resolveCloudFlushWhenIdle(true); return;
+  }
   var saveEpoch=window.__docEpoch||0, saveSeq=_cloudChangeSeq;
   _cloudSaving=true;
   setDocState("saving");
@@ -5752,16 +5803,17 @@ var undoStack=[], redoStack=[], lastSnap=null, venueHistoryAssets=Object.create(
    apertura dell'Esporta scriveva con save(): un passo di Annulla fantasma — dopo «Adatta» ed Esporta il primo
    Annulla disfaceva quello e non l'adattamento, e Ripeti si svuotava (Simone: «correggi anche l'annulla dopo
    l'export»). Un Annulla non le riporta indietro: applyHistory le tiene (vedi notaFuoriCronologia). */
+/* Le tre annotazioni si tolgono da una COPIA superficiale, non dallo stato (10/11): toglierle e rimetterle le spostava
+   in fondo all'oggetto, e lo stesso progetto riletto da un'altra scheda (o dopo un ricarica) aveva le chiavi in un altro
+   ordine, quindi un'altra firma (projectContentSig): sembrava modificato, si riscriveva online e la scheda di prima
+   finiva in «Aperto in un'altra scheda — salvataggio sospeso». */
 function historyStateJSON(){
-  var had=("printFrame" in state), f=state.printFrame;
-  var hadPe=("pdfEsportato" in state), pe=state.pdfEsportato;
-  var pr=(state.production&&typeof state.production==="object")?state.production:null, hadAsk=!!(pr&&("asked" in pr)), ask=pr?pr.asked:undefined;
-  if(had) delete state.printFrame;
-  if(hadPe) delete state.pdfEsportato;
-  if(hadAsk) delete pr.asked;
-  try{ var j=stateToJSON(); }
-  finally{ if(had) state.printFrame=f; if(hadPe) state.pdfEsportato=pe; if(hadAsk) pr.asked=ask; }
-  return j;
+  var st=Object.assign({}, state);
+  delete st.printFrame; delete st.pdfEsportato;
+  if(st.production && typeof st.production==="object" && ("asked" in st.production)){
+    st.production=Object.assign({}, st.production); delete st.production.asked;
+  }
+  return stateToJSON(st);
 }
 function notaFuoriCronologia(){ return { pe:state.pdfEsportato, ask:!!(state.production&&state.production.asked) }; }
 function historySnapshot(){
@@ -23839,6 +23891,14 @@ function a11yItemIndex(id){ var a=state.items||[]; for(var i=0;i<a.length;i++){ 
 /* Finestre costruite fuori dal motore di dialogo: nessuna aveva un gestore di Esc, e «Produzione —
    reparti» restava perfino a intercettare i click. In più un solo Esc chiudeva TRE livelli insieme
    (finestra + selezione sul palco + ricerca nel catalogo): ora chiude un livello per volta. (06/08) */
+/* «I MIEI PROGETTI» E L'ANTEPRIMA (10/11/2026, Simone: «premo l'anteprima e poi ho problemi ad andare avanti e
+   indietro»). Le due finestre non hanno la classe .modal e il gestore dei tasti del palco non le vedeva: le frecce
+   che scorrono l'anteprima spostavano anche l'elemento selezionato del progetto aperto (5 cm a freccia), ⌫ lo
+   cancellava, ⌘Z annullava — e la modifica si salvava online. Con una delle due aperta il palco non riceve tasti. */
+function finestraProgettiAperta(){
+  var m=document.getElementById("cloudModal"), pv=document.getElementById("cloudPrev");
+  return !!((m && m.style && m.style.display && m.style.display!=="none") || (pv && pv.hidden===false));
+}
 var ESC_MODALS=["prodModal","rubModal","learn","clDlg","csvPicker","cloudModal"];
 function escCloseTopModal(target){
   var inField=target && /INPUT|SELECT|TEXTAREA/.test(target.tagName||"");
@@ -23857,6 +23917,7 @@ function escCloseTopModal(target){
 document.addEventListener("keydown", function(e){
   if(clOpen && e.key==="Escape"){ clShow(false); return; }   /* channel list a schermo intero */
   if(e.key==="Escape" && escCloseTopModal(e.target)) return;
+  if(finestraProgettiAperta()) return;   /* «I miei progetti» o la sua anteprima: frecce, ⌫, ⌘Z sono della finestra (10/11) */
   /* «Crea elemento», disegno in corso (fuori dai campi): Esc lo chiude un livello per volta — il poligono a metà si butta,
      lo strumento torna a Seleziona, il rettangolo sul palco si annulla. Invio chiude il poligono, ⌫ e ⌘Z tolgono
      l'ultimo punto. Prima di tutto il resto: la stessa Esc altrimenti deselezionerebbe o chiederebbe di uscire. */
@@ -37565,6 +37626,7 @@ function gallery(){
     w.innerHTML='<div style="max-width:320px"><b style="display:block;font-size:17px;margin-bottom:6px">Sto aprendo il progetto…</b>'+
       '<span style="font-size:14px;color:var(--text-2,#475569)">Un momento: il documento arriva dal server.</span></div>';
     document.body.appendChild(w);
+    document.documentElement.classList.remove("view-attesa");   /* la copertura dello script in testa: ora c'è il cartello vero */
   }
   function togliAttesa(){ var w=document.getElementById("viewWait"); if(w&&w.remove) w.remove(); }
   mostraAttesa();
