@@ -16613,7 +16613,37 @@ function stageLayerMarkup(){
   return stageFloorMarkup()+stageDimsMarkup()
     +'<text class="zone-lbl" x="'+(W/2)+'" y="-42" text-anchor="middle">FONDO PALCO</text>'
     +'<text class="zone-lbl" x="'+(W/2)+'" y="'+(D+38)+'" text-anchor="middle">PUBBLICO</text>'
-    +stageEmptyHintMarkup();
+    +stageEmptyHintMarkup()+latiTeatroMarkup(-42, 1, 'class="zone-lbl zone-lato"');
+}
+/* GIARDINO E CORTE (10/11/2026, proposta di un tecnico di teatro, decisa da Simone). Su stageplot.it destra e
+   sinistra si intendono SEMPRE guardando il palco dalla platea (decisione del 07/11), e il disegno ha già quel
+   verso: PUBBLICO in basso, quindi la sinistra del foglio è la sinistra di chi guarda. Nei teatri italiani i due
+   lati hanno un nome che non dipende da chi parla: guardando dalla sala, il GIARDINO è la parte sinistra e la
+   CORTE la parte destra (I Teatri di Reggio Emilia; glossario «Fuori le quinte»; è il côté jardin/côté cour
+   francese). Si scrivono solo nei progetti di teatro, in piccolo, agli angoli della riga di FONDO PALCO: lì non
+   toccano la barra di scala (in basso a sinistra), le quote ruotate (sui lati) né FONDO PALCO (al centro).
+   Come si sa che è un teatro: non c'è un campo «tipo di luogo» (il modello «Teatro» scrive solo il titolo), e
+   aggiungerne uno vorrebbe dire una domanda in più per tutti. Basta la parola «teatro» (o teatri, theatre,
+   theater) nel luogo dell'evento o nel titolo: è come lo scrivono gli utenti («Teatro Comunale, …»). */
+var TEATRO_RE=/(^|[^a-zà-ÿ])(teatr(?:o|i|ino|ini)|theat(?:re|er)s?)(?![a-zà-ÿ])/i;
+function progettoTeatro(){ return TEATRO_RE.test(String(state.luogo||"")+" "+String(state.titolo||"")); }
+/* Quali scritte ci stanno fra l'angolo e FONDO PALCO, al corpo k (1 a schermo, pdfTextK in stampa: i testi
+   crescono col foglio, le posizioni no). Prima per esteso, poi solo il nome del lato, poi niente: mai sopra
+   FONDO PALCO né fuori dal palco. */
+function latiTeatroTesti(W, k){
+  k=k>0 ? k : 1;
+  var fs=11*k, libero=W/2-(lblTextW("FONDO PALCO", 16*k)/2+11*k)-12*k;   /* metà di FONDO PALCO (letter-spacing 2) + aria */
+  function sta(a, b){ return Math.max(lblTextW(a, fs), lblTextW(b, fs))<=libero; }
+  if(sta("SINISTRA (giardino)", "DESTRA (corte)")) return ["SINISTRA (giardino)", "DESTRA (corte)"];
+  if(sta("giardino", "corte")) return ["giardino", "corte"];
+  return null;
+}
+function latiTeatroMarkup(y, k, attr){
+  if(!progettoTeatro() || custEditorAttivo()) return '';
+  var W=state.stage.w||0, t=latiTeatroTesti(W, k);
+  if(!t) return '';
+  return '<text '+attr+' x="0" y="'+y+'" text-anchor="start">'+t[0]+'</text>'+
+         '<text '+attr+' x="'+W+'" y="'+y+'" text-anchor="end">'+t[1]+'</text>';
 }
 /* Legenda dei colori dei cavi (C2, 08/07): i cavi sono già color-coded (audio-in teal, monitor ciano
    tratteggiato, elettrico ambra) ma chi guarda il palco non ha la chiave. Mostra solo i layer attivi,
@@ -24433,8 +24463,8 @@ function buildMatrimonioOut(){
     {type:"wireless", x:70, y:-72, label:"Voce 2"},
     {type:"wedge", x:-70, y:35, label:"Voce 1"},
     {type:"wedge", x:70, y:35, label:"Voce 2"},
-    {type:"sidefill", x:-670, y:30, rot:-115, label:"Side fill DX"},
-    {type:"sidefill", x:670, y:30, rot:115, label:"Side fill SX"},
+    {type:"sidefill", x:-670, y:30, rot:-115, label:"Side fill SX"},
+    {type:"sidefill", x:670, y:30, rot:115, label:"Side fill DX"},
     {type:"stagebox", x:600, y:-260, label:"Stage box", ch:32, outCh:12},
     {type:"corrente", x:-590, y:-340, label:""},
     {type:"corrente", x:590, y:-340, label:""}
@@ -24451,8 +24481,8 @@ function buildDjOut(){
     {type:"wedge", x:-150, y:35, label:"MC"},
     {type:"saxalto", x:350, y:-120, rot:-12, label:"Sax"},
     {type:"wedge", x:350, y:-18, label:"Sax"},
-    {type:"sidefill", x:-560, y:20, rot:-115, label:"Side fill DX"},
-    {type:"sidefill", x:560, y:20, rot:115, label:"Side fill SX"},
+    {type:"sidefill", x:-560, y:20, rot:-115, label:"Side fill SX"},
+    {type:"sidefill", x:560, y:20, rot:115, label:"Side fill DX"},
     {type:"stagebox", x:430, y:-220, label:"Stage box"},
     {type:"corrente", x:-390, y:-290, label:""},
     {type:"corrente", x:390, y:-290, label:""}
@@ -24479,8 +24509,8 @@ function buildTributoOut(){
     {type:"wedge", x:130, y:32, label:"Cori"},
     {type:"wireless", x:-60, y:-72, label:"Voce"},
     {type:"wedge", x:-60, y:35, label:"Voce"},
-    {type:"sidefill", x:-690, y:30, rot:-115, label:"Side fill DX"},
-    {type:"sidefill", x:690, y:30, rot:115, label:"Side fill SX"},
+    {type:"sidefill", x:-690, y:30, rot:-115, label:"Side fill SX"},
+    {type:"sidefill", x:690, y:30, rot:115, label:"Side fill DX"},
     {type:"iemant", x:-610, y:-270, label:"TX in-ear"},
     {type:"stagebox", x:610, y:-270, label:"Stage box", ch:32, outCh:16},
     {type:"corrente", x:-600, y:-350, label:""},
@@ -24526,8 +24556,8 @@ function buildCoroOut(){
     {type:"wedge", x:-130, y:45, rot:0, label:"Solista 1"},
     {type:"wedge", x:130, y:45, rot:0, label:"Solista 2"},
     /* side fill */
-    {type:"sidefill", x:-600, y:10, rot:-115, label:"Side fill DX"},
-    {type:"sidefill", x:600, y:10, rot:115, label:"Side fill SX"}
+    {type:"sidefill", x:-600, y:10, rot:-115, label:"Side fill SX"},
+    {type:"sidefill", x:600, y:10, rot:115, label:"Side fill DX"}
   ];
 }
 function buildQuartettoOut(){
@@ -24593,8 +24623,8 @@ function buildOrchBandOut(){
     {type:"astamic", x:0, y:120, label:"Voce"},
     {type:"wedge", x:0, y:215, rot:0, label:"Voce"},
     {type:"wedge", x:-250, y:225, rot:0, label:"Tastiere"},
-    {type:"sidefill", x:-700, y:200, rot:-115, label:"Side fill DX"},
-    {type:"sidefill", x:700, y:200, rot:115, label:"Side fill SX"}
+    {type:"sidefill", x:-700, y:200, rot:-115, label:"Side fill SX"},
+    {type:"sidefill", x:700, y:200, rot:115, label:"Side fill DX"}
   ];
   return out.concat(band);
 }
@@ -25712,7 +25742,7 @@ function renderName(it){ return (it.label&&it.label.trim()) || (typeof instrBase
 function renderZoneOf(it){
   var W=state.stage.w||1200, D=state.stage.d||800, fx=it.x/W, fy=it.y/D;
   return {
-    lr: fx<-0.02?"oltre il lato destro del palco": fx>1.02?"oltre il lato sinistro del palco": fx<0.34?"stage right (lato destro palco)": fx>0.66?"stage left (lato sinistro palco)":"al centro",
+    lr: fx<-0.02?"oltre lo stage right (fuori dal palco, a sinistra guardando dalla platea)": fx>1.02?"oltre lo stage left (fuori dal palco, a destra guardando dalla platea)": fx<0.34?"stage right (a sinistra guardando dalla platea)": fx>0.66?"stage left (a destra guardando dalla platea)":"al centro",
     fb: fy<-0.02?"dietro il fondo palco": fy>1.02?"davanti al fronte, verso il pubblico": fy<0.34?"sul fondo palco": fy>0.66?"sul fronte palco":"a metà profondità",
     outside:(fx<-0.02||fx>1.02||fy<-0.02||fy>1.02) };
 }
@@ -26625,7 +26655,7 @@ function coroInputs(){
 }
 function coroOutputs(){
   return [ outch("Direttore","wedge","podio"), outch("Solisti","wedge","fronte palco"), outch("Piano","wedge","lato DX"),
-    outch("Side fill L","side fill","lato DX palco"), outch("Side fill R","side fill","lato SX palco") ];
+    outch("Side fill L","side fill","lato SX palco"), outch("Side fill R","side fill","lato DX palco") ];
 }
 function quartettoInputs(){
   return [
@@ -26690,7 +26720,7 @@ function orchInputs(c){
   return ins;
 }
 function orchOutputs(){
-  return [ outch("Direttore (cue)","IEM","beltpack"), outch("Side fill L","side fill","lato DX palco"), outch("Side fill R","side fill","lato SX palco") ];
+  return [ outch("Direttore (cue)","IEM","beltpack"), outch("Side fill L","side fill","lato SX palco"), outch("Side fill R","side fill","lato DX palco") ];
 }
 /* dispatch: per ogni voce del menu, layout + channel list coerenti */
 /**
@@ -26851,7 +26881,7 @@ function formationData(f, opz){
       outp:[outch("Direttore (cue)","IEM","beltpack")].concat(bandOutputs()) }; }
   if(f==="orchcoro"){ var cc=presetCounts("ridotta"); return { out:buildOrchCoroOut(),
       inp:orchInputs(cc).concat(choirInputs()).concat([ch("Solista 1","SM58"),ch("Solista 2","SM58")]),
-      outp:[outch("Direttore (cue)","IEM","beltpack"),outch("Solisti","wedge","fronte palco"),outch("Side fill L","side fill","lato DX palco"),outch("Side fill R","side fill","lato SX palco")] }; }
+      outp:[outch("Direttore (cue)","IEM","beltpack"),outch("Solisti","wedge","fronte palco"),outch("Side fill L","side fill","lato SX palco"),outch("Side fill R","side fill","lato DX palco")] }; }
   /* Matrimonio e DJ non sono più in vetrina (START_MODELS), ma il dispatcher resta: i link
      /stage-plot/?model=matrimonio già in giro devono continuare ad aprire quello che promettono. */
   if(f==="matrimonio") return { out:buildMatrimonioOut(), inp:[], outp:[] };
@@ -26864,7 +26894,7 @@ function formationData(f, opz){
       inp:orchInputs(cp).concat([ch("Kick","D6"),ch("Rullante","SM57"),ch("Overhead L","KM184"),ch("Overhead R","KM184"),
         ch("Chitarra","SM57"),ch("Tastiere L","DI"),ch("Tastiere R","DI")]),
       outp:[outch("Direttore (cue)","IEM","beltpack"),outch("Batteria","IEM","beltpack"),
-        outch("Side fill L","side fill","lato DX palco"),outch("Side fill R","side fill","lato SX palco")],
+        outch("Side fill L","side fill","lato SX palco"),outch("Side fill R","side fill","lato DX palco")],
       stage:{w:1500,d:1150} };
   }
   if(f==="conferenza"){ var cf=buildConferenzaOut(); return { out:cf, inp:conferenzaInputs(), outp:conferenzaOutputs(), stage:palcoPer(cf) }; }
@@ -33300,7 +33330,8 @@ function stageSceneSvg(cropVb, opts){
   var dims = opts.noBlockDims ? '' : stageDimsMarkup();
   var W=state.stage.w, D=state.stage.d, zy=zoneLblY(dims, window.__sceneTextK, D);
   var zones='<text fill="#1f2937" font-size="16" letter-spacing="2" text-anchor="middle" x="'+(W/2)+'" y="'+zy.f+'">FONDO PALCO</text>'+
-            '<text fill="#1f2937" font-size="16" letter-spacing="2" text-anchor="middle" x="'+(W/2)+'" y="'+zy.p+'">PUBBLICO</text>';
+            '<text fill="#1f2937" font-size="16" letter-spacing="2" text-anchor="middle" x="'+(W/2)+'" y="'+zy.p+'">PUBBLICO</text>'+
+            latiTeatroMarkup(zy.f, window.__sceneTextK, 'fill="#1f2937" font-size="11"');   /* giardino e corte, solo in teatro */
   /* overlay cablaggio (statico, senza maniglie di editing), filtrato per focus: audio (cavi+rete+P.M.+legenda)
      ed elettrico separati, così ogni pagina-vista mostra SOLO il proprio layer a piena opacità */
   var _keepCab=selCab, _keepStatic=window.__cabStatic; selCab=null; window.__cabStatic=true;

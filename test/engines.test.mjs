@@ -29087,6 +29087,78 @@ t("monitor storti: i monitor dei modelli sono tutti a posto", () => {
   });
 });
 
+/* GIARDINO E CORTE (10/11/2026): nei progetti di teatro, accanto a sinistra e destra (guardando dalla platea, decisione
+   del 07/11) i nomi dei lati del teatro italiano: giardino = sinistra, corte = destra. Solo in teatro, in piccolo, agli
+   angoli della riga di FONDO PALCO, mai sopra FONDO PALCO. */
+t("giardino e corte: si riconosce un teatro dal luogo o dal titolo, e solo quello", () => {
+  reset();
+  const prova = (luogo, titolo) => { A.state.luogo = luogo; A.state.titolo = titolo; return A.progettoTeatro(); };
+  eq(prova("Teatro Comunale, Città", ""), true, "luogo «Teatro Comunale»");
+  eq(prova("", "Teatro"), true, "il modello «Teatro» scrive il titolo");
+  eq(prova("Piccolo teatrino di paese", ""), true, "teatrino");
+  eq(prova("Rassegna nei teatri", ""), true, "teatri");
+  eq(prova("City Theatre", ""), true, "theatre");
+  eq(prova("Spettacolo (teatro)", ""), true, "fra parentesi");
+  eq(prova("", ""), false, "vuoto");
+  eq(prova("Auditorium", "Concerto in piazza"), false, "auditorium e piazza no");
+  eq(prova("Anfiteatro romano", ""), false, "anfiteatro no: è all'aperto, senza quinte");
+  eq(prova("Festa teatrale", ""), false, "«teatrale» da solo no");
+  reset();
+});
+t("giardino e corte: a schermo agli angoli di FONDO PALCO, giardino a sinistra e corte a destra, solo in teatro", () => {
+  reset();
+  const lati = (svg) => [...svg.matchAll(/<text class="zone-lbl zone-lato" x="([-\d.]+)" y="([-\d.]+)" text-anchor="(\w+)">([^<]*)<\/text>/g)].map(m => [m[4], +m[1], +m[2], m[3]]);
+  eq(lati(A.stageLayerMarkup()), [], "fuori dal teatro non c'è niente");
+  A.state.luogo = "Teatro Comunale";
+  eq(lati(A.stageLayerMarkup()), [["SINISTRA (giardino)", 0, -42, "start"], ["DESTRA (corte)", 1200, -42, "end"]], "palco 12 m: per esteso, sulla riga di FONDO PALCO");
+  A.state.stage = { w: 300, d: 300, blocks: [{ x: 0, y: 0, w: 300, d: 300 }] };
+  eq(lati(A.stageLayerMarkup()).map(x => x[0]), ["giardino", "corte"], "palco stretto: solo il nome del lato");
+  A.state.stage = { w: 180, d: 300, blocks: [{ x: 0, y: 0, w: 180, d: 300 }] };
+  eq(lati(A.stageLayerMarkup()), [], "palco strettissimo: niente, piuttosto che sopra FONDO PALCO");
+  const css = readFileSync(join(root, "src/styles.css"), "utf8");
+  ok(/\.zone-lbl\.zone-lato\{font-size:11px/.test(css), "in piccolo (11 contro 16 di FONDO PALCO)");
+  reset();
+});
+t("giardino e corte: nel disegno stampato sulla riga di FONDO PALCO, anche quando sale sopra una quota", () => {
+  reset();
+  A.state.luogo = "Teatro";
+  const svg = A.stageSceneSvg(A.sceneVbDefault());
+  const fondo = svg.match(/<text fill="#1f2937" font-size="[\d.]+" letter-spacing="[\d.]+" text-anchor="middle" x="[-\d.]+" y="([-\d.]+)">FONDO PALCO/);
+  ok(fondo, "FONDO PALCO c'è");
+  const g = svg.match(/<text fill="#1f2937" font-size="[\d.]+" x="0" y="([-\d.]+)" text-anchor="start">SINISTRA \(giardino\)<\/text>/);
+  const c = svg.match(/<text fill="#1f2937" font-size="[\d.]+" x="1200" y="([-\d.]+)" text-anchor="end">DESTRA \(corte\)<\/text>/);
+  ok(g && c, "giardino a sinistra, corte a destra, in nero come FONDO PALCO");
+  eq([+g[1], +c[1]], [+fondo[1], +fondo[1]], "stessa riga di FONDO PALCO (zoneLblY)");
+  /* a 1:200 il testo cresce (textK 3) e FONDO PALCO sale sopra la quota della larghezza: giardino e corte salgono con lui */
+  const big = A.stageSceneSvg(A.sceneVbDefault(), { textK: 3 });
+  const fb = big.match(/letter-spacing="[\d.]+" text-anchor="middle" x="[-\d.]+" y="([-\d.]+)">FONDO PALCO/);
+  const gb = big.match(/x="0" y="([-\d.]+)" text-anchor="start">SINISTRA \(giardino\)/);
+  ok(fb && +fb[1] < -42, "FONDO PALCO è salito sopra la quota (" + (fb && fb[1]) + ")");
+  ok(gb && +gb[1] === +fb[1], "e giardino con lui (" + (gb && gb[1]) + ")");
+  ok(/font-size="33.00" x="0"/.test(big), "corpo 11 × 3, come FONDO PALCO cresce da 16");
+  A.state.luogo = "Auditorium";
+  ok(!/giardino|corte/.test(A.stageSceneSvg(A.sceneVbDefault())), "fuori dal teatro il PDF non cambia");
+  reset();
+});
+t("giardino e corte: a ogni larghezza e corpo di stampa non toccano mai FONDO PALCO", () => {
+  for (const k of [1, 1.5, 2, 3]) for (let W = 100; W <= 3000; W += 20) {
+    const t2 = A.latiTeatroTesti(W, k);
+    if (!t2) continue;
+    const meta = A.lblTextW("FONDO PALCO", 16 * k) / 2 + 11 * k;
+    t2.forEach(s => ok(A.lblTextW(s, 11 * k) + meta < W / 2, "W " + W + " k " + k + ": «" + s + "» sta fra l'angolo e FONDO PALCO"));
+  }
+  eq(A.latiTeatroTesti(1200, 1), ["SINISTRA (giardino)", "DESTRA (corte)"], "di norma per esteso");
+});
+t("side fill dei modelli: DX a destra e SX a sinistra guardando dalla platea (decisione del 07/11)", () => {
+  const html = readFileSync(join(root, "index.template.html"), "utf8");
+  const sf = [...html.matchAll(/\{type:"sidefill", x:(-?\d+), [^}]*label:"Side fill (DX|SX)"/g)].map(m => [+m[1], m[2]]);
+  ok(sf.length >= 10, "i side fill dei modelli sono stati trovati (" + sf.length + ")");
+  sf.forEach(([x, l]) => eq(l, x > 0 ? "DX" : "SX", "x " + x + " (x>0 = destra del foglio, PUBBLICO in basso)"));
+  const lr = [...html.matchAll(/outch\("Side fill ([LR])","side fill","lato (DX|SX) palco"\)/g)].map(m => m[1] + m[2]);
+  ok(lr.length >= 8, "le mandate L/R sono state trovate (" + lr.length + ")");
+  lr.forEach(x => ok(x === "LSX" || x === "RDX", "Side fill L = lato SX, R = lato DX: " + x));
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
 
