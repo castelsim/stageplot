@@ -29358,6 +29358,70 @@ t("«I miei progetti» e l'anteprima aperti: i tasti sono della finestra, il pal
   ok(appjs.indexOf('e.key==="ArrowLeft") dx=-step;', i) > i, "e viene prima delle frecce che spostano gli elementi");
 });
 
+/* 10/11/2026 — Simone, opzione B: con «I miei progetti» o l'anteprima aperti il tasto Indietro del browser chiude solo
+   la finestra (come una foto aperta su WhatsApp Web); un secondo Indietro esce davvero; Avanti non riapre stati strani.
+   Qui una cronologia finta (voci, posizione, pushState che taglia il "davanti", go che spara popstate) e le finestre
+   finte; la macchina vera è creaNavFinestre di app.js. */
+t("Indietro del browser: chiude un livello per volta (anteprima, elenco), poi esce; Avanti non riapre niente", () => {
+  const nuovo = () => {
+    const H = { voci: [{ n: 0 }], i: 0 }, S = { modal: false, prev: false, pop: null };
+    const hist = {
+      push: (n) => { H.voci.length = H.i + 1; H.voci.push({ n }); H.i++; },
+      go: (k) => { const a = H.i; H.i = Math.max(0, Math.min(H.voci.length - 1, H.i + k)); if (H.i !== a) S.pop(H.voci[H.i].n); },
+    };
+    const nav = A.creaNavFinestre({
+      livello: () => (S.modal ? (S.prev ? 2 : 1) : 0),
+      push: (n) => hist.push(n),
+      indietro: (k) => hist.go(-k),
+      chiudiA: (n) => { if (n < 2) S.prev = false; if (n < 1) S.modal = false; nav.sync(); },
+    });
+    S.pop = (n) => nav.pop(n);
+    /* come l'osservatore dell'app: ogni cambio di stato richiama sync() */
+    const set = (k, v) => { S[k] = v; if (k === "modal" && !v) S.prev = false; nav.sync(); };
+    return { H, S, nav, set, indietro: () => hist.go(-1), avanti: () => hist.go(1) };
+  };
+  let x = nuovo();
+  x.set("modal", true);
+  eq([x.H.voci.length, x.nav.depth()], [2, 1], "aprire l'elenco: una voce");
+  x.set("prev", true);
+  eq([x.H.voci.length, x.nav.depth()], [3, 2], "aprire l'anteprima: una seconda voce");
+  x.indietro();
+  eq([x.S.prev, x.S.modal, x.H.i], [false, true, 1], "Indietro #1: chiude solo l'anteprima, l'elenco resta");
+  x.indietro();
+  eq([x.S.prev, x.S.modal, x.H.i], [false, false, 0], "Indietro #2: chiude l'elenco, siamo alla voce di partenza");
+  /* Avanti dopo Indietro: nessun livello si riapre */
+  x.avanti();
+  eq([x.S.prev, x.S.modal, x.H.i, x.nav.depth()], [false, false, 0, 0], "Avanti: non riapre l'elenco, resta dov'era");
+  /* chiusura con X / Esc: la voce aggiunta si toglie, il primo Indietro dopo non resta «a vuoto» */
+  x = nuovo(); x.set("modal", true); x.set("prev", true); x.set("prev", false);
+  eq([x.H.i, x.nav.depth(), x.S.modal], [1, 1, true], "X dell'anteprima: torna una voce, elenco aperto");
+  x.set("modal", false);
+  eq([x.H.i, x.nav.depth()], [0, 0], "X dell'elenco: cronologia com'era all'inizio");
+  /* chiudere i due livelli insieme (Apri un progetto: anteprima + elenco) = una sola uscita dalla cronologia */
+  x = nuovo(); x.set("modal", true); x.set("prev", true); x.S.modal = false; x.S.prev = false; x.nav.sync();
+  eq([x.H.i, x.nav.depth()], [0, 0], "Apri progetto: entrambe le voci tolte");
+  /* ripetuto: nessuna voce si accumula */
+  for (let k = 0; k < 5; k++) { x.set("modal", true); x.set("modal", false); }
+  eq([x.H.i, x.nav.depth()], [0, 0], "apri/chiudi ripetuto: la posizione resta 0");
+  /* Avanti dopo una chiusura con X: non riapre e si resta alla voce giusta */
+  x = nuovo(); x.set("modal", true); x.set("modal", false); x.avanti();
+  eq([x.S.modal, x.H.i, x.nav.depth()], [false, 0, 0], "Avanti dopo la X: niente stati strani");
+  /* Indietro senza finestre aperte non fa nulla di suo (esce il browser, qui siamo già alla prima voce) */
+  x = nuovo(); x.indietro();
+  eq([x.S.modal, x.nav.depth()], [false, 0], "senza finestre aperte non cambia niente");
+});
+
+t("Indietro del browser: cablaggio nell'app (solo cronologia, URL e salvataggio intatti)", () => {
+  const i = appjs.indexOf("nav=creaNavFinestre({");
+  ok(i > 0, "il cablaggio c'è");
+  const b = appjs.slice(i - 900, i + 1500);
+  ok(/history\.pushState\(\{spNav:n\},"",location\.href\)/.test(b), "pushState con lo stesso URL (?p= e ?view= intatti)");
+  ok(/addEventListener\("popstate"/.test(b), "ascolta popstate");
+  ok(/history\.state\.spNav\) history\.replaceState\(null,"",location\.href\)/.test(b), "dopo una ricarica toglie lo stato di un livello chiuso");
+  ok(/navOsserva\(ov,"hidden"\)/.test(appjs) && /navOsserva\(modalEl,"style"\)/.test(b), "osserva elenco e anteprima, da qualunque via si chiudano");
+  ok(!/pushState\([^)]*(search|\?p=|\?view=)/.test(b), "nessun parametro dell'URL toccato");
+});
+
 /* 10/11/2026 — un link ?view= aperto sul sito vero: per 1-2 secondi, finché app.js (~3 MB) scarica, si vedeva lo scheletro
    dell'editor con «Senza titolo» e «Accedi», come se chi l'apre fosse uscito dall'account. Il cartello «Sto aprendo il
    progetto…» lo mette app.js: arrivava dopo. Ora lo mette lo script in testa, che gira prima di tutto. */
