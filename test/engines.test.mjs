@@ -29159,6 +29159,46 @@ t("side fill dei modelli: DX a destra e SX a sinistra guardando dalla platea (de
   lr.forEach(x => ok(x === "LSX" || x === "RDX", "Side fill L = lato SX, R = lato DX: " + x));
 });
 
+/* ===== «I miei progetti», anteprima e più schede (10/11/2026) =====
+   Segnalazione: con due schede aperte la prima finiva in «Aperto in un'altra scheda — salvataggio sospeso» appena se ne
+   apriva un'altra. Causa: historyStateJSON toglieva e rimetteva production.asked, printFrame e pdfEsportato, e rimettendoli
+   li spostava in fondo all'oggetto. Stesso contenuto, stringa diversa, firma diversa: chi rileggeva il documento lo
+   credeva modificato e lo riscriveva online, e la scheda di prima restava indietro. */
+t("la cronologia non sposta le chiavi: chi riapre il progetto dallo spazio locale non lo trova «da salvare»", () => {
+  const before = A.docToJSON(), oldStorage = A.localStorage, oldCloud = A.__cloud, oldDocument = A.document;
+  const old = { dirty: A._cloudDirty, saving: A._cloudSaving, pend: A.__bootCloudPending, sig: A.__bootCloudSig, known: A.__bootCloudSigKnown, conflict: A.__localConflict };
+  const store = new Map();
+  try {
+    reset();
+    A.state.production = Object.assign({ asked: false }, A.state.production || {}, { asked: false });
+    A.state.printFrame = { x: 0, y: 0, w: 1200, h: 800 };
+    A.state.pdfEsportato = { at: "2026-11-10T10:00:00Z", firma: "f-prova" };
+    A.loadDoc(JSON.parse(A.docToJSON()));   /* come un progetto appena aperto: già passato dal normalizzatore */
+    ok("asked" in A.state.production && A.state.printFrame && A.state.pdfEsportato, "le tre annotazioni ci sono");
+    const ordine = A.docToJSON();
+    const h = A.historyStateJSON();
+    eq(A.docToJSON(), ordine, "dopo historyStateJSON lo stato è identico, anche nell'ordine delle chiavi");
+    ok(!/"asked"|"printFrame"|"pdfEsportato"/.test(h), "le annotazioni restano fuori dalla cronologia");
+    ok("asked" in A.state.production && A.state.printFrame && A.state.pdfEsportato && A.state.pdfEsportato.firma === "f-prova", "e restano nello stato");
+    /* il giro vero: salvataggio (cronologia + spazio locale) pari al cloud, poi un'altra scheda rilegge lo spazio locale */
+    A.localStorage = { getItem: (k) => store.has(k) ? store.get(k) : null, setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) };
+    A.__cloud = { currentId: () => "progetto-A", currentRev: () => "rev-1", user: () => ({ id: "utente-prova" }) };
+    A.document = { body: { classList: { contains: () => false } }, getElementById: () => null };
+    A.__localConflict = false; A._cloudDirty = false; A._cloudSaving = false; A.__bootCloudPending = false;
+    A.recordHistory();
+    A.__bootCloudSig = A.projectContentSig(JSON.parse(A.docToJSON()), A.venueImageBundleSig()); A.__bootCloudSigKnown = true;
+    eq(A.persistLocalState(), true, "spazio locale scritto");
+    eq(JSON.parse(store.get(A.LS_KEY))._local.cloudPending, false, "lo spazio locale è pari al cloud");
+    A.load();
+    eq(A.__bootCloudPending, false, "la scheda che rilegge il documento non lo crede modificato (niente scrittura online all'avvio)");
+  } finally {
+    A.localStorage = oldStorage; A.__cloud = oldCloud; A.document = oldDocument;
+    A._cloudDirty = old.dirty; A._cloudSaving = old.saving; A.__bootCloudPending = old.pend; A.__bootCloudSig = old.sig;
+    A.__bootCloudSigKnown = old.known; A.__localConflict = old.conflict;
+    A.loadDoc(JSON.parse(before)); reset();
+  }
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
 

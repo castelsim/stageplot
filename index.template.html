@@ -6375,8 +6375,8 @@ function grpLibero(){
 }
 /* replacer per serializzare lo state SENZA il file immagine della planimetria (richiesto al ricaricamento) */
 function stateReplacer(k,v){ return (k==='_dataUrl'||k==='_imgW'||k==='_imgH')?undefined:v; }
-function stateToJSON(){
-  var st=state;
+function stateToJSON(src){
+  var st=src||state;   /* src: una copia dello stato (historyStateJSON), che non va toccato */
   /* rete di sicurezza: fuori dall'editor «Crea elemento» una forma custshape non si scrive MAI (un documento che la
      contiene non si riaprirebbe: normalizzeLoadedItems la rifiuta) */
   if(!window.__custEditor && st && Array.isArray(st.items) && st.items.some(function(x){ return x && x.type==="custshape"; }))
@@ -8170,16 +8170,17 @@ var undoStack=[], redoStack=[], lastSnap=null, venueHistoryAssets=Object.create(
    apertura dell'Esporta scriveva con save(): un passo di Annulla fantasma — dopo «Adatta» ed Esporta il primo
    Annulla disfaceva quello e non l'adattamento, e Ripeti si svuotava (Simone: «correggi anche l'annulla dopo
    l'export»). Un Annulla non le riporta indietro: applyHistory le tiene (vedi notaFuoriCronologia). */
+/* Le tre annotazioni si tolgono da una COPIA superficiale, non dallo stato (10/11): toglierle e rimetterle le spostava
+   in fondo all'oggetto, e lo stesso progetto riletto da un'altra scheda (o dopo un ricarica) aveva le chiavi in un altro
+   ordine, quindi un'altra firma (projectContentSig): sembrava modificato, si riscriveva online e la scheda di prima
+   finiva in «Aperto in un'altra scheda — salvataggio sospeso». */
 function historyStateJSON(){
-  var had=("printFrame" in state), f=state.printFrame;
-  var hadPe=("pdfEsportato" in state), pe=state.pdfEsportato;
-  var pr=(state.production&&typeof state.production==="object")?state.production:null, hadAsk=!!(pr&&("asked" in pr)), ask=pr?pr.asked:undefined;
-  if(had) delete state.printFrame;
-  if(hadPe) delete state.pdfEsportato;
-  if(hadAsk) delete pr.asked;
-  try{ var j=stateToJSON(); }
-  finally{ if(had) state.printFrame=f; if(hadPe) state.pdfEsportato=pe; if(hadAsk) pr.asked=ask; }
-  return j;
+  var st=Object.assign({}, state);
+  delete st.printFrame; delete st.pdfEsportato;
+  if(st.production && typeof st.production==="object" && ("asked" in st.production)){
+    st.production=Object.assign({}, st.production); delete st.production.asked;
+  }
+  return stateToJSON(st);
 }
 function notaFuoriCronologia(){ return { pe:state.pdfEsportato, ask:!!(state.production&&state.production.asked) }; }
 function historySnapshot(){
