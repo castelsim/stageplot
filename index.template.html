@@ -36939,13 +36939,15 @@ function pdfScaleBarY(L, iy, mmH){
   if(su<=giu) return Math.min(iy+mmH+10, giu);
   return (su+giu)/2;   /* manca aria: la si toglie in parti uguali da sopra e da sotto */
 }
+/* «0» e «2 m» CENTRATI SULLE TACCHE (10/11/2026, Simone): prima «0» partiva dalla tacca e «2 m» ci finiva, e
+   l'occhio non sapeva a quale punto della scritta corrispondesse la misura. */
 function pdfScaleBar(doc, x, y, N){
   var bm=niceBarMeters(N), len=bm*1000/N;     /* mm */
   doc.setDrawColor(17,24,39); doc.setLineWidth(0.6);
   doc.line(x, y, x+len, y);
   doc.line(x, y-SCALEBAR_SOPRA, x, y+SCALEBAR_SOPRA); doc.line(x+len, y-SCALEBAR_SOPRA, x+len, y+SCALEBAR_SOPRA); doc.line(x+len/2, y-1, x+len/2, y+1);
   doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(17,24,39);
-  doc.text("0", x, y+SCALEBAR_SOTTO); doc.text(bm+" m", x+len, y+SCALEBAR_SOTTO, {align:"right"});   /* cifre e «m»: niente discendenti sotto la base */
+  doc.text("0", x, y+SCALEBAR_SOTTO, {align:"center"}); doc.text(bm+" m", x+len, y+SCALEBAR_SOTTO, {align:"center"});   /* cifre e «m»: niente discendenti sotto la base */
 }
 /* la stessa barra nell'anteprima dell'Esporta (prima non c'era: non si vedeva nemmeno dove sarebbe caduta) */
 function pdfScaleBarSvg(x, y, N){
@@ -36953,8 +36955,71 @@ function pdfScaleBarSvg(x, y, N){
   var ln=function(cls, x1, y1, x2, y2){ return '<line'+(cls?' class="'+cls+'"':'')+' x1="'+f(x1)+'" y1="'+f(y1)+'" x2="'+f(x2)+'" y2="'+f(y2)+'" stroke="#111827" stroke-width="0.6"/>'; };
   var fs=(7.5*25.4/72).toFixed(3);
   return ln("scala-barra", x, y, x+len, y)+ln("", x, y-SCALEBAR_SOPRA, x, y+SCALEBAR_SOPRA)+ln("", x+len, y-SCALEBAR_SOPRA, x+len, y+SCALEBAR_SOPRA)+ln("", x+len/2, y-1, x+len/2, y+1)+
-    '<text x="'+f(x)+'" y="'+f(y+SCALEBAR_SOTTO)+'" font-family="Helvetica, Arial, sans-serif" font-size="'+fs+'" fill="#111827">0</text>'+
-    '<text x="'+f(x+len)+'" y="'+f(y+SCALEBAR_SOTTO)+'" font-family="Helvetica, Arial, sans-serif" font-size="'+fs+'" fill="#111827" text-anchor="end">'+bm+' m</text>';
+    '<text x="'+f(x)+'" y="'+f(y+SCALEBAR_SOTTO)+'" font-family="Helvetica, Arial, sans-serif" font-size="'+fs+'" fill="#111827" text-anchor="middle">0</text>'+
+    '<text x="'+f(x+len)+'" y="'+f(y+SCALEBAR_SOTTO)+'" font-family="Helvetica, Arial, sans-serif" font-size="'+fs+'" fill="#111827" text-anchor="middle">'+bm+' m</text>';
+}
+/* LA BARRA SOTTO IL PALCO (10/11/2026, Simone: «dà fastidio che il metro di misura non sia allineato con il lato del
+   palco»). Partiva dal bordo sinistro del RIQUADRO del disegno (il palco più 80 cm di margine, più chi sta fuori dal
+   palco) e stava in fondo all'area del disegno: lontana dal palco, con lo «0» che non cadeva su niente.
+   Ora lo «0» sta sul bordo sinistro del palco (x = 0 nel mondo: dopo recalcStageBBox il rettangolo che contiene tutti
+   i blocchi parte da lì, anche con palchi a trapezio, a triangolo, a semicerchio o con pedane) e la linea sta
+   SCALEBAR_DAL_PALCO sotto il punto più avanzato del palco (y = D), sempre alla stessa distanza.
+   Se lì sotto c'è qualcosa — «PUBBLICO» su un palco stretto, una quota, un sub o una cassa davanti al palco, il nome
+   di chi sta fuori — la barra scende quanto basta per passargli sotto, ma resta allineata al palco. Non entra mai nel
+   cartiglio: se non trova posto si ferma subito sopra (SCALEBAR_ARIA), dove stava prima nei disegni a tutta pagina.
+   Casi in cui allinearla non si può (area di stampa scelta a mano che taglia il palco): bordo sinistro tagliato →
+   lo «0» va all'inizio del disegno, come prima; bordo verso il pubblico tagliato → la barra torna sotto il disegno
+   (pdfScaleBarY). Una funzione sola per PDF, pagine-vista e anteprima dell'Esporta.
+   opz.blockDims: nel disegno ci sono le quote per blocco (stageDimsMarkup); opz.quoteJs: jsPDF scrive le sue quote
+   attorno al palco (pdfQuoteFuoriDalDisegno). → {x, y, sottoPalco} in mm sul foglio (y = la linea della barra). */
+var SCALEBAR_DAL_PALCO=2.5, SCALEBAR_ARIA_OST=1;
+/* larghezza di una scritta della barra (Helvetica 7,5 pt, in mm): cifre 0,556 em, spazio e virgola 0,278, «m» 0,833 */
+function scalaBarTestoW(t){
+  var em=0; String(t).split("").forEach(function(c){ em+= c==="m" ? 0.833 : (c===" "||c===","||c===".") ? 0.278 : 0.556; });
+  return em*7.5*25.4/72;
+}
+/* Cosa c'è sul foglio attorno al palco, in mm: «PUBBLICO», le quote per blocco, gli elementi col nome, le quote di jsPDF */
+function scalaBarOstacoli(box, N, opz){
+  opz=opz||{};
+  var k=pdfTextK(N), mpc=box.mmPerCm, vb=box.vb, W=state.stage.w||0, D=state.stage.d||0, out=[];
+  var dx0=box.ix, dy0=box.iy, dx1=box.ix+box.mmW, dy1=box.iy+box.mmH;
+  function mondo(x0, y0, x1, y1){   /* rettangolo in cm del palco → mm del foglio, tagliato all'area del disegno (fuori non si stampa) */
+    var r={x0:Math.max(dx0, box.ix+(x0-vb.x)*mpc), y0:Math.max(dy0, box.iy+(y0-vb.y)*mpc), x1:Math.min(dx1, box.ix+(x1-vb.x)*mpc), y1:Math.min(dy1, box.iy+(y1-vb.y)*mpc)};
+    if(r.x1>r.x0 && r.y1>r.y0) out.push(r);
+  }
+  var dims=opz.blockDims ? stageDimsMarkup() : "", zy=zoneLblY(dims, k, D), fp=16*k, wp=lblTextW("PUBBLICO", fp)+8*2*k;
+  mondo(W/2-wp/2, zy.p-0.75*fp, W/2+wp/2, zy.p+0.25*fp);
+  String(dims).replace(/<text class="(dim-edge|dim-h)" x="([-\d.]+)" y="([-\d.]+)"([^>]*)>([^<]*)</g, function(m, cls, x, y, resto, t){
+    var fs=(cls==="dim-h" ? 13 : 14)*k, w=lblTextW(t, fs); x=+x; y=+y;
+    if(/rotate/.test(resto)) mondo(x-0.75*fs, y-w/2, x+0.25*fs, y+w/2);   /* ruotata di −90°: sale lungo il lato */
+    else mondo(x-w/2, y-0.75*fs, x+w/2, y+0.25*fs);
+    return m;
+  });
+  (state.items||[]).forEach(function(it){ if(it && !it.rackId){ var r=ingombroStampa(it, k); mondo(r.x0, r.y0, r.x1, r.y1); } });
+  if(opz.quoteJs){   /* «5 m» ruotata a sinistra del palco, a corpo fisso (buildPdfDoc): non è tagliata al disegno */
+    var q=box.rMm, wq=String(adattaM(state.stage.d)+" m").length*1.7;
+    out.push({x0:q.x-5-2.3, y0:q.y+q.h/2-wq/2, x1:q.x-5+0.8, y1:q.y+q.h/2+wq/2});
+  }
+  return out;
+}
+function pdfScaleBarPosa(box, N, opz){
+  var L=box.L, mpc=box.mmPerCm, vb=box.vb, D=state.stage.d||0;
+  var bm=niceBarMeters(N), len=bm*1000/N, h0=scalaBarTestoW("0")/2, hm=scalaBarTestoW(bm+" m")/2;
+  var dx0=box.ix, dx1=box.ix+box.mmW, dy1=box.iy+box.mmH;
+  var x=box.ix+(0-vb.x)*mpc, fronte=box.iy+(D-vb.y)*mpc;
+  if(x<dx0-0.05 || x>dx1+0.05) x=dx0;                          /* il bordo sinistro non è sul foglio: inizio del disegno */
+  x=Math.min(Math.max(x, L.M+h0), L.pw-L.M-len-hm);            /* le scritte restano dentro i margini del foglio */
+  if(fronte>dy1+0.05 || fronte<box.iy-0.05) return {x:x, y:pdfScaleBarY(L, box.iy, box.mmH), sottoPalco:false};
+  var giu=L.ph-L.fondo-L.cartH-SCALEBAR_ARIA-SCALEBAR_SOTTO;   /* più in basso di così toccherebbe il cartiglio */
+  var ost=scalaBarOstacoli(box, N, opz), a=SCALEBAR_ARIA_OST, bx0=x-Math.max(h0, 0.3)-a, bx1=x+len+Math.max(hm, 0.3)+a;
+  var y=fronte+SCALEBAR_DAL_PALCO+SCALEBAR_SOPRA;
+  for(var giro=0; giro<60; giro++){
+    var y0=y-SCALEBAR_SOPRA-a, y1=y+SCALEBAR_SOTTO+a, sotto=-Infinity;
+    ost.forEach(function(r){ if(r.x0<bx1 && bx0<r.x1 && r.y0<y1 && y0<r.y1) sotto=Math.max(sotto, r.y1); });
+    if(sotto===-Infinity) break;
+    y=sotto+a+SCALEBAR_SOPRA;                                    /* passa sotto chi c'è */
+  }
+  return {x:x, y:Math.min(y, giu), sottoPalco:true};
 }
 /* Credito "Creato con stageplot.it" su OGNI pagina del doc (attribuzione, non copyright: il
    contenuto del rider è dell'utente). Variante A: angolo basso-destra, fuori dal cartiglio,
@@ -37024,8 +37089,10 @@ function pdfPreviewSvg(paperKey, N, orient, header, opts){
   /* la planimetria come nel PDF: su tutta l'area di disegno del foglio, sotto il disegno (venueFoglioSvg) */
   var areaDis={x:L.drawX, y:L.drawY, w:L.drawW, h:L.drawH};
   var pianta=venueFoglioSvg(areaDis, ix, iy, box.vb, stMmW/box.vb.w);
+  var noBlockDims=pdfQuoteFuoriDalDisegno(box) && stageBlocks().length<2;
+  var barra=pdfScaleBarPosa(box, Ng, {blockDims:!noBlockDims, quoteJs:pdfQuoteFuoriDalDisegno(box)});   /* lo stesso punto del PDF */
   var scene = stageSceneSvg(box.vb, {focus:opts.focus||null, textK:pdfTextK(Ng), piantaASe:!!pianta,
-      noBlockDims:pdfQuoteFuoriDalDisegno(box) && stageBlocks().length<2})
+      noBlockDims:noBlockDims})
     .replace(/^<svg /, '<svg x="'+ix+'" y="'+iy+'" width="'+stMmW+'" height="'+stMmH+'" preserveAspectRatio="none" ');
   scene=pianta+scene;
   var cy=L.ph-L.fondo-L.cartH;
@@ -37055,7 +37122,7 @@ function pdfPreviewSvg(paperKey, N, orient, header, opts){
     scene+
     '<rect x="'+q.x+'" y="'+q.y+'" width="'+q.w+'" height="'+q.h+'" fill="none" stroke="'+stroke+'" stroke-width="0.5"/>'+
     labels+
-    pdfScaleBarSvg(ix, pdfScaleBarY(L, iy, stMmH), Ng)+   /* come nel PDF (pdfScaleBar), alla stessa altezza */
+    pdfScaleBarSvg(barra.x, barra.y, Ng)+   /* come nel PDF (pdfScaleBar), nello stesso punto */
     '<line x1="'+L.M+'" y1="'+cy+'" x2="'+(L.pw-L.M)+'" y2="'+cy+'" stroke="#1f2937" stroke-width="0.4"/>'+
     colSx+
     ((!opts.focus || opts.focus==="clean") ? pdfQrSvg(L) : "")+   /* QR: solo sulla prima pagina, come nel PDF */
@@ -37956,7 +38023,8 @@ function buildPdfDoc(paperKey, N, orient, header){
       doc.text(adattaM(state.stage.w)+" m", q.x+q.w/2, q.y-8, {align:"center"});   /* «11,5 m» con la virgola, come il cartiglio (07/11) */
       doc.text(adattaM(state.stage.d)+" m", q.x-5, q.y+q.h/2, {align:"center", angle:90});
     }
-    pdfScaleBar(doc, ix, pdfScaleBarY(L, iy, stMmH), N);
+    var barra=pdfScaleBarPosa(box, N, {blockDims:!scena.noBlockDims, quoteJs:pdfQuoteFuoriDalDisegno(box)});   /* sotto il palco, «0» sul suo bordo sinistro (10/11) */
+    pdfScaleBar(doc, barra.x, barra.y, N);
     pdfCartiglio(doc, L, N, header);
     pdfQrDisegna(doc, L);   /* il QR verso la versione online, se scelto: solo qui, sulla prima pagina (10/10) */
     var pg=window.__pdfPages||null;
@@ -37985,7 +38053,8 @@ function buildPdfDoc(paperKey, N, orient, header){
             _viewFails.push(v[1]);
           })
           .then(function(){
-            pdfScaleBar(doc, ix, pdfScaleBarY(L, iy, stMmH), N);
+            var barraV=pdfScaleBarPosa(box, N, {blockDims:true});   /* qui le quote per blocco ci sono sempre */
+            pdfScaleBar(doc, barraV.x, barraV.y, N);
             pdfCartiglio(doc, L, N, header);   /* «stampato in basso su ogni pagina»: anche qui, non solo sulla prima */
           });
       });
