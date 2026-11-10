@@ -37553,6 +37553,7 @@ function gallery(){
     w.innerHTML='<div style="max-width:320px"><b style="display:block;font-size:17px;margin-bottom:6px">Sto aprendo il progetto…</b>'+
       '<span style="font-size:14px;color:var(--text-2,#475569)">Un momento: il documento arriva dal server.</span></div>';
     document.body.appendChild(w);
+    document.documentElement.classList.remove("view-attesa");   /* la copertura dello script in testa: ora c'è il cartello vero */
   }
   function togliAttesa(){ var w=document.getElementById("viewWait"); if(w&&w.remove) w.remove(); }
   mostraAttesa();

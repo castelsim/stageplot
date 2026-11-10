@@ -29305,6 +29305,37 @@ t("«I miei progetti» e l'anteprima aperti: i tasti sono della finestra, il pal
   ok(appjs.indexOf('e.key==="ArrowLeft") dx=-step;', i) > i, "e viene prima delle frecce che spostano gli elementi");
 });
 
+/* 10/11/2026 — un link ?view= aperto sul sito vero: per 1-2 secondi, finché app.js (~3 MB) scarica, si vedeva lo scheletro
+   dell'editor con «Senza titolo» e «Accedi», come se chi l'apre fosse uscito dall'account. Il cartello «Sto aprendo il
+   progetto…» lo mette app.js: arrivava dopo. Ora lo mette lo script in testa, che gira prima di tutto. */
+t("link ?view=: «Sto aprendo il progetto…» da subito, non l'editor vuoto con «Accedi»", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  const testa = html.slice(0, html.indexOf("</head>"));
+  const script = [...testa.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]).find((x) => /\[\?&\]view=/.test(x));
+  ok(script, "lo script in testa per i link ?view= c'è");
+  const prova = (search) => {
+    const classi = new Set(), stili = [], meta = [];
+    const doc = {
+      documentElement: { classList: { add: (c) => classi.add(c), remove: (c) => classi.delete(c) } },
+      head: { appendChild: (el) => (el.tag === "style" ? stili : meta).push(el) },
+      createElement: (tag) => ({ tag }),
+    };
+    vm.runInNewContext(script, { location: { search }, document: doc });
+    return { classi, stili, meta };
+  };
+  const v = prova("?view=TOK");
+  ok(v.classi.has("view-attesa"), "con ?view= la pagina parte in attesa");
+  const css = v.stili.map((x) => x.textContent).join("");
+  ok(/html\.view-attesa body>\*\{visibility:hidden/.test(css), "l'editor sotto non si vede: " + css.slice(0, 80));
+  ok(/html\.view-attesa body::before\{content:"Sto aprendo il progetto…"/.test(css), "e al suo posto c'è il cartello");
+  eq(v.meta.length, 1, "il noindex resta");
+  const n = prova("?p=abc");
+  eq([n.classi.size, n.stili.length, n.meta.length], [0, 0, 0], "senza ?view= non cambia niente");
+  /* il cartello vero (mostraAttesa, in app.js) prende il posto di quello in testa */
+  const ma = appjs.slice(appjs.indexOf("function mostraAttesa(){"), appjs.indexOf("function togliAttesa(){"));
+  ok(/document\.body\.appendChild\(w\);\s*document\.documentElement\.classList\.remove\("view-attesa"\);/.test(ma), "mostraAttesa toglie la copertura appena mette il suo cartello");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
 
