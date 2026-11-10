@@ -7447,16 +7447,19 @@ function localRevisionFromRaw(raw){
    - "prendi":   un altro progetto online, senza modifiche in sospeso → il suo lavoro è al sicuro nel cloud, lo spazio si può riprendere;
    - "aspetta":  un altro progetto con modifiche non ancora online → non lo si sovrascrive, ma questa scheda non si ferma:
                  il suo progetto continua a salvarsi online e riprende lo spazio locale quando l'altro è al sicuro;
-   - "conflitto": lo stesso progetto con un contenuto diverso, un documento senza progetto online (vive solo qui), o un
-                 blocco illeggibile → come prima. */
+                 Vale anche per un documento dell'altra scheda senza progetto online (vive solo lì);
+   - "conflitto": lo stesso progetto con un contenuto diverso, il documento di QUESTA scheda senza progetto online (vive
+                 solo nello spazio locale), o un blocco illeggibile → come prima. */
 function slotAltraScheda(raw, mioCloudId, mioContentSig){
   var L=null; try{ L=raw?JSON.parse(raw)._local:null; }catch(e){ L=null; }
   if(!L || typeof L!=="object") return "conflitto";
   var suo=(typeof L.cloudId==="string" && L.cloudId) ? L.cloudId : null;
   mioCloudId=mioCloudId||null;
   if(suo===mioCloudId) return (mioCloudId && mioContentSig && L.contentSig===mioContentSig && L.cloudPending!==true) ? "uguale" : "conflitto";
-  if(!mioCloudId || !suo) return "conflitto";   /* uno dei due documenti vive solo nello spazio locale */
-  return (L.cloudPending===true || L.venueUnavailable===true) ? "aspetta" : "prendi";
+  if(!mioCloudId) return "conflitto";   /* il documento di QUESTA scheda vive solo nello spazio locale: è lui a rischio */
+  /* un altro documento: se vive solo lì (nessun id: anche la scrittura a metà di un'apertura, prima che l'id arrivi)
+     o ha modifiche non ancora online, non si tocca; il nostro è online e non corre rischi */
+  return (!suo || L.cloudPending===true || L.venueUnavailable===true) ? "aspetta" : "prendi";
 }
 function mioCloudIdLocale(){
   var C=window.__cloud;

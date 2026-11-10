@@ -29241,7 +29241,7 @@ t("più schede: chi lavora su un altro progetto già online non ferma questa sch
   eq(A.slotAltraScheda(slot({ cloudId: "A", cloudPending: true, contentSig: "s" }), "A", "s"), "conflitto", "stesso progetto, l'altra ha modifiche non online");
   eq(A.slotAltraScheda(slot({ cloudId: null, contentSig: "s" }), null, "s"), "conflitto", "documento senza progetto online: vive solo qui");
   eq(A.slotAltraScheda(slot({ cloudId: "B" }), null, "s"), "conflitto", "questa scheda non ha un progetto online");
-  eq(A.slotAltraScheda(slot({ cloudId: null }), "A", "s"), "conflitto", "l'altra scheda non ha un progetto online");
+  eq(A.slotAltraScheda(slot({ cloudId: null, cloudPending: false }), "A", "s"), "aspetta", "l'altra scheda ha un documento solo locale (o è a metà di un'apertura): non si tocca, ma questa non si ferma");
   eq(A.slotAltraScheda(null, "A", "s"), "conflitto", "spazio locale vuoto (uscita da un'altra scheda)");
   eq(A.slotAltraScheda("{rotto", "A", "s"), "conflitto", "illeggibile");
 });
