@@ -26034,6 +26034,30 @@ function finestraProgettiAperta(){
   var m=document.getElementById("cloudModal"), pv=document.getElementById("cloudPrev");
   return !!((m && m.style && m.style.display && m.style.display!=="none") || (pv && pv.hidden===false));
 }
+/* INDIETRO DEL BROWSER CON «I MIEI PROGETTI» / L'ANTEPRIMA (10/11/2026, Simone, opzione B: «come una foto aperta su
+   WhatsApp Web»). Prima l'app non registrava voci di cronologia: Indietro (freccia, scorciatoia, gesto del trackpad)
+   usciva da stageplot.it. Ora ogni livello aperto — elenco (1), anteprima sopra l'elenco (2) — ha UNA voce di
+   cronologia, aggiunta all'apertura e tolta alla chiusura (X, Esc, Apri…), così il primo Indietro dopo non resta «a
+   vuoto». Indietro chiude un livello per volta; solo con tutto chiuso esce davvero. Avanti non riapre niente: se la
+   voce davanti è un livello già chiuso, si rientra subito. L'URL non cambia (?p=, ?view= intatti) e il salvataggio
+   non c'entra: si tocca solo la cronologia. deps: livello() = 0|1|2 letto dal DOM, push(n), indietro(k), chiudiA(n). */
+function creaNavFinestre(deps){
+  var depth=0, ignora=0;
+  return {
+    sync: function(){
+      var w=deps.livello();
+      while(depth<w){ depth++; deps.push(depth); }
+      if(depth>w){ var k=depth-w; depth=w; ignora++; deps.indietro(k); }
+    },
+    pop: function(stato){
+      if(ignora>0){ ignora--; return; }            /* il popstate lo abbiamo provocato noi */
+      var target=(stato|0)||0;
+      if(target<depth){ depth=target; deps.chiudiA(target); }               /* Indietro: chiude un livello */
+      else if(target>depth){ ignora++; deps.indietro(1); }                 /* Avanti: niente stati strani, si torna dov'eravamo */
+    },
+    depth: function(){ return depth; }
+  };
+}
 var ESC_MODALS=["prodModal","rubModal","learn","clDlg","csvPicker","cloudModal"];
 function escCloseTopModal(target){
   var inField=target && /INPUT|SELECT|TEXTAREA/.test(target.tagName||"");
@@ -41062,6 +41086,7 @@ function maybeAskStageSize(explicit){
         '<span style="flex:1"></span><button type="button" class="btn cp-chiudi">Chiudi</button></div>'+
         '<div class="cp-azioni"><button type="button" class="btn primary cp-apri">Apri</button><span class="cp-icone"></span></div></div>';
       document.body.appendChild(ov);
+      navOsserva(ov,"hidden");
       ov.addEventListener("click", function(e){ if(e.target===ov) chiudiAnteprima(); });
       ov.querySelector(".cp-chiudi").addEventListener("click", chiudiAnteprima);
       ov.querySelector(".cp-apri").addEventListener("click", function(){ var pid=ov.getAttribute("data-id"); chiudiAnteprima(true); openProject(pid); });
@@ -41103,6 +41128,7 @@ function maybeAskStageSize(explicit){
       icone.appendChild(copia);
     });
     ov.hidden=false;
+    navSync();   /* la prima volta l'anteprima nasce già visibile: nessun attributo cambia, l'osservatore non scatta */
     if(!senzaFuoco) ov.querySelector(".cp-apri").focus();
     /* varianti ed elementi: servono i dati del progetto, quindi solo per quello che si guarda */
     if(!contiAnteprima[chiave] && sb && cloudUser){
@@ -41123,10 +41149,39 @@ function maybeAskStageSize(explicit){
   }
   function chiudiAnteprima(perAprire){
     var ov=document.getElementById("cloudPrev"); if(!ov) return;
-    ov.hidden=true;
+    ov.hidden=true; navSync();
     if(!perAprire && ov.__daChi && document.body.contains(ov.__daChi)) ov.__daChi.focus();   /* il fuoco torna alla miniatura da cui si era partiti */
   }
   try{ window.__cloudAnteprima={ valida:miniaturaValida, apri:apriAnteprima, chiudi:chiudiAnteprima }; }catch(e){}
+
+  /* Indietro/Avanti del browser (10/11/2026): vedi creaNavFinestre. Il livello si legge dal DOM e un osservatore
+     richiama sync() a ogni apertura/chiusura, da qualunque via (X, Esc, Apri, Elimina, fuori dalla finestra). */
+  var nav=null;
+  function navLivello(){
+    var pv=document.getElementById("cloudPrev");
+    return modalOpen() ? ((pv && !pv.hidden) ? 2 : 1) : 0;
+  }
+  function navSync(){ if(nav) nav.sync(); }
+  function navOsserva(el, attr){ try{ if(el && typeof MutationObserver==="function") new MutationObserver(navSync).observe(el,{attributes:true,attributeFilter:[attr]}); }catch(e){} }
+  try{
+    if(window.history && history.pushState && modalEl){
+      /* dopo una ricarica la voce corrente può portare ancora lo stato di un livello ormai chiuso: lo si toglie,
+         altrimenti il primo Indietro dopo la prossima apertura non farebbe niente */
+      if(history.state && history.state.spNav) history.replaceState(null,"",location.href);
+      nav=creaNavFinestre({
+        livello: navLivello,
+        push: function(n){ try{ history.pushState({spNav:n},"",location.href); }catch(e){} },
+        indietro: function(k){ try{ history.go(-k); }catch(e){} },
+        chiudiA: function(n){
+          var pv=document.getElementById("cloudPrev");
+          if(n<2 && pv && !pv.hidden) chiudiAnteprima();
+          if(n<1 && modalOpen()) closeModal();
+        }
+      });
+      navOsserva(modalEl,"style");
+      window.addEventListener("popstate", function(e){ nav.pop(e.state && e.state.spNav); });
+    }
+  }catch(e){}
 
   function signIn(){
     if(!sb) return;
