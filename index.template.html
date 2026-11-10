@@ -7438,6 +7438,31 @@ function localRevisionFromRaw(raw){
   }catch(e){}
   return "legacy:"+venueDataHash(raw);
 }
+/* PIÙ SCHEDE (10/11, Simone: «lavoro spesso con più schede»). Lo spazio locale (LS_KEY) è uno solo per tutte le schede.
+   Fino a oggi bastava che un'altra scheda ci scrivesse — anche un ALTRO progetto, già al sicuro online — perché questa
+   andasse in «Aperto in un'altra scheda — salvataggio sospeso» per sempre: le modifiche successive non andavano più da
+   nessuna parte. La protezione serve quando l'altra scheda ha nello spazio locale lavoro che esiste SOLO lì; negli altri
+   casi si va avanti. Chi lo dice: il blocco _local che ogni scheda scrive insieme al documento.
+   - "uguale":   stesso progetto online e stesso contenuto che questa scheda aveva scritto (l'altra l'ha solo riscritto) → niente conflitto;
+   - "prendi":   un altro progetto online, senza modifiche in sospeso → il suo lavoro è al sicuro nel cloud, lo spazio si può riprendere;
+   - "aspetta":  un altro progetto con modifiche non ancora online → non lo si sovrascrive, ma questa scheda non si ferma:
+                 il suo progetto continua a salvarsi online e riprende lo spazio locale quando l'altro è al sicuro;
+   - "conflitto": lo stesso progetto con un contenuto diverso, un documento senza progetto online (vive solo qui), o un
+                 blocco illeggibile → come prima. */
+function slotAltraScheda(raw, mioCloudId, mioContentSig){
+  var L=null; try{ L=raw?JSON.parse(raw)._local:null; }catch(e){ L=null; }
+  if(!L || typeof L!=="object") return "conflitto";
+  var suo=(typeof L.cloudId==="string" && L.cloudId) ? L.cloudId : null;
+  mioCloudId=mioCloudId||null;
+  if(suo===mioCloudId) return (mioCloudId && mioContentSig && L.contentSig===mioContentSig && L.cloudPending!==true) ? "uguale" : "conflitto";
+  if(!mioCloudId || !suo) return "conflitto";   /* uno dei due documenti vive solo nello spazio locale */
+  return (L.cloudPending===true || L.venueUnavailable===true) ? "aspetta" : "prendi";
+}
+function mioCloudIdLocale(){
+  var C=window.__cloud;
+  if(C && typeof C.currentId==="function") return C.currentId()||null;
+  return window.__bootCloudId||null;
+}
 function markLocalConflict(){
   window.__localConflict=true;
   if(window.setDocState) window.setDocState("conflict");
@@ -7485,7 +7510,10 @@ function persistLocalState(forceLockedMetadata){
       localStorageIdentity=localStorage; localExpectedRevision=localRevisionFromRaw(existingRaw);
       window.__localConflict=false; localConflictWarned=false;
     } else if(localExpectedRevision!=null && localRevisionFromRaw(existingRaw)!==localExpectedRevision){
-      markLocalConflict(); return false;
+      var _altra=slotAltraScheda(existingRaw, mioCloudIdLocale(), window.__bootContentSig);
+      if(_altra==="aspetta") return true;   /* il progetto di questa scheda è online: lo spazio locale resta all'altra finché non salva */
+      if(_altra==="conflitto"){ markLocalConflict(); return false; }
+      /* "uguale" / "prendi": si scrive sopra, come prima di ogni altra scheda */
     }
     if(C && typeof C.currentId==="function"){
       cloudId=C.currentId()||null;
@@ -7549,7 +7577,11 @@ window.persistLocalState=persistLocalState;
 window.addEventListener("storage",function(e){
   if(!e || e.key!==LS_KEY || foreignDoc()) return;
   var incoming=localRevisionFromRaw(e.newValue);
-  if(localExpectedRevision!=null && incoming!==localExpectedRevision) markLocalConflict();
+  if(localExpectedRevision==null || incoming===localExpectedRevision) return;
+  var esito=slotAltraScheda(e.newValue, mioCloudIdLocale(), window.__bootContentSig);
+  if(esito==="uguale") localExpectedRevision=incoming;   /* stesso documento riscritto dall'altra scheda: è ancora il nostro */
+  else if(esito==="conflitto") markLocalConflict();
+  /* "prendi" / "aspetta": l'altra scheda lavora su un altro progetto; questa continua, e la prossima scrittura decide */
 });
 /* ===== USCITA PULITA (29/09, Simone) =====
    «Sono uscito dall'account ma vedo ancora il progetto aperto. Dovrebbe esserci qualcosa che invita al
@@ -7981,6 +8013,18 @@ function scheduleCloudRetry(){
   _cloudRetryStep++;
   clearTimeout(_cloudRetryT); _cloudRetryT=setTimeout(cloudAutosaveNow, delay);
 }
+/* IL DOCUMENTO È GIÀ QUELLO ONLINE (10/11). save() arma sempre il salvataggio online, anche quando non è cambiato niente:
+   prima di cambiare progetto (guardDocumentReplacement), all'avvio di una scheda, dopo un'annotazione rimessa com'era.
+   Riscrivere un documento identico non serve e fa danni: cambia updated_at, e un'altra scheda aperta sullo stesso
+   progetto si ritrova con una revisione vecchia e la barra «modificato altrove». Si confronta la firma del documento
+   con quella dell'ultima versione confermata dal cloud (__bootCloudSig: apertura, salvataggio riuscito, «Carica la
+   versione più recente»). Un progetto non ancora online (currentId vuoto) si crea sempre. */
+function cloudGiaAllineato(){
+  var C=window.__cloud;
+  if(!C || typeof C.currentId!=="function" || !C.currentId()) return false;
+  if(!window.__bootCloudSigKnown || typeof window.__bootCloudSig!=="string" || !window.__bootCloudSig || window.__bootVenueUnavailable) return false;
+  try{ return projectContentSig(JSON.parse(docToJSON()),venueImageBundleSig())===window.__bootCloudSig; }catch(e){ return false; }
+}
 function cloudAutosaveNow(){
   var C=window.__cloud;
   clearTimeout(_cloudAsT); _cloudAsT=null;
@@ -7996,6 +8040,10 @@ function cloudAutosaveNow(){
   if(!C || !C.user()){ setDocState(window.__localStorageUnavailable?"local-error":"offline-warn"); _cloudRetryStep=0; resolveCloudFlush(false); return; }
   if(window.__cloudConflict){ setDocState("conflict"); resolveCloudFlush(false); return; }   /* guardia di versione: mai sovrascrivere durante un conflitto */
   if(!_cloudDirty){ resolveCloudFlushWhenIdle(true); return; }
+  if(cloudGiaAllineato()){   /* niente da mandare: vedi cloudGiaAllineato */
+    _cloudDirty=false; window.__bootCloudPending=false; _cloudRetryStep=0;
+    setDocState("online"); resolveCloudFlushWhenIdle(true); return;
+  }
   var saveEpoch=window.__docEpoch||0, saveSeq=_cloudChangeSeq;
   _cloudSaving=true;
   setDocState("saving");

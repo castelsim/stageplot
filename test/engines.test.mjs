@@ -29199,6 +29199,89 @@ t("la cronologia non sposta le chiavi: chi riapre il progetto dallo spazio local
   }
 });
 
+t("documento identico all'ultima versione online: niente scrittura (updated_at resta, l'altra scheda non va in conflitto)", () => {
+  const before = A.docToJSON(), oldSig = A.__bootCloudSig, oldKnown = A.__bootCloudSigKnown, oldPend = A.__bootCloudPending;
+  try {
+    reset(); A.state.titolo = "Progetto di prova"; A.loadDoc(JSON.parse(A.docToJSON()));
+    let scritture = 0;
+    const r = conCloudFinto(A, (cb) => { scritture++; cb("progetto-A"); }, (stati) => {
+      A.__cloud.currentId = () => "progetto-A";
+      A.__bootCloudSig = A.projectContentSig(JSON.parse(A.docToJSON()), A.venueImageBundleSig()); A.__bootCloudSigKnown = true;
+      /* save() senza modifiche (cambio progetto, annotazione rimessa com'era) arma comunque il salvataggio */
+      A._cloudDirty = true; A._cloudSaving = false;
+      let esito = null; A.flushCloudAutosave((ok) => { esito = ok; });
+      const identico = { esito, scritture, dirty: A._cloudDirty, ultimo: stati[stati.length - 1] };
+      /* una modifica vera si scrive */
+      A.state.titolo = "Progetto di prova (modificato)";
+      A._cloudDirty = true; let esito2 = null; A.flushCloudAutosave((ok) => { esito2 = ok; });
+      /* firma sconosciuta (progetto vecchio, apertura non conclusa): si scrive come prima */
+      A.__bootCloudSig = A.projectContentSig(JSON.parse(A.docToJSON()), A.venueImageBundleSig()); A.__bootCloudSigKnown = false;
+      A._cloudDirty = true; A.flushCloudAutosave(() => {});
+      const ignota = scritture;
+      /* progetto mai salvato online: si crea sempre */
+      A.__bootCloudSigKnown = true; A.__cloud.currentId = () => null; A._cloudDirty = true; A.flushCloudAutosave(() => {});
+      return { identico, esito2, dopoModifica: ignota - 1, ignota, nuovo: scritture };
+    });
+    eq(r.identico, { esito: true, scritture: 0, dirty: false, ultimo: "online" }, "identico: via libera senza scrivere");
+    eq([r.esito2, r.dopoModifica], [true, 1], "modificato: una scrittura");
+    eq(r.ignota, 2, "firma del cloud sconosciuta: si scrive");
+    eq(r.nuovo, 3, "progetto non ancora online: si crea");
+  } finally {
+    A.__bootCloudSig = oldSig; A.__bootCloudSigKnown = oldKnown; A.__bootCloudPending = oldPend;
+    A.loadDoc(JSON.parse(before)); reset();
+  }
+});
+t("più schede: chi lavora su un altro progetto già online non ferma questa scheda (slotAltraScheda)", () => {
+  const slot = (o) => JSON.stringify({ _doc: 1, _local: Object.assign({ localRevision: "altra:1" }, o) });
+  eq(A.slotAltraScheda(slot({ cloudId: "B", cloudPending: false, contentSig: "x" }), "A", "s"), "prendi", "altro progetto, al sicuro online");
+  eq(A.slotAltraScheda(slot({ cloudId: "B", cloudPending: true, contentSig: "x" }), "A", "s"), "aspetta", "altro progetto con modifiche non ancora online");
+  eq(A.slotAltraScheda(slot({ cloudId: "B", venueUnavailable: true }), "A", "s"), "aspetta", "altro progetto con la planimetria non ancora al sicuro");
+  eq(A.slotAltraScheda(slot({ cloudId: "A", cloudPending: false, contentSig: "s" }), "A", "s"), "uguale", "stesso progetto, stesso contenuto");
+  eq(A.slotAltraScheda(slot({ cloudId: "A", cloudPending: false, contentSig: "t" }), "A", "s"), "conflitto", "stesso progetto, contenuto diverso");
+  eq(A.slotAltraScheda(slot({ cloudId: "A", cloudPending: true, contentSig: "s" }), "A", "s"), "conflitto", "stesso progetto, l'altra ha modifiche non online");
+  eq(A.slotAltraScheda(slot({ cloudId: null, contentSig: "s" }), null, "s"), "conflitto", "documento senza progetto online: vive solo qui");
+  eq(A.slotAltraScheda(slot({ cloudId: "B" }), null, "s"), "conflitto", "questa scheda non ha un progetto online");
+  eq(A.slotAltraScheda(slot({ cloudId: null }), "A", "s"), "conflitto", "l'altra scheda non ha un progetto online");
+  eq(A.slotAltraScheda(null, "A", "s"), "conflitto", "spazio locale vuoto (uscita da un'altra scheda)");
+  eq(A.slotAltraScheda("{rotto", "A", "s"), "conflitto", "illeggibile");
+});
+t("più schede: la scrittura locale va avanti se l'altra scheda ha un altro progetto al sicuro, aspetta se no", () => {
+  const before = A.docToJSON(), oldStorage = A.localStorage, oldCloud = A.__cloud, oldDocument = A.document;
+  const old = { conflict: A.__localConflict, dirty: A._cloudDirty, saving: A._cloudSaving, sig: A.__bootContentSig };
+  const store = new Map();
+  try {
+    reset(); A.state.titolo = "Progetto A"; A.loadDoc(JSON.parse(A.docToJSON()));
+    A.localStorage = { getItem: (k) => store.has(k) ? store.get(k) : null, setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) };
+    A.__cloud = { currentId: () => "progetto-A", currentRev: () => "rev-A", user: () => ({ id: "u" }) };
+    A.document = { body: { classList: { contains: () => false } }, getElementById: () => null };
+    A.__localConflict = false; A._cloudDirty = false; A._cloudSaving = false;
+    eq(A.persistLocalState(), true, "prima scrittura");
+    const altra = (o) => { const d = JSON.parse(store.get(A.LS_KEY)); d.titolo = "Progetto B"; d._local = Object.assign({}, d._local, { localRevision: "altra:" + Math.random() }, o); store.set(A.LS_KEY, JSON.stringify(d)); return store.get(A.LS_KEY); };
+    /* 1. l'altra scheda ha aperto il progetto B, con modifiche non ancora online: non si sovrascrive, e non ci si ferma */
+    const conB = altra({ cloudId: "progetto-B", cloudPending: true });
+    A.state.titolo = "Progetto A modificato";
+    eq(A.persistLocalState(), true, "nessun errore");
+    eq([A.__localConflict, store.get(A.LS_KEY) === conB], [false, true], "niente conflitto, lo spazio resta all'altra scheda");
+    /* 2. B è salvato online: lo spazio si riprende */
+    altra({ cloudId: "progetto-B", cloudPending: false });
+    eq(A.persistLocalState(), true, "scritto");
+    eq([A.__localConflict, JSON.parse(store.get(A.LS_KEY))._local.cloudId, JSON.parse(store.get(A.LS_KEY)).variants[0].state.titolo],
+      [false, "progetto-A", "Progetto A modificato"], "lo spazio torna a questa scheda");
+    /* 3. l'altra scheda ha riscritto lo STESSO progetto con lo stesso contenuto: è ancora il nostro */
+    altra({ cloudId: "progetto-A", cloudPending: false, contentSig: A.__bootContentSig });
+    A.state.titolo = "Progetto A modificato due volte";
+    eq([A.persistLocalState(), A.__localConflict], [true, false], "stesso contenuto: nessun conflitto");
+    /* 4. stesso progetto, contenuto diverso: conflitto, come prima */
+    const div = altra({ cloudId: "progetto-A", cloudPending: false, contentSig: "diversa" });
+    A.state.titolo = "Progetto A modificato tre volte";
+    eq([A.persistLocalState(), A.__localConflict, store.get(A.LS_KEY) === div], [false, true, true], "conflitto, root dell'altra scheda intatto");
+  } finally {
+    A.localStorage = oldStorage; A.__cloud = oldCloud; A.document = oldDocument;
+    A.__localConflict = old.conflict; A._cloudDirty = old.dirty; A._cloudSaving = old.saving; A.__bootContentSig = old.sig;
+    A.loadDoc(JSON.parse(before)); reset();
+  }
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
 
