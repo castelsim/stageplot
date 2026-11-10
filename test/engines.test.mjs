@@ -26546,8 +26546,11 @@ taPdf("la barra di scala sta sotto il palco, con lo «0» sul suo bordo sinistro
     ok(barre[0] && barre[1], caso + ": barra non trovata nel PDF o nella pagina-vista");
     const b = barre[0];
     ok(Math.abs(barre[1].x1 - b.x1) < 1e-6 && Math.abs(barre[1].y1 - b.y1) < 1e-6, caso + ": nella pagina-vista la barra è altrove");
-    const m = A.pdfPreviewSvg(paper, N, orient, head, { focus: "clean" }).match(/<line class="scala-barra" x1="([-\d.]+)" y1="([-\d.]+)"/);
+    const svg = A.pdfPreviewSvg(paper, N, orient, head, { focus: "clean" }), m = svg.match(/<line class="scala-barra" x1="([-\d.]+)" y1="([-\d.]+)"/);
     ok(m && Math.abs(+m[1] - b.x1) < 0.01 && Math.abs(+m[2] - b.y1) < 0.01, caso + ": l'anteprima non mette la barra dove la mette il PDF");
+    /* nell'anteprima «0» e «N m» centrati sulle tacche, come nel PDF */
+    const scr = [...svg.matchAll(/<text x="([-\d.]+)" y="([-\d.]+)"[^>]*?(text-anchor="middle")?>(0|\d+ m)<\/text>/g)].filter((t) => Math.abs(+t[2] - b.y1 - 3.6) < 0.01);
+    ok(scr.length === 2 && scr.every((t) => t[3]) && Math.abs(+scr[0][1] - b.x1) < 0.01 && Math.abs(+scr[1][1] - b.x2) < 0.01, caso + ": nell'anteprima «0» e «N m» non sono centrati sulle tacche");
     const hm = (String(A.niceBarMeters(N)).length + 2) * 0.556 * 7.5 * 25.4 / 72 / 2;
     const xPalco = box.ix + (0 - box.vb.x) * box.mmPerCm, fronte = box.iy + (A.state.stage.d - box.vb.y) * box.mmPerCm;
     return { b, box, L, xPalco, fronte, alto: b.y1 - 1.4, basso: b.y1 + 3.6, rett: { x0: b.x1 - 1, y0: b.y1 - 1.4, x1: b.x2 + hm, y1: b.y1 + 3.6 },
