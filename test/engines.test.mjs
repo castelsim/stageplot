@@ -29159,6 +29159,29 @@ t("side fill dei modelli: DX a destra e SX a sinistra guardando dalla platea (de
   lr.forEach(x => ok(x === "LSX" || x === "RDX", "Side fill L = lato SX, R = lato DX: " + x));
 });
 
+/* 10/11/2026 — Simone: «io non voglio che in basso a sinistra del PDF vengano fuori i canali, a meno che non siano
+   attive le funzioni avanzate e si vadano a lavorare anche i canali». */
+t("cartiglio del PDF: i canali solo con le Liste tecniche accese (oltre a Esporta avanzato)", () => {
+  const orig = A.funzOn;
+  try {
+    reset(); A.state.cab.on = true; A.__cabRes = null;
+    add("stagebox", 900, 100); add("corista", 200, 300); add("corista", 300, 300);
+    add("leggio", 700, 300); add("sedia", 750, 300); add("hearback", 500, 400); add("wedge", 400, 500);
+    A.__cabRes = null;
+    const conFunz = (accese) => { A.funzOn = (id) => accese.indexOf(id) > -1; return A.pdfTotals().join(" · "); };
+    const tutte = conFunz(["conn", "liste", "opzioni", "esporta", "controllo"]);
+    ok(/\d+ canali/.test(tutte), "Liste tecniche ed Esporta avanzato accese: i canali ci sono: " + tutte);
+    const senzaListe = conFunz(["conn", "opzioni", "esporta", "controllo"]);
+    ok(!/canal/.test(senzaListe), "Liste tecniche spente: niente canali, anche con Esporta avanzato: " + senzaListe);
+    ok(/leggi/.test(senzaListe) && /sedut/.test(senzaListe) && /personal mixer/.test(senzaListe) && /spia/.test(senzaListe),
+      "leggii, sedute, personal mixer e spie restano: " + senzaListe);
+    const soloListe = conFunz(["liste"]);
+    ok(!/canal/.test(soloListe), "Esporta avanzato spento: niente canali, come dal 16/09: " + soloListe);
+    A.funzOn = undefined;
+    ok(/\d+ canali/.test(A.pdfTotals().join(" · ")), "fuori dall'editor (senza le funzioni) si stampa tutto, come prima");
+  } finally { A.funzOn = orig; reset(); }
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
 
