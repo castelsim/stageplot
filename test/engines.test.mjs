@@ -27319,7 +27319,7 @@ t("Annulla dell'aggancio dopo un Annulla della cronologia: non tocca gli oggetti
 console.log("\nCatalogo: parole e oggetti mancanti (19/10/2026):");
 t("ricerca: ogni parola porta per prima la voce attesa, nella barra e nella finestrella del doppio clic", () => {
   const attese = {
-    schermo: ["telo di proiezione", "proiezione", "schermo proiezione", "telo"],
+    telo: ["telo di proiezione", "proiezione", "schermo proiezione", "telo"],   /* 09/11/2026: prima erano del LED wall, che il telo non c'era */
     tamtam: ["gong"],
     frontfill: ["front fill", "frontfill"],
     scala: ["scala di scena"],
@@ -27335,7 +27335,7 @@ t("ricerca: ogni parola porta per prima la voce attesa, nella barra e nella fine
   }));
   ["pulpito", "ambone"].forEach((q) => {
     const primo = A.__spSearch(q)[0] || {};
-    eq([primo.k, primo.nome], ["ostacolo", "Ambone / leggio da chiesa"], "barra «" + q + "»");
+    eq([primo.k, primo.nome], ["ambone", "Ambone / leggio da chiesa"], "barra «" + q + "»");   /* 09/11/2026: tipo suo, col disegno */
     eq((A.__qaSearch(q)[0] || {}).nome, "Ambone / leggio da chiesa", "doppio clic «" + q + "»");
   });
   ["centro", "asse", "mezzeria"].forEach((q) => {
@@ -27364,6 +27364,102 @@ t("ricerca: le parole vecchie restano al loro posto (elettronica, pedaliera, leg
   eq((A.__spSearch("batteria")[0] || {}).k, "batteria", "«batteria» resta della batteria vera");
   eq((A.__spSearch("altare")[0] || {}).nome, "Altare");
   eq((A.__spSearch("scaletta")[0] || {}).nome, "Scaletta", "la scaletta dei brani non diventa la scala");
+});
+/* ===== Catalogo verificato (09/11/2026): telo di proiezione, cabina interpreti, altare, ambone ===== */
+console.log("\nCatalogo verificato: telo, cabina interpreti, altare, ambone (09/11/2026):");
+/* rettangoli di un disegno: [x, y, w, h, classe] (bar() scrive x,y dell'angolo) */
+function rettangoli(svg) {
+  return [...svg.matchAll(/<rect class="([^"]*)" x="([-\d.]+)" y="([-\d.]+)" width="([-\d.]+)" height="([-\d.]+)"/g)]
+    .map((m) => ({ cls: m[1], x: +m[2], y: +m[3], w: +m[4], h: +m[5] }));
+}
+/* ogni coordinata del disegno sta dentro il riquadro w × d dell'elemento (con 1 cm di tratto) */
+function dentroIlRiquadro(svg, w, d, nome) {
+  const nums = [];
+  rettangoli(svg).forEach((r) => nums.push([r.x, r.y], [r.x + r.w, r.y + r.h]));
+  [...svg.matchAll(/<circle class="[^"]*" cx="([-\d.]+)" cy="([-\d.]+)" r="([-\d.]+)"/g)].forEach((m) => nums.push([+m[1] - +m[3], +m[2] - +m[3]], [+m[1] + +m[3], +m[2] + +m[3]]));
+  [...svg.matchAll(/<line class="[^"]*" x1="([-\d.]+)" y1="([-\d.]+)" x2="([-\d.]+)" y2="([-\d.]+)"/g)].forEach((m) => nums.push([+m[1], +m[2]], [+m[3], +m[4]]));
+  [...svg.matchAll(/ d="([^"]*)"/g)].forEach((m) => { const v = m[1].match(/-?[\d.]+/g).map(Number); for (let i = 0; i + 1 < v.length; i += 2) nums.push([v[i], v[i + 1]]); });
+  ok(nums.length > 0, nome + ": disegno vuoto");
+  nums.forEach(([x, y]) => ok(Math.abs(x) <= w / 2 + 1 && Math.abs(y) <= d / 2 + 1, nome + ": punto " + x + "," + y + " fuori da " + w + "×" + d));
+}
+const SOLO_PRIMITIVE = /^(?:\s*<(?:rect|circle|line|path)\b[^>]*\/>)+\s*$/;   /* l'export PDF passa da svg2pdf: niente testi, pattern, maschere */
+t("telo: tre taglie Da-Lite, telaio − visibile = 14 cm, 16:9, piedi a T da 150 cm", () => {
+  const T = A.TYPES.telo; ok(T, "manca TYPES.telo");
+  eq([T.w, T.d, T.cat], [427, 150, "Video"], "4 m di serie, piedi 59¼\" = 150 cm");
+  eq(A.TELO_TAGLIE.map((x) => x.w), [427, 366, 305], "taglie della scheda");
+  A.TELO_TAGLIE.forEach((x) => {
+    eq(x.w - x.vis[0], 14, x.nome + ": telaio − visibile");
+    ok(Math.abs(x.vis[0] / x.vis[1] - 16 / 9) < 0.03, x.nome + ": 16:9");
+  });
+  const voci = A.__catEntries.filter((e) => e.k === "telo");
+  eq(voci.map((e) => e.over.w), [427, 366, 305], "tre voci nel catalogo, una per taglia");
+  eq(A.wattOf({ type: "telo", w: 427, d: 150 }), 0, "il telo è passivo: nessun assorbimento inventato");
+});
+t("telo: i piedi alle due estremità lunghi quanto d, la superficie dalla parte del pubblico", () => {
+  [[427, 150], [305, 150], [600, 200]].forEach(([w, d]) => {
+    const svg = A.teloDraw({ w, d });
+    ok(SOLO_PRIMITIVE.test(svg), "solo primitive");
+    dentroIlRiquadro(svg, w, d, "telo " + w);
+    const piedi = rettangoli(svg).filter((r) => r.h === d);
+    eq(piedi.length, 2, "due piedi alti d=" + d);
+    piedi.forEach((p) => ok(Math.abs(p.x + p.w / 2) >= w / 2 - 4, "piede all'estremità: " + (p.x + p.w / 2)));
+    eq(piedi.map((p) => p.y + p.h / 2), [0, 0], "piedi centrati sulla gamba: metà avanti e metà dietro");
+    const sup = rettangoli(svg).find((r) => /soft/.test(r.cls));
+    ok(sup && sup.y > 0, "la superficie sta verso il pubblico (+y)");
+    eq(sup.w, w - 14, "superficie = telaio − 14");
+  });
+});
+t("cabina interpreti: ISO 4043, 175 × 175, finestra verso il palco, porta dietro, due posti", () => {
+  const T = A.TYPES.cabinterp; ok(T, "manca TYPES.cabinterp");
+  eq([T.w, T.d, A.catOf("cabinterp"), A.subOf("cabinterp")], [175, 175, "Audio", "Postazioni regia"]);
+  const svg = T.draw({});
+  ok(SOLO_PRIMITIVE.test(svg), "solo primitive");
+  dentroIlRiquadro(svg, 175, 175, "cabina");
+  const pav = rettangoli(svg).find((r) => r.w === 160 && r.h === 160); ok(pav, "interno 160 × 160 (ISO 4043 § 4)");
+  const vetri = rettangoli(svg).filter((r) => r.cls === "plex");
+  const fronte = vetri.find((r) => r.w > 100); ok(fronte && fronte.y < 0, "la finestra grande in alto, verso il palco (come i mixer)");
+  ok(vetri.filter((r) => r.h > r.w && r.y + r.h / 2 < 0).length === 2, "le due finestre laterali vicino al fronte");
+  const piano = rettangoli(svg).find((r) => /soft/.test(r.cls) && r.w > 100); ok(piano, "piano di lavoro");
+  eq(piano.h, 45, "piano profondo 45 (ISO 4043: «not less than 0,45 m»)");
+  ok(piano.y < 0, "il piano sotto la finestra");
+  ok(/L 35,87\.5 L 35,80 L 80,80/.test(svg) && /L -35,80 L -35,87\.5/.test(svg), "il vano della porta (70 cm) nella parete dietro");
+  eq((svg.match(/<circle class="ic" /g) || []).length, 2, "due sedie: due interpreti");
+  eq(chans(add("cabinterp", 600, 600)).length, 0, "nessun canale inventato");
+  reset();
+});
+t("altare e ambone: tipi loro (non più «ostacolo»), disegno dentro il riquadro, leggio dalla parte di chi legge", () => {
+  ["altare", "ambone"].forEach((k) => {
+    const T = A.TYPES[k]; ok(T, "manca TYPES." + k);
+    [[T.w, T.d], [T.w * 1.5, T.d], [T.w, T.d * 1.4]].forEach(([w, d]) => {
+      const svg = T.draw({ w, d }); ok(SOLO_PRIMITIVE.test(svg), k + ": solo primitive"); dentroIlRiquadro(svg, w, d, k);
+    });
+    const voce = A.__catEntries.find((e) => e.k === k); ok(voce, k + ": voce di catalogo");
+    eq(voce.dim, "elemento del luogo");
+  });
+  eq([A.TYPES.altare.w, A.TYPES.altare.d, A.TYPES.ambone.w, A.TYPES.ambone.d], [200, 90, 60, 50], "le misure di prima (05/10)");
+  ok(!A.__catEntries.some((e) => e.k === "ostacolo" && /ALTARE|AMBONE/.test((e.over || {}).label || "")), "niente più l'ostacolo «ALTARE»/«AMBONE»");
+  const bordo = rettangoli(A.amboneDraw({ w: 60, d: 50 })).find((r) => r.cls === "ic fill");
+  ok(bordo && bordo.y + bordo.h / 2 < 0, "il bordo d'appoggio del libro sta dietro (-y), dove sta chi legge");
+});
+t("ricerca: telo, cabina interpreti e LED wall al loro posto", () => {
+  [["telo", "Telo di proiezione 4 m"], ["telo di proiezione", "Telo di proiezione 4 m"], ["proiezione", "Telo di proiezione 4 m"],
+   ["cabina interpreti", "Cabina interpreti"], ["traduzione simultanea", "Cabina interpreti"], ["interpreti", "Cabina interpreti"]].forEach(([q, nome]) => {
+    eq((A.__spSearch(q)[0] || {}).nome, nome, "barra «" + q + "»");
+    eq((A.__qaSearch(q)[0] || {}).nome, nome, "doppio clic «" + q + "»");
+  });
+  eq((A.__spSearch("led wall")[0] || {}).k, "schermo", "il LED wall resta il LED wall");
+  eq((A.__spSearch("maxischermo")[0] || {}).k, "schermo", "e le sue parole");
+});
+t("progetti salvati: l'ostacolo «ALTARE» di prima resta un ostacolo, il telo nuovo si salva e si riapre", () => {
+  reset();
+  const vecchio = add("ostacolo", 300, 300, { label: "ALTARE", w: 200, d: 90 });
+  const telo = add("telo", 600, 200, { w: 366 });
+  const doc = JSON.parse(JSON.stringify(A.state));
+  const st = A.normalizeState(doc);
+  const v = st.items.find((i) => i.id === vecchio.id), tl = st.items.find((i) => i.id === telo.id);
+  eq([v.type, v.label], ["ostacolo", "ALTARE"]);
+  eq([tl.type, tl.w, tl.d], ["telo", 366, 150]);
+  reset();
 });
 t("Violinista in piedi: la postazione del Violino I senza sedia, con la numerazione", () => {
   reset();
