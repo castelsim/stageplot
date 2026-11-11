@@ -29578,6 +29578,20 @@ t("cartiglio del PDF: i canali solo con le Liste tecniche accese (oltre a Esport
   } finally { A.funzOn = orig; reset(); }
 });
 
+/* 11/11/2026 — la pagina /rider-tecnico-completo/ (PR #47) è stata unita ma online dava 404: la cartella non era
+   nell'elenco del rsync che prepara la cartella pubblica. Ogni cartella in radice con un index.html è una pagina
+   pubblica e deve stare in quell'elenco. */
+t("ogni cartella in radice con un index.html è nell'elenco pubblicato da pages.yml", () => {
+  const wf = readFileSync(join(root, ".github/workflows/pages.yml"), "utf8");
+  const i = wf.indexOf("rsync -a"), j = wf.indexOf("./_site/", i);
+  ok(i > -1 && j > i, "premessa: c'è il passo rsync");
+  const elenco = new Set(wf.slice(i, j).replace(/--exclude='[^']*'/g, "").split(/[\s\\]+/).filter(Boolean));
+  const pagine = readdirSync(root).filter((d) => !d.startsWith(".") && statSync(join(root, d)).isDirectory() && existsSync(join(root, d, "index.html")));
+  ok(pagine.length > 5, "premessa: le pagine si trovano (" + pagine.join(", ") + ")");
+  const mancano = pagine.filter((d) => !elenco.has(d));
+  eq(mancano, [], "cartelle pubbliche fuori dall'elenco del deploy (online darebbero 404)");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
 
