@@ -717,21 +717,22 @@
           </ul>
           <button class="btn primary" type="button" data-product="pro-review">Richiedi la revisione</button>
         </article>
-        <!-- «Rider pronto» (01/10/2026): il cliente manda quello che ha, riceve stage plot + channel list + rider.
-             La card resta nascosta finché PAY["rider-pronto"] è vuoto: senza il link di pagamento non si vende. -->
-        <article class="card" id="cardRiderPronto" hidden>
-          <span class="tag">Nuovo &middot; in 48 ore</span>
-          <h3>Rider pronto</h3>
+        <!-- «Rider tecnico completo» (11/11/2026, decisione di Simone: servizio a 59 €, prova di 60 giorni). Prima era la card
+             «Rider pronto» (01/10/2026), nascosta finché mancava il link di pagamento. Ora si chiede col modulo della pagina
+             /rider-tecnico-completo/ (nessun pagamento online): la card porta lì. -->
+        <article class="card" id="cardRiderPronto">
+          <span class="tag">Nuovo &middot; in 72 ore</span>
+          <h3>Rider tecnico completo</h3>
           <p class="price">59 &euro;</p>
-          <p class="desc">Per chi ha una lista canali, un vecchio rider o una descrizione, e vuole i documenti fatti.</p>
+          <p class="desc">Per le band che vogliono il rider fatto: ci mandate quello che avete, lo prepariamo noi e lo controlla un tecnico.</p>
           <ul>
-            <li>Stage plot in scala, disegnato da noi</li>
-            <li>Channel list e input list</li>
-            <li>Rider tecnico pronto per il service</li>
-            <li>Il progetto apribile nel tool, per cambiarlo da soli</li>
-            <li>Consegna entro 48 ore</li>
+            <li>Stage plot in scala e channel list</li>
+            <li>Ascolti, corrente, luci di base</li>
+            <li>Ospitalit&agrave;, orari e contatti</li>
+            <li>PDF pronto e progetto modificabile su stageplot.it</li>
+            <li>Consegna in 72 ore, una correzione compresa</li>
           </ul>
-          <button class="btn primary" type="button" data-product="rider-pronto">Richiedi il rider</button>
+          <a class="btn primary" href="/rider-tecnico-completo/">Scopri e richiedi</a>
         </article>
         <article class="card featured" id="cardProduzione">
           <span class="tag">Su preventivo</span>
@@ -747,7 +748,7 @@
           <a class="btn primary" id="btnPreventivo" href="mailto:simone@stageplot.it?subject=Preventivo%20produzione%20tecnica&amp;body=Ciao%20Simone%2C%20vorrei%20un%20preventivo%20per%20la%20produzione%20tecnica.%0A%0AAllego%3A%20vecchio%20rider%20o%20lista%20canali%20(o%20descrizione%20qui%20sotto)%0ANumero%20di%20musicisti%3A%20%0AData%20e%20luogo%20(se%20ci%20sono)%3A%20%0A">Chiedi un preventivo</a>
         </article>
       </div>
-      <p class="reassure">Revisione: pagamento sicuro con Stripe (carta, Apple Pay, Google Pay), fattura su richiesta. Produzione tecnica: nessun pagamento prima del preventivo.</p>
+      <p class="reassure">Revisione: pagamento sicuro con Stripe (carta, Apple Pay, Google Pay), fattura su richiesta. Rider tecnico completo: nessun pagamento con la richiesta. Produzione tecnica: nessun pagamento prima del preventivo.</p>
       <p class="presale">Una domanda prima di richiederla? <a href="mailto:castellansimone@gmail.com?subject=Domanda%20su%20StagePlot">Scrivi direttamente a Simone</a>: risposta senza impegno.</p>
     </section>
 
@@ -830,7 +831,7 @@
     var FN = function(p){ return SB_URL + "/functions/v1/" + p; };
     var PAY = {
       "pro-review": "https://buy.stripe.com/9B64gzaJR7ZF7wifS67ok07",
-      "rider-pronto": "",   /* Payment Link Stripe da 59 € da creare: finché è vuoto la card non si vede */
+      "rider-pronto": "",   /* dall'11/11/2026 non serve: la card porta a /rider-tecnico-completo/ (richiesta senza pagamento online) */
       /* Dal 23/10/2026 nessun pulsante della pagina porta qui: la produzione tecnica si chiede con un preventivo (mailto), si paga dopo la conferma.
          Il link resta per chi ha un accordo già preso (e perché la funzione create-consultation conosce ancora il prodotto). */
       "production-pack": "https://buy.stripe.com/aFa9AT9FN1Bh8AmgWa7ok08"
