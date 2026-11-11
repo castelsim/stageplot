@@ -18504,7 +18504,7 @@ function auditEngine(){
     add("warn", (muti.length===1 ? nomi[0]+" non ha un microfono" : muti.length+" persone non hanno un microfono ("+nomi.slice(0,3).join(", ")+")")+": nessun microfono suo e nessuno a portata.",
       "Audio","Selezionalo e scegli il microfono nel pannello (lavalier, palmare, archetto), oppure metti un microfono da tavolo o il podio davanti a lui.",null,"voce-senza-mic");
   })();
-  var noRf=(rfList().rows||[]).filter(function(r){ return !r.rf && !r.infra; }).length;   /* ricevitori, antenne e splitter non hanno una portante propria (24/09: contavano come «senza frequenza») */
+  var noRf=(rfList().rows||[]).filter(function(r){ return !r.rf && !r.infra && !r.daLista; }).length;   /* daLista: scritto nella channel list, non ha un pannello dove mettere la frequenza */   /* ricevitori, antenne e splitter non hanno una portante propria (24/09: contavano come «senza frequenza») */
   if(noRf) add("warn", noRf+(noRf===1?" radiomicrofono/IEM è":" radiomicrofoni/IEM sono")+" senza frequenza RF.","Rider","Senza frequenza il service non può coordinare le radiofrequenze: compilala nel pannello dell'elemento (Frequenza RF).");
   var monItems=items.filter(function(it){ return OUT_SET[it.type]!=null && it.type!=="monmix"; });
   var hasPersonal=items.some(function(it){ return it.type==="iem"||it.type==="hearback"; });
@@ -36051,7 +36051,7 @@ function riderPdf(shared){
     heading("MICROFONI"); body(d.inCh+" canali di ingresso · "+d.outCh+" canali di uscita (monitor)"+(d.boxes.length?" · Stage box: "+d.boxes.join(", "):""));
     (function(){ var D=riderDotazione(); if(D.testo) body(D.testo); if(D.aste) body("Aste: "+D.aste); })();   /* la dotazione per modello, come nei rider veri */
     heading("MONITOR"); body(riderMonitorText(d.monitor));
-    heading("STAGE E PEDANE"); body(riderPedaneText(d.pedane)+(d.sedie?" · "+d.sedie+" sedie da orchestra senza braccioli":"")+(d.pesoKg>0?" · peso allestimento stimato "+fmtKg(d.pesoKg):""));
+    heading("STAGE E PEDANE"); body(riderPedaneText(d.pedane)+(d.sedie?" · "+riderSedieText(d.sedie):"")+(d.pesoKg>0?" · peso allestimento stimato "+fmtKg(d.pesoKg):""));
     if(d.console){ heading("CONSOLE"); body(d.console); }
     if(d.elettrico){ heading("ALIMENTAZIONE"); body(riderAlimentazioneText(d.elettrico)); }   /* mancava nel PDF: c'era solo nell'anteprima HTML */
     heading("SISTEMA AUDIO"); body(d.sistema);
@@ -36722,6 +36722,7 @@ function openRfFreq(){
   return it;
 }
 function rfChiOf(it){ var c=(it.rfChi||"").trim(); if(c) return c; return VOCE[it.type] ? ((it.label||"").trim()||TYPES[it.type].nome) : ""; }
+var RF_DA_TESTO=/(^|[^a-z])(radio|radiomic\w*|wireless|rf)([^a-z]|$)/i;
 function rfList(){
   var rows=[], bands={};
   (state.items||[]).forEach(function(it){
@@ -36744,6 +36745,15 @@ function rfList(){
         kind:"Antenna "+(antAngOf(it)===360?"omni":"direttiva "+antAngOf(it)+"°")+(_adb?" ("+_adb.brand+" "+_adb.model+")":"")+(it.antH?" · h "+it.antH+" m":""), rf:"", band:"", rx:"" }); }
     if(it.type==="rfsplit") rows.push({ infra:true, name:(it.label&&it.label.trim())||"Splitter antenna", kind:"Distribuzione RF 1:4", rf:"", band:"", rx:"" });
   });
+  /* Radiomicrofoni SCRITTI nella channel list («Radio SM58», «Wireless…», «RF…») su un canale che non viene da un
+     radiomic disegnato: sono frequenze da coordinare anche loro (11/11/2026, rider di una band: 6 radio scritti, 0 contati).
+     Si legge solo la parola, non il modello: «ULXD2/B58» non si indovina. */
+  try{ (patchList().rows||[]).forEach(function(r){
+    if(r.reserved || r.spare || r.micOff || !RF_DA_TESTO.test(String(r.mic||""))) return;
+    var src=null; (state.items||[]).forEach(function(x){ if(String(x.id)===String(r.itemId)) src=x; });
+    if(src && (isRf(src) || src.type==="rxrf")) return;   /* già in lista dal disegno */
+    rows.push({ name:r.name, kind:"Radiomicrofono (dalla channel list)", chi:"", riserva:false, rf:"", band:"", rx:"", daLista:true });
+  }); }catch(_e){}
   rows.sort(function(a,b){ return a.band.localeCompare(b.band,"it") || a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name,"it"); });
   return { rows:rows, count:rows.length, bands:bands };
 }
@@ -38021,9 +38031,12 @@ function riderData(){
     elettrico: (function(){ try{ var E=(typeof elecResult==="function")?elecResult(true):null;
       if(!E || !E.totW) return null;
       var P=elecPotenza(E);
-      return { w:E.totW, a:E.totA, distro:(E.distros||[]).map(function(d){ return d.letter+" "+d.a+"A"; }),
+      /* le multiprese (ciabatte) non sono quadri: dieci ciabatte uscivano «quadri: Q1 16A … Q10 16A» (11/11/2026) */
+      var _quadri=(E.distros||[]).filter(function(d){ return !(d.it && d.it.type==="ciabatta"); });
+      return { w:E.totW, a:E.totA, distro:_quadri.map(function(d){ return d.letter+" "+d.a+"A"; }),
+               multiprese:(E.distros||[]).length-_quadri.length,
                /* «trifase» solo se c'è davvero un quadro trifase: phase3 nasce vero di default, e il rider scriveva «distribuzione trifase» accanto a «1 presa 16 A monofase» per un wedge (analisi esterna 08/11) */
-               fasi:(E.distros||[]).some(function(d){ return !d.auto && d.ph===3; }), quadroFrase:elecQuadroFrase(state,(E.distros||[]).length),
+               fasi:_quadri.some(function(d){ return !d.auto && d.ph===3; }), quadroFrase:elecQuadroFrase(state,_quadri.length),
                maxW:P.maxW, preseTxt:P.preseTxt, genKva:P.genKva, oltreTxt:P.oltreTxt }; }catch(_e){ return null; } })(),
     note: r.note||""
   };
@@ -38083,6 +38096,10 @@ function riderDotazione(rows){
    Il differenziale 30 mA, le prolunghe svolte e le ciabatte al posto degli adattatori vengono da
    HSE GS50 «Electrical safety at places of entertainment» (2017): sono le tre cose che ogni
    elettricista di palco dà per scontate e che nessun rider dovrebbe tacere. */
+/* Il campo «sedie» del rider: un numero diventa «N sedie da orchestra senza braccioli»; un testo esce com'è scritto
+   (11/11/2026: «Sgabelli per batteria… tutti gli altri in piedi» usciva con la frase delle sedie da orchestra attaccata). */
+function riderSedieText(v){ var t=String(v==null?"":v).trim(); if(!t) return "";
+  return /^\d+$/.test(t) ? t+" sedie da orchestra senza braccioli" : t; }
 function riderAlimentazioneText(e){
   if(!e) return "";
   /* A1 (07/11): due numeri quando l'audio a piena potenza assorbe di più, la presa da chiedere e il
@@ -38093,7 +38110,7 @@ function riderAlimentazioneText(e){
     : "Assorbimento stimato "+elecKW(e.w)+" · "+Math.ceil(e.a)+" A";
   var _quadro = e.quadroFrase!=null ? e.quadroFrase : (e.distro.length?"":ELEC_QUADRO_APERTO);   /* senza il dato (chi chiama con un riassunto vecchio): come un progetto senza risposta */
   return pot+
-    (e.distro.length?" · quadri: "+e.distro.join(", "):"")+(e.fasi?" · distribuzione trifase":"")+". "+
+    (e.distro.length?" · quadri: "+e.distro.join(", "):"")+(e.multiprese?" · "+e.multiprese+(e.multiprese===1?" multipresa":" multiprese"):"")+(e.fasi?" · distribuzione trifase":"")+". "+
     (e.preseTxt ? "Servono "+e.preseTxt+", a uso esclusivo e a non più di 10 m dal palco. " : "Presa di corrente disponibile a bordo palco. ")+
     (e.oltreTxt ? e.oltreTxt+" " : "")+
     (e.genKva ? "Con un generatore: almeno "+e.genKva+" kVA, da confermare con il noleggiatore. " : "")+
@@ -38125,7 +38142,7 @@ function riderHtml(){
         if(D.aste) extra.push("Aste: "+D.aste);
         return extra.length ? "<br>"+esc(extra.join(" · ")) : ""; })(), true)+
     sec("Monitor", esc(riderMonitorText(d.monitor)), true)+
-    sec("Stage e pedane", (d.persone?esc(d.persone+" persone sul palco")+" · ":"")+esc(riderPedaneText(d.pedane))+(d.leggii?" · "+esc(d.leggii+" leggii"):"")+(d.sedie?" · "+esc(d.sedie)+" sedie da orchestra senza braccioli":"")+(d.pesoKg>0?" · peso allestimento stimato "+esc(fmtKg(d.pesoKg)):""), true)+
+    sec("Stage e pedane", (d.persone?esc(d.persone+" persone sul palco")+" · ":"")+esc(riderPedaneText(d.pedane))+(d.leggii?" · "+esc(d.leggii+" leggii"):"")+(d.sedie?" · "+esc(riderSedieText(d.sedie)):"")+(d.pesoKg>0?" · peso allestimento stimato "+esc(fmtKg(d.pesoKg)):""), true)+
     (d.console?sec("Console", esc(d.console), true):"")+
     (d.elettrico?sec("Alimentazione", esc(riderAlimentazioneText(d.elettrico)), true):"")+
     sec("Sistema audio", esct(d.sistema), !!d.sistemaAuto)+
