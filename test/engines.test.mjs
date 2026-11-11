@@ -29836,6 +29836,24 @@ t("ogni cartella in radice con un index.html è nell'elenco pubblicato da pages.
   eq(mancano, [], "cartelle pubbliche fuori dall'elenco del deploy (online darebbero 404)");
 });
 
+/* 11/11/2026 — segnalazione di Simone (c5cce908, da https://stageplot.it/app/ a 1490×779): «qua in alto a sinistra dovrebbe
+   esserci il logo stageplot.it». Il marchio è «stageplot.it», col .it (decisione del 07/11), vettoriale come nel kit di marca. */
+t("editor: in alto a sinistra il logo stageplot.it, vettoriale, che porta alla home", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  const h1 = (html.match(/<h1 class="brand">[\s\S]*?<\/h1>/) || [""])[0];
+  ok(h1, "premessa: c'è il titolo del marchio");
+  ok(!/>STAGE PLOT</.test(h1), "non più la scritta «STAGE PLOT»");
+  ok(/<a [^>]*href="\/"[^>]*aria-label="stageplot\.it[^"]*"/.test(h1), "un link alla home, che si chiama stageplot.it per chi usa lo screen reader");
+  ok(/<svg[^>]*class="brand-full"[^>]*viewBox="0 0 962\.94 200"/.test(h1), "il logo orizzontale del kit di marca (simbolo + scritta), in SVG");
+  ok(/<svg[^>]*class="brand-sym"[^>]*viewBox="0 0 460 460"/.test(h1), "e il simbolo piccolo per quando lo spazio è poco");
+  ok(/fill="currentColor"/.test(h1) && /fill="#0d9488"/.test(h1), "«stageplot» col colore del testo (si legge anche col tema scuro), «.it» verde acqua");
+  ok(!/<img|\.png|\.jpg/.test(h1), "niente immagini raster");
+  ok(/<span class="sr-only">[^<]*stage plot in scala/.test(h1), "la frase per screen reader e motori di ricerca resta");
+  const mtop = html.slice(html.indexOf('<div id="mTop">'), html.indexOf('<div id="mTop">') + 3000);
+  ok(/<a class="mtop-logo" href="\/" aria-label="stageplot\.it[^"]*">\s*<svg[^>]*viewBox="0 0 460 460"/.test(mtop), "sul telefono il simbolo, accanto al titolo");
+  ok(/@media \(min-width:881px\) and \(max-width:1210px\)\{[^}]*header \.brand \.brand-full\{display:none\}/.test(stylesCss), "fra 881 e 1210 px solo il simbolo");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
 
