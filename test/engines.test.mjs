@@ -28761,6 +28761,34 @@ t("caso Zuliani: «Aggiungi stage box» posa in un punto libero e traccia i cavi
   A.__cavoMemo = { k: null, v: null };
   eq(A.cavoSuggerimento(), null, "a cablaggio acceso il suggerimento sparisce");
 });
+/* 11/11 — «Mostra cavi e corrente» posava un quadro senza alimentazione a monte e l'audit fermava l'export («nofeed», errore
+   critico). Causa: il motore elettrico parte in modalità "manual" (di serie), dove i cavi quadro→sorgente non si disegnano mai:
+   il quadro appena posato risultava scollegato e nessun gesto dell'utente poteva sistemarlo. Riprodotto sui progetti veri del
+   collaudo 11, 13, 15, 16, 18 (cavi spenti → «Mostra cavi e corrente» → +1 errore critico). */
+t("«Mostra cavi e corrente» / «Aggiungi quadro»: il quadro posato è alimentato, nessun errore «nofeed» che blocca l'export", () => {
+  reset();
+  A.state.elec.mode = "manual"; A.state.elec.on = false; A.state.cab.on = false;
+  add("wedge", 300, 300); add("proiettore", 500, 300); add("parluci", 600, 300); add("parluci", 700, 300);
+  for (let i = 0; i < 6; i++) add("astamic", 400 + i * 40, 500);
+  A.__cavoMemo = { k: null, v: null };
+  ok(A.cavoSuggerimento() && A.cavoSuggerimento().distro, "il suggerimento c'è");
+  A.cavoCorrenteAccendi();
+  ok(A.state.items.some((i) => /^distro/.test(i.type)), "quadro posato");
+  const R = A.auditEngine();
+  eq(R.findings.filter((f) => f.rule === "nofeed").length, 0, "nessun «quadro senza alimentazione a monte»");
+  eq(R.errs, 0, "nessun errore critico: l'export non si ferma — " + JSON.stringify(R.findings.filter((f) => f.lvl === "err").map((f) => f.msg)));
+  ok(A.elecResult(true).feeds.length > 0, "c'è la linea di alimentazione quadro → sorgente");
+});
+t("«Aggiungi quadro» in un progetto con cavi di corrente tirati a mano: la modalità manuale non si tocca", () => {
+  reset();
+  A.state.elec.mode = "manual"; A.state.elec.on = true;
+  const w = add("wedge", 300, 300); add("proiettore", 500, 300); add("parluci", 600, 300);
+  const d0 = add("distro32", 200, 100); const d1 = add("distro32", 800, 100);
+  A.state.elec.uplinks = { [d1.id]: { to: d0.id } };
+  A.__elecRes = null;
+  A.auditFixAddDistro();
+  eq(A.state.elec.mode, "manual", "chi ha già tirato i suoi cavi resta in manuale");
+});
 t("caso Zuliani: «Aggiungi distro» posa un quadro libero e collega i carichi", () => {
   reset();
   add("wedge", 300, 300); add("proiettore", 500, 300); add("parluci", 600, 300); add("parluci", 700, 300);
