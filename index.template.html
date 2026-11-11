@@ -3751,8 +3751,8 @@ var TYPES = {
   pedana:   {nome:"Pedana", dim:"2×1 m", cat:"Palco e strutture", w:200,d:100,h:40, resizable:true, z:0, riser:true,
              draw:function(it){ return riserSvg(it.w,it.d,it.locked===true); }},
   scala:    {nome:"Scala accesso", dim:"60×90", cat:"Palco e strutture", w:60,d:90, resizable:true, z:1,
-             draw:function(it){ var s=rectSvg(it.w,it.d,'ic fFloor',2);
-               for(var i=1;i<5;i++){ s+=lin(-it.w/2,-it.d/2+i*it.d/5,it.w/2,-it.d/2+i*it.d/5,'ic thin'); }
+             draw:function(it){ var s=rectSvg(it.w,it.d,'ic fFloor',2), n=scalaGradini(scalaH(it));   /* tanti riquadri quanti i gradini dell'altezza della pedana (11/11) */
+               for(var i=1;i<n;i++){ s+=lin(-it.w/2,-it.d/2+i*it.d/n,it.w/2,-it.d/2+i*it.d/n,'ic thin'); }
                if(it.d>=50){ var ay1=it.d/2-12,ay2=-it.d/2+12; s+=lin(0,ay1,0,ay2,'ic thin')+'<path class="ic thin" fill="none" d="M -6,'+(ay2+8)+' L 0,'+ay2+' L 6,'+(ay2+8)+'"/>'; }
                return s; }},
   rampa:    {nome:"Rampa accesso", dim:"120×240", cat:"Palco e strutture", w:120,d:240, resizable:true, z:1,
@@ -14761,8 +14761,8 @@ function itemMarkup(it){
   }
   if(it.leggio===true && leggioExtra(it)) s += '<g transform="translate(0,'+leggioExtraY(it)+')'+(leggioExtraY(it)<0?' rotate(180)':'')+'">'+leggioGlyph(0)+'</g>';   /* leggio generico: arpa, piani, organi, percussioni, mallet… (off di default, davanti allo strumento) */
   _leggioDistOn = 0;   /* finiti gli accessori: nessun altro leggioGlyph (anteprime, catalogo, leggio a sé) eredita la distanza */
-  if(t.riser){                                       /* quota pedana sul lato scelto/auto (più visibile) */
-    var dimT=(it.w/100)+'×'+(it.d/100)+' m · h'+it.h, rside=riserDimSide(it), roff=12, rdx=0, rdy=0, ranc='middle', rtr='', rang=0;
+  if(t.riser || it.type==="scala"){                  /* quota pedana sul lato scelto/auto (più visibile); la scala dice altezza e gradini (11/11), di serie sopra */
+    var dimT=t.riser ? (it.w/100)+'×'+(it.d/100)+' m · h'+it.h : scalaQuota(it), rside=t.riser ? riserDimSide(it) : scalaDimSide(it), roff=12, rdx=0, rdy=0, ranc='middle', rtr='', rang=0;
     if(rside==="top"){ rdy=-(it.d/2)-roff; }
     else if(rside==="bottom"){ rdy=(it.d/2)+roff+9; }
     else if(rside==="left"){ rdx=-(it.w/2)-roff; ranc='middle'; rang=-90; }   /* ruotata, legge lungo il lato sx */
@@ -18151,6 +18151,27 @@ function auditFixVoceSoloMicPosato(list){
    sotto, è un gradino, cioè un accesso (le gradinate d'orchestra salgono così). */
 var PEDANA_PROTEZIONE_CM=100, PEDANA_DECRETO_CM=200, PEDANA_GRADINO_CM=40;
 function pedanaH(it){ var T=TYPES[it.type]||{}; return (it.h!=null && isFinite(+it.h)) ? +it.h : (T.h||40); }
+/* GRADINI DELLA SCALA (11/11/2026; segnalazione CONCERTI del 05/11: «perché disegni molti più gradini di quelli
+   che in realtà ci sono»). Alzata di 20 cm (i livelli delle gradinate d'orchestra scendono così: 60 → 40 → 20),
+   quindi h40 = 2 gradini, h60 = 3. La scala non ha un'altezza sua: prende quella della pedana che tocca
+   (la più alta, se ne tocca più d'una), come l'avviso di pedaneSicurezza; senza pedane vicine vale 40, l'altezza
+   di una pedana di serie. Se la scala fosse fornita dal teatro con altri gradini, è un caso a parte (non c'è ancora). */
+var SCALA_ALZATA_CM=20, SCALA_GRADINI_MAX=12;
+function scalaGradini(h){ h=+h; if(!isFinite(h)) h=40; return Math.max(1, Math.min(SCALA_GRADINI_MAX, Math.round(h/SCALA_ALZATA_CM))); }
+function scalaH(it){
+  var best=0, a=itemAabb(it,0);
+  (state.items||[]).forEach(function(r){
+    if(r===it || !(TYPES[r.type] && TYPES[r.type].riser)) return;
+    if(aabbTocca(a,itemAabb(r,15))) best=Math.max(best,pedanaH(r)); });
+  return best>0 ? best : 40;
+}
+/* la quota sta di LATO (ruotata come quella delle pedane), dalla parte con più spazio: sopra finirebbe dentro la pedana a cui
+   la scala è appoggiata, sotto c'è già il nome */
+function scalaDimSide(it){
+  if(it.dimSide && it.dimSide!=="auto") return it.dimSide;
+  return (state.stage.w-(it.x+it.w/2)) >= (it.x-it.w/2) ? "right" : "left";
+}
+function scalaQuota(it){ var h=scalaH(it), n=scalaGradini(h); return 'h'+h+' · '+n+(n===1?' gradino':' gradini'); }
 function itemAabb(it, pad){
   var T=TYPES[it.type]||{}, w=+(it.w||T.w||0), d=+(it.d||T.d||0), r=((+it.rot||0)%360)*Math.PI/180;
   var c=Math.abs(Math.cos(r)), s=Math.abs(Math.sin(r)), hw=(w*c+d*s)/2+(pad||0), hd=(w*s+d*c)/2+(pad||0);
