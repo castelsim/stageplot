@@ -1,8 +1,8 @@
 # StagePlot
 
-> StagePlot (stageplot.it) è una web app gratuita, in italiano, per creare online lo stage plot in scala e la scheda tecnica di concerti, spettacoli ed eventi dal vivo. Dal disegno l'app genera da sola input list, monitor, carichi elettrici, channel list (esportabile in CSV) e il rider tecnico in PDF multipagina, tutto gratis; la consulenza è un servizio a parte in cui un sound engineer revisiona il progetto. Funziona nel browser, è local-first (i dati restano sul dispositivo) e non richiede registrazione. Creata da Simone Castellan, sound engineer per spettacoli dal vivo.
+> StagePlot (stageplot.it) è una web app gratuita, in italiano, per creare online lo stage plot in scala e la scheda tecnica di concerti, spettacoli ed eventi dal vivo. Dal disegno l'app genera da sola input list, monitor, carichi elettrici, channel list (esportabile in CSV) e il rider tecnico in PDF multipagina, tutto gratis; la consulenza è un servizio a parte in cui un sound engineer revisiona il progetto, e il rider tecnico completo di una band si può anche far preparare da noi (59 €). Funziona nel browser, è local-first (i dati restano sul dispositivo) e non richiede registrazione. Creata da Simone Castellan, sound engineer per spettacoli dal vivo.
 
-Ultimo aggiornamento di questo file: 09/11/2026.
+Ultimo aggiornamento di questo file: 11/11/2026.
 
 ## Cos'è uno stage plot
 Uno stage plot (o stage plan) è lo schema in scala del palco che mostra la disposizione di musicisti, strumenti, amplificatori, monitor, microfoni e prese di corrente. Serve a service audio, fonici, teatri e festival per preparare un evento dal vivo. Spesso è accompagnato da una channel list (o input list), che elenca i canali audio in ingresso al mixer, e da un rider tecnico.
@@ -19,7 +19,7 @@ Uno stage plot (o stage plan) è lo schema in scala del palco che mostra la disp
 - Salvataggio locale automatico; salvataggio cloud opzionale con login Google
 
 ## Fatti chiave
-- Prezzo: gratis, senza registrazione e senza filigrana sui documenti (il lavoro di una persona è a parte: revisione del progetto 29 €, progetto disegnato da zero da 149 € su preventivo)
+- Prezzo: gratis, senza registrazione e senza filigrana sui documenti (il lavoro di una persona è a parte: revisione del progetto 29 €, rider tecnico completo di una band preparato da noi 59 €, progetto disegnato da zero da 149 € su preventivo)
 - Catalogo: oltre 200 elementi trascinabili, 223 microfoni riconosciuti (tipo, polare, phantom e asta presi dalle schede dei costruttori), decine di modelli di faro e apparecchi luci
 - Guide per formazione (band, jazz combo, coro, orchestra, big band, tributo, matrimonio, DJ set e altre): spiegano come disporre il palco; nell'editor si parte da un palco vuoto
 - Lingua dell'interfaccia e dei documenti: italiano
@@ -31,6 +31,7 @@ Uno stage plot (o stage plan) è lo schema in scala del palco che mostra la disp
 - [Editor gratuito](https://stageplot.it/app/): l'app dove si disegna il palco (nessuna registrazione)
 - [Guida](https://stageplot.it/guida/): indice delle guide su stage plot, channel list e rider tecnico
 - [Stage plot per formazione](https://stageplot.it/stage-plot/): indice delle undici formazioni (band, orchestra, coro, big band, jazz, acustico, tributo, chiesa, matrimonio, DJ set, festival)
+- [Rider tecnico completo per band](https://stageplot.it/rider-tecnico-completo/): servizio a 59 € — la band manda il materiale che ha (vecchio rider, lista, foto, descrizione), il rider lo prepariamo noi e lo controlla un sound engineer; in 72 ore (giorni lavorativi) arrivano il PDF (stage plot in scala, channel list, ascolti, corrente, luci di base, ospitalità, orari, contatti) e il progetto modificabile su stageplot.it. Una correzione compresa; per band fino a 12 musicisti; nessun pagamento con la richiesta
 - [Revisione e produzione tecnica](https://stageplot.it/consulenza/): gratis l'app genera palco, lista canali, monitor, elettrico e rider PDF; revisione 29 € (un tecnico corregge direttamente il tuo progetto e lo restituisce entro 48 ore, senza PDF); da 149 € lo disegniamo noi da zero, su preventivo
 - [Privacy policy](https://stageplot.it/privacy/)
 - [Termini di utilizzo](https://stageplot.it/termini/)
