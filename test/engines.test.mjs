@@ -2808,6 +2808,61 @@ t("riderData: testo editabile (state.rider) vince sul default", () => {
   ok(r.sistema === "Mio impianto XYZ", "override sistema");
   eq(r.sedie, "", "sedie vuote di default");
 });
+/* 11/11/2026 — rider di una band ricostruito nell'app: la pagina Rider chiamava «quadri» dieci multiprese, aggiungeva
+   «sedie da orchestra senza braccioli» a un testo che diceva «tutti in piedi», e la Lista RF ignorava i radiomicrofoni
+   scritti nella channel list. */
+t("rider: le multiprese non sono quadri", () => {
+  reset();
+  add("wedge", 300, 500); add("keysamp", 500, 300);
+  for (let i = 0; i < 3; i++) add("ciabatta", 100 + i * 60, 600);
+  const d = A.riderData();
+  ok(d.elettrico, "premessa: c'è la parte elettrica");
+  const txt = A.riderAlimentazioneText(d.elettrico);
+  ok(!/quadri:/.test(txt) && !/Q\d/.test(txt), "nessun «quadri: Q1 16A…» per le ciabatte: " + txt.slice(0, 160));
+  ok(/3 multiprese/.test(txt), "le multiprese si contano come multiprese: " + txt.slice(0, 160));
+  add("quadro", 700, 100);
+  const txt2 = A.riderAlimentazioneText(A.riderData().elettrico);
+  ok(/quadri: Q\d+ 63A\b/.test(txt2) && !/16A/.test(txt2), "il quadro vero resta, le ciabatte no: " + txt2.slice(0, 200));
+});
+t("rider: «sedie da orchestra senza braccioli» solo quando il campo è un numero", () => {
+  eq(A.riderSedieText("6"), "6 sedie da orchestra senza braccioli", "un numero");
+  eq(A.riderSedieText(""), "", "vuoto");
+  eq(A.riderSedieText("Sgabelli per batteria e tastiere, tutti gli altri in piedi"), "Sgabelli per batteria e tastiere, tutti gli altri in piedi", "un testo esce com'è scritto");
+  const usi = appjs.split("riderSedieText(d.sedie)").length - 1;
+  eq(usi, 2, "PDF e anteprima del rider passano entrambi dalla funzione");
+  ok(appjs.indexOf('d.sedie+" sedie da orchestra') < 0 && appjs.indexOf('esc(d.sedie)+" sedie da orchestra') < 0, "nessuna frase fissa rimasta");
+});
+t("Lista RF: un radiomicrofono scritto nella channel list conta", () => {
+  reset();
+  const v = add("astamic", 300, 300); v.label = "Vox 1";
+  add("astamic", 400, 300).label = "Vox 2";
+  A.__cabRes = null;
+  eq(A.rfList().count, 0, "premessa: due aste, nessuna radio");
+  const r0 = A.patchList().rows.find((x) => x.itemId === v.id);
+  A.state.cab.manual = A.state.cab.manual || {};
+  A.state.cab.manual[r0.key] = { mic: "Radio SM58" };
+  A.__cabRes = null;
+  const L = A.rfList();
+  eq(L.count, 1, "il canale scritto «Radio SM58» è un radiomicrofono da coordinare");
+  const r = L.rows.find((x) => x.name === "Vox 1");
+  ok(r && /radio/i.test(r.kind) && /channel list/i.test(r.kind), "si vede da dove viene: " + (r && r.kind));
+  ok(!A.auditEngine().findings.some((f) => /senza frequenza RF/.test(f.msg || "")), "e non chiede una frequenza che non ha dove scriversi");
+  for (const m of ["Wireless Beta 58", "RF SM58", "radiomic", "Shure ULXD2/B58"]) {
+    A.state.cab.manual[r0.key] = { mic: m }; A.__cabRes = null;
+    ok(A.rfList().count === (m === "Shure ULXD2/B58" ? 0 : 1), "«" + m + "»" + (m === "Shure ULXD2/B58" ? " non si indovina dal modello" : " è radio"));
+  }
+  A.state.cab.manual[r0.key] = { mic: "SM58" }; A.__cabRes = null;
+  eq(A.rfList().count, 0, "«SM58» a filo non è radio");
+  A.state.cab.manual[r0.key] = { mic: "Boundary surface" }; A.__cabRes = null;
+  eq(A.rfList().count, 0, "«rf» dentro una parola (surface) non è radio");
+  reset();
+  const w = add("wireless", 300, 300); w.label = "Vox";
+  A.__cabRes = null;
+  const rw = A.patchList().rows.find((x) => x.itemId === w.id);
+  A.state.cab.manual = A.state.cab.manual || {}; A.state.cab.manual[rw.key] = { mic: "Radio SM58" }; A.__cabRes = null;
+  eq(A.rfList().count, 1, "un radiomic già disegnato non si conta due volte");
+});
+
 t("riderData: sedie editabili", () => {
   reset(); A.state.rider = { sedie: 40 };
   eq(String(A.riderData().sedie), "40", "sedie dall'editabile");
@@ -22073,7 +22128,7 @@ t("sul telefono il catalogo parte dalla ricerca e dalle categorie a riquadri", (
   ok(/wrap\.classList\.toggle\("drill", willOpen\)/.test(appjs), "e si richiudono tornando indietro");
   /* gli usati di recente: solo sul telefono, e aggiornati da OGNI elemento preso dal catalogo */
   ok(/#catRecenti\{display:none\}/.test(stylesCss.slice(0, stylesCss.lastIndexOf("@media (max-width:880px){"))), "col mouse non si vedono");
-  ok(/addItem\(k, over\?JSON\.parse\(JSON\.stringify\(over\)\):undefined\); ricordaRecenteCatalogo\(k, nome, over\);/.test(appjs), "ogni elemento preso si ricorda");
+  ok(/addItem\(k, rotPosaCatalogo\(k, over\?JSON\.parse\(JSON\.stringify\(over\)\):undefined\)\); ricordaRecenteCatalogo\(k, nome, over\);/.test(appjs), "ogni elemento preso si ricorda");
   ok(/function openCatalog\(\)\{ closeAll\(\); if\(window\.__renderRecenti\) window\.__renderRecenti\(\);/.test(appjs), "e riaprendo il catalogo si vedono");
   const riapri = appjs.slice(appjs.indexOf("window.__renderRecenti=function(){"), appjs.indexOf("window.__renderRecenti=function(){") + 400);
   ok(/\.cat-head\.open,\.cat-body\.open/.test(riapri) && /wrap\.classList\.remove\("drill"\)/.test(riapri),
@@ -23897,6 +23952,93 @@ t("il kit di batteria si compone dal pannello, e i microfoni seguono i pezzi", (
   ok(/id="pDivide"[^>]*>⇱ Dividi in pezzi singoli</.test(html), "«Dividi» dice cosa fa");
   ok(/\["full","Completa \(un mic per pezzo\)"\]/.test(appjs), "e la microfonazione dice cosa fa");
 });
+/* 11/11/2026 — rider di una band da 39 canali ricostruito nell'app: il motore dei canali non sapeva fare
+   Kick In + Kick Out, il secondo floor tom, un microfono per conga, il canale del talkback, il computer in
+   mono, e perdeva il nome sul banco dei canali non ancora collegati a una stage box. */
+t("batteria: cassa con due microfoni (In + Out) e secondo floor tom", () => {
+  reset();
+  const b = add("batteria", 400, 400);
+  const nomi = () => A.cabItemInputs(b).map((c) => c.name.replace(/^.* - /, ""));
+  const mic = (n) => (A.cabItemInputs(b).find((c) => c.name.replace(/^.* - /, "") === n) || {}).mic;
+  eq(nomi().join(","), "Kick,Rullante top,Rullante btm,Hi-Hat,Tom 1,Tom 2,Tom floor,Overhead L,Overhead R", "premessa: il kit di serie non cambia");
+  const keys = A.COMP.batteria.controls.map((c) => c.key);
+  ok(keys.indexOf("kickio") > -1 && keys.indexOf("floor2") > -1, "le due scelte sono nel pannello: " + keys.join(","));
+  b.parts = Object.assign({}, b.parts, { kickio: true });
+  eq(nomi().slice(0, 2).join(","), "Kick In,Kick Out", "cassa In + Out: due canali");
+  eq([mic("Kick In"), mic("Kick Out")], ["Beta 91A", "D6"], "In = microfono a mezzaluna dentro la cassa, Out = D6");
+  b.parts = Object.assign({}, b.parts, { kick2: true });
+  eq(nomi().slice(0, 4).join(","), "Kick 1 In,Kick 1 Out,Kick 2 In,Kick 2 Out", "doppia cassa: In + Out per ognuna");
+  b.parts = Object.assign({}, b.parts, { kick2: false, kickio: false, floor2: true });
+  const n = nomi();
+  ok(n.indexOf("Floor tom 1") > -1 && n.indexOf("Floor tom 2") > -1 && n.indexOf("Tom floor") < 0 && n.indexOf("Tom 3") < 0,
+    "due floor tom = «Floor tom 1» e «Floor tom 2», non «Tom 3»: " + n.join(","));
+  const fl = A.drumSlots(A.parts(b)).filter((s) => s.k === "floor");
+  eq(fl.length, 2, "e se ne disegnano due");
+  const d = Math.hypot(fl[0].x - fl[1].x, fl[0].y - fl[1].y);
+  ok(d >= 46, "i due floor tom non si sovrappongono (centri a " + d.toFixed(1) + " cm, diametro 46)");
+  const lab = A.explodeBatteria(b).filter((p) => p.type === "floorR").map((p) => p.label.replace(/^.* /, ""));
+  eq(lab.join(","), "1,2", "Dividi: Floor 1 e Floor 2");
+  b.parts = Object.assign({}, b.parts, { floor: false });
+  ok(A.drumSlots(A.parts(b)).filter((s) => s.k === "floor").length === 0 && nomi().join(",").indexOf("loor") < 0,
+    "senza il primo floor tom il secondo non c'è");
+  b.parts = Object.assign({}, b.parts, { floor: true, floor2: true, lefty: true });
+  ok(A.drumSlots(A.parts(b)).filter((s) => s.k === "floor").every((s) => s.x > 0), "mancino: anche il secondo floor tom passa dall'altra parte");
+  b.parts = Object.assign({}, b.parts, { lefty: false, kick2: true });
+  const f2 = A.drumSlots(A.parts(b)).filter((s) => s.k === "floor");
+  ok(Math.hypot(f2[0].x - f2[1].x, f2[0].y - f2[1].y) >= 46, "con la doppia cassa i due floor tom non si sovrappongono");
+});
+t("set percussioni: un microfono per conga, a scelta", () => {
+  reset();
+  const p = add("percussioni", 400, 400);
+  p.parts = Object.assign({}, p.parts, { congas: 3, bongos: true, chimes: false, campanaccio: false, piatto: false, tavolo: false });
+  const nomi = () => A.cabItemInputs(p).map((c) => c.name.replace(/^.* - /, ""));
+  eq(nomi().join(","), "Congas,Bongos", "di serie: un canale per le congas, come prima");
+  ok(A.COMP.percussioni.controls.some((c) => c.key === "congaMic"), "la scelta è nel pannello");
+  p.parts = Object.assign({}, p.parts, { congaMic: true });
+  eq(nomi().join(","), "Conga 1,Conga 2,Conga 3,Bongos", "un microfono per conga");
+  p.parts = Object.assign({}, p.parts, { congas: 1 });
+  eq(nomi().join(","), "Conga,Bongos", "una conga sola: «Conga», senza numero");
+  p.parts = Object.assign({}, p.parts, { congas: 0 });
+  eq(nomi().join(","), "Bongos", "senza congas nessun canale di conga");
+});
+t("il talkback sul palco è un canale", () => {
+  reset();
+  const tb = add("talkback", 300, 500);
+  const c = chans(tb);
+  eq(c.length, 1, "un canale");
+  eq(c[0].name, "Talkback", "col suo nome");
+  ok(A.isAudioSource(tb), "è una sorgente audio (canale collegabile)");
+  A.__cabRes = null;
+  const r = A.patchList().rows.find((x) => x.itemId === tb.id);
+  ok(r && r.stand === "da tavolo", "con la sua base da tavolo, non un'asta: " + (r && r.stand));
+});
+t("computer messo «Mono» dal pannello = un canale", () => {
+  reset();
+  const l = add("laptop", 300, 300);
+  eq(chans(l).length, 2, "premessa: di serie stereo");
+  A.state.selected = [l.id]; A.selectOne && A.selectOne(l.id);
+  l.stereo = false;
+  eq(chans(l).length, 1, "Mono: un canale");
+  eq(chans(l)[0].mic, "DI", "in DI, come lo stereo");
+  delete l.stereo; l.plCh = 8;
+  eq(chans(l).length, 8, "le tracce scelte col cursore restano");
+  l.stereo = false;
+  eq(chans(l).length, 1, "premuto Mono dopo il cursore: vince Mono");
+  ok(/mutSelSoon\(function\(x\)\{ delete x\.stereo; if\(v===COMP_CH_DEF\) delete x\.plCh; else x\.plCh=v; \}\);/.test(appjs), "muovere il cursore delle tracce toglie il Mono");
+});
+t("il nome sul banco esce anche sui canali non ancora collegati a una stage box", () => {
+  reset();
+  const v = add("astamic", 300, 300); v.label = "Voce";
+  A.__cabRes = null;
+  const r0 = A.patchList().rows.find((x) => x.itemId === v.id);
+  ok(r0 && !r0.box, "premessa: canale senza stage box");
+  A.state.cab.manual = A.state.cab.manual || {};
+  A.state.cab.manual[r0.key] = Object.assign({}, A.state.cab.manual[r0.key], { short: "VOX1" });
+  A.__cabRes = null;
+  const r1 = A.patchList().rows.find((x) => x.itemId === v.id);
+  eq(r1.short, "VOX1", "il nome sul banco c'è anche qui (schermo, CSV e PDF lo leggono da patchList)");
+});
+
 
 t("Scomponi la chitarra: la chitarra resta la stessa (id, canali, DI, catena); l'ampli staccato porta il suo canale", () => {
   /* 20/10: il pezzo chitarra nasceva nuovo con ampli:false — una chitarra elettrica (SM57 sul cono di serie) usciva dalla
@@ -29126,8 +29268,86 @@ t("punta verso: il comando è nel pannello, nel gruppo Disegno, e parla da solo"
   ok(/id="pPuntaWrap"[\s\S]{0,300}id="pPunta"[\s\S]{0,200}id="pPuntaGo"/.test(html), "tendina e bottone nel markup");
   ok(/group\("Disegno", null, \[[^\]]*"pPuntaWrap","pRotRow"/.test(html), "accanto alla rotazione, così sul telefono resta in vista");
   ok(/id="grpPuntaRow"/.test(html) && /getElementById\("grpPunta"\)\.addEventListener/.test(html), "e il bottone per il gruppo");
-  ok(/monAggancioPosa\(_posa\)\)\{ over\.x=_posa\.x; over\.y=_posa\.y; over\.rot=_posa\.rot; \}\s*addItem\(data\.k, over\);/.test(html), "il drop dal catalogo aggancia il wedge prima di crearlo: Annulla lo toglie in un colpo solo");
+  ok(/monAggancioPosa\(_posa\)\)\{ over\.x=_posa\.x; over\.y=_posa\.y; over\.rot=_posa\.rot; \}\s*addItem\(data\.k, rotPosaCatalogo\(data\.k, over\)\);/.test(html), "il drop dal catalogo aggancia il wedge prima di crearlo: Annulla lo toglie in un colpo solo");
 });
+/* 11/11/2026 — orientamento (stage plot di una band ricostruito da un rider): tastiere, pad, computer, pedaliera e asta
+   microfono «strumento solo» hanno chi li usa dalla parte +y, quindi posati a 0° il musicista guarda il fondale. Nei progetti
+   veri gli utenti li girano già a mano (aste 62 su 83 a 180°, doppie tastiere 7 su 7): i disegni non si toccano, nascono girati. */
+t("posati dal catalogo, tastiere/pad/computer/pedaliera/asta nascono col musicista verso il pubblico", () => {
+  reset();
+  for (const ty of ["tastiera", "doppiatastiera", "celesta", "pianoverticale", "spdsx", "laptop", "pedaliera", "astamic"])
+    eq(A.rotPosaCatalogo(ty, {}).rot, 180, ty + " a 180°");
+  for (const ty of ["wedge", "gtstand", "batteria", "grancoda", "cantante", "vlnpost"])
+    ok(A.rotPosaCatalogo(ty, {}).rot == null, ty + ": nessuna rotazione imposta");
+  ok(A.rotPosaCatalogo("stagepiano", {}).rot == null, "stage piano «Postazione»: il musicista è già dalla parte giusta");
+  eq(A.rotPosaCatalogo("stagepiano", { look: "schematico" }).rot, 180, "stage piano «Strumento solo»: girato");
+  A.state.lookDefault = "schematico";
+  eq(A.rotPosaCatalogo("stagepiano", {}).rot, 180, "progetto disegnato tutto «Strumento solo»: girato");
+  A.state.lookDefault = undefined;
+  eq(A.rotPosaCatalogo("tastiera", { rot: 90 }).rot, 90, "una rotazione già decisa (es. aggancio) resta");
+  ok(A.rotPosaCatalogo("tastiera", undefined).rot === 180, "anche senza over");
+  /* i quattro punti di posa dal catalogo: clic, recenti, ricerca veloce, trascinamento */
+  const usi = appjs.match(/addItem\([a-z.]+, *rotPosaCatalogo\(/g) || [];
+  eq(usi.length, 4, "clic, recenti, ricerca veloce e trascinamento passano da rotPosaCatalogo");
+  ok(/rotazione:"rot in gradi, senso orario; 0 = elemento rivolto verso il pubblico; eccezione: tastiere[^"]*a 180/.test(appjs), "la spiegazione per l'IA dice l'eccezione");
+});
+t("Postazione ↔ Strumento solo: lo stage piano tiene il musicista dalla stessa parte", () => {
+  const sp = { type: "stagepiano", rot: 180, look: "schematico", x: 300, y: 300, w: 132, d: 60 };
+  A.lookCambia(sp, "illustrato");
+  eq([sp.look, sp.rot], ["illustrato", 0], "da Strumento solo girato a Postazione: torna a 0°");
+  A.lookCambia(sp, "schematico");
+  eq([sp.look, sp.rot], ["schematico", 180], "e ritorno");
+  A.lookCambia(sp, "schematico");
+  eq(sp.rot, 180, "scegliere la vista che ha già non gira niente");
+  const sp2 = { type: "stagepiano", rot: 30, x: 300, y: 300, w: 132, d: 117 };
+  A.lookCambia(sp2, "schematico");
+  eq(sp2.rot, 210, "da Postazione (look non scritto) a Strumento solo: +180");
+  const gc = { type: "grancoda", rot: 270, x: 300, y: 300, w: 150, d: 180 };
+  A.lookCambia(gc, "schematico");
+  eq(gc.rot, 270, "il gran coda ha la tastiera dalla stessa parte nelle due viste: non si gira");
+  const v = { type: "vlnpost", rot: 15, x: 300, y: 300, w: 100, d: 115 };
+  A.lookCambia(v, "schematico"); eq(v.rot, 15, "un violino non si gira");
+  ok(/getElementById\("pLookIll"\)\.addEventListener\("click", function\(\)\{ mutSel\(function\(it\)\{ lookCambia\(it,"illustrato"\)/.test(appjs), "il pulsante Postazione usa lookCambia");
+  ok(/getElementById\("pLookSch"\)\.addEventListener\("click", function\(\)\{ mutSel\(function\(it\)\{ lookCambia\(it,"schematico"\)/.test(appjs), "il pulsante Strumento solo usa lookCambia");
+  ok(/if\(hasLookToggle\(o\)\)\{ lookCambia\(o,lk\);/.test(appjs), "«Applica a tutti» usa lookCambia");
+});
+t("DI dello strumento: sempre dritta, e nasce in un punto libero accanto alla sorgente", () => {
+  reset();
+  const k = add("stagepiano", 400, 300, { rot: 110 });
+  const di = A.state.items.find((x) => x.type === "dimono" && x.diFor === k.id);
+  ok(di, "premessa: lo stage piano nasce con la sua DI");
+  eq(di.rot, 0, "la DI non prende la rotazione dello strumento");
+  k.rot = 200; A.diSyncPos(k);
+  eq(di.rot, 0, "e resta dritta quando lo strumento gira");
+  di.rot = 45; k.rot = 30; A.diSyncPos(k);
+  eq(di.rot, 45, "una DI salvata storta resta com'è: aprire un progetto non lo cambia");
+  const d0 = Math.hypot(di.x - k.x, di.y - k.y);
+  ok(d0 < 150, "resta accanto allo strumento (" + d0.toFixed(0) + " cm dal centro)");
+  /* un ampli proprio dove andrebbe la DI di serie: la DI va dall'altra parte */
+  reset();
+  const k2 = add("stagepiano", 400, 300);
+  const via = A.state.items.find((x) => x.type === "dimono" && x.diFor === k2.id);
+  A.state.items = A.state.items.filter((x) => x !== via); delete k2.diId; delete k2.diOff;
+  const off = A.diDefaultOff(k2);
+  const amp = add("keysamp", k2.x + off[0], k2.y + off[1]);
+  const sov = (a, b) => Math.abs(a.x - b.x) < (a.w + b.w) / 2 && Math.abs(a.y - b.y) < (a.d + b.d) / 2;
+  ok(sov({ x: k2.x + off[0], y: k2.y + off[1], w: A.TYPES.dimono.w, d: A.TYPES.dimono.d }, amp), "premessa: al punto di serie la DI cadrebbe sull'ampli");
+  const di2 = A.diApply(k2);
+  ok(di2 && !sov(di2, amp), "la DI non finisce sopra l'ampli (" + (di2 && di2.x) + "," + (di2 && di2.y) + " / ampli " + amp.x + "," + amp.y + ")");
+  ok(Math.hypot(di2.x - k2.x, di2.y - k2.y) < 150, "ma resta accanto allo stage piano");
+  eq(k2.diOff.length, 2, "il punto scelto si ricorda (diOff)");
+  /* appena nata, prima di ogni riallineamento, è già dritta */
+  const via2 = A.state.items.find((x) => x.type === "dimono" && x.diFor === k2.id);
+  A.state.items = A.state.items.filter((x) => x !== via2); delete k2.diId; delete k2.diOff; k2.rot = 110;
+  eq(A.diApply(k2).rot, 0, "la DI nasce dritta anche su uno strumento girato");
+  /* senza ostacoli resta il punto di sempre */
+  reset();
+  const k3 = add("stagepiano", 400, 300);
+  eq(k3.diOff, A.diDefaultOff(k3), "palco libero: la DI va dove andava");
+  const k4 = add("stagepiano", 700, 300, { rot: 45 });
+  eq(k4.diOff, A.diDefaultOff(k4), "lo strumento stesso, anche girato, non è un ostacolo per la sua DI");
+});
+
 
 /* ---- MONITOR STORTI nell'audit (09/11/2026) ---- */
 function esitoMonitor(mon, altri) {   /* un palco 10×8 con una persona a 500,300 (salvo altri) e un monitor */

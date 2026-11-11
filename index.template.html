@@ -5818,6 +5818,7 @@ function drumSlots(p){
   else if(p.toms===2){ put("tom",k2?42:-10,k2?-30:-16,-6); put("tom",k2?-42:18,k2?-31:-16,6); }
   else if(p.toms>=3){ put("tom",k2?42:-10,k2?-30:-16,-6); put("tom",k2?-42:18,k2?-31:-16,6); put("tom",k2?0:-40,k2?-14:-27,k2?0:10); }   /* 3° tom accanto (rack centrale se doppia cassa) */
   if(p.floor) put("floor", k2?-104:(p.toms>=3?-55:-36), k2?-24:(p.toms>=3?-40:-37));   /* profondità del rullante, lato ride */
+  if(p.floor && p.floor2===true) put("floor", k2?-150:(p.toms>=3?-101:-82), k2?-36:(p.toms>=3?-52:-49));   /* 2° floor tom (11/11/2026): accanto al primo, più in là e un po' più vicino al batterista, a 47,5 cm di centro (fusto da 46) */
   if(p.crash>=1) put("crash", k2?94:47, k2?31:-18, 10);  /* lato hi-hat, appena a nord della cassa */
   if(p.crash>=2) put("crash", k2?-146:-70, k2?28:-14, -8);    /* 2° crash lato ride */
   if(p.ride) put("ride", k2?-94:-45, k2?34:-14);         /* lato floor */
@@ -5857,7 +5858,7 @@ function drawBatteria(it){
 }
 function sizeBatteria(it){ var B=drumBBox(drumSlots(parts(it))); return [Math.round(B.w), Math.round(B.d)]; }
 function explodeBatteria(it){
-  var p=parts(it), L=drumSlots(p), B=drumBBox(L), base=it.label?it.label+" ":"", out=[], nTom=0, nCr=0;
+  var p=parts(it), L=drumSlots(p), B=drumBBox(L), base=it.label?it.label+" ":"", out=[], nTom=0, nCr=0, nFl=0;
   var map={kick:"kickR",snare:"snareR",tom:"tomR",floor:"floorR",hihat:"hihatKR",crash:"crashR",ride:"rideR",stool:"stoolR"};
   var lab={kick:"Kick",snare:"Snare",tom:"Tom",floor:"Floor",hihat:"HH",crash:"Crash",ride:"Ride",stool:""};
   L.forEach(function(sl){
@@ -5871,6 +5872,7 @@ function explodeBatteria(it){
     var nm=lab[sl.k];
     if(sl.k==="tom"){ nTom++; if(p.toms>1) nm+=" "+nTom; }
     if(sl.k==="crash"){ nCr++; if(p.crash>1) nm+=" "+nCr; }
+    if(sl.k==="floor" && p.floor2===true){ nFl++; nm+=" "+nFl; }
     var pc={type:map[sl.k], dx:sl.x-B.cx, dy:sl.y-B.cy, label:nm?base+nm:""};
     if(sl.rot) pc.extra={rot:(it.rot||0)+sl.rot};
     out.push(pc);
@@ -6061,8 +6063,11 @@ function explodePercussioni(it){
   return out;
 }
 /* Canali del set: seguono i pezzi davvero montati (niente "Bongos" in lista se i bongos non ci sono). */
-function percChans(it){ var p=parts(it), out=[];
-  if((p.congas|0)>0) out.push(["Congas","e904"]);
+function percChans(it){ var p=parts(it), out=[], nc=p.congas|0;
+  /* un microfono per conga, a scelta (11/11/2026, dal rider di una band: «Conga L», «Conga R»). Di serie resta
+     un canale per tutte, come i progetti salvati */
+  if(nc>0 && p.congaMic===true){ for(var ci=1;ci<=nc;ci++) out.push([nc===1?"Conga":"Conga "+ci,"e904"]); }
+  else if(nc>0) out.push(["Congas","e904"]);
   if(p.bongos!==false) out.push(["Bongos","e904"]);
   /* chimes, campanaccio, piatto e tavolo dei piccoli: UN panoramico per tutti, come il banco percussioni
      (un canale per sonaglio sarebbe un rider falso, vedi PERC_PICCOLE) */
@@ -6122,9 +6127,10 @@ var COMP = {
   /* defParts = i progetti salvati prima del 13/10/2026: parts() li completa con queste chiavi, quindi i
      pezzi nuovi qui sono SPENTI e un set vecchio si riapre identico. newParts = chi lo posa oggi dal
      catalogo: la postazione intera del percussionista (Simone, 13/10). */
-  percussioni: { defParts:{congas:2, bongos:true, chimes:false, campanaccio:false, piatto:false, tavolo:false, mus:true, stool:false},
-    newParts:{congas:2, bongos:true, chimes:true, campanaccio:true, piatto:false, tavolo:true, mus:true, stool:false},
+  percussioni: { defParts:{congas:2, congaMic:false, bongos:true, chimes:false, campanaccio:false, piatto:false, tavolo:false, mus:true, stool:false},
+    newParts:{congas:2, congaMic:false, bongos:true, chimes:true, campanaccio:true, piatto:false, tavolo:true, mus:true, stool:false},
     controls:[ {key:"congas",label:"Congas",type:"count",min:0,max:3},
+               {key:"congaMic",label:"Un mic per conga",type:"toggle"},
                {key:"bongos",label:"Bongos",type:"toggle"},
                {key:"chimes",label:"Chimes",type:"toggle"},
                {key:"campanaccio",label:"Campanaccio",type:"toggle"},
@@ -6147,13 +6153,15 @@ var COMP = {
   cajonpost: { defParts:{mus:true},
     controls:[ {key:"mus",label:"Musicista",type:"toggle"} ],
     draw:drawCajonPost, size:sizeCajonPost, explode:explodeCajonPost },
-  batteria: { defParts:{toms:2,floor:true,hihat:true,crash:1,ride:true,kick2:false,mus:true,stool:true,lefty:false,leggio:false},
+  batteria: { defParts:{toms:2,floor:true,floor2:false,hihat:true,crash:1,ride:true,kick2:false,kickio:false,mus:true,stool:true,lefty:false,leggio:false},
     controls:[ {key:"toms",label:"Tom",type:"count",min:0,max:3},
                {key:"floor",label:"Floor tom",type:"toggle"},
+               {key:"floor2",label:"Secondo floor tom",type:"toggle"},
                {key:"hihat",label:"Hi-hat",type:"toggle"},
                {key:"crash",label:"Crash",type:"count",min:0,max:2},
                {key:"ride",label:"Ride",type:"toggle"},
                {key:"kick2",label:"Doppia cassa",type:"toggle"},
+               {key:"kickio",label:"Cassa: mic In + Out",type:"toggle"},
                {key:"mus",label:"Musicista",type:"toggle"},
                {key:"stool",label:"Sgabello",type:"toggle"},
                {key:"leggio",label:"Leggio",type:"toggle"},
@@ -15588,7 +15596,11 @@ function dvsNote(it){
 /* Quante tracce manda il computer. Due (L/R) è il caso normale — un playback stereo — ma un
    multitraccia ne manda otto o sedici, e finora la lista ne scriveva comunque due. */
 var COMP_CH_DEF = 2, COMP_CH_MAX = 64;
-function compChNum(it){ var n=parseInt(it&&it.plCh,10); if(!isFinite(n)||n<1) n=COMP_CH_DEF;
+function compChNum(it){ var n=parseInt(it&&it.plCh,10);
+  /* «Mono» del pannello (STEREO_TOGGLE.laptop): un canale. Prima il pulsante si accendeva ma il computer restava a 2
+     (11/11/2026). Vince l'ultima scelta: Mono qui; il cursore delle tracce, quando si muove, toglie il Mono. */
+  if(it && it.stereo===false) return 1;
+  if(!isFinite(n)||n<1) n=COMP_CH_DEF;
   return Math.min(COMP_CH_MAX, n); }
 /* La via del computer letta SENZA passare da cabItemRouteKey: quella chiama cabItemInputs, che ora
    ha bisogno della via → ricorsione infinita. La chiave si ricostruisce dal numero di tracce, che
@@ -18495,7 +18507,7 @@ function auditEngine(){
     add("warn", (muti.length===1 ? nomi[0]+" non ha un microfono" : muti.length+" persone non hanno un microfono ("+nomi.slice(0,3).join(", ")+")")+": nessun microfono suo e nessuno a portata.",
       "Audio","Selezionalo e scegli il microfono nel pannello (lavalier, palmare, archetto), oppure metti un microfono da tavolo o il podio davanti a lui.",null,"voce-senza-mic");
   })();
-  var noRf=(rfList().rows||[]).filter(function(r){ return !r.rf && !r.infra; }).length;   /* ricevitori, antenne e splitter non hanno una portante propria (24/09: contavano come «senza frequenza») */
+  var noRf=(rfList().rows||[]).filter(function(r){ return !r.rf && !r.infra && !r.daLista; }).length;   /* daLista: scritto nella channel list, non ha un pannello dove mettere la frequenza */   /* ricevitori, antenne e splitter non hanno una portante propria (24/09: contavano come «senza frequenza») */
   if(noRf) add("warn", noRf+(noRf===1?" radiomicrofono/IEM è":" radiomicrofoni/IEM sono")+" senza frequenza RF.","Rider","Senza frequenza il service non può coordinare le radiofrequenze: compilala nel pannello dell'elemento (Frequenza RF).");
   var monItems=items.filter(function(it){ return OUT_SET[it.type]!=null && it.type!=="monmix"; });
   var hasPersonal=items.some(function(it){ return it.type==="iem"||it.type==="hearback"; });
@@ -20423,7 +20435,7 @@ function renderProps(){
       _ps.oninput=function(){
         var v=Math.max(1, Math.min(_max, parseInt(_ps.value,10)||2));
         document.getElementById("pPlChVal").textContent=v;
-        mutSelSoon(function(x){ if(v===COMP_CH_DEF) delete x.plCh; else x.plCh=v; });
+        mutSelSoon(function(x){ delete x.stereo; if(v===COMP_CH_DEF) delete x.plCh; else x.plCh=v; });   /* il cursore toglie il «Mono» (11/11/2026) */
       };
     }
     /* I controlli del DVS vivono dentro la scelta della via: esistono solo se la via è Dante. */
@@ -21145,14 +21157,14 @@ function lookReset(it, mode){
   if(mode==="schematico"){ it.sedia=false; it.leggio=false; }
   else { delete it.sedia; delete it.leggio; }   /* postazione: torna ai default del tipo (entrambi accesi) */
 }
-document.getElementById("pLookIll").addEventListener("click", function(){ mutSel(function(it){ it.look="illustrato"; lookReset(it,"illustrato"); recalcItemDims(it); }); renderProps(); });   /* illustrato = default (non memorizzato); ricalcola footprint */
-document.getElementById("pLookSch").addEventListener("click", function(){ mutSel(function(it){ it.look="schematico"; lookReset(it,"schematico"); recalcItemDims(it); }); renderProps(); });
+document.getElementById("pLookIll").addEventListener("click", function(){ mutSel(function(it){ lookCambia(it,"illustrato"); recalcItemDims(it); }); renderProps(); });   /* illustrato = default (non memorizzato); ricalcola footprint */
+document.getElementById("pLookSch").addEventListener("click", function(){ mutSel(function(it){ lookCambia(it,"schematico"); recalcItemDims(it); }); renderProps(); });
 function setStereoSel(v){ mutSel(function(it){ var c=STEREO_TOGGLE[it.type]; if(!c) return; if(c.def===v) delete it.stereo; else it.stereo=v; }); __cabRes=null; save(); render(); renderProps(); }   /* uscita mono/stereo: memorizza solo l'override rispetto al default del tipo */
 document.getElementById("pStereoMono").addEventListener("click", function(){ setStereoSel(false); });
 document.getElementById("pStereoStereo").addEventListener("click", function(){ setStereoSel(true); });
 document.getElementById("pRamp").addEventListener("change", function(){ var v=this.value, cfg=RAMP_TYPES[v]; if(!cfg) return; mutSel(function(it){ if(it.type==="cableramp"){ it.rampType=v; it.w=cfg.w; it.d=cfg.d; } }); save(); render(); renderProps(); });   /* passacavi: cambio formato → dimensioni + n° canali */
 document.getElementById("pGaz").addEventListener("change", function(){ var p=this.value.split("x"), w=+p[0], d=+p[1]; if(!w||!d) return; mutSel(function(it){ if(GAZ_TYPES[it.type]){ it.w=w; it.d=d; } }); save(); render(); renderProps(); });   /* gazebo/tende: taglia preset */
-document.getElementById("pLookApplyAll").addEventListener("click", function(){ var it=getSel(); if(!it) return; var lk=(it.look==="schematico")?"schematico":"illustrato"; state.lookDefault=lk; state.items.forEach(function(o){ if(hasLookToggle(o)){ o.look=lk; lookReset(o,lk); recalcItemDims(o); } }); render(); save(); if(typeof toast==="function") toast(lk==="schematico"?"Tutto il progetto disegnato come «Strumento solo»":"Tutto il progetto disegnato come «Postazione»"); });   /* B4: applica l'aspetto a tutti gli elementi + lo fissa come predefinito del progetto (nuovi elementi inclusi) */
+document.getElementById("pLookApplyAll").addEventListener("click", function(){ var it=getSel(); if(!it) return; var lk=(it.look==="schematico")?"schematico":"illustrato"; state.lookDefault=lk; state.items.forEach(function(o){ if(hasLookToggle(o)){ lookCambia(o,lk); recalcItemDims(o); } }); render(); save(); if(typeof toast==="function") toast(lk==="schematico"?"Tutto il progetto disegnato come «Strumento solo»":"Tutto il progetto disegnato come «Postazione»"); });   /* B4: applica l'aspetto a tutti gli elementi + lo fissa come predefinito del progetto (nuovi elementi inclusi) */
 document.getElementById("pAbbr").addEventListener("input", function(){ var v=document.getElementById("pAbbr").value; mutSelSoon(function(it){ if(v.trim()) it.abbr=v; else delete it.abbr; }); });
 /* «Applica a tutti» faceva l'OPPOSTO in modalità Sigla: `if(m==="abbr") delete o.labelMode` spegneva
    la sigla su tutti gli elementi dello stesso tipo — compreso quello selezionato, che è anche lui in
@@ -22874,7 +22886,7 @@ function ricordaRecenteCatalogo(k, nome, over){
     b.dataset.miniK=k;                                            /* per rigenerare l'anteprima quando arrivano le illustrazioni */
     if(over) b.dataset.miniOver=JSON.stringify(over);
     b.innerHTML = miniSvg(k, over)+'<span>'+esc(nome)+(shownDim?'<small>'+esc(shownDim)+'</small>':'')+'</span>';
-    b.addEventListener("click", function(){ addItem(k, over?JSON.parse(JSON.stringify(over)):undefined); ricordaRecenteCatalogo(k, nome, over); renderRecenti(); catCompactSoon(); });
+    b.addEventListener("click", function(){ addItem(k, rotPosaCatalogo(k, over?JSON.parse(JSON.stringify(over)):undefined)); ricordaRecenteCatalogo(k, nome, over); renderRecenti(); catCompactSoon(); });
     b.draggable=true;   /* desktop: trascina sul palco per posizionarlo dove vuoi */
     b.addEventListener("dragstart", function(e){
       catIdleCancel();   /* mai richiudere il catalogo a metà drag: Chrome abortirebbe il trascinamento */
@@ -22922,7 +22934,7 @@ function ricordaRecenteCatalogo(k, nome, over){
     var p=e.target.closest("[data-paste]"); if(p){ closeMobileDrawers(); pasteClip(); return; }
     var b=e.target.closest("[data-rec]"); if(!b) return;
     var r=catalogRecenti()[+b.getAttribute("data-rec")]; if(!r) return;
-    addItem(r.k, r.over ? JSON.parse(JSON.stringify(r.over)) : undefined);
+    addItem(r.k, rotPosaCatalogo(r.k, r.over ? JSON.parse(JSON.stringify(r.over)) : undefined));
     ricordaRecenteCatalogo(r.k, r.nome, r.over); renderRecenti();
   });
   renderRecenti();
@@ -23581,6 +23593,30 @@ function instrBase(type){ return INSTR_BASE[type] || (TYPES[type]&&TYPES[type].n
 function instrSeats(type){ var base=instrBase(type), n=0;
   state.items.forEach(function(x){ if(x.type && autoNumbered(x.type) && instrBase(x.type)===base && !etichettaFemminile(x)) n += ((x.doppia||DOUBLE_TYPES[x.type])?2:1); });
   return n; }
+/* CHI USA LO STRUMENTO STA A +y (11/11/2026, stage plot di una band ricostruito da un rider: tastierista di spalle al
+   pubblico). La regola dichiarata è «0 = rivolto verso il pubblico», ma questi disegni «strumento solo» hanno tasti, pad,
+   pulsanti, schermo o capsula verso +y: a 0° chi li usa sta fra lo strumento e il pubblico e guarda il fondale. I disegni
+   NON si girano: nei progetti veri gli utenti compensano già a mano (aste 62 su 83 a 180°, doppie tastiere 7 su 7, stage
+   piano «strumento solo» 14 su 14 fra 135° e 180°) e girarli li capovolgerebbe tutti. Si girano gli elementi NUOVI posati
+   dal catalogo. Lo stage piano solo in «Strumento solo»: in «Postazione» il musicista è già a −y. */
+var USA_DA_PIU_Y = { tastiera:1, doppiatastiera:1, celesta:1, pianoverticale:1, spdsx:1, laptop:1, pedaliera:1, astamic:1, stagepiano:"solo" };
+function usaDaPiuY(type, look){ var v=USA_DA_PIU_Y[type]; return v==="solo" ? look==="schematico" : !!v; }
+function rotPosaCatalogo(type, over){
+  over=over||{};
+  if(over.rot==null){
+    var look=over.look || ((state.lookDefault==="schematico" && hasLookToggle({type:type})) ? "schematico" : "illustrato");
+    if(usaDaPiuY(type, look)) over.rot=180;
+  }
+  return over;
+}
+/* Cambiare vista non deve girare il musicista: lo stage piano «Postazione» ha il musicista a −y, «Strumento solo» lo
+   sgabello a +y. Passando dall'una all'altra si aggiungono 180°, così chi suona resta dalla stessa parte (11/11/2026). */
+function lookCambia(it, mode){
+  var prima=(it.look==="schematico")?"schematico":"illustrato";
+  it.look=mode;
+  if(prima!==mode && usaDaPiuY(it.type,"schematico")!==usaDaPiuY(it.type,"illustrato")) it.rot=(((it.rot||0)+180)%360+360)%360;
+  lookReset(it, mode);
+}
 function addItem(type, over, silenzioso){   /* silenzioso (06/10/2026): crea e mette nello stato, ma non disegna, non salva e non seleziona — lo usa chi ne posa molti in un colpo (anello di altoparlanti) e salva UNA volta */
   if(window.__projLocked) return null;   /* BLOCCO progetti: nessuna aggiunta di elementi (backstop di TUTTI i path: catalogo, quick-add, drag-drop, fix audit, auto-add cablaggio) */
   var t=TYPES[type];
@@ -23842,7 +23878,7 @@ function openQuickAdd(sp, cx, cy){
   function pick(e){ var sp2=_qaSp; closeQuickAdd(); if(!sp2 || !e) return;
     if(e.custModelloId){ custPosaDalCatalogo(e.custModelloId, sp2); }   /* elemento di questo progetto: la copia nel punto del doppio clic */
     else if(e.action){ e.action(); }   /* voci speciali (Violino I/II, liste…): azione propria, posizione automatica */
-    else if(e.k){ var over=e.over?JSON.parse(JSON.stringify(e.over)):{}; over.x=sp2.x; over.y=sp2.y; addItem(e.k, over); }
+    else if(e.k){ var over=e.over?JSON.parse(JSON.stringify(e.over)):{}; over.x=sp2.x; over.y=sp2.y; addItem(e.k, rotPosaCatalogo(e.k, over)); }
   }
   function moveSel(d){ var items=list.querySelectorAll(".qa-item"); if(!items.length) return;
     var ci=0; items.forEach(function(el,i){ if(el.classList.contains("sel")) ci=i; });
@@ -25503,7 +25539,7 @@ svg.addEventListener("drop", function(e){
   over.x=placeCoord(p.x,e); over.y=placeCoord(p.y,e);
   var _posa={type:data.k, x:over.x, y:over.y, rot:0};
   if(monAggancioPosa(_posa)){ over.x=_posa.x; over.y=_posa.y; over.rot=_posa.rot; }
-  addItem(data.k, over);
+  addItem(data.k, rotPosaCatalogo(data.k, over));
   catCompactSoon();   /* elemento scelto via drag&drop: il catalogo si ricompatta dopo 10 s di inutilizzo */
 });
 /* il doppio-click è gestito manualmente nel pointerdown (vedi lastDown): il dblclick nativo
@@ -28180,7 +28216,7 @@ var STAND_SUGGEST = ["asta dritta","asta giraffa","asta gigante","asta bassa","c
 /* Quando la sorgente del canale È un'asta, l'asta la dice l'oggetto sul palco, non il modello di
    microfono: sul KM184 il default sarebbe "asta giraffa" anche montato su una gigante. Per le tre
    aste storiche il valore coincide già con quello dedotto dal mic — qui non cambia nulla. */
-var STAND_BY_TYPE = { astamic:"asta dritta", giraffa:"asta giraffa", astagigante:"asta gigante", astabassa:"asta bassa" };
+var STAND_BY_TYPE = { astamic:"asta dritta", giraffa:"asta giraffa", astagigante:"asta gigante", astabassa:"asta bassa", talkback:"da tavolo" };
 var IN_SRC = {
   /* voci e microfoni */
   astamic:"SM58", giraffa:"KM184", astagigante:"KM184", astabassa:"SM57", wireless:"Beta 58A", headset:"DPA 4066", podiosp:"SM58", corista:"SM58", micchoir:"KM184", mictavolo:"MX412",
@@ -28196,6 +28232,8 @@ var IN_SRC = {
   /* pezzi della batteria divisa (audit 14/07: dividere il kit conserva gli 8 mic — ricompone D6+SM57+3×e904+SM81+2×KM184) */
   kickR:"D6", snareR:"SM57", tomR:"e904", floorR:"e904", hihatKR:"SM81", crashR:"KM184", rideR:"KM184",
   campane:"KM184", tamtam:"KM184", glockenspiel:"KM184", cajon:"Beta 91A", cajonpost:"Beta 91A",
+  /* microfono talkback da tavolo, col pulsante (11/11/2026: non dava canale, e un «talk palco» del rider spariva dalla lista) */
+  talkback:"SM58",
   conga:"e904", quinto:"e904", tumba:"e904", bongos:"e904",   /* pezzi singoli del set percussioni: stesso mic del blocco da cui nascono */
   /* backline / tastiere a mic o DI singolo */
   comboamp:"SM57", stack:"SM57/e906", keysamp:"DI", celesta:"KM184",
@@ -28328,11 +28366,16 @@ MIKING.musChitClassica={ options:[["mic","Mic condensatore (KM184)"],["di","DI (
 function drumChansFor(it){
   if(!it) return DRUM_KIT;
   var p=parts(it), n=Math.max(0, p.toms|0), out=[];
-  if(p.kick2===true) out.push(["Kick 1","D6"],["Kick 2","D6"]); else out.push(["Kick","D6"]);
+  /* Cassa con DUE microfoni (11/11/2026, dal rider di una band): «Kick In» dentro il fusto (mezzaluna, Beta 91A)
+     e «Kick Out» davanti alla pelle risonante (D6). Di serie resta un microfono solo, come prima. */
+  var casse=(p.kick2===true)?["Kick 1","Kick 2"]:["Kick"];
+  casse.forEach(function(k){ if(p.kickio===true) out.push([k+" In","Beta 91A"],[k+" Out","D6"]); else out.push([k,"D6"]); });
   out.push(["Rullante top","SM57"],["Rullante btm","e904"]);
   if(p.hihat!==false) out.push(["Hi-Hat","SM81"]);
   for(var i=1;i<=n;i++) out.push(["Tom "+i,"e904"]);
-  if(p.floor!==false) out.push(["Tom floor","e904"]);
+  /* due floor tom = «Floor tom 1» e «Floor tom 2» (prima il secondo si faceva con un tom in più e usciva «Tom 3»);
+     con uno solo il nome resta «Tom floor», come nei progetti salvati */
+  if(p.floor!==false){ if(p.floor2===true) out.push(["Floor tom 1","e904"],["Floor tom 2","e904"]); else out.push(["Tom floor","e904"]); }
   out.push(["Overhead L","KM184"],["Overhead R","KM184"]);
   return out;
 }
@@ -30904,6 +30947,7 @@ function patchList(){
       if(_shared) stand="";
     }
     return {n:++n, name:name, mic:mic, stand:stand, p48:p48, standAuto:!(_ov.stand!=null), p48Auto:!(_ov.p48===true||_ov.p48===false),
+            short:_ov.short||"",   /* nome sul banco: su OGNI riga, anche senza stage box (11/11/2026: si leggeva solo sui canali collegati) */
             micAuto:!(_ov.mic!=null||o),   /* mic DEDOTTO (dal tipo o dal modello reale): in channel list si mostra in corsivo come l'asta */
             stereoPair:_pair, standShared:_shared, by:_riderBy(itemId, name),
             patch:patch, box:box, itemId:itemId, key:key, micOff:o}; }
@@ -32621,8 +32665,28 @@ function diSyncPos(src){   /* riporta la DI al suo posto rispetto allo strumento
   var a=(src.rot||0)*Math.PI/180, c=Math.cos(a), sn=Math.sin(a);
   di.x=Math.round(src.x+off[0]*c-off[1]*sn);
   di.y=Math.round(src.y+off[0]*sn+off[1]*c);
-  di.rot=src.rot||0;
+  /* la rotazione NON si copia più dallo strumento (11/11/2026: una scatoletta storta accanto a uno strumento girato sembra un
+     errore di disegno). La DI nuova nasce dritta e resta dritta; quelle dei progetti salvati tengono la loro: questa funzione
+     gira a ogni render, e raddrizzarle qui cambierebbe un progetto solo aprendolo. */
 }
+/* Dove nasce la DI di uno strumento (11/11/2026): il punto di sempre (diDefaultOff), o il primo dei suoi speculari (dall'altra
+   parte, dietro) che non cade sopra un altro elemento. La DI del basso finiva sopra il Moog accanto. Si sceglie UNA volta, alla
+   nascita, e si ricorda in diOff: i progetti salvati non si muovono. Lo strumento stesso non è un ostacolo. */
+function diOffLibero(it){
+  var o=diDefaultOff(it), cand=[o, [-o[0],o[1]], [o[0],-o[1]], [-o[0],-o[1]]];
+  var a=(it.rot||0)*Math.PI/180, c=Math.cos(a), sn=Math.sin(a), dw=TYPES.dimono.w, dd=TYPES.dimono.d;
+  var ost=(state.items||[]).filter(function(x){ var t=TYPES[x.type]||{};
+    return x.id!==it.id && !x.rackId && !x.diFor && !t.riser && !(typeof isCover==="function" && isCover(x)) && !DI_NON_OSTACOLO[x.type]; });
+  function ingombro(x){ var t=TYPES[x.type]||{}, w=x.w||t.w||60, d=x.d||t.d||60, r=(x.rot||0)*Math.PI/180,
+    cw=Math.abs(Math.cos(r)), sw=Math.abs(Math.sin(r)); return {x:x.x, y:x.y, w:w*cw+d*sw, d:w*sw+d*cw}; }
+  for(var i=0;i<cand.length;i++){
+    var p=cand[i], px=it.x+p[0]*c-p[1]*sn, py=it.y+p[0]*sn+p[1]*c;
+    var libero=ost.every(function(x){ var b=ingombro(x); return !(Math.abs(px-b.x)<(dw+b.w)/2 && Math.abs(py-b.y)<(dd+b.d)/2); });
+    if(libero) return p;
+  }
+  return o;
+}
+var DI_NON_OSTACOLO = { miczone:1, metro:1, testo:1, tappeto:1, custshape:1, platea:1, area:1 };
 /* ===== ADOZIONE di una DI presa dal catalogo (28/07) ==============================
    Una DI generata dal software nasce con diFor e vale come TAPPA del cavo: lo strumento resta un
    canale solo. Una DI trascinata dal catalogo no — resta una sorgente coi suoi canali, e se è stereo
@@ -32703,10 +32767,10 @@ function diApply(it, opts){
     return null;
   }
   if(cur){ diSyncPos(it); return cur; }
-  var off=diDefaultOff(it), a=(it.rot||0)*Math.PI/180, c=Math.cos(a), sn=Math.sin(a);
+  var off=diOffLibero(it), a=(it.rot||0)*Math.PI/180, c=Math.cos(a), sn=Math.sin(a);
   var st=STEREO_TOGGLE[it.type];
   var di={ id:uid(), type:"dimono", x:Math.round(it.x+off[0]*c-off[1]*sn), y:Math.round(it.y+off[0]*sn+off[1]*c),
-    rot:it.rot||0, w:TYPES.dimono.w, d:TYPES.dimono.d, label:"", diFor:it.id, diType:diTipoConsigliato(it) };
+    rot:0, w:TYPES.dimono.w, d:TYPES.dimono.d, label:"", diFor:it.id, diType:diTipoConsigliato(it) };   /* dritta: con la rotazione dello strumento usciva storta (Moog a 110°, 11/11/2026) */
   if((st && it.stereo!==false && st.def!==false) || it.stereo===true) di.diCh="stereo";   /* strumento stereo = DI stereo (2 canali sulla box) */
   var fp=(typeof diFootprint==="function") ? diFootprint(di) : null;
   if(fp){ di.w=fp[0]; di.d=fp[1]; }
@@ -34319,7 +34383,7 @@ function buildProjectJson(){
       x:"cresce verso il lato sinistro del palco (stage left)",
       y:"cresce verso il PUBBLICO (fronte palco)",
       z:"quota da terra in cm (0 = piano del palco; gli elementi sopra una pedana hanno z = altezza pedana)",
-      rotazione:"rot in gradi, senso orario; 0 = elemento rivolto verso il pubblico; tilt = inclinazione verticale",
+      rotazione:"rot in gradi, senso orario; 0 = elemento rivolto verso il pubblico; eccezione: tastiere, doppia tastiera, celesta, piano verticale, stage piano in «Strumento solo», pad, computer, pedaliera e asta microfono hanno chi li usa dalla parte opposta, quindi col musicista verso il pubblico vanno a 180; tilt = inclinazione verticale",
       posizione_elementi:"items[].x/y = CENTRO dell'elemento in cm; w/d = ingombro reale; components[] in coordinate relative al centro del padre (relative_to_parent)" },
     titolo:state.titolo, luogo:state.luogo, stage:{w:state.stage.w, d:state.stage.d, unita:"cm", blocks:state.stage.blocks},
     items:items, inputs:state.inputs, outputs:state.outputs,
@@ -36034,7 +36098,7 @@ function riderPdf(shared){
     heading("MICROFONI"); body(d.inCh+" canali di ingresso · "+d.outCh+" canali di uscita (monitor)"+(d.boxes.length?" · Stage box: "+d.boxes.join(", "):""));
     (function(){ var D=riderDotazione(); if(D.testo) body(D.testo); if(D.aste) body("Aste: "+D.aste); })();   /* la dotazione per modello, come nei rider veri */
     heading("MONITOR"); body(riderMonitorText(d.monitor));
-    heading("STAGE E PEDANE"); body(riderPedaneText(d.pedane)+(d.sedie?" · "+d.sedie+" sedie da orchestra senza braccioli":"")+(d.pesoKg>0?" · peso allestimento stimato "+fmtKg(d.pesoKg):""));
+    heading("STAGE E PEDANE"); body(riderPedaneText(d.pedane)+(d.sedie?" · "+riderSedieText(d.sedie):"")+(d.pesoKg>0?" · peso allestimento stimato "+fmtKg(d.pesoKg):""));
     if(d.console){ heading("CONSOLE"); body(d.console); }
     if(d.elettrico){ heading("ALIMENTAZIONE"); body(riderAlimentazioneText(d.elettrico)); }   /* mancava nel PDF: c'era solo nell'anteprima HTML */
     heading("SISTEMA AUDIO"); body(d.sistema);
@@ -36705,6 +36769,7 @@ function openRfFreq(){
   return it;
 }
 function rfChiOf(it){ var c=(it.rfChi||"").trim(); if(c) return c; return VOCE[it.type] ? ((it.label||"").trim()||TYPES[it.type].nome) : ""; }
+var RF_DA_TESTO=/(^|[^a-z])(radio|radiomic\w*|wireless|rf)([^a-z]|$)/i;
 function rfList(){
   var rows=[], bands={};
   (state.items||[]).forEach(function(it){
@@ -36727,6 +36792,15 @@ function rfList(){
         kind:"Antenna "+(antAngOf(it)===360?"omni":"direttiva "+antAngOf(it)+"°")+(_adb?" ("+_adb.brand+" "+_adb.model+")":"")+(it.antH?" · h "+it.antH+" m":""), rf:"", band:"", rx:"" }); }
     if(it.type==="rfsplit") rows.push({ infra:true, name:(it.label&&it.label.trim())||"Splitter antenna", kind:"Distribuzione RF 1:4", rf:"", band:"", rx:"" });
   });
+  /* Radiomicrofoni SCRITTI nella channel list («Radio SM58», «Wireless…», «RF…») su un canale che non viene da un
+     radiomic disegnato: sono frequenze da coordinare anche loro (11/11/2026, rider di una band: 6 radio scritti, 0 contati).
+     Si legge solo la parola, non il modello: «ULXD2/B58» non si indovina. */
+  try{ (patchList().rows||[]).forEach(function(r){
+    if(r.reserved || r.spare || r.micOff || !RF_DA_TESTO.test(String(r.mic||""))) return;
+    var src=null; (state.items||[]).forEach(function(x){ if(String(x.id)===String(r.itemId)) src=x; });
+    if(src && (isRf(src) || src.type==="rxrf")) return;   /* già in lista dal disegno */
+    rows.push({ name:r.name, kind:"Radiomicrofono (dalla channel list)", chi:"", riserva:false, rf:"", band:"", rx:"", daLista:true });
+  }); }catch(_e){}
   rows.sort(function(a,b){ return a.band.localeCompare(b.band,"it") || a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name,"it"); });
   return { rows:rows, count:rows.length, bands:bands };
 }
@@ -38004,9 +38078,12 @@ function riderData(){
     elettrico: (function(){ try{ var E=(typeof elecResult==="function")?elecResult(true):null;
       if(!E || !E.totW) return null;
       var P=elecPotenza(E);
-      return { w:E.totW, a:E.totA, distro:(E.distros||[]).map(function(d){ return d.letter+" "+d.a+"A"; }),
+      /* le multiprese (ciabatte) non sono quadri: dieci ciabatte uscivano «quadri: Q1 16A … Q10 16A» (11/11/2026) */
+      var _quadri=(E.distros||[]).filter(function(d){ return !(d.it && d.it.type==="ciabatta"); });
+      return { w:E.totW, a:E.totA, distro:_quadri.map(function(d){ return d.letter+" "+d.a+"A"; }),
+               multiprese:(E.distros||[]).length-_quadri.length,
                /* «trifase» solo se c'è davvero un quadro trifase: phase3 nasce vero di default, e il rider scriveva «distribuzione trifase» accanto a «1 presa 16 A monofase» per un wedge (analisi esterna 08/11) */
-               fasi:(E.distros||[]).some(function(d){ return !d.auto && d.ph===3; }), quadroFrase:elecQuadroFrase(state,(E.distros||[]).length),
+               fasi:_quadri.some(function(d){ return !d.auto && d.ph===3; }), quadroFrase:elecQuadroFrase(state,_quadri.length),
                maxW:P.maxW, preseTxt:P.preseTxt, genKva:P.genKva, oltreTxt:P.oltreTxt }; }catch(_e){ return null; } })(),
     note: r.note||""
   };
@@ -38066,6 +38143,10 @@ function riderDotazione(rows){
    Il differenziale 30 mA, le prolunghe svolte e le ciabatte al posto degli adattatori vengono da
    HSE GS50 «Electrical safety at places of entertainment» (2017): sono le tre cose che ogni
    elettricista di palco dà per scontate e che nessun rider dovrebbe tacere. */
+/* Il campo «sedie» del rider: un numero diventa «N sedie da orchestra senza braccioli»; un testo esce com'è scritto
+   (11/11/2026: «Sgabelli per batteria… tutti gli altri in piedi» usciva con la frase delle sedie da orchestra attaccata). */
+function riderSedieText(v){ var t=String(v==null?"":v).trim(); if(!t) return "";
+  return /^\d+$/.test(t) ? t+" sedie da orchestra senza braccioli" : t; }
 function riderAlimentazioneText(e){
   if(!e) return "";
   /* A1 (07/11): due numeri quando l'audio a piena potenza assorbe di più, la presa da chiedere e il
@@ -38076,7 +38157,7 @@ function riderAlimentazioneText(e){
     : "Assorbimento stimato "+elecKW(e.w)+" · "+Math.ceil(e.a)+" A";
   var _quadro = e.quadroFrase!=null ? e.quadroFrase : (e.distro.length?"":ELEC_QUADRO_APERTO);   /* senza il dato (chi chiama con un riassunto vecchio): come un progetto senza risposta */
   return pot+
-    (e.distro.length?" · quadri: "+e.distro.join(", "):"")+(e.fasi?" · distribuzione trifase":"")+". "+
+    (e.distro.length?" · quadri: "+e.distro.join(", "):"")+(e.multiprese?" · "+e.multiprese+(e.multiprese===1?" multipresa":" multiprese"):"")+(e.fasi?" · distribuzione trifase":"")+". "+
     (e.preseTxt ? "Servono "+e.preseTxt+", a uso esclusivo e a non più di 10 m dal palco. " : "Presa di corrente disponibile a bordo palco. ")+
     (e.oltreTxt ? e.oltreTxt+" " : "")+
     (e.genKva ? "Con un generatore: almeno "+e.genKva+" kVA, da confermare con il noleggiatore. " : "")+
@@ -38108,7 +38189,7 @@ function riderHtml(){
         if(D.aste) extra.push("Aste: "+D.aste);
         return extra.length ? "<br>"+esc(extra.join(" · ")) : ""; })(), true)+
     sec("Monitor", esc(riderMonitorText(d.monitor)), true)+
-    sec("Stage e pedane", (d.persone?esc(d.persone+" persone sul palco")+" · ":"")+esc(riderPedaneText(d.pedane))+(d.leggii?" · "+esc(d.leggii+" leggii"):"")+(d.sedie?" · "+esc(d.sedie)+" sedie da orchestra senza braccioli":"")+(d.pesoKg>0?" · peso allestimento stimato "+esc(fmtKg(d.pesoKg)):""), true)+
+    sec("Stage e pedane", (d.persone?esc(d.persone+" persone sul palco")+" · ":"")+esc(riderPedaneText(d.pedane))+(d.leggii?" · "+esc(d.leggii+" leggii"):"")+(d.sedie?" · "+esc(riderSedieText(d.sedie)):"")+(d.pesoKg>0?" · peso allestimento stimato "+esc(fmtKg(d.pesoKg)):""), true)+
     (d.console?sec("Console", esc(d.console), true):"")+
     (d.elettrico?sec("Alimentazione", esc(riderAlimentazioneText(d.elettrico)), true):"")+
     sec("Sistema audio", esct(d.sistema), !!d.sistemaAuto)+
