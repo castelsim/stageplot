@@ -13460,8 +13460,8 @@ function dvsNote(it){
 var COMP_CH_DEF = 2, COMP_CH_MAX = 64;
 function compChNum(it){ var n=parseInt(it&&it.plCh,10);
   /* «Mono» del pannello (STEREO_TOGGLE.laptop): un canale. Prima il pulsante si accendeva ma il computer restava a 2
-     (11/11/2026). Le tracce scelte col cursore (plCh) restano l'ultima parola. */
-  if((!isFinite(n)||n<1) && it && it.stereo===false) return 1;
+     (11/11/2026). Vince l'ultima scelta: Mono qui; il cursore delle tracce, quando si muove, toglie il Mono. */
+  if(it && it.stereo===false) return 1;
   if(!isFinite(n)||n<1) n=COMP_CH_DEF;
   return Math.min(COMP_CH_MAX, n); }
 /* La via del computer letta SENZA passare da cabItemRouteKey: quella chiama cabItemInputs, che ora
@@ -18297,7 +18297,7 @@ function renderProps(){
       _ps.oninput=function(){
         var v=Math.max(1, Math.min(_max, parseInt(_ps.value,10)||2));
         document.getElementById("pPlChVal").textContent=v;
-        mutSelSoon(function(x){ if(v===COMP_CH_DEF) delete x.plCh; else x.plCh=v; });
+        mutSelSoon(function(x){ delete x.stereo; if(v===COMP_CH_DEF) delete x.plCh; else x.plCh=v; });   /* il cursore toglie il «Mono» (11/11/2026) */
       };
     }
     /* I controlli del DVS vivono dentro la scelta della via: esistono solo se la via è Dante. */
@@ -19021,8 +19021,7 @@ function lookReset(it, mode){
 }
 document.getElementById("pLookIll").addEventListener("click", function(){ mutSel(function(it){ it.look="illustrato"; lookReset(it,"illustrato"); recalcItemDims(it); }); renderProps(); });   /* illustrato = default (non memorizzato); ricalcola footprint */
 document.getElementById("pLookSch").addEventListener("click", function(){ mutSel(function(it){ it.look="schematico"; lookReset(it,"schematico"); recalcItemDims(it); }); renderProps(); });
-function setStereoSel(v){ mutSel(function(it){ var c=STEREO_TOGGLE[it.type]; if(!c) return; if(c.def===v) delete it.stereo; else it.stereo=v;
-  if(COMP_SRC[it.type]) delete it.plCh; }); __cabRes=null; save(); render(); renderProps(); }   /* computer: Mono/Stereo azzera le tracce del cursore, se no il pulsante dice Mono e i canali restano 8 (11/11/2026) */   /* uscita mono/stereo: memorizza solo l'override rispetto al default del tipo */
+function setStereoSel(v){ mutSel(function(it){ var c=STEREO_TOGGLE[it.type]; if(!c) return; if(c.def===v) delete it.stereo; else it.stereo=v; }); __cabRes=null; save(); render(); renderProps(); }   /* uscita mono/stereo: memorizza solo l'override rispetto al default del tipo */
 document.getElementById("pStereoMono").addEventListener("click", function(){ setStereoSel(false); });
 document.getElementById("pStereoStereo").addEventListener("click", function(){ setStereoSel(true); });
 document.getElementById("pRamp").addEventListener("change", function(){ var v=this.value, cfg=RAMP_TYPES[v]; if(!cfg) return; mutSel(function(it){ if(it.type==="cableramp"){ it.rampType=v; it.w=cfg.w; it.d=cfg.d; } }); save(); render(); renderProps(); });   /* passacavi: cambio formato → dimensioni + n° canali */

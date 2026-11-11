@@ -23968,9 +23968,8 @@ t("computer messo «Mono» dal pannello = un canale", () => {
   delete l.stereo; l.plCh = 8;
   eq(chans(l).length, 8, "le tracce scelte col cursore restano");
   l.stereo = false;
-  eq(chans(l).length, 8, "con le tracce scelte vince il cursore");
-  const sss = appjs.slice(appjs.indexOf("function setStereoSel("), appjs.indexOf("function setStereoSel(") + 400);
-  ok(/if\(COMP_SRC\[it\.type\]\) delete it\.plCh;/.test(sss), "premere Mono/Stereo sul computer azzera le tracce del cursore");
+  eq(chans(l).length, 1, "premuto Mono dopo il cursore: vince Mono");
+  ok(/mutSelSoon\(function\(x\)\{ delete x\.stereo; if\(v===COMP_CH_DEF\) delete x\.plCh; else x\.plCh=v; \}\);/.test(appjs), "muovere il cursore delle tracce toglie il Mono");
 });
 t("il nome sul banco esce anche sui canali non ancora collegati a una stage box", () => {
   reset();
