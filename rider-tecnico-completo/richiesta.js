@@ -102,7 +102,8 @@
       (d.data ? "Serve per il " + data(d.data) + ". " : "") + (d.rider_vecchio ? "Ha un rider vecchio da mandare. " : "") +
         (d.materiali ? "Materiali: " + d.materiali.replace(/\s+/g, " ") : "")
     ].filter(function (r) { return r.trim(); }).join("\n");
-    var coda = "\nFormazione: " + d.formazione.replace(/\s+/g, " ") + (d.note ? "\nNote: " + d.note.replace(/\s+/g, " ") : "");
+    var righe = d.formazione.split("\n").map(function (r) { return r.trim(); }).filter(Boolean);
+    var coda = "\nFormazione: " + righe.join(" / ") + (d.note ? "\nNote: " + d.note.replace(/\s+/g, " ") : "");
     var tutto = testa + coda;
     if (tutto.length <= MSG_MAX) return tutto;
     var resto = MSG_MAX - testa.length - 30;

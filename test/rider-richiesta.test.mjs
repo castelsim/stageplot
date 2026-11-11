@@ -50,7 +50,7 @@ test("il riassunto per la mail sta nei 1000 caratteri e non perde mai band e con
   const d = RR.datiPuliti(BASE);
   const m = RR.messaggio(d);
   assert.ok(m.startsWith(RR.INTESTAZIONE));
-  for (const pezzo of ["Band di prova", "prova@esempio.it", "000 000 0000", "Musicisti: 7", "20/12/2026", "Formazione:"]) assert.ok(m.includes(pezzo), pezzo);
+  for (const pezzo of ["Band di prova", "prova@esempio.it", "000 000 0000", "Musicisti: 7", "20/12/2026", "Formazione: Voce / Chitarra / Basso"]) assert.ok(m.includes(pezzo), pezzo);
   const lungo = RR.datiPuliti({ ...BASE, formazione: "chitarra ".repeat(200), note: "nota ".repeat(400), materiali: "https://esempio.it/" + "a".repeat(900) });
   const ml = RR.messaggio(lungo);
   assert.ok(ml.length <= RR.MSG_MAX, "lunghezza " + ml.length);
