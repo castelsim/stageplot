@@ -29128,6 +29128,84 @@ t("punta verso: il comando è nel pannello, nel gruppo Disegno, e parla da solo"
   ok(/id="grpPuntaRow"/.test(html) && /getElementById\("grpPunta"\)\.addEventListener/.test(html), "e il bottone per il gruppo");
   ok(/monAggancioPosa\(_posa\)\)\{ over\.x=_posa\.x; over\.y=_posa\.y; over\.rot=_posa\.rot; \}\s*addItem\(data\.k, rotPosaCatalogo\(data\.k, over\)\);/.test(html), "il drop dal catalogo aggancia il wedge prima di crearlo: Annulla lo toglie in un colpo solo");
 });
+/* 11/11/2026 — orientamento (stage plot di una band ricostruito da un rider): tastiere, pad, computer, pedaliera e asta
+   microfono «strumento solo» hanno chi li usa dalla parte +y, quindi posati a 0° il musicista guarda il fondale. Nei progetti
+   veri gli utenti li girano già a mano (aste 62 su 83 a 180°, doppie tastiere 7 su 7): i disegni non si toccano, nascono girati. */
+t("posati dal catalogo, tastiere/pad/computer/pedaliera/asta nascono col musicista verso il pubblico", () => {
+  reset();
+  for (const ty of ["tastiera", "doppiatastiera", "celesta", "pianoverticale", "spdsx", "laptop", "pedaliera", "astamic"])
+    eq(A.rotPosaCatalogo(ty, {}).rot, 180, ty + " a 180°");
+  for (const ty of ["wedge", "gtstand", "batteria", "grancoda", "cantante", "vlnpost"])
+    ok(A.rotPosaCatalogo(ty, {}).rot == null, ty + ": nessuna rotazione imposta");
+  ok(A.rotPosaCatalogo("stagepiano", {}).rot == null, "stage piano «Postazione»: il musicista è già dalla parte giusta");
+  eq(A.rotPosaCatalogo("stagepiano", { look: "schematico" }).rot, 180, "stage piano «Strumento solo»: girato");
+  A.state.lookDefault = "schematico";
+  eq(A.rotPosaCatalogo("stagepiano", {}).rot, 180, "progetto disegnato tutto «Strumento solo»: girato");
+  A.state.lookDefault = undefined;
+  eq(A.rotPosaCatalogo("tastiera", { rot: 90 }).rot, 90, "una rotazione già decisa (es. aggancio) resta");
+  ok(A.rotPosaCatalogo("tastiera", undefined).rot === 180, "anche senza over");
+  /* i quattro punti di posa dal catalogo: clic, recenti, ricerca veloce, trascinamento */
+  const usi = appjs.match(/addItem\([a-z.]+, *rotPosaCatalogo\(/g) || [];
+  eq(usi.length, 4, "clic, recenti, ricerca veloce e trascinamento passano da rotPosaCatalogo");
+  ok(/rotazione:"rot in gradi, senso orario; 0 = elemento rivolto verso il pubblico; eccezione: tastiere[^"]*a 180/.test(appjs), "la spiegazione per l'IA dice l'eccezione");
+});
+t("Postazione ↔ Strumento solo: lo stage piano tiene il musicista dalla stessa parte", () => {
+  const sp = { type: "stagepiano", rot: 180, look: "schematico", x: 300, y: 300, w: 132, d: 60 };
+  A.lookCambia(sp, "illustrato");
+  eq([sp.look, sp.rot], ["illustrato", 0], "da Strumento solo girato a Postazione: torna a 0°");
+  A.lookCambia(sp, "schematico");
+  eq([sp.look, sp.rot], ["schematico", 180], "e ritorno");
+  A.lookCambia(sp, "schematico");
+  eq(sp.rot, 180, "scegliere la vista che ha già non gira niente");
+  const sp2 = { type: "stagepiano", rot: 30, x: 300, y: 300, w: 132, d: 117 };
+  A.lookCambia(sp2, "schematico");
+  eq(sp2.rot, 210, "da Postazione (look non scritto) a Strumento solo: +180");
+  const gc = { type: "grancoda", rot: 270, x: 300, y: 300, w: 150, d: 180 };
+  A.lookCambia(gc, "schematico");
+  eq(gc.rot, 270, "il gran coda ha la tastiera dalla stessa parte nelle due viste: non si gira");
+  const v = { type: "vlnpost", rot: 15, x: 300, y: 300, w: 100, d: 115 };
+  A.lookCambia(v, "schematico"); eq(v.rot, 15, "un violino non si gira");
+  ok(/getElementById\("pLookIll"\)\.addEventListener\("click", function\(\)\{ mutSel\(function\(it\)\{ lookCambia\(it,"illustrato"\)/.test(appjs), "il pulsante Postazione usa lookCambia");
+  ok(/getElementById\("pLookSch"\)\.addEventListener\("click", function\(\)\{ mutSel\(function\(it\)\{ lookCambia\(it,"schematico"\)/.test(appjs), "il pulsante Strumento solo usa lookCambia");
+  ok(/if\(hasLookToggle\(o\)\)\{ lookCambia\(o,lk\);/.test(appjs), "«Applica a tutti» usa lookCambia");
+});
+t("DI dello strumento: sempre dritta, e nasce in un punto libero accanto alla sorgente", () => {
+  reset();
+  const k = add("stagepiano", 400, 300, { rot: 110 });
+  const di = A.state.items.find((x) => x.type === "dimono" && x.diFor === k.id);
+  ok(di, "premessa: lo stage piano nasce con la sua DI");
+  eq(di.rot, 0, "la DI non prende la rotazione dello strumento");
+  k.rot = 200; A.diSyncPos(k);
+  eq(di.rot, 0, "e resta dritta quando lo strumento gira");
+  di.rot = 45; k.rot = 30; A.diSyncPos(k);
+  eq(di.rot, 45, "una DI salvata storta resta com'è: aprire un progetto non lo cambia");
+  const d0 = Math.hypot(di.x - k.x, di.y - k.y);
+  ok(d0 < 150, "resta accanto allo strumento (" + d0.toFixed(0) + " cm dal centro)");
+  /* un ampli proprio dove andrebbe la DI di serie: la DI va dall'altra parte */
+  reset();
+  const k2 = add("stagepiano", 400, 300);
+  const via = A.state.items.find((x) => x.type === "dimono" && x.diFor === k2.id);
+  A.state.items = A.state.items.filter((x) => x !== via); delete k2.diId; delete k2.diOff;
+  const off = A.diDefaultOff(k2);
+  const amp = add("keysamp", k2.x + off[0], k2.y + off[1]);
+  const sov = (a, b) => Math.abs(a.x - b.x) < (a.w + b.w) / 2 && Math.abs(a.y - b.y) < (a.d + b.d) / 2;
+  ok(sov({ x: k2.x + off[0], y: k2.y + off[1], w: A.TYPES.dimono.w, d: A.TYPES.dimono.d }, amp), "premessa: al punto di serie la DI cadrebbe sull'ampli");
+  const di2 = A.diApply(k2);
+  ok(di2 && !sov(di2, amp), "la DI non finisce sopra l'ampli (" + (di2 && di2.x) + "," + (di2 && di2.y) + " / ampli " + amp.x + "," + amp.y + ")");
+  ok(Math.hypot(di2.x - k2.x, di2.y - k2.y) < 150, "ma resta accanto allo stage piano");
+  eq(k2.diOff.length, 2, "il punto scelto si ricorda (diOff)");
+  /* appena nata, prima di ogni riallineamento, è già dritta */
+  const via2 = A.state.items.find((x) => x.type === "dimono" && x.diFor === k2.id);
+  A.state.items = A.state.items.filter((x) => x !== via2); delete k2.diId; delete k2.diOff; k2.rot = 110;
+  eq(A.diApply(k2).rot, 0, "la DI nasce dritta anche su uno strumento girato");
+  /* senza ostacoli resta il punto di sempre */
+  reset();
+  const k3 = add("stagepiano", 400, 300);
+  eq(k3.diOff, A.diDefaultOff(k3), "palco libero: la DI va dove andava");
+  const k4 = add("stagepiano", 700, 300, { rot: 45 });
+  eq(k4.diOff, A.diDefaultOff(k4), "lo strumento stesso, anche girato, non è un ostacolo per la sua DI");
+});
+
 
 /* ---- MONITOR STORTI nell'audit (09/11/2026) ---- */
 function esitoMonitor(mon, altri) {   /* un palco 10×8 con una persona a 500,300 (salvo altri) e un monitor */
@@ -29576,84 +29654,6 @@ t("cartiglio del PDF: i canali solo con le Liste tecniche accese (oltre a Esport
     A.funzOn = undefined;
     ok(/\d+ canali/.test(A.pdfTotals().join(" · ")), "fuori dall'editor (senza le funzioni) si stampa tutto, come prima");
   } finally { A.funzOn = orig; reset(); }
-});
-
-/* 11/11/2026 — orientamento (stage plot di una band ricostruito da un rider): tastiere, pad, computer, pedaliera e asta
-   microfono «strumento solo» hanno chi li usa dalla parte +y, quindi posati a 0° il musicista guarda il fondale. Nei progetti
-   veri gli utenti li girano già a mano (aste 62 su 83 a 180°, doppie tastiere 7 su 7): i disegni non si toccano, nascono girati. */
-t("posati dal catalogo, tastiere/pad/computer/pedaliera/asta nascono col musicista verso il pubblico", () => {
-  reset();
-  for (const ty of ["tastiera", "doppiatastiera", "celesta", "pianoverticale", "spdsx", "laptop", "pedaliera", "astamic"])
-    eq(A.rotPosaCatalogo(ty, {}).rot, 180, ty + " a 180°");
-  for (const ty of ["wedge", "gtstand", "batteria", "grancoda", "cantante", "vlnpost"])
-    ok(A.rotPosaCatalogo(ty, {}).rot == null, ty + ": nessuna rotazione imposta");
-  ok(A.rotPosaCatalogo("stagepiano", {}).rot == null, "stage piano «Postazione»: il musicista è già dalla parte giusta");
-  eq(A.rotPosaCatalogo("stagepiano", { look: "schematico" }).rot, 180, "stage piano «Strumento solo»: girato");
-  A.state.lookDefault = "schematico";
-  eq(A.rotPosaCatalogo("stagepiano", {}).rot, 180, "progetto disegnato tutto «Strumento solo»: girato");
-  A.state.lookDefault = undefined;
-  eq(A.rotPosaCatalogo("tastiera", { rot: 90 }).rot, 90, "una rotazione già decisa (es. aggancio) resta");
-  ok(A.rotPosaCatalogo("tastiera", undefined).rot === 180, "anche senza over");
-  /* i quattro punti di posa dal catalogo: clic, recenti, ricerca veloce, trascinamento */
-  const usi = appjs.match(/addItem\([a-z.]+, *rotPosaCatalogo\(/g) || [];
-  eq(usi.length, 4, "clic, recenti, ricerca veloce e trascinamento passano da rotPosaCatalogo");
-  ok(/rotazione:"rot in gradi, senso orario; 0 = elemento rivolto verso il pubblico; eccezione: tastiere[^"]*a 180/.test(appjs), "la spiegazione per l'IA dice l'eccezione");
-});
-t("Postazione ↔ Strumento solo: lo stage piano tiene il musicista dalla stessa parte", () => {
-  const sp = { type: "stagepiano", rot: 180, look: "schematico", x: 300, y: 300, w: 132, d: 60 };
-  A.lookCambia(sp, "illustrato");
-  eq([sp.look, sp.rot], ["illustrato", 0], "da Strumento solo girato a Postazione: torna a 0°");
-  A.lookCambia(sp, "schematico");
-  eq([sp.look, sp.rot], ["schematico", 180], "e ritorno");
-  A.lookCambia(sp, "schematico");
-  eq(sp.rot, 180, "scegliere la vista che ha già non gira niente");
-  const sp2 = { type: "stagepiano", rot: 30, x: 300, y: 300, w: 132, d: 117 };
-  A.lookCambia(sp2, "schematico");
-  eq(sp2.rot, 210, "da Postazione (look non scritto) a Strumento solo: +180");
-  const gc = { type: "grancoda", rot: 270, x: 300, y: 300, w: 150, d: 180 };
-  A.lookCambia(gc, "schematico");
-  eq(gc.rot, 270, "il gran coda ha la tastiera dalla stessa parte nelle due viste: non si gira");
-  const v = { type: "vlnpost", rot: 15, x: 300, y: 300, w: 100, d: 115 };
-  A.lookCambia(v, "schematico"); eq(v.rot, 15, "un violino non si gira");
-  ok(/getElementById\("pLookIll"\)\.addEventListener\("click", function\(\)\{ mutSel\(function\(it\)\{ lookCambia\(it,"illustrato"\)/.test(appjs), "il pulsante Postazione usa lookCambia");
-  ok(/getElementById\("pLookSch"\)\.addEventListener\("click", function\(\)\{ mutSel\(function\(it\)\{ lookCambia\(it,"schematico"\)/.test(appjs), "il pulsante Strumento solo usa lookCambia");
-  ok(/if\(hasLookToggle\(o\)\)\{ lookCambia\(o,lk\);/.test(appjs), "«Applica a tutti» usa lookCambia");
-});
-t("DI dello strumento: sempre dritta, e nasce in un punto libero accanto alla sorgente", () => {
-  reset();
-  const k = add("stagepiano", 400, 300, { rot: 110 });
-  const di = A.state.items.find((x) => x.type === "dimono" && x.diFor === k.id);
-  ok(di, "premessa: lo stage piano nasce con la sua DI");
-  eq(di.rot, 0, "la DI non prende la rotazione dello strumento");
-  k.rot = 200; A.diSyncPos(k);
-  eq(di.rot, 0, "e resta dritta quando lo strumento gira");
-  di.rot = 45; k.rot = 30; A.diSyncPos(k);
-  eq(di.rot, 45, "una DI salvata storta resta com'è: aprire un progetto non lo cambia");
-  const d0 = Math.hypot(di.x - k.x, di.y - k.y);
-  ok(d0 < 150, "resta accanto allo strumento (" + d0.toFixed(0) + " cm dal centro)");
-  /* un ampli proprio dove andrebbe la DI di serie: la DI va dall'altra parte */
-  reset();
-  const k2 = add("stagepiano", 400, 300);
-  const via = A.state.items.find((x) => x.type === "dimono" && x.diFor === k2.id);
-  A.state.items = A.state.items.filter((x) => x !== via); delete k2.diId; delete k2.diOff;
-  const off = A.diDefaultOff(k2);
-  const amp = add("keysamp", k2.x + off[0], k2.y + off[1]);
-  const sov = (a, b) => Math.abs(a.x - b.x) < (a.w + b.w) / 2 && Math.abs(a.y - b.y) < (a.d + b.d) / 2;
-  ok(sov({ x: k2.x + off[0], y: k2.y + off[1], w: A.TYPES.dimono.w, d: A.TYPES.dimono.d }, amp), "premessa: al punto di serie la DI cadrebbe sull'ampli");
-  const di2 = A.diApply(k2);
-  ok(di2 && !sov(di2, amp), "la DI non finisce sopra l'ampli (" + (di2 && di2.x) + "," + (di2 && di2.y) + " / ampli " + amp.x + "," + amp.y + ")");
-  ok(Math.hypot(di2.x - k2.x, di2.y - k2.y) < 150, "ma resta accanto allo stage piano");
-  eq(k2.diOff.length, 2, "il punto scelto si ricorda (diOff)");
-  /* appena nata, prima di ogni riallineamento, è già dritta */
-  const via2 = A.state.items.find((x) => x.type === "dimono" && x.diFor === k2.id);
-  A.state.items = A.state.items.filter((x) => x !== via2); delete k2.diId; delete k2.diOff; k2.rot = 110;
-  eq(A.diApply(k2).rot, 0, "la DI nasce dritta anche su uno strumento girato");
-  /* senza ostacoli resta il punto di sempre */
-  reset();
-  const k3 = add("stagepiano", 400, 300);
-  eq(k3.diOff, A.diDefaultOff(k3), "palco libero: la DI va dove andava");
-  const k4 = add("stagepiano", 700, 300, { rot: 45 });
-  eq(k4.diOff, A.diDefaultOff(k4), "lo strumento stesso, anche girato, non è un ostacolo per la sua DI");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
