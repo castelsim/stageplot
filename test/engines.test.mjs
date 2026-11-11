@@ -2808,6 +2808,61 @@ t("riderData: testo editabile (state.rider) vince sul default", () => {
   ok(r.sistema === "Mio impianto XYZ", "override sistema");
   eq(r.sedie, "", "sedie vuote di default");
 });
+/* 11/11/2026 — rider di una band ricostruito nell'app: la pagina Rider chiamava «quadri» dieci multiprese, aggiungeva
+   «sedie da orchestra senza braccioli» a un testo che diceva «tutti in piedi», e la Lista RF ignorava i radiomicrofoni
+   scritti nella channel list. */
+t("rider: le multiprese non sono quadri", () => {
+  reset();
+  add("wedge", 300, 500); add("keysamp", 500, 300);
+  for (let i = 0; i < 3; i++) add("ciabatta", 100 + i * 60, 600);
+  const d = A.riderData();
+  ok(d.elettrico, "premessa: c'è la parte elettrica");
+  const txt = A.riderAlimentazioneText(d.elettrico);
+  ok(!/quadri:/.test(txt) && !/Q\d/.test(txt), "nessun «quadri: Q1 16A…» per le ciabatte: " + txt.slice(0, 160));
+  ok(/3 multiprese/.test(txt), "le multiprese si contano come multiprese: " + txt.slice(0, 160));
+  add("quadro", 700, 100);
+  const txt2 = A.riderAlimentazioneText(A.riderData().elettrico);
+  ok(/quadri: Q\d+ 63A\b/.test(txt2) && !/16A/.test(txt2), "il quadro vero resta, le ciabatte no: " + txt2.slice(0, 200));
+});
+t("rider: «sedie da orchestra senza braccioli» solo quando il campo è un numero", () => {
+  eq(A.riderSedieText("6"), "6 sedie da orchestra senza braccioli", "un numero");
+  eq(A.riderSedieText(""), "", "vuoto");
+  eq(A.riderSedieText("Sgabelli per batteria e tastiere, tutti gli altri in piedi"), "Sgabelli per batteria e tastiere, tutti gli altri in piedi", "un testo esce com'è scritto");
+  const usi = appjs.split("riderSedieText(d.sedie)").length - 1;
+  eq(usi, 2, "PDF e anteprima del rider passano entrambi dalla funzione");
+  ok(appjs.indexOf('d.sedie+" sedie da orchestra') < 0 && appjs.indexOf('esc(d.sedie)+" sedie da orchestra') < 0, "nessuna frase fissa rimasta");
+});
+t("Lista RF: un radiomicrofono scritto nella channel list conta", () => {
+  reset();
+  const v = add("astamic", 300, 300); v.label = "Vox 1";
+  add("astamic", 400, 300).label = "Vox 2";
+  A.__cabRes = null;
+  eq(A.rfList().count, 0, "premessa: due aste, nessuna radio");
+  const r0 = A.patchList().rows.find((x) => x.itemId === v.id);
+  A.state.cab.manual = A.state.cab.manual || {};
+  A.state.cab.manual[r0.key] = { mic: "Radio SM58" };
+  A.__cabRes = null;
+  const L = A.rfList();
+  eq(L.count, 1, "il canale scritto «Radio SM58» è un radiomicrofono da coordinare");
+  const r = L.rows.find((x) => x.name === "Vox 1");
+  ok(r && /radio/i.test(r.kind) && /channel list/i.test(r.kind), "si vede da dove viene: " + (r && r.kind));
+  ok(!A.auditEngine().findings.some((f) => /senza frequenza RF/.test(f.msg || "")), "e non chiede una frequenza che non ha dove scriversi");
+  for (const m of ["Wireless Beta 58", "RF SM58", "radiomic", "Shure ULXD2/B58"]) {
+    A.state.cab.manual[r0.key] = { mic: m }; A.__cabRes = null;
+    ok(A.rfList().count === (m === "Shure ULXD2/B58" ? 0 : 1), "«" + m + "»" + (m === "Shure ULXD2/B58" ? " non si indovina dal modello" : " è radio"));
+  }
+  A.state.cab.manual[r0.key] = { mic: "SM58" }; A.__cabRes = null;
+  eq(A.rfList().count, 0, "«SM58» a filo non è radio");
+  A.state.cab.manual[r0.key] = { mic: "Boundary surface" }; A.__cabRes = null;
+  eq(A.rfList().count, 0, "«rf» dentro una parola (surface) non è radio");
+  reset();
+  const w = add("wireless", 300, 300); w.label = "Vox";
+  A.__cabRes = null;
+  const rw = A.patchList().rows.find((x) => x.itemId === w.id);
+  A.state.cab.manual = A.state.cab.manual || {}; A.state.cab.manual[rw.key] = { mic: "Radio SM58" }; A.__cabRes = null;
+  eq(A.rfList().count, 1, "un radiomic già disegnato non si conta due volte");
+});
+
 t("riderData: sedie editabili", () => {
   reset(); A.state.rider = { sedie: 40 };
   eq(String(A.riderData().sedie), "40", "sedie dall'editabile");
@@ -29515,61 +29570,6 @@ t("cartiglio del PDF: i canali solo con le Liste tecniche accese (oltre a Esport
     A.funzOn = undefined;
     ok(/\d+ canali/.test(A.pdfTotals().join(" · ")), "fuori dall'editor (senza le funzioni) si stampa tutto, come prima");
   } finally { A.funzOn = orig; reset(); }
-});
-
-/* 11/11/2026 — rider di una band ricostruito nell'app: la pagina Rider chiamava «quadri» dieci multiprese, aggiungeva
-   «sedie da orchestra senza braccioli» a un testo che diceva «tutti in piedi», e la Lista RF ignorava i radiomicrofoni
-   scritti nella channel list. */
-t("rider: le multiprese non sono quadri", () => {
-  reset();
-  add("wedge", 300, 500); add("keysamp", 500, 300);
-  for (let i = 0; i < 3; i++) add("ciabatta", 100 + i * 60, 600);
-  const d = A.riderData();
-  ok(d.elettrico, "premessa: c'è la parte elettrica");
-  const txt = A.riderAlimentazioneText(d.elettrico);
-  ok(!/quadri:/.test(txt) && !/Q\d/.test(txt), "nessun «quadri: Q1 16A…» per le ciabatte: " + txt.slice(0, 160));
-  ok(/3 multiprese/.test(txt), "le multiprese si contano come multiprese: " + txt.slice(0, 160));
-  add("quadro", 700, 100);
-  const txt2 = A.riderAlimentazioneText(A.riderData().elettrico);
-  ok(/quadri: Q\d+ 63A\b/.test(txt2) && !/16A/.test(txt2), "il quadro vero resta, le ciabatte no: " + txt2.slice(0, 200));
-});
-t("rider: «sedie da orchestra senza braccioli» solo quando il campo è un numero", () => {
-  eq(A.riderSedieText("6"), "6 sedie da orchestra senza braccioli", "un numero");
-  eq(A.riderSedieText(""), "", "vuoto");
-  eq(A.riderSedieText("Sgabelli per batteria e tastiere, tutti gli altri in piedi"), "Sgabelli per batteria e tastiere, tutti gli altri in piedi", "un testo esce com'è scritto");
-  const usi = appjs.split("riderSedieText(d.sedie)").length - 1;
-  eq(usi, 2, "PDF e anteprima del rider passano entrambi dalla funzione");
-  ok(appjs.indexOf('d.sedie+" sedie da orchestra') < 0 && appjs.indexOf('esc(d.sedie)+" sedie da orchestra') < 0, "nessuna frase fissa rimasta");
-});
-t("Lista RF: un radiomicrofono scritto nella channel list conta", () => {
-  reset();
-  const v = add("astamic", 300, 300); v.label = "Vox 1";
-  add("astamic", 400, 300).label = "Vox 2";
-  A.__cabRes = null;
-  eq(A.rfList().count, 0, "premessa: due aste, nessuna radio");
-  const r0 = A.patchList().rows.find((x) => x.itemId === v.id);
-  A.state.cab.manual = A.state.cab.manual || {};
-  A.state.cab.manual[r0.key] = { mic: "Radio SM58" };
-  A.__cabRes = null;
-  const L = A.rfList();
-  eq(L.count, 1, "il canale scritto «Radio SM58» è un radiomicrofono da coordinare");
-  const r = L.rows.find((x) => x.name === "Vox 1");
-  ok(r && /radio/i.test(r.kind) && /channel list/i.test(r.kind), "si vede da dove viene: " + (r && r.kind));
-  ok(!A.auditEngine().findings.some((f) => /senza frequenza RF/.test(f.msg || "")), "e non chiede una frequenza che non ha dove scriversi");
-  for (const m of ["Wireless Beta 58", "RF SM58", "radiomic", "Shure ULXD2/B58"]) {
-    A.state.cab.manual[r0.key] = { mic: m }; A.__cabRes = null;
-    ok(A.rfList().count === (m === "Shure ULXD2/B58" ? 0 : 1), "«" + m + "»" + (m === "Shure ULXD2/B58" ? " non si indovina dal modello" : " è radio"));
-  }
-  A.state.cab.manual[r0.key] = { mic: "SM58" }; A.__cabRes = null;
-  eq(A.rfList().count, 0, "«SM58» a filo non è radio");
-  A.state.cab.manual[r0.key] = { mic: "Boundary surface" }; A.__cabRes = null;
-  eq(A.rfList().count, 0, "«rf» dentro una parola (surface) non è radio");
-  reset();
-  const w = add("wireless", 300, 300); w.label = "Vox";
-  A.__cabRes = null;
-  const rw = A.patchList().rows.find((x) => x.itemId === w.id);
-  A.state.cab.manual = A.state.cab.manual || {}; A.state.cab.manual[rw.key] = { mic: "Radio SM58" }; A.__cabRes = null;
-  eq(A.rfList().count, 1, "un radiomic già disegnato non si conta due volte");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
