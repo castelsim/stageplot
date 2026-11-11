@@ -207,6 +207,17 @@ Icone vere in scala al posto dei disegni schematici (richiesta di un utente sull
 
 Nessun logo, marchio o scritta nelle icone. Il rack TX in-ear (`iemant`, un rack da 6U) e l'hub (`mixhub`, parametrico) restano com'erano.
 
+### 3b-ter. Moog Subsequent 37 (aggiunto l'11/11/2026)
+Tipo `moogsub37` («Moog Sub 37», tastiere e piani). Richiesta di Simone su uno stage plot copiato dal rider di una band.
+| Dato | Valore | Fonte | Etichetta |
+|---|---|---|---|
+| Misure L × P × H | 679 × 375 × 171 mm (disegnato 68 × 38 cm, icona 67,9 × 37,5) | scheda Thomann `thomann.ie/moog_subsequent_37.htm`; uguale da Music Matter (679,5 × 374,7 × 171,5) | da rivenditore: il manuale ufficiale Moog non si scarica da script (pagina dinamica; la copia di un rivenditore è dietro una verifica anti-bot, non aggirata) |
+| Peso | 9,98 kg → 10 | Thomann, Muziker | da rivenditore |
+| Uscita | un jack 6,3 mm mono + cuffia → una DI | Thomann; forum Moog («AUDIO OUTPUT: 1xTS, 1xTRS Headphone», citazione del manuale) | da rivenditore |
+| Comandi | 40 manopole, 74 interruttori; 37 tasti | pagina ufficiale `moogmusic.com/synthesizers/subsequent-37/` | produttore |
+| Assorbimento | non dichiarato → 50 W, stima di famiglia come la Tastiera | — | stima (niente SPEC_TARGA) |
+Icona: disposizione presa in proporzione dalla foto zenitale della pagina ufficiale Moog (non ricalcata, niente logo né scritte); i 74 interruttori sono resi in modo schematico. **Orientamento**: tasti e ruote a −y, dalla parte di chi suona, a differenza delle altre tastiere «strumento solo».
+
 ### 3b. Omnichord (aggiunto il 28/10/2026)
 
 Richiesta di un tecnico di teatro («strumenti fuori catalogo, per esempio l'Omnichord»). È un **modello preciso**, quindi

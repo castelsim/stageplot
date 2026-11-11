@@ -27871,6 +27871,64 @@ t("Omnichord: icona in cm del manuale, leggera, senza scritte né raster, con la
   eq(A.TYPES.omnichord.draw({ type: "omnichord", w: 46, d: 25 }).indexOf("omc_"), -1, "ripiego schematico finché la libreria non c'è");
 });
 
+/* 11/11/2026 — Moog Sub 37 (Subsequent 37): richiesta di Simone su uno stage plot copiato da un rider («il Moog è un Sub 37…
+   la realizziamo»). Misure in scala, una DI (uscita mono), ricerca, e il lato di chi suona a −y: a rot 0 il musicista guarda il pubblico. */
+t("Moog Sub 37: in scala, DI mono, ricerca, tasti dalla parte di chi suona", () => {
+  reset();
+  const T = A.TYPES.moogsub37;
+  eq([T.w, T.d], [68, 38], "67,9 × 37,5 cm, arrotondati");
+  eq([T.cat, T.sub], ["Band e backline", "Tastiere e piani"], "fra le tastiere");
+  const o = add("moogsub37", 300, 300);
+  eq(o.label, "Moog Sub 37 1", "si numera col suo nome");
+  eq(chans(o).map((c) => c.mic), ["DI"], "un'uscita jack mono: una DI, un canale");
+  eq(A.WATT.moogsub37, 50, "carico: stima di famiglia come la Tastiera");
+  eq(A.WEIGHT.moogsub37, 10, "10 kg");
+  ["sub 37", "sub37", "subsequent", "moog sub"].forEach((q) => {
+    eq((A.__spSearch(q)[0] || {}).k, "moogsub37", "barra «" + q + "»");
+  });
+  /* ripiego schematico (senza icons.js): i tasti, chiari, stanno nella metà −y */
+  const svg = T.draw({ type: "moogsub37", w: 68, d: 38 });
+  ok(!/<image|data:image|\.png|\.jpe?g/i.test(svg) && svg.indexOf("s37_") < 0, "ripiego vettoriale finché la libreria non c'è");
+  const tasti = svg.match(/<rect[^>]*class="ic thin soft"[^>]*>/) || svg.match(/<rect[^>]*soft[^>]*>/);
+  ok(tasti, "i tasti ci sono");
+  const y = +(tasti[0].match(/ y="([-\d.]+)"/) || [])[1], h = +(tasti[0].match(/height="([-\d.]+)"/) || [])[1];
+  ok(y + h / 2 < 0, "tasti a −y (centro " + (y + h / 2) + ")");
+});
+
+t("Moog Sub 37: icona in cm, leggera, senza scritte né raster, 40 manopole, 37 tasti, tasti e ruote a −y", () => {
+  conIcone(["moogsub37"], (L) => {
+    const o = L.moogsub37;
+    ok(o && o.body, "manca moogsub37 in icons.js");
+    eq(o.vb, [0, 0, 67.9, 37.5], "viewBox = 67,9 × 37,5 cm");
+    ok(o.body.length < 20 * 1024, "peso sotto i 20 KB: " + o.body.length + " byte");
+    ok(!/<text|<tspan|<image|<script|<title|<desc|font-|data:|href=|NaN|undefined/i.test(o.body), "niente scritte, raster, riferimenti, valori rotti");
+    const classi = [...new Set([...o.body.matchAll(/class="([^"]+)"/g)].flatMap((m) => m[1].split(/\s+/)))];
+    ok(classi.length > 8 && classi.every((c) => c.startsWith("s37_")), "ogni classe ha il prefisso s37_: " + classi.filter((c) => !c.startsWith("s37_")));
+    ok(!/_cls-/.test(o.body), "nessun nome «_cls-»");
+    ok(!/transform=/.test(o.body), "nessuna trasformazione: le coordinate dicono da che parte stanno tasti e manopole");
+    const tutti = (c) => [...o.body.matchAll(new RegExp('<(rect|circle)[^>]*class="' + c + '"[^>]*>', "g"))].map((m) => m[0]);
+    const n = (c) => tutti(c).length;
+    eq(n("s37_manopola"), 40, "40 manopole (pagina ufficiale Moog)");
+    eq(n("s37_bianco"), 22, "22 tasti bianchi");
+    eq(n("s37_nero"), 15, "15 tasti neri: 37 in tutto, C–C");
+    eq(n("s37_ruota"), 2, "ruote pitch e modulation");
+    eq(n("s37_legno"), 2, "due guance in legno");
+    /* lato di chi suona: tasti e ruote nella metà −y, manopole nella metà +y; ruote alla SUA sinistra (+x, guardando il pubblico) */
+    const cy = (el) => { const y = el.match(/ (?:y|cy)="([-\d.]+)"/); const h = el.match(/height="([-\d.]+)"/); return +y[1] + (h ? +h[1] / 2 : 0); };
+    const cx = (el) => { const x = el.match(/ (?:x|cx)="([-\d.]+)"/); const w = el.match(/width="([-\d.]+)"/); return +x[1] + (w ? +w[1] / 2 : 0); };
+    ok(tutti("s37_bianco").every((e) => cy(e) < 37.5 / 2), "tasti a −y");
+    ok(tutti("s37_ruota").every((e) => cy(e) < 37.5 / 2 && cx(e) > 67.9 / 2), "ruote a −y e a +x (sinistra di chi suona)");
+    ok(tutti("s37_manopola").every((e) => cy(e) > 37.5 / 2), "manopole a +y, verso il pubblico");
+    /* sul palco: scala con w e d, gradienti con id propri */
+    const a = A.TYPES.moogsub37.draw({ type: "moogsub37", w: 68, d: 38 });
+    ok(a.indexOf("s37_corpo") > -1 && !/<image/.test(a), "il disegno è l'icona vera");
+    const rif = [...a.matchAll(/url\(#([^)]+)\)/g)].map((m) => m[1]);
+    ok(rif.length > 0 && rif.every((id) => a.indexOf('id="' + id + '"') > -1), "ogni gradiente richiamato esiste, con l'id riprefissato");
+    const b = A.TYPES.moogsub37.draw({ type: "moogsub37", w: 136, d: 76 });
+    ok(/^<g transform="scale\(2\)">/.test(b), "raddoppiando w e d l'icona si scala senza deformarsi");
+  });
+});
+
 /* 02/11/2026 — icone dei monitor (richiesta di un utente): personal mixer e bodypack in-ear veri, in scala, senza scritte né raster. */
 t("monitor: personal mixer P16-M e bodypack in-ear P3R hanno l'icona in cm, leggera, senza scritte né raster", () => {
   conIcone(["personalmixer_p16m", "beltpack_p3r"], (L) => {
