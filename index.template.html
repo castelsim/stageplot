@@ -10199,7 +10199,7 @@ function fuoriPalcoEquivoco(){
 function ingombroStampa(it, k){
   k=k>0 ? k : 1;
   var g=adattaIngombro(it), t=TYPES[it.type]||{}, r={x0:it.x-g.hw, y0:it.y-g.hd, x1:it.x+g.hw, y1:it.y+g.hd};
-  var fsz=lblSizeOf(it), t1=lblText(it.label, it, true), t2=lblText(it.label2, it, false);
+  var fsz=lblSizeOf(it), _ltq=lblTesti(it), t1=_ltq[0], t2=_ltq[1];
   if(t.innerLabel || GAZ_TYPES[it.type] || !(fsz>0) || (!t1 && !t2)) return r;
   var fk=fsz*k, w=Math.max(lblTextW(t1, fk), lblTextW(t2, fk)), ly=lblBaseY(it, fk), sopra=lblSopraDi(it);
   var righe=(t1 && t2 ? 2 : 1) + (mountNote(it) ? 1 : 0), alto=fk*1.15*(righe-1);
@@ -14835,7 +14835,7 @@ function itemMarkup(it){
     var _rot = _sceneRuota ? ' transform="rotate('+_rc+' '+_lxR+' '+_lyR+')"' : lblCapTr(_cap, 0, 0, ly, fszK);
     var _fstR = _sceneRuota ? ' style="font-size:'+fsz+'px;text-anchor:middle;dominant-baseline:hanging"' : fst;
     var isDbl = it.doppia===true || !!DOUBLE_TYPES[it.type];
-    var _t1 = lblText(it.label, it, true), _t2 = lblText(it.label2, it, false);   /* modalità nome per-elemento (full/sigla) */
+    var _lt=lblTesti(it), _t1 = _lt[0], _t2 = _lt[1];   /* modalità nome per-elemento (full/sigla); doppia «… 1-2» in sigla = due sigle */
     if(isDbl){                                  /* postazione a 2 → un nome per ciascuno strumento (riferito al singolo) */
       var dc=sepCfg(it), dhalf=(it.sep || (dc&&dc.sep) || DEFAULT_SEP)/2;
       var lx=Math.max(dhalf, 40, fszK*1.4);     /* sotto ciascuno strumento; min cresce col font per non sovrapporre */
@@ -16291,7 +16291,10 @@ function cabItemInputs(it){
   /* postazione DOPPIA (flag): 2 musicisti su un leggio → i microfoni si raddoppiano (audit 14/07).
      Le ×2 dedicate (DOUBLE_TYPES: vln1x2…) hanno GIÀ 2 canali nel loro IN_MULTI → non raddoppiare. */
   if(it.doppia===true && POSTAZ[it.type] && !DOUBLE_TYPES[it.type] && base.length){
-    var l2 = it.label2 || ((it.label||TYPES[it.type].nome)+" 2");
+    /* nome a intervallo «Violino I 3-4» e secondo nome vuoto: «Violino I 3» e «Violino I 4», non «… 3-4» e «… 3-4 2» (11/11/2026) */
+    var _due = !it.label2 ? nomiDoppia(it.label) : null;
+    if(_due) base = base.map(function(c,i){ return {name: (base.length>1 ? _due[0]+" "+(i+1) : _due[0]), mic:c.mic}; });
+    var l2 = it.label2 || (_due ? _due[1] : ((it.label||TYPES[it.type].nome)+" 2"));
     var second = base.map(function(c,i){ return {name: (base.length>1 ? l2+" "+(i+1) : l2), mic:c.mic}; });
     base = base.concat(second);
   }
@@ -20931,8 +20934,24 @@ function autoAbbr(s){
 }
 /* sigla di un elemento: custom > sigla di settore (dal tipo/nome, + eventuale numero) > iniziali */
 function toRoman(n){ n=+n; if(!n||n>39) return String(n||""); var map=[[10,"X"],[9,"IX"],[5,"V"],[4,"IV"],[1,"I"]], r=""; for(var i=0;i<map.length;i++){ while(n>=map[i][0]){ r+=map[i][1]; n-=map[i][0]; } } return r; }
+/* POSTAZIONE DOPPIA CON UN NOME SOLO A INTERVALLO (11/11/2026, Valdagno: «perché le etichette non sono specifiche per
+   strumento?»). «Contrabbasso 1-2», «Violino I 3 - 4»: due musicisti, numeri consecutivi. Torna i due nomi, o null. */
+var NOME_INTERVALLO=/^(.*?)(\d+)\s*[-\u2013]\s*(\d+)$/;
+function nomiDoppia(l){ var m=String(l||"").match(NOME_INTERVALLO); if(!m) return null;
+  var a=+m[2], b=+m[3]; if(b!==a+1) return null; return [m[1]+a, m[1]+b]; }
+/* I due testi del nome di un elemento (palco e PDF). In SIGLA una postazione doppia col nome a intervallo e il secondo nome
+   vuoto dà una sigla per musicista («Cb 1» / «Cb 2»); a nome intero resta il testo scritto dall'utente. */
+function lblTesti(it){
+  var isDbl = it.doppia===true || !!DOUBLE_TYPES[it.type];
+  var due = (isDbl && !it.label2 && it.labelMode==="abbr" && !it.abbr) ? nomiDoppia(it.label) : null;
+  if(due) return [abbrOf({type:it.type, label:due[0]}), abbrOf({type:it.type, label:due[1]})];
+  return [lblText(it.label, it, true), lblText(it.label2, it, false)];
+}
 function abbrOf(it){
   if(it.abbr) return it.abbr;
+  /* «1-2» è un intervallo di due musicisti, non «sezione 1, posto 2» (prima: «Cb I.2», «Vln I.3.4») */
+  var _rg=nomiDoppia(it.label) && String(it.label).match(NOME_INTERVALLO);
+  if(_rg) return (abbrOf({type:it.type, label:_rg[1].trim()})+" "+_rg[2]+"-"+_rg[3]).trim();
   var pro=proAbbrName(((TYPES[it.type]&&TYPES[it.type].nome)||"")+" "+(it.label||""));
   var l=String(it.label||"");
   /* numeri finali: arabi ("Violino 1 3" = sezione+posto) e/o romani già nel nome ("Violini I 2" = leggio di sezione).

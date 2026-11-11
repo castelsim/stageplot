@@ -3297,6 +3297,31 @@ t("sigle italiane (convenzioni orchestra): Tr non Tpt, Sax A/T/B non ASax, Tbn B
   eq(sig("musTromboneBasso"), "Tbn B", "trombone basso non deve matchare 'basso'→Bass");
   eq(sig("corno"), "Cor"); eq(sig("vlnpost"), "Vln"); eq(sig("violoncello"), "Vc"); eq(sig("trombone"), "Tbn");
 });
+/* 11/11/2026 — segnalazione da Valdagno (schermate di Simone 16:31-16:33: «perché le etichette non sono specifiche per
+   strumento?»). Postazione doppia d'archi con un nome solo a intervallo, «Contrabbasso 1-2», e il secondo nome vuoto (251
+   postazioni così nei progetti veri): la sigla leggeva «1-2» come sezione e posto («Cb I.2», «Vln I.3.4») e il secondo canale
+   si chiamava «Contrabbasso 1-2 2». */
+t("postazione doppia con il nome «… 1-2»: una sigla e un canale per musicista", () => {
+  eq(A.nomiDoppia("Contrabbasso 1-2"), ["Contrabbasso 1", "Contrabbasso 2"], "si spezza in due nomi");
+  eq(A.nomiDoppia("Violino I 3 - 4"), ["Violino I 3", "Violino I 4"], "anche con gli spazi");
+  eq(A.nomiDoppia("Vc 5–6"), ["Vc 5", "Vc 6"], "e col trattino lungo");
+  ok(A.nomiDoppia("Violino 1 3") === null && A.nomiDoppia("Violini 2-5") === null && A.nomiDoppia("Contrabbasso") === null,
+    "non è un intervallo di due: «sezione posto», 2-5, nessun numero");
+  eq(A.abbrOf({ type: "contrabbasso", label: "Contrabbasso 1-2" }), "Cb 1-2", "letto intero: «Cb 1-2», non «Cb I.2»");
+  eq(A.abbrOf({ type: "vlnpost", label: "Violino I 3-4" }), "Vln I 3-4", "letto intero: «Vln I 3-4», non «Vln I.3.4»");
+  eq(A.abbrOf({ type: "vlnpost", label: "Violino 1 3" }), "Vln I.3", "«sezione posto» resta come prima");
+  const cb = { type: "contrabbasso", doppia: true, label: "Contrabbasso 1-2", labelMode: "abbr" };
+  eq(A.lblTesti(cb), ["Cb 1", "Cb 2"], "in sigla: una per musicista");
+  eq(A.lblTesti(Object.assign({}, cb, { labelMode: "full" })), ["Contrabbasso 1-2", ""], "a nome intero resta il testo scritto");
+  eq(A.lblTesti(Object.assign({}, cb, { label2: "Contrabbasso 7" })), ["Cb 1-2", "Cb 7"], "col secondo nome scritto vale quello");
+  eq(A.lblTesti(Object.assign({}, cb, { abbr: "CB" })), ["CB", ""], "una sigla scritta a mano resta");
+  ok(/var _lt=lblTesti\(it\), _t1 = _lt\[0\], _t2 = _lt\[1\];/.test(appjs) && /var fsz=lblSizeOf\(it\), _ltq=lblTesti\(it\), t1=_ltq\[0\], t2=_ltq\[1\];/.test(appjs), "palco e PDF passano dalla stessa funzione");
+  reset();
+  const v = add("vlnpost", 300, 300); v.doppia = true; v.label = "Violino I 3-4"; v.label2 = "";
+  eq(chans(v).map((c) => c.name), ["Violino I 3", "Violino I 4"], "canali: «Violino I 3» e «Violino I 4», non «… 3-4» e «… 3-4 2»");
+  v.label = "Violino I 3"; eq(chans(v).map((c) => c.name), ["Violino I 3", "Violino I 3 2"], "senza intervallo, come prima");
+});
+
 
 console.log("\nAudit — voci senza mic (L8) + nomi canale duplicati (B4):");
 /* Il criterio è UNO: la voce produce canali? Dal 27/07 il cantante nasce col suo microfono (micMode
