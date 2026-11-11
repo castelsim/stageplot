@@ -3395,6 +3395,7 @@ function drumSlots(p){
   else if(p.toms===2){ put("tom",k2?42:-10,k2?-30:-16,-6); put("tom",k2?-42:18,k2?-31:-16,6); }
   else if(p.toms>=3){ put("tom",k2?42:-10,k2?-30:-16,-6); put("tom",k2?-42:18,k2?-31:-16,6); put("tom",k2?0:-40,k2?-14:-27,k2?0:10); }   /* 3° tom accanto (rack centrale se doppia cassa) */
   if(p.floor) put("floor", k2?-104:(p.toms>=3?-55:-36), k2?-24:(p.toms>=3?-40:-37));   /* profondità del rullante, lato ride */
+  if(p.floor && p.floor2===true) put("floor", k2?-150:(p.toms>=3?-101:-82), k2?-36:(p.toms>=3?-52:-49));   /* 2° floor tom (11/11/2026): accanto al primo, più in là e un po' più vicino al batterista, a 47,5 cm di centro (fusto da 46) */
   if(p.crash>=1) put("crash", k2?94:47, k2?31:-18, 10);  /* lato hi-hat, appena a nord della cassa */
   if(p.crash>=2) put("crash", k2?-146:-70, k2?28:-14, -8);    /* 2° crash lato ride */
   if(p.ride) put("ride", k2?-94:-45, k2?34:-14);         /* lato floor */
@@ -3434,7 +3435,7 @@ function drawBatteria(it){
 }
 function sizeBatteria(it){ var B=drumBBox(drumSlots(parts(it))); return [Math.round(B.w), Math.round(B.d)]; }
 function explodeBatteria(it){
-  var p=parts(it), L=drumSlots(p), B=drumBBox(L), base=it.label?it.label+" ":"", out=[], nTom=0, nCr=0;
+  var p=parts(it), L=drumSlots(p), B=drumBBox(L), base=it.label?it.label+" ":"", out=[], nTom=0, nCr=0, nFl=0;
   var map={kick:"kickR",snare:"snareR",tom:"tomR",floor:"floorR",hihat:"hihatKR",crash:"crashR",ride:"rideR",stool:"stoolR"};
   var lab={kick:"Kick",snare:"Snare",tom:"Tom",floor:"Floor",hihat:"HH",crash:"Crash",ride:"Ride",stool:""};
   L.forEach(function(sl){
@@ -3448,6 +3449,7 @@ function explodeBatteria(it){
     var nm=lab[sl.k];
     if(sl.k==="tom"){ nTom++; if(p.toms>1) nm+=" "+nTom; }
     if(sl.k==="crash"){ nCr++; if(p.crash>1) nm+=" "+nCr; }
+    if(sl.k==="floor" && p.floor2===true){ nFl++; nm+=" "+nFl; }
     var pc={type:map[sl.k], dx:sl.x-B.cx, dy:sl.y-B.cy, label:nm?base+nm:""};
     if(sl.rot) pc.extra={rot:(it.rot||0)+sl.rot};
     out.push(pc);
@@ -3638,8 +3640,11 @@ function explodePercussioni(it){
   return out;
 }
 /* Canali del set: seguono i pezzi davvero montati (niente "Bongos" in lista se i bongos non ci sono). */
-function percChans(it){ var p=parts(it), out=[];
-  if((p.congas|0)>0) out.push(["Congas","e904"]);
+function percChans(it){ var p=parts(it), out=[], nc=p.congas|0;
+  /* un microfono per conga, a scelta (11/11/2026, dal rider di una band: «Conga L», «Conga R»). Di serie resta
+     un canale per tutte, come i progetti salvati */
+  if(nc>0 && p.congaMic===true){ for(var ci=1;ci<=nc;ci++) out.push([nc===1?"Conga":"Conga "+ci,"e904"]); }
+  else if(nc>0) out.push(["Congas","e904"]);
   if(p.bongos!==false) out.push(["Bongos","e904"]);
   /* chimes, campanaccio, piatto e tavolo dei piccoli: UN panoramico per tutti, come il banco percussioni
      (un canale per sonaglio sarebbe un rider falso, vedi PERC_PICCOLE) */
@@ -3699,9 +3704,10 @@ var COMP = {
   /* defParts = i progetti salvati prima del 13/10/2026: parts() li completa con queste chiavi, quindi i
      pezzi nuovi qui sono SPENTI e un set vecchio si riapre identico. newParts = chi lo posa oggi dal
      catalogo: la postazione intera del percussionista (Simone, 13/10). */
-  percussioni: { defParts:{congas:2, bongos:true, chimes:false, campanaccio:false, piatto:false, tavolo:false, mus:true, stool:false},
-    newParts:{congas:2, bongos:true, chimes:true, campanaccio:true, piatto:false, tavolo:true, mus:true, stool:false},
+  percussioni: { defParts:{congas:2, congaMic:false, bongos:true, chimes:false, campanaccio:false, piatto:false, tavolo:false, mus:true, stool:false},
+    newParts:{congas:2, congaMic:false, bongos:true, chimes:true, campanaccio:true, piatto:false, tavolo:true, mus:true, stool:false},
     controls:[ {key:"congas",label:"Congas",type:"count",min:0,max:3},
+               {key:"congaMic",label:"Un mic per conga",type:"toggle"},
                {key:"bongos",label:"Bongos",type:"toggle"},
                {key:"chimes",label:"Chimes",type:"toggle"},
                {key:"campanaccio",label:"Campanaccio",type:"toggle"},
@@ -3724,13 +3730,15 @@ var COMP = {
   cajonpost: { defParts:{mus:true},
     controls:[ {key:"mus",label:"Musicista",type:"toggle"} ],
     draw:drawCajonPost, size:sizeCajonPost, explode:explodeCajonPost },
-  batteria: { defParts:{toms:2,floor:true,hihat:true,crash:1,ride:true,kick2:false,mus:true,stool:true,lefty:false,leggio:false},
+  batteria: { defParts:{toms:2,floor:true,floor2:false,hihat:true,crash:1,ride:true,kick2:false,kickio:false,mus:true,stool:true,lefty:false,leggio:false},
     controls:[ {key:"toms",label:"Tom",type:"count",min:0,max:3},
                {key:"floor",label:"Floor tom",type:"toggle"},
+               {key:"floor2",label:"Secondo floor tom",type:"toggle"},
                {key:"hihat",label:"Hi-hat",type:"toggle"},
                {key:"crash",label:"Crash",type:"count",min:0,max:2},
                {key:"ride",label:"Ride",type:"toggle"},
                {key:"kick2",label:"Doppia cassa",type:"toggle"},
+               {key:"kickio",label:"Cassa: mic In + Out",type:"toggle"},
                {key:"mus",label:"Musicista",type:"toggle"},
                {key:"stool",label:"Sgabello",type:"toggle"},
                {key:"leggio",label:"Leggio",type:"toggle"},
@@ -13450,7 +13458,11 @@ function dvsNote(it){
 /* Quante tracce manda il computer. Due (L/R) è il caso normale — un playback stereo — ma un
    multitraccia ne manda otto o sedici, e finora la lista ne scriveva comunque due. */
 var COMP_CH_DEF = 2, COMP_CH_MAX = 64;
-function compChNum(it){ var n=parseInt(it&&it.plCh,10); if(!isFinite(n)||n<1) n=COMP_CH_DEF;
+function compChNum(it){ var n=parseInt(it&&it.plCh,10);
+  /* «Mono» del pannello (STEREO_TOGGLE.laptop): un canale. Prima il pulsante si accendeva ma il computer restava a 2
+     (11/11/2026). Vince l'ultima scelta: Mono qui; il cursore delle tracce, quando si muove, toglie il Mono. */
+  if(it && it.stereo===false) return 1;
+  if(!isFinite(n)||n<1) n=COMP_CH_DEF;
   return Math.min(COMP_CH_MAX, n); }
 /* La via del computer letta SENZA passare da cabItemRouteKey: quella chiama cabItemInputs, che ora
    ha bisogno della via → ricorsione infinita. La chiave si ricostruisce dal numero di tracce, che
@@ -18285,7 +18297,7 @@ function renderProps(){
       _ps.oninput=function(){
         var v=Math.max(1, Math.min(_max, parseInt(_ps.value,10)||2));
         document.getElementById("pPlChVal").textContent=v;
-        mutSelSoon(function(x){ if(v===COMP_CH_DEF) delete x.plCh; else x.plCh=v; });
+        mutSelSoon(function(x){ delete x.stereo; if(v===COMP_CH_DEF) delete x.plCh; else x.plCh=v; });   /* il cursore toglie il «Mono» (11/11/2026) */
       };
     }
     /* I controlli del DVS vivono dentro la scelta della via: esistono solo se la via è Dante. */
@@ -26042,7 +26054,7 @@ var STAND_SUGGEST = ["asta dritta","asta giraffa","asta gigante","asta bassa","c
 /* Quando la sorgente del canale È un'asta, l'asta la dice l'oggetto sul palco, non il modello di
    microfono: sul KM184 il default sarebbe "asta giraffa" anche montato su una gigante. Per le tre
    aste storiche il valore coincide già con quello dedotto dal mic — qui non cambia nulla. */
-var STAND_BY_TYPE = { astamic:"asta dritta", giraffa:"asta giraffa", astagigante:"asta gigante", astabassa:"asta bassa" };
+var STAND_BY_TYPE = { astamic:"asta dritta", giraffa:"asta giraffa", astagigante:"asta gigante", astabassa:"asta bassa", talkback:"da tavolo" };
 var IN_SRC = {
   /* voci e microfoni */
   astamic:"SM58", giraffa:"KM184", astagigante:"KM184", astabassa:"SM57", wireless:"Beta 58A", headset:"DPA 4066", podiosp:"SM58", corista:"SM58", micchoir:"KM184", mictavolo:"MX412",
@@ -26058,6 +26070,8 @@ var IN_SRC = {
   /* pezzi della batteria divisa (audit 14/07: dividere il kit conserva gli 8 mic — ricompone D6+SM57+3×e904+SM81+2×KM184) */
   kickR:"D6", snareR:"SM57", tomR:"e904", floorR:"e904", hihatKR:"SM81", crashR:"KM184", rideR:"KM184",
   campane:"KM184", tamtam:"KM184", glockenspiel:"KM184", cajon:"Beta 91A", cajonpost:"Beta 91A",
+  /* microfono talkback da tavolo, col pulsante (11/11/2026: non dava canale, e un «talk palco» del rider spariva dalla lista) */
+  talkback:"SM58",
   conga:"e904", quinto:"e904", tumba:"e904", bongos:"e904",   /* pezzi singoli del set percussioni: stesso mic del blocco da cui nascono */
   /* backline / tastiere a mic o DI singolo */
   comboamp:"SM57", stack:"SM57/e906", keysamp:"DI", celesta:"KM184",
@@ -26190,11 +26204,16 @@ MIKING.musChitClassica={ options:[["mic","Mic condensatore (KM184)"],["di","DI (
 function drumChansFor(it){
   if(!it) return DRUM_KIT;
   var p=parts(it), n=Math.max(0, p.toms|0), out=[];
-  if(p.kick2===true) out.push(["Kick 1","D6"],["Kick 2","D6"]); else out.push(["Kick","D6"]);
+  /* Cassa con DUE microfoni (11/11/2026, dal rider di una band): «Kick In» dentro il fusto (mezzaluna, Beta 91A)
+     e «Kick Out» davanti alla pelle risonante (D6). Di serie resta un microfono solo, come prima. */
+  var casse=(p.kick2===true)?["Kick 1","Kick 2"]:["Kick"];
+  casse.forEach(function(k){ if(p.kickio===true) out.push([k+" In","Beta 91A"],[k+" Out","D6"]); else out.push([k,"D6"]); });
   out.push(["Rullante top","SM57"],["Rullante btm","e904"]);
   if(p.hihat!==false) out.push(["Hi-Hat","SM81"]);
   for(var i=1;i<=n;i++) out.push(["Tom "+i,"e904"]);
-  if(p.floor!==false) out.push(["Tom floor","e904"]);
+  /* due floor tom = «Floor tom 1» e «Floor tom 2» (prima il secondo si faceva con un tom in più e usciva «Tom 3»);
+     con uno solo il nome resta «Tom floor», come nei progetti salvati */
+  if(p.floor!==false){ if(p.floor2===true) out.push(["Floor tom 1","e904"],["Floor tom 2","e904"]); else out.push(["Tom floor","e904"]); }
   out.push(["Overhead L","KM184"],["Overhead R","KM184"]);
   return out;
 }
@@ -28766,6 +28785,7 @@ function patchList(){
       if(_shared) stand="";
     }
     return {n:++n, name:name, mic:mic, stand:stand, p48:p48, standAuto:!(_ov.stand!=null), p48Auto:!(_ov.p48===true||_ov.p48===false),
+            short:_ov.short||"",   /* nome sul banco: su OGNI riga, anche senza stage box (11/11/2026: si leggeva solo sui canali collegati) */
             micAuto:!(_ov.mic!=null||o),   /* mic DEDOTTO (dal tipo o dal modello reale): in channel list si mostra in corsivo come l'asta */
             stereoPair:_pair, standShared:_shared, by:_riderBy(itemId, name),
             patch:patch, box:box, itemId:itemId, key:key, micOff:o}; }
