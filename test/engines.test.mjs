@@ -28543,7 +28543,10 @@ t("consulenza: il confronto in tre colonne c'è e usa un termine solo per la lis
   ["Cosa fai tu", "Cosa facciamo noi", "Cosa ricevi", "Tempi", "Limiti"].forEach((d) =>
     eq((conf.match(new RegExp("<dt>" + d + "</dt>", "g")) || []).length, 3, d + " in ogni colonna"));
   ok(/channel list[^<]{0,12}e[^<]{0,12}input list[^<]{0,12}sono la stessa cosa/.test(_cons), "spiega che channel list e input list sono la stessa cosa");
-  ok(/id="cardRiderPronto" hidden/.test(_cons), "la card «Rider pronto» resta nascosta");
+  /* 11/11/2026: la card «Rider pronto», nascosta dal 01/10 finché mancava il pagamento, diventa «Rider tecnico completo»
+     (servizio a 59 € deciso da Simone) e porta alla pagina con il modulo: si vede e non vende da qui. */
+  ok(/<article class="card" id="cardRiderPronto">/.test(_cons), "la card del rider tecnico completo si vede");
+  ok(/id="cardRiderPronto">[\s\S]{0,1500}?href="\/rider-tecnico-completo\/"/.test(_cons), "la card porta alla pagina del servizio");
 });
 
 /* ====== LUCI PER IL TEATRO (28/10/2026): PC LED, ribalta LED, barra LED RGB, dimmer portatile, splitter DMX ======
