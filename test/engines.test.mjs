@@ -29517,6 +29517,94 @@ t("cartiglio del PDF: i canali solo con le Liste tecniche accese (oltre a Esport
   } finally { A.funzOn = orig; reset(); }
 });
 
+/* 11/11/2026 — rider di una band da 39 canali ricostruito nell'app: il motore dei canali non sapeva fare
+   Kick In + Kick Out, il secondo floor tom, un microfono per conga, il canale del talkback, il computer in
+   mono, e perdeva il nome sul banco dei canali non ancora collegati a una stage box. */
+t("batteria: cassa con due microfoni (In + Out) e secondo floor tom", () => {
+  reset();
+  const b = add("batteria", 400, 400);
+  const nomi = () => A.cabItemInputs(b).map((c) => c.name.replace(/^.* - /, ""));
+  const mic = (n) => (A.cabItemInputs(b).find((c) => c.name.replace(/^.* - /, "") === n) || {}).mic;
+  eq(nomi().join(","), "Kick,Rullante top,Rullante btm,Hi-Hat,Tom 1,Tom 2,Tom floor,Overhead L,Overhead R", "premessa: il kit di serie non cambia");
+  const keys = A.COMP.batteria.controls.map((c) => c.key);
+  ok(keys.indexOf("kickio") > -1 && keys.indexOf("floor2") > -1, "le due scelte sono nel pannello: " + keys.join(","));
+  b.parts = Object.assign({}, b.parts, { kickio: true });
+  eq(nomi().slice(0, 2).join(","), "Kick In,Kick Out", "cassa In + Out: due canali");
+  eq([mic("Kick In"), mic("Kick Out")], ["Beta 91A", "D6"], "In = microfono a mezzaluna dentro la cassa, Out = D6");
+  b.parts = Object.assign({}, b.parts, { kick2: true });
+  eq(nomi().slice(0, 4).join(","), "Kick 1 In,Kick 1 Out,Kick 2 In,Kick 2 Out", "doppia cassa: In + Out per ognuna");
+  b.parts = Object.assign({}, b.parts, { kick2: false, kickio: false, floor2: true });
+  const n = nomi();
+  ok(n.indexOf("Floor tom 1") > -1 && n.indexOf("Floor tom 2") > -1 && n.indexOf("Tom floor") < 0 && n.indexOf("Tom 3") < 0,
+    "due floor tom = «Floor tom 1» e «Floor tom 2», non «Tom 3»: " + n.join(","));
+  const fl = A.drumSlots(A.parts(b)).filter((s) => s.k === "floor");
+  eq(fl.length, 2, "e se ne disegnano due");
+  const d = Math.hypot(fl[0].x - fl[1].x, fl[0].y - fl[1].y);
+  ok(d >= 46, "i due floor tom non si sovrappongono (centri a " + d.toFixed(1) + " cm, diametro 46)");
+  const lab = A.explodeBatteria(b).filter((p) => p.type === "floorR").map((p) => p.label.replace(/^.* /, ""));
+  eq(lab.join(","), "1,2", "Dividi: Floor 1 e Floor 2");
+  b.parts = Object.assign({}, b.parts, { floor: false });
+  ok(A.drumSlots(A.parts(b)).filter((s) => s.k === "floor").length === 0 && nomi().join(",").indexOf("loor") < 0,
+    "senza il primo floor tom il secondo non c'è");
+  b.parts = Object.assign({}, b.parts, { floor: true, floor2: true, lefty: true });
+  ok(A.drumSlots(A.parts(b)).filter((s) => s.k === "floor").every((s) => s.x > 0), "mancino: anche il secondo floor tom passa dall'altra parte");
+  b.parts = Object.assign({}, b.parts, { lefty: false, kick2: true });
+  const f2 = A.drumSlots(A.parts(b)).filter((s) => s.k === "floor");
+  ok(Math.hypot(f2[0].x - f2[1].x, f2[0].y - f2[1].y) >= 46, "con la doppia cassa i due floor tom non si sovrappongono");
+});
+t("set percussioni: un microfono per conga, a scelta", () => {
+  reset();
+  const p = add("percussioni", 400, 400);
+  p.parts = Object.assign({}, p.parts, { congas: 3, bongos: true, chimes: false, campanaccio: false, piatto: false, tavolo: false });
+  const nomi = () => A.cabItemInputs(p).map((c) => c.name.replace(/^.* - /, ""));
+  eq(nomi().join(","), "Congas,Bongos", "di serie: un canale per le congas, come prima");
+  ok(A.COMP.percussioni.controls.some((c) => c.key === "congaMic"), "la scelta è nel pannello");
+  p.parts = Object.assign({}, p.parts, { congaMic: true });
+  eq(nomi().join(","), "Conga 1,Conga 2,Conga 3,Bongos", "un microfono per conga");
+  p.parts = Object.assign({}, p.parts, { congas: 1 });
+  eq(nomi().join(","), "Conga,Bongos", "una conga sola: «Conga», senza numero");
+  p.parts = Object.assign({}, p.parts, { congas: 0 });
+  eq(nomi().join(","), "Bongos", "senza congas nessun canale di conga");
+});
+t("il talkback sul palco è un canale", () => {
+  reset();
+  const tb = add("talkback", 300, 500);
+  const c = chans(tb);
+  eq(c.length, 1, "un canale");
+  eq(c[0].name, "Talkback", "col suo nome");
+  ok(A.isAudioSource(tb), "è una sorgente audio (canale collegabile)");
+  A.__cabRes = null;
+  const r = A.patchList().rows.find((x) => x.itemId === tb.id);
+  ok(r && r.stand === "da tavolo", "con la sua base da tavolo, non un'asta: " + (r && r.stand));
+});
+t("computer messo «Mono» dal pannello = un canale", () => {
+  reset();
+  const l = add("laptop", 300, 300);
+  eq(chans(l).length, 2, "premessa: di serie stereo");
+  A.state.selected = [l.id]; A.selectOne && A.selectOne(l.id);
+  l.stereo = false;
+  eq(chans(l).length, 1, "Mono: un canale");
+  eq(chans(l)[0].mic, "DI", "in DI, come lo stereo");
+  delete l.stereo; l.plCh = 8;
+  eq(chans(l).length, 8, "le tracce scelte col cursore restano");
+  l.stereo = false;
+  eq(chans(l).length, 8, "con le tracce scelte vince il cursore");
+  const sss = appjs.slice(appjs.indexOf("function setStereoSel("), appjs.indexOf("function setStereoSel(") + 400);
+  ok(/if\(COMP_SRC\[it\.type\]\) delete it\.plCh;/.test(sss), "premere Mono/Stereo sul computer azzera le tracce del cursore");
+});
+t("il nome sul banco esce anche sui canali non ancora collegati a una stage box", () => {
+  reset();
+  const v = add("astamic", 300, 300); v.label = "Voce";
+  A.__cabRes = null;
+  const r0 = A.patchList().rows.find((x) => x.itemId === v.id);
+  ok(r0 && !r0.box, "premessa: canale senza stage box");
+  A.state.cab.manual = A.state.cab.manual || {};
+  A.state.cab.manual[r0.key] = Object.assign({}, A.state.cab.manual[r0.key], { short: "VOX1" });
+  A.__cabRes = null;
+  const r1 = A.patchList().rows.find((x) => x.itemId === v.id);
+  eq(r1.short, "VOX1", "il nome sul banco c'è anche qui (schermo, CSV e PDF lo leggono da patchList)");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
 
