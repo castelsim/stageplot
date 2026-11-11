@@ -3604,7 +3604,7 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
 .cloudThumb:focus-visible{outline:2px solid var(--focus-ring,var(--accent));outline-offset:2px}
 #cloudPrev{position:fixed;inset:0;z-index:210;background:rgba(15,23,42,.55);display:flex;align-items:center;justify-content:center;padding:18px}
 #cloudPrev[hidden]{display:none}
-#cloudPrev .cp-box{background:var(--surface);color:var(--text);width:100%;max-width:560px;height:min(600px,88vh);   /* dimensione FISSA (26/09, Simone): passando da un progetto all'altro i pulsanti restano allo stesso posto */
+#cloudPrev .cp-box{background:var(--surface);color:var(--text);width:100%;max-width:920px;height:min(720px,90vh);   /* dimensione FISSA (26/09, Simone): passando da un progetto all'altro i pulsanti restano allo stesso posto */
   display:flex;flex-direction:column;border-radius:var(--r-xl);box-shadow:var(--elev-4);padding:16px;font-family:var(--font-ui)}
 #cloudPrev .cp-img{flex:1 1 auto;min-height:0;border:1px solid var(--border);border-radius:8px;background:#fff;display:flex;align-items:center;justify-content:center;overflow:hidden}
 #cloudPrev .cp-img img{width:100%;height:100%;object-fit:contain;display:block}
@@ -3615,7 +3615,18 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
 #cloudPrev .cp-t{display:block;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #cloudPrev .cp-m{display:block;font-size:13px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #cloudPrev .cp-az{flex:0 0 auto;display:flex;gap:8px;align-items:center;margin-top:12px}
-#cloudPrev .cp-nav{min-width:44px;font-size:18px}
+/* frecce grandi AI LATI dell'immagine (11/11/2026, Simone: «grosse difficoltà ad andare avanti e indietro») */
+#cloudPrev .cp-img{position:relative}
+#cloudPrev .cp-lato{position:absolute;top:50%;transform:translateY(-50%);z-index:1;width:52px;height:52px;border-radius:50%;border:1px solid var(--border-strong);background:rgba(255,255,255,.94);color:#0f172a;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 2px 10px rgba(15,23,42,.22);padding:0}
+#cloudPrev .cp-lato:hover{background:#fff;border-color:var(--accent);color:var(--accent)}
+#cloudPrev .cp-lato:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+#cloudPrev .cp-lato[hidden]{display:none}
+#cloudPrev .cp-prec{left:10px}
+#cloudPrev .cp-succ{right:10px}
+#cloudPrev .cp-conta{font-size:15px;font-weight:650;color:var(--text);white-space:nowrap}
+#cloudPrev .cp-tasti{font-size:12px;color:var(--text-3);white-space:nowrap;margin-left:6px}
+@media (max-width:640px), (pointer:coarse){ #cloudPrev .cp-tasti{display:none} #cloudPrev .cp-lato{width:46px;height:46px} }
+.cloudRiga.cp-corrente{background:var(--accent-soft, #e6f6f4);box-shadow:inset 3px 0 0 var(--accent);border-radius:6px}
 #cloudPrev .cp-azioni{flex:0 0 auto;display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border)}
 #cloudPrev .cp-icone{display:inline-flex;align-items:center;gap:4px}
 #cloudPrev .cp-az-ico{min-width:36px;min-height:36px;justify-content:center}

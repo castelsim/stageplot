@@ -23962,6 +23962,18 @@ function finestraProgettiAperta(){
    vuoto». Indietro chiude un livello per volta; solo con tutto chiuso esce davvero. Avanti non riapre niente: se la
    voce davanti è un livello già chiuso, si rientra subito. L'URL non cambia (?p=, ?view= intatti) e il salvataggio
    non c'entra: si tocca solo la cronologia. deps: livello() = 0|1|2 letto dal DOM, push(n), indietro(k), chiudiA(n). */
+/* ANTEPRIMA DEI PROGETTI, AVANTI E INDIETRO (11/11/2026, Simone: «grosse difficoltà ad andare avanti e indietro»).
+   Il contatore «3 di 16», e chi decide se un tasto (← → Esc) è per l'anteprima: sì se il fuoco è nell'anteprima o da
+   nessuna parte (dopo un clic sull'immagine va sulla pagina), no se si scrive in un campo o se sopra c'è un'altra finestra
+   (la conferma di Elimina, il nome nuovo di Rinomina). */
+function contaAnteprimaTxt(i, n){ return (i+1)+" di "+n; }
+function anteprimaPrendeTasto(t, ov){
+  if(!t) return true;
+  var tag=String(t.tagName||"").toUpperCase();
+  if(tag==="INPUT" || tag==="TEXTAREA" || tag==="SELECT" || t.isContentEditable) return false;
+  if(tag==="BODY" || tag==="HTML") return true;
+  return !!(ov && ov.contains && ov.contains(t));
+}
 function creaNavFinestre(deps){
   var depth=0, ignora=0;
   return {
@@ -38944,9 +38956,12 @@ function maybeAskStageSize(explicit){
     var ov=document.getElementById("cloudPrev");
     if(!ov){
       ov=document.createElement("div"); ov.id="cloudPrev"; ov.setAttribute("role","dialog"); ov.setAttribute("aria-modal","true"); ov.setAttribute("aria-label","Anteprima del progetto");
-      ov.innerHTML='<div class="cp-box"><div class="cp-img"><img alt=""><span class="cp-vuota">Questo progetto non ha ancora un\'anteprima: si crea al primo salvataggio.</span></div>'+
+      /* 11/11/2026: le frecce stanno AI LATI dell'immagine, grandi (prima piccole in basso a sinistra), e sotto c'è «3 di 16» */
+      ov.innerHTML='<div class="cp-box"><div class="cp-img"><button type="button" class="cp-nav cp-lato cp-prec" data-d="-1" aria-label="Progetto precedente"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>'+
+        '<img alt=""><span class="cp-vuota">Questo progetto non ha ancora un\'anteprima: si crea al primo salvataggio.</span>'+
+        '<button type="button" class="cp-nav cp-lato cp-succ" data-d="1" aria-label="Progetto successivo"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button></div>'+
         '<div class="cp-info"><b class="cp-t"></b><span class="cp-m"></span></div>'+
-        '<div class="cp-az"><button type="button" class="btn cp-nav" data-d="-1" aria-label="Progetto precedente">‹</button><button type="button" class="btn cp-nav" data-d="1" aria-label="Progetto successivo">›</button>'+
+        '<div class="cp-az"><span class="cp-conta" aria-live="polite"></span><span class="cp-tasti">← → per scorrere · Esc per chiudere</span>'+
         '<span style="flex:1"></span><button type="button" class="btn cp-chiudi">Chiudi</button></div>'+
         '<div class="cp-azioni"><button type="button" class="btn primary cp-apri">Apri</button><span class="cp-icone"></span></div></div>';
       document.body.appendChild(ov);
@@ -38955,11 +38970,15 @@ function maybeAskStageSize(explicit){
       ov.querySelector(".cp-chiudi").addEventListener("click", chiudiAnteprima);
       ov.querySelector(".cp-apri").addEventListener("click", function(){ var pid=ov.getAttribute("data-id"); chiudiAnteprima(true); openProject(pid); });
       Array.prototype.forEach.call(ov.querySelectorAll(".cp-nav"), function(b){ b.addEventListener("click", function(){ passaAnteprima(+b.getAttribute("data-d")); }); });
-      ov.addEventListener("keydown", function(e){
+      /* I tasti si ascoltano sulla PAGINA, in cattura (11/11/2026): prima stavano sull'anteprima e bastava un clic
+         sull'immagine (il fuoco va sulla pagina) per perderli. In cattura arrivano prima delle scorciatoie dell'editor. */
+      document.addEventListener("keydown", function(e){
+        var ov=document.getElementById("cloudPrev");
+        if(!ov || ov.hidden || !anteprimaPrendeTasto(document.activeElement, ov)) return;
         if(e.key==="Escape"){ e.preventDefault(); e.stopPropagation(); chiudiAnteprima(); }   /* solo l'anteprima: l'elenco resta aperto */
-        else if(e.key==="ArrowRight"){ e.preventDefault(); passaAnteprima(1); }
-        else if(e.key==="ArrowLeft"){ e.preventDefault(); passaAnteprima(-1); }
-      });
+        else if(e.key==="ArrowRight"){ e.preventDefault(); e.stopPropagation(); passaAnteprima(1); }
+        else if(e.key==="ArrowLeft"){ e.preventDefault(); e.stopPropagation(); passaAnteprima(-1); }
+      }, true);
     }
     if(daChi) ov.__daChi=daChi;
     var p=cloudProjects.filter(function(x){ return x.id===id; })[0]; if(!p) return;
@@ -38970,6 +38989,14 @@ function maybeAskStageSize(explicit){
     var chiave=id+"|"+p.updated_at, meta=ov.querySelector(".cp-m");
     meta.textContent=fmtDate(p.updated_at)+(contiAnteprima[chiave] ? " · "+contiAnteprima[chiave] : "");
     var solo=cloudProjects.length<2; Array.prototype.forEach.call(ov.querySelectorAll(".cp-nav"), function(b){ b.hidden=solo; });
+    var _ids=cloudProjects.map(function(x){ return x.id; });
+    ov.querySelector(".cp-conta").textContent = solo ? "" : contaAnteprimaTxt(_ids.indexOf(id), _ids.length);
+    /* l'elenco dietro segue: la riga del progetto mostrato si evidenzia e scorre in vista (11/11/2026) */
+    if(bodyEl){
+      Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudRiga.cp-corrente"), function(r){ r.classList.remove("cp-corrente"); });
+      var _th=bodyEl.querySelector('.cloudThumb[data-id="'+id+'"]'), riga=_th && _th.closest ? _th.closest(".cloudRiga") : null;
+      if(riga){ riga.classList.add("cp-corrente"); try{ riga.scrollIntoView({block:"nearest"}); }catch(_e){} }
+    }
     /* Le stesse azioni della riga (26/09, Simone): rinomina, duplica, condividi, blocca, elimina. Non
        si riscrivono: si copia il pulsante della riga (titolo, stato del blocco, colore) e il clic chiude
        l'anteprima e preme quello vero — le conferme e le finestre sono le stesse, e nessuna resta sotto. */

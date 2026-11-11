@@ -5566,6 +5566,30 @@ t("anteprima grande: le stesse azioni della riga, che premono quelle vere", () =
   ok(/\} else if\(cls!=="cloudLock"\) chiudiAnteprima\(true\);\s*if\(ancora\) ancora\.click\(\);/.test(g), "preme il pulsante vero (stesse conferme); chiude l'anteprima tranne per Blocca ed Elimina, la cui conferma sta sopra");
   ok(/class="cp-azioni"><button type="button" class="btn primary cp-apri">Apri<\/button><span class="cp-icone"><\/span>/.test(appjs), "Apri e icone nello stesso ordine della riga");
 });
+/* 11/11/2026 — Simone (segnalazione delle 16:47): «quando siamo in questa finestra ci sono ancora grosse difficoltà ad andare
+   avanti e indietro nei progetti». Le frecce erano piccole in basso a sinistra, i tasti ← → funzionavano solo col fuoco
+   dentro l'anteprima (bastava un clic sull'immagine per perderli), nessun «3 di 16», e l'elenco dietro restava fermo. */
+t("anteprima dei progetti: frecce grandi ai lati, «3 di 16», tasti ovunque, l'elenco segue", () => {
+  eq(A.contaAnteprimaTxt(2, 16), "3 di 16", "il contatore");
+  eq(A.contaAnteprimaTxt(0, 1), "1 di 1", "un progetto solo");
+  const ov = { contains: (x) => x && x.dentro === true };
+  ok(A.anteprimaPrendeTasto({ tagName: "BODY" }, ov), "fuoco sulla pagina (dopo un clic sull'immagine): i tasti funzionano");
+  ok(A.anteprimaPrendeTasto({ tagName: "BUTTON", dentro: true }, ov), "fuoco su un pulsante dell'anteprima: funzionano");
+  ok(A.anteprimaPrendeTasto({ tagName: "BUTTON" }, ov) === false, "fuoco in un'altra finestra sopra (conferma di Elimina): no");
+  ok(A.anteprimaPrendeTasto({ tagName: "INPUT", dentro: true }, ov) === false, "mentre si scrive in un campo: no");
+  ok(A.anteprimaPrendeTasto({ tagName: "DIV", isContentEditable: true }, ov) === false, "testo modificabile: no");
+  ok(A.anteprimaPrendeTasto(null, ov), "nessun elemento col fuoco: sì");
+  const g = appjs.slice(appjs.indexOf("function apriAnteprima(id, daChi, senzaFuoco){"), appjs.indexOf("try{ window.__cloudAnteprima="));
+  ok(/<div class="cp-img"><button type="button" class="cp-nav cp-lato cp-prec" data-d="-1" aria-label="Progetto precedente">/.test(g)
+    && /<button type="button" class="cp-nav cp-lato cp-succ" data-d="1" aria-label="Progetto successivo">/.test(g), "le frecce stanno ai lati dell'immagine");
+  ok(/class="cp-conta" aria-live="polite"/.test(g), "il contatore si legge anche con lo screen reader");
+  ok(/document\.addEventListener\("keydown", function\(e\)\{\s*var ov=document\.getElementById\("cloudPrev"\);\s*if\(!ov \|\| ov\.hidden \|\| !anteprimaPrendeTasto\(document\.activeElement, ov\)\) return;/.test(g), "i tasti si ascoltano sulla pagina, non solo dentro l'anteprima");
+  ok(/\}, true\);/.test(g), "in cattura: arrivano prima delle scorciatoie dell'editor");
+  ok(/riga\.classList\.add\("cp-corrente"\)/.test(g) && /scrollIntoView\(\{block:"nearest"\}\)/.test(g), "la riga dell'elenco dietro si evidenzia e scorre");
+  ok(/#cloudPrev \.cp-lato\{[^}]*width:52px;height:52px/.test(stylesCss), "frecce da 52 px");
+  ok(/#cloudPrev \.cp-box\{[^}]*max-width:920px/.test(stylesCss), "anteprima più grande");
+  ok(/\.cloudRiga\.cp-corrente\{/.test(stylesCss), "la riga corrente si vede");
+});
 t("Duplica apre la copia nell'editor", () => {
   const f = appjs.slice(appjs.indexOf("function dupProject(id){"), appjs.indexOf("function renameProject(id){"));
   ok(/\.insert\(\{[^}]*\}\)\.select\("id"\)\.single\(\)/.test(f), "l'inserimento restituisce l'id della copia");
@@ -5579,7 +5603,7 @@ t("anteprima grande: eliminato un progetto, si passa al successivo", () => {
 t("anteprima grande: blocca resta nella finestra, misura fissa", () => {
   ok(/if\(cls!=="cloudLock"\) chiudiAnteprima\(true\);/.test(appjs), "Blocca/Sblocca non chiude l'anteprima");
   ok(/if\(pv && !pv\.hidden\)\{ var pvId=pv\.getAttribute\("data-id"\);[\s\S]{0,160}apriAnteprima\(pvId, null, true\)/.test(appjs), "a lista ridisegnata l'anteprima si aggiorna (lucchetto nuovo) senza rubare il fuoco");
-  ok(/#cloudPrev \.cp-box\{[^}]*height:min\(600px,88vh\)/.test(stylesCss), "altezza fissa: i pulsanti non si spostano da un progetto all'altro");
+  ok(/#cloudPrev \.cp-box\{[^}]*height:min\(720px,90vh\)/.test(stylesCss), "altezza fissa: i pulsanti non si spostano da un progetto all'altro");
   ok(/#confirmModal\{z-index:300\}/.test(stylesCss) && /#cloudPrev\{position:fixed;inset:0;z-index:210/.test(stylesCss), "la conferma del blocco sta sopra l'anteprima");
 });
 t("elenco progetti: miniature leggere, sicure, e anteprima grande", () => {
