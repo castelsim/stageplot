@@ -37,7 +37,7 @@
         {"@type":"ListItem","position":1,"name":"Home","item":"https://stageplot.it/"},
         {"@type":"ListItem","position":2,"name":"Rider tecnico completo","item":"https://stageplot.it/rider-tecnico-completo/"}
       ]},
-      {"@type":"Service","@id":"https://stageplot.it/rider-tecnico-completo/#servizio","name":"Rider tecnico completo per band","serviceType":"Preparazione del rider tecnico (scheda tecnica) di una band","url":"https://stageplot.it/rider-tecnico-completo/","inLanguage":"it","areaServed":{"@type":"Country","name":"Italia"},"audience":{"@type":"Audience","audienceType":"Band e gruppi musicali"},"description":"Il rider tecnico della band preparato a partire dal materiale che avete (vecchio rider, lista, foto, descrizione) e controllato da un sound engineer prima della consegna: stage plot in scala, channel list, ascolti, corrente, luci di base, ospitalità, orari e contatti, in PDF, più il progetto modificabile su stageplot.it.","provider":{"@type":"Person","@id":"https://simonecastellan.com/#person","name":"Simone Castellan","jobTitle":"Sound engineer","url":"https://simonecastellan.com"},"brand":{"@type":"Organization","@id":"https://stageplot.it/#org","name":"stageplot.it","url":"https://stageplot.it/"},"offers":{"@type":"Offer","price":"59","priceCurrency":"EUR","availability":"https://schema.org/InStock","url":"https://stageplot.it/rider-tecnico-completo/#richiesta","deliveryLeadTime":{"@type":"QuantitativeValue","maxValue":3,"unitCode":"DAY"},"seller":{"@type":"Person","@id":"https://simonecastellan.com/#person"}}},
+      {"@type":"Service","@id":"https://stageplot.it/rider-tecnico-completo/#servizio","name":"Rider tecnico completo per band","serviceType":"Preparazione del rider tecnico (scheda tecnica) di una band","url":"https://stageplot.it/rider-tecnico-completo/","inLanguage":"it","image":"https://stageplot.it/rider-tecnico-completo/esempio-copertina.jpg","subjectOf":{"@type":"MediaObject","name":"Esempio di rider tecnico completo: band inventata di 7 elementi (PDF)","contentUrl":"https://stageplot.it/rider-tecnico-completo/esempio-rider-tecnico-completo.pdf","encodingFormat":"application/pdf","inLanguage":"it","isAccessibleForFree":true},"areaServed":{"@type":"Country","name":"Italia"},"audience":{"@type":"Audience","audienceType":"Band e gruppi musicali"},"description":"Il rider tecnico della band preparato a partire dal materiale che avete (vecchio rider, lista, foto, descrizione) e controllato da un sound engineer prima della consegna: stage plot in scala, channel list, ascolti, corrente, luci di base, ospitalità, orari e contatti, in PDF, più il progetto modificabile su stageplot.it.","provider":{"@type":"Person","@id":"https://simonecastellan.com/#person","name":"Simone Castellan","jobTitle":"Sound engineer","url":"https://simonecastellan.com"},"brand":{"@type":"Organization","@id":"https://stageplot.it/#org","name":"stageplot.it","url":"https://stageplot.it/"},"offers":{"@type":"Offer","price":"59","priceCurrency":"EUR","availability":"https://schema.org/InStock","url":"https://stageplot.it/rider-tecnico-completo/#richiesta","deliveryLeadTime":{"@type":"QuantitativeValue","maxValue":3,"unitCode":"DAY"},"seller":{"@type":"Person","@id":"https://simonecastellan.com/#person"}}},
       {"@type":"FAQPage","mainEntity":[
         {"@type":"Question","name":"Cosa vi devo mandare?","acceptedAnswer":{"@type":"Answer","text":"Quello che avete: un vecchio rider, una lista dei canali, le foto del palco di una serata, anche solo l'elenco di chi suona cosa. Se manca qualcosa ve lo chiediamo noi."}},
         {"@type":"Question","name":"Quanto ci mettete?","acceptedAnswer":{"@type":"Answer","text":"72 ore, in giorni lavorativi, da quando abbiamo il materiale e la conferma. Se vi serve per una data vicina, scrivetelo nel modulo."}},
@@ -56,7 +56,8 @@
     .ricevi{list-style:none;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px 18px}
     .ricevi li{margin:0;padding:10px 0 10px 28px;position:relative;border-bottom:1px solid var(--line)}
     .ricevi li::before{content:"";position:absolute;left:4px;top:18px;width:10px;height:10px;border-radius:3px;background:var(--accent)}
-    .esempio{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;margin:18px 0 10px}
+    .esempio{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,3fr);gap:14px;margin:18px 0 10px;align-items:start}
+    @media (max-width:640px){.esempio{grid-template-columns:1fr}}
     .esempio figure{margin:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--panel)}
     .esempio img{display:block;width:100%;height:auto}
     .esempio figcaption{font-size:13px;color:var(--muted);padding:8px 12px}
@@ -130,12 +131,12 @@
     <p>Tutto in un PDF A4 con versione e data su ogni pagina, e il progetto aperto su stageplot.it per le date in cui il palco cambia.</p>
 
     <h2 id="esempio">Un esempio</h2>
-    <p>Il rider di una band inventata di sette elementi, preparato così come lo ricevereste voi.</p>
+    <p>Il rider dei Fenicotteri a Motore, una band pop e funk di sette elementi che non esiste: sei pagine, preparate così come le ricevereste voi.</p>
     <div class="esempio">
-      <figure><img src="esempio-copertina.jpg" width="1200" height="1697" loading="lazy" alt="Prima pagina del rider d'esempio: i numeri chiave, la formazione e chi sente cosa"><figcaption>La prima pagina: tutto quello che il service guarda per primo</figcaption></figure>
-      <figure><img src="esempio-palco.jpg" width="1200" height="1697" loading="lazy" alt="Pianta del palco in scala del rider d'esempio"><figcaption>La pianta del palco in scala 1:50</figcaption></figure>
+      <figure><a href="esempio-rider-tecnico-completo.pdf"><img src="esempio-copertina.jpg" width="1200" height="1699" loading="lazy" alt="Prima pagina del rider d'esempio: i numeri chiave, la formazione e chi sente cosa"></a><figcaption>La prima pagina: tutto quello che il service guarda per primo</figcaption></figure>
+      <figure><a href="esempio-rider-tecnico-completo.pdf"><img src="esempio-palco.jpg" width="1200" height="849" loading="lazy" alt="Pianta del palco in scala del rider d'esempio"></a><figcaption>La pianta del palco in scala 1:50</figcaption></figure>
     </div>
-    <p><a href="esempio-rider-tecnico-completo.pdf">Scarica il PDF d'esempio</a> (A4).</p>
+    <p><a href="esempio-rider-tecnico-completo.pdf">Scarica il PDF d'esempio</a> (6 pagine A4, 640 KB): in breve, pianta in scala, channel list da 19 canali, ascolti, luci, orari e ospitalità.</p>
 
     <h2 id="come-funziona">Come funziona</h2>
     <ol class="steps">
