@@ -11878,6 +11878,20 @@ t("lo sgabello dei timpani si conta come quello della batteria: cartiglio, Stato
   eq(JSON.stringify(A.sgabelliTesto()), JSON.stringify(["2 sgabelli timpani"]), "due set di timpani: plurale");
   eq(A.countAccessori().sgabelli, 2);
 });
+/* 11/11 — cartiglio «1 sgabello alto contrabbasso» con 2 contrabbassi: STOOL_POSTAZ.contrabbasso=1 ignorava `doppia`. */
+t("contrabbasso doppio: due sgabelli nel cartiglio, nello Stato e in sgabelliDi (come cbx2)", () => {
+  reset();
+  const cb = add("contrabbasso", 400, 300); cb.doppia = true;
+  eq(JSON.stringify(A.sgabelliDi(cb)), JSON.stringify([["contrabbasso", 2]]), "doppia: 2 sgabelli");
+  eq(A.countAccessori().sgabelli, 2, "Stato: 2");
+  ok(A.pdfTotals({ tecnici: false }).some((x) => /^2 sgabelli/.test(x)), "cartiglio: 2 sgabelli — " + JSON.stringify(A.pdfTotals({ tecnici: false })));
+  cb.doppia = false;
+  eq(JSON.stringify(A.sgabelliDi(cb)), JSON.stringify([["contrabbasso", 1]]), "singolo: 1");
+  const x2 = add("cbx2", 700, 300);
+  eq(JSON.stringify(A.sgabelliDi(x2)), JSON.stringify([["contrabbasso", 2]]), "cbx2 resta 2");
+  x2.doppia = true;
+  eq(JSON.stringify(A.sgabelliDi(x2)), JSON.stringify([["contrabbasso", 2]]), "cbx2 con doppia resta 2, non 4");
+});
 t("timpani con lo sgabello spento (o di serie spento): nessuno sgabello contato", () => {
   reset();
   const tp = add("timpani", 400, 300); A.parts(tp).stool = false; A.parts(tp).mus = true;
