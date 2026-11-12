@@ -1328,8 +1328,8 @@ var TYPES = {
   pedana:   {nome:"Pedana", dim:"2×1 m", cat:"Palco e strutture", w:200,d:100,h:40, resizable:true, z:0, riser:true,
              draw:function(it){ return riserSvg(it.w,it.d,it.locked===true); }},
   scala:    {nome:"Scala accesso", dim:"60×90", cat:"Palco e strutture", w:60,d:90, resizable:true, z:1,
-             draw:function(it){ var s=rectSvg(it.w,it.d,'ic fFloor',2);
-               for(var i=1;i<5;i++){ s+=lin(-it.w/2,-it.d/2+i*it.d/5,it.w/2,-it.d/2+i*it.d/5,'ic thin'); }
+             draw:function(it){ var s=rectSvg(it.w,it.d,'ic fFloor',2), n=scalaGradini(scalaH(it));   /* tanti riquadri quanti i gradini dell'altezza della pedana (11/11) */
+               for(var i=1;i<n;i++){ s+=lin(-it.w/2,-it.d/2+i*it.d/n,it.w/2,-it.d/2+i*it.d/n,'ic thin'); }
                if(it.d>=50){ var ay1=it.d/2-12,ay2=-it.d/2+12; s+=lin(0,ay1,0,ay2,'ic thin')+'<path class="ic thin" fill="none" d="M -6,'+(ay2+8)+' L 0,'+ay2+' L 6,'+(ay2+8)+'"/>'; }
                return s; }},
   rampa:    {nome:"Rampa accesso", dim:"120×240", cat:"Palco e strutture", w:120,d:240, resizable:true, z:1,
@@ -7776,7 +7776,7 @@ function fuoriPalcoEquivoco(){
 function ingombroStampa(it, k){
   k=k>0 ? k : 1;
   var g=adattaIngombro(it), t=TYPES[it.type]||{}, r={x0:it.x-g.hw, y0:it.y-g.hd, x1:it.x+g.hw, y1:it.y+g.hd};
-  var fsz=lblSizeOf(it), t1=lblText(it.label, it, true), t2=lblText(it.label2, it, false);
+  var fsz=lblSizeOf(it), _ltq=lblTesti(it), t1=_ltq[0], t2=_ltq[1];
   if(t.innerLabel || GAZ_TYPES[it.type] || !(fsz>0) || (!t1 && !t2)) return r;
   var fk=fsz*k, w=Math.max(lblTextW(t1, fk), lblTextW(t2, fk)), ly=lblBaseY(it, fk), sopra=lblSopraDi(it);
   var righe=(t1 && t2 ? 2 : 1) + (mountNote(it) ? 1 : 0), alto=fk*1.15*(righe-1);
@@ -12623,8 +12623,8 @@ function itemMarkup(it){
   }
   if(it.leggio===true && leggioExtra(it)) s += '<g transform="translate(0,'+leggioExtraY(it)+')'+(leggioExtraY(it)<0?' rotate(180)':'')+'">'+leggioGlyph(0)+'</g>';   /* leggio generico: arpa, piani, organi, percussioni, mallet… (off di default, davanti allo strumento) */
   _leggioDistOn = 0;   /* finiti gli accessori: nessun altro leggioGlyph (anteprime, catalogo, leggio a sé) eredita la distanza */
-  if(t.riser){                                       /* quota pedana sul lato scelto/auto (più visibile) */
-    var dimT=(it.w/100)+'×'+(it.d/100)+' m · h'+it.h, rside=riserDimSide(it), roff=12, rdx=0, rdy=0, ranc='middle', rtr='', rang=0;
+  if(t.riser || it.type==="scala"){                  /* quota pedana sul lato scelto/auto (più visibile); la scala dice altezza e gradini (11/11), di serie sopra */
+    var dimT=t.riser ? (it.w/100)+'×'+(it.d/100)+' m · h'+it.h : scalaQuota(it), rside=t.riser ? riserDimSide(it) : scalaDimSide(it), roff=12, rdx=0, rdy=0, ranc='middle', rtr='', rang=0;
     if(rside==="top"){ rdy=-(it.d/2)-roff; }
     else if(rside==="bottom"){ rdy=(it.d/2)+roff+9; }
     else if(rside==="left"){ rdx=-(it.w/2)-roff; ranc='middle'; rang=-90; }   /* ruotata, legge lungo il lato sx */
@@ -12697,7 +12697,7 @@ function itemMarkup(it){
     var _rot = _sceneRuota ? ' transform="rotate('+_rc+' '+_lxR+' '+_lyR+')"' : lblCapTr(_cap, 0, 0, ly, fszK);
     var _fstR = _sceneRuota ? ' style="font-size:'+fsz+'px;text-anchor:middle;dominant-baseline:hanging"' : fst;
     var isDbl = it.doppia===true || !!DOUBLE_TYPES[it.type];
-    var _t1 = lblText(it.label, it, true), _t2 = lblText(it.label2, it, false);   /* modalità nome per-elemento (full/sigla) */
+    var _lt=lblTesti(it), _t1 = _lt[0], _t2 = _lt[1];   /* modalità nome per-elemento (full/sigla); doppia «… 1-2» in sigla = due sigle */
     if(isDbl){                                  /* postazione a 2 → un nome per ciascuno strumento (riferito al singolo) */
       var dc=sepCfg(it), dhalf=(it.sep || (dc&&dc.sep) || DEFAULT_SEP)/2;
       var lx=Math.max(dhalf, 40, fszK*1.4);     /* sotto ciascuno strumento; min cresce col font per non sovrapporre */
@@ -14153,7 +14153,10 @@ function cabItemInputs(it){
   /* postazione DOPPIA (flag): 2 musicisti su un leggio → i microfoni si raddoppiano (audit 14/07).
      Le ×2 dedicate (DOUBLE_TYPES: vln1x2…) hanno GIÀ 2 canali nel loro IN_MULTI → non raddoppiare. */
   if(it.doppia===true && POSTAZ[it.type] && !DOUBLE_TYPES[it.type] && base.length){
-    var l2 = it.label2 || ((it.label||TYPES[it.type].nome)+" 2");
+    /* nome a intervallo «Violino I 3-4» e secondo nome vuoto: «Violino I 3» e «Violino I 4», non «… 3-4» e «… 3-4 2» (11/11/2026) */
+    var _due = !it.label2 ? nomiDoppia(it.label) : null;
+    if(_due) base = base.map(function(c,i){ return {name: (base.length>1 ? _due[0]+" "+(i+1) : _due[0]), mic:c.mic}; });
+    var l2 = it.label2 || (_due ? _due[1] : ((it.label||TYPES[it.type].nome)+" 2"));
     var second = base.map(function(c,i){ return {name: (base.length>1 ? l2+" "+(i+1) : l2), mic:c.mic}; });
     base = base.concat(second);
   }
@@ -16010,6 +16013,27 @@ function auditFixVoceSoloMicPosato(list){
    sotto, è un gradino, cioè un accesso (le gradinate d'orchestra salgono così). */
 var PEDANA_PROTEZIONE_CM=100, PEDANA_DECRETO_CM=200, PEDANA_GRADINO_CM=40;
 function pedanaH(it){ var T=TYPES[it.type]||{}; return (it.h!=null && isFinite(+it.h)) ? +it.h : (T.h||40); }
+/* GRADINI DELLA SCALA (11/11/2026; segnalazione CONCERTI del 05/11: «perché disegni molti più gradini di quelli
+   che in realtà ci sono»). Alzata di 20 cm (i livelli delle gradinate d'orchestra scendono così: 60 → 40 → 20),
+   quindi h40 = 2 gradini, h60 = 3. La scala non ha un'altezza sua: prende quella della pedana che tocca
+   (la più alta, se ne tocca più d'una), come l'avviso di pedaneSicurezza; senza pedane vicine vale 40, l'altezza
+   di una pedana di serie. Se la scala fosse fornita dal teatro con altri gradini, è un caso a parte (non c'è ancora). */
+var SCALA_ALZATA_CM=20, SCALA_GRADINI_MAX=12;
+function scalaGradini(h){ h=+h; if(!isFinite(h)) h=40; return Math.max(1, Math.min(SCALA_GRADINI_MAX, Math.round(h/SCALA_ALZATA_CM))); }
+function scalaH(it){
+  var best=0, a=itemAabb(it,0);
+  (state.items||[]).forEach(function(r){
+    if(r===it || !(TYPES[r.type] && TYPES[r.type].riser)) return;
+    if(aabbTocca(a,itemAabb(r,15))) best=Math.max(best,pedanaH(r)); });
+  return best>0 ? best : 40;
+}
+/* la quota sta di LATO (ruotata come quella delle pedane), dalla parte con più spazio: sopra finirebbe dentro la pedana a cui
+   la scala è appoggiata, sotto c'è già il nome */
+function scalaDimSide(it){
+  if(it.dimSide && it.dimSide!=="auto") return it.dimSide;
+  return (state.stage.w-(it.x+it.w/2)) >= (it.x-it.w/2) ? "right" : "left";
+}
+function scalaQuota(it){ var h=scalaH(it), n=scalaGradini(h); return 'h'+h+' · '+n+(n===1?' gradino':' gradini'); }
 function itemAabb(it, pad){
   var T=TYPES[it.type]||{}, w=+(it.w||T.w||0), d=+(it.d||T.d||0), r=((+it.rot||0)%360)*Math.PI/180;
   var c=Math.abs(Math.cos(r)), s=Math.abs(Math.sin(r)), hw=(w*c+d*s)/2+(pad||0), hd=(w*s+d*c)/2+(pad||0);
@@ -18793,8 +18817,24 @@ function autoAbbr(s){
 }
 /* sigla di un elemento: custom > sigla di settore (dal tipo/nome, + eventuale numero) > iniziali */
 function toRoman(n){ n=+n; if(!n||n>39) return String(n||""); var map=[[10,"X"],[9,"IX"],[5,"V"],[4,"IV"],[1,"I"]], r=""; for(var i=0;i<map.length;i++){ while(n>=map[i][0]){ r+=map[i][1]; n-=map[i][0]; } } return r; }
+/* POSTAZIONE DOPPIA CON UN NOME SOLO A INTERVALLO (11/11/2026, Valdagno: «perché le etichette non sono specifiche per
+   strumento?»). «Contrabbasso 1-2», «Violino I 3 - 4»: due musicisti, numeri consecutivi. Torna i due nomi, o null. */
+var NOME_INTERVALLO=/^(.*?)(\d+)\s*[-\u2013]\s*(\d+)$/;
+function nomiDoppia(l){ var m=String(l||"").match(NOME_INTERVALLO); if(!m) return null;
+  var a=+m[2], b=+m[3]; if(b!==a+1) return null; return [m[1]+a, m[1]+b]; }
+/* I due testi del nome di un elemento (palco e PDF). In SIGLA una postazione doppia col nome a intervallo e il secondo nome
+   vuoto dà una sigla per musicista («Cb 1» / «Cb 2»); a nome intero resta il testo scritto dall'utente. */
+function lblTesti(it){
+  var isDbl = it.doppia===true || !!DOUBLE_TYPES[it.type];
+  var due = (isDbl && !it.label2 && it.labelMode==="abbr" && !it.abbr) ? nomiDoppia(it.label) : null;
+  if(due) return [abbrOf({type:it.type, label:due[0]}), abbrOf({type:it.type, label:due[1]})];
+  return [lblText(it.label, it, true), lblText(it.label2, it, false)];
+}
 function abbrOf(it){
   if(it.abbr) return it.abbr;
+  /* «1-2» è un intervallo di due musicisti, non «sezione 1, posto 2» (prima: «Cb I.2», «Vln I.3.4») */
+  var _rg=nomiDoppia(it.label) && String(it.label).match(NOME_INTERVALLO);
+  if(_rg) return (abbrOf({type:it.type, label:_rg[1].trim()})+" "+_rg[2]+"-"+_rg[3]).trim();
   var pro=proAbbrName(((TYPES[it.type]&&TYPES[it.type].nome)||"")+" "+(it.label||""));
   var l=String(it.label||"");
   /* numeri finali: arabi ("Violino 1 3" = sezione+posto) e/o romani già nel nome ("Violini I 2" = leggio di sezione).
@@ -23962,6 +24002,18 @@ function finestraProgettiAperta(){
    vuoto». Indietro chiude un livello per volta; solo con tutto chiuso esce davvero. Avanti non riapre niente: se la
    voce davanti è un livello già chiuso, si rientra subito. L'URL non cambia (?p=, ?view= intatti) e il salvataggio
    non c'entra: si tocca solo la cronologia. deps: livello() = 0|1|2 letto dal DOM, push(n), indietro(k), chiudiA(n). */
+/* ANTEPRIMA DEI PROGETTI, AVANTI E INDIETRO (11/11/2026, Simone: «grosse difficoltà ad andare avanti e indietro»).
+   Il contatore «3 di 16», e chi decide se un tasto (← → Esc) è per l'anteprima: sì se il fuoco è nell'anteprima o da
+   nessuna parte (dopo un clic sull'immagine va sulla pagina), no se si scrive in un campo o se sopra c'è un'altra finestra
+   (la conferma di Elimina, il nome nuovo di Rinomina). */
+function contaAnteprimaTxt(i, n){ return (i+1)+" di "+n; }
+function anteprimaPrendeTasto(t, ov){
+  if(!t) return true;
+  var tag=String(t.tagName||"").toUpperCase();
+  if(tag==="INPUT" || tag==="TEXTAREA" || tag==="SELECT" || t.isContentEditable) return false;
+  if(tag==="BODY" || tag==="HTML") return true;
+  return !!(ov && ov.contains && ov.contains(t));
+}
 function creaNavFinestre(deps){
   var depth=0, ignora=0;
   return {
@@ -38944,9 +38996,12 @@ function maybeAskStageSize(explicit){
     var ov=document.getElementById("cloudPrev");
     if(!ov){
       ov=document.createElement("div"); ov.id="cloudPrev"; ov.setAttribute("role","dialog"); ov.setAttribute("aria-modal","true"); ov.setAttribute("aria-label","Anteprima del progetto");
-      ov.innerHTML='<div class="cp-box"><div class="cp-img"><img alt=""><span class="cp-vuota">Questo progetto non ha ancora un\'anteprima: si crea al primo salvataggio.</span></div>'+
+      /* 11/11/2026: le frecce stanno AI LATI dell'immagine, grandi (prima piccole in basso a sinistra), e sotto c'è «3 di 16» */
+      ov.innerHTML='<div class="cp-box"><div class="cp-img"><button type="button" class="cp-nav cp-lato cp-prec" data-d="-1" aria-label="Progetto precedente"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>'+
+        '<img alt=""><span class="cp-vuota">Questo progetto non ha ancora un\'anteprima: si crea al primo salvataggio.</span>'+
+        '<button type="button" class="cp-nav cp-lato cp-succ" data-d="1" aria-label="Progetto successivo"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button></div>'+
         '<div class="cp-info"><b class="cp-t"></b><span class="cp-m"></span></div>'+
-        '<div class="cp-az"><button type="button" class="btn cp-nav" data-d="-1" aria-label="Progetto precedente">‹</button><button type="button" class="btn cp-nav" data-d="1" aria-label="Progetto successivo">›</button>'+
+        '<div class="cp-az"><span class="cp-conta" aria-live="polite"></span><span class="cp-tasti">← → per scorrere · Esc per chiudere</span>'+
         '<span style="flex:1"></span><button type="button" class="btn cp-chiudi">Chiudi</button></div>'+
         '<div class="cp-azioni"><button type="button" class="btn primary cp-apri">Apri</button><span class="cp-icone"></span></div></div>';
       document.body.appendChild(ov);
@@ -38955,11 +39010,15 @@ function maybeAskStageSize(explicit){
       ov.querySelector(".cp-chiudi").addEventListener("click", chiudiAnteprima);
       ov.querySelector(".cp-apri").addEventListener("click", function(){ var pid=ov.getAttribute("data-id"); chiudiAnteprima(true); openProject(pid); });
       Array.prototype.forEach.call(ov.querySelectorAll(".cp-nav"), function(b){ b.addEventListener("click", function(){ passaAnteprima(+b.getAttribute("data-d")); }); });
-      ov.addEventListener("keydown", function(e){
+      /* I tasti si ascoltano sulla PAGINA, in cattura (11/11/2026): prima stavano sull'anteprima e bastava un clic
+         sull'immagine (il fuoco va sulla pagina) per perderli. In cattura arrivano prima delle scorciatoie dell'editor. */
+      document.addEventListener("keydown", function(e){
+        var ov=document.getElementById("cloudPrev");
+        if(!ov || ov.hidden || !anteprimaPrendeTasto(document.activeElement, ov)) return;
         if(e.key==="Escape"){ e.preventDefault(); e.stopPropagation(); chiudiAnteprima(); }   /* solo l'anteprima: l'elenco resta aperto */
-        else if(e.key==="ArrowRight"){ e.preventDefault(); passaAnteprima(1); }
-        else if(e.key==="ArrowLeft"){ e.preventDefault(); passaAnteprima(-1); }
-      });
+        else if(e.key==="ArrowRight"){ e.preventDefault(); e.stopPropagation(); passaAnteprima(1); }
+        else if(e.key==="ArrowLeft"){ e.preventDefault(); e.stopPropagation(); passaAnteprima(-1); }
+      }, true);
     }
     if(daChi) ov.__daChi=daChi;
     var p=cloudProjects.filter(function(x){ return x.id===id; })[0]; if(!p) return;
@@ -38970,6 +39029,14 @@ function maybeAskStageSize(explicit){
     var chiave=id+"|"+p.updated_at, meta=ov.querySelector(".cp-m");
     meta.textContent=fmtDate(p.updated_at)+(contiAnteprima[chiave] ? " · "+contiAnteprima[chiave] : "");
     var solo=cloudProjects.length<2; Array.prototype.forEach.call(ov.querySelectorAll(".cp-nav"), function(b){ b.hidden=solo; });
+    var _ids=cloudProjects.map(function(x){ return x.id; });
+    ov.querySelector(".cp-conta").textContent = solo ? "" : contaAnteprimaTxt(_ids.indexOf(id), _ids.length);
+    /* l'elenco dietro segue: la riga del progetto mostrato si evidenzia e scorre in vista (11/11/2026) */
+    if(bodyEl){
+      Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudRiga.cp-corrente"), function(r){ r.classList.remove("cp-corrente"); });
+      var _th=bodyEl.querySelector('.cloudThumb[data-id="'+id+'"]'), riga=_th && _th.closest ? _th.closest(".cloudRiga") : null;
+      if(riga){ riga.classList.add("cp-corrente"); try{ riga.scrollIntoView({block:"nearest"}); }catch(_e){} }
+    }
     /* Le stesse azioni della riga (26/09, Simone): rinomina, duplica, condividi, blocca, elimina. Non
        si riscrivono: si copia il pulsante della riga (titolo, stato del blocco, colore) e il clic chiude
        l'anteprima e preme quello vero — le conferme e le finestre sono le stesse, e nessuna resta sotto. */

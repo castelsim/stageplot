@@ -3297,6 +3297,31 @@ t("sigle italiane (convenzioni orchestra): Tr non Tpt, Sax A/T/B non ASax, Tbn B
   eq(sig("musTromboneBasso"), "Tbn B", "trombone basso non deve matchare 'basso'→Bass");
   eq(sig("corno"), "Cor"); eq(sig("vlnpost"), "Vln"); eq(sig("violoncello"), "Vc"); eq(sig("trombone"), "Tbn");
 });
+/* 11/11/2026 — segnalazione da Valdagno (schermate di Simone 16:31-16:33: «perché le etichette non sono specifiche per
+   strumento?»). Postazione doppia d'archi con un nome solo a intervallo, «Contrabbasso 1-2», e il secondo nome vuoto (251
+   postazioni così nei progetti veri): la sigla leggeva «1-2» come sezione e posto («Cb I.2», «Vln I.3.4») e il secondo canale
+   si chiamava «Contrabbasso 1-2 2». */
+t("postazione doppia con il nome «… 1-2»: una sigla e un canale per musicista", () => {
+  eq(A.nomiDoppia("Contrabbasso 1-2"), ["Contrabbasso 1", "Contrabbasso 2"], "si spezza in due nomi");
+  eq(A.nomiDoppia("Violino I 3 - 4"), ["Violino I 3", "Violino I 4"], "anche con gli spazi");
+  eq(A.nomiDoppia("Vc 5–6"), ["Vc 5", "Vc 6"], "e col trattino lungo");
+  ok(A.nomiDoppia("Violino 1 3") === null && A.nomiDoppia("Violini 2-5") === null && A.nomiDoppia("Contrabbasso") === null,
+    "non è un intervallo di due: «sezione posto», 2-5, nessun numero");
+  eq(A.abbrOf({ type: "contrabbasso", label: "Contrabbasso 1-2" }), "Cb 1-2", "letto intero: «Cb 1-2», non «Cb I.2»");
+  eq(A.abbrOf({ type: "vlnpost", label: "Violino I 3-4" }), "Vln I 3-4", "letto intero: «Vln I 3-4», non «Vln I.3.4»");
+  eq(A.abbrOf({ type: "vlnpost", label: "Violino 1 3" }), "Vln I.3", "«sezione posto» resta come prima");
+  const cb = { type: "contrabbasso", doppia: true, label: "Contrabbasso 1-2", labelMode: "abbr" };
+  eq(A.lblTesti(cb), ["Cb 1", "Cb 2"], "in sigla: una per musicista");
+  eq(A.lblTesti(Object.assign({}, cb, { labelMode: "full" })), ["Contrabbasso 1-2", ""], "a nome intero resta il testo scritto");
+  eq(A.lblTesti(Object.assign({}, cb, { label2: "Contrabbasso 7" })), ["Cb 1-2", "Cb 7"], "col secondo nome scritto vale quello");
+  eq(A.lblTesti(Object.assign({}, cb, { abbr: "CB" })), ["CB", ""], "una sigla scritta a mano resta");
+  ok(/var _lt=lblTesti\(it\), _t1 = _lt\[0\], _t2 = _lt\[1\];/.test(appjs) && /var fsz=lblSizeOf\(it\), _ltq=lblTesti\(it\), t1=_ltq\[0\], t2=_ltq\[1\];/.test(appjs), "palco e PDF passano dalla stessa funzione");
+  reset();
+  const v = add("vlnpost", 300, 300); v.doppia = true; v.label = "Violino I 3-4"; v.label2 = "";
+  eq(chans(v).map((c) => c.name), ["Violino I 3", "Violino I 4"], "canali: «Violino I 3» e «Violino I 4», non «… 3-4» e «… 3-4 2»");
+  v.label = "Violino I 3"; eq(chans(v).map((c) => c.name), ["Violino I 3", "Violino I 3 2"], "senza intervallo, come prima");
+});
+
 
 console.log("\nAudit — voci senza mic (L8) + nomi canale duplicati (B4):");
 /* Il criterio è UNO: la voce produce canali? Dal 27/07 il cantante nasce col suo microfono (micMode
@@ -3673,6 +3698,65 @@ t("A2: la pedana ruotata si misura ruotata", () => {
   eq(pedRilievi().length, 0, "ruotata: scala e parapetto la toccano");
   A.state.items.find((x) => x.type === "pedana").rot = 0;   /* non ruotata: y 350-450, la scala a 500-590 è lontana */
   eq(pedRilievi()[0].msg, "Pedana alta 1 m senza scala: sopra 1 m si consiglia un accesso.", "dritta: la scala non la tocca più");
+  reset();
+});
+
+/* ═══ GRADINI DELLA SCALA (11/11/2026, segnalazione CONCERTI del 05/11): «perché disegni molti più gradini di
+   quelli che in realtà ci sono». Alzata ~20 cm; la scala prende l'altezza della pedana che tocca. ═══ */
+t("Scala: gradini = altezza della pedana / 20 cm (h40 = 2, h60 = 3), mai meno di 1", () => {
+  eq(A.scalaGradini(40), 2, "h40"); eq(A.scalaGradini(60), 3, "h60"); eq(A.scalaGradini(20), 1, "h20");
+  eq(A.scalaGradini(100), 5, "h100"); eq(A.scalaGradini(10), 1, "sotto 20 cm: uno");
+  eq(A.scalaGradini(0), 1, "zero: uno"); eq(A.scalaGradini(NaN), 2, "altezza ignota: come una pedana di serie (h40)");
+  ok(A.scalaGradini(400) <= 12, "tetto: oltre non si disegna");
+  eq(A.scalaGradini(50), 3, "h50: a metà si arrotonda per eccesso"); eq(A.scalaGradini(30), 2, "h30: 1,5 alzate → 2"); eq(A.scalaGradini(35), 2, "h35");
+});
+t("Scala: l'altezza è quella della pedana che la tocca (la più alta se sono più d'una), 40 se non ne tocca", () => {
+  reset();
+  add("pedana", 400, 300, { h: 60 });                 /* x 300-500, y 250-350 */
+  const s = add("scala", 400, 395);                   /* 60×90: y 350-440, appoggiata al bordo sotto */
+  eq(A.scalaH(s), 60, "tocca la h60");
+  s.y = 700; eq(A.scalaH(s), 40, "lontana da tutto: 40, come una pedana di serie");
+  reset();
+  add("pedana", 400, 300, { h: 60 }); add("pedana", 600, 300, { h: 80 });   /* x 300-500 e 500-700 */
+  const s2 = add("scala", 500, 395);
+  eq(A.scalaH(s2), 80, "tocca due pedane: vale la più alta");
+  A.state.items.find((x) => x.type === "pedana" && x.h === 80).h = 20; A.state.items.find((x) => x.type === "pedana" && x.x === 400).h = 60;
+  eq(A.scalaH(s2), 60, "la più alta anche se nell'elenco viene prima");
+  reset();
+  add("pedana", 400, 300, { h: 100, rot: 90 });       /* ruotata: x 350-450, y 200-400 */
+  const s3 = add("scala", 400, 445);
+  eq(A.scalaH(s3), 100, "la pedana ruotata si misura ruotata");
+  reset();
+});
+t("Scala: il disegno ha tanti riquadri quanti i gradini (h40 → 2, h60 → 3), e il cartiglio lo dice", () => {
+  reset();
+  add("pedana", 400, 300, { h: 60 });
+  const s = add("scala", 400, 395);
+  const righe = (svg) => (svg.match(/<line class="ic thin"/g) || []).length;
+  /* righe = (gradini − 1) separatori + 1 freccia di salita (d ≥ 50) */
+  eq(righe(A.TYPES.scala.draw(s)), 3 - 1 + 1, "h60: 3 gradini = 2 separatori + la freccia");
+  eq(A.scalaH(s), 60, "h60");
+  const pd = A.state.items.find((x) => x.type === "pedana"); pd.h = 40;
+  eq(righe(A.TYPES.scala.draw(s)), 2 - 1 + 1, "h40: 2 gradini = 1 separatore + la freccia");
+  pd.h = 100;
+  eq(righe(A.TYPES.scala.draw(s)), 5 - 1 + 1, "h100: 5 gradini");
+  /* cartiglio: la quota accanto alla scala dice altezza e gradini, come quella della pedana */
+  A._lblSink = []; A.itemMarkup(s); const lb = A._lblSink.join(""); A._lblSink = null;
+  ok(/h100 · 5 gradini/.test(lb), "quota della scala: " + lb.slice(0, 300));
+  /* di lato, ruotata: dalla parte con più spazio (la scala a x 400 su un palco di 1200 ha più spazio a destra) */
+  const quotaLato = (m) => (m.match(/<text class="lbl sub" x="(-?[\d.]+)" y="0"[^>]*>h\d+ · /) || [])[1];
+  eq(+quotaLato(lb), 30 + 12, "di serie a destra: mezza larghezza 30 + 12");
+  ok(/rotate\(90\)|rotate\(-90\)/.test(lb.match(/<text class="lbl sub"[^>]*>h\d+ · /)[0]) || /transform=/.test(lb.match(/<text class="lbl sub"[^>]*>h\d+ · /)[0]), "ruotata sul lato");
+  s.x = 1000; A._lblSink = []; A.itemMarkup(s); const lbL = A._lblSink.join(""); A._lblSink = null;
+  eq(+quotaLato(lbL), -(30 + 12), "vicino al bordo destro: va a sinistra");
+  s.x = 400; s.dimSide = "left"; A._lblSink = []; A.itemMarkup(s); const lbS = A._lblSink.join(""); A._lblSink = null;
+  eq(+quotaLato(lbS), -(30 + 12), "col lato scelto («sinistra») vince la scelta");
+  delete s.dimSide;
+  pd.h = 20; A._lblSink = []; A.itemMarkup(s); const lb1 = A._lblSink.join(""); A._lblSink = null;
+  ok(/h20 · 1 gradino</.test(lb1), "singolare: " + lb1.slice(0, 300));
+  /* scala bassa e stretta (d < 50): niente freccia, i separatori restano */
+  s.d = 40; s.y = 365; pd.h = 60;   /* y 345-385: tocca ancora la pedana */
+  eq(righe(A.TYPES.scala.draw(s)), 3 - 1, "d < 50: 2 separatori, nessuna freccia");
   reset();
 });
 
@@ -5566,6 +5650,30 @@ t("anteprima grande: le stesse azioni della riga, che premono quelle vere", () =
   ok(/\} else if\(cls!=="cloudLock"\) chiudiAnteprima\(true\);\s*if\(ancora\) ancora\.click\(\);/.test(g), "preme il pulsante vero (stesse conferme); chiude l'anteprima tranne per Blocca ed Elimina, la cui conferma sta sopra");
   ok(/class="cp-azioni"><button type="button" class="btn primary cp-apri">Apri<\/button><span class="cp-icone"><\/span>/.test(appjs), "Apri e icone nello stesso ordine della riga");
 });
+/* 11/11/2026 — Simone (segnalazione delle 16:47): «quando siamo in questa finestra ci sono ancora grosse difficoltà ad andare
+   avanti e indietro nei progetti». Le frecce erano piccole in basso a sinistra, i tasti ← → funzionavano solo col fuoco
+   dentro l'anteprima (bastava un clic sull'immagine per perderli), nessun «3 di 16», e l'elenco dietro restava fermo. */
+t("anteprima dei progetti: frecce grandi ai lati, «3 di 16», tasti ovunque, l'elenco segue", () => {
+  eq(A.contaAnteprimaTxt(2, 16), "3 di 16", "il contatore");
+  eq(A.contaAnteprimaTxt(0, 1), "1 di 1", "un progetto solo");
+  const ov = { contains: (x) => x && x.dentro === true };
+  ok(A.anteprimaPrendeTasto({ tagName: "BODY" }, ov), "fuoco sulla pagina (dopo un clic sull'immagine): i tasti funzionano");
+  ok(A.anteprimaPrendeTasto({ tagName: "BUTTON", dentro: true }, ov), "fuoco su un pulsante dell'anteprima: funzionano");
+  ok(A.anteprimaPrendeTasto({ tagName: "BUTTON" }, ov) === false, "fuoco in un'altra finestra sopra (conferma di Elimina): no");
+  ok(A.anteprimaPrendeTasto({ tagName: "INPUT", dentro: true }, ov) === false, "mentre si scrive in un campo: no");
+  ok(A.anteprimaPrendeTasto({ tagName: "DIV", isContentEditable: true }, ov) === false, "testo modificabile: no");
+  ok(A.anteprimaPrendeTasto(null, ov), "nessun elemento col fuoco: sì");
+  const g = appjs.slice(appjs.indexOf("function apriAnteprima(id, daChi, senzaFuoco){"), appjs.indexOf("try{ window.__cloudAnteprima="));
+  ok(/<div class="cp-img"><button type="button" class="cp-nav cp-lato cp-prec" data-d="-1" aria-label="Progetto precedente">/.test(g)
+    && /<button type="button" class="cp-nav cp-lato cp-succ" data-d="1" aria-label="Progetto successivo">/.test(g), "le frecce stanno ai lati dell'immagine");
+  ok(/class="cp-conta" aria-live="polite"/.test(g), "il contatore si legge anche con lo screen reader");
+  ok(/document\.addEventListener\("keydown", function\(e\)\{\s*var ov=document\.getElementById\("cloudPrev"\);\s*if\(!ov \|\| ov\.hidden \|\| !anteprimaPrendeTasto\(document\.activeElement, ov\)\) return;/.test(g), "i tasti si ascoltano sulla pagina, non solo dentro l'anteprima");
+  ok(/\}, true\);/.test(g), "in cattura: arrivano prima delle scorciatoie dell'editor");
+  ok(/riga\.classList\.add\("cp-corrente"\)/.test(g) && /scrollIntoView\(\{block:"nearest"\}\)/.test(g), "la riga dell'elenco dietro si evidenzia e scorre");
+  ok(/#cloudPrev \.cp-lato\{[^}]*width:52px;height:52px/.test(stylesCss), "frecce da 52 px");
+  ok(/#cloudPrev \.cp-box\{[^}]*max-width:920px/.test(stylesCss), "anteprima più grande");
+  ok(/\.cloudRiga\.cp-corrente\{/.test(stylesCss), "la riga corrente si vede");
+});
 t("Duplica apre la copia nell'editor", () => {
   const f = appjs.slice(appjs.indexOf("function dupProject(id){"), appjs.indexOf("function renameProject(id){"));
   ok(/\.insert\(\{[^}]*\}\)\.select\("id"\)\.single\(\)/.test(f), "l'inserimento restituisce l'id della copia");
@@ -5579,7 +5687,7 @@ t("anteprima grande: eliminato un progetto, si passa al successivo", () => {
 t("anteprima grande: blocca resta nella finestra, misura fissa", () => {
   ok(/if\(cls!=="cloudLock"\) chiudiAnteprima\(true\);/.test(appjs), "Blocca/Sblocca non chiude l'anteprima");
   ok(/if\(pv && !pv\.hidden\)\{ var pvId=pv\.getAttribute\("data-id"\);[\s\S]{0,160}apriAnteprima\(pvId, null, true\)/.test(appjs), "a lista ridisegnata l'anteprima si aggiorna (lucchetto nuovo) senza rubare il fuoco");
-  ok(/#cloudPrev \.cp-box\{[^}]*height:min\(600px,88vh\)/.test(stylesCss), "altezza fissa: i pulsanti non si spostano da un progetto all'altro");
+  ok(/#cloudPrev \.cp-box\{[^}]*height:min\(720px,90vh\)/.test(stylesCss), "altezza fissa: i pulsanti non si spostano da un progetto all'altro");
   ok(/#confirmModal\{z-index:300\}/.test(stylesCss) && /#cloudPrev\{position:fixed;inset:0;z-index:210/.test(stylesCss), "la conferma del blocco sta sopra l'anteprima");
 });
 t("elenco progetti: miniature leggere, sicure, e anteprima grande", () => {
@@ -29830,6 +29938,24 @@ t("ogni cartella in radice con un index.html è nell'elenco pubblicato da pages.
   ok(pagine.length > 5, "premessa: le pagine si trovano (" + pagine.join(", ") + ")");
   const mancano = pagine.filter((d) => !elenco.has(d));
   eq(mancano, [], "cartelle pubbliche fuori dall'elenco del deploy (online darebbero 404)");
+});
+
+/* 11/11/2026 — segnalazione di Simone (c5cce908, da https://stageplot.it/app/ a 1490×779): «qua in alto a sinistra dovrebbe
+   esserci il logo stageplot.it». Il marchio è «stageplot.it», col .it (decisione del 07/11), vettoriale come nel kit di marca. */
+t("editor: in alto a sinistra il logo stageplot.it, vettoriale, che porta alla home", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  const h1 = (html.match(/<h1 class="brand">[\s\S]*?<\/h1>/) || [""])[0];
+  ok(h1, "premessa: c'è il titolo del marchio");
+  ok(!/>STAGE PLOT</.test(h1), "non più la scritta «STAGE PLOT»");
+  ok(/<a [^>]*href="\/"[^>]*aria-label="stageplot\.it[^"]*"/.test(h1), "un link alla home, che si chiama stageplot.it per chi usa lo screen reader");
+  ok(/<svg[^>]*class="brand-full"[^>]*viewBox="0 0 962\.94 200"/.test(h1), "il logo orizzontale del kit di marca (simbolo + scritta), in SVG");
+  ok(/<svg[^>]*class="brand-sym"[^>]*viewBox="0 0 460 460"/.test(h1), "e il simbolo piccolo per quando lo spazio è poco");
+  ok(/fill="currentColor"/.test(h1) && /fill="#0d9488"/.test(h1), "«stageplot» col colore del testo (si legge anche col tema scuro), «.it» verde acqua");
+  ok(!/<img|\.png|\.jpg/.test(h1), "niente immagini raster");
+  ok(/<span class="sr-only">[^<]*stage plot in scala/.test(h1), "la frase per screen reader e motori di ricerca resta");
+  const mtop = html.slice(html.indexOf('<div id="mTop">'), html.indexOf('<div id="mTop">') + 3000);
+  ok(/<a class="mtop-logo" href="\/" aria-label="stageplot\.it[^"]*">\s*<svg[^>]*viewBox="0 0 460 460"/.test(mtop), "sul telefono il simbolo, accanto al titolo");
+  ok(/@media \(min-width:881px\) and \(max-width:1210px\)\{[^}]*header \.brand \.brand-full\{display:none\}/.test(stylesCss), "fra 881 e 1210 px solo il simbolo");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
