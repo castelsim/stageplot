@@ -4621,6 +4621,8 @@ body.cust-contorno .item.selected .selbox{display:none}
     <!-- NOTA sull'elemento (30/07): quello che il disegno non dice — «shaker, claves, güiro»,
          «ampli fornito dalla band», «da accordare». Sul palco resta un puntino accanto al nome:
          una nota che non si vede è una nota che nessuno legge. Il testo esce nella lista Note. -->
+    <!-- SE NON DISPONIBILE (12/11/2026): per gli elementi «Fornito da: Teatro», l'alternativa che il teatro può offrire; esce in «Materiali richiesti» del rider -->
+    <div id="pAlternativaWrap" style="display:none"><label for="pAlternativa">Se non disponibile <small class="lbl-note">— alternativa per il teatro</small></label><input type="text" id="pAlternativa" maxlength="80" autocomplete="off" placeholder="es. tastiera amplificata dell'orchestra"></div>
     <div id="pNoteWrap">
       <textarea aria-label="Note" id="pNote" rows="2" maxlength="140" placeholder="es. shaker, claves, güiro"></textarea>
       <div class="prop-hint" id="pNoteHint">Va nella lista Note del rider; sul palco compare un puntino accanto al nome.</div>
@@ -5531,6 +5533,15 @@ body.cust-contorno .item.selected .selbox{display:none}
         <label style="font-size:11px;color:var(--text-2,#374151)">Luci<textarea id="rdLuci" rows="2" class="rd-i rd-ta"></textarea></label>
         <label style="font-size:11px;color:var(--text-2,#374151)">Personale al service<textarea id="rdPersonale" rows="2" class="rd-i rd-ta"></textarea></label>
         <label style="font-size:11px;color:var(--text-2,#374151)">Note<textarea id="rdNote" rows="2" class="rd-i rd-ta"></textarea></label>
+        <!-- MATERIALI RICHIESTI (12/11/2026): sezione opzionale del rider, calcolata dal disegno; spenta di serie -->
+        <label class="chk" style="font-size:11px"><input type="checkbox" id="rdMateriali"> Materiali richiesti nel rider <small class="lbl-note">— sedie, leggii, pedane, prese… dal disegno</small></label>
+        <button type="button" class="btn" id="rdMaterialiCopia" hidden style="font-size:12px;width:auto;justify-self:start">Copia testo per la mail</button>
+        <div id="rdLuciExtra" hidden style="display:grid;gap:4px">
+          <div style="font-size:11px;color:var(--text-3,#6b7280)">Richieste luci per l'orchestra (opzionali):</div>
+          <label class="chk" style="font-size:11px"><input type="checkbox" id="rdLuciNoFumo"> Niente fumo/haze</label>
+          <label class="chk" style="font-size:11px"><input type="checkbox" id="rdLuciSeparata"> Alimentazione luci separata dall'audio</label>
+          <label class="chk" style="font-size:11px"><input type="checkbox" id="rdLuciLeggii"> Leggii con luce</label>
+        </div>
       </div>
     </details>
     <div class="clsec-head" id="inHead" title="Espandi/chiudi Input patch">
