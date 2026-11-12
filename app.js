@@ -35038,7 +35038,8 @@ function pdfListGeneric(doc, key, shared){
   if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); y=pdfTitoloLuogo(doc, M, y, 8); }
   var sub=cfg.sub?cfg.sub(d):"";
   if(sub){ doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
-    var _sr=pdfTxtRighe(sub, 178, 9.5, false); _sr.forEach(function(t,k){ doc.text(t, M, y+k*4.4); }); y+=8+(_sr.length-1)*4.4; }
+    var _sr=[]; String(sub).split("\n").forEach(function(_l){ pdfTxtRighe(_l, 178, 9.5, false).forEach(function(_x){ _sr.push(_x); }); });   /* più righe: «\n» (organico, L1-c) */
+    _sr.forEach(function(t,k){ doc.text(t, M, y+k*4.4); }); y+=8+(_sr.length-1)*4.4; }
   /* colonne larghe in proporzione al testo: le liste tecniche hanno una colonna lunga (l'apparecchio)
      e diverse corte (quantità, altezza), e a larghezza fissa la lunga si troncava.
      LARGHEZZE (13/10/2026): le colonne di numeri sono larghe quanto la loro scritta più larga
@@ -35083,7 +35084,7 @@ function pdfListGeneric(doc, key, shared){
   d.rows.forEach(function(r, i){
     var vals=cfg.cols.map(function(c){ return c.f(r,d); });   /* d: alcune colonne dipendono dal dataset (es. hasFoh) */
     var colori=cfg.cols.map(function(c){ return (c.warn && c.warn(r)) ? "#b45309" : "#111827"; });   /* i buchi si vedono anche in stampa */
-    riga(vals, !!(cfg.rowBold && cfg.rowBold(r)), colori, i>0, (cfg.rowBold && cfg.rowBold(r)) ? "#f1f5f9" : null);   /* rowBold: intestazioni di sezione e totali (organico, 12/11) */
+    riga(vals, !!(cfg.rowBold && cfg.rowBold(r)), colori, i>0, cfg.rowFondo ? cfg.rowFondo(r) : ((cfg.rowBold && cfg.rowBold(r)) ? "#f1f5f9" : null));   /* rowBold: intestazioni di sezione e totali (organico, 12/11) */
   });
   return true;
 }
@@ -36396,9 +36397,10 @@ function pdfListConfig(){
             {h:"Durata",num:1,f:function(r){return r.durata||(r.segno?"":"—");},warn:function(r){return !r.segno && !r.durata;}},
             {h:"Note",f:function(r){return r.note;}}] },
     organico:{ title:"Organico", color:"#7c3aed", data:(typeof organicoList==="function"?organicoList:null),
-      sub:function(){ return organicoTitolo(); },
-      rowCls:function(r){ return r.tipo==="sez" ? "org-sez" : (r.tipo==="tot" ? "org-tot" : ""); },
-      rowBold:function(r){ return r.tipo==="sez" || r.tipo==="tot"; },
+      sub:function(){ var r=organicoRiepilogo(); return organicoTitolo()+(r?"\n"+r:""); },
+      rowCls:function(r){ return r.tipo==="sez" ? "org-sez" : ((r.tipo==="tot" || r.tipo==="totorch") ? "org-tot" : (r.tipo==="sub" ? "org-sub" : "")); },
+      rowBold:function(r){ return r.tipo!=="riga"; },
+      rowFondo:function(r){ return r.tipo==="sez" ? "#f1f5f9" : ((r.tipo==="tot" || r.tipo==="totorch") ? "#e2e8f0" : null); },
       cols:[{h:"Sezione e strumento",f:function(r){return r.nome;}},{h:"N.",num:1,f:function(r){return r.n===""?"":r.n;}}] },
     rf:{ title:"Lista RF", color:"#4f46e5", data:(typeof rfList==="function"?rfList:null),
       sub:function(d){ return d.count+" frequenz"+(d.count===1?"a":"e")+" RF"; },
@@ -36417,7 +36419,7 @@ function listPreviewHtml(key){
   return '<div class="pdf-list-sheet">'+
     '<div class="pdf-list-hd" style="background:'+cfg.color+'">'+esc(cfg.title)+'<span class="pdf-list-date">'+esc(dataDocumento())+'</span></div>'+
     (state.titolo?'<div class="pdf-list-tt">'+esc(state.titolo+(state.luogo?" — "+state.luogo:""))+'</div>':'')+
-    (cfg.sub?'<div class="pdf-list-sub">'+esc(cfg.sub(d)||"")+'</div>':'')+
+    (cfg.sub?'<div class="pdf-list-sub">'+esc(cfg.sub(d)||"").replace(/\n/g,"<br>")+'</div>':'')+
     '<table class="pdf-list-tbl"><thead>'+thead+'</thead><tbody>'+tbody+'</tbody>'+tfoot+'</table></div>';
 }
 /* ═══ ORGANICO (12/11/2026, specifica S7 dalla posta di produzione) ═══
@@ -36437,7 +36439,7 @@ function organicoGruppi(){
   add("sxa","LEGNI","Sax alto","Sax alto",["saxalto"]); add("sxt","LEGNI","Sax tenore","Sax tenore",["saxtenore"]); add("sxb","LEGNI","Sax baritono","Sax baritono",["saxbaritono"]);
   add("bat","RITMICA","Batteria","Batterie",["batteria","edrums"]);
   add("tim","RITMICA","Timpani","Timpani",["timpani","timpani3","timpani2"]);
-  add("perc","RITMICA","Percussioni","Percussioni",["percussioni","percussionistaR","grancassa","piatticoppia","piatto","rullante","campane","chimes","tamtam","glockenspiel","xilofono","vibrafono","marimba","triangoloperc","crotali","templeblocks","woodblock","flexaton","tamburello","conga","quinto","tumba","bongos","timbales","cajon","cajonpost","djembe","surdo"]);
+  add("perc","RITMICA","Percussioni (postazioni)","Percussioni (postazioni)",["percussioni","percussionistaR","grancassa","piatticoppia","piatto","rullante","campane","chimes","tamtam","glockenspiel","xilofono","vibrafono","marimba","triangoloperc","crotali","templeblocks","woodblock","flexaton","tamburello","conga","quinto","tumba","bongos","timbales","cajon","cajonpost","djembe","surdo"]);
   add("pf","RITMICA","Pianoforte","Pianoforti",["grancoda","mezzacoda","pianoverticale","stagepiano"]);
   add("tas","RITMICA","Tastiera","Tastiere",["tastiera","doppiatastiera","moogsub37","organohammond","clavicembalo","organoconsole"]);
   add("cel","RITMICA","Celesta","Celeste",["celesta"]);
@@ -36479,25 +36481,37 @@ function organicoTitolo(){
   return ["Organico", String(state.luogo||"").trim(), dt, v?("v"+v):""].filter(Boolean).join(" – ");
 }
 function organicoList(){
-  var D=organicoDati(), rows=[], tot=0;
-  if(!(D.fuori.dir>0 || D.orch>=8)) return {rows:[], tot:0, formula:""};   /* non è un organico d'orchestra: la pagina non si propone */
+  var D=organicoDati(), rows=[], strum=0, voci=0;
+  if(!(D.fuori.dir>0 || D.orch>=8)) return {rows:[], tot:0, formula:"", strumentisti:0, voci:0};   /* non è un organico d'orchestra: la pagina non si propone */
   var formula="";
-  organicoSezioni().forEach(function(sez){
-    var mine=Object.keys(D.righe).map(function(k){ return D.righe[k]; }).filter(function(r){ return D.G[D.idx[r.id]].sez===sez; });
-    if(!mine.length) return;
+  var tutte=Object.keys(D.righe).map(function(k){ return D.righe[k]; });
+  /* una sezione: intestazione (con la formula degli archi), le righe, e SOTTO il totale del gruppo se ha più di una riga (L1-c) */
+  function sezione(sez){
+    var mine=tutte.filter(function(r){ return D.G[D.idx[r.id]].sez===sez; });
+    if(!mine.length) return 0;
     mine.sort(function(a,b){ return (D.idx[a.id]-D.idx[b.id]) || (a.sec<b.sec?-1:a.sec>b.sec?1:0); });
-    var sub=mine.reduce(function(a,r){ return a+r.n; },0); tot+=sub;
-    var head=sez;
+    var sub=mine.reduce(function(a,r){ return a+r.n; },0), head=sez;
     if(sez==="ARCHI"){
       var c={v1:0,v2:0,vle:0,vc:0,cb:0}; mine.forEach(function(r){ c[r.id]+=r.n; });
       var f=[c.v1,c.v2,c.vle,c.vc,c.cb]; while(f.length && !f[f.length-1]) f.pop();
-      formula=f.join("-"); if(formula) head+=" · "+formula;
+      formula=f.join("-"); if(formula) head+=" \u00b7 "+formula;
     }
-    rows.push({tipo:"sez", nome:head, n:sub});
+    rows.push({tipo:"sez", nome:head, n:""});
     mine.forEach(function(r){ var g=D.G[D.idx[r.id]]; rows.push({tipo:"riga", nome:(r.n===1?g.s:g.p)+(r.sec?" ("+r.sec+")":""), n:r.n}); });
-  });
+    if(mine.length>1) rows.push({tipo:"sub", nome:"Totale "+sez.toLowerCase(), n:sub});
+    return sub;
+  }
+  organicoSezioni().forEach(function(sez){ if(sez!=="VOCI") strum+=sezione(sez); });
   var alt=Object.keys(D.altro);
-  if(alt.length){ var sa=alt.reduce(function(a,k){ return a+D.altro[k]; },0); tot+=sa; rows.push({tipo:"sez", nome:"ALTRO", n:sa}); alt.forEach(function(k){ rows.push({tipo:"riga", nome:k, n:D.altro[k]}); }); }
+  if(alt.length){   /* ciò che non si sa classificare, in coda agli strumentisti, col nome com'è: mai perso */
+    var sa=alt.reduce(function(a,k){ return a+D.altro[k]; },0); strum+=sa;
+    rows.push({tipo:"sez", nome:"ALTRO", n:""}); alt.forEach(function(k){ rows.push({tipo:"riga", nome:k, n:D.altro[k]}); });
+    if(alt.length>1) rows.push({tipo:"sub", nome:"Totale altro", n:sa});
+  }
+  var haVoci=Object.keys(D.righe).some(function(k){ return D.G[D.idx[D.righe[k].id]].sez==="VOCI"; });
+  if(haVoci) rows.push({tipo:"totorch", nome:"TOTALE ORCHESTRA", n:strum});   /* gli strumentisti, prima dei cori: come nei fogli veri («TOTALE ORCHESTRA 64», poi «TOTALE 67») */
+  voci=sezione("VOCI");
+  var tot=strum+voci;
   rows.push({tipo:"tot", nome:"TOTALE", n:tot});
   if(D.fuori.dir || D.fuori.osp || D.fuori.staff){
     rows.push({tipo:"sez", nome:"FUORI DAL TOTALE", n:""});
@@ -36505,7 +36519,13 @@ function organicoList(){
     if(D.fuori.osp) rows.push({tipo:"riga", nome:"Ospiti", n:D.fuori.osp});
     if(D.fuori.staff) rows.push({tipo:"riga", nome:"Staff", n:D.fuori.staff});
   }
-  return {rows:rows, tot:tot, formula:formula};
+  return {rows:rows, tot:tot, formula:formula, strumentisti:strum, voci:voci};
+}
+/* «48 strumentisti + 6 voci»: la convenzione «48 POP + 6 VOC» dei fogli, scritta per esteso */
+function organicoRiepilogo(){
+  var L=organicoList(); if(!L.rows.length || !(L.strumentisti+L.voci)) return "";
+  var a=L.strumentisti ? L.strumentisti+" "+(L.strumentisti===1?"strumentista":"strumentisti") : "", b=L.voci ? L.voci+" "+(L.voci===1?"voce":"voci") : "";
+  return [a,b].filter(Boolean).join(" + ");
 }
 function organicoPdf(shared){
   var run=function(doc){

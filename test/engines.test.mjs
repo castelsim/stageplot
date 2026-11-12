@@ -13666,7 +13666,9 @@ t("Organico: totali per sezione = elementi sul palco, ordine fisso FIATI→LEGNI
   s5Fix(orgFix());
   const r = orgRows(), per = (nome) => r.find((x) => x.nome === nome);
   eq(orgSez().filter((x) => !/FUORI/.test(x)).map((x) => x.split(" ")[0]), ["FIATI", "LEGNI", "RITMICA", "ARPA", "ARCHI"], "l'ordine dei fogli di convocazione: " + orgSez());
-  eq([per("FIATI").n, per("LEGNI").n, per("RITMICA").n, per("ARPA").n, per("ARCHI · 10-8-6-6-3").n], [10, 8, 3, 1, 33], "subtotali = elementi disegnati (4+2+3+1, 2×4, timpani+percussioni+pianoforte, 1, 10+8+6+6+3)");
+  eq(r.filter((x) => x.tipo === "totorch").length, 0, "senza voci non c'è «TOTALE ORCHESTRA»: basta il TOTALE");
+  eq(["Totale fiati", "Totale legni", "Totale ritmica", "Totale archi"].map((k) => per(k).n), [10, 8, 3, 33], "totali sotto ogni gruppo = elementi disegnati (4+2+3+1, 2×4, timpani+percussioni+pianoforte, 10+8+6+6+3)");
+  eq([per("Totale arpa"), per("ARPA").n], [undefined, ""], "un gruppo di una riga sola non ripete il totale: la riga dice già 1");
   const tot = r.find((x) => x.tipo === "tot"); eq([tot.nome, tot.n], ["TOTALE", 55], "totale: 10+8+3+1+33");
   eq(r.filter((x) => x.tipo === "riga").map((x) => [x.nome, x.n]).slice(0, 4), [["Corni", 4], ["Trombe", 2], ["Tromboni", 3], ["Tuba", 1]], "dentro i fiati: corni, trombe, tromboni, tuba");
   const i = r.findIndex((x) => x.nome === "FUORI DAL TOTALE");
@@ -13692,13 +13694,13 @@ t("Organico: doppie e violini senza sezione, strumento secondario tra parentesi,
   eq(A.organicoList().formula, "5-0-2", "vln1x2 = 2, un violino senza sezione = violini I, «doppia» = 2, violax2 = 2 viole");
   s5Fix(orgFix().concat([{ id: "fo", type: "flauto", x: 100, y: 100, label: "Flauto/Ottavino" }, { id: "fs", type: "flauto", x: 200, y: 100, label: "Fl/Sax" }]));
   const r = orgRows(); eq(r.filter((x) => /^Flaut/.test(x.nome)).map((x) => [x.nome, x.n]), [["Flauti", 2], ["Flauto (Ottavino)", 1], ["Flauto (Sax)", 1]], "il secondario in parentesi, non due musicisti: " + JSON.stringify(r.filter((x) => /Flaut/.test(x.nome))));
-  eq(r.find((x) => x.nome === "LEGNI").n, 10, "i legni contano 8+2 (un posto = un musicista)");
+  eq(r.find((x) => x.nome === "Totale legni").n, 10, "i legni contano 8+2 (un posto = un musicista)");
   s5Fix(orgFix().map((x) => x.id === "v10" ? Object.assign(x, { label: "Violino I Mario Rossi" }) : x).concat([{ id: "lb", type: "corno", x: 100, y: 100, label: "Corno — Giulia Bianchi" }]));
   ok(!/Rossi|Bianchi|Mario|Giulia/.test(JSON.stringify(A.organicoList())) && !/Rossi|Bianchi/.test(JSON.stringify(A.organicoList().rows)), "nessun nome di persona (le etichette libere non entrano)");
   s5Fix(orgFix().concat([{ id: "mt", type: "musTromboneBasso", x: 100, y: 100 }]));
   A.state.items.push({ id: "mx", type: "musFlauto", x: 200, y: 100 });   /* un tipo d'orchestra che la mappa non conosce (dopo il caricamento, che altrimenti lo converte) */
   ok(orgRows().find((x) => x.nome === "Tromboni").n === 4, "il trombone basso è un trombone");
-  const alt = orgRows().filter((x) => x.nome === "ALTRO" || x.nome === "Flauto musicista"); eq(alt.map((x) => [x.nome, x.n]), [["ALTRO", 1], ["Flauto musicista", 1]], "ciò che non si sa classificare in coda, col nome com'è, e conta nel totale");
+  const alt = orgRows().filter((x) => x.nome === "ALTRO" || x.nome === "Flauto musicista"); eq(alt.map((x) => [x.nome, x.n]), [["ALTRO", ""], ["Flauto musicista", 1]], "ciò che non si sa classificare in coda agli strumentisti, col nome com'è, e conta nel totale");
   eq(orgRows().find((x) => x.tipo === "tot").n, 55 + 1 + 1, "totale con trombone basso e riga in coda");
   reset();
 });
@@ -13721,7 +13723,7 @@ t("Organico: una pillola dopo il rider (Esporta, anteprima, link condiviso), tit
   ok(/var PDF_TECH_ORDER=\["rider","organico","responsabilita",/.test(appjs), "ordine unico: subito dopo il rider");
   ok(/if\(organicoDisponibile\(\)\)\{ pages\.push\(\{key:"organico", label:"Organico \(orchestra\)"\}\); \}/.test(appjs), "la pillola nasce solo se c'è l'orchestra");
   ok(/organico:function\(\)\{ organicoPdf\(doc\); \}/.test(appjs), "e buildPdfDoc la stampa");
-  ok(/organico:\{ title:"Organico"/.test(appjs) && /riga\(vals, !!\(cfg\.rowBold && cfg\.rowBold\(r\)\), colori, i>0, \(cfg\.rowBold && cfg\.rowBold\(r\)\) \? "#f1f5f9" : null\)/.test(appjs), "anteprima e PDF dalla stessa configurazione, con le righe di sezione in grassetto");
+  ok(/organico:\{ title:"Organico"/.test(appjs) && /riga\(vals, !!\(cfg\.rowBold && cfg\.rowBold\(r\)\), colori, i>0, cfg\.rowFondo \? cfg\.rowFondo\(r\) : \(\(cfg\.rowBold && cfg\.rowBold\(r\)\) \? "#f1f5f9" : null\)\)/.test(appjs), "anteprima e PDF dalla stessa configurazione, con le righe di sezione in grassetto");
   const html = A.listPreviewHtml("organico"); ok(/org-sez/.test(html) && /TOTALE/.test(html) && /ARCHI · 10-8-6-6-3/.test(html) && !/Rossi/.test(html), "anteprima: " + html.slice(0, 160));
   const d = s5Doc(); A.organicoPdf(d); const tx = d.pagine.slice(1).reduce((l, pg) => l.concat(pg.testi.map((x) => x.t)), []);
   ok(tx.indexOf("ARCHI · 10-8-6-6-3") > -1 && tx.indexOf("TOTALE") > -1 && tx.indexOf("55") > -1 && tx.indexOf("Direttore") > -1, "PDF: sezioni, formula, totale e direttore fuori: " + tx.slice(0, 20));
@@ -13734,9 +13736,10 @@ t("Organico, casi limite: sax, ritmica, voci, doppie, ospiti, secondari lunghi e
   s5Fix([].concat(orgN("saxalto", 1), orgN("saxtenore", 2), orgN("saxbaritono", 1), orgN("timpani3", 1), orgN("tastiera", 2), orgN("gtstand", 1), orgN("bassstand", 1), orgN("celesta", 1), orgN("batteria", 1),
     orgN("cantante", 2), orgN("corista", 4), orgN("vlnpost", 8, { vsec: 1 }), orgN("direttore", 1)));
   let r = orgRows();
-  eq(r.filter((x) => x.tipo !== "riga").map((x) => x.nome.split(" ")[0]), ["LEGNI", "RITMICA", "ARCHI", "VOCI", "TOTALE", "FUORI"], "sezioni presenti, nell'ordine: " + orgSez());
+  eq(r.filter((x) => x.tipo === "sez" || x.tipo === "tot" || x.tipo === "totorch").map((x) => x.nome.split(" ")[0]), ["LEGNI", "RITMICA", "ARCHI", "TOTALE", "VOCI", "TOTALE", "FUORI"], "sezioni presenti, nell'ordine (TOTALE ORCHESTRA prima dei cori): " + orgSez());
   eq(r.filter((x) => x.tipo === "riga").map((x) => [x.nome, x.n]).slice(0, 10), [["Sax alto", 1], ["Sax tenore", 2], ["Sax baritono", 1], ["Batteria", 1], ["Timpani", 1], ["Tastiere", 2], ["Celesta", 1], ["Chitarra", 1], ["Basso", 1], ["Violini I", 8]], "ogni strumento nella sua riga, in ordine fisso");
-  eq(r.filter((x) => x.nome === "VOCI")[0].n, 6, "VOCI: 2 cantanti + 4 coristi");
+  eq(r.find((x) => x.nome === "Totale voci").n, 6, "VOCI: 2 cantanti + 4 coristi");
+  eq(r.filter((x) => x.tipo === "totorch" || x.tipo === "tot").map((x) => [x.nome, x.n]), [["TOTALE ORCHESTRA", 19], ["TOTALE", 25]], "gli strumentisti (4 sax + 7 ritmica + 8 violini) e poi il totale con i 6 cori");
   eq(r.slice(r.findIndex((x) => x.nome === "VOCI") + 1, r.findIndex((x) => x.nome === "VOCI") + 3).map((x) => [x.nome, x.n]), [["Cantanti", 2], ["Coristi", 4]], "cantanti e coristi");
   /* doppie e ospiti */
   s5Fix([].concat(orgN("vln2x2", 1), orgN("cellix2", 1), orgN("cbx2", 1), orgN("tastiera", 1, { doppia: true }), orgN("vlnpost", 8, { vsec: 1 }),
@@ -13771,6 +13774,42 @@ t("Organico, casi limite: secondari in ordine e tagliati, formule corte in testa
   A.state.versione = 3; eq(A.organicoTitolo().split(" – ").length, 4, "con versione: quattro parti separate da « – »");
   const d = s5Doc(); A.organicoPdf(d); const pg = d.pagine.slice(1)[0];
   const fondi = pg.rett.filter((q) => q.fill === "241,245,249" || /f1f5f9/i.test(q.fill)); ok(fondi.length >= 5, "una banda di fondo per ogni riga di sezione e per il totale (" + fondi.length + ")");
+  reset();
+});
+t("Organico, seguito (L1-c): totale sotto ogni gruppo, «TOTALE ORCHESTRA» prima dei cori, riga «48 strumentisti + 6 voci» sotto il titolo", () => {
+  s5Fix(orgFix().concat(orgN("corista", 6)), { luogo: "Teatro Finto", evDate: "2026-12-01" });
+  const L = A.organicoList(), r = L.rows, ix = (nome) => r.findIndex((x) => x.nome === nome);
+  eq([L.strumentisti, L.voci, L.tot], [55, 6, 61], "strumentisti, voci e totale (direttore, ospite e staff fuori)");
+  eq(["Totale fiati", "Totale legni", "Totale ritmica", "Totale archi"].map((k) => r.find((x) => x.nome === k).n), [10, 8, 3, 33], "un totale sotto ogni gruppo con più righe");
+  eq([r.some((x) => x.nome === "Totale voci"), r.find((x) => x.nome === "Coristi").n], [false, 6], "le voci hanno una riga sola: il numero sta lì, niente totale ripetuto");
+  ok(ix("Tuba") < ix("Totale fiati") && ix("Totale fiati") < ix("LEGNI") && ix("Contrabbassi") < ix("Totale archi") && ix("Totale archi") < ix("TOTALE ORCHESTRA"), "il totale sta SOTTO le righe del gruppo, prima del gruppo dopo");
+  eq(r.filter((x) => x.tipo === "sez").map((x) => x.n), ["", "", "", "", "", "", ""], "le intestazioni di gruppo non portano più il numero (sta sotto)");
+  ok(ix("TOTALE ORCHESTRA") < ix("VOCI") && ix("VOCI") < ix("TOTALE"), "TOTALE ORCHESTRA prima dei cori, TOTALE alla fine");
+  eq([r[ix("TOTALE ORCHESTRA")].n, r[ix("TOTALE")].n, r[ix("TOTALE ORCHESTRA")].tipo], [55, 61, "totorch"], "«TOTALE ORCHESTRA 55», poi «TOTALE 61»");
+  ok(r.some((x) => x.nome === "Percussioni (postazioni)" && x.n === 1), "le percussioni sono postazioni disegnate, e la riga lo dice");
+  eq(A.organicoRiepilogo(), "55 strumentisti + 6 voci", "la riga sotto il titolo");
+  ok(A.pdfListConfig().organico.sub().split("\n").length === 2 && /^Organico – Teatro Finto/.test(A.pdfListConfig().organico.sub()), "titolo e riga di riepilogo (due righe)");
+  const d = s5Doc(); A.organicoPdf(d); const tx = d.pagine.slice(1)[0].testi.map((x) => x.t);
+  ok(tx.indexOf("55 strumentisti + 6 voci") > -1 && tx.indexOf("TOTALE ORCHESTRA") > -1 && tx.indexOf("Totale fiati") > -1, "PDF: riga di riepilogo e totali: " + tx.slice(0, 8).join(" | "));
+  ok(/55 strumentisti \+ 6 voci/.test(A.listPreviewHtml("organico")) && /org-sub/.test(A.listPreviewHtml("organico")), "anteprima e link condiviso: stesse righe");
+  const fondi = d.pagine.slice(1)[0].rett.map((q) => q.fill); ok(fondi.some((f) => /e2e8f0/i.test(f)) && fondi.some((f) => /f1f5f9/i.test(f)), "bande di fondo diverse per le intestazioni e per i totali");
+  /* senza voci: niente «TOTALE ORCHESTRA», solo TOTALE; singolari */
+  s5Fix(orgFix()); eq([A.organicoList().rows.some((x) => x.tipo === "totorch"), A.organicoRiepilogo()], [false, "55 strumentisti"], "senza voci: solo il TOTALE e «55 strumentisti»");
+  s5Fix(orgN("violoncello", 1).concat(orgN("direttore", 1), orgN("corista", 1))); eq(A.organicoRiepilogo(), "1 strumentista + 1 voce", "singolari");
+  s5Fix(orgN("direttore", 1).concat(orgN("corista", 3))); eq(A.organicoRiepilogo(), "3 voci", "solo voci: niente «0 strumentisti»");
+  s5Fix([]); eq(A.organicoRiepilogo(), "", "nessun organico: nessuna riga");
+  /* un gruppo di una riga sola non ripete il totale; ALTRO in coda agli strumentisti, con il suo totale se ha più righe */
+  s5Fix(orgN("vlnpost", 8, { vsec: 1 }).concat(orgN("corista", 2))); A.state.items.push({ id: "x1", type: "musFlauto", x: 100, y: 100 }, { id: "x2", type: "musOboe", x: 200, y: 100 });
+  const r2 = A.organicoList().rows, i2 = (n) => r2.findIndex((x) => x.nome === n);
+  ok(i2("ALTRO") > i2("Totale archi") && i2("Totale altro") > i2("ALTRO") && i2("Totale altro") < i2("TOTALE ORCHESTRA") && r2[i2("Totale altro")].n === 2, "ALTRO, col suo totale, prima di TOTALE ORCHESTRA: " + r2.map((x) => x.nome).join(","));
+  eq(r2[i2("TOTALE ORCHESTRA")].n, 10, "e conta fra gli strumentisti");
+  eq(r2.some((x) => x.nome === "Totale voci"), false, "una sola riga di voci: nessun «Totale voci» ripetuto");
+  s5Fix(orgN("vlnpost", 8, { vsec: 1 })); A.state.items.push({ id: "x1", type: "musFlauto", x: 100, y: 100 });
+  eq(A.organicoList().rows.some((x) => x.nome === "Totale altro"), false, "ALTRO con una sola riga: niente totale ripetuto");
+  s5Fix(orgFix().concat(orgN("corista", 6)));
+  const cfg2 = A.pdfListConfig().organico, th = A.listPreviewHtml("organico");
+  ok(/Organico[^<]*<br>55 strumentisti \+ 6 voci/.test(th), "anteprima: la riga di riepilogo va a capo sotto il titolo: " + th.slice(th.indexOf("pdf-list-sub"), th.indexOf("pdf-list-sub") + 120));
+  eq(["sez", "sub", "tot", "totorch", "riga"].map((t) => [cfg2.rowBold({ tipo: t }), cfg2.rowFondo({ tipo: t })]), [[true, "#f1f5f9"], [true, null], [true, "#e2e8f0"], [true, "#e2e8f0"], [false, null]], "intestazioni con banda chiara, totali di gruppo in grassetto senza banda, totali generali con banda scura");
   reset();
 });
 t("il riferimento del cartiglio, se svuotato, resta svuotato", () => {
