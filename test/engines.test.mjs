@@ -6975,6 +6975,171 @@ t("senza «Esporta avanzato» il cartiglio non scrive peso, rack e canali", () =
   ok(/function pdfCartiglio\([\s\S]{0,900}?pdfCartRighe\(header, titleW\)/.test(appjs) && /function pdfPreviewSvg\([\s\S]{0,3000}?pdfCartRighe\(header, titleColW\)/.test(appjs), "e l'anteprima pure");
 });
 
+/* ═══ MATERIALI RICHIESTI (12/11/2026, specifica S5 dalla posta di produzione: «40 leggii, 42 sedie, 2 sgabelli, 1 podio, 2 prese»,
+   «ciabatte Schuko vicino a…», «pianoforte → tastiera»). Sezione OPZIONALE del rider (casella spenta di serie: i PDF dei progetti salvati restano
+   identici), calcolata dal disegno con le STESSE funzioni del cartiglio: una fonte sola, due uscite. ═══ */
+const s5Doc = () => Object.assign(jsPdfFinto()({ format: "a4", orientation: "portrait" }), { roundedRect() {} });
+const s5Fix = (items, extra) => { reset(); A.loadDoc(Object.assign({ titolo: "Orchestra finta", stage: { w: 1600, d: 1000, blocks: [{ x: 0, y: 0, w: 1600, d: 1000 }] }, inputs: [], outputs: [], items }, extra || {})); A.__elecRes = null; };
+const s5Rider = () => { const d = s5Doc(); A.riderPdf(d); return d.pagine.reduce((l, pg) => l.concat(pg.testi.map((x) => x.t)), []); };
+const s5Orch = () => {   /* 40 leggii, 42 sedie, 2 sgabelli, 1 podio, 12 pedane 2×1 h40 con scalette, 2 ciabatte */
+  const it = []; for (let i = 0; i < 40; i++) it.push({ id: "l" + i, type: "leggio", x: 100 + (i % 20) * 70, y: 100 + Math.floor(i / 20) * 80 });
+  for (let i = 0; i < 42; i++) it.push({ id: "s" + i, type: "sedia", x: 100 + (i % 21) * 70, y: 300 + Math.floor(i / 21) * 80 });
+  it.push({ id: "g1", type: "sgabello", x: 100, y: 600 }, { id: "g2", type: "sgabello", x: 200, y: 600 }, { id: "po", type: "podio", x: 800, y: 800 });
+  for (let i = 0; i < 12; i++) it.push({ id: "p" + i, type: "pedana", x: 200 + (i % 6) * 210, y: 700 + Math.floor(i / 6) * 110, w: 200, d: 100, h: 40 });
+  it.push({ id: "sc1", type: "scala", x: 100, y: 780 }, { id: "sc2", type: "scala", x: 1500, y: 780 });
+  it.push({ id: "gt", type: "comboamp", x: 300, y: 900 }, { id: "ke", type: "tastiera", x: 600, y: 900 }, { id: "cb1", type: "ciabatta", x: 330, y: 930 }, { id: "cb2", type: "ciabatta", x: 630, y: 930 });
+  return it; };
+t("Materiali richiesti: spenti di serie — né nel PDF né nell'anteprima del rider, e nessun dato nuovo", () => {
+  s5Fix(s5Orch());
+  eq(A.materialiRichiesti(), null, "casella spenta: niente");
+  ok(s5Rider().indexOf("MATERIALI RICHIESTI") < 0, "il PDF del rider non ha la sezione");
+  ok(!/Materiali richiesti/.test(A.riderHtml()), "né l'anteprima");
+  eq(Object.keys(A.state.rider), [], "e nessuna chiave nuova nel rider");
+  reset();
+});
+t("Materiali richiesti: sedie, leggii, sgabelli, podio, pedane per misura e moduli, prese e ciabatte — dagli stessi numeri del cartiglio", () => {
+  s5Fix(s5Orch()); A.state.rider.materiali = true;
+  const m = A.materialiRichiesti(); ok(m && m.righe.length >= 3, "la sezione c'è: sedute e leggii, pedane, prese");
+  const tot = A.pdfTotals({ tecnici: false }), c = A.countAccessori();
+  const n = (re) => { const r = tot.find((x) => re.test(x)); return r ? +r.split(" ")[0] : 0; };
+  eq([c.leggii, n(/^\d+ legg(io|ii)$/), c.sedie, n(/^\d+ sedut[ae]$/)], [40, 40, 42, 42], "40 leggii e 42 sedie, uguali nel cartiglio e nello Stato");
+  const t = m.testo;
+  ok(/Sedie[^\n]*42/.test(t) && /senza braccioli/.test(t), "sedie: " + t);
+  ok(/Leggii[^\n]*40/.test(t), "leggii: " + t);
+  ok(/2 sgabelli/.test(t), "sgabelli per tipo (come il cartiglio): " + t);
+  ok(/Podio[^\n]*1/.test(t), "podio: " + t);
+  ok(/12 pedane: 12 da 2×1 h40/.test(t), "pedane dalla legenda del cartiglio (#56): " + t);
+  ok(/con 2 scalette/.test(t), "con scalette: " + t);
+  ok(/Prese 230 V vicino a: [^\n]*chitarra[^\n]*tastiere|Prese 230 V vicino a: [^\n]*tastiere[^\n]*chitarra/.test(t), "prese vicino a chitarra e tastiere: " + t);
+  ok(/Ciabatte: 2/.test(t), "ciabatte: " + t);
+  /* i numeri del cartiglio e della sezione cambiano insieme */
+  A.state.items = A.state.items.filter((i) => !/^l(3\d)$/.test(i.id)); A.__elecRes = null;
+  eq([A.countAccessori().leggii, /Leggii[^\n]*30/.test(A.materialiRichiesti().testo)], [30, true], "tolti 10 leggii: 30 ovunque");
+  reset();
+});
+t("Materiali richiesti: pedane in moduli 2×1 (una pedana 12×2 = 12 moduli) e leggii con luce", () => {
+  s5Fix([{ id: "p1", type: "pedana", x: 800, y: 500, w: 1200, d: 200, h: 20 }, { id: "p2", type: "pedana", x: 800, y: 700, w: 200, d: 100, h: 40 }, { id: "p3", type: "pedana", x: 400, y: 700, w: 200, d: 100, h: 40 },
+         { id: "d", type: "direttore", x: 800, y: 300 }, { id: "l1", type: "leggio", x: 300, y: 300 }, { id: "l2", type: "leggio", x: 400, y: 300 }, { id: "l3", type: "leggio", x: 500, y: 300 }, { id: "l4", type: "leggio", x: 600, y: 300 }]);
+  A.state.rider.materiali = true;
+  let t = A.materialiRichiesti().testo;
+  ok(/moduli 2×1: 12 h20 · 2 h40/.test(t), "i palchisti contano i moduli: " + t);
+  ok(!/di cui con luce/.test(t), "senza la casella, nessuna luce sui leggii: " + t);
+  A.state.rider.luciLeggii = true; t = A.materialiRichiesti().testo;
+  ok(/Leggii[^\n]*4[^\n]*di cui con luce 4/.test(t), "con la casella: «di cui con luce»: " + t);
+  A.state.items = A.state.items.filter((i) => i.id !== "p1"); t = A.materialiRichiesti().testo;
+  ok(!/moduli/.test(t), "pedane tutte da un modulo: la legenda basta, niente moduli");
+  reset();
+});
+t("Materiali richiesti: strumenti dal teatro con alternativa, alimentazione dal luogo, e mai nelle conferenze", () => {
+  s5Fix([{ id: "gc", type: "grancoda", x: 400, y: 400, by: "Teatro", alternativa: "tastiera amplificata dell'orchestra" }, { id: "l1", type: "leggio", x: 100, y: 100 }]);
+  A.state.rider.materiali = true;
+  let t = A.materialiRichiesti().testo;
+  ok(/Dal teatro: [^\n]*Grand[^\n]*se non disponibile: tastiera amplificata dell'orchestra/.test(t), "alternativa stampata: " + t);
+  delete A.state.items[0].alternativa; t = A.materialiRichiesti().testo;
+  ok(/Dal teatro: [^\n]*Grand/.test(t) && !/se non disponibile/.test(t), "senza alternativa solo lo strumento: " + t);
+  A.state.items[0].by = ""; A.state.items[0].alternativa = "x";
+  ok(!/Dal teatro/.test(A.materialiRichiesti().testo), "non fornito dal teatro: la riga non c'è (anche con un'alternativa scritta)");
+  /* alimentazione indicata dal luogo: zona «power» o punto di alimentazione */
+  ok(!/Alimentazione:/.test(A.materialiRichiesti().testo), "senza dati dal luogo la riga manca (non si inventa)");
+  A.state.zones = [{ id: "z1", kind: "power", label: "Quadro DX", x: 1400, y: 100, w: 100, d: 100, supply: "63 A trifase", outlets: 4, watts: 20000 }];
+  t = A.materialiRichiesti().testo;
+  ok(/Alimentazione: Quadro DX, 63 A trifase, 4 prese, 20,0 kW \(indicata dal teatro\)/.test(t), "zona di potenza: " + t);
+  A.state.zones = []; A.state.elec.supply = { kind: "rete", x: 100, y: 100 };
+  ok(/Alimentazione: [^\n]*\(indicata dal teatro\)/.test(A.materialiRichiesti().testo), "punto di alimentazione indicato: " + A.materialiRichiesti().testo);
+  A.state.elec.supply = null; A.state.zones = [];
+  A.state.tipoEvento = "conferenza";
+  eq(A.materialiRichiesti(), null, "in una conferenza (scheda tecnica) la sezione non compare");
+  reset();
+});
+t("Materiali richiesti: nel rider (PDF e anteprima) e «Copia testo per la mail» è lo stesso testo", () => {
+  s5Fix(s5Orch()); A.state.rider.materiali = true;
+  const m = A.materialiRichiesti(), tx = s5Rider();
+  const i0 = tx.indexOf("MATERIALI RICHIESTI"); ok(i0 > -1, "titolo della sezione nel PDF");
+  m.righe.forEach((r) => ok(tx.join("\n").replace(/\s+/g, " ").indexOf(r.replace(/\s+/g, " ").slice(0, 30)) > -1, "riga nel PDF: " + r.slice(0, 40)));
+  const html = A.riderHtml(); ok(/Materiali richiesti/.test(html) && m.righe.every((r) => html.indexOf(A.esc(r)) > -1), "anche l'anteprima ha le stesse righe");
+  eq(A.materialiTestoMail(), "Materiali richiesti\n" + m.righe.join("\n"), "il testo per la mail = titolo + le righe della sezione");
+  A.state.rider.materiali = false; eq(A.materialiTestoMail(), "", "spenta: niente da copiare");
+  reset();
+});
+t("Rider, luci: tre caselle opzionali per l'orchestra, spente di serie, che non toccano il testo delle luci", () => {
+  const luciPrima = (() => { s5Fix(s5Orch()); return A.riderData().luci; })();
+  eq(A.riderLuciVisibile(), true, "orchestra (leggii): visibili");
+  s5Fix([{ id: "c", type: "cantante", x: 300, y: 300 }]); eq(A.riderLuciVisibile(), false, "una band: nascoste (chiede il contrario del fumo)");
+  s5Fix([{ id: "d", type: "direttore", x: 300, y: 300 }]); eq(A.riderLuciVisibile(), true, "con il direttore");
+  s5Fix(s5Orch());
+  eq(A.riderLuciExtra(), [], "spente di serie: nessuna riga");
+  A.state.rider.luciNoFumo = true; A.state.rider.luciSeparata = true; A.state.rider.luciLeggii = true;
+  eq(A.riderLuciExtra(), ["Niente fumo/haze.", "Alimentazione luci separata dall'audio.", "40 leggii con luce."], "le tre richieste (il numero è quello dei leggii)");
+  eq(A.riderData().luci, luciPrima, "il testo luci esistente (riderData().luci) non cambia");
+  const tx = s5Rider().join("\n"); ok(/Niente fumo\/haze\./.test(tx) && /40 leggii con luce\./.test(tx), "nel PDF, dopo il testo delle luci");
+  A.state.items.push({ id: "dd", type: "direttore", x: 800, y: 300, leggio: true }); A.__elecRes = null;
+  eq(A.countAccessori().leggiiDirettore, 1, "il direttore ha il suo leggio");
+  ok(/40 leggii con luce \(\+1 direttore\)\./.test(A.riderLuciExtra().join(" ")), "con il direttore: «(+1 direttore)»: " + A.riderLuciExtra().join(" "));
+  s5Fix([{ id: "c", type: "cantante", x: 300, y: 300 }]); A.state.rider.luciNoFumo = true; eq(A.riderLuciExtra(), [], "una band con la casella rimasta accesa: niente (non si chiede di togliere il fumo)");
+  ok(/RIDER_DEFAULTS = \{[\s\S]{0,200}Sistema line array/.test(appjs), "RIDER_DEFAULTS non toccato");
+  reset();
+});
+t("Materiali richiesti: caselle e alternativa si normalizzano, si salvano e si riaprono; il pannello le ha", () => {
+  const n = (r, it) => A.normalizeState({ _v: A.SCHEMA_VERSION, items: it || [], inputs: [], outputs: [], rider: r });
+  eq(n({ materiali: true, luciNoFumo: true, luciSeparata: true, luciLeggii: true }).rider, { materiali: true, luciNoFumo: true, luciSeparata: true, luciLeggii: true }, "true esplicito");
+  eq(n({ materiali: "si", luciNoFumo: 1, luciSeparata: false, luciLeggii: "true", note: "ok" }).rider, { note: "ok" }, "tutto ciò che non è true viene tolto; il resto del rider resta");
+  const al = (v) => n({}, [{ id: "g", type: "grancoda", x: 100, y: 100, by: "Teatro", alternativa: v }]).items[0].alternativa;
+  eq([al("  tastiera  "), al("x".repeat(120)).length, al(""), al(null), al(5)], ["tastiera", 80, undefined, undefined, "5"], "alternativa: tagliata a 80, vuota = assente");
+  s5Fix([{ id: "g", type: "grancoda", x: 100, y: 100, by: "Teatro", alternativa: "tastiera" }, { id: "l", type: "leggio", x: 200, y: 200 }]); A.state.rider.materiali = true; A.state.rider.luciLeggii = true;
+  A.loadDoc(JSON.parse(A.docToJSON()));
+  eq([A.state.rider.materiali, A.state.rider.luciLeggii, A.state.items[0].alternativa], [true, true, "tastiera"], "salva e riapri");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="rdMateriali"/.test(html) && /id="rdMaterialiCopia"/.test(html), "casella e pulsante «Copia testo per la mail» nel pannello del rider");
+  ok(/id="rdLuciNoFumo"/.test(html) && /id="rdLuciSeparata"/.test(html) && /id="rdLuciLeggii"/.test(html), "le tre caselle delle luci");
+  ok(/id="pAlternativa"/.test(html), "e il campo «Se non disponibile» nel pannello dell'elemento");
+  ok(/getElementById\("rdMaterialiCopia"\);\s*if\(cp\) cp\.addEventListener\("click", function\(\)\{\s*var t=materialiTestoMail\(\);[\s\S]{0,300}navigator\.clipboard\.writeText\(t\)/.test(appjs), "il pulsante copia proprio il testo della sezione");
+  ok(/_cpb\.hidden=!materialiRichiesti\(\)/.test(appjs) && /_lx\.hidden=!riderLuciVisibile\(\)/.test(appjs), "il pulsante e le caselle luci compaiono solo quando servono");
+  ok(/it\.alternativa=v; else delete it\.alternativa/.test(appjs) && /var teatro=\(fornituraElemento\(it\)==="Teatro"\); w\.style\.display=teatro\?"":"none"/.test(appjs), "il campo «Se non disponibile» vale per gli elementi del teatro");
+  reset();
+});
+/* Casi limite di «Materiali richiesti» (aggiunti dopo le mutazioni del 12/11: venti sopravvivevano). Due filtri di materialiPresa
+   (carichi a 0 W, distro) non sono raggiungibili: elecResult non li mette mai in `loads`, sono difese e restano senza test. */
+t("Materiali richiesti, casi limite: la casella vale solo true; direttore con leggio e podio; una scaletta; moduli per eccesso", () => {
+  s5Fix([{ id: "l1", type: "leggio", x: 100, y: 100 }]);
+  A.state.rider.materiali = "si"; eq(A.materialiRichiesti(), null, "un valore che non è true non accende la sezione");
+  s5Fix([{ id: "d", type: "direttore", x: 800, y: 300, leggio: true, podio: true }, { id: "l1", type: "leggio", x: 300, y: 300 },
+         { id: "p", type: "pedana", x: 800, y: 700, w: 300, d: 100, h: 60 }, { id: "sc", type: "scala", x: 100, y: 780 }]);
+  A.state.rider.materiali = true;
+  const t = A.materialiRichiesti().testo;
+  ok(/Leggii: 1 \(\+1 direttore\)/.test(t), "il leggio del direttore è a parte: " + t);
+  ok(/Podio: 1/.test(t), "il direttore sul podio conta un podio: " + t);
+  ok(/con 1 scaletta(?!e)/.test(t), "una scala = «1 scaletta» al singolare: " + t);
+  ok(/moduli 2×1: 2 h60/.test(t), "una pedana 3×1 = 2 moduli (per eccesso): " + t);
+  reset();
+});
+t("Materiali richiesti, prese: nome della postazione per tipo, una sola volta, senza luci; ciabatte vicino a chi o in che lato del palco", () => {
+  eq(["edrums", "bassamp", "comboamp", "hearback", "mixhub"].map((k) => A.presaPostazione({ type: k })), ["batteria", "basso", "chitarra", "rack Hearback", "rack Hearback"], "tipo → postazione");
+  s5Fix([{ id: "k1", type: "tastiera", x: 300, y: 900 }, { id: "k2", type: "tastiera", x: 400, y: 900 }, { id: "b1", type: "bassamp", x: 900, y: 900 },
+         { id: "lx", type: "followspot", x: 1200, y: 300 }]);
+  A.state.rider.materiali = true;
+  const pr = A.materialiRichiesti().righe.find((r) => /^Prese/.test(r));
+  ok(pr && (pr.match(/tastiere/g) || []).length === 1, "due tastiere = «tastiere» una volta: " + pr);
+  ok(/basso/.test(pr) && !/followspot|spot|luc/i.test(pr), "i carichi delle luci non contano: " + pr);
+  s5Fix(s5Orch()); A.state.rider.materiali = true;
+  ok(/Ciabatte: 2 \(chitarra, tastiere\)/.test(A.materialiRichiesti().testo), "ciabatta entro 2 m dal carico: dice di chi: " + A.materialiRichiesti().testo);
+  s5Fix([{ id: "c1", type: "ciabatta", x: 100, y: 100 }, { id: "c2", type: "ciabatta", x: 800, y: 100 }, { id: "c3", type: "ciabatta", x: 1500, y: 100 }]); A.state.rider.materiali = true;
+  ok(/Ciabatte: 3 \(stage sinistra, stage centro, stage destra\)/.test(A.materialiRichiesti().testo), "senza carichi vicini: il lato del palco: " + A.materialiRichiesti().testo);
+  reset();
+});
+t("Materiali richiesti: una zona che non è di potenza non diventa «Alimentazione»; le caselle luci seguono direttore/4 leggii e mai le conferenze", () => {
+  s5Fix([{ id: "l1", type: "leggio", x: 100, y: 100 }]); A.state.rider.materiali = true;
+  A.state.zones = [{ id: "z9", kind: "pubblico", label: "Zona B", x: 100, y: 100, w: 100, d: 100, supply: "63 A" }];
+  ok(!/Alimentazione/.test(A.materialiRichiesti().testo), "solo le zone «power» parlano di alimentazione: " + A.materialiRichiesti().testo);
+  const leggii = (n) => Array.from({ length: n }, (_, i) => ({ id: "l" + i, type: "leggio", x: 100 + i * 60, y: 100 }));
+  s5Fix(leggii(3)); eq(A.riderLuciVisibile(), false, "3 leggii, niente direttore: nascoste");
+  s5Fix(leggii(4)); eq(A.riderLuciVisibile(), true, "4 leggii: visibili");
+  s5Fix(leggii(4).concat([{ id: "d", type: "direttore", x: 800, y: 300 }])); A.state.tipoEvento = "conferenza";
+  eq([A.riderLuciVisibile(), A.riderLuciExtra()], [false, []], "in una conferenza mai, anche con il direttore");
+  s5Fix(leggii(4)); A.state.rider.luciNoFumo = true;
+  ok(/Niente fumo\/haze\./.test(A.riderHtml()), "le richieste luci stanno anche nell'anteprima del rider");
+  ok(/if\(el\.checked\) state\.rider\[pr\[1\]\]=true; else delete state\.rider\[pr\[1\]\]; saveSoon\(\);/.test(appjs), "le caselle del pannello si salvano nel rider");
+  reset();
+});
 /* 06/10/2026 — Simone: «sul pdf che stampo ci sono i kg, dev'essere un'opzione disattivata di default» */
 t("Pesi (kg) nel PDF: opzione del progetto, spenta di serie", () => {
   reset(); add("sediaorch", 300, 300);

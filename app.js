@@ -7326,6 +7326,7 @@ function normalizeState(s){
         if(_rk) it.sbResNome=_rn; else delete it.sbResNome;
       } else delete it.sbResNome;
       if(it.sbTo!=null && it.sbTo!=="main" && !itemById[it.sbTo]) delete it.sbTo; }
+    if(it.alternativa!=null){ var _alt=String(it.alternativa).trim().slice(0,80); if(_alt) it.alternativa=_alt; else delete it.alternativa; }   /* «se non disponibile»: l'alternativa a uno strumento fornito dal teatro (12/11) */
     if(it.ascoltoId && !itemById[it.ascoltoId]){ delete it.ascoltoId; delete it.ascolto; }   /* monitor d'ascolto cancellato → azzera il link */
     if(typeof chainMigrate==="function") chainMigrate(it);   /* microfonazione storica → catena d'uscita (una volta sola) */
     if(it.diId && !itemById[it.diId]){ delete it.diId; delete it.diOff; }   /* DI cancellata a mano: lo strumento torna senza */
@@ -7382,6 +7383,7 @@ function normalizeState(s){
   var so=s.shareOpts||{};
   s.shareOpts={ copy: so.copy!==false, contacts: so.contacts===true };   /* permessi del link: copia ON, contatti OFF di default (dati personali) */
   s.rider = (s.rider && typeof s.rider==="object") ? s.rider : {};   /* T2: testo editabile del rider (sistema/luci/personale/sedie/note); i numeri sono derivati a runtime */
+  ["materiali","luciNoFumo","luciSeparata","luciLeggii"].forEach(function(k){ if(s.rider[k]!==true) delete s.rider[k]; });   /* caselle del rider (12/11): solo un true esplicito le accende */
   s.contacts = Array.isArray(s.contacts) ? s.contacts.map(normContact) : [];   /* T4: rubrica contatti/ruoli del progetto */
   if(!s.contacts.length && s.techContact){ s.contacts=[{role:"Riferimento tecnico", name:"", contact:s.techContact, note:""}]; }   /* migrazione dal singolo campo (nessun dato perso) */
   if(s.contacts.length){ var _pc=primaryContactStr(s.contacts); if(_pc) s.techContact=_pc; }   /* tiene allineato il legacy field (rider header + pagina consulenza) */
@@ -18234,6 +18236,11 @@ function renderProps(){
     if(sg){ sg.hidden=!sf; if(sf) document.getElementById("pPerChiSuggTxt").textContent="Suggerito: «"+sf+"»"; }
   })();
   monPuntaPannello(it);
+  (function(){   /* «Se non disponibile» (12/11): solo per gli elementi forniti dal teatro */
+    var w=document.getElementById("pAlternativaWrap"), inp=document.getElementById("pAlternativa"); if(!w||!inp) return;
+    var teatro=(fornituraElemento(it)==="Teatro"); w.style.display=teatro?"":"none";
+    if(teatro && document.activeElement!==inp) inp.value=it.alternativa||"";
+  })();
   var _pn=document.getElementById("pNote");
   if(document.activeElement!==_pn) _pn.value = it.note||"";   /* mentre si scrive non si riscrive (segnalazione 68b902d9) */
   _pn.placeholder = NOTE_HINT[it.type] || "es. fornito dalla band";   /* il suggerimento parla del pezzo che si ha davanti */
@@ -19039,6 +19046,10 @@ document.getElementById("pLabel").addEventListener("input", function(){ mutSelSo
    Mentre si scrive il testo va salvato COM'È: con .trim() a ogni tasto lo spazio appena battuto in fondo
    spariva, render() → renderProps() rimetteva nel campo il testo accorciato, e la parola dopo si attaccava.
    Gli spazi ai bordi si tolgono quando si esce dal campo (change), e comunque all'apertura (normalizeState). */
+document.getElementById("pAlternativa").addEventListener("input", function(){ mutSelSoon(function(it){
+  var v=String(document.getElementById("pAlternativa").value||"").slice(0,80);
+  if(v.trim()) it.alternativa=v; else delete it.alternativa;
+}); });
 document.getElementById("pNote").addEventListener("input", function(){ mutSelSoon(function(it){
   var v=String(document.getElementById("pNote").value||"").slice(0,NOTE_MAX);
   if(v.trim()) it.note=v; else delete it.note;   /* nota vuota = nessuna nota: niente chiavi morte nel documento */
@@ -24064,6 +24075,20 @@ document.getElementById("bChanDone").addEventListener("click", toggleChan);
     el.addEventListener("input", function(){ state.rider=state.rider||{}; var v=el.value;
       if(v==="" || v==null) delete state.rider[key]; else state.rider[key]=num?(Math.max(0,Math.min(300,parseInt(v,10)||0))):v; saveSoon(); }); }
   bind("rdSedie","sedie",true); bind("rdSistema","sistema"); bind("rdLuci","luci"); bind("rdPersonale","personale"); bind("rdNote","note");
+})();
+/* Materiali richiesti e richieste luci (12/11): caselle del rider (solo un true esplicito le accende) e «Copia testo per la mail» */
+(function(){
+  [["rdMateriali","materiali"],["rdLuciNoFumo","luciNoFumo"],["rdLuciSeparata","luciSeparata"],["rdLuciLeggii","luciLeggii"]].forEach(function(pr){
+    var el=document.getElementById(pr[0]); if(!el) return;
+    el.addEventListener("change", function(){ state.rider=state.rider||{}; if(el.checked) state.rider[pr[1]]=true; else delete state.rider[pr[1]]; saveSoon(); if(typeof renderChannels==="function") renderChannels(); });
+  });
+  var cp=document.getElementById("rdMaterialiCopia");
+  if(cp) cp.addEventListener("click", function(){
+    var t=materialiTestoMail(); if(!t) return;
+    function ok(){ if(typeof showToast==="function") showToast("Testo copiato: incollalo nella mail"); }
+    try{ navigator.clipboard.writeText(t).then(ok, function(){ if(typeof showToast==="function") showToast("Copia non riuscita","err"); }); }
+    catch(_e){ if(typeof showToast==="function") showToast("Copia non riuscita","err"); }
+  });
 })();
 /* 1C: toggle vista cliente Stage plot / Channel list (sola lettura in sessione live) */
 (function(){ var p=document.getElementById("vtPlot"), c=document.getElementById("vtChan"); if(!p||!c) return;
@@ -31606,6 +31631,9 @@ function renderChannels(){
   (function(){ var r=state.rider||{};   /* T2: popola i campi rider dallo state + placeholder = default */
     function setv(id,key){ var el=document.getElementById(id); if(!el) return; var want=(r[key]!=null?String(r[key]):""); if(el.value!==want) el.value=want; }
     setv("rdSedie","sedie"); setv("rdSistema","sistema"); setv("rdLuci","luci"); setv("rdPersonale","personale"); setv("rdNote","note");
+    [["rdMateriali","materiali"],["rdLuciNoFumo","luciNoFumo"],["rdLuciSeparata","luciSeparata"],["rdLuciLeggii","luciLeggii"]].forEach(function(pr){ var el=document.getElementById(pr[0]); if(el) el.checked=(r[pr[1]]===true); });
+    var _cpb=document.getElementById("rdMaterialiCopia"); if(_cpb) _cpb.hidden=!materialiRichiesti();   /* il pulsante c'è solo se la sezione ha qualcosa da dire */
+    var _lx=document.getElementById("rdLuciExtra"); if(_lx) _lx.hidden=!riderLuciVisibile();   /* le tre richieste luci: solo per un'orchestra */
     var DD=(typeof riderDefaults==="function")?riderDefaults():RIDER_DEFAULTS;
     var ph={rdSistema:DD.sistema, rdLuci:DD.luci, rdPersonale:DD.personale};
     Object.keys(ph).forEach(function(id){ var el=document.getElementById(id); if(el) el.setAttribute("placeholder","Dal palco: "+ph[id].slice(0,54)+"…"); });   /* si riscrive a ogni render: il default segue il palco */
@@ -34431,10 +34459,12 @@ function riderPdf(shared){
     (function(){ var D=riderDotazione(); if(D.testo) body(D.testo); if(D.aste) body("Aste: "+D.aste); })();   /* la dotazione per modello, come nei rider veri */
     heading("MONITOR"); body(riderMonitorText(d.monitor));
     heading("STAGE E PEDANE"); body(riderPedaneText(d.pedane)+(d.sedie?" · "+riderSedieText(d.sedie):"")+(d.pesoKg>0?" · peso allestimento stimato "+fmtKg(d.pesoKg):""));
+    (function(){ var M=materialiRichiesti(); if(M){ heading("MATERIALI RICHIESTI"); M.righe.forEach(function(r){ body(r); }); } })();   /* opzionale, spenta di serie (12/11) */
     if(d.console){ heading("CONSOLE"); body(d.console); }
     if(d.elettrico){ heading("ALIMENTAZIONE"); body(riderAlimentazioneText(d.elettrico)); }   /* mancava nel PDF: c'era solo nell'anteprima HTML */
     heading("SISTEMA AUDIO"); body(d.sistema);
     heading("LUCI"); body(d.luci);
+    riderLuciExtra().forEach(function(x){ body(x); });   /* richieste luci per l'orchestra, solo se spuntate (12/11) */
     (function(){ var pm=(typeof productionSummary==="function")?productionSummary(state).filter(function(r){return r.key!=="luci";}):[];
       if(pm.length){ heading("PRODUZIONE E MEDIA"); pm.forEach(function(r){ body(r.label+": "+r.text); }); } })();
     heading("PERSONALE RICHIESTO AL SERVICE"); body(d.personale);
@@ -36583,6 +36613,96 @@ function riderPedaneText(pedane){
   var g={}, order=[]; pedane.forEach(function(p){ var k=p.w+"×"+p.d+" m · h"+p.h+" cm"; if(g[k]==null){g[k]=0;order.push(k);} g[k]++; });
   return order.map(function(k){ return g[k]+"× pedana "+k; }).join(" · ");
 }
+/* ═══ MATERIALI RICHIESTI (12/11/2026, specifica S5 dalla posta di produzione) ═══
+   Sezione OPZIONALE del rider (state.rider.materiali, spenta di serie: i PDF dei progetti salvati restano identici), calcolata dal disegno
+   con le STESSE funzioni del cartiglio e dello Stato (countAccessori, sgabelliTesto, pedaneTesto): una fonte sola, due uscite — nelle fonti
+   i conteggi di rider, stage plot e dossier divergevano. Non compare nelle conferenze (scheda tecnica). Il testo è lo stesso del pulsante
+   «Copia testo per la mail». Le tre richieste luci per l'orchestra sono caselle a parte e NON toccano il testo delle luci. */
+function riderFlag(k){ return !!(state.rider && state.rider[k]===true); }
+/* a quale «postazione» appartiene un carico: i service chiedono le prese «vicino a batteria, basso, chitarra, tastiere…», non coordinate */
+function presaPostazione(it){
+  var t=it.type, T=TYPES[t]||{};
+  if(t==="batteria"||t==="edrums"||SUONATI_ALTRI[t]==="batteria") return "batteria";
+  if(/^bass|bassamp|bassstand/.test(t)) return "basso";
+  if(t==="comboamp"||t==="stack"||T.gtr) return "chitarra";
+  if(TASTIERE[t]||KEYS_BENCH[t]||t==="keysamp"||SUONATI_ALTRI[t]==="tastiere") return "tastiere";
+  if(t==="hearback"||t==="mixhub") return "rack Hearback";
+  if(t==="rack") return "rack";
+  if(t==="mixer"||t==="foh") return "regia";
+  return String(T.nome||t).toLowerCase();
+}
+function materialiPresa(items){
+  var E; try{ E=elecResult(true); }catch(_e){ return ""; }
+  var uni=function(a){ return a.filter(function(x,i){ return a.indexOf(x)===i; }); };
+  var carichi=(E.loads||[]).filter(function(l){ return l.it && l.w>0 && !/^Luci/i.test((TYPES[l.it.type]||{}).cat||"") && !ELEC_DISTRO[l.it.type]; });
+  var post=uni(carichi.map(function(l){ return presaPostazione(l.it); }));
+  var cia=(state.items||[]).filter(function(x){ return x.type==="ciabatta"; });
+  var W=(state.stage&&state.stage.w)||0;
+  var nomi=cia.map(function(c){
+    var best=null, bd=200;
+    carichi.forEach(function(l){ var d=Math.hypot(l.it.x-c.x, l.it.y-c.y); if(d<=bd){ bd=d; best=l.it; } });
+    return best ? presaPostazione(best) : (c.x<W/3 ? "stage sinistra" : c.x>2*W/3 ? "stage destra" : "stage centro");
+  });
+  var o=[];
+  if(post.length) o.push("Prese 230 V vicino a: "+post.join(", "));
+  if(cia.length) o.push("Ciabatte: "+cia.length+" ("+uni(nomi).join(", ")+")");
+  return o.join(" · ");
+}
+function materialiPedane(items){
+  var gr=pedaneLegenda(items); if(!gr.length) return "";
+  var t="Pedane: "+pedaneTesto(items);
+  var sc=(items||[]).filter(function(x){ return x.type==="scala"; }).length;
+  if(sc) t+=", con "+sc+(sc===1?" scaletta":" scalette");
+  if(gr.some(function(g){ return g.L*g.P!==20000; })){   /* i palchisti contano i moduli 2×1, non le pedane intere */
+    var m={}; gr.forEach(function(g){ m[g.h]=(m[g.h]||0)+g.n*Math.ceil(g.L*g.P/20000); });
+    t+=" · moduli 2×1: "+Object.keys(m).map(Number).sort(function(a,b){ return a-b; }).map(function(h){ return m[h]+" h"+h; }).join(" · ");
+  }
+  return t;
+}
+function materialiRichiesti(){
+  if(!riderFlag("materiali") || eventoConferenza()) return null;
+  var items=state.items||[], righe=[], c=countAccessori();
+  var a=[];
+  if(c.sedie) a.push("Sedie (senza braccioli): "+c.sedie);
+  if(c.leggii || c.leggiiDirettore){
+    var l="Leggii: "+c.leggii;
+    if(riderFlag("luciLeggii") && c.leggii) l+=", di cui con luce "+c.leggii;
+    if(c.leggiiDirettore) l+=" (+"+c.leggiiDirettore+" direttore)";
+    a.push(l);
+  }
+  var sg=sgabelliTesto(items); if(sg.length) a.push("Sgabelli: "+sg.join(", "));
+  var po=items.filter(function(x){ return x.type==="podio" || (x.type==="direttore" && x.podio); }).length; if(po) a.push("Podio: "+po);
+  if(a.length) righe.push(a.join(" · "));
+  var pe=materialiPedane(items); if(pe) righe.push(pe);
+  var pr=materialiPresa(items); if(pr) righe.push(pr);
+  var tt={}, ord=[];
+  items.forEach(function(x){ if(fornituraElemento(x)!=="Teatro") return;
+    var nm=backlineName(x), alt=(typeof x.alternativa==="string" ? x.alternativa.trim() : ""), k=nm+"|"+alt;
+    if(!tt[k]){ tt[k]={nm:nm, alt:alt, n:0}; ord.push(k); } tt[k].n++; });
+  if(ord.length) righe.push("Dal teatro: "+ord.map(function(k){ var o=tt[k]; return (o.n>1?o.n+"× ":"")+o.nm+(o.alt?" — se non disponibile: "+o.alt:""); }).join("; "));
+  var al=[];
+  (state.zones||[]).forEach(function(z){ if(z.kind!=="power") return;
+    var p=[z.label, z.supply, z.outlets?z.outlets+" prese":"", z.watts?elecKW(z.watts):""].filter(Boolean); if(p.length) al.push(p.join(", ")); });
+  if(!al.length){ var sp=null; try{ sp=(state.elec && state.elec.supply) ? elecSupplyPoint() : null; }catch(_e){}
+    if(sp) al.push((sp.name||"punto di alimentazione")+(sp.kva?" ("+sp.kva+" kVA)":"")); }
+  if(al.length) righe.push("Alimentazione: "+al.join("; ")+" (indicata dal teatro)");
+  return righe.length ? {righe:righe, testo:righe.join("\n")} : null;
+}
+function materialiTestoMail(){ var m=materialiRichiesti(); return m ? "Materiali richiesti\n"+m.righe.join("\n") : ""; }
+/* Ritocco luci per l'orchestra: tre caselle OPZIONALI, spente di serie, visibili con direttore o almeno 4 leggii. Non cambiano RIDER_DEFAULTS.luci
+   né il testo già esportato: si aggiungono dopo. Per una band il rider chiede il contrario del fumo: per questo non sono di serie. */
+function riderLuciVisibile(){
+  if(eventoConferenza()) return false;
+  var items=state.items||[]; return items.some(function(x){ return x.type==="direttore"; }) || countAccessori().leggii>=4;
+}
+function riderLuciExtra(){
+  if(!riderLuciVisibile()) return [];
+  var o=[], c=countAccessori();
+  if(riderFlag("luciNoFumo")) o.push("Niente fumo/haze.");
+  if(riderFlag("luciSeparata")) o.push("Alimentazione luci separata dall'audio.");
+  if(riderFlag("luciLeggii") && c.leggii) o.push(c.leggii+(c.leggii===1?" leggio":" leggii")+" con luce"+(c.leggiiDirettore?" (+"+c.leggiiDirettore+" direttore)":"")+".");
+  return o;
+}
 function riderHtml(){
   var d=riderData();
   function esct(x){ return esc(String(x==null?"":x)).replace(/\n/g,"<br>"); }
@@ -36599,6 +36719,7 @@ function riderHtml(){
         return extra.length ? "<br>"+esc(extra.join(" · ")) : ""; })(), true)+
     sec("Monitor", esc(riderMonitorText(d.monitor)), true)+
     sec("Stage e pedane", (d.persone?esc(d.persone+" persone sul palco")+" · ":"")+esc(riderPedaneText(d.pedane))+(d.leggii?" · "+esc(d.leggii+" leggii"):"")+(d.sedie?" · "+esc(riderSedieText(d.sedie)):"")+(d.pesoKg>0?" · peso allestimento stimato "+esc(fmtKg(d.pesoKg)):""), true)+
+    (function(){ var M=materialiRichiesti(); return M ? sec("Materiali richiesti", M.righe.map(esct).join("<br>"), true) : ""; })()+
     (d.console?sec("Console", esc(d.console), true):"")+
     (d.elettrico?sec("Alimentazione", esc(riderAlimentazioneText(d.elettrico)), true):"")+
     sec("Sistema audio", esct(d.sistema), !!d.sistemaAuto)+
@@ -36613,7 +36734,7 @@ function riderHtml(){
         if(x.kind==="li") return '<div class="pdf-rider-li">'+esc(x.text)+'</div>';
         return '<div>'+esc(x.text)+'</div>';
       }).join("");
-    })(), !(state.rider&&state.rider.luci!=null&&String(state.rider.luci).trim()!==""))+
+    })()+riderLuciExtra().map(function(x){ return '<div>'+esc(x)+'</div>'; }).join(""), !(state.rider&&state.rider.luci!=null&&String(state.rider.luci).trim()!==""))+
     (function(){ var pm=(typeof productionSummary==="function")?productionSummary(state).filter(function(r){return r.key!=="luci";}):[];
       return pm.length ? sec("Produzione e media", pm.map(function(r){ return esc(r.label)+": "+esct(r.text); }).join("<br>")) : ""; })()+
     sec("Personale richiesto al service", esct(d.personale), !!d.personaleAuto)+
