@@ -7318,6 +7318,13 @@ function normalizeState(s){
     if(cabIsBox(it)){ if(!(it.sbId>=1 && it.sbId<=64)) delete it.sbId;
       if(it.foh!==true) delete it.foh;   /* flag "stage box del mixer": solo booleano true */
       if(Array.isArray(it.sbRes)){ it.sbRes=it.sbRes.map(Number).filter(function(pn,ix,a){ return pn>=1 && pn<=64 && a.indexOf(pn)===ix; }); if(!it.sbRes.length) delete it.sbRes; }
+      /* nome di servizio delle porte riservate («Seq L», «Talkback palco», 12/11): solo per porte davvero riservate, testo, 30 caratteri */
+      if(it.sbResNome && typeof it.sbResNome==="object" && !Array.isArray(it.sbResNome)){
+        var _rn={}, _rk=0;
+        Object.keys(it.sbResNome).forEach(function(pk){ var pn=+pk, nm=it.sbResNome[pk];
+          if(Array.isArray(it.sbRes) && it.sbRes.indexOf(pn)>-1 && typeof nm==="string" && nm.trim()){ _rn[pn]=nm.trim().slice(0,30); _rk++; } });
+        if(_rk) it.sbResNome=_rn; else delete it.sbResNome;
+      } else delete it.sbResNome;
       if(it.sbTo!=null && it.sbTo!=="main" && !itemById[it.sbTo]) delete it.sbTo; }
     if(it.ascoltoId && !itemById[it.ascoltoId]){ delete it.ascoltoId; delete it.ascolto; }   /* monitor d'ascolto cancellato → azzera il link */
     if(typeof chainMigrate==="function") chainMigrate(it);   /* microfonazione storica → catena d'uscita (una volta sola) */
@@ -14275,7 +14282,7 @@ function audioCablingEngine(){
             hw:(mxm?null:(it.hw||null)),   /* hw = modello STAGE BOX: il mixer ha il suo (mixHw), non deve finire nelle lookup STAGEBOX_DB */
             isMixer:!!mxm, mixHw:(mxm?mixerHwOf(it):null), mixM:(mxm||null), dig:{},   /* dig = canali già presi su USB/Dante */
             foh:!!it.foh,   /* "stage box del mixer" (lato regia): esclusa dall'auto, solo target manuale per gli overflow */
-            sbId:(it.sbId>0? +it.sbId : null), res:res, resMap:rm, taken:{}, pins:{},
+            sbId:(it.sbId>0? +it.sbId : null), res:res, resMap:rm, resNome:((it.sbResNome && typeof it.sbResNome==="object") ? it.sbResNome : {}), taken:{}, pins:{},
             name:(mxm ? (mxm.brand+" "+mxm.model) : (it.label||TYPES[it.type].defLabel||"BOX"))}; });
   if(!manualMode && !boxes.length && totIn){
     cabClusters(groups, 320).forEach(function(c){        /* soglia 3,2 m: batteria/tastiere/sezioni/voci diventano cluster distinti */
@@ -17927,7 +17934,7 @@ function renderSbF2(it){
         if(st2==="uso"||st2==="pin") return;
         var arr=Array.isArray(it.sbRes)?it.sbRes.slice():[];
         var ix=arr.indexOf(pn2);
-        if(ix>-1) arr.splice(ix,1); else arr.push(pn2);
+        if(ix>-1){ arr.splice(ix,1); sbResLiberaNome(it, pn2); } else arr.push(pn2);
         if(arr.length) it.sbRes=arr; else delete it.sbRes;
         __cabRes=null; save(); render(); renderProps();
       });
@@ -28962,6 +28969,84 @@ function patchList(){
   rows=insertReserved(rows, R);
   return {rows:rows, R:R, hasFoh:hasFoh};
 }
+/* ═══ CONTATORE CANALI e RIGHE DI SERVIZIO (12/11/2026, specifica S2 dalla posta di produzione) ═══
+   «Canali: 74 usati su 80»: la capacità è la somma dei canali delle stage box dichiarate; i riservati si dicono a parte
+   («74 usati + 6 riservati su 80») così il numero dei canali veri resta onesto. Senza stage box non c'è capacità e non c'è contatore. */
+function contatoreCanali(){
+  var R; try{ R=cabResult(true); }catch(_e){ return null; }
+  var boxes=(R.boxes||[]).filter(function(b){ return !b.auto; }); if(!boxes.length) return null;
+  var cap=0, ris=0; boxes.forEach(function(b){ cap+=b.cap; ris+=(b.res||[]).length; });
+  var usati=patchList().rows.filter(function(r){ return !r.reserved && !r.spare; }).length;
+  var oltre=Math.max(0, usati+ris-cap);
+  return { usati:usati, riservati:ris, capacita:cap, oltre:oltre,
+           testo:"Canali: "+usati+" usati"+(ris?" + "+ris+" riservati":"")+" su "+cap+(oltre?" — oltre la capacità di "+oltre:"") };
+}
+/* Una riga di servizio è una PORTA RISERVATA con un nome (`it.sbResNome`, sulla stage box): non sposta nessun canale vero e nel PDF
+   dice «Seq L» invece di «RISERVATO». I gruppi sono quelli dei rider veri («computer Ableton tipico = 8 TRS», «104 TALKBACK palco»). */
+var SERVIZI_GRUPPI=[
+  {id:"playback", nome:"Computer playback (8)", nomi:["Seq L","Seq R","Cori L","Cori R","Click/Count","Gobbo/chiamate","Voce guida","Spare"]},
+  {id:"talkback", nome:"Talkback palco", nomi:["Talkback palco"]},
+  {id:"micdir", nome:"Mic direttore", nomi:["Mic direttore"]},
+  {id:"efx", nome:"EFX", nomi:["EFX"]},
+  {id:"video", nome:"Video L/R", nomi:["Video L","Video R"]},
+  {id:"pc", nome:"PC L/R", nomi:["PC L","PC R"]},
+  {id:"radio", nome:"Radio", base:"Radio", numerabile:true},
+  {id:"spare", nome:"Spare", base:"Spare", numerabile:true}];
+function serviziBoxReali(){ var R; try{ R=cabResult(true); }catch(_e){ return []; } return (R.boxes||[]).filter(function(b){ return !b.auto; }); }
+function serviziNomiUsati(){ var u={}; serviziBoxReali().forEach(function(b){ Object.keys(b.resNome||{}).forEach(function(k){ u[String(b.resNome[k]).toLowerCase()]=1; }); }); return u; }
+/* i gruppi che il menu offre adesso: niente di ciò che c'è già (il talkback e il gobbo sono oggetti sul palco, il mic del direttore
+   un'opzione) e niente nomi già messi come riga di servizio; un gruppo a metà offre le righe che mancano */
+function serviziOfferti(){
+  var items=state.items||[], usati=serviziNomiUsati();
+  var haTalkback=items.some(function(i){ return i.type==="talkback"; });
+  var haGobbo=items.some(function(i){ return i.type==="confidence"; });
+  var haMicDir=items.some(function(i){ return i.type==="direttore" && i.mic; });
+  var out=[];
+  SERVIZI_GRUPPI.forEach(function(g){
+    if(g.numerabile){ out.push({id:g.id, nome:g.nome, base:g.base, numerabile:true, nomi:[]}); return; }
+    if(g.id==="talkback" && haTalkback) return;
+    if(g.id==="micdir" && haMicDir) return;
+    var nomi=g.nomi.filter(function(n){ return !usati[n.toLowerCase()] && !(n==="Gobbo/chiamate" && haGobbo); });
+    if(!nomi.length) return;
+    out.push({id:g.id, nome:(nomi.length===g.nomi.length ? g.nome : g.nome.replace(/ \(\d+\)$/,"")+" ("+nomi.length+" che mancano)"), nomi:nomi});
+  });
+  return out;
+}
+/* «Radio 1…Radio n»: i numeri continuano da quelli già messi */
+function serviziNomiNumerati(base, n){
+  var usati=serviziNomiUsati(), k=0, out=[], re=new RegExp("^"+base.toLowerCase()+" (\\d+)$");
+  Object.keys(usati).forEach(function(nm){ var m=re.exec(nm); if(m) k=Math.max(k, +m[1]); });
+  for(var i=1;i<=n;i++) out.push(base+" "+(k+i));
+  return out;
+}
+/* Riserva le prime porte libere in coda alla stage box (dopo l'ultima occupata) e dà loro i nomi, in ordine. Prova le box dall'ultima:
+   se nessuna ha posto per tutti, non cambia niente e dice perché. */
+function aggiungiRigheServizio(nomi){
+  nomi=(nomi||[]).map(function(n){ return String(n==null?"":n).trim().slice(0,30); }).filter(Boolean);
+  if(!nomi.length) return {ok:false, motivo:"Nessuna riga da aggiungere."};
+  var boxes=serviziBoxReali();
+  if(!boxes.length) return {ok:false, motivo:"Serve una stage box: le righe di servizio sono porte riservate su una stage box."};
+  var usati=serviziNomiUsati();
+  var doppi=nomi.filter(function(n){ return usati[n.toLowerCase()]; });
+  if(doppi.length) return {ok:false, motivo:"«"+doppi[0]+"» c'è già fra le righe di servizio."};
+  var best=null;
+  for(var i=boxes.length-1;i>=0;i--){
+    var b=boxes[i], occ=0, porte=[];
+    for(var pn=1;pn<=b.cap;pn++){ if(b.taken[pn] || b.resMap[pn] || (b.pins&&b.pins[pn])) occ=pn; }
+    for(var q=occ+1;q<=b.cap && porte.length<nomi.length;q++) porte.push(q);
+    if(porte.length===nomi.length){ best={b:b, porte:porte}; break; }
+    if(!best || porte.length>best.porte.length) best={b:b, porte:porte, corto:true};
+  }
+  if(best.corto){ var _n=nomi.length, _k=best.porte.length;
+    return {ok:false, motivo:(_n===1?"Serve 1 porta libera":"Servono "+_n+" porte libere")+" in coda alla stage box: "+(_k===1?"ce n'è 1":"ce ne sono "+_k)+"."}; }
+  var it=state.items.filter(function(x){ return x.id===best.b.id; })[0];
+  if(typeof primaDiAgire==="function") primaDiAgire();
+  var arr=Array.isArray(it.sbRes) ? it.sbRes.slice() : [], rn=(it.sbResNome && typeof it.sbResNome==="object") ? it.sbResNome : {};
+  best.porte.forEach(function(pn,k){ arr.push(pn); rn[pn]=nomi[k]; });
+  it.sbRes=arr; it.sbResNome=rn;
+  __cabRes=null; save(); render();
+  return {ok:true, box:best.b.id, porte:best.porte};
+}
 /* ═══════════ CHANNEL LIST a schermo intero (variante C, Simone 28/07) ═══════════
    La lista completa — numero, sorgente, mic/DI, asta, 48V, patch — accanto a una miniatura del palco.
    Premendo una riga la sorgente si accende sulla miniatura; il numero si digita e le altre scalano. */
@@ -29032,7 +29117,7 @@ function clRender(){
   pl.rows.forEach(function(r,i){
     if(r.reserved){
       h+='<tr class="cl-row cl-res"><td class="cl-grip"></td><td class="cl-num">'+((pl.hasFoh&&r.foh)?r.foh:r.n)+'</td>'
-       + '<td class="cl-src"><i>\u2014 riservato \u2014</i></td><td colspan="3"></td>'
+       + '<td class="cl-src"><i>'+(r.servizio ? '\u2014 '+esc(r.servizio)+' \u2014' : '\u2014 riservato \u2014')+'</i></td><td colspan="3"></td>'
        + '<td><span class="cl-patch">'+esc(r.patch)+'</span></td>'
        + '<td class="cl-act"><button type="button" class="cl-free" data-free="'+esc(r.boxId||"")+'" data-port="'+r.port+'" title="Libera questo canale">\u00d7</button></td></tr>';
       return;
@@ -29214,11 +29299,15 @@ function cabRenameItem(id, v){ var it=(state.items||[]).find(function(i){return 
    Le riservate si inseriscono DOPO l\u0027ordinamento manuale e l\u0027allineamento stereo: seguono la porta,
    non l\u0027ordine scelto a mano, perch\u00e9 il loro senso \u00e8 esattamente quello di occupare un numero. */
 /* libera una porta riservata (dalla riga della lista): stessa scrittura del toggle sulla griglia porte */
+function sbResLiberaNome(it, pn){   /* una porta che non è più riservata perde il nome di servizio */
+  if(it && it.sbResNome){ delete it.sbResNome[pn]; if(!Object.keys(it.sbResNome).length) delete it.sbResNome; }
+}
 function cabFreePort(boxId, pn){
   var it=state.items.filter(function(x){ return x.id===boxId; })[0];
   if(!it || !Array.isArray(it.sbRes)) return;
   var arr=it.sbRes.filter(function(v){ return v!==pn; });
   if(arr.length) it.sbRes=arr; else delete it.sbRes;
+  sbResLiberaNome(it, pn);
   __cabRes=null; save(); render(); renderProps();
   if(typeof showToast==="function") showToast("Canale "+pn+" liberato");
 }
@@ -29228,7 +29317,7 @@ function insertReserved(rows, R){
     (b.res||[]).forEach(function(pn){
       var tag=b.sbId?("ID"+b.sbId):b.letter;
       res.push({ n:0, name:"", mic:"", stand:"", p48:false, patch:tag+"\u00b7"+pn, box:b.letter, boxId:b.id,
-                 itemId:null, key:"res:"+b.id+":"+pn, micOff:false, reserved:true, port:pn, short:"",
+                 itemId:null, key:"res:"+b.id+":"+pn, micOff:false, reserved:true, port:pn, short:"", servizio:((b.resNome && b.resNome[pn]) || ""),
                  foh:(b.fohBase!=null)?(b.fohBase+pn):null });
     });
   });
@@ -29570,6 +29659,38 @@ function renderVistaBanner(){
   var b=document.getElementById("vistaEsci");
   if(b) b.addEventListener("click", function(e){ e.stopPropagation(); exitListMode(); render(); });
 }
+/* Il menu «Righe di servizio» (12/11): i gruppi pronti che mancano; Radio e Spare con un numero. Se non c'è posto lo dice e non cambia niente. */
+function openServiziPop(ev){
+  var old=document.getElementById("svcPop"); if(old){ old.remove(); return; }
+  var pop=document.createElement("div"); pop.id="svcPop"; pop.className="port-pop svc-pop";
+  var off=serviziOfferti();
+  function fatto(r){
+    if(r.ok){ pop.remove(); if(typeof showToast==="function") showToast(r.porte.length+(r.porte.length===1?" riga di servizio aggiunta":" righe di servizio aggiunte")+" (porte "+r.porte[0]+(r.porte.length>1?"–"+r.porte[r.porte.length-1]:"")+")"); }
+    else { var m=document.getElementById("svcMsg"); if(m) m.textContent=r.motivo; if(typeof showToast==="function") showToast(r.motivo); }
+  }
+  var h='<div class="svc-h">Righe di servizio</div>';
+  pop.innerHTML=h;
+  off.forEach(function(g){
+    var row=document.createElement("div"); row.className="svc-row";
+    var b=document.createElement("button"); b.type="button"; b.className="btn svc-add"; b.textContent=(g.numerabile ? "+ "+g.nome : "+ "+g.nome);
+    if(g.numerabile){
+      var n=document.createElement("input"); n.type="text"; n.inputMode="numeric"; n.maxLength=2; n.value="2"; n.className="svc-n"; n.setAttribute("aria-label","Quante righe «"+g.nome+"»");
+      b.addEventListener("click", function(){ var q=Math.max(1, Math.min(32, parseInt(n.value,10)||1)); fatto(aggiungiRigheServizio(serviziNomiNumerati(g.base, q))); });
+      row.appendChild(b); row.appendChild(n);
+    } else {
+      b.title=g.nomi.join(", ");
+      b.addEventListener("click", function(){ fatto(aggiungiRigheServizio(g.nomi)); });
+      row.appendChild(b);
+    }
+    pop.appendChild(row);
+  });
+  var msg=document.createElement("div"); msg.id="svcMsg"; msg.className="svc-msg"; pop.appendChild(msg);
+  document.body.appendChild(pop);
+  pop.addEventListener("click", function(e){ e.stopPropagation(); });
+  var x=Math.min(ev.clientX, window.innerWidth-pop.offsetWidth-10), y=Math.min(ev.clientY+8, window.innerHeight-pop.offsetHeight-10);
+  pop.style.left=Math.max(8,x)+"px"; pop.style.top=Math.max(8,y)+"px";
+  setTimeout(function(){ document.addEventListener("click", function chiudi(){ document.removeEventListener("click", chiudi); var p=document.getElementById("svcPop"); if(p) p.remove(); }); }, 30);
+}
 function renderPatchPanel(){
   var sec=document.getElementById("patchSec"); if(!sec) return;
   sec.style.display = patchActive ? "block" : "none";   /* sezione presente SOLO se attivata dal catalogo */
@@ -29608,8 +29729,15 @@ function renderPatchPanel(){
          ' <span class="lbl-note">— il service li collega. Aggiungi una stage box se vuoi disegnarli tu</span>');
   } else txt.innerHTML='\u2713 Tutti i canali sono cablati';
   bar.appendChild(txt);
-  if(cap){ var cs=document.createElement("span"); cs.className="cab-bar-cap"; cs.textContent=cap;
+  /* il contatore dei canali (12/11): «Canali: 74 usati + 6 riservati su 80», arancione oltre la capacità; senza stage box resta com'era */
+  var _ct=contatoreCanali();
+  if(_ct){ var cs0=document.createElement("span"); cs0.className="cab-bar-cap"+(_ct.oltre?" warn":""); cs0.textContent=_ct.testo;
+    cs0.title="Canali usati, riservati e capacità delle stage box dichiarate"; bar.appendChild(cs0); }
+  else if(cap){ var cs=document.createElement("span"); cs.className="cab-bar-cap"; cs.textContent=cap;
     cs.title="Porte in uso sulla stage box"; bar.appendChild(cs); }
+  if(boxReali.length){ var sv=document.createElement("button"); sv.type="button"; sv.id="svcBtn"; sv.className="btn svc-btn"; sv.textContent="Righe di servizio";
+    sv.title="Playback, talkback, EFX, video, radio, spare: porte riservate con il loro nome";
+    sv.addEventListener("click", function(e){ e.stopPropagation(); openServiziPop(e); }); bar.appendChild(sv); }
   host.appendChild(bar);
 
   pl.rows.forEach(function(r){
@@ -29617,7 +29745,7 @@ function renderPatchPanel(){
     if(r.reserved || r.spare){
       var rs=document.createElement("div"); rs.className="patch-lite muted";
       rs.innerHTML='<span class="pn">'+num+'</span><span class="psrc"><i>'
-        + (r.reserved ? "\u2014 riservato \u2014" : "\u2014 libero (coppia stereo) \u2014")
+        + (r.reserved ? (r.servizio ? "\u2014 "+esc(r.servizio)+" \u2014" : "\u2014 riservato \u2014") : "\u2014 libero (coppia stereo) \u2014")
         + '</i></span><span class="ppatch">'+(r.reserved?esc(r.patch):"")+'</span><span class="pact"></span>';
       if(r.reserved){ rs.title="Canale tenuto libero di proposito \u2014 click per liberarlo"; rs.style.cursor="pointer";
         (function(bid,pn){ rs.addEventListener("click", function(){ cabFreePort(bid,pn); }); })(r.boxId, r.port); }
@@ -33155,7 +33283,7 @@ function channelListCsv(opts){
        come nel pannello e nel PDF (prima il CSV usava l'indice di riga → numeri sfasati all'import) */
     /* coppia stereo con asta unica: il service deve leggere che il supporto è quello della riga sopra,
        non una cella vuota da interpretare come «asta da decidere» */
-    return [(pl.hasFoh&&r.foh)?r.foh:r.n, r.reserved?"RISERVATO":r.name, r.mic||"", r.standShared?"stessa asta":(r.stand||""), r.p48?"48V":"", patch];
+    return [(pl.hasFoh&&r.foh)?r.foh:r.n, r.reserved?(r.servizio||"RISERVATO"):r.name, r.mic||"", r.standShared?"stessa asta":(r.stand||""), r.p48?"48V":"", patch];
   });
   /* la protezione dalle formule vale per il formato Excel; «intl» dichiara nella sua etichetta di
      servire anche all'import in console, e lì l'apice sarebbe un danno */
@@ -34008,6 +34136,9 @@ function patchListPdf(shared){
     doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
     if(R.mixer&&MIXER_DB[R.mixer]) { doc.text("Mixer: "+hwLabel(R.mixer,MIXER_DB), M, y); y+=5; }
     y=pdfACapo(doc, R.boxes.length ? "Stage box: "+R.boxes.map(function(b){ return b.letter+" "+(b.hw&&STAGEBOX_DB[b.hw]?STAGEBOX_DB[b.hw].model:b.cap+"ch")+(b.auto?" (auto)":""); }).join("  ·  ") : "Nessuna stage box dichiarata: il patch lo assegna il service", M, y, 178, 4.6)+3.4;
+    /* contatore dei canali (12/11): compare solo se il progetto ha porte riservate o supera la capacità; altrimenti la pagina è quella di sempre */
+    var _ct=contatoreCanali();
+    if(_ct && (_ct.riservati>0 || _ct.oltre>0)){ doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor(_ct.oltre?"#b45309":"#555555"); doc.text(_ct.testo, M, y); y+=5.4; }
     /* Il buco si vede nella SUA cella — il patch — e la riga resta nera. Prima un canale senza stage
        box dipingeva di rosso l'intera riga: su una band appena creata (stage box quasi mai dichiarata)
        TUTTA la input list usciva rossa, e chi la riceveva leggeva «errore» su dati giusti (23/08). */
@@ -34020,7 +34151,7 @@ function patchListPdf(shared){
     function _testa(){ trow("#","SORGENTE","FOH","MIC / DI","ASTA","PATCH", true, "#0d9488"); doc.setDrawColor("#0d9488"); doc.setLineWidth(0.4); doc.line(M, y-3.6, 194, y-3.6); }
     _testa(); _testaTab=_testa;
     var _band=false, _teatro=false;   /* «fornito da» della channel list: ** (band) e ° (teatro) accanto alla sorgente, legenda sotto (30/09, 12/11) */
-    pl.rows.forEach(function(r){ if(r.by==="Band" && !r.reserved) _band=true; if(r.by==="Teatro" && !r.reserved) _teatro=true; trow((pl.hasFoh&&r.foh)?r.foh:r.n, r.reserved?"RISERVATO":(r.name+fornitoSegno(r.by)), r.short||"", r.reserved?"":(r.mic+(r.p48?"  (48V)":"")), r.standShared?"stessa asta":(r.stand||""), r.patch, false, (r.spare||r.reserved)?"#9a948b":"#111827", (r.spare||r.reserved||r.box)?null:"#b45309"); });
+    pl.rows.forEach(function(r){ if(r.by==="Band" && !r.reserved) _band=true; if(r.by==="Teatro" && !r.reserved) _teatro=true; trow((pl.hasFoh&&r.foh)?r.foh:r.n, r.reserved?(r.servizio||"RISERVATO"):(r.name+fornitoSegno(r.by)), r.short||"", r.reserved?"":(r.mic+(r.p48?"  (48V)":"")), r.standShared?"stessa asta":(r.stand||""), r.patch, false, (r.spare||r.reserved)?"#9a948b":"#111827", (r.spare||r.reserved||r.box)?null:"#b45309"); });
     if(_band){ y+=1.5; doc.setFont("helvetica","italic"); doc.setFontSize(8.5); doc.setTextColor("#555555"); if(y>286){ doc.addPage(); y=18; } doc.text(FORNITO_BAND_LEGENDA, M, y); y+=5.4; }
     if(_teatro){ if(!_band) y+=1.5; doc.setFont("helvetica","italic"); doc.setFontSize(8.5); doc.setTextColor("#555555"); if(y>286){ doc.addPage(); y=18; } doc.text(FORNITO_TEATRO_LEGENDA, M, y); y+=5.4; }
     /* IL RIQUADRO «CHI FORNISCE COSA» (12/11): una riga per fornitore con i canali, e quanti restano senza indicazione.
@@ -35929,7 +36060,7 @@ function pdfListConfig(){
          condiviso, e chi riceveva il link cercava il canale sbagliato. Idem per le riservate, che
          uscivano con la casella vuota invece di dire RISERVATO. */
       cols:[{h:"#",num:1,f:function(r,d){return (d&&d.hasFoh&&r.foh)?r.foh:r.n;}},
-            {h:"Sorgente",f:function(r){return r.reserved?"RISERVATO":r.name;}},
+            {h:"Sorgente",f:function(r){return r.reserved?(r.servizio||"RISERVATO"):r.name;}},
             {h:"Mic / DI",f:function(r){return r.reserved?"":(r.mic+(r.p48?" · 48V":""));}},
             {h:"Patch",f:function(r){return r.patch;},warn:function(r){return !r.box;}}] },
     monitorlist:{ title:"Monitor list", color:"#0891b2", data:(typeof monitorList==="function"?monitorList:null),
