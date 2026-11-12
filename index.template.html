@@ -431,6 +431,9 @@
     <button class="btn adv-mob" type="button" id="stageAdvMob">Opzioni tecniche</button>
     <!-- «Stessa formazione, altro palco» (29/09): qui perché è la stessa domanda delle misure. -->
     <button class="btn" type="button" id="bAdattaPalco" style="width:100%;margin-top:11px" title="Stessa formazione e stesse posizioni su un palco di misura diversa">Adatta a un altro palco…</button>
+    <!-- GIARDINO E CORTE (12/11/2026): opzione del progetto, spenta di serie. Scrive i nomi dei lati del teatro ai lati di FONDO PALCO. -->
+    <label class="chk" id="latiTeatroRow" style="margin-top:11px"><input type="checkbox" id="latiTeatro"> Giardino e corte</label>
+    <div class="hint" id="latiTeatroNota" style="font-size:11px;color:var(--text-2);margin:2px 0 0">Scrive «sinistra (giardino)» e «destra (corte)» ai lati di fondo palco, guardando dalla platea. Spento di serie: utile nei teatri.</div>
     <button class="btn primary" id="bStageDone" style="width:100%;margin-top:11px">Fatto</button>
     </div>
     <div id="venueSec" hidden>
@@ -588,7 +591,8 @@
       <button class="btn" id="bPostoCsv" type="button" style="width:100%;margin-top:6px">Elenco posti (CSV)</button>
       <button class="btn" id="bPostoPren" type="button" style="display:none;width:100%;margin-top:6px">Vai alla biglietteria</button>
     </div>
-    <div id="pPerChiWrap" style="display:none"><label for="pPerChi">Per chi <small class="lbl-note">— il nome sul canale dell'ascolto</small></label><input type="text" id="pPerChi" maxlength="40" autocomplete="off" placeholder="es. Basso, Sara, Direttore"></div>
+    <div id="pPerChiWrap" style="display:none"><label for="pPerChi">Per chi <small class="lbl-note">— il nome sul canale dell'ascolto</small></label><input type="text" id="pPerChi" maxlength="40" autocomplete="off" placeholder="es. Basso, Sara, Direttore">
+      <div id="pPerChiSugg" class="hint" hidden style="font-size:12px;color:var(--text-2);margin-top:4px"><span id="pPerChiSuggTxt"></span> <button type="button" class="btn" id="pPerChiUsa" style="width:auto;display:inline-block;padding:3px 9px;font-size:11px;margin:0 0 0 4px">Usa</button></div></div>
     <div id="pLabel2Wrap" style="display:none"><label for="pLabel2">Etichetta 2 (secondo strumento)</label><input type="text" id="pLabel2"></div>
     <div id="pLblModeWrap">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px">
@@ -2302,6 +2306,13 @@
              Qui è nell'ultimo posto prima del file, dove la correzione costa un tocco. -->
         <div id="pdfFuoriPalco" hidden></div>
         <div id="pdfCoroMuto" hidden></div>
+        <!-- FORMATO DELLA CHANNEL LIST (12/11/2026): Semplice (di sempre) o Service (pagine da 32/48, A4 orizzontale). Impostazione dell'export, non del progetto. -->
+        <div id="pdfListaFmt" hidden>
+          <label for="pdfListaFormato">Formato della channel list</label>
+          <select id="pdfListaFormato"><option value="semplice" selected>Semplice</option><option value="service">Service</option></select>
+          <label for="pdfListaPerPagina" id="pdfListaPerPaginaL" hidden>Canali per pagina</label>
+          <select id="pdfListaPerPagina" hidden><option value="32" selected>32</option><option value="48">48</option></select>
+        </div>
         <!-- NOME DEL PROGETTO (11/08): nessun passaggio del cammino lo chiedeva mai — il campo esiste
              nell'header col placeholder «Senza titolo» e non viene richiamato da nessuna parte, così
              il file usciva `stage-plot.pdf` e un service che riceve tre rider in una sera si ritrova
@@ -6646,7 +6657,7 @@ function nextVariantName(){ var n=0; VARIANTS.forEach(function(v){ var m=/^Varia
    data e contatti non erano mai diversi. Restano nello stato di ogni variante — lo schema e i file
    già salvati non cambiano — ma a ogni sincronizzazione quelli della variante attiva si scrivono
    nelle altre. */
-var CAMPI_DOCUMENTO=["titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","versione","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
+var CAMPI_DOCUMENTO=["titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","versione","latiTeatro","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
 function propagaCampiDocumento(v){
   var src=v&&v.state; if(!src) return;
   VARIANTS.forEach(function(o){
@@ -9759,6 +9770,13 @@ function normalizeState(s){
     if(cabIsBox(it)){ if(!(it.sbId>=1 && it.sbId<=64)) delete it.sbId;
       if(it.foh!==true) delete it.foh;   /* flag "stage box del mixer": solo booleano true */
       if(Array.isArray(it.sbRes)){ it.sbRes=it.sbRes.map(Number).filter(function(pn,ix,a){ return pn>=1 && pn<=64 && a.indexOf(pn)===ix; }); if(!it.sbRes.length) delete it.sbRes; }
+      /* nome di servizio delle porte riservate («Seq L», «Talkback palco», 12/11): solo per porte davvero riservate, testo, 30 caratteri */
+      if(it.sbResNome && typeof it.sbResNome==="object" && !Array.isArray(it.sbResNome)){
+        var _rn={}, _rk=0;
+        Object.keys(it.sbResNome).forEach(function(pk){ var pn=+pk, nm=it.sbResNome[pk];
+          if(Array.isArray(it.sbRes) && it.sbRes.indexOf(pn)>-1 && typeof nm==="string" && nm.trim()){ _rn[pn]=nm.trim().slice(0,30); _rk++; } });
+        if(_rk) it.sbResNome=_rn; else delete it.sbResNome;
+      } else delete it.sbResNome;
       if(it.sbTo!=null && it.sbTo!=="main" && !itemById[it.sbTo]) delete it.sbTo; }
     if(it.alternativa!=null){ var _alt=String(it.alternativa).trim().slice(0,80); if(_alt) it.alternativa=_alt; else delete it.alternativa; }   /* «se non disponibile»: l'alternativa a uno strumento fornito dal teatro (12/11) */
     if(it.ascoltoId && !itemById[it.ascoltoId]){ delete it.ascoltoId; delete it.ascolto; }   /* monitor d'ascolto cancellato → azzera il link */
@@ -9798,6 +9816,7 @@ function normalizeState(s){
   s.evTime=(typeof s.evTime==="string" && /^\d{2}:\d{2}$/.test(s.evTime)) ? s.evTime : "";
   s.tipoEvento=(s.tipoEvento==="conferenza") ? "conferenza" : "concerto";   /* 24/09: conferenza cambia le parole del PDF e gli avvisi, non il disegno */
   s.pdfHeader = (typeof s.pdfHeader==="string") ? s.pdfHeader.slice(0,120) : "";   /* riferimento nel cartiglio (export), persistente */
+  if(s.latiTeatro!==true) delete s.latiTeatro;   /* giardino e corte: spenti di serie, solo un true esplicito li accende (12/11/2026) */
   if(s.pdfPesi!==true) delete s.pdfPesi;   /* kg nel PDF: solo un true esplicito li accende (06/10/2026) */
   var _vers=(typeof s.versione==="number"||typeof s.versione==="string") ? +s.versione : NaN;   /* versione del documento (12/11): intero 1-999, altrimenti assente */
   if(_vers%1===0 && _vers>=1 && _vers<=999) s.versione=_vers; else delete s.versione;
@@ -9922,6 +9941,8 @@ function normalizeState(s){
     if(m.mic!=null) o.mic=String(m.mic).slice(0,40);
     if(m.stand!=null) o.stand=String(m.stand).slice(0,24);        /* asta scelta a mano */
     if(m.p48===true||m.p48===false) o.p48=m.p48;                   /* phantom forzato (o tolto) a mano */
+    if(m.dyn==="G"||m.dyn==="C"||m.dyn==="GC") o.dyn=m.dyn;        /* dinamica sul banco: gate, compressore o entrambi (formato Service, 12/11) */
+    if(typeof m.micAlt==="string" && m.micAlt.trim()) o.micAlt=m.micAlt.trim().slice(0,24);   /* microfono alternativo («similare», «SM81»): stampato «mic o alt» */
     if(m.micOff) o.micOff=1;
     if(m.seg) o.seg=1;                                             /* cavo segmentato */
     if(m.via==="usb"||m.via==="dante") o.via=m.via;                /* via digitale del computer (22/10: si perdeva; «an» non si salva) */
@@ -16433,7 +16454,7 @@ function audioCablingEngine(){
             hw:(mxm?null:(it.hw||null)),   /* hw = modello STAGE BOX: il mixer ha il suo (mixHw), non deve finire nelle lookup STAGEBOX_DB */
             isMixer:!!mxm, mixHw:(mxm?mixerHwOf(it):null), mixM:(mxm||null), dig:{},   /* dig = canali già presi su USB/Dante */
             foh:!!it.foh,   /* "stage box del mixer" (lato regia): esclusa dall'auto, solo target manuale per gli overflow */
-            sbId:(it.sbId>0? +it.sbId : null), res:res, resMap:rm, taken:{}, pins:{},
+            sbId:(it.sbId>0? +it.sbId : null), res:res, resMap:rm, resNome:((it.sbResNome && typeof it.sbResNome==="object") ? it.sbResNome : {}), taken:{}, pins:{},
             name:(mxm ? (mxm.brand+" "+mxm.model) : (it.label||TYPES[it.type].defLabel||"BOX"))}; });
   if(!manualMode && !boxes.length && totIn){
     cabClusters(groups, 320).forEach(function(c){        /* soglia 3,2 m: batteria/tastiere/sezioni/voci diventano cluster distinti */
@@ -19071,8 +19092,17 @@ function latiTeatroTesti(W, k){
   if(sta("giardino", "corte")) return ["giardino", "corte"];
   return null;
 }
+/* DECISIONE DI SIMONE, 12/11/2026 («in tutti gli stage plot esce sinistra giardino, destra corte… deve essere un'opzione, perché noi
+   abbiamo sempre pubblico e fondo palco»): giardino e corte sono un'OPZIONE del progetto (`state.latiTeatro`), SPENTA di serie.
+   Prima uscivano da soli in ogni progetto con «teatro» nel luogo o nel titolo; ora solo se si accendono dal pannello Palco, e un
+   progetto salvato che non l'ha scelta esce senza. La parola «teatro» non decide più: serve solo a suggerire l'opzione. */
+function latiTeatroImposta(on){
+  if(on) state.latiTeatro=true; else delete state.latiTeatro;
+  save(); render();
+}
+function latiTeatroSuggerimento(){ return (state.latiTeatro!==true && progettoTeatro()) ? "Il luogo sembra un teatro: se serve, accendi giardino e corte." : ""; }
 function latiTeatroMarkup(y, k, attr){
-  if(!progettoTeatro() || custEditorAttivo()) return '';
+  if(state.latiTeatro!==true || custEditorAttivo()) return '';
   var W=state.stage.w||0, t=latiTeatroTesti(W, k);
   if(!t) return '';
   return '<text '+attr+' x="0" y="'+y+'" text-anchor="start">'+t[0]+'</text>'+
@@ -20153,7 +20183,7 @@ function renderSbF2(it){
         if(st2==="uso"||st2==="pin") return;
         var arr=Array.isArray(it.sbRes)?it.sbRes.slice():[];
         var ix=arr.indexOf(pn2);
-        if(ix>-1) arr.splice(ix,1); else arr.push(pn2);
+        if(ix>-1){ arr.splice(ix,1); sbResLiberaNome(it, pn2); } else arr.push(pn2);
         if(arr.length) it.sbRes=arr; else delete it.sbRes;
         __cabRes=null; save(); render(); renderProps();
       });
@@ -20369,6 +20399,8 @@ function renderProps(){
     var w=document.getElementById("pPerChiWrap"), inp=document.getElementById("pPerChi"); if(!w||!inp) return;
     w.style.display = PER_CHI[it.type] ? "" : "none";
     if(PER_CHI[it.type] && document.activeElement!==inp) inp.value = it.perChi||"";
+    var sg=document.getElementById("pPerChiSugg"), sf=PER_CHI[it.type] ? monitorFamigliaSuggerita(it) : "";   /* il nome suggerito dalla famiglia di chi serve (12/11): mai applicato da solo */
+    if(sg){ sg.hidden=!sf; if(sf) document.getElementById("pPerChiSuggTxt").textContent="Suggerito: «"+sf+"»"; }
   })();
   monPuntaPannello(it);
   (function(){   /* «Se non disponibile» (12/11): solo per gli elementi forniti dal teatro */
@@ -21172,6 +21204,7 @@ document.getElementById("pPuntaGo").addEventListener("click", function(){
   var it=getSel(), v=document.getElementById("pPunta").value; if(!it) return;
   monPuntaVerso(it, v==="centro" ? monCentroPalco() : monPersone().filter(function(p){ return String(p.id)===v; })[0]);
 });
+document.getElementById("pPerChiUsa").addEventListener("click", function(){ var it=getSel(); if(it) usaPerChiSuggerito(it.id); });
 document.getElementById("pPerChi").addEventListener("input", function(){ mutSelSoon(function(it){
   if(!PER_CHI[it.type]) return; var v=document.getElementById("pPerChi").value.slice(0,40);
   if(v.trim()) it.perChi=v; else delete it.perChi; __cabRes=null; }); });
@@ -25833,6 +25866,9 @@ function renderStagePanel(){
   syncSnapSelects();   /* il select del telefono deve dire l'aggancio VERO, non quello di partenza */
   var b=stageBlocks();
   document.getElementById("stageTotal").textContent = fmtM(state.stage.w)+" × "+fmtM(state.stage.d);
+  var _lt=document.getElementById("latiTeatro"); if(_lt) _lt.checked=(state.latiTeatro===true);   /* giardino e corte (12/11) */
+  var _ltn=document.getElementById("latiTeatroNota");
+  if(_ltn) _ltn.textContent="Scrive «sinistra (giardino)» e «destra (corte)» ai lati di fondo palco, guardando dalla platea. Spento di serie: utile nei teatri."+(latiTeatroSuggerimento() ? " "+latiTeatroSuggerimento() : "");
   /* lista chip dei blocchi */
   var list=document.getElementById("blkList"); list.innerHTML="";
   b.forEach(function(r,i){
@@ -26191,6 +26227,7 @@ document.addEventListener("click", function(e){
 })();
 document.getElementById("bStageShape").addEventListener("click", toggleStageEdit);
 document.getElementById("bStageDone").addEventListener("click", toggleStageEdit);
+(function(){ var c=document.getElementById("latiTeatro"); if(c) c.addEventListener("change", function(){ latiTeatroImposta(this.checked); }); })();   /* giardino e corte (12/11) */
 document.getElementById("venueBtnDone").addEventListener("click", toggleVenueEdit);
 document.getElementById("bEventoDone").addEventListener("click", toggleEvento);
 /* ---- Channel list (consulenza): wiring pannello + sezioni a scomparsa (audit/roadmap 1B) ---- */
@@ -30764,6 +30801,7 @@ function renderPmAccList(){
     var pmF=pmOf(l.from), pw=(R.power||{})[l.from.id];
     s+='<div class="insp-row"><b>'+esc((l.from.label||"mixer")+" → "+(l.to.label||(l.toIsHub?"hub":"mixer")))+'</b><small>'+esc((pmF?pmSysName(pmF.sys)+" \u00b7 ":"")+(l.cut?l.cut+" m":Math.round(l.lenM)+" m")+(pw==="data"?" \u00b7 \u26a1":pw==="psu"?" \u00b7 PSU":""))+'</small></div>';
   });
+  var _mc=macchineAscolto(); if(_mc) s+='<div class="insp-row"><b>Macchine e aste</b><small>'+esc(macchineTesto(_mc))+'</small></div>';
   el.innerHTML=s;
 }
 var cabOpen=false;   /* legacy: pannello tolto */
@@ -31182,6 +31220,7 @@ function patchList(){
     }
     return {n:++n, name:name, mic:mic, stand:stand, p48:p48, standAuto:!(_ov.stand!=null), p48Auto:!(_ov.p48===true||_ov.p48===false),
             short:_ov.short||"",   /* nome sul banco: su OGNI riga, anche senza stage box (11/11/2026: si leggeva solo sui canali collegati) */
+            dyn:_ov.dyn||"", micAlt:_ov.micAlt||"",   /* formato Service (12/11): dinamica e microfono alternativo, scelte del canale */
             micAuto:!(_ov.mic!=null||o),   /* mic DEDOTTO (dal tipo o dal modello reale): in channel list si mostra in corsivo come l'asta */
             stereoPair:_pair, standShared:_shared, by:_riderBy(itemId, name),
             patch:patch, box:box, itemId:itemId, key:key, micOff:o}; }
@@ -31211,6 +31250,84 @@ function patchList(){
   if(state.cab && state.cab.stereoOdd) rows=alignStereoOdd(rows);   /* convenzione L=dispari/R=pari (opt-in via audit) */
   rows=insertReserved(rows, R);
   return {rows:rows, R:R, hasFoh:hasFoh};
+}
+/* ═══ CONTATORE CANALI e RIGHE DI SERVIZIO (12/11/2026, specifica S2 dalla posta di produzione) ═══
+   «Canali: 74 usati su 80»: la capacità è la somma dei canali delle stage box dichiarate; i riservati si dicono a parte
+   («74 usati + 6 riservati su 80») così il numero dei canali veri resta onesto. Senza stage box non c'è capacità e non c'è contatore. */
+function contatoreCanali(){
+  var R; try{ R=cabResult(true); }catch(_e){ return null; }
+  var boxes=(R.boxes||[]).filter(function(b){ return !b.auto; }); if(!boxes.length) return null;
+  var cap=0, ris=0; boxes.forEach(function(b){ cap+=b.cap; ris+=(b.res||[]).length; });
+  var usati=patchList().rows.filter(function(r){ return !r.reserved && !r.spare; }).length;
+  var oltre=Math.max(0, usati+ris-cap);
+  return { usati:usati, riservati:ris, capacita:cap, oltre:oltre,
+           testo:"Canali: "+usati+" usati"+(ris?" + "+ris+" riservati":"")+" su "+cap+(oltre?" — oltre la capacità di "+oltre:"") };
+}
+/* Una riga di servizio è una PORTA RISERVATA con un nome (`it.sbResNome`, sulla stage box): non sposta nessun canale vero e nel PDF
+   dice «Seq L» invece di «RISERVATO». I gruppi sono quelli dei rider veri («computer Ableton tipico = 8 TRS», «104 TALKBACK palco»). */
+var SERVIZI_GRUPPI=[
+  {id:"playback", nome:"Computer playback (8)", nomi:["Seq L","Seq R","Cori L","Cori R","Click/Count","Gobbo/chiamate","Voce guida","Spare"]},
+  {id:"talkback", nome:"Talkback palco", nomi:["Talkback palco"]},
+  {id:"micdir", nome:"Mic direttore", nomi:["Mic direttore"]},
+  {id:"efx", nome:"EFX", nomi:["EFX"]},
+  {id:"video", nome:"Video L/R", nomi:["Video L","Video R"]},
+  {id:"pc", nome:"PC L/R", nomi:["PC L","PC R"]},
+  {id:"radio", nome:"Radio", base:"Radio", numerabile:true},
+  {id:"spare", nome:"Spare", base:"Spare", numerabile:true}];
+function serviziBoxReali(){ var R; try{ R=cabResult(true); }catch(_e){ return []; } return (R.boxes||[]).filter(function(b){ return !b.auto; }); }
+function serviziNomiUsati(){ var u={}; serviziBoxReali().forEach(function(b){ Object.keys(b.resNome||{}).forEach(function(k){ u[String(b.resNome[k]).toLowerCase()]=1; }); }); return u; }
+/* i gruppi che il menu offre adesso: niente di ciò che c'è già (il talkback e il gobbo sono oggetti sul palco, il mic del direttore
+   un'opzione) e niente nomi già messi come riga di servizio; un gruppo a metà offre le righe che mancano */
+function serviziOfferti(){
+  var items=state.items||[], usati=serviziNomiUsati();
+  var haTalkback=items.some(function(i){ return i.type==="talkback"; });
+  var haGobbo=items.some(function(i){ return i.type==="confidence"; });
+  var haMicDir=items.some(function(i){ return i.type==="direttore" && i.mic; });
+  var out=[];
+  SERVIZI_GRUPPI.forEach(function(g){
+    if(g.numerabile){ out.push({id:g.id, nome:g.nome, base:g.base, numerabile:true, nomi:[]}); return; }
+    if(g.id==="talkback" && haTalkback) return;
+    if(g.id==="micdir" && haMicDir) return;
+    var nomi=g.nomi.filter(function(n){ return !usati[n.toLowerCase()] && !(n==="Gobbo/chiamate" && haGobbo); });
+    if(!nomi.length) return;
+    out.push({id:g.id, nome:(nomi.length===g.nomi.length ? g.nome : g.nome.replace(/ \(\d+\)$/,"")+" ("+nomi.length+" che mancano)"), nomi:nomi});
+  });
+  return out;
+}
+/* «Radio 1…Radio n»: i numeri continuano da quelli già messi */
+function serviziNomiNumerati(base, n){
+  var usati=serviziNomiUsati(), k=0, out=[], re=new RegExp("^"+base.toLowerCase()+" (\\d+)$");
+  Object.keys(usati).forEach(function(nm){ var m=re.exec(nm); if(m) k=Math.max(k, +m[1]); });
+  for(var i=1;i<=n;i++) out.push(base+" "+(k+i));
+  return out;
+}
+/* Riserva le prime porte libere in coda alla stage box (dopo l'ultima occupata) e dà loro i nomi, in ordine. Prova le box dall'ultima:
+   se nessuna ha posto per tutti, non cambia niente e dice perché. */
+function aggiungiRigheServizio(nomi){
+  nomi=(nomi||[]).map(function(n){ return String(n==null?"":n).trim().slice(0,30); }).filter(Boolean);
+  if(!nomi.length) return {ok:false, motivo:"Nessuna riga da aggiungere."};
+  var boxes=serviziBoxReali();
+  if(!boxes.length) return {ok:false, motivo:"Serve una stage box: le righe di servizio sono porte riservate su una stage box."};
+  var usati=serviziNomiUsati();
+  var doppi=nomi.filter(function(n){ return usati[n.toLowerCase()]; });
+  if(doppi.length) return {ok:false, motivo:"«"+doppi[0]+"» c'è già fra le righe di servizio."};
+  var best=null;
+  for(var i=boxes.length-1;i>=0;i--){
+    var b=boxes[i], occ=0, porte=[];
+    for(var pn=1;pn<=b.cap;pn++){ if(b.taken[pn] || b.resMap[pn] || (b.pins&&b.pins[pn])) occ=pn; }
+    for(var q=occ+1;q<=b.cap && porte.length<nomi.length;q++) porte.push(q);
+    if(porte.length===nomi.length){ best={b:b, porte:porte}; break; }
+    if(!best || porte.length>best.porte.length) best={b:b, porte:porte, corto:true};
+  }
+  if(best.corto){ var _n=nomi.length, _k=best.porte.length;
+    return {ok:false, motivo:(_n===1?"Serve 1 porta libera":"Servono "+_n+" porte libere")+" in coda alla stage box: "+(_k===1?"ce n'è 1":"ce ne sono "+_k)+"."}; }
+  var it=state.items.filter(function(x){ return x.id===best.b.id; })[0];
+  if(typeof primaDiAgire==="function") primaDiAgire();
+  var arr=Array.isArray(it.sbRes) ? it.sbRes.slice() : [], rn=(it.sbResNome && typeof it.sbResNome==="object") ? it.sbResNome : {};
+  best.porte.forEach(function(pn,k){ arr.push(pn); rn[pn]=nomi[k]; });
+  it.sbRes=arr; it.sbResNome=rn;
+  __cabRes=null; save(); render();
+  return {ok:true, box:best.b.id, porte:best.porte};
 }
 /* ═══════════ CHANNEL LIST a schermo intero (variante C, Simone 28/07) ═══════════
    La lista completa — numero, sorgente, mic/DI, asta, 48V, patch — accanto a una miniatura del palco.
@@ -31282,7 +31399,7 @@ function clRender(){
   pl.rows.forEach(function(r,i){
     if(r.reserved){
       h+='<tr class="cl-row cl-res"><td class="cl-grip"></td><td class="cl-num">'+((pl.hasFoh&&r.foh)?r.foh:r.n)+'</td>'
-       + '<td class="cl-src"><i>\u2014 riservato \u2014</i></td><td colspan="3"></td>'
+       + '<td class="cl-src"><i>'+(r.servizio ? '\u2014 '+esc(r.servizio)+' \u2014' : '\u2014 riservato \u2014')+'</i></td><td colspan="3"></td>'
        + '<td><span class="cl-patch">'+esc(r.patch)+'</span></td>'
        + '<td class="cl-act"><button type="button" class="cl-free" data-free="'+esc(r.boxId||"")+'" data-port="'+r.port+'" title="Libera questo canale">\u00d7</button></td></tr>';
       return;
@@ -31464,11 +31581,15 @@ function cabRenameItem(id, v){ var it=(state.items||[]).find(function(i){return 
    Le riservate si inseriscono DOPO l\u0027ordinamento manuale e l\u0027allineamento stereo: seguono la porta,
    non l\u0027ordine scelto a mano, perch\u00e9 il loro senso \u00e8 esattamente quello di occupare un numero. */
 /* libera una porta riservata (dalla riga della lista): stessa scrittura del toggle sulla griglia porte */
+function sbResLiberaNome(it, pn){   /* una porta che non è più riservata perde il nome di servizio */
+  if(it && it.sbResNome){ delete it.sbResNome[pn]; if(!Object.keys(it.sbResNome).length) delete it.sbResNome; }
+}
 function cabFreePort(boxId, pn){
   var it=state.items.filter(function(x){ return x.id===boxId; })[0];
   if(!it || !Array.isArray(it.sbRes)) return;
   var arr=it.sbRes.filter(function(v){ return v!==pn; });
   if(arr.length) it.sbRes=arr; else delete it.sbRes;
+  sbResLiberaNome(it, pn);
   __cabRes=null; save(); render(); renderProps();
   if(typeof showToast==="function") showToast("Canale "+pn+" liberato");
 }
@@ -31478,7 +31599,7 @@ function insertReserved(rows, R){
     (b.res||[]).forEach(function(pn){
       var tag=b.sbId?("ID"+b.sbId):b.letter;
       res.push({ n:0, name:"", mic:"", stand:"", p48:false, patch:tag+"\u00b7"+pn, box:b.letter, boxId:b.id,
-                 itemId:null, key:"res:"+b.id+":"+pn, micOff:false, reserved:true, port:pn, short:"",
+                 itemId:null, key:"res:"+b.id+":"+pn, micOff:false, reserved:true, port:pn, short:"", servizio:((b.resNome && b.resNome[pn]) || ""),
                  foh:(b.fohBase!=null)?(b.fohBase+pn):null });
     });
   });
@@ -31751,6 +31872,9 @@ function openPortPop(ev, r){
     if(String(rk).indexOf("grp:")===0) h+='<div class="pp-note">Questo strumento entra con un multipolare: la porta scelta è quella del primo canale, gli altri seguono consecutivi.</div>';
   }
   h+='<label for="ppShort">Nome breve console</label><input id="ppShort" type="text" maxlength="12" placeholder="es. VL1-1" value="'+esc(r.short||'')+'">';
+  /* formato Service della channel list (12/11): dinamica sul banco e microfono alternativo, riga per riga */
+  h+='<label for="ppDyn">Dinamica</label><select id="ppDyn"><option value="">\u2014</option>'+[["G","Gate"],["C","Compressore"],["GC","Gate + compressore"]].map(function(o){ return '<option value="'+o[0]+'"'+(r.dyn===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join("")+'</select>';
+  h+='<label for="ppMicAlt">Microfono alternativo</label><input id="ppMicAlt" type="text" maxlength="24" placeholder="es. similare, SM81" value="'+esc(r.micAlt||'')+'">';
   pop.innerHTML=h;
   document.body.appendChild(pop);
   pop.style.left=Math.min(ev.clientX, window.innerWidth-pop.offsetWidth-10)+"px";
@@ -31761,12 +31885,16 @@ function openPortPop(ev, r){
     var m=cabManual(r.key);
     var sh=document.getElementById("ppShort").value.trim();
     if(sh) m.short=sh.slice(0,12); else delete m.short;
+    var _dy=document.getElementById("ppDyn"), _ma=document.getElementById("ppMicAlt");
+    if(_dy){ if(_dy.value==="G"||_dy.value==="C"||_dy.value==="GC") m.dyn=_dy.value; else delete m.dyn; }
+    if(_ma){ var _mv=_ma.value.trim().slice(0,24); if(_mv) m.micAlt=_mv; else delete m.micAlt; }
     if(!Object.keys(m).length) delete state.cab.manual[r.key];
     __cabRes=null; save(); render();
   }
   pop.addEventListener("click", function(e){ e.stopPropagation(); });
   var sv=document.getElementById("ppSel"); if(sv) sv.addEventListener("change", commit);
   document.getElementById("ppShort").addEventListener("change", commit);
+  ["ppDyn","ppMicAlt"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("change", commit); });
   setTimeout(function(){ document.addEventListener("click", function close(){ document.removeEventListener("click", close); commit(); pop.remove(); }); }, 30);
 }
 /* SP-06 (audit esterno 05/09): «liste, livelli e modalità di lavoro sono mescolati». Aprire una
@@ -31820,6 +31948,38 @@ function renderVistaBanner(){
   var b=document.getElementById("vistaEsci");
   if(b) b.addEventListener("click", function(e){ e.stopPropagation(); exitListMode(); render(); });
 }
+/* Il menu «Righe di servizio» (12/11): i gruppi pronti che mancano; Radio e Spare con un numero. Se non c'è posto lo dice e non cambia niente. */
+function openServiziPop(ev){
+  var old=document.getElementById("svcPop"); if(old){ old.remove(); return; }
+  var pop=document.createElement("div"); pop.id="svcPop"; pop.className="port-pop svc-pop";
+  var off=serviziOfferti();
+  function fatto(r){
+    if(r.ok){ pop.remove(); if(typeof showToast==="function") showToast(r.porte.length+(r.porte.length===1?" riga di servizio aggiunta":" righe di servizio aggiunte")+" (porte "+r.porte[0]+(r.porte.length>1?"–"+r.porte[r.porte.length-1]:"")+")"); }
+    else { var m=document.getElementById("svcMsg"); if(m) m.textContent=r.motivo; if(typeof showToast==="function") showToast(r.motivo); }
+  }
+  var h='<div class="svc-h">Righe di servizio</div>';
+  pop.innerHTML=h;
+  off.forEach(function(g){
+    var row=document.createElement("div"); row.className="svc-row";
+    var b=document.createElement("button"); b.type="button"; b.className="btn svc-add"; b.textContent=(g.numerabile ? "+ "+g.nome : "+ "+g.nome);
+    if(g.numerabile){
+      var n=document.createElement("input"); n.type="text"; n.inputMode="numeric"; n.maxLength=2; n.value="2"; n.className="svc-n"; n.setAttribute("aria-label","Quante righe «"+g.nome+"»");
+      b.addEventListener("click", function(){ var q=Math.max(1, Math.min(32, parseInt(n.value,10)||1)); fatto(aggiungiRigheServizio(serviziNomiNumerati(g.base, q))); });
+      row.appendChild(b); row.appendChild(n);
+    } else {
+      b.title=g.nomi.join(", ");
+      b.addEventListener("click", function(){ fatto(aggiungiRigheServizio(g.nomi)); });
+      row.appendChild(b);
+    }
+    pop.appendChild(row);
+  });
+  var msg=document.createElement("div"); msg.id="svcMsg"; msg.className="svc-msg"; pop.appendChild(msg);
+  document.body.appendChild(pop);
+  pop.addEventListener("click", function(e){ e.stopPropagation(); });
+  var x=Math.min(ev.clientX, window.innerWidth-pop.offsetWidth-10), y=Math.min(ev.clientY+8, window.innerHeight-pop.offsetHeight-10);
+  pop.style.left=Math.max(8,x)+"px"; pop.style.top=Math.max(8,y)+"px";
+  setTimeout(function(){ document.addEventListener("click", function chiudi(){ document.removeEventListener("click", chiudi); var p=document.getElementById("svcPop"); if(p) p.remove(); }); }, 30);
+}
 function renderPatchPanel(){
   var sec=document.getElementById("patchSec"); if(!sec) return;
   sec.style.display = patchActive ? "block" : "none";   /* sezione presente SOLO se attivata dal catalogo */
@@ -31858,8 +32018,15 @@ function renderPatchPanel(){
          ' <span class="lbl-note">— il service li collega. Aggiungi una stage box se vuoi disegnarli tu</span>');
   } else txt.innerHTML='\u2713 Tutti i canali sono cablati';
   bar.appendChild(txt);
-  if(cap){ var cs=document.createElement("span"); cs.className="cab-bar-cap"; cs.textContent=cap;
+  /* il contatore dei canali (12/11): «Canali: 74 usati + 6 riservati su 80», arancione oltre la capacità; senza stage box resta com'era */
+  var _ct=contatoreCanali();
+  if(_ct){ var cs0=document.createElement("span"); cs0.className="cab-bar-cap"+(_ct.oltre?" warn":""); cs0.textContent=_ct.testo;
+    cs0.title="Canali usati, riservati e capacità delle stage box dichiarate"; bar.appendChild(cs0); }
+  else if(cap){ var cs=document.createElement("span"); cs.className="cab-bar-cap"; cs.textContent=cap;
     cs.title="Porte in uso sulla stage box"; bar.appendChild(cs); }
+  if(boxReali.length){ var sv=document.createElement("button"); sv.type="button"; sv.id="svcBtn"; sv.className="btn svc-btn"; sv.textContent="Righe di servizio";
+    sv.title="Playback, talkback, EFX, video, radio, spare: porte riservate con il loro nome";
+    sv.addEventListener("click", function(e){ e.stopPropagation(); openServiziPop(e); }); bar.appendChild(sv); }
   host.appendChild(bar);
 
   pl.rows.forEach(function(r){
@@ -31867,7 +32034,7 @@ function renderPatchPanel(){
     if(r.reserved || r.spare){
       var rs=document.createElement("div"); rs.className="patch-lite muted";
       rs.innerHTML='<span class="pn">'+num+'</span><span class="psrc"><i>'
-        + (r.reserved ? "\u2014 riservato \u2014" : "\u2014 libero (coppia stereo) \u2014")
+        + (r.reserved ? (r.servizio ? "\u2014 "+esc(r.servizio)+" \u2014" : "\u2014 riservato \u2014") : "\u2014 libero (coppia stereo) \u2014")
         + '</i></span><span class="ppatch">'+(r.reserved?esc(r.patch):"")+'</span><span class="pact"></span>';
       if(r.reserved){ rs.title="Canale tenuto libero di proposito \u2014 click per liberarlo"; rs.style.cursor="pointer";
         (function(bid,pn){ rs.addEventListener("click", function(){ cabFreePort(bid,pn); }); })(r.boxId, r.port); }
@@ -32311,6 +32478,71 @@ function monPersoneOrdinate(mon){
   return monPersone().filter(function(p){ return p.id!==mon.id; }).sort(function(a,b){ return peso(a)-peso(b); });
 }
 function monBersaglio(mon){ return mon.type==="sidefill" ? monCentroPalco() : (monPersoneOrdinate(mon)[0]||null); }
+/* ═══ ASCOLTI NOMINATI (12/11/2026, specifica S3 dalla posta di produzione: «Wedge Corni», «Sidefill Archi», «Wedge Solisti») ═══
+   Il nome di un ascolto si SUGGERISCE dalla famiglia di chi serve: se tutte le persone vicine (o quelle che l'hanno dichiarato come
+   loro ascolto) sono della stessa famiglia, il pannello propone «Corni», «Archi»… per il campo «Per chi» (che l'app compone con «Spia –»).
+   Non si applica MAI da solo: il nome scritto a mano non si tocca e le etichette automatiche dei progetti salvati (quindi i loro PDF)
+   restano come sono. Famiglie miste, nessuno vicino, strumento senza famiglia nota: nessun suggerimento. */
+var MON_FAMIGLIA_RAGGIO=250;
+function famigliaAscolto(it){
+  if(!it) return null; var t=TYPES[it.type]||{};
+  if(it.type==="corno" || it.type==="musCorno") return "Corni";
+  if(t.cat==="Orchestra"){ return t.sub==="Ottoni" ? "Ottoni" : t.sub==="Legni" ? "Legni" : t.sub==="Archi" ? "Archi" : null; }
+  if(it.type==="cantante") return "Solisti";
+  if(it.type==="corista") return "Coro";
+  if(it.type==="batteria" || it.type==="edrums") return "Batteria";
+  if(KEYS_BENCH[it.type] || TASTIERE[it.type]) return "Tastiere";
+  return null;
+}
+function monitorFamigliaSuggerita(mon){
+  if(!mon || !PER_CHI[mon.type] || (typeof mon.perChi==="string" && mon.perChi.trim())) return "";
+  var items=state.items||[];
+  var serviti=items.filter(function(p){ return p.ascoltoId && p.ascoltoId===mon.id; });
+  if(!serviti.length) serviti=items.filter(function(p){ return p.id!==mon.id && ascoltoEligible(p) && Math.hypot(p.x-mon.x, p.y-mon.y)<=MON_FAMIGLIA_RAGGIO; });
+  if(!serviti.length) return "";
+  var fam={};
+  for(var i=0;i<serviti.length;i++){ var f=famigliaAscolto(serviti[i]); if(!f) return ""; fam[f]=1; }
+  var k=Object.keys(fam);
+  if(k.length===1) return k[0];
+  return k.every(function(x){ return x==="Corni" || x==="Ottoni"; }) ? "Ottoni" : "";   /* corni e trombe insieme: ottoni */
+}
+function usaPerChiSuggerito(id){
+  var it=(state.items||[]).find(function(i){ return i.id===id; }); if(!it) return "";
+  var f=monitorFamigliaSuggerita(it); if(!f) return "";
+  it.perChi=f; __cabRes=null; save(); render(); if(typeof renderProps==="function") renderProps();
+  return f;
+}
+/* Macchine e aste dei mixer personali (S3): una macchina serve 8 mix (parametro: 16 per i sistemi doppi), band e vocalist su macchine
+   separate come nei rider veri, 1 asta nana per mixer. Il gruppo di un mixer è quello della persona più vicina (entro 2,5 m): voci e aste
+   microfoniche = vocalist, il resto e chi non ha nessuno vicino = band. Le prolunghe cuffia NON si calcolano (regola non derivabile, D9). */
+function macchineAscolto(perMacchina){
+  var per=(perMacchina>=1) ? Math.floor(perMacchina) : 8, items=state.items||[];
+  var mix=items.filter(function(x){ return x.type==="hearback"; }); if(!mix.length) return null;
+  var pers=monPersone(), byId={}; items.forEach(function(i){ byId[i.id]=i; });
+  var band=0, voc=0;
+  mix.forEach(function(m){
+    var best=null, bd=MON_FAMIGLIA_RAGGIO;
+    pers.forEach(function(p){ if(p.id===m.id || (byId[p.id] && byId[p.id].type==="hearback")) return; var d=Math.hypot(p.x-m.x, p.y-m.y); if(d<=bd){ bd=d; best=p; } });
+    var it=best && byId[best.id];
+    if(it && (VOCE[it.type] || MON_MIC_PERSONA[it.type])) voc++; else band++;
+  });
+  var mb=Math.ceil(band/per), mv=Math.ceil(voc/per);
+  return {mixer:mix.length, band:band, vocalist:voc, perMacchina:per, macchineBand:mb, macchineVocalist:mv, macchine:mb+mv, aste:mix.length};
+}
+function macchineTesto(m){
+  return "Macchine da "+m.perMacchina+" mix: "+m.macchine+((m.band && m.vocalist) ? " (band "+m.macchineBand+" · vocalist "+m.macchineVocalist+")" : "")+" · Aste nane: "+m.aste;
+}
+/* La riga «Ascolti:» del cartiglio (S3): wedge · side fill · drum fill · in-ear · hub · mixer personali, solo con almeno un ascolto */
+function ascoltiTesto(items){
+  items=items||state.items||[];
+  function n(t){ var c=0; items.forEach(function(x){ if(x.type===t) c++; }); return c; }
+  var w=n("wedge"), sf=n("sidefill"), df=n("drumfill"), iem=n("iem"), hub=n("mixhub"), pm=n("hearback");
+  if(!(w||sf||df||iem||pm)) return "";
+  var o=[];
+  if(w) o.push(w+" wedge"); if(sf) o.push(sf+" side fill"); if(df) o.push(df+" drum fill"); if(iem) o.push(iem+" in-ear");
+  if(hub) o.push(hub+" hub"); if(pm) o.push(pm===1 ? "1 mixer personale" : pm+" mixer personali");
+  return "Ascolti: "+o.join(" · ");
+}
 /* Il conto, senza toccare niente. Se la persona è quasi dritta davanti (asse della sua postazione, o i quattro angoli del palco) il monitor
    prende quell'angolo esatto e il wedge si sposta sull'asse, alla stessa distanza, purché basti poco. Altrimenti (una spia di lato, in diagonale)
    punta dritto alla persona e resta dov'è. */
@@ -35408,7 +35640,7 @@ function channelListCsv(opts){
        come nel pannello e nel PDF (prima il CSV usava l'indice di riga → numeri sfasati all'import) */
     /* coppia stereo con asta unica: il service deve leggere che il supporto è quello della riga sopra,
        non una cella vuota da interpretare come «asta da decidere» */
-    return [(pl.hasFoh&&r.foh)?r.foh:r.n, r.reserved?"RISERVATO":r.name, r.mic||"", r.standShared?"stessa asta":(r.stand||""), r.p48?"48V":"", patch];
+    return [(pl.hasFoh&&r.foh)?r.foh:r.n, r.reserved?(r.servizio||"RISERVATO"):r.name, r.mic||"", r.standShared?"stessa asta":(r.stand||""), r.p48?"48V":"", patch];
   });
   /* la protezione dalle formule vale per il formato Excel; «intl» dichiara nella sua etichetta di
      servire anche all'import in console, e lì l'apice sarebbe un danno */
@@ -36261,6 +36493,9 @@ function patchListPdf(shared){
     doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
     if(R.mixer&&MIXER_DB[R.mixer]) { doc.text("Mixer: "+hwLabel(R.mixer,MIXER_DB), M, y); y+=5; }
     y=pdfACapo(doc, R.boxes.length ? "Stage box: "+R.boxes.map(function(b){ return b.letter+" "+(b.hw&&STAGEBOX_DB[b.hw]?STAGEBOX_DB[b.hw].model:b.cap+"ch")+(b.auto?" (auto)":""); }).join("  ·  ") : "Nessuna stage box dichiarata: il patch lo assegna il service", M, y, 178, 4.6)+3.4;
+    /* contatore dei canali (12/11): compare solo se il progetto ha porte riservate o supera la capacità; altrimenti la pagina è quella di sempre */
+    var _ct=contatoreCanali();
+    if(_ct && (_ct.riservati>0 || _ct.oltre>0)){ doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor(_ct.oltre?"#b45309":"#555555"); doc.text(_ct.testo, M, y); y+=5.4; }
     /* Il buco si vede nella SUA cella — il patch — e la riga resta nera. Prima un canale senza stage
        box dipingeva di rosso l'intera riga: su una band appena creata (stage box quasi mai dichiarata)
        TUTTA la input list usciva rossa, e chi la riceveva leggeva «errore» su dati giusti (23/08). */
@@ -36273,7 +36508,7 @@ function patchListPdf(shared){
     function _testa(){ trow("#","SORGENTE","FOH","MIC / DI","ASTA","PATCH", true, "#0d9488"); doc.setDrawColor("#0d9488"); doc.setLineWidth(0.4); doc.line(M, y-3.6, 194, y-3.6); }
     _testa(); _testaTab=_testa;
     var _band=false, _teatro=false;   /* «fornito da» della channel list: ** (band) e ° (teatro) accanto alla sorgente, legenda sotto (30/09, 12/11) */
-    pl.rows.forEach(function(r){ if(r.by==="Band" && !r.reserved) _band=true; if(r.by==="Teatro" && !r.reserved) _teatro=true; trow((pl.hasFoh&&r.foh)?r.foh:r.n, r.reserved?"RISERVATO":(r.name+fornitoSegno(r.by)), r.short||"", r.reserved?"":(r.mic+(r.p48?"  (48V)":"")), r.standShared?"stessa asta":(r.stand||""), r.patch, false, (r.spare||r.reserved)?"#9a948b":"#111827", (r.spare||r.reserved||r.box)?null:"#b45309"); });
+    pl.rows.forEach(function(r){ if(r.by==="Band" && !r.reserved) _band=true; if(r.by==="Teatro" && !r.reserved) _teatro=true; trow((pl.hasFoh&&r.foh)?r.foh:r.n, r.reserved?(r.servizio||"RISERVATO"):(r.name+fornitoSegno(r.by)), r.short||"", r.reserved?"":(r.mic+(r.p48?"  (48V)":"")), r.standShared?"stessa asta":(r.stand||""), r.patch, false, (r.spare||r.reserved)?"#9a948b":"#111827", (r.spare||r.reserved||r.box)?null:"#b45309"); });
     if(_band){ y+=1.5; doc.setFont("helvetica","italic"); doc.setFontSize(8.5); doc.setTextColor("#555555"); if(y>286){ doc.addPage(); y=18; } doc.text(FORNITO_BAND_LEGENDA, M, y); y+=5.4; }
     if(_teatro){ if(!_band) y+=1.5; doc.setFont("helvetica","italic"); doc.setFontSize(8.5); doc.setTextColor("#555555"); if(y>286){ doc.addPage(); y=18; } doc.text(FORNITO_TEATRO_LEGENDA, M, y); y+=5.4; }
     /* IL RIQUADRO «CHI FORNISCE COSA» (12/11): una riga per fornitore con i canali, e quanti restano senza indicazione.
@@ -36559,6 +36794,79 @@ function noteListPdf(shared){
   };
   if(shared){ run(shared); return; }
   loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
+}
+/* ═══ CHANNEL LIST «FORMATO SERVICE» (12/11/2026, specifica S4 dalla posta di produzione) ═══
+   Il formato fisso dei service, identico da un anno all'altro: N · STRUMENTO · FOH (nome sul banco) · DINAMICA · STAND · MIC / DI ·
+   PATCH · 48 V, pagine da 32 canali (o 48), A4 orizzontale, aste in calce. È un'opzione dell'Esporta: patchListPdf, il formato
+   semplice, non cambia. Le aste si normalizzano alle voci del service (lunga, corta, nana, clip, XLR, DI); ciò che non si sa classificare
+   si stampa com'è, per non perdere informazione. */
+function standServizio(r){
+  if(!r) return "";
+  if(r.standShared) return "stessa asta";
+  if(/\bDI\b/.test(String(r.mic||""))) return "DI";
+  var s=String(r.stand||"").trim().toLowerCase(); if(!s || s==="\u2014") return "";
+  if(/nana|bassa/.test(s)) return "nana";
+  if(/corta|tavolo/.test(s)) return "corta";
+  if(/lunga|dritta|giraffa|gigante/.test(s)) return "lunga";
+  if(/clip|pinza/.test(s)) return "clip";
+  if(/interno|terra|xlr/.test(s)) return "XLR";
+  return String(r.stand).trim();
+}
+var ASTE_SERVIZIO=[["lunga","lunga","lunghe"],["corta","corta","corte"],["nana","nana","nane"],["clip","clip","clip"]];
+function asteServizioTesto(rows){
+  var c={}; (rows||[]).forEach(function(r){ if(r.reserved||r.spare) return; var v=standServizio(r); if(ASTE_SERVIZIO.some(function(a){ return a[0]===v; })) c[v]=(c[v]||0)+1; });
+  var o=ASTE_SERVIZIO.filter(function(a){ return c[a[0]]; }).map(function(a){ return c[a[0]]+" "+(c[a[0]]===1?a[1]:a[2]); });
+  return o.length ? "Aste: "+o.join(" · ") : "";
+}
+function patchListServicePdf(shared, opts){
+  var K=(opts && opts.perPagina===48) ? 48 : 32;
+  var pl=patchList(); if(!pl.rows.length) return;
+  var run=function(doc){
+    var rows=pl.rows, pagine=Math.ceil(rows.length/K), M=12, W=297, cols=[M, M+10, M+72, M+104, M+120, M+142, M+206, M+240];
+    var tp=String(state.titolo||"").trim(), nome=(typeof titoloSenzaVersione==="function" ? titoloSenzaVersione(tp) : tp)||"Channel list";
+    var dt=(state.evDate||"").replace(/-/g,""), v=(typeof versioneNumero==="function") ? versioneNumero() : 0;
+    var testata=[nome, dt, String(state.luogo||"").trim(), v?("v"+v):""].filter(Boolean).join(" \u2013 ");
+    var ct=(typeof contatoreCanali==="function") ? contatoreCanali() : null;
+    function fit(t, w){ t=String(t==null?"":t); while(t.length>1 && doc.getTextWidth(t)>w){ t=t.slice(0,-2)+"\u2026"; if(t.length<3) break; } return t; }
+    for(var pg=0; pg<pagine; pg++){
+      doc.addPage("a4","landscape");
+      var r0=rows[pg*K], r1=rows[Math.min(rows.length,(pg+1)*K)-1];
+      var num=function(r){ return (pl.hasFoh&&r.foh)?r.foh:r.n; };
+      doc.setFillColor("#0d9488"); doc.rect(0,0,W,12,"F");
+      doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.text("STAGE PLOT \u2014 Channel list", M, 8);
+      doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), W-M, 8, {align:"right"});
+      doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text(fit(testata, W-2*M), M, 19);
+      var boxTag=(r0.box && r0.patch) ? String(r0.patch).split("\u00b7")[0] : "";
+      doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor("#555555");
+      doc.text("Canali "+num(r0)+"-"+num(r1)+(boxTag?" \u00b7 box "+boxTag:"")+" \u00b7 pagina "+(pg+1)+" di "+pagine, M, 25);
+      var y0=31;
+      if(pg===0 && ct && (ct.riservati>0 || ct.oltre>0)){ doc.setTextColor(ct.oltre?"#b45309":"#555555"); doc.text(ct.testo, M, y0); y0+=5; }
+      var rh=Math.min(5.2, (192-(y0+6))/K), fs=Math.max(6, Math.min(8.5, rh*1.8));
+      doc.setFont("helvetica","bold"); doc.setFontSize(fs); doc.setTextColor("#0d9488");
+      ["N","STRUMENTO","FOH","DIN.","STAND","MIC / DI","PATCH","48V"].forEach(function(h,i){ doc.text(h, cols[i], y0+3); });
+      doc.setDrawColor("#0d9488"); doc.setLineWidth(0.3); doc.line(M, y0+4.6, W-M, y0+4.6);
+      var y=y0+4.6+rh;
+      rows.slice(pg*K,(pg+1)*K).forEach(function(r){
+        doc.setFont("helvetica","normal"); doc.setFontSize(fs); doc.setTextColor(r.reserved||r.spare ? "#9a948b" : "#111827");
+        var nm=r.reserved ? (r.servizio||"RISERVATO") : (r.spare ? "\u2014 libero \u2014" : r.name);
+        doc.text(String(num(r)), cols[0], y);
+        doc.text(fit(nm, 60), cols[1], y);
+        if(!r.reserved && !r.spare){
+          doc.text(fit(r.short||r.name, 30), cols[2], y);
+          if(r.dyn) doc.text(r.dyn, cols[3], y);
+          var st=standServizio(r); if(st) doc.text(fit(st, 20), cols[4], y);
+          var mic=r.micOff ? "" : (r.mic||""); if(mic && r.micAlt) mic=mic+" o "+r.micAlt;
+          if(mic) doc.text(fit(mic, 62), cols[5], y);
+        }
+        if(r.patch) doc.text(fit(r.patch, 32), cols[6], y);
+        if(r.p48 && !r.reserved && !r.spare) doc.text("X", cols[7], y);
+        y+=rh;
+      });
+      if(pg===pagine-1){ var aste=asteServizioTesto(rows); if(aste){ doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor("#111827"); doc.text(aste, M, Math.min(200, y+3)); } }
+    }
+  };
+  if(shared){ run(shared); return; }
+  loadJsPDF().then(function(){ var d=new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true}); run(d); d.deletePage(1); pdfCredit(d); pdfSave(d, fileName()+"-channel-list-service.pdf"); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
 }
 function dantePatchPdf(shared){
   var R; try{ R=cabResult(); }catch(_e){ R={boxes:[]}; }
@@ -37169,6 +37477,8 @@ function pmListPdf(shared){
       shown.forEach(function(i){ line("• "+i.msg, 9, false, i.lvl==="err"?"#dc2626":"#b45309", 5); }); }
     var pWithModel=(R.pending||[]).filter(function(m){ return pmOf(m); });
     if(pWithModel.length) line(pWithModel.length+" mixerino/i con modello non ancora collegati al hub.", 9, false, "#9ca3af", 5);
+    var _mac=macchineAscolto();   /* macchine da 8 mix e aste nane (S3): in fondo, solo con mixer personali */
+    if(_mac){ y+=2; line("MACCHINE E ASTE", 10.5, true, "#a21caf", 6); line(macchineTesto(_mac), 9.5, false, null, 5.2); }
     if(shared) return;
     pdfCredit(doc);
     pdfSave(doc, fileName()+"-personal-monitor.pdf");
@@ -37715,9 +38025,7 @@ function pdfTotals(opts){
   var poltr=poltroneDi(it); if(poltr) out.push(poltr+(poltr===1?" poltrona":" poltrone"));
   sgabelliTesto(it).forEach(function(t){ out.push(t); });   /* quali sgabelli, non solo quanti (16/09) */
   var _ped=pedaneTesto(it); if(_ped) out.push(_ped);   /* quante pedane e di che altezza, raggruppate (12/11) */
-  if(pm)     out.push(pm+" personal mixer"+(hub?" ("+hub+(hub===1?" hub)":" hub)"):""));
-  if(wedge)  out.push(wedge+(wedge===1?" spia":" spie"));
-  if(iem)    out.push(iem+" in-ear");
+  var _asc=ascoltiTesto(it); if(_asc) out.push(_asc);   /* una riga sola per tutti gli ascolti (12/11, S3); prima «N personal mixer (M hub)», «N spie», «N in-ear» */
   return out;
 }
 /* ===== QR NEL PDF VERSO LA VERSIONE ONLINE (10/10/2026, dal confronto con TecRider Pro) =====
@@ -38184,7 +38492,7 @@ function pdfListConfig(){
          condiviso, e chi riceveva il link cercava il canale sbagliato. Idem per le riservate, che
          uscivano con la casella vuota invece di dire RISERVATO. */
       cols:[{h:"#",num:1,f:function(r,d){return (d&&d.hasFoh&&r.foh)?r.foh:r.n;}},
-            {h:"Sorgente",f:function(r){return r.reserved?"RISERVATO":r.name;}},
+            {h:"Sorgente",f:function(r){return r.reserved?(r.servizio||"RISERVATO"):r.name;}},
             {h:"Mic / DI",f:function(r){return r.reserved?"":(r.mic+(r.p48?" · 48V":""));}},
             {h:"Patch",f:function(r){return r.patch;},warn:function(r){return !r.box;}}] },
     monitorlist:{ title:"Monitor list", color:"#0891b2", data:(typeof monitorList==="function"?monitorList:null),
@@ -39161,7 +39469,8 @@ function buildPdfDoc(paperKey, N, orient, header){
         rider:function(){ riderPdf(doc); },                       /* T2: il rider apre le pagine tecniche */
         responsabilita:function(){ responsabilitaPdf(doc); },      /* Decisione 5A */
         /* in consulenza input+monitor sono già nella channel list manuale */
-        inputlist:function(){ if(!window.__consultMode) patchListPdf(doc); },
+        inputlist:function(){ if(window.__consultMode) return; var _f=window.__pdfListaFmt;
+          if(_f && _f.formato==="service") patchListServicePdf(doc, {perPagina:_f.perPagina}); else patchListPdf(doc); },   /* formato Service = opzione dell'Esporta (12/11), il semplice resta il predefinito */
         monitorlist:function(){ if(!window.__consultMode) monitorListPdf(doc); },
         lightslist:function(){ lightsListPdf(doc); },
         loadlist:function(){ loadListPdf(doc); },
@@ -39656,6 +39965,21 @@ function pdfChannelPage(doc, L, paperKey){
       });
     }
   }
+  /* Il formato della channel list (12/11): i due menu compaiono solo se la channel list è fra le pagine possibili; a ogni apertura si riparte da Semplice, 32. */
+  function renderListaFormato(){
+    var box=document.getElementById("pdfListaFmt"); if(!box) return;
+    var ha=(_pdfTechPages||[]).some(function(p){ return p.key==="inputlist"; });
+    box.hidden=!ha;
+    var f=document.getElementById("pdfListaFormato"), pp=document.getElementById("pdfListaPerPagina"), ppl=document.getElementById("pdfListaPerPaginaL");
+    if(f) f.value=window.__pdfListaFmt.formato;
+    if(pp){ pp.value=String(window.__pdfListaFmt.perPagina); pp.hidden=window.__pdfListaFmt.formato!=="service"; }
+    if(ppl) ppl.hidden=window.__pdfListaFmt.formato!=="service";
+  }
+  (function(){
+    var f=document.getElementById("pdfListaFormato"), pp=document.getElementById("pdfListaPerPagina");
+    if(f) f.addEventListener("change", function(){ window.__pdfListaFmt.formato=(f.value==="service")?"service":"semplice"; renderListaFormato(); });
+    if(pp) pp.addEventListener("change", function(){ window.__pdfListaFmt.perPagina=(pp.value==="48")?48:32; });
+  })();
   /* Il coro che nel PDF non ha canali (29/09). Stessa forma dell'avviso qui sopra: quello che si vedrà nel
      foglio, e il rimedio a un clic — gli stessi microfoni d'insieme che aggiunge l'audit. */
   function renderCoroMuto(){
@@ -40093,6 +40417,7 @@ function pdfChannelPage(doc, L, paperKey){
        progetto) e' preselezionata quando ce ne sono, e «Solo palco» e' a un clic, sempre in vista.
        Senza pagine suggerite si parte dal solo palco. La scelta NON si salva nel progetto (10/09: niente
        `pdfPages`): vive quanto la finestra, e alla riapertura si riparte da qui. */
+    window.__pdfListaFmt={formato:"semplice", perPagina:32}; renderListaFormato();   /* formato della channel list: a ogni apertura da Semplice (12/11) */
     _pdfPillSel={};
     if(pdfScelteEsporta(_pdfTechPages).preselezione==="scheda") pdfScelteEsporta(_pdfTechPages).sugg.forEach(function(k){ _pdfPillSel[k]=true; });
     _prodOpen=false;

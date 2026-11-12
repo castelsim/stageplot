@@ -1350,6 +1350,14 @@
   .patch-empty{color:var(--text-3);font-size:12px;padding:8px 2px;line-height:var(--lh-snug)}
   /* la barra dice a che punto sei, e a destra quanto è piena la stage box (o, sul Power, la fase più carica) */
   .cab-bar-cap{flex:0 0 auto;font-size:11px;font-weight:700;opacity:.8;font-variant-numeric:tabular-nums}
+  .cab-bar-cap.warn{color:var(--warning);opacity:1}
+  .svc-btn{flex:0 0 auto;padding:3px 9px;font-size:11px;margin:0}
+  .svc-pop{min-width:230px}
+  .svc-pop .svc-h{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--text-3);margin-bottom:6px}
+  .svc-pop .svc-row{display:flex;gap:6px;align-items:center;margin:4px 0}
+  .svc-pop .svc-add{flex:1 1 auto;text-align:left;padding:5px 9px;font-size:12px;margin:0}
+  .svc-pop .svc-n{width:38px;box-sizing:border-box;text-align:center;padding:5px 4px;font-size:12px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text)}
+  .svc-pop .svc-msg{font-size:11px;color:var(--warning);margin-top:6px}
   @media (hover:none){
     .lite-btn{width:30px;height:28px}   /* bersaglio per il dito */
     .cab-one{font-size:12px}
@@ -1620,6 +1628,10 @@ svg.names-hidden .orc-name{display:none}
   /* Area stampata: cosa verrà stampato, e il comando per cambiarlo sulla stessa riga (31/07) */
   .pdf-area-line{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--text)}
   .pdf-area-line .btn{padding:4px 10px;font-size:12px;margin:0}
+  /* formato della channel list nell'Esporta (12/11) */
+  #pdfListaFmt{margin-top:12px}
+  #pdfListaFmt label{display:block;font-size:12px;font-weight:600;color:var(--text-2);margin:8px 0 4px}
+  #pdfListaFmt select{width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:14px;background:var(--surface);color:var(--text)}
   /* I chip di questa riga NON vanno a capo: sono tre gruppi affiancati (formato · orientamento ·
      scala) e una colonna che si spezza fa leggere «A2» come se appartenesse all'orientamento.
      Col terzo chip «Auto» (11/08) lo spazio è diventato stretto: qui i chip si compattano e la riga
@@ -4431,6 +4443,9 @@ body.cust-contorno .item.selected .selbox{display:none}
     <button class="btn adv-mob" type="button" id="stageAdvMob">Opzioni tecniche</button>
     <!-- «Stessa formazione, altro palco» (29/09): qui perché è la stessa domanda delle misure. -->
     <button class="btn" type="button" id="bAdattaPalco" style="width:100%;margin-top:11px" title="Stessa formazione e stesse posizioni su un palco di misura diversa">Adatta a un altro palco…</button>
+    <!-- GIARDINO E CORTE (12/11/2026): opzione del progetto, spenta di serie. Scrive i nomi dei lati del teatro ai lati di FONDO PALCO. -->
+    <label class="chk" id="latiTeatroRow" style="margin-top:11px"><input type="checkbox" id="latiTeatro"> Giardino e corte</label>
+    <div class="hint" id="latiTeatroNota" style="font-size:11px;color:var(--text-2);margin:2px 0 0">Scrive «sinistra (giardino)» e «destra (corte)» ai lati di fondo palco, guardando dalla platea. Spento di serie: utile nei teatri.</div>
     <button class="btn primary" id="bStageDone" style="width:100%;margin-top:11px">Fatto</button>
     </div>
     <div id="venueSec" hidden>
@@ -4588,7 +4603,8 @@ body.cust-contorno .item.selected .selbox{display:none}
       <button class="btn" id="bPostoCsv" type="button" style="width:100%;margin-top:6px">Elenco posti (CSV)</button>
       <button class="btn" id="bPostoPren" type="button" style="display:none;width:100%;margin-top:6px">Vai alla biglietteria</button>
     </div>
-    <div id="pPerChiWrap" style="display:none"><label for="pPerChi">Per chi <small class="lbl-note">— il nome sul canale dell'ascolto</small></label><input type="text" id="pPerChi" maxlength="40" autocomplete="off" placeholder="es. Basso, Sara, Direttore"></div>
+    <div id="pPerChiWrap" style="display:none"><label for="pPerChi">Per chi <small class="lbl-note">— il nome sul canale dell'ascolto</small></label><input type="text" id="pPerChi" maxlength="40" autocomplete="off" placeholder="es. Basso, Sara, Direttore">
+      <div id="pPerChiSugg" class="hint" hidden style="font-size:12px;color:var(--text-2);margin-top:4px"><span id="pPerChiSuggTxt"></span> <button type="button" class="btn" id="pPerChiUsa" style="width:auto;display:inline-block;padding:3px 9px;font-size:11px;margin:0 0 0 4px">Usa</button></div></div>
     <div id="pLabel2Wrap" style="display:none"><label for="pLabel2">Etichetta 2 (secondo strumento)</label><input type="text" id="pLabel2"></div>
     <div id="pLblModeWrap">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px">
@@ -6302,6 +6318,13 @@ body.cust-contorno .item.selected .selbox{display:none}
              Qui è nell'ultimo posto prima del file, dove la correzione costa un tocco. -->
         <div id="pdfFuoriPalco" hidden></div>
         <div id="pdfCoroMuto" hidden></div>
+        <!-- FORMATO DELLA CHANNEL LIST (12/11/2026): Semplice (di sempre) o Service (pagine da 32/48, A4 orizzontale). Impostazione dell'export, non del progetto. -->
+        <div id="pdfListaFmt" hidden>
+          <label for="pdfListaFormato">Formato della channel list</label>
+          <select id="pdfListaFormato"><option value="semplice" selected>Semplice</option><option value="service">Service</option></select>
+          <label for="pdfListaPerPagina" id="pdfListaPerPaginaL" hidden>Canali per pagina</label>
+          <select id="pdfListaPerPagina" hidden><option value="32" selected>32</option><option value="48">48</option></select>
+        </div>
         <!-- NOME DEL PROGETTO (11/08): nessun passaggio del cammino lo chiedeva mai — il campo esiste
              nell'header col placeholder «Senza titolo» e non viene richiamato da nessuna parte, così
              il file usciva `stage-plot.pdf` e un service che riceve tre rider in una sera si ritrova
