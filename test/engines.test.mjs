@@ -6917,14 +6917,12 @@ t("gli sgabelli hanno un tipo, e il cartiglio dice quali portare", () => {
   add("contrabbasso", 300, 600); add("sedia", 800, 700);
   const tot = A.pdfTotals({ tecnici: false }).join(" · ");
   ok(/\b1 seduta\b/.test(tot), "la sedia è una seduta, il contrabbasso no: " + tot);
-  ok(/1 sgabello batteria/.test(tot), "lo sgabello della batteria, di serie: " + tot);
-  ok(/1 sgabello alto contrabbasso/.test(tot), "quello del contrabbasso: " + tot);
+  ok(/1 batteria/.test(tot), "lo sgabello della batteria, di serie: " + tot);
+  ok(/7 sgabelli: 2 alti, 1 batteria, 1 tastiera, 3 altri/.test(tot), "un totale e il dettaglio: alti (contrabbasso, chi canta seduto), batteria, tastiera, altri: " + tot);
   ok(/1 panca piano/.test(tot), "la panca del pianoforte: " + tot);
-  ok(/1 sgabello tastiere/.test(tot), "lo sgabello dello stage piano: " + tot);
-  ok(/1 sgabello alto per chi canta/.test(tot), "quello alto per chi canta: " + tot);
-  ok(/3 sgabelli\b/.test(tot), "e i generici: " + tot);
+  ok(/1 tastiera/.test(tot), "lo sgabello dello stage piano: " + tot);
   /* l'ordine: prima quelli legati a uno strumento, poi i generici */
-  ok(tot.indexOf("batteria") < tot.indexOf("alto contrabbasso") && tot.indexOf("per chi canta") < tot.indexOf("3 sgabelli"), "ordine stabile: " + tot);
+  ok(tot.indexOf("2 alti") < tot.indexOf("1 batteria") && tot.indexOf("1 batteria") < tot.indexOf("1 tastiera") && tot.indexOf("1 tastiera") < tot.indexOf("3 altri") && tot.indexOf("3 altri") < tot.indexOf("1 panca piano"), "ordine stabile: alti, batteria, tastiera, altri, poi la panca: " + tot);
   /* il tipo sopravvive a salvataggio e riapertura */
   const doc = JSON.parse(A.docToJSONFull()); A.loadDoc(doc);
   const back = A.state.items.find((x) => x.type === "sgabello" && x.sgabTipo === "voce");
@@ -12026,19 +12024,36 @@ t("Esporta: col mouse la scelta della scala si vede anche in Semplice (16/10); s
 });
 /* 16/10 — Simone: «mi sembra che lo sgabello per timpani non ci sia». Nel disegno c'era (parts.stool!==false), nel cartiglio
    e nei conteggi no: sgabelliDi() non conosceva i timpani e countAccessori() contava solo quello della batteria. */
+t("nomi degli sgabelli nel cartiglio: «N sgabelli: alti, batteria, tastiera» (12/11, scelta B di Simone)", () => {
+  reset();
+  const cb = add("contrabbasso", 300, 300); cb.doppia = true;
+  const tp = add("timpani", 500, 300); A.parts(tp).stool = true;
+  const bt = add("batteria", 700, 300); const ta = add("tastiera", 900, 300); ta.panca = true;
+  const pc = add("percussioni", 1100, 300); A.parts(pc).stool = true;
+  eq(A.sgabelliTesto(), ["6 sgabelli: 4 alti, 1 batteria, 1 tastiera"], "un totale, poi il dettaglio: gli alti sommano contrabbasso×2, timpani, percussioni");
+  ok(A.pdfTotals({ tecnici: false }).indexOf("6 sgabelli: 4 alti, 1 batteria, 1 tastiera") > -1, "è nel cartiglio del PDF");
+  reset(); add("sgabello", 300, 300); add("sgabello", 500, 300);
+  eq(A.sgabelliTesto(), ["2 sgabelli"], "un solo gruppo (generici): niente dettaglio");
+  reset(); add("batteria", 300, 300);
+  eq(A.sgabelliTesto(), ["1 sgabello batteria"], "un solo gruppo: nome per esteso");
+  reset(); add("batteria", 300, 300); add("grancoda", 900, 500);
+  eq(A.sgabelliTesto(), ["1 sgabello batteria", "1 panca piano"], "la panca del piano non è uno sgabello: resta a parte, fuori dal totale");
+  reset(); add("batteria", 300, 300); add("tastiera", 900, 300).panca = true;
+  eq(A.sgabelliTesto(), ["2 sgabelli: 1 batteria, 1 tastiera"], "due gruppi: totale e dettaglio");
+});
 t("lo sgabello dei timpani si conta come quello della batteria: cartiglio, Stato e liste dicono la stessa cosa", () => {
   ["timpani", "timpani2", "timpani3"].forEach((tipo) => {
     reset();
     const tp = add(tipo, 400, 300); A.parts(tp).stool = true;
     eq(JSON.stringify(A.sgabelliDi(tp)), JSON.stringify([["timpani", 1]]), tipo + ": uno sgabello «timpani»");
-    eq(JSON.stringify(A.sgabelliTesto()), JSON.stringify(["1 sgabello timpani"]), tipo + ": il testo del cartiglio");
+    eq(JSON.stringify(A.sgabelliTesto()), JSON.stringify(["1 sgabello alto"]), tipo + ": il testo del cartiglio (i timpani sono sgabelli alti)");
     eq(A.countAccessori().sgabelli, 1, tipo + ": il riepilogo Stato lo conta");
-    ok(A.pdfTotals({ tecnici: false }).indexOf("1 sgabello timpani") > -1, tipo + ": è nel cartiglio del PDF");
+    ok(A.pdfTotals({ tecnici: false }).indexOf("1 sgabello alto") > -1, tipo + ": è nel cartiglio del PDF");
   });
   reset();
   const due = add("timpani", 300, 300), tre = add("timpani3", 700, 300);
   A.parts(due).stool = true; A.parts(tre).stool = true;
-  eq(JSON.stringify(A.sgabelliTesto()), JSON.stringify(["2 sgabelli timpani"]), "due set di timpani: plurale");
+  eq(JSON.stringify(A.sgabelliTesto()), JSON.stringify(["2 sgabelli alti"]), "due set di timpani: plurale");
   eq(A.countAccessori().sgabelli, 2);
 });
 /* 11/11 — cartiglio «1 sgabello alto contrabbasso» con 2 contrabbassi: STOOL_POSTAZ.contrabbasso=1 ignorava `doppia`. */
@@ -12073,7 +12088,7 @@ t("batteria + timpani + contrabbasso + tastiere: i quattro sgabelli, nell'ordine
   add("contrabbasso", 500, 300);
   add("batteria", 200, 300);
   eq(JSON.stringify(A.sgabelliPerTipo()), JSON.stringify([["batteria", 1], ["timpani", 1], ["contrabbasso", 1], ["tastiere", 1]]));
-  eq(JSON.stringify(A.sgabelliTesto()), JSON.stringify(["1 sgabello batteria", "1 sgabello timpani", "1 sgabello alto contrabbasso", "1 sgabello tastiere"]));
+  eq(JSON.stringify(A.sgabelliTesto()), JSON.stringify(["4 sgabelli: 2 alti, 1 batteria, 1 tastiera"]));
   eq(A.countAccessori().sgabelli, 4, "il riepilogo Stato somma gli stessi quattro");
 });
 t("il totale degli sgabelli del riepilogo Stato è la somma di sgabelliDi: un tipo nuovo si conta da solo", () => {
@@ -12093,8 +12108,8 @@ t("sgabelli: il percussionista seduto conta lo sgabello della batteria, come lo 
   eq(A.sgabelliDi(inPiedi), [], "di serie in piedi: niente sgabello, come nel disegno");
   const seduto = add("percussioni", 600, 300, { parts: { stool: true } });
   ok(/sgabellobatt/.test(A.TYPES.percussioni.draw(seduto)) || A.TYPES.percussioni.draw(seduto).indexOf("translate(0," + A.PERC_SGABELLO.dy + ")") > -1, "lo sgabello si disegna");
-  eq(A.sgabelliDi(seduto), [["batteria", 1]], "e si conta");
-  ok(/1 sgabello batteria/.test(A.sgabelliTesto()), "nel cartiglio: " + A.sgabelliTesto());
+  eq(A.sgabelliDi(seduto), [["percussioni", 1]], "e si conta (sgabello alto: percussioni)");
+  ok(/1 sgabello alto/.test(A.sgabelliTesto()), "nel cartiglio: " + A.sgabelliTesto());
   reset();
 });
 /* ===== Crea elemento — Contorni (16/10/2026): archi, fori, modalità «contorno», Arrotonda ===== */
@@ -17075,7 +17090,7 @@ t("tastiera: lo sgabello è un'opzione, spento di partenza (le tastiere già dis
   const senza = A.itemMarkup(k);
   k.panca = true;
   eq(A.hasPanca(k), true, "acceso dal pannello");
-  eq(A.sgabelliTesto(A.state.items), ["1 sgabello tastiere"], "nel rider è uno sgabello tastiere");
+  eq(A.sgabelliTesto(A.state.items), ["1 sgabello tastiera"], "nel rider è uno sgabello tastiera");
   ok(A.itemMarkup(k).length > senza.length, "e si disegna");
   const sp = add("stagepiano", 800, 400);
   eq(A.hasPanca(sp), true, "lo stage piano lo ha di serie, come prima");
