@@ -13650,6 +13650,13 @@ t("la nota interna di un contatto non finisce nel PDF", () => {
   ok(src, "sezione contatti del rider non trovata");
   eq(/c\.note/.test(src[0]), false, "la nota del contatto e' un appunto interno: " + src[0].slice(0, 200));
 });
+t("il riferimento del cartiglio, se svuotato, resta svuotato", () => {
+  eq(A.pdfHeaderPropose({ pdfHeader: "Mario · 333" }, null), "Mario · 333", "quello scelto vale");
+  eq(A.pdfHeaderPropose({ pdfHeader: "", pdfHeaderOff: true }, { name: "Simone", contact: "s@x.it" }), "",
+    "svuotato apposta: non si ripropone l'account");
+  ok(A.pdfHeaderPropose({}, { name: "Simone", contact: "s@x.it" }).indexOf("Simone") > -1,
+    "mai impostato: la proposta ci sta");
+});
 /* ═══ MISURE SCRITTE COME CAPITA (12/11/2026, L1-a): le fonti scrivono la stessa misura in otto modi; regola documentata: lati senza unità = metri,
    altezza senza unità = centimetri se intera («H60», «60»), metri se decimale sotto 10 («h0,60»); con l'unità esplicita vince l'unità. ═══ */
 t("Misure: le otto grafie delle fonti, in centimetri", () => {
@@ -13719,13 +13726,6 @@ t("Orari: il suffisso «(TBC)» si accetta senza avvisi e si stampa", () => {
   A.loadDoc(JSON.parse(A.docToJSON())); eq(A.state.orari.concerto, "21:00 (TBC)", "salva e riapri");
   ok(!/maxlength="5"/.test(readFileSync(join(root, "app/index.html"), "utf8").split("data-orario").slice(1).map((x) => x.slice(0, 120)).join(" ")), "i campi degli orari non tagliano a cinque caratteri");
   reset();
-});
-t("il riferimento del cartiglio, se svuotato, resta svuotato", () => {
-  eq(A.pdfHeaderPropose({ pdfHeader: "Mario · 333" }, null), "Mario · 333", "quello scelto vale");
-  eq(A.pdfHeaderPropose({ pdfHeader: "", pdfHeaderOff: true }, { name: "Simone", contact: "s@x.it" }), "",
-    "svuotato apposta: non si ripropone l'account");
-  ok(A.pdfHeaderPropose({}, { name: "Simone", contact: "s@x.it" }).indexOf("Simone") > -1,
-    "mai impostato: la proposta ci sta");
 });
 /* 27/07: elemento FORMA — un tipo con l'asse `shape`, sei voci nel catalogo, testo dentro. */
 t("la forma e' un tipo solo, con sette geometrie", () => {
