@@ -19003,6 +19003,9 @@ function controlliPrimaDelExport(){
     }
   }
   /* 7 · manca il luogo (L1-b, dietro «Controllo tecnico»): titolo o data scritti ma il luogo è vuoto, quindi il PDF esce senza il posto */
+  /* 8 · violini senza sezione accanto a violini con sezione (organico): il foglio non può dire I o II (Simone, 12/11) */
+  var _og=organicoDati();
+  if(_og.violiniGenerici && _og.violiniDivisi) add("violini-senza-sezione", _og.violiniGenerici+(_og.violiniGenerici===1?" violino senza sezione":" violini senza sezione")+": indica I o II.", _og.violiniGenericiId);
   if(typeof funzOn==="function" && funzOn("controllo") && !String(state.luogo||"").trim() && (String(state.titolo||"").trim() || state.evDate))
     add("manca-luogo","Manca il luogo dell'evento: nel PDF il titolo esce senza il posto.");
   return out;
@@ -38618,13 +38621,13 @@ function organicoGruppi(){
   add("sxa","LEGNI","Sax alto","Sax alto",["saxalto"]); add("sxt","LEGNI","Sax tenore","Sax tenore",["saxtenore"]); add("sxb","LEGNI","Sax baritono","Sax baritono",["saxbaritono"]);
   add("bat","RITMICA","Batteria","Batterie",["batteria","edrums"]);
   add("tim","RITMICA","Timpani","Timpani",["timpani","timpani3","timpani2"]);
-  add("perc","RITMICA","Percussioni (postazioni)","Percussioni (postazioni)",["percussioni","percussionistaR","grancassa","piatticoppia","piatto","rullante","campane","chimes","tamtam","glockenspiel","xilofono","vibrafono","marimba","triangoloperc","crotali","templeblocks","woodblock","flexaton","tamburello","conga","quinto","tumba","bongos","timbales","cajon","cajonpost","djembe","surdo"]);
+  add("perc","RITMICA","Percussionista","Percussioni",["percussioni","percussionistaR"]);   /* le PERSONE: gran cassa, piatti, rullante… sono strumenti, non esecutori (Simone, 12/11) */
   add("pf","RITMICA","Pianoforte","Pianoforti",["grancoda","mezzacoda","pianoverticale","stagepiano"]);
   add("tas","RITMICA","Tastiera","Tastiere",["tastiera","doppiatastiera","moogsub37","organohammond","clavicembalo","organoconsole"]);
   add("cel","RITMICA","Celesta","Celeste",["celesta"]);
   add("chi","RITMICA","Chitarra","Chitarre",["gtstand","gtacustica"]); add("bas","RITMICA","Basso","Bassi",["bassstand"]);
   add("arp","ARPA","Arpa","Arpe",["arpa"]);
-  add("v1","ARCHI","Violino I","Violini I",["vln1x2","archi2leggio"]); add("v2","ARCHI","Violino II","Violini II",["vln2x2"]);
+  add("v1","ARCHI","Violino I","Violini I",["vln1x2","archi2leggio"]); add("v2","ARCHI","Violino II","Violini II",["vln2x2"]); add("vg","ARCHI","Violino","Violini",[]);   /* vg: violini senza sezione */
   add("vle","ARCHI","Viola","Viole",["violapost","violax2"]); add("vc","ARCHI","Violoncello","Violoncelli",["violoncello","cellix2"]);
   add("cb","ARCHI","Contrabbasso","Contrabbassi",["contrabbasso","cbx2"]);
   add("cant","VOCI","Cantante","Cantanti",["cantante"]); add("cori","VOCI","Corista","Coristi",["corista"]);
@@ -38632,7 +38635,7 @@ function organicoGruppi(){
 }
 function organicoGruppoDi(it){
   if(!it) return null;
-  if(it.type==="vlnpost") return it.vsec===2 ? "v2" : "v1";   /* un violino senza sezione conta fra i violini I */
+  if(it.type==="vlnpost") return it.vsec===2 ? "v2" : (it.vsec===1 ? "v1" : "vg");   /* un violino senza sezione ha la sua riga: non si indovina I o II (Simone, 12/11) */
   var G=organicoGruppi(); for(var i=0;i<G.length;i++){ if(G[i].t.indexOf(it.type)>=0) return G[i].id; }
   return null;
 }
@@ -38641,7 +38644,7 @@ function organicoOspite(it){ return /\bospit[ei]\b|\bguest\b/i.test(String(it.la
 function organicoSecondario(it){ var m=/^[^\/]+\/\s*([^\/]+?)\s*$/.exec(String(it.label||"")); return m ? m[1].slice(0,24) : ""; }
 function organicoDati(){
   var G=organicoGruppi(), idx={}; G.forEach(function(g,i){ idx[g.id]=i; });
-  var righe={}, fuori={dir:0,osp:0,staff:0}, altro={}, orch=0, orchSez={FIATI:1,LEGNI:1,ARPA:1,ARCHI:1};
+  var righe={}, fuori={dir:0,osp:0,staff:0}, altro={}, orch=0, orchSez={FIATI:1,LEGNI:1,ARPA:1,ARCHI:1}, vg=0, v12=0, vgId=null;
   (state.items||[]).forEach(function(it){
     if(it.type==="direttore"){ fuori.dir++; return; }
     if(it.type==="tecnico"){ fuori.staff++; return; }
@@ -38651,8 +38654,9 @@ function organicoDati(){
     var g=G[idx[id]], sec=organicoSecondario(it), k=id+"|"+sec;
     if(!righe[k]) righe[k]={id:id, sec:sec, n:0}; righe[k].n+=n;
     if(orchSez[g.sez]) orch+=n;
+    if(id==="vg"){ vg+=n; if(vgId==null) vgId=it.id; } else if(id==="v1" || id==="v2") v12+=n;
   });
-  return {G:G, idx:idx, righe:righe, fuori:fuori, altro:altro, orch:orch};
+  return {G:G, idx:idx, righe:righe, fuori:fuori, altro:altro, orch:orch, violiniGenerici:vg, violiniDivisi:v12, violiniGenericiId:vgId};
 }
 function organicoDisponibile(){ var D=organicoDati(); return D.fuori.dir>0 || D.orch>=8; }
 function organicoTitolo(){
@@ -38670,13 +38674,14 @@ function organicoList(){
     if(!mine.length) return 0;
     mine.sort(function(a,b){ return (D.idx[a.id]-D.idx[b.id]) || (a.sec<b.sec?-1:a.sec>b.sec?1:0); });
     var sub=mine.reduce(function(a,r){ return a+r.n; },0), head=sez;
-    if(sez==="ARCHI"){
+    if(sez==="ARCHI" && !D.violiniGenerici){   /* con violini senza sezione la formula I-II non si può scrivere */
       var c={v1:0,v2:0,vle:0,vc:0,cb:0}; mine.forEach(function(r){ c[r.id]+=r.n; });
       var f=[c.v1,c.v2,c.vle,c.vc,c.cb]; while(f.length && !f[f.length-1]) f.pop();
       formula=f.join("-"); if(formula) head+=" \u00b7 "+formula;
     }
     rows.push({tipo:"sez", nome:head, n:""});
-    mine.forEach(function(r){ var g=D.G[D.idx[r.id]]; rows.push({tipo:"riga", nome:(r.n===1?g.s:g.p)+(r.sec?" ("+r.sec+")":""), n:r.n}); });
+    mine.forEach(function(r){ var g=D.G[D.idx[r.id]];
+      rows.push({tipo:"riga", nome:(r.n===1?g.s:g.p)+((r.id==="vg" && D.violiniDivisi) ? " (senza sezione)" : "")+(r.sec?" ("+r.sec+")":""), n:r.n}); });   /* tutti generici: «Violini 8»; misti: i generici a parte */
     if(mine.length>1) rows.push({tipo:"sub", nome:"Totale "+sez.toLowerCase(), n:sub});
     return sub;
   }

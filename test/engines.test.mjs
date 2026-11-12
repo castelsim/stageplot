@@ -13657,7 +13657,7 @@ const orgFix = (arch) => {   /* archi [v1,v2,vle,vc,cb] + fiati, legni, arpa, ti
   const a = arch || [10, 8, 6, 6, 3];
   return [].concat(orgN("vlnpost", a[0], { vsec: 1 }, "v1"), orgN("vlnpost", a[1], { vsec: 2 }, "v2"), orgN("violapost", a[2]), orgN("violoncello", a[3]), orgN("contrabbasso", a[4]),
     orgN("flauto", 2), orgN("oboe", 2), orgN("clarinetto", 2), orgN("fagotto", 2), orgN("corno", 4), orgN("tromba", 2), orgN("trombone", 3), orgN("tuba", 1),
-    orgN("arpa", 1), orgN("timpani", 1), orgN("grancassa", 1), orgN("grancoda", 1), orgN("direttore", 1),
+    orgN("arpa", 1), orgN("timpani", 1), orgN("percussioni", 1), orgN("grancoda", 1), orgN("direttore", 1),
     [{ id: "og", type: "cantante", x: 300, y: 600, label: "Ospite" }, { id: "st", type: "tecnico", x: 400, y: 600 }]).filter(Boolean);
 };
 const orgRows = () => A.organicoList().rows;
@@ -13691,7 +13691,7 @@ t("Organico: formula degli archi coi trattini (valori ≥ 10, quattro numeri, se
 });
 t("Organico: doppie e violini senza sezione, strumento secondario tra parentesi, mai un nome di persona", () => {
   s5Fix(orgFix([0, 0, 0, 0, 0]).filter((x) => x.type !== "direttore").concat([{ id: "d1", type: "vln1x2", x: 100, y: 100 }, { id: "d2", type: "vlnpost", x: 200, y: 100 }, { id: "d3", type: "vlnpost", x: 300, y: 100, doppia: true }, { id: "d4", type: "violax2", x: 400, y: 100 }]));
-  eq(A.organicoList().formula, "5-0-2", "vln1x2 = 2, un violino senza sezione = violini I, «doppia» = 2, violax2 = 2 viole");
+  eq([A.organicoList().formula, orgRows().filter((x) => /^Violin/.test(x.nome)).map((x) => [x.nome, x.n])], ["", [["Violini I", 2], ["Violini (senza sezione)", 3]]], "vln1x2 = 2 violini I; i violini senza sezione (1 + una «doppia» = 3) in una riga a parte, e la formula non si scrive");
   s5Fix(orgFix().concat([{ id: "fo", type: "flauto", x: 100, y: 100, label: "Flauto/Ottavino" }, { id: "fs", type: "flauto", x: 200, y: 100, label: "Fl/Sax" }]));
   const r = orgRows(); eq(r.filter((x) => /^Flaut/.test(x.nome)).map((x) => [x.nome, x.n]), [["Flauti", 2], ["Flauto (Ottavino)", 1], ["Flauto (Sax)", 1]], "il secondario in parentesi, non due musicisti: " + JSON.stringify(r.filter((x) => /Flaut/.test(x.nome))));
   eq(r.find((x) => x.nome === "Totale legni").n, 10, "i legni contano 8+2 (un posto = un musicista)");
@@ -13786,7 +13786,7 @@ t("Organico, seguito (L1-c): totale sotto ogni gruppo, «TOTALE ORCHESTRA» prim
   eq(r.filter((x) => x.tipo === "sez").map((x) => x.n), ["", "", "", "", "", "", ""], "le intestazioni di gruppo non portano più il numero (sta sotto)");
   ok(ix("TOTALE ORCHESTRA") < ix("VOCI") && ix("VOCI") < ix("TOTALE"), "TOTALE ORCHESTRA prima dei cori, TOTALE alla fine");
   eq([r[ix("TOTALE ORCHESTRA")].n, r[ix("TOTALE")].n, r[ix("TOTALE ORCHESTRA")].tipo], [55, 61, "totorch"], "«TOTALE ORCHESTRA 55», poi «TOTALE 61»");
-  ok(r.some((x) => x.nome === "Percussioni (postazioni)" && x.n === 1), "le percussioni sono postazioni disegnate, e la riga lo dice");
+  ok(r.some((x) => x.nome === "Percussionista" && x.n === 1), "le percussioni sono persone: un percussionista");
   eq(A.organicoRiepilogo(), "55 strumentisti + 6 voci", "la riga sotto il titolo");
   ok(A.pdfListConfig().organico.sub().split("\n").length === 2 && /^Organico – Teatro Finto/.test(A.pdfListConfig().organico.sub()), "titolo e riga di riepilogo (due righe)");
   const d = s5Doc(); A.organicoPdf(d); const tx = d.pagine.slice(1)[0].testi.map((x) => x.t);
@@ -13810,6 +13810,35 @@ t("Organico, seguito (L1-c): totale sotto ogni gruppo, «TOTALE ORCHESTRA» prim
   const cfg2 = A.pdfListConfig().organico, th = A.listPreviewHtml("organico");
   ok(/Organico[^<]*<br>55 strumentisti \+ 6 voci/.test(th), "anteprima: la riga di riepilogo va a capo sotto il titolo: " + th.slice(th.indexOf("pdf-list-sub"), th.indexOf("pdf-list-sub") + 120));
   eq(["sez", "sub", "tot", "totorch", "riga"].map((t) => [cfg2.rowBold({ tipo: t }), cfg2.rowFondo({ tipo: t })]), [[true, "#f1f5f9"], [true, null], [true, "#e2e8f0"], [true, "#e2e8f0"], [false, null]], "intestazioni con banda chiara, totali di gruppo in grassetto senza banda, totali generali con banda scura");
+  reset();
+});
+t("Organico: le percussioni sono PERSONE (percussionisti), non le postazioni; i violini senza sezione hanno la loro riga e il controllo li segnala (Simone, 12/11)", () => {
+  const strum = (r) => r.filter((x) => /^(Percussion|Timpani)/.test(x.nome)).map((x) => [x.nome, x.n]);
+  s5Fix(orgFix().filter((x) => x.type !== "percussioni").concat(orgN("grancassa", 1), orgN("piatticoppia", 2), orgN("rullante", 1), orgN("campane", 1), orgN("tamtam", 1)));
+  eq(strum(orgRows()), [["Timpani", 1]], "gran cassa, piatti, rullante, campane e tam-tam sono strumenti: nessun percussionista");
+  eq(A.organicoList().strumentisti, 54, "e non entrano nel totale");
+  s5Fix(orgFix().filter((x) => x.type !== "percussioni").concat(orgN("percussioni", 2), orgN("percussionistaR", 1), orgN("grancassa", 1), orgN("piatticoppia", 2)));
+  eq(strum(orgRows()), [["Timpani", 1], ["Percussioni", 3]], "due percussionisti + uno dell'altro tipo = 3 persone, gli strumenti accanto non contano");
+  s5Fix(orgFix().filter((x) => x.type !== "percussioni").concat(orgN("percussioni", 1))); eq(strum(orgRows()), [["Timpani", 1], ["Percussionista", 1]], "un percussionista, al singolare");
+  /* violini: tutti generici → «Violini N» senza divisione; misti → i generici a parte e l'avviso */
+  const viol = (r) => r.filter((x) => /^Violin/.test(x.nome)).map((x) => [x.nome, x.n]);
+  s5Fix(orgN("vlnpost", 8).concat(orgN("violapost", 4), orgN("violoncello", 3)));
+  eq([viol(orgRows()), A.organicoList().formula, orgSez()[0]], [[["Violini", 8]], "", "ARCHI"], "tutti generici: una riga «Violini 8», niente I/II e niente formula");
+  eq(A.controlliPrimaDelExport().filter((x) => x.id === "violini-senza-sezione").length, 0, "tutti generici: nessun avviso (non c'è nulla da scegliere)");
+  s5Fix(orgN("vlnpost", 4, { vsec: 1 }).concat(orgN("vlnpost", 3, { vsec: 2 }, "b"), orgN("vlnpost", 2, {}, "g"), orgN("violapost", 4)));
+  eq([viol(orgRows()), A.organicoList().formula], [[["Violini I", 4], ["Violini II", 3], ["Violini (senza sezione)", 2]], ""], "misti: i generici in una riga a parte");
+  const av = A.controlliPrimaDelExport().filter((x) => x.id === "violini-senza-sezione");
+  eq([av.length, av[0].gravita, av[0].testo, av[0].itemId], [1, "warn", "2 violini senza sezione: indica I o II.", "g0"], "l'avviso dice quanti e porta il primo da selezionare");
+  s5Fix(orgN("vlnpost", 4, { vsec: 1 }).concat(orgN("vlnpost", 1, {}, "g"), orgN("violapost", 4)));
+  eq(A.controlliPrimaDelExport().filter((x) => x.id === "violini-senza-sezione")[0].testo, "1 violino senza sezione: indica I o II.", "singolare");
+  s5Fix(orgN("vlnpost", 4, { vsec: 1 }).concat(orgN("vlnpost", 4, { vsec: 2 }, "b"), orgN("violapost", 4)));
+  eq([A.controlliPrimaDelExport().filter((x) => x.id === "violini-senza-sezione").length, A.organicoList().formula], [0, "4-4-4"], "tutti con la sezione: nessun avviso e la formula c'è");
+  s5Fix(orgN("vlnpost", 4, { vsec: 1 }).concat(orgN("vlnpost", 1, { label: "Violino ospite" }, "g"), orgN("violapost", 4)));
+  eq([A.controlliPrimaDelExport().filter((x) => x.id === "violini-senza-sezione").length, viol(orgRows())], [0, [["Violini I", 4]]], "un violino ospite senza sezione è fuori dal totale e non fa avvisare");
+  s5Fix(orgN("vlnpost", 3, { vsec: 2 }, "b").concat(orgN("vlnpost", 1, {}, "g"), orgN("violapost", 4)));
+  eq(A.controlliPrimaDelExport().filter((x) => x.id === "violini-senza-sezione").length, 1, "anche se la sezione dichiarata è solo la II");
+  s5Fix(orgN("vln1x2", 2).concat(orgN("vln2x2", 2), orgN("vlnpost", 2, {}, "g"))); eq(viol(orgRows()), [["Violini I", 4], ["Violini II", 4], ["Violini (senza sezione)", 2]], "le doppie sono divise (I/II) per costruzione");
+  eq(A.controlliPrimaDelExport().filter((x) => x.id === "violini-senza-sezione").length, 1, "e i generici accanto a loro si segnalano");
   reset();
 });
 t("il riferimento del cartiglio, se svuotato, resta svuotato", () => {
