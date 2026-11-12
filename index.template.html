@@ -588,7 +588,8 @@
       <button class="btn" id="bPostoCsv" type="button" style="width:100%;margin-top:6px">Elenco posti (CSV)</button>
       <button class="btn" id="bPostoPren" type="button" style="display:none;width:100%;margin-top:6px">Vai alla biglietteria</button>
     </div>
-    <div id="pPerChiWrap" style="display:none"><label for="pPerChi">Per chi <small class="lbl-note">— il nome sul canale dell'ascolto</small></label><input type="text" id="pPerChi" maxlength="40" autocomplete="off" placeholder="es. Basso, Sara, Direttore"></div>
+    <div id="pPerChiWrap" style="display:none"><label for="pPerChi">Per chi <small class="lbl-note">— il nome sul canale dell'ascolto</small></label><input type="text" id="pPerChi" maxlength="40" autocomplete="off" placeholder="es. Basso, Sara, Direttore">
+      <div id="pPerChiSugg" class="hint" hidden style="font-size:12px;color:var(--text-2);margin-top:4px"><span id="pPerChiSuggTxt"></span> <button type="button" class="btn" id="pPerChiUsa" style="width:auto;display:inline-block;padding:3px 9px;font-size:11px;margin:0 0 0 4px">Usa</button></div></div>
     <div id="pLabel2Wrap" style="display:none"><label for="pLabel2">Etichetta 2 (secondo strumento)</label><input type="text" id="pLabel2"></div>
     <div id="pLblModeWrap">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:4px">
@@ -20279,6 +20280,8 @@ function renderProps(){
     var w=document.getElementById("pPerChiWrap"), inp=document.getElementById("pPerChi"); if(!w||!inp) return;
     w.style.display = PER_CHI[it.type] ? "" : "none";
     if(PER_CHI[it.type] && document.activeElement!==inp) inp.value = it.perChi||"";
+    var sg=document.getElementById("pPerChiSugg"), sf=PER_CHI[it.type] ? monitorFamigliaSuggerita(it) : "";   /* il nome suggerito dalla famiglia di chi serve (12/11): mai applicato da solo */
+    if(sg){ sg.hidden=!sf; if(sf) document.getElementById("pPerChiSuggTxt").textContent="Suggerito: «"+sf+"»"; }
   })();
   monPuntaPannello(it);
   var _pn=document.getElementById("pNote");
@@ -21077,6 +21080,7 @@ document.getElementById("pPuntaGo").addEventListener("click", function(){
   var it=getSel(), v=document.getElementById("pPunta").value; if(!it) return;
   monPuntaVerso(it, v==="centro" ? monCentroPalco() : monPersone().filter(function(p){ return String(p.id)===v; })[0]);
 });
+document.getElementById("pPerChiUsa").addEventListener("click", function(){ var it=getSel(); if(it) usaPerChiSuggerito(it.id); });
 document.getElementById("pPerChi").addEventListener("input", function(){ mutSelSoon(function(it){
   if(!PER_CHI[it.type]) return; var v=document.getElementById("pPerChi").value.slice(0,40);
   if(v.trim()) it.perChi=v; else delete it.perChi; __cabRes=null; }); });
@@ -30646,6 +30650,7 @@ function renderPmAccList(){
     var pmF=pmOf(l.from), pw=(R.power||{})[l.from.id];
     s+='<div class="insp-row"><b>'+esc((l.from.label||"mixer")+" → "+(l.to.label||(l.toIsHub?"hub":"mixer")))+'</b><small>'+esc((pmF?pmSysName(pmF.sys)+" \u00b7 ":"")+(l.cut?l.cut+" m":Math.round(l.lenM)+" m")+(pw==="data"?" \u00b7 \u26a1":pw==="psu"?" \u00b7 PSU":""))+'</small></div>';
   });
+  var _mc=macchineAscolto(); if(_mc) s+='<div class="insp-row"><b>Macchine e aste</b><small>'+esc(macchineTesto(_mc))+'</small></div>';
   el.innerHTML=s;
 }
 var cabOpen=false;   /* legacy: pannello tolto */
@@ -32193,6 +32198,71 @@ function monPersoneOrdinate(mon){
   return monPersone().filter(function(p){ return p.id!==mon.id; }).sort(function(a,b){ return peso(a)-peso(b); });
 }
 function monBersaglio(mon){ return mon.type==="sidefill" ? monCentroPalco() : (monPersoneOrdinate(mon)[0]||null); }
+/* ═══ ASCOLTI NOMINATI (12/11/2026, specifica S3 dalla posta di produzione: «Wedge Corni», «Sidefill Archi», «Wedge Solisti») ═══
+   Il nome di un ascolto si SUGGERISCE dalla famiglia di chi serve: se tutte le persone vicine (o quelle che l'hanno dichiarato come
+   loro ascolto) sono della stessa famiglia, il pannello propone «Corni», «Archi»… per il campo «Per chi» (che l'app compone con «Spia –»).
+   Non si applica MAI da solo: il nome scritto a mano non si tocca e le etichette automatiche dei progetti salvati (quindi i loro PDF)
+   restano come sono. Famiglie miste, nessuno vicino, strumento senza famiglia nota: nessun suggerimento. */
+var MON_FAMIGLIA_RAGGIO=250;
+function famigliaAscolto(it){
+  if(!it) return null; var t=TYPES[it.type]||{};
+  if(it.type==="corno" || it.type==="musCorno") return "Corni";
+  if(t.cat==="Orchestra"){ return t.sub==="Ottoni" ? "Ottoni" : t.sub==="Legni" ? "Legni" : t.sub==="Archi" ? "Archi" : null; }
+  if(it.type==="cantante") return "Solisti";
+  if(it.type==="corista") return "Coro";
+  if(it.type==="batteria" || it.type==="edrums") return "Batteria";
+  if(KEYS_BENCH[it.type] || TASTIERE[it.type]) return "Tastiere";
+  return null;
+}
+function monitorFamigliaSuggerita(mon){
+  if(!mon || !PER_CHI[mon.type] || (typeof mon.perChi==="string" && mon.perChi.trim())) return "";
+  var items=state.items||[];
+  var serviti=items.filter(function(p){ return p.ascoltoId && p.ascoltoId===mon.id; });
+  if(!serviti.length) serviti=items.filter(function(p){ return p.id!==mon.id && ascoltoEligible(p) && Math.hypot(p.x-mon.x, p.y-mon.y)<=MON_FAMIGLIA_RAGGIO; });
+  if(!serviti.length) return "";
+  var fam={};
+  for(var i=0;i<serviti.length;i++){ var f=famigliaAscolto(serviti[i]); if(!f) return ""; fam[f]=1; }
+  var k=Object.keys(fam);
+  if(k.length===1) return k[0];
+  return k.every(function(x){ return x==="Corni" || x==="Ottoni"; }) ? "Ottoni" : "";   /* corni e trombe insieme: ottoni */
+}
+function usaPerChiSuggerito(id){
+  var it=(state.items||[]).find(function(i){ return i.id===id; }); if(!it) return "";
+  var f=monitorFamigliaSuggerita(it); if(!f) return "";
+  it.perChi=f; __cabRes=null; save(); render(); if(typeof renderProps==="function") renderProps();
+  return f;
+}
+/* Macchine e aste dei mixer personali (S3): una macchina serve 8 mix (parametro: 16 per i sistemi doppi), band e vocalist su macchine
+   separate come nei rider veri, 1 asta nana per mixer. Il gruppo di un mixer è quello della persona più vicina (entro 2,5 m): voci e aste
+   microfoniche = vocalist, il resto e chi non ha nessuno vicino = band. Le prolunghe cuffia NON si calcolano (regola non derivabile, D9). */
+function macchineAscolto(perMacchina){
+  var per=(perMacchina>=1) ? Math.floor(perMacchina) : 8, items=state.items||[];
+  var mix=items.filter(function(x){ return x.type==="hearback"; }); if(!mix.length) return null;
+  var pers=monPersone(), byId={}; items.forEach(function(i){ byId[i.id]=i; });
+  var band=0, voc=0;
+  mix.forEach(function(m){
+    var best=null, bd=MON_FAMIGLIA_RAGGIO;
+    pers.forEach(function(p){ if(p.id===m.id || (byId[p.id] && byId[p.id].type==="hearback")) return; var d=Math.hypot(p.x-m.x, p.y-m.y); if(d<=bd){ bd=d; best=p; } });
+    var it=best && byId[best.id];
+    if(it && (VOCE[it.type] || MON_MIC_PERSONA[it.type])) voc++; else band++;
+  });
+  var mb=Math.ceil(band/per), mv=Math.ceil(voc/per);
+  return {mixer:mix.length, band:band, vocalist:voc, perMacchina:per, macchineBand:mb, macchineVocalist:mv, macchine:mb+mv, aste:mix.length};
+}
+function macchineTesto(m){
+  return "Macchine da "+m.perMacchina+" mix: "+m.macchine+((m.band && m.vocalist) ? " (band "+m.macchineBand+" · vocalist "+m.macchineVocalist+")" : "")+" · Aste nane: "+m.aste;
+}
+/* La riga «Ascolti:» del cartiglio (S3): wedge · side fill · drum fill · in-ear · hub · mixer personali, solo con almeno un ascolto */
+function ascoltiTesto(items){
+  items=items||state.items||[];
+  function n(t){ var c=0; items.forEach(function(x){ if(x.type===t) c++; }); return c; }
+  var w=n("wedge"), sf=n("sidefill"), df=n("drumfill"), iem=n("iem"), hub=n("mixhub"), pm=n("hearback");
+  if(!(w||sf||df||iem||pm)) return "";
+  var o=[];
+  if(w) o.push(w+" wedge"); if(sf) o.push(sf+" side fill"); if(df) o.push(df+" drum fill"); if(iem) o.push(iem+" in-ear");
+  if(hub) o.push(hub+" hub"); if(pm) o.push(pm===1 ? "1 mixer personale" : pm+" mixer personali");
+  return "Ascolti: "+o.join(" · ");
+}
 /* Il conto, senza toccare niente. Se la persona è quasi dritta davanti (asse della sua postazione, o i quattro angoli del palco) il monitor
    prende quell'angolo esatto e il wedge si sposta sull'asse, alla stessa distanza, purché basti poco. Altrimenti (una spia di lato, in diagonale)
    punta dritto alla persona e resta dov'è. */
@@ -37003,6 +37073,8 @@ function pmListPdf(shared){
       shown.forEach(function(i){ line("• "+i.msg, 9, false, i.lvl==="err"?"#dc2626":"#b45309", 5); }); }
     var pWithModel=(R.pending||[]).filter(function(m){ return pmOf(m); });
     if(pWithModel.length) line(pWithModel.length+" mixerino/i con modello non ancora collegati al hub.", 9, false, "#9ca3af", 5);
+    var _mac=macchineAscolto();   /* macchine da 8 mix e aste nane (S3): in fondo, solo con mixer personali */
+    if(_mac){ y+=2; line("MACCHINE E ASTE", 10.5, true, "#a21caf", 6); line(macchineTesto(_mac), 9.5, false, null, 5.2); }
     if(shared) return;
     pdfCredit(doc);
     pdfSave(doc, fileName()+"-personal-monitor.pdf");
@@ -37549,9 +37621,7 @@ function pdfTotals(opts){
   var poltr=poltroneDi(it); if(poltr) out.push(poltr+(poltr===1?" poltrona":" poltrone"));
   sgabelliTesto(it).forEach(function(t){ out.push(t); });   /* quali sgabelli, non solo quanti (16/09) */
   var _ped=pedaneTesto(it); if(_ped) out.push(_ped);   /* quante pedane e di che altezza, raggruppate (12/11) */
-  if(pm)     out.push(pm+" personal mixer"+(hub?" ("+hub+(hub===1?" hub)":" hub)"):""));
-  if(wedge)  out.push(wedge+(wedge===1?" spia":" spie"));
-  if(iem)    out.push(iem+" in-ear");
+  var _asc=ascoltiTesto(it); if(_asc) out.push(_asc);   /* una riga sola per tutti gli ascolti (12/11, S3); prima «N personal mixer (M hub)», «N spie», «N in-ear» */
   return out;
 }
 /* ===== QR NEL PDF VERSO LA VERSIONE ONLINE (10/10/2026, dal confronto con TecRider Pro) =====
