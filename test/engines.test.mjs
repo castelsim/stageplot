@@ -19097,6 +19097,102 @@ t("il prezzo è dichiarato nella pagina, non solo nel piede", () => {
   ok(/Gratis<\/span>/.test(aperturaLanding), "e il gratis è già nei fatti dell'apertura");
 });
 
+/* ═══ CONTROLLO PRIMA DELL'EXPORT (12/11/2026, specifica S1 dalla posta: segnaposto nei testi, nomi doppi, mix senza uscita…).
+   Una striscia in cima all'Esporta, mai bloccante; una funzione pura `controlliPrimaDelExport()` → [{id, gravita, testo, itemId?}],
+   una regola = un id. Le regole sono state tarate sui 30 progetti del collaudo (media sotto 1 avviso a progetto). ═══ */
+const cpe = (id) => A.controlliPrimaDelExport().filter((x) => id ? x.id === id : true);
+const docVuoto = () => ({ titolo: "Concerto di prova", stage: { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] }, inputs: [], outputs: [], items: [] });
+t("Controllo prima dell'export: palco vuoto o progetto in ordine → niente striscia", () => {
+  reset(); eq(A.controlliPrimaDelExport(), [], "palco vuoto");
+  A.loadDoc(Object.assign(docVuoto(), { luogo: "Teatro Comunale", items: [{ id: "a", type: "comboamp", x: 300, y: 300 }, { id: "v", type: "cantante", x: 600, y: 300 }] }));
+  eq(A.controlliPrimaDelExport(), [], "progetto in ordine: nessun avviso");
+  reset();
+});
+t("Controllo prima dell'export, regola 1: segnaposto nei testi (titolo, luogo, rider, scaletta, note, nomi dei canali)", () => {
+  const trova = (campo) => { reset(); campo(); return cpe("segnaposto"); };
+  ["Rider Badoere Queen 2023 Da finire", "palco min N x N", "palco min n x n", "Ore TBA", "Orario TBD", "Inizio __:__", "PROVVISORIO", "Versione provvisoria", "Concerto xxx", "n auto per il carico", "N×N m"].forEach((s) => {
+    const r = trova(() => { A.state.titolo = s; });
+    eq(r.length, 1, "«" + s + "» nel titolo è un segnaposto"); eq(r[0].gravita, "warn", "mai un errore: non blocca");
+    ok(/titolo/i.test(r[0].testo) && r[0].testo.indexOf(s.slice(0, 12)) > -1, "il testo dice dove e cosa: " + r[0].testo);
+  });
+  ["Teatro Comunale", "Tabarro", "Xanadu", "Provvisoriamente", "Nonna x Nipote", "Bibione 12.12.26 v3", "TBAR", "Auto n 2"].forEach((s) => eq(trova(() => { A.state.titolo = s; }).length, 0, "«" + s + "»: niente"));
+  eq(trova(() => { A.state.luogo = "Ore TBA"; })[0].testo.indexOf("luogo") > -1, true, "luogo");
+  eq(trova(() => { A.state.rider = { sistema: "Line array, palco min N x N" }; }).length, 1, "nota del rider");
+  eq(trova(() => { A.state.scaletta = [{ tipo: "brano", titolo: "Brano uno", durata: "3:30", note: "__:__" }]; }).length, 1, "scaletta");
+  const it = trova(() => { A.loadDoc(Object.assign(docVuoto(), { items: [{ id: "m", type: "astamic", x: 300, y: 300, label: "XXX" }] })); });
+  eq([it.length, it[0].itemId], [1, "m"], "nome di un microfono: l'avviso porta l'elemento da selezionare");
+  eq(trova(() => { A.loadDoc(Object.assign(docVuoto(), { items: [{ id: "g", type: "comboamp", x: 300, y: 300, note: "da finire" }] })); })[0].itemId, "g", "nota di un elemento");
+  eq(trova(() => { A.loadDoc(Object.assign(docVuoto(), { inputs: [{ src: "Canale TBA", mic: "SM58", stand: "", p48: false, notes: "", by: "" }] })); }).length, 1, "riga della channel list a mano");
+  /* titolo e luogo uguali: due posti, due righe; due elementi con la stessa nota: due righe; la stessa riga a mano ripetuta: una */
+  eq(trova(() => { A.state.titolo = "Ore TBA"; A.state.luogo = "Ore TBA"; }).length, 2, "titolo e luogo: due posti, due righe");
+  eq(trova(() => { A.loadDoc(Object.assign(docVuoto(), { items: [{ id: "g1", type: "comboamp", x: 300, y: 300, note: "da finire" }, { id: "g2", type: "comboamp", x: 500, y: 300, note: "da finire" }] })); }).map((x) => x.itemId), ["g1", "g2"], "stessa nota su due elementi: due righe, ognuna col suo elemento");
+  eq(trova(() => { const r = { src: "Canale TBA", mic: "SM58", stand: "", p48: false, notes: "", by: "" }; A.loadDoc(Object.assign(docVuoto(), { inputs: [r, Object.assign({}, r)] })); }).length, 1, "la stessa riga ripetuta: una sola");
+  reset();
+});
+t("Controllo prima dell'export, regola 2: etichetta numerata scritta due volte (Vox4), senza falsi allarmi", () => {
+  const doc = (labels) => Object.assign(docVuoto(), { items: labels.map((l, i) => ({ id: "m" + i, type: "astamic", x: 100 + i * 90, y: 300, label: l })) });
+  reset(); A.loadDoc(doc(["Vox4", "Vox 5", "vox4"]));
+  const r = cpe("etichetta-duplicata");
+  eq(r.length, 1, "Vox4 e vox4 sono lo stesso nome"); ok(/Vox4/i.test(r[0].testo) && /2/.test(r[0].testo), "dice quale nome e quante volte: " + r[0].testo);
+  eq(r[0].itemId, "m0", "porta il primo elemento");
+  A.loadDoc(doc(["Vox 4", "Vox 5", "Vox 6"])); eq(cpe("etichetta-duplicata").length, 0, "nomi che differiscono per il solo numero finale: nessun avviso");
+  A.loadDoc(doc(["Voce", "Voce", "Voce"])); eq(cpe("etichetta-duplicata").length, 0, "nome senza numero ripetuto (Voce ×3): è normale, nessun avviso");
+  A.loadDoc(Object.assign(docVuoto(), { items: [{ id: "c", type: "comboamp", x: 300, y: 300, label: "Gtr 2" }, { id: "d", type: "sedia", x: 500, y: 300, label: "Gtr 2" }] }));
+  eq(cpe("etichetta-duplicata").length, 0, "conta solo chi ha un canale: una sedia con lo stesso nome non è un canale");
+  A.loadDoc(Object.assign(docVuoto(), { inputs: [{ src: "Vox4", mic: "SM58", stand: "", p48: false, notes: "", by: "" }, { src: "Vox4", mic: "SM58", stand: "", p48: false, notes: "", by: "" }] }));
+  eq(cpe("etichetta-duplicata").length, 1, "anche due righe della channel list a mano");
+  A.loadDoc(Object.assign(docVuoto(), { items: [{ id: "m", type: "astamic", x: 300, y: 300, label: "Vox4" }], inputs: [{ src: "Vox4", mic: "SM58", stand: "", p48: false, notes: "", by: "", linked_item_id: "m" }] }));
+  eq(cpe("etichetta-duplicata").length, 0, "la riga collegata a un elemento è il suo canale: non si conta due volte");
+  reset();
+});
+t("Controllo prima dell'export, regola 4: mix monitor senza uscita sulle stage box e righe a mano senza microfono", () => {
+  const wedges = (n) => Array.from({ length: n }, (_, i) => ({ id: "w" + i, type: "wedge", x: 100 + i * 90, y: 600, label: "MIX " + (i + 1) }));
+  const setup = (n, box) => { A.loadDoc(Object.assign(docVuoto(), { items: (box ? [{ id: "b1", type: "stagebox", x: 900, y: 300, hw: "rio1608d2", sbId: 1 }] : []).concat(wedges(n)).concat([{ id: "m1", type: "astamic", x: 100, y: 500 }]) }));
+    A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.home = { kind: "foh" }; A.__cabRes = null; };
+  reset(); setup(10, true);
+  const senza = A.cabResult(true).mixes.filter((m) => !m.box).length;
+  ok(senza > 0, "il caso di prova ha davvero dei mix senza box (" + senza + ")");
+  const r = cpe("mix-senza-uscita");
+  eq(r.length, 1, "una riga"); ok(new RegExp("\\b" + senza + "\\b").test(r[0].testo) && /mix/i.test(r[0].testo), "dice quanti: " + r[0].testo);
+  setup(9, true); eq(A.cabResult(true).mixes.filter((m) => !m.box).length, 1, "caso con un mix solo fuori"); ok(/^1 mix monitor non ha /.test(cpe("mix-senza-uscita")[0].testo), "singolare: " + cpe("mix-senza-uscita")[0].testo);
+  setup(4, true); eq(cpe("mix-senza-uscita").length, 0, "i mix ci stanno nelle uscite della box: niente");
+  setup(10, false); eq(cpe("mix-senza-uscita").length, 0, "nessuna stage box dichiarata: il patch lo assegna il service, niente avviso");
+  /* righe della channel list a mano con il nome e senza microfono */
+  reset(); A.loadDoc(Object.assign(docVuoto(), { inputs: [{ src: "Sorgente", mic: "", stand: "", p48: false, notes: "", by: "" }, { src: "Sorgente", mic: "", stand: "", p48: false, notes: "", by: "" }, { src: "Voce", mic: "SM58", stand: "", p48: false, notes: "", by: "" }, { src: "", mic: "", stand: "", p48: false, notes: "", by: "" }] }));
+  const m = cpe("riga-senza-microfono");
+  eq(m.length, 1, "una riga sola per tutte"); ok(/\b2\b/.test(m[0].testo), "conta le due che hanno il nome e non il microfono: " + m[0].testo);
+  reset();
+});
+t("Controllo prima dell'export, regola 6: la data nel titolo contro la data dell'evento", () => {
+  const prova = (titolo, evDate) => { reset(); A.state.titolo = titolo; A.state.evDate = evDate || ""; return cpe("data-nel-titolo"); };
+  const r = prova("La grande musica 12.12.26 Bibione", "2026-12-15");
+  eq(r.length, 1, "titolo 12.12.26, evento 15/12: avviso"); ok(/12\.12\.26/.test(r[0].testo) && /15\/12\/2026/.test(r[0].testo), "dice le due date: " + r[0].testo);
+  eq(prova("La grande musica 12.12.26 Bibione", "2026-12-12").length, 0, "stessa data: niente");
+  eq(prova("Concerto 12/12/2026", "2026-12-12").length, 0, "formato gg/mm/aaaa");
+  eq(prova("Concerto 12-12-26", "2026-12-12").length, 0, "formato gg-mm-aa");
+  eq(prova("Concerto 1.2.27", "2027-02-01").length, 0, "giorno e mese a una cifra");
+  eq(prova("La grande musica 12.12.26 Bibione v3 · 10/11/2026", "2026-12-12").length, 0, "la data della versione in coda («v3 · 10/11/2026») non è quella dell'evento");
+  eq(prova("Concerto di Natale v3 · 10/11/2026", "2026-12-12").length, 0, "solo la data della versione: non è una data dell'evento");
+  eq(prova("Concerto 12.12.26", "").length, 0, "senza data dell'evento non c'è con cosa confrontare");
+  eq(prova("Concerto di prova", "2026-12-12").length, 0, "titolo senza data");
+  eq(prova("Concerto 31.02.26", "2026-02-28").length, 0, "una data impossibile non è una data");
+  reset();
+});
+t("Controllo prima dell'export: la striscia sta in cima all'Esporta, non blocca e il clic seleziona l'elemento", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  const lato = html.indexOf('<div class="pdf-exp-side">');
+  ok(lato > 0 && html.indexOf('id="pdfPrimaDi"') > lato && html.indexOf('id="pdfPrimaDi"') < html.indexOf('id="pdfScelte"'), "#pdfPrimaDi è il primo blocco della colonna, sopra «Cosa esportare»");
+  ok(typeof A.renderPrimaDelExport === "function" || /function renderPrimaDelExport\(/.test(appjs), "la funzione che la disegna c'è");
+  const apri = appjs.slice(appjs.indexOf("function _pdfExportModalCore"), appjs.indexOf("function _pdfExportModalCore") + 4500);
+  ok(/renderPrimaDelExport\(\)/.test(apri), "si ridisegna a ogni apertura dell'Esporta");
+  const rd = appjs.slice(appjs.indexOf("function renderPrimaDelExport("), appjs.indexOf("function renderPrimaDelExport(") + 2500);
+  ok(/Prima di esportare/.test(rd) && /selectOne\(/.test(rd), "titolo «Prima di esportare» e clic che seleziona");
+  ok(/box\.hidden=true/.test(rd), "senza avvisi la striscia è nascosta");
+  const exp = appjs.slice(appjs.indexOf("function exportPdf("), appjs.indexOf("function exportPdf(") + 3500);
+  const go = appjs.slice(appjs.indexOf('getElementById("pdfGo").addEventListener("click"'), appjs.indexOf('getElementById("pdfGo").addEventListener("click"') + 3500);
+  ok(!/controlliPrimaDelExport/.test(exp) && !/controlliPrimaDelExport/.test(go), "l'export non la consulta mai: non blocca");
+});
+
 /* ===== MENU FILE ESSENZIALE (13/08) — da 17 voci a 5 ===================================== */
 t("la finestra Esporta rilegge il nome del progetto quando si apre", () => {
   /* Visto da utente nuovo (23/08): il modello «Band» scrive state.titolo, l'header lo mostra, ma il

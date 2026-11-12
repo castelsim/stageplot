@@ -16742,6 +16742,74 @@ function auditFixChoirMics(list){
   if(window.__toast) window.__toast(n+" microfoni coro aggiunti davanti al coro: spostali dove vanno davvero.", false);
   return n;
 }
+/* ═══ CONTROLLO PRIMA DELL'EXPORT (12/11/2026, specifica S1 dalla posta di produzione) ═══
+   Le cose che il service troverebbe sbagliate nel file e che chi lo manda si accorge solo dopo: un testo lasciato a metà
+   («Ore TBA», «palco min N x N», «Da finire»), lo stesso nome numerato su due canali (Vox4 due volte), mix monitor senza
+   uscita sulle stage box, una data nel titolo che non è quella dell'evento. Funzione pura → [{id, gravita, testo, itemId?}],
+   una regola = un id. MAI bloccante e mai un errore (gravita «warn»): è una striscia in cima all'Esporta, non l'audit.
+   Tarata sui 30 progetti del collaudo (media sotto 1 avviso a progetto). NON ci sono, di proposito:
+   · «coristi panoramici con giraffe ma senza zona»: con le giraffe i coristi hanno i loro canali («Boom»), il caso dell'11/11
+     era un falso positivo dello script esterno; chi non ha NESSUNA ripresa lo dice già «N coristi senza microfono» (coristiSenzaRipresa);
+   · «sedie ≠ persone»: nel modello ogni musicista porta la sua seduta e il suo leggio, quindi non c'è una differenza da
+     controllare; il confronto leggii/persone dà rumore su 14 progetti veri su 30 (rock band senza leggii, cori) e aspetta una
+     definizione di chi legge la musica. */
+var SEGNAPOSTO_RE=[/\bN\s*[x×]\s*N\b/i, /\bN\s+auto\b/i, /\bTB[AD]\b/i, /_{2,}\s*:\s*_{2,}/, /\bda\s+finire\b/i, /\bprovvisori[oa]\b/i, /\bX{3,}\b/i];
+function segnapostoIn(t){ t=String(t==null?"":t); return SEGNAPOSTO_RE.some(function(re){ return re.test(t); }); }
+/* Le date scritte nel titolo («12.12.26», «12/12/2026», «1-2-27»), senza la data in coda alla versione («v3 · 10/11/2026»),
+   che è quella del documento e non dell'evento. Solo date vere. Niente lookbehind: Safari vecchi non lo leggono. */
+function dateNelTitolo(t){
+  t=String(t==null?"":t).replace(/\s*\bv\d{1,3}\b(?:\s*[·\-–]\s*\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4})?\s*$/i,"");
+  var re=/(^|\D)(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4}|\d{2})(?!\d)/g, m, out=[];
+  while((m=re.exec(t))){
+    var g=+m[2], me=+m[3], a=+m[4]; if(m[4].length===2) a+=2000;
+    var d=new Date(a, me-1, g);
+    if(me>=1 && me<=12 && g>=1 && d.getFullYear()===a && d.getMonth()===me-1 && d.getDate()===g) out.push({testo:t.substr(m.index+m[1].length, m[0].length-m[1].length), iso:a+"-"+String(me).padStart(2,"0")+"-"+String(g).padStart(2,"0")});
+  }
+  return out;
+}
+function controlliPrimaDelExport(){
+  var items=state.items||[], out=[], visti={};
+  function add(id, testo, itemId){ var o={id:id, gravita:"warn", testo:testo}; if(itemId!=null && itemId!=="") o.itemId=itemId; out.push(o); }
+  /* 1 · segnaposto nei testi */
+  function segn(dove, testo, itemId){
+    testo=String(testo==null?"":testo); if(!segnapostoIn(testo)) return;
+    var k=dove+"|"+testo.toLowerCase()+"|"+(itemId==null?"":itemId); if(visti[k]) return; visti[k]=1;   /* lo stesso testo sullo stesso posto una volta sola; su due elementi sono due righe */
+    add("segnaposto","Segnaposto da completare "+dove+": «"+testo.slice(0,50)+(testo.length>50?"…":"")+"».", itemId);
+  }
+  segn("nel titolo", state.titolo); segn("nel luogo", state.luogo);
+  Object.keys(state.rider||{}).forEach(function(k){ if(typeof state.rider[k]==="string") segn("nel rider", state.rider[k]); });
+  (state.scaletta||[]).forEach(function(b){ if(b){ segn("nella scaletta", b.titolo); segn("nella scaletta", b.note); } });
+  items.forEach(function(it){ if(isAudioSource(it)) segn("nel nome di un canale", it.label, it.id); segn("in una nota", noteOf(it), it.id); });
+  (state.inputs||[]).forEach(function(r){ if(r) segn("nel nome di un canale", r.src); });
+  /* 2 · lo stesso nome numerato su due canali (Vox4 due volte): senza numero («Voce» ×26) è normale, e «Vox 4»/«Vox 5» sono diversi */
+  var nomi={};
+  function conta(nome, itemId){
+    var n=String(nome==null?"":nome).replace(/\s+/g," ").trim(); if(!n || !/\d$/.test(n)) return;
+    var k=n.toLowerCase(); if(!nomi[k]) nomi[k]={n:n, c:0, id:itemId}; nomi[k].c++; if(nomi[k].id==null) nomi[k].id=itemId;
+  }
+  items.forEach(function(it){ if(isAudioSource(it)) conta(it.label, it.id); });
+  (state.inputs||[]).forEach(function(r){ if(r && !r.linked_item_id) conta(r.src, null); });
+  Object.keys(nomi).forEach(function(k){ var o=nomi[k]; if(o.c>1) add("etichetta-duplicata","«"+o.n+"» è scritto su "+o.c+" canali: nel PDF si confondono.", o.id); });
+  /* 4 · mix monitor che non entrano nelle uscite delle stage box dichiarate; righe a mano col nome e senza microfono */
+  try{
+    var R=cabResult(true);
+    if((R.boxes||[]).some(function(b){ return !b.auto; })){
+      var n=(R.mixes||[]).filter(function(m){ return !m.box; }).length;
+      if(n) add("mix-senza-uscita", n+(n===1?" mix monitor non ha":" mix monitor non hanno")+" un'uscita sulle stage box: nell'output list restano fuori. Aggiungi una stage box o riduci i mix.");
+    }
+  }catch(_e){}
+  var senzaMic=(state.inputs||[]).filter(function(r){ return r && String(r.src||"").trim() && !String(r.mic||"").trim(); }).length;
+  if(senzaMic) add("riga-senza-microfono", senzaMic+(senzaMic===1?" riga della channel list scritta a mano ha":" righe della channel list scritta a mano hanno")+" il nome ma non il microfono.");
+  /* 6 · la data nel titolo non è quella dell'evento (organico e titolo riusati da una serata vecchia) */
+  if(state.evDate){
+    var dt=dateNelTitolo(state.titolo);
+    if(dt.length && !dt.some(function(d){ return d.iso===state.evDate; })){
+      var e=state.evDate.split("-");
+      add("data-nel-titolo","Il titolo dice "+dt[0].testo+" ma la data dell'evento è "+e[2]+"/"+e[1]+"/"+e[0]+".");
+    }
+  }
+  return out;
+}
 function auditFixAddDistro(){
   /* 11/11: in modalità "manual" (di serie) il cavo quadro→sorgente non si disegna mai: il quadro appena posato risultava
      «senza alimentazione a monte» (errore critico «nofeed», export fermo) e nessun gesto poteva sistemarlo. Se
@@ -20592,6 +20660,7 @@ function setEventInputs(){
   ["evTipo","evTipoM"].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=eventoConferenza()?"conferenza":"concerto"; });
   if(document.body) document.body.classList.toggle("ev-conferenza", eventoConferenza());
   if(typeof renderEvChip==="function") renderEvChip();
+  if(window.__renderPrimaDelExport) window.__renderPrimaDelExport();   /* la striscia «Prima di esportare» segue titolo e luogo (12/11) */
 }
 TITLE_INPUTS.forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input", function(){ state.titolo=this.value; setEventInputs(); saveSoon(); }); });
 ["luogo","luogoEv","evLuogo"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input", function(){ state.luogo=this.value; setEventInputs(); saveSoon(); }); });
@@ -37333,6 +37402,29 @@ function pdfChannelPage(doc, L, paperKey){
     });
     box.appendChild(fix);
   }
+  /* La striscia «Prima di esportare» (12/11): una riga per cosa, il clic sull'elemento lo seleziona sul disegno (e chiude l'Esporta per
+     farlo vedere). Non ha bottoni di rimedio e non ferma l'export: sono cose da guardare, non errori. */
+  function renderPrimaDelExport(){
+    var box=document.getElementById("pdfPrimaDi"); if(!box) return;
+    box.innerHTML="";
+    var L=[]; try{ L=controlliPrimaDelExport(); }catch(_e){}
+    if(!L.length){ box.hidden=true; return; }
+    box.hidden=false; box.className="nudge warn pdf-prima";
+    var b=document.createElement("b"); b.textContent="Prima di esportare: "+(L.length===1?"1 cosa da guardare":L.length+" cose da guardare");
+    box.appendChild(b);
+    var ul=document.createElement("ul");
+    L.forEach(function(x){
+      var li=document.createElement("li");
+      if(x.itemId!=null){
+        var a=document.createElement("button"); a.type="button"; a.className="pdf-prima-riga"; a.textContent=x.testo; a.title="Selezionalo sul disegno";
+        a.addEventListener("click", function(){ selectOne(x.itemId); modal.hidden=true; render(); if(typeof ensureVisible==="function") ensureVisible(); });
+        li.appendChild(a);
+      } else li.textContent=x.testo;
+      ul.appendChild(li);
+    });
+    box.appendChild(ul);
+  }
+  window.__renderPrimaDelExport=renderPrimaDelExport;   /* il titolo si può correggere dentro l'Esporta: la striscia si aggiorna (setEventInputs) */
   function renderProdInline(){
     /* Nudge Controllo tecnico (variante A): un invito blu quando restano voci da definire,
        neutro quando è completo; click = apre/chiude le tendine qui sotto. Mai bloccante. */
@@ -37732,6 +37824,7 @@ function pdfChannelPage(doc, L, paperKey){
     renderFuoriPalco();
     renderCoroMuto();
     renderPdfUltimo();
+    renderPrimaDelExport();   /* «Prima di esportare» (12/11) */
     pdfHeaderInit();
     refresh();
     pdfUpdateTechNote();
