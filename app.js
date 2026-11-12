@@ -36890,9 +36890,9 @@ function orariVoci(){ return [["loadIn","Load in"],["allestimento","Allestimento
 function orarioNorm(v){
   if(typeof v==="number") v=String(v);
   if(typeof v!=="string") return "";
-  var m=/^\s*(\d{1,2})(?:\s*[:.,]\s*(\d{2}))?\s*$/.exec(v); if(!m) return "";
+  var m=/^\s*(\d{1,2})(?:\s*[:.,]\s*(\d{2}))?\s*(\(\s*tbc\s*\)|tbc)?\s*$/i.exec(v); if(!m) return "";
   var h=+m[1], mi=(m[2]==null)?0:+m[2]; if(h>23 || mi>59) return "";
-  return (h<10?"0":"")+h+":"+(mi<10?"0":"")+mi;
+  return (h<10?"0":"")+h+":"+(mi<10?"0":"")+mi+(m[3]?" (TBC)":"");   /* «(TBC)» = orario non confermato: convenzione normale dei piani orari, si conserva e si stampa (L1-a) */
 }
 function orariNorm(o){
   var r={}; if(o && typeof o==="object") orariVoci().forEach(function(p){ var t=orarioNorm(o[p[0]]); if(t) r[p[0]]=t; });
@@ -39344,13 +39344,86 @@ function isFreshBlankProject(explicit){
     return !hasMeaningfulDocument();                                   /* nessun lavoro in tutto il documento */
   }catch(_e){ return false; }
 }
-/* Accetta "8", "6,5", "6.5"; rifiuta vuoto, non numerico, zero e negativi. Ritorna metri (Number) o null. */
+/* Accetta "8", "6,5", "6.5", e con l'unità: "12,5 m", "12.5m", "1250 cm" (L1-a); rifiuta vuoto, non numerico, zero e negativi. Ritorna metri (Number) o null. */
 function parseStageDim(v){
-  var s=String(v==null?"":v).trim().replace(",",".");
-  if(!s || !/^\d*\.?\d+$/.test(s)) return null;
-  var n=parseFloat(s);
+  var s=String(v==null?"":v).trim().toLowerCase().replace(/\s+/g,"");
+  var m=/^(\d*[.,]?\d+)(mt|m|cm)?$/.exec(s); if(!m) return null;
+  var n=parseFloat(m[1].replace(",","."));
+  if(m[2]==="cm") n=n/100;
   return (isFinite(n) && n>0) ? n : null;
 }
+/* ═══ MISURE SCRITTE COME CAPITA (12/11/2026, L1-a, dalla posta di produzione) ═══
+   Le fonti scrivono la stessa misura in almeno otto modi: «12mX2mX40cm», «12X2 H 40», «9mX2m H40cm», «10 m x 2 m h40», «4x2h60», «H 40 (6x2 m)»,
+   «mt 8x8xh0,60/0,80», «Palco 12x8xh0,90» — virgola o punto, unità attaccata o no, altezza in centimetri o in metri con la virgola.
+   REGOLA (documentata): larghezza e profondità senza unità sono METRI; l'altezza senza unità è in CENTIMETRI se è un intero («H60», «h60», «60»)
+   e in METRI se ha i decimali e sta sotto i 10 («h0,60», «0,6» → 60 cm); con l'unità esplicita vince l'unità («0,6 m», «60 cm», «40cm»).
+   Con due altezze («h0,60/0,80») vale la prima. Restituisce centimetri {l, p, h} (le voci assenti non ci sono) o null se non è una misura. */
+function misuraNum(t){ return parseFloat(String(t).replace(",",".")); }
+function misuraAltezzaCm(num, unita){
+  var v=misuraNum(num); if(!isFinite(v)) return null;
+  if(unita==="cm") return Math.round(v);
+  if(unita==="m"||unita==="mt") return Math.round(v*100);
+  return (/[.,]/.test(String(num)) && v<10) ? Math.round(v*100) : Math.round(v);
+}
+function misureParse(testo){
+  var t=String(testo==null?"":testo).toLowerCase().replace(/\u00d7/g,"x").replace(/\s+/g," ").trim();
+  if(!t) return null;
+  var N="(\\d+(?:[.,]\\d+)?)", U="(cm|mt|m)?", out={};
+  /* l'altezza: «h», poi il numero, l'eventuale unità e la seconda altezza dopo la barra («h0,60/0,80»): «h» può seguire un numero o una «x» */
+  var hm=new RegExp("(^|[^a-wyz])h\\s*"+N+"\\s*"+U+"(?:\\s*/\\s*"+N+"\\s*"+U+")?").exec(t);
+  if(hm){ var hc=misuraAltezzaCm(hm[2], hm[3]); if(hc!==null) out.h=hc; t=(t.slice(0, hm.index+hm[1].length)+" "+t.slice(hm.index+hm[0].length)).replace(/\s+/g," "); }
+  /* larghezza × profondità (× altezza), ognuna col suo suffisso d'unità; un prefisso («mt 8x8») o un suffisso del gruppo («6x2 m») vale per tutte */
+  var dm=new RegExp("(?:\\b(cm|mt|m)\\.?\\s*)?"+N+"\\s*"+U+"\\s*[x*]\\s*"+N+"\\s*"+U+"(?:\\s*[x*]\\s*"+N+"\\s*"+U+")?").exec(t);
+  if(dm){
+    var pre=dm[1], u1=dm[3], u2=dm[5], u3=dm[7], comune=u1||u2||pre||"m";
+    function cm(num, u){ var v=misuraNum(num), uu=u||comune; if(!isFinite(v)) return null; return Math.round(uu==="cm" ? v : v*100); }
+    out.l=cm(dm[2], u1); out.p=cm(dm[4], u2);
+    if(dm[6]!=null && out.h==null){ var h3=misuraAltezzaCm(dm[6], u3); if(h3!==null) out.h=h3; }   /* «12mX2mX40cm»: la terza misura è l'altezza */
+    if(out.l===null || out.p===null) return null;
+  }
+  return (out.l!=null || out.h!=null) ? out : null;
+}
+/* Un'altezza sola: «h0,60», «0,6 m», «60 cm», «H60», «h60», «60» → 60 cm (la regola sopra); null se non è un'altezza */
+function altezzaParse(testo){
+  var m=new RegExp("^\\s*(?:h\\s*)?(\\d+(?:[.,]\\d+)?)\\s*(cm|mt|m)?\\s*$","i").exec(String(testo==null?"":testo));
+  return m ? misuraAltezzaCm(m[1], m[2] ? m[2].toLowerCase() : "") : null;
+}
+/* Una larghezza o profondità sola, solo con l'unità scritta («12,5 m», «1250 cm»): senza unità si incolla com'è */
+function misuraSingolaCm(testo){
+  var m=new RegExp("^\\s*(\\d+(?:[.,]\\d+)?)\\s*(cm|mt|m)\\s*$","i").exec(String(testo==null?"":testo)); if(!m) return null;
+  var v=misuraNum(m[1]); return isFinite(v) ? Math.round(m[2].toLowerCase()==="cm" ? v : v*100) : null;
+}
+/* Un campo di misura incolla «12X2 H 40» e si riempiono da soli larghezza, profondità e altezza: campi = {l:[id, unità del campo], p:[…], h:[…]} */
+function misureIncollaApplica(testo, campi, trova){
+  trova=trova||function(id){ return document.getElementById(id); };
+  var m=misureParse(testo); if(!m) return false;
+  var fatto=false;
+  ["l","p","h"].forEach(function(k){
+    if(m[k]==null || !campi[k]) return;
+    var el=trova(campi[k][0]); if(!el) return;
+    var v=(campi[k][1]==="m") ? Math.round(m[k])/100 : Math.round(m[k]);
+    el.value=String(v);
+    try{ el.dispatchEvent(new Event("input",{bubbles:true})); el.dispatchEvent(new Event("change",{bubbles:true})); }catch(_e){}
+    fatto=true; });
+  return fatto;
+}
+function misureIncollaCampo(txt, g, k, trova){
+  trova=trova||function(id){ return document.getElementById(id); };
+  if(misureIncollaApplica(txt, g, trova)) return true;
+  var cmv=(k==="h") ? altezzaParse(txt) : misuraSingolaCm(txt); if(cmv==null) return false;
+  var el=trova(g[k][0]); if(!el) return false;
+  el.value=String(g[k][1]==="m" ? Math.round(cmv)/100 : Math.round(cmv));
+  try{ el.dispatchEvent(new Event("input",{bubbles:true})); el.dispatchEvent(new Event("change",{bubbles:true})); }catch(_e){}
+  return true;
+}
+(function(){
+  var gruppi=[ {l:["ssW","m"], p:["ssD","m"]}, {l:["mW","m"], p:["mD","m"]}, {l:["blkW","m"], p:["blkD","m"], h:["blkH","cm"]}, {l:["pW","cm"], p:["pD","cm"], h:["pH","cm"]} ];
+  gruppi.forEach(function(g){ Object.keys(g).forEach(function(k){ var el=document.getElementById(g[k][0]); if(!el) return;
+    el.addEventListener("paste", function(ev){
+      var cb=ev.clipboardData || window.clipboardData, txt=cb && cb.getData ? cb.getData("text") : "";
+      if(txt && misureIncollaCampo(txt, g, k)) ev.preventDefault(); });   /* un numero solo si incolla come sempre; una misura (intera o con l'unità) riempie i campi */
+  }); });
+})();
 function applyStageSize(wM, dM, provisional){
   var w=Math.max(100,Math.round(wM*100)), d=Math.max(100,Math.round(dM*100));   /* metri → cm (min 1 m) */
   state.stage={w:w, d:d, blocks:[{x:0,y:0,w:w,d:d}]};

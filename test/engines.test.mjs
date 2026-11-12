@@ -13819,6 +13819,76 @@ t("il riferimento del cartiglio, se svuotato, resta svuotato", () => {
   ok(A.pdfHeaderPropose({}, { name: "Simone", contact: "s@x.it" }).indexOf("Simone") > -1,
     "mai impostato: la proposta ci sta");
 });
+/* ═══ MISURE SCRITTE COME CAPITA (12/11/2026, L1-a): le fonti scrivono la stessa misura in otto modi; regola documentata: lati senza unità = metri,
+   altezza senza unità = centimetri se intera («H60», «60»), metri se decimale sotto 10 («h0,60»); con l'unità esplicita vince l'unità. ═══ */
+t("Misure: le otto grafie delle fonti, in centimetri", () => {
+  const P = (x) => JSON.stringify(A.misureParse(x));
+  const cm = (l, p, h) => JSON.stringify(h == null ? { l, p } : { h, l, p }).replace(/"/g, "");
+  const ok8 = [["12mX2mX40cm", 1200, 200, 40], ["12X2 H 40", 1200, 200, 40], ["9mX2m H40cm", 900, 200, 40], ["10 m x 2 m h40", 1000, 200, 40],
+               ["4x2h60", 400, 200, 60], ["H 40 (6x2 m)", 600, 200, 40], ["mt 8x8xh0,60/0,80", 800, 800, 60], ["Palco 12x8xh0,90", 1200, 800, 90]];
+  ok8.forEach(([txt, l, p, h]) => { const m = A.misureParse(txt); eq([m && m.l, m && m.p, m && m.h], [l, p, h], "«" + txt + "» → " + P(txt)); });
+  eq([A.misureParse("12x8").l, A.misureParse("12x8").p, A.misureParse("12x8").h], [1200, 800, undefined], "senza altezza: nessuna altezza");
+  eq([A.misureParse("12,5x8,5").l, A.misureParse("12.5 x 8.5").p], [1250, 850], "virgola o punto decimale");
+  eq([A.misureParse("12×2").l, A.misureParse("12 X 2 m").p, A.misureParse("200x100 cm").l, A.misureParse("200x100cm").p], [1200, 200, 200, 100], "il segno ×, le maiuscole, l'unità del gruppo («200x100 cm» sono centimetri)");
+  eq([A.misureParse("12m x 200cm").l, A.misureParse("12m x 200cm").p], [1200, 200], "unità diverse sui due lati: ognuno la sua");
+  eq(["h40", "H 40", "h0,60", "h1,5"].map((x) => A.misureParse(x) && A.misureParse(x).h), [40, 40, 60, 150], "solo un'altezza");
+  eq(["", "abc", "12", "12,5", "12 m", "x", "12x", "x8", "ora 19:30", "100"].map((x) => A.misureParse(x)), Array(10).fill(null), "ciò che non è una misura: null (si incolla com'è)");
+  eq([A.misureParse("mt 8x8xh0,60/0,80").h, A.misureParse("mt 8x8xh0,80/0,60").h], [60, 80], "con due altezze («h0,60/0,80») vale la prima");
+});
+t("Misure: l'altezza, regola «intero = cm, decimale sotto 10 = m, l'unità vince»", () => {
+  const a = A.altezzaParse;
+  eq(["h0,60", "0,6 m", "60 cm", "H60", "h60", "60", "0,6", "0.6", "60cm", "H 60", "0,60 M"].map((x) => a(x)), Array(11).fill(60), "tutte queste scritture sono 60 cm");
+  eq([a("1,5"), a("1,5 m"), a("150"), a("150 cm"), a("12,5"), a("h1"), a("0,4 m"), a("40,5")], [150, 150, 150, 150, 13, 1, 40, 41], "1,5 = metri; 12,5 e 40,5 (≥ 10) = centimetri; un intero senza unità è sempre centimetri («h1» = 1 cm)");
+  eq(["", "abc", "12x8", "h", "60 kg", "-5"].map((x) => a(x)), Array(6).fill(null), "ciò che non è un'altezza");
+  eq([A.misuraAltezzaCm("0,6", "m"), A.misuraAltezzaCm("60", "m"), A.misuraAltezzaCm("0,6", "cm")], [60, 6000, 1], "con l'unità esplicita vince l'unità, anche contro la regola");
+});
+t("Misure: «Nuovo palco» accetta «12», «12,5», «12.5», «12,5 m» e i centimetri; e un campo incolla la misura intera", () => {
+  eq(["12", "12,5", "12.5", "12,5 m", "12.5m", " 12,5 mt ", "1250 cm", "1250cm"].map((x) => A.parseStageDim(x)), [12, 12.5, 12.5, 12.5, 12.5, 12.5, 12.5, 12.5], "le forme con cui si scrive la larghezza di un palco");
+  eq(["", "abc", "0", "-3", "12,5 kg", "12,5,5", "m", "12 x 8"].map((x) => A.parseStageDim(x)), Array(8).fill(null), "e quelle che non sono misure");
+  const campi = (ids) => { const o = {}; ids.forEach((i) => { o[i] = { value: "", dispatchEvent() {} }; }); return o; };
+  const F = campi(["ssW", "ssD", "blkW", "blkD", "blkH", "pW", "pD", "pH"]), trova = (id) => F[id];
+  eq(A.misureIncollaApplica("Palco 12x8xh0,90", { l: ["ssW", "m"], p: ["ssD", "m"] }, trova), true, "incollata nel «Nuovo palco»");
+  eq([F.ssW.value, F.ssD.value], ["12", "8"], "larghezza e profondità in metri, l'altezza non c'è fra i campi");
+  A.misureIncollaApplica("12X2 H 40", { l: ["pW", "cm"], p: ["pD", "cm"], h: ["pH", "cm"] }, trova); eq([F.pW.value, F.pD.value, F.pH.value], ["1200", "200", "40"], "pedana (campi in cm)");
+  A.misureIncollaApplica("9mX2m H40cm", { l: ["blkW", "m"], p: ["blkD", "m"], h: ["blkH", "cm"] }, trova); eq([F.blkW.value, F.blkD.value, F.blkH.value], ["9", "2", "40"], "blocco: metri, metri, centimetri");
+  A.misureIncollaApplica("12,5x8,5", { l: ["blkW", "m"], p: ["blkD", "m"], h: ["blkH", "cm"] }, trova); eq([F.blkW.value, F.blkD.value, F.blkH.value], ["12.5", "8.5", "40"], "senza altezza: il campo altezza non si tocca");
+  eq(A.misureIncollaApplica("12", { l: ["blkW", "m"], p: ["blkD", "m"] }, trova), false, "un numero solo non è una misura: si incolla come sempre");
+  F.blkH.value = ""; eq([A.misureIncollaCampo("0,6 m", { h: ["blkH", "cm"] }, "h", trova), F.blkH.value], [true, "60"], "un'altezza sola («0,6 m») nel campo altezza → 60");
+  F.blkW.value = ""; eq([A.misureIncollaCampo("12,5 m", { l: ["blkW", "m"], p: ["blkD", "m"] }, "l", trova), F.blkW.value], [true, "12.5"], "una larghezza con l'unità in un campo in metri");
+  F.pW.value = ""; eq([A.misureIncollaCampo("12,5 m", { l: ["pW", "cm"] }, "l", trova), F.pW.value], [true, "1250"], "e in un campo in centimetri");
+  eq(A.misureIncollaCampo("12,5", { l: ["pW", "cm"] }, "l", trova), false, "senza unità: si incolla com'è");
+  const appjsT = readFileSync(join(root, "app.js"), "utf8");
+  ok(/\{l:\["ssW","m"\], p:\["ssD","m"\]\}, \{l:\["mW","m"\], p:\["mD","m"\]\}, \{l:\["blkW","m"\], p:\["blkD","m"\], h:\["blkH","cm"\]\}, \{l:\["pW","cm"\], p:\["pD","cm"\], h:\["pH","cm"\]\}/.test(appjsT), "i quattro gruppi di campi (palco, palco su telefono, blocco, pedana) ascoltano l'incolla");
+  ok(/el\.addEventListener\("paste", function\(ev\)\{[\s\S]{0,300}misureIncollaCampo\(txt, g, k\)\) ev\.preventDefault\(\)/.test(appjsT), "e lo fanno con l'evento paste");
+});
+t("Misure, casi limite: unità scritte (mt, M, cm), prefisso, unità su un solo lato, altezza esplicita contro terza misura, asterisco, incolla con unità", () => {
+  const m = (x) => A.misureParse(x);
+  eq([A.altezzaParse("1 mt"), A.altezzaParse("1 m"), A.altezzaParse("1 M"), A.altezzaParse("1 CM"), A.altezzaParse("1")], [100, 100, 100, 1, 1], "con l'unità vince l'unità (anche «mt» e le maiuscole); senza, un intero è in centimetri");
+  eq([m("12x2 h1m").h, m("12x2 h 1 m").h, m("12x2 h0,5cm").h, m("12x2 h1").h], [100, 100, 1, 1], "l'unità dell'altezza dentro una misura intera");
+  eq([m("cm 200x100").l, m("cm 200x100").p, m("mt 8x8").l, m("m 8x8").p], [200, 100, 800, 800], "il prefisso vale per tutta la misura («cm 200x100» sono centimetri)");
+  eq([m("200cm x 100").l, m("200cm x 100").p, m("12 x 200cm").p, m("12 x 200cm").l], [200, 100, 200, 12], "l'unità su un solo lato vale anche per l'altro, se questo non ne ha una sua");
+  eq([m("12x2x40cm h60").h, m("12x2x40").h, m("12x2x0,4").h], [60, 40, 40], "un'altezza scritta con «h» vince sulla terza misura; la terza misura senza h è un'altezza");
+  eq([m("12*8").l, m("12 * 8 h40").h], [1200, 40], "anche l'asterisco");
+  const F = { c: { value: "", dispatchEvent() {} }, w: { value: "", dispatchEvent() {} } }, trova = (id) => F[id];
+  F.c.value = ""; eq([A.misureIncollaCampo("0,6", { h: ["c", "cm"] }, "h", trova), F.c.value], [true, "60"], "un'altezza decimale senza unità: metri → 60");
+  F.c.value = ""; eq([A.misureIncollaCampo("h0,60", { h: ["c", "cm"] }, "h", trova), F.c.value], [true, "60"], "«h0,60» nel campo altezza");
+  F.w.value = ""; eq([A.misureIncollaCampo("1250 cm", { l: ["w", "m"] }, "l", trova), F.w.value], [true, "12.5"], "centimetri in un campo in metri");
+  F.w.value = ""; eq([A.misureIncollaCampo("0,6 m", { l: ["w", "cm"] }, "l", trova), F.w.value], [true, "60"], "e metri in un campo in centimetri");
+});
+t("Orari: il suffisso «(TBC)» si accetta senza avvisi e si stampa", () => {
+  eq(["19:30 (TBC)", "19.30(tbc)", "19,30 TBC", "19:30 tbc", "9 (TBC)", "19:30(TBC)", " 19:30  ( tbc ) "].map((x) => A.orarioNorm(x)), ["19:30 (TBC)", "19:30 (TBC)", "19:30 (TBC)", "19:30 (TBC)", "09:00 (TBC)", "19:30 (TBC)", "19:30 (TBC)"], "tutte le scritture del TBC");
+  eq(["19:30 (TBD)", "19:30 (TBC", "19:30 TBC TBC", "TBC", "19:30 (tbc) x", "(TBC) 19:30"].map((x) => A.orarioNorm(x)), Array(6).fill(""), "e ciò che non lo è");
+  eq(["19:30", "19.30", "19,30"].map((x) => A.orarioNorm(x)), ["19:30", "19:30", "19:30"], "senza TBC come prima");
+  reset(); A.loadDoc({ titolo: "Concerto di prova", luogo: "Teatro Finto", stage: { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] }, inputs: [], outputs: [], items: [{ id: "a", type: "leggio", x: 100, y: 100 }], orari: { concerto: "21.00 (tbc)", loadIn: "15:00" } });
+  eq(A.state.orari, { loadIn: "15:00", concerto: "21:00 (TBC)" }, "salva normalizzato, col TBC");
+  eq(A.orariRighe(), ["Load in 15:00", "Concerto 21:00 (TBC)"], "il testo del rider ha anche il «(TBC)»");
+  const d = s5Doc(); A.riderPdf(d); ok(d.pagine.slice(1)[0].testi.some((x) => /Concerto 21:00 \(TBC\)/.test(x.t)), "stampato nel rider");
+  ok(/Concerto 21:00 \(TBC\)/.test(A.riderHtml()), "e nell'anteprima");
+  eq(A.controlliPrimaDelExport().filter((x) => x.id === "segnaposto").length, 0, "nessun avviso sul TBC degli orari");
+  A.loadDoc(JSON.parse(A.docToJSON())); eq(A.state.orari.concerto, "21:00 (TBC)", "salva e riapri");
+  ok(!/maxlength="5"/.test(readFileSync(join(root, "app/index.html"), "utf8").split("data-orario").slice(1).map((x) => x.slice(0, 120)).join(" ")), "i campi degli orari non tagliano a cinque caratteri");
+  reset();
+});
 /* 27/07: elemento FORMA — un tipo con l'asse `shape`, sei voci nel catalogo, testo dentro. */
 t("la forma e' un tipo solo, con sette geometrie", () => {
   reset();
