@@ -27242,8 +27242,8 @@ function chanRow(kind, row, i){
     who.addEventListener("input", function(){ row.who=who.value; saveSoon(); });
     d.appendChild(who);
   }
-  var by=document.createElement("select"); by.className="clby"; by.title="Fornito da: chi porta l'attrezzatura (band o service). Nella Channel list del PDF «Band» diventa ** accanto alla sorgente, e finisce nella backline list del rider.";
-  ["","Band","Service"].forEach(function(t){ var o=document.createElement("option"); o.value=t; o.textContent=t||"forn."; if(t===(row.by||""))o.selected=true; by.appendChild(o); });
+  var by=document.createElement("select"); by.className="clby"; by.title="Fornito da: chi porta l'attrezzatura (band, service o teatro). Nella Channel list del PDF «Band» diventa ** e «Teatro» ° accanto alla sorgente, e un riquadro in fondo dice chi fornisce cosa; finisce anche nella backline list del rider.";
+  [""].concat(FORNITO_DA).forEach(function(t){ var o=document.createElement("option"); o.value=t; o.textContent=t||"forn."; if(t===(row.by||""))o.selected=true; by.appendChild(o); });
   by.addEventListener("change", function(){ row.by=by.value; saveSoon(); });
   d.appendChild(by);
   var del=document.createElement("button"); del.className="del"; del.type="button"; del.innerHTML="&times;";
@@ -28813,15 +28813,31 @@ function _riderBy(itemId, name){
    leggeva solo it.by, e il suggerimento «Finisce nella backline list del rider» della colonna non era vero. */
 function fornituraElemento(it){
   if(!it) return "";
-  if(it.by==="Band" || it.by==="Service") return it.by;
+  if(FORNITO_DA.indexOf(it.by)>=0) return it.by;
   var v={};
   (state.inputs||[]).concat(state.outputs||[]).forEach(function(r){
-    if(r && r.linked_item_id!=null && String(r.linked_item_id)===String(it.id) && (r.by==="Band" || r.by==="Service")) v[r.by]=1;
+    if(r && r.linked_item_id!=null && String(r.linked_item_id)===String(it.id) && FORNITO_DA.indexOf(r.by)>=0) v[r.by]=1;
   });
   var k=Object.keys(v); return k.length===1 ? k[0] : "";
 }
 /* Convenzione dei rider italiani (Timodà, CONOSCENZA/FONTI.md): «** = a carico della band» accanto alla sorgente. */
 var FORNITO_BAND_SEGNO=" **", FORNITO_BAND_LEGENDA="** = a carico della band (strumento e amplificazione portati dalla band)";
+/* TRE FORNITORI (12/11/2026, dalle mail di produzione: «ogni data ha fornitori diversi»): la band porta il suo, il service
+   il resto, il teatro ha la sua dotazione (pianoforte, impianto fisso). Il segno accanto alla sorgente lo hanno solo band
+   (**) e teatro (°): il service è il caso di serie, e il suo elenco sta nel riquadro «Chi fornisce cosa». */
+var FORNITO_DA=["Band","Service","Teatro"];
+var FORNITO_TEATRO_SEGNO=" °", FORNITO_TEATRO_LEGENDA="° = a carico del teatro (dotazione e impianto della sala)";
+function fornitoSegno(by){ return by==="Band" ? FORNITO_BAND_SEGNO : by==="Teatro" ? FORNITO_TEATRO_SEGNO : ""; }
+/* Chi fornisce cosa, per il riquadro in fondo alla channel list: i canali veri (non riservati né porte libere) raggruppati
+   per fornitore, nell'ordine Band, Teatro, Service; i senza indicazione si contano soltanto (mai attribuiti a qualcuno). */
+function fornituraRiepilogo(rows){
+  var g={Band:[], Teatro:[], Service:[]}, nd=0;
+  (rows||[]).forEach(function(r){
+    if(!r || r.reserved || r.spare) return;
+    if(g[r.by]) g[r.by].push(r.name); else nd++;
+  });
+  return { gruppi:["Band","Teatro","Service"].filter(function(k){ return g[k].length; }).map(function(k){ return {chi:k, nomi:g[k]}; }), nonIndicati:nd };
+}
 function patchList(){
   var R=cabResult(true), rows=[], n=0, man=(state.cab&&state.cab.manual)||{};
   var byId={}; (state.items||[]).forEach(function(i){ byId[i.id]=i; });
@@ -33906,9 +33922,21 @@ function patchListPdf(shared){
        di un'orchestra vera finivano su un foglio senza «# SORGENTE MIC/DI…») */
     function _testa(){ trow("#","SORGENTE","FOH","MIC / DI","ASTA","PATCH", true, "#0d9488"); doc.setDrawColor("#0d9488"); doc.setLineWidth(0.4); doc.line(M, y-3.6, 194, y-3.6); }
     _testa(); _testaTab=_testa;
-    var _band=false;   /* «fornito da» della channel list: ** accanto alla sorgente, legenda sotto (30/09) */
-    pl.rows.forEach(function(r){ if(r.by==="Band" && !r.reserved) _band=true; trow((pl.hasFoh&&r.foh)?r.foh:r.n, r.reserved?"RISERVATO":(r.name+(r.by==="Band"?FORNITO_BAND_SEGNO:"")), r.short||"", r.reserved?"":(r.mic+(r.p48?"  (48V)":"")), r.standShared?"stessa asta":(r.stand||""), r.patch, false, (r.spare||r.reserved)?"#9a948b":"#111827", (r.spare||r.reserved||r.box)?null:"#b45309"); });
+    var _band=false, _teatro=false;   /* «fornito da» della channel list: ** (band) e ° (teatro) accanto alla sorgente, legenda sotto (30/09, 12/11) */
+    pl.rows.forEach(function(r){ if(r.by==="Band" && !r.reserved) _band=true; if(r.by==="Teatro" && !r.reserved) _teatro=true; trow((pl.hasFoh&&r.foh)?r.foh:r.n, r.reserved?"RISERVATO":(r.name+fornitoSegno(r.by)), r.short||"", r.reserved?"":(r.mic+(r.p48?"  (48V)":"")), r.standShared?"stessa asta":(r.stand||""), r.patch, false, (r.spare||r.reserved)?"#9a948b":"#111827", (r.spare||r.reserved||r.box)?null:"#b45309"); });
     if(_band){ y+=1.5; doc.setFont("helvetica","italic"); doc.setFontSize(8.5); doc.setTextColor("#555555"); if(y>286){ doc.addPage(); y=18; } doc.text(FORNITO_BAND_LEGENDA, M, y); y+=5.4; }
+    if(_teatro){ if(!_band) y+=1.5; doc.setFont("helvetica","italic"); doc.setFontSize(8.5); doc.setTextColor("#555555"); if(y>286){ doc.addPage(); y=18; } doc.text(FORNITO_TEATRO_LEGENDA, M, y); y+=5.4; }
+    /* IL RIQUADRO «CHI FORNISCE COSA» (12/11): una riga per fornitore con i canali, e quanti restano senza indicazione.
+       Solo se almeno un canale dice chi lo porta: senza, la pagina è quella di sempre. */
+    var _fr=fornituraRiepilogo(pl.rows);
+    if(_fr.gruppi.length){
+      y+=2; if(y>268){ doc.addPage(); y=18; }
+      doc.setFont("helvetica","bold"); doc.setFontSize(9.5); doc.setTextColor("#0e7490"); doc.text("Chi fornisce cosa", M, y);
+      doc.setDrawColor("#0d9488"); doc.setLineWidth(0.3); doc.line(M, y+1.8, 194, y+1.8); y+=6.2;
+      doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor("#111827");
+      _fr.gruppi.forEach(function(g){ y=pdfACapo(doc, g.chi+" ("+g.nomi.length+"): "+g.nomi.join(", "), M, y, 178, 4.2)+0.8; });
+      if(_fr.nonIndicati){ doc.setTextColor("#9a948b"); y=pdfACapo(doc, "Non indicato ("+_fr.nonIndicati+")", M, y, 178, 4.2); }
+    }
     /* F2: riepilogo riservate/libere per box (spare = porte, non righe fantasma — D2) */
     try{ cabResult().boxes.forEach(function(b){
       if(!b.res.length) return;
