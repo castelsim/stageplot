@@ -13835,6 +13835,8 @@ t("Organico: le percussioni sono PERSONE (percussionisti), non le postazioni; i 
   eq([A.controlliPrimaDelExport().filter((x) => x.id === "violini-senza-sezione").length, A.organicoList().formula], [0, "4-4-4"], "tutti con la sezione: nessun avviso e la formula c'è");
   s5Fix(orgN("vlnpost", 4, { vsec: 1 }).concat(orgN("vlnpost", 1, { label: "Violino ospite" }, "g"), orgN("violapost", 4)));
   eq([A.controlliPrimaDelExport().filter((x) => x.id === "violini-senza-sezione").length, viol(orgRows())], [0, [["Violini I", 4]]], "un violino ospite senza sezione è fuori dal totale e non fa avvisare");
+  s5Fix(orgN("vlnpost", 3, { vsec: 2 }, "b").concat(orgN("vlnpost", 1, {}, "g"), orgN("violapost", 4)));
+  eq(A.controlliPrimaDelExport().filter((x) => x.id === "violini-senza-sezione").length, 1, "anche se la sezione dichiarata è solo la II");
   s5Fix(orgN("vln1x2", 2).concat(orgN("vln2x2", 2), orgN("vlnpost", 2, {}, "g"))); eq(viol(orgRows()), [["Violini I", 4], ["Violini II", 4], ["Violini (senza sezione)", 2]], "le doppie sono divise (I/II) per costruzione");
   eq(A.controlliPrimaDelExport().filter((x) => x.id === "violini-senza-sezione").length, 1, "e i generici accanto a loro si segnalano");
   reset();
