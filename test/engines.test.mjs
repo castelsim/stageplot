@@ -19732,6 +19732,24 @@ t("Controllo prima dell'export, regola 6: la data nel titolo contro la data dell
   eq(prova("Concerto 31.02.26", "2026-02-28").length, 0, "una data impossibile non è una data");
   reset();
 });
+t("Controllo prima dell'export, regola 7: manca il luogo (titolo o data scritti, luogo vuoto), dietro «Controllo tecnico»; «tbc» è un segnaposto nei testi ma mai negli orari", () => {
+  const luogo = (campo) => { A.loadDoc(Object.assign(docVuoto(), { items: [{ id: "a", type: "comboamp", x: 300, y: 300 }] })); campo(); return cpe("manca-luogo"); };
+  reset();
+  const r = luogo(() => {}); eq([r.length, r[0].gravita], [1, "warn"], "titolo scritto e luogo vuoto: un avviso (mai un errore)"); ok(/luogo/i.test(r[0].testo), "dice cosa manca: " + r[0].testo);
+  eq(luogo(() => { A.state.luogo = "Teatro Finto"; }).length, 0, "con il luogo: niente");
+  eq(luogo(() => { A.state.luogo = "   "; }).length, 1, "un luogo di soli spazi è vuoto");
+  eq(luogo(() => { A.state.titolo = ""; }).length, 0, "né titolo né data: niente (progetto appena aperto)");
+  eq(luogo(() => { A.state.titolo = ""; A.state.evDate = "2026-12-01"; }).length, 1, "solo la data: avviso");
+  ok(/typeof funzOn==="function" && funzOn\("controllo"\) && !String\(state\.luogo/.test(appjs), "la regola esce solo con «Controllo tecnico» acceso");
+  const tbc = (campo) => { reset(); campo(); return cpe("segnaposto"); };
+  ["Ore TBC", "tbc", "Orario (TBC)", "Inizio TBC da confermare"].forEach((x) => eq(tbc(() => { A.state.titolo = x; }).length, 1, "«" + x + "» nel titolo è un segnaposto"));
+  ["TBCX", "Tabacco", "tb c"].forEach((x) => eq(tbc(() => { A.state.titolo = x; }).length, 0, "«" + x + "»: niente"));
+  eq(tbc(() => { A.state.scaletta = [{ tipo: "brano", titolo: "Brano", durata: "3:30", note: "tbc" }]; }).length, 1, "scaletta");
+  eq(tbc(() => { A.state.rider = { note: "Camerini TBC" }; }).length, 1, "note del rider");
+  eq(tbc(() => { A.loadDoc(Object.assign(docVuoto(), { items: [{ id: "m", type: "astamic", x: 300, y: 300, label: "Canale TBC" }] })); }).length, 1, "nome di un canale");
+  eq(tbc(() => { A.state.orari = { concerto: "19:30 (TBC)", loadIn: "15:00 (TBC)" }; }).length, 0, "il blocco orari non è un testo da controllare: «(TBC)» lì è la convenzione per un orario non confermato");
+  reset();
+});
 t("Controllo prima dell'export: la striscia sta in cima all'Esporta, non blocca e il clic seleziona l'elemento", () => {
   const html = readFileSync(join(root, "app/index.html"), "utf8");
   const lato = html.indexOf('<div class="pdf-exp-side">');
@@ -19954,7 +19972,7 @@ t("Channel list Service: colonne (FOH = nome sul banco, dinamica, asta a vocabol
   const rVln = righe(A.patchList().rows.find((r) => r.itemId === "v").name);
   ok(rVln.indexOf("clip") > -1, "violino con mic a clip: " + rVln.join(" | "));
   const rGtr = righe(A.patchList().rows.find((r) => r.itemId === "g").name);
-  ok(rGtr.filter((x) => x === "DI").length === 2, "amplificatore in DI: canale DI e stand «DI»: " + rGtr.join(" | "));
+  ok(rGtr.filter((x) => x === "DI").length === 1, "amplificatore in DI: «DI» nella colonna mic/DI e non fra le aste (L1-b): " + rGtr.join(" | "));
   const ph = A.patchList().rows.find((r) => r.itemId === "o"); ok(ph.p48, "il KM184 ha il phantom");
   ok(rGir.indexOf("X") > -1, "48 V: X");
   /* senza «short» la colonna FOH ripiega sul nome della sorgente */
@@ -19966,7 +19984,7 @@ t("Channel list Service: colonne (FOH = nome sul banco, dinamica, asta a vocabol
 t("Channel list Service: vocabolario delle aste e totale in calce", () => {
   const s = (st, mic) => A.standServizio({ stand: st, mic: mic || "SM58" });
   eq([s("asta dritta"), s("asta giraffa"), s("asta gigante"), s("asta bassa"), s("clip"), s("clip strumento"), s("da tavolo"), s("interno/terra"), s("—"), s(""), s("asta bassa", "DI"), s("pinza")],
-     ["lunga", "lunga", "lunga", "nana", "clip", "clip", "corta", "XLR", "", "", "DI", "clip"], "normalizzato alle voci del service; un DI è DI");
+     ["lunga", "lunga", "lunga", "nana", "clip", "clip", "corta", "", "", "", "", "clip"], "normalizzato alle voci del service; DI e XLR non sono aste (stanno nella colonna mic/DI)");
   eq(A.standServizio({ stand: "asta dritta", mic: "SM58", standShared: true }), "stessa asta", "coppia stereo su un'asta sola");
   eq(A.standServizio({ stand: "supporto speciale", mic: "SM58" }), "supporto speciale", "ciò che non si sa classificare si stampa com'è: non si perde");
   /* totale: somma delle aste delle righe */
@@ -19975,6 +19993,28 @@ t("Channel list Service: vocabolario delle aste e totale in calce", () => {
   ok(tx.indexOf("Aste: 3 lunghe · 1 nana · 1 clip") > -1, "totale per tipo, senza i DI e senza gli zeri: " + tx.filter((x) => /^Aste/.test(x)).join("|"));
   s4Fix(0, [{ id: "g", type: "keysamp", x: 600, y: 300 }]);
   ok(!s4Testi(s4Pdf(32)).flat().some((x) => /^Aste/.test(x)), "nessuna asta: nessuna riga");
+  reset();
+});
+t("Channel list Service: Tonda (voci su base tonda) e Contatto (microfono a contatto) nel vocabolario; XLR e DI nella colonna mic/DI, mai fra le aste", () => {
+  s4Fix(0, [{ id: "v1", type: "cantante", x: 100, y: 300 }, { id: "v2", type: "cantante", x: 200, y: 300, micMode: "giraffa" }, { id: "v3", type: "cantante", x: 300, y: 300, micMode: "mano" },
+            { id: "a1", type: "astamic", x: 400, y: 300 }, { id: "c1", type: "corista", x: 500, y: 300 }]);
+  const sv = (it, st, mic) => A.standServizio({ stand: st || "asta dritta", mic: mic || "SM58", itemId: it });
+  eq([sv("v1"), sv("c1"), sv("v2"), sv("v2", "asta giraffa"), sv("v3"), sv("a1"), sv(undefined), sv("v1", "asta giraffa"), sv("v1", "asta bassa")], ["tonda", "tonda", "lunga", "lunga", "lunga", "lunga", "lunga", "lunga", "nana"],
+     "solo una voce su base tonda con asta dritta è «tonda»; giraffa, in mano, strumenti e righe senza elemento restano «lunga»");
+  eq(["C411", "c411", "C 411", "AKG C411"].map((m) => A.standServizio({ stand: "", mic: m })).slice(0, 3), ["contatto", "contatto", "contatto"], "il microfono a contatto del catalogo: «contatto» (anche scritto in altri modi)");
+  eq([A.standServizio({ stand: "asta bassa", mic: "SM57" }), A.micContatto("SM58"), A.micContatto("")], ["nana", false, false], "un microfono normale non è a contatto");
+  eq([A.standServizio({ stand: "interno/terra", mic: "PZM" }), A.standServizio({ stand: "asta bassa", mic: "DI" }), A.standServizio({ stand: "", mic: "DI st" })], ["", "", ""], "XLR e DI non hanno voce fra le aste");
+  eq([A.standXlr({ stand: "interno/terra", mic: "PZM" }), A.standXlr({ stand: "asta bassa", mic: "SM57" }), A.standXlr({ stand: "interno/terra", mic: "DI" }), A.standXlr({ stand: "interno/terra", mic: "C411" }), A.standXlr({ stand: "interno/terra", mic: "PZM", standShared: true })],
+     [true, false, false, false, false], "XLR solo per un'asta «interno/terra» di un microfono che non è DI né a contatto");
+  s4Fix(0, [{ id: "v1", type: "cantante", x: 100, y: 300 }, { id: "v2", type: "cantante", x: 200, y: 300 }, { id: "v3", type: "cantante", x: 300, y: 300, micMode: "giraffa" }, { id: "k1", type: "keysamp", x: 400, y: 300 }, { id: "b1", type: "astabassa", x: 500, y: 300 }]);
+  const tx = s4Testi(s4Pdf(32)).flat();
+  ok(tx.indexOf("Aste: 1 lunga · 1 nana · 2 tonde") > -1, "totale per tipo, con le tonde e senza i DI: " + tx.filter((x) => /^Aste/.test(x)).join("|"));
+  s4Fix(0, [{ id: "z1", type: "vlnpost", x: 100, y: 300 }]); A.state.cab.manual = {}; Object.keys(A.patchList().rows).forEach(() => {});
+  const r0 = A.patchList().rows[0]; A.state.cab.manual[r0.key] = { mic: "C411" }; A.__cabRes = null;
+  eq([A.patchList().rows[0].mic, A.standServizio(A.patchList().rows[0])], ["C411", "contatto"], "un canale con il microfono a contatto: «contatto»");
+  const tx2 = s4Testi(s4Pdf(32)).flat(); ok(tx2.indexOf("Aste: 1 contatto") > -1, "e nel totale: " + tx2.filter((x) => /^Aste/.test(x)).join("|"));
+  s4Fix(0, [{ id: "p1", type: "astamic", x: 100, y: 300 }]); const rr = A.patchList().rows[0]; A.state.cab.manual[rr.key] = { mic: "PZM", stand: "interno/terra" }; A.__cabRes = null;
+  const tx3 = s4Testi(s4Pdf(32)).flat(); ok(tx3.some((x) => /PZM · XLR/.test(x)) && !tx3.some((x) => /^Aste/.test(x)), "XLR nella colonna mic/DI («PZM · XLR»), non fra le aste: " + tx3.filter((x) => /PZM|Aste/.test(x)).join("|"));
   reset();
 });
 t("Channel list Service: intestazione «NOME – AAAAMMGG – luogo – vN» e righe di servizio con il contatore", () => {
