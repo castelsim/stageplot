@@ -41481,6 +41481,12 @@ function maybeAskStageSize(explicit){
     if(!sb){ fail("Cloud non disponibile."); return; }
     if(!cloudUser){ if(!silent){ toast("Accedi per salvare online."); signIn(); } done(null); return; }
     if(!silent && !(state.titolo||"").trim()){ askProjectName(function(){ saveProject(onSaved); }); return; }
+    /* DOCUMENTO IDENTICO ALL'ULTIMA VERSIONE ONLINE (11/11/2026): niente da scrivere. Il trigger del database aggiorna
+       updated_at a ogni UPDATE, quindi un salvataggio inutile (Condividi, contatti dell'elemento, gestione biglietteria su un
+       progetto appena aperto) cambiava la «data di modifica» senza che nessuno avesse toccato niente, e falsava il controllo
+       «updated_at prima di stampare». Stessa regola dell'autosave (cloudAutosaveNow): vedi cloudGiaAllineato. Chi chiama riceve
+       il progetto corrente, come dopo una scrittura riuscita; un progetto non ancora online (nessun id) si crea sempre. */
+    if(!hasLock && cloudCurrentId && cloudGiaAllineato()){ done(cloudCurrentId); return; }
     if(!hasLock){
       if(cloudWriteBusy){
         var qe=window.__docEpoch||0, tail=cloudWriteQueue.length?cloudWriteQueue[cloudWriteQueue.length-1]:null;

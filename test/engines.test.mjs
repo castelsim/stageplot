@@ -29715,6 +29715,26 @@ t("documento identico all'ultima versione online: niente scrittura (updated_at r
     A.loadDoc(JSON.parse(before)); reset();
   }
 });
+/* UPDATED_AT CHE CAMBIA SENZA MODIFICHE (11/11/2026, segnalazione della regia: Trevignano v4 e Valdagno v1 «aperti, contenuto
+   identico, updated_at nuovo»). Il trigger 0011 aggiorna updated_at a OGNI update; la guardia «documento identico → niente
+   scrittura» c'era solo nell'autosave (cloudAutosaveNow), mentre i salvataggi ESPLICITI (Condividi, contatti dell'elemento,
+   gestione biglietteria: C.save → saveProject) riscrivevano sempre title+data+thumbnail. Provato nel browser con Supabase finto
+   (note/prove_browser_2026-11-11/apri2.mjs, scenario «condividi»): 0 scritture dopo l'apertura, 2 dopo Condividi. */
+t("salvataggio esplicito (Condividi, contatti, biglietteria): documento identico all'ultima versione online → nessuna scrittura", () => {
+  const i = appjs.indexOf("function saveProject(onSaved, silent, lockHeld)");
+  ok(i > 0, "saveProject c'è");
+  const corpo = appjs.slice(i, appjs.indexOf("function drainCloudWriteQueue", i) > i ? appjs.indexOf("function drainCloudWriteQueue", i) : i + 12000);
+  const guardia = corpo.indexOf("cloudGiaAllineato()");
+  const coda = corpo.indexOf("cloudWriteBusy=true; hasLock=true;");
+  const scrittura = corpo.indexOf('.update(fields)');
+  ok(guardia > 0, "saveProject confronta il documento con l'ultima versione online (cloudGiaAllineato)");
+  ok(coda > 0 && guardia < coda, "il confronto sta PRIMA di accodare la scrittura");
+  ok(scrittura > 0 && guardia < scrittura, "…e prima dell'UPDATE");
+  /* la guardia risponde col progetto corrente (chi chiama, es. Condividi, controlla che l'id sia quello aperto) */
+  ok(/cloudGiaAllineato\(\)\)\s*\{\s*done\(cloudCurrentId\)/.test(corpo), "esito: done(cloudCurrentId), non null");
+  /* un progetto mai salvato online non passa di qui: cloudGiaAllineato vale false senza currentId (test sopra), e si crea */
+  ok(/cloudCurrentId && cloudGiaAllineato\(\)/.test(corpo), "solo se il progetto è già online");
+});
 t("più schede: chi lavora su un altro progetto già online non ferma questa scheda (slotAltraScheda)", () => {
   const slot = (o) => JSON.stringify({ _doc: 1, _local: Object.assign({ localRevision: "altra:1" }, o) });
   eq(A.slotAltraScheda(slot({ cloudId: "B", cloudPending: false, contentSig: "x" }), "A", "s"), "prendi", "altro progetto, al sicuro online");
