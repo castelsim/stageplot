@@ -88,6 +88,7 @@ function reset() {
   A.state.lookDefault = "illustrato";   /* «Postazione» = default del progetto (senza questo, un test che lo lascia su «Strumento solo» inquina i successivi) */
   A.state.titolo = ""; A.state.luogo = ""; A.state.techContact = ""; A.state.venue = null; A.state.printFrame = null; A.state.zones = [];
   A.state.lights = { rows: [], blackout: null, mood: "" };   /* luci = reparto (blocco A): senza azzeramento le righe di un test finiscono nel rider del successivo */
+  delete A.state.latiTeatro;   /* giardino e corte (12/11): opzione che esiste solo se accesa; un test che l'accende non deve lasciarla ai successivi */
   delete A.state.scaletta;   /* scaletta (10/10): campo che esiste solo con almeno una voce */
   delete A.state.versione;   /* versione del documento (12/11): campo che esiste solo se impostata; un test che la imposta non deve lasciarla ai successivi */
   delete A.state.customModels;   /* modelli dell'elemento personalizzato (13/10): dal primo Salva di un elemento nuovo nasce anche il modello (Ruling 17), e un test che salva non deve lasciarli ai successivi */
@@ -30307,11 +30308,13 @@ t("giardino e corte: si riconosce un teatro dal luogo o dal titolo, e solo quell
   eq(prova("Festa teatrale", ""), false, "«teatrale» da solo no");
   reset();
 });
-t("giardino e corte: a schermo agli angoli di FONDO PALCO, giardino a sinistra e corte a destra, solo in teatro", () => {
+t("giardino e corte: a schermo agli angoli di FONDO PALCO, giardino a sinistra e corte a destra, solo se l'opzione è accesa", () => {
   reset();
   const lati = (svg) => [...svg.matchAll(/<text class="zone-lbl zone-lato" x="([-\d.]+)" y="([-\d.]+)" text-anchor="(\w+)">([^<]*)<\/text>/g)].map(m => [m[4], +m[1], +m[2], m[3]]);
-  eq(lati(A.stageLayerMarkup()), [], "fuori dal teatro non c'è niente");
+  eq(lati(A.stageLayerMarkup()), [], "progetto qualunque: non c'è niente");
   A.state.luogo = "Teatro Comunale";
+  eq(lati(A.stageLayerMarkup()), [], "anche in un teatro: l'opzione è spenta di serie (Simone, 12/11)");
+  A.state.latiTeatro = true;
   eq(lati(A.stageLayerMarkup()), [["SINISTRA (giardino)", 0, -42, "start"], ["DESTRA (corte)", 1200, -42, "end"]], "palco 12 m: per esteso, sulla riga di FONDO PALCO");
   A.state.stage = { w: 300, d: 300, blocks: [{ x: 0, y: 0, w: 300, d: 300 }] };
   eq(lati(A.stageLayerMarkup()).map(x => x[0]), ["giardino", "corte"], "palco stretto: solo il nome del lato");
@@ -30324,6 +30327,8 @@ t("giardino e corte: a schermo agli angoli di FONDO PALCO, giardino a sinistra e
 t("giardino e corte: nel disegno stampato sulla riga di FONDO PALCO, anche quando sale sopra una quota", () => {
   reset();
   A.state.luogo = "Teatro";
+  ok(!/giardino|corte/.test(A.stageSceneSvg(A.sceneVbDefault())), "spenta di serie: il PDF di un teatro esce senza");
+  A.state.latiTeatro = true;
   const svg = A.stageSceneSvg(A.sceneVbDefault());
   const fondo = svg.match(/<text fill="#1f2937" font-size="[\d.]+" letter-spacing="[\d.]+" text-anchor="middle" x="[-\d.]+" y="([-\d.]+)">FONDO PALCO/);
   ok(fondo, "FONDO PALCO c'è");
@@ -30338,8 +30343,43 @@ t("giardino e corte: nel disegno stampato sulla riga di FONDO PALCO, anche quand
   ok(fb && +fb[1] < -42, "FONDO PALCO è salito sopra la quota (" + (fb && fb[1]) + ")");
   ok(gb && +gb[1] === +fb[1], "e giardino con lui (" + (gb && gb[1]) + ")");
   ok(/font-size="33.00" x="0"/.test(big), "corpo 11 × 3, come FONDO PALCO cresce da 16");
-  A.state.luogo = "Auditorium";
-  ok(!/giardino|corte/.test(A.stageSceneSvg(A.sceneVbDefault())), "fuori dal teatro il PDF non cambia");
+  delete A.state.latiTeatro;
+  ok(!/giardino|corte/.test(A.stageSceneSvg(A.sceneVbDefault())), "spenta, il PDF non ha niente");
+  A.state.luogo = "Auditorium"; A.state.latiTeatro = true;
+  ok(/giardino|corte/.test(A.stageSceneSvg(A.sceneVbDefault())), "accesa a mano: vale anche fuori da un «teatro» (è una scelta dell'utente)");
+  reset();
+});
+t("giardino e corte: opzione del progetto, spenta di serie; i progetti salvati senza scelta escono senza", () => {
+  reset();
+  ok(!("latiTeatro" in A.state), "progetto nuovo: nessuna scelta");
+  const n = (x) => A.normalizeState({ _v: A.SCHEMA_VERSION, items: [], inputs: [], outputs: [], latiTeatro: x }).latiTeatro;
+  eq([n(true), n(false), n("si"), n(1), n(undefined)], [true, undefined, undefined, undefined, undefined], "da un file: solo un true esplicito la accende");
+  ok(A.CAMPI_DOCUMENTO.indexOf("latiTeatro") > -1, "vale per tutte le scene");
+  /* un progetto di teatro salvato nei giorni in cui compariva da solo: ora esce senza */
+  A.loadDoc({ titolo: "Teatro Comunale", luogo: "Teatro Comunale", stage: { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] }, items: [], inputs: [], outputs: [] });
+  ok(!/zone-lato/.test(A.stageLayerMarkup()) && !/giardino|corte/.test(A.stageSceneSvg(A.sceneVbDefault())), "vecchio progetto di teatro: né a schermo né in stampa");
+  /* la casella: accende e spegne, si salva e si riapre, e a schermo cambia davvero */
+  A.state.latiTeatro = "si"; ok(!/zone-lato/.test(A.stageLayerMarkup()), "solo un true esplicito la accende (anche a schermo)"); delete A.state.latiTeatro;
+  const save0 = A.save; let salvataggi = 0; A.save = () => { salvataggi++; return save0(); };
+  try { A.latiTeatroImposta(true); } finally { A.save = save0; }
+  eq(salvataggi, 1, "accenderla salva il progetto (e il passo è annullabile)");
+  eq(A.state.latiTeatro, true); ok(/zone-lato/.test(A.stageLayerMarkup()), "acceso: a schermo");
+  A.loadDoc(JSON.parse(A.docToJSON())); eq(A.state.latiTeatro, true, "salva e riapri");
+  A.latiTeatroImposta(false);
+  ok(!("latiTeatro" in A.state), "spento: il campo sparisce"); ok(!/zone-lato/.test(A.stageLayerMarkup()), "spento: a schermo niente");
+  /* la casella nel pannello Palco, non accesa di serie */
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/<input type="checkbox" id="latiTeatro">/.test(html), "la casella c'è nel pannello Palco, senza «checked»");
+  const rp = appjs.slice(appjs.indexOf("function renderStagePanel(){"), appjs.indexOf("function renderStagePanel(){") + 1800);
+  ok(/getElementById\("latiTeatro"\)[\s\S]{0,160}checked=\(state\.latiTeatro===true\)/.test(rp), "il pannello la riallinea allo stato");
+  ok(/getElementById\("latiTeatro"\);\s*if\(c\) c\.addEventListener\("change", function\(\)\{ latiTeatroImposta\(this\.checked\); \}\)/.test(appjs), "e il clic la imposta");
+  reset();
+});
+t("giardino e corte: il suggerimento compare solo se il luogo sembra un teatro e l'opzione è spenta", () => {
+  reset();
+  eq(A.latiTeatroSuggerimento(), "", "luogo qualunque");
+  A.state.luogo = "Teatro Comunale"; ok(/sembra un teatro/i.test(A.latiTeatroSuggerimento()), "teatro, spenta: un consiglio");
+  A.state.latiTeatro = true; eq(A.latiTeatroSuggerimento(), "", "accesa: niente");
   reset();
 });
 t("giardino e corte: a ogni larghezza e corpo di stampa non toccano mai FONDO PALCO", () => {
