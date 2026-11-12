@@ -13572,12 +13572,56 @@ t("Organico: una pillola dopo il rider (Esporta, anteprima, link condiviso), tit
   ok(/var PDF_TECH_ORDER=\["rider","organico","responsabilita",/.test(appjs), "ordine unico: subito dopo il rider");
   ok(/if\(organicoDisponibile\(\)\)\{ pages\.push\(\{key:"organico", label:"Organico \(orchestra\)"\}\); \}/.test(appjs), "la pillola nasce solo se c'è l'orchestra");
   ok(/organico:function\(\)\{ organicoPdf\(doc\); \}/.test(appjs), "e buildPdfDoc la stampa");
-  ok(/organico:\{ title:"Organico"/.test(appjs) && /riga\(vals, !!\(cfg\.rowBold && cfg\.rowBold\(r\)\), colori, i>0\)/.test(appjs), "anteprima e PDF dalla stessa configurazione, con le righe di sezione in grassetto");
+  ok(/organico:\{ title:"Organico"/.test(appjs) && /riga\(vals, !!\(cfg\.rowBold && cfg\.rowBold\(r\)\), colori, i>0, \(cfg\.rowBold && cfg\.rowBold\(r\)\) \? "#f1f5f9" : null\)/.test(appjs), "anteprima e PDF dalla stessa configurazione, con le righe di sezione in grassetto");
   const html = A.listPreviewHtml("organico"); ok(/org-sez/.test(html) && /TOTALE/.test(html) && /ARCHI · 10-8-6-6-3/.test(html) && !/Rossi/.test(html), "anteprima: " + html.slice(0, 160));
   const d = s5Doc(); A.organicoPdf(d); const tx = d.pagine.slice(1).reduce((l, pg) => l.concat(pg.testi.map((x) => x.t)), []);
   ok(tx.indexOf("ARCHI · 10-8-6-6-3") > -1 && tx.indexOf("TOTALE") > -1 && tx.indexOf("55") > -1 && tx.indexOf("Direttore") > -1, "PDF: sezioni, formula, totale e direttore fuori: " + tx.slice(0, 20));
   ok(tx.some((x) => /Organico – Teatro Finto/.test(x)) && d.pagine.length - 1 === 1, "una pagina col titolo");
   s5Fix([].concat(orgN("gtstand", 1))); eq(A.availableViewerLists().map((l) => l.key).indexOf("organico"), -1, "una band: non c'è nel link");
+  reset();
+});
+t("Organico, casi limite: sax, ritmica, voci, doppie, ospiti, secondari lunghi e in ordine, soglie, accessori ignorati", () => {
+  /* ogni strumento ha la sua riga nella sezione giusta */
+  s5Fix([].concat(orgN("saxalto", 1), orgN("saxtenore", 2), orgN("saxbaritono", 1), orgN("timpani3", 1), orgN("tastiera", 2), orgN("gtstand", 1), orgN("bassstand", 1), orgN("celesta", 1), orgN("batteria", 1),
+    orgN("cantante", 2), orgN("corista", 4), orgN("vlnpost", 8, { vsec: 1 }), orgN("direttore", 1)));
+  let r = orgRows();
+  eq(r.filter((x) => x.tipo !== "riga").map((x) => x.nome.split(" ")[0]), ["LEGNI", "RITMICA", "ARCHI", "VOCI", "TOTALE", "FUORI"], "sezioni presenti, nell'ordine: " + orgSez());
+  eq(r.filter((x) => x.tipo === "riga").map((x) => [x.nome, x.n]).slice(0, 10), [["Sax alto", 1], ["Sax tenore", 2], ["Sax baritono", 1], ["Batteria", 1], ["Timpani", 1], ["Tastiere", 2], ["Celesta", 1], ["Chitarra", 1], ["Basso", 1], ["Violini I", 8]], "ogni strumento nella sua riga, in ordine fisso");
+  eq(r.filter((x) => x.nome === "VOCI")[0].n, 6, "VOCI: 2 cantanti + 4 coristi");
+  eq(r.slice(r.findIndex((x) => x.nome === "VOCI") + 1, r.findIndex((x) => x.nome === "VOCI") + 3).map((x) => [x.nome, x.n]), [["Cantanti", 2], ["Coristi", 4]], "cantanti e coristi");
+  /* doppie e ospiti */
+  s5Fix([].concat(orgN("vln2x2", 1), orgN("cellix2", 1), orgN("cbx2", 1), orgN("tastiera", 1, { doppia: true }), orgN("vlnpost", 8, { vsec: 1 }),
+    [{ id: "o1", type: "cantante", x: 100, y: 100, label: "Ospiti" }, { id: "o2", type: "cantante", x: 200, y: 100, label: "Special guest" }, { id: "o3", type: "cantante", x: 300, y: 100, label: "Guest vocalist" }, { id: "o4", type: "cantante", x: 400, y: 100, label: "Mario Rossi" }]));
+  r = orgRows();
+  eq(r.find((x) => /^ARCHI/.test(x.nome)).nome, "ARCHI · 8-2-0-2-2", "vln2x2, cellix2 e cbx2 valgono 2 ciascuno");
+  eq(r.find((x) => x.nome === "Tastiera").n, 1, "«doppia» conta 2 solo nelle postazioni d'orchestra: su una tastiera no");
+  const fuori = r.slice(r.findIndex((x) => x.nome === "FUORI DAL TOTALE") + 1); eq(fuori.map((x) => [x.nome, x.n]), [["Ospiti", 3]], "«Ospiti», «Special guest», «Guest vocalist» sono ospiti; «Mario Rossi» è una voce del coro: " + JSON.stringify(fuori));
+  eq(r.find((x) => x.nome === "Cantante").n, 1, "e resta dentro il totale");
+  reset();
+});
+t("Organico, casi limite: secondari in ordine e tagliati, formule corte in testa, intestazione «Fuori» solo se serve, soglie, accessori ignorati", () => {
+  s5Fix(orgN("vlnpost", 8, { vsec: 1 }).concat([{ id: "f1", type: "flauto", x: 100, y: 100, label: "Fl/Sax" }, { id: "f2", type: "flauto", x: 200, y: 100, label: "Flauto/Ottavino" },
+    { id: "f3", type: "oboe", x: 300, y: 100, label: "Oboe/" + "Corno inglese molto lungo ben oltre il limite" }]));
+  let r = orgRows();
+  eq(r.filter((x) => /^(Flaut|Oboe)/.test(x.nome)).map((x) => x.nome), ["Flauto (Ottavino)", "Flauto (Sax)", "Oboe (Corno inglese molto lung)"], "ordine alfabetico del secondario, tagliato a 24 caratteri: " + JSON.stringify(r.map((x) => x.nome)));
+  eq(r.some((x) => x.nome === "FUORI DAL TOTALE"), false, "senza direttore, ospiti né staff: niente intestazione «Fuori dal totale»");
+  eq(A.organicoDisponibile(), true, "8 archi senza direttore: la pagina c'è");
+  s5Fix(orgN("vlnpost", 6, { vsec: 1 })); A.state.items.push(...orgN("violoncello", 2, {}, "cc")); eq(A.organicoList().rows[0].nome, "ARCHI · 6-0-0-2", "formula in testa alla sezione");
+  s5Fix(orgN("vlnpost", 8, { vsec: 1 })); eq(orgRows()[0].nome, "ARCHI · 8", "anche con un numero solo");
+  s5Fix(orgN("vlnpost", 7, { vsec: 1 }).concat(orgN("arpa", 1))); eq(A.organicoDisponibile(), true, "7 archi + arpa = 8 posti d'orchestra");
+  s5Fix(orgN("vlnpost", 7, { vsec: 1 }).concat(orgN("corno", 1))); eq(A.organicoDisponibile(), true, "7 archi + corno");
+  s5Fix(orgN("vlnpost", 7, { vsec: 1 }).concat(orgN("flauto", 1))); eq(A.organicoDisponibile(), true, "7 archi + flauto");
+  s5Fix(orgN("batteria", 8)); eq([A.organicoDisponibile(), A.organicoList().rows.length], [false, 0], "otto batterie non sono un'orchestra");
+  s5Fix(orgN("vlnpost", 8, { vsec: 1 }).concat(orgN("wedge", 3), orgN("pedana", 2), orgN("astamic", 2), orgN("leggio", 8), orgN("sedia", 4)));
+  eq(orgRows().map((x) => x.nome), ["ARCHI · 8", "Violini I", "TOTALE"], "monitor, pedane, aste, leggii e sedie non sono musicisti");
+  const cfg = A.pdfListConfig().organico;
+  eq([cfg.rowBold({ tipo: "sez" }), cfg.rowBold({ tipo: "tot" }), cfg.rowBold({ tipo: "riga" }), cfg.rowCls({ tipo: "sez" }), cfg.rowCls({ tipo: "tot" }), cfg.rowCls({ tipo: "riga" })], [true, true, false, "org-sez", "org-tot", ""], "intestazioni e totale in evidenza, le righe no");
+  ok(/var order=\["scaletta","organico","inputlist"/.test(appjs), "nel link condiviso l'organico viene prima delle liste audio");
+  s5Fix(orgFix(), { luogo: "Teatro Finto", evDate: "2026-12-01" }); A.state.versione = 3; A.state.versione = 0; delete A.state.versione;
+  eq(A.organicoTitolo(), "Organico – Teatro Finto – 01/12/2026", "senza versione: tre parti");
+  A.state.versione = 3; eq(A.organicoTitolo().split(" – ").length, 4, "con versione: quattro parti separate da « – »");
+  const d = s5Doc(); A.organicoPdf(d); const pg = d.pagine.slice(1)[0];
+  const fondi = pg.rett.filter((q) => q.fill === "241,245,249" || /f1f5f9/i.test(q.fill)); ok(fondi.length >= 5, "una banda di fondo per ogni riga di sezione e per il totale (" + fondi.length + ")");
   reset();
 });
 t("il riferimento del cartiglio, se svuotato, resta svuotato", () => {

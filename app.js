@@ -35023,10 +35023,11 @@ function pdfListGeneric(doc, key, shared){
      dove finisce una nota e comincia la successiva. È il bordo delle righe dell'anteprima
      (.pdf-list-tbl td), un grigio appena più scuro perché resti in stampa. Sotto l'intestazione e in
      cima a una pagina nuova non serve: lì c'è già la linea delle colonne. */
-  function riga(vals, bold, colore, sep){
+  function riga(vals, bold, colore, sep, fondo){
     var righe=vals.map(function(v,i){ return pdfTxtRighe(v==null?"":String(v), ws[i], PT, bold); });
     var n=Math.max.apply(null, righe.map(function(r){ return r.length; }));
     if(y+(n-1)*PASSO>286){ doc.addPage(); y=18; sep=false; if(testa){ var _t=testa; testa=null; _t(); testa=_t; } }   /* la riga passa di pagina intera, con l'intestazione delle colonne */
+    if(fondo){ doc.setFillColor(fondo); doc.rect(M-1.5, y-3.8, R-M+3, 5.4+(n-1)*PASSO, "F"); doc.setFillColor("#000000"); }   /* banda delle righe di sezione (organico, 12/11): il grassetto da solo non si vede in stampa */
     if(sep){ doc.setDrawColor("#e5e7eb"); doc.setLineWidth(0.2); doc.line(M, y-3.8, R, y-3.8); }
     doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(PT);
     righe.forEach(function(rr,i){ doc.setTextColor((colore&&colore[i])||(bold?"#0b7a70":"#111827"));
@@ -35038,7 +35039,7 @@ function pdfListGeneric(doc, key, shared){
   d.rows.forEach(function(r, i){
     var vals=cfg.cols.map(function(c){ return c.f(r,d); });   /* d: alcune colonne dipendono dal dataset (es. hasFoh) */
     var colori=cfg.cols.map(function(c){ return (c.warn && c.warn(r)) ? "#b45309" : "#111827"; });   /* i buchi si vedono anche in stampa */
-    riga(vals, !!(cfg.rowBold && cfg.rowBold(r)), colori, i>0);   /* rowBold: intestazioni di sezione e totali (organico, 12/11) */
+    riga(vals, !!(cfg.rowBold && cfg.rowBold(r)), colori, i>0, (cfg.rowBold && cfg.rowBold(r)) ? "#f1f5f9" : null);   /* rowBold: intestazioni di sezione e totali (organico, 12/11) */
   });
   return true;
 }
