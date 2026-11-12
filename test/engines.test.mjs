@@ -25561,13 +25561,80 @@ t("fornito da: la colonna «forn.» della channel list arriva alla Channel list 
 
 t("fornito da nel PDF: ** accanto alla sorgente a carico della band, e la legenda solo se serve", () => {
   const f = appjs.slice(appjs.indexOf("function patchListPdf(shared){"), appjs.indexOf("function patchListPdf(shared){") + 6000);
-  ok(/r\.reserved\?"RISERVATO":\(r\.name\+\(r\.by==="Band"\?FORNITO_BAND_SEGNO:""\)\)/.test(f), "** accanto alla sorgente a carico della band");
+  ok(/r\.reserved\?"RISERVATO":\(r\.name\+fornitoSegno\(r\.by\)\)/.test(f), "** accanto alla sorgente a carico della band");
   ok(/if\(r\.by==="Band" && !r\.reserved\) _band=true;/.test(f), "la legenda si accende solo con una riga della band");
   ok(/if\(_band\)\{[\s\S]{0,300}doc\.text\(FORNITO_BAND_LEGENDA, M, y\)/.test(f), "legenda sotto la tabella");
   eq(A.FORNITO_BAND_SEGNO, " **", "il segno dei rider italiani");
   ok(/^\*\* = a carico della band/.test(A.FORNITO_BAND_LEGENDA), "la legenda dice cosa vuol dire");
   const bl = appjs.slice(appjs.indexOf("function backlineList(){"), appjs.indexOf("function backlineList(){") + 700);
   ok(/var by=fornituraElemento\(it\);/.test(bl), "la backline list legge anche la channel list");
+});
+
+/* ═══ «FORNITO DA»: SERVICE / BAND / TEATRO + «CHI FORNISCE COSA» (12/11/2026, dalle mail di produzione: ogni data ha
+   fornitori diversi e la ripartizione si fa a mano). Prima c'erano solo Band e Service, e nella channel list del PDF
+   si vedeva solo la band (**). ═══ */
+t("fornito da: tre voci (Band, Service, Teatro) e la backline le legge tutte", () => {
+  eq(A.FORNITO_DA, ["Band", "Service", "Teatro"], "le tre voci, in quest'ordine");
+  ok(/\[""\]\.concat\(FORNITO_DA\)\.forEach\(function\(t\)\{var? ?o=document\.createElement\("option"\)|\[""\]\.concat\(FORNITO_DA\)\.forEach/.test(appjs), "il selettore «forn.» della channel list offre le tre voci");
+  A.loadDoc({ titolo: "Fornito da", stage: { w: 1000, d: 800, blocks: [{ x: 0, y: 0, w: 1000, d: 800 }] },
+    items: [{ id: "a1", type: "comboamp", x: 200, y: 300 }, { id: "d1", type: "batteria", x: 500, y: 300 }], inputs: [], outputs: [] });
+  A.autoInputs(true);
+  A.state.items.find((i) => i.id === "a1").by = "Teatro";
+  eq(A.fornituraElemento(A.state.items.find((i) => i.id === "a1")), "Teatro", "it.by dei progetti vecchi: anche Teatro");
+  A.state.inputs.filter((r) => String(r.linked_item_id) === "d1").forEach((r) => { r.by = "Teatro"; });
+  eq(Object.fromEntries(A.backlineList().rows.map((r) => [r.name, r.by]))["Drums"], "Teatro", "backline: tutti i canali del teatro → Teatro");
+  A.state.inputs.find((r) => String(r.linked_item_id) === "d1").by = "Band";
+  eq(Object.fromEntries(A.backlineList().rows.map((r) => [r.name, r.by]))["Drums"], "", "Teatro e Band sullo stesso strumento: non si sceglie");
+  A.state.items.find((i) => i.id === "a1").by = "Boh";
+  eq(A.fornituraElemento(A.state.items.find((i) => i.id === "a1")), "", "un valore sconosciuto non passa");
+});
+t("fornito da: il segno accanto alla sorgente (Band **, Teatro °, Service niente) e la legenda", () => {
+  eq([A.fornitoSegno("Band"), A.fornitoSegno("Teatro"), A.fornitoSegno("Service"), A.fornitoSegno(""), A.fornitoSegno(undefined)], [" **", " °", "", "", ""], "segni");
+  ok(/^° = /.test(A.FORNITO_TEATRO_LEGENDA) && /teatro/i.test(A.FORNITO_TEATRO_LEGENDA), "la legenda del teatro: " + A.FORNITO_TEATRO_LEGENDA);
+  eq(A.FORNITO_BAND_SEGNO, " **", "il segno della band non cambia");
+});
+t("chi fornisce cosa: raggruppa i canali per fornitore, senza riservati e libere, e conta i non indicati", () => {
+  const r = A.fornituraRiepilogo([
+    { name: "Kick", by: "Band" }, { name: "Snare", by: "Band" }, { name: "Voce", by: "Teatro" }, { name: "Piano", by: "Service" },
+    { name: "Gtr", by: "" }, { name: "Basso" }, { name: "RISERVATO", by: "Band", reserved: true }, { name: "libero", by: "Teatro", spare: true } ]);
+  eq(r.gruppi, [{ chi: "Band", nomi: ["Kick", "Snare"] }, { chi: "Teatro", nomi: ["Voce"] }, { chi: "Service", nomi: ["Piano"] }], "ordine Band, Teatro, Service");
+  eq(r.nonIndicati, 2, "due canali senza fornitore");
+  eq(A.fornituraRiepilogo([{ name: "Kick" }, { name: "Snare" }]), { gruppi: [], nonIndicati: 2 }, "nessuno indicato: niente gruppi");
+  eq(A.fornituraRiepilogo([]), { gruppi: [], nonIndicati: 0 }, "vuoto");
+  eq(A.fornituraRiepilogo([{ name: "Kick", by: "Band" }, { name: "Kick", by: "Band" }]).gruppi[0].nomi, ["Kick", "Kick"], "stessi nomi: si contano comunque");
+});
+t("fornito da nel PDF della channel list: segni, legende e il riquadro «Chi fornisce cosa»", () => {
+  reset();
+  A.loadDoc({ titolo: "Fornito da", stage: { w: 1000, d: 800, blocks: [{ x: 0, y: 0, w: 1000, d: 800 }] },
+    items: [{ id: "a1", type: "comboamp", x: 200, y: 300 }, { id: "d1", type: "batteria", x: 500, y: 300 }, { id: "v1", type: "cantante", x: 700, y: 500 }],
+    inputs: [], outputs: [] });
+  A.autoInputs(true);
+  const riga = (src) => A.state.inputs.find((x) => x.src === src);
+  riga("Gtr amp").by = "Band"; riga("Voce").by = "Teatro";
+  A.state.inputs.filter((x) => String(x.linked_item_id) === "d1").forEach((x) => { x.by = "Service"; });
+  riga("Drums - Kick").by = "";   /* uno resta senza indicazione */
+  A.__cabRes = null;
+  const doc = docACapo(); A.patchListPdf(doc);
+  const tx = pdfTesti(doc).map((x) => x.t);
+  ok(tx.indexOf("Gtr amp **") > -1, "Band: ** accanto alla sorgente — " + tx.slice(0, 40).join(" | "));
+  ok(tx.indexOf("Voce °") > -1, "Teatro: ° accanto alla sorgente");
+  ok(tx.indexOf("Drums - Kick") > -1, "Service: il nome pulito, senza segno");
+  ok(tx.indexOf(A.FORNITO_BAND_LEGENDA) > -1 && tx.indexOf(A.FORNITO_TEATRO_LEGENDA) > -1, "le due legende");
+  ok(tx.indexOf("Chi fornisce cosa") > -1, "il riquadro ha il titolo");
+  const tutto = tx.join(" ");
+  ok(/Band \(1\)[^|]*Gtr amp/.test(tutto) && /Teatro \(1\)[^|]*Voce/.test(tutto) && /Service \(\d+\)[^|]*Drums - Overhead R/.test(tutto), "una riga per fornitore con i nomi: " + tutto.slice(-500));
+  ok(/Non indicato \(1\)/.test(tutto), "e quanti canali restano senza indicazione");
+  /* niente da dire → né legende né riquadro */
+  A.state.inputs.forEach((x) => { x.by = ""; }); A.__cabRes = null;
+  const doc2 = docACapo(); A.patchListPdf(doc2);
+  const t2 = pdfTesti(doc2).map((x) => x.t).join(" ");
+  ok(!/Chi fornisce cosa|\*\* = |° = /.test(t2) && !/ \*\*| °/.test(t2), "senza «fornito da»: la pagina è quella di prima");
+  /* solo la band → solo la legenda della band, e Teatro non compare */
+  riga("Gtr amp").by = "Band"; A.__cabRes = null;
+  const doc3 = docACapo(); A.patchListPdf(doc3);
+  const t3 = pdfTesti(doc3).map((x) => x.t);
+  ok(t3.indexOf(A.FORNITO_BAND_LEGENDA) > -1 && t3.indexOf(A.FORNITO_TEATRO_LEGENDA) < 0 && !/Teatro \(/.test(t3.join(" ")), "solo la band: niente legenda né gruppo del teatro");
+  reset();
 });
 
 console.log("\n— Dopo l'export: una riga verso la consulenza (01/10/2026) —");
