@@ -4141,6 +4141,7 @@ body.cust-contorno .item.selected .selbox{display:none}
     <label for="evDate" class="ev-l">Data</label><input type="date" id="evDate" class="ev-i">
     <label for="evTime" class="ev-l">Orario</label><input type="time" id="evTime" class="ev-i">
     <label for="evTipo" class="ev-l">Tipo</label><select id="evTipo" class="ev-i"><option value="concerto">Concerto o spettacolo</option><option value="conferenza">Conferenza o convegno</option></select>
+    <label for="evSon" class="ev-l" id="evSonL" title="Sonorizzazione">Suono</label><select id="evSon" class="ev-i" title="Sonorizzazione: acustico = rider di una pagina, senza le liste audio"><option value="amplificato">Amplificato</option><option value="acustico">Acustico</option><option value="misto">Misto</option></select>
     <label for="evLuogo" class="ev-l">Luogo</label><input type="text" id="evLuogo" class="ev-i" placeholder="Es. Teatro Comunale, Vicenza" maxlength="80">
     <div class="ev-hint">Facoltativi — se li scrivi, finiscono nell'intestazione del PDF e su ogni lista.</div>
   </div>
@@ -4525,6 +4526,7 @@ body.cust-contorno .item.selected .selbox{display:none}
     <p class="ev-intro">Quello che scrivi qui esce nell'intestazione del rider.</p>
     <label for="titoloEv">Titolo</label><input type="text" id="titoloEv" placeholder="Es. Concerto in villa">
     <label for="evTipoM">Tipo di evento</label><select id="evTipoM"><option value="concerto">Concerto o spettacolo</option><option value="conferenza">Conferenza o convegno</option></select>
+    <label for="evSonM" id="evSonML">Sonorizzazione</label><select id="evSonM"><option value="amplificato">Amplificato</option><option value="acustico">Acustico (rider di una pagina, senza liste audio)</option><option value="misto">Misto</option></select>
     <label for="luogoEv">Luogo</label><input type="text" id="luogoEv" placeholder="Es. Teatro Comunale, Vicenza">
     <div class="ev-datetime">
       <div><label for="evDateM">Data</label><input type="date" id="evDateM"></div>
@@ -5549,6 +5551,16 @@ body.cust-contorno .item.selected .selbox{display:none}
         <label style="font-size:11px;color:var(--text-2,#374151)">Luci<textarea id="rdLuci" rows="2" class="rd-i rd-ta"></textarea></label>
         <label style="font-size:11px;color:var(--text-2,#374151)">Personale al service<textarea id="rdPersonale" rows="2" class="rd-i rd-ta"></textarea></label>
         <label style="font-size:11px;color:var(--text-2,#374151)">Note<textarea id="rdNote" rows="2" class="rd-i rd-ta"></textarea></label>
+        <label style="font-size:11px;color:var(--text-2,#374151)">Camerini <small class="lbl-note">— rider acustico; esce solo se lo scrivi</small><textarea id="rdCamerini" rows="2" class="rd-i rd-ta"></textarea></label>
+        <label style="font-size:11px;color:var(--text-2,#374151)">Parcheggi <small class="lbl-note">— rider acustico; esce solo se lo scrivi</small><textarea id="rdParcheggi" rows="2" class="rd-i rd-ta"></textarea></label>
+        <div style="font-size:11px;color:var(--text-3,#6b7280)">Orari (facoltativi, escono nel rider solo se li scrivi: 19:30, 19.30 o 19,30):</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          <label style="font-size:11px;color:var(--text-2,#374151)">Load in<input type="text" id="rdOrLoadIn" data-orario="loadIn" inputmode="decimal" maxlength="5" placeholder="HH:MM" class="rd-i"></label>
+          <label style="font-size:11px;color:var(--text-2,#374151)">Allestimento<input type="text" id="rdOrAllestimento" data-orario="allestimento" inputmode="decimal" maxlength="5" placeholder="HH:MM" class="rd-i"></label>
+          <label style="font-size:11px;color:var(--text-2,#374151)">Soundcheck<input type="text" id="rdOrSoundcheck" data-orario="soundcheck" inputmode="decimal" maxlength="5" placeholder="HH:MM" class="rd-i"></label>
+          <label style="font-size:11px;color:var(--text-2,#374151)">Concerto<input type="text" id="rdOrConcerto" data-orario="concerto" inputmode="decimal" maxlength="5" placeholder="HH:MM" class="rd-i"></label>
+          <label style="font-size:11px;color:var(--text-2,#374151)">Load out<input type="text" id="rdOrLoadOut" data-orario="loadOut" inputmode="decimal" maxlength="5" placeholder="HH:MM" class="rd-i"></label>
+        </div>
         <!-- MATERIALI RICHIESTI (12/11/2026): sezione opzionale del rider, calcolata dal disegno; spenta di serie -->
         <label class="chk" style="font-size:11px"><input type="checkbox" id="rdMateriali"> <span>Materiali richiesti nel rider <small class="lbl-note">— sedie, leggii, pedane, prese… dal disegno</small></span></label>
         <button type="button" class="btn" id="rdMaterialiCopia" hidden style="font-size:12px;width:auto;justify-self:start">Copia testo per la mail</button>

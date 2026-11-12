@@ -129,6 +129,7 @@
     <label for="evDate" class="ev-l">Data</label><input type="date" id="evDate" class="ev-i">
     <label for="evTime" class="ev-l">Orario</label><input type="time" id="evTime" class="ev-i">
     <label for="evTipo" class="ev-l">Tipo</label><select id="evTipo" class="ev-i"><option value="concerto">Concerto o spettacolo</option><option value="conferenza">Conferenza o convegno</option></select>
+    <label for="evSon" class="ev-l" id="evSonL" title="Sonorizzazione">Suono</label><select id="evSon" class="ev-i" title="Sonorizzazione: acustico = rider di una pagina, senza le liste audio"><option value="amplificato">Amplificato</option><option value="acustico">Acustico</option><option value="misto">Misto</option></select>
     <label for="evLuogo" class="ev-l">Luogo</label><input type="text" id="evLuogo" class="ev-i" placeholder="Es. Teatro Comunale, Vicenza" maxlength="80">
     <div class="ev-hint">Facoltativi — se li scrivi, finiscono nell'intestazione del PDF e su ogni lista.</div>
   </div>
@@ -513,6 +514,7 @@
     <p class="ev-intro">Quello che scrivi qui esce nell'intestazione del rider.</p>
     <label for="titoloEv">Titolo</label><input type="text" id="titoloEv" placeholder="Es. Concerto in villa">
     <label for="evTipoM">Tipo di evento</label><select id="evTipoM"><option value="concerto">Concerto o spettacolo</option><option value="conferenza">Conferenza o convegno</option></select>
+    <label for="evSonM" id="evSonML">Sonorizzazione</label><select id="evSonM"><option value="amplificato">Amplificato</option><option value="acustico">Acustico (rider di una pagina, senza liste audio)</option><option value="misto">Misto</option></select>
     <label for="luogoEv">Luogo</label><input type="text" id="luogoEv" placeholder="Es. Teatro Comunale, Vicenza">
     <div class="ev-datetime">
       <div><label for="evDateM">Data</label><input type="date" id="evDateM"></div>
@@ -1537,6 +1539,16 @@
         <label style="font-size:11px;color:var(--text-2,#374151)">Luci<textarea id="rdLuci" rows="2" class="rd-i rd-ta"></textarea></label>
         <label style="font-size:11px;color:var(--text-2,#374151)">Personale al service<textarea id="rdPersonale" rows="2" class="rd-i rd-ta"></textarea></label>
         <label style="font-size:11px;color:var(--text-2,#374151)">Note<textarea id="rdNote" rows="2" class="rd-i rd-ta"></textarea></label>
+        <label style="font-size:11px;color:var(--text-2,#374151)">Camerini <small class="lbl-note">— rider acustico; esce solo se lo scrivi</small><textarea id="rdCamerini" rows="2" class="rd-i rd-ta"></textarea></label>
+        <label style="font-size:11px;color:var(--text-2,#374151)">Parcheggi <small class="lbl-note">— rider acustico; esce solo se lo scrivi</small><textarea id="rdParcheggi" rows="2" class="rd-i rd-ta"></textarea></label>
+        <div style="font-size:11px;color:var(--text-3,#6b7280)">Orari (facoltativi, escono nel rider solo se li scrivi: 19:30, 19.30 o 19,30):</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">
+          <label style="font-size:11px;color:var(--text-2,#374151)">Load in<input type="text" id="rdOrLoadIn" data-orario="loadIn" inputmode="decimal" maxlength="5" placeholder="HH:MM" class="rd-i"></label>
+          <label style="font-size:11px;color:var(--text-2,#374151)">Allestimento<input type="text" id="rdOrAllestimento" data-orario="allestimento" inputmode="decimal" maxlength="5" placeholder="HH:MM" class="rd-i"></label>
+          <label style="font-size:11px;color:var(--text-2,#374151)">Soundcheck<input type="text" id="rdOrSoundcheck" data-orario="soundcheck" inputmode="decimal" maxlength="5" placeholder="HH:MM" class="rd-i"></label>
+          <label style="font-size:11px;color:var(--text-2,#374151)">Concerto<input type="text" id="rdOrConcerto" data-orario="concerto" inputmode="decimal" maxlength="5" placeholder="HH:MM" class="rd-i"></label>
+          <label style="font-size:11px;color:var(--text-2,#374151)">Load out<input type="text" id="rdOrLoadOut" data-orario="loadOut" inputmode="decimal" maxlength="5" placeholder="HH:MM" class="rd-i"></label>
+        </div>
         <!-- MATERIALI RICHIESTI (12/11/2026): sezione opzionale del rider, calcolata dal disegno; spenta di serie -->
         <label class="chk" style="font-size:11px"><input type="checkbox" id="rdMateriali"> <span>Materiali richiesti nel rider <small class="lbl-note">— sedie, leggii, pedane, prese… dal disegno</small></span></label>
         <button type="button" class="btn" id="rdMaterialiCopia" hidden style="font-size:12px;width:auto;justify-self:start">Copia testo per la mail</button>
@@ -6657,7 +6669,7 @@ function nextVariantName(){ var n=0; VARIANTS.forEach(function(v){ var m=/^Varia
    data e contatti non erano mai diversi. Restano nello stato di ogni variante — lo schema e i file
    già salvati non cambiano — ma a ogni sincronizzazione quelli della variante attiva si scrivono
    nelle altre. */
-var CAMPI_DOCUMENTO=["titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","versione","latiTeatro","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
+var CAMPI_DOCUMENTO=["titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","versione","latiTeatro","sonorizzazione","orari","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
 function propagaCampiDocumento(v){
   var src=v&&v.state; if(!src) return;
   VARIANTS.forEach(function(o){
@@ -9816,6 +9828,8 @@ function normalizeState(s){
   s.evTime=(typeof s.evTime==="string" && /^\d{2}:\d{2}$/.test(s.evTime)) ? s.evTime : "";
   s.tipoEvento=(s.tipoEvento==="conferenza") ? "conferenza" : "concerto";   /* 24/09: conferenza cambia le parole del PDF e gli avvisi, non il disegno */
   s.pdfHeader = (typeof s.pdfHeader==="string") ? s.pdfHeader.slice(0,120) : "";   /* riferimento nel cartiglio (export), persistente */
+  if(s.sonorizzazione!=="acustico" && s.sonorizzazione!=="misto") delete s.sonorizzazione;   /* sonorizzazione (12/11): assente = amplificato, com'è sempre stato; esiste solo se scelta */
+  if(s.orari && typeof s.orari==="object"){ var _or=orariNorm(s.orari); if(Object.keys(_or).length) s.orari=_or; else delete s.orari; } else delete s.orari;   /* orari (12/11): solo voci valide, «HH:MM»; assente se vuoto */
   if(s.latiTeatro!==true) delete s.latiTeatro;   /* giardino e corte: spenti di serie, solo un true esplicito li accende (12/11/2026) */
   if(s.pdfPesi!==true) delete s.pdfPesi;   /* kg nel PDF: solo un true esplicito li accende (06/10/2026) */
   var _vers=(typeof s.versione==="number"||typeof s.versione==="string") ? +s.versione : NaN;   /* versione del documento (12/11): intero 1-999, altrimenti assente */
@@ -18966,19 +18980,20 @@ function controlliPrimaDelExport(){
     var n=String(nome==null?"":nome).replace(/\s+/g," ").trim(); if(!n || !/\d$/.test(n)) return;
     var k=n.toLowerCase(); if(!nomi[k]) nomi[k]={n:n, c:0, id:itemId}; nomi[k].c++; if(nomi[k].id==null) nomi[k].id=itemId;
   }
-  items.forEach(function(it){ if(isAudioSource(it)) conta(it.label, it.id); });
-  (state.inputs||[]).forEach(function(r){ if(r && !r.linked_item_id) conta(r.src, null); });
+  var _acu=eventoAcustico();   /* acustico (S6): le liste audio non escono, i loro controlli non servono */
+  if(!_acu){ items.forEach(function(it){ if(isAudioSource(it)) conta(it.label, it.id); });
+  (state.inputs||[]).forEach(function(r){ if(r && !r.linked_item_id) conta(r.src, null); }); }
   Object.keys(nomi).forEach(function(k){ var o=nomi[k]; if(o.c>1) add("etichetta-duplicata","«"+o.n+"» è scritto su "+o.c+" canali: nel PDF si confondono.", o.id); });
   /* 4 · mix monitor che non entrano nelle uscite delle stage box dichiarate; righe a mano col nome e senza microfono */
   try{
     var R=cabResult(true);
-    if((R.boxes||[]).some(function(b){ return !b.auto; })){
+    if(!_acu && (R.boxes||[]).some(function(b){ return !b.auto; })){
       var n=(R.mixes||[]).filter(function(m){ return !m.box; }).length;
       if(n) add("mix-senza-uscita", n+(n===1?" mix monitor non ha":" mix monitor non hanno")+" un'uscita sulle stage box: nell'output list restano fuori. Aggiungi una stage box o riduci i mix.");
     }
   }catch(_e){}
   var senzaMic=(state.inputs||[]).filter(function(r){ return r && String(r.src||"").trim() && !String(r.mic||"").trim(); }).length;
-  if(senzaMic) add("riga-senza-microfono", senzaMic+(senzaMic===1?" riga della channel list scritta a mano ha":" righe della channel list scritta a mano hanno")+" il nome ma non il microfono.");
+  if(senzaMic && !_acu) add("riga-senza-microfono", senzaMic+(senzaMic===1?" riga della channel list scritta a mano ha":" righe della channel list scritta a mano hanno")+" il nome ma non il microfono.");
   /* 6 · la data nel titolo non è quella dell'evento (organico e titolo riusati da una serata vecchia) */
   if(state.evDate){
     var dt=dateNelTitolo(state.titolo);
@@ -22858,6 +22873,8 @@ function setEventInputs(){
   ["evDate","evDateM"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=state.evDate||""; });
   ["evTime","evTimeM"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=state.evTime||""; });
   ["evTipo","evTipoM"].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=eventoConferenza()?"conferenza":"concerto"; });
+  ["evSon","evSonM"].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=sonorizzazione(); });   /* sonorizzazione (S6) */
+  ["evSon","evSonL","evSonM","evSonML"].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display=eventoConferenza()?"none":""; });   /* una conferenza resta conferenza: la scelta non si offre */
   if(document.body) document.body.classList.toggle("ev-conferenza", eventoConferenza());
   if(typeof renderEvChip==="function") renderEvChip();
   if(window.__renderPrimaDelExport) window.__renderPrimaDelExport();   /* la striscia «Prima di esportare» segue titolo e luogo (12/11) */
@@ -22867,6 +22884,8 @@ TITLE_INPUTS.forEach(function(id){ var e=document.getElementById(id); if(e) e.ad
 (function(){ var e=document.getElementById("pdfVersione"); if(e) e.addEventListener("input", function(){ versioneImposta(this.value); }); })();
 ["evTipo","evTipoM"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("change", function(){
   state.tipoEvento=(this.value==="conferenza")?"conferenza":"concerto"; setEventInputs(); saveSoon(); if(typeof render==="function") render(); }); });
+["evSon","evSonM"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("change", function(){
+  sonorizzazioneImposta(this.value); setEventInputs(); saveSoon(); if(typeof renderChannels==="function") renderChannels(); if(typeof render==="function") render(); }); });
 /* ── Data e orario dell'evento nell'header (17/07): chip accanto al titolo + popover ── */
 function evChipLabel(){
   var parts=[];
@@ -26241,7 +26260,12 @@ document.getElementById("bChanDone").addEventListener("click", toggleChan);
 (function(){ function bind(id,key,num){ var el=document.getElementById(id); if(!el) return;   /* T2: testo editabile del rider (vuoto → default) */
     el.addEventListener("input", function(){ state.rider=state.rider||{}; var v=el.value;
       if(v==="" || v==null) delete state.rider[key]; else state.rider[key]=num?(Math.max(0,Math.min(300,parseInt(v,10)||0))):v; saveSoon(); }); }
-  bind("rdSedie","sedie",true); bind("rdSistema","sistema"); bind("rdLuci","luci"); bind("rdPersonale","personale"); bind("rdNote","note");
+  bind("rdSedie","sedie",true); bind("rdSistema","sistema"); bind("rdLuci","luci"); bind("rdPersonale","personale"); bind("rdNote","note"); bind("rdCamerini","camerini"); bind("rdParcheggi","parcheggi");
+  /* orari (S6): si scrivono come capita, si salvano «HH:MM»; un testo che non è un orario resta com'è, segnato in rosso, e non entra nel documento */
+  [].forEach.call(document.querySelectorAll("[data-orario]"), function(el){ el.addEventListener("change", function(){
+    var t=orarioImposta(el.getAttribute("data-orario"), el.value);
+    if(t || el.value.trim()===""){ el.value=t; el.style.borderColor=""; el.title=""; } else { el.style.borderColor="#dc2626"; el.title="Scrivi l'orario come 19:30"; }
+    saveSoon(); }); });
 })();
 /* Materiali richiesti e richieste luci (12/11): caselle del rider (solo un true esplicito le accende) e «Copia testo per la mail» */
 (function(){
@@ -33797,8 +33821,10 @@ function renderChannels(){
   if(typeof renderContacts==="function") renderContacts();   /* T4: rubrica contatti/ruoli (rimpiazza il sync del singolo campo M5) */
   (function(){ var r=state.rider||{};   /* T2: popola i campi rider dallo state + placeholder = default */
     function setv(id,key){ var el=document.getElementById(id); if(!el) return; var want=(r[key]!=null?String(r[key]):""); if(el.value!==want) el.value=want; }
-    setv("rdSedie","sedie"); setv("rdSistema","sistema"); setv("rdLuci","luci"); setv("rdPersonale","personale"); setv("rdNote","note");
+    setv("rdSedie","sedie"); setv("rdSistema","sistema"); setv("rdLuci","luci"); setv("rdPersonale","personale"); setv("rdNote","note"); setv("rdCamerini","camerini"); setv("rdParcheggi","parcheggi");
+    [].forEach.call(document.querySelectorAll("[data-orario]"), function(el){ if(document.activeElement===el) return; var v=(state.orari&&state.orari[el.getAttribute("data-orario")])||""; if(el.value!==v && !(el.style.borderColor && v==="")) el.value=v; });   /* orari (S6) */
     [["rdMateriali","materiali"],["rdLuciNoFumo","luciNoFumo"],["rdLuciSeparata","luciSeparata"],["rdLuciLeggii","luciLeggii"]].forEach(function(pr){ var el=document.getElementById(pr[0]); if(el) el.checked=(r[pr[1]]===true); });
+    (function(){ var m=document.getElementById("rdMateriali"); if(m){ var acu=eventoAcustico(); if(acu) m.checked=true; m.disabled=acu; m.title=acu?"In un concerto acustico i materiali richiesti escono sempre":""; } })();   /* acustico (S6): sezione automatica */
     var _cpb=document.getElementById("rdMaterialiCopia"); if(_cpb) _cpb.hidden=!materialiRichiesti();   /* il pulsante c'è solo se la sezione ha qualcosa da dire */
     var _lx=document.getElementById("rdLuciExtra"); if(_lx) _lx.hidden=!riderLuciVisibile();   /* le tre richieste luci: solo per un'orchestra */
     var DD=(typeof riderDefaults==="function")?riderDefaults():RIDER_DEFAULTS;
@@ -36622,21 +36648,30 @@ function riderPdf(shared){
     function heading(t){ if(y>272){ doc.addPage(); y=18; } doc.setFont("helvetica","bold"); doc.setFontSize(10.5); doc.setTextColor("#4338ca"); doc.text(t, M, y); y+=5.4; doc.setTextColor("#111827"); }
     function body(t){ doc.setFont("helvetica","normal"); doc.setFontSize(9.5); var lines=doc.splitTextToSize(String(t==null||t===""?"—":t), W-2*M);
       lines.forEach(function(ln){ if(y>286){ doc.addPage(); y=18; } doc.text(ln, M, y); y+=4.8; }); y+=3.2; }
+    var acu=eventoAcustico(), vtxt=acu?riderVideoText():"";
+    if(acu) body(riderAcusticoFrase()); else if(eventoMisto()) body(riderMistoNota());   /* S6: sonorizzazione */
+    if(!acu){
     heading("MICROFONI"); body(d.inCh+" canali di ingresso · "+d.outCh+" canali di uscita (monitor)"+(d.boxes.length?" · Stage box: "+d.boxes.join(", "):""));
     (function(){ var D=riderDotazione(); if(D.testo) body(D.testo); if(D.aste) body("Aste: "+D.aste); })();   /* la dotazione per modello, come nei rider veri */
     heading("MONITOR"); body(riderMonitorText(d.monitor));
     heading("STAGE E PEDANE"); body(riderPedaneText(d.pedane)+(d.sedie?" · "+riderSedieText(d.sedie):"")+(d.pesoKg>0?" · peso allestimento stimato "+fmtKg(d.pesoKg):""));
-    (function(){ var M=materialiRichiesti(); if(M){ heading("MATERIALI RICHIESTI"); M.righe.forEach(function(r){ body(r); }); } })();   /* opzionale, spenta di serie (12/11) */
+    }
+    (function(){ var M=materialiRichiesti(); if(M){ heading("MATERIALI RICHIESTI"); M.righe.forEach(function(r){ body(r); }); } })();   /* opzionale, spenta di serie (12/11); in acustico automatica */
+    if(!acu){
     if(d.console){ heading("CONSOLE"); body(d.console); }
     if(d.elettrico){ heading("ALIMENTAZIONE"); body(riderAlimentazioneText(d.elettrico)); }   /* mancava nel PDF: c'era solo nell'anteprima HTML */
     heading("SISTEMA AUDIO"); body(d.sistema);
+    }
     heading("LUCI"); body(d.luci);
     riderLuciExtra().forEach(function(x){ body(x); });   /* richieste luci per l'orchestra, solo se spuntate (12/11) */
-    (function(){ var pm=(typeof productionSummary==="function")?productionSummary(state).filter(function(r){return r.key!=="luci";}):[];
+    if(vtxt){ heading("VIDEO"); body(vtxt); }   /* solo acustico, solo se ci sono elementi video */
+    (function(){ var o=orariRighe(); if(o.length){ heading("ORARI"); body(o.join(" · ")); } })();   /* solo se compilati (S6) */
+    if(acu){ if(d.camerini){ heading("CAMERINI"); body(d.camerini); } if(d.parcheggi){ heading("PARCHEGGI"); body(d.parcheggi); } }
+    (function(){ var pm=(typeof productionSummary==="function")?productionSummary(state).filter(function(r){return r.key!=="luci" && !(vtxt && r.key==="video");}):[];
       if(pm.length){ heading("PRODUZIONE E MEDIA"); pm.forEach(function(r){ body(r.label+": "+r.text); }); } })();
-    heading("PERSONALE RICHIESTO AL SERVICE"); body(d.personale);
+    if(!acu){ heading("PERSONALE RICHIESTO AL SERVICE"); body(d.personale); }
     if(d.note){ heading("NOTE"); body(d.note); }
-    if(d.contatti.length){ heading("CONTATTI E RUOLI"); d.contatti.forEach(function(c){
+    if(d.contatti.length){ heading(acu?"RIFERIMENTI":"CONTATTI E RUOLI"); d.contatti.forEach(function(c){
         var head=[c.role||"—", c.name].filter(Boolean).join(" · ");
         /* SOLO ruolo, nome e recapito: la NOTA del contatto è un appunto interno del tecnico
            («non risponde mai, chiama la moglie») e non deve finire nel PDF che si manda al locale. */
@@ -38541,7 +38576,7 @@ function listPreviewHtml(key){
 function availableViewerLists(){
   var order=["scaletta","inputlist","monitorlist","loadlist","backline","rf","notelist"], cfg=pdfListConfig(), out=[];   /* scaletta (10/10): subito dopo il rider */
   if((state.items||[]).length) out.push({key:"rider", title:nomeDocumento()});   /* T2: il rider (riepilogo derivato) apre il pacchetto */
-  order.forEach(function(k){ var c=cfg[k]; if(!c||!c.data) return; var d; try{ d=c.data(); }catch(e){ return; }
+  order.forEach(function(k){ if(eventoAcustico() && pdfPaginaSoloAudio(k)) return; var c=cfg[k]; if(!c||!c.data) return; var d; try{ d=c.data(); }catch(e){ return; }
     if(d && d.rows && d.rows.length) out.push({key:k, title:c.title}); });
   return out;
 }
@@ -38691,7 +38726,8 @@ function riderData(){
                /* «trifase» solo se c'è davvero un quadro trifase: phase3 nasce vero di default, e il rider scriveva «distribuzione trifase» accanto a «1 presa 16 A monofase» per un wedge (analisi esterna 08/11) */
                fasi:_quadri.some(function(d){ return !d.auto && d.ph===3; }), quadroFrase:elecQuadroFrase(state,_quadri.length),
                maxW:P.maxW, preseTxt:P.preseTxt, genKva:P.genKva, oltreTxt:P.oltreTxt }; }catch(_e){ return null; } })(),
-    note: r.note||""
+    note: r.note||"",
+    camerini: (typeof r.camerini==="string") ? r.camerini : "", parcheggi: (typeof r.parcheggi==="string") ? r.parcheggi : ""   /* S6: testo libero, vuoto = la sezione non esce (niente cifre inventate) */
   };
 }
 /* Il riepilogo che il service usa per preparare il palco: QUANTI microfoni di ciascun modello, quante
@@ -38827,7 +38863,7 @@ function materialiPedane(items){
   return t;
 }
 function materialiRichiesti(){
-  if(!riderFlag("materiali") || eventoConferenza()) return null;
+  if(!(riderFlag("materiali") || eventoAcustico()) || eventoConferenza()) return null;   /* in un concerto acustico la sezione è automatica (S6) */
   var items=state.items||[], righe=[], c=countAccessori();
   var a=[];
   if(c.sedie) a.push("Sedie (senza braccioli): "+c.sedie);
@@ -38870,26 +38906,74 @@ function riderLuciExtra(){
   if(riderFlag("luciLeggii") && c.leggii) o.push(c.leggii+(c.leggii===1?" leggio":" leggii")+" con luce"+(c.leggiiDirettore?" (+"+c.leggiiDirettore+" direttore)":"")+".");
   return o;
 }
+/* ═══ SONORIZZAZIONE E ORARI (12/11/2026, specifica S6 dalla posta di produzione) ═══
+   «Amplificato / Acustico / Misto» è un campo del documento a sé (state.sonorizzazione, assente = amplificato): NON è una voce di tipoEvento,
+   che governa i testi delle conferenze (D11). Acustico: il rider esce di una pagina (materiali, luci, video, orari, camerini, parcheggi,
+   riferimenti) e le pagine delle liste audio non sono più proposte — nascoste, mai cancellate: i dati restano e riaccendendo «Amplificato»
+   tutto torna. Una conferenza resta una conferenza, anche se «acustica». Gli orari (state.orari, cinque voci) escono solo se compilati. */
+function sonorizzazione(){ var v=state && state.sonorizzazione; return (v==="acustico" || v==="misto") ? v : "amplificato"; }
+function eventoAcustico(){ return sonorizzazione()==="acustico" && !eventoConferenza(); }
+function eventoMisto(){ return sonorizzazione()==="misto" && !eventoConferenza(); }
+function riderAcusticoFrase(){ return "Concerto acustico: microfono e P.A. del teatro solo per il parlato."; }
+function riderMistoNota(){ return "Parte acustica e parte amplificata: vedi la scaletta."; }
+/* le pagine che servono solo all'audio amplificato: in acustico non si propongono (pillole, anteprima, link condiviso) */
+function pdfPaginaSoloAudio(key){
+  return ["view-cabin","view-cabout","view-mond","view-cabaudio","inputlist","monitorlist","rf","pmlist","dantepatch","netlist","outputlist","cabmap"].indexOf(key)>=0;
+}
+function orariVoci(){ return [["loadIn","Load in"],["allestimento","Allestimento"],["soundcheck","Soundcheck"],["concerto","Concerto"],["loadOut","Load out"]]; }
+/* «19:30», «19.30», «19,30», «9:30», «19» → «HH:MM»; qualunque altra cosa non è un orario («» = assente) */
+function orarioNorm(v){
+  if(typeof v==="number") v=String(v);
+  if(typeof v!=="string") return "";
+  var m=/^\s*(\d{1,2})(?:\s*[:.,]\s*(\d{2}))?\s*$/.exec(v); if(!m) return "";
+  var h=+m[1], mi=(m[2]==null)?0:+m[2]; if(h>23 || mi>59) return "";
+  return (h<10?"0":"")+h+":"+(mi<10?"0":"")+mi;
+}
+function orariNorm(o){
+  var r={}; if(o && typeof o==="object") orariVoci().forEach(function(p){ var t=orarioNorm(o[p[0]]); if(t) r[p[0]]=t; });
+  return r;
+}
+function orariRighe(){ var o=(state && state.orari) || {}; return orariVoci().filter(function(p){ return !!o[p[0]]; }).map(function(p){ return p[1]+" "+o[p[0]]; }); }
+function orarioImposta(chiave, testo){
+  var t=orarioNorm(testo);
+  if(t){ state.orari=state.orari||{}; state.orari[chiave]=t; }
+  else if(state.orari){ delete state.orari[chiave]; if(!Object.keys(state.orari).length) delete state.orari; }
+  return t;
+}
+function sonorizzazioneImposta(v){
+  if(v==="acustico" || v==="misto") state.sonorizzazione=v; else delete state.sonorizzazione;
+}
+/* Gli elementi video sul palco, per il rider acustico (la sezione VIDEO esce solo se ce ne sono) */
+function riderVideoText(){
+  var n={}, ord=[];
+  (state.items||[]).forEach(function(x){ var T=TYPES[x.type]; if(!T || T.cat!=="Video") return;
+    var nm=T.nome||x.type; if(!n[nm]){ n[nm]=0; ord.push(nm); } n[nm]++; });
+  if(!ord.length) return "";
+  var pv=(typeof productionSummary==="function") ? productionSummary(state).filter(function(r){ return r.key==="video"; }) : [];
+  return ord.map(function(nm){ return (n[nm]>1?n[nm]+"× ":"")+nm; }).join(" · ")+(pv.length ? " · "+pv[0].label+": "+pv[0].text : "");
+}
 function riderHtml(){
   var d=riderData();
   function esct(x){ return esc(String(x==null?"":x)).replace(/\n/g,"<br>"); }
   function sec(t,body,auto){ return '<div class="pdf-rider-sec"><div class="pdf-rider-h">'+esc(t)+(auto?' <span class="pdf-rider-auto">dai dati</span>':'')+'</div><div class="pdf-rider-b">'+body+'</div></div>'; }
+  var acu=eventoAcustico(), vtxt=acu?riderVideoText():"";
   var mic = d.inCh+" canali di ingresso · "+d.outCh+" canali di uscita (monitor)"+(d.boxes.length?" · Stage box: "+d.boxes.join(", "):"");
   return '<div class="pdf-list-sheet pdf-rider-sheet">'+
     '<div class="pdf-list-hd" style="background:#4338ca">'+nomeDocumento()+'<span class="pdf-list-date">'+esc(dataDocumento())+'</span></div>'+
     (d.titolo?'<div class="pdf-list-tt">'+esc(d.titolo+(d.luogo?" — "+d.luogo:""))+'</div>':'')+
     '<div class="pdf-rider-status" style="background:'+statusInfo(d.status).color+'">'+esc(statusInfo(d.status).label.toUpperCase())+
       (d.status==="approvato" && (d.approvedBy||d.approvedAt) ? ' · firmato'+(d.approvedBy?' da '+esc(d.approvedBy):"")+(d.approvedAt?' il '+esc(new Date(d.approvedAt).toLocaleDateString("it-IT")):"") : "")+'</div>'+
-    sec("Microfoni", esc(mic)+(function(){ var D=riderDotazione(); var extra=[];
+    (acu?'<div class="pdf-rider-b"><b>'+esc(riderAcusticoFrase())+'</b></div>':(eventoMisto()?'<div class="pdf-rider-b">'+esc(riderMistoNota())+'</div>':""))+
+    (acu?"":sec("Microfoni", esc(mic)+(function(){ var D=riderDotazione(); var extra=[];
         if(D.testo) extra.push(D.testo);
         if(D.aste) extra.push("Aste: "+D.aste);
-        return extra.length ? "<br>"+esc(extra.join(" · ")) : ""; })(), true)+
-    sec("Monitor", esc(riderMonitorText(d.monitor)), true)+
-    sec("Stage e pedane", (d.persone?esc(d.persone+" persone sul palco")+" · ":"")+esc(riderPedaneText(d.pedane))+(d.leggii?" · "+esc(d.leggii+" leggii"):"")+(d.sedie?" · "+esc(riderSedieText(d.sedie)):"")+(d.pesoKg>0?" · peso allestimento stimato "+esc(fmtKg(d.pesoKg)):""), true)+
+        return extra.length ? "<br>"+esc(extra.join(" · ")) : ""; })(), true))+
+    (acu?"":sec("Monitor", esc(riderMonitorText(d.monitor)), true))+
+    (acu?"":sec("Stage e pedane", (d.persone?esc(d.persone+" persone sul palco")+" · ":"")+esc(riderPedaneText(d.pedane))+(d.leggii?" · "+esc(d.leggii+" leggii"):"")+(d.sedie?" · "+esc(riderSedieText(d.sedie)):"")+(d.pesoKg>0?" · peso allestimento stimato "+esc(fmtKg(d.pesoKg)):""), true))+
     (function(){ var M=materialiRichiesti(); return M ? sec("Materiali richiesti", M.righe.map(esct).join("<br>"), true) : ""; })()+
-    (d.console?sec("Console", esc(d.console), true):"")+
-    (d.elettrico?sec("Alimentazione", esc(riderAlimentazioneText(d.elettrico)), true):"")+
-    sec("Sistema audio", esct(d.sistema), !!d.sistemaAuto)+
+    (!acu && d.console?sec("Console", esc(d.console), true):"")+
+    (!acu && d.elettrico?sec("Alimentazione", esc(riderAlimentazioneText(d.elettrico)), true):"")+
+    (acu?"":sec("Sistema audio", esct(d.sistema), !!d.sistemaAuto))+
     /* Luci: se la lista dichiara delle richieste, la sezione esce STRUTTURATA (intestazione
        per funzione + voci), come in un rider vero. Il testo scritto a mano resta prosa. */
     sec("Luci", (function(){
@@ -38902,12 +38986,16 @@ function riderHtml(){
         return '<div>'+esc(x.text)+'</div>';
       }).join("");
     })()+riderLuciExtra().map(function(x){ return '<div>'+esc(x)+'</div>'; }).join(""), !(state.rider&&state.rider.luci!=null&&String(state.rider.luci).trim()!==""))+
-    (function(){ var pm=(typeof productionSummary==="function")?productionSummary(state).filter(function(r){return r.key!=="luci";}):[];
+    (vtxt?sec("Video", esct(vtxt), true):"")+
+    (function(){ var o=orariRighe(); return o.length ? sec("Orari", esc(o.join(" · "))) : ""; })()+
+    (acu && d.camerini?sec("Camerini", esct(d.camerini)):"")+
+    (acu && d.parcheggi?sec("Parcheggi", esct(d.parcheggi)):"")+
+    (function(){ var pm=(typeof productionSummary==="function")?productionSummary(state).filter(function(r){return r.key!=="luci" && !(vtxt && r.key==="video");}):[];
       return pm.length ? sec("Produzione e media", pm.map(function(r){ return esc(r.label)+": "+esct(r.text); }).join("<br>")) : ""; })()+
-    sec("Personale richiesto al service", esct(d.personale), !!d.personaleAuto)+
+    (acu?"":sec("Personale richiesto al service", esct(d.personale), !!d.personaleAuto))+
     (d.note?sec("Note", esct(d.note)):"")+
     (d.contatti.length
-      ? sec("Contatti e ruoli", d.contatti.map(function(c){
+      ? sec(acu?"Riferimenti":"Contatti e ruoli", d.contatti.map(function(c){
           var head=[c.role||"—", c.name||""].filter(function(x){return x&&String(x).trim();}).map(esc).join(" · ");
           var ct=[c.contact||"", c.note||""].filter(function(x){return x&&String(x).trim();}).map(esc).join(" · ");
           return '<div class="pdf-rider-crow"><b>'+head+'</b>'+(ct?' — '+ct:"")+'</div>'; }).join(""))
@@ -40120,6 +40208,7 @@ function pdfChannelPage(doc, L, paperKey){
     }catch(_e){}
     /* L'ordine con cui si spuntano qui sopra NON è l'ordine di stampa: lo decide PDF_TECH_ORDER,
        la stessa sequenza su cui buildPdfDoc costruisce il documento. */
+    if(eventoAcustico()) pages=pages.filter(function(p){ return !pdfPaginaSoloAudio(p.key); });   /* acustico (S6): le liste audio si nascondono, i dati restano */
     return pdfSortTechPages(pages);
   }
   var _pdfTechPages=[];
