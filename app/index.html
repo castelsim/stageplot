@@ -1618,6 +1618,10 @@ svg.names-hidden .orc-name{display:none}
   /* Non è un invito, è un avviso: qualcosa nel disegno non torna, e il PDF lo mostrerà così. */
   .nudge.warn{background:var(--warning-bg);border-color:var(--warning-border);color:var(--warning);cursor:default}
   .nudge.warn .btn{margin-left:6px;padding:4px 10px;font-size:12px;vertical-align:baseline}
+  /* formato della channel list nell'Esporta (12/11) */
+  #pdfListaFmt{margin-top:12px}
+  #pdfListaFmt label{display:block;font-size:12px;font-weight:600;color:var(--text-2);margin:8px 0 4px}
+  #pdfListaFmt select{width:100%;box-sizing:border-box;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:14px;background:var(--surface);color:var(--text)}
   .pdf-optrow{display:flex;gap:14px;align-items:flex-end;margin-top:14px}
   .pdf-optrow label{display:block;font-size:12px;font-weight:600;color:var(--text-2);margin:0 0 5px}
   /* Area stampata: cosa verrà stampato, e il comando per cambiarlo sulla stessa riga (31/07) */
@@ -6292,6 +6296,13 @@ body.cust-contorno .item.selected .selbox{display:none}
              Qui è nell'ultimo posto prima del file, dove la correzione costa un tocco. -->
         <div id="pdfFuoriPalco" hidden></div>
         <div id="pdfCoroMuto" hidden></div>
+        <!-- FORMATO DELLA CHANNEL LIST (12/11/2026): Semplice (di sempre) o Service (pagine da 32/48, A4 orizzontale). Impostazione dell'export, non del progetto. -->
+        <div id="pdfListaFmt" hidden>
+          <label for="pdfListaFormato">Formato della channel list</label>
+          <select id="pdfListaFormato"><option value="semplice" selected>Semplice</option><option value="service">Service</option></select>
+          <label for="pdfListaPerPagina" id="pdfListaPerPaginaL" hidden>Canali per pagina</label>
+          <select id="pdfListaPerPagina" hidden><option value="32" selected>32</option><option value="48">48</option></select>
+        </div>
         <!-- NOME DEL PROGETTO (11/08): nessun passaggio del cammino lo chiedeva mai — il campo esiste
              nell'header col placeholder «Senza titolo» e non viene richiamato da nessuna parte, così
              il file usciva `stage-plot.pdf` e un service che riceve tre rider in una sera si ritrova
