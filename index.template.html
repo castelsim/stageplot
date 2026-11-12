@@ -31929,7 +31929,7 @@ function monitorList(){   /* sink-centrico: OGNI monitor sul palco = una riga di
    (MAIN/TV/REC/matrici/cuffie): state.buses = [{id,name,kind,dest,boxId,port}].
    Un bus = una voce, anche su più uscite (mai duplicato). Porte auto = prime N consecutive libere. */
 var BUS_KINDS={ st:{tag:"ST", n:2, nome:"Stereo (2 out)"}, mono:{tag:"DIR", n:1, nome:"Mono / Direct (1 out)"}, mtx:{tag:"MTX", n:2, nome:"Matrix (2 out)"} };
-var BUS_CHIPS=[["MAIN L/R","st","P.A."],["SUB","mono","sub"],["TV L/R","st","regia TV"],["REC L/R","st","registrazione"],["Near fill L/R","st","near fill"]];
+var BUS_CHIPS=[["MAIN L/R","st","P.A."],["SUB","mono","sub"],["Front fill L/R","st","front fill"],["Near fill L/R","st","near fill"],["TV L/R","st","regia TV"],["REC L/R","st","registrazione"],["Talkback","mono","talkback palco"]];   /* 12/11: front fill e talkback, come nelle output list dei professionisti */
 function busPortN(bu){ return BUS_KINDS[bu.kind] ? BUS_KINDS[bu.kind].n : 1; }
 var PM_FEED_NAMES={ 10:"Drums", 15:"Perc", 20:"Bass", 30:"Guit", 40:"Key", 50:"Fiati", 60:"Archi", 70:"Voci" };
 /* Nomi suggeriti per le mandate alla macchina cuffie: un nome per ogni GRUPPO strumentale presente sul

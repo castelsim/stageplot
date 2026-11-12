@@ -4924,6 +4924,25 @@ t("Output list: bus console -> porte out (auto consecutive, pin, conflitti, mai 
   A.state.buses = [];
 });
 
+/* 12/11/2026, dalle mail di produzione: l'output list dei professionisti ha MAIN, SUB, FRONT FILL, REC, talkback.
+   Le pillole di partenza ora li hanno tutti (prima «near fill» e niente talkback). */
+t("Uscite console: le pillole di partenza coprono main, sub, front fill, near fill, tv, rec e talkback", () => {
+  const chip = Object.fromEntries(A.BUS_CHIPS.map((c) => [c[0], c]));
+  ["MAIN L/R", "SUB", "Front fill L/R", "Near fill L/R", "TV L/R", "REC L/R", "Talkback"].forEach((n) => ok(chip[n], "manca la pillola «" + n + "»"));
+  eq([chip["Front fill L/R"][1], chip["Talkback"][1], chip["SUB"][1]], ["st", "mono", "mono"], "front fill in stereo, talkback e sub mono");
+  A.BUS_CHIPS.forEach((c) => ok(A.BUS_KINDS[c[1]], "«" + c[0] + "»: tipo " + c[1] + " sconosciuto"));
+  eq(new Set(A.BUS_CHIPS.map((c) => c[0].toLowerCase())).size, A.BUS_CHIPS.length, "nomi tutti diversi (la pillola sparisce dopo l'uso)");
+  /* e finiscono davvero nell'elenco: due uscite con le nuove pillole prendono porte consecutive della stage box */
+  reset(); A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.home = { kind: "foh" };
+  const b = add("stagebox", 300, 300); b.hw = "rio3224d2"; b.sbId = 1;
+  A.state.buses = [{ id: "b1", name: "Front fill L/R", kind: "st", dest: "front fill" }, { id: "b2", name: "Talkback", kind: "mono", dest: "talkback" }];
+  A.__cabRes = null;
+  const r = A.busList().rows;
+  eq(r.map((x) => [x.name, x.tag, x.ports.length, x.dest]), [["Front fill L/R", "ST", 2, "front fill"], ["Talkback", "DIR", 1, "talkback"]], "righe: sigla e porte per tipo");
+  eq(r[0].ports.concat(r[1].ports), [r[0].ports[0], r[0].ports[0] + 1, r[0].ports[0] + 2], "porte consecutive");
+  A.state.buses = []; reset();
+});
+
 t("Sub-snake analogica -> rack I/O: blocco contiguo, FOH del Rio, riservate, fallback main", () => {
   reset();
   A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.mixer = "dm3";
