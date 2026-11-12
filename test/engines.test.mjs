@@ -3759,6 +3759,54 @@ t("Scala: il disegno ha tanti riquadri quanti i gradini (h40 → 2, h60 → 3), 
   eq(righe(A.TYPES.scala.draw(s)), 3 - 1, "d < 50: 2 separatori, nessuna freccia");
   reset();
 });
+/* ═══ LEGENDA DELLE PEDANE NEL CARTIGLIO (12/11/2026, dalle mail di produzione: la quota «LxP hH» è la convenzione di
+   tutti i plot dei service e ogni palco mescola altezze diverse). Ogni pedana ha già la sua quota di lato; il cartiglio
+   le raggruppa per misura e altezza, così chi allestisce legge «quante e di che altezza» senza contare a occhio. ═══ */
+t("Pedane: il cartiglio le raggruppa per misura e altezza («5 pedane: 2 da 4×2 h60, 3 da 2×1 h40»)", () => {
+  reset();
+  eq(A.pdfTotals({ tecnici: false }).filter((x) => /pedan/.test(x)), [], "palco vuoto: niente riga");
+  add("pedana", 300, 300, { w: 400, d: 200, h: 60 }); add("pedana", 800, 300, { w: 400, d: 200, h: 60 });
+  add("pedana", 200, 600, { h: 40 }); add("pedana", 400, 600, { h: 40 }); add("pedana", 600, 600, { h: 40 });
+  const riga = () => A.pdfTotals({ tecnici: false }).filter((x) => /pedan/.test(x));
+  eq(riga(), ["5 pedane: 2 da 4×2 h60, 3 da 2×1 h40"], "le più alte per prime");
+  eq(A.pedaneTesto(), "5 pedane: 2 da 4×2 h60, 3 da 2×1 h40", "stessa frase da pedaneTesto()");
+  reset();
+  add("pedana", 300, 300, { w: 400, d: 200, h: 60 });
+  eq(A.pedaneTesto(), "1 pedana 4×2 h60", "una sola: singolare, senza elenco");
+  reset();
+  /* ordine: le basse inserite per prime escono comunque dopo le alte; stessa altezza → la più grande prima */
+  add("pedana", 200, 600, { h: 20 }); add("pedana", 400, 600, { w: 100, d: 100, h: 60 }); add("pedana", 600, 600, { w: 400, d: 200, h: 60 });
+  eq(A.pedaneTesto(), "3 pedane: 1 da 4×2 h60, 1 da 1×1 h60, 1 da 2×1 h20", "per altezza decrescente, poi per area");
+  /* la stessa misura a due altezze sono due voci; due misure alla stessa altezza anche */
+  reset();
+  add("pedana", 200, 300, { h: 40 }); add("pedana", 400, 300, { h: 60 });
+  eq(A.pedaneTesto(), "2 pedane: 1 da 2×1 h60, 1 da 2×1 h40", "stessa misura, altezze diverse: voci separate");
+  reset();
+});
+t("Pedane: lati ruotati e decimali italiani, l'altezza di serie vale 40, a terra e gli accessi non contano", () => {
+  reset();
+  add("pedana", 300, 300, { w: 100, d: 200, h: 60, rot: 90 }); add("pedana", 800, 300, { w: 200, d: 100, h: 60 });
+  eq(A.pedaneTesto(), "2 pedane: 2 da 2×1 h60", "100×200 e 200×100 sono la stessa pedana: lato lungo prima");
+  reset();
+  add("pedana", 300, 300, { w: 125, d: 100, h: 25 });
+  eq(A.pedaneTesto(), "1 pedana 1,25×1 h25", "virgola italiana");
+  reset();
+  const senzaH = add("pedana", 300, 300, { w: 200, d: 100 }); delete senzaH.h;
+  eq(A.pedaneTesto(), "1 pedana 2×1 h40", "senza altezza: 40, come la quota nel disegno");
+  reset();
+  add("pedana", 300, 300, { h: 0 }); add("scala", 300, 450); add("parapetto", 500, 300); add("rampa", 700, 300); add("pedanacoro", 500, 600);
+  eq(A.pedaneTesto(), "", "h0, scale, parapetti, rampe e pedane coro non entrano");
+  eq(A.pdfTotals({ tecnici: false }).filter((x) => /pedan/.test(x)), [], "e il cartiglio tace");
+  reset();
+});
+t("Pedane: la riga è nel cartiglio vero del PDF, accanto agli altri totali", () => {
+  reset();
+  add("pedana", 300, 300, { w: 400, d: 200, h: 60 }); add("sedia", 300, 500);
+  const tot = A.pdfTotals({ tecnici: false });
+  ok(tot.indexOf("1 pedana 4×2 h60") > -1 && tot.some((x) => /sedut/.test(x)), "insieme alle sedute: " + JSON.stringify(tot));
+  eq(tot.filter((x) => /pedan/.test(x)).length, 1, "una riga sola, non due");
+  reset();
+});
 
 t("A2: oltre 2 m il Decreto Palchi, per la pedana e per il palco", () => {
   reset();

@@ -18151,6 +18151,31 @@ function auditFixVoceSoloMicPosato(list){
    sotto, è un gradino, cioè un accesso (le gradinate d'orchestra salgono così). */
 var PEDANA_PROTEZIONE_CM=100, PEDANA_DECRETO_CM=200, PEDANA_GRADINO_CM=40;
 function pedanaH(it){ var T=TYPES[it.type]||{}; return (it.h!=null && isFinite(+it.h)) ? +it.h : (T.h||40); }
+/* LEGENDA DELLE PEDANE (12/11/2026, dalle mail di produzione): la sigla «LxP hH» (es. «4×2 h60») è la convenzione di tutti i
+   plot dei service. Ogni pedana ha già la sua quota di lato; qui si raggruppano per misura e altezza per il cartiglio.
+   Lato lungo prima (100×200 ruotata e 200×100 sono la stessa pedana). Contano le pedane vere: niente h0 (a terra), scale,
+   parapetti, rampe e pedane coro (hanno gradoni, non un'altezza sola). */
+function pedaneLegenda(items){
+  var gruppi={}, ordine=[];
+  (items||state.items||[]).forEach(function(it){
+    if(it.type!=="pedana") return;
+    var h=pedanaH(it); if(!(h>0)) return;
+    var a=Math.round(+it.w||0), b=Math.round(+it.d||0), L=Math.max(a,b), P=Math.min(a,b), k=L+"x"+P+"x"+h;
+    if(!gruppi[k]){ gruppi[k]={L:L, P:P, h:h, n:0}; ordine.push(k); }
+    gruppi[k].n++;
+  });
+  return ordine.map(function(k){ return gruppi[k]; }).sort(function(x,y){ return y.h-x.h || (y.L*y.P)-(x.L*x.P) || y.L-x.L; });
+}
+function pedanaSigla(g){
+  var m=function(cm){ return (cm/100).toLocaleString("it-IT",{maximumFractionDigits:2}); };
+  return m(g.L)+"×"+m(g.P)+" h"+g.h;
+}
+function pedaneTesto(items){
+  var gr=pedaneLegenda(items); if(!gr.length) return "";
+  var tot=gr.reduce(function(s,g){ return s+g.n; },0);
+  if(gr.length===1 && tot===1) return "1 pedana "+pedanaSigla(gr[0]);
+  return tot+(tot===1?" pedana: ":" pedane: ")+gr.map(function(g){ return g.n+" da "+pedanaSigla(g); }).join(", ");
+}
 /* GRADINI DELLA SCALA (11/11/2026; segnalazione CONCERTI del 05/11: «perché disegni molti più gradini di quelli
    che in realtà ci sono»). Alzata di 20 cm (i livelli delle gradinate d'orchestra scendono così: 60 → 40 → 20),
    quindi h40 = 2 gradini, h60 = 3. La scala non ha un'altezza sua: prende quella della pedana che tocca
@@ -37472,6 +37497,7 @@ function pdfTotals(opts){
   if(sedie)  out.push(sedie+(sedie===1?" seduta":" sedute"));
   var poltr=poltroneDi(it); if(poltr) out.push(poltr+(poltr===1?" poltrona":" poltrone"));
   sgabelliTesto(it).forEach(function(t){ out.push(t); });   /* quali sgabelli, non solo quanti (16/09) */
+  var _ped=pedaneTesto(it); if(_ped) out.push(_ped);   /* quante pedane e di che altezza, raggruppate (12/11) */
   if(pm)     out.push(pm+" personal mixer"+(hub?" ("+hub+(hub===1?" hub)":" hub)"):""));
   if(wedge)  out.push(wedge+(wedge===1?" spia":" spie"));
   if(iem)    out.push(iem+" in-ear");
