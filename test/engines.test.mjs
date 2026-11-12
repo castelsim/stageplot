@@ -19361,7 +19361,7 @@ t("nella Lista carichi si capisce cos'è ogni carico, non solo di chi è", () =>
 t("nelle liste PDF il buco colora la sua cella, non la riga", () => {
   /* Un canale senza stage box dipingeva di rosso l'intera riga: su una band appena creata TUTTA la
      input list usciva rossa. Il dato (mic, 48V, asta) è giusto; il buco è solo il patch. */
-  const inp = appjs.slice(appjs.indexOf("function patchListPdf"), appjs.indexOf("function patchListPdf") + 3400);
+  const inp = appjs.slice(appjs.indexOf("function patchListPdf"), appjs.indexOf("function patchListPdf") + 4400);   /* 12/11: +1000 per il contatore dei canali in testata */
   ok(/function trow\(a,b,c,d,e,f,bold,color,lastColor\)/.test(inp), "la riga della input list ha un colore per l'ultima cella");
   ok(!/r\.box\?"#111827":"#dc2626"/.test(inp), "e non dipinge più la riga di rosso");
   ok(/\(r\.spare\|\|r\.reserved\|\|r\.box\)\?null:"#b45309"/.test(inp), "il patch mancante è ambra, nella sua cella");
@@ -21732,6 +21732,149 @@ t("backline: il modello scelto va sul foglio, insieme all'etichetta dell'utente"
   reset();
 });
 
+/* ═══ RIGHE DI SERVIZIO + CONTATORE CANALI (12/11/2026, specifica S2 dalla posta di produzione: «104 TALKBACK palco, spare 105-112»,
+   «computer Ableton tipico = 8 TRS»). Una riga di servizio è una PORTA RISERVATA con un nome (`it.sbResNome`, sulla stage box):
+   i canali veri non si spostano di un numero, e nel PDF la riga dice «Seq L» invece di «RISERVATO». Il contatore dice quanti canali
+   usati, quanti riservati e la capacità. ═══ */
+const S2_MICS = (n) => Array.from({ length: n }, (_, i) => ({ id: "m" + i, type: "astamic", x: 100 + (i % 12) * 80, y: 300 + Math.floor(i / 12) * 90 }));
+const s2doc = (n, boxes, extra) => { reset(); A.loadDoc({ titolo: "Prova servizio", stage: { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] }, inputs: [], outputs: [], items: boxes.concat(S2_MICS(n)).concat(extra || []) });
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.home = { kind: "foh" }; A.__cabRes = null; };
+const box32 = (extra) => Object.assign({ id: "b1", type: "stagebox", x: 900, y: 600, hw: "rio3224d2", sbId: 1 }, extra || {});
+const nomiRis = () => A.patchList().rows.filter((r) => r.reserved).map((r) => r.servizio || "");
+t("Righe di servizio: il nome sta sulla porta riservata, e liberare la porta toglie il nome", () => {
+  s2doc(10, [box32({ sbRes: [11, 12], sbResNome: { 11: "Seq L", 12: "Seq R" } })]);
+  eq(nomiRis(), ["Seq L", "Seq R"], "le righe riservate portano il nome di servizio");
+  s2doc(10, [box32({ sbRes: [11, 12] })]);
+  eq(nomiRis(), ["", ""], "senza nome: come prima («RISERVATO»)");
+  /* normalizzazione: solo porte davvero riservate, nomi di testo, al massimo 30 caratteri */
+  const n = (x) => A.normalizeState({ _v: A.SCHEMA_VERSION, items: [Object.assign(box32({ sbRes: [11, 12] }), { sbResNome: x })], inputs: [], outputs: [] }).items[0].sbResNome;
+  eq(n({ 11: "Seq L", 12: "Seq R" }), { 11: "Seq L", 12: "Seq R" }, "valido");
+  eq(n({ 11: "Seq L", 13: "porta non riservata" }), { 11: "Seq L" }, "una porta non riservata perde il nome");
+  eq(n({ 11: 5, 12: "" }), undefined, "nomi non di testo o vuoti: via, e senza nomi il campo sparisce");
+  eq(n({ 11: "x".repeat(50) })[11].length, 30, "al massimo 30 caratteri");
+  eq(n("boh"), undefined, "non un oggetto");
+  /* liberare la porta dalla riga della lista toglie anche il nome */
+  s2doc(10, [box32({ sbRes: [11, 12], sbResNome: { 11: "Seq L", 12: "Seq R" } })]);
+  A.cabFreePort("b1", 11);
+  eq([A.state.items.find((i) => i.id === "b1").sbRes, A.state.items.find((i) => i.id === "b1").sbResNome], [[12], { 12: "Seq R" }], "porta 11 liberata: via anche «Seq L»");
+  A.cabFreePort("b1", 12);
+  ok(!("sbResNome" in A.state.items.find((i) => i.id === "b1")), "ultima porta liberata: il campo sparisce");
+  ok(/if\(ix>-1\)\{ arr\.splice\(ix,1\); sbResLiberaNome\(it, pn2\); \}/.test(appjs), "anche il clic sulla griglia porte della stage box toglie il nome quando libera la porta");
+  reset();
+});
+t("Righe di servizio: il menu offre i gruppi pronti, senza duplicare quello che c'è già", () => {
+  s2doc(4, [box32()]);
+  const of = () => Object.fromEntries(A.serviziOfferti().map((o) => [o.id, o]));
+  let o = of();
+  eq(Object.keys(o), ["playback", "talkback", "micdir", "efx", "video", "pc", "radio", "spare"], "le otto voci, in ordine");
+  eq(o.playback.nomi, ["Seq L", "Seq R", "Cori L", "Cori R", "Click/Count", "Gobbo/chiamate", "Voce guida", "Spare"], "computer playback: 8 canali");
+  eq([o.video.nomi, o.pc.nomi, o.talkback.nomi, o.micdir.nomi, o.efx.nomi], [["Video L", "Video R"], ["PC L", "PC R"], ["Talkback palco"], ["Mic direttore"], ["EFX"]], "nomi");
+  eq([o.radio.numerabile, o.spare.numerabile], [true, true], "Radio e Spare hanno un numero");
+  /* già in scena: il talkback è un oggetto, il mic del direttore un'opzione, il gobbo un oggetto */
+  s2doc(4, [box32()], [{ id: "t1", type: "talkback", x: 600, y: 700 }, { id: "d1", type: "direttore", x: 300, y: 500 }, { id: "g1", type: "confidence", x: 700, y: 700 }]);
+  A.state.items.find((i) => i.id === "d1").mic = true;   /* il direttore con il suo microfono */
+  o = of();
+  ok(!o.talkback, "talkback già sul palco: non si offre");
+  ok(!o.micdir, "microfono del direttore già acceso: non si offre"); 
+  A.state.items.find((i) => i.id === "d1").mic = false; ok(of().micdir, "col microfono del direttore spento si offre");
+  eq(o.playback.nomi.indexOf("Gobbo/chiamate"), -1, "gobbo già sul palco: non si ripete nel gruppo");
+  /* righe di servizio già messe: non si rifanno */
+  s2doc(4, [box32({ sbRes: [5, 6, 7], sbResNome: { 5: "Seq L", 6: "Seq R", 7: "EFX" } })]);
+  o = of();
+  eq(o.playback.nomi, ["Cori L", "Cori R", "Click/Count", "Gobbo/chiamate", "Voce guida", "Spare"], "gruppo a metà: restano le righe che mancano");
+  ok(!o.efx, "EFX già messa: sparisce");
+  reset();
+});
+t("Righe di servizio: l'aggiunta riserva le prime porte libere in coda alla stage box, senza spostare i canali", () => {
+  s2doc(10, [box32()]);
+  const prima = A.patchList().rows.map((r) => [r.n, r.name, r.patch, r.foh].join("|"));
+  const r = A.aggiungiRigheServizio(A.serviziOfferti().find((o) => o.id === "playback").nomi);
+  eq(r.ok, true, "riuscita"); eq(r.porte, [11, 12, 13, 14, 15, 16, 17, 18], "dalla prima porta dopo l'ultima occupata");
+  eq(nomiRis(), ["Seq L", "Seq R", "Cori L", "Cori R", "Click/Count", "Gobbo/chiamate", "Voce guida", "Spare"], "nell'ordine del gruppo");
+  eq(A.patchList().rows.slice(0, 10).map((x) => [x.n, x.name, x.patch, x.foh].join("|")), prima, "i dieci canali veri: stessi numeri, stessi patch, stesso FOH");
+  eq(A.aggiungiRigheServizio(["Seq L"]).ok, false, "lo stesso nome non si aggiunge due volte");
+  /* un'altra aggiunta continua dopo */
+  const r2 = A.aggiungiRigheServizio(["Talkback palco"]); eq(r2.porte, [19], "continua dalla porta dopo");
+  /* non c'è posto: niente, e il progetto non cambia */
+  s2doc(30, [box32()]);
+  const json = A.docToJSON();
+  const no = A.aggiungiRigheServizio(A.serviziOfferti().find((o) => o.id === "playback").nomi);
+  eq(no.ok, false, "sulla box restano 2 porte libere, ne servono 8"); ok(/8/.test(no.motivo) && /2/.test(no.motivo), "dice quante servono e quante ci sono: " + no.motivo);
+  eq(A.docToJSON(), json, "nessuna modifica");
+  s2doc(31, [box32()]);
+  eq(A.aggiungiRigheServizio(["EFX", "PC L"]).motivo, "Servono 2 porte libere in coda alla stage box: ce n'è 1.", "singolare e plurale");
+  s2doc(32, [box32()]);
+  eq(A.aggiungiRigheServizio(["EFX"]).motivo, "Serve 1 porta libera in coda alla stage box: ce ne sono 0.", "una sola riga mancante");
+  s2doc(10, []);
+  eq(A.aggiungiRigheServizio(["EFX"]).ok, false, "senza stage box non si può"); ok(/stage box/i.test(A.aggiungiRigheServizio(["EFX"]).motivo), "e lo dice");
+  /* più box: l'ultima con posto */
+  s2doc(10, [box32(), { id: "b2", type: "stagebox", x: 200, y: 600, hw: "rio1608d2", sbId: 2 }]);
+  const ra = A.aggiungiRigheServizio(["EFX", "PC L"]); eq(ra.ok, true); ok(ra.box === "b1" || ra.box === "b2", "una box delle due");
+  reset();
+});
+t("Righe di servizio: Radio e Spare si numerano di seguito, e l'aggiunta salva (annullabile)", () => {
+  s2doc(10, [box32()]);
+  eq(A.serviziNomiNumerati("Radio", 3), ["Radio 1", "Radio 2", "Radio 3"], "da 1");
+  A.aggiungiRigheServizio(A.serviziNomiNumerati("Radio", 2));
+  eq(nomiRis(), ["Radio 1", "Radio 2"], "messe");
+  eq(A.serviziNomiNumerati("Radio", 2), ["Radio 3", "Radio 4"], "poi si continua da dove si era");
+  eq(A.serviziNomiNumerati("Spare", 1), ["Spare 1"], "un altro nome parte da 1");
+  const save0 = A.save; let salvataggi = 0; A.save = () => { salvataggi++; return save0(); };
+  try { A.aggiungiRigheServizio(["EFX"]); A.aggiungiRigheServizio(["EFX"]); } finally { A.save = save0; }
+  eq(salvataggi, 1, "un'aggiunta riuscita salva una volta; una rifiutata (nome già messo) niente");
+  reset();
+});
+t("Contatore canali: usati, riservati e capacità, con avviso oltre la capacità", () => {
+  /* le righe «libero (coppia stereo)» dell'allineamento dispari-pari non sono canali */
+  s2doc(0, [box32()], [{ id: "g", type: "comboamp", x: 100, y: 300 }, { id: "k", type: "tastiera", x: 400, y: 300 }]); A.state.cab.stereoOdd = true; A.__cabRes = null;
+  ok(A.patchList().rows.some((r) => r.spare), "il caso ha una riga spare di allineamento");
+  eq(A.contatoreCanali().usati, 3, "3 canali veri (1 + coppia stereo), la riga libera non conta");
+  s2doc(10, []); eq(A.contatoreCanali(), null, "senza stage box non c'è capacità: niente contatore");
+  s2doc(10, [box32()]); eq(A.contatoreCanali(), { usati: 10, riservati: 0, capacita: 32, oltre: 0, testo: "Canali: 10 usati su 32" }, "un box da 32");
+  s2doc(10, [box32({ sbRes: [11, 12, 13, 14, 15, 16] })]);
+  eq(A.contatoreCanali().testo, "Canali: 10 usati + 6 riservati su 32", "i riservati a parte: il numero dei canali veri resta onesto");
+  s2doc(10, [box32(), { id: "b2", type: "stagebox", x: 200, y: 600, hw: "rio1608d2", sbId: 2 }]);
+  eq([A.contatoreCanali().capacita, A.contatoreCanali().usati], [48, 10], "due box: la capacità è la somma (32 + 16)");
+  s2doc(40, [box32()]);
+  const c = A.contatoreCanali();
+  eq([c.usati, c.capacita, c.oltre], [40, 32, 8], "oltre la capacità di 8"); ok(/oltre la capacità/.test(c.testo) && /\b8\b/.test(c.testo), "il testo lo dice: " + c.testo);
+  s2doc(33, [box32({ sbRes: [31, 32] })]);
+  eq([A.contatoreCanali().usati, A.contatoreCanali().riservati, A.contatoreCanali().oltre], [33, 2, 3], "33 usati + 2 riservati su 32: 3 oltre (i riservati occupano porte)");
+  s2doc(30, [box32({ sbRes: [31, 32] })]);
+  eq(A.contatoreCanali().oltre, 0, "30 usati + 2 riservati su 32: giusto, niente avviso");
+  reset();
+});
+t("Righe di servizio: nelle liste e nel PDF la riga dice il suo nome; senza righe di servizio il PDF è quello di prima", () => {
+  const testi = () => { const doc = docACapo(); A.patchListPdf(doc); return pdfTesti(doc).map((x) => x.t); };
+  s2doc(10, [box32({ sbRes: [11, 12], sbResNome: { 11: "Seq L", 12: "Seq R" } })]);
+  let tx = testi();
+  ok(tx.indexOf("Seq L") > -1 && tx.indexOf("Seq R") > -1, "PDF: i nomi di servizio");
+  ok(tx.indexOf("RISERVATO") < 0, "e non «RISERVATO» per quelle righe");
+  ok(tx.indexOf("Canali: 10 usati + 2 riservati su 32") > -1, "contatore in testata: " + tx.slice(0, 12).join(" | "));
+  /* la riservata senza nome resta «RISERVATO», e col contatore (la funzione è in uso) */
+  s2doc(10, [box32({ sbRes: [11, 12] })]);
+  tx = testi(); ok(tx.filter((x) => x === "RISERVATO").length === 2, "senza nomi: «RISERVATO» come prima");
+  /* nessuna riservata, sotto la capacità: la pagina è identica a prima (nessuna riga di contatore) */
+  s2doc(10, [box32()]);
+  ok(!testi().some((x) => /^Canali: /.test(x)), "nessuna riservata: il PDF di prima, senza contatore");
+  /* oltre la capacità il contatore compare comunque (è un avviso) */
+  s2doc(40, [box32()]);
+  ok(testi().some((x) => /^Canali: 40 usati su 32 .*oltre/.test(x)), "oltre la capacità: il contatore compare in PDF");
+  /* lista a schermo intero e CSV */
+  s2doc(10, [box32({ sbRes: [11], sbResNome: { 11: "Seq L" } })]);
+  const html = A.channelListHtml ? A.channelListHtml() : "";
+  const src = appjs.slice(appjs.indexOf("cl-row cl-res"), appjs.indexOf("cl-row cl-res") + 500);
+  ok(/servizio/.test(src), "la lista a schermo intero usa il nome di servizio");
+  const ps = appjs.slice(appjs.indexOf("function renderPatchPanel(){"), appjs.indexOf("function renderPatchPanel(){") + 6000);
+  ok(/r\.servizio/.test(ps), "il pannello channel list anche");
+  ok(/contatoreCanali\(\)/.test(ps) && /cab-bar-cap/.test(ps), "il pannello mostra il contatore dei canali");
+  ok(/class","cab-bar-cap\+?|cs\.className="cab-bar-cap"\+\(_ct\.oltre\?" warn":""\)/.test(ps) || /warn/.test(ps.slice(ps.indexOf("contatoreCanali()"), ps.indexOf("contatoreCanali()") + 400)), "oltre la capacità il contatore è arancione");
+  ok(/id="svcBtn"|svcBtn/.test(ps) && /Righe di servizio/.test(ps) && /openServiziPop\(/.test(ps), "il pulsante «Righe di servizio» apre il menu");
+  const pop = appjs.slice(appjs.indexOf("function openServiziPop("), appjs.indexOf("function openServiziPop(") + 3000);
+  ok(/serviziOfferti\(\)/.test(pop) && /aggiungiRigheServizio\(/.test(pop) && /serviziNomiNumerati\(/.test(pop), "il menu offre i gruppi, aggiunge, e numera Radio e Spare");
+  ok(/res\.motivo|r\.motivo/.test(pop), "se non c'è posto lo dice (toast)");
+  reset();
+});
 t("backline: schermo e PDF scrivono lo stesso nome col modello, e la riga lunga va a capo", () => {
   reset(); A.state.lookDefault = "schematico";
   const ba = add("bassamp", 300, 300); ba.label = "Ampli basso"; A.ampModelSetBm(ba, "ampeg_rb210");
@@ -25771,7 +25914,7 @@ t("fornito da: la colonna «forn.» della channel list arriva alla Channel list 
 
 t("fornito da nel PDF: ** accanto alla sorgente a carico della band, e la legenda solo se serve", () => {
   const f = appjs.slice(appjs.indexOf("function patchListPdf(shared){"), appjs.indexOf("function patchListPdf(shared){") + 6000);
-  ok(/r\.reserved\?"RISERVATO":\(r\.name\+fornitoSegno\(r\.by\)\)/.test(f), "** accanto alla sorgente a carico della band");
+  ok(/r\.reserved\?\(r\.servizio\|\|"RISERVATO"\):\(r\.name\+fornitoSegno\(r\.by\)\)/.test(f), "** accanto alla sorgente a carico della band (la riga riservata dice il suo nome di servizio o RISERVATO)");
   ok(/if\(r\.by==="Band" && !r\.reserved\) _band=true;/.test(f), "la legenda si accende solo con una riga della band");
   ok(/if\(_band\)\{[\s\S]{0,300}doc\.text\(FORNITO_BAND_LEGENDA, M, y\)/.test(f), "legenda sotto la tabella");
   eq(A.FORNITO_BAND_SEGNO, " **", "il segno dei rider italiani");
