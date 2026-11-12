@@ -39675,6 +39675,21 @@ function pdfChannelPage(doc, L, paperKey){
       });
     }
   }
+  /* Il formato della channel list (12/11): i due menu compaiono solo se la channel list è fra le pagine possibili; a ogni apertura si riparte da Semplice, 32. */
+  function renderListaFormato(){
+    var box=document.getElementById("pdfListaFmt"); if(!box) return;
+    var ha=(_pdfTechPages||[]).some(function(p){ return p.key==="inputlist"; });
+    box.hidden=!ha;
+    var f=document.getElementById("pdfListaFormato"), pp=document.getElementById("pdfListaPerPagina"), ppl=document.getElementById("pdfListaPerPaginaL");
+    if(f) f.value=window.__pdfListaFmt.formato;
+    if(pp){ pp.value=String(window.__pdfListaFmt.perPagina); pp.hidden=window.__pdfListaFmt.formato!=="service"; }
+    if(ppl) ppl.hidden=window.__pdfListaFmt.formato!=="service";
+  }
+  (function(){
+    var f=document.getElementById("pdfListaFormato"), pp=document.getElementById("pdfListaPerPagina");
+    if(f) f.addEventListener("change", function(){ window.__pdfListaFmt.formato=(f.value==="service")?"service":"semplice"; renderListaFormato(); });
+    if(pp) pp.addEventListener("change", function(){ window.__pdfListaFmt.perPagina=(pp.value==="48")?48:32; });
+  })();
   /* Il coro che nel PDF non ha canali (29/09). Stessa forma dell'avviso qui sopra: quello che si vedrà nel
      foglio, e il rimedio a un clic — gli stessi microfoni d'insieme che aggiunge l'audit. */
   function renderCoroMuto(){
@@ -39698,21 +39713,6 @@ function pdfChannelPage(doc, L, paperKey){
     });
     box.appendChild(fix);
   }
-  /* Il formato della channel list (12/11): i due menu compaiono solo se la channel list è fra le pagine possibili; a ogni apertura si riparte da Semplice, 32. */
-  function renderListaFormato(){
-    var box=document.getElementById("pdfListaFmt"); if(!box) return;
-    var ha=(_pdfTechPages||[]).some(function(p){ return p.key==="inputlist"; });
-    box.hidden=!ha;
-    var f=document.getElementById("pdfListaFormato"), pp=document.getElementById("pdfListaPerPagina"), ppl=document.getElementById("pdfListaPerPaginaL");
-    if(f) f.value=window.__pdfListaFmt.formato;
-    if(pp){ pp.value=String(window.__pdfListaFmt.perPagina); pp.hidden=window.__pdfListaFmt.formato!=="service"; }
-    if(ppl) ppl.hidden=window.__pdfListaFmt.formato!=="service";
-  }
-  (function(){
-    var f=document.getElementById("pdfListaFormato"), pp=document.getElementById("pdfListaPerPagina");
-    if(f) f.addEventListener("change", function(){ window.__pdfListaFmt.formato=(f.value==="service")?"service":"semplice"; renderListaFormato(); });
-    if(pp) pp.addEventListener("change", function(){ window.__pdfListaFmt.perPagina=(pp.value==="48")?48:32; });
-  })();
   function renderProdInline(){
     /* Nudge Controllo tecnico (variante A): un invito blu quando restano voci da definire,
        neutro quando è completo; click = apre/chiude le tendine qui sotto. Mai bloccante. */
