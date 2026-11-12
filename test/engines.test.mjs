@@ -6520,6 +6520,123 @@ t("il cartiglio riassume canali, leggii, sedute, personal mixer e ascolti", () =
   ok(/sedut/.test(t2), "sedute: " + t2);
   ok(/Ascolti: 1 wedge · 1 hub · 1 mixer personale/.test(t2), "ascolti in una riga, con l'hub e il mixer personale: " + t2);   /* 12/11: prima «1 personal mixer (1 hub)» e «1 spia» */
 });
+/* ═══ ASCOLTI NOMINATI E MIXER PERSONALI (12/11/2026, specifica S3 dalla posta di produzione: «Wedge Corni», «Sidefill Archi»,
+   «16 mix → 21 aste nane»). Tre cose: un NOME SUGGERITO per il monitor che serve una famiglia sola (non si applica mai da solo: il
+   PDF dei progetti salvati resta identico), la riga «Ascolti:» nel cartiglio, e in fondo alla lista personal monitor quante macchine
+   da 8 mix e quante aste nane. Le prolunghe cuffia NON si calcolano (regola non derivabile, domanda D9 per un fonico). ═══ */
+const s3add = (type, x, y, o) => A.addItem(type, Object.assign({ x, y }, o || {})) || A.state.items[A.state.items.length - 1];
+t("Ascolti: il nome suggerito è la famiglia di chi il monitor serve, solo se è una sola", () => {
+  const sugg = (mon) => A.monitorFamigliaSuggerita(mon);
+  reset(); const w = s3add("wedge", 500, 450);
+  ["corno", "corno", "corno"].forEach((tp, i) => s3add(tp, 400 + i * 100, 300));
+  eq(sugg(w), "Corni", "tre corni davanti al wedge");
+  reset(); const w2 = s3add("wedge", 500, 450); s3add("violino" in A.TYPES ? "violino" : "vlnpost", 500, 300); s3add("vlnpost", 600, 300);
+  eq(sugg(w2), "Archi", "archi");
+  reset(); const w3 = s3add("wedge", 500, 450); s3add("cantante", 500, 300);
+  eq(sugg(w3), "Solisti", "un cantante");
+  reset(); const w4 = s3add("wedge", 500, 450); s3add("corista", 450, 300); s3add("corista", 550, 300);
+  eq(sugg(w4), "Coro", "coristi");
+  reset(); const w5 = s3add("wedge", 500, 450); s3add("tromba", 450, 300); s3add("trombone", 550, 300);
+  eq(sugg(w5), "Ottoni", "tromba e trombone: ottoni");
+  reset(); const w6 = s3add("wedge", 500, 450); s3add("flauto", 450, 300); s3add("oboe", 550, 300);
+  eq(sugg(w6), "Legni", "legni");
+  reset(); const w7 = s3add("sidefill", 500, 450); s3add("vlnpost", 450, 300); s3add("violapost", 550, 300);
+  eq(sugg(w7), "Archi", "anche il side fill");
+  /* famiglie miste, nessuno vicino, tipo che non è un ascolto: niente */
+  reset(); const m1 = s3add("wedge", 500, 450); s3add("corno", 450, 300); s3add("vlnpost", 550, 300);
+  eq(sugg(m1), "", "corno e violino insieme: nessun suggerimento");
+  reset(); const m2 = s3add("wedge", 500, 450); s3add("corno", 1000, 100);
+  eq(sugg(m2), "", "nessuno vicino");
+  reset(); const m3 = s3add("astamic", 500, 450); s3add("corno", 450, 300);
+  eq(sugg(m3), "", "un elemento che non è un ascolto");
+  reset(); const m4 = s3add("wedge", 500, 450); s3add("corno", 450, 300); s3add("bassstand", 450, 330);
+  ok(A.ascoltoEligible(A.state.items[2]), "il basso è una persona che l'ascolto serve");
+  eq(sugg(m4), "", "uno strumento senza famiglia nota (basso) insieme ai corni: nessun suggerimento, non si indovina");
+  reset(); const b1 = s3add("wedge", 500, 450); s3add("batteria", 500, 330);
+  eq(sugg(b1), "Batteria", "la batteria");
+  reset(); const o1 = s3add("wedge", 500, 450); s3add("corno", 450, 300); s3add("tromba", 550, 300);
+  eq(sugg(o1), "Ottoni", "corni e trombe insieme: ottoni");
+  reset(); const o2 = s3add("wedge", 500, 450); s3add("corno", 450, 300); s3add("trombone", 550, 300); s3add("flauto", 500, 330);
+  eq(sugg(o2), "", "corni, ottoni e un flauto: misto");
+  /* il nome scritto a mano non si tocca, e nulla si applica da solo */
+  reset(); const w8 = s3add("wedge", 500, 450, { perChi: "Sara" }); s3add("corno", 450, 300);
+  eq(sugg(w8), "", "con «per chi» scritto a mano: nessun suggerimento"); eq(w8.perChi, "Sara", "e il nome resta");
+  reset(); const w9 = s3add("wedge", 500, 450); s3add("corno", 450, 300);
+  eq(A.mixLabelOf(w9), w9.label || "", "l'etichetta automatica non usa il suggerimento: i PDF dei progetti salvati restano uguali");
+  ok(!/function mixLabelOf\(it\)\{[\s\S]{0,300}monitorFamigliaSuggerita/.test(appjs), "mixLabelOf non lo chiama");
+  /* chi ha dichiarato l'ascolto (ascoltoId) vince sulla vicinanza */
+  reset(); const w10 = s3add("wedge", 500, 450); const c1 = s3add("corno", 300, 300); s3add("vlnpost", 520, 330);
+  c1.ascoltoId = w10.id;
+  eq(sugg(w10), "Corni", "il corno che ha dichiarato questo wedge come suo ascolto, anche se più lontano");
+  reset();
+});
+t("Ascolti: il suggerimento è nel pannello dell'elemento e un clic lo scrive in «Per chi»", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="pPerChiSugg"/.test(html) && html.indexOf('id="pPerChiSugg"') > html.indexOf('id="pPerChiWrap"'), "c'è la riga del suggerimento dopo «Per chi»");
+  const sync = appjs.slice(appjs.indexOf("«Per chi» (A1, 03/11)"), appjs.indexOf("«Per chi» (A1, 03/11)") + 1500);
+  ok(/monitorFamigliaSuggerita\(it\)/.test(sync) && /pPerChiSugg/.test(sync) && /sg\.hidden=!sf;/.test(sync), "il pannello lo calcola e lo mostra solo se c'è");
+  ok(/function usaPerChiSuggerito\(/.test(appjs), "e c'è il gesto che lo applica");
+  reset(); const w = s3add("wedge", 500, 450); s3add("corno", 450, 300);
+  const save0 = A.save; let salvataggi = 0; A.save = () => { salvataggi++; return save0(); };
+  try { A.usaPerChiSuggerito(w.id); } finally { A.save = save0; }
+  eq(salvataggi, 1, "applicare salva (e il passo è annullabile)");
+  eq(w.perChi, "Corni", "applicato"); eq(A.mixLabelOf(w), "Spia – Corni", "e il canale dell'ascolto si chiama «Spia – Corni»");
+  const w2 = s3add("wedge", 700, 450, { perChi: "Sara" }); A.usaPerChiSuggerito(w2.id);
+  eq(w2.perChi, "Sara", "un nome già scritto non si sovrascrive");
+  reset();
+});
+t("Ascolti: la riga «Ascolti:» del cartiglio, solo se c'è almeno un ascolto", () => {
+  reset(); eq(A.pdfTotals({ tecnici: false }).filter((x) => /Ascolti/.test(x)), [], "palco vuoto");
+  add("corista", 200, 300);
+  eq(A.pdfTotals({ tecnici: false }).filter((x) => /Ascolti/.test(x)), [], "senza ascolti: nessuna riga");
+  reset();
+  for (let i = 0; i < 8; i++) add("wedge", 100 + i * 90, 500);
+  for (let i = 0; i < 4; i++) add("sidefill", 100 + i * 90, 700);
+  add("iem", 100, 600); add("iem", 200, 600);
+  add("mixhub", 800, 100); add("mixhub", 900, 100);
+  for (let i = 0; i < 21; i++) add("hearback", 100 + (i % 11) * 80, 200 + Math.floor(i / 11) * 60);
+  const riga = A.pdfTotals({ tecnici: false }).filter((x) => /Ascolti/.test(x));
+  eq(riga, ["Ascolti: 8 wedge · 4 side fill · 2 in-ear · 2 hub · 21 mixer personali"], "tutti gli ascolti in una riga");
+  ok(!A.pdfTotals({ tecnici: false }).some((x) => /\bspie\b|^\d+ in-ear|personal mixer/.test(x)), "e non più le tre voci separate");
+  reset(); add("wedge", 100, 500);
+  eq(A.pdfTotals({ tecnici: false }).filter((x) => /Ascolti/.test(x)), ["Ascolti: 1 wedge"], "singolare: un wedge solo");
+  reset(); add("hearback", 100, 500);
+  eq(A.pdfTotals({ tecnici: false }).filter((x) => /Ascolti/.test(x)), ["Ascolti: 1 mixer personale"], "un solo mixer personale");
+  reset(); add("mixhub", 100, 500);
+  eq(A.pdfTotals({ tecnici: false }).filter((x) => /Ascolti/.test(x)), [], "un hub da solo non è un ascolto");
+  reset(); add("drumfill", 100, 500); add("wedge", 200, 500);
+  eq(A.pdfTotals({ tecnici: false }).filter((x) => /Ascolti/.test(x)), ["Ascolti: 1 wedge · 1 drum fill"], "il drum fill a parte");
+  reset();
+});
+t("Ascolti: macchine da 8 mix e aste nane — band e vocalist separati, 1 asta per mixer", () => {
+  const fix = (nBand, nVoc, extra) => { reset(); let k = 0;
+    for (let i = 0; i < nBand; i++) { const x = 100 + (k % 12) * 90, y = 100 + Math.floor(k / 12) * 110; add("corno", x, y); add("hearback", x + 35, y + 10); k++; }
+    for (let i = 0; i < nVoc; i++) { const x = 100 + (k % 12) * 90, y = 100 + Math.floor(k / 12) * 110; add("cantante", x, y); add("hearback", x + 35, y + 10); k++; } };
+  fix(16, 5);
+  const m = A.macchineAscolto();
+  eq([m.mixer, m.band, m.vocalist], [21, 16, 5], "21 mixer: 16 band e 5 vocalist");
+  eq([m.macchineBand, m.macchineVocalist, m.macchine, m.aste], [2, 1, 3, 21], "16 mix band → 2 macchine, 5 vocalist → 1, 3 in tutto; 21 aste nane");
+  eq(A.macchineTesto(m), "Macchine da 8 mix: 3 (band 2 · vocalist 1) · Aste nane: 21", "il testo della lista");
+  fix(8, 0); eq(A.macchineAscolto().macchine, 1, "8 mix: una macchina"); eq(A.macchineTesto(A.macchineAscolto()), "Macchine da 8 mix: 1 · Aste nane: 8", "senza vocalist non si dice");
+  fix(9, 0); eq(A.macchineAscolto().macchine, 2, "9 mix: due macchine");
+  fix(8, 1); eq([A.macchineAscolto().macchineBand, A.macchineAscolto().macchineVocalist], [1, 1], "8 band + 1 vocalist: due macchine, non una (separate)");
+  fix(4, 4); eq([A.macchineAscolto().macchineBand, A.macchineAscolto().macchineVocalist, A.macchineAscolto().macchine], [1, 1, 2], "4 band + 4 vocalist: due macchine (non una da 8): i gruppi non si fondono");
+  fix(16, 0); eq(A.macchineAscolto(16).macchine, 1, "con 16 mix per macchina (sistemi doppi)");
+  reset(); eq(A.macchineAscolto(), null, "senza mixer personali: niente");
+  add("wedge", 100, 100); eq(A.macchineAscolto(), null, "solo wedge: niente");
+  /* un mixer senza nessuno vicino conta come band */
+  reset(); add("hearback", 600, 600); eq([A.macchineAscolto().band, A.macchineAscolto().vocalist], [1, 0], "nessuna persona vicina: band");
+  /* nel PDF della lista personal monitor, in fondo; la pagina non cambia per chi non ha mixer */
+  fix(16, 5);
+  A.state.items.filter((i) => i.type === "hearback").forEach((i) => { i.pm = "p16m"; });
+  const doc = docACapo(); A.pmListPdf(doc);
+  const tx = pdfTesti(doc).map((x) => x.t);
+  ok(tx.indexOf("Macchine da 8 mix: 3 (band 2 · vocalist 1) · Aste nane: 21") > -1, "PDF: la riga delle macchine e delle aste: " + tx.slice(-6).join(" | "));
+  ok(tx.indexOf("MACCHINE E ASTE") > -1, "con la sua testata");
+  ok(!tx.some((x) => /prolung/i.test(x)), "e nessuna prolunga cuffia: la regola non è derivabile (D9)");
+  ok(tx.indexOf("MACCHINE E ASTE") > tx.indexOf("MIXER PERSONALI"), "in fondo, dopo i mixer");
+  reset();
+});
 /* LEGGIO DEL DIRETTORE A PARTE (27/10/2026, Simone, guardando un A3 stampato: «il direttore ha il leggio del
    direttore ed è diverso, è più grande, quindi andrebbe conteggiato a parte rispetto a quello dei musicisti»).
    È un articolo diverso in magazzino: nello Stato e nel cartiglio esce su una riga sua, fuori dai leggii. */
@@ -21521,123 +21638,6 @@ t("backline: il modello scelto va sul foglio, insieme all'etichetta dell'utente"
   reset();
 });
 
-/* ═══ ASCOLTI NOMINATI E MIXER PERSONALI (12/11/2026, specifica S3 dalla posta di produzione: «Wedge Corni», «Sidefill Archi»,
-   «16 mix → 21 aste nane»). Tre cose: un NOME SUGGERITO per il monitor che serve una famiglia sola (non si applica mai da solo: il
-   PDF dei progetti salvati resta identico), la riga «Ascolti:» nel cartiglio, e in fondo alla lista personal monitor quante macchine
-   da 8 mix e quante aste nane. Le prolunghe cuffia NON si calcolano (regola non derivabile, domanda D9 per un fonico). ═══ */
-const s3add = (type, x, y, o) => A.addItem(type, Object.assign({ x, y }, o || {})) || A.state.items[A.state.items.length - 1];
-t("Ascolti: il nome suggerito è la famiglia di chi il monitor serve, solo se è una sola", () => {
-  const sugg = (mon) => A.monitorFamigliaSuggerita(mon);
-  reset(); const w = s3add("wedge", 500, 450);
-  ["corno", "corno", "corno"].forEach((tp, i) => s3add(tp, 400 + i * 100, 300));
-  eq(sugg(w), "Corni", "tre corni davanti al wedge");
-  reset(); const w2 = s3add("wedge", 500, 450); s3add("violino" in A.TYPES ? "violino" : "vlnpost", 500, 300); s3add("vlnpost", 600, 300);
-  eq(sugg(w2), "Archi", "archi");
-  reset(); const w3 = s3add("wedge", 500, 450); s3add("cantante", 500, 300);
-  eq(sugg(w3), "Solisti", "un cantante");
-  reset(); const w4 = s3add("wedge", 500, 450); s3add("corista", 450, 300); s3add("corista", 550, 300);
-  eq(sugg(w4), "Coro", "coristi");
-  reset(); const w5 = s3add("wedge", 500, 450); s3add("tromba", 450, 300); s3add("trombone", 550, 300);
-  eq(sugg(w5), "Ottoni", "tromba e trombone: ottoni");
-  reset(); const w6 = s3add("wedge", 500, 450); s3add("flauto", 450, 300); s3add("oboe", 550, 300);
-  eq(sugg(w6), "Legni", "legni");
-  reset(); const w7 = s3add("sidefill", 500, 450); s3add("vlnpost", 450, 300); s3add("violapost", 550, 300);
-  eq(sugg(w7), "Archi", "anche il side fill");
-  /* famiglie miste, nessuno vicino, tipo che non è un ascolto: niente */
-  reset(); const m1 = s3add("wedge", 500, 450); s3add("corno", 450, 300); s3add("vlnpost", 550, 300);
-  eq(sugg(m1), "", "corno e violino insieme: nessun suggerimento");
-  reset(); const m2 = s3add("wedge", 500, 450); s3add("corno", 1000, 100);
-  eq(sugg(m2), "", "nessuno vicino");
-  reset(); const m3 = s3add("astamic", 500, 450); s3add("corno", 450, 300);
-  eq(sugg(m3), "", "un elemento che non è un ascolto");
-  reset(); const m4 = s3add("wedge", 500, 450); s3add("corno", 450, 300); s3add("bassstand", 450, 330);
-  ok(A.ascoltoEligible(A.state.items[2]), "il basso è una persona che l'ascolto serve");
-  eq(sugg(m4), "", "uno strumento senza famiglia nota (basso) insieme ai corni: nessun suggerimento, non si indovina");
-  reset(); const b1 = s3add("wedge", 500, 450); s3add("batteria", 500, 330);
-  eq(sugg(b1), "Batteria", "la batteria");
-  reset(); const o1 = s3add("wedge", 500, 450); s3add("corno", 450, 300); s3add("tromba", 550, 300);
-  eq(sugg(o1), "Ottoni", "corni e trombe insieme: ottoni");
-  reset(); const o2 = s3add("wedge", 500, 450); s3add("corno", 450, 300); s3add("trombone", 550, 300); s3add("flauto", 500, 330);
-  eq(sugg(o2), "", "corni, ottoni e un flauto: misto");
-  /* il nome scritto a mano non si tocca, e nulla si applica da solo */
-  reset(); const w8 = s3add("wedge", 500, 450, { perChi: "Sara" }); s3add("corno", 450, 300);
-  eq(sugg(w8), "", "con «per chi» scritto a mano: nessun suggerimento"); eq(w8.perChi, "Sara", "e il nome resta");
-  reset(); const w9 = s3add("wedge", 500, 450); s3add("corno", 450, 300);
-  eq(A.mixLabelOf(w9), w9.label || "", "l'etichetta automatica non usa il suggerimento: i PDF dei progetti salvati restano uguali");
-  ok(!/function mixLabelOf\(it\)\{[\s\S]{0,300}monitorFamigliaSuggerita/.test(appjs), "mixLabelOf non lo chiama");
-  /* chi ha dichiarato l'ascolto (ascoltoId) vince sulla vicinanza */
-  reset(); const w10 = s3add("wedge", 500, 450); const c1 = s3add("corno", 300, 300); s3add("vlnpost", 520, 330);
-  c1.ascoltoId = w10.id;
-  eq(sugg(w10), "Corni", "il corno che ha dichiarato questo wedge come suo ascolto, anche se più lontano");
-  reset();
-});
-t("Ascolti: il suggerimento è nel pannello dell'elemento e un clic lo scrive in «Per chi»", () => {
-  const html = readFileSync(join(root, "app/index.html"), "utf8");
-  ok(/id="pPerChiSugg"/.test(html) && html.indexOf('id="pPerChiSugg"') > html.indexOf('id="pPerChiWrap"'), "c'è la riga del suggerimento dopo «Per chi»");
-  const sync = appjs.slice(appjs.indexOf("«Per chi» (A1, 03/11)"), appjs.indexOf("«Per chi» (A1, 03/11)") + 1500);
-  ok(/monitorFamigliaSuggerita\(it\)/.test(sync) && /pPerChiSugg/.test(sync) && /sg\.hidden=!sf;/.test(sync), "il pannello lo calcola e lo mostra solo se c'è");
-  ok(/function usaPerChiSuggerito\(/.test(appjs), "e c'è il gesto che lo applica");
-  reset(); const w = s3add("wedge", 500, 450); s3add("corno", 450, 300);
-  const save0 = A.save; let salvataggi = 0; A.save = () => { salvataggi++; return save0(); };
-  try { A.usaPerChiSuggerito(w.id); } finally { A.save = save0; }
-  eq(salvataggi, 1, "applicare salva (e il passo è annullabile)");
-  eq(w.perChi, "Corni", "applicato"); eq(A.mixLabelOf(w), "Spia – Corni", "e il canale dell'ascolto si chiama «Spia – Corni»");
-  const w2 = s3add("wedge", 700, 450, { perChi: "Sara" }); A.usaPerChiSuggerito(w2.id);
-  eq(w2.perChi, "Sara", "un nome già scritto non si sovrascrive");
-  reset();
-});
-t("Ascolti: la riga «Ascolti:» del cartiglio, solo se c'è almeno un ascolto", () => {
-  reset(); eq(A.pdfTotals({ tecnici: false }).filter((x) => /Ascolti/.test(x)), [], "palco vuoto");
-  add("corista", 200, 300);
-  eq(A.pdfTotals({ tecnici: false }).filter((x) => /Ascolti/.test(x)), [], "senza ascolti: nessuna riga");
-  reset();
-  for (let i = 0; i < 8; i++) add("wedge", 100 + i * 90, 500);
-  for (let i = 0; i < 4; i++) add("sidefill", 100 + i * 90, 700);
-  add("iem", 100, 600); add("iem", 200, 600);
-  add("mixhub", 800, 100); add("mixhub", 900, 100);
-  for (let i = 0; i < 21; i++) add("hearback", 100 + (i % 11) * 80, 200 + Math.floor(i / 11) * 60);
-  const riga = A.pdfTotals({ tecnici: false }).filter((x) => /Ascolti/.test(x));
-  eq(riga, ["Ascolti: 8 wedge · 4 side fill · 2 in-ear · 2 hub · 21 mixer personali"], "tutti gli ascolti in una riga");
-  ok(!A.pdfTotals({ tecnici: false }).some((x) => /\bspie\b|^\d+ in-ear|personal mixer/.test(x)), "e non più le tre voci separate");
-  reset(); add("wedge", 100, 500);
-  eq(A.pdfTotals({ tecnici: false }).filter((x) => /Ascolti/.test(x)), ["Ascolti: 1 wedge"], "singolare: un wedge solo");
-  reset(); add("hearback", 100, 500);
-  eq(A.pdfTotals({ tecnici: false }).filter((x) => /Ascolti/.test(x)), ["Ascolti: 1 mixer personale"], "un solo mixer personale");
-  reset(); add("mixhub", 100, 500);
-  eq(A.pdfTotals({ tecnici: false }).filter((x) => /Ascolti/.test(x)), [], "un hub da solo non è un ascolto");
-  reset(); add("drumfill", 100, 500); add("wedge", 200, 500);
-  eq(A.pdfTotals({ tecnici: false }).filter((x) => /Ascolti/.test(x)), ["Ascolti: 1 wedge · 1 drum fill"], "il drum fill a parte");
-  reset();
-});
-t("Ascolti: macchine da 8 mix e aste nane — band e vocalist separati, 1 asta per mixer", () => {
-  const fix = (nBand, nVoc, extra) => { reset(); let k = 0;
-    for (let i = 0; i < nBand; i++) { const x = 100 + (k % 12) * 90, y = 100 + Math.floor(k / 12) * 110; add("corno", x, y); add("hearback", x + 35, y + 10); k++; }
-    for (let i = 0; i < nVoc; i++) { const x = 100 + (k % 12) * 90, y = 100 + Math.floor(k / 12) * 110; add("cantante", x, y); add("hearback", x + 35, y + 10); k++; } };
-  fix(16, 5);
-  const m = A.macchineAscolto();
-  eq([m.mixer, m.band, m.vocalist], [21, 16, 5], "21 mixer: 16 band e 5 vocalist");
-  eq([m.macchineBand, m.macchineVocalist, m.macchine, m.aste], [2, 1, 3, 21], "16 mix band → 2 macchine, 5 vocalist → 1, 3 in tutto; 21 aste nane");
-  eq(A.macchineTesto(m), "Macchine da 8 mix: 3 (band 2 · vocalist 1) · Aste nane: 21", "il testo della lista");
-  fix(8, 0); eq(A.macchineAscolto().macchine, 1, "8 mix: una macchina"); eq(A.macchineTesto(A.macchineAscolto()), "Macchine da 8 mix: 1 · Aste nane: 8", "senza vocalist non si dice");
-  fix(9, 0); eq(A.macchineAscolto().macchine, 2, "9 mix: due macchine");
-  fix(8, 1); eq([A.macchineAscolto().macchineBand, A.macchineAscolto().macchineVocalist], [1, 1], "8 band + 1 vocalist: due macchine, non una (separate)");
-  fix(4, 4); eq([A.macchineAscolto().macchineBand, A.macchineAscolto().macchineVocalist, A.macchineAscolto().macchine], [1, 1, 2], "4 band + 4 vocalist: due macchine (non una da 8): i gruppi non si fondono");
-  fix(16, 0); eq(A.macchineAscolto(16).macchine, 1, "con 16 mix per macchina (sistemi doppi)");
-  reset(); eq(A.macchineAscolto(), null, "senza mixer personali: niente");
-  add("wedge", 100, 100); eq(A.macchineAscolto(), null, "solo wedge: niente");
-  /* un mixer senza nessuno vicino conta come band */
-  reset(); add("hearback", 600, 600); eq([A.macchineAscolto().band, A.macchineAscolto().vocalist], [1, 0], "nessuna persona vicina: band");
-  /* nel PDF della lista personal monitor, in fondo; la pagina non cambia per chi non ha mixer */
-  fix(16, 5);
-  A.state.items.filter((i) => i.type === "hearback").forEach((i) => { i.pm = "p16m"; });
-  const doc = docACapo(); A.pmListPdf(doc);
-  const tx = pdfTesti(doc).map((x) => x.t);
-  ok(tx.indexOf("Macchine da 8 mix: 3 (band 2 · vocalist 1) · Aste nane: 21") > -1, "PDF: la riga delle macchine e delle aste: " + tx.slice(-6).join(" | "));
-  ok(tx.indexOf("MACCHINE E ASTE") > -1, "con la sua testata");
-  ok(!tx.some((x) => /prolung/i.test(x)), "e nessuna prolunga cuffia: la regola non è derivabile (D9)");
-  ok(tx.indexOf("MACCHINE E ASTE") > tx.indexOf("MIXER PERSONALI"), "in fondo, dopo i mixer");
-  reset();
-});
 t("backline: schermo e PDF scrivono lo stesso nome col modello, e la riga lunga va a capo", () => {
   reset(); A.state.lookDefault = "schematico";
   const ba = add("bassamp", 300, 300); ba.label = "Ampli basso"; A.ampModelSetBm(ba, "ampeg_rb210");
