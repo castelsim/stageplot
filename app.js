@@ -7486,6 +7486,8 @@ function normalizeState(s){
     if(m.mic!=null) o.mic=String(m.mic).slice(0,40);
     if(m.stand!=null) o.stand=String(m.stand).slice(0,24);        /* asta scelta a mano */
     if(m.p48===true||m.p48===false) o.p48=m.p48;                   /* phantom forzato (o tolto) a mano */
+    if(m.dyn==="G"||m.dyn==="C"||m.dyn==="GC") o.dyn=m.dyn;        /* dinamica sul banco: gate, compressore o entrambi (formato Service, 12/11) */
+    if(typeof m.micAlt==="string" && m.micAlt.trim()) o.micAlt=m.micAlt.trim().slice(0,24);   /* microfono alternativo («similare», «SM81»): stampato «mic o alt» */
     if(m.micOff) o.micOff=1;
     if(m.seg) o.seg=1;                                             /* cavo segmentato */
     if(m.via==="usb"||m.via==="dante") o.via=m.via;                /* via digitale del computer (22/10: si perdeva; «an» non si salva) */
@@ -29012,6 +29014,7 @@ function patchList(){
     }
     return {n:++n, name:name, mic:mic, stand:stand, p48:p48, standAuto:!(_ov.stand!=null), p48Auto:!(_ov.p48===true||_ov.p48===false),
             short:_ov.short||"",   /* nome sul banco: su OGNI riga, anche senza stage box (11/11/2026: si leggeva solo sui canali collegati) */
+            dyn:_ov.dyn||"", micAlt:_ov.micAlt||"",   /* formato Service (12/11): dinamica e microfono alternativo, scelte del canale */
             micAuto:!(_ov.mic!=null||o),   /* mic DEDOTTO (dal tipo o dal modello reale): in channel list si mostra in corsivo come l'asta */
             stereoPair:_pair, standShared:_shared, by:_riderBy(itemId, name),
             patch:patch, box:box, itemId:itemId, key:key, micOff:o}; }
@@ -29663,6 +29666,9 @@ function openPortPop(ev, r){
     if(String(rk).indexOf("grp:")===0) h+='<div class="pp-note">Questo strumento entra con un multipolare: la porta scelta è quella del primo canale, gli altri seguono consecutivi.</div>';
   }
   h+='<label for="ppShort">Nome breve console</label><input id="ppShort" type="text" maxlength="12" placeholder="es. VL1-1" value="'+esc(r.short||'')+'">';
+  /* formato Service della channel list (12/11): dinamica sul banco e microfono alternativo, riga per riga */
+  h+='<label for="ppDyn">Dinamica</label><select id="ppDyn"><option value="">\u2014</option>'+[["G","Gate"],["C","Compressore"],["GC","Gate + compressore"]].map(function(o){ return '<option value="'+o[0]+'"'+(r.dyn===o[0]?' selected':'')+'>'+o[1]+'</option>'; }).join("")+'</select>';
+  h+='<label for="ppMicAlt">Microfono alternativo</label><input id="ppMicAlt" type="text" maxlength="24" placeholder="es. similare, SM81" value="'+esc(r.micAlt||'')+'">';
   pop.innerHTML=h;
   document.body.appendChild(pop);
   pop.style.left=Math.min(ev.clientX, window.innerWidth-pop.offsetWidth-10)+"px";
@@ -29673,12 +29679,16 @@ function openPortPop(ev, r){
     var m=cabManual(r.key);
     var sh=document.getElementById("ppShort").value.trim();
     if(sh) m.short=sh.slice(0,12); else delete m.short;
+    var _dy=document.getElementById("ppDyn"), _ma=document.getElementById("ppMicAlt");
+    if(_dy){ if(_dy.value==="G"||_dy.value==="C"||_dy.value==="GC") m.dyn=_dy.value; else delete m.dyn; }
+    if(_ma){ var _mv=_ma.value.trim().slice(0,24); if(_mv) m.micAlt=_mv; else delete m.micAlt; }
     if(!Object.keys(m).length) delete state.cab.manual[r.key];
     __cabRes=null; save(); render();
   }
   pop.addEventListener("click", function(e){ e.stopPropagation(); });
   var sv=document.getElementById("ppSel"); if(sv) sv.addEventListener("change", commit);
   document.getElementById("ppShort").addEventListener("change", commit);
+  ["ppDyn","ppMicAlt"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("change", commit); });
   setTimeout(function(){ document.addEventListener("click", function close(){ document.removeEventListener("click", close); commit(); pop.remove(); }); }, 30);
 }
 /* SP-06 (audit esterno 05/09): «liste, livelli e modalità di lavoro sono mescolati». Aprire una
@@ -34574,6 +34584,79 @@ function noteListPdf(shared){
   if(shared){ run(shared); return; }
   loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
 }
+/* ═══ CHANNEL LIST «FORMATO SERVICE» (12/11/2026, specifica S4 dalla posta di produzione) ═══
+   Il formato fisso dei service, identico da un anno all'altro: N · STRUMENTO · FOH (nome sul banco) · DINAMICA · STAND · MIC / DI ·
+   PATCH · 48 V, pagine da 32 canali (o 48), A4 orizzontale, aste in calce. È un'opzione dell'Esporta: patchListPdf, il formato
+   semplice, non cambia. Le aste si normalizzano alle voci del service (lunga, corta, nana, clip, XLR, DI); ciò che non si sa classificare
+   si stampa com'è, per non perdere informazione. */
+function standServizio(r){
+  if(!r) return "";
+  if(r.standShared) return "stessa asta";
+  if(/\bDI\b/.test(String(r.mic||""))) return "DI";
+  var s=String(r.stand||"").trim().toLowerCase(); if(!s || s==="\u2014") return "";
+  if(/nana|bassa/.test(s)) return "nana";
+  if(/corta|tavolo/.test(s)) return "corta";
+  if(/lunga|dritta|giraffa|gigante/.test(s)) return "lunga";
+  if(/clip|pinza/.test(s)) return "clip";
+  if(/interno|terra|xlr/.test(s)) return "XLR";
+  return String(r.stand).trim();
+}
+var ASTE_SERVIZIO=[["lunga","lunga","lunghe"],["corta","corta","corte"],["nana","nana","nane"],["clip","clip","clip"]];
+function asteServizioTesto(rows){
+  var c={}; (rows||[]).forEach(function(r){ if(r.reserved||r.spare) return; var v=standServizio(r); if(ASTE_SERVIZIO.some(function(a){ return a[0]===v; })) c[v]=(c[v]||0)+1; });
+  var o=ASTE_SERVIZIO.filter(function(a){ return c[a[0]]; }).map(function(a){ return c[a[0]]+" "+(c[a[0]]===1?a[1]:a[2]); });
+  return o.length ? "Aste: "+o.join(" · ") : "";
+}
+function patchListServicePdf(shared, opts){
+  var K=(opts && opts.perPagina===48) ? 48 : 32;
+  var pl=patchList(); if(!pl.rows.length) return;
+  var run=function(doc){
+    var rows=pl.rows, pagine=Math.ceil(rows.length/K), M=12, W=297, cols=[M, M+10, M+72, M+104, M+120, M+142, M+206, M+240];
+    var tp=String(state.titolo||"").trim(), nome=(typeof titoloSenzaVersione==="function" ? titoloSenzaVersione(tp) : tp)||"Channel list";
+    var dt=(state.evDate||"").replace(/-/g,""), v=(typeof versioneNumero==="function") ? versioneNumero() : 0;
+    var testata=[nome, dt, String(state.luogo||"").trim(), v?("v"+v):""].filter(Boolean).join(" \u2013 ");
+    var ct=(typeof contatoreCanali==="function") ? contatoreCanali() : null;
+    function fit(t, w){ t=String(t==null?"":t); while(t.length>1 && doc.getTextWidth(t)>w){ t=t.slice(0,-2)+"\u2026"; if(t.length<3) break; } return t; }
+    for(var pg=0; pg<pagine; pg++){
+      doc.addPage("a4","landscape");
+      var r0=rows[pg*K], r1=rows[Math.min(rows.length,(pg+1)*K)-1];
+      var num=function(r){ return (pl.hasFoh&&r.foh)?r.foh:r.n; };
+      doc.setFillColor("#0d9488"); doc.rect(0,0,W,12,"F");
+      doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.text("STAGE PLOT \u2014 Channel list", M, 8);
+      doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), W-M, 8, {align:"right"});
+      doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text(fit(testata, W-2*M), M, 19);
+      var boxTag=(r0.box && r0.patch) ? String(r0.patch).split("\u00b7")[0] : "";
+      doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor("#555555");
+      doc.text("Canali "+num(r0)+"-"+num(r1)+(boxTag?" \u00b7 box "+boxTag:"")+" \u00b7 pagina "+(pg+1)+" di "+pagine, M, 25);
+      var y0=31;
+      if(pg===0 && ct && (ct.riservati>0 || ct.oltre>0)){ doc.setTextColor(ct.oltre?"#b45309":"#555555"); doc.text(ct.testo, M, y0); y0+=5; }
+      var rh=Math.min(5.2, (192-(y0+6))/K), fs=Math.max(6, Math.min(8.5, rh*1.8));
+      doc.setFont("helvetica","bold"); doc.setFontSize(fs); doc.setTextColor("#0d9488");
+      ["N","STRUMENTO","FOH","DIN.","STAND","MIC / DI","PATCH","48V"].forEach(function(h,i){ doc.text(h, cols[i], y0+3); });
+      doc.setDrawColor("#0d9488"); doc.setLineWidth(0.3); doc.line(M, y0+4.6, W-M, y0+4.6);
+      var y=y0+4.6+rh;
+      rows.slice(pg*K,(pg+1)*K).forEach(function(r){
+        doc.setFont("helvetica","normal"); doc.setFontSize(fs); doc.setTextColor(r.reserved||r.spare ? "#9a948b" : "#111827");
+        var nm=r.reserved ? (r.servizio||"RISERVATO") : (r.spare ? "\u2014 libero \u2014" : r.name);
+        doc.text(String(num(r)), cols[0], y);
+        doc.text(fit(nm, 60), cols[1], y);
+        if(!r.reserved && !r.spare){
+          doc.text(fit(r.short||r.name, 30), cols[2], y);
+          if(r.dyn) doc.text(r.dyn, cols[3], y);
+          var st=standServizio(r); if(st) doc.text(fit(st, 20), cols[4], y);
+          var mic=r.micOff ? "" : (r.mic||""); if(mic && r.micAlt) mic=mic+" o "+r.micAlt;
+          if(mic) doc.text(fit(mic, 62), cols[5], y);
+        }
+        if(r.patch) doc.text(fit(r.patch, 32), cols[6], y);
+        if(r.p48 && !r.reserved && !r.spare) doc.text("X", cols[7], y);
+        y+=rh;
+      });
+      if(pg===pagine-1){ var aste=asteServizioTesto(rows); if(aste){ doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.setTextColor("#111827"); doc.text(aste, M, Math.min(200, y+3)); } }
+    }
+  };
+  if(shared){ run(shared); return; }
+  loadJsPDF().then(function(){ var d=new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true}); run(d); d.deletePage(1); pdfCredit(d); pdfSave(d, fileName()+"-channel-list-service.pdf"); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
+}
 function dantePatchPdf(shared){
   var R; try{ R=cabResult(); }catch(_e){ R={boxes:[]}; }
   var boxes=(R.boxes||[]).slice().sort(function(a,b){ return a.eid-b.eid; });
@@ -37084,7 +37167,8 @@ function buildPdfDoc(paperKey, N, orient, header){
         rider:function(){ riderPdf(doc); },                       /* T2: il rider apre le pagine tecniche */
         responsabilita:function(){ responsabilitaPdf(doc); },      /* Decisione 5A */
         /* in consulenza input+monitor sono già nella channel list manuale */
-        inputlist:function(){ if(!window.__consultMode) patchListPdf(doc); },
+        inputlist:function(){ if(window.__consultMode) return; var _f=window.__pdfListaFmt;
+          if(_f && _f.formato==="service") patchListServicePdf(doc, {perPagina:_f.perPagina}); else patchListPdf(doc); },   /* formato Service = opzione dell'Esporta (12/11), il semplice resta il predefinito */
         monitorlist:function(){ if(!window.__consultMode) monitorListPdf(doc); },
         lightslist:function(){ lightsListPdf(doc); },
         loadlist:function(){ loadListPdf(doc); },
@@ -37579,6 +37663,21 @@ function pdfChannelPage(doc, L, paperKey){
       });
     }
   }
+  /* Il formato della channel list (12/11): i due menu compaiono solo se la channel list è fra le pagine possibili; a ogni apertura si riparte da Semplice, 32. */
+  function renderListaFormato(){
+    var box=document.getElementById("pdfListaFmt"); if(!box) return;
+    var ha=(_pdfTechPages||[]).some(function(p){ return p.key==="inputlist"; });
+    box.hidden=!ha;
+    var f=document.getElementById("pdfListaFormato"), pp=document.getElementById("pdfListaPerPagina"), ppl=document.getElementById("pdfListaPerPaginaL");
+    if(f) f.value=window.__pdfListaFmt.formato;
+    if(pp){ pp.value=String(window.__pdfListaFmt.perPagina); pp.hidden=window.__pdfListaFmt.formato!=="service"; }
+    if(ppl) ppl.hidden=window.__pdfListaFmt.formato!=="service";
+  }
+  (function(){
+    var f=document.getElementById("pdfListaFormato"), pp=document.getElementById("pdfListaPerPagina");
+    if(f) f.addEventListener("change", function(){ window.__pdfListaFmt.formato=(f.value==="service")?"service":"semplice"; renderListaFormato(); });
+    if(pp) pp.addEventListener("change", function(){ window.__pdfListaFmt.perPagina=(pp.value==="48")?48:32; });
+  })();
   /* Il coro che nel PDF non ha canali (29/09). Stessa forma dell'avviso qui sopra: quello che si vedrà nel
      foglio, e il rimedio a un clic — gli stessi microfoni d'insieme che aggiunge l'audit. */
   function renderCoroMuto(){
@@ -38016,6 +38115,7 @@ function pdfChannelPage(doc, L, paperKey){
        progetto) e' preselezionata quando ce ne sono, e «Solo palco» e' a un clic, sempre in vista.
        Senza pagine suggerite si parte dal solo palco. La scelta NON si salva nel progetto (10/09: niente
        `pdfPages`): vive quanto la finestra, e alla riapertura si riparte da qui. */
+    window.__pdfListaFmt={formato:"semplice", perPagina:32}; renderListaFormato();   /* formato della channel list: a ogni apertura da Semplice (12/11) */
     _pdfPillSel={};
     if(pdfScelteEsporta(_pdfTechPages).preselezione==="scheda") pdfScelteEsporta(_pdfTechPages).sugg.forEach(function(k){ _pdfPillSel[k]=true; });
     _prodOpen=false;

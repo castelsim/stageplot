@@ -19474,6 +19474,125 @@ t("nella Lista carichi si capisce cos'è ogni carico, non solo di chi è", () =>
   eq(A.loadName({ type: "wedge", label: "Wedge monitor batterista" }), "Wedge monitor batterista", "e se l'etichetta contiene già il tipo non lo ripete");
 });
 
+/* ═══ CHANNEL LIST «FORMATO SERVICE» (12/11/2026, specifica S4 dalla posta di produzione: il formato fisso dei service, identico da un
+   anno all'altro: N · STRUMENTO · FOH (nome sul banco) · DINAMICA · STAND · MIC/DI · PATCH · 48 V, pagine da 32 canali, aste in calce).
+   È un'OPZIONE dell'Esporta accanto al formato di sempre, che resta il predefinito e produce lo STESSO PDF. ═══ */
+const s4Doc = () => Object.assign(jsPdfFinto()({ format: "a4", orientation: "portrait" }), { roundedRect() {} });
+const s4Fix = (n, items) => { reset(); A.loadDoc({ titolo: "Orchestra di prova", luogo: "Teatro Finto", stage: { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] }, inputs: [], outputs: [],
+  items: Array.from({ length: n }, (_, i) => ({ id: "m" + i, type: "astamic", x: 60 + (i % 20) * 55, y: 200 + Math.floor(i / 20) * 60 })).concat(items || []) });
+  if (items && items.some((i) => i.type === "stagebox")) { A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.home = { kind: "foh" }; }
+  A.__cabRes = null; };
+const s4Pdf = (perPagina) => { const d = s4Doc(); A.patchListServicePdf(d, { perPagina: perPagina || 32 }); return d; };
+const s4Testi = (d) => d.pagine.slice(1).map((pg) => pg.testi.map((x) => x.t));
+t("Channel list Service: pagine da 32 (1-32, 33-64, 65-96, 97-104) e da 48 («la pagina 2 riparte da 49»)", () => {
+  s4Fix(104);
+  let d = s4Pdf(32), pg = s4Testi(d);
+  eq(pg.length, 4, "104 canali = 4 pagine da 32");
+  ok(d.pagine.slice(1).every((p) => p.wh[0] > p.wh[1]), "A4 orizzontale");
+  eq(pg.map((p) => (p.find((x) => /^Canali \d+-\d+/.test(x)) || "").replace(/ ·.*/, "")), ["Canali 1-32", "Canali 33-64", "Canali 65-96", "Canali 97-104"], "ogni pagina dice da dove a dove");
+  ok(pg[1].some((x) => x === "33") && !pg[1].some((x) => x === "32"), "la pagina 2 comincia al canale 33");
+  ok(pg.every((p) => p.indexOf("STRUMENTO") > -1 && p.indexOf("MIC / DI") > -1 && p.indexOf("PATCH") > -1), "ogni pagina ripete l'intestazione delle colonne");
+  d = s4Pdf(48); pg = s4Testi(d);
+  eq(pg.map((p) => (p.find((x) => /^Canali \d+-\d+/.test(x)) || "").replace(/ ·.*/, "")), ["Canali 1-48", "Canali 49-96", "Canali 97-104"], "con 48: la pagina 2 riparte da 49");
+  eq(s4Testi(s4Pdf(0)).length, 4, "un valore strano ricade su 32"); eq(s4Testi(s4Pdf(40)).length, 4, "solo 32 o 48");
+  s4Fix(10); eq(s4Testi(s4Pdf(32)).length, 1, "10 canali: una pagina");
+  reset();
+});
+t("Channel list Service: colonne (FOH = nome sul banco, dinamica, asta a vocabolario chiuso, mic con alternativa, 48 V)", () => {
+  s4Fix(0, [{ id: "k", type: "rullante", x: 300, y: 300 }, { id: "o", type: "giraffa", x: 500, y: 300 }, { id: "p", type: "astabassa", x: 700, y: 300 }, { id: "v", type: "vlnpost", x: 900, y: 300 }, { id: "g", type: "keysamp", x: 300, y: 500 }]);
+  const rk = (typ) => A.patchList().rows.find((r) => r.itemId === typ);
+  const man = (it) => A.cabManual(rk(it).key);
+  man("k").short = "SNARE 1"; man("k").dyn = "GC";
+  man("o").dyn = "C"; man("o").micAlt = "similare"; man("p").micAlt = "SM81";
+  A.__cabRes = null;
+  const d = s4Pdf(32), tx = s4Testi(d)[0], righe = (nome) => d.pagine[1].testi.filter((x) => Math.abs(x.y - d.pagine[1].testi.find((y) => y.t === nome).y) < 0.5).sort((a, b) => a.x - b.x).map((x) => x.t);
+  const rSnare = righe(A.patchList().rows.find((r) => r.itemId === "k").name);
+  ok(rSnare.indexOf("SNARE 1") > -1, "FOH: il nome sul banco (short): " + rSnare.join(" | "));
+  ok(rSnare.indexOf("GC") > -1, "dinamica GC: " + rSnare.join(" | "));
+  const rGir = righe(A.patchList().rows.find((r) => r.itemId === "o").name);
+  ok(rGir.indexOf("C") > -1 && rGir.indexOf("lunga") > -1 && rGir.indexOf("KM184 o similare") > -1, "giraffa: dinamica C, asta lunga, «KM184 o similare»: " + rGir.join(" | "));
+  const rBas = righe(A.patchList().rows.find((r) => r.itemId === "p").name);
+  ok(rBas.indexOf("nana") > -1 && rBas.some((x) => /^SM57 o SM81$/.test(x)), "asta bassa = nana, e mic con alternativa «SM57 o SM81»: " + rBas.join(" | "));
+  const rVln = righe(A.patchList().rows.find((r) => r.itemId === "v").name);
+  ok(rVln.indexOf("clip") > -1, "violino con mic a clip: " + rVln.join(" | "));
+  const rGtr = righe(A.patchList().rows.find((r) => r.itemId === "g").name);
+  ok(rGtr.filter((x) => x === "DI").length === 2, "amplificatore in DI: canale DI e stand «DI»: " + rGtr.join(" | "));
+  const ph = A.patchList().rows.find((r) => r.itemId === "o"); ok(ph.p48, "il KM184 ha il phantom");
+  ok(rGir.indexOf("X") > -1, "48 V: X");
+  /* senza «short» la colonna FOH ripiega sul nome della sorgente */
+  const nomeG = A.patchList().rows.find((r) => r.itemId === "g").name;
+  eq(rGtr.filter((x) => x === nomeG).length, 2, "FOH uguale al nome della sorgente quando manca il nome sul banco (STRUMENTO e FOH)");
+  ok(!rGtr.includes("X"), "senza phantom niente X");
+  reset();
+});
+t("Channel list Service: vocabolario delle aste e totale in calce", () => {
+  const s = (st, mic) => A.standServizio({ stand: st, mic: mic || "SM58" });
+  eq([s("asta dritta"), s("asta giraffa"), s("asta gigante"), s("asta bassa"), s("clip"), s("clip strumento"), s("da tavolo"), s("interno/terra"), s("—"), s(""), s("asta bassa", "DI"), s("pinza")],
+     ["lunga", "lunga", "lunga", "nana", "clip", "clip", "corta", "XLR", "", "", "DI", "clip"], "normalizzato alle voci del service; un DI è DI");
+  eq(A.standServizio({ stand: "asta dritta", mic: "SM58", standShared: true }), "stessa asta", "coppia stereo su un'asta sola");
+  eq(A.standServizio({ stand: "supporto speciale", mic: "SM58" }), "supporto speciale", "ciò che non si sa classificare si stampa com'è: non si perde");
+  /* totale: somma delle aste delle righe */
+  s4Fix(0, [{ id: "a", type: "astamic", x: 100, y: 300 }, { id: "b", type: "astamic", x: 200, y: 300 }, { id: "c", type: "giraffa", x: 300, y: 300 }, { id: "d", type: "astabassa", x: 400, y: 300 }, { id: "e", type: "vlnpost", x: 500, y: 300 }, { id: "f", type: "keysamp", x: 600, y: 300 }]);
+  const tx = s4Testi(s4Pdf(32)).flat();
+  ok(tx.indexOf("Aste: 3 lunghe · 1 nana · 1 clip") > -1, "totale per tipo, senza i DI e senza gli zeri: " + tx.filter((x) => /^Aste/.test(x)).join("|"));
+  s4Fix(0, [{ id: "g", type: "keysamp", x: 600, y: 300 }]);
+  ok(!s4Testi(s4Pdf(32)).flat().some((x) => /^Aste/.test(x)), "nessuna asta: nessuna riga");
+  reset();
+});
+t("Channel list Service: intestazione «NOME – AAAAMMGG – luogo – vN» e righe di servizio con il contatore", () => {
+  s4Fix(5); A.state.evDate = "2026-12-12"; A.state.versione = 3;
+  let tx = s4Testi(s4Pdf(32))[0];
+  ok(tx.indexOf("Orchestra di prova – 20261212 – Teatro Finto – v3") > -1, "intestazione: " + tx.slice(0, 8).join(" | "));
+  delete A.state.evDate; delete A.state.versione;
+  tx = s4Testi(s4Pdf(32))[0]; ok(tx.indexOf("Orchestra di prova – Teatro Finto") > -1, "senza data e senza versione: solo nome e luogo");
+  A.state.titolo = "Orchestra di prova v2 · 10/11/2026";
+  tx = s4Testi(s4Pdf(32))[0]; ok(tx.indexOf("Orchestra di prova – Teatro Finto – v2") > -1, "la versione scritta nel titolo non si ripete");
+  /* righe di servizio (#62): il loro nome e il contatore */
+  s4Fix(10, [{ id: "b1", type: "stagebox", x: 900, y: 600, hw: "rio3224d2", sbId: 1, sbRes: [11, 12], sbResNome: { 11: "Seq L", 12: "Seq R" } }]);
+  tx = s4Testi(s4Pdf(32))[0];
+  ok(tx.indexOf("Seq L") > -1 && tx.indexOf("Seq R") > -1 && tx.indexOf("RISERVATO") < 0, "le porte riservate col loro nome");
+  ok(tx.indexOf("Canali: 10 usati + 2 riservati su 32") > -1, "e il contatore: " + tx.slice(0, 10).join(" | "));
+  s4Fix(40, [{ id: "b1", type: "stagebox", x: 900, y: 600, hw: "rio3224d2", sbId: 1, sbRes: [31, 32], sbResNome: { 31: "Seq L", 32: "Seq R" } }]);
+  const due = s4Testi(s4Pdf(32));
+  ok(due.length >= 2 && due[0].some((x) => /^Canali: /.test(x)) && !due[1].some((x) => /^Canali: /.test(x)), "il contatore sta nella prima pagina soltanto");
+  reset();
+});
+t("Channel list Service: dinamica e mic alternativo sono scelte del canale, si salvano e si riaprono; il resto è identico a prima", () => {
+  s4Fix(3);
+  const k0 = A.patchList().rows[0].key;
+  const itemsCopia = JSON.parse(JSON.stringify(A.state.items));
+  const n = (m) => A.normalizeState({ _v: A.SCHEMA_VERSION, items: JSON.parse(JSON.stringify(itemsCopia)), inputs: [], outputs: [], cab: { manual: { [k0]: m } } }).cab.manual[k0];
+  eq(n({ dyn: "GC", micAlt: "KM184" }), { dyn: "GC", micAlt: "KM184" }, "valori validi");
+  eq(n({ dyn: "G" }).dyn, "G", "G"); eq(n({ dyn: "C" }).dyn, "C", "C");
+  eq(n({ dyn: "XX", micAlt: "" }), undefined, "dinamica sconosciuta o alternativa vuota: via, e senza altro la voce sparisce");
+  eq(n({ micAlt: "x".repeat(60) }).micAlt.length, 24, "alternativa al massimo 24 caratteri");
+  eq(n({ dyn: "gc" }), undefined, "solo G, C, GC");
+  A.cabManual(k0).dyn = "G"; A.cabManual(k0).micAlt = "SM81"; A.__cabRes = null;
+  const r = A.patchList().rows[0]; eq([r.dyn, r.micAlt], ["G", "SM81"], "la riga li porta");
+  A.loadDoc(JSON.parse(A.docToJSON())); const r2 = A.patchList().rows[0]; eq([r2.dyn, r2.micAlt], ["G", "SM81"], "salva e riapri");
+  /* un canale che sparisce porta via i suoi override */
+  const prima = Object.keys(A.state.cab.manual).length; A.state.items = A.state.items.filter((i) => i.id !== "m0"); A.__cabRes = null; A.loadDoc(JSON.parse(A.docToJSON()));
+  ok(Object.keys(A.state.cab.manual).every((k) => !/^m0#/.test(k)), "gli override di un canale cancellato non restano (" + prima + " → " + Object.keys(A.state.cab.manual).length + ")");
+  /* e senza dinamica né alternativa la lista semplice non cambia */
+  s4Fix(3); const rr = A.patchList().rows[0]; eq([rr.dyn, rr.micAlt], ["", ""], "vuoti di serie");
+  reset();
+});
+t("Channel list Service: scelta nell'Esporta (Semplice di serie), popup del canale, e il formato Semplice non cambia", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="pdfListaFmt"[^>]*hidden/.test(html) && /id="pdfListaFormato"/.test(html) && /id="pdfListaPerPagina"/.test(html), "i due menu nell'Esporta, nascosti finché non c'è la channel list");
+  ok(/<option value="semplice" selected>/.test(html) && /<option value="service">/.test(html), "Semplice è il predefinito");
+  ok(/<option value="32" selected>/.test(html) && /<option value="48">/.test(html), "32 canali per pagina di serie, 48 configurabile");
+  const disp = appjs.slice(appjs.indexOf("inputlist:function(){"), appjs.indexOf("inputlist:function(){") + 400);
+  ok(/__pdfListaFmt/.test(disp) && /patchListServicePdf\(doc/.test(disp) && /patchListPdf\(doc\)/.test(disp), "l'export sceglie fra i due formati, e Semplice resta patchListPdf");
+  ok(/__pdfListaFmt=\{formato:"semplice", perPagina:32\}/.test(appjs), "a ogni apertura dell'Esporta si riparte da Semplice, 32");
+  const pop = appjs.slice(appjs.indexOf('id="ppShort"'), appjs.indexOf('id="ppShort"') + 1600);
+  ok(/ppDyn/.test(appjs) && /ppMicAlt/.test(appjs), "il popup del canale ha dinamica e mic alternativo");
+  ok(/m\.dyn=_dy\.value; else delete m\.dyn;/.test(appjs) && /if\(_mv\) m\.micAlt=_mv; else delete m\.micAlt;/.test(appjs), "e li scrive (o li toglie) sul canale quando si chiude");
+  ok(/var ha=\(_pdfTechPages\|\|\[\]\)\.some\(function\(p\)\{ return p\.key==="inputlist"; \}\);\s*box\.hidden=!ha;/.test(appjs), "i menu del formato compaiono solo se la channel list è fra le pagine possibili");
+  /* il PDF semplice non nomina il formato Service */
+  const sem = appjs.slice(appjs.indexOf("function patchListPdf(shared){"), appjs.indexOf("function patchListPdf(shared){") + 4400);
+  ok(!/dyn|micAlt|standServizio/.test(sem), "patchListPdf (il formato semplice) non è stato toccato");
+});
 t("nelle liste PDF il buco colora la sua cella, non la riga", () => {
   /* Un canale senza stage box dipingeva di rosso l'intera riga: su una band appena creata TUTTA la
      input list usciva rossa. Il dato (mic, 48V, asta) è giusto; il buco è solo il patch. */
