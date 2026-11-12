@@ -4205,7 +4205,7 @@ function nextVariantName(){ var n=0; VARIANTS.forEach(function(v){ var m=/^Varia
    data e contatti non erano mai diversi. Restano nello stato di ogni variante — lo schema e i file
    già salvati non cambiano — ma a ogni sincronizzazione quelli della variante attiva si scrivono
    nelle altre. */
-var CAMPI_DOCUMENTO=["titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
+var CAMPI_DOCUMENTO=["titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","latiTeatro","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
 function propagaCampiDocumento(v){
   var src=v&&v.state; if(!src) return;
   VARIANTS.forEach(function(o){
@@ -7356,6 +7356,7 @@ function normalizeState(s){
   s.evTime=(typeof s.evTime==="string" && /^\d{2}:\d{2}$/.test(s.evTime)) ? s.evTime : "";
   s.tipoEvento=(s.tipoEvento==="conferenza") ? "conferenza" : "concerto";   /* 24/09: conferenza cambia le parole del PDF e gli avvisi, non il disegno */
   s.pdfHeader = (typeof s.pdfHeader==="string") ? s.pdfHeader.slice(0,120) : "";   /* riferimento nel cartiglio (export), persistente */
+  if(s.latiTeatro!==true) delete s.latiTeatro;   /* giardino e corte: spenti di serie, solo un true esplicito li accende (12/11/2026) */
   if(s.pdfPesi!==true) delete s.pdfPesi;   /* kg nel PDF: solo un true esplicito li accende (06/10/2026) */
   /* Le pagine scelte nella finestra Esporta si ricordavano nel progetto (06/08). Dal 10/09 non più
      — «togli anche la memoria della scelta» — e il campo si porta via chi apre il progetto, non una
@@ -16843,8 +16844,17 @@ function latiTeatroTesti(W, k){
   if(sta("giardino", "corte")) return ["giardino", "corte"];
   return null;
 }
+/* DECISIONE DI SIMONE, 12/11/2026 («in tutti gli stage plot esce sinistra giardino, destra corte… deve essere un'opzione, perché noi
+   abbiamo sempre pubblico e fondo palco»): giardino e corte sono un'OPZIONE del progetto (`state.latiTeatro`), SPENTA di serie.
+   Prima uscivano da soli in ogni progetto con «teatro» nel luogo o nel titolo; ora solo se si accendono dal pannello Palco, e un
+   progetto salvato che non l'ha scelta esce senza. La parola «teatro» non decide più: serve solo a suggerire l'opzione. */
+function latiTeatroImposta(on){
+  if(on) state.latiTeatro=true; else delete state.latiTeatro;
+  save(); render();
+}
+function latiTeatroSuggerimento(){ return (state.latiTeatro!==true && progettoTeatro()) ? "Il luogo sembra un teatro: se serve, accendi giardino e corte." : ""; }
 function latiTeatroMarkup(y, k, attr){
-  if(!progettoTeatro() || custEditorAttivo()) return '';
+  if(state.latiTeatro!==true || custEditorAttivo()) return '';
   var W=state.stage.w||0, t=latiTeatroTesti(W, k);
   if(!t) return '';
   return '<text '+attr+' x="0" y="'+y+'" text-anchor="start">'+t[0]+'</text>'+
@@ -23591,6 +23601,9 @@ function renderStagePanel(){
   syncSnapSelects();   /* il select del telefono deve dire l'aggancio VERO, non quello di partenza */
   var b=stageBlocks();
   document.getElementById("stageTotal").textContent = fmtM(state.stage.w)+" × "+fmtM(state.stage.d);
+  var _lt=document.getElementById("latiTeatro"); if(_lt) _lt.checked=(state.latiTeatro===true);   /* giardino e corte (12/11) */
+  var _ltn=document.getElementById("latiTeatroNota");
+  if(_ltn) _ltn.textContent="Scrive «sinistra (giardino)» e «destra (corte)» ai lati di fondo palco, guardando dalla platea. Spento di serie: utile nei teatri."+(latiTeatroSuggerimento() ? " "+latiTeatroSuggerimento() : "");
   /* lista chip dei blocchi */
   var list=document.getElementById("blkList"); list.innerHTML="";
   b.forEach(function(r,i){
@@ -23949,6 +23962,7 @@ document.addEventListener("click", function(e){
 })();
 document.getElementById("bStageShape").addEventListener("click", toggleStageEdit);
 document.getElementById("bStageDone").addEventListener("click", toggleStageEdit);
+(function(){ var c=document.getElementById("latiTeatro"); if(c) c.addEventListener("change", function(){ latiTeatroImposta(this.checked); }); })();   /* giardino e corte (12/11) */
 document.getElementById("venueBtnDone").addEventListener("click", toggleVenueEdit);
 document.getElementById("bEventoDone").addEventListener("click", toggleEvento);
 /* ---- Channel list (consulenza): wiring pannello + sezioni a scomparsa (audit/roadmap 1B) ---- */
