@@ -7,7 +7,8 @@
  * Uso:  node build.mjs && node test/engines.test.mjs
  *       (exit 1 se un test fallisce → usabile in pre-merge/CI)
  */
-import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
+import { readFileSync, readdirSync, statSync, existsSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";   /* il pacchetto zip si prova con unzip vero (S9) */
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import vm from "node:vm";
@@ -19690,6 +19691,106 @@ t("il prezzo è dichiarato nella pagina, non solo nel piede", () => {
   ok(/Gratis<\/span>/.test(aperturaLanding), "e il gratis è già nei fatti dell'apertura");
 });
 
+/* ═══ PACCHETTO PER DATA (12/11/2026, specifica S9): un .zip con un PDF per documento, nomi «AAAAMMGG vN documento luogo.pdf», documenti scelti
+   fra le pillole già esistenti, zip «store» con CRC32 senza dipendenze (provato con unzip vero). ═══ */
+const pkOpz = (o) => Object.assign({ nome: "Teatro Esempio", data: "20260419", versione: 3, variante: "" }, o || {});
+t("Pacchetto: nomi dei file «AAAAMMGG vN documento luogo», con data dell'evento o di esportazione, senza versione, luogo ripulito, variante", () => {
+  eq(A.pacchettoNomeFile("stage plot", pkOpz()), "20260419 v3 stage plot Teatro Esempio", "lo schema dei service");
+  eq(A.pacchettoNomeFile("channel list", pkOpz({ versione: 0 })), "20260419 channel list Teatro Esempio", "senza versione: «vN» si omette");
+  eq(A.pacchettoNomeFile("rider", pkOpz({ versione: undefined })), "20260419 rider Teatro Esempio", "versione assente");
+  eq(A.pacchettoNomeFile("organico", pkOpz({ nome: "Teatro A/B: Sala \"1\"?" })), "20260419 v3 organico Teatro A B Sala 1", "il luogo ripulito dai caratteri che i file system rifiutano (/ : \\ * ? \" < > |)");
+  eq(A.pacchettoNomeFile("organico", pkOpz({ nome: "Teatro   Esempio  ." })), "20260419 v3 organico Teatro Esempio", "spazi doppi e punto finale");
+  eq(A.pacchettoNomeFile("output list", pkOpz({ nome: "" })), "20260419 v3 output list", "senza nome: niente luogo");
+  eq(A.pacchettoNomeFile("stage plot", pkOpz({ variante: "Big" })), "20260419 v3 stage plot Teatro Esempio Big", "con più varianti il nome porta la variante dopo il luogo");
+  eq(A.pacchettoNomeFile("stage plot", pkOpz({ variante: "A/B" })), "20260419 v3 stage plot Teatro Esempio A B", "e anche la variante si ripulisce");
+  eq(A.pacchettoNomeFile("pacchetto", pkOpz()) + ".zip", "20260419 v3 pacchetto Teatro Esempio.zip", "il file zip");
+  eq(A.pacchettoNomeFile("stage plot", pkOpz({ nome: "x".repeat(120) })).length, "20260419 v3 stage plot ".length + 80, "il nome è al massimo di 80 caratteri");
+  s5Fix([{ id: "a", type: "leggio", x: 100, y: 100 }], { luogo: "Teatro Finto", evDate: "2026-12-01" });
+  eq(A.pacchettoData(), "20261201", "la data dell'evento");
+  delete A.state.evDate; eq(A.pacchettoData(new Date(2026, 10, 12)), "20261112", "senza data dell'evento: quella di esportazione");
+  eq([A.pacchettoNomeDefault(), (A.state.luogo = "", A.state.titolo = "Concerto di prova v3", A.pacchettoNomeDefault())], ["Teatro Finto", "Concerto di prova"], "il nome di partenza è il luogo, o il titolo senza «vN»");
+  A.state.luogo = "Sala/Grande"; eq(A.pacchettoNomeDefault(), "Sala Grande", "anche il nome di partenza è ripulito");
+  A.VARIANTS = [{ id: "v1", name: "Standard", state: A.state }, { id: "v2", name: "Big", state: A.state }]; A.activeVar = "v2"; eq(A.pacchettoVariante(), "Big", "con due varianti: la corrente");
+  A.VARIANTS = [{ id: "v1", name: "Standard", state: A.state }]; A.activeVar = "v1"; eq(A.pacchettoVariante(), "", "con una variante sola: niente");
+  reset();
+});
+t("Pacchetto: i documenti proposti sono le pillole che il progetto ha davvero (organico solo con l'orchestra, niente liste audio in acustico, scaletta se c'è)", () => {
+  const nomi = (k, sc, pal) => A.pacchettoDocumenti(k, sc, pal).map((d) => d.chiave);
+  const tutte = ["rider", "organico", "inputlist", "outputlist", "backline", "lightslist", "loadlist", "monitorlist", "notelist", "todefine"];
+  eq(nomi(tutte, true, true), ["stageplot", "inputlist", "outputlist", "rider", "organico", "backline", "lightslist", "scaletta"], "tutti, nell'ordine dei service: stage plot, channel list, output list, rider, organico, backline, lista luci, scaletta (le altre pagine tecniche non sono documenti del pacchetto)");
+  eq(nomi(["rider", "inputlist", "outputlist"], false, true), ["stageplot", "inputlist", "outputlist", "rider"], "senza orchestra (niente pillola organico) e senza scaletta");
+  eq(nomi(["rider", "organico"], false, true), ["stageplot", "rider", "organico"], "acustico: la pillola organico c'è, le liste audio no (le toglie pdfComputeTechPages)");
+  eq(nomi([], false, false), [], "palco vuoto: niente");
+  eq(nomi(["rider"], true, false), ["rider", "scaletta"], "senza elementi: niente stage plot");
+  s5Fix([{ id: "a", type: "leggio", x: 100, y: 100 }]); eq(A.pacchettoDocumenti(["rider"], false, true).map((d) => d.nome), ["stage plot", "rider"], "i nomi nei file");
+  A.state.tipoEvento = "conferenza"; eq(A.pacchettoDocumenti(["rider"], false, true).map((d) => d.nome), ["stage plot", "scheda tecnica"], "una conferenza ha la «scheda tecnica»");
+  A.state.tipoEvento = "concerto";
+  const appT = readFileSync(join(root, "app.js"), "utf8");
+  ok(/window\.__pdfChiaviTecniche=function\(\)\{ try\{ return pdfComputeTechPages\(\)\.map\(function\(p\)\{ return p\.key; \}\)/.test(appT), "la lista viene dalle pillole dell'Esporta (pdfComputeTechPages)");
+  ok(/var docs=pacchettoDocumenti\(chiavi, \(typeof scalettaList==="function" && scalettaList\(\)\.count>0\), \(state\.items\|\|\[\]\)\.length>0\)/.test(appT), "la finestrella usa la stessa funzione");
+  eq(["inputlist", "outputlist", "monitorlist", "rf"].map((k) => A.pdfPaginaSoloAudio(k)), [true, true, true, true], "in acustico (#66) queste pillole non ci sono, quindi non entrano nel pacchetto");
+  eq(A.pdfPaginaSoloAudio("organico"), false, "l'organico non è una pagina audio");
+  reset();
+});
+const pkZipProva = (files) => {
+  const dir = mkdtempSync(join(tmpdir(), "sp-pkg-")), f = join(dir, "prova.zip");
+  writeFileSync(f, Buffer.from(Uint8Array.from(A.zipStore(files, new Date(2026, 10, 12, 20, 30, 10)))));
+  const unz = (args) => { try { return execFileSync("unzip", args.concat([f]), { encoding: "utf8" }); } catch (e) { if (e.code === "ENOENT") return null; throw e; } };
+  return { dir, f, unz, fine: () => rmSync(dir, { recursive: true, force: true }) };
+};
+t("Pacchetto: crc32 e zip «store» validi (unzip -t), con nomi con spazi e accenti e contenuto identico", () => {
+  eq(A.crc32(Uint8Array.from(Buffer.from("123456789"))), 0xCBF43926, "il CRC32 di riferimento");
+  eq([A.crc32(new Uint8Array(0)), A.crc32(Uint8Array.from([0, 0, 0, 0]))], [0, 0x2144DF1C], "vuoto e quattro zeri");
+  const pdf = (testo) => Uint8Array.from(Buffer.from("%PDF-1.4\n" + testo + "\n%%EOF\n"));
+  const files = [{ name: "20260419 v3 stage plot Teatro Esempio.pdf", data: pdf("uno") }, { name: "20260419 v3 channel list Teatro Esempio.pdf", data: pdf("due ".repeat(500)) }, { name: "20260419 v3 rider Teatro Perché.pdf", data: pdf("tre") }];
+  const z = pkZipProva(files);
+  try {
+    const t1 = z.unz(["-t"]);
+    if (t1 === null) { ok(true, "unzip non c'è su questa macchina: prova saltata"); return; }
+    ok(/No errors detected/.test(t1) && !/error|bad/i.test(t1.replace("No errors detected", "")), "unzip -t: nessun errore: " + t1.split("\n").slice(-3).join(" | "));
+    /* unzip 6.0 di macOS stampa male i nomi UTF-8 (limite del programma): i nomi si leggono con zipfile, che rispetta il flag UTF-8 */
+    let l; try { l = execFileSync("python3", ["-I", "-c", "import zipfile,sys;print(chr(10).join(zipfile.ZipFile(sys.argv[1]).namelist()))", z.f], { encoding: "utf8" }).trim().split("\n"); } catch (e) { l = null; }
+    if (l) eq(l, files.map((f) => f.name), "i nomi, con spazi e accento, nell'ordine (flag UTF-8)");
+    const c = execFileSync("unzip", ["-p", z.f, files[1].name]); eq(Buffer.compare(c, Buffer.from(files[1].data)), 0, "il contenuto esce identico");
+    ok(/Stored|stor/i.test(z.unz(["-v"])) && !/Defl/.test(z.unz(["-v"])), "metodo «store», senza compressione");
+  } finally { z.fine(); }
+  const vuoto = pkZipProva([]); try { const t0 = vuoto.unz(["-t"]); if (t0 !== null) ok(true, "uno zip vuoto è comunque uno zip"); } catch (_e) { ok(true, "unzip rifiuta lo zip vuoto: non si crea mai (il pulsante resta spento senza documenti)"); } finally { vuoto.fine(); }
+});
+/* test asincrono: t() non aspetta le promesse, quindi si attende qui (top-level await) e si conta a mano, perché un errore non diventi un rifiuto non gestito */
+await (async () => {
+  const nomeT = "Pacchetto: si costruisce un documento alla volta, coi nomi giusti, e il pacchetto si apre";
+  try {
+  A.state.tipoEvento = "concerto";
+  const log = []; let in_corso = 0, max = 0;
+  const produci = (k) => { in_corso++; max = Math.max(max, in_corso); log.push("via " + k); return new Promise((ok_) => setTimeout(() => { in_corso--; log.push("fine " + k); ok_(Uint8Array.from(Buffer.from("%PDF-1.4 " + k))); }, 5)); };
+  const voci = A.pacchettoDocumenti(["rider", "organico", "inputlist"], false, true), avanzi = [];
+  const r = await A.pacchettoCostruisci(voci, produci, pkOpz(), (v, i, n) => avanzi.push([v.chiave, i, n]));
+  eq(max, 1, "mai due documenti insieme (svg2pdf è pesante)");
+  eq(log, ["via stageplot", "fine stageplot", "via inputlist", "fine inputlist", "via rider", "fine rider", "via organico", "fine organico"], "nell'ordine dei documenti");
+  eq(avanzi, [["stageplot", 0, 4], ["inputlist", 1, 4], ["rider", 2, 4], ["organico", 3, 4]], "l'avanzamento «1 di 4»…");
+  eq(r.nomi, ["20260419 v3 stage plot Teatro Esempio.pdf", "20260419 v3 channel list Teatro Esempio.pdf", "20260419 v3 rider Teatro Esempio.pdf", "20260419 v3 organico Teatro Esempio.pdf"], "i nomi dei PDF, tutti con la stessa data e versione");
+  eq(r.nome, "20260419 v3 pacchetto Teatro Esempio.zip", "il nome del pacchetto");
+  const dir = mkdtempSync(join(tmpdir(), "sp-pkg-")), f = join(dir, "x.zip");
+  try { writeFileSync(f, Buffer.from(Uint8Array.from(r.bytes))); try { const o = execFileSync("unzip", ["-t", f], { encoding: "utf8" }); ok(/No errors detected/.test(o), "unzip -t sul pacchetto costruito"); } catch (e) { if (e.code !== "ENOENT") throw e; } } finally { rmSync(dir, { recursive: true, force: true }); }
+  let caduto = null; try { await A.pacchettoCostruisci(voci, (k) => k === "rider" ? Promise.reject(new Error("rotto")) : Promise.resolve(Uint8Array.from([1])), pkOpz()); } catch (e) { caduto = e.message; }
+  eq(caduto, "rotto", "se un documento fallisce il pacchetto non esce a metà: l'errore arriva a chi chiama");
+  pass++; console.log("  ✓ " + nomeT);
+  } catch (e) { fail++; console.log("  ✗ " + nomeT + "\n      " + e.message); }
+})();
+t("Pacchetto: pulsante e finestrella nell'Esporta, ogni documento col suo PDF, cartiglio e «1 di N», gate sugli errori condiviso", () => {
+  const h = readFileSync(join(root, "app/index.html"), "utf8"), a = readFileSync(join(root, "app.js"), "utf8");
+  ok(/id="pdfAltZip"[^>]*>Pacchetto \(\.zip\)<\/button>/.test(h), "il pulsante «Pacchetto (.zip)»");
+  ok(["pkgModal", "pkgNome", "pkgLista", "pkgVariante", "pkgVersioneHint", "pkgEsempio", "pkgErr", "pkgGo", "pkgAnnulla"].every((id) => h.indexOf('id="' + id + '"') > -1), "la finestrella: nome, lista, variante, suggerimento versione, esempio, errore, pulsanti");
+  ok(/if\(zp\) zp\.addEventListener\("click", function\(\)\{ pacchettoApri\(\); \}\);/.test(a) && /if\(pg\) pg\.addEventListener\("click", function\(\)\{ pdfGateErrori\(pacchettoCrea\); \}\);/.test(a), "apre la finestrella; «Crea» passa dal gate sugli errori critici");
+  ok(/pdfGateErrori\(run\);/.test(a) && /function pdfGateErrori\(run\)\{/.test(a), "e il gate è lo stesso dell'Esporta PDF");
+  ok(/if\(chiave==="stageplot"\)\{\s*window\.__pdfPages=\{\}; window\.__pdfScaletta=false;\s*return buildPdfDoc\(ctx\.paper, ctx\.N, ctx\.orient, ctx\.header\)\.then\(function\(doc\)\{ ripristina\(\); return doc; \}, function\(e\)\{ ripristina\(\); throw e; \}\);/.test(a), "lo stage plot è il disegno col cartiglio, senza liste né scaletta, e le impostazioni dell'Esporta tornano com'erano");
+  ok(/inputlist:function\(\)\{ patchListServicePdf\(doc, \{perPagina:ctx\.perPagina===48\?48:32\}\); \}, outputlist:function\(\)\{ outputListPdf\(doc\); \}, rider:function\(\)\{ riderPdf\(doc\); \},\s*organico:function\(\)\{ organicoPdf\(doc\); \}, backline:function\(\)\{ backlineListPdf\(doc\); \}, lightslist:function\(\)\{ lightsListPdf\(doc\); \}, scaletta:function\(\)\{ scalettaPdf\(doc\); \}/.test(a), "channel list in formato Service (32 o 48 per pagina), output list, rider, organico, backline, lista luci, scaletta");
+  ok(/F\[chiave\]\(\);\s*if\(doc\.getNumberOfPages\(\)<2\) throw new Error\([^)]*\);\s*doc\.deletePage\(1\); pdfCredit\(doc\);/.test(a), "pagina vuota di partenza tolta, «1 di N» e versione su ogni foglio (pdfCredit)");
+  ok(/ctx=\{paper:paper, N:N, orient:orient, header:header, perPagina:\(window\.__pdfListaFmt && window\.__pdfListaFmt\.perPagina===48\) \? 48 : 32\}/.test(a), "foglio, scala e pagine 32/48 come scelti nell'Esporta");
+  ok(/new Blob\(\[bytes\],\{type:"application\/zip"\}\)[\s\S]{0,200}a\.download=nome/.test(a), "il download passa da un Blob con il nome del file (spazi compresi)");
+  ok(!/jpe?g|toDataURL\("image\/(png|jpeg)/i.test(a.slice(a.indexOf("function pacchettoDocumentiTutti"), a.indexOf("function exportPdf"))), "solo PDF: nessuna immagine nel pacchetto");
+  const m = a.indexOf("function pacchettoCrea"), fine = a.indexOf("function exportPdf"); ok(/segnaPdfEsportato/.test(a.slice(m, fine)), "dopo il pacchetto «Modificato dopo l'ultimo PDF» riparte da qui");
+});
 /* ═══ CONTROLLO PRIMA DELL'EXPORT (12/11/2026, specifica S1 dalla posta: segnaposto nei testi, nomi doppi, mix senza uscita…).
    Una striscia in cima all'Esporta, mai bloccante; una funzione pura `controlliPrimaDelExport()` → [{id, gravita, testo, itemId?}],
    una regola = un id. Le regole sono state tarate sui 30 progetti del collaudo (media sotto 1 avviso a progetto). ═══ */
