@@ -13501,6 +13501,85 @@ t("la nota interna di un contatto non finisce nel PDF", () => {
   ok(src, "sezione contatti del rider non trovata");
   eq(/c\.note/.test(src[0]), false, "la nota del contatto e' un appunto interno: " + src[0].slice(0, 200));
 });
+/* ═══ ORGANICO (12/11/2026, specifica S7): pagina derivata dal disegno, ordine fisso FIATI→LEGNI→RITMICA→ARPA→ARCHI→VOCI, formula archi coi trattini,
+   direttore/ospiti/staff fuori dal totale, nessun nome di persona; si propone solo se c'è un'orchestra. ═══ */
+const orgN = (type, n, extra, pre) => Array.from({ length: n }, (_, i) => Object.assign({ id: (pre || type) + i, type, x: 100 + (i % 25) * 60, y: 100 + Math.floor(i / 25) * 80 }, extra || {}));
+const orgFix = (arch) => {   /* archi [v1,v2,vle,vc,cb] + fiati, legni, arpa, timpani, ospite, staff: tutto finto */
+  const a = arch || [10, 8, 6, 6, 3];
+  return [].concat(orgN("vlnpost", a[0], { vsec: 1 }, "v1"), orgN("vlnpost", a[1], { vsec: 2 }, "v2"), orgN("violapost", a[2]), orgN("violoncello", a[3]), orgN("contrabbasso", a[4]),
+    orgN("flauto", 2), orgN("oboe", 2), orgN("clarinetto", 2), orgN("fagotto", 2), orgN("corno", 4), orgN("tromba", 2), orgN("trombone", 3), orgN("tuba", 1),
+    orgN("arpa", 1), orgN("timpani", 1), orgN("grancassa", 1), orgN("grancoda", 1), orgN("direttore", 1),
+    [{ id: "og", type: "cantante", x: 300, y: 600, label: "Ospite" }, { id: "st", type: "tecnico", x: 400, y: 600 }]).filter(Boolean);
+};
+const orgRows = () => A.organicoList().rows;
+const orgSez = () => orgRows().filter((r) => r.tipo === "sez").map((r) => r.nome);
+t("Organico: totali per sezione = elementi sul palco, ordine fisso FIATI→LEGNI→RITMICA→ARPA→ARCHI, direttore/ospiti/staff fuori dal totale", () => {
+  s5Fix(orgFix());
+  const r = orgRows(), per = (nome) => r.find((x) => x.nome === nome);
+  eq(orgSez().filter((x) => !/FUORI/.test(x)).map((x) => x.split(" ")[0]), ["FIATI", "LEGNI", "RITMICA", "ARPA", "ARCHI"], "l'ordine dei fogli di convocazione: " + orgSez());
+  eq([per("FIATI").n, per("LEGNI").n, per("RITMICA").n, per("ARPA").n, per("ARCHI · 10-8-6-6-3").n], [10, 8, 3, 1, 33], "subtotali = elementi disegnati (4+2+3+1, 2×4, timpani+percussioni+pianoforte, 1, 10+8+6+6+3)");
+  const tot = r.find((x) => x.tipo === "tot"); eq([tot.nome, tot.n], ["TOTALE", 55], "totale: 10+8+3+1+33");
+  eq(r.filter((x) => x.tipo === "riga").map((x) => [x.nome, x.n]).slice(0, 4), [["Corni", 4], ["Trombe", 2], ["Tromboni", 3], ["Tuba", 1]], "dentro i fiati: corni, trombe, tromboni, tuba");
+  const i = r.findIndex((x) => x.nome === "FUORI DAL TOTALE");
+  eq(r.slice(i + 1).map((x) => [x.nome, x.n]), [["Direttore", 1], ["Ospiti", 1], ["Staff", 1]], "fuori dal totale: direttore, ospiti (etichetta «Ospite») e staff");
+  ok(i > r.indexOf(tot), "dopo il totale");
+  eq(r.filter((x) => x.nome === "Ospiti" || /^Cantante/.test(x.nome)).length, 1, "l'ospite non è anche in VOCI");
+  reset();
+});
+t("Organico: formula degli archi coi trattini (valori ≥ 10, quattro numeri, sezioni assenti)", () => {
+  const f = (arch) => { s5Fix(orgFix(arch)); return A.organicoList().formula; };
+  eq(f([10, 8, 6, 6, 3]), "10-8-6-6-3", "valori a due cifre");
+  eq(f([14, 12, 10, 8, 6]), "14-12-10-8-6", "il più grande visto nei fogli");
+  eq(f([4, 3, 2, 2, 0]), "4-3-2-2", "a quattro numeri: senza i contrabbassi");
+  eq(f([8, 6, 4, 4, 2]), "8-6-4-4-2", "la formula classica");
+  eq(f([4, 0, 2, 2, 0]), "4-0-2-2", "una sezione in mezzo assente resta «0»");
+  eq(f([6, 0, 0, 0, 0]), "6", "solo violini: un numero");
+  s5Fix(orgFix([0, 0, 0, 0, 0]).filter((x) => !/^(vlnpost|violapost|violoncello|contrabbasso)$/.test(x.type))); eq(A.organicoList().formula, "", "senza archi niente formula, né riga ARCHI");
+  ok(orgSez().every((x) => !/ARCHI/.test(x)), "nessuna sezione ARCHI");
+  reset();
+});
+t("Organico: doppie e violini senza sezione, strumento secondario tra parentesi, mai un nome di persona", () => {
+  s5Fix(orgFix([0, 0, 0, 0, 0]).filter((x) => x.type !== "direttore").concat([{ id: "d1", type: "vln1x2", x: 100, y: 100 }, { id: "d2", type: "vlnpost", x: 200, y: 100 }, { id: "d3", type: "vlnpost", x: 300, y: 100, doppia: true }, { id: "d4", type: "violax2", x: 400, y: 100 }]));
+  eq(A.organicoList().formula, "5-0-2", "vln1x2 = 2, un violino senza sezione = violini I, «doppia» = 2, violax2 = 2 viole");
+  s5Fix(orgFix().concat([{ id: "fo", type: "flauto", x: 100, y: 100, label: "Flauto/Ottavino" }, { id: "fs", type: "flauto", x: 200, y: 100, label: "Fl/Sax" }]));
+  const r = orgRows(); eq(r.filter((x) => /^Flaut/.test(x.nome)).map((x) => [x.nome, x.n]), [["Flauti", 2], ["Flauto (Ottavino)", 1], ["Flauto (Sax)", 1]], "il secondario in parentesi, non due musicisti: " + JSON.stringify(r.filter((x) => /Flaut/.test(x.nome))));
+  eq(r.find((x) => x.nome === "LEGNI").n, 10, "i legni contano 8+2 (un posto = un musicista)");
+  s5Fix(orgFix().map((x) => x.id === "v10" ? Object.assign(x, { label: "Violino I Mario Rossi" }) : x).concat([{ id: "lb", type: "corno", x: 100, y: 100, label: "Corno — Giulia Bianchi" }]));
+  ok(!/Rossi|Bianchi|Mario|Giulia/.test(JSON.stringify(A.organicoList())) && !/Rossi|Bianchi/.test(JSON.stringify(A.organicoList().rows)), "nessun nome di persona (le etichette libere non entrano)");
+  s5Fix(orgFix().concat([{ id: "mt", type: "musTromboneBasso", x: 100, y: 100 }]));
+  A.state.items.push({ id: "mx", type: "musFlauto", x: 200, y: 100 });   /* un tipo d'orchestra che la mappa non conosce (dopo il caricamento, che altrimenti lo converte) */
+  ok(orgRows().find((x) => x.nome === "Tromboni").n === 4, "il trombone basso è un trombone");
+  const alt = orgRows().filter((x) => x.nome === "ALTRO" || x.nome === "Flauto musicista"); eq(alt.map((x) => [x.nome, x.n]), [["ALTRO", 1], ["Flauto musicista", 1]], "ciò che non si sa classificare in coda, col nome com'è, e conta nel totale");
+  eq(orgRows().find((x) => x.tipo === "tot").n, 55 + 1 + 1, "totale con trombone basso e riga in coda");
+  reset();
+});
+t("Organico: si propone solo se c'è un'orchestra (direttore, o almeno 8 posti fra fiati, legni, arpa, archi)", () => {
+  s5Fix([].concat(orgN("gtstand", 1), orgN("bassstand", 1), orgN("batteria", 1), orgN("tastiera", 1), orgN("cantante", 2)));
+  eq([A.organicoDisponibile(), A.organicoList().rows.length], [false, 0], "una band: la pagina non c'è");
+  s5Fix([].concat(orgN("vlnpost", 7, { vsec: 1 })));
+  eq(A.organicoDisponibile(), false, "7 archi senza direttore: no");
+  s5Fix([].concat(orgN("vlnpost", 8, { vsec: 1 }))); eq(A.organicoDisponibile(), true, "8 posti d'orchestra: sì");
+  s5Fix([].concat(orgN("violoncello", 1), orgN("direttore", 1))); eq([A.organicoDisponibile(), A.organicoList().tot], [true, 1], "con il direttore: sì");
+  s5Fix([].concat(orgN("batteria", 3), orgN("grancoda", 3), orgN("cantante", 3))); eq(A.organicoDisponibile(), false, "ritmica e voci non fanno un'orchestra");
+  s5Fix([]); eq(A.organicoDisponibile(), false, "palco vuoto");
+  reset();
+});
+t("Organico: una pillola dopo il rider (Esporta, anteprima, link condiviso), titolo «Organico – luogo – data – vN», PDF con le righe", () => {
+  s5Fix(orgFix(), { luogo: "Teatro Finto", evDate: "2026-12-01" }); A.state.versione = 3;
+  eq(A.organicoTitolo(), "Organico – Teatro Finto – 01/12/2026 – v3", "titolo");
+  A.state.versione = undefined; delete A.state.versione; eq(A.organicoTitolo(), "Organico – Teatro Finto – 01/12/2026", "senza versione");
+  const chiavi = A.availableViewerLists().map((l) => l.key); ok(chiavi.indexOf("organico") > -1 && chiavi.indexOf("organico") > chiavi.indexOf("rider"), "nel link condiviso: dopo il rider: " + chiavi);
+  ok(/var PDF_TECH_ORDER=\["rider","organico","responsabilita",/.test(appjs), "ordine unico: subito dopo il rider");
+  ok(/if\(organicoDisponibile\(\)\)\{ pages\.push\(\{key:"organico", label:"Organico \(orchestra\)"\}\); \}/.test(appjs), "la pillola nasce solo se c'è l'orchestra");
+  ok(/organico:function\(\)\{ organicoPdf\(doc\); \}/.test(appjs), "e buildPdfDoc la stampa");
+  ok(/organico:\{ title:"Organico"/.test(appjs) && /riga\(vals, !!\(cfg\.rowBold && cfg\.rowBold\(r\)\), colori, i>0\)/.test(appjs), "anteprima e PDF dalla stessa configurazione, con le righe di sezione in grassetto");
+  const html = A.listPreviewHtml("organico"); ok(/org-sez/.test(html) && /TOTALE/.test(html) && /ARCHI · 10-8-6-6-3/.test(html) && !/Rossi/.test(html), "anteprima: " + html.slice(0, 160));
+  const d = s5Doc(); A.organicoPdf(d); const tx = d.pagine.slice(1).reduce((l, pg) => l.concat(pg.testi.map((x) => x.t)), []);
+  ok(tx.indexOf("ARCHI · 10-8-6-6-3") > -1 && tx.indexOf("TOTALE") > -1 && tx.indexOf("55") > -1 && tx.indexOf("Direttore") > -1, "PDF: sezioni, formula, totale e direttore fuori: " + tx.slice(0, 20));
+  ok(tx.some((x) => /Organico – Teatro Finto/.test(x)) && d.pagine.length - 1 === 1, "una pagina col titolo");
+  s5Fix([].concat(orgN("gtstand", 1))); eq(A.availableViewerLists().map((l) => l.key).indexOf("organico"), -1, "una band: non c'è nel link");
+  reset();
+});
 t("il riferimento del cartiglio, se svuotato, resta svuotato", () => {
   eq(A.pdfHeaderPropose({ pdfHeader: "Mario · 333" }, null), "Mario · 333", "quello scelto vale");
   eq(A.pdfHeaderPropose({ pdfHeader: "", pdfHeaderOff: true }, { name: "Simone", contact: "s@x.it" }), "",
