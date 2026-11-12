@@ -16765,7 +16765,7 @@ function auditFixChoirMics(list){
    · «sedie ≠ persone»: nel modello ogni musicista porta la sua seduta e il suo leggio, quindi non c'è una differenza da
      controllare; il confronto leggii/persone dà rumore su 14 progetti veri su 30 (rock band senza leggii, cori) e aspetta una
      definizione di chi legge la musica. */
-var SEGNAPOSTO_RE=[/\bN\s*[x×]\s*N\b/i, /\bN\s+auto\b/i, /\bTB[AD]\b/i, /_{2,}\s*:\s*_{2,}/, /\bda\s+finire\b/i, /\bprovvisori[oa]\b/i, /\bX{3,}\b/i];
+var SEGNAPOSTO_RE=[/\bN\s*[x×]\s*N\b/i, /\bN\s+auto\b/i, /\bTB[ACD]\b/i, /_{2,}\s*:\s*_{2,}/, /\bda\s+finire\b/i, /\bprovvisori[oa]\b/i, /\bX{3,}\b/i];
 function segnapostoIn(t){ t=String(t==null?"":t); return SEGNAPOSTO_RE.some(function(re){ return re.test(t); }); }
 /* Le date scritte nel titolo («12.12.26», «12/12/2026», «1-2-27»), senza la data in coda alla versione («v3 · 10/11/2026»),
    che è quella del documento e non dell'evento. Solo date vere. Niente lookbehind: Safari vecchi non lo leggono. */
@@ -16820,6 +16820,9 @@ function controlliPrimaDelExport(){
       add("data-nel-titolo","Il titolo dice "+dt[0].testo+" ma la data dell'evento è "+e[2]+"/"+e[1]+"/"+e[0]+".");
     }
   }
+  /* 7 · manca il luogo (L1-b, dietro «Controllo tecnico»): titolo o data scritti ma il luogo è vuoto, quindi il PDF esce senza il posto */
+  if(typeof funzOn==="function" && funzOn("controllo") && !String(state.luogo||"").trim() && (String(state.titolo||"").trim() || state.evDate))
+    add("manca-luogo","Manca il luogo dell'evento: nel PDF il titolo esce senza il posto.");
   return out;
 }
 function auditFixAddDistro(){
@@ -34633,19 +34636,36 @@ function noteListPdf(shared){
    PATCH · 48 V, pagine da 32 canali (o 48), A4 orizzontale, aste in calce. È un'opzione dell'Esporta: patchListPdf, il formato
    semplice, non cambia. Le aste si normalizzano alle voci del service (lunga, corta, nana, clip, XLR, DI); ciò che non si sa classificare
    si stampa com'è, per non perdere informazione. */
+/* Il vocabolario dei service ha sei voci: Clip · Lunga · Corta · Nana · Tonda (base tonda, per le voci) · Contatto (microfono a contatto).
+   «Tonda» c'è nell'app come modalità della voce (micMode «tonda» su un'asta dritta) e «Contatto» come microfono del catalogo con `contatto:true`
+   (AKG C411): per questo sono qui. «XLR» e «DI» NON sono aste: stanno nella colonna mic/DI (standXlr), mai fra le aste né nel totale. */
+function micContatto(mic){
+  var f=_micFlatKey(mic); if(!f) return false;
+  return Object.keys(MIC_DB).some(function(k){ var e=MIC_DB[k]; return !!(e && e.contatto===true && (_micFlatKey(k)===f || _micFlatKey(e.model)===f)); });
+}
+function standTonda(r){
+  if(!r || r.itemId==null || !/dritta/.test(String(r.stand||"").toLowerCase())) return false;
+  var it=(state.items||[]).filter(function(x){ return x.id===r.itemId; })[0];
+  return !!(it && VOCE[it.type] && micModeOf(it)==="tonda");
+}
+function standXlr(r){
+  if(!r || r.standShared || /\bDI\b/.test(String(r.mic||"")) || micContatto(r.mic)) return false;
+  return /interno|terra|xlr/.test(String(r.stand||"").trim().toLowerCase());
+}
 function standServizio(r){
   if(!r) return "";
   if(r.standShared) return "stessa asta";
-  if(/\bDI\b/.test(String(r.mic||""))) return "DI";
+  if(/\bDI\b/.test(String(r.mic||""))) return "";   /* una DI non ha asta: lo dice la colonna mic/DI */
+  if(micContatto(r.mic)) return "contatto";
   var s=String(r.stand||"").trim().toLowerCase(); if(!s || s==="\u2014") return "";
   if(/nana|bassa/.test(s)) return "nana";
   if(/corta|tavolo/.test(s)) return "corta";
-  if(/lunga|dritta|giraffa|gigante/.test(s)) return "lunga";
+  if(/lunga|dritta|giraffa|gigante/.test(s)) return standTonda(r) ? "tonda" : "lunga";
   if(/clip|pinza/.test(s)) return "clip";
-  if(/interno|terra|xlr/.test(s)) return "XLR";
+  if(/interno|terra|xlr/.test(s)) return "";   /* XLR: colonna mic/DI */
   return String(r.stand).trim();
 }
-var ASTE_SERVIZIO=[["lunga","lunga","lunghe"],["corta","corta","corte"],["nana","nana","nane"],["clip","clip","clip"]];
+var ASTE_SERVIZIO=[["lunga","lunga","lunghe"],["corta","corta","corte"],["nana","nana","nane"],["tonda","tonda","tonde"],["clip","clip","clip"],["contatto","contatto","contatto"]];
 function asteServizioTesto(rows){
   var c={}; (rows||[]).forEach(function(r){ if(r.reserved||r.spare) return; var v=standServizio(r); if(ASTE_SERVIZIO.some(function(a){ return a[0]===v; })) c[v]=(c[v]||0)+1; });
   var o=ASTE_SERVIZIO.filter(function(a){ return c[a[0]]; }).map(function(a){ return c[a[0]]+" "+(c[a[0]]===1?a[1]:a[2]); });
@@ -34689,6 +34709,7 @@ function patchListServicePdf(shared, opts){
           if(r.dyn) doc.text(r.dyn, cols[3], y);
           var st=standServizio(r); if(st) doc.text(fit(st, 20), cols[4], y);
           var mic=r.micOff ? "" : (r.mic||""); if(mic && r.micAlt) mic=mic+" o "+r.micAlt;
+          if(mic && standXlr(r)) mic+=" \u00b7 XLR";   /* XLR sta nella colonna mic/DI, non fra le aste (L1-b) */
           if(mic) doc.text(fit(mic, 62), cols[5], y);
         }
         if(r.patch) doc.text(fit(r.patch, 32), cols[6], y);
