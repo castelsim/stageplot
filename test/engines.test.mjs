@@ -89,6 +89,7 @@ function reset() {
   A.state.titolo = ""; A.state.luogo = ""; A.state.techContact = ""; A.state.venue = null; A.state.printFrame = null; A.state.zones = [];
   A.state.lights = { rows: [], blackout: null, mood: "" };   /* luci = reparto (blocco A): senza azzeramento le righe di un test finiscono nel rider del successivo */
   delete A.state.latiTeatro;   /* giardino e corte (12/11): opzione che esiste solo se accesa; un test che l'accende non deve lasciarla ai successivi */
+  delete A.state.sonorizzazione; delete A.state.orari;   /* sonorizzazione e orari (12/11): campi che esistono solo se scelti; un test che li imposta non deve lasciarli ai successivi */
   delete A.state.scaletta;   /* scaletta (10/10): campo che esiste solo con almeno una voce */
   delete A.state.versione;   /* versione del documento (12/11): campo che esiste solo se impostata; un test che la imposta non deve lasciarla ai successivi */
   delete A.state.customModels;   /* modelli dell'elemento personalizzato (13/10): dal primo Salva di un elemento nuovo nasce anche il modello (Ruling 17), e un test che salva non deve lasciarli ai successivi */
@@ -7140,6 +7141,127 @@ t("Materiali richiesti: una zona che non è di potenza non diventa «Alimentazio
   ok(/if\(el\.checked\) state\.rider\[pr\[1\]\]=true; else delete state\.rider\[pr\[1\]\]; saveSoon\(\);/.test(appjs), "le caselle del pannello si salvano nel rider");
   reset();
 });
+/* ═══ SONORIZZAZIONE E ORARI (12/11/2026, specifica S6): «Amplificato · Acustico · Misto» è un campo a sé (non tipoEvento); in acustico il rider
+   è di una pagina e le liste audio si nascondono (i dati restano); amplificato = com'è sempre stato; orari solo se compilati. ═══ */
+const s6Fix = (items, extra) => s5Fix(items, Object.assign({ inputs: [{ src: "Voce", mic: "SM58", stand: "", p48: false, notes: "", by: "" }] }, extra || {}));
+const s6Orch = () => s5Orch().concat([{ id: "sw", type: "schermo", x: 800, y: 60 }]);
+const s6T = () => s5Rider();
+const s6Idx = (tx, h) => tx.indexOf(h);
+t("Sonorizzazione: assente = amplificato, solo «acustico» e «misto» si salvano, e non toccano tipoEvento", () => {
+  s6Fix(s5Orch());
+  eq([A.sonorizzazione(), "sonorizzazione" in A.state], ["amplificato", false], "di serie: amplificato e nessun campo nel documento");
+  const n = (v) => A.normalizeState({ _v: A.SCHEMA_VERSION, items: [], inputs: [], outputs: [], sonorizzazione: v }).sonorizzazione;
+  eq([n("acustico"), n("misto"), n("amplificato"), n("Acustico"), n(1), n(null)], ["acustico", "misto", undefined, undefined, undefined, undefined], "solo i due valori veri");
+  A.state.sonorizzazione = "acustico";
+  eq([A.state.tipoEvento, A.eventoAcustico(), A.eventoMisto()], ["concerto", true, false], "tipoEvento resta com'è: sono campi diversi");
+  A.state.sonorizzazione = "misto"; eq([A.eventoAcustico(), A.eventoMisto()], [false, true], "misto");
+  A.state.tipoEvento = "conferenza"; A.state.sonorizzazione = "acustico";
+  eq([A.eventoAcustico(), A.eventoMisto()], [false, false], "una conferenza resta una conferenza, anche se «acustica»");
+  ok(/var CAMPI_DOCUMENTO=\[[^\]]*"sonorizzazione","orari"/.test(appjs), "sonorizzazione e orari sono campi del DOCUMENTO (uguali in ogni scena)");
+  ok(/delete A\.state\.sonorizzazione/.test(readFileSync(fileURLToPath(import.meta.url), "utf8")), "e reset() li azzera");
+  reset();
+});
+t("Orari: «19:30», «19.30», «19,30» si normalizzano; il resto non è un orario; assenti = nessun campo", () => {
+  eq(["19:30", "19.30", "19,30", " 9:05 ", "19", "0:00", "23:59"].map((v) => A.orarioNorm(v)), ["19:30", "19:30", "19:30", "09:05", "19:00", "00:00", "23:59"], "formati");
+  eq(["24:00", "19:60", "19:5", "abc", "", null, "19:30:10", "7pm"].map((v) => A.orarioNorm(v)), ["", "", "", "", "", "", "", ""], "non sono orari");
+  const n = (o) => A.normalizeState({ _v: A.SCHEMA_VERSION, items: [], inputs: [], outputs: [], orari: o }).orari;
+  eq(n({ loadIn: "15.00", concerto: "20,30", soundcheck: "xx", loadOut: "23:00", inventato: "10:00" }), { loadIn: "15:00", concerto: "20:30", loadOut: "23:00" }, "solo le cinque voci, solo orari validi");
+  eq([n({}), n({ loadIn: "xx" }), n(null), n("19:30"), n([])], [undefined, undefined, undefined, undefined, undefined], "vuoto o non valido: il campo non esiste");
+  s6Fix(s5Orch());
+  eq([A.orarioImposta("concerto", "20.30"), A.state.orari], ["20:30", { concerto: "20:30" }], "imposta");
+  eq([A.orarioImposta("concerto", ""), "orari" in A.state], ["", false], "svuotando l'ultimo il campo sparisce");
+  A.orarioImposta("loadIn", "15,00"); A.state.sonorizzazione = "misto";
+  A.loadDoc(JSON.parse(A.docToJSON()));
+  eq([A.state.orari, A.state.sonorizzazione], [{ loadIn: "15:00" }, "misto"], "salva e riapri");
+  eq(A.orariRighe(), ["Load in 15:00"], "riga di testo con il nome della voce");
+  reset();
+});
+t("Rider amplificato: com'è sempre stato (sezioni audio, personale), nessun orario né frase acustica se non compilati", () => {
+  s6Fix(s6Orch());
+  const base = s6T();
+  ["MICROFONI", "MONITOR", "STAGE E PEDANE", "SISTEMA AUDIO", "LUCI", "PERSONALE RICHIESTO AL SERVICE"].forEach((h) => ok(base.indexOf(h) > -1, "c'è " + h));
+  ["ORARI", "VIDEO", "CAMERINI", "PARCHEGGI", "RIFERIMENTI"].forEach((h) => ok(base.indexOf(h) < 0, "non c'è " + h));
+  ok(!/Concerto acustico|Parte acustica/.test(base.join(" ")), "nessuna frase di sonorizzazione");
+  A.state.sonorizzazione = "amplificato"; eq(s6T(), base, "«amplificato» scritto esplicito = identico all'assente (normalizeState lo toglie)");
+  A.state.camerini = undefined; A.state.rider.camerini = "Due camerini"; A.state.rider.parcheggi = "Cortile";
+  eq(s6T(), base, "camerini e parcheggi non cambiano il rider amplificato");
+  A.state.rider = {};
+  A.state.orari = { loadIn: "15:00", loadOut: "23:30" }; const conO = s6T();
+  ok(conO.indexOf("ORARI") > s6Idx(conO, "LUCI") && conO.indexOf("ORARI") < s6Idx(conO, "PERSONALE RICHIESTO AL SERVICE"), "con gli orari: sezione ORARI dopo le luci");
+  ok(conO.join(" ").indexOf("Load in 15:00 · Load out 23:30") > -1, "le due voci scritte: " + conO.join(" | ").slice(0, 300));
+  reset();
+});
+t("Rider acustico: una pagina, senza microfoni/monitor/console/sistema audio/personale; materiali automatici; frase fissa", () => {
+  s6Fix(s6Orch()); A.state.sonorizzazione = "acustico";
+  eq(A.state.rider.materiali, undefined, "la casella dei materiali non è accesa");
+  const d = s5Doc(); A.riderPdf(d);
+  eq(d.pagine.length - 1, 1, "una pagina sola (la prima del finto è quella del palco)");
+  const tx = d.pagine[1].testi.map((x) => x.t);
+  ["MICROFONI", "MONITOR", "STAGE E PEDANE", "CONSOLE", "SISTEMA AUDIO", "PERSONALE RICHIESTO AL SERVICE", "ALIMENTAZIONE"].forEach((h) => ok(tx.indexOf(h) < 0, "non c'è " + h));
+  ok(tx.join(" ").indexOf("Concerto acustico: microfono e P.A. del teatro solo per il parlato.") > -1, "la frase fissa in testa");
+  const ord = ["MATERIALI RICHIESTI", "LUCI", "VIDEO"].map((h) => tx.indexOf(h));
+  ok(ord.every((i) => i > -1) && ord[0] < ord[1] && ord[1] < ord[2], "materiali (automatici) · luci · video: " + JSON.stringify(ord));
+  ok(tx.indexOf("Concerto acustico: microfono e P.A. del teatro solo per il parlato.") < ord[0], "la frase sta prima delle sezioni");
+  ok(/Leggii[^\n]*40/.test(tx.join("\n")) && /LED wall/.test(tx.join("\n")), "dentro: i leggii e il video");
+  ok(A.materialiTestoMail().indexOf("Materiali richiesti") === 0, "il testo per la mail c'è anche senza casella");
+  A.state.tipoEvento = "conferenza"; ok(s5Rider().indexOf("MICROFONI") > -1, "conferenza + acustico: vince la conferenza (rider com'era)");
+  reset();
+});
+t("Rider acustico: VIDEO solo con elementi video; ORARI, CAMERINI, PARCHEGGI solo se scritti; RIFERIMENTI al posto dei contatti", () => {
+  s6Fix(s5Orch()); A.state.sonorizzazione = "acustico";
+  let tx = s6T();
+  ["VIDEO", "ORARI", "CAMERINI", "PARCHEGGI", "RIFERIMENTI"].forEach((h) => ok(tx.indexOf(h) < 0, "senza dati non c'è " + h));
+  A.state.rider.camerini = "Due camerini al piano terra"; A.state.rider.parcheggi = "Parcheggio nel cortile"; A.state.orari = { soundcheck: "17:00", concerto: "21:00" };
+  A.state.contacts = [{ role: "Referente teatro", name: "Nome Finto", contact: "000 0000", note: "interna" }];
+  tx = s6T(); const J = tx.join("\n");
+  const ord = ["LUCI", "ORARI", "CAMERINI", "PARCHEGGI", "RIFERIMENTI"].map((h) => tx.indexOf(h));
+  ok(ord.every((i) => i > -1) && ord.every((v, i) => !i || ord[i - 1] < v), "ordine luci · orari · camerini · parcheggi · riferimenti: " + JSON.stringify(ord));
+  ok(/Soundcheck 17:00 · Concerto 21:00/.test(J) && /Due camerini al piano terra/.test(J) && /Parcheggio nel cortile/.test(J), "i testi scritti");
+  ok(tx.indexOf("CONTATTI E RUOLI") < 0 && !/interna/.test(J), "«Riferimenti» e mai la nota interna del contatto");
+  const html = A.riderHtml();
+  ok(/Orari/.test(html) && /Camerini/.test(html) && /Parcheggi/.test(html) && /Riferimenti/.test(html) && !/Sistema audio/.test(html) && !/Microfoni/.test(html) && /Concerto acustico/.test(html), "anche l'anteprima (e il link condiviso)");
+  s6Fix(s6Orch()); A.state.sonorizzazione = "acustico";
+  ok(s6T().indexOf("VIDEO") > -1 && /<div class="pdf-rider-h">Video/.test(A.riderHtml()), "con un LED wall la sezione VIDEO c'è, anche nell'anteprima");
+  reset();
+});
+t("Rider misto: tutto come l'amplificato, più la nota sulla scaletta", () => {
+  s6Fix(s6Orch()); const base = s6T(); A.state.sonorizzazione = "misto"; const m = s6T();
+  ok(m.join(" ").indexOf("Parte acustica e parte amplificata: vedi la scaletta.") > -1, "la nota");
+  eq(m.filter((x) => x !== "Parte acustica e parte amplificata: vedi la scaletta."), base, "tutto il resto identico");
+  ok(/Parte acustica e parte amplificata/.test(A.riderHtml()), "anche nell'anteprima");
+  reset();
+});
+t("Acustico: le liste audio non si propongono (anteprima e link condiviso), i dati restano e riaccendendo «Amplificato» tutto torna", () => {
+  s6Fix(s5Orch().concat([{ id: "mic", type: "cantante", x: 600, y: 500 }]));
+  const chiavi = () => A.availableViewerLists().map((l) => l.key);
+  ok(chiavi().indexOf("inputlist") > -1, "amplificato: la channel list c'è");
+  const prima = JSON.stringify({ i: A.state.inputs, it: A.state.items.length, pl: A.patchList().rows.length });
+  A.state.sonorizzazione = "acustico";
+  ok(["inputlist", "monitorlist", "rf"].every((k) => chiavi().indexOf(k) < 0) && chiavi().indexOf("rider") > -1, "acustico: niente liste audio, il rider sì: " + chiavi());
+  eq(JSON.stringify({ i: A.state.inputs, it: A.state.items.length, pl: A.patchList().rows.length }), prima, "i dati non cambiano");
+  delete A.state.sonorizzazione; ok(chiavi().indexOf("inputlist") > -1, "riaccesa: la channel list torna");
+  ok(/if\(eventoAcustico\(\)\) pages=pages\.filter\(function\(p\)\{ return !pdfPaginaSoloAudio\(p\.key\); \}\);\s*\/\*[^*]*\*\/\s*return pdfSortTechPages\(pages\);/.test(appjs), "le pillole dell'Esporta (pdfComputeTechPages) passano dallo stesso filtro");
+  eq(["view-cabin", "view-cabout", "view-mond", "inputlist", "monitorlist", "rf", "pmlist", "dantepatch", "netlist", "outputlist", "cabmap"].map((k) => A.pdfPaginaSoloAudio(k)), Array(11).fill(true), "le pagine audio");
+  eq(["rider", "loadlist", "backline", "lightslist", "todefine", "view-elec", "eleclines", "notelist", "racklist"].map((k) => A.pdfPaginaSoloAudio(k)), Array(9).fill(false), "le altre restano");
+  reset();
+});
+t("Acustico: i controlli «Prima di esportare» sulle liste audio tacciono; segnaposto e data restano", () => {
+  s6Fix([{ id: "k", type: "cantante", x: 300, y: 300, label: "Voce 4" }, { id: "k2", type: "cantante", x: 400, y: 300, label: "Voce 4" }], { inputs: [{ src: "Prova", mic: "", stand: "", p48: false, notes: "", by: "" }] });
+  const ids = () => A.controlliPrimaDelExport().map((c) => c.id);
+  ok(ids().indexOf("etichetta-duplicata") > -1 && ids().indexOf("riga-senza-microfono") > -1, "amplificato: avvisi sulle liste audio: " + ids());
+  A.state.sonorizzazione = "acustico"; ok(ids().indexOf("etichetta-duplicata") < 0 && ids().indexOf("riga-senza-microfono") < 0, "acustico: tacciono: " + ids());
+  A.state.titolo = "Concerto XXX"; ok(ids().indexOf("segnaposto") > -1, "il segnaposto nel titolo resta");
+  reset();
+});
+t("Sonorizzazione e orari nell'interfaccia: scelta accanto al tipo di evento, campi nel pannello rider", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="evSon"[^>]*>\s*<option value="amplificato">Amplificato<\/option><option value="acustico">Acustico<\/option><option value="misto">Misto<\/option>/.test(html), "selettore nel popover dell'evento");
+  ok(/id="evSonM"/.test(html), "e nel pannello Evento (telefono)");
+  ok(["rdCamerini", "rdParcheggi", "rdOrLoadIn", "rdOrAllestimento", "rdOrSoundcheck", "rdOrConcerto", "rdOrLoadOut"].every((id) => html.indexOf('id="' + id + '"') > -1), "camerini, parcheggi e i cinque orari");
+  ok(/\["evSon","evSonM"\]\.forEach\(function\(id\)\{ var e=document\.getElementById\(id\); if\(e\) e\.addEventListener\("change", function\(\)\{\s*sonorizzazioneImposta\(this\.value\)/.test(appjs), "il cambio si salva");
+  ok(/var t=orarioImposta\(el\.getAttribute\("data-orario"\), el\.value\);/.test(appjs), "gli orari si normalizzano quando si lascia il campo");
+  ok(/e\.style\.display=eventoConferenza\(\)\?"none":""/.test(appjs), "in una conferenza la scelta non si offre");
+});
 /* 06/10/2026 — Simone: «sul pdf che stampo ci sono i kg, dev'essere un'opzione disattivata di default» */
 t("Pesi (kg) nel PDF: opzione del progetto, spenta di serie", () => {
   reset(); add("sediaorch", 300, 300);
@@ -13497,7 +13619,7 @@ t("booleane (rev. 1): l'operazione in attesa della libreria è di QUELLA apertur
   } finally { A.ClipperLib = c0; A.custCaricaClipper = k0; }
 }))));
 t("la nota interna di un contatto non finisce nel PDF", () => {
-  const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\("CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);
+  const src = readFileSync(join(root, "app.js"), "utf8").match(/heading\(acu\?"RIFERIMENTI":"CONTATTI E RUOLI"\);[\s\S]{0,400}?\}\); \}/);   /* 12/11: in acustico la sezione si chiama «Riferimenti» (S6) */
   ok(src, "sezione contatti del rider non trovata");
   eq(/c\.note/.test(src[0]), false, "la nota del contatto e' un appunto interno: " + src[0].slice(0, 200));
 });
