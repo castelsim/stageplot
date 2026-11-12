@@ -1532,6 +1532,11 @@ svg.names-hidden .orc-name{display:none}
   /* Non è un invito, è un avviso: qualcosa nel disegno non torna, e il PDF lo mostrerà così. */
   .nudge.warn{background:var(--warning-bg);border-color:var(--warning-border);color:var(--warning);cursor:default}
   .nudge.warn .btn{margin-left:6px;padding:4px 10px;font-size:12px;vertical-align:baseline}
+  /* «Prima di esportare» (12/11): primo blocco della colonna, un elenco di cose da guardare */
+  #pdfPrimaDi{margin:0 0 12px}
+  .pdf-prima ul{margin:6px 0 0;padding-left:18px}
+  .pdf-prima li{margin:3px 0;line-height:1.35}
+  .pdf-prima-riga{background:none;border:0;padding:0;margin:0;font:inherit;color:inherit;text-align:left;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
   .pdf-optrow{display:flex;gap:14px;align-items:flex-end;margin-top:14px}
   .pdf-optrow label{display:block;font-size:12px;font-weight:600;color:var(--text-2);margin:0 0 5px}
   /* Area stampata: cosa verrà stampato, e il comando per cambiarlo sulla stessa riga (31/07) */
