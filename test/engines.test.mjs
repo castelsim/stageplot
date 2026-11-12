@@ -7097,6 +7097,49 @@ t("Materiali richiesti: caselle e alternativa si normalizzano, si salvano e si r
   ok(/it\.alternativa=v; else delete it\.alternativa/.test(appjs) && /var teatro=\(fornituraElemento\(it\)==="Teatro"\); w\.style\.display=teatro\?"":"none"/.test(appjs), "il campo «Se non disponibile» vale per gli elementi del teatro");
   reset();
 });
+/* Casi limite di «Materiali richiesti» (aggiunti dopo le mutazioni del 12/11: venti sopravvivevano). Due filtri di materialiPresa
+   (carichi a 0 W, distro) non sono raggiungibili: elecResult non li mette mai in `loads`, sono difese e restano senza test. */
+t("Materiali richiesti, casi limite: la casella vale solo true; direttore con leggio e podio; una scaletta; moduli per eccesso", () => {
+  s5Fix([{ id: "l1", type: "leggio", x: 100, y: 100 }]);
+  A.state.rider.materiali = "si"; eq(A.materialiRichiesti(), null, "un valore che non è true non accende la sezione");
+  s5Fix([{ id: "d", type: "direttore", x: 800, y: 300, leggio: true, podio: true }, { id: "l1", type: "leggio", x: 300, y: 300 },
+         { id: "p", type: "pedana", x: 800, y: 700, w: 300, d: 100, h: 60 }, { id: "sc", type: "scala", x: 100, y: 780 }]);
+  A.state.rider.materiali = true;
+  const t = A.materialiRichiesti().testo;
+  ok(/Leggii: 1 \(\+1 direttore\)/.test(t), "il leggio del direttore è a parte: " + t);
+  ok(/Podio: 1/.test(t), "il direttore sul podio conta un podio: " + t);
+  ok(/con 1 scaletta(?!e)/.test(t), "una scala = «1 scaletta» al singolare: " + t);
+  ok(/moduli 2×1: 2 h60/.test(t), "una pedana 3×1 = 2 moduli (per eccesso): " + t);
+  reset();
+});
+t("Materiali richiesti, prese: nome della postazione per tipo, una sola volta, senza luci; ciabatte vicino a chi o in che lato del palco", () => {
+  eq(["edrums", "bassamp", "comboamp", "hearback", "mixhub"].map((k) => A.presaPostazione({ type: k })), ["batteria", "basso", "chitarra", "rack Hearback", "rack Hearback"], "tipo → postazione");
+  s5Fix([{ id: "k1", type: "tastiera", x: 300, y: 900 }, { id: "k2", type: "tastiera", x: 400, y: 900 }, { id: "b1", type: "bassamp", x: 900, y: 900 },
+         { id: "lx", type: "followspot", x: 1200, y: 300 }]);
+  A.state.rider.materiali = true;
+  const pr = A.materialiRichiesti().righe.find((r) => /^Prese/.test(r));
+  ok(pr && (pr.match(/tastiere/g) || []).length === 1, "due tastiere = «tastiere» una volta: " + pr);
+  ok(/basso/.test(pr) && !/followspot|spot|luc/i.test(pr), "i carichi delle luci non contano: " + pr);
+  s5Fix(s5Orch()); A.state.rider.materiali = true;
+  ok(/Ciabatte: 2 \(chitarra, tastiere\)/.test(A.materialiRichiesti().testo), "ciabatta entro 2 m dal carico: dice di chi: " + A.materialiRichiesti().testo);
+  s5Fix([{ id: "c1", type: "ciabatta", x: 100, y: 100 }, { id: "c2", type: "ciabatta", x: 800, y: 100 }, { id: "c3", type: "ciabatta", x: 1500, y: 100 }]); A.state.rider.materiali = true;
+  ok(/Ciabatte: 3 \(stage sinistra, stage centro, stage destra\)/.test(A.materialiRichiesti().testo), "senza carichi vicini: il lato del palco: " + A.materialiRichiesti().testo);
+  reset();
+});
+t("Materiali richiesti: una zona che non è di potenza non diventa «Alimentazione»; le caselle luci seguono direttore/4 leggii e mai le conferenze", () => {
+  s5Fix([{ id: "l1", type: "leggio", x: 100, y: 100 }]); A.state.rider.materiali = true;
+  A.state.zones = [{ id: "z9", kind: "pubblico", label: "Zona B", x: 100, y: 100, w: 100, d: 100, supply: "63 A" }];
+  ok(!/Alimentazione/.test(A.materialiRichiesti().testo), "solo le zone «power» parlano di alimentazione: " + A.materialiRichiesti().testo);
+  const leggii = (n) => Array.from({ length: n }, (_, i) => ({ id: "l" + i, type: "leggio", x: 100 + i * 60, y: 100 }));
+  s5Fix(leggii(3)); eq(A.riderLuciVisibile(), false, "3 leggii, niente direttore: nascoste");
+  s5Fix(leggii(4)); eq(A.riderLuciVisibile(), true, "4 leggii: visibili");
+  s5Fix(leggii(4).concat([{ id: "d", type: "direttore", x: 800, y: 300 }])); A.state.tipoEvento = "conferenza";
+  eq([A.riderLuciVisibile(), A.riderLuciExtra()], [false, []], "in una conferenza mai, anche con il direttore");
+  s5Fix(leggii(4)); A.state.rider.luciNoFumo = true;
+  ok(/Niente fumo\/haze\./.test(A.riderHtml()), "le richieste luci stanno anche nell'anteprima del rider");
+  ok(/if\(el\.checked\) state\.rider\[pr\[1\]\]=true; else delete state\.rider\[pr\[1\]\]; saveSoon\(\);/.test(appjs), "le caselle del pannello si salvano nel rider");
+  reset();
+});
 /* 06/10/2026 — Simone: «sul pdf che stampo ci sono i kg, dev'essere un'opzione disattivata di default» */
 t("Pesi (kg) nel PDF: opzione del progetto, spenta di serie", () => {
   reset(); add("sediaorch", 300, 300);
