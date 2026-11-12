@@ -13655,6 +13655,12 @@ t("Organico, seguito (L1-c): totale sotto ogni gruppo, «TOTALE ORCHESTRA» prim
   ok(i2("ALTRO") > i2("Totale archi") && i2("Totale altro") > i2("ALTRO") && i2("Totale altro") < i2("TOTALE ORCHESTRA") && r2[i2("Totale altro")].n === 2, "ALTRO, col suo totale, prima di TOTALE ORCHESTRA: " + r2.map((x) => x.nome).join(","));
   eq(r2[i2("TOTALE ORCHESTRA")].n, 10, "e conta fra gli strumentisti");
   eq(r2.some((x) => x.nome === "Totale voci"), false, "una sola riga di voci: nessun «Totale voci» ripetuto");
+  s5Fix(orgN("vlnpost", 8, { vsec: 1 })); A.state.items.push({ id: "x1", type: "musFlauto", x: 100, y: 100 });
+  eq(A.organicoList().rows.some((x) => x.nome === "Totale altro"), false, "ALTRO con una sola riga: niente totale ripetuto");
+  s5Fix(orgFix().concat(orgN("corista", 6)));
+  const cfg2 = A.pdfListConfig().organico, th = A.listPreviewHtml("organico");
+  ok(/Organico[^<]*<br>55 strumentisti \+ 6 voci/.test(th), "anteprima: la riga di riepilogo va a capo sotto il titolo: " + th.slice(th.indexOf("pdf-list-sub"), th.indexOf("pdf-list-sub") + 120));
+  eq(["sez", "sub", "tot", "totorch", "riga"].map((t) => [cfg2.rowBold({ tipo: t }), cfg2.rowFondo({ tipo: t })]), [[true, "#f1f5f9"], [true, null], [true, "#e2e8f0"], [true, "#e2e8f0"], [false, null]], "intestazioni con banda chiara, totali di gruppo in grassetto senza banda, totali generali con banda scura");
   reset();
 });
 t("il riferimento del cartiglio, se svuotato, resta svuotato", () => {
