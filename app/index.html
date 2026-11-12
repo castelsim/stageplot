@@ -2353,7 +2353,7 @@ svg.names-hidden .orc-name{display:none}
     .chips button,.pdf-navbtn,.rub-btn{min-height:44px}
     #dragHint button{min-width:44px;min-height:44px;margin:-10px -8px -10px 0}   /* la ✕ del suggerimento: 14 px di bersaglio sotto il dito (revisione 25/09) */
     .pdf-navbtn{width:44px;height:44px}
-    #pdfTitolo,#pdfHeader,#pdfScale{min-height:40px}
+    #pdfTitolo,#pdfVersione,#pdfHeader,#pdfScale{min-height:40px}
     .cat-sheet-close{min-width:44px}
     /* le righe restano allineate al centro adesso che sono più alte */
     .layer-row,.cat-head{align-items:center}
@@ -6291,6 +6291,11 @@ body.cust-contorno .item.selected .selbox{display:none}
              `state.titolo` dell'header (nessuno stato nuovo), e sotto si legge come si chiamerà il file. -->
         <label for="pdfTitolo">Nome del progetto <span class="hdr-why">— intestazione del documento e nome del file</span></label>
         <input type="text" id="pdfTitolo" placeholder="Senza titolo" maxlength="120">
+        <!-- VERSIONE (12/11/2026): numero del documento, nel piè di ogni pagina e nel nome del file. Vuota = come prima;
+             se il titolo finisce con «vN» si legge da lì. Testo con tastiera numerica: riusa lo stile degli altri campi. -->
+        <label for="pdfVersione">Versione <span class="hdr-why">— nel piè di ogni pagina e nel nome del file</span></label>
+        <input type="text" id="pdfVersione" inputmode="numeric" maxlength="3" placeholder="es. 1" autocomplete="off" style="width:110px">
+        <div class="hdr-saved" id="pdfVersioneHint"></div>
         <div class="hdr-saved" id="pdfFileName"></div>
         <div class="hdr-saved" id="pdfUltimo" hidden></div>
         <!-- SCALETTA e QR (10/10/2026, idee dal confronto con TecRider Pro). Fuori da «Altre opzioni»:

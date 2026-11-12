@@ -2296,6 +2296,11 @@
              `state.titolo` dell'header (nessuno stato nuovo), e sotto si legge come si chiamerà il file. -->
         <label for="pdfTitolo">Nome del progetto <span class="hdr-why">— intestazione del documento e nome del file</span></label>
         <input type="text" id="pdfTitolo" placeholder="Senza titolo" maxlength="120">
+        <!-- VERSIONE (12/11/2026): numero del documento, nel piè di ogni pagina e nel nome del file. Vuota = come prima;
+             se il titolo finisce con «vN» si legge da lì. Testo con tastiera numerica: riusa lo stile degli altri campi. -->
+        <label for="pdfVersione">Versione <span class="hdr-why">— nel piè di ogni pagina e nel nome del file</span></label>
+        <input type="text" id="pdfVersione" inputmode="numeric" maxlength="3" placeholder="es. 1" autocomplete="off" style="width:110px">
+        <div class="hdr-saved" id="pdfVersioneHint"></div>
         <div class="hdr-saved" id="pdfFileName"></div>
         <div class="hdr-saved" id="pdfUltimo" hidden></div>
         <!-- SCALETTA e QR (10/10/2026, idee dal confronto con TecRider Pro). Fuori da «Altre opzioni»:
@@ -6628,7 +6633,7 @@ function nextVariantName(){ var n=0; VARIANTS.forEach(function(v){ var m=/^Varia
    data e contatti non erano mai diversi. Restano nello stato di ogni variante — lo schema e i file
    già salvati non cambiano — ma a ogni sincronizzazione quelli della variante attiva si scrivono
    nelle altre. */
-var CAMPI_DOCUMENTO=["titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
+var CAMPI_DOCUMENTO=["titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","versione","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
 function propagaCampiDocumento(v){
   var src=v&&v.state; if(!src) return;
   VARIANTS.forEach(function(o){
@@ -9780,6 +9785,8 @@ function normalizeState(s){
   s.tipoEvento=(s.tipoEvento==="conferenza") ? "conferenza" : "concerto";   /* 24/09: conferenza cambia le parole del PDF e gli avvisi, non il disegno */
   s.pdfHeader = (typeof s.pdfHeader==="string") ? s.pdfHeader.slice(0,120) : "";   /* riferimento nel cartiglio (export), persistente */
   if(s.pdfPesi!==true) delete s.pdfPesi;   /* kg nel PDF: solo un true esplicito li accende (06/10/2026) */
+  var _vers=(typeof s.versione==="number"||typeof s.versione==="string") ? +s.versione : NaN;   /* versione del documento (12/11): intero 1-999, altrimenti assente */
+  if(_vers%1===0 && _vers>=1 && _vers<=999) s.versione=_vers; else delete s.versione;
   /* Le pagine scelte nella finestra Esporta si ricordavano nel progetto (06/08). Dal 10/09 non più
      — «togli anche la memoria della scelta» — e il campo si porta via chi apre il progetto, non una
      scrittura di massa sul database: quella toccherebbe i progetti di tutti in un colpo solo e non
@@ -22718,7 +22725,10 @@ function setEventInputs(){
   TITLE_INPUTS.forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=state.titolo||""; });
   /* come si chiamerà il file: la stessa `fileName()` che usa l'export, così la promessa è verificabile */
   var _fn=document.getElementById("pdfFileName");
-  if(_fn && typeof fileName==="function") _fn.textContent="Il file uscirà come "+fileName()+".pdf";
+  if(_fn && typeof fileName==="function") _fn.textContent="Il file uscirà come "+pdfNomeFileTesto();
+  var _vc=document.getElementById("pdfVersione");   /* la versione: quella del campo, o letta dal titolo (precompilata) */
+  if(_vc && document.activeElement!==_vc) _vc.value=versioneNumero()||"";
+  var _vh=document.getElementById("pdfVersioneHint"); if(_vh) _vh.textContent=versioneSuggerimento();
   ["luogo","luogoEv","evLuogo"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=state.luogo||""; });
   ["evDate","evDateM"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=state.evDate||""; });
   ["evTime","evTimeM"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=state.evTime||""; });
@@ -22728,6 +22738,7 @@ function setEventInputs(){
 }
 TITLE_INPUTS.forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input", function(){ state.titolo=this.value; setEventInputs(); saveSoon(); }); });
 ["luogo","luogoEv","evLuogo"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input", function(){ state.luogo=this.value; setEventInputs(); saveSoon(); }); });
+(function(){ var e=document.getElementById("pdfVersione"); if(e) e.addEventListener("input", function(){ versioneImposta(this.value); }); })();
 ["evTipo","evTipoM"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("change", function(){
   state.tipoEvento=(this.value==="conferenza")?"conferenza":"concerto"; setEventInputs(); saveSoon(); if(typeof render==="function") render(); }); });
 /* ── Data e orario dell'evento nell'header (17/07): chip accanto al titolo + popover ── */
@@ -34517,6 +34528,49 @@ function buildProjectJson(){
 /* Il link «vivo» di un progetto condiviso: lo stesso nella finestra Condividi e nel QR del PDF (10/10). */
 function linkVistaCondivisa(tok){ return location.origin+location.pathname+"?view="+encodeURIComponent(tok); }
 function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"stage-plot"; }
+/* ═══ VERSIONE DEL DOCUMENTO (12/11/2026; regola di Simone del 04/11: «mettiamole sempre le versioni in tutti i fogli») ═══
+   Un numero nel progetto (`state.versione`, intero 1-999, assente = nessuna) che esce nel piè di ogni pagina («v3 · 12/11/2026»,
+   accanto a «1 di N») e nel nome del file dell'Esporta. I progetti dei concerti la scrivono già alla fine del titolo («… Bibione
+   v3 · 10/11/2026»): se il campo è vuoto si legge da lì. Senza versione il file esce come prima. */
+var VERSIONE_MAX=999;
+var VERSIONE_FINALE_RE=/\s*\bv(\d{1,3})\b(?:\s*[·\-–]\s*\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4})?\s*$/i;   /* solo in fondo: un «v3» a metà titolo non è una versione */
+function versioneDaTitolo(t){ var m=VERSIONE_FINALE_RE.exec(String(t==null?"":t)); var n=m?parseInt(m[1],10):0; return (n>=1 && n<=VERSIONE_MAX) ? n : 0; }
+function titoloSenzaVersione(t){ return String(t==null?"":t).replace(VERSIONE_FINALE_RE,"").replace(/[\s·\-–]+$/,""); }
+function versioneNumero(){
+  var v=state && state.versione;
+  if(typeof v==="number" && v%1===0 && v>=1 && v<=VERSIONE_MAX) return v;
+  return versioneDaTitolo(state && state.titolo);
+}
+function versioneImposta(txt){
+  var n=parseInt(String(txt==null?"":txt).trim(),10);
+  if(n>=1 && n<=VERSIONE_MAX) state.versione=n; else delete state.versione;
+  if(typeof setEventInputs==="function") setEventInputs();
+  saveSoon();
+}
+function dataGgMmAaaa(d, sep){ var p=function(n){ return String(n).padStart(2,"0"); }; return p(d.getDate())+sep+p(d.getMonth()+1)+sep+d.getFullYear(); }
+function versioneEtichetta(d){ var n=versioneNumero(); return n ? "v"+n+" · "+dataGgMmAaaa(d||new Date(),"/") : ""; }
+function versioneSuggerimento(){ return versioneNumero() ? "" : "Consiglio: aggiungi la versione (1, 2, 3…): esce nel piè di pagina e nel nome del file, e chi riceve il PDF capisce se è l'ultima."; }
+/* «Titolo - v3 del 12-11-2026 - A3 orizz 1-50.pdf»: il titolo com'è scritto (senza il «vN» finale, già nel nome), senza i caratteri che
+   i file system rifiutano, al massimo 100 caratteri. Senza versione, il nome di sempre. */
+function nomeFilePdf(paperKey, N, orient, d){
+  var v=versioneNumero(); if(!v) return fileName()+".pdf";
+  var t=titoloSenzaVersione(state.titolo).replace(/[\\\/:*?"<>|\u0000-\u001f]+/g," ").replace(/\s+/g," ").trim().slice(0,100).trim().replace(/[. ]+$/,"");
+  if(!t) t="Stage plot";
+  return t+" - v"+v+" del "+dataGgMmAaaa(d||new Date(),"-")+" - "+String(paperKey||"a4").toUpperCase()+" "+(orient==="portrait"?"vert":"orizz")+" 1-"+N+".pdf";
+}
+/* Il nome che l'Esporta promette («Il file uscirà come…»): lo stesso dell'export, con il foglio e la scala scelti adesso. */
+function pdfNomeFileTesto(){
+  try{
+    if(versioneNumero()){
+      var p=document.getElementById("pdfPaper"), h=document.getElementById("pdfHeader");
+      if(p && p.value){
+        var sc=pdfScaleValue(), hv=h?h.value:"", o=pdfOrientValue(p.value, sc, hv), N=resolveScale(p.value, sc, o, cartHFor(hv, p.value, o));
+        if(N) return nomeFilePdf(p.value, N, o);
+      }
+    }
+  }catch(_e){}
+  return fileName()+".pdf";
+}
 /* ===== Condividi progetto (link auto-caricante) ===== */
 (function(){
   var modal=document.getElementById("shareModal"), urlEl=document.getElementById("shareUrl");
@@ -37878,6 +37932,9 @@ function pdfCredit(doc){
        regia e palco non si rimettevano in ordine). Più scuro del credito: questo si deve leggere.
        «1 di N» su ogni foglio, anche quando è uno solo (regola del 06/10 per ogni PDF che esce da qui). */
     doc.setFontSize(8); doc.setTextColor(107,114,128); doc.text(i+" di "+n, pw/2, ph-4.5, {align:"center"});
+    /* la versione accanto al numero di pagina (12/11, regola «versione su ogni foglio»): «v3 · 12/11/2026» */
+    var _ver=versioneEtichetta();
+    if(_ver) doc.text(_ver, pw/2+doc.getTextWidth(i+" di "+n)/2+4, ph-4.5);
   }
   doc.setPage(n);
 }
@@ -39010,7 +39067,7 @@ function exportPdf(paperKey, scaleSel, orient, header){
      si riaccendeva a cronometro (2500 ms fissi) e su un progetto pesante tornava cliccabile mentre
      svg2pdf era ancora sul main thread — due clic, due file, due passate. */
   return buildPdfDoc(paperKey, N, orient, header).then(function(doc){
-    pdfSave(doc, fileName()+".pdf");
+    pdfSave(doc, nomeFilePdf(paperKey, N, orient));
     if(typeof segnaPdfEsportato==="function") segnaPdfEsportato();
     /* dire la verità a valle: il ritaglio e le pagine non disegnate non devono sparire dietro un "✓" */
     var _avvisi=[];
@@ -39316,6 +39373,7 @@ function pdfChannelPage(doc, L, paperKey){
     var _cartH=cartHFor(header.value, paper.value, _or);   /* la stessa che userà il PDF */
     var N=resolveScale(paper.value, pdfScaleValue(), _or, _cartH);
     var oTxt=(_or==="portrait"?"verticale":"orizzontale")+(orient.value==="auto"?" (scelto in automatico)":"");
+    var _nf=document.getElementById("pdfFileName"); if(_nf) _nf.textContent="Il file uscirà come "+pdfNomeFileTesto();   /* il nome dipende da foglio, verso e scala (12/11) */
     if(!N){ info.className="mstatus err"; info.textContent="Non entra nemmeno a 1:500 su "+paper.value.toUpperCase()+" "+oTxt+" — prova un foglio più grande o l'altro orientamento."; }
     else {
       var _A=printArea(), mmW=Math.round(_A.w*10/N), mmH=Math.round(_A.h*10/N);
