@@ -89,6 +89,7 @@ function reset() {
   A.state.titolo = ""; A.state.luogo = ""; A.state.techContact = ""; A.state.venue = null; A.state.printFrame = null; A.state.zones = [];
   A.state.lights = { rows: [], blackout: null, mood: "" };   /* luci = reparto (blocco A): senza azzeramento le righe di un test finiscono nel rider del successivo */
   delete A.state.scaletta;   /* scaletta (10/10): campo che esiste solo con almeno una voce */
+  delete A.state.versione;   /* versione del documento (12/11): campo che esiste solo se impostata; un test che la imposta non deve lasciarla ai successivi */
   delete A.state.customModels;   /* modelli dell'elemento personalizzato (13/10): dal primo Salva di un elemento nuovo nasce anche il modello (Ruling 17), e un test che salva non deve lasciarli ai successivi */
   A.state.stage = { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] };   /* palco default: base per isFreshBlankProject */
   /* cab.home va azzerato come le luci e lookDefault: dal 02/09 un test puo' CREARE il punto
@@ -13387,7 +13388,7 @@ t("Esporta dice se il progetto è cambiato dopo l'ultimo PDF", () => {
   ok(/nessuna modifica dopo/.test(A.pdfUltimoTesto(riaperto)), "riaprire il progetto non è una modifica: " + A.pdfUltimoTesto(riaperto));
   A.state.items[0].x += 50;
   ok(/^Modificato dopo l'ultimo PDF/.test(A.pdfUltimoTesto(A.state)), "spostato un elemento, la nota deve dirlo");
-  ok(/pdfSave\(doc, fileName\(\)\+"\.pdf"\);\s*if\(typeof segnaPdfEsportato==="function"\) segnaPdfEsportato\(\);/.test(appjs), "l'export riuscito deve lasciare la nota");
+  ok(/pdfSave\(doc, nomeFilePdf\(paperKey, N, orient\)\);\s*if\(typeof segnaPdfEsportato==="function"\) segnaPdfEsportato\(\);/.test(appjs), "l'export riuscito deve lasciare la nota");
   ok(/renderFuoriPalco\(\);\s*(?:renderCoroMuto\(\);\s*)?renderPdfUltimo\(\);/.test(appjs), "la nota va mostrata all'apertura di Esporta");   /* 29/09: fra i due c'è l'avviso del coro */
 });
 /* Revisione 25/09: il PDF «solo palco» lasciava fuori la channel list senza dirlo. */
@@ -19090,7 +19091,101 @@ t("la finestra Esporta rilegge il nome del progetto quando si apre", () => {
   const sei = appjs.slice(appjs.indexOf("function setEventInputs"), appjs.indexOf("function setEventInputs") + 600);
   ok(/TITLE_INPUTS\.forEach/.test(sei) && /"pdfTitolo"/.test(appjs.slice(appjs.indexOf("var TITLE_INPUTS"), appjs.indexOf("var TITLE_INPUTS")+90)),
      "e pdfTitolo è fra i campi che riempie");
-  ok(/Il file uscirà come "\+fileName\(\)/.test(sei), "con la riga del nome file presa da fileName()");
+  ok(/Il file uscirà come "\+pdfNomeFileTesto\(\)/.test(sei), "con la riga del nome file presa da pdfNomeFileTesto() (che ricade su fileName() senza versione)");
+});
+
+/* ═══ VERSIONE DEL DOCUMENTO (12/11/2026; regola di Simone del 04/11: «mettiamole sempre le versioni in tutti i fogli»).
+   Un campo del progetto (`state.versione`, numero) che esce nel piè di ogni pagina («v3 · 12/11/2026», accanto a «1 di N»)
+   e nel nome del file dell'Esporta («Titolo - v3 del 12-11-2026 - A3 orizz 1-50.pdf»). Se il campo è vuoto ma il titolo
+   finisce con «vN» (come scrivono già i progetti dei concerti), la versione si legge da lì. Senza versione, il file esce
+   come prima. ═══ */
+t("Versione: si legge dalla fine del titolo («… Bibione v3 · 10/11/2026»), solo se è davvero una versione", () => {
+  const v = (s) => A.versioneDaTitolo(s);
+  eq([v("La grande musica 12.12.26 Bibione v3 · 10/11/2026"), v("Concerto v12"), v("Concerto V2"), v("Concerto v3 - 10-11-2026")], [3, 12, 2, 3], "in fondo, con o senza data");
+  eq([v("Concerto v3 finale"), v("Vivace"), v("Rev 3"), v("Concerto MV3"), v("Pove 12.12.26"), v(""), v(null)], [0, 0, 0, 0, 0, 0, 0], "non in fondo, o non una versione");
+  eq([v("Concerto v0"), v("Concerto v1000"), v("Concerto v-1")], [0, 0, 0], "da 1 a 999");
+});
+t("Versione: il campo vince sul titolo; valori non validi cadono sul titolo; salvataggio e riapertura la tengono", () => {
+  reset(); A.state.titolo = "Bibione v3";
+  eq(A.versioneNumero(), 3, "dal titolo");
+  A.state.versione = 5; eq(A.versioneNumero(), 5, "il campo vince");
+  [0, "x", 2.5, 1000, -1, null].forEach((x) => { A.state.versione = x; eq(A.versioneNumero(), 3, "valore non valido " + JSON.stringify(x) + ": si torna al titolo"); });
+  A.state.titolo = "Bibione"; A.state.versione = undefined; eq(A.versioneNumero(), 0, "né campo né titolo: nessuna versione");
+  const n = (x) => A.normalizeState({ _v: A.SCHEMA_VERSION, items: [], inputs: [], outputs: [], versione: x }).versione;
+  eq([n(4), n("4"), n(0), n("abc"), n(1000), n(2.5), n(undefined)], [4, 4, undefined, undefined, undefined, undefined, undefined], "normalizzazione: intero da 1 a 999, altrimenti assente");
+  ok(A.CAMPI_DOCUMENTO.indexOf("versione") > -1, "vale per tutte le scene");
+  reset(); A.state.versione = 7;
+  A.loadDoc(JSON.parse(A.docToJSON()));
+  eq(A.state.versione, 7, "salva e riapri");
+  reset();
+});
+t("Versione: l'etichetta del piè «v3 · 12/11/2026» (data a due cifre) e il suggerimento solo se manca", () => {
+  reset(); A.state.versione = 3;
+  eq(A.versioneEtichetta(new Date(2026, 10, 12)), "v3 · 12/11/2026");
+  eq(A.versioneEtichetta(new Date(2026, 2, 5)), "v3 · 05/03/2026", "giorno e mese a due cifre");
+  eq(A.versioneSuggerimento(), "", "con la versione: niente suggerimento");
+  A.state.versione = undefined;
+  eq(A.versioneEtichetta(new Date(2026, 10, 12)), "", "senza versione: nessuna etichetta");
+  ok(/aggiungi la versione/i.test(A.versioneSuggerimento()), "senza: un consiglio leggero");
+  reset();
+});
+t("Versione: la casella dell'Esporta imposta e toglie il campo", () => {
+  reset();
+  A.versioneImposta("3"); eq(A.state.versione, 3);
+  A.versioneImposta(" 12 "); eq(A.state.versione, 12, "spazi ignorati");
+  A.versioneImposta("2.7"); eq(A.state.versione, 2, "solo la parte intera");
+  ["", "abc", "0", "1000", "-4"].forEach((x) => { A.state.versione = 9; A.versioneImposta(x); ok(!("versione" in A.state), "«" + x + "» toglie il campo"); });
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/<input[^>]*id="pdfVersione"[^>]*inputmode="numeric"[^>]*maxlength="3"/.test(html), "la casella c'è, con la tastiera numerica e al massimo 3 cifre");
+  ok(/id="pdfVersioneHint"/.test(html), "e il suggerimento");
+  reset();
+});
+t("Nome del file: «Titolo - vN del GG-MM-AAAA - A3 orizz 1-50.pdf», uguale al titolo senza il «vN» finale", () => {
+  reset(); A.state.titolo = "Stage plot - Bibione 12.12.26"; A.state.versione = 3;
+  const d = new Date(2026, 10, 12);
+  eq(A.nomeFilePdf("a3", 50, "landscape", d), "Stage plot - Bibione 12.12.26 - v3 del 12-11-2026 - A3 orizz 1-50.pdf");
+  eq(A.nomeFilePdf("a4", 100, "portrait", new Date(2026, 2, 5)), "Stage plot - Bibione 12.12.26 - v3 del 05-03-2026 - A4 vert 1-100.pdf", "verticale, date a due cifre");
+  /* versione dal titolo: il «vN · data» finale non si ripete */
+  A.state.versione = undefined; A.state.titolo = "La grande musica italiana 12.12.26 Bibione v3 · 10/11/2026";
+  eq(A.nomeFilePdf("a3", 50, "landscape", d), "La grande musica italiana 12.12.26 Bibione - v3 del 12-11-2026 - A3 orizz 1-50.pdf", "la versione del titolo diventa quella del nome");
+  A.state.versione = 4;
+  eq(A.nomeFilePdf("a3", 50, "landscape", d), "La grande musica italiana 12.12.26 Bibione - v4 del 12-11-2026 - A3 orizz 1-50.pdf", "il campo vince, e il «v3» del titolo non resta");
+  /* caratteri che i file system non accettano, titolo vuoto, titolo lunghissimo */
+  A.state.titolo = 'A/B: "C"? <d> |e| \\ f*'; A.state.versione = 1;
+  eq(A.nomeFilePdf("a3", 50, "landscape", d), "A B C d e f - v1 del 12-11-2026 - A3 orizz 1-50.pdf");
+  A.state.titolo = ""; eq(A.nomeFilePdf("a3", 50, "landscape", d), "Stage plot - v1 del 12-11-2026 - A3 orizz 1-50.pdf", "senza titolo: «Stage plot»");
+  A.state.titolo = "x".repeat(300); const lungo = A.nomeFilePdf("a3", 50, "landscape", d);
+  ok(lungo.length <= 100 + " - v1 del 12-11-2026 - A3 orizz 1-50.pdf".length, "titolo troncato a 100: " + lungo.length);
+  /* senza versione il file esce come prima */
+  reset(); A.state.titolo = "Stage plot - Bibione";
+  eq(A.nomeFilePdf("a3", 50, "landscape", d), "stage-plot-bibione.pdf", "senza versione: come oggi");
+  reset();
+});
+t("Nome del file e piè di pagina: l'export e ogni pagina usano la versione", () => {
+  const exp = appjs.slice(appjs.indexOf("function exportPdf("), appjs.indexOf("function exportPdf(") + 3500);
+  ok(/pdfSave\(doc, nomeFilePdf\(paperKey, N, orient\)\);/.test(exp), "exportPdf salva col nome nuovo");
+  const sei = appjs.slice(appjs.indexOf("function setEventInputs"), appjs.indexOf("function setEventInputs") + 1200);
+  ok(/pdfNomeFileTesto\(\)/.test(sei), "e la promessa «Il file uscirà come…» dice lo stesso nome");
+  eq(A.pdfNomeFileTesto(), "stage-plot.pdf", "nel sandbox (senza finestra) ricade sul nome di prima");
+  ok(/getElementById\("pdfVersione"\);\s*if\(e\) e\.addEventListener\("input", function\(\)\{ versioneImposta\(this\.value\); \}\)/.test(appjs), "scrivere nella casella imposta la versione");
+  ok(/_vc\.value=versioneNumero\(\)\|\|""/.test(sei) && /versioneSuggerimento\(\)/.test(sei), "aprendo l'Esporta la casella è precompilata (dal campo o dal titolo) e il suggerimento è scritto");
+  const ref = appjs.slice(appjs.indexOf("function refresh(){\n    var info=document.getElementById(\"pdfInfo\")"), appjs.indexOf("function refresh(){\n    var info=document.getElementById(\"pdfInfo\")") + 1800);
+  ok(/Il file uscirà come "\+pdfNomeFileTesto\(\)/.test(ref), "cambiando formato, verso o scala la promessa del nome file si aggiorna (refresh)");
+  /* piè di pagina: vN · data accanto a «1 di N», su ogni pagina; niente se manca la versione */
+  reset(); A.state.versione = 3;
+  const doc = jsPdfFinto()({ format: "a4", orientation: "portrait" }); doc.addPage();
+  A.pdfCredit(doc);
+  [0, 1].forEach((i) => {
+    const t = doc.pagine[i].testi, pn = t.find((x) => /^\d+ di 2$/.test(x.t)), ve = t.find((x) => x.t === A.versioneEtichetta());
+    ok(pn && ve, "pagina " + (i + 1) + ": «n di 2» e la versione — " + JSON.stringify(t.map((x) => x.t)));
+    eq(ve.y, pn.y, "sulla stessa riga"); ok(ve.x > pn.x && ve.x < pn.x + 40, "accanto al numero di pagina, a destra");
+  });
+  delete A.state.versione;
+  const doc2 = jsPdfFinto()({ format: "a4", orientation: "portrait" });
+  A.pdfCredit(doc2);
+  ok(!doc2.pagine[0].testi.some((x) => /^v\d+ ·/.test(x.t)), "senza versione il piè è quello di sempre");
+  eq(doc2.pagine[0].testi.filter((x) => /^1 di 1$/.test(x.t)).length, 1, "«1 di 1» c'è");
+  reset();
 });
 
 t("il wordmark dell'header non va a capo", () => {

@@ -2275,7 +2275,7 @@ svg.names-hidden .orc-name{display:none}
     .chips button,.pdf-navbtn,.rub-btn{min-height:44px}
     #dragHint button{min-width:44px;min-height:44px;margin:-10px -8px -10px 0}   /* la ✕ del suggerimento: 14 px di bersaglio sotto il dito (revisione 25/09) */
     .pdf-navbtn{width:44px;height:44px}
-    #pdfTitolo,#pdfHeader,#pdfScale{min-height:40px}
+    #pdfTitolo,#pdfVersione,#pdfHeader,#pdfScale{min-height:40px}
     .cat-sheet-close{min-width:44px}
     /* le righe restano allineate al centro adesso che sono più alte */
     .layer-row,.cat-head{align-items:center}
