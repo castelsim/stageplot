@@ -1610,6 +1610,11 @@ svg.names-hidden .orc-name{display:none}
   /* Non è un invito, è un avviso: qualcosa nel disegno non torna, e il PDF lo mostrerà così. */
   .nudge.warn{background:var(--warning-bg);border-color:var(--warning-border);color:var(--warning);cursor:default}
   .nudge.warn .btn{margin-left:6px;padding:4px 10px;font-size:12px;vertical-align:baseline}
+  /* «Prima di esportare» (12/11): primo blocco della colonna, un elenco di cose da guardare */
+  #pdfPrimaDi{margin:0 0 12px}
+  .pdf-prima ul{margin:6px 0 0;padding-left:18px}
+  .pdf-prima li{margin:3px 0;line-height:1.35}
+  .pdf-prima-riga{background:none;border:0;padding:0;margin:0;font:inherit;color:inherit;text-align:left;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
   .pdf-optrow{display:flex;gap:14px;align-items:flex-end;margin-top:14px}
   .pdf-optrow label{display:block;font-size:12px;font-weight:600;color:var(--text-2);margin:0 0 5px}
   /* Area stampata: cosa verrà stampato, e il comando per cambiarlo sulla stessa riga (31/07) */
@@ -2353,7 +2358,7 @@ svg.names-hidden .orc-name{display:none}
     .chips button,.pdf-navbtn,.rub-btn{min-height:44px}
     #dragHint button{min-width:44px;min-height:44px;margin:-10px -8px -10px 0}   /* la ✕ del suggerimento: 14 px di bersaglio sotto il dito (revisione 25/09) */
     .pdf-navbtn{width:44px;height:44px}
-    #pdfTitolo,#pdfHeader,#pdfScale{min-height:40px}
+    #pdfTitolo,#pdfVersione,#pdfHeader,#pdfScale{min-height:40px}
     .cat-sheet-close{min-width:44px}
     /* le righe restano allineate al centro adesso che sono più alte */
     .layer-row,.cat-head{align-items:center}
@@ -6262,6 +6267,8 @@ body.cust-contorno .item.selected .selbox{display:none}
     <div class="pdf-exp-body">
     <div class="pdf-exp-grid">
       <div class="pdf-exp-side">
+        <!-- PRIMA DI ESPORTARE (12/11/2026): le cose da guardare prima che il file arrivi al service. Mai bloccante, nascosta se non c'è niente. -->
+        <div id="pdfPrimaDi" hidden></div>
         <!-- LE DUE SCELTE (22/10/2026): sempre in vista, con Esporta avanzato spento o acceso, da computer e da
              telefono. Fuori da #pdfTechBox, che in versione base sta dietro «Altre opzioni». Le pillole qui sotto
              restano la regolazione fine e seguono la scelta. -->
@@ -6294,6 +6301,11 @@ body.cust-contorno .item.selected .selbox{display:none}
              `state.titolo` dell'header (nessuno stato nuovo), e sotto si legge come si chiamerà il file. -->
         <label for="pdfTitolo">Nome del progetto <span class="hdr-why">— intestazione del documento e nome del file</span></label>
         <input type="text" id="pdfTitolo" placeholder="Senza titolo" maxlength="120">
+        <!-- VERSIONE (12/11/2026): numero del documento, nel piè di ogni pagina e nel nome del file. Vuota = come prima;
+             se il titolo finisce con «vN» si legge da lì. Testo con tastiera numerica: riusa lo stile degli altri campi. -->
+        <label for="pdfVersione">Versione <span class="hdr-why">— nel piè di ogni pagina e nel nome del file</span></label>
+        <input type="text" id="pdfVersione" inputmode="numeric" maxlength="3" placeholder="es. 1" autocomplete="off" style="width:110px">
+        <div class="hdr-saved" id="pdfVersioneHint"></div>
         <div class="hdr-saved" id="pdfFileName"></div>
         <div class="hdr-saved" id="pdfUltimo" hidden></div>
         <!-- SCALETTA e QR (10/10/2026, idee dal confronto con TecRider Pro). Fuori da «Altre opzioni»:

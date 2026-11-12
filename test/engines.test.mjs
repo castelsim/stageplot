@@ -90,6 +90,7 @@ function reset() {
   A.state.lights = { rows: [], blackout: null, mood: "" };   /* luci = reparto (blocco A): senza azzeramento le righe di un test finiscono nel rider del successivo */
   delete A.state.latiTeatro;   /* giardino e corte (12/11): opzione che esiste solo se accesa; un test che l'accende non deve lasciarla ai successivi */
   delete A.state.scaletta;   /* scaletta (10/10): campo che esiste solo con almeno una voce */
+  delete A.state.versione;   /* versione del documento (12/11): campo che esiste solo se impostata; un test che la imposta non deve lasciarla ai successivi */
   delete A.state.customModels;   /* modelli dell'elemento personalizzato (13/10): dal primo Salva di un elemento nuovo nasce anche il modello (Ruling 17), e un test che salva non deve lasciarli ai successivi */
   A.state.stage = { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] };   /* palco default: base per isFreshBlankProject */
   /* cab.home va azzerato come le luci e lookDefault: dal 02/09 un test puo' CREARE il punto
@@ -4922,6 +4923,25 @@ t("Output list: bus console -> porte out (auto consecutive, pin, conflitti, mai 
   eq(A.state.buses[0].kind, "st", "kind sanificato");
   eq(A.state.buses[0].boxId, undefined, "boxId orfano rimosso");
   A.state.buses = [];
+});
+
+/* 12/11/2026, dalle mail di produzione: l'output list dei professionisti ha MAIN, SUB, FRONT FILL, REC, talkback.
+   Le pillole di partenza ora li hanno tutti (prima «near fill» e niente talkback). */
+t("Uscite console: le pillole di partenza coprono main, sub, front fill, near fill, tv, rec e talkback", () => {
+  const chip = Object.fromEntries(A.BUS_CHIPS.map((c) => [c[0], c]));
+  ["MAIN L/R", "SUB", "Front fill L/R", "Near fill L/R", "TV L/R", "REC L/R", "Talkback"].forEach((n) => ok(chip[n], "manca la pillola «" + n + "»"));
+  eq([chip["Front fill L/R"][1], chip["Talkback"][1], chip["SUB"][1]], ["st", "mono", "mono"], "front fill in stereo, talkback e sub mono");
+  A.BUS_CHIPS.forEach((c) => ok(A.BUS_KINDS[c[1]], "«" + c[0] + "»: tipo " + c[1] + " sconosciuto"));
+  eq(new Set(A.BUS_CHIPS.map((c) => c[0].toLowerCase())).size, A.BUS_CHIPS.length, "nomi tutti diversi (la pillola sparisce dopo l'uso)");
+  /* e finiscono davvero nell'elenco: due uscite con le nuove pillole prendono porte consecutive della stage box */
+  reset(); A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.home = { kind: "foh" };
+  const b = add("stagebox", 300, 300); b.hw = "rio3224d2"; b.sbId = 1;
+  A.state.buses = [{ id: "b1", name: "Front fill L/R", kind: "st", dest: "front fill" }, { id: "b2", name: "Talkback", kind: "mono", dest: "talkback" }];
+  A.__cabRes = null;
+  const r = A.busList().rows;
+  eq(r.map((x) => [x.name, x.tag, x.ports.length, x.dest]), [["Front fill L/R", "ST", 2, "front fill"], ["Talkback", "DIR", 1, "talkback"]], "righe: sigla e porte per tipo");
+  eq(r[0].ports.concat(r[1].ports), [r[0].ports[0], r[0].ports[0] + 1, r[0].ports[0] + 2], "porte consecutive");
+  A.state.buses = []; reset();
 });
 
 t("Sub-snake analogica -> rack I/O: blocco contiguo, FOH del Rio, riservate, fallback main", () => {
@@ -13388,7 +13408,7 @@ t("Esporta dice se il progetto è cambiato dopo l'ultimo PDF", () => {
   ok(/nessuna modifica dopo/.test(A.pdfUltimoTesto(riaperto)), "riaprire il progetto non è una modifica: " + A.pdfUltimoTesto(riaperto));
   A.state.items[0].x += 50;
   ok(/^Modificato dopo l'ultimo PDF/.test(A.pdfUltimoTesto(A.state)), "spostato un elemento, la nota deve dirlo");
-  ok(/pdfSave\(doc, fileName\(\)\+"\.pdf"\);\s*if\(typeof segnaPdfEsportato==="function"\) segnaPdfEsportato\(\);/.test(appjs), "l'export riuscito deve lasciare la nota");
+  ok(/pdfSave\(doc, nomeFilePdf\(paperKey, N, orient\)\);\s*if\(typeof segnaPdfEsportato==="function"\) segnaPdfEsportato\(\);/.test(appjs), "l'export riuscito deve lasciare la nota");
   ok(/renderFuoriPalco\(\);\s*(?:renderCoroMuto\(\);\s*)?renderPdfUltimo\(\);/.test(appjs), "la nota va mostrata all'apertura di Esporta");   /* 29/09: fra i due c'è l'avviso del coro */
 });
 /* Revisione 25/09: il PDF «solo palco» lasciava fuori la channel list senza dirlo. */
@@ -19078,6 +19098,102 @@ t("il prezzo è dichiarato nella pagina, non solo nel piede", () => {
   ok(/Gratis<\/span>/.test(aperturaLanding), "e il gratis è già nei fatti dell'apertura");
 });
 
+/* ═══ CONTROLLO PRIMA DELL'EXPORT (12/11/2026, specifica S1 dalla posta: segnaposto nei testi, nomi doppi, mix senza uscita…).
+   Una striscia in cima all'Esporta, mai bloccante; una funzione pura `controlliPrimaDelExport()` → [{id, gravita, testo, itemId?}],
+   una regola = un id. Le regole sono state tarate sui 30 progetti del collaudo (media sotto 1 avviso a progetto). ═══ */
+const cpe = (id) => A.controlliPrimaDelExport().filter((x) => id ? x.id === id : true);
+const docVuoto = () => ({ titolo: "Concerto di prova", stage: { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] }, inputs: [], outputs: [], items: [] });
+t("Controllo prima dell'export: palco vuoto o progetto in ordine → niente striscia", () => {
+  reset(); eq(A.controlliPrimaDelExport(), [], "palco vuoto");
+  A.loadDoc(Object.assign(docVuoto(), { luogo: "Teatro Comunale", items: [{ id: "a", type: "comboamp", x: 300, y: 300 }, { id: "v", type: "cantante", x: 600, y: 300 }] }));
+  eq(A.controlliPrimaDelExport(), [], "progetto in ordine: nessun avviso");
+  reset();
+});
+t("Controllo prima dell'export, regola 1: segnaposto nei testi (titolo, luogo, rider, scaletta, note, nomi dei canali)", () => {
+  const trova = (campo) => { reset(); campo(); return cpe("segnaposto"); };
+  ["Rider Badoere Queen 2023 Da finire", "palco min N x N", "palco min n x n", "Ore TBA", "Orario TBD", "Inizio __:__", "PROVVISORIO", "Versione provvisoria", "Concerto xxx", "n auto per il carico", "N×N m"].forEach((s) => {
+    const r = trova(() => { A.state.titolo = s; });
+    eq(r.length, 1, "«" + s + "» nel titolo è un segnaposto"); eq(r[0].gravita, "warn", "mai un errore: non blocca");
+    ok(/titolo/i.test(r[0].testo) && r[0].testo.indexOf(s.slice(0, 12)) > -1, "il testo dice dove e cosa: " + r[0].testo);
+  });
+  ["Teatro Comunale", "Tabarro", "Xanadu", "Provvisoriamente", "Nonna x Nipote", "Bibione 12.12.26 v3", "TBAR", "Auto n 2"].forEach((s) => eq(trova(() => { A.state.titolo = s; }).length, 0, "«" + s + "»: niente"));
+  eq(trova(() => { A.state.luogo = "Ore TBA"; })[0].testo.indexOf("luogo") > -1, true, "luogo");
+  eq(trova(() => { A.state.rider = { sistema: "Line array, palco min N x N" }; }).length, 1, "nota del rider");
+  eq(trova(() => { A.state.scaletta = [{ tipo: "brano", titolo: "Brano uno", durata: "3:30", note: "__:__" }]; }).length, 1, "scaletta");
+  const it = trova(() => { A.loadDoc(Object.assign(docVuoto(), { items: [{ id: "m", type: "astamic", x: 300, y: 300, label: "XXX" }] })); });
+  eq([it.length, it[0].itemId], [1, "m"], "nome di un microfono: l'avviso porta l'elemento da selezionare");
+  eq(trova(() => { A.loadDoc(Object.assign(docVuoto(), { items: [{ id: "g", type: "comboamp", x: 300, y: 300, note: "da finire" }] })); })[0].itemId, "g", "nota di un elemento");
+  eq(trova(() => { A.loadDoc(Object.assign(docVuoto(), { inputs: [{ src: "Canale TBA", mic: "SM58", stand: "", p48: false, notes: "", by: "" }] })); }).length, 1, "riga della channel list a mano");
+  /* titolo e luogo uguali: due posti, due righe; due elementi con la stessa nota: due righe; la stessa riga a mano ripetuta: una */
+  eq(trova(() => { A.state.titolo = "Ore TBA"; A.state.luogo = "Ore TBA"; }).length, 2, "titolo e luogo: due posti, due righe");
+  eq(trova(() => { A.loadDoc(Object.assign(docVuoto(), { items: [{ id: "g1", type: "comboamp", x: 300, y: 300, note: "da finire" }, { id: "g2", type: "comboamp", x: 500, y: 300, note: "da finire" }] })); }).map((x) => x.itemId), ["g1", "g2"], "stessa nota su due elementi: due righe, ognuna col suo elemento");
+  eq(trova(() => { const r = { src: "Canale TBA", mic: "SM58", stand: "", p48: false, notes: "", by: "" }; A.loadDoc(Object.assign(docVuoto(), { inputs: [r, Object.assign({}, r)] })); }).length, 1, "la stessa riga ripetuta: una sola");
+  reset();
+});
+t("Controllo prima dell'export, regola 2: etichetta numerata scritta due volte (Vox4), senza falsi allarmi", () => {
+  const doc = (labels) => Object.assign(docVuoto(), { items: labels.map((l, i) => ({ id: "m" + i, type: "astamic", x: 100 + i * 90, y: 300, label: l })) });
+  reset(); A.loadDoc(doc(["Vox4", "Vox 5", "vox4"]));
+  const r = cpe("etichetta-duplicata");
+  eq(r.length, 1, "Vox4 e vox4 sono lo stesso nome"); ok(/Vox4/i.test(r[0].testo) && /2/.test(r[0].testo), "dice quale nome e quante volte: " + r[0].testo);
+  eq(r[0].itemId, "m0", "porta il primo elemento");
+  A.loadDoc(doc(["Vox 4", "Vox 5", "Vox 6"])); eq(cpe("etichetta-duplicata").length, 0, "nomi che differiscono per il solo numero finale: nessun avviso");
+  A.loadDoc(doc(["Voce", "Voce", "Voce"])); eq(cpe("etichetta-duplicata").length, 0, "nome senza numero ripetuto (Voce ×3): è normale, nessun avviso");
+  A.loadDoc(Object.assign(docVuoto(), { items: [{ id: "c", type: "comboamp", x: 300, y: 300, label: "Gtr 2" }, { id: "d", type: "sedia", x: 500, y: 300, label: "Gtr 2" }] }));
+  eq(cpe("etichetta-duplicata").length, 0, "conta solo chi ha un canale: una sedia con lo stesso nome non è un canale");
+  A.loadDoc(Object.assign(docVuoto(), { inputs: [{ src: "Vox4", mic: "SM58", stand: "", p48: false, notes: "", by: "" }, { src: "Vox4", mic: "SM58", stand: "", p48: false, notes: "", by: "" }] }));
+  eq(cpe("etichetta-duplicata").length, 1, "anche due righe della channel list a mano");
+  A.loadDoc(Object.assign(docVuoto(), { items: [{ id: "m", type: "astamic", x: 300, y: 300, label: "Vox4" }], inputs: [{ src: "Vox4", mic: "SM58", stand: "", p48: false, notes: "", by: "", linked_item_id: "m" }] }));
+  eq(cpe("etichetta-duplicata").length, 0, "la riga collegata a un elemento è il suo canale: non si conta due volte");
+  reset();
+});
+t("Controllo prima dell'export, regola 4: mix monitor senza uscita sulle stage box e righe a mano senza microfono", () => {
+  const wedges = (n) => Array.from({ length: n }, (_, i) => ({ id: "w" + i, type: "wedge", x: 100 + i * 90, y: 600, label: "MIX " + (i + 1) }));
+  const setup = (n, box) => { A.loadDoc(Object.assign(docVuoto(), { items: (box ? [{ id: "b1", type: "stagebox", x: 900, y: 300, hw: "rio1608d2", sbId: 1 }] : []).concat(wedges(n)).concat([{ id: "m1", type: "astamic", x: 100, y: 500 }]) }));
+    A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.home = { kind: "foh" }; A.__cabRes = null; };
+  reset(); setup(10, true);
+  const senza = A.cabResult(true).mixes.filter((m) => !m.box).length;
+  ok(senza > 0, "il caso di prova ha davvero dei mix senza box (" + senza + ")");
+  const r = cpe("mix-senza-uscita");
+  eq(r.length, 1, "una riga"); ok(new RegExp("\\b" + senza + "\\b").test(r[0].testo) && /mix/i.test(r[0].testo), "dice quanti: " + r[0].testo);
+  setup(9, true); eq(A.cabResult(true).mixes.filter((m) => !m.box).length, 1, "caso con un mix solo fuori"); ok(/^1 mix monitor non ha /.test(cpe("mix-senza-uscita")[0].testo), "singolare: " + cpe("mix-senza-uscita")[0].testo);
+  setup(4, true); eq(cpe("mix-senza-uscita").length, 0, "i mix ci stanno nelle uscite della box: niente");
+  setup(10, false); eq(cpe("mix-senza-uscita").length, 0, "nessuna stage box dichiarata: il patch lo assegna il service, niente avviso");
+  /* righe della channel list a mano con il nome e senza microfono */
+  reset(); A.loadDoc(Object.assign(docVuoto(), { inputs: [{ src: "Sorgente", mic: "", stand: "", p48: false, notes: "", by: "" }, { src: "Sorgente", mic: "", stand: "", p48: false, notes: "", by: "" }, { src: "Voce", mic: "SM58", stand: "", p48: false, notes: "", by: "" }, { src: "", mic: "", stand: "", p48: false, notes: "", by: "" }] }));
+  const m = cpe("riga-senza-microfono");
+  eq(m.length, 1, "una riga sola per tutte"); ok(/\b2\b/.test(m[0].testo), "conta le due che hanno il nome e non il microfono: " + m[0].testo);
+  reset();
+});
+t("Controllo prima dell'export, regola 6: la data nel titolo contro la data dell'evento", () => {
+  const prova = (titolo, evDate) => { reset(); A.state.titolo = titolo; A.state.evDate = evDate || ""; return cpe("data-nel-titolo"); };
+  const r = prova("La grande musica 12.12.26 Bibione", "2026-12-15");
+  eq(r.length, 1, "titolo 12.12.26, evento 15/12: avviso"); ok(/12\.12\.26/.test(r[0].testo) && /15\/12\/2026/.test(r[0].testo), "dice le due date: " + r[0].testo);
+  eq(prova("La grande musica 12.12.26 Bibione", "2026-12-12").length, 0, "stessa data: niente");
+  eq(prova("Concerto 12/12/2026", "2026-12-12").length, 0, "formato gg/mm/aaaa");
+  eq(prova("Concerto 12-12-26", "2026-12-12").length, 0, "formato gg-mm-aa");
+  eq(prova("Concerto 1.2.27", "2027-02-01").length, 0, "giorno e mese a una cifra");
+  eq(prova("La grande musica 12.12.26 Bibione v3 · 10/11/2026", "2026-12-12").length, 0, "la data della versione in coda («v3 · 10/11/2026») non è quella dell'evento");
+  eq(prova("Concerto di Natale v3 · 10/11/2026", "2026-12-12").length, 0, "solo la data della versione: non è una data dell'evento");
+  eq(prova("Concerto 12.12.26", "").length, 0, "senza data dell'evento non c'è con cosa confrontare");
+  eq(prova("Concerto di prova", "2026-12-12").length, 0, "titolo senza data");
+  eq(prova("Concerto 31.02.26", "2026-02-28").length, 0, "una data impossibile non è una data");
+  reset();
+});
+t("Controllo prima dell'export: la striscia sta in cima all'Esporta, non blocca e il clic seleziona l'elemento", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  const lato = html.indexOf('<div class="pdf-exp-side">');
+  ok(lato > 0 && html.indexOf('id="pdfPrimaDi"') > lato && html.indexOf('id="pdfPrimaDi"') < html.indexOf('id="pdfScelte"'), "#pdfPrimaDi è il primo blocco della colonna, sopra «Cosa esportare»");
+  ok(typeof A.renderPrimaDelExport === "function" || /function renderPrimaDelExport\(/.test(appjs), "la funzione che la disegna c'è");
+  const apri = appjs.slice(appjs.indexOf("function _pdfExportModalCore"), appjs.indexOf("function _pdfExportModalCore") + 4500);
+  ok(/renderPrimaDelExport\(\)/.test(apri), "si ridisegna a ogni apertura dell'Esporta");
+  const rd = appjs.slice(appjs.indexOf("function renderPrimaDelExport("), appjs.indexOf("function renderPrimaDelExport(") + 2500);
+  ok(/Prima di esportare/.test(rd) && /selectOne\(/.test(rd), "titolo «Prima di esportare» e clic che seleziona");
+  ok(/box\.hidden=true/.test(rd), "senza avvisi la striscia è nascosta");
+  const exp = appjs.slice(appjs.indexOf("function exportPdf("), appjs.indexOf("function exportPdf(") + 3500);
+  const go = appjs.slice(appjs.indexOf('getElementById("pdfGo").addEventListener("click"'), appjs.indexOf('getElementById("pdfGo").addEventListener("click"') + 3500);
+  ok(!/controlliPrimaDelExport/.test(exp) && !/controlliPrimaDelExport/.test(go), "l'export non la consulta mai: non blocca");
+});
+
 /* ===== MENU FILE ESSENZIALE (13/08) — da 17 voci a 5 ===================================== */
 t("la finestra Esporta rilegge il nome del progetto quando si apre", () => {
   /* Visto da utente nuovo (23/08): il modello «Band» scrive state.titolo, l'header lo mostra, ma il
@@ -19091,7 +19207,101 @@ t("la finestra Esporta rilegge il nome del progetto quando si apre", () => {
   const sei = appjs.slice(appjs.indexOf("function setEventInputs"), appjs.indexOf("function setEventInputs") + 600);
   ok(/TITLE_INPUTS\.forEach/.test(sei) && /"pdfTitolo"/.test(appjs.slice(appjs.indexOf("var TITLE_INPUTS"), appjs.indexOf("var TITLE_INPUTS")+90)),
      "e pdfTitolo è fra i campi che riempie");
-  ok(/Il file uscirà come "\+fileName\(\)/.test(sei), "con la riga del nome file presa da fileName()");
+  ok(/Il file uscirà come "\+pdfNomeFileTesto\(\)/.test(sei), "con la riga del nome file presa da pdfNomeFileTesto() (che ricade su fileName() senza versione)");
+});
+
+/* ═══ VERSIONE DEL DOCUMENTO (12/11/2026; regola di Simone del 04/11: «mettiamole sempre le versioni in tutti i fogli»).
+   Un campo del progetto (`state.versione`, numero) che esce nel piè di ogni pagina («v3 · 12/11/2026», accanto a «1 di N»)
+   e nel nome del file dell'Esporta («Titolo - v3 del 12-11-2026 - A3 orizz 1-50.pdf»). Se il campo è vuoto ma il titolo
+   finisce con «vN» (come scrivono già i progetti dei concerti), la versione si legge da lì. Senza versione, il file esce
+   come prima. ═══ */
+t("Versione: si legge dalla fine del titolo («… Bibione v3 · 10/11/2026»), solo se è davvero una versione", () => {
+  const v = (s) => A.versioneDaTitolo(s);
+  eq([v("La grande musica 12.12.26 Bibione v3 · 10/11/2026"), v("Concerto v12"), v("Concerto V2"), v("Concerto v3 - 10-11-2026")], [3, 12, 2, 3], "in fondo, con o senza data");
+  eq([v("Concerto v3 finale"), v("Vivace"), v("Rev 3"), v("Concerto MV3"), v("Pove 12.12.26"), v(""), v(null)], [0, 0, 0, 0, 0, 0, 0], "non in fondo, o non una versione");
+  eq([v("Concerto v0"), v("Concerto v1000"), v("Concerto v-1")], [0, 0, 0], "da 1 a 999");
+});
+t("Versione: il campo vince sul titolo; valori non validi cadono sul titolo; salvataggio e riapertura la tengono", () => {
+  reset(); A.state.titolo = "Bibione v3";
+  eq(A.versioneNumero(), 3, "dal titolo");
+  A.state.versione = 5; eq(A.versioneNumero(), 5, "il campo vince");
+  [0, "x", 2.5, 1000, -1, null].forEach((x) => { A.state.versione = x; eq(A.versioneNumero(), 3, "valore non valido " + JSON.stringify(x) + ": si torna al titolo"); });
+  A.state.titolo = "Bibione"; A.state.versione = undefined; eq(A.versioneNumero(), 0, "né campo né titolo: nessuna versione");
+  const n = (x) => A.normalizeState({ _v: A.SCHEMA_VERSION, items: [], inputs: [], outputs: [], versione: x }).versione;
+  eq([n(4), n("4"), n(0), n("abc"), n(1000), n(2.5), n(undefined)], [4, 4, undefined, undefined, undefined, undefined, undefined], "normalizzazione: intero da 1 a 999, altrimenti assente");
+  ok(A.CAMPI_DOCUMENTO.indexOf("versione") > -1, "vale per tutte le scene");
+  reset(); A.state.versione = 7;
+  A.loadDoc(JSON.parse(A.docToJSON()));
+  eq(A.state.versione, 7, "salva e riapri");
+  reset();
+});
+t("Versione: l'etichetta del piè «v3 · 12/11/2026» (data a due cifre) e il suggerimento solo se manca", () => {
+  reset(); A.state.versione = 3;
+  eq(A.versioneEtichetta(new Date(2026, 10, 12)), "v3 · 12/11/2026");
+  eq(A.versioneEtichetta(new Date(2026, 2, 5)), "v3 · 05/03/2026", "giorno e mese a due cifre");
+  eq(A.versioneSuggerimento(), "", "con la versione: niente suggerimento");
+  A.state.versione = undefined;
+  eq(A.versioneEtichetta(new Date(2026, 10, 12)), "", "senza versione: nessuna etichetta");
+  ok(/aggiungi la versione/i.test(A.versioneSuggerimento()), "senza: un consiglio leggero");
+  reset();
+});
+t("Versione: la casella dell'Esporta imposta e toglie il campo", () => {
+  reset();
+  A.versioneImposta("3"); eq(A.state.versione, 3);
+  A.versioneImposta(" 12 "); eq(A.state.versione, 12, "spazi ignorati");
+  A.versioneImposta("2.7"); eq(A.state.versione, 2, "solo la parte intera");
+  ["", "abc", "0", "1000", "-4"].forEach((x) => { A.state.versione = 9; A.versioneImposta(x); ok(!("versione" in A.state), "«" + x + "» toglie il campo"); });
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/<input[^>]*id="pdfVersione"[^>]*inputmode="numeric"[^>]*maxlength="3"/.test(html), "la casella c'è, con la tastiera numerica e al massimo 3 cifre");
+  ok(/id="pdfVersioneHint"/.test(html), "e il suggerimento");
+  reset();
+});
+t("Nome del file: «Titolo - vN del GG-MM-AAAA - A3 orizz 1-50.pdf», uguale al titolo senza il «vN» finale", () => {
+  reset(); A.state.titolo = "Stage plot - Bibione 12.12.26"; A.state.versione = 3;
+  const d = new Date(2026, 10, 12);
+  eq(A.nomeFilePdf("a3", 50, "landscape", d), "Stage plot - Bibione 12.12.26 - v3 del 12-11-2026 - A3 orizz 1-50.pdf");
+  eq(A.nomeFilePdf("a4", 100, "portrait", new Date(2026, 2, 5)), "Stage plot - Bibione 12.12.26 - v3 del 05-03-2026 - A4 vert 1-100.pdf", "verticale, date a due cifre");
+  /* versione dal titolo: il «vN · data» finale non si ripete */
+  A.state.versione = undefined; A.state.titolo = "La grande musica italiana 12.12.26 Bibione v3 · 10/11/2026";
+  eq(A.nomeFilePdf("a3", 50, "landscape", d), "La grande musica italiana 12.12.26 Bibione - v3 del 12-11-2026 - A3 orizz 1-50.pdf", "la versione del titolo diventa quella del nome");
+  A.state.versione = 4;
+  eq(A.nomeFilePdf("a3", 50, "landscape", d), "La grande musica italiana 12.12.26 Bibione - v4 del 12-11-2026 - A3 orizz 1-50.pdf", "il campo vince, e il «v3» del titolo non resta");
+  /* caratteri che i file system non accettano, titolo vuoto, titolo lunghissimo */
+  A.state.titolo = 'A/B: "C"? <d> |e| \\ f*'; A.state.versione = 1;
+  eq(A.nomeFilePdf("a3", 50, "landscape", d), "A B C d e f - v1 del 12-11-2026 - A3 orizz 1-50.pdf");
+  A.state.titolo = ""; eq(A.nomeFilePdf("a3", 50, "landscape", d), "Stage plot - v1 del 12-11-2026 - A3 orizz 1-50.pdf", "senza titolo: «Stage plot»");
+  A.state.titolo = "x".repeat(300); const lungo = A.nomeFilePdf("a3", 50, "landscape", d);
+  ok(lungo.length <= 100 + " - v1 del 12-11-2026 - A3 orizz 1-50.pdf".length, "titolo troncato a 100: " + lungo.length);
+  /* senza versione il file esce come prima */
+  reset(); A.state.titolo = "Stage plot - Bibione";
+  eq(A.nomeFilePdf("a3", 50, "landscape", d), "stage-plot-bibione.pdf", "senza versione: come oggi");
+  reset();
+});
+t("Nome del file e piè di pagina: l'export e ogni pagina usano la versione", () => {
+  const exp = appjs.slice(appjs.indexOf("function exportPdf("), appjs.indexOf("function exportPdf(") + 3500);
+  ok(/pdfSave\(doc, nomeFilePdf\(paperKey, N, orient\)\);/.test(exp), "exportPdf salva col nome nuovo");
+  const sei = appjs.slice(appjs.indexOf("function setEventInputs"), appjs.indexOf("function setEventInputs") + 1200);
+  ok(/pdfNomeFileTesto\(\)/.test(sei), "e la promessa «Il file uscirà come…» dice lo stesso nome");
+  eq(A.pdfNomeFileTesto(), "stage-plot.pdf", "nel sandbox (senza finestra) ricade sul nome di prima");
+  ok(/getElementById\("pdfVersione"\);\s*if\(e\) e\.addEventListener\("input", function\(\)\{ versioneImposta\(this\.value\); \}\)/.test(appjs), "scrivere nella casella imposta la versione");
+  ok(/_vc\.value=versioneNumero\(\)\|\|""/.test(sei) && /versioneSuggerimento\(\)/.test(sei), "aprendo l'Esporta la casella è precompilata (dal campo o dal titolo) e il suggerimento è scritto");
+  const ref = appjs.slice(appjs.indexOf("function refresh(){\n    var info=document.getElementById(\"pdfInfo\")"), appjs.indexOf("function refresh(){\n    var info=document.getElementById(\"pdfInfo\")") + 1800);
+  ok(/Il file uscirà come "\+pdfNomeFileTesto\(\)/.test(ref), "cambiando formato, verso o scala la promessa del nome file si aggiorna (refresh)");
+  /* piè di pagina: vN · data accanto a «1 di N», su ogni pagina; niente se manca la versione */
+  reset(); A.state.versione = 3;
+  const doc = jsPdfFinto()({ format: "a4", orientation: "portrait" }); doc.addPage();
+  A.pdfCredit(doc);
+  [0, 1].forEach((i) => {
+    const t = doc.pagine[i].testi, pn = t.find((x) => /^\d+ di 2$/.test(x.t)), ve = t.find((x) => x.t === A.versioneEtichetta());
+    ok(pn && ve, "pagina " + (i + 1) + ": «n di 2» e la versione — " + JSON.stringify(t.map((x) => x.t)));
+    eq(ve.y, pn.y, "sulla stessa riga"); ok(ve.x > pn.x && ve.x < pn.x + 40, "accanto al numero di pagina, a destra");
+  });
+  delete A.state.versione;
+  const doc2 = jsPdfFinto()({ format: "a4", orientation: "portrait" });
+  A.pdfCredit(doc2);
+  ok(!doc2.pagine[0].testi.some((x) => /^v\d+ ·/.test(x.t)), "senza versione il piè è quello di sempre");
+  eq(doc2.pagine[0].testi.filter((x) => /^1 di 1$/.test(x.t)).length, 1, "«1 di 1» c'è");
+  reset();
 });
 
 t("il wordmark dell'header non va a capo", () => {

@@ -4205,7 +4205,7 @@ function nextVariantName(){ var n=0; VARIANTS.forEach(function(v){ var m=/^Varia
    data e contatti non erano mai diversi. Restano nello stato di ogni variante — lo schema e i file
    già salvati non cambiano — ma a ogni sincronizzazione quelli della variante attiva si scrivono
    nelle altre. */
-var CAMPI_DOCUMENTO=["titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","latiTeatro","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
+var CAMPI_DOCUMENTO=["titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","versione","latiTeatro","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
 function propagaCampiDocumento(v){
   var src=v&&v.state; if(!src) return;
   VARIANTS.forEach(function(o){
@@ -7358,6 +7358,8 @@ function normalizeState(s){
   s.pdfHeader = (typeof s.pdfHeader==="string") ? s.pdfHeader.slice(0,120) : "";   /* riferimento nel cartiglio (export), persistente */
   if(s.latiTeatro!==true) delete s.latiTeatro;   /* giardino e corte: spenti di serie, solo un true esplicito li accende (12/11/2026) */
   if(s.pdfPesi!==true) delete s.pdfPesi;   /* kg nel PDF: solo un true esplicito li accende (06/10/2026) */
+  var _vers=(typeof s.versione==="number"||typeof s.versione==="string") ? +s.versione : NaN;   /* versione del documento (12/11): intero 1-999, altrimenti assente */
+  if(_vers%1===0 && _vers>=1 && _vers<=999) s.versione=_vers; else delete s.versione;
   /* Le pagine scelte nella finestra Esporta si ricordavano nel progetto (06/08). Dal 10/09 non più
      — «togli anche la memoria della scelta» — e il campo si porta via chi apre il progetto, non una
      scrittura di massa sul database: quella toccherebbe i progetti di tutti in un colpo solo e non
@@ -16741,6 +16743,74 @@ function auditFixChoirMics(list){
   if(window.__toast) window.__toast(n+" microfoni coro aggiunti davanti al coro: spostali dove vanno davvero.", false);
   return n;
 }
+/* ═══ CONTROLLO PRIMA DELL'EXPORT (12/11/2026, specifica S1 dalla posta di produzione) ═══
+   Le cose che il service troverebbe sbagliate nel file e che chi lo manda si accorge solo dopo: un testo lasciato a metà
+   («Ore TBA», «palco min N x N», «Da finire»), lo stesso nome numerato su due canali (Vox4 due volte), mix monitor senza
+   uscita sulle stage box, una data nel titolo che non è quella dell'evento. Funzione pura → [{id, gravita, testo, itemId?}],
+   una regola = un id. MAI bloccante e mai un errore (gravita «warn»): è una striscia in cima all'Esporta, non l'audit.
+   Tarata sui 30 progetti del collaudo (media sotto 1 avviso a progetto). NON ci sono, di proposito:
+   · «coristi panoramici con giraffe ma senza zona»: con le giraffe i coristi hanno i loro canali («Boom»), il caso dell'11/11
+     era un falso positivo dello script esterno; chi non ha NESSUNA ripresa lo dice già «N coristi senza microfono» (coristiSenzaRipresa);
+   · «sedie ≠ persone»: nel modello ogni musicista porta la sua seduta e il suo leggio, quindi non c'è una differenza da
+     controllare; il confronto leggii/persone dà rumore su 14 progetti veri su 30 (rock band senza leggii, cori) e aspetta una
+     definizione di chi legge la musica. */
+var SEGNAPOSTO_RE=[/\bN\s*[x×]\s*N\b/i, /\bN\s+auto\b/i, /\bTB[AD]\b/i, /_{2,}\s*:\s*_{2,}/, /\bda\s+finire\b/i, /\bprovvisori[oa]\b/i, /\bX{3,}\b/i];
+function segnapostoIn(t){ t=String(t==null?"":t); return SEGNAPOSTO_RE.some(function(re){ return re.test(t); }); }
+/* Le date scritte nel titolo («12.12.26», «12/12/2026», «1-2-27»), senza la data in coda alla versione («v3 · 10/11/2026»),
+   che è quella del documento e non dell'evento. Solo date vere. Niente lookbehind: Safari vecchi non lo leggono. */
+function dateNelTitolo(t){
+  t=String(t==null?"":t).replace(/\s*\bv\d{1,3}\b(?:\s*[·\-–]\s*\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4})?\s*$/i,"");
+  var re=/(^|\D)(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4}|\d{2})(?!\d)/g, m, out=[];
+  while((m=re.exec(t))){
+    var g=+m[2], me=+m[3], a=+m[4]; if(m[4].length===2) a+=2000;
+    var d=new Date(a, me-1, g);
+    if(me>=1 && me<=12 && g>=1 && d.getFullYear()===a && d.getMonth()===me-1 && d.getDate()===g) out.push({testo:t.substr(m.index+m[1].length, m[0].length-m[1].length), iso:a+"-"+String(me).padStart(2,"0")+"-"+String(g).padStart(2,"0")});
+  }
+  return out;
+}
+function controlliPrimaDelExport(){
+  var items=state.items||[], out=[], visti={};
+  function add(id, testo, itemId){ var o={id:id, gravita:"warn", testo:testo}; if(itemId!=null && itemId!=="") o.itemId=itemId; out.push(o); }
+  /* 1 · segnaposto nei testi */
+  function segn(dove, testo, itemId){
+    testo=String(testo==null?"":testo); if(!segnapostoIn(testo)) return;
+    var k=dove+"|"+testo.toLowerCase()+"|"+(itemId==null?"":itemId); if(visti[k]) return; visti[k]=1;   /* lo stesso testo sullo stesso posto una volta sola; su due elementi sono due righe */
+    add("segnaposto","Segnaposto da completare "+dove+": «"+testo.slice(0,50)+(testo.length>50?"…":"")+"».", itemId);
+  }
+  segn("nel titolo", state.titolo); segn("nel luogo", state.luogo);
+  Object.keys(state.rider||{}).forEach(function(k){ if(typeof state.rider[k]==="string") segn("nel rider", state.rider[k]); });
+  (state.scaletta||[]).forEach(function(b){ if(b){ segn("nella scaletta", b.titolo); segn("nella scaletta", b.note); } });
+  items.forEach(function(it){ if(isAudioSource(it)) segn("nel nome di un canale", it.label, it.id); segn("in una nota", noteOf(it), it.id); });
+  (state.inputs||[]).forEach(function(r){ if(r) segn("nel nome di un canale", r.src); });
+  /* 2 · lo stesso nome numerato su due canali (Vox4 due volte): senza numero («Voce» ×26) è normale, e «Vox 4»/«Vox 5» sono diversi */
+  var nomi={};
+  function conta(nome, itemId){
+    var n=String(nome==null?"":nome).replace(/\s+/g," ").trim(); if(!n || !/\d$/.test(n)) return;
+    var k=n.toLowerCase(); if(!nomi[k]) nomi[k]={n:n, c:0, id:itemId}; nomi[k].c++; if(nomi[k].id==null) nomi[k].id=itemId;
+  }
+  items.forEach(function(it){ if(isAudioSource(it)) conta(it.label, it.id); });
+  (state.inputs||[]).forEach(function(r){ if(r && !r.linked_item_id) conta(r.src, null); });
+  Object.keys(nomi).forEach(function(k){ var o=nomi[k]; if(o.c>1) add("etichetta-duplicata","«"+o.n+"» è scritto su "+o.c+" canali: nel PDF si confondono.", o.id); });
+  /* 4 · mix monitor che non entrano nelle uscite delle stage box dichiarate; righe a mano col nome e senza microfono */
+  try{
+    var R=cabResult(true);
+    if((R.boxes||[]).some(function(b){ return !b.auto; })){
+      var n=(R.mixes||[]).filter(function(m){ return !m.box; }).length;
+      if(n) add("mix-senza-uscita", n+(n===1?" mix monitor non ha":" mix monitor non hanno")+" un'uscita sulle stage box: nell'output list restano fuori. Aggiungi una stage box o riduci i mix.");
+    }
+  }catch(_e){}
+  var senzaMic=(state.inputs||[]).filter(function(r){ return r && String(r.src||"").trim() && !String(r.mic||"").trim(); }).length;
+  if(senzaMic) add("riga-senza-microfono", senzaMic+(senzaMic===1?" riga della channel list scritta a mano ha":" righe della channel list scritta a mano hanno")+" il nome ma non il microfono.");
+  /* 6 · la data nel titolo non è quella dell'evento (organico e titolo riusati da una serata vecchia) */
+  if(state.evDate){
+    var dt=dateNelTitolo(state.titolo);
+    if(dt.length && !dt.some(function(d){ return d.iso===state.evDate; })){
+      var e=state.evDate.split("-");
+      add("data-nel-titolo","Il titolo dice "+dt[0].testo+" ma la data dell'evento è "+e[2]+"/"+e[1]+"/"+e[0]+".");
+    }
+  }
+  return out;
+}
 function auditFixAddDistro(){
   /* 11/11: in modalità "manual" (di serie) il cavo quadro→sorgente non si disegna mai: il quadro appena posato risultava
      «senza alimentazione a monte» (errore critico «nofeed», export fermo) e nessun gesto poteva sistemarlo. Se
@@ -20590,16 +20660,21 @@ function setEventInputs(){
   TITLE_INPUTS.forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=state.titolo||""; });
   /* come si chiamerà il file: la stessa `fileName()` che usa l'export, così la promessa è verificabile */
   var _fn=document.getElementById("pdfFileName");
-  if(_fn && typeof fileName==="function") _fn.textContent="Il file uscirà come "+fileName()+".pdf";
+  if(_fn && typeof fileName==="function") _fn.textContent="Il file uscirà come "+pdfNomeFileTesto();
+  var _vc=document.getElementById("pdfVersione");   /* la versione: quella del campo, o letta dal titolo (precompilata) */
+  if(_vc && document.activeElement!==_vc) _vc.value=versioneNumero()||"";
+  var _vh=document.getElementById("pdfVersioneHint"); if(_vh) _vh.textContent=versioneSuggerimento();
   ["luogo","luogoEv","evLuogo"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=state.luogo||""; });
   ["evDate","evDateM"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=state.evDate||""; });
   ["evTime","evTimeM"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=state.evTime||""; });
   ["evTipo","evTipoM"].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=eventoConferenza()?"conferenza":"concerto"; });
   if(document.body) document.body.classList.toggle("ev-conferenza", eventoConferenza());
   if(typeof renderEvChip==="function") renderEvChip();
+  if(window.__renderPrimaDelExport) window.__renderPrimaDelExport();   /* la striscia «Prima di esportare» segue titolo e luogo (12/11) */
 }
 TITLE_INPUTS.forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input", function(){ state.titolo=this.value; setEventInputs(); saveSoon(); }); });
 ["luogo","luogoEv","evLuogo"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input", function(){ state.luogo=this.value; setEventInputs(); saveSoon(); }); });
+(function(){ var e=document.getElementById("pdfVersione"); if(e) e.addEventListener("input", function(){ versioneImposta(this.value); }); })();
 ["evTipo","evTipoM"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("change", function(){
   state.tipoEvento=(this.value==="conferenza")?"conferenza":"concerto"; setEventInputs(); saveSoon(); if(typeof render==="function") render(); }); });
 /* ── Data e orario dell'evento nell'header (17/07): chip accanto al titolo + popover ── */
@@ -29794,7 +29869,7 @@ function monitorList(){   /* sink-centrico: OGNI monitor sul palco = una riga di
    (MAIN/TV/REC/matrici/cuffie): state.buses = [{id,name,kind,dest,boxId,port}].
    Un bus = una voce, anche su più uscite (mai duplicato). Porte auto = prime N consecutive libere. */
 var BUS_KINDS={ st:{tag:"ST", n:2, nome:"Stereo (2 out)"}, mono:{tag:"DIR", n:1, nome:"Mono / Direct (1 out)"}, mtx:{tag:"MTX", n:2, nome:"Matrix (2 out)"} };
-var BUS_CHIPS=[["MAIN L/R","st","P.A."],["SUB","mono","sub"],["TV L/R","st","regia TV"],["REC L/R","st","registrazione"],["Near fill L/R","st","near fill"]];
+var BUS_CHIPS=[["MAIN L/R","st","P.A."],["SUB","mono","sub"],["Front fill L/R","st","front fill"],["Near fill L/R","st","near fill"],["TV L/R","st","regia TV"],["REC L/R","st","registrazione"],["Talkback","mono","talkback palco"]];   /* 12/11: front fill e talkback, come nelle output list dei professionisti */
 function busPortN(bu){ return BUS_KINDS[bu.kind] ? BUS_KINDS[bu.kind].n : 1; }
 var PM_FEED_NAMES={ 10:"Drums", 15:"Perc", 20:"Bass", 30:"Guit", 40:"Key", 50:"Fiati", 60:"Archi", 70:"Voci" };
 /* Nomi suggeriti per le mandate alla macchina cuffie: un nome per ogni GRUPPO strumentale presente sul
@@ -32393,6 +32468,49 @@ function buildProjectJson(){
 /* Il link «vivo» di un progetto condiviso: lo stesso nella finestra Condividi e nel QR del PDF (10/10). */
 function linkVistaCondivisa(tok){ return location.origin+location.pathname+"?view="+encodeURIComponent(tok); }
 function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"")||"stage-plot"; }
+/* ═══ VERSIONE DEL DOCUMENTO (12/11/2026; regola di Simone del 04/11: «mettiamole sempre le versioni in tutti i fogli») ═══
+   Un numero nel progetto (`state.versione`, intero 1-999, assente = nessuna) che esce nel piè di ogni pagina («v3 · 12/11/2026»,
+   accanto a «1 di N») e nel nome del file dell'Esporta. I progetti dei concerti la scrivono già alla fine del titolo («… Bibione
+   v3 · 10/11/2026»): se il campo è vuoto si legge da lì. Senza versione il file esce come prima. */
+var VERSIONE_MAX=999;
+var VERSIONE_FINALE_RE=/\s*\bv(\d{1,3})\b(?:\s*[·\-–]\s*\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4})?\s*$/i;   /* solo in fondo: un «v3» a metà titolo non è una versione */
+function versioneDaTitolo(t){ var m=VERSIONE_FINALE_RE.exec(String(t==null?"":t)); var n=m?parseInt(m[1],10):0; return (n>=1 && n<=VERSIONE_MAX) ? n : 0; }
+function titoloSenzaVersione(t){ return String(t==null?"":t).replace(VERSIONE_FINALE_RE,"").replace(/[\s·\-–]+$/,""); }
+function versioneNumero(){
+  var v=state && state.versione;
+  if(typeof v==="number" && v%1===0 && v>=1 && v<=VERSIONE_MAX) return v;
+  return versioneDaTitolo(state && state.titolo);
+}
+function versioneImposta(txt){
+  var n=parseInt(String(txt==null?"":txt).trim(),10);
+  if(n>=1 && n<=VERSIONE_MAX) state.versione=n; else delete state.versione;
+  if(typeof setEventInputs==="function") setEventInputs();
+  saveSoon();
+}
+function dataGgMmAaaa(d, sep){ var p=function(n){ return String(n).padStart(2,"0"); }; return p(d.getDate())+sep+p(d.getMonth()+1)+sep+d.getFullYear(); }
+function versioneEtichetta(d){ var n=versioneNumero(); return n ? "v"+n+" · "+dataGgMmAaaa(d||new Date(),"/") : ""; }
+function versioneSuggerimento(){ return versioneNumero() ? "" : "Consiglio: aggiungi la versione (1, 2, 3…): esce nel piè di pagina e nel nome del file, e chi riceve il PDF capisce se è l'ultima."; }
+/* «Titolo - v3 del 12-11-2026 - A3 orizz 1-50.pdf»: il titolo com'è scritto (senza il «vN» finale, già nel nome), senza i caratteri che
+   i file system rifiutano, al massimo 100 caratteri. Senza versione, il nome di sempre. */
+function nomeFilePdf(paperKey, N, orient, d){
+  var v=versioneNumero(); if(!v) return fileName()+".pdf";
+  var t=titoloSenzaVersione(state.titolo).replace(/[\\\/:*?"<>|\u0000-\u001f]+/g," ").replace(/\s+/g," ").trim().slice(0,100).trim().replace(/[. ]+$/,"");
+  if(!t) t="Stage plot";
+  return t+" - v"+v+" del "+dataGgMmAaaa(d||new Date(),"-")+" - "+String(paperKey||"a4").toUpperCase()+" "+(orient==="portrait"?"vert":"orizz")+" 1-"+N+".pdf";
+}
+/* Il nome che l'Esporta promette («Il file uscirà come…»): lo stesso dell'export, con il foglio e la scala scelti adesso. */
+function pdfNomeFileTesto(){
+  try{
+    if(versioneNumero()){
+      var p=document.getElementById("pdfPaper"), h=document.getElementById("pdfHeader");
+      if(p && p.value){
+        var sc=pdfScaleValue(), hv=h?h.value:"", o=pdfOrientValue(p.value, sc, hv), N=resolveScale(p.value, sc, o, cartHFor(hv, p.value, o));
+        if(N) return nomeFilePdf(p.value, N, o);
+      }
+    }
+  }catch(_e){}
+  return fileName()+".pdf";
+}
 /* ===== Condividi progetto (link auto-caricante) ===== */
 (function(){
   var modal=document.getElementById("shareModal"), urlEl=document.getElementById("shareUrl");
@@ -35754,6 +35872,9 @@ function pdfCredit(doc){
        regia e palco non si rimettevano in ordine). Più scuro del credito: questo si deve leggere.
        «1 di N» su ogni foglio, anche quando è uno solo (regola del 06/10 per ogni PDF che esce da qui). */
     doc.setFontSize(8); doc.setTextColor(107,114,128); doc.text(i+" di "+n, pw/2, ph-4.5, {align:"center"});
+    /* la versione accanto al numero di pagina (12/11, regola «versione su ogni foglio»): «v3 · 12/11/2026» */
+    var _ver=versioneEtichetta();
+    if(_ver) doc.text(_ver, pw/2+doc.getTextWidth(i+" di "+n)/2+4, ph-4.5);
   }
   doc.setPage(n);
 }
@@ -36886,7 +37007,7 @@ function exportPdf(paperKey, scaleSel, orient, header){
      si riaccendeva a cronometro (2500 ms fissi) e su un progetto pesante tornava cliccabile mentre
      svg2pdf era ancora sul main thread — due clic, due file, due passate. */
   return buildPdfDoc(paperKey, N, orient, header).then(function(doc){
-    pdfSave(doc, fileName()+".pdf");
+    pdfSave(doc, nomeFilePdf(paperKey, N, orient));
     if(typeof segnaPdfEsportato==="function") segnaPdfEsportato();
     /* dire la verità a valle: il ritaglio e le pagine non disegnate non devono sparire dietro un "✓" */
     var _avvisi=[];
@@ -37192,6 +37313,7 @@ function pdfChannelPage(doc, L, paperKey){
     var _cartH=cartHFor(header.value, paper.value, _or);   /* la stessa che userà il PDF */
     var N=resolveScale(paper.value, pdfScaleValue(), _or, _cartH);
     var oTxt=(_or==="portrait"?"verticale":"orizzontale")+(orient.value==="auto"?" (scelto in automatico)":"");
+    var _nf=document.getElementById("pdfFileName"); if(_nf) _nf.textContent="Il file uscirà come "+pdfNomeFileTesto();   /* il nome dipende da foglio, verso e scala (12/11) */
     if(!N){ info.className="mstatus err"; info.textContent="Non entra nemmeno a 1:500 su "+paper.value.toUpperCase()+" "+oTxt+" — prova un foglio più grande o l'altro orientamento."; }
     else {
       var _A=printArea(), mmW=Math.round(_A.w*10/N), mmH=Math.round(_A.h*10/N);
@@ -37294,6 +37416,29 @@ function pdfChannelPage(doc, L, paperKey){
     });
     box.appendChild(fix);
   }
+  /* La striscia «Prima di esportare» (12/11): una riga per cosa, il clic sull'elemento lo seleziona sul disegno (e chiude l'Esporta per
+     farlo vedere). Non ha bottoni di rimedio e non ferma l'export: sono cose da guardare, non errori. */
+  function renderPrimaDelExport(){
+    var box=document.getElementById("pdfPrimaDi"); if(!box) return;
+    box.innerHTML="";
+    var L=[]; try{ L=controlliPrimaDelExport(); }catch(_e){}
+    if(!L.length){ box.hidden=true; return; }
+    box.hidden=false; box.className="nudge warn pdf-prima";
+    var b=document.createElement("b"); b.textContent="Prima di esportare: "+(L.length===1?"1 cosa da guardare":L.length+" cose da guardare");
+    box.appendChild(b);
+    var ul=document.createElement("ul");
+    L.forEach(function(x){
+      var li=document.createElement("li");
+      if(x.itemId!=null){
+        var a=document.createElement("button"); a.type="button"; a.className="pdf-prima-riga"; a.textContent=x.testo; a.title="Selezionalo sul disegno";
+        a.addEventListener("click", function(){ selectOne(x.itemId); modal.hidden=true; render(); if(typeof ensureVisible==="function") ensureVisible(); });
+        li.appendChild(a);
+      } else li.textContent=x.testo;
+      ul.appendChild(li);
+    });
+    box.appendChild(ul);
+  }
+  window.__renderPrimaDelExport=renderPrimaDelExport;   /* il titolo si può correggere dentro l'Esporta: la striscia si aggiorna (setEventInputs) */
   function renderProdInline(){
     /* Nudge Controllo tecnico (variante A): un invito blu quando restano voci da definire,
        neutro quando è completo; click = apre/chiude le tendine qui sotto. Mai bloccante. */
@@ -37693,6 +37838,7 @@ function pdfChannelPage(doc, L, paperKey){
     renderFuoriPalco();
     renderCoroMuto();
     renderPdfUltimo();
+    renderPrimaDelExport();   /* «Prima di esportare» (12/11) */
     pdfHeaderInit();
     refresh();
     pdfUpdateTechNote();

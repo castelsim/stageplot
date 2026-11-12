@@ -94,6 +94,7 @@ function differenza(att, ora) {
 }
 
 let pass = 0, fail = 0;
+const avvisiExport = [];   /* «Prima di esportare» (12/11/2026): quanti avvisi escono su ogni progetto vero: la media deve restare sotto 1 */
 const casi = readdirSync(DIR).filter((f) => /^\d+\.json$/.test(f)).sort();
 if (casi.length < 20) { console.log(`✗ collaudo: ${casi.length} progetti, ne servono almeno 20`); process.exit(1); }
 if (AGGIORNA) mkdirSync(ATTESI, { recursive: true });
@@ -137,6 +138,7 @@ for (const f of casi) {
     const salvatoFoto = JSON.parse(A.docToJSON());
     const grezzoFoto = JSON.parse(readFileSync(join(DIR, f), "utf8"));   /* riletto: loadDoc può aver ritoccato `grezzo` */
     const grezzoPiatto = !Array.isArray(grezzoFoto.variants);
+    const avvisiScena = [];
     for (const v of A.VARIANTS.slice()) {
       A.switchVariant(v.id);
       const ed = JSON.stringify(A.bglPianta(A.state));
@@ -146,6 +148,7 @@ for (const f of casi) {
       /* LEGGII: STATO = CARTIGLIO = DISEGNO (27/10/2026, decisione di Simone: «si conta ciò che si disegna»). Prima lo
          Stato e il cartiglio del PDF contavano con due regole e su un progetto d'orchestra dicevano 33 e 31. */
       const acc = A.countAccessori(), tot = A.pdfTotals({ tecnici: false });
+      avvisiScena.push(A.controlliPrimaDelExport());
       const nel = (re) => { const r = tot.find((x) => re.test(x)); return r ? +r.split(" ")[0] : 0; };
       let dis = 0, disDir = 0;
       for (const it of A.state.items) { _glifi = 0; A.itemMarkup(it); if (it.type === "direttore") disDir += _glifi; else dis += _glifi; }
@@ -153,6 +156,7 @@ for (const f of casi) {
       if (new Set(leg).size > 1 || new Set(dir).size > 1)
         throw new Error("scena «" + v.name + "»: leggii Stato/cartiglio/disegno " + leg.join("/") + ", direttore " + dir.join("/"));
     }
+    avvisiExport.push({ nome, avvisi: avvisiScena.reduce((m, l) => (l.length > m.length ? l : m), []) });   /* la scena con più avvisi */
     const ora = improntaDocumento();
     /* salvare e riaprire non deve cambiare niente */
     A.loadDoc(JSON.parse(A.docToJSON()));
@@ -169,6 +173,9 @@ for (const f of casi) {
   } catch (e) { fail++; console.log("  ✗ " + nome + "\n" + String(e.message).split("\n").map((l) => "      " + l).join("\n")); }
 }
 
+const nAvvisi = avvisiExport.reduce((n, x) => n + x.avvisi.length, 0), mediaAvvisi = avvisiExport.length ? nAvvisi / avvisiExport.length : 0;
+console.log(`\nprima di esportare: ${nAvvisi} avvisi su ${avvisiExport.length} progetti (media ${mediaAvvisi.toFixed(2)})` + (nAvvisi ? ": " + avvisiExport.filter((x) => x.avvisi.length).map((x) => x.nome.replace("collaudo ", "") + " " + x.avvisi.map((a) => a.id).join("+")).join(", ") : ""));
+if (mediaAvvisi > 1) { console.log("✗ troppi avvisi: la media supera 1 a progetto, si rivedono le regole (specifica S1)"); fail++; }
 console.log(`\ncollaudo: ${pass} ok, ${fail} falliti su ${casi.length} progetti`);
 if (fail) {
   console.log("Se il cambiamento è VOLUTO: node test/collaudo.test.mjs --aggiorna, e scrivere il perché nel commit.");
