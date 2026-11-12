@@ -7262,6 +7262,33 @@ t("Sonorizzazione e orari nell'interfaccia: scelta accanto al tipo di evento, ca
   ok(/var t=orarioImposta\(el\.getAttribute\("data-orario"\), el\.value\);/.test(appjs), "gli orari si normalizzano quando si lascia il campo");
   ok(/e\.style\.display=eventoConferenza\(\)\?"none":""/.test(appjs), "in una conferenza la scelta non si offre");
 });
+t("Sonorizzazione, casi limite: valori sconosciuti, conferenza + misto, numeri nell'orario, video contati, console e personale fuori, mix senza uscita muti", () => {
+  s6Fix(s6Orch());
+  A.state.sonorizzazione = "boh"; eq(A.sonorizzazione(), "amplificato", "un valore sconosciuto vale amplificato");
+  A.state.sonorizzazione = "acustico"; A.sonorizzazioneImposta("amplificato"); eq("sonorizzazione" in A.state, false, "impostare «amplificato» toglie il campo");
+  A.sonorizzazioneImposta("misto"); eq(A.state.sonorizzazione, "misto", "impostare «misto» lo scrive");
+  A.state.tipoEvento = "conferenza"; eq([A.eventoMisto(), s5Rider().join(" ").indexOf("Parte acustica") < 0], [false, true], "conferenza + misto: la conferenza vince, niente nota");
+  A.state.tipoEvento = "concerto";
+  eq([A.orarioNorm(19), A.orarioNorm(9)], ["19:00", "09:00"], "un numero (19) è l'ora piena");
+  s6Fix(s6Orch().concat([{ id: "sw2", type: "schermo", x: 900, y: 60 }])); A.state.sonorizzazione = "acustico";
+  ok(/2× LED wall/.test(A.riderVideoText()), "due schermi: «2× LED wall»: " + A.riderVideoText());
+  A.state.production.systems.video = { ans: "venue" };
+  const J = s5Rider().join("\n"); ok((J.match(/Contributi video/g) || []).length === 1 && /VIDEO\n[^\n]*Contributi video/.test(J), "i contributi video stanno nella sezione VIDEO e non si ripetono in «Produzione e media»: " + J.slice(0, 400));
+  /* console e personale: in amplificato ci sono, in acustico no (PDF e anteprima) */
+  s6Fix(s6Orch()); A.state.cab.mixer = "dm3";
+  ok(s5Rider().indexOf("CONSOLE") > -1 && /Console/.test(A.riderHtml()) && /Personale richiesto/.test(A.riderHtml()), "amplificato: console e personale ci sono");
+  A.state.sonorizzazione = "acustico";
+  ok(s5Rider().indexOf("CONSOLE") < 0 && !/Console/.test(A.riderHtml()) && !/Personale richiesto/.test(A.riderHtml()), "acustico: né console né personale, nemmeno nell'anteprima");
+  /* mix monitor senza uscita: avviso in amplificato, muto in acustico */
+  const wedges = (n) => Array.from({ length: n }, (_, i) => ({ id: "w" + i, type: "wedge", x: 100 + i * 90, y: 600, label: "MIX " + (i + 1) }));
+  s5Fix([{ id: "b1", type: "stagebox", x: 900, y: 300, hw: "rio1608d2", sbId: 1 }].concat(wedges(10)).concat([{ id: "m1", type: "astamic", x: 100, y: 500 }]));
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.home = { kind: "foh" }; A.__cabRes = null;
+  const ids = () => A.controlliPrimaDelExport().map((c) => c.id);
+  ok(ids().indexOf("mix-senza-uscita") > -1, "amplificato: «mix senza uscita» c'è");
+  A.state.sonorizzazione = "acustico"; ok(ids().indexOf("mix-senza-uscita") < 0, "acustico: muto");
+  ok(/if\(acu\) m\.checked=true; m\.disabled=acu;/.test(appjs), "nel pannello la casella dei materiali, in acustico, è accesa e bloccata");
+  reset();
+});
 /* 06/10/2026 — Simone: «sul pdf che stampo ci sono i kg, dev'essere un'opzione disattivata di default» */
 t("Pesi (kg) nel PDF: opzione del progetto, spenta di serie", () => {
   reset(); add("sediaorch", 300, 300);
