@@ -6629,8 +6629,8 @@ t("Ascolti: macchine da 8 mix e aste nane — band e vocalist separati, 1 asta p
   /* nel PDF della lista personal monitor, in fondo; la pagina non cambia per chi non ha mixer */
   fix(16, 5);
   A.state.items.filter((i) => i.type === "hearback").forEach((i) => { i.pm = "p16m"; });
-  const doc = docACapo(); A.pmListPdf(doc);
-  const tx = pdfTesti(doc).map((x) => x.t);
+  const doc = Object.assign(jsPdfFinto()({ format: "a4", orientation: "portrait" }), { roundedRect() {} }); A.pmListPdf(doc);   /* docACapo/pdfTesti sono definiti più sotto: qui si ricostruiscono */
+  const tx = doc.pagine.reduce((l, pg) => l.concat(pg.testi.map((x) => x.t)), []);
   ok(tx.indexOf("Macchine da 8 mix: 3 (band 2 · vocalist 1) · Aste nane: 21") > -1, "PDF: la riga delle macchine e delle aste: " + tx.slice(-6).join(" | "));
   ok(tx.indexOf("MACCHINE E ASTE") > -1, "con la sua testata");
   ok(!tx.some((x) => /prolung/i.test(x)), "e nessuna prolunga cuffia: la regola non è derivabile (D9)");
