@@ -6917,13 +6917,12 @@ t("gli sgabelli hanno un tipo, e il cartiglio dice quali portare", () => {
   add("contrabbasso", 300, 600); add("sedia", 800, 700);
   const tot = A.pdfTotals({ tecnici: false }).join(" · ");
   ok(/\b1 seduta\b/.test(tot), "la sedia è una seduta, il contrabbasso no: " + tot);
-  ok(/1 sgabello batteria/.test(tot), "lo sgabello della batteria, di serie: " + tot);
-  ok(/2 sgabelli alti/.test(tot), "contrabbasso e chi canta seduto sono «alti»: " + tot);
+  ok(/1 batteria/.test(tot), "lo sgabello della batteria, di serie: " + tot);
+  ok(/7 sgabelli: 2 alti, 1 batteria, 1 tastiera, 3 altri/.test(tot), "un totale e il dettaglio: alti (contrabbasso, chi canta seduto), batteria, tastiera, altri: " + tot);
   ok(/1 panca piano/.test(tot), "la panca del pianoforte: " + tot);
-  ok(/1 sgabello tastiera/.test(tot), "lo sgabello dello stage piano: " + tot);
-  ok(/3 sgabelli\b/.test(tot), "e i generici: " + tot);
+  ok(/1 tastiera/.test(tot), "lo sgabello dello stage piano: " + tot);
   /* l'ordine: prima quelli legati a uno strumento, poi i generici */
-  ok(tot.indexOf("sgabelli alti") < tot.indexOf("sgabello batteria") && tot.indexOf("sgabello tastiera") < tot.indexOf("3 sgabelli"), "ordine stabile: alti, batteria, tastiera, generici: " + tot);
+  ok(tot.indexOf("2 alti") < tot.indexOf("1 batteria") && tot.indexOf("1 batteria") < tot.indexOf("1 tastiera") && tot.indexOf("1 tastiera") < tot.indexOf("3 altri") && tot.indexOf("3 altri") < tot.indexOf("1 panca piano"), "ordine stabile: alti, batteria, tastiera, altri, poi la panca: " + tot);
   /* il tipo sopravvive a salvataggio e riapertura */
   const doc = JSON.parse(A.docToJSONFull()); A.loadDoc(doc);
   const back = A.state.items.find((x) => x.type === "sgabello" && x.sgabTipo === "voce");
@@ -12025,16 +12024,22 @@ t("Esporta: col mouse la scelta della scala si vede anche in Semplice (16/10); s
 });
 /* 16/10 — Simone: «mi sembra che lo sgabello per timpani non ci sia». Nel disegno c'era (parts.stool!==false), nel cartiglio
    e nei conteggi no: sgabelliDi() non conosceva i timpani e countAccessori() contava solo quello della batteria. */
-t("nomi degli sgabelli nel cartiglio: alti raggruppati, forma elenco o totale (12/11)", () => {
+t("nomi degli sgabelli nel cartiglio: «N sgabelli: alti, batteria, tastiera» (12/11, scelta B di Simone)", () => {
   reset();
   const cb = add("contrabbasso", 300, 300); cb.doppia = true;
   const tp = add("timpani", 500, 300); A.parts(tp).stool = true;
   const bt = add("batteria", 700, 300); const ta = add("tastiera", 900, 300); ta.panca = true;
   const pc = add("percussioni", 1100, 300); A.parts(pc).stool = true;
-  eq(A.sgabelliTesto(), ["4 sgabelli alti", "1 sgabello batteria", "1 sgabello tastiera"], "elenco: gli alti sommano contrabbasso×2, timpani, percussioni");
-  eq(A.sgabelliTesto(undefined, "totale"), ["6 sgabelli: 4 alti, 1 batteria, 1 tastiera"], "totale");
-  reset(); const so = add("sgabello", 300, 300);
-  eq(A.sgabelliTesto(undefined, "totale"), ["1 sgabello"], "un solo gruppo: niente parentesi");
+  eq(A.sgabelliTesto(), ["6 sgabelli: 4 alti, 1 batteria, 1 tastiera"], "un totale, poi il dettaglio: gli alti sommano contrabbasso×2, timpani, percussioni");
+  ok(A.pdfTotals({ tecnici: false }).indexOf("6 sgabelli: 4 alti, 1 batteria, 1 tastiera") > -1, "è nel cartiglio del PDF");
+  reset(); add("sgabello", 300, 300); add("sgabello", 500, 300);
+  eq(A.sgabelliTesto(), ["2 sgabelli"], "un solo gruppo (generici): niente dettaglio");
+  reset(); add("batteria", 300, 300);
+  eq(A.sgabelliTesto(), ["1 sgabello batteria"], "un solo gruppo: nome per esteso");
+  reset(); add("batteria", 300, 300); add("grancoda", 900, 500);
+  eq(A.sgabelliTesto(), ["1 sgabello batteria", "1 panca piano"], "la panca del piano non è uno sgabello: resta a parte, fuori dal totale");
+  reset(); add("batteria", 300, 300); add("tastiera", 900, 300).panca = true;
+  eq(A.sgabelliTesto(), ["2 sgabelli: 1 batteria, 1 tastiera"], "due gruppi: totale e dettaglio");
 });
 t("lo sgabello dei timpani si conta come quello della batteria: cartiglio, Stato e liste dicono la stessa cosa", () => {
   ["timpani", "timpani2", "timpani3"].forEach((tipo) => {
@@ -12083,7 +12088,7 @@ t("batteria + timpani + contrabbasso + tastiere: i quattro sgabelli, nell'ordine
   add("contrabbasso", 500, 300);
   add("batteria", 200, 300);
   eq(JSON.stringify(A.sgabelliPerTipo()), JSON.stringify([["batteria", 1], ["timpani", 1], ["contrabbasso", 1], ["tastiere", 1]]));
-  eq(JSON.stringify(A.sgabelliTesto()), JSON.stringify(["2 sgabelli alti", "1 sgabello batteria", "1 sgabello tastiera"]));
+  eq(JSON.stringify(A.sgabelliTesto()), JSON.stringify(["4 sgabelli: 2 alti, 1 batteria, 1 tastiera"]));
   eq(A.countAccessori().sgabelli, 4, "il riepilogo Stato somma gli stessi quattro");
 });
 t("il totale degli sgabelli del riepilogo Stato è la somma di sgabelliDi: un tipo nuovo si conta da solo", () => {

@@ -14362,11 +14362,11 @@ function sgabelliPerTipo(items){
   return SGAB_ORDINE.filter(function(k){ return c[k]; }).map(function(k){ return [k, c[k]]; });
 }
 /* NOMI DEL CARTIGLIO (12/11/2026, Simone: «lo sgabello tastiera va scritto sgabello tastiera, sgabello batteria… contrabbassi,
-   timpani e percussioni possono essere assimilati a sgabelli alti… ce ne son troppi»). I tipi restano nei dati (sgabelliPerTipo);
-   nel foglio si raggruppano in 4: ALTI (contrabbasso, timpani, percussioni, chi canta seduto), BATTERIA, TASTIERA, GENERICI.
-   La panca del piano non è uno sgabello: resta a parte. SGAB_FORMA: "elenco" = «4 sgabelli alti · 1 sgabello batteria · …»,
-   "totale" = «6 sgabelli: 4 alti, 1 batteria, 1 tastiera». */
-var SGAB_FORMA = "elenco";
+   timpani e percussioni possono essere assimilati a sgabelli alti… ce ne son troppi»; scelta fra due forme: «B»). I tipi restano nei
+   dati (sgabelliPerTipo, Stato, disegno); nel foglio si raggruppano in 4: ALTI (contrabbasso, timpani, percussioni, chi canta
+   seduto), BATTERIA, TASTIERA, ALTRI (lo «Sgabello» senza tipo). Un solo gruppo: «2 sgabelli alti» / «1 sgabello batteria»;
+   due o più: un totale e il dettaglio, «5 sgabelli: 3 alti, 1 batteria, 1 tastiera». La panca del piano non è uno sgabello:
+   resta a parte, fuori dal totale («1 panca piano»). */
 var SGAB_GRUPPI = [
   {k:"alto",     uno:"sgabello alto",     tanti:"sgabelli alti",     corto1:"alto",    cortoN:"alti"},
   {k:"batteria", uno:"sgabello batteria", tanti:"sgabelli batteria", corto1:"batteria",cortoN:"batteria"},
@@ -14374,20 +14374,15 @@ var SGAB_GRUPPI = [
   {k:"generico", uno:"sgabello",          tanti:"sgabelli",          corto1:"altro",   cortoN:"altri"}
 ];
 var SGAB_TIPO_GRUPPO = {batteria:"batteria", tastiere:"tastiera", contrabbasso:"alto", timpani:"alto", percussioni:"alto", voce:"alto", generico:"generico"};
-function sgabelliTesto(items, forma){
+function sgabelliTesto(items){
   var c={}, panche=0;
   sgabelliPerTipo(items).forEach(function(p){
     if(p[0]==="piano"){ panche+=p[1]; return; }
     var g=SGAB_TIPO_GRUPPO[p[0]]||"generico"; c[g]=(c[g]||0)+p[1];
   });
   var gr=SGAB_GRUPPI.filter(function(g){ return c[g.k]; }), tot=gr.reduce(function(n,g){ return n+c[g.k]; },0), out=[];
-  if(tot){
-    if((forma||SGAB_FORMA)==="totale" && gr.length>1){
-      out.push(tot+" sgabelli: "+gr.map(function(g){ return c[g.k]+" "+(c[g.k]===1 ? g.corto1 : g.cortoN); }).join(", "));
-    } else {
-      gr.forEach(function(g){ out.push(c[g.k]+" "+(c[g.k]===1 ? g.uno : g.tanti)); });
-    }
-  }
+  if(gr.length===1) out.push(tot+" "+(tot===1 ? gr[0].uno : gr[0].tanti));
+  else if(gr.length>1) out.push(tot+" sgabelli: "+gr.map(function(g){ return c[g.k]+" "+(c[g.k]===1 ? g.corto1 : g.cortoN); }).join(", "));
   if(panche) out.push(panche+" "+(panche===1 ? SGAB_TIPI.piano.uno : SGAB_TIPI.piano.tanti));
   return out;
 }
