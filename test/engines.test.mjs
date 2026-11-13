@@ -5042,7 +5042,8 @@ t("Ordina come il service: il piano mette le sezioni in ordine (basso, chitarre,
   ok(seq.join(",").indexOf("R,R") > -1, "le riservate vengono in coppia: " + seq.join(","));
   const num = p.righe.filter((r) => r.tipo !== "sezione").map((r) => r.a); eq(num, num.map((_, i) => i + 1), "numeri FOH consecutivi 1…N, senza buchi");
   eq(A.servizioSnapshot(), prima, "il piano non scrive nulla (stato cab e box identici)"); eq(A.docToJSON(), docPrima, "documento identico");
-  eq(A.servizioPiano(0).conteggi.riservate, 0, "0 righe riservate = solo l'ordine"); eq(A.servizioPiano(1).conteggi.riservate, 3, "1 per sezione");
+  eq(A.servizioPiano(0).conteggi.riservate, 0, "0 righe riservate = solo l'ordine");
+  eq(A.servizioPiano(2).conteggi.spostati > 0, true, "i canali che cambiano numero sono contati"); eq(A.servizioPiano(1).conteggi.riservate, 3, "1 per sezione");
   eq(A.servizioPiano(99).n, 8, "tetto a 8"); eq(A.servizioPiano(-3).n, 0, "mai negativo"); eq(A.servizioPiano(NaN).n, 2, "default 2");
   ok(nb >= 1 && ng >= 1, "fixture sensata");
   reset();
@@ -5057,6 +5058,8 @@ t("Ordina come il service: Applica scrive pin e porte riservate; i numeri FOH de
   ok(primoBasso < nomi.indexOf("gtstand") && nomi.indexOf("gtstand") < primoViolino && primoViolino < primaVoce, "channel list: basso, chitarra, violini, voci: " + nomi.join(","));
   eq(rr.filter((r) => r.reserved).length, 6, "6 righe riservate in lista"); eq(rr.map(svNum), rr.map((_, i) => i + 1), "numeri consecutivi");
   ok(nomi.slice(primoBasso, primoBasso + 4).filter((x) => x === "R").length >= 1 || nomi[primoBasso + 1] === "R" || nomi[primoBasso + 2] === "R", "le riservate seguono la prima sezione");
+  { const k = rr.find((r) => !r.reserved).key, mk = A.state.cab.manual[A.cabRouteKeyOf(k)]; eq(mk && mk.box, A.state.items.find((x) => x.type === "stagebox").id, "ogni pin ha la sua stage box"); }
+  eq(A.servizioPiano(2).conteggi.spostati, 0, "rifare il piano dopo Applica: nessun canale da spostare");
   eq(A.state.cab.servizio.n, 2, "ricorda quante"); ok(A.state.cab.servizio.pins.length >= 7 && Object.keys(A.state.cab.servizio.res).length === 1, "e cosa ha messo");
   eq(A.state.cab.order, null, "l'ordine a mano della lista non resta in mezzo");
   ok(A.servizioRipristina(snap), "ripristina"); eq(A.servizioSnapshot(), prima, "stato cab e box esattamente come prima");
@@ -5150,6 +5153,7 @@ t("Ordina come il service: l'ordine delle sezioni vale anche se la lista era in 
   A.state.cab.order = svRows().map((r) => r.key).reverse(); A.__cabRes = null;   /* l'utente aveva riordinato la lista a mano, al contrario */
   const snapOrd = A.servizioSnapshot(); const p = A.servizioPiano(1);
   eq(p.righe.filter((r) => r.tipo === "sezione").map((r) => r.nome), ["Basso", "Chitarre", "Voci"], "le sezioni in ordine standard, non quello della lista a mano");
+  ok(p.conteggi.spostati >= 1, "con la lista a rovescio qualche canale cambia numero: " + p.conteggi.spostati);
   const snap = A.servizioApplica(p); eq(A.state.cab.order, null, "l'ordine a mano non resta"); ok(A.servizioRipristina(snap), "ripristina"); eq(A.state.cab.order.length > 0, true, "e Ripristina lo riporta com'era (non nullo)"); eq(A.servizioSnapshot(), snapOrd, "tutto identico");
   /* una riservata dell'utente subito dopo la prima sezione: le nuove la saltano */
   const rowBasso = svRows().find((r) => (A.state.items.find((x) => x.id === r.itemId) || {}).type === "bassstand");
@@ -5182,6 +5186,7 @@ t("Ordina come il service: righe di servizio con nome messe dall'azione restano 
   b.sbResNome = Object.assign({}, b.sbResNome, { [res[0]]: "Talkback" }); A.__cabRes = null;
   const p = A.servizioPiano(2); const pr = svRows().find((r) => r.reserved && r.port === res[0]);
   A.servizioApplica(p); const dopo = svRows().find((r) => r.reserved && r.port === res[0]); ok(dopo && dopo.servizio === "Talkback", "la riga che ha preso un nome non si sposta (resta alla sua porta)"); void pr;
+  { const rr = svRows(), nn = rr.map(svNum); eq(nn, nn.map((_, i) => i + 1), "e nessun canale ci è finito sopra: numeri unici e consecutivi"); }
   eq(A.state.cab.servizio.res[b.id].indexOf(res[0]) < 0 || true, true, "ok");
   /* coppie stereo e multipolari: cerco un tipo che sia una coppia L/R vera */
   reset();
