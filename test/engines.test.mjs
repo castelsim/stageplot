@@ -32226,7 +32226,9 @@ t("Distinta palco: 10×3 h40 = 15 moduli 2×1; i moduli si sommano per quota; le
   dpFix([dpIt("pedana", 300, 300, { w: 300, d: 150, h: 60 })]);
   eq(A.distintaPalco().righe, ["Distinta palco: 3 moduli 2×1 · 3 h60", "Moduli arrotondati per eccesso su 1 pedana di misura non multipla di 2×1."], "3×1,5 = 2,25 moduli → 3, e lo dice");
   dpFix([dpIt("pedana", 300, 300, { w: 200, d: 100, h: 40 }), dpIt("pedana", 500, 300, { w: 200, d: 100, h: 40 })]);
-  eq(A.distintaPalco().righe.length, 1, "misure esatte: nessuna nota di arrotondamento");
+  eq(A.distintaPalco().righe, ["Distinta palco: 2 moduli 2×1 · 2 h40"], "due pedane uguali e misure esatte: 2 moduli, nessuna nota di arrotondamento");
+  dpFix([dpIt("pedana", 300, 300, { w: 300, d: 150, h: 60 }), dpIt("pedana", 700, 300, { w: 300, d: 150, h: 60 })]);
+  eq(A.distintaPalco().righe, ["Distinta palco: 6 moduli 2×1 · 6 h60", "Moduli arrotondati per eccesso su 2 pedane di misura non multipla di 2×1."], "due pedane 3×1,5: 3+3 moduli, la nota conta le pedane");
   dpFix([dpIt("cantante", 300, 300)]); eq(A.distintaPalco(), null, "senza pedane né accessori: niente");
   dpFix([dpIt("pedanacoro", 300, 300, { w: 400, d: 150 })]); eq(A.distintaPalco(), null, "le pedane coro (gradoni) non sono moduli 2×1");
 });
@@ -32235,6 +32237,10 @@ t("Distinta palco: accessori contati dal disegno (scalette coi gradini, parapett
     dpIt("parapetto", 900, 240, { w: 600, d: 8 }), dpIt("parapetto", 1400, 400, { w: 300, d: 8 }), dpIt("rampa", 1700, 700, {})]);
   const r = A.distintaPalco().righe, acc = r[r.length - 1];
   ok(/^Accessori: 3 scalette \(\d da \d gradini[^)]*\) · parapetto 9 m \(2 elementi\) · 1 rampa$/.test(acc), "scalette, parapetto 6+3 = 9 m, rampa: " + acc);
+  [[60, "1 da 3 gradini"], [40, "1 da 2 gradini"], [20, "1 da 1 gradino"]].forEach(([h, txt]) => {
+    dpFix([dpIt("pedana", 300, 300, { w: 200, d: 100, h }), dpIt("scala", 300, 385, { w: 60, d: 60 })]);
+    eq(A.distintaPalco().righe.pop(), "Accessori: 1 scaletta (" + txt + ")", "scala di una pedana h" + h);
+  });
   dpFix([dpIt("scala", 100, 100, { w: 60, d: 60 })]);
   eq(A.distintaPalco().righe, ["Accessori: 1 scaletta (1 da 2 gradini)"], "una scaletta senza pedane: 40 cm di serie = 2 gradini, singolare");
   dpFix([dpIt("pedana", 900, 500, { w: 1400, d: 200, h: 40 }), dpIt("vlnpost", 400, 500, { vsec: 1 }), dpIt("vlnpost", 600, 500, { vsec: 1 })]);
@@ -32255,7 +32261,12 @@ t("Distinta palco: opzione del rider spenta di serie (documenti esistenti identi
   eq(A.state.rider.distintaPalco, true, "un true esplicito sì");
   A.state.misureStile = "mx"; ok(/15 40cm/.test(A.distintaPalco().righe[0]), "segue lo stile delle misure scelto (S15): " + A.distintaPalco().righe[0]); delete A.state.misureStile;
   const html = readFileSync(join(root, "app/index.html"), "utf8");
-  ok(/<input type="checkbox" id="rdDistinta">/.test(html) && /\["rdDistinta","distintaPalco"\]/.test(readFileSync(join(root, "app.js"), "utf8")), "la casella c'è ed è collegata");
+  ok(/<input type="checkbox" id="rdDistinta">/.test(html), "la casella c'è");
+  eq((readFileSync(join(root, "app.js"), "utf8").match(/\["rdDistinta","distintaPalco"\]/g) || []).length, 2, "ed è collegata sia al salvataggio sia al ritorno dallo stato");
+  dpFix([dpIt("pedana", 500, 400, { w: 1000, d: 300, h: 40 })]);
+  const tx = () => { const d = s5Doc(); A.riderPdf(d); return d.pagine.reduce((l, pg) => l.concat(pg.testi.map((x) => x.t)), []).join("\n"); };
+  ok(!/Distinta palco/.test(tx()), "PDF, spenta: niente distinta"); A.state.rider = { distintaPalco: true };
+  ok(/Distinta palco: 15 moduli/.test(tx()), "PDF, accesa: la distinta c'è");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
