@@ -3731,6 +3731,39 @@ t("Scala: l'altezza è quella della pedana che la tocca (la più alta se sono pi
   eq(A.scalaH(s3), 100, "la pedana ruotata si misura ruotata");
   reset();
 });
+t("Scala: la lunghezza è gradini × pedata 30 cm (h40 → 60, h60 → 90), la larghezza non cambia (Simone, Padova 13/11)", () => {
+  eq([20, 40, 60, 80, 100].map((h) => A.scalaLunghezza(h)), [30, 60, 90, 120, 150], "lunghezze per altezza");
+  eq([A.scalaLunghezza(NaN), A.scalaLunghezza(0), A.scalaLunghezza(10), A.scalaLunghezza(400)], [60, 30, 30, 360], "altezza ignota = h40; minimo 1 gradino; tetto 12 gradini");
+  eq(A.SCALA_PEDATA_CM, 30, "pedata");
+  reset();
+  add("pedana", 400, 300, { h: 40 });                 /* x 300-500, y 250-350 */
+  const s = add("scala", 400, 395);                   /* 60×90 sotto la pedana: −y (lato pedana) a y 350 */
+  Object.assign(s, { d: 90, y: 395 });                /* addItem fa già un render, che l'ha adeguata: si rimette alla misura di serie */
+  eq(A.scalaAdegua(s), true, "h40: da 90 a 60");
+  eq([s.w, s.d, s.x, s.y], [60, 60, 400, 380], "larghezza invariata; il lato sulla pedana (y 350) resta fermo");
+  eq(A.scalaAdegua(s), false, "idempotente");
+  A.state.items.find((x) => x.type === "pedana").h = 60;
+  eq(A.scalaAdegua(s), true, "pedana alzata a 60: la scala si allunga");
+  eq([s.d, s.y], [90, 395], "90 di lunghezza, ancora appoggiata a y 350");
+  A.state.items.find((x) => x.type === "pedana").h = 20;
+  A.scaleAdegua(); eq([s.d, s.y], [30, 365], "h20: un gradino, 30 cm");
+  reset();
+  /* ruotate come a Padova: il lato pedana è sempre quello della freccia (−y locale) */
+  add("pedana", 600, 320, { h: 40, w: 1000, d: 200 });   /* bordo sinistro x 100 */
+  const sl = add("scala", 60, 320, { rot: 90 }), sr = add("scala", 1140, 320, { rot: 270 });
+  Object.assign(sl, { d: 90, x: 60 }); Object.assign(sr, { d: 90, x: 1140 });   /* misura di serie */
+  eq(A.scaleAdegua(), 2, "due scale adeguate");
+  eq([sl.d, sl.x, sl.y, sr.d, sr.x, sr.y], [60, 75, 320, 60, 1125, 320], "h40: 60 di lunghezza, il lato sulla pedana (x 105 a sinistra, x 1095 a destra) resta dov'era");
+  eq(A.scaleAdegua(), 0, "seconda passata: niente da fare");
+  reset();
+  const l = add("pedana", 400, 300, { h: 40 }), bloc = add("scala", 400, 395); Object.assign(bloc, { d: 90, y: 395, locked: true });
+  eq([A.scaleAdegua(), bloc.d], [0, 90], "una scala bloccata non si tocca");
+  const prima = A.state.items.length; A.render(); eq([A.state.items.length, bloc.d], [prima, 90], "render: il bloccato resta");
+  reset();
+  add("pedana", 400, 300, { h: 40 }); const sx = add("scala", 400, 395); Object.assign(sx, { d: 90, y: 395 }); A.render();
+  eq(sx.d, 60, "render() adegua da solo");
+  reset();
+});
 t("Scala: il disegno ha tanti riquadri quanti i gradini (h40 → 2, h60 → 3), e il cartiglio lo dice", () => {
   reset();
   add("pedana", 400, 300, { h: 60 });
