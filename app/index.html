@@ -1645,6 +1645,14 @@ svg.names-hidden .orc-name{display:none}
   .hdr-wrap{position:relative;display:flex;gap:6px}
   .hdr-wrap input[type=text]{flex:1;width:auto;min-width:0}
   .hdr-saved{font-size:11px;color:var(--text-3);margin-top:3px}
+  .svco-lista{max-height:46vh;overflow:auto;margin:8px 0;border:1px solid var(--border,#e5e7eb);border-radius:8px}
+  .svco-sez{position:sticky;top:0;background:var(--surface-2,#f1f5f9);font-weight:700;font-size:12px;padding:4px 10px}
+  .svco-can,.svco-ris{display:flex;gap:10px;padding:3px 10px;font-size:13px;line-height:1.5}
+  .svco-n{flex:0 0 34px;font-variant-numeric:tabular-nums;font-weight:700}
+  .svco-nm{flex:1 1 auto}
+  .svco-da{flex:0 0 auto;font-size:12px;color:var(--text-3)}
+  .svco-can.cambia .svco-da{color:#92400e}
+  .svco-ris{color:var(--text-3);font-style:italic}
   .rub-btn{border:1px solid var(--border);background:var(--surface);border-radius:8px;padding:0 10px;font-size:12px;font-weight:600;color:var(--accent-strong);cursor:pointer;white-space:nowrap}
   .rub-btn:hover{background:var(--accent-tint)}
   .rub-menu{position:absolute;right:0;bottom:calc(100% + 4px);background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:var(--elev-2);min-width:270px;max-width:330px;z-index:5;padding:5px}
@@ -6486,6 +6494,28 @@ body.cust-contorno .item.selected .selbox{display:none}
   </div>
 </div>
 
+<!-- ORDINA COME IL SERVICE (13/11/2026, S2b): anteprima prima/dopo dei numeri FOH, poi Applica; Ripristina rimette tutto com'era. -->
+<div class="modal" id="svcOrdModal" hidden>
+  <div class="wl-card" role="dialog" aria-modal="true" aria-labelledby="svcOrdTitle">
+    <div class="wl-head">
+      <span class="wl-badge">Channel list</span>
+      <div class="wl-title" id="svcOrdTitle">Ordina come il service</div>
+      <div class="wl-tag">Canali in ordine di sezione, con righe riservate alla fine di ognuna per aggiungere senza rinumerare. Le porte scelte a mano e le righe di servizio col nome restano dove sono.</div>
+    </div>
+    <div class="wl-body">
+      <label class="ss-field"><span>Righe riservate per sezione</span><span class="ss-inwrap"><input type="text" inputmode="numeric" id="svcOrdN" maxlength="1" value="2" autocomplete="off" aria-label="Righe riservate per sezione"></span></label>
+      <div class="hint" id="svcOrdSum" role="status"></div>
+      <div class="ss-err" id="svcOrdErr" role="alert" hidden></div>
+      <div class="svco-lista" id="svcOrdLista" role="list" aria-label="Anteprima dei numeri"></div>
+      <div class="wl-foot ss-foot">
+        <button type="button" class="wl-ghost" id="svcOrdAnnulla">Annulla</button>
+        <button type="button" class="wl-cta" id="svcOrdGo">Applica</button>
+        <button type="button" class="wl-ghost" id="svcOrdRip" hidden>Ripristina com'era</button>
+        <button type="button" class="wl-cta" id="svcOrdFatto" hidden>Chiudi</button>
+      </div>
+    </div>
+  </div>
+</div>
 <!-- PACCHETTO PER DATA (12/11/2026): la finestrella dell'Esporta con i documenti da mettere nello zip. -->
 <div class="modal" id="pkgModal" hidden>
   <div class="wl-card" role="dialog" aria-modal="true" aria-labelledby="pkgTitle">
