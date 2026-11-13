@@ -34862,7 +34862,94 @@ function elecLinesPdf(shared){
   if(shared){ run(shared); return; }
   loadJsPDF().then(function(){ run(new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true})); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
 }
-function outputListPdf(shared){
+/* OUTPUT LIST «FORMATO SERVICE» (13/11/2026, specifica S8 dalla posta di produzione). Come la usa il service: UN BLOCCO PER STAGE BOX, A4 orizzontale,
+   tabella da 16 uscite (omni out) con le colonne  OUT · MIX · MACCHINA · CUFFIE · MONITOR e P.A.; le uscite vuote restano in elenco (grigie), così si
+   vede cosa manca; oltre 16 uscite il blocco continua nella pagina dopo. Fase 1: SOLO IMPAGINAZIONE, dagli stessi dati di `busList()`; l'ordine è quello
+   dell'assegnazione porte e la coda tipica (REC · NEAR · SUB · MAIN · TV) si stampa dove sta, senza promettere il numero fisso (la fase 2 la «ancora»
+   alle uscite 17-24 e tocca il motore di assegnazione). I nomi standard dei mix (Band cue…) restano suggerimenti per la fase 2. */
+var OUT_SERVICE_RIGHE=16;
+function outputServiceRighe(box, L){
+  /* una riga per porta della stage box: {port, voce|null, parte:"L"|"R"|""}; le voci a due uscite occupano due righe (L e R) */
+  var all=(L.auto||[]).concat((L.rows||[]).filter(function(r){ return r.box; })).filter(function(r){ return r.box.id===box.id; });
+  var perPorta={};
+  all.forEach(function(r){ r.ports.forEach(function(pt,i){ perPorta[pt]={voce:r, parte:(r.ports.length===2 ? (i===0?"L":"R") : "")}; }); });
+  var righe=[]; for(var pt=1;pt<=box.outCap;pt++){ var q=perPorta[pt]; righe.push({port:pt, voce:q?q.voce:null, parte:q?q.parte:""}); }
+  return righe;
+}
+function outputServiceCelle(r){
+  /* colonne MACCHINA · CUFFIE · MONITOR e P.A. dalla voce: la mandata cuffie dice la macchina, il mix monitor dice quanti monitor, il resto la destinazione (P.A., sub, TV, REC…) */
+  var v=r.voce; if(!v) return {mix:"", macchina:"", cuffie:"", mon:""};
+  var nome=String(v.name||"")+(r.parte && !/\b[LR]\b\s*$/i.test(String(v.name||"")) ? " "+r.parte : "");
+  if(v.cuf) return {mix:nome, macchina:String(v.feedOf||""), cuffie:String(v.dest||"").replace(/^cuffie\s*/i,"")||"cuffie", mon:""};
+  if(v.tag==="MIX") return {mix:nome, macchina:"", cuffie:"", mon:String(v.dest||"")};
+  return {mix:nome, macchina:"", cuffie:"", mon:String(v.dest||"")};
+}
+function outputListServicePdf(shared){
+  var L; try{ L=busList(); }catch(_e){ L={count:0}; }
+  if(!L.count){ if(!shared) alert("Nessuna uscita console (aggiungi monitor o bus dalle «Uscite console»)."); return; }
+  var run=function(doc){
+    var M=12, W=297, K=OUT_SERVICE_RIGHE, cols=[M, M+14, M+92, M+140, M+186, 0];
+    var tp=String(state.titolo||"").trim(), nome=(typeof titoloSenzaVersione==="function" ? titoloSenzaVersione(tp) : tp)||"Output list";
+    var dt=(state.evDate||"").replace(/-/g,""), v=(typeof versioneNumero==="function") ? versioneNumero() : 0;
+    var testata=[nome, dt, String(state.luogo||"").trim(), v?("v"+v):""].filter(Boolean).join(" \u2013 ");
+    function fit(t, w){ t=String(t==null?"":t); while(t.length>1 && doc.getTextWidth(t)>w){ t=t.slice(0,-2)+"\u2026"; if(t.length<3) break; } return t; }
+    var blocchi=[];
+    (L.boxes||[]).forEach(function(b){
+      var righe=outputServiceRighe(b, L); if(!righe.some(function(r){ return r.voce; })) return;
+      var usate=righe.filter(function(r){ return r.voce; }).length;
+      for(var i=0;i<righe.length;i+=K){
+        var fetta=righe.slice(i,i+K); if(i>0 && !fetta.some(function(r){ return r.voce; })) continue;
+        blocchi.push({box:b, righe:fetta, da:i+1, usate:usate});
+      }
+    });
+    var totPag=blocchi.length+((L.unpatched&&L.unpatched.length)?1:0), pag=0;
+    function testa(titoloPag, sub){
+      doc.addPage("a4","landscape"); pag++;
+      doc.setFillColor("#0891b2"); doc.rect(0,0,W,12,"F");
+      doc.setTextColor("#ffffff"); doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.text("STAGE PLOT \u2014 Output list", M, 8);
+      doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.text(dataDocumento(), W-M, 8, {align:"right"});
+      doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.text(fit(testata, W-2*M), M, 19);
+      doc.setTextColor("#0e7490"); doc.setFontSize(12); doc.text(titoloPag, M, 27);
+      doc.setFont("helvetica","normal"); doc.setFontSize(9); doc.setTextColor("#555555"); doc.text(sub, M, 32);
+    }
+    blocchi.forEach(function(bl){
+      var b=bl.box, mod=(b.hw&&STAGEBOX_DB[b.hw]) ? STAGEBOX_DB[b.hw].model : "";
+      testa((b.sbId?("ID "+b.sbId):("Box "+b.letter))+(mod?" \u2014 "+mod:""), "Uscite "+bl.da+"-"+(bl.da+bl.righe.length-1)+" \u00b7 usate "+bl.usate+" su "+b.outCap+" \u00b7 pagina "+(pag+1)+" di "+totPag);
+      var y0=38, rh=Math.min(9.5,(196-y0-14)/(K+1)), fs=Math.max(7.5, Math.min(10, rh*1.25));
+      doc.setFont("helvetica","bold"); doc.setFontSize(fs); doc.setTextColor("#0891b2");
+      ["OUT","MIX","MACCHINA","CUFFIE","MONITOR e P.A."].forEach(function(h,i){ doc.text(h, cols[i], y0+4); });
+      doc.setDrawColor("#0891b2"); doc.setLineWidth(0.4); doc.line(M, y0+5.6, W-M, y0+5.6);
+      var y=y0+5.6+rh*0.85;
+      bl.righe.forEach(function(r,i){
+        if(i%2===1){ doc.setFillColor("#f1f5f9"); doc.rect(M-1, y-rh*0.72, W-2*M+2, rh, "F"); }
+        var c=outputServiceCelle(r), vuoto=!r.voce;
+        doc.setFont("helvetica", vuoto?"normal":"bold"); doc.setFontSize(fs); doc.setTextColor(vuoto?"#9a948b":"#111827");
+        doc.text(String(r.port)+((r.voce&&r.voce.pinned)?" *":""), cols[0], y);
+        if(vuoto){ doc.text("\u2014", cols[1], y); }
+        else {
+          doc.text(fit(c.mix, 74), cols[1], y);
+          doc.setFont("helvetica","normal");
+          if(c.macchina) doc.text(fit(c.macchina, 44), cols[2], y);
+          if(c.cuffie) doc.text(fit(c.cuffie, 42), cols[3], y);
+          if(c.mon) doc.text(fit(c.mon, 86), cols[4], y);
+        }
+        y+=rh;
+      });
+      doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor("#6b7280");
+      doc.text("MIX = mandata monitor \u00b7 cuffie = mandata alla macchina cuffie \u00b7 L/R = le due uscite di una coppia stereo \u00b7 * = porta scelta a mano \u00b7 \u2014 = uscita libera", M, 203);
+    });
+    if(L.unpatched && L.unpatched.length){
+      testa("Da patchare (out esaurite)", "Uscite console senza porta \u00b7 pagina "+(pag+1)+" di "+totPag);
+      doc.setFont("helvetica","normal"); doc.setFontSize(10); doc.setTextColor("#b91c1c");
+      L.unpatched.forEach(function(bu,i){ doc.text(fit(bu.name+"  \u00b7  "+((BUS_KINDS[bu.kind]||{}).tag||"ST")+(bu.dest?"  \u00b7  "+bu.dest:""), W-2*M), M, 42+i*7); });
+    }
+    if(!blocchi.length && !(L.unpatched&&L.unpatched.length)){ testa("Nessuna uscita su stage box", ""); }
+  };
+  if(shared){ run(shared); return; }
+  loadJsPDF().then(function(){ var d=new window.jspdf.jsPDF({orientation:"landscape", unit:"mm", format:"a4", compress:true}); run(d); d.deletePage(1); pdfCredit(d); pdfSave(d, fileName()+"-output-list-service.pdf"); }).catch(function(err){ alert("Librerie PDF non disponibili: "+err.message); });
+}
+function outputListPdf(shared, opts){
+  if(((opts && opts.formato) || (window.__pdfListaFmt && window.__pdfListaFmt.outFormato))==="service"){ outputListServicePdf(shared); return; }   /* formato Service = opzione dell'Esporta (13/11), il semplice resta il predefinito */
   var L; try{ L=busList(); }catch(_e){ L={count:0}; }
   if(!L.count){ if(!shared) alert("Nessuna uscita console (aggiungi monitor o bus dalle «Uscite console»)."); return; }
   var run=function(doc){
@@ -38033,11 +38120,17 @@ function pdfChannelPage(doc, L, paperKey){
     if(f) f.value=window.__pdfListaFmt.formato;
     if(pp){ pp.value=String(window.__pdfListaFmt.perPagina); pp.hidden=window.__pdfListaFmt.formato!=="service"; }
     if(ppl) ppl.hidden=window.__pdfListaFmt.formato!=="service";
+    /* output list (13/11): il menu compare solo se l'output list è fra le pagine possibili */
+    var bo=document.getElementById("pdfOutFmt"), fo=document.getElementById("pdfOutFormato");
+    if(bo) bo.hidden=!(_pdfTechPages||[]).some(function(p){ return p.key==="outputlist"; });
+    if(fo) fo.value=window.__pdfListaFmt.outFormato||"semplice";
   }
   (function(){
     var f=document.getElementById("pdfListaFormato"), pp=document.getElementById("pdfListaPerPagina");
     if(f) f.addEventListener("change", function(){ window.__pdfListaFmt.formato=(f.value==="service")?"service":"semplice"; renderListaFormato(); });
     if(pp) pp.addEventListener("change", function(){ window.__pdfListaFmt.perPagina=(pp.value==="48")?48:32; });
+     var fo=document.getElementById("pdfOutFormato");
+    if(fo) fo.addEventListener("change", function(){ window.__pdfListaFmt.outFormato=(fo.value==="service")?"service":"semplice"; });
   })();
   /* Il coro che nel PDF non ha canali (29/09). Stessa forma dell'avviso qui sopra: quello che si vedrà nel
      foglio, e il rimedio a un clic — gli stessi microfoni d'insieme che aggiunge l'audit. */
@@ -38478,7 +38571,7 @@ function pdfChannelPage(doc, L, paperKey){
        progetto) e' preselezionata quando ce ne sono, e «Solo palco» e' a un clic, sempre in vista.
        Senza pagine suggerite si parte dal solo palco. La scelta NON si salva nel progetto (10/09: niente
        `pdfPages`): vive quanto la finestra, e alla riapertura si riparte da qui. */
-    window.__pdfListaFmt={formato:"semplice", perPagina:32}; renderListaFormato();   /* formato della channel list: a ogni apertura da Semplice (12/11) */
+    window.__pdfListaFmt={formato:"semplice", perPagina:32, outFormato:"semplice"}; renderListaFormato();   /* formato della channel list: a ogni apertura da Semplice (12/11) */
     _pdfPillSel={};
     if(pdfScelteEsporta(_pdfTechPages).preselezione==="scheda") pdfScelteEsporta(_pdfTechPages).sugg.forEach(function(k){ _pdfPillSel[k]=true; });
     _prodOpen=false;

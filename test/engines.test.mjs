@@ -4879,6 +4879,85 @@ t("F3: rete/Dante — switch a stella, trunk console, ridondanza e porte", () =>
   A.state.netRed = false;
 });
 
+/* ═══ Output list «formato Service» (13/11/2026, S8): un blocco A4 orizzontale per stage box, 16 uscite, colonne OUT · MIX · MACCHINA · CUFFIE · MONITOR e P.A. ═══ */
+const outFix = () => {
+  reset();
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.mixer = "dm3"; A.state.cab.home = { kind: "foh" };
+  const b1 = add("stagebox", 300, 300); b1.hw = "rio3224d2"; b1.sbId = 1;
+  const b2 = add("stagebox", 900, 300); b2.hw = "rio1608d2"; b2.sbId = 2;
+  add("wedge", 320, 500); add("astamic", 320, 400);
+  A.state.buses = [{ id: "bA", name: "MAIN L/R", kind: "st", dest: "P.A.", boxId: b1.id, port: 3 }, { id: "bS", name: "SUB", kind: "mono", dest: "sub", boxId: b1.id, port: 5 },
+    { id: "bT", name: "TV L/R", kind: "st", dest: "regia TV", boxId: b2.id, port: 1 }, { id: "bR", name: "Talkback", kind: "mono", dest: "talkback palco", boxId: b2.id, port: 4 }];
+  A.__cabRes = null; return { b1, b2 };
+};
+const outDoc = () => Object.assign(jsPdfFinto()({ format: "a4", orientation: "portrait" }), {});
+const outTesti = (d, da) => d.pagine.slice(da == null ? 1 : da).reduce((l, pg) => l.concat(pg.testi.map((x) => x.t)), []);
+t("Output list Service: una pagina A4 orizzontale per stage box, colonne OUT · MIX · MACCHINA · CUFFIE · MONITOR e P.A., tutte le uscite della box", () => {
+  const { b1, b2 } = outFix(); const L = A.busList();
+  const r1 = A.outputServiceRighe(L.boxes.find((b) => b.id === b1.id), L);
+  eq(r1.map((r) => r.port), Array.from({ length: L.boxes.find((b) => b.id === b1.id).outCap }, (_, i) => i + 1), "una riga per ogni porta della box, in ordine");
+  eq(r1.filter((r) => r.voce && r.voce.name === "MAIN L/R").map((r) => [r.port, r.parte]), [[3, "L"], [4, "R"]], "la coppia stereo occupa due righe, L e R");
+  eq(r1.filter((r) => r.voce && r.voce.name === "SUB").map((r) => r.port), [5], "il mono una riga, dove sta");
+  eq(r1.filter((r) => !r.voce).length > 0, true, "le uscite libere restano in elenco");
+  const d = outDoc(); A.outputListServicePdf(d);
+  const pag = d.pagine.slice(1);
+  eq(pag.length, 2, "due stage box con uscite = due pagine");
+  ok(pag.every((pg) => pg.wh[0] === 297 && pg.wh[1] === 210), "A4 orizzontale");
+  const tx = outTesti(d, 1);
+  ["OUT", "MIX", "MACCHINA", "CUFFIE", "MONITOR e P.A."].forEach((h) => ok(tx.indexOf(h) > -1, "intestazione " + h));
+  ok(tx.some((x) => /^ID 1/.test(x)) && tx.some((x) => /^ID 2/.test(x)), "il titolo del blocco dice la box");
+  ok(tx.some((x) => /pagina 1 di 2/.test(x)) && tx.some((x) => /pagina 2 di 2/.test(x)), "numero di pagina del blocco");
+  ["MAIN L/R", "SUB", "TV L/R", "Talkback"].forEach((n) => ok(tx.indexOf(n) > -1, "la voce «" + n + "» c'è"));
+  ok(tx.indexOf("P.A.") > -1 && tx.indexOf("regia TV") > -1 && tx.indexOf("talkback palco") > -1, "destinazioni nella colonna MONITOR e P.A.");
+  ok(tx.indexOf("—") > -1, "le uscite libere col trattino");
+  ok(tx.some((x) => /MIX = mandata monitor/.test(x)), "legenda delle sigle");
+  ok(tx.some((x) => /usate \d+ su \d+/.test(x)), "uscite usate su totale");
+  const mix = L.auto.filter((a) => a.tag === "MIX"); ok(mix.length >= 1 && tx.indexOf(mix[0].name) > -1, "il mix monitor derivato compare col suo nome");
+  reset();
+});
+t("Output list Service: la mandata cuffie dice la macchina, il formato Semplice resta com'era, un'uscita pinnata ha l'asterisco", () => {
+  const { b1 } = outFix();
+  const voceCuf = { name: "Drums", tag: "CUF", cuf: true, feedOf: "Behringer P16-M", dest: "cuffie Behringer P16-M → 3 personal mixer", ports: [1], box: b1 };
+  eq(A.outputServiceCelle({ port: 1, voce: voceCuf, parte: "" }), { mix: "Drums", macchina: "Behringer P16-M", cuffie: "Behringer P16-M → 3 personal mixer", mon: "" }, "cuffie: nome, macchina e destinazione");
+  eq(A.outputServiceCelle({ port: 2, voce: { name: "Wedge 1", tag: "MIX", dest: "2× monitor", ports: [2] }, parte: "" }), { mix: "Wedge 1", macchina: "", cuffie: "", mon: "2× monitor" }, "mix monitor: la destinazione sta in «MONITOR e P.A.»");
+  eq(A.outputServiceCelle({ port: 3, voce: { name: "SUB", tag: "DIR", dest: "sub", ports: [3] }, parte: "" }), { mix: "SUB", macchina: "", cuffie: "", mon: "sub" }, "bus: la destinazione sta in «MONITOR e P.A.»");
+  eq(A.outputServiceCelle({ port: 4, voce: { name: "Front fill", tag: "ST", dest: "front fill", ports: [4, 5] }, parte: "R" }).mix, "Front fill R", "la parte L/R si aggiunge al nome se non c'è già");
+  eq(A.outputServiceCelle({ port: 4, voce: { name: "TV L/R", tag: "ST", dest: "", ports: [4, 5] }, parte: "R" }).mix, "TV L/R", "ma non si ripete se il nome finisce già con L o R");
+  eq(A.outputServiceCelle({ port: 9, voce: null, parte: "" }), { mix: "", macchina: "", cuffie: "", mon: "" }, "uscita libera: tutto vuoto");
+  /* semplice invariato: portrait, e il formato si sceglie da window.__pdfListaFmt.outFormato (di serie assente = semplice) */
+  const dS = outDoc(); A.__pdfListaFmt = { formato: "semplice", perPagina: 32, outFormato: "semplice" }; A.outputListPdf(dS);
+  ok(dS.pagine.slice(1).every((pg) => pg.wh[0] === 210), "Semplice: A4 verticale come sempre");
+  const dV = outDoc(); A.__pdfListaFmt = { formato: "semplice", perPagina: 32, outFormato: "service" }; A.outputListPdf(dV);
+  ok(dV.pagine.slice(1).every((pg) => pg.wh[0] === 297), "col formato Service dell'Esporta esce a blocchi orizzontali");
+  const dO = outDoc(); A.__pdfListaFmt = null; A.outputListPdf(dO, { formato: "service" });
+  ok(dO.pagine.slice(1).every((pg) => pg.wh[0] === 297), "anche chiesto dalla chiamata (pacchetto, anteprima)");
+  const dA = outDoc(); A.__pdfListaFmt = null; A.outputListPdf(dA); ok(dA.pagine.slice(1).every((pg) => pg.wh[0] === 210), "senza impostazioni: Semplice");
+  const tx = outTesti(dV, 1); ok(tx.some((x) => /^3 \*$/.test(x)), "la porta scelta a mano ha l'asterisco: " + tx.filter((x) => /^\d/.test(x)).slice(0, 6).join("|"));
+  reset();
+});
+t("Output list Service: oltre 16 uscite il blocco continua; uscite senza porta in una pagina a parte; nessuna uscita su box = niente", () => {
+  const { b1 } = outFix(); const L = A.busList();
+  const grande = { id: "bx", outCap: 40 }; eq(A.outputServiceRighe(grande, { auto: [], rows: [] }).length, 40, "una box da 40 uscite = 40 righe (3 blocchi da 16)");
+  const righe = A.outputServiceRighe({ id: b1.id, outCap: 40 }, L); eq(righe.filter((r) => r.voce).length > 0, true, "le voci stanno alla loro porta anche oltre 16");
+  A.state.buses = [];
+  for (let i = 0; i < 14; i++) A.state.buses.push({ id: "bF" + i, name: "X" + i, kind: "st" });
+  A.__cabRes = null; const L2 = A.busList(); ok(L2.unpatched.length >= 1, "ci sono uscite senza porta");
+  const d = outDoc(); A.outputListServicePdf(d); const tx = outTesti(d, 1);
+  ok(tx.some((x) => /^Da patchare/.test(x)), "pagina «Da patchare (out esaurite)»");
+  ok(tx.some((x) => /^X1[0-3]/.test(x) || /^X\d/.test(x)), "con i nomi delle uscite senza porta");
+  A.state.buses = []; A.state.items = A.state.items.filter((i) => i.type !== "wedge"); A.__cabRes = null;
+  const dv = outDoc(); A.outputListServicePdf(dv); eq(dv.pagine.length, 1, "nessuna uscita: nessuna pagina (solo l'avviso, che nel test è muto)");
+  reset();
+});
+t("Output list Service: menu «Formato dell'output list» nell'Esporta (Semplice di serie, nascosto senza output list) e collegato all'export", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="pdfOutFmt"[^>]*hidden/.test(html) && /id="pdfOutFormato"/.test(html), "il menu c'è, nascosto finché non c'è l'output list");
+  ok(/<select id="pdfOutFormato"><option value="semplice" selected>Semplice<\/option><option value="service">Service<\/option>/.test(html), "Semplice è il predefinito");
+  ok(/bo\.hidden=!\(_pdfTechPages\|\|\[\]\)\.some\(function\(p\)\{ return p\.key==="outputlist"; \}\)/.test(appjs), "compare solo con l'output list fra le pagine");
+  ok(/fo\.addEventListener\("change", function\(\)\{ window\.__pdfListaFmt\.outFormato=\(fo\.value==="service"\)\?"service":"semplice"; \}\)/.test(appjs), "la scelta va in window.__pdfListaFmt.outFormato");
+  ok(/outputlist:function\(\)\{ outputListPdf\(doc\); \}/.test(appjs) && /window\.__pdfListaFmt\.outFormato\)\)==="service"\)\{ outputListServicePdf\(shared\)/.test(appjs), "l'export, il pacchetto e l'anteprima passano da outputListPdf, che sceglie il formato");
+  ok(/OUT_SERVICE_RIGHE=16/.test(appjs), "16 uscite per tabella");
+});
 t("Output list: bus console -> porte out (auto consecutive, pin, conflitti, mai duplicati)", () => {
   reset();
   A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.mixer = "dm3";
@@ -20200,7 +20279,7 @@ t("Channel list Service: scelta nell'Esporta (Semplice di serie), popup del cana
   ok(/<option value="32" selected>/.test(html) && /<option value="48">/.test(html), "32 canali per pagina di serie, 48 configurabile");
   const disp = appjs.slice(appjs.indexOf("inputlist:function(){"), appjs.indexOf("inputlist:function(){") + 400);
   ok(/__pdfListaFmt/.test(disp) && /patchListServicePdf\(doc/.test(disp) && /patchListPdf\(doc\)/.test(disp), "l'export sceglie fra i due formati, e Semplice resta patchListPdf");
-  ok(/__pdfListaFmt=\{formato:"semplice", perPagina:32\}/.test(appjs), "a ogni apertura dell'Esporta si riparte da Semplice, 32");
+  ok(/__pdfListaFmt=\{formato:"semplice", perPagina:32, outFormato:"semplice"\}/.test(appjs), "a ogni apertura dell'Esporta si riparte da Semplice, 32 (e output list Semplice)");
   const pop = appjs.slice(appjs.indexOf('id="ppShort"'), appjs.indexOf('id="ppShort"') + 1600);
   ok(/ppDyn/.test(appjs) && /ppMicAlt/.test(appjs), "il popup del canale ha dinamica e mic alternativo");
   ok(/m\.dyn=_dy\.value; else delete m\.dyn;/.test(appjs) && /if\(_mv\) m\.micAlt=_mv; else delete m\.micAlt;/.test(appjs), "e li scrive (o li toglie) sul canale quando si chiude");
