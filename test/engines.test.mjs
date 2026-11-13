@@ -72,7 +72,7 @@ const A = loadApp();
 
 /* ---- mini test runner ---- */
 let pass = 0, fail = 0;
-function t(name, fn) { try { fn(); pass++; console.log("  ✓ " + name); } catch (e) { fail++; console.log("  ✗ " + name + "\n      " + e.message); } }
+function t(name, fn) { if (process.env.SOLO && !name.includes(process.env.SOLO)) return; try { fn(); pass++; console.log("  ✓ " + name); } catch (e) { fail++; console.log("  ✗ " + name + "\n      " + e.message); } }
 function eq(got, exp, msg) { const g = JSON.stringify(got), e = JSON.stringify(exp); if (g !== e) throw new Error((msg || "") + " atteso " + e + ", ottenuto " + g); }
 function ok(cond, msg) { if (!cond) throw new Error(msg || "condizione falsa"); }
 function throws(fn, code) {
@@ -32213,6 +32213,49 @@ t("editor: in alto a sinistra il logo stageplot.it, vettoriale, che porta alla h
   const mtop = html.slice(html.indexOf('<div id="mTop">'), html.indexOf('<div id="mTop">') + 3000);
   ok(/<a class="mtop-logo" href="\/" aria-label="stageplot\.it[^"]*">\s*<svg[^>]*viewBox="0 0 460 460"/.test(mtop), "sul telefono il simbolo, accanto al titolo");
   ok(/@media \(min-width:881px\) and \(max-width:1210px\)\{[^}]*header \.brand \.brand-full\{display:none\}/.test(stylesCss), "fra 881 e 1210 px solo il simbolo");
+});
+
+/* ═══ DISTINTA DEL PALCO (13/11/2026, G3): moduli 2×1 per quota + accessori contati; opzione del rider, spenta di serie ═══ */
+const dpIt = (type, x, y, extra) => Object.assign({ id: type + x + "_" + y, type, x, y }, extra || {});
+const dpFix = (items, extra) => { reset(); A.loadDoc(Object.assign({ titolo: "Palco finto", stage: { w: 1800, d: 1000, blocks: [{ x: 0, y: 0, w: 1800, d: 1000 }] }, inputs: [], outputs: [], items }, extra || {})); };
+t("Distinta palco: 10×3 h40 = 15 moduli 2×1; i moduli si sommano per quota; le misure non multiple si arrotondano per eccesso e lo dicono", () => {
+  dpFix([dpIt("pedana", 500, 400, { w: 1000, d: 300, h: 40 })]);
+  eq(A.distintaPalco().righe, ["Distinta palco: 15 moduli 2×1 · 15 h40"], "10×3 h40");
+  dpFix([dpIt("pedana", 300, 300, { w: 400, d: 200, h: 60 }), dpIt("pedana", 900, 300, { w: 200, d: 100, h: 60 }), dpIt("pedana", 300, 700, { w: 600, d: 200, h: 40 }), dpIt("pedana", 100, 900, { w: 100, d: 200, h: 0 })]);
+  eq(A.distintaPalco().righe[0], "Distinta palco: 11 moduli 2×1 · 6 h40 · 5 h60", "quote diverse; h0 (a terra) non conta; ordine per quota");
+  dpFix([dpIt("pedana", 300, 300, { w: 300, d: 150, h: 60 })]);
+  eq(A.distintaPalco().righe, ["Distinta palco: 3 moduli 2×1 · 3 h60", "Moduli arrotondati per eccesso su 1 pedana di misura non multipla di 2×1."], "3×1,5 = 2,25 moduli → 3, e lo dice");
+  dpFix([dpIt("pedana", 300, 300, { w: 200, d: 100, h: 40 }), dpIt("pedana", 500, 300, { w: 200, d: 100, h: 40 })]);
+  eq(A.distintaPalco().righe.length, 1, "misure esatte: nessuna nota di arrotondamento");
+  dpFix([dpIt("cantante", 300, 300)]); eq(A.distintaPalco(), null, "senza pedane né accessori: niente");
+  dpFix([dpIt("pedanacoro", 300, 300, { w: 400, d: 150 })]); eq(A.distintaPalco(), null, "le pedane coro (gradoni) non sono moduli 2×1");
+});
+t("Distinta palco: accessori contati dal disegno (scalette coi gradini, parapetti in metri, rampe); striscia 14×2 senza avvisi falsi", () => {
+  dpFix([dpIt("pedana", 900, 400, { w: 1000, d: 300, h: 40 }), dpIt("pedana", 300, 400, { w: 200, d: 100, h: 60 }), dpIt("scala", 330, 480, { w: 60, d: 90 }), dpIt("scala", 1450, 400, { w: 60, d: 60 }), dpIt("scala", 900, 560, { w: 60, d: 60 }),
+    dpIt("parapetto", 900, 240, { w: 600, d: 8 }), dpIt("parapetto", 1400, 400, { w: 300, d: 8 }), dpIt("rampa", 1700, 700, {})]);
+  const r = A.distintaPalco().righe, acc = r[r.length - 1];
+  ok(/^Accessori: 3 scalette \(\d da \d gradini[^)]*\) · parapetto 9 m \(2 elementi\) · 1 rampa$/.test(acc), "scalette, parapetto 6+3 = 9 m, rampa: " + acc);
+  dpFix([dpIt("scala", 100, 100, { w: 60, d: 60 })]);
+  eq(A.distintaPalco().righe, ["Accessori: 1 scaletta (1 da 2 gradini)"], "una scaletta senza pedane: 40 cm di serie = 2 gradini, singolare");
+  dpFix([dpIt("pedana", 900, 500, { w: 1400, d: 200, h: 40 }), dpIt("vlnpost", 400, 500, { vsec: 1 }), dpIt("vlnpost", 600, 500, { vsec: 1 })]);
+  eq(A.distintaPalco().righe, ["Distinta palco: 14 moduli 2×1 · 14 h40"], "striscia 14×2: 14 moduli, nessuna nota");
+  eq(A.pedaneLegenda().map((g) => [g.L, g.P, g.h, g.n]), [[1400, 200, 40, 1]], "e la legenda la tiene come una pedana sola");
+  const au = A.auditEngine(), av = (au.findings || au).filter((x) => x.lvl !== "info");
+  ok(!av.some((x) => /pedana|palco|misura|fuori/i.test(x.msg)), "nessun avviso falso sulla striscia: " + JSON.stringify(av.map((x) => x.msg)));
+});
+t("Distinta palco: opzione del rider spenta di serie (documenti esistenti identici), solo un true esplicito la accende", () => {
+  dpFix([dpIt("pedana", 500, 400, { w: 1000, d: 300, h: 40 }), dpIt("scala", 100, 400, { w: 60, d: 60 })]);
+  const spento = A.riderHtml(); ok(!/Distinta palco/.test(spento), "spenta: niente distinta nel rider");
+  A.state.rider = { distintaPalco: true }; const acceso = A.riderHtml();
+  ok(/Distinta palco: 15 moduli 2×1/.test(acceso) && /Accessori: 1 scaletta/.test(acceso), "accesa: la distinta è dentro «Stage e pedane»");
+  eq(acceso.replace(/<br>Distinta palco[\s\S]*?(?=<\/div>)/, ""), spento, "e il resto del rider non cambia di una virgola");
+  dpFix([dpIt("pedana", 500, 400, { w: 1000, d: 300, h: 40 })], { rider: { distintaPalco: "si" } });
+  eq(A.state.rider && A.state.rider.distintaPalco, undefined, "un valore strano non accende niente");
+  dpFix([dpIt("pedana", 500, 400, { w: 1000, d: 300, h: 40 })], { rider: { distintaPalco: true } });
+  eq(A.state.rider.distintaPalco, true, "un true esplicito sì");
+  A.state.misureStile = "mx"; ok(/15 40cm/.test(A.distintaPalco().righe[0]), "segue lo stile delle misure scelto (S15): " + A.distintaPalco().righe[0]); delete A.state.misureStile;
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/<input type="checkbox" id="rdDistinta">/.test(html) && /\["rdDistinta","distintaPalco"\]/.test(readFileSync(join(root, "app.js"), "utf8")), "la casella c'è ed è collegata");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
