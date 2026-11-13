@@ -2335,6 +2335,11 @@
           <select id="pdfListaPerPagina" hidden><option value="32" selected>32</option><option value="48">48</option></select>
         </div>
         <!-- FORMATO DELL'OUTPUT LIST (13/11/2026, S8): Semplice (di sempre) o Service (un blocco A4 orizzontale per stage box, 16 uscite). Impostazione dell'export, non del progetto. -->
+        <!-- ORDINE DELL'ORGANICO (13/11/2026, S13): l'ordine delle sezioni del foglio Organico; si salva nel progetto. -->
+        <div id="pdfOrgOrd" hidden>
+          <label for="pdfOrgOrdine">Ordine dell'organico</label>
+          <select id="pdfOrgOrdine"><option value="fiati" selected>Fiati prima (come sempre)</option><option value="voci">Voci e archi prima</option><option value="partitura">Per partitura (orchestra)</option></select>
+        </div>
         <div id="pdfOutFmt" hidden>
           <label for="pdfOutFormato">Formato dell'output list</label>
           <select id="pdfOutFormato"><option value="semplice" selected>Semplice</option><option value="service">Service</option></select>
@@ -6738,7 +6743,7 @@ function nextVariantName(){ var n=0; VARIANTS.forEach(function(v){ var m=/^Varia
    data e contatti non erano mai diversi. Restano nello stato di ogni variante — lo schema e i file
    già salvati non cambiano — ma a ogni sincronizzazione quelli della variante attiva si scrivono
    nelle altre. */
-var CAMPI_DOCUMENTO=["allegatiRichiesti","pdfOrganico","quoteDaTerra","titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","versione","latiTeatro","sonorizzazione","orari","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
+var CAMPI_DOCUMENTO=["allegatiRichiesti","pdfOrganico","quoteDaTerra","organicoOrdine","titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","versione","latiTeatro","sonorizzazione","orari","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
 function propagaCampiDocumento(v){
   var src=v&&v.state; if(!src) return;
   VARIANTS.forEach(function(o){
@@ -9904,6 +9909,7 @@ function normalizeState(s){
   if(s.pdfOrganico!==true) delete s.pdfOrganico;   /* «Organico: N + M» nel cartiglio (13/11): solo un true esplicito la accende */
   if(s.quoteDaTerra!==true) delete s.quoteDaTerra;   /* quote delle pedane «da terra» (13/11): solo un true esplicito le accende */
   s.allegatiRichiesti=allegatiPuliti(s.allegatiRichiesti); if(!s.allegatiRichiesti) delete s.allegatiRichiesti;   /* «Allegati richiesti» (S14, 13/11): solo se l'utente li usa */
+  if(s.organicoOrdine!=="voci" && s.organicoOrdine!=="partitura") delete s.organicoOrdine;   /* ordine delle sezioni del foglio Organico (13/11): assente = Fiati prima */
   if(s.pdfPesi!==true) delete s.pdfPesi;   /* kg nel PDF: solo un true esplicito li accende (06/10/2026) */
   var _vers=(typeof s.versione==="number"||typeof s.versione==="string") ? +s.versione : NaN;   /* versione del documento (12/11): intero 1-999, altrimenti assente */
   if(_vers%1===0 && _vers>=1 && _vers<=999) s.versione=_vers; else delete s.versione;
@@ -39031,7 +39037,15 @@ function listPreviewHtml(key){
    si tolgono le sezioni assenti). Direttore, ospiti (etichetta con «ospite»/«guest») e staff (tecnico) stanno FUORI dal totale. Un posto con due strumenti
    («Flauto/Ottavino») è un solo musicista: lo strumento dopo la barra va tra parentesi. Nessun nome di persona. Si propone solo se c'è un'orchestra:
    direttore, oppure almeno 8 posti fra fiati, legni, arpa e archi. Non è una pagina audio: in acustico resta. Nessun campo nuovo nel documento. */
-function organicoSezioni(){ return ["FIATI","LEGNI","RITMICA","ARPA","ARCHI","VOCI"]; }
+/* ORDINE DELLE SEZIONI (13/11/2026, specifica S13): tre ordini, scelta per progetto (`state.organicoOrdine`, assente = «Fiati prima», quello di sempre).
+   «Voci e archi prima» = l'uso dei fogli del 2023 («voci – archi – legni – ottoni – ritmica»); «Per partitura (orchestra)» = legni, ottoni, ritmica (percussioni), arpa,
+   voci, archi: l'ordine convenzionale della partitura orchestrale (legni, ottoni, timpani e percussioni, ritmica, arpa/pianoforte, solisti e coro, archi; indicazione 13/11).
+   Cambia solo l'ordine: etichette, totali e formula degli archi restano. */
+var ORGANICO_ORDINI={ fiati:{nome:"Fiati prima (come sempre)", sez:["FIATI","LEGNI","RITMICA","ARPA","ARCHI","VOCI"]},
+  voci:{nome:"Voci e archi prima", sez:["VOCI","ARCHI","LEGNI","FIATI","RITMICA","ARPA"]},
+  partitura:{nome:"Per partitura (orchestra)", sez:["LEGNI","FIATI","RITMICA","ARPA","VOCI","ARCHI"]} };
+function organicoOrdineId(){ var o=state && state.organicoOrdine; return (o==="voci" || o==="partitura") ? o : "fiati"; }
+function organicoSezioni(){ return ORGANICO_ORDINI[organicoOrdineId()].sez.slice(); }
 function organicoGruppi(){
   var G=[], add=function(id,sez,s,p,t){ G.push({id:id,sez:sez,s:s,p:p,t:t}); };
   add("cor","FIATI","Corno","Corni",["corno"]); add("tr","FIATI","Tromba","Trombe",["tromba"]);
@@ -39105,7 +39119,9 @@ function organicoList(){
     if(mine.length>1) rows.push({tipo:"sub", nome:"Totale "+sez.toLowerCase(), n:sub});
     return sub;
   }
-  organicoSezioni().forEach(function(sez){ if(sez!=="VOCI") strum+=sezione(sez); });
+  var ordSez=organicoSezioni(), vociUltime=(ordSez[ordSez.length-1]==="VOCI");
+  /* le voci stanno al loro posto nell'ordine scelto; il «TOTALE ORCHESTRA» viene dopo l'ultimo strumento e prima del TOTALE (con le voci in coda, prima delle voci come sempre) */
+  ordSez.forEach(function(sez){ if(sez==="VOCI"){ if(!vociUltime) voci=sezione("VOCI"); } else strum+=sezione(sez); });
   var alt=Object.keys(D.altro);
   if(alt.length){   /* ciò che non si sa classificare, in coda agli strumentisti, col nome com'è: mai perso */
     var sa=alt.reduce(function(a,k){ return a+D.altro[k]; },0); strum+=sa;
@@ -39114,7 +39130,7 @@ function organicoList(){
   }
   var haVoci=Object.keys(D.righe).some(function(k){ return D.G[D.idx[D.righe[k].id]].sez==="VOCI"; });
   if(haVoci) rows.push({tipo:"totorch", nome:"TOTALE ORCHESTRA", n:strum});   /* gli strumentisti, prima dei cori: come nei fogli veri («TOTALE ORCHESTRA 64», poi «TOTALE 67») */
-  voci=sezione("VOCI");
+  if(vociUltime) voci=sezione("VOCI");
   var tot=strum+voci;
   rows.push({tipo:"tot", nome:"TOTALE", n:tot});
   if(D.fuori.dir || D.fuori.osp || D.fuori.staff){
@@ -40357,6 +40373,13 @@ function renderDiffVersioni(){
     save(); render();
   });
 })();
+(function(){
+  var f=document.getElementById("pdfOrgOrdine"); if(!f) return;
+  f.addEventListener("change", function(){
+    if(f.value==="voci" || f.value==="partitura") state.organicoOrdine=f.value; else delete state.organicoOrdine;
+    save(); try{ if(typeof refresh==="function") refresh(); }catch(_e){}
+  });
+})();
 /* La prima apertura dell'Esporta annota production.asked (vestigiale, per i blob vecchi): si salva ma NON è un
    passo di Annulla (30/09), come segnaPdfEsportato. */
 function segnaEsportaAperto(){
@@ -40989,6 +41012,10 @@ function pdfChannelPage(doc, L, paperKey){
     var bo=document.getElementById("pdfOutFmt"), fo=document.getElementById("pdfOutFormato");
     if(bo) bo.hidden=!(_pdfTechPages||[]).some(function(p){ return p.key==="outputlist"; });
     if(fo) fo.value=window.__pdfListaFmt.outFormato||"semplice";
+    /* ordine dell'organico (S13): compare solo se la pagina Organico è fra le possibili; mostra il valore del progetto */
+    var bg=document.getElementById("pdfOrgOrd"), fg=document.getElementById("pdfOrgOrdine");
+    if(bg) bg.hidden=!(_pdfTechPages||[]).some(function(p){ return p.key==="organico"; });
+    if(fg) fg.value=organicoOrdineId();
   }
   (function(){
     var f=document.getElementById("pdfListaFormato"), pp=document.getElementById("pdfListaPerPagina");
