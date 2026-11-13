@@ -18262,6 +18262,21 @@ function pedaneTesto(items){
    (la più alta, se ne tocca più d'una), come l'avviso di pedaneSicurezza; senza pedane vicine vale 40, l'altezza
    di una pedana di serie. Se la scala fosse fornita dal teatro con altri gradini, è un caso a parte (non c'è ancora). */
 var SCALA_ALZATA_CM=20, SCALA_GRADINI_MAX=12;
+/* LUNGHEZZA PROPORZIONATA (13/11/2026; Simone sullo stage plot di Padova: «in base al numero di scalini la scaletta sarà più o meno grande:
+   se sono due gradini non può essere lunga come quella da 3»). Lunghezza = gradini × pedata; pedata 30 cm (proposta KB del 05/11/2026
+   `pedane.scale.gradini-coerenti`: pedata 30, h60 → 3 gradini → 90 cm; è anche la misura di serie «60×90»). La larghezza non cambia.
+   Il lato che tocca la pedana è quello da cui parte la freccia (−y locale): resta fermo, la scala si accorcia o si allunga dal lato opposto.
+   Si adegua da sola a ogni render (altezza della pedana cambiata → lunghezza nuova), senza scrivere sul cloud finché non si salva. */
+var SCALA_PEDATA_CM=30;
+function scalaLunghezza(h){ return scalaGradini(h)*SCALA_PEDATA_CM; }
+function scalaAdegua(it){
+  var L=scalaLunghezza(scalaH(it)), d=+it.d||(TYPES.scala&&TYPES.scala.d)||90;   /* senza `d` nel documento vale la misura di serie */
+  if(Math.abs(d-L)<0.5) return false;
+  var r=((+it.rot||0)%360)*Math.PI/180, ux=-Math.sin(r), uy=Math.cos(r), k=(L-d)/2;   /* −y locale fermo: il centro si sposta di (L−d)/2 lungo +y */
+  it.d=L; it.x=Math.round((it.x+ux*k)*100)/100; it.y=Math.round((it.y+uy*k)*100)/100;
+  return true;
+}
+function scaleAdegua(){ var n=0; (state.items||[]).forEach(function(it){ if(it.type==="scala" && !it.locked && scalaAdegua(it)) n++; }); return n; }
 function scalaGradini(h){ h=+h; if(!isFinite(h)) h=40; return Math.max(1, Math.min(SCALA_GRADINI_MAX, Math.round(h/SCALA_ALZATA_CM))); }
 function scalaH(it){
   var best=0, a=itemAabb(it,0);
@@ -19787,6 +19802,7 @@ function lblShowAttr(it){ return isCover(it) ? '' : ((soloMostra(it) || itemEyeS
 function render(){
   soloPedaneAuto();   /* «Solo pedane» si accende da solo quando la mano seleziona sole pedane (29/09) */
   pruneSolo();   /* niente solo fantasma su layer disattivati */
+  try{ scaleAdegua(); }catch(_e){}   /* la lunghezza della scala segue i gradini (13/11) */
   diSyncAll();   /* gli accessori legati (DI) seguono il loro strumento: posizione da offset locale + rotazione */
   if(typeof renderStatusUI==="function") renderStatusUI();   /* T5: badge/stato in header (chiamato dopo il full-load → PROJECT_STATUSES definito) */
   /* la vista si è girata (o raddrizzata): `vb` stava nelle coordinate dell'altra, si rifà sul palco */
