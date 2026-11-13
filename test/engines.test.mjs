@@ -14218,7 +14218,7 @@ t("Taglia «N + M»: riga «Organico: 41 + 9» nel cartiglio (opzione spenta), s
   A.state.pdfOrganico = true; eq(righe().filter((x) => /^Organico:/.test(x)), [A.organicoCartiglioTesto()], "accesa: una riga, la prima del cartiglio"); eq(righe()[0], A.organicoCartiglioTesto(), "in testa");
   A.state.pdfOrganico = "si"; eq(A.pdfOrganicoOn(), false, "solo true la accende");
   A.state.pdfOrganico = true;
-  s5Fix(orgFix()); const solo = A.organicoTaglia(); eq(solo.voci, 0, "senza voci"); eq(A.organicoCartiglioTesto(), "Organico: " + solo.strumentisti, "senza voci: solo gli strumentisti, niente «+ 0»");
+  s5Fix(orgFix()); const solo = A.organicoTaglia(); eq(solo.voci, 0, "senza voci"); eq(solo.testo, String(solo.strumentisti), "senza voci la taglia è solo il numero, non «N+0»"); eq(A.organicoCartiglioTesto(), "Organico: " + solo.strumentisti, "senza voci: solo gli strumentisti, niente «+ 0»");
   s5Fix([{ id: "a", type: "leggio", x: 100, y: 100 }]); eq(A.organicoTaglia(), null, "senza orchestra: niente taglia"); eq(A.organicoCartiglioTesto(), "", "né riga nel cartiglio");
   reset();
 });
