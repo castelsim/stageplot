@@ -37904,7 +37904,31 @@ function riassuntoDocumento(){
   rows.forEach(function(r){ if(r.reserved || r.spare) return; can++; var m=r.micOff ? "" : String(r.mic||""); if(m){ m=m.slice(0,40); mic[m]=(mic[m]||0)+1; } });
   try{ mix=busList().count; }catch(_e){}
   var st=state.stage||{};
-  return { f:STORICO_FORMATO, pal:[Math.round(+st.w||0), Math.round(+st.d||0)], el:el, ped:ped, can:can, mix:mix, mic:mic };
+  return { f:STORICO_FORMATO, pal:[Math.round(+st.w||0), Math.round(+st.d||0)], el:el, ped:ped, can:can, mix:mix, mic:mic, h:impronteDocumenti() };
+}
+/* Impronta di CIASCUN documento del pacchetto (S10, richiesta di Simone 13/11: «cambiato / invariato da vN-1» accanto a ogni file): un hash breve del
+   contenuto che quel documento stampa (non del progetto intero: un'asta in più non cambia il rider). Dentro il riassunto, quindi nello storico. */
+function impronteDocumenti(){
+  function h(x){ var j; try{ j=JSON.stringify(x); }catch(_e){ j=""; } j=j||""; var n=5381; for(var i=0;i<j.length;i++){ n=((n<<5)+n+j.charCodeAt(i))|0; } return (n>>>0).toString(36); }
+  function g(f){ try{ return h(f()); }catch(_e){ return ""; } }
+  var out={};
+  out.stageplot=g(function(){ return [(state.items||[]).map(function(it){ return [it.type,it.x,it.y,it.rot,it.w,it.d,it.h,it.label]; }), state.stage]; });
+  out.inputlist=g(function(){ return patchList().rows.map(function(r){ return [r.n,r.name,r.mic,r.patch,r.p48,r.dyn,r.reserved,r.spare,r.servizio]; }); });
+  out.outputlist=g(function(){ var L=busList(); return (L.auto||[]).concat(L.rows||[]).map(function(r){ return [r.name,r.tag,r.ports,r.dest]; }); });
+  out.rider=g(function(){ return [state.rider, state.orari, state.sonorizzazione, state.tipoEvento]; });
+  out.organico=g(function(){ return organicoList(); });
+  out.backline=g(function(){ return backlineList().rows; });
+  out.lightslist=g(function(){ return state.lights; });
+  out.scaletta=g(function(){ return state.scaletta; });
+  Object.keys(out).forEach(function(k){ if(!out[k]) delete out[k]; });
+  return out;
+}
+/* «cambiato / invariato da v3 / nuovo» per ogni documento, rispetto all'ultimo export della versione precedente; {} senza storico */
+function pacchettoSegni(){
+  var prev=storicoPrecedente(); if(!prev || !prev.r || !prev.r.h) return {};
+  var cur=impronteDocumenti(), out={da:prev.v};
+  Object.keys(cur).forEach(function(k){ out[k]=!(k in prev.r.h) ? "nuovo" : (prev.r.h[k]===cur[k] ? "invariato" : "cambiato"); });
+  return out;
 }
 function storicoRegistra(){
   var v=versioneNumero(); if(!v) return;
@@ -38129,6 +38153,7 @@ function pacchettoApri(){
   var docs=pacchettoDocumenti(chiavi, (typeof scalettaList==="function" && scalettaList().count>0), (state.items||[]).length>0);
   var lista=document.getElementById("pkgLista"), nome=document.getElementById("pkgNome"), err=document.getElementById("pkgErr");
   lista.innerHTML=""; err.hidden=true;
+  var segni={}; try{ segni=pacchettoSegni(); }catch(_e){}
   nome.value=pacchettoNomeDefault();
   function esempio(){
     var sel=[].filter.call(lista.querySelectorAll("input[type=checkbox]"), function(c){ return c.checked; }).length;
@@ -38139,7 +38164,9 @@ function pacchettoApri(){
     var lab=document.createElement("label"); lab.className="pkg-riga";
     var c=document.createElement("input"); c.type="checkbox"; c.checked=true; c.setAttribute("data-chiave", d.chiave); c.addEventListener("change", esempio);
     var t=document.createElement("span"); t.textContent=d.nome.charAt(0).toUpperCase()+d.nome.slice(1);
-    lab.appendChild(c); lab.appendChild(t); lista.appendChild(lab); });
+    lab.appendChild(c); lab.appendChild(t);
+    if(segni[d.chiave]){ var sg=document.createElement("span"); sg.className="pkg-segno pkg-segno-"+segni[d.chiave]; sg.textContent=segni[d.chiave]==="nuovo" ? "nuovo" : segni[d.chiave]+" da v"+segni.da; lab.appendChild(sg); }
+    lista.appendChild(lab); });
   if(!docs.length){ var v=document.createElement("p"); v.className="hint"; v.textContent="Questo progetto non ha ancora documenti da mettere nel pacchetto."; lista.appendChild(v); }
   nome.oninput=esempio;
   var vr=document.getElementById("pkgVariante"), vn=pacchettoVariante(); vr.hidden=!vn; vr.textContent=vn ? "Variante: "+vn+" (la corrente). Il nome della variante sta in ogni file." : "";

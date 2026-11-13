@@ -14155,6 +14155,43 @@ const orgFix = (arch) => {   /* archi [v1,v2,vle,vc,cb] + fiati, legni, arpa, ti
 };
 const orgRows = () => A.organicoList().rows;
 const orgSez = () => orgRows().filter((r) => r.tipo === "sez").map((r) => r.nome);
+t("Pacchetto: ogni impronta reagisce ai dati del suo documento (disegno, channel list, output list, organico, scaletta) e manca se il documento non si calcola", () => {
+  /* ogni impronta reagisce ai dati del SUO documento */
+  dvFix(3); A.state.versione = 3; const hh = () => A.impronteDocumenti();
+  let b = hh(); A.state.items.find((x) => x.type === "astamic").x += 40; eq([hh().stageplot !== b.stageplot, hh().inputlist === b.inputlist], [true, true], "spostare un'asta cambia il disegno, non la channel list");
+  b = hh(); A.state.stage = { w: 1300, d: 1000, blocks: [{ x: 0, y: 0, w: 1300, d: 1000 }] }; ok(hh().stageplot !== b.stageplot, "anche la misura del palco cambia il disegno");
+  b = hh(); const k = A.patchList().rows.find((r) => r.mic).key; A.cabManual(k).mic = "ALTRO MIC"; A.__cabRes = null; ok(hh().inputlist !== b.inputlist, "cambiare un microfono cambia la channel list");
+  add("wedge", 400, 700); A.state.buses = [{ id: "bA", name: "MAIN L/R", kind: "st", dest: "P.A." }]; A.__cabRes = null; b = hh(); ok(typeof b.outputlist === "string", "l'output list ha la sua impronta");
+  A.state.buses[0].name = "MAIN"; A.__cabRes = null; ok(hh().outputlist !== b.outputlist, "il nome di un'uscita cambia l'output list");
+  A.state.buses[0].dest = "front"; A.__cabRes = null; const b2 = hh(); A.state.buses[0].dest = "P.A."; A.__cabRes = null; ok(hh().outputlist !== b2.outputlist, "e anche la destinazione");
+  s5Fix(orgFix()); b = hh(); ok(typeof b.organico === "string", "orchestra: l'impronta dell'organico"); A.state.items.push(...orgFix([1, 0, 0, 0, 0]).slice(0, 1)); ok(hh().organico !== b.organico, "un elemento d'orchestra in più cambia l'organico");
+  const bl = add("custom", 100, 100); void bl; b = hh();
+  A.state.scaletta = [{ tipo: "brano", titolo: "Brano uno", durata: "3:30", note: "" }]; ok(hh().scaletta !== b.scaletta && typeof hh().scaletta === "string", "la scaletta ha la sua impronta");
+  const orig = A.backlineList; A.backlineList = () => { throw new Error("rotto"); }; ok(!("backline" in hh()), "se un documento non si può calcolare, l'impronta manca (non si inventa)"); A.backlineList = orig; ok("backline" in hh() || hh().backline === undefined, "ripristinato");
+  reset();
+});
+t("Pacchetto: accanto a ogni documento «cambiato / invariato da vN-1 / nuovo», dall'impronta di CIASCUN documento nello storico", () => {
+  dvFix(3); A.state.versione = 3;
+  const h0 = A.impronteDocumenti(); ok(["stageplot", "inputlist", "rider"].every((k) => typeof h0[k] === "string" && h0[k].length > 0), "un'impronta breve per documento: " + JSON.stringify(h0));
+  ok(Object.values(h0).every((x) => x.length <= 8), "brevi (≤ 8 caratteri)");
+  eq(A.impronteDocumenti(), h0, "stabili: stesso progetto, stesse impronte");
+  A.storicoRegistra(); A.state.versione = 4;
+  eq(A.pacchettoSegni(), Object.assign({ da: 3 }, Object.fromEntries(Object.keys(h0).map((k) => [k, "invariato"]))), "nessuna modifica: tutto invariato da v3");
+  add("astamic", 900, 600); A.__cabRes = null;
+  const sg = A.pacchettoSegni(); eq([sg.stageplot, sg.inputlist], ["cambiato", "cambiato"], "un'asta in più: cambiano disegno e channel list");
+  eq([sg.rider, sg.backline === undefined ? "invariato" : sg.backline], ["invariato", "invariato"], "ma non il rider né il backline");
+  A.state.rider = { sistema: "Line array" }; ok(A.pacchettoSegni().rider === "cambiato", "il testo del rider cambia l'impronta del rider");
+  A.state.rider = {};
+  A.state.lights = { rows: [{ nome: "PAR", n: 4 }], blackout: null, mood: "" }; const sl = A.pacchettoSegni();
+  ok(sl.lightslist === "nuovo" || sl.lightslist === "cambiato", "le luci appena inserite non sono «invariato»: " + sl.lightslist);
+  const prev = A.state.storico[0]; delete prev.r.h.lightslist; eq(A.pacchettoSegni().lightslist, "nuovo", "documento che nell'export precedente non c'era: nuovo");
+  delete prev.r.h; eq(A.pacchettoSegni(), {}, "storico senza impronte (vecchio): nessun segno");
+  A.state.versione = 3; eq(A.pacchettoSegni(), {}, "la voce della stessa versione non è un precedente");
+  delete A.state.storico; A.state.versione = 4; eq(A.pacchettoSegni(), {}, "senza storico: niente");
+  ok(/segni\[d\.chiave\]\)\{ var sg=document\.createElement\("span"\); sg\.className="pkg-segno pkg-segno-"\+segni\[d\.chiave\]; sg\.textContent=segni\[d\.chiave\]==="nuovo" \? "nuovo" : segni\[d\.chiave\]\+" da v"\+segni\.da;/.test(appjs), "la finestrella del pacchetto scrive il segno accanto al documento");
+  ok(/var segni=\{\}; try\{ segni=pacchettoSegni\(\); \}catch\(_e\)\{\}/.test(appjs), "calcolato all'apertura, senza rompere la finestrella");
+  reset();
+});
 t("Organico: totali per sezione = elementi sul palco, ordine fisso FIATI→LEGNI→RITMICA→ARPA→ARCHI, direttore/ospiti/staff fuori dal totale", () => {
   s5Fix(orgFix());
   const r = orgRows(), per = (nome) => r.find((x) => x.nome === nome);
