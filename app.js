@@ -4205,7 +4205,7 @@ function nextVariantName(){ var n=0; VARIANTS.forEach(function(v){ var m=/^Varia
    data e contatti non erano mai diversi. Restano nello stato di ogni variante — lo schema e i file
    già salvati non cambiano — ma a ogni sincronizzazione quelli della variante attiva si scrivono
    nelle altre. */
-var CAMPI_DOCUMENTO=["quoteDaTerra","titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","versione","latiTeatro","sonorizzazione","orari","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
+var CAMPI_DOCUMENTO=["pdfOrganico","quoteDaTerra","titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","versione","latiTeatro","sonorizzazione","orari","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
 function propagaCampiDocumento(v){
   var src=v&&v.state; if(!src) return;
   VARIANTS.forEach(function(o){
@@ -7368,6 +7368,7 @@ function normalizeState(s){
   if(s.sonorizzazione!=="acustico" && s.sonorizzazione!=="misto") delete s.sonorizzazione;   /* sonorizzazione (12/11): assente = amplificato, com'è sempre stato; esiste solo se scelta */
   if(s.orari && typeof s.orari==="object"){ var _or=orariNorm(s.orari); if(Object.keys(_or).length) s.orari=_or; else delete s.orari; } else delete s.orari;   /* orari (12/11): solo voci valide, «HH:MM»; assente se vuoto */
   if(s.latiTeatro!==true) delete s.latiTeatro;   /* giardino e corte: spenti di serie, solo un true esplicito li accende (12/11/2026) */
+  if(s.pdfOrganico!==true) delete s.pdfOrganico;   /* «Organico: N + M» nel cartiglio (13/11): solo un true esplicito la accende */
   if(s.quoteDaTerra!==true) delete s.quoteDaTerra;   /* quote delle pedane «da terra» (13/11): solo un true esplicito le accende */
   if(s.pdfPesi!==true) delete s.pdfPesi;   /* kg nel PDF: solo un true esplicito li accende (06/10/2026) */
   var _vers=(typeof s.versione==="number"||typeof s.versione==="string") ? +s.versione : NaN;   /* versione del documento (12/11): intero 1-999, altrimenti assente */
@@ -20741,6 +20742,7 @@ function setEventInputs(){
   var _vc=document.getElementById("pdfVersione");   /* la versione: quella del campo, o letta dal titolo (precompilata) */
   if(_vc && document.activeElement!==_vc) _vc.value=versioneNumero()||"";
   var _vh=document.getElementById("pdfVersioneHint"); if(_vh) _vh.textContent=versioneSuggerimento();
+  try{ var _tg=tagliaSuggerimento(), _th=document.getElementById("pdfTagliaHint"); if(_th){ _th.hidden=!_tg; if(_tg) document.getElementById("pdfTagliaTesto").textContent="La taglia è "+_tg.taglia+": nel nome «"+_tg.nuovo+"»."; } }catch(_e){}
   ["luogo","luogoEv","evLuogo"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=state.luogo||""; });
   ["evDate","evDateM"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=state.evDate||""; });
   ["evTime","evTimeM"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=state.evTime||""; });
@@ -24515,6 +24517,10 @@ var ORCH_PRESETS = [
   {id:"archi_compatto", nome:"Ensemble archi compatto — 2.2.1.1", hint:"Piccolo ensemble archi per palchi ridotti; buona base per eventi cameristici.", counts:{v1:2,v2:2,vle:1,vc:1}},
   {id:"camera", nome:"Orchestra da camera — archi 4.4.3.2.1", hint:"Camera orchestra: archi piccoli, legni a uno, due corni; patch list a spot/area.", counts:{v1:4,v2:4,vle:3,vc:2,cb:1,fl:1,ob:1,cl:1,fg:1,cor:2}},
   {id:"ridotta", nome:"Sinfonica ridotta — archi 6.5.4.3.2", hint:"Sinfonica ridotta per teatro/piazza: legni a due, ottoni essenziali, arpa e timpani.", counts:{v1:6,v2:5,vle:4,vc:3,cb:2,fl:2,ob:2,cl:2,fg:2,cor:3,tr:2,tbn:1,arp:1,tim:1}},
+  {id:"archi_12_12_6_6_4", nome:"Archi 12-12-6-6-4", hint:"Sezione archi di una grande orchestra (taglia dei fogli di convocazione): 12 violini I, 12 violini II, 6 viole, 6 violoncelli, 4 contrabbassi. Nessun fiato.", counts:{v1:12,v2:12,vle:6,vc:6,cb:4,fl:0,ob:0,cl:0,fg:0,cor:0,tr:0,tbn:0,tba:0,arp:0,tim:0,gc:0,pia:0,rul:0}},
+  {id:"archi_7_6_4_4_2", nome:"Archi 7-6-4-4-2", hint:"Sezione archi media: 7 violini I, 6 violini II, 4 viole, 4 violoncelli, 2 contrabbassi. Nessun fiato.", counts:{v1:7,v2:6,vle:4,vc:4,cb:2,fl:0,ob:0,cl:0,fg:0,cor:0,tr:0,tbn:0,tba:0,arp:0,tim:0,gc:0,pia:0,rul:0}},
+  {id:"archi_3_3_2_2", nome:"Archi 3-3-2-2", hint:"Piccola sezione archi senza contrabbasso: 3 violini I, 3 violini II, 2 viole, 2 violoncelli.", counts:{v1:3,v2:3,vle:2,vc:2,cb:0,fl:0,ob:0,cl:0,fg:0,cor:0,tr:0,tbn:0,tba:0,arp:0,tim:0,gc:0,pia:0,rul:0}},
+  {id:"archi_1_1_1_1", nome:"Archi 1-1-1-1", hint:"Quartetto d'archi, un leggio per sezione.", counts:{v1:1,v2:1,vle:1,vc:1,cb:0,fl:0,ob:0,cl:0,fg:0,cor:0,tr:0,tbn:0,tba:0,arp:0,tim:0,gc:0,pia:0,rul:0}},
   {id:"standard", nome:"Sinfonica completa — archi 12.10.8.6.4", hint:"Organico standard completo. Richiede un palco ampio o l'adattamento automatico del palco.", counts:null}
 ];
 function defaultOrchCounts(){
@@ -36220,6 +36226,7 @@ function pdfTotals(opts){
   var hub=n(function(x){ return x.type==="mixhub"; });
   var wedge=n(function(x){ return x.type==="wedge"||x.type==="sidefill"; });
   var iem=n(function(x){ return x.type==="iem"; });
+  if(pdfOrganicoOn()){ var _og=organicoCartiglioTesto(); if(_og) out.push(_og); }   /* S12: «Organico: 41 + 9», opzione */
   if(canali && conCanali) out.push(canali+" canali");
   if(leggii) out.push(leggii+(leggii===1?" leggio":" leggii"));
   if(L.direttore) out.push(L.direttore+(L.direttore===1?" leggio direttore":" leggii direttore"));
@@ -36852,6 +36859,28 @@ function organicoRiepilogo(){
   var L=organicoList(); if(!L.rows.length || !(L.strumentisti+L.voci)) return "";
   var a=L.strumentisti ? L.strumentisti+" "+(L.strumentisti===1?"strumentista":"strumentisti") : "", b=L.voci ? L.voci+" "+(L.voci===1?"voce":"voci") : "";
   return [a,b].filter(Boolean).join(" + ");
+}
+/* ═══ TAGLIA «N + M» (13/11/2026, specifica S12 dalla posta di produzione) ═══
+   I service nominano l'organico «58+30 Coro», «41+9»: strumentisti + voci. Gli stessi numeri della pagina «Organico» (#69), quindi il totale
+   del cartiglio e quello del foglio non possono divergere. (1) Riga «Organico: 41 + 9» nel cartiglio: opzione `state.pdfOrganico`, spenta di serie.
+   (2) Suggerimento nell'Esporta: «Aggiungi 41+9 al nome» (solo un pulsante, mai scritto da solo, mai sopra una taglia già nel nome; sta prima del «vN» finale). */
+var TAGLIA_NEL_NOME_RE=/\b\d{1,3}\s*\+\s*\d{1,3}\b/;
+function pdfOrganicoOn(){ return !!(state && state.pdfOrganico===true); }
+function organicoTaglia(){
+  var L=organicoList(); if(!L.rows.length || !(L.strumentisti+L.voci)) return null;
+  return {strumentisti:L.strumentisti, voci:L.voci, testo:L.strumentisti+(L.voci ? "+"+L.voci : "")};
+}
+function organicoCartiglioTesto(){ var t=organicoTaglia(); return t ? "Organico: "+t.strumentisti+(t.voci ? " + "+t.voci : "") : ""; }
+function nomeConTaglia(titolo, tg){
+  titolo=String(titolo==null?"":titolo).trim();
+  if(!titolo || !tg || TAGLIA_NEL_NOME_RE.test(titolo)) return titolo;
+  var m=VERSIONE_FINALE_RE.exec(titolo);
+  return m ? titolo.slice(0,m.index).replace(/\s+$/,"")+" "+tg+" "+titolo.slice(m.index).trim() : titolo+" "+tg;
+}
+function tagliaSuggerimento(){
+  var t=organicoTaglia(); if(!t || !t.voci) return null;
+  var nuovo=nomeConTaglia(state.titolo, t.testo); if(!nuovo || nuovo===String(state.titolo||"").trim()) return null;
+  return {taglia:t.testo, nuovo:nuovo};
 }
 function organicoPdf(shared){
   var run=function(doc){
@@ -38022,6 +38051,13 @@ function renderDiffVersioni(){
   });
 })();
 (function(){
+  var b=document.getElementById("pdfTagliaBtn"); if(!b) return;
+  b.addEventListener("click", function(){
+    var g=tagliaSuggerimento(); if(!g) return;
+    state.titolo=g.nuovo; if(typeof setEventInputs==="function") setEventInputs(); saveSoon();
+  });
+})();
+(function(){
   var c=document.getElementById("blkDaTerra"); if(!c) return;
   c.addEventListener("change", function(){
     if(c.checked) state.quoteDaTerra=true; else delete state.quoteDaTerra;
@@ -38927,6 +38963,11 @@ function pdfChannelPage(doc, L, paperKey){
       (header.value.trim() ? "Dal contatto primario della rubrica · si salva nel progetto." : "Si salva nel progetto.");
   }
   /* «Pesi (kg)»: spenta di serie, si salva nel progetto (vedi pdfPesiOn) */
+  var orgChk=document.getElementById("pdfOrganico");
+  if(orgChk) orgChk.addEventListener("change", function(){
+    if(orgChk.checked) state.pdfOrganico=true; else delete state.pdfOrganico;
+    save(); refresh();
+  });
   var pesiChk=document.getElementById("pdfPesi");
   if(pesiChk) pesiChk.addEventListener("change", function(){
     if(pesiChk.checked) state.pdfPesi=true; else delete state.pdfPesi;
@@ -38934,6 +38975,7 @@ function pdfChannelPage(doc, L, paperKey){
   });
   function pdfHeaderInit(){
     if(pesiChk) pesiChk.checked=(state.pdfPesi===true);
+    if(orgChk) orgChk.checked=pdfOrganicoOn();
     header.value=(typeof pdfHeaderPropose==="function") ? pdfHeaderPropose(state, pdfHeaderAccount()) : (state.pdfHeader||"");
     pdfHeaderSavedLine();
   }
