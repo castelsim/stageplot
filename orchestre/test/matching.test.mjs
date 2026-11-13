@@ -3,7 +3,7 @@
    altri idonei > nuovi (con rotazione). */
 import test from "node:test";
 import assert from "node:assert/strict";
-import { DEFAULT_WEIGHTS, maxPositive, checkRequirements, scoreCandidate, rankCandidates, applyOverrides, explain } from "../src/domain/matching.js";
+import { DEFAULT_WEIGHTS, maxPositive, checkRequirements, scoreCandidate, rankCandidates, applyOverrides, explain, fitLabel, reasonsText } from "../src/domain/matching.js";
 
 /* punti grezzi → punteggio 0-100 con la scala dei pesi di default */
 const pts = (raw, W = DEFAULT_WEIGHTS) => Math.round(50 + (50 * raw) / maxPositive(W));
@@ -165,4 +165,17 @@ test("chi ha scelto di non ricevere proposte non si può convocare, e si dice pe
   assert.equal(r.eligible, false);
   assert.ok(r.missing.some((m) => m.code === "no_requests" && /non ricevere proposte/.test(m.label)), JSON.stringify(r.missing));
   assert.equal(checkRequirements(base({ no_requests: false }), ctx).missing.some((m) => m.code === "no_requests"), false);
+});
+
+test("Cerca: fascia a parole e ragioni senza numeri né nome", () => {
+  const base = { eligible: true, name: "Ada Prova", reasons: [{ label: "Ha già suonato Morricone", points: 10 }, { label: "Lettura a prima vista", points: 5 }, { label: "Due assenze", points: -4 }], missing: [], warnings: [] };
+  assert.equal(fitLabel({ ...base, score: 85 }), "Molto adatto");
+  assert.equal(fitLabel({ ...base, score: 60 }), "Adatto");
+  assert.equal(fitLabel({ ...base, score: 40 }), "Con riserve");
+  assert.equal(fitLabel({ ...base, eligible: false, score: 0, missing: [{ label: "Livello insufficiente" }] }), "Non convocabile");
+  const t = reasonsText({ ...base, score: 85 });
+  assert.equal(t, "Ha già suonato Morricone, lettura a prima vista. Attenzione: due assenze.");
+  assert.ok(!/\d+\s*\/\s*100|Ada/.test(t), "niente punteggio, niente nome");
+  assert.equal(reasonsText({ ...base, eligible: false, missing: [{ label: "Livello insufficiente" }] }), "Manca: livello insufficiente.");
+  assert.equal(reasonsText({ ...base, reasons: [], score: 50 }), "Nessun elemento di storico: valutazione neutra.");
 });
