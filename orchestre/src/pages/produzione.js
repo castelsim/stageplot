@@ -4,7 +4,7 @@ import { BASE } from "../config.js";
 import { esc, el, toast, confirm, setState, errMsg, fmtDate, fmtDateTime, avvia } from "../ui.js";
 import { requireStaff, mountTopbar } from "../auth.js";
 import { tabs, REP_KIND } from "../nav.js";
-import { PROD_STATUS, PROD_STATUS_PILL, PROD_KIND, DATE_KIND, PART, SLOT_STATUS, SLOT_PILL, EVENT, INV_STATUS, INV_PILL, INV_EVENT, TEMPLATES, templateSeats, groupStaffing, staffingCounts, suggestedStatus } from "../domain/staffing.js";
+import { roleForItem, PROD_STATUS, PROD_STATUS_PILL, PROD_KIND, DATE_KIND, PART, SLOT_STATUS, SLOT_PILL, EVENT, INV_STATUS, INV_PILL, INV_EVENT, TEMPLATES, templateSeats, groupStaffing, staffingCounts, suggestedStatus } from "../domain/staffing.js";
 import * as api from "../api/productions.js";
 import * as match from "../api/matching.js";
 import * as inv from "../api/invitations.js";
@@ -377,6 +377,9 @@ async function paintMatching() {
   const roles = sections.flatMap((s) => s.roles.map((r) => ({ ...r, section: s.name, open: r.slots.filter((x) => x.status === "open").length })));
   panel.innerHTML = "";
   if (!roles.length) { panel.appendChild(el(`<div class="empty">Prima definisci l'organico: il matching lavora su un ruolo alla volta.</div>`)); return; }
+  /* deep link dall'editor: ?item=<postazione> sceglie il ruolo e mette in evidenza il posto (una volta sola) */
+  const fromItem = q.get("item") ? roleForItem(sections, q.get("item")) : null;
+  if (fromItem) mRole = fromItem.role.id;
   if (!mRole || !roles.find((r) => r.id === mRole)) mRole = (roles.find((r) => r.open > 0) || roles[0]).id;
   const head = el(`<section class="card"><div class="form-row">
     <div class="field"><label for="mRole">Ruolo</label><select id="mRole">${roles.map((r) => `<option value="${r.id}">${esc(r.section + " · " + r.name)} (${r.open} ${r.open === 1 ? "scoperto" : "scoperti"} su ${r.slots.length})</option>`).join("")}</select></div>
@@ -384,6 +387,13 @@ async function paintMatching() {
     <button type="button" class="btn primary" id="mGo">Calcola</button></div>
     <p class="small muted">In cima chi va bene per il ruolo, in ordine; accanto a ognuno il perché. Chi non si può convocare resta in fondo, con il motivo. Ogni calcolo resta salvato: la convocazione citerà questa proposta.</p></section>`);
   head.querySelector("#mRole").value = mRole;
+  if (fromItem) {
+    const t = fromItem.target, lab = t.item_label || fromItem.role.name;
+    const note = el(`<p class="small focus-seat" role="status"></p>`);
+    note.textContent = "Dalla postazione «" + lab + "» del palco: posto " + t.seat_no + " di «" + fromItem.role.name + "» (" + (SLOT_STATUS[t.status] || t.status).toLowerCase() + (t.musician_name ? ", ora " + t.musician_name : "") + ").";
+    head.appendChild(note);
+    q.delete("item"); history.replaceState(null, "", "?id=" + p.id + "&t=matching&role=" + mRole);
+  }
   head.querySelector("#mRole").onchange = (e) => { mRole = e.target.value; history.replaceState(null, "", "?id=" + p.id + "&t=matching&role=" + mRole); loadLastRun(); };
   head.querySelector("#mGo").onclick = compute;
   panel.appendChild(head);
