@@ -24611,38 +24611,71 @@ function layoutStrings(counts, out){
     for(var r=0;r<rows;r++) a.push(base+(r<extra?1:0));
     return a;
   });
-  var P=2*Math.asin(Math.min(0.5, 56/STR_R0));   /* passo angolare ~ corda 112 cm */
+  var P0=2*Math.asin(Math.min(0.5, 56/STR_R0));   /* passo angolare ~ corda 112 cm */
   var m0=split.reduce(function(a,s){ return a+s[0]; },0);   /* posti in prima fila */
-  var secCount=[0,0,0,0];   /* numerazione progressiva per sezione: ogni leggio ha un nome */
-  for(var r=0;r<rows;r++){
-    var rowSeats=[];
-    secs.forEach(function(s,i){
-      var k=split[i][r];
-      for(var j=0;j<k;j++){ secCount[i]++; rowSeats.push({type:s[2], lbl:s[3]+" "+secCount[i], vsec:(i===0?1:i===1?2:0)}); }
-    });
-    var m=rowSeats.length; if(!m) continue;
-    var R=STR_R0+STR_DR*r;
-    for(var idx=0; idx<m; idx++){
-      var a=(idx-(m-1)/2)*P, x=R*Math.sin(a), y=-R*Math.cos(a);
-      var o={type:rowSeats[idx].type, x:Math.round(x), y:Math.round(y),
-        rot:Math.round(a*180/Math.PI), label:rowSeats[idx].lbl};
-      if(rowSeats[idx].vsec) o.vsec=rowSeats[idx].vsec;
-      out.push(o);
+  var nb=counts.cb||0, outerRows=nb ? rows+1 : rows;
+  function build(P, DR){
+    var res=[], secCount=[0,0,0,0];   /* numerazione progressiva per sezione: ogni leggio ha un nome */
+    for(var r=0;r<rows;r++){
+      var rowSeats=[];
+      secs.forEach(function(s,i){
+        var k=split[i][r];
+        for(var j=0;j<k;j++){ secCount[i]++; rowSeats.push({type:s[2], lbl:s[3]+" "+secCount[i], vsec:(i===0?1:i===1?2:0)}); }
+      });
+      var m=rowSeats.length; if(!m) continue;
+      var R=STR_R0+DR*r;
+      for(var idx=0; idx<m; idx++){
+        var a=(idx-(m-1)/2)*P, x=R*Math.sin(a), y=-R*Math.cos(a);
+        var o={type:rowSeats[idx].type, x:Math.round(x), y:Math.round(y),
+          rot:Math.round(a*180/Math.PI), label:rowSeats[idx].lbl};
+        if(rowSeats[idx].vsec) o.vsec=rowSeats[idx].vsec;
+        res.push(o);
+      }
     }
-  }
-  /* Contrabbassi: arco corto dietro/destra dei violoncelli */
-  var nb=counts.cb||0, outerRows=rows;
-  if(nb){
-    var R=STR_R0+STR_DR*rows, a0=(m0-1)/2*P*0.55;
-    for(var j=0;j<nb;j++){
-      var a=a0+j*P, x=R*Math.sin(a), y=-R*Math.cos(a);
-      out.push({type:"contrabbasso", x:Math.round(x), y:Math.round(y),
-        rot:Math.round(a*180/Math.PI), label:"Contrabbasso "+(j+1)});
+    /* Contrabbassi: arco corto dietro/destra dei violoncelli */
+    if(nb){
+      var Rb=STR_R0+DR*rows, a0=(m0-1)/2*P*0.55;
+      for(var jb=0;jb<nb;jb++){
+        var ab=a0+jb*P, xb=Rb*Math.sin(ab), yb=-Rb*Math.cos(ab);
+        res.push({type:"contrabbasso", x:Math.round(xb), y:Math.round(yb),
+          rot:Math.round(ab*180/Math.PI), label:"Contrabbasso "+(jb+1)});
+      }
     }
-    outerRows=rows+1;
+    return res;
   }
-  return STR_R0+STR_DR*outerRows;
+  /* il passo di partenza metteva i leggii ruotati (viola 100×115, violoncello 110×160) con gli angoli uno nell'altro e le file
+     a 150 cm con il violoncello profondo 160: si allarga passo e distanza fra le file, a piccoli scatti, solo finché le
+     postazioni NON si toccano davvero (rettangoli ruotati) */
+  var seats=build(P0, STR_DR), DRok=STR_DR;
+  if(strHaClash(seats)){
+    var found=false;
+    for(var dr=STR_DR; dr<=STR_DR+40 && !found; dr+=5){
+      for(var gp=0; gp<=32 && !found; gp++){
+        var cand=build(P0+gp*0.25*Math.PI/180, dr);
+        if(!strHaClash(cand)){ seats=cand; DRok=dr; found=true; }
+      }
+    }   /* nessuna combinazione libera: resta il disegno di partenza e l'avviso di sovrapposizione è giusto */
+  }
+  seats.forEach(function(o){ out.push(o); });
+  return STR_R0+DRok*outerRows;
 }
+/* quante coppie di postazioni (x, y, rot in gradi, dimensioni del tipo) si sovrappongono davvero? SAT su rettangoli ruotati; shrink = cm tolti per lato (tolleranza) */
+function strContaClash(seats, shrink, stopAt1){
+  var R=seats.map(function(o){
+    var z=odim(o), c=Math.cos((o.rot||0)*Math.PI/180), s=Math.sin((o.rot||0)*Math.PI/180);
+    return {x:o.x, y:o.y, hw:z.w/2-shrink, hd:z.d/2-shrink, ux:c, uy:s, vx:-s, vy:c};
+  });
+  function proj(r, ax, ay){ return Math.abs(r.ux*ax+r.uy*ay)*r.hw+Math.abs(r.vx*ax+r.vy*ay)*r.hd; }
+  var n=0;
+  for(var i=0;i<R.length;i++) for(var j=i+1;j<R.length;j++){
+    var a=R[i], b=R[j], dx=b.x-a.x, dy=b.y-a.y, sep=false;
+    [[a.ux,a.uy],[a.vx,a.vy],[b.ux,b.uy],[b.vx,b.vy]].forEach(function(ax){
+      if(!sep && Math.abs(dx*ax[0]+dy*ax[1])>=proj(a,ax[0],ax[1])+proj(b,ax[0],ax[1])) sep=true; });
+    if(!sep){ n++; if(stopAt1) return n; }
+  }
+  return n;
+}
+function strHaClash(seats){ return strContaClash(seats, 0, true)>0; }
 
 function buildOrchestraOut(counts){
   var out=[];
@@ -24780,17 +24813,9 @@ function assessOut(out, stageW, stageD, fp){
   var m=measureOrchestraOut(out), C={x:stageW/2, y:stageD-fp};
   var tooSmall = (C.y+m.minY<0 || C.y+m.maxY>stageD || C.x-m.maxX<0 || C.x+m.maxX>stageW);
   /* gli elementi di sfondo (pedane, tappeti) possono stare sotto altri: non contano come sovrapposizione */
-  var boxes = out.map(function(o){
-    var z=odim(o);
-    return {x:C.x+o.x, y:C.y+o.y, r:Math.max(24, Math.max(z.w,z.d)*0.48), bg:(TYPES[o.type].z||2)<=1};
-  });
-  var overlaps=0;
-  for(var bi=0; bi<boxes.length; bi++){
-    for(var bj=bi+1; bj<boxes.length; bj++){
-      if(boxes[bi].bg || boxes[bj].bg) continue;
-      if(Math.hypot(boxes[bi].x-boxes[bj].x, boxes[bi].y-boxes[bj].y)<boxes[bi].r+boxes[bj].r) overlaps++;
-    }
-  }
+  var fg=out.filter(function(o){ return (TYPES[o.type].z||2)>1; });
+  /* sovrapposizione VERA: rettangoli ruotati (prima cerchi di raggio 0,48 × il lato maggiore: un violoncello 110×160 «toccava» il vicino senza toccarlo) */
+  var overlaps=strContaClash(fg, 1);
   return {tooSmall:tooSmall, overlaps:overlaps, relevantOverlaps:overlaps, measure:m};
 }
 
