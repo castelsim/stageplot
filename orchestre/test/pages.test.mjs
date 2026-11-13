@@ -795,3 +795,19 @@ test("la scheda produzione risolve ?item= in ruolo e posto, e lo consuma", () =>
   assert.match(prod, /q\.delete\("item"\); history\.replaceState\(null, "", "\?id=" \+ p\.id \+ "&t=matching&role=" \+ mRole\)/, "una volta sola: poi l'indirizzo è quello di sempre");
   assert.match(prod, /note\.textContent = "Dalla postazione «"/, "dice da dove arriva, col testo messo da textContent");
 });
+
+/* V1/c: la scheda Cerca mostra ragioni, non punteggi, e convoca con una sola azione. */
+test("la scheda Cerca: tutti i posti scoperti, fasce e ragioni, nessun punteggio, una azione", () => {
+  const prod = readFileSync(join(root, "orchestre/src/pages/produzione.js"), "utf8");
+  const a = prod.indexOf("async function paintCerca("), b = prod.indexOf("/* ---------------------------------------------------------------- Convocazioni */");
+  const cerca = prod.slice(a, b);
+  assert.ok(a > 0 && b > a);
+  assert.match(prod, /\["organico", "Organico"\], \["cerca", "Cerca"\], \["matching", "Matching"\]/, "la scheda è nel menu, prima del Matching");
+  assert.match(prod, /organico: paintOrganico, cerca: paintCerca,/, "e dispatchata");
+  assert.doesNotMatch(cerca, /\.score\s*\+\s*"|\/100|explain\(|\.rank\b/, "nessun punteggio né posizione scritti a schermo");
+  assert.match(cerca, /fitLabel\(r\)/); assert.match(cerca, /reasonsText\(r\)/);
+  assert.match(cerca, /for \(const x of picks\) \{ const n = await inv\.invite\(p\.id, x\.role\.id, x\.ids,/, "una invite per ruolo, dentro una sola azione");
+  assert.match(cerca, /persone contattate/, "il riepilogo dice posti e persone");
+  assert.match(cerca, /if \(cb\.checked\) set\.add/, "chi non è convocabile ha la casella disabilitata");
+  assert.match(cerca, /if \(!convocabile\) cb\.disabled = true/);
+});
