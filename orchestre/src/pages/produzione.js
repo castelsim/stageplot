@@ -9,7 +9,7 @@ import * as api from "../api/productions.js";
 import * as match from "../api/matching.js";
 import * as inv from "../api/invitations.js";
 import * as fb from "../api/feedback.js";
-import { rankCandidates, applyOverrides, explain, ENGINE_VERSION } from "../domain/matching.js";
+import { rankCandidates, applyOverrides, explain, fitLabel, reasonsText, ENGINE_VERSION } from "../domain/matching.js";
 import { catalogs, list as listMusicians } from "../api/musicians.js";
 import * as sp from "../api/stageplot.js";
 import { typeMapFrom, docVariants, extractPositions, proposeRoles, diffProposal, importGroups, importSummary, isUuid } from "../domain/stageplot-import.js";
@@ -17,7 +17,7 @@ import { typeMapFrom, docVariants, extractPositions, proposeRoles, diffProposal,
 const app = document.getElementById("app");
 const q = new URLSearchParams(location.search);
 let ctx = null, p = null, cat = null, tab = q.get("t") || "dati";
-const TABS = [["dati", "Dati"], ["date", "Date"], ["repertorio", "Repertorio"], ["organico", "Organico"], ["matching", "Matching"], ["convocazioni", "Convocazioni"], ["feedback", "Feedback"], ["stageplot", "StagePlot"], ["storia", "Storia"]];
+const TABS = [["dati", "Dati"], ["date", "Date"], ["repertorio", "Repertorio"], ["organico", "Organico"], ["cerca", "Cerca"], ["matching", "Matching"], ["convocazioni", "Convocazioni"], ["feedback", "Feedback"], ["stageplot", "StagePlot"], ["storia", "Storia"]];
 
 async function main() {
   ctx = await requireStaff();
@@ -49,7 +49,7 @@ function paint() {
     a.onclick = (e) => { if (!p.id) { e.preventDefault(); return; } e.preventDefault(); tab = k; history.replaceState(null, "", "?id=" + p.id + "&t=" + k); paint(); };
     nav.appendChild(a);
   }
-  ({ dati: paintDati, date: paintDate, repertorio: paintRepertorio, organico: paintOrganico, matching: paintMatching, convocazioni: paintConvocazioni, feedback: paintFeedback, stageplot: paintStageplot, storia: paintStoria })[tab]();
+  ({ dati: paintDati, date: paintDate, repertorio: paintRepertorio, organico: paintOrganico, cerca: paintCerca, matching: paintMatching, convocazioni: paintConvocazioni, feedback: paintFeedback, stageplot: paintStageplot, storia: paintStoria })[tab]();
 }
 
 /* ---------------------------------------------------------------- Dati */
@@ -514,6 +514,104 @@ function inviteDialog(musicianIds) {
         + ". " + esito);
       tab = "convocazioni"; history.replaceState(null, "", "?id=" + p.id + "&t=convocazioni"); paint();
     } catch (e) { toast(errMsg(e), { err: true }); }
+  };
+  document.body.appendChild(ov);
+}
+
+/* ---------------------------------------------------------------- Cerca (V1/c)
+   Tutti i posti scoperti in una schermata: per ogni ruolo chi va bene e perché (fascia e ragioni, mai un punteggio),
+   si spunta chi interpellare e si manda una sola richiesta di disponibilità. Usa le stesse RPC del Matching. */
+const cSel = new Map();   /* roleId -> Set(musicianId) */
+const cRun = new Map();   /* roleId -> runId del calcolo salvato */
+async function paintCerca() {
+  const panel = app.querySelector("#panel");
+  panel.innerHTML = `<div class="loading">Un attimo…</div>`;
+  cSel.clear(); cRun.clear();
+  try {
+    sections = groupStaffing(await api.staffing(p.id));
+    mRuleset = await match.activeRuleset(ctx.org.org_id); mWeights = mRuleset.weights;
+  } catch (e) { setState(panel.firstElementChild, "err", errMsg(e)); return; }
+  const roles = sections.flatMap((s) => s.roles.map((r) => ({ ...r, section: s.name, open: r.slots.filter((x) => x.status === "open" || x.status === "replaced").length }))).filter((r) => r.open > 0);
+  panel.innerHTML = "";
+  if (!roles.length) { panel.appendChild(el(`<div class="empty">Nessun posto scoperto. Quando ce ne sono, qui trovi chi interpellare per tutti insieme.</div>`)); return; }
+  const tot = roles.reduce((n, r) => n + r.open, 0);
+  panel.appendChild(el(`<p class="small muted">${tot} ${tot === 1 ? "posto scoperto" : "posti scoperti"} in ${roles.length} ${roles.length === 1 ? "ruolo" : "ruoli"}. Apri un ruolo per vedere chi va bene e perché; spunta più persone di quanti sono i posti, se vuoi un margine: la prima risposta positiva occupa il posto.</p>`));
+  const bar = el(`<div class="row invite-bar"><span class="small muted" id="cCount">Spunta chi vuoi interpellare</span><span class="spacer"></span><button type="button" class="btn primary" id="cGo" disabled>Chiedi disponibilità</button></div>`);
+  panel.appendChild(bar);
+  const refresh = () => {
+    const n = [...cSel.values()].reduce((a, x) => a + x.size, 0), r = [...cSel.values()].filter((x) => x.size).length;
+    bar.querySelector("#cCount").textContent = n ? n + (n === 1 ? " persona" : " persone") + " per " + r + (r === 1 ? " ruolo" : " ruoli") : "Spunta chi vuoi interpellare";
+    bar.querySelector("#cGo").disabled = !n;
+  };
+  bar.querySelector("#cGo").onclick = () => cercaDialog(roles);
+  for (const r of roles) {
+    const d = el(`<details class="role"><summary><span class="title"></span><span class="pill warn"></span><span class="sub"></span></summary><div class="role-body"><div class="loading">Un attimo…</div></div></details>`);
+    d.querySelector(".title").textContent = r.section + " · " + r.name;
+    d.querySelector(".pill").textContent = r.open + (r.open === 1 ? " scoperto" : " scoperti");
+    d.querySelector(".sub").textContent = [r.instrument_name, PART[r.part], r.min_level ? "livello ≥ " + r.min_level : ""].filter(Boolean).join(" · ");
+    let loaded = false;
+    d.addEventListener("toggle", async () => { if (!d.open || loaded) return; loaded = true; await cercaRole(d.querySelector(".role-body"), r, refresh); });
+    panel.appendChild(d);
+    if (r.id === q.get("role")) d.open = true;
+  }
+}
+async function cercaRole(body, role, refresh) {
+  try {
+    const data = await match.candidates(p.id, role.id);
+    data.skillNames = Object.fromEntries(cat.skills.map((s) => [s.code, s.name]));
+    const results = rankCandidates(data, mWeights, new Date());
+    try { cRun.set(role.id, await match.saveRun(p.id, role.id, mWeights, results, ENGINE_VERSION)); } catch (_) { /* la proposta resta a schermo anche se il salvataggio fallisce */ }
+    body.innerHTML = "";
+    const ok = results.filter((x) => x.eligible), no = results.filter((x) => !x.eligible);
+    if (!ok.length) body.appendChild(el(`<div class="empty">Nessuno in elenco va bene per questo ruolo.</div>`));
+    const ul = el(`<ul class="list"></ul>`);
+    const row = (r, convocabile) => {
+      const li = el(`<li class="list-item match${convocabile ? "" : " off"}"><label class="pick"><input type="checkbox" aria-label="Seleziona"></label><div class="grow"><div class="title"></div><div class="sub"></div><div class="why small"></div></div></li>`);
+      const cb = li.querySelector("input"); if (!convocabile) cb.disabled = true;
+      cb.onchange = () => { const set = cSel.get(role.id) || new Set(); if (cb.checked) set.add(r.musician_id); else set.delete(r.musician_id); cSel.set(role.id, set); refresh(); };
+      li.querySelector(".title").textContent = r.name;
+      li.querySelector(".sub").innerHTML = `<span class="pill ${convocabile ? (r.score >= 70 ? "ok" : r.score >= 50 ? "accent" : "warn") : "danger"}">${esc(fitLabel(r))}</span>` + (r.warnings || []).map((w) => ` <span class="pill">${esc(w)}</span>`).join("");
+      li.querySelector(".why").textContent = reasonsText(r);
+      return li;
+    };
+    ok.forEach((r) => ul.appendChild(row(r, true)));
+    body.appendChild(ul);
+    if (no.length) {
+      const more = el(`<details class="role"><summary><span class="title"></span></summary><ul class="list"></ul></details>`);
+      more.querySelector(".title").textContent = "Non convocabili (" + no.length + ")";
+      no.forEach((r) => more.querySelector("ul").appendChild(row(r, false)));
+      body.appendChild(more);
+    }
+  } catch (e) { body.innerHTML = ""; const d = el(`<div class="err"></div>`); d.textContent = errMsg(e); body.appendChild(d); }
+}
+function cercaDialog(roles) {
+  const picks = roles.map((r) => ({ role: r, ids: [...(cSel.get(r.id) || [])] })).filter((x) => x.ids.length);
+  if (!picks.length) return;
+  const posti = picks.reduce((n, x) => n + x.role.open, 0), persone = picks.reduce((n, x) => n + x.ids.length, 0);
+  const dflt = p.reply_deadline ? toLocalInput(p.reply_deadline) : toLocalInput(new Date(Date.now() + 7 * 86400000).toISOString());
+  const ov = el(`<div class="modal-ov" role="dialog" aria-modal="true"><div class="modal"><h2></h2>
+    <p class="small muted">Ognuno riceve un'email con un link per rispondere dal telefono: sì, no, o solo alcune date. Le risposte arrivano nella scheda Convocazioni.</p>
+    <ul class="small" id="cList"></ul>
+    <div class="field"><label for="cDl">Scadenza per rispondere</label><input id="cDl" type="datetime-local"></div>
+    <div class="field"><label for="cNote">Nota nell'email</label><textarea id="cNote" rows="2" placeholder="facoltativa, es. prove obbligatorie"></textarea></div>
+    <div class="actions"><button type="button" class="btn" id="no">Annulla</button><button type="button" class="btn primary" id="ok">Invia</button></div></div></div>`);
+  ov.querySelector("h2").textContent = posti + (posti === 1 ? " posto" : " posti") + " · " + persone + (persone === 1 ? " persona" : " persone") + " da interpellare";
+  for (const x of picks) { const li = document.createElement("li"); li.textContent = x.role.name + ": " + x.ids.length + (x.ids.length === 1 ? " persona" : " persone") + " per " + x.role.open + (x.role.open === 1 ? " posto" : " posti"); ov.querySelector("#cList").appendChild(li); }
+  ov.querySelector("#cDl").value = dflt;
+  const close = () => ov.remove();
+  ov.querySelector("#no").onclick = close;
+  ov.addEventListener("click", (e) => { if (e.target === ov) close(); });
+  ov.querySelector("#ok").onclick = async () => {
+    const deadline = fromLocalInput(ov.querySelector("#cDl").value), note = ov.querySelector("#cNote").value.trim();
+    let creati = 0, saltati = 0;
+    try {
+      for (const x of picks) { const n = await inv.invite(p.id, x.role.id, x.ids, { deadline, note, runId: cRun.get(x.role.id) || null }); creati += n; saltati += x.ids.length - n; }
+      close();
+      const esito = creati ? inv.esitoEmail(await inv.notifyNow(p.id)) : "";
+      toast(posti + (posti === 1 ? " posto" : " posti") + " · " + creati + (creati === 1 ? " persona contattata" : " persone contattate")
+        + (saltati > 0 ? "; " + saltati + (saltati === 1 ? " non contattata" : " non contattate") + ": già convocate per quel ruolo o senza consenso alle proposte" : "") + ". " + esito);
+      tab = "convocazioni"; history.replaceState(null, "", "?id=" + p.id + "&t=convocazioni"); paint();
+    } catch (e) { close(); toast(errMsg(e) + (creati ? " (" + creati + " già create: controlla Convocazioni)" : ""), { err: true }); }
   };
   document.body.appendChild(ov);
 }

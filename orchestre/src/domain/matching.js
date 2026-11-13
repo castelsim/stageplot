@@ -174,6 +174,21 @@ export function applyOverrides(results) {
 }
 
 /* La frase per l'amministratore, come nella SPEC. */
+/* Cerca (V1/c): chi sceglie legge il perché, non un numero. Fascia a parole e ragioni senza nome né punteggio. */
+export function fitLabel(r) {
+  if (!r.eligible) return "Non convocabile";
+  return r.score >= 70 ? "Molto adatto" : r.score >= 50 ? "Adatto" : "Con riserve";
+}
+export function reasonsText(r) {
+  const up = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+  if (!r.eligible) return "Manca: " + r.missing.map((m) => m.label.toLowerCase()).join("; ") + ".";
+  const top = r.reasons.filter((x) => x.points > 0).slice(0, 4).map((x) => x.label.charAt(0).toLowerCase() + x.label.slice(1));
+  const neg = r.reasons.filter((x) => x.points < 0).map((x) => x.label.charAt(0).toLowerCase() + x.label.slice(1));
+  let s = top.length ? up(top.join(", ")) + "." : "";
+  if (neg.length) s += (s ? " " : "") + "Attenzione: " + neg.join(", ") + ".";
+  return s || "Nessun elemento di storico: valutazione neutra.";
+}
+
 export function explain(r) {
   const top = r.reasons.filter((x) => x.points > 0).slice(0, 4).map((x) => x.label.charAt(0).toLowerCase() + x.label.slice(1));
   const neg = r.reasons.filter((x) => x.points < 0).map((x) => x.label.charAt(0).toLowerCase() + x.label.slice(1));
