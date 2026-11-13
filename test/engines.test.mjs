@@ -32252,6 +32252,10 @@ t("Import organico: dati personali mai letti né mostrati; righe non riconosciut
   eq([sost.varianti, sost.righeNo, sost.privati], [[], [1], 1], "uno strumento con il nome di un sostituto nella stessa cella: la riga si scarta (e si dice quale), non si importa a metà");
   const lin = A.orgImportParse("cr4; IBAN IT60X0542811101000000123456; fl2");
   eq([lin.varianti[0].counts, lin.privati, lin.ignorati], [{ cor: 4, fl: 2 }, 1, []], "anche in linea: il pezzo personale si salta, non finisce fra i «non riconosciuti»");
+  const pipe = A.orgImportParse("cr4 | IBAN IT60X0542811101000000123456 | fl2");
+  eq([pipe.varianti[0].counts, pipe.privati, pipe.ignorati], [{ cor: 4, fl: 2 }, 1, []], "anche con la barra verticale come separatore");
+  const due = A.orgImportParse("4 2 flauti");
+  eq([due.varianti[0].counts, due.ignorati], [{ fl: 2 }, ["4"]], "due numeri di fila: il primo resta senza nome e si dice");
   eq(impC("Sezione,Strumento,Leggii,N.\nARCHI,Violini I,6,12"), { v1: 12 }, "la colonna «N.» dell'intestazione vince su un altro numero della riga");
   eq(impC("2 flauti 2 oboi 4 corni"), { fl: 2, ob: 2, cor: 4 }, "numero davanti, senza virgole");
   eq(impC("cor 4 tr 2 fl 2"), { cor: 4, tr: 2, fl: 2 }, "sigla e numero, senza virgole");
@@ -32280,6 +32284,7 @@ t("Import organico: i posti creati ridanno gli stessi numeri nella pagina «Orga
   eq(A.orgImportApplica({}, {}), false, "nessun posto dichiarato: non si crea niente"); eq(!!A.pendingOut, false, "e non si apre nessun avviso");
   toast.length = 0; A.orgImportApplica(c, { clear: true, fit: true });
   eq([!!A.pendingOut, A.state.items.length, toast.length], [true, 0, 0], "con sovrapposizioni l'avviso viene PRIMA: nessun posto creato e nessun messaggio finché non si preme «Continua»");
+  A.placeOut([{ type: "flauto", x: 0, y: 0 }], false, false, true); eq(toast.length, 0, "un altro posizionamento, nel frattempo, non eredita il messaggio dell'import");
   A.orchWarnContinua(); eq([!!A.pendingOut, toast.length], [false, 1], "dopo «Continua» i posti ci sono e arriva il messaggio con «Annulla»");
   vuoto(); toast.length = 0;
   /* palco con altro già dentro e senza svuotare: i numeri non coincidono, e lo dice */

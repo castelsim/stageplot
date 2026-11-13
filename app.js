@@ -24934,7 +24934,7 @@ function orgImportParse(testo){
     var line=riga.trim(); if(!line) return;
     var m=/^(completo|medio|ridotto)\s*[:=]\s*(.*)$/i.exec(line);
     if(m){ cur=m[1].toLowerCase(); line=m[2].trim(); if(!line) return; }
-    var cells=line.split(/\t|;|,/).map(function(c){ return c.trim(); });
+    var cells=line.split(/\t|;|,|\|/).map(function(c){ return c.trim(); });
     if(!/\d/.test(line) && cells.length>=2 && /\b(sezione|strumento|strumenti|gruppo)\b/i.test(line)){   /* intestazione: quale colonna è «n.», quali le varianti */
       hdr={nCol:-1, vcols:[]};
       cells.forEach(function(c,i){ var n=orgImpNorm(c);
@@ -24962,7 +24962,6 @@ function orgImportParse(testo){
     });
     s.split(/[;,|]+/).forEach(function(chunk){
       chunk=chunk.trim(); if(!chunk) return;
-      if(ORG_IMP_PRIV.test(chunk)){ R.privati++; return; }
       var words=[], pn=null;
       function emetti(nome,n){ var id=orgImpRisolvi(nome); if(id) agg(cur,id,n); else R.ignorati.push(String(nome).slice(0,16)); }
       function chiudi(){ if(words.length){ emetti(words.join(" "), pn!==null ? pn : 1); words=[]; pn=null; } }
