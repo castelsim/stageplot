@@ -5402,6 +5402,17 @@ t("Quota da terra: palco su palco (il più alto fra i blocchi), pedana su pedana
   qdFix([{ x: 0, y: 0, w: 1200, d: 800, h: 110 }], [["pedana", 400, 300, { h: 60, w: 400, d: 200 }], ["pedana", 400, 300, { h: 20 }]]);
   A.state.quoteDaTerra = true; const [grande, piccola] = A.state.items;
   eq(A.quotaPianoDi(piccola), 170, "110 palco + 60 pedana sotto"); eq(A.quotaDaTerraTesto(piccola), " (da terra 190)", "190 = 110 + 60 + 20"); eq(A.quotaDaTerraTesto(grande), " (da terra 170)", "la grande: 110 + 60");
+  /* l'ordine dei blocchi non conta: vale il più alto, anche se viene prima nell'elenco */
+  qdFix([{ x: 100, y: 100, w: 1000, d: 600, h: 130 }, { x: 0, y: 0, w: 1200, d: 800, h: 90 }], [["pedana", 500, 400, { h: 20 }]]); A.state.quoteDaTerra = true;
+  eq(A.quotaPianoDi(A.state.items[0]), 130, "130 anche con il blocco alto per primo"); eq(A.palcoQuotaMax(), 130, "l'altezza del palco nel cartiglio è la più alta"); ok(/^Palco h130 \u00b7 /.test(A.pedaneTesto()), "«Palco h130» nel cartiglio: " + A.pedaneTesto());
+  /* una pedana grande ALTROVE non fa da base: serve che contenga il centro */
+  qdFix([{ x: 0, y: 0, w: 1200, d: 800, h: 110 }], [["pedana", 1000, 600, { h: 60, w: 300, d: 200 }], ["pedana", 300, 200, { h: 20 }]]); A.state.quoteDaTerra = true;
+  eq(A.quotaPianoDi(A.state.items[1]), 110, "la pedana piccola lontana dalla grande poggia sul palco (110), non sulla grande");
+  /* ordine della legenda: per quota da terra decrescente, poi altezza */
+  qdFix([{ x: 0, y: 0, w: 600, d: 800, h: 90 }, { x: 600, y: 0, w: 600, d: 800, h: 0 }], [["pedana", 300, 300, { h: 40 }], ["pedana", 900, 300, { h: 100 }]]); A.state.quoteDaTerra = true;
+  eq(A.pedaneLegenda().map((g) => g.base + g.h), [130, 100], "130 (palco 90 + h40) prima di 100 (h100 a terra), anche se h100 > h40");
+  A.state.quoteDaTerra = false; eq(A.pedaneLegenda().map((g) => g.h), [100, 40], "spenta: per altezza come sempre");
+  A.state.quoteDaTerra = "si"; eq(A.quotaDaTerraOn(), false, "un valore che non è true non la accende");
   /* fuori dal palco alto: base 0, niente testo */
   qdFix([{ x: 0, y: 0, w: 400, d: 400, h: 110 }], [["pedana", 900, 700, { h: 20 }]]); A.state.quoteDaTerra = true;
   eq(A.quotaDaTerraTesto(A.state.items[0]), "", "pedana fuori dal blocco alto: nessuna quota da sommare");
