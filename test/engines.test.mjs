@@ -32378,6 +32378,28 @@ t("Import organico: si trova dalla ricerca («importa organico»), il menu File 
   ok(!/fetch\(|supabase|localStorage|sessionStorage/.test(src), "niente rete, niente archivio: il testo incollato resta sulla pagina");
 });
 
+t("Import organico (fix 13/11): le formule di archi non creano sovrapposizioni vere né l'avviso; il conteggio usa i rettangoli, non i cerchi", () => {
+  const salvaDoc = A.document, el = { textContent: "", hidden: true };
+  A.document = { body: { classList: { contains: () => false } }, getElementById: (id) => (id === "orchWarnText" || id === "orchWarnModal" || id === "orgImpModal" ? el : null) };
+  const warn = () => el.textContent;
+  for (const f of ["1-1-1-1", "2-2-1-1", "4-3-2-2-1", "8-6-4-4-2", "12-12-6-6-4", "7-6-4-4-2", "fl2-o2-cl2-fg2"]) {
+    const out = A.buildOrchestraOut(impC(f)), m = A.measureOrchestraOut(out);
+    eq(A.assessOut(out, 4000, 3000, A.frontPad(m)).overlaps, 0, f + ": nessuna sovrapposizione");
+    eq(A.strContaClash(out.filter((o) => o.type !== "pedana"), 0), 0, f + ": nemmeno a filo (geometria vera)");
+  }
+  A.loadDoc({ titolo: "Prova", stage: { w: 4000, d: 3000, blocks: [{ x: 0, y: 0, w: 4000, d: 3000 }] }, inputs: [], outputs: [], items: [] });
+  A.orgImportApplica(impC("2-2-1-1"), { clear: true, fit: true });
+  eq(!!A.pendingOut, false, "2-2-1-1: nessun avviso, i posti si creano subito");
+  eq(A.state.items.length > 0, true, "e i posti ci sono");
+  /* avviso vero, plurale giusto */
+  A.loadDoc({ titolo: "Prova", stage: { w: 4000, d: 3000, blocks: [{ x: 0, y: 0, w: 4000, d: 3000 }] }, inputs: [], outputs: [], items: [] });
+  A.placeOut([{ type: "flauto", x: 0, y: 0 }, { type: "flauto", x: 10, y: 0 }], false, false, false);
+  ok(/crea 1 sovrapposizione tra/.test(warn()), "una sola: «1 sovrapposizione» — " + warn());
+  A.placeOut([{ type: "flauto", x: 0, y: 0 }, { type: "flauto", x: 10, y: 0 }, { type: "flauto", x: 20, y: 0 }], false, false, false);
+  ok(/crea 3 sovrapposizioni tra/.test(warn()), "più d'una: «3 sovrapposizioni» — " + warn());
+  A.document = salvaDoc;
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
 
