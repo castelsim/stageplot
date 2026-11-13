@@ -6358,6 +6358,11 @@ body.cust-contorno .item.selected .selbox{display:none}
           <label for="pdfListaPerPagina" id="pdfListaPerPaginaL" hidden>Canali per pagina</label>
           <select id="pdfListaPerPagina" hidden><option value="32" selected>32</option><option value="48">48</option></select>
         </div>
+        <!-- FORMATO DELL'OUTPUT LIST (13/11/2026, S8): Semplice (di sempre) o Service (un blocco A4 orizzontale per stage box, 16 uscite). Impostazione dell'export, non del progetto. -->
+        <div id="pdfOutFmt" hidden>
+          <label for="pdfOutFormato">Formato dell'output list</label>
+          <select id="pdfOutFormato"><option value="semplice" selected>Semplice</option><option value="service">Service</option></select>
+        </div>
         <!-- NOME DEL PROGETTO (11/08): nessun passaggio del cammino lo chiedeva mai — il campo esiste
              nell'header col placeholder «Senza titolo» e non viene richiamato da nessuna parte, così
              il file usciva `stage-plot.pdf` e un service che riceve tre rider in una sera si ritrova
