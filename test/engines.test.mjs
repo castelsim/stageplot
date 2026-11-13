@@ -92,11 +92,8 @@ function reset() {
   delete A.state.latiTeatro;   /* giardino e corte (12/11): opzione che esiste solo se accesa; un test che l'accende non deve lasciarla ai successivi */
   delete A.state.sonorizzazione; delete A.state.orari;   /* sonorizzazione e orari (12/11): campi che esistono solo se scelti; un test che li imposta non deve lasciarli ai successivi */
   delete A.state.scaletta;   /* scaletta (10/10): campo che esiste solo con almeno una voce */
-<<<<<<< HEAD
   delete A.state.pdfOrganico;   /* «Organico: N + M» nel cartiglio (13/11): opzione spenta di serie */
-=======
   delete A.state.quoteDaTerra;   /* quote «da terra» (13/11): opzione spenta di serie; un test che la accende non deve lasciarla ai successivi */
->>>>>>> origin/main
   delete A.state.storico;   /* storico delle versioni (13/11, S10): si scrive solo esportando; un test che esporta non deve lasciarlo ai successivi */
   delete A.state.versione;   /* versione del documento (12/11): campo che esiste solo se impostata; un test che la imposta non deve lasciarla ai successivi */
   delete A.state.customModels;   /* modelli dell'elemento personalizzato (13/10): dal primo Salva di un elemento nuovo nasce anche il modello (Ruling 17), e un test che salva non deve lasciarli ai successivi */
@@ -5427,7 +5424,7 @@ t("Quota da terra: opzione nel pannello del blocco, documento (non della scena),
   ok(/id="blkDaTerra"/.test(html) && /Quote delle pedane «da terra»/.test(html), "la casella nel pannello del blocco");
   ok(/c\.addEventListener\("change", function\(\)\{\s*if\(c\.checked\) state\.quoteDaTerra=true; else delete state\.quoteDaTerra;\s*save\(\); render\(\);/.test(appjs), "accende e spegne il campo, salva e ridisegna");
   ok(/var _dt=document\.getElementById\("blkDaTerra"\); if\(_dt\) _dt\.checked=quotaDaTerraOn\(\);/.test(appjs), "la casella mostra il valore del progetto");
-  ok(/var CAMPI_DOCUMENTO=\["quoteDaTerra",/.test(appjs), "è un campo del documento (uguale in tutte le varianti)");
+  ok(/var CAMPI_DOCUMENTO=\[[^\]]*"quoteDaTerra"/.test(appjs), "è un campo del documento (uguale in tutte le varianti)");
   reset(); const st = JSON.parse(JSON.stringify(A.state)); st.quoteDaTerra = "si"; ok(!("quoteDaTerra" in A.normalizeState(st)), "solo un true esplicito la accende"); st.quoteDaTerra = true; eq(A.normalizeState(st).quoteDaTerra, true, "true resta");
   ok(/\+quotaDaTerraTesto\(it\) : scalaQuota\(it\)/.test(appjs), "l'etichetta della pedana la scrive");
   const f0 = A.firmaPdf(A.state); A.state.quoteDaTerra = true; ok(A.firmaPdf(A.state) !== f0, "è contenuto del documento: cambia l'impronta (il PDF cambia davvero)"); reset();
@@ -14297,7 +14294,7 @@ t("Taglia «N + M»: nome del progetto con la taglia prima del «vN», mai doppi
   ok(/id="pdfOrganico"/.test(html) && /id="pdfTagliaHint"[^>]*hidden/.test(html) && /id="pdfTagliaBtn"/.test(html), "casella, suggerimento nascosto di serie e pulsante nell'Esporta");
   ok(/b\.addEventListener\("click", function\(\)\{\s*var g=tagliaSuggerimento\(\); if\(!g\) return;\s*state\.titolo=g\.nuovo;/.test(appjs), "il pulsante scrive il nome (solo su clic)");
   ok(/if\(orgChk\) orgChk\.checked=pdfOrganicoOn\(\);/.test(appjs) && /if\(orgChk\.checked\) state\.pdfOrganico=true; else delete state\.pdfOrganico;/.test(appjs), "la casella è il campo del progetto");
-  ok(/var CAMPI_DOCUMENTO=\["pdfOrganico",/.test(appjs), "campo del documento");
+  ok(/var CAMPI_DOCUMENTO=\[[^\]]*"pdfOrganico"/.test(appjs), "campo del documento");
   const st = JSON.parse(JSON.stringify(A.state)); st.pdfOrganico = 1; ok(!("pdfOrganico" in A.normalizeState(st)), "normalizzazione: solo true");
   reset();
 });

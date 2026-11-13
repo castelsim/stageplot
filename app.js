@@ -4205,11 +4205,7 @@ function nextVariantName(){ var n=0; VARIANTS.forEach(function(v){ var m=/^Varia
    data e contatti non erano mai diversi. Restano nello stato di ogni variante — lo schema e i file
    già salvati non cambiano — ma a ogni sincronizzazione quelli della variante attiva si scrivono
    nelle altre. */
-<<<<<<< HEAD
-var CAMPI_DOCUMENTO=["pdfOrganico","titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","versione","latiTeatro","sonorizzazione","orari","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
-=======
-var CAMPI_DOCUMENTO=["quoteDaTerra","titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","versione","latiTeatro","sonorizzazione","orari","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
->>>>>>> origin/main
+var CAMPI_DOCUMENTO=["pdfOrganico","quoteDaTerra","titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","versione","latiTeatro","sonorizzazione","orari","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
 function propagaCampiDocumento(v){
   var src=v&&v.state; if(!src) return;
   VARIANTS.forEach(function(o){
@@ -7372,11 +7368,8 @@ function normalizeState(s){
   if(s.sonorizzazione!=="acustico" && s.sonorizzazione!=="misto") delete s.sonorizzazione;   /* sonorizzazione (12/11): assente = amplificato, com'è sempre stato; esiste solo se scelta */
   if(s.orari && typeof s.orari==="object"){ var _or=orariNorm(s.orari); if(Object.keys(_or).length) s.orari=_or; else delete s.orari; } else delete s.orari;   /* orari (12/11): solo voci valide, «HH:MM»; assente se vuoto */
   if(s.latiTeatro!==true) delete s.latiTeatro;   /* giardino e corte: spenti di serie, solo un true esplicito li accende (12/11/2026) */
-<<<<<<< HEAD
   if(s.pdfOrganico!==true) delete s.pdfOrganico;   /* «Organico: N + M» nel cartiglio (13/11): solo un true esplicito la accende */
-=======
   if(s.quoteDaTerra!==true) delete s.quoteDaTerra;   /* quote delle pedane «da terra» (13/11): solo un true esplicito le accende */
->>>>>>> origin/main
   if(s.pdfPesi!==true) delete s.pdfPesi;   /* kg nel PDF: solo un true esplicito li accende (06/10/2026) */
   var _vers=(typeof s.versione==="number"||typeof s.versione==="string") ? +s.versione : NaN;   /* versione del documento (12/11): intero 1-999, altrimenti assente */
   if(_vers%1===0 && _vers>=1 && _vers<=999) s.versione=_vers; else delete s.versione;
@@ -38058,17 +38051,17 @@ function renderDiffVersioni(){
   });
 })();
 (function(){
-<<<<<<< HEAD
   var b=document.getElementById("pdfTagliaBtn"); if(!b) return;
   b.addEventListener("click", function(){
     var g=tagliaSuggerimento(); if(!g) return;
     state.titolo=g.nuovo; if(typeof setEventInputs==="function") setEventInputs(); saveSoon();
-=======
+  });
+})();
+(function(){
   var c=document.getElementById("blkDaTerra"); if(!c) return;
   c.addEventListener("change", function(){
     if(c.checked) state.quoteDaTerra=true; else delete state.quoteDaTerra;
     save(); render();
->>>>>>> origin/main
   });
 })();
 /* La prima apertura dell'Esporta annota production.asked (vestigiale, per i blob vecchi): si salva ma NON è un
