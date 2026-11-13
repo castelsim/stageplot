@@ -19809,6 +19809,8 @@ t("Pacchetto: nomi dei file «AAAAMMGG vN documento luogo», con data dell'event
   delete A.state.evDate; eq(A.pacchettoData(new Date(2026, 10, 12)), "20261112", "senza data dell'evento: quella di esportazione");
   eq([A.pacchettoNomeDefault(), (A.state.luogo = "", A.state.titolo = "Concerto di prova v3", A.pacchettoNomeDefault())], ["Teatro Finto", "Concerto di prova"], "il nome di partenza è il luogo, o il titolo senza «vN»");
   A.state.luogo = "Sala/Grande"; eq(A.pacchettoNomeDefault(), "Sala Grande", "anche il nome di partenza è ripulito");
+  A.state.luogo = "Teatro AVA (Art Voice Academy), Via delle Mimose 6, Castelfranco Veneto (TV)"; eq(A.pacchettoNomeDefault(), "Teatro AVA (Art Voice Academy)", "il luogo con l'indirizzo intero: si parte da prima della virgola");
+  A.state.luogo = ", Via X 1"; A.state.titolo = "Gala di prova"; eq(A.pacchettoNomeDefault(), "Gala di prova", "se prima della virgola non c'è niente: il titolo");
   A.VARIANTS = [{ id: "v1", name: "Standard", state: A.state }, { id: "v2", name: "Big", state: A.state }]; A.activeVar = "v2"; eq(A.pacchettoVariante(), "Big", "con due varianti: la corrente");
   A.VARIANTS = [{ id: "v1", name: "Standard", state: A.state }]; A.activeVar = "v1"; eq(A.pacchettoVariante(), "", "con una variante sola: niente");
   reset();

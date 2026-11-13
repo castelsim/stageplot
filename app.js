@@ -37662,7 +37662,8 @@ function pacchettoData(d){
   var e=String(state.evDate||""); if(/^\d{4}-\d{2}-\d{2}$/.test(e)) return e.replace(/-/g,"");
   d=d||new Date(); var p=function(n){ return String(n).padStart(2,"0"); }; return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate());
 }
-function pacchettoNomeDefault(){ return pacchettoPulisci(String(state.luogo||"").trim()) || pacchettoPulisci(titoloSenzaVersione(state.titolo)); }
+/* Il campo «luogo» spesso porta l'indirizzo intero («Teatro AVA, Via delle Mimose 6, Castelfranco…»): per il nome dei file si parte da ciò che sta prima della prima virgola */
+function pacchettoNomeDefault(){ return pacchettoPulisci(String(state.luogo||"").split(",")[0]) || pacchettoPulisci(titoloSenzaVersione(state.titolo)); }
 function pacchettoVariante(){
   if(!(VARIANTS && VARIANTS.length>1)) return "";
   var v=VARIANTS.filter(function(x){ return String(x.id)===String(activeVar); })[0]; return v ? pacchettoPulisci(v.name) : "";
