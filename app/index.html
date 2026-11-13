@@ -4091,6 +4091,11 @@ body.cust-contorno .item.selected .selbox{display:none}
 @media (max-width:560px),(pointer:coarse){
   #props .legdist__reset::after{content:"";position:absolute;left:50%;top:50%;width:max(100%,44px);height:44px;transform:translate(-50%,-50%)}
 }
+/* Pacchetto per data (12/11/2026): la lista dei documenti nella finestrella dell'Esporta */
+.pkg-lista{display:grid;gap:2px;margin:10px 0}
+.pkg-riga{display:flex;align-items:center;gap:10px;min-height:36px;font-size:14px;line-height:1.3;cursor:pointer}
+.pkg-riga input{width:18px;height:18px}
+.pkg-esempio{word-break:break-all;color:var(--text-3,#6b7280)}
 </style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->
 <script async src="/icons.js"></script>
@@ -6460,6 +6465,7 @@ body.cust-contorno .item.selected .selbox{display:none}
              trovava più. Sono qui, secondari come devono essere. -->
         <button class="btn" id="pdfAltPng" title="Immagine del palco, per email e messaggi">PNG</button>
         <button class="btn" id="pdfAltCsv" title="Channel list in CSV: il service la importa senza ridigitarla">CSV</button>
+        <button class="btn" id="pdfAltZip" title="Un file .zip con un PDF per documento (stage plot, channel list, rider…), con la stessa versione e data nel nome">Pacchetto (.zip)</button>
         <span style="flex:1"></span>
         <!-- Rosso perché è l'uscita: in una finestra dove l'azione è «Esporta PDF», l'altro bottone
              chiude senza fare niente, e va distinto a colpo d'occhio. (Simone, 02/09) -->
@@ -6475,6 +6481,30 @@ body.cust-contorno .item.selected .selbox{display:none}
       <div class="pis-azioni">
         <button type="button" class="btn tint" id="pdfInvitoAccedi">Salva con Google</button>
         <button type="button" class="pis-no" id="pdfInvitoNo">No, grazie</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PACCHETTO PER DATA (12/11/2026): la finestrella dell'Esporta con i documenti da mettere nello zip. -->
+<div class="modal" id="pkgModal" hidden>
+  <div class="wl-card" role="dialog" aria-modal="true" aria-labelledby="pkgTitle">
+    <div class="wl-head">
+      <span class="wl-badge">Pacchetto</span>
+      <div class="wl-title" id="pkgTitle">Pacchetto per il service</div>
+      <div class="wl-tag">Un file .zip con un PDF per documento, tutti con la stessa versione e la stessa data nel nome.</div>
+    </div>
+    <div class="wl-body">
+      <label class="ss-field"><span>Nome del pacchetto</span><span class="ss-inwrap"><input type="text" id="pkgNome" maxlength="80" autocomplete="off" aria-label="Nome del pacchetto, per i nomi dei file"></span></label>
+      <div class="hint" id="pkgVariante" hidden></div>
+      <div class="pkg-lista" id="pkgLista" role="group" aria-label="Documenti nel pacchetto"></div>
+      <div class="hint" id="pkgVersioneHint"></div>
+      <div class="hint pkg-esempio" id="pkgEsempio"></div>
+      <div class="hint" id="pkgInfo" role="status" hidden></div>
+      <div class="ss-err" id="pkgErr" role="alert" hidden></div>
+      <div class="wl-foot ss-foot">
+        <button type="button" class="wl-ghost" id="pkgAnnulla">Annulla</button>
+        <button type="button" class="wl-cta" id="pkgGo">Crea il pacchetto</button>
       </div>
     </div>
   </div>
