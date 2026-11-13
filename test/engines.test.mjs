@@ -4989,6 +4989,47 @@ t("Differenze versioni: dal progetto vN al vM l'Esporta mostra cosa cambia; fuor
   const n = A.normalizeState(st); eq(n.storico.length, 1, "solo la voce ben formata"); st.storico = "ciao"; ok(!("storico" in A.normalizeState(st)), "non un elenco: via");
   reset();
 });
+t("Differenze versioni: il riassunto conta solo i canali veri (non le righe riservate), i microfoni accesi (nome corto), i mix; il precedente è il più recente", () => {
+  dvFix(3);
+  const sb = add("stagebox", 100, 100); sb.hw = "rio3224d2"; sb.sbId = 1; sb.sbRes = [2, 3]; sb.sbResNome = { 2: "Talkback" }; A.__cabRes = null;
+  const rows = A.patchList().rows, vere = rows.filter((r) => !r.reserved && !r.spare);
+  ok(rows.length > vere.length, "ci sono righe riservate/libere: " + rows.length + " vs " + vere.length);
+  let r = A.riassuntoDocumento(); eq(r.can, vere.length, "canali = solo le righe vere");
+  const conMic = vere.filter((x) => !x.micOff && x.mic);
+  eq(Object.values(r.mic).reduce((a, b) => a + b, 0), conMic.length, "microfoni = canali con un mic acceso");
+  const k = conMic[0].key; A.cabManual(k).micOff = true; A.__cabRes = null;
+  eq(Object.values(A.riassuntoDocumento().mic).reduce((a, b) => a + b, 0), conMic.length - 1, "un mic spento non si conta");
+  A.cabManual(k).micOff = false; A.cabManual(k).mic = "Y".repeat(60); A.__cabRes = null;
+  ok(Object.keys(A.riassuntoDocumento().mic).every((m) => m.length <= 40) && Object.keys(A.riassuntoDocumento().mic).some((m) => m.length === 40), "il nome del modello si tronca a 40 caratteri");
+  add("wedge", 400, 700); A.__cabRes = null; r = A.riassuntoDocumento(); eq(r.mix, A.busList().count, "mix = uscite console"); ok(r.mix >= 1, "almeno il wedge");
+  /* voci rotte e limiti dello storico */
+  const base = JSON.parse(JSON.stringify(A.state)); const ok1 = { f: 1, v: 3, at: "2026-11-12T10:00:00Z", r: { f: 1 } };
+  base.storico = [ok1, Object.assign({}, ok1, { v: 2.5 }), Object.assign({}, ok1, { v: 1000 })];
+  eq(A.normalizeState(base).storico.map((e) => e.v), [3], "versione non intera o oltre 999: scartata");
+  base.storico = [3, 4, 5, 6, 7, 8, 9].map((v) => Object.assign({}, ok1, { v })); eq(A.normalizeState(base).storico.map((e) => e.v), [5, 6, 7, 8, 9], "oltre 5 voci: restano le ultime 5");
+  base.storico = [Object.assign({}, ok1, { v: 0 })]; ok(!("storico" in A.normalizeState(base)), "tutte rotte: il campo non resta nemmeno vuoto");
+  base.storico = []; ok(!("storico" in A.normalizeState(base)), "elenco vuoto: via");
+  /* il precedente è la più recente delle versioni minori */
+  A.state.storico = [1, 2].map((v) => Object.assign({}, ok1, { v })); A.state.versione = 4; eq(A.storicoPrecedente().v, 2, "fra v1 e v2 vale la v2");
+  A.state.versione = 1; A.state.storico = [Object.assign({}, ok1, { v: 1 })]; eq(A.storicoPrecedente(), null, "v1 con una voce v1: niente");
+  A.state.versione = 2; eq(A.storicoPrecedente().v, 1, "v2: il precedente è la v1");
+  reset();
+});
+t("Differenze versioni: il confronto in dettaglio (palco solo in profondità, ordine dei tipi, categorie, segni) e l'impronta di scena", () => {
+  const a = { f: 1, pal: [1200, 1000], el: {}, ped: {}, can: 1, mix: 1, mic: {} };
+  eq(A.riassuntoDiff(a, Object.assign({}, a, { pal: [1200, 1100] })), ["Palco: 12×10 → 12×11 m"], "cambia solo la profondità");
+  const ord = A.riassuntoDiff(a, Object.assign({}, a, { el: { wedge: 2, astamic: 1 } }));
+  const catA = A.TYPES.astamic.cat, catW = A.TYPES.wedge.cat;
+  eq(ord.length, catA === catW ? 1 : 2, "una riga per categoria"); ok(ord[0].indexOf(catA + ": ") === 0, "i tipi in ordine alfabetico: prima «astamic» (" + ord.join(" | ") + ")");
+  ok(ord.every((x) => /\+\d /.test(x)) && ord.join(" ").indexOf("-") === -1, "in più = «+», mai «-» ASCII");
+  eq(A.riassuntoDiff(Object.assign({}, a, { el: { wedge: 3 } }), a).join("|").indexOf("−3 "), catW.length + 2, "in meno = «−» (segno meno) e la quantità giusta");
+  eq(A.riassuntoDiff(a, Object.assign({}, a, { mix: 3 })), ["Mix: +2"], "mix: la differenza, non «+»");
+  eq(A.riassuntoDiff(a, Object.assign({}, a, { mix: 0 })), ["Mix: −1"], "mix in meno");
+  dvFix(2); const st = JSON.parse(JSON.stringify(A.state)), st2 = JSON.parse(JSON.stringify(A.state)); st2.storico = [{ f: 1, v: 3, at: "2026-11-12T10:00:00Z", r: { f: 1 } }];
+  eq(A.firmaScena(st), A.firmaScena(st2), "lo storico non rende diverse due scene (firmaScena)");
+  ok(/if\(nota\.sto\) state\.storico=nota\.sto; else delete state\.storico;/.test(appjs), "Annulla/Ripeti rimettono lo storico (applyHistory)");
+  reset();
+});
 t("Differenze versioni: il riquadro dell'Esporta (nascosto di serie, solo lettura) e «Copia testo» sono nell'HTML e collegati", () => {
   const html = readFileSync(join(root, "app/index.html"), "utf8");
   ok(/id="pdfDiff"[^>]*hidden/.test(html) && ["pdfDiffT", "pdfDiffL", "pdfDiffMotivo", "pdfDiffCopia"].every((i) => html.indexOf('id="' + i + '"') > -1), "il riquadro nascosto di serie, con titolo, elenco, motivo e pulsante");
