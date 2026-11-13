@@ -399,6 +399,7 @@
       <div class="stpr-grid">
         <div class="stpr-f"><label for="blkW">Largh. (m)</label><div class="stpr"><button type="button" class="stpr-b" data-stp="blkW" data-dir="-1" aria-label="Diminuisci larghezza">−</button><input type="number" id="blkW" min="0.1" max="60" step="0.1"><button type="button" class="stpr-b" data-stp="blkW" data-dir="1" aria-label="Aumenta larghezza">+</button></div></div>
         <div class="stpr-f"><label for="blkD">Prof. (m)</label><div class="stpr"><button type="button" class="stpr-b" data-stp="blkD" data-dir="-1" aria-label="Diminuisci profondità">−</button><input type="number" id="blkD" min="0.1" max="60" step="0.1"><button type="button" class="stpr-b" data-stp="blkD" data-dir="1" aria-label="Aumenta profondità">+</button></div></div>
+        <label class="chk" id="blkDaTerraRow" style="grid-column:1/-1" title="Aggiunge «(da terra N)» alle pedane: altezza del palco + altezza della pedana. Si vede solo dove il palco ha un'altezza."><input type="checkbox" id="blkDaTerra"> Quote delle pedane «da terra» <small class="lbl-note">— palco + pedana</small></label>
         <div class="stpr-f" id="blkHWrap"><label for="blkH">Altezza (cm)</label><div class="stpr"><button type="button" class="stpr-b" data-stp="blkH" data-dir="-1" aria-label="Diminuisci altezza">−</button><input type="number" id="blkH" min="0" max="300" step="10"><button type="button" class="stpr-b" data-stp="blkH" data-dir="1" aria-label="Aumenta altezza">+</button></div></div>
         <div class="stpr-f" id="blkFlatWrap" style="display:none;grid-column:1/-1"><label>Lato curvo verso</label>
           <div class="chips" data-chips="blkFlat">
@@ -6729,7 +6730,7 @@ function nextVariantName(){ var n=0; VARIANTS.forEach(function(v){ var m=/^Varia
    data e contatti non erano mai diversi. Restano nello stato di ogni variante — lo schema e i file
    già salvati non cambiano — ma a ogni sincronizzazione quelli della variante attiva si scrivono
    nelle altre. */
-var CAMPI_DOCUMENTO=["titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","versione","latiTeatro","sonorizzazione","orari","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
+var CAMPI_DOCUMENTO=["quoteDaTerra","titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","versione","latiTeatro","sonorizzazione","orari","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
 function propagaCampiDocumento(v){
   var src=v&&v.state; if(!src) return;
   VARIANTS.forEach(function(o){
@@ -9892,6 +9893,7 @@ function normalizeState(s){
   if(s.sonorizzazione!=="acustico" && s.sonorizzazione!=="misto") delete s.sonorizzazione;   /* sonorizzazione (12/11): assente = amplificato, com'è sempre stato; esiste solo se scelta */
   if(s.orari && typeof s.orari==="object"){ var _or=orariNorm(s.orari); if(Object.keys(_or).length) s.orari=_or; else delete s.orari; } else delete s.orari;   /* orari (12/11): solo voci valide, «HH:MM»; assente se vuoto */
   if(s.latiTeatro!==true) delete s.latiTeatro;   /* giardino e corte: spenti di serie, solo un true esplicito li accende (12/11/2026) */
+  if(s.quoteDaTerra!==true) delete s.quoteDaTerra;   /* quote delle pedane «da terra» (13/11): solo un true esplicito le accende */
   if(s.pdfPesi!==true) delete s.pdfPesi;   /* kg nel PDF: solo un true esplicito li accende (06/10/2026) */
   var _vers=(typeof s.versione==="number"||typeof s.versione==="string") ? +s.versione : NaN;   /* versione del documento (12/11): intero 1-999, altrimenti assente */
   if(_vers%1===0 && _vers>=1 && _vers<=999) s.versione=_vers; else delete s.versione;
@@ -14905,7 +14907,7 @@ function itemMarkup(it){
   if(it.leggio===true && leggioExtra(it)) s += '<g transform="translate(0,'+leggioExtraY(it)+')'+(leggioExtraY(it)<0?' rotate(180)':'')+'">'+leggioGlyph(0)+'</g>';   /* leggio generico: arpa, piani, organi, percussioni, mallet… (off di default, davanti allo strumento) */
   _leggioDistOn = 0;   /* finiti gli accessori: nessun altro leggioGlyph (anteprime, catalogo, leggio a sé) eredita la distanza */
   if(t.riser || it.type==="scala"){                  /* quota pedana sul lato scelto/auto (più visibile); la scala dice altezza e gradini (11/11), di serie sopra */
-    var dimT=t.riser ? (it.w/100)+'×'+(it.d/100)+' m · h'+it.h : scalaQuota(it), rside=t.riser ? riserDimSide(it) : scalaDimSide(it), roff=12, rdx=0, rdy=0, ranc='middle', rtr='', rang=0;
+    var dimT=t.riser ? (it.w/100)+'×'+(it.d/100)+' m · h'+it.h+quotaDaTerraTesto(it) : scalaQuota(it), rside=t.riser ? riserDimSide(it) : scalaDimSide(it), roff=12, rdx=0, rdy=0, ranc='middle', rtr='', rang=0;
     if(rside==="top"){ rdy=-(it.d/2)-roff; }
     else if(rside==="bottom"){ rdy=(it.d/2)+roff+9; }
     else if(rside==="left"){ rdx=-(it.w/2)-roff; ranc='middle'; rang=-90; }   /* ruotata, legge lungo il lato sx */
@@ -18303,21 +18305,46 @@ function pedaneLegenda(items){
   (items||state.items||[]).forEach(function(it){
     if(it.type!=="pedana") return;
     var h=pedanaH(it); if(!(h>0)) return;
-    var a=Math.round(+it.w||0), b=Math.round(+it.d||0), L=Math.max(a,b), P=Math.min(a,b), k=L+"x"+P+"x"+h;
-    if(!gruppi[k]){ gruppi[k]={L:L, P:P, h:h, n:0}; ordine.push(k); }
+    var a=Math.round(+it.w||0), b=Math.round(+it.d||0), L=Math.max(a,b), P=Math.min(a,b), bs=quotaDaTerraOn() ? quotaPianoDi(it) : 0, k=L+"x"+P+"x"+h+(bs>0 ? "@"+bs : "");
+    if(!gruppi[k]){ gruppi[k]={L:L, P:P, h:h, n:0, base:bs}; ordine.push(k); }
     gruppi[k].n++;
   });
-  return ordine.map(function(k){ return gruppi[k]; }).sort(function(x,y){ return y.h-x.h || (y.L*y.P)-(x.L*x.P) || y.L-x.L; });
+  return ordine.map(function(k){ return gruppi[k]; }).sort(function(x,y){ return (y.base+y.h)-(x.base+x.h) || y.h-x.h || (y.L*y.P)-(x.L*x.P) || y.L-x.L; });
 }
+/* ═══ QUOTA «DA TERRA» (13/11/2026, specifica S11 dalla posta di produzione) ═══
+   I documenti dei service scrivono la pedana e la quota assoluta: «12m×2m×20cm (130 cm da terra)» su un palco h110. L'altezza del palco
+   esiste già (campo «Altezza» di ogni blocco, `blocks[].h`, 0 = piano a terra); l'h della pedana è relativa al piano su cui poggia.
+   Opzione del progetto `state.quoteDaTerra` (spenta di serie: etichette, legenda e cartiglio restano come sempre): se accesa, e solo dove c'è
+   una quota da sommare, si aggiunge «(da terra N)» = quota del piano (palco, o il più alto fra i blocchi che si sovrappongono) + h della pedana;
+   una pedana sopra un'altra più grande somma anche quella (quota cumulata). */
+function quotaDaTerraOn(){ return !!(state && state.quoteDaTerra===true); }
+function quotaPianoDi(it, _prof){
+  var cx=+it.x||0, cy=+it.y||0, base=0;
+  stageBlocks().forEach(function(b){ var h=+b.h||0; if(h>0 && cx>=b.x && cx<=b.x+(+b.w||0) && cy>=b.y && cy<=b.y+(+b.d||0)) base=Math.max(base,h); });
+  if((_prof||0)<4){
+    var area=function(o){ return (+o.w||0)*(+o.d||0); };
+    (state.items||[]).forEach(function(o){
+      if(o===it || o.type!=="pedana" || !(pedanaH(o)>0) || !(area(o)>area(it))) return;
+      var a=itemAabb(o,0); if(cx<a.x0 || cx>a.x1 || cy<a.y0 || cy>a.y1) return;
+      base=Math.max(base, quotaPianoDi(o,(_prof||0)+1)+pedanaH(o)); });
+  }
+  return base;
+}
+function quotaDaTerraTesto(it){
+  if(!quotaDaTerraOn() || !it) return "";
+  var b=quotaPianoDi(it); return b>0 ? " (da terra "+(b+pedanaH(it))+")" : "";
+}
+function palcoQuotaMax(){ var m=0; stageBlocks().forEach(function(b){ m=Math.max(m,+b.h||0); }); return m; }
 function pedanaSigla(g){
   var m=function(cm){ return (cm/100).toLocaleString("it-IT",{maximumFractionDigits:2}); };
-  return m(g.L)+"×"+m(g.P)+" h"+g.h;
+  return m(g.L)+"×"+m(g.P)+" h"+g.h+((g.base>0 && quotaDaTerraOn()) ? " (da terra "+(g.base+g.h)+")" : "");
 }
 function pedaneTesto(items){
   var gr=pedaneLegenda(items); if(!gr.length) return "";
   var tot=gr.reduce(function(s,g){ return s+g.n; },0);
-  if(gr.length===1 && tot===1) return "1 pedana "+pedanaSigla(gr[0]);
-  return tot+(tot===1?" pedana: ":" pedane: ")+gr.map(function(g){ return g.n+" da "+pedanaSigla(g); }).join(", ");
+  var ph=(quotaDaTerraOn() && palcoQuotaMax()>0) ? "Palco h"+palcoQuotaMax()+" · " : "";
+  if(gr.length===1 && tot===1) return ph+"1 pedana "+pedanaSigla(gr[0]);
+  return ph+tot+(tot===1?" pedana: ":" pedane: ")+gr.map(function(g){ return g.n+" da "+pedanaSigla(g); }).join(", ");
 }
 /* GRADINI DELLA SCALA (11/11/2026; segnalazione CONCERTI del 05/11: «perché disegni molti più gradini di quelli
    che in realtà ci sono»). Alzata di 20 cm (i livelli delle gradinate d'orchestra scendono così: 60 → 40 → 20),
@@ -26006,6 +26033,7 @@ function renderStagePanel(){
      ad allineare con precisione una passerella o un'ala. */
   var _xy=document.getElementById("blkXYRow"); if(_xy) _xy.style.display = (selBlock===0 ? "none" : "");
   document.getElementById("blkH").value=r.h||0;
+  var _dt=document.getElementById("blkDaTerra"); if(_dt) _dt.checked=quotaDaTerraOn();
   var fw=document.getElementById("blkFlatWrap"), isSemi=(r.shape==="semi");
   fw.style.display=isSemi?"":"none";
   if(isSemi){ var _bf=document.getElementById("blkFlat"); _bf.value=r.flat||"top"; _bf.dispatchEvent(new Event("chips-sync")); }
@@ -40207,6 +40235,13 @@ function renderDiffVersioni(){
     var m=document.getElementById("pdfDiffMotivo"), t=diffVersioniTesto(diffVersioniDati(), m ? m.value : "");
     if(!t) return;
     try{ navigator.clipboard.writeText(t).then(function(){ showToast("Testo copiato"); }, function(){ showToast("Copia non riuscita","err"); }); }catch(_e){ showToast("Copia non riuscita","err"); }
+  });
+})();
+(function(){
+  var c=document.getElementById("blkDaTerra"); if(!c) return;
+  c.addEventListener("change", function(){
+    if(c.checked) state.quoteDaTerra=true; else delete state.quoteDaTerra;
+    save(); render();
   });
 })();
 /* La prima apertura dell'Esporta annota production.asked (vestigiale, per i blob vecchi): si salva ma NON è un

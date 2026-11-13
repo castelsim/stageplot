@@ -92,6 +92,7 @@ function reset() {
   delete A.state.latiTeatro;   /* giardino e corte (12/11): opzione che esiste solo se accesa; un test che l'accende non deve lasciarla ai successivi */
   delete A.state.sonorizzazione; delete A.state.orari;   /* sonorizzazione e orari (12/11): campi che esistono solo se scelti; un test che li imposta non deve lasciarli ai successivi */
   delete A.state.scaletta;   /* scaletta (10/10): campo che esiste solo con almeno una voce */
+  delete A.state.quoteDaTerra;   /* quote «da terra» (13/11): opzione spenta di serie; un test che la accende non deve lasciarla ai successivi */
   delete A.state.storico;   /* storico delle versioni (13/11, S10): si scrive solo esportando; un test che esporta non deve lasciarlo ai successivi */
   delete A.state.versione;   /* versione del documento (12/11): campo che esiste solo se impostata; un test che la imposta non deve lasciarla ai successivi */
   delete A.state.customModels;   /* modelli dell'elemento personalizzato (13/10): dal primo Salva di un elemento nuovo nasce anche il modello (Ruling 17), e un test che salva non deve lasciarli ai successivi */
@@ -5371,6 +5372,50 @@ t("Ordina come il service: Ripristina rimette la memoria dell'azione precedente;
   ok(/if\(typeof custEditorAttivo==="function" && custEditorAttivo\(\)\)\{ custEditorAvvisa\(\); return; \}\n\s*var snap=servizioApplica/.test(appjs), "con l'editor «Crea elemento» aperto non si applica");
   ok(/ann\.onclick=function\(\)\{ m\.hidden=true; \};/.test(appjs), "«Annulla» chiude senza scrivere");
   ok(/d\.className="svco-can"\+\(r\.da!==r\.a\?" cambia":""\);/.test(appjs) && /\(r\.da===r\.a\?"invariato":"era "\+r\.da\)/.test(appjs), "l'anteprima dice «era N» solo ai canali che cambiano");
+});
+/* ═══ Quota «da terra» (13/11/2026, S11): palco h110 + pedana h20 → «da terra 130»; spenta di serie ═══ */
+const qdFix = (hBlocchi, ped) => {
+  reset(); A.state.stage = { w: 1200, d: 800, blocks: hBlocchi || [{ x: 0, y: 0, w: 1200, d: 800, h: 110 }] };
+  (ped || [["pedana", 300, 300, { h: 20 }]]).forEach(([tp, x, y, o]) => add(tp, x, y, o)); A.__cabRes = null;
+};
+const qdEtichetta = (it) => { A._lblSink = []; A.itemMarkup(it); const l = A._lblSink.join(""); A._lblSink = null; return l; };
+t("Quota da terra: spenta di serie (etichetta, legenda e cartiglio come sempre anche con il palco alto); accesa somma palco + pedana", () => {
+  qdFix(); const p = A.state.items.find((x) => x.type === "pedana");
+  eq(A.quotaDaTerraOn(), false, "spenta di serie"); eq(A.quotaDaTerraTesto(p), "", "nessun testo"); ok(!/da terra/.test(qdEtichetta(p)), "etichetta senza «da terra»");
+  eq(A.pedaneTesto(), "1 pedana 2×1 h20", "legenda identica a oggi anche col palco h110");
+  A.state.quoteDaTerra = true;
+  eq(A.quotaDaTerraTesto(p), " (da terra 130)", "110 + 20 = 130"); ok(/2×1 m · h20 \(da terra 130\)/.test(qdEtichetta(p)), "etichetta sul disegno: " + qdEtichetta(p).slice(0, 200));
+  eq(A.pedaneTesto(), "Palco h110 · 1 pedana 2×1 h20 (da terra 130)", "legenda del cartiglio col palco e la quota da terra");
+  A.state.stage.blocks[0].h = 0; eq([A.quotaDaTerraTesto(p), A.pedaneTesto()], ["", "1 pedana 2×1 h20"], "palco a terra (h 0): tutto come prima anche con l'opzione accesa");
+  delete A.state.stage.blocks[0].h; eq(A.quotaDaTerraTesto(p), "", "palco senza altezza: come prima");
+  A.state.quoteDaTerra = false; A.state.stage.blocks[0].h = 110; eq(A.quotaDaTerraTesto(p), "", "spenta di nuovo"); reset();
+});
+t("Quota da terra: palco su palco (il più alto fra i blocchi), pedana su pedana cumulata, pedana fuori dal palco, gruppi della legenda per quota", () => {
+  /* Castelfranco 2023: palco su palco 12×8 h90 + 10×6 h130, pedane h20 e h40 «a 150 e 170 da terra» */
+  qdFix([{ x: 0, y: 0, w: 1200, d: 800, h: 90 }, { x: 100, y: 100, w: 1000, d: 600, h: 130 }], [["pedana", 500, 400, { h: 20 }], ["pedana", 700, 400, { h: 40 }], ["pedana", 50, 50, { h: 20 }]]);
+  A.state.quoteDaTerra = true; const [p20, p40, bassa] = A.state.items;
+  eq([A.quotaDaTerraTesto(p20), A.quotaDaTerraTesto(p40), A.quotaDaTerraTesto(bassa)], [" (da terra 150)", " (da terra 170)", " (da terra 110)"], "150 e 170 sul palco alto; la pedana sul palco basso 90 + 20");
+  eq(A.quotaPianoDi(p20), 130, "il piano è il più alto dei blocchi che la contengono"); eq(A.quotaPianoDi(bassa), 90, "fuori dal blocco alto: 90");
+  const g = A.pedaneLegenda(); eq(g.length, 3, "tre gruppi: stessa misura e altezza ma quote diverse non si fondono (20 a 130, 20 a 90, 40 a 130)");
+  A.state.quoteDaTerra = false; eq(A.pedaneLegenda().length, 2, "a opzione spenta si fondono come sempre (2×1 h20 ×2, 2×1 h40)");
+  /* pedana su pedana: quota cumulata */
+  qdFix([{ x: 0, y: 0, w: 1200, d: 800, h: 110 }], [["pedana", 400, 300, { h: 60, w: 400, d: 200 }], ["pedana", 400, 300, { h: 20 }]]);
+  A.state.quoteDaTerra = true; const [grande, piccola] = A.state.items;
+  eq(A.quotaPianoDi(piccola), 170, "110 palco + 60 pedana sotto"); eq(A.quotaDaTerraTesto(piccola), " (da terra 190)", "190 = 110 + 60 + 20"); eq(A.quotaDaTerraTesto(grande), " (da terra 170)", "la grande: 110 + 60");
+  /* fuori dal palco alto: base 0, niente testo */
+  qdFix([{ x: 0, y: 0, w: 400, d: 400, h: 110 }], [["pedana", 900, 700, { h: 20 }]]); A.state.quoteDaTerra = true;
+  eq(A.quotaDaTerraTesto(A.state.items[0]), "", "pedana fuori dal blocco alto: nessuna quota da sommare");
+  reset();
+});
+t("Quota da terra: opzione nel pannello del blocco, documento (non della scena), normalizzata, collegata al disegno", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="blkDaTerra"/.test(html) && /Quote delle pedane «da terra»/.test(html), "la casella nel pannello del blocco");
+  ok(/c\.addEventListener\("change", function\(\)\{\s*if\(c\.checked\) state\.quoteDaTerra=true; else delete state\.quoteDaTerra;\s*save\(\); render\(\);/.test(appjs), "accende e spegne il campo, salva e ridisegna");
+  ok(/var _dt=document\.getElementById\("blkDaTerra"\); if\(_dt\) _dt\.checked=quotaDaTerraOn\(\);/.test(appjs), "la casella mostra il valore del progetto");
+  ok(/var CAMPI_DOCUMENTO=\["quoteDaTerra",/.test(appjs), "è un campo del documento (uguale in tutte le varianti)");
+  reset(); const st = JSON.parse(JSON.stringify(A.state)); st.quoteDaTerra = "si"; ok(!("quoteDaTerra" in A.normalizeState(st)), "solo un true esplicito la accende"); st.quoteDaTerra = true; eq(A.normalizeState(st).quoteDaTerra, true, "true resta");
+  ok(/\+quotaDaTerraTesto\(it\) : scalaQuota\(it\)/.test(appjs), "l'etichetta della pedana la scrive");
+  const f0 = A.firmaPdf(A.state); A.state.quoteDaTerra = true; ok(A.firmaPdf(A.state) !== f0, "è contenuto del documento: cambia l'impronta (il PDF cambia davvero)"); reset();
 });
 t("Output list: bus console -> porte out (auto consecutive, pin, conflitti, mai duplicati)", () => {
   reset();
