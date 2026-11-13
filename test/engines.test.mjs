@@ -94,6 +94,7 @@ function reset() {
   delete A.state.scaletta;   /* scaletta (10/10): campo che esiste solo con almeno una voce */
   delete A.state.pdfOrganico;   /* «Organico: N + M» nel cartiglio (13/11): opzione spenta di serie */
   delete A.state.quoteDaTerra;   /* quote «da terra» (13/11): opzione spenta di serie; un test che la accende non deve lasciarla ai successivi */
+  delete A.state.misureStile;   /* stile delle misure in uscita (13/11): assente = come sempre */
   delete A.state.organicoOrdine;   /* ordine delle sezioni dell'organico (13/11): assente = Fiati prima */
   delete A.state.storico;   /* storico delle versioni (13/11, S10): si scrive solo esportando; un test che esporta non deve lasciarlo ai successivi */
   delete A.state.versione;   /* versione del documento (12/11): campo che esiste solo se impostata; un test che la imposta non deve lasciarla ai successivi */
@@ -5429,6 +5430,51 @@ t("Quota da terra: opzione nel pannello del blocco, documento (non della scena),
   reset(); const st = JSON.parse(JSON.stringify(A.state)); st.quoteDaTerra = "si"; ok(!("quoteDaTerra" in A.normalizeState(st)), "solo un true esplicito la accende"); st.quoteDaTerra = true; eq(A.normalizeState(st).quoteDaTerra, true, "true resta");
   ok(/\+quotaDaTerraTesto\(it\) : scalaQuota\(it\)/.test(appjs), "l'etichetta della pedana la scrive");
   const f0 = A.firmaPdf(A.state); A.state.quoteDaTerra = true; ok(A.firmaPdf(A.state) !== f0, "è contenuto del documento: cambia l'impronta (il PDF cambia davvero)"); reset();
+});
+/* ═══ Misure in uscita: una sola scrittura, quattro stili (13/11/2026, S15) ═══ */
+const msFix = () => {
+  reset(); A.state.stage = { w: 1250, d: 800, blocks: [{ x: 0, y: 0, w: 1250, d: 800, h: 110 }] };
+  add("pedana", 600, 300, { w: 800, d: 200, h: 60 }); add("pedana", 200, 600, { w: 250, d: 100, h: 40 }); add("scala", 600, 440);
+  A.state.quoteDaTerra = false; A.__cabRes = null;
+};
+t("Misure in uscita: stile di serie = testo di sempre in ogni punto di stampa; i quattro stili per pedana, quota e area", () => {
+  eq(A.misureStile(), "std", "di serie"); eq(A.misPedana(800, 200, 60, "8×2 h60"), "8×2 h60", "std: il testo di quel punto resta com'è");
+  eq([A.misQuota(60), A.misQuota(60, "h60")], ["h60", "h60"], "std: «h60»"); eq(A.misArea(1250, 800, "12,5×8 m"), "12,5×8 m", "std: il testo dell'area com'è");
+  A.state.misureStile = "mx"; eq([A.misPedana(800, 200, 60, "x"), A.misQuota(60), A.misArea(1250, 800, "x")], ["8mX2mX60cm", "60cm", "12,5mX8m"], "mx: 12mX2mX40cm");
+  A.state.misureStile = "xh"; eq([A.misPedana(800, 200, 60, "x"), A.misQuota(60), A.misArea(1250, 800, "x")], ["8x2 H60", "H60", "12,5x8"], "xh: 12x2 H40");
+  A.state.misureStile = "mt"; eq([A.misPedana(250, 100, 40, "x"), A.misQuota(40), A.misQuota(100), A.misQuota(110), A.misArea(1250, 800, "x")], ["mt 2,5 x 1 x h 0,40", "h 0,40", "h 1,00", "h 1,10", "mt 12,5 x 8"], "mt: mt 2 x 1 x h 0,40 (metri con la virgola, h a due decimali)");
+  A.state.misureStile = "ciao"; eq(A.misureStile(), "std", "valore sconosciuto: di serie"); A.state.misureStile = "mx"; eq(A.misQuota(60.4), "60cm", "arrotonda al centimetro");
+  reset();
+});
+t("Misure in uscita: cambiando stile cambiano INSIEME etichetta, legenda, materiali, scala, area del cartiglio e intestazione; di serie tutto identico a prima", () => {
+  msFix(); const [p1, p2, sc] = A.state.items.filter((x) => x.type === "pedana" || x.type === "scala");
+  const lbl = (it) => { A._lblSink = []; A.itemMarkup(it); const l = A._lblSink.join(""); A._lblSink = null; return l; };
+  const snap = () => ({ et: lbl(p1), leg: A.pedaneTesto(), mat: A.materialiPedane(), sca: A.scalaQuota(sc), area: A.cartAreaTxt({ w: 1250, h: 800 }), nota: A.stageHeightNote() });
+  const std = snap();
+  ok(/8×2 m · h60/.test(std.et) && std.leg === "2 pedane: 1 da 8×2 h60, 1 da 2,5×1 h40" && /h60 · 3 gradini|h40 · 2 gradini/.test(std.sca) && std.area === "palco 12,5×8 m" && std.nota === " · h 110 cm", "di serie: i testi di sempre: " + JSON.stringify(std));
+  ok(/moduli 2×1: .*h60/.test(std.mat) && /h40/.test(std.mat), "e i moduli con «h60»: " + std.mat);
+  A.state.misureStile = "mx"; const mx = snap();
+  ok(/8mX2mX60cm/.test(mx.et) && mx.leg === "2 pedane: 1 da 8mX2mX60cm, 1 da 2,5mX1mX40cm" && /60cm|40cm/.test(mx.sca) && mx.area === "palco 12,5mX8m" && mx.nota === " · 110cm" && /60cm/.test(mx.mat), "mx in ogni punto: " + JSON.stringify(mx));
+  A.state.misureStile = "xh"; const xh = snap();
+  ok(/8x2 H60/.test(xh.et) && xh.leg === "2 pedane: 1 da 8x2 H60, 1 da 2,5x1 H40" && /H60|H40/.test(xh.sca) && xh.area === "palco 12,5x8" && xh.nota === " · H110" && /H60/.test(xh.mat), "xh in ogni punto: " + JSON.stringify(xh));
+  A.state.misureStile = "mt"; const mt = snap();
+  ok(/mt 8 x 2 x h 0,60/.test(mt.et) && mt.leg === "2 pedane: 1 da mt 8 x 2 x h 0,60, 1 da mt 2,5 x 1 x h 0,40" && /h 0,60|h 0,40/.test(mt.sca) && mt.area === "palco mt 12,5 x 8" && mt.nota === " · h 1,10" && /h 0,60/.test(mt.mat), "mt in ogni punto: " + JSON.stringify(mt));
+  delete A.state.misureStile; eq(snap(), std, "tornando a «come sempre»: identico, carattere per carattere");
+  A.state.misureStile = "mx"; A.state.quoteDaTerra = true; ok(/8mX2mX60cm \(da terra 170\)/.test(lbl(p1)), "con la quota da terra (S11): «(da terra 170)» resta dopo la misura: " + lbl(p1).slice(0, 200)); A.state.quoteDaTerra = false;
+  reset();
+});
+t("Misure in uscita: il menu «Stile delle misure» nell'Esporta, il campo del progetto (solo i tre stili, mai «std»), ogni punto passa da una funzione sola", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/<select id="pdfMisStile"><option value="std" selected>[^<]*<\/option><option value="mx">12mX2mX40cm<\/option><option value="xh">12x2 H40<\/option><option value="mt">mt 12 x 2 x h 0,40<\/option>/.test(html), "il menu con i quattro stili, «come sempre» di serie");
+  ok(/if\(f\.value==="mx" \|\| f\.value==="xh" \|\| f\.value==="mt"\) state\.misureStile=f\.value; else delete state\.misureStile;/.test(appjs), "scegliendo «come sempre» il campo sparisce");
+  ok(/var msSel=document\.getElementById\("pdfMisStile"\); if\(msSel\) msSel\.value=misureStile\(\);/.test(appjs), "il menu mostra lo stile del progetto");
+  ok(/var CAMPI_DOCUMENTO=\[[^\]]*"misureStile"/.test(appjs), "campo del documento");
+  reset(); const st = JSON.parse(JSON.stringify(A.state)); ["mx", "xh", "mt"].forEach((v) => { st.misureStile = v; eq(A.normalizeState(st).misureStile, v, v + " resta"); }); st.misureStile = "std"; ok(!("misureStile" in A.normalizeState(st)), "«std» è il default: non si salva"); st.misureStile = "altro"; ok(!("misureStile" in A.normalizeState(st)), "sconosciuto: via");
+  /* nessuno dei punti di stampa scrive più la misura per conto suo */
+  ok(/misPedana\(it\.w, it\.d, it\.h, \(it\.w\/100\)\+'×'\+\(it\.d\/100\)\+' m · h'\+it\.h\)\+quotaDaTerraTesto\(it\)/.test(appjs), "etichetta della pedana sul disegno");
+  ok(/return misPedana\(g\.L, g\.P, g\.h, m\(g\.L\)\+"×"\+m\(g\.P\)\+" h"\+g\.h\)/.test(appjs), "legenda del cartiglio e materiali");
+  ok(/return misQuota\(h, 'h'\+h\)\+' · '\+n/.test(appjs), "quota della scala"); ok(/return m\[h\]\+" "\+misQuota\(h\); \}\)\.join\(" · "\)/.test(appjs), "moduli 2×1 dei materiali");
+  ok(/return "palco "\+misArea\(A\.w, A\.h, /.test(appjs) && /palco '\+misArea\(W, D, adattaM\(W\)\+'×'\+adattaM\(D\)\+' m'\)\+stageHeightNote\(\)/.test(appjs), "area del palco nel cartiglio e nell'intestazione"); ok(/misQuota\(h, "h "\+h\+" cm"\)/.test(appjs), "altezza del palco");
 });
 t("Output list: bus console -> porte out (auto consecutive, pin, conflitti, mai duplicati)", () => {
   reset();
