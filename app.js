@@ -36762,11 +36762,12 @@ function listPreviewHtml(key){
    («Flauto/Ottavino») è un solo musicista: lo strumento dopo la barra va tra parentesi. Nessun nome di persona. Si propone solo se c'è un'orchestra:
    direttore, oppure almeno 8 posti fra fiati, legni, arpa e archi. Non è una pagina audio: in acustico resta. Nessun campo nuovo nel documento. */
 /* ORDINE DELLE SEZIONI (13/11/2026, specifica S13): tre ordini, scelta per progetto (`state.organicoOrdine`, assente = «Fiati prima», quello di sempre).
-   «Voci e archi prima» = l'uso dei fogli del 2023 («voci – archi – legni – ottoni – ritmica»); «Per partitura» = legni, ottoni, ritmica (percussioni), arpa,
-   archi, voci [ipotesi da confermare con un direttore d'orchestra]. Cambia solo l'ordine: etichette, totali e formula degli archi restano. */
+   «Voci e archi prima» = l'uso dei fogli del 2023 («voci – archi – legni – ottoni – ritmica»); «Per partitura (orchestra)» = legni, ottoni, ritmica (percussioni), arpa,
+   voci, archi: l'ordine convenzionale della partitura orchestrale (legni, ottoni, timpani e percussioni, ritmica, arpa/pianoforte, solisti e coro, archi; indicazione 13/11).
+   Cambia solo l'ordine: etichette, totali e formula degli archi restano. */
 var ORGANICO_ORDINI={ fiati:{nome:"Fiati prima (come sempre)", sez:["FIATI","LEGNI","RITMICA","ARPA","ARCHI","VOCI"]},
   voci:{nome:"Voci e archi prima", sez:["VOCI","ARCHI","LEGNI","FIATI","RITMICA","ARPA"]},
-  partitura:{nome:"Per partitura", sez:["LEGNI","FIATI","RITMICA","ARPA","ARCHI","VOCI"]} };
+  partitura:{nome:"Per partitura (orchestra)", sez:["LEGNI","FIATI","RITMICA","ARPA","VOCI","ARCHI"]} };
 function organicoOrdineId(){ var o=state && state.organicoOrdine; return (o==="voci" || o==="partitura") ? o : "fiati"; }
 function organicoSezioni(){ return ORGANICO_ORDINI[organicoOrdineId()].sez.slice(); }
 function organicoGruppi(){
@@ -36842,9 +36843,9 @@ function organicoList(){
     if(mine.length>1) rows.push({tipo:"sub", nome:"Totale "+sez.toLowerCase(), n:sub});
     return sub;
   }
-  var ordSez=organicoSezioni(), vociPrima=(ordSez[0]==="VOCI");
-  if(vociPrima) voci=sezione("VOCI");   /* «Voci e archi prima»: le voci aprono il foglio, il totale dell'orchestra chiude gli strumenti */
-  ordSez.forEach(function(sez){ if(sez!=="VOCI") strum+=sezione(sez); });
+  var ordSez=organicoSezioni(), vociUltime=(ordSez[ordSez.length-1]==="VOCI");
+  /* le voci stanno al loro posto nell'ordine scelto; il «TOTALE ORCHESTRA» viene dopo l'ultimo strumento e prima del TOTALE (con le voci in coda, prima delle voci come sempre) */
+  ordSez.forEach(function(sez){ if(sez==="VOCI"){ if(!vociUltime) voci=sezione("VOCI"); } else strum+=sezione(sez); });
   var alt=Object.keys(D.altro);
   if(alt.length){   /* ciò che non si sa classificare, in coda agli strumentisti, col nome com'è: mai perso */
     var sa=alt.reduce(function(a,k){ return a+D.altro[k]; },0); strum+=sa;
@@ -36853,7 +36854,7 @@ function organicoList(){
   }
   var haVoci=Object.keys(D.righe).some(function(k){ return D.G[D.idx[D.righe[k].id]].sez==="VOCI"; });
   if(haVoci) rows.push({tipo:"totorch", nome:"TOTALE ORCHESTRA", n:strum});   /* gli strumentisti, prima dei cori: come nei fogli veri («TOTALE ORCHESTRA 64», poi «TOTALE 67») */
-  if(!vociPrima) voci=sezione("VOCI");
+  if(vociUltime) voci=sezione("VOCI");
   var tot=strum+voci;
   rows.push({tipo:"tot", nome:"TOTALE", n:tot});
   if(D.fuori.dir || D.fuori.osp || D.fuori.staff){

@@ -14279,8 +14279,10 @@ t("Organico: ordine delle sezioni selezionabile (Fiati prima di serie, Voci e ar
   ok(iV < iTO && iTO < iTot, "VOCI (" + iV + ") prima di TOTALE ORCHESTRA (" + iTO + ") prima di TOTALE (" + iTot + ")");
   eq(Lv.rows.filter((r) => r.tipo === "totorch").length, 1, "un solo «TOTALE ORCHESTRA»");
   ok(Lv.formula === L0.formula && /ARCHI · /.test(Lv.rows.find((r) => /^ARCHI/.test(r.nome)).nome), "la formula degli archi resta");
-  A.state.organicoOrdine = "partitura"; eq(A.organicoSezioni(), ["LEGNI", "FIATI", "RITMICA", "ARPA", "ARCHI", "VOCI"], "per partitura: legni, ottoni, ritmica, arpa, archi, voci");
-  eq(sezioni().filter((x) => x !== "FUORI"), ["LEGNI", "FIATI", "RITMICA", "ARPA", "ARCHI", "VOCI"], "il foglio lo segue");
+  A.state.organicoOrdine = "partitura"; eq(A.organicoSezioni(), ["LEGNI", "FIATI", "RITMICA", "ARPA", "VOCI", "ARCHI"], "per partitura (orchestra): legni, ottoni, ritmica, arpa, voci, archi");
+  eq(sezioni().filter((x) => x !== "FUORI"), ["LEGNI", "FIATI", "RITMICA", "ARPA", "VOCI", "ARCHI"], "il foglio lo segue: le voci sopra gli archi");
+  { const rp = A.organicoList().rows, iV2 = rp.findIndex((r) => r.tipo === "sez" && r.nome === "VOCI"), iA2 = rp.findIndex((r) => r.tipo === "sez" && /^ARCHI/.test(r.nome)), iT2 = rp.findIndex((r) => r.tipo === "totorch"), iTo2 = rp.findIndex((r) => r.tipo === "tot");
+    ok(iV2 < iA2 && iA2 < iT2 && iT2 < iTo2, "VOCI (" + iV2 + ") prima di ARCHI (" + iA2 + "), poi TOTALE ORCHESTRA (" + iT2 + "), poi TOTALE (" + iTo2 + ")"); eq(rp.filter((r) => r.tipo === "totorch").length, 1, "un solo «TOTALE ORCHESTRA»"); }
   const Lp = A.organicoList(); eq([Lp.tot, Lp.strumentisti, Lp.voci], [L0.tot, L0.strumentisti, L0.voci], "stessi totali anche per partitura");
   const nomiP = Lp.rows.map((r) => r.tipo); ok(nomiP.indexOf("totorch") < nomiP.lastIndexOf("sez") || nomiP.indexOf("totorch") > -1, "TOTALE ORCHESTRA c'è");
   ["voci", "partitura"].forEach((o) => { A.state.organicoOrdine = o; const r = A.organicoList().rows.filter((x) => x.tipo === "riga").map((x) => x.nome).sort(); const r0 = JSON.parse(prima).filter((x) => x.tipo === "riga").map((x) => x.nome).sort(); eq(r, r0, o + ": ogni riga c'è una volta sola, le stesse del default"); });
@@ -14298,6 +14300,7 @@ t("Organico: l'ordine è un campo del progetto, normalizzato, scelto nell'Esport
   reset(); const st = JSON.parse(JSON.stringify(A.state)); st.organicoOrdine = "voci"; eq(A.normalizeState(st).organicoOrdine, "voci", "voci resta"); st.organicoOrdine = "partitura"; eq(A.normalizeState(st).organicoOrdine, "partitura", "partitura resta"); st.organicoOrdine = "fiati"; ok(!("organicoOrdine" in A.normalizeState(st)), "«fiati» è il default: non si salva"); st.organicoOrdine = "altro"; ok(!("organicoOrdine" in A.normalizeState(st)), "valore sconosciuto: via");
   eq(Object.keys(A.ORGANICO_ORDINI), ["fiati", "voci", "partitura"], "i tre ordini");
   eq(A.ORGANICO_ORDINI.fiati.nome, "Fiati prima (come sempre)", "il default è chiamato per quello che è");
+  eq(A.ORGANICO_ORDINI.partitura.nome, "Per partitura (orchestra)", "il terzo ordine è chiamato «Per partitura (orchestra)»"); ok(/<option value="partitura">Per partitura \(orchestra\)<\/option>/.test(html), "e così sta nel menu");
 });
 t("Taglia «N + M»: riga «Organico: 41 + 9» nel cartiglio (opzione spenta), stessi numeri del foglio Organico; suggerimento per il nome senza sovrascrivere", () => {
   s5Fix(orgFix().concat(orgN("corista", 9)));
