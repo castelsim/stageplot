@@ -72,7 +72,7 @@ const A = loadApp();
 
 /* ---- mini test runner ---- */
 let pass = 0, fail = 0;
-function t(name, fn) { try { fn(); pass++; console.log("  ✓ " + name); } catch (e) { fail++; console.log("  ✗ " + name + "\n      " + e.message); } }
+function t(name, fn) { if (process.env.SOLO && !name.includes(process.env.SOLO)) return; try { fn(); pass++; console.log("  ✓ " + name); } catch (e) { fail++; console.log("  ✗ " + name + "\n      " + e.message); } }
 function eq(got, exp, msg) { const g = JSON.stringify(got), e = JSON.stringify(exp); if (g !== e) throw new Error((msg || "") + " atteso " + e + ", ottenuto " + g); }
 function ok(cond, msg) { if (!cond) throw new Error(msg || "condizione falsa"); }
 function throws(fn, code) {
@@ -32245,6 +32245,17 @@ t("Import organico: dati personali mai letti né mostrati; righe non riconosciut
   ok(!/mario|rossi|example|IT60|contratto|1234567/i.test(J), "nulla di personale nel risultato: " + J);
   eq(P.righeNo.length >= 2, true, "le righe non riconosciute (violini senza sezione, cantante…) sono elencate");
   ok(P.righeNo.every((n) => typeof n === "number"), "per numero di riga, mai col contenuto");
+  eq(P.righeNo, [3, 6, 7], "righe 3 (violini senza sezione), 6 (cantante) e 7 (celli con quantità di 3 cifre)");
+  const iban = A.orgImportParse("FIATI,Corni,2,coordinate IBAN da inviare\nFIATI,Tube,1,+39 06 1234 5678\nFIATI,Trombe,2,CV allegato");
+  eq([iban.varianti[0].counts, iban.privati], [{ cor: 2, tba: 1, tr: 2 }, 3], "la parola IBAN, un fisso con prefisso, «CV»: celle saltate, righe tenute");
+  const sost = A.orgImportParse("FIATI,Corno (sostituto Rossi),2");
+  eq([sost.varianti, sost.righeNo, sost.privati], [[], [1], 1], "uno strumento con il nome di un sostituto nella stessa cella: la riga si scarta (e si dice quale), non si importa a metà");
+  const lin = A.orgImportParse("cr4; IBAN IT60X0542811101000000123456; fl2");
+  eq([lin.varianti[0].counts, lin.privati, lin.ignorati], [{ cor: 4, fl: 2 }, 1, []], "anche in linea: il pezzo personale si salta, non finisce fra i «non riconosciuti»");
+  eq(impC("Sezione,Strumento,Leggii,N.\nARCHI,Violini I,6,12"), { v1: 12 }, "la colonna «N.» dell'intestazione vince su un altro numero della riga");
+  eq(impC("2 flauti 2 oboi 4 corni"), { fl: 2, ob: 2, cor: 4 }, "numero davanti, senza virgole");
+  eq(impC("cor 4 tr 2 fl 2"), { cor: 4, tr: 2, fl: 2 }, "sigla e numero, senza virgole");
+  eq(A.orgImportParse("fl0 cr0").varianti, [], "tutto a zero: niente da importare");
   eq(impC("fl99"), { fl: 40 }, "oltre 40 per sezione si ferma a 40");
   eq(A.orgImportParse("fl99").tagliati, ["fl"], "e lo dice");
   eq(A.orgImportParse("sax2 fl2 pippo").ignorati, ["sax", "pippo"], "gli strumenti che il generatore non ha si dichiarano (sax) invece di sparire");
@@ -32265,6 +32276,12 @@ t("Import organico: i posti creati ridanno gli stessi numeri nella pagina «Orga
   eq(toast.length, 1, "un solo messaggio"); eq(toast[0][1], "Annulla", "con il pulsante «Annulla»");
   ok(/^Creati 60 posti/.test(toast[0][0]) && !/dichiarato ≠/.test(toast[0][0]), "senza avviso: " + toast[0][0]);
   eq(Object.keys(A.state).sort(), prima, "nessun campo nuovo nel documento");
+  vuoto(); ok(A.orgImportDifferenze(c).length > 0, "palco vuoto: dichiarato più del disegnato, e si vede");
+  eq(A.orgImportApplica({}, {}), false, "nessun posto dichiarato: non si crea niente"); eq(!!A.pendingOut, false, "e non si apre nessun avviso");
+  toast.length = 0; A.orgImportApplica(c, { clear: true, fit: true });
+  eq([!!A.pendingOut, A.state.items.length, toast.length], [true, 0, 0], "con sovrapposizioni l'avviso viene PRIMA: nessun posto creato e nessun messaggio finché non si preme «Continua»");
+  A.orchWarnContinua(); eq([!!A.pendingOut, toast.length], [false, 1], "dopo «Continua» i posti ci sono e arriva il messaggio con «Annulla»");
+  vuoto(); toast.length = 0;
   /* palco con altro già dentro e senza svuotare: i numeri non coincidono, e lo dice */
   s5Fix(orgFix()); toast.length = 0;
   A.orgImportApplica(impC("12-12-6-6-4"), { clear: false, fit: false }); if (A.pendingOut) A.orchWarnContinua();

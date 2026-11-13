@@ -24956,7 +24956,7 @@ function orgImportParse(testo){
       return;
     }
     /* RIGA IN LINEA: formule degli archi + «sigla+numero» */
-    var s=line.replace(/(^|[^\w])(\d{1,2}(?:\s*[-–.]\s*\d{1,2}){3,4})(?![\w])/g, function(_t,pre,f){
+    var s=cells.join(" ; ").replace(/(^|[^\w])(\d{1,2}(?:\s*[-–.]\s*\d{1,2}){3,4})(?![\w])/g, function(_t,pre,f){
       f.split(/\s*[-–.]\s*/).forEach(function(n,i){ agg(cur,["v1","v2","vle","vc","cb"][i],+n); });
       return pre+" ; ";
     });
