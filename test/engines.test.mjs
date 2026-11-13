@@ -5098,6 +5098,11 @@ t("Ordina come il service: capacità delle box (non entra = nessuna modifica, mo
   const prima = A.servizioSnapshot(), p = A.servizioPiano(2);
   eq(p.ok, false, "17+ canali + riservate su 16 porte: non entra"); ok(/Non c'è posto/.test(p.motivo) && /stage box/.test(p.motivo), "motivo: " + p.motivo);
   eq(A.servizioApplica(p), null, "applicare un piano non valido non fa niente"); eq(A.servizioSnapshot(), prima, "stato invariato");
+  eq(p.suggerito, -1, "17 canali su 16 porte: nessun numero di riservate lo fa entrare"); ok(/Aggiungi una stage box|Riduci/.test(p.motivo), "e il messaggio dice di aggiungere una box");
+  svFix(["rio1608d2"], [["astamic", 12], ["bassstand", 1], ["gtstand", 1]]);   /* 14 canali su 16: con 2 riservate per sezione servono 18 */
+  const q1 = A.servizioPiano(2); eq([q1.ok, q1.suggerito], [false, 1], "con 2 non entra, con 1 sì"); ok(/Con 1 riga riservata per sezione entra\./.test(q1.motivo), "lo dice: " + q1.motivo);
+  ok(A.servizioPiano(1).ok && !A.servizioPiano(1).suggerito, "con 1 entra davvero"); eq(A.servizioPiano(2, true).suggerito, -1, "la chiamata interna (senza suggerimento) non ricorre e non ne dà");
+  svFix(["rio1608d2"], [["astamic", 15], ["bassstand", 1], ["gtstand", 1]]);   /* torna alla fixture di prima: 17 canali */
   eq(A.servizioPiano(0).ok, false, "anche senza riservate: oltre 16 canali non entrano");
   /* multipolare: la batteria (9 canali) non può stare a cavallo di due box */
   const [b1] = svFix(["rio1608d2", "rio3224d2"], [["astamic", 5], ["batteria", 1]]);
@@ -5222,6 +5227,7 @@ t("Ordina come il service: Ripristina rimette la memoria dell'azione precedente;
   ok(Object.keys(sn.boxes).length >= 1, "e le box con le loro riservate");
   reset();
   ok(/nIn\.value=String\(\(state\.cab&&state\.cab\.servizio&&state\.cab\.servizio\.n!=null\) \? state\.cab\.servizio\.n : SERVIZIO_N_DEFAULT\);/.test(appjs), "la finestra parte da 2 o dall'ultimo numero scelto");
+  ok(/var p0=servizioPiano\(parseInt\(nIn\.value,10\)\); if\(!p0\.ok && p0\.suggerito>=0\)\{ nIn\.value=String\(p0\.suggerito\); \}/.test(appjs), "se col numero di partenza non entra, si parte dal più alto che entra");
   ok(/n=Math\.max\(0, Math\.min\(SERVIZIO_N_MAX, n\)\);\n\s*piano=servizioPiano\(n\);/.test(appjs), "il numero scelto è limitato a 0-8");
   ok(/go\.disabled=!piano\.ok;/.test(appjs), "«Applica» spento se il piano non entra");
   ok(/__servizioUndo=snap; stato\(false\);/.test(appjs), "dopo Applica si tiene lo snapshot per «Ripristina»");

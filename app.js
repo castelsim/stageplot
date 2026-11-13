@@ -29881,7 +29881,7 @@ function servizioPulito(v){
   var n=Math.round(+v.n); return { n:(n>=0 && n<=8) ? n : 2, pins:pins, res:res };   /* letterali: normalizeState può girare prima che le var di questo blocco siano assegnate */
 }
 /* il piano, senza scrivere niente: {ok, motivo, righe:[{tipo:"sezione"|"canale"|"riservata", …}], unita:[…], nuoveRiservate:{boxId:[porte]}, conteggi} */
-function servizioPiano(nRis){
+function servizioPiano(nRis, senzaSuggerimento){
   nRis=Math.max(0, Math.min(SERVIZIO_N_MAX, (nRis==null||isNaN(+nRis)) ? SERVIZIO_N_DEFAULT : Math.round(+nRis)));
   var pl; try{ pl=patchList(); }catch(_e){ return {ok:false, motivo:"Non riesco a leggere la channel list."}; }
   var R=pl.R, man=(state.cab&&state.cab.manual)||{}, prev=(state.cab&&state.cab.servizio)||{pins:[],res:{}};
@@ -29926,7 +29926,10 @@ function servizioPiano(nRis){
   var tot=mobili.reduce(function(a,u){ return a+u.n; },0), liberi=slots.filter(function(sl){ return !sl.bloccato; }).length;
   var sezOrd=[], visto={}; mobili.forEach(function(u){ if(!visto[u.sez.nome]){ visto[u.sez.nome]=1; sezOrd.push(u.sez); } });
   var nSez=sezOrd.length, fine=false;
-  function errore(){ return {ok:false, motivo:"Non c'è posto: servono "+tot+" canali"+(nRis&&nSez>1 ? " + "+(nSez-1)*nRis+" riservate" : "")+" e le stage box ne hanno "+liberi+" liberi (le porte già riservate o scelte a mano non si toccano). "+(nRis?"Riduci le righe riservate per sezione o aggiungi una stage box.":"Aggiungi una stage box.")}; }
+  function errore(){
+    var sug=-1; if(!senzaSuggerimento) for(var m=nRis-1; m>=0 && sug<0; m--){ if(servizioPiano(m,true).ok) sug=m; }
+    return {ok:false, suggerito:sug, motivo:"Non c'è posto: servono "+tot+" canali"+(nRis&&nSez>1 ? " + "+(nSez-1)*nRis+" riservate" : "")+" e le stage box ne hanno "+liberi+" liberi (le porte già riservate o scelte a mano non si toccano). "+
+      (sug>=0 ? (sug===0 ? "Senza righe riservate entra." : "Con "+sug+(sug===1?" riga riservata":" righe riservate")+" per sezione entra.") : (nRis?"Riduci le righe riservate per sezione o aggiungi una stage box.":"Aggiungi una stage box."))}; }
   if(tot>liberi) return errore();
   var righe=[], nuove={}, nuoveN=0;
   for(var si=0; si<sezOrd.length; si++){
@@ -30016,6 +30019,8 @@ function servizioFinestra(){
       lista.appendChild(d); });
   }
   nIn.value=String((state.cab&&state.cab.servizio&&state.cab.servizio.n!=null) ? state.cab.servizio.n : SERVIZIO_N_DEFAULT);
+  /* se col numero di partenza non entra, si parte dal più alto che entra (e lo si dice): meglio un'anteprima che un errore */
+  var p0=servizioPiano(parseInt(nIn.value,10)); if(!p0.ok && p0.suggerito>=0){ nIn.value=String(p0.suggerito); }
   nIn.oninput=mostra; stato(true); mostra();
   go.onclick=function(){
     if(typeof custEditorAttivo==="function" && custEditorAttivo()){ custEditorAvvisa(); return; }
