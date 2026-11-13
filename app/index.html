@@ -1656,6 +1656,15 @@ svg.names-hidden .orc-name{display:none}
   .pdf-diff{margin:10px 0;padding:10px 12px;border:1px solid var(--border,#e5e7eb);border-radius:10px;background:var(--surface-2,#f8fafc)}
   .pdf-diff-t{font-weight:700;font-size:13px;margin-bottom:4px}
   .pdf-diff-l{margin:0 0 8px;padding-left:18px;font-size:13px;line-height:1.5}
+  .pdf-all{margin:10px 0}
+  .pdf-all-t{font-weight:700;font-size:13px;margin-bottom:4px}
+  .pdf-all-l{list-style:none;margin:0 0 6px;padding:0}
+  .pdf-all-l li{display:flex;gap:8px;align-items:center;padding:2px 0;font-size:13px}
+  .pdf-all-l li span{flex:1 1 auto}
+  .pdf-all-st{font-size:11px;padding:1px 8px;border-radius:999px;background:#fef3c7;color:#92400e}
+  .pdf-all-st.ok{background:#dcfce7;color:#166534}
+  .pdf-all-add{display:flex;gap:8px}
+  .pdf-all-add input{flex:1 1 auto}
   .pkg-segno{margin-left:8px;font-size:11px;padding:1px 7px;border-radius:999px;background:var(--surface-2,#f1f5f9);color:var(--text-3)}
   .pkg-segno-cambiato{background:#fef3c7;color:#92400e}
   .pkg-segno-nuovo{background:#dcfce7;color:#166534}
@@ -6467,6 +6476,12 @@ body.cust-contorno .item.selected .selbox{display:none}
         </div>
         <label class="chk" id="pdfOrganicoRow"><input type="checkbox" id="pdfOrganico"> Organico nel cartiglio <small class="lbl-note">— «Organico: 41 + 9» (strumentisti + voci), come il foglio Organico</small></label>
         <div class="hdr-saved" id="pdfTagliaHint" hidden><span id="pdfTagliaTesto"></span> <button type="button" class="btn" id="pdfTagliaBtn">Aggiungi al nome</button></div>
+        <!-- ALLEGATI RICHIESTI (13/11/2026, S14): elenco libero con stato; se resta qualcosa «da chiedere», «Prima di esportare» lo dice. Solo se l'utente lo usa. -->
+        <div id="pdfAllegati" class="pdf-all">
+          <div class="pdf-all-t">Allegati richiesti <small class="lbl-note">— facoltativo: se qualcuno resta «da chiedere» te lo ricordo prima di esportare</small></div>
+          <ul id="pdfAllegatiLista" class="pdf-all-l"></ul>
+          <div class="pdf-all-add"><input type="text" id="pdfAllegatiNome" maxlength="60" placeholder="es. Planimetria del teatro" autocomplete="off" aria-label="Nome dell'allegato"><button type="button" class="btn" id="pdfAllegatiAgg">Aggiungi</button></div>
+        </div>
         <label class="chk" id="pdfPesiRow"><input type="checkbox" id="pdfPesi"> Pesi (kg) <small class="lbl-note">— peso stimato dell'allestimento, in testata e nel rider</small></label>
         <!-- Telefono: le opzioni da scrivania stanno dietro questo, con la STESSA preferenza del
              pannello elemento — chi accende «tecnico» lo accende una volta, non due. -->

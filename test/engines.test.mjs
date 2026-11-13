@@ -94,6 +94,7 @@ function reset() {
   delete A.state.scaletta;   /* scaletta (10/10): campo che esiste solo con almeno una voce */
   delete A.state.pdfOrganico;   /* «Organico: N + M» nel cartiglio (13/11): opzione spenta di serie */
   delete A.state.quoteDaTerra;   /* quote «da terra» (13/11): opzione spenta di serie; un test che la accende non deve lasciarla ai successivi */
+  delete A.state.allegatiRichiesti;   /* «Allegati richiesti» (13/11, S14): solo se l'utente li usa */
   delete A.state.storico;   /* storico delle versioni (13/11, S10): si scrive solo esportando; un test che esporta non deve lasciarlo ai successivi */
   delete A.state.versione;   /* versione del documento (12/11): campo che esiste solo se impostata; un test che la imposta non deve lasciarla ai successivi */
   delete A.state.customModels;   /* modelli dell'elemento personalizzato (13/10): dal primo Salva di un elemento nuovo nasce anche il modello (Ruling 17), e un test che salva non deve lasciarli ai successivi */
@@ -5035,7 +5036,7 @@ t("Differenze versioni: il confronto in dettaglio (palco solo in profondità, or
 t("Differenze versioni: il riquadro dell'Esporta (nascosto di serie, solo lettura) e «Copia testo» sono nell'HTML e collegati", () => {
   const html = readFileSync(join(root, "app/index.html"), "utf8");
   ok(/id="pdfDiff"[^>]*hidden/.test(html) && ["pdfDiffT", "pdfDiffL", "pdfDiffMotivo", "pdfDiffCopia"].every((i) => html.indexOf('id="' + i + '"') > -1), "il riquadro nascosto di serie, con titolo, elenco, motivo e pulsante");
-  ok(/try\{ renderDiffVersioni\(\); \}catch\(_e\)\{\}\n\}/.test(appjs), "si aggiorna a ogni apertura dell'Esporta (renderPdfUltimo)");
+  ok(/try\{ renderDiffVersioni\(\); \}catch\(_e\)\{\}\n  try\{ renderAllegati\(\); \}catch\(_e\)\{\}\n\}/.test(appjs), "si aggiorna a ogni apertura dell'Esporta (renderPdfUltimo)");
   ok(/navigator\.clipboard\.writeText\(t\)\.then\(function\(\)\{ showToast\("Testo copiato"\); \}/.test(appjs), "«Copia testo» copia negli appunti");
   ok(/var dati=diffVersioniDati\(\); box\.hidden=!dati;/.test(appjs), "senza versione precedente il riquadro non compare");
 });
