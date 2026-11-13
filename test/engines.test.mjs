@@ -5030,6 +5030,28 @@ t("Differenze versioni: il confronto in dettaglio (palco solo in profondità, or
   ok(/if\(nota\.sto\) state\.storico=nota\.sto; else delete state\.storico;/.test(appjs), "Annulla/Ripeti rimettono lo storico (applyHistory)");
   reset();
 });
+t("Pacchetto: accanto a ogni documento «cambiato / invariato da vN-1 / nuovo», dall'impronta di CIASCUN documento nello storico", () => {
+  dvFix(3); A.state.versione = 3;
+  const h0 = A.impronteDocumenti(); ok(["stageplot", "inputlist", "rider"].every((k) => typeof h0[k] === "string" && h0[k].length > 0), "un'impronta breve per documento: " + JSON.stringify(h0));
+  ok(Object.values(h0).every((x) => x.length <= 8), "brevi (≤ 8 caratteri)");
+  eq(A.impronteDocumenti(), h0, "stabili: stesso progetto, stesse impronte");
+  A.storicoRegistra(); A.state.versione = 4;
+  eq(A.pacchettoSegni(), Object.assign({ da: 3 }, Object.fromEntries(Object.keys(h0).map((k) => [k, "invariato"]))), "nessuna modifica: tutto invariato da v3");
+  add("astamic", 900, 600); A.__cabRes = null;
+  const sg = A.pacchettoSegni(); eq([sg.stageplot, sg.inputlist], ["cambiato", "cambiato"], "un'asta in più: cambiano disegno e channel list");
+  eq([sg.rider, sg.backline === undefined ? "invariato" : sg.backline], ["invariato", "invariato"], "ma non il rider né il backline");
+  A.state.rider = { sistema: "Line array" }; ok(A.pacchettoSegni().rider === "cambiato", "il testo del rider cambia l'impronta del rider");
+  A.state.rider = {};
+  A.state.lights = { rows: [{ nome: "PAR", n: 4 }], blackout: null, mood: "" }; const sl = A.pacchettoSegni();
+  ok(sl.lightslist === "nuovo" || sl.lightslist === "cambiato", "le luci appena inserite non sono «invariato»: " + sl.lightslist);
+  const prev = A.state.storico[0]; delete prev.r.h.lightslist; eq(A.pacchettoSegni().lightslist, "nuovo", "documento che nell'export precedente non c'era: nuovo");
+  delete prev.r.h; eq(A.pacchettoSegni(), {}, "storico senza impronte (vecchio): nessun segno");
+  A.state.versione = 3; eq(A.pacchettoSegni(), {}, "la voce della stessa versione non è un precedente");
+  delete A.state.storico; A.state.versione = 4; eq(A.pacchettoSegni(), {}, "senza storico: niente");
+  ok(/segni\[d\.chiave\]\)\{ var sg=document\.createElement\("span"\); sg\.className="pkg-segno pkg-segno-"\+segni\[d\.chiave\]; sg\.textContent=segni\[d\.chiave\]==="nuovo" \? "nuovo" : segni\[d\.chiave\]\+" da v"\+segni\.da;/.test(appjs), "la finestrella del pacchetto scrive il segno accanto al documento");
+  ok(/var segni=\{\}; try\{ segni=pacchettoSegni\(\); \}catch\(_e\)\{\}/.test(appjs), "calcolato all'apertura, senza rompere la finestrella");
+  reset();
+});
 t("Differenze versioni: il riquadro dell'Esporta (nascosto di serie, solo lettura) e «Copia testo» sono nell'HTML e collegati", () => {
   const html = readFileSync(join(root, "app/index.html"), "utf8");
   ok(/id="pdfDiff"[^>]*hidden/.test(html) && ["pdfDiffT", "pdfDiffL", "pdfDiffMotivo", "pdfDiffCopia"].every((i) => html.indexOf('id="' + i + '"') > -1), "il riquadro nascosto di serie, con titolo, elenco, motivo e pulsante");
