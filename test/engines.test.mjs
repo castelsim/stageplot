@@ -3745,6 +3745,9 @@ t("Scala: la lunghezza è gradini × pedata 30 cm (h40 → 60, h60 → 90), la l
   A.state.items.find((x) => x.type === "pedana").h = 60;
   eq(A.scalaAdegua(s), true, "pedana alzata a 60: la scala si allunga");
   eq([s.d, s.y], [90, 395], "90 di lunghezza, ancora appoggiata a y 350");
+  eq(s.w, 60, "la larghezza resta 60 anche quando la lunghezza è 90");
+  delete s.d; s.y = 395; A.state.items.find((x) => x.type === "pedana").h = 40; A.scalaAdegua(s); eq([s.d, s.y], [60, 380], "senza `d` nel documento vale la misura di serie (90)");
+  A.state.items.find((x) => x.type === "pedana").h = 60; A.scalaAdegua(s);
   A.state.items.find((x) => x.type === "pedana").h = 20;
   A.scaleAdegua(); eq([s.d, s.y], [30, 365], "h20: un gradino, 30 cm");
   reset();

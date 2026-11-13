@@ -16091,7 +16091,7 @@ var SCALA_ALZATA_CM=20, SCALA_GRADINI_MAX=12;
 var SCALA_PEDATA_CM=30;
 function scalaLunghezza(h){ return scalaGradini(h)*SCALA_PEDATA_CM; }
 function scalaAdegua(it){
-  var L=scalaLunghezza(scalaH(it)), d=+it.d||0;
+  var L=scalaLunghezza(scalaH(it)), d=+it.d||(TYPES.scala&&TYPES.scala.d)||90;   /* senza `d` nel documento vale la misura di serie */
   if(Math.abs(d-L)<0.5) return false;
   var r=((+it.rot||0)%360)*Math.PI/180, ux=-Math.sin(r), uy=Math.cos(r), k=(L-d)/2;   /* −y locale fermo: il centro si sposta di (L−d)/2 lungo +y */
   it.d=L; it.x=Math.round((it.x+ux*k)*100)/100; it.y=Math.round((it.y+uy*k)*100)/100;
