@@ -92,6 +92,7 @@ function reset() {
   delete A.state.latiTeatro;   /* giardino e corte (12/11): opzione che esiste solo se accesa; un test che l'accende non deve lasciarla ai successivi */
   delete A.state.sonorizzazione; delete A.state.orari;   /* sonorizzazione e orari (12/11): campi che esistono solo se scelti; un test che li imposta non deve lasciarli ai successivi */
   delete A.state.scaletta;   /* scaletta (10/10): campo che esiste solo con almeno una voce */
+  delete A.state.pdfOrganico;   /* «Organico: N + M» nel cartiglio (13/11): opzione spenta di serie */
   delete A.state.storico;   /* storico delle versioni (13/11, S10): si scrive solo esportando; un test che esporta non deve lasciarlo ai successivi */
   delete A.state.versione;   /* versione del documento (12/11): campo che esiste solo se impostata; un test che la imposta non deve lasciarla ai successivi */
   delete A.state.customModels;   /* modelli dell'elemento personalizzato (13/10): dal primo Salva di un elemento nuovo nasce anche il modello (Ruling 17), e un test che salva non deve lasciarli ai successivi */
@@ -14206,6 +14207,49 @@ t("Organico: totali per sezione = elementi sul palco, ordine fisso FIATI→LEGNI
   ok(i > r.indexOf(tot), "dopo il totale");
   eq(r.filter((x) => x.nome === "Ospiti" || /^Cantante/.test(x.nome)).length, 1, "l'ospite non è anche in VOCI");
   reset();
+});
+t("Taglia «N + M»: riga «Organico: 41 + 9» nel cartiglio (opzione spenta), stessi numeri del foglio Organico; suggerimento per il nome senza sovrascrivere", () => {
+  s5Fix(orgFix().concat(orgN("corista", 9)));
+  const L = A.organicoList(), tg = A.organicoTaglia();
+  eq([tg.strumentisti, tg.voci, tg.testo], [L.strumentisti, L.voci, L.strumentisti + "+" + L.voci], "la taglia = strumentisti + voci del foglio Organico (#69)"); ok(tg.voci >= 9, "con voci: " + tg.voci);
+  eq(A.organicoCartiglioTesto(), "Organico: " + L.strumentisti + " + " + L.voci, "«Organico: N + M»");
+  const righe = () => A.pdfTotals({ tecnici: false });
+  eq(A.pdfOrganicoOn(), false, "spenta di serie"); ok(!righe().some((x) => /^Organico:/.test(x)), "cartiglio come prima");
+  A.state.pdfOrganico = true; eq(righe().filter((x) => /^Organico:/.test(x)), [A.organicoCartiglioTesto()], "accesa: una riga, la prima del cartiglio"); eq(righe()[0], A.organicoCartiglioTesto(), "in testa");
+  A.state.pdfOrganico = "si"; eq(A.pdfOrganicoOn(), false, "solo true la accende");
+  A.state.pdfOrganico = true;
+  s5Fix(orgFix()); const solo = A.organicoTaglia(); eq(solo.voci, 0, "senza voci"); eq(A.organicoCartiglioTesto(), "Organico: " + solo.strumentisti, "senza voci: solo gli strumentisti, niente «+ 0»");
+  s5Fix([{ id: "a", type: "leggio", x: 100, y: 100 }]); eq(A.organicoTaglia(), null, "senza orchestra: niente taglia"); eq(A.organicoCartiglioTesto(), "", "né riga nel cartiglio");
+  reset();
+});
+t("Taglia «N + M»: nome del progetto con la taglia prima del «vN», mai doppia, mai sopra un nome vuoto; suggerimento solo con voci", () => {
+  eq(A.nomeConTaglia("Plays Queen", "41+9"), "Plays Queen 41+9", "in coda");
+  eq(A.nomeConTaglia("Concerto di Natale v3", "41+9"), "Concerto di Natale 41+9 v3", "prima della versione finale");
+  eq(A.nomeConTaglia("Concerto di Natale v3 · 10/11/2026", "41+9"), "Concerto di Natale 41+9 v3 · 10/11/2026", "anche con la data dopo la versione");
+  eq(A.nomeConTaglia("Plays Queen 58+30 Coro", "41+9"), "Plays Queen 58+30 Coro", "una taglia già nel nome non si tocca");
+  eq(A.nomeConTaglia("Gala 26 + 8", "41+9"), "Gala 26 + 8", "anche scritta con gli spazi");
+  eq(A.nomeConTaglia("", "41+9"), "", "nome vuoto: resta vuoto"); eq(A.nomeConTaglia("  ", "41+9"), "", "solo spazi"); eq(A.nomeConTaglia("Gala", ""), "Gala", "senza taglia: invariato"); eq(A.nomeConTaglia(null, "41+9"), "", "null");
+  eq(A.nomeConTaglia("Il 2026 v2 del 3+", "5+5"), "Il 2026 v2 del 3+ 5+5", "numeri sparsi non sono una taglia");
+  s5Fix(orgFix().concat(orgN("corista", 9))); A.state.titolo = "Gala di Natale v2";
+  const g = A.tagliaSuggerimento(); ok(g && g.nuovo === "Gala di Natale " + g.taglia + " v2" && /^\d+\+\d+$/.test(g.taglia), "suggerisce: " + JSON.stringify(g));
+  A.state.titolo = "Gala 41+9"; eq(A.tagliaSuggerimento(), null, "già nel nome: niente"); A.state.titolo = ""; eq(A.tagliaSuggerimento(), null, "nome vuoto: niente");
+  s5Fix(orgFix()); A.state.titolo = "Gala"; eq(A.tagliaSuggerimento(), null, "senza voci: niente da proporre");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="pdfOrganico"/.test(html) && /id="pdfTagliaHint"[^>]*hidden/.test(html) && /id="pdfTagliaBtn"/.test(html), "casella, suggerimento nascosto di serie e pulsante nell'Esporta");
+  ok(/b\.addEventListener\("click", function\(\)\{\s*var g=tagliaSuggerimento\(\); if\(!g\) return;\s*state\.titolo=g\.nuovo;/.test(appjs), "il pulsante scrive il nome (solo su clic)");
+  ok(/if\(orgChk\) orgChk\.checked=pdfOrganicoOn\(\);/.test(appjs) && /if\(orgChk\.checked\) state\.pdfOrganico=true; else delete state\.pdfOrganico;/.test(appjs), "la casella è il campo del progetto");
+  ok(/var CAMPI_DOCUMENTO=\["pdfOrganico",/.test(appjs), "campo del documento");
+  const st = JSON.parse(JSON.stringify(A.state)); st.pdfOrganico = 1; ok(!("pdfOrganico" in A.normalizeState(st)), "normalizzazione: solo true");
+  reset();
+});
+t("Taglia «N + M»: nuove formule archi fra i preset (12-12-6-6-4, 7-6-4-4-2, 3-3-2-2 senza contrabbasso, 1-1-1-1), nomi neutri, solo archi", () => {
+  const P = (id) => A.ORCH_PRESETS.find((x) => x.id === id);
+  const arch = (id) => ["v1", "v2", "vle", "vc", "cb"].map((k) => P(id).counts[k] || 0);
+  eq(arch("archi_12_12_6_6_4"), [12, 12, 6, 6, 4], "12-12-6-6-4"); eq(arch("archi_7_6_4_4_2"), [7, 6, 4, 4, 2], "7-6-4-4-2"); eq(arch("archi_3_3_2_2"), [3, 3, 2, 2, 0], "3-3-2-2: senza contrabbasso"); eq(arch("archi_1_1_1_1"), [1, 1, 1, 1, 0], "1-1-1-1");
+  eq(["archi_12_12_6_6_4", "archi_7_6_4_4_2", "archi_3_3_2_2", "archi_1_1_1_1"].map((id) => P(id).nome), ["Archi 12-12-6-6-4", "Archi 7-6-4-4-2", "Archi 3-3-2-2", "Archi 1-1-1-1"], "nomi neutri, senza titoli né organici di nessuno");
+  ["archi_12_12_6_6_4", "archi_7_6_4_4_2", "archi_3_3_2_2", "archi_1_1_1_1"].forEach((id) => { const c = P(id).counts; ok(["fl", "ob", "cl", "fg", "cor", "tr", "tbn", "tba", "arp", "tim", "gc", "pia", "rul"].every((k) => !c[k]), id + ": solo archi"); });
+  eq(A.orchTotal(P("archi_12_12_6_6_4").counts), 40, "totale 40"); eq(A.orchTotal(P("archi_1_1_1_1").counts), 4, "quartetto 4");
+  ok(A.ORCH_PRESETS[A.ORCH_PRESETS.length - 1].id === "standard", "«Sinfonica completa» resta l'ultimo");
 });
 t("Organico: formula degli archi coi trattini (valori ≥ 10, quattro numeri, sezioni assenti)", () => {
   const f = (arch) => { s5Fix(orgFix(arch)); return A.organicoList().formula; };
