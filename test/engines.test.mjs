@@ -4949,6 +4949,33 @@ t("Output list Service: oltre 16 uscite il blocco continua; uscite senza porta i
   const dv = outDoc(); A.outputListServicePdf(dv); eq(dv.pagine.length, 1, "nessuna uscita: nessuna pagina (solo l'avviso, che nel test è muto)");
   reset();
 });
+t("Output list Service: blocchi da 16 uscite (1-16, 17-32), mai pagine vuote, «usate N su M» e numeri di pagina esatti", () => {
+  reset();
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.mixer = "dm3"; A.state.cab.home = { kind: "foh" };
+  const big = add("stagebox", 300, 300); big.hw = "stage64"; big.sbId = 1;       /* 32 uscite */
+  const vuota = add("stagebox", 900, 300); vuota.hw = "rio1608d2"; vuota.sbId = 2;   /* nessuna voce: nessuna pagina */
+  add("astamic", 320, 400);
+  A.state.buses = [{ id: "bA", name: "MAIN L/R", kind: "st", dest: "P.A.", boxId: big.id, port: 2 }]; A.__cabRes = null;
+  let d = outDoc(); A.outputListServicePdf(d); let tx = outTesti(d, 1);
+  eq(d.pagine.length - 1, 1, "voci solo nelle prime 16: un blocco; il blocco 17-32 vuoto e la box senza voci non fanno pagine");
+  ok(tx.some((x) => /^Uscite 1-16 · usate 2 su 32 · pagina 1 di 1$/.test(x)), "sottotitolo esatto: " + tx.filter((x) => /^Uscite/.test(x)).join("|"));
+  eq(tx.filter((x) => /^\d+( \*)?$/.test(x)).length, 16, "16 righe nella tabella");
+  A.state.buses.push({ id: "bB", name: "REC L/R", kind: "st", dest: "registrazione", boxId: big.id, port: 20 }); A.__cabRes = null;
+  d = outDoc(); A.outputListServicePdf(d); tx = outTesti(d, 1);
+  eq(d.pagine.length - 1, 2, "una voce a 20: serve anche il blocco 17-32");
+  ok(tx.some((x) => /^Uscite 1-16 · usate 4 su 32 · pagina 1 di 2$/.test(x)) && tx.some((x) => /^Uscite 17-32 · usate 4 su 32 · pagina 2 di 2$/.test(x)), "i due blocchi: " + tx.filter((x) => /^Uscite/.test(x)).join("|"));
+  ok(tx.indexOf("17") > -1 && tx.indexOf("32") > -1 && tx.indexOf("REC L/R") > -1, "il secondo blocco numera 17-32 e porta REC");
+  /* con uscite senza porta: la pagina «Da patchare» è l'ultima e il totale la conta */
+  for (let i = 0; i < 20; i++) A.state.buses.push({ id: "bF" + i, name: "X" + i, kind: "st" }); A.__cabRes = null;
+  d = outDoc(); A.outputListServicePdf(d); tx = outTesti(d, 1);
+  const pp = tx.map((x) => (x.match(/pagina (\d+) di (\d+)$/) || []).slice(1).map(Number)).filter((m) => m.length);
+  ok(pp.length >= 3 && pp.every((m, i) => m[0] === i + 1 && m[1] === pp.length), "pagine numerate 1…N e totale N (con «Da patchare»): " + JSON.stringify(pp));
+  ok(tx.some((x) => /^Da patchare/.test(x)), "e la pagina «Da patchare» c'è");
+  const src = appjs.slice(appjs.indexOf("function outputListServicePdf"), appjs.indexOf("function outputListPdf"));
+  ok(/pdfSave\(d, fileName\(\)\+"-output-list-service\.pdf"\)/.test(src) && /run\(d\); d\.deletePage\(1\); pdfCredit\(d\);/.test(src), "file «…-output-list-service.pdf», pagina vuota di partenza tolta, «1 di N» e versione (pdfCredit)");
+  ok(/if\(fo\) fo\.value=window\.__pdfListaFmt\.outFormato\|\|"semplice";/.test(appjs), "a ogni apertura il menu mostra il valore corrente");
+  reset();
+});
 t("Output list Service: menu «Formato dell'output list» nell'Esporta (Semplice di serie, nascosto senza output list) e collegato all'export", () => {
   const html = readFileSync(join(root, "app/index.html"), "utf8");
   ok(/id="pdfOutFmt"[^>]*hidden/.test(html) && /id="pdfOutFormato"/.test(html), "il menu c'è, nascosto finché non c'è l'output list");
