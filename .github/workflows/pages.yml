@@ -49,6 +49,8 @@ jobs:
         run: node --test test/workshop.test.mjs
       - name: Test del modulo del rider tecnico completo
         run: node --test test/rider-richiesta.test.mjs
+      - name: Test del modulo di Produzione eventi
+        run: node --test test/produzione-richiesta.test.mjs
       - name: Test funzioni condivise Supabase
         run: deno test --lock=deno.lock --frozen supabase/functions/_shared/*.test.ts
       - name: Type-check Edge Functions
@@ -87,7 +89,7 @@ jobs:
             robots.txt sitemap.xml llms.txt 4d1fdc8b5b357ff5353a9e928c187bff.txt \
             favicon.ico favicon.svg favicon-48.png favicon-96.png \
             apple-touch-icon.png icon-192.png icon-512.png logo-512.png preview.png \
-            accedi alternative biglietteria consulenza guida img orchestre privacy programma richiesta rider-tecnico-completo stage-plot termini vendor voce workshop \
+            accedi alternative biglietteria consulenza guida img orchestre privacy produzione-eventi programma richiesta rider-tecnico-completo stage-plot termini vendor voce workshop \
             ./_site/
       - name: Timbra il build ID (SHA del commit) negli asset pubblicati (audit L-03)
         # il placeholder sta nella shell dell'editor (app/index.html), non nella landing
