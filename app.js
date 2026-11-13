@@ -37636,6 +37636,164 @@ function renderPdfUltimo(){
   el.textContent=tx; el.hidden=!tx;
   el.classList.toggle("vecchio", /^Modificato/.test(tx));
 }
+function pdfGateErrori(run){
+  /* Gate sugli errori critici (M-04) — spostato qui dall'interno di exportPdf (audit 27/07).
+     Prima era un confirm() NATIVO del browser: chi spunta «impedisci a questa pagina di creare altre
+     finestre di dialogo» restava senza export, e il bottone smetteva di rispondere senza dire perché.
+     Ora è la finestra dell'app, con due strade dichiarate invece di OK/Annulla. */
+  var _A=null; try{ _A=(typeof auditEngine==="function")?auditEngine():null; }catch(e){}
+  if(!(_A && _A.errs>0)){ run(); return; }
+  var _first=(_A.findings||[]).filter(function(x){ return x.lvl==="err"; })[0];
+  confirmDialog({
+    icon:"warn",
+    title:(_A.errs>1 ? "Ci sono "+_A.errs+" errori critici" : "C'è un errore critico"),
+    message:(_first ? "«"+_first.msg+"»\n\n" : "")+"Il documento esportato potrebbe essere incompleto o errato. Puoi esportarlo lo stesso, oppure sistemarlo prima: nell'Audit ogni voce ha la sua correzione a un click.",
+    confirmText:"Esporta comunque", cancelText:"Vai all'Audit"
+  }).then(function(ok){
+    if(ok){ run(); return; }
+    var _pm=document.getElementById("pdfModal"), _pk=document.getElementById("pkgModal"); if(_pm) _pm.hidden=true; if(_pk) _pk.hidden=true; window.__pdfScope="full";
+    if(typeof toggleAuditView==="function" && typeof auditActive!=="undefined" && !auditActive) toggleAuditView();
+    else if(typeof techAccordionOpen==="function") techAccordionOpen("audit");
+  });
+}
+/* ═══ PACCHETTO PER DATA (12/11/2026, specifica S9 dalla posta di produzione) ═══
+   Un file .zip con UN PDF per documento, tutti con lo schema dei service «AAAAMMGG vN documento luogo.pdf» (data dell'evento, o di oggi se manca;
+   «vN» omessa senza versione; il luogo ripulito dai caratteri che i file system rifiutano). I documenti si scelgono FRA LE PILLOLE già esistenti
+   dell'Esporta (quelle che il progetto ha davvero, e che la sonorizzazione non nasconde): stage plot (solo disegno e cartiglio), channel list in
+   formato Service, output list, rider, organico, backline, lista luci, scaletta. Nessuna dipendenza nuova: lo zip è «store» (senza compressione) con
+   CRC32, nomi in UTF-8. Fase 1: solo la variante corrente (col suo nome nei file se il progetto ne ha più d'una). Il marcatore «cambiato da vN-1»
+   verrà con la differenza fra versioni (S10): qui solo il punto d'aggancio, `pacchettoCostruisci(…, opz)`. Solo PDF; niente PDP, hospitality, camerini. */
+function pacchettoDocumentiTutti(){
+  return [["stageplot","stage plot"],["inputlist","channel list"],["outputlist","output list"],["rider","rider"],["organico","organico"],["backline","backline"],["lightslist","lista luci"],["scaletta","scaletta"]];
+}
+function pacchettoDocumenti(chiaviPillole, haScaletta, haPalco){
+  var have={}; (chiaviPillole||[]).forEach(function(k){ have[k]=true; });
+  return pacchettoDocumentiTutti().filter(function(d){
+    if(d[0]==="stageplot") return !!haPalco;
+    if(d[0]==="scaletta") return !!haScaletta;
+    return !!have[d[0]]; }).map(function(d){ return {chiave:d[0], nome:(d[0]==="rider" && eventoConferenza()) ? "scheda tecnica" : d[1]}; });
+}
+function pacchettoPulisci(t){ return String(t==null?"":t).replace(/[\\\/:*?"<>|\u0000-\u001f]+/g," ").replace(/\s+/g," ").trim().slice(0,80).trim().replace(/[. ]+$/,""); }
+function pacchettoData(d){
+  var e=String(state.evDate||""); if(/^\d{4}-\d{2}-\d{2}$/.test(e)) return e.replace(/-/g,"");
+  d=d||new Date(); var p=function(n){ return String(n).padStart(2,"0"); }; return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate());
+}
+/* Il campo «luogo» spesso porta l'indirizzo intero («Teatro AVA, Via delle Mimose 6, Castelfranco…»): per il nome dei file si parte da ciò che sta prima della prima virgola */
+function pacchettoNomeDefault(){ return pacchettoPulisci(String(state.luogo||"").split(",")[0]) || pacchettoPulisci(titoloSenzaVersione(state.titolo)); }
+function pacchettoVariante(){
+  if(!(VARIANTS && VARIANTS.length>1)) return "";
+  var v=VARIANTS.filter(function(x){ return String(x.id)===String(activeVar); })[0]; return v ? pacchettoPulisci(v.name) : "";
+}
+/* «20260419 v3 channel list Teatro Esempio»: senza estensione; opz = {nome, data, versione, variante} */
+function pacchettoNomeFile(documento, opz){
+  opz=opz||{};
+  return [opz.data, opz.versione ? "v"+opz.versione : "", documento, pacchettoPulisci(opz.nome), pacchettoPulisci(opz.variante)].filter(Boolean).join(" ");
+}
+/* ZIP «store»: senza compressione, CRC32, nomi in UTF-8 (flag 0x0800). Un file zip è: [intestazione locale + dati] × N, directory centrale, fine. */
+var _crcTab=null;
+function crc32(b){
+  if(!_crcTab){ _crcTab=new Uint32Array(256); for(var n=0;n<256;n++){ var c=n; for(var k=0;k<8;k++) c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1); _crcTab[n]=c>>>0; } }
+  var r=0xFFFFFFFF; for(var i=0;i<b.length;i++) r=_crcTab[(r^b[i])&255]^(r>>>8); return (r^0xFFFFFFFF)>>>0;
+}
+function utf8Bytes(str){ var u=unescape(encodeURIComponent(String(str))), o=new Uint8Array(u.length); for(var i=0;i<u.length;i++) o[i]=u.charCodeAt(i); return o; }
+function zipStore(files, quando){
+  var d=quando||new Date(), dosT=(d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1), dosD=(Math.max(0,d.getFullYear()-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate();
+  var parts=[], central=[], offset=0;
+  function u16(v){ return [v&255,(v>>>8)&255]; } function u32(v){ return [v&255,(v>>>8)&255,(v>>>16)&255,(v>>>24)&255]; }
+  files.forEach(function(f){
+    var nm=utf8Bytes(f.name), data=f.data, crc=crc32(data);
+    var loc=[].concat(u32(0x04034b50),u16(20),u16(0x0800),u16(0),u16(dosT),u16(dosD),u32(crc),u32(data.length),u32(data.length),u16(nm.length),u16(0));
+    parts.push(new Uint8Array(loc), nm, data);
+    central.push(new Uint8Array([].concat(u32(0x02014b50),u16(20),u16(20),u16(0x0800),u16(0),u16(dosT),u16(dosD),u32(crc),u32(data.length),u32(data.length),u16(nm.length),u16(0),u16(0),u16(0),u16(0),u32(0),u32(offset))), nm);
+    offset+=loc.length+nm.length+data.length;
+  });
+  var cdSize=central.reduce(function(a,x){ return a+x.length; },0);
+  var fine=new Uint8Array([].concat(u32(0x06054b50),u16(0),u16(0),u16(files.length),u16(files.length),u32(cdSize),u32(offset),u16(0)));
+  var all=parts.concat(central,[fine]), tot=all.reduce(function(a,x){ return a+x.length; },0), out=new Uint8Array(tot), pos=0;
+  all.forEach(function(x){ out.set(x,pos); pos+=x.length; });
+  return out;
+}
+/* Costruisce il pacchetto: un documento per volta (mai in parallelo: svg2pdf è pesante), `produci(chiave)` → Promise<Uint8Array>. */
+function pacchettoCostruisci(voci, produci, opz, avanza){
+  var files=[];
+  return voci.reduce(function(p, v){
+    return p.then(function(){ if(avanza) avanza(v, files.length, voci.length); return produci(v.chiave); })
+            .then(function(bytes){ files.push({name:pacchettoNomeFile(v.nome, opz)+".pdf", data:bytes}); });
+  }, Promise.resolve()).then(function(){
+    return {nome:pacchettoNomeFile("pacchetto", opz)+".zip", nomi:files.map(function(f){ return f.name; }), bytes:zipStore(files)};
+  });
+}
+/* Un PDF del pacchetto: lo stage plot è la pagina del palco con cartiglio (nessuna lista), gli altri sono la loro pagina da sola, con «1 di N» e la versione */
+function pacchettoProduci(chiave, ctx){
+  return loadJsPDF().then(function(){
+    var salva={p:window.__pdfPages, s:window.__pdfScaletta};
+    function ripristina(){ window.__pdfPages=salva.p; window.__pdfScaletta=salva.s; }
+    if(chiave==="stageplot"){
+      window.__pdfPages={}; window.__pdfScaletta=false;
+      return buildPdfDoc(ctx.paper, ctx.N, ctx.orient, ctx.header).then(function(doc){ ripristina(); return doc; }, function(e){ ripristina(); throw e; });
+    }
+    var doc=new window.jspdf.jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true});
+    var F={ inputlist:function(){ patchListServicePdf(doc, {perPagina:ctx.perPagina===48?48:32}); }, outputlist:function(){ outputListPdf(doc); }, rider:function(){ riderPdf(doc); },
+            organico:function(){ organicoPdf(doc); }, backline:function(){ backlineListPdf(doc); }, lightslist:function(){ lightsListPdf(doc); }, scaletta:function(){ scalettaPdf(doc); } };
+    if(!F[chiave]) throw new Error("documento sconosciuto: "+chiave);
+    F[chiave]();
+    if(doc.getNumberOfPages()<2) throw new Error("«"+chiave+"» non ha niente da stampare");
+    doc.deletePage(1); pdfCredit(doc);
+    return doc;
+  }).then(function(doc){ return new Uint8Array(doc.output("arraybuffer")); });
+}
+function pacchettoScarica(bytes, nome){
+  var blob=new Blob([bytes],{type:"application/zip"}), url=URL.createObjectURL(blob), a=document.createElement("a");
+  a.href=url; a.download=nome; a.style.display="none"; document.body.appendChild(a); a.click();
+  setTimeout(function(){ try{ document.body.removeChild(a); URL.revokeObjectURL(url); }catch(_e){} }, 4000);
+  toastDownloaded(nome);
+}
+function pacchettoOpzioni(){
+  var inp=document.getElementById("pkgNome");
+  return { nome: inp ? inp.value : pacchettoNomeDefault(), data: pacchettoData(), versione: versioneNumero(), variante: pacchettoVariante() };
+}
+function pacchettoApri(){
+  var m=document.getElementById("pkgModal"); if(!m) return;
+  var chiavi=(typeof window.__pdfChiaviTecniche==="function") ? window.__pdfChiaviTecniche() : [];
+  var docs=pacchettoDocumenti(chiavi, (typeof scalettaList==="function" && scalettaList().count>0), (state.items||[]).length>0);
+  var lista=document.getElementById("pkgLista"), nome=document.getElementById("pkgNome"), err=document.getElementById("pkgErr");
+  lista.innerHTML=""; err.hidden=true;
+  nome.value=pacchettoNomeDefault();
+  function esempio(){
+    var sel=[].filter.call(lista.querySelectorAll("input[type=checkbox]"), function(c){ return c.checked; }).length;
+    var ex=document.getElementById("pkgEsempio"); if(ex) ex.textContent=pacchettoNomeFile("stage plot", pacchettoOpzioni())+".pdf  ·  "+pacchettoNomeFile("pacchetto", pacchettoOpzioni())+".zip";
+    var go=document.getElementById("pkgGo"); if(go) go.disabled=!sel;
+  }
+  docs.forEach(function(d){
+    var lab=document.createElement("label"); lab.className="pkg-riga";
+    var c=document.createElement("input"); c.type="checkbox"; c.checked=true; c.setAttribute("data-chiave", d.chiave); c.addEventListener("change", esempio);
+    var t=document.createElement("span"); t.textContent=d.nome.charAt(0).toUpperCase()+d.nome.slice(1);
+    lab.appendChild(c); lab.appendChild(t); lista.appendChild(lab); });
+  if(!docs.length){ var v=document.createElement("p"); v.className="hint"; v.textContent="Questo progetto non ha ancora documenti da mettere nel pacchetto."; lista.appendChild(v); }
+  nome.oninput=esempio;
+  var vr=document.getElementById("pkgVariante"), vn=pacchettoVariante(); vr.hidden=!vn; vr.textContent=vn ? "Variante: "+vn+" (la corrente). Il nome della variante sta in ogni file." : "";
+  var vh=document.getElementById("pkgVersioneHint"); vh.textContent=versioneNumero() ? "" : versioneSuggerimento();
+  esempio();
+  m.hidden=false; try{ nome.focus(); nome.select(); }catch(_e){}
+}
+function pacchettoCrea(){
+  var m=document.getElementById("pkgModal"), err=document.getElementById("pkgErr"), go=document.getElementById("pkgGo"), info=document.getElementById("pkgInfo");
+  if(typeof custEditorAttivo==="function" && custEditorAttivo()){ custEditorAvvisa(); return; }
+  var chiavi=[].filter.call(document.querySelectorAll("#pkgLista input[type=checkbox]"), function(c){ return c.checked; }).map(function(c){ return c.getAttribute("data-chiave"); });
+  var voci=pacchettoDocumenti((typeof window.__pdfChiaviTecniche==="function") ? window.__pdfChiaviTecniche() : [], (typeof scalettaList==="function" && scalettaList().count>0), (state.items||[]).length>0).filter(function(d){ return chiavi.indexOf(d.chiave)>=0; });
+  err.hidden=true; if(!voci.length){ err.textContent="Scegli almeno un documento."; err.hidden=false; return; }
+  var paper=document.getElementById("pdfPaper").value, header=(document.getElementById("pdfHeader")||{}).value||"", sel=pdfScaleValue(), orient=pdfOrientValue(paper, sel, header);
+  var N=resolveScale(paper, sel, orient, cartHFor(header, paper, orient));
+  if(!N && chiavi.indexOf("stageplot")>=0){ err.textContent="Il palco non entra nemmeno a 1:500 su "+paper.toUpperCase()+": cambia foglio o area nell'Esporta."; err.hidden=false; return; }
+  var ctx={paper:paper, N:N, orient:orient, header:header, perPagina:(window.__pdfListaFmt && window.__pdfListaFmt.perPagina===48) ? 48 : 32};
+  var opz=pacchettoOpzioni(); go.disabled=true; var _t=go.textContent; go.textContent="Genero…";
+  pacchettoCostruisci(voci, function(k){ return pacchettoProduci(k, ctx); }, opz, function(v, i, n){ info.hidden=false; info.textContent="Genero "+(i+1)+" di "+n+": "+v.nome+"…"; })
+    .then(function(r){
+      pacchettoScarica(r.bytes, r.nome); if(typeof segnaPdfEsportato==="function") segnaPdfEsportato();
+      try{ track("export",{format:"zip"}); }catch(_e){}
+      info.hidden=true; go.disabled=false; go.textContent=_t; m.hidden=true;
+    }).catch(function(e){ info.hidden=true; go.disabled=false; go.textContent=_t; err.textContent="Non sono riuscito a fare il pacchetto: "+(e&&e.message||e); err.hidden=false; });
+}
 function exportPdf(paperKey, scaleSel, orient, header){
   if(custEditorAttivo()){ custEditorAvvisa(); return Promise.resolve(false); }   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo: niente export */
   var info=document.getElementById("pdfInfo");
@@ -38200,6 +38358,7 @@ function pdfChannelPage(doc, L, paperKey){
     return pdfSortTechPages(pages);
   }
   var _pdfTechPages=[];
+  window.__pdfChiaviTecniche=function(){ try{ return pdfComputeTechPages().map(function(p){ return p.key; }); }catch(_e){ return []; } };   /* le pillole già esistenti: il pacchetto sceglie fra queste (S9) */
   var _pdfPillSel={}, _prodOpen=false;   /* pillole + stato UI */
   /* la scelta delle pagine è del DOCUMENTO, non della finestra: sopravvive alla chiusura, al giro
      dall'area di stampa e alla riapertura (06/08) */
@@ -38419,6 +38578,11 @@ function pdfChannelPage(doc, L, paperKey){
     });
     var cs=document.getElementById("pdfAltCsv");
     if(cs) cs.addEventListener("click", function(){ if(window.openCsvExport){ modal.hidden=true; window.openCsvExport(); } });
+    var zp=document.getElementById("pdfAltZip");   /* pacchetto per data (12/11): resta aperta l'Esporta dietro, come per i controlli */
+    if(zp) zp.addEventListener("click", function(){ pacchettoApri(); });
+    var pg=document.getElementById("pkgGo"), pa=document.getElementById("pkgAnnulla");
+    if(pg) pg.addEventListener("click", function(){ pdfGateErrori(pacchettoCrea); });
+    if(pa) pa.addEventListener("click", function(){ document.getElementById("pkgModal").hidden=true; });
   })();
   /* SCALETTA nell'Esporta (10/10): la casella c'è solo se la scaletta ha almeno una voce. Dal 16/10 parte
      SPENTA anche allora (Simone: «se la scaletta è presente, quell'opzione dovrebbe essere comunque chiusa di
@@ -38554,24 +38718,7 @@ document.getElementById("bPdf").addEventListener("click", function(){ if(window.
       catch(e){ fine(); throw e; }
       if(p && typeof p.then==="function") p.then(function(){ fine(); pdfConsulenzaMostra(); }, fine); else { fine(); pdfConsulenzaMostra(); }
     }
-    /* Gate sugli errori critici (M-04) — spostato qui dall'interno di exportPdf (audit 27/07).
-       Prima era un confirm() NATIVO del browser: chi spunta «impedisci a questa pagina di creare altre
-       finestre di dialogo» restava senza export, e il bottone smetteva di rispondere senza dire perché.
-       Ora è la finestra dell'app, con due strade dichiarate invece di OK/Annulla. */
-    var _A=null; try{ _A=(typeof auditEngine==="function")?auditEngine():null; }catch(e){}
-    if(!(_A && _A.errs>0)){ run(); return; }
-    var _first=(_A.findings||[]).filter(function(x){ return x.lvl==="err"; })[0];
-    confirmDialog({
-      icon:"warn",
-      title:(_A.errs>1 ? "Ci sono "+_A.errs+" errori critici" : "C'è un errore critico"),
-      message:(_first ? "«"+_first.msg+"»\n\n" : "")+"Il documento esportato potrebbe essere incompleto o errato. Puoi esportarlo lo stesso, oppure sistemarlo prima: nell'Audit ogni voce ha la sua correzione a un click.",
-      confirmText:"Esporta comunque", cancelText:"Vai all'Audit"
-    }).then(function(ok){
-      if(ok){ run(); return; }
-      modal.hidden=true; window.__pdfScope="full";
-      if(typeof toggleAuditView==="function" && typeof auditActive!=="undefined" && !auditActive) toggleAuditView();
-      else if(typeof techAccordionOpen==="function") techAccordionOpen("audit");
-    });
+    pdfGateErrori(run);   /* il gate sugli errori critici (M-04) è una funzione sola: lo usano anche il pacchetto e l'export */
   });
 })();
 /* ============ AREA DI STAMPA — step 1 del flusso PDF ============ */
