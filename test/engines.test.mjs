@@ -5036,6 +5036,7 @@ t("Differenze versioni: il riquadro dell'Esporta (nascosto di serie, solo lettur
   ok(/try\{ renderDiffVersioni\(\); \}catch\(_e\)\{\}\n\}/.test(appjs), "si aggiorna a ogni apertura dell'Esporta (renderPdfUltimo)");
   ok(/navigator\.clipboard\.writeText\(t\)\.then\(function\(\)\{ showToast\("Testo copiato"\); \}/.test(appjs), "«Copia testo» copia negli appunti");
   ok(/var dati=diffVersioniDati\(\); box\.hidden=!dati;/.test(appjs), "senza versione precedente il riquadro non compare");
+});
 /* ═══ Output list «formato Service» (13/11/2026, S8): un blocco A4 orizzontale per stage box, 16 uscite, colonne OUT · MIX · MACCHINA · CUFFIE · MONITOR e P.A. ═══ */
 const outFix = () => {
   reset();
