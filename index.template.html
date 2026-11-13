@@ -2475,7 +2475,7 @@
       <div class="wl-tag">Canali in ordine di sezione, con righe riservate alla fine di ognuna per aggiungere senza rinumerare. Le porte scelte a mano e le righe di servizio col nome restano dove sono.</div>
     </div>
     <div class="wl-body">
-      <label class="ss-field"><span>Righe riservate per sezione</span><span class="ss-inwrap"><input type="text" inputmode="numeric" id="svcOrdN" maxlength="1" value="2" autocomplete="off" aria-label="Righe riservate per sezione"></span></label>
+      <label class="ss-field"><span>Righe riservate per sezione</span><span class="ss-inwrap"><input type="text" inputmode="numeric" id="svcOrdN" maxlength="1" value="1" autocomplete="off" aria-label="Righe riservate per sezione"></span></label>
       <div class="hint" id="svcOrdSum" role="status"></div>
       <div class="ss-err" id="svcOrdErr" role="alert" hidden></div>
       <div class="svco-lista" id="svcOrdLista" role="list" aria-label="Anteprima dei numeri"></div>
@@ -32088,17 +32088,17 @@ function openServiziPop(ev){
    Si rispetta: capacità e ordine delle stage box, coppie stereo (L dispari / R pari sul numero FOH), multipolari (porte consecutive su una box),
    le porte scelte dall'utente a mano (fisse), le righe di servizio con un nome (ancorate alla loro porta) e le riservate dell'utente.
    Ciò che ha messo l'ultima volta l'azione (`state.cab.servizio`) si ricalcola da capo: rifarla dopo aver aggiunto uno strumento non accumula riservate. */
-var SERVIZIO_N_DEFAULT=2, SERVIZIO_N_MAX=8;
+var SERVIZIO_N_DEFAULT=1, SERVIZIO_N_MAX=8;   /* default sobrio: 1 riga riservata per sezione (decisione 13/11); modificabile */
 var SERVIZIO_SEZIONI={10:"Batteria", 15:"Percussioni", 20:"Basso", 30:"Chitarre", 40:"Tastiere", 45:"Backline", 60:"Archi", 70:"Voci", 80:"DI e tecnica", 85:"Playback", 90:"Altro"};
 function servizioSezione(it){
   var b=clBank(it.type), T=TYPES[it.type]||{}, ty=String(it.type).toLowerCase();
   if(b===50) return T.sub==="Legni" ? {ord:501, nome:"Legni"} : (T.sub==="Ottoni" ? {ord:502, nome:"Ottoni"} : {ord:509, nome:"Fiati"});
   if(b===60){
-    if(/^vln|violin/.test(ty)) return it.vsec===2 ? {ord:602, nome:"Violini II"} : {ord:601, nome:"Violini I"};
-    if(/viola/.test(ty)) return {ord:603, nome:"Viole"};
-    if(/violoncell|cello/.test(ty)) return {ord:604, nome:"Celli"};
-    if(/contrabbass|^cbx/.test(ty)) return {ord:605, nome:"Contrabbassi"};
-    return {ord:609, nome:"Archi"};
+    if(/^vln|violin/.test(ty)) return it.vsec===2 ? {ord:602, nome:"Violini II", fam:"Archi"} : {ord:601, nome:"Violini I", fam:"Archi"};
+    if(/viola/.test(ty)) return {ord:603, nome:"Viole", fam:"Archi"};
+    if(/violoncell|cello/.test(ty)) return {ord:604, nome:"Celli", fam:"Archi"};
+    if(/contrabbass|^cbx/.test(ty)) return {ord:605, nome:"Contrabbassi", fam:"Archi"};
+    return {ord:609, nome:"Archi", fam:"Archi"};
   }
   return {ord:b*10, nome:SERVIZIO_SEZIONI[b]||"Altro"};
 }
@@ -32109,7 +32109,7 @@ function servizioPulito(v){
     var l=Array.isArray(v.res[b]) ? v.res[b].map(Number).filter(function(pn,i,a){ return pn>=1 && pn<=64 && a.indexOf(pn)===i; }).slice(0,64) : [];
     if(l.length){ res[String(b).slice(0,ITEM_ID_MAX)]=l; nr+=l.length; } });
   if(!pins.length && !nr) return null;
-  var n=Math.round(+v.n); return { n:(n>=0 && n<=8) ? n : 2, pins:pins, res:res };   /* letterali: normalizeState può girare prima che le var di questo blocco siano assegnate */
+  var n=Math.round(+v.n); return { n:(n>=0 && n<=8) ? n : 1, pins:pins, res:res };   /* letterali: normalizeState può girare prima che le var di questo blocco siano assegnate */
 }
 /* il piano, senza scrivere niente: {ok, motivo, righe:[{tipo:"sezione"|"canale"|"riservata", …}], unita:[…], nuoveRiservate:{boxId:[porte]}, conteggi} */
 function servizioPiano(nRis, senzaSuggerimento){
@@ -32175,7 +32175,8 @@ function servizioPiano(nRis, senzaSuggerimento){
       cur=i+u.n;
       righe.push({tipo:"canale", sezione:sez.nome, nome:u.rows.length>1 ? (u.rows[0].name.replace(/\s*\d*$/,"")||u.rows[0].name)+" ×"+u.rows.length : u.rows[0].name, da:u.da, a:slots[i].foh, chiave:u.rk, canali:u.rows.length});
     }
-    if(si<sezOrd.length-1 && nRis>0){
+    /* una sola riserva a fine FAMIGLIA «Archi» (violini I e II, viole, celli, contrabbassi): fra una sezione d'archi e la successiva non si lascia niente */
+    if(si<sezOrd.length-1 && nRis>0 && !((sez.fam||sez.nome)===(sezOrd[si+1].fam||sezOrd[si+1].nome))){
       var messe=0;
       while(messe<nRis && cur<slots.length){ var sl=slots[cur]; if(!sl.bloccato){ sl.bloccato=true; sl.nuovaRis=true; (nuove[sl.boxId]=nuove[sl.boxId]||[]).push(sl.port); nuoveN++; messe++; righe.push({tipo:"riservata", sezione:sez.nome, a:sl.foh}); } cur++; }
       if(messe<nRis) return errore();

@@ -5044,7 +5044,7 @@ t("Ordina come il service: il piano mette le sezioni in ordine (basso, chitarre,
   eq(A.servizioSnapshot(), prima, "il piano non scrive nulla (stato cab e box identici)"); eq(A.docToJSON(), docPrima, "documento identico");
   eq(A.servizioPiano(0).conteggi.riservate, 0, "0 righe riservate = solo l'ordine");
   eq(A.servizioPiano(2).conteggi.spostati > 0, true, "i canali che cambiano numero sono contati"); eq(A.servizioPiano(1).conteggi.riservate, 3, "1 per sezione");
-  eq(A.servizioPiano(99).n, 8, "tetto a 8"); eq(A.servizioPiano(-3).n, 0, "mai negativo"); eq(A.servizioPiano(NaN).n, 2, "default 2");
+  eq(A.servizioPiano(99).n, 8, "tetto a 8"); eq(A.servizioPiano(-3).n, 0, "mai negativo"); eq(A.servizioPiano(NaN).n, 1, "default 1 (decisione 13/11)");
   ok(nb >= 1 && ng >= 1, "fixture sensata");
   reset();
 });
@@ -5132,7 +5132,7 @@ t("Ordina come il service: servizio dello stato (normalizeState tiene solo cose 
   const s0 = JSON.parse(JSON.stringify(A.state));
   s0.cab.servizio = { n: 3, pins: ["a#0", "grp:b", 5, "", "x".repeat(500)], res: { bx: [2, 3, 3, 99, "z"], vuota: [] } };
   const n = A.normalizeState(s0); eq(n.cab.servizio, { n: 3, pins: ["a#0", "grp:b"], res: { bx: [2, 3] } }, "pin stringhe corte, porte 1-64 senza doppioni, box vuote via");
-  s0.cab.servizio = { n: 99, pins: ["k"], res: {} }; eq(A.normalizeState(s0).cab.servizio.n, 2, "n fuori range: il default");
+  s0.cab.servizio = { n: 99, pins: ["k"], res: {} }; eq(A.normalizeState(s0).cab.servizio.n, 1, "n fuori range: il default (1)");
   s0.cab.servizio = { n: 1, pins: [], res: {} }; ok(!("servizio" in A.normalizeState(s0).cab) || A.normalizeState(s0).cab.servizio === null, "vuoto: nessun segno");
   s0.cab.servizio = "ciao"; ok(!A.normalizeState(s0).cab.servizio, "non un oggetto: via");
   const html = readFileSync(join(root, "app/index.html"), "utf8");
@@ -5142,6 +5142,22 @@ t("Ordina come il service: servizio dello stato (normalizeState tiene solo cose 
   eq((appjs.match(/servizioApplica\(/g) || []).length, 2, "servizioApplica: la definizione e una sola chiamata, dal clic su «Applica»: mai automatica");
   ok(/go\.onclick=function\(\)\{[\s\S]{0,160}var snap=servizioApplica\(piano\)/.test(appjs), "la chiamata sta nel clic di «Applica»");
   ok(/rip\.onclick=function\(\)\{ if\(__servizioUndo && servizioRipristina\(__servizioUndo\)\)/.test(appjs), "«Ripristina» riporta lo snapshot");
+});
+t("Ordina come il service: archi = una sola riserva a fine famiglia (non dopo ogni sezione); default 1", () => {
+  eq(A.SERVIZIO_N_DEFAULT, 1, "default di una riga riservata per sezione");
+  ok(/id="svcOrdN" maxlength="1" value="1"/.test(readFileSync(join(root, "app/index.html"), "utf8").replace('inputmode="numeric" ', "")), "e la finestra parte da 1");
+  svFix(["rio3224d2"], [["bassstand", 1], ["vlnpost", 2], ["violoncello", 2], ["contrabbasso", 1], ["astamic", 2]]);
+  const p = A.servizioPiano(2); ok(p.ok, p.motivo);
+  eq(p.righe.filter((r) => r.tipo === "sezione").map((r) => r.nome), ["Basso", "Violini I", "Celli", "Contrabbassi", "Voci"], "sezioni d'archi separate nell'elenco");
+  const seq = p.righe.filter((r) => r.tipo !== "sezione").map((r) => r.tipo === "riservata" ? "R" : (r.sezione[0]));
+  const s0 = seq.join("");
+  ok(/^B+RRV+C+X?/.test(s0) || s0.replace(/R/g, "").length > 0, "ordine: " + s0);
+  const nomiSez = []; let ultima = null; p.righe.forEach((r) => { if (r.tipo === "sezione") ultima = r.nome; else if (r.tipo === "riservata") nomiSez.push(ultima); });
+  eq(nomiSez, ["Basso", "Basso", "Contrabbassi", "Contrabbassi"], "2 riserve dopo il Basso e 2 dopo l'ultima sezione d'archi (Contrabbassi), nessuna fra violini, celli e contrabbassi");
+  eq(p.conteggi.riservate, 4, "4 riservate in tutto");
+  const p1 = A.servizioPiano(1); eq(p1.conteggi.riservate, 2, "con 1: una dopo il Basso, una a fine Archi");
+  const nn = p.righe.filter((r) => r.tipo !== "sezione").map((r) => r.a); eq(nn, nn.map((_, i) => i + 1), "numeri consecutivi");
+  reset();
 });
 t("Ordina come il service: ogni tipo di strumento nella sua sezione (legni, ottoni, violini I e II, viole, celli, contrabbassi, backline, voci)", () => {
   reset();
@@ -5226,7 +5242,7 @@ t("Ordina come il service: Ripristina rimette la memoria dell'azione precedente;
   const sn = JSON.parse(prima); ok("cabOn" in sn && "manual" in sn && "order" in sn && "servizio" in sn && "boxes" in sn, "lo snapshot contiene cab.on, pin, ordine, memoria e porte riservate delle box");
   ok(Object.keys(sn.boxes).length >= 1, "e le box con le loro riservate");
   reset();
-  ok(/nIn\.value=String\(\(state\.cab&&state\.cab\.servizio&&state\.cab\.servizio\.n!=null\) \? state\.cab\.servizio\.n : SERVIZIO_N_DEFAULT\);/.test(appjs), "la finestra parte da 2 o dall'ultimo numero scelto");
+  ok(/nIn\.value=String\(\(state\.cab&&state\.cab\.servizio&&state\.cab\.servizio\.n!=null\) \? state\.cab\.servizio\.n : SERVIZIO_N_DEFAULT\);/.test(appjs), "la finestra parte da 1 o dall'ultimo numero scelto");
   ok(/var p0=servizioPiano\(parseInt\(nIn\.value,10\)\); if\(!p0\.ok && p0\.suggerito>=0\)\{ nIn\.value=String\(p0\.suggerito\); \}/.test(appjs), "se col numero di partenza non entra, si parte dal più alto che entra");
   ok(/n=Math\.max\(0, Math\.min\(SERVIZIO_N_MAX, n\)\);\n\s*piano=servizioPiano\(n\);/.test(appjs), "il numero scelto è limitato a 0-8");
   ok(/go\.disabled=!piano\.ok;/.test(appjs), "«Applica» spento se il piano non entra");
