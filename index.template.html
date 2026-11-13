@@ -37099,7 +37099,7 @@ function outputListServicePdf(shared){
     blocchi.forEach(function(bl){
       var b=bl.box, mod=(b.hw&&STAGEBOX_DB[b.hw]) ? STAGEBOX_DB[b.hw].model : "";
       testa((b.sbId?("ID "+b.sbId):("Box "+b.letter))+(mod?" \u2014 "+mod:""), "Uscite "+bl.da+"-"+(bl.da+bl.righe.length-1)+" \u00b7 usate "+bl.usate+" su "+b.outCap+" \u00b7 pagina "+(pag+1)+" di "+totPag);
-      var y0=38, rh=Math.min(9.5,(196-y0-14)/(K+1)), fs=Math.max(7.5, Math.min(10, rh*1.25));
+      var y0=38, rh=Math.min(9.5,(190-y0-14)/(K+1)), fs=Math.max(7.5, Math.min(10, rh*1.25));
       doc.setFont("helvetica","bold"); doc.setFontSize(fs); doc.setTextColor("#0891b2");
       ["OUT","MIX","MACCHINA","CUFFIE","MONITOR e P.A."].forEach(function(h,i){ doc.text(h, cols[i], y0+4); });
       doc.setDrawColor("#0891b2"); doc.setLineWidth(0.4); doc.line(M, y0+5.6, W-M, y0+5.6);
@@ -37120,7 +37120,7 @@ function outputListServicePdf(shared){
         y+=rh;
       });
       doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor("#6b7280");
-      doc.text("MIX = mandata monitor \u00b7 cuffie = mandata alla macchina cuffie \u00b7 L/R = le due uscite di una coppia stereo \u00b7 * = porta scelta a mano \u00b7 \u2014 = uscita libera", M, 203);
+      doc.text("MIX = mandata monitor \u00b7 cuffie = mandata alla macchina cuffie \u00b7 L/R = le due uscite di una coppia stereo \u00b7 * = porta scelta a mano \u00b7 \u2014 = uscita libera", M, 194);   /* sopra il «1 di N» del piè (margine basso ≥15 mm) */
     });
     if(L.unpatched && L.unpatched.length){
       testa("Da patchare (out esaurite)", "Uscite console senza porta \u00b7 pagina "+(pag+1)+" di "+totPag);
