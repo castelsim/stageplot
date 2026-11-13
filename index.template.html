@@ -2474,6 +2474,28 @@
   </div>
 </div>
 
+<!-- ORDINA COME IL SERVICE (13/11/2026, S2b): anteprima prima/dopo dei numeri FOH, poi Applica; Ripristina rimette tutto com'era. -->
+<div class="modal" id="svcOrdModal" hidden>
+  <div class="wl-card" role="dialog" aria-modal="true" aria-labelledby="svcOrdTitle">
+    <div class="wl-head">
+      <span class="wl-badge">Channel list</span>
+      <div class="wl-title" id="svcOrdTitle">Ordina come il service</div>
+      <div class="wl-tag">Canali in ordine di sezione, con righe riservate alla fine di ognuna per aggiungere senza rinumerare. Le porte scelte a mano e le righe di servizio col nome restano dove sono.</div>
+    </div>
+    <div class="wl-body">
+      <label class="ss-field"><span>Righe riservate per sezione</span><span class="ss-inwrap"><input type="text" inputmode="numeric" id="svcOrdN" maxlength="1" value="1" autocomplete="off" aria-label="Righe riservate per sezione"></span></label>
+      <div class="hint" id="svcOrdSum" role="status"></div>
+      <div class="ss-err" id="svcOrdErr" role="alert" hidden></div>
+      <div class="svco-lista" id="svcOrdLista" role="list" aria-label="Anteprima dei numeri"></div>
+      <div class="wl-foot ss-foot">
+        <button type="button" class="wl-ghost" id="svcOrdAnnulla">Annulla</button>
+        <button type="button" class="wl-cta" id="svcOrdGo">Applica</button>
+        <button type="button" class="wl-ghost" id="svcOrdRip" hidden>Ripristina com'era</button>
+        <button type="button" class="wl-cta" id="svcOrdFatto" hidden>Chiudi</button>
+      </div>
+    </div>
+  </div>
+</div>
 <!-- PACCHETTO PER DATA (12/11/2026): la finestrella dell'Esporta con i documenti da mettere nello zip. -->
 <div class="modal" id="pkgModal" hidden>
   <div class="wl-card" role="dialog" aria-modal="true" aria-labelledby="pkgTitle">
@@ -10012,6 +10034,7 @@ function normalizeState(s){
     showInputs:cb.showInputs!==false, showReturns:cb.showReturns!==false, showNet:cb.showNet!==false, looms:cb.looms!==false,
     lockIn:!!cb.lockIn, lockOut:!!cb.lockOut, manual:man,
     style:normCabStyle(cb.style), styleOut:normCabStyle(cb.styleOut),   /* stile cavi per layer: angoli retti (orto) · smussati (curve) · diretto (dir); il vecchio "loom" migra a orto */
+    servizio:servizioPulito(cb.servizio),   /* «Ordina come il service» (13/11): cosa ha messo l'ultima volta, per poterlo rifare senza sovrapporsi */
     order:Array.isArray(cb.order)?cb.order.filter(function(k){return typeof k==="string";}):null,           /* ordine manuale Input list */
     monOrder:Array.isArray(cb.monOrder)?cb.monOrder.filter(function(k){return typeof k==="string";}):null }; /* ordine manuale Monitor list */
   var eb=s.elec||{};   /* cablaggio elettrico calcolato */
@@ -32066,6 +32089,191 @@ function openServiziPop(ev){
   pop.style.left=Math.max(8,x)+"px"; pop.style.top=Math.max(8,y)+"px";
   setTimeout(function(){ document.addEventListener("click", function chiudi(){ document.removeEventListener("click", chiudi); var p=document.getElementById("svcPop"); if(p) p.remove(); }); }, 30);
 }
+/* ═══ «ORDINA COME IL SERVICE» (13/11/2026, specifica S2b dalla posta di produzione) ═══
+   Un'AZIONE, mai un default: il pulsante, accanto a «Righe di servizio», riordina i canali per sezione (batteria, percussioni, basso, chitarre,
+   tastiere, legni, ottoni, violini I e II, viole, celli, contrabbassi, voci…) e lascia N porte RISERVATE alla fine di ogni sezione, così aggiungere un
+   canale non rinumera il resto. I numeri FOH seguono le porte (`fohBase + porta`): quindi si lavora sulle porte, con gli strumenti che l'app ha già
+   — la porta scelta a mano (`state.cab.manual[chiave].{box,port}`) e le porte riservate (`sbRes`). Prima si vede l'ANTEPRIMA (numero FOH vecchio →
+   nuovo, riservate per sezione); «Applica» scrive; «Ripristina» riporta ESATTAMENTE lo stato di prima (anche Annulla del browser, un passo solo).
+   Si rispetta: capacità e ordine delle stage box, coppie stereo (L dispari / R pari sul numero FOH), multipolari (porte consecutive su una box),
+   le porte scelte dall'utente a mano (fisse), le righe di servizio con un nome (ancorate alla loro porta) e le riservate dell'utente.
+   Ciò che ha messo l'ultima volta l'azione (`state.cab.servizio`) si ricalcola da capo: rifarla dopo aver aggiunto uno strumento non accumula riservate. */
+var SERVIZIO_N_DEFAULT=1, SERVIZIO_N_MAX=8;   /* default sobrio: 1 riga riservata per sezione (decisione 13/11); modificabile */
+var SERVIZIO_SEZIONI={10:"Batteria", 15:"Percussioni", 20:"Basso", 30:"Chitarre", 40:"Tastiere", 45:"Backline", 60:"Archi", 70:"Voci", 80:"DI e tecnica", 85:"Playback", 90:"Altro"};
+function servizioSezione(it){
+  var b=clBank(it.type), T=TYPES[it.type]||{}, ty=String(it.type).toLowerCase();
+  if(b===50) return T.sub==="Legni" ? {ord:501, nome:"Legni"} : (T.sub==="Ottoni" ? {ord:502, nome:"Ottoni"} : {ord:509, nome:"Fiati"});
+  if(b===60){
+    if(/^vln|violin/.test(ty)) return it.vsec===2 ? {ord:602, nome:"Violini II", fam:"Archi"} : {ord:601, nome:"Violini I", fam:"Archi"};
+    if(/viola/.test(ty)) return {ord:603, nome:"Viole", fam:"Archi"};
+    if(/violoncell|cello/.test(ty)) return {ord:604, nome:"Celli", fam:"Archi"};
+    if(/contrabbass|^cbx/.test(ty)) return {ord:605, nome:"Contrabbassi", fam:"Archi"};
+    return {ord:609, nome:"Archi", fam:"Archi"};
+  }
+  return {ord:b*10, nome:SERVIZIO_SEZIONI[b]||"Altro"};
+}
+function servizioPulito(v){
+  if(!v || typeof v!=="object" || Array.isArray(v)) return null;
+  var pins=Array.isArray(v.pins) ? v.pins.filter(function(k){ return typeof k==="string" && k && k.length<=ROUTE_KEY_MAX; }).slice(0,600) : [], res={}, nr=0;
+  if(v.res && typeof v.res==="object" && !Array.isArray(v.res)) Object.keys(v.res).slice(0,40).forEach(function(b){
+    var l=Array.isArray(v.res[b]) ? v.res[b].map(Number).filter(function(pn,i,a){ return pn>=1 && pn<=64 && a.indexOf(pn)===i; }).slice(0,64) : [];
+    if(l.length){ res[String(b).slice(0,ITEM_ID_MAX)]=l; nr+=l.length; } });
+  if(!pins.length && !nr) return null;
+  var n=Math.round(+v.n); return { n:(n>=0 && n<=8) ? n : 1, pins:pins, res:res };   /* letterali: normalizeState può girare prima che le var di questo blocco siano assegnate */
+}
+/* il piano, senza scrivere niente: {ok, motivo, righe:[{tipo:"sezione"|"canale"|"riservata", …}], unita:[…], nuoveRiservate:{boxId:[porte]}, conteggi} */
+function servizioPiano(nRis, senzaSuggerimento){
+  nRis=Math.max(0, Math.min(SERVIZIO_N_MAX, (nRis==null||isNaN(+nRis)) ? SERVIZIO_N_DEFAULT : Math.round(+nRis)));
+  var pl; try{ pl=patchList(); }catch(_e){ return {ok:false, motivo:"Non riesco a leggere la channel list."}; }
+  var R=pl.R, man=(state.cab&&state.cab.manual)||{}, prev=(state.cab&&state.cab.servizio)||{pins:[],res:{}};
+  var prevPins={}; (prev.pins||[]).forEach(function(k){ prevPins[k]=1; });
+  var boxes=(R.boxes||[]).filter(function(b){ return !b.auto && !b.foh && !b.wantUp && b.fohBase!=null; }).sort(function(a,b){ return a.fohBase-b.fohBase; });
+  if(!boxes.length) return {ok:false, motivo:"Serve almeno una stage box (o una console con ingressi locali) sul palco: i numeri FOH seguono le sue porte."};
+  var slots=[], slotAt={};
+  boxes.forEach(function(b){ for(var pn=1;pn<=b.cap;pn++){ var sl={box:b, boxId:b.id, port:pn, foh:b.fohBase+pn, bloccato:false, nuovaRis:false, i:slots.length}; slots.push(sl); slotAt[b.id+"|"+pn]=sl; } });
+  /* riservate esistenti: fisse, tranne quelle messe dall'ultima azione (e senza nome) */
+  boxes.forEach(function(b){ (b.res||[]).forEach(function(pn){
+    var mia=((prev.res||{})[b.id]||[]).indexOf(pn)>-1, nome=b.resNome && b.resNome[pn];
+    if(mia && !nome) return;
+    var sl=slotAt[b.id+"|"+pn]; if(sl) sl.bloccato=true; }); });
+  var itemById={}; (state.items||[]).forEach(function(it){ itemById[it.id]=it; });
+  var rows=pl.rows.filter(function(r){ return !r.reserved && !r.spare && r.key && r.itemId!=null && !r.via; });
+  var unita=[], perChiave={}, ultima={};
+  rows.forEach(function(r, ri){
+    var it=itemById[r.itemId]; if(!it) return;
+    var multi=(cabItemInputs(it).length>=2 && !isPerMusicianMulti(it)), rk=multi ? ("grp:"+it.id) : r.key;
+    var u=perChiave[rk];
+    if(multi){ if(!u){ u={rk:rk, chiavi:[], rows:[], it:it, multipolare:true, ord:ri}; perChiave[rk]=u; unita.push(u); } u.rows.push(r); u.chiavi.push(r.key); return; }
+    if(r.stereoPair && ultima[it.id] && !ultima[it.id].multipolare){ var up=ultima[it.id]; up.rows.push(r); up.chiavi.push(r.key); up.coppia=true; return; }
+    u={rk:rk, chiavi:[r.key], rows:[r], it:it, multipolare:false, ord:ri}; perChiave[rk]=u; unita.push(u); ultima[it.id]=u;
+  });
+  unita.forEach(function(u){
+    u.sez=servizioSezione(u.it); u.n=u.rows.length;
+    u.pinUtente=!!(man[u.rk] && man[u.rk].port>0 && !prevPins[u.rk]) || (u.coppia && !u.multipolare && u.chiavi.some(function(k){ return man[k] && man[k].port>0 && !prevPins[k]; }));
+    u.da=u.rows[0].foh;
+    if(u.pinUtente){ u.rows.forEach(function(r){ var sl=slotAt[r.boxId+"|"+r.port]; if(sl) sl.bloccato=true; }); }
+  });
+  var mobili=unita.filter(function(u){ return !u.pinUtente; }).sort(function(a,b){ return (a.sez.ord-b.sez.ord) || (a.ord-b.ord); });
+  /* ordine delle sezioni (anche quelle con soli canali fissi, per l'anteprima) */
+  var cur=0;
+  function trova(da, n, dispari){
+    for(var i=da;i<=slots.length-n;i++){
+      var ok=true, box=slots[i].boxId;
+      for(var k=0;k<n;k++){ var sl=slots[i+k]; if(sl.bloccato || sl.boxId!==box || sl.port!==slots[i].port+k){ ok=false; break; } }
+      if(ok && dispari && slots[i].foh%2!==1) ok=false;
+      if(ok) return i; }
+    return -1;
+  }
+  var tot=mobili.reduce(function(a,u){ return a+u.n; },0), liberi=slots.filter(function(sl){ return !sl.bloccato; }).length;
+  var sezOrd=[], visto={}; mobili.forEach(function(u){ if(!visto[u.sez.nome]){ visto[u.sez.nome]=1; sezOrd.push(u.sez); } });
+  var nSez=sezOrd.length, fine=false;
+  function errore(){
+    var sug=-1; if(!senzaSuggerimento) for(var m=nRis-1; m>=0 && sug<0; m--){ if(servizioPiano(m,true).ok) sug=m; }
+    return {ok:false, suggerito:sug, motivo:"Non c'è posto: servono "+tot+" canali"+(nRis&&nSez>1 ? " + "+(nSez-1)*nRis+" riservate" : "")+" e le stage box ne hanno "+liberi+" liberi (le porte già riservate o scelte a mano non si toccano). "+
+      (sug>=0 ? (sug===0 ? "Senza righe riservate entra." : "Con "+sug+(sug===1?" riga riservata":" righe riservate")+" per sezione entra.") : (nRis?"Riduci le righe riservate per sezione o aggiungi una stage box.":"Aggiungi una stage box."))}; }
+  if(tot>liberi) return errore();
+  var righe=[], nuove={}, nuoveN=0;
+  for(var si=0; si<sezOrd.length; si++){
+    var sez=sezOrd[si];
+    righe.push({tipo:"sezione", nome:sez.nome});
+    var dellaSez=mobili.filter(function(u){ return u.sez.nome===sez.nome; });
+    for(var ui=0; ui<dellaSez.length; ui++){
+      var u=dellaSez[ui], dispari=!!(u.coppia || (u.multipolare && u.rows.some(function(r){ return r.stereoPair; })));
+      var i=trova(cur, u.n, dispari); if(i<0) return errore();
+      u.nuovo={boxId:slots[i].boxId, port:slots[i].port, foh:slots[i].foh, box:slots[i].box};
+      for(var k=0;k<u.n;k++) slots[i+k].bloccato=true;
+      cur=i+u.n;
+      righe.push({tipo:"canale", sezione:sez.nome, nome:u.rows.length>1 ? (u.rows[0].name.replace(/\s*\d*$/,"")||u.rows[0].name)+" ×"+u.rows.length : u.rows[0].name, da:u.da, a:slots[i].foh, chiave:u.rk, canali:u.rows.length});
+    }
+    /* una sola riserva a fine FAMIGLIA «Archi» (violini I e II, viole, celli, contrabbassi): fra una sezione d'archi e la successiva non si lascia niente */
+    if(si<sezOrd.length-1 && nRis>0 && !((sez.fam||sez.nome)===(sezOrd[si+1].fam||sezOrd[si+1].nome))){
+      var messe=0;
+      while(messe<nRis && cur<slots.length){ var sl=slots[cur]; if(!sl.bloccato){ sl.bloccato=true; sl.nuovaRis=true; (nuove[sl.boxId]=nuove[sl.boxId]||[]).push(sl.port); nuoveN++; messe++; righe.push({tipo:"riservata", sezione:sez.nome, a:sl.foh}); } cur++; }
+      if(messe<nRis) return errore();
+    }
+  }
+  var spostati=mobili.filter(function(u){ return u.da!==u.nuovo.foh; }).length;
+  return {ok:true, n:nRis, righe:righe, unita:mobili, nuoveRiservate:nuove, conteggi:{canali:tot, sezioni:nSez, riservate:nuoveN, fissi:unita.length-mobili.length, spostati:spostati}};
+}
+/* tutto ciò che l'azione tocca, per poterlo rimettere com'era */
+function servizioSnapshot(){
+  var c=state.cab||{}, boxes={};
+  (state.items||[]).forEach(function(it){ if(it.sbRes!==undefined || it.sbResNome!==undefined) boxes[it.id]={sbRes:it.sbRes, sbResNome:it.sbResNome}; });
+  return JSON.stringify({ cabOn:c.on, manual:c.manual||null, order:c.order===undefined?null:c.order, servizio:c.servizio||null, boxes:boxes });
+}
+function servizioRipristina(snapJson){
+  var sn; try{ sn=JSON.parse(snapJson); }catch(_e){ return false; }
+  state.cab=state.cab||{}; state.cab.on=sn.cabOn; state.cab.manual=sn.manual||{}; state.cab.order=sn.order; if(sn.servizio) state.cab.servizio=sn.servizio; else delete state.cab.servizio;
+  (state.items||[]).forEach(function(it){
+    var b=sn.boxes[it.id];
+    if(b){ if(b.sbRes!==undefined) it.sbRes=b.sbRes; else delete it.sbRes; if(b.sbResNome!==undefined) it.sbResNome=b.sbResNome; else delete it.sbResNome; }
+    else { delete it.sbRes; delete it.sbResNome; }
+  });
+  __cabRes=null; save(); render(); try{ renderChannels(); }catch(_e){}
+  return true;
+}
+function servizioApplica(piano){
+  if(!piano || !piano.ok) return null;
+  var snap=servizioSnapshot();
+  state.cab=state.cab||{}; if(!state.cab.on) state.cab.on=true;
+  var man=state.cab.manual=state.cab.manual||{}, prev=state.cab.servizio||{pins:[],res:{}};
+  /* 1. si toglie ciò che aveva messo l'ultima volta */
+  (prev.pins||[]).forEach(function(k){ var m=man[k]; if(!m) return; delete m.port; delete m.box; if(!Object.keys(m).length) delete man[k]; });
+  (state.items||[]).forEach(function(it){ var l=(prev.res||{})[it.id]; if(!l || !Array.isArray(it.sbRes)) return;
+    var nm=it.sbResNome||{}; it.sbRes=it.sbRes.filter(function(pn){ return l.indexOf(pn)<0 || nm[pn]; }); if(!it.sbRes.length) delete it.sbRes; });
+  /* 2. porte nuove: un pin per canale (o per multipolare) */
+  var pins=[];
+  piano.unita.forEach(function(u){
+    if(u.multipolare){ var m=cabManual(u.rk); m.box=u.nuovo.boxId; m.port=u.nuovo.port; pins.push(u.rk); }
+    else u.chiavi.forEach(function(k,j){ var m=cabManual(k); m.box=u.nuovo.boxId; m.port=u.nuovo.port+j; pins.push(k); });
+  });
+  /* 3. riservate nuove, sulle box */
+  var res={};
+  Object.keys(piano.nuoveRiservate).forEach(function(bid){
+    var it=(state.items||[]).filter(function(x){ return x.id===bid; })[0]; if(!it) return;
+    var arr=Array.isArray(it.sbRes) ? it.sbRes.slice() : [];
+    piano.nuoveRiservate[bid].forEach(function(pn){ if(arr.indexOf(pn)<0) arr.push(pn); });
+    arr.sort(function(a,b){ return a-b; }); it.sbRes=arr; res[bid]=piano.nuoveRiservate[bid].slice();
+  });
+  state.cab.servizio={ n:piano.n, pins:pins, res:res };
+  state.cab.order=null;   /* l'ordine a mano della lista darebbe l'ultima parola: l'ordine ora è quello dei numeri */
+  __cabRes=null; save(); render(); try{ renderChannels(); }catch(_e){}
+  return snap;
+}
+var __servizioUndo=null;
+function servizioFinestra(){
+  var m=document.getElementById("svcOrdModal"); if(!m) return;
+  var nIn=document.getElementById("svcOrdN"), lista=document.getElementById("svcOrdLista"), sum=document.getElementById("svcOrdSum"), err=document.getElementById("svcOrdErr"),
+      go=document.getElementById("svcOrdGo"), ann=document.getElementById("svcOrdAnnulla"), rip=document.getElementById("svcOrdRip"), ok=document.getElementById("svcOrdFatto");
+  var piano=null;
+  function stato(prima){ go.hidden=!prima; ann.hidden=!prima; nIn.disabled=!prima; rip.hidden=prima; ok.hidden=prima; }
+  function mostra(){
+    var n=parseInt(nIn.value,10); if(isNaN(n)) n=SERVIZIO_N_DEFAULT; n=Math.max(0, Math.min(SERVIZIO_N_MAX, n));
+    piano=servizioPiano(n); lista.innerHTML=""; err.hidden=true; go.disabled=!piano.ok;
+    if(!piano.ok){ err.textContent=piano.motivo; err.hidden=false; sum.textContent=""; return; }
+    var c=piano.conteggi;
+    sum.textContent=c.canali+" canali in "+c.sezioni+(c.sezioni===1?" sezione":" sezioni")+" · "+c.riservate+(c.riservate===1?" riga riservata nuova":" righe riservate nuove")+" · "+c.spostati+(c.spostati===1?" canale cambia numero":" canali cambiano numero")+(c.fissi?" · "+c.fissi+" fissi (scelti a mano)":"");
+    piano.righe.forEach(function(r){
+      var d=document.createElement("div");
+      if(r.tipo==="sezione"){ d.className="svco-sez"; d.textContent=r.nome; }
+      else if(r.tipo==="riservata"){ d.className="svco-ris"; d.innerHTML='<span class="svco-n">'+r.a+'</span><span class="svco-nm">— riservato —</span>'; }
+      else { d.className="svco-can"+(r.da!==r.a?" cambia":""); d.innerHTML='<span class="svco-n">'+r.a+'</span><span class="svco-nm"></span><span class="svco-da"></span>'; d.querySelector(".svco-nm").textContent=r.nome; d.querySelector(".svco-da").textContent=(r.da==null?"senza numero":(r.da===r.a?"invariato":"era "+r.da)); }
+      lista.appendChild(d); });
+  }
+  nIn.value=String((state.cab&&state.cab.servizio&&state.cab.servizio.n!=null) ? state.cab.servizio.n : SERVIZIO_N_DEFAULT);
+  /* se col numero di partenza non entra, si parte dal più alto che entra (e lo si dice): meglio un'anteprima che un errore */
+  var p0=servizioPiano(parseInt(nIn.value,10)); if(!p0.ok && p0.suggerito>=0){ nIn.value=String(p0.suggerito); }
+  nIn.oninput=mostra; stato(true); mostra();
+  go.onclick=function(){
+    if(typeof custEditorAttivo==="function" && custEditorAttivo()){ custEditorAvvisa(); return; }
+    var snap=servizioApplica(piano); if(!snap){ return; }
+    __servizioUndo=snap; stato(false); lista.innerHTML=""; err.hidden=true; sum.textContent="Fatto: i canali sono in ordine di sezione, con le righe riservate. Se non va bene, «Ripristina» rimette tutto com'era (anche Annulla della barra).";
+  };
+  ann.onclick=function(){ m.hidden=true; };
+  ok.onclick=function(){ m.hidden=true; };
+  rip.onclick=function(){ if(__servizioUndo && servizioRipristina(__servizioUndo)){ __servizioUndo=null; sum.textContent="Ripristinato: tutto com'era prima."; rip.hidden=true; } };
+  m.hidden=false; try{ nIn.focus(); }catch(_e){}
+}
 function renderPatchPanel(){
   var sec=document.getElementById("patchSec"); if(!sec) return;
   sec.style.display = patchActive ? "block" : "none";   /* sezione presente SOLO se attivata dal catalogo */
@@ -32112,7 +32320,10 @@ function renderPatchPanel(){
     cs.title="Porte in uso sulla stage box"; bar.appendChild(cs); }
   if(boxReali.length){ var sv=document.createElement("button"); sv.type="button"; sv.id="svcBtn"; sv.className="btn svc-btn"; sv.textContent="Righe di servizio";
     sv.title="Playback, talkback, EFX, video, radio, spare: porte riservate con il loro nome";
-    sv.addEventListener("click", function(e){ e.stopPropagation(); openServiziPop(e); }); bar.appendChild(sv); }
+    sv.addEventListener("click", function(e){ e.stopPropagation(); openServiziPop(e); }); bar.appendChild(sv);
+    var so=document.createElement("button"); so.type="button"; so.id="svcOrdBtn"; so.className="btn svc-btn"; so.textContent="Ordina come il service";
+    so.title="Riordina i canali per sezione e lascia righe riservate alla fine di ognuna: prima vedi l'anteprima, poi decidi";
+    so.addEventListener("click", function(e){ e.stopPropagation(); servizioFinestra(); }); bar.appendChild(so); }
   host.appendChild(bar);
 
   pl.rows.forEach(function(r){
