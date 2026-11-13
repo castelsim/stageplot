@@ -2438,6 +2438,12 @@
           <select id="pdfMisStile"><option value="std" selected>12 × 2 m · h40 (come sempre)</option><option value="mx">12mX2mX40cm</option><option value="xh">12x2 H40</option><option value="mt">mt 12 x 2 x h 0,40</option></select></div>
         <label class="chk" id="pdfOrganicoRow"><input type="checkbox" id="pdfOrganico"> Organico nel cartiglio <small class="lbl-note">— «Organico: 41 + 9» (strumentisti + voci), come il foglio Organico</small></label>
         <div class="hdr-saved" id="pdfTagliaHint" hidden><span id="pdfTagliaTesto"></span> <button type="button" class="btn" id="pdfTagliaBtn">Aggiungi al nome</button></div>
+        <!-- ALLEGATI RICHIESTI (13/11/2026, S14): elenco libero con stato; se resta qualcosa «da chiedere», «Prima di esportare» lo dice. Solo se l'utente lo usa. -->
+        <div id="pdfAllegati" class="pdf-all">
+          <div class="pdf-all-t">Allegati richiesti <small class="lbl-note">— facoltativo: se qualcuno resta «da chiedere» te lo ricordo prima di esportare</small></div>
+          <ul id="pdfAllegatiLista" class="pdf-all-l"></ul>
+          <div class="pdf-all-add"><input type="text" id="pdfAllegatiNome" maxlength="60" placeholder="es. Planimetria del teatro" autocomplete="off" aria-label="Nome dell'allegato"><button type="button" class="btn" id="pdfAllegatiAgg">Aggiungi</button></div>
+        </div>
         <label class="chk" id="pdfPesiRow"><input type="checkbox" id="pdfPesi"> Pesi (kg) <small class="lbl-note">— peso stimato dell'allestimento, in testata e nel rider</small></label>
         <!-- Telefono: le opzioni da scrivania stanno dietro questo, con la STESSA preferenza del
              pannello elemento — chi accende «tecnico» lo accende una volta, non due. -->
@@ -6739,7 +6745,7 @@ function nextVariantName(){ var n=0; VARIANTS.forEach(function(v){ var m=/^Varia
    data e contatti non erano mai diversi. Restano nello stato di ogni variante — lo schema e i file
    già salvati non cambiano — ma a ogni sincronizzazione quelli della variante attiva si scrivono
    nelle altre. */
-var CAMPI_DOCUMENTO=["misureStile","pdfOrganico","quoteDaTerra","organicoOrdine","titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","versione","latiTeatro","sonorizzazione","orari","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
+var CAMPI_DOCUMENTO=["allegatiRichiesti","misureStile","pdfOrganico","quoteDaTerra","organicoOrdine","titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","versione","latiTeatro","sonorizzazione","orari","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
 function propagaCampiDocumento(v){
   var src=v&&v.state; if(!src) return;
   VARIANTS.forEach(function(o){
@@ -9904,6 +9910,7 @@ function normalizeState(s){
   if(s.latiTeatro!==true) delete s.latiTeatro;   /* giardino e corte: spenti di serie, solo un true esplicito li accende (12/11/2026) */
   if(s.pdfOrganico!==true) delete s.pdfOrganico;   /* «Organico: N + M» nel cartiglio (13/11): solo un true esplicito la accende */
   if(s.quoteDaTerra!==true) delete s.quoteDaTerra;   /* quote delle pedane «da terra» (13/11): solo un true esplicito le accende */
+  s.allegatiRichiesti=allegatiPuliti(s.allegatiRichiesti); if(!s.allegatiRichiesti) delete s.allegatiRichiesti;   /* «Allegati richiesti» (S14, 13/11): solo se l'utente li usa */
   if(s.misureStile!=="mx" && s.misureStile!=="xh" && s.misureStile!=="mt") delete s.misureStile;   /* stile di scrittura delle misure in uscita (13/11): assente = «12 × 2 m · h40», come sempre */
   if(s.organicoOrdine!=="voci" && s.organicoOrdine!=="partitura") delete s.organicoOrdine;   /* ordine delle sezioni del foglio Organico (13/11): assente = Fiati prima */
   if(s.pdfPesi!==true) delete s.pdfPesi;   /* kg nel PDF: solo un true esplicito li accende (06/10/2026) */
@@ -19145,6 +19152,28 @@ function controlliPrimaDelExport(){
       add("data-nel-titolo","Il titolo dice "+dt[0].testo+" ma la data dell'evento è "+e[2]+"/"+e[1]+"/"+e[0]+".");
     }
   }
+  /* 6b · la stessa data sbagliata dentro la scaletta (S14, 13/11): scaletta riusata da una serata vecchia */
+  if(state.evDate){
+    var _e2=state.evDate.split("-"), _evTxt=_e2[2]+"/"+_e2[1]+"/"+_e2[0];
+    var _sc=[]; try{ (scalettaNorm(state.scaletta)||[]).forEach(function(v){ if(v){ _sc.push(v.titolo); _sc.push(v.note); } }); }catch(_e){}
+    var _ds=[]; _sc.forEach(function(t){ dateNelTitolo(t).forEach(function(d){ if(d.iso!==state.evDate) _ds.push(d.testo); }); });
+    if(_ds.length) add("data-nella-scaletta","La scaletta dice "+_ds[0]+" ma la data dell'evento è "+_evTxt+".");
+    /* (il testo del rider NON si controlla: cita volutamente date di altre edizioni, «sullo stage plot di Valdagno 22/12/2025»: falso allarme provato su un progetto vero, 13/11) */
+  }
+  /* 6c · stessa versione già esportata, contenuto diverso (S14): chi ha il file ha qualcosa di diverso con lo stesso nome */
+  try{
+    var _vN=versioneNumero();
+    if(_vN){
+      var _voce=(storicoPulito(state.storico)||[]).filter(function(e){ return e.v===_vN; })[0];
+      if(_voce && _voce.r && _voce.r.h){
+        var _cur=impronteDocumenti(), _cambiati=Object.keys(_cur).filter(function(k){ return (k in _voce.r.h) && _voce.r.h[k]!==_cur[k]; });
+        if(_cambiati.length) add("stessa-versione-cambiata","La v"+_vN+" è già stata esportata e da allora sono cambiati: "+_cambiati.map(function(k){ return DOC_NOMI[k]||k; }).join(", ")+". Chi ha il file della v"+_vN+" ha un contenuto diverso con lo stesso nome: aumenta la versione.");
+      }
+    }
+  }catch(_e){}
+  /* 6d · allegati richiesti ancora «da chiedere» (S14): solo se l'utente ha scritto l'elenco */
+  var _al=allegatiPuliti(state.allegatiRichiesti), _dc=(_al||[]).filter(function(a){ return a.s==="da chiedere"; });
+  if(_dc.length) add("allegati-da-chiedere",(_dc.length===1 ? "Allegato ancora da chiedere: " : _dc.length+" allegati ancora da chiedere: ")+_dc.map(function(a){ return a.n; }).join(", ")+".");
   /* 7 · manca il luogo (L1-b, dietro «Controllo tecnico»): titolo o data scritti ma il luogo è vuoto, quindi il PDF esce senza il posto */
   /* 8 · violini senza sezione accanto a violini con sezione (organico): il foglio non può dire I o II (Simone, 12/11) */
   var _og=organicoDati();
@@ -40247,10 +40276,26 @@ function riassuntoDocumento(){
   rows.forEach(function(r){ if(r.reserved || r.spare) return; can++; var m=r.micOff ? "" : String(r.mic||""); if(m){ m=m.slice(0,40); mic[m]=(mic[m]||0)+1; } });
   try{ mix=busList().count; }catch(_e){}
   var st=state.stage||{};
-  return { f:STORICO_FORMATO, pal:[Math.round(+st.w||0), Math.round(+st.d||0)], el:el, ped:ped, can:can, mix:mix, mic:mic, h:impronteDocumenti() };
+  return { f:STORICO_FORMATO, pal:[Math.round(+st.w||0), Math.round(+st.d||0)], el:el, ped:ped, can:can, mix:mix, mic:mic, h:impronteDocumenti(), ri:impronteClausoleRider() };
 }
 /* Impronta di CIASCUN documento del pacchetto (S10, richiesta di Simone 13/11: «cambiato / invariato da vN-1» accanto a ogni file): un hash breve del
    contenuto che quel documento stampa (non del progetto intero: un'asta in più non cambia il rider). Dentro il riassunto, quindi nello storico. */
+var DOC_NOMI={stageplot:"stage plot", inputlist:"channel list", outputlist:"output list", rider:"rider", organico:"organico", backline:"backline", lightslist:"lista luci", scaletta:"scaletta"};
+/* ═══ CONTROLLI DI COERENZA 2 (13/11/2026, specifica S14) ═══ «Allegati richiesti»: elenco libero (≤30 voci) con stato «ricevuto» / «da chiedere»;
+   se resta qualcosa «da chiedere» lo dice «Prima di esportare». Solo se l'utente lo usa (assente di serie). */
+function allegatiPuliti(l){
+  if(!Array.isArray(l)) return null;
+  var out=l.filter(function(a){ return a && typeof a==="object" && typeof a.n==="string" && a.n.trim(); }).slice(0,30)
+    .map(function(a){ return {n:a.n.trim().slice(0,60), s:(a.s==="ricevuto") ? "ricevuto" : "da chiedere"}; });
+  return out.length ? out : null;
+}
+function hashBreve(x){ var j; try{ j=JSON.stringify(x); }catch(_e){ j=""; } j=j||""; var n=5381; for(var i=0;i<j.length;i++){ n=((n<<5)+n+j.charCodeAt(i))|0; } return (n>>>0).toString(36); }
+function impronteClausoleRider(){
+  var r=(state.rider && typeof state.rider==="object") ? state.rider : {}, out={};
+  Object.keys(r).forEach(function(k){ if(typeof r[k]==="string" && r[k].trim()) out[k]=hashBreve(r[k]); });
+  return out;
+}
+var RIDER_CLAUSOLE_NOMI={sistema:"sistema audio", luci:"luci", personale:"personale", sedie:"sedie", note:"note", camerini:"camerini", parcheggi:"parcheggi"};
 function impronteDocumenti(){
   function h(x){ var j; try{ j=JSON.stringify(x); }catch(_e){ j=""; } j=j||""; var n=5381; for(var i=0;i<j.length;i++){ n=((n<<5)+n+j.charCodeAt(i))|0; } return (n>>>0).toString(36); }
   function g(f){ try{ return h(f()); }catch(_e){ return ""; } }
@@ -40310,6 +40355,12 @@ function riassuntoDiff(a, b){
   Object.keys(ma).concat(Object.keys(mb)).forEach(function(k){ ms[k]=1; });
   Object.keys(ms).sort().forEach(function(k){ var d=(mb[k]||0)-(ma[k]||0); if(d) dm.push((d>0?"+":"−")+Math.abs(d)+" "+k); });
   if(dm.length) righe.push("Microfoni: "+dm.join(", "));
+  /* S14: clausole del rider cambiate (solo se entrambi i riassunti le hanno: i vecchi non hanno `ri`) */
+  if(a.ri && b.ri){
+    var rk={}, rc=[]; Object.keys(a.ri).concat(Object.keys(b.ri)).forEach(function(k){ rk[k]=1; });
+    Object.keys(rk).sort().forEach(function(k){ if(a.ri[k]!==b.ri[k]) rc.push((RIDER_CLAUSOLE_NOMI[k]||k)+(!(k in a.ri) ? " (aggiunta)" : (!(k in b.ri) ? " (tolta)" : ""))); });
+    if(rc.length) righe.push("Clausole del rider cambiate: "+rc.join(", "));
+  }
   return righe;
 }
 function diffVersioniDati(){
@@ -40401,7 +40452,24 @@ function renderPdfUltimo(){
   el.textContent=tx; el.hidden=!tx;
   el.classList.toggle("vecchio", /^Modificato/.test(tx));
   try{ renderDiffVersioni(); }catch(_e){}
+  try{ renderAllegati(); }catch(_e){}
 }
+function renderAllegati(){
+  var ul=document.getElementById("pdfAllegatiLista"); if(!ul) return;
+  ul.innerHTML="";
+  (allegatiPuliti(state.allegatiRichiesti)||[]).forEach(function(a,i){
+    var li=document.createElement("li"), nm=document.createElement("span"), st=document.createElement("button"), x=document.createElement("button");
+    nm.textContent=a.n; st.type="button"; st.className="btn pdf-all-st"+(a.s==="ricevuto" ? " ok" : ""); st.textContent=a.s; st.title="Clic per cambiare: ricevuto / da chiedere";
+    x.type="button"; x.className="btn pdf-all-x"; x.textContent="\u2715"; x.setAttribute("aria-label","Togli «"+a.n+"»");
+    st.addEventListener("click", function(){ var l=allegatiPuliti(state.allegatiRichiesti)||[]; if(!l[i]) return; l[i].s=(l[i].s==="ricevuto") ? "da chiedere" : "ricevuto"; state.allegatiRichiesti=l; save(); renderAllegati(); });
+    x.addEventListener("click", function(){ var l=allegatiPuliti(state.allegatiRichiesti)||[]; l.splice(i,1); if(l.length) state.allegatiRichiesti=l; else delete state.allegatiRichiesti; save(); renderAllegati(); });
+    li.appendChild(nm); li.appendChild(st); li.appendChild(x); ul.appendChild(li); });
+}
+(function(){
+  var b=document.getElementById("pdfAllegatiAgg"), n=document.getElementById("pdfAllegatiNome"); if(!b || !n) return;
+  function aggiungi(){ var t=n.value.trim(); if(!t) return; var l=allegatiPuliti(state.allegatiRichiesti)||[]; if(l.length>=30) return; l.push({n:t, s:"da chiedere"}); state.allegatiRichiesti=allegatiPuliti(l); n.value=""; save(); renderAllegati(); }
+  b.addEventListener("click", aggiungi); n.addEventListener("keydown", function(e){ if(e.key==="Enter"){ e.preventDefault(); aggiungi(); } });
+})();
 function pdfGateErrori(run){
   /* Gate sugli errori critici (M-04) — spostato qui dall'interno di exportPdf (audit 27/07).
      Prima era un confirm() NATIVO del browser: chi spunta «impedisci a questa pagina di creare altre

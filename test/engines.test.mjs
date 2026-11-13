@@ -94,6 +94,7 @@ function reset() {
   delete A.state.scaletta;   /* scaletta (10/10): campo che esiste solo con almeno una voce */
   delete A.state.pdfOrganico;   /* «Organico: N + M» nel cartiglio (13/11): opzione spenta di serie */
   delete A.state.quoteDaTerra;   /* quote «da terra» (13/11): opzione spenta di serie; un test che la accende non deve lasciarla ai successivi */
+  delete A.state.allegatiRichiesti;   /* «Allegati richiesti» (13/11, S14): solo se l'utente li usa */
   delete A.state.misureStile;   /* stile delle misure in uscita (13/11): assente = come sempre */
   delete A.state.organicoOrdine;   /* ordine delle sezioni dell'organico (13/11): assente = Fiati prima */
   delete A.state.storico;   /* storico delle versioni (13/11, S10): si scrive solo esportando; un test che esporta non deve lasciarlo ai successivi */
@@ -5037,7 +5038,7 @@ t("Differenze versioni: il confronto in dettaglio (palco solo in profondità, or
 t("Differenze versioni: il riquadro dell'Esporta (nascosto di serie, solo lettura) e «Copia testo» sono nell'HTML e collegati", () => {
   const html = readFileSync(join(root, "app/index.html"), "utf8");
   ok(/id="pdfDiff"[^>]*hidden/.test(html) && ["pdfDiffT", "pdfDiffL", "pdfDiffMotivo", "pdfDiffCopia"].every((i) => html.indexOf('id="' + i + '"') > -1), "il riquadro nascosto di serie, con titolo, elenco, motivo e pulsante");
-  ok(/try\{ renderDiffVersioni\(\); \}catch\(_e\)\{\}\n\}/.test(appjs), "si aggiorna a ogni apertura dell'Esporta (renderPdfUltimo)");
+  ok(/try\{ renderDiffVersioni\(\); \}catch\(_e\)\{\}\n  try\{ renderAllegati\(\); \}catch\(_e\)\{\}\n\}/.test(appjs), "si aggiorna a ogni apertura dell'Esporta (renderPdfUltimo)");
   ok(/navigator\.clipboard\.writeText\(t\)\.then\(function\(\)\{ showToast\("Testo copiato"\); \}/.test(appjs), "«Copia testo» copia negli appunti");
   ok(/var dati=diffVersioniDati\(\); box\.hidden=!dati;/.test(appjs), "senza versione precedente il riquadro non compare");
 });
@@ -5430,6 +5431,61 @@ t("Quota da terra: opzione nel pannello del blocco, documento (non della scena),
   reset(); const st = JSON.parse(JSON.stringify(A.state)); st.quoteDaTerra = "si"; ok(!("quoteDaTerra" in A.normalizeState(st)), "solo un true esplicito la accende"); st.quoteDaTerra = true; eq(A.normalizeState(st).quoteDaTerra, true, "true resta");
   ok(/\+quotaDaTerraTesto\(it\) : scalaQuota\(it\)/.test(appjs), "l'etichetta della pedana la scrive");
   const f0 = A.firmaPdf(A.state); A.state.quoteDaTerra = true; ok(A.firmaPdf(A.state) !== f0, "è contenuto del documento: cambia l'impronta (il PDF cambia davvero)"); reset();
+});
+/* ═══ Controlli di coerenza 2 (13/11/2026, S14) ═══ */
+const ccId = (id) => A.controlliPrimaDelExport().filter((x) => x.id === id);
+t("Coerenza 2: una data diversa da quella dell'evento nella scaletta (non nel testo del rider); mai se è la stessa, mai senza data dell'evento", () => {
+  reset(); A.state.evDate = "2026-12-01"; A.state.titolo = "Gala";
+  eq(ccId("data-nella-scaletta").length + ccId("data-nel-rider").length, 0, "senza scaletta né rider: niente");
+  A.state.scaletta = [{ tipo: "brano", titolo: "Gran finale", durata: "3:30", note: "" }];
+  eq(ccId("data-nella-scaletta").length, 0, "scaletta senza date: niente");
+  A.state.scaletta = [{ tipo: "brano", titolo: "Gran finale 10/11/2024", durata: "3:30", note: "" }];
+  const a1 = ccId("data-nella-scaletta"); eq(a1.length, 1, "data diversa nel titolo di un brano"); eq(a1[0].testo, "La scaletta dice 10/11/2024 ma la data dell'evento è 01/12/2026.", "il testo");
+  A.state.scaletta = [{ tipo: "brano", titolo: "Brano", durata: "3:30", note: "Trieste 12.09.2021" }]; eq(ccId("data-nella-scaletta").length, 1, "e anche nelle note");
+  A.state.scaletta = [{ tipo: "brano", titolo: "Brano 1/12/2026", durata: "3:30", note: "" }]; eq(ccId("data-nella-scaletta").length, 0, "la data dell'evento scritta in un altro modo: niente");
+  A.state.scaletta = [{ tipo: "brano", titolo: "Brano 10/11/2024", durata: "3:30", note: "" }, { tipo: "brano", titolo: "Altro 2/2/2020", durata: "3:30", note: "" }]; eq(ccId("data-nella-scaletta").length, 1, "una sola riga, con la prima data"); ok(/La scaletta dice 10\/11\/2024 ma/.test(ccId("data-nella-scaletta")[0].testo), "la prima data trovata: " + ccId("data-nella-scaletta")[0].testo);
+  delete A.state.evDate; eq(ccId("data-nella-scaletta").length, 0, "senza data dell'evento: niente da confrontare"); A.state.evDate = "2026-12-01"; delete A.state.scaletta;
+  A.state.rider = { sistema: "Impianto come l'11/09/2004", note: "sullo stage plot di Valdagno 22/12/2025" }; eq(ccId("data-nel-rider").length, 0, "il testo del rider non si controlla: cita volutamente date di altre edizioni (falso allarme provato su Valdagno)");
+  eq(ccId("data-nel-titolo").length, 0, "la regola sul titolo (S1) resta"); A.state.titolo = "Gala 10/11/2024"; eq(ccId("data-nel-titolo").length, 1, "e funziona ancora");
+  reset();
+});
+t("Coerenza 2: stessa versione già esportata ma contenuto cambiato → avviso con i documenti cambiati; non con versione nuova, né senza storico o impronte", () => {
+  dvFix(3); A.state.versione = 3; eq(ccId("stessa-versione-cambiata").length, 0, "mai esportata: niente");
+  A.storicoRegistra(); eq(ccId("stessa-versione-cambiata").length, 0, "esportata e invariata: niente");
+  add("astamic", 900, 600); A.__cabRes = null;
+  const w = ccId("stessa-versione-cambiata"); eq(w.length, 1, "cambiato dopo l'export della stessa versione");
+  ok(/^La v3 è già stata esportata e da allora sono cambiati: stage plot, channel list\./.test(w[0].testo) && /aumenta la versione\.$/.test(w[0].testo), "dice quali documenti: " + w[0].testo);
+  A.state.versione = 4; eq(ccId("stessa-versione-cambiata").length, 0, "versione nuova: nessun avviso");
+  A.state.versione = 3; A.storicoRegistra(); eq(ccId("stessa-versione-cambiata").length, 0, "riesportata: di nuovo allineata");
+  { const voce = A.state.storico[0]; const hh = voce.r.h; voce.r.h = Object.assign({}, hh); delete voce.r.h.stageplot; delete voce.r.h.inputlist;
+    eq(ccId("stessa-versione-cambiata").length, 0, "documenti che nell'export precedente non c'erano: non sono «cambiati»"); voce.r.h = hh; }
+  delete A.state.storico[0].r.h; add("astamic", 960, 600); A.__cabRes = null; eq(ccId("stessa-versione-cambiata").length, 0, "voce senza impronte (storico vecchio): niente");
+  delete A.state.versione; A.state.titolo = "Gala"; eq(ccId("stessa-versione-cambiata").length, 0, "senza versione: niente"); reset();
+});
+t("Coerenza 2: «Allegati richiesti» — elenco libero con stato, avviso se resta «da chiedere», solo se usato; normalizzazione; interfaccia", () => {
+  reset(); eq(ccId("allegati-da-chiedere").length, 0, "senza elenco: niente");
+  const pul = A.allegatiPuliti([{ n: "  Planimetria  ", s: "ricevuto" }, { n: "Rider band" }, { n: "", s: "x" }, null, 5, { n: "x".repeat(100), s: "ricevuto" }, { n: 5, s: "ricevuto" }, { n: ["a"], s: "x" }]);
+  eq(pul.map((a) => [a.n.length, a.s]), [[11, "ricevuto"], [10, "da chiedere"], [60, "ricevuto"]], "pulizia: spazi tolti, vuoti scartati, nomi tagliati a 60, stato di serie «da chiedere»");
+  eq(A.allegatiPuliti([]), null, "vuoto: null"); eq(A.allegatiPuliti("ciao"), null, "non un elenco: null"); eq(A.allegatiPuliti(Array.from({ length: 40 }, (_, i) => ({ n: "a" + i }))).length, 30, "al massimo 30");
+  A.state.allegatiRichiesti = [{ n: "Planimetria", s: "ricevuto" }]; eq(ccId("allegati-da-chiedere").length, 0, "tutto ricevuto: niente");
+  A.state.allegatiRichiesti = [{ n: "Planimetria", s: "da chiedere" }]; eq(ccId("allegati-da-chiedere")[0].testo, "Allegato ancora da chiedere: Planimetria.", "uno da chiedere");
+  A.state.allegatiRichiesti = [{ n: "Planimetria", s: "da chiedere" }, { n: "Piano luci", s: "da chiedere" }, { n: "Rider band", s: "ricevuto" }]; eq(ccId("allegati-da-chiedere")[0].testo, "2 allegati ancora da chiedere: Planimetria, Piano luci.", "due da chiedere, il ricevuto non conta");
+  const st = JSON.parse(JSON.stringify(A.state)); eq(A.normalizeState(st).allegatiRichiesti.length, 3, "normalizeState li tiene"); st.allegatiRichiesti = [{ n: "", s: "x" }]; ok(!("allegatiRichiesti" in A.normalizeState(st)), "voci vuote: il campo sparisce"); st.allegatiRichiesti = "ciao"; ok(!("allegatiRichiesti" in A.normalizeState(st)), "non un elenco: via");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="pdfAllegati"/.test(html) && ["pdfAllegatiLista", "pdfAllegatiNome", "pdfAllegatiAgg"].every((i) => html.indexOf('id="' + i + '"') > -1), "l'elenco nell'Esporta: lista, nome, Aggiungi");
+  ok(/l\.push\(\{n:t, s:"da chiedere"\}\)/.test(appjs) && /l\[i\]\.s=\(l\[i\]\.s==="ricevuto"\) \? "da chiedere" : "ricevuto"/.test(appjs), "si aggiunge «da chiedere» e il clic alterna lo stato");
+  ok(/var CAMPI_DOCUMENTO=\[[^\]]*"allegatiRichiesti"/.test(appjs), "campo del documento"); reset();
+});
+t("Coerenza 2: «Cosa cambia da vN a vM» elenca le clausole del rider cambiate (con aggiunta e tolta); non se uguali o se il vecchio riassunto non le ha", () => {
+  dvFix(3); A.state.versione = 3; A.state.rider = { sistema: "Line array", note: "uno" }; A.storicoRegistra();
+  A.state.versione = 4; eq(A.diffVersioniDati().righe.filter((x) => /Clausole/.test(x)), [], "uguali: nessuna riga");
+  A.state.rider = { sistema: "Line array e sub", luci: "bianco", note: "uno" };
+  eq(A.diffVersioniDati().righe.filter((x) => /Clausole/.test(x)), ["Clausole del rider cambiate: luci (aggiunta), sistema audio"], "cambiata e aggiunta, con i nomi in italiano");
+  A.state.rider = { sistema: "Line array" }; eq(A.diffVersioniDati().righe.filter((x) => /Clausole/.test(x)), ["Clausole del rider cambiate: note (tolta)"], "tolta");
+  delete A.state.storico[0].r.ri; A.state.rider = { sistema: "x" }; eq(A.diffVersioniDati().righe.filter((x) => /Clausole/.test(x)), [], "riassunto vecchio senza clausole: niente di inventato");
+  eq(A.riassuntoDiff({ ri: { a: "1" } }, { ri: { a: "1" } }), [], "puro: uguali"); eq(A.riassuntoDiff({ ri: { zz: "1" } }, { ri: { zz: "2" } }), ["Clausole del rider cambiate: zz"], "una clausola sconosciuta col suo nome");
+  eq(A.impronteClausoleRider(), { sistema: A.hashBreve("x") }, "impronte brevi delle sole clausole di testo non vuote"); A.state.rider = { sistema: "  ", luci: 4 }; eq(A.impronteClausoleRider(), {}, "vuote o non testo: niente");
+  reset();
 });
 /* ═══ Misure in uscita: una sola scrittura, quattro stili (13/11/2026, S15) ═══ */
 const msFix = () => {
