@@ -19843,6 +19843,7 @@ t("Pacchetto: crc32 e zip «store» validi (unzip -t), con nomi con spazi e acce
   const pdf = (testo) => Uint8Array.from(Buffer.from("%PDF-1.4\n" + testo + "\n%%EOF\n"));
   const files = [{ name: "20260419 v3 stage plot Teatro Esempio.pdf", data: pdf("uno") }, { name: "20260419 v3 channel list Teatro Esempio.pdf", data: pdf("due ".repeat(500)) }, { name: "20260419 v3 rider Teatro Perché.pdf", data: pdf("tre") }];
   const z = pkZipProva(files);
+  { const raw = Buffer.from(A.zipStore(files, new Date(2026, 10, 12, 20, 30, 10))); eq([raw.readUInt16LE(6), raw.readUInt16LE(8)], [0x0800, 0], "intestazione locale: nomi UTF-8 (flag 0x0800), metodo «store»"); }
   try {
     const t1 = z.unz(["-t"]);
     if (t1 === null) { ok(true, "unzip non c'è su questa macchina: prova saltata"); return; }
@@ -19889,6 +19890,17 @@ t("Pacchetto: pulsante e finestrella nell'Esporta, ogni documento col suo PDF, c
   ok(/new Blob\(\[bytes\],\{type:"application\/zip"\}\)[\s\S]{0,200}a\.download=nome/.test(a), "il download passa da un Blob con il nome del file (spazi compresi)");
   ok(!/jpe?g|toDataURL\("image\/(png|jpeg)/i.test(a.slice(a.indexOf("function pacchettoDocumentiTutti"), a.indexOf("function exportPdf"))), "solo PDF: nessuna immagine nel pacchetto");
   const m = a.indexOf("function pacchettoCrea"), fine = a.indexOf("function exportPdf"); ok(/segnaPdfEsportato/.test(a.slice(m, fine)), "dopo il pacchetto «Modificato dopo l'ultimo PDF» riparte da qui");
+  const pk = a.slice(a.indexOf("function pacchettoApri"), fine);
+  ok(/go\.disabled=!sel;/.test(pk), "«Crea il pacchetto» si spegne se non c'è nessun documento spuntato");
+  ok(/c\.type="checkbox"; c\.checked=true;/.test(pk), "i documenti sono spuntati di serie");
+  ok(/err\.textContent="Scegli almeno un documento\.";/.test(pk), "senza documenti: «Scegli almeno un documento.»");
+  ok(/nome\.value=pacchettoNomeDefault\(\);/.test(pk), "il nome parte dal luogo (poi dal titolo)");
+  ok(/vh\.textContent=versioneNumero\(\) \? "" : versioneSuggerimento\(\);/.test(pk), "senza versione la finestrella suggerisce di metterla");
+  ok(/document\.getElementById\("pkgModal"\)\.hidden=true; \}\);/.test(a), "«Annulla» chiude la finestrella");
+  ok(/if\(!\(_A && _A\.errs>0\)\)\{ run\(\); return; \}/.test(a), "il gate scatta con un errore critico o più");
+  ok(/\.then\(function\(ok\)\{\s*if\(ok\)\{ run\(\); return; \}/.test(a), "«Esporta comunque» prosegue");
+  ok(/if\(_pm\) _pm\.hidden=true; if\(_pk\) _pk\.hidden=true;/.test(a), "«Vai all'Audit» chiude sia l'Esporta sia il pacchetto");
+  ok(/if\(!F\[chiave\]\) throw new Error\("documento sconosciuto: "\+chiave\);/.test(a), "un documento sconosciuto è un errore, non un file vuoto");
 });
 /* ═══ CONTROLLO PRIMA DELL'EXPORT (12/11/2026, specifica S1 dalla posta: segnaposto nei testi, nomi doppi, mix senza uscita…).
    Una striscia in cima all'Esporta, mai bloccante; una funzione pura `controlliPrimaDelExport()` → [{id, gravita, testo, itemId?}],
