@@ -39782,6 +39782,13 @@ function orcSeatsRedraw(){
   if(g){ if(typeof setSvgInner==="function") setSvgInner(g, m); else g.innerHTML=m; }
   if(typeof renderProps==="function") renderProps();
 }
+/* «Cerca musicista» (V1/b): apre il matching di Orchestre già sul ruolo di questa postazione. Solo se c'è un posto da coprire. */
+function orcCercaLink(productionId, it, rows){
+  if(!productionId || !it || !it.id || !rows || !rows.length) return null;
+  var open=rows.some(function(r){ var st=String(r&&r.slot_status||"open"); return st==="open"||st==="replaced"||st==="cancelled"; });
+  if(!open) return null;
+  return "/orchestre/admin/produzioni/scheda/?id="+encodeURIComponent(productionId)+"&t=matching&item="+encodeURIComponent(it.id);
+}
 /* la riga «Organico» nel pannello dell'elemento: cosa dice Orchestre di questa postazione */
 function renderOrcRow(it){
   var row=document.getElementById("pOrcRow"); if(!row) return;
@@ -39792,7 +39799,8 @@ function renderOrcRow(it){
   var prod=rows?rows[0]:orcSeats.productions[0];
   var h='<div class="orc-hd">Organico <span class="orc-prod">'+esc(String(prod.production_title||""))+'</span></div>';
   if(rows){ rows.forEach(function(r){ var who=String(r.musician_name||"").trim(); h+='<div class="orc-line '+orcSeatClass(r)+'">'+esc((r.role_name?r.role_name+" \u00b7 ":"")+((who && r.seat_no!=null)?"posto "+r.seat_no+" \u00b7 ":"")+orcSeatLine(r))+'</div>'; });
-    h+='<a class="orc-link" href="/orchestre/admin/produzioni/scheda/?id='+encodeURIComponent(prod.production_id)+'&t=organico">Apri l’organico →</a>'; }
+    var cerca=orcCercaLink(prod.production_id, it, rows);
+    h+='<a class="orc-link" href="/orchestre/admin/produzioni/scheda/?id='+encodeURIComponent(prod.production_id)+'&t=organico">Apri l’organico →</a>'+(cerca?'<a class="orc-link orc-cerca" href="'+esc(cerca)+'">Cerca musicista →</a>':''); }
   else { h+='<div class="orc-line off">Postazione non ancora nell’organico</div><a class="orc-link" href="/orchestre/admin/produzioni/scheda/?id='+encodeURIComponent(prod.production_id)+'&t=stageplot">Importa le postazioni →</a>'; }
   row.innerHTML=h;
 }

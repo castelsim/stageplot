@@ -25871,6 +25871,21 @@ t("il layer layOrcSeats sta in sceneMarkup ma non nell'export né nel documento"
   ok(A.window.__scenePrint !== true, "il flag di stampa è tornato spento dopo l'export");
   A.orcSeats.pid = null; A.orcSeats.byItem = {};
 });
+t("«Cerca musicista» (V1/b): link al matching di Orchestre sulla postazione, solo se c'è un posto da coprire", () => {
+  const it = { id: "itm-1" };
+  const prod = "11111111-1111-4111-8111-111111111111";
+  eq(A.orcCercaLink(prod, it, [{ slot_status: "open" }]), "/orchestre/admin/produzioni/scheda/?id=" + prod + "&t=matching&item=itm-1");
+  ok(A.orcCercaLink(prod, it, [{ slot_status: "replaced" }]) !== null, "sostituito = da coprire");
+  ok(A.orcCercaLink(prod, it, [{ slot_status: "confirmed" }, { slot_status: "open" }]) !== null, "due posti: basta uno scoperto");
+  eq(A.orcCercaLink(prod, it, [{ slot_status: "confirmed" }]), null);
+  eq(A.orcCercaLink(prod, it, [{ slot_status: "invited" }]), null);
+  eq(A.orcCercaLink(prod, it, []), null); eq(A.orcCercaLink(prod, it, null), null);
+  eq(A.orcCercaLink("", it, [{ slot_status: "open" }]), null); eq(A.orcCercaLink(prod, { id: "" }, [{ slot_status: "open" }]), null);
+  ok(A.orcCercaLink(prod, { id: "a&b=c" }, [{ slot_status: "open" }]).indexOf("item=a%26b%3Dc") > -1, "l'id è codificato");
+  const row = appjs.slice(appjs.indexOf("function renderOrcRow("), appjs.indexOf("function deleteSelGuarded("));
+  ok(/orcCercaLink\(prod\.production_id, it, rows\)/.test(row) && row.indexOf("Cerca musicista") > -1, "la riga Organico la mostra");
+  ok(row.indexOf("Cerca musicista") < row.indexOf("Importa le postazioni"), "e solo nel ramo con le postazioni già nell'organico");
+});
 t("eliminare una postazione con una persona sopra passa SEMPRE dalla guardia, e l'annuncio arriva dopo", () => {
   ok(appjs.indexOf('getElementById("pDel").addEventListener("click", deleteSelGuarded)') > -1, "bottone dell'elemento");
   /* il collaudo del 10/09 ha trovato questa scappatoia: «Elimina» sulla selezione multipla cancellava

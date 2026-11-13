@@ -84,6 +84,17 @@ export function groupStaffing(rows) {
   return out;
 }
 
+/* Dal disegno all'organico (V1/b): la postazione `itemId` dell'editor a quale ruolo e a quali posti corrisponde.
+   Restituisce { role, section, slots, target } o null: `target` è il posto da cercare (il primo non coperto, altrimenti il primo). */
+export function roleForItem(sections, itemId) {
+  if (!itemId) return null;
+  for (const section of sections || []) for (const role of section.roles) {
+    const slots = role.slots.filter((x) => x.item_id === itemId);
+    if (slots.length) return { role, section, slots, target: slots.find((x) => x.status === "open" || x.status === "replaced" || x.status === "cancelled") || slots[0] };
+  }
+  return null;
+}
+
 /* Conteggi per il riepilogo: posti, confermati, scoperti. */
 export function staffingCounts(sections) {
   let seats = 0, filled = 0, open = 0;

@@ -787,3 +787,11 @@ test("se il server non risponde la pagina lo dice, e Orchestre non dipende dalle
   assert.match(wf, /- name: Convocazioni Orchestre \(orc-notify\)\n(?:\s*#[^\n]*\n)*\s+if: always\(\)\n/, "il passo di Orchestre gira comunque");
 });
 
+
+/* V1/b: «Cerca musicista» dall'editor porta il matching sul ruolo della postazione (?item=), una volta sola. */
+test("la scheda produzione risolve ?item= in ruolo e posto, e lo consuma", () => {
+  const prod = readFileSync(join(root, "orchestre/src/pages/produzione.js"), "utf8");
+  assert.match(prod, /const fromItem = q\.get\("item"\) \? roleForItem\(sections, q\.get\("item"\)\) : null;\s*\n\s*if \(fromItem\) mRole = fromItem\.role\.id;/, "il ruolo viene dalla postazione");
+  assert.match(prod, /q\.delete\("item"\); history\.replaceState\(null, "", "\?id=" \+ p\.id \+ "&t=matching&role=" \+ mRole\)/, "una volta sola: poi l'indirizzo è quello di sempre");
+  assert.match(prod, /note\.textContent = "Dalla postazione «"/, "dice da dove arriva, col testo messo da textContent");
+});
