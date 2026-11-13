@@ -92,6 +92,7 @@ function reset() {
   delete A.state.latiTeatro;   /* giardino e corte (12/11): opzione che esiste solo se accesa; un test che l'accende non deve lasciarla ai successivi */
   delete A.state.sonorizzazione; delete A.state.orari;   /* sonorizzazione e orari (12/11): campi che esistono solo se scelti; un test che li imposta non deve lasciarli ai successivi */
   delete A.state.scaletta;   /* scaletta (10/10): campo che esiste solo con almeno una voce */
+  delete A.state.storico;   /* storico delle versioni (13/11, S10): si scrive solo esportando; un test che esporta non deve lasciarlo ai successivi */
   delete A.state.versione;   /* versione del documento (12/11): campo che esiste solo se impostata; un test che la imposta non deve lasciarla ai successivi */
   delete A.state.customModels;   /* modelli dell'elemento personalizzato (13/10): dal primo Salva di un elemento nuovo nasce anche il modello (Ruling 17), e un test che salva non deve lasciarli ai successivi */
   A.state.stage = { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] };   /* palco default: base per isFreshBlankProject */
@@ -4916,6 +4917,85 @@ t("F3: rete/Dante — switch a stella, trunk console, ridondanza e porte", () =>
   A.state.netRed = false;
 });
 
+/* ═══ Differenze fra versioni (13/11/2026, S10): riassunto compatto a ogni export, «Cosa cambia da vN a vM», copiabile ═══ */
+const dvFix = (n) => {
+  reset(); A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.mixer = "dm3"; A.state.cab.home = { kind: "foh" };
+  A.state.stage = { w: 1200, d: 1000, blocks: [{ x: 0, y: 0, w: 1200, d: 1000 }] };
+  add("pedana", 400, 300, { h: 40 }); add("pedana", 600, 300, { h: 40 });
+  for (let i = 0; i < n; i++) add("astamic", 300 + i * 60, 600);
+  A.state.versione = 3; A.__cabRes = null;
+};
+t("Differenze versioni: il riassunto è compatto (tipi, pedane per misura e altezza, palco, canali, mix, microfoni) e senza nomi di persone", () => {
+  dvFix(3);
+  const r = A.riassuntoDocumento();
+  eq([r.f, r.pal], [1, [1200, 1000]], "formato 1 e misura del palco in cm");
+  eq(r.ped, { "200x100x40": 2 }, "pedane per misura e altezza, non fra gli elementi");
+  ok(!("pedana" in r.el) && r.el.astamic === 3, "elementi per tipo: 3 aste, nessuna pedana");
+  eq(typeof r.can === "number" && typeof r.mix === "number" && typeof r.mic === "object", true, "canali, mix e microfoni");
+  ok(JSON.stringify(r).length < 600, "poche centinaia di byte: " + JSON.stringify(r).length);
+  A.state.items.find((x) => x.type === "astamic").label = "Mario Rossi"; ok(!/Mario|Rossi/.test(JSON.stringify(A.riassuntoDocumento())), "mai i nomi di persone");
+  reset();
+});
+t("Differenze versioni: il confronto dice palco, elementi per categoria, pedane, canali, mix, microfoni; uguali = nessuna riga", () => {
+  const base = { f: 1, pal: [1200, 1000], el: { violino: 6, contrabbasso: 2 }, ped: { "200x100x40": 6 }, can: 72, mix: 4, mic: { "SM57": 5, "DI": 2 } };
+  eq(A.riassuntoDiff(base, JSON.parse(JSON.stringify(base))), [], "identici: niente");
+  const b2 = JSON.parse(JSON.stringify(base)); b2.pal = [1400, 1200];
+  eq(A.riassuntoDiff(base, b2), ["Palco: 12×10 → 14×12 m"], "palco in metri, con la virgola per i decimali");
+  b2.pal = [1250, 1000]; eq(A.riassuntoDiff(base, b2), ["Palco: 12×10 → 12,5×10 m"], "decimali italiani");
+  const b3 = JSON.parse(JSON.stringify(base)); b3.el = { violino: 9, contrabbasso: 1 }; b3.ped = { "200x100x40": 6, "200x100x80": 2 }; b3.can = 78; b3.mix = 6; b3.mic = { "SM57": 2, "DI": 6 };
+  const d = A.riassuntoDiff(base, b3);
+  ok(d.some((x) => /^[^:]+: \+3 .*, −1 /.test(x) || /\+3 /.test(x)) && d.some((x) => /−1 /.test(x)), "elementi: +3 e −1: " + d.join(" | "));
+  ok(d.indexOf("Pedane: da 6 a 8 (+2 da 2×1 h80)") > -1, "pedane: totali e dettaglio: " + d.join(" | "));
+  ok(d.indexOf("Canali: 72 → 78") > -1 && d.indexOf("Mix: +2") > -1, "canali e mix");
+  ok(d.indexOf("Microfoni: +4 DI, −3 SM57") > -1, "microfoni per modello, in ordine alfabetico: " + d.join(" | "));
+  const b4 = JSON.parse(JSON.stringify(base)); b4.mix = 3; eq(A.riassuntoDiff(base, b4), ["Mix: −1"], "mix in meno");
+  const b5 = JSON.parse(JSON.stringify(base)); b5.ped = { "200x100x60": 6 }; ok(A.riassuntoDiff(base, b5)[0] === "Pedane: (+6 da 2×1 h60, −6 da 2×1 h40)" || /^Pedane: \(/.test(A.riassuntoDiff(base, b5)[0]), "stesse pedane, altezza diversa: niente «da N a M»: " + A.riassuntoDiff(base, b5)[0]);
+  eq(A.riassuntoDiff({}, {}), [], "riassunti vuoti: niente");
+});
+t("Differenze versioni: lo storico si scrive solo esportando, una voce per versione, al massimo 5, ordinato; senza versione niente", () => {
+  dvFix(2); delete A.state.versione; A.storicoRegistra(); eq(A.state.storico, undefined, "senza versione: niente");
+  A.state.versione = 3; A.storicoRegistra(); eq(A.state.storico.map((e) => e.v), [3], "una voce");
+  A.state.items.find((x) => x.type === "astamic").x += 1; add("astamic", 900, 600); A.storicoRegistra(); eq(A.state.storico.map((e) => e.v), [3], "stessa versione: la voce si aggiorna, non si accoda");
+  eq(A.state.storico[0].r.el.astamic, 3, "col riassunto nuovo");
+  [5, 4, 9, 8, 7, 6].forEach((v) => { A.state.versione = v; A.storicoRegistra(); });
+  eq(A.state.storico.map((e) => e.v), [5, 6, 7, 8, 9], "al massimo 5 voci, le ultime, in ordine di versione");
+  ok(A.state.storico.every((e) => e.f === 1 && typeof e.at === "string" && e.r.f === 1), "ogni voce ha formato, data e riassunto");
+  /* chiamata sola dall'export */
+  const n = (appjs.match(/storicoRegistra\(\)/g) || []).length; eq(n, 2, "definita e chiamata una volta sola (in segnaPdfEsportato): né apertura né selezione scrivono");
+  ok(/storicoRegistra\(\);[^\n]*\n\s*state\.pdfEsportato=\{at:/.test(appjs), "segnaPdfEsportato la chiama prima dell'impronta");
+  reset();
+});
+t("Differenze versioni: dal progetto vN al vM l'Esporta mostra cosa cambia; fuori da cronologia e impronta; il formato si valida", () => {
+  dvFix(3); A.state.versione = 3; A.storicoRegistra();
+  eq(A.storicoPrecedente(), null, "esportata solo la v3: niente da confrontare");
+  A.state.versione = 4; eq(A.storicoPrecedente().v, 3, "alla v4 il precedente è la v3");
+  add("astamic", 900, 600); add("astamic", 960, 600); A.__cabRes = null;
+  const dati = A.diffVersioniDati(); eq([dati.da, dati.a], [3, 4], "da v3 a v4");
+  ok(dati.righe.some((x) => /\+2 /.test(x)), "le 2 aste in più: " + dati.righe.join(" | "));
+  const tx = A.diffVersioniTesto(dati, ""); ok(/^Cosa cambia da v3 a v4:\n- /.test(tx) && !/Motivo/.test(tx), "testo per la mail, senza motivo: " + tx);
+  ok(/\nMotivo: \+20 cm di quota$/.test(A.diffVersioniTesto(dati, "  +20 cm di quota ")), "con il motivo");
+  eq(A.diffVersioniTesto(null, ""), "", "senza dati: niente");
+  ok(/nessuna differenza/.test(A.diffVersioniTesto({ da: 1, a: 2, righe: [] }, "")), "nessuna differenza: lo dice");
+  A.state.versione = 1; eq(A.storicoPrecedente(), null, "v1: niente");
+  A.state.versione = 3; eq(A.storicoPrecedente(), null, "la voce della stessa versione non è «precedente»");
+  /* impronta e cronologia */
+  A.state.versione = 4; const f0 = A.firmaPdf(A.state); delete A.state.storico; const f1 = A.firmaPdf(A.state);
+  eq(f0, f1, "con o senza storico l'impronta del PDF è la stessa (non è «modificato dopo l'ultimo PDF»)");
+  A.storicoRegistra(); eq(A.firmaPdf(A.state), f1, "e dopo averne scritto uno nuovo");
+  ok(!("storico" in JSON.parse(A.historyStateJSON())), "non entra negli snapshot di Annulla");
+  eq(A.notaFuoriCronologia().sto.length, 1, "e Annulla non lo riporta indietro (notaFuoriCronologia)");
+  /* normalizeState: voci rotte scartate */
+  A.state.versione = 3; A.storicoRegistra(); const st = JSON.parse(JSON.stringify(A.state)); st.storico = [A.state.storico[0], { f: 2, v: 1, at: "x", r: {} }, { f: 1, v: 0, at: "x", r: {} }, { f: 1, v: 5, at: "y".repeat(60), r: {} }, { f: 1, v: 7, at: "x", r: [] }, null, 5];
+  const n = A.normalizeState(st); eq(n.storico.length, 1, "solo la voce ben formata"); st.storico = "ciao"; ok(!("storico" in A.normalizeState(st)), "non un elenco: via");
+  reset();
+});
+t("Differenze versioni: il riquadro dell'Esporta (nascosto di serie, solo lettura) e «Copia testo» sono nell'HTML e collegati", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="pdfDiff"[^>]*hidden/.test(html) && ["pdfDiffT", "pdfDiffL", "pdfDiffMotivo", "pdfDiffCopia"].every((i) => html.indexOf('id="' + i + '"') > -1), "il riquadro nascosto di serie, con titolo, elenco, motivo e pulsante");
+  ok(/try\{ renderDiffVersioni\(\); \}catch\(_e\)\{\}\n\}/.test(appjs), "si aggiorna a ogni apertura dell'Esporta (renderPdfUltimo)");
+  ok(/navigator\.clipboard\.writeText\(t\)\.then\(function\(\)\{ showToast\("Testo copiato"\); \}/.test(appjs), "«Copia testo» copia negli appunti");
+  ok(/var dati=diffVersioniDati\(\); box\.hidden=!dati;/.test(appjs), "senza versione precedente il riquadro non compare");
+});
 t("Output list: bus console -> porte out (auto consecutive, pin, conflitti, mai duplicati)", () => {
   reset();
   A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.mixer = "dm3";
