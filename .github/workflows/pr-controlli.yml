@@ -41,6 +41,8 @@ jobs:
         run: node --test test/workshop.test.mjs
       - name: Test del modulo del rider tecnico completo
         run: node --test test/rider-richiesta.test.mjs
+      - name: Test del modulo di Produzione eventi
+        run: node --test test/produzione-richiesta.test.mjs
       - name: Test funzioni condivise Supabase
         run: deno test --lock=deno.lock --frozen supabase/functions/_shared/*.test.ts
       - name: Type-check Edge Functions
