@@ -5187,7 +5187,8 @@ t("Ordina come il service: righe di servizio con nome messe dall'azione restano 
   const p = A.servizioPiano(2); const pr = svRows().find((r) => r.reserved && r.port === res[0]);
   A.servizioApplica(p); const dopo = svRows().find((r) => r.reserved && r.port === res[0]); ok(dopo && dopo.servizio === "Talkback", "la riga che ha preso un nome non si sposta (resta alla sua porta)"); void pr;
   { const rr = svRows(), nn = rr.map(svNum); eq(nn, nn.map((_, i) => i + 1), "e nessun canale ci è finito sopra: numeri unici e consecutivi"); }
-  eq(A.state.cab.servizio.res[b.id].indexOf(res[0]) < 0 || true, true, "ok");
+  { const p0 = A.servizioPiano(0); ok(p0.ok, p0.motivo); A.servizioApplica(p0);   /* senza nuove riservate: quella col nome resta, i canali ci girano intorno */
+    const rr = svRows(), nn = rr.map(svNum), tal = rr.find((r) => r.reserved && r.port === res[0]); ok(tal && tal.servizio === "Talkback", "con 0 riservate la riga col nome c'è ancora"); eq(nn, nn.map((_, i) => i + 1), "e i canali non ci sono finiti sopra: numeri unici e consecutivi"); }
   /* coppie stereo e multipolari: cerco un tipo che sia una coppia L/R vera */
   reset();
   const coppia = Object.keys(A.TYPES).find((tp) => { try { const it = A.addItem(tp, { x: 300, y: 500 }); if (!it) return false; const inps = A.cabItemInputs(it) || []; const ok2 = inps.length === 2 && A.stereoPairSecond(it, 1, inps); A.state.items = A.state.items.filter((x) => x.id !== it.id); return ok2; } catch (_e) { return false; } });
