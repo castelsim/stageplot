@@ -5432,7 +5432,7 @@ t("Quota da terra: opzione nel pannello del blocco, documento (non della scena),
 });
 /* ═══ Controlli di coerenza 2 (13/11/2026, S14) ═══ */
 const ccId = (id) => A.controlliPrimaDelExport().filter((x) => x.id === id);
-t("Coerenza 2: una data diversa da quella dell'evento nella scaletta o nel testo del rider; mai se è la stessa, mai senza data dell'evento", () => {
+t("Coerenza 2: una data diversa da quella dell'evento nella scaletta (non nel testo del rider); mai se è la stessa, mai senza data dell'evento", () => {
   reset(); A.state.evDate = "2026-12-01"; A.state.titolo = "Gala";
   eq(ccId("data-nella-scaletta").length + ccId("data-nel-rider").length, 0, "senza scaletta né rider: niente");
   A.state.scaletta = [{ tipo: "brano", titolo: "Gran finale", durata: "3:30", note: "" }];
@@ -5441,12 +5441,9 @@ t("Coerenza 2: una data diversa da quella dell'evento nella scaletta o nel testo
   const a1 = ccId("data-nella-scaletta"); eq(a1.length, 1, "data diversa nel titolo di un brano"); eq(a1[0].testo, "La scaletta dice 10/11/2024 ma la data dell'evento è 01/12/2026.", "il testo");
   A.state.scaletta = [{ tipo: "brano", titolo: "Brano", durata: "3:30", note: "Trieste 12.09.2021" }]; eq(ccId("data-nella-scaletta").length, 1, "e anche nelle note");
   A.state.scaletta = [{ tipo: "brano", titolo: "Brano 1/12/2026", durata: "3:30", note: "" }]; eq(ccId("data-nella-scaletta").length, 0, "la data dell'evento scritta in un altro modo: niente");
-  A.state.scaletta = [{ tipo: "brano", titolo: "Brano 10/11/2024", durata: "3:30", note: "" }, { tipo: "brano", titolo: "Altro 2/2/2020", durata: "3:30", note: "" }]; eq(ccId("data-nella-scaletta").length, 1, "una sola riga, con la prima data");
+  A.state.scaletta = [{ tipo: "brano", titolo: "Brano 10/11/2024", durata: "3:30", note: "" }, { tipo: "brano", titolo: "Altro 2/2/2020", durata: "3:30", note: "" }]; eq(ccId("data-nella-scaletta").length, 1, "una sola riga, con la prima data"); ok(/La scaletta dice 10\/11\/2024 ma/.test(ccId("data-nella-scaletta")[0].testo), "la prima data trovata: " + ccId("data-nella-scaletta")[0].testo);
   delete A.state.evDate; eq(ccId("data-nella-scaletta").length, 0, "senza data dell'evento: niente da confrontare"); A.state.evDate = "2026-12-01"; delete A.state.scaletta;
-  A.state.rider = { sistema: "Impianto come l'11/09/2004", luci: "bianco diffuso", personale: 5 };
-  const r1 = ccId("data-nel-rider"); eq(r1.length, 1, "data diversa in una clausola"); eq(r1[0].testo, "Nel testo del rider c'è 11/09/2004 ma la data dell'evento è 01/12/2026.", "il testo");
-  A.state.rider = { sistema: "Serata del 01/12/2026", note: "ok" }; eq(ccId("data-nel-rider").length, 0, "stessa data: niente");
-  A.state.rider = {}; eq(ccId("data-nel-rider").length, 0, "rider vuoto: niente");
+  A.state.rider = { sistema: "Impianto come l'11/09/2004", note: "sullo stage plot di Valdagno 22/12/2025" }; eq(ccId("data-nel-rider").length, 0, "il testo del rider non si controlla: cita volutamente date di altre edizioni (falso allarme provato su Valdagno)");
   eq(ccId("data-nel-titolo").length, 0, "la regola sul titolo (S1) resta"); A.state.titolo = "Gala 10/11/2024"; eq(ccId("data-nel-titolo").length, 1, "e funziona ancora");
   reset();
 });
@@ -5458,12 +5455,14 @@ t("Coerenza 2: stessa versione già esportata ma contenuto cambiato → avviso c
   ok(/^La v3 è già stata esportata e da allora sono cambiati: stage plot, channel list\./.test(w[0].testo) && /aumenta la versione\.$/.test(w[0].testo), "dice quali documenti: " + w[0].testo);
   A.state.versione = 4; eq(ccId("stessa-versione-cambiata").length, 0, "versione nuova: nessun avviso");
   A.state.versione = 3; A.storicoRegistra(); eq(ccId("stessa-versione-cambiata").length, 0, "riesportata: di nuovo allineata");
+  { const voce = A.state.storico[0]; const hh = voce.r.h; voce.r.h = Object.assign({}, hh); delete voce.r.h.stageplot; delete voce.r.h.inputlist;
+    eq(ccId("stessa-versione-cambiata").length, 0, "documenti che nell'export precedente non c'erano: non sono «cambiati»"); voce.r.h = hh; }
   delete A.state.storico[0].r.h; add("astamic", 960, 600); A.__cabRes = null; eq(ccId("stessa-versione-cambiata").length, 0, "voce senza impronte (storico vecchio): niente");
   delete A.state.versione; A.state.titolo = "Gala"; eq(ccId("stessa-versione-cambiata").length, 0, "senza versione: niente"); reset();
 });
 t("Coerenza 2: «Allegati richiesti» — elenco libero con stato, avviso se resta «da chiedere», solo se usato; normalizzazione; interfaccia", () => {
   reset(); eq(ccId("allegati-da-chiedere").length, 0, "senza elenco: niente");
-  const pul = A.allegatiPuliti([{ n: "  Planimetria  ", s: "ricevuto" }, { n: "Rider band" }, { n: "", s: "x" }, null, 5, { n: "x".repeat(100), s: "ricevuto" }]);
+  const pul = A.allegatiPuliti([{ n: "  Planimetria  ", s: "ricevuto" }, { n: "Rider band" }, { n: "", s: "x" }, null, 5, { n: "x".repeat(100), s: "ricevuto" }, { n: 5, s: "ricevuto" }, { n: ["a"], s: "x" }]);
   eq(pul.map((a) => [a.n.length, a.s]), [[11, "ricevuto"], [10, "da chiedere"], [60, "ricevuto"]], "pulizia: spazi tolti, vuoti scartati, nomi tagliati a 60, stato di serie «da chiedere»");
   eq(A.allegatiPuliti([]), null, "vuoto: null"); eq(A.allegatiPuliti("ciao"), null, "non un elenco: null"); eq(A.allegatiPuliti(Array.from({ length: 40 }, (_, i) => ({ n: "a" + i }))).length, 30, "al massimo 30");
   A.state.allegatiRichiesti = [{ n: "Planimetria", s: "ricevuto" }]; eq(ccId("allegati-da-chiedere").length, 0, "tutto ricevuto: niente");

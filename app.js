@@ -16869,15 +16869,13 @@ function controlliPrimaDelExport(){
       add("data-nel-titolo","Il titolo dice "+dt[0].testo+" ma la data dell'evento è "+e[2]+"/"+e[1]+"/"+e[0]+".");
     }
   }
-  /* 6b · la stessa data sbagliata dentro la scaletta o nei testi del rider (S14, 13/11): organico e testi riusati da una serata vecchia */
+  /* 6b · la stessa data sbagliata dentro la scaletta (S14, 13/11): scaletta riusata da una serata vecchia */
   if(state.evDate){
     var _e2=state.evDate.split("-"), _evTxt=_e2[2]+"/"+_e2[1]+"/"+_e2[0];
     var _sc=[]; try{ (scalettaNorm(state.scaletta)||[]).forEach(function(v){ if(v){ _sc.push(v.titolo); _sc.push(v.note); } }); }catch(_e){}
     var _ds=[]; _sc.forEach(function(t){ dateNelTitolo(t).forEach(function(d){ if(d.iso!==state.evDate) _ds.push(d.testo); }); });
     if(_ds.length) add("data-nella-scaletta","La scaletta dice "+_ds[0]+" ma la data dell'evento è "+_evTxt+".");
-    var _rt=[]; var _ri=(state.rider && typeof state.rider==="object") ? state.rider : {}; Object.keys(_ri).forEach(function(k){ if(typeof _ri[k]==="string") _rt.push(_ri[k]); });
-    var _dr=[]; _rt.forEach(function(t){ dateNelTitolo(t).forEach(function(d){ if(d.iso!==state.evDate) _dr.push(d.testo); }); });
-    if(_dr.length) add("data-nel-rider","Nel testo del rider c'è "+_dr[0]+" ma la data dell'evento è "+_evTxt+".");
+    /* (il testo del rider NON si controlla: cita volutamente date di altre edizioni, «sullo stage plot di Valdagno 22/12/2025»: falso allarme provato su un progetto vero, 13/11) */
   }
   /* 6c · stessa versione già esportata, contenuto diverso (S14): chi ha il file ha qualcosa di diverso con lo stesso nome */
   try{
