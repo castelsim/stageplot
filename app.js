@@ -24839,7 +24839,7 @@ function placeOut(out, fitStage, clearFirst, force){
     if(assessment.relevantOverlaps>0) msg.push("La disposizione automatica crea "+assessment.overlaps+" sovrapposizion"+(assessment.overlaps===1?"e":"i")+" tra postazioni.");
     msg.push("Puoi continuare e poi sistemare a mano, oppure rivedere l'organico.");
     document.getElementById("orchWarnText").textContent=msg.join(" ");
-    document.getElementById(pendingReviewModal||"orchModal").hidden=true;
+    var _rev=document.getElementById(pendingReviewModal||"orchModal"); if(_rev) _rev.hidden=true;   /* il modale da cui si arriva può non esistere (import chiamato senza aprire la finestra) */
     document.getElementById("orchWarnModal").hidden=false;
     return false;
   }
@@ -25493,7 +25493,7 @@ function buildOrchCoroOut(){
   });
   document.getElementById("orchWarnReview").addEventListener("click", function(){
     document.getElementById("orchWarnModal").hidden=true;
-    document.getElementById(pendingReviewModal||"orchModal").hidden=false;
+    var _rev=document.getElementById(pendingReviewModal||"orchModal"); if(_rev) _rev.hidden=false;
   });
   document.getElementById("orchWarnContinue").addEventListener("click", orchWarnContinua);
 })();
