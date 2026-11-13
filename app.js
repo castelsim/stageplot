@@ -4420,7 +4420,7 @@ function createVariant(name){
 var avvisoDisegnato="", firmaVarCache=new WeakMap(), variantiNuove=Object.create(null);
 function firmaScena(st){
   if(!st || typeof st!=="object") return null;
-  var o=JSON.parse(JSON.stringify(st)); delete o._v; delete o.pdfEsportato;
+  var o=JSON.parse(JSON.stringify(st)); delete o._v; delete o.pdfEsportato; delete o.storico;
   /* Revisione 06/10: fuori anche i campi del DOCUMENTO (titolo, data, contatti… e il permesso del link), uguali
      in ogni variante per costruzione. propagaCampiDocumento li riscrive DENTRO lo stato delle varianti ferme
      senza sostituirlo: la firma in cache restava col titolo vecchio, e dopo aver cambiato il titolo due varianti
@@ -5831,13 +5831,13 @@ var undoStack=[], redoStack=[], lastSnap=null, venueHistoryAssets=Object.create(
    finiva in «Aperto in un'altra scheda — salvataggio sospeso». */
 function historyStateJSON(){
   var st=Object.assign({}, state);
-  delete st.printFrame; delete st.pdfEsportato;
+  delete st.printFrame; delete st.pdfEsportato; delete st.storico;   /* lo storico delle versioni (S10) è come la nota «PDF esportato»: annotazione dell'export, non contenuto */
   if(st.production && typeof st.production==="object" && ("asked" in st.production)){
     st.production=Object.assign({}, st.production); delete st.production.asked;
   }
   return stateToJSON(st);
 }
-function notaFuoriCronologia(){ return { pe:state.pdfEsportato, ask:!!(state.production&&state.production.asked) }; }
+function notaFuoriCronologia(){ return { pe:state.pdfEsportato, sto:state.storico, ask:!!(state.production&&state.production.asked) }; }
 function historySnapshot(){
   var json=historyStateJSON(), rec=venueImageRecord(state&&state.venue,venueImgCache[String(activeVar||"")]);
   var venueSig=rec&&rec._sig?rec._sig:null;
@@ -5900,6 +5900,7 @@ function applyHistory(snapshot){
   try{ state=normalizeState(JSON.parse(snap.json)); }finally{ __custShapeAmmesse=false; }
   if(keepFrame!=null) state.printFrame=keepFrame;
   if(nota.pe) state.pdfEsportato=nota.pe; else delete state.pdfEsportato;
+  if(nota.sto) state.storico=nota.sto; else delete state.storico;
   if(nota.ask && state.production) state.production.asked=true;
   custRevRimetti(revs);
   var key=String(activeVar||"");
@@ -7382,6 +7383,7 @@ function normalizeState(s){
     if(_pe && typeof _pe.at==="string" && typeof _pe.firma==="string" && _pe.at.length<40 && _pe.firma.length<40) s.pdfEsportato={at:_pe.at, firma:_pe.firma};
     else delete s.pdfEsportato;
   }
+  s.storico=storicoPulito(s.storico); if(!s.storico) delete s.storico;   /* storico delle versioni (S10): solo voci ben formate, al massimo 5 */
   var so=s.shareOpts||{};
   s.shareOpts={ copy: so.copy!==false, contacts: so.contacts===true };   /* permessi del link: copia ON, contatti OFF di default (dati personali) */
   s.rider = (s.rider && typeof s.rider==="object") ? s.rider : {};   /* T2: testo editabile del rider (sistema/luci/personale/sedie/note); i numeri sono derivati a runtime */
@@ -37868,6 +37870,7 @@ function firmaPdf(s){
   if(c && typeof c==="object") delete c.customModels;
   var j=JSON.stringify(c, function(k,v){
     if(k==="pdfEsportato") return undefined;
+    if(k==="storico" && this && Array.isArray(this.items)) return undefined;   /* S10: lo storico delle versioni (annotazione dell'export) non è una modifica */
     /* il segno «inviato per revisione» di un elemento personalizzato (cust.rev) non è una modifica del disegno, né il
        legame della copia al suo modello (cust.modelId) */
     if((k==="rev" || k==="modelId") && this && typeof this.nome==="string" && Array.isArray(this.shapes)) return undefined;
@@ -37877,6 +37880,96 @@ function firmaPdf(s){
   var h=5381; for(var i=0;i<j.length;i++){ h=((h<<5)+h+j.charCodeAt(i))|0; }
   return (h>>>0).toString(36)+"."+j.length;
 }
+/* ═══ DIFFERENZE FRA VERSIONI (13/11/2026, specifica S10 dalla posta di produzione) ═══
+   A ogni export si salva un RIASSUNTO COMPATTO del progetto in `state.storico[]` (al massimo 5 voci, una per versione, l'ultima export di
+   quella versione): conteggi per tipo di elemento, pedane per misura e altezza, misura del palco, numero di canali e di mix, microfoni per modello.
+   NIENTE nomi di persone. Quando la versione è ≥ 2 e c'è una voce di una versione precedente, l'Esporta mostra «Cosa cambia da v3 a v4» con
+   «Copia testo» per la mail. Come `pdfEsportato`: annotazione dell'export, per VARIANTE (ogni variante ha la sua storia), fuori dalla cronologia
+   di Annulla e dall'impronta del PDF; si scrive SOLO esportando (lezione #54: aprire, selezionare o ricaricare non scrivono nulla). Formato `f:1`. */
+var STORICO_MAX=5, STORICO_FORMATO=1;
+function storicoPulito(l){
+  if(!Array.isArray(l)) return null;
+  var out=l.filter(function(e){ return e && typeof e==="object" && e.f===STORICO_FORMATO && typeof e.v==="number" && e.v%1===0 && e.v>=1 && e.v<=999
+      && typeof e.at==="string" && e.at.length<40 && e.r && typeof e.r==="object" && !Array.isArray(e.r); }).slice(-STORICO_MAX);
+  return out.length ? out : null;
+}
+function riassuntoDocumento(){
+  var el={}, ped={}, mic={}, can=0, mix=0;
+  (state.items||[]).forEach(function(it){
+    var T=TYPES[it.type]; if(!T) return;
+    if(T.riser){ var k=Math.round(+it.w||T.w)+"x"+Math.round(+it.d||T.d)+"x"+pedanaH(it); ped[k]=(ped[k]||0)+1; return; }
+    el[it.type]=(el[it.type]||0)+1;
+  });
+  var rows=[]; try{ rows=patchList().rows; }catch(_e){}
+  rows.forEach(function(r){ if(r.reserved || r.spare) return; can++; var m=r.micOff ? "" : String(r.mic||""); if(m){ m=m.slice(0,40); mic[m]=(mic[m]||0)+1; } });
+  try{ mix=busList().count; }catch(_e){}
+  var st=state.stage||{};
+  return { f:STORICO_FORMATO, pal:[Math.round(+st.w||0), Math.round(+st.d||0)], el:el, ped:ped, can:can, mix:mix, mic:mic };
+}
+function storicoRegistra(){
+  var v=versioneNumero(); if(!v) return;
+  var lista=Array.isArray(state.storico) ? state.storico.slice() : [], voce={ f:STORICO_FORMATO, v:v, at:new Date().toISOString(), r:riassuntoDocumento() }, i=-1;
+  lista.forEach(function(e,j){ if(e && e.v===v) i=j; });
+  if(i>=0) lista[i]=voce; else lista.push(voce);
+  lista.sort(function(a,b){ return a.v-b.v; });
+  state.storico=lista.slice(-STORICO_MAX);
+}
+function storicoPrecedente(){
+  var v=versioneNumero(); if(v<2) return null;
+  var best=null; (storicoPulito(state.storico)||[]).forEach(function(e){ if(e.v<v && (!best || e.v>best.v)) best=e; });
+  return best;
+}
+function diffMetri(cm){ return String(+(cm/100).toFixed(2)).replace(".",","); }
+function diffPedanaEtichetta(k){ var m=String(k).split("x"); return diffMetri(+m[0])+"×"+diffMetri(+m[1])+" h"+m[2]; }
+function riassuntoDiff(a, b){
+  var righe=[]; a=a||{}; b=b||{};
+  if(a.pal && b.pal && (a.pal[0]!==b.pal[0] || a.pal[1]!==b.pal[1])) righe.push("Palco: "+diffMetri(a.pal[0])+"×"+diffMetri(a.pal[1])+" → "+diffMetri(b.pal[0])+"×"+diffMetri(b.pal[1])+" m");
+  var ea=a.el||{}, eb=b.el||{}, tipi={}, perCat={}, ordine=[];
+  Object.keys(ea).concat(Object.keys(eb)).forEach(function(t){ tipi[t]=1; });
+  Object.keys(tipi).sort().forEach(function(t){
+    var d=(eb[t]||0)-(ea[t]||0); if(!d) return;
+    var T=TYPES[t]||{}, cat=T.cat||"Altro";
+    if(!perCat[cat]){ perCat[cat]=[]; ordine.push(cat); }
+    perCat[cat].push((d>0?"+":"−")+Math.abs(d)+" "+(T.nome||t));
+  });
+  ordine.forEach(function(c){ righe.push(c+": "+perCat[c].join(", ")); });
+  var pa=a.ped||{}, pb=b.ped||{}, ks={}, det=[], ta=0, tb=0;
+  Object.keys(pa).concat(Object.keys(pb)).forEach(function(k){ ks[k]=1; });
+  Object.keys(ks).sort().forEach(function(k){ var d=(pb[k]||0)-(pa[k]||0); ta+=pa[k]||0; tb+=pb[k]||0; if(d) det.push((d>0?"+":"−")+Math.abs(d)+" da "+diffPedanaEtichetta(k)); });
+  if(det.length) righe.push("Pedane: "+(ta!==tb ? "da "+ta+" a "+tb+" " : "")+"("+det.join(", ")+")");
+  if(typeof a.can==="number" && typeof b.can==="number" && a.can!==b.can) righe.push("Canali: "+a.can+" → "+b.can);
+  if(typeof a.mix==="number" && typeof b.mix==="number" && a.mix!==b.mix) righe.push("Mix: "+(b.mix-a.mix>0?"+":"−")+Math.abs(b.mix-a.mix));
+  var ma=a.mic||{}, mb=b.mic||{}, ms={}, dm=[];
+  Object.keys(ma).concat(Object.keys(mb)).forEach(function(k){ ms[k]=1; });
+  Object.keys(ms).sort().forEach(function(k){ var d=(mb[k]||0)-(ma[k]||0); if(d) dm.push((d>0?"+":"−")+Math.abs(d)+" "+k); });
+  if(dm.length) righe.push("Microfoni: "+dm.join(", "));
+  return righe;
+}
+function diffVersioniDati(){
+  var prev=storicoPrecedente(); if(!prev) return null;
+  return { da:prev.v, a:versioneNumero(), righe:riassuntoDiff(prev.r, riassuntoDocumento()) };
+}
+function diffVersioniTesto(dati, motivo){
+  if(!dati) return "";
+  var t="Cosa cambia da v"+dati.da+" a v"+dati.a+":\n"+(dati.righe.length ? dati.righe.map(function(r){ return "- "+r; }).join("\n") : "- nessuna differenza nei dati confrontati (elementi, pedane, palco, canali, mix, microfoni)");
+  motivo=String(motivo==null?"":motivo).trim(); if(motivo) t+="\nMotivo: "+motivo;
+  return t;
+}
+function renderDiffVersioni(){
+  var box=document.getElementById("pdfDiff"); if(!box) return;
+  var dati=diffVersioniDati(); box.hidden=!dati; if(!dati) return;
+  document.getElementById("pdfDiffT").textContent="Cosa cambia da v"+dati.da+" a v"+dati.a;
+  var ul=document.getElementById("pdfDiffL"); ul.innerHTML="";
+  (dati.righe.length ? dati.righe : ["Nessuna differenza nei dati confrontati (elementi, pedane, palco, canali, mix, microfoni)."]).forEach(function(r){ var li=document.createElement("li"); li.textContent=r; ul.appendChild(li); });
+}
+(function(){
+  var b=document.getElementById("pdfDiffCopia"); if(!b) return;
+  b.addEventListener("click", function(){
+    var m=document.getElementById("pdfDiffMotivo"), t=diffVersioniTesto(diffVersioniDati(), m ? m.value : "");
+    if(!t) return;
+    try{ navigator.clipboard.writeText(t).then(function(){ showToast("Testo copiato"); }, function(){ showToast("Copia non riuscita","err"); }); }catch(_e){ showToast("Copia non riuscita","err"); }
+  });
+})();
 /* La prima apertura dell'Esporta annota production.asked (vestigiale, per i blob vecchi): si salva ma NON è un
    passo di Annulla (30/09), come segnaPdfEsportato. */
 function segnaEsportaAperto(){
@@ -37889,6 +37982,7 @@ function segnaEsportaAperto(){
 function segnaPdfEsportato(){
   try{
     dropOrphanRows(state);   /* lo fa save(): va fatto prima dell'impronta, o la nota nasce già vecchia */
+    storicoRegistra();   /* S10: il riassunto di questa versione, per «Cosa cambia da vN a vM» */
     state.pdfEsportato={at:new Date().toISOString()};
     state.pdfEsportato.firma=firmaPdf(state);
     /* come save() ma SENZA recordHistory (revisione 26/09): l'export non è una modifica, e un passo di
@@ -37911,6 +38005,7 @@ function renderPdfUltimo(){
   var tx=pdfUltimoTesto(state);
   el.textContent=tx; el.hidden=!tx;
   el.classList.toggle("vecchio", /^Modificato/.test(tx));
+  try{ renderDiffVersioni(); }catch(_e){}
 }
 function pdfGateErrori(run){
   /* Gate sugli errori critici (M-04) — spostato qui dall'interno di exportPdf (audit 27/07).
