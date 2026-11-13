@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { TEMPLATES, templateSeats, groupStaffing, staffingCounts, suggestedStatus, PROD_STATUS } from "../src/domain/staffing.js";
+import { TEMPLATES, templateSeats, groupStaffing, roleForItem, staffingCounts, suggestedStatus, PROD_STATUS } from "../src/domain/staffing.js";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -53,4 +53,14 @@ test("suggestedStatus non tocca gli stati terminali e segue i posti", () => {
   assert.equal(suggestedStatus({ seats: 3, filled: 3, open: 0 }, "partial"), "complete");
   assert.equal(suggestedStatus({ seats: 3, filled: 0, open: 3 }, "done"), "done");
   assert.equal(suggestedStatus({ seats: 3, filled: 3, open: 0 }, "cancelled"), "cancelled");
+});
+
+test("roleForItem: dalla postazione dell'editor al ruolo e al posto da cercare", () => {
+  const sec = [{ name: "Archi", roles: [
+    { id: "r1", name: "Violini primi", slots: [{ id: "s1", seat_no: 1, status: "confirmed", item_id: "A" }, { id: "s2", seat_no: 2, status: "open", item_id: "A" }, { id: "s3", seat_no: 3, status: "open", item_id: null }] },
+    { id: "r2", name: "Viole", slots: [{ id: "s4", seat_no: 1, status: "confirmed", item_id: "B" }] }] }];
+  const a = roleForItem(sec, "A");
+  assert.equal(a.role.id, "r1"); assert.equal(a.slots.length, 2); assert.equal(a.target.id, "s2", "il primo posto scoperto");
+  assert.equal(roleForItem(sec, "B").target.id, "s4", "tutti coperti: il primo");
+  assert.equal(roleForItem(sec, "zzz"), null); assert.equal(roleForItem(sec, ""), null); assert.equal(roleForItem(null, "A"), null);
 });

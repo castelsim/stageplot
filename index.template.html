@@ -23675,6 +23675,8 @@ function ricordaRecenteCatalogo(k, nome, over){
                 kw:"scaletta setlist set list brani canzoni pezzi ordine durata durate pausa bis intro cambio palco"});
   entries.push({nome:"Nuova variante", dim:"copia della scena attiva, da cambiare", noQuick:true, iconHtml:VAR_ICON, action:function(){ if(typeof createVariant==="function") createVariant(); },
                 kw:"variante varianti scena scene versione alternativa seconda formazione"});
+  entries.push({nome:"Importa organico", dim:"da una riga o da Excel, con anteprima", noQuick:true, iconHtml:LISTA_ICON, action:function(){ orgImportApri(); },
+                kw:"importa importare incolla organico orchestra formazione foglio convocazione csv excel archi formula sezioni"});   /* G1 fase 2 (13/11): fuori dal menu File, che resta essenziale */
   entries.push({nome:"Frequenze radio (RF)", dim:"si scrivono su ogni radiomic e in-ear", noQuick:true, iconHtml:RF_ICON, action:openRfFreq,
                 kw:"frequenza frequenze radiofrequenza radiofrequenze radio radiomicrofoni banda mhz lista rf"});
   ["metro"].forEach(function(k){
@@ -26818,6 +26820,7 @@ var ORCH_DEF = [
 ];
 
 var pendingOut = null;
+var pendingDopo = null;   /* callback di chi chiama placeOut (import organico, 13/11): gira a posti creati, anche dopo «Continua» dell'avviso */
 var pendingReviewModal = "orchModal";
 var ORCH_PRESETS = [
   {id:"quartetto", nome:"Quartetto archi — 2.0.1.1", hint:"Quartetto classico: 2 violini, viola e violoncello. Ideale per piccoli palchi o cerimonie.", counts:{v1:2,v2:0,vle:1,vc:1}},
@@ -27074,6 +27077,7 @@ function applyOrchestraPreset(presetId){
 /* Piazza una lista di postazioni (out, coord. relative al riferimento) sul palco.
    Riusato da organico orchestra e da tutte le formazioni tipo. */
 function placeOut(out, fitStage, clearFirst, force){
+  var _dopo=pendingDopo; pendingDopo=null;
   var m=measureOrchestraOut(out), fp=frontPad(m);
   if(fitStage){
     var nw=Math.max(800, Math.ceil((2*m.maxX+160)/50)*50);
@@ -27085,13 +27089,13 @@ function placeOut(out, fitStage, clearFirst, force){
   var C={x:state.stage.w/2, y:state.stage.d-fp};
   var assessment=assessOut(out, state.stage.w, state.stage.d, fp);
   if(!force && (assessment.tooSmall || assessment.relevantOverlaps>0)){
-    pendingOut={out:out, fitStage:fitStage, clearFirst:clearFirst};
+    pendingOut={out:out, fitStage:fitStage, clearFirst:clearFirst, dopo:_dopo};
     var msg=[];
     if(assessment.tooSmall) msg.push("Il palco è troppo piccolo: alcune postazioni escono dall'area utile.");
     if(assessment.relevantOverlaps>0) msg.push("La disposizione automatica crea "+assessment.overlaps+" sovrapposizion"+(assessment.overlaps===1?"e":"i")+" tra postazioni.");
     msg.push("Puoi continuare e poi sistemare a mano, oppure rivedere l'organico.");
     document.getElementById("orchWarnText").textContent=msg.join(" ");
-    document.getElementById(pendingReviewModal||"orchModal").hidden=true;
+    var _rev=document.getElementById(pendingReviewModal||"orchModal"); if(_rev) _rev.hidden=true;   /* il modale da cui si arriva può non esistere (import chiamato senza aprire la finestra) */
     document.getElementById("orchWarnModal").hidden=false;
     return false;
   }
@@ -27110,6 +27114,7 @@ function placeOut(out, fitStage, clearFirst, force){
   if(!clearFirst && state.items.length) avoidGroupOverlap(news);   /* non sovrapporsi a ciò che è già sul palco */
   news.forEach(function(it){ state.items.push(it); });
   clearSelection(); save();
+  if(_dopo) _dopo();
   return true;
 }
 /* sposta il nuovo gruppo DIETRO gli elementi esistenti che gli stanno davanti; allarga il palco sul fondo se serve */
@@ -27139,6 +27144,190 @@ function avoidGroupOverlap(news){
 function genOrchestra(counts, fitStage, clearFirst, force){
   pendingReviewModal="orchModal";
   return placeOut(buildOrchestraOut(counts), fitStage, clearFirst, force);
+}
+
+/* ═══ IMPORT DELL'ORGANICO (13/11/2026, G1 fase 2) ═══
+   L'organico dei fogli di convocazione si incolla, non si ricostruisce a mano: una riga «cr4-tr2-trb3-tu1; fl2-o2-cl2-fg2», la formula degli archi
+   «8-6-4-4-2» (violini I · II · viole · celli · bassi; con meno numeri si fermano prima), oppure righe «sezione, strumento, n.» (CSV, o copiate da Excel).
+   Il testo diventa un conto per sezione (le stesse di ORCH_DEF), si guarda in anteprima e SOLO dopo si creano i posti con lo stesso generatore
+   dell'organico orchestra; «Annulla» (toast o ⌘Z) rimette il palco com'era. Con le colonne «Completo · Medio · Ridotto» si sceglie quale disegnare.
+   DATI PERSONALI: non si leggono. Di una riga contano solo sezione, strumento e quantità; celle con @, IBAN, telefoni, «contratto», «cachet», «CV»,
+   «sostituto», «nominativo» si saltano e si contano; il contenuto di righe non riconosciute non si mostra. Niente nasce nel documento: nessun campo nuovo. */
+var ORG_IMP_ALIAS=(function(){
+  var A={}, add=function(id,l){ l.split("|").forEach(function(k){ A[k]=id; }); };
+  add("v1","v1|vl1|vln1|vn1|vni|violini 1|violino 1|violini primi|primi violini|violino primo");
+  add("v2","v2|vl2|vln2|vn2|vnii|violini 2|violino 2|violini secondi|secondi violini");
+  add("vle","vle|vla|viola|viole|vle"); add("vc","vc|vcl|vcello|celli|cello|violoncello|violoncelli");
+  add("cb","cb|cbs|contrabbasso|contrabbassi");
+  add("fl","fl|flauto|flauti"); add("ob","o|ob|oboe|oboi"); add("cl","cl|clar|clarinetto|clarinetti"); add("fg","fg|fag|fagotto|fagotti");
+  add("cor","cr|cor|corno|corni|hn"); add("tr","tr|tromba|trombe|tp"); add("tbn","trb|tbn|trbn|trombone|tromboni"); add("tba","tu|tba|tuba|tube");
+  add("arp","arp|arpa|arpe|hp"); add("pf","pf|pianoforte|pianoforti|piano"); add("cel","cel|celesta");
+  add("tim","timp|tim|timpani|timpano"); add("gc","gc|gran cassa|grancassa"); add("pia","pia|piatti"); add("rul","rul|rullante");
+  add("cmp","cmp|campane|campane tubolari"); add("tam","tam|tamtam|tam tam");
+  return A;
+})();
+var ORG_IMP_MAX=40;
+var ORG_IMP_GRUPPO={v1:"v1",v2:"v2",vle:"vle",vc:"vc",cb:"cb",fl:"fl",ob:"ob",cl:"cl",fg:"fg",cor:"cor",tr:"tr",tbn:"tbn",tba:"tba",arp:"arp",pf:"pf",cel:"cel",tim:"tim"};   /* sezioni che il foglio Organico sa riconoscere nel disegno */
+function orgImpNorm(s){
+  s=String(s==null?"":s).toLowerCase();
+  try{ s=s.normalize("NFD").replace(/[̀-ͯ]/g,""); }catch(e){}
+  s=s.replace(/[.'’_]/g,"").replace(/[\-–]/g," ").replace(/\s+/g," ").trim();
+  return s.replace(/ iii$/," 3").replace(/ ii$/," 2").replace(/ i$/," 1");
+}
+function orgImpRisolvi(nome){
+  var s=orgImpNorm(String(nome||"").split("/")[0].replace(/\([^)]*\)/g,""));
+  return Object.prototype.hasOwnProperty.call(ORG_IMP_ALIAS,s) ? ORG_IMP_ALIAS[s] : null;
+}
+var ORG_IMP_PRIV=/@|\biban\b|\b[a-z]{2}\d{2}[a-z0-9]{11,}\b|(?:\+|\b00)\d[\d ]{8,}\d|\b3\d{2}[ .\-]?\d{6,7}\b|\b0\d{1,3}[ \/.\-]?\d{5,8}\b|\b(?:cv|curriculum|contratt\w*|compens\w*|cachet|fattur\w*|sostitut\w*|nominativ\w*|codice fiscale)\b/i;
+function orgImportParse(testo){
+  var R={varianti:[], ignorati:[], righeNo:[], privati:0, tagliati:[]}, vm={};
+  var NOMI={completo:"Completo", medio:"Medio", ridotto:"Ridotto", "":"Organico"};
+  function va(k){ if(!vm[k]){ vm[k]={id:k, nome:NOMI[k], counts:{}, tot:0}; R.varianti.push(vm[k]); } return vm[k]; }
+  function agg(k,id,n){ var v=va(k); v.counts[id]=(v.counts[id]||0)+n; }
+  function isInt(s){ return /^\d{1,2}$/.test(String(s).trim()); }
+  var cur="", hdr=null;
+  String(testo||"").split(/\r?\n/).forEach(function(riga,ri){
+    var line=riga.trim(); if(!line) return;
+    var m=/^(completo|medio|ridotto)\s*[:=]\s*(.*)$/i.exec(line);
+    if(m){ cur=m[1].toLowerCase(); line=m[2].trim(); if(!line) return; }
+    var cells=line.split(/\t|;|,|\|/).map(function(c){ return c.trim(); });
+    if(!/\d/.test(line) && cells.length>=2 && /\b(sezione|strumento|strumenti|gruppo)\b/i.test(line)){   /* intestazione: quale colonna è «n.», quali le varianti */
+      hdr={nCol:-1, vcols:[]};
+      cells.forEach(function(c,i){ var n=orgImpNorm(c);
+        if(/^(n|n°|numero|quantita|qta|posti)$/.test(n)) hdr.nCol=i;
+        else if(n==="completo"||n==="medio"||n==="ridotto") hdr.vcols.push({idx:i, k:n}); });
+      return;
+    }
+    cells=cells.map(function(c){ if(c && ORG_IMP_PRIV.test(c)){ R.privati++; return ""; } return c; });   /* cella per cella: la riga resta, il dato personale no */
+    if(cells.length>=2 && cells.some(function(c){ return /^\d+$/.test(c); })){   /* RIGA DI TABELLA: sezione, strumento, n. (un numero solo di cifre: una quantità sensata ne ha 1-2) */
+      var id=null;
+      for(var i=cells.length-1;i>=0 && !id;i--){ if(cells[i] && !/^\d+$/.test(cells[i])) id=orgImpRisolvi(cells[i]); }
+      if(!id){ R.righeNo.push(ri+1); return; }
+      var letto=false;
+      if(hdr && hdr.vcols.length) hdr.vcols.forEach(function(vc){ if(isInt(cells[vc.idx]||"")){ agg(vc.k,id,+cells[vc.idx]); letto=true; } });
+      if(letto) return;
+      var ni=(hdr && hdr.nCol>=0 && isInt(cells[hdr.nCol]||"")) ? hdr.nCol : cells.findIndex(isInt);
+      if(ni<0){ R.righeNo.push(ri+1); return; }
+      agg(cur,id,+cells[ni]);
+      return;
+    }
+    /* RIGA IN LINEA: formule degli archi + «sigla+numero» */
+    var s=cells.join(" ; ").replace(/(^|[^\w])(\d{1,2}(?:\s*[-–.]\s*\d{1,2}){3,4})(?![\w])/g, function(_t,pre,f){
+      f.split(/\s*[-–.]\s*/).forEach(function(n,i){ agg(cur,["v1","v2","vle","vc","cb"][i],+n); });
+      return pre+" ; ";
+    });
+    s.split(/[;,|]+/).forEach(function(chunk){
+      chunk=chunk.trim(); if(!chunk) return;
+      var words=[], pn=null;
+      function emetti(nome,n){ var id=orgImpRisolvi(nome); if(id) agg(cur,id,n); else R.ignorati.push(String(nome).slice(0,16)); }
+      function chiudi(){ if(words.length){ emetti(words.join(" "), pn!==null ? pn : 1); words=[]; pn=null; } }
+      chunk.split(/[\s\-–]+/).filter(Boolean).forEach(function(t){
+        var ld=/^([a-zà-ÿ]+?)\.?(\d{1,2})$/i.exec(t);
+        if(isInt(t)){
+          if(words.length){ if(pn!==null){ emetti(words.join(" "),pn); words=[]; pn=+t; } else { emetti(words.join(" "),+t); words=[]; } }
+          else if(pn!==null){ R.ignorati.push(String(pn)); pn=+t; } else pn=+t;
+        } else if(ld){ chiudi(); emetti(ld[1], +ld[2]); }
+        else words.push(t);
+      });
+      if(words.length) chiudi(); else if(pn!==null) R.ignorati.push(String(pn));
+    });
+  });
+  R.varianti.forEach(function(v){
+    Object.keys(v.counts).forEach(function(k){ if(v.counts[k]>ORG_IMP_MAX){ R.tagliati.push(k); v.counts[k]=ORG_IMP_MAX; } if(!v.counts[k]) delete v.counts[k]; });
+    v.tot=orchTotal(v.counts);
+  });
+  R.varianti=R.varianti.filter(function(v){ return v.tot>0; });
+  R.ignorati=R.ignorati.filter(function(x,i,a){ return a.indexOf(x)===i; });
+  R.tagliati=R.tagliati.filter(function(x,i,a){ return a.indexOf(x)===i; });
+  return R;
+}
+/* quanti posti di ogni sezione ci sono ORA nel disegno (solo le sezioni che il foglio Organico riconosce) */
+function orgImportDisegnato(){
+  var D=organicoDati(), r={};
+  Object.keys(D.righe).forEach(function(k){ var x=D.righe[k]; r[x.id]=(r[x.id]||0)+x.n; });
+  var out={}; Object.keys(ORG_IMP_GRUPPO).forEach(function(id){ out[id]=r[ORG_IMP_GRUPPO[id]]||0; });
+  return out;
+}
+/* «organico dichiarato ≠ disegnato»: sezioni dove il conto importato e quello del disegno non coincidono */
+function orgImportDifferenze(counts){
+  var d=orgImportDisegnato(), diff=[];
+  ORCH_DEF.forEach(function(s){ if(!ORG_IMP_GRUPPO[s.id]) return; var a=counts[s.id]||0, b=d[s.id]||0; if(a!==b) diff.push(s.nome+": "+a+" dichiarati, "+b+" disegnati"); });
+  return diff;
+}
+function orgImportApplica(counts, opz){
+  opz=opz||{};
+  if(!orchTotal(counts)) return false;
+  pendingReviewModal="orgImpModal";   /* se il palco è troppo piccolo o la disposizione si sovrappone, «Rivedi» torna a questa finestra */
+  pendingDopo=function(){
+    try{ fit(); }catch(e){}
+    var diff=orgImportDifferenze(counts);
+    showToastAnnulla("Creati "+orchTotal(counts)+" posti dall'organico importato"+(diff.length ? " · dichiarato ≠ disegnato: "+diff.slice(0,3).join("; ")+(diff.length>3?"…":"") : ""));
+  };
+  return placeOut(buildOrchestraOut(counts), !!opz.fit, !!opz.clear, false);
+}
+function showToastAnnulla(msg){
+  try{ if(window.__toast) window.__toast(msg, false, {label:"Annulla", run:function(){ undo(); }}); }catch(e){}
+}
+function orgImportApri(){
+  var ov=document.getElementById("orgImpModal");
+  if(!ov){
+    ov=document.createElement("div"); ov.className="modal"; ov.id="orgImpModal"; ov.hidden=true;
+    ov.setAttribute("role","dialog"); ov.setAttribute("aria-modal","true"); ov.setAttribute("aria-labelledby","orgImpTitolo");
+    ov.innerHTML='<div class="mcard" style="width:580px;max-width:94vw"><h2 id="orgImpTitolo">Importa l\'organico</h2>'
+      + '<p class="hint">Incolla una riga come <b>cr4-tr2-trb3-tu1; fl2-o2-cl2-fg2</b>, la formula degli archi <b>8-6-4-4-2</b> (violini I · II · viole · celli · bassi) oppure righe «sezione, strumento, n.» copiate da Excel. Con le colonne Completo · Medio · Ridotto scegli quale disegnare. Contano solo sezione, strumento e quantità: nomi di persone e dati personali non vengono letti.</p>'
+      + '<textarea id="orgImpTesto" rows="5" spellcheck="false" aria-label="Organico da importare" style="width:100%;box-sizing:border-box;font:13px/1.4 ui-monospace,Menlo,monospace" placeholder="8-6-4-4-2; fl2-o2-cl2-fg2; cr4-tr2-trb3-tu1"></textarea>'
+      + '<div id="orgImpVar" hidden style="margin:8px 0"><label>Variante da disegnare <select id="orgImpVarSel"></select></label></div>'
+      + '<div id="orgImpAnte" aria-live="polite" style="margin:10px 0;font-size:13px"></div>'
+      + '<label class="ochk"><input type="checkbox" id="orgImpClear"> Svuota il palco prima di creare i posti</label>'
+      + '<label class="ochk"><input type="checkbox" id="orgImpFit"> Adatta le dimensioni del palco all\'organico</label>'
+      + '<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px"><button type="button" class="btn" id="orgImpNo">Annulla</button><button type="button" class="btn primary" id="orgImpGo" disabled>Crea i posti</button></div></div>';
+    document.body.appendChild(ov);
+    var ta=ov.querySelector("#orgImpTesto"), sel=ov.querySelector("#orgImpVarSel"), go=ov.querySelector("#orgImpGo");
+    var P=null;
+    function scelta(){ if(!P) return null; for(var i=0;i<P.varianti.length;i++) if(P.varianti[i].id===sel.value) return P.varianti[i]; return P.varianti[0]||null; }
+    function aggiorna(){
+      P=orgImportParse(ta.value);
+      var prima=sel.value, h="";
+      sel.innerHTML=P.varianti.map(function(v){ return '<option value="'+esc(v.id)+'">'+esc(v.nome)+' ('+v.tot+')</option>'; }).join("");
+      if(prima && P.varianti.some(function(v){ return v.id===prima; })) sel.value=prima;
+      else { var c=P.varianti.filter(function(v){ return v.id==="completo"; })[0]; if(c) sel.value="completo"; }
+      ov.querySelector("#orgImpVar").hidden=P.varianti.length<2;
+      var v=scelta(), now=orgImportDisegnato(), clear=ov.querySelector("#orgImpClear").checked;
+      if(v){
+        var righe=ORCH_DEF.filter(function(s){ return v.counts[s.id]; }), gia=0;
+        h+='<table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left">Sezione</th><th style="text-align:right">Da importare</th><th style="text-align:right">Ora sul palco</th></tr></thead><tbody>'
+          + righe.map(function(s){ var g=ORG_IMP_GRUPPO[s.id] ? now[s.id] : null; if(g) gia+=g;
+              return '<tr><td>'+esc(s.nome)+'</td><td style="text-align:right">'+v.counts[s.id]+'</td><td style="text-align:right">'+(g===null?"—":g)+'</td></tr>'; }).join("")
+          + '<tr style="font-weight:700"><td>Totale</td><td style="text-align:right">'+v.tot+'</td><td></td></tr></tbody></table>';
+        var a=[v.counts.v1||0,v.counts.v2||0,v.counts.vle||0,v.counts.vc||0,v.counts.cb||0];
+        if(a.some(Boolean)){ while(a.length && !a[a.length-1]) a.pop(); h+='<div style="margin-top:6px">Archi <b>'+a.join("-")+'</b></div>'; }
+        if(gia && !clear) h+='<div style="margin-top:6px;color:#b45309">Sul palco ci sono già dei posti di queste sezioni: restano, e il disegno avrà più posti di quelli dichiarati. Per sostituirli spunta «Svuota il palco».</div>';
+      } else h+='<div style="color:var(--text-3)">'+(ta.value.trim() ? "Non ho trovato nessuna sezione da importare." : "Incolla il testo qui sopra: vedrai subito cosa verrebbe creato.")+'</div>';
+      var note=[];
+      if(P.ignorati.length) note.push("Non riconosciuti: "+P.ignorati.slice(0,8).map(esc).join(", ")+(P.ignorati.length>8?"…":""));
+      if(P.righeNo.length) note.push("Righe non riconosciute (contenuto non mostrato): "+P.righeNo.slice(0,10).join(", "));
+      if(P.privati) note.push(P.privati+" dat"+(P.privati===1?"o personale saltato":"i personali saltati")+", non letti");
+      if(P.tagliati.length) note.push("Oltre "+ORG_IMP_MAX+" per sezione: ridotto a "+ORG_IMP_MAX);
+      if(note.length) h+='<div style="margin-top:6px;color:var(--text-3)">'+note.join("<br>")+'</div>';
+      ov.querySelector("#orgImpAnte").innerHTML=h;
+      go.disabled=!v;
+    }
+    ta.addEventListener("input", aggiorna); sel.addEventListener("change", aggiorna);
+    ov.querySelector("#orgImpClear").addEventListener("change", aggiorna);
+    ov.__agg=aggiorna;
+    function chiudi(){ ov.hidden=true; }
+    ov.querySelector("#orgImpNo").addEventListener("click", chiudi);
+    ov.addEventListener("click", function(e){ if(e.target===ov) chiudi(); });
+    ov.addEventListener("keydown", function(e){ if(e.key==="Escape") chiudi(); });
+    go.addEventListener("click", function(){
+      var v=scelta(); if(!v) return;
+      var r=orgImportApplica(v.counts, {clear:ov.querySelector("#orgImpClear").checked, fit:ov.querySelector("#orgImpFit").checked});
+      if(r!==false) chiudi();
+    });
+  }
+  ov.querySelector("#orgImpTesto").value=""; ov.querySelector("#orgImpClear").checked=false; ov.querySelector("#orgImpFit").checked=false;
+  ov.__agg(); ov.hidden=false;
+  try{ ov.querySelector("#orgImpTesto").focus(); }catch(e){}
 }
 
 /* ============ FORMAZIONI TIPO (band, coro, combinazioni) ============ */
@@ -27560,16 +27749,19 @@ function buildOrchCoroOut(){
   });
   document.getElementById("orchWarnReview").addEventListener("click", function(){
     document.getElementById("orchWarnModal").hidden=true;
-    document.getElementById(pendingReviewModal||"orchModal").hidden=false;
+    var _rev=document.getElementById(pendingReviewModal||"orchModal"); if(_rev) _rev.hidden=false;
   });
-  document.getElementById("orchWarnContinue").addEventListener("click", function(){
-    if(!pendingOut) return;
-    placeOut(pendingOut.out, pendingOut.fitStage, pendingOut.clearFirst, true);
-    pendingOut=null;
-    document.getElementById("orchWarnModal").hidden=true;
-    fit();
-  });
+  document.getElementById("orchWarnContinue").addEventListener("click", orchWarnContinua);
 })();
+
+function orchWarnContinua(){
+  if(!pendingOut) return;
+  var po=pendingOut; pendingOut=null;
+  pendingDopo=po.dopo||null;
+  placeOut(po.out, po.fitStage, po.clearFirst, true);
+  document.getElementById("orchWarnModal").hidden=true;
+  fit();
+}
 
 function readStringCounts(){
   return {
@@ -42061,6 +42253,13 @@ function orcSeatsRedraw(){
   if(g){ if(typeof setSvgInner==="function") setSvgInner(g, m); else g.innerHTML=m; }
   if(typeof renderProps==="function") renderProps();
 }
+/* «Cerca musicista» (V1/b): apre il matching di Orchestre già sul ruolo di questa postazione. Solo se c'è un posto da coprire. */
+function orcCercaLink(productionId, it, rows){
+  if(!productionId || !it || !it.id || !rows || !rows.length) return null;
+  var open=rows.some(function(r){ var st=String(r&&r.slot_status||"open"); return st==="open"||st==="replaced"||st==="cancelled"; });
+  if(!open) return null;
+  return "/orchestre/admin/produzioni/scheda/?id="+encodeURIComponent(productionId)+"&t=matching&item="+encodeURIComponent(it.id);
+}
 /* la riga «Organico» nel pannello dell'elemento: cosa dice Orchestre di questa postazione */
 function renderOrcRow(it){
   var row=document.getElementById("pOrcRow"); if(!row) return;
@@ -42071,7 +42270,8 @@ function renderOrcRow(it){
   var prod=rows?rows[0]:orcSeats.productions[0];
   var h='<div class="orc-hd">Organico <span class="orc-prod">'+esc(String(prod.production_title||""))+'</span></div>';
   if(rows){ rows.forEach(function(r){ var who=String(r.musician_name||"").trim(); h+='<div class="orc-line '+orcSeatClass(r)+'">'+esc((r.role_name?r.role_name+" \u00b7 ":"")+((who && r.seat_no!=null)?"posto "+r.seat_no+" \u00b7 ":"")+orcSeatLine(r))+'</div>'; });
-    h+='<a class="orc-link" href="/orchestre/admin/produzioni/scheda/?id='+encodeURIComponent(prod.production_id)+'&t=organico">Apri l’organico →</a>'; }
+    var cerca=orcCercaLink(prod.production_id, it, rows);
+    h+='<a class="orc-link" href="/orchestre/admin/produzioni/scheda/?id='+encodeURIComponent(prod.production_id)+'&t=organico">Apri l’organico →</a>'+(cerca?'<a class="orc-link orc-cerca" href="'+esc(cerca)+'">Cerca musicista →</a>':''); }
   else { h+='<div class="orc-line off">Postazione non ancora nell’organico</div><a class="orc-link" href="/orchestre/admin/produzioni/scheda/?id='+encodeURIComponent(prod.production_id)+'&t=stageplot">Importa le postazioni →</a>'; }
   row.innerHTML=h;
 }

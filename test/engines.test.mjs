@@ -25871,6 +25871,21 @@ t("il layer layOrcSeats sta in sceneMarkup ma non nell'export né nel documento"
   ok(A.window.__scenePrint !== true, "il flag di stampa è tornato spento dopo l'export");
   A.orcSeats.pid = null; A.orcSeats.byItem = {};
 });
+t("«Cerca musicista» (V1/b): link al matching di Orchestre sulla postazione, solo se c'è un posto da coprire", () => {
+  const it = { id: "itm-1" };
+  const prod = "11111111-1111-4111-8111-111111111111";
+  eq(A.orcCercaLink(prod, it, [{ slot_status: "open" }]), "/orchestre/admin/produzioni/scheda/?id=" + prod + "&t=matching&item=itm-1");
+  ok(A.orcCercaLink(prod, it, [{ slot_status: "replaced" }]) !== null, "sostituito = da coprire");
+  ok(A.orcCercaLink(prod, it, [{ slot_status: "confirmed" }, { slot_status: "open" }]) !== null, "due posti: basta uno scoperto");
+  eq(A.orcCercaLink(prod, it, [{ slot_status: "confirmed" }]), null);
+  eq(A.orcCercaLink(prod, it, [{ slot_status: "invited" }]), null);
+  eq(A.orcCercaLink(prod, it, []), null); eq(A.orcCercaLink(prod, it, null), null);
+  eq(A.orcCercaLink("", it, [{ slot_status: "open" }]), null); eq(A.orcCercaLink(prod, { id: "" }, [{ slot_status: "open" }]), null);
+  ok(A.orcCercaLink(prod, { id: "a&b=c" }, [{ slot_status: "open" }]).indexOf("item=a%26b%3Dc") > -1, "l'id è codificato");
+  const row = appjs.slice(appjs.indexOf("function renderOrcRow("), appjs.indexOf("function deleteSelGuarded("));
+  ok(/orcCercaLink\(prod\.production_id, it, rows\)/.test(row) && row.indexOf("Cerca musicista") > -1, "la riga Organico la mostra");
+  ok(row.indexOf("Cerca musicista") < row.indexOf("Importa le postazioni"), "e solo nel ramo con le postazioni già nell'organico");
+});
 t("eliminare una postazione con una persona sopra passa SEMPRE dalla guardia, e l'annuncio arriva dopo", () => {
   ok(appjs.indexOf('getElementById("pDel").addEventListener("click", deleteSelGuarded)') > -1, "bottone dell'elemento");
   /* il collaudo del 10/09 ha trovato questa scappatoia: «Elimina» sulla selezione multipla cancellava
@@ -32267,6 +32282,100 @@ t("Distinta palco: opzione del rider spenta di serie (documenti esistenti identi
   const tx = () => { const d = s5Doc(); A.riderPdf(d); return d.pagine.reduce((l, pg) => l.concat(pg.testi.map((x) => x.t)), []).join("\n"); };
   ok(!/Distinta palco/.test(tx()), "PDF, spenta: niente distinta"); A.state.rider = { distintaPalco: true };
   ok(/Distinta palco: 15 moduli/.test(tx()), "PDF, accesa: la distinta c'è");
+});
+
+/* ═══ IMPORT DELL'ORGANICO (13/11/2026, G1 fase 2): una riga o una tabella diventa il conto per sezione, anteprima, poi i posti; dati personali mai letti ═══ */
+const impC = (t, k) => { const P = A.orgImportParse(t); return (P.varianti.find((v) => v.id === (k || "")) || { counts: {} }).counts; };
+t("Import organico: la riga d'esempio del piano crea esattamente quei posti", () => {
+  eq(impC("cr4-tr2-trb3-tu1; fl2-o2-cl2-fg2"), { cor: 4, tr: 2, tbn: 3, tba: 1, fl: 2, ob: 2, cl: 2, fg: 2 }, "sigle col numero attaccato, separate da trattini e punto e virgola");
+  eq(impC("12-12-6-6-4"), { v1: 12, v2: 12, vle: 6, vc: 6, cb: 4 }, "formula degli archi coi trattini");
+  eq(impC("8-6-4-4"), { v1: 8, v2: 6, vle: 4, vc: 4 }, "con quattro numeri il contrabbasso non c'è");
+  eq(impC("10.8.6.6.3"), { v1: 10, v2: 8, vle: 6, vc: 6, cb: 3 }, "anche col punto (12.10.8.6.4, come nei preset)");
+  eq(impC("2 flauti, 2 oboi, 4 corni, gran cassa 1, tam-tam"), { fl: 2, ob: 2, cor: 4, gc: 1, tam: 1 }, "numero davanti, nomi estesi, nome di due parole, strumento senza numero = 1");
+  eq(impC("cr4-tr2; 12-10-8-6-4; arpa; timpani 1"), { v1: 12, v2: 10, vle: 8, vc: 6, cb: 4, cor: 4, tr: 2, arp: 1, tim: 1 }, "righe miste (la formula degli archi si legge per prima)");
+  eq(impC("1-2-3"), {}, "tre numeri non sono una formula degli archi");
+});
+t("Import organico: tabella «sezione, strumento, n.» (CSV, TSV, ;) e colonne Completo · Medio · Ridotto", () => {
+  eq(impC("Sezione,Strumento,N.\nARCHI,Violini I,12\nARCHI,Violini II,10\nFIATI,Corni,4\nLEGNI,Flauto/Ottavino,2"), { v1: 12, v2: 10, cor: 4, fl: 2 }, "CSV con intestazione; «Flauto/Ottavino» è un flauto");
+  eq(impC("Sezione\tStrumento\tN.\nARCHI\tViole\t6\nARCHI\tViole\t2"), { vle: 8 }, "copiato da Excel (tabulazioni); le righe dello stesso strumento si sommano");
+  eq(impC("ARCHI;Violini 1;7\nARCHI;Violoncelli;4"), { v1: 7, vc: 4 }, "senza intestazione, con il punto e virgola");
+  const P = A.orgImportParse("Sezione;Strumento;Completo;Medio;Ridotto\nARCHI;Violini I;12;8;4\nFIATI;Corni;4;2;2");
+  eq(P.varianti.map((v) => v.id), ["completo", "medio", "ridotto"], "tre varianti");
+  eq(P.varianti.map((v) => v.counts), [{ v1: 12, cor: 4 }, { v1: 8, cor: 2 }, { v1: 4, cor: 2 }], "ognuna con i suoi numeri");
+  const Q = A.orgImportParse("Ridotto: 6-5-4-3-2; fl1\nCompleto: 12-10-8-6-4; fl2");
+  eq(Q.varianti.map((v) => [v.id, v.counts.v1, v.counts.fl]), [["ridotto", 6, 1], ["completo", 12, 2]], "varianti anche in linea («Completo: …»)");
+});
+t("Import organico: dati personali mai letti né mostrati; righe non riconosciute solo per numero; tetto per sezione", () => {
+  const T = "Sezione,Strumento,N.\nARCHI,Viole,6,mario.rossi@example.org,IBAN IT60X0542811101000000123456\nARCHI,Violini,3\nFIATI,Corni,2,contratto firmato\nFIATI,Tube,1,+39 333 1234567\nRossi Mario,Cantante,1\nARCHI,Celli,350";
+  const P = A.orgImportParse(T);
+  eq(P.varianti[0].counts, { vle: 6, cor: 2, tba: 1 }, "la riga resta, la cella personale no (celli 350: più di 2 cifre non è una quantità, la riga si scarta)");
+  ok(P.privati >= 4, "le celle personali sono contate (" + P.privati + ")");
+  const J = JSON.stringify(P);
+  ok(!/mario|rossi|example|IT60|contratto|1234567/i.test(J), "nulla di personale nel risultato: " + J);
+  eq(P.righeNo.length >= 2, true, "le righe non riconosciute (violini senza sezione, cantante…) sono elencate");
+  ok(P.righeNo.every((n) => typeof n === "number"), "per numero di riga, mai col contenuto");
+  eq(P.righeNo, [3, 6, 7], "righe 3 (violini senza sezione), 6 (cantante) e 7 (celli con quantità di 3 cifre)");
+  const iban = A.orgImportParse("FIATI,Corni,2,coordinate IBAN da inviare\nFIATI,Tube,1,+39 06 1234 5678\nFIATI,Trombe,2,CV allegato");
+  eq([iban.varianti[0].counts, iban.privati], [{ cor: 2, tba: 1, tr: 2 }, 3], "la parola IBAN, un fisso con prefisso, «CV»: celle saltate, righe tenute");
+  const sost = A.orgImportParse("FIATI,Corno (sostituto Rossi),2");
+  eq([sost.varianti, sost.righeNo, sost.privati], [[], [1], 1], "uno strumento con il nome di un sostituto nella stessa cella: la riga si scarta (e si dice quale), non si importa a metà");
+  const lin = A.orgImportParse("cr4; IBAN IT60X0542811101000000123456; fl2");
+  eq([lin.varianti[0].counts, lin.privati, lin.ignorati], [{ cor: 4, fl: 2 }, 1, []], "anche in linea: il pezzo personale si salta, non finisce fra i «non riconosciuti»");
+  const pipe = A.orgImportParse("cr4 | IBAN IT60X0542811101000000123456 | fl2");
+  eq([pipe.varianti[0].counts, pipe.privati, pipe.ignorati], [{ cor: 4, fl: 2 }, 1, []], "anche con la barra verticale come separatore");
+  const due = A.orgImportParse("4 2 flauti");
+  eq([due.varianti[0].counts, due.ignorati], [{ fl: 2 }, ["4"]], "due numeri di fila: il primo resta senza nome e si dice");
+  eq(impC("Sezione,Strumento,Leggii,N.\nARCHI,Violini I,6,12"), { v1: 12 }, "la colonna «N.» dell'intestazione vince su un altro numero della riga");
+  eq(impC("2 flauti 2 oboi 4 corni"), { fl: 2, ob: 2, cor: 4 }, "numero davanti, senza virgole");
+  eq(impC("cor 4 tr 2 fl 2"), { cor: 4, tr: 2, fl: 2 }, "sigla e numero, senza virgole");
+  eq(A.orgImportParse("fl0 cr0").varianti, [], "tutto a zero: niente da importare");
+  eq(impC("fl99"), { fl: 40 }, "oltre 40 per sezione si ferma a 40");
+  eq(A.orgImportParse("fl99").tagliati, ["fl"], "e lo dice");
+  eq(A.orgImportParse("sax2 fl2 pippo").ignorati, ["sax", "pippo"], "gli strumenti che il generatore non ha si dichiarano (sax) invece di sparire");
+  eq(A.orgImportParse("").varianti, [], "testo vuoto: nessuna variante");
+});
+t("Import organico: i posti creati ridanno gli stessi numeri nella pagina «Organico»; dichiarato ≠ disegnato se il palco ha già altro", () => {
+  const vuoto = () => A.loadDoc({ titolo: "Prova", stage: { w: 1600, d: 1000, blocks: [{ x: 0, y: 0, w: 1600, d: 1000 }] }, inputs: [], outputs: [], items: [] });
+  vuoto(); const prima = Object.keys(A.state).sort();
+  const c = impC("12-12-6-6-4; cr4-tr2-trb3-tu1; fl2-o2-cl2-fg2; arpa; timpani");
+  const toast = []; A.window.__toast = (m, e, az) => toast.push([m, az && az.label]);
+  A.orgImportApplica(c, { clear: true, fit: true });
+  if (A.pendingOut) A.orchWarnContinua();
+  const L = A.organicoList(), righe = Object.fromEntries(L.rows.filter((r) => r.tipo === "riga").map((r) => [r.nome, r.n]));
+  eq(L.formula, "12-12-6-6-4", "formula archi");
+  eq([righe["Violini I"], righe["Violini II"], righe["Viole"], righe["Violoncelli"], righe["Contrabbassi"]], [12, 12, 6, 6, 4], "archi");
+  eq([righe["Corni"], righe["Trombe"], righe["Tromboni"], righe["Tuba"], righe["Flauti"], righe["Oboi"], righe["Clarinetti"], righe["Fagotti"], righe["Arpa"], righe["Timpani"]], [4, 2, 3, 1, 2, 2, 2, 2, 1, 1], "fiati, legni, arpa, timpani");
+  eq(A.orgImportDifferenze(c), [], "dichiarato = disegnato");
+  eq(toast.length, 1, "un solo messaggio"); eq(toast[0][1], "Annulla", "con il pulsante «Annulla»");
+  ok(/^Creati 60 posti/.test(toast[0][0]) && !/dichiarato ≠/.test(toast[0][0]), "senza avviso: " + toast[0][0]);
+  eq(Object.keys(A.state).sort(), prima, "nessun campo nuovo nel documento");
+  vuoto(); ok(A.orgImportDifferenze(c).length > 0, "palco vuoto: dichiarato più del disegnato, e si vede");
+  eq(A.orgImportApplica({}, {}), false, "nessun posto dichiarato: non si crea niente"); eq(!!A.pendingOut, false, "e non si apre nessun avviso");
+  toast.length = 0; A.orgImportApplica(c, { clear: true, fit: true });
+  eq([!!A.pendingOut, A.state.items.length, toast.length], [true, 0, 0], "con sovrapposizioni l'avviso viene PRIMA: nessun posto creato e nessun messaggio finché non si preme «Continua»");
+  A.placeOut([{ type: "flauto", x: 0, y: 0 }], false, false, true); eq(toast.length, 0, "un altro posizionamento, nel frattempo, non eredita il messaggio dell'import");
+  A.orchWarnContinua(); eq([!!A.pendingOut, toast.length], [false, 1], "dopo «Continua» i posti ci sono e arriva il messaggio con «Annulla»");
+  vuoto(); toast.length = 0;
+  /* palco con altro già dentro e senza svuotare: i numeri non coincidono, e lo dice */
+  s5Fix(orgFix()); toast.length = 0;
+  A.orgImportApplica(impC("12-12-6-6-4"), { clear: false, fit: false }); if (A.pendingOut) A.orchWarnContinua();
+  ok(A.orgImportDifferenze(impC("12-12-6-6-4")).length > 0, "palco non svuotato: dichiarato ≠ disegnato");
+  ok(/dichiarato ≠ disegnato/.test(toast[0][0]), "il messaggio lo dice: " + toast[0][0]);
+  /* e la stessa importazione con «svuota» torna pari */
+  A.orgImportApplica(impC("12-12-6-6-4"), { clear: true, fit: true }); if (A.pendingOut) A.orchWarnContinua();
+  eq(A.orgImportDifferenze(impC("12-12-6-6-4")), [], "svuotando il palco il disegno coincide");
+});
+t("Import organico: si trova dalla ricerca («importa organico»), il menu File resta essenziale, nessun documento cambia e niente va nel database", () => {
+  const trovati = (q) => A.__spSearch(q).map((e) => e.nome);
+  ok(trovati("importa organico").includes("Importa organico"), "«importa organico» lo trova: " + trovati("importa organico"));
+  ok(trovati("incolla").includes("Importa organico") && trovati("excel").includes("Importa organico"), "anche «incolla» e «excel»");
+  eq(trovati("violino").includes("Importa organico"), false, "ma non ruba i risultati di uno strumento");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(!/data-file="orgimp"/.test(html), "niente voce nel menu File (tetto di sette, decisione di Simone)");
+  const js = readFileSync(join(root, "app.js"), "utf8"), src = js.slice(js.indexOf("function orgImportParse"), js.indexOf("function orgImportApri"));
+  ok(src.length > 500, "premessa: il blocco si trova");
+  ok(!/state\.[a-zA-Z]+\s*=[^=]/.test(src.replace(/state\.items/g, "")), "il parser e l'applicazione non scrivono campi nuovi in state");
+  ok(!/fetch\(|supabase|localStorage|sessionStorage/.test(src), "niente rete, niente archivio: il testo incollato resta sulla pagina");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
