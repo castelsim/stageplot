@@ -94,6 +94,7 @@ function reset() {
   delete A.state.scaletta;   /* scaletta (10/10): campo che esiste solo con almeno una voce */
   delete A.state.pdfOrganico;   /* «Organico: N + M» nel cartiglio (13/11): opzione spenta di serie */
   delete A.state.quoteDaTerra;   /* quote «da terra» (13/11): opzione spenta di serie; un test che la accende non deve lasciarla ai successivi */
+  delete A.state.organicoOrdine;   /* ordine delle sezioni dell'organico (13/11): assente = Fiati prima */
   delete A.state.storico;   /* storico delle versioni (13/11, S10): si scrive solo esportando; un test che esporta non deve lasciarlo ai successivi */
   delete A.state.versione;   /* versione del documento (12/11): campo che esiste solo se impostata; un test che la imposta non deve lasciarla ai successivi */
   delete A.state.customModels;   /* modelli dell'elemento personalizzato (13/10): dal primo Salva di un elemento nuovo nasce anche il modello (Ruling 17), e un test che salva non deve lasciarli ai successivi */
@@ -14263,6 +14264,43 @@ t("Organico: totali per sezione = elementi sul palco, ordine fisso FIATI→LEGNI
   ok(i > r.indexOf(tot), "dopo il totale");
   eq(r.filter((x) => x.nome === "Ospiti" || /^Cantante/.test(x.nome)).length, 1, "l'ospite non è anche in VOCI");
   reset();
+});
+t("Organico: ordine delle sezioni selezionabile (Fiati prima di serie, Voci e archi prima, Per partitura); stessi dati, stessi totali", () => {
+  s5Fix(orgFix().concat(orgN("corista", 9)));
+  const sezioni = () => A.organicoList().rows.filter((r) => r.tipo === "sez").map((r) => r.nome.split(" ")[0]);
+  const prima = JSON.stringify(A.organicoList().rows), L0 = A.organicoList();
+  eq(A.organicoOrdineId(), "fiati", "di serie: Fiati prima"); eq(A.organicoSezioni(), ["FIATI", "LEGNI", "RITMICA", "ARPA", "ARCHI", "VOCI"], "l'ordine di sempre");
+  eq(sezioni().filter((x) => x !== "FUORI"), ["FIATI", "LEGNI", "RITMICA", "ARPA", "ARCHI", "VOCI"], "il foglio di oggi");
+  A.state.organicoOrdine = "voci"; eq(A.organicoSezioni(), ["VOCI", "ARCHI", "LEGNI", "FIATI", "RITMICA", "ARPA"], "voci e archi prima: voci, archi, legni, ottoni, ritmica, arpa");
+  eq(sezioni().filter((x) => x !== "FUORI"), ["VOCI", "ARCHI", "LEGNI", "FIATI", "RITMICA", "ARPA"], "e il foglio lo segue");
+  const Lv = A.organicoList(); eq([Lv.tot, Lv.strumentisti, Lv.voci], [L0.tot, L0.strumentisti, L0.voci], "gli stessi totali");
+  const nomi = Lv.rows.map((r) => r.tipo + ":" + r.nome); ok(nomi.indexOf("totorch:TOTALE ORCHESTRA") > nomi.findIndex((x) => /^sez:ARPA/.test(x)) && nomi[nomi.length - 1] === "tot:TOTALE" || nomi.indexOf("tot:TOTALE") === nomi.length - 1 || nomi.some((x) => /^tot:TOTALE/.test(x)), "il totale dell'orchestra dopo gli strumenti, il TOTALE alla fine");
+  const iTO = Lv.rows.findIndex((r) => r.tipo === "totorch"), iV = Lv.rows.findIndex((r) => r.tipo === "sez" && r.nome === "VOCI"), iTot = Lv.rows.findIndex((r) => r.tipo === "tot");
+  ok(iV < iTO && iTO < iTot, "VOCI (" + iV + ") prima di TOTALE ORCHESTRA (" + iTO + ") prima di TOTALE (" + iTot + ")");
+  eq(Lv.rows.filter((r) => r.tipo === "totorch").length, 1, "un solo «TOTALE ORCHESTRA»");
+  ok(Lv.formula === L0.formula && /ARCHI · /.test(Lv.rows.find((r) => /^ARCHI/.test(r.nome)).nome), "la formula degli archi resta");
+  A.state.organicoOrdine = "partitura"; eq(A.organicoSezioni(), ["LEGNI", "FIATI", "RITMICA", "ARPA", "VOCI", "ARCHI"], "per partitura (orchestra): legni, ottoni, ritmica, arpa, voci, archi");
+  eq(sezioni().filter((x) => x !== "FUORI"), ["LEGNI", "FIATI", "RITMICA", "ARPA", "VOCI", "ARCHI"], "il foglio lo segue: le voci sopra gli archi");
+  { const rp = A.organicoList().rows, iV2 = rp.findIndex((r) => r.tipo === "sez" && r.nome === "VOCI"), iA2 = rp.findIndex((r) => r.tipo === "sez" && /^ARCHI/.test(r.nome)), iT2 = rp.findIndex((r) => r.tipo === "totorch"), iTo2 = rp.findIndex((r) => r.tipo === "tot");
+    ok(iV2 < iA2 && iA2 < iT2 && iT2 < iTo2, "VOCI (" + iV2 + ") prima di ARCHI (" + iA2 + "), poi TOTALE ORCHESTRA (" + iT2 + "), poi TOTALE (" + iTo2 + ")"); eq(rp.filter((r) => r.tipo === "totorch").length, 1, "un solo «TOTALE ORCHESTRA»"); }
+  const Lp = A.organicoList(); eq([Lp.tot, Lp.strumentisti, Lp.voci], [L0.tot, L0.strumentisti, L0.voci], "stessi totali anche per partitura");
+  const nomiP = Lp.rows.map((r) => r.tipo); ok(nomiP.indexOf("totorch") < nomiP.lastIndexOf("sez") || nomiP.indexOf("totorch") > -1, "TOTALE ORCHESTRA c'è");
+  ["voci", "partitura"].forEach((o) => { A.state.organicoOrdine = o; const r = A.organicoList().rows.filter((x) => x.tipo === "riga").map((x) => x.nome).sort(); const r0 = JSON.parse(prima).filter((x) => x.tipo === "riga").map((x) => x.nome).sort(); eq(r, r0, o + ": ogni riga c'è una volta sola, le stesse del default"); });
+  A.state.organicoOrdine = "ciao"; eq(A.organicoOrdineId(), "fiati", "un valore sconosciuto: l'ordine di sempre"); eq(JSON.stringify(A.organicoList().rows), prima, "e il foglio è identico a quello di sempre");
+  delete A.state.organicoOrdine; eq(JSON.stringify(A.organicoList().rows), prima, "senza il campo: identico a oggi (collaudo invariato)");
+  s5Fix(orgFix()); A.state.organicoOrdine = "voci"; const sv = A.organicoList(); eq(sv.rows.filter((r) => r.tipo === "totorch").length, 0, "senza voci non c'è «TOTALE ORCHESTRA»"); eq(sv.rows[0].nome.split(" ")[0], "ARCHI", "e l'ordine «voci prima» parte dagli archi");
+  reset();
+});
+t("Organico: l'ordine è un campo del progetto, normalizzato, scelto nell'Esporta accanto alle altre opzioni delle liste", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="pdfOrgOrd"[^>]*hidden/.test(html) && /<select id="pdfOrgOrdine"><option value="fiati" selected>[^<]*<\/option><option value="voci">[^<]*<\/option><option value="partitura">/.test(html), "il menu c'è, nascosto finché non c'è la pagina Organico, con Fiati prima di serie");
+  ok(/bg\.hidden=!\(_pdfTechPages\|\|\[\]\)\.some\(function\(p\)\{ return p\.key==="organico"; \}\);\s*if\(fg\) fg\.value=organicoOrdineId\(\);/.test(appjs), "compare solo con la pagina Organico e mostra il valore del progetto");
+  ok(/if\(f\.value==="voci" \|\| f\.value==="partitura"\) state\.organicoOrdine=f\.value; else delete state\.organicoOrdine;/.test(appjs), "scegliendo «Fiati prima» il campo sparisce (progetto identico a prima)");
+  ok(/var CAMPI_DOCUMENTO=\[[^\]]*"organicoOrdine"/.test(appjs), "campo del documento");
+  reset(); const st = JSON.parse(JSON.stringify(A.state)); st.organicoOrdine = "voci"; eq(A.normalizeState(st).organicoOrdine, "voci", "voci resta"); st.organicoOrdine = "partitura"; eq(A.normalizeState(st).organicoOrdine, "partitura", "partitura resta"); st.organicoOrdine = "fiati"; ok(!("organicoOrdine" in A.normalizeState(st)), "«fiati» è il default: non si salva"); st.organicoOrdine = "altro"; ok(!("organicoOrdine" in A.normalizeState(st)), "valore sconosciuto: via");
+  eq(Object.keys(A.ORGANICO_ORDINI), ["fiati", "voci", "partitura"], "i tre ordini");
+  eq(A.ORGANICO_ORDINI.fiati.nome, "Fiati prima (come sempre)", "il default è chiamato per quello che è");
+  eq(A.ORGANICO_ORDINI.partitura.nome, "Per partitura (orchestra)", "il terzo ordine è chiamato «Per partitura (orchestra)»"); ok(/<option value="partitura">Per partitura \(orchestra\)<\/option>/.test(html), "e così sta nel menu");
 });
 t("Taglia «N + M»: riga «Organico: 41 + 9» nel cartiglio (opzione spenta), stessi numeri del foglio Organico; suggerimento per il nome senza sovrascrivere", () => {
   s5Fix(orgFix().concat(orgN("corista", 9)));

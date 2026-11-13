@@ -6371,6 +6371,11 @@ body.cust-contorno .item.selected .selbox{display:none}
           <select id="pdfListaPerPagina" hidden><option value="32" selected>32</option><option value="48">48</option></select>
         </div>
         <!-- FORMATO DELL'OUTPUT LIST (13/11/2026, S8): Semplice (di sempre) o Service (un blocco A4 orizzontale per stage box, 16 uscite). Impostazione dell'export, non del progetto. -->
+        <!-- ORDINE DELL'ORGANICO (13/11/2026, S13): l'ordine delle sezioni del foglio Organico; si salva nel progetto. -->
+        <div id="pdfOrgOrd" hidden>
+          <label for="pdfOrgOrdine">Ordine dell'organico</label>
+          <select id="pdfOrgOrdine"><option value="fiati" selected>Fiati prima (come sempre)</option><option value="voci">Voci e archi prima</option><option value="partitura">Per partitura (orchestra)</option></select>
+        </div>
         <div id="pdfOutFmt" hidden>
           <label for="pdfOutFormato">Formato dell'output list</label>
           <select id="pdfOutFormato"><option value="semplice" selected>Semplice</option><option value="service">Service</option></select>
