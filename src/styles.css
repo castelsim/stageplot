@@ -1567,6 +1567,14 @@ svg.names-hidden .orc-name{display:none}
   .hdr-wrap{position:relative;display:flex;gap:6px}
   .hdr-wrap input[type=text]{flex:1;width:auto;min-width:0}
   .hdr-saved{font-size:11px;color:var(--text-3);margin-top:3px}
+  .svco-lista{max-height:46vh;overflow:auto;margin:8px 0;border:1px solid var(--border,#e5e7eb);border-radius:8px}
+  .svco-sez{position:sticky;top:0;background:var(--surface-2,#f1f5f9);font-weight:700;font-size:12px;padding:4px 10px}
+  .svco-can,.svco-ris{display:flex;gap:10px;padding:3px 10px;font-size:13px;line-height:1.5}
+  .svco-n{flex:0 0 34px;font-variant-numeric:tabular-nums;font-weight:700}
+  .svco-nm{flex:1 1 auto}
+  .svco-da{flex:0 0 auto;font-size:12px;color:var(--text-3)}
+  .svco-can.cambia .svco-da{color:#92400e}
+  .svco-ris{color:var(--text-3);font-style:italic}
   .pdf-diff{margin:10px 0;padding:10px 12px;border:1px solid var(--border,#e5e7eb);border-radius:10px;background:var(--surface-2,#f8fafc)}
   .pdf-diff-t{font-weight:700;font-size:13px;margin-bottom:4px}
   .pdf-diff-l{margin:0 0 8px;padding-left:18px;font-size:13px;line-height:1.5}

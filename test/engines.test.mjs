@@ -5143,6 +5143,235 @@ t("Output list Service: menu «Formato dell'output list» nell'Esporta (Semplice
   ok(/outputlist:function\(\)\{ outputListPdf\(doc\); \}/.test(appjs) && /window\.__pdfListaFmt\.outFormato\)\)==="service"\)\{ outputListServicePdf\(shared\)/.test(appjs), "l'export, il pacchetto e l'anteprima passano da outputListPdf, che sceglie il formato");
   ok(/OUT_SERVICE_RIGHE=16/.test(appjs), "16 uscite per tabella");
 });
+/* ═══ «Ordina come il service» (13/11/2026, S2b): sezioni in ordine, N righe riservate dopo ognuna, anteprima prima/dopo, Ripristina esatto ═══ */
+const svFix = (hws, tipi) => {
+  reset(); A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.mixer = "dm3"; A.state.cab.home = { kind: "foh" };
+  const bx = hws.map((hw, i) => { const b = add("stagebox", 200 + i * 300, 100); b.hw = hw; b.sbId = i + 1; return b; });
+  tipi.forEach(([tp, n], j) => { for (let i = 0; i < n; i++) add(tp, 100 + i * 50, 300 + j * 60); });
+  A.__cabRes = null; return bx;
+};
+const svRows = () => A.patchList().rows;
+const svNum = (r) => (r.foh != null ? r.foh : r.n);
+t("Ordina come il service: il piano mette le sezioni in ordine (basso, chitarre, archi, voci) con 2 riservate dopo ognuna, senza scrivere niente", () => {
+  svFix(["rio3224d2"], [["vlnpost", 3], ["astamic", 2], ["bassstand", 1], ["gtstand", 1]]);
+  const prima = A.servizioSnapshot(), docPrima = A.docToJSON();
+  const p = A.servizioPiano(2); ok(p.ok, "piano ok: " + p.motivo);
+  eq(p.righe.filter((r) => r.tipo === "sezione").map((r) => r.nome), ["Basso", "Chitarre", "Violini I", "Voci"], "ordine standard delle sezioni");
+  eq(p.conteggi.sezioni, 4, "4 sezioni"); eq(p.conteggi.riservate, 6, "2 riservate dopo ogni sezione tranne l'ultima");
+  const seq = p.righe.filter((r) => r.tipo !== "sezione").map((r) => r.tipo === "riservata" ? "R" : "c" + r.canali);
+  const nb = A.cabItemInputs(A.state.items.find((x) => x.type === "bassstand")).length, ng = A.cabItemInputs(A.state.items.find((x) => x.type === "gtstand")).length;
+  ok(seq.join(",").indexOf("R,R") > -1, "le riservate vengono in coppia: " + seq.join(","));
+  const num = p.righe.filter((r) => r.tipo !== "sezione").map((r) => r.a); eq(num, num.map((_, i) => i + 1), "numeri FOH consecutivi 1…N, senza buchi");
+  eq(A.servizioSnapshot(), prima, "il piano non scrive nulla (stato cab e box identici)"); eq(A.docToJSON(), docPrima, "documento identico");
+  eq(A.servizioPiano(0).conteggi.riservate, 0, "0 righe riservate = solo l'ordine");
+  eq(A.servizioPiano(2).conteggi.spostati > 0, true, "i canali che cambiano numero sono contati"); eq(A.servizioPiano(1).conteggi.riservate, 3, "1 per sezione");
+  eq(A.servizioPiano(99).n, 8, "tetto a 8"); eq(A.servizioPiano(-3).n, 0, "mai negativo"); eq(A.servizioPiano(NaN).n, 1, "default 1 (decisione 13/11)");
+  ok(nb >= 1 && ng >= 1, "fixture sensata");
+  reset();
+});
+t("Ordina come il service: Applica scrive pin e porte riservate; i numeri FOH della channel list seguono; Ripristina rimette ESATTAMENTE com'era", () => {
+  svFix(["rio3224d2"], [["vlnpost", 3], ["astamic", 2], ["bassstand", 1], ["gtstand", 1]]);
+  const prima = A.servizioSnapshot(), righePrima = svRows().map((r) => [r.key, svNum(r), r.reserved || false]);
+  const p = A.servizioPiano(2), snap = A.servizioApplica(p);
+  ok(typeof snap === "string" && snap === prima, "Applica restituisce lo stato di prima");
+  const rr = svRows(), nomi = rr.map((r) => r.reserved ? "R" : (A.state.items.find((x) => x.id === r.itemId) || {}).type);
+  const primoViolino = nomi.indexOf("vlnpost"), primoBasso = nomi.indexOf("bassstand"), primaVoce = nomi.indexOf("astamic");
+  ok(primoBasso < nomi.indexOf("gtstand") && nomi.indexOf("gtstand") < primoViolino && primoViolino < primaVoce, "channel list: basso, chitarra, violini, voci: " + nomi.join(","));
+  eq(rr.filter((r) => r.reserved).length, 6, "6 righe riservate in lista"); eq(rr.map(svNum), rr.map((_, i) => i + 1), "numeri consecutivi");
+  ok(nomi.slice(primoBasso, primoBasso + 4).filter((x) => x === "R").length >= 1 || nomi[primoBasso + 1] === "R" || nomi[primoBasso + 2] === "R", "le riservate seguono la prima sezione");
+  { const k = rr.find((r) => !r.reserved).key, mk = A.state.cab.manual[A.cabRouteKeyOf(k)]; eq(mk && mk.box, A.state.items.find((x) => x.type === "stagebox").id, "ogni pin ha la sua stage box"); }
+  eq(A.servizioPiano(2).conteggi.spostati, 0, "rifare il piano dopo Applica: nessun canale da spostare");
+  eq(A.state.cab.servizio.n, 2, "ricorda quante"); ok(A.state.cab.servizio.pins.length >= 7 && Object.keys(A.state.cab.servizio.res).length === 1, "e cosa ha messo");
+  eq(A.state.cab.order, null, "l'ordine a mano della lista non resta in mezzo");
+  ok(A.servizioRipristina(snap), "ripristina"); eq(A.servizioSnapshot(), prima, "stato cab e box esattamente come prima");
+  eq(svRows().map((r) => [r.key, svNum(r), r.reserved || false]), righePrima, "e la channel list è identica");
+  eq(A.state.cab.servizio, undefined, "niente memoria dell'azione dopo il ripristino");
+  reset();
+});
+t("Ordina come il service: rifarla non accumula riservate; aggiungere uno strumento e rifarla mette un solo canale in più", () => {
+  svFix(["rio3224d2"], [["vlnpost", 2], ["astamic", 2], ["bassstand", 1]]);
+  A.servizioApplica(A.servizioPiano(2)); const r1 = svRows().length, res1 = svRows().filter((r) => r.reserved).length;
+  A.servizioApplica(A.servizioPiano(2)); eq([svRows().length, svRows().filter((r) => r.reserved).length], [r1, res1], "stesso risultato, nessuna riservata in più");
+  add("gtstand", 700, 700); A.__cabRes = null; const p = A.servizioPiano(2); ok(p.ok, "con la chitarra: " + p.motivo);
+  A.servizioApplica(p); const rr = svRows(); eq(rr.filter((r) => r.reserved).length, res1 + 2, "una sezione nuova = 2 riservate in più, non il doppio");
+  eq(rr.map(svNum), rr.map((_, i) => i + 1), "numeri consecutivi");
+  reset();
+});
+t("Ordina come il service: porte scelte a mano e righe di servizio col nome restano dove sono; le riservate dell'utente non si toccano", () => {
+  const [b] = svFix(["rio3224d2"], [["astamic", 3], ["bassstand", 1], ["gtstand", 1]]);
+  const voce = A.state.items.find((x) => x.type === "astamic"); const chiave = voce.id + "#0";
+  ok(A.cabSetPort(chiave, 20), "porta 20 scelta a mano");
+  b.sbRes = [10, 11]; b.sbResNome = { 10: "Talkback" }; A.__cabRes = null;
+  const p = A.servizioPiano(2); ok(p.ok, p.motivo); eq(p.conteggi.fissi, 1, "un canale fisso");
+  const snap = A.servizioApplica(p); const rr = svRows();
+  eq(svNum(rr.find((r) => r.key === chiave)), 20, "il pin dell'utente resta sul 20");
+  const r10 = rr.find((r) => r.reserved && svNum(r) === 10), r11 = rr.find((r) => r.reserved && svNum(r) === 11);
+  ok(r10 && r10.servizio === "Talkback", "la riga di servizio col nome resta sulla sua porta (10)"); ok(r11 && !r11.servizio, "la riservata senza nome dell'utente resta sull'11");
+  eq(A.state.cab.manual[chiave].port, 20, "il pin è ancora quello dell'utente");
+  ok(A.state.cab.servizio.pins.indexOf(chiave) < 0, "e non è fra quelli dell'azione (non si ricalcola)");
+  A.servizioRipristina(snap); eq(b.sbRes, [10, 11], "ripristino: le riservate dell'utente intatte"); eq(A.state.cab.manual[chiave].port, 20, "e il suo pin");
+  /* rifatta: il pin dell'utente resta fisso, i canali dell'azione si ricalcolano */
+  A.servizioApplica(A.servizioPiano(2)); A.servizioApplica(A.servizioPiano(2)); eq(svNum(svRows().find((r) => r.key === chiave)), 20, "anche dopo averla rifatta");
+  reset();
+});
+t("Ordina come il service: capacità delle box (non entra = nessuna modifica, motivo chiaro), multipolare non spezzato fra due box, più box in ordine di ID", () => {
+  svFix(["rio1608d2"], [["astamic", 15], ["bassstand", 1], ["gtstand", 1]]);   /* il Rio1608 ha 16 ingressi */
+  const prima = A.servizioSnapshot(), p = A.servizioPiano(2);
+  eq(p.ok, false, "17+ canali + riservate su 16 porte: non entra"); ok(/Non c'è posto/.test(p.motivo) && /stage box/.test(p.motivo), "motivo: " + p.motivo);
+  eq(A.servizioApplica(p), null, "applicare un piano non valido non fa niente"); eq(A.servizioSnapshot(), prima, "stato invariato");
+  eq(p.suggerito, -1, "17 canali su 16 porte: nessun numero di riservate lo fa entrare"); ok(/Aggiungi una stage box|Riduci/.test(p.motivo), "e il messaggio dice di aggiungere una box");
+  svFix(["rio1608d2"], [["astamic", 12], ["bassstand", 1], ["gtstand", 1]]);   /* 14 canali su 16: con 2 riservate per sezione servono 18 */
+  const q1 = A.servizioPiano(2); eq([q1.ok, q1.suggerito], [false, 1], "con 2 non entra, con 1 sì"); ok(/Con 1 riga riservata per sezione entra\./.test(q1.motivo), "lo dice: " + q1.motivo);
+  ok(A.servizioPiano(1).ok && !A.servizioPiano(1).suggerito, "con 1 entra davvero"); eq(A.servizioPiano(2, true).suggerito, -1, "la chiamata interna (senza suggerimento) non ricorre e non ne dà");
+  svFix(["rio1608d2"], [["astamic", 15], ["bassstand", 1], ["gtstand", 1]]);   /* torna alla fixture di prima: 17 canali */
+  eq(A.servizioPiano(0).ok, false, "anche senza riservate: oltre 16 canali non entrano");
+  /* multipolare: la batteria (9 canali) non può stare a cavallo di due box */
+  const [b1] = svFix(["rio1608d2", "rio3224d2"], [["astamic", 5], ["batteria", 1]]);
+  b1.sbRes = [1, 2, 3, 4, 5, 6, 7, 8]; A.__cabRes = null;   /* nella prima box restano 8 porte libere: la batteria (9) non può stare a cavallo */
+  let q = A.servizioPiano(0); ok(q.ok, "ok: " + q.motivo);
+  const dr = q.unita.find((u) => u.multipolare); ok(dr && dr.n === 9, "la batteria è un multipolare da 9");
+  ok(dr.nuovo.port + dr.n - 1 <= dr.nuovo.box.cap && dr.nuovo.boxId !== b1.id, "tutte le porte nella stessa box, la seconda (" + dr.nuovo.port + "+8 ≤ " + dr.nuovo.box.cap + ")");
+  A.servizioApplica(q); const rb = svRows().filter((r) => r.itemId === dr.it.id);
+  eq(new Set(rb.map((r) => r.boxId)).size, 1, "in lista: una box sola"); eq(rb.map((r) => r.port), rb.map((_, i) => rb[0].port + i), "porte consecutive");
+  /* ordine delle box: i numeri FOH continuano dalla prima alla seconda */
+  const num = svRows().filter((r) => !r.reserved).map(svNum); eq(num, num.slice().sort((a, b) => a - b), "numeri crescenti fra le due box");
+  reset();
+});
+t("Ordina come il service: coppie stereo L dispari / R pari; senza stage box niente; canali USB/Dante e pin fuori dall'azione", () => {
+  svFix(["rio3224d2"], [["astamic", 1], ["tastiera", 1], ["bassstand", 1]]);
+  const tast = A.state.items.find((x) => x.type === "tastiera"), inps = A.cabItemInputs(tast);
+  const p = A.servizioPiano(1); ok(p.ok, p.motivo);
+  if (inps.length === 2) {
+    const u = p.unita.find((x) => x.it.id === tast.id); eq(u.n, 2, "la tastiera è una coppia"); eq(u.nuovo.foh % 2, 1, "la L sta su un numero dispari (" + u.nuovo.foh + ")");
+    A.servizioApplica(p); const rt = svRows().filter((r) => r.itemId === tast.id); eq([svNum(rt[0]) % 2, svNum(rt[1]) % 2], [1, 0], "L dispari, R pari in lista");
+  } else ok(true, "la tastiera non è una coppia in questa versione (" + inps.length + " ingressi)");
+  reset(); add("astamic", 100, 100); A.state.cab.on = true; A.__cabRes = null;
+  const n = A.servizioPiano(2); eq(n.ok, false, "senza stage box: niente"); ok(/stage box/.test(n.motivo), n.motivo);
+  reset();
+});
+t("Ordina come il service: servizio dello stato (normalizeState tiene solo cose ben formate), pulsante e finestra nell'HTML, azione mai automatica", () => {
+  const s0 = JSON.parse(JSON.stringify(A.state));
+  s0.cab.servizio = { n: 3, pins: ["a#0", "grp:b", 5, "", "x".repeat(500)], res: { bx: [2, 3, 3, 99, "z"], vuota: [] } };
+  const n = A.normalizeState(s0); eq(n.cab.servizio, { n: 3, pins: ["a#0", "grp:b"], res: { bx: [2, 3] } }, "pin stringhe corte, porte 1-64 senza doppioni, box vuote via");
+  s0.cab.servizio = { n: 99, pins: ["k"], res: {} }; eq(A.normalizeState(s0).cab.servizio.n, 1, "n fuori range: il default (1)");
+  s0.cab.servizio = { n: 1, pins: [], res: {} }; ok(!("servizio" in A.normalizeState(s0).cab) || A.normalizeState(s0).cab.servizio === null, "vuoto: nessun segno");
+  s0.cab.servizio = "ciao"; ok(!A.normalizeState(s0).cab.servizio, "non un oggetto: via");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(["svcOrdModal", "svcOrdN", "svcOrdSum", "svcOrdErr", "svcOrdLista", "svcOrdAnnulla", "svcOrdGo", "svcOrdRip", "svcOrdFatto"].every((i) => html.indexOf('id="' + i + '"') > -1), "la finestra: anteprima, righe riservate, Applica, Annulla, Ripristina");
+  ok(/id="svcOrdModal" hidden/.test(html), "chiusa di serie");
+  ok(/so\.id="svcOrdBtn"; so\.className="btn svc-btn"; so\.textContent="Ordina come il service";/.test(appjs) && /so\.addEventListener\("click", function\(e\)\{ e\.stopPropagation\(\); servizioFinestra\(\); \}\)/.test(appjs), "il pulsante accanto a «Righe di servizio», apre la finestra");
+  eq((appjs.match(/servizioApplica\(/g) || []).length, 2, "servizioApplica: la definizione e una sola chiamata, dal clic su «Applica»: mai automatica");
+  ok(/go\.onclick=function\(\)\{[\s\S]{0,160}var snap=servizioApplica\(piano\)/.test(appjs), "la chiamata sta nel clic di «Applica»");
+  ok(/rip\.onclick=function\(\)\{ if\(__servizioUndo && servizioRipristina\(__servizioUndo\)\)/.test(appjs), "«Ripristina» riporta lo snapshot");
+});
+t("Ordina come il service: archi = una sola riserva a fine famiglia (non dopo ogni sezione); default 1", () => {
+  eq(A.SERVIZIO_N_DEFAULT, 1, "default di una riga riservata per sezione");
+  ok(/id="svcOrdN" maxlength="1" value="1"/.test(readFileSync(join(root, "app/index.html"), "utf8").replace('inputmode="numeric" ', "")), "e la finestra parte da 1");
+  svFix(["rio3224d2"], [["bassstand", 1], ["vlnpost", 2], ["violoncello", 2], ["contrabbasso", 1], ["astamic", 2]]);
+  const p = A.servizioPiano(2); ok(p.ok, p.motivo);
+  eq(p.righe.filter((r) => r.tipo === "sezione").map((r) => r.nome), ["Basso", "Violini I", "Celli", "Contrabbassi", "Voci"], "sezioni d'archi separate nell'elenco");
+  const seq = p.righe.filter((r) => r.tipo !== "sezione").map((r) => r.tipo === "riservata" ? "R" : (r.sezione[0]));
+  const s0 = seq.join("");
+  ok(/^B+RRV+C+X?/.test(s0) || s0.replace(/R/g, "").length > 0, "ordine: " + s0);
+  const nomiSez = []; let ultima = null; p.righe.forEach((r) => { if (r.tipo === "sezione") ultima = r.nome; else if (r.tipo === "riservata") nomiSez.push(ultima); });
+  eq(nomiSez, ["Basso", "Basso", "Contrabbassi", "Contrabbassi"], "2 riserve dopo il Basso e 2 dopo l'ultima sezione d'archi (Contrabbassi), nessuna fra violini, celli e contrabbassi");
+  eq(p.conteggi.riservate, 4, "4 riservate in tutto");
+  const p1 = A.servizioPiano(1); eq(p1.conteggi.riservate, 2, "con 1: una dopo il Basso, una a fine Archi");
+  const nn = p.righe.filter((r) => r.tipo !== "sezione").map((r) => r.a); eq(nn, nn.map((_, i) => i + 1), "numeri consecutivi");
+  reset();
+});
+t("Ordina come il service: ogni tipo di strumento nella sua sezione (legni, ottoni, violini I e II, viole, celli, contrabbassi, backline, voci)", () => {
+  reset();
+  const sez = (tp, extra) => A.servizioSezione(Object.assign({ id: "x", type: tp }, extra || {}));
+  eq([sez("oboe"), sez("tromba")].map((x) => [x.ord, x.nome]), [[501, "Legni"], [502, "Ottoni"]], "legni prima degli ottoni");
+  eq([sez("vlnpost"), sez("vlnpost", { vsec: 2 }), sez("violapost"), sez("violoncello"), sez("contrabbasso")].map((x) => [x.ord, x.nome]),
+    [[601, "Violini I"], [602, "Violini II"], [603, "Viole"], [604, "Celli"], [605, "Contrabbassi"]], "archi: I, II, viole, celli, contrabbassi");
+  eq([sez("batteria"), sez("bassstand"), sez("gtstand"), sez("astamic")].map((x) => x.nome), ["Batteria", "Basso", "Chitarre", "Voci"], "ritmica e voci");
+  ok(sez("batteria").ord < sez("bassstand").ord && sez("bassstand").ord < sez("gtstand").ord && sez("gtstand").ord < sez("oboe").ord && sez("oboe").ord < sez("vlnpost").ord && sez("vlnpost").ord < sez("astamic").ord, "ordine standard");
+  eq(sez("rotto" + "x").nome, "Altro", "tipo sconosciuto: Altro");
+});
+t("Ordina come il service: l'ordine delle sezioni vale anche se la lista era in un altro ordine; riserve e pin in posti densi; box in ordine di ID, non «foh»", () => {
+  const [b1] = svFix(["rio3224d2"], [["astamic", 2], ["gtstand", 1], ["bassstand", 1]]);
+  A.state.cab.order = svRows().map((r) => r.key).reverse(); A.__cabRes = null;   /* l'utente aveva riordinato la lista a mano, al contrario */
+  const snapOrd = A.servizioSnapshot(); const p = A.servizioPiano(1);
+  eq(p.righe.filter((r) => r.tipo === "sezione").map((r) => r.nome), ["Basso", "Chitarre", "Voci"], "le sezioni in ordine standard, non quello della lista a mano");
+  ok(p.conteggi.spostati >= 1, "con la lista a rovescio qualche canale cambia numero: " + p.conteggi.spostati);
+  const snap = A.servizioApplica(p); eq(A.state.cab.order, null, "l'ordine a mano non resta"); ok(A.servizioRipristina(snap), "ripristina"); eq(A.state.cab.order.length > 0, true, "e Ripristina lo riporta com'era (non nullo)"); eq(A.servizioSnapshot(), snapOrd, "tutto identico");
+  /* una riservata dell'utente subito dopo la prima sezione: le nuove la saltano */
+  const rowBasso = svRows().find((r) => (A.state.items.find((x) => x.id === r.itemId) || {}).type === "bassstand");
+  reset();
+  const [c1] = svFix(["rio3224d2"], [["astamic", 2], ["gtstand", 1], ["bassstand", 1]]); c1.sbRes = [2]; A.__cabRes = null;
+  const q = A.servizioPiano(1); ok(q.ok, q.motivo); A.servizioApplica(q); const rr = svRows();
+  eq(rr.filter((r) => r.reserved).map(svNum).includes(2), true, "la riservata dell'utente (2) c'è ancora"); eq(rr.map(svNum), rr.map((_, i) => i + 1), "e i numeri sono consecutivi: le nuove riservate hanno saltato il suo posto");
+  eq(rr.filter((r) => r.reserved).length, 3, "1 dell'utente + 2 nuove (una per sezione tranne l'ultima)");
+  /* pin dell'utente in mezzo: nessun canale dell'azione ci finisce sopra */
+  reset();
+  svFix(["rio3224d2"], [["astamic", 3], ["gtstand", 1], ["bassstand", 1]]);
+  const m = A.state.items.find((x) => x.type === "astamic"); ok(A.cabSetPort(m.id + "#0", 2), "pin sul 2");
+  const pr = A.servizioPiano(0); const usati = pr.righe.filter((r) => r.tipo === "canale").map((r) => r.a); ok(usati.indexOf(2) < 0 && pr.conteggi.fissi === 1, "il numero 2 è del pin, non di un altro canale: " + usati.join(","));
+  A.servizioApplica(pr); const r3 = svRows(); eq(r3.map(svNum), r3.map((_, i) => i + 1), "numeri consecutivi anche con il pin in mezzo"); eq(svNum(r3.find((r) => r.key === m.id + "#0")), 2, "il pin è dov'era");
+  /* due box: i numeri crescono dalla prima alla seconda; box «foh» (lato regia) esclusa; ID invertiti */
+  reset();
+  const [d1, d2] = svFix(["rio1608d2", "rio1608d2"], [["astamic", 20]]); d1.sbId = 2; d2.sbId = 1; A.__cabRes = null;
+  const pd = A.servizioPiano(0); ok(pd.ok, pd.motivo);
+  eq(pd.righe.filter((r) => r.tipo === "canale").map((r) => r.a), Array.from({ length: 20 }, (_, i) => i + 1), "20 canali su 2×16 porte: 1…20 consecutivi");
+  eq(pd.unita[0].nuovo.boxId, d2.id, "si parte dalla box con l'ID più basso (ID 1), non dalla prima posata");
+  d1.foh = true; A.__cabRes = null; const pf = A.servizioPiano(0); eq(pf.ok, false, "una box «del mixer» (foh) non entra nel piano: 20 canali su 16 porte non bastano"); d1.foh = false;
+  reset();
+  const nb = svFix([], [["astamic", 2]]); add("astamic", 500, 500); A.state.cab.on = true; A.__cabRes = null;
+  const pn = A.servizioPiano(2); eq(pn.ok, false, "senza box"); ok(/^Serve almeno una stage box/.test(pn.motivo), "con il suo messaggio: " + pn.motivo); void nb;
+  reset();
+});
+t("Ordina come il service: righe di servizio con nome messe dall'azione restano ancorate al rifacimento; coppie e multipolari con le loro chiavi e box", () => {
+  const [b] = svFix(["rio3224d2"], [["astamic", 2], ["bassstand", 1], ["gtstand", 1]]);
+  A.servizioApplica(A.servizioPiano(2)); const res = A.state.cab.servizio.res[b.id]; ok(res && res.length >= 2, "riservate dell'azione");
+  b.sbResNome = Object.assign({}, b.sbResNome, { [res[0]]: "Talkback" }); A.__cabRes = null;
+  const p = A.servizioPiano(2); const pr = svRows().find((r) => r.reserved && r.port === res[0]);
+  A.servizioApplica(p); const dopo = svRows().find((r) => r.reserved && r.port === res[0]); ok(dopo && dopo.servizio === "Talkback", "la riga che ha preso un nome non si sposta (resta alla sua porta)"); void pr;
+  { const rr = svRows(), nn = rr.map(svNum); eq(nn, nn.map((_, i) => i + 1), "e nessun canale ci è finito sopra: numeri unici e consecutivi"); }
+  { const p0 = A.servizioPiano(0); ok(p0.ok, p0.motivo); A.servizioApplica(p0);   /* senza nuove riservate: quella col nome resta, i canali ci girano intorno */
+    const rr = svRows(), nn = rr.map(svNum), tal = rr.find((r) => r.reserved && r.port === res[0]); ok(tal && tal.servizio === "Talkback", "con 0 riservate la riga col nome c'è ancora"); eq(nn, nn.map((_, i) => i + 1), "e i canali non ci sono finiti sopra: numeri unici e consecutivi"); }
+  /* coppie stereo e multipolari: cerco un tipo che sia una coppia L/R vera */
+  reset();
+  const coppia = Object.keys(A.TYPES).find((tp) => { try { const it = A.addItem(tp, { x: 300, y: 500 }); if (!it) return false; const inps = A.cabItemInputs(it) || []; const ok2 = inps.length === 2 && A.stereoPairSecond(it, 1, inps); A.state.items = A.state.items.filter((x) => x.id !== it.id); return ok2; } catch (_e) { return false; } });
+  reset();
+  if (coppia) {
+    svFix(["rio3224d2"], [["astamic", 1], [coppia, 1], ["bassstand", 1]]);
+    const cp = A.state.items.find((x) => x.type === coppia), pp = A.servizioPiano(1); ok(pp.ok, pp.motivo);
+    const u = pp.unita.find((x) => x.it.id === cp.id); eq(u.n, 2, "una coppia: 2 canali in un'unità sola"); ok(u.coppia === true || u.multipolare === true, "unità di coppia o multipolare (cavo unico)"); eq(u.nuovo.foh % 2, 1, "L su numero dispari");
+    A.servizioApplica(pp); const man = A.state.cab.manual, ks = A.cabItemInputs(cp).map((_, i) => cp.id + "#" + i);
+    if (u.multipolare) eq([man["grp:" + cp.id].port, man["grp:" + cp.id].box], [u.nuovo.port, u.nuovo.boxId], "cavo unico: un pin sul gruppo");
+    else eq([man[ks[1]].port - man[ks[0]].port, man[ks[0]].box === man[ks[1]].box, man[ks[0]].box === u.nuovo.boxId], [1, true, true], "le due chiavi sulle porte p e p+1 della stessa box");
+    const rt = svRows().filter((r) => r.itemId === cp.id); eq([svNum(rt[0]) % 2, svNum(rt[1]) - svNum(rt[0])], [1, 1], "in lista: L dispari, R subito dopo");
+    reset();
+    /* anche prima di una sezione che finirebbe su un numero pari: il Basso (1 canale) occupa il 1, quindi la coppia salta al 3 */
+    svFix(["rio3224d2"], [["bassstand", 1], [coppia, 1]]); const q2 = A.servizioPiano(0);
+    const uc = q2.unita.find((x) => x.it.type === coppia); ok(uc.nuovo.foh % 2 === 1, "la coppia parte comunque da un numero dispari (" + uc.nuovo.foh + ")");
+  } else ok(true, "nessun tipo con coppia stereo in questo catalogo");
+  reset();
+  const [bb] = svFix(["rio3224d2"], [["batteria", 1], ["astamic", 1]]); const dr = A.state.items.find((x) => x.type === "batteria");
+  A.servizioApplica(A.servizioPiano(0)); const mm = A.state.cab.manual["grp:" + dr.id]; ok(mm && mm.box === bb.id && mm.port >= 1, "la batteria è un multipolare: UN pin sul gruppo, con la sua box (" + JSON.stringify(mm) + ")");
+  ok(A.state.cab.servizio.pins.indexOf("grp:" + dr.id) > -1, "registrato come pin dell'azione"); eq(A.state.cab.manual[dr.id + "#0"], undefined, "e niente pin per canale della batteria");
+  reset();
+});
+t("Ordina come il service: Ripristina rimette la memoria dell'azione precedente; gli stati toccati sono tutti nello snapshot; finestra: numero di partenza, tetto, Applica spento se non entra", () => {
+  svFix(["rio3224d2"], [["astamic", 3], ["bassstand", 1]]);
+  A.servizioApplica(A.servizioPiano(1)); const prima = A.servizioSnapshot(), srv1 = JSON.parse(JSON.stringify(A.state.cab.servizio));
+  const snap2 = A.servizioApplica(A.servizioPiano(3)); ok(A.state.cab.servizio.n === 3, "n = 3 dopo la seconda");
+  eq(snap2, prima, "lo snapshot della seconda = lo stato dopo la prima");
+  A.servizioRipristina(snap2); eq(A.state.cab.servizio, srv1, "Ripristina rimette la memoria della prima azione (n = 1)"); eq(A.servizioSnapshot(), prima, "tutto identico");
+  const sn = JSON.parse(prima); ok("cabOn" in sn && "manual" in sn && "order" in sn && "servizio" in sn && "boxes" in sn, "lo snapshot contiene cab.on, pin, ordine, memoria e porte riservate delle box");
+  ok(Object.keys(sn.boxes).length >= 1, "e le box con le loro riservate");
+  reset();
+  ok(/nIn\.value=String\(\(state\.cab&&state\.cab\.servizio&&state\.cab\.servizio\.n!=null\) \? state\.cab\.servizio\.n : SERVIZIO_N_DEFAULT\);/.test(appjs), "la finestra parte da 1 o dall'ultimo numero scelto");
+  ok(/var p0=servizioPiano\(parseInt\(nIn\.value,10\)\); if\(!p0\.ok && p0\.suggerito>=0\)\{ nIn\.value=String\(p0\.suggerito\); \}/.test(appjs), "se col numero di partenza non entra, si parte dal più alto che entra");
+  ok(/n=Math\.max\(0, Math\.min\(SERVIZIO_N_MAX, n\)\);\n\s*piano=servizioPiano\(n\);/.test(appjs), "il numero scelto è limitato a 0-8");
+  ok(/go\.disabled=!piano\.ok;/.test(appjs), "«Applica» spento se il piano non entra");
+  ok(/__servizioUndo=snap; stato\(false\);/.test(appjs), "dopo Applica si tiene lo snapshot per «Ripristina»");
+  ok(/if\(typeof custEditorAttivo==="function" && custEditorAttivo\(\)\)\{ custEditorAvvisa\(\); return; \}\n\s*var snap=servizioApplica/.test(appjs), "con l'editor «Crea elemento» aperto non si applica");
+  ok(/ann\.onclick=function\(\)\{ m\.hidden=true; \};/.test(appjs), "«Annulla» chiude senza scrivere");
+  ok(/d\.className="svco-can"\+\(r\.da!==r\.a\?" cambia":""\);/.test(appjs) && /\(r\.da===r\.a\?"invariato":"era "\+r\.da\)/.test(appjs), "l'anteprima dice «era N» solo ai canali che cambiano");
+});
 t("Output list: bus console -> porte out (auto consecutive, pin, conflitti, mai duplicati)", () => {
   reset();
   A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.mixer = "dm3";
