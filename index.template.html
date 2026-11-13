@@ -2429,6 +2429,8 @@
         </div>
         <div class="hdr-saved" id="pdfHdrSaved"></div>
         </div>
+        <div id="pdfMisStileRow"><label for="pdfMisStile">Stile delle misure <small class="lbl-note">— pedane, quote e palco, in tutte le pagine</small></label>
+          <select id="pdfMisStile"><option value="std" selected>12 × 2 m · h40 (come sempre)</option><option value="mx">12mX2mX40cm</option><option value="xh">12x2 H40</option><option value="mt">mt 12 x 2 x h 0,40</option></select></div>
         <label class="chk" id="pdfOrganicoRow"><input type="checkbox" id="pdfOrganico"> Organico nel cartiglio <small class="lbl-note">— «Organico: 41 + 9» (strumentisti + voci), come il foglio Organico</small></label>
         <div class="hdr-saved" id="pdfTagliaHint" hidden><span id="pdfTagliaTesto"></span> <button type="button" class="btn" id="pdfTagliaBtn">Aggiungi al nome</button></div>
         <label class="chk" id="pdfPesiRow"><input type="checkbox" id="pdfPesi"> Pesi (kg) <small class="lbl-note">— peso stimato dell'allestimento, in testata e nel rider</small></label>
@@ -6732,7 +6734,7 @@ function nextVariantName(){ var n=0; VARIANTS.forEach(function(v){ var m=/^Varia
    data e contatti non erano mai diversi. Restano nello stato di ogni variante — lo schema e i file
    già salvati non cambiano — ma a ogni sincronizzazione quelli della variante attiva si scrivono
    nelle altre. */
-var CAMPI_DOCUMENTO=["pdfOrganico","quoteDaTerra","titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","versione","latiTeatro","sonorizzazione","orari","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
+var CAMPI_DOCUMENTO=["misureStile","pdfOrganico","quoteDaTerra","titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","versione","latiTeatro","sonorizzazione","orari","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
 function propagaCampiDocumento(v){
   var src=v&&v.state; if(!src) return;
   VARIANTS.forEach(function(o){
@@ -9897,6 +9899,7 @@ function normalizeState(s){
   if(s.latiTeatro!==true) delete s.latiTeatro;   /* giardino e corte: spenti di serie, solo un true esplicito li accende (12/11/2026) */
   if(s.pdfOrganico!==true) delete s.pdfOrganico;   /* «Organico: N + M» nel cartiglio (13/11): solo un true esplicito la accende */
   if(s.quoteDaTerra!==true) delete s.quoteDaTerra;   /* quote delle pedane «da terra» (13/11): solo un true esplicito le accende */
+  if(s.misureStile!=="mx" && s.misureStile!=="xh" && s.misureStile!=="mt") delete s.misureStile;   /* stile di scrittura delle misure in uscita (13/11): assente = «12 × 2 m · h40», come sempre */
   if(s.pdfPesi!==true) delete s.pdfPesi;   /* kg nel PDF: solo un true esplicito li accende (06/10/2026) */
   var _vers=(typeof s.versione==="number"||typeof s.versione==="string") ? +s.versione : NaN;   /* versione del documento (12/11): intero 1-999, altrimenti assente */
   if(_vers%1===0 && _vers>=1 && _vers<=999) s.versione=_vers; else delete s.versione;
@@ -10762,7 +10765,7 @@ function showAdattaPalco(){
 /* [Zone Audio / Zone Alimentazione rimossi 06/07/2026 — superati dai motori audio/elettrico.
    Restano solo i campi di stato inerti (zones/layerAudio/layerPower) per compatibilità coi progetti salvati.] */
 function isSingleRect(){ var b=stageBlocks(); return b.length===1 && b[0].shape!=="semi" && !(b[0].pts&&b[0].pts.length===4); }
-function stageHeightNote(){ var h=stageBlocks()[0].h||0; return h?" · h "+h+" cm":""; }
+function stageHeightNote(){ var h=stageBlocks()[0].h||0; return h ? " · "+misQuota(h, "h "+h+" cm") : ""; }
 /* indici degli spigoli del bbox (TL=0, TR=1, BR=2, BL=3) che giacciono sul lato DRITTO del semicerchio.
    Sono i due "veri" angoli della forma: le maniglie d'angolo del semicerchio stanno qui. */
 function semiCornerIdx(flat){
@@ -14910,7 +14913,7 @@ function itemMarkup(it){
   if(it.leggio===true && leggioExtra(it)) s += '<g transform="translate(0,'+leggioExtraY(it)+')'+(leggioExtraY(it)<0?' rotate(180)':'')+'">'+leggioGlyph(0)+'</g>';   /* leggio generico: arpa, piani, organi, percussioni, mallet… (off di default, davanti allo strumento) */
   _leggioDistOn = 0;   /* finiti gli accessori: nessun altro leggioGlyph (anteprime, catalogo, leggio a sé) eredita la distanza */
   if(t.riser || it.type==="scala"){                  /* quota pedana sul lato scelto/auto (più visibile); la scala dice altezza e gradini (11/11), di serie sopra */
-    var dimT=t.riser ? (it.w/100)+'×'+(it.d/100)+' m · h'+it.h+quotaDaTerraTesto(it) : scalaQuota(it), rside=t.riser ? riserDimSide(it) : scalaDimSide(it), roff=12, rdx=0, rdy=0, ranc='middle', rtr='', rang=0;
+    var dimT=t.riser ? misPedana(it.w, it.d, it.h, (it.w/100)+'×'+(it.d/100)+' m · h'+it.h)+quotaDaTerraTesto(it) : scalaQuota(it), rside=t.riser ? riserDimSide(it) : scalaDimSide(it), roff=12, rdx=0, rdy=0, ranc='middle', rtr='', rang=0;
     if(rside==="top"){ rdy=-(it.d/2)-roff; }
     else if(rside==="bottom"){ rdy=(it.d/2)+roff+9; }
     else if(rside==="left"){ rdx=-(it.w/2)-roff; ranc='middle'; rang=-90; }   /* ruotata, legge lungo il lato sx */
@@ -15177,8 +15180,34 @@ function itemLiveOnStage(it){
 }
 function esc(x){ return String(x).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;"); }
 /* misure del palco nel cartiglio: alla maniera italiana e al centimetro («palco 12,5×13,35 m»; prima «12.5×13.35») */
+/* ═══ UNA SOLA SCRITTURA DELLE MISURE IN USCITA (13/11/2026, specifica S15 dalla posta di produzione) ═══
+   La stessa pedana usciva «8mX2mX60cm» nel disegno e «8mX2m H60cm» nella scheda dello stesso invio. Ogni pagina formattava per conto suo; ora le misure di
+   pedane, quote e palco passano da qui. Quattro stili (scelta nell'Esporta, si salva nel progetto, `state.misureStile`): «std» = com'è sempre
+   («2×1 m · h40», di serie, ogni punto di stampa conserva il suo testo di oggi); «mx» = 12mX2mX40cm; «xh» = 12x2 H40; «mt» = mt 12 x 2 x h 0,40.
+   Cambiando stile cambiano insieme: etichetta della pedana sul disegno, legenda del cartiglio, «moduli 2×1» dei materiali, quota della scala, area e
+   altezza del palco nel cartiglio e nell'intestazione. L'ingresso resta tollerante (otto grafie, #70). */
+var MISURE_STILI={ std:"12 × 2 m · h40 (come sempre)", mx:"12mX2mX40cm", xh:"12x2 H40", mt:"mt 12 x 2 x h 0,40" };
+function misureStile(){ var o=state && state.misureStile; return (o==="mx" || o==="xh" || o==="mt") ? o : "std"; }
+function misN(cm){ return (cm/100).toLocaleString("it-IT",{maximumFractionDigits:2}); }
+function misMetri2(cm){ return (cm/100).toFixed(2).replace(".",","); }
+/* quota o altezza (cm): «h40» · «40cm» · «H40» · «h 0,40». `std` = il testo di sempre di quel punto di stampa */
+function misQuota(h, std){
+  var st=misureStile(); h=Math.round(+h||0);
+  return st==="mx" ? h+"cm" : (st==="xh" ? "H"+h : (st==="mt" ? "h "+misMetri2(h) : (std!=null ? std : "h"+h)));
+}
+/* pedana lunghezza × profondità × altezza (cm) */
+function misPedana(w, d, h, std){
+  var st=misureStile(); if(st==="std") return std;
+  h=Math.round(+h||0);
+  return st==="mx" ? misN(w)+"mX"+misN(d)+"mX"+h+"cm" : (st==="xh" ? misN(w)+"x"+misN(d)+" H"+h : "mt "+misN(w)+" x "+misN(d)+" x h "+misMetri2(h));
+}
+/* area del palco (cm) */
+function misArea(w, d, std){
+  var st=misureStile(); if(st==="std") return std;
+  return st==="mx" ? misN(w)+"mX"+misN(d)+"m" : (st==="xh" ? misN(w)+"x"+misN(d) : "mt "+misN(w)+" x "+misN(d));
+}
 function cartAreaTxt(A){ var n=function(cm){ return (cm/100).toLocaleString("it-IT",{maximumFractionDigits:2}); };
-  return "palco "+n(A.w)+"×"+n(A.h)+" m"; }
+  return "palco "+misArea(A.w, A.h, n(A.w)+"×"+n(A.h)+" m"); }
 function fmtM(cm){ return (cm/100).toLocaleString("it-IT",{maximumFractionDigits:1})+" m"; }
 /* PORTA IN PRIMO PIANO / IN FONDO (26/08, segnalazione). Il comando c'era solo per le forme libere,
    e per giunta non faceva quello che prometteva: «Sopra» scriveva un 3 fisso — due elementi «sopra»
@@ -18340,7 +18369,7 @@ function quotaDaTerraTesto(it){
 function palcoQuotaMax(){ var m=0; stageBlocks().forEach(function(b){ m=Math.max(m,+b.h||0); }); return m; }
 function pedanaSigla(g){
   var m=function(cm){ return (cm/100).toLocaleString("it-IT",{maximumFractionDigits:2}); };
-  return m(g.L)+"×"+m(g.P)+" h"+g.h+((g.base>0 && quotaDaTerraOn()) ? " (da terra "+(g.base+g.h)+")" : "");
+  return misPedana(g.L, g.P, g.h, m(g.L)+"×"+m(g.P)+" h"+g.h)+((g.base>0 && quotaDaTerraOn()) ? " (da terra "+(g.base+g.h)+")" : "");
 }
 function pedaneTesto(items){
   var gr=pedaneLegenda(items); if(!gr.length) return "";
@@ -18384,7 +18413,7 @@ function scalaDimSide(it){
   if(it.dimSide && it.dimSide!=="auto") return it.dimSide;
   return (state.stage.w-(it.x+it.w/2)) >= (it.x-it.w/2) ? "right" : "left";
 }
-function scalaQuota(it){ var h=scalaH(it), n=scalaGradini(h); return 'h'+h+' · '+n+(n===1?' gradino':' gradini'); }
+function scalaQuota(it){ var h=scalaH(it), n=scalaGradini(h); return misQuota(h, 'h'+h)+' · '+n+(n===1?' gradino':' gradini'); }
 function itemAabb(it, pad){
   var T=TYPES[it.type]||{}, w=+(it.w||T.w||0), d=+(it.d||T.d||0), r=((+it.rot||0)%360)*Math.PI/180;
   var c=Math.abs(Math.cos(r)), s=Math.abs(Math.sin(r)), hw=(w*c+d*s)/2+(pad||0), hd=(w*s+d*c)/2+(pad||0);
@@ -36061,7 +36090,7 @@ function buildExportSvg(){
     '<style>'+css+'</style>'+DEFS+
     '<rect x="'+(-m)+'" y="'+(-m-head)+'" width="'+vbW+'" height="'+vbH+'" fill="#ffffff"/>'+
     '<text x="'+(-m+30)+'" y="'+(-m-head+44)+'" font-size="34" font-weight="700" fill="#111827">'+titolo+(luogo?'<tspan font-size="22" font-weight="400" fill="#6b7280">   ·   '+luogo+'</tspan>':'')+'</text>'+
-    '<text x="'+(W+m-30)+'" y="'+(-m-head+44)+'" font-size="20" fill="#6b7280" text-anchor="end">'+oggi+' · simonecastellan.com · griglia 0,5 m · palco '+adattaM(W)+'×'+adattaM(D)+' m'+stageHeightNote()+'</text>'+
+    '<text x="'+(W+m-30)+'" y="'+(-m-head+44)+'" font-size="20" fill="#6b7280" text-anchor="end">'+oggi+' · simonecastellan.com · griglia 0,5 m · palco '+misArea(W, D, adattaM(W)+'×'+adattaM(D)+' m')+stageHeightNote()+'</text>'+
     inner+
     '<line x1="0" y1="'+(D+m-40)+'" x2="100" y2="'+(D+m-40)+'" stroke="#111827" stroke-width="6"/>'+
     '<text x="50" y="'+(D+m-52)+'" font-size="18" fill="#111827" text-anchor="middle">1 m</text>'+
@@ -39420,7 +39449,7 @@ function materialiPedane(items){
   if(sc) t+=", con "+sc+(sc===1?" scaletta":" scalette");
   if(gr.some(function(g){ return g.L*g.P!==20000; })){   /* i palchisti contano i moduli 2×1, non le pedane intere */
     var m={}; gr.forEach(function(g){ m[g.h]=(m[g.h]||0)+g.n*Math.ceil(g.L*g.P/20000); });
-    t+=" · moduli 2×1: "+Object.keys(m).map(Number).sort(function(a,b){ return a-b; }).map(function(h){ return m[h]+" h"+h; }).join(" · ");
+    t+=" · moduli 2×1: "+Object.keys(m).map(Number).sort(function(a,b){ return a-b; }).map(function(h){ return m[h]+" "+misQuota(h); }).join(" · ");
   }
   return t;
 }
@@ -40304,6 +40333,13 @@ function renderDiffVersioni(){
   c.addEventListener("change", function(){
     if(c.checked) state.quoteDaTerra=true; else delete state.quoteDaTerra;
     save(); render();
+  });
+})();
+(function(){
+  var f=document.getElementById("pdfMisStile"); if(!f) return;
+  f.addEventListener("change", function(){
+    if(f.value==="mx" || f.value==="xh" || f.value==="mt") state.misureStile=f.value; else delete state.misureStile;
+    save(); render(); try{ if(typeof refresh==="function") refresh(); }catch(_e){}
   });
 })();
 /* La prima apertura dell'Esporta annota production.asked (vestigiale, per i blob vecchi): si salva ma NON è un
@@ -41218,6 +41254,7 @@ function pdfChannelPage(doc, L, paperKey){
   function pdfHeaderInit(){
     if(pesiChk) pesiChk.checked=(state.pdfPesi===true);
     if(orgChk) orgChk.checked=pdfOrganicoOn();
+    var msSel=document.getElementById("pdfMisStile"); if(msSel) msSel.value=misureStile();
     header.value=(typeof pdfHeaderPropose==="function") ? pdfHeaderPropose(state, pdfHeaderAccount()) : (state.pdfHeader||"");
     pdfHeaderSavedLine();
   }
