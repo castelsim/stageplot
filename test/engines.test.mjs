@@ -32458,6 +32458,44 @@ t("Import organico (fix 13/11): le formule di archi non creano sovrapposizioni v
   A.document = salvaDoc;
 });
 
+/* ---- PEDANA: misure e altezze con un clic (14/11/2026, lotto A3) ---- */
+t("Pedana: scorciatoie 2×1 · 1×1 · 2×0,5 · 2×2 e altezze 20–100, scrivono solo L, P, h", () => {
+  reset();
+  const p = add("pedana", 400, 300, { h: 40 });
+  const r = A.pedanaRapide(p);
+  eq(r.misure.map((m) => m.t), ["2×1", "1×1", "2×0,5", "2×2"], "le quattro misure");
+  eq(r.altezze.map((a) => a.h), [20, 40, 60, 80, 100], "le cinque altezze");
+  eq([r.misure.find((m) => m.on).t, r.altezze.find((a) => a.on).h], ["2×1", 40], "di serie: 2×1 e 40 attivi");
+  eq(A.pedanaApplicaRapida(p, { w: 100, d: 100 }), true, "1×1");
+  eq([p.w, p.d, p.h, p.x, p.y], [100, 100, 40, 400, 300], "cambiano L e P; h e centro restano");
+  eq(A.pedanaRapide(p).misure.find((m) => m.on).t, "1×1", "ora 1×1 è attivo");
+  eq(A.pedanaApplicaRapida(p, { w: 100, d: 100 }), false, "stessa misura: niente da fare");
+  const lista = A.pedanaRapide(p).misure;
+  eq(lista.map((m) => [m.w, m.d]), [[200, 100], [100, 100], [200, 50], [200, 200]], "misure in cm: 2×1, 1×1, 2×0,5, 2×2");
+  const m05 = lista.find((m) => m.t === "2×0,5"); A.pedanaApplicaRapida(p, m05); eq([p.w, p.d], [200, 50], "2×0,5");
+  const m22 = lista.find((m) => m.t === "2×2"); A.pedanaApplicaRapida(p, m22); eq([p.w, p.d], [200, 200], "2×2");
+  A.pedanaApplicaRapida(p, { h: 80 }); eq([p.h, p.w], [80, 200], "altezza 80, misure invariate");
+  eq(A.pedanaRapide(p).altezze.find((a) => a.on).h, 80, "80 attivo");
+  p.locked = true; eq(A.pedanaApplicaRapida(p, { w: 100, d: 100 }), false, "pedana bloccata: non si tocca");
+  eq(p.w, 200, "e non cambia");
+  const ped = add("pedanacoro", 800, 300, {});
+  eq(A.pedanaRapide(ped), null, "pedana coro: non ha le scorciatoie");
+  eq(A.pedanaApplicaRapida(ped, { w: 100, d: 100 }), false, "pedana coro: nessun effetto");
+  eq(A.pedanaRapide(null), null, "niente elemento");
+  const q = add("pedana", 100, 100, {});
+  eq(A.pedanaApplicaRapida(q, { w: NaN, d: 100 }), false, "misura non valida: nessun effetto");
+  eq(A.pedanaApplicaRapida(q, { h: -5 }), false, "altezza negativa: nessun effetto");
+  eq(A.pedanaApplicaRapida(q, null), false, "niente da applicare");
+});
+t("Pedana: le scorciatoie ci sono nel pannello e la scala segue l'altezza", () => {
+  const appHtml = readFileSync(join(root, "app/index.html"), "utf8"); ok(/id="pPedMis"/.test(appHtml) && /id="pPedAlt"/.test(appHtml), "i due gruppi di bottoni sono nella pagina");
+  reset();
+  const p = add("pedana", 400, 300, { h: 40 }), s = add("scala", 400, 395);
+  Object.assign(s, { d: 90, y: 395 });
+  A.pedanaApplicaRapida(p, { h: 100 }); A.scaleAdegua();
+  eq(s.d, 150, "h100: 5 gradini da 30 cm");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
 
