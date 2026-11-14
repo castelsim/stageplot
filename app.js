@@ -16154,6 +16154,28 @@ var SCALA_ALZATA_CM=20, SCALA_GRADINI_MAX=12;
    Si adegua da sola a ogni render (altezza della pedana cambiata → lunghezza nuova), senza scrivere sul cloud finché non si salva. */
 var SCALA_PEDATA_CM=30;
 function scalaLunghezza(h){ return scalaGradini(h)*SCALA_PEDATA_CM; }
+/* PEDANA: misure e altezze con un clic (14/11/2026, lotto A3 di MIGLIORARE_STAGEPLOT). Il modulo europeo è 2×1 m, ma per
+   avere 1×1, 2×0,5 o 2×2 servivano più gesti sui campi L e P. Le scorciatoie scrivono SOLO w, d e h: stessi dati di prima,
+   nessun campo nuovo. Valgono per la pedana semplice; le pedane con forma propria (coro a gradoni…) hanno le loro misure. */
+var PEDANA_MISURE_RAPIDE=[{w:200,d:100,t:"2×1"},{w:100,d:100,t:"1×1"},{w:200,d:50,t:"2×0,5"},{w:200,d:200,t:"2×2"}];
+var PEDANA_ALTEZZE_RAPIDE=[20,40,60,80,100];
+function pedanaRapide(it){
+  if(!it || it.type!=="pedana") return null;
+  var w=Math.round(+it.w||0), d=Math.round(+it.d||0), h=Math.round(+it.h||0);
+  return {
+    misure: PEDANA_MISURE_RAPIDE.map(function(m){ return {t:m.t, w:m.w, d:m.d, on:(w===m.w && d===m.d)}; }),
+    altezze: PEDANA_ALTEZZE_RAPIDE.map(function(v){ return {t:String(v), h:v, on:(h===v)}; })
+  };
+}
+/* Applica una misura o un'altezza. Il centro resta dov'è (la pedana cresce e cala attorno al suo centro). Una pedana
+   bloccata non si tocca. Torna true se qualcosa è cambiato. */
+function pedanaApplicaRapida(it, m){
+  if(!it || it.type!=="pedana" || it.locked || !m) return false;
+  var cambiata=false;
+  if(isFinite(m.w) && isFinite(m.d) && m.w>0 && m.d>0 && (it.w!==m.w || it.d!==m.d)){ it.w=m.w; it.d=m.d; cambiata=true; }
+  if(isFinite(m.h) && m.h>=0 && it.h!==m.h){ it.h=m.h; cambiata=true; }
+  return cambiata;
+}
 function scalaAdegua(it){
   var L=scalaLunghezza(scalaH(it)), d=+it.d||(TYPES.scala&&TYPES.scala.d)||90;   /* senza `d` nel documento vale la misura di serie */
   if(Math.abs(d-L)<0.5) return false;
@@ -18737,6 +18759,22 @@ function renderProps(){
     if(t.riser) document.getElementById("pH").value = it.h;
     else if(isCover(it)) document.getElementById("pH").value = coverH(it);
   }
+  (function(){
+    var box=document.getElementById("pPedRapide"); if(!box) return;
+    var r=pedanaRapide(it); box.style.display = (r && !it.locked) ? "block" : "none";
+    if(!r || it.locked) return;
+    function riempi(id, lista, mk){
+      var seg=document.getElementById(id); seg.innerHTML="";
+      lista.forEach(function(o){
+        var b=document.createElement("button"); b.type="button"; b.className="adv-btn"+(o.on?" on":""); b.textContent=o.t; if(o.h!=null) b.title=o.h+" cm"; else b.title="Pedana "+o.t+" m";
+        b.setAttribute("aria-pressed", o.on?"true":"false");
+        b.onclick=function(){ mutSel(function(x){ pedanaApplicaRapida(x, mk(o)); }); renderProps(); };
+        seg.appendChild(b);
+      });
+    }
+    riempi("pPedMis", r.misure, function(o){ return {w:o.w, d:o.d}; });
+    riempi("pPedAlt", r.altezze, function(o){ return {h:o.h}; });
+  })();
   var _zw=document.getElementById("pZonaWrap"); if(_zw) _zw.style.display = pedanaPareZona(it) ? "block" : "none";   /* suggerimento zona (19/10/2026) */
   var isGazCover=!!GAZ_TYPES[it.type];   /* coperture: stesso controllo "Lato" dei riser, ma per l'etichetta unica */
   document.getElementById("pDimSideWrap").style.display = (t.riser||isGazCover) ? "block" : "none";
