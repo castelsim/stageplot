@@ -27878,6 +27878,18 @@ t("invito Esporta: nessun popup, nessuna funzione avanzata aperta, chiave classi
   ok(A.USCITA_TIENI_LOCAL.sp_exportNudge, "preferenza dell'interfaccia: si tiene all'uscita");
   ok(/try\{ return localStorage\.getItem\(EXPNUDGE_KEY\)/.test(appjs) && /try\{ localStorage\.setItem\("sp_exportNudge"/.test(appjs), "localStorage sempre in try/catch");
 });
+t("segnaposto del titolo in alto: la frase più lunga che ci sta, mai tagliata", () => {
+  const m = (x) => ({ "Dai un nome al palco": 134, "Nome del palco": 101, "Nome palco": 77, "Nome": 40 }[x]);   /* misure reali a 14 px (Chrome) */
+  eq(A.TITOLO_SEGNAPOSTI[0], "Dai un nome al palco", "la prima scelta è la frase intera");
+  eq(A.titoloSegnaposto(150, m), "Dai un nome al palco", "campo largo (≥1481 px): frase intera");
+  eq(A.titoloSegnaposto(120, m), "Nome del palco", "campo medio (1211–1480 px): più corta");
+  eq(A.titoloSegnaposto(90, m), "Nome palco", "campo stretto: ancora più corta");
+  eq(A.titoloSegnaposto(70, m), "Nome", "campo stretto (≤1210 px, 70 px utili): una parola");
+  eq(A.titoloSegnaposto(10, m), "Nome", "mai vuoto, nemmeno quasi senza spazio");
+  const f = appjs.slice(appjs.indexOf("function titoloSegnapostoAggiorna"), appjs.indexOf("function titoloSegnapostoAggiorna") + 900);
+  ok(/getElementById\("titolo"\)/.test(f) && /measureText/.test(f) && /placeholder=t/.test(f), "misura il campo vero e scrive il segnaposto");
+  ok(/window\.addEventListener\("resize", function\(\)\{ exportNudgeAggiorna\(\); titoloSegnapostoAggiorna\(\);/.test(appjs), "si riadatta quando la finestra cambia");
+});
 t("P3 «Dai un nome al palco»: segnaposto in alto (desktop e telefono) e nell'Esporta", () => {
   const html = readFileSync(join(root, "app/index.html"), "utf8");
   for (const id of ["mTitle", "titolo", "pdfTitolo"]) ok(new RegExp('id="' + id + '"[^>]*placeholder="Dai un nome al palco"').test(html), id + ": segnaposto nuovo");
