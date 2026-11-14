@@ -2,7 +2,7 @@
 
 > StagePlot (stageplot.it) è una web app gratuita, in italiano, per creare online lo stage plot in scala e la scheda tecnica di concerti, spettacoli ed eventi dal vivo. Dal disegno l'app genera da sola input list, monitor, carichi elettrici, channel list (esportabile in CSV) e il rider tecnico in PDF multipagina, tutto gratis; la consulenza è un servizio a parte in cui un sound engineer revisiona il progetto, e il rider tecnico completo di una band si può anche far preparare da noi (59 €). Funziona nel browser, è local-first (i dati restano sul dispositivo) e non richiede registrazione. Creata da Simone Castellan, sound engineer per spettacoli dal vivo.
 
-Ultimo aggiornamento di questo file: 11/11/2026.
+Ultimo aggiornamento di questo file: 14/11/2026.
 
 ## Cos'è uno stage plot
 Uno stage plot (o stage plan) è lo schema in scala del palco che mostra la disposizione di musicisti, strumenti, amplificatori, monitor, microfoni e prese di corrente. Serve a service audio, fonici, teatri e festival per preparare un evento dal vivo. Spesso è accompagnato da una channel list (o input list), che elenca i canali audio in ingresso al mixer, e da un rider tecnico.
@@ -53,6 +53,8 @@ Uno stage plot (o stage plan) è lo schema in scala del palco che mostra la disp
 - [Rider tecnico per DJ set](https://stageplot.it/guida/rider-tecnico-dj/): come scrivere il rider di un DJ — lettori e mixer, monitor da booth, uscita stereo, alimentazione pulita; con esempio e differenza dalla scheda tecnica di una band
 - [Scheda tecnica di un convegno](https://stageplot.it/guida/scheda-tecnica-convegno/): cosa scrivere per microfoni, video, schermo, regia e corrente di un convegno
 - [Disposizione del coro sul palco](https://stageplot.it/guida/disposizione-coro/): sezioni, file, gradoni, direttore e pianoforte
+- [Concerto in chiesa](https://stageplot.it/guida/concerto-in-chiesa/): cosa preparare per un concerto in chiesa — riverbero e volume, spazio nel presbiterio, corrente, orari, accesso e permessi da chiedere alla parrocchia, microfoni direttivi
+- [Hospitality rider](https://stageplot.it/guida/hospitality-rider/): cos'è l'hospitality rider e come si scrive — camerino, pasti, parcheggio, alloggio, orari e referente; esempio per una band di cinque persone e differenza dal rider tecnico
 
 ## Confronti con altri editor (fatti verificati il 10/10/2026)
 - [Alternative a Ridermaker, TecRider e Stage Plot Pro](https://stageplot.it/alternative/): tabella riassuntiva dei tre editor confrontati con StagePlot (lingua, prezzo, PDF senza account, scala, channel list, funzioni in più)
