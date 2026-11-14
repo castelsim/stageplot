@@ -2374,6 +2374,9 @@ var SEARCH_ALIAS_GIRI = {
   scala:"scala di scena scala del palco scalino scalini gradini",
   edrums:"batteria elettronica batterie elettroniche e drum e drums edrum drum elettronica electronic drum electronic drums",
   /* 14/11/2026, ricerche vere senza risultato («wah», «fx»): i pedali d'effetto sono della pedaliera */
+  /* 14/11/2026: «sipario» e «spario» cercati senza risultato (16/10). Finché il tipo «Teatro» (linea del sipario) non c'è, la barra che si
+     ridimensiona e si rinomina più vicina è il fondale. */
+  fondale:"sipario siparietto tendaggio cortina telo di fondo",
   pedaliera:"wah wah-wah pedale pedali pedale wah pedali effetti pedale effetti stompbox distorsore overdrive fuzz delay chorus fx effetti chitarra effetti basso",
   loopstation:"loop station loopstation looper loop pedal effetti da tavolo effetti tavolo multieffetto da tavolo fx pedaliera da tavolo pedaliera su tavolino",
   theremin:"theremin teremin etherwave strumento elettronico ad antenne",

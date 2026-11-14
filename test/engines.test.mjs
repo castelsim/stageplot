@@ -6512,6 +6512,11 @@ t("ricerca: le parole vere degli utenti senza risultato («wah», «fx») trovan
   ok(qaKeys("wah").indexOf("pedaliera") > -1, "«wah» nella finestrella del doppio clic");
   ok(searchKeys("pedaliera").indexOf("pedaliera") > -1 && A.__spSimili("fx") === false, "la parola nuova è un alias, non una somiglianza");
 });
+t("ricerca: «sipario» (cercato senza risultato) porta al fondale, anche con un refuso", () => {
+  ok(searchKeys("sipario").indexOf("fondale") > -1, "«sipario» non trova il fondale");
+  ok(searchKeys("spario").indexOf("fondale") > -1 && A.__spSimili("spario") === true, "«spario» (refuso) non trova il fondale per somiglianza");
+  ok(qaKeys("sipario").indexOf("fondale") > -1, "«sipario» nella finestrella del doppio clic");
+});
 t("ricerca tollerante: le soglie (parole lunghe, refuso a metà parola, distanza dal migliore)", () => {
   const f = A.ricercaPerSomiglianza;
   eq(f("strumntazioni", ["strumentazione"], ["strumentazione"]), [0], "13 lettere: due refusi sono ammessi");
