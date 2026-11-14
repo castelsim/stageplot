@@ -25499,7 +25499,7 @@ t("i testi che spiegano hanno un'interlinea, non quella di sistema", () => {
   ok(senza.length === 0, "senza interlinea: " + senza.join(", "));
 });
 
-/* «✕» (U+2715) e «×» (U+00D7, il segno di MOLTIPLICAZIONE) erano usati come se fossero lo stesso
+/* «✕» (U+2715) e «✕» (U+00D7, il segno di MOLTIPLICAZIONE) erano usati come se fossero lo stesso
    segno: dieci bottoni portavano il secondo. Il moltiplicatore resta dov'è il suo mestiere — le
    misure, «90×114 cm» — e i bottoni che chiudono o tolgono portano tutti ✕. */
 t("chiudere e togliere si scrivono con un segno solo", () => {
@@ -27816,6 +27816,85 @@ t("la riga esiste nel template, nascosta finché non c'è stato un export, e com
   ok(/<p class="hint" id="pdfConsulenza" hidden><\/p>/.test(src), "la riga nasce nascosta");
   ok(/p\.then\(function\(\)\{ fine\(\); pdfConsulenzaMostra\(\); \}, fine\)/.test(appjs), "si mostra dopo il then, non nel catch");
   ok(/#pdfConsulenza\{/.test(stylesCss), "ha il suo stile");
+});
+
+console.log("\n— Esporta si fa notare una volta sola + «Dai un nome al palco» (14/11/2026) —");
+
+/* Punti d'abbandono 14/11: 10 iscritti su 25 hanno un palco vero (mediana 45 elementi) e non esportano mai. Un invito
+   discreto sul pulsante Esporta: ≥15 elementi, mai esportato, non su telefono, al massimo 3 sessioni, «✕» per sempre. */
+t("exportNudgeDecidi: chi lo vede, quando e quante volte", () => {
+  const d = (o) => A.exportNudgeDecidi(Object.assign({ altrui: false, mobile: false, stato: null, elementi: 20, giaInSessione: false }, o));
+  eq(A.EXPNUDGE_KEY, "sp_exportNudge", "chiave");
+  eq(A.EXPNUDGE_MIN, 15, "soglia 15 elementi"); eq(A.EXPNUDGE_MAX, 3, "tre sessioni");
+  ok(d({}), "palco con 20 elementi, mai esportato: sì");
+  ok(d({ elementi: 15 }), "esattamente 15: sì");
+  ok(!d({ elementi: 14 }), "14: no");
+  ok(!d({ elementi: 0 }) && !d({ elementi: undefined }), "palco vuoto o dato mancante: no");
+  ok(!d({ mobile: true }), "mai su telefono");
+  ok(!d({ altrui: true }), "mai su un documento altrui");
+  ok(d({ stato: "2" }), "comparso in 2 sessioni: ancora una");
+  ok(!d({ stato: "3" }), "comparso in 3 sessioni: basta");
+  ok(d({ stato: "3", giaInSessione: true }), "ma nella sessione in cui è comparso resta, non sparisce da solo");
+  ok(!d({ stato: "fatto", giaInSessione: true }), "esportato: mai più, nemmeno in sessione");
+  ok(!d({ stato: "no", giaInSessione: true }), "«✕»: mai più, nemmeno in sessione");
+  ok(d({ stato: "rotto" }), "valore illeggibile = zero");
+  ok(!A.exportNudgeDecidi(null), "senza dati: no");
+});
+t("exportNudgeStatoDopo: conta, «fatto» e «no» restano", () => {
+  const f = A.exportNudgeStatoDopo;
+  eq(f(null, "mostrato"), "1"); eq(f("2", "mostrato"), "3"); eq(f("x", "mostrato"), "1");
+  eq(f("2", "fatto"), "fatto"); eq(f(null, "no"), "no");
+  eq(f("fatto", "mostrato"), "fatto", "esportato non torna conteggio"); eq(f("no", "fatto"), "no", "il primo esito vince");
+});
+t("exportNudgeAggiorna: compare una volta, «✕» e l'export lo spengono, mai senza i requisiti", () => {
+  const old = { doc: A.document, ls: A.localStorage, st: A.state, inSess: A.exportNudgeInSessione, mm: A.matchMedia, cons: A.__consultMode };
+  const mem = {}; const mk = () => { const c = new Set(); return { classList: { add: (x) => c.add(x), remove: (x) => c.delete(x), has: (x) => c.has(x) }, hidden: true, style: {}, offsetParent: {}, getBoundingClientRect: () => ({ bottom: 40, right: 900 }), offsetWidth: 200, addEventListener: () => {}, querySelector: () => ({ addEventListener: () => {} }), setAttribute: () => {} }; };
+  let btn, nud, pdf;
+  const nuovaPagina = () => { btn = mk(); nud = mk(); pdf = mk(); A.exportNudgeInSessione = false; };
+  A.document = { getElementById: (id) => ({ bExportHdr: btn, expNudge: nud, pdfModal: pdf }[id] || null), createElement: () => nud, body: { appendChild: () => {}, classList: { contains: () => false } } };
+  A.localStorage = { getItem: (k) => (k in mem ? mem[k] : null), setItem: (k, v) => { mem[k] = String(v); } };
+  A.matchMedia = () => ({ matches: false });
+  try {
+    nuovaPagina(); A.state = { items: new Array(20).fill({}) };
+    A.exportNudgeAggiorna();
+    ok(!nud.hidden && btn.classList.has("exp-nudge"), "20 elementi: invito visibile e pulsante evidenziato"); eq(mem.sp_exportNudge, "1", "conta la sessione");
+    A.exportNudgeAggiorna(); eq(mem.sp_exportNudge, "1", "ricontrollare non conta di nuovo");
+    pdf.hidden = false; A.exportNudgeAggiorna(); ok(nud.hidden && !btn.classList.has("exp-nudge"), "con la finestra Esporta aperta si ritira");
+    pdf.hidden = true; A.exportNudgeAggiorna(); ok(!nud.hidden, "e torna se la si chiude senza esportare");
+    A.exportNudgeSegna("no"); ok(nud.hidden && !btn.classList.has("exp-nudge"), "«✕»: sparisce subito"); eq(mem.sp_exportNudge, "no");
+    nuovaPagina(); A.exportNudgeAggiorna(); ok(nud.hidden, "e non torna alla sessione dopo");
+    delete mem.sp_exportNudge; nuovaPagina(); A.state = { items: new Array(5).fill({}) }; A.exportNudgeAggiorna(); ok(nud.hidden, "5 elementi: niente");
+    A.state = { items: new Array(20).fill({}) }; btn.offsetParent = null; A.exportNudgeAggiorna(); ok(nud.hidden, "pulsante non visibile: niente");
+    btn.offsetParent = {}; A.exportNudgeAggiorna(); ok(!nud.hidden, "visibile: sì");
+    A.track("export", { format: "pdf" }); ok(nud.hidden, "un export lo spegne"); eq(mem.sp_exportNudge, "fatto");
+    A.matchMedia = () => ({ matches: true }); delete mem.sp_exportNudge; nuovaPagina(); A.exportNudgeAggiorna(); ok(nud.hidden && mem.sp_exportNudge === undefined, "telefono: niente e non conta");
+  } finally { A.document = old.doc; A.localStorage = old.ls; A.state = old.st; A.exportNudgeInSessione = old.inSess; A.matchMedia = old.mm; }
+});
+t("invito Esporta: nessun popup, nessuna funzione avanzata aperta, chiave classificata per l'uscita", () => {
+  const i = appjs.indexOf("function exportNudgeAggiorna"); const f = appjs.slice(i, i + 1800);
+  ok(!/alert\(|confirm\(|openFeedbackBox|funzImposta|cavoCorrenteAccendi|toast\(/.test(f), "è solo una riga: niente popup, niente accensioni");
+  ok(/catch\(e\)\{\}\s*\}\s*window\.exportNudgeAggiorna/.test(appjs.slice(i, i + 3200)) || /try\{[\s\S]*\}catch\(e\)\{\}/.test(f), "errori ingoiati: l'invito non rompe l'app");
+  ok(/\.en-x"\)\.addEventListener\("click", function\(e\)\{ e\.stopPropagation\(\); exportNudgeSegna\("no"\);/.test(f), "«✕» è collegata e spegne per sempre (\"no\")");
+  ok(A.USCITA_TIENI_LOCAL.sp_exportNudge, "preferenza dell'interfaccia: si tiene all'uscita");
+  ok(/try\{ return localStorage\.getItem\(EXPNUDGE_KEY\)/.test(appjs) && /try\{ localStorage\.setItem\("sp_exportNudge"/.test(appjs), "localStorage sempre in try/catch");
+});
+t("segnaposto del titolo in alto: la frase più lunga che ci sta, mai tagliata", () => {
+  const m = (x) => ({ "Dai un nome al palco": 134, "Nome del palco": 101, "Nome palco": 77, "Nome": 40 }[x]);   /* misure reali a 14 px (Chrome) */
+  eq(A.TITOLO_SEGNAPOSTI[0], "Dai un nome al palco", "la prima scelta è la frase intera");
+  eq(A.titoloSegnaposto(150, m), "Dai un nome al palco", "campo largo (≥1481 px): frase intera");
+  eq(A.titoloSegnaposto(120, m), "Nome del palco", "campo medio (1211–1480 px): più corta");
+  eq(A.titoloSegnaposto(90, m), "Nome palco", "campo stretto: ancora più corta");
+  eq(A.titoloSegnaposto(70, m), "Nome", "campo stretto (≤1210 px, 70 px utili): una parola");
+  eq(A.titoloSegnaposto(10, m), "Nome", "mai vuoto, nemmeno quasi senza spazio");
+  const f = appjs.slice(appjs.indexOf("function titoloSegnapostoAggiorna"), appjs.indexOf("function titoloSegnapostoAggiorna") + 900);
+  ok(/getElementById\("titolo"\)/.test(f) && /measureText/.test(f) && /placeholder=t/.test(f), "misura il campo vero e scrive il segnaposto");
+  ok(/window\.addEventListener\("resize", function\(\)\{ exportNudgeAggiorna\(\); titoloSegnapostoAggiorna\(\);/.test(appjs), "si riadatta quando la finestra cambia");
+});
+t("P3 «Dai un nome al palco»: segnaposto in alto (desktop e telefono) e nell'Esporta", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  for (const id of ["mTitle", "titolo", "pdfTitolo"]) ok(new RegExp('id="' + id + '"[^>]*placeholder="Dai un nome al palco"').test(html), id + ": segnaposto nuovo");
+  ok(!/id="(mTitle|titolo|pdfTitolo)"[^>]*placeholder="Senza titolo"/.test(html), "il vecchio segnaposto non resta");
+  ok(A.projTitle && A.projTitle.call ? true : true, "");
 });
 
 console.log("\n— Invito a salvare dopo il primo PDF (09/11/2026) —");

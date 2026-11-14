@@ -5094,6 +5094,7 @@ function projectContentSig(data,venueSig){
 /* classifica l'origine dell'evento: separa il traffico reale (prod) dallo sviluppo (localhost) nei dati */
 function analyticsEnv(h){ h=(h!=null?h:location.hostname); return /(^|\.)stageplot\.it$/.test(h)?"prod":((h==="localhost"||h==="127.0.0.1"||h==="[::1]"||!h)?"localhost":"other"); }
 function track(event, props){
+  try{ if(event==="export") exportNudgeSegna("fatto"); }catch(e){}   /* chi esporta ha trovato il pulsante: l'invito non serve più */
   try{
     if(/[?&](view|export)=/.test(location.search) || foreignDoc()) return;
     __evtQ.push({ event:event, props:props||{} });
@@ -5101,6 +5102,86 @@ function track(event, props){
   }catch(e){}
 }
 window.track=track;
+/* «Esporta si fa notare una volta sola» (14/11/2026, dai punti d'abbandono: 10 iscritti su 25 costruiscono un palco
+   vero, mediana 45 elementi, e non esportano mai). È un INVITO, come il banner dei cavi: non apre niente, non copre il
+   palco, non è un popup. Regole:
+   - palco con almeno EXPNUDGE_MIN elementi e MAI esportato su questo dispositivo («fatto»);
+   - mai su telefono (lì l'Esporta è nel dock), mai su un documento altrui;
+   - al massimo EXPNUDGE_MAX sessioni (pagine) in cui compare; «✕» o un clic su Esporta lo spengono per sempre;
+   - stato in localStorage EXPNUDGE_KEY: "1".."3" (sessioni in cui è comparso), "fatto", "no". Preferenza
+     dell'interfaccia: all'uscita dall'account si tiene (USCITA_TIENI_LOCAL). */
+var EXPNUDGE_KEY="sp_exportNudge", EXPNUDGE_MIN=15, EXPNUDGE_MAX=3;
+function exportNudgeDecidi(o){
+  if(!o || o.altrui || o.mobile) return false;
+  var s=String(o.stato==null?"":o.stato);
+  if(s==="fatto" || s==="no") return false;
+  if(!(o.elementi>=EXPNUDGE_MIN)) return false;
+  var n=parseInt(s,10); if(!(n>=0)) n=0;
+  return n<EXPNUDGE_MAX || !!o.giaInSessione;   /* se è già comparso in questa sessione resta fino al clic o alla chiusura */
+}
+function exportNudgeStatoDopo(stato, azione){
+  var s=String(stato==null?"":stato);
+  if(azione==="fatto" || azione==="no") return (s==="fatto"||s==="no") ? s : azione;
+  if(s==="fatto" || s==="no") return s;
+  var n=parseInt(s,10); if(!(n>=0)) n=0;
+  return String(n+1);   /* azione "mostrato" */
+}
+function exportNudgeLeggi(){ try{ return localStorage.getItem(EXPNUDGE_KEY); }catch(e){ return null; } }
+function exportNudgeScrivi(v){ try{ localStorage.setItem("sp_exportNudge", v); }catch(e){} }   /* chiave scritta per esteso: la cerca il test dell'uscita */
+var exportNudgeInSessione=false;
+function exportNudgeSegna(azione){
+  var nuovo=exportNudgeStatoDopo(exportNudgeLeggi(), azione);
+  if(nuovo!==exportNudgeLeggi()) exportNudgeScrivi(nuovo);
+  if(azione==="fatto" || azione==="no") exportNudgeNascondi();
+}
+function exportNudgeNascondi(){
+  var el=document.getElementById("expNudge"); if(el) el.hidden=true;
+  var b=document.getElementById("bExportHdr"); if(b) b.classList.remove("exp-nudge");
+}
+function exportNudgeAggiorna(){
+  try{
+    var b=document.getElementById("bExportHdr"); if(!b) return;
+    var ok=exportNudgeDecidi({ altrui:foreignDoc(), mobile:isMobile(), stato:exportNudgeLeggi(), elementi:(state.items||[]).length, giaInSessione:exportNudgeInSessione });
+    var pdf=document.getElementById("pdfModal");
+    if(ok && b.offsetParent===null) ok=false;   /* pulsante non visibile: niente invito */
+    if(!ok || (pdf && !pdf.hidden)){ exportNudgeNascondi(); return; }
+    var el=document.getElementById("expNudge");
+    if(!el){
+      el=document.createElement("div"); el.id="expNudge"; el.setAttribute("role","note");
+      el.innerHTML='<span class="en-txt">PDF in scala, <b>gratis</b> e senza account</span><button type="button" class="en-x" aria-label="Non mostrare più">✕</button>';
+      el.querySelector(".en-x").addEventListener("click", function(e){ e.stopPropagation(); exportNudgeSegna("no"); });
+      document.body.appendChild(el);
+    }
+    if(!exportNudgeInSessione){ exportNudgeInSessione=true; exportNudgeSegna("mostrato"); }
+    var r=b.getBoundingClientRect();
+    el.style.top=Math.round(r.bottom+8)+"px";
+    el.style.left=Math.max(8, Math.min(window.innerWidth-el.offsetWidth-8, Math.round(r.right-(el.offsetWidth||200))))+"px";
+    el.hidden=false; b.classList.add("exp-nudge");
+  }catch(e){}
+}
+/* Segnaposto del titolo in alto (14/11/2026): il campo è largo 90 px fino a 1210 px e 140 fino a 1480, e «Dai un nome al palco»
+   si tagliava («Dai un nom…»). Si sceglie la frase PIÙ LUNGA che ci sta, misurata sul campo vero: stessa idea a ogni
+   larghezza, il testo si legge sempre intero. Il layout non cambia. */
+var TITOLO_SEGNAPOSTI=["Dai un nome al palco","Nome del palco","Nome palco","Nome"];
+function titoloSegnaposto(spazio, misura){
+  for(var i=0;i<TITOLO_SEGNAPOSTI.length;i++){ if(misura(TITOLO_SEGNAPOSTI[i])<=spazio) return TITOLO_SEGNAPOSTI[i]; }
+  return TITOLO_SEGNAPOSTI[TITOLO_SEGNAPOSTI.length-1];
+}
+var __titoloCanvas=null;
+function titoloSegnapostoAggiorna(){
+  try{
+    var i=document.getElementById("titolo"); if(!i || i.offsetParent===null) return;
+    var cs=getComputedStyle(i);
+    var spazio=i.clientWidth-(parseFloat(cs.paddingLeft)||0)-(parseFloat(cs.paddingRight)||0)-2;   /* 2 px d'aria */
+    if(!__titoloCanvas) __titoloCanvas=document.createElement("canvas").getContext("2d");
+    var c=__titoloCanvas; c.font="400 "+cs.fontSize+" "+cs.fontFamily;
+    var t=titoloSegnaposto(spazio, function(x){ return c.measureText(x).width; });
+    if(i.placeholder!==t) i.placeholder=t;
+  }catch(e){}
+}
+window.exportNudgeAggiorna=exportNudgeAggiorna;
+try{ setInterval(function(){ exportNudgeAggiorna(); titoloSegnapostoAggiorna(); }, 2500); window.addEventListener("resize", function(){ exportNudgeAggiorna(); titoloSegnapostoAggiorna(); }); setTimeout(titoloSegnapostoAggiorna, 300); }catch(e){}
+(function(){ try{ var b=document.getElementById("bExportHdr"); if(b) b.addEventListener("click", function(){ exportNudgeSegna("fatto"); }); }catch(e){} })();
 /* `from` dice da quale porta è entrato l'utente (i CTA della landing lo marcano: hero, hero-modello,
    nav, finale). Serve a sapere se «parti da un palco già fatto» viene davvero usato. NB: gli eventi
    restano quelli dei soli utenti loggati — qui non si apre nessun canale anonimo. */
@@ -5229,7 +5310,7 @@ window.addEventListener("storage",function(e){
    Una chiave nuova va aggiunta qui: il test «ogni chiave scritta dall'app è classificata» la cerca. */
 var USCITA_SEGNALE="sp_uscita";
 var USCITA_TIENI_LOCAL={stageplot_theme:1, sp_welcome:1, sp_onboarded:1, sp_dragHint:1, sp_funzioni:1, sp_props_pro:1,
-  sp_catRecenti:1, sp_advListe:1, sp_assPos:1, sp_noAssunzioni:1, sp_rail:1, sp_vistaRuotata:1};
+  sp_exportNudge:1, sp_catRecenti:1, sp_advListe:1, sp_assPos:1, sp_noAssunzioni:1, sp_rail:1, sp_vistaRuotata:1};
 var USCITA_TIENI_SESSION={sp_loginPrompt:1};
 function uscitaChiaveDaCancellare(k, area){
   k=String(k||"");

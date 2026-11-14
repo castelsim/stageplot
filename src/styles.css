@@ -4045,3 +4045,11 @@ body.cust-contorno .item.selected .selbox{display:none}
 .pkg-riga{display:flex;align-items:center;gap:10px;min-height:36px;font-size:14px;line-height:1.3;cursor:pointer}
 .pkg-riga input{width:18px;height:18px}
 .pkg-esempio{word-break:break-all;color:var(--text-3,#6b7280)}
+
+/* «Esporta si fa notare» (14/11/2026): bordo teal sul pulsante e una riga sotto, fissa, che non copre il palco */
+#bExportHdr.exp-nudge{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-tint);color:var(--accent-strong)}
+#expNudge{position:fixed;z-index:60;display:flex;align-items:center;gap:6px;max-width:min(300px,calc(100vw - 16px));padding:7px 6px 7px 12px;border:1px solid var(--accent-soft);border-radius:10px;background:var(--surface,#fff);color:var(--text);font-size:13px;line-height:1.3;box-shadow:0 4px 14px rgba(15,23,42,.14)}
+#expNudge[hidden]{display:none}
+#expNudge .en-x{border:0;background:transparent;color:var(--text-2);font-size:18px;line-height:1;padding:2px 6px;border-radius:6px;cursor:pointer}
+#expNudge .en-x:hover{background:var(--accent-tint)}
+@media (max-width:880px){ #expNudge{display:none} }
