@@ -2373,7 +2373,9 @@ var SEARCH_ALIAS_GIRI = {
   flightcase:"baule bauli baule da viaggio trunk",
   scala:"scala di scena scala del palco scalino scalini gradini",
   edrums:"batteria elettronica batterie elettroniche e drum e drums edrum drum elettronica electronic drum electronic drums",
-  loopstation:"loop station loopstation looper loop pedal effetti da tavolo effetti tavolo multieffetto da tavolo pedaliera da tavolo pedaliera su tavolino",
+  /* 14/11/2026, ricerche vere senza risultato («wah», «fx»): i pedali d'effetto sono della pedaliera */
+  pedaliera:"wah wah-wah pedale pedali pedale wah pedali effetti pedale effetti stompbox distorsore overdrive fuzz delay chorus fx effetti chitarra effetti basso",
+  loopstation:"loop station loopstation looper loop pedal effetti da tavolo effetti tavolo multieffetto da tavolo fx pedaliera da tavolo pedaliera su tavolino",
   theremin:"theremin teremin etherwave strumento elettronico ad antenne",
   omnichord:"omnichord omni chord suzuki om-108 om108 om-84 om84 arpa elettronica strumming strimpellare autoarpa tastiera ad accordi",
   syncgen:"sync generatore sync generatore di sync timecode time code smpte ltc word clock wordclock master clock distributore di clock generatore di timecode generatore timecode",
@@ -19056,6 +19058,59 @@ var ABBR_PRO=[
   ["leggio","Leg"],["praticabile","Prat"],["pedana","Ped"]
 ];
 function _deacc(s){ s=(s||"").toLowerCase(); return s.normalize?s.normalize("NFD").replace(/[\u0300-\u036f]/g,""):s; }
+/* ===== RICERCA CHE PERDONA I REFUSI (14/11/2026) =====
+   Le ricerche vere degli utenti senza risultato (analisi/): «wedgw», «baso», «luci eme». La ricerca era solo «contiene il testo»:
+   una lettera sbagliata e non usciva niente. Qui, SOLO quando la ricerca esatta non trova niente, si prova per somiglianza:
+   ogni parola scritta deve somigliare a una parola dell'elemento (nome, alias, categoria): o ne è l'inizio, o la differenza è di
+   UNA lettera (due sopra le 8): lettera cambiata, mancante, in più o due scambiate. Stessa prima lettera; sotto le 4 lettere
+   nessuna tolleranza (con «sei» o «fx» si inventerebbe qualsiasi cosa). Una ricerca che trova qualcosa non cambia di un carattere. */
+function ricDistanza(a,b,max){   /* distanza di Damerau-Levenshtein (lettere scambiate = 1); max+1 se supera max */
+  var la=a.length, lb=b.length; if(Math.abs(la-lb)>max) return max+1;
+  var prec2=null, prec=[], i, j;
+  for(j=0;j<=lb;j++) prec.push(j);
+  for(i=1;i<=la;i++){
+    var cur=[i], minRiga=i;
+    for(j=1;j<=lb;j++){
+      var v=Math.min(prec[j]+1, cur[j-1]+1, prec[j-1]+(a.charAt(i-1)===b.charAt(j-1)?0:1));
+      if(i>1 && j>1 && a.charAt(i-1)===b.charAt(j-2) && a.charAt(i-2)===b.charAt(j-1)) v=Math.min(v, prec2[j-2]+1);
+      cur.push(v); if(v<minRiga) minRiga=v;
+    }
+    if(minRiga>max) return max+1;
+    prec2=prec; prec=cur;
+  }
+  return prec[lb];
+}
+function ricCostoParola(t, parole){   /* quanto costa far coincidere una parola scritta con una delle parole dell'elemento (-1 = non coincide) */
+  var best=-1, tol=t.length>=9 ? 2 : (t.length>=4 ? 1 : 0), i, w, c;
+  for(i=0;i<parole.length;i++){
+    w=parole[i];
+    if(w.indexOf(t)===0) return 0;   /* è l'inizio di una parola: «eme» → «emergenza» */
+    if(!tol || w.charAt(0)!==t.charAt(0)) continue;
+    c=ricDistanza(t, w, tol);
+    if(c>tol && t.length>=5 && w.length>t.length) c=ricDistanza(t, w.slice(0,t.length), tol);   /* refuso nella parola scritta a metà: «chiter» → «chitarra» */
+    if(c<=tol && (best<0 || c<best)) best=c;
+  }
+  return best;
+}
+/* `testi`: le stringhe già deaccentate su cui cercare (una per elemento); `nomi`: i soli nomi, parallelo a `testi`.
+   Una parola che somiglia a una parola del NOME pesa il suo scarto (0 o 1); se somiglia solo a un alias o alla categoria pesa 4 + lo scarto:
+   «batteira» dà la Batteria prima del Tavolo percussioni. Restano solo i risultati a non più di 1 dal migliore: pochi e pertinenti. */
+function ricercaPerSomiglianza(query, testi, nomi){
+  var tk=_deacc(String(query||"").trim()).split(/[^a-z0-9]+/).filter(Boolean), out=[];
+  if(!tk.length) return out;
+  testi.forEach(function(h, idx){
+    var parole=String(h||"").split(/[^a-z0-9]+/).filter(Boolean), pn=String((nomi&&nomi[idx])||"").split(/[^a-z0-9]+/).filter(Boolean), tot=0, i, c;
+    for(i=0;i<tk.length;i++){
+      c=ricCostoParola(tk[i], pn);
+      if(c<0){ c=ricCostoParola(tk[i], parole); if(c<0) return; c+=4; }
+      tot+=c;
+    }
+    out.push({i:idx, c:tot, n:String((nomi&&nomi[idx])||"")});
+  });
+  out.sort(function(a,b){ return (a.c-b.c) || a.n.localeCompare(b.n) || (a.i-b.i); });
+  var best=out.length ? out[0].c : 0;
+  return out.filter(function(x){ return x.c<=best+1; }).map(function(x){ return x.i; });
+}
 function proAbbrName(name){ name=_deacc(name); for(var i=0;i<ABBR_PRO.length;i++){ if(name.indexOf(ABBR_PRO[i][0])>=0) return ABBR_PRO[i][1]; } return null; }
 /* fallback quando nessuna sigla di settore corrisponde: iniziali / troncamento, tenendo il numero finale */
 function autoAbbr(s){
@@ -21536,9 +21591,15 @@ function ricordaRecenteCatalogo(k, nome, over){
       if(qaHaParola(e._primo,nq)) e._rank=-1;
     });
     m.sort(function(a,b){ return (a._rank-b._rank) || a._nname.localeCompare(b._nname); });
+    if(!m.length){   /* niente di esatto: per somiglianza (refusi), ma solo fra le voci che la ricerca esatta avrebbe potuto dare */
+      var cand=entries.filter(function(e){ return !(e.custNo && custEditorAttivo()) && !(e.custIngresso && !custIngressiAttivi()); });
+      m=ricercaPerSomiglianza(nq, cand.map(function(e){ return e._kw; }), cand.map(function(e){ return e._nname; })).slice(0,12).map(function(i){ return cand[i]; });
+      m.simili=m.length>0;
+    }
     return m;
   }
-  window.__spSearch=function(query){ return searchMatches(query).map(function(e){ return {k:e.k||null, nome:e.nome}; }); };   /* superficie pura per i test */
+  window.__spSearch=function(query){ return searchMatches(query).map(function(e){ return {k:e.k||null, nome:e.nome}; }); };
+  window.__spSimili=function(query){ return searchMatches(query).simili===true; };   /* superficie pura per i test */
 
   var __noResTimer=null, __lastNoRes="";   /* search_no_results: 1 solo evento per query, quando l'utente si ferma */
   search.addEventListener("input", function(){
@@ -21568,6 +21629,7 @@ function ricordaRecenteCatalogo(k, nome, over){
       crealoBtn(results, cerca, false);
       if(q.length>=2 && q!==__lastNoRes){ __noResTimer=setTimeout(function(){ __lastNoRes=q; try{ track("search_no_results",{q:q.slice(0,40)}); }catch(e){} }, 900); }   /* cosa cercano gli utenti e non trovano (segnale per il catalogo) */
       return; }
+    if(matched.simili){ var nota=document.createElement("div"); nota.className="simili-nota"; nota.textContent="Nessun risultato esatto per «"+cerca.trim()+"»: ecco i più simili"; results.appendChild(nota); }   /* refuso: non è la stessa cosa di una ricerca che trova */
     matched.forEach(function(e){
       var b=e.action ? makeActionBtn(e.nome, e.dim, e.icon||"vln1x2", e.action, e.iconHtml) : makeBtn(e.k, e.nome, e.over, e.dim);
       if(e.telDim) telefonoDice(b, e.telDim);   /* «Crea elemento»: sul telefono dice che si fa dal computer */
@@ -21987,6 +22049,10 @@ function qaSearch(q){
     hit.push({e:_qaOpts[i], n:n, r:r});
   }
   hit.sort(function(a,b){ return (a.r-b.r) || (catW(a.e)-catW(b.e)) || a.n.localeCompare(b.n); });
+  if(!hit.length){   /* niente di esatto: per somiglianza (refusi), come nella barra del catalogo */
+    var ok=[]; for(var k=0;k<_qaOpts.length;k++) if(!(_qaOpts[k].custNo && custEditorAttivo())) ok.push(k);
+    return ricercaPerSomiglianza(q, ok.map(function(k){ return _qaAll[k]; }), ok.map(function(k){ return _qaName[k]; })).slice(0,8).map(function(i){ return _qaOpts[ok[i]]; });
+  }
   return hit.slice(0,8).map(function(x){ return x.e; });
 }
 window.__qaSearch=function(q){ return qaSearch(q).map(function(e){ return {k:e.k||null, nome:e.nome}; }); };   /* superficie pura per i test (gemella di __spSearch) */

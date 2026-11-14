@@ -303,6 +303,7 @@
   #catSearch:focus{outline:none;border-color:var(--accent)}
   #catResults{display:none}
   #catResults .nores{font-size:12px;color:var(--text-3);padding:8px 4px}
+  #catResults .simili-nota{font-size:12px;color:var(--text-3);padding:8px 4px 4px}
   /* azioni tecniche nascoste (ricerca "json"): backup/migrazione/supporto */
   .json-tools{display:flex;flex-direction:column;gap:6px;padding:4px 2px}
   .json-tools .json-act{width:100%;justify-content:center;gap:7px;font-size:13px}

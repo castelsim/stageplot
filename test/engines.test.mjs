@@ -6480,6 +6480,59 @@ t("ricerca voce: le ricerche di prima non cambiano (asta, monitor, mic, wedge, c
   ok(searchKeys("asta").length > 0 && A.__spSearch("chitarra").length > 0 && A.__spSearch("wedge")[0].k === "wedge");
   ok(A.__spSearch("voce").some((x) => x.k === "sgabello"), "lo sgabello «voce» resta, dopo");
 });
+/* ---- Ricerca che perdona i refusi (14/11/2026): le ricerche vere senza risultato di chi usa l'app («wedgw», «baso», «luci eme») ---- */
+t("ricerca tollerante: i refusi veri trovano ciò che si cercava, in barra e in finestrella", () => {
+  const nomi = (f, q) => f(q).map((r) => r.nome);
+  ok(A.__spSearch("wedgw").some((r) => r.k === "wedge"), "«wedgw» (ultima lettera sbagliata) non trova il wedge: " + JSON.stringify(nomi(A.__spSearch, "wedgw")));
+  ok(A.__qaSearch("wedgw").some((r) => r.k === "wedge"), "stesso refuso nella finestrella del doppio clic");
+  ok(A.__spSearch("baso").some((r) => /basso/i.test(r.nome)), "«baso» (una lettera in meno) non trova il basso: " + JSON.stringify(nomi(A.__spSearch, "baso")));
+  ok(A.__spSearch("luci eme").some((r) => r.nome === "Luce di emergenza"), "«luci eme» (parola intera storpiata + parola a metà) non trova la luce di emergenza");
+  ok(A.__spSearch("bsso").some((r) => /basso/i.test(r.nome)), "«bsso» (lettera mancante) non trova il basso");
+  ok(A.__spSearch("batteira").some((r) => r.k === "batteria"), "«batteira» (due lettere scambiate) non trova la batteria");
+});
+t("ricerca tollerante: parte solo se la ricerca esatta non trova niente, e non inventa", () => {
+  eq(A.__spSearch("wedge")[0].k, "wedge", "la ricerca esatta non cambia");
+  ok(A.__spSimili("wedge") === false && A.__spSimili("batteria") === false, "una ricerca esatta non passa mai per la somiglianza");
+  eq(A.__spSearch("zasso").length, 0, "la prima lettera deve coincidere («zasso» non è «basso»)");
+  eq(A.__spSearch("qqqq").length, 0, "una parola che non somiglia a niente resta senza risultati");
+  eq(A.__spSearch("xz").length, 0, "sotto le 4 lettere si cerca solo l'esatto: «xz» non somiglia a niente");
+  eq(A.__spSearch("sei").length, 0, "«sei» (3 lettere) non diventa un'altra cosa a forza di refusi");
+  eq(A.__qaSearch("qqqq").length, 0, "anche la finestrella: niente di inventato");
+});
+t("ricerca tollerante: il nome vince su alias e categoria, e restano solo i risultati vicini al migliore", () => {
+  eq(A.__spSearch("batteira")[0].k, "batteria", "«batteira»: la Batteria per prima, non un alias");
+  ok(!A.__spSearch("batteira").some((r) => /Tavolo percussioni/.test(r.nome)), "«batteira» non deve trascinarsi dietro chi ha «batteria» solo fra gli alias");
+  eq(A.__qaSearch("batteira")[0].k, "batteria", "stessa regola nella finestrella");
+  ok(A.__spSearch("chiter").length > 0 && A.__spSearch("chiter").every((r) => /chitarra/i.test(r.nome)), "refuso a metà parola: «chiter» dà solo chitarre: " + JSON.stringify(A.__spSearch("chiter").map((r) => r.nome)));
+  ok(A.__spSearch("pedalera").length === 1 && A.__spSearch("pedalera")[0].nome === "Pedaliera", "«pedalera» dà la sola Pedaliera");
+});
+t("ricerca: le parole vere degli utenti senza risultato («wah», «fx») trovano pedaliera e loop station", () => {
+  ok(searchKeys("wah").indexOf("pedaliera") > -1, "«wah» non trova la pedaliera");
+  ok(searchKeys("fx").indexOf("pedaliera") > -1 && searchKeys("fx").indexOf("loopstation") > -1, "«fx» deve trovare pedaliera e loop station: " + JSON.stringify(searchKeys("fx")));
+  ok(qaKeys("wah").indexOf("pedaliera") > -1, "«wah» nella finestrella del doppio clic");
+  ok(searchKeys("pedaliera").indexOf("pedaliera") > -1 && A.__spSimili("fx") === false, "la parola nuova è un alias, non una somiglianza");
+});
+t("ricerca tollerante: le soglie (parole lunghe, refuso a metà parola, distanza dal migliore)", () => {
+  const f = A.ricercaPerSomiglianza;
+  eq(f("strumntazioni", ["strumentazione"], ["strumentazione"]), [0], "13 lettere: due refusi sono ammessi");
+  eq(f("strumntazion", ["strumentazione"], ["strumentazione"]).length, 1, "12 lettere: un refuso e il finale tagliato");
+  eq(f("batter", ["batteria"], ["batteria"]), [0], "6 lettere: è l'inizio di «batteria»");
+  eq(f("battr", ["batteria"], ["batteria"]), [0], "5 lettere: un refuso dentro l'inizio della parola è ammesso");
+  eq(f("batr", ["batteria"], ["batteria"]), [], "4 lettere: nessun refuso a metà parola («batr» non è «batteria»)");
+  eq(f("basso viola", ["xx", "xx", "xx"], ["basso viola", "bassi viola", "bassi viole"]), [0, 1], "restano i risultati a non più di 1 dal migliore");
+  eq(f("basso", ["xxxx basso", "xxxx"], ["xxxx", "xxxx"])[0], 0, "una parola trovata solo fuori dal nome vale ancora, ma dopo quelle nel nome");
+  eq(f("basso", ["xx bassi", "bassi"], ["xx", "bassi"]), [1], "nel nome vince, e l'altro cade fuori dal taglio");
+});
+t("ricerca tollerante: la barra dice «nessun risultato esatto» e Invio prende il primo simile", () => {
+  ok(/simili-nota/.test(appjs) && /Nessun risultato esatto per/.test(appjs), "manca la nota «Nessun risultato esatto per…»");
+  ok(/matched\.simili/.test(appjs), "la barra non guarda se la ricerca è per somiglianza");
+  ok(!/className="nores"[^;]*simili|simili[^;]*className="nores"/.test(appjs), "la nota dei simili non deve chiamarsi «nores»: bloccherebbe Invio");
+});
+t("ricerca tollerante: i refusi si segnalano come «simili»", () => {
+  ok(A.__spSimili && A.__spSimili("baso") === true, "«baso» deve risultare una ricerca per somiglianza");
+  ok(A.__spSimili("basso") === false, "«basso» è esatta");
+  ok(A.__spSimili("qqqq") === false, "senza risultati non è «simile»");
+});
 t("ricerca: liste e varianti si trovano per nome", () => {
   const primo = (q) => (A.__spSearch(q)[0] || {}).nome;
   for (const q of ["channel list", "input list", "lista canali", "channel"]) eq(primo(q), "Channel list", q);
