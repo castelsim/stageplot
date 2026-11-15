@@ -57,6 +57,9 @@ Uno stage plot (o stage plan) è lo schema in scala del palco che mostra la disp
 - [Hospitality rider](https://stageplot.it/guida/hospitality-rider/): cos'è l'hospitality rider e come si scrive — camerino, pasti, parcheggio, alloggio, orari e referente; esempio per una band di cinque persone e differenza dal rider tecnico
 - [Tutorial di stageplot.it](https://stageplot.it/guida/tutorial/): otto tutorial passo per passo — primo palco, spostare e dare un nome, ricerca nel catalogo, pedane e misure, PDF in scala, link di condivisione, importa organico da Excel, varianti dello stesso palco
 - [Stage plan per un contest](https://stageplot.it/guida/stage-plan-contest/): cosa mandare all'iscrizione a un contest per band — un foglio solo con pianta, channel list, spie e corrente; backline condivisa, cambio palco veloce, line check; esempio a 12 canali
+- [Radiomicrofoni e frequenze](https://stageplot.it/guida/radiomicrofoni-frequenze/): radiomicrofoni e in-ear nel rider — quante frequenze servono, cosa scrivere (numero, banda, chi porta, chi coordina), come evitare doppioni e interferenze, elenco da copiare
+- [Monitor, spie e in-ear](https://stageplot.it/guida/monitor-spie-in-ear/): spie da palco, sidefill e in-ear — differenze, quanti mix servono (una mandata per mix), come scrivere la monitor list, esempio per una band di 5
+- [Soundcheck e line check](https://stageplot.it/guida/soundcheck-line-check/): differenza tra line check e soundcheck, ordine dei canali, tempi indicativi per una band di 5 (circa 30 minuti), checklist da portare sul palco
 
 ## Confronti con altri editor (fatti verificati il 10/10/2026)
 - [Alternative a Ridermaker, TecRider e Stage Plot Pro](https://stageplot.it/alternative/): tabella riassuntiva dei tre editor confrontati con StagePlot (lingua, prezzo, PDF senza account, scala, channel list, funzioni in più)
