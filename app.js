@@ -4977,6 +4977,85 @@ function invitoSalvaDopoPdf(){
   return true;
 }
 function invitoSalvaNascondi(){ var el=document.getElementById("pdfInvitoSalva"); if(el) el.hidden=true; }
+/* DOPO IL PRIMO PDF: DOVE RESTA IL PROGETTO (15/11/2026, P2 di analisi/2026-11-14_punti_abbandono). Chi ha un
+   account e ha appena esportato legge una riga: il progetto è già nel suo account (File → I miei progetti) e
+   «Condividi» tiene il link aggiornato. È il motivo per tornare, detto una volta sola.
+   Regole: solo con un account (gli altri hanno l'invito a salvare), mai su un documento altrui, una sola volta
+   in tutto su questo browser («1» al primo PDF, «no» se chiusa con la ✕ prima: stesso effetto). Preferenza
+   dell'interfaccia: all'uscita dall'account si tiene (USCITA_TIENI_LOCAL). */
+var RIGAPROG_KEY="sp_rigaProgetto";
+function rigaProgettoDecidi(o){
+  if(!o || !o.utente || o.altrui) return false;
+  return !(o.stato==="1" || o.stato==="no");
+}
+function rigaProgettoLeggi(){ try{ return localStorage.getItem(RIGAPROG_KEY); }catch(e){ return null; } }
+function rigaProgettoScrivi(v){ try{ localStorage.setItem("sp_rigaProgetto", v); }catch(e){} }   /* chiave per esteso: la cerca il test dell'uscita */
+function rigaProgettoNascondi(){ var el=document.getElementById("pdfRigaProgetto"); if(el) el.hidden=true; }
+/* Chiamata a PDF scaricato. Nasconde sempre prima la riga (un secondo PDF nella stessa finestra non la rimostra). */
+function rigaProgettoDopoPdf(){
+  var el=document.getElementById("pdfRigaProgetto"); if(!el) return false;
+  el.hidden=true;
+  var C=window.__cloud;
+  if(!rigaProgettoDecidi({ utente:!!(C && C.user && C.user()), altrui:foreignDoc(), stato:rigaProgettoLeggi() })) return false;
+  rigaProgettoScrivi("1");
+  el.hidden=false;
+  return true;
+}
+(function(){
+  var x=document.getElementById("pdfRigaProgettoX");
+  if(x) x.addEventListener("click", function(){ rigaProgettoNascondi(); var go=document.getElementById("pdfGo"); if(go) go.focus(); });
+})();
+/* DOMANDA DI PARERE NEL BOX «COSA MANCA?» (15/11/2026, P5). Dopo il primo PDF esportato su questo dispositivo
+   il box, quando l'utente lo apre da sé, ha in cima una domanda facoltativa: a che lavoro è servito (concerto,
+   evento, prova, altro). Un tocco; il tipo va in testa al messaggio, senza campi nuovi sul server. Mai un popup,
+   mai su documenti altrui. Stato in localStorage PARERE_KEY: «attivo» (dopo il primo PDF), «fatto» (risposto o
+   messaggio inviato), «no» (✕). Nessun dato personale: solo la categoria scelta, dentro un messaggio che
+   l'utente invia di sua volontà. */
+var PARERE_KEY="sp_parere";
+function parereDecidi(o){ return !!(o && !o.altrui && o.stato==="attivo"); }
+function parereStatoDopo(stato, azione){
+  if(stato==="fatto" || stato==="no") return stato;                 /* chiuso resta chiuso */
+  if(azione==="pdf") return (stato==null) ? "attivo" : stato;       /* il primo PDF lo accende, poi non lo tocca */
+  if(azione==="fatto" || azione==="no") return azione;
+  return stato;
+}
+function parereLeggi(){ try{ return localStorage.getItem(PARERE_KEY); }catch(e){ return null; } }
+function parereScrivi(v){ try{ localStorage.setItem("sp_parere", v); }catch(e){} }   /* chiave per esteso: la cerca il test dell'uscita */
+function parereSegna(azione){
+  var v=parereLeggi(), nuovo=parereStatoDopo(v, azione);
+  if(nuovo!==v) parereScrivi(nuovo);
+  if(azione==="fatto" || azione==="no") parereAggiorna();
+}
+function parereAggiorna(){
+  try{
+    var el=document.getElementById("fbParere"); if(!el) return;
+    el.hidden=!parereDecidi({ altrui:foreignDoc(), stato:parereLeggi() });
+    if(el.hidden) Array.prototype.forEach.call(el.querySelectorAll(".fb-chip"), function(c){ c.classList.remove("on"); });
+  }catch(e){}
+}
+/* il messaggio che parte: il tipo in testa, poi quello che l'utente ha scritto (anche niente) */
+function parereMessaggio(tipo, testo){
+  var t=String(testo||"").trim();
+  if(!tipo) return t;
+  return "[Parere dopo il primo PDF · "+tipo+"]"+(t?" "+t:"");
+}
+function parereTipoScelto(){
+  var c=document.querySelector("#fbParere:not([hidden]) .fb-chip.on");
+  return c ? c.getAttribute("data-parere") : "";
+}
+window.parereAggiorna=parereAggiorna;
+try{ parereAggiorna(); }catch(e){}
+(function(){
+  var x=document.getElementById("fbParereX");
+  if(x) x.addEventListener("click", function(){ parereSegna("no"); });
+  Array.prototype.forEach.call(document.querySelectorAll("#fbParere .fb-chip"), function(c){
+    c.addEventListener("click", function(){
+      var on=c.classList.contains("on");
+      Array.prototype.forEach.call(document.querySelectorAll("#fbParere .fb-chip"), function(z){ z.classList.remove("on"); });
+      if(!on) c.classList.add("on");
+    });
+  });
+})();
 /* Da dove è partito un accesso: letto (e tolto) da login_success al ritorno da Google. Va nella chiave «from»,
    l'unica ammessa dalla policy di analytics_events (0035) per dire una provenienza: una chiave nuova farebbe
    rifiutare l'intero evento. */
@@ -5310,7 +5389,7 @@ window.addEventListener("storage",function(e){
    Una chiave nuova va aggiunta qui: il test «ogni chiave scritta dall'app è classificata» la cerca. */
 var USCITA_SEGNALE="sp_uscita";
 var USCITA_TIENI_LOCAL={stageplot_theme:1, sp_welcome:1, sp_onboarded:1, sp_dragHint:1, sp_funzioni:1, sp_props_pro:1,
-  sp_exportNudge:1, sp_catRecenti:1, sp_advListe:1, sp_assPos:1, sp_noAssunzioni:1, sp_rail:1, sp_vistaRuotata:1};
+  sp_exportNudge:1, sp_rigaProgetto:1, sp_parere:1, sp_catRecenti:1, sp_advListe:1, sp_assPos:1, sp_noAssunzioni:1, sp_rail:1, sp_vistaRuotata:1};
 var USCITA_TIENI_SESSION={sp_loginPrompt:1};
 function uscitaChiaveDaCancellare(k, area){
   k=String(k||"");
@@ -38843,6 +38922,8 @@ function exportPdf(paperKey, scaleSel, orient, header){
     info.appendChild(document.createElement("br")); info.appendChild(_ponte);
     var _chiudi=document.getElementById("pdfCancel"); if(_chiudi) _chiudi.textContent="Chiudi";
     if(!invitoSalvaDopoPdf()) maybeLoginNudge();   /* l'invito a salvare (una riga nel piede) prende il posto del toast */
+    try{ rigaProgettoDopoPdf(); }catch(e){}         /* chi ha un account: dove resta il progetto (P2, una volta sola) */
+    try{ parereSegna("pdf"); }catch(e){}            /* il primo PDF accende la domanda di parere nel box (P5) */
   }).catch(function(e){
     info.className="mstatus err"; info.textContent="Errore: "+(e&&e.message||e); window.__pdfScope="full";
   });
@@ -39669,6 +39750,7 @@ function pdfChannelPage(doc, L, paperKey){
   function _pdfExportModalCore(){ modal.hidden=false; prevIdx=0;
     var _ann=document.getElementById("pdfCancel"); if(_ann) _ann.textContent="Annulla";   /* dopo un export era diventato «Chiudi» */
     invitoSalvaNascondi();   /* l'invito vale per l'export appena fatto: riaprendo la finestra non resta lì */
+    rigaProgettoNascondi();  /* idem la riga «dove resta il progetto» (P2) */
     pdfScalettaInit(); pdfQrInit();   /* scaletta spuntata se c'è; QR sempre spento all'apertura (10/10) */
     /* Il nome del progetto si rilegge dallo STATO ogni volta che la finestra si apre. Un modello
        scrive state.titolo («Band pop/rock») e l'header lo mostrava, ma questo campo restava vuoto e
@@ -42516,6 +42598,7 @@ function maybeAskStageSize(explicit){
   }
   window.openFeedbackBox=function(){
     hint=null;
+    parereAggiorna();
     Array.prototype.forEach.call(document.querySelectorAll("#fbBox .fb-chip"), function(c){ c.classList.remove("on"); });
     attach.checked=false;
     result.style.display="none";
@@ -42842,7 +42925,7 @@ function maybeAskStageSize(explicit){
   function collectAndSend(projectId){
     /* Niente user_id/user_email nel body: l'identità la ricava il server dal JWT (audit S5). */
     var body={
-      message: msg.value.trim(), hint: hint, honeypot: hp.value,
+      message: parereMessaggio(parereTipoScelto(), msg.value), hint: hint, honeypot: hp.value,
       tech_context: techContext(),
       meta: metaInvio(),
       screenshot: _fbShotData || null,     /* JPEG data URL, già ridotto: il server lo mette su Storage */
@@ -42858,6 +42941,7 @@ function maybeAskStageSize(explicit){
       .then(function(r){ return r.json().catch(function(){ return {}; }).then(function(j){ return {status:r.status,j:j}; }); })
       .then(function(res){
         send.disabled=false;
+        if(res.status===200&&res.j.ok&&parereTipoScelto()) parereSegna("fatto");   /* ha risposto: la domanda non torna */
         if(res.status===200 && res.j.ok){
           /* Prima la conferma era una riga dentro il box, e il box si chiudeva da solo dopo 1,4 s:
              chi guardava altrove non vedeva NIENTE e restava col dubbio di aver inviato. Ora è una
@@ -42884,7 +42968,7 @@ function maybeAskStageSize(explicit){
   }
 
   send.addEventListener("click", function(){
-    var m=msg.value.trim();
+    var m=parereMessaggio(parereTipoScelto(), msg.value);   /* con un tipo scelto basta un tocco: il tipo è già il messaggio */
     if(m.length<5){ result.style.display="block"; result.style.color="var(--danger)"; result.textContent="Scrivi almeno 5 caratteri."; return; }
     send.disabled=true; result.style.display="none";
     var ctx = (typeof window.getFeedbackContext==="function") ? window.getFeedbackContext() : {project_id:null};

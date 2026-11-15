@@ -27983,6 +27983,92 @@ t("invito a salvare: «No, grazie» e «Salva con Google» scrivono lo stato; l'
   ok(/'from'/.test(pol) && /'login_success'/.test(pol), "«from» e login_success sono ammessi dalla policy");
   ok(A.USCITA_TIENI_LOCAL.sp_invitoSalva && A.USCITA_TIENI_SESSION.sp_accessoDa, "le due chiavi sono classificate per l'uscita");
 });
+t("P2 rigaProgettoDecidi: solo con un account, mai documenti altrui, una volta sola", () => {
+  const d = (o) => A.rigaProgettoDecidi(Object.assign({ utente: true, altrui: false, stato: null }, o));
+  eq(A.RIGAPROG_KEY, "sp_rigaProgetto", "chiave");
+  ok(d({}), "con un account, mai vista: sì");
+  ok(!d({ utente: false }), "senza account: no (ha l'invito a salvare)");
+  ok(!d({ altrui: true }), "documento altrui: no");
+  ok(!d({ stato: "1" }), "già mostrata: no");
+  ok(!d({ stato: "no" }), "chiusa: no");
+  ok(!A.rigaProgettoDecidi(null), "senza dati: no");
+});
+t("P2 rigaProgettoDopoPdf: compare una volta, poi mai più; senza account o in consulenza mai", () => {
+  const old = { doc: A.document, ls: A.localStorage, cloud: A.__cloud, cons: A.__consultMode };
+  const mem = {}; const el = { hidden: true };
+  try {
+    A.document = { body: { classList: { contains: () => false } }, getElementById: (id) => (id === "pdfRigaProgetto" ? el : null) };
+    A.localStorage = { getItem: (k) => (k in mem ? mem[k] : null), setItem: (k, v) => { mem[k] = String(v); }, removeItem: (k) => { delete mem[k]; } };
+    A.__consultMode = false;
+    A.__cloud = { user: () => null };
+    ok(!A.rigaProgettoDopoPdf(), "senza account: no"); ok(el.hidden); eq(mem.sp_rigaProgetto, undefined, "e non conta");
+    A.__cloud = { user: () => ({ id: "u-1" }) }; A.__consultMode = true;
+    ok(!A.rigaProgettoDopoPdf(), "in consulenza: no"); eq(mem.sp_rigaProgetto, undefined);
+    A.__consultMode = false;
+    ok(A.rigaProgettoDopoPdf(), "primo PDF con account: sì"); ok(!el.hidden, "visibile"); eq(mem.sp_rigaProgetto, "1");
+    ok(!A.rigaProgettoDopoPdf(), "secondo PDF: no"); ok(el.hidden, "e la riga si ritira");
+    delete mem.sp_rigaProgetto; mem.sp_rigaProgetto = "no";
+    ok(!A.rigaProgettoDopoPdf(), "dopo la ✕: no");
+    const st = A.localStorage; A.localStorage = { getItem() { throw new Error("blocked"); }, setItem() { throw new Error("blocked"); } };
+    A.rigaProgettoDopoPdf();   /* non deve lanciare */
+    A.localStorage = st;
+  } finally { A.document = old.doc; A.localStorage = old.ls; A.__cloud = old.cloud; A.__consultMode = old.cons; }
+});
+t("P5 parere: lo accende il primo PDF, ✕ e risposta lo chiudono per sempre, mai su documenti altrui", () => {
+  eq(A.PARERE_KEY, "sp_parere", "chiave");
+  const f = A.parereStatoDopo;
+  eq(f(null, "pdf"), "attivo", "il primo PDF lo accende");
+  eq(f("attivo", "pdf"), "attivo", "un secondo PDF non cambia");
+  eq(f("fatto", "pdf"), "fatto", "risposto resta risposto"); eq(f("no", "pdf"), "no", "✕ resta ✕");
+  eq(f("attivo", "fatto"), "fatto"); eq(f("attivo", "no"), "no"); eq(f("no", "fatto"), "no", "chiuso resta chiuso");
+  eq(f(null, "no"), "no", "anche prima del PDF, la ✕ vale");
+  const d = (o) => A.parereDecidi(Object.assign({ altrui: false, stato: "attivo" }, o));
+  ok(d({}), "dopo il primo PDF: sì"); ok(!d({ stato: null }), "senza PDF: no"); ok(!d({ stato: "fatto" })); ok(!d({ stato: "no" }));
+  ok(!d({ altrui: true }), "documento altrui: no"); ok(!A.parereDecidi(null));
+});
+t("P5 parereMessaggio: il tipo va in testa, un tocco basta, il testo libero resta", () => {
+  eq(A.parereMessaggio("Concerto dal vivo", ""), "[Parere dopo il primo PDF · Concerto dal vivo]");
+  eq(A.parereMessaggio("Evento o conferenza", "  mi serve il rider  "), "[Parere dopo il primo PDF · Evento o conferenza] mi serve il rider");
+  eq(A.parereMessaggio("", " Manca il sax "), "Manca il sax", "senza tipo il messaggio è quello di sempre");
+  ok(A.parereMessaggio("Altro", "").length >= 5, "supera il minimo del box con un tocco solo");
+});
+t("P5 parereSegna: scrive in locale con try/catch e ritira la domanda dal box", () => {
+  const old = { doc: A.document, ls: A.localStorage, cons: A.__consultMode };
+  const mem = {}; const el = { hidden: true, querySelectorAll: () => [] };
+  try {
+    A.document = { body: { classList: { contains: () => false } }, getElementById: (id) => (id === "fbParere" ? el : null) };
+    A.localStorage = { getItem: (k) => (k in mem ? mem[k] : null), setItem: (k, v) => { mem[k] = String(v); }, removeItem: (k) => { delete mem[k]; } };
+    A.__consultMode = false;
+    A.parereSegna("pdf"); eq(mem.sp_parere, "attivo"); A.parereAggiorna(); ok(!el.hidden, "domanda visibile");
+    A.parereSegna("no"); eq(mem.sp_parere, "no"); ok(el.hidden, "la ✕ la ritira");
+    A.parereSegna("pdf"); eq(mem.sp_parere, "no", "un altro PDF non la riaccende");
+    A.__consultMode = true; mem.sp_parere = "attivo"; A.parereAggiorna(); ok(el.hidden, "in consulenza resta spenta");
+    A.localStorage = { getItem() { throw new Error("x"); }, setItem() { throw new Error("x"); } };
+    A.parereSegna("pdf"); A.parereAggiorna();   /* non deve lanciare */
+  } finally { A.document = old.doc; A.localStorage = old.ls; A.__consultMode = old.cons; }
+});
+t("P2 + P5: nel template nascono nascoste, nel posto giusto; l'export le chiama, l'uscita le classifica", () => {
+  const src = readFileSync(join(root, "index.template.html"), "utf8");
+  ok(/<div id="pdfRigaProgetto" role="status" hidden>/.test(src), "P2 nasce nascosta");
+  ok(src.indexOf('id="pdfRigaProgetto"') > src.indexOf('id="pdfInvitoSalva"'), "dopo l'invito a salvare");
+  ok(/File → I miei progetti/.test(src.slice(src.indexOf('id="pdfRigaProgetto"'), src.indexOf('id="pdfRigaProgetto"') + 400)), "dice dove sta davvero (voce di menu esistente)");
+  ok(/id="pdfRigaProgettoX"/.test(src), "è chiudibile");
+  const b = src.indexOf('<div id="fbParere" hidden>'); ok(b > 0, "P5 nasce nascosta");
+  ok(b > src.indexOf('id="fbBody"') && b < src.indexOf('id="fbMsg"'), "dentro il box, sopra il campo di testo");
+  ok(/id="fbParereX"/.test(src), "è chiudibile");
+  ok(!/fbParere[\s\S]{0,40}(alert|confirm|modal)/i.test(src.slice(b, b + 300)), "non è un popup");
+  const fine = appjs.indexOf('track("export",{format:"pdf"});');
+  const dopo = appjs.slice(fine, fine + 2200), catchI = dopo.indexOf("}).catch(");
+  ok(/try\{ rigaProgettoDopoPdf\(\); \}catch\(e\)\{\}/.test(dopo.slice(0, catchI)), "a PDF scaricato, in try/catch (P2)");
+  ok(/try\{ parereSegna\("pdf"\); \}catch\(e\)\{\}/.test(dopo.slice(0, catchI)), "a PDF scaricato, in try/catch (P5)");
+  ok(/function _pdfExportModalCore\(\)\{[\s\S]{0,400}rigaProgettoNascondi\(\);/.test(appjs), "riaprendo l'Esporta la riga non resta lì");
+  ok(A.USCITA_TIENI_LOCAL.sp_rigaProgetto && A.USCITA_TIENI_LOCAL.sp_parere, "chiavi classificate per l'uscita");
+  ok(/message: parereMessaggio\(parereTipoScelto\(\), msg\.value\)/.test(appjs), "l'invio porta il tipo scelto");
+  ok(/var m=parereMessaggio\(parereTipoScelto\(\), msg\.value\);[\s\S]{0,80}if\(m\.length<5\)/.test(appjs), "il minimo di 5 caratteri vale sul messaggio col tipo: un tocco solo basta");
+  ok(/res\.status===200&&res\.j\.ok&&parereTipoScelto\(\)\) parereSegna\("fatto"\);/.test(appjs), "risposto = la domanda non torna");
+  ok(/window\.openFeedbackBox=function\(\)\{\s*hint=null;\s*parereAggiorna\(\);/.test(appjs), "la domanda si decide all'apertura del box (non lo apre da sola)");
+  ok(/#pdfRigaProgetto\[hidden\]\{display:none\}/.test(stylesCss) && /#fbParere\[hidden\]\{display:none\}/.test(stylesCss), "hidden vince sul display");
+});
 
 console.log("\n— Collegamenti orfani: un id riusato non eredita i cavi di chi c'era prima (05/10) —");
 

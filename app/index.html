@@ -24,7 +24,7 @@
      due release nello stesso giorno restano distinguibili in telemetria e supporto. In locale/dev
      resta il placeholder. La sentinella del VALORE è distinta dall'identificatore window.__BUILD_ID__
      così il sed della CI non tocca il nome della variabile. -->
-<script>window.__APP_VERSION__="2026.11.14";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
+<script>window.__APP_VERSION__="2026.11.15";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -3795,6 +3795,24 @@ body.accesso-invito > :not(.modal):not(#cloudModal):not(#cloudToast){visibility:
 @media (max-width:720px){ #pdfInvitoSalva{flex-direction:column;align-items:stretch;gap:8px}
   #pdfInvitoSalva .pis-azioni{justify-content:flex-end} #pdfInvitoSalva .pis-no{min-height:44px} #pdfInvitoSalva .btn{min-height:44px} }
 
+/* Dopo il primo PDF, per chi ha un account (15/11/2026, P2): una riga informativa con la ✕, stessa pelle dell'invito. */
+#pdfRigaProgetto{flex:0 0 auto;display:flex;align-items:center;gap:10px;margin:12px 0 0;padding:10px 12px;
+  border-radius:10px;background:var(--accent-tint);border:1px solid var(--accent-soft);font-size:13px;line-height:var(--lh-snug);color:var(--text)}
+#pdfRigaProgetto[hidden]{display:none}
+#pdfRigaProgetto p{margin:0;flex:1 1 auto;min-width:0}
+#pdfRigaProgetto .pis-no{border:0;background:none;color:var(--text-2);font:inherit;font-size:14px;padding:8px 8px;cursor:pointer;flex:0 0 auto}
+#pdfRigaProgetto .pis-no:hover{color:var(--text)}
+@media (max-width:720px){ #pdfRigaProgetto .pis-no{min-width:44px;min-height:44px} }
+/* Domanda di parere nel box «Cosa manca?» (15/11/2026, P5): compare solo dopo il primo PDF, dentro il box. */
+#fbParere{margin:6px 0 10px;padding:9px 10px;border-radius:9px;background:var(--accent-tint);border:1px solid var(--accent-soft);font-size:13px;color:var(--text)}
+#fbParere[hidden]{display:none}
+#fbParere .fbp-testa{display:flex;align-items:flex-start;justify-content:space-between;gap:8px}
+#fbParere .fbp-x{border:0;background:none;color:var(--text-2);font:inherit;font-size:13px;padding:2px 6px;cursor:pointer;flex:0 0 auto}
+#fbParere .fbp-x:hover{color:var(--text)}
+#fbParere .fbp-chips{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+#fbParere .fb-chip{flex:1 1 auto;padding:6px 8px;min-height:32px}
+@media (max-width:880px){ #fbParere .fbp-x{min-width:44px;min-height:44px} #fbParere .fb-chip{min-height:44px} }
+
 /* ── SCALETTA (10/10/2026) ───────────────────────────────────────────────────────────────────────
    Pannello come «Evento»: con la scaletta aperta la colonna (o il cassetto del telefono) mostra solo
    lei. `display` su id e non l'attributo hidden: `.sec` lo batterebbe (stessa cosa per #eventoSec). */
@@ -5660,6 +5678,19 @@ body.cust-contorno .item.selected .selbox{display:none}
     <button class="fb-close" id="fbClose" type="button" aria-label="Chiudi">✕</button>
   </div>
   <div class="fb-body" id="fbBody">
+    <!-- Domanda di parere (15/11/2026, P5): compare qui, dentro il box, solo dopo il primo PDF esportato su questo
+         dispositivo. Facoltativa, mai un popup: il box non si apre da solo. Un tocco basta (il tipo va in testa
+         al messaggio); la ✕ la spegne per sempre. -->
+    <div id="fbParere" hidden>
+      <div class="fbp-testa"><b>Ti è servito per un lavoro vero? Che tipo?</b>
+        <button type="button" class="fbp-x" id="fbParereX" aria-label="Non chiedermelo più">✕</button></div>
+      <div class="fbp-chips">
+        <button type="button" class="fb-chip" data-parere="Concerto dal vivo">Concerto</button>
+        <button type="button" class="fb-chip" data-parere="Evento o conferenza">Evento</button>
+        <button type="button" class="fb-chip" data-parere="Prova o studio">Prova</button>
+        <button type="button" class="fb-chip" data-parere="Altro">Altro</button>
+      </div>
+    </div>
     <textarea aria-label="Il tuo messaggio" id="fbMsg" maxlength="1000" placeholder="Scrivi cosa manca, cosa non funziona o cosa vorresti migliorare…"></textarea>
     <div class="fb-count"><span id="fbCount">0</span>/1000</div>
     <div class="fb-chips">
@@ -6549,6 +6580,12 @@ body.cust-contorno .item.selected .selbox{display:none}
         <button type="button" class="btn tint" id="pdfInvitoAccedi">Salva con Google</button>
         <button type="button" class="pis-no" id="pdfInvitoNo">No, grazie</button>
       </div>
+    </div>
+    <!-- Dopo il primo PDF, per chi ha un account (15/11/2026, P2 di analisi/2026-11-14): una riga che dice dove
+         resta il progetto. Solo informazione, una volta sola, con la ✕. Chi non ha l'account ha l'invito qui sopra. -->
+    <div id="pdfRigaProgetto" role="status" hidden>
+      <p>Il progetto resta nel tuo account: lo ritrovi in <b>File → I miei progetti</b>. Con «Condividi» il link si aggiorna da solo.</p>
+      <button type="button" class="pis-no" id="pdfRigaProgettoX" aria-label="Chiudi">✕</button>
     </div>
   </div>
 </div>
