@@ -33178,9 +33178,11 @@ t("a parità di distanza dalle sorgenti vince il lato più vicino al bordo del p
   _l2palco(1200, 800); const m = add("astamic", 1000, 400); const b = A.audioCablingEngine().boxes.filter((x) => x.auto)[0];
   ok(b && b.x > m.x, "box a x=" + (b && b.x) + ", microfono a 1000");
 });
-t("palco con blocchi: la box resta dentro i blocchi, non nel vuoto accanto (box automatica)", () => {
-  _l2palco(1200, 800, [{ x: 0, y: 0, w: 1100, d: 800 }]); add("astamic", 1060, 400);
-  const b = A.audioCablingEngine().boxes.filter((x) => x.auto)[0]; ok(b && b.x <= 1100 - 16, "box fuori dal blocco: x=" + (b && b.x));
+t("palco a L: la box resta dentro i blocchi, non nel vuoto accanto (box automatica)", () => {
+  const bl = [{ x: 0, y: 0, w: 1200, d: 400 }, { x: 0, y: 400, w: 800, d: 400 }];
+  _l2palco(1200, 800, bl); add("astamic", 760, 600);
+  const b = A.audioCablingEngine().boxes.filter((x) => x.auto)[0];
+  ok(b && A.state.stage.blocks.some((k) => b.x >= k.x && b.x <= k.x + k.w && b.y >= k.y && b.y <= k.y + k.d) && !(b.y > 400 && b.x > 800), "box nel vuoto: " + (b && b.x + "," + b.y));
 });
 t("collaudo: ogni progetto vero con box automatiche rispetta le stesse regole", () => {
   let base = null; for (let d = root, i = 0; i < 8 && !base; i++, d = dirname(d)) if (existsSync(join(d, "collaudo", "progetti"))) base = join(d, "collaudo", "progetti");
