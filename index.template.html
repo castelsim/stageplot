@@ -967,6 +967,22 @@
         <select id="pMountSafety"><option value="present">Presente</option><option value="unspecified">Da verificare</option><option value="missing">Mancante</option></select>
       </div>
     </div>
+    <div id="pRigWrap" style="display:none"><label>Americana numerata <small class="lbl-note">— numero, altezza e peso appeso</small></label>
+      <div class="seg" id="pRigOn" role="group" aria-label="Numerazione della struttura">
+        <button type="button" class="adv-btn" data-rig="on">Numerata</button>
+        <button type="button" class="adv-btn" data-rig="off">No</button>
+      </div>
+      <div id="pRigBody" style="display:none;margin-top:7px">
+        <div class="row">
+          <span><label for="pRigN">Numero</label><input type="text" id="pRigN" maxlength="4" autocomplete="off" inputmode="text"></span>
+          <span><label for="pRigH">Altezza (trim, cm)</label><input type="number" id="pRigH" min="0" max="3000" step="10" inputmode="numeric" placeholder="es. 750"></span>
+        </div>
+        <label style="margin-top:6px">Lunghezza <small class="lbl-note">— metri</small></label>
+        <div class="seg" id="pRigLen" role="group" aria-label="Lunghezze standard"></div>
+        <div id="pRigPeso" class="prop-hint" style="margin-top:6px"></div>
+        <button type="button" class="btn" id="pRigTutte" style="margin-top:6px">Numera tutte le americane</button>
+      </div>
+    </div>
     <div id="pRfWrap" style="display:none"><label title="Frequenza radio e banda: finiscono nella Lista RF del rider (per il coordinamento del service)">Frequenza RF</label>
       <div class="row">
         <span><input aria-label="Frequenza RF in MHz" type="text" id="pRf" placeholder="es. 606.400" inputmode="decimal"></span>
@@ -9056,6 +9072,65 @@ function hangItemsOf(st){
   if(!isHangStruct(st)) return [];
   return (state.items||[]).filter(function(it){ return isMountable(it) && mountModeOf(it)==="hung" && hangSupportOf(it)===st; });
 }
+/* ===== AMERICANE NUMERATE, ALTEZZA E PESO APPESO (A4, 15/11/2026) ==========================
+   Funzione AVANZATA (dentro «Opzioni complete dell'elemento», chiusa all'inizio): il campo opzionale `rig`
+   di un'americana o di una truss, {n?, h?}. Senza `rig` l'elemento è identico a prima. `rig` presente
+   = «questa struttura è numerata»: compare l'etichetta «A3 · +7,50 m · 180 kg».
+   · numero: 1…N dal pubblico (y più grande) verso il fondo fra le strutture che hanno `rig`; `rig.n` lo
+     sostituisce a mano (testo breve);
+   · trim `rig.h`: altezza in cm dal palco (come l'altezza dei fari appesi);
+   · peso: somma dei fari appesi a quella struttura (hangItemsOf) + il suo peso proprio SE dichiarato (`kg`).
+     È la somma dei pesi di catalogo, non una verifica di portata: l'app non calcola mai una portata e
+     non dice mai «regge / non regge». I pesi che il catalogo non conosce valgono 0 e non entrano. */
+var RIG_LUNGHEZZE=[100,150,200,250,300,400];            /* cm: 1 · 1,5 · 2 · 2,5 · 3 · 4 m, a un clic */
+var RIG_H_MAX=3000;                                      /* 30 m di trim: oltre non è un teatro */
+function rigOf(it){ return (it && isHangStruct(it) && it.rig && typeof it.rig==="object") ? it.rig : null; }
+function rigHPulita(v){ v=Math.round(+v); return (isFinite(v) && v>0) ? Math.min(v,RIG_H_MAX) : 0; }
+function rigNPulito(v){ return String(v==null?"":v).replace(/[\u0000-\u001f]/g," ").replace(/\s+/g," ").trim().slice(0,4); }
+function rigPulita(r){
+  if(!r || typeof r!=="object") return null;
+  var o={}, h=rigHPulita(r.h), n=rigNPulito(r.n);
+  if(h) o.h=h; if(n) o.n=n;
+  return o;
+}
+function rigMembri(){
+  return (state.items||[]).filter(function(x){ return !!rigOf(x); }).sort(function(a,b){
+    return ((b.y||0)-(a.y||0)) || ((a.x||0)-(b.x||0)) || (String(a.id)<String(b.id)?-1:1); });
+}
+function rigNumero(it){
+  var r=rigOf(it); if(!r) return "";
+  if(r.n) return r.n;
+  return String(rigMembri().indexOf(it)+1);
+}
+function rigPesoKg(it){
+  if(!rigOf(it)) return 0;
+  return hangItemsOf(it).reduce(function(a,f){ return a+weightOf(f); }, weightOf(it));
+}
+function rigTrimTesto(cm){ return "+"+(cm/100).toFixed(2).replace(".",",")+" m"; }
+function rigEtichetta(it){
+  var r=rigOf(it); if(!r) return "";
+  var bits=["A"+rigNumero(it)], h=rigHPulita(r.h), kg=rigPesoKg(it);
+  if(h) bits.push(rigTrimTesto(h));
+  if(kg>0) bits.push(Math.round(kg)+" kg");
+  return bits.join(" · ");
+}
+/* Su schermo l'etichetta si vede solo con «Opzioni complete» accesa (come i cavi con «Connessioni»);
+   export, PDF, link in sola lettura e telefono la mostrano sempre, se il dato c'è. */
+function rigVisibile(){
+  if(!_lblSchermo || window.__cabStatic || isMobile()) return true;
+  if(document.body.classList.contains("viewmode")) return true;
+  return funzOn("opzioni");
+}
+/* «Numera»: mette `rig` a tutte le americane che non ce l'hanno. Ritorna quante ne ha prese. */
+function rigNumeraTutte(){
+  var n=0;
+  (state.items||[]).forEach(function(x){ if(x.type==="americana" && !x.rig){ x.rig={}; n++; } });
+  return n;
+}
+function rigImposta(it, patch){
+  if(!it || !isHangStruct(it)) return;
+  it.rig=rigPulita(Object.assign({}, it.rig||{}, patch||{}));
+}
 /* Testo che il montaggio aggiunge sotto il nome, in pianta: è il dato che serve a chi monta. */
 function mountNote(it){
   if(!isMountable(it)) return "";
@@ -10466,6 +10541,7 @@ function sanitizeItems(arr){
     if(t.riser) it.h=(o.h!=null?+o.h:(t.h||40));
     else if(isCover(it) && o.h!=null) it.h=+o.h;   /* coperture: h opzionale (luce sotto); se assente = default coverH() */
     else if(o.type==="ostacolo" && ostacoloHPulita(o.h)) it.h=ostacoloHPulita(o.h);   /* ostacolo: quota opzionale */
+    if(isHangStruct(it) && o.rig && typeof o.rig==="object") it.rig=rigPulita(o.rig);   /* americana/truss numerata (A4): {n?, h?} ripulito */
     if(Object.prototype.hasOwnProperty.call(COMP,o.type)) it.parts=o.parts?compClone(o.parts):compClone(COMP[o.type].defParts);
     ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","perChi","podio","sgab","grp","distOf","distType","aggancia","dimSide","lblSize","plCh","dvsPro","dvsNet","dvsSr","dvsLat","ifaceId","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","leggioDist","poltrona","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic","platea","fila","posto","settore","orOk"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });   /* platea: passi e corridoio, ripuliti poi da normalizeLoadedItems; fila/posto/settore: posti numerati */
     if(it.orOk!=null){ var _ok=Math.round(+it.orOk); if(isFinite(_ok)) it.orOk=_ok; else delete it.orOk; }   /* «È giusto così» sull'orientamento (15/11): la rotazione che l'utente ha confermato, numero intero */
@@ -15168,6 +15244,10 @@ function itemMarkup(it){
     else { rdx=(it.w/2)+roff; ranc='middle'; rang=90; }                       /* ruotata, lato dx */
     rtr=lblCapTr(!_sceneRuota && lblCapovolto((it.rot||0)+rang), rang, rdx, rdy, 12);   /* 06/10: la quota non si capovolge con la pedana girata */
     lb += '<text class="lbl sub" x="'+rdx+'" y="'+rdy+'" text-anchor="'+ranc+'"'+rtr+'>'+dimT+'</text>';
+  }
+  if(rigOf(it) && rigVisibile()){   /* americana numerata (A4): «A3 · +7,50 m · 180 kg», sul lato del pubblico (y positivo) */
+    var rgy=(it.d/2)+12+9, rgtr=lblCapTr(!_sceneRuota && lblCapovolto(it.rot||0), 0, 0, rgy, 12);
+    lb += '<text class="lbl sub rig-et" x="0" y="'+rgy+'" text-anchor="middle"'+rgtr+'>'+esc(rigEtichetta(it))+'</text>';
   }
   var _lblOrig = null;   /* perno del corpo minimo a schermo (lblScalaAttorno): null = l'ancora del primo testo */
   var _hid = (it.labelMode==='hidden');
@@ -21222,6 +21302,23 @@ function renderProps(){
         document.getElementById("pMountSafety").value = mountSafetyOf(it);
       }
     } }
+  var rgw=document.getElementById("pRigWrap");   /* AMERICANA NUMERATA (A4): solo americana e truss */
+  if(rgw){ var isRg=isHangStruct(it); rgw.style.display=isRg?"block":"none";
+    if(isRg){
+      var rg=rigOf(it);
+      Array.prototype.forEach.call(document.querySelectorAll("#pRigOn [data-rig]"), function(b){
+        b.className="adv-btn"+(((b.getAttribute("data-rig")==="on")===!!rg)?" on":""); });
+      document.getElementById("pRigBody").style.display = rg ? "block" : "none";
+      if(rg){
+        var rn=document.getElementById("pRigN"); rn.value=rg.n||""; rn.placeholder=rigNumero(it);
+        document.getElementById("pRigH").value=rg.h||"";
+        var rl=document.getElementById("pRigLen");
+        if(!rl.children.length) RIG_LUNGHEZZE.forEach(function(cm){ var b=document.createElement("button"); b.type="button"; b.className="adv-btn"; b.setAttribute("data-len",cm); b.textContent=String(cm/100).replace(".",","); rl.appendChild(b); });
+        Array.prototype.forEach.call(rl.children, function(b){ b.className="adv-btn"+(+b.getAttribute("data-len")===Math.round(it.w)?" on":""); });
+        var kg=rigPesoKg(it), nf=hangItemsOf(it).length;
+        document.getElementById("pRigPeso").textContent = (kg>0 ? "Peso appeso: "+Math.round(kg)+" kg" : "Peso appeso: nessun dato")+" — "+nf+(nf===1?" faro":" fari")+" sotto. Somma dei pesi di catalogo: non è una portata.";
+      }
+    } }
   var mirb=document.getElementById("pMirror");   /* Specchia: azione, accanto a Duplica ed Elimina */
   if(mirb){ var canM=canMirror(it); mirb.style.display=canM?"":"none";
     mirb.className="btn"+(canM&&it.mir?" primary":""); mirb.setAttribute("aria-pressed", (canM&&it.mir)?"true":"false"); }
@@ -22430,6 +22527,33 @@ document.getElementById("pMountSafety").addEventListener("change", function(){
   mutSel(function(it){ if(isMountable(it)) mountSet(it, {safety:(v==="unspecified")?null:v}); });
   save();
 });
+/* AMERICANA NUMERATA (A4, 15/11/2026): numero, trim, lunghezza e «Numera tutte». Tutto passa da mutSel (annulla/ripeti). */
+document.getElementById("pRigOn").addEventListener("click", function(e){
+  var b=e.target.closest("button[data-rig]"); if(!b) return;
+  var on=b.getAttribute("data-rig")==="on";
+  mutSel(function(it){ if(!isHangStruct(it)) return; if(on){ if(!it.rig) it.rig={}; } else delete it.rig; });
+  renderProps();
+});
+document.getElementById("pRigN").addEventListener("change", function(){
+  var v=document.getElementById("pRigN").value;
+  mutSel(function(it){ if(rigOf(it)) rigImposta(it, {n:v}); });
+  renderProps();
+});
+document.getElementById("pRigH").addEventListener("change", function(){
+  var v=document.getElementById("pRigH").value;
+  mutSel(function(it){ if(rigOf(it)) rigImposta(it, {h:v}); });
+  renderProps();
+});
+document.getElementById("pRigLen").addEventListener("click", function(e){
+  var b=e.target.closest("button[data-len]"); if(!b) return;
+  var cm=+b.getAttribute("data-len");
+  mutSel(function(it){ if(rigOf(it)) it.w=cm; });
+  renderProps();
+});
+document.getElementById("pRigTutte").addEventListener("click", function(){
+  if(window.__projLocked) return;
+  primaDiAgire(); rigNumeraTutte(); render(); renderProps(); save();
+});
 /* FUNZIONI AVANZATE (14/09). Simone: «il software si apre sempre nella versione base, quella più
    facile, e se vuole l'utente dentro File trova enable advanced features e si apre una finestra con
    funzioni da selezionare». Scelta B su una tavola a confronto: un interruttore generale e cinque
@@ -22495,7 +22619,10 @@ function funzImposta(cambi, opts){
 function funzUsateDalProgetto(s){
   s=s||{};
   var tecn=!!((s.cab&&s.cab.on) || (s.elec&&s.elec.on) || (s.mond&&s.mond.on));
-  return tecn ? ["conn","liste"] : [];
+  var rig=(s.items||[]).some(function(x){ return x && x.rig && isHangStruct(x); });   /* americane numerate (A4): stanno dietro «Opzioni complete» */
+  var out=tecn ? ["conn","liste"] : [];
+  if(rig) out.push("opzioni");
+  return out;
 }
 /* «Cavi e corrente» (caso Zuliani, 03/11): per vedere metri e potenza servivano tre passi nascosti
    (Funzioni avanzate, lista Input, stage box). Se il progetto ha ingressi audio ma nessuna stage box,
@@ -22692,7 +22819,7 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
   }
   /* La label interna che ripete il titolo del gruppo è rumore: il gruppo la dice già. */
   function muteLabel(id){ var e=get(id); if(!e) return; var l=e.querySelector("label"); if(l) l.style.display="none"; }
-  muteLabel("pLblModeWrap"); muteLabel("pAscoltoWrap"); muteLabel("pMikeWrap"); muteLabel("pLookWrap"); muteLabel("pMountWrap");
+  muteLabel("pLblModeWrap"); muteLabel("pAscoltoWrap"); muteLabel("pMikeWrap"); muteLabel("pLookWrap"); muteLabel("pMountWrap"); muteLabel("pRigWrap");
   /* SP-08 (audit esterno 05/09): «le proprietà danno priorità alla grafica rispetto al compito».
      Il primo gruppo del pannello — quindi la prima cosa che si incontra su QUALUNQUE elemento —
      teneva insieme come si chiama e come si vede: nome, sigla, poi dimensione del carattere,
@@ -22717,6 +22844,7 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
   group("Ascolto", "cosa usa per sentirsi", ["pAscoltoWrap"]);
   group("Accessori", null, ["pPostaz","pVoce","pGtr","pDir","pTastiera","pComp","pKeysWrap","pSgabWrap","pLeggioGenWrap","pLucettaWrap","pLegDistWrap","pRampWrap","pGazWrap","pPreseWrap","pDmxWrap"]);
   group("Installazione", null, ["pMountWrap"]);
+  group("Americana", null, ["pRigWrap"]);   /* A4: numero, trim e peso appeso, solo con «Opzioni complete» */
   group("Dettagli tecnici", null, ["pIfaceWrap","pCompIfaceWrap","pModelWrap","pLocInWrap","pUsoWrap","pBmWrap","pLmWrap","pModWrap","pWattWrap","pRfWrap","pPmWrap"]);   /* la richiesta di setup NON e' un dettaglio tecnico: e' un'azione verso una persona, e sta con la persona */
   group("Nota", "quello che il disegno non dice", ["pNoteWrap"]);
   group("Disegno", null, ["pLookWrap","pDims","pDimSideWrap","pShapeWrap","pRugWrap","pPuntaWrap","pRotRow",
