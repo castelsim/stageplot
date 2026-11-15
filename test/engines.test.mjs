@@ -94,6 +94,7 @@ function reset() {
   delete A.state.scaletta;   /* scaletta (10/10): campo che esiste solo con almeno una voce */
   delete A.state.pdfOrganico;   /* «Organico: N + M» nel cartiglio (13/11): opzione spenta di serie */
   delete A.state.quoteDaTerra;   /* quote «da terra» (13/11): opzione spenta di serie; un test che la accende non deve lasciarla ai successivi */
+  delete A.state.dotazioni;   /* «Disponibili: N» (S20, 15/11): solo se l'utente li scrive */
   delete A.state.allegatiRichiesti;   /* «Allegati richiesti» (13/11, S14): solo se l'utente li usa */
   delete A.state.misureStile;   /* stile delle misure in uscita (13/11): assente = come sempre */
   delete A.state.organicoOrdine;   /* ordine delle sezioni dell'organico (13/11): assente = Fiati prima */
@@ -32940,6 +32941,62 @@ t("Stato del documento: la casella nell'Esporta c'è, è facoltativa e segue lo 
   ok(/<select id="pdfStatoDoc"[^>]*><option value="">Nessuno<\/option><option value="provvisorio">Provvisorio<\/option><option value="definitivo">Definitivo<\/option><\/select>/.test(html), "select con Nessuno / Provvisorio / Definitivo");
   ok(/getElementById\("pdfStatoDoc"\);\s*if\(e\) e\.addEventListener\("change", function\(\)\{ statoDocImposta\(this\.value\); \}\)/.test(appjs), "scegliere imposta lo stato");
   ok(/_sd\.value=statoDocValore\(\)/.test(appjs), "riaprendo l'Esporta la casella segue il progetto");
+});
+
+t("S20 dotazioni: «Disponibili: N» — pulizia e forma salvata per materiale e fornitore", () => {
+  reset();
+  eq(A.dotazioniPulite(null), null, "niente: null"); eq(A.dotazioniPulite([]), null, "elenco: null"); eq(A.dotazioniPulite({}), null, "vuoto: null");
+  eq(A.dotazioniPulite({ leggii: { Teatro: 33, Service: "12", Band: 5 }, sedie: { Teatro: -1 }, aste: { Teatro: 2.5 }, mixer: { Teatro: 3 }, sgabelli: { Teatro: 1000 }, postazioni: { Service: 0 } }),
+    { leggii: { Teatro: 33, Service: 12 }, postazioni: { Service: 0 } }, "solo materiali e fornitori noti, interi 0-999; Band e valori sbagliati scartati; 0 è un tetto valido");
+  eq(A.dotazioniPulite({ leggii: { Teatro: "abc" } }), null, "testo non numerico: nessun tetto");
+  const st = JSON.parse(JSON.stringify(A.state)); st.dotazioni = { leggii: { Teatro: 33 } }; eq(A.normalizeState(st).dotazioni, { leggii: { Teatro: 33 } }, "normalizeState lo tiene");
+  st.dotazioni = { leggii: {} }; ok(!("dotazioni" in A.normalizeState(st)), "vuoto: la chiave sparisce");
+  ok(/var CAMPI_DOCUMENTO=\[[^\]]*"dotazioni"/.test(appjs), "campo del documento (uguale in tutte le varianti)"); reset();
+});
+t("S20 dotazioni: l'avviso dice quanti ne mancano (37 su 33), solo se si supera; vuoto = niente di nuovo, nel rider e in «Prima di esportare»", () => {
+  reset(); s5Fix(s5Orch()); A.state.rider.materiali = true;
+  const L = A.countAccessori().leggii; ok(L >= 5, "il palco di prova ha leggii");
+  const senza = A.materialiRichiesti().testo, pre = A.controlliPrimaDelExport().length;
+  eq(A.dotazioniAvvisi(), [], "senza tetti: nessun avviso");
+  A.state.dotazioni = { leggii: { Teatro: L } }; eq(A.dotazioniAvvisi(), [], "tetto = richiesta: nessun avviso");
+  eq(A.materialiRichiesti().testo, senza, "e il rider è identico a prima"); eq(A.controlliPrimaDelExport().length, pre, "e anche «Prima di esportare»");
+  A.state.dotazioni = { leggii: { Teatro: L + 5 } }; eq(A.dotazioniAvvisi(), [], "tetto più alto: nessun avviso");
+  A.state.dotazioni = { leggii: { Teatro: L - 4 } };
+  const a = A.dotazioniAvvisi(); eq(a.length, 1, "un avviso");
+  eq(a[0].testo, "Servono 4 leggii in più di quelli del teatro (" + L + " su " + (L - 4) + ")", "la frase della richiesta di Simone");
+  eq([a[0].mancano, a[0].servono, a[0].disponibili], [4, L, L - 4], "dati");
+  ok(A.materialiRichiesti().righe.some((r) => r === "Attenzione: " + a[0].testo + "."), "nel rider, nella sezione Materiali richiesti");
+  ok(A.materialiTestoMail().indexOf("Servono 4 leggii in più") > -1, "e nel testo per la mail");
+  ok(s5Rider().some((r) => r === "Attenzione: " + a[0].testo + "."), "e nel PDF del rider");
+  ok(A.controlliPrimaDelExport().some((x) => x.id === "dotazione-superata" && x.testo === a[0].testo), "e in «Prima di esportare»");
+  A.state.dotazioni = { leggii: { Teatro: L - 1 } }; eq(A.dotazioniAvvisi()[0].testo, "Serve 1 leggio in più di quelli del teatro (" + L + " su " + (L - 1) + ")", "singolare");
+  A.state.dotazioni = { leggii: { Teatro: L, Service: L - 2 } }; eq(A.dotazioniAvvisi().map((x) => x.fornitore), ["Service"], "i fornitori sono indipendenti: avvisa solo quello che non basta");
+  reset();
+});
+t("S20 dotazioni: sedie, sgabelli, aste e postazioni d'ascolto contano dagli stessi numeri del resto; femminile «quelle»", () => {
+  reset(); add("sedia", 100, 100); add("sedia", 200, 100); add("sedia", 300, 100); add("hearback", 400, 100); add("hearback", 500, 100); add("astamic", 600, 100); add("astamic", 700, 100);
+  const c = A.countAccessori();
+  eq([c.sedie, c.hearbacks, A.standTotal(A.standNeeds())], [3, 2, 2], "numeri di partenza");
+  A.state.dotazioni = { sedie: { Service: 1 }, postazioni: { Teatro: 1 }, aste: { Teatro: 0 } };
+  eq(A.dotazioniAvvisi().map((x) => x.testo), ["Servono 2 sedie in più di quelle del service (3 su 1)", "Servono 2 aste in più di quelle del teatro (2 su 0)", "Serve 1 postazione d'ascolto in più di quelle del teatro (2 su 1)"], "frasi per materiale, nell'ordine fisso");
+  reset();
+});
+t("S20 dotazioni: il leggio del direttore è un altro articolo: non entra nel conteggio dei leggii", () => {
+  reset(); add("leggio", 100, 100); add("leggio", 200, 100); add("direttore", 300, 300);
+  const c = A.countAccessori(); eq([c.leggii, c.leggiiDirettore > 0], [2, true], "due leggii e uno del direttore a parte");
+  A.state.dotazioni = { leggii: { Teatro: 2 } }; eq(A.dotazioniAvvisi(), [], "2 su 2: nessun avviso");
+  A.state.dotazioni = { leggii: { Teatro: 1 } }; eq(A.dotazioniAvvisi()[0].mancano, 1, "ne manca 1, non 2"); reset();
+});
+t("S20 dotazioni: in un evento senza «Materiali richiesti» il rider non cambia; interfaccia solo dentro il rider, vuota di serie", () => {
+  reset(); s5Fix(s5Orch()); const L = A.countAccessori().leggii; A.state.dotazioni = { leggii: { Teatro: L - 4 } };
+  eq(A.materialiRichiesti(), null, "sezione spenta: nessuna riga nel rider");
+  ok(!s5Rider().some((r) => /Servono 4/.test(r)), "né nel PDF");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/<div id="rdDotazioni" hidden/.test(html), "il blocco è nascosto di serie");
+  eq((html.match(/data-dot="/g) || []).length, 10, "5 materiali × Teatro/Service");
+  ok(!/data-dot="[a-z]+"[^>]*value=/.test(html), "nessun valore preimpostato");
+  ok(/bx\.hidden=!\(riderFlag\("materiali"\) \|\| eventoAcustico\(\)\)/.test(appjs), "compare solo con Materiali richiesti acceso");
+  ok(/state\.dotazioni=dotazioniPulite\(d\); if\(!state\.dotazioni\) delete state\.dotazioni;/.test(appjs), "il campo vuoto toglie il tetto e la chiave"); reset();
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");

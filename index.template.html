@@ -1562,6 +1562,18 @@
         <!-- MATERIALI RICHIESTI (12/11/2026): sezione opzionale del rider, calcolata dal disegno; spenta di serie -->
         <label class="chk" style="font-size:11px"><input type="checkbox" id="rdMateriali"> <span>Materiali richiesti nel rider <small class="lbl-note">— sedie, leggii, pedane, prese… dal disegno</small></span></label>
         <label class="chk" style="font-size:11px"><input type="checkbox" id="rdDistinta"> <span>Distinta del palco nel rider <small class="lbl-note">— moduli 2×1 per altezza, scalette, parapetti</small></span></label>
+        <!-- DOTAZIONI DEL LUOGO (15/11/2026, S20): tetti opzionali «Disponibili: N» accanto a Teatro / Service; compaiono solo con «Materiali richiesti» acceso; vuoti = nessun avviso -->
+        <div id="rdDotazioni" hidden style="display:grid;gap:4px">
+          <div style="font-size:11px;color:var(--text-3,#6b7280)">Disponibili dal luogo (opzionale) — se il disegno ne richiede di più, il rider lo dice:</div>
+          <div style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr);gap:4px 6px;align-items:center;font-size:11px">
+            <span></span><span style="color:var(--text-3,#6b7280)">Teatro</span><span style="color:var(--text-3,#6b7280)">Service</span>
+            <span>Leggii</span><input type="number" min="0" max="999" step="1" inputmode="numeric" class="rd-i" data-dot="leggii" data-dotf="Teatro" aria-label="Leggii disponibili dal teatro"><input type="number" min="0" max="999" step="1" inputmode="numeric" class="rd-i" data-dot="leggii" data-dotf="Service" aria-label="Leggii disponibili dal service">
+            <span>Sedie</span><input type="number" min="0" max="999" step="1" inputmode="numeric" class="rd-i" data-dot="sedie" data-dotf="Teatro" aria-label="Sedie disponibili dal teatro"><input type="number" min="0" max="999" step="1" inputmode="numeric" class="rd-i" data-dot="sedie" data-dotf="Service" aria-label="Sedie disponibili dal service">
+            <span>Sgabelli</span><input type="number" min="0" max="999" step="1" inputmode="numeric" class="rd-i" data-dot="sgabelli" data-dotf="Teatro" aria-label="Sgabelli disponibili dal teatro"><input type="number" min="0" max="999" step="1" inputmode="numeric" class="rd-i" data-dot="sgabelli" data-dotf="Service" aria-label="Sgabelli disponibili dal service">
+            <span>Aste microfono</span><input type="number" min="0" max="999" step="1" inputmode="numeric" class="rd-i" data-dot="aste" data-dotf="Teatro" aria-label="Aste disponibili dal teatro"><input type="number" min="0" max="999" step="1" inputmode="numeric" class="rd-i" data-dot="aste" data-dotf="Service" aria-label="Aste disponibili dal service">
+            <span>Postazioni d'ascolto</span><input type="number" min="0" max="999" step="1" inputmode="numeric" class="rd-i" data-dot="postazioni" data-dotf="Teatro" aria-label="Postazioni d'ascolto disponibili dal teatro"><input type="number" min="0" max="999" step="1" inputmode="numeric" class="rd-i" data-dot="postazioni" data-dotf="Service" aria-label="Postazioni d'ascolto disponibili dal service">
+          </div>
+        </div>
         <button type="button" class="btn" id="rdMaterialiCopia" hidden style="font-size:12px;width:auto;justify-self:start">Copia testo per la mail</button>
         <div id="rdLuciExtra" hidden style="display:grid;gap:4px">
           <div style="font-size:11px;color:var(--text-3,#6b7280)">Richieste luci per l'orchestra (opzionali):</div>
@@ -6804,7 +6816,7 @@ function nextVariantName(){ var n=0; VARIANTS.forEach(function(v){ var m=/^Varia
    data e contatti non erano mai diversi. Restano nello stato di ogni variante — lo schema e i file
    già salvati non cambiano — ma a ogni sincronizzazione quelli della variante attiva si scrivono
    nelle altre. */
-var CAMPI_DOCUMENTO=["allegatiRichiesti","misureStile","pdfOrganico","quoteDaTerra","organicoOrdine","titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","versione","statoDoc","latiTeatro","sonorizzazione","orari","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
+var CAMPI_DOCUMENTO=["allegatiRichiesti","dotazioni","misureStile","pdfOrganico","quoteDaTerra","organicoOrdine","titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","versione","statoDoc","latiTeatro","sonorizzazione","orari","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
 function propagaCampiDocumento(v){
   var src=v&&v.state; if(!src) return;
   VARIANTS.forEach(function(o){
@@ -10129,6 +10141,7 @@ function normalizeState(s){
   if(s.latiTeatro!==true) delete s.latiTeatro;   /* giardino e corte: spenti di serie, solo un true esplicito li accende (12/11/2026) */
   if(s.pdfOrganico!==true) delete s.pdfOrganico;   /* «Organico: N + M» nel cartiglio (13/11): solo un true esplicito la accende */
   if(s.quoteDaTerra!==true) delete s.quoteDaTerra;   /* quote delle pedane «da terra» (13/11): solo un true esplicito le accende */
+  s.dotazioni=dotazioniPulite(s.dotazioni); if(!s.dotazioni) delete s.dotazioni;   /* «Disponibili: N» per materiale e fornitore (S20, 15/11): solo se l'utente li scrive */
   s.allegatiRichiesti=allegatiPuliti(s.allegatiRichiesti); if(!s.allegatiRichiesti) delete s.allegatiRichiesti;   /* «Allegati richiesti» (S14, 13/11): solo se l'utente li usa */
   if(s.misureStile!=="mx" && s.misureStile!=="xh" && s.misureStile!=="mt") delete s.misureStile;   /* stile di scrittura delle misure in uscita (13/11): assente = «12 × 2 m · h40», come sempre */
   if(s.organicoOrdine!=="voci" && s.organicoOrdine!=="partitura") delete s.organicoOrdine;   /* ordine delle sezioni del foglio Organico (13/11): assente = Fiati prima */
@@ -19440,6 +19453,8 @@ function controlliPrimaDelExport(){
   /* 6d · allegati richiesti ancora «da chiedere» (S14): solo se l'utente ha scritto l'elenco */
   var _al=allegatiPuliti(state.allegatiRichiesti), _dc=(_al||[]).filter(function(a){ return a.s==="da chiedere"; });
   if(_dc.length) add("allegati-da-chiedere",(_dc.length===1 ? "Allegato ancora da chiedere: " : _dc.length+" allegati ancora da chiedere: ")+_dc.map(function(a){ return a.n; }).join(", ")+".");
+  /* 6e · dotazione del luogo superata (S20, 15/11): solo se l'utente ha scritto «Disponibili: N» */
+  dotazioniAvvisi().forEach(function(a){ add("dotazione-superata", a.testo); });
   /* 7 · manca il luogo (L1-b, dietro «Controllo tecnico»): titolo o data scritti ma il luogo è vuoto, quindi il PDF esce senza il posto */
   /* 8 · violini senza sezione accanto a violini con sezione (organico): il foglio non può dire I o II (Simone, 12/11) */
   var _og=organicoDati();
@@ -26809,6 +26824,15 @@ document.getElementById("bChanDone").addEventListener("click", toggleChan);
   [["rdMateriali","materiali"],["rdDistinta","distintaPalco"],["rdLuciNoFumo","luciNoFumo"],["rdLuciSeparata","luciSeparata"],["rdLuciLeggii","luciLeggii"]].forEach(function(pr){
     var el=document.getElementById(pr[0]); if(!el) return;
     el.addEventListener("change", function(){ state.rider=state.rider||{}; if(el.checked) state.rider[pr[1]]=true; else delete state.rider[pr[1]]; saveSoon(); if(typeof renderChannels==="function") renderChannels(); });
+  });
+  [].forEach.call(document.querySelectorAll("[data-dot]"), function(el){   /* S20: «Disponibili: N» per materiale e fornitore; vuoto = tetto tolto */
+    el.addEventListener("input", function(){
+      var k=el.getAttribute("data-dot"), f=el.getAttribute("data-dotf"), d=JSON.parse(JSON.stringify(state.dotazioni||{})), v=el.value.trim();
+      d[k]=d[k]||{}; if(v==="") delete d[k][f]; else d[k][f]=v;
+      state.dotazioni=dotazioniPulite(d); if(!state.dotazioni) delete state.dotazioni;
+      saveSoon(); if(typeof window.__renderPrimaDelExport==="function") window.__renderPrimaDelExport();
+      var cpb=document.getElementById("rdMaterialiCopia"); if(cpb) cpb.hidden=!materialiRichiesti();
+    });
   });
   var cp=document.getElementById("rdMaterialiCopia");
   if(cp) cp.addEventListener("click", function(){
@@ -34820,6 +34844,10 @@ function renderChannels(){
     [].forEach.call(document.querySelectorAll("[data-orario]"), function(el){ if(document.activeElement===el) return; var v=(state.orari&&state.orari[el.getAttribute("data-orario")])||""; if(el.value!==v && !(el.style.borderColor && v==="")) el.value=v; });   /* orari (S6) */
     [["rdMateriali","materiali"],["rdDistinta","distintaPalco"],["rdLuciNoFumo","luciNoFumo"],["rdLuciSeparata","luciSeparata"],["rdLuciLeggii","luciLeggii"]].forEach(function(pr){ var el=document.getElementById(pr[0]); if(el) el.checked=(r[pr[1]]===true); });
     (function(){ var m=document.getElementById("rdMateriali"); if(m){ var acu=eventoAcustico(); if(acu) m.checked=true; m.disabled=acu; m.title=acu?"In un concerto acustico i materiali richiesti escono sempre":""; } })();   /* acustico (S6): sezione automatica */
+    (function(){ var bx=document.getElementById("rdDotazioni"); if(!bx) return; var d=dotazioniPulite(state.dotazioni)||{};
+      bx.hidden=!(riderFlag("materiali") || eventoAcustico());
+      [].forEach.call(bx.querySelectorAll("[data-dot]"), function(el){ if(document.activeElement===el) return;
+        var v=d[el.getAttribute("data-dot")]; v=(v && v[el.getAttribute("data-dotf")]!=null) ? String(v[el.getAttribute("data-dotf")]) : ""; if(el.value!==v) el.value=v; }); })();   /* S20: i tetti solo con «Materiali richiesti» acceso */
     var _cpb=document.getElementById("rdMaterialiCopia"); if(_cpb) _cpb.hidden=!materialiRichiesti();   /* il pulsante c'è solo se la sezione ha qualcosa da dire */
     var _lx=document.getElementById("rdLuciExtra"); if(_lx) _lx.hidden=!riderLuciVisibile();   /* le tre richieste luci: solo per un'orchestra */
     var DD=(typeof riderDefaults==="function")?riderDefaults():RIDER_DEFAULTS;
@@ -40163,6 +40191,47 @@ function distintaPalco(items){
   if(acc.length) righe.push("Accessori: "+acc.join(" · "));
   return righe.length ? {righe:righe, testo:righe.join("\n")} : null;
 }
+/* ═══ DOTAZIONI DEL LUOGO (15/11/2026, S20) ═══ Accanto a «Fornito da» (Teatro / Service) un tetto opzionale «Disponibili: N» per tipo di
+   materiale. FORMA SALVATA (pensata per il futuro profilo del luogo, G2): state.dotazioni = { <materiale>: { <fornitore>: N } }, con materiale ∈
+   leggii · sedie · sgabelli · aste · postazioni (ascolto/personal mixer) e fornitore ∈ Teatro · Service (gli stessi nomi di FORNITO_DA, senza Band:
+   la band non ha una dotazione da superare). Assente o vuoto = nessun avviso, documenti identici a prima. Il tetto si confronta con il TOTALE disegnato
+   (stessi conteggi di countAccessori e standNeeds): è il numero che il service o il teatro deve avere in magazzino. */
+var DOTAZIONI_MATERIALI=[
+  {k:"leggii",     sing:"leggio",    plur:"leggii",    f:false, n:function(){ return countAccessori().leggii; }},
+  {k:"sedie",      sing:"sedia",     plur:"sedie",     f:true,  n:function(){ return countAccessori().sedie; }},
+  {k:"sgabelli",   sing:"sgabello",  plur:"sgabelli",  f:false, n:function(){ return countAccessori().sgabelli; }},
+  {k:"aste",       sing:"asta",      plur:"aste",      f:true,  n:function(){ return standTotal(standNeeds()); }},
+  {k:"postazioni", sing:"postazione d'ascolto", plur:"postazioni d'ascolto", f:true, n:function(){ return countAccessori().hearbacks; }}
+];
+var DOTAZIONI_FORNITORI=["Teatro","Service"];
+function dotazioniPulite(d){
+  if(!d || typeof d!=="object" || Array.isArray(d)) return null;
+  var out={}, any=false;
+  DOTAZIONI_MATERIALI.forEach(function(m){
+    var v=d[m.k]; if(!v || typeof v!=="object" || Array.isArray(v)) return;
+    var o={};
+    DOTAZIONI_FORNITORI.forEach(function(f){
+      var n=v[f]; if(typeof n==="string" && /^\s*\d+\s*$/.test(n)) n=parseInt(n,10);
+      if(typeof n==="number" && isFinite(n) && n===Math.floor(n) && n>=0 && n<=999) o[f]=n;
+    });
+    if(Object.keys(o).length){ out[m.k]=o; any=true; }
+  });
+  return any ? out : null;
+}
+function dotazioniAvvisi(){
+  var d=dotazioniPulite(state.dotazioni), out=[]; if(!d) return out;
+  DOTAZIONI_MATERIALI.forEach(function(m){
+    if(!d[m.k]) return;
+    var need=0; try{ need=m.n()||0; }catch(_e){}
+    DOTAZIONI_FORNITORI.forEach(function(f){
+      if(d[m.k][f]==null || need<=d[m.k][f]) return;
+      var diff=need-d[m.k][f];
+      out.push({materiale:m.k, fornitore:f, servono:need, disponibili:d[m.k][f], mancano:diff,
+        testo:(diff===1?"Serve ":"Servono ")+diff+" "+(diff===1?m.sing:m.plur)+" in più di "+(m.f?"quelle":"quelli")+" del "+f.toLowerCase()+" ("+need+" su "+d[m.k][f]+")"});
+    });
+  });
+  return out;
+}
 function materialiRichiesti(){
   if(!(riderFlag("materiali") || eventoAcustico()) || eventoConferenza()) return null;   /* in un concerto acustico la sezione è automatica (S6) */
   var items=state.items||[], righe=[], c=countAccessori();
@@ -40190,6 +40259,7 @@ function materialiRichiesti(){
   if(!al.length){ var sp=null; try{ sp=(state.elec && state.elec.supply) ? elecSupplyPoint() : null; }catch(_e){}
     if(sp) al.push((sp.name||"punto di alimentazione")+(sp.kva?" ("+sp.kva+" kVA)":"")); }
   if(al.length) righe.push("Alimentazione: "+al.join("; ")+" (indicata dal teatro)");
+  dotazioniAvvisi().forEach(function(a){ righe.push("Attenzione: "+a.testo+"."); });   /* S20: solo se è stato scritto un tetto */
   return righe.length ? {righe:righe, testo:righe.join("\n")} : null;
 }
 function materialiTestoMail(){ var m=materialiRichiesti(); return m ? "Materiali richiesti\n"+m.righe.join("\n") : ""; }
