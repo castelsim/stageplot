@@ -33119,7 +33119,8 @@ function _l2controlla(R) {
     items.forEach((it) => { const h = _l2half(it);
       if (Math.abs(b.x - it.x) < h.hx + bw && Math.abs(b.y - it.y) < h.hy + bd) err.push(b.letter + " dentro «" + (it.label || it.type) + "»"); });
     if (b.y > D - 110) err.push(b.letter + " nella fascia pubblico (y=" + b.y + ")");
-    if (b.x < 0 || b.x > W || b.y < 0) err.push(b.letter + " fuori dal palco");
+    /* ingombro INTERO disegnato: box 33×17 + barra di capacità e sigla sopra (34 cm) + barra larga ≈ 70 cm (regia 15/11: la box sul fondo usciva sopra la scritta «10 m») */
+    if (b.x - 35 < 0 || b.x + 35 > W || b.y - bd - 34 < 0 || b.y + bd > D) err.push(b.letter + " con l'ingombro disegnato fuori dal palco (" + b.x + "," + b.y + ")");
     /* distanza dal bordo del gruppo: dal rettangolo che racchiude gli elementi che la box serve */
     const serviti = (R.links || []).filter((l) => l.box === b || (l.box && l.box.id === b.id)).map((l) => l.s.it);
     const mine = serviti.length ? Array.from(new Set(serviti)) : [];
@@ -33127,7 +33128,7 @@ function _l2controlla(R) {
       const x0 = Math.min(...mine.map((it) => it.x - _l2half(it).hx)), x1 = Math.max(...mine.map((it) => it.x + _l2half(it).hx));
       const y0 = Math.min(...mine.map((it) => it.y - _l2half(it).hy)), y1 = Math.max(...mine.map((it) => it.y + _l2half(it).hy));
       const dx = Math.max(x0 - b.x, 0, b.x - x1), dy = Math.max(y0 - b.y, 0, b.y - y1), dist = Math.hypot(dx, dy);
-      if (dist > 100.5) err.push(b.letter + " a " + Math.round(dist) + " cm dal bordo del gruppo (>100)");
+      if (dist > 100.5 && Math.min(b.x, W - b.x, b.y) > 60) err.push(b.letter + " a " + Math.round(dist) + " cm dal bordo del gruppo (>100) e non sul bordo del palco");
     }
     aut.forEach((o) => { if (o !== b && o.letter > b.letter && Math.hypot(o.x - b.x, o.y - b.y) < 69.5) err.push(b.letter + "/" + o.letter + " a meno di 70 cm"); });
   });
@@ -33140,12 +33141,25 @@ function _l2controlla(R) {
     const e = _l2controlla(R); ok(e.length === 0, e.slice(0, 6).join("; "));
   });
 });
+t("nessuna box in mezzo al palco: ogni box automatica è a ≤ 150 cm da un bordo, oppure serve una sola fila di gruppi vicini (casi band5, band11)", () => {
+  ["band5", "band11"].forEach((nome) => { _l2carica(_l2fix(nome)); const R = A.audioCablingEngine(); const W = A.state.stage.w;
+    R.boxes.filter((b) => b.auto).forEach((b) => ok(Math.min(b.x, W - b.x, b.y) <= 150, nome + ": box " + b.letter + " a " + Math.min(b.x, W - b.x, b.y) + " cm dal bordo (" + b.x + "," + b.y + ")")); });
+});
+t("accorpamento: due gruppi piccoli in cluster diversi, lontani da ogni bordo, finiscono in UNA box invece di due in mezzo al palco", () => {
+  _l2palco(1200, 800); add("astamic", 400, 400); add("astamic", 800, 400);
+  const R = A.audioCablingEngine(); const b = R.boxes.filter((x) => x.auto); eq(b.length, 1, "box");
+});
 t("numero di box = ⌈canali/8⌉ per cluster (nessuna box in più del necessario)", () => {
   _l2carica(_l2fix("band5")); const R = A.audioCablingEngine(); const aut = R.boxes.filter((b) => b.auto);
   const tot = R.totIn; ok(aut.length >= Math.ceil(tot / 8) && aut.length <= Math.ceil(tot / 8) + 2, aut.length + " box per " + tot + " canali");
   /* una box può superare gli 8 solo se un singolo strumento ne porta più di 8 (batteria a 9 canali = un cavo unico, non si spezza) */
   const grandi = new Set(A.state.items.filter((it) => A.cabItemInputs(it).length > 8).map((it) => it.id));
   ok(aut.every((b) => b.used <= b.cap || R.links.some((l) => l.box === b && grandi.has(l.s.it.id))), "una box oltre la capacità senza uno strumento >8 canali: " + aut.map((b) => b.used + "/" + b.cap).join(" "));
+});
+t("ogni box automatica serve i gruppi per cui è stata piazzata (non quelli del vicino)", () => {
+  ["band5", "band11"].forEach((nome) => { _l2carica(_l2fix(nome)); const R = A.audioCablingEngine();
+    const fuori = R.links.filter((l) => l.box && l.box.auto && l.box.plan && !l.box.plan[l.s.it.id]);
+    ok(fuori.length === 0, nome + ": " + fuori.length + " canali su una box che non è la loro (es. " + (fuori[0] && (fuori[0].s.it.label || fuori[0].s.it.type)) + ")"); });
 });
 t("deterministico: due calcoli di fila danno le stesse posizioni", () => {
   _l2carica(_l2fix("band11")); const a = A.audioCablingEngine().boxes.map((b) => b.x + "," + b.y).join(" ");
@@ -33177,8 +33191,8 @@ t("senza nessuna cella libera, l'ultima spiaggia resta fuori dalla fascia pubbli
   const b = A.audioCablingEngine().boxes.filter((x) => x.auto)[0]; ok(b && b.y <= 200 - 110, "box a y=" + (b && b.y));
 });
 t("a parità di distanza dalle sorgenti vince il lato più vicino al bordo del palco (box automatica)", () => {
-  _l2palco(1200, 800); const m = add("astamic", 1000, 400); const b = A.audioCablingEngine().boxes.filter((x) => x.auto)[0];
-  ok(b && b.x > m.x, "box a x=" + (b && b.x) + ", microfono a 1000");
+  _l2palco(1200, 800); const m = add("astamic", 600, 150); const b = A.audioCablingEngine().boxes.filter((x) => x.auto)[0];
+  ok(b && b.y < m.y, "la box doveva stare sul fondo (verso il bordo), è a " + (b && b.x + "," + b.y));
 });
 t("palco a L: la box resta dentro i blocchi, non nel vuoto accanto (box automatica)", () => {
   const bl = [{ x: 0, y: 0, w: 1200, d: 400 }, { x: 0, y: 400, w: 800, d: 400 }];

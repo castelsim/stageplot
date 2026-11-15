@@ -16871,6 +16871,9 @@ function nomeAscolto(it,fallback){ var n=mixLabelOf(it); return n||fallback; }  
    cella libera a costo minimo = distanza media dalle sorgenti + 0,7 × distanza dal bordo del palco. Mai dentro un elemento, mai
    negli ultimi 110 cm verso il pubblico (lì stanno voci e spie), ≥ 70 cm da un'altra box. Le box dell'utente non passano di qui. */
 var CAB_BOX_PUBBLICO=110, CAB_BOX_DIST=70;
+/* ingombro DISEGNATO della box: oltre al rettangolo 33×17 ci sono la barra di capacità e la sigla sopra (≈ 34 cm) e la barra è larga ≈ 70 cm:
+   l'ingombro intero deve stare dentro il palco (regia 15/11: la box sul bordo di fondo usciva sopra la scritta «10 m») */
+var CAB_BOX_MX=36, CAB_BOX_SOPRA=34, CAB_BOX_BORDO_MAX=150, CAB_BOX_PESO_BORDO=1.5, CAB_BOX_ACCORPA_DIST=500;
 function cabItemHalf(it){
   var t=TYPES[it.type]||{}, w=+it.w||t.w||40, d=+it.d||t.d||40, r=(it.rot||0)*Math.PI/180, c=Math.abs(Math.cos(r)), s=Math.abs(Math.sin(r));
   return {hx:(w*c+d*s)/2, hy:(w*s+d*c)/2};
@@ -16883,8 +16886,8 @@ function cabPlaceAutoBox(its, taken){
   var halves=state.items.map(function(it){ return {it:it, h:cabItemHalf(it)}; });
   var blocks=(state.stage.blocks&&state.stage.blocks.length)?state.stage.blocks:null;
   function libero(x,y){
-    if(x<bw || x>W-bw || y<bd || y>D-CAB_BOX_PUBBLICO) return false;
-    if(blocks && !blocks.some(function(b){ return x>=b.x+bw && x<=b.x+b.w-bw && y>=b.y+bd && y<=b.y+b.d-bd; })) return false;
+    if(x<CAB_BOX_MX || x>W-CAB_BOX_MX || y<bd+CAB_BOX_SOPRA || y>D-CAB_BOX_PUBBLICO) return false;
+    if(blocks && !blocks.some(function(b){ return x>=b.x+CAB_BOX_MX && x<=b.x+b.w-CAB_BOX_MX && y>=b.y+bd+CAB_BOX_SOPRA && y<=b.y+b.d-bd; })) return false;
     for(var i=0;i<halves.length;i++){ var o=halves[i]; if(Math.abs(x-o.it.x)<o.h.hx+bw && Math.abs(y-o.it.y)<o.h.hy+bd) return false; }
     for(var j=0;j<taken.length;j++) if(Math.hypot(x-taken[j].x, y-taken[j].y)<CAB_BOX_DIST) return false;
     return true;
@@ -16892,17 +16895,33 @@ function cabPlaceAutoBox(its, taken){
   function migliore(offs){
     var best=null;
     offs.forEach(function(off){
-      [[x0-off,cy],[x1+off,cy],[cx,y0-off],[x0-off,y0],[x1+off,y0],[x0-off,y1],[x1+off,y1]].forEach(function(c){
+      var cs=[[x0-off,cy],[x1+off,cy],[cx,y0-off],[cx,y1+off],[x0-off,y0],[x1+off,y0],[x0-off,y1],[x1+off,y1]];
+      for(var yy=y0+30; yy<y1; yy+=60){ cs.push([x0-off,yy]); cs.push([x1+off,yy]); }   /* lungo i fianchi: dove c'è un varco */
+      for(var xx=x0+30; xx<x1; xx+=60){ cs.push([xx,y0-off]); }
+      cs.forEach(function(c){
         var x=c[0], y=c[1]; if(!libero(x,y)) return;
-        var cost=its.reduce(function(a,it){ return a+Math.abs(it.x-x)+Math.abs(it.y-y); },0)/its.length + 0.7*Math.min(x,W-x,y);
-        if(!best || cost<best.cost-1e-9) best={cost:cost,x:x,y:y};
+        var cost=its.reduce(function(a,it){ return a+Math.abs(it.x-x)+Math.abs(it.y-y); },0)/its.length + CAB_BOX_PESO_BORDO*Math.min(x,W-x,y);
+        if(!best || cost<best.cost-1e-9) best={cost:cost,x:x,y:y,edge:Math.min(x,W-x,y)};
       });
     });
     return best;
   }
-  var b=migliore([45,70,100]) || migliore([130,160,200,260]);   /* gruppo circondato: si allarga, ma resta sul fianco libero più vicino */
-  if(!b) return {x:Math.round(Math.min(W-40,Math.max(40,cx))), y:Math.round(Math.min(D-CAB_BOX_PUBBLICO,Math.max(40,cy-90)))};   /* ultima spiaggia: come prima, ma mai in fascia pubblico */
-  return {x:Math.round(b.x), y:Math.round(b.y)};
+  var b=migliore([45,70,100]) || migliore([130,160,200,260]);
+  /* gruppo lontano da ogni bordo e non accorpabile: la box va SUL bordo del palco più vicino (non in mezzo al passaggio), a non più di 4 m
+     dall'ingombro del gruppo; i cavi sono un po' più lunghi ma il palco resta libero (R1) */
+  var lontano=!!(b && b.edge>CAB_BOX_BORDO_MAX);
+  if(lontano){
+    var lane=null, cl=[[CAB_BOX_MX,cy],[W-CAB_BOX_MX,cy],[cx,bd+CAB_BOX_SOPRA]];
+    for(var ly=y0; ly<=y1; ly+=60){ cl.push([CAB_BOX_MX,ly]); cl.push([W-CAB_BOX_MX,ly]); }
+    for(var lx=x0; lx<=x1; lx+=60) cl.push([lx,bd+CAB_BOX_SOPRA]);
+    cl.forEach(function(c){ var x=c[0], y=c[1]; if(!libero(x,y)) return;
+      var dd=Math.hypot(Math.max(x0-x,0,x-x1), Math.max(y0-y,0,y-y1)); if(dd>400) return;
+      var cost=its.reduce(function(a,it){ return a+Math.abs(it.x-x)+Math.abs(it.y-y); },0)/its.length + CAB_BOX_PESO_BORDO*Math.min(x,W-x,y);
+      if(!lane || cost<lane.cost-1e-9) lane={cost:cost,x:x,y:y,edge:Math.min(x,W-x,y)}; });
+    if(lane) b=lane;
+  }   /* gruppo circondato: si allarga, ma resta sul fianco libero più vicino */
+  if(!b) return {x:Math.round(Math.min(W-CAB_BOX_MX,Math.max(CAB_BOX_MX,cx))), y:Math.round(Math.min(D-CAB_BOX_PUBBLICO,Math.max(bd+CAB_BOX_SOPRA,cy-90))), edge:Infinity, lontano:true};   /* ultima spiaggia: come prima, ma mai in fascia pubblico */
+  return {x:Math.round(b.x), y:Math.round(b.y), edge:b.edge, lontano:lontano};
 }
 function audioCablingEngine(){
   var man=(state.cab&&state.cab.manual)||{};
@@ -16934,20 +16953,43 @@ function audioCablingEngine(){
             sbId:(it.sbId>0? +it.sbId : null), res:res, resMap:rm, resNome:((it.sbResNome && typeof it.sbResNome==="object") ? it.sbResNome : {}), taken:{}, pins:{},
             name:(mxm ? (mxm.brand+" "+mxm.model) : (it.label||TYPES[it.type].defLabel||"BOX"))}; });
   if(!manualMode && !boxes.length && totIn){
-    var _taken=[];
+    /* L2: prima si decide QUANTI pezzi (gruppi per box), poi dove stanno. Un pezzo lontano da ogni bordo (box in mezzo al palco,
+       nel passaggio fra i musicisti) si accorpa a un pezzo vicino se i canali stanno nella stessa box da 8 */
+    var _pezzi=[];
     cabClusters(groups, 320).forEach(function(c){        /* soglia 3,2 m: batteria/tastiere/sezioni/voci diventano cluster distinti */
-      var nb=Math.max(1, Math.ceil(c.n/8));
-      /* più box nello stesso cluster (L2): i gruppi si dividono da sinistra a destra, ogni box sta al bordo del suo pezzo */
-      var gs=c.groups.slice().sort(function(a,b2){ return (a.it.x-b2.it.x) || (a.it.y-b2.it.y); }), per=Math.ceil(gs.length/nb);
-      for(var i=0;i<nb;i++){
-        var pezzo=gs.slice(i*per,(i+1)*per); if(!pezzo.length) pezzo=gs;
-        var pos=cabPlaceAutoBox(pezzo.map(function(g){ return g.it; }), _taken); _taken.push(pos);
-        /* stessa forma delle box reali: senza taken/pins/res/resMap l'assegnazione porte (takePort)
-           crashava appena si cablava senza stage box sul palco (toast "problema imprevisto"). */
-        boxes.push({x:pos.x, y:pos.y, cap:8, used:0, outCap:8, usedOut:0, auto:true, id:"auto"+boxes.length, hw:null, name:"DROP BOX 8ch",
-          foh:false, sbId:null, res:[], resMap:{}, taken:{}, pins:{},
-          plan:pezzo.reduce(function(m,g){ m[g.it.id]=1; return m; },{})});   /* L2: gli elementi per cui la box è stata piazzata */
-      }
+      /* più box nello stesso cluster: i gruppi, da sinistra a destra, riempiono una box da 8 alla volta; uno strumento da più di 8
+         canali (batteria = cavo unico) ha la sua box. Così nessuna box mescola strumenti lontani solo per fare numero */
+      var gs=c.groups.slice().sort(function(a,b2){ return (a.it.x-b2.it.x) || (a.it.y-b2.it.y); }), cur=[], tot=0;
+      gs.forEach(function(g){
+        var n=g.list.length;
+        if(cur.length && (tot+n>8 || n>8)){ _pezzi.push(cur); cur=[]; tot=0; }
+        cur.push(g); tot+=n;
+        if(n>8){ _pezzi.push(cur); cur=[]; tot=0; }
+      });
+      if(cur.length) _pezzi.push(cur);
+    });
+    function _pn(pz){ return pz.reduce(function(a,g){ return a+g.list.length; },0); }
+    function _pc(pz){ return {x:pz.reduce(function(a,g){ return a+g.it.x; },0)/pz.length, y:pz.reduce(function(a,g){ return a+g.it.y; },0)/pz.length}; }
+    for(var _g=0; _g<40 && _pezzi.length>1; _g++){
+      var _m=null;
+      _pezzi.forEach(function(pz,pi){
+        var e=cabPlaceAutoBox(pz.map(function(g){ return g.it; }), []); if(!e.lontano) return; e=e.edge;
+        var c1=_pc(pz), best=null;
+        _pezzi.forEach(function(q,qi){ if(qi===pi || _pn(pz)+_pn(q)>8) return;
+          var c2=_pc(q), d=Math.hypot(c1.x-c2.x, c1.y-c2.y); if(d<=CAB_BOX_ACCORPA_DIST && (!best || d<best.d)) best={qi:qi,d:d}; });
+        if(best && (!_m || e>_m.e)) _m={pi:pi, qi:best.qi, e:e};   /* si accorpa prima il più lontano dal bordo */
+      });
+      if(!_m) break;
+      _pezzi[_m.qi]=_pezzi[_m.qi].concat(_pezzi[_m.pi]); _pezzi.splice(_m.pi,1);
+    }
+    var _taken=[];
+    _pezzi.forEach(function(pezzo){
+      var pos=cabPlaceAutoBox(pezzo.map(function(g){ return g.it; }), _taken); _taken.push(pos);
+      /* stessa forma delle box reali: senza taken/pins/res/resMap l'assegnazione porte (takePort)
+         crashava appena si cablava senza stage box sul palco (toast "problema imprevisto"). */
+      boxes.push({x:pos.x, y:pos.y, cap:8, used:0, outCap:8, usedOut:0, auto:true, id:"auto"+boxes.length, hw:null, name:"DROP BOX 8ch",
+        foh:false, sbId:null, res:[], resMap:{}, taken:{}, pins:{},
+        plan:pezzo.reduce(function(m,g){ m[g.it.id]=1; return m; },{})});   /* L2: gli elementi per cui la box è stata piazzata */
     });
     issues.push({lvl:"info", msg:"Nessuna stage box sul palco: proposte "+boxes.length+" drop box da 8ch vicino ai gruppi. Trascina una stage box reale dal catalogo per fissarla."});
   }
@@ -17051,7 +17093,7 @@ function audioCablingEngine(){
     function bfree(b){ return b.cap-(b.res?b.res.length:0)-b.used; }   /* F2: le porte riservate non contano per l'auto */
     /* L2: la box piazzata per questo gruppo (drop box automatiche) lo serve per prima, se ha posto: la box sta al bordo del SUO
        gruppo, e senza questa preferenza uno strumento vicino al confine finirebbe sulla box del vicino */
-    var _own=cand.filter(function(b){ return b.plan && b.plan[g.it.id] && bfree(b)>=g.list.length; })[0]||null;
+    var _own=cand.filter(function(b){ return b.plan && b.plan[g.it.id] && bfree(b)>=Math.min(g.list.length,b.cap); })[0]||null;   /* uno strumento da più di 8 canali (batteria) è un cavo unico: sta comunque sulla SUA box */
     var whole=_own || cand.filter(function(b){ return bfree(b)>=g.list.length; })[0]||null;
     if(g.list.length>=2 && !isPerMusicianMulti(g.it)){
       /* CAVO UNICO (Simone 09/07): uno strumento multi-canale (batteria, ampli, coppie…) = UN cavo che porta
