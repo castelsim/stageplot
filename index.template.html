@@ -17885,8 +17885,24 @@ function elecSupplyPoint(){
   if(sp.kind==="custom"){ p.x=sp.x; p.y=sp.y; }
   else if(sp.kind==="right"){ p.x=W-30; p.y=D-40; }
   else if(sp.kind==="left"){ p.x=30; p.y=D-40; }
-  else { p.x=W/2; p.y=D+108; }   /* rete: sotto, non sovrapposta all'home audio */
+  else { var q=elecQuadroBordo(); p.x=q.x; p.y=q.supplyY; }   /* rete (L1, 15/11): bordo di FONDO, lato opposto al multicore — non più nel pubblico a D+108 */
   p.x=Math.round(p.x); p.y=Math.round(p.y); return p;
+}
+/* CAVI L1 (15/11/2026, decisioni di Simone): il quadro automatico sta sul bordo di FONDO del palco, dal lato
+   OPPOSTO all'uscita del multicore. L'uscita multicore di serie è sul bordo pubblico, lato DESTRO guardando
+   dalla platea (decisione 2, confermata 15/11) → il quadro va a SINISTRA. UNA costante: "right" | "left".
+   Quadri/distro messi a mano e punti «DX/SX/personalizzato» non passano di qui: non si spostano mai. */
+var ELEC_MULTICORE_LATO="right";
+var ELEC_QUADRO_SUPPLY_DY=20, ELEC_QUADRO_DISTRO_DY=60, ELEC_QUADRO_MARGINE_X=60, ELEC_QUADRO_PASSO_X=110;
+function elecQuadroBordo(){
+  var W=state.stage.w, D=state.stage.d, bl=(state.stage.blocks&&state.stage.blocks.length)?state.stage.blocks:[{x:0,y:0,w:W,d:D}];
+  var x0=Infinity, x1=-Infinity, y0=Infinity;
+  bl.forEach(function(b){ x0=Math.min(x0,b.x); x1=Math.max(x1,b.x+b.w); y0=Math.min(y0,b.y); });
+  if(!isFinite(x0)){ x0=0; x1=W; y0=0; }
+  var opp = ELEC_MULTICORE_LATO==="left";   /* quadro dal lato opposto: se il multicore è a sinistra, il quadro è a destra */
+  var yS=Math.min(y0+ELEC_QUADRO_SUPPLY_DY, D), yD=Math.min(y0+ELEC_QUADRO_DISTRO_DY, D-10);
+  var m=Math.min(ELEC_QUADRO_MARGINE_X, (x1-x0)/4);   /* palco piccolo (un progetto del collaudo è largo 50): il margine si stringe, il quadro resta dentro */
+  return {x: opp ? x1-m : x0+m, supplyY:yS, distroY:Math.max(yD,yS), x0:x0, x1:x1, m:m, opp:opp};
 }
 var selElec=null;   /* linea elettrica selezionata (key = id del carico) — parità con selCab */
 function elecManual(key){ state.elec.manual=state.elec.manual||{}; if(!state.elec.on) state.elec.on=true;
@@ -18048,15 +18064,23 @@ function electricEngine(){
   /* 2. distro piazzati, o proposta automatica a gruppi */
   var distros=(state.items||[]).filter(elecIsDistro).map(function(it){ var d=ELEC_DISTRO[it.type];
     return {it:it, x:it.x, y:it.y, a:d.a, ph:ph3?d.ph:1, name:(it.label||d.name), phLoad:[0,0,0], loadW:0, auto:false}; });
+  var supplyPoint0=elecSupplyPoint();
   if(!manualModeE && !distros.length && loads.length){
     cabClusters(loads.map(function(l){ return {it:l.it, list:[l]}; }), 600).forEach(function(c){
       var clusterA=c.groups.reduce(function(s,g){ return s+g.list[0].a; },0);
       var mdl = clusterA>63?"distro125":(clusterA>32?"distro63":"distro32"), dd=ELEC_DISTRO[mdl];
-      /* distro A LATO (bordo più vicino al gruppo di carichi), non in mezzo alla scena; y all'altezza dei carichi */
-      var side = c.cx < state.stage.w/2 ? 50 : state.stage.w-50;
-      distros.push({it:null, x:side, y:Math.round(Math.min(state.stage.d-40,Math.max(40,c.cy))), a:dd.a, ph:ph3?dd.ph:1, name:dd.name, phLoad:[0,0,0], loadW:0, auto:true, model:mdl});
+      /* CAVI L1 (15/11): distro sul bordo di FONDO (≤ 90 cm), mai a metà palco né nel pubblico; x = quella del gruppo di carichi,
+         tenuta dentro i margini e ≥ ELEC_QUADRO_PASSO_X dalle altre distro automatiche (e dal punto «rete»). */
+      var qb=elecQuadroBordo(), dxm=Math.round(Math.min(qb.x1-qb.m, Math.max(qb.x0+qb.m, c.cx)));
+      var presi=distros.map(function(d0){ return d0.x; }).concat(supplyPoint0 ? [supplyPoint0.x] : []);
+      for(var g=0; g<40 && presi.some(function(px){ return Math.abs(px-dxm)<ELEC_QUADRO_PASSO_X; }); g++){
+        var spost = qb.opp ? -ELEC_QUADRO_PASSO_X : ELEC_QUADRO_PASSO_X;
+        dxm += (dxm+spost<=qb.x1-qb.m && dxm+spost>=qb.x0+qb.m) ? spost : -spost;
+      }
+      dxm=Math.min(qb.x1-qb.m, Math.max(qb.x0+qb.m, dxm));   /* palco troppo stretto per ripartire le distro: restano dentro, anche se vicine */
+      distros.push({it:null, x:dxm, y:Math.round(qb.distroY), a:dd.a, ph:ph3?dd.ph:1, name:dd.name, phLoad:[0,0,0], loadW:0, auto:true, model:mdl});
     });
-    issues.push({lvl:"info", msg:"Nessun quadro/distro sul palco: proposti "+distros.length+" distro vicino ai carichi. Trascina un distro reale dal catalogo per fissarlo."});
+    issues.push({lvl:"info", msg:"Nessun quadro/distro sul palco: proposti "+distros.length+" distro sul bordo di fondo. Trascina un distro reale dal catalogo per fissarlo."});
   }
   distros.forEach(function(d,i){ d.letter="Q"+(i+1); });
   var supply=elecSupplyPoint();

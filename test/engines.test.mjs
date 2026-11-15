@@ -33129,5 +33129,104 @@ t("«Coro» dal catalogo: con elementi già sul palco non lo svuota e non tocca 
   reset();
 });
 
+/* ═══ CAVI L1 (15/11/2026): quadro e punto di alimentazione AI BORDI del palco ═══
+   Decisioni di Simone 15/11: quadro automatico sul bordo di FONDO, lato opposto all'uscita del multicore;
+   l'uscita multicore di serie è sul bordo pubblico, lato DESTRO guardando dalla platea → il quadro sta
+   a SINISTRA (x piccola). Prima: «rete» a (W/2, D+108) = nel pubblico; distro «a lato all'altezza dei carichi». */
+function cabliL1Prepara(A_) {
+  A_.state.elec.on = true; A_.state.elec.mode = "auto"; A_.state.elec.manual = {}; A_.state.elec.uplinks = {};
+  A_.state.elec.supply = { kind: "rete" };
+  A_.__elecRes = null;
+}
+function cabliL1Controlla(A_, dove) {
+  const D = A_.state.stage.d, W = A_.state.stage.w;
+  const R = A_.electricEngine();
+  const sp = R.supply;
+  ok(sp, dove + ": punto di alimentazione assente");
+  ok(sp.y >= 0 && sp.y <= D, dove + ": «rete» fuori dal palco (y=" + sp.y + ", D=" + D + ")");
+  ok(sp.y <= 90, dove + ": «rete» a " + sp.y + " cm dal bordo di fondo (max 90)");
+  ok(sp.x < W / 2, dove + ": «rete» sul lato dell'uscita multicore (x=" + sp.x + ", W=" + W + ")");
+  const auto = R.distros.filter((d) => d.auto);
+  auto.forEach((d) => {
+    ok(d.y <= D, dove + ": distro automatico nel pubblico (y=" + d.y + ")");
+    ok(d.y <= 90, dove + ": distro automatico a " + d.y + " cm dal bordo di fondo (max 90)");
+    ok(d.x >= 0 && d.x <= W, dove + ": distro automatico fuori dal palco in x");
+  });
+  return { R, auto };
+}
+t("CAVI L1: «rete» e distro automatica stanno sul bordo di fondo, lato opposto al multicore, mai nel pubblico", () => {
+  reset();
+  cabliL1Prepara(A);
+  add("testamobile", 200, 300); add("testamobile", 240, 320); add("testamobile", 900, 500); add("testamobile", 950, 520);
+  const { R, auto } = cabliL1Controlla(A, "palco 12×8");
+  ok(auto.length >= 1, "ci deve essere almeno una distro automatica");
+  eq(R.supply.kind, "rete", "il punto resta «rete»");
+  eq(R.feeds.length, auto.length, "un cavo di alimentazione per distro");
+  R.feeds.forEach((f) => ok(f.y2 <= A.state.stage.d, "il cavo di alimentazione non esce dal palco"));
+  [[600, 400], [2000, 1200], [800, 300]].forEach(([w, d]) => {
+    reset(); A.state.stage = { w, d, blocks: [{ x: 0, y: 0, w, d }] }; cabliL1Prepara(A);
+    add("testamobile", w / 4, d / 2); add("testamobile", (w * 3) / 4, d / 2);
+    cabliL1Controlla(A, "palco " + w + "×" + d);
+  });
+  reset();
+});
+t("CAVI L1: quadro e distro messi a mano non si spostano; «destra/sinistra/personalizzato» restano come scelti", () => {
+  reset(); cabliL1Prepara(A);
+  const d = add("distro32", 640, 600);
+  add("testamobile", 200, 300);
+  A.__elecRes = null; let R = A.electricEngine();
+  ok(R.distros.length === 1 && !R.distros[0].auto, "con un distro a mano nessuno automatico");
+  eq([R.distros[0].x, R.distros[0].y], [d.x, d.y], "il distro a mano resta dov'è");
+  A.state.elec.supply = { kind: "right" }; A.__elecRes = null; R = A.electricEngine();
+  eq([R.supply.x, R.supply.y], [A.state.stage.w - 30, A.state.stage.d - 40], "«Alimentazione DX» invariata");
+  A.state.elec.supply = { kind: "left" }; A.__elecRes = null; R = A.electricEngine();
+  eq([R.supply.x, R.supply.y], [30, A.state.stage.d - 40], "«Alimentazione SX» invariata");
+  A.state.elec.supply = { kind: "custom", x: 777, y: 555 }; A.__elecRes = null; R = A.electricEngine();
+  eq([R.supply.x, R.supply.y], [777, 555], "punto trascinato dall'utente invariato");
+  reset();
+});
+t("CAVI L1: più distro automatiche non si sovrappongono e restano sul bordo di fondo", () => {
+  reset(); cabliL1Prepara(A);
+  A.state.stage = { w: 2400, d: 800, blocks: [{ x: 0, y: 0, w: 2400, d: 800 }] };
+  for (let i = 0; i < 6; i++) { add("testamobile", 100 + i * 400, 400); add("testamobile", 130 + i * 400, 450); }
+  const { auto } = cabliL1Controlla(A, "palco largo");
+  ok(auto.length >= 2, "servono più distro per provarlo (" + auto.length + ")");
+  for (let i = 0; i < auto.length; i++) for (let j = i + 1; j < auto.length; j++)
+    ok(Math.abs(auto[i].x - auto[j].x) >= 100 || Math.abs(auto[i].y - auto[j].y) >= 40, "distro " + i + " e " + j + " sovrapposte");
+  reset();
+});
+t("CAVI L1: la distro automatica non finisce sopra il punto «rete» (carichi vicino al lato del quadro)", () => {
+  reset(); cabliL1Prepara(A);
+  add("testamobile", 80, 300); add("testamobile", 120, 340);
+  const { R, auto } = cabliL1Controlla(A, "carichi a sinistra");
+  ok(auto.length === 1, "una distro");
+  ok(Math.abs(auto[0].x - R.supply.x) >= 110, "distro sopra «rete»: " + auto[0].x + "," + auto[0].y + " vs " + R.supply.x + "," + R.supply.y);
+  reset();
+});
+t("CAVI L1: sui progetti del collaudo con alimentazione automatica, quadro e distro ≤ 90 cm dal bordo di fondo, mai nel pubblico", () => {
+  let base = null;
+  for (let d = root, i = 0; i < 8; i++, d = dirname(d)) { const c = join(d, "collaudo"); if (existsSync(join(c, "progetti"))) { base = c; break; } }
+  if (process.env.STAGEPLOT_COLLAUDO) base = process.env.STAGEPLOT_COLLAUDO;
+  if (!base) { console.log("      (collaudo/progetti non trovato: prova saltata, come in CI)"); return; }
+  const files = readdirSync(join(base, "progetti")).filter((f) => /^\d+\.json$/.test(f)).sort();
+  let scene = 0, conAuto = 0;
+  for (const f of files) {
+    reset();
+    A.loadDoc(JSON.parse(readFileSync(join(base, "progetti", f), "utf8")));
+    for (const v of A.VARIANTS.slice()) {
+      A.switchVariant(v.id);
+      A.state.items = A.state.items.filter((it) => !A.elecIsDistro(it) && !A.elecIsGen(it));
+      cabliL1Prepara(A);
+      if (!A.electricEngine().loads.length) continue;
+      scene++;
+      const { auto } = cabliL1Controlla(A, "collaudo " + f + " · " + (v.name || v.id));
+      if (auto.length) conAuto++;
+    }
+  }
+  ok(scene >= 20, "troppe poche scene con carichi: " + scene);
+  ok(conAuto >= 15, "troppe poche scene con distro automatica: " + conAuto);
+  reset();
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
