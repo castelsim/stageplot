@@ -462,6 +462,47 @@ language sql stable security definer set search_path = public as $$
   order by r.sort, i.wave, i.created_at
 $$;
 
+-- ---------------------------------------------------------------- pulizia account (test D9, rls-bgl-google)
+-- orc_condition_versions.changed_by punta ad auth.users (on delete set null): chi ha modificato condizioni non è «solo biglietteria».
+create or replace function public.bgl_account_solo_biglietteria(p_uid uuid)
+returns boolean language sql stable security definer set search_path = public, pg_temp as $$
+  select exists (select 1 from public.bgl_pubblico where user_id = p_uid)
+     and not exists (select 1 from public.stageplot_projects where user_id = p_uid)
+     and not exists (select 1 from public.stageplot_contacts where user_id = p_uid)
+     and not exists (select 1 from public.bgl_organizzatori where user_id = p_uid)
+     and not exists (select 1 from public.bgl_eventi where user_id = p_uid)
+     and not exists (select 1 from public.orc_profiles where id = p_uid)
+     and not exists (select 1 from public.orc_memberships where user_id = p_uid)
+     and not exists (select 1 from public.orc_musician_profiles where user_id = p_uid)
+     -- e nessun altro dato che la cancellazione dell'account porterebbe via con sé (on delete cascade) o
+     -- staccherebbe da lui: richieste, consensi, file, musicisti, reparti, consulenze. Meglio un «scrivici» in più
+     -- che un dato di lavoro perso per una pulizia automatica.
+     and not exists (select 1 from public.sp_requests where user_id = p_uid)
+     and not exists (select 1 from public.orc_client_requests where user_id = p_uid)
+     and not exists (select 1 from public.orc_consents where user_id = p_uid)
+     and not exists (select 1 from public.orc_files where owner_user_id = p_uid)
+     and not exists (select 1 from public.orc_musicians where user_id = p_uid)
+     and not exists (select 1 from public.stageplot_dept_assign where user_id = p_uid)
+     and not exists (select 1 from public.stageplot_item_contacts where user_id = p_uid)
+     and not exists (select 1 from public.consultation_requests where user_id = p_uid)
+     -- revisione T23: una segnalazione dall'editor (feedback, on delete set null) terrebbe l'email in chiaro staccata
+     -- dall'account; e le colonne «creato da» di Orchestre. Un test controlla che ogni riferimento ad auth.users sia qui.
+     and not exists (select 1 from public.feedback where user_id = p_uid)
+     and not exists (select 1 from public.sp_request_versions where reopened_by = p_uid)
+     and not exists (select 1 from public.orc_organizations where created_by = p_uid)
+     and not exists (select 1 from public.orc_musicians where created_by = p_uid)
+     and not exists (select 1 from public.orc_musician_exclusions where created_by = p_uid)
+     and not exists (select 1 from public.orc_productions where created_by = p_uid)
+     and not exists (select 1 from public.orc_matching_rulesets where created_by = p_uid)
+     and not exists (select 1 from public.orc_matching_runs where ran_by = p_uid)
+     and not exists (select 1 from public.orc_invitations where created_by = p_uid)
+     and not exists (select 1 from public.orc_performance_feedback where author_id = p_uid)
+     and not exists (select 1 from public.orc_evaluations where author_id = p_uid)
+     and not exists (select 1 from public.orc_musician_invites where claimed_by = p_uid)
+     and not exists (select 1 from public.prg_programmi where user_id = p_uid)
+     and not exists (select 1 from public.orc_condition_versions where changed_by = p_uid)
+$$;
+
 -- ---------------------------------------------------------------- permessi
 revoke all on function public.orc_conditions_history(uuid), public.orc_conditions_set_reason(bigint, text), public.orc_reconfirm_needed(uuid),
   public.orc_reconfirm_request(uuid, uuid[], text), public.orc_invitations_list(uuid) from public, anon;
