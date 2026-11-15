@@ -21370,6 +21370,53 @@ t("A1: il rider scrive tipico e massimo, le prese a ≤10 m, il generatore e la 
   reset();
 });
 
+/* ═══ LUOGO CHIUSO O APERTO NELLA LISTA CARICHI (15/11/2026) ═══ teatro al chiuso con 1,3 kW: né «spazi all'aperto», né CEE 32 A trifase */
+t("luogo: chiuso o aperto dal nome del luogo — la parola che sta prima decide, il non noto resta non noto", () => {
+  const casi = [["Teatro Comunale", "chiuso"], ["Auditorium Parco della Musica", "chiuso"], ["Sala Consiliare", "chiuso"], ["Chiesa di San Marco", "chiuso"],
+    ["Teatro del Giardino", "chiuso"], ["Palazzetto dello Sport", "chiuso"], ["Piazza Duomo", "aperto"], ["Parco della Musica", "aperto"],
+    ["Arena estiva", "aperto"], ["Teatro all'aperto", "aperto"], ["Open air Festival", "aperto"], ["Teatro all’aperto", "aperto"], ["Lungomare", "aperto"],
+    ["", ""], ["Villa Rossi", ""], ["Via Roma 1", ""]];
+  casi.forEach(([l, att]) => eq(A.elecAmbiente({ luogo: l }), att, "«" + l + "»"));
+  eq(A.elecAmbiente(null), "", "senza progetto");
+});
+t("luogo: la frase di legge degli spazi all'aperto non esce per un locale chiuso, e resta per aperto o non noto", () => {
+  ok(!/Titolo IX|all'aperto/.test(A.elecDisclaimer("chiuso")), "chiuso");
+  eq(A.elecDisclaimer("chiuso"), "Stima per il service: non sostituisce il progetto né la dichiarazione di un tecnico abilitato.", "chiuso: frase intera");
+  ok(/spazi all'aperto: DM 19\/08\/1996, Titolo IX/.test(A.elecDisclaimer("aperto")), "aperto");
+  ok(/spazi all'aperto: DM 19\/08\/1996, Titolo IX/.test(A.elecDisclaimer("")), "non noto");
+  ok(/spazi all'aperto: DM 19\/08\/1996, Titolo IX/.test(A.elecDisclaimer(undefined)), "riassunto vecchio senza il dato");
+});
+t("luogo: teatro al chiuso con carichi bassi e un quadro 32 A disegnato — presa 16 A monofase, non CEE 32 A trifase; il rider non cita gli spazi all'aperto", () => {
+  const prepara = (luogo) => { reset(); A.state.elec.on = true; A.state.elec.mode = "auto"; A.state.luogo = luogo;
+    add("topattivo", 300, 300); add("stagepiano", 600, 300); add("distro32", 600, 760); A.__elecRes = null; };
+  prepara("Teatro Comunale");
+  let P = A.elecPotenza();
+  ok(P.maxW <= 3680 * 0.85, "carichi bassi (" + P.maxW + " W)");
+  eq(P.preseTxt, "1 presa 16 A monofase", "presa dalla potenza");
+  let t1 = A.riderAlimentazioneText(A.riderData().elettrico);
+  ok(/quadri: Q1 32A/.test(t1), "il quadro disegnato resta nel rider: " + t1);
+  ok(/Servono 1 presa 16 A monofase/.test(t1) && !/CEE 32/.test(t1), "rider: presa giusta: " + t1);
+  ok(!/Titolo IX|all'aperto/.test(t1), "rider: niente spazi all'aperto: " + t1);
+  /* stesso progetto, luogo non noto: com'era (la presa del quadro) e frase di prima */
+  prepara("");
+  P = A.elecPotenza();
+  eq(P.preseTxt, "1 presa CEE 32 A trifase 5 poli per il quadro Q1", "luogo non noto: invariato");
+  ok(/Titolo IX/.test(A.riderAlimentazioneText(A.riderData().elettrico)), "luogo non noto: frase di prima");
+  /* luogo aperto: invariato */
+  prepara("Piazza Duomo");
+  eq(A.elecPotenza().preseTxt, "1 presa CEE 32 A trifase 5 poli per il quadro Q1", "luogo aperto: invariato");
+  ok(/Titolo IX/.test(A.riderAlimentazioneText(A.riderData().elettrico)), "luogo aperto: la frase c'è");
+  /* teatro al chiuso ma carichi grandi: la presa del quadro serve davvero */
+  prepara("Teatro Comunale");
+  for (let i = 0; i < 4; i++) add("amprack", 200 + i * 200, 650); A.__elecRes = null;
+  ok(/CEE 32 A trifase/.test(A.elecPotenza().preseTxt), "carichi grandi: il 32 A serve ancora: " + A.elecPotenza().preseTxt);
+  A.state.luogo = "";
+});
+t("luogo: anche la nota del PDF «Lista carichi» e il riassunto del rider usano il luogo (non la frase fissa)", () => {
+  const js = readFileSync(join(root, "app.js"), "utf8");
+  ok(/si dimensionano presa e generatore\. "\+elecDisclaimer\(elecAmbiente\(state\)\)/.test(js), "PDF Lista carichi: la frase dipende dal luogo");
+  ok(/ambiente:elecAmbiente\(state\) \}; \}catch/.test(js), "il riassunto del rider porta l'ambiente");
+});
 t("A1: con i quadri dichiarati si chiede la presa di ogni quadro di testa, e se il massimo non ci sta si avvisa", () => {
   reset(); A.state.elec.on = true; A.state.elec.mode = "auto";
   for (let i = 0; i < 4; i++) add("amprack", 200 + i * 200, 700);   /* tipico 10 kW, massimo 20 kW */
