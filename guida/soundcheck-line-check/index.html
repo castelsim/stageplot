@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <!-- CSP difesa in profondità (audit S3): pagina statica, solo risorse self. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Soundcheck e line check: ordine, tempi e checklist</title>
+  <meta name="description" content="Come si fa un soundcheck ordinato: ordine dei canali, tempi per una band, differenza con il line check e checklist da stampare. Con un esempio da 30 minuti.">
+  <meta name="author" content="Simone Castellan">
+  <meta name="robots" content="index,follow,max-image-preview:large">
+  <link rel="canonical" href="https://stageplot.it/guida/soundcheck-line-check/">
+  <meta property="og:type" content="article">
+  <meta property="og:locale" content="it_IT">
+  <meta property="og:site_name" content="stageplot.it">
+  <meta property="og:title" content="Soundcheck e line check: ordine, tempi e checklist">
+  <meta property="og:description" content="Come si fa un soundcheck ordinato: ordine dei canali, tempi per una band, differenza con il line check e checklist da stampare. Con un esempio da 30 minuti.">
+  <meta property="og:url" content="https://stageplot.it/guida/soundcheck-line-check/">
+  <meta property="og:image" content="https://stageplot.it/preview.png?v=5">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Esempio di stage plot in scala creato con stageplot.it">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Soundcheck e line check: ordine, tempi e checklist">
+  <meta name="twitter:description" content="Come si fa un soundcheck ordinato: ordine dei canali, tempi per una band, differenza con il line check e checklist da stampare. Con un esempio da 30 minuti.">
+  <meta name="twitter:image" content="https://stageplot.it/preview.png?v=5">
+  <meta name="theme-color" content="#101820">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/favicon.svg">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/guida/style.css">
+  <script type="application/ld+json">
+{
+ "@context": "https://schema.org",
+ "@graph": [
+  {
+   "@type": "BreadcrumbList",
+   "itemListElement": [
+    {
+     "@type": "ListItem",
+     "position": 1,
+     "name": "Home",
+     "item": "https://stageplot.it/"
+    },
+    {
+     "@type": "ListItem",
+     "position": 2,
+     "name": "Guida",
+     "item": "https://stageplot.it/guida/"
+    },
+    {
+     "@type": "ListItem",
+     "position": 3,
+     "name": "Soundcheck e line check",
+     "item": "https://stageplot.it/guida/soundcheck-line-check/"
+    }
+   ]
+  },
+  {
+   "@type": "Article",
+   "headline": "Soundcheck e line check: ordine, tempi e checklist",
+   "inLanguage": "it",
+   "datePublished": "2026-11-15",
+   "dateModified": "2026-11-15",
+   "image": "https://stageplot.it/preview.png",
+   "mainEntityOfPage": "https://stageplot.it/guida/soundcheck-line-check/",
+   "author": {
+    "@type": "Person",
+    "@id": "https://simonecastellan.com/#person",
+    "name": "Simone Castellan",
+    "jobTitle": "Sound engineer",
+    "url": "https://simonecastellan.com"
+   },
+   "publisher": {
+    "@type": "Organization",
+    "@id": "https://stageplot.it/#org",
+    "url": "https://stageplot.it/",
+    "name": "StagePlot",
+    "logo": {
+     "@type": "ImageObject",
+     "url": "https://stageplot.it/logo-512.png",
+     "width": 512,
+     "height": 512
+    }
+   }
+  },
+  {
+   "@type": "FAQPage",
+   "mainEntity": [
+    {
+     "@type": "Question",
+     "name": "Quanto dura un soundcheck?",
+     "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "Per una band di 5 elementi circa 30 minuti, se la channel list è giusta. Per un'orchestra o un palco con molti in-ear serve di più; dillo nel rider."
+     }
+    },
+    {
+     "@type": "Question",
+     "name": "Cos'è un line check?",
+     "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "È il controllo che ogni canale arrivi al mixer, uno alla volta, senza la band che suona. Si usa quando non c'è tempo per un soundcheck completo."
+     }
+    },
+    {
+     "@type": "Question",
+     "name": "In che ordine si fa il soundcheck?",
+     "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "Batteria, basso, chitarre, tastiere, voci, poi i monitor e infine un brano intero. Si parte dai canali con più strumenti e si finisce con il suono d'insieme."
+     }
+    },
+    {
+     "@type": "Question",
+     "name": "Cosa portare al soundcheck?",
+     "acceptedAnswer": {
+      "@type": "Answer",
+      "text": "Channel list e stage plot stampati con la versione, cavi e DI di scorta, batterie nuove per radiomicrofoni e in-ear e un referente della band che decida quando si è pronti."
+     }
+    }
+   ]
+  }
+ ]
+}
+  </script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/"><span class="mark">SP</span><span>StagePlot</span></a>
+    <nav class="nav">
+      <a href="/app/">Tool gratuito</a>
+      <a href="/guida/">Guida</a>
+      <a href="/consulenza/">Consulenza</a>
+    </nav>
+    <a class="btn primary" href="/app/">Apri l'editor</a>
+  </header>
+
+  <main>
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a href="/">Home</a> › <a href="/guida/">Guida</a> › Soundcheck e line check
+    </nav>
+
+    <h1>Soundcheck e line check: in che ordine, quanto tempo</h1>
+    <p class="lead">Un soundcheck ordinato dura la metà di uno improvvisato. Si prepara con una channel list giusta, un ordine fisso e qualcuno che dica «ok» a ogni passo.</p>
+    <p class="byline"><span class="dot"></span>A cura di <strong>Simone Castellan</strong>, sound engineer per spettacoli dal vivo · aggiornato il 15/11/2026</p>
+
+    <div class="callout in-breve">
+      <p><strong>In breve:</strong> Il line check controlla che ogni canale arrivi al mixer (un minuto per canale); il soundcheck regola suono e monitor con la band. Per una band di 5 elementi bastano circa 30 minuti se la channel list è giusta e l'ordine è fisso: batteria, basso, chitarre e tastiere, voci, poi un brano insieme.</p>
+    </div>
+
+    <h2>Che differenza c'è tra line check e soundcheck?</h2>
+    <p>Il <strong>line check</strong> controlla che ogni canale funzioni: microfono acceso, cavo giusto, segnale al mixer. Non serve la band che suona, basta una persona sul palco che parli o colpisca ogni strumento. Il <strong>soundcheck</strong> invece regola il suono: livelli, equalizzazione, monitor. Quando il tempo è poco (contest, festival, convegno) si fa solo il line check; il resto lo si aggiusta durante il primo brano.</p>
+
+    <h2>In che ordine si fa?</h2>
+    <ol class="steps">
+      <li><strong>Prima il line check</strong>Tutti i canali, uno alla volta, nell'ordine della channel list. Chi è al mixer dice «ok» o segnala il problema (assente, rumore, fase).</li>
+      <li><strong>Batteria</strong>Cassa, rullante, tom, overhead. È lo strumento che occupa più canali e quello da cui parte tutto il resto.</li>
+      <li><strong>Basso e chitarre</strong>Basso (DI o microfono), poi le chitarre una alla volta.</li>
+      <li><strong>Tastiere e altri strumenti</strong>Tastiere, fiati, percussioni.</li>
+      <li><strong>Voci</strong>Voce principale e cori, con il volume di una voce vera, non «uno, due».</li>
+      <li><strong>Monitor</strong>Mix di ciascuno, uno per volta; chi ha l'in-ear lo prova con il suono del palco.</li>
+      <li><strong>Un brano intero</strong>Il pezzo più impegnativo della scaletta, per regolare il suono d'insieme.</li>
+    </ol>
+
+    <h2>Quanto tempo serve?</h2>
+    <table class="ch-table">
+      <thead><tr><th>Fase</th><th>Tempo indicativo</th></tr></thead>
+      <tbody>
+        <tr><td>Line check (12 canali)</td><td>10 minuti</td></tr>
+        <tr><td>Batteria</td><td>8 minuti</td></tr>
+        <tr><td>Basso, chitarre, tastiere</td><td>6 minuti</td></tr>
+        <tr><td>Voci e monitor</td><td>8 minuti</td></tr>
+        <tr><td>Un brano insieme</td><td>5 minuti</td></tr>
+      </tbody>
+    </table>
+    <p>Sono tempi indicativi per una band di 5 elementi con una channel list corretta; con un palco più grande o con in-ear da regolare si allungano. Dillo al service nel rider, così sa quanto tempo riservare.</p>
+
+    <h2>Checklist da portare sul palco</h2>
+    <ul>
+      <li>Channel list e stage plot stampati, con la versione scritta.</li>
+      <li>Nomi dei canali sul mixer uguali a quelli della lista.</li>
+      <li>Batterie nuove per radiomicrofoni e in-ear (vedi <a href="/guida/radiomicrofoni-frequenze/">radiomicrofoni e frequenze</a>).</li>
+      <li>Cavi e DI di scorta, nastro e pennarello.</li>
+      <li>Un referente della band per ogni dubbio: chi decide quando si è «pronti».</li>
+    </ul>
+
+    <h2>Come si prepara con stageplot.it?</h2>
+    <p>Dallo stesso disegno esci con la channel list e lo stage plot in PDF: stampali e portali sul palco. Se la lista è giusta, il line check scorre; per i dettagli su canali, DI e microfoni vedi la guida alla <a href="/guida/channel-list-input-list/">channel list</a> e lo <a href="/guida/stage-plan-contest/">stage plan per un contest</a>, dove il soundcheck si riduce a un line check.</p>
+
+    <div class="cta-box">
+      <h2>Prepara la channel list per il line check</h2>
+      <p>Channel list e stage plot dallo stesso disegno, con la versione sul foglio. Gratis, nel browser.</p>
+      <div class="cta-actions">
+        <a class="btn primary" href="/app/" style="background:#fff;color:#101820;border-color:#fff">Apri l'editor gratuito</a>
+      </div>
+    </div>
+
+    <h2>Domande frequenti</h2>
+    <div class="faq">
+      <details><summary>Quanto dura un soundcheck?</summary><p>Per una band di 5 elementi circa 30 minuti, se la channel list è giusta. Per un'orchestra o un palco con molti in-ear serve di più; dillo nel rider.</p></details>
+      <details><summary>Cos'è un line check?</summary><p>È il controllo che ogni canale arrivi al mixer, uno alla volta, senza la band che suona. Si usa quando non c'è tempo per un soundcheck completo.</p></details>
+      <details><summary>In che ordine si fa il soundcheck?</summary><p>Batteria, basso, chitarre, tastiere, voci, poi i monitor e infine un brano intero. Si parte dai canali con più strumenti e si finisce con il suono d'insieme.</p></details>
+      <details><summary>Cosa portare al soundcheck?</summary><p>Channel list e stage plot stampati con la versione, cavi e DI di scorta, batterie nuove per radiomicrofoni e in-ear e un referente della band che decida quando si è pronti.</p></details>
+    </div>
+
+    <div class="related">
+      <h2>Guide correlate</h2>
+      <div class="cards">
+        <a href="/guida/channel-list-input-list/"><strong>Channel list e input list</strong><span>Canali, microfoni e DI</span></a>
+        <a href="/guida/stage-plan-contest/"><strong>Stage plan per un contest</strong><span>Un foglio solo, line check veloce</span></a>
+        <a href="/guida/monitor-spie-in-ear/"><strong>Monitor, spie e in-ear</strong><span>La monitor list nel rider</span></a>
+        <a href="/guida/radiomicrofoni-frequenze/"><strong>Radiomicrofoni e frequenze</strong><span>Cosa scrivere per le radio</span></a>
+      </div>
+    </div>
+
+  <aside class="author-card">
+    <p class="ac-name">Simone Castellan <span>· sound engineer</span></p>
+    <p class="ac-bio">Sound engineer per spettacoli dal vivo e gestore di uno studio di registrazione certificato Dolby Atmos. Cura registrazione e mix di produzioni orchestrali sinfoniche con oltre 70 eventi dal vivo l’anno; docente di elettroacustica. Ha creato StagePlot per dare a musicisti e tecnici uno strumento gratuito e in scala reale.</p>
+    <p class="ac-link"><a href="https://simonecastellan.com" rel="author noopener" target="_blank">simonecastellan.com</a></p>
+  </aside>
+  </main>
+
+  <footer>
+    <div class="inner">
+      <p><a href="/app/">Tool gratuito</a> · <a href="/stage-plot/">Stage plot</a> · <a href="/guida/">Guida</a> · <a href="/consulenza/">Consulenza</a> · <a href="/privacy/">Privacy</a> · <a href="/termini/">Termini</a> · <a href="https://www.instagram.com/stageplot.it/" target="_blank" rel="me noopener">Instagram</a></p>
+      <p>Guida a cura di Simone Castellan — sound engineer per spettacoli dal vivo. © 2026 StagePlot.</p>
+    </div>
+  </footer>
+</body>
+</html>
