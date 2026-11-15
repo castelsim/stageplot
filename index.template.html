@@ -10426,6 +10426,7 @@ function sanitizeItems(arr){
              w:+o.w||t.w, d:+o.d||t.d, label:(o.label!=null?o.label:defaultLabel(o.type)) };
     if(t.riser) it.h=(o.h!=null?+o.h:(t.h||40));
     else if(isCover(it) && o.h!=null) it.h=+o.h;   /* coperture: h opzionale (luce sotto); se assente = default coverH() */
+    else if(o.type==="ostacolo" && ostacoloHPulita(o.h)) it.h=ostacoloHPulita(o.h);   /* ostacolo: quota opzionale */
     if(Object.prototype.hasOwnProperty.call(COMP,o.type)) it.parts=o.parts?compClone(o.parts):compClone(COMP[o.type].defParts);
     ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","perChi","podio","sgab","grp","distOf","distType","aggancia","dimSide","lblSize","plCh","dvsPro","dvsNet","dvsSr","dvsLat","ifaceId","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","leggioDist","poltrona","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic","platea","fila","posto","settore"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });   /* platea: passi e corridoio, ripuliti poi da normalizeLoadedItems; fila/posto/settore: posti numerati */
     if(it.leggioDist!=null){ var _ld=leggioDist(it); if(_ld && leggioDistSupported(it)) it.leggioDist=_ld; else delete it.leggioDist; }   /* distanza del leggio: numero intero nei limiti, solo dove c'è un leggio da spostare; 0 = standard, non si scrive */
@@ -15119,8 +15120,8 @@ function itemMarkup(it){
   }
   if(it.leggio===true && leggioExtra(it)) s += '<g transform="translate(0,'+leggioExtraY(it)+')'+(leggioExtraY(it)<0?' rotate(180)':'')+'">'+leggioGlyph(0)+'</g>';   /* leggio generico: arpa, piani, organi, percussioni, mallet… (off di default, davanti allo strumento) */
   _leggioDistOn = 0;   /* finiti gli accessori: nessun altro leggioGlyph (anteprime, catalogo, leggio a sé) eredita la distanza */
-  if(t.riser || it.type==="scala"){                  /* quota pedana sul lato scelto/auto (più visibile); la scala dice altezza e gradini (11/11), di serie sopra */
-    var dimT=t.riser ? misPedana(it.w, it.d, it.h, (it.w/100)+'×'+(it.d/100)+' m · h'+it.h)+quotaDaTerraTesto(it)+misuraDaConfTesto(it) : scalaQuota(it), rside=t.riser ? riserDimSide(it) : scalaDimSide(it), roff=12, rdx=0, rdy=0, ranc='middle', rtr='', rang=0;
+  if(t.riser || it.type==="scala" || ostacoloConH(it)){                  /* quota pedana sul lato scelto/auto (più visibile); la scala dice altezza e gradini (11/11), di serie sopra */
+    var dimT=t.riser ? misPedana(it.w, it.d, it.h, (it.w/100)+'×'+(it.d/100)+' m · h'+it.h)+quotaDaTerraTesto(it)+misuraDaConfTesto(it) : (it.type==="ostacolo" ? misPedana(it.w, it.d, it.h, misN(it.w)+'×'+misN(it.d)+' m · h'+Math.round(it.h)+' cm') : scalaQuota(it)), rside=(t.riser||it.type==="ostacolo") ? riserDimSide(it) : scalaDimSide(it), roff=12, rdx=0, rdy=0, ranc='middle', rtr='', rang=0;
     if(rside==="top"){ rdy=-(it.d/2)-roff; }
     else if(rside==="bottom"){ rdy=(it.d/2)+roff+9; }
     else if(rside==="left"){ rdx=-(it.w/2)-roff; ranc='middle'; rang=-90; }   /* ruotata, legge lungo il lato sx */
@@ -18571,6 +18572,10 @@ function quotaPianoDi(it, _prof){
 }
 /* MISURA DA CONFERMARE (15/11/2026, S22): una pedana la cui misura si rileva al sopralluogo. Bordo tratteggiato (.riser-conf) e «· da confermare»
    dopo la quota, a schermo e nel PDF. Solo la pedana semplice; il flag è `misuraDaConf` (assente = come sempre). */
+/* Ostacolo con quota (S19, 15/11/2026): altezza opzionale `h` (cm) di un palo, un albero, un monumento. Assente = come sempre
+   (nessuna quota). Si scrive nel campo «h (cm)» del pannello; la quota sta accanto al nome come quella della pedana, anche in PDF/PNG. */
+function ostacoloConH(it){ return !!(it && it.type==="ostacolo" && isFinite(+it.h) && +it.h>0); }
+function ostacoloHPulita(v){ v=Math.round(+v); return (isFinite(v) && v>0) ? Math.min(v,3000) : 0; }
 function misuraDaConfTesto(it){ return (it && it.type==="pedana" && it.misuraDaConf===true) ? " · da confermare" : ""; }
 function quotaDaTerraTesto(it){
   if(!quotaDaTerraOn() || !it) return "";
@@ -21199,12 +21204,13 @@ function renderProps(){
   var _rv=document.getElementById("pRotVal"); if(_rv) _rv.textContent=Math.round(rNorm)+"\u00b0";
   var _mzPoly = it.type==="miczone" && it.pts && it.pts.length>=3;   /* zona poligonale: w/d è il bbox derivato → niente campi L/P (si modella coi vertici) */
   document.getElementById("pDims").style.display = (t.resizable && !_mzPoly) ? "flex" : "none";
-  document.getElementById("pHwrap").style.display = (t.riser || isCover(it)) ? "" : "none";   /* coperture: h = luce libera sotto la struttura */
+  document.getElementById("pHwrap").style.display = (t.riser || isCover(it) || it.type==="ostacolo") ? "" : "none";   /* coperture: h = luce libera sotto la struttura */
   if(t.resizable){
     document.getElementById("pW").value = it.w;
     document.getElementById("pD").value = it.d;
     if(t.riser) document.getElementById("pH").value = it.h;
     else if(isCover(it)) document.getElementById("pH").value = coverH(it);
+    else if(it.type==="ostacolo") document.getElementById("pH").value = ostacoloConH(it) ? it.h : "";   /* vuoto = nessuna quota */
   }
   (function(){
     var box=document.getElementById("pPedRapide"); if(!box) return;
@@ -21932,7 +21938,7 @@ document.getElementById("pD").addEventListener("change", function(){ mutSel(func
   el.addEventListener("change", function(){ var on=!!el.checked;
     mutSel(function(it){ if(it.type==="platea") plateaImposta(it, { corridoio: on ? PLATEA_CORR_DEF : 0 }); }); renderProps(); });
 })();
-document.getElementById("pH").addEventListener("change", function(){ mutSel(function(it){ it.h=Math.max(0,+document.getElementById("pH").value||0); }); });
+document.getElementById("pH").addEventListener("change", function(){ mutSel(function(it){ if(it.type==="ostacolo"){ var v=ostacoloHPulita(document.getElementById("pH").value); if(v) it.h=v; else delete it.h; return; } it.h=Math.max(0,+document.getElementById("pH").value||0); }); });
 var ROT_SNAP=2;   /* snap magnetico leggero: entro ±2° aggancia i cardinali, fuori resta libero per regolazioni precise */
 function applyRot(doSave){
   var it=getSel(); if(!it) return;
@@ -27434,6 +27440,7 @@ function placeOut(out, fitStage, clearFirst, force){
             rot:Math.round((o.rot||0)/5)*5, w:z.w, d:z.d, label:o.label!=null?o.label:defaultLabel(o.type)};
     if(t.riser) it.h=(o.h!=null?o.h:(t.h||40));
     else if(isCover(it) && o.h!=null) it.h=+o.h;   /* coperture: h opzionale (luce sotto) */
+    else if(o.type==="ostacolo" && ostacoloHPulita(o.h)) it.h=ostacoloHPulita(o.h);   /* ostacolo: quota opzionale */
     if(o.parts){ it.parts=compClone(o.parts); if(COMP[o.type] && COMP[o.type].size){ var cz=COMP[o.type].size(it); it.w=cz[0]; it.d=cz[1]; } }
     ["donna","hair","mano","leggio","sedia","doppia","sep","ampli","pedaliera","vsec","label2","perChi","podio","nomic","micMode","hw","ch","outCh","dimSide","rfChi","poltrona"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });   /* flag opzionali dal generatore (hw/ch/outCh = capacità stage box; dimSide = lato della misura pedana) */
     if(LEGGIO_DI_SERIE[o.type] && o.leggio==null) it.leggio=true;   /* modelli e organico: come dal catalogo */
