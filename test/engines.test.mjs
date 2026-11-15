@@ -33012,6 +33012,9 @@ t("rig: numerazione 1…N dal pubblico (y grande) verso il fondo, a mano la sost
   [fondo, meta, davanti].forEach((x) => A.rigImposta(x, {}));
   eq([A.rigNumero(davanti), A.rigNumero(meta), A.rigNumero(fondo)], ["1", "2", "3"], "dal pubblico verso il fondo");
   A.rigImposta(meta, { n: "LX2" }); eq(A.rigNumero(meta), "LX2", "numero a mano");
+  eq(A.rigEtichetta(meta), "LX2", "un nome a mano non prende la «A» davanti");
+  A.rigImposta(meta, { n: "7" }); eq(A.rigEtichetta(meta), "A7", "un numero a mano sì");
+  A.rigImposta(meta, { n: "LX2" });
   eq(A.rigNumero(fondo), "3", "gli altri non cambiano");
   A.rigImposta(meta, { n: "  " }); eq(A.rigNumero(meta), "2", "numero vuoto = automatico");
   const senza = add("americana", 600, 700); eq(A.rigNumero(senza), "", "chi non è numerata non ha numero");

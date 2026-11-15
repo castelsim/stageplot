@@ -6508,7 +6508,7 @@ function rigPesoKg(it){
 function rigTrimTesto(cm){ return "+"+(cm/100).toFixed(2).replace(".",",")+" m"; }
 function rigEtichetta(it){
   var r=rigOf(it); if(!r) return "";
-  var bits=["A"+rigNumero(it)], h=rigHPulita(r.h), kg=rigPesoKg(it);
+  var num=rigNumero(it), bits=[/^\d+$/.test(num) ? "A"+num : num], h=rigHPulita(r.h), kg=rigPesoKg(it);   /* «A3» per il numero; un nome a mano («LX2») resta com'è */
   if(h) bits.push(rigTrimTesto(h));
   if(kg>0) bits.push(Math.round(kg)+" kg");
   return bits.join(" · ");
@@ -12929,8 +12929,8 @@ function itemMarkup(it){
     rtr=lblCapTr(!_sceneRuota && lblCapovolto((it.rot||0)+rang), rang, rdx, rdy, 12);   /* 06/10: la quota non si capovolge con la pedana girata */
     lb += '<text class="lbl sub" x="'+rdx+'" y="'+rdy+'" text-anchor="'+ranc+'"'+rtr+'>'+dimT+'</text>';
   }
-  if(rigOf(it) && rigVisibile()){   /* americana numerata (A4): «A3 · +7,50 m · 180 kg», sul lato del pubblico (y positivo) */
-    var rgy=(it.d/2)+12+9, rgtr=lblCapTr(!_sceneRuota && lblCapovolto(it.rot||0), 0, 0, rgy, 12);
+  if(rigOf(it) && rigVisibile()){   /* americana numerata (A4): «A3 · +7,50 m · 180 kg», sopra la barra (il nome e i fari stanno sotto) */
+    var rgy=-(it.d/2)-6, rgtr=lblCapTr(!_sceneRuota && lblCapovolto(it.rot||0), 0, 0, rgy, 12);
     lb += '<text class="lbl sub rig-et" x="0" y="'+rgy+'" text-anchor="middle"'+rgtr+'>'+esc(rigEtichetta(it))+'</text>';
   }
   var _lblOrig = null;   /* perno del corpo minimo a schermo (lblScalaAttorno): null = l'ancora del primo testo */
