@@ -5636,6 +5636,18 @@ body.cust-contorno .item.selected .selbox{display:none}
         <!-- MATERIALI RICHIESTI (12/11/2026): sezione opzionale del rider, calcolata dal disegno; spenta di serie -->
         <label class="chk" style="font-size:11px"><input type="checkbox" id="rdMateriali"> <span>Materiali richiesti nel rider <small class="lbl-note">— sedie, leggii, pedane, prese… dal disegno</small></span></label>
         <label class="chk" style="font-size:11px"><input type="checkbox" id="rdDistinta"> <span>Distinta del palco nel rider <small class="lbl-note">— moduli 2×1 per altezza, scalette, parapetti</small></span></label>
+        <!-- DOTAZIONI DEL LUOGO (15/11/2026, S20): tetti opzionali «Disponibili: N» accanto a Teatro / Service; compaiono solo con «Materiali richiesti» acceso; vuoti = nessun avviso -->
+        <div id="rdDotazioni" hidden style="display:grid;gap:4px">
+          <div style="font-size:11px;color:var(--text-3,#6b7280)">Disponibili dal luogo (opzionale) — se il disegno ne richiede di più, il rider lo dice:</div>
+          <div style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr);gap:4px 6px;align-items:center;font-size:11px">
+            <span></span><span style="color:var(--text-3,#6b7280)">Teatro</span><span style="color:var(--text-3,#6b7280)">Service</span>
+            <span>Leggii</span><input type="number" min="0" max="999" step="1" inputmode="numeric" class="rd-i" data-dot="leggii" data-dotf="Teatro" aria-label="Leggii disponibili dal teatro"><input type="number" min="0" max="999" step="1" inputmode="numeric" class="rd-i" data-dot="leggii" data-dotf="Service" aria-label="Leggii disponibili dal service">
+            <span>Sedie</span><input type="number" min="0" max="999" step="1" inputmode="numeric" class="rd-i" data-dot="sedie" data-dotf="Teatro" aria-label="Sedie disponibili dal teatro"><input type="number" min="0" max="999" step="1" inputmode="numeric" class="rd-i" data-dot="sedie" data-dotf="Service" aria-label="Sedie disponibili dal service">
+            <span>Sgabelli</span><input type="number" min="0" max="999" step="1" inputmode="numeric" class="rd-i" data-dot="sgabelli" data-dotf="Teatro" aria-label="Sgabelli disponibili dal teatro"><input type="number" min="0" max="999" step="1" inputmode="numeric" class="rd-i" data-dot="sgabelli" data-dotf="Service" aria-label="Sgabelli disponibili dal service">
+            <span>Aste microfono</span><input type="number" min="0" max="999" step="1" inputmode="numeric" class="rd-i" data-dot="aste" data-dotf="Teatro" aria-label="Aste disponibili dal teatro"><input type="number" min="0" max="999" step="1" inputmode="numeric" class="rd-i" data-dot="aste" data-dotf="Service" aria-label="Aste disponibili dal service">
+            <span>Postazioni d'ascolto</span><input type="number" min="0" max="999" step="1" inputmode="numeric" class="rd-i" data-dot="postazioni" data-dotf="Teatro" aria-label="Postazioni d'ascolto disponibili dal teatro"><input type="number" min="0" max="999" step="1" inputmode="numeric" class="rd-i" data-dot="postazioni" data-dotf="Service" aria-label="Postazioni d'ascolto disponibili dal service">
+          </div>
+        </div>
         <button type="button" class="btn" id="rdMaterialiCopia" hidden style="font-size:12px;width:auto;justify-self:start">Copia testo per la mail</button>
         <div id="rdLuciExtra" hidden style="display:grid;gap:4px">
           <div style="font-size:11px;color:var(--text-3,#6b7280)">Richieste luci per l'orchestra (opzionali):</div>
