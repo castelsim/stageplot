@@ -32881,5 +32881,66 @@ t("orientamento: il pannello Audit e la pillola «cose da guardare» lo mostrano
   ok(/x\.rule==="orientamento"; \}\)\.length;/.test(js), "la pillola conta la domanda");
 });
 
+/* ---- STATO DEL DOCUMENTO: «Provvisorio» / «Definitivo» (15/11/2026, S22 parte 1) ---- */
+t("Stato del documento: normalizzazione, salvataggio e riapertura; assente = come prima", () => {
+  reset();
+  ok(!("statoDoc" in A.state) && A.statoDocEtichetta() === "", "di serie: nessuno");
+  A.statoDocImposta("definitivo"); eq(A.state.statoDoc, "definitivo"); eq(A.statoDocEtichetta(), "Definitivo");
+  A.loadDoc(JSON.parse(A.docToJSON())); eq(A.state.statoDoc, "definitivo", "salva e riapri");
+  A.statoDocImposta("provvisorio"); eq(A.statoDocEtichetta(), "Provvisorio");
+  A.statoDocImposta(""); ok(!("statoDoc" in A.state), "«Nessuno» toglie il campo");
+  A.state.statoDoc = "pippo"; eq(A.statoDocValore(), "", "valore estraneo: la casella e le etichette lo ignorano"); const n = A.normalizeState(JSON.parse(A.stateToJSON())); ok(!("statoDoc" in n), "un valore estraneo non entra");
+  ok(/"statoDoc"/.test(appjs.slice(appjs.indexOf("var CAMPI_DOCUMENTO"), appjs.indexOf("var CAMPI_DOCUMENTO") + 600)), "è un campo del documento");
+  reset();
+});
+t("Stato del documento: nome del file (PDF con e senza versione, PNG, zip); senza stato nessun cambio", () => {
+  reset(); A.state.titolo = "Stage plot - Bibione"; const d = new Date(2026, 10, 12);
+  const prima = [A.nomeFilePdf("a3", 50, "landscape", d), A.pdfNomeFileTesto(), A.nomeConStato("stage-plot-bibione-rider.pdf"), A.nomeConStato("x.png")];
+  eq(prima, ["stage-plot-bibione.pdf", "stage-plot-bibione.pdf", "stage-plot-bibione-rider.pdf", "x.png"], "senza stato: identici a prima");
+  A.state.versione = 3; A.state.statoDoc = "definitivo";
+  eq(A.nomeFilePdf("a3", 50, "landscape", d), "Stage plot - Bibione - v3 del 12-11-2026 - Definitivo - A3 orizz 1-50.pdf");
+  A.state.statoDoc = "provvisorio";
+  eq(A.nomeFilePdf("a4", 10, "portrait", d), "Stage plot - Bibione - v3 del 12-11-2026 - Provvisorio - A4 vert 1-10.pdf");
+  eq(A.nomeConStato(A.nomeFilePdf("a4", 10, "portrait", d)), A.nomeFilePdf("a4", 10, "portrait", d), "pdfSave non lo raddoppia");
+  delete A.state.versione; A.state.statoDoc = "definitivo";
+  eq(A.nomeFilePdf("a3", 50, "landscape", d), "stage-plot-bibione-definitivo.pdf", "senza versione");
+  eq(A.nomeConStato("stage-plot-bibione-rider.pdf"), "stage-plot-bibione-rider-definitivo.pdf", "anche gli altri PDF");
+  eq(A.nomeConStato("stage-plot-bibione.png"), "stage-plot-bibione-definitivo.png", "il PNG");
+  eq(A.pdfNomeFileTesto(), "stage-plot-bibione-definitivo.pdf", "la promessa «Il file uscirà come…»");
+  A.state.versione = 3; eq(A.pacchettoNomeFile("channel list", { data: "20261112", versione: 3, stato: A.statoDocEtichetta(), nome: "Bibione" }), "20261112 v3 Definitivo channel list Bibione", "zip");
+  eq(A.pacchettoNomeFile("channel list", { data: "20261112", versione: 3, nome: "Bibione" }), "20261112 v3 channel list Bibione", "zip senza stato: come prima");
+  ok(/pdfSave\(doc, nomeFilePdf\(paperKey, N, orient\)\)/.test(appjs) && /function pdfSave\(doc, name\)\{ name=nomeConStato\(name\)/.test(appjs), "ogni PDF passa da pdfSave col suffisso");
+  ok(/var _pngNome=nomeConStato\(fileName\(\)\+"\.png"\)/.test(appjs), "il PNG");
+  ok(/stato: statoDocEtichetta\(\)/.test(appjs), "e le opzioni del pacchetto");
+  reset();
+});
+t("Stato del documento: piè di pagina e cartiglio; senza stato il piè e il cartiglio sono quelli di sempre", () => {
+  reset(); A.state.versione = 3;
+  const eti = A.versioneEtichetta(new Date(2026, 10, 15));
+  A.state.statoDoc = "provvisorio";
+  eq(A.pieDocumentoEtichetta(new Date(2026, 10, 15)), eti + " · Provvisorio");
+  const doc = jsPdfFinto()({ format: "a4", orientation: "portrait" }); doc.addPage(); A.pdfCredit(doc);
+  [0, 1].forEach((i) => {
+    const t = doc.pagine[i].testi, pn = t.find((x) => /^\d+ di 2$/.test(x.t)), ve = t.find((x) => /· Provvisorio$/.test(x.t));
+    ok(pn && ve && ve.y === pn.y && ve.x > pn.x, "pagina " + (i + 1) + ": «n di 2» e «vN · data · Provvisorio» sulla stessa riga — " + JSON.stringify(t.map((x) => x.t)));
+  });
+  A.state.statoDoc = "definitivo"; delete A.state.versione;
+  eq(A.pieDocumentoEtichetta(), "Definitivo", "senza versione: solo lo stato");
+  ok(A.pdfCartSub().includes("Definitivo"), "il cartiglio: " + JSON.stringify(A.pdfCartSub()));
+  eq(A.pdfCartSub().indexOf("Definitivo"), A.pdfCartSub().indexOf(A.dataDocumento()) + 1, "subito dopo la data");
+  delete A.state.statoDoc;
+  ok(!A.pdfCartSub().some((x) => /Provvisorio|Definitivo/.test(x)), "senza stato il cartiglio è quello di prima");
+  const doc2 = jsPdfFinto()({ format: "a4", orientation: "portrait" }); A.pdfCredit(doc2);
+  ok(!doc2.pagine[0].testi.some((x) => /Provvisorio|Definitivo/.test(x.t)), "e il piè pure");
+  eq(A.pieDocumentoEtichetta(), "", "etichetta vuota");
+  reset();
+});
+t("Stato del documento: la casella nell'Esporta c'è, è facoltativa e segue lo stato", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/<select id="pdfStatoDoc"[^>]*><option value="">Nessuno<\/option><option value="provvisorio">Provvisorio<\/option><option value="definitivo">Definitivo<\/option><\/select>/.test(html), "select con Nessuno / Provvisorio / Definitivo");
+  ok(/getElementById\("pdfStatoDoc"\);\s*if\(e\) e\.addEventListener\("change", function\(\)\{ statoDocImposta\(this\.value\); \}\)/.test(appjs), "scegliere imposta lo stato");
+  ok(/_sd\.value=statoDocValore\(\)/.test(appjs), "riaprendo l'Esporta la casella segue il progetto");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

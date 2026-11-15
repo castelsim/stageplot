@@ -6453,6 +6453,10 @@ body.cust-contorno .item.selected .selbox{display:none}
         <label for="pdfVersione">Versione <span class="hdr-why">— nel piè di ogni pagina e nel nome del file</span></label>
         <input type="text" id="pdfVersione" inputmode="numeric" maxlength="3" placeholder="es. 1" autocomplete="off" style="width:110px">
         <div class="hdr-saved" id="pdfVersioneHint"></div>
+        <!-- STATO DEL DOCUMENTO (15/11/2026, S22 parte 1; dicitura scelta da Simone): «Provvisorio» / «Definitivo», facoltativo.
+             Nessuno = documento e nome del file identici a prima. In PRODUZIONE vanno solo i definitivi (regola di Diego, 23/01/2025). -->
+        <label for="pdfStatoDoc">Stato del documento <span class="hdr-why">— facoltativo: nel piè, nel cartiglio e nel nome del file</span></label>
+        <select id="pdfStatoDoc" style="width:150px"><option value="">Nessuno</option><option value="provvisorio">Provvisorio</option><option value="definitivo">Definitivo</option></select>
         <div class="hdr-saved" id="pdfFileName"></div>
         <div class="hdr-saved" id="pdfUltimo" hidden></div>
         <!-- SCALETTA e QR (10/10/2026, idee dal confronto con TecRider Pro). Fuori da «Altre opzioni»:
