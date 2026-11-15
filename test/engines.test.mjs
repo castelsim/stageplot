@@ -32999,5 +32999,103 @@ t("S20 dotazioni: in un evento senza «Materiali richiesti» il rider non cambia
   ok(/state\.dotazioni=dotazioniPulite\(d\); if\(!state\.dotazioni\) delete state\.dotazioni;/.test(appjs), "il campo vuoto toglie il tetto e la chiave"); reset();
 });
 
+console.log("\nAmericane numerate, trim e peso appeso (A4, 15/11/2026):");
+t("rig: assente di serie, l'etichetta non esiste e l'americana è identica a prima", () => {
+  reset(); const am = add("americana", 600, 300);
+  eq(am.rig, undefined, "nessun campo nuovo");
+  eq(A.rigOf(am), null); eq(A.rigEtichetta(am), "");
+  ok(!/rig-et/.test(A.itemMarkup(am)), "nessuna etichetta nel disegno");
+});
+t("rig: numerazione 1…N dal pubblico (y grande) verso il fondo, a mano la sostituisce", () => {
+  reset();
+  const fondo = add("americana", 600, 100), meta = add("americana", 600, 300), davanti = add("americana", 600, 500);
+  [fondo, meta, davanti].forEach((x) => A.rigImposta(x, {}));
+  eq([A.rigNumero(davanti), A.rigNumero(meta), A.rigNumero(fondo)], ["1", "2", "3"], "dal pubblico verso il fondo");
+  A.rigImposta(meta, { n: "LX2" }); eq(A.rigNumero(meta), "LX2", "numero a mano");
+  eq(A.rigEtichetta(meta), "LX2", "un nome a mano non prende la «A» davanti");
+  A.rigImposta(meta, { n: "7" }); eq(A.rigEtichetta(meta), "A7", "un numero a mano sì");
+  A.rigImposta(meta, { n: "LX2" });
+  eq(A.rigNumero(fondo), "3", "gli altri non cambiano");
+  A.rigImposta(meta, { n: "  " }); eq(A.rigNumero(meta), "2", "numero vuoto = automatico");
+  const senza = add("americana", 600, 700); eq(A.rigNumero(senza), "", "chi non è numerata non ha numero");
+  eq(A.rigNumero(davanti), "1", "e non sposta gli altri");
+});
+t("rig: trim in cm come per i fari, ripulito (0, negativo, testo → nessuno; tetto 30 m)", () => {
+  reset(); const am = add("americana", 600, 300);
+  A.rigImposta(am, { h: 750 }); eq(am.rig.h, 750);
+  eq(A.rigEtichetta(am).indexOf("+7,50 m") > 0, true, "«+7,50 m» nell'etichetta");
+  A.rigImposta(am, { h: "abc" }); eq(am.rig.h, undefined, "testo = nessun trim");
+  A.rigImposta(am, { h: -5 }); eq(am.rig.h, undefined, "negativo = nessun trim");
+  A.rigImposta(am, { h: 99999 }); eq(am.rig.h, 3000, "tetto 30 m");
+  A.rigImposta(am, { n: "ABCDEFGH" }); eq(am.rig.n, "ABCD", "numero al massimo 4 caratteri");
+});
+t("rig: il peso è la somma dei fari appesi (+ peso proprio dichiarato), mai una portata", () => {
+  reset();
+  const am = add("americana", 600, 300); am.w = 400; am.d = 30; A.rigImposta(am, { h: 700 });
+  const f = add("farope", 500, 300), g = add("parluci", 700, 300), terra = add("farope", 500, 600);
+  [f, g].forEach((x) => A.mountSet(x, { mode: "hung", h: 700 }));
+  const atteso = A.weightOf(f) + A.weightOf(g);
+  ok(atteso > 0, "i fari hanno un peso di catalogo");
+  eq(A.rigPesoKg(am), atteso, "somma dei due appesi, non del faro a terra");
+  ok(new RegExp("^A1 · \\+7,00 m · " + Math.round(atteso) + " kg$").test(A.rigEtichetta(am)), "etichetta «A1 · +7,00 m · N kg»: " + A.rigEtichetta(am));
+  am.kg = 40; eq(A.rigPesoKg(am), atteso + 40, "col peso proprio dichiarato");
+  const src = A.rigEtichetta.toString() + A.rigPesoKg.toString();
+  ok(!/regge|portata|capacit/i.test(src), "nessun calcolo di portata nel codice");
+  ok(!/regge|non regge/i.test(A.rigEtichetta(am)), "e nessun «regge»");
+  void terra;
+});
+t("rig: senza fari né trim l'etichetta è solo il numero", () => {
+  reset(); const am = add("americana", 600, 300); A.rigImposta(am, {});
+  eq(A.rigEtichetta(am), "A1");
+});
+t("rig: anche la truss appesa si numera; il faro la trova per geometria", () => {
+  reset();
+  const am = add("americana", 600, 500), tr = add("truss", 600, 200);
+  A.rigImposta(am, {}); A.rigImposta(tr, { h: 600 });
+  eq([A.rigNumero(am), A.rigNumero(tr)], ["1", "2"]);
+  eq(A.rigEtichetta(tr), "A2 · +6,00 m");
+});
+t("rig: solo americana e truss; un faro o una pedana non prendono mai rig", () => {
+  reset(); const f = add("farope", 300, 300), p = add("pedana", 400, 400);
+  A.rigImposta(f, { h: 500 }); A.rigImposta(p, {});
+  eq([f.rig, p.rig], [undefined, undefined]);
+  const [x] = A.sanitizeItems([{ id: "f1", type: "farope", x: 1, y: 1, rig: { h: 500 } }]);
+  eq(x.rig, undefined, "un file con rig su un faro lo scarta");
+  f.rig = { h: 500 }; eq(A.rigOf(f), null, "e un rig messo a forza su un faro non vale");
+  eq(A.rigEtichetta(f), "", "né dà etichetta");
+});
+t("rig: sanitizeItems — salvataggio e riapertura mantengono {n,h} ripuliti; valori strani no", () => {
+  const [a] = A.sanitizeItems([{ id: "a1", type: "americana", x: 300, y: 300, rig: { n: "5", h: 640, kg: 999, extra: 1 } }]);
+  eq(a.rig, { h: 640, n: "5" }, "solo n e h, niente campi in più");
+  const [b] = A.sanitizeItems([{ id: "a2", type: "americana", x: 300, y: 300, rig: "sì" }]);
+  eq(b.rig, undefined, "rig non oggetto = ignorato");
+  const [c] = A.sanitizeItems([{ id: "a3", type: "americana", x: 300, y: 300 }]);
+  eq(c.rig, undefined, "senza rig resta senza");
+  const [d] = A.sanitizeItems([{ id: "a4", type: "americana", x: 300, y: 300, rig: { h: "x" } }]);
+  eq(d.rig, {}, "rig vuoto = numerata senza trim");
+});
+t("rig: «Numera tutte» numera le sole americane che non lo sono, senza toccare il resto", () => {
+  reset(); const a1 = add("americana", 600, 300), a2 = add("americana", 600, 100), tr = add("truss", 600, 500);
+  A.rigImposta(a2, { n: "Z" });
+  eq(A.rigNumeraTutte(), 1, "una sola da numerare");
+  eq([a1.rig, a2.rig.n, tr.rig], [{}, "Z", undefined]);
+});
+t("rig: lunghezze a un clic 1 · 1,5 · 2 · 2,5 · 3 · 4 m", () => {
+  eq(A.RIG_LUNGHEZZE, [100, 150, 200, 250, 300, 400]);
+});
+t("rig: etichetta a schermo solo con «Opzioni complete», sempre in export", () => {
+  const src = A.rigVisibile.toString();
+  ok(/funzOn\("opzioni"\)/.test(src) && /_lblSchermo/.test(src), "gate su Opzioni complete e su schermo/export");
+  ok(/rigOf\(it\) && rigVisibile\(\)/.test(appjs), "il disegno la scrive solo se rig e visibile");
+  ok(/body:not\(\.f-opzioni\) #selProps \.pgrp\[data-grp="americana"\]\{display:none !important\}/.test(stylesCss), "il gruppo del pannello è chiuso senza Opzioni complete");
+  ok(/id="pRigWrap"/.test(readFileSync(join(root, "app/index.html"), "utf8")), "il pannello c'è");
+});
+t("rig: un progetto con americane numerate chiede «Opzioni complete» nell'avviso", () => {
+  reset(); const am = add("americana", 600, 300);
+  eq(A.funzUsateDalProgetto(A.state).indexOf("opzioni"), -1, "senza rig niente avviso");
+  A.rigImposta(am, {});
+  ok(A.funzUsateDalProgetto(A.state).indexOf("opzioni") >= 0, "con rig sì");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

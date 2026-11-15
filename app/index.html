@@ -3606,6 +3606,8 @@ body.venue-calib #vistaBanner{display:none}
 /* con la sola classe perdeva contro `#props .btn{display:flex}`: il bottone restava in Completo, dopo
    averlo premuto e sul telefono (misurato nel browser, 14/09). Stesso peso E dopo di lei. */
 #props #selProps .p-tutte{display:none}
+/* A4 americane numerate: solo con «Opzioni complete» accesa, anche dopo «Mostra tutte le opzioni» */
+body:not(.f-opzioni) #selProps .pgrp[data-grp="americana"]{display:none !important}
 @media (min-width:881px){
   body:not(.f-opzioni):not(.props-tutte) #selProps .pgrp[data-grp="microfono"],
   body:not(.f-opzioni):not(.props-tutte) #selProps .pgrp[data-grp="stage-box"],
@@ -5039,6 +5041,22 @@ body.cust-contorno .item.selected .selbox{display:none}
         <div id="pMountStruct" class="prop-hint"></div>
         <label for="pMountSafety" style="margin-top:6px">Cavo di sicurezza <small class="lbl-note">— sicurezza secondaria, obbligatoria sopra le persone</small></label>
         <select id="pMountSafety"><option value="present">Presente</option><option value="unspecified">Da verificare</option><option value="missing">Mancante</option></select>
+      </div>
+    </div>
+    <div id="pRigWrap" style="display:none"><label>Americana numerata <small class="lbl-note">— numero, altezza e peso appeso</small></label>
+      <div class="seg" id="pRigOn" role="group" aria-label="Numerazione della struttura">
+        <button type="button" class="adv-btn" data-rig="on">Numerata</button>
+        <button type="button" class="adv-btn" data-rig="off">No</button>
+      </div>
+      <div id="pRigBody" style="display:none;margin-top:7px">
+        <div class="row">
+          <span><label for="pRigN">Numero</label><input type="text" id="pRigN" maxlength="4" autocomplete="off" inputmode="text"></span>
+          <span><label for="pRigH">Altezza (trim, cm)</label><input type="number" id="pRigH" min="0" max="3000" step="10" inputmode="numeric" placeholder="es. 750"></span>
+        </div>
+        <label style="margin-top:6px">Lunghezza <small class="lbl-note">— metri</small></label>
+        <div class="seg" id="pRigLen" role="group" aria-label="Lunghezze standard"></div>
+        <div id="pRigPeso" class="prop-hint" style="margin-top:6px"></div>
+        <button type="button" class="btn" id="pRigTutte" style="margin-top:6px">Numera tutte le americane</button>
       </div>
     </div>
     <div id="pRfWrap" style="display:none"><label title="Frequenza radio e banda: finiscono nella Lista RF del rider (per il coordinamento del service)">Frequenza RF</label>
