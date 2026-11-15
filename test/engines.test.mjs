@@ -6023,6 +6023,7 @@ t("Layer v2: il cablaggio si CHIEDE (non nasce dall'inserimento) + stile cavi + 
   eq(A.cabResult(true).pending.length, 0, "«Collega» prende anche lei");
   // 2) stile cavi (28/07): diretto di default, segmentato = angoli retti. Niente più smussati.
   const pts = [[0, 0], [100, 0], [100, 80]];
+  A.state.cab.route = "dir";   /* L3: di serie il cavo è ortogonale; «diretto» è la scelta esplicita del progetto */
   eq(A.cabDrawD([[0, 0], [100, 80]], pts), "M 0.0 0.0 L 100.0 80.0", "diretto: linea dritta sui punti grezzi");
   const seg = A.cabDrawD([[0, 0], [100, 80]], pts, "orto");
   eq(seg.indexOf("Q"), -1, "segmentato: angoli retti, nessuna curva");
@@ -6129,6 +6130,7 @@ t("P.M. NON è nel layer Output (personal mixer digitali) + stili cavo per-layer
   /* 28/07: lo stile non è più della lista ma del CAVO — le liste disegnano tutte diretto, e la
      forma si decide cavo per cavo col comando «Segmenta». */
   A.state.cab.style = "curve"; A.state.cab.styleOut = "curve"; A.state.mond.style = "dir"; A.state.elec.style = "curve";
+  A.state.cab.route = "dir";   /* L3: stile «diretto» scelto dal progetto = identico a prima */
   eq(A.cabStyle(), "dir", "Ingressi: diretto, qualunque cosa dica il vecchio state");
   eq(A.cabStyleOut(), "dir", "Output: diretto");
   eq(A.mondStyle(), "dir", "P.M.: diretto");
@@ -33097,6 +33099,123 @@ t("rig: un progetto con americane numerate chiede «Opzioni complete» nell'avvi
   ok(A.funzUsateDalProgetto(A.state).indexOf("opzioni") >= 0, "con rig sì");
 });
 
+/* ───────── L2 · Stagebox automatiche ai bordi del gruppo (15/11/2026, proposta CAVI_SUL_PALCO § 4 L2) ─────────
+   Prima: ogni drop box nasceva al baricentro del gruppo, 90 cm verso il fondo (a metà palco, tra i musicisti).
+   Ora: sul bordo del gruppo servito (45-100 cm dal suo ingombro, lati e fondo), mai dentro un elemento,
+   mai negli ultimi 110 cm verso il pubblico, ≥ 70 cm da un'altra box. Le box messe dall'utente non si toccano. */
+console.log("\nL2 · stagebox automatiche ai bordi del gruppo:");
+const _l2fix = (n) => JSON.parse(readFileSync(join(root, "test/fixtures/cavi-l2", "geo_" + n + ".json"), "utf8"));
+const _l2half = (it) => { const r = (it.rot || 0) * Math.PI / 180, c = Math.abs(Math.cos(r)), s = Math.abs(Math.sin(r)), tp = A.TYPES[it.type] || {};
+  const w = +it.w || tp.w || 40, d = +it.d || tp.d || 40; return { hx: (w * c + d * s) / 2, hy: (w * s + d * c) / 2 }; };
+function _l2carica(g) {
+  reset(); A.state.stage = { w: g.W, d: g.D, blocks: [{ x: 0, y: 0, w: g.W, d: g.D }] };
+  g.items.forEach((o) => { const it = add(o.type, o.x, o.y); it.w = o.w; it.d = o.d; it.rot = o.rot || 0; if (o.label) it.label = o.label; });
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.__cabRes = null;
+}
+/* controlla le box AUTOMATICHE di R rispetto agli elementi dello stato corrente; ritorna l'elenco degli errori */
+function _l2controlla(R) {
+  const W = A.state.stage.w, D = A.state.stage.d, err = [], aut = (R.boxes || []).filter((b) => b.auto);
+  const items = A.state.items.filter((it) => A.TYPES[it.type]);
+  aut.forEach((b) => {
+    const bw = (b.w || 33) / 2, bd = (b.d || 17) / 2;
+    items.forEach((it) => { const h = _l2half(it);
+      if (Math.abs(b.x - it.x) < h.hx + bw && Math.abs(b.y - it.y) < h.hy + bd) err.push(b.letter + " dentro «" + (it.label || it.type) + "»"); });
+    if (b.y > D - 110) err.push(b.letter + " nella fascia pubblico (y=" + b.y + ")");
+    /* ingombro INTERO disegnato: box 33×17 + barra di capacità e sigla sopra (34 cm) + barra larga ≈ 70 cm (regia 15/11: la box sul fondo usciva sopra la scritta «10 m») */
+    if (b.x - 35 < 0 || b.x + 35 > W || b.y - bd - 34 < 0 || b.y + bd > D) err.push(b.letter + " con l'ingombro disegnato fuori dal palco (" + b.x + "," + b.y + ")");
+    /* distanza dal bordo del gruppo: dal rettangolo che racchiude gli elementi che la box serve */
+    const serviti = (R.links || []).filter((l) => l.box === b || (l.box && l.box.id === b.id)).map((l) => l.s.it);
+    const mine = serviti.length ? Array.from(new Set(serviti)) : [];
+    if (mine.length) {
+      const x0 = Math.min(...mine.map((it) => it.x - _l2half(it).hx)), x1 = Math.max(...mine.map((it) => it.x + _l2half(it).hx));
+      const y0 = Math.min(...mine.map((it) => it.y - _l2half(it).hy)), y1 = Math.max(...mine.map((it) => it.y + _l2half(it).hy));
+      const dx = Math.max(x0 - b.x, 0, b.x - x1), dy = Math.max(y0 - b.y, 0, b.y - y1), dist = Math.hypot(dx, dy);
+      if (dist > 100.5 && Math.min(b.x, W - b.x, b.y) > 60) err.push(b.letter + " a " + Math.round(dist) + " cm dal bordo del gruppo (>100) e non sul bordo del palco");
+    }
+    aut.forEach((o) => { if (o !== b && o.letter > b.letter && Math.hypot(o.x - b.x, o.y - b.y) < 69.5) err.push(b.letter + "/" + o.letter + " a meno di 70 cm"); });
+  });
+  return err;
+}
+["band5", "band11", "orch"].forEach((nome) => {
+  t("caso «" + nome + "»: box automatiche fuori dagli elementi, fuori dalla fascia pubblico, ≤ 100 cm dal bordo, ≥ 70 cm tra loro", () => {
+    _l2carica(_l2fix(nome)); const R = A.audioCablingEngine();
+    const aut = R.boxes.filter((b) => b.auto); ok(aut.length >= 1, "nessuna box automatica");
+    const e = _l2controlla(R); ok(e.length === 0, e.slice(0, 6).join("; "));
+  });
+});
+t("nessuna box in mezzo al palco: ogni box automatica è a ≤ 150 cm da un bordo, oppure serve una sola fila di gruppi vicini (casi band5, band11)", () => {
+  ["band5", "band11"].forEach((nome) => { _l2carica(_l2fix(nome)); const R = A.audioCablingEngine(); const W = A.state.stage.w;
+    R.boxes.filter((b) => b.auto).forEach((b) => ok(Math.min(b.x, W - b.x, b.y) <= 150, nome + ": box " + b.letter + " a " + Math.min(b.x, W - b.x, b.y) + " cm dal bordo (" + b.x + "," + b.y + ")")); });
+});
+t("accorpamento: due gruppi piccoli in cluster diversi, lontani da ogni bordo, finiscono in UNA box invece di due in mezzo al palco", () => {
+  _l2palco(1200, 800); add("astamic", 400, 400); add("astamic", 800, 400);
+  const R = A.audioCablingEngine(); const b = R.boxes.filter((x) => x.auto); eq(b.length, 1, "box");
+});
+t("numero di box = ⌈canali/8⌉ per cluster (nessuna box in più del necessario)", () => {
+  _l2carica(_l2fix("band5")); const R = A.audioCablingEngine(); const aut = R.boxes.filter((b) => b.auto);
+  const tot = R.totIn; ok(aut.length >= Math.ceil(tot / 8) && aut.length <= Math.ceil(tot / 8) + 2, aut.length + " box per " + tot + " canali");
+  /* una box può superare gli 8 solo se un singolo strumento ne porta più di 8 (batteria a 9 canali = un cavo unico, non si spezza) */
+  const grandi = new Set(A.state.items.filter((it) => A.cabItemInputs(it).length > 8).map((it) => it.id));
+  ok(aut.every((b) => b.used <= b.cap || R.links.some((l) => l.box === b && grandi.has(l.s.it.id))), "una box oltre la capacità senza uno strumento >8 canali: " + aut.map((b) => b.used + "/" + b.cap).join(" "));
+});
+t("ogni box automatica serve i gruppi per cui è stata piazzata (non quelli del vicino)", () => {
+  ["band5", "band11"].forEach((nome) => { _l2carica(_l2fix(nome)); const R = A.audioCablingEngine();
+    const fuori = R.links.filter((l) => l.box && l.box.auto && l.box.plan && !l.box.plan[l.s.it.id]);
+    ok(fuori.length === 0, nome + ": " + fuori.length + " canali su una box che non è la loro (es. " + (fuori[0] && (fuori[0].s.it.label || fuori[0].s.it.type)) + ")"); });
+});
+t("deterministico: due calcoli di fila danno le stesse posizioni", () => {
+  _l2carica(_l2fix("band11")); const a = A.audioCablingEngine().boxes.map((b) => b.x + "," + b.y).join(" ");
+  A.__cabRes = null; const b2 = A.audioCablingEngine().boxes.map((b) => b.x + "," + b.y).join(" "); eq(a, b2);
+});
+t("box messa a mano dall'utente: non si sposta e le automatiche non nascono", () => {
+  _l2carica(_l2fix("band5")); const sb = add("stagebox", 650, 300); const x0 = sb.x, y0 = sb.y;
+  A.__cabRes = null; const R = A.audioCablingEngine();
+  ok(R.boxes.every((b) => !b.auto), "con una box vera non devono nascere box automatiche");
+  eq([sb.x, sb.y], [x0, y0], "la box dell'utente si è mossa");
+});
+function _l2palco(w, d, blocchi) { reset(); A.state.stage = { w, d, blocks: blocchi || [{ x: 0, y: 0, w, d }] }; A.state.cab.on = true; A.state.cab.mode = "auto"; A.__cabRes = null; }
+t("gruppo davanti, vicino al pubblico: la box non entra negli ultimi 110 cm (box automatica)", () => {
+  _l2palco(800, 600); add("astamic", 400, 560); const R = A.audioCablingEngine(); const b = R.boxes.filter((x) => x.auto);
+  ok(b.length === 1 && b[0].y <= 600 - 110, "box a y=" + (b[0] && b[0].y));
+});
+t("12 microfoni nello stesso punto = 2 box vicine al gruppo, ≥ 70 cm una dall'altra (box automatica)", () => {
+  _l2palco(1200, 800); for (let i = 0; i < 12; i++) add("astamic", 600 + (i % 4) * 8, 300 + Math.floor(i / 4) * 8);
+  const R = A.audioCablingEngine(); const b = R.boxes.filter((x) => x.auto);
+  ok(b.length === 2, b.length + " box invece di 2"); ok(Math.hypot(b[0].x - b[1].x, b[0].y - b[1].y) >= 69.5, "box troppo vicine");
+});
+t("gruppo circondato da una pedana: la box esce con un giro più largo, fuori da ogni elemento (box automatica)", () => {
+  _l2palco(1200, 800); const ped = add("pedana", 600, 300); ped.w = 300; ped.d = 300; add("astamic", 600, 300);
+  const R = A.audioCablingEngine(); const b = R.boxes.filter((x) => x.auto)[0];
+  ok(b && (Math.abs(b.x - 600) > 150 + 16 || Math.abs(b.y - 300) > 150 + 8), "la box è dentro la pedana: " + (b && b.x + "," + b.y));
+});
+t("senza nessuna cella libera, l'ultima spiaggia resta fuori dalla fascia pubblico (box automatica)", () => {
+  _l2palco(200, 200); const ped = add("pedana", 100, 100); ped.w = 900; ped.d = 900; add("astamic", 100, 190);
+  const b = A.audioCablingEngine().boxes.filter((x) => x.auto)[0]; ok(b && b.y <= 200 - 110, "box a y=" + (b && b.y));
+});
+t("a parità di distanza dalle sorgenti vince il lato più vicino al bordo del palco (box automatica)", () => {
+  _l2palco(1200, 800); const m = add("astamic", 600, 150); const b = A.audioCablingEngine().boxes.filter((x) => x.auto)[0];
+  ok(b && b.y < m.y, "la box doveva stare sul fondo (verso il bordo), è a " + (b && b.x + "," + b.y));
+});
+t("palco a L: la box resta dentro i blocchi, non nel vuoto accanto (box automatica)", () => {
+  const bl = [{ x: 0, y: 0, w: 1200, d: 400 }, { x: 0, y: 400, w: 800, d: 400 }];
+  _l2palco(1200, 800, bl); add("astamic", 760, 600);
+  const b = A.audioCablingEngine().boxes.filter((x) => x.auto)[0];
+  ok(b && A.state.stage.blocks.some((k) => b.x >= k.x && b.x <= k.x + k.w && b.y >= k.y && b.y <= k.y + k.d) && !(b.y > 400 && b.x > 800), "box nel vuoto: " + (b && b.x + "," + b.y));
+});
+t("collaudo: ogni progetto vero con box automatiche rispetta le stesse regole", () => {
+  let base = null; for (let d = root, i = 0; i < 8 && !base; i++, d = dirname(d)) if (existsSync(join(d, "collaudo", "progetti"))) base = join(d, "collaudo", "progetti");
+  if (!base) { console.log("      (cartella collaudo non trovata: saltato)"); return; }
+  let visti = 0; const errori = [];
+  readdirSync(base).filter((f) => /^\d+\.json$/.test(f)).sort().forEach((f) => {
+    A.loadDoc(JSON.parse(readFileSync(join(base, f), "utf8")));
+    A.VARIANTS.slice().forEach((v) => { A.switchVariant(v.id); if (!A.state.cab || A.state.cab.mode !== "auto") return;
+      A.__cabRes = null; const R = A.audioCablingEngine(); if (!R.boxes.some((b) => b.auto)) return; visti++;
+      _l2controlla(R).forEach((e) => errori.push(f + " «" + (v.name || v.id) + "»: " + e)); });
+  });
+  console.log("      (" + visti + " scene con box automatiche controllate)");
+  ok(errori.length === 0, errori.slice(0, 6).join("; "));
+});
+
 /* Segnalazione anonima 15/11/2026 «manca una immagine del coro»: il coro intero era solo nel modello «Nuovo». */
 t("ricerca «coro»: la voce «Coro» è la prima (coro intero), prima di mic, pedana e singolo corista", () => {
   reset();
@@ -33127,6 +33246,266 @@ t("«Coro» dal catalogo: con elementi già sul palco non lo svuota e non tocca 
   eq(A.state.items.filter((i) => i.type === "corista").length, 8, "8 coristi aggiunti");
   eq(A.state.stage.w, w0, "palco non allargato"); eq(A.state.stage.d, d0, "palco non allungato");
   reset();
+});
+
+/* ═══ CAVI L1 (15/11/2026): quadro e punto di alimentazione AI BORDI del palco ═══
+   Decisioni di Simone 15/11: quadro automatico sul bordo di FONDO, lato opposto all'uscita del multicore;
+   l'uscita multicore di serie è sul bordo pubblico, lato DESTRO guardando dalla platea → il quadro sta
+   a SINISTRA (x piccola). Prima: «rete» a (W/2, D+108) = nel pubblico; distro «a lato all'altezza dei carichi». */
+function cabliL1Prepara(A_) {
+  A_.state.elec.on = true; A_.state.elec.mode = "auto"; A_.state.elec.manual = {}; A_.state.elec.uplinks = {};
+  A_.state.elec.supply = { kind: "rete" };
+  A_.__elecRes = null;
+}
+function cabliL1Controlla(A_, dove) {
+  const D = A_.state.stage.d, W = A_.state.stage.w;
+  const R = A_.electricEngine();
+  const sp = R.supply;
+  ok(sp, dove + ": punto di alimentazione assente");
+  ok(sp.y >= 0 && sp.y <= D, dove + ": «rete» fuori dal palco (y=" + sp.y + ", D=" + D + ")");
+  ok(sp.y <= 90, dove + ": «rete» a " + sp.y + " cm dal bordo di fondo (max 90)");
+  ok(sp.x < W / 2, dove + ": «rete» sul lato dell'uscita multicore (x=" + sp.x + ", W=" + W + ")");
+  const auto = R.distros.filter((d) => d.auto);
+  auto.forEach((d) => {
+    ok(d.y <= D, dove + ": distro automatico nel pubblico (y=" + d.y + ")");
+    ok(d.y <= 90, dove + ": distro automatico a " + d.y + " cm dal bordo di fondo (max 90)");
+    ok(d.x >= 0 && d.x <= W, dove + ": distro automatico fuori dal palco in x");
+  });
+  return { R, auto };
+}
+t("CAVI L1: «rete» e distro automatica stanno sul bordo di fondo, lato opposto al multicore, mai nel pubblico", () => {
+  reset();
+  cabliL1Prepara(A);
+  add("testamobile", 200, 300); add("testamobile", 240, 320); add("testamobile", 900, 500); add("testamobile", 950, 520);
+  const { R, auto } = cabliL1Controlla(A, "palco 12×8");
+  ok(auto.length >= 1, "ci deve essere almeno una distro automatica");
+  eq(R.supply.kind, "rete", "il punto resta «rete»");
+  eq(R.feeds.length, auto.length, "un cavo di alimentazione per distro");
+  R.feeds.forEach((f) => ok(f.y2 <= A.state.stage.d, "il cavo di alimentazione non esce dal palco"));
+  [[600, 400], [2000, 1200], [800, 300]].forEach(([w, d]) => {
+    reset(); A.state.stage = { w, d, blocks: [{ x: 0, y: 0, w, d }] }; cabliL1Prepara(A);
+    add("testamobile", w / 4, d / 2); add("testamobile", (w * 3) / 4, d / 2);
+    cabliL1Controlla(A, "palco " + w + "×" + d);
+  });
+  reset();
+});
+t("CAVI L1: quadro e distro messi a mano non si spostano; «destra/sinistra/personalizzato» restano come scelti", () => {
+  reset(); cabliL1Prepara(A);
+  const d = add("distro32", 640, 600);
+  add("testamobile", 200, 300);
+  A.__elecRes = null; let R = A.electricEngine();
+  ok(R.distros.length === 1 && !R.distros[0].auto, "con un distro a mano nessuno automatico");
+  eq([R.distros[0].x, R.distros[0].y], [d.x, d.y], "il distro a mano resta dov'è");
+  A.state.elec.supply = { kind: "right" }; A.__elecRes = null; R = A.electricEngine();
+  eq([R.supply.x, R.supply.y], [A.state.stage.w - 30, A.state.stage.d - 40], "«Alimentazione DX» invariata");
+  A.state.elec.supply = { kind: "left" }; A.__elecRes = null; R = A.electricEngine();
+  eq([R.supply.x, R.supply.y], [30, A.state.stage.d - 40], "«Alimentazione SX» invariata");
+  A.state.elec.supply = { kind: "custom", x: 777, y: 555 }; A.__elecRes = null; R = A.electricEngine();
+  eq([R.supply.x, R.supply.y], [777, 555], "punto trascinato dall'utente invariato");
+  reset();
+});
+t("CAVI L1: più distro automatiche non si sovrappongono e restano sul bordo di fondo", () => {
+  reset(); cabliL1Prepara(A);
+  A.state.stage = { w: 2400, d: 800, blocks: [{ x: 0, y: 0, w: 2400, d: 800 }] };
+  for (let i = 0; i < 6; i++) { add("testamobile", 100 + i * 400, 400); add("testamobile", 130 + i * 400, 450); }
+  const { auto } = cabliL1Controlla(A, "palco largo");
+  ok(auto.length >= 2, "servono più distro per provarlo (" + auto.length + ")");
+  for (let i = 0; i < auto.length; i++) for (let j = i + 1; j < auto.length; j++)
+    ok(Math.abs(auto[i].x - auto[j].x) >= 100 || Math.abs(auto[i].y - auto[j].y) >= 40, "distro " + i + " e " + j + " sovrapposte");
+  reset();
+});
+t("CAVI L1: la distro automatica non finisce sopra il punto «rete» (carichi vicino al lato del quadro)", () => {
+  reset(); cabliL1Prepara(A);
+  add("testamobile", 80, 300); add("testamobile", 120, 340);
+  const { R, auto } = cabliL1Controlla(A, "carichi a sinistra");
+  ok(auto.length === 1, "una distro");
+  ok(Math.abs(auto[0].x - R.supply.x) >= 110, "distro sopra «rete»: " + auto[0].x + "," + auto[0].y + " vs " + R.supply.x + "," + R.supply.y);
+  reset();
+});
+t("CAVI L1: sui progetti del collaudo con alimentazione automatica, quadro e distro ≤ 90 cm dal bordo di fondo, mai nel pubblico", () => {
+  let base = null;
+  for (let d = root, i = 0; i < 8; i++, d = dirname(d)) { const c = join(d, "collaudo"); if (existsSync(join(c, "progetti"))) { base = c; break; } }
+  if (process.env.STAGEPLOT_COLLAUDO) base = process.env.STAGEPLOT_COLLAUDO;
+  if (!base) { console.log("      (collaudo/progetti non trovato: prova saltata, come in CI)"); return; }
+  const files = readdirSync(join(base, "progetti")).filter((f) => /^\d+\.json$/.test(f)).sort();
+  let scene = 0, conAuto = 0;
+  for (const f of files) {
+    reset();
+    A.loadDoc(JSON.parse(readFileSync(join(base, "progetti", f), "utf8")));
+    for (const v of A.VARIANTS.slice()) {
+      A.switchVariant(v.id);
+      A.state.items = A.state.items.filter((it) => !A.elecIsDistro(it) && !A.elecIsGen(it));
+      cabliL1Prepara(A);
+      if (!A.electricEngine().loads.length) continue;
+      scene++;
+      const { auto } = cabliL1Controlla(A, "collaudo " + f + " · " + (v.name || v.id));
+      if (auto.length) conAuto++;
+    }
+  }
+  ok(scene >= 20, "troppe poche scene con carichi: " + scene);
+  ok(conAuto >= 15, "troppe poche scene con distro automatica: " + conAuto);
+  reset();
+});
+
+/* ───────── L3 · Instradatore ortogonale a costo minimo (15/11/2026, proposta CAVI_SUL_PALCO § 4 L3; decisione di Simone: «ortogonale di serie, diretto come opzione») ─────────
+   I cavi sono ad angoli retti, lungo i bordi del palco, e non attraversano mai l'ingombro di un musicista o di uno strumento. Solo il multicore verso la
+   regia può uscire dal palco. Chi ha scelto «diretto» (o ha già squadrato un cavo a mano) resta com'era. */
+console.log("\nL3 · cavi ortogonali a costo minimo:");
+/* lo stato dei test precedenti non deve decidere lo stile: azzera scelta e cavi segnati a mano */
+function _l3pulisci() { delete A.state.cab.route; A.state.cab.manual = {}; A.state.elec.manual = {}; A.state.mond.manual = {}; A.__cabRes = null; A.__elecRes = null; A.__mondRes = null; }
+const _l3fix = (n) => JSON.parse(readFileSync(join(root, "test/fixtures/cavi-l2", "geo_" + n + ".json"), "utf8"));
+/* i cavi come li disegna cablingMarkup: polilinee già instradate, per ogni collegamento (con le sue esclusioni) */
+function _l3carica(g) { _l2carica(g); _l3pulisci(); }
+function _l3cavi() {
+  A.__cabRes = null;
+  const R = A.audioCablingEngine(), OBS = A.obstacleRects(), out = [];
+  R.links.forEach((l) => { if (l.deleted) return; const ex = {}; ex[l.s.it.id] = 1; if (l.box && l.box.id) ex[l.box.id] = 1;
+    const rp = A.cabRoutePts(l.pts, OBS, ex, "sig"); out.push({ kind: "sig", l, ex, murato: !!rp.murato, poly: A.orthExpand(rp) }); });
+  R.snakes.forEach((k) => { const ex = {}; if (k.box && k.box.id) ex[k.box.id] = 1;
+    const rp = A.cabRoutePts([[k.x1, k.y1], [k.x2, k.y2]], OBS, ex, "mc"); out.push({ kind: "mc", k, ex, murato: !!rp.murato, poly: A.orthExpand(rp) }); });
+  return { R, cavi: out };
+}
+/* ingombro vero (calcolato qui, indipendente dal motore): elementi con ≥ 57×57 cm, esclusi destinazioni e quelli sotto un capo del cavo */
+function _l3ingombri() {
+  const ids = new Set(A.state.items.filter((it) => A.cabIsDest(it) || A.elecIsDistro(it) || A.elecIsGen(it)).map((it) => it.id));
+  return A.state.items.filter((it) => { const t = A.TYPES[it.type]; if (!t || ids.has(it.id) || ["tappeto", "forma", "americana", "truss40", "trusstri", "trussladder"].includes(it.type)) return false;
+    const h = _l2half(it); return t.riser || h.hx * h.hy * 4 >= 3200; });
+}
+/* polilinea accorciata di `d` cm dal fondo (gli ultimi 40 cm verso una box appoggiata a un elemento possono toccarlo) */
+function _l3taglia(poly, d) { const o = poly.map((p) => p.slice()); let resto = d;
+  while (o.length > 1 && resto > 0) { const p = o[o.length - 1], q = o[o.length - 2], len = Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1]);
+    if (len <= resto) { resto -= len; o.pop(); } else { const f = (len - resto) / len; o[o.length - 1] = [q[0] + (p[0] - q[0]) * f, q[1] + (p[1] - q[1]) * f]; resto = 0; } }
+  return o; }
+function _l3attraversa(poly, ingombri, escludi, capi) {
+  const err = [], inCore = (it, c) => { const h = _l2half(it); return Math.abs(c[0] - it.x) < h.hx - 0.5 && Math.abs(c[1] - it.y) < h.hy - 0.5; };
+  ingombri.forEach((it) => { if (escludi[it.id]) return; if (inCore(it, capi[0])) return;   /* il cavo parte da sopra (pedana, tavolo) */
+    if (inCore(it, capi[1]) && A.TYPES[it.type].riser) return;                                /* la box sta su una pedana */
+    const pl = inCore(it, capi[1]) ? _l3taglia(poly, 41) : poly, h = _l2half(it);
+    for (let i = 1; i < pl.length; i++) { const p = pl[i - 1], q = pl[i];
+      const x0 = Math.min(p[0], q[0]), x1 = Math.max(p[0], q[0]), y0 = Math.min(p[1], q[1]), y1 = Math.max(p[1], q[1]);
+      if (x0 < it.x + h.hx - 0.5 && x1 > it.x - h.hx + 0.5 && y0 < it.y + h.hy - 0.5 && y1 > it.y - h.hy + 0.5) { err.push("«" + (it.label || it.type) + "»"); break; } } });
+  return err;
+}
+const _l3casi = ["band5", "band11", "conferenza", "orch"];
+_l3casi.forEach((nome) => {
+  t("L3 «" + nome + "»: cavi tutti orizzontali/verticali, nessuno attraversa un musicista o uno strumento, nessuno fuori dal palco (salvo il multicore)", () => {
+    _l3carica(_l3fix(nome)); const { cavi } = _l3cavi(); const W = A.state.stage.w, D = A.state.stage.d, ing = _l3ingombri();
+    ok(cavi.length >= 1, "nessun cavo da controllare");
+    const err = [];
+    cavi.forEach((c) => { const nm = c.kind === "sig" ? (c.l.s.it.label || c.l.s.it.type) : "multicore";
+      for (let i = 1; i < c.poly.length; i++) if (c.poly[i][0] !== c.poly[i - 1][0] && c.poly[i][1] !== c.poly[i - 1][1]) err.push(nm + ": tratto diagonale");
+      const esc = Object.assign({}, c.ex), capi = [c.poly[0], c.poly[c.poly.length - 1]];
+      if (!c.murato) _l3attraversa(c.poly, ing, esc, capi).forEach((x) => err.push(nm + " attraversa " + x));
+      if (c.kind === "sig") c.poly.forEach((p) => { if (p[0] < -0.5 || p[0] > W + 0.5 || p[1] < -0.5 || p[1] > D + 0.5) err.push(nm + " esce dal palco (" + p + ")"); }); });
+    ok(err.length === 0, err.length + " problemi: " + err.slice(0, 5).join("; "));
+    /* «murato» = l'elemento è circondato da altri (coro fitto): un percorso libero non esiste e si attraversa il minimo; nei casi normali non deve succedere */
+    const murati = cavi.filter((c) => c.murato).length; if (nome !== "orch") ok(murati === 0, murati + " cavi murati"); else { console.log("      (orchestra: " + murati + " cavi murati su " + cavi.length + ", tutti nel coro fitto)"); ok(murati <= cavi.length * 0.15, murati + " cavi murati"); }
+  });
+});
+t("L3: lunghezza instradata ≥ Manhattan e ≤ 2× (+1 m) sui quattro casi; due calcoli di fila identici", () => {
+  _l3casi.forEach((nome) => { _l3carica(_l3fix(nome)); const a = _l3cavi().cavi, b = _l3cavi().cavi;
+    a.forEach((c, i) => { if (c.kind !== "sig" || c.murato) return; const pts = c.l.pts, man = A.orthLen(pts), len = A.orthLen(c.poly);
+      ok(len >= man - 0.5, nome + ": instradato più corto di Manhattan"); ok(len <= 2 * man + 100, nome + ": " + (c.l.s.it.label || "") + " " + Math.round(len) + " cm contro Manhattan " + Math.round(man));
+      eq(JSON.stringify(c.poly), JSON.stringify(b[i].poly), nome + ": deterministico"); }); });
+});
+t("L3: i cavi correnti (potenza) sono ortogonali e restano dentro il palco", () => {
+  _l3carica(_l3fix("band11")); A.state.elec.on = true; A.state.elec.mode = "auto"; A.__elecRes = null;
+  const E = A.elecResult(), OBS = A.obstacleRects(), ing = _l3ingombri(); let n = 0;
+  (E.loadLinks || []).concat(E.uplinks || []).forEach((l) => { const ex = {}; [l.load, l.distro, l.from, l.to].forEach((x) => { if (x && x.it) ex[x.it.id] = 1; });
+    const poly = A.orthExpand(A.cabRoutePts(l.pts, OBS, ex, "pwr")); n++;
+    for (let i = 1; i < poly.length; i++) ok(poly[i][0] === poly[i - 1][0] || poly[i][1] === poly[i - 1][1], "tratto diagonale");
+    ok(_l3attraversa(poly, ing, ex, [poly[0], poly[poly.length - 1]]).length === 0, "attraversa un elemento");
+    poly.forEach((p) => ok(p[0] >= -0.5 && p[0] <= A.state.stage.w + 0.5 && p[1] >= -0.5 && p[1] <= A.state.stage.d + 0.5, "fuori dal palco")); });
+  ok(n >= 1, "nessun cavo di potenza (" + n + ")");
+});
+t("L3: «diretto» scelto = identico a prima (nessun instradamento, linea retta, punti grezzi)", () => {
+  _l3carica(_l3fix("band11")); A.state.cab.route = "dir";
+  eq(A.cabRouteMode(), "dir"); eq(A.cabStyle(), "dir"); eq(A.cabStyleFor("qualsiasi"), "dir"); eq(A.elecStyleFor("e"), "dir"); eq(A.mondStyleFor("m"), "dir");
+  const pts = [[10, 10], [200, 90]]; ok(A.cabRoutePts(pts, A.obstacleRects(), {}) === pts, "stessi punti, senza instradare");
+  eq(A.cabDrawD(pts, pts, A.cabStyleFor("x")), "M 10.0 10.0 L 200.0 90.0", "linea dritta");
+  A.state.cab.manual = { k1: { seg: 1 } }; eq(A.cabStyleFor("k1"), "orto", "il cavo segmentato a mano resta squadrato"); eq(A.cabStyleFor("k2"), "dir");
+});
+t("L3: stile predefinito = ortogonale per i progetti nuovi e per quelli senza scelta; segnati a mano o «diretto» scelto restano com'erano", () => {
+  reset(); _l3pulisci(); eq(A.cabRouteMode(), "orto", "progetto nuovo"); eq(A.cabStyleFor("x"), "orto"); eq(A.elecStyleFor("x"), "orto"); eq(A.mondStyleFor("x"), "orto"); eq(A.cabStyle(), "orto");
+  A.state.cab.manual = { k1: { seg: 1 } }; eq(A.cabRouteMode(), "dir", "c'è già un cavo segmentato a mano e nessuna scelta → resta com'era");
+  eq(A.cabStyleFor("k2"), "dir", "gli altri cavi di quel progetto restano diretti"); A.state.cab.route = "orto"; eq(A.cabRouteMode(), "orto", "la scelta esplicita vince");
+  reset(); _l3pulisci(); A.state.elec.manual = { e1: { seg: 1 } }; eq(A.cabRouteMode(), "dir", "anche un cavo di corrente segmentato conta"); reset(); _l3pulisci(); A.state.mond.manual = { m1: { seg: 1 } }; eq(A.cabRouteMode(), "dir", "e un P.M.");
+  /* la scelta sopravvive a salvataggio e ricaricamento; un valore strano è ignorato */
+  reset(); _l3pulisci(); A.state.cab.route = "dir"; let ns = A.normalizeState(A.state); eq(ns.cab.route, "dir", "dir preservato"); A.state.cab.route = "orto"; ns = A.normalizeState(A.state); eq(ns.cab.route, "orto", "orto preservato");
+  A.state.cab.route = "spazzatura"; ns = A.normalizeState(A.state); eq(ns.cab.route, undefined, "valore non valido → nessuna scelta"); eq(JSON.stringify(ns.cab).indexOf("route"), -1, "e non finisce nel file");
+  reset(); _l3pulisci(); A.cabSetRoute("dir"); eq(A.state.cab.route, "dir", "l'interruttore scrive la scelta"); eq(A.cabRouteMode(), "dir"); A.cabSetRoute("orto"); eq(A.state.cab.route, "orto");
+});
+t("L3: in «come sul palco» «Segmenta» non cambia nulla (non c'è niente da squadrare)", () => {
+  reset(); _l3pulisci(); A.state.cab.manual = { k1: {} }; eq(A.cabSegToggle("cab", "k1"), false); ok(!A.state.cab.manual.k1.seg, "nessun segno lasciato");
+  A.state.cab.route = "dir"; eq(A.cabSegToggle("cab", "k1"), true, "in «diretto» funziona come prima"); ok(A.state.cab.manual.k1.seg);
+});
+t("L3: l'instradatore aggira un ostacolo, tiene i bordi, rispetta la penalità di curva e la fascia pubblico", () => {
+  reset(); _l3pulisci(); A.state.stage = { w: 800, d: 600, blocks: [{ x: 0, y: 0, w: 800, d: 600 }] };
+  const rr = (x, y, w, d) => ({ id: "o", x0: x - w / 2 - 16, y0: y - d / 2 - 16, x1: x + w / 2 + 16, y1: y + d / 2 + 16, hx0: x - w / 2 - 6, hy0: y - d / 2 - 6, hx1: x + w / 2 + 6, hy1: y + d / 2 + 6 });
+  const muro = [rr(400, 300, 100, 300)], p = A.orthRoute([300, 300], [500, 300], muro, "sig");
+  ok(p.length >= 4, "deve girare attorno"); for (let i = 1; i < p.length; i++) ok(p[i][0] === p[i - 1][0] || p[i][1] === p[i - 1][1], "ortogonale");
+  eq(A.orthRoute([100, 100], [100, 300], [], "sig").length, 2, "stessa colonna senza ostacoli: una retta");
+  const l = A.orthRoute([100, 100], [500, 300], [], "sig"); ok(l.length <= 4, "pochi gomiti: " + l.length);   /* penalità di curva */
+  /* corsia di bordo: due punti sulla stessa fila, nel mezzo del palco, a 45 cm dai lati: il cavo non taglia in mezzo, fa il giro lungo i bordi */
+  const giro = A.orthRoute([45, 300], [755, 300], [], "sig"); ok(giro.length >= 4 && giro.every((q) => Math.min(q[0], 800 - q[0], q[1], 600 - q[1]) <= 60) && Math.min(...giro.map((q) => q[1])) <= 60, "il cavo corre lungo il bordo: " + JSON.stringify(giro));
+  /* percorso fatto a mano: un tratto già dritto e libero non si sposta */
+    const s = A.orthRoute([50, 250], [750, 250], [], "sig"), w = A.orthRoute([50, 250], [750, 250], [], "pwr");
+  ok(s.every((q) => q[1] >= 0 && q[1] <= 600), "dentro il palco");
+  ok(w.length >= 2, "la potenza ha un percorso");
+});
+t("L3: pochi gomiti (penalità di curva): nessun cavo dei quattro casi ha più di 6 tratti, e nel complesso ≤ 3 in media", () => {
+  let tot = 0, n = 0, max = 0;
+  _l3casi.forEach((nome) => { _l3carica(_l3fix(nome)); _l3cavi().cavi.forEach((c) => { if (c.kind !== "sig" || c.murato) return; const seg = c.poly.length - 1; tot += seg; n++; max = Math.max(max, seg); }); });
+  if (process.env.L3DBG) console.log("      gomiti: media " + (tot / n).toFixed(2) + " max " + max);
+  ok(max <= 6, "un cavo con " + max + " tratti"); ok(tot / n <= 3, "media " + (tot / n).toFixed(2));
+});
+t("L3: fascia pubblico: un cavo lungo la fila davanti esce dagli ultimi 90 cm verso il pubblico", () => {
+  _l3pulisci(); reset(); A.state.stage = { w: 800, d: 600, blocks: [{ x: 0, y: 0, w: 800, d: 600 }] };
+  const q = A.orthRoute([100, 530], [700, 530], [], "sig"); if (process.env.L3DBG) console.log("      pubblico:", JSON.stringify(q));
+  ok(q.slice(1, -1).every((p) => p[1] <= 510.5), "il cavo corre nella fascia pubblico: " + JSON.stringify(q));
+});
+t("L3: un cavo di segnale non esce dal palco nemmeno per aggirare un muro (attraversa, e si segna «murato»); il multicore può uscire", () => {
+  _l3pulisci(); reset(); A.state.stage = { w: 800, d: 600, blocks: [{ x: 0, y: 0, w: 800, d: 600 }] };
+  const muro = { id: "m", x0: -40, y0: 254, x1: 840, y1: 346, hx0: -34, hy0: 260, hx1: 834, hy1: 340, cx0: -40, cy0: 266, cx1: 840, cy1: 334 };
+  const sig = A.orthRoute([400, 150], [400, 450], [muro], "sig"); ok(sig.murato === true, "murato");
+  ok(sig.every((p) => p[0] >= 0 && p[0] <= 800 && p[1] >= 0 && p[1] <= 600), "resta nel palco: " + JSON.stringify(sig));
+  const mc = A.orthRoute([400, 150], [400, 450], [muro], "mc"); ok(!mc.murato, "il multicore gira fuori dal palco: " + JSON.stringify(mc));
+});
+t("L3: cache: stessi punti con ingombri diversi o con capi esclusi danno percorsi diversi; con la stessa scena, lo stesso", () => {
+  _l3pulisci(); reset(); A.state.stage = { w: 800, d: 600, blocks: [{ x: 0, y: 0, w: 800, d: 600 }] };
+  const rr = (id, x, y, w, d) => ({ id, x0: x - w / 2 - 16, y0: y - d / 2 - 16, x1: x + w / 2 + 16, y1: y + d / 2 + 16, hx0: x - w / 2 - 6, hy0: y - d / 2 - 6, hx1: x + w / 2 + 6, hy1: y + d / 2 + 6, cx0: x - w / 2, cy0: y - d / 2, cx1: x + w / 2, cy1: y + d / 2 });
+  const pts = [[300, 300], [500, 300]], muro = [rr("o", 400, 300, 100, 300)], lontano = [rr("z", 100, 500, 60, 60)];
+  const a = A.cabRoutePts(pts, muro, {}, "sig"); ok(a.length >= 4, "aggira il muro");
+  const b = A.cabRoutePts(pts, muro, { o: 1 }, "sig"); eq(b.length, 2, "con l'ostacolo escluso (è un capo) il cavo va dritto");
+  const c = A.cabRoutePts(pts, lontano, {}, "sig"); eq(c.length, 2, "con un ingombro diverso non resta il vecchio percorso");
+  eq(JSON.stringify(A.cabRoutePts(pts, muro, {}, "sig")), JSON.stringify(a), "stessa scena, stesso percorso");
+  /* percorso fatto a mano (3 punti): un tratto già dritto e libero resta com'è; un cavo a due punti si instrada */
+  const man = [[45, 300], [755, 300], [755, 500]], r2 = A.cabRoutePts(man, lontano, {}, "sig"); eq(JSON.stringify(r2), JSON.stringify(man), "tratti a mano dritti e liberi: invariati");
+  ok(A.cabRoutePts([[45, 300], [755, 300]], lontano, {}, "sig").length > 2, "due soli punti: si instrada (corsia di bordo)");
+});
+t("L3: potenza e segnale hanno corsie diverse (potenza a 18 cm dal bordo, segnale a 45)", () => {
+  _l3pulisci(); reset(); A.state.stage = { w: 800, d: 600, blocks: [{ x: 0, y: 0, w: 800, d: 600 }] };
+  const camp = (q) => { const o = []; for (let i = 1; i < q.length; i++) for (let k = 0; k <= 20; k++) o.push([q[i - 1][0] + (q[i][0] - q[i - 1][0]) * k / 20, q[i - 1][1] + (q[i][1] - q[i - 1][1]) * k / 20]); return o; };
+  const sg = A.orthRoute([45, 300], [755, 300], [], "sig"), pw = A.orthRoute([18, 300], [782, 300], [], "pwr"), bd = (q) => Math.min(q[0], 800 - q[0], q[1], 600 - q[1]);
+  if (process.env.L3DBG) console.log("      corsie sig", JSON.stringify(sg), "pwr", JSON.stringify(pw));
+  ok(camp(pw).every((q) => bd(q) <= 26), "potenza sulla corsia a 18 cm: " + JSON.stringify(pw)); ok(camp(sg).some((q) => bd(q) >= 37 && bd(q) <= 53), "segnale sulla corsia a 45 cm");
+  ok(!camp(sg).some((q) => bd(q) < 30), "il segnale non sta sulla corsia della potenza");
+});
+t("L3: il multicore disegnato segue il percorso «mc» (corsia del multicore)", () => {
+  _l3carica(_l3fix("band11")); A.state.cab.on = true; A.state.cab.visible = true; A.state.cab.home = { kind: "foh", x: 0, y: 0 }; A.__cabRes = null;
+  const R = A.audioCablingEngine(), OBS = A.obstacleRects(); ok(R.snakes.length >= 1, "serve almeno un multicore: " + R.snakes.length);
+  let svg = ""; try { svg = A.cablingMarkup(); } catch (e) { svg = ""; }
+  if (!svg) { console.log("      (cablingMarkup non disponibile nel sandbox: controllo solo i percorsi)"); return; }
+  const ds = (svg.match(/class="cab-snake" d="([^"]*)"/g) || []).map((m) => m.replace(/.*d="/, "").replace(/"$/, ""));
+  R.snakes.forEach((k) => { const ex = {}; if (k.box && k.box.id) ex[k.box.id] = 1; const att = A.cabDrawD([[k.x1, k.y1], [k.x2, k.y2]], A.cabRoutePts([[k.x1, k.y1], [k.x2, k.y2]], OBS, ex, "mc"));
+    ok(ds.indexOf(att) >= 0, "il multicore disegnato non segue il percorso «mc»: " + att + " in " + JSON.stringify(ds)); });
+});
+t("L3: tempo di calcolo sotto budget sull'orchestra da 58 (a freddo e con la cache)", () => {
+  _l3carica(_l3fix("orch")); const R = A.audioCablingEngine(); let OBS = A.obstacleRects();
+  const lavora = () => { R.links.forEach((l) => { const ex = {}; ex[l.s.it.id] = 1; if (l.box && l.box.id) ex[l.box.id] = 1; A.cabRoutePts(l.pts, OBS, ex, "sig"); }); };
+  const t0 = Date.now(); lavora(); const freddo = Date.now() - t0; const t1 = Date.now(); lavora(); const caldo = Date.now() - t1;
+  console.log("      (orchestra: " + R.links.length + " cavi · a freddo " + freddo + " ms · in cache " + caldo + " ms)");
+  ok(freddo <= 1000 + 30 * R.links.length, "a freddo " + freddo + " ms per " + R.links.length + " cavi"); ok(caldo <= 100, "in cache " + caldo + " ms");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
