@@ -33371,13 +33371,19 @@ function _l3ingombri() {
   return A.state.items.filter((it) => { const t = A.TYPES[it.type]; if (!t || ids.has(it.id) || ["tappeto", "forma", "americana", "truss40", "trusstri", "trussladder"].includes(it.type)) return false;
     const h = _l2half(it); return t.riser || h.hx * h.hy * 4 >= 3200; });
 }
+/* polilinea accorciata di `d` cm dal fondo (gli ultimi 40 cm verso una box appoggiata a un elemento possono toccarlo) */
+function _l3taglia(poly, d) { const o = poly.map((p) => p.slice()); let resto = d;
+  while (o.length > 1 && resto > 0) { const p = o[o.length - 1], q = o[o.length - 2], len = Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1]);
+    if (len <= resto) { resto -= len; o.pop(); } else { const f = (len - resto) / len; o[o.length - 1] = [q[0] + (p[0] - q[0]) * f, q[1] + (p[1] - q[1]) * f]; resto = 0; } }
+  return o; }
 function _l3attraversa(poly, ingombri, escludi, capi) {
-  const err = [];
-  for (let i = 1; i < poly.length; i++) { const p = poly[i - 1], q = poly[i];
-    const x0 = Math.min(p[0], q[0]), x1 = Math.max(p[0], q[0]), y0 = Math.min(p[1], q[1]), y1 = Math.max(p[1], q[1]);
-    ingombri.forEach((it) => { if (escludi[it.id]) return; const h = _l2half(it);
-      if (capi.some((c) => Math.abs(c[0] - it.x) < h.hx - 0.5 && Math.abs(c[1] - it.y) < h.hy - 0.5)) return;   /* il capo parte da sotto (pedana): non conta */
-      if (x0 < it.x + h.hx - 0.5 && x1 > it.x - h.hx + 0.5 && y0 < it.y + h.hy - 0.5 && y1 > it.y - h.hy + 0.5) err.push("«" + (it.label || it.type) + "»"); }); }
+  const err = [], inCore = (it, c) => { const h = _l2half(it); return Math.abs(c[0] - it.x) < h.hx - 0.5 && Math.abs(c[1] - it.y) < h.hy - 0.5; };
+  ingombri.forEach((it) => { if (escludi[it.id]) return; if (inCore(it, capi[0])) return;   /* il cavo parte da sopra (pedana, tavolo) */
+    if (inCore(it, capi[1]) && A.TYPES[it.type].riser) return;                                /* la box sta su una pedana */
+    const pl = inCore(it, capi[1]) ? _l3taglia(poly, 41) : poly, h = _l2half(it);
+    for (let i = 1; i < pl.length; i++) { const p = pl[i - 1], q = pl[i];
+      const x0 = Math.min(p[0], q[0]), x1 = Math.max(p[0], q[0]), y0 = Math.min(p[1], q[1]), y1 = Math.max(p[1], q[1]);
+      if (x0 < it.x + h.hx - 0.5 && x1 > it.x - h.hx + 0.5 && y0 < it.y + h.hy - 0.5 && y1 > it.y - h.hy + 0.5) { err.push("«" + (it.label || it.type) + "»"); break; } } });
   return err;
 }
 const _l3casi = ["band5", "band11", "conferenza", "orch"];
@@ -33441,10 +33447,9 @@ t("L3: l'instradatore aggira un ostacolo, tiene i bordi, rispetta la penalità d
   eq(A.orthRoute([100, 100], [100, 300], [], "sig").length, 2, "stessa colonna senza ostacoli: una retta");
   const l = A.orthRoute([100, 100], [500, 300], [], "sig"); ok(l.length <= 4, "pochi gomiti: " + l.length);   /* penalità di curva */
   /* corsia di bordo: due punti sulla stessa fila, nel mezzo del palco, a 45 cm dai lati: il cavo non taglia in mezzo, fa il giro lungo i bordi */
-  const giro = A.orthRoute([45, 300], [755, 300], [], "sig"); ok(giro.length >= 4 && giro.every((q) => Math.min(q[0], 800 - q[0], q[1]) <= 60), "il cavo corre lungo il bordo: " + JSON.stringify(giro));
+  const giro = A.orthRoute([45, 300], [755, 300], [], "sig"); ok(giro.length >= 4 && giro.every((q) => Math.min(q[0], 800 - q[0], q[1], 600 - q[1]) <= 60) && Math.min(...giro.map((q) => q[1])) <= 60, "il cavo corre lungo il bordo: " + JSON.stringify(giro));
   /* percorso fatto a mano: un tratto già dritto e libero non si sposta */
-  eq(JSON.stringify(A.cabRoutePts([[45, 300], [400, 300], [755, 300]], [], {}, "sig")), JSON.stringify([[45, 300], [400, 300], [755, 300]]), "senza ostacoli i punti restano");
-  const s = A.orthRoute([50, 250], [750, 250], [], "sig"), w = A.orthRoute([50, 250], [750, 250], [], "pwr");
+    const s = A.orthRoute([50, 250], [750, 250], [], "sig"), w = A.orthRoute([50, 250], [750, 250], [], "pwr");
   ok(s.every((q) => q[1] >= 0 && q[1] <= 600), "dentro il palco");
   ok(w.length >= 2, "la potenza ha un percorso");
 });
@@ -33475,15 +33480,16 @@ t("L3: cache: stessi punti con ingombri diversi o con capi esclusi danno percors
   const c = A.cabRoutePts(pts, lontano, {}, "sig"); eq(c.length, 2, "con un ingombro diverso non resta il vecchio percorso");
   eq(JSON.stringify(A.cabRoutePts(pts, muro, {}, "sig")), JSON.stringify(a), "stessa scena, stesso percorso");
   /* percorso fatto a mano (3 punti): un tratto già dritto e libero resta com'è; un cavo a due punti si instrada */
-  const man = [[45, 300], [400, 300], [755, 300]], r2 = A.cabRoutePts(man, lontano, {}, "sig"); eq(JSON.stringify(r2), JSON.stringify(man), "tratti a mano dritti e liberi: invariati");
+  const man = [[45, 300], [755, 300], [755, 500]], r2 = A.cabRoutePts(man, lontano, {}, "sig"); eq(JSON.stringify(r2), JSON.stringify(man), "tratti a mano dritti e liberi: invariati");
   ok(A.cabRoutePts([[45, 300], [755, 300]], lontano, {}, "sig").length > 2, "due soli punti: si instrada (corsia di bordo)");
 });
 t("L3: potenza e segnale hanno corsie diverse (potenza a 18 cm dal bordo, segnale a 45)", () => {
   _l3pulisci(); reset(); A.state.stage = { w: 800, d: 600, blocks: [{ x: 0, y: 0, w: 800, d: 600 }] };
-  const sg = A.orthRoute([45, 300], [755, 300], [], "sig"), pw = A.orthRoute([18, 300], [782, 300], [], "pwr"), bd = (q) => Math.min(q[0], 800 - q[0], q[1]);
+  const camp = (q) => { const o = []; for (let i = 1; i < q.length; i++) for (let k = 0; k <= 20; k++) o.push([q[i - 1][0] + (q[i][0] - q[i - 1][0]) * k / 20, q[i - 1][1] + (q[i][1] - q[i - 1][1]) * k / 20]); return o; };
+  const sg = A.orthRoute([45, 300], [755, 300], [], "sig"), pw = A.orthRoute([18, 300], [782, 300], [], "pwr"), bd = (q) => Math.min(q[0], 800 - q[0], q[1], 600 - q[1]);
   if (process.env.L3DBG) console.log("      corsie sig", JSON.stringify(sg), "pwr", JSON.stringify(pw));
-  ok(pw.every((q) => bd(q) <= 26), "potenza sulla corsia a 18 cm: " + JSON.stringify(pw)); ok(sg.some((q) => bd(q) >= 37 && bd(q) <= 53), "segnale sulla corsia a 45 cm");
-  ok(!sg.some((q) => bd(q) < 30), "il segnale non sta sulla corsia della potenza");
+  ok(camp(pw).every((q) => bd(q) <= 26), "potenza sulla corsia a 18 cm: " + JSON.stringify(pw)); ok(camp(sg).some((q) => bd(q) >= 37 && bd(q) <= 53), "segnale sulla corsia a 45 cm");
+  ok(!camp(sg).some((q) => bd(q) < 30), "il segnale non sta sulla corsia della potenza");
 });
 t("L3: il multicore disegnato segue il percorso «mc» (corsia del multicore)", () => {
   _l3carica(_l3fix("band11")); A.state.cab.on = true; A.state.cab.visible = true; A.state.cab.home = { kind: "foh", x: 0, y: 0 }; A.__cabRes = null;

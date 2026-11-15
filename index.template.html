@@ -16693,7 +16693,7 @@ function obstacleRects(){
     if(cabIsDest(it)||elecIsDistro(it)||elecIsGen(it)) return;   /* box/mixer-destinazione/distro/generatore = nodi, non ostacoli */
     var hh=cabItemHalf(it);
     if(!t.riser && hh.hx*hh.hy*4<1200) return;
-    rects.push({id:it.id, x0:it.x-hh.hx-M, y0:it.y-hh.hy-M, x1:it.x+hh.hx+M, y1:it.y+hh.hy+M, hx0:it.x-hh.hx-H, hy0:it.y-hh.hy-H, hx1:it.x+hh.hx+H, hy1:it.y+hh.hy+H, cx0:it.x-hh.hx, cy0:it.y-hh.hy, cx1:it.x+hh.hx, cy1:it.y+hh.hy});
+    rects.push({id:it.id, x0:it.x-hh.hx-M, y0:it.y-hh.hy-M, x1:it.x+hh.hx+M, y1:it.y+hh.hy+M, hx0:it.x-hh.hx-H, hy0:it.y-hh.hy-H, hx1:it.x+hh.hx+H, hy1:it.y+hh.hy+H, riser:!!t.riser, cx0:it.x-hh.hx, cy0:it.y-hh.hy, cx1:it.x+hh.hx, cy1:it.y+hh.hy});
   });
   return rects;
 }
@@ -16706,7 +16706,7 @@ function _uniqNums(arr){ arr.sort(function(a,b){return a-b;}); var o=[]; for(var
    po' di più. Costi: corsia di bordo 0,5 (segnale a 45 cm dal bordo, potenza a 18), entro 1,2 m dal bordo 0,8, interno più caro (segnale
    +0,35, multicore +1,2, potenza +2,6), ultimi 90 cm verso il pubblico +0,8 (non il multicore). Fuori dal palco solo il multicore.
    Risultato in cache (chiave = capi + ingombri + palco), deterministico. Il percorso a mano (waypoint) resta: si instrada tratto per tratto. */
-var ORTH_MURATO=60, ORTH_STEP=20, ORTH_TURN=2.5, ORTH_WIN=260, ORTH_HARD=6, ORTH_MAXNODES=9000, ORTH_EX={sig:0.35, ret:0.35, mc:1.2, pwr:2.6};
+var ORTH_ESC=40, ORTH_MURATO=60, ORTH_STEP=20, ORTH_TURN=2.5, ORTH_WIN=260, ORTH_HARD=6, ORTH_MAXNODES=9000, ORTH_EX={sig:0.35, ret:0.35, mc:1.2, pwr:2.6};
 var _orthCache={sig:"", m:Object.create(null), n:0};
 function orthStageSig(){ var st=state.stage||{}, bl=stageBlocks(); return st.w+"x"+st.d+":"+bl.map(function(b){ return b.x+","+b.y+","+b.w+","+b.d; }).join(";"); }
 function orthStageEdge(bl,x,y){   /* distanza dal bordo del palco; -1 = fuori dal palco */
@@ -16714,19 +16714,22 @@ function orthStageEdge(bl,x,y){   /* distanza dal bordo del palco; -1 = fuori da
     if(x>=b.x-0.01 && x<=b.x+b.w+0.01 && y>=b.y-0.01 && y<=b.y+b.d+0.01){ var d=Math.min(x-b.x, b.x+b.w-x, y-b.y, b.y+b.d-y); if(d>e) e=d; } }
   return e; }
 function _orthLines(vals){ vals.sort(function(a,b){ return a-b; }); var o=[]; for(var i=0;i<vals.length;i++){ if(!o.length || vals[i]-o[o.length-1]>0.5) o.push(vals[i]); } return o; }
-function _orthHardHit(x,y,rs){ for(var i=0;i<rs.length;i++){ var r=rs[i]; if(x>r.hx0+0.01 && x<r.hx1-0.01 && y>r.hy0+0.01 && y<r.hy1-0.01) return true; } return false; }
+function _orthHardHit(x,y,rs){ for(var i=0;i<rs.length;i++){ var r=rs[i]; if(x>r.hx0+0.01 && x<r.hx1-0.01 && y>r.hy0+0.01 && y<r.hy1-0.01){ if(r.esc && x>=r.esc[0] && x<=r.esc[2] && y>=r.esc[1] && y<=r.esc[3]) continue; return true; } } return false; }
 function _orthSegFree(p,q,rs){   /* segmento orizzontale/verticale che non entra in nessun ingombro */
   var x0=Math.min(p[0],q[0]), x1=Math.max(p[0],q[0]), y0=Math.min(p[1],q[1]), y1=Math.max(p[1],q[1]);
-  for(var i=0;i<rs.length;i++){ var r=rs[i]; if(x0<r.hx1-0.01 && x1>r.hx0+0.01 && y0<r.hy1-0.01 && y1>r.hy0+0.01) return false; }
+  for(var i=0;i<rs.length;i++){ var r=rs[i]; if(x0<r.hx1-0.01 && x1>r.hx0+0.01 && y0<r.hy1-0.01 && y1>r.hy0+0.01){ if(r.esc && x0>=r.esc[0]-0.01 && x1<=r.esc[2]+0.01 && y0>=r.esc[1]-0.01 && y1<=r.esc[3]+0.01) continue; return false; } }
   return true; }
 /* ingombri validi per un cavo a→b: se un capo sta DENTRO l'elemento (pedana, elemento sotto il capo) quell'ingombro non blocca; se sta solo nella fascia
    di 6 cm intorno (box appoggiata a un musicista) l'ingombro si riduce al suo rettangolo vero: non si taglia mai l'elemento */
 function orthRects(a,b,rects){
   var out=[]; (rects||[]).forEach(function(r){
     var core=function(p){ return p[0]>r.cx0 && p[0]<r.cx1 && p[1]>r.cy0 && p[1]<r.cy1; };
-    if(core(a)||core(b)) return;
+    if(core(a)) return;                                   /* il cavo parte da sopra (pedana, tavolo): quell'ingombro non lo blocca */
     var hard=function(p){ return p[0]>r.hx0 && p[0]<r.hx1 && p[1]>r.hy0 && p[1]<r.hy1; };
-    if(hard(a)||hard(b)){ var q={}; for(var k in r) q[k]=r[k]; q.hx0=r.cx0; q.hy0=r.cy0; q.hx1=r.cx1; q.hy1=r.cy1; out.push(q); }
+    if(core(b) && r.riser) return;                       /* la box sta su una pedana */
+    if(core(b)||hard(a)||hard(b)){ var q={}; for(var k in r) q[k]=r[k]; q.hx0=r.cx0; q.hy0=r.cy0; q.hx1=r.cx1; q.hy1=r.cy1;
+      if(core(b)) q.esc=[b[0]-ORTH_ESC,b[1]-ORTH_ESC,b[0]+ORTH_ESC,b[1]+ORTH_ESC];   /* box nell'ingombro (angolo di un elemento ruotato, box appoggiata): ci si entra e si esce solo a 40 cm dal capo */
+      out.push(q); }
     else out.push(r); });
   return out; }
 function _astarOrth(a,b,rects,kind){
