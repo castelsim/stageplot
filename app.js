@@ -21846,6 +21846,13 @@ function ricordaRecenteCatalogo(k, nome, over){
                 kw:"variante varianti scena scene versione alternativa seconda formazione"});
   entries.push({nome:"Importa organico", dim:"da una riga o da Excel, con anteprima", noQuick:true, iconHtml:LISTA_ICON, action:function(){ orgImportApri(); },
                 kw:"importa importare incolla organico orchestra formazione foglio convocazione csv excel archi formula sezioni"});   /* G1 fase 2 (13/11): fuori dal menu File, che resta essenziale */
+  /* CORO DAL CATALOGO (15/11/2026, segnalazione anonima «manca una immagine del coro»): cercando «coro» uscivano
+     un microfono, una pedana liscia e il singolo corista, mentre il coro INTERO (file per sezione, gradoni,
+     microfoni d'insieme, podio) esisteva solo nel modello «Coro» della finestra Nuovo. Ora si trova dalla
+     ricerca e si posa sul palco aperto, con le figure di sempre (nessuna icona nuova). */
+  entries.push({nome:"Coro", dim:"quante voci per sezione, su gradoni, con pianoforte", noQuick:true, iconHtml:miniSvg("corista", {donna:true}),
+                action:function(){ chiediOrganico("coro", function(scelte){ coroDaCatalogo(scelte); }); },
+                kw:"coro cori coristi choir chorus gruppo vocale voci soprani contralti tenori bassi gradinata gradinate gradoni sezioni organico del coro"});
   entries.push({nome:"Frequenze radio (RF)", dim:"si scrivono su ogni radiomic e in-ear", noQuick:true, iconHtml:RF_ICON, action:openRfFreq,
                 kw:"frequenza frequenze radiofrequenza radiofrequenze radio radiomicrofoni banda mhz lista rf"});
   ["metro"].forEach(function(k){
@@ -26053,6 +26060,20 @@ function buildVoiceOrganicoOut(counts, opts){
   if(opts.director) out.push({type:"podio", x:0, y:frontY+(opts.mics?230:150), label:"Direttore"});
   return out;
 }
+/* Il coro intero sul palco aperto (voce «Coro» della ricerca). Palco vuoto: si adatta al coro, come un modello;
+   palco già disegnato: il coro si posa dietro ciò che c'è e il palco non si tocca (se non entra, l'avviso di sempre). */
+function coroDaCatalogo(scelte){
+  var o=scelte||valoriOrganico("coro"), tot=0; for(var k in o) tot+=o[k]||0;
+  var out=ORGANICI.coro.build(o);
+  pendingReviewModal="coroDaCatalogo";   /* nessuna finestra con questo id: «Rivedi organico» chiude solo l'avviso */
+  pendingDopo=function(){ try{ fit(); }catch(e){} showToastAnnulla("Coro posato: "+tot+" voci, con gradoni, microfoni d'insieme, podio e pianoforte. Spostalo dove serve."); };
+  var vuoto=!(state.items||[]).length, m=measureOrchestraOut(out), fp=frontPad(m);
+  /* l'avviso «sovrapposizioni» qui sarebbe un falso allarme: i coristi stanno a 64 cm con figura da 70 (come nel
+     modello «Coro» di Nuovo, che piazza senza avvisi). Resta l'avviso vero: il coro non entra nel palco già disegnato. */
+  var entra=vuoto || !assessOut(out, state.stage.w, state.stage.d, fp).tooSmall;
+  return placeOut(out, vuoto, false, entra);
+}
+window.__coroDaCatalogo=coroDaCatalogo;   /* superficie per i test */
 function genVoiceOrganico(counts, opts, fitStage, clearFirst, force){
   pendingReviewModal="voiceModal";
   return placeOut(buildVoiceOrganicoOut(counts, opts), fitStage, clearFirst, force);

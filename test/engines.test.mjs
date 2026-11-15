@@ -33097,5 +33097,37 @@ t("rig: un progetto con americane numerate chiede «Opzioni complete» nell'avvi
   ok(A.funzUsateDalProgetto(A.state).indexOf("opzioni") >= 0, "con rig sì");
 });
 
+/* Segnalazione anonima 15/11/2026 «manca una immagine del coro»: il coro intero era solo nel modello «Nuovo». */
+t("ricerca «coro»: la voce «Coro» è la prima (coro intero), prima di mic, pedana e singolo corista", () => {
+  reset();
+  for (const q of ["coro", "choir", "gradinata", "gradoni coro", "soprani"]) {
+    ok(A.__spSearch(q).some((e) => e.nome === "Coro" && !e.k), "«" + q + "» deve trovare la voce «Coro»");
+  }
+  eq((A.__spSearch("coro")[0] || {}).nome, "Coro", "«coro» dà per prima la voce Coro");
+  ok(A.__spSearch("coro").some((e) => e.k === "pedanacoro"), "la pedana resta fra i risultati");
+  ok(A.__spSearch("coro").some((e) => e.k === "micchoir"), "il mic coro resta fra i risultati");
+});
+t("«Coro» dal catalogo: su palco vuoto posa 28 voci, gradoni, microfoni e podio, e adatta il palco", () => {
+  reset();
+  ok(A.__coroDaCatalogo({ sop: 8, con: 8, ten: 6, bas: 6 }) === true, "deve piazzare senza avvisi");
+  ok(A.state.items.length > 0, "il palco ora ha elementi");
+  const it = A.state.items, n = (ty) => it.filter((i) => i.type === ty).length;
+  eq(n("corista"), 28, "8+8+6+6 coristi");
+  ok(n("pedanacoro") + it.filter((i) => (A.TYPES && A.TYPES[i.type] && A.TYPES[i.type].riser)).length >= 1, "ci sono i gradoni");
+  ok(n("giraffa") >= 1, "ci sono i microfoni d'insieme");
+  ok(n("podio") === 1, "c'è il podio del direttore");
+  reset();
+});
+t("«Coro» dal catalogo: con elementi già sul palco non lo svuota e non tocca la misura del palco", () => {
+  reset();
+  A.state.items.push({ id: "x1", type: "batteria", x: 400, y: 100, rot: 0, w: 150, d: 130, label: "Batt" });
+  const w0 = A.state.stage.w, d0 = A.state.stage.d;
+  A.__coroDaCatalogo({ sop: 2, con: 2, ten: 2, bas: 2 });
+  ok(A.state.items.some((i) => i.id === "x1"), "la batteria resta");
+  eq(A.state.items.filter((i) => i.type === "corista").length, 8, "8 coristi aggiunti");
+  eq(A.state.stage.w, w0, "palco non allargato"); eq(A.state.stage.d, d0, "palco non allungato");
+  reset();
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
