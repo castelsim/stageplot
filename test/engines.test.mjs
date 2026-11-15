@@ -5429,7 +5429,7 @@ t("Quota da terra: opzione nel pannello del blocco, documento (non della scena),
   ok(/var _dt=document\.getElementById\("blkDaTerra"\); if\(_dt\) _dt\.checked=quotaDaTerraOn\(\);/.test(appjs), "la casella mostra il valore del progetto");
   ok(/var CAMPI_DOCUMENTO=\[[^\]]*"quoteDaTerra"/.test(appjs), "è un campo del documento (uguale in tutte le varianti)");
   reset(); const st = JSON.parse(JSON.stringify(A.state)); st.quoteDaTerra = "si"; ok(!("quoteDaTerra" in A.normalizeState(st)), "solo un true esplicito la accende"); st.quoteDaTerra = true; eq(A.normalizeState(st).quoteDaTerra, true, "true resta");
-  ok(/\+quotaDaTerraTesto\(it\)\+misuraDaConfTesto\(it\) : scalaQuota\(it\)/.test(appjs), "l'etichetta della pedana la scrive");
+  ok(/\+quotaDaTerraTesto\(it\)\+misuraDaConfTesto\(it\) : \(it\.type===\"ostacolo\" \? misPedana\([^)]*\)[^:]*: scalaQuota\(it\)\)/.test(appjs), "l'etichetta della pedana la scrive");
   const f0 = A.firmaPdf(A.state); A.state.quoteDaTerra = true; ok(A.firmaPdf(A.state) !== f0, "è contenuto del documento: cambia l'impronta (il PDF cambia davvero)"); reset();
 });
 /* ═══ Controlli di coerenza 2 (13/11/2026, S14) ═══ */
@@ -32692,6 +32692,41 @@ t("Pedana: le scorciatoie ci sono nel pannello e la scala segue l'altezza", () =
   eq(s.d, 150, "h100: 5 gradini da 30 cm");
 });
 
+/* ---- OSTACOLO con quota (15/11/2026, S19) ---- */
+t("Ostacolo: quota (altezza) opzionale accanto alla misura, solo se c'è", () => {
+  reset();
+  const o = add("ostacolo", 400, 300, { w: 175, d: 175 }); o.label = "PALO";
+  const mk = (it) => A.itemMarkup(it);
+  eq(A.ostacoloConH(o), false, "di serie: nessuna quota");
+  ok(!/ m · h/.test(mk(o)), "di serie: il disegno non scrive nessuna misura (come prima)");
+  o.h = 40;
+  eq(A.ostacoloConH(o), true, "con h>0 c'è la quota");
+  ok(/1,75×1,75 m · h40 cm/.test(mk(o)), "la quota è sul disegno: " + (mk(o).match(/<text[^>]*sub[^>]*>[^<]*/g) || []).join("|"));
+  o.h = 0; eq(A.ostacoloConH(o), false, "h=0 = nessuna quota");
+  o.h = -5; eq(A.ostacoloConH(o), false, "h negativa = nessuna quota");
+  const altro = add("transenna", 100, 100, {}); altro.h = 90;
+  eq(A.ostacoloConH(altro), false, "altri elementi: nessuna quota");
+  eq(A.ostacoloConH(null), false, "niente elemento");
+  eq(A.ostacoloHPulita("abc"), 0, "testo → 0"); eq(A.ostacoloHPulita(""), 0, "vuoto → 0"); eq(A.ostacoloHPulita(174.6), 175, "arrotonda"); eq(A.ostacoloHPulita(99999), 3000, "tetto 30 m");
+  eq(A.ostacoloHPulita(-5), 0, "negativa → 0");
+});
+t("Ostacolo: la quota sopravvive a salva→riapri; senza quota il documento è identico a prima", () => {
+  reset();
+  const o = add("ostacolo", 400, 300, {}); o.h = 120;
+  const back = A.normalizeState(JSON.parse(A.stateToJSON()));
+  eq(back.items.find((x) => x.type === "ostacolo").h, 120, "h resta");
+  reset(); add("ostacolo", 400, 300, {});
+  const b2 = A.normalizeState(JSON.parse(A.stateToJSON()));
+  ok(!("h" in b2.items.find((x) => x.type === "ostacolo")), "senza quota: nessun campo h aggiunto");
+  const [sa, sb, sc] = A.sanitizeItems([{ id: "o1", type: "ostacolo", x: 0, y: 0, h: 120 }, { id: "o2", type: "ostacolo", x: 0, y: 0, h: -3 }, { id: "o3", type: "ostacolo", x: 0, y: 0 }]);
+  eq(sa.h, 120, "sanitizeItems (JSON importato) tiene la quota"); ok(!("h" in sb) && !("h" in sc), "quota negativa o assente: nessun campo h");
+  reset(); A.placeOut([{ type: "ostacolo", x: 0, y: 0, label: "PALO", h: 90 }, { type: "ostacolo", x: 300, y: 0, label: "ALBERO" }], false, true, true);
+  const po = A.state.items.filter((x) => x.type === "ostacolo");
+  eq(po.map((x) => x.h), [90, undefined], "un modello con ostacolo e quota la porta nel palco; senza quota resta senza");
+  const js = readFileSync(join(root, "app.js"), "utf8");
+  ok(/it\.type==="ostacolo"\)\{ var v=ostacoloHPulita\(document\.getElementById\("pH"\)\.value\); if\(v\) it\.h=v; else delete it\.h;/.test(js), "il campo h: vuoto o 0 TOGLIE la quota");
+  ok(/it\.type==="ostacolo"\) \? "" : "none"/.test(js), "il campo h compare nel pannello dell'ostacolo");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
-
