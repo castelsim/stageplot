@@ -3124,6 +3124,7 @@ body.area-edit #selProps,body.area-edit #layerPanel{display:none!important}
 /* Pedana bloccata (variante A): perimetro marcato + lucchettino, niente trasparenza —
    attenuandola si confondeva col palco invece di dire «e' fissata». */
 .ic.riser-fixed{stroke-width:3.6}
+.ic.riser-conf{stroke-dasharray:14 8}   /* misura da confermare: bordo tratteggiato, come un'ipotesi (15/11, S22) */
 .rug.rug-fixed{stroke-width:3.6}   /* tappeto bloccato: stesso segno della pedana, tratteggio invariato */
 .riser-lock{fill:#1f2937;stroke:#fff;stroke-width:1.4;paint-order:stroke;opacity:.82;pointer-events:none}
 /* alone bianco come sulle etichette (.lbl): su un flight case nero o su una truss scura il
@@ -4932,6 +4933,8 @@ body.cust-contorno .item.selected .selbox{display:none}
       <div class="lbl-note" style="font-size:11px;margin:6px 0 3px">Altezza in cm</div>
       <div class="seg" id="pPedAlt" role="group" aria-label="Altezza della pedana"></div>
     </div>
+    <!-- 15/11/2026 (S22): pedana la cui misura si conferma al sopralluogo → bordo tratteggiato e «da confermare» accanto alla quota -->
+    <div id="pPedConfWrap" style="display:none;margin-top:6px"><label class="chk"><input type="checkbox" id="pPedConf"> Misura da confermare</label><div class="lbl-note" style="font-size:11px;margin:3px 0 0">Si rileva al sopralluogo: bordo tratteggiato e «da confermare» accanto alla quota.</div></div>
     <div id="pZonaWrap" style="display:none;font-size:11px;color:var(--text-2);margin-top:8px;line-height:1.5">
       <span id="pZonaTesto">È una zona? Trasformala in Area con nome.</span>
       <button id="bPedanaInArea" class="btn" type="button" style="margin-top:6px;width:auto">Trasforma in Area con nome</button>

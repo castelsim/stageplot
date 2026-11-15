@@ -5429,7 +5429,7 @@ t("Quota da terra: opzione nel pannello del blocco, documento (non della scena),
   ok(/var _dt=document\.getElementById\("blkDaTerra"\); if\(_dt\) _dt\.checked=quotaDaTerraOn\(\);/.test(appjs), "la casella mostra il valore del progetto");
   ok(/var CAMPI_DOCUMENTO=\[[^\]]*"quoteDaTerra"/.test(appjs), "è un campo del documento (uguale in tutte le varianti)");
   reset(); const st = JSON.parse(JSON.stringify(A.state)); st.quoteDaTerra = "si"; ok(!("quoteDaTerra" in A.normalizeState(st)), "solo un true esplicito la accende"); st.quoteDaTerra = true; eq(A.normalizeState(st).quoteDaTerra, true, "true resta");
-  ok(/\+quotaDaTerraTesto\(it\) : scalaQuota\(it\)/.test(appjs), "l'etichetta della pedana la scrive");
+  ok(/\+quotaDaTerraTesto\(it\)\+misuraDaConfTesto\(it\) : scalaQuota\(it\)/.test(appjs), "l'etichetta della pedana la scrive");
   const f0 = A.firmaPdf(A.state); A.state.quoteDaTerra = true; ok(A.firmaPdf(A.state) !== f0, "è contenuto del documento: cambia l'impronta (il PDF cambia davvero)"); reset();
 });
 /* ═══ Controlli di coerenza 2 (13/11/2026, S14) ═══ */
@@ -32651,6 +32651,37 @@ t("Pedana: scorciatoie 2×1 · 1×1 · 2×0,5 · 2×2 e altezze 20–100, scrivo
   eq(A.pedanaApplicaRapida(q, { w: NaN, d: 100 }), false, "misura non valida: nessun effetto");
   eq(A.pedanaApplicaRapida(q, { h: -5 }), false, "altezza negativa: nessun effetto");
   eq(A.pedanaApplicaRapida(q, null), false, "niente da applicare");
+});
+/* ---- PEDANA: «misura da confermare» (15/11/2026, S22) ---- */
+t("Pedana: «misura da confermare» = bordo tratteggiato e «· da confermare» dopo la quota, solo se acceso", () => {
+  reset();
+  const p = add("pedana", 400, 300, { h: 40 });
+  const mk = (it) => A.itemMarkup(it);
+  ok(!/riser-conf/.test(A.TYPES.pedana.draw(p)) && !/da confermare/.test(mk(p)), "di serie: nessun segno");
+  eq(A.misuraDaConfTesto(p), "", "di serie: nessun testo");
+  p.misuraDaConf = true;
+  ok(/class="ic fFloor riser-conf"/.test(A.TYPES.pedana.draw(p)), "acceso: il bordo prende la classe tratteggiata");
+  eq(A.misuraDaConfTesto(p), " · da confermare", "acceso: il testo");
+  ok(/2×1 m · h40 · da confermare/.test(mk(p)), "la quota sul disegno lo dice: " + mk(p).slice(0, 300));
+  p.locked = true; ok(/riser-fixed riser-conf|riser-conf riser-fixed/.test(A.TYPES.pedana.draw(p).replace(/"ic fFloor riser-fixed riser-conf"/, "riser-fixed riser-conf")), "bloccata e da confermare: tutti e due i segni");
+  delete p.misuraDaConf; delete p.locked;
+  ok(!/da confermare/.test(mk(p)), "spento: la quota torna quella di prima");
+  const altro = add("palco" in A.TYPES ? "palco" : "scala", 100, 100, {}); altro.misuraDaConf = true;
+  eq(A.misuraDaConfTesto(altro), "", "altri elementi: nessun testo anche col flag");
+  eq(A.misuraDaConfTesto(null), "", "niente elemento");
+});
+t("Pedana: «misura da confermare» sopravvive a salva→riapri e c'è nel pannello", () => {
+  reset();
+  const p = add("pedana", 400, 300, { h: 40 }); p.misuraDaConf = true;
+  const back = A.normalizeState(JSON.parse(A.stateToJSON()));
+  const q = back.items.find((x) => x.type === "pedana");
+  eq(q.misuraDaConf, true, "il flag resta dopo il giro salva→riapri");
+  const appHtml = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="pPedConf"/.test(appHtml) && /Misura da confermare/.test(appHtml), "la casella è nella pagina");
+  const appjs2 = readFileSync(join(root, "app.js"), "utf8");
+  ok(/if\(v\) it\.misuraDaConf=true; else delete it\.misuraDaConf;/.test(appjs2), "la casella accende e SPEGNE il flag (spento = campo tolto, documento come prima)");
+  ok(/it\.type!=="pedana"\|\|it\.locked\) return;/.test(appjs2), "solo la pedana non bloccata");
+  ok(/\.ic\.riser-conf\{stroke-dasharray/.test(readFileSync(join(root, "src/styles.css"), "utf8")), "e il tratteggio nel CSS");
 });
 t("Pedana: le scorciatoie ci sono nel pannello e la scala segue l'altezza", () => {
   const appHtml = readFileSync(join(root, "app/index.html"), "utf8"); ok(/id="pPedMis"/.test(appHtml) && /id="pPedAlt"/.test(appHtml), "i due gruppi di bottoni sono nella pagina");
