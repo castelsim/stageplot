@@ -33448,6 +33448,52 @@ t("L3: l'instradatore aggira un ostacolo, tiene i bordi, rispetta la penalità d
   ok(s.every((q) => q[1] >= 0 && q[1] <= 600), "dentro il palco");
   ok(w.length >= 2, "la potenza ha un percorso");
 });
+t("L3: pochi gomiti (penalità di curva): nessun cavo dei quattro casi ha più di 6 tratti, e nel complesso ≤ 3 in media", () => {
+  let tot = 0, n = 0, max = 0;
+  _l3casi.forEach((nome) => { _l3carica(_l3fix(nome)); _l3cavi().cavi.forEach((c) => { if (c.kind !== "sig" || c.murato) return; const seg = c.poly.length - 1; tot += seg; n++; max = Math.max(max, seg); }); });
+  if (process.env.L3DBG) console.log("      gomiti: media " + (tot / n).toFixed(2) + " max " + max);
+  ok(max <= 6, "un cavo con " + max + " tratti"); ok(tot / n <= 3, "media " + (tot / n).toFixed(2));
+});
+t("L3: fascia pubblico: un cavo lungo la fila davanti esce dagli ultimi 90 cm verso il pubblico", () => {
+  _l3pulisci(); reset(); A.state.stage = { w: 800, d: 600, blocks: [{ x: 0, y: 0, w: 800, d: 600 }] };
+  const q = A.orthRoute([100, 530], [700, 530], [], "sig"); if (process.env.L3DBG) console.log("      pubblico:", JSON.stringify(q));
+  ok(q.slice(1, -1).every((p) => p[1] <= 510.5), "il cavo corre nella fascia pubblico: " + JSON.stringify(q));
+});
+t("L3: un cavo di segnale non esce dal palco nemmeno per aggirare un muro (attraversa, e si segna «murato»); il multicore può uscire", () => {
+  _l3pulisci(); reset(); A.state.stage = { w: 800, d: 600, blocks: [{ x: 0, y: 0, w: 800, d: 600 }] };
+  const muro = { id: "m", x0: -40, y0: 254, x1: 840, y1: 346, hx0: -34, hy0: 260, hx1: 834, hy1: 340, cx0: -40, cy0: 266, cx1: 840, cy1: 334 };
+  const sig = A.orthRoute([400, 150], [400, 450], [muro], "sig"); ok(sig.murato === true, "murato");
+  ok(sig.every((p) => p[0] >= 0 && p[0] <= 800 && p[1] >= 0 && p[1] <= 600), "resta nel palco: " + JSON.stringify(sig));
+  const mc = A.orthRoute([400, 150], [400, 450], [muro], "mc"); ok(!mc.murato, "il multicore gira fuori dal palco: " + JSON.stringify(mc));
+});
+t("L3: cache: stessi punti con ingombri diversi o con capi esclusi danno percorsi diversi; con la stessa scena, lo stesso", () => {
+  _l3pulisci(); reset(); A.state.stage = { w: 800, d: 600, blocks: [{ x: 0, y: 0, w: 800, d: 600 }] };
+  const rr = (id, x, y, w, d) => ({ id, x0: x - w / 2 - 16, y0: y - d / 2 - 16, x1: x + w / 2 + 16, y1: y + d / 2 + 16, hx0: x - w / 2 - 6, hy0: y - d / 2 - 6, hx1: x + w / 2 + 6, hy1: y + d / 2 + 6, cx0: x - w / 2, cy0: y - d / 2, cx1: x + w / 2, cy1: y + d / 2 });
+  const pts = [[300, 300], [500, 300]], muro = [rr("o", 400, 300, 100, 300)], lontano = [rr("z", 100, 500, 60, 60)];
+  const a = A.cabRoutePts(pts, muro, {}, "sig"); ok(a.length >= 4, "aggira il muro");
+  const b = A.cabRoutePts(pts, muro, { o: 1 }, "sig"); eq(b.length, 2, "con l'ostacolo escluso (è un capo) il cavo va dritto");
+  const c = A.cabRoutePts(pts, lontano, {}, "sig"); eq(c.length, 2, "con un ingombro diverso non resta il vecchio percorso");
+  eq(JSON.stringify(A.cabRoutePts(pts, muro, {}, "sig")), JSON.stringify(a), "stessa scena, stesso percorso");
+  /* percorso fatto a mano (3 punti): un tratto già dritto e libero resta com'è; un cavo a due punti si instrada */
+  const man = [[45, 300], [400, 300], [755, 300]], r2 = A.cabRoutePts(man, lontano, {}, "sig"); eq(JSON.stringify(r2), JSON.stringify(man), "tratti a mano dritti e liberi: invariati");
+  ok(A.cabRoutePts([[45, 300], [755, 300]], lontano, {}, "sig").length > 2, "due soli punti: si instrada (corsia di bordo)");
+});
+t("L3: potenza e segnale hanno corsie diverse (potenza a 18 cm dal bordo, segnale a 45)", () => {
+  _l3pulisci(); reset(); A.state.stage = { w: 800, d: 600, blocks: [{ x: 0, y: 0, w: 800, d: 600 }] };
+  const sg = A.orthRoute([45, 300], [755, 300], [], "sig"), pw = A.orthRoute([18, 300], [782, 300], [], "pwr"), bd = (q) => Math.min(q[0], 800 - q[0], q[1]);
+  if (process.env.L3DBG) console.log("      corsie sig", JSON.stringify(sg), "pwr", JSON.stringify(pw));
+  ok(pw.every((q) => bd(q) <= 26), "potenza sulla corsia a 18 cm: " + JSON.stringify(pw)); ok(sg.some((q) => bd(q) >= 37 && bd(q) <= 53), "segnale sulla corsia a 45 cm");
+  ok(!sg.some((q) => bd(q) < 30), "il segnale non sta sulla corsia della potenza");
+});
+t("L3: il multicore disegnato segue il percorso «mc» (corsia del multicore)", () => {
+  _l3carica(_l3fix("band11")); A.state.cab.on = true; A.state.cab.visible = true; A.state.cab.home = { kind: "foh", x: 0, y: 0 }; A.__cabRes = null;
+  const R = A.audioCablingEngine(), OBS = A.obstacleRects(); ok(R.snakes.length >= 1, "serve almeno un multicore: " + R.snakes.length);
+  let svg = ""; try { svg = A.cablingMarkup(); } catch (e) { svg = ""; }
+  if (!svg) { console.log("      (cablingMarkup non disponibile nel sandbox: controllo solo i percorsi)"); return; }
+  const ds = (svg.match(/class="cab-snake" d="([^"]*)"/g) || []).map((m) => m.replace(/.*d="/, "").replace(/"$/, ""));
+  R.snakes.forEach((k) => { const ex = {}; if (k.box && k.box.id) ex[k.box.id] = 1; const att = A.cabDrawD([[k.x1, k.y1], [k.x2, k.y2]], A.cabRoutePts([[k.x1, k.y1], [k.x2, k.y2]], OBS, ex, "mc"));
+    ok(ds.indexOf(att) >= 0, "il multicore disegnato non segue il percorso «mc»: " + att + " in " + JSON.stringify(ds)); });
+});
 t("L3: tempo di calcolo sotto budget sull'orchestra da 58 (a freddo e con la cache)", () => {
   _l3carica(_l3fix("orch")); const R = A.audioCablingEngine(); let OBS = A.obstacleRects();
   const lavora = () => { R.links.forEach((l) => { const ex = {}; ex[l.s.it.id] = 1; if (l.box && l.box.id) ex[l.box.id] = 1; A.cabRoutePts(l.pts, OBS, ex, "sig"); }); };

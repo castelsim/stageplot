@@ -14418,10 +14418,11 @@ function _astarOrth(a,b,rects,kind){
   var W=state.stage.w, D=state.stage.d, bl=stageBlocks();
   /* gli ingombri che contengono già un capo (elemento sotto il cavo, pedana su cui si appoggia) non lo bloccano */
   var rs=orthRects(a,b,rects);
-  var ex=ORTH_EX[kind]!=null?ORTH_EX[kind]:ORTH_EX.sig, lanePos=kind==="pwr"?18:45;
+  var ex=ORTH_EX[kind]!=null?ORTH_EX[kind]:ORTH_EX.sig, lanePos=kind==="pwr"?18:45, fuori=(kind==="mc") || orthStageEdge(bl,a[0],a[1])<0 || orthStageEdge(bl,b[0],b[1])<0;
   function tentativo(win, step, perm){
     var bx0=Math.min(a[0],b[0]), bx1=Math.max(a[0],b[0]), by0=Math.min(a[1],b[1]), by1=Math.max(a[1],b[1]);
     var X0=win?bx0-ORTH_WIN:Math.min(0,bx0)-160, X1=win?bx1+ORTH_WIN:Math.max(W,bx1)+160, Y0=win?by0-ORTH_WIN:Math.min(0,by0)-160, Y1=win?by1+ORTH_WIN:Math.max(D,by1)+160;
+    if(win){ if(X0<=ORTH_WIN+60) X0=Math.min(X0,0); if(Y0<=ORTH_WIN+60) Y0=Math.min(Y0,0); if(X1>=W-ORTH_WIN-60) X1=Math.max(X1,W); if(Y1>=D-ORTH_WIN-60) Y1=Math.max(Y1,D); }   /* vicino a un lato: la finestra arriva al lato (corsia di bordo) */
     var xs=[a[0],b[0]], ys=[a[1],b[1]], v;
     for(v=Math.ceil(X0/step)*step; v<=X1; v+=step) xs.push(v);
     for(v=Math.ceil(Y0/step)*step; v<=Y1; v+=step) ys.push(v);
@@ -14439,6 +14440,7 @@ function _astarOrth(a,b,rects,kind){
       if(!seen[k]){ seen[k]=1; var x=xs[i], y=ys[j];
         if(_orthHardHit(x,y,near)){ blocked[k]=1; fac[k]=1; }
         else { var e=orthStageEdge(bl,x,y), c;
+          if(e<0 && !fuori){ blocked[k]=1; fac[k]=1; return k; }   /* fuori dal palco: solo il multicore (o un cavo con un capo già fuori) */
           if(e<0) c=(kind==="mc")?1.4:11;
           else { if(Math.abs(e-lanePos)<=8) c=0.5; else if(e<120) c=0.8; else c=1+ex*Math.min(1.5,(e-120)/200+0.5);
             if(kind==="mc" && Math.abs((D-y)-45)<=8) c=0.5;
