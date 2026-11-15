@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <!-- CSP: pagina statica; l'unica uscita è la richiesta verso l'Edge Function submit-feedback (produzione-eventi/richiesta.js). -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src https://vsodplqkuvnsdiikvmjb.supabase.co; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Produzione eventi: la parte tecnica, già organizzata</title>
+  <meta name="description" content="Preventivi dei service confrontati, piante in scala, cronoprogramma e permessi con chi li firma. Per Comuni, Pro Loco, aziende e location senza tecnico.">
+  <meta name="author" content="Simone Castellan">
+  <meta name="robots" content="index,follow,max-image-preview:large">
+  <link rel="canonical" href="https://stageplot.it/produzione-eventi/">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="it_IT">
+  <meta property="og:site_name" content="stageplot.it">
+  <meta property="og:title" content="Produzione eventi: la parte tecnica, già organizzata">
+  <meta property="og:description" content="Confronto dei preventivi a parità di condizioni, piante in scala, cronoprogramma e permessi con chi li firma. Servizio in prova, prezzi di partenza dichiarati.">
+  <meta property="og:url" content="https://stageplot.it/produzione-eventi/">
+  <meta property="og:image" content="https://stageplot.it/preview.png?v=5">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Esempio di stage plot in scala creato con stageplot.it">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Produzione eventi: la parte tecnica, già organizzata">
+  <meta name="twitter:description" content="Per Comuni, Pro Loco, aziende e location senza un tecnico in casa: documenti, preventivi confrontati, cronoprogramma, permessi. Lo controlla un sound engineer.">
+  <meta name="twitter:image" content="https://stageplot.it/preview.png?v=5">
+  <meta name="theme-color" content="#101820">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/favicon.svg">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <link rel="stylesheet" href="/guida/style.css">
+  <script type="application/ld+json">
+  {
+    "@context":"https://schema.org",
+    "@graph":[
+      {"@type":"BreadcrumbList","itemListElement":[
+        {"@type":"ListItem","position":1,"name":"Home","item":"https://stageplot.it/"},
+        {"@type":"ListItem","position":2,"name":"Produzione eventi","item":"https://stageplot.it/produzione-eventi/"}
+      ]},
+      {"@type":"Service","@id":"https://stageplot.it/produzione-eventi/#servizio","name":"Produzione eventi","serviceType":"Coordinamento tecnico di eventi musicali e aziendali","url":"https://stageplot.it/produzione-eventi/","inLanguage":"it","image":"https://stageplot.it/produzione-eventi/esempio-piazza-copertina.jpg","areaServed":{"@type":"Country","name":"Italia"},"audience":{"@type":"Audience","audienceType":"Comuni, Pro Loco, associazioni, aziende, band e location con serate musicali"},"description":"La parte tecnica di un evento con musica o audio, per chi non ha un tecnico in casa: documenti in scala e versionati (stage plot, channel list, rider o scheda del luogo), richiesta di preventivo ai fornitori e confronto a parità di condizioni, cronoprogramma, elenco dei permessi con chi li firma e le scadenze e, nel livello 3, Simone Castellan sul posto come responsabile tecnico. Servizio in prova, prezzi di partenza.","provider":{"@type":"Person","@id":"https://simonecastellan.com/#person","name":"Simone Castellan","jobTitle":"Sound engineer","url":"https://simonecastellan.com"},"brand":{"@type":"Organization","@id":"https://stageplot.it/#org","name":"stageplot.it","url":"https://stageplot.it/"},"hasOfferCatalog":{"@type":"OfferCatalog","name":"Livelli del servizio","itemListElement":[
+        {"@type":"Offer","name":"Livello 1 · Documenti","description":"Stage plot in scala, channel list, rider tecnico o scheda del palco, in PDF e in un progetto modificabile.","priceSpecification":{"@type":"PriceSpecification","minPrice":59,"priceCurrency":"EUR"},"url":"https://stageplot.it/produzione-eventi/#livelli"},
+        {"@type":"Offer","name":"Livello 2 · Coordinamento a distanza","description":"Documenti, richieste di preventivo e confronto a parità di condizioni, cronoprogramma, elenco dei permessi con chi li firma, checklist per chi organizza.","priceSpecification":{"@type":"PriceSpecification","minPrice":290,"priceCurrency":"EUR"},"url":"https://stageplot.it/produzione-eventi/#livelli"},
+        {"@type":"Offer","name":"Livello 3 · Produzione in loco","description":"Il livello 2 più sopralluogo, controllo del montaggio e Simone Castellan sul posto come responsabile tecnico e sound engineer.","priceSpecification":{"@type":"PriceSpecification","minPrice":790,"priceCurrency":"EUR"},"url":"https://stageplot.it/produzione-eventi/#livelli"}
+      ]}},
+      {"@type":"FAQPage","mainEntity":[
+        {"@type":"Question","name":"Quanto costa?","acceptedAnswer":{"@type":"Answer","text":"Da 59 € per i soli documenti (una band fino a 12 musicisti), da 290 € per il coordinamento a distanza, da 790 € con Simone sul posto il giorno dell'evento. Sono prezzi di partenza, in prova: dopo la vostra richiesta ricevete un preventivo scritto con importo finale e IVA, e si parte solo dopo il vostro sì."}},
+        {"@type":"Question","name":"Cosa serve per cominciare?","acceptedAnswer":{"@type":"Answer","text":"Data, luogo, tipo di evento, numero di persone e cosa c'è già (palco, impianto, corrente). Se avete una pianta del luogo, un programma o un vecchio rider, meglio; altrimenti le domande ve le facciamo noi."}},
+        {"@type":"Question","name":"Fate anche i permessi?","acceptedAnswer":{"@type":"Answer","text":"Non firmiamo né presentiamo domande al posto vostro. Vi diciamo quali carte servono, chi le firma (un tecnico abilitato, il palchista, l'installatore, il Comune), con quali dati e per quando, e controlliamo che arrivino. Le regole cambiano da Comune a Comune: per ogni evento si confermano con l'ufficio competente, in genere lo sportello unico per le attività produttive."}},
+        {"@type":"Question","name":"Perché non vendete anche il service?","acceptedAnswer":{"@type":"Answer","text":"Perché così possiamo dirvi quale offerta conviene. Se volete, vi suggeriamo fornitori a cui chiedere; né loro né noi riceviamo commissioni, e lo scriviamo anche nella richiesta di preventivo."}},
+        {"@type":"Question","name":"Posso modificare i documenti dopo?","acceptedAnswer":{"@type":"Answer","text":"Sì. Lo stage plot si riapre su stageplot.it con «Importa», gratis e senza account, e lo cambiate da soli quando cambia il palco. Una correzione dei documenti consegnati è compresa."}},
+        {"@type":"Question","name":"Quanto tempo prima devo scrivervi?","acceptedAnswer":{"@type":"Answer","text":"Per un evento in piazza meglio otto settimane prima: di solito i service si interpellano da quattro a otto settimane prima e le carte chiedono tempo. Per una festa aziendale quattro-cinque settimane; per i soli documenti bastano tre giorni lavorativi dal materiale completo. Con meno tempo scriveteci lo stesso: vi diciamo cosa si riesce a fare."}},
+        {"@type":"Question","name":"Lavorate fuori dal Veneto?","acceptedAnswer":{"@type":"Answer","text":"I livelli 1 e 2 sì, a distanza. Il livello 3, con Simone sul posto, si valuta in base alla distanza e al giorno."}},
+        {"@type":"Question","name":"Cosa significa «servizio in prova»?","acceptedAnswer":{"@type":"Answer","text":"Che stiamo seguendo le prime pratiche e misurando tempi e lavoro per aggiustare prezzi e consegne. Per voi cambia una cosa: i prezzi sono di partenza e li confermiamo per iscritto prima di cominciare."}},
+        {"@type":"Question","name":"Chi c'è dietro?","acceptedAnswer":{"@type":"Answer","text":"Simone Castellan, sound engineer di Castelfranco Veneto: prepara ogni anno stage plot, channel list e richieste ai service per concerti anche con orchestra e ha creato stageplot.it. Ogni documento e ogni mail ai fornitori passa da lui prima di partire."}}
+      ]}
+    ]
+  }
+  </script>
+  <style>
+    .hero-cta{display:flex;flex-wrap:wrap;gap:12px;margin:22px 0 6px}
+    .prova{display:inline-block;font-size:13px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--accent);border:1px solid var(--accent);border-radius:999px;padding:3px 12px;margin:0 0 10px}
+    .prezzo{display:flex;flex-wrap:wrap;gap:8px 30px;margin:8px 0 0;font-size:14px;color:var(--muted)}
+    .prezzo div{display:flex;flex-direction:column;line-height:1.25}
+    .prezzo strong{font-size:26px;color:var(--ink);letter-spacing:-.01em}
+    .problemi{list-style:none;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+    .problemi li{margin:0;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+    .problemi q{display:block;font-weight:700;margin-bottom:4px;quotes:none}
+    .livelli{display:grid;grid-template-columns:repeat(auto-fit,minmax(205px,1fr));gap:12px;margin:16px 0}
+    .livello{border:1px solid var(--line);border-radius:14px;padding:16px 16px;background:var(--white);display:flex;flex-direction:column}
+    .livello h3{margin:0 0 2px}
+    .livello .liv{font-size:12px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+    .livello .da{margin:2px 0 8px;font-size:15px;color:var(--muted)}
+    .livello .da strong{font-size:26px;color:var(--ink)}
+    .livello p{margin:0 0 8px;font-size:15px}
+    .livello ul{margin:0 0 8px;padding-left:18px;font-size:15px}
+    .livello ul li{margin:2px 0}
+    .livello .quando{margin-top:auto;font-size:14px;color:var(--muted);border-top:1px solid var(--line);padding-top:8px}
+    .nonfacciamo{border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:10px;padding:14px 18px;background:var(--panel);margin:16px 0}
+    .nonfacciamo h3{margin:0 0 6px}
+    .nonfacciamo ul{margin:6px 0 0;padding-left:20px}
+    .casi{display:grid;gap:22px;margin:16px 0}
+    .caso{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2fr);gap:14px 20px;align-items:start}
+    @media (max-width:700px){.caso{grid-template-columns:1fr}}
+    .caso h3{margin:0 0 4px}
+    .caso p{margin:0 0 6px;font-size:15px}
+    .caso .tag{font-size:13px;color:var(--muted)}
+    .caso .immagini{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+    .caso figure{margin:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--panel)}
+    .caso img{display:block;width:100%;height:auto}
+    .caso figcaption{font-size:12.5px;color:var(--muted);padding:6px 10px}
+    .firma{display:flex;gap:16px;align-items:flex-start;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:18px 0}
+    .firma p{margin:0 0 10px}.firma p:last-child{margin:0}
+    .limiti{font-size:15px;color:var(--muted)}
+    .perchi{list-style:none;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+    .perchi li{margin:0;padding:6px 14px;border:1px solid var(--line);border-radius:999px;font-size:15px;background:var(--white)}
+    /* il modulo */
+    #richiesta{scroll-margin-top:80px}
+    .modulo{border:1px solid var(--line);border-radius:14px;padding:clamp(16px,4vw,28px);margin:16px 0;background:var(--white)}
+    .modulo fieldset{border:0;padding:0;margin:0 0 18px}
+    .modulo legend{font-weight:800;font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:8px;padding:0}
+    .riga{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+    .campo{display:flex;flex-direction:column;gap:4px;margin-bottom:12px}
+    .campo label{font-weight:600;font-size:15px}
+    .campo small{color:var(--muted);font-size:13px}
+    .campo input,.campo select,.campo textarea{font:inherit;font-size:16px;padding:10px 12px;border:1px solid #c9d1dc;border-radius:9px;background:#fff;color:var(--ink);width:100%}
+    .campo textarea{min-height:110px;resize:vertical}
+    .campo input:focus,.campo select:focus,.campo textarea:focus{outline:2px solid var(--accent);outline-offset:1px;border-color:var(--accent)}
+    [aria-invalid=true]{border-color:#b91c1c!important}
+    .err{color:#b91c1c;font-size:13px;min-height:0}
+    .spunta{display:flex;gap:10px;align-items:flex-start;font-size:15px;margin:6px 0 4px}
+    .spunta input{width:20px;height:20px;margin-top:3px;flex:none}
+    .nascosto{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+    .esito{border-radius:10px;padding:14px 16px;margin:14px 0 0;font-weight:600}
+    .esito.ok{background:#f0fdf4;border:1px solid #bbf7d0;color:var(--good)}
+    .esito.ko{background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
+    .modulo button[disabled]{opacity:.6;cursor:wait}
+    @media (max-width:520px){.nav a:not(:first-child){display:none}}
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/"><span class="mark">SP</span><span>stageplot.it</span></a>
+    <nav class="nav">
+      <a href="/app/">Tool gratuito</a>
+      <a href="/guida/">Guida</a>
+      <a href="/consulenza/">Consulenza</a>
+    </nav>
+    <a class="btn primary" href="#richiesta">Descrivi l'evento</a>
+  </header>
+
+  <main>
+    <nav class="crumbs" aria-label="Breadcrumb">
+      <a href="/">Home</a> › Produzione eventi
+    </nav>
+
+    <span class="prova">Servizio in prova</span>
+    <h1>La parte tecnica del vostro evento, già organizzata</h1>
+    <p class="lead">Preventivi dei fornitori confrontati a parità di condizioni, piante in scala, cronoprogramma e permessi con chi li firma. Per Comuni, Pro Loco, associazioni, aziende e location che non hanno un tecnico in casa.</p>
+    <div class="prezzo"><div><strong>da 59 €</strong><span>solo documenti</span></div><div><strong>da 290 €</strong><span>coordinamento a distanza</span></div><div><strong>da 790 €</strong><span>con Simone sul posto</span></div></div>
+    <p class="limiti" style="margin:6px 0 0"><small>Prezzi di partenza, in prova: il preventivo scritto indica importo finale e IVA, e lo ricevete prima di decidere.</small></p>
+    <div class="hero-cta">
+      <a class="btn primary" href="#richiesta">Descrivi l'evento</a>
+      <a class="btn" href="#esempi">Guarda gli esempi</a>
+    </div>
+    <p class="byline"><span class="dot"></span>Controllato da <strong>Simone Castellan</strong>, sound engineer per spettacoli dal vivo</p>
+
+    <div class="callout in-breve">
+      <p><strong>In breve:</strong> «Produzione eventi» è il servizio con cui organizziamo la parte tecnica di un concerto, di una festa aziendale o di una rassegna per chi non ha un tecnico: documenti in scala, richieste ai fornitori e confronto dei preventivi, cronoprogramma, elenco dei permessi con chi li firma e per quando e, se serve, un sound engineer sul posto. Non vendiamo né noleggiamo palchi e impianti e non prendiamo commissioni dai fornitori. Ogni consegna la controlla Simone Castellan.</p>
+    </div>
+
+    <h2 id="problema">Vi riconoscete in una di queste?</h2>
+    <ul class="problemi">
+      <li><q>«Abbiamo tre preventivi e non capiamo quale conviene.»</q>Hanno voci diverse: il più basso spesso non comprende luci, tecnici o corrente.</li>
+      <li><q>«Ci chiedono documenti e non sappiamo cosa mandare.»</q>Il teatro, il Comune o il service vogliono pianta, scheda tecnica, orari, chi porta cosa.</li>
+      <li><q>«Il giorno dell'evento nessuno sa chi arriva e quando.»</q>Palco, service, band e catering si pestano i piedi senza un cronoprogramma.</li>
+    </ul>
+
+    <h2 id="livelli">Cosa ricevete</h2>
+    <div class="livelli">
+      <article class="livello">
+        <span class="liv">Livello 1</span>
+        <h3>Documenti</h3>
+        <p class="da">da <strong>59 €</strong></p>
+        <ul>
+          <li>Stage plot in scala (A3, 1:50)</li>
+          <li>Channel list e output list</li>
+          <li>Rider tecnico o scheda del vostro palco</li>
+          <li>PDF con versione e data, e progetto da riaprire su stageplot.it</li>
+        </ul>
+        <p class="quando">59 € per una band fino a 12 musicisti; 149 € per la scheda di una location o per organici maggiori. In 3 giorni lavorativi dal materiale completo.</p>
+      </article>
+      <article class="livello">
+        <span class="liv">Livello 2</span>
+        <h3>Coordinamento a distanza</h3>
+        <p class="da">da <strong>290 €</strong></p>
+        <ul>
+          <li>I documenti del livello 1</li>
+          <li>Richiesta di preventivo a 2-3 fornitori e confronto a parità di condizioni</li>
+          <li>Cronoprogramma e piano di produzione</li>
+          <li>Elenco dei documenti e dei permessi, con chi li firma e per quando</li>
+          <li>Mail ai fornitori, checklist per chi organizza</li>
+        </ul>
+        <p class="quando">Da 290 € per un palco, un fornitore, una giornata; da 490 € con 2-3 preventivi e piano di comunicazione. Primo riscontro entro 1 giorno lavorativo, documenti definitivi 7 giorni prima dell'evento.</p>
+      </article>
+      <article class="livello">
+        <span class="liv">Livello 3</span>
+        <h3>Produzione in loco</h3>
+        <p class="da">da <strong>790 €</strong></p>
+        <ul>
+          <li>Il livello 2</li>
+          <li>Sopralluogo e controllo del montaggio</li>
+          <li>Simone Castellan sul posto come responsabile tecnico e sound engineer</li>
+          <li>Foglio del giorno: orari, contatti, checklist</li>
+        </ul>
+        <p class="quando">Da 790 € a 1.200 € a evento secondo durata e distanza. L'impianto proprio, se serve, si indica a parte.</p>
+      </article>
+    </div>
+    <div class="nonfacciamo">
+      <h3>Cosa non facciamo</h3>
+      <p>Coordiniamo, non firmiamo. Vi diciamo quali carte servono, chi le firma, con quali dati e per quando, e controlliamo che arrivino.</p>
+      <ul>
+        <li>Non firmiamo relazioni di sicurezza né certificazioni di palchi, strutture o impianti elettrici, e non presentiamo la SCIA né il parere della Commissione di vigilanza: li firma un tecnico abilitato.</li>
+        <li>Non presentiamo domande al posto vostro, non curiamo la SIAE, non scegliamo gli artisti e non trattiamo cachet.</li>
+        <li>Non noleggiamo né vendiamo palchi, impianti e luci e non fatturiamo per conto dei fornitori: <strong>non prendiamo commissioni da nessuno</strong>, per questo possiamo dirvi quale offerta conviene.</li>
+      </ul>
+    </div>
+
+    <h2 id="esempi">Tre esempi</h2>
+    <p>Sono pacchetti dimostrativi con <strong>nomi, luoghi e cifre inventati</strong>, costruiti con la stessa sostanza tecnica dei concerti veri: li guardate qui, senza scaricare niente. Se volete vederne uno intero, chiedetelo nel modulo.</p>
+    <div class="casi">
+      <div class="caso">
+        <div>
+          <h3>Natale in piazza</h3>
+          <p>Coro, archi, pianoforte e solista per 350 persone, organizzato da una Pro Loco.</p>
+          <p>Stage plot e planimetria della piazza, cronoprogramma di due giorni, permessi con chi li firma, e tre preventivi confrontati: <strong>il più basso a prima vista era il secondo più caro</strong> una volta messe le stesse voci.</p>
+          <p class="tag">9 pagine · livello 3</p>
+        </div>
+        <div class="immagini">
+          <figure><img src="esempio-piazza-copertina.jpg" width="1075" height="1521" loading="lazy" alt="Prima pagina del pacchetto d'esempio «Natale in piazza»: scheda dell'evento, numeri chiave e cosa contiene il pacchetto"><figcaption>La scheda dell'evento: tutto quello che il service guarda per primo</figcaption></figure>
+          <figure><img src="esempio-piazza-preventivi.jpg" width="1075" height="1521" loading="lazy" alt="Tabella del confronto di tre preventivi di service a parità di condizioni, con le voci escluse evidenziate"><figcaption>Il confronto dei preventivi a parità di condizioni (importi inventati)</figcaption></figure>
+        </div>
+      </div>
+      <div class="caso">
+        <div>
+          <h3>Festa di fine anno di un'azienda</h3>
+          <p>130 ospiti, saluti, cena e una band di sette elementi; il referente interno non è un tecnico.</p>
+          <p>Stage plot, channel list da 23 canali, cronoprogramma della serata con i momenti sonori, cosa deve contenere un preventivo e una checklist per il referente.</p>
+          <p class="tag">7 pagine · livello 2</p>
+        </div>
+        <div class="immagini">
+          <figure><img src="esempio-azienda-copertina.jpg" width="1075" height="1521" loading="lazy" alt="Prima pagina del pacchetto d'esempio «Festa di fine anno»: scheda dell'evento e numeri chiave"><figcaption>La scheda dell'evento e i numeri chiave</figcaption></figure>
+          <figure><img src="esempio-azienda-cronoprogramma.jpg" width="1075" height="1521" loading="lazy" alt="Cronoprogramma della serata con orari di montaggio, prova suoni, cena e concerto, e chi fa cosa"><figcaption>Il cronoprogramma: chi fa cosa e a che ora</figcaption></figure>
+        </div>
+      </div>
+      <div class="caso">
+        <div>
+          <h3>Una location con una rassegna</h3>
+          <p>Un agriturismo con sei serate musicali e un palco fisso.</p>
+          <p>La scheda tecnica del palco, cosa trova e cosa deve portare chi suona, il modulo di richiesta per gli artisti e una serata tipo: da riusare a ogni data.</p>
+          <p class="tag">6 pagine · livelli 1-2</p>
+        </div>
+        <div class="immagini">
+          <figure><img src="esempio-location-copertina.jpg" width="1075" height="1521" loading="lazy" alt="Prima pagina della scheda d'esempio di una location con rassegna: scheda del luogo e numeri chiave"><figcaption>La scheda del luogo</figcaption></figure>
+          <figure><img src="esempio-location-palco.jpg" width="1200" height="848" loading="lazy" alt="Pianta in scala del palco fisso della location d'esempio"><figcaption>Il palco fisso in scala 1:50</figcaption></figure>
+        </div>
+      </div>
+    </div>
+    <p class="limiti">Avete un evento di cui potete parlare? Scriveteci: con il vostro permesso scritto lo mostriamo qui al posto di un esempio.</p>
+
+    <h2 id="come-funziona">Come funziona</h2>
+    <ol class="steps">
+      <li><strong>Descrivete l'evento</strong>Data, luogo, tipo, persone, cosa c'è già, scadenze. Il modulo non chiede soldi. Rispondiamo entro un giorno lavorativo con due o tre domande e il preventivo scritto.</li>
+      <li><strong>Prepariamo e controlliamo</strong>Documenti e richieste ai fornitori con gli strumenti di stageplot.it e le regole che uso sui palchi veri. Prima di ogni consegna e di ogni mail a un fornitore passa da Simone.</li>
+      <li><strong>Decidete voi, noi seguiamo</strong>Vi presentiamo le offerte sulla stessa lista di voci, cronoprogramma e documenti con le scadenze; solleciti, contatti del giorno e, dopo l'evento, un recap con cosa cambiare la prossima volta.</li>
+    </ol>
+
+    <h2 id="per-chi">Per chi è</h2>
+    <ul class="perchi">
+      <li>Comuni e Pro Loco</li>
+      <li>Associazioni e cori</li>
+      <li>Aziende: feste, convention, cene di gala</li>
+      <li>Band e artisti in tour piccolo</li>
+      <li>Location e agriturismi con serate</li>
+      <li>Rassegne e piccoli festival</li>
+    </ul>
+
+    <h2 id="chi-lo-controlla">Perché fidarsi</h2>
+    <div class="firma">
+      <div>
+        <p><strong>Gli stessi documenti dei concerti con orchestra.</strong> Sono Simone Castellan, sound engineer: ogni anno preparo stage plot, channel list, cronoprogrammi e richieste ai service per decine di concerti. Qui lo faccio per chi non ha un tecnico.</p>
+        <p><strong>Indipendenti dai fornitori.</strong> Nessun palco da vendere, nessuna commissione: le offerte si confrontano su una lista di voci uguale per tutti.</p>
+        <p><strong>Il controllo è umano.</strong> Una parte del lavoro è automatica, ma nessun documento e nessuna mail a un fornitore parte senza che li abbia guardati io. Se trovo un errore nostro, lo correggo: una correzione dei documenti è compresa.</p>
+      </div>
+    </div>
+    <p class="limiti"><strong>Servizio in prova.</strong> Stiamo seguendo le prime pratiche e aggiustiamo prezzi e tempi con quello che impariamo: per questo i prezzi sono «da» e il preventivo scritto arriva prima di ogni impegno. Preferite solo il rider della band? C'è il <a href="/rider-tecnico-completo/">rider tecnico completo a 59 €</a>; o fate da soli con l'<a href="/app/">editor gratuito</a>.</p>
+
+    <h2 id="richiesta">Descrivete il vostro evento</h2>
+    <p>Bastano cinque minuti. Se avete una pianta del luogo, un programma o un vecchio rider, potete mandarli dopo, rispondendo alla nostra mail.</p>
+    <form class="modulo" id="richiesta-form" novalidate>
+      <fieldset>
+        <legend>L'evento</legend>
+        <div class="riga">
+          <div class="campo"><label for="f-tipo">Che tipo di evento è *</label><select id="f-tipo" name="tipo" required aria-describedby="err-tipo"><option value="">—</option><option value="concerto-piazza">Concerto in piazza o all'aperto</option><option value="rassegna">Rassegna o più serate</option><option value="festa-azienda">Festa aziendale</option><option value="convention">Convention o cena di gala</option><option value="evento-band">Evento di una band</option><option value="serata-location">Serata in una location</option><option value="altro">Altro</option></select><span class="err" id="err-tipo"></span></div>
+          <div class="campo"><label for="f-data">Data</label><small>Anche solo indicativa.</small><input id="f-data" name="data" type="date"></div>
+        </div>
+        <div class="riga">
+          <div class="campo"><label for="f-luogo">Dove *</label><input id="f-luogo" name="luogo" maxlength="100" placeholder="luogo e comune" required aria-describedby="err-luogo"><span class="err" id="err-luogo"></span></div>
+          <div class="campo"><label for="f-persone">Quante persone</label><select id="f-persone" name="persone"><option value="">—</option><option value="fino-100">Fino a 100</option><option value="100-300">Da 100 a 300</option><option value="300-1000">Da 300 a 1000</option><option value="oltre-1000">Oltre 1000</option><option value="non-so">Non lo so ancora</option></select></div>
+          <div class="campo"><label for="f-presente">Cosa c'è già sul posto</label><select id="f-presente" name="presente"><option value="">—</option><option value="niente">Niente</option><option value="palco">Il palco</option><option value="palco-impianto">Palco e impianto</option><option value="non-so">Non lo so</option></select></div>
+        </div>
+        <div class="campo"><label for="f-descrizione">Cosa deve succedere *</label><small>Chi suona o parla, quanti sono, cosa vi preoccupa, cosa avete già deciso. Anche in poche righe.</small><textarea id="f-descrizione" name="descrizione" maxlength="1500" required aria-describedby="err-descrizione"></textarea><span class="err" id="err-descrizione"></span></div>
+        <div class="campo"><label for="f-scadenze">Scadenze e vincoli</label><small>Preventivi da chiedere, documenti richiesti da qualcuno, date da rispettare.</small><textarea id="f-scadenze" name="scadenze" maxlength="400" style="min-height:64px"></textarea></div>
+      </fieldset>
+      <fieldset>
+        <legend>Il servizio</legend>
+        <div class="riga">
+          <div class="campo"><label for="f-livello">Cosa vi serve</label><select id="f-livello" name="livello"><option value="">—</option><option value="documenti">I documenti (livello 1)</option><option value="distanza">Anche il coordinamento a distanza (livello 2)</option><option value="in-loco">Anche Simone sul posto (livello 3)</option><option value="non-so">Non lo so: consigliatemi</option></select></div>
+          <div class="campo"><label for="f-budget">Budget tecnico indicativo</label><small>Facoltativo.</small><input id="f-budget" name="budget" maxlength="60" placeholder="es. 3.000 €"></div>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>A chi rispondiamo</legend>
+        <div class="riga">
+          <div class="campo"><label for="f-nome">Nome *</label><input id="f-nome" name="nome" maxlength="80" autocomplete="name" required aria-describedby="err-nome"><span class="err" id="err-nome"></span></div>
+          <div class="campo"><label for="f-ente">Ente o azienda</label><input id="f-ente" name="ente" maxlength="100" autocomplete="organization"></div>
+        </div>
+        <div class="riga">
+          <div class="campo"><label for="f-email">Email *</label><input id="f-email" name="email" type="email" maxlength="120" autocomplete="email" required aria-describedby="err-email"><span class="err" id="err-email"></span></div>
+          <div class="campo"><label for="f-telefono">Telefono</label><input id="f-telefono" name="telefono" type="tel" maxlength="30" autocomplete="tel"></div>
+        </div>
+        <label class="spunta"><input type="checkbox" name="privacy" required aria-describedby="err-privacy"> <span>Ho letto l'<a href="/privacy/">informativa privacy</a>: questi dati servono solo per rispondere alla richiesta e preparare il preventivo. *</span></label>
+        <span class="err" id="err-privacy"></span>
+        <div class="nascosto" aria-hidden="true"><label for="f-sito">Non compilare</label><input id="f-sito" name="sito" tabindex="-1" autocomplete="off"></div>
+      </fieldset>
+      <button class="btn primary" type="submit">Invia la richiesta</button>
+      <p class="limiti" style="margin:12px 0 0">Nessun pagamento adesso. Preferite la mail? Scrivete a <a href="mailto:produzione@stageplot.it?subject=Produzione%20eventi">produzione@stageplot.it</a>.</p>
+    </form>
+    <p class="esito" id="richiesta-esito" role="status" tabindex="-1" hidden></p>
+
+    <h2 id="faq">Domande frequenti</h2>
+    <div class="faq">
+      <details><summary>Quanto costa?</summary><p>Da 59 € per i soli documenti (una band fino a 12 musicisti), da 290 € per il coordinamento a distanza, da 790 € con Simone sul posto il giorno dell'evento. Sono prezzi di partenza, in prova: dopo la vostra richiesta ricevete un preventivo scritto con importo finale e IVA, e si parte solo dopo il vostro sì.</p></details>
+      <details><summary>Cosa serve per cominciare?</summary><p>Data, luogo, tipo di evento, numero di persone e cosa c'è già (palco, impianto, corrente). Se avete una pianta del luogo, un programma o un vecchio rider, meglio; altrimenti le domande ve le facciamo noi.</p></details>
+      <details><summary>Fate anche i permessi?</summary><p>Non firmiamo né presentiamo domande al posto vostro. Vi diciamo quali carte servono, chi le firma (un tecnico abilitato, il palchista, l'installatore, il Comune), con quali dati e per quando, e controlliamo che arrivino. Le regole cambiano da Comune a Comune: per ogni evento si confermano con l'ufficio competente, in genere lo sportello unico per le attività produttive.</p></details>
+      <details><summary>Perché non vendete anche il service?</summary><p>Perché così possiamo dirvi quale offerta conviene. Se volete, vi suggeriamo fornitori a cui chiedere; né loro né noi riceviamo commissioni, e lo scriviamo anche nella richiesta di preventivo.</p></details>
+      <details><summary>Posso modificare i documenti dopo?</summary><p>Sì. Lo stage plot si riapre su stageplot.it con «Importa», gratis e senza account, e lo cambiate da soli quando cambia il palco. Una correzione dei documenti consegnati è compresa.</p></details>
+      <details><summary>Quanto tempo prima devo scrivervi?</summary><p>Per un evento in piazza meglio otto settimane prima: di solito i service si interpellano da quattro a otto settimane prima e le carte chiedono tempo. Per una festa aziendale quattro-cinque settimane; per i soli documenti bastano tre giorni lavorativi dal materiale completo. Con meno tempo scriveteci lo stesso: vi diciamo cosa si riesce a fare.</p></details>
+      <details><summary>Lavorate fuori dal Veneto?</summary><p>I livelli 1 e 2 sì, a distanza. Il livello 3, con Simone sul posto, si valuta in base alla distanza e al giorno.</p></details>
+      <details><summary>Cosa significa «servizio in prova»?</summary><p>Che stiamo seguendo le prime pratiche e misurando tempi e lavoro per aggiustare prezzi e consegne. Per voi cambia una cosa: i prezzi sono di partenza e li confermiamo per iscritto prima di cominciare.</p></details>
+      <details><summary>Chi c'è dietro?</summary><p>Simone Castellan, sound engineer di Castelfranco Veneto: prepara ogni anno stage plot, channel list e richieste ai service per concerti anche con orchestra e ha creato stageplot.it. Ogni documento e ogni mail ai fornitori passa da lui prima di partire.</p></details>
+    </div>
+
+    <div class="related">
+      <h2>Per chi vuole farlo da sé</h2>
+      <div class="cards">
+        <a href="/rider-tecnico-completo/"><strong>Rider tecnico completo</strong><span>Per una band: 59 €, in 72 ore</span></a>
+        <a href="/guida/scheda-tecnica-band/"><strong>Scheda tecnica della band</strong><span>Sezione per sezione, con un modello</span></a>
+        <a href="/guida/channel-list-input-list/"><strong>Channel list e input list</strong><span>Cosa sono e come si compilano</span></a>
+        <a href="/app/"><strong>Editor gratuito</strong><span>Stage plot e PDF, senza registrazione</span></a>
+      </div>
+    </div>
+
+    <aside class="author-card">
+      <p class="ac-name">Simone Castellan <span>· sound engineer</span></p>
+      <p class="ac-bio">Sound engineer per spettacoli dal vivo e gestore di uno studio di registrazione certificato Dolby Atmos. Cura registrazione e mix di produzioni orchestrali sinfoniche con oltre 70 eventi dal vivo l’anno; docente di elettroacustica. Ha creato stageplot.it per dare a musicisti e tecnici uno strumento gratuito e in scala reale.</p>
+      <p class="ac-link"><a href="https://simonecastellan.com" rel="author noopener" target="_blank">simonecastellan.com</a></p>
+    </aside>
+  </main>
+
+  <footer>
+    <div class="inner">
+      <p><a href="/app/">Tool gratuito</a> · <a href="/stage-plot/">Stage plot</a> · <a href="/guida/">Guida</a> · <a href="/consulenza/">Consulenza</a> · <a href="/rider-tecnico-completo/">Rider tecnico</a> · <a href="/privacy/">Privacy</a> · <a href="/termini/">Termini</a> · <a href="https://www.instagram.com/stageplot.it/" target="_blank" rel="me noopener">Instagram</a></p>
+      <p>Servizio a cura di Simone Castellan — P. IVA 04196010245. © 2026 stageplot.it.</p>
+    </div>
+  </footer>
+  <script src="richiesta.js?v=1"></script>
+</body>
+</html>
