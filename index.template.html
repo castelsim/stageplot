@@ -16866,6 +16866,44 @@ function mixLabelOf(it){
   return pc ? PER_CHI[it.type]+" – "+pc : (it.label||"").trim();
 }
 function nomeAscolto(it,fallback){ var n=mixLabelOf(it); return n||fallback; }   /* per i messaggi sui PM */
+/* L2 (15/11/2026, CAVI_SUL_PALCO R1-R4): dove nasce una drop box AUTOMATICA. Prima stava al baricentro del gruppo, 90 cm verso
+   il fondo: a metà palco, tra i musicisti. Ora sta sul BORDO del gruppo che serve (45-100 cm dal suo ingombro, lati e fondo), nella
+   cella libera a costo minimo = distanza media dalle sorgenti + 0,7 × distanza dal bordo del palco. Mai dentro un elemento, mai
+   negli ultimi 110 cm verso il pubblico (lì stanno voci e spie), ≥ 70 cm da un'altra box. Le box dell'utente non passano di qui. */
+var CAB_BOX_PUBBLICO=110, CAB_BOX_DIST=70;
+function cabItemHalf(it){
+  var t=TYPES[it.type]||{}, w=+it.w||t.w||40, d=+it.d||t.d||40, r=(it.rot||0)*Math.PI/180, c=Math.abs(Math.cos(r)), s=Math.abs(Math.sin(r));
+  return {hx:(w*c+d*s)/2, hy:(w*s+d*c)/2};
+}
+function cabPlaceAutoBox(its, taken){
+  var W=state.stage.w, D=state.stage.d, T=TYPES.stagebox||{}, bw=(T.w||33)/2+4, bd=(T.d||17)/2+4;
+  var x0=Infinity,x1=-Infinity,y0=Infinity,y1=-Infinity, cx=0, cy=0;
+  its.forEach(function(it){ var h=cabItemHalf(it); x0=Math.min(x0,it.x-h.hx); x1=Math.max(x1,it.x+h.hx); y0=Math.min(y0,it.y-h.hy); y1=Math.max(y1,it.y+h.hy); cx+=it.x; cy+=it.y; });
+  cx/=its.length; cy/=its.length;
+  var halves=state.items.map(function(it){ return {it:it, h:cabItemHalf(it)}; });
+  var blocks=(state.stage.blocks&&state.stage.blocks.length)?state.stage.blocks:null;
+  function libero(x,y){
+    if(x<bw || x>W-bw || y<bd || y>D-CAB_BOX_PUBBLICO) return false;
+    if(blocks && !blocks.some(function(b){ return x>=b.x+bw && x<=b.x+b.w-bw && y>=b.y+bd && y<=b.y+b.d-bd; })) return false;
+    for(var i=0;i<halves.length;i++){ var o=halves[i]; if(Math.abs(x-o.it.x)<o.h.hx+bw && Math.abs(y-o.it.y)<o.h.hy+bd) return false; }
+    for(var j=0;j<taken.length;j++) if(Math.hypot(x-taken[j].x, y-taken[j].y)<CAB_BOX_DIST) return false;
+    return true;
+  }
+  function migliore(offs){
+    var best=null;
+    offs.forEach(function(off){
+      [[x0-off,cy],[x1+off,cy],[cx,y0-off],[x0-off,y0],[x1+off,y0],[x0-off,y1],[x1+off,y1]].forEach(function(c){
+        var x=c[0], y=c[1]; if(!libero(x,y)) return;
+        var cost=its.reduce(function(a,it){ return a+Math.abs(it.x-x)+Math.abs(it.y-y); },0)/its.length + 0.7*Math.min(x,W-x,y);
+        if(!best || cost<best.cost-1e-9) best={cost:cost,x:x,y:y};
+      });
+    });
+    return best;
+  }
+  var b=migliore([45,70,100]) || migliore([130,160,200,260]);   /* gruppo circondato: si allarga, ma resta sul fianco libero più vicino */
+  if(!b) return {x:Math.round(Math.min(W-40,Math.max(40,cx))), y:Math.round(Math.min(D-CAB_BOX_PUBBLICO,Math.max(40,cy-90)))};   /* ultima spiaggia: come prima, ma mai in fascia pubblico */
+  return {x:Math.round(b.x), y:Math.round(b.y)};
+}
 function audioCablingEngine(){
   var man=(state.cab&&state.cab.manual)||{};
   /* MANUAL-FIRST (Simone 08/07: "non è possibile fare il cablaggio in modo automatico"):
@@ -16896,14 +16934,19 @@ function audioCablingEngine(){
             sbId:(it.sbId>0? +it.sbId : null), res:res, resMap:rm, resNome:((it.sbResNome && typeof it.sbResNome==="object") ? it.sbResNome : {}), taken:{}, pins:{},
             name:(mxm ? (mxm.brand+" "+mxm.model) : (it.label||TYPES[it.type].defLabel||"BOX"))}; });
   if(!manualMode && !boxes.length && totIn){
+    var _taken=[];
     cabClusters(groups, 320).forEach(function(c){        /* soglia 3,2 m: batteria/tastiere/sezioni/voci diventano cluster distinti */
       var nb=Math.max(1, Math.ceil(c.n/8));
+      /* più box nello stesso cluster (L2): i gruppi si dividono da sinistra a destra, ogni box sta al bordo del suo pezzo */
+      var gs=c.groups.slice().sort(function(a,b2){ return (a.it.x-b2.it.x) || (a.it.y-b2.it.y); }), per=Math.ceil(gs.length/nb);
       for(var i=0;i<nb;i++){
-        var ox=(nb===1)?0:(i-(nb-1)/2)*70;
+        var pezzo=gs.slice(i*per,(i+1)*per); if(!pezzo.length) pezzo=gs;
+        var pos=cabPlaceAutoBox(pezzo.map(function(g){ return g.it; }), _taken); _taken.push(pos);
         /* stessa forma delle box reali: senza taken/pins/res/resMap l'assegnazione porte (takePort)
            crashava appena si cablava senza stage box sul palco (toast "problema imprevisto"). */
-        boxes.push({x:Math.round(Math.min(state.stage.w-40,Math.max(40,c.cx+ox))), y:Math.round(Math.min(state.stage.d-40,Math.max(40,c.cy-90))), cap:8, used:0, outCap:8, usedOut:0, auto:true, id:"auto"+boxes.length, hw:null, name:"DROP BOX 8ch",
-          foh:false, sbId:null, res:[], resMap:{}, taken:{}, pins:{}});
+        boxes.push({x:pos.x, y:pos.y, cap:8, used:0, outCap:8, usedOut:0, auto:true, id:"auto"+boxes.length, hw:null, name:"DROP BOX 8ch",
+          foh:false, sbId:null, res:[], resMap:{}, taken:{}, pins:{},
+          plan:pezzo.reduce(function(m,g){ m[g.it.id]=1; return m; },{})});   /* L2: gli elementi per cui la box è stata piazzata */
       }
     });
     issues.push({lvl:"info", msg:"Nessuna stage box sul palco: proposte "+boxes.length+" drop box da 8ch vicino ai gruppi. Trascina una stage box reale dal catalogo per fissarla."});
@@ -17006,7 +17049,10 @@ function audioCablingEngine(){
       var la=a.used/(a.cap||1), lb=b.used/(b.cap||1);
       return la!==lb ? la-lb : da-db; });
     function bfree(b){ return b.cap-(b.res?b.res.length:0)-b.used; }   /* F2: le porte riservate non contano per l'auto */
-    var whole=cand.filter(function(b){ return bfree(b)>=g.list.length; })[0]||null;
+    /* L2: la box piazzata per questo gruppo (drop box automatiche) lo serve per prima, se ha posto: la box sta al bordo del SUO
+       gruppo, e senza questa preferenza uno strumento vicino al confine finirebbe sulla box del vicino */
+    var _own=cand.filter(function(b){ return b.plan && b.plan[g.it.id] && bfree(b)>=g.list.length; })[0]||null;
+    var whole=_own || cand.filter(function(b){ return bfree(b)>=g.list.length; })[0]||null;
     if(g.list.length>=2 && !isPerMusicianMulti(g.it)){
       /* CAVO UNICO (Simone 09/07): uno strumento multi-canale (batteria, ampli, coppie…) = UN cavo che porta
          tutti i canali. Instrada UNA volta con chiave di gruppo "grp:id"; gli N link condividono cavo/box/percorso
