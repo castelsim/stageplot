@@ -33095,6 +33095,8 @@ t("rig: un progetto con americane numerate chiede «Opzioni complete» nell'avvi
   eq(A.funzUsateDalProgetto(A.state).indexOf("opzioni"), -1, "senza rig niente avviso");
   A.rigImposta(am, {});
   ok(A.funzUsateDalProgetto(A.state).indexOf("opzioni") >= 0, "con rig sì");
+});
+
 /* ───────── L2 · Stagebox automatiche ai bordi del gruppo (15/11/2026, proposta CAVI_SUL_PALCO § 4 L2) ─────────
    Prima: ogni drop box nasceva al baricentro del gruppo, 90 cm verso il fondo (a metà palco, tra i musicisti).
    Ora: sul bordo del gruppo servito (45-100 cm dal suo ingombro, lati e fondo), mai dentro un elemento,
