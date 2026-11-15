@@ -2379,6 +2379,10 @@
         <label for="pdfVersione">Versione <span class="hdr-why">— nel piè di ogni pagina e nel nome del file</span></label>
         <input type="text" id="pdfVersione" inputmode="numeric" maxlength="3" placeholder="es. 1" autocomplete="off" style="width:110px">
         <div class="hdr-saved" id="pdfVersioneHint"></div>
+        <!-- STATO DEL DOCUMENTO (15/11/2026, S22 parte 1; dicitura scelta da Simone): «Provvisorio» / «Definitivo», facoltativo.
+             Nessuno = documento e nome del file identici a prima. In PRODUZIONE vanno solo i definitivi (regola di Diego, 23/01/2025). -->
+        <label for="pdfStatoDoc">Stato del documento <span class="hdr-why">— facoltativo: nel piè, nel cartiglio e nel nome del file</span></label>
+        <select id="pdfStatoDoc" style="width:150px"><option value="">Nessuno</option><option value="provvisorio">Provvisorio</option><option value="definitivo">Definitivo</option></select>
         <div class="hdr-saved" id="pdfFileName"></div>
         <div class="hdr-saved" id="pdfUltimo" hidden></div>
         <!-- SCALETTA e QR (10/10/2026, idee dal confronto con TecRider Pro). Fuori da «Altre opzioni»:
@@ -6800,7 +6804,7 @@ function nextVariantName(){ var n=0; VARIANTS.forEach(function(v){ var m=/^Varia
    data e contatti non erano mai diversi. Restano nello stato di ogni variante — lo schema e i file
    già salvati non cambiano — ma a ogni sincronizzazione quelli della variante attiva si scrivono
    nelle altre. */
-var CAMPI_DOCUMENTO=["allegatiRichiesti","misureStile","pdfOrganico","quoteDaTerra","organicoOrdine","titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","versione","latiTeatro","sonorizzazione","orari","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
+var CAMPI_DOCUMENTO=["allegatiRichiesti","misureStile","pdfOrganico","quoteDaTerra","organicoOrdine","titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","versione","statoDoc","latiTeatro","sonorizzazione","orari","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
 function propagaCampiDocumento(v){
   var src=v&&v.state; if(!src) return;
   VARIANTS.forEach(function(o){
@@ -10131,6 +10135,7 @@ function normalizeState(s){
   if(s.pdfPesi!==true) delete s.pdfPesi;   /* kg nel PDF: solo un true esplicito li accende (06/10/2026) */
   var _vers=(typeof s.versione==="number"||typeof s.versione==="string") ? +s.versione : NaN;   /* versione del documento (12/11): intero 1-999, altrimenti assente */
   if(_vers%1===0 && _vers>=1 && _vers<=999) s.versione=_vers; else delete s.versione;
+  if(s.statoDoc!=="provvisorio" && s.statoDoc!=="definitivo") delete s.statoDoc;   /* stato del documento (15/11, S22): solo i due valori, assente = nessuno */
   /* Le pagine scelte nella finestra Esporta si ricordavano nel progetto (06/08). Dal 10/09 non più
      — «togli anche la memoria della scelta» — e il campo si porta via chi apre il progetto, non una
      scrittura di massa sul database: quella toccherebbe i progetti di tutti in un colpo solo e non
@@ -23384,6 +23389,7 @@ function setEventInputs(){
   var _vc=document.getElementById("pdfVersione");   /* la versione: quella del campo, o letta dal titolo (precompilata) */
   if(_vc && document.activeElement!==_vc) _vc.value=versioneNumero()||"";
   var _vh=document.getElementById("pdfVersioneHint"); if(_vh) _vh.textContent=versioneSuggerimento();
+  var _sd=document.getElementById("pdfStatoDoc"); if(_sd && document.activeElement!==_sd) _sd.value=statoDocValore();
   try{ var _tg=tagliaSuggerimento(), _th=document.getElementById("pdfTagliaHint"); if(_th){ _th.hidden=!_tg; if(_tg) document.getElementById("pdfTagliaTesto").textContent="La taglia è "+_tg.taglia+": nel nome «"+_tg.nuovo+"»."; } }catch(_e){}
   ["luogo","luogoEv","evLuogo"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=state.luogo||""; });
   ["evDate","evDateM"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=state.evDate||""; });
@@ -23398,6 +23404,7 @@ function setEventInputs(){
 TITLE_INPUTS.forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input", function(){ state.titolo=this.value; setEventInputs(); saveSoon(); }); });
 ["luogo","luogoEv","evLuogo"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input", function(){ state.luogo=this.value; setEventInputs(); saveSoon(); }); });
 (function(){ var e=document.getElementById("pdfVersione"); if(e) e.addEventListener("input", function(){ versioneImposta(this.value); }); })();
+(function(){ var e=document.getElementById("pdfStatoDoc"); if(e) e.addEventListener("change", function(){ statoDocImposta(this.value); }); })();
 ["evTipo","evTipoM"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("change", function(){
   state.tipoEvento=(this.value==="conferenza")?"conferenza":"concerto"; setEventInputs(); saveSoon(); if(typeof render==="function") render(); }); });
 ["evSon","evSonM"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("change", function(){
@@ -35903,16 +35910,35 @@ function versioneImposta(txt){
   if(typeof setEventInputs==="function") setEventInputs();
   saveSoon();
 }
+/* STATO DEL DOCUMENTO (15/11/2026, S22 parte 1): «Provvisorio» / «Definitivo», facoltativo (`state.statoDoc`, assente = nessuno).
+   Compare nel piè accanto a versione e «1 di N», nella riga luogo · data del cartiglio e nel nome dei file (PDF, PNG, zip). */
+var STATO_DOC_ETICHETTE={provvisorio:"Provvisorio", definitivo:"Definitivo"};
+function statoDocValore(){ var v=state && state.statoDoc; return (v==="provvisorio"||v==="definitivo") ? v : ""; }
+function statoDocEtichetta(){ return STATO_DOC_ETICHETTE[statoDocValore()]||""; }
+function statoDocImposta(v){
+  if(v==="provvisorio"||v==="definitivo") state.statoDoc=v; else delete state.statoDoc;
+  if(typeof setEventInputs==="function") setEventInputs();
+  saveSoon();
+}
+/* aggiunge «-Definitivo» al nome di un file che non lo porta già (i nomi con versione lo scrivono da sé) */
+function nomeConStato(name, sep){
+  var e=statoDocEtichetta(); if(!e) return name;
+  if(String(name).toLowerCase().indexOf(e.toLowerCase())>=0) return name;
+  var m=/(\.[a-z0-9]+)$/i.exec(name), ext=m?m[1]:"", base=m?name.slice(0,-ext.length):name;
+  return base+(sep||"-")+(sep===" - "?e:e.toLowerCase())+ext;
+}
 function dataGgMmAaaa(d, sep){ var p=function(n){ return String(n).padStart(2,"0"); }; return p(d.getDate())+sep+p(d.getMonth()+1)+sep+d.getFullYear(); }
 function versioneEtichetta(d){ var n=versioneNumero(); return n ? "v"+n+" · "+dataGgMmAaaa(d||new Date(),"/") : ""; }
+/* il piè: «v3 · 12/11/2026 · Definitivo» (solo lo stato, se non c'è la versione) */
+function pieDocumentoEtichetta(d){ return [versioneEtichetta(d), statoDocEtichetta()].filter(Boolean).join(" · "); }
 function versioneSuggerimento(){ return versioneNumero() ? "" : "Consiglio: aggiungi la versione (1, 2, 3…): esce nel piè di pagina e nel nome del file, e chi riceve il PDF capisce se è l'ultima."; }
 /* «Titolo - v3 del 12-11-2026 - A3 orizz 1-50.pdf»: il titolo com'è scritto (senza il «vN» finale, già nel nome), senza i caratteri che
    i file system rifiutano, al massimo 100 caratteri. Senza versione, il nome di sempre. */
 function nomeFilePdf(paperKey, N, orient, d){
-  var v=versioneNumero(); if(!v) return fileName()+".pdf";
+  var v=versioneNumero(), _st=statoDocEtichetta(); if(!v) return nomeConStato(fileName()+".pdf");
   var t=titoloSenzaVersione(state.titolo).replace(/[\\\/:*?"<>|\u0000-\u001f]+/g," ").replace(/\s+/g," ").trim().slice(0,100).trim().replace(/[. ]+$/,"");
   if(!t) t="Stage plot";
-  return t+" - v"+v+" del "+dataGgMmAaaa(d||new Date(),"-")+" - "+String(paperKey||"a4").toUpperCase()+" "+(orient==="portrait"?"vert":"orizz")+" 1-"+N+".pdf";
+  return t+" - v"+v+" del "+dataGgMmAaaa(d||new Date(),"-")+(_st?" - "+_st:"")+" - "+String(paperKey||"a4").toUpperCase()+" "+(orient==="portrait"?"vert":"orizz")+" 1-"+N+".pdf";
 }
 /* Il nome che l'Esporta promette («Il file uscirà come…»): lo stesso dell'export, con il foglio e la scala scelti adesso. */
 function pdfNomeFileTesto(){
@@ -35925,7 +35951,7 @@ function pdfNomeFileTesto(){
       }
     }
   }catch(_e){}
-  return fileName()+".pdf";
+  return nomeConStato(fileName()+".pdf");
 }
 /* ===== Condividi progetto (link auto-caricante) ===== */
 (function(){
@@ -36511,7 +36537,7 @@ function dl(href,name){ var a=document.createElement("a"); a.href=href; a.downlo
 /* conferma download coerente per tutti gli export (CSV/PDF/PNG) — il file parte davvero ma senza
    feedback l'utente non lo sa (il browser mostra il download in un angolo, spesso ignorato). */
 function toastDownloaded(name){ try{ if(window.__toast) window.__toast("Download completato: "+name); }catch(_e){} }
-function pdfSave(doc, name){ doc.save(name); toastDownloaded(name); }
+function pdfSave(doc, name){ name=nomeConStato(name); doc.save(name); toastDownloaded(name); }
 
 /* ===== Export CSV della channel list (discovery pro #1 + preset #4) — il service importa in
    Excel/console invece di ri-digitare il PDF a mano. Separatore scelto + BOM UTF-8 (accenti). ===== */
@@ -39284,6 +39310,7 @@ function pdfCartBlocco(k, s, w, pt, minPt, maxR, passo, bold){
 function pdfCartSub(){
   var sub=[]; if(state.luogo) sub.push(state.luogo);
   sub.push(dataDocumento());
+  if(statoDocEtichetta()) sub.push(statoDocEtichetta());   /* S22: «Provvisorio» / «Definitivo» accanto alla data (15/11) */
   /* il cartiglio dice sempre il PALCO: la cornice di stampa personalizzata è solo il taglio del foglio (printArea) e
      non serve a chi legge (23/10, segnalazione del proprietario: «area 9,3×6,57 m» al posto di «palco 8×6 m») */
   recalcStageBBox(); sub.push(cartAreaTxt({w:state.stage.w, h:state.stage.d}));
@@ -39485,7 +39512,7 @@ function pdfCredit(doc){
        «1 di N» su ogni foglio, anche quando è uno solo (regola del 06/10 per ogni PDF che esce da qui). */
     doc.setFontSize(8); doc.setTextColor(107,114,128); doc.text(i+" di "+n, pw/2, ph-4.5, {align:"center"});
     /* la versione accanto al numero di pagina (12/11, regola «versione su ogni foglio»): «v3 · 12/11/2026» */
-    var _ver=versioneEtichetta();
+    var _ver=pieDocumentoEtichetta();
     if(_ver) doc.text(_ver, pw/2+doc.getTextWidth(i+" di "+n)/2+4, ph-4.5);
   }
   doc.setPage(n);
@@ -41159,7 +41186,7 @@ function pacchettoVariante(){
 /* «20260419 v3 channel list Teatro Esempio»: senza estensione; opz = {nome, data, versione, variante} */
 function pacchettoNomeFile(documento, opz){
   opz=opz||{};
-  return [opz.data, opz.versione ? "v"+opz.versione : "", documento, pacchettoPulisci(opz.nome), pacchettoPulisci(opz.variante)].filter(Boolean).join(" ");
+  return [opz.data, opz.versione ? "v"+opz.versione : "", opz.stato||"", documento, pacchettoPulisci(opz.nome), pacchettoPulisci(opz.variante)].filter(Boolean).join(" ");
 }
 /* ZIP «store»: senza compressione, CRC32, nomi in UTF-8 (flag 0x0800). Un file zip è: [intestazione locale + dati] × N, directory centrale, fine. */
 var _crcTab=null;
@@ -41222,7 +41249,7 @@ function pacchettoScarica(bytes, nome){
 }
 function pacchettoOpzioni(){
   var inp=document.getElementById("pkgNome");
-  return { nome: inp ? inp.value : pacchettoNomeDefault(), data: pacchettoData(), versione: versioneNumero(), variante: pacchettoVariante() };
+  return { nome: inp ? inp.value : pacchettoNomeDefault(), data: pacchettoData(), versione: versioneNumero(), stato: statoDocEtichetta(), variante: pacchettoVariante() };
 }
 function pacchettoApri(){
   var m=document.getElementById("pkgModal"); if(!m) return;
@@ -41374,8 +41401,9 @@ function exportPng(fatto){
       ctx.fillStyle="#ffffff"; ctx.fillRect(0,0,pxW,pxH);
       ctx.drawImage(img,0,0,pxW,pxH);
       var a=document.createElement("a");
-      a.download=fileName()+".png"; a.href=c.toDataURL("image/png"); a.click();   /* audit L-01: nome canonico (= titolo progetto, come i PDF), non il legacy state.nome */
-      toastDownloaded(fileName()+".png");
+      var _pngNome=nomeConStato(fileName()+".png");
+      a.download=_pngNome; a.href=c.toDataURL("image/png"); a.click();   /* audit L-01: nome canonico (= titolo progetto, come i PDF), non il legacy state.nome */
+      toastDownloaded(_pngNome);
       track("export",{format:"png"});
     }
     finally{ fine(); }
