@@ -32728,5 +32728,111 @@ t("Ostacolo: la quota sopravvive a salva→riapri; senza quota il documento è i
   ok(/it\.type==="ostacolo"\) \? "" : "none"/.test(js), "il campo h compare nel pannello dell'ostacolo");
 });
 
+/* ═══ DOVE GUARDA CHI SUONA (15/11/2026) — il controllo «Il tastierista guarda la quinta: è giusto?» ═══
+   Tabella verificata sul disegno tipo per tipo a rot 0 (anteprime-orientamento-2026-11-15/rot0_verifica). */
+function palcoOr(elementi) {
+  A.state.stage.w = 1000; A.state.stage.d = 800; A.state.stage.blocks = [{ x: 0, y: 0, w: 1000, d: 800 }];
+  A.state.items = elementi.map((e, i) => ({ id: "o" + i, rot: 0, w: A.TYPES[e.type].w, d: A.TYPES[e.type].d, label: "", x: 500, y: 300, ...e }));
+  return A.state.items;
+}
+const orFlag = (e) => A.orientAnalisi(palcoOr([e])[0]);
+t("orientamento: rotazione propria di ogni tipo — a rot 0 le icone «strumento solo» guardano il fondale, quelle con la figura il pubblico", () => {
+  /* [tipo, look, rot, segnalato?] */
+  const casi = [
+    ["tastiera", "", 0, true], ["tastiera", "", 180, false], ["doppiatastiera", "", 0, true], ["doppiatastiera", "", 180, false],
+    ["pianoverticale", "", 0, true], ["celesta", "", 0, true], ["moogsub37", "", 0, true], ["moogsub37", "", 180, false],
+    ["controllermidi", "", 0, true], ["organohammond", "", 0, true], ["clavicembalo", "", 0, true], ["spdsx", "", 0, true], ["spdsx", "", 180, false],
+    ["laptop", "", 0, true], ["laptop", "", 180, false],
+    ["stagepiano", "", 0, false], ["stagepiano", "", 180, true], ["stagepiano", "schematico", 0, true], ["stagepiano", "schematico", 180, false],
+    ["grancoda", "", 0, false], ["grancoda", "schematico", 0, true], ["mezzacoda", "schematico", 180, false],
+    ["cantante", "", 0, false], ["cantante", "", 180, true], ["corista", "", 180, true],
+    ["vlnpost", "", 0, false], ["vlnpost", "", 180, true], ["flauto", "", 180, true], ["arpa", "", 180, true],
+    ["gtstand", "", 0, false], ["gtstand", "", 180, true], ["bassstand", "", 180, true],
+    ["batteria", "", 0, false], ["batteria", "", 180, true], ["percussioni", "", 180, true],
+  ];
+  casi.forEach(([tipo, look, rot, att]) => {
+    const e = { type: tipo, rot }; if (look) e.look = look;
+    eq(!!orFlag(e), att, tipo + " " + (look || "illustrato") + " rot " + rot);
+  });
+});
+t("orientamento: fuori controllo — direttore, accessori, strumento solo senza figura, elementi fuori dal palco, tipi senza musicista", () => {
+  eq(orFlag({ type: "direttore", rot: 180 }), null, "il direttore guarda l'orchestra");
+  eq(orFlag({ type: "pedaliera", rot: 0 }), null, "la pedaliera è un accessorio");
+  eq(orFlag({ type: "astamic", rot: 0 }), null, "l'asta è un accessorio");
+  eq(orFlag({ type: "gtstand", rot: 180, look: "schematico" }), null, "chitarra «strumento solo»: nessuna figura");
+  eq(orFlag({ type: "vlnpost", rot: 180, look: "schematico", sedia: false }), null, "postazione nuda: nessuna figura");
+  ok(orFlag({ type: "vlnpost", rot: 180, look: "schematico", sedia: true }), "con la sedia c'è chi suona");
+  eq(orFlag({ type: "edrums", rot: 180 }), null, "e-drums: nessuna figura");
+  eq(orFlag({ type: "cajon", rot: 180 }), null, "cajon: nessuna figura");
+  eq(orFlag({ type: "laptop", rot: 0, x: 500, y: 900 }), null, "laptop al FOH (fuori dal palco)");
+  eq(orFlag({ type: "batteria", rot: 180, parts: { mus: false } }), null, "batteria senza batterista disegnato");
+});
+t("orientamento: di lato si guarda il centro del palco, non la quinta; a 90° dal pubblico al centro è una quinta", () => {
+  ok(orFlag({ type: "tastiera", x: 100, rot: 270 }), "a sinistra con lo sguardo a sinistra: quinta");
+  eq(orFlag({ type: "tastiera", x: 100, rot: 90 }), null, "a sinistra con lo sguardo al centro: va bene");
+  ok(orFlag({ type: "tastiera", x: 900, rot: 90 }), "a destra con lo sguardo a destra: quinta");
+  eq(orFlag({ type: "tastiera", x: 900, rot: 270 }), null, "a destra con lo sguardo al centro: va bene");
+  ok(orFlag({ type: "cantante", x: 500, rot: 90 }), "al centro, di profilo: da chiedere");
+  eq(orFlag({ type: "cantante", x: 100, rot: 70 }), null, "fino a 70° dal pubblico non si dice niente");
+  ok(orFlag({ type: "cantante", x: 100, rot: 250 }), "oltre 100° anche verso il centro: guarda indietro");
+  eq(orFlag({ type: "cantante", rot: 180 }).dove, "il fondale", "dove: fondale");
+  eq(orFlag({ type: "cantante", x: 100, rot: 250 }).dove, "il fondo del palco", "oltre 100° ma verso l'interno: non è una quinta");
+  eq(orFlag({ type: "cantante", x: 100, rot: 110 }).dove, "la quinta di sinistra", "a 110° verso l'esterno è la quinta");
+  /* gran coda e mezza coda: di profilo al pubblico è la posa normale (collaudo 15/11) */
+  eq(orFlag({ type: "grancoda", x: 500, rot: 270 }), null, "gran coda di profilo, al centro");
+  eq(orFlag({ type: "grancoda", x: 500, rot: 90 }), null, "gran coda di profilo dall'altro lato");
+  eq(orFlag({ type: "mezzacoda", x: 300, rot: 255 }), null, "mezza coda di profilo, appena girata");
+  ok(orFlag({ type: "mezzacoda", x: 300, rot: 200 }), "ma di schiena al pubblico sì");
+  ok(orFlag({ type: "stagepiano", x: 500, rot: 90 }), "lo stage piano di profilo al centro resta da chiedere");
+  eq(orFlag({ type: "tastiera", x: 100, rot: 270 }).dove, "la quinta di sinistra", "dove: quinta di sinistra (guardando dalla platea)");
+  eq(orFlag({ type: "tastiera", x: 900, rot: 90 }).dove, "la quinta di destra", "dove: quinta di destra");
+});
+t("orientamento: nell'audit è una nota (niente punti, niente PDF) con tre azioni; «Giralo» e «È giusto così» funzionano", () => {
+  const its = palcoOr([{ type: "cantante", x: 600, rot: 0, label: "Voce" }, { type: "tastiera", x: 300, rot: 0, label: "Tasti" }]);
+  const r = A.auditEngine(), f = r.findings.find(x => x.rule === "orientamento");
+  ok(f, "c'è la voce");
+  eq(f.lvl, "nota", "livello nota");
+  eq(f.msg, "Chi suona «Tasti» guarda il fondale: è giusto?", "frase");
+  eq([f.act.label, f.act2.label, f.act3.label], ["Giralo verso il pubblico", "È giusto così", "Mostra"], "tre azioni");
+  its[1].rot = 180;
+  const pulito = A.auditEngine();
+  ok(!pulito.findings.some(x => x.rule === "orientamento"), "girata verso il pubblico non c'è più");
+  eq([pulito.score, pulito.warns, pulito.errs], [r.score, r.warns, r.errs], "non toglie punti e non è avviso né errore");
+  /* il rimedio gira davvero (e la voce, già giusta, non si tocca) */
+  its[1].rot = 0;
+  A.auditEngine().findings.find(x => x.rule === "orientamento").act.run();
+  eq([its[1].rot, its[0].rot], [180, 0], "«Giralo verso il pubblico»: tastiera a 180, voce intatta");
+  /* «È giusto così»: ricordato per quell'elemento, si riapre solo se lo giri */
+  its[1].rot = 0; its[1].orOk = undefined;
+  A.auditEngine().findings.find(x => x.rule === "orientamento").act2.run();
+  eq(its[1].orOk, 0, "ricordato");
+  ok(!A.auditEngine().findings.some(x => x.rule === "orientamento"), "e la voce sparisce");
+  its[1].rot = 270;
+  ok(A.auditEngine().findings.some(x => x.rule === "orientamento"), "girata verso la quinta, la domanda torna");
+  /* più elementi: un solo avviso che li conta */
+  palcoOr([{ type: "tastiera", x: 200, rot: 0, label: "A" }, { type: "tastiera", x: 400, rot: 0, label: "B" }, { type: "cantante", x: 600, rot: 180, label: "C" }]);
+  const m = A.auditEngine().findings.find(x => x.rule === "orientamento");
+  eq(m.msg, "3 musicisti guardano il fondale o una quinta (A, B, C): è giusto?", "frase plurale");
+  eq(m.act.label, "Giralli verso il pubblico", "plurale");
+  m.act.run();
+  eq(A.state.items.map(x => x.rot), [180, 180, 0], "li gira tutti verso il pubblico, ciascuno con la sua base");
+  ok(!A.auditEngine().findings.some(x => x.rule === "orientamento"), "tutti a posto");
+});
+t("orientamento: «È giusto così» sopravvive a salvataggio e ricarica del progetto", () => {
+  const its = palcoOr([{ type: "tastiera", x: 300, rot: 0, label: "Tasti" }]);
+  A.orientGiustoCosi(A.orientDaRivedere());
+  const b = A.normalizeState(JSON.parse(A.stateToJSON()));
+  eq(b.items[0].orOk, 0, "orOk resta nel progetto salvato");
+  const [si] = A.sanitizeItems([{ id: "x1", type: "tastiera", x: 300, y: 300, rot: 0, orOk: 0 }]);
+  eq(si.orOk, 0, "e nel JSON importato");
+  const [sj] = A.sanitizeItems([{ id: "x2", type: "tastiera", x: 300, y: 300, rot: 0, orOk: "abc" }]);
+  ok(!("orOk" in sj), "un valore non numerico non entra");
+});
+t("orientamento: il pannello Audit e la pillola «cose da guardare» lo mostrano (act3 e conteggio)", () => {
+  const js = readFileSync(join(root, "app.js"), "utf8");
+  ok(/var azioni=\[x\.act, x\.act2, x\.act3\]/.test(js), "il pannello disegna anche la terza azione");
+  ok(/x\.rule==="orientamento"; \}\)\.length;/.test(js), "la pillola conta la domanda");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

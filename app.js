@@ -7859,7 +7859,8 @@ function sanitizeItems(arr){
     else if(isCover(it) && o.h!=null) it.h=+o.h;   /* coperture: h opzionale (luce sotto); se assente = default coverH() */
     else if(o.type==="ostacolo" && ostacoloHPulita(o.h)) it.h=ostacoloHPulita(o.h);   /* ostacolo: quota opzionale */
     if(Object.prototype.hasOwnProperty.call(COMP,o.type)) it.parts=o.parts?compClone(o.parts):compClone(COMP[o.type].defParts);
-    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","perChi","podio","sgab","grp","distOf","distType","aggancia","dimSide","lblSize","plCh","dvsPro","dvsNet","dvsSr","dvsLat","ifaceId","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","leggioDist","poltrona","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic","platea","fila","posto","settore"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });   /* platea: passi e corridoio, ripuliti poi da normalizeLoadedItems; fila/posto/settore: posti numerati */
+    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","perChi","podio","sgab","grp","distOf","distType","aggancia","dimSide","lblSize","plCh","dvsPro","dvsNet","dvsSr","dvsLat","ifaceId","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","leggioDist","poltrona","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic","platea","fila","posto","settore","orOk"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });   /* platea: passi e corridoio, ripuliti poi da normalizeLoadedItems; fila/posto/settore: posti numerati */
+    if(it.orOk!=null){ var _ok=Math.round(+it.orOk); if(isFinite(_ok)) it.orOk=_ok; else delete it.orOk; }   /* «È giusto così» sull'orientamento (15/11): la rotazione che l'utente ha confermato, numero intero */
     if(it.leggioDist!=null){ var _ld=leggioDist(it); if(_ld && leggioDistSupported(it)) it.leggioDist=_ld; else delete it.leggioDist; }   /* distanza del leggio: numero intero nei limiti, solo dove c'è un leggio da spostare; 0 = standard, non si scrive */
     postoSanifica(it);   /* posti numerati (06/10): tipi e lunghezze garantiti */
     if(it.type==="dimono"){   /* DI box: normalizza gli assi + footprint (migra il vecchio diLook del selettore) */
@@ -16408,9 +16409,9 @@ function auditEngine(){
      motore usciva due volte — con due formulazioni diverse e due gravità diverse — perché il confronto
      era sulla stringa. Chi la dichiara per primo vince: qui le regole hanno l'azione a un click. */
   var seen={};
-  function add(lvl,msg,cat,fix,act,rule,act2){
+  function add(lvl,msg,cat,fix,act,rule,act2,act3){
     if(rule){ if(seen[rule]) return; seen[rule]=1; }
-    f.push({lvl:lvl, msg:msg, cat:cat||"Generale", fix:fix||"", act:act||null, act2:act2||null, rule:rule||""});
+    f.push({lvl:lvl, msg:msg, cat:cat||"Generale", fix:fix||"", act:act||null, act2:act2||null, act3:act3||null, rule:rule||""});
   }
   var audioSrc=Rc.totIn||0, monitors=(Rc.mixes||[]).length, loadsN=(Re.loads||[]).length;
   var realBox=items.some(cabIsDest), realDistro=items.some(elecIsDistro);   /* un mixer con ingressi locali È una destinazione reale: non chiedere una stage box che non serve */
@@ -16607,6 +16608,21 @@ function auditEngine(){
       "Palco","Probabilmente è una copia finita nello stesso punto. «Mostra» li seleziona; se sono davvero doppioni, toglili: si annulla.",
       {label:"Mostra", run:function(){ auditFixMostraDoppioni(doppi); }}, "doppioni",
       {label:(doppi.length===1?"Togli il doppione":"Togli i "+doppi.length+" doppioni"), run:function(){ auditFixTogliDoppioni(doppi); }});
+  })();
+  /* DOVE GUARDA CHI SUONA (15/11/2026): livello «nota» (si legge nel pannello e nel conteggio «cose da guardare», non toglie punti,
+     non entra in nessun PDF, non ferma l'esportazione). Una domanda, non un errore: «È giusto così» la chiude per quell'elemento. */
+  (function(){
+    var L=orientDaRivedere(); if(!L.length) return;
+    var its=L.map(function(x){ return x.it; });
+    var nome=function(it){ return String(it.label||"").trim() || TYPES[it.type].nome; };
+    var suona=function(it){ return (USA_DA_PIU_Y[it.type] || OR_PIU_Y_EXTRA[it.type]) ? "Chi suona «"+nome(it)+"»" : "«"+nome(it)+"»"; };
+    var msg;
+    if(L.length===1) msg=suona(L[0].it)+" guarda "+L[0].dove+": è giusto?";
+    else msg=L.length+" musicisti guardano il fondale o una quinta ("+its.slice(0,3).map(nome).join(", ")+(its.length>3?"…":"")+"): è giusto?";
+    add("nota", msg, "Palco", "Chi suona di solito guarda il pubblico, o il centro del palco se sta di lato. Se è voluto, «È giusto così» lo ricorda.",
+        {label:(L.length===1?"Giralo verso il pubblico":"Giralli verso il pubblico"), run:function(){ orientGira(L); }}, "orientamento",
+        {label:"È giusto così", run:function(){ orientGiustoCosi(L); }},
+        {label:"Mostra", run:function(){ auditFixMostraDoppioni(its); }});
   })();
   /* MONITOR STORTI (09/11/2026): solo con «Controllo tecnico» acceso e di livello «nota»: si legge nel pannello, non toglie punti, non
      entra in nessun PDF (quelli filtrano err/warn/todef) e non ferma l'esportazione. È un aiuto a chi disegna, non è affare del service. */
@@ -28940,7 +28956,7 @@ function renderStatoRider(rows){
   if(!A) return;
   var b=document.createElement("button");
   b.type="button"; b.className="stato-rider";
-  var quante=(A.errs||0)+(A.warns||0);
+  var quante=(A.errs||0)+(A.warns||0)+A.findings.filter(function(x){ return x.rule==="orientamento"; }).length;   /* la domanda sull'orientamento (15/11) si vede anche qui, senza aprire niente */
   var stato = A.errs>0 ? "err" : (quante>0 ? "warn" : "ok");
   b.classList.add("sr-"+stato);
   var testo = A.errs>0 ? (A.errs===1 ? "1 errore da sistemare" : A.errs+" errori da sistemare")
@@ -31268,6 +31284,56 @@ function monAnalisi(mon){
 function monitorDaRivedere(){
   return (state.items||[]).filter(function(x){ return monFronte(x.type)!==0; }).map(monAnalisi).filter(Boolean);
 }
+/* ═══ DOVE GUARDA CHI SUONA (15/11/2026) ═══
+   Simone, su un esempio: «c'è un errore clamoroso che fai spesso, dove guarda il tastierista?» (tastiera in verticale,
+   tastierista rivolto alla quinta). Ogni icona ha la sua rotazione propria: la tabella sta qui, VERIFICATA sul disegno tipo
+   per tipo a rot 0 (anteprime-orientamento-2026-11-15/rot0_verifica), non dedotta da una nota.
+   Base = dove guarda chi suona a rot 0: 0 = verso il pubblico (+y), 180 = verso il fondale. Le icone «strumento solo» hanno
+   tasti, pad o schermo a +y: da lì chi suona guarda il fondale (stesso fatto di USA_DA_PIU_Y, che decide la posa dal catalogo).
+   Fuori dal controllo: il direttore (guarda l'orchestra), pedaliere e aste (accessori: li giudica chi le usa), chitarre
+   «strumento solo», cajon, e-drums e timbales (nessuna figura disegnata), tutto ciò che sta fuori dal palco (laptop al FOH). */
+var OR_PIU_Y_EXTRA = { moogsub37:1, controllermidi:1, organohammond:1, clavicembalo:1, grancoda:"solo", mezzacoda:"solo" };
+var OR_ACCESSORI = { pedaliera:1, astamic:1 };
+/* Pianoforti a coda: di profilo al pubblico (il pubblico vede il pianista di fianco, con il coperchio aperto) è la posa normale, non una
+   svista: fino a 110° dal pubblico non si dice niente (collaudo 15/11: gran coda a 270° e mezza coda a 255° in progetti veri). */
+var OR_PROFILO = { grancoda:1, mezzacoda:1 };
+function orientBase(it){
+  if(!it || it.rackId || it.avvertenza || OR_ACCESSORI[it.type]) return null;   /* il direttore non è in nessuna tabella: resta fuori da solo */
+  var ty=it.type, schem=(it.look==="schematico");
+  var v=OR_PIU_Y_EXTRA[ty]; if(v==null) v=USA_DA_PIU_Y[ty];
+  if(v) return (v==="solo" ? schem : true) ? 180 : 0;
+  if(VOCE[ty]) return 0;
+  if(POSTAZ[ty] || DOUBLE_TYPES[ty]) return (!schem || it.sedia) ? 0 : null;   /* «strumento solo» senza sedia: nessuna figura */
+  if(LOOK_ART[ty]) return schem ? null : 0;
+  if(ty==="batteristaR" || ty==="percussionistaR") return 0;
+  if(ty==="batteria" || ty==="percussioni"){ var p; try{ p=parts(it); }catch(e){ p=null; } return (p && p.mus===false) ? null : 0; }
+  if(/^mus[A-Z]/.test(ty)) return (schem && DRAW_LOOK[ty]) ? null : 0;
+  return null;
+}
+function orientAnalisi(it){
+  var base=orientBase(it); if(base===null) return null;
+  var bl=stageBlocks();
+  if(!bl.some(function(b){ return it.x>=b.x && it.x<=b.x+b.w && it.y>=b.y && it.y<=b.y+b.d; })) return null;
+  var rot=monGradi(it.rot||0);
+  if(it.orOk!=null && monGradi(it.orOk-rot)===0) return null;   /* «È giusto così»: vale finché non lo giri */
+  var a=monGradi(rot+base), dev=Math.abs(a), gx=-Math.sin(a*Math.PI/180);
+  var cx=0, n=0; bl.forEach(function(b){ cx+=b.x+b.w/2; n++; }); cx=n?cx/n:0;
+  if(dev<=70 || (OR_PROFILO[it.type] && dev<=110)) return null;
+  if(dev<=100 && gx*(it.x-cx)<0) return null;   /* di lato ma verso il centro del palco: va bene */
+  var dentro=gx*(it.x-cx)<0;   /* lo sguardo va verso l'interno del palco: non è una quinta, è «indietro» */
+  return {it:it, dev:dev, dove: dev>=120 ? "il fondale" : (dentro ? "il fondo del palco" : (gx<0 ? "la quinta di sinistra" : "la quinta di destra")), verso: base===180 ? 180 : 0};
+}
+function orientDaRivedere(){ return (state.items||[]).map(orientAnalisi).filter(Boolean); }
+function orientGira(list){
+  if(window.__projLocked || !list || !list.length) return 0;
+  primaDiAgire(); list.forEach(function(x){ x.it.rot=x.verso; delete x.it.orOk; });
+  render(); save(); return list.length;
+}
+function orientGiustoCosi(list){
+  if(window.__projLocked || !list || !list.length) return 0;
+  primaDiAgire(); list.forEach(function(x){ x.it.orOk=monGradi(x.it.rot||0); });
+  render(); save(); return list.length;
+}
 /* ── ASCOLTO per performer (Simone 21/07): musicisti, cantanti, direttori dichiarano COSA usano per
    sentirsi → l'app crea/associa l'elemento monitor giusto vicino a loro, nel layer competente. ── */
 var ASCOLTO_TYPE = { wedge:"wedge", iem:"iem", pm:"hearback", cuffie:"cuffie" };
@@ -32230,7 +32296,7 @@ function renderAuditPanel(){
     var lv=x.lvl==="err"?"Errore":(x.lvl==="todef"?"Da definire":(x.lvl==="nota"?"Nota":"Avviso"));
     var row=document.createElement("div"); row.className="audit-find";
     row.innerHTML='<div class="audit-find-txt"><span class="audit-lv" style="color:'+c+'">● '+lv+'</span> · <b>'+esc((x.cat==="Rider" && eventoConferenza())?"Scheda":x.cat)+'</b> — '+esc(x.msg)+(x.fix?'<div class="audit-hint">↳ '+esc(x.fix)+'</div>':'')+'</div>';
-    var azioni=[x.act, x.act2].filter(function(a){ return a && typeof a.run==="function"; });   /* act2 (19/10): un secondo rimedio, es. «Mostra» + «Togli il doppione» */
+    var azioni=[x.act, x.act2, x.act3].filter(function(a){ return a && typeof a.run==="function"; });   /* act2 (19/10): un secondo rimedio, es. «Mostra» + «Togli il doppione» */
     if(azioni.length){
       var hostB=row;
       if(azioni.length>1){ hostB=document.createElement("div"); hostB.className="audit-acts"; row.appendChild(hostB); }
