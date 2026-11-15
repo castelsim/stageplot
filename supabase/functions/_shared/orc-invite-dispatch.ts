@@ -2,17 +2,18 @@
 // e `orc-invite-notify` (quelle di una produzione, subito, quando lo staff convoca, conferma o revoca):
 // il cron di GitHub gira quando gli pare, e una convocazione che parte ore dopo non serve.
 //
-// Quattro tipi: 'invite' e 'reminder' portano il link con il token (poi il segreto si cancella);
-// 'confirmed' e 'revoked' no — dicono com'è andata e rimandano all'area del musicista.
+// Cinque tipi: 'invite', 'reminder' e 'reconfirm' portano il link con il token (poi il segreto si cancella);
+// 'reconfirm' dice anche cosa è cambiato (RPC orc_invitation_changes); 'confirmed' e 'revoked' no — dicono
+// com'è andata e rimandano all'area del musicista.
 // La presa è atomica (pending → sending): worker e funzione possono girare insieme senza doppioni.
 
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2.108.2";
 import { nextOutboxAttempt, outboxStatusAfterAttempt } from "./notification-outbox.ts";
-import { buildInviteEmail, buildStatusEmail, idempotencyKey, isReservedAddress, type InviteRow } from "./orc-invitations.ts";
+import { buildInviteEmail, buildReconfirmEmail, buildStatusEmail, idempotencyKey, isReservedAddress, type InviteRow } from "./orc-invitations.ts";
 import { send } from "./orc-send.ts";
 
 type Row = {
-  id: string; notification_kind: InviteRow["notification_kind"]; notification_attempts: number; deadline: string | null; note_admin: string | null; status: string;
+  id: string; notification_kind: InviteRow["notification_kind"]; notification_attempts: number; deadline: string | null; note_admin: string | null; status: string; reconfirm_note: string | null;
   orc_musicians: { first_name: string; email: string } | null;
   orc_organizations: { name: string } | null;
   orc_productions: { title: string; venue: string | null; conductor: string | null; fee_note: string | null; id: string } | null;
@@ -20,7 +21,7 @@ type Row = {
   orc_invitation_secrets: { token: string } | null;
 };
 
-const EVENTO: Record<string, string> = { invite: "sent", reminder: "reminder_sent", confirmed: "confirmation_sent", revoked: "revocation_sent" };
+const EVENTO: Record<string, string> = { invite: "sent", reminder: "reminder_sent", confirmed: "confirmation_sent", revoked: "revocation_sent", reconfirm: "reconfirm_sent" };
 
 export async function dispatchInvitations(
   supabase: SupabaseClient,
@@ -28,13 +29,13 @@ export async function dispatchInvitations(
 ): Promise<{ sent: number; failed: number; skipped: number }> {
   const counts = { sent: 0, failed: 0, skipped: 0 };
   let q = supabase.from("orc_invitations")
-    .select("id,notification_kind,notification_attempts,deadline,note_admin,status,orc_musicians(first_name,email),orc_organizations(name),orc_productions(id,title,venue,conductor,fee_note),orc_staffing_roles(name,fee_note),orc_invitation_secrets(token)")
+    .select("id,notification_kind,notification_attempts,deadline,note_admin,status,reconfirm_note,orc_musicians(first_name,email),orc_organizations(name),orc_productions(id,title,venue,conductor,fee_note),orc_staffing_roles(name,fee_note),orc_invitation_secrets(token)")
     .eq("notification_status", "pending");
   if (opts.productionId) q = q.eq("production_id", opts.productionId);
   const { data: rows, error } = await q.order("notification_attempts", { ascending: true }).order("created_at", { ascending: true }).limit(opts.limit);
   if (error) throw new Error(error.message);
   for (const row of (rows ?? []) as unknown as Row[]) {
-    const conLink = row.notification_kind === "invite" || row.notification_kind === "reminder";
+    const conLink = row.notification_kind === "invite" || row.notification_kind === "reminder" || row.notification_kind === "reconfirm";
     const email = row.orc_musicians?.email ?? "";
     const token = row.orc_invitation_secrets?.token ?? "";
     if (!email || (conLink && !token) || !row.orc_productions) {
@@ -58,7 +59,13 @@ export async function dispatchInvitations(
       dates: ((dates ?? []) as unknown as { orc_production_dates: InviteRow["dates"][number] | null }[]).map((d) => d.orc_production_dates).filter((d): d is InviteRow["dates"][number] => !!d)
         .sort((a, b) => a.starts_at.localeCompare(b.starts_at)),
     };
-    const mail = conLink ? buildInviteEmail(inv, token, opts.base) : buildStatusEmail(inv, opts.base);
+    if (row.notification_kind === "reconfirm") {
+      /* cosa è cambiato per QUESTO invito: prima e dopo, già dal punto di vista del suo ruolo */
+      const { data: ch } = await supabase.rpc("orc_invitation_changes", { invitation: row.id });
+      inv.reconfirm_note = row.reconfirm_note; inv.changes = (ch ?? null) as InviteRow["changes"];
+    }
+    const mail = row.notification_kind === "reconfirm" ? buildReconfirmEmail(inv, token, opts.base)
+      : conLink ? buildInviteEmail(inv, token, opts.base) : buildStatusEmail(inv, opts.base);
     let delivered = false, lastError = "";
     const effectiveMode = opts.mode === "log" || isReservedAddress(email) ? "log" : "send";
     if (effectiveMode === "log") {

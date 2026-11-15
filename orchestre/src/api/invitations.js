@@ -22,6 +22,25 @@ export async function events(invitationId) {
   fail(error);
   return data || [];
 }
+/* Condizioni versionate (migrazione 0084): chi manca, richiesta di riconferma, storia delle versioni. */
+export async function reconfirmNeeded(productionId) {
+  const { data, error } = await sb.rpc("orc_reconfirm_needed", { production: productionId });
+  fail(error);
+  return data || [];
+}
+export async function reconfirmRequest(productionId, invitationIds, note = "") {
+  const { data, error } = await sb.rpc("orc_reconfirm_request", { production: productionId, invitation_ids: invitationIds, note });
+  fail(error);
+  return data || 0;
+}
+export async function conditionsHistory(productionId) {
+  const { data, error } = await sb.rpc("orc_conditions_history", { production: productionId });
+  fail(error);
+  return data || [];
+}
+export async function setConditionReason(versionId, reason) {
+  fail((await sb.rpc("orc_conditions_set_reason", { version_id: versionId, reason })).error);
+}
 /* per la dashboard: inviti aperti e senza risposta per org */
 export async function openCounts(orgId) {
   const { data, error } = await sb.from("orc_invitations").select("status, production_id").eq("org_id", orgId).in("status", ["draft", "sent", "viewed", "available", "partial", "no_reply", "unavailable"]);

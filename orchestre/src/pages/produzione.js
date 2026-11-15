@@ -8,6 +8,7 @@ import { roleForItem, PROD_STATUS, PROD_STATUS_PILL, PROD_KIND, DATE_KIND, PART,
 import * as api from "../api/productions.js";
 import * as match from "../api/matching.js";
 import * as inv from "../api/invitations.js";
+import { changedNames, reconfirmSummary, reconfirmText, versionTitle } from "../domain/conditions.js";
 import * as fb from "../api/feedback.js";
 import { rankCandidates, applyOverrides, explain, fitLabel, reasonsText, ENGINE_VERSION } from "../domain/matching.js";
 import { catalogs, list as listMusicians } from "../api/musicians.js";
@@ -18,6 +19,46 @@ const app = document.getElementById("app");
 const q = new URLSearchParams(location.search);
 let ctx = null, p = null, cat = null, tab = q.get("t") || "dati";
 const TABS = [["dati", "Dati"], ["date", "Date"], ["repertorio", "Repertorio"], ["organico", "Organico"], ["cerca", "Cerca"], ["matching", "Matching"], ["convocazioni", "Convocazioni"], ["feedback", "Feedback"], ["stageplot", "StagePlot"], ["storia", "Storia"]];
+
+/* Condizioni versionate (V1/d). Compenso, luogo, date e il resto di ciò che il musicista vede sono versionati dal
+   database: se cambiano dopo che qualcuno ha risposto, quella persona risulta «da riconfermare». Chi salva lo vede
+   subito: si scrive il motivo (resta nella storia) e si può chiedere la riconferma. Mai bloccante: se il controllo
+   non riesce, il salvataggio è già fatto e resta com'è. */
+const maxVersion = (rows) => (rows || []).reduce((m, r) => Math.max(m, Number(r.version) || 0), 0);
+async function withConditions(save) {
+  let before = null;
+  try { if (p && p.id) before = maxVersion(await inv.conditionsHistory(p.id)); } catch { before = null; }
+  await save();
+  if (before !== null) afterConditions(before).catch(() => {});
+}
+async function afterConditions(before) {
+  const hist = await inv.conditionsHistory(p.id);
+  if (maxVersion(hist) <= before) return;                       /* nessuna versione nuova: nessuno era stato interpellato, o non è cambiato niente */
+  const nuove = hist.filter((h) => Number(h.version) > before && !h.reason);
+  const rows = await inv.reconfirmNeeded(p.id);
+  const sum = reconfirmSummary(rows);
+  if (nuove.length) {
+    const motivo = prompt("Cosa è cambiato e perché? (resta nella storia; vuoto = salta)", "");
+    if (motivo && motivo.trim()) for (const h of nuove) { try { await inv.setConditionReason(h.id, motivo.trim()); } catch { /* il motivo è un di più */ } }
+  }
+  if (!sum.total) return;
+  const nomi = changedNames(rows.flatMap((r) => r.changed));
+  const yes = await confirm({ title: "Chiedi la riconferma?", text: `Questa modifica (${nomi}) riguarda ${sum.total} ${sum.total === 1 ? "persona già interpellata" : "persone già interpellate"}: hanno risposto con le condizioni di prima. Chi è confermato resta confermato finché non dice di no. Puoi chiedere la riconferma anche dopo, dalla scheda Convocazioni.`, ok: "Chiedi la riconferma", cancel: "Più tardi" });
+  if (!yes) { toast(reconfirmText(sum.total) + ": la scheda Convocazioni li elenca."); return; }
+  await chiediRiconferma(rows.filter((r) => !r.requested_at).map((r) => r.invitation_id));
+}
+/* la richiesta vera: nuovo link e email, che parte subito (se no la riprende il worker) */
+async function chiediRiconferma(ids) {
+  if (!ids.length) return toast("Nessuno da sollecitare: la riconferma è già stata chiesta.");
+  const nota = prompt("Una nota per chi riceve l'email? (facoltativa)", "");
+  if (nota === null) return;
+  try {
+    const n = await inv.reconfirmRequest(p.id, ids, nota.trim());
+    const esito = n ? inv.esitoEmail(await inv.notifyNow(p.id)) : "";
+    toast((n ? "Riconferma chiesta a " + n + (n === 1 ? " persona. " : " persone. ") : "Nessuna richiesta partita (email già in coda). ") + esito);
+    if (tab === "convocazioni") await loadConvocazioni();
+  } catch (e) { toast(errMsg(e), { err: true }); }
+}
 
 async function main() {
   ctx = await requireStaff();
@@ -99,7 +140,7 @@ function paintDati() {
         const id = await api.create(ctx.org.org_id, f);
         location.replace(BASE + "/admin/produzioni/scheda/?id=" + id + "&t=" + (p.stageplot_project_id ? "stageplot" : "date")); return;
       }
-      await api.update(p.id, f); Object.assign(p, f);
+      await withConditions(() => api.update(p.id, f)); Object.assign(p, f);
       app.querySelector("#h").textContent = p.title; app.querySelector("#stPill").textContent = PROD_STATUS[p.status]; app.querySelector("#stPill").className = "pill " + (PROD_STATUS_PILL[p.status] || "");
       toast("Salvato.");
     } catch (e) { toast(errMsg(e), { err: true }); }
@@ -130,7 +171,7 @@ async function paintDate() {
   df.appendChild(field("d_note", "Nota", ""));
   panel.querySelector("#addD").onclick = async () => {
     const starts_at = fromLocalInput(val("d_start")); if (!starts_at) return toast("Serve l'inizio.", { err: true });
-    try { await api.addDate(p.id, { kind: val("d_kind"), starts_at, ends_at: fromLocalInput(val("d_end")), venue: val("d_venue"), note: val("d_note") }); toast("Data aggiunta."); await loadDates(); }
+    try { await withConditions(() => api.addDate(p.id, { kind: val("d_kind"), starts_at, ends_at: fromLocalInput(val("d_end")), venue: val("d_venue"), note: val("d_note") })); toast("Data aggiunta."); await loadDates(); }
     catch (e) { toast(errMsg(e), { err: true }); }
   };
   await loadDates();
@@ -145,7 +186,7 @@ async function loadDates() {
       const li = el(`<li class="list-item"><div class="grow"><div class="title"></div><div class="sub"></div></div><div class="actions"><button type="button" class="btn small ghost">Togli</button></div></li>`);
       li.querySelector(".title").textContent = (DATE_KIND[d.kind] || d.kind) + " · " + fmtDateTime(d.starts_at) + (d.ends_at ? " → " + (fmtDate(d.ends_at) === fmtDate(d.starts_at) ? new Date(d.ends_at).toLocaleTimeString("it-IT", { hour: "2-digit", minute: "2-digit" }) : fmtDateTime(d.ends_at)) : "");
       li.querySelector(".sub").textContent = [d.venue, d.note].filter(Boolean).join(" · ");
-      li.querySelector("button").onclick = async () => { try { await api.deleteDate(d.id); await loadDates(); } catch (e) { toast(errMsg(e), { err: true }); } };
+      li.querySelector("button").onclick = async () => { try { await withConditions(() => api.deleteDate(d.id)); await loadDates(); } catch (e) { toast(errMsg(e), { err: true }); } };
       ul.appendChild(li);
     }
   } catch (e) { ul.innerHTML = ""; setState(ul, "err", errMsg(e)); }
@@ -265,7 +306,7 @@ function roleBlock(r) {
     <button type="button" class="btn small save">Salva</button><button type="button" class="btn small danger del">Togli ruolo</button></div>`);
   edit.querySelector(".seats").value = r.seats; edit.querySelector(".part").value = r.part; edit.querySelector(".lvl").value = r.min_level || ""; edit.querySelector(".fee").value = r.fee_note || "";
   edit.querySelector(".save").onclick = async () => {
-    try { await api.updateRole(r.id, { seats: Number(edit.querySelector(".seats").value), part: edit.querySelector(".part").value, min_level: Number(edit.querySelector(".lvl").value) || null, fee_note: edit.querySelector(".fee").value.trim().slice(0, 200) }); toast("Ruolo aggiornato."); await loadOrganico(); }
+    try { await withConditions(() => api.updateRole(r.id, { seats: Number(edit.querySelector(".seats").value), part: edit.querySelector(".part").value, min_level: Number(edit.querySelector(".lvl").value) || null, fee_note: edit.querySelector(".fee").value.trim().slice(0, 200) })); toast("Ruolo aggiornato."); await loadOrganico(); }
     catch (e) { toast(errMsg(e), { err: true }); }
   };
   edit.querySelector(".del").onclick = async () => {
@@ -625,7 +666,7 @@ async function paintConvocazioni() {
 async function loadConvocazioni() {
   const box = app.querySelector("#cv"), sum = app.querySelector("#cvSummary");
   try {
-    const [rows, st] = await Promise.all([inv.list(p.id), api.staffing(p.id)]);
+    const [rows, st, need] = await Promise.all([inv.list(p.id), api.staffing(p.id), inv.reconfirmNeeded(p.id).catch(() => [])]);
     sections = groupStaffing(st);
     const c = staffingCounts(sections);
     const waiting = rows.filter((r) => ["draft", "sent", "viewed"].includes(r.status)).length;
@@ -637,6 +678,17 @@ async function loadConvocazioni() {
     if (yes) sum.appendChild(el(`<span class="pill ok">${yes} da confermare</span>`));
     if (noReply) sum.appendChild(el(`<span class="pill warn">${noReply} senza risposta</span>`));
     box.innerHTML = "";
+    /* condizioni cambiate dopo la risposta: chi manca e cosa è cambiato; la riconferma la chiede lo staff */
+    const rc = reconfirmSummary(need);
+    if (rc.total) {
+      const nomi = changedNames(need.flatMap((r) => r.changed));
+      const b = el(`<div class="banner" id="rcBanner"><p></p><div class="row"></div></div>`);
+      b.querySelector("p").textContent = `Condizioni cambiate (v${rc.version}: ${nomi}) · ${reconfirmText(rc.total)}` + (rc.asked ? ` · riconferma già chiesta a ${rc.asked}` : "") + ". Chi è confermato resta confermato finché non risponde.";
+      const act = b.querySelector(".row");
+      const all = need.filter((r) => !r.requested_at && r.notification_status !== "pending" && r.notification_status !== "sending").map((r) => r.invitation_id);
+      if (all.length) { const bt = el(`<button type="button" class="btn small primary">Chiedi riconferma a tutti (${all.length})</button>`); bt.onclick = () => chiediRiconferma(all); act.appendChild(bt); }
+      box.appendChild(b);
+    }
     if (!rows.length) {
       box.appendChild(el(`<div class="empty">Nessuna convocazione ancora. Dal Matching scegli chi chiamare e premi «Convoca i selezionati».</div>`));
       box.appendChild(el(`<p><a class="btn primary" href="?id=${esc(p.id)}&t=matching">Vai al Matching</a></p>`));
@@ -672,6 +724,7 @@ function invitationRow(r, openSlots) {
   li.querySelector(".sub").textContent = bits.join(" · ");
   const act = li.querySelector(".actions");
   act.appendChild(el(`<span class="pill ${INV_PILL[r.status] || ""}">${esc(INV_STATUS[r.status] || r.status)}</span>`));
+  if (r.stale) act.appendChild(el(`<span class="pill warn" title="Le condizioni sono cambiate da quando ha risposto (v${esc(r.accepted_version)} → v${esc(r.current_version)})">${r.reconfirm_requested_at ? "Riconferma chiesta" : "Da riconfermare"}</span>`));
   const btn = (label, cls, fn) => { const b = el(`<button type="button" class="btn small ${cls}">${label}</button>`); b.onclick = fn; act.appendChild(b); };
   /* conferme, revoche e promemoria mettono un'email in coda: parte subito, e si dice com'è andata */
   const doAction = async (action, reason, okMsg) => {
@@ -685,6 +738,7 @@ function invitationRow(r, openSlots) {
     const yes = await confirm({ title: "Confermare " + r.musician_name + "?", text: "Prende il primo posto scoperto del ruolo. Il musicista non potrà più cambiare la risposta da solo.", ok: "Conferma" });
     if (yes) doAction("confirm", "", "Confermato: il musicista riceve l'email con il posto e le date.");
   });
+  if (r.stale && !r.reconfirm_requested_at && r.notification_status !== "pending" && r.notification_status !== "sending") btn("Chiedi riconferma", "", () => chiediRiconferma([r.id]));
   if (["available", "partial"].includes(r.status)) btn("Riserva", "", () => doAction("reserve", "", "In riserva."));
   if (["sent", "viewed"].includes(r.status) && r.notification_status !== "pending" && r.notification_status !== "sending") btn("Promemoria", "", () => doAction("remind", "", "Promemoria mandato."));
   if (r.status === "confirmed") btn("Revoca", "danger", () => {
@@ -919,6 +973,19 @@ async function paintStoria() {
   panel.innerHTML = `<p class="small muted">Tutto quello che è successo ai posti di questa produzione. Non si modifica e non si cancella.</p><div id="ev" class="loading">Un attimo…</div>`;
   const box = panel.querySelector("#ev");
   try {
+    /* le versioni delle condizioni (compenso, luogo, date…) cambiate dopo le prime convocazioni */
+    try {
+      const cv = await inv.conditionsHistory(p.id);
+      if (cv.length) {
+        const sec = el(`<section class="card"><h3>Condizioni</h3><ul class="plain small" id="cvl"></ul></section>`);
+        for (const h of cv) {
+          const li = document.createElement("li");
+          li.textContent = fmtDateTime(h.changed_at) + " · " + versionTitle(h) + (h.material ? " · importante" : "") + (h.reason ? " · " + h.reason : "");
+          sec.querySelector("#cvl").appendChild(li);
+        }
+        panel.insertBefore(sec, box);
+      }
+    } catch { /* la storia dei posti c'è comunque */ }
     const rows = await api.slotEvents(p.id);
     if (!rows.length) { setState(box, "empty", "Nessun evento ancora."); return; }
     setState(box, ""); box.className = "table-wrap";

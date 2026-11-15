@@ -13,7 +13,7 @@ export type InviteDate = {
 
 export type InviteRow = {
   id: string;
-  notification_kind: "invite" | "reminder" | "confirmed" | "revoked";
+  notification_kind: "invite" | "reminder" | "confirmed" | "revoked" | "reconfirm";
   notification_attempts: number;
   deadline?: string | null;
   note_admin?: string | null;
@@ -26,7 +26,16 @@ export type InviteRow = {
   production_fee_note?: string | null;
   role_name: string;
   dates: InviteDate[];
+  /** solo per «reconfirm»: la nota di chi organizza e cosa è cambiato (da orc_invitation_changes) */
+  reconfirm_note?: string | null;
+  changes?: ConditionChanges | null;
 };
+
+export type ConditionSnapshot = {
+  fee_note?: string; conditions?: string; dress_code?: string; venue?: string; address?: string;
+  dates?: { kind: string; starts_at: string; ends_at?: string | null; venue?: string | null; note?: string | null }[];
+};
+export type ConditionChanges = { changed: string[]; before?: ConditionSnapshot; after?: ConditionSnapshot };
 
 const KIND: Record<string, string> = {
   rehearsal: "Prova",
@@ -145,6 +154,59 @@ export function buildStatusEmail(inv: InviteRow, base = "https://stageplot.it"):
 ${confermato && inv.production_venue ? `<p>Luogo: ${esc(inv.production_venue)}</p>` : ""}
 ${confermato && dates.length ? `<p>Date:</p><ul>${dates.map((d) => `<li>${esc(d)}</li>`).join("")}</ul>` : ""}
 <p style="margin:24px 0"><a href="${esc(url)}" style="display:inline-block;background:#0d9488;color:#fff;text-decoration:none;font-weight:600;padding:14px 22px;border-radius:8px">La tua area</a></p>
+</div>`;
+  return { subject, html, text };
+}
+
+const CAMPO: Record<string, string> = {
+  fee_note: "Compenso", venue: "Luogo", address: "Indirizzo", dress_code: "Abbigliamento", conditions: "Condizioni", dates: "Date",
+};
+const ORDINE = ["fee_note", "dates", "venue", "address", "dress_code", "conditions"];
+
+/** le righe «cosa è cambiato», una per campo: «Compenso: 100 € → 130 €»; le date in elenco, solo come sono ora */
+export function changeLines(ch: ConditionChanges | null | undefined): string[] {
+  if (!ch || !ch.changed?.length) return [];
+  const out: string[] = [];
+  for (const k of ORDINE.filter((x) => ch.changed.includes(x))) {
+    if (k === "dates") {
+      const now = (ch.after?.dates ?? []).map((d) => fmtDate(d));
+      out.push("Date, ora: " + (now.length ? now.join("; ") : "da definire"));
+      continue;
+    }
+    const was = String((ch.before as Record<string, unknown> | undefined)?.[k] ?? "").trim();
+    const is = String((ch.after as Record<string, unknown> | undefined)?.[k] ?? "").trim();
+    out.push(`${CAMPO[k]}: ${was ? "«" + was + "»" : "(vuoto)"} → ${is ? "«" + is + "»" : "(vuoto)"}`);
+  }
+  return out;
+}
+
+/** Le condizioni sono cambiate dopo la tua risposta: cosa è cambiato e il link nuovo per riconfermare. */
+export function buildReconfirmEmail(
+  inv: InviteRow,
+  token: string,
+  base = "https://stageplot.it",
+): { subject: string; html: string; text: string } {
+  const url = responseUrl(token, base);
+  const subject = `Condizioni cambiate: ${inv.production_title} — conferma ancora?`;
+  const righe = changeLines(inv.changes);
+  const deadline = inv.deadline ? fmtWhen(inv.deadline) : "";
+  const lines: string[] = [`Ciao ${inv.musician_first_name},`];
+  lines.push(`dopo la tua risposta per «${inv.production_title}» (${inv.role_name}) qualcosa è cambiato.`);
+  if (righe.length) lines.push("Cosa è cambiato:\n" + righe.map((r) => "  • " + r).join("\n"));
+  if (inv.reconfirm_note) lines.push(`Nota: ${inv.reconfirm_note}`);
+  lines.push("Se per te va bene, riconferma con un tocco; se non puoi più, dillo: il posto torna libero.");
+  if (deadline) lines.push(`Rispondi entro ${deadline}.`);
+  lines.push(`Apri qui: ${url}`);
+  const text = lines.join("\n\n");
+  const html = `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:1.5;color:#292620">
+<p>Ciao ${esc(inv.musician_first_name)},</p>
+<p>dopo la tua risposta per <strong>${esc(inv.production_title)}</strong> (${esc(inv.role_name)}) qualcosa è cambiato.</p>
+${righe.length ? `<p>Cosa è cambiato:</p><ul>${righe.map((r) => `<li>${esc(r)}</li>`).join("")}</ul>` : ""}
+${inv.reconfirm_note ? `<p>Nota: ${esc(inv.reconfirm_note)}</p>` : ""}
+<p>Se per te va bene, riconferma con un tocco; se non puoi più, dillo: il posto torna libero.</p>
+${deadline ? `<p><strong>Rispondi entro ${esc(deadline)}.</strong></p>` : ""}
+<p style="margin:24px 0"><a href="${esc(url)}" style="display:inline-block;background:#0d9488;color:#fff;text-decoration:none;font-weight:600;padding:14px 22px;border-radius:8px">Riconferma o rinuncia</a></p>
+<p style="color:#746e60;font-size:14px">Se il bottone non funziona: ${esc(url)}</p>
 </div>`;
   return { subject, html, text };
 }

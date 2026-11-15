@@ -76,5 +76,5 @@ Deno.serve(async (req) => {
   const { data, error } = await supabase.rpc("orc_respond", { token_hash_in: tokenHash, answer: parsed.answer, dates: parsed.dates, note: parsed.note });
   if (error) return json({ error: "server" }, 500);
   if (data?.error) return denied(String(data.error));
-  return json({ ok: true, status: data.status });
+  return json({ ok: true, status: data.status, reconfirmed: !!data.reconfirmed, withdrew: !!data.withdrew });
 });

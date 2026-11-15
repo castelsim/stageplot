@@ -1,5 +1,5 @@
 import { assertEquals, assertMatch, assertStringIncludes } from "jsr:@std/assert@1";
-import { areaUrl, buildInviteEmail, buildStatusEmail, fmtDate, hashToken, idempotencyKey, isPlausibleToken, isReservedAddress, parseAnswer, responseUrl } from "./orc-invitations.ts";
+import { areaUrl, buildInviteEmail, buildReconfirmEmail, buildStatusEmail, changeLines, fmtDate, hashToken, idempotencyKey, isPlausibleToken, isReservedAddress, parseAnswer, responseUrl } from "./orc-invitations.ts";
 
 const inv = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -107,4 +107,40 @@ Deno.test("la revoca lo dice, senza date e senza token", () => {
 Deno.test("anche la conferma neutralizza i testi", () => {
   const { html } = buildStatusEmail({ ...inv, notification_kind: "confirmed" as const, production_title: "<img src=x onerror=alert(1)>" });
   assertEquals(html.includes("<img src=x"), false);
+});
+
+const cambi = {
+  changed: ["dates", "fee_note", "dress_code"],
+  before: { fee_note: "100 € a persona", dress_code: "", dates: [] },
+  after: {
+    fee_note: "130 € a persona", dress_code: "abito scuro",
+    dates: [{ kind: "concert", starts_at: "2026-10-17T19:00:00Z", venue: "Teatro Nuovo" }],
+  },
+};
+
+Deno.test("changeLines: una riga per campo, il compenso prima delle date, le date solo come sono ora", () => {
+  const r = changeLines(cambi);
+  assertEquals(r.length, 3);
+  assertEquals(r[0], "Compenso: «100 € a persona» → «130 € a persona»");
+  assertStringIncludes(r[1], "Date, ora: Concerto:");
+  assertEquals(r[2], "Abbigliamento: (vuoto) → «abito scuro»");
+  assertEquals(changeLines(null), []);
+  assertEquals(changeLines({ changed: [] }), []);
+});
+
+Deno.test("buildReconfirmEmail: dice cosa è cambiato, porta il link nuovo, e il testo dell'utente è escapato", () => {
+  const token = "c".repeat(48);
+  const m = buildReconfirmEmail({ ...inv, notification_kind: "reconfirm", reconfirm_note: "Orario <b>spostato</b>", changes: cambi }, token);
+  assertStringIncludes(m.subject, "Condizioni cambiate");
+  assertStringIncludes(m.text, "«100 € a persona» → «130 € a persona»");
+  assertStringIncludes(m.text, responseUrl(token));
+  assertStringIncludes(m.html, "Riconferma o rinuncia");
+  assertEquals(m.html.includes("<b>spostato</b>"), false, "la nota dello staff non diventa HTML");
+  assertStringIncludes(m.html, "&lt;b&gt;spostato&lt;/b&gt;");
+});
+
+Deno.test("buildReconfirmEmail: senza il dettaglio (RPC non risposta) l'email parte lo stesso, senza elenco", () => {
+  const m = buildReconfirmEmail({ ...inv, notification_kind: "reconfirm", changes: null }, "d".repeat(48));
+  assertStringIncludes(m.text, "qualcosa è cambiato");
+  assertEquals(m.text.includes("Cosa è cambiato"), false);
 });

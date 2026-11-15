@@ -3,6 +3,7 @@
 import { SB_URL } from "../config.js";
 import { esc, el, setState, fmtDateTime, fmtDate, avvia } from "../ui.js";
 import { DATE_KIND } from "../domain/staffing.js";
+import { changeRows } from "../domain/conditions.js";
 
 const FN = SB_URL + "/functions/v1/orc-respond";
 const app = document.getElementById("app");
@@ -34,6 +35,48 @@ async function main() {
   paint();
 }
 
+/* Le condizioni sono cambiate da quando hai risposto (V1/d): cosa era, cosa è. Le righe vengono dal database,
+   già dal punto di vista di QUESTO ruolo; qui si mostrano soltanto, come testo. */
+function condizioniCambiate() {
+  const v = D.versions;
+  if (!v || !v.stale) return;
+  const b = el(`<div class="banner"><b></b><ul class="plain small" id="chg"></ul><p class="small" id="rcnote"></p></div>`);
+  b.querySelector("b").textContent = D.mode === "reconfirm" ? "Le condizioni sono cambiate da quando hai risposto." : "Le condizioni sono cambiate da quando hai risposto: rivedile e rispondi di nuovo.";
+  for (const r of changeRows(v)) {
+    const li = document.createElement("li");
+    li.style.whiteSpace = "pre-line";
+    li.textContent = r.label + ": " + (r.key === "dates" ? "\n" + r.is : r.was + " → " + r.is);
+    b.querySelector("#chg").appendChild(li);
+  }
+  if (v.note) b.querySelector("#rcnote").textContent = "Nota di chi organizza: " + v.note;
+  else b.querySelector("#rcnote").remove();
+  app.appendChild(b);
+}
+
+/* Già confermato (o in riserva) con condizioni cambiate: due scelte sole. «Confermo» resta com'è; «Non posso più» libera il posto. */
+function paintReconfirm() {
+  const box = el(`<section class="card answer"><h3>Ci sei ancora?</h3><div class="stack">
+    <button type="button" class="btn primary big" data-a="yes">Sì, confermo con le nuove condizioni</button>
+    <button type="button" class="btn big" data-a="no">No, non posso più</button></div>
+    <div class="field"><label for="note">Una nota, se serve</label><textarea id="note" rows="3" maxlength="1000"></textarea></div>
+    <p class="small muted">Se dici di no, il posto torna libero per chi organizza.</p></section>`);
+  for (const b of box.querySelectorAll("[data-a]")) b.onclick = async () => {
+    const a = b.dataset.a;
+    if (a === "no" && !window.confirm("Rinunci al posto? Non si può annullare da qui.")) return;
+    for (const x of box.querySelectorAll("button")) x.disabled = true;
+    try {
+      const r = await api("POST", { answer: a, note: box.querySelector("#note").value.trim() });
+      if (!r.ok) { for (const x of box.querySelectorAll("button")) x.disabled = false; return alert(r.d?.message || "Non sono riuscito a registrare la risposta. Riprova."); }
+      app.innerHTML = "";
+      app.appendChild(el(`<h1>Grazie${esc(D.musician.first_name ? ", " + D.musician.first_name : "")}.</h1>`));
+      const ok = el(`<div class="banner ok"></div>`);
+      ok.textContent = r.d.withdrew ? "Va bene: il posto torna libero. Grazie per averlo detto subito." : "Riconfermato: ci sei, con le nuove condizioni.";
+      app.appendChild(ok);
+    } catch { for (const x of box.querySelectorAll("button")) x.disabled = false; alert("Sei offline: riprova quando torna la connessione."); }
+  };
+  app.appendChild(box);
+}
+
 function denied(msg) {
   app.innerHTML = `<h1>Convocazione</h1>`;
   const d = el(`<div class="err"></div>`); d.textContent = msg; app.appendChild(d);
@@ -62,8 +105,10 @@ function paint() {
   for (const [k, v] of extra) { const pp = el(`<p class="small"><b></b> <span></span></p>`); pp.querySelector("b").textContent = k + ":"; pp.querySelector("span").textContent = v; info.appendChild(pp); }
   if (D.deadline) info.appendChild(el(`<p class="small muted">Rispondi entro ${esc(fmtDateTime(D.deadline))}.</p>`));
   app.appendChild(info);
+  condizioniCambiate();
 
   if (D.mode === "expired") { const b = el(`<div class="banner"></div>`); b.textContent = "La scadenza per rispondere è passata. Se sei ancora disponibile, scrivi a chi ti ha invitato."; app.appendChild(b); return; }
+  if (D.mode === "reconfirm") return paintReconfirm();
   if (D.mode === "locked") { const b = el(`<div class="banner ok"></div>`); b.textContent = D.status === "confirmed" ? "Confermato: ci sei. Per qualunque cambiamento scrivi a chi ti ha invitato." : "Sei in riserva: ti avvisiamo se si libera un posto."; app.appendChild(b); return; }
 
   const box = el(`<section class="card answer"><h3>Ci sei?</h3><div class="stack">
