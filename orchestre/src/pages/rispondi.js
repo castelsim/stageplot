@@ -62,7 +62,7 @@ function paintReconfirm() {
     <p class="small muted">Se dici di no, il posto torna libero per chi organizza.</p></section>`);
   for (const b of box.querySelectorAll("[data-a]")) b.onclick = async () => {
     const a = b.dataset.a;
-    if (a === "no" && !window.confirm("Rinunci al posto? Non si può annullare da qui.")) return;
+    if (a === "no" && !globalThis.confirm("Rinunci al posto? Non si può annullare da qui.")) return;
     for (const x of box.querySelectorAll("button")) x.disabled = true;
     try {
       const r = await api("POST", { answer: a, note: box.querySelector("#note").value.trim() });
