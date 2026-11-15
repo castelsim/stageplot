@@ -33097,6 +33097,123 @@ t("rig: un progetto con americane numerate chiede «Opzioni complete» nell'avvi
   ok(A.funzUsateDalProgetto(A.state).indexOf("opzioni") >= 0, "con rig sì");
 });
 
+/* ───────── L2 · Stagebox automatiche ai bordi del gruppo (15/11/2026, proposta CAVI_SUL_PALCO § 4 L2) ─────────
+   Prima: ogni drop box nasceva al baricentro del gruppo, 90 cm verso il fondo (a metà palco, tra i musicisti).
+   Ora: sul bordo del gruppo servito (45-100 cm dal suo ingombro, lati e fondo), mai dentro un elemento,
+   mai negli ultimi 110 cm verso il pubblico, ≥ 70 cm da un'altra box. Le box messe dall'utente non si toccano. */
+console.log("\nL2 · stagebox automatiche ai bordi del gruppo:");
+const _l2fix = (n) => JSON.parse(readFileSync(join(root, "test/fixtures/cavi-l2", "geo_" + n + ".json"), "utf8"));
+const _l2half = (it) => { const r = (it.rot || 0) * Math.PI / 180, c = Math.abs(Math.cos(r)), s = Math.abs(Math.sin(r)), tp = A.TYPES[it.type] || {};
+  const w = +it.w || tp.w || 40, d = +it.d || tp.d || 40; return { hx: (w * c + d * s) / 2, hy: (w * s + d * c) / 2 }; };
+function _l2carica(g) {
+  reset(); A.state.stage = { w: g.W, d: g.D, blocks: [{ x: 0, y: 0, w: g.W, d: g.D }] };
+  g.items.forEach((o) => { const it = add(o.type, o.x, o.y); it.w = o.w; it.d = o.d; it.rot = o.rot || 0; if (o.label) it.label = o.label; });
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.__cabRes = null;
+}
+/* controlla le box AUTOMATICHE di R rispetto agli elementi dello stato corrente; ritorna l'elenco degli errori */
+function _l2controlla(R) {
+  const W = A.state.stage.w, D = A.state.stage.d, err = [], aut = (R.boxes || []).filter((b) => b.auto);
+  const items = A.state.items.filter((it) => A.TYPES[it.type]);
+  aut.forEach((b) => {
+    const bw = (b.w || 33) / 2, bd = (b.d || 17) / 2;
+    items.forEach((it) => { const h = _l2half(it);
+      if (Math.abs(b.x - it.x) < h.hx + bw && Math.abs(b.y - it.y) < h.hy + bd) err.push(b.letter + " dentro «" + (it.label || it.type) + "»"); });
+    if (b.y > D - 110) err.push(b.letter + " nella fascia pubblico (y=" + b.y + ")");
+    /* ingombro INTERO disegnato: box 33×17 + barra di capacità e sigla sopra (34 cm) + barra larga ≈ 70 cm (regia 15/11: la box sul fondo usciva sopra la scritta «10 m») */
+    if (b.x - 35 < 0 || b.x + 35 > W || b.y - bd - 34 < 0 || b.y + bd > D) err.push(b.letter + " con l'ingombro disegnato fuori dal palco (" + b.x + "," + b.y + ")");
+    /* distanza dal bordo del gruppo: dal rettangolo che racchiude gli elementi che la box serve */
+    const serviti = (R.links || []).filter((l) => l.box === b || (l.box && l.box.id === b.id)).map((l) => l.s.it);
+    const mine = serviti.length ? Array.from(new Set(serviti)) : [];
+    if (mine.length) {
+      const x0 = Math.min(...mine.map((it) => it.x - _l2half(it).hx)), x1 = Math.max(...mine.map((it) => it.x + _l2half(it).hx));
+      const y0 = Math.min(...mine.map((it) => it.y - _l2half(it).hy)), y1 = Math.max(...mine.map((it) => it.y + _l2half(it).hy));
+      const dx = Math.max(x0 - b.x, 0, b.x - x1), dy = Math.max(y0 - b.y, 0, b.y - y1), dist = Math.hypot(dx, dy);
+      if (dist > 100.5 && Math.min(b.x, W - b.x, b.y) > 60) err.push(b.letter + " a " + Math.round(dist) + " cm dal bordo del gruppo (>100) e non sul bordo del palco");
+    }
+    aut.forEach((o) => { if (o !== b && o.letter > b.letter && Math.hypot(o.x - b.x, o.y - b.y) < 69.5) err.push(b.letter + "/" + o.letter + " a meno di 70 cm"); });
+  });
+  return err;
+}
+["band5", "band11", "orch"].forEach((nome) => {
+  t("caso «" + nome + "»: box automatiche fuori dagli elementi, fuori dalla fascia pubblico, ≤ 100 cm dal bordo, ≥ 70 cm tra loro", () => {
+    _l2carica(_l2fix(nome)); const R = A.audioCablingEngine();
+    const aut = R.boxes.filter((b) => b.auto); ok(aut.length >= 1, "nessuna box automatica");
+    const e = _l2controlla(R); ok(e.length === 0, e.slice(0, 6).join("; "));
+  });
+});
+t("nessuna box in mezzo al palco: ogni box automatica è a ≤ 150 cm da un bordo, oppure serve una sola fila di gruppi vicini (casi band5, band11)", () => {
+  ["band5", "band11"].forEach((nome) => { _l2carica(_l2fix(nome)); const R = A.audioCablingEngine(); const W = A.state.stage.w;
+    R.boxes.filter((b) => b.auto).forEach((b) => ok(Math.min(b.x, W - b.x, b.y) <= 150, nome + ": box " + b.letter + " a " + Math.min(b.x, W - b.x, b.y) + " cm dal bordo (" + b.x + "," + b.y + ")")); });
+});
+t("accorpamento: due gruppi piccoli in cluster diversi, lontani da ogni bordo, finiscono in UNA box invece di due in mezzo al palco", () => {
+  _l2palco(1200, 800); add("astamic", 400, 400); add("astamic", 800, 400);
+  const R = A.audioCablingEngine(); const b = R.boxes.filter((x) => x.auto); eq(b.length, 1, "box");
+});
+t("numero di box = ⌈canali/8⌉ per cluster (nessuna box in più del necessario)", () => {
+  _l2carica(_l2fix("band5")); const R = A.audioCablingEngine(); const aut = R.boxes.filter((b) => b.auto);
+  const tot = R.totIn; ok(aut.length >= Math.ceil(tot / 8) && aut.length <= Math.ceil(tot / 8) + 2, aut.length + " box per " + tot + " canali");
+  /* una box può superare gli 8 solo se un singolo strumento ne porta più di 8 (batteria a 9 canali = un cavo unico, non si spezza) */
+  const grandi = new Set(A.state.items.filter((it) => A.cabItemInputs(it).length > 8).map((it) => it.id));
+  ok(aut.every((b) => b.used <= b.cap || R.links.some((l) => l.box === b && grandi.has(l.s.it.id))), "una box oltre la capacità senza uno strumento >8 canali: " + aut.map((b) => b.used + "/" + b.cap).join(" "));
+});
+t("ogni box automatica serve i gruppi per cui è stata piazzata (non quelli del vicino)", () => {
+  ["band5", "band11"].forEach((nome) => { _l2carica(_l2fix(nome)); const R = A.audioCablingEngine();
+    const fuori = R.links.filter((l) => l.box && l.box.auto && l.box.plan && !l.box.plan[l.s.it.id]);
+    ok(fuori.length === 0, nome + ": " + fuori.length + " canali su una box che non è la loro (es. " + (fuori[0] && (fuori[0].s.it.label || fuori[0].s.it.type)) + ")"); });
+});
+t("deterministico: due calcoli di fila danno le stesse posizioni", () => {
+  _l2carica(_l2fix("band11")); const a = A.audioCablingEngine().boxes.map((b) => b.x + "," + b.y).join(" ");
+  A.__cabRes = null; const b2 = A.audioCablingEngine().boxes.map((b) => b.x + "," + b.y).join(" "); eq(a, b2);
+});
+t("box messa a mano dall'utente: non si sposta e le automatiche non nascono", () => {
+  _l2carica(_l2fix("band5")); const sb = add("stagebox", 650, 300); const x0 = sb.x, y0 = sb.y;
+  A.__cabRes = null; const R = A.audioCablingEngine();
+  ok(R.boxes.every((b) => !b.auto), "con una box vera non devono nascere box automatiche");
+  eq([sb.x, sb.y], [x0, y0], "la box dell'utente si è mossa");
+});
+function _l2palco(w, d, blocchi) { reset(); A.state.stage = { w, d, blocks: blocchi || [{ x: 0, y: 0, w, d }] }; A.state.cab.on = true; A.state.cab.mode = "auto"; A.__cabRes = null; }
+t("gruppo davanti, vicino al pubblico: la box non entra negli ultimi 110 cm (box automatica)", () => {
+  _l2palco(800, 600); add("astamic", 400, 560); const R = A.audioCablingEngine(); const b = R.boxes.filter((x) => x.auto);
+  ok(b.length === 1 && b[0].y <= 600 - 110, "box a y=" + (b[0] && b[0].y));
+});
+t("12 microfoni nello stesso punto = 2 box vicine al gruppo, ≥ 70 cm una dall'altra (box automatica)", () => {
+  _l2palco(1200, 800); for (let i = 0; i < 12; i++) add("astamic", 600 + (i % 4) * 8, 300 + Math.floor(i / 4) * 8);
+  const R = A.audioCablingEngine(); const b = R.boxes.filter((x) => x.auto);
+  ok(b.length === 2, b.length + " box invece di 2"); ok(Math.hypot(b[0].x - b[1].x, b[0].y - b[1].y) >= 69.5, "box troppo vicine");
+});
+t("gruppo circondato da una pedana: la box esce con un giro più largo, fuori da ogni elemento (box automatica)", () => {
+  _l2palco(1200, 800); const ped = add("pedana", 600, 300); ped.w = 300; ped.d = 300; add("astamic", 600, 300);
+  const R = A.audioCablingEngine(); const b = R.boxes.filter((x) => x.auto)[0];
+  ok(b && (Math.abs(b.x - 600) > 150 + 16 || Math.abs(b.y - 300) > 150 + 8), "la box è dentro la pedana: " + (b && b.x + "," + b.y));
+});
+t("senza nessuna cella libera, l'ultima spiaggia resta fuori dalla fascia pubblico (box automatica)", () => {
+  _l2palco(200, 200); const ped = add("pedana", 100, 100); ped.w = 900; ped.d = 900; add("astamic", 100, 190);
+  const b = A.audioCablingEngine().boxes.filter((x) => x.auto)[0]; ok(b && b.y <= 200 - 110, "box a y=" + (b && b.y));
+});
+t("a parità di distanza dalle sorgenti vince il lato più vicino al bordo del palco (box automatica)", () => {
+  _l2palco(1200, 800); const m = add("astamic", 600, 150); const b = A.audioCablingEngine().boxes.filter((x) => x.auto)[0];
+  ok(b && b.y < m.y, "la box doveva stare sul fondo (verso il bordo), è a " + (b && b.x + "," + b.y));
+});
+t("palco a L: la box resta dentro i blocchi, non nel vuoto accanto (box automatica)", () => {
+  const bl = [{ x: 0, y: 0, w: 1200, d: 400 }, { x: 0, y: 400, w: 800, d: 400 }];
+  _l2palco(1200, 800, bl); add("astamic", 760, 600);
+  const b = A.audioCablingEngine().boxes.filter((x) => x.auto)[0];
+  ok(b && A.state.stage.blocks.some((k) => b.x >= k.x && b.x <= k.x + k.w && b.y >= k.y && b.y <= k.y + k.d) && !(b.y > 400 && b.x > 800), "box nel vuoto: " + (b && b.x + "," + b.y));
+});
+t("collaudo: ogni progetto vero con box automatiche rispetta le stesse regole", () => {
+  let base = null; for (let d = root, i = 0; i < 8 && !base; i++, d = dirname(d)) if (existsSync(join(d, "collaudo", "progetti"))) base = join(d, "collaudo", "progetti");
+  if (!base) { console.log("      (cartella collaudo non trovata: saltato)"); return; }
+  let visti = 0; const errori = [];
+  readdirSync(base).filter((f) => /^\d+\.json$/.test(f)).sort().forEach((f) => {
+    A.loadDoc(JSON.parse(readFileSync(join(base, f), "utf8")));
+    A.VARIANTS.slice().forEach((v) => { A.switchVariant(v.id); if (!A.state.cab || A.state.cab.mode !== "auto") return;
+      A.__cabRes = null; const R = A.audioCablingEngine(); if (!R.boxes.some((b) => b.auto)) return; visti++;
+      _l2controlla(R).forEach((e) => errori.push(f + " «" + (v.name || v.id) + "»: " + e)); });
+  });
+  console.log("      (" + visti + " scene con box automatiche controllate)");
+  ok(errori.length === 0, errori.slice(0, 6).join("; "));
+});
+
 /* Segnalazione anonima 15/11/2026 «manca una immagine del coro»: il coro intero era solo nel modello «Nuovo». */
 t("ricerca «coro»: la voce «Coro» è la prima (coro intero), prima di mic, pedana e singolo corista", () => {
   reset();
