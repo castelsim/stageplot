@@ -34813,5 +34813,124 @@ t("Foglio per il teatro: PDF A4 vettoriale «N di M» (pdfCredit), margini ≥ 1
   ok(/custEditorAttivo\(\)/.test(ex) && /segnaPdfEsportato\(\)/.test(ex) && /pdf-foglio-teatro/.test(ex), "come gli altri export: editor aperto, segna e conta");
 });
 
+/* ───────── L6 · lunghezze sul percorso disegnato, «cavi per taglio», scheda cavi per il service (16/11/2026, proposta CAVI_SUL_PALCO § 4 L6) ─────────
+   R19-R20 (lunghezza giusta, scorta vicino alla sorgente), R22 (un colore di nastro per zona). */
+console.log("\nL6 · lunghezze sul percorso disegnato, cavi per taglio, scheda per il service:");
+t("L6: formula — Manhattan del percorso × 1,10 + 0,6 m (+ 2 m al microfono su asta), poi il taglio commerciale", () => {
+  ok(Math.abs(A.cabLenFinale(1000, 0) - 11.6) < 1e-9, "10 m di percorso → 11,6 m"); ok(Math.abs(A.cabLenFinale(1000, 2) - 13.6) < 1e-9, "con la salita all'asta → 13,6 m");
+  ok(Math.abs(A.cabLenFinale(0, 0) - 0.6) < 1e-9, "anche il cavo più corto porta la scorta"); ok(Math.abs(A.cabLenFinale(350, 0) - (3.5 * 1.1 + 0.6)) < 1e-9, "3,5 m → 4,45 m");
+  eq(A.cabCut(A.cabLenFinale(350, 0)), 5, "4,45 m → il taglio da 5 m"); eq(A.cabCut(A.cabLenFinale(420, 0)), 10, "4,2 m → 5,22 m → il taglio da 10 m"); 
+});
+t("L6: tagli del multicore — dal 10 al 100 m; oltre, nessun taglio (rete o fibra, R17-R18)", () => {
+  eq(A.cabCutMc(8), 10); eq(A.cabCutMc(10), 10); eq(A.cabCutMc(10.1), 15); eq(A.cabCutMc(46), 50); eq(A.cabCutMc(100), 100); eq(A.cabCutMc(100.5), null, "oltre 100 m");
+});
+const _l6poly = (R, key) => { const r = A.cabRoutesAll().filter((x) => x.key === key)[0]; return r ? r.poly : null; };
+for (const nome of ["band5", "band11", "orch"]) t("L6: «" + nome + "» — la lunghezza di ogni cavo è quella del percorso DISEGNATO (segnale, ritorni, multicore, corrente)", () => {
+  _l45carica(nome); A.state.cab.on = true; const R = A.cabResult(true); A.__elecRes = null; const E = A.elecResult(true);
+  let n = 0, piuLunghi = 0;
+  const conf = (obj, key, extra, cutf, nomeC) => { const poly = _l6poly(R, key); ok(poly, nomeC + ": percorso disegnato " + key); if (!poly) return; const cm = A.orthLen(poly);
+    ok(Math.abs(obj.pathM - cm / 100) < 1e-9, nomeC + " " + key + ": pathM " + obj.pathM + " ≠ disegno " + cm / 100); ok(Math.abs(obj.lenM - A.cabLenFinale(cm, extra)) < 1e-9, nomeC + " " + key + ": lenM " + obj.lenM);
+    eq(obj.cut, cutf(obj.lenM), nomeC + " " + key + ": taglio"); n++; if (cm > A.orthLen(obj.pts || [[obj.x1, obj.y1], [obj.x2, obj.y2]]) + 1) piuLunghi++; };
+  const seen = {};
+  R.links.filter((l) => !l.deleted && !l.via).forEach((l) => { if (seen[l.key]) return; seen[l.key] = 1; conf(l, "i:" + l.key, A.MIC_REACH, A.cabCut, "segnale"); });
+  R.returnLinks.forEach((l) => conf(l, "r:" + l.key, A.MIC_REACH, A.cabCut, "ritorno"));
+  R.snakes.forEach((k) => conf(k, "m:" + k.box.id, 0, A.cabCutMc, "multicore"));
+  E.loadLinks.forEach((l) => conf(l, "p:" + l.key, 0, A.cabCut, "corrente"));
+  E.uplinks.forEach((u) => conf(u, "p:" + u.key, 0, A.cabCut, "dorsale"));
+  E.feeds.forEach((f) => conf(f, "f:" + f.distro.letter, 0, A.cabCut, "alimentazione"));
+  ok(n >= 3, "cavi controllati: " + n); console.log("      («" + nome + "»: " + n + " cavi controllati, " + piuLunghi + " con il disegno più lungo dei punti d'appoggio)");
+});
+t("L6: dove il cavo gira attorno a un ingombro, la lunghezza cresce rispetto al Manhattan dei soli capi (prima restava quello)", () => {
+  _l45carica("orch"); A.state.cab.on = true; const R = A.cabResult(true); let piu = 0, meno = 0;
+  R.links.filter((l) => !l.deleted && !l.via).forEach((l) => { const cm = l.pathM * 100, raw = A.orthLen(l.pts); if (cm > raw + 1) piu++; if (cm < raw - 1) meno++; });
+  ok(piu >= 1, "almeno un cavo disegnato è più lungo dei suoi punti d'appoggio: " + piu); eq(meno, 0, "e nessuno è più corto (il disegno è un percorso ortogonale fra gli stessi capi)");
+});
+t("L6: modalità «diretto» — niente instradamento, la lunghezza resta il Manhattan dei punti (con la stessa formula)", () => {
+  _l45carica("band5", false); A.state.cab.on = true; A.state.cab.route = "dir"; A.__cabRes = null; const R = A.cabResult(true);
+  const l = R.links.filter((x) => !x.deleted && !x.via)[0]; ok(Math.abs(l.lenM - A.cabLenFinale(A.orthLen(l.pts), A.MIC_REACH)) < 1e-9, "lenM = formula sui punti"); A.state.cab.route = undefined; A.__cabRes = null;
+});
+t("L6: «cavi per taglio» — i conteggi tornano con i cavi e ogni taglio è commerciale", () => {
+  _l45carica("band11"); A.state.cab.on = true; A.__cabRes = null; A.__elecRes = null; const R = A.cabResult(true), M = A.cabMateriali();
+  const somma = (t) => Object.keys(t).reduce((a, k) => a + t[k], 0);
+  eq(somma(M.xlrTot), M.nXlr, "XLR: somma dei tagli = numero di cavi"); eq(M.nXlr, R.links.filter((l) => !l.deleted && !l.via).length + R.returnLinks.length, "XLR = segnale + ritorni");
+  eq(somma(M.mc), R.snakes.length, "multicore: uno per box collegata"); eq(somma(M.el) + somma(M.elCee), A.elecResult().loadLinks.length, "corrente: un cavo per carico");
+  Object.keys(M.xlrTot).forEach((k) => ok(k === ">" || [3, 5, 10, 15, 20, 30, 50].indexOf(+k) >= 0, "taglio XLR «" + k + "»"));
+  Object.keys(M.mc).forEach((k) => ok(k === ">" || A.CAB_MC_CUTS.indexOf(+k) >= 0, "taglio multicore «" + k + "»"));
+  ok(/^\d+× \d+ m( · \d+× \d+ m)*$/.test(M.testo.xlr), "testo XLR: " + M.testo.xlr); ok(M.nMc ? /^\d+× \d+ m/.test(M.testo.mc) : true, "testo multicore: " + M.testo.mc);
+  ok(Object.keys(M.xlrTot).length >= 1, "almeno un taglio");
+  eq(A.cabTaglioTesto({ "5": 2, "10": 1, ">": 1 }), "2× 5 m · 1× 10 m · 1× oltre 50 m", "i tagli in ordine, «oltre» in fondo");
+  eq(A.cabTaglioTesto({ "30": 1, ">": 2 }, "oltre 100 m"), "1× 30 m · 2× oltre 100 m");
+});
+t("L6: colore di nastro per zona — uno per box, stabile e diverso fra box vicine", () => {
+  eq(A.cabColoreBox({ letter: "A" }), "rosso"); eq(A.cabColoreBox({ letter: "B" }), "blu"); eq(A.cabColoreBox({ letter: "I" }), "rosso", "dopo otto si riparte"); ok(A.cabColoreBox({ letter: "A" }) !== A.cabColoreBox({ letter: "B" }));
+});
+t("L6: pannello Stato — multicore e linee di alimentazione per taglio, accanto a XLR e corrente", () => {
+  ok(/var _mat=null; try\{ _mat=cabMateriali\(\); \}catch/.test(appjs), "legge cabMateriali (stessa fonte del PDF)");
+  ok(/if\(_mat && _mat\.nMc\) s\+=ir\(/.test(appjs) && /_mat\.testo\.mc/.test(appjs), "riga Multicore / Cavi di rete"); ok(/if\(_mat && _mat\.nDor\) s\+=ir\("Linee di alimentazione", _mat\.testo\.elDor\)/.test(appjs), "riga Linee di alimentazione");
+  ok(/ir\("Cavi XLR", xlr\)/.test(appjs) && /ir\("Cavi elettrici", elc\)/.test(appjs), "le righe di sempre restano");
+});
+t("L6: PDF del cablaggio — cavi per taglio nel riepilogo e scheda per il service con «N di M» e versione", () => {
+  _l45carica("band11"); A.state.cab.on = true; A.__cabRes = null; A.__elecRes = null; A.state.titolo = "Prova"; const doc = docACapo(); A.cabReportPdf(doc); const T = pdfTesti(doc).map((x) => x.t);
+  const M = A.cabMateriali();
+  ok(T.indexOf("Cavi XLR (segnale e ritorni): " + M.testo.xlr) >= 0, "riepilogo: " + M.testo.xlr);
+  if (M.nMc) ok(T.some((x) => x.indexOf((M.testo.mc ? ": " + M.testo.mc : "zzz")) >= 0 && /^(Multicore|Cavi di rete): /.test(x)), "riepilogo: multicore " + M.testo.mc);
+  if (M.nEl) ok(T.some((x) => /^Cavi di corrente: /.test(x)), "riepilogo: corrente");
+  ok(T.indexOf("STAGE PLOT — Scheda cavi per il service") >= 0, "pagina «Scheda cavi per il service»"); ok(T.indexOf("Da preparare (per taglio)") >= 0, "sezione «Da preparare»");
+  ok(T.some((x) => /^Box [A-Z] · nastro (rosso|blu|verde|giallo|arancio|viola|bianco|nero) · \d+\/\d+ ch/.test(x)), "una riga per box con il nastro");
+  const nCavi = T.filter((x) => /disegnato [\d,]+ m -> XLR (\d+ m|oltre 50 m!)$/.test(x)).length; eq(nCavi, M.links.length, "un rigo per ogni cavo di segnale, col disegnato e il taglio");
+  ok(doc.pagine.length >= 2, "la scheda è su una pagina sua"); eq(pdfRigheLunghe(doc), [], "nessuna riga oltre la larghezza");
+  const app = appjs.slice(appjs.indexOf("function cabReportPdf"), appjs.indexOf("function patchListPdf")); ok(/pdfCredit\(doc\)/.test(app), "«N di M · vN · data» dallo stesso pdfCredit");
+  ok(pdfTesti(doc).every((x) => x.y <= 287), "nessun testo sotto il margine basso");
+});
+t("L6: l'etichetta del multicore sul palco dice il taglio quando le lunghezze sono accese", () => {
+  ok(/state\.cab\.showLengths\?' · '\+\(k\.cut\?k\.cut\+' m':'>100 m'\):''/.test(appjs), "«multicore N ch · 30 m»");
+});
+t("L6: tempo — le lunghezze dal disegno non pesano: orchestra da 58 con corrente, a freddo e in cache", () => {
+  _l45carica("orch"); A.state.cab.on = true; A.__cabRes = null; A.__elecRes = null; const t0 = Date.now(); A.cabResult(true); A.cabMateriali(); const freddo = Date.now() - t0;
+  const t1 = Date.now(); for (let i = 0; i < 20; i++) { A.cabResult(); A.cabMateriali(); } const caldo = (Date.now() - t1) / 20;
+  console.log("      (orchestra con corrente: motore + lista per taglio a freddo " + freddo + " ms · in cache " + caldo.toFixed(1) + " ms per chiamata)");
+  ok(freddo <= 8000, "a freddo " + freddo + " ms"); ok(caldo <= 100, "in cache " + caldo + " ms");
+});
+
+t("L6: ogni tipo di cavo viene instradato come lo disegna il palco (segnale, ritorni, multicore, corrente)", () => {
+  _l45carica("band11"); A.state.cab.on = true; A.__cabRes = null; A.__elecRes = null; A.state.elec.auto = false; A.elecResult(true);
+  const orig = A.cabRoutePts, k = {}; A.cabRoutePts = function (pts, OBS, ex, kind) { k[kind || "sig"] = (k[kind || "sig"] || 0) + 1; return orig.apply(this, arguments); };
+  let R, E; try { R = A.cabResult(true); E = A.elecResult(true); } finally { A.cabRoutePts = orig; }
+  ok(k.sig >= R.links.filter((l) => !l.deleted && !l.via).length, "segnale: " + k.sig); ok(k.ret >= R.returnLinks.length && R.returnLinks.length > 0, "ritorni: " + k.ret);
+  ok(k.mc >= R.snakes.length && R.snakes.length > 0, "multicore: " + k.mc); ok(k.pwr >= E.loadLinks.length + E.feeds.length + E.uplinks.length && E.loadLinks.length > 0, "corrente: " + k.pwr);
+  A.state.elec.auto = true;
+});
+t("L6: un cavo cancellato a mano non entra nel conteggio per taglio; dorsali e alimentazioni sì", () => {
+  _l45carica("band11"); A.state.cab.on = true; A.state.elec.auto = false; A.__cabRes = null; A.__elecRes = null; A.cabResult(true); A.elecResult(true);
+  const n0 = A.cabMateriali().nXlr, E = A.elecResult(), M0 = A.cabMateriali(); const somma = (t) => Object.keys(t).reduce((a, x) => a + t[x], 0);
+  eq(somma(M0.elDor), E.uplinks.length + E.feeds.length, "dorsali + alimentazioni contate"); ok(M0.nDor >= 1, "almeno una linea di alimentazione");
+  const l = A.cabResult().links.filter((x) => !x.deleted && !x.via)[0]; A.cabDeleteKey(l.key); A.__cabRes = null; const R2 = A.cabResult(true);
+  const gone = R2.links.filter((x) => x.deleted).length; ok(gone >= 1, "il cavo è cancellato"); eq(A.cabMateriali().nXlr, n0 - gone, "e non si conta"); A.state.elec.auto = true;
+});
+t("L6: corrente — i cavi CEE (oltre 16 A) si contano a parte dai normali", () => {
+  _l45carica("band11"); A.state.cab.on = true; A.state.elec.auto = false; A.__cabRes = null; A.__elecRes = null; const E = A.elecResult(true); const prima = A.cabMateriali();
+  E.loadLinks[0].cee = true; const M = A.cabMateriali(); const somma = (t) => Object.keys(t).reduce((a, x) => a + t[x], 0);
+  eq(somma(M.elCee), 1, "uno CEE"); eq(somma(M.el), E.loadLinks.length - 1, "gli altri normali"); ok(M.testo.elCee !== "" && prima.testo.elCee === "", "il testo CEE compare solo se ce ne sono"); A.state.elec.auto = true;
+});
+t("L6: modalità «diretto» — su tutta l'orchestra la lunghezza è la formula sui punti d'appoggio (nessun instradamento)", () => {
+  _l45carica("orch", false); A.state.cab.on = true; A.state.cab.route = "dir"; A.__cabRes = null; const R = A.cabResult(true);
+  R.links.filter((x) => !x.deleted && !x.via).forEach((l) => ok(Math.abs(l.lenM - A.cabLenFinale(A.orthLen(l.pts), A.MIC_REACH)) < 1e-9, "cavo " + l.key));
+  R.snakes.forEach((k) => ok(Math.abs(k.lenM - A.cabLenFinale(A.orthLen([[k.x1, k.y1], [k.x2, k.y2]]))) < 1e-9, "multicore " + k.box.id)); A.state.cab.route = undefined; A.__cabRes = null;
+});
+t("L6: i cavi digitali (USB, rete) restano fuori dalla correzione di lunghezza e dalla lista XLR", () => {
+  ok(/\(links\|\|\[\]\)\.forEach\(function\(l\)\{ if\(l\.deleted \|\| l\.via\) return;/.test(appjs.slice(appjs.indexOf("function cabAllineaLunghezze"))), "via saltato dall'allineamento");
+  ok(/var ln=\(R\.links\|\|\[\]\)\.filter\(function\(l\)\{ return !l\.deleted && !l\.via; \}\)/.test(appjs), "via fuori dalla lista per taglio");
+});
+t("L6: PDF su un'orchestra — multicore e passacavo nel riepilogo E nella scheda, la scheda su pagine sue con margine basso ≥ 15 mm", () => {
+  _l45carica("orch"); A.state.cab.on = true; A.__cabRes = null; A.__elecRes = null; const doc = docACapo(); A.cabReportPdf(doc); const M = A.cabMateriali(); ok(M.nMc >= 3, "multicore in orchestra: " + M.nMc);
+  const T = pdfTesti(doc).map((x) => x.t);
+  eq(T.filter((x) => x === "Multicore: " + M.testo.mc).length, 2, "«Multicore: " + M.testo.mc + "» nel riepilogo e nella scheda");
+  const iT = doc.pagine.findIndex((p) => p.testi.some((x) => x.t === "STAGE PLOT — Scheda cavi per il service")); ok(iT >= 1, "la scheda comincia su una pagina sua: " + iT);
+  ok(!doc.pagine[iT].testi.some((x) => x.t === "Criticità"), "e non sotto le criticità: la pagina della scheda non ha altro che la scheda"); ok(doc.pagine.length - 1 > iT, "con 14 box e 90 cavi la scheda occupa più pagine (" + (doc.pagine.length - iT) + ")");
+  doc.pagine.slice(iT).forEach((p, i) => ok(p.testi.every((x) => x.y <= 277), "scheda, pagina " + (i + 1) + ": nessun testo sotto i 15 mm dal fondo (y max " + Math.max(...p.testi.map((x) => x.y)) + ")"));
+  const pc = A.cabPassacavoTesto(); if (pc) ok(T.filter((x) => x.indexOf("Passacavo rampato: " + pc.testo) === 0).length >= 2, "il passacavo sta nel riepilogo e nella scheda");
+  ok(T.some((x) => /^Box [A-Z] · nastro \w+ · \d+\/\d+ ch · (multicore|rete) \d+ m \(disegnato [\d,]+ m\)$/.test(x)), "per ogni box: nastro, multicore col taglio e il disegnato");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
