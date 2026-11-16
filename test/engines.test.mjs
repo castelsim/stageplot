@@ -34454,6 +34454,15 @@ t("L4+L5: tempo di calcolo dell'orchestra da 58 con corrente accesa (percorsi, o
   const t1 = Date.now(); A.cabRouteInfo(); A.cabFasciMap(); const caldo = Date.now() - t1;
   console.log("      (orchestra con corrente: " + I.routes.length + " cavi · a freddo " + freddo + " ms · in cache " + caldo + " ms · fasci " + Object.keys(fm).length + ")");
   ok(freddo <= 8000, "a freddo " + freddo + " ms"); ok(caldo <= 400, "in cache " + caldo + " ms");
+  ok(caldo <= 100, "in cache davvero (prima del 16/11 il motore dei cavi si rifaceva a ogni chiamata, ~200 ms): " + caldo + " ms");
+});
+t("prestazioni: con l'aggiornamento automatico cabResult riusa il risultato se lo stato è identico, e ricalcola se cambia o con __cabRes=null / force", () => {
+  _l45carica("band11"); A.state.cab.auto = true; A.__cabRes = null;
+  const r1 = A.cabResult(); ok(A.cabResult() === r1, "stato identico → stesso oggetto");
+  A.__cabRes = null; const r2 = A.cabResult(); ok(r2 !== r1, "__cabRes=null ricalcola"); ok(A.cabResult() === r2);
+  ok(A.cabResult(true) !== r2, "force ricalcola");
+  const r3 = A.cabResult(); A.state.items[0].x += 7; ok(A.cabResult() !== r3, "un elemento spostato → ricalcolo");
+  A.state.cab.auto = false; A.__cabRes = null;
 });
 t("L5: il passacavo rampato compare nel pannello Stato e nel PDF del report cablaggio (lista materiali + service), insieme agli avvisi di L4", () => {
   const stato = appjs.indexOf('if(_pc) s+=ir("Passacavo rampato"'); ok(stato > 0, "riga «Passacavo rampato» nel pannello Stato"); ok(/cabPassacavoTesto\(\)/.test(appjs.slice(stato - 300, stato)), "legge cabPassacavoTesto");

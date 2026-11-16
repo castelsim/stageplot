@@ -14473,7 +14473,7 @@ function _astarOrth(a,b,rects,kind){
     if(nx*ny>(win?ORTH_MAXNODES:ORTH_MAXNODES_TUTTO)) return {big:true};
     function idx(arr,q){ var lo=0, hi=arr.length-1; while(lo<hi){ var m=(lo+hi)>>1; if(arr[m]<q-0.5) lo=m+1; else hi=m; } return lo; }
     var si=idx(xs,a[0]), sj=idx(ys,a[1]), ti=idx(xs,b[0]), tj=idx(ys,b[1]);
-    var N=nx*ny, blocked=new Uint8Array(N), seen=new Uint8Array(N), fac=new Float32Array(N);
+    var N=nx*ny, blocked=new Uint8Array(N), seen=new Uint8Array(N), fac=new Float32Array(N); var edgeOk=new Uint8Array(N*4);
     var near=rs.filter(function(r){ return !(r.x1<X0||r.x0>X1||r.y1<Y0||r.y0>Y1); });
     function node(i,j){ var k=j*nx+i;
       if(!seen[k]){ seen[k]=1; var x=xs[i], y=ys[j];
@@ -14492,15 +14492,23 @@ function _astarOrth(a,b,rects,kind){
       return k; }
     var S=si+sj*nx, T=ti+tj*nx; seen[S]=1; seen[T]=1; fac[S]=fac[T]=1;
     var dist=new Float32Array(N*5).fill(Infinity), prev=new Int32Array(N*5).fill(-1), done=new Uint8Array(N*5);
-    var hf=[], hs=[], hk=[], seq=0;   /* heap binaria: f, ordine di inserimento (spareggio), stato */
-    function less(p,q){ return hf[p]<hf[q] || (hf[p]===hf[q] && hs[p]<hs[q]); }
-    function swap(p,q){ var t=hf[p]; hf[p]=hf[q]; hf[q]=t; t=hs[p]; hs[p]=hs[q]; hs[q]=t; t=hk[p]; hk[p]=hk[q]; hk[q]=t; }
-    function push(f,k){ var p=hf.length; hf.push(f); hs.push(seq++); hk.push(k); while(p>0){ var u=(p-1)>>1; if(less(p,u)){ swap(p,u); p=u; } else break; } }
-    function pop(){ var top=hk[0], last=hf.length-1; swap(0,last); hf.pop(); hs.pop(); hk.pop(); var p=0, n=hf.length;
-      for(;;){ var l=2*p+1, r=l+1, m=p; if(l<n && less(l,m)) m=l; if(r<n && less(r,m)) m=r; if(m===p) break; swap(p,m); p=m; } return top; }
+    /* heap binaria in array tipizzati (f, ordine di inserimento = spareggio, stato), sift «a buco»: stesso ordine di prima, meno scritture */
+    var hcap=1024, hf=new Float64Array(hcap), hs=new Float64Array(hcap), hk=new Int32Array(hcap), hn=0, seq=0;
+    function push(f,k){
+      if(hn===hcap){ hcap*=2; var nf=new Float64Array(hcap), ns2=new Float64Array(hcap), nk2=new Int32Array(hcap); nf.set(hf); ns2.set(hs); nk2.set(hk); hf=nf; hs=ns2; hk=nk2; }
+      var sq=seq++, p=hn++;
+      while(p>0){ var u=(p-1)>>1; if(f<hf[u] || (f===hf[u] && sq<hs[u])){ hf[p]=hf[u]; hs[p]=hs[u]; hk[p]=hk[u]; p=u; } else break; }
+      hf[p]=f; hs[p]=sq; hk[p]=k; }
+    function pop(){
+      var top=hk[0]; hn--; if(hn===0) return top;
+      var f=hf[hn], sq=hs[hn], k=hk[hn], p=0;
+      for(;;){ var l=2*p+1; if(l>=hn) break; var r=l+1, m=l;
+        if(r<hn && (hf[r]<hf[l] || (hf[r]===hf[l] && hs[r]<hs[l]))) m=r;
+        if(hf[m]<f || (hf[m]===f && hs[m]<sq)){ hf[p]=hf[m]; hs[p]=hs[m]; hk[p]=hk[m]; p=m; } else break; }
+      hf[p]=f; hs[p]=sq; hk[p]=k; return top; }
     var DI=[1,-1,0,0], DJ=[0,0,1,-1], start=S*5+4; dist[start]=0; push(0,start);
     var goal=-1;
-    while(hf.length){
+    while(hn>0){
       var st=pop(); if(done[st]) continue; done[st]=1;
       var cn=(st/5)|0, cd=st-cn*5; if(cn===T){ goal=st; break; }
       var ci=cn%nx, cj=(cn/nx)|0, g0=dist[st];
@@ -14508,7 +14516,8 @@ function _astarOrth(a,b,rects,kind){
         var ni=ci+DI[d], nj=cj+DJ[d]; if(ni<0||nj<0||ni>=nx||nj>=ny) continue;
         var nk=node(ni,nj), pen=0; if(blocked[nk]){ if(!perm) continue; pen+=ORTH_MURATO; }
         var len=Math.abs(xs[ni]-xs[ci])+Math.abs(ys[nj]-ys[cj]);
-        if(len>0 && !_orthSegFree([xs[ci],ys[cj]],[xs[ni],ys[nj]],near)){ if(!perm) continue; pen+=ORTH_MURATO; }   /* tratto che taglia un ingombro */
+        if(len>0){ var ek=cn*4+d, ev=edgeOk[ek]; if(!ev){ ev=_orthSegFree([xs[ci],ys[cj]],[xs[ni],ys[nj]],near)?1:2; edgeOk[ek]=ev; }   /* memo per tratto di reticolo: ogni nodo si espande fino a 5 volte (una per direzione di arrivo) */
+          if(ev===2){ if(!perm) continue; pen+=ORTH_MURATO; } }   /* tratto che taglia un ingombro */
         var ng=g0+len/ORTH_STEP*fac[nk]+pen+((cd!==4 && cd!==d)?ORTH_TURN:0), ns=nk*5+d;
         if(ng<dist[ns]-1e-9){ dist[ns]=ng; prev[ns]=st; push(ng+(Math.abs(xs[ni]-b[0])+Math.abs(ys[nj]-b[1]))/ORTH_STEP*0.5, ns); }
       }
@@ -14859,12 +14868,13 @@ function cabPlaceAutoBox(its, taken){
   var x0=Infinity,x1=-Infinity,y0=Infinity,y1=-Infinity, cx=0, cy=0;
   its.forEach(function(it){ var h=cabItemHalf(it); x0=Math.min(x0,it.x-h.hx); x1=Math.max(x1,it.x+h.hx); y0=Math.min(y0,it.y-h.hy); y1=Math.max(y1,it.y+h.hy); cx+=it.x; cy+=it.y; });
   cx/=its.length; cy/=its.length;
-  var halves=state.items.map(function(it){ return {it:it, h:cabItemHalf(it)}; });
+  var hn=state.items.length, hX=new Float64Array(hn), hY=new Float64Array(hn), hRX=new Float64Array(hn), hRY=new Float64Array(hn);   /* ingombri in array piatti: libero() gira migliaia di volte */
+  state.items.forEach(function(it,i){ var h=cabItemHalf(it); hX[i]=it.x; hY[i]=it.y; hRX[i]=h.hx+bw; hRY[i]=h.hy+bd; });
   var blocks=(state.stage.blocks&&state.stage.blocks.length)?state.stage.blocks:null;
   function libero(x,y){
     if(x<CAB_BOX_MX || x>W-CAB_BOX_MX || y<bd+CAB_BOX_SOPRA || y>D-CAB_BOX_PUBBLICO) return false;
     if(blocks && !blocks.some(function(b){ return x>=b.x+CAB_BOX_MX && x<=b.x+b.w-CAB_BOX_MX && y>=b.y+bd+CAB_BOX_SOPRA && y<=b.y+b.d-bd; })) return false;
-    for(var i=0;i<halves.length;i++){ var o=halves[i]; if(Math.abs(x-o.it.x)<o.h.hx+bw && Math.abs(y-o.it.y)<o.h.hy+bd) return false; }
+    for(var i=0;i<hn;i++){ if(Math.abs(x-hX[i])<hRX[i] && Math.abs(y-hY[i])<hRY[i]) return false; }
     for(var j=0;j<taken.length;j++) if(Math.hypot(x-taken[j].x, y-taken[j].y)<CAB_BOX_DIST) return false;
     return true;
   }
@@ -14875,9 +14885,11 @@ function cabPlaceAutoBox(its, taken){
       for(var yy=y0+30; yy<y1; yy+=60){ cs.push([x0-off,yy]); cs.push([x1+off,yy]); }   /* lungo i fianchi: dove c'è un varco */
       for(var xx=x0+30; xx<x1; xx+=60){ cs.push([xx,y0-off]); }
       cs.forEach(function(c){
-        var x=c[0], y=c[1]; if(!libero(x,y)) return;
+        var x=c[0], y=c[1];
         var cost=its.reduce(function(a,it){ return a+Math.abs(it.x-x)+Math.abs(it.y-y); },0)/its.length + CAB_BOX_PESO_BORDO*Math.min(x,W-x,y);
-        if(!best || cost<best.cost-1e-9) best={cost:cost,x:x,y:y,edge:Math.min(x,W-x,y)};
+        if(best && !(cost<best.cost-1e-9)) return;   /* prestazioni: il costo non dipende da «libero» → se non batte il migliore, il test (costoso) non serve */
+        if(!libero(x,y)) return;
+        best={cost:cost,x:x,y:y,edge:Math.min(x,W-x,y)};
       });
     });
     return best;
@@ -14890,10 +14902,12 @@ function cabPlaceAutoBox(its, taken){
     var lane=null, cl=[[CAB_BOX_MX,cy],[W-CAB_BOX_MX,cy],[cx,bd+CAB_BOX_SOPRA]];
     for(var ly=y0; ly<=y1; ly+=60){ cl.push([CAB_BOX_MX,ly]); cl.push([W-CAB_BOX_MX,ly]); }
     for(var lx=x0; lx<=x1; lx+=60) cl.push([lx,bd+CAB_BOX_SOPRA]);
-    cl.forEach(function(c){ var x=c[0], y=c[1]; if(!libero(x,y)) return;
+    cl.forEach(function(c){ var x=c[0], y=c[1];
       var dd=Math.hypot(Math.max(x0-x,0,x-x1), Math.max(y0-y,0,y-y1)); if(dd>400) return;
       var cost=its.reduce(function(a,it){ return a+Math.abs(it.x-x)+Math.abs(it.y-y); },0)/its.length + CAB_BOX_PESO_BORDO*Math.min(x,W-x,y);
-      if(!lane || cost<lane.cost-1e-9) lane={cost:cost,x:x,y:y,edge:Math.min(x,W-x,y)}; });
+      if(lane && !(cost<lane.cost-1e-9)) return;
+      if(!libero(x,y)) return;
+      lane={cost:cost,x:x,y:y,edge:Math.min(x,W-x,y)}; });
     if(lane) b=lane;
   }   /* gruppo circondato: si allarga, ma resta sul fianco libero più vicino */
   if(!b) return {x:Math.round(Math.min(W-CAB_BOX_MX,Math.max(CAB_BOX_MX,cx))), y:Math.round(Math.min(D-CAB_BOX_PUBBLICO,Math.max(bd+CAB_BOX_SOPRA,cy-90))), edge:Infinity, lontano:true};   /* ultima spiaggia: come prima, ma mai in fascia pubblico */
@@ -15290,8 +15304,13 @@ function audioCablingEngine(){
 }
 /* cache: con aggiornamento automatico ON si ricalcola a ogni redraw; OFF = congelato finché non premi Ricalcola */
 var __cabRes=null;
+/* prestazioni (16/11): con l'aggiornamento automatico il motore si rifaceva a ogni chiamata (200 ms sull'orchestra da 58, ogni ridisegno).
+   Ora, se lo stato intero è identico a quello dell'ultimo calcolo, si riusa il risultato; __cabRes=null (invalidazione esplicita) e force ricalcolano sempre. */
+var __cabKey=null;
+function _cabStateKey(){ try{ return Object.keys(TYPES).length+"|"+JSON.stringify(state); }catch(_e){ return null; } }
 function cabResult(force){
-  if(force || state.cab.auto || !__cabRes) __cabRes=audioCablingEngine();
+  if(force || !__cabRes){ __cabRes=audioCablingEngine(); __cabKey=null; if(state.cab.auto) __cabKey=_cabStateKey(); }
+  else if(state.cab.auto){ var k=_cabStateKey(); if(k===null || k!==__cabKey){ __cabRes=audioCablingEngine(); __cabKey=_cabStateKey(); } }
   return __cabRes;
 }
 var selCab=null, lastWp=null;   /* cavo selezionato (primario, per l'editing) + doppio-click su waypoint (elimina) */
