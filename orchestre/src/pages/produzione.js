@@ -1,5 +1,5 @@
-/* Scheda di una produzione: Dati · Date · Repertorio · Organico · Matching · Convocazioni · Feedback · StagePlot · Storia.
-   ?id= apre, ?new=1 crea (con ?p=<progetto> nasce già collegata a StagePlot), ?t= sceglie la scheda (così il refresh resta dove eri). */
+/* Scheda di una produzione: Dati · Date · Repertorio · Organico · Matching · Convocazioni · Feedback · stageplot.it · Storia.
+   ?id= apre, ?new=1 crea (con ?p=<progetto> nasce già collegata a stageplot.it), ?t= sceglie la scheda (così il refresh resta dove eri). */
 import { BASE } from "../config.js";
 import { esc, el, toast, confirm, setState, errMsg, fmtDate, fmtDateTime, avvia } from "../ui.js";
 import { requireStaff, mountTopbar } from "../auth.js";
@@ -18,7 +18,7 @@ import { typeMapFrom, docVariants, extractPositions, proposeRoles, diffProposal,
 const app = document.getElementById("app");
 const q = new URLSearchParams(location.search);
 let ctx = null, p = null, cat = null, tab = q.get("t") || "dati";
-const TABS = [["dati", "Dati"], ["date", "Date"], ["repertorio", "Repertorio"], ["organico", "Organico"], ["cerca", "Cerca"], ["matching", "Matching"], ["convocazioni", "Convocazioni"], ["feedback", "Feedback"], ["stageplot", "StagePlot"], ["storia", "Storia"]];
+const TABS = [["dati", "Dati"], ["date", "Date"], ["repertorio", "Repertorio"], ["organico", "Organico"], ["cerca", "Cerca"], ["matching", "Matching"], ["convocazioni", "Convocazioni"], ["feedback", "Feedback"], ["stageplot", "stageplot.it"], ["storia", "Storia"]];
 
 /* Condizioni versionate (V1/d). Compenso, luogo, date e il resto di ciò che il musicista vede sono versionati dal
    database: se cambiano dopo che qualcuno ha risposto, quella persona risulta «da riconfermare». Chi salva lo vede
@@ -127,7 +127,7 @@ function paintDati() {
   card.appendChild(field("description", "Descrizione", p.description, { type: "textarea" }));
   card.appendChild(field("conditions", "Condizioni", p.conditions, { type: "textarea" }));
   card.appendChild(field("notes", "Note interne", p.notes, { type: "textarea" }));
-  if (!p.id && p.stageplot_project_id) card.appendChild(el(`<p class="small muted">Nasce collegata al progetto StagePlot da cui arrivi: dopo il salvataggio potrai importare le postazioni.</p>`));
+  if (!p.id && p.stageplot_project_id) card.appendChild(el(`<p class="small muted">Nasce collegata al progetto stageplot.it da cui arrivi: dopo il salvataggio potrai importare le postazioni.</p>`));
   const act = el(`<div class="row"><button type="button" class="btn primary" id="save">Salva</button></div>`);
   act.querySelector("#save").onclick = async () => {
     const f = {};
@@ -818,7 +818,7 @@ function feedbackRow(r) {
   return d;
 }
 
-/* ---------------------------------------------------------------- StagePlot */
+/* ---------------------------------------------------------------- stageplot.it */
 const editorUrl = (id) => "/app/?p=" + encodeURIComponent(id);
 async function paintStageplot() {
   const panel = app.querySelector("#panel");
@@ -830,13 +830,13 @@ async function paintStageplot() {
     box.innerHTML = "";
     const card = el(`<section class="card"><div class="row"><h3>Progetto collegato</h3><span class="spacer"></span><span class="pill accent" id="spPill"></span></div><p id="spInfo"></p><p class="small muted" id="spHint"></p><div class="row" id="spAct"></div></section>`);
     card.querySelector("#spPill").textContent = proj ? "tuo" : "di un altro account";
-    card.querySelector("#spInfo").textContent = proj ? proj.title + " · aggiornato il " + fmtDate(proj.updated_at) : "Il progetto non è nel tuo account StagePlot (o è stato eliminato): si apre solo da chi lo possiede, e solo da lì si importano le postazioni.";
+    card.querySelector("#spInfo").textContent = proj ? proj.title + " · aggiornato il " + fmtDate(proj.updated_at) : "Il progetto non è nel tuo account stageplot.it (o è stato eliminato): si apre solo da chi lo possiede, e solo da lì si importano le postazioni.";
     const linked = lk.filter((l) => l.status === "linked"), stale = lk.filter((l) => l.status === "stale");
     card.querySelector("#spHint").textContent = p.stageplot_synced_at
       ? `Postazioni importate il ${fmtDateTime(p.stageplot_synced_at)}: ${linked.length} collegate` + (stale.length ? `, ${stale.length} non più sul palco` : "") + "."
       : "Nessuna postazione importata ancora. Le postazioni-persona del disegno diventano posti dell'organico; i posti non si tolgono mai da qui.";
     const act = card.querySelector("#spAct");
-    act.appendChild(el(`<a class="btn" href="${esc(editorUrl(p.stageplot_project_id))}" target="_blank" rel="noopener">Apri in StagePlot</a>`));
+    act.appendChild(el(`<a class="btn" href="${esc(editorUrl(p.stageplot_project_id))}" target="_blank" rel="noopener">Apri in stageplot.it</a>`));
     if (proj) { const b = el(`<button type="button" class="btn primary">Importa postazioni…</button>`); b.onclick = () => paintSpImport(box, proj); act.appendChild(b); }
     const un = el(`<button type="button" class="btn small ghost">Scollega</button>`);
     un.onclick = async () => {
@@ -873,11 +873,11 @@ async function paintStageplot() {
 async function paintSpLink(box) {
   const mine = await sp.myProjects();
   box.innerHTML = "";
-  const c = el(`<section class="card"><h3>Collega un progetto StagePlot</h3>
+  const c = el(`<section class="card"><h3>Collega un progetto stageplot.it</h3>
     <p class="small muted">Il disegno del palco e l'organico si parlano: le postazioni-persona del progetto diventano posti da coprire, e dall'editor arrivi qui con File → Organico (Orchestre).</p>
     <div class="form-row"><div class="field"><label for="spSel">Progetto</label><select id="spSel"></select></div><div></div><button type="button" class="btn primary" id="spGo">Collega</button></div></section>`);
   const sel = c.querySelector("#spSel");
-  if (!mine.length) { sel.appendChild(new Option("Nessun progetto nel tuo account StagePlot", "")); c.querySelector("#spGo").disabled = true; c.appendChild(el(`<p class="small muted">Disegna il palco nell'<a href="/app/" target="_blank" rel="noopener">editor</a> e salvalo nel cloud: comparirà qui.</p>`)); }
+  if (!mine.length) { sel.appendChild(new Option("Nessun progetto nel tuo account stageplot.it", "")); c.querySelector("#spGo").disabled = true; c.appendChild(el(`<p class="small muted">Disegna il palco nell'<a href="/app/" target="_blank" rel="noopener">editor</a> e salvalo nel cloud: comparirà qui.</p>`)); }
   else { sel.appendChild(new Option("— scegli —", "")); for (const m of mine) sel.appendChild(new Option(m.title + " · " + fmtDate(m.updated_at), m.id)); }
   c.querySelector("#spGo").onclick = async () => {
     const id = sel.value; if (!id) return toast("Scegli un progetto.", { err: true });

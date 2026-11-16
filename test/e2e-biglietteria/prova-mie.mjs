@@ -93,14 +93,14 @@ await rpcServizio("bgl_prenota", { p_slug: ev.slug, p_posti: ["Platea|A|29"], p_
 await http("/rest/v1/stageplot_projects", { user_id: editore.user.id, title: "Suo", data: { items: [] } }, { key: ANON, token: editore.access_token });
 let br = await chromium.launch(), ctx = await contesto(br, COMPUTER, { sessione: editore }), p = await ctx.newPage(); sorveglia(p, "editore", errori);
 await p.goto(sito.url + "/biglietteria/mie/"); await p.waitForSelector(".mie-account");
-E.ok(!(await p.$('[data-az="elimina"]')) && /usa anche StagePlot/.test(await p.textContent(".mie-account")), "account dell'editor: niente «Elimina», si scrive a info@");
+E.ok(!(await p.$('[data-az="elimina"]')) && /usa anche stageplot.it/.test(await p.textContent(".mie-account")), "account dell'editor: niente «Elimina», si scrive a info@");
 await br.close();
 /* entrato con Google senza mai prenotare: niente «Elimina» (il database non lo conta «solo biglietteria») e niente «usa StagePlot» */
 const vuoto = await utente(`vuoto-${S}@example.invalid`);
 br = await webkit.launch(); ctx = await contesto(br, TELEFONO, { sessione: vuoto }); p = await ctx.newPage(); sorveglia(p, "vuoto", errori);
 await p.goto(sito.url + "/biglietteria/mie/"); await p.waitForSelector(".mie-account");
 const tv = await p.textContent("main");
-E.ok(/Nessuna prenotazione in arrivo/.test(tv) && !(await p.$('[data-az="elimina"]')) && !/usa anche StagePlot/.test(tv) && /Per eliminare questo account scrivi/.test(tv), "senza prenotazioni: nessuna in arrivo, si scrive a info@");
+E.ok(/Nessuna prenotazione in arrivo/.test(tv) && !(await p.$('[data-az="elimina"]')) && !/usa anche stageplot.it/.test(tv) && /Per eliminare questo account scrivi/.test(tv), "senza prenotazioni: nessuna in arrivo, si scrive a info@");
 await p.screenshot({ path: `${OUT}/t20-webkit-telefono-vuoto.png`, fullPage: true });
 await br.close();
 sito.chiudi();

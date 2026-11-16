@@ -5,7 +5,7 @@
  * Scritto come modulo semplice: nel browser diventa window.WSComune, in Node (test) si carica con require.
  *
  * Perché un server a parte: le domande stanno in un progetto Supabase dedicato («workshop-domande»), senza
- * alcun legame con gli account o i progetti di StagePlot. Le tabelle non si toccano: la pagina chiama solo
+ * alcun legame con gli account o i progetti di stageplot.it. Le tabelle non si toccano: la pagina chiama solo
  * funzioni (bacheca, invia_domanda, vota; per la regia regia_elenco e regia_imposta) che controllano
  * lunghezza, doppioni, raffiche e parolacce. La chiave qui sotto è quella PUBBLICA: senza le funzioni non apre nulla.
  * Nessun dato personale: niente nomi, niente email; ogni telefono ha un numero a caso (salvato nel browser)

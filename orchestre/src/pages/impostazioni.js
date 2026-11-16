@@ -155,7 +155,7 @@ async function loadApplying() {
   } catch (e) { box.innerHTML = ""; const d = el(`<div class="err"></div>`); d.textContent = errMsg(e); box.appendChild(d); }
 }
 
-const ACTIONS = { "org.bootstrap": "Organizzazione creata", "membership.add": "Persona aggiunta", "membership.role": "Ruolo cambiato", "musicians.import": "Musicisti importati", "matching.ruleset": "Pesi del matching salvati", "matching.override": "Scelta manuale nel matching", "application.status": "Candidatura: cambio di stato", "privacy.deletion_requested": "Richiesta di cancellazione", "stageplot.import": "Postazioni importate da StagePlot", "stageplot.unlink": "Progetto StagePlot scollegato" };
+const ACTIONS = { "org.bootstrap": "Organizzazione creata", "membership.add": "Persona aggiunta", "membership.role": "Ruolo cambiato", "musicians.import": "Musicisti importati", "matching.ruleset": "Pesi del matching salvati", "matching.override": "Scelta manuale nel matching", "application.status": "Candidatura: cambio di stato", "privacy.deletion_requested": "Richiesta di cancellazione", "stageplot.import": "Postazioni importate da stageplot.it", "stageplot.unlink": "Progetto stageplot.it scollegato" };
 
 async function loadAudit() {
   const box = app.querySelector("#audit");

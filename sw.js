@@ -1,6 +1,6 @@
 /* © 2026 stageplot.it — Simone Castellan. Tutti i diritti riservati (vedi LICENSE).
  *
- * Service worker di StagePlot (audit A2): rende VERA la promessa offline del tool.
+ * Service worker di stageplot.it (audit A2): rende VERA la promessa offline del tool.
  *
  * Strategia (13/10/2026, Simone: «sistemami la cache di stageplot così si aggiorna subito»):
  *  - La SHELL dell'editor (/app/, /app.js, /icons.js): PRIMA LA RETE. A ogni apertura si chiede al

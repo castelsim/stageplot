@@ -1718,7 +1718,7 @@ var TYPES = {
              draw:function(){ return lin(-32,0,32,0,'ic')+lin(0,0,0,24,'ic thin')+circ(0,24,3,'ic fill')+
                '<g transform="translate(-32,0) rotate(-20)">'+bar(0,0,16,8,'ic fGrey',3)+'</g>'+
                '<g transform="translate(32,0) rotate(20)">'+bar(0,0,16,8,'ic fGrey',3)+'</g>'; }},
-  wireless: {nome:"Mic wireless", dim:"", cat:"Microfoni e DI", sub:"Aste e microfoni", w:34,d:34, defLabel:"WL",
+  wireless: {nome:"Mic wireless", dim:"", cat:"Microfoni e DI", sub:"Aste e microfoni", w:34,d:34, defLabel:"WL", qaPrimo:"radiomicrofono radiomicrofoni",
              draw:function(it){ return drawLibFit("radiomic",it,4,14); }},
   mictavolo:{nome:"Microfono da tavolo", dim:"collo d'oca con base", cat:"Microfoni e DI", sub:"Aste e microfoni", w:24,d:40, defLabel:"Tavolo", qaCede:"mic",   /* «mic» resta di aste e overhead: questo si trova con «tavolo», «collo d'oca», «microfono» */
              alias:"collo d'oca gooseneck tavolo relatori panel conferenza",
@@ -2383,7 +2383,20 @@ var SEARCH_ALIAS_GIRI = {
   omnichord:"omnichord omni chord suzuki om-108 om108 om-84 om84 arpa elettronica strumming strimpellare autoarpa tastiera ad accordi",
   syncgen:"sync generatore sync generatore di sync timecode time code smpte ltc word clock wordclock master clock distributore di clock generatore di timecode generatore timecode",
 };
-[SEARCH_ALIAS, SEARCH_ALIAS_GIRI].forEach(function(tab){ Object.keys(tab).forEach(function(k){   /* fuso nei tipi: le due ricerche leggono solo TYPES[k].alias */
+/* 16/11/2026, rapporto UX «come utente» (D-1): il vocabolario di chi fa conferenze e service. «lavalier», «palmare»,
+   «mixer foh», «tavolo relatori», «leggio conferenza» non davano niente, o davano la voce sbagliata. Solo FRASI intere o parole
+   lunghe (la ricerca è a sottostringa): niente sigle di 2-3 lettere. «radiomicrofono» resta com'è: prima del Mic wireless
+   c'è già chi lo dice nel nome. */
+var SEARCH_ALIAS_UX45 = {
+  wireless:"lavalier lavaliere microfono lavalier microfono a clip microfono a cravatta cravatta handheld microfono a mano microfono palmare radiomicrofono palmare",
+  relatore:"lavalier lavaliere relatore con lavalier cravatta",
+  mixer:"mixer foh mixer di sala mixer sala mixer regia banco mixer banco audio banco regia banco foh console foh console di sala mixing desk mixing console",
+  foh:"regia di sala regia sala mixer foh banco foh",
+  tavolo:"tavolo relatori tavolo dei relatori tavolo conferenza tavolo da conferenza tavolo di presidenza presidenza tavolo riunioni",
+  leggio:"leggio conferenza leggio da conferenza leggio relatore leggio oratore",
+  telo:"schermo per proiettore schermo proiettore schermo conferenza"
+};
+[SEARCH_ALIAS, SEARCH_ALIAS_GIRI, SEARCH_ALIAS_UX45].forEach(function(tab){ Object.keys(tab).forEach(function(k){   /* fuso nei tipi: le due ricerche leggono solo TYPES[k].alias */
   if(TYPES[k]) TYPES[k].alias=((TYPES[k].alias||"")+" "+tab[k]).trim();
 }); });
 /* CAT_ORDER = macro-categorie per la trovabilità (L, 07/07): da 17 a 10, strumenti in UN posto.
@@ -4310,7 +4323,7 @@ function prepareDoc(parsed){
       throw documentLoadError("FUTURE_DOCUMENT","Formato documento non supportato.");
     if(Object.prototype.hasOwnProperty.call(parsed,"_v") &&
        (typeof parsed._v!=="number" || !isFinite(parsed._v) || Math.floor(parsed._v)!==parsed._v || parsed._v<1 || parsed._v>SCHEMA_VERSION))
-      throw documentLoadError("FUTURE_SCHEMA","Questo progetto richiede una versione più recente di StagePlot.");
+      throw documentLoadError("FUTURE_SCHEMA","Questo progetto richiede una versione più recente di stageplot.it.");
     Object.keys(parsed).forEach(function(k){
       if(["_doc","_v","_local","active","variants","__proto__","prototype","constructor"].indexOf(k)<0) nextExtra[k]=parsed[k];
     });
@@ -6303,7 +6316,7 @@ function migrate(s){
   if(hasV && (typeof s._v!=="number" || !isFinite(s._v) || Math.floor(s._v)!==s._v || s._v<1))
     throw documentLoadError("INVALID_SCHEMA_VERSION","Versione documento non valida.");
   var v = hasV ? s._v : 1;
-  if(v>SCHEMA_VERSION) throw documentLoadError("FUTURE_SCHEMA","Questo progetto richiede una versione più recente di StagePlot.");
+  if(v>SCHEMA_VERSION) throw documentLoadError("FUTURE_SCHEMA","Questo progetto richiede una versione più recente di stageplot.it.");
   while(v < SCHEMA_VERSION){
     if(typeof MIGRATIONS[v]!=="function") throw documentLoadError("MISSING_MIGRATION","Migrazione documento non disponibile.");
     s = MIGRATIONS[v](s) || s; v++;
@@ -7840,7 +7853,7 @@ function load(){
       window.__bootVenueUnavailable=false;
       try{ ensureVariants(); }catch(_e){}
       try{ if(window.setDocState) window.setDocState("blocked"); }catch(_e){}
-      setTimeout(function(){ try{ if(window.__toast) window.__toast("Il progetto salvato richiede una versione compatibile di StagePlot. Non è stato modificato e il salvataggio è sospeso.",true); }catch(_e){} },0);
+      setTimeout(function(){ try{ if(window.__toast) window.__toast("Il progetto salvato richiede una versione compatibile di stageplot.it. Non è stato modificato e il salvataggio è sospeso.",true); }catch(_e){} },0);
     }
   } else {
     try{ ensureVariants(); }catch(_e){}
@@ -10502,7 +10515,7 @@ function custPannello(pre, base){
 }
 
 /* ---------- 5. invio per revisione (Tappa 5) ----------
-   L'elemento salvato va a StagePlot come segnalazione di tipo «elemento»: scheda, modello (JSON) e anteprima del
+   L'elemento salvato va a stageplot.it come segnalazione di tipo «elemento»: scheda, modello (JSON) e anteprima del
    disegno. Serve l'accesso (la risposta torna nell'app a chi l'ha mandato) e il consenso esplicito della spec. Il
    server rifiuta «elemento» senza un utente vero (401) e scarta i campi fuori regola (_shared/feedback-validation.ts). */
 function custInviaRevisione(id){
@@ -10539,7 +10552,7 @@ function custServeAccesso(){
 function custChiediConsenso(nome, cb){
   var corpo=document.createElement("label"); corpo.className="guide-scelta cust-consenso";
   var ck=document.createElement("input"); ck.type="checkbox"; ck.id="custConsenso";
-  var tx=document.createElement("span"); tx.textContent="Disegno, misure e descrizione arrivano a StagePlot. Se lo aggiungiamo al catalogo sarà disponibile per tutti, senza il tuo nome.";
+  var tx=document.createElement("span"); tx.textContent="Disegno, misure e descrizione arrivano a stageplot.it. Se lo aggiungiamo al catalogo sarà disponibile per tutti, senza il tuo nome.";
   corpo.appendChild(ck); corpo.appendChild(tx);
   var f=custFinestra({title:"Invia «"+nome+"» per revisione", msg:"Lo guardiamo e ti rispondiamo qui, nell'app.", corpo:corpo, fuoco:ck,
     bottoni:[{label:"Annulla"}, {label:"Invia", cls:"primary", id:"custConsensoInvia", resta:function(){ return ck.checked; }, run:cb}]});
@@ -20626,7 +20639,7 @@ function funzApriFinestra(){
     ov=document.createElement("div"); ov.className="modal"; ov.id="funzModal"; ov.hidden=true;
     ov.setAttribute("role","dialog"); ov.setAttribute("aria-modal","true"); ov.setAttribute("aria-labelledby","funzTitle");
     ov.innerHTML='<div class="mcard funz-card"><h2 id="funzTitle">Funzioni avanzate</h2>'
-      + '<p class="hint">StagePlot parte con l\'essenziale: palco, pedane, musicisti ed esportazione. Qui accendi il resto, quando ti serve. La scelta resta salvata <span id="funzDove">su questo dispositivo</span>.</p>'
+      + '<p class="hint">stageplot.it parte con l\'essenziale: palco, pedane, musicisti ed esportazione. Qui accendi il resto, quando ti serve. La scelta resta salvata <span id="funzDove">su questo dispositivo</span>.</p>'
       + '<label class="funz-master"><input type="checkbox" id="funzTutte"><span><b>Abilita tutte le funzioni</b><small>Oppure scegli solo quelle che ti servono:</small></span></label>'
       + '<div class="funz-voci">'+FUNZIONI.map(function(f){
           return '<label class="funz-voce"><input type="checkbox" data-funz="'+f.id+'"><span><b>'+esc(f.nome)+(f.pc?'<em class="funz-pc"> · sul computer</em>':'')+'</b><small>'+esc(f.desc)+'</small></span></label>';
@@ -21058,7 +21071,7 @@ function bglVaiAllaBiglietteria(apri){
   }
   if(!bglUtente()){
     guideDialog({title:"Accedi per usare la biglietteria",
-      msg:"Gli spettacoli stanno nel tuo account StagePlot: così solo tu vedi chi ha prenotato.",
+      msg:"Gli spettacoli stanno nel tuo account stageplot.it: così solo tu vedi chi ha prenotato.",
       action:{label:"Accedi", run:function(){ try{ if(window.__cloud && window.__cloud.signIn) window.__cloud.signIn(); else document.getElementById("bCloud").click(); }catch(e){} }}});
     return;
   }
@@ -27182,7 +27195,7 @@ function drawVenuePlan(name, P){
 
 /* (menu "Organico" e generatori organici rimossi dall'interfaccia su richiesta; formationData/buildOrchestraOut restano solo per le QA ?form=) */
 
-/* ============ RENDER 3D — generatore di prompt (funzione INTERNA NASCOSTA, per contenuti promo StagePlot.it) ============
+/* ============ RENDER 3D — generatore di prompt (funzione INTERNA NASCOSTA, per contenuti promo stageplot.it) ============
    Trasforma lo stage plot corrente in un prompt in linguaggio naturale + blocco JSON tecnico, da incollare in un
    generatore d'immagini. NON genera l'immagine e NON usa API. Accesso: solo digitando "render" nella ricerca.
    Sistema coordinate: origine = fondo-DESTRA (stage right, vista musicista); x cresce verso STAGE LEFT; y verso il PUBBLICO. */
@@ -33698,7 +33711,7 @@ document.getElementById("bNew").addEventListener("click", function(){
   var bloccato = !!window.__docLoadBlocked && typeof window.__docLoadBlockedRaw==="string";
   (bloccato ? confirmDialog({
     icon:"warn", title:"Il progetto salvato non si apre",
-    message:"Il progetto salvato su questo dispositivo non si può aprire con questa versione di StagePlot. Ricominciando da un palco vuoto verrebbe sostituito: prima ne scarichiamo il file originale, così non si perde.",
+    message:"Il progetto salvato su questo dispositivo non si può aprire con questa versione di stageplot.it. Ricominciando da un palco vuoto verrebbe sostituito: prima ne scarichiamo il file originale, così non si perde.",
     confirmText:"Scarica l'originale e ricomincia"
   }).then(function(ok){
     if(!ok) return false;
@@ -40534,7 +40547,7 @@ function gallery(){
       });
     })
     .catch(function(){ viewerFailed(rispostaArrivata
-      ? "Il progetto è arrivato ma non è stato possibile aprirlo: può essere stato creato con una versione più recente di StagePlot."
+      ? "Il progetto è arrivato ma non è stato possibile aprirlo: può essere stato creato con una versione più recente di stageplot.it."
       : "Il server non ha risposto: può essere la connessione di rete."); });
 
   function startSession(sb, token, d, isEditor){
@@ -40779,7 +40792,7 @@ function gallery(){
 
   window.__startSession=startSession;
 })();
-/* Orchestre (lotto 8): /app/?p=<uuid> apre QUEL progetto cloud (da «Apri in StagePlot» nella produzione).
+/* Orchestre (lotto 8): /app/?p=<uuid> apre QUEL progetto cloud (da «Apri in stageplot.it» nella produzione).
    Solo un uuid, e mai insieme a ?view= (che resta autorevole). Il parametro sparisce dall'URL appena letto. */
 function orcProjectParam(search){
   var m=/[?&]p=([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})(?:&|$)/i.exec(String(search||""));
@@ -40862,7 +40875,7 @@ function deleteSelGuarded(){
   var who=[];
   (state.items||[]).forEach(function(it){ if(!selSet[it.id]) return; var rows=orcSeatsFor(it); if(rows) rows.forEach(function(r){ if(r.musician_name) who.push(r.musician_name); }); });
   if(!who.length){ deleteSel(); return Promise.resolve(true); }
-  var msg=(who.length===1?who[0]+" resta sul suo posto in Orchestre: il disegno perde solo il collegamento alla postazione.":who.length+" persone restano sui loro posti in Orchestre: il disegno perde solo il collegamento alle postazioni.")+" Puoi ricollegarle da Orchestre → StagePlot.";
+  var msg=(who.length===1?who[0]+" resta sul suo posto in Orchestre: il disegno perde solo il collegamento alla postazione.":who.length+" persone restano sui loro posti in Orchestre: il disegno perde solo il collegamento alle postazioni.")+" Puoi ricollegarle da Orchestre → stageplot.it.";
   var p=(typeof confirmDialog==="function")?confirmDialog({icon:"warn",title:"Postazione con una persona in organico",message:msg,confirmText:"Elimina lo stesso",cancelText:"Annulla"}):Promise.resolve(window.confirm(msg));
   return p.then(function(ok){ if(ok) deleteSel(); return !!ok; });
 }
@@ -41320,7 +41333,7 @@ function maybeAskStageSize(explicit){
   [wIn,dIn].forEach(function(i){ i.addEventListener("input", function(){ if(err) err.hidden=true; }); });
 })();
 
-/* Finestra di benvenuto (prima apertura assoluta): cos'è StagePlot + primi passi.
+/* Finestra di benvenuto (prima apertura assoluta): cos'è stageplot.it + primi passi.
    Solo a palco vuoto e mai usata prima; mai su deep-link, QA, viewer o consulenza.
    Senza "Non mostrare più" riappare ai prossimi avvii, finché non piazzi qualcosa (sp_onboarded).
    Alla chiusura (CTA/Esc/click-fuori) incatena la richiesta delle dimensioni del palco. */
@@ -43253,7 +43266,7 @@ function maybeAskStageSize(explicit){
     riga.appendChild(peso); riga.appendChild(via); shotBox.appendChild(riga);
     /* la riga in fondo cambia: con un'immagine dentro, «dati tecnici anonimi» sarebbe una promessa
        falsa — ed è chi segnala a doversi accorgere di cosa sta mandando. */
-    if(fbNote) fbNote.innerHTML = 'Inviando, accetti che il messaggio, <b>la schermata allegata</b> e alcuni dati tecnici vengano usati per migliorare StagePlot. Controlla che la schermata non contenga cose tue. <a href="/privacy/">Privacy</a>';
+    if(fbNote) fbNote.innerHTML = 'Inviando, accetti che il messaggio, <b>la schermata allegata</b> e alcuni dati tecnici vengano usati per migliorare stageplot.it. Controlla che la schermata non contenga cose tue. <a href="/privacy/">Privacy</a>';
   }
 
   if(shotBox){

@@ -97,7 +97,7 @@ export async function barraAree(attiva = "") {
     ? `<nav class="o-aree" aria-label="Le tue aree">` + voci.map(([k, testo, href]) =>
         `<a class="btn small${k === attiva ? " primary" : ""}"${k === attiva ? ' aria-current="page"' : ""} href="${href}">${esc(testo)}</a>`).join("") + `</nav>`
     : "";
-  top.innerHTML = `<a class="o-brand" href="${BASE}/"><span>StagePlot</span><small>Orchestre</small></a><span class="spacer"></span>`
+  top.innerHTML = `<a class="o-brand" href="${BASE}/"><span>stageplot.it</span><small>Orchestre</small></a><span class="spacer"></span>`
     + `<button type="button" class="btn small ghost" id="oOut">Esci</button>` + link;
   const out = top.querySelector("#oOut");
   if (out) out.onclick = signOut;
@@ -116,7 +116,7 @@ export function mountTopbar(ctx, { active = "" } = {}) {
   } else if (ctx) {
     orgHtml = `<span class="who">${esc(ctx.org.org_name)}</span>`;
   }
-  top.innerHTML = `<a class="o-brand" href="${BASE}/admin/"><span>StagePlot</span><small>Orchestre</small></a><span class="spacer"></span>` +
+  top.innerHTML = `<a class="o-brand" href="${BASE}/admin/"><span>stageplot.it</span><small>Orchestre</small></a><span class="spacer"></span>` +
     orgHtml +
     (ctx ? `<span class="who" title="${esc(roleLabel(ctx.org.role))}">${who}</span><button type="button" class="btn small ghost" id="oOut">Esci</button>` : "");
   const sel = top.querySelector("#oOrg");

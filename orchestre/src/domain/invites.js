@@ -41,7 +41,7 @@ export function inviteMessage(orgName, link, nome = "") {
   return [
     ciao,
     "",
-    "ti va di entrare fra i musicisti di " + (orgName || "StagePlot") + "? Da qui compili il tuo profilo — strumenti, esperienze, repertorio, curriculum — e resti nell'elenco per le prossime produzioni:",
+    "ti va di entrare fra i musicisti di " + (orgName || "stageplot.it") + "? Da qui compili il tuo profilo — strumenti, esperienze, repertorio, curriculum — e resti nell'elenco per le prossime produzioni:",
     link,
     "",
     "Ci vogliono pochi minuti, si entra con Google e il profilo resta tuo. Quando c'è un lavoro adatto ti arriva una proposta via email: essere nell'elenco non è un impegno per nessuno.",

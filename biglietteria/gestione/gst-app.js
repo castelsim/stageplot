@@ -118,7 +118,7 @@
       (aiuto ? '<p class="gst-aiuto">' + esc(aiuto) + "</p>" : "") + '<p class="gst-err" id="gst-e-' + id + '" hidden></p></div>';
   }
   function vistaAccesso() {
-    A.corpo('<section class="gst-centro"><h1>Biglietteria</h1><p>Entra con l\'account StagePlot per preparare e seguire i tuoi spettacoli.</p>' +
+    A.corpo('<section class="gst-centro"><h1>Biglietteria</h1><p>Entra con l\'account stageplot.it per preparare e seguire i tuoi spettacoli.</p>' +
       '<button type="button" class="btn primario" data-az="accedi">Accedi con Google</button></section>');
   }
   function vistaNonAbilitato() {

@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <!-- CSP difesa in profondità (audit S3/S4): supabase-js self-hosted (/vendor/), supabase.co per il fetch della richiesta; il checkout Stripe è una navigazione top-level. -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://vsodplqkuvnsdiikvmjb.supabase.co; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self' https://buy.stripe.com">
-  <script>/* anti-clickjacking: incorniciata da un ALTRO sito, la pagina si nasconde e prova a uscire. Si nasconde PRIMA di provare a uscire: in Chrome l'uscita bloccata lancia (provato l'11/09), ma un browser che la rifiutasse in silenzio lascerebbe la pagina cliccabile, e nascondersi prima non costa niente. frame-ancestors dentro un <meta> il browser lo ignora, e GitHub Pages non manda header: questa è l'unica difesa. Stessa logica di /orchestre/src/frame.js. */try{if(window.self!==window.top){var _so=false;try{_so=window.top.location.origin===window.location.origin;}catch(_e){}if(!_so){document.documentElement.style.visibility="hidden";document.addEventListener("DOMContentLoaded",function(){var p=document.createElement("p");p.style.cssText="visibility:visible;font:16px/1.5 system-ui,sans-serif;padding:24px;max-width:34em";p.textContent="StagePlot non si apre dentro la pagina di un altro sito. ";var a=document.createElement("a");a.href=window.location.href;a.target="_top";a.rel="noopener";a.textContent="Aprila da sola";p.appendChild(a);document.body.replaceChildren(p);});try{window.top.location.replace(window.location.href);}catch(_e){}}}}catch(_e){}</script>
+  <script>/* anti-clickjacking: incorniciata da un ALTRO sito, la pagina si nasconde e prova a uscire. Si nasconde PRIMA di provare a uscire: in Chrome l'uscita bloccata lancia (provato l'11/09), ma un browser che la rifiutasse in silenzio lascerebbe la pagina cliccabile, e nascondersi prima non costa niente. frame-ancestors dentro un <meta> il browser lo ignora, e GitHub Pages non manda header: questa è l'unica difesa. Stessa logica di /orchestre/src/frame.js. */try{if(window.self!==window.top){var _so=false;try{_so=window.top.location.origin===window.location.origin;}catch(_e){}if(!_so){document.documentElement.style.visibility="hidden";document.addEventListener("DOMContentLoaded",function(){var p=document.createElement("p");p.style.cssText="visibility:visible;font:16px/1.5 system-ui,sans-serif;padding:24px;max-width:34em";p.textContent="stageplot.it non si apre dentro la pagina di un altro sito. ";var a=document.createElement("a");a.href=window.location.href;a.target="_top";a.rel="noopener";a.textContent="Aprila da sola";p.appendChild(a);document.body.replaceChildren(p);});try{window.top.location.replace(window.location.href);}catch(_e){}}}}catch(_e){}</script>
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Revisione stage plot e rider tecnico | StagePlot</title>
+  <title>Revisione stage plot e rider tecnico | stageplot.it</title>
   <meta name="description" content="L'app genera tutto gratis. Un sound engineer corregge il tuo progetto in 48 ore (29 €) o lo disegna da zero per te (da 149 €, su preventivo).">
   <meta name="author" content="Simone Castellan">
   <link rel="canonical" href="https://stageplot.it/consulenza/">
@@ -19,12 +19,12 @@
   <meta property="og:image" content="https://stageplot.it/preview.png?v=5">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="Esempio di stage plot in scala creato con StagePlot">
+  <meta property="og:image:alt" content="Esempio di stage plot in scala creato con stageplot.it">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Revisione stage plot e rider tecnico">
   <meta name="twitter:description" content="Gratis: genera tutto dall'app. Revisione 29 €: un tecnico corregge il tuo progetto in 48 ore. Da 149 €: lo disegniamo noi, su preventivo.">
   <meta name="twitter:image" content="https://stageplot.it/preview.png?v=5">
-  <meta name="twitter:image:alt" content="Esempio di stage plot in scala creato con StagePlot">
+  <meta name="twitter:image:alt" content="Esempio di stage plot in scala creato con stageplot.it">
   <meta name="robots" content="index,follow,max-image-preview:large">
   <meta name="theme-color" content="#111827">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -32,7 +32,7 @@
   <link rel="manifest" href="/manifest.webmanifest">
   <style>
     :root {
-      /* Design system StagePlot — token (fonte di verità). Accent unico = teal. */
+      /* Design system stageplot.it — token (fonte di verità). Accent unico = teal. */
       --n-50:#f5f4f0; --n-100:#edebe4; --n-200:#ddd9cd; --n-300:#c8c3b4;
       --n-400:#a29c8e; --n-500:#746e60; --n-600:#59544a; --n-700:#423e36;
       --n-800:#292620; --n-900:#1a1815;
@@ -592,7 +592,7 @@
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="/"><img src="/favicon.svg" width="460" height="460" alt=""><span>StagePlot</span></a>
+    <a class="brand" href="/"><img src="/favicon.svg" width="460" height="460" alt=""><span>stageplot.it</span></a>
     <nav class="authArea" id="authArea">
       <a href="/app/">Tool gratuito</a>
       <button class="btn small" type="button" id="loginBtn">Accedi con Google</button>
@@ -616,7 +616,7 @@
             <select id="heroProject"></select>
           </div>
           <figure class="shot" id="heroArt" aria-label="Anteprima Stage Plot">
-            <img id="heroLogo" src="/favicon.svg" width="460" height="460" alt="StagePlot — il tuo palco in scala">
+            <img id="heroLogo" src="/favicon.svg" width="460" height="460" alt="stageplot.it — il tuo palco in scala">
             <div id="heroPreview" hidden></div>
           </figure>
           <div id="heroCaption" class="hero-caption" hidden></div>
@@ -649,7 +649,7 @@
         <div class="who-avatar" aria-hidden="true">SC</div>
         <div>
           <h2>La revisione la fa una persona, non un algoritmo.</h2>
-          <p class="bio">Simone Castellan, sound engineer: registrazione, mixing e live sound. StagePlot l'ha costruito lui, partendo dai rider che riceve e corregge quando lavora dal vivo.</p>
+          <p class="bio">Simone Castellan, sound engineer: registrazione, mixing e live sound. stageplot.it l'ha costruito lui, partendo dai rider che riceve e corregge quando lavora dal vivo.</p>
           <ul>
             <li>Sound engineer di studio e di palco</li>
             <li>Idoneo all'insegnamento AFAM in Elettroacustica</li>
@@ -749,7 +749,7 @@
         </article>
       </div>
       <p class="reassure">Revisione: pagamento sicuro con Stripe (carta, Apple Pay, Google Pay), fattura su richiesta. Rider tecnico completo: nessun pagamento con la richiesta. Produzione tecnica: nessun pagamento prima del preventivo.</p>
-      <p class="presale">Una domanda prima di richiederla? <a href="mailto:castellansimone@gmail.com?subject=Domanda%20su%20StagePlot">Scrivi direttamente a Simone</a>: risposta senza impegno.</p>
+      <p class="presale">Una domanda prima di richiederla? <a href="mailto:castellansimone@gmail.com?subject=Domanda%20su%20stageplot.it">Scrivi direttamente a Simone</a>: risposta senza impegno.</p>
     </section>
 
     <section id="faq">
@@ -794,7 +794,7 @@
         <a href="#faq">FAQ</a>
       </p>
       <p>Pagamenti gestiti da Stripe: i dati della carta non passano né restano su questo sito. Ogni revisione è fatta a mano sul progetto di chi la richiede.</p>
-      <p>Servizi a cura di Simone Castellan &mdash; P. IVA 04196010245. I dati sono trattati per gestire la richiesta tramite i fornitori descritti nell’<a href="/privacy/">informativa privacy</a> (fra cui Supabase, Google, Stripe e Resend). &copy; 2026 StagePlot.</p>
+      <p>Servizi a cura di Simone Castellan &mdash; P. IVA 04196010245. I dati sono trattati per gestire la richiesta tramite i fornitori descritti nell’<a href="/privacy/">informativa privacy</a> (fra cui Supabase, Google, Stripe e Resend). &copy; 2026 stageplot.it.</p>
     </div>
   </footer>
 

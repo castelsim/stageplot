@@ -1,5 +1,5 @@
 /* Biglietteria — pagina pubblica. Prima il telefono, poi il computer.
-   Token dal design system di StagePlot (warm stone + accento teal). La pianta resta su un foglio chiaro
+   Token dal design system di stageplot.it (warm stone + accento teal). La pianta resta su un foglio chiaro
    anche col tema scuro (come il foglio dell'editor): i colori dei posti non cambiano mai significato. */
 :root{
   --bg:#f5f4f0;--surface:#fff;--raised:#edebe4;--border:#ddd9cd;--border-strong:#c8c3b4;

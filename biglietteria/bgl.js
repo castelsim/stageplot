@@ -1,4 +1,4 @@
-/* Biglietteria gratuita di StagePlot — pagina pubblica (stageplot.it/biglietteria/?e=<slug>).
+/* Biglietteria gratuita di stageplot.it — pagina pubblica (stageplot.it/biglietteria/?e=<slug>).
    Nessuna libreria: fetch nudo verso le RPC pubbliche e verso l'Edge Function bgl-prenota.
    Il file ha due metà:
    1. funzioni PURE (nessun DOM, nessuna rete), esportate su globalThis.BGL e, in Node, su module.exports:
@@ -568,7 +568,7 @@
     return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
   }
 
-  /* DOVE SI SCRIVE «PALCO» (06/10, prima prova vera). In StagePlot il «palco» è la superficie disegnata:
+  /* DOVE SI SCRIVE «PALCO» (06/10, prima prova vera). In stageplot.it il «palco» è la superficie disegnata:
      in un teatro con la platea dentro il progetto (sala intera come palco, pedane in alto, sedie sotto)
      il palco CONTIENE i posti. Allora è la sala: niente colore da palco e la scritta va sulle pedane
      (o, senza pedane, nella fascia sopra la prima fila). Altrimenti, come prima, sul bordo del palco
@@ -894,7 +894,7 @@
       '<a href="/privacy/#biglietteria" target="_blank" rel="noopener">Privacy</a>' +
       (c ? '<span>Domande sullo spettacolo? <a href="mailto:' + esc(c) + '">' + esc(c) + "</a></span>" : "") +
       '<span>Problemi? <a href="mailto:' + CONTATTO + '">' + CONTATTO + "</a></span>" +
-      "<span>Prenotazioni con StagePlot</span></footer>";
+      "<span>Prenotazioni con stageplot.it</span></footer>";
   }
   var SENZA_EVENTO = {
     titolo: "Prenota il tuo posto",

@@ -57,7 +57,7 @@ function paintLogin() {
   };
   app.appendChild(b);
   const note = el(`<p class="small muted"></p>`);
-  note.textContent = "Accedendo accetti le condizioni di StagePlot. I tuoi dati li vede solo la società con cui lavori: quella a cui ti candidi o a cui chiedi musicisti.";
+  note.textContent = "Accedendo accetti le condizioni di stageplot.it. I tuoi dati li vede solo la società con cui lavori: quella a cui ti candidi o a cui chiedi musicisti.";
   app.appendChild(note);
 }
 

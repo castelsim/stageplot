@@ -1,4 +1,4 @@
-# StagePlot — stageplot.it
+# stageplot.it — stageplot.it
 # Tutti i crawler sono benvenuti, inclusi i motori di ricerca AI.
 
 User-agent: *

@@ -1,6 +1,6 @@
 {
-  "name": "StagePlot — Stage Plot Creator",
-  "short_name": "StagePlot",
+  "name": "stageplot.it — Stage Plot Creator",
+  "short_name": "stageplot.it",
   "description": "Crea stage plot in scala, channel list e rider tecnico per spettacoli dal vivo. Gratis, senza registrazione.",
   "start_url": "/app/?utm_source=pwa",
   "scope": "/",

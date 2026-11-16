@@ -21,9 +21,9 @@
       (n === 1 ? "; la tua prenotazione futura viene disdetta e il posto torna libero" : n > 1 ? "; le tue " + n + " prenotazioni future vengono disdette e i posti tornano liberi" : "") +
       ". Non si può annullare.";
   }
-  /* D9: «elimina» solo per un account nato per la biglietteria. «in_uso»: ha prenotato ma usa anche StagePlot.
+  /* D9: «elimina» solo per un account nato per la biglietteria. «in_uso»: ha prenotato ma usa anche stageplot.it.
      «scrivi»: tutto il resto (stato non letto, o entrato con Google senza mai prenotare: per il database non è
-     «solo biglietteria», ma dirgli che usa StagePlot sarebbe falso) */
+     «solo biglietteria», ma dirgli che usa stageplot.it sarebbe falso) */
   function azioneAccount(stato, nPrenotazioni) {
     if (stato && stato.ok !== false && stato.solo_biglietteria === true) return "elimina";
     if (stato && stato.ok !== false && nPrenotazioni > 0) return "in_uso";
@@ -63,7 +63,7 @@
     var a = azioneAccount(stato, n);
     return '<div class="mie-account"><button type="button" class="btn" data-az="esci">Esci</button>' +
       (a === "elimina" ? '<button type="button" class="btn pericolo" data-az="elimina">Elimina il mio account</button>'
-        : '<p class="aiuto">' + (a === "in_uso" ? "Questo account usa anche StagePlot: per eliminarlo scrivi a " : "Per eliminare questo account scrivi a ") +
+        : '<p class="aiuto">' + (a === "in_uso" ? "Questo account usa anche stageplot.it: per eliminarlo scrivi a " : "Per eliminare questo account scrivi a ") +
           '<a href="mailto:' + CONTATTO + '">' + CONTATTO + "</a>.</p>") + "</div>";
   }
   function disegna(lista) {
@@ -103,7 +103,7 @@
       if (!d || !d.ok) {
         el.disabled = false; el.textContent = "Elimina l'account";
         var e = d && d.errore;
-        return errore(el, e === "account_in_uso" ? "Questo account usa anche StagePlot: per eliminarlo scrivi a " + CONTATTO + "."
+        return errore(el, e === "account_in_uso" ? "Questo account usa anche stageplot.it: per eliminarlo scrivi a " + CONTATTO + "."
           : e === "non_autenticato" ? "L'accesso è scaduto: esci, accedi di nuovo con Google e riprova."
           : "Non è andata: riprova fra un momento.");
       }

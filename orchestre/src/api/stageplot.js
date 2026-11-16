@@ -1,10 +1,10 @@
-/* Collegamento a StagePlot: i progetti dell'editor si leggono con le policy own-rows di `stageplot_projects`
+/* Collegamento a stageplot.it: i progetti dell'editor si leggono con le policy own-rows di `stageplot_projects`
    (l'amministratore vede i SUOI progetti); l'organico si allarga via RPC. */
 import { sb } from "../sb.js";
 
 const fail = (error) => { if (error) throw error; };
 
-/* i miei progetti StagePlot (id, titolo, data) */
+/* i miei progetti stageplot.it (id, titolo, data) */
 export async function myProjects() {
   const { data, error } = await sb.from("stageplot_projects").select("id, title, updated_at").is("deleted_at", null).order("updated_at", { ascending: false }).limit(200);
   fail(error);
