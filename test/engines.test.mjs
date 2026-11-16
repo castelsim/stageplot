@@ -18175,24 +18175,34 @@ t("le porte del mixer si contano e si esauriscono", () => {
   ok(R.issues.some((i) => i.code === "cap"), "18 voci su 16 ingressi: l'audit lo dice");
 });
 
-t("P1 Il Volo: «Nessun microfono» non produce canali (voci, tastiere, percussioni) e non fa scattare «ingressi insufficienti»", () => {
+t("P1 Il Volo: «Nessun microfono» non produce canali dello strumento, ma tiene il canale voce, la catena delle chitarre e le voci", () => {
   reset();
-  const tipi = ["cantante", "stagepiano", "tastiera", "percussioni", "vlnpost"];
-  tipi.forEach((tp) => {
+  ["stagepiano", "tastiera", "percussioni", "vlnpost", "batteria"].forEach((tp) => {
     ok(A.TYPES[tp], tp + ": tipo esistente nel catalogo");
-    const it = add(tp, 300, 300);
-    const con = chans(it).length;
+    const it = add(tp, 300, 300); const con = chans(it).length;
     it.miking = "__nomic__";
     eq(chans(it).length, 0, tp + ": nessun microfono = 0 canali");
-    delete it.miking;
-    ok(chans(it).length === con, tp + ": tolto «Nessun microfono» i canali tornano");
+    ok(!A.isAudioSource(it), tp + ": e non è più una sorgente da microfonare");
+    delete it.miking; ok(chans(it).length === con, tp + ": tolto «Nessun microfono» i canali tornano");
   });
+  /* il microfono-voce dello strumentista resta: prima restava per i tipi con MIKING e andava perso per gli altri */
+  ["stagepiano", "batteria"].forEach((tp) => {
+    const it = add(tp, 400, 400); it.headMic = "archetto"; it.miking = "__nomic__";
+    eq(chans(it).map((c) => /voce$/.test(c.name)), [true], tp + " con voce e «Nessun microfono»: resta il solo canale voce");
+  });
+  /* voci e chitarre: il pannello non offre la scelta, quindi un «__nomic__» arrivato da un file non toglie niente (stato invisibile) */
+  const cant = add("cantante", 100, 100), g0 = chans(cant).length; cant.miking = "__nomic__";
+  ok(g0 === 1 && chans(cant).length === 1 && !!A.isAudioSource(cant), "cantante: il canale resta e resta sorgente, come mostra il pannello");
+  const gt = add("gtstand", 200, 200), c0 = chans(gt).length; gt.miking = "__nomic__";
+  ok(c0 > 0 && chans(gt).length === c0 && !!A.isAudioSource(gt), "chitarra a catena: i prelievi accesi restano canali e la sorgente resta tale");
+  const src = readFileSync(join(root, "index.template.html"), "utf8");
+  ok(/mutSel\(function\(it\)\{ if\(MIKING\[it\.type\] && !VOCE\[it\.type\] && !hasChain\(it\)\)\{ it\.miking=v;/.test(src), "la tendina applica «Nessun microfono» solo dove il pannello la mostra");
   reset();
   add("dm3", 600, 740);
-  for (let i = 0; i < 18; i++) { const c = add("cantante", 100 + i * 40, 300); c.miking = "__nomic__"; }
+  for (let i = 0; i < 18; i++) { const c = add("percussioni", 100 + i * 40, 300); c.miking = "__nomic__"; }
   A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.manual = {}; A.__cabRes = null;
   const R = A.cabResult(true);
-  ok(!R.issues.some((i) => i.code === "cap"), "18 voci a «Nessun microfono» su 16 ingressi: nessun errore di capienza");
+  ok(!R.issues.some((i) => i.code === "cap"), "18 percussioni a «Nessun microfono» su 16 ingressi: nessun errore di capienza");
   reset();
 });
 t("P1 Il Volo: la zona microfonica non cambia (miczone resta un canale)", () => {

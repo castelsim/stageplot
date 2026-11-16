@@ -13497,7 +13497,7 @@ function effOwnMic(it){ return it.ownMic!=null ? it.ownMic : !zoneAbsorbable(it)
 /* un elemento è una sorgente audio? (per l'inferenza; esclude la zona stessa e i non-sorgenti) */
 function isAudioSource(it){ if(it.diFor) return false;   /* DI generata da uno strumento: i canali sono i suoi, non si contano due volte */
   if(it.type==="custom") return custInputs(it).length>0;   /* personalizzato: sorgente solo se ha ingressi dichiarati */
-  if(VOCE[it.type]) return micModeOf(it)!=="pano"; return it.type!=="miczone" && it.miking!=="__nomic__" && (MIKING[it.type] || IN_MULTI[it.type] || IN_SRC[it.type]!=null || STEREO_TOGGLE[it.type] || it.type==="distereo" || (it.type==="direttore" && it.mic===true)); }   /* direttore = sorgente SOLO se ha il mic talkback */
+  if(VOCE[it.type]) return micModeOf(it)!=="pano"; return it.type!=="miczone" && !microSpentoDaScelta(it) && (MIKING[it.type] || IN_MULTI[it.type] || IN_SRC[it.type]!=null || STEREO_TOGGLE[it.type] || it.type==="distereo" || (it.type==="direttore" && it.mic===true)); }   /* direttore = sorgente SOLO se ha il mic talkback */
 function dirMicLabel(it){ return (it && it.micType==="collodoca") ? "Talkback (collo d'oca)" : "Talkback (palmare on/off)"; }   /* microfono del direttore: palmare gelato (default) o collo d'oca da podio */
 /* «PRODUCE CANALI» non è la stessa cosa di «è una sorgente da microfonare» (bug 29/07, quartetto a
    zone). isAudioSource esclude di proposito la ZONA — una zona non si microfona, è già lei il
@@ -15173,6 +15173,10 @@ function custInputs(it){ var c=it.cust||{}, ins=c.ins; if(!ins || !(ins.n>=1)) r
   var nm=c.nome||it.label||TYPES.custom.nome, mic=(ins.tipo==="mic")?"SM57":"DI", o=[];
   if(ins.n===1) return [{name:nm, mic:mic}];
   for(var i=1;i<=ins.n;i++) o.push({name:nm+" "+i, mic:mic}); return o; }
+/* «Nessun microfono» (miking "__nomic__") spegne i canali dello STRUMENTO solo dove il pannello offre la scelta: non per le voci (decide
+   la modalità del microfono) né per chitarre e basso (decide la catena dei prelievi), né per la zona microfonica. Un valore arrivato da un
+   file su uno di questi non è visibile nel pannello e non deve far sparire canali che il pannello mostra accesi (rilettura 17/11/2026). */
+function microSpentoDaScelta(it){ return !!(it && it.miking==="__nomic__" && it.type!=="miczone" && !VOCE[it.type] && !hasChain(it)); }
 function cabItemInputs(it){
   /* DI generata da uno strumento (diFor): è una TAPPA del cavo, non una sorgente. I canali sono
      quelli dello strumento — contarli anche qui raddoppiava gli ingressi in stage box e le righe
@@ -15183,7 +15187,7 @@ function cabItemInputs(it){
   /* «Nessun microfono» (P1 Il Volo, 16/11/2026): l'elemento è sul palco ma non ha canali, come in isAudioSource. Senza questa riga
      voci, pianoforti, percussioni e pedaliere a «Nessun microfono» contavano lo stesso, e le stage box davano «ingressi insufficienti»
      come errore critico che fermava l'Esporta. La zona microfonica (miczone) non ha questa scelta. */
-  if(it.miking==="__nomic__" && it.type!=="miczone") return [];
+  if(microSpentoDaScelta(it)) return headMicInputs(it);   /* resta il canale voce dello strumentista, se c'è (come prima per i tipi con MIKING) */
   /* COMPUTER (31/07): la via scelta non era solo un'etichetta sul cavo — cambia cosa chiedi al
      service. In analogico dalle cuffie serve davvero una DI stereo; in USB o Dante NO, e scriverlo
      lo stesso metteva nel rider una DI che non esiste. Il numero di canali resta quello di it.plCh. */
@@ -30470,7 +30474,7 @@ function renderCabPanel(){
   var mke=document.getElementById("pMike");
   if(mke) mke.addEventListener("change", function(){ var v=this.value;
     if(v==="__zona__"){ var it0=getSel(); this.value=(it0&&it0.miking)||(it0&&MIKING[it0.type]?MIKING[it0.type].def:""); createMicZoneFor(it0); return; }   /* "Zona" crea una zona di microfonazione (non è un valore di miking) */
-    mutSel(function(it){ if(MIKING[it.type]){ it.miking=v; diApply(it); } });   /* "DI" → la scatoletta compare davvero sul palco */
+    mutSel(function(it){ if(MIKING[it.type] && !VOCE[it.type] && !hasChain(it)){ it.miking=v; diApply(it); } });   /* solo dove il pannello mostra la scelta: voci e chitarre hanno la loro (rilettura 17/11) */   /* "DI" → la scatoletta compare davvero sul palco */
     __cabRes=null; save(); render(); renderProps(); });
   /* personal monitor (B1): la marca seleziona il primo modello; il modello scrive it.pm */
   var pmB=document.getElementById("pPmBrand");
