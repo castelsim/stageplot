@@ -42,17 +42,6 @@ export const TEMPLATES = {
       { section: "Percussioni", roles: [R("timpani", "Timpani", 1), R("percussioni", "Percussioni", 2)] },
     ],
   },
-  sinfonica_coro: {
-    name: "Orchestra sinfonica con coro",
-    note: "L'organico sinfonico con un coro a quattro voci (soprani, contralti, tenori, bassi) e il maestro del coro.",
-    sections: [
-      { section: "Archi", roles: [R("violino", "Violini primi", 10, "principal"), R("violino", "Violini secondi", 8), R("viola", "Viole", 6), R("violoncello", "Violoncelli", 5), R("contrabbasso", "Contrabbassi", 4)] },
-      { section: "Legni", roles: [R("flauto", "Flauti", 2), R("oboe", "Oboi", 2), R("clarinetto", "Clarinetti", 2), R("fagotto", "Fagotti", 2)] },
-      { section: "Ottoni", roles: [R("corno", "Corni", 4), R("tromba", "Trombe", 2), R("trombone", "Tromboni", 3), R("tuba", "Tuba", 1)] },
-      { section: "Percussioni", roles: [R("timpani", "Timpani", 1), R("percussioni", "Percussioni", 2)] },
-      { section: "Coro", roles: [R("corista", "Soprani", 12), R("corista", "Contralti", 10), R("corista", "Tenori", 8), R("corista", "Bassi", 8), R("maestro_del_coro", "Maestro del coro", 1, "solo")] },
-    ],
-  },
   archi: {
     name: "Sezione archi",
     note: "Solo archi, per un ensemble o per aggiungere gli archi a una band.",
