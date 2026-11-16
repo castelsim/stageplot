@@ -1,0 +1,11 @@
+/* Indice «Produzione» (/produzione/): si appoggia a /guida/style.css e aggiunge solo le schede delle fasi. */
+.pr-fase{margin:8px 0 0}
+.pr-strumenti{list-style:none;padding:0;margin:0 0 14px}
+.pr-strumenti li{border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:14px 16px;margin:10px 0}
+.pr-strumenti a b{color:var(--accent)}
+.pr-accesso{display:inline-block;margin-left:4px;padding:1px 8px;border-radius:999px;background:var(--accent-soft);color:var(--ink);font-size:13px;font-weight:600;white-space:nowrap}
+.pr-guide,.pr-nota{font-size:15px;color:var(--muted)}
+.pr-cta{margin:40px 0 0;text-align:center}
+.pr-piede{max-width:var(--maxw);margin:0 auto;padding:20px clamp(16px,4vw,28px) 40px;border-top:1px solid var(--line);font-size:14px;color:var(--muted)}
+.pr-piede a{color:var(--muted)}
+@media (max-width:560px){.nav a:not(.btn){display:none}}
