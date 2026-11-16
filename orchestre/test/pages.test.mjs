@@ -10,7 +10,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const ROUTES = ["orchestre", "orchestre/login", "orchestre/admin", "orchestre/admin/impostazioni",
   "orchestre/admin/musicisti", "orchestre/admin/musicisti/scheda", "orchestre/admin/musicisti/importa",
-  "orchestre/admin/produzioni", "orchestre/admin/produzioni/scheda", "orchestre/rispondi",
+  "orchestre/admin/produzioni", "orchestre/admin/produzioni/scheda", "orchestre/admin/produzioni/scheda/stampa", "orchestre/rispondi",
   "orchestre/musicista", "orchestre/candidatura", "orchestre/privacy", "orchestre/admin/candidature", "orchestre/admin/candidature/scheda",
   "orchestre/richiedi", "orchestre/admin/richieste", "orchestre/mie-richieste"];
 const NO_SB = new Set(["orchestre/rispondi"]);   /* parla solo con la Edge Function: niente supabase-js */

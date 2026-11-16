@@ -34070,5 +34070,53 @@ t("Orchestre ORC16: azioni delle convocazioni a capo, schede con ombra di scorri
   ok(!/otto passi/.test(readFileSync(join(root, "orchestre/candidatura/index.html"), "utf8")), "la pagina Candidatura non promette più «otto passi»");
 });
 
+/* ORC16b — lotto E (16/11/2026): stampe interne dell'organico con versioni, lista convocati, CSV del pool. */
+const orcSt = await import("../orchestre/src/domain/stampe.js");
+const SN1 = [
+  { section: "Archi", role: "Violini", instrument: "Violino", part: "principal", seat: 1, status: "confirmed", musician_id: "a", musician: "Rossi Anna" },
+  { section: "Archi", role: "Violini", instrument: "Violino", part: "principal", seat: 2, status: "open", musician_id: null, musician: null },
+  { section: "Legni", role: "Flauti", instrument: "Flauto", part: "tutti", seat: 1, status: "invited", musician_id: "b", musician: "Bianchi Luca" },
+];
+t("Orchestre ORC16b: «cambiato rispetto a prima» — persone, stati, posti nuovi e tolti", () => {
+  const SN2 = [{ ...SN1[0], musician_id: "c", musician: "Verdi Eva" }, { ...SN1[1], status: "confirmed", musician_id: "d", musician: "Neri Gino" }, { ...SN1[2], status: "confirmed" },
+    { section: "Ottoni", role: "Corni", instrument: "Corno", part: "tutti", seat: 1, status: "open", musician_id: null, musician: null }];
+  const d = orcSt.differenze(SN1, SN2).map((x) => x.tipo + ":" + x.testo);
+  ok(d.some((x) => /^persona:Violini · posto 1: Rossi Anna → Verdi Eva$/.test(x)), "sostituzione: chi esce e chi entra");
+  ok(d.some((x) => /^persona:Violini · posto 2: scoperto → Neri Gino$/.test(x)), "posto scoperto coperto");
+  ok(d.some((x) => /^stato:Flauti \(Bianchi Luca\): Invitato → Confermato$/.test(x)), "stesso musicista, stato cambiato");
+  ok(d.some((x) => /^nuovo:Corni/.test(x)), "posto nuovo");
+  ok(orcSt.differenze(SN2, SN1.slice(0, 2)).some((x) => x.tipo === "tolto" && /Flauti: posto tolto \(era Bianchi Luca\)/.test(x.testo)), "posto tolto, con chi c'era");
+  ok(orcSt.differenze(SN1, SN1).length === 0, "organico uguale: nessuna differenza");
+});
+t("Orchestre ORC16b: sezioni, conteggi, piè «vN · data», lista convocati ordinata", () => {
+  const sez = orcSt.sezioniDaSnapshot(SN1);
+  ok(sez.length === 2 && sez[0].name === "Archi" && sez[0].righe.length === 2 && sez[0].righe[1].statoEt === "Scoperto", "una sezione per reparto, con lo stato in italiano");
+  const c = orcSt.conteggi(SN1); ok(c.posti === 3 && c.confermati === 1 && c.scoperti === 1 && c.invitati === 1, "conteggi: confermati, scoperti, invitati");
+  ok(orcSt.dataIt("2026-11-05T10:00:00") === "05/11/2026", "data GG/MM/AAAA con lo zero");
+  ok(orcSt.pieDiPagina(3, "2026-11-05T10:00:00") === "v3 · 05/11/2026", "piè «vN · GG/MM/AAAA»");
+  const l = orcSt.listaConvocati(SN1);
+  ok(l.length === 2 && l[0].persona === "Rossi Anna" && l[1].persona === "Bianchi Luca", "convocati: prima i confermati, poi gli invitati; i posti scoperti non compaiono");
+});
+t("Orchestre ORC16b: CSV per Excel — «;», BOM, virgolette doppie, niente formule", () => {
+  const c = orcSt.csvPool([{ last_name: "Rossi", first_name: "=CMD()", email: "a@b.invalid", phone: "", city: 'Cas"sola', province: "VI", instruments: ["Violino", "Viola"], tags: ["x"], status: "active" }]);
+  ok(c.charCodeAt(0) === 0xFEFF && c.includes('"Cognome";"Nome"'), "BOM e separatore «;»");
+  ok(c.includes(`"'=CMD()"`), "una cella che inizia con «=» perde l'effetto formula");
+  ok(c.includes('"Cas""sola"') && c.includes('"Violino | Viola"') && c.endsWith("\r\n"), "virgolette raddoppiate, liste con «|», fine riga di Windows");
+});
+t("Orchestre ORC16b: il foglio stampabile — A4, margini ≥15 mm, piè «vN · data · N di M», funzioni avanzate chiuse, versione dal server", () => {
+  const css = readFileSync(join(root, "orchestre/stampa.css"), "utf8");
+  ok(/@page\{size:A4;margin:15mm 15mm 22mm 15mm;@bottom-center\{content:var\(--pie\) " · " counter\(page\) " di " counter\(pages\);vertical-align:top;padding-top:2mm/.test(css), "A4, margini ≥15 mm, «vN · data · 1 di N» sopra i 15 mm dal bordo (la Ricoh taglia)");
+  ok(/\.s-sez\+\.s-sez\{break-before:page\}/.test(css) && /\.s-bar,\.o-top,\.no-print\{display:none!important\}/.test(css), "una pagina per sezione; in stampa niente barra né menu");
+  const pg = readFileSync(join(root, "orchestre/src/pages/stampa.js"), "utf8");
+  ok(/<span class="s-int">INTERNO<\/span>/.test(pg) && /non va nel pacchetto per il service/.test(pg), "il foglio con i nomi dice che è interno");
+  ok(/Cambiato rispetto alla v/.test(pg) && /Prima versione dell'organico/.test(pg) && /Uguale alla v/.test(pg), "tre casi: prima versione, uguale, cambiato");
+  const pr = readFileSync(join(root, "orchestre/src/pages/produzione.js"), "utf8");
+  ok(/<details class="card avanzate" id="stampe">/.test(pr) && !/<details class="card avanzate" id="stampe" open/.test(pr), "«Stampe e versioni» è chiusa di serie (regola 13/11)");
+  const sql = readFileSync(join(root, "supabase/migrations/0086_orc_organico_versioni.sql"), "utf8");
+  ok(/fp := md5\(snap::text\)/.test(sql) && /last_row\.fingerprint = fp/.test(sql), "stesso organico = stessa versione (impronta dell'ultima)");
+  ok(/orc_staffing_versions è append-only/.test(sql) && /not public\.orc_is_staff\(org\)/.test(sql) && !/for insert|for update|for delete/.test(sql), "append-only, solo staff, nessuna scrittura dal client");
+  ok(/orc_staffing_stamp\(production uuid\)/.test(sql) && !/snapshot jsonb\)/.test(sql.split("function public.orc_staffing_stamp")[1].split("returns")[0]), "lo snapshot lo costruisce il server, non arriva dal client");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

@@ -6,6 +6,7 @@ import { esc, el, setState, errMsg, toast, confirm, avvia } from "../ui.js";
 import { requireStaff, mountTopbar } from "../auth.js";
 import { tabs, STATUS, STATUS_PILL, FAMILY } from "../nav.js";
 import { list } from "../api/musicians.js";
+import { csvPool } from "../domain/stampe.js";
 import { createInvite, listInvites, revokeInvite } from "../api/invites.js";
 import { INVITE_PILL, INVITE_STATUS, inviteLink, inviteMessage, scadenza } from "../domain/invites.js";
 import { filtra, opzioni, vuoti, altriAttivi, daIndirizzo, aIndirizzo, LETTURA, ESPERIENZE } from "../domain/roster-filter.js";
@@ -30,6 +31,10 @@ async function main() {
       <div class="field"><label for="fam">Famiglia</label><select id="fam"><option value="">Tutte</option>${Object.entries(FAMILY).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></div>
       <div class="field"><label for="st">Stato</label><select id="st"><option value="">Tutti</option>${Object.entries(STATUS).map(([k, v]) => `<option value="${k}">${v}</option>`).join("")}</select></div>
     </div>
+    <details class="altri-filtri" id="esporta"><summary>Esporta l'elenco</summary>
+      <p class="small muted">File CSV per Excel (separatore «;») con ciò che vedi qui sotto, filtri compresi. Contiene dati personali: tienilo solo dove serve e cancellalo dopo.</p>
+      <button type="button" class="btn small" id="scaricaCsv">Scarica CSV</button>
+    </details>
     <details class="altri-filtri" id="altri"><summary>Altri filtri <span class="pill accent" id="nAltri" hidden></span></summary>
       <div class="filters cinque">
         <div class="field"><label for="gen">Genere</label><select id="gen"><option value="">Tutti</option></select></div>
@@ -52,6 +57,11 @@ async function main() {
   }
   app.querySelector("#azzera").onclick = () => { F = vuoti(); mostraFiltri(); paint(); };
   if (altriAttivi(F)) app.querySelector("#altri").open = true;
+  app.querySelector("#scaricaCsv").onclick = () => {
+    const blob = new Blob([csvPool(filtra(all, F))], { type: "text/csv;charset=utf-8" });
+    const a = document.createElement("a"); a.setAttribute("href", URL.createObjectURL(blob)); /* blob: creato qui, mai una stringa esterna */ a.download = "musicisti-" + new Date().toISOString().slice(0, 10) + ".csv";
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.getAttribute("href")), 1000);
+  };
   try {
     all = await list(ctx.org.org_id);
     const o = opzioni(all);
