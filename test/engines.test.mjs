@@ -34669,12 +34669,10 @@ t("Produzione di questo progetto: con account e progetto cloud i link portano a 
   A.prodProgettoVoci("non-un-uuid", true).forEach((v) => ok(v.id !== "orchestre" || !v.href, "id non valido: nessun link Orchestre"));
   delete A.__bglCloud;
 });
-t("Produzione di questo progetto: «Foglio per il teatro» compare solo se la funzione esiste (il lotto L4.1 può non essere ancora unito)", () => {
-  const prima = A.exportFoglioTeatro; delete A.exportFoglioTeatro;
-  ok(!A.prodProgettoVoci(null, false).some((v) => v.id === "foglio-teatro"), "senza la funzione la voce non c'è");
-  A.exportFoglioTeatro = () => Promise.resolve(true);
-  const v = A.prodProgettoVoci(null, false).find((x) => x.id === "foglio-teatro"); ok(v && v.azione === "foglio", "con la funzione c'è e scarica");
-  if (prima) A.exportFoglioTeatro = prima; else delete A.exportFoglioTeatro;
+t("Produzione di questo progetto: «Foglio per il teatro» (L4.1 unito) c'è nella sezione e scarica il foglio", () => {
+  const v = A.prodProgettoVoci(null, false).find((x) => x.id === "foglio-teatro");
+  ok(v && v.azione === "foglio", "la voce c'è e scarica");
+  ok(/typeof exportFoglioTeatro==="function"/.test(appjs), "resta il controllo difensivo sulla funzione");
 });
 t("Produzione di questo progetto: sezione CHIUSA di serie, richiusa a ogni apertura, composta solo all'apertura (mai a ogni ridisegno), nessuna rete né dati nuovi", () => {
   const html = readFileSync(join(root, "app/index.html"), "utf8");
