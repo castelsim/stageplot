@@ -33877,6 +33877,9 @@ t("Inventario: foglio A4 di etichette — 21 per pagina, margine basso ≥ 15 mm
   const a = INV_LIB.posizione(0), b = INV_LIB.posizione(1), r = INV_LIB.posizione(3);
   eq(b.x - a.x, F.ew + F.gap, "passo orizzontale"); eq(r.y - a.y, F.eh + F.gap, "passo verticale"); eq(r.x, a.x, "a capo dopo 3");
   eq(INV_LIB.intervallo(["TAS-001", "TAS-005", "TAS-010"]), "TAS-001 … TAS-010", "intervallo nel piè"); eq(INV_LIB.data(new Date(2026, 10, 5)), "05/11/2026", "data gg/mm/aaaa");
+  eq(INV_LIB.piede(1, "Art Voice Academy ETS", ["TAS-001", "TAS-010"], "16/11/2026"), "v1 · Art Voice Academy ETS · TAS-001 … TAS-010 · stampato il 16/11/2026", "piè con versione, ente, intervallo e data");
+  eq(INV_LIB.piede(0, "A", ["X-001"], "d").startsWith("v1 "), true, "versione minima 1"); eq(INV_LIB.piede(500, "A", ["X-001"], "d").startsWith("v99 "), true, "versione massima 99"); eq(INV_LIB.piede("boh", "A", ["X-001"], "d").startsWith("v1 "), true, "versione non numerica = 1"); eq(INV_LIB.piede(-5, "A", ["X-001"], "d").startsWith("v1 "), true, "versione negativa = 1");
+  ok(/id: "versione"/.test(readFileSync(join(root, "inventario/inv-area.js"), "utf8")) && /L\.piede\(ver, S\.inv\.nome/.test(readFileSync(join(root, "inventario/inv-area.js"), "utf8")) && /L\.piede\(v, S\.inv\.nome/.test(readFileSync(join(root, "inventario/inv-area.js"), "utf8")), "l'area scrive la versione nel piè del foglio (all'apertura e quando la si cambia)");
   ok(INV_LIB.corpoCodice(7) <= 17 && INV_LIB.corpoCodice(9) < INV_LIB.corpoCodice(7) && INV_LIB.corpoCodice(20) >= 8, "il codice lungo rimpicciolisce ma resta leggibile");
 });
 t("Inventario: la pagina pubblica scarta ogni campo sconosciuto (mai note, assegnato, user_id, nomi) — scheda ed elenco", () => {

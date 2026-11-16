@@ -235,15 +235,22 @@
   }
   function vistaEtichette(elenco) {
     S.vista = "etichette";
-    var pagine = L.impagina(elenco), oggi = L.data(), N = pagine.length;
+    var pagine = L.impagina(elenco), oggi = L.data(), N = pagine.length, chiave = "inv-ver-" + S.inv.slug, ver = 1;
+    try { ver = Math.max(1, parseInt(localStorage.getItem(chiave), 10) || 1); } catch (e) {}
+    var sinistri = [];
     var fogli = pagine.map(function (grp, i) {
       var f = h("div", { class: "foglio" }, grp.map(function (a, k) { return etichetta(a, L.posizione(k)); }));
-      f.appendChild(h("div", { class: "piede-foglio" }, [h("span", { text: S.inv.nome + " · " + L.intervallo(grp.map(function (a) { return a.codice; })) + " · stampato il " + oggi }), h("span", { text: (i + 1) + " di " + N })]));
+      var sx = h("span", { text: L.piede(ver, S.inv.nome, grp.map(function (a) { return a.codice; }), oggi) }); sinistri.push([sx, grp]);
+      f.appendChild(h("div", { class: "piede-foglio" }, [sx, h("span", { text: (i + 1) + " di " + N })]));
       return f;
     });
+    var verIn = h("input", { type: "number", min: "1", max: "99", value: String(ver), id: "versione", "aria-label": "Versione del foglio", style: "width:72px", onchange: function () {
+      var v = Math.max(1, Math.min(99, Math.floor(+this.value) || 1)); this.value = String(v); try { localStorage.setItem(chiave, String(v)); } catch (e) {}
+      sinistri.forEach(function (c) { c[0].textContent = L.piede(v, S.inv.nome, c[1].map(function (a) { return a.codice; }), oggi); });
+    } });
     disegna([h("div", { class: "barra" }, [h("div", {}, [h("button", { class: "btn piccolo", type: "button", text: "← Torna all'inventario", onclick: vistaInventario })]),
-        h("div", { class: "riga" }, [h("button", { class: "btn primario", type: "button", id: "bStampa", text: "Stampa (" + elenco.length + " etichette, " + N + (N === 1 ? " foglio" : " fogli") + ")", onclick: function () { window.print(); } })])]),
-      h("p", { class: "nota", text: "Stampa in A4 al 100% (non «adatta alla pagina»), poi ritaglia lungo le linee tratteggiate lasciando 2 mm di bordo e plastifica. Il QR porta a un indirizzo fisso: se ristampi, le vecchie etichette restano valide." }),
+        h("div", { class: "riga" }, [h("label", { for: "versione", text: "Versione", style: "margin:0" }), verIn, h("button", { class: "btn primario", type: "button", id: "bStampa", text: "Stampa (" + elenco.length + " etichette, " + N + (N === 1 ? " foglio" : " fogli") + ")", onclick: function () { window.print(); } })])]),
+      h("p", { class: "nota", text: "Stampa in A4 al 100% (non «adatta alla pagina»), poi ritaglia lungo le linee tratteggiate lasciando 2 mm di bordo e plastifica. Il QR porta a un indirizzo fisso: se ristampi, le vecchie etichette restano valide. Il numero di versione sta nel piè del foglio: aumentalo se ristampi con modifiche." }),
       h("div", { class: "fogli" }, fogli)]);
     // sullo schermo stretto il foglio da 210 mm si rimpicciolisce per stare nella pagina; in stampa torna al 100%
     var w = Math.min(window.innerWidth - 32, 794), sc = w / 794;

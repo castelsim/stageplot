@@ -78,7 +78,13 @@
   /* corpo (pt) del codice sull'etichetta: grande, ma i codici lunghi (PERC-0012) devono stare nei 26 mm accanto al QR; carattere a spaziatura fissa ≈ 0,6 em */
   function corpoCodice(lunghezza) { var pt = 26 / (Math.max(1, lunghezza) * 0.6 * 0.3528); return Math.max(8, Math.min(17, Math.floor(pt * 10) / 10)); }
 
-  var L = { corpoCodice: corpoCodice, STATI: STATI, FOGLIO: FOGLIO, statoNome: statoNome, statoOk: statoOk, codice: codice, prefissoOk: prefissoOk, proponiPrefisso: proponiPrefisso,
+  /* piè sinistro del foglio: la VERSIONE c'è sempre (regola di Simone: «vN · data» su ogni foglio stampato; versione nuova = numero nuovo) */
+  function piede(versione, ente, codici, d) {
+    var v = Math.max(1, Math.min(99, Math.floor(+versione) || 1));
+    return "v" + v + " · " + ente + " · " + intervallo(codici) + " · stampato il " + d;
+  }
+
+  var L = { piede: piede, corpoCodice: corpoCodice, STATI: STATI, FOGLIO: FOGLIO, statoNome: statoNome, statoOk: statoOk, codice: codice, prefissoOk: prefissoOk, proponiPrefisso: proponiPrefisso,
     frase: frase, conteggi: conteggi, cella: cella, csv: csv, dataIt: dataIt, perPagina: perPagina, origineX: origineX, impagina: impagina, posizione: posizione,
     giusto: giusto, data: data, intervallo: intervallo };
   root.INVLib = L;
