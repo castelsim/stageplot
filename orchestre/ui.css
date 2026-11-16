@@ -322,3 +322,8 @@ dl.review dd{overflow-wrap:anywhere}
 .fam{display:inline-block;width:10px;height:10px;border-radius:50%;flex:none;background:var(--fam,var(--n-400))}
 .fam-archi{--fam:#a16207}.fam-legni{--fam:#4d7c0f}.fam-ottoni{--fam:#c2410c}.fam-percussioni{--fam:#7e22ce}
 .fam-tastiere{--fam:#1d4ed8}.fam-ritmica{--fam:#0369a1}.fam-corde{--fam:#0f766e}.fam-voci{--fam:#be185d}.fam-direzione{--fam:#475569}
+/* Cascata di riserve e squadre tipo (lotto Q) */
+details.cascata{margin-top:var(--s-3);border-top:1px dashed var(--border);padding-top:var(--s-2)}
+details.cascata summary{cursor:pointer;min-height:var(--tap);display:flex;align-items:center;color:var(--text-2)}
+.cascata-body .cascata-list{margin:var(--s-2) 0}
+.cascata-list .rank{width:24px;height:24px;border-radius:50%;background:var(--accent-tint);color:var(--accent-strong);font-weight:700;font-size:var(--t-label);display:flex;align-items:center;justify-content:center;flex:none}

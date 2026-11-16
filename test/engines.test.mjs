@@ -34250,6 +34250,66 @@ t("Orchestre ORC16c P: pagina produzione — riepilogo cliccabile, filtro, Whats
   ok(/<span class="fam fam-\$\{f\}" title="\$\{esc\(etichettaFamiglia\(f\)\)\}" aria-label/.test(pg), "il colore ha anche il nome (non solo colore)");
   const mus = readFileSync(join(root, "orchestre/src/api/musicians.js"), "utf8");
   ok(/select\("phone"\)\.eq\("id", id\)\.is\("deleted_at", null\)/.test(mus), "il telefono si legge dalla scheda (RLS: solo staff)");
+/* ORC16c — lotto Q (16/11/2026): cascata di riserve per posto e squadre tipo. Mai in automatico: un'email esce solo da «Chiama il prossimo». */
+const orcCa = await import("../orchestre/src/domain/cascata.js");
+t("Orchestre ORC16c Q: il prossimo è il primo «da chiamare» in ordine; in corso, rifiutati, senza risposta e archiviati si saltano", () => {
+  const L = [
+    { musician_id: "a", musician_name: "A", pos: 1, state: "rifiutato" }, { musician_id: "b", musician_name: "B", pos: 2, state: "in_corso" },
+    { musician_id: "c", musician_name: "C", pos: 4, state: "da_chiamare" }, { musician_id: "d", musician_name: "D", pos: 3, state: "archiviato" },
+    { musician_id: "e", musician_name: "E", pos: 5, state: "da_chiamare" }, { musician_id: "f", musician_name: "F", pos: 6, state: "senza_risposta" }].reverse();
+  eq(orcCa.prossimo(L).musician_id, "c", "C (pos 4) viene prima di E (pos 5) anche se l'elenco è in disordine");
+  eq(orcCa.quanteDaChiamare(L), 2, "due da chiamare");
+  eq(orcCa.prossimo(L.map((r) => ({ ...r, state: "rifiutato" }))), null, "tutti già passati: nessun prossimo");
+  eq(orcCa.prossimo([]), null, "lista vuota");
+  eq(orcCa.prossimo(null), null, "lista assente");
+  eq(orcCa.testoChiama({ musician_name: "Rossi Maria" }), "Chiama il prossimo: Rossi Maria", "il pulsante dice CHI sarà chiamato");
+  eq(orcCa.testoChiama(null), "", "senza prossimo niente pulsante");
+  eq(orcCa.statoEtichetta("senza_risposta"), "Senza risposta", "etichetta italiana"); eq(orcCa.statoPill("rifiutato"), "danger", "colore");
+});
+t("Orchestre ORC16c Q: ordinare la lista — su, giù, in cima, togli, aggiungi senza doppioni, perRuolo", () => {
+  eq(orcCa.sposta(["a", "b", "c"], "b", -1), ["b", "a", "c"], "su");
+  eq(orcCa.sposta(["a", "b", "c"], "b", 1), ["a", "c", "b"], "giù");
+  eq(orcCa.sposta(["a", "b", "c"], "a", -1), ["a", "b", "c"], "il primo non va più su");
+  eq(orcCa.sposta(["a", "b", "c"], "c", 1), ["a", "b", "c"], "l'ultimo non va più giù");
+  eq(orcCa.sposta(["a", "b"], "z", 1), ["a", "b"], "chi non c'è non cambia niente");
+  eq(orcCa.inCima(["a", "b", "c"], "c"), ["c", "a", "b"], "in cima");
+  eq(orcCa.togli(["a", "b", "c"], "b"), ["a", "c"], "togli");
+  eq(orcCa.aggiungi(["a", "b"], ["b", "c", "c", "d"]), ["a", "b", "c", "d"], "in fondo, senza doppioni");
+  const src = ["a", "b"]; orcCa.sposta(src, "a", 1); orcCa.aggiungi(src, ["z"]); eq(src, ["a", "b"], "mai modificare l'originale");
+  const m = orcCa.perRuolo([{ role_id: "r1", pos: 2, musician_id: "y" }, { role_id: "r2", pos: 1, musician_id: "w" }, { role_id: "r1", pos: 1, musician_id: "x" }]);
+  eq([...m.keys()], ["r1", "r2"], "una voce per ruolo"); eq(m.get("r1").map((r) => r.musician_id), ["x", "y"], "in ordine di posizione");
+  eq(orcCa.daMatching([{ musician_id: "a", eligible: true }, { musician_id: "b", eligible: false }, { musician_id: "c", eligible: true }]), ["a", "c"], "dal matching: solo gli idonei, nell'ordine mostrato");
+  eq(orcCa.nomeRuolo("  Violini "), "violini", "nome del ruolo senza maiuscole e spazi");
+});
+t("Orchestre ORC16c Q: migrazione 0089 — tabelle chiuse alla scrittura, funzioni che ricontrollano lo staff, niente invio", () => {
+  const sql = readFileSync(join(root, "supabase/migrations/0089_orc_cascata_riserve.sql"), "utf8");
+  for (const tb of ["orc_role_candidates", "orc_teams", "orc_team_members"]) {
+    ok(new RegExp("alter table public\\." + tb + " enable row level security").test(sql), tb + ": RLS accesa");
+    ok(new RegExp("create policy " + tb + "_staff_select on public\\." + tb + " for select using \\(public\\.orc_is_staff\\(org_id\\)\\)").test(sql), tb + ": legge solo lo staff");
+  }
+  ok(/grant select on public\.orc_role_candidates, public\.orc_teams, public\.orc_team_members to authenticated;/.test(sql) && !/grant (insert|update|delete|all)[^;]*to authenticated/.test(sql), "il client non scrive: nessun grant di scrittura");
+  ok(/revoke all on function public\.orc_cascade_replace_internal\(uuid, uuid\[\], text, uuid\) from public, anon, authenticated;/.test(sql), "la funzione interna è chiusa a tutti i client");
+  ok((sql.match(/not public\.orc_is_staff\(/g) || []).length === 6, "le sei funzioni di scrittura (lista, salva, importa, rinomina, duplica, cancella) ricontrollano lo staff");
+  ok(/if src not in \('manual','matching'\) then raise exception/.test(sql), "dal client si dichiarano solo due origini");
+  ok(/count\(\*\) from public\.orc_teams t where t\.org_id = org\) >= 50/.test(sql) && /> 200 then raise exception/.test(sql), "tetti: 50 squadre, 200 persone per lista");
+  ok(/source = excluded\.source/.test(sql), "rimettere la lista aggiorna anche l'origine");
+  ok(!/orc_invitation_secrets|orc_invite\(|orc_notify/.test(sql.replace(/--[^\n]*/g, "")), "nessun invito, nessuna email: la lista non manda niente");
+  ok(/when m\.deleted_at is not null or m\.status = 'archived' then 'archiviato'/.test(sql) && /i\.status in \('no_reply','expired'\) then 'senza_risposta'/.test(sql), "gli stati si ricavano dagli inviti, non si salvano");
+});
+t("Orchestre ORC16c Q: pagina — «Chiama il prossimo» a un tocco con il nome, lista e squadre chiuse di serie, mai invio in massa", () => {
+  const ui = readFileSync(join(root, "orchestre/src/pages/cascata-ui.js"), "utf8");
+  const pg = readFileSync(join(root, "orchestre/src/pages/produzione.js"), "utf8");
+  ok(/bottone\.textContent = testoChiama\(prox\)/.test(ui) && /const prox = open > 0 \? prossimo\(lista\) : null/.test(ui), "il pulsante nomina la persona e c'è solo con un posto scoperto");
+  ok(/inv\.invite\(p\.id, role\.id, \[prox\.musician_id\]/.test(ui), "chiama UNA persona con l'orc_invite di sempre");
+  ok(/bottone\.disabled = true/.test(ui), "un doppio clic non manda due inviti");
+  ok(/card\.querySelector\("\.row \.spacer"\)\.after\(cs\.bottone\)/.test(pg) && /card\.appendChild\(cs\.dettagli\)/.test(pg), "il pulsante sta nella riga del titolo, la lista sotto");
+  ok(!/setTimeout|setInterval/.test(ui), "niente automatismi: nessun timer");
+  ok(!/forEach\([\s\S]{0,80}chiamaProssimo|for \([^)]*\)[^{]*\{[^}]{0,60}chiamaProssimo|while[\s\S]{0,40}chiamaProssimo/.test(ui), "mai in ciclo: una chiamata per tocco");
+  ok(/<details class="cascata avanzate">/.test(ui) && !/class="cascata avanzate" open/.test(ui), "la lista è chiusa di serie (regola 13/11)");
+  ok(/<details class="card avanzate" id="squadre">/.test(ui) && !/id="squadre" open/.test(ui) && /d\.addEventListener\("toggle"/.test(ui), "le squadre sono chiuse di serie e si caricano solo quando le apri");
+  ok(/confirm\(\{ title: "Importare «"/.test(ui), "importare chiede conferma");
+  ok((ui.match(/Non è partito nessun invito/g) || []).length === 2, "dire, in tutti e due i modi di mettere in lista, che non manda niente");
+  ok(/cascataRuolo\(\{ p, role, open,/.test(pg) && /casc\.list\(p\.id\)/.test(pg) && /matchingLista\(\{ bar,/.test(pg) && /squadreCard\(\{ p,/.test(pg), "agganciata a Convocazioni, Matching e Organico");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");

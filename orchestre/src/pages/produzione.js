@@ -14,6 +14,9 @@ import { rankCandidates, applyOverrides, explain, fitLabel, reasonsText, ENGINE_
 import { catalogs, list as listMusicians, phoneOf } from "../api/musicians.js";
 import { messaggioConvocazione, linkWhatsApp, riepilogoInviti, filtraInviti, RIEPILOGO, chiaveRiepilogoValida, famigliaDi, etichettaFamiglia } from "../domain/convocare.js";
 import * as sp from "../api/stageplot.js";
+import * as casc from "../api/cascata.js";
+import { perRuolo } from "../domain/cascata.js";
+import { cascataRuolo, matchingLista, squadreCard } from "./cascata-ui.js";
 import { typeMapFrom, docVariants, extractPositions, proposeRoles, diffProposal, importGroups, importSummary, isUuid } from "../domain/stageplot-import.js";
 
 const app = document.getElementById("app");
@@ -284,6 +287,7 @@ async function loadOrganico() {
     for (const s of sections) box.appendChild(sectionCard(s));
     box.appendChild(addRoleCard());
     box.appendChild(stampeCard());
+    box.appendChild(squadreCard({ p, orgId: ctx.org.org_id, dopo: () => {} }));
   } catch (e) { box.innerHTML = ""; setState(box, "err", errMsg(e)); }
 }
 
@@ -521,7 +525,8 @@ function paintResults(out) {
   out.appendChild(bar);
   const ul = el(`<ul class="list" id="mList"></ul>`);
   const selected = new Set();
-  const refreshBar = () => { bar.querySelector("#selCount").textContent = selected.size ? selected.size + (selected.size === 1 ? " selezionato" : " selezionati") : "Seleziona chi convocare"; bar.querySelector("#inviteSel").disabled = !selected.size; };
+  const ml = matchingLista({ bar, productionId: p.id, roleId: mRole, ordinati: ordered, selezione: selected, dopo: () => {} });
+  const refreshBar = () => { ml.aggiorna(selected.size); bar.querySelector("#selCount").textContent = selected.size ? selected.size + (selected.size === 1 ? " selezionato" : " selezionati") : "Seleziona chi convocare"; bar.querySelector("#inviteSel").disabled = !selected.size; };
   bar.querySelector("#inviteSel").onclick = () => inviteDialog([...selected]);
   ordered.forEach((r, i) => {
     const pos = i + 1;
@@ -712,7 +717,9 @@ async function paintConvocazioni() {
 async function loadConvocazioni() {
   const box = app.querySelector("#cv"), sum = app.querySelector("#cvSummary");
   try {
-    const [rows, st, need, riserve] = await Promise.all([inv.list(p.id), api.staffing(p.id), inv.reconfirmNeeded(p.id).catch(() => []), inv.reserveFlags(p.id).catch(() => new Set())]);
+    if (!musicians) { try { musicians = await listMusicians(ctx.org.org_id); } catch { musicians = []; } }
+    const [rows, st, need, riserve, listaRiserve] = await Promise.all([inv.list(p.id), api.staffing(p.id), inv.reconfirmNeeded(p.id).catch(() => []), inv.reserveFlags(p.id).catch(() => new Set()), casc.list(p.id).catch(() => [])]);
+    const cascate = perRuolo(listaRiserve);
     for (const r of rows) r.reserve_only = riserve.has(r.id);
     paintRiepilogo(rows);
     sections = groupStaffing(st);
@@ -737,7 +744,7 @@ async function loadConvocazioni() {
       if (all.length) { const bt = el(`<button type="button" class="btn small primary">Chiedi riconferma a tutti (${all.length})</button>`); bt.onclick = () => chiediRiconferma(all); act.appendChild(bt); }
       box.appendChild(b);
     }
-    if (!rows.length) {
+    if (!rows.length && !cascate.size) {
       box.appendChild(el(`<div class="empty">Nessuna convocazione ancora. Dal Matching scegli chi chiamare e premi «Convoca i selezionati».</div>`));
       box.appendChild(el(`<p><a class="btn primary" href="?id=${esc(p.id)}&t=matching">Vai al Matching</a></p>`));
       return;
@@ -753,6 +760,8 @@ async function loadConvocazioni() {
     }
     const byRole = new Map();
     for (const r of viste) { if (!byRole.has(r.role_id)) byRole.set(r.role_id, { name: r.role_name, rows: [] }); byRole.get(r.role_id).rows.push(r); }
+    /* un ruolo con la lista di riserve ma ancora nessun invito ha comunque la sua scheda (non con un filtro attivo) */
+    if (!cvFiltro) for (const roleId of cascate.keys()) if (!byRole.has(roleId)) { const rl = sections.flatMap((s) => s.roles).find((r) => r.id === roleId); if (rl) byRole.set(roleId, { name: rl.name, rows: [] }); }
     for (const [roleId, g] of byRole) {
       const role = sections.flatMap((s) => s.roles).find((r) => r.id === roleId);
       const open = role ? role.slots.filter((x) => x.status === "open").length : 0;
@@ -760,6 +769,13 @@ async function loadConvocazioni() {
       card.querySelector("h3").textContent = g.name;
       const ul = card.querySelector("ul");
       for (const r of g.rows) ul.appendChild(invitationRow(r, open));
+      /* cascata di riserve: «Chiama il prossimo» nella riga del titolo, la lista sotto (chiusa di serie) */
+      if (role) {
+        const ultimaNota = rows.filter((x) => x.role_id === roleId).reverse().map((x) => x.note_admin).find(Boolean) || "";
+        const cs = cascataRuolo({ p, role, open, lista: cascate.get(roleId) || [], ultimaNota, pool: musicians, dopo: loadConvocazioni });
+        if (cs.bottone) card.querySelector(".row .spacer").after(cs.bottone);
+        card.appendChild(cs.dettagli);
+      }
       box.appendChild(card);
     }
   } catch (e) { box.innerHTML = ""; setState(box, "err", errMsg(e)); }
