@@ -33602,5 +33602,165 @@ t("relatore: il microfono (tonda, giraffa, in mano, archetto, lavalier, panorami
   ok(!/pVoce[^\n]{0,120}data-adv|data-adv[^\n]{0,120}pVoce/.test(tpl), "pVoce non è marcato avanzato");
 });
 
+/* ═══ PALCO PER ESTERNI (16/11/2026, M-078): la seconda uscita di ogni versione — PDF vettoriale con SOLO il palco e la fascia «titolo · luogo / Stage plot vN · data» ═══ */
+const _pe = () => { const i = appjs.indexOf("function buildPdfPalcoEsterni"), j = appjs.indexOf("function exportPalcoEsterni"); return appjs.slice(i, j); };
+const _peDoc = { _b: false, _pt: 10, setFont(f, st) { this._b = st === "bold"; }, setFontSize(n) { this._pt = n; }, splitTextToSize(t, w) { const per = Math.floor(w / (this._pt * 0.2 * (this._b ? 1.1 : 1))), out = []; let r = ""; String(t).split(" ").forEach((x) => { if ((r + " " + x).trim().length > per) { out.push(r); r = x; } else r = (r + " " + x).trim(); }); out.push(r); return out; } };
+t("Palco per esterni: nome file «Titolo - vN del GG-MM-AAAA - palco.pdf», con stato, e senza versione il nome di sempre", () => {
+  reset(); A.state.titolo = "Stage plot - Bibione 12.12.26"; A.state.versione = 3;
+  eq(A.palcoEsterniNomeFile(new Date(2026, 10, 12)), "Stage plot - Bibione 12.12.26 - v3 del 12-11-2026 - palco.pdf");
+  A.state.statoDoc = "provvisorio"; eq(A.palcoEsterniNomeFile(new Date(2026, 10, 12)), "Stage plot - Bibione 12.12.26 - v3 del 12-11-2026 - Provvisorio - palco.pdf", "lo stato S22 nel nome");
+  delete A.state.statoDoc; A.state.titolo = "Bibione v7"; delete A.state.versione;
+  eq(A.palcoEsterniNomeFile(new Date(2026, 10, 12)), "Bibione - v7 del 12-11-2026 - palco.pdf", "la versione dal titolo non si ripete");
+  A.state.titolo = "Solo titolo"; eq(A.palcoEsterniNomeFile(new Date(2026, 10, 12)), "solo-titolo - palco.pdf", "senza versione: il nome di sempre + «palco»");
+  reset();
+});
+t("Palco per esterni: la fascia dice titolo · luogo, «Stage plot vN · data», stato ed evento; niente conteggi", () => {
+  reset(); A.state.titolo = "Capodanno 01.01.27 v11"; A.state.luogo = "Teatro Esempio, Città"; A.state.versione = 11; A.state.evDate = "2027-01-01"; A.state.statoDoc = "definitivo";
+  const T = A.palcoEsterniTesti(new Date(2026, 10, 16));
+  eq(T.titolo, "Capodanno 01.01.27 · Teatro Esempio, Città", "titolo senza il «vN» finale, poi il luogo");
+  eq(T.sub, "Stage plot v11 · 16/11/2026 · Definitivo · evento 01/01/2027");
+  delete A.state.evDate; delete A.state.statoDoc; A.state.luogo = "";
+  eq(A.palcoEsterniTesti(new Date(2026, 10, 16)).sub, "Stage plot v11 · 16/11/2026", "senza evento né stato");
+  eq(A.palcoEsterniTesti(new Date(2026, 10, 16)).titolo, "Capodanno 01.01.27", "senza luogo, solo il titolo");
+  ok(!/leggi|sedut|pedane|ascolt|rider/i.test(JSON.stringify(A.palcoEsterniTesti(new Date()))), "nessun conteggio");
+  delete A.state.versione; A.state.titolo = "Solo titolo";
+  eq(A.palcoEsterniTesti(new Date(2026, 10, 16)).sub, "Stage plot · 16/11/2026", "senza versione: «Stage plot · data», niente «v1» inventata");
+  A.state.versione = 2; eq(A.palcoEsterniTesti(new Date(2026, 10, 5)).sub, "Stage plot v2 · 05/11/2026", "data a due cifre");
+  A.state.evDate = "2027-1-1"; eq(A.palcoEsterniTesti(new Date(2026, 10, 5)).sub, "Stage plot v2 · 05/11/2026", "una data evento non valida non entra"); delete A.state.evDate;
+  reset();
+});
+t("Palco per esterni: titolo lungo va a capo (mai «…») e la fascia si alza; foglio e scala partono dalla fascia + 1 mm", () => {
+  reset(); A.state.titolo = "Stage plot"; A.state.versione = 2;
+  const corta = A.palcoEsterniFascia(_peDoc, 297, 10, new Date());
+  A.state.titolo = "Concerto di fine anno con orchestra, coro e band al completo"; A.state.luogo = "Teatro Comunale della Città di Esempio, Via Lunga 12, Quartiere Vecchio";
+  const lunga = A.palcoEsterniFascia(_peDoc, 297, 10, new Date());
+  ok(lunga.tit.length >= 2 && lunga.h > corta.h, "titolo a capo e fascia più alta: " + lunga.tit.length + " righe, " + lunga.h + " vs " + corta.h);
+  ok(lunga.tit.every((r) => r.indexOf("…") < 0), "mai puntini");
+  if (process.env.PEDBG) console.log("      DBG", corta.tit.length, corta.sub.length, corta.h, lunga.tit.length, lunga.sub.length, lunga.h);
+  eq([corta.tit.length, corta.sub.length, corta.h], [1, 1, 17.5], "fascia a due righe: 4 + 6,2 + 4,8 + 2,5 mm");
+  eq(lunga.tit.length, 2, "il titolo lungo, in grassetto 14 pt, va su due righe");
+  const stretta = A.palcoEsterniFascia(_peDoc, 60, 10, new Date()); ok(stretta.sub.length >= 2, "riga della versione a capo su un foglio stretto: " + stretta.sub.length);
+  eq(stretta.h, Math.round((4 + stretta.tit.length * 6.2 + stretta.sub.length * 4.8 + 2.5) * 100) / 100, "ogni riga di sotto conta 4,8 mm");
+  eq(lunga.h, Math.round((4 + lunga.tit.length * 6.2 + lunga.sub.length * 4.8 + 2.5) * 100) / 100, "altezza = 4 + 6,2 per riga di titolo + 4,8 per riga di sotto + 2,5, a due decimali");
+  ok(Math.round(lunga.h * 100) === lunga.h * 100 || Math.abs(Math.round(lunga.h * 100) - lunga.h * 100) < 1e-6, "arrotondata al centesimo");
+  A.state.stage = { w: 800, d: 600, blocks: [{ x: 0, y: 0, w: 800, d: 600 }] };
+  const P = A.palcoEsterniPiano(_peDoc, "a4", "auto", "auto", new Date());
+  ok(P && P.ch === P.F.h + 1, "il foglio si dimensiona con cartH = fascia + 1");
+  ok(P.N >= 50 && !P.box.cropped, "scala valida, palco intero: 1:" + P.N);
+  const Q = A.palcoEsterniPiano(_peDoc, "a4", "50", "portrait", new Date()); ok(!Q || Q.o === "portrait", "l'orientamento scelto vince");
+  A.state.stage = { w: 400, d: 1400, blocks: [{ x: 0, y: 0, w: 400, d: 1400 }] };
+  eq(A.palcoEsterniPiano(_peDoc, "a4", "auto", "auto", new Date()).o, "portrait", "palco lungo e stretto: in verticale, con la scala più grande");
+  A.state.stage = { w: 1400, d: 400, blocks: [{ x: 0, y: 0, w: 1400, d: 400 }] };
+  eq(A.palcoEsterniPiano(_peDoc, "a4", "auto", "auto", new Date()).o, "landscape", "palco largo: in orizzontale");
+  eq(A.palcoEsterniPiano(_peDoc, "a4", "auto", "portrait", new Date()).o, "portrait", "l'orientamento scelto vince sempre");
+  A.state.stage = { w: 400, d: 1400, blocks: [{ x: 0, y: 0, w: 400, d: 1400 }] };
+  const vert = A.palcoEsterniPiano(_peDoc, "a4", "auto", "landscape", new Date()), vert2 = A.palcoEsterniPiano(_peDoc, "a4", "auto", "portrait", new Date());
+  ok(vert2.N < vert.N, "il verso giusto stampa il palco più grande: 1:" + vert2.N + " contro 1:" + vert.N);
+  eq(A.palcoEsterniPiano(_peDoc, "a4", "abc", "auto", new Date()), null, "scala non valida: nessun piano");
+  A.state.stage = { w: 400, d: 1000, blocks: [{ x: 0, y: 0, w: 400, d: 1000 }] };
+  const sp = A.palcoEsterniPiano(_peDoc, "a4", "50", "auto", new Date());
+  eq([sp.o, sp.box.cropped], ["portrait", false], "scala fissa 1:50: vince il verso in cui il palco entra intero, non quello che ritaglia");
+  reset();
+});
+t("Palco per esterni: il PDF è solo disegno + barra + fascia (struttura del codice) e l'Esporta ha la voce chiara", () => {
+  const b = _pe();
+  ok(b.length > 200, "funzione trovata");
+  ["pdfCartiglio", "pdfTotals", "pdfQrDisegna", "riderPdf", "scalettaPdf", "organicoPdf", "patchListPdf", "view-cabin"].forEach((x) => ok(b.indexOf(x) < 0, "non usa " + x));
+  ["drawStageVector", "pdfScaleBar(", "pdfScaleBarPosa", "pdfCredit(doc)", "palcoEsterniPiano", "palcoEsterniTesti"].forEach((x) => ok(b.indexOf(x) >= 0, "usa " + x));
+  ok(/areaFoglio:\{x:L\.drawX, y:L\.drawY\+sh/.test(b), "la planimetria di sfondo scende con il disegno");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="pdfEsterni"[^>]*><span><b>Palco per esterni<\/b> \(solo disegno, con versione\)<\/span>/.test(html), "la voce «Palco per esterni (solo disegno, con versione)»");
+  ok(html.indexOf('id="pdfEsterni"') > html.indexOf('id="pdfScSolo"') && html.indexOf('id="pdfEsterni"') < html.indexOf('id="pdfGo"'), "sta accanto alle scelte del PDF completo");
+  ok(/pdfGateErrori\(function\(\)\{\s*be\.disabled=true;[\s\S]*?exportPalcoEsterni\(/.test(appjs), "passa dal gate sugli errori critici come gli altri export");
+  ok(/palcoEsterniNomeFile\(\); pdfSave\(doc, nome\)/.test(appjs), "esce col suo nome");
+  const ex = appjs.slice(appjs.indexOf("function exportPalcoEsterni"), appjs.indexOf("function exportPdf(paperKey"));
+  ok(/^function exportPalcoEsterni\(paperKey, scaleSel, orientSel\)\{\s*if\(custEditorAttivo\(\)\)\{ custEditorAvvisa\(\); return Promise\.resolve\(false\); \}/.test(ex), "con l'editor «Crea elemento» aperto non esporta");
+  ok(/segnaPdfEsportato\(\)/.test(ex) && /track\("export",\{format:"pdf-palco-esterni"\}\)/.test(ex), "segna l'export e lo conta");
+  ok(/m\.cropped\?" warn":" ok"/.test(ex) && /parte centrale che ci sta/.test(ex), "se ritaglia lo dice, non un «✓» pulito");
+  const ui = appjs.slice(appjs.indexOf('var be=document.getElementById("pdfEsterni")'), appjs.indexOf('document.getElementById("pdfGo").addEventListener'));
+  ok(/if\(be\.disabled\) return;/.test(ui), "niente due export insieme");
+  ok(/exportPalcoEsterni\(paper\.value, sel, /.test(ui) && /var sel=pdfScaleValue\(\)/.test(ui) && /getElementById\("pdfOrient"\)\.value/.test(ui), "stesso foglio, scala e orientamento scelti per il PDF");
+});
+
+/* Palco per esterni — la COSTRUZIONE del PDF con un jsPDF finto che registra ogni chiamata: dove sta il disegno, la fascia, la barra, le quote, il credito; niente cartiglio */
+await (async () => {
+  const near = (a, b, e, m) => ok(Math.abs(a - b) <= e, (m || "") + ": " + a + " ≈ " + b);
+  const nomeT = "Palco per esterni: il PDF mette la fascia in alto, il disegno e la barra sotto di essa, le quote del palco, il credito «1 di 1»; niente cartiglio";
+  const salvate = {}; const ripristina = () => Object.keys(salvate).forEach((k) => { A[k] = salvate[k]; }); const jspdfPrima = A.jspdf;
+  try {
+    reset(); A.state.titolo = "Concerto di prova v3"; A.state.luogo = "Teatro Esempio"; A.state.versione = 3; A.state.evDate = "2027-01-01";
+    A.state.stage = { w: 800, d: 600, blocks: [{ x: 0, y: 0, w: 800, d: 600 }] };
+    const chiamate = [], docs = []; let font = "normal", pt = 10;
+    class Fake {
+      constructor(o) { this.o = o; this.testi = []; this.linee = []; docs.push(this); this.internal = { pageSize: { getWidth: () => 297, getHeight: () => 210 } }; }
+      setFont(f, st) { font = st || "normal"; _peDoc.setFont(f, st); } setFontSize(n) { pt = n; _peDoc.setFontSize(n); } setTextColor() {} setDrawColor() {} setLineWidth() {} getTextWidth() { return 10; }
+      splitTextToSize(tx, w) { return _peDoc.splitTextToSize(tx, w); } getNumberOfPages() { return 1; } setPage() {} addPage() { chiamate.push("addPage"); }
+      text(tx, x, y, o) { this.testi.push({ tx, x, y, font, pt, o }); } line(...a) { this.linee.push(a); }
+    }
+    ["loadJsPDF", "drawStageVector", "pdfRipiegoRaster", "pdfScaleBar", "pdfCredit", "pdfCartiglio", "pdfQrDisegna"].forEach((k) => { salvate[k] = A[k]; });
+    A.jspdf = { jsPDF: Fake }; A.loadJsPDF = () => Promise.resolve();
+    A.drawStageVector = (doc, ix, iy, w, h, vb, focus, sc) => { chiamate.push({ k: "disegno", ix, iy, w, h, focus, sc }); return Promise.resolve(); };
+    A.pdfRipiegoRaster = (doc, ix, iy) => { chiamate.push({ k: "raster", ix, iy }); return Promise.resolve(); };
+    A.pdfScaleBar = (doc, x, y, N) => chiamate.push({ k: "barra", x, y, N });
+    A.pdfCredit = () => chiamate.push({ k: "credito" });
+    A.pdfCartiglio = () => chiamate.push({ k: "CARTIGLIO" }); A.pdfQrDisegna = () => chiamate.push({ k: "QR" });
+    const P = A.palcoEsterniPiano(_peDoc, "a4", "auto", "auto", new Date()), sh = P.F.h, box = P.box, L = box.L;
+    const doc = await A.buildPdfPalcoEsterni("a4", "auto", "auto");
+    const d = doc;   /* il documento vero è l'ultima istanza */
+    eq(d.o.orientation, P.o, "orientamento del piano"); eq(d.o.format, "a4");
+    eq(chiamate.filter((c) => c === "addPage").length, 0, "una pagina sola");
+    ok(!chiamate.some((c) => c.k === "CARTIGLIO" || c.k === "QR"), "niente cartiglio né QR");
+    const dis = chiamate.filter((c) => c.k === "disegno"); eq(dis.length, 1, "un disegno solo");
+    eq(dis[0].focus, "clean", "il disegno pulito, senza le viste dei layer");
+    near(dis[0].ix, box.ix, 1e-6, "ix"); near(dis[0].iy, box.iy + sh, 1e-6, "il disegno scende della fascia");
+    near(dis[0].w, box.mmW, 1e-6, "larghezza"); near(dis[0].h, box.mmH, 1e-6, "altezza");
+    near(dis[0].sc.areaFoglio.y, L.drawY + sh, 1e-6, "la planimetria di sfondo scende insieme"); near(dis[0].sc.areaFoglio.x, L.drawX, 1e-6, "area x"); near(dis[0].sc.areaFoglio.h, L.drawH, 1e-6, "area h");
+    ok(box.iy + sh >= L.M + sh, "il disegno sta sotto la fascia: " + (box.iy + sh) + " ≥ " + (L.M + sh));
+    /* la fascia: titolo in grassetto 14 pt riga per riga, poi «Stage plot vN · data», poi la linea */
+    const T = A.palcoEsterniTesti(new Date()), M = L.M;
+    const tit = d.testi.filter((x) => x.font === "bold" && x.pt === 14); eq(tit.map((x) => x.tx), P.F.tit, "titolo in grassetto 14 pt, riga per riga");
+    near(tit[0].x, M, 1e-9, "x del titolo"); near(tit[0].y, M + 4.2, 1e-9, "y della prima riga del titolo"); if (tit.length > 1) near(tit[1].y - tit[0].y, 6.2, 1e-9, "passo del titolo");
+    const sub = d.testi.filter((x) => x.font === "normal" && x.pt === 10); eq(sub.map((x) => x.tx), P.F.sub, "riga della versione, 10 pt");
+    near(sub[0].y, M + 4.2 + 6.2 * P.F.tit.length - 0.6, 1e-9, "la riga della versione subito sotto il titolo");
+    eq(P.F.sub.join(" "), T.sub, "dice «Stage plot v3 · data · evento»"); ok(/Stage plot v3 · \d\d\/\d\d\/\d{4} · evento 01\/01\/2027/.test(T.sub), "formato: " + T.sub);
+    const lin = d.linee.filter((l) => Math.abs(l[1] - (M + sh - 0.5)) < 1e-9 && l[1] === l[3]); eq(lin.length, 1, "la linea sotto la fascia"); near(lin[0][0], M, 1e-9, "dal margine sinistro"); near(lin[0][2], L.pw - M, 1e-9, "al destro");
+    /* le quote del palco, spostate con il disegno */
+    const q = box.rMm, qw = d.testi.filter((x) => x.tx === A.adattaM(800) + " m"), qd = d.testi.filter((x) => x.tx === A.adattaM(600) + " m");
+    eq(qw.length, 1, "quota della larghezza"); near(qw[0].x, q.x + q.w / 2, 1e-6, "al centro del palco"); near(qw[0].y, q.y + sh - 8, 1e-6, "8 mm sopra il bordo, sceso della fascia");
+    eq(qd.length, 1, "quota della profondità"); near(qd[0].x, q.x - 5, 1e-6, "a sinistra"); near(qd[0].y, q.y + sh + q.h / 2, 1e-6, "a metà altezza, scesa della fascia"); eq(qd[0].o.angle, 90, "in verticale");
+    /* la barra: scala giusta, sotto il fronte del palco e dentro il foglio (7 mm di fondo, 1 di finto cartiglio) */
+    const bar = chiamate.filter((c) => c.k === "barra"); eq(bar.length, 1, "una barra"); eq(bar[0].N, P.N, "alla scala del disegno");
+    const fronte = box.iy + sh + (600 - box.vb.y) * box.mmPerCm;
+    ok(bar[0].y > fronte && bar[0].y < fronte + 12, "la barra sta subito sotto il fronte del palco (sceso della fascia): " + bar[0].y + " vs " + fronte);
+    ok(bar[0].y <= L.ph - L.fondo - 1 - 2.5 - 3.6 + 1e-6, "e sopra il piè: " + bar[0].y);
+    eq(chiamate.filter((c) => c.k === "credito").length, 1, "il credito e «1 di N» sul foglio");
+    eq(doc.__palcoEsterni.N, P.N, "scala dichiarata"); eq(doc.__palcoEsterni.cropped, false); eq(doc.__palcoEsterni.orient, P.o);
+    /* palco lungo e stretto: il foglio nasce in verticale e la barra, se il disegno riempie il foglio, si ferma sopra il piè */
+    chiamate.length = 0; docs.length = 0; A.state.stage = { w: 400, d: 1000, blocks: [{ x: 0, y: 0, w: 400, d: 1000 }] };
+    const vdoc = await A.buildPdfPalcoEsterni("a4", "auto", "auto"), PV = A.palcoEsterniPiano(_peDoc, "a4", "auto", "auto", new Date());
+    eq(vdoc.o.orientation, "portrait", "documento verticale"); eq(PV.o, "portrait");
+    const barV = chiamate.filter((c) => c.k === "barra")[0], giuV = PV.box.L.ph - PV.box.L.fondo - 1 - 2.5 - 3.6;
+    const sV = PV.F.h, bV = Object.assign({}, PV.box, { L: Object.assign({}, PV.box.L, { cartH: 1, drawY: PV.box.L.drawY + sV }), iy: PV.box.iy + sV, rMm: Object.assign({}, PV.box.rMm, { y: PV.box.rMm.y + sV }) });
+    const attesa = A.pdfScaleBarPosa(bV, PV.N, { blockDims: !(A.pdfQuoteFuoriDalDisegno(PV.box) && A.stageBlocks().length < 2), quoteJs: A.pdfQuoteFuoriDalDisegno(PV.box) });
+    near(barV.y, attesa.y, 0.01, "la barra sta dove la mette il motore nel foglio spostato della fascia, col solo millimetro di piè finto"); near(barV.x, attesa.x, 0.01, "x della barra");
+    ok(attesa.y > giuV - sV, "(la prova vale: senza lo spostamento della fascia il limite del piè la stringerebbe, " + attesa.y + " vs " + giuV + ")");
+    ok(barV.y <= giuV + 1e-6, "e sopra il piè: " + barV.y + " ≤ " + giuV);
+    A.state.stage = { w: 800, d: 600, blocks: [{ x: 0, y: 0, w: 800, d: 600 }] }; chiamate.length = 0;
+    /* se svg2pdf cade, il ripiego raster ha la stessa posizione (sotto la fascia) */
+    chiamate.length = 0; A.drawStageVector = () => Promise.reject(new Error("svg2pdf giù"));
+    await A.buildPdfPalcoEsterni("a4", "auto", "auto");
+    const ra = chiamate.filter((c) => c.k === "raster"); eq(ra.length, 1, "ripiego raster"); near(ra[0].iy, box.iy + sh, 1e-6, "scende anche lui della fascia");
+    /* palco enorme con scala automatica: si ritaglia la parte che ci sta e lo dice (cropped) */
+    A.state.stage = { w: 90000, d: 90000, blocks: [{ x: 0, y: 0, w: 90000, d: 90000 }] };
+    const enorme = await A.buildPdfPalcoEsterni("a4", "auto", "auto"); eq(enorme.__palcoEsterni.cropped, true, "ritagliato e dichiarato");
+    /* scala scelta non valida: errore chiaro, nessun PDF */
+    A.state.stage = { w: 800, d: 600, blocks: [{ x: 0, y: 0, w: 800, d: 600 }] };
+    let msg = ""; try { await A.buildPdfPalcoEsterni("a4", "abc", "auto"); } catch (e) { msg = e.message; }
+    ok(/1:500/.test(msg), "senza scala utilizzabile: «non entra nemmeno a 1:500» — " + msg);
+    pass++; console.log("  ✓ " + nomeT);
+  } catch (e) { fail++; console.log("  ✗ " + nomeT + "\n      " + e.message); }
+  finally { ripristina(); A.jspdf = jspdfPrima; reset(); }
+})();
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
