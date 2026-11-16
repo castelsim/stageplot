@@ -12,7 +12,7 @@ import { changedNames, reconfirmSummary, reconfirmText, versionTitle } from "../
 import * as fb from "../api/feedback.js";
 import { rankCandidates, applyOverrides, explain, fitLabel, reasonsText, ENGINE_VERSION } from "../domain/matching.js";
 import { catalogs, list as listMusicians, phoneOf } from "../api/musicians.js";
-import { messaggioConvocazione, linkWhatsApp, riepilogoInviti, filtraInviti, RIEPILOGO, chiaveRiepilogoValida, famigliaDi, etichettaFamiglia } from "../domain/convocare.js";
+import { messaggioConvocazione, messaggioPromemoria, daSollecitare, messaggiInsieme, dicePosto, strumentiPerFamiglia, parteDaNome, linkWhatsApp, riepilogoInviti, filtraInviti, RIEPILOGO, chiaveRiepilogoValida, famigliaDi, etichettaFamiglia } from "../domain/convocare.js";
 import * as sp from "../api/stageplot.js";
 import * as casc from "../api/cascata.js";
 import { perRuolo } from "../domain/cascata.js";
@@ -430,7 +430,7 @@ function addRoleCard() {
   const c = el(`<section class="card"><h3>Aggiungi un ruolo</h3><div class="grid2 tight">
     <div class="field"><label for="nrSec">Sezione</label><select id="nrSec">${secOpts}<option value="__new">Nuova sezione…</option><option value="">Senza sezione</option></select></div>
     <div class="field" id="nrSecNameF" hidden><label for="nrSecName">Nome della sezione</label><input id="nrSecName"></div>
-    <div class="field"><label for="nrInst">Strumento</label><select id="nrInst"><option value="">—</option>${cat.instruments.map((i) => `<option value="${i.code}">${esc(i.name)}</option>`).join("")}</select></div>
+    <div class="field"><label for="nrInst">Strumento</label><select id="nrInst"><option value="">—</option>${strumentiPerFamiglia(cat.instruments).map((g) => `<optgroup label="${esc(g.etichetta)}">${g.strumenti.map((i) => `<option value="${i.code}">${esc(i.name)}</option>`).join("")}</optgroup>`).join("")}</select></div>
     <div class="field"><label for="nrName">Nome del ruolo</label><input id="nrName" placeholder="es. Violini secondi"></div>
     <div class="field"><label for="nrSeats">Posti</label><input id="nrSeats" type="number" min="0" max="200" value="1"></div>
     <div class="field"><label for="nrPart">Parte</label><select id="nrPart">${Object.entries(PART).map(([k, v]) => `<option value="${k}"${k === "tutti" ? " selected" : ""}>${v}</option>`).join("")}</select></div>
@@ -440,7 +440,11 @@ function addRoleCard() {
   /* senza sezioni si parte da «Senza sezione»; e il campo del nome segue la scelta fin da subito */
   if (!sections.some((s) => s.id)) sec.value = "";
   sec.onchange();
-  c.querySelector("#nrInst").onchange = (e) => { const n = c.querySelector("#nrName"); if (!n.value) n.value = cat.instruments.find((i) => i.code === e.target.value)?.name || ""; };
+  /* la parte segue il nome («Violini primi» → prima parte) finché non la scegli tu */
+  let parteScelta = false;
+  c.querySelector("#nrPart").onchange = () => { parteScelta = true; };
+  c.querySelector("#nrName").oninput = (e) => { if (!parteScelta) c.querySelector("#nrPart").value = parteDaNome(e.target.value); };
+  c.querySelector("#nrInst").onchange = (e) => { const n = c.querySelector("#nrName"); if (!n.value) { n.value = cat.instruments.find((i) => i.code === e.target.value)?.name || ""; n.oninput({ target: n }); } };
   c.querySelector("#nrAdd").onclick = async () => {
     const name = c.querySelector("#nrName").value.trim(); if (!name) return toast("Serve il nome del ruolo.", { err: true });
     try {
@@ -749,6 +753,8 @@ async function loadConvocazioni() {
       box.appendChild(el(`<p><a class="btn primary" href="?id=${esc(p.id)}&t=matching">Vai al Matching</a></p>`));
       return;
     }
+    const sol = daSollecitare(rows);
+    if (sol.length && !cvFiltro) box.appendChild(promemoriaCard(sol));
     const viste = filtraInviti(rows, cvFiltro);
     if (cvFiltro) {
       const nome = (RIEPILOGO.find(([k]) => k === cvFiltro) || [])[1] || "";
@@ -780,6 +786,55 @@ async function loadConvocazioni() {
     }
   } catch (e) { box.innerHTML = ""; setState(box, "err", errMsg(e)); }
 }
+/* Promemoria a chi non ha risposto (I7): avanzata, chiusa di serie. Nessuna email parte da qui: per ognuno si fa un link nuovo
+   (il vecchio smette di valere) e si prepara il messaggio da mandare a mano, uno alla volta o tutti insieme. */
+function promemoriaCard(sol) {
+  const d = el(`<details class="card avanzate" id="promemoria"><summary><b>Promemoria a chi non ha risposto</b> <span class="pill warn"></span></summary>
+    <p class="small muted">Scegli chi sollecitare: per ognuno si crea un link nuovo (quello di prima smette di funzionare) e ti preparo il messaggio per WhatsApp. Non parte nessuna email.</p>
+    <ul class="list" id="pmList"></ul>
+    <div class="row"><button type="button" class="btn primary" id="pmGo">Prepara i messaggi</button></div>
+    <div id="pmOut"></div></details>`);
+  d.querySelector(".pill").textContent = String(sol.length);
+  const ul = d.querySelector("#pmList");
+  for (const r of sol) {
+    const li = el(`<li class="list-item"><label class="grow"><input type="checkbox" checked> <span class="title"></span></label></li>`);
+    li.querySelector("input").dataset.id = r.id;
+    li.querySelector(".title").textContent = r.musician_name + " · " + (INV_STATUS[r.status] || r.status);
+    ul.appendChild(li);
+  }
+  d.querySelector("#pmGo").onclick = async () => {
+    const scelti = sol.filter((r) => d.querySelector(`input[data-id="${r.id}"]`).checked);
+    if (!scelti.length) { toast("Scegli almeno una persona.", { err: true }); return; }
+    const yes = await confirm({ title: "Preparare " + scelti.length + (scelti.length === 1 ? " messaggio?" : " messaggi?"), text: "Ognuno riceve un link nuovo e quello di prima smette di funzionare. I messaggi li mandi tu.", ok: "Prepara" });
+    if (!yes) return;
+    const out = d.querySelector("#pmOut"); out.innerHTML = `<div class="loading">Un attimo…</div>`;
+    const voci = []; let falliti = 0;
+    for (const r of scelti) {
+      try {
+        const tok = await inv.relink(r.id);
+        const url = location.origin + BASE + "/rispondi/?t=" + encodeURIComponent(tok);
+        let tel = ""; try { tel = await phoneOf(r.musician_id); } catch { /* senza numero si sceglie il contatto */ }
+        voci.push({ nome: r.musician_name, tel, testo: messaggioPromemoria({ nomeCompleto: r.musician_name, titolo: p.title, url, nota: r.note_admin }) });
+      } catch { falliti++; }
+    }
+    out.innerHTML = "";
+    if (falliti) out.appendChild(el(`<p class="small">${falliti} su ${scelti.length} non preparati: riprova da «Copia link» sulla riga.</p>`));
+    out.appendChild(el(`<p class="small muted">Questi link non si rivedono: copiali ora.</p>`));
+    for (const v of voci) {
+      const li = el(`<div class="list-item"><div class="grow"><div class="title"></div></div><div class="actions"><a class="btn small" target="_blank" rel="noopener">Apri WhatsApp</a><button type="button" class="btn small">Copia</button></div></div>`);
+      li.querySelector(".title").textContent = v.nome;
+      li.querySelector("a").href = safeHttpUrl(linkWhatsApp(v.tel, v.testo));
+      li.querySelector("button").onclick = async () => { try { await navigator.clipboard.writeText(v.testo); toast("Copiato."); } catch { toast("Non riesco a copiare: apri WhatsApp.", { err: true }); } };
+      out.appendChild(li);
+    }
+    if (voci.length > 1) {
+      const all = el(`<button type="button" class="btn">Copia tutti i messaggi</button>`);
+      all.onclick = async () => { try { await navigator.clipboard.writeText(messaggiInsieme(voci)); toast("Copiati " + voci.length + " messaggi."); } catch { toast("Non riesco a copiare.", { err: true }); } };
+      out.appendChild(all);
+    }
+  };
+  return d;
+}
 function invitationRow(r, openSlots) {
   const li = el(`<li class="list-item"><div class="grow"><div class="title"></div><div class="sub"></div></div><div class="actions"></div></li>`);
   li.querySelector(".title").textContent = r.musician_name + (r.wave > 1 ? " · onda " + r.wave : "");
@@ -792,7 +847,7 @@ function invitationRow(r, openSlots) {
   if (r.notification_status === "pending") bits.push("email in coda");
   if (r.notification_status === "sending") bits.push("email in spedizione");
   if (r.notification_status === "failed") bits.push("email NON consegnata" + (r.notification_last_error ? " (" + r.notification_last_error + ")" : ""));
-  if (r.slot_seat) bits.push("posto " + r.slot_seat);
+  if (dicePosto(r)) bits.push("posto " + r.slot_seat);
   /* il link è una chiave: se inoltrato, qualcun altro può cambiare la risposta. Non si impedisce, si vede */
   if (Number(r.n_answers) > 1) bits.push("ha cambiato risposta " + (r.n_answers - 1 === 1 ? "una volta" : (r.n_answers - 1) + " volte") + " (la storia è in «…»)");
   li.querySelector(".sub").textContent = bits.join(" · ");

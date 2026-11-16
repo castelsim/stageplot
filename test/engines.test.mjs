@@ -34581,6 +34581,65 @@ t("L5: il badge dell'uscita multicore si legge: il rettangolo di aggancio non è
   ok(/var _bw=Math\.max\(76, String\(h\.name\|\|""\)\.length\*5\.9\+16\)/.test(appjs), "larghezza del badge dal nome");
 });
 
+/* ORC16d — lotto resto B (16/11/2026): promemoria a chi non ha risposto (senza email), menu strumenti per famiglia, parte dedotta, modello orchestra + coro. */
+const orcCv2 = await import("../orchestre/src/domain/convocare.js");
+const orcSt2 = await import("../orchestre/src/domain/staffing.js");
+t("Orchestre ORC16d B: promemoria — il messaggio dice che manca la risposta, porta titolo, testo aggiuntivo e link", () => {
+  const m = orcCv2.messaggioPromemoria({ nomeCompleto: "Rossi Anna", titolo: "Concerto di Natale", url: "https://x.it/rispondi/?t=abc", nota: "  Prove\n alle 18 " });
+  const r = m.split("\n");
+  eq(r.length, 3, "saluto, nota, link");
+  ok(/^Ciao Anna, non ho ancora la tua risposta/.test(r[0]) && r[0].includes("«Concerto di Natale»"), "nome proprio e titolo");
+  eq(r[1], "Prove alle 18"); eq(r[2], "https://x.it/rispondi/?t=abc");
+  eq(orcCv2.messaggioPromemoria({ titolo: "T", url: "u" }).split("\n").length, 2, "senza nota: due righe");
+});
+t("Orchestre ORC16d B: chi si sollecita — invitati senza risposta e scaduti; mai chi ha detto sì/no o è annullato", () => {
+  const rows = ["sent", "viewed", "no_reply", "expired", "available", "partial", "unavailable", "confirmed", "reserve", "cancelled", "revoked", "draft"].map((status, i) => ({ id: i, status }));
+  eq(orcCv2.daSollecitare(rows).map((r) => r.status), ["sent", "viewed", "no_reply", "expired"]);
+  eq(orcCv2.daSollecitare(null), []);
+});
+t("Orchestre ORC16d B: tutti i messaggi insieme — un blocco per persona col nome in testa", () => {
+  const x = orcCv2.messaggiInsieme([{ nome: "A", testo: "uno" }, { nome: "B", testo: "due" }]);
+  eq(x, "— A —\nuno\n\n— B —\ndue"); eq(orcCv2.messaggiInsieme([]), "");
+});
+t("Orchestre ORC16d B: «posto N» solo a chi il posto ce l'ha (non dopo revoca, rifiuto, annullo)", () => {
+  ok(orcCv2.dicePosto({ status: "confirmed", slot_seat: 1 }));
+  for (const st of ["revoked", "unavailable", "cancelled", "replaced", "withdrew"]) ok(!orcCv2.dicePosto({ status: st, slot_seat: 1 }), st);
+  ok(!orcCv2.dicePosto({ status: "confirmed", slot_seat: null }));
+});
+t("Orchestre ORC16d B: menu strumenti per famiglia — ordine delle famiglie, ordine del catalogo dentro, sconosciuta in «Altri»", () => {
+  const g = orcCv2.strumentiPerFamiglia([{ code: "t", family: "ottoni" }, { code: "v", family: "archi" }, { code: "a", family: "archi" }, { code: "z", family: "boh" }, { code: "c", family: "voci" }]);
+  eq(g.map((x) => x.etichetta), ["Archi", "Ottoni", "Voci", "Altri"]);
+  eq(g[0].strumenti.map((i) => i.code), ["v", "a"], "ordine del catalogo");
+  eq(orcCv2.strumentiPerFamiglia([]), []);
+  eq(orcCv2.strumentiPerFamiglia(null), []);
+});
+t("Orchestre ORC16d B: la parte si deduce dal nome — primi/I/solista; «Primavera» e «Violini secondi» restano fila", () => {
+  for (const [n, p] of [["Violini primi", "principal"], ["Violini I", "principal"], ["Primo corno", "principal"], ["Violini 1", "principal"], ["Voce solista", "solo"], ["Solista", "solo"],
+    ["Violini secondi", "tutti"], ["Violini II", "tutti"], ["Primavera", "tutti"], ["Viole", "tutti"], ["", "tutti"], [null, "tutti"], ["Violini I e II", "tutti"]]) eq(orcCv2.parteDaNome(n), p, JSON.stringify(n));
+});
+t("Orchestre ORC16d B: modello «Orchestra sinfonica con coro» — coro a quattro voci e maestro, strumenti del catalogo", () => {
+  const m = orcSt2.TEMPLATES.sinfonica_coro; ok(m, "esiste");
+  const coro = m.sections.find((x) => x.section === "Coro");
+  eq(coro.roles.map((r) => r.name), ["Soprani", "Contralti", "Tenori", "Bassi", "Maestro del coro"]);
+  eq(coro.roles.map((r) => r.instrument), ["corista", "corista", "corista", "corista", "maestro_del_coro"], "strumenti del catalogo");
+  eq(orcSt2.templateSeats({ sections: [coro] }), 39);
+  eq(orcSt2.templateSeats(m), orcSt2.templateSeats(orcSt2.TEMPLATES.sinfonica) + 39, "sinfonica + coro");
+  const mig = readFileSync(join(root, "supabase/migrations/0042_orc_catalogs.sql"), "utf8").replace(/\s+/g, " ");
+  for (const sec of m.sections) for (const r of sec.roles) ok(mig.includes("('" + r.instrument + "'"), "strumento nel catalogo: " + r.instrument);
+});
+t("Orchestre ORC16d B: pagina produzione — promemoria avanzato e chiuso, nessuna email, link nuovo con conferma; menu a gruppi; parte che segue il nome", () => {
+  const pg = readFileSync(join(root, "orchestre/src/pages/produzione.js"), "utf8");
+  ok(/<details class="card avanzate" id="promemoria">/.test(pg) && !/id="promemoria"[^>]*\bopen\b/.test(pg), "funzione avanzata chiusa di serie");
+  const blocco = pg.slice(pg.indexOf("function promemoriaCard"), pg.indexOf("function invitationRow"));
+  ok(/inv\.relink\(r\.id\)/.test(blocco) && /await confirm\(/.test(blocco), "link nuovo solo dopo la conferma");
+  ok(!/inv\.action|notifyNow/.test(blocco), "nessuna email: né azione di promemoria né coda");
+  ok(/Copia tutti i messaggi/.test(blocco) && /Apri WhatsApp/.test(blocco));
+  ok(/if \(sol\.length && !cvFiltro\) box\.appendChild\(promemoriaCard\(sol\)\)/.test(pg), "solo se c'è chi sollecitare");
+  ok(/<optgroup label=/.test(pg) && /strumentiPerFamiglia\(cat\.instruments\)/.test(pg), "menu strumenti a gruppi");
+  ok(/parteScelta/.test(pg) && /parteDaNome\(e\.target\.value\)/.test(pg), "la parte segue il nome finché non la scegli");
+  ok(/if \(dicePosto\(r\)\) bits\.push\("posto "/.test(pg), "«posto» solo a chi lo ha");
+});
+
 /* ═══ PRODUZIONE DI QUESTO PROGETTO (16/11/2026, L0.2 suite produzione): i collegamenti del progetto aperto agli altri strumenti, in un posto solo, chiusi di serie ═══ */
 const _pp = () => appjs.slice(appjs.indexOf("function prodProgettoVoci"), appjs.indexOf("window.openProdHub=function"));
 const UUID = "3f2b8c1e-5a4d-4e6f-9b7a-1c2d3e4f5a6b";
