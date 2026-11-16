@@ -16630,6 +16630,13 @@ var MON_STEREO = { iem:1, iemant:1, hearback:1 };   /* mix stereo (2 uscite) */
 /* Simone 08/07: niente più margine %. La lunghezza di un cavo d'ingresso = percorso orizzontale
    + MIC_REACH (arrivare al microfono su asta / risalire l'asta). I ritorni/snake restano al percorso. */
 var MIC_REACH=2;   /* metri */
+/* L6 (16/11/2026, CAVI_SUL_PALCO R19-R20): lunghezza di un cavo = Manhattan del percorso DISEGNATO × 1,10 + 0,6 m di scorta (service loop vicino alla sorgente),
+   più MIC_REACH dove il cavo arriva a un microfono su asta; poi arrotondata al taglio commerciale. Una funzione sola per tutti i cavi (segnale, ritorni, multicore, corrente). */
+var CAB_LEN_K=1.10, CAB_LEN_SCORTA=0.6;
+function cabLenFinale(pathCm, extraM){ return pathCm/100*CAB_LEN_K+CAB_LEN_SCORTA+(extraM||0); }
+/* tagli del multicore / del cavo di rete (m): i multicore di service si vendono a tagli più lunghi dell'XLR; oltre 100 m = rete o fibra (R17-R18) */
+var CAB_MC_CUTS=[10,15,20,30,40,50,60,80,100];
+function cabCutMc(m){ for(var i=0;i<CAB_MC_CUTS.length;i++){ if(CAB_MC_CUTS[i]>=m-1e-9) return CAB_MC_CUTS[i]; } return null; }
 function cabMargin(){ return 0; }   /* legacy, non più usato per il calcolo */
 function polyLen(pts){ var d=0; for(var i=1;i<pts.length;i++){ d+=Math.hypot(pts[i][0]-pts[i-1][0], pts[i][1]-pts[i-1][1]); } return d; }
 /* ── Routing ORTOGONALE dei cavi (mai diagonali): percorso a L, run lungo l'asse dominante + gomito vicino al bersaglio ── */
@@ -16945,6 +16952,55 @@ function cabRoutesAll(){
     var rp=cabRoutePts([[k.x1,k.y1],[k.x2,k.y2]], OBS, ex, "mc"); out.push({key:"m:"+(k.box&&k.box.id||""), kind:"mc", poly:orthExpand(rp), ex:ex, nome:"multicore "+(k.box&&k.box.letter||""), murato:!!rp.murato}); });
   if(state.elec && state.elec.on){ try{ elecRouteList(elecResult()).forEach(function(r){ var rp=cabRoutePts(r.pts, OBS, r.ex, "pwr"); out.push({key:r.key, kind:"pwr", poly:orthExpand(rp), ex:r.ex, nome:r.nome, murato:!!rp.murato}); }); }catch(_e){} }
   return out;
+}
+/* L6 — le lunghezze seguono il percorso DISEGNATO. Prima la lunghezza era il Manhattan dei punti d'appoggio (capi e waypoint), mentre il disegno gira attorno agli ingombri
+   (A* ortogonale): l'etichetta diceva «5 m» e il cavo disegnato ne misurava 7. Qui si instrada come fa il disegno (stesse chiamate di cabRoutesAll/elecRouteList, stessa cache dei
+   tratti: nessun ricalcolo pesante) e si prende la lunghezza dal poligono. In modalità «diretto» il disegno è la retta fra i punti: resta il Manhattan dei punti. */
+function _cabDisegnata(pts, OBS, ex, kind){
+  if(OBS) { try{ var rp=cabRoutePts(pts, OBS, ex, kind); return orthLen(orthExpand(rp)); }catch(_e){} }
+  return orthLen(pts);
+}
+function cabAllineaLunghezze(links, returnLinks, snakes){
+  var orto=!!(state.cab && state.cab.on && cabRouteMode()==="orto"), OBS=orto?obstacleRects():null;
+  (links||[]).forEach(function(l){ if(l.deleted || l.via) return;
+    var ex={}; ex[l.s.it.id]=1; if(l.box&&l.box.id) ex[l.box.id]=1;
+    var cm=_cabDisegnata(l.pts, OBS, ex); l.pathM=cm/100; l.lenM=cabLenFinale(cm, MIC_REACH); l.cut=cabCut(l.lenM); });
+  (returnLinks||[]).forEach(function(l){ var ex={}; if(l.box&&l.box.id) ex[l.box.id]=1; if(l.sink&&l.sink.id) ex[l.sink.id]=1;
+    var cm=_cabDisegnata(l.pts, OBS, ex, "ret"); l.pathM=cm/100; l.lenM=cabLenFinale(cm, MIC_REACH); l.cut=cabCut(l.lenM); });
+  (snakes||[]).forEach(function(k){ var ex={}; if(k.box&&k.box.id) ex[k.box.id]=1;
+    var cm=_cabDisegnata([[k.x1,k.y1],[k.x2,k.y2]], OBS, ex, "mc"); k.pathM=cm/100; k.lenM=cabLenFinale(cm); k.cut=cabCutMc(k.lenM); if(k.up) k.up.lenM=k.lenM; });
+}
+function elecAllineaLunghezze(loadLinks, uplinks, feeds){
+  var orto=!!(state.cab && state.cab.on && cabRouteMode()==="orto"), OBS=orto?obstacleRects():null;
+  (loadLinks||[]).forEach(function(l){ var ex={}; if(l.load&&l.load.it) ex[l.load.it.id]=1; if(l.distro&&l.distro.it) ex[l.distro.it.id]=1;
+    var cm=_cabDisegnata(l.pts, OBS, ex, "pwr"); l.pathM=cm/100; l.lenM=cabLenFinale(cm); l.cut=cabCut(l.lenM); });
+  (uplinks||[]).forEach(function(u){ var ex={}; if(u.from&&u.from.it) ex[u.from.it.id]=1; if(u.to&&u.to.it) ex[u.to.it.id]=1;
+    var cm=_cabDisegnata(u.pts, OBS, ex, "pwr"); u.pathM=cm/100; u.lenM=cabLenFinale(cm); u.cut=cabCut(u.lenM); });
+  (feeds||[]).forEach(function(f){ var ex={}; if(f.distro&&f.distro.it) ex[f.distro.it.id]=1;
+    var cm=_cabDisegnata([[f.x1,f.y1],[f.x2,f.y2]], OBS, ex, "pwr"); f.pathM=cm/100; f.lenM=cabLenFinale(cm); f.cut=cabCut(f.lenM); });
+}
+/* L6 — «cavi per taglio»: quanti XLR da 5 m, da 10 m…, i multicore/le reti, i cavi di corrente. Una fonte sola per il pannello Stato e per il PDF del cablaggio
+   (la stessa che ha già i tagli dell'audit): si legge da cabResult()/elecResult(), che si riusano se lo stato non cambia → nessun ricalcolo a ogni ridisegno. */
+function _tagliConta(arr, get){ var t={}; arr.forEach(function(x){ var c=get(x), k=c?String(c):">"; t[k]=(t[k]||0)+1; }); return t; }
+function _tagliOrdine(t){ return Object.keys(t).sort(function(a,b){ return (a===">"?9999:+a)-(b===">"?9999:+b); }); }
+function cabTaglioTesto(t, oltre){ return _tagliOrdine(t).map(function(c){ return t[c]+"× "+(c===">"?(oltre||"oltre 50 m"):c+" m"); }).join(" · "); }
+var CAB_COLORI_ZONA=["rosso","blu","verde","giallo","arancio","viola","bianco","nero"];   /* R22: un colore per zona, lo stesso nastro sulla box e sui suoi cavi */
+function cabColoreBox(b){ var i=Math.max(0, String(b&&b.letter||"A").charCodeAt(0)-65); return CAB_COLORI_ZONA[i%CAB_COLORI_ZONA.length]; }
+function cabMateriali(){
+  var R=cabResult(), E=(state.elec&&state.elec.on)?elecResult():null;
+  var ln=(R.links||[]).filter(function(l){ return !l.deleted && !l.via; }), rt=R.returnLinks||[], sn=R.snakes||[];
+  var xlr=_tagliConta(ln, function(l){ return l.cut; }), ret=_tagliConta(rt, function(l){ return l.cut; });
+  var xlrTot=_tagliConta(ln.concat(rt), function(l){ return l.cut; });
+  var mc=_tagliConta(sn, function(k){ return k.cut; });
+  var elLoad=E?(E.loadLinks||[]):[], elUp=E?(E.uplinks||[]).concat(E.feeds||[]):[];
+  var el=_tagliConta(elLoad.filter(function(l){ return !l.cee; }), function(l){ return l.cut; });
+  var elCee=_tagliConta(elLoad.filter(function(l){ return l.cee; }), function(l){ return l.cut; });
+  var elDor=_tagliConta(elUp, function(l){ return l.cut; });
+  var metri=function(arr){ return arr.reduce(function(a,l){ return a+(l.cut||l.lenM||0); }, 0); };
+  return {xlr:xlr, ret:ret, xlrTot:xlrTot, mc:mc, el:el, elCee:elCee, elDor:elDor,
+    nXlr:ln.length+rt.length, nMc:sn.length, nEl:elLoad.length, nDor:elUp.length,
+    metriXlr:metri(ln.concat(rt)), metriMc:metri(sn), links:ln, returnLinks:rt, snakes:sn,
+    testo:{ xlr:cabTaglioTesto(xlrTot), mc:cabTaglioTesto(mc,"oltre 100 m"), el:cabTaglioTesto(el), elCee:cabTaglioTesto(elCee), elDor:cabTaglioTesto(elDor) }};
 }
 /* Fasci (R10/R11): cavi dello stesso tipo che corrono sulla stessa linea si distribuiscono a 4 cm l'uno dall'altro (al massimo ±12 cm), per vederli uno per uno.
    Si spostano solo i tratti interni (gli estremi restano sul capo); se lo spostamento entra in un ingombro, esce dal palco o inverte un tratto, quel cavo resta com'era. */
@@ -17434,7 +17490,7 @@ function audioCablingEngine(){
       var b= manualMode ? forced : (forced || whole || cand[0] || null);
       if(!b){ if(!ov.deleted) g.list.forEach(function(s){ unassigned.push(s); }); return; }
       var pts=[portAnchor(g.it,"audio")].concat(_wp).concat((ov.pts||[])).concat([boxAnchor(b)]);   /* strumento → pedaliera/ampli → DI → stage box */
-      var lenM=orthLen(pts)/100+MIC_REACH, cut=cabCut(lenM);
+      var lenM=cabLenFinale(orthLen(pts),MIC_REACH), cut=cabCut(lenM);
       /* computer → mixer via USB/Dante: un cavo solo, canali digitali, ZERO ingressi mic/line
          consumati (29/07). Le porte analogiche del DM3 restano libere per i microfoni. */
       var _via=cabViaOf(b, g.it, ov);
@@ -17476,7 +17532,7 @@ function audioCablingEngine(){
       if(!b){ if(!ov.deleted) unassigned.push(s); return; }
       var _sa = isPerMusicianMulti(s.it) ? channelAnchor(s.it, +String(s.key).split("#")[1], g.list.length) : portAnchor(s.it,"audio");
       var pts=[_sa].concat(_wp).concat((ov.pts||[])).concat([boxAnchor(b)]);   /* strumento → (pedaliera/ampli) → (DI) → stage box; il capo parte dal pallino audio del musicista */
-      var lenM=orthLen(pts)/100+MIC_REACH, cut=cabCut(lenM);   /* + 2 m per arrivare al mic su asta */
+      var lenM=cabLenFinale(orthLen(pts),MIC_REACH), cut=cabCut(lenM);   /* + 2 m per arrivare al mic su asta */
       var _via1=cabViaOf(b, s.it, ov);   /* computer mono verso il mixer: stessa scelta della coppia */
       if(_via1!=="an"){
         var vn1=(b.dig[_via1]=(b.dig[_via1]||0)+1);
@@ -17508,7 +17564,7 @@ function audioCablingEngine(){
       var prev=l.pts[l.pts.length-2]||boxAnchor(b);
       var vert=Math.abs(prev[1]-b.y)>=Math.abs(prev[0]-b.x);   /* ingresso più verticale? offset in x, altrimenti in y */
       var _ba=boxAnchor(b); l.pts[l.pts.length-1]= vert ? [_ba[0]+off, _ba[1]] : [_ba[0], _ba[1]+off];
-      l.lenM=orthLen(l.pts)/100+MIC_REACH; l.cut=cabCut(l.lenM);
+      l.lenM=cabLenFinale(orthLen(l.pts),MIC_REACH); l.cut=cabCut(l.lenM);
     });
   });
   /* coda della sub-snake analogica → blocco contiguo di porte sul rack I/O (riservate rispettate) */
@@ -17527,14 +17583,14 @@ function audioCablingEngine(){
     if(!found){ issues.push({lvl:"err", msg:"Coda della sub-snake "+b.letter+" ("+N+" ch): nessun rack I/O con "+N+" porte contigue libere — libera porte, togli riservate o aggiungi un rack I/O."}); return; }
     var map={};
     myPorts.forEach(function(mp,ix){ found.taken[p0+ix]=1; found.snkFrom=found.snkFrom||{}; found.snkFrom[p0+ix]=b.letter; map[mp]=p0+ix; });
-    b.up={box:found, p0:p0, n:N, map:map, lenM:orthLen([[b.x,b.y],[found.x,found.y]])/100};
+    b.up={box:found, p0:p0, n:N, map:map, lenM:cabLenFinale(orthLen([[b.x,b.y],[found.x,found.y]]))};
   });
   /* digital snake: home-run da ogni box usata al punto principale; l'analogica con coda va al rack I/O */
   var snakes=[];
   boxes.forEach(function(b){ if(!b.used) return;
     if(b.isMixer) return;   /* la console È il capolinea: non si tira una snake dal mixer al mixer (29/07) */
     if(b.up){ snakes.push({box:b, x1:b.x, y1:b.y, x2:b.up.box.x, y2:b.up.box.y, lenM:b.up.lenM, up:b.up}); return; }
-    if(home) snakes.push({box:b, x1:b.x, y1:b.y, x2:home.x, y2:home.y, lenM:orthLen([[b.x,b.y],[home.x,home.y]])/100}); });
+    if(home) snakes.push({box:b, x1:b.x, y1:b.y, x2:home.x, y2:home.y, lenM:cabLenFinale(orthLen([[b.x,b.y],[home.x,home.y]]))}); });
   /* 02/09 — se le box hanno canali dentro e la snake non va da nessuna parte, il disegno mente per
      omissione: sembra tutto collegato e invece il cavo piu' importante non c'e'. Prima questo caso
      era MUTO, ed era il caso normale (`cab.home` nasceva null e non si poteva creare). */
@@ -17568,10 +17624,11 @@ function audioCablingEngine(){
     m.sinks.forEach(function(sk){ var key="ret:"+m.key+":"+sk.id, ov=man[key]||{};   /* #17: i ritorni editabili come gli input */
       if(ov.deleted) return;   /* ritorno eliminato a mano (si ricrea ritrascinando la porta ciano) */
       var pts=[boxAnchor(m.box)].concat((ov.pts||[])).concat([portAnchor(sk,"mon")]);   /* box → (waypoint manuali) → pallino monitor */
-      var lenM=orthLen(pts)/100+MIC_REACH, cut=cabCut(lenM);   /* + 2 m di slack anche sul ritorno */
+      var lenM=cabLenFinale(orthLen(pts),MIC_REACH), cut=cabCut(lenM);   /* + 2 m di slack anche sul ritorno */
       returnLinks.push({mix:m, sink:sk, box:m.box, outCh:m.outCh, pts:pts, lenM:lenM, cut:cut, key:key, manual:!!(ov.pts&&ov.pts.length)}); }); });
   var capOutTot=boxes.reduce(function(a,b){ return a+b.outCap; },0);
   var mixChTot=mixes.reduce(function(a,m){ return a+m.ch; },0);
+  cabAllineaLunghezze(links, returnLinks, snakes);   /* L6: lunghezza = percorso disegnato (prima dei conteggi per taglio e degli avvisi) */
   var returnCables={}; returnLinks.forEach(function(l){ var k=l.cut?l.cut+" m":">50 m"; returnCables[k]=(returnCables[k]||0)+1; });
   var monConsole=state.items.filter(function(it){ return it.type==="monmix"; })[0]||null;
   var hasWlrack=state.items.some(function(it){ return it.type==="wlrack"; });
@@ -17850,7 +17907,7 @@ function cablingMarkup(){
       /* Etichetta multicore (C1, 08/07): la snake box→FOH è il fascio che raccoglie le code — nei plot
          pro si annota col numero di canali. Rende esplicito il bundling già fatto dal motore. */
       if(LBL && state.cab.showLabels!==false && k.box){ var smid=cabMidpoint(orthExpand(dpts));
-        sk+='<text class="cab-lbl cab-snake-lbl" x="'+smid[0].toFixed(1)+'" y="'+(smid[1]-5).toFixed(1)+'" text-anchor="middle">'+(k.box.digital?'rete':'multicore')+' '+k.box.used+' ch'+(k.up?' → '+(k.up.box.sbId?('ID'+k.up.box.sbId):k.up.box.letter):'')+'</text>'; }
+        sk+='<text class="cab-lbl cab-snake-lbl" x="'+smid[0].toFixed(1)+'" y="'+(smid[1]-5).toFixed(1)+'" text-anchor="middle">'+(k.box.digital?'rete':'multicore')+' '+k.box.used+' ch'+(state.cab.showLengths?' · '+(k.cut?k.cut+' m':'>100 m'):'')+(k.up?' → '+(k.up.box.sbId?('ID'+k.up.box.sbId):k.up.box.letter):'')+'</text>'; }
       s+='<g class="cabgrp" data-own="'+esc(k.box&&k.box.id||'')+'">'+sk+'</g>';   /* C3: fade se non collegato all'elemento in hover */
     });
     var linkS='', loomPolys=[], drawnKey={};   /* C1: percorsi raccolti per il calcolo dei fasci */
@@ -18551,7 +18608,7 @@ function electricEngine(){
     if(!dd){ unassigned.push(l); return; }
     dd.phLoad[ph]+=l.a; dd.loadW+=l.w; dd.nLoads=(dd.nLoads||0)+1;
     var pts=[[dd.x,dd.y]].concat(ov.pts||[]).concat([portAnchor(l.it,"pow")]);   /* waypoint manuali + arrivo al pallino ambra */
-    var lenM=orthLen(pts)/100*(1+elecMargin()), cut=cabCut(lenM);
+    var lenM=cabLenFinale(orthLen(pts)), cut=cabCut(lenM);
     loadLinks.push({load:l, distro:dd, phase:ph, pts:pts, lenM:lenM, cut:cut, cee:l.a>16, key:l.it.id, manual:!!(ov.pts&&ov.pts.length)});
   });
   /* FAN-OUT AL DISTRO RIMOSSO (31/07). Sparpagliava i capi su un anello di ±14 cm attorno al centro
@@ -18616,7 +18673,7 @@ function electricEngine(){
       T.phLoad[mp]+=amps; T.loadW+=d.loadW;
       if(T.phLoad[mp]>T.a) issues.push({lvl:"err", msg:"Quadro "+T.letter+" sovraccarico con la linea da "+d.letter+" ("+T.phLoad[mp].toFixed(0)+"/"+T.a+" A)."});
       var upts=[[d.x,d.y]].concat(L.u.pts||[]).concat([[T.x,T.y]]);
-      uplinks.push({from:d, to:T, key:"up:"+d.it.id, pts:upts, lenM:orthLen(upts)/100*(1+elecMargin()), a:amps, section:elecSection(Math.max(16,Math.ceil(amps))), manual:!!(L.u.pts&&L.u.pts.length)});
+      uplinks.push({from:d, to:T, key:"up:"+d.it.id, pts:upts, lenM:cabLenFinale(orthLen(upts)), a:amps, section:elecSection(Math.max(16,Math.ceil(amps))), manual:!!(L.u.pts&&L.u.pts.length)});
     });
   })();
   /* Chi «pende» davvero (31/07): non tutto ciò che è senza uplink va collegato a monte — il quadro
@@ -18642,7 +18699,7 @@ function electricEngine(){
   var feeds=[];
   if(!manualModeE && supply) distros.forEach(function(d){ if(d.loadW<=0) return;
     if(d.it && ups[d.it.id] && ups[d.it.id].to) return;   /* ha già un uplink disegnato dall'utente */
-    feeds.push({distro:d, x1:d.x, y1:d.y, x2:supply.x, y2:supply.y, a:d.a, section:elecSection(d.a), lenM:orthLen([[d.x,d.y],[supply.x,supply.y]])/100}); });
+    feeds.push({distro:d, x1:d.x, y1:d.y, x2:supply.x, y2:supply.y, a:d.a, section:elecSection(d.a), lenM:cabLenFinale(orthLen([[d.x,d.y],[supply.x,supply.y]]))}); });
   /* F4: numero di linea per distro (progressivo, pin via elecManual.line) + connettore per ogni carico */
   distros.forEach(function(d){
     var mine=loadLinks.filter(function(l){ return l.distro===d; });
@@ -18671,6 +18728,7 @@ function electricEngine(){
       +(stretto?" Nessun quadro ha margine: servono "+l.a.toFixed(0)+" A e il più libero ne ha "+Math.max(0,_capLibera).toFixed(0)+". Aggiungi un quadro con più portata o dividi i carichi.":"")});
   });
   loadLinks.forEach(function(l){ if(l.cee) issues.push({lvl:"warn", msg:"«"+(l.load.it.label||TYPES[l.load.it.type].nome)+"» "+l.load.a.toFixed(0)+" A: serve una linea dedicata (CEE), non una Schuko."}); });
+  elecAllineaLunghezze(loadLinks, uplinks, feeds);   /* L6: lunghezza = percorso disegnato */
   loadLinks.forEach(function(l){ if(l.lenM>25) issues.push({lvl:"warn", msg:"Carico lontano dal distro ("+(l.load.it.label||TYPES[l.load.it.type].nome)+", "+l.lenM.toFixed(0)+" m): valuta la caduta di tensione / sezione maggiore."}); });
   /* Il generatore si dimensiona sul MASSIMO (audio a 1/3 della potenza) e in kVA, con cosφ 0,8 (A1, 07/11):
      prima il confronto era col tipico e cosφ 0,9, e un 20 kVA «bastava» a una PA che nel caso peggiore
@@ -35377,6 +35435,7 @@ function renderInspectorB(){
       return cuts.map(function(c){ return t[c]+"× "+(c===">50"?"oltre 50 m":c+" m"); }).join(" · "); }
     var xlr=tallyRow((R.links||[]).filter(function(l){ return !l.deleted; }).concat(R.returnLinks||[]));
     var elc=Re ? tallyRow(Re.loadLinks||[]) : "";
+    var _mat=null; try{ _mat=cabMateriali(); }catch(_e){}   /* L6: multicore e dorsali di corrente, per taglio */
     var pw=powerTotalW();
     function ir(k,v,cls){ return '<div class="insp-row'+(cls?" "+cls:"")+'"><b>'+esc(k)+'</b><small>'+esc(String(v))+'</small></div>'; }
     /* conteggi infrastruttura (Simone 08/07: righe omogenee nello STATO + ciabatte/prese/quadri) */
@@ -35400,7 +35459,9 @@ function renderInspectorB(){
     }
     if(boxesTxt) s+=ir("Stage box", boxesTxt);
     if(xlr) s+=ir("Cavi XLR", xlr);
+    if(_mat && _mat.nMc) s+=ir(((R.snakes||[]).every(function(k){ return k.box&&k.box.digital; })?"Cavi di rete":"Multicore"), _mat.testo.mc);
     if(elc) s+=ir("Cavi elettrici", elc);
+    if(_mat && _mat.nDor) s+=ir("Linee di alimentazione", _mat.testo.elDor);
     /* L5: passacavo rampato nella lista dei materiali (uscita multicore + ogni passaggio attraversato) */
     var _pc=null; try{ _pc=cabPassacavoTesto(); }catch(_e){}
     if(_pc) s+=ir("Passacavo rampato", _pc.testo, _pc.attraversa?"insp-over":"");
@@ -38230,7 +38291,7 @@ function cabReportPdf(shared){
     y=22;
     if(state.titolo || state.luogo) line((state.titolo||"")+(state.luogo?" — "+state.luogo:""), 12, true, null, 8);
     /* M-06 onestà tecnica: le lunghezze sono stime sul percorso ortogonale, da verificare in loco. */
-    (function(){ var d="Le lunghezze sono STIME sul percorso ortogonale (Manhattan) più margine di reach, utili per l'ordine cavi. Il percorso reale sul palco — pieghe, ostacoli, dislivelli, passaggi — va verificato in loco.";
+    (function(){ var d="Le lunghezze sono STIME: percorso disegnato (ortogonale) × 1,10 + 0,6 m di scorta, più 2 m dove il cavo sale al microfono su asta, arrotondate al taglio commerciale. Utili per l'ordine cavi: il percorso reale sul palco — dislivelli, passaggi, pedane — va verificato in loco.";
       doc.setFontSize(8); doc.setFont("helvetica","italic"); var dl=doc.splitTextToSize(d, W-2*M-6), dh=dl.length*3.5+4;
       doc.setFillColor("#f0fdfa"); doc.setDrawColor("#0d9488"); doc.roundedRect(M, y-3, W-2*M, dh, 1.5, 1.5, "FD");
       doc.setTextColor("#0f766e"); doc.text(dl, M+3, y+1); y+=dh+4; })();
@@ -38242,8 +38303,14 @@ function cabReportPdf(shared){
       var hw=b.hw&&STAGEBOX_DB[b.hw];
       line("Stage box "+b.letter+": "+(hw?hwLabel(b.hw,STAGEBOX_DB)+" — "+hwProtoNames(hw.proto):b.name)+"  ("+b.used+"/"+b.cap+" ch"+(b.auto?", proposta 8ch":"")+")", 9.5, false, null, 4.8);
     });
-    var cuts=Object.keys(R.cables).sort(function(a,b){ return parseFloat(a)-parseFloat(b); });
-    if(cuts.length) line("Cavi XLR: "+cuts.map(function(c){ return R.cables[c]+" × "+c; }).join(", "), 10, false, null, 5);
+    /* L6: cavi per taglio (stessa fonte del pannello Stato): XLR, multicore/rete, corrente */
+    var MAT=null; try{ MAT=cabMateriali(); }catch(_e){ MAT=null; }
+    if(MAT){
+      if(MAT.nXlr) line("Cavi XLR (segnale e ritorni): "+MAT.testo.xlr, 10, false, null, 5);
+      if(MAT.nMc) line((R.snakes.every(function(k){ return k.box&&k.box.digital; })?"Cavi di rete":"Multicore")+": "+MAT.testo.mc, 10, false, null, 5);
+      if(MAT.nEl) line("Cavi di corrente: "+[MAT.testo.el, MAT.testo.elCee?MAT.testo.elCee+" (CEE)":""].filter(Boolean).join(" · "), 10, false, null, 5);
+      if(MAT.nDor) line("Linee di alimentazione: "+MAT.testo.elDor, 10, false, null, 5);
+    }
     if(R.diMono||R.diStereo) line("DI da prevedere: "+(R.diMono?R.diMono+" mono":"")+(R.diMono&&R.diStereo?" + ":"")+(R.diStereo?R.diStereo+" stereo":""), 10, false, null, 5);
     /* aste: nei rider veri il dato sta qui, come totale ("(3) telescoping boom mic stands") */
     try{ var _sn=standNeeds(), _snParts=STAND_KINDS.filter(function(k){ return _sn[k[0]].tot>0; }).map(function(k){ return _sn[k[0]].tot+" "+k[1].toLowerCase(); });
@@ -38273,6 +38340,29 @@ function cabReportPdf(shared){
     var _crit=R.issues; try{ _crit=R.issues.concat(cabRouteInfo().issues); }catch(_e){}   /* L4/L5: segnale/potenza in parallelo, passacavo */
     if(_crit.length) _crit.forEach(function(i){ line("• "+i.msg, 9, i.lvl==="err", i.lvl==="err"?"#dc2626":(i.lvl==="warn"?"#b45309":"#6b7280"), 4.6); });
     else line("Nessuna criticità rilevata.", 10, false, "#0d9488", 5);
+    /* L6 — Scheda cavi per il service: una pagina a sé, per box (zona), con colore del nastro, numero del cavo, lunghezza disegnata e taglio da prendere (R22) */
+    try{ if(MAT && (MAT.nXlr||MAT.nMc||MAT.nEl)){
+      doc.addPage("a4","portrait"); y=22;
+      doc.setFillColor("#0d9488"); doc.rect(0,0,W,14,"F"); doc.setTextColor("#ffffff"); doc.setFontSize(11); doc.setFont("helvetica","bold"); doc.text("STAGE PLOT — Scheda cavi per il service", M, 9);
+      doc.setFontSize(9); doc.setFont("helvetica","normal"); doc.text(dataDocumento(), W-M, 9, {align:"right"});
+      if(state.titolo || state.luogo) line((state.titolo||"")+(state.luogo?" — "+state.luogo:""), 12, true, null, 8);
+      var riga=function(txt, bold, color){ if(y>276){ doc.addPage("a4","portrait"); y=20; } line(txt, 9, bold, color, 4.6); };
+      line("Da preparare (per taglio)", 12, true, "#0d9488", 6);
+      if(MAT.nXlr) riga("XLR segnale: "+cabTaglioTesto(_tagliConta(MAT.links, function(l){ return l.cut; })), false);
+      if(MAT.returnLinks.length) riga("XLR ritorni monitor: "+cabTaglioTesto(MAT.ret), false);
+      if(MAT.nMc) riga(((R.snakes||[]).every(function(k){ return k.box&&k.box.digital; })?"Cavi di rete: ":"Multicore: ")+MAT.testo.mc, false);
+      if(MAT.nEl) riga("Corrente: "+[MAT.testo.el, MAT.testo.elCee?MAT.testo.elCee+" (CEE)":""].filter(Boolean).join(" · "), false);
+      if(MAT.nDor) riga("Linee di alimentazione: "+MAT.testo.elDor, false);
+      try{ var _pcs=cabPassacavoTesto(); if(_pcs) riga("Passacavo rampato: "+_pcs.testo, false); }catch(_e){}
+      y+=3; line("Per box (un colore di nastro per zona, uguale sulla box e sui suoi cavi)", 12, true, "#0d9488", 6);
+      R.boxes.forEach(function(b){
+        var mine=MAT.links.filter(function(l){ return l.box===b; }).sort(function(a,c){ return a.ch-c.ch; });
+        var sk=(R.snakes||[]).filter(function(k){ return k.box===b; })[0];
+        if(!mine.length && !sk) return; y+=1.5;
+        riga("Box "+b.letter+" · nastro "+cabColoreBox(b)+" · "+b.used+"/"+b.cap+" ch"+(sk?" · "+(b.digital?"rete":"multicore")+" "+(sk.cut?sk.cut+" m":"oltre 100 m")+" (disegnato "+sk.pathM.toFixed(1).replace(".",",")+" m)":""), true, "#0f766e");
+        mine.forEach(function(l){ riga("  "+(l.label||(b.letter+l.ch))+"  "+(l.s.name||"")+(l.s.mic?" · "+l.s.mic:"")+"  —  disegnato "+(l.pathM!=null?l.pathM.toFixed(1).replace(".",","):"?")+" m  ->  XLR "+(l.cut?l.cut+" m":"oltre 50 m!"), false, l.cut?null:"#dc2626"); });
+      });
+    } }catch(_e){}
     if(shared) return;
     pdfCredit(doc);
     if(window.__cabPdfTest){ window.__cabPdfTest={name:fileName()+"-cablaggio-audio.pdf", pages:doc.getNumberOfPages()}; return; }   /* hook di test: niente download */
