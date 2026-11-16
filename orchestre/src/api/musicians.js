@@ -73,6 +73,19 @@ export async function archive(id) {
   fail(error);
 }
 
+/* Archivio (0088): elenco, ripristino, cancellazione definitiva (solo il proprietario, scrivendo il nome). */
+export async function listArchived(orgId) {
+  const { data, error } = await sb.rpc("orc_musicians_archived", { org: orgId });
+  fail(error);
+  return data || [];
+}
+export async function restore(id) { fail((await sb.rpc("orc_musician_restore", { musician: id })).error); }
+export async function purge(id, confirmName) {
+  const { data, error } = await sb.rpc("orc_musician_purge", { musician: id, confirm_name: confirmName });
+  fail(error);
+  return data;
+}
+
 /* items: [{code, primary, level, doubling}] — sostituisce l'elenco */
 export async function setInstruments(id, items) {
   fail((await sb.from("orc_musician_instruments").delete().eq("musician_id", id)).error);

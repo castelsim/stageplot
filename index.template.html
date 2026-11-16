@@ -27961,6 +27961,7 @@ var ORG_IMP_ALIAS=(function(){
   var A={}, add=function(id,l){ l.split("|").forEach(function(k){ A[k]=id; }); };
   add("v1","v1|vl1|vln1|vn1|vni|violini 1|violino 1|violini primi|primi violini|violino primo");
   add("v2","v2|vl2|vln2|vn2|vnii|violini 2|violino 2|violini secondi|secondi violini");
+  add("v12","violini|violino|violin|violins");   /* «16 violini» senza I e II: si dividono a metà fra primi e secondi (vedi agg) */
   add("vle","vle|vla|viola|viole|vle"); add("vc","vc|vcl|vcello|celli|cello|violoncello|violoncelli");
   add("cb","cb|cbs|contrabbasso|contrabbassi");
   add("fl","fl|flauto|flauti"); add("ob","o|ob|oboe|oboi"); add("cl","cl|clar|clarinetto|clarinetti"); add("fg","fg|fag|fagotto|fagotti");
@@ -27980,14 +27981,18 @@ function orgImpNorm(s){
 }
 function orgImpRisolvi(nome){
   var s=orgImpNorm(String(nome||"").split("/")[0].replace(/\([^)]*\)/g,""));
+  if(/^violini?( (1|i))? e (2|ii)$/.test(s)) return "v12";   /* «violini I e II» */
   return Object.prototype.hasOwnProperty.call(ORG_IMP_ALIAS,s) ? ORG_IMP_ALIAS[s] : null;
 }
 var ORG_IMP_PRIV=/@|\biban\b|\b[a-z]{2}\d{2}[a-z0-9]{11,}\b|(?:\+|\b00)\d[\d ]{8,}\d|\b3\d{2}[ .\-]?\d{6,7}\b|\b0\d{1,3}[ \/.\-]?\d{5,8}\b|\b(?:cv|curriculum|contratt\w*|compens\w*|cachet|fattur\w*|sostitut\w*|nominativ\w*|codice fiscale)\b/i;
 function orgImportParse(testo){
-  var R={varianti:[], ignorati:[], righeNo:[], privati:0, tagliati:[]}, vm={};
+  var R={varianti:[], ignorati:[], righeNo:[], privati:0, tagliati:[], violiniMeta:0}, vm={};
   var NOMI={completo:"Completo", medio:"Medio", ridotto:"Ridotto", "":"Organico"};
   function va(k){ if(!vm[k]){ vm[k]={id:k, nome:NOMI[k], counts:{}, tot:0}; R.varianti.push(vm[k]); } return vm[k]; }
-  function agg(k,id,n){ var v=va(k); v.counts[id]=(v.counts[id]||0)+n; }
+  function agg(k,id,n){
+    if(id==="v12"){ R.violiniMeta+=n; agg(k,"v1",Math.ceil(n/2)); agg(k,"v2",Math.floor(n/2)); return; }   /* violini senza I/II: metà e metà (i primi prendono l'eventuale dispari) */
+    var v=va(k); v.counts[id]=(v.counts[id]||0)+n;
+  }
   function isInt(s){ return /^\d{1,2}$/.test(String(s).trim()); }
   var cur="", hdr=null;
   String(testo||"").split(/\r?\n/).forEach(function(riga,ri){
@@ -28108,7 +28113,8 @@ function orgImportApri(){
         if(gia && !clear) h+='<div style="margin-top:6px;color:#b45309">Sul palco ci sono già dei posti di queste sezioni: restano, e il disegno avrà più posti di quelli dichiarati. Per sostituirli spunta «Svuota il palco».</div>';
       } else h+='<div style="color:var(--text-3)">'+(ta.value.trim() ? "Non ho trovato nessuna sezione da importare." : "Incolla il testo qui sopra: vedrai subito cosa verrebbe creato.")+'</div>';
       var note=[];
-      if(P.ignorati.length) note.push("Non riconosciuti: "+P.ignorati.slice(0,8).map(esc).join(", ")+(P.ignorati.length>8?"…":""));
+      if(P.violiniMeta) note.push("«"+P.violiniMeta+" violini» senza I e II: diviso a metà fra primi e secondi. Se non è così, scrivi «Violini I» e «Violini II» con il loro numero.");
+      if(P.ignorati.length) note.push('<b style="color:#b45309">Attenzione, NON riconosciuti e quindi non creati:</b> '+P.ignorati.slice(0,8).map(esc).join(", ")+(P.ignorati.length>8?"…":""));
       if(P.righeNo.length) note.push("Righe non riconosciute (contenuto non mostrato): "+P.righeNo.slice(0,10).join(", "));
       if(P.privati) note.push(P.privati+" dat"+(P.privati===1?"o personale saltato":"i personali saltati")+", non letti");
       if(P.tagliati.length) note.push("Oltre "+ORG_IMP_MAX+" per sezione: ridotto a "+ORG_IMP_MAX);

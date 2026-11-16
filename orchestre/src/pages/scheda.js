@@ -130,7 +130,7 @@ function paintDati() {
   if (m.id) {
     const arch = el(`<button type="button" class="btn small danger">Archivia</button>`);
     arch.onclick = async () => {
-      const yes = await confirm({ title: "Archiviare il musicista?", text: "Sparisce dal pool ma nessun dato va perso: lo storico resta.", ok: "Archivia", danger: true });
+      const yes = await confirm({ title: "Archiviare il musicista?", text: "Esce dal pool e dalle ricerche ma i dati restano: lo ritrovi in Musicisti › Archiviati e lo ripristini quando vuoi.", ok: "Archivia", danger: true });
       if (!yes) return;
       try { await api.archive(m.id); location.href = BASE + "/admin/musicisti/"; } catch (e) { toast(errMsg(e), { err: true }); }
     };
