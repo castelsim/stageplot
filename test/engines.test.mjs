@@ -34250,6 +34250,8 @@ t("Orchestre ORC16c P: pagina produzione — riepilogo cliccabile, filtro, Whats
   ok(/<span class="fam fam-\$\{f\}" title="\$\{esc\(etichettaFamiglia\(f\)\)\}" aria-label/.test(pg), "il colore ha anche il nome (non solo colore)");
   const mus = readFileSync(join(root, "orchestre/src/api/musicians.js"), "utf8");
   ok(/select\("phone"\)\.eq\("id", id\)\.is\("deleted_at", null\)/.test(mus), "il telefono si legge dalla scheda (RLS: solo staff)");
+});
+
 /* ORC16c — lotto Q (16/11/2026): cascata di riserve per posto e squadre tipo. Mai in automatico: un'email esce solo da «Chiama il prossimo». */
 const orcCa = await import("../orchestre/src/domain/cascata.js");
 t("Orchestre ORC16c Q: il prossimo è il primo «da chiamare» in ordine; in corso, rifiutati, senza risposta e archiviati si saltano", () => {
