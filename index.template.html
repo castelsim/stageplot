@@ -37863,6 +37863,22 @@ function autoScale(paperKey, orient, cartH){ return autoScaleConti(paperKey, ori
 function resolveScale(paperKey, scaleSel, orient, cartH){
   return scaleSel==="auto" ? autoScale(paperKey, orient, cartH) : parseInt(scaleSel,10);
 }
+/* Scala fissa con cui il disegno NON entra intero (P1 Il Volo, 16/11/2026: il piè a 16 mm toglie 5,5 mm in basso, e un palco che
+   entrava al limite ora si ritaglia): l'Esporta lo dice e propone come averlo TUTTO — la prossima scala fissa che entra sullo stesso
+   foglio, e il foglio successivo con la stessa scala. Mai tagliare in silenzio. Ritorna {scala:Np|null, foglio:"a3"|"a2"|null}. */
+var PDF_SCALE_FISSE=[50,100,200,250,500], PDF_FOGLIO_SUCCESSIVO={a4:"a3", a3:"a2"};
+function pdfProposteSeNonEntra(paperKey, N, orient, header){
+  var out={scala:null, foglio:null};
+  if(!(N>0)) return out;
+  var ch=cartHFor(header, paperKey, orient);
+  for(var i=0;i<PDF_SCALE_FISSE.length;i++){
+    var np=PDF_SCALE_FISSE[i]; if(np<=N) continue;
+    if(!pdfStageBox(np, paperKey, orient, ch).cropped){ out.scala=np; break; }
+  }
+  var nx=PDF_FOGLIO_SUCCESSIVO[paperKey];
+  if(nx && !pdfStageBox(N, nx, orient, cartHFor(header, nx, orient)).cropped) out.foglio=nx;
+  return out;
+}
 /* ===== CHI STA FUORI DAL PALCO E NON ARRIVA SUL FOGLIO (14/10/2026) =====
    Chi sta fuori dal palco è una scelta e si stampa lì dov'è (printScene). Si avvisa solo quando il foglio lo perde
    davvero: un'area di stampa scelta a mano che lo taglia, o una scala fissa con cui il foglio non basta. Un'area
@@ -42841,7 +42857,16 @@ function pdfChannelPage(doc, L, paperKey){
       var box=pdfStageBox(N, paper.value, _or, _cartH);
       info.className="mstatus"+(box.cropped?" warn":"");
       info.innerHTML="Scala risultante <b>1:"+N+"</b> · disegno "+mmW+"×"+mmH+" mm su "+paper.value.toUpperCase()+" "+oTxt+
-        (box.cropped? " — più grande del foglio: <b>verrà stampata la parte centrale che ci sta</b>, sempre in scala. Scegli <b>Automatica</b> o un foglio più grande per averlo tutto." : "");
+        (box.cropped? " — più grande del foglio: <b>verrà stampata la parte centrale che ci sta</b>, sempre in scala." : "");
+      var _prop=null;
+      if(box.cropped && scl.value!=="auto"){
+        var _pr=pdfProposteSeNonEntra(paper.value, N, _or, header.value), _bt="";
+        if(_pr.scala) _bt+=' <button type="button" class="btn tint" id="pdfToScala">Usa 1:'+_pr.scala+'</button>';
+        if(_pr.foglio) _bt+=' <button type="button" class="btn tint" id="pdfToFoglio">Passa a '+_pr.foglio.toUpperCase()+' (resta 1:'+N+')</button>';
+        info.className="mstatus warn";
+        info.innerHTML+="<br><b>Con questa scala il disegno non entra intero nel foglio.</b>"+(_bt ? " Per averlo tutto:"+_bt : " Prova un foglio più grande o un'altra scala.");
+        _prop=_pr;   /* i pulsanti si collegano a fine ramo: ogni «info.innerHTML+=» li ricrea */
+      }
       /* chi sta fuori dal palco si stampa, e con «Adatta al foglio» può costare una scala: dirlo (14/10) */
       info.innerHTML+=esc(pdfInfoFuori(paper.value, pdfScaleValue(), _or, _cartH));
       var _a3=pdfConsiglioA3(paper.value, pdfScaleValue(), header.value);
@@ -42852,6 +42877,9 @@ function pdfChannelPage(doc, L, paperKey){
         var _b3=document.getElementById("pdfToA3");
         if(_b3) _b3.onclick=function(){ var c=document.querySelector('[data-chips="pdfPaper"] button[data-v="a3"]'); if(c) c.click(); };
       }
+      var _bs=document.getElementById("pdfToScala"), _bf=document.getElementById("pdfToFoglio");
+      if(_bs && _prop) _bs.onclick=function(){ scl.value=String(_prop.scala); refresh(); };
+      if(_bf && _prop) _bf.onclick=function(){ var c=document.querySelector('[data-chips="pdfPaper"] button[data-v="'+_prop.foglio+'"]'); if(c) c.click(); };
     }
     renderFuoriPalco();   /* foglio, scala e verso decidono chi resta fuori dal foglio (14/10) */
     renderPreview();

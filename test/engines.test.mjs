@@ -35166,5 +35166,31 @@ t("P1 margini: piè a ≥15 mm, cartiglio e liste A4 si fermano sopra il piè", 
   ok(!/y>L\.ph-10\)\{ doc\.addPage/.test(appjs), "la tabella dell'elenco a pagine non scende a 10 mm dal fondo");
 });
 
+/* P1 VOLO (17/11/2026): a scala FISSA il disegno che non entra intero si dice con chiarezza e si propone scala o foglio successivi. */
+t("P1 scala fissa: se non entra intero l'Esporta propone la scala o il foglio successivi (mai ritaglio in silenzio)", () => {
+  reset();
+  const s0 = JSON.stringify(A.state.stage);
+  try {
+    const ch = A.cartHFor("", "a4", "portrait");
+    let prof = 0;   /* il palco 4×D m più corto che a 1:50 su A4 verticale ritaglia (misurato, non fissato a mano) */
+    for (let d = 900; d <= 1500 && !prof; d += 25) { A.state.stage = { w: 400, d, blocks: [{ x: 0, y: 0, w: 400, d }] }; if (A.pdfStageBox(50, "a4", "portrait", ch).cropped) prof = d; }
+    ok(prof > 0, "esiste una profondità che a 1:50 su A4 verticale ritaglia: " + prof);
+    const pr = A.pdfProposteSeNonEntra("a4", 50, "portrait", "");
+    ok(pr.scala > 50 && pr.foglio === "a3", "propone una scala più piccola e l'A3: " + JSON.stringify(pr));
+    ok(A.pdfStageBox(pr.scala, "a4", "portrait", ch).cropped === false, "la scala proposta entra intera");
+    ok(A.pdfStageBox(50, "a3", "portrait", A.cartHFor("", "a3", "portrait")).cropped === false, "il foglio proposto, a 1:50, la contiene intera");
+    const pa = A.pdfProposteSeNonEntra("a2", 50, "portrait", "");
+    eq(pa.foglio, null, "dopo A2 non c'è un foglio successivo");
+    eq(A.pdfProposteSeNonEntra("a4", 0, "portrait", ""), { scala: null, foglio: null }, "senza scala nessuna proposta");
+  } finally { A.state.stage = JSON.parse(s0); }
+  const src = readFileSync(join(root, "index.template.html"), "utf8");
+  const ramo = src.slice(src.indexOf('if(box.cropped && scl.value!=="auto"){'), src.indexOf('renderFuoriPalco();   /* foglio, scala e verso'));
+  ok(ramo.length > 300 && /pdfProposteSeNonEntra\(paper\.value, N, _or, header\.value\)/.test(ramo), "l'avviso nasce a scala fissa quando il disegno ritaglia");
+  ok(/non entra intero nel foglio/.test(ramo) && /id="pdfToScala"/.test(ramo) && /id="pdfToFoglio"/.test(ramo), "testo e i due pulsanti");
+  ok(/_bs\.onclick=function\(\)\{ scl\.value=String\(_prop\.scala\); refresh\(\); \}/.test(ramo) && /_bf\.onclick=/.test(ramo), "i pulsanti sono collegati DOPO le ultime innerHTML+= (che li ricreano)");
+  ok(ramo.indexOf("_bs.onclick") > ramo.lastIndexOf("info.innerHTML+="), "gli handler vengono dopo l'ultimo innerHTML+=");
+  ok(/info\.className="mstatus warn";\s*info\.innerHTML\+="<br><b>Con questa scala/.test(src), "l'avviso è in evidenza (warn)");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
