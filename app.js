@@ -13894,7 +13894,7 @@ var PRO_DB = {
   "x32r":{"kind":"console","brand":"Behringer","model":"X32 RACK","famiglia":"X32","mm":[483.0,287.0,132.0],"kg":6.5,"W":60,"rackU":3,"in":16,"out":8,"proto":["aes50"],"src":"Behringer X32-RACK Manual, p.59/58","look":{"rack":1},"usb":{"in":32,"out":32,"port":"scheda X-USB"}},
   "wing":{"kind":"console","brand":"Behringer","model":"WING","famiglia":"WING","mm":[870.0,575.0,201.0],"kg":24,"W":130,"in":8,"out":8,"proto":["aes50"],"src":"Behringer WING-series UserManual, p.167/11/10/13","look":{"f":[12,8,4],"s":1},"usb":{"in":48,"out":48,"port":"USB-B"}},
   "wingc":{"kind":"console","brand":"Behringer","model":"WING COMPACT","famiglia":"WING","mm":[453.0,574.0,225.0],"kg":15.4,"W":130,"in":24,"out":8,"proto":["aes50"],"src":"Behringer WING-series UserManual, p.167/11/10/13","look":{"f":[12,1],"s":1},"usb":{"in":48,"out":48,"port":"USB-B"}},
-  "wingr":{"kind":"console","brand":"Behringer","model":"WING RACK","famiglia":"WING","mm":[326.0,486.0,183.0],"kg":15.4,"W":130,"in":24,"out":8,"proto":["aes50"],"src":"Behringer WING-series UserManual, p.167/11","look":{"rack":1},"usb":{"in":48,"out":48,"port":"USB-B"}},
+  "wingr":{"kind":"console","brand":"Behringer","model":"WING RACK","famiglia":"WING","mm":[486.0,326.0,183.0],"kg":15.4,"W":130,"rackU":4,"in":24,"out":8,"proto":["aes50"],"src":"Behringer WING-series UserManual, p.167/11 + Behringer WING-RACK QuickStartGuide, p.105","look":{"rack":1},"usb":{"in":48,"out":48,"port":"USB-B"}},
   "m32":{"kind":"console","brand":"Midas","model":"M32","famiglia":"M32","mm":[891.0,612.0,256.0],"kg":24.5,"W":120,"in":32,"out":22,"proto":["aes50"],"src":"Midas M32 Manual, p.47/46","look":{"f":[8,8,8,1],"s":1,"c":"blu"}},
   "m32r":{"kind":"console","brand":"Midas","model":"M32R LIVE","famiglia":"M32","mm":[478.0,617.0,208.0],"kg":14.3,"W":70,"in":16,"out":8,"proto":["aes50"],"src":"Midas M32R Manual, p.53/52","look":{"f":[8,8,1],"s":1,"c":"blu"},"usb":{"in":32,"out":32,"port":"scheda DN32-USB"}},
   "m32c":{"kind":"console","brand":"Midas","model":"M32C","famiglia":"M32","mm":[483.0,300.0,50.0],"kg":3.5,"W":40,"proto":["aes50"],"src":"Midas M32C QuickStart, p.17/6","look":{"rack":1,"c":"blu"},"usb":{"in":32,"out":32,"port":"scheda DN32-USB"}},
@@ -13908,6 +13908,7 @@ var PRO_DB = {
   "csr10":{"kind":"console","brand":"Yamaha","model":"CS-R10 (RIVAGE PM10)","famiglia":"RIVAGE PM","mm":[1549.0,848.0,417.0],"kg":85,"in":8,"out":8,"proto":["twinlane","dante"],"src":"Yamaha RIVAGE-PM Series Brochure, p.10/4","tipo":"csr10"},
   "csd7":{"kind":"console","brand":"Yamaha","model":"CSD-R7 (RIVAGE PM7)","famiglia":"","mm":[1549.0,848.0,417.0],"kg":94,"in":8,"out":8,"proto":["twinlane","dante"],"src":"Yamaha RIVAGE-PM Series Brochure, p.10/4","look":{"f":[12,12,12,2],"s":3,"c":"nero"}},
   "cl5":{"kind":"console","brand":"Yamaha","model":"CL5","famiglia":"CL","mm":[1053.0,667.0,299.0],"kg":36,"W":170,"proto":["dante"],"src":"Yamaha CL5 OwnerManual EN, p.56/17","look":{"f":[16,8,8,2],"s":1,"c":"nero"}},
+  "ql5":{"kind":"console","brand":"Yamaha","model":"QL5","famiglia":"QL","mm":[828.4,563.0,272.0],"kg":21.8,"W":200,"in":32,"out":16,"proto":["dante"],"src":"Yamaha QL5 ReferenceManual EN, p.20/14 + Yamaha QL5 QL1 OwnerManual EN, p.51","look":{"f":[16,16,2],"s":1,"c":"nero"}},
   "qu5":{"kind":"console","brand":"Allen & Heath","model":"Qu-5","famiglia":"Qu","mm":[440.0,476.0,213.0],"kg":10,"W":70,"in":16,"out":14,"proto":["dsnake"],"src":"AllenHeath Qu-5 Qu-5D TechnicalDatasheet, p.9/8/2","look":{"f":[16,1],"s":1},"usb":{"in":32,"out":32,"port":"USB-C"},"dante":false},
   "qu6":{"kind":"console","brand":"Allen & Heath","model":"Qu-6","famiglia":"Qu","mm":[609.0,476.0,213.0],"kg":13.5,"W":90,"in":24,"out":18,"proto":["dsnake"],"src":"AllenHeath Qu-6 Qu-6D TechnicalDatasheet, p.9/8/2","look":{"f":[24,1],"s":1},"usb":{"in":32,"out":32,"port":"USB-C"},"dante":false},
   "qu7":{"kind":"console","brand":"Allen & Heath","model":"Qu-7","famiglia":"Qu","mm":[800.0,476.0,213.0],"kg":16.7,"W":105,"in":32,"out":22,"proto":["dsnake"],"src":"AllenHeath Qu-7 Qu-7D TechnicalDatasheet, p.9/8/2","look":{"f":[32,1],"s":1},"usb":{"in":32,"out":32,"port":"USB-C"},"dante":false},
@@ -13917,7 +13918,7 @@ var PRO_DB = {
   "cq18t":{"kind":"console","brand":"Allen & Heath","model":"CQ-18T","famiglia":"CQ","mm":[346.0,242.0,89.0],"kg":3.0,"W":35,"in":16,"out":8,"proto":[],"src":"AllenHeath CQ-18T TechnicalDatasheet, p.5/4/1","look":{"tablet":1},"usb":{"in":24,"out":22,"port":"USB-B"}},
   "cq20b":{"kind":"console","brand":"Allen & Heath","model":"CQ-20B","famiglia":"CQ","mm":[372.0,154.0,134.0],"kg":2.6,"W":45,"in":16,"out":10,"proto":[],"src":"AllenHeath CQ-20B TechnicalDatasheet, p.5/4/1","look":{"rack":1},"usb":{"in":24,"out":24,"port":"USB-B"}},
   "dlc1500":{"kind":"console","brand":"Allen & Heath","model":"dLive C1500","famiglia":"dLive","mm":[485.0,665.0,325.0],"kg":18,"proto":[],"src":"AllenHeath dLive-C1500 WeightsAndDims, p.1","look":{"f":[12],"s":1,"c":"nero"}},
-  "dlc2500":{"kind":"console","brand":"Allen & Heath","model":"dLive C2500","famiglia":"dLive","mm":[775.0,665.0,325.0],"kg":24.5,"W":110,"in":6,"out":6,"proto":["gigaace"],"src":"AllenHeath dLive-C2500 Datasheet, p.2/1","look":{"f":[10,10],"s":1,"c":"nero"}},
+  "dlc2500":{"kind":"console","brand":"Allen & Heath","model":"dLive C2500","famiglia":"dLive","mm":[775.0,665.0,325.0],"kg":24.5,"W":110,"in":6,"out":6,"proto":["gigaace"],"src":"AllenHeath dLive-C2500 Datasheet, p.2/1","look":{"f":[12,8],"s":1,"c":"nero"}},
   "dlc3500":{"kind":"console","brand":"Allen & Heath","model":"dLive C3500","famiglia":"dLive","mm":[885.0,665.0,325.0],"kg":28,"W":110,"in":6,"out":6,"proto":["gigaace"],"src":"AllenHeath dLive-C3500 Datasheet, p.2/1","look":{"f":[12,12],"s":2,"c":"nero"}},
   "dlives5":{"kind":"console","brand":"Allen & Heath","model":"dLive S5000","famiglia":"dLive","mm":[1115.0,728.0,413.0],"kg":35,"W":300,"in":8,"out":8,"proto":["gigaace"],"src":"AllenHeath dLive-S5000 Datasheet, p.4/3/1","tipo":"dlives5"},
   "q225":{"kind":"console","brand":"DiGiCo","model":"Quantum 225","famiglia":"Quantum","mm":[1124.0,801.0,436.0],"kg":43,"in":8,"out":8,"proto":["madi"],"src":"DiGiCo Quantum-225 DataSheet, p.5/2","look":{"f":[12,12],"s":1,"c":"nero"}},
@@ -13947,7 +13948,9 @@ var PRO_DB = {
   "dl32":{"kind":"stagebox","brand":"Midas","model":"DL32","famiglia":"DL","mm":[483.0,242.0,138.0],"kg":5.7,"W":55,"rackU":3,"in":32,"out":16,"proto":["aes50"],"src":"Midas DL32 QuickStart, p.13"},
   "sdrack":{"kind":"stagebox","brand":"DiGiCo","model":"SD-Rack","famiglia":"SD","mm":[482.7,371.0,443.7],"kg":26,"rackU":10,"proto":["madi"],"src":"DiGiCo SD-Rack DataSheet, p.3/4/1/2","Wunit":"A (85-264 VAC, 4 A max)"},
   "drack":{"kind":"stagebox","brand":"DiGiCo","model":"D-Rack","famiglia":"D-Rack","mm":[412.0,179.0,310.0],"kg":10,"in":32,"out":8,"proto":["madi"],"src":"DiGiCo D-Rack DataSheet, p.3/4/2","Wunit":"A (88-264 VAC, 2.8 A max)"},
-  "d2rack":{"kind":"stagebox","brand":"DiGiCo","model":"D2-Rack","famiglia":"D-Rack","mm":[482.6,248.0,399.2],"kg":13,"rackU":9,"in":48,"out":16,"proto":["madi"],"src":"DiGiCo D2-Rack DataSheet, p.3/4/2","Wunit":"VA (100-240 VAC, 200 VA max)"}
+  "d2rack":{"kind":"stagebox","brand":"DiGiCo","model":"D2-Rack","famiglia":"D-Rack","mm":[482.6,248.0,399.2],"kg":13,"rackU":9,"in":48,"out":16,"proto":["madi"],"src":"DiGiCo D2-Rack DataSheet, p.3/4/2","Wunit":"VA (100-240 VAC, 200 VA max)"},
+  "ql1":{"kind":"console","brand":"Yamaha","model":"QL1","famiglia":"QL","mm":[468.0,562.0,272.0],"kg":14.7,"W":135,"in":16,"out":8,"proto":["dante"],"src":"Yamaha QL5 QL1 OwnerManual EN, p.51/16/10","look":{"f":[16,2],"s":1,"c":"nero"}},
+  "x32":{"kind":"console","brand":"Behringer","model":"X32","famiglia":"X32","mm":[900.0,528.0,200.0],"kg":20.6,"W":120,"in":32,"out":16,"proto":["aes50"],"src":"Behringer X32 QuickStartGuide, p.25","look":{"f":[16,8,1],"s":1}}
 };
 /* </dati> */
 
@@ -13955,9 +13958,11 @@ AUDIO_PROTO.twinlane = AUDIO_PROTO.twinlane || "TWINLANe";
 AUDIO_PROTO.hypermac = AUDIO_PROTO.hypermac || "HyperMAC";
 AUDIO_PROTO.slink = AUDIO_PROTO.slink || "SLink";
 
-/* misura in pianta (cm) = fronte × profondità della scheda */
-function proDimsCm(m){ if(!m || !m.mm) return null; var w=Math.round(m.mm[0]/10), d=Math.round(m.mm[1]/10);
+/* misura in pianta (cm) = fronte × profondità della scheda, al millimetro (17/11/2026, Simone: «le dimensioni
+   reali devono essere perfette»): prima era arrotondata al centimetro (fino a 5 mm di scarto, Rio 36,75 → 37). */
+function proDimsCm(m){ if(!m || !m.mm) return null; var w=Math.round(+m.mm[0])/10, d=Math.round(+m.mm[1])/10;
   return (w>0 && d>0) ? {w:w, d:d} : null; }
+function proCmTesto(v){ return String(Math.round(v*10)/10).replace(".", ","); }
 function proNome(m){ return m ? (m.brand+" "+m.model) : ""; }
 /* il modello di un elemento, solo se è del tipo giusto (una stage box non può avere l'id di una console) */
 function proModelOf(it){
@@ -13993,7 +13998,7 @@ function proTipo(id){ var m=PRO_DB[id]; return m ? (m.kind==="stagebox" ? "stage
 function proDimTesto(m){
   var p=[];
   if(m.in!=null || m.out!=null) p.push((m.in||0)+" in / "+(m.out||0)+" out");
-  var dm=proDimsCm(m); if(dm) p.push(dm.w+"×"+dm.d+" cm");
+  var dm=proDimsCm(m); if(dm) p.push(proCmTesto(dm.w)+"×"+proCmTesto(dm.d)+" cm");
   if(m.rackU) p.push(m.rackU+"U");
   return p.join(" · ");
 }
@@ -14094,7 +14099,74 @@ function proConsoleOf(it){ var m=proModelOf(it); return (m && m.kind==="console"
 (function(){
   var t=TYPES.mixer; if(!t || t._proDraw) return;
   var base=t.draw; t._proDraw=true;
-  t.draw=function(it){ var m=proConsoleOf(it); return m ? consoleProDraw(it, m) : base(it); };
+  t.draw=function(it){ var m=proConsoleOf(it); if(!m) return base(it); var k=proIconaDi(it); return k ? proIconaDraw(it, k) : consoleProDraw(it, m); };
+})();
+
+/* ── icone realistiche dei modelli (17/11/2026) ─────────────────────────────────────────────────────
+   Simone (16-17/11): «il più leggere possibili ma con un grado di realismo che dà soddisfazione al tecnico».
+   Ogni modello del catalogo pro ha un'icona SVG in pianta, in cm, con la misura esterna della scheda e
+   schermi, fader, manopole e prese nelle posizioni misurate sui disegni quotati del costruttore (o sulle
+   foto zenitali ufficiali): file icons-pro.js, generato fuori dal repo, chiavi "pro_<id>", 8-20 KB l'una.
+   Caricamento PIGRO: icons-pro.js non sta nella pagina; si scarica la prima volta che serve disegnare un
+   modello pro (sul palco, nel catalogo, nella ricerca). Finché non è arrivato resta il disegno a codice
+   di sempre; quando arriva chiama __onIconsReady e la scena si ridisegna. */
+var PRO_ICONE_URL="/icons-pro.js", _proIcoStato=0;   /* 0 da caricare · 1 in arrivo · 2 arrivato · 3 errore (niente tentativi a raffica) */
+function proIconeCarica(){
+  if(_proIcoStato) return false;
+  _proIcoStato=1;
+  try{
+    var sc=document.createElement("script"); sc.async=true; sc.src=PRO_ICONE_URL;
+    sc.onload=function(){ _proIcoStato=2; };
+    sc.onerror=function(){ _proIcoStato=3; };
+    (document.head||document.documentElement).appendChild(sc);
+  }catch(e){ _proIcoStato=3; }
+  return true;
+}
+/* la chiave dell'icona del modello di questo elemento, se l'icona è già arrivata; se no la chiede e dà null */
+function proIconaDi(it){
+  var m=(it && it.pro) ? proModelOf(it) : null; if(!m) return null;   /* solo gli elementi posati dal catalogo pro (pro:1): i progetti vecchi con lo stesso hw restano come erano */
+  var k="pro_"+it.hw;
+  if(typeof LIB_ICONS==="object" && LIB_ICONS && LIB_ICONS[k] && LIB_ICONS[k].vb && typeof LIB_ICONS[k].body==="string") return k;
+  proIconeCarica();
+  return null;
+}
+function proIconaDraw(it, k){ var L=LIB_ICONS[k]; return drawLibFit(k, it, L.vb[2], L.vb[3]); }
+/* prese patchate sopra l'icona della stage box (come sbDraw): anello teal sugli ingressi usati, ciano sulle
+   uscite, nella posizione misurata della presa (mappa "porte" dell'icona, in cm dall'angolo in alto a sinistra) */
+function proPorteDraw(it, L, use){
+  var P=L.porte; if(!P) return "";
+  var bw=L.vb[2], bd=L.vb[3], kk=Math.min((it.w||bw)/bw, (it.d||bd)/bd), r=(P.r||1.1)*kk;
+  var r2=function(v){ return Math.round(v*100)/100; }, s="";
+  [["in","i","#14b8a6"],["out","o","#22d3ee"]].forEach(function(q){
+    var pos=P[q[0]]||[];
+    Object.keys(use[q[1]]||{}).forEach(function(ch){ var p=pos[(+ch)-1]; if(!p) return;
+      s+='<circle cx="'+r2((p[0]-bw/2)*kk)+'" cy="'+r2((p[1]-bd/2)*kk)+'" r="'+r2(r*1.05)+'" fill="none" stroke="'+q[2]+'" stroke-width="'+r2(Math.max(0.35, r*0.32))+'"/>'; });
+  });
+  return s;
+}
+/* stage box e sub stage box: l'icona vera; con i cavi accesi, le prese usate sopra. Se l'icona non ha la mappa
+   delle prese e ci sono prese usate, resta sbDraw: l'informazione dei cavi non si perde mai. */
+(function(){
+  ["stagebox","substg"].forEach(function(tp){
+    var t=TYPES[tp]; if(!t || t._proIco) return;
+    var base=t.draw; t._proIco=true;
+    t.draw=function(it){
+      var k=proIconaDi(it); if(!k) return base(it);
+      var L=LIB_ICONS[k], use=(typeof sbPortUse==="function") ? sbPortUse(it) : {i:{},o:{}};
+      var usate=Object.keys(use.i||{}).length+Object.keys(use.o||{}).length;
+      if(usate && !L.porte) return base(it);
+      return proIconaDraw(it, k)+proPorteDraw(it, L, use);
+    };
+  });
+})();
+/* modelli che hanno già un tipo con la sua illustrazione (CS-R5, SQ-7, dLive S5000, Quantum 338, HD96…): l'icona
+   nuova vale solo per l'elemento posato dal catalogo pro (hw del modello); i progetti vecchi senza hw non cambiano */
+(function(){
+  Object.keys(PRO_DB).forEach(function(id){
+    var tp=PRO_DB[id].tipo, t=tp && TYPES[tp]; if(!t || t._proIco) return;
+    var base=t.draw; t._proIco=true;
+    t.draw=function(it){ var k=(it && it.hw) ? proIconaDi(it) : null; return k ? proIconaDraw(it, k) : base(it); };
+  });
 })();
 /* scheda tecnica in una riga (pannello): misura, peso, consumo, U e fonte */
 function proSchedaTesto(m){

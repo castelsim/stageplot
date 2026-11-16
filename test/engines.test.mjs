@@ -34963,7 +34963,8 @@ t("Catalogo pro: almeno 25 modelli, ognuno con misura in pianta > 0, fonte con p
     const k = A.proTipo(id), over = A.proOver(id);
     ok(A.TYPES[k], id + ": tipo " + k);
     const it = Object.assign({ type: k, x: 0, y: 0, rot: 0 }, JSON.parse(JSON.stringify(over)));
-    eq([it.w, it.d], [Math.round(m.mm[0] / 10), Math.round(m.mm[1] / 10)], id + ": l'elemento nasce con la misura della scheda");
+    /* al millimetro (17/11/2026: «le dimensioni reali devono essere perfette»), non più al centimetro */
+    ok(Math.abs(it.w * 10 - m.mm[0]) <= 2 && Math.abs(it.d * 10 - m.mm[1]) <= 2, id + ": l'elemento nasce con la misura della scheda ±2 mm (" + it.w + "×" + it.d + " cm, scheda " + m.mm[0] + "×" + m.mm[1] + " mm)");
     const svg = A.TYPES[k].draw(it), e = _svgValido(svg);
     eq(e, "", id + ": icona");
     if (k === "mixer") ok(/#0e161d/.test(svg), id + ": disegno della console del catalogo pro, non il mixer generico");
@@ -35000,7 +35001,7 @@ t("Catalogo pro: peso e consumo di targa SOLO sugli elementi posati dal catalogo
 t("Catalogo pro: scegliendo il modello dal pannello la misura diventa quella della scheda solo se l'utente non l'aveva cambiata", () => {
   const a = { type: "stagebox", hw: "dl32", w: A.TYPES.stagebox.w, d: A.TYPES.stagebox.d };
   ok(A.proApplica(a) && a.pro === 1, "applicato");
-  eq([a.w, a.d], [Math.round(A.PRO_DB.dl32.mm[0] / 10), Math.round(A.PRO_DB.dl32.mm[1] / 10)], "misura di scheda");
+  eq([a.w, a.d], [Math.round(A.PRO_DB.dl32.mm[0]) / 10, Math.round(A.PRO_DB.dl32.mm[1]) / 10], "misura di scheda, al millimetro");
   const b = { type: "stagebox", hw: "dl32", w: 77, d: 55 }; A.proApplica(b);
   eq([b.w, b.d], [77, 55], "misura scelta dall'utente: non si tocca");
   const c = { type: "stagebox", hw: "inesistente", pro: 1 }; A.proApplica(c);
@@ -35023,6 +35024,95 @@ t("Catalogo pro: registro iniettato da src/catalogo-pro.js, gruppi del catalogo 
   ok(/g\.body\.dataset\.proLazy="1"/.test(appjs) && /if\(g\.body\.dataset\.proLazy!=="1"\) return; g\.body\.dataset\.proLazy="";/.test(appjs), "bottoni alla prima apertura");
   ok(/if\(g\.body\.dataset\.pro==="1"\) return;/.test(appjs), "il gruppo vuoto non viene nascosto da «Mostra tutti»");
 });
+/* ===== ICONE REALISTICHE DEL CATALOGO PRO (17/11/2026) =====
+   Simone: «il più leggere possibili ma con un grado di realismo che dà soddisfazione al tecnico» e «le dimensioni
+   reali devono essere perfette». icons-pro.js è generato fuori dal repo (un file di dati per modello, misure di
+   scheda, posizioni misurate sui disegni quotati) e si carica solo quando serve. */
+function iconeProVere() { const c = { window: {} }; vm.createContext(c); vm.runInContext(readFileSync(join(root, "icons-pro.js"), "utf8"), c); return c.window.LIB_ICONS; }
+function _xmlBilanciato(s) {   /* pila dei tag: ogni apertura ha la sua chiusura, nell'ordine */
+  const pila = [], re = /<(\/?)([a-zA-Z]+)\b[^>]*?(\/?)>/g; let m;
+  while ((m = re.exec(s))) {
+    if (m[3]) continue;
+    if (!m[1]) pila.push(m[2]); else if (pila.pop() !== m[2]) return "chiusura fuori posto: </" + m[2] + ">";
+  }
+  return pila.length ? "non chiusi: " + pila.join(",") : "";
+}
+function conIconePro(fn) { const prima = A.LIB_ICONS; A.LIB_ICONS = Object.assign({}, iconeProVere()); try { return fn(A.LIB_ICONS); } finally { A.LIB_ICONS = prima; } }
+t("Icone pro: ogni icona di icons-pro.js ha la misura della scheda (±2 mm), SVG valido, ≤ 20 KB, senza testo né raster né link, prefisso suo", () => {
+  const L = iconeProVere(), chiavi = Object.keys(L).filter((k) => /^pro_/.test(k)), prefissi = new Set();
+  ok(chiavi.length === Object.keys(L).length, "icons-pro.js contiene solo chiavi pro_*");
+  const senza = Object.keys(A.PRO_DB).filter((id) => !L["pro_" + id]);
+  eq(senza, [], "ogni modello del catalogo pro ha la sua icona realistica");
+  chiavi.forEach((k) => {
+    const id = k.slice(4), m = A.PRO_DB[id], ic = L[k];
+    ok(m, k + ": il modello è in PRO_DB");
+    if (!m) return;
+    ok(Math.abs(ic.vb[2] * 10 - m.mm[0]) <= 2 && Math.abs(ic.vb[3] * 10 - m.mm[1]) <= 2, k + ": viewBox " + ic.vb[2] + "×" + ic.vb[3] + " cm, scheda " + m.mm[0] + "×" + m.mm[1] + " mm");
+    eq([ic.vb[0], ic.vb[1]], [0, 0], k + ": origine 0,0");
+    const kb = Buffer.byteLength(ic.body) / 1024;
+    ok(kb <= 20, k + ": " + kb.toFixed(1) + " KB (tetto 20)");
+    ok(!/<(text|tspan|image|script|font|foreignObject|title|desc)\b|data:|href=|\bon\w+=/i.test(ic.body), k + ": niente testo, raster, script o link");
+    ok(!/NaN|undefined|Infinity/.test(ic.body), k + ": numeri validi");
+    eq(_xmlBilanciato(ic.body), "", k + ": tag bilanciati");
+    const cls = [...ic.body.matchAll(/class="([^"]+)"/g)].map((x) => x[1]), pr = new Set(cls.map((c) => c.split("_")[0]));
+    ok(cls.length > 10 && pr.size === 1, k + ": un solo prefisso di classe (" + [...pr].join(",") + ")");
+    const p = [...pr][0]; ok(!prefissi.has(p), k + ": prefisso " + p + " non usato da un'altra icona"); prefissi.add(p);
+    [...ic.body.matchAll(/id="([^"]+)"/g)].forEach((x) => ok(x[1].indexOf(p + "_") === 0 || x[1] === p, k + ": id " + x[1] + " col prefisso"));
+    if (ic.porte) ["in", "out"].forEach((q) => (ic.porte[q] || []).forEach((xy, i) => ok(xy[0] >= 0 && xy[0] <= ic.vb[2] && xy[1] >= 0 && xy[1] <= ic.vb[3], k + ": presa " + q + " " + (i + 1) + " dentro l'icona")));
+  });
+});
+t("Icone pro: icons-pro.js si carica SOLO quando serve, una volta; finché non c'è resta il disegno a codice", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(!/icons-pro\.js/.test(html), "la pagina non carica icons-pro.js in partenza");
+  ok(/PRO_ICONE_URL="\/icons-pro\.js"/.test(appjs), "indirizzo del file nel codice");
+  const prima = A.LIB_ICONS; A.LIB_ICONS = {}; A._proIcoStato = 0;
+  try {
+    const vecchio = { type: "mixer", hw: "sq6", w: 64, d: 51, x: 0, y: 0, rot: 0 };   /* progetto di prima: hw senza pro */
+    A.TYPES.mixer.draw(vecchio);
+    eq(A._proIcoStato, 0, "un elemento senza pro:1 non scarica niente");
+    const it = Object.assign({ type: "mixer", x: 0, y: 0, rot: 0 }, A.proOver("sq6"));
+    const s = A.TYPES.mixer.draw(it);
+    ok(A._proIcoStato === 1 || A._proIcoStato === 3, "il primo modello pro disegnato chiede icons-pro.js (stato " + A._proIcoStato + ")");
+    eq(s, A.consoleProDraw(it, A.PRO_DB.sq6), "finché l'icona non c'è: il disegno a codice");
+    const st = A._proIcoStato; A.TYPES.mixer.draw(it); eq(A._proIcoStato, st, "una richiesta sola");
+  } finally { A.LIB_ICONS = prima; A._proIcoStato = 0; }
+});
+t("Icone pro: arrivata l'icona, console, stage rack e modelli col tipo proprio usano l'icona vera in scala; i progetti vecchi senza pro no", () => conIconePro((L) => {
+  Object.keys(L).forEach((k) => {
+    const id = k.slice(4), tp = A.proTipo(id), it = Object.assign({ type: tp, x: 0, y: 0, rot: 0 }, A.proOver(id));
+    const s = A.TYPES[tp].draw(it), p = (L[k].body.match(/class="([a-z0-9]+)_/) || [])[1];
+    ok(p && s.indexOf('class="' + p + "_") > -1, id + " (" + tp + "): disegnato con l'icona vera");
+    ok(!/scale\(/.test(s.slice(0, 40)), id + ": in scala 1 (misura dell'elemento = misura dell'icona)");
+  });
+  const rio = L.pro_rio3224d2 ? "rrio" : null;
+  if (rio) {
+    const vecchio = { type: "stagebox", hw: "rio3224d2", w: 48, d: 37, x: 0, y: 0, rot: 0 };
+    ok(A.TYPES.stagebox.draw(vecchio).indexOf('class="' + rio + "_") < 0, "stage box di un progetto vecchio (senza pro): resta il pannello di sempre");
+  }
+  if (L.pro_sq7) {
+    const vecchio = { type: "sq7", w: 80, d: 52, x: 0, y: 0, rot: 0 };
+    ok(A.TYPES.sq7.draw(vecchio).indexOf('class="rsq7_') < 0, "SQ-7 posata dal tipo di sempre (senza hw): resta l'illustrazione di icons.js");
+  }
+}));
+t("Icone pro: stage rack coi cavi accesi — prese usate sopra l'icona nelle posizioni misurate; senza mappa delle prese resta sbDraw", () => conIconePro((L) => {
+  const ic = L.pro_rio3224d2; ok(ic && ic.porte && ic.porte.in.length === 32 && ic.porte.out.length === 16, "Rio3224-D2: mappa di 32 ingressi e 16 uscite");
+  if (!ic) return;
+  const it = Object.assign({ type: "stagebox", id: "sbx", x: 0, y: 0, rot: 0 }, A.proOver("rio3224d2"));
+  const veroUse = A.sbPortUse;
+  try {
+    A.sbPortUse = () => ({ i: { 1: 1, 32: 1 }, o: { 16: 1 } });
+    const s = A.TYPES.stagebox.draw(it);
+    const teal = [...s.matchAll(/<circle cx="([-\d.]+)" cy="([-\d.]+)"[^>]*stroke="#14b8a6"/g)], ciano = [...s.matchAll(/<circle cx="([-\d.]+)" cy="([-\d.]+)"[^>]*stroke="#22d3ee"/g)];
+    eq([teal.length, ciano.length], [2, 1], "2 ingressi e 1 uscita evidenziati");
+    const p1 = ic.porte.in[0], atteso = [p1[0] - ic.vb[2] / 2, p1[1] - ic.vb[3] / 2];
+    ok(Math.abs(+teal[0][1] - atteso[0]) < 0.05 && Math.abs(+teal[0][2] - atteso[1]) < 0.05, "ingresso 1 sulla sua presa: " + teal[0][1] + "," + teal[0][2] + " atteso " + atteso.map((v) => v.toFixed(2)));
+    const senza = Object.assign({}, ic); delete senza.porte; A.LIB_ICONS.pro_rio3224d2 = senza;
+    const s2 = A.TYPES.stagebox.draw(it);
+    ok(s2.indexOf('class="rrio_') < 0, "icona senza mappa e prese usate: torna sbDraw (l'informazione dei cavi non si perde)");
+    A.sbPortUse = () => ({ i: {}, o: {} });
+    ok(A.TYPES.stagebox.draw(it).indexOf('class="rrio_') > -1, "senza prese usate: l'icona vera anche senza mappa");
+  } finally { A.sbPortUse = veroUse; }
+}));
 /* ===== ICONE APPROVATE (Simone, 16/11/2026) ===== */
 const _IA = { presa16: "Elettrico", presa16r: "Elettrico", presa32: "Elettrico", presa63: "Elettrico", presa125: "Elettrico", presa32s: "Elettrico", presaciv: "Elettrico",
   puntoapp: "Allestimento", tiro: "Allestimento", boccascena: "Palco e pedane", lineasipario: "Palco e pedane", lineacentro: "Palco e pedane", quintanum: "Palco e pedane",
