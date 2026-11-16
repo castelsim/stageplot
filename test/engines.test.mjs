@@ -34564,6 +34564,13 @@ t("L4 (R6): il distro davanti e quello di fondo possono stare alla stessa x (la 
   eq([fo.length, fr.length], [1, 1], "uno di fondo e uno davanti: " + E.distros.map((d) => d.letter + "@" + d.x + "," + d.y).join(" "));
   eq(fr[0].x, fo[0].x, "stessa x: i carichi del fronte stanno sotto quelli di fondo");
 });
+t("L5: il badge dell'uscita multicore si legge: il rettangolo di aggancio non è colorato (copriva il testo) e il badge è largo quanto il nome", () => {
+  const css = readFileSync(join(root, "src/styles.css"), "utf8");
+  ok(/\.cab-home rect:not\(\.cab-homehit\)\{fill:#0f766e/.test(css), "il verde vale per il badge, non per .cab-homehit");
+  ok(/body\.dark \.cab-home rect:not\(\.cab-homehit\)/.test(css), "anche nel tema scuro");
+  ok(!/\.cab-home rect\{fill/.test(css), "nessuna regola generica che colora anche il rettangolo di aggancio");
+  ok(/var _bw=Math\.max\(76, String\(h\.name\|\|""\)\.length\*5\.9\+16\)/.test(appjs), "larghezza del badge dal nome");
+});
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

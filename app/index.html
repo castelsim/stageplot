@@ -1049,7 +1049,7 @@
   .cab-badge rect{fill:#0d9488}
   .cab-badge text{fill:#fff;font-size:9px;font-weight:700}
   .cab-home{pointer-events:none}
-  .cab-home rect{fill:#0f766e;stroke:#0a5952;stroke-width:1.5}
+  .cab-home rect:not(.cab-homehit){fill:#0f766e;stroke:#0a5952;stroke-width:1.5}   /* il rettangolo di aggancio (.cab-homehit) resta trasparente: coprirebbe il testo (16/11) */
   .cab-home text{fill:#fff;font-size:10px;font-weight:700;letter-spacing:.3px}
   .cab-warn{fill:none;stroke:#dc2626;stroke-width:2.5;stroke-dasharray:4 3;pointer-events:none}
   /* Layer v2: pallino sorgente sempre visibile (evidente, al centro) + capo monitor + canale alla partenza */
@@ -1452,7 +1452,7 @@
   body.dark .net-line{stroke:#818cf8}
   body.dark .net-lbl{fill:#a5b4fc;stroke:#0e1214}
   body.dark .cab-lbl,body.dark .cab-ghost text{fill:#5eead4}
-  body.dark .cab-home rect{fill:#0d9488;stroke:#0a5952}
+  body.dark .cab-home rect:not(.cab-homehit){fill:#0d9488;stroke:#0a5952}
   .dim-edge{fill:var(--n-600);font-size:14px;font-weight:700;paint-order:stroke;stroke:#fff;stroke-width:3.5px;stroke-linejoin:round}
   .dim-h{fill:var(--canvas-tech);font-size:13px;font-weight:700;paint-order:stroke;stroke:#fff;stroke-width:3.5px;stroke-linejoin:round}
   /* SVG — tratti base */

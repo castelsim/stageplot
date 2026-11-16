@@ -15569,8 +15569,8 @@ function cablingMarkup(){
        finiva esattamente sulle sue coordinate, coprendolo con un rettangolo verde che sembrava un
        artefatto. E non serviva: il banco si vede gia', col suo nome sotto. Il badge resta per i
        punti GEOMETRICI (FOH, uscite, personalizzato), che non hanno un elemento a rappresentarli. */
-    if(R.home && R.home.kind!=="desk"){ var h=R.home; s+='<g class="cab-home"><rect x="'+(h.x-38)+'" y="'+(h.y-13)+'" width="76" height="26" rx="6"/><text x="'+h.x+'" y="'+(h.y+4)+'" text-anchor="middle">'+esc(h.name)+'</text>';
-      if(edit) s+='<rect class="cab-homehit" data-cabhome="1" x="'+(h.x-40)+'" y="'+(h.y-15)+'" width="80" height="30" rx="6"/>';
+    if(R.home && R.home.kind!=="desk"){ var h=R.home; var _bw=Math.max(76, String(h.name||"").length*5.9+16); s+='<g class="cab-home"><rect x="'+(h.x-_bw/2)+'" y="'+(h.y-13)+'" width="'+_bw+'" height="26" rx="6"/><text x="'+h.x+'" y="'+(h.y+4)+'" text-anchor="middle">'+esc(h.name)+'</text>';
+      if(edit) s+='<rect class="cab-homehit" data-cabhome="1" x="'+(h.x-_bw/2-2)+'" y="'+(h.y-15)+'" width="'+(_bw+4)+'" height="30" rx="6"/>';
       s+='</g>'; }
     R.unassigned.forEach(function(u){ s+='<circle class="cab-warn" cx="'+u.it.x+'" cy="'+u.it.y+'" r="14"/>'; });
     s+='</g>';
