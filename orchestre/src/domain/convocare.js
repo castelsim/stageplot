@@ -13,6 +13,25 @@ export function messaggioConvocazione({ nomeCompleto = "", titolo = "", url = ""
   return righe.join("\n");
 }
 
+/* Promemoria (I7, 16/11): lo stesso messaggio, ma per chi non ha ancora risposto. Mai spedito da sistema: lo staff lo copia o lo apre in WhatsApp. */
+export function messaggioPromemoria({ nomeCompleto = "", titolo = "", url = "", nota = "" } = {}) {
+  const nome = String(nomeCompleto).trim().split(/\s+/).slice(-1)[0] || "";
+  const righe = [`Ciao ${nome}`.trim() + `, non ho ancora la tua risposta sulla convocazione «${titolo}». Ti chiedo un attimo per rispondere (basta un tocco):`];
+  const n = String(nota || "").replace(/\s+/g, " ").trim();
+  if (n) righe.push(n);
+  righe.push(url);
+  return righe.join("\n");
+}
+/* Chi si sollecita: invitato e mai risposto, o scaduto senza risposta. Chi ha detto sì o no, o è annullato, no. */
+export const DA_SOLLECITARE = ["sent", "viewed", "no_reply", "expired"];
+export function daSollecitare(rows) { return (rows || []).filter((r) => DA_SOLLECITARE.includes(r && r.status)); }
+/* Tutti i messaggi in un solo testo da incollare: una persona per blocco, il nome in testa. */
+export function messaggiInsieme(voci) {
+  return (voci || []).map((v) => `— ${v.nome} —\n${v.testo}`).join("\n\n");
+}
+/* «posto N» si dice solo di chi il posto lo ha davvero: dopo una revoca, un rifiuto o un annullamento il posto non è più suo. */
+export function dicePosto(r) { return !!(r && r.slot_seat && !["revoked", "unavailable", "cancelled", "replaced", "withdrew"].includes(r.status)); }
+
 /* Numero per wa.me: solo cifre, con il prefisso del paese. Senza prefisso un numero italiano (mobile 3xx, fisso 0x)
    prende 39. Restituisce "" se non sembra un numero. */
 export function numeroWhatsApp(phone) {
@@ -70,3 +89,26 @@ export function famigliaDi(code, instruments) {
   return FAMIGLIE[f] ? f : "";
 }
 export const etichettaFamiglia = (f) => FAMIGLIE[f] || "";
+
+/* Il menu degli strumenti per famiglia (65 voci in fila non si leggono): [{ famiglia, etichetta, strumenti:[…] }] nell'ordine delle
+   famiglie, strumenti nell'ordine del catalogo. Una famiglia sconosciuta va in fondo, «Altri», senza sparire. */
+export function strumentiPerFamiglia(instruments) {
+  const ordine = Object.keys(FAMIGLIE), gruppi = new Map();
+  for (const i of instruments || []) {
+    const f = FAMIGLIE[i.family] ? i.family : "_altri";
+    if (!gruppi.has(f)) gruppi.set(f, []);
+    gruppi.get(f).push(i);
+  }
+  const out = [];
+  for (const f of [...ordine, "_altri"]) if (gruppi.has(f)) out.push({ famiglia: f, etichetta: f === "_altri" ? "Altri" : FAMIGLIE[f], strumenti: gruppi.get(f) });
+  return out;
+}
+
+/* La «parte» dedotta dal nome del ruolo: «Violini primi», «Violini I», «Primo corno» → prima parte; «Solista», «Voce solista» → solista;
+   altrimenti fila. Mai «primi» dentro un'altra parola («Primavera»). */
+export function parteDaNome(nome) {
+  const n = String(nome || "").toLowerCase();
+  if (/\bsolist[aei]\b|\bsolo\b/.test(n)) return "solo";
+  if (/\bprim[aeio]\b|\b(i|1)\b|\bprima parte\b/.test(n) && !/\b(ii|iii|2|3)\b/.test(n)) return "principal";
+  return "tutti";
+}
