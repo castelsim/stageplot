@@ -136,3 +136,10 @@ export async function importRows(orgId, rows) {
   fail(error);
   return data;
 }
+
+/* Solo il telefono, per «Apri WhatsApp» (RLS: solo lo staff dell'org). */
+export async function phoneOf(id) {
+  const { data, error } = await sb.from("orc_musicians").select("phone").eq("id", id).is("deleted_at", null).maybeSingle();
+  fail(error);
+  return (data && data.phone) || "";
+}
