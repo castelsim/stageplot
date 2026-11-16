@@ -54,9 +54,9 @@
   function dataIt(d) { return typeof d === "string" && /^\d{4}-\d{2}-\d{2}/.test(d) ? d.slice(8, 10) + "/" + d.slice(5, 7) + "/" + d.slice(0, 4) : ""; }
 
   /* Foglio A4 di etichette da plastificare. Misure in mm (allineate al foglio dei cavalletti del 16/11, richiesta di Simone «QR 2,5 × 2,5 cm»):
-     3 colonne × 7 righe = 21 etichette da 56 × 33 con 4 mm fra l'una e l'altra; margini ≥ 15 su TUTTI i lati, piè compreso (la Ricoh taglia il bordo):
-     alto 16, laterali 17, piè a 16 dal bordo. Il QR ha l'area NERA di 25 × 25 mm (senza bordo interno) in un riquadro bianco di 27 (1 mm di padding). */
-  var FOGLIO = { w: 210, h: 297, colonne: 3, righe: 7, ew: 56, eh: 33, gap: 4, alto: 16, basso: 16, lato: 17, qr: 25, qrBox: 27, qrPad: 1, testo: 24 };
+     3 colonne × 8 righe = 24 etichette da 56 × 27 (lato corto massimo 2,7 cm: Simone 16/11) con 4 mm fra l'una e l'altra; margini ≥ 15 su TUTTI i lati, piè compreso (la Ricoh taglia il bordo):
+     alto 16, laterali 17, piè a 16 dal bordo. Il QR ha l'area NERA di 25 × 25 mm (senza bordo interno) in un riquadro bianco di 27 (1 mm di padding), a filo sopra e sotto del tratteggio. */
+  var FOGLIO = { w: 210, h: 297, colonne: 3, righe: 8, ew: 56, eh: 27, gap: 4, alto: 16, basso: 16, lato: 17, qr: 25, qrBox: 27, qrPad: 1, testo: 24 };
   function perPagina() { return FOGLIO.colonne * FOGLIO.righe; }
   function origineX() { return (FOGLIO.w - (FOGLIO.colonne * FOGLIO.ew + (FOGLIO.colonne - 1) * FOGLIO.gap)) / 2; }
   function impagina(elementi) {

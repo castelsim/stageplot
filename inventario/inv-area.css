@@ -35,13 +35,13 @@ td input[type=text],td select{min-height:34px;padding:3px 7px}
 /* ---- foglio di etichette: misure in mm, uguali sullo schermo e in stampa ---- */
 .fogli{display:flex;flex-direction:column;gap:14px;align-items:center;margin-top:12px}
 .foglio{position:relative;width:210mm;height:297mm;background:#fff;color:#000;box-shadow:0 1px 8px rgba(0,0,0,.25);flex:none;overflow:hidden;transform-origin:top center}
-.etichetta{position:absolute;border:.3mm dashed #000;box-sizing:border-box;padding:2.2mm 1.4mm 2mm 2.6mm;display:grid;grid-template-columns:1fr 27mm;column-gap:1mm;font-family:Helvetica,Arial,sans-serif;overflow:hidden}
-.etichetta .sx{display:flex;flex-direction:column;min-width:0;justify-content:space-between}
+.etichetta{position:absolute;border:.3mm dashed #000;box-sizing:border-box;padding:0 0 0 2.6mm;display:grid;grid-template-columns:1fr 27mm;column-gap:1mm;font-family:Helvetica,Arial,sans-serif;overflow:hidden}
+.etichetta .sx{padding:1.6mm 0 1.4mm;display:flex;flex-direction:column;min-width:0;justify-content:space-between}
 .etichetta .ente{font-size:6.4pt;font-weight:700;letter-spacing:.06em;text-transform:uppercase;line-height:1.15;max-height:2.7em;overflow:hidden}
 .etichetta .cod{font-family:"Courier New",Courier,monospace;font-weight:700;line-height:1;white-space:nowrap}
 .etichetta .tipo{font-size:8pt;font-weight:700;line-height:1.1}
 .etichetta .mod{font-size:6.3pt;line-height:1.15;max-height:2.4em;overflow:hidden}
-.etichetta .qr{align-self:center;width:27mm;height:27mm;background:#fff;box-sizing:border-box;padding:1mm}
+.etichetta .qr{align-self:stretch;width:27mm;height:27mm;background:#fff;box-sizing:border-box;padding:1mm}
 .etichetta .qr svg{display:block;width:25mm;height:25mm}
 .etichetta .nota-qr{font-size:5.4pt;line-height:1}
 .piede-foglio{position:absolute;left:17mm;right:17mm;bottom:16mm;font-family:Helvetica,Arial,sans-serif;font-size:8pt;color:#000;display:flex;justify-content:space-between}

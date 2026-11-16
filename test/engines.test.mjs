@@ -33869,10 +33869,10 @@ t("Inventario: il CSV ha le colonne della scuola, NON contiene nomi (salvo richi
 });
 t("Inventario: foglio A4 di etichette — 21 per pagina, margine basso ≥ 15 mm (la Ricoh taglia), impaginazione e posizioni", () => {
   const F = INV_LIB.FOGLIO;
-  eq(INV_LIB.perPagina(), 21, "3 × 7"); ok(INV_LIB.giusto(), "l'ultima riga sta sopra il margine basso");
+  eq(INV_LIB.perPagina(), 24, "3 × 8"); ok(INV_LIB.giusto(), "l'ultima riga sta sopra il margine basso");
   ok(F.h - (F.alto + F.righe * F.eh + (F.righe - 1) * F.gap) >= 15, "margine in basso ≥ 15 mm anche col piè");
   ok(INV_LIB.origineX() >= 15 && INV_LIB.origineX() + F.colonne * F.ew + (F.colonne - 1) * F.gap <= F.w - 15, "margini laterali ≥ 15 mm");
-  eq([F.ew, F.eh, F.gap, F.alto], [56, 33, 4, 16], "etichetta 56 × 33, 4 mm tra una e l'altra, 16 mm in alto (stesse misure del foglio dei cavalletti)");
+  eq([F.ew, F.eh, F.gap, F.alto], [56, 27, 4, 16], "etichetta 56 × 27 (lato corto ≤ 27 mm), 4 mm tra una e l'altra, 16 mm in alto (stesse misure del foglio dei cavalletti)");
   /* NESSUN elemento del foglio a meno di 15 mm dal bordo: etichette (le 4 estremità) e piè, letto dal CSS vero */
   const css = readFileSync(join(root, "inventario/inv-area.css"), "utf8"), js = readFileSync(join(root, "inventario/inv-area.js"), "utf8");
   const ult = INV_LIB.posizione(INV_LIB.perPagina() - 1);
@@ -33884,8 +33884,8 @@ t("Inventario: foglio A4 di etichette — 21 per pagina, margine basso ≥ 15 mm
   ok(/\.etichetta \.qr svg\{[^}]*width:25mm;height:25mm/.test(css) && /\.etichetta \.qr\{[^}]*width:27mm;height:27mm[^}]*padding:1mm/.test(css) && /grid-template-columns:1fr 27mm/.test(css), "QR nero 25 mm dentro un box bianco di 27 mm con 1 mm di padding; colonna della griglia 27 mm");
   eq([F.qr, F.qrBox, F.qrPad, F.testo], [25, 27, 1, 24], "misure del QR e del testo accanto in FOGLIO");
   ok(F.ew - 2.6 - 1.4 - F.qrBox - 1 >= F.testo, "il testo accanto al QR ha 24 mm");
-  const els = Array.from({ length: 22 }, (_, i) => i); const pg = INV_LIB.impagina(els);
-  eq(pg.length, 2, "22 etichette = 2 fogli"); eq(pg[0].length, 21, "21 sul primo"); eq(pg[1].length, 1, "1 sul secondo"); eq(INV_LIB.impagina([]).length, 0, "nessuna etichetta, nessun foglio");
+  const els = Array.from({ length: 25 }, (_, i) => i); const pg = INV_LIB.impagina(els);
+  eq(pg.length, 2, "25 etichette = 2 fogli"); eq(pg[0].length, 24, "24 sul primo"); eq(pg[1].length, 1, "1 sul secondo"); eq(INV_LIB.impagina([]).length, 0, "nessuna etichetta, nessun foglio");
   const a = INV_LIB.posizione(0), b = INV_LIB.posizione(1), r = INV_LIB.posizione(3);
   eq(b.x - a.x, F.ew + F.gap, "passo orizzontale"); eq(r.y - a.y, F.eh + F.gap, "passo verticale"); eq(r.x, a.x, "a capo dopo 3");
   eq(INV_LIB.intervallo(["TAS-001", "TAS-005", "TAS-010"]), "TAS-001 … TAS-010", "intervallo nel piè"); eq(INV_LIB.data(new Date(2026, 10, 5)), "05/11/2026", "data gg/mm/aaaa");
