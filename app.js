@@ -2344,7 +2344,7 @@ var _IA_PRESE={ presa16:[16,3,false,false], presa16r:[16,5,false,false], presa32
 (function(){
   function presaTipo(k, nome, dim, alias){
     var p=_IA_PRESE[k];
-    TYPES[k]={nome:nome, dim:dim, cat:"Elettrico", sub:"Prese", w:30, d:30, defLabel:"", alias:alias,
+    TYPES[k]={nome:nome, dim:dim, cat:"Elettrico", sub:"Prese", w:30, d:30, noLabel:true, alias:alias,
       draw:function(){ return presaSvg(p[0], p[1], p[2], p[3]); }};
   }
   presaTipo("presa16", "Presa CEE 16 A · 3 poli", "blu · 230 V · simbolo", "presa cee blu monofase 16a 16 ampere industriale 230v spina");
@@ -2357,10 +2357,10 @@ var _IA_PRESE={ presa16:[16,3,false,false], presa16r:[16,5,false,false], presa32
   TYPES.puntoapp={nome:"Punto di appendimento", dim:"nome · carico · portata", cat:"Rigging e strutture", w:30, d:30, defLabel:"P1", innerLabel:true,
     alias:"punto di appendimento rigging point appendimento motore carico portata kg punto",
     draw:function(it){ return puntoAppSvg(it); }};
-  TYPES.tiro={nome:"Tiro della sala (tubo)", dim:"tubo Ø 5 · numerato", cat:"Rigging e strutture", w:600, d:5, resizable:true, z:1, defLabel:"",
+  TYPES.tiro={nome:"Tiro della sala (tubo)", dim:"tubo Ø 5 · numerato", cat:"Rigging e strutture", w:600, d:5, resizable:true, z:1, noLabel:true,
     alias:"tiro tiri stangone stangoni tubo graticcia americana di sala teatro",
     draw:function(it){ return bar(0,0,it.w,Math.max(3,it.d),'ic fGrey',2.5); }};
-  TYPES.boccascena={nome:"Boccascena", dim:"luce 10 m · spalle in muratura", cat:"Palco e strutture", w:1240, d:60, resizable:true, z:1, defLabel:"",
+  TYPES.boccascena={nome:"Boccascena", dim:"luce 10 m · spalle in muratura", cat:"Palco e strutture", w:1240, d:60, resizable:true, z:1, noLabel:true,
     alias:"boccascena proscenio arco scenico spalle muro teatro apertura",
     draw:function(it){
       var W=it.w, D=it.d, muro=Math.min(120, W*0.12), luce=W-2*muro, s="";
@@ -2372,13 +2372,13 @@ var _IA_PRESE={ presa16:[16,3,false,false], presa16r:[16,5,false,false], presa32
         +'<line x1="'+_iaR(luce/2)+'" y1="'+_iaR(y-7)+'" x2="'+_iaR(luce/2)+'" y2="'+_iaR(y+7)+'" stroke="#4b5563" stroke-width="1"/>'
         +_iaT(0, _iaR(y-6), "boccascena "+(luce/100).toFixed(2).replace(".",",")+" m", 13, "#4b5563", 600);
       return s; }};
-  TYPES.lineasipario={nome:"Linea zero", dim:"linea del sipario · zero delle quote", cat:"Palco e strutture", w:1000, d:12, resizable:true, z:2, defLabel:"",
+  TYPES.lineasipario={nome:"Linea zero", dim:"linea del sipario · zero delle quote", cat:"Palco e strutture", w:1000, d:12, resizable:true, z:2, noLabel:true,
     alias:"linea del sipario sipario zero quote boccascena tenda",
     draw:function(it){ var W=it.w;
       return '<line x1="'+_iaR(-W/2)+'" y1="0" x2="'+_iaR(W/2)+'" y2="0" stroke="#7f1d1d" stroke-width="3"/>'
         +'<line x1="'+_iaR(-W/2)+'" y1="5" x2="'+_iaR(W/2)+'" y2="5" stroke="#7f1d1d" stroke-width="1" stroke-dasharray="3 4"/>'
         +_iaT(_iaR(W/2-6), -8, "LINEA DEL SIPARIO · 0,00", 11, "#7f1d1d", 600, "end"); }};
-  TYPES.lineacentro={nome:"Linea di centro (CL)", dim:"tratto-punto", cat:"Palco e strutture", w:30, d:800, resizable:true, z:2, defLabel:"",
+  TYPES.lineacentro={nome:"Linea di centro (CL)", dim:"tratto-punto", cat:"Palco e strutture", w:30, d:800, resizable:true, z:2, noLabel:true,
     alias:"linea di centro centro palco cl center line asse mezzeria",
     draw:function(it){ var D=it.d, s='<line x1="0" y1="'+_iaR(-D/2+28)+'" x2="0" y2="'+_iaR(D/2-28)+'" stroke="#1f2937" stroke-width="1.4" stroke-dasharray="24 6 4 6"/>';
       [-D/2+14, D/2-14].forEach(function(y){ s+='<circle cx="0" cy="'+_iaR(y)+'" r="13" fill="#fff" stroke="#1f2937" stroke-width="1.6"/>'+_iaT(0, _iaR(y+4), "CL", 10.5); });
@@ -2387,21 +2387,21 @@ var _IA_PRESE={ presa16:[16,3,false,false], presa16r:[16,5,false,false], presa32
     alias:"quinta quinte numerata coppia di quinte teatro",
     draw:function(it){ var W=it.w, n=esc(String(it.label==null ? "" : it.label).slice(0,3));
       return bar(0,0,W,it.d,'ic fBlack',2)+lin(-W/2+12,0,W/2-12,0,'sil')+(n ? badgeSvg(W/2+16, 0, n, 10) : ""); }};
-  TYPES.uscitafig={nome:"Uscita di sicurezza", dim:"segnale 60×34 · verde", cat:"Sicurezza e site", w:60, d:34, defLabel:"",
+  TYPES.uscitafig={nome:"Uscita di sicurezza", dim:"segnale 60×34 · verde", cat:"Sicurezza e site", w:60, d:34, noLabel:true,
     alias:"uscita di sicurezza uscita emergenza exit via di fuga",
     draw:function(){ return uscitaFigSvg(false, false); }};
-  TYPES.uscitafigsx={nome:"Uscita di sicurezza (verso sinistra)", dim:"segnale 60×34 · verde", cat:"Sicurezza e site", w:60, d:34, defLabel:"",
+  TYPES.uscitafigsx={nome:"Uscita di sicurezza (verso sinistra)", dim:"segnale 60×34 · verde", cat:"Sicurezza e site", w:60, d:34, noLabel:true,
     alias:"uscita di sicurezza uscita emergenza exit via di fuga sinistra",
     draw:function(){ return uscitaFigSvg(false, true); }};
-  TYPES.uscitafigbn={nome:"Uscita di sicurezza (bianco e nero)", dim:"segnale 60×34 · per la stampa", cat:"Sicurezza e site", w:60, d:34, defLabel:"",
+  TYPES.uscitafigbn={nome:"Uscita di sicurezza (bianco e nero)", dim:"segnale 60×34 · per la stampa", cat:"Sicurezza e site", w:60, d:34, noLabel:true,
     alias:"uscita di sicurezza uscita emergenza exit bianco e nero stampa",
     draw:function(){ return uscitaFigSvg(true, false); }};
-  TYPES.gonna={nome:"Gonna della pedana", dim:"tessuto sul lato · 200", cat:"Palco e strutture", w:200, d:8, resizable:true, z:1, defLabel:"",
+  TYPES.gonna={nome:"Gonna della pedana", dim:"tessuto sul lato · 200", cat:"Palco e strutture", w:200, d:8, resizable:true, z:1, noLabel:true,
     alias:"gonna gonne skirt tessuto pedana copri pedana mantovana",
     draw:function(it){ var W=it.w, s='<line x1="'+_iaR(-W/2)+'" y1="0" x2="'+_iaR(W/2)+'" y2="0" stroke="#111827" stroke-width="4.5"/>', n=Math.max(2, Math.floor(W/12));
       for(var k=1;k<n;k++){ var x=-W/2+W*k/n; s+='<line x1="'+_iaR(x)+'" y1="0" x2="'+_iaR(x)+'" y2="5" stroke="#111827" stroke-width="1.4"/>'; }
       return s; }};
-  TYPES.croce={nome:"Croce", dim:"su base · elemento del luogo", cat:"Palco e strutture", w:44, d:60, resizable:true, z:1, defLabel:"",
+  TYPES.croce={nome:"Croce", dim:"su base · elemento del luogo", cat:"Palco e strutture", w:44, d:60, resizable:true, z:1, noLabel:true,
     alias:"croce crocifisso chiesa altare",
     draw:function(it){ var h=Math.min(it.d, 60);
       return circ(0,0,Math.min(22, it.w/2),'ic soft thin')+bar(0,0,5,h,'ic fGrey thin',1)+bar(0,-h*0.18,h*0.6,5,'ic fGrey thin',1); }};
@@ -21455,6 +21455,7 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
   group("Accessori", null, ["pPostaz","pVoce","pGtr","pDir","pTastiera","pComp","pKeysWrap","pSgabWrap","pLeggioGenWrap","pLucettaWrap","pLegDistWrap","pRampWrap","pGazWrap","pPreseWrap","pDmxWrap"]);
   group("Installazione", null, ["pMountWrap"]);
   group("Americana", null, ["pRigWrap"]);   /* A4: numero, trim e peso appeso, solo con «Opzioni complete» */
+  group("Appendimento", "carico e portata scritti", ["pPtWrap"]);   /* icone approvate 16/11: come l'americana, solo con «Opzioni complete» */
   group("Dettagli tecnici", null, ["pIfaceWrap","pCompIfaceWrap","pModelWrap","pLocInWrap","pUsoWrap","pBmWrap","pLmWrap","pModWrap","pWattWrap","pRfWrap","pPmWrap"]);   /* la richiesta di setup NON e' un dettaglio tecnico: e' un'azione verso una persona, e sta con la persona */
   group("Nota", "quello che il disegno non dice", ["pNoteWrap"]);
   group("Disegno", null, ["pLookWrap","pDims","pDimSideWrap","pShapeWrap","pRugWrap","pPuntaWrap","pRotRow",
@@ -23974,6 +23975,7 @@ function renderMobileList(){
 function defaultLabel(type){
   var t=TYPES[type]; if(!t) return "";
   if(type==="metro") return "";
+  if(t.noLabel) return "";   /* simboli che si spiegano da soli (prese, uscite, linee del teatro, 16/11): una scritta li coprirebbe */
   if(t.riser || type==="corista" || type==="miczone") return "";   /* pedane, coristi e zone panoramiche nascono senza nome */
   if(type==="forma") return "";   /* le forme nascono senza scritta (14/10, Simone: «devo avere la possibilità di non inserire testo»):
                                      prima ogni rettangolo diceva «Forma». L'«Area con nome» il suo «Zona» lo porta da sé (catalogo). */

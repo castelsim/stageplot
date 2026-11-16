@@ -23413,6 +23413,7 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
   group("Accessori", null, ["pPostaz","pVoce","pGtr","pDir","pTastiera","pComp","pKeysWrap","pSgabWrap","pLeggioGenWrap","pLucettaWrap","pLegDistWrap","pRampWrap","pGazWrap","pPreseWrap","pDmxWrap"]);
   group("Installazione", null, ["pMountWrap"]);
   group("Americana", null, ["pRigWrap"]);   /* A4: numero, trim e peso appeso, solo con «Opzioni complete» */
+  group("Appendimento", "carico e portata scritti", ["pPtWrap"]);   /* icone approvate 16/11: come l'americana, solo con «Opzioni complete» */
   group("Dettagli tecnici", null, ["pIfaceWrap","pCompIfaceWrap","pModelWrap","pLocInWrap","pUsoWrap","pBmWrap","pLmWrap","pModWrap","pWattWrap","pRfWrap","pPmWrap"]);   /* la richiesta di setup NON e' un dettaglio tecnico: e' un'azione verso una persona, e sta con la persona */
   group("Nota", "quello che il disegno non dice", ["pNoteWrap"]);
   group("Disegno", null, ["pLookWrap","pDims","pDimSideWrap","pShapeWrap","pRugWrap","pPuntaWrap","pRotRow",
@@ -25932,6 +25933,7 @@ function renderMobileList(){
 function defaultLabel(type){
   var t=TYPES[type]; if(!t) return "";
   if(type==="metro") return "";
+  if(t.noLabel) return "";   /* simboli che si spiegano da soli (prese, uscite, linee del teatro, 16/11): una scritta li coprirebbe */
   if(t.riser || type==="corista" || type==="miczone") return "";   /* pedane, coristi e zone panoramiche nascono senza nome */
   if(type==="forma") return "";   /* le forme nascono senza scritta (14/10, Simone: «devo avere la possibilità di non inserire testo»):
                                      prima ogni rettangolo diceva «Forma». L'«Area con nome» il suo «Zona» lo porta da sé (catalogo). */

@@ -34964,8 +34964,9 @@ t("Catalogo pro: almeno 25 modelli, ognuno con misura in pianta > 0, fonte con p
     ok(A.TYPES[k], id + ": tipo " + k);
     const it = Object.assign({ type: k, x: 0, y: 0, rot: 0 }, JSON.parse(JSON.stringify(over)));
     eq([it.w, it.d], [Math.round(m.mm[0] / 10), Math.round(m.mm[1] / 10)], id + ": l'elemento nasce con la misura della scheda");
-    const e = _svgValido(A.TYPES[k].draw(it));
+    const svg = A.TYPES[k].draw(it), e = _svgValido(svg);
     eq(e, "", id + ": icona");
+    if (k === "mixer") ok(/#0e161d/.test(svg), id + ": disegno della console del catalogo pro, non il mixer generico");
   });
 });
 t("Catalogo pro: i modelli entrano nei registri del motore (STAGEBOX_DB/MIXER_DB) senza toccare I/O e protocolli già scritti; U rack di scheda", () => {
@@ -34978,6 +34979,7 @@ t("Catalogo pro: i modelli entrano nei registri del motore (STAGEBOX_DB/MIXER_DB
   /* chi c'era già tiene i suoi I/O (dl32: 32/16 AES50) */
   eq([A.STAGEBOX_DB.dl32.in, A.STAGEBOX_DB.dl32.out, A.STAGEBOX_DB.dl32.proto[0]], [32, 16, "aes50"], "dl32 invariata");
   eq([A.MIXER_DB.x32.in, A.MIXER_DB.x32.out], [32, 16], "x32 invariata");
+  eq([A.MIXER_DB.m32.in, A.MIXER_DB.m32.out, A.MIXER_DB.m32.src], [32, 16, "M32 User Manual, Appendix A p.46 + §3.5 p.44"], "m32: I/O e fonte di prima, la scheda aggiunge solo misure");
   if (A.PRO_DB.rio3224d2) ok(A.rackUhOf({ type: "stagebox", hw: "rio3224d2" }) === A.PRO_DB.rio3224d2.rackU, "Rio3224-D2: U di scheda");
   if (A.PRO_DB.x32c) ok(A.hwCompatible("x32c", "dl32") && !A.hwCompatible("x32c", "rio3224d2"), "X32 Compact parla AES50 con la DL32, non Dante con la Rio");
 });
@@ -34993,6 +34995,7 @@ t("Catalogo pro: peso e consumo di targa SOLO sugli elementi posati dal catalogo
   eq(A.wattOf(Object.assign({}, nuovo, { watt: 99 })), 99, "il dichiarato dall'utente vince");
   /* una stage box con l'id di una console non prende niente */
   eq(A.proModelOf({ type: "stagebox", hw: "x32c", pro: 1 }), null, "tipo e modello devono combaciare");
+  eq(A.proModelOf({ type: "mixer", hw: "dl32", pro: 1 }), null, "una console con l'id di una stage box non prende niente");
 });
 t("Catalogo pro: scegliendo il modello dal pannello la misura diventa quella della scheda solo se l'utente non l'aveva cambiata", () => {
   const a = { type: "stagebox", hw: "dl32", w: A.TYPES.stagebox.w, d: A.TYPES.stagebox.d };
@@ -35036,6 +35039,9 @@ t("Icone approvate: 18 elementi nel catalogo, nella categoria giusta, con SVG va
   ok(/stroke="#dc2626"/.test(A.TYPES.presa32.draw({})) && /5P/.test(A.TYPES.presa32.draw({})), "CEE 32 A 5 poli rossa, poli scritti");
   ok(/stroke-dasharray/.test(A.TYPES.presa32s.draw({})) && !/stroke-dasharray/.test(A.TYPES.presa32.draw({})), "del service = tratteggiata");
   ok(/<rect x="-14"/.test(A.TYPES.presaciv.draw({})), "civile = quadrato");
+  ["presa16", "presa32s", "presaciv", "uscitafig", "boccascena", "lineasipario", "lineacentro", "gonna", "tiro"].forEach((k) => eq(A.defaultLabel(k), "", k + ": nasce senza scritta (il simbolo si spiega da solo)"));
+  eq(A.defaultLabel("puntoapp"), "P1", "il punto nasce col suo nome");
+  ok(/body:not\(\.f-opzioni\) #selProps \.pgrp\[data-grp="appendimento"\]\{display:none !important\}/.test(stylesCss), "carico e portata: solo con «Opzioni complete» (avanzate chiuse di serie)");
   ok(/scale\(-1,1\)/.test(A.TYPES.uscitafigsx.draw({})) && /fill="#fff" stroke="#111827"/.test(A.TYPES.uscitafigbn.draw({})), "uscita specchiata e B/N");
 });
 t("Icone approvate: punto di appendimento, carico e portata scritti; oltre portata = rosso; tiro numerato con la T come le americane", () => {
@@ -35046,6 +35052,8 @@ t("Icone approvate: punto di appendimento, carico e portata scritti; oltre porta
   ok(!A.ptAppOltre({ carico: 620 }) && !A.ptAppOltre({ portata: 500 }), "senza uno dei due numeri: nessun allarme (mai una portata calcolata)");
   eq(A.ptAppCarico({ carico: "abc" }), 0, "valore non numerico = assente");
   ok(/id="pPtCarico"/.test(readFileSync(join(root, "app/index.html"), "utf8")), "campi nel pannello");
+  ok(/getElementById\("pPtWrap"\); if\(!pw\) return; var on=it\.type==="puntoapp";/.test(appjs), "il riquadro compare solo sul punto di appendimento");
+  ok(/if\(isFinite\(v\) && v>0\) it\[key\]=Math\.min\(v,99999\); else delete it\[key\];/.test(appjs), "vuoto = tolto, tetto 99999");
   reset();
   const tiro = add("tiro", 400, 200); tiro.rig = { h: 920 };
   ok(A.isHangStruct(tiro), "il tiro è una struttura a cui si appende");
