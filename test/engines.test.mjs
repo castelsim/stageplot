@@ -33602,5 +33602,55 @@ t("relatore: il microfono (tonda, giraffa, in mano, archetto, lavalier, panorami
   ok(!/pVoce[^\n]{0,120}data-adv|data-adv[^\n]{0,120}pVoce/.test(tpl), "pVoce non è marcato avanzato");
 });
 
+/* ═══ PALCO PER ESTERNI (16/11/2026, M-078): la seconda uscita di ogni versione — PDF vettoriale con SOLO il palco e la fascia «titolo · luogo / Stage plot vN · data» ═══ */
+const _pe = () => { const i = appjs.indexOf("function buildPdfPalcoEsterni"), j = appjs.indexOf("function exportPalcoEsterni"); return appjs.slice(i, j); };
+const _peDoc = { setFont() {}, setFontSize() {}, splitTextToSize: (t, w) => { const per = Math.floor(w / 2.4), out = []; let r = ""; String(t).split(" ").forEach((x) => { if ((r + " " + x).trim().length > per) { out.push(r); r = x; } else r = (r + " " + x).trim(); }); out.push(r); return out; } };
+t("Palco per esterni: nome file «Titolo - vN del GG-MM-AAAA - palco.pdf», con stato, e senza versione il nome di sempre", () => {
+  reset(); A.state.titolo = "Stage plot - Bibione 12.12.26"; A.state.versione = 3;
+  eq(A.palcoEsterniNomeFile(new Date(2026, 10, 12)), "Stage plot - Bibione 12.12.26 - v3 del 12-11-2026 - palco.pdf");
+  A.state.statoDoc = "provvisorio"; eq(A.palcoEsterniNomeFile(new Date(2026, 10, 12)), "Stage plot - Bibione 12.12.26 - v3 del 12-11-2026 - Provvisorio - palco.pdf", "lo stato S22 nel nome");
+  delete A.state.statoDoc; A.state.titolo = "Bibione v7"; delete A.state.versione;
+  eq(A.palcoEsterniNomeFile(new Date(2026, 10, 12)), "Bibione - v7 del 12-11-2026 - palco.pdf", "la versione dal titolo non si ripete");
+  A.state.titolo = "Solo titolo"; eq(A.palcoEsterniNomeFile(new Date(2026, 10, 12)), "solo-titolo - palco.pdf", "senza versione: il nome di sempre + «palco»");
+  reset();
+});
+t("Palco per esterni: la fascia dice titolo · luogo, «Stage plot vN · data», stato ed evento; niente conteggi", () => {
+  reset(); A.state.titolo = "Capodanno 01.01.27 v11"; A.state.luogo = "Teatro Esempio, Città"; A.state.versione = 11; A.state.evDate = "2027-01-01"; A.state.statoDoc = "definitivo";
+  const T = A.palcoEsterniTesti(new Date(2026, 10, 16));
+  eq(T.titolo, "Capodanno 01.01.27 · Teatro Esempio, Città", "titolo senza il «vN» finale, poi il luogo");
+  eq(T.sub, "Stage plot v11 · 16/11/2026 · Definitivo · evento 01/01/2027");
+  delete A.state.evDate; delete A.state.statoDoc; A.state.luogo = "";
+  eq(A.palcoEsterniTesti(new Date(2026, 10, 16)).sub, "Stage plot v11 · 16/11/2026", "senza evento né stato");
+  eq(A.palcoEsterniTesti(new Date(2026, 10, 16)).titolo, "Capodanno 01.01.27", "senza luogo, solo il titolo");
+  ok(!/leggi|sedut|pedane|ascolt|rider/i.test(JSON.stringify(A.palcoEsterniTesti(new Date()))), "nessun conteggio");
+  reset();
+});
+t("Palco per esterni: titolo lungo va a capo (mai «…») e la fascia si alza; foglio e scala partono dalla fascia + 1 mm", () => {
+  reset(); A.state.titolo = "Stage plot"; A.state.versione = 2;
+  const corta = A.palcoEsterniFascia(_peDoc, 297, 10, new Date());
+  A.state.titolo = "Concerto di fine anno con orchestra, coro e band al completo"; A.state.luogo = "Teatro Comunale della Città di Esempio, Via Lunga 12, Quartiere Vecchio";
+  const lunga = A.palcoEsterniFascia(_peDoc, 297, 10, new Date());
+  ok(lunga.tit.length >= 2 && lunga.h > corta.h, "titolo a capo e fascia più alta: " + lunga.tit.length + " righe, " + lunga.h + " vs " + corta.h);
+  ok(lunga.tit.every((r) => r.indexOf("…") < 0), "mai puntini");
+  A.state.stage = { w: 800, d: 600, blocks: [{ x: 0, y: 0, w: 800, d: 600 }] };
+  const P = A.palcoEsterniPiano(_peDoc, "a4", "auto", "auto", new Date());
+  ok(P && P.ch === P.F.h + 1, "il foglio si dimensiona con cartH = fascia + 1");
+  ok(P.N >= 50 && !P.box.cropped, "scala valida, palco intero: 1:" + P.N);
+  const Q = A.palcoEsterniPiano(_peDoc, "a4", "50", "portrait", new Date()); ok(!Q || Q.o === "portrait", "l'orientamento scelto vince");
+  reset();
+});
+t("Palco per esterni: il PDF è solo disegno + barra + fascia (struttura del codice) e l'Esporta ha la voce chiara", () => {
+  const b = _pe();
+  ok(b.length > 200, "funzione trovata");
+  ["pdfCartiglio", "pdfTotals", "pdfQrDisegna", "riderPdf", "scalettaPdf", "organicoPdf", "patchListPdf", "view-cabin"].forEach((x) => ok(b.indexOf(x) < 0, "non usa " + x));
+  ["drawStageVector", "pdfScaleBar(", "pdfScaleBarPosa", "pdfCredit(doc)", "palcoEsterniPiano", "palcoEsterniTesti"].forEach((x) => ok(b.indexOf(x) >= 0, "usa " + x));
+  ok(/areaFoglio:\{x:L\.drawX, y:L\.drawY\+sh/.test(b), "la planimetria di sfondo scende con il disegno");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="pdfEsterni"[^>]*><b>Palco per esterni<\/b> \(solo disegno, con versione\)/.test(html), "la voce «Palco per esterni (solo disegno, con versione)»");
+  ok(html.indexOf('id="pdfEsterni"') > html.indexOf('id="pdfScSolo"') && html.indexOf('id="pdfEsterni"') < html.indexOf('id="pdfGo"'), "sta accanto alle scelte del PDF completo");
+  ok(/pdfGateErrori\(function\(\)\{\s*be\.disabled=true;[\s\S]*?exportPalcoEsterni\(/.test(appjs), "passa dal gate sugli errori critici come gli altri export");
+  ok(/palcoEsterniNomeFile\(\); pdfSave\(doc, nome\)/.test(appjs), "esce col suo nome");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

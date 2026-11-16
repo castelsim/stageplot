@@ -3719,6 +3719,9 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
 .pdf-sc.on b{color:var(--accent-strong)}
 .pdf-sc:disabled{opacity:.55;cursor:not-allowed}
 .pdf-sc:focus-visible{outline:2px solid var(--text-2);outline-offset:2px}   /* grigio, non verde: il verde dice «scelta», il fuoco iniziale cade sul primo bottone */
+.pdf-esterni{margin-top:10px;display:flex;flex-direction:column;gap:5px}
+.pdf-esterni .btn{width:100%;text-align:left;white-space:normal}
+.pdf-esterni small{font-size:12px;color:var(--text-2);line-height:1.4}
 .pdf-sc-riep{font-size:12px;color:var(--text-2);margin-top:7px;line-height:1.4}
 .pdf-sc-nota{font-size:11px;color:var(--text-3);margin-top:3px;line-height:1.4}
 .pdf-sc-nota[hidden]{display:none}
@@ -6432,6 +6435,12 @@ body.cust-contorno .item.selected .selbox{display:none}
           </div>
           <div class="pdf-sc-riep" id="pdfScRiepilogo" role="status" aria-live="polite"></div>
           <div class="pdf-sc-nota" id="pdfScNota" hidden></div>
+        </div>
+        <!-- PALCO PER ESTERNI (16/11/2026, M-078): la seconda uscita di ogni versione, accanto al PDF completo. Solo il disegno,
+             con la fascia «titolo · luogo · Stage plot vN · data»: è ciò che si manda a teatro, service, Diego. -->
+        <div class="pdf-esterni" id="pdfEsterniBox">
+          <button type="button" class="btn" id="pdfEsterni"><b>Palco per esterni</b> (solo disegno, con versione)</button>
+          <small>PDF vettoriale per teatro, service e Diego: il palco in scala con titolo, luogo, versione e data in alto. Niente cartiglio, conteggi né liste.</small>
         </div>
         <div id="pdfTechBox" style="display:none">
           <div class="pdf-side-h" id="pdfPillsTitle">Pagine del PDF, una per una</div>
