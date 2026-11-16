@@ -44264,6 +44264,8 @@ function maybeAskStageSize(explicit){
       '<div style="margin-top:10px">'+rows+'</div>'+
       '<a href="#" id="cloudRubrica" style="display:block;margin-top:12px;text-align:center;color:var(--text-2);text-decoration:none;font-size:13px;padding:2px">La mia rubrica…</a>'+
       '<a href="#" id="cloudVersioni" style="display:block;margin-top:6px;text-align:center;color:var(--text-2);text-decoration:none;font-size:13px;padding:2px">Punti di ripristino…</a>'+
+      /* Inventario (16/11): attrezzatura numerata con QR. Solo un link: la sezione sta in /inventario/ e non tocca chi fa stage plot. */
+      '<a href="/inventario/" target="_blank" rel="noopener" id="cloudInventario" style="display:block;margin-top:6px;text-align:center;color:var(--text-2);text-decoration:none;font-size:13px;padding:2px">Inventario attrezzatura (con QR)…</a>'+
       '<a href="/consulenza/" target="_blank" rel="noopener" style="display:block;margin-top:6px;text-align:center;color:var(--accent);font-weight:600;text-decoration:none;font-size:13px;padding:6px">Consulenza tecnica →</a>';
     document.getElementById("cloudSignout").addEventListener("click", signOut);
     var rubL=document.getElementById("cloudRubrica"); if(rubL) rubL.addEventListener("click", function(e){ e.preventDefault(); if(window.__openRubricaModal) window.__openRubricaModal(); });
