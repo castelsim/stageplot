@@ -3746,7 +3746,7 @@ t("Scala: la lunghezza è gradini × pedata 30 cm (h40 → 60, h60 → 90), la l
   reset();
   add("pedana", 400, 300, { h: 40 });                 /* x 300-500, y 250-350 */
   const s = add("scala", 400, 395);                   /* 60×90 sotto la pedana: −y (lato pedana) a y 350 */
-  Object.assign(s, { d: 90, y: 395 });                /* addItem fa già un render, che l'ha adeguata: si rimette alla misura di serie */
+  Object.assign(s, { d: 90, dAuto: 90, y: 395 });                /* addItem fa già un render, che l'ha adeguata: si rimette alla misura di serie */
   eq(A.scalaAdegua(s), true, "h40: da 90 a 60");
   eq([s.w, s.d, s.x, s.y], [60, 60, 400, 380], "larghezza invariata; il lato sulla pedana (y 350) resta fermo");
   eq(A.scalaAdegua(s), false, "idempotente");
@@ -3762,16 +3762,16 @@ t("Scala: la lunghezza è gradini × pedata 30 cm (h40 → 60, h60 → 90), la l
   /* ruotate come a Padova: il lato pedana è sempre quello della freccia (−y locale) */
   add("pedana", 600, 320, { h: 40, w: 1000, d: 200 });   /* bordo sinistro x 100 */
   const sl = add("scala", 60, 320, { rot: 90 }), sr = add("scala", 1140, 320, { rot: 270 });
-  Object.assign(sl, { d: 90, x: 60 }); Object.assign(sr, { d: 90, x: 1140 });   /* misura di serie */
+  Object.assign(sl, { d: 90, dAuto: 90, x: 60 }); Object.assign(sr, { d: 90, dAuto: 90, x: 1140 });   /* misura di serie */
   eq(A.scaleAdegua(), 2, "due scale adeguate");
   eq([sl.d, sl.x, sl.y, sr.d, sr.x, sr.y], [60, 75, 320, 60, 1125, 320], "h40: 60 di lunghezza, il lato sulla pedana (x 105 a sinistra, x 1095 a destra) resta dov'era");
   eq(A.scaleAdegua(), 0, "seconda passata: niente da fare");
   reset();
-  const l = add("pedana", 400, 300, { h: 40 }), bloc = add("scala", 400, 395); Object.assign(bloc, { d: 90, y: 395, locked: true });
+  const l = add("pedana", 400, 300, { h: 40 }), bloc = add("scala", 400, 395); Object.assign(bloc, { d: 90, dAuto: 90, y: 395, locked: true });
   eq([A.scaleAdegua(), bloc.d], [0, 90], "una scala bloccata non si tocca");
   const prima = A.state.items.length; A.render(); eq([A.state.items.length, bloc.d], [prima, 90], "render: il bloccato resta");
   reset();
-  add("pedana", 400, 300, { h: 40 }); const sx = add("scala", 400, 395); Object.assign(sx, { d: 90, y: 395 }); A.render();
+  add("pedana", 400, 300, { h: 40 }); const sx = add("scala", 400, 395); Object.assign(sx, { d: 90, dAuto: 90, y: 395 }); A.render();
   eq(sx.d, 60, "render() adegua da solo");
   reset();
 });
@@ -32737,7 +32737,7 @@ t("Pedana: le scorciatoie ci sono nel pannello e la scala segue l'altezza", () =
   const appHtml = readFileSync(join(root, "app/index.html"), "utf8"); ok(/id="pPedMis"/.test(appHtml) && /id="pPedAlt"/.test(appHtml), "i due gruppi di bottoni sono nella pagina");
   reset();
   const p = add("pedana", 400, 300, { h: 40 }), s = add("scala", 400, 395);
-  Object.assign(s, { d: 90, y: 395 });
+  Object.assign(s, { d: 90, dAuto: 90, y: 395 });
   A.pedanaApplicaRapida(p, { h: 100 }); A.scaleAdegua();
   eq(s.d, 150, "h100: 5 gradini da 30 cm");
 });
@@ -33761,6 +33761,58 @@ await (async () => {
   } catch (e) { fail++; console.log("  ✗ " + nomeT + "\n      " + e.message); }
   finally { ripristina(); A.jspdf = jspdfPrima; reset(); }
 })();
+
+/* ═══ Anomalie export 16/11/2026 ═══ */
+t("Anomalia B: le scale create dai modelli/organici (placeOut) nascono del motore, come quelle del catalogo", () => {
+  reset();
+  const src = readFileSync(join(root, "index.template.html"), "utf8");
+  ok(/if\(o\.type==="scala"\) it\.dAuto=\+it\.d;/.test(src), "placeOut contrassegna le scale");
+});
+t("Anomalia B (16/11): una scala SALVATA non cambia misura da sola — né a render(), né dopo il caricamento (progetto vero: 90 → 60 senza richiesta)", () => {
+  reset();
+  add("pedana", 400, 300, { h: 40 });                  /* pedana h40: il motore la vorrebbe 60 */
+  const s0 = add("scala", 400, 395);
+  /* come un progetto salvato prima del 13/11: scala 60×90, nessun contrassegno del motore */
+  const salvato = { id: s0.id, type: "scala", x: 400, y: 395, rot: 0, w: 60, d: 90, label: "" };
+  const st = JSON.parse(JSON.stringify(A.state));
+  st.items = st.items.map((o) => (o.id === s0.id ? salvato : o));
+  A.state.items = A.sanitizeItems(st.items);
+  const s = A.state.items.find((x) => x.type === "scala");
+  eq([s.d, s.y], [90, 395], "dopo sanitizeItems (caricamento) la scala salvata è com'era");
+  eq(A.scaleAdegua(), 0, "scaleAdegua non tocca la scala salvata");
+  A.render();
+  eq([s.d, s.y], [90, 395], "render() non tocca la scala salvata");
+  reset();
+});
+t("Anomalia B: la misura dell'utente vince — se cambia d a mano, il motore non la rimette; la scala NUOVA continua ad adeguarsi; il contrassegno sopravvive al salvataggio", () => {
+  reset();
+  add("pedana", 400, 300, { h: 40 });
+  const n = add("scala", 400, 395);                    /* nuova: la crea l'app, il motore la segue */
+  eq(n.d, 60, "nuova scala su pedana h40: 60 (addItem + render la adeguano)");
+  const ricaricata = A.sanitizeItems(JSON.parse(JSON.stringify(A.state.items))).find((x) => x.type === "scala");
+  eq(ricaricata.dAuto, n.dAuto, "il contrassegno del motore sta nel salvataggio");
+  A.state.items.find((x) => x.type === "pedana").h = 60;
+  A.render(); eq(n.d, 90, "nuova scala: segue l'altezza della pedana");
+  n.d = 75;                                            /* l'utente la mette a 75 */
+  A.state.items.find((x) => x.type === "pedana").h = 40;
+  A.render(); eq(n.d, 75, "misura scritta dall'utente: il motore non la tocca");
+  reset();
+});
+t("Anomalia A (16/11): «Prima di esportare» avvisa se la planimetria è nel progetto ma l'immagine manca (nel PDF non comparirebbe) o è a opacità 0", () => {
+  reset();
+  eq(ccId("planimetria-mancante").length, 0, "senza planimetria: niente");
+  const png = "data:image/png;base64,iVBORw0KGgo=";
+  A.state.venue = { name: "Pianta", x: 0, y: 0, w: 1000, h: 800, rot: 0, enabled: true, locked: true, opacity: 40, _dataUrl: png };
+  eq(ccId("planimetria-mancante").length, 0, "con immagine e opacità 40: niente");
+  A.state.venue._dataUrl = "";
+  const a = ccId("planimetria-mancante"); eq(a.length, 1, "immagine mancante: un avviso");
+  ok(/Pianta/.test(a[0].testo) && /non compar/.test(a[0].testo), "il testo dice quale planimetria e che nel PDF non compare");
+  A.state.venue._dataUrl = png; A.state.venue.opacity = 0;
+  eq(ccId("planimetria-mancante").length, 1, "opacità 0: un avviso (invisibile nel PDF)");
+  A.state.venue.opacity = 40; A.state.venue.enabled = false; A.state.venue._dataUrl = "";
+  eq(ccId("planimetria-mancante").length, 0, "planimetria spenta apposta dall'utente: niente avviso");
+  reset();
+});
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
