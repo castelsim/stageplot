@@ -33814,5 +33814,135 @@ t("Anomalia A (16/11): «Prima di esportare» avvisa se la planimetria è nel pr
   reset();
 });
 
+/* ============ INVENTARIO CON QR (16/11, migrazione 0085) ============
+   Etichette con QR sugli strumenti: l'indirizzo scritto nel QR (https://stageplot.it/i/<slug>/<CODICE>) NON deve cambiare mai (le etichette
+   sono già incollate); la pagina pubblica non deve mai mostrare note o nomi di persone; i campi riservati e lo storico li vedono solo i
+   membri (RLS); il database resta chiuso (niente insert diretti). */
+const invRequire = (await import("node:module")).createRequire(import.meta.url);
+const INV_IND = invRequire(join(root, "i/indirizzo.js")), INV_LIB = invRequire(join(root, "inventario/inv-lib.js")), INV_PUB = invRequire(join(root, "i/inv.js"));
+const deepEq = (a, b, m) => eq(JSON.stringify(a), JSON.stringify(b), m);
+const invSql = readFileSync(join(root, "supabase/migrations/0085_inventario.sql"), "utf8"), invSqlPulito = invSql.replace(/--[^\n]*/g, "");
+const invFn = (nome) => { const a = invSqlPulito.indexOf("create or replace function public." + nome + "("), b = invSqlPulito.indexOf("create or replace function", a + 10); return a < 0 ? "" : invSqlPulito.slice(a, b < 0 ? undefined : b); };
+t("Inventario: l'indirizzo del QR è fisso — https://stageplot.it/i/<slug>/<CODICE>, anche se arriva in minuscolo; l'elenco è /i/<slug>", () => {
+  eq(INV_IND.link("ava", "TAS-003"), "https://stageplot.it/i/ava/TAS-003", "forma dell'indirizzo");
+  eq(INV_IND.link("AVA", "tas-003"), "https://stageplot.it/i/ava/TAS-003", "slug minuscolo, codice maiuscolo");
+  eq(INV_IND.linkElenco("AVA"), "https://stageplot.it/i/ava", "elenco pubblico");
+});
+t("Inventario: dalla scorciatoia al canonico (404.html); maiuscole tollerate, query conservata, malformati e riservati rifiutati", () => {
+  eq(INV_IND.scorciatoia("/i/ava/TAS-003", ""), "/i/?s=ava&c=TAS-003", "scheda");
+  eq(INV_IND.scorciatoia("/i/ava", ""), "/i/?s=ava", "elenco senza codice");
+  eq(INV_IND.scorciatoia("/I/AVA/tas-003/", "?x=1"), "/i/?s=ava&c=TAS-003&x=1", "maiuscole e barra finale; ?x=1 resta");
+  eq(INV_IND.scorciatoia("/i/ava/TAS-003", "?s=zz&c=yy&x=1"), "/i/?s=ava&c=TAS-003&x=1", "s e c della query non si duplicano");
+  eq(INV_IND.scorciatoia("/i/ava/TAS%2D003", ""), "/i/?s=ava&c=TAS-003", "percent-encoding decodificato (un lettore QR può codificare il trattino)");
+  deepEq(INV_IND.daIndirizzo("/i/", "?s=ava&c=pad-007"), { slug: "ava", codice: "PAD-007" }, "canonico con codice");
+  deepEq(INV_IND.daIndirizzo("/i/", "?s=ava"), { slug: "ava", codice: null }, "canonico: elenco");
+  deepEq(INV_IND.daIndirizzo("/i/ava/PAD-007", ""), { slug: "ava", codice: "PAD-007" }, "scorciatoia letta direttamente");
+  for (const [pa, se] of [["/i/", ""], ["/i/", "?c=TAS-003"], ["/i/", "?s=a"], ["/i/ab/TAS-003", ""], ["/i/", "?s=ab"], ["/i/", "?s=ava&c=T-1"], ["/i/", "?s=ava&c=TAS-3"], ["/i/ava/TAS-003/extra", ""], ["/i/%zz/TAS-003", ""],
+      ["/i/ava/TASTIE-003", ""], ["/i/ab--cd/TAS-003", ""], ["/i/-ava/TAS-003", ""], ["/i/inv", ""], ["/i/index", ""], ["/i/admin/TAS-003", ""], ["/i/inv.js", ""]]) eq(INV_IND.daIndirizzo(pa, se), null, "rifiutato: " + pa + se);
+  eq(INV_IND.scorciatoia("/programma/ab-cd", ""), null, "non tocca le altre scorciatoie");
+  eq(INV_IND.scorciatoia("/i/" + "a".repeat(31), ""), null, "slug oltre 30 caratteri");
+});
+t("Inventario: le parole riservate dell'indirizzo sono le stesse di SQL (inv_slug_riservato) — un'etichetta non può puntare a un file", () => {
+  const m = /select p = any \(array\[([^\]]+)\]\)/.exec(invSqlPulito); ok(m, "elenco trovato nella migrazione");
+  const sql = m[1].split(",").map((x) => x.trim().replace(/^'|'$/g, "")).sort();
+  deepEq(sql, [...INV_IND.RISERVATI].sort(), "stesse parole in JS e in SQL");
+  for (const f of readdirSync(join(root, "i"))) { const base = f.replace(/\.[^.]+$/, ""); ok(INV_IND.RISERVATI.includes(base), "il file i/" + f + " non può essere uno slug (riservato: " + base + ")"); }
+});
+t("Inventario: codici, prefissi, frase («10 tastiere in inventario» / «1 tastiera»), conteggi per tipo e stato", () => {
+  eq(INV_LIB.codice("tas", 3), "TAS-003", "3 cifre"); eq(INV_LIB.codice("PAD", 1234), "PAD-1234", "oltre 999");
+  ok(INV_LIB.prefissoOk("TAS") && !INV_LIB.prefissoOk("T") && !INV_LIB.prefissoOk("TASTIE") && !INV_LIB.prefissoOk("ta1"), "prefisso: 2-5 lettere maiuscole");
+  eq(INV_LIB.proponiPrefisso("Violoncello"), "VIO", "dal nome"); eq(INV_LIB.proponiPrefisso("Èsempio"), "ESE", "l'accento non fa sparire la lettera"); eq(INV_LIB.proponiPrefisso("a"), "", "troppo corto");
+  eq(INV_LIB.frase(10, "Tastiera", "tastiere"), "10 tastiere in inventario", "plurale"); eq(INV_LIB.frase(1, "Tastiera", "tastiere"), "1 tastiera in inventario", "singolare"); eq(INV_LIB.frase(0, "Pad", "pad"), "0 pad in inventario", "zero");
+  const c = INV_LIB.conteggi([{ tipo: "TAS", stato: "in_sede" }, { tipo: "TAS", stato: "a_casa" }, { tipo: "TAS", stato: "dismesso" }, { tipo: "PAD", stato: "in_sede" }]);
+  eq(c.TAS.totale, 3, "totale"); eq(c.TAS.attivi, 2, "i dismessi non contano come «in inventario»"); eq(c.TAS.per_stato.a_casa, 1, "per stato"); eq(c.PAD.attivi, 1, "altro tipo");
+  eq(INV_LIB.dataIt("2026-11-16"), "16/11/2026", "data italiana"); eq(INV_LIB.dataIt(null), "", "data assente");
+});
+t("Inventario: il CSV ha le colonne della scuola, NON contiene nomi (salvo richiesta esplicita) e non diventa mai una formula in Excel", () => {
+  const out = INV_LIB.csv([{ prefisso: "TAS", singolare: "Tastiera" }], [{ codice: "TAS-002", tipo: "TAS", modello: '=HYPERLINK("x")', stato: "a_casa", note: "a, b", assegnato_a: "Mario Rossi 2B", data_consegna: "2026-11-16" }, { codice: "TAS-001", tipo: "TAS", modello: "Yamaha", stato: "in_sede", note: "" }]);
+  eq(out.split("\n")[0], "codice,tipo,marca/modello,stato,note", "intestazione"); eq(out.split("\n")[1], "TAS-001,Tastiera,Yamaha,In sede,", "ordinato per codice");
+  ok(out.split("\n")[2].includes("'=HYPERLINK") && out.includes('"a, b"'), "= prefissato da apice; virgola tra virgolette");
+  ok(!/Mario|Rossi/.test(out), "il CSV normale non contiene nomi di persone");
+  const n = INV_LIB.csv([{ prefisso: "TAS", singolare: "Tastiera" }], [{ codice: "TAS-002", tipo: "TAS", modello: "x", stato: "a_casa", note: "", assegnato_a: "Mario Rossi 2B", data_consegna: "2026-11-16", data_rientro: null }], true);
+  eq(n.split("\n")[0], "codice,tipo,marca/modello,stato,note,assegnato a,data consegna,data rientro", "intestazione con assegnazioni"); ok(n.includes("Mario Rossi 2B,2026-11-16,"), "riga con assegnazione e date");
+  ok(INV_LIB.csv([], [{ codice: "PAD-001", tipo: "PAD", modello: 'Tosnail 12"', stato: "in_sede", note: "" }]).includes('"Tosnail 12"""'), "le virgolette dentro un campo si raddoppiano (12\" → \"12\"\")");
+  ok(!/\r/.test(out) && out.endsWith("\n"), "fine riga \\n e a capo finale");
+});
+t("Inventario: foglio A4 di etichette — 21 per pagina, margine basso ≥ 15 mm (la Ricoh taglia), impaginazione e posizioni", () => {
+  const F = INV_LIB.FOGLIO;
+  eq(INV_LIB.perPagina(), 21, "3 × 7"); ok(INV_LIB.giusto(), "l'ultima riga sta sopra il margine basso");
+  ok(F.h - (F.alto + F.righe * F.eh + (F.righe - 1) * F.gap) >= 15, "margine in basso ≥ 15 mm anche col piè");
+  ok(INV_LIB.origineX() >= 10 && INV_LIB.origineX() + F.colonne * F.ew + (F.colonne - 1) * F.gap <= F.w - 10, "margini laterali ≥ 10 mm");
+  const els = Array.from({ length: 22 }, (_, i) => i); const pg = INV_LIB.impagina(els);
+  eq(pg.length, 2, "22 etichette = 2 fogli"); eq(pg[0].length, 21, "21 sul primo"); eq(pg[1].length, 1, "1 sul secondo"); eq(INV_LIB.impagina([]).length, 0, "nessuna etichetta, nessun foglio");
+  const a = INV_LIB.posizione(0), b = INV_LIB.posizione(1), r = INV_LIB.posizione(3);
+  eq(b.x - a.x, F.ew + F.gap, "passo orizzontale"); eq(r.y - a.y, F.eh + F.gap, "passo verticale"); eq(r.x, a.x, "a capo dopo 3");
+  eq(INV_LIB.intervallo(["TAS-001", "TAS-005", "TAS-010"]), "TAS-001 … TAS-010", "intervallo nel piè"); eq(INV_LIB.data(new Date(2026, 10, 5)), "05/11/2026", "data gg/mm/aaaa");
+  ok(INV_LIB.corpoCodice(7) <= 17 && INV_LIB.corpoCodice(9) < INV_LIB.corpoCodice(7) && INV_LIB.corpoCodice(20) >= 8, "il codice lungo rimpicciolisce ma resta leggibile");
+});
+t("Inventario: la pagina pubblica scarta ogni campo sconosciuto (mai note, assegnato, user_id, nomi) — scheda ed elenco", () => {
+  const d = INV_PUB.pulisci({ inventario: "Art Voice Academy ETS", codice: "TAS-003", numero: 3, singolare: "Tastiera", plurale: "tastiere", modello: "Yamaha", stato: "a_casa", totale: 10, note: "x", user_id: "u", assegnato_a: "Mario Rossi 2B", allievo: "Anna" });
+  deepEq(Object.keys(d).sort(), ["codice", "inventario", "modello", "numero", "plurale", "singolare", "stato", "totale"], "solo i campi previsti");
+  eq(INV_PUB.pulisci({ codice: "X", stato: "inventato" }).stato, null, "stato sconosciuto = niente badge"); eq(INV_PUB.pulisci(null), null, "null = non trovato");
+  eq(INV_PUB.pulisci([1]), null, "array = non valido"); eq(INV_PUB.pulisci({ totale: -3 }).totale, 0, "totale negativo = 0"); eq(INV_PUB.pulisci({ modello: "x".repeat(500) }).modello.length, 120, "testo tagliato");
+  const e = INV_PUB.pulisciElenco({ inventario: "A", tipi: [{ prefisso: "TAS", singolare: "Tastiera", plurale: "tastiere", totale: 2, assegnato_a: "Mario", articoli: [{ codice: "TAS-001", numero: 1, modello: "m", stato: "in_sede", note: "n", assegnato_a: "Mario Rossi" }, { codice: "", numero: 2 }] }] });
+  eq(e.tipi[0].articoli.length, 1, "voce senza codice scartata"); deepEq(Object.keys(e.tipi[0].articoli[0]).sort(), ["codice", "modello", "numero", "stato"], "voce: solo i campi previsti"); deepEq(Object.keys(e.tipi[0]).sort(), ["articoli", "plurale", "prefisso", "singolare", "totale"], "tipo: solo i campi previsti");
+  ok(!JSON.stringify(e).includes("Mario"), "nessun nome nell'elenco pubblico"); eq(INV_PUB.pulisciElenco("x"), null, "elenco non valido = null");
+  eq(INV_PUB.configura("stageplot.it", "?api=http://evil.example&anon=zz").api, "https://vsodplqkuvnsdiikvmjb.supabase.co", "in produzione ?api= NON vale");
+  eq(INV_PUB.configura("127.0.0.1", "?api=http://127.0.0.1:55433").api, "http://127.0.0.1:55433", "da localhost vale (prove)");
+  eq(INV_PUB.frase(1, "Tastiera", "tastiere"), "1 tastiera in inventario", "frase: singolare"); eq(INV_PUB.frase(10, "Tastiera", "tastiere"), "10 tastiere in inventario", "frase: plurale"); eq(INV_PUB.frase(0, "Tastiera", "tastiere"), "0 tastiere in inventario", "frase: zero");
+});
+t("Inventario: la parte riservata (membri) è ripulita e i messaggi di errore dei movimenti sono in italiano", () => {
+  const m = INV_PUB.pulisciMembro({ stato: "a_casa", assegnato_a: "Mario Rossi 2B", data_consegna: "2026-11-16", data_rientro: "boh", note: "n", proprietario: true, extra: 1,
+    movimenti: [{ tipo: "consegna", a_chi: "Mario Rossi 2B", data: "2026-11-16", nota: "", autore: "a@x.it" }, { tipo: "hack", a_chi: "x" }] });
+  eq(m.movimenti.length, 1, "movimento di tipo sconosciuto scartato"); eq(m.data_rientro, "", "data non valida = vuota"); eq(m.proprietario, true, "proprietario"); ok(!("extra" in m), "campi sconosciuti scartati");
+  eq(INV_PUB.pulisciMembro(null), null, "non membro = null"); eq(INV_PUB.pulisciMembro([1]), null, "array = null");
+  ok(/già assegnato/.test(INV_PUB.erroreMov({ errore: "gia_assegnato" })) && /non è abilitato/i.test(INV_PUB.erroreMov({ errore: "non_autorizzato" })) && /riprova/.test(INV_PUB.erroreMov(null)), "messaggi chiari");
+  eq(INV_PUB.oggiIso(new Date(2026, 10, 5)), "2026-11-05", "data di oggi per il modulo"); eq(INV_PUB.oggiIso(new Date(2026, 1, 3)), "2026-02-03", "mese e giorno a due cifre"); eq(INV_PUB.gmA("2026-11-16"), "16/11/2026", "data italiana");
+});
+t("Inventario: migrazione 0085 — RLS ovunque, niente insert diretti, campi riservati solo ai membri (da email del token), pubblico solo con slug + «pubblico»", () => {
+  for (const tb of ["inv_inventari", "inv_membri", "inv_tipi", "inv_articoli", "inv_movimenti"]) ok(new RegExp("alter table public\\." + tb + "\\s+enable row level security").test(invSqlPulito), "RLS attiva su " + tb);
+  ok(!/grant[^;]*\binsert\b[^;]*to authenticated/i.test(invSqlPulito), "nessun insert diretto per authenticated: si passa dalle funzioni con i limiti");
+  ok(!/grant[^;]*to anon\b/i.test(invSqlPulito.replace(/grant execute on function public\.inv_(articolo|elenco)_pubblic[oa][^;]*;/gi, "")), "anon non ha altro che le due funzioni pubbliche");
+  ok(/grant update \(modello, stato, note, assegnato_a, data_consegna, data_rientro, aggiornato\) on public\.inv_articoli to authenticated/.test(invSqlPulito), "update a colonne: il codice non si cambia");
+  ok(!/grant update[^;]*\b(codice|tipo|numero|inventario_id)\b[^;]*inv_articoli/i.test(invSqlPulito), "codice, tipo, numero non modificabili");
+  ok(/grant select on table[^;]*inv_movimenti[^;]*to authenticated/.test(invSqlPulito) && !/grant[^;]*(update|delete)[^;]*inv_movimenti/.test(invSqlPulito), "lo storico si legge e basta");
+  ok(/lower\(coalesce\(\(select auth\.jwt\(\)\) ->> 'email', ''\)\)/.test(invFn("inv_e_membro")), "membro = email del token firmato (mai un parametro)");
+  ok(/create policy inv_membri_select on public\.inv_membri for select to authenticated using \(public\.inv_e_proprietario\(inventario_id\)\)/.test(invSqlPulito), "l'elenco delle persone abilitate lo vede solo il proprietario");
+  ok(/create policy inv_articoli_delete[^;]*inv_e_proprietario/.test(invSqlPulito), "cancella articoli solo il proprietario");
+  ok(!/create table[^;]*\b(indirizzo|telefono|email_allievo|cognome)\b/i.test(invSqlPulito.replace(/create table if not exists public\.inv_membri[^;]*;/, "")), "nessuna colonna per indirizzi o telefoni");
+  for (const fn of ["inv_articolo_pubblico", "inv_elenco_pubblico"]) {
+    const f = invFn(fn);
+    ok(f.length > 300 && !/'note'|assegnato|user_id|email|data_consegna|data_rientro|autore/.test(f), fn + ": non cita campi riservati");
+    ok(/where i\.slug\s*=\s*lower\(btrim\(coalesce\(p_slug/.test(f) && /\band i\.pubblico\b/.test(f), fn + ": chiede lo slug e che l'inventario sia pubblico");
+  }
+  ok(!/\btrue\b/.test(invFn("inv_e_membro") + invFn("inv_e_proprietario")), "l'appartenenza non ha scorciatoie «true»");
+  ok(/inv_e_proprietario\(p_inv\)\s+or exists \(select 1 from public\.inv_membri m\s+where m\.inventario_id = p_inv and m\.email = lower/.test(invFn("inv_e_membro")), "membro = proprietario oppure email del token fra i membri");
+  for (const tb of ["inv_tipi", "inv_articoli", "inv_movimenti"]) ok(new RegExp("create policy " + tb + "_select on public\\." + tb + " for select to authenticated using \\(public\\.inv_e_membro\\(inventario_id\\)\\);").test(invSqlPulito), tb + ": lettura solo ai membri");
+  ok(/create policy inv_inventari_select on public\.inv_inventari for select to authenticated using \(public\.inv_e_membro\(id\)\);/.test(invSqlPulito), "inventari: li vedono solo proprietario e membri");
+  for (const fn of ["inv_crea", "inv_membro_aggiungi", "inv_tipo_salva", "inv_aggiungi", "inv_articolo_pubblico", "inv_elenco_pubblico", "inv_scheda_membro", "inv_movimento", "inv_e_membro", "inv_e_proprietario"]) ok(/security definer set search_path = public, pg_temp/.test(invFn(fn)), fn + ": security definer con search_path fisso (nella sua funzione)");
+  for (const fn of ["inv_scheda_membro", "inv_movimento"]) ok(/inv_e_membro\(/.test(invFn(fn)), fn + ": controlla l'appartenenza");
+  ok(!/to anon\b/.test(invFn("inv_movimento")) && !/grant execute on function public\.inv_(movimento|scheda_membro)[^;]*anon/.test(invSqlPulito), "anon non può chiamare le funzioni dei membri");
+  ok(!/@[a-z0-9-]+\.(it|com|net|org|eu)\b/i.test(invSql.replace(/'\^\[\^@\\s\]\+@\[\^@\\s\]\+\\\.\[\^@\\s\]\+\$'/g, "")), "nessuna email dentro la migrazione (repo pubblico: i membri iniziali si inseriscono da SQL a parte)");
+  const m84 = readFileSync(join(root, "supabase/migrations/0084_orc_condizioni_versionate.sql"), "utf8");
+  const righe = (x) => (x.slice(x.indexOf("function public.bgl_account_solo_biglietteria")).match(/not exists \(select 1 from public\.\w+ where \w+ = p_uid\)/g) || []);
+  const vecchie = righe(m84), nuove = righe(invSql);
+  ok(vecchie.length > 25 && vecchie.every((r) => nuove.includes(r)), "la pulizia account di 0085 contiene tutte le " + vecchie.length + " condizioni di 0084");
+  ok(nuove.includes("not exists (select 1 from public.inv_inventari where user_id = p_uid)"), "e in più gli inventari: chi ha un inventario non viene pulito come «solo biglietteria»");
+});
+t("Inventario: pagina e area — ritorno dopo l'accesso, cablaggio (404.html, service worker, deploy, menu editor), noindex, mai innerHTML, niente terzi", () => {
+  const f404 = readFileSync(join(root, "404.html"), "utf8");
+  ok(/\/i\/indirizzo\.js/.test(f404) && /INVIndirizzo/.test(f404), "404.html rimanda /i/<slug>/<codice>");
+  ok(/"\/i\/"/.test(readFileSync(join(root, "sw.js"), "utf8")) && /"\/inventario\/"/.test(readFileSync(join(root, "sw.js"), "utf8")), "il service worker non mette in cache /i/ e /inventario/");
+  ok(/guida i img inventario/.test(readFileSync(join(root, ".github/workflows/pages.yml"), "utf8")), "il deploy pubblica le cartelle i e inventario");
+  ok(/id="cloudInventario"/.test(appjs) && /href="\/inventario\/"/.test(appjs), "l'editor ha il link «Inventario attrezzatura» nel pannello account (chiuso di serie)");
+  for (const f of ["i/index.html", "inventario/index.html"]) ok(/<meta name="robots" content="noindex,nofollow">/.test(readFileSync(join(root, f), "utf8")), f + ": noindex");
+  for (const f of ["i/inv.js", "inventario/inv-area.js", "inventario/inv-lib.js"]) ok(!/innerHTML|outerHTML|insertAdjacentHTML|document\.write/.test(readFileSync(join(root, f), "utf8").replace(/\/\*[\s\S]*?\*\//g, "")), f + ": nessun innerHTML");
+  ok(!/https?:\/\/(?!stageplot\.it|127\.0\.0\.1|localhost|vsodplqkuvnsdiikvmjb\.supabase\.co|www\.w3\.org)/.test(readFileSync(join(root, "i/index.html"), "utf8").replace(/<!--[\s\S]*?-->/g, "")), "la pagina del QR non carica nulla da terzi");
+  const idx = readFileSync(join(root, "i/index.html"), "utf8");
+  ok(/accedi\/google\/avvio\.js/.test(idx) && /biglietteria\/accesso\.js/.test(idx), "la pagina del QR carica l'accesso Google già presente (spGoogle + BGLAccesso)");
+  ok(!/unsafe-inline/.test(idx.match(/Content-Security-Policy" content="([^"]+)"/)[1]), "CSP della pagina pubblica senza unsafe-inline");
+  ok(!/INVENTARIO|TAS-0|@[a-z]+\.(it|com)/.test(readFileSync(join(root, "i/inv.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "")), "nessun dato reale nel codice della pagina");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

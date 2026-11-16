@@ -11,7 +11,8 @@
        regole di riscrittura; se un giorno l'hosting le avrà, cambia solo questo. -->
   <script src="/biglietteria/indirizzi.js"></script>
   <script src="/programma/indirizzo.js"></script>
-  <script>try{var d=window.BGLIndirizzi&&window.BGLIndirizzi.scorciatoia(location.pathname,location.search);if(!d)d=window.PRGIndirizzo&&window.PRGIndirizzo.scorciatoia(location.pathname,location.search);if(d){document.documentElement.style.visibility="hidden";location.replace(d+location.hash);}}catch(e){}</script>
+  <script src="/i/indirizzo.js"></script>
+  <script>try{var d=window.BGLIndirizzi&&window.BGLIndirizzi.scorciatoia(location.pathname,location.search);if(!d)d=window.PRGIndirizzo&&window.PRGIndirizzo.scorciatoia(location.pathname,location.search);if(!d)d=window.INVIndirizzo&&window.INVIndirizzo.scorciatoia(location.pathname,location.search);if(d){document.documentElement.style.visibility="hidden";location.replace(d+location.hash);}}catch(e){}</script>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <style>
     :root { --ink:#17212f; --muted:#5b6675; --accent:#b45309; --dark:#101820; }
