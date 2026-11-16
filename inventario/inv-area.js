@@ -65,8 +65,8 @@
   }
   function vistaElenco() {
     S.vista = "elenco"; S.inv = null;
-    var nome = h("input", { type: "text", maxlength: "80", placeholder: "es. Art Voice Academy ETS" });
-    var slug = h("input", { type: "text", maxlength: "30", placeholder: "es. ava", style: "text-transform:lowercase" });
+    var nome = h("input", { type: "text", maxlength: "80", placeholder: "es. Accademia Esempio" });
+    var slug = h("input", { type: "text", maxlength: "30", placeholder: "es. scuola", style: "text-transform:lowercase" });
     nome.addEventListener("input", function () { if (!slug.dataset.mano) slug.value = nome.value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 30); });
     slug.addEventListener("input", function () { slug.dataset.mano = "1"; });
     var err = h("p", { class: "err", hidden: true });

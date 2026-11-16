@@ -1,12 +1,12 @@
 -- 0085 — Inventario con QR: attrezzatura numerata (TAS-001, PAD-001…) con etichetta, pagina pubblica leggera, scheda per la segreteria.
 --
 -- PERCHÉ: una scuola, un service o una band ha strumenti da numerare e, a volte, da dare in prestito. Un'etichetta con QR si stampa,
--- si plastifica e si incolla UNA volta; scansionandola si apre https://stageplot.it/i/<slug>/<codice> (es. /i/ava/TAS-003).
+-- si plastifica e si incolla UNA volta; scansionandola si apre https://stageplot.it/i/<slug>/<codice> (es. /i/scuola/TAS-003).
 -- L'indirizzo (slug + codice) non cambia mai: la pagina dietro può cambiare, le etichette stampate restano valide.
 -- https://stageplot.it/i/<slug> = elenco pubblico per tipo.
 --
--- DUE LIVELLI (decisione di Simone, 16/11):
---  • PUBBLICO, senza login: codice, tipo, modello, nome dell'inventario (es. «Art Voice Academy ETS»), stato «in sede / a casa» (se il
+-- DUE LIVELLI (decisione del proprietario del progetto, 16/11/2026):
+--  • PUBBLICO, senza login: codice, tipo, modello, nome dell'inventario (es. «Accademia Esempio»), stato «in sede / a casa» (se il
 --    proprietario lo vuole), totale per tipo. MAI il nome di una persona, MAI le note. Solo con le funzioni inv_articolo_pubblico / inv_elenco_pubblico.
 --  • MEMBRI (proprietario + email autorizzate dal proprietario, accesso con Google già presente su stageplot.it): vedono e scrivono i campi
 --    riservati — assegnato a (nome + corso/classe: niente indirizzi né telefoni), data di consegna e di rientro, note — e lo storico dei
@@ -33,7 +33,7 @@ grant execute on function public.inv_slug_riservato(text) to service_role;
 create table if not exists public.inv_inventari (
   id           uuid primary key default gen_random_uuid(),
   user_id      uuid not null references auth.users(id) on delete cascade,   -- il proprietario
-  nome         text not null,                                               -- «Art Voice Academy ETS»: compare nella pagina pubblica
+  nome         text not null,                                               -- «Accademia Esempio»: compare nella pagina pubblica
   slug         text not null unique,                                        -- l'indirizzo leggibile: /i/<slug>/<codice>
   pubblico     boolean not null default true,    -- spento = scansionando il QR si vede «non disponibile»
   mostra_stato boolean not null default true,    -- spento = la pagina pubblica non dice «in sede / a casa»

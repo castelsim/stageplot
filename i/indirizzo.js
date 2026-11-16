@@ -1,7 +1,7 @@
 /* Inventario con QR — l'indirizzo FISSO scritto nell'etichetta (migrazione 0085). Script classico senza dipendenze: lo
    caricano 404.html (scorciatoia), la pagina pubblica /i/, l'area /inventario/ e, in Node, i test (module.exports).
-   Scorciatoia (quella nel QR):  https://stageplot.it/i/<slug>/<codice>     es. /i/ava/TAS-003
-   Elenco pubblico per tipo:     https://stageplot.it/i/<slug>              es. /i/ava
+   Scorciatoia (quella nel QR):  https://stageplot.it/i/<slug>/<codice>     es. /i/scuola/TAS-003
+   Elenco pubblico per tipo:     https://stageplot.it/i/<slug>              es. /i/scuola
    Canonico:                     /i/?s=<slug>[&c=<codice>]
    GitHub Pages non ha regole di riscrittura: un indirizzo che non è un file arriva a 404.html, che rimanda alla forma
    canonica (come /programma/<slug> e /biglietteria/<org>). Queste regole NON cambiano mai: le etichette stampate le usano.

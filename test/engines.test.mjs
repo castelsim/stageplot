@@ -33824,21 +33824,21 @@ const deepEq = (a, b, m) => eq(JSON.stringify(a), JSON.stringify(b), m);
 const invSql = readFileSync(join(root, "supabase/migrations/0085_inventario.sql"), "utf8"), invSqlPulito = invSql.replace(/--[^\n]*/g, "");
 const invFn = (nome) => { const a = invSqlPulito.indexOf("create or replace function public." + nome + "("), b = invSqlPulito.indexOf("create or replace function", a + 10); return a < 0 ? "" : invSqlPulito.slice(a, b < 0 ? undefined : b); };
 t("Inventario: l'indirizzo del QR è fisso — https://stageplot.it/i/<slug>/<CODICE>, anche se arriva in minuscolo; l'elenco è /i/<slug>", () => {
-  eq(INV_IND.link("ava", "TAS-003"), "https://stageplot.it/i/ava/TAS-003", "forma dell'indirizzo");
-  eq(INV_IND.link("AVA", "tas-003"), "https://stageplot.it/i/ava/TAS-003", "slug minuscolo, codice maiuscolo");
-  eq(INV_IND.linkElenco("AVA"), "https://stageplot.it/i/ava", "elenco pubblico");
+  eq(INV_IND.link("scuola", "TAS-003"), "https://stageplot.it/i/scuola/TAS-003", "forma dell'indirizzo");
+  eq(INV_IND.link("SCUOLA", "tas-003"), "https://stageplot.it/i/scuola/TAS-003", "slug minuscolo, codice maiuscolo");
+  eq(INV_IND.linkElenco("SCUOLA"), "https://stageplot.it/i/scuola", "elenco pubblico");
 });
 t("Inventario: dalla scorciatoia al canonico (404.html); maiuscole tollerate, query conservata, malformati e riservati rifiutati", () => {
-  eq(INV_IND.scorciatoia("/i/ava/TAS-003", ""), "/i/?s=ava&c=TAS-003", "scheda");
-  eq(INV_IND.scorciatoia("/i/ava", ""), "/i/?s=ava", "elenco senza codice");
-  eq(INV_IND.scorciatoia("/I/AVA/tas-003/", "?x=1"), "/i/?s=ava&c=TAS-003&x=1", "maiuscole e barra finale; ?x=1 resta");
-  eq(INV_IND.scorciatoia("/i/ava/TAS-003", "?s=zz&c=yy&x=1"), "/i/?s=ava&c=TAS-003&x=1", "s e c della query non si duplicano");
-  eq(INV_IND.scorciatoia("/i/ava/TAS%2D003", ""), "/i/?s=ava&c=TAS-003", "percent-encoding decodificato (un lettore QR può codificare il trattino)");
-  deepEq(INV_IND.daIndirizzo("/i/", "?s=ava&c=pad-007"), { slug: "ava", codice: "PAD-007" }, "canonico con codice");
-  deepEq(INV_IND.daIndirizzo("/i/", "?s=ava"), { slug: "ava", codice: null }, "canonico: elenco");
-  deepEq(INV_IND.daIndirizzo("/i/ava/PAD-007", ""), { slug: "ava", codice: "PAD-007" }, "scorciatoia letta direttamente");
-  for (const [pa, se] of [["/i/", ""], ["/i/", "?c=TAS-003"], ["/i/", "?s=a"], ["/i/ab/TAS-003", ""], ["/i/", "?s=ab"], ["/i/", "?s=ava&c=T-1"], ["/i/", "?s=ava&c=TAS-3"], ["/i/ava/TAS-003/extra", ""], ["/i/%zz/TAS-003", ""],
-      ["/i/ava/TASTIE-003", ""], ["/i/ab--cd/TAS-003", ""], ["/i/-ava/TAS-003", ""], ["/i/inv", ""], ["/i/index", ""], ["/i/admin/TAS-003", ""], ["/i/inv.js", ""]]) eq(INV_IND.daIndirizzo(pa, se), null, "rifiutato: " + pa + se);
+  eq(INV_IND.scorciatoia("/i/scuola/TAS-003", ""), "/i/?s=scuola&c=TAS-003", "scheda");
+  eq(INV_IND.scorciatoia("/i/scuola", ""), "/i/?s=scuola", "elenco senza codice");
+  eq(INV_IND.scorciatoia("/I/SCUOLA/tas-003/", "?x=1"), "/i/?s=scuola&c=TAS-003&x=1", "maiuscole e barra finale; ?x=1 resta");
+  eq(INV_IND.scorciatoia("/i/scuola/TAS-003", "?s=zz&c=yy&x=1"), "/i/?s=scuola&c=TAS-003&x=1", "s e c della query non si duplicano");
+  eq(INV_IND.scorciatoia("/i/scuola/TAS%2D003", ""), "/i/?s=scuola&c=TAS-003", "percent-encoding decodificato (un lettore QR può codificare il trattino)");
+  deepEq(INV_IND.daIndirizzo("/i/", "?s=scuola&c=pad-007"), { slug: "scuola", codice: "PAD-007" }, "canonico con codice");
+  deepEq(INV_IND.daIndirizzo("/i/", "?s=scuola"), { slug: "scuola", codice: null }, "canonico: elenco");
+  deepEq(INV_IND.daIndirizzo("/i/scuola/PAD-007", ""), { slug: "scuola", codice: "PAD-007" }, "scorciatoia letta direttamente");
+  for (const [pa, se] of [["/i/", ""], ["/i/", "?c=TAS-003"], ["/i/", "?s=a"], ["/i/ab/TAS-003", ""], ["/i/", "?s=ab"], ["/i/", "?s=scuola&c=T-1"], ["/i/", "?s=scuola&c=TAS-3"], ["/i/scuola/TAS-003/extra", ""], ["/i/%zz/TAS-003", ""],
+      ["/i/scuola/TASTIE-003", ""], ["/i/ab--cd/TAS-003", ""], ["/i/-scuola/TAS-003", ""], ["/i/inv", ""], ["/i/index", ""], ["/i/admin/TAS-003", ""], ["/i/inv.js", ""]]) eq(INV_IND.daIndirizzo(pa, se), null, "rifiutato: " + pa + se);
   eq(INV_IND.scorciatoia("/programma/ab-cd", ""), null, "non tocca le altre scorciatoie");
   eq(INV_IND.scorciatoia("/i/" + "a".repeat(31), ""), null, "slug oltre 30 caratteri");
 });
@@ -33877,13 +33877,13 @@ t("Inventario: foglio A4 di etichette — 21 per pagina, margine basso ≥ 15 mm
   const a = INV_LIB.posizione(0), b = INV_LIB.posizione(1), r = INV_LIB.posizione(3);
   eq(b.x - a.x, F.ew + F.gap, "passo orizzontale"); eq(r.y - a.y, F.eh + F.gap, "passo verticale"); eq(r.x, a.x, "a capo dopo 3");
   eq(INV_LIB.intervallo(["TAS-001", "TAS-005", "TAS-010"]), "TAS-001 … TAS-010", "intervallo nel piè"); eq(INV_LIB.data(new Date(2026, 10, 5)), "05/11/2026", "data gg/mm/aaaa");
-  eq(INV_LIB.piede(1, "Art Voice Academy ETS", ["TAS-001", "TAS-010"], "16/11/2026"), "v1 · Art Voice Academy ETS · TAS-001 … TAS-010 · stampato il 16/11/2026", "piè con versione, ente, intervallo e data");
+  eq(INV_LIB.piede(1, "Accademia Esempio", ["TAS-001", "TAS-010"], "16/11/2026"), "v1 · Accademia Esempio · TAS-001 … TAS-010 · stampato il 16/11/2026", "piè con versione, ente, intervallo e data");
   eq(INV_LIB.piede(0, "A", ["X-001"], "d").startsWith("v1 "), true, "versione minima 1"); eq(INV_LIB.piede(500, "A", ["X-001"], "d").startsWith("v99 "), true, "versione massima 99"); eq(INV_LIB.piede("boh", "A", ["X-001"], "d").startsWith("v1 "), true, "versione non numerica = 1"); eq(INV_LIB.piede(-5, "A", ["X-001"], "d").startsWith("v1 "), true, "versione negativa = 1");
   ok(/id: "versione"/.test(readFileSync(join(root, "inventario/inv-area.js"), "utf8")) && /L\.piede\(ver, S\.inv\.nome/.test(readFileSync(join(root, "inventario/inv-area.js"), "utf8")) && /L\.piede\(v, S\.inv\.nome/.test(readFileSync(join(root, "inventario/inv-area.js"), "utf8")), "l'area scrive la versione nel piè del foglio (all'apertura e quando la si cambia)");
   ok(INV_LIB.corpoCodice(7) <= 17 && INV_LIB.corpoCodice(9) < INV_LIB.corpoCodice(7) && INV_LIB.corpoCodice(20) >= 8, "il codice lungo rimpicciolisce ma resta leggibile");
 });
 t("Inventario: la pagina pubblica scarta ogni campo sconosciuto (mai note, assegnato, user_id, nomi) — scheda ed elenco", () => {
-  const d = INV_PUB.pulisci({ inventario: "Art Voice Academy ETS", codice: "TAS-003", numero: 3, singolare: "Tastiera", plurale: "tastiere", modello: "Yamaha", stato: "a_casa", totale: 10, note: "x", user_id: "u", assegnato_a: "Mario Rossi 2B", allievo: "Anna" });
+  const d = INV_PUB.pulisci({ inventario: "Accademia Esempio", codice: "TAS-003", numero: 3, singolare: "Tastiera", plurale: "tastiere", modello: "Yamaha", stato: "a_casa", totale: 10, note: "x", user_id: "u", assegnato_a: "Mario Rossi 2B", allievo: "Anna" });
   deepEq(Object.keys(d).sort(), ["codice", "inventario", "modello", "numero", "plurale", "singolare", "stato", "totale"], "solo i campi previsti");
   eq(INV_PUB.pulisci({ codice: "X", stato: "inventato" }).stato, null, "stato sconosciuto = niente badge"); eq(INV_PUB.pulisci(null), null, "null = non trovato");
   eq(INV_PUB.pulisci([1]), null, "array = non valido"); eq(INV_PUB.pulisci({ totale: -3 }).totale, 0, "totale negativo = 0"); eq(INV_PUB.pulisci({ modello: "x".repeat(500) }).modello.length, 120, "testo tagliato");
