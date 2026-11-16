@@ -5,7 +5,7 @@ import { BASE } from "../config.js";
 import { esc, el, setState, errMsg, toast, confirm, avvia } from "../ui.js";
 import { requireStaff, mountTopbar } from "../auth.js";
 import { tabs, STATUS, STATUS_PILL, FAMILY } from "../nav.js";
-import { list } from "../api/musicians.js";
+import { list, listArchived, restore, purge } from "../api/musicians.js";
 import { csvPool } from "../domain/stampe.js";
 import { createInvite, listInvites, revokeInvite } from "../api/invites.js";
 import { INVITE_PILL, INVITE_STATUS, inviteLink, inviteMessage, scadenza } from "../domain/invites.js";
@@ -45,6 +45,10 @@ async function main() {
       </div>
       <button type="button" class="btn small ghost" id="azzera">Togli tutti i filtri</button>
     </details>
+    <details class="altri-filtri" id="archiviati"><summary>Archiviati</summary>
+      <p class="small muted">Chi hai archiviato non compare nel pool né nelle ricerche, ma i suoi dati ci sono ancora: da qui lo ripristini.</p>
+      <ul class="list" id="arcList"><li class="loading">Un attimo…</li></ul>
+    </details>
     <p class="small muted" id="count"></p>
     <ul class="list" id="list"><li class="loading">Un attimo…</li></ul>`;
   F = daIndirizzo(location.search);
@@ -57,6 +61,8 @@ async function main() {
   }
   app.querySelector("#azzera").onclick = () => { F = vuoti(); mostraFiltri(); paint(); };
   if (altriAttivi(F)) app.querySelector("#altri").open = true;
+  /* gli archiviati si caricano solo quando si apre la sezione (chiusa di serie) */
+  app.querySelector("#archiviati").addEventListener("toggle", (e) => { if (e.target.open) paintArchiviati(); });
   app.querySelector("#scaricaCsv").onclick = () => {
     const blob = new Blob([csvPool(filtra(all, F))], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a"); a.setAttribute("href", URL.createObjectURL(blob)); /* blob: creato qui, mai una stringa esterna */ a.download = "musicisti-" + new Date().toISOString().slice(0, 10) + ".csv";
@@ -114,6 +120,49 @@ function paint() {
     if (m.status !== "active") act.appendChild(el(`<span class="pill ${STATUS_PILL[m.status] || ""}">${esc(STATUS[m.status] || m.status)}</span>`));
     ul.appendChild(li);
   }
+}
+
+/* Archiviati: ripristina (staff) · elimina definitivamente (solo il proprietario, con il nome scritto e il registro). */
+async function paintArchiviati() {
+  const ul = app.querySelector("#arcList");
+  try {
+    const rows = await listArchived(ctx.org.org_id);
+    ul.innerHTML = "";
+    if (!rows.length) { ul.appendChild(el(`<li class="empty">Nessun musicista archiviato.</li>`)); return; }
+    for (const m of rows) {
+      const li = el(`<li class="list-item"><div class="grow"><div class="title"></div><div class="sub"></div></div><div class="actions"></div></li>`);
+      const nome = m.last_name + " " + m.first_name;
+      li.querySelector(".title").textContent = nome;
+      li.querySelector(".sub").textContent = [m.primary_instrument, "archiviato il " + new Date(m.deleted_at).toLocaleDateString("it-IT")].filter(Boolean).join(" · ");
+      const act = li.querySelector(".actions");
+      const rip = el(`<button type="button" class="btn small primary">Ripristina</button>`);
+      rip.onclick = async () => { try { await restore(m.id); toast("Ripristinato: è di nuovo nel pool."); all = await list(ctx.org.org_id); paint(); await paintArchiviati(); } catch (e) { toast(errMsg(e), { err: true }); } };
+      act.appendChild(rip);
+      if (ctx.org.role === "owner") {
+        const del = el(`<button type="button" class="btn small danger">Elimina definitivamente</button>`);
+        del.onclick = () => eliminaDefinitivamente(m, nome);
+        act.appendChild(del);
+      }
+      ul.appendChild(li);
+    }
+  } catch (e) { ul.innerHTML = ""; setState(ul, "err", errMsg(e)); }
+}
+function eliminaDefinitivamente(m, nome) {
+  const ov = el(`<div class="modal-ov" role="dialog" aria-modal="true"><div class="modal"><h2></h2>
+    <p class="muted">Si cancellano per sempre la persona e tutto ciò che la riguarda: scheda, strumenti, convocazioni, candidature, storia dei posti. Non si può annullare. Nel registro resta solo che è successo, quando e da chi (senza il nome).</p>
+    <div class="field"><label for="cn"></label><input id="cn" autocomplete="off"></div>
+    <div class="actions"><button type="button" class="btn" data-x="0">Annulla</button><button type="button" class="btn danger" data-x="1" disabled>Elimina per sempre</button></div></div></div>`);
+  ov.querySelector("h2").textContent = "Eliminare definitivamente " + nome + "?";
+  ov.querySelector("label").textContent = "Per confermare scrivi: " + nome;
+  const inp = ov.querySelector("#cn"), ok = ov.querySelector("[data-x='1']");
+  inp.oninput = () => { ok.disabled = inp.value.trim().toLowerCase() !== nome.toLowerCase(); };
+  ov.querySelector("[data-x='0']").onclick = () => ov.remove();
+  ov.addEventListener("click", (e) => { if (e.target === ov) ov.remove(); });
+  ok.onclick = async () => {
+    ok.disabled = true;
+    try { await purge(m.id, inp.value.trim()); ov.remove(); toast("Eliminato definitivamente."); await paintArchiviati(); } catch (e) { toast(errMsg(e), { err: true }); ok.disabled = false; }
+  };
+  document.body.appendChild(ov); inp.focus();
 }
 
 avvia(main);

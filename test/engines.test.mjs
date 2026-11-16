@@ -32579,15 +32579,15 @@ t("Import organico: tabella «sezione, strumento, n.» (CSV, TSV, ;) e colonne C
   eq(Q.varianti.map((v) => [v.id, v.counts.v1, v.counts.fl]), [["ridotto", 6, 1], ["completo", 12, 2]], "varianti anche in linea («Completo: …»)");
 });
 t("Import organico: dati personali mai letti né mostrati; righe non riconosciute solo per numero; tetto per sezione", () => {
-  const T = "Sezione,Strumento,N.\nARCHI,Viole,6,mario.rossi@example.org,IBAN IT60X0542811101000000123456\nARCHI,Violini,3\nFIATI,Corni,2,contratto firmato\nFIATI,Tube,1,+39 333 1234567\nRossi Mario,Cantante,1\nARCHI,Celli,350";
+  const T = "Sezione,Strumento,N.\nARCHI,Viole,6,mario.rossi@example.org,IBAN IT60X0542811101000000123456\nARCHI,Mandolini,3\nFIATI,Corni,2,contratto firmato\nFIATI,Tube,1,+39 333 1234567\nRossi Mario,Cantante,1\nARCHI,Celli,350";
   const P = A.orgImportParse(T);
   eq(P.varianti[0].counts, { vle: 6, cor: 2, tba: 1 }, "la riga resta, la cella personale no (celli 350: più di 2 cifre non è una quantità, la riga si scarta)");
   ok(P.privati >= 4, "le celle personali sono contate (" + P.privati + ")");
   const J = JSON.stringify(P);
   ok(!/mario|rossi|example|IT60|contratto|1234567/i.test(J), "nulla di personale nel risultato: " + J);
-  eq(P.righeNo.length >= 2, true, "le righe non riconosciute (violini senza sezione, cantante…) sono elencate");
+  eq(P.righeNo.length >= 2, true, "le righe non riconosciute (mandolini senza sezione, cantante…) sono elencate");
   ok(P.righeNo.every((n) => typeof n === "number"), "per numero di riga, mai col contenuto");
-  eq(P.righeNo, [3, 6, 7], "righe 3 (violini senza sezione), 6 (cantante) e 7 (celli con quantità di 3 cifre)");
+  eq(P.righeNo, [3, 6, 7], "righe 3 (mandolini, strumento sconosciuto), 6 (cantante) e 7 (celli con quantità di 3 cifre)");
   const iban = A.orgImportParse("FIATI,Corni,2,coordinate IBAN da inviare\nFIATI,Tube,1,+39 06 1234 5678\nFIATI,Trombe,2,CV allegato");
   eq([iban.varianti[0].counts, iban.privati], [{ cor: 2, tba: 1, tr: 2 }, 3], "la parola IBAN, un fisso con prefisso, «CV»: celle saltate, righe tenute");
   const sost = A.orgImportParse("FIATI,Corno (sostituto Rossi),2");
@@ -34118,6 +34118,7 @@ t("Orchestre ORC16b: il foglio stampabile — A4, margini ≥15 mm, piè «vN ·
   ok(/orc_staffing_stamp\(production uuid\)/.test(sql) && !/snapshot jsonb\)/.test(sql.split("function public.orc_staffing_stamp")[1].split("returns")[0]), "lo snapshot lo costruisce il server, non arriva dal client");
 });
 
+<<<<<<< ours
 /* ORC16b — lotto B (16/11/2026): link di convocazione copiabili, «riserva» chiesta dal musicista, calendario .ics. */
 const orcIcs = await import("../orchestre/src/domain/ics.js");
 t("Orchestre ORC16b: .ics — righe CRLF a 75 byte, orari UTC, virgole e a capo protetti, fine di default dopo 3 ore", () => {
@@ -34161,6 +34162,35 @@ t("Orchestre ORC16b: «riserva» chiesta dal musicista — Edge Function, trigge
   ok(/data-a="reserve">Solo se manca qualcuno/.test(mu) && /respondReserveMine/.test(mu), "anche l'area del musicista");
   ok(/disponibile solo se manca qualcuno/.test(readFileSync(join(root, "orchestre/src/pages/produzione.js"), "utf8")), "lo staff lo vede sulla riga");
   ok(/D\.status === "confirmed" \? buildIcs/.test(rp) && /e\.status !== "done"/.test(mu), ".ics solo per ingaggi confermati (link) e non conclusi (area)");
+=======
+/* ORC16b — lotto C (16/11/2026): «Importa organico» dell'editor non perdeva più «16 violini» in silenzio. */
+t("Orchestre ORC16b: Importa organico — «16 violini» e «violini I e II» si leggono (metà e metà) e ciò che non si capisce lo dice forte", () => {
+  eq(impC("16 violini"), { v1: 8, v2: 8 }, "«16 violini» senza I/II: metà e metà");
+  eq(impC("15 violini"), { v1: 8, v2: 7 }, "dispari: il primo leggio prende il posto in più");
+  eq(impC("16 violini I e II; 4 viole"), { v1: 8, v2: 8, vle: 4 }, "«violini I e II» con numero davanti");
+  eq(impC("ARCHI;Violini;16"), { v1: 8, v2: 8 }, "anche nella tabella «sezione, strumento, n.»");
+  eq(impC("Violini I 10, Violini II 8"), { v1: 10, v2: 8 }, "chi scrive I e II a parte non cambia");
+  eq(impC("1 violino"), { v1: 1 }, "un violino solo: il primo");
+  eq(A.orgImportParse("16 violini").violiniMeta, 16, "il conto delle persone divise a metà si segnala");
+  const src = readFileSync(join(root, "index.template.html"), "utf8");
+  ok(/«"\+P\.violiniMeta\+" violini» senza I e II: diviso a metà/.test(src), "l'anteprima dice che li ha divisi");
+  ok(/Attenzione, NON riconosciuti e quindi non creati/.test(src), "gli strumenti non riconosciuti sono un avviso in evidenza, non una riga grigia");
+});
+
+t("Orchestre ORC16b: archivio dei musicisti — ripristino, cancellazione definitiva solo del proprietario, chiusi di serie", () => {
+  const sql = readFileSync(join(root, "supabase/migrations/0088_orc_musicisti_archivio.sql"), "utf8");
+  ok(/orc_member_role\(m\.org_id\) is distinct from 'owner' then raise exception 'solo il proprietario/.test(sql), "cancellazione definitiva: solo il proprietario");
+  ok(/m\.deleted_at is null then raise exception 'si cancella solo un musicista già archiviato'/.test(sql), "…solo su un archiviato");
+  ok(/lower\(trim\(coalesce\(confirm_name, ''\)\)\) <> lower\(m\.last_name \|\| ' ' \|\| m\.first_name\) then raise exception 'il nome scritto non coincide'/.test(sql), "…solo scrivendo il nome");
+  ok(/'musician\.purge'[\s\S]{0,200}jsonb_build_object\('archived_at', m\.deleted_at, 'had_account', m\.user_id is not null, 'invitations', n_inv\)/.test(sql) && !/first_name[^;]{0,80}'musician\.purge'/.test(sql), "il registro tiene l'accaduto e chi, mai nome o email");
+  ok(/perform set_config\('orc\.purge_musician', 'on', true\)/.test(sql) && (sql.match(/current_setting\('orc\.purge_musician', true\) = 'on'/g) || []).length === 3, "le tre storie append-only lasciano passare la cascata solo dentro la funzione");
+  ok(/orc_musician_restore[\s\S]{0,400}orc_is_staff\(m\.org_id\)/.test(sql) && /m\.deleted_at is null then raise exception 'il musicista non è archiviato'/.test(sql), "ripristino: staff, solo su un archiviato");
+  const pg = readFileSync(join(root, "orchestre/src/pages/musicisti.js"), "utf8");
+  ok(/<details class="altri-filtri" id="archiviati">/.test(pg) && !/id="archiviati" open/.test(pg), "«Archiviati» è chiusa di serie (regola 13/11) e si carica solo quando si apre");
+  ok(/ctx\.org\.role === "owner"[\s\S]{0,120}Elimina definitivamente/.test(pg), "il pulsante «Elimina definitivamente» lo vede solo il proprietario");
+  ok(/ok\.disabled = inp\.value\.trim\(\)\.toLowerCase\(\) !== nome\.toLowerCase\(\)/.test(pg), "il pulsante si accende solo col nome scritto");
+  ok(/lo ritrovi in Musicisti › Archiviati e lo ripristini/.test(readFileSync(join(root, "orchestre/src/pages/scheda.js"), "utf8")), "la conferma di «Archivia» non promette più cose false");
+>>>>>>> theirs
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
