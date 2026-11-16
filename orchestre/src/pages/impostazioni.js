@@ -63,7 +63,7 @@ function paintAdd() {
   if (!canManage) return;
   const form = el(`<div class="card"><h3>Aggiungi una persona</h3>
     <div class="form-row">
-      <div class="field"><label for="addEmail">Email dell'account Google</label><input id="addEmail" type="email" inputmode="email" autocomplete="off" placeholder="nome@esempio.it"></div>
+      <div class="field"><label for="addEmail">Email della persona (con cui entra)</label><input id="addEmail" type="email" inputmode="email" autocomplete="off" placeholder="nome@esempio.it"></div>
       <div class="field"><label for="addRole">Ruolo</label><select id="addRole">${ASSIGNABLE.map((r) => `<option value="${r}">${esc(ROLES[r])}</option>`).join("")}</select></div>
       <button type="button" class="btn primary" id="addBtn">Aggiungi</button>
     </div>

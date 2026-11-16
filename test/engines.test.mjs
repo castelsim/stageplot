@@ -34640,5 +34640,44 @@ t("Orchestre ORC16d B: pagina produzione — promemoria avanzato e chiuso, nessu
   ok(/if \(dicePosto\(r\)\) bits\.push\("posto "/.test(pg), "«posto» solo a chi lo ha");
 });
 
+/* ORC16d — lotto resto A (16/11/2026): /app/?p= senza la richiesta del palco, ricerca che perdona i refusi, etichetta. */
+const orcRf = await import("../orchestre/src/domain/roster-filter.js");
+t("Orchestre ORC16d A: aprire /app/?p=<uuid> (o tornare dal login) è un'apertura in corso: niente «Quanto è grande il tuo palco?»", () => {
+  const id = "0f0e0d0c-1b1a-4c3d-8e2f-a1b2c3d4e5f6";
+  eq(A.orcAperturaInCorso("?p=" + id, null), true); eq(A.orcAperturaInCorso("", id), true, "ritorno dal login: id salvato");
+  eq(A.orcAperturaInCorso("", null), false); eq(A.orcAperturaInCorso("?p=abc", ""), false, "non è un uuid"); eq(A.orcAperturaInCorso("?view=t&p=" + id, null), false, "?view= resta autorevole");
+  const m = appjs.slice(appjs.indexOf("function maybeAskStageSize(explicit){"));
+  ok(/if\(!explicit && window\.__orcApertura\) return;/.test(m.slice(0, 400)), "la richiesta automatica aspetta; quella esplicita («Palco») no");
+  ok(/function openProject\(id\)\{\s*if\(!sb \|\| !cloudUser\) return;\s*window\.__orcApertura=false;/.test(appjs), "all'apertura la guardia si spegne");
+  ok(readFileSync(join(root, "index.template.html"), "utf8").includes("function orcAperturaInCorso("), "sta nel sorgente, non solo nel generato");
+});
+t("Orchestre ORC16d A: ricerca che perdona i refusi — solo se l'esatta non trova, parole corte mai corrette", () => {
+  const rows = [{ id: 1, first_name: "Anna", last_name: "Dall'Igna", instruments: ["violino"], city: "Padova" }, { id: 2, first_name: "Luca", last_name: "Bianchi", instruments: ["fagotto"], city: "Treviso" }, { id: 3, first_name: "Ugo", last_name: "Neri", instruments: ["oboe"] }];
+  const F = (q) => ({ ...orcRf.vuoti(), q });
+  eq(orcRf.filtraSimili(rows, F("vioino")).map((m) => m.id), [1], "vioino → violino");
+  eq(orcRf.filtraSimili(rows, F("fagoto")).map((m) => m.id), [2]);
+  eq(orcRf.filtraSimili(rows, F("dalligna")).map((m) => m.id), [1], "dalligna → dall'igna (2 parole nel testo)");
+  eq(orcRf.filtraSimili(rows, F("oboi")).map((m) => m.id), [3], "4 lettere: 1 errore");
+  eq(orcRf.filtraSimili(rows, F("obe")).map((m) => m.id), [], "sotto le 4 lettere non si corregge");
+  const lunghi = [{ id: 9, first_name: "Elisa", last_name: "Conti", instruments: ["violoncello"] }];
+  eq(orcRf.filtraSimili(lunghi, F("violincelo")).map((m) => m.id), [9], "da 8 lettere: 2 errori");
+  eq(orcRf.filtraSimili(rows, F("vioiino")).map((m) => m.id), [1], "6 lettere: 1 errore");
+  eq(orcRf.filtraSimili(rows, F("viooino")).map((m) => m.id), [1], "sostituzione");
+  eq(orcRf.filtraSimili([{ id: 8, instruments: ["violoncello"] }], F("vioxxxxx")).map((m) => m.id), [], "troppo lontano");
+  eq(orcRf.filtraSimili(rows, F("xyzxyz")).map((m) => m.id), []);
+  eq(orcRf.filtraSimili(rows, F("")).map((m) => m.id), [], "senza testo non c'è nulla da correggere");
+  eq(orcRf.filtraSimili(rows, { ...F("vioino"), family: "x" }).map((m) => m.id), [], "gli altri filtri valgono ancora" );
+  eq(orcRf.filtra(rows, F("vioino")).length, 0, "la ricerca esatta non cambia");
+  eq([orcRf.distanza("casa", "casa"), orcRf.distanza("casa", "cosa"), orcRf.distanza("casa", "c"), orcRf.distanza("ab", "abcd")], [0, 1, 3, 2]);
+});
+t("Orchestre ORC16d A: pagina musicisti — i simili solo dopo l'esatta e dichiarati; l'esportazione segue ciò che si vede; etichetta dei membri", () => {
+  const pg = readFileSync(join(root, "orchestre/src/pages/musicisti.js"), "utf8");
+  ok(/if \(!rows\.length && F\.q\) \{ rows = filtraSimili\(all, F\); simili = rows\.length > 0; \}/.test(pg), "solo senza risultati esatti");
+  ok(/Nessun risultato esatto per «/.test(pg) && /ti mostro i più simili/.test(pg), "lo dice");
+  ok(/csvPool\(filtra\(all, F\)\.length \|\| !F\.q \? filtra\(all, F\) : filtraSimili\(all, F\)\)/.test(pg), "il CSV è quello che si vede");
+  const im = readFileSync(join(root, "orchestre/src/pages/impostazioni.js"), "utf8");
+  ok(!/Email dell'account Google/.test(im) && /Email della persona \(con cui entra\)/.test(im), "si entra anche con password: l'etichetta non dice «Google»");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

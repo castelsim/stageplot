@@ -9,7 +9,7 @@ import { list, listArchived, restore, purge } from "../api/musicians.js";
 import { csvPool } from "../domain/stampe.js";
 import { createInvite, listInvites, revokeInvite } from "../api/invites.js";
 import { INVITE_PILL, INVITE_STATUS, inviteLink, inviteMessage, scadenza } from "../domain/invites.js";
-import { filtra, opzioni, vuoti, altriAttivi, daIndirizzo, aIndirizzo, LETTURA, ESPERIENZE } from "../domain/roster-filter.js";
+import { filtra, filtraSimili, opzioni, vuoti, altriAttivi, daIndirizzo, aIndirizzo, LETTURA, ESPERIENZE } from "../domain/roster-filter.js";
 
 const app = document.getElementById("app");
 let ctx = null, all = [];
@@ -64,7 +64,7 @@ async function main() {
   /* gli archiviati si caricano solo quando si apre la sezione (chiusa di serie) */
   app.querySelector("#archiviati").addEventListener("toggle", (e) => { if (e.target.open) paintArchiviati(); });
   app.querySelector("#scaricaCsv").onclick = () => {
-    const blob = new Blob([csvPool(filtra(all, F))], { type: "text/csv;charset=utf-8" });
+    const blob = new Blob([csvPool(filtra(all, F).length || !F.q ? filtra(all, F) : filtraSimili(all, F))], { type: "text/csv;charset=utf-8" });
     const a = document.createElement("a"); a.setAttribute("href", URL.createObjectURL(blob)); /* blob: creato qui, mai una stringa esterna */ a.download = "musicisti-" + new Date().toISOString().slice(0, 10) + ".csv";
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.getAttribute("href")), 1000);
   };
@@ -99,7 +99,10 @@ function mostraFiltri() {
 
 function paint() {
   const ul = app.querySelector("#list");
-  const rows = filtra(all, F);
+  let rows = filtra(all, F);
+  /* nessun risultato esatto: si prova coi refusi, e lo si dice (mai in silenzio) */
+  let simili = false;
+  if (!rows.length && F.q) { rows = filtraSimili(all, F); simili = rows.length > 0; }
   const qs = aIndirizzo(F);
   history.replaceState(null, "", location.pathname + (qs ? "?" + qs : ""));
   const n = altriAttivi(F), badge = app.querySelector("#nAltri");
@@ -110,6 +113,7 @@ function paint() {
   ul.innerHTML = "";
   if (!all.length) { ul.appendChild(el(`<li class="empty">Il pool è vuoto. Aggiungi un musicista o importa un CSV.</li>`)); return; }
   if (!rows.length) { ul.appendChild(el(`<li class="empty">Nessun musicista con questi filtri.</li>`)); return; }
+  if (simili) ul.appendChild(el(`<li class="small muted">Nessun risultato esatto per «${esc(F.q)}»: ti mostro i più simili.</li>`));
   for (const m of rows) {
     const li = el(`<li class="list-item"><a class="grow" href="${BASE}/admin/musicisti/scheda/?id=${esc(m.id)}">
       <div class="title"></div><div class="sub"></div></a><div class="actions"></div></li>`);
