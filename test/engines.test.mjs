@@ -35062,5 +35062,53 @@ t("Icone approvate: punto di appendimento, carico e portata scritti; oltre porta
   ok(/^A\d+/.test(A.rigEtichetta(am)), "l'americana resta A: " + A.rigEtichetta(am));
   reset();
 });
+
+/* P1 VOLO lotto 1 (16/11/2026): la finestra «Quanto è grande il tuo palco?» non resta mai sopra un progetto con lavoro o misure, e non lo riscrive a 8×6. */
+const STAGE_1200 = { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] };
+const STAGE_GRANDE = { w: 3513, d: 1618, blocks: [{ x: 0, y: 0, w: 3513, d: 1618 }] };
+const docP1 = (stage, extra) => Object.assign({ titolo: "", luogo: "", stage, items: [], inputs: [], outputs: [] }, extra || {});
+function apriFinestraPalco() { A.__stageSizeOpen = false; A.showStageSizeModal(); ok(A.__stageSizeOpen === true, "finestra aperta"); }
+t("P1 palco 8×6: loadDoc di un progetto con misure salvate (ripristino) chiude la finestra e non tocca il palco", () => {
+  reset(); apriFinestraPalco();
+  A.loadDoc(docP1(STAGE_GRANDE));
+  ok(A.__stageSizeOpen === false, "finestra chiusa");
+  eq([A.state.stage.w, A.state.stage.d, !!A.state.stage._provisional], [3513, 1618, false]);
+});
+t("P1 palco 8×6: un progetto con elementi (palco default) chiude la finestra; import e apertura cloud passano tutti da commitPreparedDoc", () => {
+  reset(); apriFinestraPalco();
+  A.loadDoc(docP1(STAGE_1200, { items: [{ id: "n1", type: "cantante" }] }));
+  ok(A.__stageSizeOpen === false, "finestra chiusa"); eq(A.state.stage.w, 1200);
+  const src = readFileSync(join(root, "index.template.html"), "utf8");
+  ok(/function activatePreparedProject\(prepared, opts\)\{[\s\S]{0,900}commitPreparedDoc\(prepared\)/.test(src), "activatePreparedProject (import, trascinamento, cloud, elenco) → commitPreparedDoc");
+  ok(/function importProject\(json, opts\)\{[\s\S]{0,500}activatePreparedProject\(prepareDoc\(s\),opts\)/.test(src), "importProject → activatePreparedProject");
+  A.loadDoc(docP1(STAGE_1200));
+});
+t("P1 palco 8×6: apertura dal cloud (commitPreparedDoc, come activatePreparedProject keepCloud) chiude la finestra", () => {
+  reset(); apriFinestraPalco();
+  A.commitPreparedDoc(A.prepareDoc(docP1(STAGE_GRANDE, { titolo: "Concerto" })));
+  ok(A.__stageSizeOpen === false); eq(A.state.stage.w, 3513);
+});
+t("P1 palco 8×6: un progetto davvero vuoto che entra NON chiude la finestra (File → Nuovo)", () => {
+  reset(); apriFinestraPalco();
+  A.loadDoc(docP1(STAGE_1200));
+  ok(A.__stageSizeOpen === true, "il progetto nuovo ha diritto alla domanda");
+  A.__stageSizeOpen = false;
+});
+t("P1 palco 8×6: palcoIndicativoAmmesso è vero solo sul progetto nuovo e vuoto", () => {
+  reset(); ok(A.palcoIndicativoAmmesso() === true);
+  A.state.stage = JSON.parse(JSON.stringify(STAGE_GRANDE)); ok(A.palcoIndicativoAmmesso() === false, "misure già salvate");
+  reset(); add("cantante", 300, 300); ok(A.palcoIndicativoAmmesso() === false, "con elementi");
+  reset(); A.state.titolo = "X"; ok(A.palcoIndicativoAmmesso() === false, "con titolo"); reset();
+});
+t("P1 palco 8×6: «Non conosco», Esc e velo applicano 8×6 solo se ammesso (guardia in tutti e tre)", () => {
+  const src = readFileSync(join(root, "index.template.html"), "utf8");
+  const u0 = src.indexOf('getElementById("ssUnknown").addEventListener'), unk = src.slice(u0, src.indexOf("function stageSizeSkip()", u0));
+  ok(/if\(!palcoIndicativoAmmesso\(\)\)\{ closeStageSize\(\); return; \}[^\n]*\n\s*applyStageSize\(8, 6, true\)/.test(unk), "«Non conosco»");
+  const skip = src.slice(src.indexOf("function stageSizeSkip()"), src.indexOf("function stageSizeSkip()") + 260);
+  ok(/if\(!palcoIndicativoAmmesso\(\)\)\{ closeStageSize\(\); return; \} applyStageSize\(8, 6, true\)/.test(skip), "Esc e velo passano da stageSizeSkip");
+  ok((src.match(/applyStageSize\(8, 6, true\)/g) || []).length === 2, "solo i due punti guardati applicano 8×6");
+  ok(/function commitPreparedDoc[\s\S]{0,2600}chiudiPalcoSePieno\(\)/.test(src), "ogni ingresso passa da commitPreparedDoc");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
