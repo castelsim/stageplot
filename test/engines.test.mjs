@@ -72,7 +72,7 @@ const A = loadApp();
 
 /* ---- mini test runner ---- */
 let pass = 0, fail = 0;
-function t(name, fn) { if (process.env.SOLO && !name.includes(process.env.SOLO)) return; try { fn(); pass++; console.log("  ✓ " + name); } catch (e) { fail++; console.log("  ✗ " + name + "\n      " + e.message); } }
+function t(name, fn) { if (process.env.SOLO && !name.includes(process.env.SOLO)) return; if (process.env.SOLO_RE && !new RegExp(process.env.SOLO_RE).test(name)) return; try { fn(); pass++; console.log("  ✓ " + name); } catch (e) { fail++; console.log("  ✗ " + name + "\n      " + e.message); } }
 function eq(got, exp, msg) { const g = JSON.stringify(got), e = JSON.stringify(exp); if (g !== e) throw new Error((msg || "") + " atteso " + e + ", ottenuto " + g); }
 function ok(cond, msg) { if (!cond) throw new Error(msg || "condizione falsa"); }
 function throws(fn, code) {
@@ -17894,17 +17894,14 @@ t("col banco in sala il punto d'arrivo si puo' finalmente creare", () => {
   add("stagebox", 400, 700);
   A.__cabRes = null;
   let R = A.audioCablingEngine();
-  eq(R.snakes.length, 0, "di partenza la snake non va da nessuna parte");
-  const avviso = R.issues.filter((i) => i.code === "nohome")[0];
-  ok(avviso, "e adesso l'audit lo dice invece di tacere: " + R.issues.map((i) => i.msg).join(" | "));
-  eq(avviso.lvl, "warn", "a un livello che il pannello mostra");
+  /* L5 (16/11/2026): senza banco sul palco i multipolari escono da UN punto di serie sul bordo pubblico, lato destro dalla platea: l'avviso «non arrivano da nessuna parte» non c'è più */
+  eq(R.snakes.length, 1, "di partenza la snake va all'uscita di serie");
+  eq(R.home.kind, "exit", "l'uscita multicore di serie"); eq([R.home.x, R.home.y], [A.state.stage.w - 45, A.state.stage.d], "a destra, sul bordo pubblico");
+  ok(!R.issues.some((i) => i.code === "nohome"), "niente avviso «da nessuna parte»");
   const g = A.autoConnectNeeds("cabin");
-  ok(g && /non arrivano da nessuna parte/.test(g.title), "e la guida propone di rimediare: " + (g && g.title));
-  ok(g && g.action, "con un'azione, non solo con un rimprovero");
-  try { g.action.run(); } catch (e) { /* aggiunto() tocca il DOM: lo stato pero' e' scritto */ }
-  eq(A.state.cab.home.kind, "foh", "il punto nasce in sala");
-  eq(A.state.cab.home.x, Math.round(A.state.stage.w / 2), "in mezzo alla larghezza");
-  ok(A.state.cab.home.y > A.state.stage.d, "e oltre il bordo del palco, dove sta il pubblico");
+  ok(!(g && /non arrivano da nessuna parte/.test(g.title)), "e la guida non lo propone più");
+  /* il punto in sala resta una scelta dell'utente */
+  A.state.cab.home = { kind: "foh", x: Math.round(A.state.stage.w / 2), y: A.state.stage.d + 120 };
   A.__cabRes = null; R = A.audioCablingEngine();
   eq(R.snakes.length, 1, "ora la snake c'e'");
   ok(!R.issues.some((i) => i.code === "nohome"), "e l'avviso sparisce da se'");
@@ -17986,7 +17983,7 @@ t("con piu' banchi vince quello con piu' ingressi, e senza banco resta la scelta
      lo dice l'utente, ed e' il caso che resta da coprire. */
   A.state.items = A.state.items.filter((x) => x.type === "stagebox");
   A.__cabRes = null;
-  eq(A.cabHomePoint(), null, "senza banco sul palco non si inventa niente");
+  eq(A.cabHomePoint().kind, "exit", "senza banco sul palco: l'uscita multicore di serie (L5)");
 });
 
 t("se gli strumenti sono fuori dal palco l'app lo dice e sa rimediare", () => {
@@ -33268,7 +33265,8 @@ function cabliL1Controlla(A_, dove) {
   const auto = R.distros.filter((d) => d.auto);
   auto.forEach((d) => {
     ok(d.y <= D, dove + ": distro automatico nel pubblico (y=" + d.y + ")");
-    ok(d.y <= 90, dove + ": distro automatico a " + d.y + " cm dal bordo di fondo (max 90)");
+    if (d.fronte) ok(d.y >= D - 90, dove + ": distro anteriore a " + (D - d.y) + " cm dal bordo pubblico (max 90)");   /* L4: secondo punto davanti (R6) */
+    else ok(d.y <= 90, dove + ": distro automatico a " + d.y + " cm dal bordo di fondo (max 90)");
     ok(d.x >= 0 && d.x <= W, dove + ": distro automatico fuori dal palco in x");
   });
   return { R, auto };
@@ -33459,10 +33457,10 @@ t("L3: pochi gomiti (penalità di curva): nessun cavo dei quattro casi ha più d
   if (process.env.L3DBG) console.log("      gomiti: media " + (tot / n).toFixed(2) + " max " + max);
   ok(max <= 6, "un cavo con " + max + " tratti"); ok(tot / n <= 3, "media " + (tot / n).toFixed(2));
 });
-t("L3: fascia pubblico: un cavo lungo la fila davanti esce dagli ultimi 90 cm verso il pubblico", () => {
+t("L3: fascia pubblico: un cavo che non ha capi davanti esce dagli ultimi 90 cm; con un capo nella fascia (spia, prima fila) non la paga (L4)", () => {
   _l3pulisci(); reset(); A.state.stage = { w: 800, d: 600, blocks: [{ x: 0, y: 0, w: 800, d: 600 }] };
-  const q = A.orthRoute([100, 530], [700, 530], [], "sig"); if (process.env.L3DBG) console.log("      pubblico:", JSON.stringify(q));
-  ok(q.slice(1, -1).every((p) => p[1] <= 510.5), "il cavo corre nella fascia pubblico: " + JSON.stringify(q));
+  const q = A.orthRoute([100, 500], [700, 500], [], "sig"); ok(q.length===2, "fila fuori dalla fascia: dritto " + JSON.stringify(q));
+  const f = A.orthRoute([100, 530], [700, 530], [], "sig"); ok(f.slice(1, -1).some((p) => p[1] > 510.5), "capi nella fascia: nessuna penalità, il cavo può correre sulla corsia davanti (555): " + JSON.stringify(f));
 });
 t("L3: un cavo di segnale non esce dal palco nemmeno per aggirare un muro (attraversa, e si segna «murato»); il multicore può uscire", () => {
   _l3pulisci(); reset(); A.state.stage = { w: 800, d: 600, blocks: [{ x: 0, y: 0, w: 800, d: 600 }] };
@@ -33497,7 +33495,7 @@ t("L3: il multicore disegnato segue il percorso «mc» (corsia del multicore)", 
   let svg = ""; try { svg = A.cablingMarkup(); } catch (e) { svg = ""; }
   if (!svg) { console.log("      (cablingMarkup non disponibile nel sandbox: controllo solo i percorsi)"); return; }
   const ds = (svg.match(/class="cab-snake" d="([^"]*)"/g) || []).map((m) => m.replace(/.*d="/, "").replace(/"$/, ""));
-  R.snakes.forEach((k) => { const ex = {}; if (k.box && k.box.id) ex[k.box.id] = 1; const att = A.cabDrawD([[k.x1, k.y1], [k.x2, k.y2]], A.cabRoutePts([[k.x1, k.y1], [k.x2, k.y2]], OBS, ex, "mc"));
+  R.snakes.forEach((k) => { const ex = {}; if (k.box && k.box.id) ex[k.box.id] = 1; const rp0 = A.cabRoutePts([[k.x1, k.y1], [k.x2, k.y2]], OBS, ex, "mc"), att = A.cabDrawD([[k.x1, k.y1], [k.x2, k.y2]], A.cabFasciMap()["m:" + (k.box && k.box.id || "")] || rp0);
     ok(ds.indexOf(att) >= 0, "il multicore disegnato non segue il percorso «mc»: " + att + " in " + JSON.stringify(ds)); });
 });
 t("L3: tempo di calcolo sotto budget sull'orchestra da 58 (a freddo e con la cache)", () => {
@@ -34312,6 +34310,259 @@ t("Orchestre ORC16c Q: pagina — «Chiama il prossimo» a un tocco con il nome,
   ok(/confirm\(\{ title: "Importare «"/.test(ui), "importare chiede conferma");
   ok((ui.match(/Non è partito nessun invito/g) || []).length === 2, "dire, in tutti e due i modi di mettere in lista, che non manda niente");
   ok(/cascataRuolo\(\{ p, role, open,/.test(pg) && /casc\.list\(p\.id\)/.test(pg) && /matchingLista\(\{ bar,/.test(pg) && /squadreCard\(\{ p,/.test(pg), "agganciata a Convocazioni, Matching e Organico");
+});
+
+/* ───────── L4 + L5 · corsie separate, fasci, secondo punto corrente davanti, uscita multicore, passacavo rampato (16/11/2026, proposta CAVI_SUL_PALCO § 4 L4 e L5) ─────────
+   R6 (due punti di alimentazione), R10-R12 (corsie, 90°, fasci), R14-R18 (uscita multicore, passacavo rampato). */
+console.log("\nL4+L5 · corsie, fasci, distro davanti, uscita multicore, passacavo:");
+function _l45carica(nome, conElec = true) {
+  _l3carica(_l3fix(nome));
+  if (conElec) { A.state.elec.on = true; A.state.elec.mode = "auto"; A.state.elec.supply = { kind: "rete" }; A.state.elec.uplinks = {}; }
+  A.state.cab.home = null; A.__cabRes = null; A.__elecRes = null;
+}
+const _l45R = (nome, pts, kind = "sig", extra = {}) => Object.assign({ key: nome, kind, poly: pts, ex: {}, nome }, extra);
+t("L4: una corsia occupata dalla potenza costa al segnale: il cavo di segnale non ci corre in parallelo (R11)", () => {
+  _l3pulisci(); reset(); A.state.stage = { w: 800, d: 600, blocks: [{ x: 0, y: 0, w: 800, d: 600 }] };
+  const lungo = (q, y0, y1) => { let n = 0; for (let i = 1; i < q.length; i++) if (q[i][1] === q[i - 1][1] && q[i][1] >= y0 && q[i][1] < y1) n += Math.abs(q[i][0] - q[i - 1][0]); return n; };
+  A._orthCtx = { occ: null, band: null }; const libero = A.orthRoute([45, 300], [755, 300], [], "sig");
+  ok(lungo(libero, 30, 60) > 300, "senza potenza il segnale corre sulla corsia a 45 cm: " + JSON.stringify(libero));
+  const m = {}; A._occMark(m, [[0, 45], [800, 45]]); A._orthCtx = { occ: { m, id: 1 }, band: null };
+  const occ = A.orthRoute([45, 300], [755, 300], [], "sig"); A._orthCtx = { occ: null, band: null };
+  ok(lungo(occ, 20, 80) < 100, "con la corsia occupata il segnale non ci corre: " + JSON.stringify(occ));
+  A._orthCtx = { occ: { m, id: 1 }, band: null };
+  const potenza = A.orthRoute([45, 300], [755, 300], [], "pwr"); A._orthCtx = { occ: null, band: null };
+  ok(potenza.length >= 2, "la potenza non guarda l'occupazione (si instrada prima)");
+});
+t("L4: tratto parallelo segnale/potenza: avviso oltre 1 m, non per incroci a 90°, non a corsie separate (27 cm), non sotto 1 m", () => {
+  const pw = _l45R("p", [[0, 100], [400, 100]], "pwr"), c = A.cabParalleliCalc;
+  eq(c([pw, _l45R("s1", [[100, 110], [300, 110]])]).length, 1, "10 cm di distanza, 200 cm in parallelo");
+  eq(c([pw, _l45R("s2", [[200, 0], [200, 300]])]).length, 0, "incrocio a 90°: nessun avviso");
+  eq(c([pw, _l45R("s3", [[100, 127], [300, 127]])]).length, 0, "corsie a 27 cm (segnale 45, potenza 18): separate");
+  eq(c([pw, _l45R("s4", [[100, 110], [190, 110]])]).length, 0, "90 cm in parallelo: sotto soglia");
+  const r = c([pw, _l45R("s5", [[100, 110], [300, 110]])])[0]; eq(Math.round(r.cm), 200, "lunghezza del tratto"); eq(r.sig.nome, "s5");
+});
+t("L4: fasci: tre cavi sulla stessa linea si scostano di 4 cm (0, +4, −4), gli estremi restano sul capo", () => {
+  _l3pulisci(); reset(); A.state.stage = { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] };
+  const mk = (k, y0) => _l45R(k, [[100, y0], [100, 300], [600, 300], [600, 500], [700, 500]]);
+  const rs = [mk("a", 200), mk("b", 210), mk("c", 220)], m = A.cabFasciCalc(rs, []);
+  ok(!m.a && m.b && m.c, "il primo resta sulla linea, gli altri due si scostano");
+  const ys = ["a", "b", "c"].map((k) => (m[k] || rs.find((r) => r.key === k).poly)[2][1]).sort((x, y) => x - y); eq(ys, [296, 300, 304], "scostamenti di 4 cm attorno alla linea");
+  ["b", "c"].forEach((k) => { eq(m[k][0], rs.find((r) => r.key === k).poly[0], "capo di partenza fermo"); eq(m[k][m[k].length - 1], [700, 500], "capo di arrivo fermo");
+    for (let i = 1; i < m[k].length; i++) ok(m[k][i][0] === m[k][i - 1][0] || m[k][i][1] === m[k][i - 1][1], k + ": resta ortogonale"); });
+  eq(Object.keys(A.cabFasciCalc([mk("solo", 200)], [])).length, 0, "un cavo solo non si sposta");
+  /* uno scostamento che entra in un ingombro non si fa */
+  const ing = { id: "o", hx0: 300, hy0: 301, hx1: 400, hy1: 340, x0: 290, y0: 291, x1: 410, y1: 350, cx0: 305, cy0: 306, cx1: 395, cy1: 335 };
+  const m2 = A.cabFasciCalc([mk("a", 200), mk("b", 210), mk("c", 220)], [ing]);
+  ok(!m2.b, "il cavo che si sposterebbe dentro l'ingombro resta com'era"); ok(!m2.c || m2.c[2][1] < 300, "l'altro si sposta dal lato libero: " + JSON.stringify(m2.c && m2.c[2]));
+});
+t("L4: i fasci dei casi veri restano ortogonali, dentro il palco e fuori dagli ingombri (nessun cavo sopra un musicista)", () => {
+  let tot = 0;
+  _l3casi.forEach((nome) => { _l45carica(nome); const routes = A.cabRoutesAll(), fm = A.cabFasciMap(), ing = _l3ingombri(); let n = 0;
+    routes.forEach((r) => { const q = fm[r.key]; if (!q) return; n++;
+      for (let i = 1; i < q.length; i++) ok(q[i][0] === q[i - 1][0] || q[i][1] === q[i - 1][1], nome + " " + r.key + ": diagonale");
+      if (r.kind !== "mc") q.forEach((p) => ok(p[0] >= -0.5 && p[0] <= A.state.stage.w + 0.5 && p[1] >= -0.5 && p[1] <= A.state.stage.d + 0.5, nome + " " + r.key + " fuori dal palco"));
+      if (!r.murato) { const capi = [q[0], q[q.length - 1]]; ok(_l3attraversa(q, ing, r.ex, capi).length === 0, nome + " " + r.key + " attraversa un elemento"); } });
+    tot += n; });
+  ok(tot >= 20, "almeno 20 cavi con fascio scostato nei quattro casi (" + tot + ")");
+});
+t("L4: parallelo segnale/potenza nei quattro casi: non peggiora (band 5 ≤ 1, band 8+3 ≤ 3, conferenza 0, orchestra ≤ 9)", () => {
+  const tetto = { band5: 1, band11: 3, conferenza: 0, orch: 9 };
+  _l3casi.forEach((nome) => { _l45carica(nome); const I = A.cabRouteInfo(); ok(I.par.length <= tetto[nome], nome + ": " + I.par.length + " cavi in parallelo alla potenza"); });
+});
+t("L4 (R6): spie e carichi del fronte hanno il loro distro davanti, la corrente non fa il giro del palco", () => {
+  _l45carica("band11"); const E = A.electricEngine(), D = A.state.stage.d;
+  const fronti = E.distros.filter((d) => d.fronte), fondo = E.distros.filter((d) => !d.fronte);
+  ok(fronti.length >= 1 && fondo.length >= 1, "un distro di fondo e uno davanti: " + E.distros.map((d) => d.letter + "@" + d.y).join(","));
+  fronti.forEach((d) => { ok(d.y >= D - 90 && d.y <= D, "il distro davanti sta sul bordo pubblico: y=" + d.y); });
+  fondo.forEach((d) => ok(d.y <= 90, "il distro di fondo sta sul bordo di fondo"));
+  const wedge = (E.loadLinks || []).filter((l) => l.load.it.type === "wedge");
+  ok(wedge.length === 4, "quattro spie alimentate: " + wedge.length);
+  wedge.forEach((l) => { ok(A.orthLen(l.pts) <= 700, "la linea di «" + (l.load.it.label || "spia") + "» non attraversa il palco: " + Math.round(A.orthLen(l.pts)) + " cm Manhattan"); });
+  const OBS = A.obstacleRects(); wedge.forEach((l) => { const ex = {}; ex[l.load.it.id] = 1; if (l.distro.it) ex[l.distro.it.id] = 1;
+    const q = A.orthExpand(A.cabRoutePts(l.pts, OBS, ex, "pwr")), len = A.orthLen(q); ok(len <= 1100, "percorso disegnato di una spia: " + Math.round(len) + " cm (prima 2000+ attorno al perimetro)"); });
+  _l45carica("conferenza"); const E2 = A.electricEngine(); ok(E2.distros.every((d) => !d.fronte), "palco piccolo: un solo punto, di fondo");
+  eq(E2.issues.filter((i) => /sul bordo di fondo/.test(i.msg)).length, 1, "il messaggio dice «sul bordo di fondo» quando non c'è il davanti");
+});
+t("L4 (R6): le distro messe a mano non vengono mai aggiunte né spostate; il distro davanti non cade sull'uscita multicore", () => {
+  _l45carica("band11"); const d = add("distro32", 640, 600); A.__elecRes = null; const E = A.electricEngine();
+  ok(E.distros.length === 1 && !E.distros[0].auto, "con un distro a mano nessuno automatico");
+  _l45carica("band11"); const E2 = A.electricEngine(), ex = A.cabHomePoint();
+  E2.distros.filter((x) => x.fronte).forEach((x) => ok(Math.abs(x.x - ex.x) >= 110, "il distro davanti sta ≥ 110 cm dall'uscita multicore: " + x.x + " contro " + ex.x));
+});
+t("L5: senza banco l'uscita multicore di serie è sul bordo pubblico, lato destro; «la regia è a destra/sinistra/centro» la sposta, il quadro va dal lato opposto", () => {
+  _l45carica("band5"); const W = A.state.stage.w, D = A.state.stage.d;
+  let h = A.cabHomePoint(); eq([h.kind, h.x, h.y, h.name], ["exit", W - 45, D, "Uscita multicore"], "di serie a destra");
+  eq(A.elecQuadroBordo().opp, false, "quadro a sinistra"); ok(A.elecQuadroBordo().x < W / 2);
+  A.state.cab.home = { kind: "exit", lato: "left" }; h = A.cabHomePoint(); eq([h.x, h.y], [45, D], "regia a sinistra"); eq(A.elecQuadroBordo().opp, true, "quadro a destra"); ok(A.elecQuadroBordo().x > W / 2);
+  A.state.cab.home = { kind: "exit", lato: "center" }; h = A.cabHomePoint(); eq([h.x, h.y], [W / 2, D], "regia al centro"); eq(A.elecQuadroBordo().opp, false);
+  A.state.cab.home = { kind: "exit", lato: "left" }; const ns = A.normalizeState(A.state); eq(ns.cab.home.lato, "left", "la scelta sopravvive al salvataggio");
+  A.state.cab.home = { kind: "exit", lato: "boh" }; eq(A.normalizeState(A.state).cab.home.lato, "right", "valore strano → destra");
+  A.state.cab.home = { kind: "custom", x: 300, y: 300 }; eq(A.cabHomePoint().kind, "custom", "il punto trascinato resta com'è");
+  A.state.cab.home = null; add("mixer", 400, 500); eq(A.cabHomePoint().kind, "desk", "col banco sul palco, il banco");
+});
+t("L5: tutte le box confluiscono all'uscita (un multicore per box, stessa destinazione), l'audit non dice più «da nessuna parte», con rack digitale la tratta si chiama «rete»", () => {
+  _l3casi.forEach((nome) => { _l45carica(nome, false); const R = A.cabResult(true), h = A.cabHomePoint();
+    ok(R.snakes.length >= 1, nome + ": nessun multicore"); R.snakes.forEach((k) => eq([k.x2, k.y2], [h.x, h.y], nome + ": il multicore arriva all'uscita"));
+    ok(!R.issues.some((i) => i.code === "nohome"), nome + ": «da nessuna parte»");
+    const rotte = A.cabRoutesAll().filter((r) => r.kind === "mc"); eq(rotte.length, R.snakes.length, nome + ": un percorso per box");
+    rotte.forEach((r) => { const l = r.poly[r.poly.length - 1]; eq([l[0], l[1]], [h.x, h.y], nome + ": " + r.key + " finisce nell'uscita"); }); });
+  ok(/\(k\.box\.digital\?'rete':'multicore'\)/.test(appjs), "l'etichetta del multicore di un rack digitale dice «rete»");
+});
+t("L5: passacavo rampato: l'uscita multicore genera sempre una voce (almeno 2 m), con avviso informativo; arrotondato ai 50 cm", () => {
+  _l45carica("band5", false); const I = A.cabRouteInfo(), u = I.pass.voci.filter((v) => v.tipo === "uscita");
+  eq(u.length, 1, "una voce per l'uscita"); ok(u[0].cm >= 200 && u[0].m >= 2, "almeno 2 m: " + u[0].m); eq(u[0].m * 100 % 50, 0, "multiplo di 50 cm");
+  ok(I.issues.some((i) => i.lvl === "info" && /passacavo rampato/.test(i.msg)), "avviso informativo");
+  const T = A.cabPassacavoTesto(); ok(T && /Passacavo|m \(/.test(T.testo + "m (") && T.totM >= 2 && !T.attraversa, "testo per lista e PDF: " + (T && T.testo));
+  const fuori = A.cabPassacavoCalc([_l45R("m", [[100, 500], [100, 700], [400, 700], [400, 800]], "mc")], [], [{}]);
+  eq(A.state.stage.d, 600); eq(fuori.voci[0].cm, 200 + 100 + 300 + 100, "il tratto oltre il bordo palco (D=600) si somma ai 2 m minimi: " + JSON.stringify(fuori.voci[0]));
+  eq(A.cabPassacavoCalc([], [], []).voci.length, 0, "senza multicore niente");
+});
+t("L5: passacavo rampato: ogni scala o rampa attraversata (fascia di 1 m) genera la sua voce con lunghezza e avviso «warn»", () => {
+  _l3pulisci(); reset(); A.state.stage = { w: 800, d: 600, blocks: [{ x: 0, y: 0, w: 800, d: 600 }] };
+  const z = { id: "z", pass: 1, nome: "Scala accesso", cx0: 300, cy0: 200, cx1: 360, cy1: 290, zx0: 200, zy0: 100, zx1: 460, zy1: 390 };
+  const r1 = _l45R("c1", [[100, 150], [450, 150], [450, 500]]), r2 = _l45R("c2", [[100, 500], [700, 500]]);
+  const P = A.cabPassacavoCalc([r1, r2], [z], []);
+  eq(P.voci.length, 1, "solo la scala attraversata"); eq([P.voci[0].tipo, P.voci[0].dove, P.voci[0].n], ["passaggio", "Scala accesso", 1]);
+  eq(P.voci[0].cm, 250 + 240, "lunghezza dentro la fascia (orizzontale 250 + verticale 240)"); eq(P.voci[0].m, 5, "4,9 m → 5 m (multipli di 50 cm, per eccesso)");
+});
+t("L5: nel progetto vero una scala sul percorso genera avviso e voce nel pannello; senza scale solo l'uscita", () => {
+  _l45carica("band5", false); add("scala", 400, 300); A.__cabRes = null;
+  const I = A.cabRouteInfo(), v = I.pass.voci.filter((x) => x.tipo === "passaggio");
+  const zone = A.obstacleRects().filter((r) => r.pass); eq(zone.length, 1, "la scala è un passaggio con fascia di 1 m"); eq(zone[0].zx1 - zone[0].zx0, 60 + 200, "60 cm di scala + 1 m per lato");
+  ok(v.length === 0 || I.issues.some((i) => i.lvl === "warn" && /attraversare un passaggio/.test(i.msg)), "se un cavo attraversa, c'è l'avviso");
+});
+t("L4+L5: «diretto» scelto = nessun fascio, nessun avviso di parallelo, nessuna voce passacavo (com'era prima)", () => {
+  _l45carica("band11"); A.state.cab.route = "dir";
+  eq(A.cabRoutesAll().length, 0, "nessun percorso instradato"); eq(JSON.stringify(A.cabFasciMap()), "{}"); const I = A.cabRouteInfo(); eq(I.issues.length, 0); eq(I.pass.voci.length, 0); eq(A.cabPassacavoTesto(), null);
+  delete A.state.cab.route;
+});
+t("L4: zone di rispetto: una spia e un passaggio costano di più attorno a sé; il multicore non paga la zona delle spie; fuori dal palco il multicore costa più di prima", () => {
+  _l3pulisci(); reset(); A.state.stage = { w: 800, d: 600, blocks: [{ x: 0, y: 0, w: 800, d: 600 }] };
+  const rr = (x, y, w, d, extra) => Object.assign({ id: "w", x0: x - w / 2 - 16, y0: y - d / 2 - 16, x1: x + w / 2 + 16, y1: y + d / 2 + 16, hx0: x - w / 2 - 6, hy0: y - d / 2 - 6, hx1: x + w / 2 + 6, hy1: y + d / 2 + 6, cx0: x - w / 2, cy0: y - d / 2, cx1: x + w / 2, cy1: y + d / 2 }, extra || {});
+  const zona = (r) => Object.assign(r, { zx0: r.cx0 - 50, zy0: r.cy0 - 50, zx1: r.cx1 + 50, zy1: r.cy1 + 50 });
+  const pass = (q, r) => { let n = 0; for (let i = 1; i < q.length; i++) { const x0 = Math.min(q[i][0], q[i - 1][0]), x1 = Math.max(q[i][0], q[i - 1][0]), y0 = Math.min(q[i][1], q[i - 1][1]), y1 = Math.max(q[i][1], q[i - 1][1]);
+      if (x0 < r.zx1 && x1 > r.zx0 && y0 < r.zy1 && y1 > r.zy0) n++; } return n; };
+  const senza = rr(400, 300, 60, 52), con = zona(rr(400, 300, 60, 52, { mon: 1 }));
+  const q0 = A.orthRoute([100, 330], [700, 330], [zona(rr(400, 300, 60, 52))], "sig"), q1 = A.orthRoute([100, 330], [700, 330], [con], "sig");
+  ok(pass(q1, con) <= pass(q0, con), "la spia allontana il cavo (o lo lascia fuori dalla zona)");
+  const sc = zona(rr(400, 300, 60, 90, { pass: 1 })); sc.zx0 = sc.cx0 - 100; sc.zx1 = sc.cx1 + 100; sc.zy0 = sc.cy0 - 100; sc.zy1 = sc.cy1 + 100;
+  const q2 = A.orthRoute([100, 330], [700, 330], [sc], "sig"); eq(pass(q2, sc), 0, "il cavo non attraversa la fascia di un passaggio se può evitarla: " + JSON.stringify(q2));
+  const mc = A.orthRoute([100, 330], [700, 330], [con], "mc"); ok(mc.length >= 2, "il multicore passa");
+});
+t("L4+L5: tempo di calcolo dell'orchestra da 58 con corrente accesa (percorsi, occupazione, fasci, avvisi) sotto budget", () => {
+  _l45carica("orch"); const t0 = Date.now(); const I = A.cabRouteInfo(), fm = A.cabFasciMap(); const freddo = Date.now() - t0;
+  const t1 = Date.now(); A.cabRouteInfo(); A.cabFasciMap(); const caldo = Date.now() - t1;
+  console.log("      (orchestra con corrente: " + I.routes.length + " cavi · a freddo " + freddo + " ms · in cache " + caldo + " ms · fasci " + Object.keys(fm).length + ")");
+  ok(freddo <= 8000, "a freddo " + freddo + " ms"); ok(caldo <= 400, "in cache " + caldo + " ms");
+});
+t("L5: il passacavo rampato compare nel pannello Stato e nel PDF del report cablaggio (lista materiali + service), insieme agli avvisi di L4", () => {
+  const stato = appjs.indexOf('if(_pc) s+=ir("Passacavo rampato"'); ok(stato > 0, "riga «Passacavo rampato» nel pannello Stato"); ok(/cabPassacavoTesto\(\)/.test(appjs.slice(stato - 300, stato)), "legge cabPassacavoTesto");
+  const pdf = appjs.indexOf('line("Passacavo rampato: "'); ok(pdf > 0, "riga «Passacavo rampato» nel PDF"); ok(/function cabReportPdf/.test(appjs.slice(Math.max(0, pdf - 6000), pdf)), "dentro il report cablaggio");
+  ok(/R\.issues\.concat\(cabRouteInfo\(\)\.issues\)/.test(appjs), "il PDF elenca anche gli avvisi di parallelo e passacavo");
+  ok(/absorb\(\(function\(\)\{ try\{ return cabRouteInfo\(\)\.issues/.test(appjs), "l'audit li assorbe");
+  _l45carica("band5", false); A.state.cab.on = true;
+  const T = A.cabPassacavoTesto(); ok(T && /uscita multicore \d/.test(T.testo), "testo con la voce uscita: " + (T && T.testo));
+});
+t("L4: fasci: uno scostamento che inverterebbe un tratto corto non si fa; i tratti dei capi non si toccano", () => {
+  _l3pulisci(); reset(); A.state.stage = { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] };
+  const norm = (k) => _l45R(k, [[100, 200], [100, 300], [600, 300], [600, 500], [700, 500]]);
+  const corto = _l45R("b", [[100, 200], [100, 300], [600, 300], [600, 302], [700, 302]]);   /* il tratto verticale dopo la linea è lungo 2 cm: +4 lo invertirebbe */
+  const m = A.cabFasciCalc([norm("a"), corto, norm("c")], []);
+  ok(!m.b, "«b» (+4 invertirebbe il tratto di 2 cm) resta com'era: " + JSON.stringify(m.b));
+  ok(m.c, "gli altri si scostano ugualmente");
+});
+t("L4: il disegno usa davvero i percorsi con i fasci (segnale e corrente), non quelli grezzi", () => {
+  _l45carica("band11"); A.state.cab.visible = true; A.state.elec.visible = true; A.state.cab.lockIn = false;
+  const fm = A.cabFasciMap(), R = A.cabResult(true), OBS = A.obstacleRects(); let svg = ""; try { svg = A.cablingMarkup(); } catch (e) { svg = ""; }
+  if (!svg) { console.log("      (cablingMarkup non disponibile nel sandbox: salto)"); return; }
+  const tutti = (svg.match(/<path class="cab-line[^"]*" d="[^"]*"/g) || []).map((x) => x.replace(/.* d="/, "").replace(/"$/, ""));
+  let n = 0, visti = {};
+  R.links.forEach((l) => { if (l.deleted || visti[l.key]) return; visti[l.key] = 1; const q = fm["i:" + l.key]; if (!q) return; n++;
+    const att = A.cabDrawD(l.pts, q, "orto"); ok(tutti.indexOf(att) >= 0, "il cavo «" + (l.s.name || l.key) + "» non è disegnato col fascio scostato"); });
+  ok(n >= 1, "nel caso a 8+3 voci almeno un cavo di segnale ha il fascio (" + n + ")");
+  _l45carica("orch"); A.state.cab.visible = true; A.state.elec.visible = true;   /* la corrente con fasci c'è solo nell'orchestra */
+  const fm2 = A.cabFasciMap(); let el = ""; try { el = A.elecMarkup(); } catch (e) { el = ""; }
+  if (el) { const dp = (el.match(/<path class="elec-(?:line|feed)[^"]*" d="[^"]*"/g) || []).map((x) => x.replace(/.* d="/, "").replace(/"$/, "")); let ne = 0;
+    A.elecRouteList(A.elecResult()).forEach((r) => { const q = fm2[r.key]; if (!q) return; ne++; ok(dp.indexOf(A.cabDrawD(r.pts, q, "orto")) >= 0, "la corrente «" + r.nome + "» non è disegnata col fascio"); });
+    ok(ne >= 1, "nell'orchestra almeno un cavo di corrente ha il fascio (" + ne + ")"); console.log("      (fasci disegnati: " + n + " di segnale, " + ne + " di corrente)"); }
+});
+t("L4 (R6): il distro davanti non cade sull'uscita multicore: se il centro dei carichi coincide con l'uscita, si sposta di ≥ 110 cm", () => {
+  _l3pulisci(); reset(); A.state.stage = { w: 800, d: 600, blocks: [{ x: 0, y: 0, w: 800, d: 600 }] }; cabliL1Prepara(A);
+  A.state.cab.on = true; A.state.cab.home = null; add("testamobile", 120, 100); add("testamobile", 740, 520); A.__elecRes = null; A.__cabRes = null;
+  const E = A.electricEngine(), ex = A.cabHomePoint(), fr = E.distros.filter((d) => d.fronte);
+  ok(fr.length === 1, "un distro davanti: " + E.distros.map((d) => d.letter + "@" + d.x + "," + d.y).join(" "));
+  ok(Math.abs(fr[0].x - ex.x) >= 110, "il distro davanti (x=" + fr[0].x + ") non sta sull'uscita (x=" + ex.x + ")");
+});
+t("L4: un passaggio (scala, rampa) costa attorno a sé: il cavo lo aggira fuori dalla fascia di 1 m se può", () => {
+  _l3pulisci(); reset(); A.state.stage = { w: 800, d: 600, blocks: [{ x: 0, y: 0, w: 800, d: 600 }] };
+  const sc = { id: "s", x0: 354, y0: 239, x1: 446, y1: 361, hx0: 364, hy0: 249, hx1: 436, hy1: 351, cx0: 370, cy0: 255, cx1: 430, cy1: 345, pass: 1, zx0: 270, zy0: 155, zx1: 530, zy1: 445 };
+  const dentro = (q) => { let n = 0; for (let i = 1; i < q.length; i++) { const x0 = Math.min(q[i][0], q[i - 1][0]), x1 = Math.max(q[i][0], q[i - 1][0]), y0 = Math.min(q[i][1], q[i - 1][1]), y1 = Math.max(q[i][1], q[i - 1][1]);
+    if (x0 < sc.zx1 && x1 > sc.zx0 && y0 < sc.zy1 && y1 > sc.zy0) n++; } return n; };
+  const q = A.orthRoute([250, 300], [550, 300], [sc], "sig"); eq(dentro(q), 0, "fuori dalla fascia del passaggio: " + JSON.stringify(q));
+  const sen = Object.assign({}, sc, { pass: 0, zx0: null, zy0: null, zx1: null, zy1: null, zx0_: 0 }); delete sen.pass;
+  const q2 = A.orthRoute([250, 300], [550, 300], [sen], "sig"); ok(dentro(q2) > 0, "senza la fascia (non è un passaggio) il cavo passa vicino: " + JSON.stringify(q2));
+});
+t("L4: una spia ha una zona di rispetto di 50 cm: il cavo di segnale la aggira se può", () => {
+  _l3pulisci(); reset(); A.state.stage = { w: 800, d: 600, blocks: [{ x: 0, y: 0, w: 800, d: 600 }] };
+  const base = { id: "w", x0: 354, y0: 258, x1: 446, y1: 342, hx0: 364, hy0: 268, hx1: 436, hy1: 332, cx0: 370, cy0: 274, cx1: 430, cy1: 326 };
+  const mon = Object.assign({ mon: 1, zx0: 320, zy0: 224, zx1: 480, zy1: 376 }, base);
+  const dentro = (q, r) => { let n = 0; for (let i = 1; i < q.length; i++) { const x0 = Math.min(q[i][0], q[i - 1][0]), x1 = Math.max(q[i][0], q[i - 1][0]), y0 = Math.min(q[i][1], q[i - 1][1]), y1 = Math.max(q[i][1], q[i - 1][1]);
+    if (x0 < r.zx1 && x1 > r.zx0 && y0 < r.zy1 && y1 > r.zy0) n++; } return n; };
+  const q = A.orthRoute([250, 300], [550, 300], [mon], "sig"); eq(dentro(q, mon), 0, "il segnale resta fuori dalla zona della spia: " + JSON.stringify(q));
+});
+t("L4: fascia spie: un cavo non corre tra le file davanti e le spie; ci arriva soltanto (capi esenti a 1 m)", () => {
+  _l3pulisci(); reset(); A.state.stage = { w: 800, d: 600, blocks: [{ x: 0, y: 0, w: 800, d: 600 }] };
+  const c = (b) => { A._orthCtx = { occ: null, band: b }; const q = A.orthRoute([100, 350], [700, 350], [], "sig"); A._orthCtx = { occ: null, band: null }; return q; };
+  const libero = c(null); eq(libero.length, 2, "senza fascia, dritto: " + JSON.stringify(libero));
+  const q = c(300); ok(q.length > 2 && q.slice(1, -1).some((p) => p[1] < 300), "con la fascia da 300 in giù il cavo ne esce a metà strada: " + JSON.stringify(q));
+  eq(q[0], [100, 350]); eq(q[q.length - 1], [700, 350]);
+});
+t("L4: i multicore costeggiano i bordi e non escono dal palco (salvo l'uscita sul bordo pubblico): al massimo il 15% della lunghezza all'interno", () => {
+  _l3casi.forEach((nome) => { _l45carica(nome, false); const W = A.state.stage.w, D = A.state.stage.d; let tot = 0, dentro = 0, fuori = 0;
+    A.cabRoutesAll().filter((r) => r.kind === "mc").forEach((r) => { for (let i = 1; i < r.poly.length; i++) { const p = r.poly[i - 1], q = r.poly[i], len = Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1]);
+      tot += len; const mx = (p[0] + q[0]) / 2, my = (p[1] + q[1]) / 2; if (Math.min(mx, W - mx, my, D - my) > 120) dentro += len; if (mx < -1 || mx > W + 1 || my < -1 || my > D + 1) fuori += len; } });
+    ok(tot > 0, nome + ": nessun multicore"); ok(dentro <= 0.15 * tot, nome + ": " + Math.round(100 * dentro / tot) + "% del multicore all'interno del palco"); eq(Math.round(fuori), 0, nome + ": multicore fuori dal palco (cm)"); });
+});
+t("L4: cache: se la corrente cambia, i percorsi del segnale si ricalcolano (occupazione nella chiave e nella firma)", () => {
+  _l3pulisci(); reset(); A.state.stage = { w: 800, d: 600, blocks: [{ x: 0, y: 0, w: 800, d: 600 }] }; A.state.cab.on = true; A.state.cab.home = null;
+  A.state.elec.on = true; A.state.elec.mode = "auto"; A.state.elec.uplinks = {}; A.state.elec.manual = {}; delete A.state.elec.supply;
+  const d = add("distro32", 400, 45), c = add("testamobile", 700, 330);
+  const rotta = () => { A.__elecRes = null; return A.cabRoutePts([[60, 300], [740, 300]], A.obstacleRects(), {}, "sig"); };
+  const fresca = () => { A._orthCache.sig = ""; A._orthCache.m = Object.create(null); A._orthCache.n = 0; A._orthOcc.sig = ""; return rotta(); };
+  const r1 = fresca();
+  /* solo lo stato elettrico cambia (la corrente passa a «manuale»: nessuna linea automatica): la firma dell'occupazione lo vede */
+  A.state.elec.mode = "manual"; const r4 = rotta(), r5 = fresca(); A.state.elec.mode = "auto"; rotta();
+  ok(JSON.stringify(r5) !== JSON.stringify(r1), "senza linee di corrente il percorso del segnale cambia: " + JSON.stringify(r5));
+  eq(JSON.stringify(r4), JSON.stringify(r5), "e quello in cache lo segue");
+  fresca(); d.x = 60; d.y = 330;   /* si sposta solo il distro (non è un ingombro): la corrente ora corre sulla fila del segnale, gli ingombri sono gli stessi */
+  const r2 = rotta(), r3 = fresca();
+  ok(JSON.stringify(r1) !== JSON.stringify(r3), "lo scenario deve cambiare il percorso del segnale: " + JSON.stringify(r1) + " contro " + JSON.stringify(r3));
+  eq(JSON.stringify(r2), JSON.stringify(r3), "il percorso in cache dopo la modifica è quello ricalcolato da zero");
+});
+t("L4: gli ingombri di spie e passaggi portano la zona di rispetto (50 cm le spie, 1 m scale e rampe)", () => {
+  _l3pulisci(); reset(); A.state.stage = { w: 800, d: 600, blocks: [{ x: 0, y: 0, w: 800, d: 600 }] };
+  const w = add("wedge", 300, 300), sc = add("scala", 600, 300); const rs = A.obstacleRects();
+  const rw = rs.filter((r) => r.id === w.id)[0], rsc = rs.filter((r) => r.id === sc.id)[0];
+  ok(rw && rw.mon === 1, "la spia è segnata come tale"); eq(rw.zx1 - rw.zx0, (rw.cx1 - rw.cx0) + 100, "zona di 50 cm per lato"); ok(!rw.pass);
+  ok(rsc && rsc.pass === 1, "la scala è un passaggio"); eq(rsc.zx1 - rsc.zx0, (rsc.cx1 - rsc.cx0) + 200, "fascia di 1 m per lato"); ok(!rsc.mon);
+  ok(rs.every((r) => r.id === w.id || r.id === sc.id || (!r.mon && !r.pass)), "gli altri elementi non hanno zone");
+});
+t("L4: fasci: un cavo «murato» (attraversa un ingombro) e uno a 2 cm dal bordo del palco non vengono spostati", () => {
+  _l3pulisci(); reset(); A.state.stage = { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] };
+  const mk = (k, x, extra) => _l45R(k, [[x, 100], [x, 200], [x, 400], [x + 300, 400], [x + 300, 500]], "sig", extra);
+  const m = A.cabFasciCalc([mk("a", 300), mk("b", 300, { murato: true }), mk("c", 300)], []);
+  ok(!m.b, "il cavo murato non si sposta"); ok(Object.keys(m).every((k) => k !== "b"));
+  const bordo = (k) => _l45R(k, [[100, 50], [2, 50], [2, 400], [300, 400], [300, 500]]);
+  const m2 = A.cabFasciCalc([bordo("x"), bordo("y"), bordo("z")], []);
+  Object.keys(m2).forEach((k) => m2[k].forEach((p) => ok(p[0] >= 0, "lo scostamento non esce dal palco: " + JSON.stringify(m2[k]))));
+  ok(Object.keys(m2).length < 3, "il cavo che uscirebbe dal palco resta com'era");
+});
+t("L4 (R6): il distro davanti e quello di fondo possono stare alla stessa x (la distanza minima vale solo fra distro della stessa fila)", () => {
+  _l3pulisci(); reset(); A.state.stage = { w: 800, d: 600, blocks: [{ x: 0, y: 0, w: 800, d: 600 }] }; cabliL1Prepara(A); A.state.cab.on = true; A.state.cab.home = null;
+  add("testamobile", 300, 100); add("testamobile", 300, 500); A.__elecRes = null;
+  const E = A.electricEngine(), fo = E.distros.filter((d) => !d.fronte), fr = E.distros.filter((d) => d.fronte);
+  eq([fo.length, fr.length], [1, 1], "uno di fondo e uno davanti: " + E.distros.map((d) => d.letter + "@" + d.x + "," + d.y).join(" "));
+  eq(fr[0].x, fo[0].x, "stessa x: i carichi del fronte stanno sotto quelli di fondo");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
