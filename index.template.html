@@ -40253,8 +40253,11 @@ function pdfCartRighe(header, titleW){
   if(header && String(header).trim()){
     var hd=pdfCartBlocco("rif", String(header).trim(), titleW, 8, 8, 99, 4, false);
     hd.y0=y+5; B.push(hd); y=hd.y0+(hd.righe.length-1)*hd.passo;
-    cartH=y+3;
-  } else cartH=y+8;   /* senza riferimento resta libera la sua riga, come sempre (e sotto c'è la didascalia del QR) */
+  }
+  /* 8 mm sotto l'ultima riga SEMPRE, anche col riferimento (prima +3): l'ultima riga e la didascalia del QR devono restare sopra il piè
+     «N di M · vN · data» (baseline a 16,2 mm dal fondo, ink da ~17,5) e a ≥15 mm dal bordo per la Ricoh (P1 Il Volo, rilettura 17/11/2026) */
+  cartH=y+8;
+  if(pdfQrInCartiglio()) cartH=Math.max(cartH, 20.4+8);   /* col QR la didascalia (a y+20,4 dall'alto del cartiglio) vuole la stessa aria sotto */
   return { blocchi:B, cartH:Math.round(cartH*100)/100 };
 }
 function pdfCartiglio(doc, L, N, header){
@@ -40280,9 +40283,9 @@ function pdfCartiglio(doc, L, N, header){
   var _fmt=paperLabel(L.paper, L.orient);
   doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(180,83,9);
   var _wAvv=doc.getTextWidth(_avv);
-  doc.text(_avv, L.pw-M, y+16, {align:"right"});
+  doc.text(_avv, L.pw-M, y+15, {align:"right"});   /* 15 e non 16: con il cartiglio base (22) resta 1 mm in più sopra il credito, a 16,2 mm dal fondo */
   doc.setFont("helvetica","bold"); doc.setFontSize(8.5); doc.setTextColor(17,24,39);
-  doc.text(_fmt, L.pw-M-_wAvv, y+16, {align:"right"});
+  doc.text(_fmt, L.pw-M-_wAvv, y+15, {align:"right"});
 }
 /* BARRA DI SCALA: dove sta (13/10/2026, PDF vero: «2 m» scritto sopra il titolo del cartiglio).
    Stava sempre 10 mm sotto il disegno. Dal 16/09 il cartiglio si è staccato dal fondo di 7 mm (L.fondo)

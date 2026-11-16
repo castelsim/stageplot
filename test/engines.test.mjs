@@ -35159,7 +35159,6 @@ t("P1 margini: piè a ≥15 mm, cartiglio e liste A4 si fermano sopra il piè", 
   ok(/pw-15\.5/.test(cr), "il credito a destra sta a ≥ 15 mm dal bordo");
   const L = A.pdfLayout("a3", "landscape", 22), L4 = A.pdfLayout("a4", "portrait", 22);
   ok(L.M >= 15 && L4.M >= 15, "margine dei testi del cartiglio ≥ 15 mm");
-  ok(L.ph - L.fondo - 7 <= L.ph - 18.5, "l'ultima riga del cartiglio finisce sopra il piè (ink del piè da 18,3 mm)");
   /* nessuna pagina A4 verticale delle liste scende sotto 274 mm (297 - 23): sotto c'è il piè */
   const soglie = [...appjs.matchAll(/if\(y>(\d{3})\)\{ doc\.addPage\(/g)].map((m) => +m[1]);
   ok(soglie.length >= 20 && Math.max(...soglie) <= 274, "soglie di cambio pagina delle liste ≤ 274: max " + Math.max(...soglie) + " su " + soglie.length);
@@ -35190,6 +35189,30 @@ t("P1 scala fissa: se non entra intero l'Esporta propone la scala o il foglio su
   ok(/_bs\.onclick=function\(\)\{ scl\.value=String\(_prop\.scala\); refresh\(\); \}/.test(ramo) && /_bf\.onclick=/.test(ramo), "i pulsanti sono collegati DOPO le ultime innerHTML+= (che li ricreano)");
   ok(ramo.indexOf("_bs.onclick") > ramo.lastIndexOf("info.innerHTML+="), "gli handler vengono dopo l'ultimo innerHTML+=");
   ok(/info\.className="mstatus warn";\s*info\.innerHTML\+="<br><b>Con questa scala/.test(src), "l'avviso è in evidenza (warn)");
+});
+
+t("P1 margini: il contenuto più basso del cartiglio (Riferimento lungo, QR, A4/A3, orizzontale/verticale) finisce sopra il piè e a ≥15 mm dal bordo", () => {
+  reset();
+  const HDR = "Fonico: Nome Cognome · +39 333 1234567 · fonico@esempio.it · Responsabile palco: Nome Cognome +39 340 7654321 · Produzione: Altro Nome · accrediti dalle 14:00";
+  const PIE_INK = 17.5;   /* il piè sta a baseline 16,2 mm; il suo ink arriva a ~17,5 mm dal fondo */
+  const prima = A.__pdfQr;
+  try {
+    for (const qr of [false, true]) for (const hdr of ["", "Fonico: Nome · 333", HDR]) for (const paper of ["a4", "a3"]) for (const orient of ["landscape", "portrait"]) {
+      A.__pdfQr = qr ? { n: 1, m: ["1"] } : null;
+      const L0 = A.pdfLayout(paper, orient, 22), R = A.pdfCartRighe(hdr, A.pdfCartTitleW(L0.pw, L0.M));
+      const L = A.pdfLayout(paper, orient, R.cartH);
+      const quote = [];   /* baseline in mm dall'alto del cartiglio di ogni elemento, con la sua discesa */
+      R.blocchi.forEach((b) => quote.push(b.y0 + (b.righe.length - 1) * b.passo + 0.25 * b.pt * 25.4 / 72));
+      const fy = parseFloat((appjs.match(/doc\.text\(_avv, L\.pw-M, y\+(\d+(?:\.\d+)?),/) || [])[1]);   /* la riga del formato a destra: la quota si legge dal codice */
+      ok(fy > 0, "riga del formato trovata nel PDF");
+      quote.push(fy + 0.8);
+      if (qr) quote.push(A.pdfQrBox(L).capY - (L.ph - L.fondo - L.cartH) + 0.6);   /* didascalia del QR */
+      const basso = L.fondo + R.cartH - Math.max(...quote);   /* distanza dal fondo del contenuto più basso */
+      const ctx = paper + " " + orient + " qr=" + qr + " rif=" + hdr.length;
+      ok(basso >= 18.4, ctx + ": il contenuto più basso sta a " + basso.toFixed(1) + " mm dal fondo (piè: ink fino a " + PIE_INK + ")");
+      ok(basso >= PIE_INK + 0.9, ctx + ": almeno 0,9 mm di aria sopra il piè");
+    }
+  } finally { A.__pdfQr = prima; }
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
