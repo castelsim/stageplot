@@ -34729,5 +34729,91 @@ t("Orchestre ORC16d A: pagina musicisti — i simili solo dopo l'esatta e dichia
   ok(!/Email dell'account Google/.test(im) && /Email della persona \(con cui entra\)/.test(im), "si entra anche con password: l'etichetta non dice «Google»");
 });
 
+/* ═══ FOGLIO PER IL TEATRO (16/11/2026, L4.1 suite produzione): sedie, sgabelli, pedane per misura e altezza, scalette, prese — dal PROGETTO, con la versione dello stage plot ═══ */
+const _ft = () => appjs.slice(appjs.indexOf("function foglioGradini"), appjs.indexOf("function exportPdf(paperKey"));
+const _ftProgetto = () => {
+  reset(); A.state.titolo = "Concerto di prova v4"; A.state.luogo = "Teatro Esempio, Via Roma 1, Città"; A.state.versione = 4; A.state.evDate = "2027-01-01";
+  for (let i = 0; i < 5; i++) add("vlnpost", 300 + i * 60, 400);
+  add("direttore", 600, 600); add("percussioni", 700, 100);
+  A.state.items.push(
+    { id: "pa", type: "pedana", x: 600, y: 120, w: 800, d: 200, h: 60 }, { id: "pb", type: "pedana", x: 600, y: 300, w: 800, d: 100, h: 40 },
+    { id: "g1", type: "pedana", x: 100, y: 700, w: 100, d: 30, h: 15 }, { id: "g2", type: "pedana", x: 100, y: 730, w: 100, d: 30, h: 30 },
+    { id: "g3", type: "pedana", x: 100, y: 760, w: 100, d: 30, h: 45 }, { id: "pp", type: "parapetto", x: 600, y: 20, w: 800, d: 10 });
+};
+t("Foglio per il teatro: dal progetto escono sedie senza/con braccioli, sgabelli, leggii, pedane per misura e altezza, scalette, parapetti", () => {
+  _ftProgetto(); const c = A.countAccessori(), D = A.foglioTeatroDati(new Date(2026, 10, 16)), tx = D.testo;
+  const riga = (e) => (D.sezioni.flatMap((s) => s.righe).find((r) => r[0] === e) || [])[1];
+  ok(c.sedie >= 5, "sedute nel disegno: " + c.sedie);
+  eq(riga("Sedie senza braccioli"), String(c.sedie), "senza braccioli = il conteggio del disegno");
+  eq(riga("Sedie con braccioli"), "nessuna", "con braccioli: nessuna se non ci sono poltrone");
+  ok(/8×2 m · altezza 60 cm/.test(tx) && /8×1 m · altezza 40 cm/.test(tx), "pedane per misura e altezza: " + tx);
+  ok(!/1×0,3|100×30/.test(tx), "i gradini non sono pedane da noleggiare");
+  eq(riga("Scalette di salita"), "1 scaletta da 3 gradini (altezze 15, 30, 45 cm), larghe 100 cm", "3 gradini-pedana = 1 scaletta");
+  eq(riga("Moduli 2×1 m"), "12 in tutto · 4 da 40 cm · 8 da 60 cm", "moduli 2×1: 8×2 h60 = 8, 8×1 h40 = 4, niente gradini");
+  eq(riga("Parapetti"), "8 m in 1 elemento", "parapetti in metri");
+  ok(riga("Leggii") && /leggi/.test(riga("Leggii")), "leggii");
+  A.state.rider.luciLeggii = true; ok(/tutti con luce/.test(A.foglioTeatroDati(new Date()).testo), "leggii con luce, se il rider li chiede così"); delete A.state.rider.luciLeggii;
+  ok(riga("Podio del direttore") === undefined || riga("Podio del direttore") === "1", "podio solo se c'è");
+  eq(D.sub, "Foglio per il teatro · Stage plot v4 · 16/11/2026 · evento 01/01/2027", "stessa «vN · data» dello stage plot");
+  A.state.items.push({ id: "pol", type: "poltrona", x: 50, y: 50 }); eq((A.foglioTeatroDati(new Date()).sezioni[0].righe.find((r) => r[0] === "Sedie con braccioli") || [])[1], "1 poltrona", "le poltrone sono le sedie con braccioli");
+  A.state.items.pop();
+  reset();
+});
+t("Foglio per il teatro: il numero «sedie» scritto nel rider vince sul disegno, col dettaglio; le gradini a metà non fanno scalette inventate", () => {
+  _ftProgetto(); const n = A.countAccessori().sedie;
+  A.state.rider.sedie = "Sedie SENZA braccioli: 49 (44 musicisti seduti — archi 23 — più 2 cantanti e 3 di scorta). Pedane: h60 8×2 m, 2 scale da 3 gradini.";
+  let r = A.foglioTeatroDati(new Date()).sezioni[0].righe.find((x) => x[0] === "Sedie senza braccioli")[1];
+  ok(/^49 \(44 musicisti seduti — archi 23 — più 2 cantanti e 3 di scorta\)/.test(r), "49 col dettaglio: " + r);
+  ok(r.indexOf("sedute disegnate: " + n) > 0, "dice quante sono nel disegno: " + r);
+  ok(r.indexOf("Pedane") < 0, "non copia il resto del campo");
+  A.state.rider.sedie = "52"; r = A.foglioTeatroDati(new Date()).sezioni[0].righe.find((x) => x[0] === "Sedie senza braccioli")[1]; ok(/^52 — sedute disegnate/.test(r), "numero semplice: " + r);
+  A.state.rider.sedie = "sedie a noleggio"; r = A.foglioTeatroDati(new Date()).sezioni[0].righe.find((x) => x[0] === "Sedie senza braccioli")[1]; eq(r, String(n), "testo senza numero: si torna al disegno");
+  A.state.rider.sedie = ""; A.state.items = A.state.items.filter((x) => x.id !== "g3");
+  const s = A.foglioTeatroDati(new Date()).sezioni.flatMap((x) => x.righe).find((x) => x[0] === "Scalette di salita")[1];
+  ok(/^2 gradini di scalette \(altezze 1×15, 1×30 cm\)|^1 scaletta da 2 gradini/.test(s), "gradini: " + s);
+  reset();
+});
+t("Foglio per il teatro: scalette 2×3 gradini, sgabelli senza ripetere «sgabelli:», nome file con vN e data, nessun nome di persona", () => {
+  _ftProgetto(); A.state.items.push({ id: "h1", type: "pedana", x: 300, y: 700, w: 100, d: 30, h: 15 }, { id: "h2", type: "pedana", x: 300, y: 730, w: 100, d: 30, h: 30 }, { id: "h3", type: "pedana", x: 300, y: 760, w: 100, d: 30, h: 45 });
+  const D = A.foglioTeatroDati(new Date(2026, 10, 16)); ok(/2 scalette da 3 gradini \(altezze 15, 30, 45 cm\)/.test(D.testo), D.testo);
+  eq(A.foglioTeatroNomeFile(new Date(2026, 10, 16)), "Concerto di prova - v4 del 16-11-2026 - foglio teatro.pdf");
+  A.state.statoDoc = "provvisorio"; eq(A.foglioTeatroNomeFile(new Date(2026, 10, 16)), "Concerto di prova - v4 del 16-11-2026 - Provvisorio - foglio teatro.pdf", "con lo stato"); delete A.state.statoDoc;
+  A.state.contacts = [{ name: "Mario Rossi", role: "Capo palco", phone: "333 1234567" }];
+  ok(!/Mario|Rossi|333|@/.test(A.foglioTeatroDati(new Date()).testo), "niente nomi né telefoni (fogli che restano in giro)");
+  reset();
+});
+t("Foglio per il teatro: progetto vuoto = nessuna sezione; la corrente e «dal teatro» compaiono solo se il progetto li ha", () => {
+  reset(); A.state.titolo = "Vuoto"; A.state.elec.supply = null;   /* reset() non lo azzera: lo lascia un test elettrico precedente */
+  eq(A.foglioTeatroDati(new Date()).sezioni.filter((s) => s.t !== "Sedute e leggii").map((s) => s.t + ": " + JSON.stringify(s.righe)).join(" | "), "", "nessuna pedana/corrente/teatro");
+  const it = add("tastiera", 200, 200); it.fornito = "Teatro"; it.nome = it.nome;
+  const D = A.foglioTeatroDati(new Date()); ok(D.sezioni.length >= 1, "una sezione c'è");
+  reset();
+});
+t("Foglio per il teatro: stessa fonte del rider (dal teatro e alimentazione condivisi), niente ricalcolo a ogni ridisegno", () => {
+  const b = _ft();
+  ["countAccessori(", "pedaneLegenda(", "sgabelliTesto(", "materialiPresa(", "materialiAlimentazione()", "materialiDalTeatro(", "dotazioniAvvisi()", "palcoEsterniTesti("].forEach((x) => ok(b.indexOf(x) >= 0, "usa " + x));
+  const m = appjs.slice(appjs.indexOf("function materialiRichiesti(){"), appjs.indexOf("function materialiTestoMail"));
+  ok(/materialiDalTeatro\(items\)/.test(m) && /materialiAlimentazione\(\)/.test(m), "il rider usa gli stessi due pezzi");
+  /* i tempi: il foglio si costruisce SOLO al clic, mai da render()/refresh */
+  const quanti = (appjs.match(/foglioTeatroDati\(/g) || []).length;
+  eq(quanti, 2, "definizione + il solo PDF: nessun altro chiamante (" + quanti + ")");
+  ["function render()", "function refreshAll", "function renderStatus"].forEach((fn) => { const i = appjs.indexOf(fn); if (i >= 0) ok(appjs.slice(i, i + 4000).indexOf("foglioTeatroDati") < 0, fn + " non lo chiama"); });
+  /* costo: un progetto grande si calcola in un istante */
+  reset(); for (let i = 0; i < 120; i++) add("vlnpost", 100 + (i % 20) * 50, 100 + Math.floor(i / 20) * 60);
+  const t0 = Date.now(); A.foglioTeatroDati(new Date()); const dt = Date.now() - t0; ok(dt < 1500, "120 elementi: " + dt + " ms"); reset();
+});
+t("Foglio per il teatro: PDF A4 vettoriale «N di M» (pdfCredit), margini ≥ 15 mm, solo testo; il pulsante è dentro «Esporta avanzato» e passa dal gate", () => {
+  const b = _ft(), html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/format:"a4"/.test(b) && /orientation:"portrait"/.test(b), "A4 verticale");
+  ok(/pdfCredit\(doc\)/.test(b), "«N di M · vN · data» dallo stesso pdfCredit di ogni foglio");
+  ok(/var cap=ph-20/.test(b) && /M=18/.test(b), "contenuto a ≥ 18 mm dai bordi laterali e ≥ 20 mm dal fondo");
+  ok(!/addImage|svg2pdf|drawStageVector|canvas/.test(b), "solo testo vettoriale: niente immagini");
+  ok(/id="pdfTeatro"[^>]*><span><b>Foglio per il teatro<\/b>/.test(html), "la voce nell'Esporta");
+  ok(/body:not\(\.f-esporta\) #pdfTeatroBox\{display:none !important\}/.test(stylesCss), "chiuso di serie: si vede solo con «Esporta avanzato»");
+  ok(/pdfGateErrori\(function\(\)\{ bt\.disabled=true; exportFoglioTeatro\(\)/.test(appjs), "gate sugli errori critici, niente doppio clic");
+  const ex = appjs.slice(appjs.indexOf("function exportFoglioTeatro"), appjs.indexOf("function exportPdf(paperKey"));
+  ok(/custEditorAttivo\(\)/.test(ex) && /segnaPdfEsportato\(\)/.test(ex) && /pdf-foglio-teatro/.test(ex), "come gli altri export: editor aperto, segna e conta");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

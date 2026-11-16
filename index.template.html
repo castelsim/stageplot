@@ -2374,6 +2374,11 @@
           <button type="button" class="btn" id="pdfEsterni"><span><b>Palco per esterni</b> (solo disegno, con versione)</span></button>
           <small>PDF vettoriale per teatro, service e Diego: il palco in scala con titolo, luogo, versione e data in alto. Niente cartiglio, conteggi né liste.</small>
         </div>
+        <!-- FOGLIO PER IL TEATRO (16/11/2026, L4.1): terza uscita, SOLO con «Esporta avanzato» acceso (avanzate chiuse di serie, 13/11) -->
+        <div class="pdf-esterni" id="pdfTeatroBox">
+          <button type="button" class="btn" id="pdfTeatro"><span><b>Foglio per il teatro</b> (sedie, pedane, scalette, prese)</span></button>
+          <small>PDF A4 con ciò che serve sul palco, ricavato dal progetto, con la stessa versione e data dello stage plot.</small>
+        </div>
         <div id="pdfTechBox" style="display:none">
           <div class="pdf-side-h" id="pdfPillsTitle">Pagine del PDF, una per una</div>
           <div id="pdfPills" class="pillrow"></div>
@@ -40961,6 +40966,23 @@ function dotazioniAvvisi(){
   });
   return out;
 }
+/* «Dal teatro» e «Alimentazione»: pezzi condivisi fra la sezione del rider e il Foglio per il teatro (16/11/2026, L4.1): una fonte sola */
+function materialiDalTeatro(items){
+  items=items||state.items||[];
+  var tt={}, ord=[];
+  items.forEach(function(x){ if(fornituraElemento(x)!=="Teatro") return;
+    var nm=backlineName(x), alt=(typeof x.alternativa==="string" ? x.alternativa.trim() : ""), k=nm+"|"+alt;
+    if(!tt[k]){ tt[k]={nm:nm, alt:alt, n:0}; ord.push(k); } tt[k].n++; });
+  return ord.map(function(k){ var o=tt[k]; return (o.n>1?o.n+"× ":"")+o.nm+(o.alt?" — se non disponibile: "+o.alt:""); });
+}
+function materialiAlimentazione(){
+  var al=[];
+  (state.zones||[]).forEach(function(z){ if(z.kind!=="power") return;
+    var p=[z.label, z.supply, z.outlets?z.outlets+" prese":"", z.watts?elecKW(z.watts):""].filter(Boolean); if(p.length) al.push(p.join(", ")); });
+  if(!al.length){ var sp=null; try{ sp=(state.elec && state.elec.supply) ? elecSupplyPoint() : null; }catch(_e){}
+    if(sp) al.push((sp.name||"punto di alimentazione")+(sp.kva?" ("+sp.kva+" kVA)":"")); }
+  return al;
+}
 function materialiRichiesti(){
   if(!(riderFlag("materiali") || eventoAcustico()) || eventoConferenza()) return null;   /* in un concerto acustico la sezione è automatica (S6) */
   var items=state.items||[], righe=[], c=countAccessori();
@@ -40977,16 +40999,8 @@ function materialiRichiesti(){
   if(a.length) righe.push(a.join(" · "));
   var pe=materialiPedane(items); if(pe) righe.push(pe);
   var pr=materialiPresa(items); if(pr) righe.push(pr);
-  var tt={}, ord=[];
-  items.forEach(function(x){ if(fornituraElemento(x)!=="Teatro") return;
-    var nm=backlineName(x), alt=(typeof x.alternativa==="string" ? x.alternativa.trim() : ""), k=nm+"|"+alt;
-    if(!tt[k]){ tt[k]={nm:nm, alt:alt, n:0}; ord.push(k); } tt[k].n++; });
-  if(ord.length) righe.push("Dal teatro: "+ord.map(function(k){ var o=tt[k]; return (o.n>1?o.n+"× ":"")+o.nm+(o.alt?" — se non disponibile: "+o.alt:""); }).join("; "));
-  var al=[];
-  (state.zones||[]).forEach(function(z){ if(z.kind!=="power") return;
-    var p=[z.label, z.supply, z.outlets?z.outlets+" prese":"", z.watts?elecKW(z.watts):""].filter(Boolean); if(p.length) al.push(p.join(", ")); });
-  if(!al.length){ var sp=null; try{ sp=(state.elec && state.elec.supply) ? elecSupplyPoint() : null; }catch(_e){}
-    if(sp) al.push((sp.name||"punto di alimentazione")+(sp.kva?" ("+sp.kva+" kVA)":"")); }
+  var dt=materialiDalTeatro(items); if(dt.length) righe.push("Dal teatro: "+dt.join("; "));
+  var al=materialiAlimentazione();
   if(al.length) righe.push("Alimentazione: "+al.join("; ")+" (indicata dal teatro)");
   dotazioniAvvisi().forEach(function(a){ righe.push("Attenzione: "+a.testo+"."); });   /* S20: solo se è stato scritto un tetto */
   return righe.length ? {righe:righe, testo:righe.join("\n")} : null;
@@ -42227,6 +42241,136 @@ function exportPalcoEsterni(paperKey, scaleSel, orientSel){
     return true;
   }).catch(function(e){ info.className="mstatus err"; info.textContent="Errore: "+(e&&e.message||e); return false; });
 }
+/* ═══ FOGLIO PER IL TEATRO (16/11/2026, L4.1 della suite produzione) ═══
+   Il foglio che il direttore di produzione manda al teatro (o al service): sedie con/senza braccioli, sgabelli, leggii, pedane per misura e
+   altezza, scalette, parapetti, prese e corrente, cosa fornisce il teatro. Si ricava dal PROGETTO con le stesse funzioni del rider (countAccessori,
+   pedaneLegenda, sgabelliTesto, materialiPresa…): una fonte sola, nessun conteggio nuovo. Esce in PDF A4 vettoriale con «vN · data» uguale allo
+   stage plot, «N di M» in fondo, margini di almeno 18 mm. Vive dentro «Esporta avanzato» (chiuso di serie, M-078/13-11). Niente nomi di persone.
+   Le scalette del disegno possono essere gradini-pedana (≤ 150×40 cm): si ricompongono in «N scalette da K gradini», e non sono pedane da noleggiare. */
+function foglioGradini(items){
+  return (items||[]).filter(function(x){
+    if(!x || x.type!=="pedana" || !(pedanaH(x)>0)) return false;
+    var a=Math.round(+x.w||0), b=Math.round(+x.d||0);
+    return Math.max(a,b)<=150 && Math.min(a,b)<=40;
+  });
+}
+/* il numero scritto nel campo «sedie» del rider («49», «Sedie SENZA braccioli: 49 (44 musicisti…)»): null se non c'è */
+function foglioSedieScritte(){
+  var t=String(state.rider && state.rider.sedie!=null ? state.rider.sedie : "").trim(); if(!t) return null;
+  var m=/^\s*(?:sedie[^\d:(]*:?\s*)?(\d+)\b\s*(?:\(([^)]*)\))?/i.exec(t); if(!m) return null;
+  return {n:parseInt(m[1],10), dettaglio:(m[2]||"").trim()};
+}
+function foglioTeatroDati(d){
+  var items=state.items||[], c=countAccessori(), sez=[], num=function(n){ return n.toLocaleString("it-IT"); };
+  var m=function(cm){ return (cm/100).toLocaleString("it-IT",{maximumFractionDigits:2}); };
+  /* sedute */
+  var s=[], w=foglioSedieScritte();
+  if(w || c.sedie){
+    var n=w ? w.n : c.sedie;
+    s.push(["Sedie senza braccioli", num(n)+(w && w.dettaglio ? " ("+w.dettaglio+")" : "")+((w && w.n!==c.sedie && c.sedie) ? " — sedute disegnate: "+c.sedie : "")]);
+  }
+  s.push(["Sedie con braccioli", c.poltrone ? num(c.poltrone)+(c.poltrone===1?" poltrona":" poltrone") : "nessuna"]);
+  var sg=sgabelliTesto(items); if(sg.length) s.push(["Sgabelli", sg.map(function(x){ return x.replace(/^(\d+ sgabell[io]): (.*)$/, "$1 ($2)"); }).join(", ")]);
+  if(c.leggii || c.leggiiDirettore){
+    var l=String(c.leggii||0)+(c.leggii===1?" leggio":" leggii");
+    if(riderFlag("luciLeggii") && c.leggii) l+=", tutti con luce";
+    if(c.leggiiDirettore) l+=" · più "+c.leggiiDirettore+(c.leggiiDirettore===1?" leggio grande del direttore":" leggii grandi del direttore");
+    s.push(["Leggii", l]);
+  }
+  var po=items.filter(function(x){ return x.type==="podio" || (x.type==="direttore" && x.podio); }).length; if(po) s.push(["Podio del direttore", String(po)]);
+  if(s.length) sez.push({t:"Sedute e leggii", righe:s});
+  /* pedane e scalette */
+  var grad=foglioGradini(items), resto=items.filter(function(x){ return grad.indexOf(x)<0; });
+  var gr=pedaneLegenda(resto), p=[];
+  gr.forEach(function(g){ p.push([g.n+(g.n===1?" pedana":" pedane"), m(g.L)+"×"+m(g.P)+" m · altezza "+g.h+" cm"+((g.base>0 && quotaDaTerraOn()) ? " ("+(g.base+g.h)+" cm da terra)" : "")]); });
+  if(gr.length){
+    var mq={}, tot=0, tondi=0; gr.forEach(function(g){ var k=g.n*Math.ceil(g.L*g.P/20000); mq[g.h]=(mq[g.h]||0)+k; tot+=k; if((g.L*g.P)%20000) tondi+=g.n; });
+    p.push(["Moduli 2×1 m", tot+" in tutto · "+Object.keys(mq).map(Number).sort(function(a,b){ return a-b; }).map(function(h){ return mq[h]+" da "+h+" cm"; }).join(" · ")+(tondi ? " (arrotondati per eccesso su "+tondi+(tondi===1?" pedana":" pedane")+" di misura non multipla)" : "")]);
+  }
+  var dc=resto.filter(function(x){ return x.type==="pedana" && x.misuraDaConf===true; }).length;
+  if(dc) p.push(["Da confermare", dc+(dc===1?" pedana con misura":" pedane con misura")+" da verificare al sopralluogo"]);
+  var scr=[], scale=items.filter(function(x){ return x.type==="scala"; });
+  if(scale.length){ var gg={}; scale.forEach(function(x){ var k=scalaGradini(scalaH(x)); gg[k]=(gg[k]||0)+1; });
+    Object.keys(gg).map(Number).sort(function(a,b){ return a-b; }).forEach(function(k){ scr.push(gg[k]+(gg[k]===1?" scaletta":" scalette")+" da "+k+(k===1?" gradino":" gradini")); }); }
+  if(grad.length){
+    var hs={}; grad.forEach(function(x){ var h=pedanaH(x); hs[h]=(hs[h]||0)+1; });
+    var ks=Object.keys(hs).map(Number).sort(function(a,b){ return a-b; }), uguali=ks.every(function(h){ return hs[h]===hs[ks[0]]; });
+    var larg=Math.max.apply(null, grad.map(function(x){ return Math.max(Math.round(+x.w||0), Math.round(+x.d||0)); }));
+    scr.push(uguali ? hs[ks[0]]+(hs[ks[0]]===1?" scaletta":" scalette")+" da "+ks.length+(ks.length===1?" gradino":" gradini")+" (altezze "+ks.join(", ")+" cm), larghe "+larg+" cm"
+                    : grad.length+" gradini di scalette (altezze "+ks.map(function(h){ return hs[h]+"×"+h; }).join(", ")+" cm)");
+  }
+  if(scr.length) p.push(["Scalette di salita", scr.join(" · ")]);
+  var pa=items.filter(function(x){ return x.type==="parapetto"; });
+  if(pa.length){ var cm=0; pa.forEach(function(x){ cm+=Math.max(+x.w||0,+x.d||0); }); p.push(["Parapetti", (cm/100).toLocaleString("it-IT",{maximumFractionDigits:1})+" m in "+pa.length+(pa.length===1?" elemento":" elementi")]); }
+  var ra=items.filter(function(x){ return x.type==="rampa"; }).length; if(ra) p.push(["Rampe", String(ra)]);
+  if(p.length) sez.push({t:"Pedane e scalette", righe:p});
+  /* corrente */
+  var e=[], pr=materialiPresa(items); if(pr) e.push(["Prese", pr.replace(/^Prese 230 V vicino a:\s*/,"230 V vicino a: ")]);
+  var al=materialiAlimentazione(); if(al.length) e.push(["Alimentazione", al.join("; ")+" (indicata dal teatro)"]);
+  if(e.length) sez.push({t:"Corrente", righe:e});
+  /* teatro */
+  var t=[], dt=materialiDalTeatro(items); if(dt.length) t.push(["Dal teatro", dt.join("; ")]);
+  dotazioniAvvisi().forEach(function(a){ t.push(["Attenzione", a.testo]); });
+  if(t.length) sez.push({t:"Dal teatro", righe:t});
+  var T=palcoEsterniTesti(d);
+  return {titolo:T.titolo, sub:"Foglio per il teatro · "+T.sub, sezioni:sez,
+    testo:sez.map(function(x){ return x.t+"\n"+x.righe.map(function(r){ return r[0]+": "+r[1]; }).join("\n"); }).join("\n\n")};
+}
+function foglioTeatroNomeFile(d){
+  var v=versioneNumero(), _st=statoDocEtichetta();
+  var t=titoloSenzaVersione(state.titolo).replace(/[\\\/:*?"<>|\u0000-\u001f]+/g," ").replace(/\s+/g," ").trim().slice(0,100).trim().replace(/[. ]+$/,"");
+  if(!t) t="Stage plot";
+  return v ? t+" - v"+v+" del "+dataGgMmAaaa(d||new Date(),"-")+(_st?" - "+_st:"")+" - foglio teatro.pdf" : nomeConStato(t+" - foglio teatro.pdf");
+}
+function buildPdfFoglioTeatro(d){
+  d=d||new Date();
+  return loadJsPDF().then(function(){
+    var jsPDF=window.jspdf.jsPDF, doc=new jsPDF({orientation:"portrait", unit:"mm", format:"a4", compress:true});
+    var D=foglioTeatroDati(d), pw=210, ph=297, M=18, W=pw-2*M, X2=M+52, VW=W-52, y=M;
+    var cap=ph-20;   /* il contenuto non scende sotto 20 mm dal bordo: sotto c'è solo «N di M · vN · data» */
+    var nuova=function(h){ if(y+h>cap){ doc.addPage(); y=M; } };
+    doc.setFont("helvetica","bold"); doc.setFontSize(14); doc.setTextColor(17,24,39);
+    doc.splitTextToSize(D.titolo, W).forEach(function(r){ doc.text(r, M, y+4.2); y+=6.2; });
+    doc.setFont("helvetica","normal"); doc.setFontSize(10); doc.setTextColor(55,65,81);
+    doc.splitTextToSize(D.sub, W).forEach(function(r){ doc.text(r, M, y+3.6); y+=4.8; });
+    y+=2; doc.setDrawColor(31,41,55); doc.setLineWidth(0.4); doc.line(M, y, pw-M, y); y+=7;
+    if(!D.sezioni.length){
+      doc.setFontSize(10); doc.setTextColor(55,65,81);
+      doc.text("Nel progetto non ci sono ancora sedute, pedane o altro materiale da richiedere.", M, y); y+=6;
+    }
+    D.sezioni.forEach(function(sx){
+      nuova(20);
+      doc.setFont("helvetica","bold"); doc.setFontSize(11); doc.setTextColor(17,24,39); doc.text(sx.t, M, y); y+=1.8;
+      doc.setDrawColor(209,213,219); doc.setLineWidth(0.25); doc.line(M, y, pw-M, y); y+=5.2;
+      sx.righe.forEach(function(r){
+        doc.setFont("helvetica","normal"); doc.setFontSize(10);
+        var v=doc.splitTextToSize(String(r[1]), VW), l=doc.splitTextToSize(String(r[0]), 48);
+        var h=Math.max(v.length,l.length)*4.8+1.6; nuova(h);
+        doc.setFont("helvetica","bold"); doc.setTextColor(55,65,81); l.forEach(function(t,i){ doc.text(t, M, y+i*4.8); });
+        doc.setFont("helvetica","normal"); doc.setTextColor(17,24,39); v.forEach(function(t,i){ doc.text(t, X2, y+i*4.8); });
+        y+=h;
+      });
+      y+=4;
+    });
+    nuova(10); doc.setFont("helvetica","normal"); doc.setFontSize(8.5); doc.setTextColor(107,114,128);
+    doc.splitTextToSize("Quantità ricavate dal disegno dello stage plot: se cambia, il foglio esce con una versione nuova.", W).forEach(function(r){ doc.text(r, M, y); y+=4; });
+    pdfCredit(doc);   /* «N di M · vN · data» e il credito, come ogni foglio */
+    doc.__foglioTeatro=D;
+    return doc;
+  });
+}
+function exportFoglioTeatro(){
+  if(custEditorAttivo()){ custEditorAvvisa(); return Promise.resolve(false); }
+  var info=document.getElementById("pdfInfo");
+  info.className="mstatus"; info.textContent="Genero il foglio per il teatro…";
+  return buildPdfFoglioTeatro(new Date()).then(function(doc){
+    pdfSave(doc, foglioTeatroNomeFile());
+    if(typeof segnaPdfEsportato==="function") segnaPdfEsportato();
+    info.className="mstatus ok"; info.textContent="✓ Foglio per il teatro scaricato ("+doc.getNumberOfPages()+(doc.getNumberOfPages()===1?" pagina":" pagine")+", A4).";
+    try{ track("export",{format:"pdf-foglio-teatro"}); }catch(_e){}
+    return true;
+  }).catch(function(e){ info.className="mstatus err"; info.textContent="Errore: "+(e&&e.message||e); return false; });
+}
 function exportPdf(paperKey, scaleSel, orient, header){
   if(custEditorAttivo()){ custEditorAvvisa(); return Promise.resolve(false); }   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo: niente export */
   var info=document.getElementById("pdfInfo");
@@ -43167,6 +43311,13 @@ document.getElementById("bPdf").addEventListener("click", function(){ if(window.
         var sel=pdfScaleValue(), p=exportPalcoEsterni(paper.value, sel, document.getElementById("pdfOrient") ? document.getElementById("pdfOrient").value : "auto");
         p.then(function(){ be.disabled=false; }, function(){ be.disabled=false; });
       });
+    });
+  })();
+  (function(){   /* FOGLIO PER IL TEATRO (L4.1): stesso gate sugli errori critici del palco per esterni */
+    var bt=document.getElementById("pdfTeatro"); if(!bt) return;
+    bt.addEventListener("click", function(){
+      if(bt.disabled) return;
+      pdfGateErrori(function(){ bt.disabled=true; exportFoglioTeatro().then(function(){ bt.disabled=false; }, function(){ bt.disabled=false; }); });
     });
   })();
   document.getElementById("pdfGo").addEventListener("click", function(){

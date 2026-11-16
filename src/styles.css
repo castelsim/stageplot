@@ -3644,6 +3644,8 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
 .pdf-esterni{margin-top:10px;display:flex;flex-direction:column;gap:5px}
 .pdf-esterni .btn{width:100%;text-align:left;white-space:normal}
 .pdf-esterni small{font-size:12px;color:var(--text-2);line-height:1.4}
+body:not(.f-esporta) #pdfTeatroBox{display:none !important}
+#pdfTeatroBox{margin-bottom:12px}   /* L4.1: il foglio per il teatro sta dentro «Esporta avanzato» */
 .pdf-sc-riep{font-size:12px;color:var(--text-2);margin-top:7px;line-height:1.4}
 .pdf-sc-nota{font-size:11px;color:var(--text-3);margin-top:3px;line-height:1.4}
 .pdf-sc-nota[hidden]{display:none}

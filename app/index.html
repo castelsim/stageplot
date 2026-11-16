@@ -3722,6 +3722,8 @@ body.dark #funzModal .funz-voce{border-bottom-color:#2a3138}
 .pdf-esterni{margin-top:10px;display:flex;flex-direction:column;gap:5px}
 .pdf-esterni .btn{width:100%;text-align:left;white-space:normal}
 .pdf-esterni small{font-size:12px;color:var(--text-2);line-height:1.4}
+body:not(.f-esporta) #pdfTeatroBox{display:none !important}
+#pdfTeatroBox{margin-bottom:12px}   /* L4.1: il foglio per il teatro sta dentro «Esporta avanzato» */
 .pdf-sc-riep{font-size:12px;color:var(--text-2);margin-top:7px;line-height:1.4}
 .pdf-sc-nota{font-size:11px;color:var(--text-3);margin-top:3px;line-height:1.4}
 .pdf-sc-nota[hidden]{display:none}
@@ -6498,6 +6500,11 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
         <div class="pdf-esterni" id="pdfEsterniBox">
           <button type="button" class="btn" id="pdfEsterni"><span><b>Palco per esterni</b> (solo disegno, con versione)</span></button>
           <small>PDF vettoriale per teatro, service e Diego: il palco in scala con titolo, luogo, versione e data in alto. Niente cartiglio, conteggi né liste.</small>
+        </div>
+        <!-- FOGLIO PER IL TEATRO (16/11/2026, L4.1): terza uscita, SOLO con «Esporta avanzato» acceso (avanzate chiuse di serie, 13/11) -->
+        <div class="pdf-esterni" id="pdfTeatroBox">
+          <button type="button" class="btn" id="pdfTeatro"><span><b>Foglio per il teatro</b> (sedie, pedane, scalette, prese)</span></button>
+          <small>PDF A4 con ciò che serve sul palco, ricavato dal progetto, con la stessa versione e data dello stage plot.</small>
         </div>
         <div id="pdfTechBox" style="display:none">
           <div class="pdf-side-h" id="pdfPillsTitle">Pagine del PDF, una per una</div>
