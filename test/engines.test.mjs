@@ -33871,7 +33871,19 @@ t("Inventario: foglio A4 di etichette — 21 per pagina, margine basso ≥ 15 mm
   const F = INV_LIB.FOGLIO;
   eq(INV_LIB.perPagina(), 21, "3 × 7"); ok(INV_LIB.giusto(), "l'ultima riga sta sopra il margine basso");
   ok(F.h - (F.alto + F.righe * F.eh + (F.righe - 1) * F.gap) >= 15, "margine in basso ≥ 15 mm anche col piè");
-  ok(INV_LIB.origineX() >= 10 && INV_LIB.origineX() + F.colonne * F.ew + (F.colonne - 1) * F.gap <= F.w - 10, "margini laterali ≥ 10 mm");
+  ok(INV_LIB.origineX() >= 15 && INV_LIB.origineX() + F.colonne * F.ew + (F.colonne - 1) * F.gap <= F.w - 15, "margini laterali ≥ 15 mm");
+  eq([F.ew, F.eh, F.gap, F.alto], [56, 33, 4, 16], "etichetta 56 × 33, 4 mm tra una e l'altra, 16 mm in alto (stesse misure del foglio dei cavalletti)");
+  /* NESSUN elemento del foglio a meno di 15 mm dal bordo: etichette (le 4 estremità) e piè, letto dal CSS vero */
+  const css = readFileSync(join(root, "inventario/inv-area.css"), "utf8"), js = readFileSync(join(root, "inventario/inv-area.js"), "utf8");
+  const ult = INV_LIB.posizione(INV_LIB.perPagina() - 1);
+  ok(INV_LIB.posizione(0).x >= 15 && INV_LIB.posizione(0).y >= 15 && F.w - (ult.x + F.ew) >= 15 && F.h - (ult.y + F.eh) >= 15, "etichette: ≥ 15 mm da ogni bordo");
+  const pie = /\.piede-foglio\{[^}]*\}/.exec(css)[0], mm = (k) => +new RegExp(k + ":(\\d+(?:\\.\\d+)?)mm").exec(pie)[1];
+  ok(mm("left") >= 15 && mm("right") >= 15 && mm("bottom") >= 15, "piè del foglio: ≥ 15 mm a sinistra, destra e in basso (" + pie + ")");
+  /* QR: area NERA esattamente 25 × 25 mm (viewBox 0 0 n n, nessun bordo interno) in un riquadro bianco di 27 mm con 1 mm di padding */
+  ok(/setAttribute\("viewBox", "0 0 " \+ n \+ " " \+ n\)/.test(js) && !/"-1 -1"/.test(js) && !/createElementNS\(NS, "rect"\)/.test(js), "il disegno del QR è il solo nero: viewBox 0 0 n n, nessun rettangolo/bordo interno");
+  ok(/\.etichetta \.qr svg\{[^}]*width:25mm;height:25mm/.test(css) && /\.etichetta \.qr\{[^}]*width:27mm;height:27mm[^}]*padding:1mm/.test(css) && /grid-template-columns:1fr 27mm/.test(css), "QR nero 25 mm dentro un box bianco di 27 mm con 1 mm di padding; colonna della griglia 27 mm");
+  eq([F.qr, F.qrBox, F.qrPad, F.testo], [25, 27, 1, 24], "misure del QR e del testo accanto in FOGLIO");
+  ok(F.ew - 2.6 - 1.4 - F.qrBox - 1 >= F.testo, "il testo accanto al QR ha 24 mm");
   const els = Array.from({ length: 22 }, (_, i) => i); const pg = INV_LIB.impagina(els);
   eq(pg.length, 2, "22 etichette = 2 fogli"); eq(pg[0].length, 21, "21 sul primo"); eq(pg[1].length, 1, "1 sul secondo"); eq(INV_LIB.impagina([]).length, 0, "nessuna etichetta, nessun foglio");
   const a = INV_LIB.posizione(0), b = INV_LIB.posizione(1), r = INV_LIB.posizione(3);
@@ -33880,7 +33892,7 @@ t("Inventario: foglio A4 di etichette — 21 per pagina, margine basso ≥ 15 mm
   eq(INV_LIB.piede(1, "Accademia Esempio", ["TAS-001", "TAS-010"], "16/11/2026"), "v1 · Accademia Esempio · TAS-001 … TAS-010 · stampato il 16/11/2026", "piè con versione, ente, intervallo e data");
   eq(INV_LIB.piede(0, "A", ["X-001"], "d").startsWith("v1 "), true, "versione minima 1"); eq(INV_LIB.piede(500, "A", ["X-001"], "d").startsWith("v99 "), true, "versione massima 99"); eq(INV_LIB.piede("boh", "A", ["X-001"], "d").startsWith("v1 "), true, "versione non numerica = 1"); eq(INV_LIB.piede(-5, "A", ["X-001"], "d").startsWith("v1 "), true, "versione negativa = 1");
   ok(/id: "versione"/.test(readFileSync(join(root, "inventario/inv-area.js"), "utf8")) && /L\.piede\(ver, S\.inv\.nome/.test(readFileSync(join(root, "inventario/inv-area.js"), "utf8")) && /L\.piede\(v, S\.inv\.nome/.test(readFileSync(join(root, "inventario/inv-area.js"), "utf8")), "l'area scrive la versione nel piè del foglio (all'apertura e quando la si cambia)");
-  ok(INV_LIB.corpoCodice(7) <= 17 && INV_LIB.corpoCodice(9) < INV_LIB.corpoCodice(7) && INV_LIB.corpoCodice(20) >= 8, "il codice lungo rimpicciolisce ma resta leggibile");
+  eq(INV_LIB.corpoCodice(1), 17, "tetto a 17 pt"); eq(INV_LIB.corpoCodice(7), 16.1, "7 caratteri (TAS-001) nei 24 mm"); ok(INV_LIB.corpoCodice(7) <= 17 && INV_LIB.corpoCodice(9) < INV_LIB.corpoCodice(7) && INV_LIB.corpoCodice(20) >= 8, "il codice lungo rimpicciolisce ma resta leggibile");
 });
 t("Inventario: la pagina pubblica scarta ogni campo sconosciuto (mai note, assegnato, user_id, nomi) — scheda ed elenco", () => {
   const d = INV_PUB.pulisci({ inventario: "Accademia Esempio", codice: "TAS-003", numero: 3, singolare: "Tastiera", plurale: "tastiere", modello: "Yamaha", stato: "a_casa", totale: 10, note: "x", user_id: "u", assegnato_a: "Mario Rossi 2B", allievo: "Anna" });

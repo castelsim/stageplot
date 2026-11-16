@@ -53,9 +53,10 @@
   /* 2026-11-16 → 16/11/2026 */
   function dataIt(d) { return typeof d === "string" && /^\d{4}-\d{2}-\d{2}/.test(d) ? d.slice(8, 10) + "/" + d.slice(5, 7) + "/" + d.slice(0, 4) : ""; }
 
-  /* Foglio A4 di etichette da plastificare. Misure in mm; margine in basso ≥ 15 (la Ricoh taglia il bordo), il piè sta lì sotto.
-     3 colonne × 7 righe = 21 etichette da 58 × 34 con 4 mm fra l'una e l'altra (2 mm di bordo plastica per lato dopo il taglio). */
-  var FOGLIO = { w: 210, h: 297, colonne: 3, righe: 7, ew: 58, eh: 34, gap: 4, alto: 12, basso: 23 };
+  /* Foglio A4 di etichette da plastificare. Misure in mm (allineate al foglio dei cavalletti del 16/11, richiesta di Simone «QR 2,5 × 2,5 cm»):
+     3 colonne × 7 righe = 21 etichette da 56 × 33 con 4 mm fra l'una e l'altra; margini ≥ 15 su TUTTI i lati, piè compreso (la Ricoh taglia il bordo):
+     alto 16, laterali 17, piè a 16 dal bordo. Il QR ha l'area NERA di 25 × 25 mm (senza bordo interno) in un riquadro bianco di 27 (1 mm di padding). */
+  var FOGLIO = { w: 210, h: 297, colonne: 3, righe: 7, ew: 56, eh: 33, gap: 4, alto: 16, basso: 16, lato: 17, qr: 25, qrBox: 27, qrPad: 1, testo: 24 };
   function perPagina() { return FOGLIO.colonne * FOGLIO.righe; }
   function origineX() { return (FOGLIO.w - (FOGLIO.colonne * FOGLIO.ew + (FOGLIO.colonne - 1) * FOGLIO.gap)) / 2; }
   function impagina(elementi) {
@@ -75,8 +76,8 @@
   /* «TAS-001 … TAS-010» per il piè del foglio */
   function intervallo(codici) { return !codici.length ? "" : codici.length === 1 ? codici[0] : codici[0] + " … " + codici[codici.length - 1]; }
 
-  /* corpo (pt) del codice sull'etichetta: grande, ma i codici lunghi (PERC-0012) devono stare nei 26 mm accanto al QR; carattere a spaziatura fissa ≈ 0,6 em */
-  function corpoCodice(lunghezza) { var pt = 26 / (Math.max(1, lunghezza) * 0.6 * 0.3528); return Math.max(8, Math.min(17, Math.floor(pt * 10) / 10)); }
+  /* corpo (pt) del codice sull'etichetta: grande, ma i codici lunghi (PERC-0012) devono stare nei 24 mm accanto al QR; carattere a spaziatura fissa ≈ 0,6 em */
+  function corpoCodice(lunghezza) { var pt = FOGLIO.testo / (Math.max(1, lunghezza) * 0.6 * 0.3528); return Math.max(8, Math.min(17, Math.floor(pt * 10) / 10)); }
 
   /* piè sinistro del foglio: la VERSIONE c'è sempre («vN · data» su ogni foglio stampato; versione nuova = numero nuovo) */
   function piede(versione, ente, codici, d) {

@@ -220,8 +220,7 @@
     var q = window.qrcode(0, "M"); q.addData(testo, "Byte"); q.make();
     var n = q.getModuleCount(), d = "";
     for (var r = 0; r < n; r++) for (var c = 0; c < n; c++) if (q.isDark(r, c)) d += "M" + c + " " + r + "h1v1h-1z";
-    var svg = document.createElementNS(NS, "svg"); svg.setAttribute("viewBox", "-1 -1 " + (n + 2) + " " + (n + 2)); svg.setAttribute("shape-rendering", "crispEdges"); svg.setAttribute("role", "img");
-    var bg = document.createElementNS(NS, "rect"); bg.setAttribute("x", "-1"); bg.setAttribute("y", "-1"); bg.setAttribute("width", n + 2); bg.setAttribute("height", n + 2); bg.setAttribute("fill", "#fff"); svg.appendChild(bg);
+    var svg = document.createElementNS(NS, "svg"); svg.setAttribute("viewBox", "0 0 " + n + " " + n); svg.setAttribute("shape-rendering", "crispEdges"); svg.setAttribute("role", "img");
     var p = document.createElementNS(NS, "path"); p.setAttribute("d", d); p.setAttribute("fill", "#000"); svg.appendChild(p);
     return svg;
   }
