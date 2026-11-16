@@ -33646,7 +33646,7 @@ t("Palco per esterni: il PDF è solo disegno + barra + fascia (struttura del cod
   ["drawStageVector", "pdfScaleBar(", "pdfScaleBarPosa", "pdfCredit(doc)", "palcoEsterniPiano", "palcoEsterniTesti"].forEach((x) => ok(b.indexOf(x) >= 0, "usa " + x));
   ok(/areaFoglio:\{x:L\.drawX, y:L\.drawY\+sh/.test(b), "la planimetria di sfondo scende con il disegno");
   const html = readFileSync(join(root, "app/index.html"), "utf8");
-  ok(/id="pdfEsterni"[^>]*><b>Palco per esterni<\/b> \(solo disegno, con versione\)/.test(html), "la voce «Palco per esterni (solo disegno, con versione)»");
+  ok(/id="pdfEsterni"[^>]*><span><b>Palco per esterni<\/b> \(solo disegno, con versione\)<\/span>/.test(html), "la voce «Palco per esterni (solo disegno, con versione)»");
   ok(html.indexOf('id="pdfEsterni"') > html.indexOf('id="pdfScSolo"') && html.indexOf('id="pdfEsterni"') < html.indexOf('id="pdfGo"'), "sta accanto alle scelte del PDF completo");
   ok(/pdfGateErrori\(function\(\)\{\s*be\.disabled=true;[\s\S]*?exportPalcoEsterni\(/.test(appjs), "passa dal gate sugli errori critici come gli altri export");
   ok(/palcoEsterniNomeFile\(\); pdfSave\(doc, nome\)/.test(appjs), "esce col suo nome");
