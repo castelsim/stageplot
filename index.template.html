@@ -10387,7 +10387,7 @@ function normalizeState(s){
     mode:(cb.mode==="auto"||cb.mode==="manual")?cb.mode:(cb.on?"auto":"manual"),
     labelMode:(cb.labelMode==="always")?"always":"hover",   /* stile Max: canvas pulito, info in hover; nel PDF/viewer etichette SEMPRE */
     margin:(+cb.margin===20?20:30), mixer:String(cb.mixer||"").slice(0,40),
-    home:(cb.home&&typeof cb.home==="object")?{kind:String(cb.home.kind||"custom").slice(0,20), x:Math.round(cb.home.x||0), y:Math.round(cb.home.y||0)}:null,
+    home:(cb.home&&typeof cb.home==="object")?(function(h){ var o={kind:String(h.kind||"custom").slice(0,20), x:Math.round(h.x||0), y:Math.round(h.y||0)}; if(o.kind==="exit"){ o.lato=(h.lato==="left"||h.lato==="center")?h.lato:"right"; } return o; })(cb.home):null,   /* L5: «uscita multicore» con il lato scelto */
     showLabels:cb.showLabels!==false, showLengths:cb.showLengths!==false, showChannels:cb.showChannels!==false,
     showInputs:cb.showInputs!==false, showReturns:cb.showReturns!==false, showNet:cb.showNet!==false, looms:cb.looms!==false,
     lockIn:!!cb.lockIn, lockOut:!!cb.lockOut, manual:man,
@@ -16715,6 +16715,9 @@ function cabCleanPoly(P){
    di 16 cm (costa un po' di più). Non sono ostacoli: box/mixer di destinazione, distro, generatore (sono i capi), tappeti, forme, americane e truss
    appesi (sopra la testa), elementi più piccoli di ~35×35 (aste, DI). */
 var CAB_OBS_SKIP={tappeto:1, forma:1, americana:1, truss40:1, trusstri:1, trussladder:1};
+/* L4/L5 (16/11/2026): spie e passaggi (R14, R16) */
+var CAB_MON_TYPES={wedge:1, sidefill:1, drumfill:1}, CAB_PASS_TYPES={scala:1, rampa:1};
+var CAB_MON_ZONA=50, CAB_PASS_ZONA=100, CAB_COSTO_MON=1.5, CAB_COSTO_PASS=6, CAB_COSTO_OCC=1.6, CAB_OCC_CELLA=20, CAB_COSTO_FASCIA=0.8, CAB_FASCIA_RAGGIO=100, CAB_FASCIA_MARGINE=120;
 function obstacleRects(){
   var M=16, H=ORTH_HARD, rects=[];
   (state.items||[]).forEach(function(it){
@@ -16722,7 +16725,11 @@ function obstacleRects(){
     if(cabIsDest(it)||elecIsDistro(it)||elecIsGen(it)) return;   /* box/mixer-destinazione/distro/generatore = nodi, non ostacoli */
     var hh=cabItemHalf(it);
     if(!t.riser && hh.hx*hh.hy*4<1200) return;
-    rects.push({id:it.id, x0:it.x-hh.hx-M, y0:it.y-hh.hy-M, x1:it.x+hh.hx+M, y1:it.y+hh.hy+M, hx0:it.x-hh.hx-H, hy0:it.y-hh.hy-H, hx1:it.x+hh.hx+H, hy1:it.y+hh.hy+H, riser:!!t.riser, cx0:it.x-hh.hx, cy0:it.y-hh.hy, cx1:it.x+hh.hx, cy1:it.y+hh.hy});
+    var rc={id:it.id, x0:it.x-hh.hx-M, y0:it.y-hh.hy-M, x1:it.x+hh.hx+M, y1:it.y+hh.hy+M, hx0:it.x-hh.hx-H, hy0:it.y-hh.hy-H, hx1:it.x+hh.hx+H, hy1:it.y+hh.hy+H, riser:!!t.riser, cx0:it.x-hh.hx, cy0:it.y-hh.hy, cx1:it.x+hh.hx, cy1:it.y+hh.hy};
+    /* L4 (16/11): spie (wedge, side/drum fill) e passaggi (scale, rampe) hanno una fascia di rispetto più larga, in cui il cavo costa di più (non vietata) */
+    if(CAB_MON_TYPES[it.type]){ rc.mon=1; rc.zx0=rc.cx0-CAB_MON_ZONA; rc.zy0=rc.cy0-CAB_MON_ZONA; rc.zx1=rc.cx1+CAB_MON_ZONA; rc.zy1=rc.cy1+CAB_MON_ZONA; }
+    if(CAB_PASS_TYPES[it.type]){ rc.pass=1; rc.zx0=rc.cx0-CAB_PASS_ZONA; rc.zy0=rc.cy0-CAB_PASS_ZONA; rc.zx1=rc.cx1+CAB_PASS_ZONA; rc.zy1=rc.cy1+CAB_PASS_ZONA; rc.nome=it.label||(t.nome)||"passaggio"; }
+    rects.push(rc);
   });
   return rects;
 }
@@ -16735,8 +16742,17 @@ function _uniqNums(arr){ arr.sort(function(a,b){return a-b;}); var o=[]; for(var
    po' di più. Costi: corsia di bordo 0,5 (segnale a 45 cm dal bordo, potenza a 18), entro 1,2 m dal bordo 0,8, interno più caro (segnale
    +0,35, multicore +1,2, potenza +2,6), ultimi 90 cm verso il pubblico +0,8 (non il multicore). Fuori dal palco solo il multicore.
    Risultato in cache (chiave = capi + ingombri + palco), deterministico. Il percorso a mano (waypoint) resta: si instrada tratto per tratto. */
-var ORTH_ESC=40, ORTH_MURATO=60, ORTH_STEP=20, ORTH_TURN=2.5, ORTH_WIN=260, ORTH_HARD=6, ORTH_MAXNODES=9000, ORTH_EX={sig:0.35, ret:0.35, mc:1.2, pwr:2.6};
+var ORTH_ESC=40, ORTH_MURATO=60, ORTH_STEP=20, ORTH_TURN=2.5, ORTH_WIN=260, ORTH_HARD=6, ORTH_MAXNODES=9000, ORTH_MAXNODES_TUTTO=40000, ORTH_EX={sig:0.35, ret:0.35, mc:15, pwr:2.6};
 var _orthCache={sig:"", m:Object.create(null), n:0};
+/* L4: contesto del calcolo in corso, impostato da cabRoutePts: occ = celle già occupate da cavi dell'altro tipo (potenza/segnale), band = quota (cm) da cui comincia la «fascia spie» */
+var _orthCtx={occ:null, band:null};
+function _occKey(x,y){ return (Math.floor(x/CAB_OCC_CELLA)+50)*1000+(Math.floor(y/CAB_OCC_CELLA)+50); }
+/* marca le celle attraversate da un percorso ortogonale e le due vicine in perpendicolare (fascia ≈ 60 cm): è la corsia che un cavo dell'altro tipo evita (R11) */
+function _occMark(m, poly){
+  for(var i=1;i<poly.length;i++){ var A=poly[i-1], B=poly[i];
+    if(A[1]===B[1]){ var x0=Math.min(A[0],B[0]), x1=Math.max(A[0],B[0]); for(var x=x0; x<=x1+CAB_OCC_CELLA/2; x+=CAB_OCC_CELLA/2){ var xx=Math.min(x,x1); for(var d=-1; d<=1; d++) m[_occKey(xx, A[1]+d*CAB_OCC_CELLA)]=1; } }
+    else if(A[0]===B[0]){ var y0=Math.min(A[1],B[1]), y1=Math.max(A[1],B[1]); for(var y=y0; y<=y1+CAB_OCC_CELLA/2; y+=CAB_OCC_CELLA/2){ var yy=Math.min(y,y1); for(var d2=-1; d2<=1; d2++) m[_occKey(A[0]+d2*CAB_OCC_CELLA, yy)]=1; } } }
+}
 function orthStageSig(){ var st=state.stage||{}, bl=stageBlocks(); return st.w+"x"+st.d+":"+bl.map(function(b){ return b.x+","+b.y+","+b.w+","+b.d; }).join(";"); }
 function orthStageEdge(bl,x,y){   /* distanza dal bordo del palco; -1 = fuori dal palco */
   var e=-1; for(var i=0;i<bl.length;i++){ var b=bl[i];
@@ -16767,6 +16783,9 @@ function _astarOrth(a,b,rects,kind){
   /* gli ingombri che contengono già un capo (elemento sotto il cavo, pedana su cui si appoggia) non lo bloccano */
   var rs=orthRects(a,b,rects);
   var ex=ORTH_EX[kind]!=null?ORTH_EX[kind]:ORTH_EX.sig, lanePos=kind==="pwr"?18:45, fuori=(kind==="mc") || orthStageEdge(bl,a[0],a[1])<0 || orthStageEdge(bl,b[0],b[1])<0;
+  /* L4: un capo nella fascia pubblico (spia, cantante in prima fila) → il cavo non paga la fascia; occupazione dell'altro tipo; fascia spie; zone di spie e passaggi */
+  var frontEnd=(a[1]>D-90 || b[1]>D-90), occ=(kind!=="pwr" && _orthCtx.occ)?_orthCtx.occ:null, bandY=(kind!=="mc" && _orthCtx.band!=null)?_orthCtx.band:null;
+  var zrs=rs.filter(function(r){ return r.zx0!=null; }).map(function(r){ var inz=function(p){ return p[0]>r.zx0 && p[0]<r.zx1 && p[1]>r.zy0 && p[1]<r.zy1; }; return {r:r, off:!!(r.pass && (inz(a)||inz(b)))}; });
   function tentativo(win, step, perm){
     var bx0=Math.min(a[0],b[0]), bx1=Math.max(a[0],b[0]), by0=Math.min(a[1],b[1]), by1=Math.max(a[1],b[1]);
     var X0=win?bx0-ORTH_WIN:Math.min(0,bx0)-160, X1=win?bx1+ORTH_WIN:Math.max(W,bx1)+160, Y0=win?by0-ORTH_WIN:Math.min(0,by0)-160, Y1=win?by1+ORTH_WIN:Math.max(D,by1)+160;
@@ -16779,7 +16798,7 @@ function _astarOrth(a,b,rects,kind){
     rs.forEach(function(r){ if(r.hx1<X0||r.hx0>X1||r.hy1<Y0||r.hy0>Y1) return; xs.push(r.hx0,r.hx1); ys.push(r.hy0,r.hy1); });
     xs=_orthLines(xs.filter(function(q){ return q>=X0-0.5 && q<=X1+0.5; })); ys=_orthLines(ys.filter(function(q){ return q>=Y0-0.5 && q<=Y1+0.5; }));
     var nx=xs.length, ny=ys.length;
-    if(nx*ny>ORTH_MAXNODES) return {big:true};
+    if(nx*ny>(win?ORTH_MAXNODES:ORTH_MAXNODES_TUTTO)) return {big:true};
     function idx(arr,q){ var lo=0, hi=arr.length-1; while(lo<hi){ var m=(lo+hi)>>1; if(arr[m]<q-0.5) lo=m+1; else hi=m; } return lo; }
     var si=idx(xs,a[0]), sj=idx(ys,a[1]), ti=idx(xs,b[0]), tj=idx(ys,b[1]);
     var N=nx*ny, blocked=new Uint8Array(N), seen=new Uint8Array(N), fac=new Float32Array(N);
@@ -16789,11 +16808,14 @@ function _astarOrth(a,b,rects,kind){
         if(_orthHardHit(x,y,near)){ blocked[k]=1; fac[k]=1; }
         else { var e=orthStageEdge(bl,x,y), c;
           if(e<0 && !fuori){ blocked[k]=1; fac[k]=1; return k; }   /* fuori dal palco: solo il multicore (o un cavo con un capo già fuori) */
-          if(e<0) c=(kind==="mc")?1.4:11;
+          if(e<0) c=(kind==="mc")?2.5:11;
           else { if(Math.abs(e-lanePos)<=8) c=0.5; else if(e<120) c=0.8; else c=1+ex*Math.min(1.5,(e-120)/200+0.5);
             if(kind==="mc" && Math.abs((D-y)-45)<=8) c=0.5;
-            if(y>D-90 && kind!=="mc") c+=0.8; }
+            if(y>D-90 && kind!=="mc" && !frontEnd) c+=0.8; }
           for(var q=0;q<near.length;q++){ var r=near[q]; if(x>r.x0 && x<r.x1 && y>r.y0 && y<r.y1){ c+=0.4; break; } }
+          if(bandY!=null && y>=bandY && Math.abs(x-a[0])+Math.abs(y-a[1])>CAB_FASCIA_RAGGIO && Math.abs(x-b[0])+Math.abs(y-b[1])>CAB_FASCIA_RAGGIO) c+=CAB_COSTO_FASCIA;   /* tra le file davanti e le spie: un cavo non ci corre, ci arriva solo */
+          for(var zq=0;zq<zrs.length;zq++){ var zz=zrs[zq], zr=zz.r; if(x>zr.zx0 && x<zr.zx1 && y>zr.zy0 && y<zr.zy1){ if(zr.mon){ if(kind!=="mc") c+=CAB_COSTO_MON; } else if(!zz.off) c+=CAB_COSTO_PASS; } }
+          if(occ && occ.m[_occKey(x,y)]) c+=CAB_COSTO_OCC;   /* R11: la corsia dell'altro tipo di cavo costa di più → corsie separate, incroci rari e a 90° */
           fac[k]=c; } }
       return k; }
     var S=si+sj*nx, T=ti+tj*nx; seen[S]=1; seen[T]=1; fac[S]=fac[T]=1;
@@ -16847,17 +16869,161 @@ function cabRoutePts(pts, allObs, exclude, kind){   /* route ogni segmento conse
   if(cabRouteMode()!=="orto") return pts;
   if(!allObs||!allObs.length||!pts||pts.length<2) return pts;
   var rects=exclude ? allObs.filter(function(r){ return !exclude[r.id]; }) : allObs;
-  if(!allObs.__sig) allObs.__sig=allObs.map(function(r){ return r.id+":"+Math.round(r.hx0)+","+Math.round(r.hy0)+","+Math.round(r.hx1)+","+Math.round(r.hy1)+","+Math.round(r.x0)+","+Math.round(r.y0)+","+Math.round(r.x1)+","+Math.round(r.y1); }).join(";");
+  if(!allObs.__sig){
+    allObs.__sig=allObs.map(function(r){ return r.id+":"+Math.round(r.hx0)+","+Math.round(r.hy0)+","+Math.round(r.hx1)+","+Math.round(r.hy1)+","+Math.round(r.x0)+","+Math.round(r.y0)+","+Math.round(r.x1)+","+Math.round(r.y1)+(r.mon?"m":"")+(r.pass?"p":""); }).join(";");
+    var by=null; allObs.forEach(function(r){ if(r.mon){ var q=r.cy0-CAB_FASCIA_MARGINE; if(by==null || q<by) by=q; } }); allObs.__band=by; }
   var sig=orthStageSig()+"|"+allObs.__sig;
   if(_orthCache.sig!==sig || _orthCache.n>4000){ _orthCache.sig=sig; _orthCache.m=Object.create(null); _orthCache.n=0; }
   var exk=exclude ? Object.keys(exclude).sort().join(",") : "";
+  /* L4: i cavi di segnale evitano le corsie dei cavi di potenza (R11/R12: la potenza si posa per prima, il segnale la rispetta) */
+  var occ=(kind==="pwr") ? null : cabOccupancy(allObs);
+  _orthCtx={occ:occ, band:allObs.__band==null?null:allObs.__band};
+  var occId=occ ? occ.id : 0;
   var out=[pts[0]];
   for(var i=1;i<pts.length;i++){
-    var key=(kind||"sig")+(pts.length>2?"+":"")+"|"+exk+"|"+pts[i-1][0]+","+pts[i-1][1]+">"+pts[i][0]+","+pts[i][1], seg=_orthCache.m[key];
+    var key=(kind||"sig")+(pts.length>2?"+":"")+"|"+occId+"|"+exk+"|"+pts[i-1][0]+","+pts[i-1][1]+">"+pts[i][0]+","+pts[i][1], seg=_orthCache.m[key];
     if(!seg){ seg=orthRoute(pts[i-1],pts[i],rects,kind,pts.length>2); _orthCache.m[key]=seg; _orthCache.n++; }
     if(seg.murato) out.murato=true;
     for(var j=1;j<seg.length;j++) out.push(seg[j]); }
+  _orthCtx={occ:null, band:null};
   return out;
+}
+/* ───── L4 (16/11/2026, CAVI_SUL_PALCO R11-R13): corsie separate segnale/potenza, fasci con scostamento, avviso dei tratti paralleli ─────
+   Occupazione: le celle (20 cm) attraversate dai cavi di POTENZA, più le due vicine in perpendicolare. Un cavo di segnale che ci entra paga +1,6 per cella:
+   corre su una corsia sua e incrocia la potenza a 90° (incrociare costa una cella, correre in parallelo costa tutta la tratta). La potenza si instrada prima, senza guardare il segnale. */
+var _orthOcc={sig:"", id:0, o:null};
+function elecRouteList(E){
+  var L=[]; if(!E) return L;
+  (E.feeds||[]).forEach(function(f){ var ex={}; if(f.distro&&f.distro.it) ex[f.distro.it.id]=1; L.push({key:"f:"+f.distro.letter, pts:[[f.x1,f.y1],[f.x2,f.y2]], ex:ex, nome:"alimentazione "+f.distro.letter}); });
+  (E.uplinks||[]).forEach(function(u){ var ex={}; if(u.from&&u.from.it) ex[u.from.it.id]=1; if(u.to&&u.to.it) ex[u.to.it.id]=1; L.push({key:"p:"+u.key, pts:u.pts, ex:ex, nome:"linea "+u.from.letter+" → "+u.to.letter}); });
+  (E.loadLinks||[]).forEach(function(l){ var ex={}; if(l.load&&l.load.it) ex[l.load.it.id]=1; if(l.distro&&l.distro.it) ex[l.distro.it.id]=1; L.push({key:"p:"+l.key, pts:l.pts, ex:ex, nome:(l.load&&l.load.it&&(l.load.it.label||(TYPES[l.load.it.type]&&TYPES[l.load.it.type].nome)))||"carico"}); });
+  return L;
+}
+function cabOccupancy(OBS){
+  if(!state.elec || !state.elec.on || cabRouteMode()!=="orto") return null;
+  var sig=(state.items||[]).map(function(it){ return it.id+":"+it.x+","+it.y+","+(it.rot||0)+","+(it.w||"")+","+(it.d||""); }).join(";")+"|"+orthStageSig()+"|"+JSON.stringify([state.elec.manual||null, state.elec.uplinks||null, state.elec.supply||null, state.elec.mode||null, state.elec.phase3, state.cab&&state.cab.home]);
+  if(_orthOcc.sig===sig) return _orthOcc.o;
+  var saved=_orthCtx; _orthCtx={occ:null, band:null};
+  var m={}, n=0;
+  try{ elecRouteList(elecResult()).forEach(function(r){ var poly=orthExpand(cabRoutePts(r.pts, OBS, r.ex, "pwr")); _occMark(m, poly); n++; }); }catch(_e){ n=0; }
+  _orthCtx=saved;
+  _orthOcc.sig=sig; _orthOcc.o = n ? {m:m, id:++_orthOcc.id0} : null;
+  return _orthOcc.o;
+}
+_orthOcc.id0=0;
+/* tutti i percorsi disegnati (segnale, ritorni, multicore, potenza), con gli stessi capi, le stesse esclusioni e lo stesso tipo di cablingMarkup/elecMarkup → stessi risultati dalla cache */
+function cabRoutesAll(){
+  var out=[]; if(!state.cab || !state.cab.on || cabRouteMode()!=="orto") return out;
+  var R=cabResult(); if(!R) return out;
+  var OBS=obstacleRects(), seen={};
+  (R.links||[]).forEach(function(l){ if(l.deleted || seen[l.key]) return; seen[l.key]=1;
+    var ex={}; ex[l.s.it.id]=1; if(l.box&&l.box.id) ex[l.box.id]=1;
+    var rp=cabRoutePts(l.pts, OBS, ex); out.push({key:"i:"+l.key, kind:"sig", poly:orthExpand(rp), ex:ex, nome:(l.s&&l.s.name)||l.label||"cavo", murato:!!rp.murato}); });
+  (R.returnLinks||[]).forEach(function(l){ var ex={}; if(l.box&&l.box.id) ex[l.box.id]=1; if(l.sink&&l.sink.id) ex[l.sink.id]=1;
+    var rp=cabRoutePts(l.pts, OBS, ex, "ret"); out.push({key:"r:"+l.key, kind:"ret", poly:orthExpand(rp), ex:ex, nome:"ritorno "+(l.mix&&l.mix.name||""), murato:!!rp.murato}); });
+  (R.snakes||[]).forEach(function(k){ var ex={}; if(k.box&&k.box.id) ex[k.box.id]=1;
+    var rp=cabRoutePts([[k.x1,k.y1],[k.x2,k.y2]], OBS, ex, "mc"); out.push({key:"m:"+(k.box&&k.box.id||""), kind:"mc", poly:orthExpand(rp), ex:ex, nome:"multicore "+(k.box&&k.box.letter||""), murato:!!rp.murato}); });
+  if(state.elec && state.elec.on){ try{ elecRouteList(elecResult()).forEach(function(r){ var rp=cabRoutePts(r.pts, OBS, r.ex, "pwr"); out.push({key:r.key, kind:"pwr", poly:orthExpand(rp), ex:r.ex, nome:r.nome, murato:!!rp.murato}); }); }catch(_e){} }
+  return out;
+}
+/* Fasci (R10/R11): cavi dello stesso tipo che corrono sulla stessa linea si distribuiscono a 4 cm l'uno dall'altro (al massimo ±12 cm), per vederli uno per uno.
+   Si spostano solo i tratti interni (gli estremi restano sul capo); se lo spostamento entra in un ingombro, esce dal palco o inverte un tratto, quel cavo resta com'era. */
+var CAB_FASCIO_PASSO=4, CAB_FASCIO_MAX=12;
+function cabFasciCalc(routes, OBS){
+  var linee={}, deltas={};
+  routes.forEach(function(r,ri){ var P=r.poly, cls=r.kind==="pwr"?"p":"s"; if(r.murato) return;
+    for(var i=0;i<P.length-1;i++){ var A=P[i], B=P[i+1], o=null, pos, a, b;
+      if(A[1]===B[1] && A[0]!==B[0]){ o="h"; pos=A[1]; a=Math.min(A[0],B[0]); b=Math.max(A[0],B[0]); }
+      else if(A[0]===B[0] && A[1]!==B[1]){ o="v"; pos=A[0]; a=Math.min(A[1],B[1]); b=Math.max(A[1],B[1]); }
+      else continue;
+      var k=o+"|"+Math.round(pos)+"|"+cls; (linee[k]=linee[k]||[]).push({ri:ri, i:i, a:a, b:b, mov:(i>=1 && i<=P.length-3)}); } });
+  Object.keys(linee).forEach(function(k){
+    var L=linee[k].sort(function(x,y){ return x.a-y.a || x.b-y.b; }), comp=[], fine=-Infinity, gruppi=[];
+    L.forEach(function(sg){ if(sg.a>=fine-0.5){ comp=[]; gruppi.push(comp); fine=sg.b; } else fine=Math.max(fine,sg.b); comp.push(sg); });
+    gruppi.forEach(function(g){
+      var ids={}; g.forEach(function(sg){ ids[sg.ri]=1; }); var n=Object.keys(ids).length; if(n<2) return;
+      var ord=g.slice().sort(function(x,y){ return ((x.mov?1:0)-(y.mov?1:0)) || (routes[x.ri].key<routes[y.ri].key?-1:(routes[x.ri].key>routes[y.ri].key?1:0)); });
+      var passo=Math.min(CAB_FASCIO_PASSO, CAB_FASCIO_MAX/Math.max(1,Math.ceil((n-1)/2))), vis={}, idx=0;
+      ord.forEach(function(sg){ if(vis[sg.ri]!=null){ if(sg.mov){ (deltas[sg.ri]=deltas[sg.ri]||{})[sg.i]=vis[sg.ri]; } return; }
+        var m=Math.ceil(idx/2)*(idx%2===1?1:-1)*passo; if(idx===0) m=0; idx++; vis[sg.ri]=m;
+        if(sg.mov && m){ (deltas[sg.ri]=deltas[sg.ri]||{})[sg.i]=m; } });
+    });
+  });
+  var W=state.stage.w, D=state.stage.d, map={};
+  Object.keys(deltas).forEach(function(ri){ var r=routes[ri], P=r.poly, Q=P.map(function(p){ return p.slice(); }), ok=true, any=false;
+    Object.keys(deltas[ri]).forEach(function(si){ si=+si; var d=deltas[ri][si], A=P[si], B=P[si+1], horiz=(A[1]===B[1]);
+      var prevH=(P[si-1][1]===A[1]), nextH=(P[si+2][1]===B[1]); if(prevH===horiz || nextH===horiz){ return; }   /* i vicini devono essere perpendicolari */
+      if(horiz){ Q[si][1]+=d; Q[si+1][1]+=d; } else { Q[si][0]+=d; Q[si+1][0]+=d; } any=true; });
+    if(!any) return;
+    for(var j=0;j<Q.length-1 && ok;j++){   /* nessun tratto si inverte né sparisce */
+      var dx0=P[j+1][0]-P[j][0], dy0=P[j+1][1]-P[j][1], dx1=Q[j+1][0]-Q[j][0], dy1=Q[j+1][1]-Q[j][1];
+      if(dx0!==0 && (dx1===0 || (dx1>0)!==(dx0>0) || Math.abs(dx1)<1)) ok=false; if(dy0!==0 && (dy1===0 || (dy1>0)!==(dy0>0) || Math.abs(dy1)<1)) ok=false; }
+    if(ok && r.kind!=="mc"){ Q.forEach(function(q){ if(q[0]<-0.5||q[0]>W+0.5||q[1]<-0.5||q[1]>D+0.5) ok=false; }); }
+    if(ok){ var rs=orthRects(Q[0], Q[Q.length-1], OBS.filter(function(o){ return !r.ex[o.id]; }));
+      for(var j2=0;j2<Q.length-1 && ok;j2++){ if(!_orthSegFree(Q[j2],Q[j2+1],rs)) ok=false; } }
+    if(ok) map[r.key]=Q; });
+  return map;
+}
+var _fasciCache={sig:"", map:{}};
+function cabFasciMap(){
+  var routes=cabRoutesAll(); if(!routes.length) return {};
+  var sig=orthStageSig()+"#"+routes.map(function(r){ return r.key+"="+r.poly.map(function(p){ return Math.round(p[0]*10)/10+","+Math.round(p[1]*10)/10; }).join(" "); }).join("|");
+  if(sig===_fasciCache.sig) return _fasciCache.map;
+  var m={}; try{ m=cabFasciCalc(routes, obstacleRects()); }catch(_e){ m={}; }
+  _fasciCache={sig:sig, map:m}; return m;
+}
+/* segnale e potenza in parallelo ravvicinato (R11): stessa direzione, meno di 22 cm fra le linee (corsia segnale 45 cm e potenza 18 cm dal bordo = 27 cm: separate), per più di 1 m */
+var CAB_PARALLELO_DIST=22, CAB_PARALLELO_SOGLIA=100;
+function cabParalleliCalc(routes){
+  var pw=[], sg=[]; routes.forEach(function(r){ (r.kind==="pwr"?pw:sg).push(r); });
+  function segs(r){ var o=[]; for(var i=0;i<r.poly.length-1;i++){ var A=r.poly[i], B=r.poly[i+1];
+    if(A[1]===B[1] && A[0]!==B[0]) o.push({h:1, pos:A[1], a:Math.min(A[0],B[0]), b:Math.max(A[0],B[0])});
+    else if(A[0]===B[0] && A[1]!==B[1]) o.push({h:0, pos:A[0], a:Math.min(A[1],B[1]), b:Math.max(A[1],B[1])}); } return o; }
+  var pwS=pw.map(function(r){ return {r:r, s:segs(r)}; }), out=[];
+  sg.forEach(function(r){ var mine=segs(r), best=null;
+    pwS.forEach(function(P){ var tot=0; mine.forEach(function(x){ P.s.forEach(function(y){ if(x.h===y.h && Math.abs(x.pos-y.pos)<CAB_PARALLELO_DIST){ var ov=Math.min(x.b,y.b)-Math.max(x.a,y.a); if(ov>0) tot+=ov; } }); });
+      if(tot>0 && (!best || tot>best.cm)) best={cm:tot, pwr:P.r}; });
+    if(best && best.cm>=CAB_PARALLELO_SOGLIA) out.push({sig:r, pwr:best.pwr, cm:best.cm}); });
+  return out.sort(function(x,y){ return y.cm-x.cm; });
+}
+/* L5 (R14-R16): passacavo rampato dove si cammina. Voci: ogni scala/rampa attraversata (fascia di 1 m) e l'uscita del multicore dal palco verso la sala */
+var CAB_PASSACAVO_USCITA_MIN=200;
+function cabPassacavoCalc(routes, OBS, snakes){
+  var voci=[], W=state.stage.w, D=state.stage.d;
+  (OBS||[]).filter(function(r){ return r.pass; }).forEach(function(z){ var best=0, n=0;
+    routes.forEach(function(r){ var len=0; for(var i=0;i<r.poly.length-1;i++){ var A=r.poly[i], B=r.poly[i+1];
+      var x0=Math.max(Math.min(A[0],B[0]),z.zx0), x1=Math.min(Math.max(A[0],B[0]),z.zx1), y0=Math.max(Math.min(A[1],B[1]),z.zy0), y1=Math.min(Math.max(A[1],B[1]),z.zy1);
+      if(x1>x0||y1>y0){ if(x1>=x0 && y1>=y0) len+=(x1-x0)+(y1-y0); } }
+      if(len>0){ n++; best=Math.max(best,len); } });
+    if(best>0) voci.push({tipo:"passaggio", dove:z.nome||"passaggio", cm:best, n:n}); });
+  var mcs=routes.filter(function(r){ return r.kind==="mc"; });
+  if((snakes&&snakes.length) || mcs.length){ var fuori=0;
+    mcs.forEach(function(r){ var f=0; for(var i=0;i<r.poly.length-1;i++){ var A=r.poly[i], B=r.poly[i+1];
+      if(A[1]===B[1]){ if(A[1]>D || A[1]<0) f+=Math.abs(B[0]-A[0]); else { var lo=Math.min(A[0],B[0]), hi=Math.max(A[0],B[0]); f+=Math.max(0,Math.min(hi,0)-lo)+Math.max(0,hi-Math.max(lo,W)); } }
+      else { var yl=Math.min(A[1],B[1]), yh=Math.max(A[1],B[1]); if(A[0]<0||A[0]>W) f+=yh-yl; else f+=Math.max(0,yh-Math.max(yl,D)); } }
+      fuori=Math.max(fuori,f); });
+    voci.push({tipo:"uscita", dove:"uscita multicore verso la sala", cm:CAB_PASSACAVO_USCITA_MIN+fuori, n:Math.max(1,mcs.length)}); }
+  voci.forEach(function(v){ v.m=Math.ceil(v.cm/50)/2; });
+  return {voci:voci, totM:voci.reduce(function(a,v){ return a+v.m; },0)};
+}
+var _rtIssCache={sig:"", v:null};
+function cabRouteInfo(){
+  var routes=cabRoutesAll(); if(!routes.length) return {par:[], pass:{voci:[], totM:0}, issues:[]};
+  var sig=orthStageSig()+"#"+routes.map(function(r){ return r.key+"="+r.poly.map(function(p){ return Math.round(p[0])+","+Math.round(p[1]); }).join(" "); }).join("|");
+  if(_rtIssCache.sig===sig && _rtIssCache.v) return _rtIssCache.v;
+  var R=cabResult(), par=cabParalleliCalc(routes), pass=cabPassacavoCalc(routes, obstacleRects(), R&&R.snakes), issues=[];
+  var fm=function(cm){ return (cm/100).toFixed(1).replace(".",","); };
+  par.slice(0,5).forEach(function(p){ issues.push({lvl:"warn", rule:"cab-par:"+p.sig.key+"|"+p.pwr.key, msg:"Tratto parallelo segnale/potenza di "+fm(p.cm)+" m: «"+p.sig.nome+"» corre accanto a «"+p.pwr.nome+"» — separa le due corsie o fai incrociare i cavi a 90°."}); });
+  if(par.length>5) issues.push({lvl:"warn", rule:"cab-par-altri", msg:"Altri "+(par.length-5)+" cavi di segnale corrono in parallelo alla potenza per più di 1 m."});
+  pass.voci.forEach(function(v){
+    if(v.tipo==="passaggio") issues.push({lvl:"warn", rule:"cab-pass:"+v.dove, msg:"Cavo costretto ad attraversare un passaggio («"+v.dove+"», "+fm(v.cm)+" m, "+v.n+" cav"+(v.n===1?"o":"i")+"): serve passacavo rampato."});
+    else issues.push({lvl:"info", rule:"cab-pass-uscita", msg:"Uscita del multicore verso la sala: passacavo rampato di "+String(v.m).replace(".",",")+" m."}); });
+  var v={par:par, pass:pass, issues:issues, routes:routes}; _rtIssCache={sig:sig, v:v}; return v;
+}
+function cabPassacavoTesto(){
+  var I=cabRouteInfo(), P=I.pass; if(!P.voci.length) return null;
+  var fm=function(m){ return String(m).replace(".",","); };
+  return {totM:P.totM, testo:fm(P.totM)+" m ("+P.voci.map(function(v){ return (v.tipo==="uscita"?"uscita multicore":v.dove)+" "+fm(v.m)+" m"; }).join(" · ")+")", attraversa:P.voci.some(function(v){ return v.tipo==="passaggio"; })};
 }
 /* input audio richiesti da un elemento: [{name, mic}] — stessa logica di autoInputs (channel list) */
 /* canale VOCE dello strumentista (archetto/asta/palmare): sempre in coda ai canali dello strumento,
@@ -16944,7 +17110,8 @@ function cabItemInputs(it){
   return base;
 }
 /* punto principale di connessione (FOH / stage rack / lato palco / personalizzato) → coordinate sul palco */
-var HOME_LABELS={foh:"FOH mixer", monitor:"Monitor mixer", stagerack:"Stage rack / I/O rack", right:"Uscita palco DX", left:"Uscita palco SX", custom:"Punto personalizzato"};
+var HOME_LABELS={foh:"FOH mixer", monitor:"Monitor mixer", stagerack:"Stage rack / I/O rack", right:"Uscita palco DX", left:"Uscita palco SX", custom:"Punto personalizzato", exit:"Uscita multicore"};
+var CAB_EXIT_MARGINE=45;   /* L5: l'uscita sta a 45 cm dal lato, sul bordo pubblico */
 /* Il banco sul palco È il capolinea delle snake.
    Prima di oggi (02/09) `state.cab.home` nasceva null e restava null: l'unico codice che lo scrive
    e' il trascinamento del badge, e il badge si disegna solo `if(R.home)` — cioe' solo se esiste
@@ -16965,14 +17132,17 @@ function cabMainDesk(){
 }
 function cabHomePoint(){
   var h=state.cab&&state.cab.home;
+  var W=state.stage.w, D=state.stage.d;
   if(!h){
     var desk=cabMainDesk();
     if(desk) return {kind:"desk", id:desk.id, x:Math.round(desk.x), y:Math.round(desk.y),
                      name:(desk.label&&String(desk.label).trim()) || (TYPES[desk.type]&&TYPES[desk.type].nome) || "Console"};
-    return null;
+    /* L5 (16/11/2026, decisione di Simone): senza banco sul palco e senza scelta, i multipolari escono da UN punto di serie: bordo pubblico, lato DESTRO guardando dalla platea */
+    h={kind:"exit", lato:ELEC_MULTICORE_LATO};
   }
-  var W=state.stage.w, D=state.stage.d, p={kind:h.kind, name:HOME_LABELS[h.kind]||"Punto principale"};
-  if(h.kind==="custom"){ p.x=h.x; p.y=h.y; }
+  var p={kind:h.kind, name:HOME_LABELS[h.kind]||"Punto principale"};
+  if(h.kind==="exit"){ var lt=(h.lato==="left"||h.lato==="center")?h.lato:"right"; p.lato=lt; p.x=(lt==="left")?CAB_EXIT_MARGINE:(lt==="center"?W/2:W-CAB_EXIT_MARGINE); p.y=D; }
+  else if(h.kind==="custom"){ p.x=h.x; p.y=h.y; }
   else if(h.kind==="right"){ p.x=W-30; p.y=D-40; }
   else if(h.kind==="left"){ p.x=30; p.y=D-40; }
   else if(h.kind==="foh"){ p.x=W/2; p.y=D+120; }        /* in sala, oltre il pubblico */
@@ -17494,6 +17664,12 @@ function showHomeMenu(cx, cy){
   /* Se un banco sta sul palco, «automatico» vuol dire: e' lui, e si sposta con lui. */
   if(desk) voce("Il banco sul palco (" + ((desk.label&&String(desk.label).trim())||(TYPES[desk.type]&&TYPES[desk.type].nome)||"console") + ")",
                 function(){ state.cab.home=null; }, !cur);
+  /* L5: «la regia è a destra / sinistra / al centro»: il multicore esce dal bordo pubblico da quel lato (di serie, senza banco sul palco: destra) */
+  [["right","La regia è a destra (dalla platea)"],["left","La regia è a sinistra (dalla platea)"],["center","La regia è al centro"]].forEach(function(o){
+    voce(o[1], function(){ state.cab.home={kind:"exit", lato:o[0], x:0, y:0}; var p=cabHomePoint(); if(p){ state.cab.home.x=p.x; state.cab.home.y=p.y; } },
+      cur==="exit" && cabExitSide()===o[0]);
+  });
+  if(!desk) voce("Uscita di serie (bordo pubblico, lato destro)", function(){ state.cab.home=null; }, !cur);
   ["foh","monitor","stagerack","right","left"].forEach(function(k){
     voce(HOME_LABELS[k], function(){
       state.cab.home={kind:k, x:0, y:0};
@@ -17636,14 +17812,15 @@ function cablingMarkup(){
        Se il layer rete è nascosto, torna la rappresentazione generica a multicore. */
     var netBox={};
     if(layerShown("net")){ netEngine().runs.forEach(function(r){ if(r.box&&r.box.id) netBox[r.box.id]=1; }); }
+    var FM=cabFasciMap();   /* L4: percorsi con i fasci scostati di 4 cm (assenti se il cavo non si può spostare senza toccare un ingombro) */
     R.snakes.forEach(function(k){ if(k.box && k.box.id && netBox[k.box.id]) return;
       var ex={}; if(k.box&&k.box.id) ex[k.box.id]=1;
-      var dpts=cabRoutePts([[k.x1,k.y1],[k.x2,k.y2]], OBS, ex, "mc");
+      var dpts=cabRoutePts([[k.x1,k.y1],[k.x2,k.y2]], OBS, ex, "mc"); dpts=FM["m:"+(k.box&&k.box.id||"")]||dpts;
       var sk='<path class="cab-snake" d="'+cabDrawD([[k.x1,k.y1],[k.x2,k.y2]], dpts)+'"/>';
       /* Etichetta multicore (C1, 08/07): la snake box→FOH è il fascio che raccoglie le code — nei plot
          pro si annota col numero di canali. Rende esplicito il bundling già fatto dal motore. */
       if(LBL && state.cab.showLabels!==false && k.box){ var smid=cabMidpoint(orthExpand(dpts));
-        sk+='<text class="cab-lbl cab-snake-lbl" x="'+smid[0].toFixed(1)+'" y="'+(smid[1]-5).toFixed(1)+'" text-anchor="middle">multicore '+k.box.used+' ch'+(k.up?' → '+(k.up.box.sbId?('ID'+k.up.box.sbId):k.up.box.letter):'')+'</text>'; }
+        sk+='<text class="cab-lbl cab-snake-lbl" x="'+smid[0].toFixed(1)+'" y="'+(smid[1]-5).toFixed(1)+'" text-anchor="middle">'+(k.box.digital?'rete':'multicore')+' '+k.box.used+' ch'+(k.up?' → '+(k.up.box.sbId?('ID'+k.up.box.sbId):k.up.box.letter):'')+'</text>'; }
       s+='<g class="cabgrp" data-own="'+esc(k.box&&k.box.id||'')+'">'+sk+'</g>';   /* C3: fade se non collegato all'elemento in hover */
     });
     var linkS='', loomPolys=[], drawnKey={};   /* C1: percorsi raccolti per il calcolo dei fasci */
@@ -17657,7 +17834,7 @@ function cablingMarkup(){
       /* "Cablaggio diretto" (Simone 21/07): la linea deve partire ESATTAMENTE dal pallino al centro
          della box (niente ventaglio) e diramarsi verso le sorgenti → sovrascrivo il capo box al centro. */
       var _rp = (_dirOf(l.key) && l.box) ? l.pts.slice(0,-1).concat([boxAnchor(l.box)]) : l.pts;
-      var dpts=cabRoutePts(_rp, OBS, ex), d=cabDrawD(_rp, dpts, cabStyleFor(l.key));
+      var dpts=cabRoutePts(_rp, OBS, ex); if(!_dirOf(l.key)) dpts=FM["i:"+l.key]||dpts; var d=cabDrawD(_rp, dpts, cabStyleFor(l.key));
       var own=l.s.it.id+(l.box&&l.box.id?' '+l.box.id:''), li='';   /* C3: proprietari del cavo (sorgente + box) */
       if(l.deleted){ li+='<path class="cab-del" d="'+d+'"/>'; if(edit) li+='<path class="cab-hit" data-cab="'+esc(l.key)+'" d="'+d+'"/>';
         linkS+='<g class="cabgrp" data-own="'+esc(own)+'">'+li+'</g>'; return; }
@@ -17720,8 +17897,8 @@ function cablingMarkup(){
        finiva esattamente sulle sue coordinate, coprendolo con un rettangolo verde che sembrava un
        artefatto. E non serviva: il banco si vede gia', col suo nome sotto. Il badge resta per i
        punti GEOMETRICI (FOH, uscite, personalizzato), che non hanno un elemento a rappresentarli. */
-    if(R.home && R.home.kind!=="desk"){ var h=R.home; s+='<g class="cab-home"><rect x="'+(h.x-38)+'" y="'+(h.y-13)+'" width="76" height="26" rx="6"/><text x="'+h.x+'" y="'+(h.y+4)+'" text-anchor="middle">'+esc(h.name)+'</text>';
-      if(edit) s+='<rect class="cab-homehit" data-cabhome="1" x="'+(h.x-40)+'" y="'+(h.y-15)+'" width="80" height="30" rx="6"/>';
+    if(R.home && R.home.kind!=="desk"){ var h=R.home; var _bw=Math.max(76, String(h.name||"").length*5.9+16); s+='<g class="cab-home"><rect x="'+(h.x-_bw/2)+'" y="'+(h.y-13)+'" width="'+_bw+'" height="26" rx="6"/><text x="'+h.x+'" y="'+(h.y+4)+'" text-anchor="middle">'+esc(h.name)+'</text>';
+      if(edit) s+='<rect class="cab-homehit" data-cabhome="1" x="'+(h.x-_bw/2-2)+'" y="'+(h.y-15)+'" width="'+(_bw+4)+'" height="30" rx="6"/>';
       s+='</g>'; }
     R.unassigned.forEach(function(u){ s+='<circle class="cab-warn" cx="'+u.it.x+'" cy="'+u.it.y+'" r="14"/>'; });
     s+='</g>';
@@ -17730,7 +17907,7 @@ function cablingMarkup(){
   if(showRet){ s+='<g class="cab-retlayer" style="opacity:'+retOp+'">';
     R.returnLinks.forEach(function(l){
       var ex={}; if(l.box&&l.box.id) ex[l.box.id]=1; if(l.sink&&l.sink.id) ex[l.sink.id]=1;
-      var dpts=cabRoutePts(l.pts, OBS, ex, "ret"), d=cabDrawD(l.pts, dpts, cabStyleFor(l.key));
+      var dpts=cabRoutePts(l.pts, OBS, ex, "ret"); if(cabStyleFor(l.key)!=="dir") dpts=cabFasciMap()["r:"+l.key]||dpts; var d=cabDrawD(l.pts, dpts, cabStyleFor(l.key));
       var ri='<path class="cab-return'+(l.manual?' cab-manual':'')+(cabIsSel(l.key)?' sel':'')+'" d="'+d+'"/>';
       if(editRet) ri+='<path class="cab-hit" data-cab="'+esc(l.key)+'" d="'+d+'"/>';   /* selezionabile come i cavi input */
       if((LBL || selCab===l.key) && state.cab.showLabels){ var mid=cabMidpoint(orthExpand(dpts));
@@ -18115,13 +18292,21 @@ function elecSupplyPoint(){
    dalla platea (decisione 2, confermata 15/11) → il quadro va a SINISTRA. UNA costante: "right" | "left".
    Quadri/distro messi a mano e punti «DX/SX/personalizzato» non passano di qui: non si spostano mai. */
 var ELEC_MULTICORE_LATO="right";
+/* L5 (16/11): il lato dell'uscita multicore lo sceglie l'utente («la regia è a destra/sinistra/al centro»); di serie è ELEC_MULTICORE_LATO. Il quadro sta dal lato opposto (R5). */
+function cabExitSide(){
+  var h=state.cab&&state.cab.home;
+  if(h && h.kind==="exit" && (h.lato==="left"||h.lato==="right"||h.lato==="center")) return h.lato;
+  if(h && (h.kind==="left"||h.kind==="right")) return h.kind;
+  return ELEC_MULTICORE_LATO;
+}
 var ELEC_QUADRO_SUPPLY_DY=20, ELEC_QUADRO_DISTRO_DY=60, ELEC_QUADRO_MARGINE_X=60, ELEC_QUADRO_PASSO_X=110;
+var ELEC_FRONTE_SOGLIA=400;   /* L4: un carico a più di 4 m dal quadro di fondo ha il distro davanti (ipotesi operativa, R6) */
 function elecQuadroBordo(){
   var W=state.stage.w, D=state.stage.d, bl=(state.stage.blocks&&state.stage.blocks.length)?state.stage.blocks:[{x:0,y:0,w:W,d:D}];
   var x0=Infinity, x1=-Infinity, y0=Infinity;
   bl.forEach(function(b){ x0=Math.min(x0,b.x); x1=Math.max(x1,b.x+b.w); y0=Math.min(y0,b.y); });
   if(!isFinite(x0)){ x0=0; x1=W; y0=0; }
-  var opp = ELEC_MULTICORE_LATO==="left";   /* quadro dal lato opposto: se il multicore è a sinistra, il quadro è a destra */
+  var opp = cabExitSide()==="left";   /* quadro dal lato opposto: se il multicore è a sinistra, il quadro è a destra */
   var yS=Math.min(y0+ELEC_QUADRO_SUPPLY_DY, D), yD=Math.min(y0+ELEC_QUADRO_DISTRO_DY, D-10);
   var m=Math.min(ELEC_QUADRO_MARGINE_X, (x1-x0)/4);   /* palco piccolo (un progetto del collaudo è largo 50): il margine si stringe, il quadro resta dentro */
   return {x: opp ? x1-m : x0+m, supplyY:yS, distroY:Math.max(yD,yS), x0:x0, x1:x1, m:m, opp:opp};
@@ -18168,9 +18353,10 @@ function elecMarkup(){
   var LBLE=window.__cabStatic || state.elec.labelMode==="always" || document.body.classList.contains("viewmode");
   var s='<g class="elec-layer'+(editE?' elec-editable':'')+'" style="opacity:'+op+'">';
   var OBS=obstacleRects();   /* percorso ortogonale diretto (L); aggiramento ostacoli disattivato (vedi cabRoutePts) */
+  var FME=cabFasciMap();   /* L4: fasci scostati di 4 cm */
   R.feeds.forEach(function(f){
     var ex={}; if(f.distro&&f.distro.it) ex[f.distro.it.id]=1;
-    var dpts=cabRoutePts([[f.x1,f.y1],[f.x2,f.y2]], OBS, ex, "pwr");
+    var dpts=cabRoutePts([[f.x1,f.y1],[f.x2,f.y2]], OBS, ex, "pwr"); if(elecStyle()==="orto") dpts=FME["f:"+f.distro.letter]||dpts;
     var fi='<path class="elec-feed" d="'+cabDrawD([[f.x1,f.y1],[f.x2,f.y2]], dpts, elecStyle())+'"/>';
     if(LBLE && sl){ var mid=cabMidpoint(orthExpand(dpts));
       fi+='<text class="elec-lbl elec-lbl-feed" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc(f.distro.a+'A · '+f.section+(sg?' · '+f.lenM.toFixed(0)+' m':''))+'</text>'; }
@@ -18179,7 +18365,7 @@ function elecMarkup(){
   /* tier 2: uplink ciabatta → quadro (disegnati dall'utente, selezionabili come le linee) */
   (R.uplinks||[]).forEach(function(u){
     var ex={}; if(u.from&&u.from.it) ex[u.from.it.id]=1; if(u.to&&u.to.it) ex[u.to.it.id]=1;
-    var dpts=cabRoutePts(u.pts, OBS, ex, "pwr"), d=cabDrawD(u.pts, dpts, elecStyleFor(u.key));
+    var dpts=cabRoutePts(u.pts, OBS, ex, "pwr"); if(elecStyleFor(u.key)==="orto") dpts=FME["p:"+u.key]||dpts; var d=cabDrawD(u.pts, dpts, elecStyleFor(u.key));
     var ui='<path class="elec-feed'+(selElec===u.key?' sel':'')+'" d="'+d+'"/>';
     if(editE) ui+='<path class="elec-hit" data-el="'+esc(u.key)+'" d="'+d+'"/>';
     if(LBLE || selElec===u.key){ var midU=cabMidpoint(orthExpand(dpts));
@@ -18188,7 +18374,7 @@ function elecMarkup(){
   });
   R.loadLinks.forEach(function(l){
     var ex={}; if(l.load&&l.load.it) ex[l.load.it.id]=1; if(l.distro&&l.distro.it) ex[l.distro.it.id]=1;
-    var dpts=cabRoutePts(l.pts, OBS, ex, "pwr"), d=cabDrawD(l.pts, dpts, elecStyleFor(l.key));
+    var dpts=cabRoutePts(l.pts, OBS, ex, "pwr"); if(elecStyleFor(l.key)==="orto") dpts=FME["p:"+l.key]||dpts; var d=cabDrawD(l.pts, dpts, elecStyleFor(l.key));
     var li='<path class="elec-line'+(l.cee?' elec-cee':'')+(selElec===l.key?' sel':'')+'" d="'+d+'"/>';
     if(editE) li+='<path class="elec-hit" data-el="'+esc(l.key)+'" d="'+d+'"/>';
     if(LBLE || selElec===l.key){ var mid=cabMidpoint(orthExpand(dpts));
@@ -18288,21 +18474,31 @@ function electricEngine(){
     return {it:it, x:it.x, y:it.y, a:d.a, ph:ph3?d.ph:1, name:(it.label||d.name), phLoad:[0,0,0], loadW:0, auto:false}; });
   var supplyPoint0=elecSupplyPoint();
   if(!manualModeE && !distros.length && loads.length){
-    cabClusters(loads.map(function(l){ return {it:l.it, list:[l]}; }), 600).forEach(function(c){
-      var clusterA=c.groups.reduce(function(s,g){ return s+g.list[0].a; },0);
-      var mdl = clusterA>63?"distro125":(clusterA>32?"distro63":"distro32"), dd=ELEC_DISTRO[mdl];
-      /* CAVI L1 (15/11): distro sul bordo di FONDO (≤ 90 cm), mai a metà palco né nel pubblico; x = quella del gruppo di carichi,
-         tenuta dentro i margini e ≥ ELEC_QUADRO_PASSO_X dalle altre distro automatiche (e dal punto «rete»). */
-      var qb=elecQuadroBordo(), dxm=Math.round(Math.min(qb.x1-qb.m, Math.max(qb.x0+qb.m, c.cx)));
-      var presi=distros.map(function(d0){ return d0.x; }).concat(supplyPoint0 ? [supplyPoint0.x] : []);
-      for(var g=0; g<40 && presi.some(function(px){ return Math.abs(px-dxm)<ELEC_QUADRO_PASSO_X; }); g++){
-        var spost = qb.opp ? -ELEC_QUADRO_PASSO_X : ELEC_QUADRO_PASSO_X;
-        dxm += (dxm+spost<=qb.x1-qb.m && dxm+spost>=qb.x0+qb.m) ? spost : -spost;
-      }
-      dxm=Math.min(qb.x1-qb.m, Math.max(qb.x0+qb.m, dxm));   /* palco troppo stretto per ripartire le distro: restano dentro, anche se vicine */
-      distros.push({it:null, x:dxm, y:Math.round(qb.distroY), a:dd.a, ph:ph3?dd.ph:1, name:dd.name, phLoad:[0,0,0], loadW:0, auto:true, model:mdl});
-    });
-    issues.push({lvl:"info", msg:"Nessun quadro/distro sul palco: proposti "+distros.length+" distro sul bordo di fondo. Trascina un distro reale dal catalogo per fissarlo."});
+    /* L4 (16/11, R6): DUE punti di alimentazione. I carichi lontani dal fondo (spie, pedali: oltre ELEC_FRONTE_SOGLIA dal quadro di fondo) hanno il loro distro sul bordo
+       davanti (a ELEC_QUADRO_DISTRO_DY dal bordo pubblico), così la corrente non fa il giro del palco; gli altri stanno sul distro di fondo, come in L1. */
+    var qb=elecQuadroBordo(), fondoL=[], fronteL=[], exitP=null; try{ var hp=cabHomePoint(); if(hp && hp.kind==="exit") exitP=hp; }catch(_e){}
+    loads.forEach(function(l){ ((l.it.y-qb.distroY)>ELEC_FRONTE_SOGLIA ? fronteL : fondoL).push(l); });
+    var piazza=function(gruppoL, yD, evita){
+      cabClusters(gruppoL.map(function(l){ return {it:l.it, list:[l]}; }), 600).forEach(function(c){
+        var clusterA=c.groups.reduce(function(s,g){ return s+g.list[0].a; },0);
+        var mdl = clusterA>63?"distro125":(clusterA>32?"distro63":"distro32"), dd=ELEC_DISTRO[mdl];
+        /* CAVI L1 (15/11): distro sul bordo (≤ 90 cm), mai a metà palco né nel pubblico; x = quella del gruppo di carichi, tenuta dentro i margini
+           e ≥ ELEC_QUADRO_PASSO_X dalle altre distro della stessa fila (e dal punto «rete» o dall'uscita multicore). */
+        var dxm=Math.round(Math.min(qb.x1-qb.m, Math.max(qb.x0+qb.m, c.cx)));
+        var presi=distros.filter(function(d0){ return Math.abs(d0.y-yD)<ELEC_QUADRO_PASSO_X; }).map(function(d0){ return d0.x; }).concat(evita);
+        for(var g=0; g<40 && presi.some(function(px){ return Math.abs(px-dxm)<ELEC_QUADRO_PASSO_X; }); g++){
+          var spost = qb.opp ? -ELEC_QUADRO_PASSO_X : ELEC_QUADRO_PASSO_X;
+          dxm += (dxm+spost<=qb.x1-qb.m && dxm+spost>=qb.x0+qb.m) ? spost : -spost;
+        }
+        dxm=Math.min(qb.x1-qb.m, Math.max(qb.x0+qb.m, dxm));   /* palco troppo stretto per ripartire le distro: restano dentro, anche se vicine */
+        distros.push({it:null, x:dxm, y:Math.round(yD), a:dd.a, ph:ph3?dd.ph:1, name:dd.name, phLoad:[0,0,0], loadW:0, auto:true, model:mdl, fronte:yD!==qb.distroY});
+      });
+    };
+    piazza(fondoL, qb.distroY, supplyPoint0 ? [supplyPoint0.x] : []);
+    var yFronte=Math.max(qb.distroY+ELEC_QUADRO_PASSO_X, state.stage.d-ELEC_QUADRO_DISTRO_DY);
+    piazza(fronteL, yFronte, exitP ? [exitP.x] : []);
+    var nFr=distros.filter(function(d0){ return d0.fronte; }).length;
+    issues.push({lvl:"info", msg:"Nessun quadro/distro sul palco: proposti "+distros.length+" distro "+(nFr?"(fondo e davanti, per spie e carichi del fronte)":"sul bordo di fondo")+". Trascina un distro reale dal catalogo per fissarlo."});
   }
   distros.forEach(function(d,i){ d.letter="Q"+(i+1); });
   var supply=elecSupplyPoint();
@@ -19437,6 +19633,7 @@ function auditEngine(){
     ? {fix:"Aggiungi una stage box (o un RIO con più canali) dal catalogo.", act:{label:"Aggiungi stage box",run:auditFixAddBox}}
     : null; });
   absorb((netEngine()||{}).issues,"Rete");   /* L5 */
+  absorb((function(){ try{ return cabRouteInfo().issues; }catch(_e){ return []; } })(),"Audio");   /* L4/L5: segnale e potenza in parallelo, passacavo rampato */
   absorb(typeof rfIssues==="function"?rfIssues():[],"RF");   /* F3 */
   absorb((typeof busList==="function"&&(state.buses||[]).length)?busList().issues:[],"Audio");   /* Output list */
   absorb(Re.issues,"Elettrico");
@@ -35174,6 +35371,9 @@ function renderInspectorB(){
     if(boxesTxt) s+=ir("Stage box", boxesTxt);
     if(xlr) s+=ir("Cavi XLR", xlr);
     if(elc) s+=ir("Cavi elettrici", elc);
+    /* L5: passacavo rampato nella lista dei materiali (uscita multicore + ogni passaggio attraversato) */
+    var _pc=null; try{ _pc=cabPassacavoTesto(); }catch(_e){}
+    if(_pc) s+=ir("Passacavo rampato", _pc.testo, _pc.attraversa?"insp-over":"");
     if(pw>0) s+=ir("Potenza", (pw/1000).toFixed(1).replace(".",",")+" kW");
     /* Peso·rack resta nell'audit/cartiglio (dato di pre-produzione, non di disegno) */
     if(nCiab){ var pt={}; (state.items||[]).filter(function(it){ return it.type==="ciabatta"; }).forEach(function(it){ var p=it.prese||6; pt[p]=(pt[p]||0)+1; });
@@ -38020,6 +38220,8 @@ function cabReportPdf(shared){
       if(_snParts.length) line("Supporti microfonici: "+_snParts.join(" · "), 10, false, null, 5);
     }catch(_e){}
     if(R.snakes && R.snakes.length) line("Digital snake (home-run al punto principale): "+R.snakes.map(function(k){ return k.box.letter+" "+k.lenM.toFixed(0)+" m"; }).join(", "), 10, false, null, 5);
+    /* L5 (R16): passacavo rampato dove si cammina — voce per il service */
+    try{ var _pcp=cabPassacavoTesto(); if(_pcp) line("Passacavo rampato: "+_pcp.testo+(_pcp.attraversa?" — cavo costretto ad attraversare un passaggio":""), 10, !!_pcp.attraversa, _pcp.attraversa?"#b45309":null, 5); }catch(_e){}
     /* L5 — sezione rete/dati: tratte digitali con protocollo, mezzo e lunghezza sul percorso reale */
     var N=netEngine();
     if(N.runs.length){
@@ -38038,7 +38240,8 @@ function cabReportPdf(shared){
     R.unassigned.forEach(function(u){ line(u.name+"  ->  SENZA DESTINAZIONE (canali esauriti)", 9, true, "#dc2626", 4.6); });
     y+=4;
     line("Criticità", 12, true, "#0d9488", 6);
-    if(R.issues.length) R.issues.forEach(function(i){ line("• "+i.msg, 9, i.lvl==="err", i.lvl==="err"?"#dc2626":(i.lvl==="warn"?"#b45309":"#6b7280"), 4.6); });
+    var _crit=R.issues; try{ _crit=R.issues.concat(cabRouteInfo().issues); }catch(_e){}   /* L4/L5: segnale/potenza in parallelo, passacavo */
+    if(_crit.length) _crit.forEach(function(i){ line("• "+i.msg, 9, i.lvl==="err", i.lvl==="err"?"#dc2626":(i.lvl==="warn"?"#b45309":"#6b7280"), 4.6); });
     else line("Nessuna criticità rilevata.", 10, false, "#0d9488", 5);
     if(shared) return;
     pdfCredit(doc);
