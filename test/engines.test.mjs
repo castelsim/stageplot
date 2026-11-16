@@ -35133,5 +35133,19 @@ t("P1 palco 8×6: «Non conosco», Esc e velo applicano 8×6 solo se ammesso (gu
   ok(/function commitPreparedDoc[\s\S]{0,2600}chiudiPalcoSePieno\(\)/.test(src), "ogni ingresso passa da commitPreparedDoc");
 });
 
+/* P1 VOLO lotto 4 (16/11/2026): il trattino lungo «—» davanti alla versione. */
+t("P1 trattino: «Titolo — v1» e «Titolo — v2 — 16/11/2026» → versione letta, titolo senza «—» finale", () => {
+  const tt = (x) => A.titoloSenzaVersione(x), v = (x) => A.versioneDaTitolo(x);
+  eq(tt("Concerto di prova — SEDE 2026 #1 — v1"), "Concerto di prova — SEDE 2026 #1", "niente «—» rimasto in coda");
+  eq(tt("Concerto — v2 — 16/11/2026"), "Concerto", "versione con data dopo il trattino lungo");
+  eq(tt("Concerto - v2"), "Concerto", "come prima: trattino semplice");
+  eq(tt("Concerto – v3 · 10/11/2026"), "Concerto", "come prima: trattino medio e punto");
+  eq([v("Concerto — v1"), v("Concerto — v2 — 16/11/2026"), v("Concerto — v3 finale")], [1, 2, 0], "la versione si legge anche dopo «—»; non in fondo = nessuna");
+  eq(tt("Concerto — SEDE"), "Concerto — SEDE", "un «—» in mezzo al titolo resta");
+  reset(); A.state.titolo = "Concerto di prova — SEDE 2026 #1 — v1";
+  ok(!/—\s*[-·]/.test(A.fileName()) && !/—\s*$/.test(A.titoloSenzaVersione(A.state.titolo)), "il nome del file non ha «— -»: " + A.fileName());
+  reset();
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

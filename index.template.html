@@ -20018,7 +20018,7 @@ function segnapostoIn(t){ t=String(t==null?"":t); return SEGNAPOSTO_RE.some(func
 /* Le date scritte nel titolo («12.12.26», «12/12/2026», «1-2-27»), senza la data in coda alla versione («v3 · 10/11/2026»),
    che è quella del documento e non dell'evento. Solo date vere. Niente lookbehind: Safari vecchi non lo leggono. */
 function dateNelTitolo(t){
-  t=String(t==null?"":t).replace(/\s*\bv\d{1,3}\b(?:\s*[·\-–]\s*\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4})?\s*$/i,"");
+  t=String(t==null?"":t).replace(/\s*\bv\d{1,3}\b(?:\s*[·\-–—]\s*\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4})?\s*$/i,"");
   var re=/(^|\D)(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4}|\d{2})(?!\d)/g, m, out=[];
   while((m=re.exec(t))){
     var g=+m[2], me=+m[3], a=+m[4]; if(m[4].length===2) a+=2000;
@@ -36762,9 +36762,9 @@ function fileName(){ return (state.titolo||"stage-plot").toLowerCase().replace(/
    accanto a «1 di N») e nel nome del file dell'Esporta. I progetti dei concerti la scrivono già alla fine del titolo («… Bibione
    v3 · 10/11/2026»): se il campo è vuoto si legge da lì. Senza versione il file esce come prima. */
 var VERSIONE_MAX=999;
-var VERSIONE_FINALE_RE=/\s*\bv(\d{1,3})\b(?:\s*[·\-–]\s*\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4})?\s*$/i;   /* solo in fondo: un «v3» a metà titolo non è una versione */
+var VERSIONE_FINALE_RE=/\s*\bv(\d{1,3})\b(?:\s*[·\-–—]\s*\d{1,2}[\/.\-]\d{1,2}[\/.\-]\d{2,4})?\s*$/i;   /* solo in fondo: un «v3» a metà titolo non è una versione */
 function versioneDaTitolo(t){ var m=VERSIONE_FINALE_RE.exec(String(t==null?"":t)); var n=m?parseInt(m[1],10):0; return (n>=1 && n<=VERSIONE_MAX) ? n : 0; }
-function titoloSenzaVersione(t){ return String(t==null?"":t).replace(VERSIONE_FINALE_RE,"").replace(/[\s·\-–]+$/,""); }
+function titoloSenzaVersione(t){ return String(t==null?"":t).replace(VERSIONE_FINALE_RE,"").replace(/[\s·\-–—]+$/,""); }   /* anche il trattino lungo: «Titolo — v1» lasciava «—» in fascia e nel nome del file (P1 Il Volo, 16/11/2026) */
 function versioneNumero(){
   var v=state && state.versione;
   if(typeof v==="number" && v%1===0 && v>=1 && v<=VERSIONE_MAX) return v;
