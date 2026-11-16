@@ -8166,9 +8166,13 @@ t("stampando al 100% il cartiglio non finisce dove la stampante non arriva", () 
   /* il riferimento sta a y+19 (+5 con la riga dei totali): con cartH 27 la sua riga deve restare ad almeno 6 mm dal fondo */
   ok((L.ph - L.fondo - 27 + 24) <= L.ph - 6, "l'ultima riga resta dentro l'area stampabile");
   /* il disegno non si rimpicciolisce: lo spazio era già riservato sotto */
-  eq(L.drawH, L.ph - L.M - 27 - 5 - (L.M + 7), "l'area del disegno è quella di prima");
-  ok((L.ph - L.M - 27 - 5) <= (L.ph - L.fondo - 27) - 5, "e fra disegno e cartiglio restano 5 mm per «PUBBLICO»");
-  ok(/ph-4\.5, \{url:"https:\/\/stageplot\.it\/\?utm_source=pdf/.test(appjs) && /doc\.text\(credito, pw-10, ph-4\.5,/.test(appjs), "anche il credito si alza dal bordo");
+  /* dal 16/11/2026 (P1 Il Volo): piè a 16 mm dal bordo, cartiglio più alto di 5,5 mm; il disegno resta a 17 mm in alto e a 20 ai lati */
+  eq(L.drawH, L.ph - L.fondo - 27 - 8 - 17, "il disegno perde solo i 5,5 mm del piè, in basso");
+  eq([L.drawX, L.drawY, L.drawW], [20, 17, L.pw - 40], "in alto e ai lati il disegno è dov'era");
+  ok(L.M >= 15 && L.fondo >= 12 && (L.ph - L.fondo - 27) - (L.drawY + L.drawH) >= 8, "fra disegno e cartiglio restano 8 mm per «PUBBLICO» e la barra");
+  ok(/ph-16\.2, \{url:"https:\/\/stageplot\.it\/\?utm_source=pdf/.test(appjs) && /doc\.text\(credito, pw-15\.5, ph-16\.2,/.test(appjs), "il credito sta a 16 mm dal bordo");
+  ok(/doc\.text\(i\+" di "\+n, pw\/2, ph-16\.2,/.test(appjs), "e anche «N di M · vN · data»");
+  ok(!/ph-4\.5/.test(appjs.slice(appjs.indexOf("function pdfCredit"), appjs.indexOf("function pdfCredit") + 1500)), "niente più piè a 4,5 mm");
 });
 
 t("il cartiglio si alza quando c'e' la riga dei totali", () => {
@@ -26702,7 +26706,7 @@ t("PDF: «titolo — luogo» va a capo invece di uscire dal foglio", () => {
 
 t("PDF: le tabelle ripetono l'intestazione delle colonne sulle pagine di seguito", () => {
   /* revisione 28/09: i canali 48-63 di un'orchestra vera finivano su un foglio senza «# SORGENTE MIC/DI…» */
-  const defs = appjs.match(/function trow\([^)]*\)\{ if\(y>286\)\{ doc\.addPage\(\); y=18;[^}]*\}/g) || [];
+  const defs = appjs.match(/function trow\([^)]*\)\{ if\(y>274\)\{ doc\.addPage\(\); y=18;[^}]*\}/g) || [];
   /* 8 tabelle hanno una riga di intestazione; due (quadri elettrici, patch delle stage box) sono elenchi a
      blocchi con i titoli dentro il blocco: lì non c'è una riga di colonne da ripetere */
   const conRipresa = defs.filter((d) => /if\(_testaTab\)\{ var _t=_testaTab; _testaTab=null; _t\(\); _testaTab=_t; \}/.test(d));
@@ -33680,7 +33684,7 @@ t("Palco per esterni: titolo lungo va a capo (mai «…») e la fascia si alza; 
   const vert = A.palcoEsterniPiano(_peDoc, "a4", "auto", "landscape", new Date()), vert2 = A.palcoEsterniPiano(_peDoc, "a4", "auto", "portrait", new Date());
   ok(vert2.N < vert.N, "il verso giusto stampa il palco più grande: 1:" + vert2.N + " contro 1:" + vert.N);
   eq(A.palcoEsterniPiano(_peDoc, "a4", "abc", "auto", new Date()), null, "scala non valida: nessun piano");
-  A.state.stage = { w: 400, d: 1000, blocks: [{ x: 0, y: 0, w: 400, d: 1000 }] };
+  A.state.stage = { w: 400, d: 950, blocks: [{ x: 0, y: 0, w: 400, d: 950 }] };   /* 9,5 m: il piè a 16 mm toglie 5,5 mm in basso, il 10 m al limite non entra più intero a 1:50 su A4 */
   const sp = A.palcoEsterniPiano(_peDoc, "a4", "50", "auto", new Date());
   eq([sp.o, sp.box.cropped], ["portrait", false], "scala fissa 1:50: vince il verso in cui il palco entra intero, non quello che ritaglia");
   reset();
@@ -35145,6 +35149,21 @@ t("P1 trattino: «Titolo — v1» e «Titolo — v2 — 16/11/2026» → version
   reset(); A.state.titolo = "Concerto di prova — SEDE 2026 #1 — v1";
   ok(!/—\s*[-·]/.test(A.fileName()) && !/—\s*$/.test(A.titoloSenzaVersione(A.state.titolo)), "il nome del file non ha «— -»: " + A.fileName());
   reset();
+});
+
+/* P1 VOLO lotto 3 (16/11/2026): margini di stampa — la Ricoh dello studio taglia sotto i 15 mm (M-069). */
+t("P1 margini: piè a ≥15 mm, cartiglio e liste A4 si fermano sopra il piè", () => {
+  const cr = appjs.slice(appjs.indexOf("function pdfCredit"), appjs.indexOf("function pdfCredit") + 1900);
+  const ys = [...cr.matchAll(/ph-(\d+(?:\.\d+)?)/g)].map((m) => parseFloat(m[1]));
+  ok(ys.length >= 4 && ys.every((v) => v >= 15.9), "tutti i testi del piè a ≥ 16 mm dal fondo (baseline): " + ys.join(","));
+  ok(/pw-15\.5/.test(cr), "il credito a destra sta a ≥ 15 mm dal bordo");
+  const L = A.pdfLayout("a3", "landscape", 22), L4 = A.pdfLayout("a4", "portrait", 22);
+  ok(L.M >= 15 && L4.M >= 15, "margine dei testi del cartiglio ≥ 15 mm");
+  ok(L.ph - L.fondo - 7 <= L.ph - 18.5, "l'ultima riga del cartiglio finisce sopra il piè (ink del piè da 18,3 mm)");
+  /* nessuna pagina A4 verticale delle liste scende sotto 274 mm (297 - 23): sotto c'è il piè */
+  const soglie = [...appjs.matchAll(/if\(y>(\d{3})\)\{ doc\.addPage\(/g)].map((m) => +m[1]);
+  ok(soglie.length >= 20 && Math.max(...soglie) <= 274, "soglie di cambio pagina delle liste ≤ 274: max " + Math.max(...soglie) + " su " + soglie.length);
+  ok(!/y>L\.ph-10\)\{ doc\.addPage/.test(appjs), "la tabella dell'elenco a pagine non scende a 10 mm dal fondo");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
