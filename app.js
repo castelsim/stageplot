@@ -7955,7 +7955,7 @@ function sanitizeItems(arr){
     else if(o.type==="ostacolo" && ostacoloHPulita(o.h)) it.h=ostacoloHPulita(o.h);   /* ostacolo: quota opzionale */
     if(isHangStruct(it) && o.rig && typeof o.rig==="object") it.rig=rigPulita(o.rig);   /* americana/truss numerata (A4): {n?, h?} ripulito */
     if(Object.prototype.hasOwnProperty.call(COMP,o.type)) it.parts=o.parts?compClone(o.parts):compClone(COMP[o.type].defParts);
-    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","perChi","podio","sgab","grp","distOf","distType","aggancia","dimSide","lblSize","plCh","dvsPro","dvsNet","dvsSr","dvsLat","ifaceId","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","leggioDist","poltrona","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic","platea","fila","posto","settore","orOk"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });   /* platea: passi e corridoio, ripuliti poi da normalizeLoadedItems; fila/posto/settore: posti numerati */
+    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","perChi","podio","sgab","grp","distOf","distType","aggancia","dimSide","lblSize","plCh","dvsPro","dvsNet","dvsSr","dvsLat","ifaceId","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","leggioDist","poltrona","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic","platea","fila","posto","settore","orOk","dAuto"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });   /* platea: passi e corridoio, ripuliti poi da normalizeLoadedItems; fila/posto/settore: posti numerati */
     if(it.orOk!=null){ var _ok=Math.round(+it.orOk); if(isFinite(_ok)) it.orOk=_ok; else delete it.orOk; }   /* «È giusto così» sull'orientamento (15/11): la rotazione che l'utente ha confermato, numero intero */
     if(it.leggioDist!=null){ var _ld=leggioDist(it); if(_ld && leggioDistSupported(it)) it.leggioDist=_ld; else delete it.leggioDist; }   /* distanza del leggio: numero intero nei limiti, solo dove c'è un leggio da spostare; 0 = standard, non si scrive */
     postoSanifica(it);   /* posti numerati (06/10): tipi e lunghezze garantiti */
@@ -16662,11 +16662,18 @@ function pedanaApplicaRapida(it, m){
   if(isFinite(m.h) && m.h>=0 && it.h!==m.h){ it.h=m.h; cambiata=true; }
   return cambiata;
 }
+/* MAI CAMBIARE UNA MISURA SALVATA (16/11/2026, progetto vero di Valdagno: aprendo la v3.2 la scaletta è passata da 90 a 60 cm senza
+   che nessuno lo chiedesse; il motore del 13/11 riscriveva a ogni render la lunghezza di TUTTE le scale, anche di quelle disegnate
+   prima o messe a mano). Il motore ora segue SOLO le scale che ha creato lui: `dAuto` = l'ultima lunghezza scritta dal motore (o la
+   misura di serie alla nascita). Se `d` è ancora quella, la lunghezza è del motore e segue i gradini; se è diversa (l'ha cambiata
+   l'utente) o manca `dAuto` (progetto salvato prima), la scala non si tocca mai. */
 function scalaAdegua(it){
+  if(it.dAuto==null || !isFinite(+it.dAuto)) return false;   /* scala non creata dal motore: la misura è dell'utente */
   var L=scalaLunghezza(scalaH(it)), d=+it.d||(TYPES.scala&&TYPES.scala.d)||90;   /* senza `d` nel documento vale la misura di serie */
-  if(Math.abs(d-L)<0.5) return false;
+  if(it.d!=null && Math.abs(+it.d-(+it.dAuto))>0.5) return false;   /* l'utente l'ha cambiata a mano: vince lui */
+  if(Math.abs(d-L)<0.5){ it.dAuto=L; return false; }
   var r=((+it.rot||0)%360)*Math.PI/180, ux=-Math.sin(r), uy=Math.cos(r), k=(L-d)/2;   /* −y locale fermo: il centro si sposta di (L−d)/2 lungo +y */
-  it.d=L; it.x=Math.round((it.x+ux*k)*100)/100; it.y=Math.round((it.y+uy*k)*100)/100;
+  it.d=L; it.dAuto=L; it.x=Math.round((it.x+ux*k)*100)/100; it.y=Math.round((it.y+uy*k)*100)/100;
   return true;
 }
 function scaleAdegua(){ var n=0; (state.items||[]).forEach(function(it){ if(it.type==="scala" && !it.locked && scalaAdegua(it)) n++; }); return n; }
@@ -17453,6 +17460,16 @@ function controlliPrimaDelExport(){
   /* 8 · violini senza sezione accanto a violini con sezione (organico): il foglio non può dire I o II (Simone, 12/11) */
   var _og=organicoDati();
   if(_og.violiniGenerici && _og.violiniDivisi) add("violini-senza-sezione", _og.violiniGenerici+(_og.violiniGenerici===1?" violino senza sezione":" violini senza sezione")+": indica I o II.", _og.violiniGenericiId);
+  /* 9 · planimetria nel progetto ma che nel PDF non comparirebbe (16/11/2026, Valdagno: il foglio stampato era senza pianta e nessuno l'ha detto):
+     immagine non caricata (l'immagine sta in una colonna a parte del cloud) oppure opacità 0. Spenta dall'utente (enabled:false) = scelta sua, niente. */
+  try{
+    var _vn=state.venue;
+    if(_vn && _vn.enabled!==false){
+      var _nm=String(_vn.name||"").trim()||"della pianta";
+      if(!safeVenueDataUrl(_vn._dataUrl)) add("planimetria-mancante","La planimetria «"+_nm+"» è nel progetto ma l'immagine non è caricata: nel PDF non compare. Ricarica il progetto o importala di nuovo.");
+      else if(!(+_vn.opacity>0) && _vn.opacity!=null) add("planimetria-mancante","La planimetria «"+_nm+"» ha opacità 0: nel PDF non compare. Alza l'opacità o spegnila.");
+    }
+  }catch(_e){}
   if(typeof funzOn==="function" && funzOn("controllo") && !String(state.luogo||"").trim() && (String(state.titolo||"").trim() || state.evDate))
     add("manca-luogo","Manca il luogo dell'evento: nel PDF il titolo esce senza il posto.");
   return out;
@@ -22493,6 +22510,7 @@ function addItem(type, over, silenzioso){   /* silenzioso (06/10/2026): crea e m
   if(COMP[type]){ it.parts=compClone(COMP[type].newParts||COMP[type].defParts); if(COMP[type].size){ var sz=COMP[type].size(it); it.w=sz[0]; it.d=sz[1]; } }   /* newParts: un elemento NUOVO può nascere più completo di come si riapre un progetto vecchio (percussioni, 13/10) */
   if(type==="miczone") it.zcol=micZoneFreeColor();   /* ogni zona nasce con un colore diverso */
   if(over) Object.keys(over).forEach(function(k){ it[k]=over[k]; });
+  if(type==="scala" && !(over && over.d!=null)) it.dAuto=+it.d;   /* nasce dal motore: la lunghezza segue i gradini finché l'utente non la cambia (16/11) */
   if(t.nomeF && it.donna===true && !(over && over.label!=null)){   /* Attrice, Tecnica: si numerano con la loro parola, non «Attore 3» */
     var _nF=(state.items||[]).reduce(function(m,o){ return (o.type===type && etichettaFemminile(o)) ? Math.max(m, +o.label.slice(t.nomeF.length+1)) : m; }, 0);
     it.label=t.nomeF+" "+(_nF+1);
@@ -25561,6 +25579,7 @@ function placeOut(out, fitStage, clearFirst, force){
     if(o.parts){ it.parts=compClone(o.parts); if(COMP[o.type] && COMP[o.type].size){ var cz=COMP[o.type].size(it); it.w=cz[0]; it.d=cz[1]; } }
     ["donna","hair","mano","leggio","sedia","doppia","sep","ampli","pedaliera","vsec","label2","perChi","podio","nomic","micMode","hw","ch","outCh","dimSide","rfChi","poltrona"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });   /* flag opzionali dal generatore (hw/ch/outCh = capacità stage box; dimSide = lato della misura pedana) */
     if(LEGGIO_DI_SERIE[o.type] && o.leggio==null) it.leggio=true;   /* modelli e organico: come dal catalogo */
+    if(o.type==="scala") it.dAuto=+it.d;   /* nata dal motore, come da addItem (16/11) */
     return it;
   });
   if(!clearFirst && state.items.length) avoidGroupOverlap(news);   /* non sovrapporsi a ciò che è già sul palco */
