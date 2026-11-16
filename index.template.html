@@ -43554,6 +43554,12 @@ function orcProjectParam(search){
   if(!m || /[?&]view=/.test(String(search||""))) return null;
   return m[1].toLowerCase();
 }
+/* Aprire /app/?p=<uuid> (o tornare dal login con orcOpenProject) è già un lavoro: il progetto arriva dal cloud DOPO, e nel frattempo il
+   palco è vuoto. Senza questa guardia «Quanto è grande il tuo palco?» compariva sopra il progetto pieno e chiuderlo (Esc) metteva 8×6
+   «da confermare» al posto delle misure vere. Vale solo per la richiesta automatica: «Palco» → misure, a mano, resta. */
+function orcAperturaInCorso(search, salvato){ return !!(orcProjectParam(search) || (typeof salvato==="string" && salvato)); }
+window.__orcApertura=false;
+try{ window.__orcApertura=orcAperturaInCorso(location.search, sessionStorage.getItem("orcOpenProject")); }catch(e){}
 /* ORCHESTRE — chi c'è sul posto (lotto 9). I dati arrivano dall'RPC orc_stage_view del progetto cloud aperto e
    vivono SOLO qui: non in state, non nel blob, non nell'export (sceneMarkup li disegna, stageSceneSvg no).
    orcSeats.byItem = { itemId: [ {seat_index, seat_no, slot_status, musician_name, role_name, production_id, variant_id}, … ] } */
@@ -44050,6 +44056,7 @@ function showStageSizeModal(){
 }
 function maybeAskStageSize(explicit){
   if(__stageSizeOpen) return;
+  if(!explicit && window.__orcApertura) return;   /* sta per arrivare un progetto dal cloud (Orchestre, ?p=): non chiedere le misure sopra di esso */
   var wl=document.getElementById("welcome");
   if(!explicit && wl && !wl.hidden) return;   /* welcome aperto: sarà lui a incatenare la richiesta alla chiusura */
   if(!isFreshBlankProject(explicit)) return;
@@ -45095,6 +45102,7 @@ function maybeAskStageSize(explicit){
 
   function openProject(id){
     if(!sb || !cloudUser) return;
+    window.__orcApertura=false;   /* da qui in poi la guardia della richiesta del palco non serve: il progetto si apre (o dà errore) */
     if(custEditorAttivo()) return custEditorAvvisa();   /* editor «Crea elemento» aperto: prima si chiude */
     var request=++cloudOpenSeq, requestUser=cloudUser.id, requestAuth=authGeneration;
     function fetchAndOpen(){

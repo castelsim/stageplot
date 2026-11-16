@@ -596,7 +596,7 @@ test("i test senza database girano anche nella PR, prima del merge", () => {
 test("l'elenco musicisti filtra per genere, lettura, esperienza, zona e tag, con la logica del dominio", () => {
   const pag = readFileSync(join(root, "orchestre/src/pages/musicisti.js"), "utf8");
   assert.match(pag, /from "\.\.\/domain\/roster-filter\.js"/);
-  assert.match(pag, /const rows = filtra\(all, F\);/, "la lista è quella del dominio");
+  assert.match(pag, /let rows = filtra\(all, F\);/, "la lista è quella del dominio");
   assert.doesNotMatch(pag, /all\.filter\(/, "niente seconda logica dei filtri nella pagina");
   for (const id of ["gen", "let", "esp", "zona", "tag"]) assert.match(pag, new RegExp(`<select id="${id}">`), "manca il filtro " + id);
   assert.match(pag, /if \(altriAttivi\(F\)\) app\.querySelector\("#altri"\)\.open = true;/, "un filtro nascosto ma acceso si mostra");

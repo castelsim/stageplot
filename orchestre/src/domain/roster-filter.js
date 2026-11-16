@@ -73,3 +73,36 @@ export function aIndirizzo(F) {
   for (const [k, p] of Object.entries(PARAMETRI)) if (F[k]) u.set(p, F[k]);
   return u.toString();
 }
+
+/* Ricerca che perdona i refusi («vioino», «fagoto», «dalligna»). Si usa SOLO quando la ricerca esatta non trova nessuno: così chi scrive
+   giusto non vede mai risultati in più. Ogni parola cercata deve somigliare a una parola della scheda: stessa parola con al più 1 errore
+   (2 se lunga 8 o più), contando anche l'inizio di una parola più lunga («viol» è già coperto dall'inclusione, qui no).
+   Parole sotto le 4 lettere non si correggono: troppi falsi. */
+export function distanza(a, b) {
+  if (a === b) return 0;
+  if (Math.abs(a.length - b.length) > 2) return 3;
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[b.length];
+}
+export function paroleSimili(w, hay) {
+  if (w.length < 4) return false;
+  const tol = w.length >= 8 ? 2 : 1;
+  /* «Dall'Igna» si scrive anche «Dalligna»: si confronta sia con i pezzi separati dall'apostrofo o dal trattino, sia con la parola unita */
+  const pezzi = new Set(hay.split(/[^a-z0-9]+/).filter(Boolean));
+  for (const t of hay.split(/\s+/)) { const u = t.replace(/[^a-z0-9]/g, ""); if (u) pezzi.add(u); }
+  return [...pezzi].some((t) => distanza(w, t) <= tol);
+}
+export function filtraSimili(rows, F) {
+  const parole = norm(F.q).split(/\s+/).filter(Boolean);
+  if (!parole.length) return [];
+  const senzaTesto = filtra(rows, { ...F, q: "" });
+  return senzaTesto.filter((m) => {
+    const hay = norm([m.first_name, m.last_name, m.city, m.province, m.area, ...(m.instruments || []), ...(m.tags || []), ...(m.genres || [])].join(" "));
+    return parole.every((w) => hay.includes(w) || paroleSimili(w, hay));
+  });
+}
