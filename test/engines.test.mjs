@@ -18173,9 +18173,9 @@ t("le porte del mixer si contano e si esauriscono", () => {
 
 t("P1 Il Volo: «Nessun microfono» non produce canali (voci, tastiere, percussioni) e non fa scattare «ingressi insufficienti»", () => {
   reset();
-  const tipi = ["cantante", "pianoforte", "bongos", "chitarra", "violino"];
+  const tipi = ["cantante", "stagepiano", "tastiera", "percussioni", "vlnpost"];
   tipi.forEach((tp) => {
-    if (!A.TYPES[tp]) return;
+    ok(A.TYPES[tp], tp + ": tipo esistente nel catalogo");
     const it = add(tp, 300, 300);
     const con = chans(it).length;
     it.miking = "__nomic__";
