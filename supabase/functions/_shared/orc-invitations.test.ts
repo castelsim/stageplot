@@ -62,6 +62,7 @@ Deno.test("parseAnswer: sì e no senza date, parziale con date valide, tutto il 
   assertEquals(p.ok && p.dates.length, 2);
   assertEquals(parseAnswer({ answer: "partial" }), { ok: false, error: "no_dates" });
   assertEquals(parseAnswer({ answer: "partial", dates: [{ id: "x", available: true }] }), { ok: false, error: "bad_dates" });
+  assertEquals(parseAnswer({ answer: "reserve", note: "solo se serve" }), { ok: true, answer: "reserve", dates: [], note: "solo se serve" });
   assertEquals(parseAnswer({ answer: "maybe" }), { ok: false, error: "bad_answer" });
   assertEquals(parseAnswer("yes"), { ok: false, error: "bad_body" });
   const long = parseAnswer({ answer: "yes", note: "x".repeat(5000) });

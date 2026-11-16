@@ -4,6 +4,7 @@ import { SB_URL } from "../config.js";
 import { esc, el, setState, fmtDateTime, fmtDate, avvia } from "../ui.js";
 import { DATE_KIND } from "../domain/staffing.js";
 import { changeRows } from "../domain/conditions.js";
+import { buildIcs, scaricaIcs } from "../domain/ics.js";
 
 const FN = SB_URL + "/functions/v1/orc-respond";
 const app = document.getElementById("app");
@@ -109,11 +110,17 @@ function paint() {
 
   if (D.mode === "expired") { const b = el(`<div class="banner"></div>`); b.textContent = "La scadenza per rispondere è passata. Se sei ancora disponibile, scrivi a chi ti ha invitato."; app.appendChild(b); return; }
   if (D.mode === "reconfirm") return paintReconfirm();
-  if (D.mode === "locked") { const b = el(`<div class="banner ok"></div>`); b.textContent = D.status === "confirmed" ? "Confermato: ci sei. Per qualunque cambiamento scrivi a chi ti ha invitato." : "Sei in riserva: ti avvisiamo se si libera un posto."; app.appendChild(b); return; }
+  if (D.mode === "locked") {
+    const b = el(`<div class="banner ok"></div>`); b.textContent = D.status === "confirmed" ? "Confermato: ci sei. Per qualunque cambiamento scrivi a chi ti ha invitato." : "Sei in riserva: ti avvisiamo se si libera un posto."; app.appendChild(b);
+    const ics = D.status === "confirmed" ? buildIcs({ id: token.slice(0, 12), title: p.title, role: ro.name, org: D.organization, venue: p.venue, address: p.address, dates: D.dates }) : { n: 0 };
+    if (ics.n) { const bc = el(`<p><button type="button" class="btn">Aggiungi al calendario (.ics)</button></p>`); bc.querySelector("button").onclick = () => scaricaIcs(p.title, ics.text); app.appendChild(bc); }
+    return;
+  }
 
   const box = el(`<section class="card answer"><h3>Ci sei?</h3><div class="stack">
     <button type="button" class="btn primary big" data-a="yes">Sì, sono disponibile</button>
     <button type="button" class="btn big" data-a="partial">Solo per alcune date</button>
+    <button type="button" class="btn big" data-a="reserve">Sì, ma solo se manca qualcuno</button>
     <button type="button" class="btn big" data-a="no">No, non posso</button></div>
     <div id="dates" hidden></div>
     <div class="field"><label for="note">Una nota, se serve</label><textarea id="note" rows="3" maxlength="1000" placeholder="es. arrivo alle prove con mezz'ora di ritardo"></textarea></div>
@@ -133,7 +140,7 @@ function paint() {
   const update = () => {
     for (const b of btns) { b.classList.toggle("primary", b.dataset.a === answer); b.classList.toggle("danger", b.dataset.a === "no" && answer === "no"); }
     datesBox.hidden = answer !== "partial";
-    const complete = answer === "yes" || answer === "no" || (answer === "partial" && D.dates.every((d) => typeof partial[d.id] === "boolean"));
+    const complete = answer === "yes" || answer === "reserve" || answer === "no" || (answer === "partial" && D.dates.every((d) => typeof partial[d.id] === "boolean"));
     box.querySelector("#send").disabled = !complete;
     box.querySelector("#hint").textContent = answer === "partial" && !complete ? "Segna ogni data." : (D.responded_at ? "Hai già risposto il " + fmtDateTime(D.responded_at) + ": puoi cambiare fino alla scadenza." : "");
   };
@@ -141,6 +148,7 @@ function paint() {
   update();
   box.querySelector("#send").onclick = async () => {
     const send = box.querySelector("#send"); send.disabled = true; send.textContent = "Invio…";
+    const eraRiserva = answer === "reserve";
     const body = { answer, note: box.querySelector("#note").value.trim() };
     if (answer === "partial") body.dates = D.dates.map((d) => ({ id: d.id, available: !!partial[d.id] }));
     try {
@@ -149,7 +157,7 @@ function paint() {
       app.innerHTML = "";
       app.appendChild(el(`<h1>Grazie${esc(D.musician.first_name ? ", " + D.musician.first_name : "")}.</h1>`));
       const ok = el(`<div class="banner ok"></div>`);
-      ok.textContent = r.d.status === "available" ? "Risposta registrata: ci sei. Ti confermeranno il posto." : r.d.status === "unavailable" ? "Risposta registrata: non ci sei. Grazie per averlo detto subito." : "Risposta registrata: ci sei solo per alcune date. Decideranno loro e ti diranno.";
+      ok.textContent = r.d.status === "available" && eraRiserva ? "Risposta registrata: ci sei se manca qualcuno. Ti avvisiamo se serve." : r.d.status === "available" ? "Risposta registrata: ci sei. Ti confermeranno il posto." : r.d.status === "unavailable" ? "Risposta registrata: non ci sei. Grazie per averlo detto subito." : "Risposta registrata: ci sei solo per alcune date. Decideranno loro e ti diranno.";
       app.appendChild(ok);
       const again = el(`<p class="small muted">Puoi cambiare la risposta fino alla scadenza riaprendo questo link.</p>`);
       app.appendChild(again);
