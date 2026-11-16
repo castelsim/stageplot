@@ -60,10 +60,15 @@ function check() {
     for (const e of parsed.errors.slice(0, 30)) { const li = document.createElement("li"); li.textContent = e; b.querySelector("ul").appendChild(li); }
     out.appendChild(b);
   }
+  if (parsed.ignored && parsed.ignored.length) {
+    const b = el(`<div class="banner"><b>Colonne non riconosciute, lasciate fuori</b><p class="small"></p></div>`);
+    b.querySelector("p").textContent = parsed.ignored.map((h) => "«" + h + "»").join(", ") + ". Le colonne che capisco: nome, cognome, email, telefono, città, provincia, strumenti, competenze, repertorio, tag, note.";
+    out.appendChild(b);
+  }
   if (!parsed.rows.length) { out.appendChild(el(`<div class="empty">Nessuna riga importabile.</div>`)); return; }
   const card = el(`<section class="card"><h3>${parsed.rows.length === 1 ? "1 musicista pronto" : parsed.rows.length + " musicisti pronti"}</h3>
     <div class="table-wrap"><table class="table"><thead><tr><th>Nome</th><th>Email</th><th>Strumenti</th><th>Repertorio</th><th>Tag</th></tr></thead><tbody></tbody></table></div>
-    <p class="row"><button type="button" class="btn primary" id="go">Importa</button><span class="small muted">${parsed.errors.length ? "Le parti segnalate restano fuori; il resto della riga entra." : ""}</span></p></section>`);
+    <p class="row"><button type="button" class="btn primary" id="go">Importa</button><span class="small muted">${parsed.errors.length ? "Ciò che è segnalato resta fuori; il resto della riga entra." : ""}</span></p></section>`);
   const tb = card.querySelector("tbody");
   for (const r of parsed.rows.slice(0, 200)) {
     const tr = el(`<tr><td></td><td class="small"></td><td class="small"></td><td class="small"></td><td class="small"></td></tr>`);

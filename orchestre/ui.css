@@ -62,7 +62,12 @@ p{margin-bottom:var(--s-3)}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:var(--s-4)}
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:var(--s-4)}
 @media (max-width:880px){.grid2,.grid3{grid-template-columns:1fr}}
-.nav-tabs{display:flex;gap:var(--s-1);border-bottom:1px solid var(--border);margin-bottom:var(--s-4);overflow-x:auto}
+.nav-tabs{display:flex;gap:var(--s-1);border-bottom:1px solid var(--border);margin-bottom:var(--s-4);overflow-x:auto;
+  /* ombra ai bordi solo dove c'è altro da scorrere: sul telefono dice che le schede continuano (le coperture «local» la tolgono a fine corsa) */
+  background:linear-gradient(to right,var(--bg),var(--bg)) left center/24px 100% no-repeat local,
+    linear-gradient(to left,var(--bg),var(--bg)) right center/24px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%,rgba(0,0,0,.22),transparent) left center/12px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%,rgba(0,0,0,.22),transparent) right center/12px 100% no-repeat scroll}
 .nav-tabs a{padding:10px 12px;min-height:var(--tap);display:flex;align-items:center;text-decoration:none;color:var(--text-2);border-bottom:2px solid transparent;white-space:nowrap}
 .nav-tabs a[aria-current="page"]{color:var(--accent-strong);border-color:var(--accent)}
 .nav-tabs a[aria-disabled="true"]{color:var(--text-3);pointer-events:none}
@@ -157,7 +162,7 @@ dl.review dd.strong{font-weight:700;color:var(--text)}
 .list-item a.grow:hover .title{color:var(--accent-strong)}
 .list-item .title{font-weight:600;overflow-wrap:anywhere}
 .list-item .sub{font-size:var(--t-body);color:var(--text-2);overflow-wrap:anywhere}
-.list-item .actions{display:flex;gap:var(--s-2);align-items:center}
+.list-item .actions{display:flex;gap:var(--s-2);align-items:center;flex-wrap:wrap;max-width:100%}
 .list-item select{font:inherit;font-size:var(--t-md);min-height:var(--tap);padding:0 10px;border:1px solid var(--border-strong);border-radius:var(--r-md);background:var(--surface);color:var(--text)}
 .table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface)}
 .table{width:100%;border-collapse:collapse;font-size:var(--t-md)}

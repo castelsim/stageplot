@@ -34043,5 +34043,32 @@ t("Lotto 9: «?» porta a tutorial e guide pertinenti, mai a funzioni avanzate",
   ok(/target="_blank" rel="noopener"/.test(blocco), "le guide si aprono in una scheda nuova: il progetto resta dov'è");
 });
 
+/* ORC16 — uso reale di Orchestre (16/11/2026): import CSV che perdona, schermate strette, testi allineati. */
+const orcCsv = await import("../orchestre/src/domain/csv.js");
+t("Orchestre ORC16: import CSV — «;» di Excel, intestazioni alternative, doppioni, email non valida", () => {
+  ok(orcCsv.detectDelimiter("Nome;Cognome;E-mail\nA;B;a@b.it") === ";", "il separatore «;» si riconosce");
+  const r = orcCsv.csvToRows("Nome;Cognome;E-mail;Strumento\nAnna;Violini;anna@example.invalid;violino:5,viola:3\n");
+  ok(r.errors.length === 0 && r.rows.length === 1 && r.rows[0].email === "anna@example.invalid" && r.rows[0].instruments.length === 2, "file con «;» e «E-mail»/«Strumento» entra intero");
+  const d = orcCsv.csvToRows("nome,cognome,email\nA,B,a@b.it\nA,B,a@b.it\n");
+  ok(d.rows.length === 1 && /stessa persona della riga 2/.test(d.errors[0]), "il doppione conta una volta e lo dice");
+  const e = orcCsv.csvToRows("nome,cognome,email\nGiulia,Rossi,xx\n");
+  ok(e.rows.length === 1 && e.rows[0].email === "" && /Giulia Rossi.*il resto della riga entra/.test(e.errors[0]), "email non valida: la riga entra senza email e l'avviso dice chi");
+  const n = orcCsv.csvToRows("Nominativo,Email\nMario Rossi,m@r.it\n");
+  ok(/nome e cognome insieme/.test(n.errors[0]), "«Nominativo» ha il suo messaggio");
+  ok(orcCsv.csvToRows("nome,cognome,zodiaco\nA,B,toro\n").ignored.join() === "zodiaco", "le colonne non capite si elencano");
+});
+t("Orchestre ORC16: azioni delle convocazioni a capo, schede con ombra di scorrimento e scheda attiva in vista, testi dei passi", () => {
+  const css = readFileSync(join(root, "orchestre/ui.css"), "utf8");
+  ok(/\.list-item \.actions\{[^}]*flex-wrap:wrap/.test(css), "i pulsanti di una riga vanno a capo (a 390 px non allargano la pagina)");
+  const navCss = (css.match(/\.nav-tabs\{[^}]*\}/) || [""])[0];
+  ok((navCss.match(/ local/g) || []).length === 2 && (navCss.match(/ scroll/g) || []).length === 2, "le schede hanno l'ombra ai due bordi (coperture «local» + ombre «scroll») quando c'è altro da scorrere");
+  const ui = readFileSync(join(root, "orchestre/src/ui.js"), "utf8");
+  ok(/export function scrollaInVista/.test(ui) && /new MutationObserver\(pianifica\)/.test(ui) && /\.nav-tabs \[aria-current="page"\]/.test(ui), "la scheda attiva (admin e produzione) si porta in vista, comunque nasca nella pagina");
+  ok(/_viste\.add\(a\); scrollaInVista\(a\)/.test(ui), "…una volta per scheda, e la porta davvero in vista");
+  ok(/nav\.scrollWidth <= nav\.clientWidth\) return/.test(ui), "…solo se le schede escono davvero dallo schermo");
+  ok(/Colonne non riconosciute, lasciate fuori/.test(readFileSync(join(root, "orchestre/src/pages/importa.js"), "utf8")), "l'anteprima dell'import dice quali colonne ha lasciato fuori");
+  ok(!/otto passi/.test(readFileSync(join(root, "orchestre/candidatura/index.html"), "utf8")), "la pagina Candidatura non promette più «otto passi»");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

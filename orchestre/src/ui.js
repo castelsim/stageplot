@@ -145,3 +145,22 @@ export function avvia(main, { attesaMs = 20000 } = {}) {
   });
 }
 
+
+/* Sul telefono la scheda attiva (area admin, produzione) può stare fuori dallo schermo: la si porta in vista dentro la
+   riga delle schede, senza scorrere la pagina. Le schede nascono in momenti diversi (markup o JS): un osservatore le
+   prende tutte, una volta ciascuna. */
+export function scrollaInVista(a) {
+  const nav = a && a.parentElement;
+  if (!nav || nav.scrollWidth <= nav.clientWidth) return;
+  nav.scrollLeft = Math.max(0, a.offsetLeft - (nav.clientWidth - a.offsetWidth) / 2);
+}
+const _viste = typeof WeakSet === "function" ? new WeakSet() : null;
+function portaInVistaLeAttive() {
+  document.querySelectorAll('.nav-tabs [aria-current="page"]').forEach((a) => { if (_viste && !_viste.has(a)) { _viste.add(a); scrollaInVista(a); } });
+}
+if (typeof document !== "undefined" && typeof MutationObserver === "function") {
+  let atteso = false;
+  const pianifica = () => { if (atteso) return; atteso = true; requestAnimationFrame(() => { atteso = false; portaInVistaLeAttive(); }); };
+  new MutationObserver(pianifica).observe(document.documentElement, { childList: true, subtree: true });
+  pianifica();
+}
