@@ -30,6 +30,10 @@ const INJECTIONS = [
   { marker: "/*__STAGEPLOT_STYLES__*/", file: "src/styles.css" },
   /* la pianta dei posti: dentro l'editor E, uguale, in biglietteria/pianta-posti.js (specifica area §4.2) */
   { marker: "/*__PIANTA_POSTI__*/", file: "src/pianta-posti.js" },
+  /* catalogo pro (16/11/2026): registro dei modelli veri (console, stage rack) con misure e fonti */
+  { marker: "/*__CATALOGO_PRO__*/", file: "src/catalogo-pro.js" },
+  /* icone approvate da Simone il 16/11/2026 (tavola v1 del 07/11): prese, appendimenti, teatro, uscite */
+  { marker: "/*__ICONE_APPROVATE__*/", file: "src/icone-approvate.js" },
 ];
 const PIANTA_PUBBLICA = "biglietteria/pianta-posti.js";
 function piantaPubblica() {

@@ -2260,6 +2260,153 @@ var TYPES = {
   rack4u:   {nome:"Rack 4U", dim:"48×55", cat:"Dispositivi", w:48,d:55, defLabel:"Rack 4U",
     draw:function(){ return bar(0,0,48,55,'ic fBlack',2)+bar(-22,0,4,49,'ic fGrey',1)+bar(22,0,4,49,'ic fGrey',1)+bar(0,-15,38,7,'ic fGrey',1)+bar(0,-5,38,7,'ic fGrey',1)+bar(0,5,38,7,'ic fGrey',1)+bar(0,15,38,7,'ic fGrey',1); }}
 };
+/* ===== ICONE APPROVATE (Simone, 16/11/2026: «le icone che ho visto le approvo, fai del tuo meglio e con
+   il tempo le miglioriamo») — tavola v1 del 07/11 (stageplot-assistant/kb/proposte/icone_2026-11/).
+   Telo, cabina interpreti, altare, ambone e numerazione delle americane erano già entrati (#33, A4): qui le
+   altre. Stesse primitive delle icone dell'app (bar, circ, lin) e colori scritti sugli attributi, perché
+   svg2pdf li porti nel PDF. Pianta dall'alto, 1 unità = 1 cm, pubblico verso y+.
+   - Prese: SIMBOLO da 30 cm (la faccia vera di una CEE 16 A è 6-7 cm, invisibile in scala; Mennekes).
+     CEE = cerchio con gli ampere e i poli come puntini (si legge anche in bianco e nero); blu = 230 V
+     monofase 3 poli, rosso = 400 V trifase 5 poli (IEC 60309); civile = quadrato; tratteggio = la porta
+     il service. La rossa 16 A 5 poli l'ha chiesta un tecnico luci di teatro (10/11).
+   - Punto di appendimento: anello + croce + punto blu (il segno del dead-hang) con nome e carico; se il
+     carico supera la portata scritta, anello e numeri in rosso. Mai una portata calcolata: si scrive.
+   - Tiro della sala: tubo Ø 48-50 mm (in pianta 5 cm), numerato come le americane (A4) con la T.
+   - Boccascena, linea del sipario (zero delle quote), linea di centro CL, quinta numerata per coppia,
+     uscita di sicurezza nostra (figura geometrica, non il pittogramma ISO 7010), gonna della pedana,
+     croce. */
+function _iaT(x, y, s, size, fill, weight, anchor){
+  return '<text x="'+x+'" y="'+y+'" font-size="'+size+'" font-weight="'+(weight||700)+'" fill="'+(fill||"#111827")+'" text-anchor="'+(anchor||"middle")+'">'+s+'</text>';
+}
+function _iaR(v){ return Math.round(v*100)/100; }
+function presaSvg(amp, poli, civile, service){
+  var col=civile ? "#1f2937" : (poli===3 ? "#2563eb" : "#dc2626"), dash=service ? ' stroke-dasharray="5 3.5"' : "";
+  if(civile){
+    return '<rect x="-14" y="-14" width="28" height="28" rx="5" fill="#fff" stroke="'+col+'" stroke-width="2.4"'+dash+'/>'
+      +'<circle cx="-5.5" cy="-5" r="1.6" fill="#1f2937"/><circle cx="5.5" cy="-5" r="1.6" fill="#1f2937"/>'
+      +_iaT(0, 9.5, String(amp), 11);
+  }
+  var s='<circle cx="0" cy="0" r="15" fill="#fff" stroke="'+col+'" stroke-width="2.6"'+dash+'/>'
+    +'<rect x="-2" y="-16.6" width="4" height="4" rx="1" fill="'+col+'"/>';
+  for(var k=0;k<poli;k++){
+    var a=(90+360*k/poli+(poli===3?180/poli:0))*Math.PI/180;
+    s+='<circle cx="'+_iaR(11*Math.cos(a))+'" cy="'+_iaR(11*Math.sin(a))+'" r="1.25" fill="#1f2937"/>';
+  }
+  return s+_iaT(0, 3.6, String(amp), amp<100 ? 11 : 9.5)+_iaT(0, 9.6, poli+"P", 5.2, "#6b7280", 600);
+}
+function badgeSvg(x, y, n, r){
+  r=r||11;
+  return '<circle cx="'+_iaR(x)+'" cy="'+_iaR(y)+'" r="'+r+'" fill="#fff" stroke="#1f2937" stroke-width="2"/>'+_iaT(_iaR(x), _iaR(y+r*0.42), n, _iaR(r*1.18));
+}
+function tratteggioSvg(x0, y0, w, h, passo){
+  var s="", k=-h;
+  for(; k<w; k+=passo){
+    var p=[];
+    [0,h].forEach(function(yy){ var xx=yy+k; if(xx>=0 && xx<=w) p.push([xx,yy]); });
+    [0,w].forEach(function(xx){ var yy=xx-k; if(yy>=0 && yy<=h) p.push([xx,yy]); });
+    if(p.length>=2){ p.sort(function(a,b){ return a[0]-b[0] || a[1]-b[1]; });
+      s+='<line x1="'+_iaR(x0+p[0][0])+'" y1="'+_iaR(y0+p[0][1])+'" x2="'+_iaR(x0+p[p.length-1][0])+'" y2="'+_iaR(y0+p[p.length-1][1])+'" stroke="#6b7280" stroke-width="1"/>'; }
+  }
+  return s;
+}
+function ptAppCarico(it){ var v=Math.round(+(it && it.carico)); return (isFinite(v) && v>0) ? Math.min(v, 99999) : 0; }
+function ptAppPortata(it){ var v=Math.round(+(it && it.portata)); return (isFinite(v) && v>0) ? Math.min(v, 99999) : 0; }
+function ptAppOltre(it){ var c=ptAppCarico(it), p=ptAppPortata(it); return !!(c && p && c>p); }
+function puntoAppSvg(it){
+  var oltre=ptAppOltre(it), ring=oltre ? "#dc2626" : "#33383e";
+  var s='<circle cx="0" cy="0" r="11.2" fill="#fff"/>'
+    +'<circle cx="0" cy="0" r="9.8" fill="none" stroke="'+ring+'" stroke-width="1.6"/>'
+    +'<line x1="-15" y1="0" x2="15" y2="0" stroke="'+ring+'" stroke-width="1.2"/>'
+    +'<line x1="0" y1="-15" x2="0" y2="15" stroke="'+ring+'" stroke-width="1.2"/>'
+    +'<circle cx="0" cy="0" r="2.6" fill="#3b82f6"/>';
+  var nome=String(it && it.label!=null ? it.label : "P1").slice(0,12);
+  if(nome) s+=_iaT(19, -2, esc(nome), 10, "#111827", 700, "start");
+  var c=ptAppCarico(it), p=ptAppPortata(it);
+  if(c || p) s+=_iaT(19, 11, (c ? c+" kg" : "—")+(p ? " / "+p+" kg" : ""), 8, oltre ? "#dc2626" : "#4b5563", 600, "start");
+  return s;
+}
+function uscitaFigSvg(bn, specchio){
+  var fondo=bn ? "#fff" : "#16a34a", segno=bn ? "#111827" : "#fff";
+  var s='<rect x="-30" y="-17" width="60" height="34" rx="3" fill="'+fondo+'"'+(bn ? ' stroke="#111827" stroke-width="2"' : "")+'/>';
+  var st='fill="none" stroke="'+segno+'" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"';
+  var g='<rect x="11" y="-12" width="13" height="24" rx="1" fill="none" stroke="'+segno+'" stroke-width="2.2"/>'
+    +'<circle cx="-2" cy="-9.5" r="3" fill="'+segno+'"/>'
+    +'<path '+st+' d="M -3.5,-4.5 L -6.5,4"/>'
+    +'<path '+st+' d="M -6.5,4 L -1,7 L 1,12.5"/>'
+    +'<path '+st+' d="M -6.5,4 L -11.5,8 L -16,7"/>'
+    +'<path '+st+' d="M -3.8,-3.5 L 1.5,-1 L 5,-4"/>'
+    +'<path '+st+' d="M -4.2,-3.2 L -9,-1 L -12.5,-4"/>'
+    +'<path fill="none" stroke="'+segno+'" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" d="M -26,12 L -17,12 M -20,9 L -17,12 L -20,15"/>';
+  return s+(specchio ? '<g transform="scale(-1,1)">'+g+'</g>' : g);
+}
+var _IA_PRESE={ presa16:[16,3,false,false], presa16r:[16,5,false,false], presa32:[32,5,false,false], presa63:[63,5,false,false],
+  presa125:[125,5,false,false], presa32s:[32,5,false,true], presaciv:[16,0,true,false] };
+(function(){
+  function presaTipo(k, nome, dim, alias){
+    var p=_IA_PRESE[k];
+    TYPES[k]={nome:nome, dim:dim, cat:"Elettrico", sub:"Prese", w:30, d:30, noLabel:true, alias:alias,
+      draw:function(){ return presaSvg(p[0], p[1], p[2], p[3]); }};
+  }
+  presaTipo("presa16", "Presa CEE 16 A · 3 poli", "blu · 230 V · simbolo", "presa cee blu monofase 16a 16 ampere industriale 230v spina");
+  presaTipo("presa16r", "Presa CEE 16 A · 5 poli", "rossa · 400 V · simbolo", "presa cee rossa trifase pentapolare 16a 400v industriale");
+  presaTipo("presa32", "Presa CEE 32 A · 5 poli", "rossa · 400 V · simbolo", "presa cee rossa trifase pentapolare 32a 400v industriale");
+  presaTipo("presa63", "Presa CEE 63 A · 5 poli", "rossa · 400 V · simbolo", "presa cee rossa trifase pentapolare 63a 400v industriale");
+  presaTipo("presa125", "Presa CEE 125 A · 5 poli", "rossa · 400 V · simbolo", "presa cee rossa trifase pentapolare 125a 400v industriale");
+  presaTipo("presa32s", "Presa CEE 32 A del service", "tratteggiata · la porta il service", "presa cee service portata dal service generatore 32a rossa");
+  presaTipo("presaciv", "Presa civile 16 A", "quadrata · simbolo", "presa civile schuko bipasso 10a 16a domestica 230v");
+  TYPES.puntoapp={nome:"Punto di appendimento", dim:"nome · carico · portata", cat:"Rigging e strutture", w:30, d:30, defLabel:"P1", innerLabel:true,
+    alias:"punto di appendimento rigging point appendimento motore carico portata kg punto",
+    draw:function(it){ return puntoAppSvg(it); }};
+  TYPES.tiro={nome:"Tiro della sala (tubo)", dim:"tubo Ø 5 · numerato", cat:"Rigging e strutture", w:600, d:5, resizable:true, z:1, noLabel:true,
+    alias:"tiro tiri stangone stangoni tubo graticcia americana di sala teatro",
+    draw:function(it){ return bar(0,0,it.w,Math.max(3,it.d),'ic fGrey',2.5); }};
+  TYPES.boccascena={nome:"Boccascena", dim:"luce 10 m · spalle in muratura", cat:"Palco e strutture", w:1240, d:60, resizable:true, z:1, noLabel:true,
+    alias:"boccascena proscenio arco scenico spalle muro teatro apertura",
+    draw:function(it){
+      var W=it.w, D=it.d, muro=Math.min(120, W*0.12), luce=W-2*muro, s="";
+      [-1,1].forEach(function(sd){ var x0=sd>0 ? W/2-muro : -W/2;
+        s+='<rect x="'+_iaR(x0)+'" y="'+_iaR(-D/2)+'" width="'+_iaR(muro)+'" height="'+_iaR(D)+'" fill="#e5e7eb" stroke="#1f2937" stroke-width="2"/>'+tratteggioSvg(x0, -D/2, muro, D, 12); });
+      var y=-D/2-26;
+      s+='<line x1="'+_iaR(-luce/2)+'" y1="'+_iaR(y)+'" x2="'+_iaR(luce/2)+'" y2="'+_iaR(y)+'" stroke="#4b5563" stroke-width="1"/>'
+        +'<line x1="'+_iaR(-luce/2)+'" y1="'+_iaR(y-7)+'" x2="'+_iaR(-luce/2)+'" y2="'+_iaR(y+7)+'" stroke="#4b5563" stroke-width="1"/>'
+        +'<line x1="'+_iaR(luce/2)+'" y1="'+_iaR(y-7)+'" x2="'+_iaR(luce/2)+'" y2="'+_iaR(y+7)+'" stroke="#4b5563" stroke-width="1"/>'
+        +_iaT(0, _iaR(y-6), "boccascena "+(luce/100).toFixed(2).replace(".",",")+" m", 13, "#4b5563", 600);
+      return s; }};
+  TYPES.lineasipario={nome:"Linea zero", dim:"linea del sipario · zero delle quote", cat:"Palco e strutture", w:1000, d:12, resizable:true, z:2, noLabel:true,
+    alias:"linea del sipario sipario zero quote boccascena tenda",
+    draw:function(it){ var W=it.w;
+      return '<line x1="'+_iaR(-W/2)+'" y1="0" x2="'+_iaR(W/2)+'" y2="0" stroke="#7f1d1d" stroke-width="3"/>'
+        +'<line x1="'+_iaR(-W/2)+'" y1="5" x2="'+_iaR(W/2)+'" y2="5" stroke="#7f1d1d" stroke-width="1" stroke-dasharray="3 4"/>'
+        +_iaT(_iaR(W/2-6), -8, "LINEA DEL SIPARIO · 0,00", 11, "#7f1d1d", 600, "end"); }};
+  TYPES.lineacentro={nome:"Linea di centro (CL)", dim:"tratto-punto", cat:"Palco e strutture", w:30, d:800, resizable:true, z:2, noLabel:true,
+    alias:"linea di centro centro palco cl center line asse mezzeria",
+    draw:function(it){ var D=it.d, s='<line x1="0" y1="'+_iaR(-D/2+28)+'" x2="0" y2="'+_iaR(D/2-28)+'" stroke="#1f2937" stroke-width="1.4" stroke-dasharray="24 6 4 6"/>';
+      [-D/2+14, D/2-14].forEach(function(y){ s+='<circle cx="0" cy="'+_iaR(y)+'" r="13" fill="#fff" stroke="#1f2937" stroke-width="1.6"/>'+_iaT(0, _iaR(y+4), "CL", 10.5); });
+      return s; }};
+  TYPES.quintanum={nome:"Quinta numerata", dim:"150×12 · numero della coppia", cat:"Palco e strutture", w:150, d:12, resizable:true, z:1, defLabel:"1", innerLabel:true,
+    alias:"quinta quinte numerata coppia di quinte teatro",
+    draw:function(it){ var W=it.w, n=esc(String(it.label==null ? "" : it.label).slice(0,3));
+      return bar(0,0,W,it.d,'ic fBlack',2)+lin(-W/2+12,0,W/2-12,0,'sil')+(n ? badgeSvg(W/2+16, 0, n, 10) : ""); }};
+  TYPES.uscitafig={nome:"Uscita di sicurezza", dim:"segnale 60×34 · verde", cat:"Sicurezza e site", w:60, d:34, noLabel:true,
+    alias:"uscita di sicurezza uscita emergenza exit via di fuga",
+    draw:function(){ return uscitaFigSvg(false, false); }};
+  TYPES.uscitafigsx={nome:"Uscita di sicurezza (verso sinistra)", dim:"segnale 60×34 · verde", cat:"Sicurezza e site", w:60, d:34, noLabel:true,
+    alias:"uscita di sicurezza uscita emergenza exit via di fuga sinistra",
+    draw:function(){ return uscitaFigSvg(false, true); }};
+  TYPES.uscitafigbn={nome:"Uscita di sicurezza (bianco e nero)", dim:"segnale 60×34 · per la stampa", cat:"Sicurezza e site", w:60, d:34, noLabel:true,
+    alias:"uscita di sicurezza uscita emergenza exit bianco e nero stampa",
+    draw:function(){ return uscitaFigSvg(true, false); }};
+  TYPES.gonna={nome:"Gonna della pedana", dim:"tessuto sul lato · 200", cat:"Palco e strutture", w:200, d:8, resizable:true, z:1, noLabel:true,
+    alias:"gonna gonne skirt tessuto pedana copri pedana mantovana",
+    draw:function(it){ var W=it.w, s='<line x1="'+_iaR(-W/2)+'" y1="0" x2="'+_iaR(W/2)+'" y2="0" stroke="#111827" stroke-width="4.5"/>', n=Math.max(2, Math.floor(W/12));
+      for(var k=1;k<n;k++){ var x=-W/2+W*k/n; s+='<line x1="'+_iaR(x)+'" y1="0" x2="'+_iaR(x)+'" y2="5" stroke="#111827" stroke-width="1.4"/>'; }
+      return s; }};
+  TYPES.croce={nome:"Croce", dim:"su base · elemento del luogo", cat:"Palco e strutture", w:44, d:60, resizable:true, z:1, noLabel:true,
+    alias:"croce crocifisso chiesa altare",
+    draw:function(it){ var h=Math.min(it.d, 60);
+      return circ(0,0,Math.min(22, it.w/2),'ic soft thin')+bar(0,0,5,h,'ic fGrey thin',1)+bar(0,-h*0.18,h*0.6,5,'ic fGrey thin',1); }};
+})();
+
 /* ===== Vocabolario di ricerca (24/07) =====
    Come i fonici chiamano davvero le cose: nomi di mestiere ("chitarrista"), plurali ("transenne"),
    gergo ("spia", "praticabile", "in ear", "occhio di bue") e inglese ("drummer", "kick").
@@ -2715,6 +2862,8 @@ var GEN_KVA = { gen60:60, gen20:20 };                 /* sorgenti, non carichi *
 function wattOf(it){
   if(!it) return 0;
   if(it.watt!=null && isFinite(it.watt)) return Math.max(0, +it.watt);
+  var pw=(typeof proWatt==="function")?proWatt(it):null;   /* catalogo pro (16/11): consumo di targa del modello, con la fonte */
+  if(pw!=null) return pw;
   var lw=(typeof lightModelWatt==="function")?lightModelWatt(it):null;   /* modello della luce (LIGHT_MODEL_DB): watt ASSORBITI di targa */
   if(lw!=null) return lw;
   var ew=(typeof equipWatt==="function")?equipWatt(it):null;   /* modello reale: consumo elettrico di targa (≠ potenza audio) */
@@ -2733,7 +2882,7 @@ function hasWatt(type){ return WATT[type]!=null || WATT_BY_AREA[type]!=null; }
    all'utente, perché il campo Watt del pannello guardava solo la tabella dei tipi (visto in prova
    sul browser il 29/07). */
 function hasWattItem(it){ if(it && it.type==="custom") return false;   /* elemento personalizzato: la potenza si scrive nella sua scheda («Modifica elemento»), con ingressi e backline — una via sola. Nei carichi conta lo stesso (wattOf legge it.watt) */
-  return !!(it && (hasWatt(it.type) || (typeof lightModelWatt==="function" && lightModelWatt(it)!=null))); }
+  return !!(it && (hasWatt(it.type) || (typeof lightModelWatt==="function" && lightModelWatt(it)!=null) || (typeof proWatt==="function" && proWatt(it)!=null))); }
 /* ===== EQUIPMENT INTELLIGENCE (fase 2, spec H in docs/product-audit/equipment-intelligence/) =====
    Un elemento può portare un MODELLO REALE di attrezzatura: it.modelId (slug del DB globale equip_product)
    + it.modelData (SNAPSHOT dell'oggetto SourcedValue: il progetto resta auto-contenuto e OFFLINE-first)
@@ -2885,6 +3034,8 @@ function equipWeight(it){ var r=equipResolve(it), v=r&&r.weight_kg; if(!v) retur
   var n=(typeof v==="object" && ("value" in v)) ? v.value : v;
   if(n==null) return null; n=+n; if(!isFinite(n)||n<=0) return null; return n; }
 function weightOf(it){ if(!it) return 0; if(it.kg!=null && isFinite(it.kg)) return Math.max(0,+it.kg);
+  var pk=(typeof proKg==="function")?proKg(it):null;   /* catalogo pro (16/11): peso netto di scheda */
+  if(pk!=null) return pk;
   var ew=(typeof equipWeight==="function")?equipWeight(it):null;   /* modello reale: peso di targa */
   if(ew!=null) return ew;
   var aw=(typeof ampModelKg==="function")?ampModelKg(it):null;   /* backline reale (AMP_DB) */
@@ -2906,6 +3057,7 @@ function fmtKg(kg){ return kg>=1000 ? (kg/1000).toFixed(1).replace(".",",")+" t"
 function wattFonte(it){
   if(!it) return "stima";
   if(it.watt!=null && isFinite(it.watt)) return "dichiarato";
+  if(typeof proWatt==="function" && proWatt(it)!=null) return "targa";
   if(typeof lightModelWatt==="function" && lightModelWatt(it)!=null) return "targa";
   if(typeof equipWatt==="function" && equipWatt(it)!=null) return "targa";
   /* Il tipo E' gia' un modello preciso (le console): il numero viene dal documento del costruttore,
@@ -3142,7 +3294,7 @@ var TASTIERE = { stagepiano:1, doppiatastiera:1, celesta:1, pianoverticale:1 }; 
 var RACK_ELIGIBLE={ stagebox:1, mixhub:1, splitter:1, patchpt:1, distro32:1, distro63:1, rxrf:1, rfsplit:1, netswitch:1 };
 var RACK_FN=[["stagebox","Stagebox"],["rf","RF"],["dante","Dante / rete"],["monitor","Monitor / cuffie"],["foh","FOH"],["elettrico","Elettrico"],["generico","Generico"]];
 /* altezze U note dai datasheet (archivio manuali) — MAI inventate: gli altri modelli partono da 1U, modificabile */
-var RACK_U_HW={ rio3224d2:3, rio3224d3:3, rio1608d2:2, rio1608d3:2, tio1608d:2 };
+var RACK_U_HW={ rio3224d2:5, rio3224d3:3, rio1608d2:3, rio1608d3:2, tio1608d:2 };   /* 16/11/2026: D2 corrette dalla scheda (220 mm = 5U, 132 mm = 3U; Rio3224-D2 OM p.31); le D3 senza scheda in archivio restano */
 function rackUhOf(it){
   if(it.rackUh) return it.rackUh;
   if(it.type==="stagebox" && it.hw && RACK_U_HW[it.hw]) return RACK_U_HW[it.hw];
@@ -6448,7 +6600,7 @@ var MOUNT_MODES=[["floor","A terra"],["stand","Su stativo"],["hung","Appeso"]];
 var MOUNT_H_DEF={ floor:25, stand:250, hung:400 };     /* cm dal palco al punto luce */
 var MOUNT_H_MIN=20, MOUNT_H_MAX=1200;                  /* limiti larghi: 20 cm (a terra) → 12 m (americana alta) */
 var MOUNT_SAFETY=[["present","Presente"],["unspecified","Da verificare"],["missing","Mancante"]];
-var HANG_STRUCT={ americana:1, truss:1 };              /* strutture a cui si appende: barra luci e truss */
+var HANG_STRUCT={ americana:1, truss:1, tiro:1 };   /* tiro della sala (16/11): numerato come le americane, con la T */              /* strutture a cui si appende: barra luci e truss */
 function isMountable(it){ return !!(it && lightsIsGear(it.type)); }   /* gli apparecchi del reparto luci */
 function isHangStruct(it){ return !!(it && HANG_STRUCT[it.type]===1); }
 function mountModeOf(it){
@@ -6525,7 +6677,7 @@ function rigPesoKg(it){
 function rigTrimTesto(cm){ return "+"+(cm/100).toFixed(2).replace(".",",")+" m"; }
 function rigEtichetta(it){
   var r=rigOf(it); if(!r) return "";
-  var num=rigNumero(it), bits=[/^\d+$/.test(num) ? "A"+num : num], h=rigHPulita(r.h), kg=rigPesoKg(it);   /* «A3» per il numero; un nome a mano («LX2») resta com'è */
+  var num=rigNumero(it), bits=[/^\d+$/.test(num) ? (it.type==="tiro" ? "T" : "A")+num : num], h=rigHPulita(r.h), kg=rigPesoKg(it);   /* «A3» per il numero; un nome a mano («LX2») resta com'è */
   if(h) bits.push(rigTrimTesto(h));
   if(kg>0) bits.push(Math.round(kg)+" kg");
   return bits.join(" · ");
@@ -13714,6 +13866,247 @@ var MIXER_DB = {
        Dante: le specifiche ufficiali S6L non lo nominano → campo assente, né sì né no. */
     src:"VENUE S6L Product Specifications, S6L Control Surface Specifications"}
 };
+/* ===== CATALOGO PRO (16/11/2026) — console digitali e stage rack con le misure delle schede =====
+   Richiesta di Simone (16/11): «un catalogo professionale di stage box e mixing desk digitali».
+   Un registro solo, PRO_DB: ogni modello porta misura in pianta, peso, consumo, U rack, I/O e la FONTE
+   (documento del costruttore, pagina, frase copiata). Niente dato senza fonte: null = la scheda non lo
+   dice, mai stimato. Il motore continua a leggere STAGEBOX_DB e MIXER_DB: qui sotto i modelli nuovi ci
+   entrano, quelli già presenti ricevono solo misure, peso, consumo e fonte (I/O e protocolli restano).
+
+   Sul palco un modello è il tipo di sempre (stagebox, mixer, o la console che ha già un'icona) con
+   hw:"<id>" e pro:1. pro:1 vuol dire «posato dal catalogo pro»: solo allora peso e consumo vengono dal
+   modello (wattFonte «targa»). Un progetto salvato prima con lo stesso hw non cambia numeri riaprendolo
+   (come le scale salvate del 16/11): il rider già mandato al teatro resta quello.
+
+   Icone: disegnate a codice dalle misure (metodo ibrido approvato, memoria stageplot_icone_da_foto):
+   stage box = pannello connettori di sbDraw nella misura vera; console = superficie con schermi,
+   manopole, banchi di fader e appoggiapolsi dalla parte di chi mixa (in basso, come le icone dell'app).
+   Il numero dei fader e degli schermi viene dalla scheda quando la scheda lo dice (look.f, look.s);
+   la loro posizione esatta è indicativa: conta l'ingombro. Solo rect/circle/line: passa da svg2pdf.
+
+   I dati stanno fra i marcatori <dati> e </dati>, generati da
+   STAGEPLOT/analisi/2026-11-16_CATALOGO_PRO/genera_pro_db.py (fuori dal repo pubblico) partendo dal JSON
+   verificato sulle schede. Non modificarli a mano senza aggiornare il JSON. */
+/* <dati> */
+var PRO_DB = {
+  "x32c":{"kind":"console","brand":"Behringer","model":"X32 COMPACT","famiglia":"X32","mm":[625.0,510.0,215.0],"kg":15.4,"W":120,"in":16,"out":8,"proto":["aes50"],"src":"Behringer X32-COMPACT Manual, p.68/67/1","look":{"f":[16,1],"s":1},"usb":{"in":32,"out":32,"port":"scheda X-USB"}},
+  "x32p":{"kind":"console","brand":"Behringer","model":"X32 PRODUCER","famiglia":"X32","mm":[490.0,506.0,163.0],"kg":11.4,"W":70,"in":16,"out":8,"proto":["aes50"],"src":"Behringer X32-PRODUCER Manual, p.68/67/1","look":{"f":[16,1],"s":1},"usb":{"in":32,"out":32,"port":"scheda X-USB"}},
+  "x32r":{"kind":"console","brand":"Behringer","model":"X32 RACK","famiglia":"X32","mm":[483.0,287.0,132.0],"kg":6.5,"W":60,"rackU":3,"in":16,"out":8,"proto":["aes50"],"src":"Behringer X32-RACK Manual, p.59/58","look":{"rack":1},"usb":{"in":32,"out":32,"port":"scheda X-USB"}},
+  "wing":{"kind":"console","brand":"Behringer","model":"WING","famiglia":"WING","mm":[870.0,575.0,201.0],"kg":24,"W":130,"in":8,"out":8,"proto":["aes50"],"src":"Behringer WING-series UserManual, p.167/11/10/13","look":{"f":[12,8,4],"s":1},"usb":{"in":48,"out":48,"port":"USB-B"}},
+  "wingc":{"kind":"console","brand":"Behringer","model":"WING COMPACT","famiglia":"WING","mm":[453.0,574.0,225.0],"kg":15.4,"W":130,"in":24,"out":8,"proto":["aes50"],"src":"Behringer WING-series UserManual, p.167/11/10/13","look":{"f":[12,1],"s":1},"usb":{"in":48,"out":48,"port":"USB-B"}},
+  "wingr":{"kind":"console","brand":"Behringer","model":"WING RACK","famiglia":"WING","mm":[326.0,486.0,183.0],"kg":15.4,"W":130,"in":24,"out":8,"proto":["aes50"],"src":"Behringer WING-series UserManual, p.167/11","look":{"rack":1},"usb":{"in":48,"out":48,"port":"USB-B"}},
+  "m32":{"kind":"console","brand":"Midas","model":"M32","famiglia":"M32","mm":[891.0,612.0,256.0],"kg":24.5,"W":120,"in":32,"out":22,"proto":["aes50"],"src":"Midas M32 Manual, p.47/46","look":{"f":[8,8,8,1],"s":1,"c":"blu"}},
+  "m32r":{"kind":"console","brand":"Midas","model":"M32R LIVE","famiglia":"M32","mm":[478.0,617.0,208.0],"kg":14.3,"W":70,"in":16,"out":8,"proto":["aes50"],"src":"Midas M32R Manual, p.53/52","look":{"f":[8,8,1],"s":1,"c":"blu"},"usb":{"in":32,"out":32,"port":"scheda DN32-USB"}},
+  "m32c":{"kind":"console","brand":"Midas","model":"M32C","famiglia":"M32","mm":[483.0,300.0,50.0],"kg":3.5,"W":40,"proto":["aes50"],"src":"Midas M32C QuickStart, p.17/6","look":{"rack":1,"c":"blu"},"usb":{"in":32,"out":32,"port":"scheda DN32-USB"}},
+  "hd9624":{"kind":"console","brand":"Midas","model":"HD96-24-CC-TP","famiglia":"","mm":[1028.0,719.0,352.0],"kg":43.2,"in":8,"out":8,"proto":["hypermac"],"src":"Midas HD96-24-CC-TP QuickStart, p.128/127/8","Wunit":"W (2 x 650 W)","tipo":"hd96"},
+  "tf5":{"kind":"console","brand":"Yamaha","model":"TF5","famiglia":"TF","mm":[866.0,599.0,225.0],"kg":20.0,"W":120,"in":32,"out":16,"proto":[],"src":"Yamaha TF Series brochure, p.13/12/8","look":{"f":[16,16,1],"s":1},"usb":{"in":34,"out":34,"port":"USB TO HOST"}},
+  "tf3":{"kind":"console","brand":"Yamaha","model":"TF3","famiglia":"TF","mm":[716.0,599.0,225.0],"kg":17.0,"W":110,"in":24,"out":16,"proto":[],"src":"Yamaha TF Series brochure, p.13/12/8","look":{"f":[24,1],"s":1},"usb":{"in":34,"out":34,"port":"USB TO HOST"}},
+  "tf1":{"kind":"console","brand":"Yamaha","model":"TF1","famiglia":"TF","mm":[510.0,599.0,225.0],"kg":13.5,"W":100,"in":16,"out":16,"proto":[],"src":"Yamaha TF Series brochure, p.13/12/8","look":{"f":[16,1],"s":1},"usb":{"in":34,"out":34,"port":"USB TO HOST"}},
+  "tfrack":{"kind":"console","brand":"Yamaha","model":"TF-RACK","famiglia":"TF","mm":[480.0,409.0,132.0],"kg":9.2,"W":85,"rackU":3,"in":16,"out":16,"proto":[],"src":"Yamaha TF Series brochure, p.13","look":{"rack":1},"usb":{"in":34,"out":34,"port":"USB TO HOST"}},
+  "csr5":{"kind":"console","brand":"Yamaha","model":"CS-R5 (RIVAGE PM5)","famiglia":"RIVAGE PM","mm":[1444.0,643.0,414.0],"kg":42,"in":8,"out":8,"proto":["twinlane","dante"],"src":"Yamaha RIVAGE-PM Series Brochure, p.10/4","tipo":"csr5"},
+  "csr3":{"kind":"console","brand":"Yamaha","model":"CS-R3 (RIVAGE PM3)","famiglia":"RIVAGE PM","mm":[1145.0,650.0,385.0],"kg":38,"in":8,"out":8,"proto":["twinlane","dante"],"src":"Yamaha RIVAGE-PM Series Brochure, p.11/4","tipo":"csr3"},
+  "csr10":{"kind":"console","brand":"Yamaha","model":"CS-R10 (RIVAGE PM10)","famiglia":"RIVAGE PM","mm":[1549.0,848.0,417.0],"kg":85,"in":8,"out":8,"proto":["twinlane","dante"],"src":"Yamaha RIVAGE-PM Series Brochure, p.10/4","tipo":"csr10"},
+  "csd7":{"kind":"console","brand":"Yamaha","model":"CSD-R7 (RIVAGE PM7)","famiglia":"","mm":[1549.0,848.0,417.0],"kg":94,"in":8,"out":8,"proto":["twinlane","dante"],"src":"Yamaha RIVAGE-PM Series Brochure, p.10/4","look":{"f":[12,12,12,2],"s":3,"c":"nero"}},
+  "cl5":{"kind":"console","brand":"Yamaha","model":"CL5","famiglia":"CL","mm":[1053.0,667.0,299.0],"kg":36,"W":170,"proto":["dante"],"src":"Yamaha CL5 OwnerManual EN, p.56/17","look":{"f":[16,8,8,2],"s":1,"c":"nero"}},
+  "qu5":{"kind":"console","brand":"Allen & Heath","model":"Qu-5","famiglia":"Qu","mm":[440.0,476.0,213.0],"kg":10,"W":70,"in":16,"out":14,"proto":["dsnake"],"src":"AllenHeath Qu-5 Qu-5D TechnicalDatasheet, p.9/8/2","look":{"f":[16,1],"s":1},"usb":{"in":32,"out":32,"port":"USB-C"},"dante":false},
+  "qu6":{"kind":"console","brand":"Allen & Heath","model":"Qu-6","famiglia":"Qu","mm":[609.0,476.0,213.0],"kg":13.5,"W":90,"in":24,"out":18,"proto":["dsnake"],"src":"AllenHeath Qu-6 Qu-6D TechnicalDatasheet, p.9/8/2","look":{"f":[24,1],"s":1},"usb":{"in":32,"out":32,"port":"USB-C"},"dante":false},
+  "qu7":{"kind":"console","brand":"Allen & Heath","model":"Qu-7","famiglia":"Qu","mm":[800.0,476.0,213.0],"kg":16.7,"W":105,"in":32,"out":22,"proto":["dsnake"],"src":"AllenHeath Qu-7 Qu-7D TechnicalDatasheet, p.9/8/2","look":{"f":[32,1],"s":1},"usb":{"in":32,"out":32,"port":"USB-C"},"dante":false},
+  "sq6":{"kind":"console","brand":"Allen & Heath","model":"SQ-6","famiglia":"SQ","mm":[638.0,514.9,198.0],"kg":14.5,"W":90,"in":24,"out":16,"proto":["dsnake","gigaace"],"src":"AllenHeath SQ-6 TechnicalDatasheet, p.6/1","look":{"f":[12,12,1],"s":1}},
+  "sq7":{"kind":"console","brand":"Allen & Heath","model":"SQ-7","famiglia":"SQ","mm":[804.0,514.9,198.0],"kg":17.8,"W":110,"in":32,"out":18,"proto":["dsnake","gigaace"],"src":"AllenHeath SQ-7 TechnicalDatasheet, p.6/1/2","tipo":"sq7","usb":{"in":32,"out":32,"port":"USB-B"}},
+  "cq12t":{"kind":"console","brand":"Allen & Heath","model":"CQ-12T","famiglia":"CQ","mm":[291.0,242.0,89.0],"kg":2.4,"W":35,"in":10,"out":8,"proto":[],"src":"AllenHeath CQ-12T TechnicalDatasheet, p.5/4/1","look":{"tablet":1},"usb":{"in":16,"out":16,"port":"USB-B"}},
+  "cq18t":{"kind":"console","brand":"Allen & Heath","model":"CQ-18T","famiglia":"CQ","mm":[346.0,242.0,89.0],"kg":3.0,"W":35,"in":16,"out":8,"proto":[],"src":"AllenHeath CQ-18T TechnicalDatasheet, p.5/4/1","look":{"tablet":1},"usb":{"in":24,"out":22,"port":"USB-B"}},
+  "cq20b":{"kind":"console","brand":"Allen & Heath","model":"CQ-20B","famiglia":"CQ","mm":[372.0,154.0,134.0],"kg":2.6,"W":45,"in":16,"out":10,"proto":[],"src":"AllenHeath CQ-20B TechnicalDatasheet, p.5/4/1","look":{"rack":1},"usb":{"in":24,"out":24,"port":"USB-B"}},
+  "dlc1500":{"kind":"console","brand":"Allen & Heath","model":"dLive C1500","famiglia":"dLive","mm":[485.0,665.0,325.0],"kg":18,"proto":[],"src":"AllenHeath dLive-C1500 WeightsAndDims, p.1","look":{"f":[12],"s":1,"c":"nero"}},
+  "dlc2500":{"kind":"console","brand":"Allen & Heath","model":"dLive C2500","famiglia":"dLive","mm":[775.0,665.0,325.0],"kg":24.5,"W":110,"in":6,"out":6,"proto":["gigaace"],"src":"AllenHeath dLive-C2500 Datasheet, p.2/1","look":{"f":[10,10],"s":1,"c":"nero"}},
+  "dlc3500":{"kind":"console","brand":"Allen & Heath","model":"dLive C3500","famiglia":"dLive","mm":[885.0,665.0,325.0],"kg":28,"W":110,"in":6,"out":6,"proto":["gigaace"],"src":"AllenHeath dLive-C3500 Datasheet, p.2/1","look":{"f":[12,12],"s":2,"c":"nero"}},
+  "dlives5":{"kind":"console","brand":"Allen & Heath","model":"dLive S5000","famiglia":"dLive","mm":[1115.0,728.0,413.0],"kg":35,"W":300,"in":8,"out":8,"proto":["gigaace"],"src":"AllenHeath dLive-S5000 Datasheet, p.4/3/1","tipo":"dlives5"},
+  "q225":{"kind":"console","brand":"DiGiCo","model":"Quantum 225","famiglia":"Quantum","mm":[1124.0,801.0,436.0],"kg":43,"in":8,"out":8,"proto":["madi"],"src":"DiGiCo Quantum-225 DataSheet, p.5/2","look":{"f":[12,12],"s":1,"c":"nero"}},
+  "q338":{"kind":"console","brand":"DiGiCo","model":"Quantum 338","famiglia":"Quantum","mm":[1595.0,805.0,482.0],"kg":70,"in":8,"out":8,"proto":["madi"],"src":"DiGiCo Quantum-338 DataSheet, p.5/2","tipo":"q338"},
+  "q7":{"kind":"console","brand":"DiGiCo","model":"Quantum 7","famiglia":"Quantum","mm":[1496.0,875.0,503.0],"kg":112,"in":12,"out":12,"proto":["optocore","madi"],"src":"DiGiCo Quantum-7 DataSheet, p.5/2/1","look":{"f":[12,12,12,2],"s":3,"c":"nero"}},
+  "sd7":{"kind":"console","brand":"DiGiCo","model":"SD7","famiglia":"SD","mm":[1496.0,875.0,503.0],"kg":107,"in":12,"out":12,"proto":["optocore","madi"],"src":"DiGiCo SD7 DataSheet, p.5/2/1","look":{"f":[12,12,12,2],"s":3,"c":"nero"}},
+  "sd9":{"kind":"console","brand":"DiGiCo","model":"SD9","famiglia":"SD","mm":[878.0,785.0,262.0],"kg":36,"W":208,"in":8,"out":8,"proto":["madi"],"src":"DiGiCo SD9 DataSheet, p.3/4/2","Wunit":"W (232 VA)","look":{"f":[8,8,8,2],"s":1,"c":"nero"}},
+  "s6l24c":{"kind":"console","brand":"Avid","model":"VENUE S6L-24C","famiglia":"VENUE S6L","mm":[989.0,787.0,205.0],"kg":38,"in":8,"out":10,"proto":["avb"],"src":"Avid VENUE S6L ArchitecturalSpecs, p.3 + Avid VENUE S6L ProductSpecs, p.2","look":{"f":[8,8,8],"s":3,"c":"nero"}},
+  "s6l24d":{"kind":"console","brand":"Avid","model":"VENUE S6L-24D","famiglia":"VENUE S6L","mm":[989.0,787.0,388.0],"kg":54,"in":8,"out":10,"proto":["avb"],"src":"Avid VENUE S6L ArchitecturalSpecs, p.2 + Avid VENUE S6L ProductSpecs, p.2","look":{"f":[8,8,8],"s":4,"c":"nero"}},
+  "s6l32d":{"kind":"console","brand":"Avid","model":"VENUE S6L-32D","famiglia":"VENUE S6L","mm":[1304.0,787.0,388.0],"kg":70,"in":8,"out":10,"proto":["avb"],"src":"Avid VENUE S6L ArchitecturalSpecs, p.2 + Avid VENUE S6L ProductSpecs, p.2","look":{"f":[8,8,8,8],"s":5,"c":"nero"}},
+  "s6l48d":{"kind":"console","brand":"Avid","model":"VENUE S6L-48D","famiglia":"VENUE S6L","mm":[1934.0,787.0,388.0],"kg":108,"in":8,"out":10,"proto":["avb"],"src":"Avid VENUE S6L ArchitecturalSpecs, p.1 + Avid VENUE S6L ProductSpecs, p.2","look":{"f":[8,8,8,8,8,8],"s":7,"c":"nero"}},
+  "s6l16c":{"kind":"console","brand":"Avid","model":"VENUE S6L-16C","famiglia":"VENUE S6L","mm":[671.0,787.0,205.0],"kg":32,"in":1,"out":3,"proto":["avb"],"src":"Avid VENUE S6L ArchitecturalSpecs, p.3 + Avid VENUE S6L ProductSpecs, p.2","look":{"f":[8,8],"s":2,"c":"nero"}},
+  "e6l":{"kind":"console","brand":"Avid","model":"VENUE E6L (engine E6L-112/144/192, E6LX-256)","famiglia":"","mm":[483.0,537.0,218.7],"kg":33.5,"rackU":5,"proto":[],"src":"Avid VENUE S6L ArchitecturalSpecs, p.4","look":{"rack":1,"c":"nero"}},
+  "stage16":{"kind":"stagebox","brand":"Avid","model":"Stage 16","famiglia":"Stage","mm":[483.0,309.8,175.2],"kg":9.5,"rackU":4,"in":16,"out":8,"proto":["avb"],"src":"Avid VENUE S6L ArchitecturalSpecs, p.6 + Avid VENUE S6L ProductSpecs, p.5"},
+  "stage64":{"kind":"stagebox","brand":"Avid","model":"Stage 64","famiglia":"Stage","mm":[483.0,309.8,444.5],"kg":31.2,"rackU":10,"in":48,"out":8,"proto":["avb","madi"],"src":"Avid VENUE S6L ArchitecturalSpecs, p.6 + Avid VENUE S6L ProductSpecs, p.4"},
+  "tio1608d":{"kind":"stagebox","brand":"Yamaha","model":"Tio1608-D","famiglia":"Tio","mm":[480.0,364.0,88.0],"kg":5.7,"W":50,"in":16,"out":8,"proto":["dante"],"src":"Yamaha Tio1608-D datasheet, p.2/1"},
+  "tio1608d2":{"kind":"stagebox","brand":"Yamaha","model":"Tio1608-D2","famiglia":"Tio","mm":[480.0,364.0,88.0],"kg":5.7,"W":50,"rackU":2,"in":16,"out":8,"proto":["dante"],"src":"Yamaha Tio1608-D2 OwnerManual, p.20/19/8"},
+  "rio1608d2":{"kind":"stagebox","brand":"Yamaha","model":"Rio1608-D2","famiglia":"Rio","mm":[480.0,367.5,132.0],"kg":9.6,"W":72,"rackU":3,"in":16,"out":8,"proto":["dante"],"src":"Yamaha Rio3224-D2 OwnerManual, p.31 + Yamaha RIVAGE-PM Series Brochure, p.11"},
+  "rio3224d2":{"kind":"stagebox","brand":"Yamaha","model":"Rio3224-D2","famiglia":"Rio","mm":[480.0,367.5,220.0],"kg":13.5,"W":120,"rackU":5,"in":32,"out":16,"proto":["dante"],"src":"Yamaha Rio3224-D2 OwnerManual, p.31 + Yamaha RIVAGE-PM Series Brochure, p.11"},
+  "dldm48":{"kind":"stagebox","brand":"Allen & Heath","model":"dLive DM48 (MixRack)","famiglia":"DL","mm":[482.6,313.0,369.0],"kg":17.5,"W":300,"rackU":9,"in":48,"out":24,"proto":["gigaace"],"src":"AllenHeath dLive-DM48 Datasheet, p.5/1"},
+  "dx168":{"kind":"stagebox","brand":"Allen & Heath","model":"DX168","famiglia":"DX","mm":[410.0,190.0,185.0],"kg":4.6,"W":35,"in":16,"out":8,"proto":[],"src":"AllenHeath DX168 Datasheet, p.3/1"},
+  "s16":{"kind":"stagebox","brand":"Behringer","model":"S16","famiglia":"S-series","mm":[482.0,225.0,89.0],"kg":4.7,"W":45,"rackU":2,"in":16,"out":8,"proto":["aes50"],"src":"Behringer S16 QuickStart, p.67"},
+  "s32":{"kind":"stagebox","brand":"Behringer","model":"S32","famiglia":"S-series","mm":[483.0,242.0,138.0],"kg":5.6,"W":55,"rackU":3,"in":32,"out":16,"proto":["aes50"],"src":"Behringer S32 QuickStart, p.13"},
+  "sd16":{"kind":"stagebox","brand":"Behringer","model":"SD16","famiglia":"SD","mm":[333.0,149.0,140.0],"kg":3.2,"W":45,"in":16,"out":8,"proto":["aes50"],"src":"Behringer SD16-SD8 QuickStart, p.23"},
+  "sd8":{"kind":"stagebox","brand":"Behringer","model":"SD8","famiglia":"SD","mm":[333.0,149.0,95.0],"kg":2.5,"W":35,"in":8,"out":8,"proto":["aes50"],"src":"Behringer SD16-SD8 QuickStart, p.23"},
+  "dl16":{"kind":"stagebox","brand":"Midas","model":"DL16","famiglia":"DL","mm":[482.0,225.0,89.0],"kg":4.7,"W":45,"rackU":2,"in":16,"out":8,"proto":["aes50"],"src":"Midas DL16 QuickStart, p.67"},
+  "dl32":{"kind":"stagebox","brand":"Midas","model":"DL32","famiglia":"DL","mm":[483.0,242.0,138.0],"kg":5.7,"W":55,"rackU":3,"in":32,"out":16,"proto":["aes50"],"src":"Midas DL32 QuickStart, p.13"},
+  "sdrack":{"kind":"stagebox","brand":"DiGiCo","model":"SD-Rack","famiglia":"SD","mm":[482.7,371.0,443.7],"kg":26,"rackU":10,"proto":["madi"],"src":"DiGiCo SD-Rack DataSheet, p.3/4/1/2","Wunit":"A (85-264 VAC, 4 A max)"},
+  "drack":{"kind":"stagebox","brand":"DiGiCo","model":"D-Rack","famiglia":"D-Rack","mm":[412.0,179.0,310.0],"kg":10,"in":32,"out":8,"proto":["madi"],"src":"DiGiCo D-Rack DataSheet, p.3/4/2","Wunit":"A (88-264 VAC, 2.8 A max)"},
+  "d2rack":{"kind":"stagebox","brand":"DiGiCo","model":"D2-Rack","famiglia":"D-Rack","mm":[482.6,248.0,399.2],"kg":13,"rackU":9,"in":48,"out":16,"proto":["madi"],"src":"DiGiCo D2-Rack DataSheet, p.3/4/2","Wunit":"VA (100-240 VAC, 200 VA max)"}
+};
+/* </dati> */
+
+AUDIO_PROTO.twinlane = AUDIO_PROTO.twinlane || "TWINLANe";
+AUDIO_PROTO.hypermac = AUDIO_PROTO.hypermac || "HyperMAC";
+AUDIO_PROTO.slink = AUDIO_PROTO.slink || "SLink";
+
+/* misura in pianta (cm) = fronte × profondità della scheda */
+function proDimsCm(m){ if(!m || !m.mm) return null; var w=Math.round(m.mm[0]/10), d=Math.round(m.mm[1]/10);
+  return (w>0 && d>0) ? {w:w, d:d} : null; }
+function proNome(m){ return m ? (m.brand+" "+m.model) : ""; }
+/* il modello di un elemento, solo se è del tipo giusto (una stage box non può avere l'id di una console) */
+function proModelOf(it){
+  if(!it || !it.hw || !Object.prototype.hasOwnProperty.call(PRO_DB, it.hw)) return null;
+  var m=PRO_DB[it.hw];
+  if(m.kind==="stagebox") return (it.type==="stagebox" || it.type==="substg") ? m : null;
+  return (it.type==="mixer" || it.type===m.tipo) ? m : null;
+}
+/* peso e consumo del modello: solo per gli elementi posati dal catalogo pro (pro:1), vedi sopra */
+function proKg(it){ var m=(it && it.pro) ? proModelOf(it) : null; return (m && m.kg!=null && isFinite(m.kg)) ? +m.kg : null; }
+function proWatt(it){ var m=(it && it.pro) ? proModelOf(it) : null; return (m && m.W!=null && isFinite(m.W)) ? Math.round(+m.W) : null; }
+function proRackU(id){ var m=PRO_DB[id]; return (m && m.rackU>0) ? m.rackU : null; }
+/* Applica il modello a un elemento già sul palco (pannello «Modello»): misura vera solo se la misura
+   attuale non l'ha scelta l'utente (quella di partenza del tipo o una misura generata da noi). */
+function proApplica(it){
+  var m=proModelOf(it); if(!m){ if(it) delete it.pro; return false; }
+  it.pro=1;
+  var dm=proDimsCm(m), t=TYPES[it.type]||{};
+  var auto=(it.w==null || it.d==null) || (it.w===t.w && it.d===t.d)
+    || ((it.type==="stagebox"||it.type==="substg") && typeof sbIsCanonSize==="function" && sbIsCanonSize(it.w,it.d))
+    || it.proDims===1;
+  if(dm && auto){ it.w=dm.w; it.d=dm.d; it.proDims=1; }
+  return true;
+}
+/* proprietà con cui un modello nasce dal catalogo (ricerca, gruppo «Modelli») */
+function proOver(id){
+  var m=PRO_DB[id]; if(!m) return null;
+  var dm=proDimsCm(m)||{}, o={hw:id, pro:1, proDims:1, w:dm.w, d:dm.d};
+  if(m.kind==="console") o.label=proNome(m);
+  return o;
+}
+function proTipo(id){ var m=PRO_DB[id]; return m ? (m.kind==="stagebox" ? "stagebox" : (m.tipo && TYPES[m.tipo] ? m.tipo : "mixer")) : null; }
+function proDimTesto(m){
+  var p=[];
+  if(m.in!=null || m.out!=null) p.push((m.in||0)+" in / "+(m.out||0)+" out");
+  var dm=proDimsCm(m); if(dm) p.push(dm.w+"×"+dm.d+" cm");
+  if(m.rackU) p.push(m.rackU+"U");
+  return p.join(" · ");
+}
+/* voci per la ricerca e per il gruppo «Modelli»: marca, modello, famiglia, protocollo. Le parole
+   generiche (stage box, console, mixer, rack, dante…) restano alle voci di sempre (qaCede): chi scrive
+   «stage box» trova prima «Stage box 8/16/24», chi scrive «rio» o «x32» trova il modello. */
+var PRO_CEDE="stage box|stagebox|stage|box|console|mixer|mixer digitale|rack|stage rack|dante|digitale|yamaha|allen|midas|behringer|digico|avid|live|dlive";   /* «live» e «dlive» restano del dLive S5000 (06/10/2026) */
+function proCatEntries(kind){
+  return Object.keys(PRO_DB).filter(function(id){ return !kind || PRO_DB[id].kind===kind; }).map(function(id){
+    var m=PRO_DB[id], k=proTipo(id);
+    var kw=[m.brand, m.model, m.model.replace(/[-\s]/g,""), m.famiglia||"", (m.proto||[]).map(function(p){ return AUDIO_PROTO[p]||p; }).join(" "),
+      m.kind==="stagebox" ? "stage box stagebox stage rack rack i/o preamplificatori remoti" : "console mixer digitale banco regia foh monitor"].join(" ");
+    return {k:k, nome:proNome(m), over:proOver(id), dim:proDimTesto(m), kw:kw, qaCede:PRO_CEDE, pro:id};
+  }).sort(function(a,b){ return a.nome.localeCompare(b.nome); });
+}
+/* entra nei registri del motore */
+(function(){
+  Object.keys(PRO_DB).forEach(function(id){
+    var m=PRO_DB[id], DB=(m.kind==="stagebox") ? STAGEBOX_DB : MIXER_DB, e=DB[id];
+    if(!e){
+      e={brand:m.brand, model:m.model, proto:(m.proto||[]).slice(), v:true};
+      if(m.in!=null) e.in=m.in;
+      if(m.out!=null) e.out=m.out;
+      if(m.kind==="stagebox"){ e.in=m.in||0; e.out=m.out||0; e.pre=true; e.casc=true; e.power="AC"; }
+      else {
+        if(m.usb) e.usb=m.usb;
+        if(m.dante!=null) e.dante=m.dante;
+        if(m.danteIn) e.danteIn=m.danteIn;
+        if(m.danteOut) e.danteOut=m.danteOut;
+        if(m.frame) e.frame=m.frame;
+      }
+      e.src=m.src;
+      DB[id]=e;
+    }
+    e.mm=m.mm; e.kg=m.kg; e.W=m.W;
+    if(m.kind==="stagebox" && m.rackU>0 && typeof RACK_U_HW!=="undefined") RACK_U_HW[id]=m.rackU;   /* U di scheda: corregge anche Rio1608-D2 (3U) e Rio3224-D2 (5U) */
+  });
+})();
+
+/* ── icona della console in pianta ─────────────────────────────────────────────────────────────── */
+var PRO_TINTE={ grigio:["#202326","#2c3034","#16191b"], blu:["#18233a","#22304d","#111a2c"], nero:["#141618","#1f2225","#0d0f10"] };
+function consoleProDraw(it, m){
+  var W=it.w||120, D=it.d||70, L=(m && m.look)||{}, tinta=PRO_TINTE[L.c]||PRO_TINTE.grigio;
+  var r2=function(v){ return Math.round(v*100)/100; };
+  function R(x,y,w,h,rx,fill,extra){ return '<rect x="'+r2(x)+'" y="'+r2(y)+'" width="'+r2(Math.max(0,w))+'" height="'+r2(Math.max(0,h))+'" rx="'+r2(rx)+'" fill="'+fill+'"'+(extra||"")+'/>'; }
+  var s=R(-W/2,-D/2,W,D,Math.min(3,W*0.03),tinta[0])+R(-W/2+0.8,-D/2+0.8,W-1.6,D-1.6,Math.min(2.4,W*0.025),tinta[1]);
+  var pad=Math.max(1.2, Math.min(3, W*0.025));
+  if(L.rack || L.tablet){
+    /* console da rack (vista dall'alto: coperchio, orecchie del rack ai lati) o da tavolo senza fader
+       (schermo grande che fa da superficie): niente banchi di fader inventati */
+    if(L.rack){ s+=R(-W/2-0.6, -D/2+1, 1.8, D-2, 0.4, "#3a3f44")+R(W/2-1.2, -D/2+1, 1.8, D-2, 0.4, "#3a3f44"); }
+    var scW=L.tablet ? (W-2*pad)*0.62 : Math.min(W*0.3, 16), scH=L.tablet ? D*0.62 : Math.min(D*0.32, 9);
+    var scX=L.tablet ? -scW/2 : -W/2+pad+1, scY=L.tablet ? -D/2+pad : D/2-pad-scH;
+    s+=R(scX, scY, scW, scH, 0.8, "#0e161d");
+    var nc=Math.max(3, Math.round(scW/3.4)), cw2=(scW-1.6)/nc;
+    for(var c2=0;c2<nc;c2++) s+=R(scX+0.8+c2*cw2+0.2, scY+0.8, cw2-0.4, scH*0.22, 0.25, "#3b6e8c");
+    var nk=Math.max(4, Math.min(16, Math.round((W-2*pad)/3.2))), kp=(W-2*pad)/nk;
+    var ky=L.tablet ? D/2-pad-2.2 : -D/2+pad+2;
+    for(var k2=0;k2<nk;k2++) s+='<circle cx="'+r2(-W/2+pad+(k2+0.5)*kp)+'" cy="'+r2(ky)+'" r="'+r2(Math.min(1.1,kp*0.32))+'" fill="#474c51"/>';
+    s+='<circle cx="'+r2(W/2-pad-1.2)+'" cy="'+r2(-D/2+pad+1)+'" r=".55" fill="#22c55e"/>';
+    return s;
+  }
+  var arm=Math.max(2.5, D*0.12);                       /* appoggiapolsi, dalla parte di chi mixa (y+) */
+  s+=R(-W/2+pad, D/2-pad-arm, W-2*pad, arm, 1.2, tinta[2]);
+  var top=-D/2+pad, zonaS=Math.max(4, D*0.3);          /* fascia degli schermi, verso il palco (y-) */
+  var nS=Math.max(0, Math.min(6, L.s==null ? 1 : L.s));
+  var usable=W-2*pad, gap=Math.max(1, usable*0.02);
+  var sw=nS ? Math.min(usable*(nS>1?0.92:0.5)/nS, 42) : 0, sh=zonaS*0.78;
+  var sx0=(L.sDx==null) ? (-(nS*sw+(nS-1)*gap)/2) : (-W/2+pad+usable*L.sDx);
+  for(var i=0;i<nS;i++){
+    var x=sx0+i*(sw+gap), y=top+(zonaS-sh)/2;
+    s+=R(x,y,sw,sh,0.8,"#0e161d");
+    var cols=Math.max(3, Math.round(sw/3.4)), cw=(sw-1.6)/cols;
+    for(var c=0;c<cols;c++){ s+=R(x+0.8+c*cw+0.2, y+0.8, cw-0.4, sh*0.22, 0.25, "#3b6e8c"); s+=R(x+0.8+c*cw+0.2, y+0.8+sh*0.28, cw-0.4, sh*0.1, 0.2, "#2c5068"); }
+  }
+  /* manopole a sinistra degli schermi (o in riga se lo spazio non c'è) */
+  var kr=Math.max(0.8, Math.min(1.5, W*0.012)), kx=-W/2+pad+kr+0.6;
+  for(var q=0;q<3;q++) s+='<circle cx="'+r2(kx+q*kr*2.8)+'" cy="'+r2(top+zonaS*0.3)+'" r="'+r2(kr)+'" fill="#474c51"/>';
+  /* banchi di fader */
+  var fTop=top+zonaS+pad*0.6, fH=(D/2-pad-arm-pad*0.6)-fTop;
+  var banchi=(L.f && L.f.length) ? L.f : [Math.max(8, Math.round(usable/3.2))];
+  var tot=banchi.reduce(function(a,b){ return a+b; },0), bg=Math.max(1, usable*0.015);
+  var passo=(usable-bg*(banchi.length-1))/Math.max(tot,1), bx=-W/2+pad, seme=7;
+  banchi.forEach(function(nf){
+    var bw=nf*passo; s+=R(bx, fTop, bw, fH, 0.8, tinta[2]);
+    for(var f=0;f<nf;f++){
+      var cx=bx+(f+0.5)*passo; s+='<line x1="'+r2(cx)+'" y1="'+r2(fTop+fH*0.12)+'" x2="'+r2(cx)+'" y2="'+r2(fTop+fH*0.9)+'" stroke="#3a3f44" stroke-width="'+r2(Math.max(0.15,passo*0.12))+'"/>';
+      seme=(seme*37+11)%97; var cy=fTop+fH*(0.25+0.55*(seme/97));
+      s+=R(cx-passo*0.32, cy-Math.max(0.5,passo*0.22), passo*0.64, Math.max(1,passo*0.44), 0.2, "#d9dcdf");
+    }
+    bx+=bw+bg;
+  });
+  /* due led di stato, come sulle icone dell'app */
+  s+='<circle cx="'+r2(W/2-pad-1.2)+'" cy="'+r2(top+1)+'" r=".55" fill="#22c55e"/><circle cx="'+r2(W/2-pad-3)+'" cy="'+r2(top+1)+'" r=".55" fill="#eab308"/>';
+  return s;
+}
+function proConsoleOf(it){ var m=proModelOf(it); return (m && m.kind==="console") ? m : null; }
+(function(){
+  var t=TYPES.mixer; if(!t || t._proDraw) return;
+  var base=t.draw; t._proDraw=true;
+  t.draw=function(it){ var m=proConsoleOf(it); return m ? consoleProDraw(it, m) : base(it); };
+})();
+/* scheda tecnica in una riga (pannello): misura, peso, consumo, U e fonte */
+function proSchedaTesto(m){
+  if(!m) return "";
+  var p=[]; var dm=proDimsCm(m);
+  if(m.mm) p.push(m.mm[0]+"×"+m.mm[1]+(m.mm[2]?"×"+m.mm[2]:"")+" mm");
+  if(m.kg!=null) p.push(String(m.kg).replace(".",",")+" kg");
+  if(m.W!=null) p.push(m.W+" W");
+  if(m.rackU) p.push(m.rackU+"U rack");
+  return p.join(" · ")+(m.src ? " — "+m.src : "");
+}
+
 function hwLabel(id, db){ var m=db[id]; return m ? (m.brand+" "+m.model) : ""; }
 function hwProtoNames(arr){ return (arr||[]).map(function(p){ return AUDIO_PROTO[p]||p; }).join("/"); }
 function hwCompatible(mixerId, sbId){   /* protocollo condiviso mixer↔stagebox; sconosciuto = non blocca */
@@ -18904,7 +19297,7 @@ function renderSbF2(it){
   /* ANALOGICA vs RACK I/O: badge + "Collega a" (solo analogica con rack I/O sul palco); Device ID solo digitali */
   var isDig=!!(it.hw && STAGEBOX_DB[it.hw]);
   var kind=document.getElementById("pSbKind");
-  if(kind){ kind.textContent = isDig ? "Rack I/O digitale ("+hwProtoNames(STAGEBOX_DB[it.hw].proto)+")" : "Analogica (sub-snake)";
+  if(kind){ kind.textContent = isDig ? "Rack I/O digitale ("+hwProtoNames(STAGEBOX_DB[it.hw].proto)+")"+((typeof proModelOf==="function" && proModelOf(it)) ? " · "+proSchedaTesto(proModelOf(it)) : "") : "Analogica (sub-snake)";
     kind.style.color = isDig ? "#4f46e5" : "var(--accent-strong)"; }
   var digs=(R&&R.boxes||[]).filter(function(x){ return x.digital; });
   var toRow=document.getElementById("pSbToRow");
@@ -19032,7 +19425,7 @@ function renderProps(){
         gHw.innerHTML=h;
         gHw.value = boxes.every(function(b){ return (b.hw||"")===(boxes[0].hw||""); }) ? (boxes[0].hw||"") : "__keep__";
         gHw.onchange=function(){ var v=gHw.value; if(v==="__keep__") return;
-          boxes.forEach(function(b){ if(v) b.hw=v; else delete b.hw; if(typeof sbAutoSize==="function") sbAutoSize(b); });
+          boxes.forEach(function(b){ if(v) b.hw=v; else delete b.hw; if(typeof proApplica==="function") proApplica(b); if(typeof sbAutoSize==="function") sbAutoSize(b); });
           __cabRes=null; save(); render(); renderProps(); };
         var anyHw=boxes.some(function(b){ return !!b.hw; });   /* i modelli hanno in/out fissi → i menu generici solo se nessuna ha un modello */
         document.getElementById("grpSbGenRows").style.display = anyHw ? "none" : "block";
@@ -19360,7 +19753,8 @@ function renderProps(){
     if(mm.out>0) io.push(mm.out+" uscite");
     if(mm.usb && mm.usb.in>0) io.push("USB "+mm.usb.in+"×"+mm.usb.out+(mm.usb.port?" ("+mm.usb.port+")":""));
     io.push(mm.dante===true ? ("Dante "+(mm.danteIn||"?")+"×"+(mm.danteOut||"?")) : (mm.dante===false ? "niente Dante" : ""));
-    document.getElementById("pMixIo").textContent = io.filter(Boolean).join(" · ") + (mm.src ? " — "+mm.src : "");
+    var _pm=(typeof proModelOf==="function") ? proModelOf(it) : null;   /* catalogo pro (16/11): misura, peso, consumo e fonte della scheda */
+    document.getElementById("pMixIo").textContent = io.filter(Boolean).join(" · ") + (_pm ? " — "+proSchedaTesto(_pm) : (mm.src ? " — "+mm.src : ""));
   })();
   /* ── COMPUTER: con che cosa entra nella console ──────────────────────────────────────────────
      Compare solo se il computer È collegato a un mixer, e mostra SOLO le connessioni che quel
@@ -19567,7 +19961,9 @@ function renderProps(){
   var _rv=document.getElementById("pRotVal"); if(_rv) _rv.textContent=Math.round(rNorm)+"\u00b0";
   var _mzPoly = it.type==="miczone" && it.pts && it.pts.length>=3;   /* zona poligonale: w/d è il bbox derivato → niente campi L/P (si modella coi vertici) */
   document.getElementById("pDims").style.display = (t.resizable && !_mzPoly) ? "flex" : "none";
-  document.getElementById("pHwrap").style.display = (t.riser || isCover(it) || it.type==="ostacolo") ? "" : "none";   /* coperture: h = luce libera sotto la struttura */
+  document.getElementById("pHwrap").style.display = (t.riser || isCover(it) || it.type==="ostacolo") ? "" : "none";
+  (function(){ var pw=document.getElementById("pPtWrap"); if(!pw) return; var on=it.type==="puntoapp"; pw.style.display=on ? "" : "none";
+    if(on){ document.getElementById("pPtCarico").value=ptAppCarico(it)||""; document.getElementById("pPtPortata").value=ptAppPortata(it)||""; } })();   /* coperture: h = luce libera sotto la struttura */
   if(t.resizable){
     document.getElementById("pW").value = it.w;
     document.getElementById("pD").value = it.d;
@@ -20301,6 +20697,10 @@ document.getElementById("pD").addEventListener("change", function(){ mutSel(func
   el.addEventListener("change", function(){ var on=!!el.checked;
     mutSel(function(it){ if(it.type==="platea") plateaImposta(it, { corridoio: on ? PLATEA_CORR_DEF : 0 }); }); renderProps(); });
 })();
+/* punto di appendimento (16/11): carico e portata scritti; vuoto = tolto */
+["pPtCarico","pPtPortata"].forEach(function(idc){ var el=document.getElementById(idc); if(!el) return;
+  el.addEventListener("change", function(){ var key=idc==="pPtCarico" ? "carico" : "portata", v=Math.round(+this.value);
+    mutSel(function(it){ if(it.type!=="puntoapp") return; if(isFinite(v) && v>0) it[key]=Math.min(v,99999); else delete it[key]; }); }); });
 document.getElementById("pH").addEventListener("change", function(){ mutSel(function(it){ if(it.type==="ostacolo"){ var v=ostacoloHPulita(document.getElementById("pH").value); if(v) it.h=v; else delete it.h; return; } it.h=Math.max(0,+document.getElementById("pH").value||0); }); });
 var ROT_SNAP=2;   /* snap magnetico leggero: entro ±2° aggancia i cardinali, fuori resta libero per regolazioni precise */
 function applyRot(doSave){
@@ -21055,6 +21455,7 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
   group("Accessori", null, ["pPostaz","pVoce","pGtr","pDir","pTastiera","pComp","pKeysWrap","pSgabWrap","pLeggioGenWrap","pLucettaWrap","pLegDistWrap","pRampWrap","pGazWrap","pPreseWrap","pDmxWrap"]);
   group("Installazione", null, ["pMountWrap"]);
   group("Americana", null, ["pRigWrap"]);   /* A4: numero, trim e peso appeso, solo con «Opzioni complete» */
+  group("Appendimento", "carico e portata scritti", ["pPtWrap"]);   /* icone approvate 16/11: come l'americana, solo con «Opzioni complete» */
   group("Dettagli tecnici", null, ["pIfaceWrap","pCompIfaceWrap","pModelWrap","pLocInWrap","pUsoWrap","pBmWrap","pLmWrap","pModWrap","pWattWrap","pRfWrap","pPmWrap"]);   /* la richiesta di setup NON e' un dettaglio tecnico: e' un'azione verso una persona, e sta con la persona */
   group("Nota", "quello che il disegno non dice", ["pNoteWrap"]);
   group("Disegno", null, ["pLookWrap","pDims","pDimSideWrap","pShapeWrap","pRugWrap","pPuntaWrap","pRotRow",
@@ -22136,7 +22537,8 @@ function ricordaRecenteCatalogo(k, nome, over){
       });
       /* — gruppi strutture — */
       [["Accessi",             ["scala","rampa","parapetto"]],
-       ["Scenografia",         ["fondale","quinta","tappeto"]],
+       ["Scenografia",         ["fondale","quinta","quintanum","gonna","tappeto"]],   /* quinta numerata e gonna: icone approvate da Simone il 16/11 */
+       ["Teatro",              ["boccascena","lineasipario","lineacentro"]],
        ["Arredo e leggii",     ["leggiotablet","tavolo","sediabianca","sedia","sedialeggio","sediapubblico","platea","poltrona","leggio","podio","podiosp","sgabello"]],   /* sediapubblico (05/10): esisteva ma non era in nessun gruppo, e la platea si faceva con 60 sedie bianche */
        ["Accessori",           ["ventilatore"]]
       ].forEach(function(g){
@@ -22157,7 +22559,8 @@ function ricordaRecenteCatalogo(k, nome, over){
         entries.push({k:"ostacolo", nome:v[0], over:{label:v[1], w:v[2], d:v[3]}, dim:"elemento del luogo", kw:v[4]});
       });
       /* ALTARE e AMBONE (09/11/2026): stesse voci e stesse parole di prima, ma con il loro disegno (TYPES.altare, TYPES.ambone) */
-      [["altare", "Altare", "altare chiesa mensa"],
+      [["croce", "Croce su base", "croce crocifisso chiesa altare"],   /* icona approvata il 16/11; la «Croce» come ostacolo resta */
+       ["altare", "Altare", "altare chiesa mensa"],
        ["ambone", "Ambone / leggio da chiesa", "ambone pulpito pergamo leggio da chiesa leggio chiesa lettore chiesa"]   /* 19/10/2026: «ambone» e «pulpito» non trovavano niente (l'ambone era una parola dentro l'Altare) */
       ].forEach(function(v){
         if(TYPES[v[0]]) entries.push({k:v[0], nome:v[1], dim:"elemento del luogo", kw:v[2]});
@@ -22242,6 +22645,20 @@ function ricordaRecenteCatalogo(k, nome, over){
         addToGroup("Stagebox e cablaggio", makeBtn("stagebox", nome, over, v[1]));
         entries.push({k:"stagebox", nome:nome, over:over, dim:v[1]});
       });
+      /* CATALOGO PRO (16/11): i modelli veri, con la misura della scheda. Nella ricerca subito; nel catalogo
+         in due gruppi chiusi i cui bottoni si costruiscono alla prima apertura (decine di anteprime in meno
+         all'avvio). */
+      if(typeof proCatEntries==="function") [["stagebox","Stage box e rack · modelli"],["console","Console digitali · modelli"]].forEach(function(gp){
+        var lista=proCatEntries(gp[0]); if(!lista.length) return;
+        var g=rhythmGroup(gp[1]); g.count=lista.length; n+=lista.length;
+        g.head.innerHTML='<span class="caret">▸</span><span>'+esc(gp[1])+'</span><span class="count">'+g.count+'</span>';
+        g.head.dataset.ess="1"; g.body.dataset.proLazy="1"; g.body.dataset.pro="1";
+        g.head.addEventListener("click", function(){
+          if(g.body.dataset.proLazy!=="1") return; g.body.dataset.proLazy="";
+          lista.forEach(function(e){ var b=makeBtn(e.k, e.nome, e.over, e.dim); b.dataset.ess="1"; g.body.appendChild(b); });
+        });
+        lista.forEach(function(e){ entries.push(e); });
+      });
     }
     cats[c].forEach(function(k){
       if(TYPES[k].cat==="Palco e strutture" && c==="Palco e pedane") return;   /* i palco/pedane li fa il blocco speciale; truss/transenna passano di qui (in Rigging e sicurezza) */
@@ -22287,6 +22704,7 @@ function ricordaRecenteCatalogo(k, nome, over){
     if(c!=="Liste tecniche"){
       var rest=document.createElement("div"); rest.className="cat-rest"; var restN=0;
       subList.forEach(function(g){
+        if(g.body.dataset.pro==="1") return;   /* gruppi del catalogo pro: si riempiono alla prima apertura, il conteggio è già giusto */
         [].filter.call(g.body.children,function(el){ return el.tagName==="BUTTON"; }).forEach(function(b){
           if(b.dataset.ess!=="1"){ rest.appendChild(b); restN++; }
         });
@@ -23557,6 +23975,7 @@ function renderMobileList(){
 function defaultLabel(type){
   var t=TYPES[type]; if(!t) return "";
   if(type==="metro") return "";
+  if(t.noLabel) return "";   /* simboli che si spiegano da soli (prese, uscite, linee del teatro, 16/11): una scritta li coprirebbe */
   if(t.riser || type==="corista" || type==="miczone") return "";   /* pedane, coristi e zone panoramiche nascono senza nome */
   if(type==="forma") return "";   /* le forme nascono senza scritta (14/10, Simone: «devo avere la possibilità di non inserire testo»):
                                      prima ogni rettangolo diceva «Forma». L'«Area con nome» il suo «Zona» lo porta da sé (catalogo). */
@@ -30124,7 +30543,7 @@ function renderCabPanel(){
   var zlblI=document.getElementById("pZoneLabel");
   if(zlblI) zlblI.addEventListener("input", function(){ var it=getSel(); if(it&&it.type==="miczone"){ var v=this.value.trim(); if(v) it.label=v.slice(0,40); else delete it.label; __cabRes=null; save(); render(); } });
   var hw=document.getElementById("pSbHw");
-  if(hw) hw.addEventListener("change", function(){ var it=getSel(); if(it && cabIsBox(it)){ if(this.value){ it.hw=this.value; } else { delete it.hw; } __cabRes=null; save(); render(); } });
+  if(hw) hw.addEventListener("change", function(){ var it=getSel(); if(it && cabIsBox(it)){ if(this.value){ it.hw=this.value; } else { delete it.hw; } if(typeof proApplica==="function") proApplica(it); __cabRes=null; save(); render(); } });
 })();
 function cabFillSbHw(){
   var sel=document.getElementById("pSbHw"); if(!sel) return;
