@@ -251,7 +251,21 @@ async function loadOrganico() {
     if (!sections.length) { paintEmptyOrganico(box); return; }
     for (const s of sections) box.appendChild(sectionCard(s));
     box.appendChild(addRoleCard());
+    box.appendChild(stampeCard());
   } catch (e) { box.innerHTML = ""; setState(box, "err", errMsg(e)); }
+}
+
+/* Stampe interne (avanzate, chiuse di serie: le apre chi serve). Ogni stampa porta «vN · data»: stesso organico =
+   stessa versione, organico cambiato = versione nuova, con l'elenco di cosa è cambiato. Hanno i nomi: solo staff. */
+function stampeCard() {
+  const d = el(`<details class="card avanzate" id="stampe"><summary><b>Stampe e versioni</b> <span class="small muted">foglio interno, con i nomi</span></summary>
+    <p class="small muted">Ogni foglio porta «vN · data · 1 di N». Se l'organico non è cambiato esce la stessa versione; se è cambiato nasce la successiva e il foglio dice cosa è cambiato. Con i nomi: solo per lo staff, mai nel pacchetto per il service.</p>
+    <div class="row"><a class="btn" id="stOrg">Organico con nomi (PDF)</a><a class="btn" id="stCon">Lista dei convocati (PDF)</a></div></details>`);
+  for (const [id, k] of [["#stOrg", "organico"], ["#stCon", "convocati"]]) {
+    const a = d.querySelector(id);
+    a.href = BASE + "/admin/produzioni/scheda/stampa/?id=" + encodeURIComponent(p.id) + "&k=" + k; a.target = "_blank"; a.rel = "noopener";
+  }
+  return d;
 }
 
 function paintEmptyOrganico(box) {

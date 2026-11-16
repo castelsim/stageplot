@@ -1,0 +1,24 @@
+/* Fogli stampabili di Orchestre (organico con nomi, lista convocati). A4, margini ≥15 mm (la Ricoh taglia il bordo),
+   piè «vN · data · N di M» nel margine basso. Solo per lo staff: mai nel pacchetto per il service. */
+@page{size:A4;margin:15mm 15mm 22mm 15mm;@bottom-center{content:var(--pie) " · " counter(page) " di " counter(pages);vertical-align:top;padding-top:2mm;font:8.5pt system-ui,sans-serif;color:#555}}
+.s-bar{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin:0 0 1rem}
+.s-foglio{background:#fff;color:#111;max-width:180mm;margin:0 auto;font:10.5pt/1.4 system-ui,sans-serif}
+.s-foglio h1{font-size:17pt;margin:0 0 2mm}
+.s-foglio h2{font-size:13pt;margin:0 0 2mm;padding-bottom:1mm;border-bottom:1.5pt solid #111}
+.s-meta{font-size:9.5pt;color:#333;margin:0 0 3mm}
+.s-int{display:inline-block;border:1pt solid #111;padding:0 2mm;font-weight:700;font-size:9pt;letter-spacing:.04em}
+.s-camb{border:1pt solid #999;padding:2mm 3mm;margin:0 0 4mm;font-size:9.5pt}
+.s-camb ul{margin:1mm 0 0 4mm;padding:0}
+.s-sez{margin:0 0 6mm}
+.s-sez+.s-sez{break-before:page}
+.s-tab{width:100%;border-collapse:collapse;font-size:10pt}
+.s-tab th{text-align:left;font-size:8.5pt;text-transform:uppercase;letter-spacing:.03em;border-bottom:1pt solid #555;padding:1mm 2mm}
+.s-tab td{padding:1.4mm 2mm;border-bottom:.5pt solid #bbb;vertical-align:top}
+.s-tab tr{break-inside:avoid}
+.s-vuoto{font-style:italic;color:#444}
+@media print{
+  body{background:#fff}
+  .s-bar,.o-top,.no-print{display:none!important}
+  .o-wrap{padding:0;max-width:none}
+  .s-foglio{max-width:none}
+}
