@@ -1,7 +1,7 @@
 /* Scheda di una produzione: Dati · Date · Repertorio · Organico · Matching · Convocazioni · Feedback · stageplot.it · Storia.
    ?id= apre, ?new=1 crea (con ?p=<progetto> nasce già collegata a stageplot.it), ?t= sceglie la scheda (così il refresh resta dove eri). */
 import { BASE } from "../config.js";
-import { esc, el, toast, confirm, setState, errMsg, fmtDate, fmtDateTime, avvia } from "../ui.js";
+import { esc, el, toast, confirm, setState, errMsg, fmtDate, fmtDateTime, avvia, safeHttpUrl } from "../ui.js";
 import { requireStaff, mountTopbar } from "../auth.js";
 import { tabs, REP_KIND } from "../nav.js";
 import { roleForItem, PROD_STATUS, PROD_STATUS_PILL, PROD_KIND, DATE_KIND, PART, SLOT_STATUS, SLOT_PILL, EVENT, INV_STATUS, INV_PILL, INV_EVENT, TEMPLATES, templateSeats, groupStaffing, staffingCounts, suggestedStatus } from "../domain/staffing.js";
@@ -11,7 +11,8 @@ import * as inv from "../api/invitations.js";
 import { changedNames, reconfirmSummary, reconfirmText, versionTitle } from "../domain/conditions.js";
 import * as fb from "../api/feedback.js";
 import { rankCandidates, applyOverrides, explain, fitLabel, reasonsText, ENGINE_VERSION } from "../domain/matching.js";
-import { catalogs, list as listMusicians } from "../api/musicians.js";
+import { catalogs, list as listMusicians, phoneOf } from "../api/musicians.js";
+import { messaggioConvocazione, linkWhatsApp, riepilogoInviti, filtraInviti, RIEPILOGO, chiaveRiepilogoValida, famigliaDi, etichettaFamiglia } from "../domain/convocare.js";
 import * as sp from "../api/stageplot.js";
 import { typeMapFrom, docVariants, extractPositions, proposeRoles, diffProposal, importGroups, importSummary, isUuid } from "../domain/stageplot-import.js";
 
@@ -78,6 +79,7 @@ function paint() {
   app.innerHTML = tabs("produzioni") + `
     <p class="small"><a class="back" href="${BASE}/admin/produzioni/">← Produzioni</a></p>
     <div class="row"><h1 id="h"></h1><span class="spacer"></span><span class="pill ${PROD_STATUS_PILL[p.status] || ""}" id="stPill"></span></div>
+    <div class="riepilogo" id="riep" aria-label="Riepilogo delle risposte" hidden></div>
     <nav class="nav-tabs sub" aria-label="Sezioni della produzione" id="subtabs"></nav>
     <div id="panel"></div>`;
   app.querySelector("#h").textContent = p.id ? p.title : "Nuova produzione";
@@ -90,7 +92,37 @@ function paint() {
     a.onclick = (e) => { if (!p.id) { e.preventDefault(); return; } e.preventDefault(); tab = k; history.replaceState(null, "", "?id=" + p.id + "&t=" + k); paint(); };
     nav.appendChild(a);
   }
+  if (p.id && tab !== "convocazioni") paintRiepilogo();
   ({ dati: paintDati, date: paintDate, repertorio: paintRepertorio, organico: paintOrganico, cerca: paintCerca, matching: paintMatching, convocazioni: paintConvocazioni, feedback: paintFeedback, stageplot: paintStageplot, storia: paintStoria })[tab]();
+}
+
+/* Riepilogo in cima (lotto P · I6): quante persone per casella; ogni numero porta alle convocazioni già filtrate. */
+let cvFiltro = chiaveRiepilogoValida(q.get("f")) ? q.get("f") : "";
+async function paintRiepilogo(righe) {
+  const box = app.querySelector("#riep");
+  if (!box) return;
+  try {
+    const rows = righe || await inv.list(p.id);
+    const c = riepilogoInviti(rows);
+    if (!c.totale) { box.hidden = true; return; }
+    box.innerHTML = "";
+    for (const [k, label, cls] of RIEPILOGO) {
+      const a = el(`<a class="riep-box" href="#"><span class="n"></span><span class="l"></span></a>`);
+      a.href = "?id=" + p.id + "&t=convocazioni&f=" + k;
+      a.querySelector(".n").textContent = c[k]; a.querySelector(".l").textContent = label;
+      if (cls) a.classList.add(cls);
+      if (!c[k]) a.classList.add("zero");
+      if (tab === "convocazioni" && cvFiltro === k) a.setAttribute("aria-current", "true");
+      a.onclick = (e) => { e.preventDefault(); cvFiltro = k; tab = "convocazioni"; history.replaceState(null, "", "?id=" + p.id + "&t=convocazioni&f=" + k); paint(); };
+      box.appendChild(a);
+    }
+    box.hidden = false;
+  } catch { box.hidden = true; }
+}
+/* colore per famiglia di strumenti (lotto P · I8): un segno sobrio accanto al nome del ruolo */
+function famChip(code) {
+  const f = famigliaDi(code, cat && cat.instruments);
+  return f ? `<span class="fam fam-${f}" title="${esc(etichettaFamiglia(f))}" aria-label="${esc(etichettaFamiglia(f))}"></span>` : "";
 }
 
 /* ---------------------------------------------------------------- Dati */
@@ -308,7 +340,7 @@ function sectionCard(s) {
 
 function roleBlock(r) {
   const filled = r.slots.filter((x) => x.status === "confirmed").length;
-  const b = el(`<details class="role"><summary><span class="title"></span><span class="pill ${filled === r.slots.length && r.slots.length ? "ok" : "warn"}">${filled}/${r.slots.length}</span><span class="sub"></span></summary><div class="role-body"></div></details>`);
+  const b = el(`<details class="role"><summary>${famChip(r.instrument_code)}<span class="title"></span><span class="pill ${filled === r.slots.length && r.slots.length ? "ok" : "warn"}">${filled}/${r.slots.length}</span><span class="sub"></span></summary><div class="role-body"></div></details>`);
   b.querySelector(".title").textContent = r.name;
   b.querySelector(".sub").textContent = [r.instrument_name, PART[r.part], r.min_level ? "livello ≥ " + r.min_level : ""].filter(Boolean).join(" · ");
   const body = b.querySelector(".role-body");
@@ -600,7 +632,7 @@ async function paintCerca() {
   };
   bar.querySelector("#cGo").onclick = () => cercaDialog(roles);
   for (const r of roles) {
-    const d = el(`<details class="role"><summary><span class="title"></span><span class="pill warn"></span><span class="sub"></span></summary><div class="role-body"><div class="loading">Un attimo…</div></div></details>`);
+    const d = el(`<details class="role"><summary>${famChip(r.instrument_code)}<span class="title"></span><span class="pill warn"></span><span class="sub"></span></summary><div class="role-body"><div class="loading">Un attimo…</div></div></details>`);
     d.querySelector(".title").textContent = r.section + " · " + r.name;
     d.querySelector(".pill").textContent = r.open + (r.open === 1 ? " scoperto" : " scoperti");
     d.querySelector(".sub").textContent = [r.instrument_name, PART[r.part], r.min_level ? "livello ≥ " + r.min_level : ""].filter(Boolean).join(" · ");
@@ -682,6 +714,7 @@ async function loadConvocazioni() {
   try {
     const [rows, st, need, riserve] = await Promise.all([inv.list(p.id), api.staffing(p.id), inv.reconfirmNeeded(p.id).catch(() => []), inv.reserveFlags(p.id).catch(() => new Set())]);
     for (const r of rows) r.reserve_only = riserve.has(r.id);
+    paintRiepilogo(rows);
     sections = groupStaffing(st);
     const c = staffingCounts(sections);
     const waiting = rows.filter((r) => ["draft", "sent", "viewed"].includes(r.status)).length;
@@ -709,12 +742,21 @@ async function loadConvocazioni() {
       box.appendChild(el(`<p><a class="btn primary" href="?id=${esc(p.id)}&t=matching">Vai al Matching</a></p>`));
       return;
     }
+    const viste = filtraInviti(rows, cvFiltro);
+    if (cvFiltro) {
+      const nome = (RIEPILOGO.find(([k]) => k === cvFiltro) || [])[1] || "";
+      const fb = el(`<div class="row filtro-attivo"><span class="pill accent"></span><button type="button" class="btn small ghost">Mostra tutti</button></div>`);
+      fb.querySelector(".pill").textContent = "Filtro: " + nome + " (" + viste.length + ")";
+      fb.querySelector("button").onclick = () => { cvFiltro = ""; history.replaceState(null, "", "?id=" + p.id + "&t=convocazioni"); paint(); };
+      box.insertBefore(fb, box.firstChild);
+      if (!viste.length) box.appendChild(el(`<div class="empty">Nessuna convocazione in questa casella.</div>`));
+    }
     const byRole = new Map();
-    for (const r of rows) { if (!byRole.has(r.role_id)) byRole.set(r.role_id, { name: r.role_name, rows: [] }); byRole.get(r.role_id).rows.push(r); }
+    for (const r of viste) { if (!byRole.has(r.role_id)) byRole.set(r.role_id, { name: r.role_name, rows: [] }); byRole.get(r.role_id).rows.push(r); }
     for (const [roleId, g] of byRole) {
       const role = sections.flatMap((s) => s.roles).find((r) => r.id === roleId);
       const open = role ? role.slots.filter((x) => x.status === "open").length : 0;
-      const card = el(`<section class="card"><div class="row"><h3></h3><span class="pill ${open ? "warn" : "ok"}">${open ? open + (open === 1 ? " scoperto" : " scoperti") : "completo"}</span><span class="spacer"></span><a class="btn small" href="?id=${esc(p.id)}&t=matching&role=${esc(roleId)}&ricalcola=1">Convoca altri</a></div><ul class="list compact"></ul></section>`);
+      const card = el(`<section class="card"><div class="row">${famChip(role && role.instrument_code)}<h3></h3><span class="pill ${open ? "warn" : "ok"}">${open ? open + (open === 1 ? " scoperto" : " scoperti") : "completo"}</span><span class="spacer"></span><a class="btn small" href="?id=${esc(p.id)}&t=matching&role=${esc(roleId)}&ricalcola=1">Convoca altri</a></div><ul class="list compact"></ul></section>`);
       card.querySelector("h3").textContent = g.name;
       const ul = card.querySelector("ul");
       for (const r of g.rows) ul.appendChild(invitationRow(r, open));
@@ -769,8 +811,9 @@ function invitationRow(r, openSlots) {
     try {
       const tok = await inv.relink(r.id);
       const url = location.origin + BASE + "/rispondi/?t=" + encodeURIComponent(tok);
-      const nome = (r.musician_name.split(" ").slice(-1)[0] || "").trim();
-      await mostraLink(`Ciao ${nome}, ecco il link per rispondere alla convocazione «${p.title}»: ${url}`, r.musician_name);
+      const testo = messaggioConvocazione({ nomeCompleto: r.musician_name, titolo: p.title, url, nota: r.note_admin });
+      let tel = ""; try { tel = await phoneOf(r.musician_id); } catch { /* senza numero resta «Copia» */ }
+      await mostraLink(testo, r.musician_name, tel);
       await loadConvocazioni();
     } catch (e) { toast(errMsg(e), { err: true }); }
   });
@@ -808,12 +851,15 @@ function dialogoTesto({ title, text = "", label = "", ok = "Conferma", danger = 
   });
 }
 /* Il link nuovo, già dentro un messaggio da incollare. Non si conserva da nessuna parte: se chiudi senza copiare se ne fa un altro. */
-function mostraLink(messaggio, nome) {
+function mostraLink(messaggio, nome, tel = "") {
   return new Promise((resolve) => {
     const ov = el(`<div class="modal-ov" role="dialog" aria-modal="true"><div class="modal"><h2></h2><p class="muted">Il link di prima non vale più. Copia il messaggio e mandalo tu: questo link non si rivede.</p>
       <div class="field"><label for="lkm">Messaggio</label><textarea id="lkm" rows="4" readonly></textarea></div>
-      <div class="actions"><button type="button" class="btn" data-x="0">Chiudi</button><button type="button" class="btn primary" data-x="1">Copia il messaggio</button></div></div></div>`);
-    ov.querySelector("h2").textContent = "Link nuovo per " + nome; ov.querySelector("textarea").value = messaggio;
+      <div class="actions"><button type="button" class="btn" data-x="0">Chiudi</button><a class="btn" data-x="wa" target="_blank" rel="noopener" hidden>Apri WhatsApp</a><button type="button" class="btn primary" data-x="1">Copia messaggio</button></div></div></div>`);
+    ov.querySelector("h2").textContent = "Link nuovo per " + nome;
+    const wa = ov.querySelector("[data-x='wa']");
+    wa.href = safeHttpUrl(linkWhatsApp(tel, messaggio)); wa.hidden = false;
+    if (!tel) wa.title = "Senza numero in scheda si sceglie il contatto in WhatsApp"; ov.querySelector("textarea").value = messaggio;
     const done = () => { ov.remove(); document.removeEventListener("keydown", onKey); resolve(); };
     const onKey = (e) => { if (e.key === "Escape") done(); };
     ov.querySelector("[data-x='0']").onclick = done;

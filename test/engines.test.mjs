@@ -34192,5 +34192,65 @@ t("Orchestre ORC16b: archivio dei musicisti — ripristino, cancellazione defini
   ok(/lo ritrovi in Musicisti › Archiviati e lo ripristini/.test(readFileSync(join(root, "orchestre/src/pages/scheda.js"), "utf8")), "la conferma di «Archivia» non promette più cose false");
 });
 
+/* ORC16c — lotto P (16/11/2026): «Copia messaggio» + «Apri WhatsApp», riepilogo in cima, colore per famiglia. */
+const orcCv = await import("../orchestre/src/domain/convocare.js");
+t("Orchestre ORC16c P: messaggio WhatsApp — saluto con il nome proprio, titolo, testo aggiuntivo dell'evento, link", () => {
+  const m = orcCv.messaggioConvocazione({ nomeCompleto: "Rossi Maria", titolo: "Concerto di prova", url: "https://x.it/r/?t=abc", nota: "  prove\n obbligatorie  " });
+  eq(m, "Ciao Maria, ecco il link per rispondere alla convocazione «Concerto di prova»:\nprove obbligatorie\nhttps://x.it/r/?t=abc", "il nome è l'ultima parola dell'elenco «Cognome Nome»; la nota su una riga");
+  eq(orcCv.messaggioConvocazione({ nomeCompleto: "Rossi Maria", titolo: "T", url: "U" }).split("\n").length, 2, "senza testo aggiuntivo niente riga vuota");
+  ok(!/^Ciao ,/.test(orcCv.messaggioConvocazione({ nomeCompleto: "", titolo: "T", url: "U" })), "senza nome non resta «Ciao ,»");
+});
+t("Orchestre ORC16c P: numero per wa.me — solo cifre, prefisso 39 ai numeri italiani, scartati i numeri impossibili", () => {
+  eq(orcCv.numeroWhatsApp("333 123 4567"), "393331234567", "mobile italiano senza prefisso");
+  eq(orcCv.numeroWhatsApp("+39 333-1234567"), "393331234567", "già con +39");
+  eq(orcCv.numeroWhatsApp("0039 333 1234567"), "393331234567", "0039 → 39");
+  eq(orcCv.numeroWhatsApp("+44 7700 900123"), "447700900123", "estero col + resta com'è");
+  eq(orcCv.numeroWhatsApp("0423 123456"), "390423123456", "fisso italiano");
+  eq(orcCv.numeroWhatsApp("12"), "", "troppo corto");
+  eq(orcCv.numeroWhatsApp(""), "", "vuoto");
+  eq(orcCv.linkWhatsApp("333 123 4567", "a b&c"), "https://wa.me/393331234567?text=a%20b%26c", "testo codificato");
+  eq(orcCv.linkWhatsApp("", "x"), "https://wa.me/?text=x", "senza numero si sceglie il contatto in WhatsApp");
+});
+t("Orchestre ORC16c P: riepilogo — ogni convocazione in UNA casella, annullate fuori, filtro coerente col contatore", () => {
+  const rows = [
+    { status: "confirmed" }, { status: "confirmed" }, { status: "available" }, { status: "partial" },
+    { status: "available", reserve_only: true }, { status: "reserve" }, { status: "sent" }, { status: "viewed" }, { status: "draft" },
+    { status: "no_reply" }, { status: "expired" }, { status: "unavailable" }, { status: "cancelled" }, { status: "revoked" }, { status: "replaced" },
+  ];
+  const c = orcCv.riepilogoInviti(rows);
+  eq(c, { confermati: 2, disponibili: 2, attesa: 3, senzaRisposta: 2, rifiutati: 1, riserve: 2, totale: 12 }, "caselle");
+  eq(c.confermati + c.disponibili + c.attesa + c.senzaRisposta + c.rifiutati + c.riserve, c.totale, "somma = totale: nessuno contato due volte");
+  for (const [k] of orcCv.RIEPILOGO) eq(orcCv.filtraInviti(rows, k).length, c[k], "il filtro «" + k + "» mostra quante ne conta il numero");
+  eq(orcCv.filtraInviti(rows, "").length, rows.length, "senza filtro tutte");
+  ok(orcCv.chiaveRiepilogoValida("attesa") && !orcCv.chiaveRiepilogoValida("<script>") && !orcCv.chiaveRiepilogoValida(null), "la chiave dell'indirizzo si accetta solo se è una casella vera");
+  eq(orcCv.riepilogoInviti(null).totale, 0, "elenco assente");
+});
+t("Orchestre ORC16c P: famiglie degli strumenti — dal catalogo, sconosciute senza colore", () => {
+  const cat = [{ code: "violino", family: "archi" }, { code: "corno", family: "ottoni" }, { code: "strano", family: "boh" }];
+  eq(orcCv.famigliaDi("violino", cat), "archi", "violino → archi");
+  eq(orcCv.famigliaDi("corno", cat), "ottoni", "corno → ottoni");
+  eq(orcCv.famigliaDi("strano", cat), "", "famiglia fuori elenco: niente colore");
+  eq(orcCv.famigliaDi("assente", cat), "", "strumento assente");
+  eq(orcCv.famigliaDi("violino", null), "", "catalogo non caricato");
+  eq(orcCv.etichettaFamiglia("archi"), "Archi", "etichetta leggibile (il colore non è l'unica informazione)");
+  const css = readFileSync(join(root, "orchestre/ui.css"), "utf8");
+  for (const f of Object.keys(orcCv.FAMIGLIE)) ok(new RegExp("\\.fam-" + f + "\\{--fam:#[0-9a-f]{6}\\}").test(css), "colore per «" + f + "»");
+});
+t("Orchestre ORC16c P: pagina produzione — riepilogo cliccabile, filtro, WhatsApp col numero, famiglia sul ruolo", () => {
+  const pg = readFileSync(join(root, "orchestre/src/pages/produzione.js"), "utf8");
+  ok(/id="riep"[^>]*hidden/.test(pg) && /for \(const \[k, label, cls\] of RIEPILOGO\)/.test(pg), "riepilogo in cima, nascosto finché non ci sono convocazioni");
+  ok(/a\.href = "\?id=" \+ p\.id \+ "&t=convocazioni&f=" \+ k;/.test(pg), "il numero è un vero link (si apre anche in una scheda nuova)");
+  ok(/if \(!c\.totale\) \{ box\.hidden = true; return; \}/.test(pg), "senza convocazioni il riepilogo non c'è");
+  ok(/"&t=convocazioni&f=" \+ k/.test(pg) && /filtraInviti\(rows, cvFiltro\)/.test(pg), "ogni numero porta alle convocazioni filtrate");
+  ok(/Mostra tutti/.test(pg), "il filtro si toglie");
+  ok(/data-x="wa" target="_blank" rel="noopener"/.test(pg) && /safeHttpUrl\(linkWhatsApp\(tel, messaggio\)\)/.test(pg) && /phoneOf\(r\.musician_id\)/.test(pg), "«Apri WhatsApp» col numero della scheda, in una scheda nuova");
+  ok(/messaggioConvocazione\(\{ nomeCompleto: r\.musician_name, titolo: p\.title, url, nota: r\.note_admin \}\)/.test(pg), "il messaggio porta il testo aggiuntivo dell'evento");
+  ok(/>Copia messaggio</.test(pg), "«Copia messaggio»");
+  ok((pg.match(/\$\{famChip\(/g) || []).length === 3, "la famiglia compare su organico, cerca e convocazioni");
+  ok(/<span class="fam fam-\$\{f\}" title="\$\{esc\(etichettaFamiglia\(f\)\)\}" aria-label/.test(pg), "il colore ha anche il nome (non solo colore)");
+  const mus = readFileSync(join(root, "orchestre/src/api/musicians.js"), "utf8");
+  ok(/select\("phone"\)\.eq\("id", id\)\.is\("deleted_at", null\)/.test(mus), "il telefono si legge dalla scheda (RLS: solo staff)");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

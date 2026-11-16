@@ -303,3 +303,22 @@ dl.review dd{overflow-wrap:anywhere}
   .score-row .seg .btn{min-width:var(--tap)}
   .modal .actions{flex-direction:column-reverse}.modal .actions .btn{width:100%}
 }
+
+/* Riepilogo in cima alla produzione (lotto P · I6) */
+.riepilogo{display:flex;gap:var(--s-2);flex-wrap:wrap;margin:var(--s-3) 0}
+.riepilogo[hidden]{display:none}
+.riep-box{display:flex;flex-direction:column;align-items:center;justify-content:center;min-width:92px;min-height:var(--tap);flex:1 1 92px;padding:var(--s-2) var(--s-3);border:1px solid var(--border);border-radius:var(--r-md);background:var(--surface);color:var(--text);text-decoration:none}
+.riep-box .n{font-size:var(--t-xl);font-weight:700;line-height:1.1}
+.riep-box .l{font-size:var(--t-label);color:var(--text-2)}
+.riep-box.ok{border-color:var(--success-border);background:var(--success-bg)}
+.riep-box.warn{border-color:var(--warning-border);background:var(--warning-bg)}
+.riep-box.danger{border-color:var(--danger-bg)}
+.riep-box.accent{border-color:var(--accent-soft);background:var(--accent-tint)}
+.riep-box.zero{opacity:.6}
+.riep-box[aria-current="true"]{outline:2px solid var(--accent);outline-offset:1px}
+.riep-box:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+.filtro-attivo{margin-bottom:var(--s-3)}
+/* colore per famiglia di strumenti (lotto P · I8): segno accanto al nome, mai solo colore (c'è il titolo) */
+.fam{display:inline-block;width:10px;height:10px;border-radius:50%;flex:none;background:var(--fam,var(--n-400))}
+.fam-archi{--fam:#a16207}.fam-legni{--fam:#4d7c0f}.fam-ottoni{--fam:#c2410c}.fam-percussioni{--fam:#7e22ce}
+.fam-tastiere{--fam:#1d4ed8}.fam-ritmica{--fam:#0369a1}.fam-corde{--fam:#0f766e}.fam-voci{--fam:#be185d}.fam-direzione{--fam:#475569}
