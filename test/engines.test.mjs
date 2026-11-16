@@ -10568,7 +10568,7 @@ t("invio per revisione: i tipi dei pezzi passano il controllo del server (letter
   ok(/MAX_ELEMENTO_JSON_CHARS = 300_000/.test(server) && /function custJsonRevisione[\s\S]{0,900}custLimiti\(\)\.JSON_REV/.test(appjs) && A.custLimiti().JSON_REV === 300000, "stesso tetto del JSON (Contorni: 300 000)");
 });
 t("invio per revisione: la finestra del consenso (casella da spuntare, Invia spento finché non c'è la spunta)", () => {
-  ok(/Disegno, misure e descrizione arrivano a StagePlot\. Se lo aggiungiamo al catalogo sarà disponibile per tutti, senza il tuo nome\./.test(appjs), "la frase della spec, uguale");
+  ok(/Disegno, misure e descrizione arrivano a stageplot\.it\. Se lo aggiungiamo al catalogo sarà disponibile per tutti, senza il tuo nome\./.test(appjs), "la frase della spec, uguale");
   ok(/function custChiediConsenso[\s\S]{0,2500}type="checkbox"|function custChiediConsenso[\s\S]{0,2500}\.type="checkbox"/.test(appjs), "una casella");
   ok(/function custChiediConsenso[\s\S]{0,2500}disabled=true[\s\S]{0,800}disabled=!/.test(appjs), "Invia spento, si accende con la spunta");
   ok(/function custChiediConsenso[\s\S]{0,2500}fuoco:/.test(appjs), "il fuoco sulla casella");
@@ -20064,11 +20064,11 @@ t("la description sta dentro quello che Google mostra", () => {
 const ldLanding = JSON.parse((landing.match(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/) || [])[1]);
 const nodo = (tipo) => ldLanding["@graph"].find((n) => n["@type"] === tipo);
 
-t("la home dice cos'è StagePlot, in chiaro e all'inizio", () => {
+t("la home dice cos'è stageplot.it, in chiaro e all'inizio", () => {
   const testo = landing.replace(/<(script|style|svg)[\s\S]*?<\/\1>/g, " ").replace(/<!--[\s\S]*?-->/g, " ")
     .replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-  const def = testo.match(/StagePlot è [^.]{40,400}\./);
-  ok(def, "esiste una frase «StagePlot è …»");
+  const def = testo.match(/stageplot\.it è [^.]{40,400}\./);
+  ok(def, "esiste una frase «stageplot.it è …»");
   const dove = testo.indexOf(def[0]) / testo.length;
   ok(dove < 0.25, "e sta nel primo quarto della pagina (sta al " + Math.round(dove * 100) + "%)");
   const parole = def[0].split(/\s+/).length;
@@ -20249,7 +20249,7 @@ t("una pagina dice lo stesso titolo a Google, ai social e ai dati strutturati", 
     if (/name="robots" content="noindex/.test(h)) continue;
     const nome = p.slice(root.length);
     const t_ = ((h.match(/<title>([\s\S]*?)<\/title>/) || [])[1] || "").trim();
-    const base = t_.replace(" | StagePlot", "");
+    const base = t_.replace(" | stageplot.it", "");
     for (const [dove, patt] of [["og:title", /og:title" content="([^"]*)"/],
                                 ["twitter:title", /twitter:title" content="([^"]*)"/],
                                 ["headline", /"headline":"([^"]*)"/]]) {
@@ -33506,6 +33506,100 @@ t("L3: tempo di calcolo sotto budget sull'orchestra da 58 (a freddo e con la cac
   const t0 = Date.now(); lavora(); const freddo = Date.now() - t0; const t1 = Date.now(); lavora(); const caldo = Date.now() - t1;
   console.log("      (orchestra: " + R.links.length + " cavi · a freddo " + freddo + " ms · in cache " + caldo + " ms)");
   ok(freddo <= 1000 + 30 * R.links.length, "a freddo " + freddo + " ms per " + R.links.length + " cavi"); ok(caldo <= 100, "in cache " + caldo + " ms");
+});
+
+/* ===== UX lotti 4-5 (16/11/2026): marchio «stageplot.it» e ricerca da conferenza/service ===================== */
+console.log("\nUX lotti 4-5: marchio stageplot.it e ricerca del vocabolario da conferenza (16/11/2026):");
+function testoVisibileUX45(h) {
+  return h.replace(/<(script|style|svg)[\s\S]*?<\/\1>/g, " ").replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/\s+/g, " ");
+}
+t("marchio: nessuna pagina pubblica scrive «StagePlot» senza .it (titolo, testo, dati strutturati, meta)", () => {
+  const pagine = readdirSync(root, { recursive: true, withFileTypes: true })
+    .filter((d) => d.isFile() && d.name === "index.html")
+    .map((d) => join(d.parentPath || d.path, d.name))
+    .filter((p) => pubblicata(p.slice(root.length)) && !/[\\/]app[\\/]|landing-concepts/.test(p.slice(root.length)));
+  ok(pagine.length >= 40, "pagine esaminate: " + pagine.length);
+  const male = [];
+  for (const p of pagine) {
+    const h = readFileSync(p, "utf8");
+    const nome = p.slice(root.length);
+    if (/\bStagePlot\b/.test(testoVisibileUX45(h))) male.push(nome + " (testo)");
+    for (const m of h.matchAll(/<(?:title|meta)\b[^>]*>(?:[^<]*<\/title>)?/g)) if (/\bStagePlot\b/.test(m[0])) { male.push(nome + " (title/meta)"); break; }
+    for (const m of h.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)) {
+      const senzaAlias = m[1].replace(/"alternateName"\s*:\s*(\[[^\]]*\]|"[^"]*")/g, "");
+      if (/\bStagePlot\b/.test(senzaAlias)) { male.push(nome + " (JSON-LD)"); break; }
+    }
+  }
+  eq(male.length, 0, "ancora «StagePlot»: " + male.slice(0, 6).join(", "));
+});
+t("marchio: titoli «… | stageplot.it», nome dell'organizzazione nei dati strutturati e alias «StagePlot» conservato", () => {
+  ok(/<title>[^<]* \| stageplot\.it<\/title>/.test(readFileSync(join(root, "guida/microfoni/index.html"), "utf8")), "suffisso nel title");
+  const home = nodiLdHome();
+  ok(home.some((n) => n.name === "stageplot.it"), "un nodo si chiama «stageplot.it»");
+  ok(!home.some((n) => n.name === "StagePlot" || n.name === "StagePlot (stageplot.it)"), "nessun nome senza .it");
+  ok(/"alternateName"\s*:\s*\[\s*"StagePlot"/.test(landing), "l'alias «StagePlot» resta per chi lo cerca così");
+});
+function nodiLdHome() {
+  const out = [];
+  for (const m of landing.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)) {
+    const j = JSON.parse(m[1]); for (const n of (Array.isArray(j) ? j : j["@graph"] || [j])) out.push(n);
+  }
+  return out;
+}
+t("marchio: nell'app e nella biglietteria i testi visibili dicono «stageplot.it» (informativa, viewer, piè, Orchestre)", () => {
+  ok(/usati per migliorare stageplot\.it\. <a href="\/privacy\/">/.test(readFileSync(join(root, "app/index.html"), "utf8")) && /vengano usati per migliorare stageplot\.it\. Controlla/.test(appjs), "informativa del modulo feedback (app)");
+  ok(/class="vb-brand"[^>]*>stageplot\.it<span/.test(readFileSync(join(root, "app/index.html"), "utf8")), "testata del viewer");
+  { const ah = readFileSync(join(root, "app/index.html"), "utf8"); ok(!/Designed and built by/.test(ah) && /Progettato e realizzato da/.test(ah), "«Designed and built by» in italiano"); }
+  const bgl = readFileSync(join(root, "biglietteria/bgl.js"), "utf8");
+  ok(/Prenotazioni con stageplot\.it/.test(bgl) && !/Prenotazioni con StagePlot/.test(bgl), "piè della biglietteria");
+  ok(/PRODID:-\/\/StagePlot\/\/Biglietteria/.test(bgl), "l'identificativo tecnico del calendario NON cambia");
+  const seg = readFileSync(join(root, "biglietteria/segnala.js"), "utf8");
+  ok(!/migliorare StagePlot/.test(seg) && /migliorare stageplot\.it/.test(seg), "informativa della biglietteria");
+  const man = JSON.parse(readFileSync(join(root, "manifest.webmanifest"), "utf8"));
+  ok(/^stageplot\.it/.test(man.name) && man.short_name === "stageplot.it", "nome dell'app installata");
+  const og = readFileSync(join(root, "ops/anteprima-social.json"), "utf8");
+  ok(!/StagePlot è/.test(og) && /stageplot\.it è/.test(og), "l'anteprima social dice «stageplot.it è…»");
+});
+t("ricerca (D-1): le parole di chi fa conferenze e service trovano la voce giusta", () => {
+  const primo = (q) => (A.__spSearch(q)[0] || {}).k;
+  /* esatta: un «simile» (refuso) non vale, altrimenti la ricerca per somiglianza coprirebbe un sinonimo mancante */
+  const ha = (q, k) => !A.__spSimili(q) && A.__spSearch(q).some((e) => e.k === k);
+  for (const q of ["lavalier", "lavaliere", "cravatta", "microfono lavalier", "handheld", "palmare", "gelato"])
+    ok(ha(q, "wireless"), "«" + q + "» trova il Mic wireless");
+  for (const q of ["lavalier", "lavaliere", "cravatta"]) ok(ha(q, "relatore"), "«" + q + "» trova anche il Relatore (nasce col lavalier)");
+  eq(primo("radiomicrofono"), "wireless", "«radiomicrofono» dà prima il microfono, non l'Attore");
+  eq(primo("mixer foh"), "mixer", "«mixer foh» = Console / mixer");
+  ok(ha("mixer foh", "foh"), "…e la Postazione FOH");
+  for (const q of ["mixer di sala", "banco mixer", "banco regia", "console foh"]) ok(ha(q, "mixer"), "«" + q + "» trova la console");
+  ok(ha("banco", "mixer"), "«banco» trova anche la console audio, non solo le luci");
+  ok(ha("regia", "mixer") && ha("regia", "foh") && ha("regia", "cabregia"), "«regia»: cabina, console e FOH");
+  ok(ha("regia di sala", "foh") && ha("regia sala", "foh"), "«regia di sala» = Postazione FOH");
+  ok(ha("tavolo relatori", "tavolo") && ha("tavolo relatori", "mictavolo"), "«tavolo relatori»: il tavolo e il microfono da tavolo");
+  ok(ha("tavolo conferenza", "tavolo"), "«tavolo conferenza»");
+  eq(primo("leggio conferenza"), "leggio", "«leggio conferenza» = Leggio");
+  ok(!A.__spSimili("leggio conferenza") && !A.__spSimili("mixer foh") && !A.__spSimili("tavolo relatori"), "…e sono risultati esatti, non «i più simili»");
+  ok(ha("schermo proiettore", "telo") && ha("schermo conferenza", "telo"), "«schermo per proiettore» = telo di proiezione");
+  eq(primo("cabina interpreti"), "cabinterp", "la cabina interpreti c'era già: resta");
+});
+t("ricerca (D-1): le parole vecchie non cambiano primo risultato", () => {
+  const primo = (q) => (A.__spSearch(q)[0] || {}).k;
+  eq(primo("foh"), "foh", "«foh» resta la Postazione FOH");
+  eq(primo("regia"), "cabregia", "«regia» resta la Cabina regia");
+  eq(primo("headset"), "headset"); eq(primo("archetto"), "headset");
+  eq(primo("telo"), "telo"); eq(primo("leggio"), "leggio"); eq(primo("tavolo"), "tavolo");
+  eq(primo("relatore"), "relatore");
+});
+t("relatore: il microfono (tonda, giraffa, in mano, archetto, lavalier, panoramico) è nel pannello di primo livello, non dietro «Mostra tutte le opzioni»", () => {
+  const tpl = readFileSync(join(root, "index.template.html"), "utf8");
+  const voce = tpl.match(/<div id="pVoce"[\s\S]*?<label class="chk"><input type="checkbox" id="pLeggioV">/);
+  ok(voce && /id="pMicModeWrap"/.test(voce[0]), "la fila «Microfono» sta dentro pVoce (accessori)");
+  for (const v of ["tonda", "giraffa", "mano", "archetto", "lavalier", "pano"]) ok(new RegExp('data-v="' + v + '"').test(voce[0]), "chip " + v);
+  ok(/title="[^"]*cravatta[^"]*" data-v="lavalier"/.test(voce[0]) && /title="[^"]*palmare[^"]*" data-v="mano"/.test(voce[0]), "tooltip col nome di mestiere");
+  ok(A.TYPES.relatore.voce === true && A.TYPES.relatore.micDef === "lavalier", "il Relatore è una voce e nasce col lavalier");
+  ok(/pv\.style\.display = isVoce \? "block" : "none";[\s\S]{0,400}_mmw\.style\.display = ""/.test(tpl), "la fila Microfono non viene mai nascosta per le voci");
+  /* la sezione «Accessori» (che contiene pVoce) non è fra quelle chiuse da «Mostra tutte le opzioni» */
+  ok(!/pVoce[^\n]{0,120}data-adv|data-adv[^\n]{0,120}pVoce/.test(tpl), "pVoce non è marcato avanzato");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");

@@ -1,4 +1,4 @@
-/* Collegamento a StagePlot: dal documento dell'editor alle postazioni da coprire. Puro, testato in Node.
+/* Collegamento a stageplot.it: dal documento dell'editor alle postazioni da coprire. Puro, testato in Node.
 
    Il documento salvato in `stageplot_projects.data` è `{ _doc:1, active, variants:[{id,name,state}] }`
    (o, per i progetti vecchi, lo stato piatto). Ogni `state.items[]` ha `type` (chiave del catalogo

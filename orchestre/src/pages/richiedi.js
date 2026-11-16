@@ -174,7 +174,7 @@ function bloccoPalco() {
     ul.appendChild(li);
   }
   if (!miei.length) ul.remove();
-  c.appendChild(el(`<p class="small"><a href="/app/">${miei.length ? "Disegnane un altro" : "Disegna il palco"} con StagePlot</a></p>`));
+  c.appendChild(el(`<p class="small"><a href="/app/">${miei.length ? "Disegnane un altro" : "Disegna il palco"} con stageplot.it</a></p>`));
   return c;
 }
 

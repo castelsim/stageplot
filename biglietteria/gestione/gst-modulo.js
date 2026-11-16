@@ -156,7 +156,7 @@
       return;
     }
     var locSrc = M.nuova ? urlNuova() : (M.locandina && !M.tolta ? root.BGLIndirizzi.urlLocandina(A.cfg.api, M.locandina) : "");
-    var sala = campo("progetto", "Sala (un progetto StagePlot con i posti numerati)", '<select id="gst-progetto"><option value="">Scegli…</option>' +
+    var sala = campo("progetto", "Sala (un progetto stageplot.it con i posti numerati)", '<select id="gst-progetto"><option value="">Scegli…</option>' +
           M.progetti.map(function (p) { return '<option value="' + esc(p.id) + '"' + (p.id === M.progetto ? " selected" : "") + ">" + esc(p.titolo) + "</option>"; }).join("") + "</select>") +
         (pr && pr.varianti.length > 1 ? campo("variante", "Variante", '<select id="gst-variante">' + pr.varianti.map(function (v) {
           return '<option value="' + esc(v.id) + '"' + (v.id === M.variante ? " selected" : "") + ">" + esc(v.nome) + " — " + v.posti + " posti</option>"; }).join("") + "</select>") : "") +

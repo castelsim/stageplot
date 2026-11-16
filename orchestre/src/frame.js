@@ -39,7 +39,7 @@
        riaccendere tutto riaccenderebbe anche quello. Si vede solo questo paragrafo — visibility si
        eredita, ma un figlio può riaccenderla per sé. */
     p.style.cssText = "visibility:visible;font:16px/1.5 system-ui,sans-serif;padding:24px;max-width:34em";
-    p.textContent = "StagePlot Orchestre non si apre dentro la pagina di un altro sito. ";
+    p.textContent = "stageplot.it Orchestre non si apre dentro la pagina di un altro sito. ";
     const a = d.createElement("a");
     a.href = w.location.href;
     a.target = "_top";

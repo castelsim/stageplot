@@ -1,4 +1,4 @@
-/* StagePlot © 2026 Simone Castellan — libreria icone (estratta dal monolite per LCP, caricata async).
+/* stageplot.it © 2026 Simone Castellan — libreria icone (estratta dal monolite per LCP, caricata async).
    Popola window.LIB_ICONS e chiama window.__onIconsReady (re-render). NON e' un file 'sorgente da editare a mano'
    riga per riga: e' generato dallo scratchpad extract_icons.mjs alla prima estrazione; poi si mantiene qui. */
 "use strict";

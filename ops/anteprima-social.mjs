@@ -43,7 +43,7 @@ export function datiDallaLanding(landing) {
   const h1 = scava(/<h1[^>]*>([\s\S]*?)<\/h1>/, "l'H1")[1].replace(/<\/em>([.!?])/, "$1</em>");
   const righe = h1.split(/<em>|<\/em>/i).map((x) => x.replace(/<[^>]*>/g, "").trim()).filter(Boolean);
 
-  /* La promessa: il grassetto del lead dell'apertura («StagePlot e' un editor gratuito nel browser») e
+  /* La promessa: il grassetto del lead dell'apertura («stageplot.it e' un editor gratuito nel browser») e
      il resto della frase fino ai due punti («per disegnare il palco in scala») */
   const lead = scava(/<p class="lead">([\s\S]*?)<\/p>/, "il lead dell'apertura")[1];
   const forte = (lead.match(/<b>([\s\S]*?)<\/b>/) || [, ""])[1].replace(/<[^>]*>/g, "").trim();
@@ -92,12 +92,11 @@ export function paginaAnteprima(d) {
 </style></head><body>
   <div class="sx">
     <div class="marchio">
-      ${d.logo}<span>StagePlot</span>
+      ${d.logo}<span>stageplot.it</span>
     </div>
     <div class="k">Stage plot · Scheda tecnica · Rider</div>
     <h1>${prima}<br><span class="scala">${resto.join(" ")}</span></h1>
     <p class="sub"><b>${d.forte}</b>${d.piano ? " " + d.piano : ""}.</p>
-    <div class="url">stageplot.it</div>
   </div>
   <div class="dx">
     <div class="barra"><span>${d.progetto}</span><span>${somma}</span></div>

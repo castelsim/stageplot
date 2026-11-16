@@ -12,13 +12,13 @@
      generato in locale (vendor/qrcode.min.js): nessun dominio esterno in img-src.
      frame-ancestors/sandbox non valgono via meta: clickjacking coperto dal frame-buster sotto. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' https://vsodplqkuvnsdiikvmjb.supabase.co wss://vsodplqkuvnsdiikvmjb.supabase.co; font-src 'self' data:; object-src 'none'; frame-src 'self' blob:; base-uri 'self'; form-action 'self'">
-<script>/* anti-clickjacking: incorniciata da un ALTRO sito, la pagina si nasconde e prova a uscire. Si nasconde PRIMA di provare a uscire: in Chrome l'uscita bloccata lancia (provato l'11/09), ma un browser che la rifiutasse in silenzio lascerebbe la pagina cliccabile, e nascondersi prima non costa niente. frame-ancestors dentro un <meta> il browser lo ignora, e GitHub Pages non manda header: questa è l'unica difesa. Stessa logica di /orchestre/src/frame.js. */try{if(window.self!==window.top){var _so=false;try{_so=window.top.location.origin===window.location.origin;}catch(_e){}if(!_so){document.documentElement.style.visibility="hidden";document.addEventListener("DOMContentLoaded",function(){var p=document.createElement("p");p.style.cssText="visibility:visible;font:16px/1.5 system-ui,sans-serif;padding:24px;max-width:34em";p.textContent="StagePlot non si apre dentro la pagina di un altro sito. ";var a=document.createElement("a");a.href=window.location.href;a.target="_top";a.rel="noopener";a.textContent="Aprila da sola";p.appendChild(a);document.body.replaceChildren(p);});try{window.top.location.replace(window.location.href);}catch(_e){}}}}catch(_e){}</script>
+<script>/* anti-clickjacking: incorniciata da un ALTRO sito, la pagina si nasconde e prova a uscire. Si nasconde PRIMA di provare a uscire: in Chrome l'uscita bloccata lancia (provato l'11/09), ma un browser che la rifiutasse in silenzio lascerebbe la pagina cliccabile, e nascondersi prima non costa niente. frame-ancestors dentro un <meta> il browser lo ignora, e GitHub Pages non manda header: questa è l'unica difesa. Stessa logica di /orchestre/src/frame.js. */try{if(window.self!==window.top){var _so=false;try{_so=window.top.location.origin===window.location.origin;}catch(_e){}if(!_so){document.documentElement.style.visibility="hidden";document.addEventListener("DOMContentLoaded",function(){var p=document.createElement("p");p.style.cssText="visibility:visible;font:16px/1.5 system-ui,sans-serif;padding:24px;max-width:34em";p.textContent="stageplot.it non si apre dentro la pagina di un altro sito. ";var a=document.createElement("a");a.href=window.location.href;a.target="_top";a.rel="noopener";a.textContent="Aprila da sola";p.appendChild(a);document.body.replaceChildren(p);});try{window.top.location.replace(window.location.href);}catch(_e){}}}}catch(_e){}</script>
 <script>/* SEO (audit SEO-02): un progetto condiviso via ?view= è un link con token e non va indicizzato/archiviato. Additivo: non tocca la logica di condivisione, aggiunge solo un meta robots noindex quando è presente il token. */try{if(/[?&]view=/.test(location.search)){var _r=document.createElement("meta");_r.name="robots";_r.content="noindex,nofollow,noarchive";document.head.appendChild(_r);/* 10/11: finché app.js scarica (1-2 s sul sito) si vedeva l'editor vuoto con «Senza titolo» e «Accedi», come se chi apre il link fosse uscito. Si copre da subito; mostraAttesa (app.js) toglie la classe quando mette il suo cartello. */var _s=document.createElement("style");_s.textContent='html.view-attesa body>*{visibility:hidden!important}html.view-attesa body::before{content:"Sto aprendo il progetto…";position:fixed;inset:0;z-index:340;display:flex;align-items:center;justify-content:center;padding:24px;background:var(--bg,#f8fafc);color:var(--text,#0f172a);font:700 17px system-ui,sans-serif;visibility:visible}';document.head.appendChild(_s);document.documentElement.classList.add("view-attesa");}}catch(e){}</script>
 <!-- Referrer-Policy esplicita (audit M-08): non affidarsi al default del browser. Protegge i token
      dei link di condivisione (nell'URL) da leak via header Referer verso risorse/destinazioni. -->
 <meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Stage Plot Gratis in Italiano — Editor Online in Scala | StagePlot</title>
+<title>Stage Plot Gratis in Italiano — Editor Online in Scala | stageplot.it</title>
 <!-- Versione prodotto (data, editoriale) + build ID immutabile del commit (audit L-03). Il build ID
      è un placeholder che il workflow di deploy sostituisce con lo SHA breve del commit pubblicato:
      due release nello stesso giorno restano distinguibili in telemetria e supporto. In locale/dev
@@ -60,19 +60,19 @@
 <link rel="dns-prefetch" href="https://vsodplqkuvnsdiikvmjb.supabase.co">
 <meta property="og:type" content="website">
 <meta property="og:locale" content="it_IT">
-<meta property="og:title" content="StagePlot — Stage Plot Creator gratis per spettacoli dal vivo">
+<meta property="og:title" content="stageplot.it — Stage Plot Creator gratis per spettacoli dal vivo">
 <meta property="og:description" content="Crea gratuitamente stage plot in scala, liste tecniche e rider PDF: input, monitor, carichi e channel list, export PDF/PNG/CSV e link condivisibile. Revisione professionale facoltativa.">
 <meta property="og:url" content="https://stageplot.it/app/">
-<meta property="og:site_name" content="StagePlot">
+<meta property="og:site_name" content="stageplot.it">
 <meta property="og:image" content="https://stageplot.it/preview.png?v=4">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Esempio di stage plot in scala creato con StagePlot">
+<meta property="og:image:alt" content="Esempio di stage plot in scala creato con stageplot.it">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="StagePlot — Stage Plot Creator gratis per spettacoli dal vivo">
+<meta name="twitter:title" content="stageplot.it — Stage Plot Creator gratis per spettacoli dal vivo">
 <meta name="twitter:description" content="Crea gratuitamente stage plot in scala, liste tecniche e rider PDF: input, monitor, carichi, channel list, export PDF/PNG/CSV e link condivisibile. Revisione professionale facoltativa.">
 <meta name="twitter:image" content="https://stageplot.it/preview.png?v=4">
-<meta name="twitter:image:alt" content="Esempio di stage plot in scala creato con StagePlot">
+<meta name="twitter:image:alt" content="Esempio di stage plot in scala creato con stageplot.it">
 <!-- Dati strutturati (WebSite/Organization/SoftwareApplication/FAQ): stanno sulla landing in radice,
      che è la pagina indicizzata. Qui sarebbero un doppione su una pagina noindex. -->
 <style>
@@ -84,7 +84,7 @@
 <script defer src="/vendor/supabase.min.js"></script><!-- supabase-js 2.110.0 self-hosted (audit S4); vedi vendor/README.md -->
 </head>
 <body>
-<div id="viewBar"><a class="vb-brand" href="/app/" target="_blank" rel="noopener" title="Crea il tuo stage plot gratis su StagePlot">StagePlot<span class="vb-cta">crea il tuo gratis →</span></a><strong id="viewRole">Sola lettura</strong><span class="vb-badge" id="viewBadge" hidden>Sola lettura</span><span class="vb-status" id="viewStatus" hidden></span><span id="viewMeta"></span><span id="viewToggle"><button id="vtPlot" type="button" class="vt-on">Stage plot</button><button id="vtChan" type="button">Channel list</button></span><span id="viewPresence" style="margin-left:auto"></span><button id="viewExport" hidden>Esporta recupero</button><button id="viewSave" hidden>Salva ora</button><button id="viewCopy" hidden>Crea una copia</button></div>
+<div id="viewBar"><a class="vb-brand" href="/app/" target="_blank" rel="noopener" title="Crea il tuo stage plot gratis su stageplot.it">stageplot.it<span class="vb-cta">crea il tuo gratis →</span></a><strong id="viewRole">Sola lettura</strong><span class="vb-badge" id="viewBadge" hidden>Sola lettura</span><span class="vb-status" id="viewStatus" hidden></span><span id="viewMeta"></span><span id="viewToggle"><button id="vtPlot" type="button" class="vt-on">Stage plot</button><button id="vtChan" type="button">Channel list</button></span><span id="viewPresence" style="margin-left:auto"></span><button id="viewExport" hidden>Esporta recupero</button><button id="viewSave" hidden>Salva ora</button><button id="viewCopy" hidden>Crea una copia</button></div>
 <div id="viewLists" aria-live="polite"></div><!-- T3: liste tecniche nel link condiviso (Input/Monitor/Carichi/RF/Backline) -->
 <!-- Il documento condiviso non è arrivato: prende il posto del disegno. Un palco vuoto disegnato bene
      si legge come «il gruppo non ha bisogno di niente», ed è la cosa peggiore da far credere a un
@@ -224,7 +224,7 @@
   <button class="mi" data-help="learn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>Cos'è uno stage plot — guida</button>
   <button class="mi" data-help="feedback"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z"/></svg>Cosa manca? Scrivici</button>
   <button class="mi mi-tema" data-help="theme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>Tema chiaro / scuro</button>
-  <div style="border-top:1px solid var(--border);margin-top:4px;padding:9px 14px 5px;font-size:11px;color:var(--text-3)">Designed and built by <a href="https://simonecastellan.com" target="_blank" rel="noopener" style="color:var(--text-2);text-decoration:none">Simone Castellan</a></div>
+  <div style="border-top:1px solid var(--border);margin-top:4px;padding:9px 14px 5px;font-size:11px;color:var(--text-3)">Progettato e realizzato da <a href="https://simonecastellan.com" target="_blank" rel="noopener" style="color:var(--text-2);text-decoration:none">Simone Castellan</a></div>
 </div>
 
 <aside id="catalog"></aside>
@@ -552,7 +552,7 @@
         <button class="btn" id="pCustModifica" type="button" title="Riapre l'editor su questa copia: le altre non cambiano">Modifica elemento</button>
         <button class="btn" id="pCustModello" type="button">Salva come modello</button>
         <button class="btn" id="pCustModelloNuovo" type="button" hidden title="Un modello in più nel catalogo; quello di partenza resta com'è">Salva come nuovo modello</button>
-        <button class="btn" id="pCustInvia" type="button" hidden title="Lo mandi a StagePlot: se entra nel catalogo, te lo scriviamo nell'app">Invia per revisione</button>
+        <button class="btn" id="pCustInvia" type="button" hidden title="Lo mandi a stageplot.it: se entra nel catalogo, te lo scriviamo nell'app">Invia per revisione</button>
       </div>
       <p class="prop-hint cust-pan-rev" id="pCustRev" hidden></p>
       <p class="prop-hint" id="pCustModelloHint"></p>
@@ -1063,9 +1063,9 @@
         <div class="chips" data-chips="pMicMode">
           <button type="button" data-v="tonda">Base tonda</button>
           <button type="button" data-v="giraffa">Giraffa</button>
-          <button type="button" data-v="mano">In mano</button>
-          <button type="button" data-v="archetto">Archetto</button>
-          <button type="button" data-v="lavalier">Lavalier</button>
+          <button type="button" title="Microfono a mano (palmare, handheld)" data-v="mano">In mano</button>
+          <button type="button" title="Microfono ad archetto (headset)" data-v="archetto">Archetto</button>
+          <button type="button" title="Microfono a clip sul petto (lavalier, cravatta)" data-v="lavalier">Lavalier</button>
           <button type="button" data-v="pano">Panoramico</button>
         </div>
         <select id="pMicMode" hidden><option value="tonda">tonda</option><option value="giraffa">giraffa</option><option value="mano">mano</option><option value="archetto">archetto</option><option value="lavalier">lavalier</option><option value="pano">panoramico</option></select>
@@ -1199,7 +1199,7 @@
         <button class="btn" id="grpCustModifica" type="button" title="Riapre l'editor su questa copia: le altre non cambiano">Modifica elemento</button>
         <button class="btn" id="grpCustModello" type="button">Salva come modello</button>
         <button class="btn" id="grpCustModelloNuovo" type="button" hidden title="Un modello in più nel catalogo; quello di partenza resta com'è">Salva come nuovo modello</button>
-        <button class="btn" id="grpCustInvia" type="button" hidden title="Lo mandi a StagePlot: se entra nel catalogo, te lo scriviamo nell'app">Invia per revisione</button>
+        <button class="btn" id="grpCustInvia" type="button" hidden title="Lo mandi a stageplot.it: se entra nel catalogo, te lo scriviamo nell'app">Invia per revisione</button>
       </div>
       <p class="prop-hint cust-pan-rev" id="grpCustRev" hidden></p>
       <p class="prop-hint" id="grpCustModelloHint"></p>
@@ -1677,7 +1677,7 @@
     <input type="text" id="fbHp" tabindex="-1" aria-hidden="true" autocomplete="off"
       style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0" aria-hidden="true">
     <button class="fb-send" id="fbSend">Invia</button>
-    <p class="fb-note">Inviando, accetti che il messaggio e alcuni dati tecnici anonimi vengano usati per migliorare StagePlot. <a href="/privacy/">Privacy</a></p>
+    <p class="fb-note">Inviando, accetti che il messaggio e alcuni dati tecnici anonimi vengano usati per migliorare stageplot.it. <a href="/privacy/">Privacy</a></p>
     <p class="fb-msg" id="fbResult" style="display:none"></p>
   </div>
 </div>
@@ -2111,7 +2111,7 @@
   </div>
 </div>
 
-<!-- Finestra di benvenuto (prima apertura assoluta): cos'è StagePlot + primi passi. -->
+<!-- Finestra di benvenuto (prima apertura assoluta): cos'è stageplot.it + primi passi. -->
 <div class="modal" id="welcome" hidden>
   <div class="wl-card" role="dialog" aria-modal="true" aria-labelledby="wlTitle">
     <div class="wl-head">
@@ -4319,7 +4319,7 @@ var TYPES = {
              draw:function(){ return lin(-32,0,32,0,'ic')+lin(0,0,0,24,'ic thin')+circ(0,24,3,'ic fill')+
                '<g transform="translate(-32,0) rotate(-20)">'+bar(0,0,16,8,'ic fGrey',3)+'</g>'+
                '<g transform="translate(32,0) rotate(20)">'+bar(0,0,16,8,'ic fGrey',3)+'</g>'; }},
-  wireless: {nome:"Mic wireless", dim:"", cat:"Microfoni e DI", sub:"Aste e microfoni", w:34,d:34, defLabel:"WL",
+  wireless: {nome:"Mic wireless", dim:"", cat:"Microfoni e DI", sub:"Aste e microfoni", w:34,d:34, defLabel:"WL", qaPrimo:"radiomicrofono radiomicrofoni",
              draw:function(it){ return drawLibFit("radiomic",it,4,14); }},
   mictavolo:{nome:"Microfono da tavolo", dim:"collo d'oca con base", cat:"Microfoni e DI", sub:"Aste e microfoni", w:24,d:40, defLabel:"Tavolo", qaCede:"mic",   /* «mic» resta di aste e overhead: questo si trova con «tavolo», «collo d'oca», «microfono» */
              alias:"collo d'oca gooseneck tavolo relatori panel conferenza",
@@ -4984,7 +4984,20 @@ var SEARCH_ALIAS_GIRI = {
   omnichord:"omnichord omni chord suzuki om-108 om108 om-84 om84 arpa elettronica strumming strimpellare autoarpa tastiera ad accordi",
   syncgen:"sync generatore sync generatore di sync timecode time code smpte ltc word clock wordclock master clock distributore di clock generatore di timecode generatore timecode",
 };
-[SEARCH_ALIAS, SEARCH_ALIAS_GIRI].forEach(function(tab){ Object.keys(tab).forEach(function(k){   /* fuso nei tipi: le due ricerche leggono solo TYPES[k].alias */
+/* 16/11/2026, rapporto UX «come utente» (D-1): il vocabolario di chi fa conferenze e service. «lavalier», «palmare»,
+   «mixer foh», «tavolo relatori», «leggio conferenza» non davano niente, o davano la voce sbagliata. Solo FRASI intere o parole
+   lunghe (la ricerca è a sottostringa): niente sigle di 2-3 lettere. «radiomicrofono» resta com'è: prima del Mic wireless
+   c'è già chi lo dice nel nome. */
+var SEARCH_ALIAS_UX45 = {
+  wireless:"lavalier lavaliere microfono lavalier microfono a clip microfono a cravatta cravatta handheld microfono a mano microfono palmare radiomicrofono palmare",
+  relatore:"lavalier lavaliere relatore con lavalier cravatta",
+  mixer:"mixer foh mixer di sala mixer sala mixer regia banco mixer banco audio banco regia banco foh console foh console di sala mixing desk mixing console",
+  foh:"regia di sala regia sala mixer foh banco foh",
+  tavolo:"tavolo relatori tavolo dei relatori tavolo conferenza tavolo da conferenza tavolo di presidenza presidenza tavolo riunioni",
+  leggio:"leggio conferenza leggio da conferenza leggio relatore leggio oratore",
+  telo:"schermo per proiettore schermo proiettore schermo conferenza"
+};
+[SEARCH_ALIAS, SEARCH_ALIAS_GIRI, SEARCH_ALIAS_UX45].forEach(function(tab){ Object.keys(tab).forEach(function(k){   /* fuso nei tipi: le due ricerche leggono solo TYPES[k].alias */
   if(TYPES[k]) TYPES[k].alias=((TYPES[k].alias||"")+" "+tab[k]).trim();
 }); });
 /* CAT_ORDER = macro-categorie per la trovabilità (L, 07/07): da 17 a 10, strumenti in UN posto.
@@ -6911,7 +6924,7 @@ function prepareDoc(parsed){
       throw documentLoadError("FUTURE_DOCUMENT","Formato documento non supportato.");
     if(Object.prototype.hasOwnProperty.call(parsed,"_v") &&
        (typeof parsed._v!=="number" || !isFinite(parsed._v) || Math.floor(parsed._v)!==parsed._v || parsed._v<1 || parsed._v>SCHEMA_VERSION))
-      throw documentLoadError("FUTURE_SCHEMA","Questo progetto richiede una versione più recente di StagePlot.");
+      throw documentLoadError("FUTURE_SCHEMA","Questo progetto richiede una versione più recente di stageplot.it.");
     Object.keys(parsed).forEach(function(k){
       if(["_doc","_v","_local","active","variants","__proto__","prototype","constructor"].indexOf(k)<0) nextExtra[k]=parsed[k];
     });
@@ -8904,7 +8917,7 @@ function migrate(s){
   if(hasV && (typeof s._v!=="number" || !isFinite(s._v) || Math.floor(s._v)!==s._v || s._v<1))
     throw documentLoadError("INVALID_SCHEMA_VERSION","Versione documento non valida.");
   var v = hasV ? s._v : 1;
-  if(v>SCHEMA_VERSION) throw documentLoadError("FUTURE_SCHEMA","Questo progetto richiede una versione più recente di StagePlot.");
+  if(v>SCHEMA_VERSION) throw documentLoadError("FUTURE_SCHEMA","Questo progetto richiede una versione più recente di stageplot.it.");
   while(v < SCHEMA_VERSION){
     if(typeof MIGRATIONS[v]!=="function") throw documentLoadError("MISSING_MIGRATION","Migrazione documento non disponibile.");
     s = MIGRATIONS[v](s) || s; v++;
@@ -10441,7 +10454,7 @@ function load(){
       window.__bootVenueUnavailable=false;
       try{ ensureVariants(); }catch(_e){}
       try{ if(window.setDocState) window.setDocState("blocked"); }catch(_e){}
-      setTimeout(function(){ try{ if(window.__toast) window.__toast("Il progetto salvato richiede una versione compatibile di StagePlot. Non è stato modificato e il salvataggio è sospeso.",true); }catch(_e){} },0);
+      setTimeout(function(){ try{ if(window.__toast) window.__toast("Il progetto salvato richiede una versione compatibile di stageplot.it. Non è stato modificato e il salvataggio è sospeso.",true); }catch(_e){} },0);
     }
   } else {
     try{ ensureVariants(); }catch(_e){}
@@ -13103,7 +13116,7 @@ function custPannello(pre, base){
 }
 
 /* ---------- 5. invio per revisione (Tappa 5) ----------
-   L'elemento salvato va a StagePlot come segnalazione di tipo «elemento»: scheda, modello (JSON) e anteprima del
+   L'elemento salvato va a stageplot.it come segnalazione di tipo «elemento»: scheda, modello (JSON) e anteprima del
    disegno. Serve l'accesso (la risposta torna nell'app a chi l'ha mandato) e il consenso esplicito della spec. Il
    server rifiuta «elemento» senza un utente vero (401) e scarta i campi fuori regola (_shared/feedback-validation.ts). */
 function custInviaRevisione(id){
@@ -13140,7 +13153,7 @@ function custServeAccesso(){
 function custChiediConsenso(nome, cb){
   var corpo=document.createElement("label"); corpo.className="guide-scelta cust-consenso";
   var ck=document.createElement("input"); ck.type="checkbox"; ck.id="custConsenso";
-  var tx=document.createElement("span"); tx.textContent="Disegno, misure e descrizione arrivano a StagePlot. Se lo aggiungiamo al catalogo sarà disponibile per tutti, senza il tuo nome.";
+  var tx=document.createElement("span"); tx.textContent="Disegno, misure e descrizione arrivano a stageplot.it. Se lo aggiungiamo al catalogo sarà disponibile per tutti, senza il tuo nome.";
   corpo.appendChild(ck); corpo.appendChild(tx);
   var f=custFinestra({title:"Invia «"+nome+"» per revisione", msg:"Lo guardiamo e ti rispondiamo qui, nell'app.", corpo:corpo, fuoco:ck,
     bottoni:[{label:"Annulla"}, {label:"Invia", cls:"primary", id:"custConsensoInvia", resta:function(){ return ck.checked; }, run:cb}]});
@@ -22942,7 +22955,7 @@ function funzApriFinestra(){
     ov=document.createElement("div"); ov.className="modal"; ov.id="funzModal"; ov.hidden=true;
     ov.setAttribute("role","dialog"); ov.setAttribute("aria-modal","true"); ov.setAttribute("aria-labelledby","funzTitle");
     ov.innerHTML='<div class="mcard funz-card"><h2 id="funzTitle">Funzioni avanzate</h2>'
-      + '<p class="hint">StagePlot parte con l\'essenziale: palco, pedane, musicisti ed esportazione. Qui accendi il resto, quando ti serve. La scelta resta salvata <span id="funzDove">su questo dispositivo</span>.</p>'
+      + '<p class="hint">stageplot.it parte con l\'essenziale: palco, pedane, musicisti ed esportazione. Qui accendi il resto, quando ti serve. La scelta resta salvata <span id="funzDove">su questo dispositivo</span>.</p>'
       + '<label class="funz-master"><input type="checkbox" id="funzTutte"><span><b>Abilita tutte le funzioni</b><small>Oppure scegli solo quelle che ti servono:</small></span></label>'
       + '<div class="funz-voci">'+FUNZIONI.map(function(f){
           return '<label class="funz-voce"><input type="checkbox" data-funz="'+f.id+'"><span><b>'+esc(f.nome)+(f.pc?'<em class="funz-pc"> · sul computer</em>':'')+'</b><small>'+esc(f.desc)+'</small></span></label>';
@@ -23374,7 +23387,7 @@ function bglVaiAllaBiglietteria(apri){
   }
   if(!bglUtente()){
     guideDialog({title:"Accedi per usare la biglietteria",
-      msg:"Gli spettacoli stanno nel tuo account StagePlot: così solo tu vedi chi ha prenotato.",
+      msg:"Gli spettacoli stanno nel tuo account stageplot.it: così solo tu vedi chi ha prenotato.",
       action:{label:"Accedi", run:function(){ try{ if(window.__cloud && window.__cloud.signIn) window.__cloud.signIn(); else document.getElementById("bCloud").click(); }catch(e){} }}});
     return;
   }
@@ -29498,7 +29511,7 @@ function drawVenuePlan(name, P){
 
 /* (menu "Organico" e generatori organici rimossi dall'interfaccia su richiesta; formationData/buildOrchestraOut restano solo per le QA ?form=) */
 
-/* ============ RENDER 3D — generatore di prompt (funzione INTERNA NASCOSTA, per contenuti promo StagePlot.it) ============
+/* ============ RENDER 3D — generatore di prompt (funzione INTERNA NASCOSTA, per contenuti promo stageplot.it) ============
    Trasforma lo stage plot corrente in un prompt in linguaggio naturale + blocco JSON tecnico, da incollare in un
    generatore d'immagini. NON genera l'immagine e NON usa API. Accesso: solo digitando "render" nella ricerca.
    Sistema coordinate: origine = fondo-DESTRA (stage right, vista musicista); x cresce verso STAGE LEFT; y verso il PUBBLICO. */
@@ -36014,7 +36027,7 @@ document.getElementById("bNew").addEventListener("click", function(){
   var bloccato = !!window.__docLoadBlocked && typeof window.__docLoadBlockedRaw==="string";
   (bloccato ? confirmDialog({
     icon:"warn", title:"Il progetto salvato non si apre",
-    message:"Il progetto salvato su questo dispositivo non si può aprire con questa versione di StagePlot. Ricominciando da un palco vuoto verrebbe sostituito: prima ne scarichiamo il file originale, così non si perde.",
+    message:"Il progetto salvato su questo dispositivo non si può aprire con questa versione di stageplot.it. Ricominciando da un palco vuoto verrebbe sostituito: prima ne scarichiamo il file originale, così non si perde.",
     confirmText:"Scarica l'originale e ricomincia"
   }).then(function(ok){
     if(!ok) return false;
@@ -42850,7 +42863,7 @@ function gallery(){
       });
     })
     .catch(function(){ viewerFailed(rispostaArrivata
-      ? "Il progetto è arrivato ma non è stato possibile aprirlo: può essere stato creato con una versione più recente di StagePlot."
+      ? "Il progetto è arrivato ma non è stato possibile aprirlo: può essere stato creato con una versione più recente di stageplot.it."
       : "Il server non ha risposto: può essere la connessione di rete."); });
 
   function startSession(sb, token, d, isEditor){
@@ -43095,7 +43108,7 @@ function gallery(){
 
   window.__startSession=startSession;
 })();
-/* Orchestre (lotto 8): /app/?p=<uuid> apre QUEL progetto cloud (da «Apri in StagePlot» nella produzione).
+/* Orchestre (lotto 8): /app/?p=<uuid> apre QUEL progetto cloud (da «Apri in stageplot.it» nella produzione).
    Solo un uuid, e mai insieme a ?view= (che resta autorevole). Il parametro sparisce dall'URL appena letto. */
 function orcProjectParam(search){
   var m=/[?&]p=([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})(?:&|$)/i.exec(String(search||""));
@@ -43178,7 +43191,7 @@ function deleteSelGuarded(){
   var who=[];
   (state.items||[]).forEach(function(it){ if(!selSet[it.id]) return; var rows=orcSeatsFor(it); if(rows) rows.forEach(function(r){ if(r.musician_name) who.push(r.musician_name); }); });
   if(!who.length){ deleteSel(); return Promise.resolve(true); }
-  var msg=(who.length===1?who[0]+" resta sul suo posto in Orchestre: il disegno perde solo il collegamento alla postazione.":who.length+" persone restano sui loro posti in Orchestre: il disegno perde solo il collegamento alle postazioni.")+" Puoi ricollegarle da Orchestre → StagePlot.";
+  var msg=(who.length===1?who[0]+" resta sul suo posto in Orchestre: il disegno perde solo il collegamento alla postazione.":who.length+" persone restano sui loro posti in Orchestre: il disegno perde solo il collegamento alle postazioni.")+" Puoi ricollegarle da Orchestre → stageplot.it.";
   var p=(typeof confirmDialog==="function")?confirmDialog({icon:"warn",title:"Postazione con una persona in organico",message:msg,confirmText:"Elimina lo stesso",cancelText:"Annulla"}):Promise.resolve(window.confirm(msg));
   return p.then(function(ok){ if(ok) deleteSel(); return !!ok; });
 }
@@ -43636,7 +43649,7 @@ function maybeAskStageSize(explicit){
   [wIn,dIn].forEach(function(i){ i.addEventListener("input", function(){ if(err) err.hidden=true; }); });
 })();
 
-/* Finestra di benvenuto (prima apertura assoluta): cos'è StagePlot + primi passi.
+/* Finestra di benvenuto (prima apertura assoluta): cos'è stageplot.it + primi passi.
    Solo a palco vuoto e mai usata prima; mai su deep-link, QA, viewer o consulenza.
    Senza "Non mostrare più" riappare ai prossimi avvii, finché non piazzi qualcosa (sp_onboarded).
    Alla chiusura (CTA/Esc/click-fuori) incatena la richiesta delle dimensioni del palco. */
@@ -43705,7 +43718,7 @@ function maybeAskStageSize(explicit){
     <p>Uno <strong>stage plot</strong> (o <em>stage plan</em>) è lo schema in scala del palco: mostra dove si posizionano musicisti, strumenti, amplificatori, monitor, microfoni e prese di corrente durante un concerto o uno spettacolo dal vivo. È il documento che il <strong>service audio</strong>, il fonico e il personale del teatro usano per allestire l'evento in modo rapido e senza errori.</p>
     <p>Insieme allo stage plot si prepara di solito una <strong>channel list</strong> (o <strong>input list</strong>): l'elenco numerato dei canali audio in ingresso al mixer (voci, strumenti, microfoni). Stage plot e channel list, insieme alle note tecniche, formano il <strong>rider tecnico</strong> (o <strong>scheda tecnica</strong>) dell'artista.</p>
 
-    <h3>A chi serve StagePlot</h3>
+    <h3>A chi serve stageplot.it</h3>
     <ul>
       <li>Band, cantautori e musicisti che inviano il proprio rider a un locale o festival</li>
       <li>Orchestre, cori, bande e gruppi da camera che devono mappare un organico numeroso</li>
@@ -43733,9 +43746,9 @@ function maybeAskStageSize(explicit){
     <h3>Domande frequenti</h3>
     <div class="learn-faq">
       <details><summary>Cos'è uno stage plot?</summary><p>È lo schema in scala del palco che mostra la disposizione di musicisti, strumenti, monitor, microfoni e prese durante uno spettacolo dal vivo. Serve a service audio e teatro per allestire l'evento.</p></details>
-      <details><summary>Qual è la differenza tra stage plot e channel list?</summary><p>Lo stage plot è il disegno del palco; la channel list (o input list) è l'elenco numerato dei canali audio in ingresso al mixer. Con StagePlot crei lo stage plot in scala e generi ed esporti gratis anche la channel list e il rider in PDF; la consulenza, a parte, è la revisione di un sound engineer.</p></details>
-      <details><summary>StagePlot è davvero gratis?</summary><p>Sì. Creare, esportare in PDF e condividere lo stage plot è gratuito e senza registrazione. È disponibile, a parte, una consulenza facoltativa in cui un sound engineer revisiona il tuo materiale.</p></details>
-      <details><summary>Devo registrarmi o installare qualcosa?</summary><p>No. StagePlot funziona nel browser e salva il lavoro sul tuo dispositivo. Il login con Google è opzionale e serve solo a salvare i progetti online.</p></details>
+      <details><summary>Qual è la differenza tra stage plot e channel list?</summary><p>Lo stage plot è il disegno del palco; la channel list (o input list) è l'elenco numerato dei canali audio in ingresso al mixer. Con stageplot.it crei lo stage plot in scala e generi ed esporti gratis anche la channel list e il rider in PDF; la consulenza, a parte, è la revisione di un sound engineer.</p></details>
+      <details><summary>stageplot.it è davvero gratis?</summary><p>Sì. Creare, esportare in PDF e condividere lo stage plot è gratuito e senza registrazione. È disponibile, a parte, una consulenza facoltativa in cui un sound engineer revisiona il tuo materiale.</p></details>
+      <details><summary>Devo registrarmi o installare qualcosa?</summary><p>No. stageplot.it funziona nel browser e salva il lavoro sul tuo dispositivo. Il login con Google è opzionale e serve solo a salvare i progetti online.</p></details>
       <details><summary>Come metto un elemento sopra o sotto un altro?</summary><p>Seleziona l’elemento e, nel pannello a destra, usa «Primo piano» e «In fondo» per portarlo sopra o sotto tutti, oppure «Un livello su» e «Un livello giù» per spostarlo di un solo livello. Da tastiera: <kbd>]</kbd> sale di un livello, <kbd>[</kbd> scende; con Maiusc va in primo piano o in fondo. Vale anche per più elementi selezionati insieme.</p></details>
       <details><summary>Posso esportare lo stage plot in PDF?</summary><p>Sì: puoi esportare in PDF e PNG in scala reale, con un'area di stampa dedicata, pronti da inviare al service o da stampare.</p></details>
     </div>
@@ -45686,7 +45699,7 @@ function maybeAskStageSize(explicit){
     riga.appendChild(peso); riga.appendChild(via); shotBox.appendChild(riga);
     /* la riga in fondo cambia: con un'immagine dentro, «dati tecnici anonimi» sarebbe una promessa
        falsa — ed è chi segnala a doversi accorgere di cosa sta mandando. */
-    if(fbNote) fbNote.innerHTML = 'Inviando, accetti che il messaggio, <b>la schermata allegata</b> e alcuni dati tecnici vengano usati per migliorare StagePlot. Controlla che la schermata non contenga cose tue. <a href="/privacy/">Privacy</a>';
+    if(fbNote) fbNote.innerHTML = 'Inviando, accetti che il messaggio, <b>la schermata allegata</b> e alcuni dati tecnici vengano usati per migliorare stageplot.it. Controlla che la schermata non contenga cose tue. <a href="/privacy/">Privacy</a>';
   }
 
   if(shotBox){
@@ -45970,7 +45983,7 @@ if ("serviceWorker" in navigator) {
     updShown = true;
     var bar = document.createElement("div");
     bar.id = "updToast"; bar.setAttribute("role","status"); bar.setAttribute("aria-live","polite");
-    bar.innerHTML = '<span>È pronta una nuova versione di StagePlot</span>'
+    bar.innerHTML = '<span>È pronta una nuova versione di stageplot.it</span>'
       + '<button type="button" id="updGo">Ricarica</button>'
       + '<button type="button" id="updX" aria-label="Chiudi">✕</button>';
     document.body.appendChild(bar);

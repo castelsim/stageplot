@@ -1,4 +1,4 @@
-/* Le richieste che arrivano dai clienti di StagePlot: chi ha disegnato un palco e vuole i musicisti.
+/* Le richieste che arrivano dai clienti di stageplot.it: chi ha disegnato un palco e vuole i musicisti.
    Quello che è arrivato non si modifica (lo impedisce il database): qui si legge, si prende in carico e
    si chiude. Quando il cliente accetta, un tasto crea l'evento con i posti da coprire. */
 import { BASE } from "../config.js";

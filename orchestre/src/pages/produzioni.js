@@ -1,5 +1,5 @@
 /* Le produzioni dell'organizzazione: una card ciascuna con date, stato e posti coperti.
-   ?p=<progetto StagePlot> arriva dal menu File dell'editor: porta alla produzione collegata, o propone di crearla. */
+   ?p=<progetto stageplot.it> arriva dal menu File dell'editor: porta alla produzione collegata, o propone di crearla. */
 import { BASE } from "../config.js";
 import { esc, el, setState, errMsg, fmtDate, toast, avvia } from "../ui.js";
 import { requireStaff, mountTopbar } from "../auth.js";
@@ -40,8 +40,8 @@ async function fromEditor(proj) {
   if (linked.length === 1) { location.replace(BASE + "/admin/produzioni/scheda/?id=" + linked[0].id + "&t=stageplot"); return true; }
   const b = el(`<section class="card banner"><h3></h3><p class="small muted"></p><div class="row" id="bAct"></div></section>`);
   if (!linked.length) {
-    b.querySelector("h3").textContent = "Questo progetto StagePlot non è collegato a nessuna produzione";
-    b.querySelector("p").textContent = "Creane una: nasce già collegata, poi importi le postazioni del palco come posti dell'organico. Oppure apri una produzione esistente e collegala dalla scheda «StagePlot».";
+    b.querySelector("h3").textContent = "Questo progetto stageplot.it non è collegato a nessuna produzione";
+    b.querySelector("p").textContent = "Creane una: nasce già collegata, poi importi le postazioni del palco come posti dell'organico. Oppure apri una produzione esistente e collegala dalla scheda «stageplot.it».";
     b.querySelector("#bAct").appendChild(el(`<a class="btn primary" href="${BASE}/admin/produzioni/scheda/?new=1&p=${esc(proj)}">Nuova produzione collegata</a>`));
   } else {
     b.querySelector("h3").textContent = "Questo progetto è collegato a più produzioni";

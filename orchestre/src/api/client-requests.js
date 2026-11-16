@@ -1,4 +1,4 @@
-/* «Richiedi musicisti»: la richiesta che un cliente di StagePlot manda alla società di servizi.
+/* «Richiedi musicisti»: la richiesta che un cliente di stageplot.it manda alla società di servizi.
    Il cliente non è membro di nessuna organizzazione: legge soltanto le proprie richieste. */
 import { sb } from "../sb.js";
 import { SB_URL, SB_ANON } from "../config.js";

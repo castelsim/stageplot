@@ -1,6 +1,6 @@
-# StagePlot
+# stageplot.it
 
-> StagePlot (stageplot.it) è una web app gratuita, in italiano, per creare online lo stage plot in scala e la scheda tecnica di concerti, spettacoli ed eventi dal vivo. Dal disegno l'app genera da sola input list, monitor, carichi elettrici, channel list (esportabile in CSV) e il rider tecnico in PDF multipagina, tutto gratis; la consulenza è un servizio a parte in cui un sound engineer revisiona il progetto, e il rider tecnico completo di una band si può anche far preparare da noi (59 €). Funziona nel browser, è local-first (i dati restano sul dispositivo) e non richiede registrazione. Creata da Simone Castellan, sound engineer per spettacoli dal vivo.
+> stageplot.it è una web app gratuita, in italiano, per creare online lo stage plot in scala e la scheda tecnica di concerti, spettacoli ed eventi dal vivo. Dal disegno l'app genera da sola input list, monitor, carichi elettrici, channel list (esportabile in CSV) e il rider tecnico in PDF multipagina, tutto gratis; la consulenza è un servizio a parte in cui un sound engineer revisiona il progetto, e il rider tecnico completo di una band si può anche far preparare da noi (59 €). Funziona nel browser, è local-first (i dati restano sul dispositivo) e non richiede registrazione. Creata da Simone Castellan, sound engineer per spettacoli dal vivo.
 
 Ultimo aggiornamento di questo file: 14/11/2026.
 
@@ -27,7 +27,7 @@ Uno stage plot (o stage plan) è lo schema in scala del palco che mostra la disp
 - Chi lo sviluppa: Simone Castellan, sound engineer per spettacoli dal vivo, da solo
 
 ## Pagine
-- [Home](https://stageplot.it/): cos'è StagePlot, come funziona e cosa produce
+- [Home](https://stageplot.it/): cos'è stageplot.it, come funziona e cosa produce
 - [Editor gratuito](https://stageplot.it/app/): l'app dove si disegna il palco (nessuna registrazione)
 - [Guida](https://stageplot.it/guida/): indice delle guide su stage plot, channel list e rider tecnico
 - [Stage plot per formazione](https://stageplot.it/stage-plot/): indice delle undici formazioni (band, orchestra, coro, big band, jazz, acustico, tributo, chiesa, matrimonio, DJ set, festival)
@@ -44,7 +44,7 @@ Uno stage plot (o stage plan) è lo schema in scala del palco che mostra la disp
 - [Channel list e input list](https://stageplot.it/guida/channel-list-input-list/): cosa sono e come si compilano
 - [Rider tecnico (scheda tecnica)](https://stageplot.it/guida/rider-tecnico/): cos'è, cosa contiene e come si prepara. In italiano "rider tecnico" e "scheda tecnica" indicano lo stesso documento.
 - [Scheda tecnica della band](https://stageplot.it/guida/scheda-tecnica-band/): cosa contiene e come compilarla sezione per sezione (stage plot, channel list, monitor, corrente, backline, contatti), con l'esempio completo di una band rock di 5 elementi e gli errori da evitare
-  - [Modello di scheda tecnica in PDF](https://stageplot.it/guida/scheda-tecnica-band/esempio-scheda-tecnica-band-rock.pdf): esempio gratuito esportato da StagePlot, 6 pagine A4 (stage plot 1:100, rider, channel list da 17 canali, monitor, carichi elettrici, backline)
+  - [Modello di scheda tecnica in PDF](https://stageplot.it/guida/scheda-tecnica-band/esempio-scheda-tecnica-band-rock.pdf): esempio gratuito esportato da stageplot.it, 6 pagine A4 (stage plot 1:100, rider, channel list da 17 canali, monitor, carichi elettrici, backline)
 - [Esempi di stage plot](https://stageplot.it/guida/esempi-stage-plot/): band, orchestra, coro e jazz
 - [Assorbimento elettrico del palco](https://stageplot.it/guida/assorbimento-elettrico-palco/): come calcolare i kW e gli ampere che assorbe un palco, le prese CEE e la loro potenza, quando serve un generatore e come dimensionarlo in kVA
 - [I microfoni riconosciuti](https://stageplot.it/guida/microfoni/): tabella di 223 microfoni con tipo, diagramma polare, phantom 48 V e asta consigliata, presi dalle schede dei costruttori
@@ -62,10 +62,10 @@ Uno stage plot (o stage plan) è lo schema in scala del palco che mostra la disp
 - [Soundcheck e line check](https://stageplot.it/guida/soundcheck-line-check/): differenza tra line check e soundcheck, ordine dei canali, tempi indicativi per una band di 5 (tra 30 e 40 minuti), checklist da portare sul palco
 
 ## Confronti con altri editor (fatti verificati il 10/10/2026)
-- [Alternative a Ridermaker, TecRider e Stage Plot Pro](https://stageplot.it/alternative/): tabella riassuntiva dei tre editor confrontati con StagePlot (lingua, prezzo, PDF senza account, scala, channel list, funzioni in più)
+- [Alternative a Ridermaker, TecRider e Stage Plot Pro](https://stageplot.it/alternative/): tabella riassuntiva dei tre editor confrontati con stageplot.it (lingua, prezzo, PDF senza account, scala, channel list, funzioni in più)
 - [Alternativa a Ridermaker](https://stageplot.it/alternative/ridermaker/): Ridermaker (inglese e spagnolo, Pro 19 €/anno, Premium 29 €/anno) esporta i nomi dei canali verso diversi mixer; nella prova gli oggetti non erano in scala e la channel list si compilava a mano
 - [Alternativa a TecRider](https://stageplot.it/alternative/tecrider/): TecRider (editor in inglese anche sotto /it/, 15 $/anno o 19 $ a vita) ha scaletta e icone generate con l'AI; senza account il PDF rimandava ai piani a pagamento
-- [Alternativa a Stage Plot Pro](https://stageplot.it/alternative/stage-plot-pro/): Stage Plot Pro (stageplotpro.app, inglese, gratis in accesso anticipato, Pro annunciato a 69 $/anno) dichiara vista 3D e file scena per X32/M32; è un prodotto diverso da StagePlot
+- [Alternativa a Stage Plot Pro](https://stageplot.it/alternative/stage-plot-pro/): Stage Plot Pro (stageplotpro.app, inglese, gratis in accesso anticipato, Pro annunciato a 69 $/anno) dichiara vista 3D e file scena per X32/M32; è un prodotto diverso da stageplot.it
 
 ## Stage plot per formazione
 - [Stage plot per band](https://stageplot.it/stage-plot/band/)
@@ -84,7 +84,7 @@ Uno stage plot (o stage plan) è lo schema in scala del palco che mostra la disp
 Musicisti, band, orchestre, cori, direttori di palco, fonici, service audio, teatri, festival, scuole di musica e conservatori. Anche conferenze e convegni: relatori e moderatore con lavalier o microfono da tavolo, confidence monitor e lista radiomicrofoni con le riserve.
 
 ## Domande frequenti
-- Qual è la differenza fra stage plot, scheda tecnica e rider tecnico? Lo stage plot è la pianta del palco in scala; la scheda tecnica (che i service chiamano rider tecnico) è il documento che lo accompagna, con channel list, monitor, alimentazione e richieste. StagePlot li produce entrambi dallo stesso disegno.
+- Qual è la differenza fra stage plot, scheda tecnica e rider tecnico? Lo stage plot è la pianta del palco in scala; la scheda tecnica (che i service chiamano rider tecnico) è il documento che lo accompagna, con channel list, monitor, alimentazione e richieste. stageplot.it li produce entrambi dallo stesso disegno.
 - Come si fa uno stage plot online gratis? Si apre https://stageplot.it/app/, si parte da un palco vuoto, si trascinano strumenti e musicisti sulle pedane in scala e si esporta il PDF: channel list, monitor e carichi elettrici sono già compilati.
 - Serve un account? No. Il progetto resta nel browser; l'account Google serve solo per ritrovarlo su un altro computer o condividerlo con un link.
 
