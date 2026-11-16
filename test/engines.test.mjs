@@ -33961,5 +33961,87 @@ t("Inventario: pagina e area — ritorno dopo l'accesso, cablaggio (404.html, se
   ok(!/INVENTARIO|TAS-0|@[a-z]+\.(it|com)/.test(readFileSync(join(root, "i/inv.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "")), "nessun dato reale nel codice della pagina");
 });
 
+/* ═══ UX lotti 6-8-9 (16/11/2026): progetti e copie, mobile rifinito, aiuto nell'app ═══ */
+const srcUX = readFileSync(join(root, "index.template.html"), "utf8");
+t("Lotto 6 (E-1): la ricerca per titolo ignora maiuscole e accenti, vuole ogni parola, e con la casella vuota lascia tutto", () => {
+  const L = [{ title: "Omaggio a Ennio Morricone · Teatro Verdi" }, { title: "Concerto di Natale — copia" }, { title: "" }, { id: "x" }];
+  eq(A.progettiFiltra(L, "").length, 4, "casella vuota: tutto");
+  eq(A.progettiFiltra(L, "  ").length, 4, "solo spazi: tutto");
+  eq(A.progettiFiltra(L, "MORRICONE").length, 1, "maiuscole");
+  eq(A.progettiFiltra(L, "omaggio verdi").length, 1, "più parole, qualunque ordine");
+  eq(A.progettiFiltra(L, "verdi omaggio").length, 1, "ordine inverso");
+  eq(A.progettiFiltra(L, "natale copia").length, 1, "parole sparse");
+  eq(A.progettiFiltra(L, "morricone natale").length, 0, "ogni parola deve esserci");
+  eq(A.progettiFiltra(L, "senza").length, 2, "i progetti senza titolo si trovano come «Senza titolo»");
+  eq(A.progettiFiltra([{ title: "Città di Pordenone" }], "citta").length, 1, "accenti");
+});
+t("Lotto 6 (E-1): l'elenco ha ricerca (da PROGETTI_RICERCA_MIN progetti), titolo intero nel tooltip su tre righe, azioni che vanno a capo sul telefono", () => {
+  ok(/id="cloudCerca"/.test(srcUX) && /progettiFiltra\(cloudProjects, cloudCerca\)/.test(srcUX), "casella e filtro nel rendering");
+  ok(/cloudProjects\.length>=PROGETTI_RICERCA_MIN/.test(srcUX), "la casella compare solo con abbastanza progetti");
+  ok(/class="cloudTitolo" title="'\+esc\(p\.title/.test(srcUX), "titolo completo nel tooltip");
+  ok(/\.cloudTitolo\{[^}]*-webkit-line-clamp:3/.test(stylesCss), "tre righe invece di due");
+  ok(/\.cloudTitolo\{[^}]*overflow-wrap:break-word/.test(stylesCss) && !/\.cloudTitolo\{[^}]*overflow-wrap:anywhere/.test(stylesCss), "non si spezza a metà parola");
+  ok(/class="cloudAzioni"/.test(srcUX) && /\.cloudRiga \.cloudAzioni\{flex:1 0 100%/.test(stylesCss), "azioni su una riga propria sul telefono");
+  ok(/cloudCerca=""; if\(modalEl\)/.test(srcUX), "chiudendo la finestra la ricerca si azzera");
+});
+t("Lotto 6 (E-2/E-3): Nuovo, Apri copia e Apri progetto non sono rossi; i dialoghi che eliminano o sostituiscono senza rete restano rossi", () => {
+  eq(A.cfmClassi("info"), { ico: "cfm-ico neutro", ok: "btn primary" }, "info: neutro");
+  eq(A.cfmClassi("warn").ok, "btn danger-solid", "warn: pulsante rosso");
+  eq(A.cfmClassi("trash").ico, "cfm-ico", "trash: icona rossa");
+  eq(A.cfmClassi(undefined).ok, "btn danger-solid", "senza icona: come prima (rosso)");
+  ok(/icon:"info", title:"Nuovo stage plot\?"/.test(srcUX), "File → Nuovo è neutro");
+  ok(/var ask=\{icon:"info",title:options\.title\|\|"Sostituire il progetto aperto\?"/.test(srcUX), "guardDocumentReplacement (Apri progetto, Apri copia) è neutro");
+  ok(/icon:"warn", title:"Il progetto salvato non si apre"/.test(srcUX), "il progetto illeggibile resta in allarme");
+  ok(/(^|\n)\.cfm-ico\.neutro\{/.test(stylesCss), "stile dell'icona neutra");
+  ok(/document\.getElementById\("cfmOk"\)\.className = cl\.ok/.test(srcUX), "confirmDialog rimette la classe del pulsante a ogni apertura (non resta primario per il dialogo dopo)");
+});
+t("Lotto 6 (E-3): una frase spiega Variante / Versione / Copia / Punto di ripristino, e compare dove si sceglie", () => {
+  for (const w of ["Variante", "Versione", "Copia", "Punto di ripristino"]) ok(A.FRASE_COPIE.includes(w), "la frase nomina «" + w + "»");
+  ok(/<summary>Variante, versione, copia: che differenza c/.test(srcUX) && /esc\(FRASE_COPIE\)/.test(srcUX), "nell'elenco progetti");
+  ok(/id="pdfVersioneFrase">Versione = il numero/.test(srcUX) && /«\+ Variante»/.test(srcUX), "sotto il campo Versione dell'export");
+  ok(/<h3>Punti di ripristino<\/h3>\s*<p class="prop-hint"[^>]*>Tornare indietro nel tempo/.test(srcUX), "nel pannello Punti di ripristino");
+  ok(/title="Nuova variante: la stessa serata con un\\'altra disposizione/.test(srcUX), "sul «+ Variante»");
+  ok(/class="mrow-nota">Variante = la stessa serata/.test(srcUX), "nel menu del telefono");
+});
+t("Lotto 8 (C-3): l'invito «PDF in scala» non compare mentre c'è un banner sul palco (cavi, vista, stai riaprendo)", () => {
+  const base = { altrui: false, mobile: false, stato: "0", elementi: 50, giaInSessione: false };
+  eq(A.exportNudgeDecidi(base), true, "senza banner: l'invito c'è");
+  eq(A.exportNudgeDecidi({ ...base, bannerVisibile: true }), false, "con un banner: aspetta");
+  eq(A.exportNudgeDecidi({ ...base, bannerVisibile: true, giaInSessione: true }), false, "anche se era già comparso");
+  ok(/bannerVisibile:bannerCanvasVisibile\(\)/.test(srcUX) && /\["funzBanner","vistaBanner","riapriBanner"\]/.test(srcUX), "exportNudgeAggiorna guarda i tre banner");
+  ok(/exportNudgeAggiorna\(\); \}catch\(e\)\{\}\s*\/\* il banner è comparso/.test(srcUX), "quando il banner compare l'invito si ritira subito, senza aspettare il giro da 2,5 s");
+});
+t("Lotto 8 (A-6, bersagli): a 390 px i controlli piccoli arrivano a 44 px e il toast con una finestra aperta sta in alto, senza coprire «Salva con Google»", () => {
+  const blocco = stylesCss.slice(stylesCss.indexOf("UX8-BERSAGLI"));
+  ok(/\.mtop-logo\{[^}]*min-width:44px;min-height:44px/.test(blocco), "logo: area da 44 px");
+  ok(/#mTitle,#mRotChip,#ssW,#ssD,#mW,#mD\{min-height:44px\}/.test(blocco), "titolo, chip «Vista girata» e misure del palco: 44 px");
+  ok(/@media \(max-width:560px\),\(pointer:coarse\)/.test(blocco), "solo su telefono/dito: il desktop non cambia");
+  ok(/body:has\(\.modal:not\(\[hidden\]\)\) #cloudToast\{bottom:auto;top:/.test(blocco), "con una finestra aperta il toast sale in cima");
+  ok(/#cloudToast\{bottom:calc\(var\(--dock-h,64px\) \+ 12px\)\}/.test(stylesCss), "senza finestre resta sopra il dock (regola del 01/09 intatta)");
+  ok(/id="pdfInvitoAccedi"/.test(srcUX), "l'invito «Salva con Google» è dentro la finestra Esporta (il toast non lo raggiunge più)");
+});
+t("Lotto 9: «?» porta a tutorial e guide pertinenti, mai a funzioni avanzate", () => {
+  const h = (c) => A.aiutoGuideContesto(c).map((g) => g.href);
+  eq(h({})[0], "/guida/tutorial/", "il tutorial è sempre la prima voce");
+  ok(h({}).includes("/guida/come-fare-uno-stage-plot/"), "palco vuoto: come fare uno stage plot");
+  ok(h({ modale: "pdf" }).includes("/guida/rider-tecnico/"), "export aperto: rider tecnico");
+  ok(h({ modale: "pdf" }).includes("/guida/stage-plot-in-scala/"), "export aperto: scala");
+  ok(h({ modale: "condividi" }).includes("/guida/rider-tecnico/"), "condivisione: rider per il service");
+  ok(h({ modale: "progetti" }).includes("/guida/come-fare-uno-stage-plot/"), "I miei progetti: come si fa");
+  ok(h({ tipi: ["corista", "pedanacoro"] }).includes("/guida/disposizione-coro/"), "coro sul palco: disposizione del coro");
+  ok(h({ tipi: ["wireless"] }).includes("/guida/radiomicrofoni-frequenze/"), "radiomicrofoni: frequenze");
+  ok(h({ tipi: ["spia"] }).includes("/guida/monitor-spie-in-ear/"), "spie: monitor e in-ear");
+  for (const c of [{}, { modale: "pdf" }, { modale: "pdf", tipi: ["chitarra"] }, { modale: "progetti", tipi: ["corista"] }, { tipi: ["corista", "wireless", "spia", "chitarra"] }]) {
+    const l = h(c); eq(l.length, new Set(l).size, "nessun doppione"); ok(l.length <= 4, "al massimo quattro voci");
+  }
+  for (const href of h({ modale: "pdf", tipi: ["corista", "wireless", "spia"] }).concat(h({}), h({ modale: "condividi" }), h({ modale: "progetti" })))
+    ok(existsSync(join(root, href.replace(/^\//, ""), "index.html")), "la guida esiste: " + href);
+  ok(/id="helpGuide"/.test(srcUX) && /id="learnGuide"/.test(srcUX), "elenco nel «?» e nel pannello Guida del telefono");
+  ok(/\["helpBtn","bLearnM"\]\.forEach[\s\S]{0,200}addEventListener\("click", aiutoRinfresca, true\)/.test(srcUX), "ricostruito a ogni apertura");
+  const blocco = srcUX.slice(srcUX.indexOf("function aiutoGuideHtml"), srcUX.indexOf("var CFM_ICON={"));
+  ok(!/funz(Imposta|ApriFinestra|On)|data-funz/.test(blocco), "il blocco aiuto non tocca le funzioni avanzate");
+  ok(/target="_blank" rel="noopener"/.test(blocco), "le guide si aprono in una scheda nuova: il progetto resta dov'è");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
