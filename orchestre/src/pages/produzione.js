@@ -680,7 +680,8 @@ async function paintConvocazioni() {
 async function loadConvocazioni() {
   const box = app.querySelector("#cv"), sum = app.querySelector("#cvSummary");
   try {
-    const [rows, st, need] = await Promise.all([inv.list(p.id), api.staffing(p.id), inv.reconfirmNeeded(p.id).catch(() => [])]);
+    const [rows, st, need, riserve] = await Promise.all([inv.list(p.id), api.staffing(p.id), inv.reconfirmNeeded(p.id).catch(() => []), inv.reserveFlags(p.id).catch(() => new Set())]);
+    for (const r of rows) r.reserve_only = riserve.has(r.id);
     sections = groupStaffing(st);
     const c = staffingCounts(sections);
     const waiting = rows.filter((r) => ["draft", "sent", "viewed"].includes(r.status)).length;
@@ -728,6 +729,7 @@ function invitationRow(r, openSlots) {
   if (r.deadline && ["draft", "sent", "viewed"].includes(r.status)) bits.push("entro " + fmtDateTime(r.deadline));
   if (r.responded_at) bits.push("risposto " + fmtDateTime(r.responded_at));
   if (r.status === "partial") bits.push(`${r.dates_yes} date su ${r.dates_total}`);
+  if (r.reserve_only && r.status === "available") bits.push("disponibile solo se manca qualcuno");
   if (r.note_musician) bits.push("«" + r.note_musician + "»");
   if (r.notification_status === "pending") bits.push("email in coda");
   if (r.notification_status === "sending") bits.push("email in spedizione");
@@ -755,9 +757,22 @@ function invitationRow(r, openSlots) {
   if (r.stale && !r.reconfirm_requested_at && r.notification_status !== "pending" && r.notification_status !== "sending") btn("Chiedi riconferma", "", () => chiediRiconferma([r.id]));
   if (["available", "partial"].includes(r.status)) btn("Riserva", "", () => doAction("reserve", "", "In riserva."));
   if (["sent", "viewed"].includes(r.status) && r.notification_status !== "pending" && r.notification_status !== "sending") btn("Promemoria", "", () => doAction("remind", "", "Promemoria mandato."));
-  if (r.status === "confirmed") btn("Revoca", "danger", () => {
-    const why = prompt("Motivo della revoca (resta nella storia):", ""); if (why === null) return;
+  if (r.status === "confirmed") btn("Revoca", "danger", async () => {
+    const why = await dialogoTesto({ title: "Revocare la conferma di " + r.musician_name + "?", text: "Il posto torna scoperto e il musicista riceve l'avviso. Il motivo resta nella storia.", label: "Motivo", ok: "Revoca", danger: true });
+    if (why === null) return;
     doAction("revoke", why, "Conferma revocata: il posto è di nuovo scoperto.");
+  });
+  /* il link è una chiave: per rimandarlo (WhatsApp, email finita in spam) se ne fa uno nuovo e quello di prima smette di valere */
+  if (["sent", "viewed", "available", "partial", "unavailable", "no_reply", "confirmed", "reserve"].includes(r.status)) btn("Copia link", "ghost", async () => {
+    const yes = await confirm({ title: "Nuovo link per " + r.musician_name + "?", text: "Il link che ha ricevuto finora smette di funzionare: da adesso vale solo quello nuovo, che ti mostro subito per mandarlo tu (WhatsApp, SMS).", ok: "Crea il link nuovo" });
+    if (!yes) return;
+    try {
+      const tok = await inv.relink(r.id);
+      const url = location.origin + BASE + "/rispondi/?t=" + encodeURIComponent(tok);
+      const nome = (r.musician_name.split(" ").slice(-1)[0] || "").trim();
+      await mostraLink(`Ciao ${nome}, ecco il link per rispondere alla convocazione «${p.title}»: ${url}`, r.musician_name);
+      await loadConvocazioni();
+    } catch (e) { toast(errMsg(e), { err: true }); }
   });
   if (!["confirmed", "cancelled", "revoked", "replaced"].includes(r.status)) btn("Annulla", "ghost", async () => {
     const yes = await confirm({ title: "Annullare la convocazione?", text: "Il link smette di funzionare. Se ha già risposto, la risposta resta nella storia.", ok: "Annulla convocazione", danger: true });
@@ -777,6 +792,38 @@ function invitationRow(r, openSlots) {
   return li;
 }
 
+
+/* Finestra con un campo di testo (al posto di prompt()); restituisce il testo o null se si annulla. */
+function dialogoTesto({ title, text = "", label = "", ok = "Conferma", danger = false }) {
+  return new Promise((resolve) => {
+    const ov = el(`<div class="modal-ov" role="dialog" aria-modal="true"><div class="modal"><h2></h2><p class="muted"></p><div class="field"><label for="dtx"></label><textarea id="dtx" rows="3" maxlength="500"></textarea></div>
+      <div class="actions"><button type="button" class="btn" data-x="0">Annulla</button><button type="button" class="btn ${danger ? "danger" : "primary"}" data-x="1"></button></div></div></div>`);
+    ov.querySelector("h2").textContent = title; ov.querySelector("p").textContent = text; ov.querySelector("label").textContent = label; ov.querySelector("[data-x='1']").textContent = ok;
+    const done = (v) => { ov.remove(); document.removeEventListener("keydown", onKey); resolve(v); };
+    const onKey = (e) => { if (e.key === "Escape") done(null); };
+    ov.querySelector("[data-x='0']").onclick = () => done(null);
+    ov.querySelector("[data-x='1']").onclick = () => done(ov.querySelector("#dtx").value.trim());
+    ov.addEventListener("click", (e) => { if (e.target === ov) done(null); });
+    document.addEventListener("keydown", onKey); document.body.appendChild(ov); ov.querySelector("#dtx").focus();
+  });
+}
+/* Il link nuovo, già dentro un messaggio da incollare. Non si conserva da nessuna parte: se chiudi senza copiare se ne fa un altro. */
+function mostraLink(messaggio, nome) {
+  return new Promise((resolve) => {
+    const ov = el(`<div class="modal-ov" role="dialog" aria-modal="true"><div class="modal"><h2></h2><p class="muted">Il link di prima non vale più. Copia il messaggio e mandalo tu: questo link non si rivede.</p>
+      <div class="field"><label for="lkm">Messaggio</label><textarea id="lkm" rows="4" readonly></textarea></div>
+      <div class="actions"><button type="button" class="btn" data-x="0">Chiudi</button><button type="button" class="btn primary" data-x="1">Copia il messaggio</button></div></div></div>`);
+    ov.querySelector("h2").textContent = "Link nuovo per " + nome; ov.querySelector("textarea").value = messaggio;
+    const done = () => { ov.remove(); document.removeEventListener("keydown", onKey); resolve(); };
+    const onKey = (e) => { if (e.key === "Escape") done(); };
+    ov.querySelector("[data-x='0']").onclick = done;
+    ov.querySelector("[data-x='1']").onclick = async () => {
+      const t = ov.querySelector("textarea");
+      try { await navigator.clipboard.writeText(messaggio); toast("Copiato."); } catch { t.select(); toast("Selezionato: copia con ⌘C.", { err: true }); }
+    };
+    document.addEventListener("keydown", onKey); document.body.appendChild(ov);
+  });
+}
 
 /* ---------------------------------------------------------------- Feedback */
 const SCORES = [["punctuality", "Puntualità"], ["preparation", "Preparazione"], ["artistic", "Qualità artistica"], ["professionalism", "Professionalità"], ["overall", "Complessivo"]];

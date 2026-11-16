@@ -6,6 +6,7 @@ import { esc, el, toast, confirm, setState, errMsg, fmtDate, fmtDateTime, avvia 
 import { getSession, signOut, barraAree } from "../auth.js";
 import { STEPS, PASSI_PROFILO, GENRES, PARTI, PRIVACY_VERSION, PUBLIC_STATUS, missingFields, completion, FIELD_LABEL } from "../domain/applications.js";
 import { DATE_KIND, INV_STATUS, INV_PILL, PROD_STATUS } from "../domain/staffing.js";
+import { buildIcs, scaricaIcs } from "../domain/ics.js";
 import { FAMILY } from "../nav.js";
 import * as api from "../api/applications.js";
 import { catalogs } from "../api/musicians.js";
@@ -202,7 +203,9 @@ async function paintHome() {
     /* incarichi */
     const eb = eng.querySelector(".loading"); eb.className = ""; eb.innerHTML = "";
     if (!myEng.length) eb.appendChild(el(`<p class="small muted">Nessun incarico confermato.</p>`));
-    else { const ul = el(`<ul class="list compact"></ul>`); for (const e of myEng) { const li = el(`<li class="list-item"><div class="grow"><div class="title"></div><div class="sub"></div></div><div class="actions"><span class="pill ${e.status === "done" ? "" : "ok"}">${esc(PROD_STATUS[e.status] || e.status)}</span></div></li>`); li.querySelector(".title").textContent = e.title + " · " + e.role_name; li.querySelector(".sub").textContent = [e.org_name, e.first_date ? fmtDate(e.first_date) + (e.last_date && fmtDate(e.last_date) !== fmtDate(e.first_date) ? " → " + fmtDate(e.last_date) : "") : "", e.venue].filter(Boolean).join(" · "); ul.appendChild(li); } eb.appendChild(ul); }
+    else { const ul = el(`<ul class="list compact"></ul>`); for (const e of myEng) { const li = el(`<li class="list-item"><div class="grow"><div class="title"></div><div class="sub"></div></div><div class="actions"><span class="pill ${e.status === "done" ? "" : "ok"}">${esc(PROD_STATUS[e.status] || e.status)}</span></div></li>`); { const ics = buildIcs({ id: e.production_id, title: e.title, role: e.role_name, org: e.org_name, venue: e.venue, dates: e.dates });
+          if (ics.n && e.status !== "done") { const bc = el(`<button type="button" class="btn small ghost">Calendario (.ics)</button>`); bc.onclick = () => scaricaIcs(e.title, ics.text); li.querySelector(".actions").appendChild(bc); } }
+        li.querySelector(".title").textContent = e.title + " · " + e.role_name; li.querySelector(".sub").textContent = [e.org_name, e.first_date ? fmtDate(e.first_date) + (e.last_date && fmtDate(e.last_date) !== fmtDate(e.first_date) ? " → " + fmtDate(e.last_date) : "") : "", e.venue].filter(Boolean).join(" · "); ul.appendChild(li); } eb.appendChild(ul); }
   } catch (e) { for (const s of [apps, invs, eng]) { const l = s.querySelector(".loading"); if (l) setState(l, "err", errMsg(e)); } }
 }
 
@@ -216,7 +219,7 @@ function invitationCard(i, canAnswer) {
   const ans = c.querySelector(".ans");
   const partial = {}; for (const d of i.dates) if (typeof d.available === "boolean") partial[d.id] = d.available;
   let answer = i.status === "available" ? "yes" : i.status === "unavailable" ? "no" : i.status === "partial" ? "partial" : null;
-  ans.innerHTML = `<div class="row"><button type="button" class="btn small" data-a="yes">Ci sono</button><button type="button" class="btn small" data-a="partial">Solo alcune date</button><button type="button" class="btn small" data-a="no">Non posso</button></div><div class="dates" hidden></div><div class="field"><input class="note" placeholder="una nota, se serve" maxlength="1000"></div><button type="button" class="btn primary small send" disabled>Invia la risposta</button>`;
+  ans.innerHTML = `<div class="row"><button type="button" class="btn small" data-a="yes">Ci sono</button><button type="button" class="btn small" data-a="partial">Solo alcune date</button><button type="button" class="btn small" data-a="reserve">Solo se manca qualcuno</button><button type="button" class="btn small" data-a="no">Non posso</button></div><div class="dates" hidden></div><div class="field"><input class="note" placeholder="una nota, se serve" maxlength="1000"></div><button type="button" class="btn primary small send" disabled>Invia la risposta</button>`;
   ans.querySelector(".note").value = i.note_musician || "";
   const datesBox = ans.querySelector(".dates");
   for (const d of i.dates) {
@@ -233,7 +236,7 @@ function invitationCard(i, canAnswer) {
   update();
   ans.querySelector(".send").onclick = async () => {
     const dates = answer === "partial" ? i.dates.map((d) => ({ id: d.id, available: !!partial[d.id] })) : [];
-    try { const r = await api.respondMine(i.id, answer, dates, ans.querySelector(".note").value.trim()); if (r?.error) throw new Error(r.error === "expired" ? "La scadenza è passata." : r.error === "locked" ? "Già confermato: per cambiare scrivi a chi ti ha invitato." : "Non sono riuscito a registrare la risposta."); toast("Risposta registrata."); paint(); }
+    try { const r = answer === "reserve" ? await api.respondReserveMine(i.id, ans.querySelector(".note").value.trim()) : await api.respondMine(i.id, answer, dates, ans.querySelector(".note").value.trim()); if (r?.error) throw new Error(r.error === "expired" ? "La scadenza è passata." : r.error === "locked" ? "Già confermato: per cambiare scrivi a chi ti ha invitato." : "Non sono riuscito a registrare la risposta."); toast("Risposta registrata."); paint(); }
     catch (e) { toast(errMsg(e), { err: true }); }
   };
   return c;

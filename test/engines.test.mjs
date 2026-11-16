@@ -34118,5 +34118,50 @@ t("Orchestre ORC16b: il foglio stampabile — A4, margini ≥15 mm, piè «vN ·
   ok(/orc_staffing_stamp\(production uuid\)/.test(sql) && !/snapshot jsonb\)/.test(sql.split("function public.orc_staffing_stamp")[1].split("returns")[0]), "lo snapshot lo costruisce il server, non arriva dal client");
 });
 
+/* ORC16b — lotto B (16/11/2026): link di convocazione copiabili, «riserva» chiesta dal musicista, calendario .ics. */
+const orcIcs = await import("../orchestre/src/domain/ics.js");
+t("Orchestre ORC16b: .ics — righe CRLF a 75 byte, orari UTC, virgole e a capo protetti, fine di default dopo 3 ore", () => {
+  const g = { id: "abc", title: "Concerto; di, prova", role: "Violini", org: "Orchestra Prova", venue: "Teatro", address: "Via Roma 1", dates: [
+    { kind: "rehearsal", starts_at: "2027-03-09T19:00:00+01:00", ends_at: "2027-03-09T22:00:00+01:00", venue: "", note: "arrivo 18:30\nportare il leggio" },
+    { kind: "concert", starts_at: "2027-03-10T20:00:00+01:00", ends_at: null, venue: "Duomo" },
+    { kind: "other", starts_at: "non-una-data" }] };
+  const r = orcIcs.buildIcs(g, new Date("2026-11-16T10:00:00Z"));
+  ok(r.n === 2 && (r.text.match(/BEGIN:VEVENT/g) || []).length === 2, "due eventi: la data non valida si salta");
+  ok(r.text.startsWith("BEGIN:VCALENDAR\r\nVERSION:2.0\r\n") && r.text.endsWith("END:VCALENDAR\r\n") && !/[^\r]\n/.test(r.text), "righe terminate da CRLF");
+  ok(/DTSTART:20270309T180000Z/.test(r.text) && /DTEND:20270309T210000Z/.test(r.text), "orari convertiti in UTC");
+  ok(/DTSTART:20270310T190000Z\r\nDTEND:20270310T220000Z/.test(r.text), "senza fine: tre ore");
+  ok(r.text.includes("SUMMARY:Prova · Concerto\\; di\\, prova"), "punto e virgola e virgola protetti nel titolo");
+  ok(/LOCATION:Teatro\\, Via Roma 1/.test(r.text) && /LOCATION:Duomo/.test(r.text), "luogo: quello della data, altrimenti quello della produzione con indirizzo");
+  ok(/DESCRIPTION:Ruolo: Violini\\nOrchestra Prova\\narrivo 18:30\\nportare il leggio/.test(r.text.replace(/\r\n /g, "")), "a capo dentro il testo diventano \\n");
+  ok(r.text.split("\r\n").every((l) => new TextEncoder().encode(l).length <= 75), "nessuna riga oltre 75 byte");
+  const uids = [...r.text.matchAll(/UID:(\S+)/g)].map((m) => m[1]); ok(new Set(uids).size === 2 && /^orc-abc-1-/.test(uids[0]), "UID diversi e stabili");
+  const lunga = orcIcs.fold("DESCRIPTION:" + "è".repeat(60)); ok(lunga.split("\r\n").every((l, i) => new TextEncoder().encode(i ? l.slice(1) : l).length <= 75) && lunga.replace(/\r\n /g, "") === "DESCRIPTION:" + "è".repeat(60), "la piega non spezza i caratteri accentati");
+});
+t("Orchestre ORC16b: link copiabile — migrazione 0087, pulsante, finestre al posto di prompt(), niente token conservato", () => {
+  const sql = readFileSync(join(root, "supabase/migrations/0087_orc_link_e_riserva.sql"), "utf8");
+  ok(/not public\.orc_is_staff\(i\.org_id\) then raise exception 'non autorizzato'/.test(sql), "solo staff dell'organizzazione");
+  const relink = sql.split("function public.orc_invitation_relink")[1].split("revoke all")[0];
+  ok(/if i\.status not in \('sent','viewed','available','partial','unavailable','no_reply','confirmed','reserve'\) then/.test(relink) && !/draft/.test(relink.split("if i.status not in")[1].split("then")[0]), "solo inviti partiti e aperti: né bozze né chiusi");
+  ok(/delete from public\.orc_invitation_secrets/.test(sql) && /encode\(digest\(tok, 'sha256'\), 'hex'\)/.test(sql), "si conserva solo l'hash, il segreto in chiaro si cancella");
+  ok(/'link_regenerated'/.test(sql), "resta nella storia");
+  const pr = readFileSync(join(root, "orchestre/src/pages/produzione.js"), "utf8");
+  ok(/btn\("Copia link", "ghost"/.test(pr) && /Il link che ha ricevuto finora smette di funzionare/.test(pr), "pulsante «Copia link» con l'avviso che il vecchio non vale più");
+  ok(!/prompt\("Motivo della revoca/.test(pr) && /dialogoTesto\(\{ title: "Revocare la conferma/.test(pr), "la revoca usa una finestra, non il prompt() del browser");
+  ok(/inv\.relink\(r\.id\)/.test(pr) && /location\.origin \+ BASE \+ "\/rispondi\/\?t="/.test(pr), "il link nuovo punta alla pagina di risposta");
+});
+t("Orchestre ORC16b: «riserva» chiesta dal musicista — Edge Function, trigger, pagine, segno visibile allo staff", () => {
+  const sql = readFileSync(join(root, "supabase/migrations/0087_orc_link_e_riserva.sql"), "utf8");
+  ok(/new\.responded_at is distinct from old\.responded_at and new\.reserve_only is not distinct from old\.reserve_only then\s+new\.reserve_only := false/.test(sql), "ogni risposta normale azzera il segno");
+  ok(/grant execute on function public\.orc_mark_reserve\(text\) to service_role/.test(sql) && /revoke all on function public\.orc_mark_reserve\(text\) from public, anon, authenticated/.test(sql), "il segno lo scrive solo il servizio");
+  const fn = readFileSync(join(root, "supabase/functions/orc-respond/index.ts"), "utf8");
+  ok(/answer: riserva \? "yes" : parsed\.answer/.test(fn) && /riserva && data\?\.status === "available"/.test(fn), "la Edge Function manda «sì» e poi accende il segno solo se il sì è passato");
+  const rp = readFileSync(join(root, "orchestre/src/pages/rispondi.js"), "utf8");
+  ok(/data-a="reserve">Sì, ma solo se manca qualcuno/.test(rp) && /answer === "yes" \|\| answer === "reserve"/.test(rp), "il link ha il quarto pulsante e lo accetta come risposta completa");
+  const mu = readFileSync(join(root, "orchestre/src/pages/musicista.js"), "utf8");
+  ok(/data-a="reserve">Solo se manca qualcuno/.test(mu) && /respondReserveMine/.test(mu), "anche l'area del musicista");
+  ok(/disponibile solo se manca qualcuno/.test(readFileSync(join(root, "orchestre/src/pages/produzione.js"), "utf8")), "lo staff lo vede sulla riga");
+  ok(/D\.status === "confirmed" \? buildIcs/.test(rp) && /e\.status !== "done"/.test(mu), ".ics solo per ingaggi confermati (link) e non conclusi (area)");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

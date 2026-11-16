@@ -22,6 +22,18 @@ export async function events(invitationId) {
   fail(error);
   return data || [];
 }
+/* Link nuovo per un invito già partito (0087): restituisce il token in chiaro UNA volta; il vecchio link smette di valere. */
+export async function relink(invitationId) {
+  const { data, error } = await sb.rpc("orc_invitation_relink", { invitation: invitationId });
+  fail(error);
+  return data;
+}
+/* «Ci sono, ma solo se manca qualcuno» (0087): il segno sta sull'invito. */
+export async function reserveFlags(productionId) {
+  const { data, error } = await sb.from("orc_invitations").select("id, reserve_only").eq("production_id", productionId).eq("reserve_only", true);
+  fail(error);
+  return new Set((data || []).map((x) => x.id));
+}
 /* Condizioni versionate (migrazione 0084): chi manca, richiesta di riconferma, storia delle versioni. */
 export async function reconfirmNeeded(productionId) {
   const { data, error } = await sb.rpc("orc_reconfirm_needed", { production: productionId });

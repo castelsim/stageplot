@@ -73,8 +73,11 @@ Deno.serve(async (req) => {
     .eq("invitation_id", inv.id).eq("event", "responded").gte("at", since);
   if ((count ?? 0) >= RATE_MAX_WRITES) return json({ error: "rate_limited" }, 429);
 
-  const { data, error } = await supabase.rpc("orc_respond", { token_hash_in: tokenHash, answer: parsed.answer, dates: parsed.dates, note: parsed.note });
+  /* «sì, ma solo se manca qualcuno» = il sì di sempre + il segno sull'invito (0087); se il segno non si scrive resta un sì normale */
+  const riserva = parsed.answer === "reserve";
+  const { data, error } = await supabase.rpc("orc_respond", { token_hash_in: tokenHash, answer: riserva ? "yes" : parsed.answer, dates: parsed.dates, note: parsed.note });
   if (error) return json({ error: "server" }, 500);
   if (data?.error) return denied(String(data.error));
+  if (riserva && data?.status === "available") await supabase.rpc("orc_mark_reserve", { token_hash_in: tokenHash });
   return json({ ok: true, status: data.status, reconfirmed: !!data.reconfirmed, withdrew: !!data.withdrew });
 });

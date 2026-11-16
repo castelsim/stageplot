@@ -217,11 +217,11 @@ export function idempotencyKey(inv: { id: string; notification_kind: string; not
 }
 
 /** il corpo della risposta del musicista → {answer, dates, note} o un errore */
-export function parseAnswer(body: unknown): { ok: true; answer: "yes" | "no" | "partial"; dates: { id: string; available: boolean }[]; note: string } | { ok: false; error: string } {
+export function parseAnswer(body: unknown): { ok: true; answer: "yes" | "no" | "partial" | "reserve"; dates: { id: string; available: boolean }[]; note: string } | { ok: false; error: string } {
   if (!body || typeof body !== "object" || Array.isArray(body)) return { ok: false, error: "bad_body" };
   const b = body as Record<string, unknown>;
   const answer = b.answer;
-  if (answer !== "yes" && answer !== "no" && answer !== "partial") return { ok: false, error: "bad_answer" };
+  if (answer !== "yes" && answer !== "no" && answer !== "partial" && answer !== "reserve") return { ok: false, error: "bad_answer" };
   const dates: { id: string; available: boolean }[] = [];
   if (answer === "partial") {
     if (!Array.isArray(b.dates) || b.dates.length === 0) return { ok: false, error: "no_dates" };
