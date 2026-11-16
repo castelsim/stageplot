@@ -17134,6 +17134,10 @@ function cabItemInputs(it){
      dal catalogo NON ha diFor: resta una sorgente con i suoi canali. */
   if(it.diFor && typeof diSourceOf==="function" && diSourceOf(it)) return [];
   if(it.type==="custom") return custInputs(it);   /* elemento personalizzato: solo gli ingressi che l'utente ha dichiarato */
+  /* «Nessun microfono» (P1 Il Volo, 16/11/2026): l'elemento è sul palco ma non ha canali, come in isAudioSource. Senza questa riga
+     voci, pianoforti, percussioni e pedaliere a «Nessun microfono» contavano lo stesso, e le stage box davano «ingressi insufficienti»
+     come errore critico che fermava l'Esporta. La zona microfonica (miczone) non ha questa scelta. */
+  if(it.miking==="__nomic__" && it.type!=="miczone") return [];
   /* COMPUTER (31/07): la via scelta non era solo un'etichetta sul cavo — cambia cosa chiedi al
      service. In analogico dalle cuffie serve davvero una DI stereo; in USB o Dante NO, e scriverlo
      lo stesso metteva nel rider una DI che non esiste. Il numero di canali resta quello di it.plCh. */

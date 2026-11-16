@@ -18171,6 +18171,29 @@ t("le porte del mixer si contano e si esauriscono", () => {
   ok(R.issues.some((i) => i.code === "cap"), "18 voci su 16 ingressi: l'audit lo dice");
 });
 
+t("P1 Il Volo: «Nessun microfono» non produce canali (voci, tastiere, percussioni) e non fa scattare «ingressi insufficienti»", () => {
+  reset();
+  const tipi = ["cantante", "pianoforte", "bongos", "chitarra", "violino"];
+  tipi.forEach((tp) => {
+    if (!A.TYPES[tp]) return;
+    const it = add(tp, 300, 300);
+    const con = chans(it).length;
+    it.miking = "__nomic__";
+    eq(chans(it).length, 0, tp + ": nessun microfono = 0 canali");
+    delete it.miking;
+    ok(chans(it).length === con, tp + ": tolto «Nessun microfono» i canali tornano");
+  });
+  reset();
+  add("dm3", 600, 740);
+  for (let i = 0; i < 18; i++) { const c = add("cantante", 100 + i * 40, 300); c.miking = "__nomic__"; }
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.manual = {}; A.__cabRes = null;
+  const R = A.cabResult(true);
+  ok(!R.issues.some((i) => i.code === "cap"), "18 voci a «Nessun microfono» su 16 ingressi: nessun errore di capienza");
+  reset();
+});
+t("P1 Il Volo: la zona microfonica non cambia (miczone resta un canale)", () => {
+  reset(); const z = add("miczone", 300, 300); eq(chans(z).length, 1); z.miking = "__nomic__"; eq(chans(z).length, 1, "la zona è lei il microfono: «Nessun microfono» non la azzera (come isAudioSource)"); reset();
+});
 t("l'audit non chiede una stage box quando c'e' gia' un mixer con ingressi", () => {
   reset();
   add("dm3", 600, 740);
