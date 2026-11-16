@@ -37192,8 +37192,11 @@ function backlineListPdf(shared){
     var _testaTab=null;
     /* con il modello nel nome («Ampli basso — Ampeg RB-115 Rocket Bass») una riga lunga andava a finire
        sotto «Fornito da»: la colonna dell'attrezzatura va a capo invece di sbordare (12/10) */
-    function trow(a,b,c,bold,color){ if(y>274){ doc.addPage(); y=18; if(_testaTab){ var _t=_testaTab; _testaTab=null; _t(); _testaTab=_t; } } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9.5); doc.setTextColor(color||"#111827");
+    function trow(a,b,c,bold,color){ doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9.5);
       var bl=doc.splitTextToSize(String(b), cols[2]-cols[1]-4);
+      /* la riga a capo si misura INTERA: una riga che parte a 274 con 3 righe arrivava a 282 e toccava il piè (rilettura 17/11/2026) */
+      if(y+(bl.length-1)*3.9>274){ doc.addPage(); y=18; if(_testaTab){ var _t=_testaTab; _testaTab=null; _t(); _testaTab=_t; } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9.5); }
+      doc.setTextColor(color||"#111827");
       doc.text(String(a),cols[0],y); doc.text(bl,cols[1],y); doc.text(String(c),cols[2],y); y+=5.6+(bl.length-1)*3.9; }
     /* intestazione delle colonne ripetuta sulle pagine di seguito (revisione 28/09) */
     function _testa(){ trow("Q.tà","ATTREZZATURA","FORNITO DA", true, "#0b7a70"); doc.setDrawColor("#0d9488"); doc.setLineWidth(0.4); doc.line(M, y-3.8, 194, y-3.8); }
@@ -40772,6 +40775,9 @@ function pdfChannelPage(doc, L, paperKey){
       ? [ {t:"CH",w:9,c:1,k:function(r,i){return i+1;}}, {t:"SORGENTE",w:62,k:function(r){return r.src;}}, {t:"MIC / DI",w:34,k:function(r){return r.mic;}}, {t:"STAND",w:28,k:function(r){return r.stand;}}, {t:"48V",w:10,c:1,k:function(r){return r.p48?"sì":"";}}, {t:"FORN.",w:20,k:function(r){return r.by;}}, {t:"NOTE",w:0,k:function(r){return r.notes;}} ]
       : [ {t:"MIX",w:9,c:1,k:function(r,i){return i+1;}}, {t:"DESTINAZIONE",w:58,k:function(r){return r.src;}}, {t:"TIPO",w:34,k:function(r){return r.type||r.mic;}}, {t:"CHI",w:50,k:function(r){return r.who;}}, {t:"FORN.",w:20,k:function(r){return r.by;}}, {t:"NOTE",w:0,k:function(r){return r.notes;}} ];
     cols[cols.length-1].w = colW - cols.reduce(function(a,c){return a+c.w;},0);
+    /* margini a 15,5 mm: sull'A4 verticale la colonna NOTE scendeva a pochi mm e le note finivano quasi tutte in «…» (rilettura 17/11/2026):
+       i millimetri che mancano per tenerla ad almeno 19 si prendono alla colonna del nome (la seconda), che ne ha da vendere */
+    (function(){ var ul=cols[cols.length-1], mancano=19-ul.w; if(mancano>0 && cols[1].w-mancano>=40){ cols[1].w-=mancano; ul.w+=mancano; } })();
     function colHeader(){
       doc.setFont("helvetica","bold"); doc.setFontSize(7.5); doc.setTextColor(120,120,120);
       var cx=x; cols.forEach(function(c){ doc.text(c.t, c.c?cx+c.w/2:cx, y, c.c?{align:"center"}:undefined); cx+=c.w; });

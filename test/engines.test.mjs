@@ -26720,8 +26720,11 @@ t("PDF: le tabelle ripetono l'intestazione delle colonne sulle pagine di seguito
   /* 8 tabelle hanno una riga di intestazione; due (quadri elettrici, patch delle stage box) sono elenchi a
      blocchi con i titoli dentro il blocco: lì non c'è una riga di colonne da ripetere */
   const conRipresa = defs.filter((d) => /if\(_testaTab\)\{ var _t=_testaTab; _testaTab=null; _t\(\); _testaTab=_t; \}/.test(d));
-  ok(conRipresa.length >= 8, "tabelle che ridisegnano l'intestazione dopo addPage: " + conRipresa.length + " su " + defs.length);
-  eq((appjs.match(/_testa\(\); _testaTab=_testa;/g) || []).length, conRipresa.length, "e ognuna l'ha registrata");
+  /* la backline list misura la riga a capo INTERA prima di decidere la pagina (rilettura 17/11/2026): ha una forma sua */
+  const backline = /if\(y\+\(bl\.length-1\)\*3\.9>274\)\{ doc\.addPage\(\); y=18; if\(_testaTab\)\{ var _t=_testaTab;/.test(appjs) ? 1 : 0;
+  ok(backline === 1, "backline list: la riga a capo si misura intera prima del cambio pagina");
+  ok(conRipresa.length + backline >= 8, "tabelle che ridisegnano l'intestazione dopo addPage: " + (conRipresa.length + backline) + " su " + (defs.length + backline));
+  eq((appjs.match(/_testa\(\); _testaTab=_testa;/g) || []).length, conRipresa.length + backline, "e ognuna l'ha registrata");
   ok(/function _testa\(\)\{ trow\("#","SORGENTE","FOH","MIC \/ DI","ASTA","PATCH", true, "#0d9488"\);/.test(appjs), "la channel list compresa");
 });
 
@@ -35223,6 +35226,15 @@ t("P1 margini: il contenuto più basso del cartiglio (Riferimento lungo, QR, A4/
       ok(basso >= PIE_INK + 0.9, ctx + ": almeno 0,9 mm di aria sopra il piè");
     }
   } finally { A.__pdfQr = prima; }
+});
+
+t("P1 margini: sull'A4 verticale la colonna NOTE della channel list resta ≥ 19 mm anche con i margini a 15,5", () => {
+  ok(/var ul=cols\[cols\.length-1\], mancano=19-ul\.w; if\(mancano>0 && cols\[1\]\.w-mancano>=40\)\{ cols\[1\]\.w-=mancano; ul\.w\+=mancano; \}/.test(appjs), "la colonna del nome cede i mm che mancano");
+  /* i conti, con le larghezze del codice: A4 verticale = 210 - 2×M */
+  const L = A.pdfLayout("a4", "portrait", 22), colW = L.pw - 2 * L.M;
+  const fisse = 9 + 62 + 34 + 28 + 10 + 20;   /* CH, SORGENTE, MIC/DI, STAND, 48V, FORN. */
+  let note = colW - fisse, sorg = 62; const manc = 19 - note; if (manc > 0 && sorg - manc >= 40) { sorg -= manc; note += manc; }
+  ok(note >= 19 && sorg >= 40, "NOTE " + note.toFixed(1) + " mm, SORGENTE " + sorg.toFixed(1) + " mm");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
