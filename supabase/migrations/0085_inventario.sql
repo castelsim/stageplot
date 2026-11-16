@@ -325,7 +325,7 @@ begin
   if p_tipo = 'consegna' then
     if ac = '' then return jsonb_build_object('ok', false, 'errore', 'dati_non_validi', 'campo', 'a_chi'); end if;
     if a.assegnato_a <> '' then return jsonb_build_object('ok', false, 'errore', 'gia_assegnato', 'assegnato_a', a.assegnato_a); end if;
-    if a.stato in ('dismesso', 'smarrito') then return jsonb_build_object('ok', false, 'errore', 'non_disponibile', 'stato', a.stato); end if;
+    if a.stato in ('dismesso', 'smarrito', 'in_riparazione') then return jsonb_build_object('ok', false, 'errore', 'non_disponibile', 'stato', a.stato); end if;   -- da riparare/perso non si consegna: prima si rimette «in sede» dalla scheda dell'area
     update public.inv_articoli set assegnato_a = ac, data_consegna = d, data_rientro = null, stato = 'a_casa', aggiornato = now() where id = a.id;
   elsif p_tipo = 'rientro' then
     if a.assegnato_a = '' then return jsonb_build_object('ok', false, 'errore', 'non_assegnato'); end if;

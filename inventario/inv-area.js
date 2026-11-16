@@ -22,7 +22,7 @@
     return e;
   }
   function vuota(n) { while (n.firstChild) n.removeChild(n.firstChild); }
-  function disegna(nodi) { vuota(app); nodi.forEach(function (n) { app.appendChild(n); }); window.scrollTo(0, 0); }
+  function disegna(nodi) { vuota(app); nodi.forEach(function (n) { if (n) app.appendChild(n); }); window.scrollTo(0, 0); }
   var tt = null;
   function toast(m) { var t = document.getElementById("inv-toast"); t.textContent = m; t.hidden = false; clearTimeout(tt); tt = setTimeout(function () { t.hidden = true; }, 3200); }
   function campo(etichetta, input, id) { input.id = id; return h("div", {}, [h("label", { for: id, text: etichetta }), input]); }

@@ -65,7 +65,7 @@
     };
   }
   function frase(totale, singolare, plurale) { return totale + " " + String(totale === 1 ? singolare : plurale).toLowerCase() + " in inventario"; }
-  var ERR_MOV = { gia_assegnato: "È già assegnato: segna prima il rientro.", non_assegnato: "Non risulta assegnato a nessuno.", non_disponibile: "Non è disponibile (smarrito o dismesso).",
+  var ERR_MOV = { gia_assegnato: "È già assegnato: segna prima il rientro.", non_assegnato: "Non risulta assegnato a nessuno.", non_disponibile: "Non è disponibile (in riparazione, smarrito o dismesso).",
     non_autorizzato: "Il tuo accesso non è abilitato per questo inventario.", non_autenticato: "Accedi di nuovo.", non_trovato: "Non trovo questo codice.",
     dati_non_validi: "Controlla i campi: serve il nome, e la data deve essere ragionevole." };
   function erroreMov(r) { return (r && ERR_MOV[r.errore]) || "Non è andata: riprova."; }
@@ -163,10 +163,12 @@
     var bott = el("div", "inv-riga-bott");
     function b(txt, f, cls) { var x = el("button", "inv-btn " + (cls || ""), txt); x.type = "button"; x.addEventListener("click", f); bott.appendChild(x); return x; }
     if (m.assegnato_a) b("Rientrato", function () { modulo("rientro", "Rientro di " + m.assegnato_a, false, "Conferma rientro"); }, "primario");
-    else if (m.stato !== "dismesso" && m.stato !== "smarrito") b("Consegna a…", function () { modulo("consegna", "Consegna", true, "Conferma consegna"); }, "primario");
+    else if (m.stato !== "dismesso" && m.stato !== "smarrito" && m.stato !== "in_riparazione") b("Consegna a…", function () { modulo("consegna", "Consegna", true, "Conferma consegna"); }, "primario");
     if (m.stato !== "in_riparazione" && m.stato !== "dismesso" && m.stato !== "smarrito") b("Rotto", function () { modulo("rottura", "Segna come rotto", false, "Conferma"); });
     if (m.stato !== "smarrito" && m.stato !== "dismesso") b("Smarrito", function () { modulo("smarrimento", "Segna come smarrito", false, "Conferma"); });
-    c.appendChild(bott); c.appendChild(area); c.appendChild(esito);
+    c.appendChild(bott);
+    if (m.stato === "in_riparazione") c.appendChild(el("p", "inv-nota", "In riparazione: quando è sistemato, rimettilo «In sede» dall'area Inventario di stageplot.it."));
+    c.appendChild(area); c.appendChild(esito);
     if (m.movimenti.length) {
       c.appendChild(el("p", "inv-sopra inv-storico-t", "Storico"));
       var ul = el("ul", "inv-storico");
