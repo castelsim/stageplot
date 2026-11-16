@@ -4763,9 +4763,11 @@ t("rack: contenuti ordinati, U dai datasheet noti, orfani liberati dal normalize
   eq(A.state.items.find(i => i.type === "rack").rackU, 12, "default 12U");
   const cont = A.rackContents(rk.id);
   eq(cont.map(x => x.hw || x.type).join(","), "rio1608d2,rio3224d2,mixhub", "ordine per rackPos");
-  eq(A.rackUsedU(rk.id), 2 + 3 + 1, "U: 2 (Rio16) + 3 (Rio32) + 1 (default hub)");
+  /* 16/11/2026 (catalogo pro): le U vengono dalla scheda. Rio1608-D2 «480 mm x 132 mm x 367.5 mm» = 3U, Rio3224-D2
+     «480 mm x 220 mm x 367.5 mm» = 5U (Rio3224-D2 Owner's Manual p.31; brochure RIVAGE p.11). Prima erano 2 e 3. */
+  eq(A.rackUsedU(rk.id), 3 + 5 + 1, "U: 3 (Rio16) + 5 (Rio32) + 1 (default hub)");
   cont[2].rackUh = 2;
-  eq(A.rackUsedU(rk.id), 7, "U modificabile a mano vince");
+  eq(A.rackUsedU(rk.id), 10, "U modificabile a mano vince");
   // rack eliminato → gli apparecchi si liberano
   A.state.items = A.state.items.filter(i => i.id !== rk.id);
   ns = A.normalizeState(A.state); if (ns) A.state = ns;
@@ -34932,5 +34934,125 @@ t("L6: PDF su un'orchestra — multicore e passacavo nel riepilogo E nella sched
   ok(T.some((x) => /^Box [A-Z] · nastro \w+ · \d+\/\d+ ch · (multicore|rete) \d+ m \(disegnato [\d,]+ m\)$/.test(x)), "per ogni box: nastro, multicore col taglio e il disegnato");
 });
 
+
+/* ===== CATALOGO PRO (16/11/2026): console digitali e stage rack con le misure delle schede ===== */
+function _svgValido(s) {
+  if (typeof s !== "string" || !s.length) return "vuoto";
+  if (/NaN|undefined|Infinity|null/.test(s)) return "numeri non validi";
+  const aperti = (s.match(/<(rect|circle|line|path|text|g|ellipse|polygon|polyline)\b/g) || []).length;
+  const chiusi = (s.match(/\/>|<\/(text|g)>/g) || []).length;
+  if (aperti !== chiusi) return "tag non bilanciati " + aperti + "/" + chiusi;
+  if (/<(image|pattern|mask|filter|foreignObject)\b/.test(s)) return "primitiva che svg2pdf non porta";
+  return "";
+}
+t("Catalogo pro: almeno 25 modelli, ognuno con misura in pianta > 0, fonte con pagina, peso/consumo validi e icona SVG in scala", () => {
+  const ids = Object.keys(A.PRO_DB);
+  ok(ids.length >= 25, "modelli: " + ids.length);
+  ok(ids.filter((i) => A.PRO_DB[i].kind === "stagebox").length >= 10, "stage box/rack ≥ 10");
+  ok(ids.filter((i) => A.PRO_DB[i].kind === "console").length >= 15, "console ≥ 15");
+  ids.forEach((id) => {
+    const m = A.PRO_DB[id];
+    ok(m.kind === "stagebox" || m.kind === "console", id + ": kind");
+    ok(m.brand && m.model, id + ": marca e modello");
+    ok(Array.isArray(m.mm) && m.mm[0] > 0 && m.mm[1] > 0, id + ": misura in pianta");
+    ok(m.mm[0] < 2500 && m.mm[1] < 1500, id + ": misura plausibile (mm, non cm)");
+    ok(typeof m.src === "string" && /p\.\s?\d/.test(m.src), id + ": fonte con pagina (" + m.src + ")");
+    if (m.kg != null) ok(m.kg > 0 && m.kg < 300, id + ": kg");
+    if (m.W != null) ok(m.W > 0 && m.W < 3000, id + ": W");
+    if (m.rackU != null) ok(Number.isInteger(m.rackU) && m.rackU >= 1 && m.rackU <= 16, id + ": U");
+    const k = A.proTipo(id), over = A.proOver(id);
+    ok(A.TYPES[k], id + ": tipo " + k);
+    const it = Object.assign({ type: k, x: 0, y: 0, rot: 0 }, JSON.parse(JSON.stringify(over)));
+    eq([it.w, it.d], [Math.round(m.mm[0] / 10), Math.round(m.mm[1] / 10)], id + ": l'elemento nasce con la misura della scheda");
+    const e = _svgValido(A.TYPES[k].draw(it));
+    eq(e, "", id + ": icona");
+  });
+});
+t("Catalogo pro: i modelli entrano nei registri del motore (STAGEBOX_DB/MIXER_DB) senza toccare I/O e protocolli già scritti; U rack di scheda", () => {
+  Object.keys(A.PRO_DB).forEach((id) => {
+    const m = A.PRO_DB[id], db = m.kind === "stagebox" ? A.STAGEBOX_DB : A.MIXER_DB;
+    ok(db[id], id + " nel registro");
+    eq(db[id].mm, m.mm, id + ": misura nel registro");
+    if (m.kind === "stagebox") { ok(db[id].in >= 0 && Array.isArray(db[id].proto), id + ": in e proto"); if (m.rackU) eq(A.RACK_U_HW[id], m.rackU, id + ": U"); }
+  });
+  /* chi c'era già tiene i suoi I/O (dl32: 32/16 AES50) */
+  eq([A.STAGEBOX_DB.dl32.in, A.STAGEBOX_DB.dl32.out, A.STAGEBOX_DB.dl32.proto[0]], [32, 16, "aes50"], "dl32 invariata");
+  eq([A.MIXER_DB.x32.in, A.MIXER_DB.x32.out], [32, 16], "x32 invariata");
+  if (A.PRO_DB.rio3224d2) ok(A.rackUhOf({ type: "stagebox", hw: "rio3224d2" }) === A.PRO_DB.rio3224d2.rackU, "Rio3224-D2: U di scheda");
+  if (A.PRO_DB.x32c) ok(A.hwCompatible("x32c", "dl32") && !A.hwCompatible("x32c", "rio3224d2"), "X32 Compact parla AES50 con la DL32, non Dante con la Rio");
+});
+t("Catalogo pro: peso e consumo di targa SOLO sugli elementi posati dal catalogo pro (pro:1); un progetto salvato prima non cambia numeri", () => {
+  const m = A.PRO_DB.dl32; ok(m && m.kg > 0 && m.W > 0, "DL32 con peso e consumo di scheda");
+  const vecchio = { type: "stagebox", hw: "dl32", w: 48, d: 24 }, nuovo = Object.assign({ type: "stagebox" }, A.proOver("dl32"));
+  eq(A.weightOf(vecchio), A.WEIGHT.stagebox, "senza pro: peso di prima");
+  eq(A.wattOf(vecchio), 0, "senza pro: consumo di prima");
+  eq(A.weightOf(nuovo), m.kg, "con pro: peso di scheda");
+  eq(A.wattOf(nuovo), m.W, "con pro: consumo di scheda");
+  eq(A.wattFonte(nuovo), "targa", "provenienza: targa");
+  ok(A.hasWattItem(nuovo), "il pannello mostra il campo Watt");
+  eq(A.wattOf(Object.assign({}, nuovo, { watt: 99 })), 99, "il dichiarato dall'utente vince");
+  /* una stage box con l'id di una console non prende niente */
+  eq(A.proModelOf({ type: "stagebox", hw: "x32c", pro: 1 }), null, "tipo e modello devono combaciare");
+});
+t("Catalogo pro: scegliendo il modello dal pannello la misura diventa quella della scheda solo se l'utente non l'aveva cambiata", () => {
+  const a = { type: "stagebox", hw: "dl32", w: A.TYPES.stagebox.w, d: A.TYPES.stagebox.d };
+  ok(A.proApplica(a) && a.pro === 1, "applicato");
+  eq([a.w, a.d], [Math.round(A.PRO_DB.dl32.mm[0] / 10), Math.round(A.PRO_DB.dl32.mm[1] / 10)], "misura di scheda");
+  const b = { type: "stagebox", hw: "dl32", w: 77, d: 55 }; A.proApplica(b);
+  eq([b.w, b.d], [77, 55], "misura scelta dall'utente: non si tocca");
+  const c = { type: "stagebox", hw: "inesistente", pro: 1 }; A.proApplica(c);
+  ok(!("pro" in c), "modello sconosciuto: pro tolto");
+});
+t("Catalogo pro: la ricerca trova marca e modello; «stage box», «console» e «mixer» restano alle voci generiche", () => {
+  const nomi = (q) => A.__qaSearch(q).map((e) => e.nome);
+  ok(A.__catEntries.filter((e) => e.pro).length === Object.keys(A.PRO_DB).length, "tutti i modelli nell'indice");
+  if (A.PRO_DB.rio3224d2) ok(/Rio3224-D2/.test(nomi("rio3224")[0] || ""), "rio3224 → " + nomi("rio3224")[0]);
+  if (A.PRO_DB.x32c) ok(nomi("x32").some((n) => /X32 COMPACT/.test(n)), "x32 → X32 COMPACT");
+  if (A.PRO_DB.wing) ok(nomi("behringer wing").some((n) => /WING/.test(n)), "behringer wing");
+  ok(/^Stage box/.test(nomi("stage box")[0] || ""), "«stage box» → " + nomi("stage box")[0]);
+  ok(!A.__qaSearch("mixer").slice(0, 1).some((e) => e.pro), "«mixer» → prima la voce generica");
+  ok(!A.__qaSearch("console").slice(0, 1).some((e) => e.pro), "«console» → prima la voce generica");
+});
+t("Catalogo pro: registro iniettato da src/catalogo-pro.js, gruppi del catalogo costruiti alla prima apertura, peso contenuto", () => {
+  const src = readFileSync(join(root, "src/catalogo-pro.js"), "utf8");
+  ok(src.length < 80000, "src/catalogo-pro.js: " + src.length + " byte");
+  ok(appjs.indexOf("var PRO_DB = {") > -1 && appjs.indexOf("/*__CATALOGO_PRO__*/") < 0, "iniettato dal build");
+  ok(/g\.body\.dataset\.proLazy="1"/.test(appjs) && /if\(g\.body\.dataset\.proLazy!=="1"\) return; g\.body\.dataset\.proLazy="";/.test(appjs), "bottoni alla prima apertura");
+  ok(/if\(g\.body\.dataset\.pro==="1"\) return;/.test(appjs), "il gruppo vuoto non viene nascosto da «Mostra tutti»");
+});
+/* ===== ICONE APPROVATE (Simone, 16/11/2026) ===== */
+const _IA = { presa16: "Elettrico", presa16r: "Elettrico", presa32: "Elettrico", presa63: "Elettrico", presa125: "Elettrico", presa32s: "Elettrico", presaciv: "Elettrico",
+  puntoapp: "Allestimento", tiro: "Allestimento", boccascena: "Palco e pedane", lineasipario: "Palco e pedane", lineacentro: "Palco e pedane", quintanum: "Palco e pedane",
+  uscitafig: "Allestimento", uscitafigsx: "Allestimento", uscitafigbn: "Allestimento", gonna: "Palco e pedane", croce: "Palco e pedane" };
+t("Icone approvate: 18 elementi nel catalogo, nella categoria giusta, con SVG valido e senza primitive che il PDF perde", () => {
+  Object.keys(_IA).forEach((k) => {
+    const T = A.TYPES[k]; ok(T, k + " esiste");
+    eq(A.catOf(k), _IA[k], k + ": categoria");
+    ok(T.catalog !== false, k + ": nel catalogo");
+    ok(A.__catEntries.some((e) => e.k === k), k + ": cercabile");
+    eq(_svgValido(T.draw({ type: k, w: T.w, d: T.d, label: T.defLabel, rot: 0 })), "", k + ": icona");
+  });
+  ok(/fill="#2563eb"|stroke="#2563eb"/.test(A.TYPES.presa16.draw({})), "CEE 16 A 3 poli blu");
+  ok(/stroke="#dc2626"/.test(A.TYPES.presa32.draw({})) && /5P/.test(A.TYPES.presa32.draw({})), "CEE 32 A 5 poli rossa, poli scritti");
+  ok(/stroke-dasharray/.test(A.TYPES.presa32s.draw({})) && !/stroke-dasharray/.test(A.TYPES.presa32.draw({})), "del service = tratteggiata");
+  ok(/<rect x="-14"/.test(A.TYPES.presaciv.draw({})), "civile = quadrato");
+  ok(/scale\(-1,1\)/.test(A.TYPES.uscitafigsx.draw({})) && /fill="#fff" stroke="#111827"/.test(A.TYPES.uscitafigbn.draw({})), "uscita specchiata e B/N");
+});
+t("Icone approvate: punto di appendimento, carico e portata scritti; oltre portata = rosso; tiro numerato con la T come le americane", () => {
+  const P = A.TYPES.puntoapp;
+  const sotto = P.draw({ type: "puntoapp", label: "P3", carico: 320, portata: 500 }), oltre = P.draw({ type: "puntoapp", label: "P4", carico: 620, portata: 500 });
+  ok(/320 kg \/ 500 kg/.test(sotto) && !/#dc2626/.test(sotto), "sotto portata: grigio");
+  ok(/#dc2626/.test(oltre) && A.ptAppOltre({ carico: 620, portata: 500 }), "oltre portata: rosso");
+  ok(!A.ptAppOltre({ carico: 620 }) && !A.ptAppOltre({ portata: 500 }), "senza uno dei due numeri: nessun allarme (mai una portata calcolata)");
+  eq(A.ptAppCarico({ carico: "abc" }), 0, "valore non numerico = assente");
+  ok(/id="pPtCarico"/.test(readFileSync(join(root, "app/index.html"), "utf8")), "campi nel pannello");
+  reset();
+  const tiro = add("tiro", 400, 200); tiro.rig = { h: 920 };
+  ok(A.isHangStruct(tiro), "il tiro è una struttura a cui si appende");
+  ok(/^T\d+ · \+9,20 m/.test(A.rigEtichetta(tiro)), "etichetta del tiro: " + A.rigEtichetta(tiro));
+  const am = add("americana", 400, 400); am.rig = {};
+  ok(/^A\d+/.test(A.rigEtichetta(am)), "l'americana resta A: " + A.rigEtichetta(am));
+  reset();
+});
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

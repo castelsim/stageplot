@@ -853,6 +853,11 @@
       <span><label for="pD">P (cm)</label><input type="number" id="pD" min="10" step="5"></span>
       <span id="pHwrap"><label for="pH">h (cm)</label><input type="number" id="pH" min="0" step="10"></span>
     </div>
+    <!-- 16/11/2026, icone approvate: punto di appendimento, carico e portata SCRITTI (mai calcolati). Carico oltre la portata = segno rosso. -->
+    <div class="row" id="pPtWrap" style="display:none">
+      <span><label for="pPtCarico">Carico (kg)</label><input type="number" id="pPtCarico" min="0" step="10" inputmode="numeric"></span>
+      <span><label for="pPtPortata">Portata (kg)</label><input type="number" id="pPtPortata" min="0" step="10" inputmode="numeric"></span>
+    </div>
     <!-- 14/11/2026: misure e altezze di una pedana con un clic (lotto A3 di MIGLIORARE). Solo scorciatoie sugli stessi campi L, P, h: niente dati nuovi. -->
     <div id="pPedRapide" style="display:none;margin-top:6px">
       <div class="lbl-note" style="font-size:11px;margin:0 0 3px">Misura in metri (L × P)</div>
@@ -4884,6 +4889,7 @@ var TYPES = {
   rack4u:   {nome:"Rack 4U", dim:"48×55", cat:"Dispositivi", w:48,d:55, defLabel:"Rack 4U",
     draw:function(){ return bar(0,0,48,55,'ic fBlack',2)+bar(-22,0,4,49,'ic fGrey',1)+bar(22,0,4,49,'ic fGrey',1)+bar(0,-15,38,7,'ic fGrey',1)+bar(0,-5,38,7,'ic fGrey',1)+bar(0,5,38,7,'ic fGrey',1)+bar(0,15,38,7,'ic fGrey',1); }}
 };
+/*__ICONE_APPROVATE__*/
 /* ===== Vocabolario di ricerca (24/07) =====
    Come i fonici chiamano davvero le cose: nomi di mestiere ("chitarrista"), plurali ("transenne"),
    gergo ("spia", "praticabile", "in ear", "occhio di bue") e inglese ("drummer", "kick").
@@ -5339,6 +5345,8 @@ var GEN_KVA = { gen60:60, gen20:20 };                 /* sorgenti, non carichi *
 function wattOf(it){
   if(!it) return 0;
   if(it.watt!=null && isFinite(it.watt)) return Math.max(0, +it.watt);
+  var pw=(typeof proWatt==="function")?proWatt(it):null;   /* catalogo pro (16/11): consumo di targa del modello, con la fonte */
+  if(pw!=null) return pw;
   var lw=(typeof lightModelWatt==="function")?lightModelWatt(it):null;   /* modello della luce (LIGHT_MODEL_DB): watt ASSORBITI di targa */
   if(lw!=null) return lw;
   var ew=(typeof equipWatt==="function")?equipWatt(it):null;   /* modello reale: consumo elettrico di targa (≠ potenza audio) */
@@ -5357,7 +5365,7 @@ function hasWatt(type){ return WATT[type]!=null || WATT_BY_AREA[type]!=null; }
    all'utente, perché il campo Watt del pannello guardava solo la tabella dei tipi (visto in prova
    sul browser il 29/07). */
 function hasWattItem(it){ if(it && it.type==="custom") return false;   /* elemento personalizzato: la potenza si scrive nella sua scheda («Modifica elemento»), con ingressi e backline — una via sola. Nei carichi conta lo stesso (wattOf legge it.watt) */
-  return !!(it && (hasWatt(it.type) || (typeof lightModelWatt==="function" && lightModelWatt(it)!=null))); }
+  return !!(it && (hasWatt(it.type) || (typeof lightModelWatt==="function" && lightModelWatt(it)!=null) || (typeof proWatt==="function" && proWatt(it)!=null))); }
 /* ===== EQUIPMENT INTELLIGENCE (fase 2, spec H in docs/product-audit/equipment-intelligence/) =====
    Un elemento può portare un MODELLO REALE di attrezzatura: it.modelId (slug del DB globale equip_product)
    + it.modelData (SNAPSHOT dell'oggetto SourcedValue: il progetto resta auto-contenuto e OFFLINE-first)
@@ -5509,6 +5517,8 @@ function equipWeight(it){ var r=equipResolve(it), v=r&&r.weight_kg; if(!v) retur
   var n=(typeof v==="object" && ("value" in v)) ? v.value : v;
   if(n==null) return null; n=+n; if(!isFinite(n)||n<=0) return null; return n; }
 function weightOf(it){ if(!it) return 0; if(it.kg!=null && isFinite(it.kg)) return Math.max(0,+it.kg);
+  var pk=(typeof proKg==="function")?proKg(it):null;   /* catalogo pro (16/11): peso netto di scheda */
+  if(pk!=null) return pk;
   var ew=(typeof equipWeight==="function")?equipWeight(it):null;   /* modello reale: peso di targa */
   if(ew!=null) return ew;
   var aw=(typeof ampModelKg==="function")?ampModelKg(it):null;   /* backline reale (AMP_DB) */
@@ -5530,6 +5540,7 @@ function fmtKg(kg){ return kg>=1000 ? (kg/1000).toFixed(1).replace(".",",")+" t"
 function wattFonte(it){
   if(!it) return "stima";
   if(it.watt!=null && isFinite(it.watt)) return "dichiarato";
+  if(typeof proWatt==="function" && proWatt(it)!=null) return "targa";
   if(typeof lightModelWatt==="function" && lightModelWatt(it)!=null) return "targa";
   if(typeof equipWatt==="function" && equipWatt(it)!=null) return "targa";
   /* Il tipo E' gia' un modello preciso (le console): il numero viene dal documento del costruttore,
@@ -5766,7 +5777,7 @@ var TASTIERE = { stagepiano:1, doppiatastiera:1, celesta:1, pianoverticale:1 }; 
 var RACK_ELIGIBLE={ stagebox:1, mixhub:1, splitter:1, patchpt:1, distro32:1, distro63:1, rxrf:1, rfsplit:1, netswitch:1 };
 var RACK_FN=[["stagebox","Stagebox"],["rf","RF"],["dante","Dante / rete"],["monitor","Monitor / cuffie"],["foh","FOH"],["elettrico","Elettrico"],["generico","Generico"]];
 /* altezze U note dai datasheet (archivio manuali) — MAI inventate: gli altri modelli partono da 1U, modificabile */
-var RACK_U_HW={ rio3224d2:3, rio3224d3:3, rio1608d2:2, rio1608d3:2, tio1608d:2 };
+var RACK_U_HW={ rio3224d2:5, rio3224d3:3, rio1608d2:3, rio1608d3:2, tio1608d:2 };   /* 16/11/2026: D2 corrette dalla scheda (220 mm = 5U, 132 mm = 3U; Rio3224-D2 OM p.31); le D3 senza scheda in archivio restano */
 function rackUhOf(it){
   if(it.rackUh) return it.rackUh;
   if(it.type==="stagebox" && it.hw && RACK_U_HW[it.hw]) return RACK_U_HW[it.hw];
@@ -9072,7 +9083,7 @@ var MOUNT_MODES=[["floor","A terra"],["stand","Su stativo"],["hung","Appeso"]];
 var MOUNT_H_DEF={ floor:25, stand:250, hung:400 };     /* cm dal palco al punto luce */
 var MOUNT_H_MIN=20, MOUNT_H_MAX=1200;                  /* limiti larghi: 20 cm (a terra) → 12 m (americana alta) */
 var MOUNT_SAFETY=[["present","Presente"],["unspecified","Da verificare"],["missing","Mancante"]];
-var HANG_STRUCT={ americana:1, truss:1 };              /* strutture a cui si appende: barra luci e truss */
+var HANG_STRUCT={ americana:1, truss:1, tiro:1 };   /* tiro della sala (16/11): numerato come le americane, con la T */              /* strutture a cui si appende: barra luci e truss */
 function isMountable(it){ return !!(it && lightsIsGear(it.type)); }   /* gli apparecchi del reparto luci */
 function isHangStruct(it){ return !!(it && HANG_STRUCT[it.type]===1); }
 function mountModeOf(it){
@@ -9149,7 +9160,7 @@ function rigPesoKg(it){
 function rigTrimTesto(cm){ return "+"+(cm/100).toFixed(2).replace(".",",")+" m"; }
 function rigEtichetta(it){
   var r=rigOf(it); if(!r) return "";
-  var num=rigNumero(it), bits=[/^\d+$/.test(num) ? "A"+num : num], h=rigHPulita(r.h), kg=rigPesoKg(it);   /* «A3» per il numero; un nome a mano («LX2») resta com'è */
+  var num=rigNumero(it), bits=[/^\d+$/.test(num) ? (it.type==="tiro" ? "T" : "A")+num : num], h=rigHPulita(r.h), kg=rigPesoKg(it);   /* «A3» per il numero; un nome a mano («LX2») resta com'è */
   if(h) bits.push(rigTrimTesto(h));
   if(kg>0) bits.push(Math.round(kg)+" kg");
   return bits.join(" · ");
@@ -16053,6 +16064,7 @@ var MIXER_DB = {
        Dante: le specifiche ufficiali S6L non lo nominano → campo assente, né sì né no. */
     src:"VENUE S6L Product Specifications, S6L Control Surface Specifications"}
 };
+/*__CATALOGO_PRO__*/
 function hwLabel(id, db){ var m=db[id]; return m ? (m.brand+" "+m.model) : ""; }
 function hwProtoNames(arr){ return (arr||[]).map(function(p){ return AUDIO_PROTO[p]||p; }).join("/"); }
 function hwCompatible(mixerId, sbId){   /* protocollo condiviso mixer↔stagebox; sconosciuto = non blocca */
@@ -21243,7 +21255,7 @@ function renderSbF2(it){
   /* ANALOGICA vs RACK I/O: badge + "Collega a" (solo analogica con rack I/O sul palco); Device ID solo digitali */
   var isDig=!!(it.hw && STAGEBOX_DB[it.hw]);
   var kind=document.getElementById("pSbKind");
-  if(kind){ kind.textContent = isDig ? "Rack I/O digitale ("+hwProtoNames(STAGEBOX_DB[it.hw].proto)+")" : "Analogica (sub-snake)";
+  if(kind){ kind.textContent = isDig ? "Rack I/O digitale ("+hwProtoNames(STAGEBOX_DB[it.hw].proto)+")"+((typeof proModelOf==="function" && proModelOf(it)) ? " · "+proSchedaTesto(proModelOf(it)) : "") : "Analogica (sub-snake)";
     kind.style.color = isDig ? "#4f46e5" : "var(--accent-strong)"; }
   var digs=(R&&R.boxes||[]).filter(function(x){ return x.digital; });
   var toRow=document.getElementById("pSbToRow");
@@ -21371,7 +21383,7 @@ function renderProps(){
         gHw.innerHTML=h;
         gHw.value = boxes.every(function(b){ return (b.hw||"")===(boxes[0].hw||""); }) ? (boxes[0].hw||"") : "__keep__";
         gHw.onchange=function(){ var v=gHw.value; if(v==="__keep__") return;
-          boxes.forEach(function(b){ if(v) b.hw=v; else delete b.hw; if(typeof sbAutoSize==="function") sbAutoSize(b); });
+          boxes.forEach(function(b){ if(v) b.hw=v; else delete b.hw; if(typeof proApplica==="function") proApplica(b); if(typeof sbAutoSize==="function") sbAutoSize(b); });
           __cabRes=null; save(); render(); renderProps(); };
         var anyHw=boxes.some(function(b){ return !!b.hw; });   /* i modelli hanno in/out fissi → i menu generici solo se nessuna ha un modello */
         document.getElementById("grpSbGenRows").style.display = anyHw ? "none" : "block";
@@ -21699,7 +21711,8 @@ function renderProps(){
     if(mm.out>0) io.push(mm.out+" uscite");
     if(mm.usb && mm.usb.in>0) io.push("USB "+mm.usb.in+"×"+mm.usb.out+(mm.usb.port?" ("+mm.usb.port+")":""));
     io.push(mm.dante===true ? ("Dante "+(mm.danteIn||"?")+"×"+(mm.danteOut||"?")) : (mm.dante===false ? "niente Dante" : ""));
-    document.getElementById("pMixIo").textContent = io.filter(Boolean).join(" · ") + (mm.src ? " — "+mm.src : "");
+    var _pm=(typeof proModelOf==="function") ? proModelOf(it) : null;   /* catalogo pro (16/11): misura, peso, consumo e fonte della scheda */
+    document.getElementById("pMixIo").textContent = io.filter(Boolean).join(" · ") + (_pm ? " — "+proSchedaTesto(_pm) : (mm.src ? " — "+mm.src : ""));
   })();
   /* ── COMPUTER: con che cosa entra nella console ──────────────────────────────────────────────
      Compare solo se il computer È collegato a un mixer, e mostra SOLO le connessioni che quel
@@ -21906,7 +21919,9 @@ function renderProps(){
   var _rv=document.getElementById("pRotVal"); if(_rv) _rv.textContent=Math.round(rNorm)+"\u00b0";
   var _mzPoly = it.type==="miczone" && it.pts && it.pts.length>=3;   /* zona poligonale: w/d è il bbox derivato → niente campi L/P (si modella coi vertici) */
   document.getElementById("pDims").style.display = (t.resizable && !_mzPoly) ? "flex" : "none";
-  document.getElementById("pHwrap").style.display = (t.riser || isCover(it) || it.type==="ostacolo") ? "" : "none";   /* coperture: h = luce libera sotto la struttura */
+  document.getElementById("pHwrap").style.display = (t.riser || isCover(it) || it.type==="ostacolo") ? "" : "none";
+  (function(){ var pw=document.getElementById("pPtWrap"); if(!pw) return; var on=it.type==="puntoapp"; pw.style.display=on ? "" : "none";
+    if(on){ document.getElementById("pPtCarico").value=ptAppCarico(it)||""; document.getElementById("pPtPortata").value=ptAppPortata(it)||""; } })();   /* coperture: h = luce libera sotto la struttura */
   if(t.resizable){
     document.getElementById("pW").value = it.w;
     document.getElementById("pD").value = it.d;
@@ -22640,6 +22655,10 @@ document.getElementById("pD").addEventListener("change", function(){ mutSel(func
   el.addEventListener("change", function(){ var on=!!el.checked;
     mutSel(function(it){ if(it.type==="platea") plateaImposta(it, { corridoio: on ? PLATEA_CORR_DEF : 0 }); }); renderProps(); });
 })();
+/* punto di appendimento (16/11): carico e portata scritti; vuoto = tolto */
+["pPtCarico","pPtPortata"].forEach(function(idc){ var el=document.getElementById(idc); if(!el) return;
+  el.addEventListener("change", function(){ var key=idc==="pPtCarico" ? "carico" : "portata", v=Math.round(+this.value);
+    mutSel(function(it){ if(it.type!=="puntoapp") return; if(isFinite(v) && v>0) it[key]=Math.min(v,99999); else delete it[key]; }); }); });
 document.getElementById("pH").addEventListener("change", function(){ mutSel(function(it){ if(it.type==="ostacolo"){ var v=ostacoloHPulita(document.getElementById("pH").value); if(v) it.h=v; else delete it.h; return; } it.h=Math.max(0,+document.getElementById("pH").value||0); }); });
 var ROT_SNAP=2;   /* snap magnetico leggero: entro ±2° aggancia i cardinali, fuori resta libero per regolazioni precise */
 function applyRot(doSave){
@@ -24475,7 +24494,8 @@ function ricordaRecenteCatalogo(k, nome, over){
       });
       /* — gruppi strutture — */
       [["Accessi",             ["scala","rampa","parapetto"]],
-       ["Scenografia",         ["fondale","quinta","tappeto"]],
+       ["Scenografia",         ["fondale","quinta","quintanum","gonna","tappeto"]],   /* quinta numerata e gonna: icone approvate da Simone il 16/11 */
+       ["Teatro",              ["boccascena","lineasipario","lineacentro"]],
        ["Arredo e leggii",     ["leggiotablet","tavolo","sediabianca","sedia","sedialeggio","sediapubblico","platea","poltrona","leggio","podio","podiosp","sgabello"]],   /* sediapubblico (05/10): esisteva ma non era in nessun gruppo, e la platea si faceva con 60 sedie bianche */
        ["Accessori",           ["ventilatore"]]
       ].forEach(function(g){
@@ -24496,7 +24516,8 @@ function ricordaRecenteCatalogo(k, nome, over){
         entries.push({k:"ostacolo", nome:v[0], over:{label:v[1], w:v[2], d:v[3]}, dim:"elemento del luogo", kw:v[4]});
       });
       /* ALTARE e AMBONE (09/11/2026): stesse voci e stesse parole di prima, ma con il loro disegno (TYPES.altare, TYPES.ambone) */
-      [["altare", "Altare", "altare chiesa mensa"],
+      [["croce", "Croce su base", "croce crocifisso chiesa altare"],   /* icona approvata il 16/11; la «Croce» come ostacolo resta */
+       ["altare", "Altare", "altare chiesa mensa"],
        ["ambone", "Ambone / leggio da chiesa", "ambone pulpito pergamo leggio da chiesa leggio chiesa lettore chiesa"]   /* 19/10/2026: «ambone» e «pulpito» non trovavano niente (l'ambone era una parola dentro l'Altare) */
       ].forEach(function(v){
         if(TYPES[v[0]]) entries.push({k:v[0], nome:v[1], dim:"elemento del luogo", kw:v[2]});
@@ -24581,6 +24602,20 @@ function ricordaRecenteCatalogo(k, nome, over){
         addToGroup("Stagebox e cablaggio", makeBtn("stagebox", nome, over, v[1]));
         entries.push({k:"stagebox", nome:nome, over:over, dim:v[1]});
       });
+      /* CATALOGO PRO (16/11): i modelli veri, con la misura della scheda. Nella ricerca subito; nel catalogo
+         in due gruppi chiusi i cui bottoni si costruiscono alla prima apertura (decine di anteprime in meno
+         all'avvio). */
+      if(typeof proCatEntries==="function") [["stagebox","Stage box e rack · modelli"],["console","Console digitali · modelli"]].forEach(function(gp){
+        var lista=proCatEntries(gp[0]); if(!lista.length) return;
+        var g=rhythmGroup(gp[1]); g.count=lista.length; n+=lista.length;
+        g.head.innerHTML='<span class="caret">▸</span><span>'+esc(gp[1])+'</span><span class="count">'+g.count+'</span>';
+        g.head.dataset.ess="1"; g.body.dataset.proLazy="1"; g.body.dataset.pro="1";
+        g.head.addEventListener("click", function(){
+          if(g.body.dataset.proLazy!=="1") return; g.body.dataset.proLazy="";
+          lista.forEach(function(e){ var b=makeBtn(e.k, e.nome, e.over, e.dim); b.dataset.ess="1"; g.body.appendChild(b); });
+        });
+        lista.forEach(function(e){ entries.push(e); });
+      });
     }
     cats[c].forEach(function(k){
       if(TYPES[k].cat==="Palco e strutture" && c==="Palco e pedane") return;   /* i palco/pedane li fa il blocco speciale; truss/transenna passano di qui (in Rigging e sicurezza) */
@@ -24626,6 +24661,7 @@ function ricordaRecenteCatalogo(k, nome, over){
     if(c!=="Liste tecniche"){
       var rest=document.createElement("div"); rest.className="cat-rest"; var restN=0;
       subList.forEach(function(g){
+        if(g.body.dataset.pro==="1") return;   /* gruppi del catalogo pro: si riempiono alla prima apertura, il conteggio è già giusto */
         [].filter.call(g.body.children,function(el){ return el.tagName==="BUTTON"; }).forEach(function(b){
           if(b.dataset.ess!=="1"){ rest.appendChild(b); restN++; }
         });
@@ -32463,7 +32499,7 @@ function renderCabPanel(){
   var zlblI=document.getElementById("pZoneLabel");
   if(zlblI) zlblI.addEventListener("input", function(){ var it=getSel(); if(it&&it.type==="miczone"){ var v=this.value.trim(); if(v) it.label=v.slice(0,40); else delete it.label; __cabRes=null; save(); render(); } });
   var hw=document.getElementById("pSbHw");
-  if(hw) hw.addEventListener("change", function(){ var it=getSel(); if(it && cabIsBox(it)){ if(this.value){ it.hw=this.value; } else { delete it.hw; } __cabRes=null; save(); render(); } });
+  if(hw) hw.addEventListener("change", function(){ var it=getSel(); if(it && cabIsBox(it)){ if(this.value){ it.hw=this.value; } else { delete it.hw; } if(typeof proApplica==="function") proApplica(it); __cabRes=null; save(); render(); } });
 })();
 function cabFillSbHw(){
   var sel=document.getElementById("pSbHw"); if(!sel) return;
