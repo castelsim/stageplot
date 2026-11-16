@@ -4568,6 +4568,10 @@ function commitPreparedDoc(prepared){
   bumpDocumentEpoch();   /* invalida callback cloud asincrone appartenenti al documento precedente */
   var a=activeVarObj();
   if(a&&a.state){ state=a.state; delete state._v; reattachVenueImg(state,a.id); }   /* già normalizzato da prepareDoc: evita un secondo pass O(N²) sull'attiva */
+  /* P1 dati (16/11/2026): un progetto con lavoro o misure che entra mentre «Quanto è grande il tuo palco?» è aperta
+     (import, trascinamento, elenco «I miei progetti», ripristino, apertura dal cloud) chiude la finestra SENZA applicare nulla:
+     prima restava sopra, prendeva i clic e Esc / velo / «Non conosco» riscrivevano il palco a 8×6. */
+  if(typeof chiudiPalcoSePieno==="function") chiudiPalcoSePieno();
 }
 /* carica un documento parsato (doc o legacy piatto) in VARIANTS + `state` vivo. Non fa render/persist (lo fa chi chiama). */
 function loadDoc(parsed){ commitPreparedDoc(prepareDoc(parsed)); }
@@ -42402,6 +42406,9 @@ function applyStageSize(wM, dM, provisional){
   if(typeof fitStage==="function") fitStage(); else if(typeof fit==="function") fit();   /* zoom per mostrare tutto il palco */
 }
 var __stageSizeOpen=false;
+/* La misura indicativa 8×6 si può scrivere SOLO su un progetto nuovo e vuoto: mai su uno con contenuti o misure già salvate. */
+function palcoIndicativoAmmesso(){ try{ return !hasMeaningfulDocument(); }catch(_e){ return false; } }
+function chiudiPalcoSePieno(){ if(__stageSizeOpen && !palcoIndicativoAmmesso()) closeStageSize(); }
 function closeStageSize(){ var m=document.getElementById("stageSize"); if(m) m.hidden=true; __stageSizeOpen=false;
   /* Chiusa l'ultima finestra d'ingresso, il fuoco va nella ricerca del catalogo: a riposo le 11
      categorie sono chiuse e a vista ci sono due soli elementi: senza ricerca il primo passo
@@ -42448,6 +42455,7 @@ function maybeAskStageSize(explicit){
   /* «Non conosco le misure» applicava 8×6 in silenzio: chi dichiara di non saperle è proprio quello
      che ha bisogno di sapere cosa gli è stato messo e come cambiarlo (audit 27/07). */
   document.getElementById("ssUnknown").addEventListener("click", function(){
+    if(!palcoIndicativoAmmesso()){ closeStageSize(); return; }   /* progetto con lavoro o misure: non si tocca */
     applyStageSize(8, 6, true); closeStageSize();   /* palco indicativo 8×6, marcato da confermare */
     if(window.__toast) window.__toast("Ho messo un palco standard di 8 × 6 m, segnato come «da confermare». Puoi cambiarlo quando vuoi da «Palco».");
   });
@@ -42455,7 +42463,7 @@ function maybeAskStageSize(explicit){
   /* Esc e click sul velo sono l'altro modo di dire «non lo so», e consegnavano il palco DOPPIO
      (12×8) senza dirlo né marcarlo, mentre il bottone dà 8×6 marcato e lo dichiara. Due modi di non
      rispondere non possono avere due esiti opposti, e il più silenzioso non può essere il peggiore. */
-  function stageSizeSkip(){ if(m.hidden) return; applyStageSize(8, 6, true); closeStageSize();
+  function stageSizeSkip(){ if(m.hidden) return; if(!palcoIndicativoAmmesso()){ closeStageSize(); return; } applyStageSize(8, 6, true); closeStageSize();
     if(window.__toast) window.__toast("Ho messo un palco standard di 8 × 6 m, segnato come «da confermare». Puoi cambiarlo quando vuoi da «Palco»."); }
   m.addEventListener("click", function(e){ if(e.target===m) stageSizeSkip(); });
   document.addEventListener("keydown", function(e){ if(e.key==="Escape" && !m.hidden) stageSizeSkip(); });
