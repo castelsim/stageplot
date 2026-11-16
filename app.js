@@ -4800,7 +4800,7 @@ function variantTabsHtml(){
      compare «Tutte (N)», che elenca ogni variante in un menu. Prima del «+», che resta sempre l'ultimo. */
   if(VARIANTS.length>=VARIANTI_MENU_MIN) html+='<button type="button" class="vtab-all" aria-haspopup="menu" title="Elenco di tutte le varianti">Tutte ('+VARIANTS.length+')</button>';
   /* con una sola variante il «+» dice cosa fa; con più varianti le schede lo spiegano già */
-  html+='<button type="button" class="vtab-add" title="Nuova variante: copia di quella attiva" aria-label="Nuova variante">'+(VARIANTS.length>1 ? '+' : '+<span class="hdr-lbl"> Variante</span>')+'</button>';
+  html+='<button type="button" class="vtab-add" title="Nuova variante: la stessa serata con un\'altra disposizione (copia di quella attiva)" aria-label="Nuova variante">'+(VARIANTS.length>1 ? '+' : '+<span class="hdr-lbl"> Variante</span>')+'</button>';
   return html;
 }
 var VARIANTI_MENU_MIN=5;
@@ -5228,6 +5228,7 @@ function exportNudgeDecidi(o){
   if(!o || o.altrui || o.mobile) return false;
   var s=String(o.stato==null?"":o.stato);
   if(s==="fatto" || s==="no") return false;
+  if(o.bannerVisibile) return false;   /* una riga alla volta: se un banner è a schermo (cavi, vista, «stai riaprendo») l'invito aspetta (C-3) */
   if(!(o.elementi>=EXPNUDGE_MIN)) return false;
   var n=parseInt(s,10); if(!(n>=0)) n=0;
   return n<EXPNUDGE_MAX || !!o.giaInSessione;   /* se è già comparso in questa sessione resta fino al clic o alla chiusura */
@@ -5247,6 +5248,9 @@ function exportNudgeSegna(azione){
   if(nuovo!==exportNudgeLeggi()) exportNudgeScrivi(nuovo);
   if(azione==="fatto" || azione==="no") exportNudgeNascondi();
 }
+function bannerCanvasVisibile(){
+  return ["funzBanner","vistaBanner","riapriBanner"].some(function(id){ var e=document.getElementById(id); return !!e && e.hidden===false; });
+}
 function exportNudgeNascondi(){
   var el=document.getElementById("expNudge"); if(el) el.hidden=true;
   var b=document.getElementById("bExportHdr"); if(b) b.classList.remove("exp-nudge");
@@ -5254,7 +5258,7 @@ function exportNudgeNascondi(){
 function exportNudgeAggiorna(){
   try{
     var b=document.getElementById("bExportHdr"); if(!b) return;
-    var ok=exportNudgeDecidi({ altrui:foreignDoc(), mobile:isMobile(), stato:exportNudgeLeggi(), elementi:(state.items||[]).length, giaInSessione:exportNudgeInSessione });
+    var ok=exportNudgeDecidi({ altrui:foreignDoc(), mobile:isMobile(), stato:exportNudgeLeggi(), elementi:(state.items||[]).length, giaInSessione:exportNudgeInSessione, bannerVisibile:bannerCanvasVisibile() });
     var pdf=document.getElementById("pdfModal");
     if(ok && b.offsetParent===null) ok=false;   /* pulsante non visibile: niente invito */
     if(!ok || (pdf && !pdf.hidden)){ exportNudgeNascondi(); return; }
@@ -20649,6 +20653,7 @@ function funzRenderAvviso(){
     });
   }
   el.hidden=false;
+  try{ exportNudgeAggiorna(); }catch(e){}   /* il banner è comparso: l'invito «PDF in scala» si ritira (C-3) */
 }
 function funzApriFinestra(){
   var ov=document.getElementById("funzModal");
@@ -26552,7 +26557,7 @@ function guardDocumentReplacement(options,action){
     } else action();
   }
   if(meaningful&&!options.skipConfirm){
-    var ask={icon:"warn",title:options.title||"Sostituire il progetto aperto?",
+    var ask={icon:"info",title:options.title||"Sostituire il progetto aperto?",
       message:options.message||"Verrà creato un punto di recupero e completato il salvataggio cloud prima di continuare.",
       confirmText:options.confirmText||"Continua"};
     if(typeof window.confirmDialog==="function"){
@@ -33669,16 +33674,88 @@ document.getElementById("venueBtnDel").addEventListener("click", function(){
 /* nota: il bottone mobile [data-act='venue'] è già gestito dal click handler di #mActions (toggleVenueEdit) */
 
 /* ============ Dialogo di conferma riusabile (azioni distruttive) ============ */
+/* ===== UX lotti 6 e 9 (16/11/2026) ===== */
+/* Lotto 6: cercare per titolo nell'elenco «I tuoi progetti». Senza maiuscole né accenti; ogni parola scritta
+   deve comparire nel titolo (in qualunque ordine). Casella vuota = elenco intero. */
+function progettiNorm(t){ return String(t==null?"":t).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,""); }
+function progettiFiltra(lista, q){
+  var parole=progettiNorm(q).split(/\s+/).filter(Boolean);
+  if(!parole.length) return (lista||[]).slice();
+  return (lista||[]).filter(function(p){
+    var t=progettiNorm(p&&(p.title||"Senza titolo"));
+    return parole.every(function(w){ return t.indexOf(w)>=0; });
+  });
+}
+var PROGETTI_RICERCA_MIN=5;   /* sotto questa soglia l'elenco si legge tutto: la casella servirebbe solo a far rumore */
+/* Lotto 6: azioni che non distruggono niente (Nuovo, Apri copia, Apri progetto) non sono rosse: il progetto
+   salvato resta e prima si crea un punto di ripristino. Rosso solo per ciò che toglie davvero (icona warn/trash). */
+function cfmClassi(icon){
+  var neutro = icon==="info";
+  return { ico: "cfm-ico"+(neutro?" neutro":""), ok: neutro ? "btn primary" : "btn danger-solid" };
+}
+/* Lotto 6: una frase sola per distinguere i quattro modi di «rifare» un progetto. */
+var FRASE_COPIE="Variante: la stessa serata con un'altra disposizione. Versione: il numero (v1, v2…) scritto sul PDF. Copia: un altro progetto, indipendente. Punto di ripristino: tornare indietro nel tempo, nello stesso progetto.";
+/* Lotto 9: dal «?» alle guide giuste per il punto in cui si è. Solo collegamenti: non apre né accende nessuna funzione. */
+var AIUTO_TUTORIAL={href:"/guida/tutorial/", t:"Tutorial: dal primo palco al PDF"};
+var AIUTO_GUIDE={
+  pdf:[{href:"/guida/rider-tecnico/",t:"Rider tecnico: cosa contiene"},{href:"/guida/stage-plot-in-scala/",t:"Stage plot in scala reale"},{href:"/guida/scheda-tecnica-band/",t:"Scheda tecnica della band"}],
+  condividi:[{href:"/guida/rider-tecnico/",t:"Rider tecnico: cosa mandare al service"},{href:"/guida/come-fare-uno-stage-plot/",t:"Come fare uno stage plot, passo per passo"}],
+  progetti:[{href:"/guida/come-fare-uno-stage-plot/",t:"Come fare uno stage plot, passo per passo"},{href:"/guida/esempi-stage-plot/",t:"Esempi: band, orchestra, coro"}],
+  coro:[{href:"/guida/disposizione-coro/",t:"Disposizione del coro sul palco"},{href:"/guida/esempi-stage-plot/",t:"Esempi: band, orchestra, coro"}],
+  radio:[{href:"/guida/radiomicrofoni-frequenze/",t:"Radiomicrofoni e frequenze"},{href:"/guida/microfoni/",t:"Microfoni live a confronto"}],
+  monitor:[{href:"/guida/monitor-spie-in-ear/",t:"Monitor, spie e in-ear"}],
+  canali:[{href:"/guida/channel-list-input-list/",t:"Come si compila la channel list"}],
+  vuoto:[{href:"/guida/come-fare-uno-stage-plot/",t:"Come fare uno stage plot, passo per passo"},{href:"/guida/esempi-stage-plot/",t:"Esempi: band, orchestra, coro"}],
+  base:[{href:"/guida/stage-plot-in-scala/",t:"Stage plot in scala reale"},{href:"/guida/channel-list-input-list/",t:"Come si compila la channel list"}]
+};
+/* ctx: {modale:"pdf"|"condividi"|"progetti"|null, tipi:[tipi degli elementi sul palco]}. Prima il tutorial, poi al massimo
+   tre guide pertinenti (senza doppioni), nell'ordine: finestra aperta, poi ciò che c'è sul palco. */
+function aiutoGuideContesto(ctx){
+  ctx=ctx||{}; var tipi=ctx.tipi||[], out=[AIUTO_TUTORIAL], visti={};
+  visti[AIUTO_TUTORIAL.href]=1;
+  function metti(arr){ (arr||[]).forEach(function(g){ if(out.length<4 && !visti[g.href]){ visti[g.href]=1; out.push(g); } }); }
+  function ha(re){ return tipi.some(function(t){ return re.test(String(t)); }); }
+  if(ctx.modale && AIUTO_GUIDE[ctx.modale]) metti(AIUTO_GUIDE[ctx.modale]);
+  if(!tipi.length){ if(!ctx.modale) metti(AIUTO_GUIDE.vuoto); return out; }
+  if(ha(/^(corista|pedanacoro|gradoni)/)) metti(AIUTO_GUIDE.coro);
+  if(ha(/^(wireless|relatore|mictavolo)/)) metti(AIUTO_GUIDE.radio);
+  if(ha(/^(spia|wedge|monitor|iem|inear)/i)) metti(AIUTO_GUIDE.monitor);
+  metti(AIUTO_GUIDE.base);
+  return out;
+}
+function aiutoModaleAperta(){
+  var ids=[["pdfModal","pdf"],["shareModal","condividi"]];
+  for(var i=0;i<ids.length;i++){ var m=document.getElementById(ids[i][0]); if(m && m.hidden===false) return ids[i][1]; }
+  var c=document.getElementById("cloudModal"); if(c && c.style && c.style.display && c.style.display!=="none") return "progetti";
+  return null;
+}
+function aiutoGuideHtml(){
+  var tipi=[]; try{ tipi=(state.items||[]).map(function(it){ return it.type; }); }catch(e){}
+  var g=aiutoGuideContesto({modale:aiutoModaleAperta(), tipi:tipi});
+  return '<div class="help-guide-t">Guide per questo punto</div>'+g.map(function(x){
+    return '<a class="help-guide-a" role="menuitem" href="'+x.href+'" target="_blank" rel="noopener">'+esc(x.t)+'</a>'; }).join("");
+}
+/* il «?» ricostruisce l'elenco a ogni apertura: la finestra aperta e il palco cambiano */
+function aiutoRinfresca(){
+  try{
+    var box=document.getElementById("helpGuide"); if(box) box.innerHTML=aiutoGuideHtml();
+    var l=document.getElementById("learnGuide"); if(l) l.innerHTML=aiutoGuideHtml();
+  }catch(e){}
+}
 var CFM_ICON={
   warn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.3 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.3a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg>',
-  trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>'
+  trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>',
+  info:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>'
 };
 function confirmDialog(opts){
   opts=opts||{};
   return new Promise(function(resolve){
     var m=document.getElementById("confirmModal");
     if(!m){ resolve(window.confirm(opts.message||opts.title||"")); return; }
+    var cl=cfmClassi(opts.icon);
     document.getElementById("cfmIco").innerHTML = CFM_ICON[opts.icon] || CFM_ICON.warn;
+    document.getElementById("cfmIco").className = cl.ico;
+    document.getElementById("cfmOk").className = cl.ok;
     document.getElementById("cfmTitle").textContent = opts.title || "Sei sicuro?";
     var msg=document.getElementById("cfmMsg");
     msg.textContent = opts.message || ""; msg.hidden = !opts.message;
@@ -33738,7 +33815,7 @@ document.getElementById("bNew").addEventListener("click", function(){
     if(window.__toast) window.__toast("Non è stato possibile scaricare l'originale: il progetto non viene sostituito.",true);
     return false;
   }) : chiedi ? confirmDialog({
-    icon:"warn", title:"Nuovo stage plot?",
+    icon:"info", title:"Nuovo stage plot?",
     message:"L'editor viene azzerato per ricominciare da un palco vuoto. I progetti che hai salvato (cloud o «I miei progetti») NON vengono eliminati e restano al loro posto. Se il lavoro aperto non è salvato, esportalo o salvalo prima: verrà chiuso.",
     confirmText:"Azzera e ricomincia"
   }) : Promise.resolve(true)).then(function(ok){
@@ -41531,6 +41608,7 @@ function maybeAskStageSize(explicit){
      frase falsa, e su rete lenta quegli istanti bastano per chiudere la finestra e non tornare.
      Tre stati, non due: "attesa" finché la risposta non arriva, "errore" se non arriva. */
   var cloudProjectsStato="attesa";
+  var cloudCerca="";   /* lotto 6: parole cercate nel titolo, solo mentre la finestra è aperta */
   var authGeneration=0, authUserId=null;
   /* Funzioni avanzate nell'account (14/09): la scelta segue la persona su computer e telefono. Sta nei
      metadati dell'utente; Orchestre ne legge solo `full_name` e `name` (0041, 0048, 0055), quindi una
@@ -41784,7 +41862,7 @@ function maybeAskStageSize(explicit){
   }
   function modalOpen(){ return modalEl && modalEl.style.display!=="none"; }
   function openModal(){ if(!modalEl) return; modalEl.style.display="flex"; renderModal(); if(cloudUser) loadProjects(); }
-  function closeModal(){ if(modalEl) modalEl.style.display="none"; var pv=document.getElementById("cloudPrev"); if(pv) pv.hidden=true; }
+  function closeModal(){ cloudCerca=""; if(modalEl) modalEl.style.display="none"; var pv=document.getElementById("cloudPrev"); if(pv) pv.hidden=true; }
 
   function renderModal(){
     if(!bodyEl) return;
@@ -41805,14 +41883,17 @@ function maybeAskStageSize(explicit){
     }
     var rows="";
     if(cloudProjects.length){
-      rows=cloudProjects.map(function(p){
+      var visibili=progettiFiltra(cloudProjects, cloudCerca);
+      if(!visibili.length) rows='<p style="color:var(--text-3);margin:10px 0 0" role="status">Nessun progetto con «'+esc(cloudCerca)+'» nel titolo.</p>';
+      else rows=visibili.map(function(p){
         var cur = p.id===cloudCurrentId, pid=esc(p.id);
-        return '<div class="cloudRiga" style="display:flex;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--border)">'+
+        return '<div class="cloudRiga" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--border)">'+
           '<button type="button" class="cloudThumb attesa" data-id="'+pid+'" aria-label="Anteprima di '+esc(p.title||"Senza titolo")+'"><img alt=""></button>'+
           '<div class="cloudTesto" style="flex:1;min-width:0">'+
-            '<div class="cloudTitolo">'+esc(p.title)+(cur?' <span style="color:var(--success);font-weight:500">• aperto</span>':'')+'</div>'+
+            '<div class="cloudTitolo" title="'+esc(p.title||"Senza titolo")+'">'+esc(p.title)+(cur?' <span style="color:var(--success);font-weight:500">• aperto</span>':'')+'</div>'+
             '<div style="font-size:12px;color:var(--text-3)">'+esc(fmtDate(p.updated_at))+'</div>'+
           '</div>'+
+          '<div class="cloudAzioni" style="display:flex;align-items:center;gap:2px;margin-left:auto">'+
           '<button class="cloudOpen" data-id="'+pid+'" style="border:1px solid var(--border-strong);background:var(--surface);color:var(--text);border-radius:7px;padding:6px 11px;font-weight:600;cursor:pointer">Apri</button>'+
           '<button class="cloudRename" data-id="'+pid+'" title="Rinomina" aria-label="Rinomina" style="border:none;background:none;cursor:pointer;color:var(--text-2);display:inline-flex;align-items:center;padding:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>'+
           '<button class="cloudDup" data-id="'+pid+'" title="Duplica" aria-label="Duplica" style="border:none;background:none;cursor:pointer;color:var(--text-2);display:inline-flex;align-items:center;padding:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>'+
@@ -41822,6 +41903,7 @@ function maybeAskStageSize(explicit){
              rotto e non insegna niente — ma si annuncia per quello che è: premendolo si arriva alla
              finestra che offre lo sblocco, non all'eliminazione. */
           '<button class="cloudDel" data-id="'+pid+'" title="'+(p.is_locked?"Bloccato · va sbloccato prima di eliminarlo":"Elimina")+'" aria-label="'+(p.is_locked?"Progetto bloccato: sbloccalo prima di eliminarlo":"Elimina")+'" style="border:none;background:none;cursor:pointer;color:'+(p.is_locked?"var(--text-3)":"var(--danger)")+';display:inline-flex;align-items:center;padding:4px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>'+
+          '</div>'+
         '</div>';
       }).join("");
     } else if(cloudProjectsStato==="attesa"){
@@ -41837,13 +41919,20 @@ function maybeAskStageSize(explicit){
         '<button id="cloudSignout" style="border:1px solid var(--border-strong);background:var(--surface);color:var(--text);border-radius:7px;padding:5px 11px;cursor:pointer;white-space:nowrap">Esci</button>'+
       '</div>'+
       '<p style="color:var(--text-3);font-size:12px;margin:0 0 8px">I tuoi progetti si salvano online automaticamente mentre lavori (V. stato accanto al nome del progetto).</p>'+
+      (cloudProjects.length>=PROGETTI_RICERCA_MIN ? '<input type="search" id="cloudCerca" class="cloudCerca" placeholder="Cerca per titolo…" aria-label="Cerca un progetto per titolo" autocomplete="off" value="'+esc(cloudCerca)+'">' : '')+
       '<div style="margin-top:10px">'+rows+'</div>'+
+      '<details class="cloudCopie"><summary>Variante, versione, copia: che differenza c\'è?</summary><p>'+esc(FRASE_COPIE)+'</p></details>'+
       '<a href="#" id="cloudRubrica" style="display:block;margin-top:12px;text-align:center;color:var(--text-2);text-decoration:none;font-size:13px;padding:2px">La mia rubrica…</a>'+
       '<a href="#" id="cloudVersioni" style="display:block;margin-top:6px;text-align:center;color:var(--text-2);text-decoration:none;font-size:13px;padding:2px">Punti di ripristino…</a>'+
       /* Inventario (16/11): attrezzatura numerata con QR. Solo un link: la sezione sta in /inventario/ e non tocca chi fa stage plot. */
       '<a href="/inventario/" target="_blank" rel="noopener" id="cloudInventario" style="display:block;margin-top:6px;text-align:center;color:var(--text-2);text-decoration:none;font-size:13px;padding:2px">Inventario attrezzatura (con QR)…</a>'+
       '<a href="/consulenza/" target="_blank" rel="noopener" style="display:block;margin-top:6px;text-align:center;color:var(--accent);font-weight:600;text-decoration:none;font-size:13px;padding:6px">Consulenza tecnica →</a>';
     document.getElementById("cloudSignout").addEventListener("click", signOut);
+    var cercaEl=document.getElementById("cloudCerca");
+    if(cercaEl) cercaEl.addEventListener("input", function(){
+      var pos=cercaEl.selectionStart; cloudCerca=cercaEl.value; renderModal();
+      var n=document.getElementById("cloudCerca"); if(n){ n.focus(); try{ n.setSelectionRange(pos,pos); }catch(e){} }
+    });
     var rubL=document.getElementById("cloudRubrica"); if(rubL) rubL.addEventListener("click", function(e){ e.preventDefault(); if(window.__openRubricaModal) window.__openRubricaModal(); });
     bindVersioniLink();
     Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudOpen"), function(b){ b.addEventListener("click", function(){ openProject(b.getAttribute("data-id")); }); });
@@ -43141,7 +43230,10 @@ function maybeAskStageSize(explicit){
   if(!panel||!openBtns.length) return;
   var lastFocus=null;
   function onKey(e){ if(e.key==="Escape") close(); }
+  /* «?»: le guide cambiano col punto in cui si è (finestra aperta, cosa c'è sul palco) → si ricostruiscono a ogni apertura */
+  ["helpBtn","bLearnM"].forEach(function(id){ var b=document.getElementById(id); if(b) b.addEventListener("click", aiutoRinfresca, true); });
   function open(){
+    aiutoRinfresca();
     lastFocus=document.activeElement;
     /* aperta dalla voce del menu «?», che si chiude subito dopo: il fuoco da riprendere è il bottone
        del menu, non la voce che nel frattempo è sparita (06/08) */
