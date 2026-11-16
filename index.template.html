@@ -40504,7 +40504,7 @@ function pdfPreviewSvg(paperKey, N, orient, header, opts){
     ((!opts.focus || opts.focus==="clean") ? pdfQrSvg(L) : "")+   /* QR: solo sulla prima pagina, come nel PDF */
     '<text x="'+(L.pw-L.M)+'" y="'+(cy+9)+'" font-size="9" font-weight="700" fill="#111827" text-anchor="end">SCALA 1:'+Ng+'</text>'+
     /* il formato del foglio, come nel PDF: l'anteprima deve dire le stesse cose del file che uscirà */
-    '<text x="'+(L.pw-L.M)+'" y="'+(cy+13.5)+'" font-size="3.6" font-weight="700" fill="#111827" text-anchor="end">'+esc(paperLabel(L.paper, L.orient))+'</text>'+
+    '<text x="'+(L.pw-L.M)+'" y="'+(cy+15)+'" font-size="3.6" font-weight="700" fill="#111827" text-anchor="end">'+esc(paperLabel(L.paper, L.orient))+'</text>'+
     '<text x="'+(L.pw-15.5)+'" y="'+(L.ph-16.2)+'" font-size="2.3" fill="#9ca3af" text-anchor="end">Creato con stageplot.it</text>'+
     (opts.pageLabel ? '<text x="'+L.M+'" y="8.5" font-size="6.4" font-weight="800" letter-spacing="0.4" fill="#111827">'+esc(opts.pageLabel)+'</text>' : '')+
     '</svg>';

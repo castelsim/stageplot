@@ -35239,5 +35239,12 @@ t("P1 margini: sull'A4 verticale la colonna NOTE della channel list resta ≥ 19
   ok(note >= 19 && sorg >= 40, "NOTE " + note.toFixed(1) + " mm, SORGENTE " + sorg.toFixed(1) + " mm");
 });
 
+t("P1 margini: l'anteprima scrive il formato alla stessa quota del PDF (y+15)", () => {
+  const src = readFileSync(join(root, "index.template.html"), "utf8");
+  const pdf = parseFloat((src.match(/doc\.text\(_avv, L\.pw-M, y\+(\d+(?:\.\d+)?),/) || [])[1]);
+  const anteprima = parseFloat((src.match(/y="'\+\(cy\+(\d+(?:\.\d+)?)\)\+'" font-size="3\.6"/) || [])[1]);
+  ok(pdf > 0 && anteprima === pdf, "formato: PDF y+" + pdf + ", anteprima cy+" + anteprima);
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
