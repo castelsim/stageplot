@@ -34581,63 +34581,54 @@ t("L5: il badge dell'uscita multicore si legge: il rettangolo di aggancio non è
   ok(/var _bw=Math\.max\(76, String\(h\.name\|\|""\)\.length\*5\.9\+16\)/.test(appjs), "larghezza del badge dal nome");
 });
 
-/* ORC16d — lotto resto B (16/11/2026): promemoria a chi non ha risposto (senza email), menu strumenti per famiglia, parte dedotta, modello orchestra + coro. */
-const orcCv2 = await import("../orchestre/src/domain/convocare.js");
-const orcSt2 = await import("../orchestre/src/domain/staffing.js");
-t("Orchestre ORC16d B: promemoria — il messaggio dice che manca la risposta, porta titolo, testo aggiuntivo e link", () => {
-  const m = orcCv2.messaggioPromemoria({ nomeCompleto: "Rossi Anna", titolo: "Concerto di Natale", url: "https://x.it/rispondi/?t=abc", nota: "  Prove\n alle 18 " });
-  const r = m.split("\n");
-  eq(r.length, 3, "saluto, nota, link");
-  ok(/^Ciao Anna, non ho ancora la tua risposta/.test(r[0]) && r[0].includes("«Concerto di Natale»"), "nome proprio e titolo");
-  eq(r[1], "Prove alle 18"); eq(r[2], "https://x.it/rispondi/?t=abc");
-  eq(orcCv2.messaggioPromemoria({ titolo: "T", url: "u" }).split("\n").length, 2, "senza nota: due righe");
+/* ═══ PRODUZIONE DI QUESTO PROGETTO (16/11/2026, L0.2 suite produzione): i collegamenti del progetto aperto agli altri strumenti, in un posto solo, chiusi di serie ═══ */
+const _pp = () => appjs.slice(appjs.indexOf("function prodProgettoVoci"), appjs.indexOf("window.openProdHub=function"));
+const UUID = "3f2b8c1e-5a4d-4e6f-9b7a-1c2d3e4f5a6b";
+t("Produzione di questo progetto: senza account ogni voce dice cosa serve invece di sparire; indice e palco per esterni ci sono sempre", () => {
+  A.__bglCloud = { utente: () => null };
+  const V = A.prodProgettoVoci(null, false), id = (k) => V.find((v) => v.id === k);
+  eq(V.map((v) => v.id).filter((k) => k !== "foglio-teatro"), ["orchestre", "biglietteria", "inventario", "palco-esterni", "indice"], "le cinque voci, nell'ordine di lavoro");
+  ok(!id("orchestre").href && /accedi e salva il progetto nel cloud/.test(id("orchestre").nota), "Orchestre: serve l'account e il progetto salvato");
+  ok(!id("biglietteria").href && /su richiesta/.test(id("biglietteria").nota), "biglietteria: su richiesta");
+  ok(!id("inventario").href && /accedi/.test(id("inventario").nota), "inventario: serve l'account");
+  eq(id("palco-esterni").azione, "esporta", "palco per esterni: apre l'Esporta");
+  eq(id("indice").href, "/produzione/", "l'indice /produzione/");
+  delete A.__bglCloud;
 });
-t("Orchestre ORC16d B: chi si sollecita — invitati senza risposta e scaduti; mai chi ha detto sì/no o è annullato", () => {
-  const rows = ["sent", "viewed", "no_reply", "expired", "available", "partial", "unavailable", "confirmed", "reserve", "cancelled", "revoked", "draft"].map((status, i) => ({ id: i, status }));
-  eq(orcCv2.daSollecitare(rows).map((r) => r.status), ["sent", "viewed", "no_reply", "expired"]);
-  eq(orcCv2.daSollecitare(null), []);
+t("Produzione di questo progetto: con account e progetto cloud i link portano a Orchestre, biglietteria e inventario di QUEL progetto", () => {
+  A.__bglCloud = { utente: () => ({ id: "u" }) };
+  const V = A.prodProgettoVoci(UUID, true), id = (k) => V.find((v) => v.id === k);
+  eq(id("orchestre").href, "/orchestre/admin/produzioni/?p=" + UUID, "produzione Orchestre collegata al progetto");
+  eq(id("biglietteria").href, "/biglietteria/gestione/?p=" + UUID, "area biglietteria del progetto");
+  eq(id("inventario").href, "/inventario/", "inventario");
+  const V2 = A.prodProgettoVoci(null, true), id2 = (k) => V2.find((v) => v.id === k);
+  ok(!id2("orchestre").href && /salva il progetto nel cloud/.test(id2("orchestre").nota) && !/accedi/.test(id2("orchestre").nota), "con account ma senza progetto cloud: «salva il progetto»");
+  ok(!id2("biglietteria").href, "senza progetto salvato niente biglietteria");
+  ok(!A.prodProgettoVoci(UUID, false).find((v) => v.id === "orchestre").href, "senza sessione nessun link Orchestre, anche se l'id è valido");
+  A.__bglCloud = { utente: () => null };
+  ok(!A.prodProgettoVoci(UUID, true).find((v) => v.id === "biglietteria").href, "account non abilitato alla biglietteria: nessun link");
+  A.prodProgettoVoci("non-un-uuid", true).forEach((v) => ok(v.id !== "orchestre" || !v.href, "id non valido: nessun link Orchestre"));
+  delete A.__bglCloud;
 });
-t("Orchestre ORC16d B: tutti i messaggi insieme — un blocco per persona col nome in testa", () => {
-  const x = orcCv2.messaggiInsieme([{ nome: "A", testo: "uno" }, { nome: "B", testo: "due" }]);
-  eq(x, "— A —\nuno\n\n— B —\ndue"); eq(orcCv2.messaggiInsieme([]), "");
+t("Produzione di questo progetto: «Foglio per il teatro» compare solo se la funzione esiste (il lotto L4.1 può non essere ancora unito)", () => {
+  const prima = A.exportFoglioTeatro; delete A.exportFoglioTeatro;
+  ok(!A.prodProgettoVoci(null, false).some((v) => v.id === "foglio-teatro"), "senza la funzione la voce non c'è");
+  A.exportFoglioTeatro = () => Promise.resolve(true);
+  const v = A.prodProgettoVoci(null, false).find((x) => x.id === "foglio-teatro"); ok(v && v.azione === "foglio", "con la funzione c'è e scarica");
+  if (prima) A.exportFoglioTeatro = prima; else delete A.exportFoglioTeatro;
 });
-t("Orchestre ORC16d B: «posto N» solo a chi il posto ce l'ha (non dopo revoca, rifiuto, annullo)", () => {
-  ok(orcCv2.dicePosto({ status: "confirmed", slot_seat: 1 }));
-  for (const st of ["revoked", "unavailable", "cancelled", "replaced", "withdrew"]) ok(!orcCv2.dicePosto({ status: st, slot_seat: 1 }), st);
-  ok(!orcCv2.dicePosto({ status: "confirmed", slot_seat: null }));
-});
-t("Orchestre ORC16d B: menu strumenti per famiglia — ordine delle famiglie, ordine del catalogo dentro, sconosciuta in «Altri»", () => {
-  const g = orcCv2.strumentiPerFamiglia([{ code: "t", family: "ottoni" }, { code: "v", family: "archi" }, { code: "a", family: "archi" }, { code: "z", family: "boh" }, { code: "c", family: "voci" }]);
-  eq(g.map((x) => x.etichetta), ["Archi", "Ottoni", "Voci", "Altri"]);
-  eq(g[0].strumenti.map((i) => i.code), ["v", "a"], "ordine del catalogo");
-  eq(orcCv2.strumentiPerFamiglia([]), []);
-  eq(orcCv2.strumentiPerFamiglia(null), []);
-});
-t("Orchestre ORC16d B: la parte si deduce dal nome — primi/I/solista; «Primavera» e «Violini secondi» restano fila", () => {
-  for (const [n, p] of [["Violini primi", "principal"], ["Violini I", "principal"], ["Primo corno", "principal"], ["Violini 1", "principal"], ["Voce solista", "solo"], ["Solista", "solo"],
-    ["Violini secondi", "tutti"], ["Violini II", "tutti"], ["Primavera", "tutti"], ["Viole", "tutti"], ["", "tutti"], [null, "tutti"], ["Violini I e II", "tutti"]]) eq(orcCv2.parteDaNome(n), p, JSON.stringify(n));
-});
-t("Orchestre ORC16d B: modello «Orchestra sinfonica con coro» — coro a quattro voci e maestro, strumenti del catalogo", () => {
-  const m = orcSt2.TEMPLATES.sinfonica_coro; ok(m, "esiste");
-  const coro = m.sections.find((x) => x.section === "Coro");
-  eq(coro.roles.map((r) => r.name), ["Soprani", "Contralti", "Tenori", "Bassi", "Maestro del coro"]);
-  eq(coro.roles.map((r) => r.instrument), ["corista", "corista", "corista", "corista", "maestro_del_coro"], "strumenti del catalogo");
-  eq(orcSt2.templateSeats({ sections: [coro] }), 39);
-  eq(orcSt2.templateSeats(m), orcSt2.templateSeats(orcSt2.TEMPLATES.sinfonica) + 39, "sinfonica + coro");
-  const mig = readFileSync(join(root, "supabase/migrations/0042_orc_catalogs.sql"), "utf8").replace(/\s+/g, " ");
-  for (const sec of m.sections) for (const r of sec.roles) ok(mig.includes("('" + r.instrument + "'"), "strumento nel catalogo: " + r.instrument);
-});
-t("Orchestre ORC16d B: pagina produzione — promemoria avanzato e chiuso, nessuna email, link nuovo con conferma; menu a gruppi; parte che segue il nome", () => {
-  const pg = readFileSync(join(root, "orchestre/src/pages/produzione.js"), "utf8");
-  ok(/<details class="card avanzate" id="promemoria">/.test(pg) && !/id="promemoria"[^>]*\bopen\b/.test(pg), "funzione avanzata chiusa di serie");
-  const blocco = pg.slice(pg.indexOf("function promemoriaCard"), pg.indexOf("function invitationRow"));
-  ok(/inv\.relink\(r\.id\)/.test(blocco) && /await confirm\(/.test(blocco), "link nuovo solo dopo la conferma");
-  ok(!/inv\.action|notifyNow/.test(blocco), "nessuna email: né azione di promemoria né coda");
-  ok(/Copia tutti i messaggi/.test(blocco) && /Apri WhatsApp/.test(blocco));
-  ok(/if \(sol\.length && !cvFiltro\) box\.appendChild\(promemoriaCard\(sol\)\)/.test(pg), "solo se c'è chi sollecitare");
-  ok(/<optgroup label=/.test(pg) && /strumentiPerFamiglia\(cat\.instruments\)/.test(pg), "menu strumenti a gruppi");
-  ok(/parteScelta/.test(pg) && /parteDaNome\(e\.target\.value\)/.test(pg), "la parte segue il nome finché non la scegli");
-  ok(/if \(dicePosto\(r\)\) bits\.push\("posto "/.test(pg), "«posto» solo a chi lo ha");
+t("Produzione di questo progetto: sezione CHIUSA di serie, richiusa a ogni apertura, composta solo all'apertura (mai a ogni ridisegno), nessuna rete né dati nuovi", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/<details id="prodProgetto"[^>]*>/.test(html) && !/<details id="prodProgetto"[^>]*\bopen\b/.test(html), "il <details> parte senza «open»");
+  ok(/<summary id="prodProgettoSum">Produzione di questo progetto<\/summary>/.test(html), "titolo della sezione");
+  ok(html.indexOf('id="prodProgetto"') > html.indexOf('id="prodOrc"') && html.indexOf('id="prodProgetto"') < html.indexOf('id="prodIndice"'), "sta dentro la finestra Produzione, fra i reparti e il link all'indice");
+  const op = appjs.slice(appjs.indexOf("window.openProdHub=function"), appjs.indexOf("function renderProdHub"));
+  ok(/getElementById\("prodProgetto"\); if\(dp\) dp\.open=false/.test(op) && /renderProdProgetto\(\)/.test(op), "richiusa e composta a ogni apertura della finestra");
+  eq((appjs.match(/renderProdProgetto\(\)/g) || []).length, 2, "definizione + una sola chiamata (l'apertura): nessun ridisegno la ricompone");
+  const b = _pp();
+  ok(!/\.rpc\(|fetch\(|\.from\(|sb\.|XMLHttpRequest|save\(|state\.[a-zA-Z]+\s*=[^=]/.test(b), "niente rete, niente salvataggi, niente scritture nel progetto");
+  ok(/exportFoglioTeatro\(\)\.then/.test(b) && /getElementById\("bPdf"\)/.test(b), "le azioni: scarica il foglio / apre l'Esporta");
+  ok(/\.prod-prog>summary\{[^}]*min-height:44px/.test(stylesCss), "bersaglio da 44 px sul telefono");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");

@@ -4192,6 +4192,15 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
 @media (max-width:880px){
   body:has(.modal:not([hidden])) #cloudToast{bottom:auto;top:calc(12px + env(safe-area-inset-top,0px))}
 }
+
+/* L0.2 · Produzione di questo progetto (16/11/2026): sezione chiusa di serie nella finestra Produzione */
+.prod-prog{border-top:1px solid var(--n-100);padding-top:8px;font-size:13px}
+.prod-prog>summary{cursor:pointer;font-weight:600;color:var(--text-2);padding:6px 0;min-height:44px;display:flex;align-items:center}
+.prod-prog-row{display:flex;flex-direction:column;gap:2px;padding:7px 0;border-bottom:1px solid var(--n-100)}
+.prod-prog-row:last-child{border-bottom:none}
+.prod-prog-t{font:inherit;font-weight:600;color:var(--accent);text-decoration:none;background:none;border:0;padding:0;text-align:left;cursor:pointer;min-height:24px}
+.prod-prog-off{color:var(--text-3);font-weight:600}
+.prod-prog-row small{font-size:12px;color:var(--text-2);line-height:1.4}
 </style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->
 <script async src="/icons.js"></script>
@@ -6006,6 +6015,12 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
     <div id="prodDeptRows" style="margin-top:10px"></div>
     <div id="prodDeptAdd" class="prod-add" style="margin-top:12px"></div>
     <div id="prodOrc" class="prod-dept" style="margin-top:14px"></div>
+    <!-- PRODUZIONE DI QUESTO PROGETTO (16/11/2026, L0.2): in un posto solo i collegamenti del progetto aperto agli altri strumenti della suite.
+         Chiusa di serie: la apre l'utente (avanzate chiuse, 13/11). Solo link e azioni, nessun dato nuovo; si compone all'apertura, mai a ogni ridisegno. -->
+    <details id="prodProgetto" class="prod-prog" style="margin-top:14px">
+      <summary id="prodProgettoSum">Produzione di questo progetto</summary>
+      <div id="prodProgettoBody"></div>
+    </details>
     <!-- Indice «Produzione» (16/11/2026): tutti gli strumenti della suite, per fase, in una pagina sola (/produzione/). Solo un link. -->
     <div style="display:flex;gap:8px;align-items:center;justify-content:flex-end;margin-top:16px">
       <a href="/produzione/" target="_blank" rel="noopener" id="prodIndice" style="flex:1;color:var(--text-2);font-size:13px">Tutti gli strumenti per la produzione →</a>

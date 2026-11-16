@@ -39012,11 +39012,51 @@ function openItemContactModal(it){
 }
 /* Modale "La mia rubrica" (spec 15/07): gestione completa + import dai progetti.
    z-index sopra la modale "I miei progetti" (si apre anche da lì). */
+/* ═══ PRODUZIONE DI QUESTO PROGETTO (16/11/2026, L0.2 della suite produzione) ═══
+   Per il progetto aperto, i collegamenti agli strumenti che prima stavano ognuno per conto suo (MAPPA §3): produzione Orchestre collegata,
+   biglietteria, inventario, palco per esterni, foglio per il teatro, indice /produzione/. Solo link e azioni (niente dati nuovi, niente rete):
+   ciò che dipende dall'account dice cosa serve invece di sparire. `pid` = progetto cloud corrente o null. */
+function prodProgettoVoci(pid, logged){
+  var uuid=pid && orcOrganicoLink(pid), voci=[];
+  voci.push({id:"orchestre", t:"Musicisti e convocazioni (Orchestre)",
+    href: (logged && uuid) ? uuid : null,
+    nota: (logged && uuid) ? "organico a posti, convocazioni, sostituzioni di questo progetto" : (logged ? "salva il progetto nel cloud per collegarlo a una produzione" : "accedi e salva il progetto nel cloud per collegarlo a una produzione")});
+  var bgl=null; try{ bgl=bglUtente(); }catch(_e){}
+  voci.push({id:"biglietteria", t:"Biglietteria",
+    href: (logged && pid && bgl) ? bglIndirizzoGestione(pid) : null,
+    nota: (logged && pid && bgl) ? "prenotazioni e lista d'ingresso di questo progetto" : "su richiesta (info@stageplot.it): prima si numerano i posti del pubblico"});
+  voci.push({id:"inventario", t:"Inventario attrezzatura", href: logged ? "/inventario/" : null,
+    nota: logged ? "attrezzatura numerata con QR, consegne e rientri" : "accedi per usarlo"});
+  voci.push({id:"palco-esterni", t:"Palco per esterni", azione:"esporta", nota:"PDF vettoriale per teatro, service e Diego: si sceglie foglio e scala in Esporta"});
+  if(typeof exportFoglioTeatro==="function") voci.push({id:"foglio-teatro", t:"Foglio per il teatro", azione:"foglio", nota:"sedie, pedane, scalette e prese del progetto, A4 con la versione"});
+  voci.push({id:"indice", t:"Tutti gli strumenti per la produzione", href:"/produzione/", nota:"l'indice per fase, con chi li usa e come si accede"});
+  return voci;
+}
+function renderProdProgetto(){
+  var host=document.getElementById("prodProgettoBody"); if(!host) return;
+  var C=window.__cloud, pid=C&&C.currentId&&C.currentId(), logged=!!(C&&C.user&&C.user());
+  host.innerHTML="";
+  prodProgettoVoci(logged&&pid ? pid : null, logged).forEach(function(v){
+    var row=document.createElement("div"); row.className="prod-prog-row"; row.setAttribute("data-voce", v.id);
+    var el;
+    if(v.href){ el=document.createElement("a"); el.href=v.href; el.target="_blank"; el.rel="noopener"; }
+    else if(v.azione){ el=document.createElement("button"); el.type="button";
+      el.addEventListener("click", function(){
+        if(v.azione==="esporta"){ document.getElementById("prodModal").hidden=true; var b=document.getElementById("bPdf"); if(b) b.click(); }
+        else if(v.azione==="foglio" && typeof exportFoglioTeatro==="function"){ el.disabled=true; exportFoglioTeatro().then(function(){ el.disabled=false; }, function(){ el.disabled=false; }); }
+      }); }
+    else { el=document.createElement("span"); el.className="prod-prog-off"; }
+    el.className=(el.className?el.className+" ":"")+"prod-prog-t"; el.textContent=v.t+(v.href&&v.id!=="indice"?" →":"");
+    var n=document.createElement("small"); n.textContent=v.nota||"";
+    row.appendChild(el); row.appendChild(n); host.appendChild(row);
+  });
+}
 /* ===== HUB PRODUZIONE (decisione 2A) — modale reparti ===== */
 window.openProdHub=function(){
   var m=document.getElementById("prodModal"); if(!m) return;
   m.hidden=false;
-  renderProdHub();
+  var dp=document.getElementById("prodProgetto"); if(dp) dp.open=false;   /* L0.2: chiusa a ogni apertura, la apre l'utente */
+  renderProdHub(); renderProdProgetto();
 };
 function renderProdHub(){
   var host=document.getElementById("prodDeptRows"); if(!host) return;
