@@ -124,5 +124,6 @@ export function mountTopbar(ctx, { active = "" } = {}) {
   const out = top.querySelector("#oOut");
   if (out) out.onclick = signOut;
   const tabs = document.querySelector(".nav-tabs");
-  if (tabs) tabs.querySelectorAll("a").forEach((a) => { if (a.dataset.tab === active) a.setAttribute("aria-current", "page"); });
+  if (tabs) tabs.querySelectorAll("a").forEach((a) => { if (a.dataset.tab === active) { a.setAttribute("aria-current", "page"); } });
 }
+
