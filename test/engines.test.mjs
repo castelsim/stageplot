@@ -11828,10 +11828,12 @@ t("il cartiglio dei progetti normali resta alto com'era", () => {
   try {
     A.pdfTotals = () => [];
     eq(A.cartHFor("", "a4", "landscape"), 22, "senza totali");
-    eq(A.cartHFor("Mario Rossi · mario@esempio.it", "a4", "portrait"), 22, "con un riferimento corto");
+    /* dal 17/11/2026 (rilettura P1 Il Volo): col riferimento il cartiglio ha 8 mm sotto l'ultima riga come senza (prima 3), perché l'ultima riga
+       non finisca sopra il piè a 16 mm dal fondo: 22 → 27 col riferimento, 27 → 32 con totali e riferimento. Senza riferimento è com'era. */
+    eq(A.cartHFor("Mario Rossi · mario@esempio.it", "a4", "portrait"), 27, "con un riferimento corto: +5 mm per stare sopra il piè");
     A.pdfTotals = () => ["8 canali", "3 leggii", "3 sedute", "2 spie"];
-    eq(A.cartHFor("", "a4", "landscape"), 27, "con la riga dei totali");
-    eq(A.cartHFor("Mario Rossi · mario@esempio.it", "a4", "portrait"), 27, "e col riferimento corto");
+    eq(A.cartHFor("", "a4", "landscape"), 27, "con la riga dei totali (senza riferimento com'era)");
+    eq(A.cartHFor("Mario Rossi · mario@esempio.it", "a4", "portrait"), 32, "e col riferimento corto: +5 mm per stare sopra il piè");
   } finally { A.pdfTotals = t0; reset(); }
 });
 /* 13/10/2026, stage plot vero: la pagina «Note» del PDF scriveva ogni nota su una riga sola, a partire
