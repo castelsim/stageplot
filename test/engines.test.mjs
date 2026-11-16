@@ -34118,7 +34118,6 @@ t("Orchestre ORC16b: il foglio stampabile — A4, margini ≥15 mm, piè «vN ·
   ok(/orc_staffing_stamp\(production uuid\)/.test(sql) && !/snapshot jsonb\)/.test(sql.split("function public.orc_staffing_stamp")[1].split("returns")[0]), "lo snapshot lo costruisce il server, non arriva dal client");
 });
 
-<<<<<<< ours
 /* ORC16b — lotto B (16/11/2026): link di convocazione copiabili, «riserva» chiesta dal musicista, calendario .ics. */
 const orcIcs = await import("../orchestre/src/domain/ics.js");
 t("Orchestre ORC16b: .ics — righe CRLF a 75 byte, orari UTC, virgole e a capo protetti, fine di default dopo 3 ore", () => {
@@ -34162,7 +34161,8 @@ t("Orchestre ORC16b: «riserva» chiesta dal musicista — Edge Function, trigge
   ok(/data-a="reserve">Solo se manca qualcuno/.test(mu) && /respondReserveMine/.test(mu), "anche l'area del musicista");
   ok(/disponibile solo se manca qualcuno/.test(readFileSync(join(root, "orchestre/src/pages/produzione.js"), "utf8")), "lo staff lo vede sulla riga");
   ok(/D\.status === "confirmed" \? buildIcs/.test(rp) && /e\.status !== "done"/.test(mu), ".ics solo per ingaggi confermati (link) e non conclusi (area)");
-=======
+});
+
 /* ORC16b — lotto C (16/11/2026): «Importa organico» dell'editor non perdeva più «16 violini» in silenzio. */
 t("Orchestre ORC16b: Importa organico — «16 violini» e «violini I e II» si leggono (metà e metà) e ciò che non si capisce lo dice forte", () => {
   eq(impC("16 violini"), { v1: 8, v2: 8 }, "«16 violini» senza I/II: metà e metà");
@@ -34190,7 +34190,6 @@ t("Orchestre ORC16b: archivio dei musicisti — ripristino, cancellazione defini
   ok(/ctx\.org\.role === "owner"[\s\S]{0,120}Elimina definitivamente/.test(pg), "il pulsante «Elimina definitivamente» lo vede solo il proprietario");
   ok(/ok\.disabled = inp\.value\.trim\(\)\.toLowerCase\(\) !== nome\.toLowerCase\(\)/.test(pg), "il pulsante si accende solo col nome scritto");
   ok(/lo ritrovi in Musicisti › Archiviati e lo ripristini/.test(readFileSync(join(root, "orchestre/src/pages/scheda.js"), "utf8")), "la conferma di «Archivia» non promette più cose false");
->>>>>>> theirs
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
