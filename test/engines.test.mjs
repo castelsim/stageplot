@@ -33639,6 +33639,8 @@ t("Palco per esterni: titolo lungo va a capo (mai «…») e la fascia si alza; 
   if (process.env.PEDBG) console.log("      DBG", corta.tit.length, corta.sub.length, corta.h, lunga.tit.length, lunga.sub.length, lunga.h);
   eq([corta.tit.length, corta.sub.length, corta.h], [1, 1, 17.5], "fascia a due righe: 4 + 6,2 + 4,8 + 2,5 mm");
   eq(lunga.tit.length, 2, "il titolo lungo, in grassetto 14 pt, va su due righe");
+  const stretta = A.palcoEsterniFascia(_peDoc, 60, 10, new Date()); ok(stretta.sub.length >= 2, "riga della versione a capo su un foglio stretto: " + stretta.sub.length);
+  eq(stretta.h, Math.round((4 + stretta.tit.length * 6.2 + stretta.sub.length * 4.8 + 2.5) * 100) / 100, "ogni riga di sotto conta 4,8 mm");
   eq(lunga.h, Math.round((4 + lunga.tit.length * 6.2 + lunga.sub.length * 4.8 + 2.5) * 100) / 100, "altezza = 4 + 6,2 per riga di titolo + 4,8 per riga di sotto + 2,5, a due decimali");
   ok(Math.round(lunga.h * 100) === lunga.h * 100 || Math.abs(Math.round(lunga.h * 100) - lunga.h * 100) < 1e-6, "arrotondata al centesimo");
   A.state.stage = { w: 800, d: 600, blocks: [{ x: 0, y: 0, w: 800, d: 600 }] };
@@ -33655,6 +33657,9 @@ t("Palco per esterni: titolo lungo va a capo (mai «…») e la fascia si alza; 
   const vert = A.palcoEsterniPiano(_peDoc, "a4", "auto", "landscape", new Date()), vert2 = A.palcoEsterniPiano(_peDoc, "a4", "auto", "portrait", new Date());
   ok(vert2.N < vert.N, "il verso giusto stampa il palco più grande: 1:" + vert2.N + " contro 1:" + vert.N);
   eq(A.palcoEsterniPiano(_peDoc, "a4", "abc", "auto", new Date()), null, "scala non valida: nessun piano");
+  A.state.stage = { w: 400, d: 1000, blocks: [{ x: 0, y: 0, w: 400, d: 1000 }] };
+  const sp = A.palcoEsterniPiano(_peDoc, "a4", "50", "auto", new Date());
+  eq([sp.o, sp.box.cropped], ["portrait", false], "scala fissa 1:50: vince il verso in cui il palco entra intero, non quello che ritaglia");
   reset();
 });
 t("Palco per esterni: il PDF è solo disegno + barra + fascia (struttura del codice) e l'Esporta ha la voce chiara", () => {
@@ -33730,6 +33735,17 @@ await (async () => {
     ok(bar[0].y <= L.ph - L.fondo - 1 - 2.5 - 3.6 + 1e-6, "e sopra il piè: " + bar[0].y);
     eq(chiamate.filter((c) => c.k === "credito").length, 1, "il credito e «1 di N» sul foglio");
     eq(doc.__palcoEsterni.N, P.N, "scala dichiarata"); eq(doc.__palcoEsterni.cropped, false); eq(doc.__palcoEsterni.orient, P.o);
+    /* palco lungo e stretto: il foglio nasce in verticale e la barra, se il disegno riempie il foglio, si ferma sopra il piè */
+    chiamate.length = 0; docs.length = 0; A.state.stage = { w: 400, d: 1000, blocks: [{ x: 0, y: 0, w: 400, d: 1000 }] };
+    const vdoc = await A.buildPdfPalcoEsterni("a4", "auto", "auto"), PV = A.palcoEsterniPiano(_peDoc, "a4", "auto", "auto", new Date());
+    eq(vdoc.o.orientation, "portrait", "documento verticale"); eq(PV.o, "portrait");
+    const barV = chiamate.filter((c) => c.k === "barra")[0], giuV = PV.box.L.ph - PV.box.L.fondo - 1 - 2.5 - 3.6;
+    const sV = PV.F.h, bV = Object.assign({}, PV.box, { L: Object.assign({}, PV.box.L, { cartH: 1, drawY: PV.box.L.drawY + sV }), iy: PV.box.iy + sV, rMm: Object.assign({}, PV.box.rMm, { y: PV.box.rMm.y + sV }) });
+    const attesa = A.pdfScaleBarPosa(bV, PV.N, { blockDims: !(A.pdfQuoteFuoriDalDisegno(PV.box) && A.stageBlocks().length < 2), quoteJs: A.pdfQuoteFuoriDalDisegno(PV.box) });
+    near(barV.y, attesa.y, 0.01, "la barra sta dove la mette il motore nel foglio spostato della fascia, col solo millimetro di piè finto"); near(barV.x, attesa.x, 0.01, "x della barra");
+    ok(attesa.y > giuV - sV, "(la prova vale: senza lo spostamento della fascia il limite del piè la stringerebbe, " + attesa.y + " vs " + giuV + ")");
+    ok(barV.y <= giuV + 1e-6, "e sopra il piè: " + barV.y + " ≤ " + giuV);
+    A.state.stage = { w: 800, d: 600, blocks: [{ x: 0, y: 0, w: 800, d: 600 }] }; chiamate.length = 0;
     /* se svg2pdf cade, il ripiego raster ha la stessa posizione (sotto la fascia) */
     chiamate.length = 0; A.drawStageVector = () => Promise.reject(new Error("svg2pdf giù"));
     await A.buildPdfPalcoEsterni("a4", "auto", "auto");
