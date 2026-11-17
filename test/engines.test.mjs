@@ -34173,11 +34173,11 @@ t("Lotto 6 (E-1): la ricerca per titolo ignora maiuscole e accenti, vuole ogni p
   eq(A.progettiFiltra(L, "senza").length, 2, "i progetti senza titolo si trovano come «Senza titolo»");
   eq(A.progettiFiltra([{ title: "Città di Pordenone" }], "citta").length, 1, "accenti");
 });
-t("Lotto 6 (E-1): l'elenco ha ricerca (da PROGETTI_RICERCA_MIN progetti), titolo intero nel tooltip su tre righe, azioni che vanno a capo sul telefono", () => {
+t("Lotto 6 (E-1): l'elenco ha ricerca (da PROGETTI_RICERCA_MIN progetti), titolo intero nel tooltip su due righe, azioni che vanno a capo sul telefono", () => {
   ok(/id="cloudCerca"/.test(srcUX) && /progettiFiltra\(cloudProjects, cloudCerca\)/.test(srcUX), "casella e filtro nel rendering");
   ok(/cloudProjects\.length>=PROGETTI_RICERCA_MIN/.test(srcUX), "la casella compare solo con abbastanza progetti");
   ok(/class="cloudTitolo" title="'\+esc\(p\.title/.test(srcUX), "titolo completo nel tooltip");
-  ok(/\.cloudTitolo\{[^}]*-webkit-line-clamp:3/.test(stylesCss), "tre righe invece di due");
+  ok(/\.cloudTitolo\{[^}]*-webkit-line-clamp:2/.test(stylesCss), "due righe al massimo (17/11, 2° passo: poi troncamento al centro)");
   ok(/\.cloudTitolo\{[^}]*overflow-wrap:break-word/.test(stylesCss) && !/\.cloudTitolo\{[^}]*overflow-wrap:anywhere/.test(stylesCss), "non si spezza a metà parola");
   ok(/class="cloudAzioni"/.test(srcUX) && /\.cloudRiga \.cloudAzioni\{flex:1 0 100%/.test(stylesCss), "azioni su una riga propria sul telefono");
   ok(/cloudCerca=""; if\(modalEl\)/.test(srcUX), "chiudendo la finestra la ricerca si azzera");
@@ -35822,6 +35822,34 @@ t("Titolo lungo: troncamento al CENTRO, la versione resta visibile (17/11)", () 
   const r4 = A.titoloTroncaCentro(T, f(6));
   ok(r4.startsWith("…") && r4.length <= 6 && T.endsWith(r4.slice(1)), "spazio minuscolo: resta la fine del titolo: «" + r4 + "»");
   eq(A.titoloTroncaCentro("abc def", f(3)), "abc def", "titolo cortissimo: non si tocca");
+});
+
+t("Titolo lungo, 2° passo: il campo della barra usa tutto lo spazio libero (17/11)", () => {
+  const regola = /header input#titolo\{([^}]*)\}/.exec(stylesCss);
+  ok(regola, "regola flessibile sul campo del titolo");
+  ok(/flex:\s*(\d+)\s+1\s+200px/.test(regola[1]) && Number(/flex:\s*(\d+)/.exec(regola[1])[1]) > 1, "cresce (grow ben oltre il distanziatore, che ha 1) e si restringe (shrink 1)");
+  ok(/min-width:\s*90px/.test(regola[1]) && /max-width:\s*\d{3,}px/.test(regola[1]), "minimo sensato (90) e un tetto largo, non 140/170/240");
+  ok(!/header input#titolo\{max-width:/.test(stylesCss), "nessun media query riporta il tetto fisso sul campo");
+  for (const [bp, bas] of [["1680", 170], ["1480", 140], ["1210", 90]]) ok(new RegExp("max-width:" + bp + "px\\)\\{[^@]*?header input#titolo\\{flex-basis:" + bas + "px\\}").test(stylesCss), "a " + bp + " px parte da " + bas + " px e poi cresce");
+  ok(/<span style="flex:1"><\/span>\s*<button class="tbar-ico" id="helpBtn"/.test(srcUX), "il distanziatore resta grow 1: il titolo ne assorbe quasi tutto, a destra non si muove nulla");
+  ok(/new ResizeObserver\(titoloVisAggiorna\)/.test(srcUX), "il troncamento si ricalcola quando il campo cambia larghezza");
+});
+
+t("Elenco «I miei progetti»: titolo su 2 righe, poi troncamento al centro con la versione visibile (17/11)", () => {
+  /* scatola finta: 30 caratteri per riga, 2 righe di 20 px */
+  const mk = (cpr, righe) => { const h = { textContent: "" }; return { h, box: { clientHeight: 20 * righe, get scrollHeight() { return Math.max(1, Math.ceil(h.textContent.length / cpr)) * 20; } } }; };
+  const T = "Omaggio a Ennio Morricone · Teatro Verdi Padova 01.12.26 · v2 del 17/11/2026";
+  let m = mk(40, 2); eq(A.titoloListaTronca(m.box, m.h, T), T, "ci sta in 2 righe: intero");
+  m = mk(30, 2); let r = A.titoloListaTronca(m.box, m.h, T);
+  ok(r.length <= 60 && r.length > 45, "in 2 righe da 30: usa quasi tutto lo spazio («" + r + "»)");
+  ok(r.endsWith("v2 del 17/11/2026") && r.startsWith("Omaggio") && r.includes("…"), "versione e inizio visibili: «" + r + "»");
+  eq(m.h.textContent, r, "il nodo mostra il testo accorciato");
+  m = mk(24, 2); r = A.titoloListaTronca(m.box, m.h, T); ok(r.length <= 48 && r.endsWith("v2 del 17/11/2026"), "colonna stretta: «" + r + "»");
+  m = mk(30, 2); eq(A.titoloListaTronca(m.box, m.h, "Corto"), "Corto", "titolo corto intatto");
+  eq(A.titoloListaTronca({ clientHeight: 0, scrollHeight: 0 }, { textContent: "" }, T), T, "elemento nascosto (nessuna altezza): non si tocca");
+  ok(/class="ct-t"/.test(srcUX) && /data-full=/.test(srcUX) && /titoliListaAggiorna\(bodyEl\)/.test(srcUX), "l'elenco chiama il troncamento dopo il rendering");
+  ok(/titoloListaTronca\(_cpt, _cpt,/.test(srcUX) && /#cloudPrev \.cp-t\{[^}]*-webkit-line-clamp:2/.test(stylesCss), "anche il titolo dell'anteprima: 2 righe + troncamento");
+  ok(/class="cloudTitolo" title="'\+esc\(p\.title/.test(srcUX), "il titolo intero resta nel title");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");

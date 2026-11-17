@@ -148,14 +148,19 @@
   body.ev-conferenza #bRichiedi, body.ev-conferenza #mactRichiedi{display:none}   /* 24/09: in una conferenza non si cercano musicisti */
   #bRichiedi,#mactRichiedi{display:none!important}   /* 26/09, Simone: «in alto a destra nascondi richiedi musicisti, quel ramo del progetto va rivisto bene». Il pulsante resta nel markup: si rimette togliendo questa riga */
   /* «Esporta» resta scritto a ogni larghezza (decisione più sotto): cedono gli altri */
-  @media (min-width:881px) and (max-width:1680px){ header input#titolo{max-width:170px} #bFit .hdr-lbl{display:none} }
+  /* TITOLO CHE USA TUTTO LO SPAZIO LIBERO (17/11, 2° passo): il campo era fermo a 200/170/140/90 px con un tetto, e fra le varianti e «?» restava vuoto
+     (65 px a 1280, 360 a 1920) mentre il titolo si leggeva «Omaggio a… · v2». Ora è flessibile: parte dalla larghezza di sempre (flex-basis), cresce
+     assorbendo lo spazio che prima era vuoto (grow molto più alto del distanziatore) e cede fino a 90 px prima che la barra scorra. Il troncamento al
+     centro (titoloVisAggiorna) si ricalcola da solo: il ResizeObserver vede la nuova larghezza. */
+  header input#titolo{flex:1000 1 200px;width:auto;min-width:90px;max-width:720px}   /* il distanziatore del header ha grow 1: il titolo ne prende ~tutto fino al tetto */
+  @media (min-width:881px) and (max-width:1680px){ header input#titolo{flex-basis:170px} #bFit .hdr-lbl{display:none} }
   @media (min-width:881px) and (max-width:1600px){ #bRichiedi .hdr-lungo, #evChip .hdr-lbl{display:none} #bRichiedi .hdr-corto{display:inline} }
-  @media (min-width:881px) and (max-width:1480px){ header{gap:8px} header input#titolo{max-width:140px} #bShareHdr .hdr-lbl, .vtab-add .hdr-lbl{display:none} }
+  @media (min-width:881px) and (max-width:1480px){ header{gap:8px} header input#titolo{flex-basis:140px} #bShareHdr .hdr-lbl, .vtab-add .hdr-lbl{display:none} }
   /* ...ma «Condividi» torna scritto quando la barra ha posto (adattaCondividi lo misura, revisione 28/09) */
   @media (min-width:881px) and (max-width:1480px){ header.cond-si #bShareHdr .hdr-lbl{display:inline} }
   @media (min-width:881px) and (max-width:1300px){ header{gap:6px} header .snapwrap>svg{display:none}
     #bTheme{display:none} #helpMenu .mi-tema{display:flex} }   /* il tema passa nel menu «?» */
-  @media (min-width:881px) and (max-width:1210px){ header{gap:4px} header input#titolo{max-width:90px}
+  @media (min-width:881px) and (max-width:1210px){ header{gap:4px} header input#titolo{flex-basis:90px}
     header .hdr-variants .vtab{max-width:100px;overflow:hidden;text-overflow:ellipsis} }
   .tbar-ico svg{width:18px;height:18px}   /* icona delicata, proporzionata al testo 13px */
   .tbar-ico:hover{background:var(--n-100);color:var(--text)}
@@ -3663,7 +3668,7 @@ body:not(.f-esporta) #pdfTeatroBox{display:none !important}
 #pdfUltimo.vecchio{color:var(--warning);font-weight:600}
 
 /* Anteprima dei progetti nell'elenco «I tuoi progetti» (26/09, variante A) */
-.cloudTitolo{font-weight:600;overflow:hidden;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow-wrap:break-word;line-height:1.3}   /* con la miniatura la riga è più stretta: due righe invece di «Copia di UNI…» */
+.cloudTitolo{font-weight:600;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:break-word;line-height:1.3}   /* due righe al massimo (17/11, 2° passo), poi troncamento al centro con la versione visibile (titoloListaTronca); il titolo intero sta nel title */
 .cloudThumb{flex:0 0 auto;width:64px;height:46px;padding:0;border:1px solid var(--border);border-radius:6px;background:#fff;cursor:zoom-in;overflow:hidden;display:flex;align-items:center;justify-content:center}
 .cloudThumb img{width:100%;height:100%;object-fit:contain;display:block}
 .cloudThumb img:not([src]){display:none}
@@ -3681,7 +3686,7 @@ body:not(.f-esporta) #pdfTeatroBox{display:none !important}
 #cloudPrev.senza .cp-img img{display:none}
 #cloudPrev.senza .cp-vuota{display:block}
 #cloudPrev .cp-info{flex:0 0 auto;margin-top:10px;min-width:0}
-#cloudPrev .cp-t{display:block;font-size:16px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#cloudPrev .cp-t{display:-webkit-box;font-size:16px;line-height:1.3;overflow:hidden;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:break-word}   /* idem: 2 righe, troncamento al centro (17/11) */
 #cloudPrev .cp-m{display:block;font-size:13px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #cloudPrev .cp-az{flex:0 0 auto;display:flex;gap:8px;align-items:center;margin-top:12px}
 /* frecce grandi AI LATI dell'immagine (11/11/2026, Simone: «grosse difficoltà ad andare avanti e indietro») */

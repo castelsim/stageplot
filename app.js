@@ -22930,6 +22930,23 @@ function titoloTroncaCentro(t, fits){
   while(tail.length>1 && !fits("…"+tail)) tail=tail.slice(1);   /* nemmeno la coda ci sta: se ne tiene la fine */
   return "…"+tail;
 }
+/* Elenco «I miei progetti» e anteprima (17/11, 2° passo): il titolo va a capo su 2 righe al massimo (line-clamp:2); se non ci sta, si accorcia al
+   CENTRO con la stessa regola del campo («inizio … coda», versione visibile). `holder` è il nodo col solo testo del titolo, `box` il blocco che
+   ha le 2 righe: ci sta quando il contenuto non supera l'altezza. Il titolo intero resta nel title. */
+function titoloListaTronca(box, holder, full){
+  try{
+    full=String(full==null?"":full); holder.textContent=full;
+    if(!box.clientHeight || box.scrollHeight<=box.clientHeight+1) return full;
+    var r=titoloTroncaCentro(full, function(x){ holder.textContent=x; return box.scrollHeight<=box.clientHeight+1; });
+    holder.textContent=r; return r;
+  }catch(_e){ return full; }
+}
+function titoliListaAggiorna(root){
+  try{ Array.prototype.forEach.call((root||document).querySelectorAll(".cloudTitolo"), function(b){
+    var h=b.querySelector(".ct-t"); if(h) titoloListaTronca(b, h, b.getAttribute("data-full")||h.textContent);
+  }); var pt=document.querySelector("#cloudPrev .cp-t"); if(pt && pt.offsetParent && pt.getAttribute("data-full")!=null) titoloListaTronca(pt, pt, pt.getAttribute("data-full")); }catch(_e){}
+}
+window.addEventListener("resize", function(){ titoliListaAggiorna(); });
 var __titoloVis=[];
 function titoloVisMisura(inp){
   var cs=getComputedStyle(inp), cv=titoloVisMisura.cv||(titoloVisMisura.cv=document.createElement("canvas")), cx=cv.getContext("2d");
@@ -43747,7 +43764,7 @@ function maybeAskStageSize(explicit){
         return '<div class="cloudRiga" style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:9px 0;border-top:1px solid var(--border)">'+
           '<button type="button" class="cloudThumb attesa" data-id="'+pid+'" aria-label="Anteprima di '+esc(p.title||"Senza titolo")+'"><img alt=""></button>'+
           '<div class="cloudTesto" style="flex:1;min-width:0">'+
-            '<div class="cloudTitolo" title="'+esc(p.title||"Senza titolo")+'">'+esc(p.title)+(cur?' <span style="color:var(--success);font-weight:500">• aperto</span>':'')+'</div>'+
+            '<div class="cloudTitolo" title="'+esc(p.title||"Senza titolo")+'" data-full="'+esc(p.title||"")+'"><span class="ct-t">'+esc(p.title)+'</span>'+(cur?' <span style="color:var(--success);font-weight:500">• aperto</span>':'')+'</div>'+
             '<div style="font-size:12px;color:var(--text-3)">'+esc(fmtDate(p.updated_at))+'</div>'+
           '</div>'+
           '<div class="cloudAzioni" style="display:flex;align-items:center;gap:2px;margin-left:auto">'+
@@ -43799,6 +43816,7 @@ function maybeAskStageSize(explicit){
     Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudShareRow"), function(b){ b.addEventListener("click", function(){ shareRow(b.getAttribute("data-id")); }); });
     Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudLock"), function(b){ b.addEventListener("click", function(){ toggleLock(b.getAttribute("data-id"), b.getAttribute("data-locked")==="1"); }); });
     Array.prototype.forEach.call(bodyEl.querySelectorAll(".cloudThumb"), function(b){ b.addEventListener("click", function(){ if(!b.classList.contains("vuota")) apriAnteprima(b.getAttribute("data-id"), b); }); });
+    titoliListaAggiorna(bodyEl);
     applicaMiniature(); caricaMiniature();
     /* anteprima aperta sopra la lista ridisegnata (es. dopo Blocca): si aggiorna, o si chiude se il
        progetto non c'è più */
@@ -43889,7 +43907,7 @@ function maybeAskStageSize(explicit){
     var m=miniature[id], img=ov.querySelector(".cp-img img");
     ov.setAttribute("data-id", id);
     if(m && m.src){ img.setAttribute("src", m.src); ov.classList.remove("senza"); } else { img.removeAttribute("src"); ov.classList.add("senza"); }
-    ov.querySelector(".cp-t").textContent=p.title||"Senza titolo";
+    var _cpt=ov.querySelector(".cp-t"); _cpt.setAttribute("data-full", p.title||"Senza titolo"); _cpt.title=p.title||"Senza titolo"; _cpt.textContent=p.title||"Senza titolo";
     var chiave=id+"|"+p.updated_at, meta=ov.querySelector(".cp-m");
     meta.textContent=fmtDate(p.updated_at)+(contiAnteprima[chiave] ? " · "+contiAnteprima[chiave] : "");
     var solo=cloudProjects.length<2; Array.prototype.forEach.call(ov.querySelectorAll(".cp-nav"), function(b){ b.hidden=solo; });
@@ -43923,6 +43941,7 @@ function maybeAskStageSize(explicit){
       icone.appendChild(copia);
     });
     ov.hidden=false;
+    titoloListaTronca(_cpt, _cpt, p.title||"Senza titolo");   /* dopo lo scopri: da nascosto non c'è altezza da misurare */
     navSync();   /* la prima volta l'anteprima nasce già visibile: nessun attributo cambia, l'osservatore non scatta */
     if(!senzaFuoco) ov.querySelector(".cp-apri").focus();
     /* varianti ed elementi: servono i dati del progetto, quindi solo per quello che si guarda */
