@@ -92,6 +92,77 @@
     var o = { aggiornato: new Date().toISOString() }; o[col] = val;
     S.c.from("inv_inventari").update(o).eq("id", S.inv.id).then(function (r) { if (r.error) { toast("Non salvato."); return; } S.inv[col] = val; toast("Salvato."); });
   }
+  /* ---------------------------------------------------------------- modulo di comodato (solo proprietario, sezione chiusa di serie)
+     Dati PUBBLICI dell'ente (intestazione, nome, luogo, piè, logo, versione): vanno in inv_inventari.modulo (migrazione 0090), letti solo dai membri.
+     Il modulo compilato nasce nel browser alla consegna (pagina del QR): qui si imposta solo l'intestazione e si prova con dati finti. */
+  var MOD = window.INVModulo;
+  function ridimensionaLogo(file) {
+    /* PNG (o JPEG, se più leggero) con lato massimo 400 px; si scende di misura finché la stringa sta sotto il limite del server (100 000 caratteri) */
+    return new Promise(function (res, rej) {
+      if (!/^image\/(png|jpeg|webp|gif)$/.test(file.type) || file.size > 12000000) return rej(new Error("tipo"));
+      var u = URL.createObjectURL(file), im = new Image();
+      im.onerror = function () { URL.revokeObjectURL(u); rej(new Error("immagine")); };
+      im.onload = function () {
+        URL.revokeObjectURL(u);
+        var scelte = [400, 320, 240, 160];
+        for (var i = 0; i < scelte.length; i++) {
+          var k = Math.min(1, scelte[i] / Math.max(im.naturalWidth, im.naturalHeight)), c = document.createElement("canvas");
+          c.width = Math.max(1, Math.round(im.naturalWidth * k)); c.height = Math.max(1, Math.round(im.naturalHeight * k));
+          var g = c.getContext("2d"); g.drawImage(im, 0, 0, c.width, c.height);
+          var png = c.toDataURL("image/png"), jpg = c.toDataURL("image/jpeg", 0.88), mig = jpg.length < png.length ? jpg : png;
+          if (/^data:image\/(png|jpeg);base64,/.test(mig) && mig.length <= 98000) return res(mig);
+        }
+        rej(new Error("troppo_grande"));
+      };
+      im.src = u;
+    });
+  }
+  function pannelloModulo() {
+    var m = (MOD && MOD.pulisciModulo(S.inv.modulo)) || MOD && MOD.pulisciModulo({}) || {}, bozza = JSON.parse(JSON.stringify(m));
+    var esito = h("p", { class: "nota", role: "status", id: "mod-esito" });
+    function inp(id, etichetta, chiave, max, nota) {
+      var i = h("input", { type: "text", id: id, maxlength: String(max), autocomplete: "off", value: bozza[chiave] || "" });
+      i.addEventListener("input", function () { bozza[chiave] = i.value; });
+      return h("div", {}, [h("label", { for: id, text: etichetta }), i].concat(nota ? [h("p", { class: "nota", text: nota })] : []));
+    }
+    var colore = h("input", { type: "color", id: "mod-colore", value: bozza.colore || "#c09a5b" }); colore.addEventListener("input", function () { bozza.colore = colore.value; });
+    var piedi = [0, 1, 2].map(function (n) { var i = h("input", { type: "text", id: "mod-piede" + n, maxlength: "140", autocomplete: "off", value: (bozza.piede || [])[n] || "" }); i.addEventListener("input", function () { bozza.piede = [0, 1, 2].map(function (k) { return (document.getElementById("mod-piede" + k) || {}).value || ""; }); }); return i; });
+    var anteprima = h("img", { id: "mod-logo-anteprima", alt: "Logo del modulo", class: "mod-logo" }); anteprima.hidden = !bozza.logo; if (bozza.logo) anteprima.src = bozza.logo;
+    var file = h("input", { type: "file", id: "mod-logo-file", accept: "image/png,image/jpeg,image/webp" });
+    file.addEventListener("change", function () {
+      var f = file.files && file.files[0]; if (!f) return; esito.textContent = "Preparo il logo…";
+      ridimensionaLogo(f).then(function (url) { bozza.logo = url; anteprima.src = url; anteprima.hidden = false; esito.textContent = "Logo pronto (" + Math.round(url.length / 1024) + " kB): ricordati di salvare."; },
+        function () { esito.textContent = "Non riesco a usare questo file: prova un PNG o un JPEG."; });
+    });
+    var togli = h("button", { class: "btn piccolo", type: "button", id: "mod-logo-togli", text: "Togli il logo", onclick: function () { bozza.logo = ""; anteprima.hidden = true; file.value = ""; esito.textContent = "Logo tolto: ricordati di salvare."; } });
+    function prova() {
+      var d = MOD.datiModulo({ inventario: S.inv.nome, singolare: "Tastiera", modello: "Modello di prova", codice: "TAS-001" }, null, bozza,
+        { nome: "Nome", cognome: "Cognome", corso: "Corso / classe", accessori: "alimentatore, custodia", data: PUB.oggiIso() });
+      MOD.foglioStampa(d); window.print(); setTimeout(MOD.togliFoglio, 1500);
+    }
+    function salva() {
+      var b = document.getElementById("mod-salva"); b.disabled = true; esito.textContent = "";
+      var o = { ente: bozza.ente || "", ente_breve: bozza.ente_breve || "", registro: bozza.registro || "", intestazione: bozza.intestazione || "", colore: bozza.colore || "", luogo: bozza.luogo || "",
+        firma_ente: bozza.firma_ente || "", piede: (bozza.piede || []).filter(Boolean), versione: bozza.versione || "", logo: bozza.logo || "" };
+      rpc("inv_modulo_salva", { p_inv: S.inv.id, p_modulo: o }).then(function (r) {
+        b.disabled = false; if (!r || !r.ok) { esito.textContent = r && r.errore === "non_autorizzato" ? "Solo chi ha creato l'inventario può salvare il modulo." : "Non salvato: controlla i campi" + (r && r.campo ? " (" + r.campo + ")" : "") + "."; return; }
+        S.inv.modulo = o; esito.textContent = "Salvato."; toast("Modulo salvato.");
+      }, function () { b.disabled = false; esito.textContent = "Non riesco a collegarmi: riprova."; });
+    }
+    var det = h("details", { class: "card", id: "mod-sezione" }, [h("summary", { text: "Modulo di comodato" }),
+      h("p", { class: "nota", text: "Il modulo si compila da solo dopo «Consegna a…», dalla pagina del QR: si stampa o si condivide come PDF, tutto dal telefono. Qui imposti i dati dell'ente che compaiono sul foglio. Restano visibili solo alle persone abilitate." }),
+      h("div", { class: "campi" }, [
+        inp("mod-intestazione", "Intestazione (i punti · sono in colore)", "intestazione", 80, "es. ·NOME·DELL'ENTE·"),
+        inp("mod-ente", "Nome per esteso, come nel testo", "ente", 120, "es. l'Associazione Nome ETS"), inp("mod-ente-breve", "Nome breve (restituzione «su richiesta di …»)", "ente_breve", 60),
+        inp("mod-registro", "Inventario «…dell'associazione»", "registro", 40), inp("mod-luogo", "Luogo del foglio", "luogo", 60), inp("mod-firma", "Firma dell'ente", "firma_ente", 60), inp("mod-versione", "Versione del foglio", "versione", 40, "es. v3 · 17/11/2026"),
+        h("div", {}, [h("label", { for: "mod-colore", text: "Colore dei puntini e del filetto" }), colore])]),
+      h("label", { text: "Piè di pagina (fino a 3 righe)" }), h("div", { class: "campi" }, piedi),
+      h("div", { class: "riga", style: "margin:8px 0" }, [h("div", {}, [h("label", { for: "mod-logo-file", text: "Logo (PNG o JPEG; si ridimensiona da solo)" }), file]), anteprima, togli]),
+      h("div", { class: "riga" }, [h("button", { class: "btn primario", type: "button", id: "mod-salva", text: "Salva", onclick: salva }), h("button", { class: "btn", type: "button", id: "mod-prova", text: "Prova il modulo", onclick: prova })]),
+      esito]);
+    return det;
+  }
+
   function vistaInventario() {
     S.vista = "inventario";
     var cont = L.conteggi(S.articoli);
@@ -109,7 +180,7 @@
     var nSel = elenco.filter(function (a) { return S.sel[a.id]; }).length;
     disegna([
       h("div", {}, [h("button", { class: "btn piccolo", type: "button", text: "← Inventari", onclick: function () { leggiInventari().then(vistaElenco); } })]),
-      barra(S.inv.nome), impo, prop ? pannelloPersone() : null,
+      barra(S.inv.nome), impo, prop ? pannelloPersone() : null, prop && MOD ? pannelloModulo() : null,
       h("h2", { text: "Tipi" }), S.tipi.length ? tipi : h("p", { class: "nota", text: "Nessun tipo ancora: aggiungi i primi articoli qui sotto." }),
       prop ? formAggiungi() : null,
       h("h2", { text: "Articoli (" + S.articoli.length + ")" }), filtri(),

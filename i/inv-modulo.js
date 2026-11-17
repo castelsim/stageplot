@@ -146,8 +146,10 @@
       [T.firmaEnte, T.firmaAllievo].forEach(function (x) { var b = el("div", "f-firma"); b.appendChild(el("span", "", x)); b.appendChild(el("div", "f-linea")); firme.appendChild(b); });
       f.appendChild(firme);
       var pie = el("div", "f-piede"); T.piede.forEach(function (r) { pie.appendChild(el("div", "", r)); }); pie.appendChild(el("div", "f-ver", T.versione)); f.appendChild(pie);
-      document.body.appendChild(f); return f;
+      document.body.appendChild(f); document.documentElement.classList.add("inv-stampa-modulo"); return f;
     };
+
+    P.togliFoglio = function () { var o = document.getElementById("inv-foglio"); if (o && o.parentNode) o.parentNode.removeChild(o); document.documentElement.classList.remove("inv-stampa-modulo"); };
 
     /* ---- resa 2: il PDF vero con jsPDF (Times/Helvetica standard: à è é ì ò ù · … ’ sono in WinAnsi) ---- */
     var rgb = function (h) { return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)]; };
@@ -314,7 +316,7 @@
         if (!puoCondividere(f)) { scarica(f); return; }
         navigator.share({ files: [f], title: "Modulo di comodato" }).then(null, function (e) { if (e && e.name === "AbortError") return; scarica(f); });
       });
-      bFine.addEventListener("click", function () { clearTimeout(timer); var o = document.getElementById("inv-foglio"); if (o && o.parentNode) o.parentNode.removeChild(o); if (opz.fine) opz.fine(); });
+      bFine.addEventListener("click", function () { clearTimeout(timer); P.togliFoglio(); if (opz.fine) opz.fine(); });
       return c;
     };
   }
