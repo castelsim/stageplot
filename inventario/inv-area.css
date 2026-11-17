@@ -1,37 +1,183 @@
-/* Inventario — area del proprietario. Sobria, telefono prima; tema chiaro/scuro; in stampa solo il foglio di etichette. */
-:root{--bg:#f5f4f0;--surface:#fff;--border:#ddd9cd;--text:#292620;--text-2:#5f594d;--text-3:#746e60;--accent:#0b7a70;--on-accent:#fff;--focus:#1d4ed8;--danger:#9b1c1c;--field:#fff;
-  --ui:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;--mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace}
-@media (prefers-color-scheme: dark){:root{--bg:#12181b;--surface:#1b2327;--border:#2c3a3f;--text:#e5e7eb;--text-2:#b4c0bd;--text-3:#96a5a1;--accent:#2dd4bf;--on-accent:#06201d;--focus:#93c5fd;--danger:#f2a1a1;--field:#12181b}}
+/* Inventario — area del proprietario (/inventario/). Token, barra del marchio, pulsanti e pillole di stato: /inventario/sp-base.css (caricato prima).
+   Qui solo ciò che è dell'area: testa, menu «Esporta», riepilogo, tabella (sul telefono diventa un elenco di schede, solo CSS), «Gestione».
+   Telefono prima (390 px); in stampa solo i fogli (etichette, elenco) e la barra del marchio sparisce. */
 *{box-sizing:border-box;margin:0;padding:0}[hidden]{display:none!important}
-body{background:var(--bg);color:var(--text);font-family:var(--ui);font-size:16px;line-height:1.5;overflow-wrap:anywhere}
-:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
-.area{max-width:1000px;margin:0 auto;padding:max(18px,env(safe-area-inset-top)) 16px 60px}
-.carico{color:var(--text-2);text-align:center;padding:56px 0}
-h1{font-size:26px;line-height:1.2;margin:6px 0 10px}h2{font-size:18px;margin:26px 0 10px}
-.barra{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:6px}
-.nota{color:var(--text-2);font-size:14.5px;margin:4px 0 10px}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin:10px 0}
+html{-webkit-text-size-adjust:100%}
+body{background:var(--fondo);color:var(--inchiostro);font-family:var(--ui);font-size:16px;line-height:1.5;overflow-wrap:anywhere;-webkit-font-smoothing:antialiased}
+.area{max-width:1120px;margin:0 auto;padding:20px 16px max(64px,env(safe-area-inset-bottom))}
+.carico{color:var(--testo-2);text-align:center;padding:56px 0}
+h1{font-size:30px;line-height:1.1;letter-spacing:-.02em;font-weight:700}
+h2{font-size:20px;line-height:1.25;letter-spacing:-.01em;margin:0 0 10px}
+.nota{color:var(--testo-2);font-size:14.5px;margin:4px 0 10px}
+.indirizzo{font:14px var(--mono);color:var(--testo-3);margin-top:6px}
+.err{color:var(--bad);font-weight:600;margin:8px 0}
+.indietro{margin:0 0 4px -12px}
+
+/* campi dei moduli (su fondo carta, filo scuro, anello teal al focus) */
+label{display:block;font-size:14px;color:var(--testo-2);font-weight:600;margin-bottom:4px}
+input[type=text],input[type=number],select,textarea{font:inherit;font-size:16px;color:var(--inchiostro);background:var(--carta);border:1px solid var(--filo-forte);border-radius:var(--r-md);padding:9px 12px;min-height:46px;width:100%}
+input[type=text]:focus,input[type=number]:focus,select:focus,textarea:focus{border-color:var(--teal);box-shadow:var(--anello);outline:none}
+input::placeholder{color:var(--testo-3);opacity:1;font-size:15px}
+input[type=checkbox]{accent-color:var(--teal-forte)}
+.campi{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin:12px 0}
+.spunta{display:flex;gap:10px;align-items:flex-start;margin:8px 0;font-weight:400;color:var(--inchiostro);font-size:15.5px}
+.spunta input{margin-top:4px;width:20px;height:20px;flex:none}
 .riga{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.btn{font:inherit;font-weight:600;min-height:40px;padding:7px 14px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;text-decoration:none;display:inline-flex;align-items:center}
-.btn.primario{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
-.btn.pericolo{color:var(--danger)}
-.btn.piccolo{min-height:32px;padding:3px 10px;font-size:14px}
-.btn[disabled]{opacity:.5;cursor:default}
-label{display:block;font-size:14px;color:var(--text-2);font-weight:600;margin-bottom:3px}
-input[type=text],input[type=number],select,textarea{font:inherit;color:var(--text);background:var(--field);border:1px solid var(--border);border-radius:8px;padding:7px 9px;min-height:40px;width:100%}
-.campi{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px 12px;margin:8px 0}
-.spunta{display:flex;gap:9px;align-items:flex-start;margin:6px 0;font-weight:400;color:var(--text);font-size:15.5px}
-.spunta input{margin-top:5px;width:18px;height:18px}
-.tipi{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
-.tipi .card{margin:0}.tipi b{display:block;font-size:17px}.tipi span{color:var(--text-2);font-size:14px}
-.tabella{overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:var(--surface)}
-table{border-collapse:collapse;width:100%;min-width:1000px;font-size:15px}
-th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:middle}
-th{font-size:13px;color:var(--text-2);text-transform:uppercase;letter-spacing:.04em}
+.riga.sotto{margin-top:12px}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--inchiostro);color:var(--fondo);padding:9px 16px;border-radius:999px;font-weight:600;z-index:5;max-width:calc(100vw - 32px)}
+
+/* schermate semplici (accesso, elenco degli inventari) */
+.colonna{max-width:560px;margin:24px auto 0}
+.colonna h1{margin-bottom:10px}
+.blocco{background:var(--carta);border:1px solid var(--filo);border-radius:var(--r-lg);padding:16px 18px;margin:10px 0}
+.riga-inv{display:flex;gap:12px;align-items:center;justify-content:space-between;background:var(--carta);border:1px solid var(--filo);border-radius:var(--r-lg);padding:14px 16px;margin:10px 0}
+.riga-inv b{display:block;font-size:17px;font-weight:600;line-height:1.3}.riga-inv .indirizzo{margin-top:2px}
+.riga-inv>div{min-width:0}
+
+.min{text-transform:lowercase}.mai{text-transform:uppercase}
+.cresce{flex:1;min-width:200px}
+.nuovo-inv>summary{cursor:pointer;font-weight:600;min-height:44px;display:flex;align-items:center;justify-content:space-between;list-style:none}
+.nuovo-inv>summary::-webkit-details-marker{display:none}
+.nuovo-inv>summary::after{content:"+";font:20px/1 var(--mono);color:var(--teal-forte)}
+.nuovo-inv[open]>summary::after{content:"–"}
+.nuovo-inv[open]>summary{margin-bottom:4px}
+
+/* testa dell'inventario: nome e indirizzo a sinistra; un solo primario («Stampa elenco»), poi «Etichette» e il menu «Esporta» */
+.testa-inv{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:2px 0 18px}
+.testa-inv .comandi{display:flex;gap:8px;flex-wrap:wrap;align-items:center;position:relative}
+.testa-inv .comandi .btn{min-height:44px;font-size:15px}
+details.menu{position:relative}
+details.menu>summary{list-style:none}
+details.menu>summary::-webkit-details-marker{display:none}
+details.menu[open]>summary{box-shadow:var(--anello)}
+details.menu .tendina{position:absolute;right:0;top:calc(100% + 6px);z-index:5;min-width:300px;background:var(--carta);border:1px solid var(--filo);border-radius:var(--r-lg);box-shadow:var(--elev-2);padding:8px;display:grid;gap:4px}
+details.menu .tendina button{font:inherit;font-size:15px;text-align:left;background:none;border:0;border-radius:8px;padding:10px;min-height:44px;color:var(--inchiostro);cursor:pointer}
+details.menu .tendina button:hover{background:var(--rialzo)}
+details.menu .tendina button[disabled]{opacity:.5;cursor:default}
+details.menu .tendina label{display:flex;gap:8px;align-items:flex-start;font-size:14px;font-weight:400;color:var(--testo-2);padding:10px;border-top:1px solid var(--filo);margin:4px 0 0}
+
+/* riepilogo per tipo */
+.riepilogo{background:var(--carta);border:1px solid var(--filo);border-radius:var(--r-lg);overflow-x:auto}
+.riepilogo th,.riepilogo td{overflow-wrap:normal;word-break:normal}
+.riepilogo th{white-space:nowrap}
+.riepilogo table{width:100%;min-width:0;border-collapse:collapse;font-size:15px}
+.riepilogo th,.riepilogo td{padding:10px 14px;text-align:right;border-bottom:1px solid var(--filo);font-variant-numeric:tabular-nums}
+.riepilogo th{font-size:13px;font-weight:600;color:var(--testo-3);background:var(--fondo)}
+.riepilogo th:first-child,.riepilogo td:first-child{text-align:left}
+.riepilogo td:first-child b{font-weight:600}
+.riepilogo td:first-child span{font:13px var(--mono);color:var(--testo-3);margin-left:6px}
+.riepilogo tr:last-child td{border-bottom:0;font-weight:700}
+.riepilogo td.zero{color:var(--testo-3)}
+
+/* ricerca e filtri */
+.strumenti{display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:10px;margin:22px 0 10px}
+.cerca{position:relative}
+.cerca input{padding-left:38px;min-height:46px;border-radius:10px}
+.cerca::before{content:"";position:absolute;left:13px;top:50%;width:13px;height:13px;margin-top:-9px;border:2px solid var(--testo-3);border-radius:50%;pointer-events:none}
+.cerca::after{content:"";position:absolute;left:25px;top:50%;width:7px;height:2px;margin-top:3px;background:var(--testo-3);transform:rotate(45deg);pointer-events:none}
+.strumenti select{font-size:15px;min-height:46px;width:auto;border-radius:10px}
+.conteggio{font-size:14px;color:var(--testo-3);margin:0 0 8px}
+
+/* tabella degli oggetti (desktop): niente larghezza minima, colonne fisse; i campi «quieti» appaiono al passaggio e al focus */
+.oggetti{background:var(--carta);border:1px solid var(--filo);border-radius:var(--r-lg);overflow:hidden}
+.oggetti table{width:100%;min-width:0;table-layout:fixed;border-collapse:collapse;font-size:15px}
+.oggetti col.c-sel{width:44px}.oggetti col.c-cod{width:100px}.oggetti col.c-tipo{width:84px}.oggetti col.c-stato{width:158px}.oggetti col.c-chi{width:20%}.oggetti col.c-nota{width:14%}.oggetti col.c-az{width:150px}
+.oggetti th{font-size:13px;font-weight:600;color:var(--testo-3);text-align:left;padding:10px;background:var(--fondo);border-bottom:1px solid var(--filo);white-space:nowrap}
+.oggetti th:nth-child(4),.oggetti th:nth-child(7){padding-left:18px}
+.oggetti td{padding:6px 10px;border-bottom:1px solid var(--filo);vertical-align:middle;overflow:hidden}
+.oggetti tr:last-child td{border-bottom:0}
+.oggetti tbody tr:hover{background:color-mix(in srgb,var(--teal-tinta) 45%,transparent)}
+.oggetti td.cod{font-family:var(--mono);font-weight:700;white-space:nowrap}
+.oggetti td.cod a{color:inherit;text-decoration:none;display:inline-flex;align-items:center;min-height:36px}
+.oggetti td.cod a:hover{text-decoration:underline;text-underline-offset:3px}
+.oggetti td.tipo{color:var(--testo-2);white-space:nowrap;text-overflow:ellipsis}
+.oggetti td.chi{color:var(--inchiostro);line-height:1.3}
+.oggetti td.chi small{display:block;color:var(--testo-3);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.oggetti td.chi b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.oggetti input[type=checkbox]{width:20px;height:20px}
+input.quieto{font:inherit;font-size:15px;color:inherit;background:transparent;border:1px solid transparent;border-radius:6px;padding:5px 7px;width:100%;min-height:36px}
+input.quieto:hover{border-color:var(--filo)}
+input.quieto:focus{border-color:var(--teal);background:var(--carta);box-shadow:var(--anello);outline:none}
+input.quieto::placeholder{color:transparent}
+input.quieto:focus::placeholder{color:var(--testo-3)}
+select.stato-sel{font:inherit;font-size:14px;font-weight:600;border-radius:999px;padding:4px 28px 4px 12px;min-height:34px;width:auto;max-width:100%;-webkit-appearance:none;appearance:none;cursor:pointer;
+  border:1px solid var(--ok-bd);background:var(--ok-bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23746e60' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 11px center;color:var(--ok)}
+select.stato-sel.a_casa{border-color:var(--teal-tinta);background-color:var(--teal-tinta);color:var(--teal-forte)}
+select.stato-sel.in_riparazione{border-color:var(--warn-bd);background-color:var(--warn-bg);color:var(--warn)}
+select.stato-sel.smarrito{border-color:var(--bad-bd);background-color:var(--bad-bg);color:var(--bad)}
+select.stato-sel.dismesso{border-color:var(--filo);background-color:var(--muto-bg);color:var(--muto)}
+.riga-az{display:flex;gap:4px;justify-content:flex-end;white-space:nowrap}
+.riga-az .btn{min-height:36px;padding:4px 10px;font-size:14px;border-color:transparent;background:none;color:var(--testo-2)}
+.riga-az .btn:hover{background:var(--rialzo)}
+.riga-az .btn.pericolo{color:var(--bad)}
+
+/* barra sopra i fogli di stampa a schermo (etichette, elenco): solo questa; i fogli restano com'erano */
+.vista-barra{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:10px}
+.vista-barra .riga label{margin:0}
+.vista-barra input[type=number]{width:76px}
+
+/* Gestione (solo proprietario): sezioni chiuse di serie, ognuna col suo riassunto a destra */
+.gestione{margin-top:34px}
+.gestione>details{background:var(--carta);border:1px solid var(--filo);border-radius:var(--r-lg);margin-top:8px}
+.gestione>details>summary{cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 18px;min-height:54px;font-weight:600;border-radius:var(--r-lg)}
+.gestione>details>summary::-webkit-details-marker{display:none}
+.gestione>details>summary span{font-weight:400;font-size:14px;color:var(--testo-3);margin-left:auto;text-align:right}
+.gestione>details>summary::after{content:"+";font:20px/1 var(--mono);color:var(--teal-forte);flex:none}
+.gestione>details[open]>summary::after{content:"–"}
+.gestione>details>summary:focus-visible{box-shadow:var(--anello)}
+.gestione .dentro{padding:2px 18px 18px;border-top:1px solid var(--filo)}
+.gestione .dentro>.nota:first-child{margin-top:12px}
+.persona{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--filo)}
+.persona:last-of-type{border-bottom:0}
+.persona span{min-width:0}
+.mod-logo{max-height:60px;max-width:160px;border:1px solid var(--filo);border-radius:6px;background:#fff;padding:3px}
+#mod-sezione input[type=color]{width:64px;min-height:44px;padding:2px}
+.nota-privacy{margin-top:18px}
+
+@media (max-width:720px){
+  .barra-sp .dove,.barra-sp .lato .mail{display:none}
+  .area{padding-top:14px}
+  h1{font-size:26px}
+  .testa-inv .comandi{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .testa-inv .comandi>.btn.primario{grid-column:1/-1}
+  .testa-inv .comandi details.menu>summary{width:100%}
+  details.menu{position:static}
+  details.menu .tendina{left:0;right:0;min-width:0;top:calc(100% + 6px)}
+  .riepilogo th,.riepilogo td{padding:9px 6px;font-size:14px}
+  .riepilogo th{font-size:12.5px}
+  .riepilogo td:first-child span{display:none}
+  .strumenti{grid-template-columns:1fr 1fr 1fr;gap:8px}
+  .strumenti .cerca{grid-column:1/-1}
+  .strumenti select{font-size:14px;padding:8px;min-width:0;width:100%}
+  /* la stessa tabella diventa un elenco di schede (solo CSS) */
+  .oggetti thead{display:none}
+  .oggetti table,.oggetti tbody{display:block}
+  .oggetti tr{display:grid;grid-template-columns:30px auto 1fr auto;grid-template-areas:"sel cod tipo stato" "sel mod mod mod" "sel chi chi chi" "sel nota nota nota" "sel az az az";column-gap:8px;padding:12px 12px 8px;border-bottom:1px solid var(--filo)}
+  .oggetti tr:last-child{border-bottom:0}
+  .oggetti td{border:0;padding:0;overflow:visible}
+  .oggetti td:nth-child(1){grid-area:sel;padding-top:3px}
+  .oggetti td.cod{grid-area:cod;font-size:17px;align-self:center}
+  .oggetti td.tipo{grid-area:tipo;align-self:center;font-size:14px;min-width:0;overflow:hidden}
+  .oggetti td:nth-child(5){grid-area:stato;justify-self:end}
+  .oggetti td:nth-child(4){grid-area:mod;margin:4px -7px 0}
+  .oggetti td.chi{grid-area:chi;font-size:15px;padding:0 0 2px}
+  .oggetti td.chi:empty{display:none}
+  .oggetti td:nth-child(7){grid-area:nota;margin:0 -7px}
+  .oggetti td:nth-child(7) input.quieto::placeholder{color:var(--testo-3)}
+  .oggetti td:nth-child(7) input.quieto{font-size:14px;min-height:34px}
+  .oggetti td:nth-child(8){grid-area:az}
+  .riga-az{justify-content:flex-start;margin-left:-10px}
+  .riga-az .btn{min-height:44px;padding:4px 14px}
+  .strumenti select{min-height:44px}
+  .vista-barra{align-items:stretch}
+  .vista-barra>.riga{width:100%}
+  .vista-barra #bStampa{flex:1}
+}
+/* tabella generica: l'elenco A4 (.el-tab) parte da qui e la ritocca; non ha larghezza minima (la vecchia tabella dell'area era larga almeno 1000 px) */
+table{border-collapse:collapse;width:100%;font-size:15px}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--filo);vertical-align:middle}
+th{font-size:13px;color:var(--testo-2)}
 td.cod{font-family:var(--mono);font-weight:700;white-space:nowrap}
-td input[type=text],td select{min-height:34px;padding:3px 7px}
-.err{color:var(--danger);font-weight:600;margin:8px 0}
-.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--text);color:var(--bg);padding:9px 16px;border-radius:999px;font-weight:600;z-index:5}
 /* ---- foglio di etichette: misure in mm, uguali sullo schermo e in stampa ---- */
 .fogli{display:flex;flex-direction:column;gap:14px;align-items:center;margin-top:12px}
 .foglio{position:relative;width:210mm;height:297mm;background:#fff;color:#000;box-shadow:0 1px 8px rgba(0,0,0,.25);flex:none;overflow:hidden;transform-origin:top center}
@@ -62,8 +208,5 @@ td input[type=text],td select{min-height:34px;padding:3px 7px}
   .foglio{box-shadow:none;margin:0!important;page-break-after:always;break-after:page;transform:none!important}   /* !important: l'anteprima su schermo stretto mette scala e margini in linea, in stampa si tornano al 100% */
   .fo-box{width:auto!important;height:auto!important;overflow:visible;position:static}.fo-box .foglio{position:relative}
   .toast{display:none}
+  .barra-sp{display:none}
 }
-
-.mod-logo{max-height:60px;max-width:160px;border:1px solid var(--border);border-radius:6px;background:#fff;padding:3px}
-#mod-sezione summary{font-weight:700;cursor:pointer;min-height:32px}
-#mod-sezione input[type=color]{width:64px;min-height:40px;padding:2px}
