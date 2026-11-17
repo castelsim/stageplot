@@ -222,7 +222,7 @@
     function consegna() {
       while (area.firstChild) area.removeChild(area.firstChild); esito.textContent = ""; formAperto(true);
       var f = { nome: el("input"), cognome: el("input"), corso: el("input"), acc: el("input"), data: el("input"), nota: el("input") };
-      [["nome", 60, ""], ["cognome", 60, ""], ["corso", 100, "es. pianoforte, 2B"], ["acc", 200, "alimentatore, custodia, bacchette, cavalletto…"], ["nota", 300, "facoltativa"]].forEach(function (k) { var i = f[k[0]]; i.type = "text"; i.maxLength = k[1]; i.placeholder = k[2]; i.autocomplete = "off"; });
+      [["nome", 60, ""], ["cognome", 60, ""], ["corso", 100, "es. pianoforte 2B"], ["acc", 200, "alimentatore, custodia…"], ["nota", 300, "facoltativa"]].forEach(function (k) { var i = f[k[0]]; i.type = "text"; i.maxLength = k[1]; i.placeholder = k[2]; i.autocomplete = "off"; });
       f.data.type = "date"; f.data.value = oggiIso();
       var ok = el("button", "btn primario grande pieno", "Conferma consegna"); ok.type = "button"; ok.id = "inv-conferma";
       area.appendChild(testaForm("Consegna", ind.codice));

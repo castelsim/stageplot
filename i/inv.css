@@ -96,3 +96,4 @@ body{background:var(--fondo);color:var(--inchiostro);font:17px/1.5 var(--ui);-we
 .inv-modulo-stato{min-height:1px}
 
 @media print{.barra-sp{display:none}}
+.inv-campo input::placeholder{font-size:15px;color:var(--testo-3);opacity:1}
