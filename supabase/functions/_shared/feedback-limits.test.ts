@@ -30,3 +30,33 @@ Deno.test("ora piena: il tetto globale regge anche con IP falsi", () => {
   assertEquals(oraPiena(GLOBAL_MAX_PER_HOUR), true);
   assertEquals(oraPiena(null), false);
 });
+
+import { ADMIN_USER_ID, ANON_MAX_PER_HOUR, limiteInvio, oltreLimite, USER_MAX_PER_HOUR } from "./feedback-limits.ts";
+
+Deno.test("limite per chi invia: anonimo 5, utente 30, admin nessuno", () => {
+  assertEquals(limiteInvio(null, "1.2.3.4"), { kind: "ip", key: "1.2.3.4", max: ANON_MAX_PER_HOUR });
+  assertEquals(ANON_MAX_PER_HOUR, 5);
+  assertEquals(limiteInvio("abc", "1.2.3.4"), { kind: "user", key: "u:abc", max: USER_MAX_PER_HOUR });
+  assertEquals(USER_MAX_PER_HOUR, 30);
+  assertEquals(limiteInvio(ADMIN_USER_ID, "1.2.3.4"), { kind: "admin" });
+  assertEquals(limiteInvio(null, ""), null);
+  // l'utente con accesso non dipende dall'IP
+  assertEquals(limiteInvio("abc", "")?.kind, "user");
+});
+
+Deno.test("oltre il limite: la 6ª anonima e la 31ª utente", () => {
+  assertEquals(oltreLimite(5, ANON_MAX_PER_HOUR), false);
+  assertEquals(oltreLimite(6, ANON_MAX_PER_HOUR), true);
+  assertEquals(oltreLimite(30, USER_MAX_PER_HOUR), false);
+  assertEquals(oltreLimite(31, USER_MAX_PER_HOUR), true);
+  assertEquals(oltreLimite(null, 5), false);
+});
+
+import { ADMIN_USER_ID as ADM, FILTRO_SENZA_ADMIN, soggettoAlTettoGlobale } from "./feedback-limits.ts";
+
+Deno.test("admin: oltre il tetto globale passa; gli altri no", () => {
+  assertEquals(oraPiena(GLOBAL_MAX_PER_HOUR + 10) && soggettoAlTettoGlobale(ADM), false); // admin passa
+  assertEquals(soggettoAlTettoGlobale("abc"), true);
+  assertEquals(soggettoAlTettoGlobale(null), true);
+  assertEquals(FILTRO_SENZA_ADMIN, `user_id.is.null,user_id.neq.${ADM}`);
+});
