@@ -14642,7 +14642,7 @@ function proOrigine(it){
 var _proCache={}, _proCacheN=0;
 /* {id, m} se l'elemento (senza pro) è con certezza un modello del catalogo, altrimenti null. O(1): cache per firma */
 function proModelloCerto(it){
-  if(!it || it.pro) return null;
+  if(!it || it.pro || it.id==null) return null;   /* solo elementi veri del palco (hanno un id): le anteprime del catalogo e la tavola delle icone ({type,w,d}) non scaricano icons-pro.js */
   var f=(PRO_MISURE_DI_SCHEDA?"S":"T")+it.type+"|"+(it.hw||"")+"|"+(it.label||"")+"|"+(it.label2||"")+"|"+it.w+"|"+it.d, c=_proCache[f];
   if(c!==undefined) return c||null;
   var o=proOrigine(it), r=null;

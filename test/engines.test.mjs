@@ -35594,7 +35594,7 @@ t("Icone pro: icons-pro.js si carica SOLO quando serve, una volta; finché non c
   ok(/PRO_ICONE_URL="\/icons-pro\.js"/.test(appjs), "indirizzo del file nel codice");
   const prima = A.LIB_ICONS; A.LIB_ICONS = {}; A._proIcoStato = 0;
   try {
-    const vecchio = { type: "mixer", hw: "sq6", label: "A&H SQ-5", w: 64, d: 51, x: 0, y: 0, rot: 0 };   /* progetto di prima: hw senza pro e nome di un altro modello (18/11: col nome giusto sarebbe riconosciuto) */
+    const vecchio = { id: "v1", type: "mixer", hw: "sq6", label: "A&H SQ-5", w: 64, d: 51, x: 0, y: 0, rot: 0 };   /* progetto di prima: hw senza pro e nome di un altro modello (18/11: col nome giusto sarebbe riconosciuto) */
     A.TYPES.mixer.draw(vecchio);
     eq(A._proIcoStato, 0, "un elemento senza pro:1 non scarica niente");
     const it = Object.assign({ type: "mixer", x: 0, y: 0, rot: 0 }, A.proOver("sq6"));
@@ -35613,18 +35613,18 @@ t("Icone pro: arrivata l'icona, console, stage rack e modelli col tipo proprio u
   });
   const rio = L.pro_rio3224d2 ? "rrio" : null;
   if (rio) {
-    const vecchio = { type: "stagebox", hw: "rio3224d2", w: 33, d: 17, x: 0, y: 0, rot: 0 };
+    const vecchio = { id: "v2", type: "stagebox", hw: "rio3224d2", w: 33, d: 17, x: 0, y: 0, rot: 0 };
     ok(A.TYPES.stagebox.draw(vecchio).indexOf('class="' + rio + "_") > -1, "stage box vecchia (senza pro) 33×17 con hw: icona vera e misura di scheda (decisione di Simone 18/11, PRO_MISURE_DI_SCHEDA)");
     A.PRO_MISURE_DI_SCHEDA = false;
     try { ok(A.TYPES.stagebox.draw(vecchio).indexOf('class="' + rio + "_") < 0, "con l'interruttore spento (versione a tolleranza) 33×17 resta il pannello di sempre"); } finally { A.PRO_MISURE_DI_SCHEDA = true; }
-    const giusta = { type: "stagebox", hw: "rio3224d2", w: 48, d: 37, x: 0, y: 0, rot: 0 };
+    const giusta = { id: "v3", type: "stagebox", hw: "rio3224d2", w: 48, d: 37, x: 0, y: 0, rot: 0 };
     ok(A.TYPES.stagebox.draw(giusta).indexOf('class="' + rio + "_") > -1, "stage box vecchia (senza pro) con la misura di scheda entro 1 cm: icona vera (18/11)");
   }
   if (L.pro_sq7) {
-    const vecchio = { type: "sq7", w: 70, d: 52, x: 0, y: 0, rot: 0 };
+    const vecchio = { id: "v4", type: "sq7", w: 70, d: 52, x: 0, y: 0, rot: 0 };
     ok(A.TYPES.sq7.draw(vecchio).indexOf('class="rsq7_') > -1, "SQ-7 del tipo di sempre a 70 cm: icona vera nella misura di scheda (decisione 18/11)");
     ok(A.TYPES.sq7.draw(Object.assign({}, vecchio, { label: "Mixer palco SQ-5" })).indexOf('class="rsq7_') < 0, "SQ-7 con il nome di un altro modello: resta l'illustrazione di icons.js");
-    ok(A.TYPES.sq7.draw({ type: "sq7", w: 80, d: 52, x: 0, y: 0, rot: 0 }).indexOf('class="rsq7_') > -1, "SQ-7 del tipo di sempre nella misura di scheda: icona vera (18/11)");
+    ok(A.TYPES.sq7.draw({ id: "v5", type: "sq7", w: 80, d: 52, x: 0, y: 0, rot: 0 }).indexOf('class="rsq7_') > -1, "SQ-7 del tipo di sempre nella misura di scheda: icona vera (18/11)");
   }
 }));
 t("Icone pro: stage rack coi cavi accesi — prese usate sopra l'icona nelle posizioni misurate; senza mappa delle prese resta sbDraw", () => conIconePro((L) => {
@@ -36048,7 +36048,7 @@ t("Elenco «I miei progetti»: titolo su 2 righe, poi troncamento al centro con 
    (tipo legato al modello o hw dei registri di prima + nome compatibile). Solo al disegno: il documento non cambia mai.
    Dalle 02:05 (decisione «tutto in dimensioni reali, poi lo userò»): l'elemento certo si disegna nella misura vera di scheda
    (PRO_MISURE_DI_SCHEDA = true); con false torna la prima versione (tolleranza 1 cm + suggerimento «usa misura di scheda»). */
-const prova = (o) => Object.assign({ x: 0, y: 0, rot: 0 }, o);
+const prova = (o) => Object.assign({ id: "t" + Math.random().toString(36).slice(2, 7), x: 0, y: 0, rot: 0 }, o);   /* con id: elemento vero del palco (le anteprime del catalogo non ce l'hanno) */
 t("Icone esistenti 1: DM3 del tipo di sempre → pro_dm3; nome di un altro modello o un altro codice → disegno di sempre", () => {
   ["Yamaha DM3", "", "DM3 FOH", "DM3 2", "Yamaha DM3 FOH"].forEach((n) => eq(A.proIconaChiave(prova({ type: "dm3", w: 32, d: 46, label: n })), "pro_dm3", "nome «" + n + "»"));
   ["Yamaha DM4", "DM3 / CL5", "Yamaha DM5"].forEach((n) => eq(A.proIconaChiave(prova({ type: "dm3", w: 32, d: 46, label: n })), null, "nome «" + n + "» toglie la certezza"));
@@ -36118,6 +36118,11 @@ t("Icone esistenti 7: CQ-18T pro:1 allargato a 125×150 → icona nella misura d
   conIconePro((L) => { const s = A.TYPES.mixer.draw(big); ok(!/scale\(/.test(s.slice(0, 40)), "scala 1: icona nella misura di scheda"); });
   A.PRO_MISURE_DI_SCHEDA = false;
   try { eq(A.proIconaChiave(big), null, "versione a tolleranza: oltre 1 cm, niente icona realistica"); eq(A.proIconaChiave(prova({ type: "mixer", hw: "cq18t", pro: 1, w: 34.6, d: 24.2 })), "pro_cq18t", "a misura sì"); } finally { A.PRO_MISURE_DI_SCHEDA = true; }
+});
+t("Icone esistenti 8b: le anteprime del catalogo e la tavola ({type,w,d}, senza id) non riconoscono niente e non scaricano icons-pro.js", () => {
+  const prima = A.LIB_ICONS; A.LIB_ICONS = {}; A._proIcoStato = 0;
+  try { ["dm3", "csr5", "sq6", "sq7", "hd96", "q338", "dlives5"].forEach((tp) => { const tt = A.TYPES[tp]; A.TYPES[tp].draw({ type: tp, w: tt.w, d: tt.d, h: 40 }); });
+    eq(A._proIcoStato, 0, "nessuna richiesta dalle miniature"); } finally { A.LIB_ICONS = prima; A._proIcoStato = 0; }
 });
 t("Icone esistenti 8: icons-pro.js assente → disegno di sempre e UNA sola richiesta; in errore nessun nuovo tentativo", () => {
   const prima = A.LIB_ICONS; A.LIB_ICONS = {}; A._proIcoStato = 0;
