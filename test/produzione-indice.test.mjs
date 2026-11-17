@@ -100,3 +100,13 @@ test("repo pubblico: nessun dato reale, solo il contatto pubblico di stageplot.i
   assert.doesNotMatch(senzaCommenti, /Diego|Gaia|Mirella|Art ?Voice|AVA Sound|\+39|\b3\d{2}[ .]?\d{6,7}\b/i);
   assert.doesNotMatch(senzaCommenti, /StagePlot/, "il marchio è «stageplot.it»");
 });
+
+/* 17/11/2026: icons-pro.js (icone realistiche del catalogo pro, caricate pigre da app.js) era rimasto fuori
+   dall'allowlist del deploy → 404 online. Ogni file della radice che app.js scarica da solo deve essere pubblicato. */
+test("i file che l'editor scarica da solo (icone pro) sono nell'allowlist del deploy", () => {
+  const app = leggi("app.js");
+  const m = app.match(/PRO_ICONE_URL\s*=\s*"\/([^"]+)"/);
+  assert.ok(m, "PRO_ICONE_URL in app.js");
+  assert.ok(existsSync(join(root, m[1])), m[1] + " esiste nel repo");
+  assert.match(allowlist, new RegExp("(^|\\s)" + m[1].replace(/\./g, "\\.") + "(\\s|$)"), m[1] + " nell'allowlist di pages.yml");
+});
