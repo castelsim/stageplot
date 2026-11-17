@@ -85,7 +85,73 @@
     return "v" + v + " · " + ente + " · " + intervallo(codici) + " · stampato il " + d;
   }
 
-  var L = { piede: piede, corpoCodice: corpoCodice, STATI: STATI, FOGLIO: FOGLIO, statoNome: statoNome, statoOk: statoOk, codice: codice, prefissoOk: prefissoOk, proponiPrefisso: proponiPrefisso,
+  /* ---- Elenco completo (17/11/2026, richiesta di Diego): dove sono e a chi sono, con ricerca, ordinamento, stampa A4 e CSV ---- */
+  /* «In sede» · «Consegnato a Nome dal 16/11/2026» · «In riparazione» …; senza i nomi (conNomi falso): «Consegnato dal 16/11/2026». */
+  function descrizioneStato(a, conNomi) {
+    var dal = a.data_consegna ? " dal " + dataIt(a.data_consegna) : "";
+    if (a.stato === "a_casa") {
+      var chi = conNomi && a.assegnato_a ? " a " + a.assegnato_a : "";
+      return "Consegnato" + chi + dal;
+    }
+    return statoNome(a.stato);
+  }
+  /* filtro: tipo, stato, testo libero su codice, modello, nota e (solo se i nomi sono ammessi) chi ha lo strumento */
+  function filtra(articoli, f, conNomi) {
+    f = f || {}; var t = String(f.testo || "").trim().toLowerCase();
+    return (articoli || []).filter(function (a) {
+      if (f.tipo && a.tipo !== f.tipo) return false;
+      if (f.stato && a.stato !== f.stato) return false;
+      if (!t) return true;
+      var pagliaio = [a.codice, a.modello, a.note, statoNome(a.stato)].concat(conNomi ? [a.assegnato_a] : []).join(" ").toLowerCase();
+      return pagliaio.indexOf(t) >= 0;
+    });
+  }
+  /* ordinamento: per codice (naturale: prefisso, poi numero), per stato (ordine di STATI, poi codice) o per assegnatario (vuoti in fondo) */
+  function confrontaCodice(a, b) {
+    var pa = String(a.codice).split("-"), pb = String(b.codice).split("-");
+    if (pa[0] !== pb[0]) return pa[0] < pb[0] ? -1 : 1;
+    return (parseInt(pa[1], 10) || 0) - (parseInt(pb[1], 10) || 0);
+  }
+  function ordina(articoli, chiave) {
+    var idx = function (id) { for (var i = 0; i < STATI.length; i++) if (STATI[i].id === id) return i; return 99; };
+    return (articoli || []).slice().sort(function (a, b) {
+      if (chiave === "stato") { var d = idx(a.stato) - idx(b.stato); if (d) return d; }
+      if (chiave === "assegnato") {
+        var x = String(a.assegnato_a || "").toLowerCase(), y = String(b.assegnato_a || "").toLowerCase();
+        if (x !== y) { if (!x) return 1; if (!y) return -1; return x < y ? -1 : 1; }
+      }
+      return confrontaCodice(a, b);
+    });
+  }
+  /* righe per foglio A4 dell'elenco (intestazione sulla prima riga di ogni foglio, margini ≥ 15 mm, piè a 16 mm dal bordo) */
+  var RIGHE_ELENCO = 34;
+  function impaginaElenco(articoli) {
+    var p = [];
+    for (var i = 0; i < (articoli || []).length; i += RIGHE_ELENCO) p.push(articoli.slice(i, i + RIGHE_ELENCO));
+    return p.length ? p : [[]];
+  }
+  /* piè dell'elenco: «v1 · Ente · Elenco di 27 oggetti · stampato il GG/MM/AAAA» (la versione c'è sempre, come sulle etichette) */
+  function piedeElenco(versione, ente, n, d) {
+    var v = Math.max(1, Math.min(99, Math.floor(+versione) || 1));
+    return "v" + v + " · " + ente + " · elenco di " + n + (n === 1 ? " oggetto" : " oggetti") + " · stampato il " + d;
+  }
+  /* sintesi per l'intestazione: «In sede 20 · Consegnato 6 · In riparazione 1» */
+  function sintesi(articoli) {
+    var c = {}; (articoli || []).forEach(function (a) { c[a.stato] = (c[a.stato] || 0) + 1; });
+    return STATI.filter(function (s) { return c[s.id]; }).map(function (s) { return (s.id === "a_casa" ? "Consegnato" : s.nome) + " " + c[s.id]; }).join(" · ");
+  }
+  /* CSV dell'elenco mostrato. Di serie SENZA nomi e SENZA note (un CSV si allega alle mail): colonna «consegnato» = sì; con conNomi: «assegnato a», «dal», «note» */
+  function csvElenco(tipi, articoli, conNomi) {
+    var nome = {}; (tipi || []).forEach(function (t) { nome[t.prefisso] = t.singolare; });
+    var righe = [["codice", "tipo", "marca/modello", "stato"].concat(conNomi ? ["assegnato a", "dal", "note"] : ["consegnato", "dal"])];
+    ordina(articoli, "codice").forEach(function (a) {
+      var casa = a.stato === "a_casa", dal = casa ? dataIt(a.data_consegna) : "", r = [a.codice, nome[a.tipo] || a.tipo, a.modello, statoNome(a.stato)];
+      righe.push(r.concat(conNomi ? [casa ? a.assegnato_a : "", dal, a.note] : [casa ? "sì" : "", dal]));
+    });
+    return righe.map(function (r) { return r.map(cella).join(","); }).join("\n") + "\n";
+  }
+
+  var L = { descrizioneStato: descrizioneStato, filtra: filtra, ordina: ordina, confrontaCodice: confrontaCodice, RIGHE_ELENCO: RIGHE_ELENCO, impaginaElenco: impaginaElenco, piedeElenco: piedeElenco, sintesi: sintesi, csvElenco: csvElenco, piede: piede, corpoCodice: corpoCodice, STATI: STATI, FOGLIO: FOGLIO, statoNome: statoNome, statoOk: statoOk, codice: codice, prefissoOk: prefissoOk, proponiPrefisso: proponiPrefisso,
     frase: frase, conteggi: conteggi, cella: cella, csv: csv, dataIt: dataIt, perPagina: perPagina, origineX: origineX, impagina: impagina, posizione: posizione,
     giusto: giusto, data: data, intervallo: intervallo };
   root.INVLib = L;

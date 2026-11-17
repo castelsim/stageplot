@@ -34144,6 +34144,42 @@ t("Inventario: migrazione 0085 — RLS ovunque, niente insert diretti, campi ris
   ok(vecchie.length > 25 && vecchie.every((r) => nuove.includes(r)), "la pulizia account di 0085 contiene tutte le " + vecchie.length + " condizioni di 0084");
   ok(nuove.includes("not exists (select 1 from public.inv_inventari where user_id = p_uid)"), "e in più gli inventari: chi ha un inventario non viene pulito come «solo biglietteria»");
 });
+t("Inventario: elenco completo — stato leggibile («Consegnato a … dal …»), filtri, ricerca anche sul nome, ordine per codice naturale", () => {
+  const A = [
+    { codice: "TAS-010", tipo: "TAS", modello: "Yamaha PSR-F52", stato: "in_sede", note: "", assegnato_a: "", data_consegna: null },
+    { codice: "TAS-002", tipo: "TAS", modello: "Yamaha PSR-F52", stato: "a_casa", note: "tasto 5 duro", assegnato_a: "Allievo Esempio 2A", data_consegna: "2026-11-17" },
+    { codice: "PAD-001", tipo: "PAD", modello: 'Tosnail 12"', stato: "in_riparazione", note: "", assegnato_a: "", data_consegna: null },
+    { codice: "TAS-001", tipo: "TAS", modello: "Yamaha PSR-F52", stato: "a_casa", note: "", assegnato_a: "Bruno Prova 1B", data_consegna: "2026-11-10" }];
+  eq(INV_LIB.descrizioneStato(A[1], true), "Consegnato a Allievo Esempio 2A dal 17/11/2026", "con nome e data");
+  eq(INV_LIB.descrizioneStato(A[1], false), "Consegnato dal 17/11/2026", "senza nomi: mai il nome");
+  eq(INV_LIB.descrizioneStato(A[0], true), "In sede", "in sede"); eq(INV_LIB.descrizioneStato(A[2], false), "In riparazione", "in riparazione");
+  eq(INV_LIB.ordina(A, "codice").map(a => a.codice).join(), "PAD-001,TAS-001,TAS-002,TAS-010", "TAS-010 dopo TAS-002 (numeri, non lettere)");
+  eq(INV_LIB.ordina(A, "stato").map(a => a.codice).join(), "TAS-010,TAS-001,TAS-002,PAD-001", "per stato (in sede, a casa, in riparazione), poi codice");
+  eq(INV_LIB.ordina(A, "assegnato").map(a => a.codice).join(), "TAS-002,TAS-001,PAD-001,TAS-010", "per assegnatario, i vuoti in fondo");
+  eq(INV_LIB.filtra(A, { tipo: "TAS" }, true).length, 3, "tipo"); eq(INV_LIB.filtra(A, { stato: "a_casa" }, true).length, 2, "stato");
+  eq(INV_LIB.filtra(A, { testo: "bruno" }, true).map(a => a.codice).join(), "TAS-001", "ricerca sul nome (membri)");
+  eq(INV_LIB.filtra(A, { testo: "bruno" }, false).length, 0, "senza nomi la ricerca non li cerca");
+  eq(INV_LIB.filtra(A, { testo: "duro" }, true).length, 1, "ricerca sulla nota"); eq(INV_LIB.filtra(A, { testo: "riparaz" }, true).length, 1, "ricerca sul nome dello stato");
+  eq(INV_LIB.filtra(A, { tipo: "TAS", stato: "a_casa", testo: "esempio" }, true).length, 1, "filtri insieme");
+  eq(INV_LIB.sintesi(A), "In sede 1 · Consegnato 2 · In riparazione 1", "sintesi per l'intestazione");
+});
+t("Inventario: foglio dell'elenco — 34 righe per foglio, piè con versione e data, CSV dei mostrati con o senza nomi, area cablata", () => {
+  const molti = Array.from({ length: 70 }, (_, i) => ({ codice: "TAS-" + String(i + 1).padStart(3, "0"), tipo: "TAS", modello: "x", stato: "in_sede", note: "" }));
+  const pg = INV_LIB.impaginaElenco(molti);
+  eq(pg.length, 3, "70 oggetti = 3 fogli"); eq(pg[0].length, 34, "34 per foglio"); eq(pg[2].length, 2, "l'ultimo foglio ha il resto"); eq(INV_LIB.impaginaElenco([]).length, 1, "elenco vuoto: un foglio");
+  eq(INV_LIB.piedeElenco(2, "Accademia Esempio", 70, "17/11/2026"), "v2 · Accademia Esempio · elenco di 70 oggetti · stampato il 17/11/2026", "versione, ente, data");
+  ok(/^v1 /.test(INV_LIB.piedeElenco(0, "x", 1, "d")) && /elenco di 1 oggetto ·/.test(INV_LIB.piedeElenco(1, "x", 1, "d")), "versione minima 1; singolare");
+  const T = [{ prefisso: "TAS", singolare: "Tastiera" }], B = [{ codice: "TAS-002", tipo: "TAS", modello: "=cmd", stato: "a_casa", note: "n", assegnato_a: "Allievo Esempio 2A", data_consegna: "2026-11-17" }, { codice: "TAS-001", tipo: "TAS", modello: "Y", stato: "in_sede", note: "" }];
+  const senza = INV_LIB.csvElenco(T, B, false), con = INV_LIB.csvElenco(T, B, true);
+  ok(!/Allievo|Esempio/.test(senza) && !/,n(\n|$)/.test(senza.split("\n")[1]) && !senza.includes("note"), "il CSV di serie non contiene né nomi né note"); eq(senza.split("\n")[2], "TAS-002,Tastiera,'=cmd,A casa,sì,17/11/2026", "di serie: consegnato = sì + data"); ok(con.includes("Allievo Esempio 2A,17/11/2026,n"), "con la spunta: assegnatario, data, nota"); eq(con.split("\n")[0], "codice,tipo,marca/modello,stato,assegnato a,dal,note", "intestazione con nomi");
+  eq(senza.split("\n")[0], "codice,tipo,marca/modello,stato,consegnato,dal", "intestazione di serie"); eq(senza.split("\n")[1].slice(0, 7), "TAS-001", "ordinato per codice"); ok(senza.includes("'=cmd"), "mai formule");
+  const js = readFileSync(join(root, "inventario/inv-area.js"), "utf8"), css = readFileSync(join(root, "inventario/inv-area.css"), "utf8");
+  ok(/id: "chkCsvNomi"/.test(js) && /L\.csvElenco\(S\.tipi, elenco, !!S\.csvNomi\)/.test(js), "il CSV dei mostrati segue la spunta (spenta di serie)"); ok(/id: "bElenco"/.test(js) && /vistaStampaElenco\(filtrati\(\)\)/.test(js) && /id: "bCsvElenco"/.test(js), "bottoni «Elenco da stampare» e «CSV dei mostrati» che seguono i filtri");
+  ok(/function vistaStampaElenco\(elenco, conNomi\)/.test(js) && /conNomi = !!conNomi/.test(js), "i nomi sul foglio sono spenti di serie");
+  ok(/L\.piedeElenco\(ver, S\.inv\.nome/.test(js) && /\(i \+ 1\) \+ " di " \+ N/.test(js), "il foglio ha versione, data e «1 di N»");
+  ok(/\.foglio\.elenco\{padding:16mm 17mm/.test(css) && /\.piede-foglio\{[^}]*bottom:16mm/.test(css), "margini ≥ 15 mm anche sul foglio dell'elenco");
+  ok(/inv-area\.js\?v=3/.test(readFileSync(join(root, "inventario/index.html"), "utf8")), "versione degli script alzata (niente cache vecchia)");
+});
 t("Inventario: pagina e area — ritorno dopo l'accesso, cablaggio (404.html, service worker, deploy, menu editor), noindex, mai innerHTML, niente terzi", () => {
   const f404 = readFileSync(join(root, "404.html"), "utf8");
   ok(/\/i\/indirizzo\.js/.test(f404) && /INVIndirizzo/.test(f404), "404.html rimanda /i/<slug>/<codice>");
