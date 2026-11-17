@@ -82,7 +82,7 @@
   function mostra(app, nodi) { while (app.firstChild) app.removeChild(app.firstChild); nodi.forEach(function (n) { app.appendChild(n); }); app.removeAttribute("aria-busy"); }
   function messaggio(app, titolo, corpo, riprova) {
     var c = el("section", "inv-carta"); c.appendChild(el("p", "inv-msg", titolo)); c.appendChild(el("p", "inv-msg-testo", corpo));
-    if (riprova) { var b = el("button", "inv-btn", "Riprova"); b.type = "button"; b.addEventListener("click", riprova); c.appendChild(b); }
+    if (riprova) { var b = el("button", "btn", "Riprova"); b.type = "button"; b.addEventListener("click", riprova); c.appendChild(b); }
     mostra(app, [c]);
   }
   function rpcPubblica(cfg, nome, args) {
@@ -94,33 +94,38 @@
   }
   function link(href, txt, cls) { var a = el("a", cls || "", txt); a.href = href; return a; }
 
+  function maiuscola(t) { return t ? t.charAt(0).toUpperCase() + t.slice(1) : t; }
+  /* testa + cartellino: ente, nome dell'oggetto, modello; il cartellino richiama l'etichetta (codice grande, stato, quanti ce ne sono, link all'elenco) */
   function scheda(d, ind) {
-    var c = el("section", "inv-carta");
-    if (d.inventario) c.appendChild(el("p", "inv-sopra", d.inventario));
-    c.appendChild(el("h1", "inv-titolo", d.singolare + " n. " + d.numero));
-    c.appendChild(el("p", "inv-codice", d.codice));
-    if (d.modello) c.appendChild(el("p", "inv-modello", d.modello));
-    c.appendChild(el("p", "inv-quanti", frase(d.totale, d.singolare, d.plurale)));
-    if (d.stato) c.appendChild(el("span", "inv-stato " + d.stato, STATI[d.stato]));
+    var testa = el("header", "inv-testa");
+    if (d.inventario) testa.appendChild(el("p", "inv-ente", d.inventario));
+    testa.appendChild(el("h1", "inv-titolo", d.singolare + " n. " + d.numero));
+    if (d.modello) testa.appendChild(el("p", "inv-modello", d.modello));
+    var c = el("section", "inv-cartellino"); c.setAttribute("aria-label", "Etichetta");
+    var r1 = el("div", "inv-riga1"); r1.appendChild(el("span", "inv-codice", d.codice));
+    if (d.stato) r1.appendChild(el("span", "stato " + d.stato, STATI[d.stato]));
+    c.appendChild(r1);
+    var q = el("p", "inv-quanti"); q.appendChild(el("span", "num", frase(d.totale, d.singolare, d.plurale)));
+    q.appendChild(link("/i/" + encodeURIComponent(ind.slug), "Elenco completo")); c.appendChild(q);
     document.title = d.singolare + " n. " + d.numero + " · " + (d.inventario || "Inventario");
-    return c;
+    return [testa, c];
   }
   function elenco(d, ind) {
-    var nodi = [el("header", "inv-testa")];
-    nodi[0].appendChild(el("p", "inv-sopra", "Inventario"));
-    nodi[0].appendChild(el("h1", "inv-titolo", d.inventario || "Inventario"));
+    var testa = el("header", "inv-testa");
+    testa.appendChild(el("p", "inv-ente", "Inventario"));
+    testa.appendChild(el("h1", "inv-titolo", d.inventario || "Inventario"));
+    var nodi = [testa];
     document.title = (d.inventario || "Inventario") + " · elenco";
-    if (!d.tipi.length) nodi.push(el("p", "inv-quanti", "Ancora niente in elenco."));
+    if (!d.tipi.length) nodi.push(el("p", "inv-modello", "Ancora niente in elenco."));
     d.tipi.forEach(function (t) {
-      var s = el("section", "inv-carta inv-tipo");
-      s.appendChild(el("h2", "inv-tipo-titolo", t.singolare + " · " + t.prefisso));
-      s.appendChild(el("p", "inv-quanti", frase(t.totale, t.singolare, t.plurale)));
+      var s = el("section", "inv-carta inv-tipo"), th = el("div", "inv-tipo-testa");
+      th.appendChild(el("h2", "inv-tipo-titolo", maiuscola(t.plurale))); th.appendChild(el("span", "inv-tipo-conto", t.totale + " · " + t.prefisso)); s.appendChild(th);
       var ul = el("ul", "inv-lista");
       t.articoli.forEach(function (a) {
         var li = el("li", "inv-voce");
         li.appendChild(link("/i/" + encodeURIComponent(ind.slug) + "/" + encodeURIComponent(a.codice), a.codice, "inv-voce-codice"));
         li.appendChild(el("span", "inv-voce-modello", a.modello));
-        if (a.stato) li.appendChild(el("span", "inv-voce-stato " + a.stato, STATI[a.stato]));
+        if (a.stato) li.appendChild(el("span", "stato piccolo " + a.stato, STATI[a.stato]));
         ul.appendChild(li);
       });
       s.appendChild(ul); nodi.push(s);
@@ -129,19 +134,46 @@
   }
 
   /* ---- pannello riservato (membri) ---- */
-  function campo(etichetta, input) { var w = el("div", "inv-campo"), l = el("label", "", etichetta); input.id = "inv-" + etichetta.replace(/\W+/g, "").toLowerCase(); l.setAttribute("for", input.id); w.appendChild(l); w.appendChild(input); return w; }
+  function campo(etichetta, input, cls) {
+    var w = el("div", "inv-campo" + (cls ? " " + cls : "")), l = el("label"); input.id = "inv-" + etichetta.replace(/\W+/g, "").toLowerCase(); l.setAttribute("for", input.id);
+    if (/ \*$/.test(etichetta)) { l.appendChild(document.createTextNode(etichetta.slice(0, -2) + " ")); l.appendChild(el("i", "", "*")); } else l.textContent = etichetta;
+    w.appendChild(l); w.appendChild(input); return w;
+  }
+  /* l'errore sta sul campo (bordo + messaggio sotto, legato con aria-describedby), non in fondo alla pagina */
+  function togliErrore(w, input) {
+    w.classList.remove("errore"); input.removeAttribute("aria-invalid"); input.removeAttribute("aria-describedby");
+    var p = w.querySelector(".inv-aiuto.msg"); if (p) w.removeChild(p);
+  }
+  function segnalaErrore(w, input, msg) {
+    togliErrore(w, input); w.classList.add("errore"); input.setAttribute("aria-invalid", "true");
+    var p = el("p", "inv-aiuto msg", msg); p.id = input.id + "-err"; w.appendChild(p); input.setAttribute("aria-describedby", p.id);
+    input.addEventListener("input", function pulisci() { togliErrore(w, input); input.removeEventListener("input", pulisci); });
+  }
   function pannello(app, cfg, ind, m, client, rigenera, scheda) {
-    var c = el("section", "inv-carta inv-riservato");
-    c.appendChild(el("p", "inv-sopra", "Riservato alla segreteria"));
+    var c = el("section", "inv-segr inv-riservato"); c.setAttribute("aria-label", "Riservato alla segreteria");
+    var titolo = el("h2", "inv-sez", "Segreteria"); titolo.appendChild(el("small", "", "visibile solo a chi è abilitato")); c.appendChild(titolo);
     var vaElenco = linkAreaElenco(ind.slug);
-    if (vaElenco) { var tutto = link(vaElenco, "Tutto l’inventario", "inv-btn primario inv-tutto"); tutto.id = "inv-tutto"; c.appendChild(tutto); }
-    var riga = function (k, v) { var r = el("p", "inv-riga"); r.appendChild(el("span", "inv-chiave", k)); r.appendChild(el("span", "inv-valore", v)); return r; };
-    c.appendChild(riga("Assegnato a", m.assegnato_a || "— nessuno —"));
-    if (m.data_consegna) c.appendChild(riga("Consegna", gmA(m.data_consegna)));
-    if (m.data_rientro) c.appendChild(riga("Rientro", gmA(m.data_rientro)));
-    if (m.note) c.appendChild(riga("Note", m.note));
+    if (vaElenco) { var tutto = link(vaElenco, "Tutto l’inventario", "btn pieno grande inv-tutto"); tutto.id = "inv-tutto"; c.appendChild(tutto); }
+    var blocco = el("div", "inv-blocco"), chi = el("div", "inv-chi");
+    /* chi ce l'ha: il nome grande, sotto corso e data, poi note/accessori */
+    var x = m.assegnato_a ? (MOD ? MOD.daAssegnato(m.assegnato_a) : { nome: m.assegnato_a, cognome: "", corso: "" }) : null;
+    if (x) {
+      chi.appendChild(el("p", "inv-chiave", "Ce l’ha"));
+      chi.appendChild(el("p", "inv-nome", [x.nome, x.cognome].filter(Boolean).join(" ")));
+      var det = [x.corso, m.data_consegna ? "dal " + gmA(m.data_consegna) : ""].filter(Boolean).join(" · ");
+      if (det) chi.appendChild(el("p", "inv-dett num", det));
+    } else {
+      chi.appendChild(el("p", "inv-vuoto", m.stato === "in_sede" ? "In sede, non assegnato" : "Non assegnato"));
+      if (m.data_rientro) chi.appendChild(el("p", "inv-dett num", "Rientrato il " + gmA(m.data_rientro)));
+    }
+    if (m.note) chi.appendChild(el("p", "inv-dett", m.note));
+    if (m.stato === "in_riparazione") chi.appendChild(el("p", "inv-nota", "In riparazione: quando è sistemato, rimettilo «In sede» dall'area Inventario di stageplot.it."));
     var esito = el("p", "inv-esito"); esito.setAttribute("role", "status");
     var area = el("div", "inv-azione");
+    var bott = el("div", "inv-azioni");
+    /* il form prende il posto del blocco «chi + azioni» (non si aggiunge sotto) */
+    function formAperto(on) { chi.hidden = on; bott.hidden = on; }
+    function chiudiForm() { while (area.firstChild) area.removeChild(area.firstChild); esito.textContent = ""; formAperto(false); }
     function vai(tipo, aChi, d, nota, btn) {
       btn.disabled = true; esito.textContent = "";
       client.rpc("inv_movimento", { p_slug: ind.slug, p_codice: ind.codice, p_tipo: tipo, p_a_chi: aChi, p_data: d || null, p_nota: nota }).then(function (r) {
@@ -150,19 +182,25 @@
         rigenera();
       }, function () { esito.textContent = "Non riesco a collegarmi: riprova."; btn.disabled = false; });
     }
+    function azioniForm(ok) {
+      var no = el("button", "btn testo", "Annulla"); no.type = "button"; no.addEventListener("click", chiudiForm);
+      var r = el("div", "inv-azioni"); r.appendChild(ok); r.appendChild(no); return r;
+    }
+    function testaForm(testo, codice) { var t = el("div", "inv-form-testa"); t.appendChild(el("b", "", testo)); if (codice) t.appendChild(el("span", "", codice)); return t; }
     function modulo(tipo, titolo, conNome, conferma) {
-      while (area.firstChild) area.removeChild(area.firstChild);
+      while (area.firstChild) area.removeChild(area.firstChild); esito.textContent = ""; formAperto(true);
       var nome = el("input"); nome.type = "text"; nome.maxLength = 120; nome.placeholder = "es. Mario Rossi, 2B pianoforte"; nome.autocomplete = "off";
       var d = el("input"); d.type = "date"; d.value = oggiIso();
       var nota = el("input"); nota.type = "text"; nota.maxLength = 500; nota.placeholder = "facoltativa";
-      var ok = el("button", "inv-btn primario", conferma); ok.type = "button";
-      var no = el("button", "inv-btn", "Annulla"); no.type = "button"; no.addEventListener("click", function () { while (area.firstChild) area.removeChild(area.firstChild); esito.textContent = ""; });
-      area.appendChild(el("p", "inv-azione-titolo", titolo));
-      if (conNome) { area.appendChild(campo("Nome e classe/corso", nome)); area.appendChild(el("p", "inv-nota", "Solo nome e corso/classe: mai indirizzi o telefoni.")); }
-      area.appendChild(campo("Data", d)); area.appendChild(campo("Nota", nota));
-      var r = el("div", "inv-riga-bott"); r.appendChild(ok); r.appendChild(no); area.appendChild(r);
+      var ok = el("button", "btn primario grande pieno", conferma); ok.type = "button";
+      area.appendChild(testaForm(titolo, ind.codice));
+      var g = el("div", "inv-griglia"), wn = null;
+      if (conNome) { wn = campo("Nome e classe/corso", nome, "tutta"); g.appendChild(wn); }
+      g.appendChild(campo("Data", d)); g.appendChild(campo("Nota", nota)); area.appendChild(g);
+      if (conNome) area.appendChild(el("p", "inv-nota", "Solo nome e corso/classe: mai indirizzi o telefoni."));
+      area.appendChild(azioniForm(ok));
       ok.addEventListener("click", function () {
-        if (conNome && !nome.value.trim()) { esito.textContent = "Scrivi a chi lo consegni."; return; }
+        if (conNome && !nome.value.trim()) { segnalaErrore(wn, nome, "Scrivi a chi lo consegni."); nome.focus(); return; }
         vai(tipo, conNome ? nome.value.trim() : "", d.value, nota.value.trim(), ok);
       });
       if (conNome) nome.focus();
@@ -170,9 +208,9 @@
     /* consegna: 6 campi → inv_movimento come prima (assegnato_a = «Nome Cognome, Corso», nota = «Accessori: …») → carta «Modulo di comodato» */
     function apriModulo(form, fineEtichetta) {
       if (!MOD) return rigenera();
-      while (area.firstChild) area.removeChild(area.firstChild); esito.textContent = ""; bott.hidden = true;
+      while (area.firstChild) area.removeChild(area.firstChild); esito.textContent = ""; formAperto(true);
       area.appendChild(MOD.cartaModulo({ scheda: scheda, membro: m, modulo: m.modulo, form: form, fineEtichetta: fineEtichetta === "Chiudi" ? "Chiudi" : "Fine", fine: function () {
-        if (fineEtichetta === "Chiudi") { while (area.firstChild) area.removeChild(area.firstChild); bott.hidden = false; } else rigenera();
+        if (fineEtichetta === "Chiudi") chiudiForm(); else rigenera();
       } }));
       var cm = document.getElementById("inv-modulo"); if (cm && cm.scrollIntoView) cm.scrollIntoView({ block: "start" });
     }
@@ -182,19 +220,23 @@
       return { nome: x.nome, cognome: x.cognome, corso: x.corso, accessori: ult ? MOD.leggiAccessori(ult.nota) : "", data: m.data_consegna || oggiIso() };
     }
     function consegna() {
-      while (area.firstChild) area.removeChild(area.firstChild);
+      while (area.firstChild) area.removeChild(area.firstChild); esito.textContent = ""; formAperto(true);
       var f = { nome: el("input"), cognome: el("input"), corso: el("input"), acc: el("input"), data: el("input"), nota: el("input") };
       [["nome", 60, ""], ["cognome", 60, ""], ["corso", 100, "es. pianoforte, 2B"], ["acc", 200, "alimentatore, custodia, bacchette, cavalletto…"], ["nota", 300, "facoltativa"]].forEach(function (k) { var i = f[k[0]]; i.type = "text"; i.maxLength = k[1]; i.placeholder = k[2]; i.autocomplete = "off"; });
       f.data.type = "date"; f.data.value = oggiIso();
-      var ok = el("button", "inv-btn primario", "Conferma consegna"); ok.type = "button"; ok.id = "inv-conferma";
-      var no = el("button", "inv-btn", "Annulla"); no.type = "button"; no.addEventListener("click", function () { while (area.firstChild) area.removeChild(area.firstChild); esito.textContent = ""; });
-      area.appendChild(el("p", "inv-azione-titolo", "Consegna"));
-      area.appendChild(campo("Nome *", f.nome)); area.appendChild(campo("Cognome *", f.cognome)); area.appendChild(campo("Corso / classe", f.corso));
+      var ok = el("button", "btn primario grande pieno", "Conferma consegna"); ok.type = "button"; ok.id = "inv-conferma";
+      area.appendChild(testaForm("Consegna", ind.codice));
+      var wNome = campo("Nome *", f.nome), wCogn = campo("Cognome *", f.cognome), g = el("div", "inv-griglia");
+      g.appendChild(wNome); g.appendChild(wCogn); g.appendChild(campo("Corso / classe", f.corso)); g.appendChild(campo("Data", f.data)); g.appendChild(campo("Accessori consegnati", f.acc, "tutta"));
+      area.appendChild(g);
+      var det = el("details", "inv-nota-in-piu"); det.appendChild(el("summary", "", "Aggiungi una nota")); det.appendChild(campo("Nota", f.nota)); area.appendChild(det);
       area.appendChild(el("p", "inv-nota", "Solo nome e corso/classe: mai indirizzi o telefoni."));
-      area.appendChild(campo("Accessori consegnati", f.acc)); area.appendChild(campo("Data", f.data)); area.appendChild(campo("Nota", f.nota));
-      var r = el("div", "inv-riga-bott"); r.appendChild(ok); r.appendChild(no); area.appendChild(r);
+      area.appendChild(azioniForm(ok));
       ok.addEventListener("click", function () {
-        if (!f.nome.value.trim() || !f.cognome.value.trim()) { esito.textContent = "Scrivi nome e cognome di chi prende lo strumento."; return; }
+        var manca = null;
+        if (!f.nome.value.trim()) { segnalaErrore(wNome, f.nome, "Scrivi il nome."); manca = manca || f.nome; }
+        if (!f.cognome.value.trim()) { segnalaErrore(wCogn, f.cognome, "Scrivi il cognome."); manca = manca || f.cognome; }
+        if (manca) { manca.focus(); return; }
         var aChi = MOD.componiAssegnato(f.nome.value, f.cognome.value, f.corso.value), nota = MOD.notaConsegna(f.acc.value, f.nota.value);
         ok.disabled = true; esito.textContent = "";
         client.rpc("inv_movimento", { p_slug: ind.slug, p_codice: ind.codice, p_tipo: "consegna", p_a_chi: aChi, p_data: f.data.value || null, p_nota: nota }).then(function (res) {
@@ -205,24 +247,26 @@
       });
       f.nome.focus();
     }
-    var bott = el("div", "inv-riga-bott");
-    function b(txt, f, cls) { var x = el("button", "inv-btn " + (cls || ""), txt); x.type = "button"; x.addEventListener("click", f); bott.appendChild(x); return x; }
+    /* azioni: un primario pieno, poi (se assegnato) il modulo a contorno, poi Rotto | Smarrito affiancati */
+    function b(txt, f, cls, dove) { var y = el("button", "btn " + (cls || ""), txt); y.type = "button"; y.addEventListener("click", f); (dove || bott).appendChild(y); return y; }
+    var coppia = el("div", "coppia");
     if (m.assegnato_a) {
-      b("Rientrato", function () { modulo("rientro", "Rientro di " + m.assegnato_a, false, "Conferma rientro"); }, "primario");
-      if (MOD) b("Modulo di comodato", function () { apriModulo(riStampa(), "Chiudi"); }).id = "inv-btn-modulo";
-    } else if (m.stato !== "dismesso" && m.stato !== "smarrito" && m.stato !== "in_riparazione") b("Consegna a…", function () { consegna(); }, "primario");
-    if (m.stato !== "in_riparazione" && m.stato !== "dismesso" && m.stato !== "smarrito") b("Rotto", function () { modulo("rottura", "Segna come rotto", false, "Conferma"); });
-    if (m.stato !== "smarrito" && m.stato !== "dismesso") b("Smarrito", function () { modulo("smarrimento", "Segna come smarrito", false, "Conferma"); });
-    c.appendChild(bott);
-    if (m.stato === "in_riparazione") c.appendChild(el("p", "inv-nota", "In riparazione: quando è sistemato, rimettilo «In sede» dall'area Inventario di stageplot.it."));
-    c.appendChild(area); c.appendChild(esito);
+      b("Rientrato", function () { modulo("rientro", "Rientro di " + m.assegnato_a, false, "Conferma rientro"); }, "primario grande pieno");
+      if (MOD) b("Modulo di comodato", function () { apriModulo(riStampa(), "Chiudi"); }, "pieno").id = "inv-btn-modulo";
+    } else if (m.stato !== "dismesso" && m.stato !== "smarrito" && m.stato !== "in_riparazione") b("Consegna a…", function () { consegna(); }, "primario grande pieno");
+    if (m.stato !== "in_riparazione" && m.stato !== "dismesso" && m.stato !== "smarrito") b("Rotto", function () { modulo("rottura", "Segna come rotto", false, "Conferma"); }, "", coppia);
+    if (m.stato !== "smarrito" && m.stato !== "dismesso") b("Smarrito", function () { modulo("smarrimento", "Segna come smarrito", false, "Conferma"); }, "", coppia);
+    if (coppia.childNodes.length === 1) coppia.firstChild.classList.add("pieno");
+    if (coppia.childNodes.length) { if (coppia.childNodes.length === 1) bott.appendChild(coppia.firstChild); else bott.appendChild(coppia); }
+    blocco.appendChild(chi); blocco.appendChild(bott); blocco.appendChild(area); blocco.appendChild(esito); c.appendChild(blocco);
     if (m.movimenti.length) {
-      c.appendChild(el("p", "inv-sopra inv-storico-t", "Storico"));
-      var ul = el("ul", "inv-storico");
-      m.movimenti.forEach(function (x) {
-        var li = el("li", "inv-mov"); li.appendChild(el("b", "", MOV[x.tipo] + (x.data ? " · " + gmA(x.data) : "")));
-        var parti = [x.a_chi, x.nota].filter(Boolean).join(" — "); if (parti) li.appendChild(el("span", "", parti));
-        ul.appendChild(li);
+      c.appendChild(el("h2", "inv-sez inv-storico-t", "Storico"));
+      var ul = el("ol", "inv-storico");
+      m.movimenti.forEach(function (v) {
+        var li = el("li", "inv-mov"); li.appendChild(el("span", "inv-mov-quando", v.data ? gmA(v.data) : ""));
+        li.appendChild(el("span", "inv-mov-punto" + (v.tipo === "consegna" ? " pieno" : "")));
+        var cosa = el("p", "inv-mov-cosa", MOV[v.tipo]), parti = [v.a_chi, v.nota].filter(Boolean).join(" · "); if (parti) cosa.appendChild(el("span", "", parti));
+        li.appendChild(cosa); ul.appendChild(li);
       });
       c.appendChild(ul);
     }
@@ -234,7 +278,7 @@
     if (!ACC) return;
     var salvata = false; try { salvata = ACC.sessioneSalvata(root.localStorage, cfg.api); } catch (e) {}
     if (!salvata) {
-      var b = el("button", "inv-btn piccolo", "Accesso segreteria"); b.type = "button";
+      var b = el("button", "inv-accesso", "Accesso segreteria"); b.type = "button";
       b.addEventListener("click", function () { ACC.accedi(cfg, location.pathname + location.search).catch(function () { b.textContent = "Accesso non riuscito: riprova"; }); });
       inserisci(b); return;
     }
@@ -266,15 +310,14 @@
       }
       return rpcPubblica(cfg, "inv_articolo_pubblico", { p_slug: ind.slug, p_codice: ind.codice }).then(function (r) {
         var d = pulisci(r); if (!d) return messaggio(app, "Non lo trovo", "Questo codice non risulta in inventario, oppure l’inventario non è consultabile.");
-        var seg = el("div", "inv-segreteria"), nodi = [scheda(d, ind)];
-        var altro = el("p", "inv-piede"); altro.appendChild(link("/i/" + encodeURIComponent(ind.slug), "Tutto l’elenco")); nodi.push(altro);
+        var seg = el("div", "inv-segreteria"), nodi = scheda(d, ind);
         nodi.push(seg); nodi.push(piede()); mostra(app, nodi);
         areaSegreteria(cfg, { slug: ind.slug, codice: ind.codice, scheda: d }, seg, riprova);
       }, function () { messaggio(app, "Non riesco a collegarmi", "Controlla la connessione e riprova.", riprova); });
     }
     giro();
   }
-  function piede() { return el("p", "inv-piede", "Inventario su stageplot.it"); }
+  function piede() { var p = el("p", "inv-piede", "Inventario gestito con "); p.appendChild(link("/", "stageplot.it")); return p; }
   var P = { configura: configura, pulisci: pulisci, pulisciElenco: pulisciElenco, pulisciMembro: pulisciMembro, frase: frase, erroreMov: erroreMov, linkAreaElenco: linkAreaElenco, oggiIso: oggiIso, gmA: gmA, STATI: STATI, MOV: MOV };
   root.INVPubblica = P;
   if (typeof module === "object" && module && module.exports) module.exports = P;

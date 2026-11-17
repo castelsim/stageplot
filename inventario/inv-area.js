@@ -336,7 +336,7 @@
       box.style.width = w + "px"; box.style.height = (1122.52 * sc) + "px"; fo.style.transform = "scale(" + sc + ")";
     });
   }
-  window.addEventListener("resize", function () { if (S.vista === "stampa-elenco") adattaFogli(); });
+  window.addEventListener("resize", function () { if (S.vista === "stampa-elenco" || S.vista === "etichette") adattaFogli(); });
 
   /* ---------------------------------------------------------------- QR e foglio di etichette */
   var NS = "http://www.w3.org/2000/svg";
@@ -375,9 +375,8 @@
         h("div", { class: "riga" }, [h("label", { for: "versione", text: "Versione", style: "margin:0" }), verIn, h("button", { class: "btn primario", type: "button", id: "bStampa", text: "Stampa (" + elenco.length + " etichette, " + N + (N === 1 ? " foglio" : " fogli") + ")", onclick: function () { window.print(); } })])]),
       h("p", { class: "nota", text: "Stampa in A4 al 100% (non «adatta alla pagina»), poi ritaglia lungo le linee tratteggiate e plastifica. Il QR porta a un indirizzo fisso: se ristampi, le vecchie etichette restano valide. Il numero di versione sta nel piè del foglio: aumentalo se ristampi con modifiche." }),
       h("div", { class: "fogli" }, fogli)]);
-    // sullo schermo stretto il foglio da 210 mm si rimpicciolisce per stare nella pagina; in stampa torna al 100%
-    var w = Math.min(window.innerWidth - 32, 794), sc = w / 794;
-    if (sc < 1) Array.prototype.forEach.call(document.querySelectorAll(".foglio"), function (f) { f.style.transform = "scale(" + sc + ")"; f.style.marginBottom = (-(297 * 3.7795) * (1 - sc)) + "px"; f.style.marginLeft = ((w - 794) / 2) + "px"; });
+    // sullo schermo stretto il foglio da 210 mm si rimpicciolisce dentro un contenitore grande quanto lui (come l'elenco); in stampa torna al 100%
+    adattaFogli();
   }
 
   /* ---------------------------------------------------------------- avvio */

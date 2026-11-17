@@ -269,7 +269,7 @@
        opz: { scheda, membro, modulo, form:{nome,cognome,corso,accessori,data,luogo}, fine: function, fineEtichetta } */
     P.cartaModulo = function (opz) {
       var c = el("section", "inv-carta inv-modulo-carta"); c.id = "inv-modulo";
-      c.appendChild(el("p", "inv-sopra", "Modulo di comodato"));
+      var testa = el("div", "inv-form-testa"); testa.appendChild(el("b", "", "Modulo di comodato")); c.appendChild(testa);
       c.appendChild(el("p", "inv-nota inv-modulo-nota", "Controlla i dati e fai firmare il foglio a chi prende lo strumento. Le modifiche valgono solo per il foglio: non cambiano l'inventario."));
       var form = {}, vals = {}, campi = [["nome", "Nome", 60], ["cognome", "Cognome", 60], ["corso", "Corso / classe", 120], ["strumento", "Strumento e modello", 160], ["accessori", "Accessori consegnati", 240], ["luogo", "Luogo", 60]];
       var base = datiModulo(opz.scheda, opz.membro, opz.modulo, opz.form || {});
@@ -277,17 +277,18 @@
       var libro = null, pronto = null, ultimo = null, timer = null, stato = el("p", "inv-esito inv-modulo-stato"); stato.setAttribute("role", "status");
       function dati() { return datiModulo(opz.scheda, opz.membro, opz.modulo, vals); }
       function fogli() { P.foglioStampa(dati()); }
+      var griglia = el("div", "inv-griglia"), ws = {}; c.appendChild(griglia);
       campi.forEach(function (k) {
-        var w = el("div", "inv-campo"), l = el("label", "", k[1]), i = el("input"); i.type = "text"; i.maxLength = k[2]; i.value = vals[k[0]]; i.autocomplete = "off"; i.id = "inv-mod-" + k[0]; l.setAttribute("for", i.id);
-        i.addEventListener("input", function () { vals[k[0]] = i.value; fogli(); sporco(); }); w.appendChild(l); w.appendChild(i); c.appendChild(w);
+        var w = el("div", "inv-campo" + (k[0] === "strumento" || k[0] === "accessori" || k[0] === "luogo" ? " tutta" : "")), l = el("label", "", k[1]), i = el("input"); i.type = "text"; i.maxLength = k[2]; i.value = vals[k[0]]; i.autocomplete = "off"; i.id = "inv-mod-" + k[0]; l.setAttribute("for", i.id);
+        i.addEventListener("input", function () { vals[k[0]] = i.value; fogli(); sporco(); }); w.appendChild(l); w.appendChild(i); griglia.appendChild(w); ws[k[0]] = w;
       });
       var wd = el("div", "inv-campo"), ld = el("label", "", "Data"), idt = el("input"); idt.type = "date"; idt.id = "inv-mod-data"; idt.value = vals.data; ld.setAttribute("for", idt.id);
-      idt.addEventListener("input", function () { vals.data = idt.value; fogli(); sporco(); }); wd.appendChild(ld); wd.appendChild(idt); c.appendChild(wd);
-      c.appendChild(el("p", "inv-modulo-codice", "Codice sull'etichetta: " + (base.codice || "—")));
-      var bott = el("div", "inv-riga-bott inv-modulo-bott");
-      var bStampa = el("button", "inv-btn primario", "Stampa"); bStampa.type = "button"; bStampa.id = "inv-mod-stampa";
-      var bCond = el("button", "inv-btn", "Condividi"); bCond.type = "button"; bCond.id = "inv-mod-condividi"; bCond.disabled = true;
-      var bFine = el("button", "inv-btn", opz.fineEtichetta || "Fine"); bFine.type = "button"; bFine.id = "inv-mod-fine";
+      idt.addEventListener("input", function () { vals.data = idt.value; fogli(); sporco(); }); wd.appendChild(ld); wd.appendChild(idt); griglia.insertBefore(wd, ws.strumento);
+      testa.appendChild(el("span", "", base.codice || "—"));
+      var bott = el("div", "inv-modulo-bott");
+      var bStampa = el("button", "btn primario grande", "Stampa"); bStampa.type = "button"; bStampa.id = "inv-mod-stampa";
+      var bCond = el("button", "btn grande", "Condividi"); bCond.type = "button"; bCond.id = "inv-mod-condividi"; bCond.disabled = true;
+      var bFine = el("button", "btn testo", opz.fineEtichetta || "Fine"); bFine.type = "button"; bFine.id = "inv-mod-fine";
       bott.appendChild(bStampa); bott.appendChild(bCond); bott.appendChild(bFine); c.appendChild(bott); c.appendChild(stato);
       c.appendChild(el("p", "inv-nota", "Nome del genitore e firme vanno a penna. Dopo la stampa cancella il PDF dal telefono: l'originale è il foglio firmato."));
 
