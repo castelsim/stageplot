@@ -13394,8 +13394,9 @@ function itemMarkup(it){
   _lucettaOn = (it.lucetta===true);   /* lucetta leggio: valida per tutti i leggioGlyph disegnati da questo elemento (draw + accessori) */
   _leggioDistOn = leggioDistSupported(it) ? leggioDist(it) : 0;   /* distanza del leggio regolata (05/11/2026): torna a 0 dopo gli accessori */
   var _cs = it.type==="custshape";   /* forme dell'editor: margini in PIXEL — su una superficie di 20 cm, 8 cm d'aria coprivano le forme vicine */
-  var hw = _cs ? it.w/2 + hSize(6) : Math.max(it.w,70)/2 + 8, hd = _cs ? it.d/2 + hSize(6) : Math.max(it.d,30)/2 + 8;   /* area di click generosa */
-  var bw = it.w/2 + selMargine(it), bh = it.d/2 + selMargine(it);   /* riquadro selezione aderente all'ingombro reale */
+  var _pv = (!_cs && typeof proVista==="function") ? proVista(it) : it;   /* 18/11: modello certo con misura di scheda → area di clic e riquadro sulla misura DISEGNATA */
+  var hw = _cs ? it.w/2 + hSize(6) : Math.max(_pv.w,70)/2 + 8, hd = _cs ? it.d/2 + hSize(6) : Math.max(_pv.d,30)/2 + 8;   /* area di click generosa */
+  var bw = _pv.w/2 + selMargine(it), bh = _pv.d/2 + selMargine(it);   /* riquadro selezione aderente all'ingombro reale */
   var isOut = isOutsideStage(it);
   var attrId=esc(it.id);
   var s = '<g class="item'+(isOut?' nofloor':'')+(selSet[it.id]?' selected':'')+'" data-id="'+attrId+'" transform="translate('+it.x+' '+it.y+')">';
@@ -13596,7 +13597,7 @@ function selCimaManiglie(it, t, topY, bh){
 }
 /* c'è la maniglia di ridimensionamento in alto al centro? (stessa condizione del disegno delle maniglie qui sotto) */
 function selManigliaAlta(it, t){
-  return (stageEdit ? isRiser(it) : true) && itemEditable(it) && !!(t && t.resizable) && it.type!=="miczone" && it.type!=="metro" && it.type!=="parapetto";
+  return (stageEdit ? isRiser(it) : true) && itemEditable(it) && !!(t && t.resizable) && it.type!=="miczone" && it.type!=="metro" && it.type!=="parapetto" && !(typeof proMisuraFissa==="function" && proMisuraFissa(it));
 }
 /* ============ MANIGLIE DELL'ELEMENTO SELEZIONATO ============
    Rotazione, lucchetto, ridimensionamento e maniglie della zona microfono: tutte disegnate in un
@@ -13620,7 +13621,8 @@ function selHandlesMarkup(){
   if(!itemLiveOnStage(it)) return '';                     /* elemento non disegnato o non manovrabile: niente maniglie sospese nel vuoto */
   if(window.__custContorno && window.__custContorno.id===it.id) return custContornoMarkup(it);   /* Contorni: punti, tondi e lati al posto delle maniglie */
   var attrId=esc(it.id);
-  var bw = it.w/2 + selMargine(it), bh = it.d/2 + selMargine(it);   /* stesso riquadro aderente del selbox: le maniglie ci stanno sopra */
+  var _pv = (typeof proVista==="function") ? proVista(it) : it;   /* 18/11: misura disegnata (modello certo con misura di scheda) */
+  var bw = _pv.w/2 + selMargine(it), bh = _pv.d/2 + selMargine(it);   /* stesso riquadro aderente del selbox: le maniglie ci stanno sopra */
   var _fit=_selFit[it.id], topY=_fit ? _fit.y1 : -bh;     /* bordo alto del riquadro misurato sul disegno (26/09) */
   topY=selCimaManiglie(it, t, topY, bh);
   var s='';
@@ -13670,7 +13672,7 @@ function selHandlesMarkup(){
     }
   }
   /* maniglie di ridimensionamento (lati + angoli) per gli elementi resizable, selezionati singolarmente */
-  if((stageEdit ? isRiser(it) : true) && itemEditable(it) && t.resizable && it.type!=="miczone"){
+  if((stageEdit ? isRiser(it) : true) && itemEditable(it) && t.resizable && it.type!=="miczone" && !(typeof proMisuraFissa==="function" && proMisuraFissa(it))){   /* 18/11: misura fissata dalla scheda → niente maniglie che non cambierebbero il disegno */
     var hpts;
     if(it.type==="metro"){
       /* metro = linea di misura: solo 2 maniglie di lunghezza, agli estremi ESATTI della linea */
@@ -14782,6 +14784,14 @@ function proVista(it){
   var m=it.pro ? proModelOf(it) : (proModelloCerto(it)||{}).m, dm=proDimsCm(m); if(!dm) return it;
   if(it.w===dm.w && it.d===dm.d) return it;
   var e=Object.assign({}, it); e.w=dm.w; e.d=dm.d; return e;
+}
+/* la misura dell'elemento la decide la scheda (PRO_MISURE_DI_SCHEDA e modello certo): maniglie di ridimensionamento e campi L/P
+   non cambierebbero il disegno, quindi non si mostrano; area di clic e riquadro seguono la misura disegnata (proVista).
+   Rilettura 18/11: una CQ-18T salvata 125×150 aveva maniglie a 62 cm dall'icona da 34,6×24,2, e trascinarle non faceva niente. */
+function proMisuraFissa(it){
+  if(!PRO_MISURE_DI_SCHEDA || !it || !proIconaChiave(it)) return false;
+  var m=it.pro ? proModelOf(it) : (proModelloCerto(it)||{}).m;
+  return !!proDimsCm(m);
 }
 /* prese patchate sopra l'icona della stage box (come sbDraw): anello teal sugli ingressi usati, ciano sulle
    uscite, nella posizione misurata della presa (mappa "porte" dell'icona, in cm dall'angolo in alto a sinistra) */
@@ -20924,7 +20934,7 @@ function renderProps(){
   document.getElementById("pRot").value = rNorm;
   var _rv=document.getElementById("pRotVal"); if(_rv) _rv.textContent=Math.round(rNorm)+"\u00b0";
   var _mzPoly = it.type==="miczone" && it.pts && it.pts.length>=3;   /* zona poligonale: w/d è il bbox derivato → niente campi L/P (si modella coi vertici) */
-  document.getElementById("pDims").style.display = (t.resizable && !_mzPoly) ? "flex" : "none";
+  document.getElementById("pDims").style.display = (t.resizable && !_mzPoly && !(typeof proMisuraFissa==="function" && proMisuraFissa(it))) ? "flex" : "none";   /* 18/11: misura fissata dalla scheda → niente L/P (la scheda in una riga la dice) */
   document.getElementById("pHwrap").style.display = (t.riser || isCover(it) || it.type==="ostacolo") ? "" : "none";
   (function(){ var pw=document.getElementById("pPtWrap"); if(!pw) return; var on=it.type==="puntoapp"; pw.style.display=on ? "" : "none";
     if(on){ document.getElementById("pPtCarico").value=ptAppCarico(it)||""; document.getElementById("pPtPortata").value=ptAppPortata(it)||""; } })();   /* coperture: h = luce libera sotto la struttura */

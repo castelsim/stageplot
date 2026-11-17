@@ -548,6 +548,14 @@ function proVista(it){
   if(it.w===dm.w && it.d===dm.d) return it;
   var e=Object.assign({}, it); e.w=dm.w; e.d=dm.d; return e;
 }
+/* la misura dell'elemento la decide la scheda (PRO_MISURE_DI_SCHEDA e modello certo): maniglie di ridimensionamento e campi L/P
+   non cambierebbero il disegno, quindi non si mostrano; area di clic e riquadro seguono la misura disegnata (proVista).
+   Rilettura 18/11: una CQ-18T salvata 125×150 aveva maniglie a 62 cm dall'icona da 34,6×24,2, e trascinarle non faceva niente. */
+function proMisuraFissa(it){
+  if(!PRO_MISURE_DI_SCHEDA || !it || !proIconaChiave(it)) return false;
+  var m=it.pro ? proModelOf(it) : (proModelloCerto(it)||{}).m;
+  return !!proDimsCm(m);
+}
 /* prese patchate sopra l'icona della stage box (come sbDraw): anello teal sugli ingressi usati, ciano sulle
    uscite, nella posizione misurata della presa (mappa "porte" dell'icona, in cm dall'angolo in alto a sinistra) */
 function proPorteDraw(it, L, use){

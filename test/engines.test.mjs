@@ -36222,6 +36222,42 @@ t("Icone esistenti 11: il suggerimento sta dietro «Opzioni complete» per le st
   ok(!/\.textContent\s*=\s*"Misura e dati/.test(appjs), "nessun testo fisso fuori dal suggerimento");
 });
 
+t("Icone esistenti 12: misura fissata dalla scheda → area di clic e riquadro sulla misura disegnata, niente maniglie né L/P; interruttore spento = come prima", () => {
+  const S = { items: A.state.items, sel: A.sel, selSet: A.selSet };
+  const hit = (m) => { const r = /class="hit" x="([^"]+)" y="([^"]+)" width="([^"]+)" height="([^"]+)"/.exec(m); return r ? [+r[3], +r[4]] : null; };
+  const maniglie = () => (A.selHandlesMarkup().match(/class="rs-handle/g) || []).length;
+  const cq = { id: "t12a", type: "mixer", hw: "cq18t", pro: 1, w: 125, d: 150, x: 500, y: 300, rot: 0 };
+  const gen = { id: "t12b", type: "mixer", w: 120, d: 70, x: 200, y: 300, rot: 0 };
+  try {
+    A.state.items = [cq, gen];
+    eq(A.proMisuraFissa(cq), true, "CQ-18T pro:1 125×150: misura fissata dalla scheda");
+    eq(A.proMisuraFissa(gen), false, "mixer generico senza modello: misura libera");
+    eq(JSON.stringify(hit(A.itemMarkup(cq))), JSON.stringify([86, 46]), "area di clic sulla misura disegnata 34,6×24,2 (minimi 70×30 + 8), non 141×166");
+    eq(JSON.stringify(hit(A.itemMarkup(gen))), JSON.stringify([136, 86]), "generico: area di clic di sempre");
+    A.sel = "t12a"; A.selSet = { t12a: true };
+    const hs = A.selHandlesMarkup();
+    eq(maniglie(), 0, "CQ-18T: nessuna maniglia di ridimensionamento (non cambierebbe il disegno)");
+    ok(/rot-handle/.test(hs), "la rotazione resta");
+    eq(A.selManigliaAlta(cq, A.TYPES.mixer), false, "niente maniglia alta: la rotazione sta sul riquadro del disegno");
+    A.sel = "t12b"; A.selSet = { t12b: true };
+    eq(maniglie(), 8, "generico: 8 maniglie come sempre");
+    ok(/pDims"\)\.style\.display = \(t\.resizable && !_mzPoly && !\(typeof proMisuraFissa==="function" && proMisuraFissa\(it\)\)\)/.test(appjs), "pannello: L/P nascosti quando la misura è della scheda");
+    eq(JSON.stringify(cq), JSON.stringify({ id: "t12a", type: "mixer", hw: "cq18t", pro: 1, w: 125, d: 150, x: 500, y: 300, rot: 0 }), "il documento non cambia");
+    A.PRO_MISURE_DI_SCHEDA = false;
+    try {
+      eq(A.proMisuraFissa(cq), false, "interruttore spento: misura libera");
+      eq(JSON.stringify(hit(A.itemMarkup(cq))), JSON.stringify([141, 166]), "interruttore spento: area di clic della misura salvata");
+      A.sel = "t12a"; A.selSet = { t12a: true };
+      eq(maniglie(), 8, "interruttore spento: tornano le 8 maniglie");
+      const giusto = { id: "t12c", type: "mixer", hw: "cq18t", pro: 1, w: 34.6, d: 24.2, x: 800, y: 300, rot: 0 };
+      A.state.items = [cq, gen, giusto];
+      ok(!!A.proIconaChiave(giusto), "spento e a misura di scheda: l'icona c'è");
+      eq(A.proMisuraFissa(giusto), false, "spento: la misura resta libera anche con l'icona (a tolleranza l'icona segue la misura)");
+      A.sel = "t12c"; A.selSet = { t12c: true };
+      eq(maniglie(), 8, "spento: 8 maniglie anche sull'elemento a misura di scheda");
+    } finally { A.PRO_MISURE_DI_SCHEDA = true; }
+  } finally { A.state.items = S.items; A.sel = S.sel; A.selSet = S.selSet; }
+});
 t("Barra compatta «B solo quando il titolo è lungo» (18/11)", () => {
   const f = (n) => (x) => x.length <= n;   /* larghezza finta: n caratteri */
   const T30 = "Valdagno Teatro Super 22.12.26", T60 = "Omaggio a Ennio Morricone con orchestra, coro e solisti Teatro Verdi 01.12.26 · v12";
