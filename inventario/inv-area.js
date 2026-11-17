@@ -252,9 +252,20 @@
         h("div", { class: "riga" }, [h("label", { for: "versione", text: "Versione", style: "margin:0" }), verIn, h("button", { class: "btn primario", type: "button", id: "bStampa", text: "Stampa (" + elenco.length + " oggetti, " + N + (N === 1 ? " foglio" : " fogli") + ")", onclick: function () { window.print(); } })])]),
       h("label", { class: "spunta" }, [nomi, h("span", { text: "Scrivi sul foglio anche i nomi di chi ha lo strumento e le note riservate (i fogli stampati restano in giro: di serie no)." })]),
       h("div", { class: "fogli" }, fogli)]);
-    var w = Math.min(window.innerWidth - 32, 794), sc = w / 794;
-    if (sc < 1) Array.prototype.forEach.call(document.querySelectorAll(".foglio"), function (fo) { fo.style.transform = "scale(" + sc + ")"; fo.style.marginBottom = (-(297 * 3.7795) * (1 - sc)) + "px"; fo.style.marginLeft = ((w - 794) / 2) + "px"; });
+    adattaFogli();
   }
+  /* Telefono: ogni foglio sta in un contenitore grande quanto il foglio già scalato (origine in alto a sinistra), così non esce dallo schermo né allarga la pagina; in stampa il CSS annulla scala e contenitore. */
+  function adattaFogli() {
+    var fogli = document.querySelectorAll(".fogli .foglio"); if (!fogli.length) return;
+    var w = Math.min(document.documentElement.clientWidth - 32, 794), sc = w / 794;
+    Array.prototype.forEach.call(fogli, function (fo) {
+      var box = fo.parentNode.classList.contains("fo-box") ? fo.parentNode : null;
+      if (sc >= 1) { if (box) { box.parentNode.insertBefore(fo, box); box.parentNode.removeChild(box); } fo.style.transform = ""; return; }
+      if (!box) { box = h("div", { class: "fo-box" }); fo.parentNode.insertBefore(box, fo); box.appendChild(fo); }
+      box.style.width = w + "px"; box.style.height = (1122.52 * sc) + "px"; fo.style.transform = "scale(" + sc + ")";
+    });
+  }
+  window.addEventListener("resize", function () { if (S.vista === "stampa-elenco") adattaFogli(); });
 
   /* ---------------------------------------------------------------- QR e foglio di etichette */
   var NS = "http://www.w3.org/2000/svg";
