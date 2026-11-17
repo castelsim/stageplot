@@ -234,6 +234,15 @@
   /* «Esporta» tiene la sua parola a ogni larghezza: il difetto era proprio che nessun comando visibile
      dicesse dove si esporta, e un'icona sola lo ripristinerebbe a metà. L'header può scorrere di
      qualche pixel nei casi estremi — il gruppo azioni è sticky, quindi resta comunque raggiungibile. */
+  /* titolo lungo (17/11): sopra il campo fermo si mostra «inizio … coda», con la versione sempre in vista */
+  .tl-vis{position:absolute;z-index:2;margin:0;padding:6px 9px;border:1px solid transparent;border-radius:8px;background:transparent;
+    font:inherit;font-size:14px;font-weight:600;color:var(--text);text-align:left;white-space:nowrap;overflow:hidden;cursor:pointer;box-sizing:border-box}
+  .tl-vis:hover{border-color:var(--border)}
+  .tl-vis[hidden]{display:none}
+  input.tl-nascosto{color:transparent !important}
+  .tl-pop{padding:10px 12px;min-width:0;max-width:calc(100vw - 16px);z-index:80}
+  .tl-pop textarea{width:100%;box-sizing:border-box;font:600 14px/1.4 var(--font-ui);padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);resize:vertical}
+  .tl-pop-nota{font-size:11px;color:var(--text-3);margin-top:6px}
   header input.hdr-name:hover{border-color:var(--border)}
   header input.hdr-name:focus{outline:none;border-color:var(--accent);box-shadow:none}
   header input.hdr-name::placeholder{color:var(--text-3);font-weight:400}

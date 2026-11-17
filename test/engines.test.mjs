@@ -35800,5 +35800,29 @@ t("Estero: Esporta (menu Lingua del documento e Unità), PDF e anteprima collega
   ok(!/state\.docUnits\s*=\s*"ft"/.test(src.replace(/state\.docUnits=v;|docUnitaImposta\("ft"\)/g, "")), "English propone i piedi, non li impone (nessuna assegnazione automatica)");
 });
 
+t("Titolo lungo: troncamento al CENTRO, la versione resta visibile (17/11)", () => {
+  const f = (n) => (x) => x.length <= n;   /* larghezza finta: n caratteri */
+  const T = "Omaggio a Ennio Morricone · Teatro Verdi Padova 01.12.26 · v2 del 17/11/2026";
+  eq(A.titoloTroncaCentro("Concerto in villa", f(30)), "Concerto in villa", "titolo corto: intatto");
+  eq(A.titoloTroncaCentro("", f(5)), "", "vuoto resta vuoto");
+  for (const n of [24, 30, 36, 50]) {
+    const r = A.titoloTroncaCentro(T, f(n));
+    ok(r.length <= n, "entra nello spazio (" + n + "): «" + r + "»");
+    ok(r.endsWith("v2 del 17/11/2026"), "la versione è visibile (" + n + "): «" + r + "»");
+    ok(r.startsWith(n >= 30 ? "Omaggio" : "Om"), "e l'inizio pure: «" + r + "»");
+    ok(r.includes("…"), "c'è il segno del taglio");
+  }
+  const lungo = A.titoloTroncaCentro(T, f(50));
+  ok(lungo.length >= 40, "usa lo spazio disponibile, non taglia più del necessario: «" + lungo + "»");
+  const S = "Concerto di fine anno del coro polifonico città di Cassola v3";
+  const r2 = A.titoloTroncaCentro(S, f(30));
+  ok(r2.length <= 30 && r2.endsWith(S.slice(-18)) && r2.startsWith("Concerto"), "senza « · »: inizio + … + ultimi 18 caratteri: «" + r2 + "»");
+  const r3 = A.titoloTroncaCentro(T, f(14));
+  ok(r3.length <= 14 && r3.endsWith("· v2") && r3.startsWith("O"), "coda intera impossibile: resta almeno «v2»: «" + r3 + "»");
+  const r4 = A.titoloTroncaCentro(T, f(6));
+  ok(r4.startsWith("…") && r4.length <= 6 && T.endsWith(r4.slice(1)), "spazio minuscolo: resta la fine del titolo: «" + r4 + "»");
+  eq(A.titoloTroncaCentro("abc def", f(3)), "abc def", "titolo cortissimo: non si tocca");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
