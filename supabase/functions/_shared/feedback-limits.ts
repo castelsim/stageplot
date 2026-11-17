@@ -84,3 +84,11 @@ export function limiteInvio(userId: string | null | undefined, ip: string): Limi
 export function oltreLimite(count: unknown, max: number): boolean {
   return typeof count === "number" && count > max;
 }
+
+/** L'amministratore non è soggetto al tetto globale, e le sue righe non lo fanno salire per gli altri. */
+export function soggettoAlTettoGlobale(userId: string | null | undefined): boolean {
+  return userId !== ADMIN_USER_ID;
+}
+
+/** Filtro PostgREST: tutte le righe tranne quelle dell'amministratore (le righe senza utente restano). */
+export const FILTRO_SENZA_ADMIN = `user_id.is.null,user_id.neq.${ADMIN_USER_ID}`;

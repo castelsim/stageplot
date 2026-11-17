@@ -7,7 +7,7 @@ import { sendEmail } from "../_shared/email.ts";
 import { redactSnapshotForFeedback } from "../_shared/project-sharing.ts";
 import { serviceRoleKey } from "../_shared/service-role-key.ts";
 import { insertFeedbackRow } from "../_shared/feedback-insert.ts";
-import { clientIp, corpoTroppoGrande, limiteInvio, oltreLimite, oraPiena } from "../_shared/feedback-limits.ts";
+import { clientIp, corpoTroppoGrande, FILTRO_SENZA_ADMIN, limiteInvio, oltreLimite, oraPiena, soggettoAlTettoGlobale } from "../_shared/feedback-limits.ts";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -57,11 +57,15 @@ Deno.serve(async (req) => {
   if (elementoRichiedeUtente(f.hint, f.user_id)) return json({ error: "login_richiesto" }, 401);
 
   // Tetto GLOBALE (16/09): regge anche se l'IP è falsificato. Pochi invii al giorno sono la norma.
-  const { count: nellOra, error: cntErr } = await supabase.from("feedback")
-    .select("id", { count: "exact", head: true })
-    .gte("created_at", new Date(Date.now() - 3_600_000).toISOString());
-  if (cntErr) console.error("conteggio orario fallito:", cntErr.message);
-  else if (oraPiena(nellOra)) return json({ error: "troppi invii, riprova più tardi" }, 429);
+  // L'amministratore è esente (17/11, decisione di Simone) e le sue righe non contano nel tetto degli altri.
+  if (soggettoAlTettoGlobale(f.user_id)) {
+    const { count: nellOra, error: cntErr } = await supabase.from("feedback")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", new Date(Date.now() - 3_600_000).toISOString())
+      .or(FILTRO_SENZA_ADMIN);
+    if (cntErr) console.error("conteggio orario fallito:", cntErr.message);
+    else if (oraPiena(nellOra)) return json({ error: "troppi invii, riprova più tardi" }, 429);
+  }
 
   // Rate-limit per chi invia (17/11): anonimo 5/ora per IP hashato; utente con accesso 30/ora per id utente
   // hashato (prefisso "u:"); amministratore nessun limite. L'id viene dal JWT verificato (f.user_id sopra).

@@ -51,3 +51,12 @@ Deno.test("oltre il limite: la 6ª anonima e la 31ª utente", () => {
   assertEquals(oltreLimite(31, USER_MAX_PER_HOUR), true);
   assertEquals(oltreLimite(null, 5), false);
 });
+
+import { ADMIN_USER_ID as ADM, FILTRO_SENZA_ADMIN, soggettoAlTettoGlobale } from "./feedback-limits.ts";
+
+Deno.test("admin: oltre il tetto globale passa; gli altri no", () => {
+  assertEquals(oraPiena(GLOBAL_MAX_PER_HOUR + 10) && soggettoAlTettoGlobale(ADM), false); // admin passa
+  assertEquals(soggettoAlTettoGlobale("abc"), true);
+  assertEquals(soggettoAlTettoGlobale(null), true);
+  assertEquals(FILTRO_SENZA_ADMIN, `user_id.is.null,user_id.neq.${ADM}`);
+});
