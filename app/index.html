@@ -4916,6 +4916,13 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
     </div>
     <!-- USCITA: microfonazione, da quale anello esce il segnale e com'è l'uscita. I tre si parlano:
          l'esito (DI oppure cavo diretto) è scritto sotto, così non resta implicito. -->
+    <!-- «Nessun microfono» scritto nel file su un tipo che non ha la tendina (tastiere, percussioni, pedaliere…): senza questo avviso
+         i suoi canali sparivano dall'Input list senza che il pannello lo dicesse né permettesse di toglierlo (P1 Il Volo, 17/11/2026). -->
+    <div id="pNoMicWrap" style="display:none">
+      <label>Microfono</label>
+      <div class="hint" id="pNoMicHint" style="font-size:12px;color:var(--text-2);margin:2px 0 8px">«Nessun microfono»: questo elemento non produce canali.</div>
+      <button type="button" class="btn" id="pNoMicTogli">Togli «Nessun microfono»</button>
+    </div>
     <div id="pOutCard" class="prop-flat" style="display:none">
       <div class="prop-card__head" id="pOutHead" hidden>Uscita</div>
       <div id="pMikeWrap" style="display:none">

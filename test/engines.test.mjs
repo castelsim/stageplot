@@ -35246,5 +35246,35 @@ t("P1 margini: l'anteprima scrive il formato alla stessa quota del PDF (y+15)", 
   ok(pdf > 0 && anteprima === pdf, "formato: PDF y+" + pdf + ", anteprima cy+" + anteprima);
 });
 
+/* P1 VOLO — UI: «Nessun microfono» visibile e rimovibile sui tipi senza tendina (17/11/2026) */
+t("P1 nomic UI: sui tipi senza MIKING lo stato «Nessun microfono» è visibile (pNoMicWrap), coerente con cabItemInputs e isAudioSource", () => {
+  reset();
+  const senza = ["stagepiano", "tastiera"].filter((tp) => A.TYPES[tp] && !A.MIKING[tp]);
+  ok(senza.length >= 1, "ci sono tipi senza MIKING da provare: " + senza.join(","));
+  senza.forEach((tp) => {
+    const it = add(tp, 300, 300); const con = chans(it).length;
+    ok(!A.noMicSenzaTendina(it), tp + ": di serie niente avviso");
+    it.miking = "__nomic__";
+    ok(A.noMicSenzaTendina(it) === true, tp + ": con __nomic__ da file l'avviso c'è");
+    eq(chans(it).length, 0, tp + ": 0 canali");
+    ok(!A.isAudioSource(it), tp + ": non è una sorgente — lo stato dell'avviso dice la stessa cosa dei motori");
+    ok(/canal/.test(A.cabItemInputsSenzaNoMic(it)) || A.cabItemInputsSenzaNoMic(it) === "il suo canale", tp + ": il pannello dice quanti canali tornano: " + A.cabItemInputsSenzaNoMic(it));
+    delete it.miking;
+    ok(chans(it).length === con && con > 0, tp + ": tolto, tornano i " + con + " canali");
+  });
+  const cant = add("cantante", 100, 100); cant.miking = "__nomic__"; ok(!A.noMicSenzaTendina(cant), "voci: nessun avviso (il loro microfono lo decide la modalità)");
+  const gt = add("gtstand", 200, 200); gt.miking = "__nomic__"; ok(!A.noMicSenzaTendina(gt), "chitarre: nessun avviso (decide la catena)");
+  const dr = add("batteria", 600, 300); dr.miking = "__nomic__"; ok(!A.noMicSenzaTendina(dr), "tipi con MIKING: c'è già la tendina, nessun avviso doppio");
+  reset();
+});
+t("P1 nomic UI: HTML, pannello e pulsante «Togli» sono collegati", () => {
+  const src = readFileSync(join(root, "index.template.html"), "utf8");
+  ok(/id="pNoMicWrap"[\s\S]{0,400}id="pNoMicTogli">Togli «Nessun microfono»</.test(src), "il blocco c'è nell'HTML");
+  ok(/_nm\.style\.display=_nmOn\?"block":"none"/.test(src), "il pannello lo mostra solo quando serve");
+  ok(/group\("Nota", "quello che il disegno non dice", \["pNoMicWrap","pNoteWrap"\]\)/.test(src), "sta nel gruppo sempre in vista, non dietro «Mostra tutte le opzioni»");
+  ok(src.indexOf('id="pNoMicWrap"') < src.indexOf('id="pOutCard"'), "e fuori dalla scheda «Uscita» che si apre solo con le opzioni complete");
+  ok(/nmt\.addEventListener\("click", function\(\)\{\s*mutSel\(function\(it\)\{ if\(noMicSenzaTendina\(it\)\) delete it\.miking; \}\);/.test(src), "«Togli» cancella il valore e ridisegna");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

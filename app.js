@@ -15177,6 +15177,9 @@ function custInputs(it){ var c=it.cust||{}, ins=c.ins; if(!ins || !(ins.n>=1)) r
    la modalità del microfono) né per chitarre e basso (decide la catena dei prelievi), né per la zona microfonica. Un valore arrivato da un
    file su uno di questi non è visibile nel pannello e non deve far sparire canali che il pannello mostra accesi (rilettura 17/11/2026). */
 function microSpentoDaScelta(it){ return !!(it && it.miking==="__nomic__" && it.type!=="miczone" && !VOCE[it.type] && !hasChain(it)); }
+/* Lo stato «Nessun microfono» che il pannello non può mostrare con la tendina: tipo senza MIKING (tastiere, percussioni, pedaliere…) */
+function cabItemInputsSenzaNoMic(it){ var c=JSON.parse(JSON.stringify(it)); delete c.miking; var n=0; try{ n=cabItemInputs(c).length; }catch(e){} return n ? (n===1 ? "il suo canale" : n+" canali") : ""; }
+function noMicSenzaTendina(it){ return microSpentoDaScelta(it) && !MIKING[it.type]; }
 function cabItemInputs(it){
   /* DI generata da uno strumento (diFor): è una TAPPA del cavo, non una sorgente. I canali sono
      quelli dello strumento — contarli anche qui raddoppiava gli ingressi in stage box e le righe
@@ -19842,6 +19845,9 @@ function renderProps(){
     if(_chain) chainRender(it);
     var _h=document.getElementById("pOutHint");
     if(_h) _h.textContent = _chain ? chainHint(it) : "";
+    var _nm=document.getElementById("pNoMicWrap"), _nmOn=noMicSenzaTendina(it);
+    if(_nm){ _nm.style.display=_nmOn?"block":"none";
+      var _nh=document.getElementById("pNoMicHint"); if(_nh && _nmOn) _nh.textContent="«Nessun microfono»: questo elemento non produce canali nell'Input list. Toglilo per rimettere "+(cabItemInputsSenzaNoMic(it)||"i suoi canali")+"."; }
     var _card=document.getElementById("pOutCard");
     if(_card){ var _mkOn=!!(MIKING[it.type] && !VOCE[it.type] && !_chain); _card.style.display=(_mayDi||_mkOn||_chain)?"block":"none"; }
   })();
@@ -21469,7 +21475,7 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
   group("Americana", null, ["pRigWrap"]);   /* A4: numero, trim e peso appeso, solo con «Opzioni complete» */
   group("Appendimento", "carico e portata scritti", ["pPtWrap"]);   /* icone approvate 16/11: come l'americana, solo con «Opzioni complete» */
   group("Dettagli tecnici", null, ["pIfaceWrap","pCompIfaceWrap","pModelWrap","pLocInWrap","pUsoWrap","pBmWrap","pLmWrap","pModWrap","pWattWrap","pRfWrap","pPmWrap"]);   /* la richiesta di setup NON e' un dettaglio tecnico: e' un'azione verso una persona, e sta con la persona */
-  group("Nota", "quello che il disegno non dice", ["pNoteWrap"]);
+  group("Nota", "quello che il disegno non dice", ["pNoMicWrap","pNoteWrap"]);   /* «Nessun microfono» scritto nel file: sempre in vista, non dietro «Mostra tutte le opzioni» */
   group("Disegno", null, ["pLookWrap","pDims","pDimSideWrap","pShapeWrap","pRugWrap","pPuntaWrap","pRotRow",
         "pLblSizeWrap","pLblSizeAll","pAlignWrap","pTxtColorWrap","pLblPosWrap"]);
 
@@ -30471,6 +30477,10 @@ function renderCabPanel(){
     if(due === !zoneAbsorbable(it)) delete it.ownMic; else it.ownMic=due;   /* memorizza solo l'override rispetto al default del tipo */
     __cabRes=null; save(); render(); renderProps();
   });
+  var nmt=document.getElementById("pNoMicTogli");
+  if(nmt) nmt.addEventListener("click", function(){
+    mutSel(function(it){ if(noMicSenzaTendina(it)) delete it.miking; });   /* torna il microfono di serie del tipo: per questi tipi è uno solo */
+    __cabRes=null; save(); render(); renderProps(); });
   var mke=document.getElementById("pMike");
   if(mke) mke.addEventListener("change", function(){ var v=this.value;
     if(v==="__zona__"){ var it0=getSel(); this.value=(it0&&it0.miking)||(it0&&MIKING[it0.type]?MIKING[it0.type].def:""); createMicZoneFor(it0); return; }   /* "Zona" crea una zona di microfonazione (non è un valore di miking) */
