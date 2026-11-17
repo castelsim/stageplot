@@ -116,9 +116,10 @@
         h("button", { class: "btn primario", type: "button", id: "bEtichette", text: nSel ? "Etichette dei " + nSel + " selezionati" : "Etichette di tutti i " + elenco.length + " mostrati", disabled: !elenco.length, onclick: function () { vistaEtichette(nSel ? elenco.filter(function (a) { return S.sel[a.id]; }) : elenco); } }),
         h("button", { class: "btn primario", type: "button", id: "bElenco", text: "Elenco da stampare (" + elenco.length + ")", disabled: !elenco.length, onclick: function () { vistaStampaElenco(filtrati()); } }),
         h("button", { class: "btn", type: "button", id: "bCsvElenco", text: "CSV dei " + elenco.length + " mostrati", disabled: !elenco.length, onclick: function () { scaricaCsvElenco(filtrati()); } }),
+        h("label", { class: "spunta" }, [h("input", { type: "checkbox", id: "chkCsvNomi", checked: !!S.csvNomi, onchange: function () { S.csvNomi = this.checked; } }), h("span", { text: "includi nomi e note riservate" })]),
         h("button", { class: "btn", type: "button", id: "bCsv", text: "Scarica CSV", disabled: !S.articoli.length, onclick: function () { scaricaCsv(false); } }),
         h("button", { class: "btn", type: "button", id: "bCsvNomi", text: "CSV con assegnazioni", disabled: !S.articoli.length, onclick: function () { scaricaCsv(true); } })]),
-      h("p", { class: "nota", text: "«Elenco da stampare» e «CSV dei mostrati» seguono i filtri e l'ordine qui sopra; la stampa può includere o no i nomi di chi ha lo strumento." }),
+      h("p", { class: "nota", text: "«Elenco da stampare» e «CSV dei mostrati» seguono i filtri e l'ordine qui sopra; la stampa e il CSV, di serie, non hanno i nomi di chi ha lo strumento né le note riservate: si aggiungono con la spunta." }),
       tabella(elenco)]);
   }
   function pannelloPersone() {
@@ -217,7 +218,7 @@
 
   /* ---------------------------------------------------------------- Elenco completo: foglio A4 e CSV dei mostrati */
   function scaricaCsvElenco(elenco) {
-    var blob = new Blob(["\ufeff" + L.csvElenco(S.tipi, elenco, true)], { type: "text/csv;charset=utf-8" }), u = URL.createObjectURL(blob);
+    var blob = new Blob(["\ufeff" + L.csvElenco(S.tipi, elenco, !!S.csvNomi)], { type: "text/csv;charset=utf-8" }), u = URL.createObjectURL(blob);
     var a = h("a", { href: u, download: "ELENCO_" + S.inv.slug + "_" + L.data().split("/").reverse().join("-") + ".csv" }); document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(function () { URL.revokeObjectURL(u); }, 2000);
   }
   /* Foglio A4 in verticale: colonne Codice · Tipo · Modello · Stato / dove · Nota; i nomi solo se chi stampa lo sceglie (i fogli restano in giro) */

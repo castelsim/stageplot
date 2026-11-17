@@ -34171,10 +34171,10 @@ t("Inventario: foglio dell'elenco — 34 righe per foglio, piè con versione e d
   ok(/^v1 /.test(INV_LIB.piedeElenco(0, "x", 1, "d")) && /elenco di 1 oggetto ·/.test(INV_LIB.piedeElenco(1, "x", 1, "d")), "versione minima 1; singolare");
   const T = [{ prefisso: "TAS", singolare: "Tastiera" }], B = [{ codice: "TAS-002", tipo: "TAS", modello: "=cmd", stato: "a_casa", note: "n", assegnato_a: "Allievo Esempio 2A", data_consegna: "2026-11-17" }, { codice: "TAS-001", tipo: "TAS", modello: "Y", stato: "in_sede", note: "" }];
   const senza = INV_LIB.csvElenco(T, B, false), con = INV_LIB.csvElenco(T, B, true);
-  ok(!/Allievo|Esempio/.test(senza), "il CSV senza nomi non contiene nomi"); ok(con.includes("Allievo Esempio 2A,17/11/2026,n"), "con nomi: assegnatario, data, nota");
-  eq(senza.split("\n")[0], "codice,tipo,marca/modello,stato,consegnato,dal,note", "intestazione"); eq(senza.split("\n")[1].slice(0, 7), "TAS-001", "ordinato per codice"); ok(senza.includes("'=cmd"), "mai formule");
+  ok(!/Allievo|Esempio/.test(senza) && !/,n(\n|$)/.test(senza.split("\n")[1]) && !senza.includes("note"), "il CSV di serie non contiene né nomi né note"); eq(senza.split("\n")[2], "TAS-002,Tastiera,'=cmd,A casa,sì,17/11/2026", "di serie: consegnato = sì + data"); ok(con.includes("Allievo Esempio 2A,17/11/2026,n"), "con la spunta: assegnatario, data, nota"); eq(con.split("\n")[0], "codice,tipo,marca/modello,stato,assegnato a,dal,note", "intestazione con nomi");
+  eq(senza.split("\n")[0], "codice,tipo,marca/modello,stato,consegnato,dal", "intestazione di serie"); eq(senza.split("\n")[1].slice(0, 7), "TAS-001", "ordinato per codice"); ok(senza.includes("'=cmd"), "mai formule");
   const js = readFileSync(join(root, "inventario/inv-area.js"), "utf8"), css = readFileSync(join(root, "inventario/inv-area.css"), "utf8");
-  ok(/id: "bElenco"/.test(js) && /vistaStampaElenco\(filtrati\(\)\)/.test(js) && /id: "bCsvElenco"/.test(js), "bottoni «Elenco da stampare» e «CSV dei mostrati» che seguono i filtri");
+  ok(/id: "chkCsvNomi"/.test(js) && /L\.csvElenco\(S\.tipi, elenco, !!S\.csvNomi\)/.test(js), "il CSV dei mostrati segue la spunta (spenta di serie)"); ok(/id: "bElenco"/.test(js) && /vistaStampaElenco\(filtrati\(\)\)/.test(js) && /id: "bCsvElenco"/.test(js), "bottoni «Elenco da stampare» e «CSV dei mostrati» che seguono i filtri");
   ok(/function vistaStampaElenco\(elenco, conNomi\)/.test(js) && /conNomi = !!conNomi/.test(js), "i nomi sul foglio sono spenti di serie");
   ok(/L\.piedeElenco\(ver, S\.inv\.nome/.test(js) && /\(i \+ 1\) \+ " di " \+ N/.test(js), "il foglio ha versione, data e «1 di N»");
   ok(/\.foglio\.elenco\{padding:16mm 17mm/.test(css) && /\.piede-foglio\{[^}]*bottom:16mm/.test(css), "margini ≥ 15 mm anche sul foglio dell'elenco");

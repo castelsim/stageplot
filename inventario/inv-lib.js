@@ -140,12 +140,13 @@
     var c = {}; (articoli || []).forEach(function (a) { c[a.stato] = (c[a.stato] || 0) + 1; });
     return STATI.filter(function (s) { return c[s.id]; }).map(function (s) { return (s.id === "a_casa" ? "Consegnato" : s.nome) + " " + c[s.id]; }).join(" · ");
   }
-  /* CSV dell'elenco mostrato: colonne di lettura («stato», «dove / a chi», «dal») con o senza i nomi */
+  /* CSV dell'elenco mostrato. Di serie SENZA nomi e SENZA note (un CSV si allega alle mail): colonna «consegnato» = sì; con conNomi: «assegnato a», «dal», «note» */
   function csvElenco(tipi, articoli, conNomi) {
     var nome = {}; (tipi || []).forEach(function (t) { nome[t.prefisso] = t.singolare; });
-    var righe = [["codice", "tipo", "marca/modello", "stato", conNomi ? "assegnato a" : "consegnato", "dal", "note"]];
+    var righe = [["codice", "tipo", "marca/modello", "stato"].concat(conNomi ? ["assegnato a", "dal", "note"] : ["consegnato", "dal"])];
     ordina(articoli, "codice").forEach(function (a) {
-      righe.push([a.codice, nome[a.tipo] || a.tipo, a.modello, statoNome(a.stato), a.stato === "a_casa" ? (conNomi ? a.assegnato_a : "sì") : "", a.stato === "a_casa" ? dataIt(a.data_consegna) : "", a.note]);
+      var casa = a.stato === "a_casa", dal = casa ? dataIt(a.data_consegna) : "", r = [a.codice, nome[a.tipo] || a.tipo, a.modello, statoNome(a.stato)];
+      righe.push(r.concat(conNomi ? [casa ? a.assegnato_a : "", dal, a.note] : [casa ? "sì" : "", dal]));
     });
     return righe.map(function (r) { return r.map(cella).join(","); }).join("\n") + "\n";
   }
