@@ -34251,6 +34251,14 @@ t("Inventario/interfaccia L2: struttura dell'area — un solo primario nella tes
   ok(/function lato\(\)/.test(js) && /getElementById\("inv-lato"\)/.test(js) && !/class: "barra"/.test(js), "email e «Esci» vanno nello slot della barra del marchio");
   ok(/details\.menu\[open\]/.test(js), "il menu «Esporta» si chiude con un tocco fuori o con Esc");
 });
+t("Inventario/privacy: nomi e note riservate spenti di serie nel CSV dei mostrati e nella stampa dell'elenco (rilettura #152, 18/11)", () => {
+  const js = readFileSync(join(root, "inventario/inv-area.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const s0 = js.slice(js.indexOf("var S = {"), js.indexOf("};", js.indexOf("var S = {")));
+  ok(!/csvNomi/.test(s0), "lo stato iniziale non accende i nomi nel CSV");
+  ok(/id: "chkCsvNomi", checked: !!S\.csvNomi[,\s}]/.test(js), "la spunta dei nomi nel CSV parte da S.csvNomi (spenta finché non la tocchi)");
+  ok(/function vistaStampaElenco\(elenco, conNomi\) \{\s*S\.vista = "stampa-elenco"; conNomi = !!conNomi;/.test(js) && /id: "chkNomiStampa", checked: conNomi[,\s}]/.test(js), "la stampa dell'elenco parte senza nomi se non le si chiede");
+  eq((js.match(/vistaStampaElenco\(filtrati\(\)[^)]/g) || []).length, 0, "nessuna chiamata apre la stampa dell'elenco già con i nomi");
+});
 t("Inventario/interfaccia L2: riepilogo per tipo e «Ce l'ha» (funzioni pure, 18/11)", () => {
   const tipi = [{ prefisso: "TAS", singolare: "Tastiera", plurale: "tastiere" }, { prefisso: "PAD", singolare: "Pad", plurale: "pad" }];
   const art = [{ tipo: "TAS", stato: "in_sede" }, { tipo: "TAS", stato: "a_casa" }, { tipo: "TAS", stato: "a_casa" }, { tipo: "PAD", stato: "in_sede" }];
