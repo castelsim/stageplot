@@ -172,7 +172,10 @@ function _docEnSemplice(s){
   return null;
 }
 /* pezzi con dentro una misura già in piedi («12 da 6' 7" × 3' 3"»), che il modello italiano non può prevedere */
-var DOC_EN_REGOLE=[[/^evento (.+)$/, "show $1"], [/^(\d+) da (\d.*)$/, "$1 at $2"], [/^(\d+) pedana (\d.*)$/, "$1 riser $2"], [/^(\d+) pedane (\d.*)$/, "$1 risers $2"], [/^pedana (\d.*)$/, "riser $1"],
+var _docEnNome=function(x){ var e=docEnEtichetta(x); return e==null ? x : e; };
+var DOC_EN_REGOLE=[[/^Sorgente senza destinazione: (.+) \(ingressi palco esauriti\)(?: — (?:aggiungi una stage box vicino alla regia e marcala come «lato mixer», poi collegali lì a mano\.|collegali a mano alla stage box del mixer \((\w+)\)\.))?$/,
+    function(all, n, b){ return "Source with no destination: "+_docEnNome(n)+" (stage inputs used up)"+(/ — aggiungi/.test(all) ? " — add a stage box near FOH, mark it as “mixer side”, then patch them there by hand." : (b ? " — patch them by hand to the mixer stage box ("+b+")." : "")); }],
+  [/^evento (.+)$/, "show $1"], [/^(\d+) da (\d.*)$/, "$1 at $2"], [/^(\d+) pedana (\d.*)$/, "$1 riser $2"], [/^(\d+) pedane (\d.*)$/, "$1 risers $2"], [/^pedana (\d.*)$/, "riser $1"],
   [/^altezza (\d.*)$/, "height $1"], [/^disegnato (\d.*)$/, "drawn $1"], [/^(\d+) in tutto$/, "$1 total"]];
 function _docEnRegola(s){ for(var j=0;j<DOC_EN_REGOLE.length;j++){ if(DOC_EN_REGOLE[j][0].test(s)) return s.replace(DOC_EN_REGOLE[j][0], DOC_EN_REGOLE[j][1]); } return null; }
 function _docEnTrad(s){
@@ -184,7 +187,7 @@ function _docEnTrad(s){
   var r=_docEnSemplice(core); if(r!=null) return lead+r+trail;
   r=_docEnRegola(core); if(r!=null) return lead+r+trail;
   /* «• » davanti agli avvisi */
-  var b=/^(•\s+|\*\s+|-\s+)(.+)$/.exec(core); if(b){ r=_docEnSemplice(b[2]); if(r!=null) return lead+b[1]+r+trail; }
+  var b=/^(•\s+|\*\s+|-\s+)(.+)$/.exec(core); if(b){ r=_docEnSemplice(b[2]); if(r==null) r=_docEnRegola(b[2]); if(r!=null) return lead+b[1]+r+trail; }
   /* frase per frase (i paragrafi del rider e della corrente si compongono di frasi fisse) */
   var frasi=core.replace(/([.!?])\s+(?=[A-ZÀ-Ý«“(•])/g, "$1\u0001").split("\u0001");   /* niente lookbehind: i Safari vecchi non lo leggono e salterebbe tutto app.js */
   if(frasi.length>1){ var cf=false, tf=frasi.map(function(x){ var y=_docEnTrad(x); if(y!==x) cf=true; return y; }); if(cf) return lead+tf.join(" ")+trail; }
@@ -225,7 +228,8 @@ function docTesto(s){
   var r=en ? _docEnTrad(s) : s;
   if(en){
     r=r.replace(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g, function(all, g, m, a){ return docDataEn(g, m, a) || all; })
-       .replace(/(\d),(\d)/g, "$1.$2");
+       .replace(/(\d),(\d)/g, "$1.$2")
+       .replace(/\b(\d+) wedge\b(?!s)/g, function(all, n){ return +n===1 ? all : n+" wedges"; });   /* l'italiano non fa il plurale di «wedge» */
   }
   if(u && !(core && U[core])) r=_docUnitaTesto(r);
   return r;

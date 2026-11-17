@@ -35579,6 +35579,11 @@ t("Estero: in inglese le scritte dell'app si traducono, i testi scritti dall'ute
     eq(A.docTesto("Stage plot · 17/11/2026"), "Stage plot · Nov 17, 2026", "data col mese in lettere");
     eq(A.docTesto("asta giraffa"), "boom stand", "asta"); eq(A.docTesto("12 pedane"), "12 risers", "modello con il numero");
     eq(A.docTesto("1,7 A"), "1.7 A", "punto decimale");
+    eq(A.docTesto("• Sorgente senza destinazione: Corista 1 (ingressi palco esauriti) — aggiungi una stage box vicino alla regia e marcala come «lato mixer», poi collegali lì a mano."),
+      "• Source with no destination: Backing vocal 1 (stage inputs used up) — add a stage box near FOH, mark it as “mixer side”, then patch them there by hand.", "avviso con un nome dentro");
+    eq(A.docTesto("STAGE PLOT — Channel list"), "STAGE PLOT — Input list", "la channel list in inglese è l'«Input list» dei rider americani");
+    eq(A.docTesto("USCITA"), "OUTPUT", "colonna della monitor list: un'uscita audio, non l'uscita di sicurezza");
+    eq(A.docTesto("Ascolti: 3 wedge"), "Monitoring: 3 wedges", "plurale di wedge"); eq(A.docTesto("Ascolti: 1 wedge"), "Monitoring: 1 wedge", "e il singolare");
     const lungo = "Quantità ricavate dal disegno dello stage plot: se cambia, il foglio esce con una versione nuova.";
     eq(A.pdfTxtRighe(lungo, 40, 9, false).join(" "), A.docTesto(lungo), "le righe a capo del cartiglio sono del testo tradotto, non pezzi italiani");
     ok(!/disegno/.test(A.pdfTxtRighe(lungo, 40, 9, false).join(" ")), "nessun pezzo italiano");
