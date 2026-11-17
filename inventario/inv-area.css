@@ -36,7 +36,10 @@ input[type=checkbox]{accent-color:var(--teal-forte)}
 
 .min{text-transform:lowercase}.mai{text-transform:uppercase}
 .cresce{flex:1;min-width:200px}
-.nuovo-inv>summary{cursor:pointer;font-weight:600;min-height:44px;display:flex;align-items:center}
+.nuovo-inv>summary{cursor:pointer;font-weight:600;min-height:44px;display:flex;align-items:center;justify-content:space-between;list-style:none}
+.nuovo-inv>summary::-webkit-details-marker{display:none}
+.nuovo-inv>summary::after{content:"+";font:20px/1 var(--mono);color:var(--teal-forte)}
+.nuovo-inv[open]>summary::after{content:"–"}
 .nuovo-inv[open]>summary{margin-bottom:4px}
 
 /* testa dell'inventario: nome e indirizzo a sinistra; un solo primario («Stampa elenco»), poi «Etichette» e il menu «Esporta» */
