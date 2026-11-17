@@ -34189,7 +34189,7 @@ t("Inventario: foglio dell'elenco sul telefono — intero dentro lo schermo, sca
   ok(/\.fo-box\{[^}]*overflow:hidden/.test(css) && /\.fo-box \.foglio\{transform-origin:top left/.test(css), "contenitore grande quanto il foglio scalato");
   const pr = css.slice(css.indexOf("@media print"));
   ok(/\.fo-box\{width:auto!important;height:auto!important;overflow:visible;position:static\}/.test(pr) && /transform:none!important/.test(pr), "in stampa contenitore e scala annullati");
-  ok(/\.el-tab\{width:100%;min-width:0;/.test(css) && /(^|\}|\n)table\{[^}]*min-width:1000px/.test(css), "la tabella del foglio non eredita il min-width:1000px dell'inventario (colonna Nota e margine destro dentro l'A4)");
+  ok(/\.el-tab\{width:100%;min-width:0;/.test(css) && !/min-width:1000px/.test(css), "la tabella del foglio ha min-width:0 e l'area non ha più nessuna tabella larga 1000 px (L2: colonna Nota e margine destro dentro l'A4)");
   ok(/inv-area\.css\?v=([4-9]|\d\d)"/.test(html) && /inv-area\.js\?v=([5-9]|\d\d)"/.test(html), "versioni di css e js alzate");
 });
 t("Inventario: le etichette sul telefono — stessa correzione dell'elenco (contenitore grande quanto il foglio), niente margine sinistro negativo (18/11)", () => {
@@ -34211,7 +34211,7 @@ t("Inventario/interfaccia L1: sp-base.css condiviso, barra del marchio statica e
   ok(!/:root\{/.test(css) && /:root\{/.test(base) && /prefers-color-scheme: dark/.test(base), "i token stanno solo in sp-base.css, chiari e scuri");
   ok(!/1d4ed8|text-transform:\s*uppercase|letter-spacing:\s*\.12em/.test(css), "niente anello blu né maiuscolo spaziato sulla pagina del QR");
   ok(/\.stato\.a_casa/.test(base) && /\.stato\.in_riparazione/.test(base) && /\.stato\.smarrito/.test(base) && /\.stato\.dismesso/.test(base), "pillole di stato per tutti gli stati");
-  ok(/inv\.css\?v=5/.test(idx) && /inv\.js\?v=5/.test(idx), "versioni di css e js della pagina alzate");
+  ok(/inv\.css\?v=6/.test(idx) && /inv\.js\?v=5/.test(idx), "versioni di css e js della pagina alzate (inv.css v6: carta del modulo senza doppia cornice, L2)");
   const inv = readFileSync(join(root, "i/inv.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
   ok(/"Elenco completo"/.test(inv) && !/"Tutto l’elenco"/.test(inv), "il link «Elenco completo» sta nel cartellino");
   ok(/segnalaErrore/.test(inv) && /input\.setAttribute\("aria-describedby", p\.id\)/.test(inv) && /input\.setAttribute\("aria-invalid", "true"\)/.test(inv), "errori sul campo legati con aria-describedby");

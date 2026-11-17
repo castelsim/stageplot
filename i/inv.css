@@ -86,8 +86,8 @@ body{background:var(--fondo);color:var(--inchiostro);font:17px/1.5 var(--ui);-we
 .inv-nota-in-piu summary{cursor:pointer;font-size:15px;font-weight:600;color:var(--teal-forte);list-style:none;min-height:36px;display:flex;align-items:center}
 .inv-nota-in-piu summary::-webkit-details-marker{display:none}
 .inv-nota-in-piu[open] summary{margin-bottom:6px}
-.inv-modulo-carta{margin-top:0}
-.inv-modulo-carta>.inv-sopra{font-size:19px;font-weight:700;margin-bottom:6px}
+/* la carta del modulo sta dentro il blocco bianco della segreteria: niente seconda cornice */
+.inv-blocco>.inv-modulo-carta{margin-top:0;border:0;border-radius:0;background:none;padding:0}
 .inv-modulo-carta .inv-campo{margin-top:12px}
 .inv-modulo-nota{margin:0 0 4px;font-size:15px;color:var(--testo-2)}
 .inv-modulo-codice{font:14px var(--mono);color:var(--testo-3);margin:14px 0 2px}
