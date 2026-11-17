@@ -33113,7 +33113,7 @@ function _l2carica(g) {
 }
 /* controlla le box AUTOMATICHE di R rispetto agli elementi dello stato corrente; ritorna l'elenco degli errori */
 function _l2controlla(R) {
-  const W = A.state.stage.w, D = A.state.stage.d, err = [], aut = (R.boxes || []).filter((b) => b.auto);
+  const W = A.state.stage.w, D = A.state.stage.d, err = [], aut = (R.boxes || []).filter((b) => b.auto && !b.rackAuto);   /* L7: i rack convertitori hanno il loro controllo (L7) */
   const items = A.state.items.filter((it) => A.TYPES[it.type]);
   aut.forEach((b) => {
     const bw = (b.w || 33) / 2, bd = (b.d || 17) / 2;
@@ -33126,8 +33126,10 @@ function _l2controlla(R) {
     const serviti = (R.links || []).filter((l) => l.box === b || (l.box && l.box.id === b.id)).map((l) => l.s.it);
     const mine = serviti.length ? Array.from(new Set(serviti)) : [];
     if (mine.length) {
-      const x0 = Math.min(...mine.map((it) => it.x - _l2half(it).hx)), x1 = Math.max(...mine.map((it) => it.x + _l2half(it).hx));
-      const y0 = Math.min(...mine.map((it) => it.y - _l2half(it).hy)), y1 = Math.max(...mine.map((it) => it.y + _l2half(it).hy));
+      const peds = new Set(); mine.forEach((it) => { const pd = A.pedanaSottoPunto(A.state.items, it.x, it.y); if (pd) peds.add(pd); });   /* L7: gli elementi su una pedana hanno la box al bordo della pedana */
+      const gr = mine.concat(A.state.items.length >= 30 ? Array.from(peds) : []);   /* organico numeroso: la pedana fa parte del gruppo */
+      const x0 = Math.min(...gr.map((it) => it.x - _l2half(it).hx)), x1 = Math.max(...gr.map((it) => it.x + _l2half(it).hx));
+      const y0 = Math.min(...gr.map((it) => it.y - _l2half(it).hy)), y1 = Math.max(...gr.map((it) => it.y + _l2half(it).hy));
       const dx = Math.max(x0 - b.x, 0, b.x - x1), dy = Math.max(y0 - b.y, 0, b.y - y1), dist = Math.hypot(dx, dy);
       if (dist > 100.5 && Math.min(b.x, W - b.x, b.y) > 60) err.push(b.letter + " a " + Math.round(dist) + " cm dal bordo del gruppo (>100) e non sul bordo del palco");
     }
@@ -33506,6 +33508,110 @@ t("L3: tempo di calcolo sotto budget sull'orchestra da 58 (a freddo e con la cac
   const t0 = Date.now(); lavora(); const freddo = Date.now() - t0; const t1 = Date.now(); lavora(); const caldo = Date.now() - t1;
   console.log("      (orchestra: " + R.links.length + " cavi · a freddo " + freddo + " ms · in cache " + caldo + " ms)");
   ok(freddo <= 1000 + 30 * R.links.length, "a freddo " + freddo + " ms per " + R.links.length + " cavi"); ok(caldo <= 100, "in cache " + caldo + " ms");
+});
+
+/* ───────── L7 · orchestra e pedane (16/11/2026, proposta CAVI_SUL_PALCO § 4 L7 + ricerca RICERCA_ORCHESTRA_GRANDI_PRODUZIONI) ─────────
+   Risposta di Simone (16/11): «stagebox piccole da 8 canali che vanno alle stagebox dei convertitori tipo Rio a lato palco, poi cablaggio digitale, rete Dante, al mixer».
+   Organici numerosi: drop box da 8 (12/16/32 a scelta) → rack convertitore a lato palco → UNA rete Dante all'uscita; corridoi fra le file; elementi su pedana = un'uscita. */
+console.log("\nL7 · orchestra: drop box → rack convertitore → rete Dante, corridoi, pedane:");
+const _l7half = (it) => _l2half(it);
+function _l7orch() { _l45carica("orch", false); return A.cabResult(true); }
+t("L7: orchestra — drop box da 8 (più grandi solo per uno strumento da più canali), ognuna con la sua sub-snake verso un rack; i rack stanno sui lati, mai su un elemento, ≥ 90 cm fra loro", () => {
+  const R = _l7orch(), W = A.state.stage.w, drop = R.boxes.filter((b) => b.auto && !b.rackAuto), rk = R.boxes.filter((b) => b.rackAuto);
+  ok(drop.length >= 5 && rk.length >= 2, "drop box " + drop.length + ", rack " + rk.length);
+  drop.forEach((b) => { ok(b.cap === 8 || b.cap >= b.planCh, "taglia " + b.cap + " per " + b.planCh + " canali"); ok(b.used <= b.cap, "box " + b.letter + " satura " + b.used + "/" + b.cap);
+    ok(!R.snakes.every((k) => k.box !== b) && R.snakes.find((k) => k.box === b).up, "la drop box " + b.letter + " non ha la sua sub-snake verso un rack"); });
+  rk.forEach((r) => { ok(/^R\d+$/.test(r.letter), "sigla del rack " + r.letter); ok(r.x <= 70 || r.x >= W - 70, "rack " + r.letter + " non è a lato palco (x=" + r.x + ")"); ok(r.cap === 16 || r.cap === 32, "taglia rack " + r.cap);
+    A.state.items.forEach((it) => { if (!A.TYPES[it.type] || A.isRiser(it)) return; const h = _l7half(it); ok(!(Math.abs(r.x - it.x) < h.hx + 38 && Math.abs(r.y - it.y) < h.hy + 22), "rack " + r.letter + " sopra «" + (it.label || it.type) + "»"); });
+    rk.forEach((o) => { if (o !== r) ok(Math.hypot(o.x - r.x, o.y - r.y) >= 89.5, "rack troppo vicini"); }); });
+  ok(R.capTot === drop.reduce((a, b) => a + b.cap, 0), "il rack non conta come capienza in più (capTot " + R.capTot + ")");
+  ok(R.links.every((l) => !l.box.rackAuto), "nessuna sorgente entra direttamente in un rack: passano dalle drop box");
+  drop.forEach((b) => eq(R.snakes.find((k) => k.box === b).up.box.id, b.toRack, "la box " + b.letter + " va al rack che le è stato assegnato"));
+  eq(R.issues.filter((i) => i.lvl === "err").length, 0, "errori: " + R.issues.filter((i) => i.lvl === "err").map((i) => i.msg).join(" | "));
+});
+t("L7: posa del rack a lato palco — salta un elemento sul bordo (≈ 90 cm) e un'altra box (< 90 cm), resta dentro il palco e fuori dalla fascia pubblico", () => {
+  _l2palco(2400, 1400); const it = add("cantante", 50, 700); let p = A.cabPlaceRack("left", 700, []);
+  eq(p.side, "left"); ok(p.x <= 60, "x " + p.x); ok(Math.abs(p.y - 700) >= 50, "sopra il cantante: y " + p.y);
+  const q = A.cabPlaceRack("left", 300, []); const r = A.cabPlaceRack("left", 300, [q]); ok(Math.hypot(r.x - q.x, r.y - q.y) >= 90, "troppo vicino a un'altra box: " + JSON.stringify([q, r]));
+  const f = A.cabPlaceRack("right", 5000, []); ok(f.y <= 1400 - 110, "oltre la fascia pubblico " + f.y); ok(f.x >= 2400 - 70, "lato destro " + f.x); const g = A.cabPlaceRack("right", -500, []); ok(g.y >= 22 + 34 - 0.5, "dentro il palco " + g.y);
+});
+t("L7: ogni rack ha UN solo collegamento verso l'uscita (rete Dante), le drop box no; i canali dei rack sono quelli delle drop box", () => {
+  const R = _l7orch(), h = A.cabHomePoint(), rk = R.boxes.filter((b) => b.rackAuto), N = A.netEngine();
+  const alExit = R.snakes.filter((k) => !k.up); eq(alExit.length, rk.length, "un collegamento all'uscita per rack");
+  alExit.forEach((k) => { ok(k.box.rackAuto, "all'uscita arriva solo un rack"); eq([k.x2, k.y2], [h.x, h.y]); });
+  eq(N.runs.filter((r) => r.kind === "box").length, rk.length, "una tratta di rete per rack"); N.runs.forEach((r) => { eq(r.proto, "dante"); ok(r.medium === "Cat6 STP" || r.medium === "fibra", r.medium); });
+  eq(rk.reduce((a, r) => a + r.used, 0), R.links.filter((l) => !l.deleted).length, "i canali in uso dei rack = i collegamenti");
+});
+t("L7: con più di 32 sorgenti la rete ridondante è un AVVISO informativo (mai un errore), chiusa di serie; lo Switch rete con «Ridondanza» lo toglie", () => {
+  _l7orch(); let N = A.netEngine(); const inf = N.issues.filter((i) => i.rule === "cab-rete-ridondante"); eq(inf.length, 1); eq(inf[0].lvl, "info");
+  ok(!N.red && !A.state.netRed, "ridondanza chiusa di serie");
+  ok(N.issues.every((i) => i.lvl !== "err"), "nessun errore di rete");
+  const sw = add("netswitch", 100, 100); A.state.netRed = true; A.__cabRes = null; N = A.netEngine(); eq(N.issues.filter((i) => i.rule === "cab-rete-ridondante").length, 0, "con la ridondanza accesa niente avviso"); delete A.state.netRed;
+});
+t("L7: poche box (< 5, band5 e band11): il multicore analogico resta com'era, nessun rack; digitale=true lo forza, false lo spegne", () => {
+  ["band5", "band11"].forEach((nome) => { _l45carica(nome, false); const R = A.cabResult(true); eq(R.boxes.filter((b) => b.rackAuto).length, 0, nome + ": rack di troppo"); R.snakes.forEach((k) => eq([k.x2, k.y2], [A.cabHomePoint().x, A.cabHomePoint().y])); });
+  _l45carica("band5", false); A.state.cab.digitale = true; A.__cabRes = null; let R = A.cabResult(true); ok(R.boxes.some((b) => b.rackAuto), "digitale=true: serve un rack");
+  _l45carica("orch", false); A.state.cab.digitale = false; A.__cabRes = null; R = A.cabResult(true); eq(R.boxes.filter((b) => b.rackAuto).length, 0, "digitale=false: nessun rack"); ok(R.snakes.every((k) => !k.up), "solo multicore all'uscita");
+  delete A.state.cab.digitale; A.__cabRes = null;
+});
+t("L7: taglia delle drop box 8 di serie; 12/16/32 a scelta (valori strani → 8); la normalizzazione del progetto tiene la scelta", () => {
+  _l45carica("orch", false); eq(A.cabAutoTaglia(), 8); const n8 = A.cabResult(true).boxes.filter((b) => b.auto && !b.rackAuto).length;
+  A.cabSetTaglia(16); eq(A.cabAutoTaglia(), 16); let R = A.cabResult(true); const d16 = R.boxes.filter((b) => b.auto && !b.rackAuto); ok(d16.length < n8, "con 16 ch servono meno box (" + d16.length + " < " + n8 + ")"); ok(d16.every((b) => b.cap >= 16), "tutte da 16"); ok(d16.some((b) => b.planCh > 8), "con 16 ch una box è pianificata per più di 8 canali"); eq(R.issues.filter((i) => i.lvl === "err").length, 0);
+  const n = A.normalizeState ? A.normalizeState(JSON.parse(JSON.stringify(A.state))) : null; if (n) eq(n.cab.autoTaglia, 16, "la scelta sopravvive al salvataggio");
+  A.state.cab.autoTaglia = 7; eq(A.cabAutoTaglia(), 8, "valore non ammesso"); A.cabSetTaglia(8); ok(!("autoTaglia" in A.state.cab), "8 = di serie, non si scrive"); eq(A.cabAutoTaglia(), 8);
+});
+t("L7: la taglia decide quante box: 12 voci in fila = 2 box da 8 oppure UNA da 16", () => {
+  const prova = (tg) => { _l2palco(1600, 900); for (let c = 0; c < 12; c++) add("cantante", 120 + (c % 6) * 50, 300 + Math.floor(c / 6) * 50);   /* vicino al bordo: la box non si accorpa a nessun altro pezzo */ A.state.cab.on = true; A.state.cab.mode = "auto"; if (tg) A.state.cab.autoTaglia = tg; else delete A.state.cab.autoTaglia; A.__cabRes = null; return A.cabResult(true).boxes.filter((b) => b.auto && !b.rackAuto); };
+  const b8 = prova(0), b16 = prova(16); eq(b8.length, 2, "taglia 8: due box"); ok(b8.every((b) => b.cap === 8)); eq(b16.length, 1, "taglia 16: una box"); eq(b16[0].cap, 16); eq(b16[0].planCh, 12); delete A.state.cab.autoTaglia;
+});
+t("L7: sotto lo strumento da più canali della taglia (batteria) la box cresce invece di saturare (prima «Stage box B satura 9/8»)", () => {
+  _l45carica("band5", false); const R = A.cabResult(true); ok(!R.issues.some((i) => /satura/.test(i.msg)), "box satura: " + R.issues.map((i) => i.msg).join(" | "));
+  R.boxes.filter((b) => b.auto).forEach((b) => ok(b.used <= b.cap, b.letter + " " + b.used + "/" + b.cap));
+});
+t("L7: gli elementi su una pedana (maggioranza ≥ 70 %) hanno la box al BORDO della pedana (organici numerosi); nei palchi piccoli la pedana non conta", () => {
+  const scena = (conPrimi) => { _l2palco(2400, 1400); if (conPrimi) for (let r = 0; r < 4; r++) for (let c = 0; c < 6; c++) add("cantante", 150 + c * 90, 700 + r * 110);   /* 24 voci a terra, a sinistra */
+    const ped = add("pedana", 1700, 500); ped.w = 600; ped.d = 360; const sopra = []; for (let c = 0; c < 6; c++) sopra.push(add("cantante", 1600 + c * 30, 500));
+    A.state.cab.on = true; A.state.cab.mode = "auto"; A.__cabRes = null; return { ped, sopra, R: A.cabResult(true) }; };
+  const boxDi = (R, sopra) => { const ids = new Set(sopra.map((x) => x.id)); return R.boxes.filter((b) => b.auto && !b.rackAuto && b.plan && Object.keys(b.plan).some((id) => ids.has(id))); };
+  let { ped, sopra, R } = scena(true); let bx = boxDi(R, sopra); eq(bx.length, 1, "UNA sola box per le 6 voci sulla pedana"); eq(Object.keys(bx[0].plan).length, 6, "la box della pedana serve solo la pedana");
+  const con = A.cabPlaceAutoBox(sopra.concat([ped]), []), senza = A.cabPlaceAutoBox(sopra, []); ok(con.x !== senza.x || con.y !== senza.y, "la scena deve distinguere i due casi");
+  eq([bx[0].x, bx[0].y], [con.x, con.y], "organico numeroso: la box nasce al bordo della pedana (con la pedana nell'ingombro)");
+  ok(R.links.filter((q) => sopra.some((v) => v.id === q.s.it.id)).every((q) => q.box === bx[0]), "i sei cavi vanno tutti a quella box: un'uscita dalla pedana sola");
+  ok(A.cabPedanaDiPezzo(sopra) && A.cabPedanaDiPezzo(sopra).id === ped.id, "tutti sulla pedana → la pedana"); eq(A.cabPedanaDiPezzo(sopra.slice(0, 3).concat(A.state.items.slice(0, 3))), null, "metà e metà: nessuna pedana (soglia 70 %)");
+  ({ ped, sopra, R } = scena(false)); bx = boxDi(R, sopra); eq(bx.length, 1); const senza2 = A.cabPlaceAutoBox(sopra, []); eq([bx[0].x, bx[0].y], [senza2.x, senza2.y], "palco piccolo (< 30 gruppi): la pedana non entra nell'ingombro, come prima");
+});
+t("L7: corridoi cavi — nell'orchestra c'è almeno una banda libera fra le file e i cavi la usano; nei palchi piccoli non cambia nulla; senza varco c'è l'avviso", () => {
+  _l45carica("orch", false); const R = A.cabResult(true), OBS = A.obstacleRects(), C = A.cabCorridoiProgetto(OBS); ok(C && C.length >= 1, "nessun corridoio"); C.forEach((c) => ok(c[1] - c[0] >= 40, "corridoio troppo stretto"));
+  let inb = 0; R.links.forEach((l) => { const ex = {}; ex[l.s.it.id] = 1; if (l.box && l.box.id) ex[l.box.id] = 1; const poly = A.orthExpand(A.cabRoutePts(l.pts, OBS, ex, "sig")); for (let i = 1; i < poly.length; i++) { const p = poly[i - 1], q = poly[i]; if (p[1] === q[1] && C.some((c) => p[1] >= c[0] && p[1] <= c[1])) inb += Math.abs(p[0] - q[0]); } });
+  ok(inb >= 1000, "i cavi usano il corridoio per " + Math.round(inb / 100) + " m (≥ 10 m)");
+  ["band5", "band11", "conferenza"].forEach((nome) => { _l45carica(nome, false); A.cabResult(true); eq(A.cabCorridoiProgetto(A.obstacleRects()), null, nome + ": nessun corridoio nei palchi piccoli"); });
+  const rr = (y0, y1, extra) => Object.assign({ id: "r" + y0, y0, y1 }, extra || {}); const fila = (y, n) => Array.from({ length: n }, (_, i) => rr(y + i * 0.01, y + 30));
+  eq(A.cabCorridoi(fila(0, 20).concat(fila(200, 19))), null, "39 ingombri: organico non abbastanza numeroso"); const c40 = A.cabCorridoi(fila(0, 20).concat(fila(200, 20))); ok(c40 && c40.length === 1 && c40[0][0] > 30 && c40[0][1] < 200, "40 ingombri con un varco: un corridoio " + JSON.stringify(c40));
+  eq(A.cabCorridoi(fila(0, 20).concat(fila(80, 20))), null, "varco di 50 cm (< 60): nessun corridoio"); eq(A.cabCorridoi(fila(0, 20).concat(fila(200, 20), [rr(60, 190, { riser: true }), rr(60, 190, { pass: true })])) && A.cabCorridoi(fila(0, 20).concat(fila(200, 20), [rr(60, 190, { riser: true }), rr(60, 190, { pass: true })])).length, 1, "pedane e passaggi non chiudono il corridoio");
+  _l45carica("orch", false); A.cabResult(true); const info = A.cabRouteInfo(); ok(info.issues.some((i) => i.rule === "cab-varco"), "l'orchestra con cavi murati dà l'avviso «nessun varco»");
+  _l45carica("band5", false); A.cabResult(true); ok(!A.cabRouteInfo().issues.some((i) => i.rule === "cab-varco"), "nessun avviso nei palchi piccoli");
+  _l2palco(1200, 800); add("cantante", 600, 400); [[600, 310, 260, 30], [600, 490, 260, 30], [470, 400, 30, 200], [730, 400, 30, 200]].forEach(([x, y, w, d]) => { const q = add("pedana", x, y); q.w = w; q.d = d; });
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.__cabRes = null; A.cabResult(true); ok(A.cabRoutesAll().some((r) => r.murato), "scena di prova: il cavo è murato"); ok(!A.cabRouteInfo().issues.some((i) => i.rule === "cab-varco"), "palco piccolo con un cavo murato: nessun avviso «nessun varco» (solo negli organici numerosi)");
+});
+t("L7: lista dei materiali e PDF — drop box per taglia, rack, rete Dante (Cat6 / fibra) coerenti col disegno; nulla nei palchi piccoli", () => {
+  const R = _l7orch(), M = A.cabMaterialiL7(R), voce = (k) => (M.find((r) => r[0] === k) || [])[1] || "";
+  const drop = R.boxes.filter((b) => b.auto && !b.rackAuto), rk = R.boxes.filter((b) => b.rackAuto), N = A.netEngine();
+  const somma = (txt) => (txt.match(/(\d+)×/g) || []).reduce((a, x) => a + parseInt(x), 0);
+  eq(somma(voce("Drop box")), drop.length, "drop box nella lista: " + voce("Drop box")); eq(somma(voce("Rack convertitore")), rk.length, "rack nella lista: " + voce("Rack convertitore"));
+  eq(somma(voce("Rete Dante")), N.runs.length, "cavi di rete: " + voce("Rete Dante")); ok(/Cat6|fibra/.test(voce("Rete Dante")));
+  const MM = A.cabMateriali(); eq(MM.nMc, R.snakes.length, "L6: i multicore per taglio contano le sub-snake e le reti dei rack: " + MM.testo.mc);
+  _l45carica("band5", false); const M5 = A.cabMaterialiL7(A.cabResult(true)); ok(M5.length >= 1 && M5.every((r) => r[0] === "Drop box"), "band5: solo le drop box, nessun rack/rete: " + JSON.stringify(M5));
+  ok(/cabMaterialiL7\(R\)\.forEach\(function\(r\)\{ s\+=ir\(r\[0\], r\[1\]\)/.test(appjs), "la lista dello Stato usa le voci L7"); ok(/cabMaterialiL7\(R\)\.forEach\(function\(r\)\{ line\(/.test(appjs), "il PDF usa le voci L7");
+});
+t("L7: tempo — orchestra da 58: motore, percorsi, rete, materiali e avvisi a freddo sotto budget (la CI è ~2,5× più lenta del Mac); in cache niente ricalcolo", () => {
+  _l45carica("orch", false); const t0 = Date.now(); A.__cabRes = null; const R = A.cabResult(true); A.cabRoutesAll(); A.netEngine(); A.cabMaterialiL7(R); A.cabRouteInfo(); const freddo = Date.now() - t0;
+  const t1 = Date.now(); for (let i = 0; i < 20; i++) { A.cabResult(); A.cabRoutesAll(); A.netEngine(); A.cabMaterialiL7(A.cabResult()); A.cabRouteInfo(); } const caldo = (Date.now() - t1) / 20;
+  console.log("      (orchestra L7: " + R.links.length + " cavi · a freddo " + freddo + " ms · in cache " + caldo.toFixed(1) + " ms a giro)");
+  const k = process.env.CI ? 2.5 : 1; ok(freddo <= 700 * k, "a freddo " + freddo + " ms"); ok(caldo <= 12 * k, "in cache " + caldo.toFixed(1) + " ms a giro");
+});
+t("L7: la scelta di taglia e rack è nel pannello Input (cabRackSw); due calcoli di fila danno lo stesso risultato (deterministico)", () => {
+  ok(/cabRackSw/.test(appjs) && /cabSetTaglia/.test(appjs) && /cabSetDigitale/.test(appjs), "controlli mancanti");
+  _l45carica("orch", false); const a = A.cabResult(true), pa = JSON.stringify(a.boxes.map((b) => [b.letter, b.x, b.y, b.cap, b.used])); A.__cabRes = null; const b2 = A.cabResult(true); eq(JSON.stringify(b2.boxes.map((b) => [b.letter, b.x, b.y, b.cap, b.used])), pa);
 });
 
 /* ===== UX lotti 4-5 (16/11/2026): marchio «stageplot.it» e ricerca da conferenza/service ===================== */
@@ -34404,11 +34510,11 @@ t("L5: senza banco l'uscita multicore di serie è sul bordo pubblico, lato destr
 });
 t("L5: tutte le box confluiscono all'uscita (un multicore per box, stessa destinazione), l'audit non dice più «da nessuna parte», con rack digitale la tratta si chiama «rete»", () => {
   _l3casi.forEach((nome) => { _l45carica(nome, false); const R = A.cabResult(true), h = A.cabHomePoint();
-    ok(R.snakes.length >= 1, nome + ": nessun multicore"); R.snakes.forEach((k) => eq([k.x2, k.y2], [h.x, h.y], nome + ": il multicore arriva all'uscita"));
+    ok(R.snakes.length >= 1, nome + ": nessun multicore"); R.snakes.forEach((k) => eq([k.x2, k.y2], k.up ? [k.up.box.x, k.up.box.y] : [h.x, h.y], nome + ": il multicore arriva all'uscita (L7: la sub-snake di una drop box arriva al suo rack, il rack all'uscita)"));
     ok(!R.issues.some((i) => i.code === "nohome"), nome + ": «da nessuna parte»");
     const rotte = A.cabRoutesAll().filter((r) => r.kind === "mc"); eq(rotte.length, R.snakes.length, nome + ": un percorso per box");
-    rotte.forEach((r) => { const l = r.poly[r.poly.length - 1]; eq([l[0], l[1]], [h.x, h.y], nome + ": " + r.key + " finisce nell'uscita"); }); });
-  ok(/\(k\.box\.digital\?'rete':'multicore'\)/.test(appjs), "l'etichetta del multicore di un rack digitale dice «rete»");
+    rotte.forEach((r) => { const l = r.poly[r.poly.length - 1], k = R.snakes.find((q) => "m:" + (q.box && q.box.id || "") === r.key); eq([l[0], l[1]], k && k.up ? [k.up.box.x, k.up.box.y] : [h.x, h.y], nome + ": " + r.key + " finisce nell'uscita (o nel suo rack, L7)"); }); });
+  ok(/\(k\.box\.digital\?'rete':\(k\.up\?'sub-snake':'multicore'\)\)/.test(appjs), "l'etichetta del multicore di un rack digitale dice «rete»");
 });
 t("L5: passacavo rampato: l'uscita multicore genera sempre una voce (almeno 2 m), con avviso informativo; arrotondato ai 50 cm", () => {
   _l45carica("band5", false); const I = A.cabRouteInfo(), u = I.pass.voci.filter((v) => v.tipo === "uscita");

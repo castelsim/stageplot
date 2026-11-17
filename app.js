@@ -7926,6 +7926,7 @@ function normalizeState(s){
     mode:(cb.mode==="auto"||cb.mode==="manual")?cb.mode:(cb.on?"auto":"manual"),
     labelMode:(cb.labelMode==="always")?"always":"hover",   /* stile Max: canvas pulito, info in hover; nel PDF/viewer etichette SEMPRE */
     margin:(+cb.margin===20?20:30), mixer:String(cb.mixer||"").slice(0,40),
+    autoTaglia:(CAB_TAGLIE.indexOf(+cb.autoTaglia)>=0 && +cb.autoTaglia!==8)?+cb.autoTaglia:undefined, digitale:(cb.digitale===true||cb.digitale===false)?cb.digitale:undefined,   /* L7: taglia delle drop box (8 di serie) e rack digitale (assente = automatico dalle 5 box) */
     home:(cb.home&&typeof cb.home==="object")?(function(h){ var o={kind:String(h.kind||"custom").slice(0,20), x:Math.round(h.x||0), y:Math.round(h.y||0)}; if(o.kind==="exit"){ o.lato=(h.lato==="left"||h.lato==="center")?h.lato:"right"; } return o; })(cb.home):null,   /* L5: «uscita multicore» con il lato scelto */
     showLabels:cb.showLabels!==false, showLengths:cb.showLengths!==false, showChannels:cb.showChannels!==false,
     showInputs:cb.showInputs!==false, showReturns:cb.showReturns!==false, showNet:cb.showNet!==false, looms:cb.looms!==false,
@@ -14395,6 +14396,9 @@ function cabSetRoute(v){
   if(cabRouteMode()===v && state.cab.route===v) return;
   state.cab.route=v; __cabRes=null; __elecRes=null; __mondRes=null; save(); render();
 }
+/* L7: taglia delle drop box automatiche (8 di serie) e rack convertitore (automatico dalle 5 box, oppure sempre/mai) */
+function cabSetTaglia(n){ n=+n; if(CAB_TAGLIE.indexOf(n)<0) return; if(n===8) delete state.cab.autoTaglia; else state.cab.autoTaglia=n; __cabRes=null; save(); render(); }
+function cabSetDigitale(v){ if(v==="auto") delete state.cab.digitale; else if(v==="si") state.cab.digitale=true; else if(v==="no") state.cab.digitale=false; else return; __cabRes=null; save(); render(); }
 function cabSegToggle(fam, key){
   if(cabRouteMode()==="orto") return false;   /* L3: «come sul palco» squadra già ogni cavo; «Segmenta» ha senso solo in «diretto» */
   var man = fam==="elec" ? elecManual(key) : (fam==="mond" ? mondManual(key) : cabManual(key));
@@ -14817,7 +14821,7 @@ function _uniqNums(arr){ arr.sort(function(a,b){return a-b;}); var o=[]; for(var
 var ORTH_ESC=40, ORTH_MURATO=60, ORTH_STEP=20, ORTH_TURN=2.5, ORTH_WIN=260, ORTH_HARD=6, ORTH_MAXNODES=9000, ORTH_MAXNODES_TUTTO=40000, ORTH_EX={sig:0.35, ret:0.35, mc:15, pwr:2.6};
 var _orthCache={sig:"", m:Object.create(null), n:0};
 /* L4: contesto del calcolo in corso, impostato da cabRoutePts: occ = celle già occupate da cavi dell'altro tipo (potenza/segnale), band = quota (cm) da cui comincia la «fascia spie» */
-var _orthCtx={occ:null, band:null};
+var _orthCtx={occ:null, band:null, corr:null};   /* L7: corr = corridoi fra le file (bande di y libere a tutta larghezza) */
 function _occKey(x,y){ return (Math.floor(x/CAB_OCC_CELLA)+50)*1000+(Math.floor(y/CAB_OCC_CELLA)+50); }
 /* marca le celle attraversate da un percorso ortogonale e le due vicine in perpendicolare (fascia ≈ 60 cm): è la corsia che un cavo dell'altro tipo evita (R11) */
 function _occMark(m, poly){
@@ -14856,6 +14860,7 @@ function _astarOrth(a,b,rects,kind){
   var rs=orthRects(a,b,rects);
   var ex=ORTH_EX[kind]!=null?ORTH_EX[kind]:ORTH_EX.sig, lanePos=kind==="pwr"?18:45, fuori=(kind==="mc") || orthStageEdge(bl,a[0],a[1])<0 || orthStageEdge(bl,b[0],b[1])<0;
   /* L4: un capo nella fascia pubblico (spia, cantante in prima fila) → il cavo non paga la fascia; occupazione dell'altro tipo; fascia spie; zone di spie e passaggi */
+  var corr=(kind!=="pwr" && kind!=="mc")?_orthCtx.corr:null;   /* L7: corridoi fra le file */
   var frontEnd=(a[1]>D-90 || b[1]>D-90), occ=(kind!=="pwr" && _orthCtx.occ)?_orthCtx.occ:null, bandY=(kind!=="mc" && _orthCtx.band!=null)?_orthCtx.band:null;
   var zrs=rs.filter(function(r){ return r.zx0!=null; }).map(function(r){ var inz=function(p){ return p[0]>r.zx0 && p[0]<r.zx1 && p[1]>r.zy0 && p[1]<r.zy1; }; return {r:r, off:!!(r.pass && (inz(a)||inz(b)))}; });
   function tentativo(win, step, perm){
@@ -14884,6 +14889,7 @@ function _astarOrth(a,b,rects,kind){
           else { if(Math.abs(e-lanePos)<=8) c=0.5; else if(e<120) c=0.8; else c=1+ex*Math.min(1.5,(e-120)/200+0.5);
             if(kind==="mc" && Math.abs((D-y)-45)<=8) c=0.5;
             if(y>D-90 && kind!=="mc" && !frontEnd) c+=0.8; }
+          if(corr && e>=0 && c>CAB_COSTO_CORR){ for(var cq=0;cq<corr.length;cq++){ if(y>=corr[cq][0] && y<=corr[cq][1]){ c=CAB_COSTO_CORR; break; } } }   /* L7: un corridoio fra le file costa meno di qualsiasi altra cella interna */
           for(var q=0;q<near.length;q++){ var r=near[q]; if(x>r.x0 && x<r.x1 && y>r.y0 && y<r.y1){ c+=0.4; break; } }
           if(bandY!=null && y>=bandY && Math.abs(x-a[0])+Math.abs(y-a[1])>CAB_FASCIA_RAGGIO && Math.abs(x-b[0])+Math.abs(y-b[1])>CAB_FASCIA_RAGGIO) c+=CAB_COSTO_FASCIA;   /* tra le file davanti e le spie: un cavo non ci corre, ci arriva solo */
           for(var zq=0;zq<zrs.length;zq++){ var zz=zrs[zq], zr=zz.r; if(x>zr.zx0 && x<zr.zx1 && y>zr.zy0 && y<zr.zy1){ if(zr.mon){ if(kind!=="mc") c+=CAB_COSTO_MON; } else if(!zz.off) c+=CAB_COSTO_PASS; } }
@@ -14946,6 +14952,24 @@ function orthRoute(a,b,rects,kind,keep){   /* percorso ortogonale a→b che aggi
 }
 /* L3: in stile «come sul palco» (orto, di serie) ogni tratto si instrada con costo minimo; in stile «diretto» (scelto o già segnato a mano) i punti restano grezzi come prima.
    kind = sig (segnale, default) · mc (multicore verso la regia) · pwr (potenza) · ret (ritorni). */
+/* L7 (R25): negli organici numerosi (≥ CAB_CORR_MIN ingombri) le bande di y libere da qualsiasi ingombro, comprese fra due file, sono i «corridoi cavi»: il cavo di segnale ci costa meno
+   (0,7 invece di ≥ 1) e li preferisce. Servono ≥ 60 cm liberi (margini di rispetto compresi): senza varco un cavo deve attraversare le file (avviso «nessun varco»). */
+var CAB_CORR_MIN=40, CAB_CORR_LARG=60, CAB_COSTO_CORR=0.7;
+function cabCorridoi(allObs){
+  if(allObs.__corr!==undefined) return allObs.__corr;
+  var iv=allObs.filter(function(r){ return !r.riser && !r.pass; }).map(function(r){ return [r.y0,r.y1]; });
+  var out=null;
+  if(iv.length>=CAB_CORR_MIN){ iv.sort(function(a,b){ return a[0]-b[0]; }); var cur=iv[0][1], g=[];
+    for(var i=1;i<iv.length;i++){ var a=iv[i][0]; if(a-cur>=CAB_CORR_LARG) g.push([cur+8, a-8]); if(iv[i][1]>cur) cur=iv[i][1]; }
+    if(g.length) out=g; }
+  allObs.__corr=out; return out;
+}
+/* i corridoi valgono solo per gli ORGANICI NUMEROSI (≥ CAB_ORGANICO_NUMEROSO sorgenti con ingressi, come per le pedane): un palco con tante cose ma pochi musicisti non cambia */
+function cabCorridoiProgetto(allObs){
+  if(allObs.__corrP!==undefined) return allObs.__corrP;
+  var n=0; try{ (state.items||[]).forEach(function(it){ if(!cabIsDest(it) && cabItemInputs(it).length) n++; }); }catch(_e){ n=0; }
+  allObs.__corrP=(n>=CAB_ORGANICO_NUMEROSO) ? cabCorridoi(allObs) : null; return allObs.__corrP;
+}
 function cabRoutePts(pts, allObs, exclude, kind){   /* route ogni segmento consecutivo, escludendo gli ostacoli-estremo */
   if(cabRouteMode()!=="orto") return pts;
   if(!allObs||!allObs.length||!pts||pts.length<2) return pts;
@@ -14958,7 +14982,7 @@ function cabRoutePts(pts, allObs, exclude, kind){   /* route ogni segmento conse
   var exk=exclude ? Object.keys(exclude).sort().join(",") : "";
   /* L4: i cavi di segnale evitano le corsie dei cavi di potenza (R11/R12: la potenza si posa per prima, il segnale la rispetta) */
   var occ=(kind==="pwr") ? null : cabOccupancy(allObs);
-  _orthCtx={occ:occ, band:allObs.__band==null?null:allObs.__band};
+  _orthCtx={occ:occ, band:allObs.__band==null?null:allObs.__band, corr:(kind==='sig'||kind==='ret'||kind==null)?cabCorridoiProgetto(allObs):null};
   var occId=occ ? occ.id : 0;
   var out=[pts[0]];
   for(var i=1;i<pts.length;i++){
@@ -14966,7 +14990,7 @@ function cabRoutePts(pts, allObs, exclude, kind){   /* route ogni segmento conse
     if(!seg){ seg=orthRoute(pts[i-1],pts[i],rects,kind,pts.length>2); _orthCache.m[key]=seg; _orthCache.n++; }
     if(seg.murato) out.murato=true;
     for(var j=1;j<seg.length;j++) out.push(seg[j]); }
-  _orthCtx={occ:null, band:null};
+  _orthCtx={occ:null, band:null, corr:null};
   return out;
 }
 /* ───── L4 (16/11/2026, CAVI_SUL_PALCO R11-R13): corsie separate segnale/potenza, fasci con scostamento, avviso dei tratti paralleli ─────
@@ -14984,7 +15008,7 @@ function cabOccupancy(OBS){
   if(!state.elec || !state.elec.on || cabRouteMode()!=="orto") return null;
   var sig=(state.items||[]).map(function(it){ return it.id+":"+it.x+","+it.y+","+(it.rot||0)+","+(it.w||"")+","+(it.d||""); }).join(";")+"|"+orthStageSig()+"|"+JSON.stringify([state.elec.manual||null, state.elec.uplinks||null, state.elec.supply||null, state.elec.mode||null, state.elec.phase3, state.cab&&state.cab.home]);
   if(_orthOcc.sig===sig) return _orthOcc.o;
-  var saved=_orthCtx; _orthCtx={occ:null, band:null};
+  var saved=_orthCtx; _orthCtx={occ:null, band:null, corr:null};
   var m={}, n=0;
   try{ elecRouteList(elecResult()).forEach(function(r){ var poly=orthExpand(cabRoutePts(r.pts, OBS, r.ex, "pwr")); _occMark(m, poly); n++; }); }catch(_e){ n=0; }
   _orthCtx=saved;
@@ -15148,6 +15172,10 @@ function cabRouteInfo(){
   pass.voci.forEach(function(v){
     if(v.tipo==="passaggio") issues.push({lvl:"warn", rule:"cab-pass:"+v.dove, msg:"Cavo costretto ad attraversare un passaggio («"+v.dove+"», "+fm(v.cm)+" m, "+v.n+" cav"+(v.n===1?"o":"i")+"): serve passacavo rampato."});
     else issues.push({lvl:"info", rule:"cab-pass-uscita", msg:"Uscita del multicore verso la sala: passacavo rampato di "+String(v.m).replace(".",",")+" m."}); });
+  /* L7: organico numeroso e nessun varco fra le file → i cavi devono attraversarle */
+  var _mur=routes.filter(function(r){ return r.murato && r.kind==="sig"; });
+  if(_mur.length && (function(){ var n=0; (state.items||[]).forEach(function(it){ if(!cabIsDest(it) && cabItemInputs(it).length) n++; }); return n>=CAB_ORGANICO_NUMEROSO; })())
+    issues.push({lvl:"warn", rule:"cab-varco", msg:_mur.length+" cav"+(_mur.length===1?"o attraversa":"i attraversano")+" le file perché non c'è un varco: lascia un corridoio di almeno "+CAB_CORR_LARG+" cm fra le file (per esempio fra gli archi) per i cavi dei microfoni."});
   var v={par:par, pass:pass, issues:issues, routes:routes}; _rtIssCache={sig:sig, v:v}; return v;
 }
 function cabPassacavoTesto(){
@@ -15312,6 +15340,55 @@ function cabItemHalf(it){
   var t=TYPES[it.type]||{}, w=+it.w||t.w||40, d=+it.d||t.d||40, r=(it.rot||0)*Math.PI/180, c=Math.abs(Math.cos(r)), s=Math.abs(Math.sin(r));
   return {hx:(w*c+d*s)/2, hy:(w*s+d*c)/2};
 }
+/* ───── L7 (16/11/2026, CAVI_SUL_PALCO § 4 L7 + risposta di Simone: «stagebox piccole da 8 canali che vanno alle stagebox dei convertitori tipo Rio a lato palco, poi rete Dante al mixer») ─────
+   Organici numerosi: drop box piccole (8 canali di serie, 12/16/32 a scelta) vicino alle sezioni → RACK CONVERTITORE a lato palco (32 canali, generico finché
+   non c'è il catalogo dei modelli) → UNA linea digitale (Dante, Cat6 ≤ 100 m, fibra oltre) fino all'uscita verso il mixer. Sotto CAB_RACK_AUTO_MIN box il multicore
+   analogico resta com'era; `state.cab.digitale` true/false lo forza. Gli elementi su una stessa pedana sono UN gruppo (una uscita dalla pedana). */
+var CAB_TAGLIE=[8,12,16,32], CAB_RACK_CH=32, CAB_RACK_W=76, CAB_RACK_D=44, CAB_RACK_AUTO_MIN=5, CAB_ORGANICO_NUMEROSO=30, CAB_SIZES_AUTO=[8,12,16,24,32,48];
+var CAB_AUTO_RACK_HW={brand:"Generico", model:"Rack convertitore", proto:["dante"], in:CAB_RACK_CH, out:0, pre:true, casc:true, power:"AC", v:false};
+function cabAutoTaglia(){ var t=+(state.cab&&state.cab.autoTaglia); return CAB_TAGLIE.indexOf(t)>=0 ? t : 8; }
+/* L7: voci per la lista dei materiali e il PDF — drop box per taglia, rack convertitori, cavi di rete per mezzo (i tagli dei multicore/sub-snake li dà cabMateriali, L6) */
+function cabMaterialiL7(R){
+  var out=[]; if(!R || !R.boxes) return out;
+  var db=R.boxes.filter(function(b){ return b.auto && !b.rackAuto; }), rk=R.boxes.filter(function(b){ return b.rackAuto; });
+  function perTaglia(arr){ var t={}; arr.forEach(function(b){ t[b.cap]=(t[b.cap]||0)+1; }); return Object.keys(t).map(Number).sort(function(a,b){ return a-b; }).map(function(c){ return t[c]+"× "+c+" ch"; }).join(" · "); }
+  if(db.length) out.push(["Drop box", perTaglia(db)+" (stagebox analogiche vicino alle sezioni)"]);
+  if(rk.length) out.push(["Rack convertitore", perTaglia(rk)+" a lato palco (Dante, generico)"]);
+  if(rk.length){ var N=netEngine(), m={}; (N.runs||[]).forEach(function(r){ var k2=r.medium+(r.red?" (doppia)":""); m[k2]=(m[k2]||0)+(r.red?2:1); });
+    var tx=Object.keys(m).map(function(k2){ return m[k2]+"× "+k2; }).join(" · "); if(tx) out.push(["Rete Dante", tx+" dai rack all'uscita verso il mixer"]); }
+  return out;
+}
+function cabAutoDigitale(nBox){ var v=state.cab&&state.cab.digitale; if(v===true) return nBox>=1; if(v===false) return false; return nBox>=CAB_RACK_AUTO_MIN; }
+/* la pedana su cui sta la MAGGIORANZA (≥ 70 %) degli elementi di un pezzo: la box nasce al bordo della pedana, e i cavi escono dalla pedana una volta sola */
+function cabPedanaDiPezzo(its){ if(!its.length) return null; var cnt={}, tot=0, best=null;
+  its.forEach(function(it){ var pd=isRiser(it)?null:pedanaSottoPunto(state.items, it.x, it.y); if(pd && !pd.rackId){ cnt[pd.id]=(cnt[pd.id]||0)+1; tot++; if(!best || cnt[pd.id]>cnt[best.id]) best=pd; } });
+  return (best && cnt[best.id]>=0.7*its.length) ? best : null; }
+function cabCapPezzo(n, tg){ if(n<=tg) return tg; for(var i=0;i<CAB_SIZES_AUTO.length;i++){ if(CAB_SIZES_AUTO[i]>=n) return CAB_SIZES_AUTO[i]; } return CAB_SIZES_AUTO[CAB_SIZES_AUTO.length-1]; }
+/* un rack sul bordo laterale (lato dei gruppi che serve), nella cella libera più vicina all'altezza dei suoi gruppi; mai su un elemento, ≥ 90 cm da un'altra box */
+function cabPlaceRack(side, cy, taken){
+  var W=state.stage.w, D=state.stage.d, x=(side==="left") ? CAB_RACK_W/2+12 : W-CAB_RACK_W/2-12, yMin=CAB_RACK_D/2+CAB_BOX_SOPRA, yMax=D-CAB_BOX_PUBBLICO-CAB_RACK_D/2, best=null;
+  var hn=state.items.length, F=[];
+  state.items.forEach(function(it){ var t=TYPES[it.type]; if(!t || CAB_OBS_SKIP[it.type]) return; var h=cabItemHalf(it); F.push([it.x,it.y,h.hx+CAB_RACK_W/2+4,h.hy+CAB_RACK_D/2+4]); });
+  function libero(y){ if(y<yMin||y>yMax) return false;
+    for(var i=0;i<F.length;i++){ if(Math.abs(x-F[i][0])<F[i][2] && Math.abs(y-F[i][1])<F[i][3]) return false; }
+    for(var j=0;j<taken.length;j++) if(Math.hypot(x-taken[j].x, y-taken[j].y)<90) return false;
+    return true; }
+  for(var k=0; k<=60 && !best; k++){ var offs=k?[cy+k*30, cy-k*30]:[cy]; for(var q=0;q<offs.length;q++){ if(libero(offs[q])){ best=offs[q]; break; } } }
+  return {x:Math.round(x), y:Math.round(best!=null?best:Math.min(yMax,Math.max(yMin,cy))), side:side};
+}
+/* i rack di una proposta: le box (da sinistra a destra) riempiono un rack da 32 canali alla volta; ogni rack sta sul lato più vicino al suo gruppo di box */
+function cabAutoRacks(bxs, taken){
+  var W=state.stage.w, ord=bxs.slice().sort(function(a,b){ return (a.x-b.x)||(a.y-b.y); }), chunks=[], cur=[], tot=0, out=[];
+  ord.forEach(function(b){ var n=b.planCh||b.cap; if(cur.length && tot+n>CAB_RACK_CH){ chunks.push(cur); cur=[]; tot=0; } cur.push(b); tot+=n; });
+  if(cur.length) chunks.push(cur);
+  chunks.forEach(function(ch,k){
+    var cx=ch.reduce(function(a,b){ return a+b.x; },0)/ch.length, cy=ch.reduce(function(a,b){ return a+b.y; },0)/ch.length, side=(cx<W/2)?"left":"right";
+    var pos=cabPlaceRack(side, cy, taken.concat(out)), n=ch.reduce(function(a,b){ return a+(b.planCh||b.cap); },0);
+    var rk={x:pos.x, y:pos.y, w:CAB_RACK_W, d:CAB_RACK_D, cap:(n<=12?16:CAB_RACK_CH), used:0, outCap:0, usedOut:0, auto:true, rackAuto:true, rackN:k+1, id:"rack"+(k+1), hw:null, name:"RACK "+(n<=12?16:CAB_RACK_CH)+"ch Dante",
+      foh:false, sbId:null, res:[], resMap:{}, taken:{}, pins:{}, planCh:n};
+    ch.forEach(function(b){ b.toRack=rk.id; }); out.push(rk); });
+  return out;
+}
 function cabPlaceAutoBox(its, taken){
   var W=state.stage.w, D=state.stage.d, T=TYPES.stagebox||{}, bw=(T.w||33)/2+4, bd=(T.d||17)/2+4;
   var x0=Infinity,x1=-Infinity,y0=Infinity,y1=-Infinity, cx=0, cy=0;
@@ -15394,45 +15471,54 @@ function audioCablingEngine(){
   if(!manualMode && !boxes.length && totIn){
     /* L2: prima si decide QUANTI pezzi (gruppi per box), poi dove stanno. Un pezzo lontano da ogni bordo (box in mezzo al palco,
        nel passaggio fra i musicisti) si accorpa a un pezzo vicino se i canali stanno nella stessa box da 8 */
-    var _pezzi=[];
-    cabClusters(groups, 320).forEach(function(c){        /* soglia 3,2 m: batteria/tastiere/sezioni/voci diventano cluster distinti */
-      /* più box nello stesso cluster: i gruppi, da sinistra a destra, riempiono una box da 8 alla volta; uno strumento da più di 8
-         canali (batteria = cavo unico) ha la sua box. Così nessuna box mescola strumenti lontani solo per fare numero */
-      var gs=c.groups.slice().sort(function(a,b2){ return (a.it.x-b2.it.x) || (a.it.y-b2.it.y); }), cur=[], tot=0;
-      gs.forEach(function(g){
-        var n=g.list.length;
-        if(cur.length && (tot+n>8 || n>8)){ _pezzi.push(cur); cur=[]; tot=0; }
-        cur.push(g); tot+=n;
-        if(n>8){ _pezzi.push(cur); cur=[]; tot=0; }
-      });
-      if(cur.length) _pezzi.push(cur);
-    });
+    var _tg=cabAutoTaglia(), _pezzi=[], _numeroso=(groups.length>=CAB_ORGANICO_NUMEROSO);
     function _pn(pz){ return pz.reduce(function(a,g){ return a+g.list.length; },0); }
     function _pc(pz){ return {x:pz.reduce(function(a,g){ return a+g.it.x; },0)/pz.length, y:pz.reduce(function(a,g){ return a+g.it.y; },0)/pz.length}; }
+    /* L7: se la maggioranza degli elementi di un pezzo sta su una pedana (organici numerosi), la pedana entra nell'ingombro: la box nasce al suo bordo e il cavo esce dalla pedana una volta sola */
+    function _its(pz){ var l=pz.map(function(g){ return g.it; }); if(_numeroso){ var pd=cabPedanaDiPezzo(l); if(pd) l.push(pd); } return l; }
+    function _spezza(gsIn){
+      /* più box nello stesso cluster: i gruppi, da sinistra a destra, riempiono una box alla volta; uno strumento da più canali della box
+         (batteria = cavo unico) ha la sua box. Così nessuna box mescola strumenti lontani solo per fare numero */
+      var gs=gsIn.slice().sort(function(a,b2){ return (a.it.x-b2.it.x) || (a.it.y-b2.it.y); }), cur=[], tot=0;
+      function chiudi(){ if(cur.length) _pezzi.push(cur); cur=[]; tot=0; }
+      gs.forEach(function(g){
+        var n=g.list.length;
+        if(cur.length && (tot+n>_tg || n>_tg)) chiudi();
+        cur.push(g); tot+=n;
+        if(n>_tg) chiudi();
+      });
+      chiudi();
+    }
+    cabClusters(groups, 320).forEach(function(c){ _spezza(c.groups); });   /* soglia 3,2 m: batteria/tastiere/sezioni/voci diventano cluster distinti */
     for(var _g=0; _g<40 && _pezzi.length>1; _g++){
       var _m=null;
       _pezzi.forEach(function(pz,pi){
-        var e=cabPlaceAutoBox(pz.map(function(g){ return g.it; }), []); if(!e.lontano) return; e=e.edge;
+        var e=cabPlaceAutoBox(_its(pz), []); if(!e.lontano) return; e=e.edge;
         var c1=_pc(pz), best=null;
-        _pezzi.forEach(function(q,qi){ if(qi===pi || _pn(pz)+_pn(q)>8) return;
+        _pezzi.forEach(function(q,qi){ if(qi===pi || _pn(pz)+_pn(q)>_tg) return;
           var c2=_pc(q), d=Math.hypot(c1.x-c2.x, c1.y-c2.y); if(d<=CAB_BOX_ACCORPA_DIST && (!best || d<best.d)) best={qi:qi,d:d}; });
         if(best && (!_m || e>_m.e)) _m={pi:pi, qi:best.qi, e:e};   /* si accorpa prima il più lontano dal bordo */
       });
       if(!_m) break;
       _pezzi[_m.qi]=_pezzi[_m.qi].concat(_pezzi[_m.pi]); _pezzi.splice(_m.pi,1);
     }
-    var _taken=[];
+    var _taken=[], _autoB=[];
     _pezzi.forEach(function(pezzo){
-      var pos=cabPlaceAutoBox(pezzo.map(function(g){ return g.it; }), _taken); _taken.push(pos);
+      var pos=cabPlaceAutoBox(_its(pezzo), _taken); _taken.push(pos);
+      var _pnn=_pn(pezzo), _cap=cabCapPezzo(_pnn, _tg);
       /* stessa forma delle box reali: senza taken/pins/res/resMap l'assegnazione porte (takePort)
          crashava appena si cablava senza stage box sul palco (toast "problema imprevisto"). */
-      boxes.push({x:pos.x, y:pos.y, cap:8, used:0, outCap:8, usedOut:0, auto:true, id:"auto"+boxes.length, hw:null, name:"DROP BOX 8ch",
-        foh:false, sbId:null, res:[], resMap:{}, taken:{}, pins:{},
-        plan:pezzo.reduce(function(m,g){ m[g.it.id]=1; return m; },{})});   /* L2: gli elementi per cui la box è stata piazzata */
+      var ab={x:pos.x, y:pos.y, cap:_cap, used:0, outCap:8, usedOut:0, auto:true, id:"auto"+boxes.length, hw:null, name:"DROP BOX "+_cap+"ch",
+        foh:false, sbId:null, res:[], resMap:{}, taken:{}, pins:{}, planCh:_pnn,
+        plan:pezzo.reduce(function(m,g){ m[g.it.id]=1; return m; },{})};   /* L2: gli elementi per cui la box è stata piazzata */
+      boxes.push(ab); _autoB.push(ab);
     });
-    issues.push({lvl:"info", msg:"Nessuna stage box sul palco: proposte "+boxes.length+" drop box da 8ch vicino ai gruppi. Trascina una stage box reale dal catalogo per fissarla."});
+    /* L7: rack convertitori a lato palco (Dante verso il mixer) quando le drop box sono tante */
+    var _racks=cabAutoDigitale(_autoB.length) ? cabAutoRacks(_autoB, _taken) : [];
+    _racks.forEach(function(rk){ boxes.push(rk); });
+    issues.push({lvl:"info", msg:"Nessuna stage box sul palco: proposte "+_autoB.length+" drop box da "+_tg+" ch vicino ai gruppi"+(_racks.length?(" e "+_racks.length+" rack convertitor"+(_racks.length===1?"e":"i")+" a lato palco (rete Dante verso il mixer)"):"")+". Trascina una stage box reale dal catalogo per fissarla."});
   }
-  boxes.forEach(function(b,i){ b.letter=String.fromCharCode(65+i);
+  boxes.forEach(function(b,i){ b.letter=b.rackAuto?("R"+b.rackN):String.fromCharCode(65+i);
     /* sigla del patch: su una stage box è la lettera («A1»), su una console è il MODELLO
        («DM3-D 1»). Su un palco col solo mixer, «A1» indicava una box A che non esiste (29/07). */
     b.tag = (b.isMixer && b.mixM) ? b.mixM.model : b.letter; });
@@ -15443,9 +15529,9 @@ function audioCablingEngine(){
   boxes.forEach(function(b){ if(b.sbId){ b.eid=b.sbId; } else { while(_eidTaken[_eidNext]) _eidNext++; b.eid=_eidNext; _eidTaken[_eidNext]=1; } });
   /* ANALOGICA vs RACK I/O (caso reale): la generica è una sub-snake analogica; se sul palco c'è
      un rack I/O digitale, la sua coda entra lì (blocco contiguo di porte) e NON ha un blocco FOH proprio. */
-  boxes.forEach(function(b){ b.digital=!!(b.hw && STAGEBOX_DB[b.hw]); });
+  boxes.forEach(function(b){ b.digital=!!(b.hw && STAGEBOX_DB[b.hw]) || !!b.rackAuto; });
   var _hasDig=boxes.some(function(b){ return b.digital; });
-  function sbToOf(b){ var it2=(state.items||[]).filter(function(x){ return x.id===b.id; })[0]; return (it2&&it2.sbTo)?it2.sbTo:""; }
+  function sbToOf(b){ if(b.toRack) return b.toRack; var it2=(state.items||[]).filter(function(x){ return x.id===b.id; })[0]; return (it2&&it2.sbTo)?it2.sbTo:""; }
   /* il MIXER è il capolinea: non ha una coda da mandare a monte né una snake verso il punto
      principale — è lui il punto principale (29/07). */
   boxes.forEach(function(b){ b.wantUp = !b.digital && !b.isMixer && _hasDig && sbToOf(b)!=="main"; b.up=null; });
@@ -15525,7 +15611,7 @@ function audioCablingEngine(){
     /* con una DI in mezzo la tratta lunga parte da LEI: la box più vicina si misura dalla DI, non dallo strumento */
     /* tappe del cavo in ordine (anello d'uscita → DI): la box più vicina si misura dall'ULTIMA tappa */
     var _wp=cabWaypoints(g.it), _last=_wp.length?_wp[_wp.length-1]:null, _px=_last?_last[0]:g.it.x, _py=_last?_last[1]:g.it.y;
-    var cand=boxes.filter(function(b){ return !b.foh; }).sort(function(a,b){ var da=Math.sqrt(d2(_px,_py,a)), db=Math.sqrt(d2(_px,_py,b));
+    var cand=boxes.filter(function(b){ return !b.foh && !b.rackAuto; }).sort(function(a,b){ var da=Math.sqrt(d2(_px,_py,a)), db=Math.sqrt(d2(_px,_py,b));
       if(Math.abs(da-db)>100) return da-db;
       var la=a.used/(a.cap||1), lb=b.used/(b.cap||1);
       return la!==lb ? la-lb : da-db; });
@@ -15630,13 +15716,16 @@ function audioCablingEngine(){
     var cand=boxes.filter(function(t){ return t.digital && (!toId || t.id===toId); });
     if(!toId) cand.sort(function(t1,t2){ return d2(b.x,b.y,t1)-d2(b.x,b.y,t2); });
     var found=null, p0=0;
-    for(var ci=0; ci<cand.length && !found; ci++){ var t=cand[ci];
+    function cercaRack(lista){ for(var ci=0; ci<lista.length && !found; ci++){ var t=lista[ci];
       for(var p=1; p<=t.cap-N+1; p++){ var free=true;
         for(var k=0;k<N;k++){ if(t.taken[p+k] || t.resMap[p+k]){ free=false; break; } }
-        if(free){ found=t; p0=p; break; } } }
+        if(free){ found=t; p0=p; break; } } } }
+    cercaRack(cand);
+    if(!found && b.toRack){ var _alt=boxes.filter(function(t){ return t.rackAuto && t.id!==b.toRack; }); _alt.sort(function(t1,t2){ return d2(b.x,b.y,t1)-d2(b.x,b.y,t2); }); cercaRack(_alt); }   /* L7: il rack previsto è pieno (la box ha preso più canali del pianificato) → il più vicino con posto */
     if(!found){ issues.push({lvl:"err", msg:"Coda della sub-snake "+b.letter+" ("+N+" ch): nessun rack I/O con "+N+" porte contigue libere — libera porte, togli riservate o aggiungi un rack I/O."}); return; }
     var map={};
     myPorts.forEach(function(mp,ix){ found.taken[p0+ix]=1; found.snkFrom=found.snkFrom||{}; found.snkFrom[p0+ix]=b.letter; map[mp]=p0+ix; });
+    if(found.rackAuto) found.used+=N;   /* L7: il rack automatico non ha sorgenti dirette: le porte prese dalle coda sono i suoi canali in uso */
     b.up={box:found, p0:p0, n:N, map:map, lenM:cabLenFinale(orthLen([[b.x,b.y],[found.x,found.y]]))};
   });
   /* digital snake: home-run da ogni box usata al punto principale; l'analogica con coda va al rack I/O */
@@ -15687,7 +15776,7 @@ function audioCablingEngine(){
   var monConsole=state.items.filter(function(it){ return it.type==="monmix"; })[0]||null;
   var hasWlrack=state.items.some(function(it){ return it.type==="wlrack"; });
   /* riepiloghi */
-  var capTot=boxes.reduce(function(a,b){ return a+b.cap; },0);
+  var capTot=boxes.filter(function(b){ return !b.rackAuto; }).reduce(function(a,b){ return a+b.cap; },0);   /* L7: il rack convertitore non è una capienza in più */
   var cables={}; links.forEach(function(l){ if(l.deleted || l.via) return; var k=l.cut?l.cut+" m":">50 m"; cables[k]=(cables[k]||0)+1; });   /* il conteggio è di CAVI XLR: USB/Dante non ci vanno */
   var diMono=0, diStereo=0;
   groups.forEach(function(g){ if(g.it.type==="dimono"||g.it.type==="distereo") return;
@@ -15716,7 +15805,7 @@ function audioCablingEngine(){
     else if(_pm) issues.push({lvl:"warn", code:"pmnondest",
       msg:"I personal mixer arrivano in rete dal loro rack, non dai cavi di palco: i microfoni vanno a una console, a una stage box o all'interfaccia audio."});
   }
-  var _palcoCap=boxes.filter(function(b){ return !b.foh; }).reduce(function(a,b){ return a+b.cap; },0);
+  var _palcoCap=boxes.filter(function(b){ return !b.foh && !b.rackAuto; }).reduce(function(a,b){ return a+b.cap; },0);
   var _viaN=links.filter(function(l){ return !l.deleted && l.via; }).length;   /* i canali entrati via USB/Dante non occupano ingressi mic/line */
   if((totIn-_viaN)>_palcoCap && boxes.some(function(b){ return !b.foh; })) issues.push({lvl:"err", code:"cap", msg:"Ingressi palco insufficienti: "+(totIn-_viaN)+" canali per "+_palcoCap+" disponibili sul palco"+_mixHint});
   boxes.forEach(function(b){ if(b.used>b.cap) issues.push({lvl:"err", code:"cap", msg:"Stage box "+b.letter+" satura ("+b.used+"/"+b.cap+" ch)."}); });
@@ -15961,7 +16050,7 @@ function cablingMarkup(){
       /* Etichetta multicore (C1, 08/07): la snake box→FOH è il fascio che raccoglie le code — nei plot
          pro si annota col numero di canali. Rende esplicito il bundling già fatto dal motore. */
       if(LBL && state.cab.showLabels!==false && k.box){ var smid=cabMidpoint(orthExpand(dpts));
-        sk+='<text class="cab-lbl cab-snake-lbl" x="'+smid[0].toFixed(1)+'" y="'+(smid[1]-5).toFixed(1)+'" text-anchor="middle">'+(k.box.digital?'rete':'multicore')+' '+k.box.used+' ch'+(state.cab.showLengths?' · '+(k.cut?k.cut+' m':'>100 m'):'')+(k.up?' → '+(k.up.box.sbId?('ID'+k.up.box.sbId):k.up.box.letter):'')+'</text>'; }
+        sk+='<text class="cab-lbl cab-snake-lbl" x="'+smid[0].toFixed(1)+'" y="'+(smid[1]-5).toFixed(1)+'" text-anchor="middle">'+(k.box.digital?'rete':(k.up?'sub-snake':'multicore'))+' '+k.box.used+' ch'+(state.cab.showLengths?' · '+(k.cut?k.cut+' m':'>100 m'):'')+(k.up?' → '+(k.up.box.sbId?('ID'+k.up.box.sbId):k.up.box.letter):'')+'</text>'; }
       s+='<g class="cabgrp" data-own="'+esc(k.box&&k.box.id||'')+'">'+sk+'</g>';   /* C3: fade se non collegato all'elemento in hover */
     });
     var linkS='', loomPolys=[], drawnKey={};   /* C1: percorsi raccolti per il calcolo dei fasci */
@@ -16079,7 +16168,8 @@ function cablingMarkup(){
   }
   /* ── stage box + badge in/out (infrastruttura condivisa) ── */
   R.boxes.forEach(function(b){
-    if(b.auto) s+='<g class="cab-ghost"><rect x="'+(b.x-30)+'" y="'+(b.y-22)+'" width="60" height="44" rx="7"/><text x="'+b.x+'" y="'+(b.y+4)+'" text-anchor="middle">'+esc(b.letter)+' · 8ch</text></g>';
+    if(b.rackAuto) s+='<g class="cab-ghost cab-rack"><rect x="'+(b.x-b.w/2)+'" y="'+(b.y-b.d/2)+'" width="'+b.w+'" height="'+b.d+'" rx="6"/><text x="'+b.x+'" y="'+(b.y+4)+'" text-anchor="middle">'+esc(b.letter)+' · rack '+b.cap+'ch Dante</text></g>';
+    else if(b.auto) s+='<g class="cab-ghost"><rect x="'+(b.x-30)+'" y="'+(b.y-22)+'" width="60" height="44" rx="7"/><text x="'+b.x+'" y="'+(b.y+4)+'" text-anchor="middle">'+esc(b.letter)+' · '+b.cap+'ch</text></g>';
     /* Stagebox coerente con gli I/O (Simone 21/07, variante A): due barre sopra la box — ingressi
        (teal) e uscite (ciano) — che si riempiono in base agli input/output assegnati. */
     var BW=Math.max(34,(b.w||58)), bx0=b.x-BW/2, showOut=b.outCap>0, y0=b.y-(b.d||46)/2-(showOut?16:9);   /* sopra il bordo alto della box, larghe quanto lei: due barre da 5 + aria */
@@ -18306,7 +18396,8 @@ var NET_PROTO_SPEC = {
 function netEngine(){
   if(!state.cab || !state.cab.on) return {runs:[], issues:[]};
   var R=cabResult(); if(!R) return {runs:[], issues:[]};
-  var mx=R.mixer && MIXER_DB[R.mixer]; if(!mx) return {runs:[], issues:[]};
+  var _raut=(R.boxes||[]).some(function(b){ return b.rackAuto; });   /* L7: rack convertitori automatici = rete Dante anche senza un modello di mixer scelto */
+  var mx=(R.mixer && MIXER_DB[R.mixer]) || (_raut ? {proto:["dante"]} : null); if(!mx) return {runs:[], issues:[]};
   var runs=[], issues=[], OBS=obstacleRects(), mgn=1+(state.cab.margin||30)/100;
   /* F3: switch esplicito sul palco → i protocolli switchabili (Dante/AVB) vanno a stella sullo switch,
      con un solo trunk switch→console; i punto-punto (AES50, gigaACE…) restano diretti. */
@@ -18314,9 +18405,9 @@ function netEngine(){
   var sw=sws[0]||null, red=!!state.netRed, swUsed=0, trunkDone=false;
   if(sws.length>1) issues.push({lvl:"info", msg:sws.length+" switch sul palco: la rete considera il primo ("+(sw.label||"Switch")+")."});
   (R.snakes||[]).forEach(function(k){
-    var b=k.box; if(!b || !b.hw || !STAGEBOX_DB[b.hw]) return;   /* solo box reali con hardware digitale */
-    var common=mx.proto.filter(function(p){ return STAGEBOX_DB[b.hw].proto.indexOf(p)>=0; });
-    var proto=common[0]||STAGEBOX_DB[b.hw].proto[0];   /* se incompatibile il cab già segnala: qui il proto della box */
+    var b=k.box, hwd=b && (b.rackAuto ? CAB_AUTO_RACK_HW : (b.hw && STAGEBOX_DB[b.hw])); if(!hwd) return;   /* solo box con hardware digitale (reali, o il rack convertitore automatico) */
+    var common=mx.proto.filter(function(p){ return hwd.proto.indexOf(p)>=0; });
+    var proto=common[0]||hwd.proto[0];   /* se incompatibile il cab già segnala: qui il proto della box */
     var spec=NET_PROTO_SPEC[proto]; if(!spec) return;
     var toSw=!!(sw && spec.switchable);
     var ex={}; if(b.id) ex[b.id]=1; if(toSw && sw.id) ex[sw.id]=1;
@@ -18341,7 +18432,7 @@ function netEngine(){
   });
   /* topologia */
   if(!sw && runs.filter(function(r){ return r.spec.switchable; }).length>=2)
-    issues.push({lvl:"warn", msg:"Più box "+runs.filter(function(r){return r.spec.switchable;}).map(function(r){return AUDIO_PROTO[r.proto];}).filter(function(v,i,a){return a.indexOf(v)===i;}).join("/")+" in rete: trascina uno «Switch rete» dal catalogo (QoS/DSCP attivo) al punto principale."});
+    issues.push({lvl:runs.filter(function(r){ return r.spec.switchable; }).every(function(r){ return r.box && r.box.rackAuto; })?"info":"warn", msg:"Più box "+runs.filter(function(r){return r.spec.switchable;}).map(function(r){return AUDIO_PROTO[r.proto];}).filter(function(v,i,a){return a.indexOf(v)===i;}).join("/")+" in rete: trascina uno «Switch rete» dal catalogo (QoS/DSCP attivo) al punto principale."});
   if(!sw && runs.some(function(r){ return r.spec.redundant; }))
     issues.push({lvl:"info", msg:"Protocollo con ridondanza: prevedi rete primaria + secondaria (doppio cavo e porte dedicate)."});
   /* COMPUTER IN DANTE (31/07): un portatile col Dante Virtual Soundcard è un nodo di rete a tutti
@@ -18376,6 +18467,9 @@ function netEngine(){
   var swPorts=sw?Math.max(4,Math.min(48,+sw.swPorts||8)):0;
   if(sw && swUsed>swPorts)
     issues.push({lvl:"err", msg:"Switch "+(sw.label||"rete")+": servono "+swUsed+" porte ("+(red?"Primary+Secondary":"Primary")+"), il modello ne ha "+swPorts+"."});
+  /* L7: oltre 32 sorgenti su rack in rete, la rete primaria + secondaria è un'opzione consigliata (solo avviso informativo, chiusa di serie) */
+  if(_raut && (R.sources||[]).length>32 && !red)
+    issues.push({lvl:"info", rule:"cab-rete-ridondante", msg:"Oltre 32 sorgenti su rete Dante: valuta la rete ridondante (primaria + secondaria su due switch) con l'opzione «Ridondanza» dello Switch rete."});
   if(sw && red && !runs.some(function(r){ return r.spec.redundant; }))
     issues.push({lvl:"info", msg:"Ridondanza attiva ma nessun protocollo ridondante in rete: l'interruttore non ha effetto."});
   return {runs:runs, issues:issues, sw:sw, swUsed:swUsed, swPorts:swPorts, red:red};
@@ -29981,6 +30075,14 @@ function renderLayerRow(L, container){
        sulla riga della lista competente (ingressi, monitor, carichi). */
     /* L3 (15/11/2026): «Cavi: come sul palco / diretti» — scelta del PROGETTO (vale per Input, Output, P.M. ed Elettrico). Di serie ortogonale;
        «diretto» = linea retta come prima e il cavo si squadra col comando «Segmenta». */
+    /* L7: drop box da 8 (12/16/32) e rack convertitore a lato palco — solo dove le box sono proposte dal motore */
+    if(L.id==="cabin"){ var rkw=document.createElement("div"); rkw.className="layer-adv layer-cabstyle"; rkw.id="cabRackSw"; rkw.setAttribute("role","group"); rkw.setAttribute("aria-label","Drop box e rack digitale");
+      function _grp(lbl, opts, cur, fn){ var sp=document.createElement("span"); sp.className="adv-lbl"; sp.textContent=lbl; sp.style.cssText="font-size:11px;opacity:.75;margin:0 4px 0 2px"; rkw.appendChild(sp);
+        opts.forEach(function(o){ var bt=document.createElement("button"); bt.type="button"; bt.className="adv-btn"+(cur===o[0]?" on":""); bt.textContent=o[1]; bt.title=o[2]; bt.setAttribute("aria-pressed", cur===o[0]?"true":"false");
+          bt.addEventListener("click", function(e){ e.stopPropagation(); fn(o[0]); }); rkw.appendChild(bt); }); }
+      _grp("Drop box", CAB_TAGLIE.map(function(n){ return [n, n+" ch", "Drop box da "+n+" canali (8 di serie)"]; }), cabAutoTaglia(), cabSetTaglia);
+      _grp("Rack", [["auto","Auto","Rack convertitore Dante a lato palco dalle 5 box in su"],["si","Sì","Sempre rack convertitore a lato palco"],["no","No","Solo multicore analogico"]], (state.cab.digitale===true?"si":(state.cab.digitale===false?"no":"auto")), cabSetDigitale);
+      body.appendChild(rkw); }
     if(["cabin","cabout","mond","elec"].indexOf(L.id)>=0){ var rt=document.createElement("div"); rt.className="layer-adv layer-cabstyle";
       rt.setAttribute("role","group"); rt.setAttribute("aria-label","Cavi: come sul palco o diretti"); rt.id="cabRouteSw";
       [["orto","Come sul palco","Cavi ad angoli retti lungo i bordi del palco, senza passare sopra i musicisti"],["dir","Diretti","Linea retta fra i punti; un cavo si squadra col comando «Segmenta»"]].forEach(function(o){
@@ -33538,6 +33640,7 @@ function renderInspectorB(){
         : '<div class="insp-fix insp-fix-static">Aggiungi una stage box più capiente (catalogo › Audio › Stagebox e cablaggio)</div>';
     }
     if(boxesTxt) s+=ir("Stage box", boxesTxt);
+    try{ cabMaterialiL7(R).forEach(function(r){ s+=ir(r[0], r[1]); }); }catch(_e){}   /* L7: drop box per taglia, rack, sub-snake, cavi di rete */
     if(xlr) s+=ir("Cavi XLR", xlr);
     if(_mat && _mat.nMc) s+=ir(((R.snakes||[]).every(function(k){ return k.box&&k.box.digital; })?"Cavi di rete":"Multicore"), _mat.testo.mc);
     if(elc) s+=ir("Cavi elettrici", elc);
@@ -36381,7 +36484,7 @@ function cabReportPdf(shared){
     line("Input audio totali: "+R.totIn+" / "+R.capTot+" canali disponibili", 10, false, null, 5);
     R.boxes.forEach(function(b){
       var hw=b.hw&&STAGEBOX_DB[b.hw];
-      line("Stage box "+b.letter+": "+(hw?hwLabel(b.hw,STAGEBOX_DB)+" — "+hwProtoNames(hw.proto):b.name)+"  ("+b.used+"/"+b.cap+" ch"+(b.auto?", proposta 8ch":"")+")", 9.5, false, null, 4.8);
+      line("Stage box "+b.letter+": "+(hw?hwLabel(b.hw,STAGEBOX_DB)+" — "+hwProtoNames(hw.proto):b.name)+"  ("+b.used+"/"+b.cap+" ch"+(b.rackAuto?", rack convertitore proposto":(b.auto?", proposta "+b.cap+"ch":""))+")", 9.5, false, null, 4.8);
     });
     /* L6: cavi per taglio (stessa fonte del pannello Stato): XLR, multicore/rete, corrente */
     var MAT=null; try{ MAT=cabMateriali(); }catch(_e){ MAT=null; }
@@ -36391,12 +36494,13 @@ function cabReportPdf(shared){
       if(MAT.nEl) line("Cavi di corrente: "+[MAT.testo.el, MAT.testo.elCee?MAT.testo.elCee+" (CEE)":""].filter(Boolean).join(" · "), 10, false, null, 5);
       if(MAT.nDor) line("Linee di alimentazione: "+MAT.testo.elDor, 10, false, null, 5);
     }
+    try{ cabMaterialiL7(R).forEach(function(r){ line(r[0]+": "+r[1], 10, false, null, 5); }); }catch(_e){}   /* L7 */
     if(R.diMono||R.diStereo) line("DI da prevedere: "+(R.diMono?R.diMono+" mono":"")+(R.diMono&&R.diStereo?" + ":"")+(R.diStereo?R.diStereo+" stereo":""), 10, false, null, 5);
     /* aste: nei rider veri il dato sta qui, come totale ("(3) telescoping boom mic stands") */
     try{ var _sn=standNeeds(), _snParts=STAND_KINDS.filter(function(k){ return _sn[k[0]].tot>0; }).map(function(k){ return _sn[k[0]].tot+" "+k[1].toLowerCase(); });
       if(_snParts.length) line("Supporti microfonici: "+_snParts.join(" · "), 10, false, null, 5);
     }catch(_e){}
-    if(R.snakes && R.snakes.length) line("Digital snake (home-run al punto principale): "+R.snakes.map(function(k){ return k.box.letter+" "+k.lenM.toFixed(0)+" m"; }).join(", "), 10, false, null, 5);
+    if(R.snakes && R.snakes.length) line((R.snakes.some(function(k){ return k.up; })?"Collegamenti verso l'uscita (sub-snake box → rack, poi rete)":"Digital snake (home-run al punto principale)")+": "+R.snakes.map(function(k){ return k.box.letter+" "+k.lenM.toFixed(0)+" m"; }).join(", "), 10, false, null, 5);
     /* L5 (R16): passacavo rampato dove si cammina — voce per il service */
     try{ var _pcp=cabPassacavoTesto(); if(_pcp) line("Passacavo rampato: "+_pcp.testo+(_pcp.attraversa?" — cavo costretto ad attraversare un passaggio":""), 10, !!_pcp.attraversa, _pcp.attraversa?"#b45309":null, 5); }catch(_e){}
     /* L5 — sezione rete/dati: tratte digitali con protocollo, mezzo e lunghezza sul percorso reale */
