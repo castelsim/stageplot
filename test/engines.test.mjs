@@ -35594,7 +35594,7 @@ t("Icone pro: icons-pro.js si carica SOLO quando serve, una volta; finché non c
   ok(/PRO_ICONE_URL="\/icons-pro\.js"/.test(appjs), "indirizzo del file nel codice");
   const prima = A.LIB_ICONS; A.LIB_ICONS = {}; A._proIcoStato = 0;
   try {
-    const vecchio = { type: "mixer", hw: "sq6", w: 40, d: 51, x: 0, y: 0, rot: 0 };   /* progetto di prima: hw senza pro e misura lontana dalla scheda (18/11: entro 1 cm sarebbe riconosciuto) */
+    const vecchio = { type: "mixer", hw: "sq6", label: "A&H SQ-5", w: 64, d: 51, x: 0, y: 0, rot: 0 };   /* progetto di prima: hw senza pro e nome di un altro modello (18/11: col nome giusto sarebbe riconosciuto) */
     A.TYPES.mixer.draw(vecchio);
     eq(A._proIcoStato, 0, "un elemento senza pro:1 non scarica niente");
     const it = Object.assign({ type: "mixer", x: 0, y: 0, rot: 0 }, A.proOver("sq6"));
@@ -35614,13 +35614,16 @@ t("Icone pro: arrivata l'icona, console, stage rack e modelli col tipo proprio u
   const rio = L.pro_rio3224d2 ? "rrio" : null;
   if (rio) {
     const vecchio = { type: "stagebox", hw: "rio3224d2", w: 33, d: 17, x: 0, y: 0, rot: 0 };
-    ok(A.TYPES.stagebox.draw(vecchio).indexOf('class="' + rio + "_") < 0, "stage box di un progetto vecchio (senza pro) nella misura generica 33×17: resta il pannello di sempre");
+    ok(A.TYPES.stagebox.draw(vecchio).indexOf('class="' + rio + "_") > -1, "stage box vecchia (senza pro) 33×17 con hw: icona vera e misura di scheda (decisione di Simone 18/11, PRO_MISURE_DI_SCHEDA)");
+    A.PRO_MISURE_DI_SCHEDA = false;
+    try { ok(A.TYPES.stagebox.draw(vecchio).indexOf('class="' + rio + "_") < 0, "con l'interruttore spento (versione a tolleranza) 33×17 resta il pannello di sempre"); } finally { A.PRO_MISURE_DI_SCHEDA = true; }
     const giusta = { type: "stagebox", hw: "rio3224d2", w: 48, d: 37, x: 0, y: 0, rot: 0 };
     ok(A.TYPES.stagebox.draw(giusta).indexOf('class="' + rio + "_") > -1, "stage box vecchia (senza pro) con la misura di scheda entro 1 cm: icona vera (18/11)");
   }
   if (L.pro_sq7) {
     const vecchio = { type: "sq7", w: 70, d: 52, x: 0, y: 0, rot: 0 };
-    ok(A.TYPES.sq7.draw(vecchio).indexOf('class="rsq7_') < 0, "SQ-7 del tipo di sempre ma più stretta di 1 cm dalla scheda: resta l'illustrazione di icons.js");
+    ok(A.TYPES.sq7.draw(vecchio).indexOf('class="rsq7_') > -1, "SQ-7 del tipo di sempre a 70 cm: icona vera nella misura di scheda (decisione 18/11)");
+    ok(A.TYPES.sq7.draw(Object.assign({}, vecchio, { label: "Mixer palco SQ-5" })).indexOf('class="rsq7_') < 0, "SQ-7 con il nome di un altro modello: resta l'illustrazione di icons.js");
     ok(A.TYPES.sq7.draw({ type: "sq7", w: 80, d: 52, x: 0, y: 0, rot: 0 }).indexOf('class="rsq7_') > -1, "SQ-7 del tipo di sempre nella misura di scheda: icona vera (18/11)");
   }
 }));
@@ -36038,6 +36041,118 @@ t("Elenco «I miei progetti»: titolo su 2 righe, poi troncamento al centro con 
   ok(/class="ct-t"/.test(srcUX) && /data-full=/.test(srcUX) && /titoliListaAggiorna\(bodyEl\)/.test(srcUX), "l'elenco chiama il troncamento dopo il rendering");
   ok(/titoloListaTronca\(_cpt, _cpt,/.test(srcUX) && /#cloudPrev \.cp-t\{[^}]*-webkit-line-clamp:2/.test(stylesCss), "anche il titolo dell'anteprima: 2 righe + troncamento");
   ok(/class="cloudTitolo" title="'\+esc\(p\.title/.test(srcUX), "il titolo intero resta nel title");
+});
+
+/* ===== ICONE REALISTICHE NEI PROGETTI ESISTENTI (18/11/2026) =====
+   Simone: le icone del catalogo pro valgono anche nei progetti salvati prima, dove l'elemento è con certezza un modello
+   (tipo legato al modello o hw dei registri di prima + nome compatibile). Solo al disegno: il documento non cambia mai.
+   Dalle 02:05 (decisione «tutto in dimensioni reali, poi lo userò»): l'elemento certo si disegna nella misura vera di scheda
+   (PRO_MISURE_DI_SCHEDA = true); con false torna la prima versione (tolleranza 1 cm + suggerimento «usa misura di scheda»). */
+const prova = (o) => Object.assign({ x: 0, y: 0, rot: 0 }, o);
+t("Icone esistenti 1: DM3 del tipo di sempre → pro_dm3; nome di un altro modello o un altro codice → disegno di sempre", () => {
+  ["Yamaha DM3", "", "DM3 FOH", "DM3 2", "Yamaha DM3 FOH"].forEach((n) => eq(A.proIconaChiave(prova({ type: "dm3", w: 32, d: 46, label: n })), "pro_dm3", "nome «" + n + "»"));
+  ["Yamaha DM4", "DM3 / CL5", "Yamaha DM5"].forEach((n) => eq(A.proIconaChiave(prova({ type: "dm3", w: 32, d: 46, label: n })), null, "nome «" + n + "» toglie la certezza"));
+  eq(A.proIconaChiave(prova({ type: "dm3", w: 32, d: 46, label: "Regia", label2: "DM3 / CL5" })), null, "anche label2 conta");
+  eq(A.proIconaChiave(prova({ type: "dm3", hw: "dm3std", w: 32, d: 46 })), "pro_dm3", "dm3std: stessa icona della DM3 (campo ico)");
+  eq(A.proIconaChiave(prova({ type: "dm3", hw: "x32", w: 32, d: 46 })), null, "hw di un'altra famiglia: niente");
+  ok(A.PRO_DB.dm3 && A.PRO_DB.dm3.mm[0] === 320 && A.PRO_DB.dm3.mm[1] === 455 && A.PRO_DB.dm3.kg === 6.5 && A.PRO_DB.dm3.W === 43 && /p\.16/.test(A.PRO_DB.dm3.src), "DM3 in PRO_DB con la scheda (Owner's Manual p.16)");
+});
+t("Icone esistenti 2: tipi legati a un modello (sq6, hd96 → chiave dell'id del modello, dLive S5000 solo con la misura vera)", () => {
+  eq(A.proIconaChiave(prova({ type: "sq6", w: 64, d: 52 })), "pro_sq6", "sq6 (prima senza tipo in PRO_DB)");
+  eq(A.proIconaChiave(prova({ type: "hd96", w: 103, d: 72 })), "pro_hd9624", "hd96 → l'id del modello, non it.hw");
+  eq(A.proIconaChiave(prova({ type: "dlives5", w: 122, d: 81 })), "pro_dlives5", "dLive S5000: con le misure vere di scheda si disegna a 111,5 × 72,8");
+  const v = A.proVista(prova({ type: "dlives5", w: 122, d: 81 })); eq([v.w, v.d], [111.5, 72.8], "misura di scheda nella vista");
+  ["dm7", "dm7c", "sq5", "avantis", "dlives7"].forEach((tp) => eq(A.proIconaChiave(prova({ type: tp, w: 80, d: 56 })), null, tp + ": fuori catalogo, niente"));
+  A.PRO_MISURE_DI_SCHEDA = false;
+  try {
+    eq(A.proIconaChiave(prova({ type: "dlives5", w: 122, d: 81 })), null, "versione a tolleranza: 122×81 è 10 cm oltre la scheda");
+    eq(A.proIconaChiave(prova({ type: "dlives5", w: 111.5, d: 72.8 })), "pro_dlives5", "versione a tolleranza: 111,5×72,8 sì");
+  } finally { A.PRO_MISURE_DI_SCHEDA = true; }
+});
+t("Icone esistenti 3: stage box con hw di prima (misura generica 33×17) → icona e misura vera; il mixer con quell'hw no", () => {
+  const sb = prova({ type: "stagebox", hw: "rio3224d2", w: 33, d: 17 });
+  eq(A.proIconaChiave(sb), "pro_rio3224d2", "col modello scelto da elenco");
+  const v = A.proVista(sb); eq([v.w, v.d], [48, 36.75], "disegnata a 48 × 36,75");
+  eq([sb.w, sb.d, sb.pro, sb.proDims], [33, 17, undefined, undefined], "il documento non cambia");
+  eq(A.proIconaChiave(prova({ type: "mixer", hw: "rio3224d2", w: 48, d: 37 })), null, "un mixer non può avere l'id di una stage box");
+  eq(A.proIconaChiave(prova({ type: "stagebox", hw: "rio3224d3", w: 48, d: 37 })), null, "hw fuori catalogo (D3): niente");
+  eq(A.proIconaChiave(prova({ type: "stagebox", w: 48, d: 37 })), null, "generica senza hw: niente, anche se la misura coincide");
+  eq(A.proIconaChiave(prova({ type: "stagebox", w: 48, d: 37, label: "Rio3224-D2" })), null, "il nome scritto a mano non basta mai");
+  A.PRO_MISURE_DI_SCHEDA = false;
+  try { eq(A.proIconaChiave(sb), null, "versione a tolleranza: 33×17 → disegno di sempre"); eq(A.proIconaChiave(prova({ type: "stagebox", hw: "rio3224d2", w: 48, d: 36.75 })), "pro_rio3224d2", "a misura sì"); } finally { A.PRO_MISURE_DI_SCHEDA = true; }
+});
+t("Icone esistenti 4: il nome «X32 RACK» o «X32» su un mixer senza hw dà un suggerimento, mai un riconoscimento", () => {
+  const rk = prova({ type: "mixer", label: "X32 RACK" });
+  eq(A.proIconaChiave(rk), null, "nessun riconoscimento");
+  const s1 = A.proSuggerimento(rk); eq([s1.caso, s1.id], [2, "x32r"], "caso 2: Sembra un Behringer X32 RACK");
+  const s2 = A.proSuggerimento(prova({ type: "mixer", label: "Behringer X32" })); eq([s2.caso, s2.famiglia, s2.ids.length], [2, true, 4], "famiglia: quattro modelli");
+  const s3 = A.proSuggerimento(prova({ type: "mixer", label: "Mixer sala" })); eq(s3.caso, 3, "generico senza indizi: una riga");
+  eq(A.proSuggerimento(prova({ type: "mixer", hw: "x32" })), null, "hw valido: riconosciuto, niente suggerimento");
+  eq(A.proSuggerimento(prova({ type: "stagebox", hw: "rio3224d3" })), null, "hw fuori catalogo: niente");
+  eq(A.proSuggerimento(prova({ type: "dm3", w: 32, d: 46 })), null, "DM3 riconosciuta: niente suggerimento");
+});
+t("Icone esistenti 5: numeri fermi — peso, consumo, U, materiali e documento identici; il disegno non scrive nell'elemento", () => {
+  const it = prova({ id: 9, type: "dm3", w: 32, d: 46, label: "Yamaha DM3" }), prima = JSON.stringify(it);
+  eq([A.proKg(it), A.proWatt(it), A.proRackUOf(it)], [null, null, null], "senza pro:1 il catalogo non dà peso, consumo né U");
+  const sb = prova({ id: 8, type: "stagebox", hw: "rio3224d2", w: 33, d: 17 }), prima2 = JSON.stringify(sb);
+  A.conIcone = null;
+  conIconePro(() => { A.TYPES.dm3.draw(it); A.TYPES.stagebox.draw(sb); });
+  eq(JSON.stringify(it), prima, "DM3 invariata dopo il disegno"); eq(JSON.stringify(sb), prima2, "stage box invariata dopo il disegno (misure, pro, hw)");
+  eq(A.SCHEMA_VERSION, 5, "SCHEMA_VERSION resta 5");
+  ok(!/proModelloCerto[\s\S]{0,400}\.pro\s*=\s*1/.test(appjs.slice(appjs.indexOf("function proModelloCerto"), appjs.indexOf("function proModelloCerto") + 900)), "il riconoscimento non mette pro:1");
+});
+t("Icone esistenti 6: versione a tolleranza — «Usa misura e dati di scheda» (hw, pro:1, w/d, proDims) e «Usa questo modello»", () => {
+  A.PRO_MISURE_DI_SCHEDA = false;
+  try {
+    const sb = prova({ type: "stagebox", hw: "rio3224d2", w: 33, d: 17 }), s = A.proSuggerimento(sb);
+    eq([s.caso, s.id], [1, "rio3224d2"], "caso 1"); ok(/48 × 36,75 cm \(qui 33 × 17\)/.test(s.testo), "testo: " + s.testo);
+    ok(A.proUsaScheda(sb, s.id), "il pulsante agisce"); eq([sb.hw, sb.pro, sb.w, sb.d, sb.proDims], ["rio3224d2", 1, 48, 36.75, 1], "hw, pro:1, misura e proDims");
+    const g = prova({ type: "mixer", label: "X32 RACK" }); ok(A.proUsaModello(g, "x32r"), "usa questo modello"); eq([g.hw, g.pro], ["x32r", 1], "come dal selettore");
+    ok(!A.proUsaModello(prova({ type: "stagebox" }), "x32r"), "un modello di un altro tipo non si applica");
+  } finally { A.PRO_MISURE_DI_SCHEDA = true; }
+  eq(A.proSuggerimento(prova({ type: "stagebox", hw: "rio3224d2", w: 33, d: 17 })), null, "col nuovo comportamento (misure vere) niente caso 1");
+});
+t("Icone esistenti 7: CQ-18T pro:1 allargato a 125×150 → icona nella misura di scheda 34,6×24,2 (prima 3,6 volte più grande del vero)", () => {
+  const big = prova({ type: "mixer", hw: "cq18t", pro: 1, w: 125, d: 150 });
+  eq(A.proIconaChiave(big), "pro_cq18t", "icona"); const v = A.proVista(big); eq([v.w, v.d], [34.6, 24.2], "vista"); eq([big.w, big.d], [125, 150], "documento intatto");
+  conIconePro((L) => { const s = A.TYPES.mixer.draw(big); ok(!/scale\(/.test(s.slice(0, 40)), "scala 1: icona nella misura di scheda"); });
+  A.PRO_MISURE_DI_SCHEDA = false;
+  try { eq(A.proIconaChiave(big), null, "versione a tolleranza: oltre 1 cm, niente icona realistica"); eq(A.proIconaChiave(prova({ type: "mixer", hw: "cq18t", pro: 1, w: 34.6, d: 24.2 })), "pro_cq18t", "a misura sì"); } finally { A.PRO_MISURE_DI_SCHEDA = true; }
+});
+t("Icone esistenti 8: icons-pro.js assente → disegno di sempre e UNA sola richiesta; in errore nessun nuovo tentativo", () => {
+  const prima = A.LIB_ICONS; A.LIB_ICONS = {}; A._proIcoStato = 0;
+  try {
+    const it = prova({ type: "dm3", w: 32, d: 46 });
+    const s0 = A.TYPES.dm3.draw(it); ok(s0.length > 0, "disegno di sempre mentre non c'è"); eq(A._proIcoStato === 1 || A._proIcoStato === 3, true, "una richiesta (stato " + A._proIcoStato + ")");
+    const st = A._proIcoStato; A.TYPES.dm3.draw(it); A.TYPES.dm3.draw(it); eq(A._proIcoStato, st, "ridisegnare non richiede di nuovo");
+    A._proIcoStato = 3; eq(A.proIconeCarica(), false, "in errore: nessun nuovo tentativo");
+    A._proIcoStato = 0; A.TYPES.dm3.draw(prova({ type: "dm3", w: 32, d: 46, label: "Yamaha DM4" })); eq(A._proIcoStato, 0, "un progetto senza modelli riconosciuti non scarica niente");
+  } finally { A.LIB_ICONS = prima; A._proIcoStato = 0; }
+});
+await (async () => {
+  const stato = (v) => { A._proIcoStato = v; };
+  stato(2); const a = await A.proIconeAttendi(3000); stato(3); const b = await A.proIconeAttendi(3000); stato(1); const c = await A.proIconeAttendi(0);
+  stato(0);
+  t("Icone esistenti 9: l'export aspetta icons-pro.js (al massimo 3 s) solo se ci sono elementi riconosciuti; mai bloccante", () => {
+    eq([a, b, c], [true, false, false], "arrivato → true, errore → false, in arrivo e tempo scaduto → false (si esporta col disegno di sempre)");
+    ok(/proEsportaAttendi\(\)\s*:\s*null\)\.then\(function\(\)\{\s*\/\*[^*]*\*\/\s*var jsPDF/.test(appjs) || /loadJsPDF\(\)\.then\(function\(\)\{ return \(typeof proEsportaAttendi/.test(appjs), "buildPdfDoc chiama proEsportaAttendi dopo loadJsPDF");
+    ok(/proIconeAttendi\(3000\)/.test(appjs), "attesa massima 3 s");
+    const prima = A.state; try { A.state = { items: [prova({ type: "mixer" })] }; eq(A.proHaIconeDaCaricare(A.state.items), false, "palco senza modelli"); const st0 = A._proIcoStato; A.proEsportaAttendi(); eq(A._proIcoStato, st0, "senza modelli non aspetta e non scarica niente");
+      A.state = { items: [prova({ type: "dm3", w: 32, d: 46 })] }; eq(A.proHaIconeDaCaricare(A.state.items), true, "con una DM3 riconosciuta sì"); } finally { A.state = prima; A._proIcoStato = 0; }
+  });
+})();
+t("Icone esistenti 10: MIXER_DB.dm3 e dm3std — I/O, USB, Dante e frame invariati dall'ingresso della DM3 in PRO_DB", () => {
+  const d = A.MIXER_DB.dm3, s = A.MIXER_DB.dm3std;
+  eq([d.in, d.out, d.usb.in, d.usb.out, d.usb.port, d.dante, d.danteIn, d.danteOut, d.frame, d.proto], [16, 8, 18, 18, "USB-B", true, 16, 16, "dm3", ["dante"]], "dm3");
+  eq([s.in, s.out, s.usb.in, s.dante, s.frame, s.proto], [16, 8, 18, false, "dm3", []], "dm3std");
+  eq([d.mm, d.kg, d.W], [A.PRO_DB.dm3.mm, 6.5, 43], "mm/kg/W aggiunti dal blocco «entra nei registri»");
+  ok(!/MIXER_DB\[[^\]]*\]\.(W|kg|mm)\b/.test(appjs.replace(/function proKg[\s\S]*?\n/g, "")), "nessuna parte del motore legge MIXER_DB[x].W/.kg/.mm senza passare da pro");
+});
+t("Icone esistenti 11: il suggerimento sta dietro «Opzioni complete» per le stage box (gruppo Stage box), come il suo selettore", () => {
+  ok(/getElementById\(sb \? "pSbEquip" : "pProScheda"\)/.test(appjs), "stage box: sotto il selettore, dentro pSbChWrap");
+  ok(/group\("Stage box", null, \["pSbChWrap"\]\)/.test(appjs), "pSbChWrap sta nel gruppo «Stage box»");
+  ok(/body:not\(\.f-opzioni\):not\(\.props-tutte\) #selProps \.pgrp\[data-grp="stage-box"\]/.test(stylesCss), "il gruppo Stage box è nascosto senza «Opzioni complete»");
+  ok(!/\.textContent\s*=\s*"Misura e dati/.test(appjs), "nessun testo fisso fuori dal suggerimento");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");

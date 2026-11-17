@@ -14525,7 +14525,7 @@ function proConsoleOf(it){ var m=proModelOf(it); return (m && m.kind==="console"
 (function(){
   var t=TYPES.mixer; if(!t || t._proDraw) return;
   var base=t.draw; t._proDraw=true;
-  t.draw=function(it){ var m=proConsoleOf(it); if(!m) return base(it); var k=proIconaDi(it); return k ? proIconaDraw(it, k) : consoleProDraw(it, m); };
+  t.draw=function(it){ it=proVista(it); var m=proConsoleOf(it); if(!m) return base(it); var k=proIconaDi(it); return k ? proIconaDraw(it, k) : consoleProDraw(it, m); };
 })();
 
 /* ── icone realistiche dei modelli (17/11/2026) ─────────────────────────────────────────────────────
@@ -14566,6 +14566,11 @@ function proIconaDi(it){
    3) misura entro PRO_TOLL_CM dalla scheda (anche per gli elementi pro:1: i 6 CQ-18T allargati a 125×150 non ingrandiscono l'icona).
    Fuori da qui resta il disegno di sempre, e il pannello può dare un suggerimento (proSuggerimento). */
 var PRO_TOLL_CM=1;
+/* DECISIONE DI SIMONE 18/11 ~02:05 («tutto in dimensioni reali, poi lo userò e capiremo se va bene o se cambiare e mettere il suggerimento»):
+   true = dove il modello è certo (origine + nome) l'elemento si DISEGNA con le misure vere di scheda anche se quelle salvate sono diverse
+   (stage box 33×17, CQ-18T allargati a 125×150…); posizione (centro) e rotazione restano dell'utente; il documento non cambia;
+   niente suggerimento «usa misura di scheda». false = la prima versione: tolleranza di PRO_TOLL_CM e suggerimento (caso 1). Reversibile con un valore. */
+var PRO_MISURE_DI_SCHEDA=true;
 var PRO_TIPO_MODELLO={ dm3:"dm3", csr3:"csr3", csr5:"csr5", csr10:"csr10", sq6:"sq6", sq7:"sq7", q338:"q338", hd96:"hd9624", dlives5:"dlives5" };
 /* alias scritti a mano, normalizzati (minuscole, solo lettere e cifre): i primi sono di UN modello, i secondi di una famiglia (mai certezza) */
 var PRO_ALIAS_CERTI={ dm3:"dm3", pm5:"csr5", rivagepm5:"csr5", pm3:"csr3", rivagepm3:"csr3", pm10:"csr10", rivagepm10:"csr10", s5000:"dlives5", dlives5000:"dlives5", hd96:"hd9624", hd9624:"hd9624", m32live:"m32r", tfrack:"tfrack" };
@@ -14618,7 +14623,7 @@ function proNomeNonContraddice(it, id){
 }
 function proMisuraDi(it){ var t=TYPES[it.type]||{}; return { w:(it.w!=null?+it.w:t.w), d:(it.d!=null?+it.d:t.d) }; }
 function proMisuraOk(it, m){
-  var dm=proDimsCm(m); if(!dm) return true;
+  var dm=proDimsCm(m); if(!dm || PRO_MISURE_DI_SCHEDA) return true;   /* con le misure di scheda la misura salvata non decide */
   var u=proMisuraDi(it); if(!isFinite(u.w) || !isFinite(u.d)) return false;
   return Math.abs(u.w-dm.w)<=PRO_TOLL_CM+0.001 && Math.abs(u.d-dm.d)<=PRO_TOLL_CM+0.001;
 }
@@ -14638,7 +14643,7 @@ var _proCache={}, _proCacheN=0;
 /* {id, m} se l'elemento (senza pro) è con certezza un modello del catalogo, altrimenti null. O(1): cache per firma */
 function proModelloCerto(it){
   if(!it || it.pro) return null;
-  var f=it.type+"|"+(it.hw||"")+"|"+(it.label||"")+"|"+(it.label2||"")+"|"+it.w+"|"+it.d, c=_proCache[f];
+  var f=(PRO_MISURE_DI_SCHEDA?"S":"T")+it.type+"|"+(it.hw||"")+"|"+(it.label||"")+"|"+(it.label2||"")+"|"+it.w+"|"+it.d, c=_proCache[f];
   if(c!==undefined) return c||null;
   var o=proOrigine(it), r=null;
   if(o && proNomeCompatibile(it,o.id) && proMisuraOk(it,o.m)) r=o;
@@ -14664,8 +14669,15 @@ function proIconeAttendi(ms){
     (function giro(){ if(_proIcoStato===2) return ok(true); if(_proIcoStato===3 || Date.now()-t0>=(ms==null?3000:ms)) return ok(false); setTimeout(giro,40); })();
   });
 }
-function proMisuraSchedaTesto(it, m){ var dm=proDimsCm(m), u=proMisuraDi(it);
-  return "Misura di scheda "+proNome(m)+": "+proCmTesto(dm.w)+" × "+proCmTesto(dm.d)+" cm (qui "+proCmTesto(u.w)+" × "+proCmTesto(u.d)+")."; }
+/* l'export (PDF) parte solo dopo l'arrivo di icons-pro.js, al massimo 3 s, SE sul palco c'è almeno un elemento con icona realistica;
+   senza elementi riconosciuti non aspetta e non scarica niente; se il file non arriva si esporta col disegno di sempre */
+function proEsportaAttendi(){
+  var items=(typeof state==="object" && state && state.items) ? state.items : [];
+  if(!proHaIconeDaCaricare(items)) return Promise.resolve(false);
+  return proIconeAttendi(3000);
+}
+function proMisuraSchedaTesto(it, m){ var dm=proDimsCm(m), u=proMisuraDi(it), c=function(v){ return String(Math.round(v*100)/100).replace(".", ","); };   /* due decimali: 36,75 resta 36,75 */
+  return "Misura di scheda "+proNome(m)+": "+c(dm.w)+" × "+c(dm.d)+" cm (qui "+c(u.w)+" × "+c(u.d)+")."; }
 var PRO_GENERICI=null;
 function proTipiGenerici(){
   if(PRO_GENERICI) return PRO_GENERICI;
@@ -14680,7 +14692,7 @@ function proTipiGenerici(){
 function proSuggerimento(it){
   if(!it || !TYPES[it.type]) return null;
   if(it.pro){
-    var mp=proModelOf(it); if(!mp || proMisuraOk(it,mp) || !proDimsCm(mp)) return null;
+    var mp=proModelOf(it); if(!mp || proMisuraOk(it,mp) || !proDimsCm(mp)) return null;   /* con PRO_MISURE_DI_SCHEDA proMisuraOk è sempre vero: niente caso 1 */
     return { caso:1, id:it.hw, testo:proMisuraSchedaTesto(it,mp) };
   }
   var o=proOrigine(it);
@@ -14717,12 +14729,20 @@ function proUsaModello(it, id){
   if((it.type==="stagebox" || it.type==="substg") && typeof sbAutoSize==="function") sbAutoSize(it);
   return true;
 }
-function proIconaDraw(it, k){ var L=LIB_ICONS[k]; return drawLibFit(k, it, L.vb[2], L.vb[3]); }
+function proIconaDraw(it, k){ var L=LIB_ICONS[k]; return drawLibFit(k, PRO_MISURE_DI_SCHEDA ? null : it, L.vb[2], L.vb[3]); }   /* senza `it` la scala è 1: icona nella misura della scheda */
+/* l'elemento come si DISEGNA: con icona certa e PRO_MISURE_DI_SCHEDA, una copia con w/d di scheda (il documento resta com'è) */
+function proVista(it){
+  if(!PRO_MISURE_DI_SCHEDA || !it) return it;
+  var k=proIconaChiave(it); if(!k) return it;
+  var m=it.pro ? proModelOf(it) : (proModelloCerto(it)||{}).m, dm=proDimsCm(m); if(!dm) return it;
+  if(it.w===dm.w && it.d===dm.d) return it;
+  var e=Object.assign({}, it); e.w=dm.w; e.d=dm.d; return e;
+}
 /* prese patchate sopra l'icona della stage box (come sbDraw): anello teal sugli ingressi usati, ciano sulle
    uscite, nella posizione misurata della presa (mappa "porte" dell'icona, in cm dall'angolo in alto a sinistra) */
 function proPorteDraw(it, L, use){
   var P=L.porte; if(!P) return "";
-  var bw=L.vb[2], bd=L.vb[3], kk=Math.min((it.w||bw)/bw, (it.d||bd)/bd), r=(P.r||1.1)*kk;
+  var bw=L.vb[2], bd=L.vb[3], kk=PRO_MISURE_DI_SCHEDA ? 1 : Math.min((it.w||bw)/bw, (it.d||bd)/bd), r=(P.r||1.1)*kk;
   var r2=function(v){ return Math.round(v*100)/100; }, s="";
   [["in","i","#14b8a6"],["out","o","#22d3ee"]].forEach(function(q){
     var pos=P[q[0]]||[];
@@ -14738,7 +14758,7 @@ function proPorteDraw(it, L, use){
     var t=TYPES[tp]; if(!t || t._proIco) return;
     var base=t.draw; t._proIco=true;
     t.draw=function(it){
-      var k=proIconaDi(it); if(!k) return base(it);
+      it=proVista(it); var k=proIconaDi(it); if(!k) return base(it);
       var L=LIB_ICONS[k], use=(typeof sbPortUse==="function") ? sbPortUse(it) : {i:{},o:{}};
       var usate=Object.keys(use.i||{}).length+Object.keys(use.o||{}).length;
       if(usate && !L.porte) return base(it);
@@ -14752,7 +14772,7 @@ function proPorteDraw(it, L, use){
   Object.keys(PRO_DB).forEach(function(id){
     var tp=PRO_DB[id].tipo, t=tp && TYPES[tp]; if(!t || t._proIco) return;
     var base=t.draw; t._proIco=true;
-    t.draw=function(it){ var k=proIconaDi(it); return k ? proIconaDraw(it, k) : base(it); };   /* 18/11: senza la condizione it.hw: vale anche il tipo legato al modello (DM3, CS-R, SQ-6/7, Q338, HD96) */
+    t.draw=function(it){ it=proVista(it); var k=proIconaDi(it); return k ? proIconaDraw(it, k) : base(it); };   /* 18/11: senza la condizione it.hw: vale anche il tipo legato al modello (DM3, CS-R, SQ-6/7, Q338, HD96) */
   });
 })();
 /* scheda tecnica in una riga (pannello): misura, peso, consumo, U e fonte */
@@ -14813,7 +14833,7 @@ function proUnitaDraw(it){
     var t=TYPES[tp]; if(!t || t._proIco) return;
     var base=t.draw; t._proIco=true;
     t.draw=function(it){
-      var k=proIconaDi(it); if(k) return proIconaDraw(it, k);
+      it=proVista(it); var k=proIconaDi(it); if(k) return proIconaDraw(it, k);
       var m=(it && it.pro) ? proModelOf(it) : null; return m ? proUnitaDraw(it) : base(it);   /* pro:1 fuori misura (18/11): unità neutra nella misura dell'elemento */
     };
   });
@@ -21109,11 +21129,39 @@ function renderProps(){
       a.addEventListener("click", function(){ if(rk){ selectOne(rk.id); render(); } });
       br.appendChild(a);
     } else br.style.display="none"; })();
+  if(typeof renderProSugg==="function") renderProSugg(it);          /* 18/11: suggerimento «scegli il modello / usa la misura di scheda» (icone nei progetti esistenti) */
   if(typeof renderModelField==="function") renderModelField(it);   /* EQUIPMENT INTELLIGENCE: campo Modello reale */
   if(typeof renderUsoField==="function") renderUsoField(it);       /* PRODUZIONE: utilizzo elemento regia */
   if(typeof renderSafetyInfo==="function") renderSafetyInfo(it);   /* Presidi sicurezza: info sull'elemento */
   if(typeof renderRespField==="function") renderRespField(it);     /* Decisione 4A: responsabile ereditato/eccezione */
   if(typeof syncPanelGroups==="function") syncPanelGroups();       /* B3: via le intestazioni dei gruppi rimasti vuoti */
+}
+/* SUGGERIMENTO «scegli il modello» (18/11/2026, icone realistiche nei progetti esistenti). Una riga nel pannello dell'elemento
+   selezionato, mai sul palco, mai avvisi. Stage box: sotto il selettore del modello, dentro il gruppo «Stage box» (che sta dietro
+   «Opzioni complete», spenta di serie). Mixer, ricevitori, antenne: sotto la scheda del modello, dove stanno i loro selettori
+   (già visibili); la riga «scegli il modello» (caso 3) compare solo se il selettore è visibile. Il clic è UN passo di annulla. */
+function renderProSugg(it){
+  var box=document.getElementById("pProSugg");
+  if(!box){ box=document.createElement("div"); box.id="pProSugg"; box.style.cssText="display:none;font-size:11px;color:var(--text-2);margin:4px 0 6px";
+    var p=document.getElementById("pProScheda"); if(!p) return; p.insertAdjacentElement("afterend", box); }
+  var sug=(it && typeof proSuggerimento==="function") ? proSuggerimento(it) : null;
+  var sb=!!(it && (it.type==="stagebox" || it.type==="substg"));
+  var ancora=document.getElementById(sb ? "pSbEquip" : "pProScheda");
+  var wrapSel={mixer:"pMixWrap", rxrf:"pRxWrap", rfant:"pAntWrap"}[it&&it.type];
+  if(sug && sug.caso===3 && !sb){ var w=wrapSel ? document.getElementById(wrapSel) : null; if(!w || w.style.display==="none") sug=null; }
+  if(!sug || !ancora){ box.style.display="none"; box.textContent=""; return; }
+  if(box.previousElementSibling!==ancora) ancora.insertAdjacentElement("afterend", box);
+  box.style.display="block"; box.textContent="";
+  var tx=document.createElement("span"); tx.textContent=sug.testo; box.appendChild(tx);
+  function bottone(testo, fn){
+    var b=document.createElement("button"); b.type="button"; b.className="btn"; b.style.cssText="display:block;margin:4px 6px 0 0;font-size:11px;padding:3px 8px;min-height:0";
+    b.textContent=testo; b.onclick=function(){ if(state.items.indexOf(it)<0) return; if(fn()){ __cabRes=null; save(); render(); renderProps(); } }; box.appendChild(b); }
+  if(sug.caso===1){
+    bottone("Usa misura e dati di scheda", function(){ return proUsaScheda(it, sug.id); });
+    var nt=document.createElement("div"); nt.style.cssText="font-size:10px;color:var(--text-3);margin-top:2px"; nt.textContent="Cambiano anche peso e consumo nelle liste."; box.appendChild(nt);
+  } else if(sug.caso===2){
+    (sug.ids||[sug.id]).forEach(function(id){ bottone(sug.famiglia ? PRO_DB[id].model : "Usa questo modello", function(){ return proUsaModello(it, id); }); });
+  }
 }
 function buildCompCtl(comp, it, only){
   var box=document.getElementById("pCompCtl"); box.innerHTML="";
@@ -40881,7 +40929,7 @@ function buildPdfDoc(paperKey, N, orient, header){
      spengono quando qui sotto ne disegniamo già di nostre — cioè su palco di un pezzo solo. */
   var scena={textK:pdfTextK(N), noBlockDims:pdfQuoteFuoriDalDisegno(box) && stageBlocks().length<2,
     areaFoglio:{x:L.drawX, y:L.drawY, w:L.drawW, h:L.drawH}};   /* fin dove arriva la planimetria: tutta l'area di disegno (pdfVenueLayer) */
-  return loadJsPDF().then(function(){
+  return loadJsPDF().then(function(){ return (typeof proEsportaAttendi==="function") ? proEsportaAttendi() : null; }).then(function(){   /* 18/11: icone realistiche dei modelli (anche nei progetti esistenti): icons-pro.js al massimo 3 s, mai bloccante */
     var jsPDF=window.jspdf.jsPDF;
     var doc=new jsPDF({orientation:L.orient, unit:"mm", format:paperKey, compress:true});
     /* --- PAG 1: planimetria in scala — sempre vettore (svg2pdf). Se sfora, ritaglia (box.vb) tenendo la scala --- */
