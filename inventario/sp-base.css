@@ -1,0 +1,55 @@
+/* Base di stile condivisa dalle pagine dell'inventario (pagina del QR /i/…, e poi l'area /inventario/): SOLO i token già dell'app e della landing
+   di stageplot.it (avorio caldo + teal; scuro «verde carbone»), la barra del marchio, i pulsanti e la pillola di stato.
+   Nessun font esterno (CSP: font-src 'self'): font di sistema, monospazio solo per codici e indirizzi. */
+:root{
+  --fondo:#f5f4f0;--carta:#fff;--rialzo:#edebe4;--filo:#ddd9cd;--filo-forte:#c8c3b4;
+  --inchiostro:#292620;--testo-2:#5f594d;--testo-3:#746e60;
+  --teal:#0d9488;--teal-forte:#0b7a70;--teal-cupo:#096a61;--teal-tinta:#e4f2f0;--su-teal:#fff;
+  --ok:#15803d;--ok-bg:#f0fdf4;--ok-bd:#bbf7d0;--warn:#b45309;--warn-bg:#fffbeb;--warn-bd:#fde68a;--bad:#b91c1c;--bad-bg:#fee2e2;--bad-bd:#fecaca;--muto:#59544a;--muto-bg:#edebe4;
+  --anello:0 0 0 3px rgba(13,148,136,.92);
+  --ui:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+  --r-md:8px;--r-lg:12px;--r-xl:16px;--elev-2:0 4px 12px rgba(38,33,24,.12);
+}
+@media (prefers-color-scheme: dark){:root{
+  --fondo:#12181b;--carta:#1b2327;--rialzo:#20292e;--filo:#2c3a3f;--filo-forte:#3a4b51;
+  --inchiostro:#e5e7eb;--testo-2:#b4c0bd;--testo-3:#96a5a1;
+  --teal:#14b8a6;--teal-forte:#14b8a6;--teal-cupo:#2dd4bf;--teal-tinta:#12312e;--su-teal:#0b2b27;
+  --ok:#4ade80;--ok-bg:#0f2d1a;--ok-bd:#166534;--warn:#fbbf24;--warn-bg:#33270f;--warn-bd:#5a4415;--bad:#f87171;--bad-bg:#3a1d1f;--bad-bd:#5b2121;--muto:#c4ccd4;--muto-bg:#27323a;
+  --anello:0 0 0 3px rgba(20,184,166,.86);
+}}
+a{color:var(--teal-forte);text-underline-offset:3px}
+:focus-visible{outline:none;box-shadow:var(--anello)}
+.num{font-variant-numeric:tabular-nums}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* barra del marchio: il logo vero dell'editor (svg.brand-full), alto 22 px; in stampa sparisce */
+.barra-sp{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:52px;padding:0 max(16px,env(safe-area-inset-left));border-bottom:1px solid var(--filo);background:var(--carta)}
+.barra-sp .marchio{display:flex;align-items:center;color:var(--inchiostro);text-decoration:none;border-radius:6px}
+.barra-sp .marchio svg{height:22px;width:auto;display:block}
+.barra-sp .dove{font-size:15px;color:var(--testo-2);margin-right:auto;padding-left:12px;border-left:1px solid var(--filo);margin-left:2px}
+.barra-sp .lato{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--testo-2)}
+
+/* pulsanti: un solo primario per gruppo, gli altri a contorno, i terziari come testo sottolineato */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font:inherit;font-size:16px;font-weight:600;min-height:48px;padding:10px 18px;border-radius:10px;border:1px solid var(--filo-forte);background:var(--carta);color:var(--inchiostro);cursor:pointer;text-decoration:none;text-align:center}
+.btn:hover{background:var(--rialzo)}
+.btn.pieno{display:flex;width:100%}
+.btn.primario{background:var(--teal-forte);border-color:var(--teal-forte);color:var(--su-teal)}
+.btn.primario:hover{background:var(--teal-cupo);border-color:var(--teal-cupo)}
+.btn.grande{min-height:54px;font-size:17px}
+.btn.piccolo{min-height:36px;padding:5px 12px;font-size:14px;border-radius:8px}
+.btn.testo{border-color:transparent;background:none;color:var(--testo-2);text-decoration:underline;text-underline-offset:3px}
+.btn.testo:hover{background:none;color:var(--inchiostro)}
+.btn.pericolo{color:var(--bad)}
+.btn[disabled]{opacity:.55;cursor:default}
+
+/* stato: pillola con pallino (come il chip «Bozza» dell'editor). La classe è la chiave dello stato (in_sede, a_casa, …). */
+.stato{display:inline-flex;align-items:center;gap:7px;border-radius:999px;padding:4px 12px 4px 10px;font-size:14px;font-weight:600;line-height:1.3;border:1px solid var(--ok-bd);background:var(--ok-bg);color:var(--ok);white-space:nowrap}
+.stato::before{content:"";width:8px;height:8px;border-radius:50%;background:currentColor;flex:none}
+.stato.a_casa{border-color:var(--teal-tinta);background:var(--teal-tinta);color:var(--teal-forte)}
+.stato.in_riparazione{border-color:var(--warn-bd);background:var(--warn-bg);color:var(--warn)}
+.stato.smarrito{border-color:var(--bad-bd);background:var(--bad-bg);color:var(--bad)}
+.stato.dismesso{border-color:var(--filo);background:var(--muto-bg);color:var(--muto)}
+.stato.piccolo{font-size:12.5px;padding:2px 10px 2px 8px;gap:6px}
+.stato.piccolo::before{width:7px;height:7px}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}

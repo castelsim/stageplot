@@ -34185,12 +34185,43 @@ t("Inventario: foglio dell'elenco sul telefono — intero dentro lo schermo, sca
   ok(/function adattaFogli\(\)/.test(js) && /vistaStampaElenco[\s\S]{0,4000}?adattaFogli\(\);/.test(js), "l'elenco adatta i fogli allo schermo appena disegnato");
   const corpo = js.slice(js.indexOf("function adattaFogli()"), js.indexOf("window.addEventListener(\"resize\""));
   ok(corpo.length > 100 && !/marginLeft|marginBottom/.test(corpo) && !/marginLeft = \(\(w - 794\)/.test(js.slice(js.indexOf("function vistaStampaElenco"), js.indexOf("function adattaFogli()"))), "niente più margine sinistro negativo sull'elenco (spostava il foglio fuori dallo schermo)");
-  ok(/addEventListener\("resize", function \(\) \{ if \(S\.vista === "stampa-elenco"\) adattaFogli\(\); \}\)/.test(js), "rotazione e ridimensionamento ricalcolano la scala");
+  ok(/addEventListener\("resize", function \(\) \{ if \(S\.vista === "stampa-elenco" \|\| S\.vista === "etichette"\) adattaFogli\(\); \}\)/.test(js), "rotazione e ridimensionamento ricalcolano la scala (elenco ed etichette)");
   ok(/\.fo-box\{[^}]*overflow:hidden/.test(css) && /\.fo-box \.foglio\{transform-origin:top left/.test(css), "contenitore grande quanto il foglio scalato");
   const pr = css.slice(css.indexOf("@media print"));
   ok(/\.fo-box\{width:auto!important;height:auto!important;overflow:visible;position:static\}/.test(pr) && /transform:none!important/.test(pr), "in stampa contenitore e scala annullati");
   ok(/\.el-tab\{width:100%;min-width:0;/.test(css) && /(^|\}|\n)table\{[^}]*min-width:1000px/.test(css), "la tabella del foglio non eredita il min-width:1000px dell'inventario (colonna Nota e margine destro dentro l'A4)");
   ok(/inv-area\.css\?v=([4-9]|\d\d)"/.test(html) && /inv-area\.js\?v=([5-9]|\d\d)"/.test(html), "versioni di css e js alzate");
+});
+t("Inventario: le etichette sul telefono — stessa correzione dell'elenco (contenitore grande quanto il foglio), niente margine sinistro negativo (18/11)", () => {
+  const js = readFileSync(join(root, "inventario/inv-area.js"), "utf8");
+  const corpo = js.slice(js.indexOf("function vistaEtichette("), js.indexOf("/* ---------------------------------------------------------------- avvio */"));
+  ok(corpo.length > 500 && /adattaFogli\(\);/.test(corpo), "la vista etichette adatta i fogli allo schermo con adattaFogli()");
+  ok(!/marginLeft|marginBottom|window\.innerWidth/.test(corpo), "niente più margine sinistro negativo sulle etichette (spostava il foglio fuori dallo schermo)");
+  ok(/Stampa \(" \+ elenco\.length \+ " etichette, "/.test(corpo) && /id: "bStampa"/.test(corpo) && /id: "versione"/.test(corpo), "pulsante «Stampa» e campo «Versione» come prima");
+});
+t("Inventario/interfaccia L1: sp-base.css condiviso, barra del marchio statica e nascosta in stampa, cartellino, nessuno stile in linea nella pagina del QR (18/11)", () => {
+  const idx = readFileSync(join(root, "i/index.html"), "utf8"), css = readFileSync(join(root, "i/inv.css"), "utf8"), base = readFileSync(join(root, "inventario/sp-base.css"), "utf8");
+  ok(/href="\/inventario\/sp-base\.css\?v=\d+"/.test(idx) && idx.indexOf("sp-base.css") < idx.indexOf("inv.css"), "la pagina del QR carica sp-base.css (percorso assoluto, prima di inv.css)");
+  ok(/<header class="barra-sp"><a class="marchio" href="\/"[^>]*><svg class="brand-full"/.test(idx) && !/brand-sym/.test(idx), "la barra col logo è nell'HTML statico (il logo vero dell'editor), senza il segno piccolo");
+  const logoEditor = readFileSync(join(root, "index.template.html"), "utf8").match(/<svg class="brand-full"[\s\S]*?<\/svg>/)[0], logoPagina = idx.match(/<svg class="brand-full"[\s\S]*?<\/svg>/)[0];
+  ok(logoEditor === logoPagina, "il logo è identico a svg.brand-full dell'editor (index.template.html)");
+  ok(/@media print\{[^}]*\.barra-sp\{display:none\}/.test(css), "in stampa la barra del marchio non esce");
+  ok(!/<style|style="/.test(idx), "nessun <style> né attributo style nella pagina del QR (CSP style-src 'self')");
+  ok(/\.inv-cartellino\{[^}]*border:1\.5px dashed/.test(css), "cartellino col bordo tratteggiato (opzione A scelta da Simone)");
+  ok(!/:root\{/.test(css) && /:root\{/.test(base) && /prefers-color-scheme: dark/.test(base), "i token stanno solo in sp-base.css, chiari e scuri");
+  ok(!/1d4ed8|text-transform:\s*uppercase|letter-spacing:\s*\.12em/.test(css), "niente anello blu né maiuscolo spaziato sulla pagina del QR");
+  ok(/\.stato\.a_casa/.test(base) && /\.stato\.in_riparazione/.test(base) && /\.stato\.smarrito/.test(base) && /\.stato\.dismesso/.test(base), "pillole di stato per tutti gli stati");
+  ok(/inv\.css\?v=5/.test(idx) && /inv\.js\?v=5/.test(idx), "versioni di css e js della pagina alzate");
+  const inv = readFileSync(join(root, "i/inv.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  ok(/"Elenco completo"/.test(inv) && !/"Tutto l’elenco"/.test(inv), "il link «Elenco completo» sta nel cartellino");
+  ok(/segnalaErrore/.test(inv) && /input\.setAttribute\("aria-describedby", p\.id\)/.test(inv) && /input\.setAttribute\("aria-invalid", "true"\)/.test(inv), "errori sul campo legati con aria-describedby");
+});
+t("Inventario/privacy: il pannello della segreteria (nomi, «Ce l'ha», storico) nasce solo da inv_scheda_membro con una scheda valida; non abilitato = una nota e basta (18/11)", () => {
+  const src = readFileSync(join(root, "i/inv.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const a = src.slice(src.indexOf("function areaSegreteria("), src.indexOf("function avvia("));
+  ok(a.length > 300 && /client\.rpc\("inv_scheda_membro", \{ p_slug: ind\.slug, p_codice: ind\.codice \}\)\.then\(function \(r\) \{\s*if \(r\.error\) throw r\.error;\s*var m = pulisciMembro\(r\.data\);\s*if \(!m\) \{ var p = el\("p", "inv-nota", "Accesso come "[^\n]*?return inserisci\(p\); \}\s*inserisci\(pannello\(null, cfg, ind, m,/.test(a), "pannello solo dopo inv_scheda_membro, senza errore e con scheda ripulita non nulla");
+  eq((src.match(/[^\w]pannello\(/g) || []).length, 2, "pannello() è definito una volta e chiamato in un solo punto");
+  ok(/function scheda\(d, ind\)/.test(src) && !/assegnato_a|movimenti|Ce l’ha|linkAreaElenco/.test(src.slice(src.indexOf("function scheda(d, ind)"), src.indexOf("function elenco(d, ind)"))), "la scheda pubblica (cartellino) non usa dati riservati");
 });
 t("Inventario: pagina e area — ritorno dopo l'accesso, cablaggio (404.html, service worker, deploy, menu editor), noindex, mai innerHTML, niente terzi", () => {
   const f404 = readFileSync(join(root, "404.html"), "utf8");
@@ -34289,14 +34320,14 @@ t("Inventario/modulo: nessun dato reale nel codice del lotto; niente innerHTML; 
   ok(/MOD\.cartaModulo/.test(fPannello) && /inv-btn-modulo/.test(fPannello), "la carta e il pulsante «Modulo di comodato» sono costruiti dentro pannello() (che si disegna solo se inv_scheda_membro risponde)");
   ok(!/cartaModulo|caricaPdf|pdf\.min/.test(src.slice(0, src.indexOf("function pannello(")) + src.slice(src.indexOf("function areaSegreteria("))), "scheda pubblica e avvio non toccano né la carta né jsPDF");
   ok(!/pdf\.min/.test(readFileSync(join(root, "i/index.html"), "utf8")), "index.html non carica jsPDF: lo scarica la carta alla prima apertura"); ok(/P\.caricaPdf = function/.test(modSrcPulito) && /"\/vendor\/pdf\.min\.js"/.test(modSrcPulito), "jsPDF self-hosted, caricato solo dalla carta");
-  const idx = readFileSync(join(root, "i/index.html"), "utf8"); ok(/inv-modulo\.js\?v=1/.test(idx) && /inv-foglio\.css/.test(idx) && !/unsafe-inline/.test(idx.match(/Content-Security-Policy" content="([^"]+)"/)[1]), "pagina del QR: script e foglio caricati, CSP senza unsafe-inline");
+  const idx = readFileSync(join(root, "i/index.html"), "utf8"); ok(/inv-modulo\.js\?v=([2-9]|\d\d)"/.test(idx) && /inv-modulo\.js\?v=([2-9]|\d\d)"/.test(readFileSync(join(root, "inventario/index.html"), "utf8")) && /inv-foglio\.css/.test(idx) && !/unsafe-inline/.test(idx.match(/Content-Security-Policy" content="([^"]+)"/)[1]), "pagina del QR: script e foglio caricati, CSP senza unsafe-inline");
   ok(!/\bstyle\.|setAttribute\("style"|\.cssText/.test(modSrcPulito), "il modulo non usa stili in linea (la CSP della pagina del QR non li ammette)"); ok(/Mai|mai|non passa da nessun server/.test(modSrc) && !/fetch\(|XMLHttpRequest|sendBeacon/.test(modSrcPulito), "nessuna richiesta di rete: il PDF nasce nel telefono");
 });
 t("Inventario/modulo: la consegna ha 6 campi e il PDF sta su una pagina sola; Condividi o Scarica PDF", () => {
   const src = readFileSync(join(root, "i/inv.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
   for (const et of ["Nome \\*", "Cognome \\*", "Corso / classe", "Accessori consegnati", "\"Data\"", "\"Nota\""]) ok(new RegExp(et).test(src), "campo di consegna: " + et);
   ok(/p_tipo: "consegna", p_a_chi: aChi, p_data: f\.data\.value \|\| null, p_nota: nota \}/.test(src) && /MOD\.componiAssegnato\(f\.nome\.value, f\.cognome\.value, f\.corso\.value\)/.test(src) && /MOD\.notaConsegna\(f\.acc\.value, f\.nota\.value\)/.test(src), "inv_movimento riceve assegnato_a (nome, cognome, corso) e nota (accessori) composti");
-  ok(/if \(!f\.nome\.value\.trim\(\) \|\| !f\.cognome\.value\.trim\(\)\) \{ esito\.textContent/.test(src), "nome e cognome obbligatori prima di consegnare");
+  ok(/if \(!f\.nome\.value\.trim\(\)\) \{ segnalaErrore\(wNome, f\.nome, "Scrivi il nome\."\)/.test(src) && /if \(!f\.cognome\.value\.trim\(\)\) \{ segnalaErrore\(wCogn, f\.cognome, "Scrivi il cognome\."\)/.test(src) && /if \(manca\) \{ manca\.focus\(\); return; \}/.test(src), "nome e cognome obbligatori prima di consegnare, con l'errore sul campo");
   ok(/if \(m\.assegnato_a\) \{\s*b\("Rientrato"[\s\S]*?if \(MOD\) b\("Modulo di comodato"[\s\S]*?\} else if \(m\.stato !== "dismesso"/.test(src), "il pulsante «Modulo di comodato» c'è solo quando lo strumento è assegnato");
   const areaJs = readFileSync(join(root, "inventario/inv-area.js"), "utf8"); ok(/prop && MOD \? pannelloModulo\(\) : null/.test(areaJs) && /mig\.length <= 98000/.test(areaJs) && /<details|"details"/.test(areaJs) && !/open: true|\bopen\b: !0/.test(areaJs.slice(areaJs.indexOf("function pannelloModulo"), areaJs.indexOf("function vistaInventario"))), "area: sezione solo per il proprietario, chiusa di serie, logo ridimensionato sotto il limite");
   ok(/\[11, 10\.5, 10, 9\.5, 9, 8\.5\]\.some/.test(modSrcPulito) && /splitTextToSize/.test(modSrcPulito), "PDF: si stringe il carattere finché sta in una pagina");
