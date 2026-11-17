@@ -35255,7 +35255,9 @@ t("Catalogo pro L2: la ricerca trova marca e modello; «switch», «antenna», �
   ok(nomi("klotz").some((n) => /Klotz/.test(n)), "klotz");
   ok(nomi("psm1000").some((n) => /P10T/.test(n)), "psm1000 → P10T");
   ok(nomi("ew-dx").some((n) => /EW-DX/.test(n)), "ew-dx");
-  ok(/IEM|P10T|P9T|P3T|SR /.test(nomi("in ear")[1] || ""), "«in ear»: dopo il beltpack i trasmettitori, non il combiner (" + nomi("in ear")[1] + ")");
+  const ie = A.__qaSearch("in ear")[1] || {};
+  const ieId = Object.keys(A.PRO_DB).find((i) => A.proNome(A.PRO_DB[i]) === ie.nome);
+  ok(ieId && A.PRO_DB[ieId].kind === "iem", "«in ear»: dopo il beltpack i trasmettitori, non il combiner (" + ie.nome + ")");
   ["switch", "antenna", "ricevitore", "in ear"].forEach((q) => ok(!A.__qaSearch(q).slice(0, 1).some((e) => e.pro), "«" + q + "» → prima la voce generica (" + nomi(q)[0] + ")"));
 });
 t("Catalogo pro L2: in-ear — un trasmettitore per mix; la Monitor list e la Lista RF dicono quale; avviso se i TX non bastano", () => {
