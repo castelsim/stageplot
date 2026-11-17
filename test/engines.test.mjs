@@ -35568,7 +35568,7 @@ function conIconePro(fn) { const prima = A.LIB_ICONS; A.LIB_ICONS = Object.assig
 t("Icone pro: ogni icona di icons-pro.js ha la misura della scheda (±2 mm), SVG valido, ≤ 20 KB, senza testo né raster né link, prefisso suo", () => {
   const L = iconeProVere(), chiavi = Object.keys(L).filter((k) => /^pro_/.test(k)), prefissi = new Set();
   ok(chiavi.length === Object.keys(L).length, "icons-pro.js contiene solo chiavi pro_*");
-  const senza = Object.keys(A.PRO_DB).filter((id) => !L["pro_" + id]);
+  const senza = Object.keys(A.PRO_DB).filter((id) => !L[A.PRO_DB[id].ico || "pro_" + id]);   /* 18/11: dm3std usa l'icona di dm3 (campo ico) */
   eq(senza, [], "ogni modello del catalogo pro ha la sua icona realistica");
   chiavi.forEach((k) => {
     const id = k.slice(4), m = A.PRO_DB[id], ic = L[k];
@@ -35594,7 +35594,7 @@ t("Icone pro: icons-pro.js si carica SOLO quando serve, una volta; finché non c
   ok(/PRO_ICONE_URL="\/icons-pro\.js"/.test(appjs), "indirizzo del file nel codice");
   const prima = A.LIB_ICONS; A.LIB_ICONS = {}; A._proIcoStato = 0;
   try {
-    const vecchio = { type: "mixer", hw: "sq6", w: 64, d: 51, x: 0, y: 0, rot: 0 };   /* progetto di prima: hw senza pro */
+    const vecchio = { type: "mixer", hw: "sq6", w: 40, d: 51, x: 0, y: 0, rot: 0 };   /* progetto di prima: hw senza pro e misura lontana dalla scheda (18/11: entro 1 cm sarebbe riconosciuto) */
     A.TYPES.mixer.draw(vecchio);
     eq(A._proIcoStato, 0, "un elemento senza pro:1 non scarica niente");
     const it = Object.assign({ type: "mixer", x: 0, y: 0, rot: 0 }, A.proOver("sq6"));
@@ -35613,12 +35613,15 @@ t("Icone pro: arrivata l'icona, console, stage rack e modelli col tipo proprio u
   });
   const rio = L.pro_rio3224d2 ? "rrio" : null;
   if (rio) {
-    const vecchio = { type: "stagebox", hw: "rio3224d2", w: 48, d: 37, x: 0, y: 0, rot: 0 };
-    ok(A.TYPES.stagebox.draw(vecchio).indexOf('class="' + rio + "_") < 0, "stage box di un progetto vecchio (senza pro): resta il pannello di sempre");
+    const vecchio = { type: "stagebox", hw: "rio3224d2", w: 33, d: 17, x: 0, y: 0, rot: 0 };
+    ok(A.TYPES.stagebox.draw(vecchio).indexOf('class="' + rio + "_") < 0, "stage box di un progetto vecchio (senza pro) nella misura generica 33×17: resta il pannello di sempre");
+    const giusta = { type: "stagebox", hw: "rio3224d2", w: 48, d: 37, x: 0, y: 0, rot: 0 };
+    ok(A.TYPES.stagebox.draw(giusta).indexOf('class="' + rio + "_") > -1, "stage box vecchia (senza pro) con la misura di scheda entro 1 cm: icona vera (18/11)");
   }
   if (L.pro_sq7) {
-    const vecchio = { type: "sq7", w: 80, d: 52, x: 0, y: 0, rot: 0 };
-    ok(A.TYPES.sq7.draw(vecchio).indexOf('class="rsq7_') < 0, "SQ-7 posata dal tipo di sempre (senza hw): resta l'illustrazione di icons.js");
+    const vecchio = { type: "sq7", w: 70, d: 52, x: 0, y: 0, rot: 0 };
+    ok(A.TYPES.sq7.draw(vecchio).indexOf('class="rsq7_') < 0, "SQ-7 del tipo di sempre ma più stretta di 1 cm dalla scheda: resta l'illustrazione di icons.js");
+    ok(A.TYPES.sq7.draw({ type: "sq7", w: 80, d: 52, x: 0, y: 0, rot: 0 }).indexOf('class="rsq7_') > -1, "SQ-7 del tipo di sempre nella misura di scheda: icona vera (18/11)");
   }
 }));
 t("Icone pro: stage rack coi cavi accesi — prese usate sopra l'icona nelle posizioni misurate; senza mappa delle prese resta sbDraw", () => conIconePro((L) => {

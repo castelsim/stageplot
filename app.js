@@ -14234,7 +14234,7 @@ var PRO_DB = {
   "qu5":{"kind":"console","brand":"Allen & Heath","model":"Qu-5","famiglia":"Qu","mm":[440.0,476.0,213.0],"kg":10,"W":70,"in":16,"out":14,"proto":["dsnake"],"src":"AllenHeath Qu-5 Qu-5D TechnicalDatasheet, p.9/8/2","look":{"f":[16,1],"s":1},"usb":{"in":32,"out":32,"port":"USB-C"},"dante":false},
   "qu6":{"kind":"console","brand":"Allen & Heath","model":"Qu-6","famiglia":"Qu","mm":[609.0,476.0,213.0],"kg":13.5,"W":90,"in":24,"out":18,"proto":["dsnake"],"src":"AllenHeath Qu-6 Qu-6D TechnicalDatasheet, p.9/8/2","look":{"f":[24,1],"s":1},"usb":{"in":32,"out":32,"port":"USB-C"},"dante":false},
   "qu7":{"kind":"console","brand":"Allen & Heath","model":"Qu-7","famiglia":"Qu","mm":[800.0,476.0,213.0],"kg":16.7,"W":105,"in":32,"out":22,"proto":["dsnake"],"src":"AllenHeath Qu-7 Qu-7D TechnicalDatasheet, p.9/8/2","look":{"f":[32,1],"s":1},"usb":{"in":32,"out":32,"port":"USB-C"},"dante":false},
-  "sq6":{"kind":"console","brand":"Allen & Heath","model":"SQ-6","famiglia":"SQ","mm":[638.0,514.9,198.0],"kg":14.5,"W":90,"in":24,"out":16,"proto":["dsnake","gigaace"],"src":"AllenHeath SQ-6 TechnicalDatasheet, p.6/1","look":{"f":[12,12,1],"s":1}},
+  "sq6":{"kind":"console","brand":"Allen & Heath","model":"SQ-6","famiglia":"SQ","mm":[638.0,514.9,198.0],"kg":14.5,"W":90,"in":24,"out":16,"proto":["dsnake","gigaace"],"src":"AllenHeath SQ-6 TechnicalDatasheet, p.6/1","look":{"f":[12,12,1],"s":1},"tipo":"sq6"},
   "sq7":{"kind":"console","brand":"Allen & Heath","model":"SQ-7","famiglia":"SQ","mm":[804.0,514.9,198.0],"kg":17.8,"W":110,"in":32,"out":18,"proto":["dsnake","gigaace"],"src":"AllenHeath SQ-7 TechnicalDatasheet, p.6/1/2","tipo":"sq7","usb":{"in":32,"out":32,"port":"USB-B"}},
   "cq12t":{"kind":"console","brand":"Allen & Heath","model":"CQ-12T","famiglia":"CQ","mm":[291.0,242.0,89.0],"kg":2.4,"W":35,"in":10,"out":8,"proto":[],"src":"AllenHeath CQ-12T TechnicalDatasheet, p.5/4/1","look":{"tablet":1},"usb":{"in":16,"out":16,"port":"USB-B"}},
   "cq18t":{"kind":"console","brand":"Allen & Heath","model":"CQ-18T","famiglia":"CQ","mm":[346.0,242.0,89.0],"kg":3.0,"W":35,"in":16,"out":8,"proto":[],"src":"AllenHeath CQ-18T TechnicalDatasheet, p.5/4/1","look":{"tablet":1},"usb":{"in":24,"out":22,"port":"USB-B"}},
@@ -14273,6 +14273,8 @@ var PRO_DB = {
   "d2rack":{"kind":"stagebox","brand":"DiGiCo","model":"D2-Rack","famiglia":"D-Rack","mm":[482.6,248.0,399.2],"kg":13,"rackU":9,"in":48,"out":16,"proto":["madi"],"src":"DiGiCo D2-Rack DataSheet, p.3/4/2","Wunit":"VA (100-240 VAC, 200 VA max)"},
   "ql1":{"kind":"console","brand":"Yamaha","model":"QL1","famiglia":"QL","mm":[468.0,562.0,272.0],"kg":14.7,"W":135,"in":16,"out":8,"proto":["dante"],"src":"Yamaha QL5 QL1 OwnerManual EN, p.51/16/10","look":{"f":[16,2],"s":1,"c":"nero"}},
   "x32":{"kind":"console","brand":"Behringer","model":"X32","famiglia":"X32","mm":[900.0,528.0,200.0],"kg":20.6,"W":120,"in":32,"out":16,"proto":["aes50"],"src":"Behringer X32 QuickStartGuide, p.25","look":{"f":[16,8,1],"s":1}},
+  "dm3":{"kind":"console","brand":"Yamaha","model":"DM3-D","famiglia":"","mm":[320.0,455.0,140.0],"kg":6.5,"W":43,"proto":[],"src":"Yamaha DM3 OwnerManual EN, p.16","tipo":"dm3"},
+  "dm3std":{"kind":"console","brand":"Yamaha","model":"DM3 STANDARD","famiglia":"","mm":[320.0,455.0,140.0],"kg":6.5,"W":43,"proto":[],"src":"Yamaha DM3 OwnerManual EN, p.16","tipo":"dm3","ico":"pro_dm3"},
   "p10t":{"kind":"iem","brand":"Shure","model":"P10T (PSM1000)","famiglia":"PSM1000","mm":[483.0,343.0,44.0],"kg":4.7,"rackU":1,"proto":[],"src":"Shure PSM1000 UserGuide, p.24/7/28/29/9","Wunit":"A","ch":2,"rfW":[10,50,100],"bande":[["G10",470,542],["G10E",470,542],["G10J",470,542],["G11",479,542],["G62",510,530],["H8Z",518,582],["H22",518,584],["J8",554,626],["J8A",554,608,614,616],["J8E",554,626],["J8J",554,626],["K10E",596,668],["L8",626,698],["L8A",653,657,657,663],["L8E",626,698],["L8J",626,698],["L9E",670,742],["L11J",670,714],["M19",694,703],["P8",710,790],["Q12",748,758],["Q21",710,787],["Q22E",750,822],["R27",794,806],["X1",944,952],["X7",925,937.5],["X55",941,960]]},
   "p9t":{"kind":"iem","brand":"Shure","model":"P9T (PSM900)","famiglia":"PSM900","mm":[197.0,177.0,42.0],"kg":0.85,"proto":[],"src":"Shure PSM900 UserGuide, p.22/6/25/8","Wunit":"mA","ch":1,"rfW":[10,50,100],"bande":[["G6",470,506],["G6E",470,506],["G6J",470,506],["G14",506,542],["G14J",506,542],["G62",510,530],["G7",506,542],["G7E",506,542],["G7Z",518,542],["H21",542,578],["K1",596,632],["K1E",596,632],["K1J",596,632],["L6",656,692],["L6E",656,692],["L6J",656,692],["P7",702,742],["Q12",748,758],["Q15",750,790],["R21",794,806],["X7",925,937.5],["X1",944,952],["X55",941,960]],"mezzoRack":1},
   "p3t":{"kind":"iem","brand":"Shure","model":"P3T (PSM300)","famiglia":"PSM300","mm":[198.0,172.0,43.0],"kg":0.783,"proto":[],"src":"Shure PSM300 UserGuide, p.25/5/14/27/7","Wunit":"mA","ch":1,"rfW":[10,20,30],"bande":[["G20",488,512],["H8E",518,542],["H20",518,542],["H62",518,530],["J10",584,608],["J13",566,590],["JB",806,810],["K3E",606,630],["K12",614,638],["L18",630,654],["L19",630,654],["M16",686,710],["M18",686,710],["Q12",748,758],["Q25",742,766],["R12",794,806],["S8",823,832],["T11",863,865],["X7",925,937.5]],"mezzoRack":1},
@@ -14548,11 +14550,172 @@ function proIconeCarica(){
 }
 /* la chiave dell'icona del modello di questo elemento, se l'icona è già arrivata; se no la chiede e dà null */
 function proIconaDi(it){
-  var m=(it && it.pro) ? proModelOf(it) : null; if(!m) return null;   /* solo gli elementi posati dal catalogo pro (pro:1): i progetti vecchi con lo stesso hw restano come erano */
-  var k="pro_"+it.hw;
+  var k=proIconaChiave(it); if(!k) return null;
   if(typeof LIB_ICONS==="object" && LIB_ICONS && LIB_ICONS[k] && LIB_ICONS[k].vb && typeof LIB_ICONS[k].body==="string") return k;
   proIconeCarica();
   return null;
+}
+
+/* ── ICONE NEI PROGETTI ESISTENTI (18/11/2026) ───────────────────────────────────────────────────────
+   Simone (18/11): le icone realistiche valgono anche nei progetti salvati prima, DOVE l'elemento è con certezza un
+   modello del catalogo. Solo al disegno: il documento non cambia mai (niente pro:1, niente w/d, SCHEMA_VERSION resta 5),
+   quindi peso, consumo, U e lista materiali di un rider già mandato restano quelli di prima.
+   «Con certezza» = tre condizioni insieme, e il nome scritto a mano non basta MAI da solo:
+   1) origine strutturata: tipo legato a un modello (PRO_TIPO_MODELLO) oppure hw dei registri di prima che proModelOf riconosce;
+   2) nome compatibile (vuoto, nome del tipo, alias DELLO STESSO modello, nessun altro codice lettere+cifre);
+   3) misura entro PRO_TOLL_CM dalla scheda (anche per gli elementi pro:1: i 6 CQ-18T allargati a 125×150 non ingrandiscono l'icona).
+   Fuori da qui resta il disegno di sempre, e il pannello può dare un suggerimento (proSuggerimento). */
+var PRO_TOLL_CM=1;
+var PRO_TIPO_MODELLO={ dm3:"dm3", csr3:"csr3", csr5:"csr5", csr10:"csr10", sq6:"sq6", sq7:"sq7", q338:"q338", hd96:"hd9624", dlives5:"dlives5" };
+/* alias scritti a mano, normalizzati (minuscole, solo lettere e cifre): i primi sono di UN modello, i secondi di una famiglia (mai certezza) */
+var PRO_ALIAS_CERTI={ dm3:"dm3", pm5:"csr5", rivagepm5:"csr5", pm3:"csr3", rivagepm3:"csr3", pm10:"csr10", rivagepm10:"csr10", s5000:"dlives5", dlives5000:"dlives5", hd96:"hd9624", hd9624:"hd9624", m32live:"m32r", tfrack:"tfrack" };
+var PRO_ALIAS_FAMIGLIA={ x32:["x32","x32c","x32p","x32r"], rio3224:["rio3224d2"], rio1608:["rio1608d2"], tio1608:["tio1608d","tio1608d2"],
+  s6l:["s6l16c","s6l24c","s6l24d","s6l32d","s6l48d"], dlive:["dlc1500","dlc2500","dlc3500","dlives5","dldm48"], wing:["wing","wingc","wingr"], m32:["m32","m32r","m32c"] };
+function proCompatta(s){ return String(s==null?"":s).toLowerCase().replace(/[^a-z0-9]+/g,""); }
+function proTokens(s){ return String(s==null?"":s).toLowerCase().split(/[^a-z0-9]+/).filter(Boolean); }
+function proMisto(t){ return /[a-z]/.test(t) && /\d/.test(t); }   /* un «codice»: lettere e cifre insieme */
+var _proAl=null;
+function proAliasTabella(){
+  if(_proAl) return _proAl;
+  var per={}, idx={}, marche={a:1,h:1};
+  function agg(id, a){ a=proCompatta(a); if(a.length<3) return;
+    (per[id]=per[id]||{})[a]=1; (idx[a]=idx[a]||[]); if(idx[a].indexOf(id)<0) idx[a].push(id); }
+  Object.keys(PRO_DB).forEach(function(id){
+    var m=PRO_DB[id]; proTokens(m.brand).forEach(function(t){ marche[t]=1; });
+    var mod=String(m.model||""), senza=mod.replace(/\([^)]*\)/g,""), par=(mod.match(/\(([^)]*)\)/)||[])[1]||"";
+    [mod, senza, m.brand+" "+mod, m.brand+" "+senza].forEach(function(a){ agg(id,a); });
+    if(par){ agg(id,par); }
+  });
+  Object.keys(PRO_ALIAS_CERTI).forEach(function(a){ var id=PRO_ALIAS_CERTI[a]; if(PRO_DB[id]) agg(id,a); });
+  var fam={};
+  Object.keys(PRO_ALIAS_FAMIGLIA).forEach(function(a){
+    var ids=PRO_ALIAS_FAMIGLIA[a].filter(function(i){ return PRO_DB[i]; }); if(ids.length){ fam[a]=ids; idx[a]=ids.slice(); } });
+  _proAl={ per:per, idx:idx, fam:fam, marche:marche };
+  return _proAl;
+}
+/* il nome (label o label2) è compatibile col modello `id`: vuoto; uguale al nome del tipo; oppure contiene un alias di QUEL modello come
+   parola intera e nessun altro codice lettere+cifre («DM3 FOH» sì; «Yamaha DM4», «DM3 / CL5» no) */
+function proNomeUnoOk(it, id, s){
+  var tk=proTokens(s); if(!tk.length) return true;
+  var senzaNum=tk.filter(function(t){ return !/^\d+$/.test(t); });
+  var tp=TYPES[it.type]; if(tp && tp.nome && proCompatta(senzaNum.join(""))===proCompatta(tp.nome)) return true;
+  var A=(proAliasTabella().per[id])||{};
+  for(var n=1;n<=4;n++) for(var i=0;i+n<=tk.length;i++){
+    if(!A[tk.slice(i,i+n).join("")]) continue;
+    var resto=tk.slice(0,i).concat(tk.slice(i+n));
+    if(!resto.some(proMisto)) return true;
+  }
+  return false;
+}
+function proNomeCompatibile(it, id){ return proNomeUnoOk(it,id,it.label) && proNomeUnoOk(it,id,it.label2); }
+/* il nome scritto NON dice che è un altro modello (regola più larga, solo per il suggerimento «usa misura di scheda»: l'hw scelto da elenco è già il dato forte) */
+function proNomeNonContraddice(it, id){
+  var A=(proAliasTabella().per[id])||{};
+  return [it.label, it.label2].every(function(s){
+    var tk=proTokens(s); if(!tk.length || proNomeUnoOk(it,id,s)) return true;
+    return !tk.some(function(t,i){ return proMisto(t) && !A[t] && !(i>0 && A[tk[i-1]+t]); });
+  });
+}
+function proMisuraDi(it){ var t=TYPES[it.type]||{}; return { w:(it.w!=null?+it.w:t.w), d:(it.d!=null?+it.d:t.d) }; }
+function proMisuraOk(it, m){
+  var dm=proDimsCm(m); if(!dm) return true;
+  var u=proMisuraDi(it); if(!isFinite(u.w) || !isFinite(u.d)) return false;
+  return Math.abs(u.w-dm.w)<=PRO_TOLL_CM+0.001 && Math.abs(u.d-dm.d)<=PRO_TOLL_CM+0.001;
+}
+/* il modello di un elemento NON pro:1 con origine strutturata (T o H) e nome non in contrasto; la misura non entra qui */
+function proOrigine(it){
+  if(!it || it.pro) return null;
+  var tp=PRO_TIPO_MODELLO[it.type], id=null, m=null;
+  if(tp){
+    if(it.hw){ m=Object.prototype.hasOwnProperty.call(PRO_DB,it.hw) ? PRO_DB[it.hw] : null; id=(m && m.tipo===it.type) ? it.hw : null; if(!id) return null; }
+    else { id=tp; m=PRO_DB[id]; }
+    if(!m) return null;
+  } else if(it.hw){ m=proModelOf(it); if(!m) return null; id=it.hw; }
+  else return null;
+  return { id:id, m:m };
+}
+var _proCache={}, _proCacheN=0;
+/* {id, m} se l'elemento (senza pro) è con certezza un modello del catalogo, altrimenti null. O(1): cache per firma */
+function proModelloCerto(it){
+  if(!it || it.pro) return null;
+  var f=it.type+"|"+(it.hw||"")+"|"+(it.label||"")+"|"+(it.label2||"")+"|"+it.w+"|"+it.d, c=_proCache[f];
+  if(c!==undefined) return c||null;
+  var o=proOrigine(it), r=null;
+  if(o && proNomeCompatibile(it,o.id) && proMisuraOk(it,o.m)) r=o;
+  if(_proCacheN>3000){ _proCache={}; _proCacheN=0; }
+  _proCache[f]=r||0; _proCacheN++;
+  return r;
+}
+/* la chiave dell'icona di questo elemento (anche se icons-pro.js non è ancora arrivato), o null */
+function proIconaChiave(it){
+  if(!it) return null;
+  if(it.pro){ var m=proModelOf(it); if(!m || !proMisuraOk(it,m)) return null; return m.ico || ("pro_"+it.hw); }
+  var c=proModelloCerto(it); return c ? (c.m.ico || ("pro_"+c.id)) : null;
+}
+/* c'è almeno un elemento con icona realistica da caricare? (l'export aspetta icons-pro.js solo allora) */
+function proHaIconeDaCaricare(items){ return (items||[]).some(function(it){ return !!proIconaChiave(it); }); }
+/* aspetta icons-pro.js al massimo `ms` (3 s per l'export): mai blocca, se non arriva si esporta col disegno di sempre */
+function proIconeAttendi(ms){
+  return new Promise(function(ok){
+    if(_proIcoStato===2) return ok(true);
+    if(_proIcoStato===3) return ok(false);
+    if(_proIcoStato===0) proIconeCarica();
+    var t0=Date.now();
+    (function giro(){ if(_proIcoStato===2) return ok(true); if(_proIcoStato===3 || Date.now()-t0>=(ms==null?3000:ms)) return ok(false); setTimeout(giro,40); })();
+  });
+}
+function proMisuraSchedaTesto(it, m){ var dm=proDimsCm(m), u=proMisuraDi(it);
+  return "Misura di scheda "+proNome(m)+": "+proCmTesto(dm.w)+" × "+proCmTesto(dm.d)+" cm (qui "+proCmTesto(u.w)+" × "+proCmTesto(u.d)+")."; }
+var PRO_GENERICI=null;
+function proTipiGenerici(){
+  if(PRO_GENERICI) return PRO_GENERICI;
+  PRO_GENERICI={ stagebox:1, substg:1, mixer:1 };
+  Object.keys(PRO_DB).forEach(function(id){ var m=PRO_DB[id]; if(m.kind!=="console") { var t=proTipoDi(m); if(t) PRO_GENERICI[t]=1; } });
+  return PRO_GENERICI;
+}
+/* Il suggerimento del pannello (mai sul palco, mai avvisi): {caso:1|2|3, id | ids, famiglia, testo} o null.
+   1 = modello certo ma misura diversa → «Usa misura e dati di scheda» (cambiano anche peso e consumo nelle liste)
+   2 = il nome è un alias esatto ma manca l'hw → «Usa questo modello» (o la famiglia da scegliere)
+   3 = generico senza indizi → una riga, il selettore c'è già */
+function proSuggerimento(it){
+  if(!it || !TYPES[it.type]) return null;
+  if(it.pro){
+    var mp=proModelOf(it); if(!mp || proMisuraOk(it,mp) || !proDimsCm(mp)) return null;
+    return { caso:1, id:it.hw, testo:proMisuraSchedaTesto(it,mp) };
+  }
+  var o=proOrigine(it);
+  if(o){
+    if(!proNomeNonContraddice(it,o.id)) return null;
+    if(proMisuraOk(it,o.m) && proNomeCompatibile(it,o.id)) return null;   /* è già riconosciuto: l'icona c'è */
+    if(!proDimsCm(o.m) || proMisuraOk(it,o.m)) return null;
+    return { caso:1, id:o.id, testo:proMisuraSchedaTesto(it,o.m) };
+  }
+  if(it.hw) return null;   /* hw fuori catalogo (es. Rio3224-D3) o di un altro tipo: niente */
+  var AL=proAliasTabella();
+  var tk=proTokens(it.label).filter(function(t){ return !/^\d+$/.test(t) && !AL.marche[t]; });
+  var a=proCompatta(tk.join("")), ids=a ? (AL.idx[a]||[]).filter(function(i){ return proModelOf({type:it.type, hw:i}); }) : [];
+  if(ids.length){
+    var fam=!!AL.fam[a] || ids.length>1;
+    return fam ? { caso:2, ids:ids, famiglia:true, testo:"Che modello è? "+ids.map(function(i){ return PRO_DB[i].model; }).join(" · ") }
+               : { caso:2, id:ids[0], testo:"Sembra un "+proNome(PRO_DB[ids[0]])+"." };
+  }
+  if(proTipiGenerici()[it.type] && !PRO_TIPO_MODELLO[it.type]) return { caso:3, testo:"Scegli il modello per avere icona e misure vere." };
+  return null;
+}
+/* «Usa misura e dati di scheda»: hw (se manca), pro:1, misura di scheda e proDims:1 — UN passo, poi save() */
+function proUsaScheda(it, id){
+  id=id||it.hw; var m=Object.prototype.hasOwnProperty.call(PRO_DB,id||"") ? PRO_DB[id] : null; if(!m) return false;
+  var prova={type:it.type, hw:id}; if(!proModelOf(prova)) return false;
+  var dm=proDimsCm(m); if(!dm) return false;
+  it.hw=id; it.pro=1; it.w=dm.w; it.d=dm.d; it.proDims=1;
+  return true;
+}
+/* «Usa questo modello»: come scegliere il modello dal selettore (hw, proApplica, sbAutoSize per le stage box) */
+function proUsaModello(it, id){
+  if(!proModelOf({type:it.type, hw:id})) return false;
+  it.hw=id; proApplica(it);
+  if((it.type==="stagebox" || it.type==="substg") && typeof sbAutoSize==="function") sbAutoSize(it);
+  return true;
 }
 function proIconaDraw(it, k){ var L=LIB_ICONS[k]; return drawLibFit(k, it, L.vb[2], L.vb[3]); }
 /* prese patchate sopra l'icona della stage box (come sbDraw): anello teal sugli ingressi usati, ciano sulle
@@ -14589,7 +14752,7 @@ function proPorteDraw(it, L, use){
   Object.keys(PRO_DB).forEach(function(id){
     var tp=PRO_DB[id].tipo, t=tp && TYPES[tp]; if(!t || t._proIco) return;
     var base=t.draw; t._proIco=true;
-    t.draw=function(it){ var k=(it && it.hw) ? proIconaDi(it) : null; return k ? proIconaDraw(it, k) : base(it); };
+    t.draw=function(it){ var k=proIconaDi(it); return k ? proIconaDraw(it, k) : base(it); };   /* 18/11: senza la condizione it.hw: vale anche il tipo legato al modello (DM3, CS-R, SQ-6/7, Q338, HD96) */
   });
 })();
 /* scheda tecnica in una riga (pannello): misura, peso, consumo, U e fonte */
@@ -14650,8 +14813,8 @@ function proUnitaDraw(it){
     var t=TYPES[tp]; if(!t || t._proIco) return;
     var base=t.draw; t._proIco=true;
     t.draw=function(it){
-      var m=(it && it.pro) ? proModelOf(it) : null; if(!m) return base(it);
-      var k=proIconaDi(it); return k ? proIconaDraw(it, k) : proUnitaDraw(it);
+      var k=proIconaDi(it); if(k) return proIconaDraw(it, k);
+      var m=(it && it.pro) ? proModelOf(it) : null; return m ? proUnitaDraw(it) : base(it);   /* pro:1 fuori misura (18/11): unità neutra nella misura dell'elemento */
     };
   });
 })();
