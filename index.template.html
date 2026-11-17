@@ -21812,7 +21812,7 @@ function renderProps(){
     if(_h) _h.textContent = _chain ? chainHint(it) : "";
     var _nm=document.getElementById("pNoMicWrap"), _nmOn=noMicSenzaTendina(it);
     if(_nm){ _nm.style.display=_nmOn?"block":"none";
-      var _nh=document.getElementById("pNoMicHint"); if(_nh && _nmOn) _nh.textContent="«Nessun microfono»: questo elemento non produce canali nell'Input list. Toglilo per rimettere "+(cabItemInputsSenzaNoMic(it)||"i suoi canali")+"."; }
+      var _nh=document.getElementById("pNoMicHint"); if(_nh && _nmOn) _nh.textContent="«Nessun microfono»: questo elemento non produce canali nella Channel list. Toglilo per rimettere "+(cabItemInputsSenzaNoMic(it)||"i suoi canali")+"."; }
     var _card=document.getElementById("pOutCard");
     if(_card){ var _mkOn=!!(MIKING[it.type] && !VOCE[it.type] && !_chain); _card.style.display=(_mayDi||_mkOn||_chain)?"block":"none"; }
   })();
