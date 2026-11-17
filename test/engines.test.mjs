@@ -35345,7 +35345,7 @@ t("Icone pro: ogni icona di icons-pro.js ha la misura della scheda (±2 mm), SVG
     ok(!/NaN|undefined|Infinity/.test(ic.body), k + ": numeri validi");
     eq(_xmlBilanciato(ic.body), "", k + ": tag bilanciati");
     const cls = [...ic.body.matchAll(/class="([^"]+)"/g)].map((x) => x[1]), pr = new Set(cls.map((c) => c.split("_")[0]));
-    ok(cls.length > 10 && pr.size === 1, k + ": un solo prefisso di classe (" + [...pr].join(",") + ")");
+    ok(cls.length >= 4 && pr.size === 1, k + ": un solo prefisso di classe (" + [...pr].join(",") + ")");   /* ≥ 4 e non più > 10 (lotto 2, 17/11): un'antenna omni o un box sub-snake ha pochi pezzi; la ricchezza si guarda sulla tavola */
     const p = [...pr][0]; ok(!prefissi.has(p), k + ": prefisso " + p + " non usato da un'altra icona"); prefissi.add(p);
     [...ic.body.matchAll(/id="([^"]+)"/g)].forEach((x) => ok(x[1].indexOf(p + "_") === 0 || x[1] === p, k + ": id " + x[1] + " col prefisso"));
     if (ic.porte) ["in", "out"].forEach((q) => (ic.porte[q] || []).forEach((xy, i) => ok(xy[0] >= 0 && xy[0] <= ic.vb[2] && xy[1] >= 0 && xy[1] <= ic.vb[3], k + ": presa " + q + " " + (i + 1) + " dentro l'icona")));
