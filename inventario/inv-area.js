@@ -81,10 +81,11 @@
       } })])]),
       h("p", { class: "nota", text: "Privacy: la pagina pubblica del QR mostra solo codice, tipo, modello, stato e quanti ce ne sono. Il nome di chi ha lo strumento (solo nome e corso/classe, mai indirizzi o telefoni) lo vedono soltanto le persone che abiliti e che accedono con Google." })]));
   }
-  function apri(id) {
+  function apri(id, subito) {
     S.inv = S.inventari.filter(function (i) { return i.id === id; })[0]; if (!S.inv) return vistaElenco();
     S.filtro = { tipo: "", stato: "", testo: "", ordine: "codice" }; S.sel = {};
-    leggiDentro(id).then(vistaInventario, function () { toast("Non riesco a leggere l'inventario."); });
+    /* subito = «elenco»: arrivo dal pulsante «Tutto l'inventario» della pagina del QR → direttamente l'elenco da stampare (nomi e note spenti) */
+    leggiDentro(id).then(function () { if (subito === "elenco" && S.articoli.length) { vistaInventario(); return vistaStampaElenco(filtrati()); } vistaInventario(); }, function () { toast("Non riesco a leggere l'inventario."); });
   }
   function filtrati() { return L.ordina(L.filtra(S.articoli, S.filtro, true), S.filtro.ordine); }   // chi guarda è un membro (RLS): la ricerca può includere i nomi
   function salvaImpostazione(col, val) {
@@ -306,6 +307,8 @@
       if (st === "senza_rete") return schermataAccesso(true);
       S.utente = s.sessione.user || {};
       return ACC.cliente(cfg).then(function (c) { S.c = c; return leggiInventari(); }).then(function () {
+        var q = new URLSearchParams(location.search), qs = (q.get("apri") || "").toLowerCase(), pre = qs && IND.slugOk(qs) ? S.inventari.filter(function (i) { return i.slug === qs; })[0] : null;
+        if (pre) return apri(pre.id, q.get("elenco") === "1" ? "elenco" : "");   // solo tra gli inventari che la RLS mostra a questo utente: uno non abilitato non compare
         if (S.inventari.length === 1) return apri(S.inventari[0].id);
         vistaElenco();
       }, function () { schermataAccesso(true); });

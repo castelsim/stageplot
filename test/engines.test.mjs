@@ -34178,7 +34178,7 @@ t("Inventario: foglio dell'elenco — 34 righe per foglio, piè con versione e d
   ok(/function vistaStampaElenco\(elenco, conNomi\)/.test(js) && /conNomi = !!conNomi/.test(js), "i nomi sul foglio sono spenti di serie");
   ok(/L\.piedeElenco\(ver, S\.inv\.nome/.test(js) && /\(i \+ 1\) \+ " di " \+ N/.test(js), "il foglio ha versione, data e «1 di N»");
   ok(/\.foglio\.elenco\{padding:16mm 17mm/.test(css) && /\.piede-foglio\{[^}]*bottom:16mm/.test(css), "margini ≥ 15 mm anche sul foglio dell'elenco");
-  ok(/inv-area\.js\?v=3/.test(readFileSync(join(root, "inventario/index.html"), "utf8")), "versione degli script alzata (niente cache vecchia)");
+  ok(/inv-area\.js\?v=4/.test(readFileSync(join(root, "inventario/index.html"), "utf8")), "versione degli script alzata (niente cache vecchia)");
 });
 t("Inventario: pagina e area — ritorno dopo l'accesso, cablaggio (404.html, service worker, deploy, menu editor), noindex, mai innerHTML, niente terzi", () => {
   const f404 = readFileSync(join(root, "404.html"), "utf8");
@@ -34193,6 +34193,20 @@ t("Inventario: pagina e area — ritorno dopo l'accesso, cablaggio (404.html, se
   ok(/accedi\/google\/avvio\.js/.test(idx) && /biglietteria\/accesso\.js/.test(idx), "la pagina del QR carica l'accesso Google già presente (spGoogle + BGLAccesso)");
   ok(!/unsafe-inline/.test(idx.match(/Content-Security-Policy" content="([^"]+)"/)[1]), "CSP della pagina pubblica senza unsafe-inline");
   ok(!/INVENTARIO|TAS-0|@[a-z]+\.(it|com)/.test(readFileSync(join(root, "i/inv.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "")), "nessun dato reale nel codice della pagina");
+});
+
+/* ═══ Inventario: pulsante «Tutto l'inventario» sulla pagina del QR (17/11/2026) ═══ */
+t("inventario: il pulsante «Tutto l'inventario» sta SOLO nel pannello dei membri e porta all'elenco da stampare", () => {
+  eq(INV_PUB.linkAreaElenco("scuola"), "/inventario/?apri=scuola&elenco=1", "link all'area sull'inventario, già sull'elenco");
+  for (const x of ["", "a", "sc uola", "scuola&x=1", "../x", "scuola/TAS-001", null, undefined]) eq(INV_PUB.linkAreaElenco(x), "", "slug non valido: nessun link (" + x + ")");
+  const src = readFileSync(join(root, "i/inv.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const fPannello = src.slice(src.indexOf("function pannello("), src.indexOf("function areaSegreteria("));
+  ok(/linkAreaElenco\(ind\.slug\)/.test(fPannello), "il pulsante è costruito dentro pannello() (che si disegna solo se inv_scheda_membro risponde)");
+  ok(!/linkAreaElenco/.test(src.slice(src.indexOf("function scheda("), src.indexOf("function elenco("))) && !/linkAreaElenco/.test(src.slice(src.indexOf("function avvia("), src.indexOf("function piede("))), "né scheda pubblica né avvio lo disegnano");
+  ok(!/Tutto l’inventario|Tutto l'inventario/.test(src.slice(0, src.indexOf("function pannello(")) + src.slice(src.indexOf("function areaSegreteria("))), "il testo del pulsante esiste solo nel pannello dei membri");
+  const area = readFileSync(join(root, "inventario/inv-area.js"), "utf8");
+  ok(/IND\.slugOk\(qs\)/.test(area) && /S\.inventari\.filter\(function \(i\) \{ return i\.slug === qs/.test(area), "l'area valida lo slug e lo cerca solo tra gli inventari che la RLS mostra all'utente");
+  ok(/subito === "elenco"/.test(area) && /vistaStampaElenco\(filtrati\(\)\)/.test(area), "con elenco=1 apre l'elenco da stampare (nomi e note spenti di serie)");
 });
 
 /* ═══ UX lotti 6-8-9 (16/11/2026): progetti e copie, mobile rifinito, aiuto nell'app ═══ */

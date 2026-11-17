@@ -69,6 +69,8 @@
     non_autorizzato: "Il tuo accesso non è abilitato per questo inventario.", non_autenticato: "Accedi di nuovo.", non_trovato: "Non trovo questo codice.",
     dati_non_validi: "Controlla i campi: serve il nome, e la data deve essere ragionevole." };
   function erroreMov(r) { return (r && ERR_MOV[r.errore]) || "Non è andata: riprova."; }
+  /* il pulsante «Tutto l'inventario» (solo membri): porta all'area, su quell'inventario, già sull'elenco da stampare. Solo lo slug (validato), mai altro. */
+  function linkAreaElenco(slug) { return typeof slug === "string" && /^[a-z0-9][a-z0-9-]{1,28}[a-z0-9]$/.test(String(slug)) ? "/inventario/?apri=" + encodeURIComponent(slug) + "&elenco=1" : ""; }
   function oggiIso(d) { d = d || new Date(); return d.getFullYear() + "-" + ("0" + (d.getMonth() + 1)).slice(-2) + "-" + ("0" + d.getDate()).slice(-2); }
 
   /* ================================================================== BROWSER */
@@ -128,6 +130,8 @@
   function pannello(app, cfg, ind, m, client, rigenera) {
     var c = el("section", "inv-carta inv-riservato");
     c.appendChild(el("p", "inv-sopra", "Riservato alla segreteria"));
+    var vaElenco = linkAreaElenco(ind.slug);
+    if (vaElenco) { var tutto = link(vaElenco, "Tutto l’inventario", "inv-btn primario inv-tutto"); tutto.id = "inv-tutto"; c.appendChild(tutto); }
     var riga = function (k, v) { var r = el("p", "inv-riga"); r.appendChild(el("span", "inv-chiave", k)); r.appendChild(el("span", "inv-valore", v)); return r; };
     c.appendChild(riga("Assegnato a", m.assegnato_a || "— nessuno —"));
     if (m.data_consegna) c.appendChild(riga("Consegna", gmA(m.data_consegna)));
@@ -228,7 +232,7 @@
     giro();
   }
   function piede() { return el("p", "inv-piede", "Inventario su stageplot.it"); }
-  var P = { configura: configura, pulisci: pulisci, pulisciElenco: pulisciElenco, pulisciMembro: pulisciMembro, frase: frase, erroreMov: erroreMov, oggiIso: oggiIso, gmA: gmA, STATI: STATI, MOV: MOV };
+  var P = { configura: configura, pulisci: pulisci, pulisciElenco: pulisciElenco, pulisciMembro: pulisciMembro, frase: frase, erroreMov: erroreMov, linkAreaElenco: linkAreaElenco, oggiIso: oggiIso, gmA: gmA, STATI: STATI, MOV: MOV };
   root.INVPubblica = P;
   if (typeof module === "object" && module && module.exports) module.exports = P;
   else if (typeof document !== "undefined") { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", avvia); else avvia(); }
