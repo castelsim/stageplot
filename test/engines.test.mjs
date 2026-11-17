@@ -35581,7 +35581,7 @@ t("Estero: in inglese le scritte dell'app si traducono, i testi scritti dall'ute
     eq(A.docTesto("1,7 A"), "1.7 A", "punto decimale");
     eq(A.docTesto("• Sorgente senza destinazione: Corista 1 (ingressi palco esauriti) — aggiungi una stage box vicino alla regia e marcala come «lato mixer», poi collegali lì a mano."),
       "• Source with no destination: Backing vocal 1 (stage inputs used up) — add a stage box near FOH, mark it as “mixer side”, then patch them there by hand.", "avviso con un nome dentro");
-    eq(A.docTesto("STAGE PLOT — Channel list"), "STAGE PLOT — Input list", "la channel list in inglese è l'«Input list» dei rider americani");
+    eq(A.docTesto("STAGE PLOT — Channel list"), "STAGE PLOT — Channel list", "la channel list in inglese resta «Channel list» (scelta di Simone 17/11)");
     eq(A.docTesto("USCITA"), "OUTPUT", "colonna della monitor list: un'uscita audio, non l'uscita di sicurezza");
     eq(A.docTesto("Ascolti: 3 wedge"), "Monitoring: 3 wedges", "plurale di wedge"); eq(A.docTesto("Ascolti: 1 wedge"), "Monitoring: 1 wedge", "e il singolare");
     const lungo = "Quantità ricavate dal disegno dello stage plot: se cambia, il foglio esce con una versione nuova.";
