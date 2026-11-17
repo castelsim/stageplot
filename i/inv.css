@@ -66,3 +66,10 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui);font-size:17px
 
 /* pulsante «Tutto l'inventario» (solo membri): grande, a tutta larghezza sul telefono */
 .inv-tutto{display:flex;align-items:center;justify-content:center;width:100%;min-height:52px;margin:4px 0 12px;font-size:18px;text-decoration:none;text-align:center}
+
+/* ---- modulo di comodato (dopo la consegna / ristampa): carta sullo schermo, foglio A4 solo in stampa ---- */
+.inv-modulo-carta{text-align:left;margin-top:8px;border-color:var(--accent)}
+.inv-modulo-nota{margin:0 0 8px}
+.inv-modulo-codice{font-weight:600;margin:10px 0 2px}
+.inv-modulo-bott .inv-btn{flex:1 1 130px}
+.inv-modulo-stato{min-height:1px}
