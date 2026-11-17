@@ -63,3 +63,6 @@ body{background:var(--bg);color:var(--text);font-family:var(--ui);font-size:17px
 .inv-mov span{color:var(--text-2)}
 :root{--on-accent:#fff}
 @media (prefers-color-scheme: dark){:root{--on-accent:#06201d}}
+
+/* pulsante «Tutto l'inventario» (solo membri): grande, a tutta larghezza sul telefono */
+.inv-tutto{display:flex;align-items:center;justify-content:center;width:100%;min-height:52px;margin:4px 0 12px;font-size:18px;text-decoration:none;text-align:center}
