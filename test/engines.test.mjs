@@ -34178,7 +34178,19 @@ t("Inventario: foglio dell'elenco — 34 righe per foglio, piè con versione e d
   ok(/function vistaStampaElenco\(elenco, conNomi\)/.test(js) && /conNomi = !!conNomi/.test(js), "i nomi sul foglio sono spenti di serie");
   ok(/L\.piedeElenco\(ver, S\.inv\.nome/.test(js) && /\(i \+ 1\) \+ " di " \+ N/.test(js), "il foglio ha versione, data e «1 di N»");
   ok(/\.foglio\.elenco\{padding:16mm 17mm/.test(css) && /\.piede-foglio\{[^}]*bottom:16mm/.test(css), "margini ≥ 15 mm anche sul foglio dell'elenco");
-  ok(/inv-area\.js\?v=4/.test(readFileSync(join(root, "inventario/index.html"), "utf8")), "versione degli script alzata (niente cache vecchia)");
+  ok(/inv-area\.js\?v=([4-9]|\d\d)"/.test(readFileSync(join(root, "inventario/index.html"), "utf8")), "versione degli script alzata (niente cache vecchia)");
+});
+t("Inventario: foglio dell'elenco sul telefono — intero dentro lo schermo, scala ricalcolata a ogni rotazione, stampa A4 al 100% senza colonne fuori foglio (17/11)", () => {
+  const js = readFileSync(join(root, "inventario/inv-area.js"), "utf8"), css = readFileSync(join(root, "inventario/inv-area.css"), "utf8"), html = readFileSync(join(root, "inventario/index.html"), "utf8");
+  ok(/function adattaFogli\(\)/.test(js) && /vistaStampaElenco[\s\S]{0,4000}?adattaFogli\(\);/.test(js), "l'elenco adatta i fogli allo schermo appena disegnato");
+  const corpo = js.slice(js.indexOf("function adattaFogli()"), js.indexOf("window.addEventListener(\"resize\""));
+  ok(corpo.length > 100 && !/marginLeft|marginBottom/.test(corpo) && !/marginLeft = \(\(w - 794\)/.test(js.slice(js.indexOf("function vistaStampaElenco"), js.indexOf("function adattaFogli()"))), "niente più margine sinistro negativo sull'elenco (spostava il foglio fuori dallo schermo)");
+  ok(/addEventListener\("resize", function \(\) \{ if \(S\.vista === "stampa-elenco"\) adattaFogli\(\); \}\)/.test(js), "rotazione e ridimensionamento ricalcolano la scala");
+  ok(/\.fo-box\{[^}]*overflow:hidden/.test(css) && /\.fo-box \.foglio\{transform-origin:top left/.test(css), "contenitore grande quanto il foglio scalato");
+  const pr = css.slice(css.indexOf("@media print"));
+  ok(/\.fo-box\{width:auto!important;height:auto!important;overflow:visible;position:static\}/.test(pr) && /transform:none!important/.test(pr), "in stampa contenitore e scala annullati");
+  ok(/\.el-tab\{width:100%;min-width:0;/.test(css) && /(^|\}|\n)table\{[^}]*min-width:1000px/.test(css), "la tabella del foglio non eredita il min-width:1000px dell'inventario (colonna Nota e margine destro dentro l'A4)");
+  ok(/inv-area\.css\?v=([4-9]|\d\d)"/.test(html) && /inv-area\.js\?v=([5-9]|\d\d)"/.test(html), "versioni di css e js alzate");
 });
 t("Inventario: pagina e area — ritorno dopo l'accesso, cablaggio (404.html, service worker, deploy, menu editor), noindex, mai innerHTML, niente terzi", () => {
   const f404 = readFileSync(join(root, "404.html"), "utf8");
