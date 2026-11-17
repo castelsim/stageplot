@@ -10,6 +10,8 @@
   /* La stessa anon key del resto del sito: pubblica per costruzione (decidono la RLS e i grant). */
   var ANON_PROD = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzb2RwbHFrdXZuc2RpaWt2bWpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2MTkyNjksImV4cCI6MjA5ODE5NTI2OX0.rZmZSvOnrNY3cC2JQ8XnbMTKIfjP5WmtbCtQ6l8zPrc";
   var TIMEOUT_MS = 15000;
+  /* il modulo di comodato (i/inv-modulo.js): nel browser è già caricato da index.html; in Node (test) si prende col require */
+  var MOD = root.INVModulo || (typeof require === "function" ? require("./inv-modulo.js") : null);
   var STATI = { in_sede: "In sede", a_casa: "A casa", in_riparazione: "In riparazione", smarrito: "Smarrito", dismesso: "Dismesso" };
   var MOV = { consegna: "Consegna", rientro: "Rientro", rottura: "Rottura", smarrimento: "Smarrimento" };
 
@@ -58,6 +60,7 @@
     return {
       stato: statoOk(r.stato), assegnato_a: testo(r.assegnato_a, 120), data_consegna: data(r.data_consegna), data_rientro: data(r.data_rientro), note: testo(r.note, 500),
       proprietario: r.proprietario === true,
+      modulo: MOD ? MOD.pulisciModulo(r.modulo) : null,
       movimenti: (Array.isArray(r.movimenti) ? r.movimenti : []).slice(0, 30).map(function (m) {
         m = m && typeof m === "object" ? m : {};
         return { tipo: MOV[m.tipo] ? m.tipo : "", a_chi: testo(m.a_chi, 120), data: data(m.data), nota: testo(m.nota, 500), autore: testo(m.autore, 120) };
@@ -127,7 +130,7 @@
 
   /* ---- pannello riservato (membri) ---- */
   function campo(etichetta, input) { var w = el("div", "inv-campo"), l = el("label", "", etichetta); input.id = "inv-" + etichetta.replace(/\W+/g, "").toLowerCase(); l.setAttribute("for", input.id); w.appendChild(l); w.appendChild(input); return w; }
-  function pannello(app, cfg, ind, m, client, rigenera) {
+  function pannello(app, cfg, ind, m, client, rigenera, scheda) {
     var c = el("section", "inv-carta inv-riservato");
     c.appendChild(el("p", "inv-sopra", "Riservato alla segreteria"));
     var vaElenco = linkAreaElenco(ind.slug);
@@ -164,10 +167,50 @@
       });
       if (conNome) nome.focus();
     }
+    /* consegna: 6 campi → inv_movimento come prima (assegnato_a = «Nome Cognome, Corso», nota = «Accessori: …») → carta «Modulo di comodato» */
+    function apriModulo(form, fineEtichetta) {
+      if (!MOD) return rigenera();
+      while (area.firstChild) area.removeChild(area.firstChild); esito.textContent = ""; bott.hidden = true;
+      area.appendChild(MOD.cartaModulo({ scheda: scheda, membro: m, modulo: m.modulo, form: form, fineEtichetta: fineEtichetta === "Chiudi" ? "Chiudi" : "Fine", fine: function () {
+        if (fineEtichetta === "Chiudi") { while (area.firstChild) area.removeChild(area.firstChild); bott.hidden = false; } else rigenera();
+      } }));
+      var cm = document.getElementById("inv-modulo"); if (cm && cm.scrollIntoView) cm.scrollIntoView({ block: "start" });
+    }
+    /* la ristampa: i dati si ricostruiscono da ciò che c'è già (assegnato_a, data di consegna, nota dell'ultima consegna) */
+    function riStampa() {
+      var x = MOD.daAssegnato(m.assegnato_a), ult = m.movimenti.filter(function (v) { return v.tipo === "consegna"; })[0];
+      return { nome: x.nome, cognome: x.cognome, corso: x.corso, accessori: ult ? MOD.leggiAccessori(ult.nota) : "", data: m.data_consegna || oggiIso() };
+    }
+    function consegna() {
+      while (area.firstChild) area.removeChild(area.firstChild);
+      var f = { nome: el("input"), cognome: el("input"), corso: el("input"), acc: el("input"), data: el("input"), nota: el("input") };
+      [["nome", 60, ""], ["cognome", 60, ""], ["corso", 100, "es. pianoforte, 2B"], ["acc", 200, "alimentatore, custodia, bacchette, cavalletto…"], ["nota", 300, "facoltativa"]].forEach(function (k) { var i = f[k[0]]; i.type = "text"; i.maxLength = k[1]; i.placeholder = k[2]; i.autocomplete = "off"; });
+      f.data.type = "date"; f.data.value = oggiIso();
+      var ok = el("button", "inv-btn primario", "Conferma consegna"); ok.type = "button"; ok.id = "inv-conferma";
+      var no = el("button", "inv-btn", "Annulla"); no.type = "button"; no.addEventListener("click", function () { while (area.firstChild) area.removeChild(area.firstChild); esito.textContent = ""; });
+      area.appendChild(el("p", "inv-azione-titolo", "Consegna"));
+      area.appendChild(campo("Nome *", f.nome)); area.appendChild(campo("Cognome *", f.cognome)); area.appendChild(campo("Corso / classe", f.corso));
+      area.appendChild(el("p", "inv-nota", "Solo nome e corso/classe: mai indirizzi o telefoni."));
+      area.appendChild(campo("Accessori consegnati", f.acc)); area.appendChild(campo("Data", f.data)); area.appendChild(campo("Nota", f.nota));
+      var r = el("div", "inv-riga-bott"); r.appendChild(ok); r.appendChild(no); area.appendChild(r);
+      ok.addEventListener("click", function () {
+        if (!f.nome.value.trim() || !f.cognome.value.trim()) { esito.textContent = "Scrivi nome e cognome di chi prende lo strumento."; return; }
+        var aChi = MOD.componiAssegnato(f.nome.value, f.cognome.value, f.corso.value), nota = MOD.notaConsegna(f.acc.value, f.nota.value);
+        ok.disabled = true; esito.textContent = "";
+        client.rpc("inv_movimento", { p_slug: ind.slug, p_codice: ind.codice, p_tipo: "consegna", p_a_chi: aChi, p_data: f.data.value || null, p_nota: nota }).then(function (res) {
+          if (res.error) throw res.error; var o = res.data;
+          if (!o || !o.ok) { esito.textContent = erroreMov(o); ok.disabled = false; return; }
+          apriModulo({ nome: f.nome.value, cognome: f.cognome.value, corso: f.corso.value, accessori: f.acc.value, data: f.data.value || oggiIso() }, "Fine");
+        }, function () { esito.textContent = "Non riesco a collegarmi: riprova."; ok.disabled = false; });
+      });
+      f.nome.focus();
+    }
     var bott = el("div", "inv-riga-bott");
     function b(txt, f, cls) { var x = el("button", "inv-btn " + (cls || ""), txt); x.type = "button"; x.addEventListener("click", f); bott.appendChild(x); return x; }
-    if (m.assegnato_a) b("Rientrato", function () { modulo("rientro", "Rientro di " + m.assegnato_a, false, "Conferma rientro"); }, "primario");
-    else if (m.stato !== "dismesso" && m.stato !== "smarrito" && m.stato !== "in_riparazione") b("Consegna a…", function () { modulo("consegna", "Consegna", true, "Conferma consegna"); }, "primario");
+    if (m.assegnato_a) {
+      b("Rientrato", function () { modulo("rientro", "Rientro di " + m.assegnato_a, false, "Conferma rientro"); }, "primario");
+      if (MOD) b("Modulo di comodato", function () { apriModulo(riStampa(), "Chiudi"); }).id = "inv-btn-modulo";
+    } else if (m.stato !== "dismesso" && m.stato !== "smarrito" && m.stato !== "in_riparazione") b("Consegna a…", function () { consegna(); }, "primario");
     if (m.stato !== "in_riparazione" && m.stato !== "dismesso" && m.stato !== "smarrito") b("Rotto", function () { modulo("rottura", "Segna come rotto", false, "Conferma"); });
     if (m.stato !== "smarrito" && m.stato !== "dismesso") b("Smarrito", function () { modulo("smarrimento", "Segna come smarrito", false, "Conferma"); });
     c.appendChild(bott);
@@ -186,7 +229,7 @@
     return c;
   }
   /* accesso segreteria: carica il client solo se c'è una sessione salvata (chi scansiona dal pubblico non scarica nulla in più) */
-  function areaSegreteria(cfg, ind, contenitore, rigenera) {
+  function areaSegreteria(cfg, ind, contenitore, rigenera) {  /* ind.scheda = la scheda pubblica (serve al modulo: strumento e modello) */
     var inserisci = function (n) { while (contenitore.firstChild) contenitore.removeChild(contenitore.firstChild); if (n) contenitore.appendChild(n); };
     if (!ACC) return;
     var salvata = false; try { salvata = ACC.sessioneSalvata(root.localStorage, cfg.api); } catch (e) {}
@@ -202,7 +245,7 @@
           if (r.error) throw r.error;
           var m = pulisciMembro(r.data);
           if (!m) { var p = el("p", "inv-nota", "Accesso come " + testo((s.sessione.user || {}).email, 120) + ": non abilitato per questo inventario."); return inserisci(p); }
-          inserisci(pannello(null, cfg, ind, m, client, rigenera));
+          inserisci(pannello(null, cfg, ind, m, client, rigenera, ind.scheda));
         });
       });
     }).then(null, function () { inserisci(el("p", "inv-nota", "Accesso segreteria non disponibile ora.")); });
@@ -226,7 +269,7 @@
         var seg = el("div", "inv-segreteria"), nodi = [scheda(d, ind)];
         var altro = el("p", "inv-piede"); altro.appendChild(link("/i/" + encodeURIComponent(ind.slug), "Tutto l’elenco")); nodi.push(altro);
         nodi.push(seg); nodi.push(piede()); mostra(app, nodi);
-        areaSegreteria(cfg, ind, seg, riprova);
+        areaSegreteria(cfg, { slug: ind.slug, codice: ind.codice, scheda: d }, seg, riprova);
       }, function () { messaggio(app, "Non riesco a collegarmi", "Controlla la connessione e riprova.", riprova); });
     }
     giro();
