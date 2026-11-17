@@ -49,3 +49,38 @@ export function corpoTroppoGrande(bytes: number): boolean {
 export function oraPiena(n: number | null | undefined): boolean {
   return typeof n === "number" && n >= GLOBAL_MAX_PER_HOUR;
 }
+
+// LIMITE PER CHI INVIA (17/11, decisione di Simone: «alza il limite»). Alla 6ª segnalazione dell'ora
+// arrivava «troppi invii» anche a chi stava correggendo uno stage plot con l'account. Tre fasce:
+// anonimo 5/ora per IP, utente con accesso 30/ora per utente, amministratore nessun limite per invio.
+// Il tetto GLOBALE (GLOBAL_MAX_PER_HOUR) resta per tutti.
+
+/** Segnalazioni/ora per chi non ha fatto l'accesso (per IP). */
+export const ANON_MAX_PER_HOUR = 5;
+/** Segnalazioni/ora per un utente autenticato (per id utente). */
+export const USER_MAX_PER_HOUR = 30;
+/** Stesso id usato da get-shared-project e save-shared-project per riconoscere l'amministratore. */
+export const ADMIN_USER_ID = "4b899cba-3cc2-4b26-9ef0-c3e915929277";
+
+export type LimiteInvio =
+  | { kind: "admin" }                       // nessun limite per chi invia
+  | { kind: "user"; key: string; max: number }
+  | { kind: "ip"; key: string; max: number };
+
+/**
+ * Sceglie chi si conta e quanto: `userId` è l'id ricavato dal JWT VERIFICATO (mai dal payload).
+ * Chiave = prefisso + id/IP, da hashare prima di usarla (la funzione SQL vuole 64 esadecimali).
+ */
+export function limiteInvio(userId: string | null | undefined, ip: string): LimiteInvio | null {
+  if (userId) {
+    if (userId === ADMIN_USER_ID) return { kind: "admin" };
+    return { kind: "user", key: "u:" + userId, max: USER_MAX_PER_HOUR };
+  }
+  if (ip) return { kind: "ip", key: ip, max: ANON_MAX_PER_HOUR };
+  return null; // anonimo senza IP: resta solo il tetto globale
+}
+
+/** Con il contatore a `count` (già incrementato), questo invio va rifiutato? */
+export function oltreLimite(count: unknown, max: number): boolean {
+  return typeof count === "number" && count > max;
+}
