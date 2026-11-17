@@ -28945,7 +28945,7 @@ t("molte varianti: «Tutte (N)» elenca ogni variante e il «+» resta ultimo", 
     eq((m.match(/data-vgo=/g) || []).length, 6, "una voce per variante");
     ok(/data-vgo="v3" aria-current="true">✓ &lt;X&gt;/.test(m), "l'attiva e' segnata e il nome e' testo");
   } finally { A.VARIANTS = v0; A.activeVar = a0; }
-  ok(/function mostraVarianteAttiva\(\)/.test(appjs) && /bar\.innerHTML=variantTabsHtml\(\);\s*mostraVarianteAttiva\(\);/.test(appjs), "la scheda attiva viene portata in vista a ogni disegno");
+  ok(/function mostraVarianteAttiva\(\)/.test(appjs) && /bar\.innerHTML=variantTabsHtml\(\);\s*barraCompattaAggiorna\(\);\s*mostraVarianteAttiva\(\);/.test(appjs), "la scheda attiva viene portata in vista a ogni disegno");
 });
 t("variante identica: due varianti uguali, avviso su entrambe", () => {
   reset();
@@ -34189,7 +34189,7 @@ t("Inventario: foglio dell'elenco sul telefono — intero dentro lo schermo, sca
   ok(/\.fo-box\{[^}]*overflow:hidden/.test(css) && /\.fo-box \.foglio\{transform-origin:top left/.test(css), "contenitore grande quanto il foglio scalato");
   const pr = css.slice(css.indexOf("@media print"));
   ok(/\.fo-box\{width:auto!important;height:auto!important;overflow:visible;position:static\}/.test(pr) && /transform:none!important/.test(pr), "in stampa contenitore e scala annullati");
-  ok(/\.el-tab\{width:100%;min-width:0;/.test(css) && /(^|\}|\n)table\{[^}]*min-width:1000px/.test(css), "la tabella del foglio non eredita il min-width:1000px dell'inventario (colonna Nota e margine destro dentro l'A4)");
+  ok(/\.el-tab\{width:100%;min-width:0;/.test(css) && !/min-width:1000px/.test(css), "la tabella del foglio ha min-width:0 e l'area non ha più nessuna tabella larga 1000 px (L2: colonna Nota e margine destro dentro l'A4)");
   ok(/inv-area\.css\?v=([4-9]|\d\d)"/.test(html) && /inv-area\.js\?v=([5-9]|\d\d)"/.test(html), "versioni di css e js alzate");
 });
 t("Inventario: le etichette sul telefono — stessa correzione dell'elenco (contenitore grande quanto il foglio), niente margine sinistro negativo (18/11)", () => {
@@ -34211,10 +34211,72 @@ t("Inventario/interfaccia L1: sp-base.css condiviso, barra del marchio statica e
   ok(!/:root\{/.test(css) && /:root\{/.test(base) && /prefers-color-scheme: dark/.test(base), "i token stanno solo in sp-base.css, chiari e scuri");
   ok(!/1d4ed8|text-transform:\s*uppercase|letter-spacing:\s*\.12em/.test(css), "niente anello blu né maiuscolo spaziato sulla pagina del QR");
   ok(/\.stato\.a_casa/.test(base) && /\.stato\.in_riparazione/.test(base) && /\.stato\.smarrito/.test(base) && /\.stato\.dismesso/.test(base), "pillole di stato per tutti gli stati");
-  ok(/inv\.css\?v=5/.test(idx) && /inv\.js\?v=5/.test(idx), "versioni di css e js della pagina alzate");
+  ok(/inv\.css\?v=6/.test(idx) && /inv\.js\?v=5/.test(idx), "versioni di css e js della pagina alzate (inv.css v6: carta del modulo senza doppia cornice, L2)");
   const inv = readFileSync(join(root, "i/inv.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
   ok(/"Elenco completo"/.test(inv) && !/"Tutto l’elenco"/.test(inv), "il link «Elenco completo» sta nel cartellino");
   ok(/segnalaErrore/.test(inv) && /input\.setAttribute\("aria-describedby", p\.id\)/.test(inv) && /input\.setAttribute\("aria-invalid", "true"\)/.test(inv), "errori sul campo legati con aria-describedby");
+});
+t("Inventario/interfaccia L2: area /inventario/ — barra del marchio, sp-base.css, nessun :root locale, stampa intatta, nessuna tabella larga (18/11)", () => {
+  const html = readFileSync(join(root, "inventario/index.html"), "utf8"), css = readFileSync(join(root, "inventario/inv-area.css"), "utf8");
+  ok(/href="\/inventario\/sp-base\.css\?v=1"/.test(html) && html.indexOf("sp-base.css") < html.indexOf("inv-area.css"), "l'area carica sp-base.css (percorso assoluto) prima di inv-area.css");
+  ok(/<header class="barra-sp">[\s\S]*svg class="brand-full"[\s\S]*id="inv-lato"[\s\S]*<\/header>/.test(html) && html.indexOf("<header") < html.indexOf("<main"), "barra del marchio statica con logo e slot #inv-lato sopra il <main>");
+  ok(!/innerHTML/.test(html.replace(/<!--[\s\S]*?-->/g, "")) && !/<style|\sstyle="/.test(html.replace(/<svg[\s\S]*?<\/svg>/g, "")), "nessuno stile in linea nell'HTML dell'area");
+  ok(!/:root\{/.test(css), "i token stanno solo in sp-base.css");
+  ok(/inv-area\.css\?v=([6-9]|\d\d)"/.test(html) && /inv-area\.js\?v=([8-9]|\d\d)"/.test(html) && /inv-lib\.js\?v=([4-9]|\d\d)"/.test(html) && /\/i\/inv\.js\?v=([5-9]|\d\d)"/.test(html), "?v= alzati su ogni file toccato (css, js, lib) e inv.js allineato alla pagina del QR");
+  const a = css.indexOf("/* ---- foglio di etichette"), b = css.indexOf("@media print{"), c = css.indexOf("\n}", b) + 2;
+  const stampa = css.slice(a, c).replace("  .barra-sp{display:none}\n", "");
+  eq(createHash("sha256").update(stampa).digest("hex"), "244415a2a5f441a18068dd5e61f762becfd90e90da33f9c661d17398e0101dbb", "i blocchi di stampa (.foglio, .etichetta*, .piede-foglio, .foglio.elenco, .el-*, .fo-box, @media print) sono identici byte per byte a main");
+  ok(/@media print\{[^]*?\.barra-sp\{display:none\}[^]*?\n\}/.test(css.slice(b)), "la barra del marchio sparisce in stampa (unica riga nuova nel blocco di stampa)");
+  ok(!/min-width:1000px/.test(css) && /\.oggetti table\{[^}]*table-layout:fixed/.test(css) && /\.oggetti col\.c-stato\{width:\d+px\}/.test(css), "tabella a colonne fisse, senza larghezza minima");
+  const tel = css.slice(css.indexOf("@media (max-width:720px)"));
+  ok(/\.oggetti thead\{display:none\}/.test(tel) && /grid-template-areas:"sel cod tipo stato"/.test(tel), "sul telefono la stessa tabella diventa un elenco di schede (solo CSS)");
+  ok(!/#1d4ed8|--focus\b/.test(css) && /\.gestione>details>summary/.test(css) && /details\.menu \.tendina/.test(css), "anello di focus teal (da sp-base), Gestione e menu «Esporta» stilati");
+  const ic = readFileSync(join(root, "i/inv.css"), "utf8");
+  ok(/\.inv-blocco>\.inv-modulo-carta\{[^}]*border:0/.test(ic) && !/\.inv-modulo-carta>\.inv-sopra/.test(ic), "la carta del modulo dentro il blocco non ha la seconda cornice; regola .inv-sopra tolta");
+});
+t("Inventario/interfaccia L2: struttura dell'area — un solo primario nella testa, «Esporta» e «Gestione» chiusi di serie, id invariati, privacy dei membri (18/11)", () => {
+  const js = readFileSync(join(root, "inventario/inv-area.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const v = js.slice(js.indexOf("function vistaInventario()"), js.indexOf("function menuEsporta("));
+  eq((v.match(/btn primario/g) || []).length, 1, "nella testa dell'inventario c'è UN solo pulsante primario");
+  ok(/class: "btn primario", type: "button", id: "bElenco"/.test(v) && /id: "bEtichette"/.test(v) && !/class: "btn primario"[^}]*id: "bEtichette"/.test(v), "«Stampa elenco» è il primario, «Etichette» è a contorno");
+  const m = js.slice(js.indexOf("function menuEsporta("), js.indexOf("function frasePosti("));
+  ok(/class: "menu"/.test(m) && !/open/.test(m.replace(/det\.open = false/g, "")) && /id: "bCsvElenco"/.test(m) && /id: "bCsv"/.test(m) && /id: "bCsvNomi"/.test(m) && /id: "chkCsvNomi"/.test(m), "«Esporta» è un <details> chiuso con i tre CSV e la spunta dei nomi");
+  const g = js.slice(js.indexOf("function gest("), js.indexOf("function schermataAccesso("));
+  ok(/d\.open = S\.gest\[chiave\] != null \? S\.gest\[chiave\] : !!aperto/.test(g), "le sezioni di Gestione sono chiuse salvo che si dica «aperto»");
+  const ge = js.slice(js.indexOf("function gestione()"), js.indexOf("function pannelloPubblico()"));
+  ok(/gest\("aggiungi"[^\n]*!S\.articoli\.length\)/.test(ge) && /gest\("persone"[^\n]*, false\)/.test(ge) && /prop && MOD \? pannelloModulo\(\) : null/.test(ge), "Gestione: «Aggiungi oggetti» si apre solo a inventario vuoto; persone e modulo chiusi; modulo solo al proprietario");
+  ok(/gest\("pubblico"[\s\S]*, false\);/.test(js.slice(js.indexOf("function pannelloPubblico()"), js.indexOf("function pannelloPersone()"))) && /gest\("modulo"[\s\S]*false, "mod-sezione"\)/.test(js), "pagina pubblica e modulo chiusi di serie (id mod-sezione conservato)");
+  ok(/prop \? gestione\(\) : h\("p"/.test(v) && /prop \? del : null/.test(js), "chi non è proprietario non vede Gestione né «Elimina»: al posto una riga di nota");
+  ok(/vuoto \? null : riepilogoTipi\(\)/.test(v) && /L\.riepilogo\(S\.tipi, S\.articoli\)/.test(js) && /L\.ceLha\(a\)/.test(js) && /h\("colgroup"/.test(js), "riepilogo, «Ce l'ha» e <colgroup> collegati alle funzioni pure");
+  ok(/function lato\(\)/.test(js) && /getElementById\("inv-lato"\)/.test(js) && !/class: "barra"/.test(js), "email e «Esci» vanno nello slot della barra del marchio");
+  ok(/details\.menu\[open\]/.test(js), "il menu «Esporta» si chiude con un tocco fuori o con Esc");
+});
+t("Inventario/privacy: nomi e note riservate spenti di serie nel CSV dei mostrati e nella stampa dell'elenco (rilettura #152, 18/11)", () => {
+  const js = readFileSync(join(root, "inventario/inv-area.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const s0 = js.slice(js.indexOf("var S = {"), js.indexOf("};", js.indexOf("var S = {")));
+  ok(!/csvNomi/.test(s0), "lo stato iniziale non accende i nomi nel CSV");
+  ok(/id: "chkCsvNomi", checked: !!S\.csvNomi[,\s}]/.test(js), "la spunta dei nomi nel CSV parte da S.csvNomi (spenta finché non la tocchi)");
+  ok(/function vistaStampaElenco\(elenco, conNomi\) \{\s*S\.vista = "stampa-elenco"; conNomi = !!conNomi;/.test(js) && /id: "chkNomiStampa", checked: conNomi[,\s}]/.test(js), "la stampa dell'elenco parte senza nomi se non le si chiede");
+  eq((js.match(/vistaStampaElenco\(filtrati\(\)[^)]/g) || []).length, 0, "nessuna chiamata apre la stampa dell'elenco già con i nomi");
+});
+t("Inventario/interfaccia L2: riepilogo per tipo e «Ce l'ha» (funzioni pure, 18/11)", () => {
+  const tipi = [{ prefisso: "TAS", singolare: "Tastiera", plurale: "tastiere" }, { prefisso: "PAD", singolare: "Pad", plurale: "pad" }];
+  const art = [{ tipo: "TAS", stato: "in_sede" }, { tipo: "TAS", stato: "a_casa" }, { tipo: "TAS", stato: "a_casa" }, { tipo: "PAD", stato: "in_sede" }];
+  let r = INV_LIB.riepilogo(tipi, art);
+  deepEq(r.colonne.map((c) => c.id), ["in_sede", "a_casa", "in_riparazione"], "senza smarriti né dismessi le colonne sono tre");
+  eq(r.colonne[2].nome, "Riparazione", "nome corto della colonna riparazione");
+  eq([r.righe[0].nome, r.righe[0].totale, r.righe[0].valori.in_sede, r.righe[0].valori.a_casa, r.righe[0].valori.in_riparazione], ["Tastiere", 3, 1, 2, 0], "riga del tipo: nome al plurale con la maiuscola, zeri compresi");
+  eq([r.totale.nome, r.totale.totale, r.totale.valori.in_sede, r.totale.valori.a_casa], ["Totale", 4, 2, 2], "riga dei totali");
+  r = INV_LIB.riepilogo(tipi, art.concat([{ tipo: "PAD", stato: "smarrito" }, { tipo: "PAD", stato: "dismesso" }]));
+  deepEq(r.colonne.map((c) => c.id), ["in_sede", "a_casa", "in_riparazione", "smarrito", "dismesso"], "smarrito e dismesso compaiono solo se ce n'è almeno uno");
+  eq([r.righe[1].totale, r.totale.valori.smarrito, r.totale.valori.dismesso], [3, 1, 1], "i rari sono contati (il totale del tipo comprende anche i dismessi)");
+  r = INV_LIB.riepilogo([], []); eq([r.righe.length, r.totale.totale], [0, 0], "nessun tipo: tabella vuota");
+  deepEq(INV_LIB.ceLha({ assegnato_a: "Mario Rossi, pianoforte 2B", data_consegna: "2026-11-17" }), { nome: "Mario Rossi", sotto: "pianoforte 2B · dal 17/11/2026" }, "nome, corso e data");
+  deepEq(INV_LIB.ceLha({ assegnato_a: "Mario Rossi", data_consegna: "2026-11-17" }), { nome: "Mario Rossi", sotto: "dal 17/11/2026" }, "senza corso");
+  deepEq(INV_LIB.ceLha({ assegnato_a: "Mario Rossi, Rossi, 2B" }), { nome: "Mario Rossi, Rossi", sotto: "2B" }, "il corso è dopo l'ultima virgola");
+  deepEq(INV_LIB.ceLha({ assegnato_a: "", data_rientro: "2026-10-30" }), { nome: "", sotto: "rientrato il 30/10/2026" }, "rientrato: nessun nome");
+  deepEq(INV_LIB.ceLha({ assegnato_a: "" }), { nome: "", sotto: "" }, "mai assegnato: vuoto");
+  deepEq(INV_LIB.ceLha(null), { nome: "", sotto: "" }, "dato nullo: vuoto");
 });
 t("Inventario/privacy: il pannello della segreteria (nomi, «Ce l'ha», storico) nasce solo da inv_scheda_membro con una scheda valida; non abilitato = una nota e basta (18/11)", () => {
   const src = readFileSync(join(root, "i/inv.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
@@ -36158,6 +36220,38 @@ t("Icone esistenti 11: il suggerimento sta dietro «Opzioni complete» per le st
   ok(/group\("Stage box", null, \["pSbChWrap"\]\)/.test(appjs), "pSbChWrap sta nel gruppo «Stage box»");
   ok(/body:not\(\.f-opzioni\):not\(\.props-tutte\) #selProps \.pgrp\[data-grp="stage-box"\]/.test(stylesCss), "il gruppo Stage box è nascosto senza «Opzioni complete»");
   ok(!/\.textContent\s*=\s*"Misura e dati/.test(appjs), "nessun testo fisso fuori dal suggerimento");
+});
+
+t("Barra compatta «B solo quando il titolo è lungo» (18/11)", () => {
+  const f = (n) => (x) => x.length <= n;   /* larghezza finta: n caratteri */
+  const T30 = "Valdagno Teatro Super 22.12.26", T60 = "Omaggio a Ennio Morricone con orchestra, coro e solisti Teatro Verdi 01.12.26 · v12";
+  const NORM = 40, COMP = 70;   /* campo a barra normale / a barra compatta */
+  const piano = (t, era) => { const c = A.barraCompattaScegli(t.length, NORM, era, 4); const av = c ? COMP : NORM; return { c, txt: A.titoloTroncaCentro(t, f(av)) }; };
+  let r = piano("Concerto", false);
+  ok(r.c === false && r.txt === "Concerto", "titolo corto: barra di sempre, titolo intatto");
+  r = piano(T30, false);
+  ok(r.c === false && r.txt === T30, "titolo che ci sta (30 su 40): barra di sempre");
+  const T50 = T60.slice(0, 50);
+  r = piano(T50, false);
+  ok(r.c === true && r.txt === T50, "titolo lungo (50 su 40): barra compatta, e ora ci sta intero");
+  r = piano(T60, false);
+  ok(r.c === true && r.txt !== T60 && r.txt.includes("…") && r.txt.length <= COMP && r.txt.endsWith("v12"), "lunghissimo (>70): compatta + troncamento al centro, versione visibile");
+  /* isteresi: dentro compatta si esce solo con scarto */
+  eq(A.barraCompattaScegli(38, 40, true, 4), true, "isteresi: 38 su 40 da compatta resta compatta");
+  eq(A.barraCompattaScegli(35, 40, true, 4), false, "isteresi: 35 su 40 da compatta torna normale");
+  eq(A.barraCompattaScegli(38, 40, false, 4), false, "da normale 38 su 40 resta normale");
+  eq(A.barraCompattaScegli(41, 40, false, 4), true, "da normale 41 su 40 passa a compatta");
+  eq(A.barraCompattaScegli(100, 10, false, 4), false, "campo non misurabile (≤20): non si cambia");
+  eq(A.barraCompattaScegli(100, 0, true, 4), true, "campo non misurabile: resta com'era (compatta)");
+  eq(A.barraCompattaScegli(0, 100, true, 4), false, "titolo vuoto: normale");
+  /* i pezzi collegati */
+  ok(/function titoloVisAggiorna\(\)\{\s*barraCompattaAggiorna\(\);/.test(appjs), "si ricalcola con il campo del titolo (resize, input, font)");
+  ok(/bar\.innerHTML=variantTabsHtml\(\);\s*barraCompattaAggiorna\(\);/.test(appjs), "si ricalcola al ridisegno delle varianti");
+  ok(/barraCompattaAggiorna\(\);\s*var by=document\.getElementById\("projApprovedBy"\)/.test(appjs), "e al cambio di stato");
+  ok(/barraApplica\(false\); adattaCondividi\(\);/.test(appjs), "misura sempre dalla forma di sempre");
+  ok(/header\.bar-compatta #bShareHdr \.hdr-lbl[^{]*\{display:none\}/.test(stylesCss) && /header\.bar-compatta \.tbdiv\{display:none\}/.test(stylesCss), "CSS: Condividi solo icona, niente separatori");
+  ok(/select\.hdr-status\{width:16px/.test(stylesCss), "CSS: lo stato è un pallino");
+  ok(/aria-label="Condividi" title="Condividi con un link/.test(readFileSync(join(root, "app/index.html"), "utf8")), "Condividi ha l'etichetta accessibile anche senza scritta");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");

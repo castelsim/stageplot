@@ -151,7 +151,32 @@
     return righe.map(function (r) { return r.map(cella).join(","); }).join("\n") + "\n";
   }
 
-  var L = { descrizioneStato: descrizioneStato, filtra: filtra, ordina: ordina, confrontaCodice: confrontaCodice, RIGHE_ELENCO: RIGHE_ELENCO, impaginaElenco: impaginaElenco, piedeElenco: piedeElenco, sintesi: sintesi, csvElenco: csvElenco, piede: piede, corpoCodice: corpoCodice, STATI: STATI, FOGLIO: FOGLIO, statoNome: statoNome, statoOk: statoOk, codice: codice, prefissoOk: prefissoOk, proponiPrefisso: proponiPrefisso,
+  /* Riepilogo per tipo (tabellina in cima all'area): una riga per tipo + il totale. Colonne fisse «In sede / A casa / In riparazione»;
+     «Smarrito» e «Dismesso» compaiono solo se c'è almeno un oggetto in quello stato. Gli zeri restano (la tabella li scolorisce). */
+  function riepilogo(tipi, articoli) {
+    var cont = conteggi(articoli), rari = ["smarrito", "dismesso"], col = ["in_sede", "a_casa", "in_riparazione"].concat(rari.filter(function (id) {
+      return (articoli || []).some(function (a) { return a.stato === id; });
+    }));
+    function riga(prefisso, nome, c) {
+      var v = {}; col.forEach(function (id) { v[id] = (c.per_stato && c.per_stato[id]) || 0; });
+      return { prefisso: prefisso, nome: nome, totale: c.totale || 0, valori: v };
+    }
+    var righe = (tipi || []).map(function (t) {
+      var n = String(t.plurale || t.singolare || t.prefisso || ""); return riga(t.prefisso, n.charAt(0).toUpperCase() + n.slice(1), cont[t.prefisso] || { totale: 0, per_stato: {} });
+    });
+    var tot = { totale: 0, per_stato: {} };
+    righe.forEach(function (r) { tot.totale += r.totale; col.forEach(function (id) { tot.per_stato[id] = (tot.per_stato[id] || 0) + r.valori[id]; }); });
+    return { colonne: col.map(function (id) { return { id: id, nome: id === "in_riparazione" ? "Riparazione" : statoNome(id) }; }), righe: righe, totale: riga("", "Totale", tot) };
+  }
+  /* «Ce l'ha»: da «Nome Cognome, corso» (come lo scrive «Consegna a…») a { nome, sotto } con sotto = «corso · dal 17/11/2026»; senza assegnatario ma con rientro: «rientrato il …» */
+  function ceLha(a) {
+    var s = String((a && a.assegnato_a) || "").trim(), dal = a && a.data_consegna ? "dal " + dataIt(a.data_consegna) : "";
+    if (!s) return { nome: "", sotto: a && a.data_rientro ? "rientrato il " + dataIt(a.data_rientro) : "" };
+    var i = s.lastIndexOf(", "), corso = i >= 0 ? s.slice(i + 2).trim() : "", nome = i >= 0 ? s.slice(0, i).trim() : s;
+    return { nome: nome, sotto: [corso, dal].filter(Boolean).join(" · ") };
+  }
+
+  var L = { riepilogo: riepilogo, ceLha: ceLha, descrizioneStato: descrizioneStato, filtra: filtra, ordina: ordina, confrontaCodice: confrontaCodice, RIGHE_ELENCO: RIGHE_ELENCO, impaginaElenco: impaginaElenco, piedeElenco: piedeElenco, sintesi: sintesi, csvElenco: csvElenco, piede: piede, corpoCodice: corpoCodice, STATI: STATI, FOGLIO: FOGLIO, statoNome: statoNome, statoOk: statoOk, codice: codice, prefissoOk: prefissoOk, proponiPrefisso: proponiPrefisso,
     frase: frase, conteggi: conteggi, cella: cella, csv: csv, dataIt: dataIt, perPagina: perPagina, origineX: origineX, impagina: impagina, posizione: posizione,
     giusto: giusto, data: data, intervallo: intervallo };
   root.INVLib = L;

@@ -5232,6 +5232,50 @@ function adattaCondividi(){
   if(h.scrollWidth>h.clientWidth+1) h.classList.remove("cond-si");
 }
 window.addEventListener("resize", function(){ setTimeout(adattaCondividi, 0); });
+/* BARRA COMPATTA «SOLO QUANDO IL TITOLO È LUNGO» (18/11/2026, decisione di Simone dopo il confronto A/B/oggi a 1280 px:
+   «B solo quando il titolo è lungo»). Se il titolo ci sta nel campo, la barra è quella di sempre. Se NON ci sta si passa alla
+   forma compatta: «Variante 1» → «V1», lo stato → un pallino colorato (il menu a tendina resta), «Condividi» → solo icona,
+   spazi più stretti, niente separatori: il campo guadagna ~130 px e il titolo si vede intero. Se nemmeno così ci sta, resta
+   il troncamento al centro (titoloTroncaCentro). Si MISURA: tolta la forma compatta si misura il campo col testo (canvas),
+   poi si decide; tutto nello stesso passo di script, quindi senza lampeggi. Isteresi: si entra quando il testo supera il campo,
+   si esce solo quando ci sta con BARRA_MARGINE px di scarto, così la barra non «salta» a ogni pixel. */
+var BARRA_MARGINE=16, barraCompatta=false, __barraBusy=false;
+function barraCompattaScegli(w, avail, era, margine){
+  if(!(avail>20) || !(w>=0)) return !!era;        /* non misurabile (barra nascosta, font non pronto): non si cambia */
+  if(w>avail) return true;
+  return era ? (w>avail-(margine==null?BARRA_MARGINE:margine)) : false;
+}
+function barraApplica(c){
+  var h=document.querySelector("header"); if(!h) return;
+  h.classList.toggle("bar-compatta", !!c);
+  Array.prototype.forEach.call(h.querySelectorAll(".vtab"), function(t, i){
+    var tx=t.firstChild; if(!tx || tx.nodeType!==3) return;
+    if(t.__nome0==null) t.__nome0=tx.nodeValue;
+    if(t.__tit0==null) t.__tit0=t.getAttribute("title")||"";
+    if(c){ tx.nodeValue="V"+(i+1); t.setAttribute("aria-label", t.__nome0); t.setAttribute("title", t.__nome0+" — "+t.__tit0); }
+    else { tx.nodeValue=t.__nome0; t.removeAttribute("aria-label"); t.setAttribute("title", t.__tit0); }
+  });
+  var st=document.getElementById("projStatus");
+  if(st){
+    if(st.__tit0==null) st.__tit0=st.getAttribute("title")||"";
+    var o=st.options && st.selectedIndex>=0 ? st.options[st.selectedIndex] : null, lab=o?o.textContent:"";
+    if(c){ st.setAttribute("aria-label","Stato del progetto: "+lab); st.setAttribute("title","Stato: "+lab+" — "+st.__tit0); }
+    else { st.removeAttribute("aria-label"); st.setAttribute("title", st.__tit0); }
+  }
+}
+function barraCompattaAggiorna(){
+  if(__barraBusy) return; __barraBusy=true;
+  try{
+    var h=document.querySelector("header"), inp=document.getElementById("titolo"); if(!h || !inp || !h.classList) return;
+    var t=inp.value||"", era=barraCompatta, vuole=false;
+    if(t && inp.offsetParent!==null){
+      barraApplica(false); adattaCondividi();       /* forma di sempre, per misurare il campo com'è */
+      var m=titoloVisMisura(inp);
+      vuole=barraCompattaScegli(m.w(t), m.avail, era);
+    }
+    barraCompatta=vuole; barraApplica(vuole);
+  }catch(_e){} finally{ __barraBusy=false; }
+}
 function renderVariantBar(){
   setTimeout(adattaCondividi, 0);
   renderVariantMobile();
@@ -5241,6 +5285,7 @@ function renderVariantBar(){
   bar.hidden=ospite;
   if(ospite){ var vm=document.getElementById("variantMenu"); if(vm) vm.hidden=true; return; }
   bar.innerHTML=variantTabsHtml();
+  barraCompattaAggiorna();
   mostraVarianteAttiva();
 }
 /* Le schede delle varianti, come testo: una funzione pura, così si prova senza DOM. */
@@ -23166,6 +23211,7 @@ function titoloVisMisura(inp){
   return { avail:avail, w:function(x){ return cx.measureText(x).width; } };
 }
 function titoloVisAggiorna(){
+  barraCompattaAggiorna();
   __titoloVis.forEach(function(o){
     try{
       var inp=o.inp, btn=o.btn, t=inp.value||"", a=document.activeElement;
@@ -40017,6 +40063,7 @@ function renderStatusUI(){
   var st=state.status||"bozza", info=statusInfo(st);
   if(sel.value!==st) sel.value=st;
   sel.setAttribute("data-status", st); sel.style.color=info.color; sel.style.borderColor=info.color;
+  if(typeof barraCompattaAggiorna==="function") barraCompattaAggiorna();
   var by=document.getElementById("projApprovedBy");
   if(by){ by.hidden = (st!=="approvato"); if(!by.hidden && by.value!==(state.approval&&state.approval.by||"")) by.value=(state.approval&&state.approval.by)||""; }
 }

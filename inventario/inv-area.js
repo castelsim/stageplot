@@ -7,7 +7,7 @@
   var ACC = window.BGLAccesso, L = window.INVLib, IND = window.INVIndirizzo, PUB = window.INVPubblica;
   var app = document.getElementById("inv-area");
   var cfg = PUB.configura(location.hostname, location.search);
-  var S = { c: null, utente: null, inventari: [], inv: null, tipi: [], articoli: [], membri: [], filtro: { tipo: "", stato: "", testo: "", ordine: "codice" }, sel: {}, vista: "elenco", errore: "" };
+  var S = { c: null, utente: null, inventari: [], inv: null, tipi: [], articoli: [], membri: [], filtro: { tipo: "", stato: "", testo: "", ordine: "codice" }, sel: {}, gest: {}, vista: "elenco", errore: "" };
 
   /* ---------------------------------------------------------------- attrezzi DOM */
   function h(tag, attr, figli) {
@@ -54,36 +54,50 @@
   function nomeTipo(p) { for (var i = 0; i < S.tipi.length; i++) if (S.tipi[i].prefisso === p) return S.tipi[i]; return null; }
 
   /* ---------------------------------------------------------------- schermate */
-  function barra(titolo, extra) {
-    return h("div", { class: "barra" }, [h("div", {}, [h("h1", { text: titolo })]), h("div", { class: "riga" }, (extra || []).concat([
-      S.utente ? h("button", { class: "btn piccolo", type: "button", text: "Esci", onclick: function () { ACC.esci(cfg).then(function () { location.reload(); }); } }) : null]))]);
+  /* La barra del marchio è HTML statico in index.html; qui si riempie solo lo slot di destra (email e «Esci») */
+  function lato() {
+    var n = document.getElementById("inv-lato"); if (!n) return; vuota(n);
+    if (!S.utente) return;
+    if (S.utente.email) n.appendChild(h("span", { class: "mail", text: S.utente.email }));
+    n.appendChild(h("button", { class: "btn piccolo", type: "button", text: "Esci", onclick: function () { ACC.esci(cfg).then(function () { location.reload(); }); } }));
+  }
+  /* sezione di «Gestione»: <details> con titolo a sinistra e riassunto a destra; ricorda se l'hai aperta (le viste si ridisegnano) */
+  function gest(chiave, titolo, riassunto, figli, aperto, id) {
+    var sp = h("span", { text: riassunto || "" }), d = h("details", id ? { id: id } : {}, [h("summary", {}, [titolo, sp])].concat(figli || []));
+    d.riassunto = sp; d.open = S.gest[chiave] != null ? S.gest[chiave] : !!aperto;
+    d.addEventListener("toggle", function () { S.gest[chiave] = d.open; });
+    return d;
   }
   function schermataAccesso(rete) {
-    disegna([h("h1", { text: "Inventario" }), h("p", { class: "nota", text: "Numera gli strumenti e l'attrezzatura (TAS-001, PAD-001…), stampa le etichette con il QR e scansionandole vedi subito che numero è e quanti ce ne sono." }),
+    disegna([h("div", { class: "colonna" }, [h("h1", { text: "Inventario" }), h("p", { class: "nota", text: "Numera gli strumenti e l'attrezzatura (TAS-001, PAD-001…), stampa le etichette con il QR e scansionandole vedi subito che numero è e quanti ce ne sono." }),
       h("p", { class: "nota", text: rete ? "Non riesco a collegarmi. Controlla la rete e riprova." : "Per gestire l'inventario devi accedere." }),
-      h("button", { class: "btn primario", type: "button", text: rete ? "Riprova" : "Accedi con Google", onclick: function () { if (rete) return avvia(); ACC.accedi(cfg, location.pathname + location.search).catch(function () { toast("Accesso non riuscito: riprova."); }); } })]);
+      h("button", { class: "btn primario grande", type: "button", text: rete ? "Riprova" : "Accedi con Google", onclick: function () { if (rete) return avvia(); ACC.accedi(cfg, location.pathname + location.search).catch(function () { toast("Accesso non riuscito: riprova."); }); } })])]);
   }
   function vistaElenco() {
-    S.vista = "elenco"; S.inv = null;
+    S.vista = "elenco"; S.inv = null; lato();
     var nome = h("input", { type: "text", maxlength: "80", placeholder: "es. Accademia Esempio" });
-    var slug = h("input", { type: "text", maxlength: "30", placeholder: "es. scuola", style: "text-transform:lowercase" });
+    var slug = h("input", { type: "text", maxlength: "30", placeholder: "es. scuola", class: "min" });
     nome.addEventListener("input", function () { if (!slug.dataset.mano) slug.value = nome.value.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 30); });
     slug.addEventListener("input", function () { slug.dataset.mano = "1"; });
     var err = h("p", { class: "err", hidden: true });
     var lista = S.inventari.length ? S.inventari.map(function (i) {
-      return h("div", { class: "card riga" }, [h("div", { style: "flex:1" }, [h("b", { text: i.nome }), h("div", { class: "nota", text: "stageplot.it/i/" + i.slug + (S.utente && i.user_id !== S.utente.id ? " · accesso come persona abilitata" : "") })]), h("button", { class: "btn", type: "button", text: "Apri", onclick: function () { apri(i.id); } })]);
+      return h("div", { class: "riga-inv" }, [h("div", {}, [h("b", { text: i.nome }), h("div", { class: "indirizzo", text: "stageplot.it/i/" + i.slug }), S.utente && i.user_id !== S.utente.id ? h("div", { class: "nota", text: "Accesso come persona abilitata" }) : null]),
+        h("button", { class: "btn", type: "button", text: "Apri", "aria-label": "Apri " + i.nome, onclick: function () { apri(i.id); } })]);
     }) : [h("p", { class: "nota", text: "Non hai ancora nessun inventario. Creane uno: di solito uno per scuola, service o band." })];
-    disegna([barra("I tuoi inventari")].concat(lista, [h("h2", { text: "Nuovo inventario" }),
-      h("div", { class: "card" }, [campo("Nome (compare sulle etichette e sulla pagina pubblica)", nome, "nuovoNome"), campo("Indirizzo breve: stageplot.it/i/…  (non si cambia più: sta nei QR)", slug, "nuovoSlug"), err, h("div", { class: "riga", style: "margin-top:10px" }, [h("button", { class: "btn primario", type: "button", text: "Crea", onclick: function () {
-        var n = nome.value.trim(); if (!n) { err.textContent = "Scrivi un nome."; err.hidden = false; return; }
-        rpc("inv_crea", { p_nome: n, p_slug: slug.value.trim().toLowerCase() }).then(function (r) { if (!r || !r.ok) { err.textContent = errore(r); err.hidden = false; return; } return leggiInventari().then(function () { apri(r.id); }); },
-          function () { err.textContent = errore(null, 1); err.hidden = false; });
-      } })])]),
-      h("p", { class: "nota", text: "Privacy: la pagina pubblica del QR mostra solo codice, tipo, modello, stato e quanti ce ne sono. Il nome di chi ha lo strumento (solo nome e corso/classe, mai indirizzi o telefoni) lo vedono soltanto le persone che abiliti e che accedono con Google." })]));
+    var nuovo = h("details", { class: "blocco nuovo-inv" }, [h("summary", { text: "Nuovo inventario" }),
+      h("div", {}, [h("div", { class: "campi" }, [campo("Nome (compare sulle etichette e sulla pagina pubblica)", nome, "nuovoNome"), campo("Indirizzo breve: stageplot.it/i/…  (non si cambia più: sta nei QR)", slug, "nuovoSlug")]), err,
+        h("div", { class: "riga sotto" }, [h("button", { class: "btn primario", type: "button", text: "Crea", onclick: function () {
+          var n = nome.value.trim(); if (!n) { err.textContent = "Scrivi un nome."; err.hidden = false; return; }
+          rpc("inv_crea", { p_nome: n, p_slug: slug.value.trim().toLowerCase() }).then(function (r) { if (!r || !r.ok) { err.textContent = errore(r); err.hidden = false; return; } return leggiInventari().then(function () { apri(r.id); }); },
+            function () { err.textContent = errore(null, 1); err.hidden = false; });
+        } })])])]);
+    if (!S.inventari.length) nuovo.open = true;   // il primo inventario: il modulo è subito aperto; con altri già creati resta chiuso
+    disegna([h("div", { class: "colonna" }, [h("h1", { text: "I tuoi inventari" })].concat(lista, [nuovo,
+      h("p", { class: "nota nota-privacy", text: "Privacy: la pagina pubblica del QR mostra solo codice, tipo, modello, stato e quanti ce ne sono. Il nome di chi ha lo strumento (solo nome e corso/classe, mai indirizzi o telefoni) lo vedono soltanto le persone che abiliti e che accedono con Google." })]))]);
   }
   function apri(id, subito) {
     S.inv = S.inventari.filter(function (i) { return i.id === id; })[0]; if (!S.inv) return vistaElenco();
-    S.filtro = { tipo: "", stato: "", testo: "", ordine: "codice" }; S.sel = {};
+    S.filtro = { tipo: "", stato: "", testo: "", ordine: "codice" }; S.sel = {}; S.gest = {};
     /* subito = «elenco»: arrivo dal pulsante «Tutto l'inventario» della pagina del QR → direttamente l'elenco da stampare (nomi e note spenti) */
     leggiDentro(id).then(function () { if (subito === "elenco" && S.articoli.length) { vistaInventario(); return vistaStampaElenco(filtrati()); } vistaInventario(); }, function () { toast("Non riesco a leggere l'inventario."); });
   }
@@ -117,6 +131,7 @@
       im.src = u;
     });
   }
+  function moduloImpostato(m) { return !!(m && (m.ente || m.intestazione || m.ente_breve)); }
   function pannelloModulo() {
     var m = (MOD && MOD.pulisciModulo(S.inv.modulo)) || MOD && MOD.pulisciModulo({}) || {}, bozza = JSON.parse(JSON.stringify(m));
     var esito = h("p", { class: "nota", role: "status", id: "mod-esito" });
@@ -146,10 +161,10 @@
         firma_ente: bozza.firma_ente || "", piede: (bozza.piede || []).filter(Boolean), versione: bozza.versione || "", logo: bozza.logo || "" };
       rpc("inv_modulo_salva", { p_inv: S.inv.id, p_modulo: o }).then(function (r) {
         b.disabled = false; if (!r || !r.ok) { esito.textContent = r && r.errore === "non_autorizzato" ? "Solo chi ha creato l'inventario può salvare il modulo." : "Non salvato: controlla i campi" + (r && r.campo ? " (" + r.campo + ")" : "") + "."; return; }
-        S.inv.modulo = o; esito.textContent = "Salvato."; toast("Modulo salvato.");
+        S.inv.modulo = o; det.riassunto.textContent = moduloImpostato(o) ? "impostato" : "da impostare"; esito.textContent = "Salvato."; toast("Modulo salvato.");
       }, function () { b.disabled = false; esito.textContent = "Non riesco a collegarmi: riprova."; });
     }
-    var det = h("details", { class: "card", id: "mod-sezione" }, [h("summary", { text: "Modulo di comodato" }),
+    var det = gest("modulo", "Modulo di comodato", moduloImpostato(S.inv.modulo) ? "impostato" : "da impostare", [h("div", { class: "dentro" }, [
       h("p", { class: "nota", text: "Il modulo si compila da solo dopo «Consegna a…», dalla pagina del QR: si stampa o si condivide come PDF, tutto dal telefono. Qui imposti i dati dell'ente che compaiono sul foglio. Restano visibili solo alle persone abilitate." }),
       h("div", { class: "campi" }, [
         inp("mod-intestazione", "Intestazione (i punti · sono in colore)", "intestazione", 80, "es. ·NOME·DELL'ENTE·"),
@@ -157,63 +172,90 @@
         inp("mod-registro", "Inventario «…dell'associazione»", "registro", 40), inp("mod-luogo", "Luogo del foglio", "luogo", 60), inp("mod-firma", "Firma dell'ente", "firma_ente", 60), inp("mod-versione", "Versione del foglio", "versione", 40, "es. v3 · 17/11/2026"),
         h("div", {}, [h("label", { for: "mod-colore", text: "Colore dei puntini e del filetto" }), colore])]),
       h("label", { text: "Piè di pagina (fino a 3 righe)" }), h("div", { class: "campi" }, piedi),
-      h("div", { class: "riga", style: "margin:8px 0" }, [h("div", {}, [h("label", { for: "mod-logo-file", text: "Logo (PNG o JPEG; si ridimensiona da solo)" }), file]), anteprima, togli]),
-      h("div", { class: "riga" }, [h("button", { class: "btn primario", type: "button", id: "mod-salva", text: "Salva", onclick: salva }), h("button", { class: "btn", type: "button", id: "mod-prova", text: "Prova il modulo", onclick: prova })]),
-      esito]);
+      h("div", { class: "riga sotto" }, [h("div", {}, [h("label", { for: "mod-logo-file", text: "Logo (PNG o JPEG; si ridimensiona da solo)" }), file]), anteprima, togli]),
+      h("div", { class: "riga sotto" }, [h("button", { class: "btn primario", type: "button", id: "mod-salva", text: "Salva", onclick: salva }), h("button", { class: "btn", type: "button", id: "mod-prova", text: "Prova il modulo", onclick: prova })]),
+      esito])], false, "mod-sezione");
     return det;
   }
 
   function vistaInventario() {
-    S.vista = "inventario";
-    var cont = L.conteggi(S.articoli);
-    var prop = proprietario();
-    var impo = !prop ? h("p", { class: "nota", text: "Accesso come persona abilitata: puoi consegnare, segnare i rientri e le note dalla scheda di ogni articolo." }) : h("div", { class: "card" }, [
-      h("label", { class: "spunta" }, [h("input", { type: "checkbox", id: "chkPubblico", checked: !!S.inv.pubblico, onchange: function () { salvaImpostazione("pubblico", this.checked); } }), h("span", { text: "Pagina pubblica del QR attiva: chi scansiona l'etichetta vede codice, modello e quanti ce ne sono." })]),
-      h("label", { class: "spunta" }, [h("input", { type: "checkbox", id: "chkStato", checked: !!S.inv.mostra_stato, onchange: function () { salvaImpostazione("mostra_stato", this.checked); } }), h("span", { text: "Mostra anche «in sede / a casa» sulla pagina del QR." })]),
-      h("p", { class: "nota", text: "Indirizzo del QR: stageplot.it/i/" + S.inv.slug + "/CODICE · elenco pubblico: stageplot.it/i/" + S.inv.slug + ". Non mostrano mai note né chi ha lo strumento." })]);
-    var tipi = h("div", { class: "tipi" }, S.tipi.map(function (t) {
-      var c = cont[t.prefisso] || { totale: 0, attivi: 0, per_stato: {} };
-      var parti = L.STATI.filter(function (s) { return c.per_stato[s.id]; }).map(function (s) { return s.nome.toLowerCase() + " " + c.per_stato[s.id]; }).join(" · ");
-      return h("div", { class: "card" }, [h("b", { text: t.singolare + " · " + t.prefisso }), h("span", { text: L.frase(c.attivi, t.singolare, t.plurale) }), h("br"), h("span", { text: parti || "nessun articolo" })]);
-    }));
-    var elenco = filtrati();
-    var nSel = elenco.filter(function (a) { return S.sel[a.id]; }).length;
+    S.vista = "inventario"; lato();
+    var prop = proprietario(), elenco = filtrati(), nSel = elenco.filter(function (a) { return S.sel[a.id]; }).length;
+    var vuoto = !S.articoli.length;
+    var bElenco = h("button", { class: "btn primario", type: "button", id: "bElenco", text: "Stampa elenco (" + elenco.length + ")", disabled: !elenco.length, onclick: function () { vistaStampaElenco(filtrati()); } });
+    var bEtichette = h("button", { class: "btn", type: "button", id: "bEtichette", text: nSel ? "Etichette dei " + nSel + " selezionati" : "Etichette (" + elenco.length + ")", disabled: !elenco.length, onclick: function () { vistaEtichette(nSel ? elenco.filter(function (a) { return S.sel[a.id]; }) : elenco); } });
     disegna([
-      h("div", {}, [h("button", { class: "btn piccolo", type: "button", text: "← Inventari", onclick: function () { leggiInventari().then(vistaElenco); } })]),
-      barra(S.inv.nome), impo, prop ? pannelloPersone() : null, prop && MOD ? pannelloModulo() : null,
-      h("h2", { text: "Tipi" }), S.tipi.length ? tipi : h("p", { class: "nota", text: "Nessun tipo ancora: aggiungi i primi articoli qui sotto." }),
-      prop ? formAggiungi() : null,
-      h("h2", { text: "Articoli (" + S.articoli.length + ")" }), filtri(),
-      h("div", { class: "riga", style: "margin:10px 0" }, [
-        h("button", { class: "btn primario", type: "button", id: "bEtichette", text: nSel ? "Etichette dei " + nSel + " selezionati" : "Etichette di tutti i " + elenco.length + " mostrati", disabled: !elenco.length, onclick: function () { vistaEtichette(nSel ? elenco.filter(function (a) { return S.sel[a.id]; }) : elenco); } }),
-        h("button", { class: "btn primario", type: "button", id: "bElenco", text: "Elenco da stampare (" + elenco.length + ")", disabled: !elenco.length, onclick: function () { vistaStampaElenco(filtrati()); } }),
-        h("button", { class: "btn", type: "button", id: "bCsvElenco", text: "CSV dei " + elenco.length + " mostrati", disabled: !elenco.length, onclick: function () { scaricaCsvElenco(filtrati()); } }),
-        h("label", { class: "spunta" }, [h("input", { type: "checkbox", id: "chkCsvNomi", checked: !!S.csvNomi, onchange: function () { S.csvNomi = this.checked; } }), h("span", { text: "includi nomi e note riservate" })]),
-        h("button", { class: "btn", type: "button", id: "bCsv", text: "Scarica CSV", disabled: !S.articoli.length, onclick: function () { scaricaCsv(false); } }),
-        h("button", { class: "btn", type: "button", id: "bCsvNomi", text: "CSV con assegnazioni", disabled: !S.articoli.length, onclick: function () { scaricaCsv(true); } })]),
-      h("p", { class: "nota", text: "«Elenco da stampare» e «CSV dei mostrati» seguono i filtri e l'ordine qui sopra; la stampa e il CSV, di serie, non hanno i nomi di chi ha lo strumento né le note riservate: si aggiungono con la spunta." }),
-      tabella(elenco)]);
+      h("button", { class: "btn testo piccolo indietro", type: "button", text: "← Inventari", onclick: function () { leggiInventari().then(vistaElenco); } }),
+      h("div", { class: "testa-inv" }, [h("div", {}, [h("h1", { text: S.inv.nome }), h("p", { class: "indirizzo", text: "stageplot.it/i/" + S.inv.slug })]),
+        h("div", { class: "comandi" }, [bElenco, bEtichette, menuEsporta(elenco)])]),
+      vuoto ? null : riepilogoTipi(),
+      vuoto ? null : filtri(),
+      vuoto ? null : h("p", { class: "conteggio", id: "conteggio", text: frasePosti(elenco) }),
+      tabella(elenco),
+      prop ? gestione() : h("p", { class: "nota nota-privacy", text: "Accesso come persona abilitata: puoi consegnare, segnare i rientri e le note dalla scheda di ogni articolo." })]);
+  }
+  /* «Esporta»: <details> chiuso di serie; dentro i tre CSV e la spunta dei nomi (stessi id e stessa logica di prima) */
+  function menuEsporta(elenco) {
+    var det = h("details", { class: "menu" });
+    function chiudi(fn) { return function () { det.open = false; fn(); }; }
+    [h("summary", { class: "btn", text: "Esporta" }),
+      h("div", { class: "tendina" }, [
+        h("button", { type: "button", id: "bCsvElenco", text: "CSV dei " + elenco.length + " mostrati", disabled: !elenco.length, onclick: chiudi(function () { scaricaCsvElenco(filtrati()); }) }),
+        h("button", { type: "button", id: "bCsv", text: "CSV di tutto l’inventario", disabled: !S.articoli.length, onclick: chiudi(function () { scaricaCsv(false); }) }),
+        h("button", { type: "button", id: "bCsvNomi", text: "CSV con assegnazioni", disabled: !S.articoli.length, onclick: chiudi(function () { scaricaCsv(true); }) }),
+        h("label", { class: "spunta" }, [h("input", { type: "checkbox", id: "chkCsvNomi", checked: !!S.csvNomi, onchange: function () { S.csvNomi = this.checked; } }), h("span", { text: "includi nomi e note riservate nel CSV dei mostrati" })])])
+    ].forEach(function (n) { det.appendChild(n); });
+    return det;
+  }
+  function frasePosti(elenco) {
+    var f = S.filtro, per = f.ordine === "stato" ? "stato" : f.ordine === "assegnato" ? "chi ce l'ha" : "codice", n = elenco.length;
+    return (n === S.articoli.length ? n : n + " di " + S.articoli.length) + (n === 1 ? " oggetto" : " oggetti") + " · ordinati per " + per;
+  }
+  /* una tabellina al posto delle schede: tipo, totale e stati; riga finale con i totali (funzione pura L.riepilogo) */
+  function riepilogoTipi() {
+    var R = L.riepilogo(S.tipi, S.articoli); if (!R.righe.length) return null;
+    function num(v) { return h("td", { class: v ? "" : "zero", text: String(v) }); }
+    var testa = h("tr", {}, [h("th", { text: "Tipo" }), h("th", { text: "Totale" })].concat(R.colonne.map(function (c) { return h("th", { text: c.nome }); })));
+    var righe = R.righe.map(function (r) { return h("tr", {}, [h("td", {}, [h("b", { text: r.nome }), h("span", { text: r.prefisso })]), h("td", { text: String(r.totale) })].concat(R.colonne.map(function (c) { return num(r.valori[c.id]); }))); });
+    righe.push(h("tr", {}, [h("td", { text: "Totale" }), h("td", { text: String(R.totale.totale) })].concat(R.colonne.map(function (c) { return h("td", { text: String(R.totale.valori[c.id]) }); }))));
+    return h("div", { class: "riepilogo" }, [h("table", {}, [h("caption", { class: "sr-only", text: "Riepilogo per tipo" }), h("thead", {}, [testa]), h("tbody", {}, righe)])]);
+  }
+  /* ---- Gestione (solo proprietario): tutte chiuse di serie; «Aggiungi oggetti» aperta solo se l'inventario è vuoto ---- */
+  function gestione() {
+    var n = S.membri.length, prop = proprietario();
+    return h("section", { class: "gestione" }, [h("h2", { text: "Gestione" }),
+      gest("aggiungi", "Aggiungi oggetti", S.tipi.length ? S.tipi.length + (S.tipi.length === 1 ? " tipo" : " tipi") : "nessun tipo ancora", [formAggiungi()], !S.articoli.length),
+      gest("persone", "Persone abilitate", n ? n + (n === 1 ? " persona" : " persone") : "solo tu", [pannelloPersone()], false),
+      pannelloPubblico(),
+      prop && MOD ? pannelloModulo() : null].filter(Boolean));
+  }
+  function pannelloPubblico() {
+    var det = gest("pubblico", "Pagina pubblica del QR", S.inv.pubblico ? "attiva" : "spenta", [h("div", { class: "dentro" }, [
+      h("label", { class: "spunta" }, [h("input", { type: "checkbox", id: "chkPubblico", checked: !!S.inv.pubblico, onchange: function () { salvaImpostazione("pubblico", this.checked); det.riassunto.textContent = this.checked ? "attiva" : "spenta"; } }), h("span", { text: "Pagina pubblica del QR attiva: chi scansiona l'etichetta vede codice, modello e quanti ce ne sono." })]),
+      h("label", { class: "spunta" }, [h("input", { type: "checkbox", id: "chkStato", checked: !!S.inv.mostra_stato, onchange: function () { salvaImpostazione("mostra_stato", this.checked); } }), h("span", { text: "Mostra anche «in sede / a casa» sulla pagina del QR." })]),
+      h("p", { class: "nota", text: "Indirizzo del QR: stageplot.it/i/" + S.inv.slug + "/CODICE · elenco pubblico: stageplot.it/i/" + S.inv.slug + ". Non mostrano mai note né chi ha lo strumento." })])], false);
+    return det;
   }
   function pannelloPersone() {
-    var em = h("input", { type: "text", placeholder: "email Google della persona", autocomplete: "off", inputmode: "email" }), err = h("p", { class: "err", hidden: true });
+    var em = h("input", { type: "text", placeholder: "email Google della persona", autocomplete: "off", inputmode: "email", "aria-label": "Email Google della persona da abilitare" }), err = h("p", { class: "err", hidden: true });
     var lista = S.membri.length ? S.membri.map(function (m) {
-      return h("div", { class: "riga", style: "padding:4px 0" }, [h("span", { text: m.email, style: "flex:1" }), h("button", { class: "btn piccolo pericolo", type: "button", "aria-label": "Togli " + m.email, text: "Togli", onclick: function () {
+      return h("div", { class: "persona" }, [h("span", { text: m.email }), h("button", { class: "btn piccolo pericolo", type: "button", "aria-label": "Togli " + m.email, text: "Togli", onclick: function () {
         S.c.from("inv_membri").delete().eq("inventario_id", S.inv.id).eq("email", m.email).then(function (r) { if (r.error) { toast("Non tolto."); return; } S.membri = S.membri.filter(function (x) { return x.email !== m.email; }); toast(m.email + " non ha più accesso."); vistaInventario(); });
       } })]);
     }) : [h("p", { class: "nota", text: "Nessuna persona abilitata oltre a te." })];
-    return h("div", {}, [h("h2", { text: "Persone abilitate" }), h("div", { class: "card" }, [
+    return h("div", { class: "dentro" }, [
       h("p", { class: "nota", text: "Chi accede con Google a stageplot.it con una di queste email vede le assegnazioni (nome e corso/classe), le date e lo storico, e può registrare consegne e rientri scansionando il QR. Tu sei sempre abilitato." })].concat(lista, [
-      h("div", { class: "riga", style: "margin-top:8px" }, [h("div", { style: "flex:1;min-width:200px" }, [em]), h("button", { class: "btn primario", type: "button", id: "bAggiungiPersona", text: "Abilita", onclick: function () {
+      h("div", { class: "riga sotto" }, [h("div", { class: "cresce" }, [em]), h("button", { class: "btn primario", type: "button", id: "bAggiungiPersona", text: "Abilita", onclick: function () {
         err.hidden = true; var v = em.value.trim().toLowerCase(); if (!v) return;
         rpc("inv_membro_aggiungi", { p_inv: S.inv.id, p_email: v }).then(function (r) {
           if (!r || !r.ok) { err.textContent = errore(r); err.hidden = false; return; }
           toast(v + " abilitata."); return leggiDentro(S.inv.id).then(vistaInventario);
         }, function () { err.textContent = errore(null, 1); err.hidden = false; });
-      } })]), err]))]);
+      } })]), err]));
   }
   function formAggiungi() {
     var selTipo = h("select", {}); opzioni(selTipo, S.tipi.map(function (t) { return [t.prefisso, t.singolare + " (" + t.prefisso + ")"]; }).concat([["__nuovo", "＋ Nuovo tipo…"]]), S.tipi.length ? S.tipi[0].prefisso : "__nuovo");
-    var nSing = h("input", { type: "text", maxlength: "40", placeholder: "Tastiera" }), nPlur = h("input", { type: "text", maxlength: "40", placeholder: "tastiere" }), nPref = h("input", { type: "text", maxlength: "5", placeholder: "TAS", style: "text-transform:uppercase" });
+    var nSing = h("input", { type: "text", maxlength: "40", placeholder: "Tastiera" }), nPlur = h("input", { type: "text", maxlength: "40", placeholder: "tastiere" }), nPref = h("input", { type: "text", maxlength: "5", placeholder: "TAS", class: "mai" });
     var qta = h("input", { type: "number", min: "1", max: "200", value: "1" }), mod = h("input", { type: "text", maxlength: "120", placeholder: "es. Yamaha PSR-F52" });
     var stato = opzioni(h("select", {}), L.STATI.map(function (s) { return [s.id, s.nome]; }), "in_sede"), note = h("input", { type: "text", maxlength: "500", placeholder: "solo persone abilitate, non pubblica" });
     var err = h("p", { class: "err", hidden: true }), blocco = h("div", { class: "campi" }, [campo("Tipo (singolare)", nSing, "nTipoS"), campo("Plurale", nPlur, "nTipoP"), campo("Prefisso del codice (2-5 lettere)", nPref, "nTipoPref")]);
@@ -235,52 +277,58 @@
         });
       }, function () { err.textContent = errore(null, 1); err.hidden = false; });
     }
-    return h("div", {}, [h("h2", { text: "Aggiungi articoli" }), h("div", { class: "card" }, [
+    return h("div", { class: "dentro" }, [
       h("div", { class: "campi" }, [campo("Tipo", selTipo, "aTipo")]), blocco,
       h("div", { class: "campi" }, [campo("Quantità", qta, "aQta"), campo("Marca / modello", mod, "aMod"), campo("Stato", stato, "aStato"), campo("Nota riservata", note, "aNote")]),
-      err, h("div", { class: "riga", style: "margin-top:8px" }, [h("button", { class: "btn primario", type: "button", id: "bAggiungi", text: "Aggiungi", onclick: vai }),
-        h("span", { class: "nota", text: "I numeri sono progressivi e non si riusano: un codice stampato non cambia mai significato." })])])]);
+      err, h("div", { class: "riga sotto" }, [h("button", { class: "btn primario", type: "button", id: "bAggiungi", text: "Aggiungi", onclick: vai }),
+        h("span", { class: "nota", text: "I numeri sono progressivi e non si riusano: un codice stampato non cambia mai significato." })])]);
   }
+  /* ricerca con lente + tipo, stato, ordine */
   function filtri() {
     var t = h("input", { type: "text", placeholder: "Cerca codice, modello, nota o nome", value: S.filtro.testo, "aria-label": "Cerca" });
     var st = opzioni(h("select", { "aria-label": "Filtra per tipo" }), [["", "Tutti i tipi"]].concat(S.tipi.map(function (x) { return [x.prefisso, x.singolare]; })), S.filtro.tipo);
     var ss = opzioni(h("select", { "aria-label": "Filtra per stato" }), [["", "Tutti gli stati"]].concat(L.STATI.map(function (s) { return [s.id, s.nome]; })), S.filtro.stato);
-    var so = opzioni(h("select", { "aria-label": "Ordina per" }), [["codice", "Ordina per codice"], ["stato", "Ordina per stato"], ["assegnato", "Ordina per chi ha lo strumento"]], S.filtro.ordine);
-    function ridisegna() { S.filtro = { tipo: st.value, stato: ss.value, testo: t.value, ordine: so.value }; var pos = t.selectionStart; vistaInventario(); var n = document.querySelector('input[aria-label="Cerca"]'); if (n && document.activeElement !== n && t === document.activeElement) { n.focus(); n.setSelectionRange(pos, pos); } }
+    var so = opzioni(h("select", { "aria-label": "Ordina per" }), [["codice", "Per codice"], ["stato", "Per stato"], ["assegnato", "Per chi ce l'ha"]], S.filtro.ordine);
+    function ridisegna() { S.filtro = { tipo: st.value, stato: ss.value, testo: t.value, ordine: so.value }; var pos = t.selectionStart, y = window.scrollY; vistaInventario(); window.scrollTo(0, y); var n = document.querySelector('input[aria-label="Cerca"]'); if (n && document.activeElement !== n && t === document.activeElement) { n.focus(); n.setSelectionRange(pos, pos); } }
     st.addEventListener("change", ridisegna); ss.addEventListener("change", ridisegna); so.addEventListener("change", ridisegna);
     t.addEventListener("input", function () { S.filtro.testo = t.value; var elenco = filtrati(); var tb = document.getElementById("tbArticoli"); if (tb) { vuota(tb); righe(elenco).forEach(function (r) { tb.appendChild(r); }); } aggiornaBottoni(elenco); });
-    return h("div", { class: "campi" }, [t, st, ss, so]);
+    return h("div", { class: "strumenti" }, [h("div", { class: "cerca" }, [t]), st, ss, so]);
   }
   function aggiornaBottoni(elenco) {
-    var b = document.getElementById("bEtichette"); if (!b) return; var n = elenco.filter(function (a) { return S.sel[a.id]; }).length;
-    b.textContent = n ? "Etichette dei " + n + " selezionati" : "Etichette di tutti i " + elenco.length + " mostrati"; b.disabled = !elenco.length;
+    var n = elenco.filter(function (a) { return S.sel[a.id]; }).length, b = document.getElementById("bEtichette"); if (!b) return;
+    b.textContent = n ? "Etichette dei " + n + " selezionati" : "Etichette (" + elenco.length + ")"; b.disabled = !elenco.length;
     b.onclick = function () { vistaEtichette(n ? elenco.filter(function (a) { return S.sel[a.id]; }) : elenco); };
+    var e = document.getElementById("bElenco"); if (e) { e.textContent = "Stampa elenco (" + elenco.length + ")"; e.disabled = !elenco.length; }
+    var c = document.getElementById("bCsvElenco"); if (c) { c.textContent = "CSV dei " + elenco.length + " mostrati"; c.disabled = !elenco.length; }
+    var k = document.getElementById("conteggio"); if (k) k.textContent = frasePosti(elenco);
   }
   function righe(elenco) {
     return elenco.map(function (a) {
-      var mod = h("input", { type: "text", maxlength: "120", value: a.modello, "aria-label": "Modello di " + a.codice }), nota = h("input", { type: "text", maxlength: "500", value: a.note, "aria-label": "Nota di " + a.codice });
-      var st = opzioni(h("select", { "aria-label": "Stato di " + a.codice }), L.STATI.map(function (s) { return [s.id, s.nome]; }), a.stato);
+      var mod = h("input", { type: "text", class: "quieto", maxlength: "120", value: a.modello, "aria-label": "Modello di " + a.codice }), nota = h("input", { type: "text", class: "quieto", maxlength: "500", value: a.note, placeholder: "+ nota riservata", "aria-label": "Nota di " + a.codice });
+      var st = opzioni(h("select", { class: "stato-sel " + a.stato, "aria-label": "Stato di " + a.codice }), L.STATI.map(function (s) { return [s.id, s.nome]; }), a.stato);
       var chk = h("input", { type: "checkbox", "aria-label": "Seleziona " + a.codice, checked: !!S.sel[a.id], onchange: function () { S.sel[a.id] = this.checked; aggiornaBottoni(filtrati()); } });
       function salva(col, val) {
         var o = { aggiornato: new Date().toISOString() }; o[col] = val;
         S.c.from("inv_articoli").update(o).eq("id", a.id).then(function (r) { if (r.error) { toast("Non salvato."); return; } a[col] = val; toast(a.codice + ": salvato."); });
       }
       mod.addEventListener("change", function () { salva("modello", mod.value.trim()); }); nota.addEventListener("change", function () { salva("note", nota.value.trim()); });
-      st.addEventListener("change", function () { salva("stato", st.value); });
-      var aprirePag = h("a", { class: "btn piccolo", href: IND.link(S.inv.slug, a.codice, location.origin) + location.search, target: "_blank", rel: "noopener", text: "Scheda" });
-      var del = h("button", { class: "btn piccolo pericolo", type: "button", text: "Elimina", onclick: function () {
+      st.addEventListener("change", function () { st.className = "stato-sel " + st.value; salva("stato", st.value); });
+      var link = IND.link(S.inv.slug, a.codice, location.origin) + location.search;
+      var aprirePag = h("a", { class: "btn piccolo", href: link, target: "_blank", rel: "noopener", text: "Scheda", "aria-label": "Scheda di " + a.codice });
+      var del = h("button", { class: "btn piccolo pericolo", type: "button", text: "Elimina", "aria-label": "Elimina " + a.codice, onclick: function () {
         if (del.dataset.chiedi !== "1") { del.dataset.chiedi = "1"; del.textContent = "Sicuro? Elimina"; setTimeout(function () { del.dataset.chiedi = ""; del.textContent = "Elimina"; }, 4000); return; }
         S.c.from("inv_articoli").delete().eq("id", a.id).then(function (r) { if (r.error) { toast("Non eliminato."); return; } S.articoli = S.articoli.filter(function (x) { return x.id !== a.id; }); toast(a.codice + " eliminato. Il numero non verrà riusato."); vistaInventario(); });
       } });
-      var t = nomeTipo(a.tipo), prop = proprietario();
-      var ass = a.assegnato_a ? a.assegnato_a + (a.data_consegna ? " (dal " + L.dataIt(a.data_consegna) + ")" : "") : (a.data_rientro ? "rientrato il " + L.dataIt(a.data_rientro) : "");
-      return h("tr", {}, [h("td", {}, [chk]), h("td", { class: "cod", text: a.codice }), h("td", { text: t ? t.singolare : a.tipo }), h("td", {}, [mod]), h("td", {}, [st]), h("td", { class: "ass", text: ass }), h("td", {}, [nota]), h("td", {}, [h("div", { class: "riga" }, [aprirePag, prop ? del : null])])]);
+      var t = nomeTipo(a.tipo), prop = proprietario(), x = L.ceLha(a);
+      var chi = h("td", { class: "chi" }, x.nome ? [h("b", { text: x.nome }), x.sotto ? h("small", { text: x.sotto }) : null] : x.sotto ? [h("small", { text: x.sotto })] : []);
+      return h("tr", {}, [h("td", {}, [chk]), h("td", { class: "cod" }, [h("a", { href: link, target: "_blank", rel: "noopener", text: a.codice, "aria-label": "Apri la scheda di " + a.codice })]), h("td", { class: "tipo", text: t ? t.singolare : a.tipo }), h("td", {}, [mod]), h("td", {}, [st]), chi, h("td", {}, [nota]), h("td", {}, [h("div", { class: "riga-az" }, [aprirePag, prop ? del : null])])]);
     });
   }
   function tabella(elenco) {
-    if (!S.articoli.length) return h("p", { class: "nota", text: "Nessun articolo: usa «Aggiungi articoli» qui sopra." });
-    var tutti = h("input", { type: "checkbox", "aria-label": "Seleziona tutti i mostrati", onchange: function () { var v = this.checked; filtrati().forEach(function (a) { S.sel[a.id] = v; }); vistaInventario(); } });
-    return h("div", { class: "tabella" }, [h("table", {}, [h("thead", {}, [h("tr", {}, [h("th", {}, [tutti]), h("th", { text: "Codice" }), h("th", { text: "Tipo" }), h("th", { text: "Marca / modello" }), h("th", { text: "Stato" }), h("th", { text: "Assegnato a" }), h("th", { text: "Nota riservata" }), h("th", { text: "" })])]),
+    if (!S.articoli.length) return h("p", { class: "nota", text: S.tipi.length ? "Nessun oggetto: aggiungili da «Gestione» qui sotto." : "Nessun oggetto ancora: aggiungi i primi da «Gestione» qui sotto." });
+    var tutti = h("input", { type: "checkbox", "aria-label": "Seleziona tutti i mostrati", onchange: function () { var v = this.checked; filtrati().forEach(function (a) { S.sel[a.id] = v; }); var y = window.scrollY; vistaInventario(); window.scrollTo(0, y); } });
+    var cols = ["c-sel", "c-cod", "c-tipo", "", "c-stato", "c-chi", "c-nota", "c-az"].map(function (c) { return h("col", { class: c }); });
+    return h("div", { class: "oggetti" }, [h("table", {}, [h("colgroup", {}, cols), h("thead", {}, [h("tr", {}, [h("th", {}, [tutti]), h("th", { text: "Codice" }), h("th", { text: "Tipo" }), h("th", { text: "Marca / modello" }), h("th", { text: "Stato" }), h("th", { text: "Ce l’ha" }), h("th", { text: "Nota riservata" }), h("th", {}, [h("span", { class: "sr-only", text: "Azioni" })])])]),
       h("tbody", { id: "tbArticoli" }, righe(elenco))])]);
   }
   function scaricaCsv(conNomi) {
@@ -314,13 +362,13 @@
       fo.appendChild(h("div", { class: "piede-foglio" }, [sx, h("span", { text: (i + 1) + " di " + N })]));
       return fo;
     });
-    var verIn = h("input", { type: "number", min: "1", max: "99", value: String(ver), id: "versione", "aria-label": "Versione del foglio", style: "width:72px", onchange: function () {
+    var verIn = h("input", { type: "number", min: "1", max: "99", value: String(ver), id: "versione", "aria-label": "Versione del foglio", onchange: function () {
       var v = Math.max(1, Math.min(99, Math.floor(+this.value) || 1)); this.value = String(v); try { localStorage.setItem(chiave, String(v)); } catch (e) {}
       sinistri.forEach(function (c) { c.textContent = L.piedeElenco(v, S.inv.nome, elenco.length, oggi); });
     } });
     var nomi = h("input", { type: "checkbox", id: "chkNomiStampa", checked: conNomi, onchange: function () { vistaStampaElenco(elenco, this.checked); } });
-    disegna([h("div", { class: "barra" }, [h("div", {}, [h("button", { class: "btn piccolo", type: "button", text: "← Torna all'inventario", onclick: vistaInventario })]),
-        h("div", { class: "riga" }, [h("label", { for: "versione", text: "Versione", style: "margin:0" }), verIn, h("button", { class: "btn primario", type: "button", id: "bStampa", text: "Stampa (" + elenco.length + " oggetti, " + N + (N === 1 ? " foglio" : " fogli") + ")", onclick: function () { window.print(); } })])]),
+    disegna([h("div", { class: "vista-barra" }, [h("button", { class: "btn testo piccolo indietro", type: "button", text: "← Torna all'inventario", onclick: vistaInventario }),
+        h("div", { class: "riga" }, [h("label", { for: "versione", text: "Versione" }), verIn, h("button", { class: "btn primario", type: "button", id: "bStampa", text: "Stampa (" + elenco.length + " oggetti, " + N + (N === 1 ? " foglio" : " fogli") + ")", onclick: function () { window.print(); } })])]),
       h("label", { class: "spunta" }, [nomi, h("span", { text: "Scrivi sul foglio anche i nomi di chi ha lo strumento e le note riservate (i fogli stampati restano in giro: di serie no)." })]),
       h("div", { class: "fogli" }, fogli)]);
     adattaFogli();
@@ -367,12 +415,12 @@
       f.appendChild(h("div", { class: "piede-foglio" }, [sx, h("span", { text: (i + 1) + " di " + N })]));
       return f;
     });
-    var verIn = h("input", { type: "number", min: "1", max: "99", value: String(ver), id: "versione", "aria-label": "Versione del foglio", style: "width:72px", onchange: function () {
+    var verIn = h("input", { type: "number", min: "1", max: "99", value: String(ver), id: "versione", "aria-label": "Versione del foglio", onchange: function () {
       var v = Math.max(1, Math.min(99, Math.floor(+this.value) || 1)); this.value = String(v); try { localStorage.setItem(chiave, String(v)); } catch (e) {}
       sinistri.forEach(function (c) { c[0].textContent = L.piede(v, S.inv.nome, c[1].map(function (a) { return a.codice; }), oggi); });
     } });
-    disegna([h("div", { class: "barra" }, [h("div", {}, [h("button", { class: "btn piccolo", type: "button", text: "← Torna all'inventario", onclick: vistaInventario })]),
-        h("div", { class: "riga" }, [h("label", { for: "versione", text: "Versione", style: "margin:0" }), verIn, h("button", { class: "btn primario", type: "button", id: "bStampa", text: "Stampa (" + elenco.length + " etichette, " + N + (N === 1 ? " foglio" : " fogli") + ")", onclick: function () { window.print(); } })])]),
+    disegna([h("div", { class: "vista-barra" }, [h("button", { class: "btn testo piccolo indietro", type: "button", text: "← Torna all'inventario", onclick: vistaInventario }),
+        h("div", { class: "riga" }, [h("label", { for: "versione", text: "Versione" }), verIn, h("button", { class: "btn primario", type: "button", id: "bStampa", text: "Stampa (" + elenco.length + " etichette, " + N + (N === 1 ? " foglio" : " fogli") + ")", onclick: function () { window.print(); } })])]),
       h("p", { class: "nota", text: "Stampa in A4 al 100% (non «adatta alla pagina»), poi ritaglia lungo le linee tratteggiate e plastifica. Il QR porta a un indirizzo fisso: se ristampi, le vecchie etichette restano valide. Il numero di versione sta nel piè del foglio: aumentalo se ristampi con modifiche." }),
       h("div", { class: "fogli" }, fogli)]);
     // sullo schermo stretto il foglio da 210 mm si rimpicciolisce dentro un contenitore grande quanto lui (come l'elenco); in stampa torna al 100%
@@ -386,7 +434,7 @@
       var st = ACC.statoAccesso(s);
       if (st === "fuori") return schermataAccesso(false);
       if (st === "senza_rete") return schermataAccesso(true);
-      S.utente = s.sessione.user || {};
+      S.utente = s.sessione.user || {}; lato();
       return ACC.cliente(cfg).then(function (c) { S.c = c; return leggiInventari(); }).then(function () {
         var q = new URLSearchParams(location.search), qs = (q.get("apri") || "").toLowerCase(), pre = qs && IND.slugOk(qs) ? S.inventari.filter(function (i) { return i.slug === qs; })[0] : null;
         if (pre) return apri(pre.id, q.get("elenco") === "1" ? "elenco" : "");   // solo tra gli inventari che la RLS mostra a questo utente: uno non abilitato non compare
@@ -395,6 +443,9 @@
       }, function () { schermataAccesso(true); });
     });
   }
+  /* il menu «Esporta» si chiude con un tocco fuori o con Esc */
+  document.addEventListener("click", function (e) { var m = document.querySelector("details.menu[open]"); if (m && !m.contains(e.target)) m.open = false; });
+  document.addEventListener("keydown", function (e) { var m = e.key === "Escape" && document.querySelector("details.menu[open]"); if (m) { m.open = false; var sm = m.querySelector("summary"); if (sm) sm.focus(); } });
   window.INVArea = { avvia: avvia, stato: S };
   avvia();
 })();
