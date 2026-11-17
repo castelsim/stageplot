@@ -82,7 +82,64 @@ var PRO_DB = {
   "drack":{"kind":"stagebox","brand":"DiGiCo","model":"D-Rack","famiglia":"D-Rack","mm":[412.0,179.0,310.0],"kg":10,"in":32,"out":8,"proto":["madi"],"src":"DiGiCo D-Rack DataSheet, p.3/4/2","Wunit":"A (88-264 VAC, 2.8 A max)"},
   "d2rack":{"kind":"stagebox","brand":"DiGiCo","model":"D2-Rack","famiglia":"D-Rack","mm":[482.6,248.0,399.2],"kg":13,"rackU":9,"in":48,"out":16,"proto":["madi"],"src":"DiGiCo D2-Rack DataSheet, p.3/4/2","Wunit":"VA (100-240 VAC, 200 VA max)"},
   "ql1":{"kind":"console","brand":"Yamaha","model":"QL1","famiglia":"QL","mm":[468.0,562.0,272.0],"kg":14.7,"W":135,"in":16,"out":8,"proto":["dante"],"src":"Yamaha QL5 QL1 OwnerManual EN, p.51/16/10","look":{"f":[16,2],"s":1,"c":"nero"}},
-  "x32":{"kind":"console","brand":"Behringer","model":"X32","famiglia":"X32","mm":[900.0,528.0,200.0],"kg":20.6,"W":120,"in":32,"out":16,"proto":["aes50"],"src":"Behringer X32 QuickStartGuide, p.25","look":{"f":[16,8,1],"s":1}}
+  "x32":{"kind":"console","brand":"Behringer","model":"X32","famiglia":"X32","mm":[900.0,528.0,200.0],"kg":20.6,"W":120,"in":32,"out":16,"proto":["aes50"],"src":"Behringer X32 QuickStartGuide, p.25","look":{"f":[16,8,1],"s":1}},
+  "p10t":{"kind":"iem","brand":"Shure","model":"P10T (PSM1000)","famiglia":"","mm":[483.0,343.0,44.0],"kg":4.7,"rackU":1,"proto":[],"src":"Shure PSM1000 UserGuide, p.24/7/28/29/9","Wunit":"A","ch":2,"rfW":[10,50,100],"bande":[["G10",470,542],["G10E",470,542],["G10J",470,542],["G11",479,542],["G62",510,530],["H8Z",518,582],["H22",518,584],["J8",554,626],["J8A",554,608,614,616],["J8E",554,626],["J8J",554,626],["K10E",596,668],["L8",626,698],["L8A",653,657,657,663],["L8E",626,698],["L8J",626,698],["L9E",670,742],["L11J",670,714],["M19",694,703],["P8",710,790],["Q12",748,758],["Q21",710,787],["Q22E",750,822],["R27",794,806],["X1",944,952],["X7",925,937.5],["X55",941,960]]},
+  "p9t":{"kind":"iem","brand":"Shure","model":"P9T (PSM900)","famiglia":"","mm":[197.0,177.0,42.0],"kg":0.85,"proto":[],"src":"Shure PSM900 UserGuide, p.22/6/25/8","Wunit":"mA","ch":1,"rfW":[10,50,100],"mezzoRack":1,"bande":[["G6",470,506],["G6E",470,506],["G6J",470,506],["G14",506,542],["G14J",506,542],["G62",510,530],["G7",506,542],["G7E",506,542],["G7Z",518,542],["H21",542,578],["K1",596,632],["K1E",596,632],["K1J",596,632],["L6",656,692],["L6E",656,692],["L6J",656,692],["P7",702,742],["Q12",748,758],["Q15",750,790],["R21",794,806],["X7",925,937.5],["X1",944,952],["X55",941,960]]},
+  "p3t":{"kind":"iem","brand":"Shure","model":"P3T (PSM300)","famiglia":"","mm":[198.0,172.0,43.0],"kg":0.783,"proto":[],"src":"Shure PSM300 UserGuide, p.25/5/14/27/7","Wunit":"mA","ch":1,"rfW":[10,20,30],"mezzoRack":1,"bande":[["G20",488,512],["H8E",518,542],["H20",518,542],["H62",518,530],["J10",584,608],["J13",566,590],["JB",806,810],["K3E",606,630],["K12",614,638],["L18",630,654],["L19",630,654],["M16",686,710],["M18",686,710],["Q12",748,758],["Q25",742,766],["R12",794,806],["S8",823,832],["T11",863,865],["X7",925,937.5]]},
+  "srg4":{"kind":"iem","brand":"Sennheiser","model":"SR IEM G4 (ew IEM G4)","famiglia":"","mm":[202.0,212.0,43.0],"kg":0.98,"proto":[],"src":"Sennheiser ewIEM-G4 InstructionManual, p.113/112/15/58","Wunit":"mA","ch":1,"rfW":[10,30,50],"mezzoRack":1,"bande":[["A1",470,516],["A",516,558],["AS",520,558],["G",566,608],["GB",606,648],["B",626,668],["C",734,776],["C-TH",748.2,757.8],["D",780,822],["E",823,865]],"verifica":1},
+  "sr2050":{"kind":"iem","brand":"Sennheiser","model":"SR 2050 IEM","famiglia":"","mm":[483.0,217.0,43.0],"kg":2.7,"rackU":1,"proto":[],"src":"Sennheiser SR2000IEM Manual, p.27/7/8","Wunit":"A","ch":2,"rfW":[10,30,50],"bande":[["",516,558],["",558,626],["",626,698],["",718,790],["",790,865],["",606,678]]},
+  "mtk952":{"kind":"iem","brand":"Wisycom","model":"MTK952","famiglia":"","mm":[483.0,407.0,43.8],"kg":3.8,"rackU":1,"proto":[],"src":"Wisycom MTK952 Datasheet, p.3/1","ch":2,"rfW":[10,20,50,100,200],"bande":[["",470,800]]},
+  "pa821b":{"kind":"rfdist","brand":"Shure","model":"PA821B","famiglia":"","mm":[401.0,365.0,43.0],"kg":4.8,"W":143,"proto":[],"src":"Shure PA821B UserGuide, p.10/11/5 + Shure PA821B Datasheet, p.1","ch":8,"ruolo":"combiner","mezzoRack":1,"bande":[["PA821B",470,865],["PA821BX",865,960]]},
+  "ac3200ii":{"kind":"rfdist","brand":"Sennheiser","model":"AC 3200-II","famiglia":"","mm":[436.0,215.0,44.0],"kg":4,"W":90,"rackU":1,"proto":[],"src":"Sennheiser AC3200-II Manual, p.15/7","ch":8,"ruolo":"combiner","bande":[["",500,870]],"verifica":1},
+  "ac41":{"kind":"rfdist","brand":"Sennheiser","model":"AC 41 (ew IEM G4)","famiglia":"","mm":[212.0,168.0,43.0],"kg":1.47,"proto":[],"src":"Sennheiser ewIEM-G4 InstructionManual, p.114/100","Wunit":"A","ch":4,"ruolo":"combiner","mezzoRack":1,"bande":[["AC",470,870],["AC",470,609]],"verifica":1},
+  "csi16t2":{"kind":"rfdist","brand":"Wisycom","model":"CSI16T2","famiglia":"","mm":[483.0,349.0,43.8],"kg":3.2,"rackU":1,"proto":[],"src":"Wisycom CSI16T2 Datasheet, p.1","Wunit":"A","ch":16,"ruolo":"combiner","bande":[["",400,1300]]},
+  "axt630":{"kind":"rfdist","brand":"Shure","model":"AXT630 (Axient Digital antenna distribution AXT630/631/632)","famiglia":"","mm":[483.0,366.0,44.0],"kg":4.6,"rackU":1,"proto":[],"src":"Shure AXT630 SystemGuide, p.6/1/7","Wunit":"A","ch":4,"ruolo":"splitter","bande":[["AXT630",470,698],["AXT631",606,814],["AXT632",470,787],["",470,698,470,530,518,578,578,638,638,698]]},
+  "ua845uwb":{"kind":"rfdist","brand":"Shure","model":"UA845UWB","famiglia":"","mm":[482.6,295.3,44.5],"kg":3.32,"W":14.1,"rackU":1,"proto":[],"src":"Shure UA845UWB UserGuide, p.11/4/10","ch":4,"ruolo":"splitter","bande":[["Band",174,216],["Band",470,960],["Band",1240,1260],["Band",1492,1525],["Band",1785,1805]]},
+  "asa1":{"kind":"rfdist","brand":"Sennheiser","model":"ASA 1","famiglia":"","mm":[212.0,168.0,43.0],"kg":1.09,"proto":[],"src":"Sennheiser ASA1 Manual, p.23/6/8","Wunit":"mA","ch":8,"ruolo":"splitter","mezzoRack":1,"bande":[["ASA",470,870],["ASA",1,1,1785,1805]],"verifica":1},
+  "asa214":{"kind":"rfdist","brand":"Sennheiser","model":"ASA 214","famiglia":"","mm":[212.0,168.0,43.0],"kg":1.09,"proto":[],"src":"Sennheiser ASA214 Spec, p.2/1","Wunit":"mA","ch":8,"ruolo":"splitter","mezzoRack":1,"bande":[["ASA",214,1,1785,1800]],"verifica":1},
+  "ewdasa":{"kind":"rfdist","brand":"Sennheiser","model":"EW-D ASA","famiglia":"EW-D","mm":[212.1,168.0,43.0],"kg":1.1,"proto":[],"src":"Sennheiser EW-D-ASA Spec, p.2/3","Wunit":"mA","ch":8,"ruolo":"splitter","mezzoRack":1,"bande":[["",470,694],["",470,694],["",694,1075],["",1240,1260],["",1350,1805]],"verifica":1},
+  "ua874":{"kind":"ant","brand":"Shure","model":"UA874 (antenna direttiva attiva)","famiglia":"","mm":[359.0,36.0,316.0],"kg":0.317,"proto":[],"src":"Shure UA874 UserGuide, p.3/1","Wunit":"mA","ant":{"tipo":"direttiva","gain":"7.5 dBi","ang":70,"range":"470–900 MHz (UA874WB; altre varianti in band)","attiva":true},"bande":[["UA874US",470,698],["UA874E",470,790],["UA874WB",470,900],["UA874Z16",1240,1260],["UA874Z17",1492,1525],["UA874Z18",1785,1805],["UA874X",925,952],["UA874XA",902,960]],"verifica":1},
+  "pa805z2rsma":{"kind":"ant","brand":"Shure","model":"PA805Z2-RSMA","famiglia":"","mm":[164.0,27.5,105.0],"kg":0.071,"proto":[],"src":"Shure PA805Z2-RSMA UserGuide, p.3/1/4","ant":{"tipo":"direttiva","gain":"8 dBi","ang":100,"range":"2050–2700 MHz","attiva":false},"bande":[["",2050,2700]]},
+  "pa805swb":{"kind":"ant","brand":"Shure","model":"PA805SWB (direttiva passiva PSM, 470–952 MHz)","famiglia":"","mm":[378.0,27.0,334.0],"kg":0.319,"proto":[],"src":"Shure PA805Z UserGuide, p.2/1","ant":{"tipo":"direttiva","gain":"6.5 dBi","ang":100,"range":"470–952 MHz","attiva":false},"bande":[["PA805SWB",470,952]]},
+  "ua860swb":{"kind":"ant","brand":"Shure","model":"UA860SWB","famiglia":"","mm":[39.0,39.0,284.0],"kg":0.275,"proto":[],"src":"Shure UA860SWB UserGuide, p.1","ant":{"tipo":"omni","range":"470–1100 MHz","attiva":false},"bande":[["",470,1100]]},
+  "ad3700":{"kind":"ant","brand":"Sennheiser","model":"AD 3700","famiglia":"","mm":[329.0,23.0,322.0],"kg":0.625,"proto":[],"src":"Sennheiser AD3700 Manual, p.2","Wunit":"mA","ant":{"tipo":"direttiva","gain":"approx. 3 dB","ang":100,"range":"470–866 MHz","attiva":true},"bande":[["",470,866]],"verifica":1},
+  "a5000cp":{"kind":"ant","brand":"Sennheiser","model":"A 5000-CP","famiglia":"","mm":[356.0,140.0,356.0],"kg":1.41,"proto":[],"src":"Sennheiser A5000-CP Manual, p.2","ant":{"tipo":"elicoidale","gain":"min 8 dBi (@650 MHz)","ang":80,"range":"450–970 MHz","attiva":false},"bande":[["",450,970]]},
+  "gc10i":{"kind":"rete","brand":"Luminex","model":"GigaCore 10i","famiglia":"GigaCore","mm":[220.0,296.4,43.2],"kg":2.2,"W":350,"proto":["dante","avb"],"src":"Luminex GigaCore10i SpecSheet, p.5/7/6/2","ports":{"rj45":8,"sfp":2,"poe":8},"mezzoRack":1},
+  "gc16i":{"kind":"rete","brand":"Luminex","model":"GigaCore 16i","famiglia":"GigaCore","mm":[220.0,296.4,43.2],"W":700,"proto":["dante","avb"],"src":"Luminex GigaCore16i SpecSheet, p.5/7/6/2","ports":{"rj45":12,"sfp":4,"poe":12},"mezzoRack":1},
+  "gc26i":{"kind":"rete","brand":"Luminex","model":"GigaCore 26i","famiglia":"GigaCore","mm":[482.0,270.3,44.0],"kg":4.0,"W":400,"rackU":1,"proto":["dante","avb"],"src":"Luminex GigaCore26i UserManual, p.28/7/5/21/10","ports":{"rj45":24,"sfp":6}},
+  "gc30i":{"kind":"rete","brand":"Luminex","model":"GigaCore 30i","famiglia":"GigaCore","mm":[482.0,283.1,43.2],"kg":3.92,"W":1050,"rackU":1,"proto":["dante"],"src":"Luminex GigaCore30i 1G SpecSheet, p.4/6/2/5","ports":{"rj45":24,"sfp":6,"poe":24}},
+  "swp18":{"kind":"rete","brand":"Yamaha","model":"SWP1-8","famiglia":"SWP","mm":[480.0,362.0,44.0],"kg":4.2,"W":11,"rackU":1,"proto":["dante"],"src":"Yamaha SWP1 OwnersManual, p.17/9","ports":{"rj45":8,"sfp":2}},
+  "swp18mmf":{"kind":"rete","brand":"Yamaha","model":"SWP1-8MMF","famiglia":"SWP","mm":[480.0,362.0,44.0],"kg":4.2,"W":11,"rackU":1,"proto":["dante"],"src":"Yamaha SWP1 OwnersManual, p.17/9","ports":{"rj45":8,"sfp":2,"fibra":1}},
+  "swp116mmf":{"kind":"rete","brand":"Yamaha","model":"SWP1-16MMF","famiglia":"SWP","mm":[480.0,362.0,44.0],"kg":4.6,"W":16,"rackU":1,"proto":["dante"],"src":"Yamaha SWP1 OwnersManual, p.17/9","ports":{"rj45":16,"sfp":2,"fibra":1}},
+  "swp210mmf":{"kind":"rete","brand":"Yamaha","model":"SWP2-10MMF","famiglia":"SWP","mm":[480.0,362.0,44.0],"kg":4.5,"W":21,"rackU":1,"proto":["dante"],"src":"Yamaha SWP2 OwnersManual zh, p.17/9","ports":{"rj45":10,"sfp":2,"fibra":2}},
+  "swr2311p":{"kind":"rete","brand":"Yamaha","model":"SWR2311P-10G","famiglia":"SWR","mm":[220.0,294.0,42.4],"kg":2.3,"W":280,"proto":["dante"],"src":"Yamaha SWR2311P-10G OwnersManual, p.36/10","ports":{"rj45":10,"sfp":2,"poe":8},"mezzoRack":1},
+  "m425010g2f":{"kind":"rete","brand":"Netgear","model":"M4250-10G2F-PoE+ (GSM4212P)","famiglia":"M4250","mm":[440.0,200.0,43.2],"kg":2.85,"W":163.9,"rackU":1,"proto":["avb","dante"],"src":"Netgear M4250 Datasheet, p.19/59/58/9/12","ports":{"rj45":10,"sfp":2,"poe":8}},
+  "m425026g4f":{"kind":"rete","brand":"Netgear","model":"M4250-26G4F-PoE+ (GSM4230P)","famiglia":"M4250","mm":[440.0,257.0,43.2],"kg":4.3,"W":401,"rackU":1,"proto":["avb","dante"],"src":"Netgear M4250 Datasheet, p.24/58/59/9/12","ports":{"rj45":26,"sfp":4,"poe":24}},
+  "dd4mr":{"kind":"fibra","brand":"Optocore","model":"DD4MR-FX","famiglia":"Optocore","mm":[483.0,200.0,44.0],"kg":2.7,"rackU":1,"proto":["optocore","madi"],"src":"Optocore DD4MR-FX Datasheet, p.6/4/2","Wunit":"VA","ports":{"rj45":4,"fibra":2}},
+  "dd32r":{"kind":"fibra","brand":"Optocore","model":"DD32R-FX","famiglia":"Optocore","mm":[483.0,200.0,44.0],"kg":2.7,"W":12,"rackU":1,"proto":["optocore"],"src":"Optocore DD32R-FX Datasheet, p.4/3","ports":{"rj45":4,"sfp":2,"fibra":2}},
+  "x6rfx":{"kind":"fibra","brand":"Optocore","model":"X6R-FX","famiglia":"Optocore","mm":[483.0,200.0,44.0],"kg":2.7,"W":12,"rackU":1,"proto":["optocore"],"src":"Optocore X6R-FX Datasheet, p.6/5","ports":{"rj45":4,"sfp":2,"fibra":2}},
+  "ad4d":{"kind":"rx","brand":"Shure","model":"AD4D","famiglia":"Axient Digital","mm":[483.0,333.0,44.0],"kg":4.6,"W":23,"rackU":1,"proto":[],"src":"Shure AD4D UserGuide, p.45/1/46/5/6","ch":2,"bande":[["A",470,636],["B",606,810],["C",750,960]]},
+  "ad4q":{"kind":"rx","brand":"Shure","model":"AD4Q","famiglia":"Axient Digital","mm":[483.0,333.0,44.0],"kg":4.8,"W":31,"rackU":1,"proto":[],"src":"Shure AD4Q UserGuide, p.44/45/4/46/5","ch":4,"bande":[["A",470,636],["B",606,810],["C",750,960]]},
+  "ulxd4":{"kind":"rx","brand":"Shure","model":"ULXD4","famiglia":"ULX-D","mm":[197.0,171.0,42.0],"kg":0.913,"proto":[],"src":"Shure ULXD4 UserGuide, p.47/49/44/48/40/1","Wunit":"A","ch":1,"mezzoRack":1,"bande":[["G50",470,534],["G51",470,534],["G52",479,534],["G53",470,510],["G62",510,530],["H50",534,598],["H51",534,598],["H52",534,565],["J50",572,636],["J51",572,636],["K51",606,670],["L50",632,696],["L51",632,696],["L53",632,714],["M19",694,703],["P51",710,782],["R51",800,810],["Q12",748,758],["Q51",794,806],["V50",174,216],["V51",174,216],["V52",174,210],["X50",925,932],["X51",925,937.5],["X52",902,928],["X53",902,907.5,915,928],["X54",915,928],["Z16",1240,1260],["Z17",1492,1525],["Z18",1785,1805],["Z19",1785,1800],["Z20",1790,1805]]},
+  "ulxd4d":{"kind":"rx","brand":"Shure","model":"ULXD4D","famiglia":"ULX-D","mm":[482.0,274.0,44.0],"kg":3.36,"rackU":1,"proto":[],"src":"Shure ULXD4D-ULXD4Q UserGuide, p.63/4/68/64","Wunit":"A","ch":2,"bande":[["G50",470,534],["G51",470,534],["G52",479,534],["G53",470,510],["G54",479,565],["G55",470,608,614,636],["G56",470,636],["G57",470,608],["G62",510,530],["G65",470,606],["G66",487,606],["H50",534,598],["H51",534,598],["H52",534,565],["H54",520,636],["J50",572,636],["J50A",572,608],["J51",572,636],["K51",606,670],["L50",632,696],["L51",632,696],["L53",632,714],["M19",694,703],["P51",710,782],["R51",800,810],["AB",770,810],["Q12",748,758],["Q51",794,806],["V50",174,216],["V51",174,216],["V52",174,210],["X50",925,932],["X51",925,937.5],["X52",902,928],["X53",902,907.5,915,928],["X54",915,928],["Z16",1240,1260],["Z17",1492,1525],["Z18",1785,1805],["Z19",1785,1800],["Z20",1790,1805]]},
+  "ulxd4q":{"kind":"rx","brand":"Shure","model":"ULXD4Q","famiglia":"ULX-D","mm":[482.0,274.0,44.0],"kg":3.45,"rackU":1,"proto":[],"src":"Shure ULXD4D-ULXD4Q UserGuide, p.63/5/68/64","Wunit":"A","ch":4,"bande":[["G50",470,534],["G51",470,534],["G52",479,534],["G53",470,510],["G54",479,565],["G55",470,608,614,636],["G56",470,636],["G57",470,608],["G62",510,530],["G65",470,606],["G66",487,606],["H50",534,598],["H51",534,598],["H52",534,565],["H54",520,636],["J50",572,636],["J50A",572,608],["J51",572,636],["K51",606,670],["L50",632,696],["L51",632,696],["L53",632,714],["M19",694,703],["P51",710,782],["R51",800,810],["AB",770,810],["Q12",748,758],["Q51",794,806],["V50",174,216],["V51",174,216],["V52",174,210],["X50",925,932],["X51",925,937.5],["X52",902,928],["X53",902,907.5,915,928],["X54",915,928],["Z16",1240,1260],["Z17",1492,1525],["Z18",1785,1805],["Z19",1785,1800],["Z20",1790,1805]]},
+  "slxd4":{"kind":"rx","brand":"Shure","model":"SLXD4","famiglia":"SLX-D","mm":[197.0,152.0,42.0],"kg":0.816,"proto":[],"src":"Shure SLX-D UserGuide, p.43/44/4/53/7/45/5","Wunit":"A","ch":1,"mezzoRack":1,"bande":[["G58",470,514],["G59",470,514],["G60",470,510],["G61",479,523],["G62",510,530],["H55",514,558],["H56",518,562],["H57",520,564],["J52",558,602],["J53",562,606],["J54",562,606],["JB",806,810],["K59",606,650],["L55",646,690],["L56",650,694],["L57",650,694],["L58",630,674],["L59",654,698],["M55",694,703,748,758],["S50",823,865],["X51",925,937.5]]},
+  "slxd4d":{"kind":"rx","brand":"Shure","model":"SLXD4D","famiglia":"SLX-D","mm":[393.0,152.0,42.0],"kg":1.451,"proto":[],"src":"Shure SLX-D UserGuide, p.43/44/4/53/45","Wunit":"A","ch":2,"mezzoRack":1,"bande":[["G58",470,514],["G59",470,514],["G60",470,510],["G61",479,523],["G62",510,530],["H55",514,558],["H56",518,562],["H57",520,564],["J52",558,602],["J53",562,606],["J54",562,606],["JB",806,810],["K59",606,650],["L55",646,690],["L56",650,694],["L57",650,694],["L58",630,674],["L59",654,698],["M55",694,703,748,758],["S50",823,865],["X51",925,937.5]],"verifica":1},
+  "qlxd4":{"kind":"rx","brand":"Shure","model":"QLXD4","famiglia":"QLX-D","mm":[197.0,151.0,41.0],"kg":0.777,"proto":[],"src":"Shure QLX-D UserGuide, p.47/2/51/48/5","Wunit":"A","ch":1,"mezzoRack":1,"bande":[["G50",470,534],["G51",470,534],["G52",479,534],["G53",470,510],["G62",510,530],["H50",534,598],["H51",534,598],["H52",534,565],["H53",534,598],["J50",572,636],["J51",572,636],["JB",806,810],["K51",606,670],["K52",606,670],["L50",632,696],["L51",632,696],["L52",632,694],["L53",632,714],["M19",694,703],["P51",710,782],["P52",710,782],["Q12",748,758],["Q51",794,806],["S50",823,832,863,865],["V50",174,216],["V51",174,216],["V52",174,210],["X51",925,937.5],["X52",902,928],["X53",902,907.5,915,928],["X54",915,928],["Z17",1492,1525],["Z18",1785,1805],["Z19",1785,1800],["Z20",1790,1805]]},
+  "em6000":{"kind":"rx","brand":"Sennheiser","model":"EM 6000","famiglia":"Digital 6000","mm":[483.0,373.0,44.0],"kg":5.2,"W":35,"rackU":1,"proto":[],"src":"Sennheiser Digital6000 Manual, p.250/249/247/57","ch":2,"bande":[["",470,714]]},
+  "em100g4":{"kind":"rx","brand":"Sennheiser","model":"EM 100 G4 (ew 100 G4)","famiglia":"ew G4","mm":[212.0,190.0,43.0],"kg":0.98,"proto":[],"src":"Sennheiser ew100G4 Manual, p.134/133/27","Wunit":"A","ch":1,"mezzoRack":1,"bande":[["A1",470,516],["A",516,558],["AS",520,558],["G",566,608],["GB",606,648],["B",626,668],["C",734,776],["D",780,822],["TH",794,806],["E",823,865],["JB",806,810],["K+",925,937.5],["1G8",1785,1800]],"verifica":1},
+  "ewdxem2":{"kind":"rx","brand":"Sennheiser","model":"EW-DX EM 2","famiglia":"EW-DX","mm":[212.0,189.0,44.0],"kg":1.0,"W":12,"proto":[],"src":"Sennheiser EW-DX EM2 ProductSpecification v1.5, p.1 + Sennheiser EW-DX EM2 SystemDrawings, p.1","ch":2,"mezzoRack":1,"bande":[["Q1-9",470.2,550],["R1-9",520,607.8],["S1-10",606.2,693.8],["S2-10",614.2,693.8],["S4-10",630,693.8],["U1/5",823.2,831.8,863.2,864.8],["V3-4",925.2,937.3],["V5-7",941.7,951.8,953.05,956.05,956.65,959.65],["W5-6",1240.1,1251.875,1253.125,1259.9],["Y1-3",1785.2,1799.8]]},
+  "ewdxem4dante":{"kind":"rx","brand":"Sennheiser","model":"EW-DX EM 4 Dante","famiglia":"EW-DX","mm":[483.0,373.0,44.0],"kg":4.56,"W":37,"rackU":1,"proto":[],"src":"Sennheiser EW-DX EM4Dante ProductSpecification v1.2, p.1 + Sennheiser EW-DX EM4Dante SystemDrawings, p.1","ch":4,"bande":[["Q1-9",470.2,550],["R1-9",520,607.8],["S1-10",606.2,693.8],["S2-10",614.2,693.8],["S4-10",630,693.8],["U1/5",823.2,831.8,863.2,864.8],["V3-4",925.2,937.3],["V5-7",941.7,951.8,953.05,956.05,956.65,959.65],["W5-6",1240.1,1251.875,1253.125,1259.9],["Y1-3",1785.2,1799.8]]},
+  "ewdem":{"kind":"rx","brand":"Sennheiser","model":"EW-D EM","famiglia":"EW-D","mm":[212.0,189.0,44.0],"kg":1.0,"proto":[],"src":"Sennheiser EW-D EM ProductSpecification v1.4, p.1/4","Wunit":"A","ch":1,"mezzoRack":1,"bande":[["Q1-6",470.2,526],["R1-6",520,576],["R4-9",552,607.8],["S1-7",606.2,662],["S4-7",630,662],["S7-10",662,693.8],["T1/7",694.5,702.7,748.3,757.7],["T12",806.125,809.75],["T13-14",819.2,823],["U1/5",823.2,831.8,863.2,864.8],["V3-4",925.2,937.3],["Y1-3",1785.2,1799.8]],"verifica":1},
+  "mrk960":{"kind":"rx","brand":"Wisycom","model":"MRK960","famiglia":"MRK","mm":[482.6,370.0,44.5],"rackU":1,"proto":[],"src":"Wisycom MRK960 UserManual, p.24/20/21 + Wisycom MRK960 Brochure, p.1/2","Wunit":"VA","ch":2},
+  "klotz_st0800":{"kind":"subsnake","brand":"Klotz","model":"StraightLink 8x XLR 3p F - RMP 25p M (ST0800M)","famiglia":"Klotz","mm":[306.5,75.0,68.0],"in":8,"out":0,"proto":[],"src":"Klotz st0800m-1 pagina.html, p.1","connettore":"RMP 25p M (round multipin)"},
+  "klotz_st0804":{"kind":"subsnake","brand":"Klotz","model":"StraightLink 8/4 XLR 3p - RMP 37p M (ST0804M)","famiglia":"Klotz","mm":[418.5,75.0,68.0],"in":8,"out":4,"proto":[],"src":"Klotz st0804m-1 pagina.html, p.1","connettore":"RMP 37p M (round multipin)"},
+  "klotz_st1200":{"kind":"subsnake","brand":"Klotz","model":"StraightLink 12/0 XLR 3p - RMP 37p M (ST1200M)","famiglia":"Klotz","mm":[418.5,75.0,68.0],"in":12,"out":0,"proto":[],"src":"Klotz st1200m-1 pagina.html, p.1","connettore":"RMP 37p M (round multipin)"},
+  "klotz_st1204":{"kind":"subsnake","brand":"Klotz","model":"StraightLink 12/4 XLR 3p - RMP 54p M (ST1204M)","famiglia":"Klotz","mm":[532.5,75.0,78.0],"in":12,"out":4,"proto":[],"src":"Klotz st1204m-1 pagina.html, p.1","connettore":"RMP 54p M (round multipin)"},
+  "klotz_st1600":{"kind":"subsnake","brand":"Klotz","model":"StraightLink 16/0 XLR 3p - RMP 54p M (ST1600M)","famiglia":"Klotz","mm":[532.5,75.0,78.0],"in":16,"out":0,"proto":[],"src":"Klotz st1600m-1 pagina.html, p.1","connettore":"RMP 54p M (round multipin)"},
+  "klotz_tl1608":{"kind":"subsnake","brand":"Klotz","model":"TrueLink Pro 16/8 XLR 3p - RMP 85p M (T1B1608V-E)","famiglia":"Klotz","mm":[410.0,245.0,100.0],"in":16,"out":8,"proto":[],"src":"Klotz t1b1608v-e-1 pagina.html, p.1","connettore":"RMP 85p M (round multipin)"},
+  "klotz_ks1212":{"kind":"subsnake","brand":"Klotz","model":"K-Sub 12x XLR 3p F||M - RMP 37p M (KS1212ME)","famiglia":"Klotz","mm":[457.0,112.0,68.0],"in":12,"out":12,"proto":[],"src":"Klotz ks1212me-1 pagina.html, p.1","connettore":"RMP 37p M (round multipin)"},
+  "sssnake_mts164sb":{"kind":"subsnake","brand":"the sssnake (Thomann)","model":"the sssnake MTS 164 - SB","famiglia":"the sssnake","mm":[253.0,139.0,56.0],"in":16,"out":4,"proto":[],"src":"Thomann sssnake mts 164 sb pagina.html, p.1","connettore":"Multipin a 72 poli (tipo non specificato)","verifica":1}
 };
 /* </dati> */
 
@@ -101,7 +158,18 @@ function proModelOf(it){
   if(!it || !it.hw || !Object.prototype.hasOwnProperty.call(PRO_DB, it.hw)) return null;
   var m=PRO_DB[it.hw];
   if(m.kind==="stagebox") return (it.type==="stagebox" || it.type==="substg") ? m : null;
-  return (it.type==="mixer" || it.type===m.tipo) ? m : null;
+  if(m.kind==="console") return (it.type==="mixer" || it.type===m.tipo) ? m : null;
+  return (it.type===proTipoDi(m)) ? m : null;   /* lotto 2: ogni kind ha il suo tipo (un ricevitore non può avere l'id di uno switch) */
+}
+/* LOTTO 2 (17/11/2026): rete, fibra, radio, in-ear, antenne, sub-snake analogici. Ogni modello entra nel tipo che il
+   motore ha già (switch, rack TX in-ear, ricevitore, splitter, antenna, sub-stagebox) o in due tipi nuovi solo da
+   catalogo (nodo fibra, combiner): niente strada nuova, i motori di rete e RF li leggono come sempre. */
+var PRO_KIND_TIPO={ stagebox:"stagebox", rete:"netswitch", fibra:"nodofibra", iem:"iemant", rx:"rxrf", ant:"rfant", subsnake:"substg" };
+function proTipoDi(m){
+  if(!m) return null;
+  if(m.kind==="console") return (m.tipo && TYPES[m.tipo]) ? m.tipo : "mixer";
+  if(m.kind==="rfdist") return m.ruolo==="combiner" ? "rfcomb" : "rfsplit";
+  return PRO_KIND_TIPO[m.kind]||null;
 }
 /* peso e consumo del modello: solo per gli elementi posati dal catalogo pro (pro:1), vedi sopra */
 function proKg(it){ var m=(it && it.pro) ? proModelOf(it) : null; return (m && m.kg!=null && isFinite(m.kg)) ? +m.kg : null; }
@@ -124,12 +192,32 @@ function proOver(id){
   var m=PRO_DB[id]; if(!m) return null;
   var dm=proDimsCm(m)||{}, o={hw:id, pro:1, proDims:1, w:dm.w, d:dm.d};
   if(m.kind==="console") o.label=proNome(m);
+  if(m.kind==="subsnake"){ o.ch=m.in||8; o.outCh=m.out||0; }   /* sub-snake analogico: i canali del box vero (cabBoxCap/cabBoxCapOut li leggono da qui) */
+  if(m.kind==="rete"){ var np=proPorte(m); if(np) o.swPorts=Math.max(4, Math.min(48, np)); }   /* porte dello switch per il conto della rete */
   return o;
 }
-function proTipo(id){ var m=PRO_DB[id]; return m ? (m.kind==="stagebox" ? "stagebox" : (m.tipo && TYPES[m.tipo] ? m.tipo : "mixer")) : null; }
+function proTipo(id){ return proTipoDi(PRO_DB[id]); }
+function proPorte(m){ var P=m && m.ports; if(!P) return 0; return (+P.rj45||0)+(+P.sfp||0); }
+var PRO_ANT_TIPO={ direttiva:"direttiva", omni:"omnidirezionale", elicoidale:"elicoidale" };
+/* la riga corta che descrive il modello nella ricerca e nelle liste (canali, porte, antenna…) */
+function proRuoloTesto(m){
+  if(!m) return "";
+  switch(m.kind){
+    case "rx": return m.ch ? m.ch+(m.ch===1?" canale":" canali") : "";
+    case "iem": return m.ch ? (m.ch===1 ? "1 trasmettitore" : m.ch+" trasmettitori") : "";
+    case "rfdist": return m.ruolo==="combiner" ? (m.ch ? m.ch+" ingressi TX" : "combiner") : (m.ch ? "1→"+m.ch+" ricevitori" : "splitter");
+    case "ant": var a=m.ant||{}; return [PRO_ANT_TIPO[a.tipo]||"antenna", a.attiva===true?"attiva":"", a.gain||""].filter(Boolean).join(" ");
+    case "rete": case "fibra": var P=m.ports||{}, q=[];
+      if(P.rj45) q.push(P.rj45+" RJ45"); if(P.sfp) q.push(P.sfp+" SFP"); if(P.fibra) q.push(P.fibra+" fibra"); if(P.poe) q.push(P.poe+" PoE");
+      return q.join(" · ");
+    case "subsnake": return (m.in||0)+" in / "+(m.out||0)+" out"+(m.connettore ? " · "+m.connettore : "");
+  }
+  return "";
+}
 function proDimTesto(m){
-  var p=[];
-  if(m.in!=null || m.out!=null) p.push((m.in||0)+" in / "+(m.out||0)+" out");
+  var p=[], rt=(m.kind==="console"||m.kind==="stagebox") ? "" : proRuoloTesto(m);
+  if(rt) p.push(rt);
+  else if(m.in!=null || m.out!=null) p.push((m.in||0)+" in / "+(m.out||0)+" out");
   var dm=proDimsCm(m); if(dm) p.push(proCmTesto(dm.w)+"×"+proCmTesto(dm.d)+" cm");
   if(m.rackU) p.push(m.rackU+"U");
   return p.join(" · ");
@@ -137,19 +225,33 @@ function proDimTesto(m){
 /* voci per la ricerca e per il gruppo «Modelli»: marca, modello, famiglia, protocollo. Le parole
    generiche (stage box, console, mixer, rack, dante…) restano alle voci di sempre (qaCede): chi scrive
    «stage box» trova prima «Stage box 8/16/24», chi scrive «rio» o «x32» trova il modello. */
-var PRO_CEDE="stage box|stagebox|stage|box|console|mixer|mixer digitale|rack|stage rack|dante|digitale|yamaha|allen|midas|behringer|digico|avid|live|dlive";   /* «live» e «dlive» restano del dLive S5000 (06/10/2026) */
+var PRO_CEDE="stage box|stagebox|stage|box|console|mixer|mixer digitale|rack|stage rack|dante|digitale|yamaha|allen|midas|behringer|digico|avid|live|dlive";   /* lotto 2: «switch», «antenna», «ricevitore», «in ear» restano già alle voci generiche (nome del tipo): niente da cedere */
+/* parole con cui si cerca ogni famiglia di modelli (oltre a marca, modello, famiglia e protocollo) */
+var PRO_KW={
+  stagebox:"stage box stagebox stage rack rack i/o preamplificatori remoti",
+  console:"console mixer digitale banco regia foh monitor",
+  rete:"switch rete network ethernet dante avb aes67 poe gigabit lan",
+  fibra:"fibra fibra ottica optocore convertitore fiber nodo rete ottica",
+  iem:"in ear in-ear inear iem trasmettitore tx monitor personal monitor rack",
+  rx:"ricevitore radiomicrofono radiomicrofoni radio wireless rx rack",
+  combiner:"combiner combinatore antenna trasmettitori",   /* «in ear» e «iem» portano prima ai trasmettitori */
+  splitter:"splitter antenna distributore distribuzione antenne ricevitori",
+  ant:"antenna antenne direttiva elicoidale omni paddle rf",
+  subsnake:"sub-snake subsnake sub snake multicore stage box analogica multipolare fan-out ciabatta"
+};   /* «live» e «dlive» restano del dLive S5000 (06/10/2026) */
 function proCatEntries(kind){
   return Object.keys(PRO_DB).filter(function(id){ return !kind || PRO_DB[id].kind===kind; }).map(function(id){
     var m=PRO_DB[id], k=proTipo(id);
     var kw=[m.brand, m.model, m.model.replace(/[-\s]/g,""), m.famiglia||"", (m.proto||[]).map(function(p){ return AUDIO_PROTO[p]||p; }).join(" "),
-      m.kind==="stagebox" ? "stage box stagebox stage rack rack i/o preamplificatori remoti" : "console mixer digitale banco regia foh monitor"].join(" ");
+      PRO_KW[m.kind==="rfdist" ? (m.ruolo==="combiner" ? "combiner" : "splitter") : m.kind]||""].join(" ");
     return {k:k, nome:proNome(m), over:proOver(id), dim:proDimTesto(m), kw:kw, qaCede:PRO_CEDE, pro:id};
   }).sort(function(a,b){ return a.nome.localeCompare(b.nome); });
 }
 /* entra nei registri del motore */
 (function(){
   Object.keys(PRO_DB).forEach(function(id){
-    var m=PRO_DB[id], DB=(m.kind==="stagebox") ? STAGEBOX_DB : MIXER_DB, e=DB[id];
+    var m=PRO_DB[id]; if(m.kind!=="stagebox" && m.kind!=="console") return;   /* lotto 2: rete e radio hanno i loro registri (proRegistraRF) */
+    var DB=(m.kind==="stagebox") ? STAGEBOX_DB : MIXER_DB, e=DB[id];
     if(!e){
       e={brand:m.brand, model:m.model, proto:(m.proto||[]).slice(), v:true};
       if(m.in!=null) e.in=m.in;
@@ -309,4 +411,123 @@ function proSchedaTesto(m){
   if(m.W!=null) p.push(m.W+" W");
   if(m.rackU) p.push(m.rackU+"U rack");
   return p.join(" · ")+(m.src ? " — "+m.src : "");
+}
+
+/* ══ LOTTO 2 (17/11/2026) — rete, fibra, radio, in-ear, antenne, sub-snake analogici ══════════════════════════════
+   Simone (16-17/11): «un catalogo professionale di stage box e mixing desk digitali e tutta l'attrezzatura che compete
+   a un palco professionale», «sempre tutto in scala reale». Stesse regole del lotto 1: misura, peso, consumo, U e fonte
+   dalla scheda del costruttore, null se la scheda non lo dice. */
+
+/* I ricevitori e le antenne del catalogo entrano nei registri RF che il motore usa già (canali del ricevitore,
+   angolo dell'antenna, nomi nella Lista RF). RX_DB e RF_ANT_DB sono definiti più avanti nell'app: questa funzione
+   la chiama l'app subito dopo averli definiti. Le chiavi già esistenti (ulxd4d, ewdxem2…) restano le stesse:
+   un progetto salvato con hw:"ulxd4d" ritrova il suo ricevitore. */
+function proRegistraRF(){
+  Object.keys(PRO_DB).forEach(function(id){
+    var m=PRO_DB[id];
+    if(m.kind==="rx" && typeof RX_DB==="object" && m.ch>=1 && m.ch<=8){
+      var e=RX_DB[id]||(RX_DB[id]={brand:m.brand, model:m.model, ch:m.ch});
+      e.ch=m.ch; e.mm=m.mm; e.kg=m.kg; e.W=m.W; e.src=m.src; if(m.band) e.band=m.band;
+    }
+    if(m.kind==="ant" && typeof RF_ANT_DB==="object"){
+      var a=m.ant||{}, e2=RF_ANT_DB[id]||(RF_ANT_DB[id]={brand:m.brand, model:m.model});
+      if(a.tipo==="omni") e2.ang=360; else if(a.ang>0) e2.ang=a.ang;   /* senza angolo di scheda resta quello scritto a mano (antAngOf) */
+      if(a.gain) e2.gain=a.gain; if(a.range) e2.range=a.range;
+      e2.tipo=a.tipo||null; e2.mm=m.mm; e2.src=m.src;
+    }
+  });
+}
+/* U rack di un elemento posato dal catalogo (solo pro:1, come peso e consumo) */
+function proRackUOf(it){ var m=(it && it.pro) ? proModelOf(it) : null; return (m && m.rackU>0) ? m.rackU : null; }
+
+/* Disegno in pianta dei modelli del lotto 2: l'icona realistica di icons-pro.js quando è arrivata; prima, e se il
+   modello non ce l'ha, un'unità neutra NELLA MISURA DI SCHEDA (mai il disegno generico a misura fissa). I progetti
+   salvati prima (senza pro:1) restano col disegno di sempre. */
+function proUnitaDraw(it){
+  var W=it.w||48, D=it.d||30, r2=function(v){ return Math.round(v*100)/100; }, m=proModelOf(it)||{};
+  var s='<rect x="'+r2(-W/2)+'" y="'+r2(-D/2)+'" width="'+r2(W)+'" height="'+r2(D)+'" rx="'+r2(Math.min(1.2,W*0.04))+'" fill="#25292d" stroke="#0b0c0d" stroke-width=".12"/>';
+  if(m.kind==="ant"){   /* antenna: pala o elica vista dall'alto, attacco al centro */
+    s+='<rect x="'+r2(-W/2+0.6)+'" y="'+r2(-D/2+0.4)+'" width="'+r2(Math.max(0,W-1.2))+'" height="'+r2(Math.max(0,D-0.8))+'" rx="'+r2(Math.min(0.8,D*0.3))+'" fill="#3a3f45"/>';
+    return s+'<circle cx="0" cy="0" r="'+r2(Math.min(1.2,D*0.35,W*0.2))+'" fill="#8a9096"/>';
+  }
+  var fh=Math.min(D*0.4, (m.mm && m.mm[2]) ? m.mm[2]/10 : 4.4);   /* frontale ribaltato in scala vera (convenzione dei rack del lotto 1) */
+  s+='<rect x="'+r2(-W/2)+'" y="'+r2(D/2-fh)+'" width="'+r2(W)+'" height="'+r2(fh)+'" fill="#34393e" stroke="#0b0c0d" stroke-width=".08"/>';
+  s+='<circle cx="'+r2(W/2-1.6)+'" cy="'+r2(D/2-fh/2)+'" r=".45" fill="#46c86a"/>';
+  return s;
+}
+(function(){
+  ["netswitch","nodofibra","iemant","rxrf","rfsplit","rfcomb","rfant"].forEach(function(tp){
+    var t=TYPES[tp]; if(!t || t._proIco) return;
+    var base=t.draw; t._proIco=true;
+    t.draw=function(it){
+      var m=(it && it.pro) ? proModelOf(it) : null; if(!m) return base(it);
+      var k=proIconaDi(it); return k ? proIconaDraw(it, k) : proUnitaDraw(it);
+    };
+  });
+})();
+
+/* IN-EAR: un trasmettitore (un canale di un'unità TX) per ogni MIX in-ear, non per ogni beltpack: più beltpack sullo
+   stesso mix ascoltano la stessa frequenza (Shure, «Selection and Operation of Personal Monitor Systems»). Vale solo
+   con trasmettitori del catalogo (sanno quanti canali hanno); senza, liste e avvisi restano quelli di prima. */
+function iemAssegna(){
+  var tx=(state.items||[]).filter(function(x){ var m=(x.type==="iemant" && x.pro) ? proModelOf(x) : null; return !!(m && m.ch>0); });
+  if(!tx.length) return null;
+  var slot=[]; tx.forEach(function(x){ var m=proModelOf(x); for(var c=1;c<=m.ch;c++) slot.push({tx:x, m:m, ch:c}); });
+  var R=null; try{ R=cabResult(true); }catch(_e){}
+  var mixes=((R&&R.mixes)||[]).filter(function(mx){ return (mx.sinks||[]).some(function(sk){ return sk.type==="iem"; }); });
+  var byMix={}, orfani=[];
+  mixes.forEach(function(mx, i){ if(slot[i]) byMix[mx.key]=slot[i]; else orfani.push(mx); });
+  return {byMix:byMix, orfani:orfani, mixes:mixes, slot:slot, tx:tx};
+}
+function iemTxTesto(a){ if(!a) return "";
+  var lb=String(a.tx.label||"").trim(), def=(TYPES[a.tx.type]||{}).defLabel;
+  var nm=(lb && lb!==def) ? lb : proNome(a.m);   /* l'etichetta di serie («TX IEM») non dice niente: vince il modello */
+  return "TX "+nm+(a.m.ch>1 ? " ch "+a.ch : ""); }
+
+/* LISTA MATERIALI: i modelli di rete e radio posati dal catalogo, contati per modello, con le U rack (lista dello
+   Stato e PDF del cablaggio, accanto a drop box, rack convertitori e rete Dante). */
+var PRO_MAT_GRUPPI=[["rx","Radio · ricevitori"],["iem","In-ear · trasmettitori"],["rfdist","Antenne · splitter e combiner"],["ant","Antenne"],["rete","Rete"],["fibra","Fibra"],["subsnake","Sub-snake analogici"]];
+function proMaterialiRighe(items){
+  items=items||state.items||[];
+  var per={}, ord=[], u=0, mezzi=0;
+  items.forEach(function(it){
+    var m=it.pro ? proModelOf(it) : null; if(!m || m.kind==="console" || m.kind==="stagebox") return;
+    var k=m.kind+"|"+it.hw; if(!per[k]){ per[k]={m:m, n:0}; ord.push(k); } per[k].n++;
+    if(m.rackU>0) u+=m.rackU; else if(m.mezzoRack) mezzi++;
+  });
+  var out=[];
+  PRO_MAT_GRUPPI.forEach(function(g){
+    var r=ord.filter(function(k){ return per[k].m.kind===g[0]; }).map(function(k){ var o=per[k], d=[proRuoloTesto(o.m), o.m.rackU ? o.m.rackU+"U" : (o.m.mezzoRack ? "mezzo rack" : "")].filter(Boolean).join(", ");
+      return o.n+"× "+proNome(o.m)+(d ? " ("+d+")" : ""); });
+    if(r.length) out.push([g[1], r.join(" · ")]);
+  });
+  if(u || mezzi) out.push(["Rack (rete e radio)", [u ? u+"U" : "", mezzi ? mezzi+(mezzi===1?" unità":" unità")+" da mezzo rack (2 per 1U col kit)" : ""].filter(Boolean).join(" + ")]);
+  return out;
+}
+/* scheda tecnica in una riga per i modelli del lotto 2 (pannello) */
+function proSchedaL2(m){
+  if(!m) return "";
+  var p=[proRuoloTesto(m)];
+  var bt=proBandeTesto(m); if(bt.length) p.push("bande: "+bt.slice(0,3).join(", ")+(bt.length>3 ? " (+"+(bt.length-3)+")" : ""));
+  if(m.rfW) p.push((Array.isArray(m.rfW) ? m.rfW.join("/") : m.rfW)+" mW RF");
+  if(m.mezzoRack) p.push("mezzo rack");
+  return p.filter(Boolean).join(" · ")+" — "+proSchedaTesto(m);
+}
+/* BANDE di scheda del ricevitore (lotto 2): «G50», «R1-9», «A»… scritte nel campo Banda del ricevitore. Il controllo
+   «frequenza fuori dalla banda» le usa come usa RF_BANDS: solo se il codice scritto coincide con una banda del modello
+   (mai indovinare). Ritorna gli intervalli in MHz [[da,a],…] o null. */
+function proBandaRange(it){
+  var m=(it && it.type==="rxrf" && it.hw) ? (PRO_DB[it.hw]||null) : null, c=String((it&&it.band)||"").trim().toUpperCase();
+  if(!m || m.kind!=="rx" || !m.bande || !c) return null;
+  for(var i=0;i<m.bande.length;i++){ var b=m.bande[i]; if(String(b[0]).toUpperCase()!==c) continue;
+    var r=[]; for(var j=1;j+1<b.length;j+=2) r.push([+b[j], +b[j+1]]); return r.length ? r : null; }
+  return null;
+}
+function proBandeCodici(hw){ var m=PRO_DB[hw]; return (m && m.kind==="rx" && m.bande) ? m.bande.map(function(b){ return String(b[0]); }).filter(Boolean) : []; }
+function proBandeTesto(m){ return (m && m.bande) ? m.bande.map(function(b){ var r=[]; for(var j=1;j+1<b.length;j+=2) r.push(b[j]+"–"+b[j+1]); return (b[0] ? b[0]+" " : "")+r.join(" + ")+" MHz"; }) : []; }
+/* avviso: più mix in-ear dei canali dei trasmettitori del catalogo sul palco (uno per mix) */
+function iemAvvisi(){
+  var ia=iemAssegna(); if(!ia || !ia.orfani.length) return [];
+  var n=ia.orfani.length, c=ia.slot.length;
+  return [{lvl:"warn", msg:n+" mix in-ear senza trasmettitore ("+ia.orfani.map(function(m){ return m.name; }).join(", ")+"): i trasmettitori sul palco hanno "+c+" canal"+(c===1?"e":"i")+" — aggiungi un trasmettitore (uno per mix)."}];
 }

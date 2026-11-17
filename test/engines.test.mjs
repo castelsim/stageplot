@@ -35100,7 +35100,8 @@ t("Catalogo pro: almeno 25 modelli, ognuno con misura in pianta > 0, fonte con p
   ok(ids.filter((i) => A.PRO_DB[i].kind === "console").length >= 15, "console ≥ 15");
   ids.forEach((id) => {
     const m = A.PRO_DB[id];
-    ok(m.kind === "stagebox" || m.kind === "console", id + ": kind");
+    /* lotto 2 (17/11/2026): anche rete, fibra, ricevitori, TX in-ear, splitter/combiner, antenne, sub-snake analogici */
+    ok(["stagebox", "console", "rete", "fibra", "rx", "iem", "rfdist", "ant", "subsnake"].indexOf(m.kind) > -1, id + ": kind " + m.kind);
     ok(m.brand && m.model, id + ": marca e modello");
     ok(Array.isArray(m.mm) && m.mm[0] > 0 && m.mm[1] > 0, id + ": misura in pianta");
     ok(m.mm[0] < 2500 && m.mm[1] < 1500, id + ": misura plausibile (mm, non cm)");
@@ -35121,6 +35122,7 @@ t("Catalogo pro: almeno 25 modelli, ognuno con misura in pianta > 0, fonte con p
 t("Catalogo pro: i modelli entrano nei registri del motore (STAGEBOX_DB/MIXER_DB) senza toccare I/O e protocolli già scritti; U rack di scheda", () => {
   Object.keys(A.PRO_DB).forEach((id) => {
     const m = A.PRO_DB[id], db = m.kind === "stagebox" ? A.STAGEBOX_DB : A.MIXER_DB;
+    if (m.kind !== "stagebox" && m.kind !== "console") { ok(!A.STAGEBOX_DB[id] || A.PRO_DB[id].kind === "stagebox", id + ": rete e radio non entrano fra le stage box digitali"); return; }   /* lotto 2: hanno i loro registri (RX_DB, RF_ANT_DB) */
     ok(db[id], id + " nel registro");
     eq(db[id].mm, m.mm, id + ": misura nel registro");
     if (m.kind === "stagebox") { ok(db[id].in >= 0 && Array.isArray(db[id].proto), id + ": in e proto"); if (m.rackU) eq(A.RACK_U_HW[id], m.rackU, id + ": U"); }
@@ -35171,6 +35173,146 @@ t("Catalogo pro: registro iniettato da src/catalogo-pro.js, gruppi del catalogo 
   ok(appjs.indexOf("var PRO_DB = {") > -1 && appjs.indexOf("/*__CATALOGO_PRO__*/") < 0, "iniettato dal build");
   ok(/g\.body\.dataset\.proLazy="1"/.test(appjs) && /if\(g\.body\.dataset\.proLazy!=="1"\) return; g\.body\.dataset\.proLazy="";/.test(appjs), "bottoni alla prima apertura");
   ok(/if\(g\.body\.dataset\.pro==="1"\) return;/.test(appjs), "il gruppo vuoto non viene nascosto da «Mostra tutti»");
+});
+/* ===== CATALOGO PRO LOTTO 2 (17/11/2026): rete, fibra, radio, in-ear, antenne, sub-snake analogici =====
+   Simone: «tutta l'attrezzatura che compete a un palco professionale», «sempre tutto in scala reale». I modelli entrano
+   nei tipi e nei registri che il motore ha già (switch, ricevitore, TX in-ear, splitter, antenna, sub-stagebox). */
+const _L2 = (k) => Object.keys(A.PRO_DB).filter((i) => A.PRO_DB[i].kind === k);
+t("Catalogo pro L2: abbastanza modelli per famiglia, ognuno col suo tipo, misura di scheda al millimetro, fonte con pagina, disegno valido in scala", () => {
+  ok(_L2("rx").length >= 10, "ricevitori: " + _L2("rx").length);
+  ok(_L2("iem").length >= 5, "TX in-ear: " + _L2("iem").length);
+  ok(_L2("rfdist").length >= 6 && _L2("rfdist").some((i) => A.PRO_DB[i].ruolo === "combiner") && _L2("rfdist").some((i) => A.PRO_DB[i].ruolo === "splitter"), "combiner e splitter");
+  ok(_L2("ant").length >= 4, "antenne: " + _L2("ant").length);
+  ok(_L2("rete").length >= 8 && _L2("fibra").length >= 2, "switch e fibra");
+  ok(_L2("subsnake").length >= 5, "sub-snake: " + _L2("subsnake").length);
+  const TIPO = { rete: "netswitch", fibra: "nodofibra", iem: "iemant", rx: "rxrf", ant: "rfant", subsnake: "substg" };
+  ["rete", "fibra", "iem", "rx", "rfdist", "ant", "subsnake"].forEach((k) => _L2(k).forEach((id) => {
+    const m = A.PRO_DB[id], tp = A.proTipo(id);
+    eq(tp, k === "rfdist" ? (m.ruolo === "combiner" ? "rfcomb" : "rfsplit") : TIPO[k], id + ": tipo");
+    ok(A.TYPES[tp], id + ": il tipo esiste");
+    const it = Object.assign({ type: tp, x: 0, y: 0, rot: 0 }, A.proOver(id));
+    ok(Math.abs(it.w * 10 - m.mm[0]) <= 1 && Math.abs(it.d * 10 - m.mm[1]) <= 1, id + ": nasce a " + it.w + "×" + it.d + " cm, scheda " + m.mm.join("×") + " mm");
+    eq(A.proModelOf(it), m, id + ": il modello si riconosce sull'elemento");
+    const prima = A.LIB_ICONS; A.LIB_ICONS = {}; A._proIcoStato = 3;   /* senza icona: l'unità neutra nella misura di scheda, mai il disegno generico a misura fissa */
+    try { const svg = A.TYPES[tp].draw(it); eq(_svgValido(svg), "", id + ": disegno");
+      const r0 = (svg.match(/<rect x="([-\d.]+)" y="([-\d.]+)" width="([\d.]+)" height="([\d.]+)"/) || []).slice(3, 5).map(Number);
+      ok(Math.abs(r0[0] - it.w) < 0.02 && Math.abs(r0[1] - it.d) < 0.02, id + ": ingombro disegnato " + r0.join("×") + " = elemento " + it.w + "×" + it.d);
+    } finally { A.LIB_ICONS = prima; A._proIcoStato = 0; }
+    ok(/p\.\s?\d/.test(m.src), id + ": fonte con pagina (" + m.src + ")");
+    if (m.W != null) ok(m.W > 0 && m.W < 2000, id + ": W");
+  }));
+  /* tipo e modello devono combaciare: un ricevitore con l'id di uno switch non prende niente */
+  const sw = _L2("rete")[0], rx = _L2("rx")[0];
+  eq(A.proModelOf({ type: "rxrf", hw: sw, pro: 1 }), null, "rxrf con id di switch");
+  eq(A.proModelOf({ type: "netswitch", hw: rx, pro: 1 }), null, "switch con id di ricevitore");
+  eq(A.proModelOf({ type: "stagebox", hw: _L2("subsnake")[0], pro: 1 }), null, "sub-snake solo come sub-stagebox");
+});
+t("Catalogo pro L2: ricevitori e antenne entrano nei registri RF (canali, angolo); le chiavi di prima restano; rete e radio non diventano stage box digitali", () => {
+  _L2("rx").forEach((id) => { ok(A.RX_DB[id], id + " in RX_DB"); eq(A.RX_DB[id].ch, A.PRO_DB[id].ch, id + ": canali di scheda"); eq(A.rxCapOf({ type: "rxrf", hw: id }), A.PRO_DB[id].ch, id + ": capienza del ricevitore"); });
+  ["ewdem", "ewdxem2", "ulxd4d", "ulxd4q"].forEach((k) => ok(A.RX_DB[k] && A.RX_DB[k].ch >= 1, k + ": la chiave di prima esiste ancora"));
+  eq([A.RX_DB.ulxd4d.ch, A.RX_DB.ulxd4q.ch], [2, 4], "ULXD4D 2, ULXD4Q 4");
+  ok(A.RF_ANT_DB.adpuhf && A.RF_ANT_DB.adpuhf.ang === 100, "ADP UHF di prima invariata");
+  _L2("ant").forEach((id) => ok(A.RF_ANT_DB[id], id + " in RF_ANT_DB"));
+  const omni = _L2("ant").find((i) => (A.PRO_DB[i].ant || {}).tipo === "omni");
+  if (omni) eq(A.antAngOf({ type: "rfant", hw: omni }), 360, "antenna omni: 360°");
+  const dir = _L2("ant").find((i) => (A.PRO_DB[i].ant || {}).tipo === "direttiva"), ang0 = A.RF_ANT_DB[dir].ang;
+  eq(A.antAngOf({ type: "rfant", hw: dir, antAng: 70 }), ang0, dir + ": vale l'angolo di scheda");
+  A.RF_ANT_DB[dir].ang = null;   /* un'antenna di catalogo senza angolo dichiarato */
+  try { eq(A.antAngOf({ type: "rfant", hw: dir, antAng: 70 }), 70, "senza angolo di scheda vale quello scritto a mano"); } finally { A.RF_ANT_DB[dir].ang = ang0; }
+  ["rete", "fibra", "rx", "iem", "rfdist", "ant", "subsnake"].forEach((k) => _L2(k).forEach((id) => { ok(!A.STAGEBOX_DB[id] && !A.MIXER_DB[id], id + ": non è una stage box né una console"); }));
+  /* il ricevitore del catalogo sopravvive alla pulizia del caricamento */
+  reset(); const r = add("rxrf", 300, 300, A.proOver("ad4q")); A.state.items[0] = r;
+  const ns = A.normalizeState(JSON.parse(JSON.stringify(A.state)));
+  eq((ns || A.state).items.find((x) => x.type === "rxrf").hw, "ad4q", "hw:ad4q resta dopo normalizeState");
+  reset();
+});
+t("Catalogo pro L2: U rack, peso e consumo di scheda solo con pro:1; corrente in A o VA non diventa W; switch con le porte vere; sub-snake con i canali del box", () => {
+  const ad = Object.assign({ type: "rxrf" }, A.proOver("ad4q"));
+  eq(A.rackUhOf(ad), 1, "AD4Q: 1U");
+  eq(A.weightOf(ad), A.PRO_DB.ad4q.kg, "peso di scheda");
+  eq(A.wattOf(ad), A.PRO_DB.ad4q.W, "consumo di scheda");
+  eq(A.wattFonte(ad), "targa", "targa");
+  eq(A.weightOf({ type: "rxrf", hw: "ad4q" }), A.weightOf({ type: "rxrf" }), "senza pro: peso di prima");
+  const ul = Object.assign({ type: "rxrf" }, A.proOver("ulxd4d"));
+  eq(A.PRO_DB.ulxd4d.W, undefined, "ULXD4D: la scheda dà ampere, non watt");
+  ok(A.wattFonte(ul) !== "targa", "e quindi non è «targa»");
+  const p10 = Object.assign({ type: "iemant" }, A.proOver("p10t"));
+  eq(A.rackUhOf(p10), 1, "P10T 1U");
+  A.PRO_DB.p10t.rackU = 2; try { eq(A.rackUhOf(p10), 2, "le U del rack vengono dalla scheda del modello"); eq(A.rackUhOf({ type: "iemant", hw: "p10t" }), 1, "senza pro: come prima"); } finally { A.PRO_DB.p10t.rackU = 1; }
+  ok(A.RACK_ELIGIBLE.iemant && A.RACK_ELIGIBLE.nodofibra && A.RACK_ELIGIBLE.rfcomb, "TX in-ear, fibra e combiner vanno nei rack");
+  eq(A.rackUhOf({ type: "iemant" }), 1, "TX in-ear generico: come prima");
+  const gc = A.proOver("gc10i"); eq(gc.swPorts, 10, "GigaCore 10i: 8 RJ45 + 2 SFP");
+  const ss = Object.assign({ type: "substg", x: 0, y: 0 }, A.proOver("klotz_st1204"));
+  eq([A.cabBoxCap(ss), A.cabBoxCapOut(ss)], [12, 4], "Klotz 12/4: 12 ingressi, 4 ritorni");
+  eq(A.elementDept({ type: "nodofibra" }), "rete", "fibra = reparto rete");
+  eq(A.elementDept({ type: "rfcomb" }), "rf", "combiner = reparto RF");
+});
+t("Catalogo pro L2: la ricerca trova marca e modello; «switch», «antenna», «ricevitore», «in ear» restano alle voci generiche", () => {
+  const nomi = (q) => A.__qaSearch(q).map((e) => e.nome);
+  ok(A.__catEntries.filter((e) => e.pro).length === Object.keys(A.PRO_DB).length, "tutti i modelli nell'indice");
+  ok(/ULXD4Q/.test(nomi("ulxd4q")[0] || ""), "ulxd4q → " + nomi("ulxd4q")[0]);
+  ok(/GigaCore/.test(nomi("gigacore")[0] || ""), "gigacore → " + nomi("gigacore")[0]);
+  ok(nomi("klotz").some((n) => /Klotz/.test(n)), "klotz");
+  ok(nomi("psm1000").some((n) => /P10T/.test(n)), "psm1000 → P10T");
+  ok(nomi("ew-dx").some((n) => /EW-DX/.test(n)), "ew-dx");
+  ok(/IEM|P10T|P9T|P3T|SR /.test(nomi("in ear")[1] || ""), "«in ear»: dopo il beltpack i trasmettitori, non il combiner (" + nomi("in ear")[1] + ")");
+  ["switch", "antenna", "ricevitore", "in ear"].forEach((q) => ok(!A.__qaSearch(q).slice(0, 1).some((e) => e.pro), "«" + q + "» → prima la voce generica (" + nomi(q)[0] + ")"));
+});
+t("Catalogo pro L2: in-ear — un trasmettitore per mix; la Monitor list e la Lista RF dicono quale; avviso se i TX non bastano", () => {
+  reset();
+  for (let i = 0; i < 3; i++) add("iem", 200 + i * 150, 500, { label: "In-ear " + (i + 1) });
+  ok(A.iemAssegna() === null, "senza TX del catalogo: niente assegnazione (liste come prima)");
+  const tipi0 = A.monitorList().rows.map((r) => r.tipo);
+  ok(tipi0.every((t) => !/TX/.test(t)), "monitor list di prima");
+  add("iemant", 900, 100, A.proOver("p10t"));   /* PSM1000 P10T: 2 trasmettitori */
+  const ia = A.iemAssegna();
+  eq([ia.mixes.length, Object.keys(ia.byMix).length, ia.orfani.length], [3, 2, 1], "3 mix, 2 canali TX, 1 senza");
+  const rows = A.monitorList().rows.filter((r) => /IEM/.test(r.tipo));
+  ok(rows.filter((r) => /TX Shure P10T \(PSM1000\) ch [12]/.test(r.tipo)).length === 2, "monitor list: " + rows.map((r) => r.tipo).join(" | "));
+  ok(A.rfIssues().some((i) => /mix in-ear senza trasmettitore/.test(i.msg)), "avviso: un mix senza trasmettitore");
+  const rf = A.rfList().rows;
+  ok(rf.some((r) => /TX in-ear \(rack\) \(Shure P10T \(PSM1000\), 2 trasmettitori\)/.test(r.kind)), "Lista RF: il TX col suo modello");
+  ok(rf.filter((r) => /^TX /.test(r.rx || "")).length === 2, "Lista RF: i beltpack dicono il loro TX");
+  add("iemant", 900, 300, A.proOver("p9t"));
+  ok(!A.rfIssues().some((i) => /mix in-ear senza trasmettitore/.test(i.msg)), "con un P9T in più i mix sono coperti");
+  reset();
+});
+t("Catalogo pro L2: splitter d'antenna con le uscite di scheda, combiner e bande del modello nella Lista RF e nei controlli", () => {
+  reset();
+  const sp = add("rfsplit", 600, 100, A.proOver("ua845uwb")); add("rfant", 300, 50); add("rfant", 900, 50);
+  for (let i = 0; i < 5; i++) add("rxrf", 400 + i * 60, 150);
+  ok(A.rfChain().issues.some((i) => /UA845UWB ha 4 uscite/.test(i.msg)), "5 ricevitori su uno splitter da 4: avviso col modello");
+  reset();
+  const sp8 = add("rfsplit", 600, 100, A.proOver("asa1")); add("rfant", 300, 50);
+  for (let i = 0; i < 5; i++) add("rxrf", 400 + i * 60, 150);
+  ok(!A.rfChain().issues.some((i) => /uscite/.test(i.msg)), "ASA 1 (1:8): 5 ricevitori ci stanno");
+  ok(A.rfList().rows.some((r) => /1→8 ricevitori \(Sennheiser ASA 1\)/.test(r.kind)), "Lista RF: lo splitter col modello");
+  add("rfcomb", 700, 300, A.proOver("pa821b"));
+  ok(A.rfList().rows.some((r) => /Combiner 8 ingressi TX \(Shure PA821B\)/.test(r.kind)), "Lista RF: il combiner");
+  reset();
+  /* bande di scheda: G50 dell'ULXD4D va da 470 a 534 MHz */
+  const rx = add("rxrf", 400, 200, Object.assign(A.proOver("ulxd4d"), { band: "G50" }));
+  add("wireless", 400, 400, { rf: "600.000", rxId: rx.id, rxCh: 1 });
+  ok(A.rfIssues().some((i) => /fuori dalla banda G50 \(470–534 MHz\)/.test(i.msg)), "600 MHz fuori da G50");
+  A.state.items.find((x) => x.type === "wireless").rf = "500.000";
+  ok(!A.rfIssues().some((i) => /fuori dalla banda/.test(i.msg)), "500 MHz dentro G50");
+  ok(A.proBandeCodici("ulxd4d").indexOf("G50") > -1, "i codici banda del modello per il campo Banda");
+  eq(A.proBandaRange({ type: "rxrf", hw: "ulxd4d", band: "Z99" }), null, "codice sconosciuto: nessun controllo");
+  reset();
+});
+t("Catalogo pro L2: lista materiali — i modelli di rete e radio contati per modello, con U e mezzi rack", () => {
+  reset();
+  add("rxrf", 100, 100, A.proOver("ad4q")); add("rxrf", 200, 100, A.proOver("ad4q")); add("rxrf", 300, 100, A.proOver("ewdxem2"));
+  add("iemant", 400, 100, A.proOver("p10t")); add("netswitch", 500, 100, A.proOver("gc10i"));
+  add("substg", 600, 400, A.proOver("klotz_st1204")); add("rxrf", 700, 100);   /* generico: non entra */
+  const r = A.proMaterialiRighe(), m = Object.fromEntries(r);
+  ok(/^2× Shure AD4Q \(4 canali, 1U\) · 1× Sennheiser EW-DX EM 2 \(2 canali, mezzo rack\)$/.test(m["Radio · ricevitori"] || ""), "ricevitori: " + m["Radio · ricevitori"]);
+  ok(/1× Shure P10T/.test(m["In-ear · trasmettitori"] || ""), "TX");
+  ok(/1× Luminex GigaCore 10i/.test(m["Rete"] || ""), "rete");
+  ok(/1× Klotz .*12 in \/ 4 out/.test(m["Sub-snake analogici"] || ""), "sub-snake");
+  ok(/^3U \+ 2 unità da mezzo rack/.test(m["Rack (rete e radio)"] || ""), "rack: " + m["Rack (rete e radio)"]);
+  ok(/proMaterialiRighe\(\)\.forEach/.test(appjs.slice(appjs.indexOf("function cabMaterialiL7"), appjs.indexOf("function cabMaterialiL7") + 1600)), "le righe entrano nella lista materiali (Stato e PDF del cablaggio)");
+  reset();
 });
 /* ===== ICONE REALISTICHE DEL CATALOGO PRO (17/11/2026) =====
    Simone: «il più leggere possibili ma con un grado di realismo che dà soddisfazione al tecnico» e «le dimensioni
