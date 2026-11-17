@@ -8166,9 +8166,13 @@ t("stampando al 100% il cartiglio non finisce dove la stampante non arriva", () 
   /* il riferimento sta a y+19 (+5 con la riga dei totali): con cartH 27 la sua riga deve restare ad almeno 6 mm dal fondo */
   ok((L.ph - L.fondo - 27 + 24) <= L.ph - 6, "l'ultima riga resta dentro l'area stampabile");
   /* il disegno non si rimpicciolisce: lo spazio era già riservato sotto */
-  eq(L.drawH, L.ph - L.M - 27 - 5 - (L.M + 7), "l'area del disegno è quella di prima");
-  ok((L.ph - L.M - 27 - 5) <= (L.ph - L.fondo - 27) - 5, "e fra disegno e cartiglio restano 5 mm per «PUBBLICO»");
-  ok(/ph-4\.5, \{url:"https:\/\/stageplot\.it\/\?utm_source=pdf/.test(appjs) && /doc\.text\(credito, pw-10, ph-4\.5,/.test(appjs), "anche il credito si alza dal bordo");
+  /* dal 16/11/2026 (P1 Il Volo): piè a 16 mm dal bordo, cartiglio più alto di 5,5 mm; il disegno resta a 17 mm in alto e a 20 ai lati */
+  eq(L.drawH, L.ph - L.fondo - 27 - 8 - 17, "il disegno perde solo i 5,5 mm del piè, in basso");
+  eq([L.drawX, L.drawY, L.drawW], [20, 17, L.pw - 40], "in alto e ai lati il disegno è dov'era");
+  ok(L.M >= 15 && L.fondo >= 12 && (L.ph - L.fondo - 27) - (L.drawY + L.drawH) >= 8, "fra disegno e cartiglio restano 8 mm per «PUBBLICO» e la barra");
+  ok(/ph-16\.2, \{url:"https:\/\/stageplot\.it\/\?utm_source=pdf/.test(appjs) && /doc\.text\(credito, pw-15\.5, ph-16\.2,/.test(appjs), "il credito sta a 16 mm dal bordo");
+  ok(/doc\.text\(i\+" di "\+n, pw\/2, ph-16\.2,/.test(appjs), "e anche «N di M · vN · data»");
+  ok(!/ph-4\.5/.test(appjs.slice(appjs.indexOf("function pdfCredit"), appjs.indexOf("function pdfCredit") + 1500)), "niente più piè a 4,5 mm");
 });
 
 t("il cartiglio si alza quando c'e' la riga dei totali", () => {
@@ -11824,10 +11828,12 @@ t("il cartiglio dei progetti normali resta alto com'era", () => {
   try {
     A.pdfTotals = () => [];
     eq(A.cartHFor("", "a4", "landscape"), 22, "senza totali");
-    eq(A.cartHFor("Mario Rossi · mario@esempio.it", "a4", "portrait"), 22, "con un riferimento corto");
+    /* dal 17/11/2026 (rilettura P1 Il Volo): col riferimento il cartiglio ha 8 mm sotto l'ultima riga come senza (prima 3), perché l'ultima riga
+       non finisca sopra il piè a 16 mm dal fondo: 22 → 27 col riferimento, 27 → 32 con totali e riferimento. Senza riferimento è com'era. */
+    eq(A.cartHFor("Mario Rossi · mario@esempio.it", "a4", "portrait"), 27, "con un riferimento corto: +5 mm per stare sopra il piè");
     A.pdfTotals = () => ["8 canali", "3 leggii", "3 sedute", "2 spie"];
-    eq(A.cartHFor("", "a4", "landscape"), 27, "con la riga dei totali");
-    eq(A.cartHFor("Mario Rossi · mario@esempio.it", "a4", "portrait"), 27, "e col riferimento corto");
+    eq(A.cartHFor("", "a4", "landscape"), 27, "con la riga dei totali (senza riferimento com'era)");
+    eq(A.cartHFor("Mario Rossi · mario@esempio.it", "a4", "portrait"), 32, "e col riferimento corto: +5 mm per stare sopra il piè");
   } finally { A.pdfTotals = t0; reset(); }
 });
 /* 13/10/2026, stage plot vero: la pagina «Note» del PDF scriveva ogni nota su una riga sola, a partire
@@ -18171,6 +18177,39 @@ t("le porte del mixer si contano e si esauriscono", () => {
   ok(R.issues.some((i) => i.code === "cap"), "18 voci su 16 ingressi: l'audit lo dice");
 });
 
+t("P1 Il Volo: «Nessun microfono» non produce canali dello strumento, ma tiene il canale voce, la catena delle chitarre e le voci", () => {
+  reset();
+  ["stagepiano", "tastiera", "percussioni", "vlnpost", "batteria"].forEach((tp) => {
+    ok(A.TYPES[tp], tp + ": tipo esistente nel catalogo");
+    const it = add(tp, 300, 300); const con = chans(it).length;
+    it.miking = "__nomic__";
+    eq(chans(it).length, 0, tp + ": nessun microfono = 0 canali");
+    ok(!A.isAudioSource(it), tp + ": e non è più una sorgente da microfonare");
+    delete it.miking; ok(chans(it).length === con, tp + ": tolto «Nessun microfono» i canali tornano");
+  });
+  /* il microfono-voce dello strumentista resta: prima restava per i tipi con MIKING e andava perso per gli altri */
+  ["stagepiano", "batteria"].forEach((tp) => {
+    const it = add(tp, 400, 400); it.headMic = "archetto"; it.miking = "__nomic__";
+    eq(chans(it).map((c) => /voce$/.test(c.name)), [true], tp + " con voce e «Nessun microfono»: resta il solo canale voce");
+  });
+  /* voci e chitarre: il pannello non offre la scelta, quindi un «__nomic__» arrivato da un file non toglie niente (stato invisibile) */
+  const cant = add("cantante", 100, 100), g0 = chans(cant).length; cant.miking = "__nomic__";
+  ok(g0 === 1 && chans(cant).length === 1 && !!A.isAudioSource(cant), "cantante: il canale resta e resta sorgente, come mostra il pannello");
+  const gt = add("gtstand", 200, 200), c0 = chans(gt).length; gt.miking = "__nomic__";
+  ok(c0 > 0 && chans(gt).length === c0 && !!A.isAudioSource(gt), "chitarra a catena: i prelievi accesi restano canali e la sorgente resta tale");
+  const src = readFileSync(join(root, "index.template.html"), "utf8");
+  ok(/mutSel\(function\(it\)\{ if\(MIKING\[it\.type\] && !VOCE\[it\.type\] && !hasChain\(it\)\)\{ it\.miking=v;/.test(src), "la tendina applica «Nessun microfono» solo dove il pannello la mostra");
+  reset();
+  add("dm3", 600, 740);
+  for (let i = 0; i < 18; i++) { const c = add("percussioni", 100 + i * 40, 300); c.miking = "__nomic__"; }
+  A.state.cab.on = true; A.state.cab.mode = "auto"; A.state.cab.manual = {}; A.__cabRes = null;
+  const R = A.cabResult(true);
+  ok(!R.issues.some((i) => i.code === "cap"), "18 percussioni a «Nessun microfono» su 16 ingressi: nessun errore di capienza");
+  reset();
+});
+t("P1 Il Volo: la zona microfonica non cambia (miczone resta un canale)", () => {
+  reset(); const z = add("miczone", 300, 300); eq(chans(z).length, 1); z.miking = "__nomic__"; eq(chans(z).length, 1, "la zona è lei il microfono: «Nessun microfono» non la azzera (come isAudioSource)"); reset();
+});
 t("l'audit non chiede una stage box quando c'e' gia' un mixer con ingressi", () => {
   reset();
   add("dm3", 600, 740);
@@ -26679,12 +26718,15 @@ t("PDF: «titolo — luogo» va a capo invece di uscire dal foglio", () => {
 
 t("PDF: le tabelle ripetono l'intestazione delle colonne sulle pagine di seguito", () => {
   /* revisione 28/09: i canali 48-63 di un'orchestra vera finivano su un foglio senza «# SORGENTE MIC/DI…» */
-  const defs = appjs.match(/function trow\([^)]*\)\{ if\(y>286\)\{ doc\.addPage\(\); y=18;[^}]*\}/g) || [];
+  const defs = appjs.match(/function trow\([^)]*\)\{ if\(y>274\)\{ doc\.addPage\(\); y=18;[^}]*\}/g) || [];
   /* 8 tabelle hanno una riga di intestazione; due (quadri elettrici, patch delle stage box) sono elenchi a
      blocchi con i titoli dentro il blocco: lì non c'è una riga di colonne da ripetere */
   const conRipresa = defs.filter((d) => /if\(_testaTab\)\{ var _t=_testaTab; _testaTab=null; _t\(\); _testaTab=_t; \}/.test(d));
-  ok(conRipresa.length >= 8, "tabelle che ridisegnano l'intestazione dopo addPage: " + conRipresa.length + " su " + defs.length);
-  eq((appjs.match(/_testa\(\); _testaTab=_testa;/g) || []).length, conRipresa.length, "e ognuna l'ha registrata");
+  /* la backline list misura la riga a capo INTERA prima di decidere la pagina (rilettura 17/11/2026): ha una forma sua */
+  const backline = /if\(y\+\(bl\.length-1\)\*3\.9>274\)\{ doc\.addPage\(\); y=18; if\(_testaTab\)\{ var _t=_testaTab;/.test(appjs) ? 1 : 0;
+  ok(backline === 1, "backline list: la riga a capo si misura intera prima del cambio pagina");
+  ok(conRipresa.length + backline >= 8, "tabelle che ridisegnano l'intestazione dopo addPage: " + (conRipresa.length + backline) + " su " + (defs.length + backline));
+  eq((appjs.match(/_testa\(\); _testaTab=_testa;/g) || []).length, conRipresa.length + backline, "e ognuna l'ha registrata");
   ok(/function _testa\(\)\{ trow\("#","SORGENTE","FOH","MIC \/ DI","ASTA","PATCH", true, "#0d9488"\);/.test(appjs), "la channel list compresa");
 });
 
@@ -33763,7 +33805,7 @@ t("Palco per esterni: titolo lungo va a capo (mai «…») e la fascia si alza; 
   const vert = A.palcoEsterniPiano(_peDoc, "a4", "auto", "landscape", new Date()), vert2 = A.palcoEsterniPiano(_peDoc, "a4", "auto", "portrait", new Date());
   ok(vert2.N < vert.N, "il verso giusto stampa il palco più grande: 1:" + vert2.N + " contro 1:" + vert.N);
   eq(A.palcoEsterniPiano(_peDoc, "a4", "abc", "auto", new Date()), null, "scala non valida: nessun piano");
-  A.state.stage = { w: 400, d: 1000, blocks: [{ x: 0, y: 0, w: 400, d: 1000 }] };
+  A.state.stage = { w: 400, d: 950, blocks: [{ x: 0, y: 0, w: 400, d: 950 }] };   /* 9,5 m: il piè a 16 mm toglie 5,5 mm in basso, il 10 m al limite non entra più intero a 1:50 su A4 */
   const sp = A.palcoEsterniPiano(_peDoc, "a4", "50", "auto", new Date());
   eq([sp.o, sp.box.cropped], ["portrait", false], "scala fissa 1:50: vince il verso in cui il palco entra intero, non quello che ritaglia");
   reset();
@@ -35258,5 +35300,147 @@ t("Icone approvate: punto di appendimento, carico e portata scritti; oltre porta
   ok(/^A\d+/.test(A.rigEtichetta(am)), "l'americana resta A: " + A.rigEtichetta(am));
   reset();
 });
+
+/* P1 VOLO lotto 1 (16/11/2026): la finestra «Quanto è grande il tuo palco?» non resta mai sopra un progetto con lavoro o misure, e non lo riscrive a 8×6. */
+const STAGE_1200 = { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] };
+const STAGE_GRANDE = { w: 3513, d: 1618, blocks: [{ x: 0, y: 0, w: 3513, d: 1618 }] };
+const docP1 = (stage, extra) => Object.assign({ titolo: "", luogo: "", stage, items: [], inputs: [], outputs: [] }, extra || {});
+function apriFinestraPalco() { A.__stageSizeOpen = false; A.showStageSizeModal(); ok(A.__stageSizeOpen === true, "finestra aperta"); }
+t("P1 palco 8×6: loadDoc di un progetto con misure salvate (ripristino) chiude la finestra e non tocca il palco", () => {
+  reset(); apriFinestraPalco();
+  A.loadDoc(docP1(STAGE_GRANDE));
+  ok(A.__stageSizeOpen === false, "finestra chiusa");
+  eq([A.state.stage.w, A.state.stage.d, !!A.state.stage._provisional], [3513, 1618, false]);
+});
+t("P1 palco 8×6: un progetto con elementi (palco default) chiude la finestra; import e apertura cloud passano tutti da commitPreparedDoc", () => {
+  reset(); apriFinestraPalco();
+  A.loadDoc(docP1(STAGE_1200, { items: [{ id: "n1", type: "cantante" }] }));
+  ok(A.__stageSizeOpen === false, "finestra chiusa"); eq(A.state.stage.w, 1200);
+  const src = readFileSync(join(root, "index.template.html"), "utf8");
+  ok(/function activatePreparedProject\(prepared, opts\)\{[\s\S]{0,900}commitPreparedDoc\(prepared\)/.test(src), "activatePreparedProject (import, trascinamento, cloud, elenco) → commitPreparedDoc");
+  ok(/function importProject\(json, opts\)\{[\s\S]{0,500}activatePreparedProject\(prepareDoc\(s\),opts\)/.test(src), "importProject → activatePreparedProject");
+  A.loadDoc(docP1(STAGE_1200));
+});
+t("P1 palco 8×6: apertura dal cloud (commitPreparedDoc, come activatePreparedProject keepCloud) chiude la finestra", () => {
+  reset(); apriFinestraPalco();
+  A.commitPreparedDoc(A.prepareDoc(docP1(STAGE_GRANDE, { titolo: "Concerto" })));
+  ok(A.__stageSizeOpen === false); eq(A.state.stage.w, 3513);
+});
+t("P1 palco 8×6: un progetto davvero vuoto che entra NON chiude la finestra (File → Nuovo)", () => {
+  reset(); apriFinestraPalco();
+  A.loadDoc(docP1(STAGE_1200));
+  ok(A.__stageSizeOpen === true, "il progetto nuovo ha diritto alla domanda");
+  A.__stageSizeOpen = false;
+});
+t("P1 palco 8×6: palcoIndicativoAmmesso è vero solo sul progetto nuovo e vuoto", () => {
+  reset(); ok(A.palcoIndicativoAmmesso() === true);
+  A.state.stage = JSON.parse(JSON.stringify(STAGE_GRANDE)); ok(A.palcoIndicativoAmmesso() === false, "misure già salvate");
+  reset(); add("cantante", 300, 300); ok(A.palcoIndicativoAmmesso() === false, "con elementi");
+  reset(); A.state.titolo = "X"; ok(A.palcoIndicativoAmmesso() === false, "con titolo"); reset();
+});
+t("P1 palco 8×6: «Non conosco», Esc e velo applicano 8×6 solo se ammesso (guardia in tutti e tre)", () => {
+  const src = readFileSync(join(root, "index.template.html"), "utf8");
+  const u0 = src.indexOf('getElementById("ssUnknown").addEventListener'), unk = src.slice(u0, src.indexOf("function stageSizeSkip()", u0));
+  ok(/if\(!palcoIndicativoAmmesso\(\)\)\{ closeStageSize\(\); return; \}[^\n]*\n\s*applyStageSize\(8, 6, true\)/.test(unk), "«Non conosco»");
+  const skip = src.slice(src.indexOf("function stageSizeSkip()"), src.indexOf("function stageSizeSkip()") + 260);
+  ok(/if\(!palcoIndicativoAmmesso\(\)\)\{ closeStageSize\(\); return; \} applyStageSize\(8, 6, true\)/.test(skip), "Esc e velo passano da stageSizeSkip");
+  ok((src.match(/applyStageSize\(8, 6, true\)/g) || []).length === 2, "solo i due punti guardati applicano 8×6");
+  ok(/function commitPreparedDoc[\s\S]{0,2600}chiudiPalcoSePieno\(\)/.test(src), "ogni ingresso passa da commitPreparedDoc");
+});
+
+/* P1 VOLO lotto 4 (16/11/2026): il trattino lungo «—» davanti alla versione. */
+t("P1 trattino: «Titolo — v1» e «Titolo — v2 — 16/11/2026» → versione letta, titolo senza «—» finale", () => {
+  const tt = (x) => A.titoloSenzaVersione(x), v = (x) => A.versioneDaTitolo(x);
+  eq(tt("Concerto di prova — SEDE 2026 #1 — v1"), "Concerto di prova — SEDE 2026 #1", "niente «—» rimasto in coda");
+  eq(tt("Concerto — v2 — 16/11/2026"), "Concerto", "versione con data dopo il trattino lungo");
+  eq(tt("Concerto - v2"), "Concerto", "come prima: trattino semplice");
+  eq(tt("Concerto – v3 · 10/11/2026"), "Concerto", "come prima: trattino medio e punto");
+  eq([v("Concerto — v1"), v("Concerto — v2 — 16/11/2026"), v("Concerto — v3 finale")], [1, 2, 0], "la versione si legge anche dopo «—»; non in fondo = nessuna");
+  eq(tt("Concerto — SEDE"), "Concerto — SEDE", "un «—» in mezzo al titolo resta");
+  reset(); A.state.titolo = "Concerto di prova — SEDE 2026 #1 — v1";
+  ok(!/—\s*[-·]/.test(A.fileName()) && !/—\s*$/.test(A.titoloSenzaVersione(A.state.titolo)), "il nome del file non ha «— -»: " + A.fileName());
+  reset();
+});
+
+/* P1 VOLO lotto 3 (16/11/2026): margini di stampa — la Ricoh dello studio taglia sotto i 15 mm (M-069). */
+t("P1 margini: piè a ≥15 mm, cartiglio e liste A4 si fermano sopra il piè", () => {
+  const cr = appjs.slice(appjs.indexOf("function pdfCredit"), appjs.indexOf("function pdfCredit") + 1900);
+  const ys = [...cr.matchAll(/ph-(\d+(?:\.\d+)?)/g)].map((m) => parseFloat(m[1]));
+  ok(ys.length >= 4 && ys.every((v) => v >= 15.9), "tutti i testi del piè a ≥ 16 mm dal fondo (baseline): " + ys.join(","));
+  ok(/pw-15\.5/.test(cr), "il credito a destra sta a ≥ 15 mm dal bordo");
+  const L = A.pdfLayout("a3", "landscape", 22), L4 = A.pdfLayout("a4", "portrait", 22);
+  ok(L.M >= 15 && L4.M >= 15, "margine dei testi del cartiglio ≥ 15 mm");
+  /* nessuna pagina A4 verticale delle liste scende sotto 274 mm (297 - 23): sotto c'è il piè */
+  const soglie = [...appjs.matchAll(/if\(y>(\d{3})\)\{ doc\.addPage\(/g)].map((m) => +m[1]);
+  ok(soglie.length >= 20 && Math.max(...soglie) <= 274, "soglie di cambio pagina delle liste ≤ 274: max " + Math.max(...soglie) + " su " + soglie.length);
+  ok(!/y>L\.ph-10\)\{ doc\.addPage/.test(appjs), "la tabella dell'elenco a pagine non scende a 10 mm dal fondo");
+});
+
+/* P1 VOLO (17/11/2026): a scala FISSA il disegno che non entra intero si dice con chiarezza e si propone scala o foglio successivi. */
+t("P1 scala fissa: se non entra intero l'Esporta propone la scala o il foglio successivi (mai ritaglio in silenzio)", () => {
+  reset();
+  const s0 = JSON.stringify(A.state.stage);
+  try {
+    const ch = A.cartHFor("", "a4", "portrait");
+    let prof = 0;   /* il palco 4×D m più corto che a 1:50 su A4 verticale ritaglia (misurato, non fissato a mano) */
+    for (let d = 900; d <= 1500 && !prof; d += 25) { A.state.stage = { w: 400, d, blocks: [{ x: 0, y: 0, w: 400, d }] }; if (A.pdfStageBox(50, "a4", "portrait", ch).cropped) prof = d; }
+    ok(prof > 0, "esiste una profondità che a 1:50 su A4 verticale ritaglia: " + prof);
+    const pr = A.pdfProposteSeNonEntra("a4", 50, "portrait", "");
+    ok(pr.scala > 50 && pr.foglio === "a3", "propone una scala più piccola e l'A3: " + JSON.stringify(pr));
+    ok(A.pdfStageBox(pr.scala, "a4", "portrait", ch).cropped === false, "la scala proposta entra intera");
+    ok(A.pdfStageBox(50, "a3", "portrait", A.cartHFor("", "a3", "portrait")).cropped === false, "il foglio proposto, a 1:50, la contiene intera");
+    const pa = A.pdfProposteSeNonEntra("a2", 50, "portrait", "");
+    eq(pa.foglio, null, "dopo A2 non c'è un foglio successivo");
+    eq(A.pdfProposteSeNonEntra("a4", 0, "portrait", ""), { scala: null, foglio: null }, "senza scala nessuna proposta");
+  } finally { A.state.stage = JSON.parse(s0); }
+  const src = readFileSync(join(root, "index.template.html"), "utf8");
+  const ramo = src.slice(src.indexOf('if(box.cropped && scl.value!=="auto"){'), src.indexOf('renderFuoriPalco();   /* foglio, scala e verso'));
+  ok(ramo.length > 300 && /pdfProposteSeNonEntra\(paper\.value, N, _or, header\.value\)/.test(ramo), "l'avviso nasce a scala fissa quando il disegno ritaglia");
+  ok(/non entra intero nel foglio/.test(ramo) && /id="pdfToScala"/.test(ramo) && /id="pdfToFoglio"/.test(ramo), "testo e i due pulsanti");
+  ok(/_bs\.onclick=function\(\)\{ scl\.value=String\(_prop\.scala\); refresh\(\); \}/.test(ramo) && /_bf\.onclick=/.test(ramo), "i pulsanti sono collegati DOPO le ultime innerHTML+= (che li ricreano)");
+  ok(ramo.indexOf("_bs.onclick") > ramo.lastIndexOf("info.innerHTML+="), "gli handler vengono dopo l'ultimo innerHTML+=");
+  ok(/info\.className="mstatus warn";\s*info\.innerHTML\+="<br><b>Con questa scala/.test(src), "l'avviso è in evidenza (warn)");
+});
+
+t("P1 margini: il contenuto più basso del cartiglio (Riferimento lungo, QR, A4/A3, orizzontale/verticale) finisce sopra il piè e a ≥15 mm dal bordo", () => {
+  reset();
+  const HDR = "Fonico: Nome Cognome · +39 333 1234567 · fonico@esempio.it · Responsabile palco: Nome Cognome +39 340 7654321 · Produzione: Altro Nome · accrediti dalle 14:00";
+  const PIE_INK = 17.5;   /* il piè sta a baseline 16,2 mm; il suo ink arriva a ~17,5 mm dal fondo */
+  const prima = A.__pdfQr;
+  try {
+    for (const qr of [false, true]) for (const hdr of ["", "Fonico: Nome · 333", HDR]) for (const paper of ["a4", "a3"]) for (const orient of ["landscape", "portrait"]) {
+      A.__pdfQr = qr ? { n: 1, m: ["1"] } : null;
+      const L0 = A.pdfLayout(paper, orient, 22), R = A.pdfCartRighe(hdr, A.pdfCartTitleW(L0.pw, L0.M));
+      const L = A.pdfLayout(paper, orient, R.cartH);
+      const quote = [];   /* baseline in mm dall'alto del cartiglio di ogni elemento, con la sua discesa */
+      R.blocchi.forEach((b) => quote.push(b.y0 + (b.righe.length - 1) * b.passo + 0.25 * b.pt * 25.4 / 72));
+      const fy = parseFloat((appjs.match(/doc\.text\(_avv, L\.pw-M, y\+(\d+(?:\.\d+)?),/) || [])[1]);   /* la riga del formato a destra: la quota si legge dal codice */
+      ok(fy > 0, "riga del formato trovata nel PDF");
+      quote.push(fy + 0.8);
+      if (qr) quote.push(A.pdfQrBox(L).capY - (L.ph - L.fondo - L.cartH) + 0.6);   /* didascalia del QR */
+      const basso = L.fondo + R.cartH - Math.max(...quote);   /* distanza dal fondo del contenuto più basso */
+      const ctx = paper + " " + orient + " qr=" + qr + " rif=" + hdr.length;
+      ok(basso >= 18.4, ctx + ": il contenuto più basso sta a " + basso.toFixed(1) + " mm dal fondo (piè: ink fino a " + PIE_INK + ")");
+      ok(basso >= PIE_INK + 0.9, ctx + ": almeno 0,9 mm di aria sopra il piè");
+    }
+  } finally { A.__pdfQr = prima; }
+});
+
+t("P1 margini: sull'A4 verticale la colonna NOTE della channel list resta ≥ 19 mm anche con i margini a 15,5", () => {
+  ok(/var ul=cols\[cols\.length-1\], mancano=19-ul\.w; if\(mancano>0 && cols\[1\]\.w-mancano>=40\)\{ cols\[1\]\.w-=mancano; ul\.w\+=mancano; \}/.test(appjs), "la colonna del nome cede i mm che mancano");
+  /* i conti, con le larghezze del codice: A4 verticale = 210 - 2×M */
+  const L = A.pdfLayout("a4", "portrait", 22), colW = L.pw - 2 * L.M;
+  const fisse = 9 + 62 + 34 + 28 + 10 + 20;   /* CH, SORGENTE, MIC/DI, STAND, 48V, FORN. */
+  let note = colW - fisse, sorg = 62; const manc = 19 - note; if (manc > 0 && sorg - manc >= 40) { sorg -= manc; note += manc; }
+  ok(note >= 19 && sorg >= 40, "NOTE " + note.toFixed(1) + " mm, SORGENTE " + sorg.toFixed(1) + " mm");
+});
+
+t("P1 margini: l'anteprima scrive il formato alla stessa quota del PDF (y+15)", () => {
+  const src = readFileSync(join(root, "index.template.html"), "utf8");
+  const pdf = parseFloat((src.match(/doc\.text\(_avv, L\.pw-M, y\+(\d+(?:\.\d+)?),/) || [])[1]);
+  const anteprima = parseFloat((src.match(/y="'\+\(cy\+(\d+(?:\.\d+)?)\)\+'" font-size="3\.6"/) || [])[1]);
+  ok(pdf > 0 && anteprima === pdf, "formato: PDF y+" + pdf + ", anteprima cy+" + anteprima);
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
