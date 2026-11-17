@@ -34214,7 +34214,14 @@ t("Inventario/interfaccia L1: sp-base.css condiviso, barra del marchio statica e
   ok(/inv\.css\?v=5/.test(idx) && /inv\.js\?v=5/.test(idx), "versioni di css e js della pagina alzate");
   const inv = readFileSync(join(root, "i/inv.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
   ok(/"Elenco completo"/.test(inv) && !/"Tutto l’elenco"/.test(inv), "il link «Elenco completo» sta nel cartellino");
-  ok(/segnalaErrore/.test(inv) && /aria-describedby/.test(inv) && /aria-invalid/.test(inv), "errori sul campo legati con aria-describedby");
+  ok(/segnalaErrore/.test(inv) && /input\.setAttribute\("aria-describedby", p\.id\)/.test(inv) && /input\.setAttribute\("aria-invalid", "true"\)/.test(inv), "errori sul campo legati con aria-describedby");
+});
+t("Inventario/privacy: il pannello della segreteria (nomi, «Ce l'ha», storico) nasce solo da inv_scheda_membro con una scheda valida; non abilitato = una nota e basta (18/11)", () => {
+  const src = readFileSync(join(root, "i/inv.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const a = src.slice(src.indexOf("function areaSegreteria("), src.indexOf("function avvia("));
+  ok(a.length > 300 && /client\.rpc\("inv_scheda_membro", \{ p_slug: ind\.slug, p_codice: ind\.codice \}\)\.then\(function \(r\) \{\s*if \(r\.error\) throw r\.error;\s*var m = pulisciMembro\(r\.data\);\s*if \(!m\) \{ var p = el\("p", "inv-nota", "Accesso come "[^\n]*?return inserisci\(p\); \}\s*inserisci\(pannello\(null, cfg, ind, m,/.test(a), "pannello solo dopo inv_scheda_membro, senza errore e con scheda ripulita non nulla");
+  eq((src.match(/[^\w]pannello\(/g) || []).length, 2, "pannello() è definito una volta e chiamato in un solo punto");
+  ok(/function scheda\(d, ind\)/.test(src) && !/assegnato_a|movimenti|Ce l’ha|linkAreaElenco/.test(src.slice(src.indexOf("function scheda(d, ind)"), src.indexOf("function elenco(d, ind)"))), "la scheda pubblica (cartellino) non usa dati riservati");
 });
 t("Inventario: pagina e area — ritorno dopo l'accesso, cablaggio (404.html, service worker, deploy, menu editor), noindex, mai innerHTML, niente terzi", () => {
   const f404 = readFileSync(join(root, "404.html"), "utf8");
