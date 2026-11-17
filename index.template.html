@@ -24282,6 +24282,7 @@ function setEventInputs(){
   ["evSon","evSonL","evSonM","evSonML"].forEach(function(id){ var e=document.getElementById(id); if(e) e.style.display=eventoConferenza()?"none":""; });   /* una conferenza resta conferenza: la scelta non si offre */
   if(document.body) document.body.classList.toggle("ev-conferenza", eventoConferenza());
   if(typeof renderEvChip==="function") renderEvChip();
+  if(typeof titoloVisAggiorna==="function") titoloVisAggiorna();   /* titolo lungo: troncamento al centro (17/11) */
   if(window.__renderPrimaDelExport) window.__renderPrimaDelExport();   /* la striscia «Prima di esportare» segue titolo e luogo (12/11) */
 }
 TITLE_INPUTS.forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input", function(){ state.titolo=this.value; setEventInputs(); saveSoon(); }); });
@@ -24292,6 +24293,94 @@ TITLE_INPUTS.forEach(function(id){ var e=document.getElementById(id); if(e) e.ad
   state.tipoEvento=(this.value==="conferenza")?"conferenza":"concerto"; setEventInputs(); saveSoon(); if(typeof render==="function") render(); }); });
 ["evSon","evSonM"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("change", function(){
   sonorizzazioneImposta(this.value); setEventInputs(); saveSoon(); if(typeof renderChannels==="function") renderChannels(); if(typeof render==="function") render(); }); });
+/* ── Titolo lungo (17/11/2026, richiesta di Simone): il campo del titolo è stretto e la coda, cioè la VERSIONE
+   («v2 del 17/11/2026»), era la parte che si perdeva. Con il campo fermo si mostra «inizio … coda» (taglio al
+   centro, calcolato sulla larghezza reale); un clic apre il titolo intero, su più righe e modificabile. ── */
+function titoloTroncaCentro(t, fits){
+  t=String(t==null?"":t);
+  if(!t || fits(t)) return t;
+  var k=t.lastIndexOf(" · "), sep, tail, headMax;
+  if(k>0 && k+3<t.length){ sep="… · "; tail=t.slice(k+3); headMax=k; }
+  else { if(t.length<=19) return t; sep="…"; tail=t.slice(-18); headMax=t.length-18; }
+  var lo=0, hi=headMax, best=-1;
+  while(lo<=hi){
+    var m=(lo+hi)>>1, c=t.slice(0,m).replace(/\s+$/,"")+sep+tail;
+    if(fits(c)){ best=m; lo=m+1; } else hi=m-1;
+  }
+  if(best>0) return t.slice(0,best).replace(/\s+$/,"")+sep+tail;
+  var tail2=tail.split(" ")[0];   /* la coda intera non ci sta nemmeno con 1 carattere di inizio: si tiene almeno «v2» */
+  if(tail2 && tail2!==tail){
+    lo=1; hi=headMax; best=-1;
+    while(lo<=hi){ var m2=(lo+hi)>>1; if(fits(t.slice(0,m2).replace(/\s+$/,"")+sep+tail2)){ best=m2; lo=m2+1; } else hi=m2-1; }
+    if(best>0) return t.slice(0,best).replace(/\s+$/,"")+sep+tail2;
+  }
+  while(tail.length>1 && !fits("…"+tail)) tail=tail.slice(1);   /* nemmeno la coda ci sta: se ne tiene la fine */
+  return "…"+tail;
+}
+var __titoloVis=[];
+function titoloVisMisura(inp){
+  var cs=getComputedStyle(inp), cv=titoloVisMisura.cv||(titoloVisMisura.cv=document.createElement("canvas")), cx=cv.getContext("2d");
+  cx.font=cs.fontStyle+" "+cs.fontWeight+" "+cs.fontSize+" "+cs.fontFamily;
+  var avail=inp.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight)-2;
+  return { avail:avail, w:function(x){ return cx.measureText(x).width; } };
+}
+function titoloVisAggiorna(){
+  __titoloVis.forEach(function(o){
+    try{
+      var inp=o.inp, btn=o.btn, t=inp.value||"", a=document.activeElement;
+      inp.title = t || o.titolo0;
+      if(t) inp.setAttribute("aria-label","Titolo del progetto: "+t);
+      var m=titoloVisMisura(inp), vis=false;
+      if(t && a!==inp && inp.offsetParent!==null && m.avail>20 && m.w(t)>m.avail){
+        var txt=titoloTroncaCentro(t, function(x){ return m.w(x)<=m.avail; });
+        btn.textContent=txt; btn.title=t;
+        btn.setAttribute("aria-label","Titolo: "+t+". Apri per leggerlo tutto");
+        btn.style.left=inp.offsetLeft+"px"; btn.style.top=inp.offsetTop+"px";
+        btn.style.width=inp.offsetWidth+"px"; btn.style.height=inp.offsetHeight+"px"; vis=true;
+        var cs=getComputedStyle(inp); btn.style.padding=cs.padding; btn.style.fontSize=cs.fontSize; btn.style.fontWeight=cs.fontWeight; btn.style.lineHeight=cs.lineHeight;
+      }
+      btn.hidden=!vis; inp.classList.toggle("tl-nascosto", vis);
+    }catch(e){}
+  });
+}
+(function(){ try{
+  var pop=document.createElement("div"); pop.id="titoloPop"; pop.className="hdrmenu tl-pop"; pop.hidden=true;
+  pop.setAttribute("role","dialog"); pop.setAttribute("aria-label","Titolo del progetto");
+  pop.innerHTML='<textarea id="titoloPopT" rows="3" aria-label="Titolo intero del progetto" spellcheck="false"></textarea><div class="tl-pop-nota">Si modifica qui. Esc o un clic fuori per chiudere.</div>';
+  document.body.appendChild(pop);
+  var ta=pop.querySelector("textarea");
+  function chiudi(){ if(pop.hidden) return; pop.hidden=true; titoloVisAggiorna(); }
+  function apri(btn){
+    document.querySelectorAll(".hdrmenu").forEach(function(x){ if(x!==pop) x.hidden=true; });
+    ta.value=state.titolo||""; pop.hidden=false;
+    var r=btn.getBoundingClientRect(), w=Math.min(380, window.innerWidth-16);
+    pop.style.width=w+"px";
+    pop.style.left=Math.max(8, Math.min(r.left, window.innerWidth-w-8))+"px";
+    pop.style.top=(r.bottom+4)+"px";
+    ta.focus();
+  }
+  ta.addEventListener("input", function(){ state.titolo=this.value.replace(/\s*[\r\n]+\s*/g," "); setEventInputs(); saveSoon(); });
+  ta.addEventListener("keydown", function(e){ if(e.key==="Enter"){ e.preventDefault(); chiudi(); } });
+  pop.addEventListener("click", function(e){ e.stopPropagation(); });
+  document.addEventListener("click", function(e){ if(!pop.hidden && !pop.contains(e.target)) chiudi(); });
+  document.addEventListener("pointerdown", function(e){ if(!pop.hidden && !pop.contains(e.target) && !(e.target.closest && e.target.closest(".tl-vis"))) chiudi(); }, true);   /* il palco ferma i clic: si ascolta in cattura */
+  document.addEventListener("keydown", function(e){ if(e.key==="Escape") chiudi(); });
+  ["titolo","mTitle"].forEach(function(id){
+    var inp=document.getElementById(id); if(!inp || !inp.parentNode) return;
+    var par=inp.parentNode; if(getComputedStyle(par).position==="static") par.style.position="relative";
+    var btn=document.createElement("button"); btn.type="button"; btn.className="tl-vis"; btn.hidden=true;
+    btn.setAttribute("aria-haspopup","dialog");
+    inp.parentNode.insertBefore(btn, inp.nextSibling);
+    btn.addEventListener("click", function(e){ e.stopPropagation(); if(!pop.hidden){ chiudi(); return; } apri(btn); });
+    inp.addEventListener("focus", titoloVisAggiorna); inp.addEventListener("blur", titoloVisAggiorna);
+    inp.addEventListener("input", titoloVisAggiorna);
+    __titoloVis.push({ inp:inp, btn:btn, titolo0:inp.title||"" });
+    if(typeof ResizeObserver==="function"){ var ro=new ResizeObserver(titoloVisAggiorna); ro.observe(inp); ro.observe(par); }
+  });
+  window.addEventListener("resize", titoloVisAggiorna);
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(titoloVisAggiorna);
+  setTimeout(titoloVisAggiorna, 0);
+}catch(_e){} })();   /* il titolo resta un campo normale se qualcosa manca (anche nel sandbox dei test) */
 /* ── Data e orario dell'evento nell'header (17/07): chip accanto al titolo + popover ── */
 function evChipLabel(){
   var parts=[];
