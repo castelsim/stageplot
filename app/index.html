@@ -240,6 +240,17 @@
     #bTheme{display:none} #helpMenu .mi-tema{display:flex} }   /* il tema passa nel menu «?» */
   @media (min-width:881px) and (max-width:1210px){ header{gap:4px} header input#titolo{flex-basis:90px}
     header .hdr-variants .vtab{max-width:100px;overflow:hidden;text-overflow:ellipsis} }
+  /* BARRA COMPATTA (18/11): la mette barraCompattaAggiorna SOLO quando il titolo non ci sta nel campo; con un titolo che ci sta la barra è quella di sempre.
+     Scritta dopo i gradini @media di sopra: a parità di specificità vince l'ultima. */
+  header.bar-compatta{gap:4px}
+  header.bar-compatta .tbdiv{display:none}
+  header.bar-compatta .btn{padding-left:9px;padding-right:9px}
+  header.bar-compatta #bShareHdr .hdr-lbl, header.bar-compatta .vtab-add .hdr-lbl{display:none}
+  header.bar-compatta .hdr-variants .vtab, header.bar-compatta .hdr-variants .vtab-add, header.bar-compatta .hdr-variants .vtab-all{padding:0 8px}
+  header.bar-compatta .hdr-variants .vtab-eq{display:none}
+  header.bar-compatta select.hdr-status{width:16px;height:16px;min-width:16px;padding:0;border-radius:50%;border-width:1.5px;background-color:currentColor;
+    text-indent:-9999px;overflow:hidden;color-scheme:normal}
+  header.bar-compatta select.hdr-status option{color:var(--text);background:var(--surface);text-indent:0}
   .tbar-ico svg{width:18px;height:18px}   /* icona delicata, proporzionata al testo 13px */
   .tbar-ico:hover{background:var(--n-100);color:var(--text)}
   .tbar-ico:disabled{color:var(--text-3);background:transparent;cursor:not-allowed}
@@ -4325,7 +4336,7 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
          La regola `body.consult-editor #bConsulenza` in styles.css resta apposta, serve al ritorno. -->
     <a class="btn tint" id="bRichiedi" href="/orchestre/richiedi/" title="Descrivi l'evento e dicci quali posti non copri: ti rispondiamo con i nomi e il preventivo" aria-label="Richiedi musicisti" style="text-decoration:none"><span class="hdr-lungo">Richiedi musicisti</span><span class="hdr-corto">Musicisti</span></a>
     <button class="btn" id="bExportHdr" title="Esporta il PDF (⌘P)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg><span class="btn-lbl-wide hdr-lbl">Esporta</span></button>
-    <button class="btn primary" id="bShareHdr" aria-haspopup="dialog" title="Condividi con un link: chi lo apre vede il palco e le liste"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span class="hdr-lbl">Condividi</span></button>
+    <button class="btn primary" id="bShareHdr" aria-haspopup="dialog" aria-label="Condividi" title="Condividi con un link: chi lo apre vede il palco e le liste"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg><span class="hdr-lbl">Condividi</span></button>
     <button class="avatar-btn" id="accountBtn" title="Accedi per salvare online e ritrovare i progetti su computer e telefono">Accedi</button>
   </div>
   <!-- stW/stD nascosti: rimossi dall'header ma usati dal JS per aggiornare le dimensioni del palco -->

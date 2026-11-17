@@ -28945,7 +28945,7 @@ t("molte varianti: «Tutte (N)» elenca ogni variante e il «+» resta ultimo", 
     eq((m.match(/data-vgo=/g) || []).length, 6, "una voce per variante");
     ok(/data-vgo="v3" aria-current="true">✓ &lt;X&gt;/.test(m), "l'attiva e' segnata e il nome e' testo");
   } finally { A.VARIANTS = v0; A.activeVar = a0; }
-  ok(/function mostraVarianteAttiva\(\)/.test(appjs) && /bar\.innerHTML=variantTabsHtml\(\);\s*mostraVarianteAttiva\(\);/.test(appjs), "la scheda attiva viene portata in vista a ogni disegno");
+  ok(/function mostraVarianteAttiva\(\)/.test(appjs) && /bar\.innerHTML=variantTabsHtml\(\);\s*barraCompattaAggiorna\(\);\s*mostraVarianteAttiva\(\);/.test(appjs), "la scheda attiva viene portata in vista a ogni disegno");
 });
 t("variante identica: due varianti uguali, avviso su entrambe", () => {
   reset();
@@ -36035,6 +36035,38 @@ t("Elenco «I miei progetti»: titolo su 2 righe, poi troncamento al centro con 
   ok(/class="ct-t"/.test(srcUX) && /data-full=/.test(srcUX) && /titoliListaAggiorna\(bodyEl\)/.test(srcUX), "l'elenco chiama il troncamento dopo il rendering");
   ok(/titoloListaTronca\(_cpt, _cpt,/.test(srcUX) && /#cloudPrev \.cp-t\{[^}]*-webkit-line-clamp:2/.test(stylesCss), "anche il titolo dell'anteprima: 2 righe + troncamento");
   ok(/class="cloudTitolo" title="'\+esc\(p\.title/.test(srcUX), "il titolo intero resta nel title");
+});
+
+t("Barra compatta «B solo quando il titolo è lungo» (18/11)", () => {
+  const f = (n) => (x) => x.length <= n;   /* larghezza finta: n caratteri */
+  const T30 = "Valdagno Teatro Super 22.12.26", T60 = "Omaggio a Ennio Morricone con orchestra, coro e solisti Teatro Verdi 01.12.26 · v12";
+  const NORM = 40, COMP = 70;   /* campo a barra normale / a barra compatta */
+  const piano = (t, era) => { const c = A.barraCompattaScegli(t.length, NORM, era, 4); const av = c ? COMP : NORM; return { c, txt: A.titoloTroncaCentro(t, f(av)) }; };
+  let r = piano("Concerto", false);
+  ok(r.c === false && r.txt === "Concerto", "titolo corto: barra di sempre, titolo intatto");
+  r = piano(T30, false);
+  ok(r.c === false && r.txt === T30, "titolo che ci sta (30 su 40): barra di sempre");
+  const T50 = T60.slice(0, 50);
+  r = piano(T50, false);
+  ok(r.c === true && r.txt === T50, "titolo lungo (50 su 40): barra compatta, e ora ci sta intero");
+  r = piano(T60, false);
+  ok(r.c === true && r.txt !== T60 && r.txt.includes("…") && r.txt.length <= COMP && r.txt.endsWith("v12"), "lunghissimo (>70): compatta + troncamento al centro, versione visibile");
+  /* isteresi: dentro compatta si esce solo con scarto */
+  eq(A.barraCompattaScegli(38, 40, true, 4), true, "isteresi: 38 su 40 da compatta resta compatta");
+  eq(A.barraCompattaScegli(35, 40, true, 4), false, "isteresi: 35 su 40 da compatta torna normale");
+  eq(A.barraCompattaScegli(38, 40, false, 4), false, "da normale 38 su 40 resta normale");
+  eq(A.barraCompattaScegli(41, 40, false, 4), true, "da normale 41 su 40 passa a compatta");
+  eq(A.barraCompattaScegli(100, 10, false, 4), false, "campo non misurabile (≤20): non si cambia");
+  eq(A.barraCompattaScegli(100, 0, true, 4), true, "campo non misurabile: resta com'era (compatta)");
+  eq(A.barraCompattaScegli(0, 100, true, 4), false, "titolo vuoto: normale");
+  /* i pezzi collegati */
+  ok(/function titoloVisAggiorna\(\)\{\s*barraCompattaAggiorna\(\);/.test(appjs), "si ricalcola con il campo del titolo (resize, input, font)");
+  ok(/bar\.innerHTML=variantTabsHtml\(\);\s*barraCompattaAggiorna\(\);/.test(appjs), "si ricalcola al ridisegno delle varianti");
+  ok(/barraCompattaAggiorna\(\);\s*var by=document\.getElementById\("projApprovedBy"\)/.test(appjs), "e al cambio di stato");
+  ok(/barraApplica\(false\); adattaCondividi\(\);/.test(appjs), "misura sempre dalla forma di sempre");
+  ok(/header\.bar-compatta #bShareHdr \.hdr-lbl[^{]*\{display:none\}/.test(stylesCss) && /header\.bar-compatta \.tbdiv\{display:none\}/.test(stylesCss), "CSS: Condividi solo icona, niente separatori");
+  ok(/select\.hdr-status\{width:16px/.test(stylesCss), "CSS: lo stato è un pallino");
+  ok(/aria-label="Condividi" title="Condividi con un link/.test(readFileSync(join(root, "app/index.html"), "utf8")), "Condividi ha l'etichetta accessibile anche senza scritta");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
