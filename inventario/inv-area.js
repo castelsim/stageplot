@@ -7,7 +7,7 @@
   var ACC = window.BGLAccesso, L = window.INVLib, IND = window.INVIndirizzo, PUB = window.INVPubblica;
   var app = document.getElementById("inv-area");
   var cfg = PUB.configura(location.hostname, location.search);
-  var S = { c: null, utente: null, inventari: [], inv: null, tipi: [], articoli: [], membri: [], filtro: { tipo: "", stato: "", testo: "" }, sel: {}, vista: "elenco", errore: "" };
+  var S = { c: null, utente: null, inventari: [], inv: null, tipi: [], articoli: [], membri: [], filtro: { tipo: "", stato: "", testo: "", ordine: "codice" }, sel: {}, vista: "elenco", errore: "" };
 
   /* ---------------------------------------------------------------- attrezzi DOM */
   function h(tag, attr, figli) {
@@ -83,13 +83,10 @@
   }
   function apri(id) {
     S.inv = S.inventari.filter(function (i) { return i.id === id; })[0]; if (!S.inv) return vistaElenco();
-    S.filtro = { tipo: "", stato: "", testo: "" }; S.sel = {};
+    S.filtro = { tipo: "", stato: "", testo: "", ordine: "codice" }; S.sel = {};
     leggiDentro(id).then(vistaInventario, function () { toast("Non riesco a leggere l'inventario."); });
   }
-  function filtrati() {
-    var f = S.filtro, t = f.testo.trim().toLowerCase();
-    return S.articoli.filter(function (a) { return (!f.tipo || a.tipo === f.tipo) && (!f.stato || a.stato === f.stato) && (!t || (a.codice + " " + a.modello).toLowerCase().indexOf(t) >= 0); });
-  }
+  function filtrati() { return L.ordina(L.filtra(S.articoli, S.filtro, true), S.filtro.ordine); }   // chi guarda è un membro (RLS): la ricerca può includere i nomi
   function salvaImpostazione(col, val) {
     var o = { aggiornato: new Date().toISOString() }; o[col] = val;
     S.c.from("inv_inventari").update(o).eq("id", S.inv.id).then(function (r) { if (r.error) { toast("Non salvato."); return; } S.inv[col] = val; toast("Salvato."); });
@@ -117,8 +114,11 @@
       h("h2", { text: "Articoli (" + S.articoli.length + ")" }), filtri(),
       h("div", { class: "riga", style: "margin:10px 0" }, [
         h("button", { class: "btn primario", type: "button", id: "bEtichette", text: nSel ? "Etichette dei " + nSel + " selezionati" : "Etichette di tutti i " + elenco.length + " mostrati", disabled: !elenco.length, onclick: function () { vistaEtichette(nSel ? elenco.filter(function (a) { return S.sel[a.id]; }) : elenco); } }),
+        h("button", { class: "btn primario", type: "button", id: "bElenco", text: "Elenco da stampare (" + elenco.length + ")", disabled: !elenco.length, onclick: function () { vistaStampaElenco(filtrati()); } }),
+        h("button", { class: "btn", type: "button", id: "bCsvElenco", text: "CSV dei " + elenco.length + " mostrati", disabled: !elenco.length, onclick: function () { scaricaCsvElenco(filtrati()); } }),
         h("button", { class: "btn", type: "button", id: "bCsv", text: "Scarica CSV", disabled: !S.articoli.length, onclick: function () { scaricaCsv(false); } }),
         h("button", { class: "btn", type: "button", id: "bCsvNomi", text: "CSV con assegnazioni", disabled: !S.articoli.length, onclick: function () { scaricaCsv(true); } })]),
+      h("p", { class: "nota", text: "«Elenco da stampare» e «CSV dei mostrati» seguono i filtri e l'ordine qui sopra; la stampa può includere o no i nomi di chi ha lo strumento." }),
       tabella(elenco)]);
   }
   function pannelloPersone() {
@@ -169,13 +169,14 @@
         h("span", { class: "nota", text: "I numeri sono progressivi e non si riusano: un codice stampato non cambia mai significato." })])])]);
   }
   function filtri() {
-    var t = h("input", { type: "text", placeholder: "Cerca codice o modello", value: S.filtro.testo, "aria-label": "Cerca" });
+    var t = h("input", { type: "text", placeholder: "Cerca codice, modello, nota o nome", value: S.filtro.testo, "aria-label": "Cerca" });
     var st = opzioni(h("select", { "aria-label": "Filtra per tipo" }), [["", "Tutti i tipi"]].concat(S.tipi.map(function (x) { return [x.prefisso, x.singolare]; })), S.filtro.tipo);
     var ss = opzioni(h("select", { "aria-label": "Filtra per stato" }), [["", "Tutti gli stati"]].concat(L.STATI.map(function (s) { return [s.id, s.nome]; })), S.filtro.stato);
-    function ridisegna() { S.filtro = { tipo: st.value, stato: ss.value, testo: t.value }; var pos = t.selectionStart; vistaInventario(); var n = document.querySelector('input[aria-label="Cerca"]'); if (n && document.activeElement !== n && t === document.activeElement) { n.focus(); n.setSelectionRange(pos, pos); } }
-    st.addEventListener("change", ridisegna); ss.addEventListener("change", ridisegna);
+    var so = opzioni(h("select", { "aria-label": "Ordina per" }), [["codice", "Ordina per codice"], ["stato", "Ordina per stato"], ["assegnato", "Ordina per chi ha lo strumento"]], S.filtro.ordine);
+    function ridisegna() { S.filtro = { tipo: st.value, stato: ss.value, testo: t.value, ordine: so.value }; var pos = t.selectionStart; vistaInventario(); var n = document.querySelector('input[aria-label="Cerca"]'); if (n && document.activeElement !== n && t === document.activeElement) { n.focus(); n.setSelectionRange(pos, pos); } }
+    st.addEventListener("change", ridisegna); ss.addEventListener("change", ridisegna); so.addEventListener("change", ridisegna);
     t.addEventListener("input", function () { S.filtro.testo = t.value; var elenco = filtrati(); var tb = document.getElementById("tbArticoli"); if (tb) { vuota(tb); righe(elenco).forEach(function (r) { tb.appendChild(r); }); } aggiornaBottoni(elenco); });
-    return h("div", { class: "campi" }, [t, st, ss]);
+    return h("div", { class: "campi" }, [t, st, ss, so]);
   }
   function aggiornaBottoni(elenco) {
     var b = document.getElementById("bEtichette"); if (!b) return; var n = elenco.filter(function (a) { return S.sel[a.id]; }).length;
@@ -212,6 +213,45 @@
   function scaricaCsv(conNomi) {
     var blob = new Blob(["﻿" + L.csv(S.tipi, S.articoli, !!conNomi)], { type: "text/csv;charset=utf-8" }), u = URL.createObjectURL(blob);
     var a = h("a", { href: u, download: "INVENTARIO_" + S.inv.slug + (conNomi ? "_con_assegnazioni" : "") + ".csv" }); document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(function () { URL.revokeObjectURL(u); }, 2000);
+  }
+
+  /* ---------------------------------------------------------------- Elenco completo: foglio A4 e CSV dei mostrati */
+  function scaricaCsvElenco(elenco) {
+    var blob = new Blob(["\ufeff" + L.csvElenco(S.tipi, elenco, true)], { type: "text/csv;charset=utf-8" }), u = URL.createObjectURL(blob);
+    var a = h("a", { href: u, download: "ELENCO_" + S.inv.slug + "_" + L.data().split("/").reverse().join("-") + ".csv" }); document.body.appendChild(a); a.click(); document.body.removeChild(a); setTimeout(function () { URL.revokeObjectURL(u); }, 2000);
+  }
+  /* Foglio A4 in verticale: colonne Codice · Tipo · Modello · Stato / dove · Nota; i nomi solo se chi stampa lo sceglie (i fogli restano in giro) */
+  function vistaStampaElenco(elenco, conNomi) {
+    S.vista = "stampa-elenco"; conNomi = !!conNomi;
+    var pagine = L.impaginaElenco(elenco), oggi = L.data(), N = pagine.length, chiave = "inv-ver-elenco-" + S.inv.slug, ver = 1;
+    try { ver = Math.max(1, parseInt(localStorage.getItem(chiave), 10) || 1); } catch (e) {}
+    var f = S.filtro, tipo = nomeTipo(f.tipo), parti = [];
+    if (tipo) parti.push(tipo.plurale); if (f.stato) parti.push(L.statoNome(f.stato).toLowerCase()); if (f.testo.trim()) parti.push("«" + f.testo.trim() + "»");
+    var sinistri = [];
+    var fogli = pagine.map(function (grp, i) {
+      var righeT = grp.map(function (a) {
+        var t = nomeTipo(a.tipo);
+        return h("tr", {}, [h("td", { class: "cod", text: a.codice }), h("td", { text: t ? t.singolare : a.tipo }), h("td", { class: "tronca", text: a.modello }), h("td", { class: "tronca", text: L.descrizioneStato(a, conNomi) }), h("td", { class: "tronca", text: conNomi ? a.note : "" })]);
+      });
+      var tab = h("table", { class: "el-tab" }, [h("thead", {}, [h("tr", {}, [h("th", { text: "Codice" }), h("th", { text: "Tipo" }), h("th", { text: "Marca / modello" }), h("th", { text: "Dove si trova" }), h("th", { text: conNomi ? "Nota" : "" })])]), h("tbody", {}, righeT)]);
+      var testa = h("div", { class: "el-testa" }, [h("b", { text: S.inv.nome + " — elenco dell'inventario" }),
+        h("span", { text: (parti.length ? parti.join(" · ") + " · " : "") + L.sintesi(elenco) })]);
+      var fo = h("div", { class: "foglio elenco" }, [testa, tab]);
+      var sx = h("span", { text: L.piedeElenco(ver, S.inv.nome, elenco.length, oggi) }); sinistri.push(sx);
+      fo.appendChild(h("div", { class: "piede-foglio" }, [sx, h("span", { text: (i + 1) + " di " + N })]));
+      return fo;
+    });
+    var verIn = h("input", { type: "number", min: "1", max: "99", value: String(ver), id: "versione", "aria-label": "Versione del foglio", style: "width:72px", onchange: function () {
+      var v = Math.max(1, Math.min(99, Math.floor(+this.value) || 1)); this.value = String(v); try { localStorage.setItem(chiave, String(v)); } catch (e) {}
+      sinistri.forEach(function (c) { c.textContent = L.piedeElenco(v, S.inv.nome, elenco.length, oggi); });
+    } });
+    var nomi = h("input", { type: "checkbox", id: "chkNomiStampa", checked: conNomi, onchange: function () { vistaStampaElenco(elenco, this.checked); } });
+    disegna([h("div", { class: "barra" }, [h("div", {}, [h("button", { class: "btn piccolo", type: "button", text: "← Torna all'inventario", onclick: vistaInventario })]),
+        h("div", { class: "riga" }, [h("label", { for: "versione", text: "Versione", style: "margin:0" }), verIn, h("button", { class: "btn primario", type: "button", id: "bStampa", text: "Stampa (" + elenco.length + " oggetti, " + N + (N === 1 ? " foglio" : " fogli") + ")", onclick: function () { window.print(); } })])]),
+      h("label", { class: "spunta" }, [nomi, h("span", { text: "Scrivi sul foglio anche i nomi di chi ha lo strumento e le note riservate (i fogli stampati restano in giro: di serie no)." })]),
+      h("div", { class: "fogli" }, fogli)]);
+    var w = Math.min(window.innerWidth - 32, 794), sc = w / 794;
+    if (sc < 1) Array.prototype.forEach.call(document.querySelectorAll(".foglio"), function (fo) { fo.style.transform = "scale(" + sc + ")"; fo.style.marginBottom = (-(297 * 3.7795) * (1 - sc)) + "px"; fo.style.marginLeft = ((w - 794) / 2) + "px"; });
   }
 
   /* ---------------------------------------------------------------- QR e foglio di etichette */
