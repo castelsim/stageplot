@@ -34279,8 +34279,11 @@ t("Inventario/modulo: nomeFile senza nomi di persona", () => {
 });
 t("Inventario/modulo: nessun dato reale nel codice del lotto; niente innerHTML; la carta e jsPDF solo nel pannello dei membri", () => {
   const files = ["inventario/inv-modulo.js", "inventario/inv-foglio.css", "supabase/migrations/0090_inventario_modulo.sql"]; const inv = readFileSync(join(root, "i/inv.js"), "utf8"), area = readFileSync(join(root, "inventario/inv-area.js"), "utf8");
-  for (const f of files) { const txt = readFileSync(join(root, f), "utf8"); ok(!/Art Voice|Mimose|0380936|Castelfranco|@[a-z0-9-]+\.(it|com)/i.test(txt), f + ": nessun dato dell'ente"); }
-  ok(!/Art Voice|Mimose|0380936/i.test(inv.replace(/\/\*[\s\S]*?\*\//g, "")) && !/Art Voice|Mimose|0380936/i.test(area), "inv.js e inv-area.js: nessun dato dell'ente");
+  /* dati di un ente vero riconosciuti dalla FORMA (il repo è pubblico: qui non si scrive nessun dato vero, nemmeno per cercarlo) */
+  const R1 = /\b\d{11}\b|P\.\s?IVA|partita iva|codice fiscale|@[a-z0-9-]+\.(?:it|com|org|eu)\b|\b(?:\+39 ?)?3\d{2}[ .]?\d{6,7}\b/i, R2 = /\b(?:Via|Viale|Piazza|Piazzale|Vicolo) (?:d|[A-Z])|\b\d{5} [A-Z][a-z]+.*\([A-Z]{2}\)/;
+  const REALE = { test: (t) => R1.test(t) || R2.test(t) };
+  for (const f of files) { const txt = readFileSync(join(root, f), "utf8"); ok(!REALE.test(txt), f + ": nessun dato dell'ente"); }
+  ok(!REALE.test(inv.replace(/\/\*[\s\S]*?\*\//g, "")) && !REALE.test(area.replace(/\/\*[\s\S]*?\*\//g, "")), "inv.js e inv-area.js: nessun dato dell'ente");
   for (const f of ["inventario/inv-modulo.js", "i/inv.js", "inventario/inv-area.js"]) ok(!/innerHTML|outerHTML|insertAdjacentHTML|document\.write/.test(readFileSync(join(root, f), "utf8").replace(/\/\*[\s\S]*?\*\//g, "")), f + ": nessun innerHTML");
   const src = inv.replace(/\/\*[\s\S]*?\*\//g, ""), fPannello = src.slice(src.indexOf("function pannello("), src.indexOf("function areaSegreteria("));
   ok(/MOD\.cartaModulo/.test(fPannello) && /inv-btn-modulo/.test(fPannello), "la carta e il pulsante «Modulo di comodato» sono costruiti dentro pannello() (che si disegna solo se inv_scheda_membro risponde)");
