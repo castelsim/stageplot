@@ -41,7 +41,7 @@ input[type=checkbox]{accent-color:var(--teal-forte)}
 
 /* testa dell'inventario: nome e indirizzo a sinistra; un solo primario («Stampa elenco»), poi «Etichette» e il menu «Esporta» */
 .testa-inv{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:2px 0 18px}
-.testa-inv .comandi{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.testa-inv .comandi{display:flex;gap:8px;flex-wrap:wrap;align-items:center;position:relative}
 .testa-inv .comandi .btn{min-height:44px;font-size:15px}
 details.menu{position:relative}
 details.menu>summary{list-style:none}
@@ -54,7 +54,9 @@ details.menu .tendina button[disabled]{opacity:.5;cursor:default}
 details.menu .tendina label{display:flex;gap:8px;align-items:flex-start;font-size:14px;font-weight:400;color:var(--testo-2);padding:10px;border-top:1px solid var(--filo);margin:4px 0 0}
 
 /* riepilogo per tipo */
-.riepilogo{background:var(--carta);border:1px solid var(--filo);border-radius:var(--r-lg);overflow:hidden}
+.riepilogo{background:var(--carta);border:1px solid var(--filo);border-radius:var(--r-lg);overflow-x:auto}
+.riepilogo th,.riepilogo td{overflow-wrap:normal;word-break:normal}
+.riepilogo th{white-space:nowrap}
 .riepilogo table{width:100%;min-width:0;border-collapse:collapse;font-size:15px}
 .riepilogo th,.riepilogo td{padding:10px 14px;text-align:right;border-bottom:1px solid var(--filo);font-variant-numeric:tabular-nums}
 .riepilogo th{font-size:13px;font-weight:600;color:var(--testo-3);background:var(--fondo)}
@@ -78,6 +80,7 @@ details.menu .tendina label{display:flex;gap:8px;align-items:flex-start;font-siz
 .oggetti table{width:100%;min-width:0;table-layout:fixed;border-collapse:collapse;font-size:15px}
 .oggetti col.c-sel{width:44px}.oggetti col.c-cod{width:100px}.oggetti col.c-tipo{width:84px}.oggetti col.c-stato{width:158px}.oggetti col.c-chi{width:20%}.oggetti col.c-nota{width:14%}.oggetti col.c-az{width:150px}
 .oggetti th{font-size:13px;font-weight:600;color:var(--testo-3);text-align:left;padding:10px;background:var(--fondo);border-bottom:1px solid var(--filo);white-space:nowrap}
+.oggetti th:nth-child(4),.oggetti th:nth-child(7){padding-left:18px}
 .oggetti td{padding:6px 10px;border-bottom:1px solid var(--filo);vertical-align:middle;overflow:hidden}
 .oggetti tr:last-child td{border-bottom:0}
 .oggetti tbody tr:hover{background:color-mix(in srgb,var(--teal-tinta) 45%,transparent)}
@@ -135,8 +138,10 @@ select.stato-sel.dismesso{border-color:var(--filo);background-color:var(--muto-b
   .testa-inv .comandi{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .testa-inv .comandi>.btn.primario{grid-column:1/-1}
   .testa-inv .comandi details.menu>summary{width:100%}
-  details.menu .tendina{left:0;right:auto;min-width:0;width:calc(100vw - 32px)}
-  .riepilogo th,.riepilogo td{padding:9px 7px;font-size:14px}
+  details.menu{position:static}
+  details.menu .tendina{left:0;right:0;min-width:0;top:calc(100% + 6px)}
+  .riepilogo th,.riepilogo td{padding:9px 6px;font-size:14px}
+  .riepilogo th{font-size:12.5px}
   .riepilogo td:first-child span{display:none}
   .strumenti{grid-template-columns:1fr 1fr 1fr;gap:8px}
   .strumenti .cerca{grid-column:1/-1}
@@ -159,11 +164,13 @@ select.stato-sel.dismesso{border-color:var(--filo);background-color:var(--muto-b
   .oggetti td:nth-child(7) input.quieto{font-size:14px;min-height:34px}
   .oggetti td:nth-child(8){grid-area:az}
   .riga-az{justify-content:flex-start;margin-left:-10px}
+  .riga-az .btn{min-height:44px;padding:4px 14px}
+  .strumenti select{min-height:44px}
   .vista-barra{align-items:stretch}
   .vista-barra>.riga{width:100%}
   .vista-barra #bStampa{flex:1}
 }
-/* tabella generica: l'elenco A4 (.el-tab) parte da qui e la ritocca; non ha larghezza minima (era min-width:1000px per la vecchia tabella dell'area) */
+/* tabella generica: l'elenco A4 (.el-tab) parte da qui e la ritocca; non ha larghezza minima (la vecchia tabella dell'area era larga almeno 1000 px) */
 table{border-collapse:collapse;width:100%;font-size:15px}
 th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--filo);vertical-align:middle}
 th{font-size:13px;color:var(--testo-2)}
