@@ -34178,7 +34178,7 @@ t("Inventario: foglio dell'elenco — 34 righe per foglio, piè con versione e d
   ok(/function vistaStampaElenco\(elenco, conNomi\)/.test(js) && /conNomi = !!conNomi/.test(js), "i nomi sul foglio sono spenti di serie");
   ok(/L\.piedeElenco\(ver, S\.inv\.nome/.test(js) && /\(i \+ 1\) \+ " di " \+ N/.test(js), "il foglio ha versione, data e «1 di N»");
   ok(/\.foglio\.elenco\{padding:16mm 17mm/.test(css) && /\.piede-foglio\{[^}]*bottom:16mm/.test(css), "margini ≥ 15 mm anche sul foglio dell'elenco");
-  ok(/inv-area\.js\?v=4/.test(readFileSync(join(root, "inventario/index.html"), "utf8")), "versione degli script alzata (niente cache vecchia)");
+  ok(/inv-area\.js\?v=[4-9]/.test(readFileSync(join(root, "inventario/index.html"), "utf8")), "versione degli script alzata (niente cache vecchia)");
 });
 t("Inventario: pagina e area — ritorno dopo l'accesso, cablaggio (404.html, service worker, deploy, menu editor), noindex, mai innerHTML, niente terzi", () => {
   const f404 = readFileSync(join(root, "404.html"), "utf8");
@@ -34207,6 +34207,92 @@ t("inventario: il pulsante «Tutto l'inventario» sta SOLO nel pannello dei memb
   const area = readFileSync(join(root, "inventario/inv-area.js"), "utf8");
   ok(/IND\.slugOk\(qs\)/.test(area) && /S\.inventari\.filter\(function \(i\) \{ return i\.slug === qs/.test(area), "l'area valida lo slug e lo cerca solo tra gli inventari che la RLS mostra all'utente");
   ok(/subito === "elenco"/.test(area) && /vistaStampaElenco\(filtrati\(\)\)/.test(area), "con elenco=1 apre l'elenco da stampare (nomi e note spenti di serie)");
+});
+
+/* ═══ Inventario: modulo di comodato dal QR (17/11/2026, migrazione 0090) ═══
+   Dopo la consegna il browser compila il modulo (Stampa / Condividi o Scarica PDF). Tutto nel browser: nessun dato personale nuovo nel DB, nessun server. */
+const INV_MOD = invRequire(join(root, "inventario/inv-modulo.js"));
+const modSrc = readFileSync(join(root, "inventario/inv-modulo.js"), "utf8"), modSrcPulito = modSrc.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "");
+const modSql = readFileSync(join(root, "supabase/migrations/0090_inventario_modulo.sql"), "utf8").replace(/--[^\n]*/g, "");
+const modFn = (nome) => { const a = modSql.indexOf("create or replace function public." + nome + "("), b = modSql.indexOf("create or replace function", a + 10); return a < 0 ? "" : modSql.slice(a, b < 0 ? undefined : b); };
+t("Inventario/modulo: componiAssegnato — «Nome Cognome, Corso», max 120, controlli tolti, senza corso, virgole neutralizzate", () => {
+  eq(INV_MOD.componiAssegnato("Anna", "Esempio", "pianoforte 2B"), "Anna Esempio, pianoforte 2B", "forma di sempre");
+  eq(INV_MOD.componiAssegnato("Anna", "Esempio", ""), "Anna Esempio", "senza corso: solo nome e cognome");
+  eq(INV_MOD.componiAssegnato("  Anna\u0000\n", "Esempio\t", " 2B "), "Anna Esempio, 2B", "caratteri di controllo e spazi");
+  eq(INV_MOD.componiAssegnato("N".repeat(80), "C".repeat(80), "K".repeat(80)).length, 120, "mai oltre 120 (limite del server)");
+  eq(INV_MOD.componiAssegnato("Anna, Maria", "Esempio", "canto, 2B"), "Anna Maria Esempio, canto 2B", "una virgola dentro i dati non rompe la ricostruzione");
+});
+t("Inventario/modulo: notaConsegna ↔ leggiAccessori fanno andata e ritorno; nota senza accessori", () => {
+  eq(INV_MOD.notaConsegna("alimentatore, custodia", "prova"), "Accessori: alimentatore, custodia · prova", "accessori + nota");
+  eq(INV_MOD.leggiAccessori(INV_MOD.notaConsegna("alimentatore, custodia", "prova")), "alimentatore, custodia", "andata e ritorno con nota");
+  eq(INV_MOD.leggiAccessori(INV_MOD.notaConsegna("cavo", "")), "cavo", "andata e ritorno senza nota");
+  eq(INV_MOD.notaConsegna("", "solo nota"), "solo nota", "senza accessori: solo la nota"); eq(INV_MOD.leggiAccessori("solo nota"), "", "…e niente accessori");
+  eq(INV_MOD.leggiAccessori(INV_MOD.notaConsegna("a · b", "n")), "a b", "il separatore dentro gli accessori non rompe la lettura");
+  eq(INV_MOD.notaConsegna("x".repeat(600), "y".repeat(600)).length, 500, "mai oltre 500 (limite del server)"); eq(INV_MOD.leggiAccessori(null), "", "null");
+});
+t("Inventario/modulo: daAssegnato — corso dopo l'ultima «, », nome = prima parola, cognome = il resto; senza virgola", () => {
+  deepEq(INV_MOD.daAssegnato("Anna Esempio, pianoforte 2B"), { nome: "Anna", cognome: "Esempio", corso: "pianoforte 2B" }, "caso normale");
+  deepEq(INV_MOD.daAssegnato("Anna Maria De Esempi, canto"), { nome: "Anna", cognome: "Maria De Esempi", corso: "canto" }, "nomi doppi: il resto è il cognome (correggibile)");
+  deepEq(INV_MOD.daAssegnato("Mario Rossi 2B pianoforte"), { nome: "Mario", cognome: "Rossi 2B pianoforte", corso: "" }, "vecchio formato senza virgola");
+  deepEq(INV_MOD.daAssegnato("Anna"), { nome: "Anna", cognome: "", corso: "" }, "una parola sola"); deepEq(INV_MOD.daAssegnato(""), { nome: "", cognome: "", corso: "" }, "vuoto");
+  const x = INV_MOD.daAssegnato(INV_MOD.componiAssegnato("Anna", "Esempio", "2B")); eq(INV_MOD.componiAssegnato(x.nome, x.cognome, x.corso), "Anna Esempio, 2B", "compone → scompone → compone");
+});
+t("Inventario/modulo: pulisciModulo — whitelist e lunghezze; logo solo data:image/png|jpeg; javascript: e data:text/html rifiutati", () => {
+  const png = "data:image/png;base64,iVBORw0KGgo=", jpg = "data:image/jpeg;base64,/9j/4AAQ=";
+  const m = INV_MOD.pulisciModulo({ ente: "l'Ente Esempio", ente_breve: "Esempio", registro: "dell'ente", intestazione: "·ESEMPIO·", colore: "#C09A5B", luogo: "Luogo", firma_ente: "ESEMPIO", piede: ["a", "b", "c", "d"], versione: "v1", logo: png, estranea: "x", __proto__: { z: 1 } });
+  eq(Object.keys(m).sort().join(","), "colore,ente,ente_breve,firma_ente,intestazione,logo,luogo,piede,registro,versione", "solo le chiavi ammesse"); eq(m.piede.length, 3, "piè: al massimo 3 righe"); eq(m.colore, "#c09a5b", "colore in minuscolo");
+  eq(INV_MOD.pulisciModulo({ logo: jpg }).logo, jpg, "jpeg ammesso");
+  for (const cattivo of ["javascript:alert(1)", "data:text/html;base64,PGgxPg==", "data:image/svg+xml;base64,PHN2Zz4=", "data:image/png;base64,abc\"onerror=\"x", "https://esempio.invalid/l.png", "data:image/png;base64," + "A".repeat(100001)]) eq(INV_MOD.pulisciModulo({ logo: cattivo }).logo, "", "logo rifiutato: " + cattivo.slice(0, 30));
+  eq(INV_MOD.pulisciModulo({ colore: "rosso" }).colore, "", "colore non valido"); eq(INV_MOD.pulisciModulo({ ente: "a{b}c" }).ente, "abc", "niente graffe (segnaposto solo nostri)");
+  eq(INV_MOD.pulisciModulo({ ente: "x".repeat(500) }).ente.length, 120, "lunghezza massima"); for (const v of [null, undefined, "x", 3, [], true]) eq(INV_MOD.pulisciModulo(v), null, "non è un oggetto: " + JSON.stringify(v));
+  const mem = INV_PUB.pulisciMembro({ stato: "in_sede", assegnato_a: "", movimenti: [], modulo: { ente: "E", logo: "javascript:x", estranea: 1 } }); eq(mem.modulo.ente, "E", "pulisciMembro legge il modulo"); eq(mem.modulo.logo, "", "…ripulito");
+  eq(INV_PUB.pulisciMembro({ stato: "in_sede", movimenti: [] }).modulo, null, "senza modulo: null, il foglio esce generico");
+});
+t("Inventario/modulo: testiModulo — nessun segnaposto rimasto; con modulo assente si usa il nome dell'inventario; clausole del modulo approvato", () => {
+  const sc = { inventario: "Accademia Esempio", singolare: "Tastiera", modello: "Modello Esempio", codice: "tas-003" }, form = { nome: "Anna", cognome: "Esempio", corso: "2B", accessori: "cavo", data: "2026-11-17" };
+  for (const conf of [null, undefined, {}, { ente: "l'Associazione Esempio ETS", ente_breve: "Esempio", registro: "dell'associazione", intestazione: "·ESEMPIO·", piede: ["riga uno", "riga due"], versione: "v3 · 17/11/2026" }]) {
+    const d = INV_MOD.datiModulo(sc, null, conf, form), T = INV_MOD.testiModulo(d), tutto = JSON.stringify(T);
+    ok(!/[{}]/.test(INV_MOD.testoPiano(T)) && !/undefined|null/.test(tutto) && !/\{[^"]/.test(tutto.replace(/\{"/g, "")), "nessun segnaposto né undefined nel foglio (" + (conf && conf.ente ? "con" : "senza") + " configurazione)"); eq(d.codice, "TAS-003", "codice in maiuscolo");
+  }
+  const g = INV_MOD.testoPiano(INV_MOD.testiModulo(INV_MOD.datiModulo(sc, null, null, form)));
+  ok(/consegna in comodato d'uso gratuito all'allievo:/.test(g) && /Accademia Esempio consegna/.test(g) && /su richiesta di Accademia Esempio\./.test(g) && /nell'inventario dell'ente\./.test(g) && /v1 · 17\/11\/2026 · 1 di 1/.test(g), "senza configurazione: ente = nome dell'inventario, piè «v1 · data · 1 di 1»");
+  const c = INV_MOD.testoPiano(INV_MOD.testiModulo(INV_MOD.datiModulo(sc, null, { ente: "l'Associazione Esempio ETS", ente_breve: "Esempio", registro: "dell'associazione", versione: "v3 · 17/11/2026" }, form)));
+  ok(/in data 17\/11\/2026 l'Associazione Esempio ETS consegna in comodato/.test(c) && /tassativamente alla fine del corso\/anno accademico, oppure in qualsiasi momento su richiesta di Esempio\./.test(c) && /pagato per l'intero costo\./.test(c) && /nell'inventario dell'associazione\./.test(c) && /v3 · 17\/11\/2026 · 1 di 1/.test(c), "con configurazione: testo identico al modulo approvato");
+  eq(INV_MOD.datiModulo(sc, null, null, { nome: "A{b}" }).nome, "Ab", "graffe nei dati dell'allievo tolte");
+  eq(INV_MOD.datiModulo({ ...sc, singolare: "Tastiera", modello: "" }, null, null, form).strumento, "Tastiera", "senza modello: solo il tipo"); eq(INV_MOD.datiModulo(sc, null, null, form).strumento, "Tastiera · Modello Esempio", "tipo · modello");
+});
+t("Inventario/modulo: nomeFile senza nomi di persona", () => {
+  eq(INV_MOD.nomeFile("TAS-003", "2026-11-17"), "Modulo comodato TAS-003 2026-11-17.pdf", "forma del nome"); eq(INV_MOD.nomeFile("tas-003", "x"), "Modulo comodato TAS-003.pdf", "data non valida: omessa");
+  eq(INV_MOD.nomeFile("Anna Esempio", "2026-11-17"), "Modulo comodato strumento 2026-11-17.pdf", "un codice che non è un codice non entra nel nome"); ok(!/\bnome\b|cognome|Anna/.test(modSrcPulito.slice(modSrcPulito.indexOf("function nomeFile"), modSrcPulito.indexOf("function testoPiano"))), "nomeFile non usa dati personali");
+});
+t("Inventario/modulo: nessun dato reale nel codice del lotto; niente innerHTML; la carta e jsPDF solo nel pannello dei membri", () => {
+  const files = ["inventario/inv-modulo.js", "inventario/inv-foglio.css", "supabase/migrations/0090_inventario_modulo.sql"]; const inv = readFileSync(join(root, "i/inv.js"), "utf8"), area = readFileSync(join(root, "inventario/inv-area.js"), "utf8");
+  for (const f of files) { const txt = readFileSync(join(root, f), "utf8"); ok(!/Art Voice|Mimose|0380936|Castelfranco|@[a-z0-9-]+\.(it|com)/i.test(txt), f + ": nessun dato dell'ente"); }
+  ok(!/Art Voice|Mimose|0380936/i.test(inv.replace(/\/\*[\s\S]*?\*\//g, "")) && !/Art Voice|Mimose|0380936/i.test(area), "inv.js e inv-area.js: nessun dato dell'ente");
+  for (const f of ["inventario/inv-modulo.js", "i/inv.js", "inventario/inv-area.js"]) ok(!/innerHTML|outerHTML|insertAdjacentHTML|document\.write/.test(readFileSync(join(root, f), "utf8").replace(/\/\*[\s\S]*?\*\//g, "")), f + ": nessun innerHTML");
+  const src = inv.replace(/\/\*[\s\S]*?\*\//g, ""), fPannello = src.slice(src.indexOf("function pannello("), src.indexOf("function areaSegreteria("));
+  ok(/MOD\.cartaModulo/.test(fPannello) && /inv-btn-modulo/.test(fPannello), "la carta e il pulsante «Modulo di comodato» sono costruiti dentro pannello() (che si disegna solo se inv_scheda_membro risponde)");
+  ok(!/cartaModulo|caricaPdf|pdf\.min/.test(src.slice(0, src.indexOf("function pannello(")) + src.slice(src.indexOf("function areaSegreteria("))), "scheda pubblica e avvio non toccano né la carta né jsPDF");
+  ok(!/pdf\.min/.test(readFileSync(join(root, "i/index.html"), "utf8")), "index.html non carica jsPDF: lo scarica la carta alla prima apertura"); ok(/P\.caricaPdf = function/.test(modSrcPulito) && /"\/vendor\/pdf\.min\.js"/.test(modSrcPulito), "jsPDF self-hosted, caricato solo dalla carta");
+  const idx = readFileSync(join(root, "i/index.html"), "utf8"); ok(/inv-modulo\.js\?v=1/.test(idx) && /inv-foglio\.css/.test(idx) && !/unsafe-inline/.test(idx.match(/Content-Security-Policy" content="([^"]+)"/)[1]), "pagina del QR: script e foglio caricati, CSP senza unsafe-inline");
+  ok(!/\bstyle\.|setAttribute\("style"|\.cssText/.test(modSrcPulito), "il modulo non usa stili in linea (la CSP della pagina del QR non li ammette)"); ok(/Mai|mai|non passa da nessun server/.test(modSrc) && !/fetch\(|XMLHttpRequest|sendBeacon/.test(modSrcPulito), "nessuna richiesta di rete: il PDF nasce nel telefono");
+});
+t("Inventario/modulo: la consegna ha 6 campi e il PDF sta su una pagina sola; Condividi o Scarica PDF", () => {
+  const src = readFileSync(join(root, "i/inv.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  for (const et of ["Nome \\*", "Cognome \\*", "Corso / classe", "Accessori consegnati", "\"Data\"", "\"Nota\""]) ok(new RegExp(et).test(src), "campo di consegna: " + et);
+  ok(/p_a_chi: aChi/.test(src) && /p_nota: nota/.test(src) && /componiAssegnato\(/.test(src) && /notaConsegna\(/.test(src), "inv_movimento riceve assegnato_a e nota composti");
+  ok(/\[11, 10\.5, 10, 9\.5, 9, 8\.5\]\.some/.test(modSrcPulito) && /splitTextToSize/.test(modSrcPulito), "PDF: si stringe il carattere finché sta in una pagina");
+  ok(/"Scarica PDF"/.test(modSrcPulito) && /navigator\.canShare/.test(modSrcPulito) && /navigator\.share\(\{ files:/.test(modSrcPulito), "navigator.share con file, altrimenti «Scarica PDF»"); ok(/AbortError/.test(modSrcPulito), "l'annullamento di chi condivide non scarica niente");
+  ok(/window\.print\(\)/.test(modSrcPulito) && /@page\{size:A4;margin:0\}/.test(readFileSync(join(root, "inventario/inv-foglio.css"), "utf8")), "Stampa = window.print() su un foglio A4 senza margini di pagina (i margini sono nel foglio)");
+});
+t("Inventario/modulo (migrazione 0090): colonna modulo, salvataggio solo del proprietario, scheda dei membri con modulo; nessuna policy né funzione pubblica toccata", () => {
+  ok(/alter table public\.inv_inventari add column if not exists modulo jsonb/.test(modSql) && /octet_length\(modulo::text\) <= 120000/.test(modSql), "colonna modulo jsonb con limite di dimensione");
+  const salva = modFn("inv_modulo_salva"); ok(/security definer/.test(salva) && /set search_path/.test(salva), "inv_modulo_salva: security definer con search_path fisso");
+  ok(/if not public\.inv_e_proprietario\(p_inv\) then return jsonb_build_object\('ok', false, 'errore', 'non_autorizzato'\)/.test(salva), "solo il proprietario (altrimenti non_autorizzato)"); ok(/auth\.uid\(\)/.test(salva) && /non_autenticato/.test(salva), "serve il login");
+  ok(/data:image\/\(png\|jpeg\);base64/.test(salva) && /100000/.test(salva) && /\^#\[0-9a-fA-F\]\{6\}\$/.test(salva) && /> 3/.test(salva) && /> 140/.test(salva), "logo, colore, piè: controlli in SQL");
+  ok(/revoke all on function public\.inv_modulo_salva\(uuid, jsonb\) from public, anon, authenticated/.test(modSql) && /grant execute on function public\.inv_modulo_salva\(uuid, jsonb\) to authenticated, service_role/.test(modSql) && !/grant execute on function public\.inv_modulo_salva[^;]*anon/.test(modSql), "execute solo ad authenticated e service_role (mai anon)");
+  const sm = modFn("inv_scheda_membro"); ok(/inv_e_membro\(inv_id\)/.test(sm) && /'modulo', \(select i\.modulo/.test(sm), "la scheda dei membri aggiunge il modulo, e solo se membro"); ok(/inv_scheda_membro\(p_slug text, p_codice text\)/.test(sm) && /grant execute on function public\.inv_scheda_membro\(text, text\) to authenticated, service_role/.test(modSql), "stessa firma e stessi grant di prima");
+  ok(!/inv_articolo_pubblico|inv_elenco_pubblico|create policy|drop policy|alter policy/.test(modSql), "funzioni pubbliche e policy RLS invariate"); ok(!/grant update[^;]*modulo/.test(modSql), "nessun update diretto della colonna: si passa dalla funzione");
 });
 
 /* ═══ UX lotti 6-8-9 (16/11/2026): progetti e copie, mobile rifinito, aiuto nell'app ═══ */

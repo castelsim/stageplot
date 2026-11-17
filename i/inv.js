@@ -11,7 +11,7 @@
   var ANON_PROD = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZzb2RwbHFrdXZuc2RpaWt2bWpiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI2MTkyNjksImV4cCI6MjA5ODE5NTI2OX0.rZmZSvOnrNY3cC2JQ8XnbMTKIfjP5WmtbCtQ6l8zPrc";
   var TIMEOUT_MS = 15000;
   /* il modulo di comodato (i/inv-modulo.js): nel browser è già caricato da index.html; in Node (test) si prende col require */
-  var MOD = root.INVModulo || (typeof require === "function" ? require("./inv-modulo.js") : null);
+  var MOD = root.INVModulo || (typeof require === "function" ? require("../inventario/inv-modulo.js") : null);
   var STATI = { in_sede: "In sede", a_casa: "A casa", in_riparazione: "In riparazione", smarrito: "Smarrito", dismesso: "Dismesso" };
   var MOV = { consegna: "Consegna", rientro: "Rientro", rottura: "Rottura", smarrimento: "Smarrimento" };
 
