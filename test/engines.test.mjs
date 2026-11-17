@@ -97,6 +97,7 @@ function reset() {
   delete A.state.dotazioni;   /* «Disponibili: N» (S20, 15/11): solo se l'utente li scrive */
   delete A.state.allegatiRichiesti;   /* «Allegati richiesti» (13/11, S14): solo se l'utente li usa */
   delete A.state.misureStile;   /* stile delle misure in uscita (13/11): assente = come sempre */
+  delete A.state.docLang; delete A.state.docUnits;   /* lingua e unità del documento (17/11/2026): assenti = italiano e metri */
   delete A.state.organicoOrdine;   /* ordine delle sezioni dell'organico (13/11): assente = Fiati prima */
   delete A.state.storico;   /* storico delle versioni (13/11, S10): si scrive solo esportando; un test che esporta non deve lasciarlo ai successivi */
   delete A.state.versione;   /* versione del documento (12/11): campo che esiste solo se impostata; un test che la imposta non deve lasciarla ai successivi */
@@ -2702,7 +2703,7 @@ t("platea: la maniglia e il campo L/P aggiungono sedie a scatti; accorciata da f
   eq(A.plateaPosti(p), 9 * 5);
   ok(A.plateaPostiXY(p).every((q) => Math.abs(q.x) + 25 <= p.w / 2 && Math.abs(q.y) + 26.5 <= p.d / 2), "dentro l'ingombro anche così");
   ok(/rzit\.type==="platea"\)\{ plateaDaMisure\(rzit, nw, nd\)/.test(appjs), "la maniglia di ridimensionamento passa da plateaDaMisure");
-  ok(/it\.w=Math\.max\(10,\+document\.getElementById\("pW"\)\.value\|\|it\.w\); if\(it\.type==="platea"\) plateaDaMisure/.test(appjs), "il campo L passa da plateaDaMisure");
+  ok(/it\.w=Math\.max\(10,docCampoCm\("pW","cm"\)\|\|it\.w\); if\(it\.type==="platea"\) plateaDaMisure/.test(appjs), "il campo L passa da plateaDaMisure");   /* dal 17/11 il valore passa da docCampoCm (metri come sempre, o piedi) */
 });
 t("platea: nel rider pesa le sue sedie ma NON entra fra le sedie dei musicisti", () => {
   reset(); add("platea", 600, 1200);
@@ -5530,10 +5531,11 @@ t("Misure in uscita: il menu «Stile delle misure» nell'Esporta, il campo del p
   ok(/var CAMPI_DOCUMENTO=\[[^\]]*"misureStile"/.test(appjs), "campo del documento");
   reset(); const st = JSON.parse(JSON.stringify(A.state)); ["mx", "xh", "mt"].forEach((v) => { st.misureStile = v; eq(A.normalizeState(st).misureStile, v, v + " resta"); }); st.misureStile = "std"; ok(!("misureStile" in A.normalizeState(st)), "«std» è il default: non si salva"); st.misureStile = "altro"; ok(!("misureStile" in A.normalizeState(st)), "sconosciuto: via");
   /* nessuno dei punti di stampa scrive più la misura per conto suo */
-  ok(/misPedana\(it\.w, it\.d, it\.h, \(it\.w\/100\)\+'×'\+\(it\.d\/100\)\+' m · h'\+it\.h\)\+quotaDaTerraTesto\(it\)/.test(appjs), "etichetta della pedana sul disegno");
+  /* 17/11/2026 (documento per l'estero): al centimetro anche per le pedane in piedi (243,84 cm → «2.44»); con le misure intere il testo è lo stesso di prima */
+  ok(/misPedana\(it\.w, it\.d, it\.h, \(\+\(it\.w\/100\)\.toFixed\(2\)\)\+'×'\+\(\+\(it\.d\/100\)\.toFixed\(2\)\)\+' m · h'\+\(\+\(\+it\.h\)\.toFixed\(1\)\)\)\+quotaDaTerraTesto\(it\)/.test(appjs), "etichetta della pedana sul disegno");
   ok(/return misPedana\(g\.L, g\.P, g\.h, m\(g\.L\)\+"×"\+m\(g\.P\)\+" h"\+g\.h\)/.test(appjs), "legenda del cartiglio e materiali");
   ok(/return misQuota\(h, 'h'\+h\)\+' · '\+n/.test(appjs), "quota della scala"); ok(/return m\[h\]\+" "\+misQuota\(h\); \}\)\.join\(" · "\)/.test(appjs), "moduli 2×1 dei materiali");
-  ok(/return "palco "\+misArea\(A\.w, A\.h, /.test(appjs) && /palco '\+misArea\(W, D, adattaM\(W\)\+'×'\+adattaM\(D\)\+' m'\)\+stageHeightNote\(\)/.test(appjs), "area del palco nel cartiglio e nell'intestazione"); ok(/misQuota\(h, "h "\+h\+" cm"\)/.test(appjs), "altezza del palco");
+  ok(/return \(docEn\(\) \? "stage " : "palco "\)\+misArea\(A\.w, A\.h, /.test(appjs) && /palco '\+misArea\(W, D, adattaM\(W\)\+'×'\+adattaM\(D\)\+' m'\)\+stageHeightNote\(\)/.test(appjs), "area del palco nel cartiglio e nell'intestazione"); ok(/misQuota\(h, "h "\+h\+" cm"\)/.test(appjs), "altezza del palco");
 });
 t("Output list: bus console -> porte out (auto consecutive, pin, conflitti, mai duplicati)", () => {
   reset();
@@ -6333,7 +6335,7 @@ t("ranking: il nome batte l'alias ('tastiera' → Tastiera prima)", () => {
 /* Revisione 25/09: la stessa lista si chiamava Input list, Lista ingressi e Channel list a seconda di
    dove la si guardava (pannello, pagine del PDF, ricerca). Un nome solo per lista. */
 t("le liste hanno un nome solo: Channel list e Monitor list", () => {
-  const vis = (appjs + "\n" + readFileSync(join(root, "app/index.html"), "utf8").replace(/<!--[\s\S]*?-->/g, "")).split("\n").map((l) => l.replace(/\/\*.*?\*\//g, "")).filter((l) => !/^\s*(\/\*|\*|\/\/)/.test(l)).join("\n");
+  const vis = (appjs + "\n" + readFileSync(join(root, "app/index.html"), "utf8").replace(/<!--[\s\S]*?-->/g, "")).split("\n").map((l) => l.replace(/\/\*.*?\*\//g, "")).filter((l) => !/^\s*(\/\*|\*|\/\/)/.test(l)).filter((l) => !/^DOC_EN(_TIPI|_BASI)?=/.test(l)).join("\n");   /* il dizionario del documento in INGLESE (17/11/2026) dice «Input list», il termine dei rider USA: l'interfaccia italiana resta «Channel list» */
   for (const vecchio of [/"[^"\n]*\bInput list\b[^"\n]*"/, /"[^"\n]*\binput list\b(?! lista)[^"\n]*"/, /"Lista ingressi"/, /"Lista monitor"/, /<b>Input list<\/b>/, /Chiudi l'input list/]) {
     const m = vis.match(vecchio);
     ok(!m || /kw:|channel list input list/.test(m[0]), "nome vecchio ancora visibile: " + (m && m[0]));
@@ -12464,7 +12466,7 @@ t("fuori dal palco: con l'area automatica l'elemento esce nel PDF, nel PNG e nel
   const q = box.rMm, cPalco = box.ix + (400 - box.vb.x) * box.mmPerCm;
   ok(Math.abs(q.x + q.w / 2 - cPalco) < 0.01, "«8 m» non è centrato sul palco: " + (q.x + q.w / 2) + " invece di " + cPalco);
   ok(Math.abs(q.x + 80 * box.mmPerCm - (box.ix - box.vb.x * box.mmPerCm)) < 0.01, "«5 m» non sta accanto al lato sinistro del palco");
-  ok(/doc\.text\(adattaM\(state\.stage\.w\)\+" m", q\.x\+q\.w\/2, q\.y-8/.test(appjs), "e il PDF le scrive lì");   /* con la virgola dal 07/11 */
+  ok(/doc\.text\(docLen\(state\.stage\.w, adattaM\(state\.stage\.w\)\+" m"\), q\.x\+q\.w\/2, q\.y-8/.test(appjs), "e il PDF le scrive lì");   /* dal 17/11 passa da docLen: in metri il testo di sempre, in piedi ft-in */   /* con la virgola dal 07/11 */
   /* una cassa dietro il palco, dove jsPDF scrive «8 m»: le quote passano dentro il disegno */
   const dietro = add("sub18", 400, -250, { label: "SUB DIETRO" }); A.__cabRes = null;
   const bd = vbStampa();
@@ -31590,6 +31592,54 @@ t("pagine pubbliche: lingua dichiarata, FAQPage solo con FAQ visibili, PDF model
   ok(!/generator[ei] di organico/i.test(tutte), "nessuna pagina né llms.txt promette un «generatore di organico»");
 });
 
+/* DOCUMENTO PER L'ESTERO (17/11/2026): il PDF vero (jsPDF finto) in inglese e piedi; di serie identico */
+async function pdfEstero(lang, units) {
+  if (lang) A.state.docLang = lang; else delete A.state.docLang;
+  if (units) A.state.docUnits = units; else delete A.state.docUnits;
+  const tutte = {}; A.PDF_TECH_ORDER.forEach((k) => (tutte[k] = true));
+  /* il jsPDF finto delle prove, completato dei metodi che usano le liste e AVVOLTO come nell'app (pdfTestoNeroInstalla): così passa dal traduttore */
+  const base = jsPdfFinto(), noop = () => {};
+  const Finto = function (o) { const d = base(o); ["roundedRect", "circle", "setLineDashPattern", "addImage", "triangle", "ellipse", "setGState", "saveGraphicsState", "restoreGraphicsState", "setLineCap", "setLineJoin", "link"].forEach((k) => { if (!d[k]) d[k] = noop; }); d.textWithLink = function (t, x, y, op) { return d.text(t, x, y, op); };
+    d.GState = function () {}; d.getFontSize = () => 10; d.getLineHeightFactor = () => 1.15; d.getStringUnitWidth = (t) => String(t).length * 0.5; d.getFont = () => ({ fontName: "helvetica", fontStyle: "normal" }); return d; };
+  const prima = { pg: A.__pdfPages, sc: A.__pdfScaletta, qr: A.__pdfQr, jspdf: A.jspdf, l: A.loadJsPDF, d: A.drawStageVector };
+  A.__pdfPages = tutte; A.__pdfScaletta = false; A.__pdfQr = null; A.jspdf = { jsPDF: Finto }; A.pdfTestoNeroInstalla();
+  A.loadJsPDF = () => Promise.resolve(); A.drawStageVector = () => Promise.resolve();
+  try { const doc = await A.buildPdfDoc("a4", 100, "landscape", ""); return doc.pagine.map((p) => p.testi.map((x) => x.t)).flat(); }
+  finally { A.__pdfPages = prima.pg; A.__pdfScaletta = prima.sc; A.__pdfQr = prima.qr; A.jspdf = prima.jspdf; A.loadJsPDF = prima.l; A.drawStageVector = prima.d; delete A.state.docLang; delete A.state.docUnits; }
+}
+function progettoEstero() {
+  reset(); A.state.titolo = "Prova estero"; A.state.luogo = "Sala prove";
+  add("batteria", 600, 200); add("bassstand", 350, 300); add("cantante", 600, 500); add("wedge", 600, 640);
+  add("vlnpost", 300, 450); const p = add("pedana", 600, 200); p.w = 243.84; p.d = 243.84; p.h = 60.96;
+  add("stagebox", 600, 80); A.state.cab.on = true; A.state.cab.mode = "auto"; A.__cabRes = null;   /* cavi automatici: la scheda cavi esce con i tagli */
+}
+taPdf("Estero: PDF di serie identico a prima (il traduttore non tocca niente in italiano e metri)", async () => {
+  progettoEstero();
+  const con = await pdfEstero(null, null);
+  const L0 = A.pdfLinguaDoc; A.pdfLinguaDoc = (d) => d;
+  let senza; try { senza = await pdfEstero(null, null); } finally { A.pdfLinguaDoc = L0; }
+  eq(con, senza, "stesse scritte con e senza il traduttore");
+  ok(con.some((t) => /\d+ di \d+/.test(t)), "c'è «1 di N»");
+  reset();
+});
+taPdf("Estero: PDF in inglese e piedi — piè «1 of N», data in inglese, nessuna parola italiana dell'app, misure in piedi", async () => {
+  progettoEstero();
+  const en = await pdfEstero("en", "ft");
+  ok(en.some((t) => /^\d+ of \d+/.test(t) || / \d+ of \d+/.test(t)), "«1 of N»: " + en.filter((t) => /of/.test(t)).slice(0, 3).join(" | "));
+  ok(en.some((t) => /Made with stageplot\.it/.test(t)), "credito in inglese");
+  ok(en.some((t) => /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d{1,2}, \d{4}/.test(t)), "data «Nov 17, 2026»");
+  ok(!en.some((t) => /\b\d{1,2}\/\d{1,2}\/\d{4}\b/.test(t)), "nessuna data gg/mm/aaaa");
+  const IT = /\b(di serie|palco|pedan[ae]|sedi[ae]|leggii?|asta|canali|Creato con|stampare|nessun[oa]?|totale|Fornito|disegnato|oltre)\b/;
+  const resti = en.filter((t) => IT.test(t) && t !== "Prova estero" && t !== "Sala prove");
+  ok(resti.length === 0, "parole italiane rimaste: " + resti.slice(0, 6).join(" | "));
+  ok(en.some((t) => /8' × 8'|8'×8'/.test(t)), "la pedana 8'×8' in piedi: " + en.filter((t) => /'/.test(t)).slice(0, 4).join(" | "));
+  ok(!en.some((t) => /\b\d+(?:[.,]\d+)? m\b/.test(t) && !/stageplot/.test(t)), "nessuna misura in metri: " + en.filter((t) => /\d m\b/.test(t)).slice(0, 4).join(" | "));
+  ok(en.includes("Prova estero") || en.some((t) => /Prova estero/.test(t)), "il titolo dell'utente resta com'è");
+  const tagli = en.join("\n").match(/\d+× \d+ ft/g) || [];
+  ok(tagli.length > 0 && tagli.every((x) => [10, 15, 25, 50, 75, 100, 150, 200, 250, 300].indexOf(+x.split("× ")[1].split(" ")[0]) >= 0), "cavi per taglio solo ai tagli USA: " + tagli.join(", "));
+  reset();
+});
+
 await Promise.all(attese);
 
 t("piccole 03/11: etichetta «Stage box», ?form= sconosciuto avvisa, biglietteria con h1 statico", () => {
@@ -35470,6 +35520,135 @@ t("P1 nomic UI: HTML, pannello e pulsante «Togli» sono collegati", () => {
   ok(/group\("Nota", "quello che il disegno non dice", \["pNoMicWrap","pNoteWrap"\]\)/.test(src), "sta nel gruppo sempre in vista, non dietro «Mostra tutte le opzioni»");
   ok(src.indexOf('id="pNoMicWrap"') < src.indexOf('id="pOutCard"'), "e fuori dalla scheda «Uscita» che si apre solo con le opzioni complete");
   ok(/nmt\.addEventListener\("click", function\(\)\{\s*mutSel\(function\(it\)\{ if\(noMicSenzaTendina\(it\)\) delete it\.miking; \}\);/.test(src), "«Togli» cancella il valore e ridisegna");
+});
+
+/* ═══ DOCUMENTO PER L'ESTERO (17/11/2026): lingua del documento IT/EN e unità m / ft-in (lacune P1 n. 5 e 6) ═══ */
+console.log("\nDocumento per l'estero:");
+function conDoc(lang, units, fn) {
+  const p = { l: A.state.docLang, u: A.state.docUnits };
+  if (lang) A.state.docLang = lang; else delete A.state.docLang;
+  if (units) A.state.docUnits = units; else delete A.state.docUnits;
+  try { return fn(); } finally { if (p.l === undefined) delete A.state.docLang; else A.state.docLang = p.l; if (p.u === undefined) delete A.state.docUnits; else A.state.docUnits = p.u; }
+}
+t("Estero: lingua e unità sono campi del PROGETTO (tutte le scene), assenti di serie, solo valori validi", () => {
+  reset();
+  eq([A.docLingua(), A.docUnita()], ["it", "m"], "di serie italiano e metri");
+  ok(A.CAMPI_DOCUMENTO.indexOf("docLang") >= 0 && A.CAMPI_DOCUMENTO.indexOf("docUnits") >= 0, "in CAMPI_DOCUMENTO: uguali in ogni scena");
+  const s = { stage: { w: 800, d: 600 }, items: [], docLang: "fr", docUnits: "yd" };
+  A.normalizeState(s);
+  ok(!("docLang" in s) && !("docUnits" in s), "valori sconosciuti tolti: il progetto torna italiano e metri");
+  const s2 = { stage: { w: 800, d: 600 }, items: [], docLang: "en", docUnits: "ft" };
+  A.normalizeState(s2); eq([s2.docLang, s2.docUnits], ["en", "ft"], "en e ft restano");
+  const s3 = { stage: { w: 800, d: 600 }, items: [], docUnits: "both" }; A.normalizeState(s3); eq(s3.docUnits, "both", "both resta");
+  A.state.docLang = "en"; A.state.docUnits = "ft";
+  const j = JSON.parse(A.docToJSON()); const st = j.variants ? j.variants[0].state : j;
+  eq([st.docLang, st.docUnits], ["en", "ft"], "si salvano nel file del progetto");
+  A.loadDoc(j); eq([A.docLingua(), A.docUnita()], ["en", "ft"], "e si riaprono");
+  reset(); eq([A.docLingua(), A.docUnita()], ["it", "m"], "un progetto nuovo torna di serie");
+});
+t("Estero: piedi e pollici esatti (8'×4' = 243,84 × 121,92 cm), lettura di «8' 6\"», «96\"», «8 ft»", () => {
+  eq([A.ftIn(243.84), A.ftIn(121.92), A.ftIn(500), A.ftIn(20.32), A.ftIn(1463.04)], ["8'", "4'", "16' 5\"", "8\"", "48'"], "ftIn");
+  eq(A.parseLunghezza("8'", "m"), 243.84, "8'"); eq(+A.parseLunghezza("8' 6\"", "m").toFixed(2), 259.08, "8' 6\"");
+  eq(+A.parseLunghezza("96\"", "m").toFixed(2), 243.84, "96\""); eq(+A.parseLunghezza("8 ft", "m").toFixed(2), 243.84, "8 ft");
+  eq(A.parseLunghezza("4,88", "m"), 488, "numero nudo in metri"); eq(+A.parseLunghezza("8", "ft").toFixed(2), 243.84, "numero nudo in un campo in piedi");
+  eq(A.parseLunghezza("ciao", "m"), null, "non è una misura");
+  eq(A.docCmEsatti(243.84), 243.84, "un modulo in pollici interi non si arrotonda"); eq(A.docCmEsatti(1250.3), 1250, "il resto al centimetro come sempre");
+  eq(A.parseStageDim("48'"), 14.6304, "palco in piedi dalla finestra delle misure");
+  eq(A.parseStageDim("12,5"), 12.5, "e in metri come sempre");
+  conDoc(null, "ft", () => eq(A.parseStageDim("48"), 14.6304, "in un progetto in piedi il numero nudo è in piedi"));
+});
+t("Estero: di serie nessun testo cambia (italiano e metri: misure, pedane, palco, barra di scala, cavi)", () => {
+  reset();
+  const prove = ["FONDO PALCO", "PUBBLICO", "1 di 3", "Creato con stageplot.it", "asta giraffa", "17/11/2026", "12 pedane", "2 m", "Violino 1", "h40"];
+  prove.forEach((s) => eq(A.docTesto(s), s, "docTesto lascia «" + s + "»"));
+  eq(A.fmtM(1250), "12,5 m", "fmtM"); eq(A.cartAreaTxt({ w: 1250, h: 800 }), "palco 12,5×8 m", "cartiglio");
+  eq(A.misPedana(200, 100, 40, "2×1 m · h40"), "2×1 m · h40", "pedana"); eq(A.misQuota(40, "h40"), "h40", "quota");
+  eq(A.scalaBarra(100).txt, "2 m", "barra di scala"); eq(A.docZona("PUBBLICO"), "PUBBLICO", "scritte del palco");
+  eq(A.cabCutTxt({ cut: 10, lenM: 8.7 }), "10 m", "taglio del cavo"); eq(A.cabCutKey({ cut: 10, lenM: 8.7 }), 10, "chiave del taglio");
+  ok(!/<line[^>]*x1="30\.48"/.test(A.gridMarkup()) && /x1="50"/.test(A.gridMarkup()), "griglia ogni 50 cm");
+  const v = add("vlnpost", 300, 300); v.label = "Violino 2"; eq(A.lblText(v.label, v, true), "Violino 2", "nome dell'elemento invariato");
+  reset();
+});
+t("Estero: in inglese le scritte dell'app si traducono, i testi scritti dall'utente no", () => {
+  reset();
+  conDoc("en", null, () => {
+    A.state.titolo = "Concerto di Natale"; A.state.luogo = "Teatro Comunale";
+    const v = add("vlnpost", 300, 300); v.label = "Violino 2"; const b = add("bassstand", 500, 300); b.label = "Basso di Marco";
+    A.docUtenteRaccogli();
+    eq(A.docTesto("1 di 3"), "1 of 3", "piè di pagina"); eq(A.docTesto("Creato con stageplot.it"), "Made with stageplot.it", "credito");
+    eq(A.docTesto("Stage plot · 17/11/2026"), "Stage plot · Nov 17, 2026", "data col mese in lettere");
+    eq(A.docTesto("asta giraffa"), "boom stand", "asta"); eq(A.docTesto("12 pedane"), "12 risers", "modello con il numero");
+    eq(A.docTesto("1,7 A"), "1.7 A", "punto decimale");
+    const lungo = "Quantità ricavate dal disegno dello stage plot: se cambia, il foglio esce con una versione nuova.";
+    eq(A.pdfTxtRighe(lungo, 40, 9, false).join(" "), A.docTesto(lungo), "le righe a capo del cartiglio sono del testo tradotto, non pezzi italiani");
+    ok(!/disegno/.test(A.pdfTxtRighe(lungo, 40, 9, false).join(" ")), "nessun pezzo italiano");
+    eq(A.docTesto("Violino 2"), "Violin 2", "nome automatico del catalogo");
+    eq(A.lblText(v.label, v, true), "Violin 2", "anche sul disegno");
+    eq(A.docTesto("Basso di Marco"), "Basso di Marco", "nome scritto dall'utente: com'è");
+    const b2 = add("bassstand", 700, 300); b2.label = "Batteria"; A.docUtenteRaccogli();
+    eq(A.docTesto("Batteria"), "Batteria", "un nome scritto che coincide con un nome del catalogo resta com'è (è dell'utente)");
+    eq(A.lblText("Basso di Marco", b, true), "Basso di Marco", "anche sul disegno");
+    eq(A.docTesto("Concerto di Natale · Teatro Comunale"), "Concerto di Natale · Teatro Comunale", "titolo e luogo: com'è");
+    eq(A.docTesto("Concerto di Natale · Stage plot · 17/11/2026"), "Concerto di Natale · Stage plot · Nov 17, 2026", "a pezzi: solo i pezzi dell'app");
+    eq([A.docZona("FONDO PALCO"), A.docZona("PUBBLICO")], ["UPSTAGE", "AUDIENCE"], "fondo palco e pubblico");
+    eq(A.latiTeatroTesti(1200, 1), ["STAGE RIGHT", "STAGE LEFT"], "a sinistra del foglio (sinistra della platea) c'è STAGE RIGHT");
+    ok(/STAGE RIGHT/.test(A.latiTeatroMarkup(-42, 1, "")), "e ci sono anche senza «giardino e corte»");
+    eq(A.docTesto(A.cartAreaTxt({ w: 1250, h: 800 })), "stage 12.5×8 m", "cartiglio in inglese, metri (punto decimale sul foglio)");
+    const svg = A.docSvgTesti('<svg><text x="1">1 di 2</text><text>Concerto di Natale</text></svg>');
+    ok(/>1 of 2</.test(svg) && />Concerto di Natale</.test(svg), "l'anteprima dell'Esporta passa dallo stesso traduttore");
+  });
+  eq(A.latiTeatroMarkup(-42, 1, ""), "", "in italiano i lati restano un'opzione spenta");
+  reset();
+});
+t("Estero: in piedi quote, pedane, palco, griglia, barra di scala e cavi ai tagli USA; «entrambe» scrive m (ft-in)", () => {
+  reset();
+  conDoc(null, "ft", () => {
+    eq(A.fmtM(500), "16' 5\"", "quota"); eq(A.misPedana(243.84, 121.92, 60.96, "x"), "8' × 4' · h 2'", "pedana 8'×4' alta 2'");
+    eq(A.misQuota(40.64), "h 1' 4\"", "altezza"); eq(A.cartAreaTxt({ w: 1463.04, h: 1219.2 }), "palco 48' × 40'", "palco 48'×40' (in italiano)");
+    const sb = A.scalaBarra(100); ok(/ ft$/.test(sb.txt) && sb.len >= 22 && sb.len <= 45, "barra di scala in piedi: " + sb.txt);
+    ok(/x1="30\.48"/.test(A.gridMarkup()) && /class="m" x1="121\.92"/.test(A.gridMarkup()), "griglia ogni piede, marcata ogni 4'");
+    eq([A.cabCutFt(2.9), A.cabCutFt(3.2), A.cabCutFt(7), A.cabCutFt(31), A.cabCutFt(40, true)], [10, 15, 25, null, 150], "tagli USA dalla lunghezza vera");
+    eq(A.cabCutTxt({ cut: 5, lenM: 3.2 }), "15 ft", "il taglio in piedi viene dalla lunghezza, non dal taglio metrico");
+    eq(A.cabTaglioTesto({ 10: 2, 25: 1, ">": 1 }), "2× 10 ft · 1× 25 ft · 1× oltre 100 ft", "cavi per taglio");
+    eq(A.docTesto("Rampa di 2 m"), "Rampa di 6' 7\"", "misure dentro i testi");
+    eq(A.docTesto("pedana h40"), "pedana h 1' 4\"", "altezze scritte «h40»");
+    const r = A.pedanaRapide(add("pedana", 300, 300)); eq(r.misure.map((m) => m.t), ["8'×4'", "8'×8'", "4'×4'", "8'×2'"], "pedane rapide in piedi");
+    const p = A.state.items[A.state.items.length - 1]; A.pedanaApplicaRapida(p, { w: r.misure[0].w, d: r.misure[0].d, h: r.altezze[3].h });
+    eq([p.w, p.d, p.h], [243.84, 121.92, 60.96], "8'×4' h 2' esatti");
+    const j = JSON.parse(A.docToJSON()); A.loadDoc(j);
+    const p2 = A.state.items.find((x) => x.type === "pedana"); eq([p2.w, p2.d], [243.84, 121.92], "esatti anche dopo salva e riapri");
+  });
+  conDoc(null, "both", () => {
+    eq(A.fmtM(500), "5 m (16' 5\")", "entrambe"); eq(A.misPedana(200, 100, 40, "2×1 m · h40"), "2×1 m · h40 (6' 7\" × 3' 3\" · h 1' 4\")", "pedana in m e ft");
+    eq(A.cabCutTxt({ cut: 5, lenM: 3.2 }), "5 m / 15 ft", "cavo nei due tagli"); eq(A.docTesto("Rampa di 2 m"), "Rampa di 2 m (6' 7\")", "testo in m con i piedi accanto");
+    eq(A.docTesto("5 m (16' 5\")"), "5 m (16' 5\")", "nessuna doppia conversione");
+    eq(A.docTesto("XLR 5 m / 15 ft"), "XLR 5 m / 15 ft", "il taglio nei due sistemi non si converte di nuovo");
+  });
+  conDoc("en", "ft", () => {
+    eq(A.docTesto("• 2 pedane alte più di 1 m (fino a 5' 3\") senza parapetto o scala: sopra 3' 3\" si consigliano una protezione dalle cadute e un accesso."),
+      A.docTesto("• 2 pedane alte più di 1 m (fino a 5' 3\") senza parapetto o scala: sopra 3' 3\" si consigliano una protezione dalle cadute e un accesso.").replace(/pedane|alte|senza/g, "X"), "frase con le misure già in piedi: trova il modello italiano");
+    ok(!/pedane|parapetto/.test(A.docTesto("• 2 pedane alte più di 1 m (fino a 5' 3\") senza parapetto o scala: sopra 3' 3\" si consigliano una protezione dalle cadute e un accesso.")), "e la traduce");
+    eq(A.docTesto("12 da 6' 7\" × 3' 3\""), "12 at 6' 7\" × 3' 3\"", "pezzi con le misure in piedi");
+  });
+  reset();
+});
+t("Estero: Esporta (menu Lingua del documento e Unità), PDF e anteprima collegati", () => {
+  const src = readFileSync(join(root, "index.template.html"), "utf8");
+  ok(/<select id="pdfDocLingua"><option value="it" selected>Italiano<\/option><option value="en">English<\/option><\/select>/.test(src), "menu della lingua, di serie Italiano");
+  ok(/<select id="pdfDocUnita"><option value="m" selected>metri \(m\)<\/option><option value="ft">piedi e pollici \(ft-in\)<\/option><option value="both">/.test(src), "menu delle unità, di serie metri");
+  ok(/_dl\.addEventListener\("change", function\(\)\{ docLinguaImposta\(_dl\.value\); docEsteroCambiato\(\); \}\)/.test(src), "la lingua si scrive nel progetto");
+  ok(/_du\.addEventListener\("change", function\(\)\{ docUnitaImposta\(_du\.value\); docEsteroCambiato\(\); \}\)/.test(src), "le unità si scrivono nel progetto");
+  ok(/docEsteroSincronizza\(\);   \/\* lingua e unità del documento/.test(src), "all'apertura dell'Esporta i menu leggono il progetto");
+  ok(/return pdfLinguaDoc\(pdfTestoWinAnsiDoc\(pdfTestoNeroDoc\(d\)\)\);/.test(src), "ogni documento jsPDF passa dal traduttore");
+  ok(/docCampoScrivi\("pW", it\.w, "cm"\);\s*docCampoScrivi\("pD", it\.d, "cm"\);\s*if\(t\.riser\) docCampoScrivi\("pH", it\.h, "h"\);/.test(src), "il pannello scrive L, P e h nell'unità del documento");
+  ok(/docCampoScrivi\("blkW", r\.w, "m"\); docCampoScrivi\("blkD", r\.d, "m"\);/.test(src), "e le misure dei blocchi del palco");
+  conDoc(null, "ft", () => { eq(A.docCampoCm({ value: "8'" }, "cm"), 243.84, "in piedi «8'» = 243,84 cm"); eq(A.docCampoCm({ value: "8" }, "cm"), 243.84, "il numero nudo è in piedi");
+    eq(A.docCampoCm({ value: "24" }, "h"), 60.96, "l'altezza in pollici"); eq(A.docCampoCm({ value: "48" }, "m"), 1463.04, "il blocco del palco in piedi"); });
+  eq(A.docCampoCm({ value: "250" }, "cm"), 250, "in metri il campo in cm resta in cm"); eq(A.docCampoCm({ value: "12,5" }, "m"), 1250, "e quello in metri in metri");
+  ok(/function pdfPreviewSvg\(paperKey, N, orient, header, opts\)\{ var svg=_pdfPreviewSvgIt\(paperKey, N, orient, header, opts\); return docAttivo\(\) \? docSvgTesti\(svg\) : svg; \}/.test(src), "l'anteprima dice le stesse cose");
+  ok(/>'\+docZona\("FONDO PALCO"\)\+'<\/text>/.test(src) && (src.match(/docZona\("PUBBLICO"\)/g) || []).length === 3, "fondo palco e pubblico in tutti e tre i disegni (schermo, PDF, anteprima)");
+  conDoc("en", "m", () => { ok(!A.docUnita() !== "m", ""); });
+  ok(!/state\.docUnits\s*=\s*"ft"/.test(src.replace(/state\.docUnits=v;|docUnitaImposta\("ft"\)/g, "")), "English propone i piedi, non li impone (nessuna assegnazione automatica)");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");

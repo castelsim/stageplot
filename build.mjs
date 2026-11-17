@@ -34,6 +34,9 @@ const INJECTIONS = [
   { marker: "/*__CATALOGO_PRO__*/", file: "src/catalogo-pro.js" },
   /* icone approvate da Simone il 16/11/2026 (tavola v1 del 07/11): prese, appendimenti, teatro, uscite */
   { marker: "/*__ICONE_APPROVATE__*/", file: "src/icone-approvate.js" },
+  /* documento per l'estero (17/11/2026): lingua del documento IT/EN, unità m / ft-in, traduttore dei PDF; poi il dizionario inglese */
+  { marker: "/*__DOCUMENTO_ESTERO__*/", file: "src/documento-estero.js" },
+  { marker: "/*__DOCUMENTO_ESTERO_EN__*/", file: "src/documento-estero-en.js" },
 ];
 const PIANTA_PUBBLICA = "biglietteria/pianta-posti.js";
 function piantaPubblica() {

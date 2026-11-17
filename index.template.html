@@ -2526,6 +2526,12 @@
         </div>
         <div id="pdfMisStileRow"><label for="pdfMisStile">Stile delle misure <small class="lbl-note">— pedane, quote e palco, in tutte le pagine</small></label>
           <select id="pdfMisStile"><option value="std" selected>12 × 2 m · h40 (come sempre)</option><option value="mx">12mX2mX40cm</option><option value="xh">12x2 H40</option><option value="mt">mt 12 x 2 x h 0,40</option></select></div>
+        <!-- DOCUMENTO PER L'ESTERO (17/11/2026): due scelte del progetto, salvate nel progetto e uguali in tutte le scene. Di serie Italiano e metri. -->
+        <div id="pdfDocLinguaRow"><label for="pdfDocLingua">Lingua del documento <small class="lbl-note">— tutto ciò che esce nei PDF, anche il palco per esterni</small></label>
+          <select id="pdfDocLingua"><option value="it" selected>Italiano</option><option value="en">English</option></select></div>
+        <div id="pdfDocUnitaRow"><label for="pdfDocUnita">Unità delle misure <small class="lbl-note">— quote, griglia, pedane, palco, cavi</small></label>
+          <select id="pdfDocUnita"><option value="m" selected>metri (m)</option><option value="ft">piedi e pollici (ft-in)</option><option value="both">entrambe: m (ft-in)</option></select></div>
+        <div class="hdr-saved" id="pdfDocUnitaHint" hidden>Per una squadra americana di solito servono piedi e pollici. <button type="button" class="btn" id="pdfDocUnitaFt">Usa ft-in</button></div>
         <label class="chk" id="pdfOrganicoRow"><input type="checkbox" id="pdfOrganico"> Organico nel cartiglio <small class="lbl-note">— «Organico: 41 + 9» (strumentisti + voci), come il foglio Organico</small></label>
         <div class="hdr-saved" id="pdfTagliaHint" hidden><span id="pdfTagliaTesto"></span> <button type="button" class="btn" id="pdfTagliaBtn">Aggiungi al nome</button></div>
         <!-- ALLEGATI RICHIESTI (13/11/2026, S14): elenco libero con stato; se resta qualcosa «da chiedere», «Prima di esportare» lo dice. Solo se l'utente lo usa. -->
@@ -6886,7 +6892,9 @@ function nextVariantName(){ var n=0; VARIANTS.forEach(function(v){ var m=/^Varia
    data e contatti non erano mai diversi. Restano nello stato di ogni variante — lo schema e i file
    già salvati non cambiano — ma a ogni sincronizzazione quelli della variante attiva si scrivono
    nelle altre. */
-var CAMPI_DOCUMENTO=["allegatiRichiesti","dotazioni","misureStile","pdfOrganico","quoteDaTerra","organicoOrdine","titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","versione","statoDoc","latiTeatro","sonorizzazione","orari","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
+/*__DOCUMENTO_ESTERO__*/
+/*__DOCUMENTO_ESTERO_EN__*/
+var CAMPI_DOCUMENTO=["docLang","docUnits","allegatiRichiesti","dotazioni","misureStile","pdfOrganico","quoteDaTerra","organicoOrdine","titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","versione","statoDoc","latiTeatro","sonorizzazione","orari","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
 function propagaCampiDocumento(v){
   var src=v&&v.state; if(!src) return;
   VARIANTS.forEach(function(o){
@@ -10275,6 +10283,8 @@ function normalizeState(s){
   s.pdfHeader = (typeof s.pdfHeader==="string") ? s.pdfHeader.slice(0,120) : "";   /* riferimento nel cartiglio (export), persistente */
   if(s.sonorizzazione!=="acustico" && s.sonorizzazione!=="misto") delete s.sonorizzazione;   /* sonorizzazione (12/11): assente = amplificato, com'è sempre stato; esiste solo se scelta */
   if(s.orari && typeof s.orari==="object"){ var _or=orariNorm(s.orari); if(Object.keys(_or).length) s.orari=_or; else delete s.orari; } else delete s.orari;   /* orari (12/11): solo voci valide, «HH:MM»; assente se vuoto */
+  if(s.docLang!=="en") delete s.docLang;   /* lingua del documento (17/11/2026): solo "en" esiste, assente = italiano */
+  if(s.docUnits!=="ft" && s.docUnits!=="both") delete s.docUnits;   /* unità del documento (17/11/2026): "ft" o "both", assente = metri */
   if(s.latiTeatro!==true) delete s.latiTeatro;   /* giardino e corte: spenti di serie, solo un true esplicito li accende (12/11/2026) */
   if(s.pdfOrganico!==true) delete s.pdfOrganico;   /* «Organico: N + M» nel cartiglio (13/11): solo un true esplicito la accende */
   if(s.quoteDaTerra!==true) delete s.quoteDaTerra;   /* quote delle pedane «da terra» (13/11): solo un true esplicito le accende */
@@ -10660,7 +10670,12 @@ function loadFromHash(){
 
 /* ============ RENDER ============ */
 function gridMarkup(){
-  var s='<g class="grid">', W=state.stage.w, D=state.stage.d, x, y;
+  var s='<g class="grid">', W=state.stage.w, D=state.stage.d, x, y, i;
+  if(docUnita()==="ft"){   /* in piedi (17/11/2026): una riga ogni piede, marcata ogni 4' (il lato corto di un modulo 8'×4') */
+    for(x=CM_PER_FT, i=1; x<W-0.01; i++, x=i*CM_PER_FT){ s+='<line class="'+(i%4===0?'m':'')+'" x1="'+x.toFixed(2)+'" y1="0" x2="'+x.toFixed(2)+'" y2="'+D+'"/>'; }
+    for(y=CM_PER_FT, i=1; y<D-0.01; i++, y=i*CM_PER_FT){ s+='<line class="'+(i%4===0?'m':'')+'" x1="0" y1="'+y.toFixed(2)+'" x2="'+W+'" y2="'+y.toFixed(2)+'"/>'; }
+    return s+'</g>';
+  }
   for(x=50; x<W; x+=50){ s+='<line class="'+(x%100===0?'m':'')+'" x1="'+x+'" y1="0" x2="'+x+'" y2="'+D+'"/>'; }
   for(y=50; y<D; y+=50){ s+='<line class="'+(y%100===0?'m':'')+'" x1="0" y1="'+y+'" x2="'+W+'" y2="'+y+'"/>'; }
   return s+'</g>';
@@ -15300,7 +15315,7 @@ function itemMarkup(it){
   if(it.leggio===true && leggioExtra(it)) s += '<g transform="translate(0,'+leggioExtraY(it)+')'+(leggioExtraY(it)<0?' rotate(180)':'')+'">'+leggioGlyph(0)+'</g>';   /* leggio generico: arpa, piani, organi, percussioni, mallet… (off di default, davanti allo strumento) */
   _leggioDistOn = 0;   /* finiti gli accessori: nessun altro leggioGlyph (anteprime, catalogo, leggio a sé) eredita la distanza */
   if(t.riser || it.type==="scala" || ostacoloConH(it)){                  /* quota pedana sul lato scelto/auto (più visibile); la scala dice altezza e gradini (11/11), di serie sopra */
-    var dimT=t.riser ? misPedana(it.w, it.d, it.h, (it.w/100)+'×'+(it.d/100)+' m · h'+it.h)+quotaDaTerraTesto(it)+misuraDaConfTesto(it) : (it.type==="ostacolo" ? misPedana(it.w, it.d, it.h, misN(it.w)+'×'+misN(it.d)+' m · h'+Math.round(it.h)+' cm') : scalaQuota(it)), rside=(t.riser||it.type==="ostacolo") ? riserDimSide(it) : scalaDimSide(it), roff=12, rdx=0, rdy=0, ranc='middle', rtr='', rang=0;
+    var dimT=t.riser ? misPedana(it.w, it.d, it.h, (+(it.w/100).toFixed(2))+'×'+(+(it.d/100).toFixed(2))+' m · h'+(+(+it.h).toFixed(1)))+quotaDaTerraTesto(it)+misuraDaConfTesto(it) : (it.type==="ostacolo" ? misPedana(it.w, it.d, it.h, misN(it.w)+'×'+misN(it.d)+' m · h'+Math.round(it.h)+' cm') : scalaQuota(it)), rside=(t.riser||it.type==="ostacolo") ? riserDimSide(it) : scalaDimSide(it), roff=12, rdx=0, rdy=0, ranc='middle', rtr='', rang=0;
     if(rside==="top"){ rdy=-(it.d/2)-roff; }
     else if(rside==="bottom"){ rdy=(it.d/2)+roff+9; }
     else if(rside==="left"){ rdx=-(it.w/2)-roff; ranc='middle'; rang=-90; }   /* ruotata, legge lungo il lato sx */
@@ -15583,23 +15598,32 @@ function misN(cm){ return (cm/100).toLocaleString("it-IT",{maximumFractionDigits
 function misMetri2(cm){ return (cm/100).toFixed(2).replace(".",","); }
 /* quota o altezza (cm): «h40» · «40cm» · «H40» · «h 0,40». `std` = il testo di sempre di quel punto di stampa */
 function misQuota(h, std){
-  var st=misureStile(); h=Math.round(+h||0);
-  return st==="mx" ? h+"cm" : (st==="xh" ? "H"+h : (st==="mt" ? "h "+misMetri2(h) : (std!=null ? std : "h"+h)));
+  var st=misureStile(), h0=+h||0; h=Math.round(h0);
+  var r=st==="mx" ? h+"cm" : (st==="xh" ? "H"+h : (st==="mt" ? "h "+misMetri2(h) : (std!=null ? std : "h"+h)));
+  return docUnita()==="m" ? r : docQuotaH(h0, r);   /* piedi (17/11/2026): «h 1' 4"», o «h40 (1' 4")» con entrambe */
 }
 /* pedana lunghezza × profondità × altezza (cm) */
 function misPedana(w, d, h, std){
+  if(docUnita()!=="m"){ var _ft=ftIn(w)+" × "+ftIn(d)+" · h "+ftIn(+h||0); return docUnita()==="ft" ? _ft : _misPedanaM(w, d, h, std)+" ("+_ft+")"; }   /* piedi (17/11/2026) */
+  return _misPedanaM(w, d, h, std);
+}
+function _misPedanaM(w, d, h, std){
   var st=misureStile(); if(st==="std") return std;
   h=Math.round(+h||0);
   return st==="mx" ? misN(w)+"mX"+misN(d)+"mX"+h+"cm" : (st==="xh" ? misN(w)+"x"+misN(d)+" H"+h : "mt "+misN(w)+" x "+misN(d)+" x h "+misMetri2(h));
 }
 /* area del palco (cm) */
 function misArea(w, d, std){
+  if(docUnita()!=="m") return docArea(w, d, _misAreaM(w, d, std));   /* piedi (17/11/2026) */
+  return _misAreaM(w, d, std);
+}
+function _misAreaM(w, d, std){
   var st=misureStile(); if(st==="std") return std;
   return st==="mx" ? misN(w)+"mX"+misN(d)+"m" : (st==="xh" ? misN(w)+"x"+misN(d) : "mt "+misN(w)+" x "+misN(d));
 }
 function cartAreaTxt(A){ var n=function(cm){ return (cm/100).toLocaleString("it-IT",{maximumFractionDigits:2}); };
-  return "palco "+misArea(A.w, A.h, n(A.w)+"×"+n(A.h)+" m"); }
-function fmtM(cm){ return (cm/100).toLocaleString("it-IT",{maximumFractionDigits:1})+" m"; }
+  return (docEn() ? "stage " : "palco ")+misArea(A.w, A.h, n(A.w)+"×"+n(A.h)+" m"); }
+function fmtM(cm){ var std=(cm/100).toLocaleString("it-IT",{maximumFractionDigits:1})+" m"; return docAttivo() ? docLen(cm, std) : std; }   /* piedi e punto decimale (17/11/2026) */
 /* PORTA IN PRIMO PIANO / IN FONDO (26/08, segnalazione). Il comando c'era solo per le forme libere,
    e per giunta non faceva quello che prometteva: «Sopra» scriveva un 3 fisso — due elementi «sopra»
    restavano nell'ordine d'inserimento — e «Sotto» cancellava il valore, cioè tornava al default del
@@ -17030,24 +17054,25 @@ function elecAllineaLunghezze(loadLinks, uplinks, feeds){
    (la stessa che ha già i tagli dell'audit): si legge da cabResult()/elecResult(), che si riusano se lo stato non cambia → nessun ricalcolo a ogni ridisegno. */
 function _tagliConta(arr, get){ var t={}; arr.forEach(function(x){ var c=get(x), k=c?String(c):">"; t[k]=(t[k]||0)+1; }); return t; }
 function _tagliOrdine(t){ return Object.keys(t).sort(function(a,b){ return (a===">"?9999:+a)-(b===">"?9999:+b); }); }
-function cabTaglioTesto(t, oltre){ return _tagliOrdine(t).map(function(c){ return t[c]+"× "+(c===">"?(oltre||"oltre 50 m"):c+" m"); }).join(" · "); }
+function cabTaglioTesto(t, oltre){ return _tagliOrdine(t).map(function(c){ return t[c]+"× "+(c===">"?(oltre||cabOltreTxt()):c+cabTaglioUnita()); }).join(" · "); }   /* in piedi (17/11/2026) le chiavi sono i tagli USA: vedi cabCutKey */
 var CAB_COLORI_ZONA=["rosso","blu","verde","giallo","arancio","viola","bianco","nero"];   /* R22: un colore per zona, lo stesso nastro sulla box e sui suoi cavi */
 function cabColoreBox(b){ var i=Math.max(0, String(b&&b.letter||"A").charCodeAt(0)-65); return CAB_COLORI_ZONA[i%CAB_COLORI_ZONA.length]; }
 function cabMateriali(){
   var R=cabResult(), E=(state.elec&&state.elec.on)?elecResult():null;
   var ln=(R.links||[]).filter(function(l){ return !l.deleted && !l.via; }), rt=R.returnLinks||[], sn=R.snakes||[];
-  var xlr=_tagliConta(ln, function(l){ return l.cut; }), ret=_tagliConta(rt, function(l){ return l.cut; });
-  var xlrTot=_tagliConta(ln.concat(rt), function(l){ return l.cut; });
-  var mc=_tagliConta(sn, function(k){ return k.cut; });
+  var K=function(l){ return cabCutKey(l); };   /* il taglio nell'unità del documento: metri come sempre, tagli USA in piedi (17/11/2026) */
+  var xlr=_tagliConta(ln, K), ret=_tagliConta(rt, K);
+  var xlrTot=_tagliConta(ln.concat(rt), K);
+  var mc=_tagliConta(sn, function(k){ return cabCutKey(k, true); });
   var elLoad=E?(E.loadLinks||[]):[], elUp=E?(E.uplinks||[]).concat(E.feeds||[]):[];
-  var el=_tagliConta(elLoad.filter(function(l){ return !l.cee; }), function(l){ return l.cut; });
-  var elCee=_tagliConta(elLoad.filter(function(l){ return l.cee; }), function(l){ return l.cut; });
-  var elDor=_tagliConta(elUp, function(l){ return l.cut; });
+  var el=_tagliConta(elLoad.filter(function(l){ return !l.cee; }), K);
+  var elCee=_tagliConta(elLoad.filter(function(l){ return l.cee; }), K);
+  var elDor=_tagliConta(elUp, K);
   var metri=function(arr){ return arr.reduce(function(a,l){ return a+(l.cut||l.lenM||0); }, 0); };
   return {xlr:xlr, ret:ret, xlrTot:xlrTot, mc:mc, el:el, elCee:elCee, elDor:elDor,
     nXlr:ln.length+rt.length, nMc:sn.length, nEl:elLoad.length, nDor:elUp.length,
     metriXlr:metri(ln.concat(rt)), metriMc:metri(sn), links:ln, returnLinks:rt, snakes:sn,
-    testo:{ xlr:cabTaglioTesto(xlrTot), mc:cabTaglioTesto(mc,"oltre 100 m"), el:cabTaglioTesto(el), elCee:cabTaglioTesto(elCee), elDor:cabTaglioTesto(elDor) }};
+    testo:{ xlr:cabTaglioTesto(xlrTot), mc:cabTaglioTesto(mc,cabOltreTxt(true)), el:cabTaglioTesto(el), elCee:cabTaglioTesto(elCee), elDor:cabTaglioTesto(elDor) }};
 }
 /* Fasci (R10/R11): cavi dello stesso tipo che corrono sulla stessa linea si distribuiscono a 4 cm l'uno dall'altro (al massimo ±12 cm), per vederli uno per uno.
    Si spostano solo i tratti interni (gli estremi restano sul capo); se lo spostamento entra in un ingombro, esce dal palco o inverte un tratto, quel cavo resta com'era. */
@@ -17932,7 +17957,7 @@ function cabLinkLabel(l){
       var _bt=(l.box.tag||l.box.letter)+(l.box.isMixer?" ":"");
       parts.push(nm+" · "+_bt+l.ch+"–"+(l.ch+l.bundleN-1)+" ("+l.bundleN+" ch)"); }
   } else if(state.cab.showChannels){ parts.push(l.label); }
-  if(state.cab.showLengths) parts.push(l.cut?l.cut+' m':'>50 m');
+  if(state.cab.showLengths) parts.push(cabCutTxt(l)||(docUnita()==='ft'?'>100 ft':'>50 m'));
   return parts.join(' · ');
 }
 /* ── C1 · Bundling in fasci (sub-snake/loom), stile Max for Live (08/07) ──
@@ -18121,7 +18146,7 @@ function cablingMarkup(){
       var ri='<path class="cab-return'+(l.manual?' cab-manual':'')+(cabIsSel(l.key)?' sel':'')+'" d="'+d+'"/>';
       if(editRet) ri+='<path class="cab-hit" data-cab="'+esc(l.key)+'" d="'+d+'"/>';   /* selezionabile come i cavi input */
       if((LBL || selCab===l.key) && state.cab.showLabels){ var mid=cabMidpoint(orthExpand(dpts));
-        var lb='M'+l.mix.n+(state.cab.showLengths?' · '+(l.cut?l.cut+' m':'>50 m'):'');
+        var lb='M'+l.mix.n+(state.cab.showLengths?' · '+(cabCutTxt(l)||(docUnita()==='ft'?'>100 ft':'>50 m')):'');
         ri+='<text class="cab-lbl cab-lbl-ret" x="'+mid[0].toFixed(1)+'" y="'+(mid[1]-4).toFixed(1)+'" text-anchor="middle">'+esc(lb)+'</text>'; }
       var mep=orthExpand(dpts), mlast=mep[mep.length-1];   /* Layer v2: pallino ciano al capo monitor */
       ri+='<circle class="cab-mondot" cx="'+mlast[0].toFixed(1)+'" cy="'+mlast[1].toFixed(1)+'" r="5.5"/>';
@@ -19388,6 +19413,11 @@ var PEDANA_ALTEZZE_RAPIDE=[20,40,60,80,100];
 function pedanaRapide(it){
   if(!it || it.type!=="pedana") return null;
   var w=Math.round(+it.w||0), d=Math.round(+it.d||0), h=Math.round(+it.h||0);
+  if(docUnita()==="ft"){   /* in piedi (17/11/2026): moduli 8'×4', 8'×8', 4'×4', 8'×2' e altezze 8"-4' esatti al centesimo di cm */
+    var ug=function(a, b){ return Math.abs((+a||0)-b)<0.05; };
+    return { misure: PEDANA_MISURE_RAPIDE_FT.map(function(m){ return {t:m.t, w:m.w, d:m.d, on:(ug(it.w,m.w) && ug(it.d,m.d))}; }),
+             altezze: PEDANA_ALTEZZE_RAPIDE_FT.map(function(a){ return {t:a.t, h:a.h, on:ug(it.h,a.h)}; }) };
+  }
   return {
     misure: PEDANA_MISURE_RAPIDE.map(function(m){ return {t:m.t, w:m.w, d:m.d, on:(w===m.w && d===m.d)}; }),
     altezze: PEDANA_ALTEZZE_RAPIDE.map(function(v){ return {t:String(v), h:v, on:(h===v)}; })
@@ -20291,8 +20321,8 @@ function stageEmptyHintMarkup(){
 function stageLayerMarkup(){
   var W=state.stage.w, D=state.stage.d;
   return stageFloorMarkup()+stageDimsMarkup()
-    +'<text class="zone-lbl" x="'+(W/2)+'" y="-42" text-anchor="middle">FONDO PALCO</text>'
-    +'<text class="zone-lbl" x="'+(W/2)+'" y="'+(D+38)+'" text-anchor="middle">PUBBLICO</text>'
+    +'<text class="zone-lbl" x="'+(W/2)+'" y="-42" text-anchor="middle">'+docZona("FONDO PALCO")+'</text>'
+    +'<text class="zone-lbl" x="'+(W/2)+'" y="'+(D+38)+'" text-anchor="middle">'+docZona("PUBBLICO")+'</text>'
     +stageEmptyHintMarkup()+latiTeatroMarkup(-42, 1, 'class="zone-lbl zone-lato"');
 }
 /* GIARDINO E CORTE (10/11/2026, proposta di un tecnico di teatro, decisa da Simone). Su stageplot.it destra e
@@ -20312,8 +20342,11 @@ function progettoTeatro(){ return TEATRO_RE.test(String(state.luogo||"")+" "+Str
    FONDO PALCO né fuori dal palco. */
 function latiTeatroTesti(W, k){
   k=k>0 ? k : 1;
-  var fs=11*k, libero=W/2-(lblTextW("FONDO PALCO", 16*k)/2+11*k)-12*k;   /* metà di FONDO PALCO (letter-spacing 2) + aria */
+  var fs=11*k, libero=W/2-(lblTextW(docZona("FONDO PALCO"), 16*k)/2+11*k)-12*k;   /* metà di FONDO PALCO (letter-spacing 2) + aria */
   function sta(a, b){ return Math.max(lblTextW(a, fs), lblTextW(b, fs))<=libero; }
+  /* in inglese (17/11/2026): stage right e stage left dal punto di vista dell'artista, quindi a SINISTRA del foglio (sinistra di chi
+     guarda dalla platea) c'è STAGE RIGHT. Glossario § Lati e direzioni. */
+  if(docEn()){ if(sta("STAGE RIGHT", "STAGE LEFT")) return ["STAGE RIGHT", "STAGE LEFT"]; if(sta("SR", "SL")) return ["SR", "SL"]; return null; }
   if(sta("SINISTRA (giardino)", "DESTRA (corte)")) return ["SINISTRA (giardino)", "DESTRA (corte)"];
   if(sta("giardino", "corte")) return ["giardino", "corte"];
   return null;
@@ -20328,7 +20361,7 @@ function latiTeatroImposta(on){
 }
 function latiTeatroSuggerimento(){ return (state.latiTeatro!==true && progettoTeatro()) ? "Il luogo sembra un teatro: se serve, accendi giardino e corte." : ""; }
 function latiTeatroMarkup(y, k, attr){
-  if(state.latiTeatro!==true || custEditorAttivo()) return '';
+  if((state.latiTeatro!==true && !docEn()) || custEditorAttivo()) return '';   /* in inglese stage right / stage left ci sono sempre: per una squadra americana sono il primo riferimento */
   var W=state.stage.w||0, t=latiTeatroTesti(W, k);
   if(!t) return '';
   return '<text '+attr+' x="0" y="'+y+'" text-anchor="start">'+t[0]+'</text>'+
@@ -22042,9 +22075,10 @@ function renderProps(){
   (function(){ var pw=document.getElementById("pPtWrap"); if(!pw) return; var on=it.type==="puntoapp"; pw.style.display=on ? "" : "none";
     if(on){ document.getElementById("pPtCarico").value=ptAppCarico(it)||""; document.getElementById("pPtPortata").value=ptAppPortata(it)||""; } })();   /* coperture: h = luce libera sotto la struttura */
   if(t.resizable){
-    document.getElementById("pW").value = it.w;
-    document.getElementById("pD").value = it.d;
-    if(t.riser) document.getElementById("pH").value = it.h;
+    docCampoEtichette();   /* in piedi (17/11/2026) i campi parlano in ft e in */
+    docCampoScrivi("pW", it.w, "cm");
+    docCampoScrivi("pD", it.d, "cm");
+    if(t.riser) docCampoScrivi("pH", it.h, "h");
     else if(isCover(it)) document.getElementById("pH").value = coverH(it);
     else if(it.type==="ostacolo") document.getElementById("pH").value = ostacoloConH(it) ? it.h : "";   /* vuoto = nessuna quota */
   }
@@ -22503,6 +22537,7 @@ function pannelloNomeUi(it){
 /* testo dell'etichetta da disegnare in base alla modalità per-elemento (full/abbr/hidden) */
 function lblText(raw, it, isPrimary){
   if(!raw) return "";
+  raw=docEtichetta(raw, it);   /* documento in inglese (17/11/2026): solo i nomi automatici del catalogo, mai quelli scritti */
   var mode=it.labelMode||"full";   /* default = nome INTERO (Simone 27/07): la sigla è una scelta, non il punto di partenza */
   if(mode==="hidden") return "";
   if(mode==="abbr") return isPrimary ? abbrOf(it) : abbrOf({type:it.type, label:raw});   /* il 2° strumento della postazione a 2 usa la stessa logica (sigla + numero) */
@@ -22762,8 +22797,8 @@ document.getElementById("pDiFor").addEventListener("change", function(e){
 document.getElementById("pDiType").addEventListener("click", function(e){ var b=e.target.closest("button[data-v]"); if(!b) return; mutSel(function(it){ it.diType=b.getAttribute("data-v"); it.diTypeUtente=true; __cabRes=null; }); });
 document.getElementById("pDiMultiN").addEventListener("click", function(e){ var b=e.target.closest("button[data-v]"); if(!b) return; mutSel(function(it){ it.diMultiCh=+b.getAttribute("data-v"); __cabRes=null; }); });
 document.getElementById("pDiSchema").addEventListener("change", function(){ var v=document.getElementById("pDiSchema").checked; mutSel(function(it){ it.diSchema=v; }); });
-document.getElementById("pW").addEventListener("change", function(){ mutSel(function(it){ it.w=Math.max(10,+document.getElementById("pW").value||it.w); if(it.type==="platea") plateaDaMisure(it, it.w, it.d); }); renderProps(); });
-document.getElementById("pD").addEventListener("change", function(){ mutSel(function(it){ it.d=Math.max(10,+document.getElementById("pD").value||it.d); if(it.type==="platea") plateaDaMisure(it, it.w, it.d); }); renderProps(); });
+document.getElementById("pW").addEventListener("change", function(){ mutSel(function(it){ it.w=Math.max(10,docCampoCm("pW","cm")||it.w); if(it.type==="platea") plateaDaMisure(it, it.w, it.d); }); renderProps(); });
+document.getElementById("pD").addEventListener("change", function(){ mutSel(function(it){ it.d=Math.max(10,docCampoCm("pD","cm")||it.d); if(it.type==="platea") plateaDaMisure(it, it.w, it.d); }); renderProps(); });
 /* PLATEA (06/10/2026): file, sedie, passi e corridoio — ogni campo rifà le misure (plateaImposta) */
 [["pPlFile","file"],["pPlSedie","sedie"],["pPlPasso","passo"],["pPlPassoFile","passoFile"],["pPlCorrW","corridoio"]].forEach(function(f){
   var el=document.getElementById(f[0]); if(!el || !el.addEventListener) return;
@@ -22778,7 +22813,7 @@ document.getElementById("pD").addEventListener("change", function(){ mutSel(func
 ["pPtCarico","pPtPortata"].forEach(function(idc){ var el=document.getElementById(idc); if(!el) return;
   el.addEventListener("change", function(){ var key=idc==="pPtCarico" ? "carico" : "portata", v=Math.round(+this.value);
     mutSel(function(it){ if(it.type!=="puntoapp") return; if(isFinite(v) && v>0) it[key]=Math.min(v,99999); else delete it[key]; }); }); });
-document.getElementById("pH").addEventListener("change", function(){ mutSel(function(it){ if(it.type==="ostacolo"){ var v=ostacoloHPulita(document.getElementById("pH").value); if(v) it.h=v; else delete it.h; return; } it.h=Math.max(0,+document.getElementById("pH").value||0); }); });
+document.getElementById("pH").addEventListener("change", function(){ mutSel(function(it){ if(it.type==="ostacolo"){ var v=ostacoloHPulita(document.getElementById("pH").value); if(v) it.h=v; else delete it.h; return; } it.h=Math.max(0,(TYPES[it.type] && TYPES[it.type].riser) ? (docCampoCm("pH","h")||0) : (+document.getElementById("pH").value||0)); }); });
 var ROT_SNAP=2;   /* snap magnetico leggero: entro ±2° aggancia i cardinali, fuori resta libero per regolazioni precise */
 function applyRot(doSave){
   var it=getSel(); if(!it) return;
@@ -27307,8 +27342,9 @@ function renderStagePanel(){
   document.getElementById("blkTitle").textContent = (selBlock===0 ? "Palco base" : "Blocco "+selBlock)+(r.shape==="semi"?" (semicerchio)":(hasPts(r)?" (deformato)":""));
   document.getElementById("bDelBlock").style.display = b.length>1 ? "" : "none";   /* serve almeno un blocco */
   document.getElementById("bResetBlock").style.display = hasPts(r) ? "" : "none";   /* visibile solo se il blocco è un quadrilatero deformato */
-  document.getElementById("blkW").value=r.w/100; document.getElementById("blkD").value=r.d/100;
-  document.getElementById("blkX").value=r.x/100; document.getElementById("blkY").value=r.y/100;
+  docCampoEtichette();   /* in piedi (17/11/2026) */
+  docCampoScrivi("blkW", r.w, "m"); docCampoScrivi("blkD", r.d, "m");
+  docCampoScrivi("blkX", r.x, "m"); docCampoScrivi("blkY", r.y, "m");
   /* X/Y = posizione del blocco rispetto all'origine: sul PALCO BASE valgono sempre 0,0 e spostarlo non
      significa nulla (è lui a definire l'origine). Si mostrano solo per i blocchi aggiunti, dove servono
      ad allineare con precisione una passerella o un'ala. */
@@ -27578,7 +27614,7 @@ function blkField(id, key, isPos){
   document.getElementById(id).addEventListener("change", function(){
     var b=stageBlocks(); if(selBlock==null||!b[selBlock]) return;
     var r=b[selBlock];
-    var v=Math.round((+this.value||0)*100);
+    var v=docCampoCm(this, "m")||0;   /* metri come sempre; in piedi «48'» = 1463,04 cm (17/11/2026) */
     if(isPos) v=Math.max(0,v); else v=Math.max(10,v);   /* min 10 cm */
     if(hasPts(r)){   /* quadrilatero: i campi numerici agiscono sul bounding box (x/y traslano, d scala in verticale) */
       if(key==="x"){ var dx=v-r.x; r.pts=r.pts.map(function(p){ return [p[0]+dx,p[1]]; }); }
@@ -27592,7 +27628,7 @@ function blkField(id, key, isPos){
 blkField("blkD","d",false); blkField("blkX","x",true); blkField("blkY","y",true);
 document.getElementById("blkW").addEventListener("change", function(){
   var b=stageBlocks(); if(selBlock==null||!b[selBlock]) return;
-  var r=b[selBlock], cx=r.x+r.w/2, nw=Math.max(10, Math.round((+this.value||0)*100));   /* min 10 cm */
+  var r=b[selBlock], cx=r.x+r.w/2, nw=Math.max(10, docCampoCm(this, "m")||0);   /* min 10 cm; in piedi senza arrotondare (17/11/2026) */
   if(hasPts(r)){ var sc=nw/Math.max(1,r.w); r.pts=r.pts.map(function(p){ return [Math.round(r.x+(p[0]-r.x)*sc), p[1]]; }); syncBlockBBox(r); }
   else { r.w=nw; if(r.shape==="semi") r.x=Math.round(cx-nw/2); }   /* semicerchio: allarga simmetrico attorno al centro */
   normalizeStageBBox(); renderStagePanel(); render(); save();
@@ -37922,7 +37958,7 @@ function pdfStageBox(N, paperKey, orient, cartH){
      addosso). Se no le quote le scrive il disegno, attaccate al bordo del palco (pdfQuoteFuoriDalDisegno). */
   var quoteLibere=true;
   if(S.dentro.length){
-    var tw=function(t){ return String(t).length*1.7; }, wq=tw(adattaM(state.stage.w)+" m"), dq=tw(adattaM(state.stage.d)+" m");
+    var tw=function(t){ return String(t).length*1.7; }, wq=tw(docLen(state.stage.w, adattaM(state.stage.w)+" m")), dq=tw(docLen(state.stage.d, adattaM(state.stage.d)+" m"));
     var zone=[ {x0:rMm.x+rMm.w/2-wq/2-1, y0:rMm.y-8-3.5, x1:rMm.x+rMm.w/2+wq/2+1, y1:rMm.y-8+1.5},
                {x0:rMm.x-5-3.5, y0:rMm.y+rMm.h/2-dq/2-1, x1:rMm.x-5+1.5, y1:rMm.y+rMm.h/2+dq/2+1} ];
     S.dentro.forEach(function(it){ var r=ingombroStampa(it, pdfTextK(N));
@@ -38258,8 +38294,8 @@ function stageSceneSvg(cropVb, opts){
      (printScene), e la misura del palco va sul foglio anche lì (14/10). */
   var dims = opts.noBlockDims ? '' : stageDimsMarkup();
   var W=state.stage.w, D=state.stage.d, zy=zoneLblY(dims, window.__sceneTextK, D);
-  var zones='<text fill="#1f2937" font-size="16" letter-spacing="2" text-anchor="middle" x="'+(W/2)+'" y="'+zy.f+'">FONDO PALCO</text>'+
-            '<text fill="#1f2937" font-size="16" letter-spacing="2" text-anchor="middle" x="'+(W/2)+'" y="'+zy.p+'">PUBBLICO</text>'+
+  var zones='<text fill="#1f2937" font-size="16" letter-spacing="2" text-anchor="middle" x="'+(W/2)+'" y="'+zy.f+'">'+docZona("FONDO PALCO")+'</text>'+
+            '<text fill="#1f2937" font-size="16" letter-spacing="2" text-anchor="middle" x="'+(W/2)+'" y="'+zy.p+'">'+docZona("PUBBLICO")+'</text>'+
             latiTeatroMarkup(zy.f, window.__sceneTextK, 'fill="#1f2937" font-size="11"');   /* giardino e corte, solo in teatro */
   /* overlay cablaggio (statico, senza maniglie di editing), filtrato per focus: audio (cavi+rete+P.M.+legenda)
      ed elettrico separati, così ogni pagina-vista mostra SOLO il proprio layer a piena opacità */
@@ -38440,7 +38476,7 @@ function pdfTestoNeroInstalla(){
   var Orig=J.jsPDF;
   var Avvolto=function(){
     var d=new (Function.prototype.bind.apply(Orig,[null].concat(Array.prototype.slice.call(arguments))))();
-    return pdfTestoWinAnsiDoc(pdfTestoNeroDoc(d));
+    return pdfLinguaDoc(pdfTestoWinAnsiDoc(pdfTestoNeroDoc(d)));   /* lingua del documento (17/11/2026): traduce prima di tutto il resto */
   };
   Object.keys(Orig).forEach(function(k){ Avvolto[k]=Orig[k]; });
   Avvolto.API=Orig.API; Avvolto.prototype=Orig.prototype; Avvolto.__testoNero=true;
@@ -38518,7 +38554,7 @@ function cabReportPdf(shared){
     y+=4;
     line("Dettaglio collegamenti", 12, true, "#0d9488", 6);
     R.links.forEach(function(l){ if(l.deleted) return;
-      line((l.s.name||l.label)+"  ->  Box "+l.box.letter+" ch "+l.ch+"  ->  "+(l.cut?"XLR "+l.cut+" m":"oltre 50 m!")+"   ("+l.s.mic+(l.manual?", percorso manuale":"")+", "+l.lenM.toFixed(1)+" m)", 9, false, l.cut?null:"#dc2626", 4.6);
+      line((l.s.name||l.label)+"  ->  Box "+l.box.letter+" ch "+l.ch+"  ->  "+(cabCutTxt(l)?"XLR "+cabCutTxt(l):cabOltreTxt()+"!")+"   ("+l.s.mic+(l.manual?", percorso manuale":"")+", "+l.lenM.toFixed(1)+" m)", 9, false, l.cut?null:"#dc2626", 4.6);
     });
     R.links.filter(function(l){ return l.deleted; }).forEach(function(l){ line(l.s.name+"  ->  cavo rimosso manualmente", 9, false, "#9ca3af", 4.6); });
     R.unassigned.forEach(function(u){ line(u.name+"  ->  SENZA DESTINAZIONE (canali esauriti)", 9, true, "#dc2626", 4.6); });
@@ -38535,7 +38571,7 @@ function cabReportPdf(shared){
       if(state.titolo || state.luogo) line((state.titolo||"")+(state.luogo?" — "+state.luogo:""), 12, true, null, 8);
       var riga=function(txt, bold, color){ if(y>272){ doc.addPage("a4","portrait"); y=20; } line(txt, 9, bold, color, 4.6); };
       line("Da preparare (per taglio)", 12, true, "#0d9488", 6);
-      if(MAT.nXlr) riga("XLR segnale: "+cabTaglioTesto(_tagliConta(MAT.links, function(l){ return l.cut; })), false);
+      if(MAT.nXlr) riga("XLR segnale: "+cabTaglioTesto(_tagliConta(MAT.links, function(l){ return cabCutKey(l); })), false);
       if(MAT.returnLinks.length) riga("XLR ritorni monitor: "+cabTaglioTesto(MAT.ret), false);
       if(MAT.nMc) riga(((R.snakes||[]).every(function(k){ return k.box&&k.box.digital; })?"Cavi di rete: ":"Multicore: ")+MAT.testo.mc, false);
       if(MAT.nEl) riga("Corrente: "+[MAT.testo.el, MAT.testo.elCee?MAT.testo.elCee+" (CEE)":""].filter(Boolean).join(" · "), false);
@@ -38546,8 +38582,8 @@ function cabReportPdf(shared){
         var mine=MAT.links.filter(function(l){ return l.box===b; }).sort(function(a,c){ return a.ch-c.ch; });
         var sk=(R.snakes||[]).filter(function(k){ return k.box===b; })[0];
         if(!mine.length && !sk) return; y+=1.5;
-        riga("Box "+b.letter+" · nastro "+cabColoreBox(b)+" · "+b.used+"/"+b.cap+" ch"+(sk?" · "+(b.digital?"rete":"multicore")+" "+(sk.cut?sk.cut+" m":"oltre 100 m")+" (disegnato "+sk.pathM.toFixed(1).replace(".",",")+" m)":""), true, "#0f766e");
-        mine.forEach(function(l){ riga("  "+(l.label||(b.letter+l.ch))+"  "+(l.s.name||"")+(l.s.mic?" · "+l.s.mic:"")+"  —  disegnato "+(l.pathM!=null?l.pathM.toFixed(1).replace(".",","):"?")+" m  ->  XLR "+(l.cut?l.cut+" m":"oltre 50 m!"), false, l.cut?null:"#dc2626"); });
+        riga("Box "+b.letter+" · nastro "+cabColoreBox(b)+" · "+b.used+"/"+b.cap+" ch"+(sk?" · "+(b.digital?"rete":"multicore")+" "+(cabCutTxt(sk, true)||cabOltreTxt(true))+" (disegnato "+sk.pathM.toFixed(1).replace(".",",")+" m)":""), true, "#0f766e");
+        mine.forEach(function(l){ riga("  "+(l.label||(b.letter+l.ch))+"  "+(l.s.name||"")+(l.s.mic?" · "+l.s.mic:"")+"  —  disegnato "+(l.pathM!=null?l.pathM.toFixed(1).replace(".",","):"?")+" m  ->  XLR "+(cabCutTxt(l)||cabOltreTxt()+"!"), false, cabCutTxt(l)?null:"#dc2626"); });
       });
     } }catch(_e){}
     if(shared) return;
@@ -40165,6 +40201,13 @@ function pdfRipiegoRaster(doc, ix, iy, stMmW, stMmH, vb, scena){
     return svgToDataUrl(svg, pxW, pxH, "image/png", f).then(function(dataUrl){ doc.addImage(dataUrl, "PNG", ix, iy, stMmW, stMmH); });
   });
 }
+/* la barra di scala nell'unità del documento (17/11/2026): in piedi 1-2-5-10-20-50 ft, stessa regola dei 22-45 mm; «entrambe» resta in metri */
+function scalaBarra(N){
+  if(docUnita()!=="ft"){ var bm=niceBarMeters(N); return {len:bm*1000/N, txt:bm+" m"}; }
+  var c=[1,2,5,10,20,50,100], best=c[0];
+  for(var i=0;i<c.length;i++){ var mm=c[i]*304.8/N; if(mm>=22 && mm<=45) return {len:mm, txt:c[i]+" ft"}; if(mm<45) best=c[i]; }
+  return {len:best*304.8/N, txt:best+" ft"};
+}
 function niceBarMeters(N){            /* barra di scala: ~25-40 mm sul foglio */
   var cand=[1,2,5,10,20], best=cand[0];
   for(var i=0;i<cand.length;i++){ var mm=cand[i]*1000/N; if(mm>=22 && mm<=45){ return cand[i]; } if(mm<45) best=cand[i]; }
@@ -40307,6 +40350,7 @@ function pdfTxtW(s, pt, bold){
 /* righe di un testo che stanno in w mm: si va a capo fra le parole; una parola più lunga della riga
    (un indirizzo mail, un link) si spezza fra le lettere. Mai «…». */
 function pdfTxtRighe(s, w, pt, bold){
+  s=docTesto(String(s==null?"":s));   /* lingua e unità del documento (17/11/2026): si va a capo sul testo tradotto, non sui pezzi */
   var parole=String(s==null?"":s).trim().split(/\s+/).filter(Boolean), out=[], r="";
   parole.forEach(function(p){
     var prova=r ? r+" "+p : p;
@@ -40329,7 +40373,7 @@ function pdfTxtRighe(s, w, pt, bold){
    va a capo fra le parole. */
 function pdfTxtRigheVoci(voci, w, pt, bold){
   var SEP="  ·  ", out=[], r="";
-  (voci||[]).map(function(v){ return String(v==null?"":v).trim(); }).filter(Boolean).forEach(function(v){
+  (voci||[]).map(function(v){ return docTesto(String(v==null?"":v)).trim(); }).filter(Boolean).forEach(function(v){
     if(r && pdfTxtW(r+SEP+v, pt, bold)<=w){ r+=SEP+v; return; }
     if(r) out.push(r);
     var pezzi=pdfTxtRighe(v, w, pt, bold);
@@ -40434,21 +40478,21 @@ function pdfScaleBarY(L, iy, mmH){
 /* «0» e «2 m» CENTRATI SULLE TACCHE (10/11/2026, Simone): prima «0» partiva dalla tacca e «2 m» ci finiva, e
    l'occhio non sapeva a quale punto della scritta corrispondesse la misura. */
 function pdfScaleBar(doc, x, y, N){
-  var bm=niceBarMeters(N), len=bm*1000/N;     /* mm */
+  var _sb=scalaBarra(N), len=_sb.len;     /* mm */
   doc.setDrawColor(17,24,39); doc.setLineWidth(0.6);
   doc.line(x, y, x+len, y);
   doc.line(x, y-SCALEBAR_SOPRA, x, y+SCALEBAR_SOPRA); doc.line(x+len, y-SCALEBAR_SOPRA, x+len, y+SCALEBAR_SOPRA); doc.line(x+len/2, y-1, x+len/2, y+1);
   doc.setFont("helvetica","normal"); doc.setFontSize(7.5); doc.setTextColor(17,24,39);
-  doc.text("0", x, y+SCALEBAR_SOTTO, {align:"center"}); doc.text(bm+" m", x+len, y+SCALEBAR_SOTTO, {align:"center"});   /* cifre e «m»: niente discendenti sotto la base */
+  doc.text("0", x, y+SCALEBAR_SOTTO, {align:"center"}); doc.text(_sb.txt, x+len, y+SCALEBAR_SOTTO, {align:"center"});   /* cifre e «m»: niente discendenti sotto la base */
 }
 /* la stessa barra nell'anteprima dell'Esporta (prima non c'era: non si vedeva nemmeno dove sarebbe caduta) */
 function pdfScaleBarSvg(x, y, N){
-  var bm=niceBarMeters(N), len=bm*1000/N, f=function(v){ return (Math.round(v*1000)/1000); };
+  var _sb=scalaBarra(N), len=_sb.len, f=function(v){ return (Math.round(v*1000)/1000); };
   var ln=function(cls, x1, y1, x2, y2){ return '<line'+(cls?' class="'+cls+'"':'')+' x1="'+f(x1)+'" y1="'+f(y1)+'" x2="'+f(x2)+'" y2="'+f(y2)+'" stroke="#111827" stroke-width="0.6"/>'; };
   var fs=(7.5*25.4/72).toFixed(3);
   return ln("scala-barra", x, y, x+len, y)+ln("", x, y-SCALEBAR_SOPRA, x, y+SCALEBAR_SOPRA)+ln("", x+len, y-SCALEBAR_SOPRA, x+len, y+SCALEBAR_SOPRA)+ln("", x+len/2, y-1, x+len/2, y+1)+
     '<text x="'+f(x)+'" y="'+f(y+SCALEBAR_SOTTO)+'" font-family="Helvetica, Arial, sans-serif" font-size="'+fs+'" fill="#111827" text-anchor="middle">0</text>'+
-    '<text x="'+f(x+len)+'" y="'+f(y+SCALEBAR_SOTTO)+'" font-family="Helvetica, Arial, sans-serif" font-size="'+fs+'" fill="#111827" text-anchor="middle">'+bm+' m</text>';
+    '<text x="'+f(x+len)+'" y="'+f(y+SCALEBAR_SOTTO)+'" font-family="Helvetica, Arial, sans-serif" font-size="'+fs+'" fill="#111827" text-anchor="middle">'+esc(_sb.txt)+'</text>';
 }
 /* LA BARRA SOTTO IL PALCO (10/11/2026, Simone: «dà fastidio che il metro di misura non sia allineato con il lato del
    palco»). Partiva dal bordo sinistro del RIQUADRO del disegno (il palco più 80 cm di margine, più chi sta fuori dal
@@ -40489,7 +40533,7 @@ function scalaBarOstacoli(box, N, opz){
   });
   (state.items||[]).forEach(function(it){ if(it && !it.rackId){ var r=ingombroStampa(it, k); mondo(r.x0, r.y0, r.x1, r.y1); } });
   if(opz.quoteJs){   /* «5 m» ruotata a sinistra del palco, a corpo fisso (buildPdfDoc): non è tagliata al disegno */
-    var q=box.rMm, wq=String(adattaM(state.stage.d)+" m").length*1.7;
+    var q=box.rMm, wq=String(docLen(state.stage.d, adattaM(state.stage.d)+" m")).length*1.7;
     out.push({x0:q.x-5-2.3, y0:q.y+q.h/2-wq/2, x1:q.x-5+0.8, y1:q.y+q.h/2+wq/2});
   }
   return out;
@@ -40497,7 +40541,7 @@ function scalaBarOstacoli(box, N, opz){
 function pdfScaleBarPosa(box, N, opz){
   recalcStageBBox();
   var L=box.L, mpc=box.mmPerCm, vb=box.vb, D=state.stage.d||0;
-  var bm=niceBarMeters(N), len=bm*1000/N, h0=scalaBarTestoW("0")/2, hm=scalaBarTestoW(bm+" m")/2;
+  var _sb=scalaBarra(N), len=_sb.len, h0=scalaBarTestoW("0")/2, hm=scalaBarTestoW(_sb.txt)/2;
   var dx0=box.ix, dx1=box.ix+box.mmW, dy1=box.iy+box.mmH;
   var sx=Infinity; stageBlocks().forEach(function(r){ blockCorners(r).forEach(function(c){ sx=Math.min(sx, c[0]); }); });   /* di norma 0 */
   var x=box.ix+((isFinite(sx) ? sx : 0)-vb.x)*mpc, fronte=box.iy+(D-vb.y)*mpc;
@@ -40575,7 +40619,9 @@ function venueFoglioSvg(area, ix, iy, vb, mmPerCm){
   return '<svg x="'+area.x+'" y="'+area.y+'" width="'+area.w+'" height="'+area.h+'" viewBox="'+w.x+' '+w.y+' '+w.w+' '+w.h+'" preserveAspectRatio="none">'+m+'</svg>';
 }
 /* anteprima del foglio (SVG, mm) — rispecchia il layout del PDF: planimetria + quote + cartiglio */
-function pdfPreviewSvg(paperKey, N, orient, header, opts){
+/* l'anteprima dell'Esporta dice le stesse cose del PDF anche in inglese e in piedi (17/11/2026): stessi testi, stesso traduttore */
+function pdfPreviewSvg(paperKey, N, orient, header, opts){ var svg=_pdfPreviewSvgIt(paperKey, N, orient, header, opts); return docAttivo() ? docSvgTesti(svg) : svg; }
+function _pdfPreviewSvgIt(paperKey, N, orient, header, opts){
   opts=opts||{};   /* opts.focus = clean|cabaudio|elec|sectionmic ; opts.pageLabel = titolo pagina-vista */
   var scW=90, baseL=pdfLayout(paperKey, orient, 22);
   var ch=cartHForHeader(header, pdfCartTitleW(baseL.pw, baseL.M));
@@ -40596,8 +40642,8 @@ function pdfPreviewSvg(paperKey, N, orient, header, opts){
   var stroke = A.custom ? '#9ca3af' : (box.cropped ? '#9ca3af' : (isSingleRect()?'#1f2937':'none'));
   var q=(!A.custom && !box.cropped) ? box.rMm : {x:ix, y:iy, w:stMmW, h:stMmH};   /* il palco col suo margine (pdfStageBox) */
   var labels = A.custom ? '' :
-    '<text x="'+(q.x+q.w/2)+'" y="'+(q.y-1.6)+'" font-size="3" fill="#9a9a9a" text-anchor="middle">FONDO PALCO</text>'+
-    '<text x="'+(q.x+q.w/2)+'" y="'+(q.y+q.h+4)+'" font-size="3" fill="#9a9a9a" text-anchor="middle">PUBBLICO</text>';
+    '<text x="'+(q.x+q.w/2)+'" y="'+(q.y-1.6)+'" font-size="3" fill="#9a9a9a" text-anchor="middle">'+docZona("FONDO PALCO")+'</text>'+
+    '<text x="'+(q.x+q.w/2)+'" y="'+(q.y+q.h+4)+'" font-size="3" fill="#9a9a9a" text-anchor="middle">'+docZona("PUBBLICO")+'</text>';
   var titleColW=pdfCartTitleW(L.pw, L.M);
   /* clip per la colonna sinistra del cartiglio (titolo+sub+header non invadono SCALA): solo una rete di
      sicurezza, le righe sono già quelle del PDF e stanno nella colonna */
@@ -41936,8 +41982,8 @@ function buildPdfDoc(paperKey, N, orient, header){
       /* quote dimensionali — solo senza area personalizzata e quando il palco intero ci sta (se ritagliato sarebbero fuorvianti) */
       doc.setFont("helvetica","normal"); doc.setTextColor(107,114,128); doc.setFontSize(8.5);
       var q=box.rMm;   /* il palco, non il riquadro: con chi sta fuori dal palco non coincidono (14/10) */
-      doc.text(adattaM(state.stage.w)+" m", q.x+q.w/2, q.y-8, {align:"center"});   /* «11,5 m» con la virgola, come il cartiglio (07/11) */
-      doc.text(adattaM(state.stage.d)+" m", q.x-5, q.y+q.h/2, {align:"center", angle:90});
+      doc.text(docLen(state.stage.w, adattaM(state.stage.w)+" m"), q.x+q.w/2, q.y-8, {align:"center"});   /* «11,5 m» con la virgola, come il cartiglio (07/11) */
+      doc.text(docLen(state.stage.d, adattaM(state.stage.d)+" m"), q.x-5, q.y+q.h/2, {align:"center", angle:90});
     }
     var barra=pdfScaleBarPosa(box, N, {blockDims:!scena.noBlockDims, quoteJs:pdfQuoteFuoriDalDisegno(box)});   /* sotto il palco, «0» sul suo bordo sinistro (10/11) */
     pdfScaleBar(doc, barra.x, barra.y, N);
@@ -42203,6 +42249,12 @@ function renderDiffVersioni(){
     save(); render();
   });
 })();
+/* lingua e unità del documento (17/11/2026): il menu scrive nel progetto; English PROPONE i piedi, non li impone */
+function docEsteroSincronizza(){
+  var l=document.getElementById("pdfDocLingua"), u=document.getElementById("pdfDocUnita"), h=document.getElementById("pdfDocUnitaHint");
+  if(l) l.value=docLingua(); if(u) u.value=docUnita();
+  if(h) h.hidden=!(docEn() && docUnita()==="m");
+}
 (function(){
   var f=document.getElementById("pdfMisStile"); if(!f) return;
   f.addEventListener("change", function(){
@@ -42492,8 +42544,8 @@ function buildPdfPalcoEsterni(paperKey, scaleSel, orientSel){
         if(pdfQuoteFuoriDalDisegno(box)){
           doc.setFont("helvetica","normal"); doc.setTextColor(107,114,128); doc.setFontSize(8.5);
           var q=b2.rMm;
-          doc.text(adattaM(state.stage.w)+" m", q.x+q.w/2, q.y-8, {align:"center"});
-          doc.text(adattaM(state.stage.d)+" m", q.x-5, q.y+q.h/2, {align:"center", angle:90});
+          doc.text(docLen(state.stage.w, adattaM(state.stage.w)+" m"), q.x+q.w/2, q.y-8, {align:"center"});
+          doc.text(docLen(state.stage.d, adattaM(state.stage.d)+" m"), q.x-5, q.y+q.h/2, {align:"center", angle:90});
         }
         var barra=pdfScaleBarPosa(b2, N, {blockDims:!scena.noBlockDims, quoteJs:pdfQuoteFuoriDalDisegno(box)});
         pdfScaleBar(doc, barra.x, barra.y, N);
@@ -43377,6 +43429,12 @@ function pdfChannelPage(doc, L, paperKey){
       (header.value.trim() ? "Dal contatto primario della rubrica · si salva nel progetto." : "Si salva nel progetto.");
   }
   /* «Pesi (kg)»: spenta di serie, si salva nel progetto (vedi pdfPesiOn) */
+  /* lingua e unità del documento (17/11/2026): si salvano nel progetto (CAMPI_DOCUMENTO, tutte le scene) e l'anteprima si rifà */
+  var docEsteroCambiato=function(){ save(); render(); try{ if(typeof renderProps==="function") renderProps(); }catch(_e){} docEsteroSincronizza(); refresh(); };
+  var _dl=document.getElementById("pdfDocLingua"), _du=document.getElementById("pdfDocUnita"), _dft=document.getElementById("pdfDocUnitaFt");
+  if(_dl) _dl.addEventListener("change", function(){ docLinguaImposta(_dl.value); docEsteroCambiato(); });
+  if(_du) _du.addEventListener("change", function(){ docUnitaImposta(_du.value); docEsteroCambiato(); });
+  if(_dft) _dft.addEventListener("click", function(){ docUnitaImposta("ft"); docEsteroCambiato(); });
   var orgChk=document.getElementById("pdfOrganico");
   if(orgChk) orgChk.addEventListener("change", function(){
     if(orgChk.checked) state.pdfOrganico=true; else delete state.pdfOrganico;
@@ -43391,6 +43449,7 @@ function pdfChannelPage(doc, L, paperKey){
     if(pesiChk) pesiChk.checked=(state.pdfPesi===true);
     if(orgChk) orgChk.checked=pdfOrganicoOn();
     var msSel=document.getElementById("pdfMisStile"); if(msSel) msSel.value=misureStile();
+    docEsteroSincronizza();   /* lingua e unità del documento (17/11/2026) */
     header.value=(typeof pdfHeaderPropose==="function") ? pdfHeaderPropose(state, pdfHeaderAccount()) : (state.pdfHeader||"");
     pdfHeaderSavedLine();
   }
@@ -44442,6 +44501,8 @@ function isFreshBlankProject(explicit){
 }
 /* Accetta "8", "6,5", "6.5", e con l'unità: "12,5 m", "12.5m", "1250 cm" (L1-a); rifiuta vuoto, non numerico, zero e negativi. Ritorna metri (Number) o null. */
 function parseStageDim(v){
+  /* piedi e pollici (17/11/2026): «48'», «40' 6"», «48 ft»; in un progetto in piedi anche il numero nudo è in piedi. Torna metri. */
+  if(/['"’”′″]|ft|feet|in\b/i.test(String(v)) || (docUnita()==="ft" && /^\s*\d+(?:[.,]\d+)?\s*$/.test(String(v)))){ var c=parseLunghezza(v, "ft"); return (c!=null && c>0) ? c/100 : null; }
   var s=String(v==null?"":v).trim().toLowerCase().replace(/\s+/g,"");
   var m=/^(\d*[.,]?\d+)(mt|m|cm)?$/.exec(s); if(!m) return null;
   var n=parseFloat(m[1].replace(",","."));
@@ -44521,7 +44582,7 @@ function misureIncollaCampo(txt, g, k, trova){
   }); });
 })();
 function applyStageSize(wM, dM, provisional){
-  var w=Math.max(100,Math.round(wM*100)), d=Math.max(100,Math.round(dM*100));   /* metri → cm (min 1 m) */
+  var w=Math.max(100,docCmEsatti(wM*100)), d=Math.max(100,docCmEsatti(dM*100));   /* metri → cm (min 1 m); misure intere in pollici senza arrotondare (17/11/2026) */
   state.stage={w:w, d:d, blocks:[{x:0,y:0,w:w,d:d}]};
   if(provisional) state.stage._provisional=true;   /* "dimensioni da confermare" (additivo, retro-compatibile) */
   else delete state.stage._provisional;             /* misure dichiarate: il rilievo d'audit si spegne */
@@ -44546,9 +44607,10 @@ function showStageSizeModal(){
   var wIn=document.getElementById("ssW"), dIn=document.getElementById("ssD"), err=document.getElementById("ssErr");
   /* Precompila con le misure del palco che si sta GUARDANDO (audit 27/07): erano fisse a 8×6 mentre
      dietro la finestra il palco nuovo è 12×8, e l'utente vedeva due verità diverse nello stesso istante. */
-  function _m(cm){ var v=(cm||0)/100; return String(Math.round(v*100)/100).replace(".",","); }
+  function _m(cm){ if(docUnita()==="ft") return ftIn(cm||0); var v=(cm||0)/100; return String(Math.round(v*100)/100).replace(".",","); }   /* in piedi: «39' 4"» (17/11/2026) */
   var _st=state.stage||{};
   wIn.value=_m(_st.w||1200); dIn.value=_m(_st.d||800); if(err) err.hidden=true;
+  [wIn, dIn].forEach(function(el){ var u=el && el.parentNode && el.parentNode.querySelector ? el.parentNode.querySelector("i") : null; if(u && typeof u.textContent==="string") u.textContent=(docUnita()==="ft" ? "ft" : "m"); });
   m.hidden=false; __stageSizeOpen=true;
   setTimeout(function(){ try{ wIn.focus(); wIn.select(); }catch(_e){} }, 0);
 }
