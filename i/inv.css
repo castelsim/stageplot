@@ -4,7 +4,9 @@
 [hidden]{display:none!important}
 html{-webkit-text-size-adjust:100%}
 body{background:var(--fondo);color:var(--inchiostro);font:17px/1.5 var(--ui);-webkit-font-smoothing:antialiased;overflow-wrap:anywhere;min-height:100vh}
-.inv-pagina{max-width:480px;margin:0 auto;padding:28px 16px max(40px,env(safe-area-inset-bottom))}
+html,body{touch-action:manipulation}
+.inv-pagina{max-width:480px;margin:0 auto;padding:max(28px,env(safe-area-inset-top)) 16px max(24px,env(safe-area-inset-bottom));min-height:100vh;min-height:100svh;display:flex;flex-direction:column}
+.inv-pagina>*{flex:none}
 .inv-carico{color:var(--testo-2);text-align:center;padding:64px 0}
 
 /* testa: ente → nome dell'oggetto → modello, allineati a sinistra */
@@ -20,7 +22,7 @@ body{background:var(--fondo);color:var(--inchiostro);font:17px/1.5 var(--ui);-we
 .inv-quanti{margin-top:14px;padding-top:12px;border-top:1px solid var(--filo);display:flex;justify-content:space-between;align-items:baseline;gap:12px;font-size:15px;color:var(--testo-2)}
 .inv-quanti a{font-weight:600;white-space:nowrap}
 .inv-accesso{display:block;margin:22px auto 0;font:inherit;font-size:15px;font-weight:600;color:var(--testo-2);background:none;border:0;text-decoration:underline;text-underline-offset:3px;cursor:pointer;min-height:44px;padding:0 12px;border-radius:var(--r-md)}
-.inv-piede{margin-top:36px;text-align:center;font-size:13px;color:var(--testo-3)}
+.inv-piede{margin-top:auto;padding-top:28px;text-align:center;font-size:13px;color:var(--testo-3)}
 .inv-piede a{color:var(--testo-3);font-weight:600;text-decoration:none}
 .inv-piede a:hover{text-decoration:underline}
 
@@ -72,12 +74,14 @@ body{background:var(--fondo);color:var(--inchiostro);font:17px/1.5 var(--ui);-we
 /* ---- form di consegna e carta del modulo (dentro il blocco) ---- */
 .inv-form-testa{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:6px}
 .inv-form-testa b{font-size:19px}
-.inv-form-testa span{font:14px var(--mono);color:var(--testo-3)}
-.inv-griglia{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+.inv-form-testa b{min-width:0}
+.inv-form-testa span{white-space:nowrap;flex:none;font:14px var(--mono);color:var(--testo-3)}
+.inv-griglia{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;margin-top:12px}
 .inv-griglia .tutta{grid-column:1/-1}
 .inv-campo label{display:block;font-size:14px;font-weight:600;color:var(--testo-2);margin-bottom:4px}
 .inv-campo label i{font-style:normal;color:var(--teal-forte)}
-.inv-campo input{font:inherit;font-size:17px;color:var(--inchiostro);background:var(--carta);border:1px solid var(--filo-forte);border-radius:var(--r-md);padding:10px 12px;width:100%;min-height:48px}
+.inv-campo{min-width:0}
+.inv-campo input{display:block;max-width:100%;min-width:0;-webkit-appearance:none;appearance:none;font:inherit;font-size:17px;color:var(--inchiostro);background:var(--carta);border:1px solid var(--filo-forte);border-radius:var(--r-md);padding:10px 12px;width:100%;min-height:48px}
 .inv-campo input:focus{border-color:var(--teal);box-shadow:var(--anello);outline:none}
 .inv-aiuto{font-size:13px;color:var(--testo-3);margin-top:5px}
 .inv-campo.errore input{border-color:var(--bad)}
@@ -97,3 +101,7 @@ body{background:var(--fondo);color:var(--inchiostro);font:17px/1.5 var(--ui);-we
 
 @media print{.barra-sp{display:none}}
 .inv-campo input::placeholder{font-size:15px;color:var(--testo-3);opacity:1}
+
+/* iOS Safari: l'input date ha larghezza propria e centra il testo; lo si riporta alla colonna e a sinistra */
+.inv-campo input[type=date]{text-align:left;line-height:1.2}
+.inv-campo input[type=date]::-webkit-date-and-time-value{text-align:left;min-height:1.2em}

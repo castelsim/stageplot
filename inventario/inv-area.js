@@ -122,7 +122,7 @@
         for (var i = 0; i < scelte.length; i++) {
           var k = Math.min(1, scelte[i] / Math.max(im.naturalWidth, im.naturalHeight)), c = document.createElement("canvas");
           c.width = Math.max(1, Math.round(im.naturalWidth * k)); c.height = Math.max(1, Math.round(im.naturalHeight * k));
-          var g = c.getContext("2d"); g.drawImage(im, 0, 0, c.width, c.height);
+          var g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, c.width, c.height); g.drawImage(im, 0, 0, c.width, c.height);   /* sfondo bianco: un PNG trasparente diventato JPEG sarebbe nero */
           var png = c.toDataURL("image/png"), jpg = c.toDataURL("image/jpeg", 0.88), mig = jpg.length < png.length ? jpg : png;
           if (/^data:image\/(png|jpeg);base64,/.test(mig) && mig.length <= 98000) return res(mig);
         }
