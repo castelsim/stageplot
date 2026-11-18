@@ -22,7 +22,14 @@
     return e;
   }
   function vuota(n) { while (n.firstChild) n.removeChild(n.firstChild); }
-  function disegna(nodi) { vuota(app); nodi.forEach(function (n) { if (n) app.appendChild(n); }); window.scrollTo(0, 0); }
+  /* orientamento della pagina in stampa: di serie A4 verticale (etichette, modulo); l'elenco da stampare lo vuole ORIZZONTALE. Si cambia con uno <style> che c'è solo mentre si guarda l'elenco. */
+  function paginaStampa(orizzontale) {
+    var s = document.getElementById("pg-stampa");
+    if (!orizzontale) { if (s && s.parentNode) s.parentNode.removeChild(s); return; }
+    if (!s) { s = document.createElement("style"); s.id = "pg-stampa"; document.head.appendChild(s); }
+    s.textContent = "@media print{@page{size:A4 landscape;margin:0}}";
+  }
+  function disegna(nodi) { paginaStampa(false); vuota(app); nodi.forEach(function (n) { if (n) app.appendChild(n); }); window.scrollTo(0, 0); }
   var tt = null;
   function toast(m) { var t = document.getElementById("inv-toast"); t.textContent = m; t.hidden = false; clearTimeout(tt); tt = setTimeout(function () { t.hidden = true; }, 3200); }
   function campo(etichetta, input, id) { input.id = id; return h("div", {}, [h("label", { for: id, text: etichetta }), input]); }
@@ -363,16 +370,14 @@
   /* Foglio A4 in verticale: colonne Codice · Tipo · Modello · Stato / dove · Nota; i nomi solo se chi stampa lo sceglie (i fogli restano in giro) */
   function vistaStampaElenco(elenco, conNomi) {
     S.vista = "stampa-elenco"; conNomi = !!conNomi;
-    var pagine = L.impaginaElenco(elenco), N = pagine.length;
+    var celle = function (a) { var t = nomeTipo(a.tipo); return [a.codice, t ? t.singolare : a.tipo, a.modello, L.descrizioneStato(a, conNomi)].concat(conNomi ? [a.note] : []); };
+    var pagine = L.impaginaElenco(elenco, celle, conNomi), N = pagine.length;
     var f = S.filtro, tipo = nomeTipo(f.tipo), parti = [];
     if (tipo) parti.push(tipo.plurale); if (f.stato) parti.push(L.statoNome(f.stato).toLowerCase()); if (f.testo.trim()) parti.push("«" + f.testo.trim() + "»");
     var sinistri = [];
     var fogli = pagine.map(function (grp, i) {
-      var righeT = grp.map(function (a) {
-        var t = nomeTipo(a.tipo);
-        return h("tr", {}, [h("td", { class: "cod", text: a.codice }), h("td", { text: t ? t.singolare : a.tipo }), h("td", { class: "tronca", text: a.modello }), h("td", { class: "tronca", text: L.descrizioneStato(a, conNomi) }), h("td", { class: "tronca", text: conNomi ? a.note : "" })]);
-      });
-      var tab = h("table", { class: "el-tab" }, [h("thead", {}, [h("tr", {}, [h("th", { text: "Codice" }), h("th", { text: "Tipo" }), h("th", { text: "Marca / modello" }), h("th", { text: "Dove si trova" }), h("th", { text: conNomi ? "Nota" : "" })])]), h("tbody", {}, righeT)]);
+      var righeT = grp.map(function (a) { return h("tr", {}, celle(a).map(function (t, k) { return h("td", { class: k === 0 ? "cod" : "", text: t }); })); });
+      var tab = h("table", { class: "el-tab " + (conNomi ? "con-note" : "senza-note") }, [h("thead", {}, [h("tr", {}, ["Codice", "Tipo", "Marca / modello", "Dove si trova"].concat(conNomi ? ["Nota"] : []).map(function (t) { return h("th", { text: t }); }))]), h("tbody", {}, righeT)]);
       var testa = h("div", { class: "el-testa" }, [h("b", { text: S.inv.nome + " — elenco dell'inventario" }),
         h("span", { text: (parti.length ? parti.join(" · ") + " · " : "") + L.sintesi(elenco) })]);
       var fo = h("div", { class: "foglio elenco" }, [testa, tab]);
@@ -387,17 +392,18 @@
         h("div", { class: "riga" }, [h("button", { class: "btn primario", type: "button", id: "bStampa", text: "Stampa (" + elenco.length + " oggetti, " + N + (N === 1 ? " foglio" : " fogli") + ")", onclick: function () { window.print(); } })])]),
       h("label", { class: "spunta" }, [nomi, h("span", { text: "Scrivi sul foglio anche i nomi di chi ha lo strumento e le note riservate (i fogli stampati restano in giro: di serie no)." })]),
       h("div", { class: "fogli" }, fogli)]);
-    adattaFogli();
+    paginaStampa(true); adattaFogli();
   }
   /* Telefono: ogni foglio sta in un contenitore grande quanto il foglio già scalato (origine in alto a sinistra), così non esce dallo schermo né allarga la pagina; in stampa il CSS annulla scala e contenitore. */
   function adattaFogli() {
     var fogli = document.querySelectorAll(".fogli .foglio"); if (!fogli.length) return;
-    var w = Math.min(document.documentElement.clientWidth - 32, 794), sc = w / 794;
+    var libero = document.documentElement.clientWidth - 32;
     Array.prototype.forEach.call(fogli, function (fo) {
-      var box = fo.parentNode.classList.contains("fo-box") ? fo.parentNode : null;
+      var orizz = fo.classList.contains("elenco"), W = orizz ? 1122.52 : 793.7, Hh = orizz ? 793.7 : 1122.52;   /* 297×210 o 210×297 mm in px CSS */
+      var w = Math.min(libero, W), sc = w / W, box = fo.parentNode.classList.contains("fo-box") ? fo.parentNode : null;
       if (sc >= 1) { if (box) { box.parentNode.insertBefore(fo, box); box.parentNode.removeChild(box); } fo.style.transform = ""; return; }
       if (!box) { box = h("div", { class: "fo-box" }); fo.parentNode.insertBefore(box, fo); box.appendChild(fo); }
-      box.style.width = w + "px"; box.style.height = (1122.52 * sc) + "px"; fo.style.transform = "scale(" + sc + ")";
+      box.style.width = w + "px"; box.style.height = (Hh * sc) + "px"; fo.style.transform = "scale(" + sc + ")";
     });
   }
   var piediStampa = null;   // riscrive data e ora nel piè dei fogli aperti (vista elenco o etichette)

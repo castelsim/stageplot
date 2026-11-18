@@ -34163,10 +34163,10 @@ t("Inventario: elenco completo — stato leggibile («Consegnato a … dal …»
   eq(INV_LIB.filtra(A, { tipo: "TAS", stato: "a_casa", testo: "esempio" }, true).length, 1, "filtri insieme");
   eq(INV_LIB.sintesi(A), "In sede 1 · Consegnato 2 · In riparazione 1", "sintesi per l'intestazione");
 });
-t("Inventario: foglio dell'elenco — 34 righe per foglio, piè con data e ora (niente versione), CSV dei mostrati con o senza nomi, area cablata", () => {
+t("Inventario: foglio dell'elenco — 22 righe per foglio (orizzontale), piè con data e ora (niente versione), CSV dei mostrati con o senza nomi, area cablata", () => {
   const molti = Array.from({ length: 70 }, (_, i) => ({ codice: "TAS-" + String(i + 1).padStart(3, "0"), tipo: "TAS", modello: "x", stato: "in_sede", note: "" }));
   const pg = INV_LIB.impaginaElenco(molti);
-  eq(pg.length, 3, "70 oggetti = 3 fogli"); eq(pg[0].length, 34, "34 per foglio"); eq(pg[2].length, 2, "l'ultimo foglio ha il resto"); eq(INV_LIB.impaginaElenco([]).length, 1, "elenco vuoto: un foglio");
+  eq(pg.length, 4, "70 oggetti = 4 fogli (A4 orizzontale)"); eq(pg[0].length, 22, "22 per foglio con righe di una riga sola"); eq(INV_LIB.RIGHE_ELENCO, 22, "RIGHE_ELENCO = 22"); eq(pg[3].length, 4, "l'ultimo foglio ha il resto"); eq(INV_LIB.impaginaElenco([]).length, 1, "elenco vuoto: un foglio");
   eq(INV_LIB.piedeElenco("Accademia Esempio", 70, "17/11/2026", "12:40"), "Accademia Esempio · elenco di 70 oggetti · stampato il 17/11/2026 alle 12:40", "ente, numero, data e ora");
   ok(!/^v\d/.test(INV_LIB.piedeElenco("x", 1, "d", "o")) && /elenco di 1 oggetto ·/.test(INV_LIB.piedeElenco("x", 1, "d", "o")), "niente versione; singolare");
   const T = [{ prefisso: "TAS", singolare: "Tastiera" }], B = [{ codice: "TAS-002", tipo: "TAS", modello: "=cmd", stato: "a_casa", note: "n", assegnato_a: "Allievo Esempio 2A", data_consegna: "2026-11-17" }, { codice: "TAS-001", tipo: "TAS", modello: "Y", stato: "in_sede", note: "" }];
@@ -34177,7 +34177,7 @@ t("Inventario: foglio dell'elenco — 34 righe per foglio, piè con data e ora (
   ok(/id: "chkCsvNomi"/.test(js) && /L\.csvElenco\(S\.tipi, elenco, !!S\.csvNomi\)/.test(js), "il CSV dei mostrati segue la spunta (spenta di serie)"); ok(/id: "bElenco"/.test(js) && /vistaStampaElenco\(filtrati\(\)\)/.test(js) && /id: "bCsvElenco"/.test(js), "bottoni «Elenco da stampare» e «CSV dei mostrati» che seguono i filtri");
   ok(/function vistaStampaElenco\(elenco, conNomi\)/.test(js) && /conNomi = !!conNomi/.test(js), "i nomi sul foglio sono spenti di serie");
   ok(/L\.piedeElenco\(S\.inv\.nome/.test(js) && /\(i \+ 1\) \+ " di " \+ N/.test(js), "il foglio ha data e ora di stampa e «1 di N»");
-  ok(/\.foglio\.elenco\{padding:16mm 17mm/.test(css) && /\.piede-foglio\{[^}]*bottom:16mm/.test(css), "margini ≥ 15 mm anche sul foglio dell'elenco");
+  ok(/\.foglio\.elenco\{width:297mm;height:210mm;padding:16mm 17mm/.test(css) && /\.piede-foglio\{[^}]*bottom:16mm/.test(css), "margini ≥ 15 mm anche sul foglio dell'elenco");
   ok(/inv-area\.js\?v=([4-9]|\d\d)"/.test(readFileSync(join(root, "inventario/index.html"), "utf8")), "versione degli script alzata (niente cache vecchia)");
 });
 t("Inventario: foglio dell'elenco sul telefono — intero dentro lo schermo, scala ricalcolata a ogni rotazione, stampa A4 al 100% senza colonne fuori foglio (17/11)", () => {
@@ -34228,7 +34228,7 @@ t("Inventario/interfaccia L2: area /inventario/ — barra del marchio, sp-base.c
   ok(/inv-area\.css\?v=([6-9]|\d\d)"/.test(html) && /inv-area\.js\?v=([8-9]|\d\d)"/.test(html) && /inv-lib\.js\?v=([4-9]|\d\d)"/.test(html) && /\/i\/inv\.js\?v=([5-9]|\d\d)"/.test(html), "?v= alzati su ogni file toccato (css, js, lib) e inv.js allineato alla pagina del QR");
   const a = css.indexOf("/* ---- foglio di etichette"), b = css.indexOf("@media print{"), c = css.indexOf("\n}", b) + 2;
   const stampa = css.slice(a, c).replace("  .barra-sp{display:none}\n", "");
-  eq(createHash("sha256").update(stampa).digest("hex"), "244415a2a5f441a18068dd5e61f762becfd90e90da33f9c661d17398e0101dbb", "i blocchi di stampa (.foglio, .etichetta*, .piede-foglio, .foglio.elenco, .el-*, .fo-box, @media print) sono identici byte per byte a main");
+  eq(createHash("sha256").update(stampa).digest("hex"), "00183f4ec8042ca9c12d7d155ca64b1cb32da879f717e73fabf348c5842fcdae", "i blocchi di stampa (.foglio, .etichetta*, .piede-foglio, .foglio.elenco, .el-*, .fo-box, @media print) sono quelli approvati (18/11: l'elenco è ORIZZONTALE; etichette e @media print come prima — cambiarli vuol dire aggiornare questo valore di proposito)");
   ok(/@media print\{[^]*?\.barra-sp\{display:none\}[^]*?\n\}/.test(css.slice(b)), "la barra del marchio sparisce in stampa (unica riga nuova nel blocco di stampa)");
   ok(!/min-width:1000px/.test(css) && /\.oggetti table\{[^}]*table-layout:fixed/.test(css) && /\.oggetti col\.c-stato\{width:\d+px\}/.test(css), "tabella a colonne fisse, senza larghezza minima");
   const tel = css.slice(css.indexOf("@media (max-width:720px)"));
@@ -36379,6 +36379,23 @@ t("Inventario/pagina del QR: UN solo pulsante «Inventario»; chi è abilitato l
   ok(!/"primario grande pieno"/.test(fPannello), "nel pannello non c'è un secondo primario (Consegna e Rientrato a contorno)");
   ok(/inserisci\(pannello\(null, cfg, ind, m, client, rigenera, ind\.scheda\)\);\s*var pub = document\.getElementById\("inv-pub"\); if \(pub && pub\.parentNode\) pub\.parentNode\.removeChild\(pub\);/.test(src), "il pulsante pubblico viene tolto solo quando nasce il pannello dei membri (non abilitato: resta)");
   eq((src.match(/"Inventario", "btn primario grande pieno/g) || []).length, 2, "due soli punti di costruzione (pubblico e membro), mai insieme");
+});
+
+t("Inventario/elenco ORIZZONTALE (18/11): A4 landscape solo per l'elenco, righe a capo contate a altezza, colonne in mm, margini ≥ 15 mm, le etichette restano verticali", () => {
+  const css = readFileSync(join(root, "inventario/inv-area.css"), "utf8"), js = readFileSync(join(root, "inventario/inv-area.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  ok(/\.foglio\.elenco\{width:297mm;height:210mm;padding:16mm 17mm 0/.test(css) && /\.foglio\{position:relative;width:210mm;height:297mm/.test(css), "foglio dell'elenco 297×210 mm; il foglio delle etichette resta 210×297");
+  ok(/@page\{size:A4 landscape;margin:0\}/.test(js) && /function paginaStampa\(orizzontale\)/.test(js) && /function disegna\(nodi\) \{ paginaStampa\(false\);/.test(js) && /paginaStampa\(true\); adattaFogli\(\);/.test(js), "l'orientamento è uno <style> che esiste solo nella vista elenco: ogni altra schermata (etichette, inventario) lo toglie");
+  ok(/\.piede-foglio\{[^}]*bottom:16mm/.test(css) && /padding:16mm 17mm 0/.test(css), "margini ≥ 15 mm: piè a 16 mm dal bordo, testa a 16 mm");
+  ok(/Hh = orizz \? 793\.7 : 1122\.52/.test(js) && /W = orizz \? 1122\.52 : 793\.7/.test(js), "anteprima a schermo in scala per entrambe le orientazioni (anche a 390 px)");
+  ok(/\.el-tab td\{[^}]*white-space:normal;overflow-wrap:anywhere/.test(css) && !/\.el-tab td\{[^}]*text-overflow:ellipsis/.test(css), "le celle vanno a capo: niente testo tagliato");
+  const E = INV_LIB.ELENCO, somma = (v) => v.reduce((x, y) => x + y, 0); eq(somma(E.colonne.con), 263, "colonne con note = 263 mm (297 − 2×17)"); eq(somma(E.colonne.senza), 263, "colonne senza note = 263 mm");
+  const mk = (n, mod) => Array.from({ length: n }, (_, i) => ({ codice: "TAS-" + String(i + 1).padStart(3, "0"), tipo: "TAS", modello: mod || "x", stato: "in_sede", note: "" }));
+  const corte = (a) => [a.codice, "Tastiera", a.modello, "In sede"], lunghe = (a) => [a.codice, "Tastiera", a.modello, "Consegnato a " + "Nome Cognome Esempio Molto Lungo, pianoforte 2B " .repeat(3)];
+  eq(INV_LIB.impaginaElenco(mk(22), corte, false).length, 1, "22 righe di una riga: un foglio"); eq(INV_LIB.impaginaElenco(mk(23), corte, false).length, 2, "la 23ª va sul foglio dopo");
+  ok(INV_LIB.impaginaElenco(mk(22), lunghe, false).length > 1, "righe che vanno a capo: meno righe per foglio (22 lunghe non stanno in un foglio)"); eq(INV_LIB.righeTesto(["TAS-001", "x", "x", "y".repeat(300)], false), Math.ceil(300 * E.mmCar / (E.colonne.senza[3] - E.cella)), "righe di testo = cella più lunga / larghezza colonna");
+  eq(INV_LIB.righeTesto(["a", "b", "c", "d"], false), 1, "celle corte: una riga");
+  const pg = INV_LIB.impaginaElenco(mk(40, "m"), lunghe, true); pg.forEach((f) => ok(f.reduce((m, a) => m + E.mmBase + E.mmRiga * INV_LIB.righeTesto(lunghe(a), true), 0) <= E.mmPagina + 0.01, "ogni foglio sta nell'altezza utile"));
+  eq(pg.reduce((n, f) => n + f.length, 0), 40, "nessuna riga persa né spezzata tra due fogli");
 });
 
 /* ═══ Inventario: tabella dell'area — cambio di stato → scheda, testi non tagliati, Elimina con conferma (18/11/2026) ═══ */
