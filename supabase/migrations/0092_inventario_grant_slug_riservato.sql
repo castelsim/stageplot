@@ -1,0 +1,11 @@
+-- 0092 — Inventario: i toggle di Gestione («Pagina pubblica», «Mostra stato», nome) tornano a salvarsi.
+--
+-- PERCHÉ: la CHECK inv_slug_formato di inv_inventari (0085) chiama public.inv_slug_riservato(slug). Postgres valuta TUTTE le CHECK
+-- a ogni UPDATE della riga e controlla il permesso EXECUTE di chi aggiorna (anche quando la funzione SQL viene «inlined»).
+-- La 0085 l'aveva revocata ad authenticated: ogni update diretto consentito dal grant per colonne (nome, pubblico, mostra_stato,
+-- aggiornato) falliva con «permission denied for function inv_slug_riservato» → nell'area «Non salvato.».
+-- Verificato in sola lettura sul database il 18/11/2026: has_function_privilege('authenticated', …, 'execute') = false.
+--
+-- SICUREZZA: inv_slug_riservato è language sql immutable e confronta il testo con un elenco fisso di parole riservate; non legge
+-- tabelle e non è security definer. Darla ad authenticated non espone nessun dato. anon resta senza (non aggiorna nulla).
+grant execute on function public.inv_slug_riservato(text) to authenticated;
