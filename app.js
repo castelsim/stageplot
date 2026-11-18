@@ -3244,22 +3244,24 @@ var POSTAZ_ART = {
   flauto:"musFlauto", oboe:"musOboe", clarinetto:"musClarinetto", fagotto:"musFagotto",
   saxalto:"musSaxAlto", saxtenore:"musSaxTenore", saxbaritono:"musSaxBaritono"
 };
-/* SAX IN PIEDI (18/11/2026, Simone: «le 3 versioni in piedi di quegli strumenti come NUOVE ICONE con l'opzione seduto / in piedi»).
+/* POSA IN PIEDI (18/11/2026, Simone: «le versioni in piedi di quegli strumenti come NUOVE ICONE con l'opzione seduto / in piedi»): sax e violino.
    it.posa = "piedi" (assente = seduto, come i progetti già salvati). Stessa postazione, stesso tipo: cambiano solo il disegno
    (icona senza sedia), l'ingombro (s = singola, dbl = doppia con sep 90, come POSTAZ) e il conteggio delle sedie (nessuna).
    Il disegno seduto includeva la sedia: in piedi non c'è e il leggio, se acceso, sta davanti ai piedi (non sopra le scarpe):
    la profondità comprende la figura (≈ 74-78 cm) più il leggio. */
-var SAX_PIEDI = {
+var POSA_PIEDI = {
+  vlnpost:{art:"musViolino1Piedi", art2:"musViolino2Piedi", s:[90,105], dbl:[170,105], sep:90},   /* violino I e II (vsec 2): stessa postazione, le doppie vln1x2/vln2x2/archi2leggio sono schemi e non cambiano */
   saxalto:{art:"musSaxAltoPiedi", s:[70,110], dbl:[150,110], sep:90},
   saxtenore:{art:"musSaxTenorePiedi", s:[60,108], dbl:[140,108], sep:90},
   saxbaritono:{art:"musSaxBaritonoPiedi", s:[65,112], dbl:[145,112], sep:90}
 };
-function inPiedi(it){ return !!it && it.posa==="piedi" && !!SAX_PIEDI[it.type]; }
-function postazOf(it){ return inPiedi(it) ? SAX_PIEDI[it.type] : POSTAZ[it.type]; }   /* misure della postazione secondo la posa */
+function artPiedi(it){ var P=it && POSA_PIEDI[it.type]; return P ? ((it.vsec===2 && P.art2) ? P.art2 : P.art) : null; }   /* icona in piedi: il violino II ha la sua */
+function inPiedi(it){ return !!it && it.posa==="piedi" && !!POSA_PIEDI[it.type]; }
+function postazOf(it){ return inPiedi(it) ? POSA_PIEDI[it.type] : POSTAZ[it.type]; }   /* misure della postazione secondo la posa */
 function postArt(it){
   if(!it || it.look==="schematico") return null;
+  if(inPiedi(it)) return artPiedi(it);   /* prima del Violino II: anche lui ha la sua icona in piedi */
   if(it.type==="vlnpost" && it.vsec===2) return "musViolino2";   /* Violino II (vsec=2) = illustrazione dedicata */
-  if(inPiedi(it)) return SAX_PIEDI[it.type].art;
   return POSTAZ_ART[it.type] || null;
 }
 /* Unifica icone FASE 2 (15/07): tipi funzionali NON-postazione (batteria=COMP, chitarre=gtr, arpa,
@@ -8481,7 +8483,7 @@ function sanitizeItems(arr){
     if(isHangStruct(it) && o.rig && typeof o.rig==="object") it.rig=rigPulita(o.rig);   /* americana/truss numerata (A4): {n?, h?} ripulito */
     if(Object.prototype.hasOwnProperty.call(COMP,o.type)) it.parts=o.parts?compClone(o.parts):compClone(COMP[o.type].defParts);
     ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","perChi","podio","sgab","grp","distOf","distType","aggancia","dimSide","lblSize","plCh","dvsPro","dvsNet","dvsSr","dvsLat","ifaceId","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","leggioDist","poltrona","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic","platea","fila","posto","settore","orOk","dAuto","posa"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
-    if(it.posa!=="piedi" || !SAX_PIEDI[it.type]) delete it.posa;   /* «piedi» solo per i sax: ogni altro valore = seduto (progetti vecchi, JSON a mano) */   /* platea: passi e corridoio, ripuliti poi da normalizeLoadedItems; fila/posto/settore: posti numerati */
+    if(it.posa!=="piedi" || !POSA_PIEDI[it.type]) delete it.posa;   /* «piedi» solo per i sax: ogni altro valore = seduto (progetti vecchi, JSON a mano) */   /* platea: passi e corridoio, ripuliti poi da normalizeLoadedItems; fila/posto/settore: posti numerati */
     if(it.orOk!=null){ var _ok=Math.round(+it.orOk); if(isFinite(_ok)) it.orOk=_ok; else delete it.orOk; }   /* «È giusto così» sull'orientamento (15/11): la rotazione che l'utente ha confermato, numero intero */
     if(it.leggioDist!=null){ var _ld=leggioDist(it); if(_ld && leggioDistSupported(it)) it.leggioDist=_ld; else delete it.leggioDist; }   /* distanza del leggio: numero intero nei limiti, solo dove c'è un leggio da spostare; 0 = standard, non si scrive */
     postoSanifica(it);   /* posti numerati (06/10): tipi e lunghezze garantiti */
@@ -21014,8 +21016,8 @@ function renderProps(){
   var pp=document.getElementById("pPostaz"), cfg=sepCfg(it);
   var isPostaz=!!POSTAZ[it.type];
   pp.style.display = (isPostaz || cfg) ? "block" : "none";
-  var _pw=document.getElementById("pPosaWrap");   /* Seduto / In piedi: solo i sax (18/11/2026) */
-  if(_pw){ var _sx=!!SAX_PIEDI[it.type]; _pw.style.display=_sx?"":"none";
+  var _pw=document.getElementById("pPosaWrap");   /* Seduto / In piedi: solo sax e violini (18/11/2026) */
+  if(_pw){ var _sx=!!POSA_PIEDI[it.type]; _pw.style.display=_sx?"":"none";
     if(_sx){ var _pp=document.getElementById("pPosa"); _pp.value=inPiedi(it)?"piedi":"seduto"; try{ _pp.dispatchEvent(new Event("chips-sync")); }catch(e){} } }
   document.getElementById("pFlags").style.display = isPostaz ? "block" : "none";
   if(isPostaz){
@@ -21760,12 +21762,12 @@ document.querySelectorAll(".chips[data-chips]").forEach(function(box){
 });
 document.getElementById("pSedia").addEventListener("change", function(){ mutSel(function(it){ it.sedia=document.getElementById("pSedia").checked; }); });
 document.getElementById("pLeggioCfg").addEventListener("change", function(){ mutSel(function(it){ it.leggio=document.getElementById("pLeggioCfg").checked; }); });
-/* Seduto / In piedi (18/11/2026): vale per TUTTI i sax selezionati (anche di tipi diversi), un solo passo di annulla. Il busto resta
+/* Seduto / In piedi (18/11/2026): vale per TUTTI gli elementi con la posa selezionati (sax e violini) (anche di tipi diversi), un solo passo di annulla. Il busto resta
    dov'è: cambia l'icona e il suo centro si sposta (dc, misurato fra i due disegni), così l'elemento si sposta dello stesso scarto,
    girato come l'elemento. Nome, canali, microfono, leggio e collegamenti restano. */
-function impostaPosaSax(it, piedi){
-  if(!SAX_PIEDI[it.type] || inPiedi(it)===piedi) return;
-  var da=window.LIB_ICONS && window.LIB_ICONS[SAX_PIEDI[it.type].art], dc=(da && da.dc) || [0,0], r=(it.rot||0)*Math.PI/180;
+function impostaPosa(it, piedi){
+  if(!POSA_PIEDI[it.type] || inPiedi(it)===piedi) return;
+  var da=window.LIB_ICONS && window.LIB_ICONS[artPiedi(it)], dc=(da && da.dc) || [0,0], r=(it.rot||0)*Math.PI/180;
   var sg=piedi?1:-1, dx=sg*dc[0], dy=sg*dc[1];
   it.x=Math.round(it.x+dx*Math.cos(r)-dy*Math.sin(r)); it.y=Math.round(it.y+dx*Math.sin(r)+dy*Math.cos(r));
   if(piedi) it.posa="piedi"; else delete it.posa;
@@ -21773,10 +21775,10 @@ function impostaPosaSax(it, piedi){
 }
 function cambiaPosaSelezione(piedi){
   primaDiAgire();
-  var tutti=(state.items||[]).filter(function(x){ return selSet[x.id] && SAX_PIEDI[x.type]; });
-  if(!tutti.length){ var s=getSel(); if(s && SAX_PIEDI[s.type]) tutti=[s]; }
+  var tutti=(state.items||[]).filter(function(x){ return selSet[x.id] && POSA_PIEDI[x.type]; });
+  if(!tutti.length){ var s=getSel(); if(s && POSA_PIEDI[s.type]) tutti=[s]; }
   if(!tutti.length) return;
-  tutti.forEach(function(it){ impostaPosaSax(it, piedi); });
+  tutti.forEach(function(it){ impostaPosa(it, piedi); });
   render(); save();
 }
 document.getElementById("pPosa").addEventListener("change", function(){ cambiaPosaSelezione(this.value==="piedi"); });
@@ -24639,7 +24641,7 @@ function openQuickAdd(sp, cx, cy){
 /* numerazione progressiva violini per sezione (1 = Violini I, 2 = Violini II); le doppie contano 2 leggii */
 function vlnSeats(sec){ var n=0; state.items.forEach(function(x){ if(x.type==="vlnpost" && x.vsec===sec) n += (x.doppia?2:1); }); return n; }
 function addViolin(sec, inPiedi){ var base=vlnSeats(sec), o={vsec:sec, label:"Violino "+toRoman(sec)+" "+(base+1)};
-  if(inPiedi===true) o.sedia=false;   /* in piedi: la stessa postazione, senza sedia (la scelta del pannello «Sedia») */
+  if(inPiedi===true){ o.sedia=false; o.posa="piedi"; }   /* in piedi: la stessa postazione, senza sedia, con l'icona del violinista in piedi (posa) */
   addItem("vlnpost",o); }
 /* LAPTOP SU TAVOLO (19/10/2026): il tavolo e il laptop veri (con le loro uscite audio e il collegamento), posati insieme e
    raggruppati: un solo gesto, un solo passo di annulla. Il Mac sta sopra (z 2 contro z 1 del tavolo). */
@@ -27460,7 +27462,7 @@ function placeOut(out, fitStage, clearFirst, force){
     else if(o.type==="ostacolo" && ostacoloHPulita(o.h)) it.h=ostacoloHPulita(o.h);   /* ostacolo: quota opzionale */
     if(o.parts){ it.parts=compClone(o.parts); if(COMP[o.type] && COMP[o.type].size){ var cz=COMP[o.type].size(it); it.w=cz[0]; it.d=cz[1]; } }
     ["donna","hair","mano","leggio","sedia","doppia","sep","ampli","pedaliera","vsec","label2","perChi","podio","nomic","micMode","hw","ch","outCh","dimSide","rfChi","poltrona","posa"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
-    if(it.posa!=="piedi" || !SAX_PIEDI[it.type]) delete it.posa; else recalcItemDims(it);   /* flag opzionali dal generatore (hw/ch/outCh = capacità stage box; dimSide = lato della misura pedana) */
+    if(it.posa!=="piedi" || !POSA_PIEDI[it.type]) delete it.posa; else recalcItemDims(it);   /* flag opzionali dal generatore (hw/ch/outCh = capacità stage box; dimSide = lato della misura pedana) */
     if(LEGGIO_DI_SERIE[o.type] && o.leggio==null) it.leggio=true;   /* modelli e organico: come dal catalogo */
     if(o.type==="scala") it.dAuto=+it.d;   /* nata dal motore, come da addItem (16/11) */
     return it;

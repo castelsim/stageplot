@@ -36391,7 +36391,7 @@ t("sax in piedi (18/11): cambio posa su più sax selezionati (anche misti): solo
     eq(A.countAccessori().sedie, 5, "le sedie tornano");
     A.cambiaPosaSelezione(false);
     eq([al.x, al.y], [300, 200], "chiedere «seduto» a chi è già seduto non muove niente");
-    A.impostaPosaSax(cl, true);
+    A.impostaPosa(cl, true);
     ok(cl.posa === undefined && cl.x === 900 && cl.y === 200 && cl.w === prima[3][7], "un elemento che non è un sax non cambia mai posa né posto");
   });
 });
@@ -36434,6 +36434,42 @@ t("sax in piedi (18/11): pannello «Posizione: Seduto / In piedi» come «Figura
   });
 });
 
+t("violino in piedi (18/11): stessa posa dei sax — icone I e II pulite, ingombro, nessuna sedia, doppie a schema invariate, «Violinista in piedi» con l'icona vera", () => {
+  const L = iconeVere();
+  for (const k of ["musViolino1Piedi", "musViolino2Piedi"]) {
+    const e = L[k]; ok(e && e.body, "manca " + k);
+    ok(e.vb[2] > 80 && e.vb[2] < 82 && e.vb[3] > 65 && e.vb[3] < 67, k + ": 80,5×65,8 / 81,5×66,6 come approvato (" + e.vb + ")");
+    ok(Array.isArray(e.dc) && e.dc.every(Number.isFinite) && Math.abs(e.dc[0]) < 2 && Math.abs(e.dc[1]) < 3, k + ": scarto del centro (dc)");
+    ok(!/<(clipPath|mask|image|filter|use|style|linearGradient|radialGradient|text)\b|clip-path|transform=|class=|style=/.test(e.body), k + ": solo fill e path");
+    ok(e.body.length < 60000, k + ": peso contenuto (" + e.body.length + ")");
+  }
+  A.state.items = [];
+  const v1 = add("vlnpost", 300, 200, { vsec: 1 }), v2 = add("vlnpost", 500, 200, { vsec: 2 });
+  ok(v1.posa === undefined && v2.posa === undefined, "un violino nuovo è seduto, senza campo");
+  eq([v1.w, v1.d], [100, 105], "ingombro seduto di un violino nuovo: quello del catalogo, invariato (il ricalcolo alla riapertura lo porta a 100×115, come già oggi)"); eq(A.countAccessori().sedie, 2, "due sedie");
+  v1.posa = "piedi"; v2.posa = "piedi"; A.recalcItemDims(v1); A.recalcItemDims(v2);
+  eq([v1.w, v1.d, v2.w, v2.d], [90, 105, 90, 105], "ingombro in piedi");
+  eq(A.countAccessori().sedie, 0, "in piedi: nessuna sedia");
+  eq([A.postArt(v1), A.postArt(v2)], ["musViolino1Piedi", "musViolino2Piedi"], "Vln I e Vln II: ognuno la sua icona in piedi");
+  delete v2.posa; eq(A.postArt(v2), "musViolino2", "seduto: l'icona di sempre");
+  const doppie = A.sanitizeItems([{ type: "vln1x2", x: 1, y: 2, posa: "piedi" }, { type: "vln2x2", x: 1, y: 2, posa: "piedi" }, { type: "archi2leggio", x: 1, y: 2, posa: "piedi" }, { type: "violoncello", x: 1, y: 2, posa: "piedi" }]);
+  ok(doppie.every(i => i.posa === undefined), "le postazioni doppie a schema e gli altri archi non hanno posa");
+  conIconePiedi((Lx) => {
+    A.LIB_ICONS.musViolino1Piedi = L.musViolino1Piedi; A.LIB_ICONS.musViolino1 = L.musViolino1; A.LIB_ICONS.musViolino2Piedi = L.musViolino2Piedi; A.LIB_ICONS.musViolino2 = L.musViolino2;
+    A.state.items = [];
+    const a = add("vlnpost", 300, 200, { vsec: 1 }), b = add("vlnpost", 500, 200, { vsec: 2 }), g = add("saxalto", 700, 200);
+    a.rot = 180; A.selSet = {}; [a, b, g].forEach(i => { A.selSet[i.id] = true; }); A.sel = a.id;
+    A.cambiaPosaSelezione(true);
+    eq([a.posa, b.posa, g.posa], ["piedi", "piedi", "piedi"], "violini e sax insieme");
+    const dc = L.musViolino1Piedi.dc;
+    eq([a.x, a.y], [Math.round(300 + dc[0] * Math.cos(Math.PI) - dc[1] * Math.sin(Math.PI)), Math.round(200 + dc[0] * Math.sin(Math.PI) + dc[1] * Math.cos(Math.PI))], "il violino ruotato di 180° si sposta dello scarto girato");
+    A.cambiaPosaSelezione(false);
+    eq([a.x, a.y, b.x, b.y, g.x, g.y, a.w, a.d], [300, 200, 500, 200, 700, 200, 100, 115], "tornando seduti tutto com'era");
+    const vp = add("vlnpost", 900, 200, { vsec: 1, posa: "piedi" }); ok(vp.posa === "piedi" && vp.w === 90, "dal catalogo/da script: nasce in piedi con l'ingombro della posa");
+  });
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/function addViolin\(sec, inPiedi\)\{[^}]*posa="piedi"/.test(appjs.replace(/\s+/g, " ").replace(/\{ var/g, "{ var")) || /if\(inPiedi===true\)\{ o\.sedia=false; o\.posa="piedi"; \}/.test(appjs), "«Violinista in piedi» del catalogo nasce con la posa In piedi (prima il disegno restava seduto)");
+});
 /* ═══ Inventario: etichette già fatte + UN solo pulsante «Inventario» sulla pagina del QR (18/11/2026, migrazione 0091) ═══ */
 const eticSql = readFileSync(join(root, "supabase/migrations/0091_inventario_etichette.sql"), "utf8").replace(/--[^\n]*/g, "");
 const eticFn = (() => { const a = eticSql.indexOf("create or replace function public.inv_etichette_segna("), b = eticSql.indexOf("revoke all on function public.inv_etichette_segna", a); return eticSql.slice(a, b); })();
