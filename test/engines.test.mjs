@@ -36433,10 +36433,10 @@ t("Inventario/tabella: la scheda usa la stessa funzione del telefono; il menu no
   const area = readFileSync(join(root, "inventario/inv-area.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, ""), sch = readFileSync(join(root, "inventario/inv-scheda.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
   ok(/st\.addEventListener\("change", function \(\) \{\s*var nuovo = st\.value; st\.value = a\.stato;[^}]*INVScheda\.cambioStato\(ctxScheda\(\), a, nuovo,/.test(area), "il menu apre la scheda e rimette subito il valore di prima");
   ok(!/st\.addEventListener\("change"[^\n]*salva\("stato"/.test(area) && !/salva\("stato"/.test(area), "il menu non salva più lo stato da solo");
-  ok(/S\.c\.rpc\("inv_movimento", args\)/.test(sch) && /argomentiMovimento\(S\.inv\.slug, a\.codice, tipoMov, aChi, F\.data\.value, nota\)/.test(sch), "i movimenti passano da inv_movimento (security definer), come sul telefono");
+  ok(/if \(!o \|\| !o\.ok\) \{ errore\(o\); return; \}/.test(sch) && /S\.c\.rpc\("inv_movimento", args\)/.test(sch) && /argomentiMovimento\(S\.inv\.slug, a\.codice, tipoMov, aChi, F\.data\.value, nota\)/.test(sch), "i movimenti passano da inv_movimento (security definer), come sul telefono");
   ok(/PUB\.pianoCambioStato\(a, nuovo\)/.test(sch) && /PUB\.erroreMov\(o\)/.test(sch) && /PUB\.campo\(/.test(sch) && /PUB\.segnalaErrore\(/.test(sch), "piano, errori e campi vengono da /i/inv.js (nessun duplicato)");
   ok(/ok\.addEventListener\("click"/.test(sch) && /if \(inCorso\) return;/.test(sch) && /inCorso = true; ok\.disabled = true; no\.disabled = true;/.test(sch), "lo stato cambia solo al clic su «Conferma», una volta sola");
-  ok(/aggiornaStato\(nuovo\)/.test(sch) && /aggiornaStato\(P\.poi\)/.test(sch) && /\.update\(\{ stato: val,/.test(sch), "solo i casi senza movimento (rimetti in sede, dismesso, dopo il rientro) scrivono la colonna stato");
+  ok(/aggiornaStato\(nuovo\)/.test(sch) && /var dopo = P\.poi \? aggiornaStato\(P\.poi\)\.then\(/.test(sch) && /\.update\(\{ stato: val,/.test(sch), "solo i casi senza movimento (rimetti in sede, dismesso, dopo il rientro) scrivono la colonna stato");
   ok(/if \(!F\.nome\.value\.trim\(\)\)[\s\S]*?"Scrivi il nome\."/.test(sch) && /"Scrivi il cognome\."/.test(sch), "consegna: nome e cognome obbligatori, come sul telefono");
   ok(/MOD\.cartaModulo\(/.test(sch) && /tipoMov === "consegna"/.test(sch), "dopo la consegna compare il modulo di comodato");
   ok(/function annulla\(\) \{ if \(chiuso\) return; w\.chiudi\(\); if \(opz\.annulla\) opz\.annulla\(\); \}/.test(sch) && /ev\.key === "Escape"/.test(sch), "Esc e «Annulla» chiudono e fanno tornare il menu");
@@ -36449,7 +36449,7 @@ t("Inventario/tabella: «Elimina» chiede conferma con un popup vero (non window
   const area = readFileSync(join(root, "inventario/inv-area.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, ""), sch = readFileSync(join(root, "inventario/inv-scheda.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
   ok(/INVScheda\.elimina\(ctxScheda\(\), a\)/.test(area) && !/inv_articoli"\)\.delete\(\)/.test(area) && !/dataset\.chiedi|Sicuro\? Elimina/.test(area), "il pulsante della riga apre il popup, non cancella più da solo (via il vecchio «Sicuro?»)");
   ok(!/\bconfirm\s*\(|window\.confirm|\balert\s*\(|\bprompt\s*\(/.test(area + sch), "mai window.confirm/alert/prompt");
-  ok(/no\.focus\(\);\s*\/\/ di serie su «Annulla»|no\.focus\(\);/.test(sch) && /id: "sch-elimina", text: "Elimina", disabled: true/.test(sch), "focus di serie su «Annulla»; «Elimina» nasce disattivato");
+  ok(/no\.focus\(\);\s*\/\/ di serie su «Annulla»: Invio non elimina\s*return w;/.test(sch) && /id: "sch-elimina", text: "Elimina", disabled: true/.test(sch), "focus di serie su «Annulla»; «Elimina» nasce disattivato");
   ok(/GUARDIA_MS = 600/.test(sch) && /armato: function \(\) \{ si\.disabled = false; \}/.test(sch) && /if \(!w\.armato\(\) \|\| inCorso\) return; inCorso = true; si\.disabled = true;/.test(sch), "guardia di 600 ms e blocco del secondo clic");
   ok(/\.delete\(\)\.eq\("id", a\.id\)\.select\("id"\)/.test(sch) && /r\.data\.length !== 1/.test(sch), "si elimina solo se il database ha cancellato davvero una riga");
   ok(/velo\.addEventListener\("mousedown", function \(ev\) \{ if \(ev\.target === velo && opz\.veloChiude && armato\)/.test(sch), "il clic sul velo annulla, ma non nei primi 600 ms");
