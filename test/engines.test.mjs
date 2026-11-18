@@ -36331,6 +36331,145 @@ t("voci Maschile/Femminile (18/11): una selezione multipla, anche di tipi misti,
   ok(/id="pSesso"/.test(readFileSync(join(root, "app/index.html"), "utf8")) && /data-chips="pSesso"/.test(readFileSync(join(root, "app/index.html"), "utf8")), "il controllo è nel pannello");
 });
 
+/* ═══ Sax in piedi (18/11/2026): it.posa = "piedi" · tre icone nuove · nessuna sedia in piedi · progetti vecchi identici ═══ */
+const SAX3 = ["saxalto", "saxtenore", "saxbaritono"];
+function conIconePiedi(fn) {   /* nel sandbox LIB_ICONS è lo stub: si presta un oggetto con le icone vere dei sax (seduti e in piedi) */
+  const L = iconeVere(), prima = A.LIB_ICONS, presto = {};
+  ["musSaxAlto", "musSaxTenore", "musSaxBaritono", "musSaxAltoPiedi", "musSaxTenorePiedi", "musSaxBaritonoPiedi"].forEach(k => { presto[k] = L[k]; });
+  A.LIB_ICONS = presto;
+  try { return fn(L); } finally { A.LIB_ICONS = prima; }
+}
+t("sax in piedi (18/11): le tre icone sono vettoriali pulite (solo fill e path), con riquadro e scarto del centro", () => {
+  const L = iconeVere();
+  for (const k of ["musSaxAltoPiedi", "musSaxTenorePiedi", "musSaxBaritonoPiedi"]) {
+    const e = L[k]; ok(e && e.body, "manca " + k + " in icons.js");
+    ok(e.vb[0] === 0 && e.vb[1] === 0 && e.vb[2] > 40 && e.vb[2] < 80 && e.vb[3] > 60 && e.vb[3] < 90, k + ": riquadro in cm da 0,0, misure di un musicista in piedi");
+    ok(Array.isArray(e.dc) && e.dc.length === 2 && e.dc.every(Number.isFinite), k + ": scarto del centro rispetto al seduto (dc)");
+    ok(!/<(clipPath|mask|image|filter|use|style|linearGradient|radialGradient|text)\b|clip-path|transform=|class=|style=/.test(e.body), k + ": niente clip, maschere, trasformazioni, stili, immagini");
+    ok(!/[-\d]\.\d{3,}/.test(e.body.replace(/stroke-width="[^"]*"/g, "")), k + ": coordinate a 2 decimali");
+    ok(e.body.length < 90000, k + ": peso contenuto (" + e.body.length + ")");
+  }
+  /* il busto resta dov'è: il centro in piedi meno il centro seduto (stesso sistema di coordinate) è il dc */
+  const seduto = { musSaxAltoPiedi: "musSaxAlto", musSaxTenorePiedi: "musSaxTenore", musSaxBaritonoPiedi: "musSaxBaritono" };
+  for (const [k, sk] of Object.entries(seduto)) ok(Math.abs(L[k].dc[0]) < 4 && Math.abs(L[k].dc[1]) < 7, k + ": dc plausibile rispetto a " + sk + " (" + L[k].dc + ")");
+});
+t("sax in piedi (18/11): senza posa = seduto, come ieri (ingombro, sedia, JSON); «piedi» solo per i sax", () => {
+  A.state.items = [];
+  const a = add("saxalto", 300, 200);
+  ok(a.posa === undefined && !("posa" in a), "un sax nuovo non ha il campo");
+  eq([a.w, a.d], [95, 105], "ingombro seduto invariato");
+  eq(A.countAccessori().sedie, 1, "una sedia");
+  ok(!/"posa"/.test(JSON.stringify(A.state.items)), "nel salvataggio non compare");
+  eq(A.optSedia(a), true, "la sedia c'è");
+  const cl = add("clarinetto", 500, 200); cl.posa = "piedi";
+  ok(A.inPiedi(cl) === false && A.postazOf(cl) === A.POSTAZ.clarinetto, "il campo su un clarinetto non conta");
+  const puliti = A.sanitizeItems([{ type: "saxalto", x: 1, y: 2, posa: "piedi" }, { type: "saxtenore", x: 1, y: 2, posa: "boh" }, { type: "clarinetto", x: 1, y: 2, posa: "piedi" }, { type: "saxbaritono", x: 1, y: 2 }]);
+  eq(puliti.map(i => i.posa), ["piedi", undefined, undefined, undefined], "import: «piedi» solo sui sax, ogni altro valore = seduto");
+  eq([puliti[0].w, puliti[0].d], [70, 110], "l'ingombro in piedi si ricalcola all'import");
+  eq([puliti[1].w, puliti[1].d], [100, 108], "valore sconosciuto: ingombro seduto");
+});
+t("sax in piedi (18/11): cambio posa su più sax selezionati (anche misti): solo la posa, il busto resta fermo, ingombro e sedie seguono; annulla", () => {
+  A.state.items = [];
+  const al = add("saxalto", 300, 200), te = add("saxtenore", 500, 200), ba = add("saxbaritono", 700, 200), cl = add("clarinetto", 900, 200), fuori = add("saxalto", 1100, 200);
+  te.rot = 90; ba.label = "Sax B 1"; ba.leggio = false;
+  A.selSet = {}; [al, te, ba, cl].forEach(i => { A.selSet[i.id] = true; }); A.sel = al.id;
+  eq(A.countAccessori().sedie, 5, "5 sedie da seduti");
+  conIconePiedi((L) => {
+    const prima = [al, te, ba, cl, fuori].map(i => [i.x, i.y, i.rot, i.label, i.leggio, i.sedia, i.ch, i.w, i.d]);
+    A.cambiaPosaSelezione(true);
+    eq([al.posa, te.posa, ba.posa], ["piedi", "piedi", "piedi"], "i tre sax diventano «in piedi»");
+    ok(cl.posa === undefined && fuori.posa === undefined, "il clarinetto selezionato e il sax non selezionato restano come sono");
+    eq([al.w, al.d, te.w, te.d, ba.w, ba.d], [70, 110, 60, 108, 65, 112], "ingombro della posa");
+    eq(A.countAccessori().sedie, 2, "restano la sedia del clarinetto e quella del sax non selezionato: in piedi non si contano");
+    eq([te.label, ba.label, te.leggio, ba.leggio], [prima[1][3], "Sax B 1", prima[1][4], false], "nome e leggio restano");
+    /* il centro dell'elemento segue il busto: scarto dc girato come l'elemento (tenore a 90°) */
+    const dc = L.musSaxTenorePiedi.dc, r = Math.PI / 2;
+    eq([te.x, te.y], [Math.round(500 + dc[0] * Math.cos(r) - dc[1] * Math.sin(r)), Math.round(200 + dc[0] * Math.sin(r) + dc[1] * Math.cos(r))], "il tenore ruotato si sposta dello scarto girato");
+    A.cambiaPosaSelezione(false);
+    ok([al, te, ba].every(i => i.posa === undefined && !("posa" in i)), "di nuovo seduti: il campo sparisce");
+    eq([al, te, ba, cl, fuori].map(i => [i.x, i.y, i.rot, i.label, i.leggio, i.sedia, i.ch, i.w, i.d]), prima, "tutto com'era prima (posizione, ingombro, nomi)");
+    eq(A.countAccessori().sedie, 5, "le sedie tornano");
+    A.cambiaPosaSelezione(false);
+    eq([al.x, al.y], [300, 200], "chiedere «seduto» a chi è già seduto non muove niente");
+    A.impostaPosa(cl, true);
+    ok(cl.posa === undefined && cl.x === 900 && cl.y === 200 && cl.w === prima[3][7], "un elemento che non è un sax non cambia mai posa né posto");
+  });
+});
+t("sax in piedi (18/11): postazione a 2 e dividi; niente sedie anche sul foglio per il teatro; sedie dello schematico", () => {
+  A.state.items = [];
+  const a = add("saxtenore", 400, 300); a.posa = "piedi"; a.doppia = true; a.sep = 100; A.recalcItemDims(a);
+  eq([a.w, a.d], [100 + (140 - 90), 108], "doppia in piedi: larghezza = distanza + (dbl − sep)");
+  eq(A.countAccessori().sedie, 0, "la doppia in piedi non ha sedie (seduta ne avrebbe 2)");
+  a.posa = undefined; delete a.posa; A.recalcItemDims(a);
+  eq([a.w, a.d], [100 + (185 - 90), 108], "seduta: come sempre");
+  eq(A.countAccessori().sedie, 2, "doppia seduta = 2 sedie");
+  const b = add("saxalto", 600, 300); b.posa = "piedi"; A.recalcItemDims(b); b.look = "schematico";
+  ok(A.postArt(b) === null, "schematico: nessuna illustrazione");
+  const g = A.TYPES.saxalto.draw(b);
+  ok(typeof g === "string" && g.length > 0, "lo schematico si disegna lo stesso");
+  const bSed = Object.assign({}, b); delete bSed.posa;
+  ok(g.length < A.TYPES.saxalto.draw(bSed).length, "schematico in piedi: senza il disegno della sedia (più corto di quello seduto)");
+  const cat = add("saxbaritono", 800, 300, { posa: "piedi" }), catCl = add("clarinetto", 900, 300, { posa: "piedi" });
+  eq([cat.posa, cat.w, cat.d], ["piedi", 65, 112], "dal catalogo/ricerca (over posa) nasce in piedi, con l'ingombro della posa");
+  ok(catCl.posa === undefined, "su un tipo che non è un sax la posa viene scartata");
+  eq(A.optSedia(b), false, "in piedi la sedia non esiste neanche nello schematico");
+  b.look = "illustrato"; eq(A.postArt(b), "musSaxAltoPiedi", "illustrato: l'icona in piedi");
+  delete b.posa; eq(A.postArt(b), "musSaxAlto", "seduto: l'icona di sempre");
+  b.posa = "piedi";
+  A.state.items = [b]; eq(A.countAccessori().sedie, 0, "un solo sax in piedi: zero sedie (la riga «Sedie» del foglio per il teatro e il cartiglio leggono questo conteggio)");
+});
+t("sax in piedi (18/11): pannello «Posizione: Seduto / In piedi» come «Figura», ricerca «sax in piedi», disegno con e senza leggio", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="pPosaWrap"/.test(html) && /data-chips="pPosa"/.test(html) && /<label>Posizione<\/label>/.test(html), "riga Posizione nel pannello");
+  ok(/data-v="seduto"[^>]*>Seduto</.test(html) && /data-v="piedi"[^>]*>In piedi</.test(html), "due scelte: Seduto, In piedi");
+  ok(/over:\{posa:"piedi"\}[\s\S]{0,200}sax in piedi/.test(appjs), "la ricerca «sax in piedi» porta al sax con la posa");
+  ok(/getElementById\("pPosa"\)\.addEventListener\("change", function\(\)\{ cambiaPosaSelezione\(this\.value==="piedi"\); \}\)/.test(appjs), "la scelta del pannello cambia la posa di tutta la selezione");
+  conIconePiedi(() => {
+    A.state.items = [];
+    const a = add("saxalto", 300, 200); a.posa = "piedi"; A.recalcItemDims(a);
+    const con = A.TYPES.saxalto.draw(a); a.leggio = false; const senza = A.TYPES.saxalto.draw(a);
+    ok(con.length > senza.length, "il leggio resta davanti alla figura in piedi se acceso");
+    ok(/L\d+_musSaxAltoPiedi_/.test(senza), "disegna l'icona in piedi (id con il prefisso dell'icona)");
+    delete a.posa; ok(!/PiedI|Piedi_/.test(A.TYPES.saxalto.draw(a)), "seduto: non compare l'icona in piedi");
+  });
+});
+
+t("violino in piedi (18/11): stessa posa dei sax — icone I e II pulite, ingombro, nessuna sedia, doppie a schema invariate, «Violinista in piedi» con l'icona vera", () => {
+  const L = iconeVere();
+  for (const k of ["musViolino1Piedi", "musViolino2Piedi"]) {
+    const e = L[k]; ok(e && e.body, "manca " + k);
+    ok(e.vb[2] > 80 && e.vb[2] < 82 && e.vb[3] > 65 && e.vb[3] < 67, k + ": 80,5×65,8 / 81,5×66,6 come approvato (" + e.vb + ")");
+    ok(Array.isArray(e.dc) && e.dc.every(Number.isFinite) && Math.abs(e.dc[0]) < 2 && Math.abs(e.dc[1]) < 3, k + ": scarto del centro (dc)");
+    ok(!/<(clipPath|mask|image|filter|use|style|linearGradient|radialGradient|text)\b|clip-path|transform=|class=|style=/.test(e.body), k + ": solo fill e path");
+    ok(e.body.length < 60000, k + ": peso contenuto (" + e.body.length + ")");
+  }
+  A.state.items = [];
+  const v1 = add("vlnpost", 300, 200, { vsec: 1 }), v2 = add("vlnpost", 500, 200, { vsec: 2 });
+  ok(v1.posa === undefined && v2.posa === undefined, "un violino nuovo è seduto, senza campo");
+  eq([v1.w, v1.d], [100, 105], "ingombro seduto di un violino nuovo: quello del catalogo, invariato (il ricalcolo alla riapertura lo porta a 100×115, come già oggi)"); eq(A.countAccessori().sedie, 2, "due sedie");
+  v1.posa = "piedi"; v2.posa = "piedi"; A.recalcItemDims(v1); A.recalcItemDims(v2);
+  eq([v1.w, v1.d, v2.w, v2.d], [90, 105, 90, 105], "ingombro in piedi");
+  eq(A.countAccessori().sedie, 0, "in piedi: nessuna sedia");
+  eq([A.postArt(v1), A.postArt(v2)], ["musViolino1Piedi", "musViolino2Piedi"], "Vln I e Vln II: ognuno la sua icona in piedi");
+  delete v2.posa; eq(A.postArt(v2), "musViolino2", "seduto: l'icona di sempre");
+  const doppie = A.sanitizeItems([{ type: "vln1x2", x: 1, y: 2, posa: "piedi" }, { type: "vln2x2", x: 1, y: 2, posa: "piedi" }, { type: "archi2leggio", x: 1, y: 2, posa: "piedi" }, { type: "violoncello", x: 1, y: 2, posa: "piedi" }]);
+  ok(doppie.every(i => i.posa === undefined), "le postazioni doppie a schema e gli altri archi non hanno posa");
+  conIconePiedi((Lx) => {
+    A.LIB_ICONS.musViolino1Piedi = L.musViolino1Piedi; A.LIB_ICONS.musViolino1 = L.musViolino1; A.LIB_ICONS.musViolino2Piedi = L.musViolino2Piedi; A.LIB_ICONS.musViolino2 = L.musViolino2;
+    A.state.items = [];
+    const a = add("vlnpost", 300, 200, { vsec: 1 }), b = add("vlnpost", 500, 200, { vsec: 2 }), g = add("saxalto", 700, 200);
+    a.rot = 180; A.selSet = {}; [a, b, g].forEach(i => { A.selSet[i.id] = true; }); A.sel = a.id;
+    A.cambiaPosaSelezione(true);
+    eq([a.posa, b.posa, g.posa], ["piedi", "piedi", "piedi"], "violini e sax insieme");
+    const dc = L.musViolino1Piedi.dc;
+    eq([a.x, a.y], [Math.round(300 + dc[0] * Math.cos(Math.PI) - dc[1] * Math.sin(Math.PI)), Math.round(200 + dc[0] * Math.sin(Math.PI) + dc[1] * Math.cos(Math.PI))], "il violino ruotato di 180° si sposta dello scarto girato");
+    A.cambiaPosaSelezione(false);
+    eq([a.x, a.y, b.x, b.y, g.x, g.y, a.w, a.d], [300, 200, 500, 200, 700, 200, 100, 115], "tornando seduti tutto com'era");
+    const vp = add("vlnpost", 900, 200, { vsec: 1, posa: "piedi" }); ok(vp.posa === "piedi" && vp.w === 90, "dal catalogo/da script: nasce in piedi con l'ingombro della posa");
+  });
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/function addViolin\(sec, inPiedi\)\{[^}]*posa="piedi"/.test(appjs.replace(/\s+/g, " ").replace(/\{ var/g, "{ var")) || /if\(inPiedi===true\)\{ o\.sedia=false; o\.posa="piedi"; \}/.test(appjs), "«Violinista in piedi» del catalogo nasce con la posa In piedi (prima il disegno restava seduto)");
+});
 /* ═══ Inventario: etichette già fatte + UN solo pulsante «Inventario» sulla pagina del QR (18/11/2026, migrazione 0091) ═══ */
 const eticSql = readFileSync(join(root, "supabase/migrations/0091_inventario_etichette.sql"), "utf8").replace(/--[^\n]*/g, "");
 const eticFn = (() => { const a = eticSql.indexOf("create or replace function public.inv_etichette_segna("), b = eticSql.indexOf("revoke all on function public.inv_etichette_segna", a); return eticSql.slice(a, b); })();

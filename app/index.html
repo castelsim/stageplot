@@ -5209,6 +5209,13 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
       <div id="pModInfo" class="prop-hint"></div>
     </div>
     <div id="pPostaz" style="display:none;border-top:1px solid #eef0f2;margin-top:10px;padding-top:8px">
+      <div class="stpr-f" id="pPosaWrap" style="display:none"><label>Posizione</label>
+        <div class="chips" data-chips="pPosa">
+          <button type="button" data-v="seduto" title="Seduto: la figura con la sedia">Seduto</button>
+          <button type="button" data-v="piedi" title="In piedi: senza sedia, il sax appeso al collo">In piedi</button>
+        </div>
+        <select id="pPosa" hidden><option value="seduto">seduto</option><option value="piedi">in piedi</option></select>
+      </div>
       <div id="pFlags">
         <label class="chk" id="pSediaLbl"><input type="checkbox" id="pSedia"> Sedia</label>
         <label class="chk"><input type="checkbox" id="pLeggioCfg"> Leggio</label>
