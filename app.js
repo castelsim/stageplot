@@ -21014,7 +21014,7 @@ function renderProps(){
   var pv=document.getElementById("pVoce"), isVoce=!!VOCE[it.type];
   pv.style.display = isVoce ? "block" : "none";
   if(isVoce){
-    document.getElementById("pDonna").checked = it.donna===true;
+    var _sx=document.getElementById("pSesso"); _sx.value = it.donna===true ? "f" : "m"; try{ _sx.dispatchEvent(new Event("chips-sync")); }catch(e){}
     var _mmw=document.getElementById("pMicModeWrap"); if(_mmw) _mmw.style.display = "";
     var _mm=document.getElementById("pMicMode"); if(_mm){ _mm.value = micModeOf(it); try{ _mm.dispatchEvent(new Event("chips-sync")); }catch(e){} }
     document.getElementById("pLeggioV").checked = it.leggio!==false;
@@ -21908,7 +21908,25 @@ document.getElementById("grpLegDist").addEventListener("input", function(){
 });
 document.getElementById("grpLegDist").addEventListener("change", function(){ legDistApplySel(true, this.value, selItems()); });
 document.getElementById("grpLegDistReset").addEventListener("click", function(){ legDistApplySel(true, 0, selItems()); });
-document.getElementById("pDonna").addEventListener("change", function(){ var c=document.getElementById("pDonna").checked; mutSelAll(function(it){ it.donna=c; }); });
+/* Maschile / Femminile (18/11/2026): vale per TUTTE le voci selezionate, anche di tipi diversi (cantante + corista…); posizione,
+   rotazione, nome, canali e collegamenti restano. Solo il tipo con nomeF (Attore/Attrice) cambia il nome se è quello automatico. */
+function impostaSessoVoce(it, donna){
+  it.donna=donna;
+  var t=TYPES[it.type]; if(!t||!t.nomeF||typeof it.label!=="string") return;
+  var da=donna?t.nome:t.nomeF, a=donna?t.nomeF:t.nome;
+  if(it.label.indexOf(da+" ")!==0 || !/^\d+$/.test(it.label.slice(da.length+1))) return;
+  var n=(state.items||[]).reduce(function(m,o){ return (o!==it && o.type===it.type && typeof o.label==="string" && o.label.indexOf(a+" ")===0 && /^\d+$/.test(o.label.slice(a.length+1))) ? Math.max(m,+o.label.slice(a.length+1)) : m; }, 0);
+  it.label=a+" "+(n+1);
+}
+function cambiaSessoSelezione(donna){
+  primaDiAgire();
+  var tutti=(state.items||[]).filter(function(x){ return selSet[x.id] && VOCE[x.type]; });
+  if(!tutti.length){ var s=getSel(); if(s && VOCE[s.type]) tutti=[s]; }
+  if(!tutti.length) return;
+  tutti.forEach(function(it){ impostaSessoVoce(it, donna); });
+  render(); save();
+}
+document.getElementById("pSesso").addEventListener("change", function(){ cambiaSessoSelezione(this.value==="f"); });
 document.getElementById("pMicMode").addEventListener("change", function(){ var v=this.value; mutSelAll(function(it){ it.micMode=v; delete it.mano; delete it.nomic; if(it.type==="cantante"||it.poltrona===true){ var vm=voceMisure(it); it.w=vm[0]; it.d=vm[1]; } }); __cabRes=null; render(); });
 document.getElementById("pLeggioV").addEventListener("change", function(){ mutSel(function(it){
   it.leggio=document.getElementById("pLeggioV").checked;

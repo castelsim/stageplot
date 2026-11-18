@@ -5224,7 +5224,13 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
       </div>
     </div>
     <div id="pVoce" style="display:none;border-top:1px solid #eef0f2;margin-top:10px;padding-top:8px">
-      <label class="chk" style="display:none"><input type="checkbox" id="pDonna"> Donna (maglietta rosa)</label>
+      <div class="stpr-f" id="pSessoWrap"><label>Figura</label>
+        <div class="chips" data-chips="pSesso">
+          <button type="button" data-v="m" title="Figura maschile (maglietta blu)">Maschile</button>
+          <button type="button" data-v="f" title="Figura femminile (maglietta rosa)">Femminile</button>
+        </div>
+        <select id="pSesso" hidden><option value="m">maschile</option><option value="f">femminile</option></select>
+      </div>
       <div class="stpr-f" id="pMicModeWrap"><label>Microfono</label>
         <div class="chips" data-chips="pMicMode">
           <button type="button" data-v="tonda">Base tonda</button>
