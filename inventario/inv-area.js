@@ -29,7 +29,7 @@
   function opzioni(sel, voci, valore) { voci.forEach(function (v) { var o = h("option", { value: v[0], text: v[1] }); if (v[0] === valore) o.selected = true; sel.appendChild(o); }); return sel; }
   var ERRORI = { troppi_inventari: "Hai già 5 inventari: è il massimo.", troppi_articoli: "Un inventario può avere al massimo 2000 articoli.", troppi_tipi: "Un inventario può avere al massimo 40 tipi.",
     numeri_esauriti: "Numeri finiti per questo tipo (99999).", tipo_mancante: "Scegli o crea prima il tipo.", dati_non_validi: "Controlla i campi: qualcosa non è valido.", non_trovato: "Non trovo l'inventario (o non sei il proprietario).", non_autenticato: "Accedi di nuovo.",
-    slug_occupato: "Questo indirizzo è già preso: scegline un altro.", troppi_membri: "Al massimo 20 persone abilitate." };
+    slug_occupato: "Questo indirizzo è già preso: scegline un altro.", non_autorizzato: "Il tuo accesso non è abilitato per questo inventario.", troppi_membri: "Al massimo 20 persone abilitate." };
   function errore(r, e) {
     if (e) return "Non riesco a collegarmi: riprova fra poco.";
     if (r && r.errore === "dati_non_validi" && r.campo === "slug") return "Indirizzo non valido: 3-30 caratteri tra lettere minuscole, numeri e trattini (non sono ammessi nomi riservati come «inv» o «admin»).";
@@ -183,7 +183,8 @@
     var prop = proprietario(), elenco = filtrati(), nSel = elenco.filter(function (a) { return S.sel[a.id]; }).length;
     var vuoto = !S.articoli.length;
     var bElenco = h("button", { class: "btn primario", type: "button", id: "bElenco", text: "Stampa elenco (" + elenco.length + ")", disabled: !elenco.length, onclick: function () { vistaStampaElenco(filtrati()); } });
-    var bEtichette = h("button", { class: "btn", type: "button", id: "bEtichette", text: nSel ? "Etichette dei " + nSel + " selezionati" : "Etichette (" + elenco.length + ")", disabled: !elenco.length, onclick: function () { vistaEtichette(nSel ? elenco.filter(function (a) { return S.sel[a.id]; }) : elenco); } });
+    var bEtichette = h("button", { class: "btn", type: "button", id: "bEtichette", onclick: function () { apriEtichette(); } });
+    etichetteTesto(bEtichette, elenco);
     disegna([
       h("button", { class: "btn testo piccolo indietro", type: "button", text: "← Inventari", onclick: function () { leggiInventari().then(vistaElenco); } }),
       h("div", { class: "testa-inv" }, [h("div", {}, [h("h1", { text: S.inv.nome }), h("p", { class: "indirizzo", text: "stageplot.it/i/" + S.inv.slug })]),
@@ -218,7 +219,9 @@
     var testa = h("tr", {}, [h("th", { text: "Tipo" }), h("th", { text: "Totale" })].concat(R.colonne.map(function (c) { return h("th", { text: c.nome }); })));
     var righe = R.righe.map(function (r) { return h("tr", {}, [h("td", {}, [h("b", { text: r.nome }), h("span", { text: r.prefisso })]), h("td", { text: String(r.totale) })].concat(R.colonne.map(function (c) { return num(r.valori[c.id]); }))); });
     righe.push(h("tr", {}, [h("td", { text: "Totale" }), h("td", { text: String(R.totale.totale) })].concat(R.colonne.map(function (c) { return h("td", { text: String(R.totale.valori[c.id]) }); }))));
-    return h("div", { class: "riepilogo" }, [h("table", {}, [h("caption", { class: "sr-only", text: "Riepilogo per tipo" }), h("thead", {}, [testa]), h("tbody", {}, righe)])]);
+    var da = L.contaDaFare(S.articoli);
+    return h("div", { class: "riepilogo" }, [h("table", {}, [h("caption", { class: "sr-only", text: "Riepilogo per tipo" }), h("thead", {}, [testa]), h("tbody", {}, righe)]),
+      da ? h("div", { class: "etic-conto" }, [h("span", { id: "eticDaFare", text: L.fraseDaEtichettare(da) }), h("button", { class: "btn testo piccolo", type: "button", id: "bDaFare", text: "Vedi le etichette", onclick: function () { vistaEtichette("dafare"); } })]) : null]);
   }
   /* ---- Gestione (solo proprietario): tutte chiuse di serie; «Aggiungi oggetti» aperta solo se l'inventario è vuoto ---- */
   function gestione() {
@@ -294,10 +297,16 @@
     t.addEventListener("input", function () { S.filtro.testo = t.value; var elenco = filtrati(); var tb = document.getElementById("tbArticoli"); if (tb) { vuota(tb); righe(elenco).forEach(function (r) { tb.appendChild(r); }); } aggiornaBottoni(elenco); });
     return h("div", { class: "strumenti" }, [h("div", { class: "cerca" }, [t]), st, ss, so]);
   }
+  /* «Etichette (3 da fare)»; con spunte sulle righe: «Etichette dei 2 selezionati» (le spunte valgono sull'elenco mostrato) */
+  function selezionati(elenco) { return elenco.filter(function (a) { return S.sel[a.id]; }); }
+  function etichetteTesto(b, elenco) {
+    var n = selezionati(elenco).length, da = L.contaDaFare(S.articoli);
+    b.textContent = n ? "Etichette dei " + n + " selezionati" : da ? "Etichette (" + da + " da fare)" : "Etichette"; b.disabled = !S.articoli.length;
+  }
+  function apriEtichette() { var sel = selezionati(filtrati()); if (sel.length) vistaEtichette("scelti", sel.map(function (a) { return a.codice; })); else vistaEtichette("dafare"); }
   function aggiornaBottoni(elenco) {
-    var n = elenco.filter(function (a) { return S.sel[a.id]; }).length, b = document.getElementById("bEtichette"); if (!b) return;
-    b.textContent = n ? "Etichette dei " + n + " selezionati" : "Etichette (" + elenco.length + ")"; b.disabled = !elenco.length;
-    b.onclick = function () { vistaEtichette(n ? elenco.filter(function (a) { return S.sel[a.id]; }) : elenco); };
+    var b = document.getElementById("bEtichette"); if (!b) return;
+    etichetteTesto(b, elenco);
     var e = document.getElementById("bElenco"); if (e) { e.textContent = "Stampa elenco (" + elenco.length + ")"; e.disabled = !elenco.length; }
     var c = document.getElementById("bCsvElenco"); if (c) { c.textContent = "CSV dei " + elenco.length + " mostrati"; c.disabled = !elenco.length; }
     var k = document.getElementById("conteggio"); if (k) k.textContent = frasePosti(elenco);
@@ -315,13 +324,14 @@
       st.addEventListener("change", function () { st.className = "stato-sel " + st.value; salva("stato", st.value); });
       var link = IND.link(S.inv.slug, a.codice, location.origin) + location.search;
       var aprirePag = h("a", { class: "btn piccolo", href: link, target: "_blank", rel: "noopener", text: "Scheda", "aria-label": "Scheda di " + a.codice });
+      var etic = h("button", { class: "btn piccolo", type: "button", text: "Etichetta", "aria-label": "Etichetta di " + a.codice + " (" + (L.etichettaStato(a) || "dismesso") + ")", onclick: function () { vistaEtichette("scelti", [a.codice]); } });
       var del = h("button", { class: "btn piccolo pericolo", type: "button", text: "Elimina", "aria-label": "Elimina " + a.codice, onclick: function () {
         if (del.dataset.chiedi !== "1") { del.dataset.chiedi = "1"; del.textContent = "Sicuro? Elimina"; setTimeout(function () { del.dataset.chiedi = ""; del.textContent = "Elimina"; }, 4000); return; }
         S.c.from("inv_articoli").delete().eq("id", a.id).then(function (r) { if (r.error) { toast("Non eliminato."); return; } S.articoli = S.articoli.filter(function (x) { return x.id !== a.id; }); toast(a.codice + " eliminato. Il numero non verrà riusato."); vistaInventario(); });
       } });
       var t = nomeTipo(a.tipo), prop = proprietario(), x = L.ceLha(a);
       var chi = h("td", { class: "chi" }, x.nome ? [h("b", { text: x.nome }), x.sotto ? h("small", { text: x.sotto }) : null] : x.sotto ? [h("small", { text: x.sotto })] : []);
-      return h("tr", {}, [h("td", {}, [chk]), h("td", { class: "cod" }, [h("a", { href: link, target: "_blank", rel: "noopener", text: a.codice, "aria-label": "Apri la scheda di " + a.codice })]), h("td", { class: "tipo", text: t ? t.singolare : a.tipo }), h("td", {}, [mod]), h("td", {}, [st]), chi, h("td", {}, [nota]), h("td", {}, [h("div", { class: "riga-az" }, [aprirePag, prop ? del : null])])]);
+      return h("tr", {}, [h("td", {}, [chk]), h("td", { class: "cod" }, [h("a", { href: link, target: "_blank", rel: "noopener", text: a.codice, "aria-label": "Apri la scheda di " + a.codice }), L.etichettaDaFare(a) ? h("small", { class: "etic-tag", text: "Etichetta da fare" }) : null]), h("td", { class: "tipo", text: t ? t.singolare : a.tipo }), h("td", {}, [mod]), h("td", {}, [st]), chi, h("td", {}, [nota]), h("td", {}, [h("div", { class: "riga-az" }, [aprirePag, etic, prop ? del : null])])]);
     });
   }
   function tabella(elenco) {
@@ -403,20 +413,79 @@
       h("div", { class: "sx" }, [h("div", { class: "ente", text: S.inv.nome }), cod,
         h("div", {}, [h("div", { class: "tipo", text: (t ? t.singolare : a.tipo) + " n. " + a.numero }), a.modello ? h("div", { class: "mod", text: a.modello }) : null])]), qr]);
   }
-  function vistaEtichette(elenco) {
-    S.vista = "etichette";
-    var pagine = L.impagina(elenco), N = pagine.length;
+  /* ---- Etichette (18/11/2026): di serie solo quelle DA FARE (mai fatte); «Tutti» o «Scelti» per ristampare. Il foglio si butta dopo il taglio: niente versione né data.
+     «Segna come fatte e consegnate» è un clic esplicito DOPO la stampa (il dialogo non dice se è riuscita): imposta la data agli oggetti stampati che non l'avevano; si può annullare. ---- */
+  function vistaEtichette(modo, codici) {
+    S.vista = "etichette"; piediStampa = null;
+    var E = S.etic = { modo: modo === "tutti" || modo === "scelti" ? modo : "dafare", scelti: {}, stampato: false, esito: null }; (codici || []).forEach(function (c) { E.scelti[c] = true; });
+    disegnaEtichette();
+  }
+  function eticElenco() { var E = S.etic; return L.etichetteScelte(S.articoli, E.modo, Object.keys(E.scelti)); }
+  function segnaEtichette(codici, fatta) {
+    return rpc("inv_etichette_segna", { p_inv: S.inv.id, p_codici: codici, p_fatta: fatta }).then(function (r) {
+      if (!r || !r.ok) { toast(errore(r)); return null; }
+      return leggiDentro(S.inv.id).then(function () { return r; });
+    }, function () { toast(errore(null, 1)); return null; });
+  }
+  function disegnaEtichette() {
+    var E = S.etic, elenco = eticElenco(), pagine = L.impagina(elenco), N = pagine.length, da = L.contaDaFare(S.articoli);
     var fogli = pagine.map(function (grp, i) {
       var f = h("div", { class: "foglio" }, grp.map(function (a, k) { return etichetta(a, L.posizione(k)); }));
       f.appendChild(h("div", { class: "piede-foglio" }, [h("span", { text: "" }), h("span", { text: (i + 1) + " di " + N })]));   // etichette: solo «1 di N» (il foglio si butta dopo il taglio)
       return f;
     });
-    piediStampa = null;
+    function modoBtn(id, testo, m) { return h("button", { class: "btn piccolo" + (E.modo === m ? " attivo" : ""), type: "button", id: id, text: testo, "aria-pressed": E.modo === m ? "true" : "false", onclick: function () { if (m === "scelti" && E.modo !== "scelti") E.scelti = {}; E.modo = m; E.esito = null; disegnaEtichette(); } }); }   // «Scelti…» riparte da zero, con la lista aperta
+    var scelte = Object.keys(E.scelti).length;
+    var selettore = h("div", { class: "etic-modo", role: "group", "aria-label": "Quali etichette" }, [modoBtn("eticDaFare2", "Da fare (" + da + ")", "dafare"), modoBtn("eticTutti", "Tutti (" + S.articoli.length + ")", "tutti"), modoBtn("eticScelti", "Scelti" + (scelte ? " (" + scelte + ")" : "…"), "scelti")]);
+    var picker = null;
+    if (E.modo === "scelti") {
+      var righePick = L.etichetteScelte(S.articoli, "tutti").map(function (a) {
+        var c = h("input", { type: "checkbox", checked: !!E.scelti[a.codice], "aria-label": "Etichetta di " + a.codice, onchange: function () { if (this.checked) E.scelti[a.codice] = true; else delete E.scelti[a.codice]; E.esito = null; disegnaEtichette(); } });
+        return h("label", { class: "etic-voce" }, [c, h("b", { text: a.codice }), h("span", { text: a.modello || "" }), h("small", { class: L.etichettaDaFare(a) ? "da-fare" : "", text: L.etichettaStato(a).replace("Etichetta ", "") })]);
+      });
+      picker = h("details", { class: "etic-scelta", open: !scelte }, [h("summary", { text: scelte ? scelte + (scelte === 1 ? " oggetto scelto" : " oggetti scelti") : "Scegli gli oggetti" }), h("div", { class: "etic-lista" }, righePick)]);
+    }
+    var bStampa = h("button", { class: "btn primario", type: "button", id: "bStampa", disabled: !elenco.length, text: "Stampa (" + elenco.length + (elenco.length === 1 ? " etichetta, " : " etichette, ") + N + (N === 1 ? " foglio" : " fogli") + ")", onclick: function () { window.print(); if (!E.stampato) { E.stampato = true; aggiornaAzioni(); } } });
+    var azioni = h("div", { class: "etic-azioni", id: "eticAzioni" });
+    function aggiornaAzioni() {
+      vuota(azioni);
+      var segna = L.dasegnare(elenco), rimetti = L.darimettere(elenco), n1 = segna.length, n2 = rimetti.length;
+      if (E.esito) {
+        azioni.appendChild(h("p", { class: "nota", id: "eticEsito", role: "status", text: E.esito.testo }));
+        if (E.esito.annulla) azioni.appendChild(h("button", { class: "btn piccolo", type: "button", id: "bAnnullaEtic", text: "Annulla", onclick: function () {
+          var cod = E.esito.annulla; this.disabled = true;
+          segnaEtichette(cod, false).then(function (r) { if (!r) { aggiornaAzioni(); return; } E.esito = { testo: "Annullato: " + r.n + (r.n === 1 ? " etichetta torna" : " etichette tornano") + " «da fare»." }; disegnaEtichette(); });
+        } }));
+        return;
+      }
+      function segnaOra(btn) {
+        var cod = segna.map(function (a) { return a.codice; }); btn.disabled = true;
+        segnaEtichette(cod, true).then(function (r) {
+          if (!r) { aggiornaAzioni(); return; }
+          E.modo = "scelti"; E.scelti = {}; elenco.forEach(function (a) { E.scelti[a.codice] = true; }); E.stampato = true;   // il foglio resta visibile con «Annulla»
+          E.esito = { testo: "Segnate come fatte e consegnate il " + L.data() + ": " + r.n + (r.n === 1 ? " etichetta." : " etichette."), annulla: cod }; disegnaEtichette();
+        });
+      }
+      if (E.stampato && n1) azioni.appendChild(h("button", { class: "btn primario", type: "button", id: "bSegna", text: (n1 === 1 ? "Segna come fatta e consegnata" : "Segna come fatte e consegnate (" + n1 + ")"), onclick: function () { segnaOra(this); } }));
+      else if (!E.stampato && n1) {
+        azioni.appendChild(h("p", { class: "nota", text: "Dopo la stampa compare «Segna come fatte e consegnate»: lo premi quando le etichette sono in segreteria." }));
+        /* oggetti la cui etichetta esiste già (prima di questa funzione): «Tutti» o «Scelti…» → clic esplicito, senza stampare */
+        if (E.modo !== "dafare") azioni.appendChild(h("button", { class: "btn testo piccolo", type: "button", id: "bSegnaSenza", text: "Le ho già fatte: segna senza stampare", onclick: function () { segnaOra(this); } }));
+      }
+      if (n2) azioni.appendChild(h("div", { class: "etic-stato" }, [h("span", { text: n2 === 1 && elenco.length === 1 ? L.etichettaStato(rimetti[0]) : n2 + " di queste etichette risultano già fatte" }),
+        h("button", { class: "btn testo piccolo", type: "button", id: "bRimetti", text: "Rimetti da fare", onclick: function () {
+          var cod = rimetti.map(function (a) { return a.codice; }); this.disabled = true;
+          segnaEtichette(cod, false).then(function (r) { if (!r) { aggiornaAzioni(); return; } E.esito = { testo: r.n + (r.n === 1 ? " etichetta rimessa" : " etichette rimesse") + " «da fare»." }; disegnaEtichette(); });
+        } })]));
+    }
+    var vuotaMsg = !elenco.length ? h("p", { class: "nota", id: "eticVuote", text: E.modo === "dafare" ? "Nessuna etichetta da fare: sono tutte fatte. Per ristamparne una scegli «Scelti…» o «Tutti»." : "Nessun oggetto scelto." }) : null;
     disegna([h("div", { class: "vista-barra" }, [h("button", { class: "btn testo piccolo indietro", type: "button", text: "← Torna all'inventario", onclick: vistaInventario }),
-        h("div", { class: "riga" }, [h("button", { class: "btn primario", type: "button", id: "bStampa", text: "Stampa (" + elenco.length + " etichette, " + N + (N === 1 ? " foglio" : " fogli") + ")", onclick: function () { window.print(); } })])]),
-      h("p", { class: "nota", text: "Stampa in A4 al 100% (non «adatta alla pagina»), poi ritaglia lungo le linee tratteggiate e plastifica. Il QR porta a un indirizzo fisso: se ristampi, le vecchie etichette restano valide." }),
+        h("div", { class: "riga" }, [bStampa])]),
+      selettore, picker, azioni, vuotaMsg,
+      elenco.length ? h("p", { class: "nota", text: "Stampa in A4 al 100% (non «adatta alla pagina»), ritaglia lungo le linee tratteggiate e plastifica. Il QR porta a un indirizzo fisso: se ristampi, le vecchie etichette restano valide." }) : null,
       h("div", { class: "fogli" }, fogli)]);
-    // sullo schermo stretto il foglio da 210 mm si rimpicciolisce dentro un contenitore grande quanto lui (come l'elenco); in stampa torna al 100%
+    aggiornaAzioni();
+    window.scrollTo(0, 0);
     adattaFogli();
   }
 

@@ -34197,7 +34197,7 @@ t("Inventario: le etichette sul telefono — stessa correzione dell'elenco (cont
   const corpo = js.slice(js.indexOf("function vistaEtichette("), js.indexOf("/* ---------------------------------------------------------------- avvio */"));
   ok(corpo.length > 500 && /adattaFogli\(\);/.test(corpo), "la vista etichette adatta i fogli allo schermo con adattaFogli()");
   ok(!/marginLeft|marginBottom|window\.innerWidth/.test(corpo), "niente più margine sinistro negativo sulle etichette (spostava il foglio fuori dallo schermo)");
-  ok(/Stampa \(" \+ elenco\.length \+ " etichette, "/.test(corpo) && /id: "bStampa"/.test(corpo) && !/id: "versione"/.test(corpo) && !/Versione del foglio/.test(corpo) && !/aumentalo/.test(corpo), "pulsante «Stampa» senza campo «Versione» né nota «aumentalo»");
+  ok(/Stampa \(" \+ elenco\.length \+ \(elenco\.length === 1 \? " etichetta, " : " etichette, "\)/.test(corpo) && /id: "bStampa"/.test(corpo) && !/id: "versione"/.test(corpo) && !/Versione del foglio/.test(corpo) && !/aumentalo/.test(corpo), "pulsante «Stampa» senza campo «Versione» né nota «aumentalo»");
 });
 t("Inventario/interfaccia L1: sp-base.css condiviso, barra del marchio statica e nascosta in stampa, cartellino, nessuno stile in linea nella pagina del QR (18/11)", () => {
   const idx = readFileSync(join(root, "i/index.html"), "utf8"), css = readFileSync(join(root, "i/inv.css"), "utf8"), base = readFileSync(join(root, "inventario/sp-base.css"), "utf8");
@@ -34210,13 +34210,13 @@ t("Inventario/interfaccia L1: sp-base.css condiviso, barra del marchio statica e
   ok(!/:root\{/.test(css) && /:root\{/.test(base) && /prefers-color-scheme: dark/.test(base), "i token stanno solo in sp-base.css, chiari e scuri");
   ok(!/1d4ed8|text-transform:\s*uppercase|letter-spacing:\s*\.12em/.test(css), "niente anello blu né maiuscolo spaziato sulla pagina del QR");
   ok(/\.stato\.a_casa/.test(base) && /\.stato\.in_riparazione/.test(base) && /\.stato\.smarrito/.test(base) && /\.stato\.dismesso/.test(base), "pillole di stato per tutti gli stati");
-  ok(/inv\.css\?v=7/.test(idx) && /inv\.js\?v=5/.test(idx), "versioni di css e js della pagina alzate (inv.css v7: niente barra, date iOS, touch-action manipulation; carta del modulo senza doppia cornice, L2)");
+  ok(/inv\.css\?v=([7-9]|\d\d)"/.test(idx) && /inv\.js\?v=([5-9]|\d\d)"/.test(idx), "versioni di css e js della pagina alzate (inv.css v7: niente barra, date iOS, touch-action manipulation; carta del modulo senza doppia cornice, L2)");
   ok(/touch-action:manipulation/.test(css) && /\.inv-campo input\[type=date\]/.test(css) && /minmax\(0,1fr\) minmax\(0,1fr\)/.test(css) && /\.inv-form-testa span\{white-space:nowrap/.test(css), "iPhone: niente zoom col doppio tap, date nella colonna, codice del form sempre su una riga");
   { const m = readFileSync(join(root, "inventario/inv-modulo.js"), "utf8"), a = readFileSync(join(root, "inventario/inv-area.js"), "utf8");
     ok(/function appiattisci\(im\)/.test(m) && /fillRect\(0, 0, w, hh\)/.test(m) && /every\(function \(i\) \{ return scuro\(i\)/.test(m), "modulo PDF: il logo si appiattisce su bianco e il nero dei bordi (PNG trasparente salvato JPEG) diventa bianco");
     ok(/g\.fillStyle = "#fff"; g\.fillRect\(0, 0, c\.width, c\.height\); g\.drawImage/.test(a), "caricamento del logo: sfondo bianco prima del disegno (niente quadrato nero)"); }
   const inv = readFileSync(join(root, "i/inv.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
-  ok(/"Elenco completo"/.test(inv) && !/"Tutto l’elenco"/.test(inv), "il link «Elenco completo» sta nel cartellino");
+  ok(!/"Elenco completo"/.test(inv.slice(inv.indexOf("function scheda("), inv.indexOf("function elenco("))) && !/"Tutto l’elenco"/.test(inv), "il vecchio link «Elenco completo» non sta più nel cartellino (UN pulsante «Inventario», 18/11)");
   ok(/segnalaErrore/.test(inv) && /input\.setAttribute\("aria-describedby", p\.id\)/.test(inv) && /input\.setAttribute\("aria-invalid", "true"\)/.test(inv), "errori sul campo legati con aria-describedby");
 });
 t("Inventario/interfaccia L2: area /inventario/ — barra del marchio, sp-base.css, nessun :root locale, stampa intatta, nessuna tabella larga (18/11)", () => {
@@ -36314,6 +36314,71 @@ t("voci Maschile/Femminile (18/11): una selezione multipla, anche di tipi misti,
   eq([c.donna, r1.donna, at.donna], [false, false, false], "e si torna indietro");
   eq(at.label, "Attore 1", "Attrice torna Attore");
   ok(/id="pSesso"/.test(readFileSync(join(root, "app/index.html"), "utf8")) && /data-chips="pSesso"/.test(readFileSync(join(root, "app/index.html"), "utf8")), "il controllo è nel pannello");
+});
+
+/* ═══ Inventario: etichette già fatte + UN solo pulsante «Inventario» sulla pagina del QR (18/11/2026, migrazione 0091) ═══ */
+const eticSql = readFileSync(join(root, "supabase/migrations/0091_inventario_etichette.sql"), "utf8").replace(/--[^\n]*/g, "");
+const eticFn = (() => { const a = eticSql.indexOf("create or replace function public.inv_etichette_segna("), b = eticSql.indexOf("revoke all on function public.inv_etichette_segna", a); return eticSql.slice(a, b); })();
+t("Inventario/etichette: funzioni pure — da fare = mai fatta e non dismesso; scelta di Da fare / Tutti / Scelti; cosa segna e cosa rimette (18/11)", () => {
+  const A = [{ codice: "TAS-010", stato: "in_sede" }, { codice: "TAS-002", stato: "in_sede", etichetta_fatta: "2026-11-18" }, { codice: "PAD-001", stato: "a_casa" },
+    { codice: "TAS-003", stato: "dismesso" }, { codice: "TAS-001", stato: "in_riparazione", etichetta_fatta: "2026-11-01" }];
+  ok(INV_LIB.etichettaDaFare(A[0]) && !INV_LIB.etichettaDaFare(A[1]) && !INV_LIB.etichettaDaFare(A[3]) && !INV_LIB.etichettaDaFare(null), "da fare: senza data e non dismesso");
+  eq(INV_LIB.contaDaFare(A), 2, "contatore");
+  eq(INV_LIB.fraseDaEtichettare(3), "3 da etichettare", "frase"); eq(INV_LIB.fraseDaEtichettare(0), "", "a zero niente");
+  deepEq(INV_LIB.etichetteScelte(A, "dafare").map((a) => a.codice), ["PAD-001", "TAS-010"], "di serie: solo da fare, in ordine di codice naturale (TAS-010 dopo PAD-001)");
+  eq(INV_LIB.etichetteScelte(A, "tutti").length, 5, "«Tutti» = tutto l'inventario, dismessi compresi");
+  deepEq(INV_LIB.etichetteScelte(A, "scelti", ["TAS-002", "XXX-999"]).map((a) => a.codice), ["TAS-002"], "«Scelti»: solo i codici indicati che esistono");
+  deepEq(INV_LIB.etichetteScelte(A, "boh").map((a) => a.codice), ["PAD-001", "TAS-010"], "modo sconosciuto = da fare");
+  const st = INV_LIB.etichetteScelte(A, "tutti");
+  deepEq(INV_LIB.dasegnare(st).map((a) => a.codice), ["PAD-001", "TAS-010"], "«Segna come fatte» tocca solo chi non ha già la data (una ristampa non cambia la data) e mai i dismessi");
+  deepEq(INV_LIB.darimettere(st).map((a) => a.codice), ["TAS-001", "TAS-002"], "«Rimetti da fare» solo chi ha la data");
+  eq(INV_LIB.etichettaStato(A[1]), "Etichetta fatta il 18/11/2026", "testo con la data"); eq(INV_LIB.etichettaStato(A[0]), "Etichetta da fare", "da fare"); eq(INV_LIB.etichettaStato(A[3]), "", "dismesso: niente");
+});
+t("Inventario/etichette (migrazione 0091): colonna data, scrittura SOLO con la funzione dei membri; il pubblico non la vede; foglio senza versione né data (18/11)", () => {
+  ok(/alter table public\.inv_articoli add column if not exists etichetta_fatta date;/.test(eticSql), "colonna etichetta_fatta (data, null = da fare)");
+  ok(!/add constraint[^;]*current_date/.test(eticSql), "nessun CHECK non immutabile sulla data");
+  ok(/security definer set search_path = public, pg_temp/.test(eticFn), "security definer con search_path fisso");
+  ok(/if uid is null then return jsonb_build_object\('ok', false, 'errore', 'non_autenticato'\)/.test(eticFn) && /not public\.inv_e_membro\(p_inv\) then return jsonb_build_object\('ok', false, 'errore', 'non_autorizzato'\)/.test(eticFn), "serve il login e l'appartenenza all'inventario (membro o proprietario)");
+  ok(!/inv_e_proprietario/.test(eticFn), "basta essere abilitati: la segreteria segna le etichette, non solo il proprietario");
+  eq((eticFn.match(/inventario_id = p_inv/g) || []).length, 2, "entrambe le scritture restano dentro l'inventario indicato (un codice di un altro inventario non si tocca)");
+  ok(/update public\.inv_articoli set etichetta_fatta = \(now\(\) at time zone 'Europe\/Rome'\)::date\s+where inventario_id = p_inv and codice = any \(cod\) and etichetta_fatta is null and stato <> 'dismesso'/.test(eticFn), "segna: data di oggi (Italia), solo chi non ce l'ha e non è dismesso");
+  ok(/update public\.inv_articoli set etichetta_fatta = null\s+where inventario_id = p_inv and codice = any \(cod\) and etichetta_fatta is not null/.test(eticFn), "toglie: solo chi ce l'ha");
+  ok(!/aggiornato/.test(eticFn), "non tocca «aggiornato» né altri campi");
+  ok(/array_length\(p_codici, 1\) > 2000/.test(eticFn) && /p_fatta is null/.test(eticFn), "limite di 2000 codici; booleano obbligatorio");
+  ok(/revoke all on function public\.inv_etichette_segna\(uuid, text\[\], boolean\) from public, anon, authenticated;/.test(eticSql) && /grant execute on function public\.inv_etichette_segna\(uuid, text\[\], boolean\) to authenticated, service_role;/.test(eticSql) && !/to anon\b/.test(eticSql), "anon non può chiamarla");
+  ok(!/grant\s+update/i.test(eticSql) && !/grant update[^;]*etichetta/.test(invSqlPulito), "la colonna NON entra nel grant update: nessuna scrittura diretta dai client");
+  ok(!/etichetta/.test(invFn("inv_articolo_pubblico") + invFn("inv_elenco_pubblico")), "le funzioni pubbliche non leggono né mostrano lo stato delle etichette");
+  ok(!/references auth\.users/.test(eticSql), "nessun nuovo riferimento ad auth.users: la pulizia account (0085) resta com'è");
+  const area = readFileSync(join(root, "inventario/inv-area.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const corpo = area.slice(area.indexOf("function vistaEtichette("), area.indexOf("/* ---------------------------------------------------------------- avvio */"));
+  ok(!/L\.data\(\)[^;]*piede|Versione|piediStampa = function/.test(corpo.replace(/E\.esito = \{[^}]*\}/g, "")) && /h\("span", \{ text: "" \}\), h\("span", \{ text: \(i \+ 1\) \+ " di " \+ N \}\)/.test(corpo), "foglio etichette: nel piè solo «1 di N», niente versione né data");
+});
+t("Inventario/etichette: l'area — di serie solo «da fare», «Segna come fatte e consegnate» solo con clic dopo la stampa, annullabile; segno e contatore (18/11)", () => {
+  const area = readFileSync(join(root, "inventario/inv-area.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, ""), css = readFileSync(join(root, "inventario/inv-area.css"), "utf8");
+  ok(/modo: modo === "tutti" \|\| modo === "scelti" \? modo : "dafare"/.test(area), "vista Etichette: di serie «da fare»");
+  ok(/vistaEtichette\("dafare"\)/.test(area) && /"Tutti \(" \+ S\.articoli\.length/.test(area) && /"Da fare \(" \+ da \+ "\)"/.test(area) && /"Scelti"/.test(area), "selettore Da fare / Tutti / Scelti");
+  ok(/window\.print\(\); if \(!E\.stampato\) \{ E\.stampato = true; aggiornaAzioni\(\); \}/.test(area), "il pulsante compare solo dopo il clic su Stampa");
+  ok(/\bif \(E\.stampato && n1\) azioni\.appendChild\(h\("button", \{ class: "btn primario", type: "button", id: "bSegna"/.test(area) && /Segna come fatte e consegnate \(/.test(area), "«Segna come fatte e consegnate» solo dopo la stampa e solo se c'è qualcosa da segnare");
+  ok(!/afterprint|beforeprint[^\n]*segna/i.test(area.replace(/window\.addEventListener\("beforeprint"[^\n]*\n/, "")), "nessuna marcatura automatica dall'evento di stampa");
+  eq((area.match(/rpc\("inv_etichette_segna"/g) || []).length, 1, "una sola chiamata, sempre via funzione");
+  ok((area.match(/segnaEtichette\(cod, true\)/g) || []).length === 1 && (area.match(/segnaEtichette\(cod, false\)/g) || []).length === 2 && /if \(E\.esito\.annulla\) azioni\.appendChild\(h\("button", \{ class: "btn piccolo", type: "button", id: "bAnnullaEtic"/.test(area) && /id: "bRimetti"/.test(area), "annulla e «Rimetti da fare»: tutti e due passano dal server (1 chiamata «segna», 2 «togli»)");
+  ok(!/from\("inv_articoli"\)\.update\(\{[^}]*etichetta/.test(area) && !/salva\("etichetta/.test(area), "mai un update diretto della colonna");
+  ok(/L\.etichettaDaFare\(a\) \? h\("small", \{ class: "etic-tag", text: "Etichetta da fare" \}\)/.test(area), "segno «Etichetta da fare» nell'elenco");
+  ok(/da \? h\("div", \{ class: "etic-conto" \}, \[h\("span", \{ id: "eticDaFare", text: L\.fraseDaEtichettare\(da\) \}\)/.test(area), "contatore «N da etichettare» nel riepilogo");
+  ok(/h\("button", \{ class: "btn piccolo", type: "button", text: "Etichetta", "aria-label"[^\n]*vistaEtichette\("scelti", \[a\.codice\]\)/.test(area) && /h\("div", \{ class: "riga-az" \}, \[aprirePag, etic, /.test(area), "ristampa di una sola etichetta dalla scheda dell'oggetto");
+  ok(/touch-action:manipulation/.test(readFileSync(join(root, "i/inv.css"), "utf8")) && /\.etic-lista\{max-height/.test(css) && /\.etic-modo \.btn\{min-height:34px/.test(css), "controlli piccoli, lista scelta con altezza massima");
+  ok(css.indexOf(".etic-tag{") > css.indexOf("@media print{"), "i nuovi stili stanno dopo il blocco di stampa (che resta identico byte per byte)");
+});
+t("Inventario/pagina del QR: UN solo pulsante «Inventario»; chi è abilitato lo trova nella Segreteria e quello pubblico sparisce (18/11)", () => {
+  const src = readFileSync(join(root, "i/inv.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const fScheda = src.slice(src.indexOf("function scheda("), src.indexOf("function elenco("));
+  ok(/link\("\/i\/" \+ encodeURIComponent\(ind\.slug\), "Inventario", "btn primario grande pieno"\)/.test(fScheda) && /pub\.id = "inv-pub"/.test(fScheda), "pubblico: pulsante «Inventario» verso l'elenco pubblico");
+  ok(!/Elenco completo|linkAreaElenco|assegnato|Ce l/.test(fScheda), "la scheda pubblica non ha altri link né nomi");
+  const fPannello = src.slice(src.indexOf("function pannello("), src.indexOf("function areaSegreteria("));
+  ok(/if \(vaElenco\) \{ var tutto = link\(vaElenco, "Inventario", "btn primario grande pieno inv-tutto"\)/.test(fPannello) && /tutto\.id = "inv-inventario"/.test(fPannello), "membro: «Inventario» verso l'area, già sull'elenco");
+  ok(!/"primario grande pieno"/.test(fPannello), "nel pannello non c'è un secondo primario (Consegna e Rientrato a contorno)");
+  ok(/inserisci\(pannello\(null, cfg, ind, m, client, rigenera, ind\.scheda\)\);\s*var pub = document\.getElementById\("inv-pub"\); if \(pub && pub\.parentNode\) pub\.parentNode\.removeChild\(pub\);/.test(src), "il pulsante pubblico viene tolto solo quando nasce il pannello dei membri (non abilitato: resta)");
+  eq((src.match(/"Inventario", "btn primario grande pieno/g) || []).length, 2, "due soli punti di costruzione (pubblico e membro), mai insieme");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");

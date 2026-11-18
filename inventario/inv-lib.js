@@ -172,7 +172,26 @@
     return { nome: nome, sotto: [corso, dal].filter(Boolean).join(" · ") };
   }
 
-  var L = { riepilogo: riepilogo, ceLha: ceLha, descrizioneStato: descrizioneStato, filtra: filtra, ordina: ordina, confrontaCodice: confrontaCodice, RIGHE_ELENCO: RIGHE_ELENCO, impaginaElenco: impaginaElenco, piedeElenco: piedeElenco, sintesi: sintesi, csvElenco: csvElenco, corpoCodice: corpoCodice, STATI: STATI, FOGLIO: FOGLIO, statoNome: statoNome, statoOk: statoOk, codice: codice, prefissoOk: prefissoOk, proponiPrefisso: proponiPrefisso,
+  /* ---- Etichette già fatte (18/11/2026, migrazione 0091): per ogni oggetto la data in cui l'etichetta è stata fatta e consegnata (null = da fare) ---- */
+  /* da fare = mai fatta e non dismesso (un oggetto dismesso non ha più bisogno dell'etichetta) */
+  function etichettaDaFare(a) { return !!a && !a.etichetta_fatta && a.stato !== "dismesso"; }
+  function contaDaFare(articoli) { return (articoli || []).filter(etichettaDaFare).length; }
+  /* «3 da etichettare» (contatore del riepilogo); a zero: null (non si mostra) */
+  function fraseDaEtichettare(n) { n = +n || 0; return n > 0 ? n + " da etichettare" : ""; }
+  /* quali etichette mostra la vista «Etichette»: modo «dafare» (di serie), «tutti» (tutto l'inventario) o «scelti» (solo i codici indicati, nell'ordine dell'elenco) */
+  function etichetteScelte(articoli, modo, codici) {
+    var ord = (articoli || []).slice().sort(confrontaCodice);
+    if (modo === "tutti") return ord;
+    if (modo === "scelti") { var set = {}; (codici || []).forEach(function (c) { set[c] = true; }); return ord.filter(function (a) { return set[a.codice]; }); }
+    return ord.filter(etichettaDaFare);
+  }
+  /* cosa farebbe «Segna come fatte e consegnate» sugli oggetti stampati: solo chi non ce l'ha già (una ristampa non cambia la data); «Rimetti da fare»: solo chi ce l'ha */
+  function dasegnare(stampate) { return (stampate || []).filter(function (a) { return !a.etichetta_fatta && a.stato !== "dismesso"; }); }
+  function darimettere(stampate) { return (stampate || []).filter(function (a) { return !!a.etichetta_fatta; }); }
+  /* testo sulla scheda di un oggetto: «Etichetta da fare» / «Etichetta fatta il 18/11/2026» */
+  function etichettaStato(a) { return a && a.etichetta_fatta ? "Etichetta fatta il " + dataIt(a.etichetta_fatta) : a && a.stato === "dismesso" ? "" : "Etichetta da fare"; }
+
+  var L = { etichettaDaFare: etichettaDaFare, contaDaFare: contaDaFare, fraseDaEtichettare: fraseDaEtichettare, etichetteScelte: etichetteScelte, dasegnare: dasegnare, darimettere: darimettere, etichettaStato: etichettaStato, riepilogo: riepilogo, ceLha: ceLha, descrizioneStato: descrizioneStato, filtra: filtra, ordina: ordina, confrontaCodice: confrontaCodice, RIGHE_ELENCO: RIGHE_ELENCO, impaginaElenco: impaginaElenco, piedeElenco: piedeElenco, sintesi: sintesi, csvElenco: csvElenco, corpoCodice: corpoCodice, STATI: STATI, FOGLIO: FOGLIO, statoNome: statoNome, statoOk: statoOk, codice: codice, prefissoOk: prefissoOk, proponiPrefisso: proponiPrefisso,
     frase: frase, conteggi: conteggi, cella: cella, csv: csv, dataIt: dataIt, perPagina: perPagina, origineX: origineX, impagina: impagina, posizione: posizione,
     giusto: giusto, data: data, ora: ora, intervallo: intervallo };
   root.INVLib = L;
