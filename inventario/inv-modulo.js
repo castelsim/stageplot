@@ -196,7 +196,7 @@
     function disegna(doc, d, T, size, logo) {
       var X = 20, L = 170, y = 15, inter = size * 0.4 * 1.42, col = rgb(d.colore);
       if (logo || d.intestazione) {
-        var h = logo ? 24 : 0, w = logo ? h * logo.rapporto : 0, nome = d.intestazione, ns = 21;
+        var h = logo ? 28 : 0, w = logo ? h * logo.rapporto : 0, nome = d.intestazione, ns = 21;
         doc.setFont("times", "normal");
         var larghN = function (s) { doc.setFontSize(s); var tot = 0; nome.split("").forEach(function (c) { tot += doc.getTextWidth(c) + 0.9; }); return tot; };
         var maxN = L - w - (logo ? 6 : 0); while (ns > 10 && larghN(ns) > maxN) ns -= 0.5;
@@ -244,11 +244,32 @@
       var nome = nomeFile(d.codice, d.dataIso);
       return { file: new File([doc.output("arraybuffer")], nome, { type: "application/pdf" }), pagine: doc.getNumberOfPages() };
     };
-    /* decodifica il logo una volta sola (dimensioni per il rapporto) */
+    /* decodifica il logo una volta sola (dimensioni per il rapporto) e lo APPIATTISCE su bianco: un PNG trasparente salvato come JPEG ha lo sfondo nero
+       (un quadrato scuro intorno al logo, 18/11). I loghi già salvati così si riparano qui: se i quattro angoli sono scuri, il nero collegato ai bordi diventa bianco. */
+    function appiattisci(im) {
+      try {
+        var w = im.naturalWidth, hh = im.naturalHeight; if (!w || !hh || w * hh > 4000000) return null;
+        var cv = document.createElement("canvas"); cv.width = w; cv.height = hh; var g = cv.getContext("2d");
+        g.fillStyle = "#fff"; g.fillRect(0, 0, w, hh); g.drawImage(im, 0, 0);
+        var dt = g.getImageData(0, 0, w, hh), px = dt.data;
+        var scuro = function (i) { return px[i] < 60 && px[i + 1] < 60 && px[i + 2] < 60; };
+        var ang = [0, (w - 1) * 4, (hh - 1) * w * 4, ((hh - 1) * w + w - 1) * 4];
+        if (ang.every(function (i) { return scuro(i); })) {
+          var vis = new Uint8Array(w * hh), pila = [], mettiB = function (x, y) { if (x < 0 || y < 0 || x >= w || y >= hh) return; var k = y * w + x; if (vis[k] || !scuro(k * 4)) return; vis[k] = 1; pila.push(k); };
+          for (var x = 0; x < w; x++) { mettiB(x, 0); mettiB(x, hh - 1); } for (var y = 0; y < hh; y++) { mettiB(0, y); mettiB(w - 1, y); }
+          while (pila.length) { var k = pila.pop(), xx = k % w, yy = (k - xx) / w; px[k * 4] = px[k * 4 + 1] = px[k * 4 + 2] = 255; mettiB(xx + 1, yy); mettiB(xx - 1, yy); mettiB(xx, yy + 1); mettiB(xx, yy - 1); }
+          g.putImageData(dt, 0, 0);
+        }
+        return cv.toDataURL("image/png");
+      } catch (e) { return null; }
+    }
     P.leggiLogo = function (url) {
       return new Promise(function (res) {
         if (!url) return res(null);
-        var im = new Image(); im.onload = function () { res({ url: url, formato: /^data:image\/png/.test(url) ? "PNG" : "JPEG", rapporto: im.naturalWidth && im.naturalHeight ? im.naturalWidth / im.naturalHeight : 1 }); };
+        var im = new Image(); im.onload = function () {
+          var piatto = appiattisci(im);
+          res({ url: piatto || url, formato: piatto || /^data:image\/png/.test(url) ? "PNG" : "JPEG", rapporto: im.naturalWidth && im.naturalHeight ? im.naturalWidth / im.naturalHeight : 1 });
+        };
         im.onerror = function () { res(null); }; im.src = url;
       });
     };

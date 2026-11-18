@@ -34202,8 +34202,8 @@ t("Inventario: le etichette sul telefono — stessa correzione dell'elenco (cont
 t("Inventario/interfaccia L1: sp-base.css condiviso, barra del marchio statica e nascosta in stampa, cartellino, nessuno stile in linea nella pagina del QR (18/11)", () => {
   const idx = readFileSync(join(root, "i/index.html"), "utf8"), css = readFileSync(join(root, "i/inv.css"), "utf8"), base = readFileSync(join(root, "inventario/sp-base.css"), "utf8");
   ok(/href="\/inventario\/sp-base\.css\?v=\d+"/.test(idx) && idx.indexOf("sp-base.css") < idx.indexOf("inv.css"), "la pagina del QR carica sp-base.css (percorso assoluto, prima di inv.css)");
-  ok(/<header class="barra-sp"><a class="marchio" href="\/"[^>]*><svg class="brand-full"/.test(idx) && !/brand-sym/.test(idx), "la barra col logo è nell'HTML statico (il logo vero dell'editor), senza il segno piccolo");
-  const logoEditor = readFileSync(join(root, "index.template.html"), "utf8").match(/<svg class="brand-full"[\s\S]*?<\/svg>/)[0], logoPagina = idx.match(/<svg class="brand-full"[\s\S]*?<\/svg>/)[0];
+  ok(!/barra-sp|brand-full/.test(idx), "la pagina del QR non ha la barra col logo (18/11: il collegamento sta nel piè «Inventario gestito con stageplot.it»)");
+  const logoEditor = readFileSync(join(root, "index.template.html"), "utf8").match(/<svg class="brand-full"[\s\S]*?<\/svg>/)[0], logoPagina = readFileSync(join(root, "inventario/index.html"), "utf8").match(/<svg class="brand-full"[\s\S]*?<\/svg>/)[0];
   ok(logoEditor === logoPagina, "il logo è identico a svg.brand-full dell'editor (index.template.html)");
   ok(/@media print\{[^}]*\.barra-sp\{display:none\}/.test(css), "in stampa la barra del marchio non esce");
   ok(!/<style|style="/.test(idx), "nessun <style> né attributo style nella pagina del QR (CSP style-src 'self')");
@@ -34211,7 +34211,11 @@ t("Inventario/interfaccia L1: sp-base.css condiviso, barra del marchio statica e
   ok(!/:root\{/.test(css) && /:root\{/.test(base) && /prefers-color-scheme: dark/.test(base), "i token stanno solo in sp-base.css, chiari e scuri");
   ok(!/1d4ed8|text-transform:\s*uppercase|letter-spacing:\s*\.12em/.test(css), "niente anello blu né maiuscolo spaziato sulla pagina del QR");
   ok(/\.stato\.a_casa/.test(base) && /\.stato\.in_riparazione/.test(base) && /\.stato\.smarrito/.test(base) && /\.stato\.dismesso/.test(base), "pillole di stato per tutti gli stati");
-  ok(/inv\.css\?v=6/.test(idx) && /inv\.js\?v=5/.test(idx), "versioni di css e js della pagina alzate (inv.css v6: carta del modulo senza doppia cornice, L2)");
+  ok(/inv\.css\?v=7/.test(idx) && /inv\.js\?v=5/.test(idx), "versioni di css e js della pagina alzate (inv.css v7: niente barra, date iOS, touch-action manipulation; carta del modulo senza doppia cornice, L2)");
+  ok(/touch-action:manipulation/.test(css) && /\.inv-campo input\[type=date\]/.test(css) && /minmax\(0,1fr\) minmax\(0,1fr\)/.test(css) && /\.inv-form-testa span\{white-space:nowrap/.test(css), "iPhone: niente zoom col doppio tap, date nella colonna, codice del form sempre su una riga");
+  { const m = readFileSync(join(root, "inventario/inv-modulo.js"), "utf8"), a = readFileSync(join(root, "inventario/inv-area.js"), "utf8");
+    ok(/function appiattisci\(im\)/.test(m) && /fillRect\(0, 0, w, hh\)/.test(m) && /every\(function \(i\) \{ return scuro\(i\)/.test(m), "modulo PDF: il logo si appiattisce su bianco e il nero dei bordi (PNG trasparente salvato JPEG) diventa bianco");
+    ok(/g\.fillStyle = "#fff"; g\.fillRect\(0, 0, c\.width, c\.height\); g\.drawImage/.test(a), "caricamento del logo: sfondo bianco prima del disegno (niente quadrato nero)"); }
   const inv = readFileSync(join(root, "i/inv.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
   ok(/"Elenco completo"/.test(inv) && !/"Tutto l’elenco"/.test(inv), "il link «Elenco completo» sta nel cartellino");
   ok(/segnalaErrore/.test(inv) && /input\.setAttribute\("aria-describedby", p\.id\)/.test(inv) && /input\.setAttribute\("aria-invalid", "true"\)/.test(inv), "errori sul campo legati con aria-describedby");
