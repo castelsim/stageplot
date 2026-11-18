@@ -344,8 +344,7 @@
   /* Foglio A4 in verticale: colonne Codice · Tipo · Modello · Stato / dove · Nota; i nomi solo se chi stampa lo sceglie (i fogli restano in giro) */
   function vistaStampaElenco(elenco, conNomi) {
     S.vista = "stampa-elenco"; conNomi = !!conNomi;
-    var pagine = L.impaginaElenco(elenco), oggi = L.data(), N = pagine.length, chiave = "inv-ver-elenco-" + S.inv.slug, ver = 1;
-    try { ver = Math.max(1, parseInt(localStorage.getItem(chiave), 10) || 1); } catch (e) {}
+    var pagine = L.impaginaElenco(elenco), N = pagine.length;
     var f = S.filtro, tipo = nomeTipo(f.tipo), parti = [];
     if (tipo) parti.push(tipo.plurale); if (f.stato) parti.push(L.statoNome(f.stato).toLowerCase()); if (f.testo.trim()) parti.push("«" + f.testo.trim() + "»");
     var sinistri = [];
@@ -358,17 +357,15 @@
       var testa = h("div", { class: "el-testa" }, [h("b", { text: S.inv.nome + " — elenco dell'inventario" }),
         h("span", { text: (parti.length ? parti.join(" · ") + " · " : "") + L.sintesi(elenco) })]);
       var fo = h("div", { class: "foglio elenco" }, [testa, tab]);
-      var sx = h("span", { text: L.piedeElenco(ver, S.inv.nome, elenco.length, oggi) }); sinistri.push(sx);
+      var sx = h("span", { text: L.piedeElenco(S.inv.nome, elenco.length, L.data(), L.ora()) }); sinistri.push(sx);
       fo.appendChild(h("div", { class: "piede-foglio" }, [sx, h("span", { text: (i + 1) + " di " + N })]));
       return fo;
     });
-    var verIn = h("input", { type: "number", min: "1", max: "99", value: String(ver), id: "versione", "aria-label": "Versione del foglio", onchange: function () {
-      var v = Math.max(1, Math.min(99, Math.floor(+this.value) || 1)); this.value = String(v); try { localStorage.setItem(chiave, String(v)); } catch (e) {}
-      sinistri.forEach(function (c) { c.textContent = L.piedeElenco(v, S.inv.nome, elenco.length, oggi); });
-    } });
+    /* data e ora sono quelle della stampa vera: si riscrivono quando il browser apre la stampa */
+    piediStampa = function () { var d = L.data(), o = L.ora(); sinistri.forEach(function (c) { c.textContent = L.piedeElenco(S.inv.nome, elenco.length, d, o); }); };
     var nomi = h("input", { type: "checkbox", id: "chkNomiStampa", checked: conNomi, onchange: function () { vistaStampaElenco(elenco, this.checked); } });
     disegna([h("div", { class: "vista-barra" }, [h("button", { class: "btn testo piccolo indietro", type: "button", text: "← Torna all'inventario", onclick: vistaInventario }),
-        h("div", { class: "riga" }, [h("label", { for: "versione", text: "Versione" }), verIn, h("button", { class: "btn primario", type: "button", id: "bStampa", text: "Stampa (" + elenco.length + " oggetti, " + N + (N === 1 ? " foglio" : " fogli") + ")", onclick: function () { window.print(); } })])]),
+        h("div", { class: "riga" }, [h("button", { class: "btn primario", type: "button", id: "bStampa", text: "Stampa (" + elenco.length + " oggetti, " + N + (N === 1 ? " foglio" : " fogli") + ")", onclick: function () { window.print(); } })])]),
       h("label", { class: "spunta" }, [nomi, h("span", { text: "Scrivi sul foglio anche i nomi di chi ha lo strumento e le note riservate (i fogli stampati restano in giro: di serie no)." })]),
       h("div", { class: "fogli" }, fogli)]);
     adattaFogli();
@@ -384,6 +381,8 @@
       box.style.width = w + "px"; box.style.height = (1122.52 * sc) + "px"; fo.style.transform = "scale(" + sc + ")";
     });
   }
+  var piediStampa = null;   // riscrive data e ora nel piè dei fogli aperti (vista elenco o etichette)
+  window.addEventListener("beforeprint", function () { if (piediStampa && (S.vista === "stampa-elenco" || S.vista === "etichette")) piediStampa(); });
   window.addEventListener("resize", function () { if (S.vista === "stampa-elenco" || S.vista === "etichette") adattaFogli(); });
 
   /* ---------------------------------------------------------------- QR e foglio di etichette */
@@ -406,22 +405,16 @@
   }
   function vistaEtichette(elenco) {
     S.vista = "etichette";
-    var pagine = L.impagina(elenco), oggi = L.data(), N = pagine.length, chiave = "inv-ver-" + S.inv.slug, ver = 1;
-    try { ver = Math.max(1, parseInt(localStorage.getItem(chiave), 10) || 1); } catch (e) {}
-    var sinistri = [];
+    var pagine = L.impagina(elenco), N = pagine.length;
     var fogli = pagine.map(function (grp, i) {
       var f = h("div", { class: "foglio" }, grp.map(function (a, k) { return etichetta(a, L.posizione(k)); }));
-      var sx = h("span", { text: L.piede(ver, S.inv.nome, grp.map(function (a) { return a.codice; }), oggi) }); sinistri.push([sx, grp]);
-      f.appendChild(h("div", { class: "piede-foglio" }, [sx, h("span", { text: (i + 1) + " di " + N })]));
+      f.appendChild(h("div", { class: "piede-foglio" }, [h("span", { text: "" }), h("span", { text: (i + 1) + " di " + N })]));   // etichette: solo «1 di N» (il foglio si butta dopo il taglio)
       return f;
     });
-    var verIn = h("input", { type: "number", min: "1", max: "99", value: String(ver), id: "versione", "aria-label": "Versione del foglio", onchange: function () {
-      var v = Math.max(1, Math.min(99, Math.floor(+this.value) || 1)); this.value = String(v); try { localStorage.setItem(chiave, String(v)); } catch (e) {}
-      sinistri.forEach(function (c) { c[0].textContent = L.piede(v, S.inv.nome, c[1].map(function (a) { return a.codice; }), oggi); });
-    } });
+    piediStampa = null;
     disegna([h("div", { class: "vista-barra" }, [h("button", { class: "btn testo piccolo indietro", type: "button", text: "← Torna all'inventario", onclick: vistaInventario }),
-        h("div", { class: "riga" }, [h("label", { for: "versione", text: "Versione" }), verIn, h("button", { class: "btn primario", type: "button", id: "bStampa", text: "Stampa (" + elenco.length + " etichette, " + N + (N === 1 ? " foglio" : " fogli") + ")", onclick: function () { window.print(); } })])]),
-      h("p", { class: "nota", text: "Stampa in A4 al 100% (non «adatta alla pagina»), poi ritaglia lungo le linee tratteggiate e plastifica. Il QR porta a un indirizzo fisso: se ristampi, le vecchie etichette restano valide. Il numero di versione sta nel piè del foglio: aumentalo se ristampi con modifiche." }),
+        h("div", { class: "riga" }, [h("button", { class: "btn primario", type: "button", id: "bStampa", text: "Stampa (" + elenco.length + " etichette, " + N + (N === 1 ? " foglio" : " fogli") + ")", onclick: function () { window.print(); } })])]),
+      h("p", { class: "nota", text: "Stampa in A4 al 100% (non «adatta alla pagina»), poi ritaglia lungo le linee tratteggiate e plastifica. Il QR porta a un indirizzo fisso: se ristampi, le vecchie etichette restano valide." }),
       h("div", { class: "fogli" }, fogli)]);
     // sullo schermo stretto il foglio da 210 mm si rimpicciolisce dentro un contenitore grande quanto lui (come l'elenco); in stampa torna al 100%
     adattaFogli();
