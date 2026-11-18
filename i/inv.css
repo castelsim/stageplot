@@ -107,3 +107,9 @@ html,body{touch-action:manipulation}
 /* iOS Safari: l'input date ha larghezza propria e centra il testo; lo si riporta alla colonna e a sinistra */
 .inv-campo input[type=date]{text-align:left;line-height:1.2}
 .inv-campo input[type=date]::-webkit-date-and-time-value{text-align:left;min-height:1.2em}
+
+/* «← Inventario» (solo membri, 18/11/2026): piccolo, sopra la scheda, stessa scheda del browser */
+.inv-torna{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;min-height:34px;padding:0 10px 0 8px;margin:-6px 0 4px -8px;border-radius:8px;font-size:14px;font-weight:600;color:var(--testo-2);text-decoration:none}
+.inv-torna:hover{background:var(--rialzo);color:var(--inchiostro)}
+.inv-torna-fr{font-size:15px;line-height:1}
+@media print{.inv-torna{display:none}}

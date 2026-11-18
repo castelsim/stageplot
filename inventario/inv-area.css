@@ -273,3 +273,7 @@ html.sch-aperta{overflow:hidden}
 .scheda .inv-modulo-stato{min-height:1px;font-size:13px}.scheda .inv-esito{color:var(--bad);font-weight:600;font-size:13px}
 @media (max-width:720px){.sch-velo{align-items:flex-start;padding:8px}.scheda{max-height:calc(100dvh - 16px);padding:12px 14px 14px}}
 @media print{.sch-velo{display:none!important}}
+
+/* riga della scheda da cui si è tornati: un tenue evidenziatore che sfuma */
+.oggetti tbody tr.ritorno{animation:ritorno 2.4s ease-out 1}
+@keyframes ritorno{from{background:var(--teal-tinta)}to{background:transparent}}

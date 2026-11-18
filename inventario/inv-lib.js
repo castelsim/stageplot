@@ -143,6 +143,15 @@
     if (cur.length) p.push(cur);
     return p.length ? p : [[]];
   }
+  /* Ritorno dalla scheda alla tabella: cosa si ripristina (filtro, ordine, posizione, riga). Solo se è lo stesso inventario, entro 30 minuti, e si torna davvero dalla scheda:
+     Indietro del browser (tipoNav «back_forward») oppure il link «← Inventario» (che segna torna:true). Valori ripuliti: mai fidarsi di ciò che sta nel sessionStorage. */
+  function ripristinaRitorno(st, slug, ora, tipoNav) {
+    if (!st || typeof st !== "object" || st.slug !== slug || typeof st.t !== "number" || ora - st.t > 30 * 60 * 1000 || ora < st.t) return null;
+    if (tipoNav !== "back_forward" && st.torna !== true) return null;
+    var f = st.filtro && typeof st.filtro === "object" ? st.filtro : {}, t = function (v, m) { return typeof v === "string" ? v.slice(0, m) : ""; };
+    var ord = ["codice", "stato", "assegnato"].indexOf(f.ordine) >= 0 ? f.ordine : "codice";
+    return { filtro: { tipo: /^[A-Z]{2,5}$/.test(f.tipo || "") ? f.tipo : "", stato: statoOk(f.stato) ? f.stato : "", testo: t(f.testo, 200), ordine: ord }, y: Math.max(0, Math.min(100000, Math.round(+st.y) || 0)), cod: /^[A-Z]{2,5}-\d{3,6}$/.test(st.cod || "") ? st.cod : "" };
+  }
   /* piè dell'elenco: «Ente · elenco di 27 oggetti · stampato il GG/MM/AAAA alle HH:MM» */
   function piedeElenco(ente, n, d, o) {
     return ente + " · elenco di " + n + (n === 1 ? " oggetto" : " oggetti") + " · stampato il " + d + " alle " + o;
@@ -207,7 +216,7 @@
   /* testo sulla scheda di un oggetto: «Etichetta da fare» / «Etichetta fatta il 18/11/2026» */
   function etichettaStato(a) { return a && a.etichetta_fatta ? "Etichetta fatta il " + dataIt(a.etichetta_fatta) : a && a.stato === "dismesso" ? "" : "Etichetta da fare"; }
 
-  var L = { etichettaDaFare: etichettaDaFare, contaDaFare: contaDaFare, fraseDaEtichettare: fraseDaEtichettare, etichetteScelte: etichetteScelte, dasegnare: dasegnare, darimettere: darimettere, etichettaStato: etichettaStato, riepilogo: riepilogo, ceLha: ceLha, descrizioneStato: descrizioneStato, filtra: filtra, ordina: ordina, confrontaCodice: confrontaCodice, RIGHE_ELENCO: RIGHE_ELENCO, ELENCO: ELENCO, righeTesto: righeTesto, impaginaElenco: impaginaElenco, piedeElenco: piedeElenco, sintesi: sintesi, csvElenco: csvElenco, corpoCodice: corpoCodice, STATI: STATI, FOGLIO: FOGLIO, statoNome: statoNome, statoOk: statoOk, codice: codice, prefissoOk: prefissoOk, proponiPrefisso: proponiPrefisso,
+  var L = { etichettaDaFare: etichettaDaFare, contaDaFare: contaDaFare, fraseDaEtichettare: fraseDaEtichettare, etichetteScelte: etichetteScelte, dasegnare: dasegnare, darimettere: darimettere, etichettaStato: etichettaStato, riepilogo: riepilogo, ceLha: ceLha, descrizioneStato: descrizioneStato, filtra: filtra, ordina: ordina, confrontaCodice: confrontaCodice, RIGHE_ELENCO: RIGHE_ELENCO, ripristinaRitorno: ripristinaRitorno, ELENCO: ELENCO, righeTesto: righeTesto, impaginaElenco: impaginaElenco, piedeElenco: piedeElenco, sintesi: sintesi, csvElenco: csvElenco, corpoCodice: corpoCodice, STATI: STATI, FOGLIO: FOGLIO, statoNome: statoNome, statoOk: statoOk, codice: codice, prefissoOk: prefissoOk, proponiPrefisso: proponiPrefisso,
     frase: frase, conteggi: conteggi, cella: cella, csv: csv, dataIt: dataIt, perPagina: perPagina, origineX: origineX, impagina: impagina, posizione: posizione,
     giusto: giusto, data: data, ora: ora, intervallo: intervallo };
   root.INVLib = L;

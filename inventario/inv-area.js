@@ -102,11 +102,24 @@
     disegna([h("div", { class: "colonna" }, [h("h1", { text: "I tuoi inventari" })].concat(lista, [nuovo,
       h("p", { class: "nota nota-privacy", text: "Privacy: la pagina pubblica del QR mostra solo codice, tipo, modello, stato e quanti ce ne sono. Il nome di chi ha lo strumento (solo nome e corso/classe, mai indirizzi o telefoni) lo vedono soltanto le persone che abiliti e che accedono con Google." })]))]);
   }
+  /* Tabella ↔ scheda nella STESSA scheda del browser: prima di andare alla scheda dell'oggetto si ricorda dove si era (filtro, ricerca, ordine, posizione, riga);
+     tornando (Indietro o «← Inventario») la tabella si riapre così. Solo sessionStorage di questa scheda, scade in 30 minuti, si usa una volta. */
+  var CHIAVE_RITORNO = "inv-area-ritorno";
+  function salvaRitorno(codice) {
+    try { sessionStorage.setItem(CHIAVE_RITORNO, JSON.stringify({ slug: S.inv.slug, filtro: S.filtro, y: Math.round(window.scrollY), cod: codice, t: Date.now() })); } catch (e) {}
+  }
+  function leggiRitorno(slug, tipoNav) {
+    var st = null; try { st = JSON.parse(sessionStorage.getItem(CHIAVE_RITORNO) || "null"); sessionStorage.removeItem(CHIAVE_RITORNO); } catch (e) { st = null; }
+    return L.ripristinaRitorno(st, slug, Date.now(), tipoNav);
+  }
+  window.addEventListener("pageshow", function (ev) { if (ev.persisted) { try { sessionStorage.removeItem(CHIAVE_RITORNO); } catch (e) {} } });   // tornati con la pagina intatta (cache avanti/indietro): niente da ripristinare
   function apri(id, subito) {
     S.inv = S.inventari.filter(function (i) { return i.id === id; })[0]; if (!S.inv) return vistaElenco();
     S.filtro = { tipo: "", stato: "", testo: "", ordine: "codice" }; S.sel = {}; S.gest = {};
+    var nav = ""; try { nav = (performance.getEntriesByType("navigation")[0] || {}).type || ""; } catch (e) {}
+    var rit = subito === "elenco" ? null : leggiRitorno(S.inv.slug, nav); if (rit) S.filtro = rit.filtro;
     /* subito = «elenco»: arrivo dal pulsante «Tutto l'inventario» della pagina del QR → direttamente l'elenco da stampare (nomi e note spenti) */
-    leggiDentro(id).then(function () { if (subito === "elenco" && S.articoli.length) { vistaInventario(); return vistaStampaElenco(filtrati()); } vistaInventario(); }, function () { toast("Non riesco a leggere l'inventario."); });
+    leggiDentro(id).then(function () { if (subito === "elenco" && S.articoli.length) { vistaInventario(); return vistaStampaElenco(filtrati()); } vistaInventario(); if (rit) { window.scrollTo(0, rit.y); var r0 = rit.cod ? document.querySelector('a[aria-label="Apri la scheda di ' + rit.cod + '"]') : null; if (r0 && r0.closest("tr")) { r0.closest("tr").classList.add("ritorno"); } } }, function () { toast("Non riesco a leggere l'inventario."); });
   }
   function filtrati() { return L.ordina(L.filtra(S.articoli, S.filtro, true), S.filtro.ordine); }   // chi guarda è un membro (RLS): la ricerca può includere i nomi
   function salvaImpostazione(col, val) {
@@ -114,7 +127,7 @@
     S.c.from("inv_inventari").update(o).eq("id", S.inv.id).then(function (r) { if (r.error) { toast("Non salvato."); return; } S.inv[col] = val; toast("Salvato."); });
   }
   /* ---------------------------------------------------------------- modulo di comodato (solo proprietario, sezione chiusa di serie)
-     Dati PUBBLICI dell'ente (intestazione, nome, luogo, piè, logo, versione): vanno in inv_inventari.modulo (migrazione 0090), letti solo dai membri.
+     Dati PUBBLICI dell'ente (intestazione, nome, luogo, piè, logo; la «versione» salvata nel JSON resta ma il foglio non la scrive più): vanno in inv_inventari.modulo (migrazione 0090), letti solo dai membri.
      Il modulo compilato nasce nel browser alla consegna (pagina del QR): qui si imposta solo l'intestazione e si prova con dati finti. */
   var MOD = window.INVModulo;
   function ridimensionaLogo(file) {
@@ -176,7 +189,7 @@
       h("div", { class: "campi" }, [
         inp("mod-intestazione", "Intestazione (i punti · sono in colore)", "intestazione", 80, "es. ·NOME·DELL'ENTE·"),
         inp("mod-ente", "Nome per esteso, come nel testo", "ente", 120, "es. l'Associazione Nome ETS"), inp("mod-ente-breve", "Nome breve (restituzione «su richiesta di …»)", "ente_breve", 60),
-        inp("mod-registro", "Inventario «…dell'associazione»", "registro", 40), inp("mod-luogo", "Luogo del foglio", "luogo", 60), inp("mod-firma", "Firma dell'ente", "firma_ente", 60), inp("mod-versione", "Versione del foglio", "versione", 40, "es. v3 · 17/11/2026"),
+        inp("mod-registro", "Inventario «…dell'associazione»", "registro", 40), inp("mod-luogo", "Luogo del foglio", "luogo", 60), inp("mod-firma", "Firma dell'ente", "firma_ente", 60),
         h("div", {}, [h("label", { for: "mod-colore", text: "Colore dei puntini e del filetto" }), colore])]),
       h("label", { text: "Piè di pagina (fino a 3 righe)" }), h("div", { class: "campi" }, piedi),
       h("div", { class: "riga sotto" }, [h("div", {}, [h("label", { for: "mod-logo-file", text: "Logo (PNG o JPEG; si ridimensiona da solo)" }), file]), anteprima, togli]),
@@ -342,12 +355,12 @@
         window.INVScheda.cambioStato(ctxScheda(), a, nuovo, function () { st.value = a.stato; st.className = "stato-sel " + a.stato; try { st.focus(); } catch (e) {} });
       });
       var link = IND.link(S.inv.slug, a.codice, location.origin) + location.search;
-      var aprirePag = h("a", { class: "btn piccolo", href: link, target: "_blank", rel: "noopener", text: "Scheda", "aria-label": "Scheda di " + a.codice });
+      var aprirePag = h("a", { class: "btn piccolo", href: link, text: "Scheda", "aria-label": "Scheda di " + a.codice, onclick: function () { salvaRitorno(a.codice); } });
       var etic = h("button", { class: "btn piccolo", type: "button", text: "Etichetta", "aria-label": "Etichetta di " + a.codice + " (" + (L.etichettaStato(a) || "dismesso") + ")", onclick: function () { vistaEtichette("scelti", [a.codice]); } });
       var del = h("button", { class: "btn piccolo pericolo", type: "button", text: "Elimina", "aria-label": "Elimina " + a.codice, onclick: function () { window.INVScheda.elimina(ctxScheda(), a); } });
       var t = nomeTipo(a.tipo), prop = proprietario(), x = L.ceLha(a);
       var chi = h("td", { class: "chi" }, x.nome ? [h("b", { text: x.nome }), x.sotto ? h("small", { text: x.sotto }) : null] : x.sotto ? [h("small", { text: x.sotto })] : []);
-      return h("tr", {}, [h("td", {}, [chk]), h("td", { class: "cod" }, [h("a", { href: link, target: "_blank", rel: "noopener", text: a.codice, "aria-label": "Apri la scheda di " + a.codice }), L.etichettaDaFare(a) ? h("small", { class: "etic-tag", text: "Etichetta da fare" }) : null]), h("td", { class: "tipo", text: t ? t.singolare : a.tipo }), h("td", {}, [mod]), h("td", {}, [st]), chi, h("td", {}, [nota]), h("td", {}, [h("div", { class: "riga-az" }, [aprirePag, etic, prop ? del : null])])]);
+      return h("tr", {}, [h("td", {}, [chk]), h("td", { class: "cod" }, [h("a", { href: link, text: a.codice, "aria-label": "Apri la scheda di " + a.codice, onclick: function () { salvaRitorno(a.codice); } }), L.etichettaDaFare(a) ? h("small", { class: "etic-tag", text: "Etichetta da fare" }) : null]), h("td", { class: "tipo", text: t ? t.singolare : a.tipo }), h("td", {}, [mod]), h("td", {}, [st]), chi, h("td", {}, [nota]), h("td", {}, [h("div", { class: "riga-az" }, [aprirePag, etic, prop ? del : null])])]);
     });
   }
   function tabella(elenco) {
