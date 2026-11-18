@@ -14617,7 +14617,7 @@ var PRO_TOLL_CM=1;
    true = dove il modello è certo (origine + nome) l'elemento si DISEGNA con le misure vere di scheda anche se quelle salvate sono diverse
    (stage box 33×17, CQ-18T allargati a 125×150…); posizione (centro) e rotazione restano dell'utente; il documento non cambia;
    niente suggerimento «usa misura di scheda». false = la prima versione: tolleranza di PRO_TOLL_CM e suggerimento (caso 1). Reversibile con un valore. */
-var PRO_MISURE_DI_SCHEDA=true;
+var PRO_MISURE_DI_SCHEDA=false;
 var PRO_TIPO_MODELLO={ dm3:"dm3", csr3:"csr3", csr5:"csr5", csr10:"csr10", sq6:"sq6", sq7:"sq7", q338:"q338", hd96:"hd9624", dlives5:"dlives5" };
 /* alias scritti a mano, normalizzati (minuscole, solo lettere e cifre): i primi sono di UN modello, i secondi di una famiglia (mai certezza) */
 var PRO_ALIAS_CERTI={ dm3:"dm3", pm5:"csr5", rivagepm5:"csr5", pm3:"csr3", rivagepm3:"csr3", pm10:"csr10", rivagepm10:"csr10", s5000:"dlives5", dlives5000:"dlives5", hd96:"hd9624", hd9624:"hd9624", m32live:"m32r", tfrack:"tfrack" };
