@@ -5,26 +5,27 @@
   @page{size:A4;margin:0}
   html,body{background:#fff!important;margin:0!important;padding:0!important;min-height:0!important}
   html.inv-stampa-modulo body>*:not(#inv-foglio){display:none!important}
-  #inv-foglio.inv-foglio{display:flex!important}
+  #inv-foglio.inv-foglio{display:block!important}
 }
-.inv-foglio{--acc:#c09a5b;box-sizing:border-box;width:210mm;height:296mm;padding:15mm 20mm 22mm;flex-direction:column;overflow:hidden;background:#fff;color:#000;
-  font:11pt/1.45 Georgia,"Times New Roman",serif;overflow-wrap:anywhere;-webkit-print-color-adjust:exact;print-color-adjust:exact;page-break-after:avoid;break-after:avoid}
+/* Misure del Word di AVA («Modulo comodato strumenti AVA ok.docx», 18/11/2026): A4, margini 20 mm ai lati e 15 mm in alto, Georgia 11 pt con interlinea 1,15 (14,4 pt),
+   spazi dopo i paragrafi 6 / 10 / 14 pt, intestazione Times 21 pt con filetto oro 0,75 pt, titolo Helvetica bold 13 pt, firme Helvetica 10 pt, piè Helvetica 8 pt a 15 mm dal fondo.
+   Il foglio è alto 296 mm (non 297: un pixel di troppo creerebbe una seconda pagina). Niente versione, niente «1 di N». */
+.inv-foglio{--acc:#c09a5b;position:relative;box-sizing:border-box;width:210mm;height:296mm;overflow:hidden;background:#fff;color:#000;
+  font:11pt/14.4pt Georgia,"Times New Roman",serif;-webkit-print-color-adjust:exact;print-color-adjust:exact;page-break-after:avoid;break-after:avoid}
 .inv-foglio *{margin:0;padding:0;box-sizing:border-box}
-.inv-foglio .f-testa{display:flex;align-items:center;justify-content:center;gap:6mm;padding-bottom:4mm;margin-bottom:6mm;border-bottom:.5mm solid var(--acc)}
-.inv-foglio .f-logo{height:24mm;width:auto;max-width:60mm;object-fit:contain}
-.inv-foglio .f-nome{font:400 21pt "Times New Roman",Georgia,serif;letter-spacing:.09em;color:#111;text-align:center}
+.inv-foglio .f-logo{position:absolute;left:21.8mm;top:16.9mm;width:27mm;height:27mm;object-fit:contain;object-position:left center}
+.inv-foglio .f-nome{position:absolute;left:54.35mm;width:136mm;top:63.5pt;text-align:center;white-space:nowrap;font:400 21pt/23.2pt "Times New Roman",Times,serif;letter-spacing:1.75pt;color:#000}
 .inv-foglio .f-nome b{color:var(--acc);font-weight:700}
-.inv-foglio .f-titolo{font:700 12.5pt Helvetica,Arial,sans-serif;text-transform:uppercase;letter-spacing:.04em;text-align:center;margin:0 0 5mm}
-.inv-foglio .f-p{margin:0 0 3.5mm;text-align:justify}
-.inv-foglio .f-riga{display:flex;gap:8mm;margin:0 0 4mm}
-.inv-foglio .f-campo{flex:1;min-width:0;border-bottom:.3mm dotted #000;min-height:11mm;display:flex;flex-direction:column;justify-content:flex-end}
-.inv-foglio .f-campo.stretto{flex:0 0 56mm}.inv-foglio .f-campo.meta{flex:0 0 90mm}
-.inv-foglio .f-et{font:7.5pt Helvetica,Arial,sans-serif;color:#555}
-.inv-foglio .f-val{min-height:5.5mm}
-.inv-foglio .f-fede{margin-top:3mm}
-.inv-foglio .f-firme{display:flex;justify-content:space-between;gap:7mm;margin-top:2mm}
-.inv-foglio .f-firma{flex:1;font:10pt Helvetica,Arial,sans-serif}
-.inv-foglio .f-linea{border-bottom:.3mm dotted #000;height:12mm}
-.inv-foglio .f-piede{margin-top:auto;border-top:.3mm solid #969696;padding-top:2mm;text-align:center;font:8pt Helvetica,Arial,sans-serif;color:#333;line-height:1.35}
-.inv-foglio.fitto{font-size:10pt;line-height:1.35}.inv-foglio.fitto .f-p{margin-bottom:2.5mm}.inv-foglio.fitto .f-riga{margin-bottom:2.5mm}
-.inv-foglio.fittissimo{font-size:9pt;line-height:1.3}.inv-foglio.fittissimo .f-p{margin-bottom:2mm}.inv-foglio.fittissimo .f-riga{margin-bottom:2mm}.inv-foglio.fittissimo .f-linea{height:9mm}
+.inv-foglio .f-filo{position:absolute;left:19.4mm;width:170.9mm;top:151.8pt;border-top:.75pt solid var(--acc)}
+.inv-foglio .f-corpo{position:absolute;left:20mm;right:20mm;top:163.5pt}
+.inv-foglio .f-titolo{font:700 13pt/15pt Helvetica,Arial,sans-serif;text-align:center;margin:0 0 13.7pt}
+.inv-foglio .f-p{margin:0 0 10pt;overflow-wrap:anywhere}
+.inv-foglio .f-p.g{text-align:justify}.inv-foglio .f-p.d6{margin-bottom:6pt}.inv-foglio .f-p.d14{margin-bottom:14pt}
+.inv-foglio .f-campi{white-space:pre-wrap}
+.inv-foglio .f-v{display:inline-block;vertical-align:baseline;border-bottom:.25mm dotted #000;white-space:pre-wrap;max-width:100%;overflow-wrap:anywhere}
+.inv-foglio .f-w6{min-width:53.3pt}.inv-foglio .f-w12{min-width:106.6pt}.inv-foglio .f-w13{min-width:115.4pt}.inv-foglio .f-w16{min-width:142.1pt}.inv-foglio .f-w17{min-width:151pt}.inv-foglio .f-w29{min-width:257.5pt}
+.inv-foglio .f-firme{display:flex}.inv-foglio .f-firma{width:85mm}
+.inv-foglio .f-et{font:400 10pt/13pt Helvetica,Arial,sans-serif;margin-bottom:10pt}
+.inv-foglio .f-pp{padding-top:29.5pt;white-space:nowrap}
+.inv-foglio .f-piede{position:absolute;left:20mm;right:20mm;bottom:13.86mm;text-align:center;font:400 8pt/9.6pt Helvetica,Arial,sans-serif;color:#000}
+.inv-foglio.fitto{font-size:10pt;line-height:13pt}.inv-foglio.fittissimo{font-size:9pt;line-height:11.6pt}

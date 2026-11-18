@@ -34163,10 +34163,10 @@ t("Inventario: elenco completo — stato leggibile («Consegnato a … dal …»
   eq(INV_LIB.filtra(A, { tipo: "TAS", stato: "a_casa", testo: "esempio" }, true).length, 1, "filtri insieme");
   eq(INV_LIB.sintesi(A), "In sede 1 · Consegnato 2 · In riparazione 1", "sintesi per l'intestazione");
 });
-t("Inventario: foglio dell'elenco — 34 righe per foglio, piè con data e ora (niente versione), CSV dei mostrati con o senza nomi, area cablata", () => {
+t("Inventario: foglio dell'elenco — 22 righe per foglio (orizzontale), piè con data e ora (niente versione), CSV dei mostrati con o senza nomi, area cablata", () => {
   const molti = Array.from({ length: 70 }, (_, i) => ({ codice: "TAS-" + String(i + 1).padStart(3, "0"), tipo: "TAS", modello: "x", stato: "in_sede", note: "" }));
   const pg = INV_LIB.impaginaElenco(molti);
-  eq(pg.length, 3, "70 oggetti = 3 fogli"); eq(pg[0].length, 34, "34 per foglio"); eq(pg[2].length, 2, "l'ultimo foglio ha il resto"); eq(INV_LIB.impaginaElenco([]).length, 1, "elenco vuoto: un foglio");
+  eq(pg.length, 4, "70 oggetti = 4 fogli (A4 orizzontale)"); eq(pg[0].length, 22, "22 per foglio con righe di una riga sola"); eq(INV_LIB.RIGHE_ELENCO, 22, "RIGHE_ELENCO = 22"); eq(pg[3].length, 4, "l'ultimo foglio ha il resto"); eq(INV_LIB.impaginaElenco([]).length, 1, "elenco vuoto: un foglio");
   eq(INV_LIB.piedeElenco("Accademia Esempio", 70, "17/11/2026", "12:40"), "Accademia Esempio · elenco di 70 oggetti · stampato il 17/11/2026 alle 12:40", "ente, numero, data e ora");
   ok(!/^v\d/.test(INV_LIB.piedeElenco("x", 1, "d", "o")) && /elenco di 1 oggetto ·/.test(INV_LIB.piedeElenco("x", 1, "d", "o")), "niente versione; singolare");
   const T = [{ prefisso: "TAS", singolare: "Tastiera" }], B = [{ codice: "TAS-002", tipo: "TAS", modello: "=cmd", stato: "a_casa", note: "n", assegnato_a: "Allievo Esempio 2A", data_consegna: "2026-11-17" }, { codice: "TAS-001", tipo: "TAS", modello: "Y", stato: "in_sede", note: "" }];
@@ -34177,7 +34177,7 @@ t("Inventario: foglio dell'elenco — 34 righe per foglio, piè con data e ora (
   ok(/id: "chkCsvNomi"/.test(js) && /L\.csvElenco\(S\.tipi, elenco, !!S\.csvNomi\)/.test(js), "il CSV dei mostrati segue la spunta (spenta di serie)"); ok(/id: "bElenco"/.test(js) && /vistaStampaElenco\(filtrati\(\)\)/.test(js) && /id: "bCsvElenco"/.test(js), "bottoni «Elenco da stampare» e «CSV dei mostrati» che seguono i filtri");
   ok(/function vistaStampaElenco\(elenco, conNomi\)/.test(js) && /conNomi = !!conNomi/.test(js), "i nomi sul foglio sono spenti di serie");
   ok(/L\.piedeElenco\(S\.inv\.nome/.test(js) && /\(i \+ 1\) \+ " di " \+ N/.test(js), "il foglio ha data e ora di stampa e «1 di N»");
-  ok(/\.foglio\.elenco\{padding:16mm 17mm/.test(css) && /\.piede-foglio\{[^}]*bottom:16mm/.test(css), "margini ≥ 15 mm anche sul foglio dell'elenco");
+  ok(/\.foglio\.elenco\{width:297mm;height:210mm;padding:16mm 17mm/.test(css) && /\.piede-foglio\{[^}]*bottom:16mm/.test(css), "margini ≥ 15 mm anche sul foglio dell'elenco");
   ok(/inv-area\.js\?v=([4-9]|\d\d)"/.test(readFileSync(join(root, "inventario/index.html"), "utf8")), "versione degli script alzata (niente cache vecchia)");
 });
 t("Inventario: foglio dell'elenco sul telefono — intero dentro lo schermo, scala ricalcolata a ogni rotazione, stampa A4 al 100% senza colonne fuori foglio (17/11)", () => {
@@ -34228,7 +34228,7 @@ t("Inventario/interfaccia L2: area /inventario/ — barra del marchio, sp-base.c
   ok(/inv-area\.css\?v=([6-9]|\d\d)"/.test(html) && /inv-area\.js\?v=([8-9]|\d\d)"/.test(html) && /inv-lib\.js\?v=([4-9]|\d\d)"/.test(html) && /\/i\/inv\.js\?v=([5-9]|\d\d)"/.test(html), "?v= alzati su ogni file toccato (css, js, lib) e inv.js allineato alla pagina del QR");
   const a = css.indexOf("/* ---- foglio di etichette"), b = css.indexOf("@media print{"), c = css.indexOf("\n}", b) + 2;
   const stampa = css.slice(a, c).replace("  .barra-sp{display:none}\n", "");
-  eq(createHash("sha256").update(stampa).digest("hex"), "244415a2a5f441a18068dd5e61f762becfd90e90da33f9c661d17398e0101dbb", "i blocchi di stampa (.foglio, .etichetta*, .piede-foglio, .foglio.elenco, .el-*, .fo-box, @media print) sono identici byte per byte a main");
+  eq(createHash("sha256").update(stampa).digest("hex"), "00183f4ec8042ca9c12d7d155ca64b1cb32da879f717e73fabf348c5842fcdae", "i blocchi di stampa (.foglio, .etichetta*, .piede-foglio, .foglio.elenco, .el-*, .fo-box, @media print) sono quelli approvati (18/11: l'elenco è ORIZZONTALE; etichette e @media print come prima — cambiarli vuol dire aggiornare questo valore di proposito)");
   ok(/@media print\{[^]*?\.barra-sp\{display:none\}[^]*?\n\}/.test(css.slice(b)), "la barra del marchio sparisce in stampa (unica riga nuova nel blocco di stampa)");
   ok(!/min-width:1000px/.test(css) && /\.oggetti table\{[^}]*table-layout:fixed/.test(css) && /\.oggetti col\.c-stato\{width:\d+px\}/.test(css), "tabella a colonne fisse, senza larghezza minima");
   const tel = css.slice(css.indexOf("@media (max-width:720px)"));
@@ -34363,9 +34363,9 @@ t("Inventario/modulo: testiModulo — nessun segnaposto rimasto; con modulo asse
     ok(!/[{}]/.test(INV_MOD.testoPiano(T)) && !/undefined|null/.test(tutto) && !/\{[^"]/.test(tutto.replace(/\{"/g, "")), "nessun segnaposto né undefined nel foglio (" + (conf && conf.ente ? "con" : "senza") + " configurazione)"); eq(d.codice, "TAS-003", "codice in maiuscolo");
   }
   const g = INV_MOD.testoPiano(INV_MOD.testiModulo(INV_MOD.datiModulo(sc, null, null, form)));
-  ok(/consegna in comodato d'uso gratuito all'allievo:/.test(g) && /Accademia Esempio consegna/.test(g) && /su richiesta di Accademia Esempio\./.test(g) && /nell'inventario dell'ente\./.test(g) && /v1 · 17\/11\/2026 · 1 di 1/.test(g), "senza configurazione: ente = nome dell'inventario, piè «v1 · data · 1 di 1»");
+  ok(/consegna in comodato d'uso gratuito all'allievo:/.test(g) && /Accademia Esempio consegna/.test(g) && /su richiesta di Accademia Esempio\./.test(g) && /nell'inventario dell'ente\./.test(g) && !/v\d+ ·|\d di \d/.test(g), "senza configurazione: ente = nome dell'inventario, piè senza versione né «1 di N»");
   const c = INV_MOD.testoPiano(INV_MOD.testiModulo(INV_MOD.datiModulo(sc, null, { ente: "l'Associazione Esempio ETS", ente_breve: "Esempio", registro: "dell'associazione", versione: "v3 · 17/11/2026" }, form)));
-  ok(/in data 17\/11\/2026 l'Associazione Esempio ETS consegna in comodato/.test(c) && /tassativamente alla fine del corso\/anno accademico, oppure in qualsiasi momento su richiesta di Esempio\./.test(c) && /pagato per l'intero costo\./.test(c) && /nell'inventario dell'associazione\./.test(c) && /v3 · 17\/11\/2026 · 1 di 1/.test(c), "con configurazione: testo identico al modulo approvato");
+  ok(/in data 17\/11\/2026 l'Associazione Esempio ETS consegna in comodato/.test(c) && /tassativamente alla fine del corso\/anno accademico, oppure in qualsiasi momento su richiesta di Esempio\./.test(c) && /pagato per l'intero costo\./.test(c) && /nell'inventario dell'associazione\./.test(c) && !/v3|di 1/.test(c), "con configurazione: testo identico al modulo approvato, senza la versione salvata (che resta ignorata)");
   eq(INV_MOD.datiModulo(sc, null, null, { nome: "A{b}" }).nome, "Ab", "graffe nei dati dell'allievo tolte");
   eq(INV_MOD.datiModulo({ ...sc, singolare: "Tastiera", modello: "" }, null, null, form).strumento, "Tastiera", "senza modello: solo il tipo"); eq(INV_MOD.datiModulo(sc, null, null, form).strumento, "Tastiera · Modello Esempio", "tipo · modello");
 });
@@ -34395,9 +34395,24 @@ t("Inventario/modulo: la consegna ha 6 campi e il PDF sta su una pagina sola; Co
   ok(/if \(!f\.nome\.value\.trim\(\)\) \{ segnalaErrore\(wNome, f\.nome, "Scrivi il nome\."\)/.test(src) && /if \(!f\.cognome\.value\.trim\(\)\) \{ segnalaErrore\(wCogn, f\.cognome, "Scrivi il cognome\."\)/.test(src) && /if \(manca\) \{ manca\.focus\(\); return; \}/.test(src), "nome e cognome obbligatori prima di consegnare, con l'errore sul campo");
   ok(/if \(m\.assegnato_a\) \{\s*b\("Rientrato"[\s\S]*?if \(MOD\) b\("Modulo di comodato"[\s\S]*?\} else if \(m\.stato !== "dismesso"/.test(src), "il pulsante «Modulo di comodato» c'è solo quando lo strumento è assegnato");
   const areaJs = readFileSync(join(root, "inventario/inv-area.js"), "utf8"); ok(/prop && MOD \? pannelloModulo\(\) : null/.test(areaJs) && /mig\.length <= 98000/.test(areaJs) && /<details|"details"/.test(areaJs) && !/open: true|\bopen\b: !0/.test(areaJs.slice(areaJs.indexOf("function pannelloModulo"), areaJs.indexOf("function vistaInventario"))), "area: sezione solo per il proprietario, chiusa di serie, logo ridimensionato sotto il limite");
-  ok(/\[11, 10\.5, 10, 9\.5, 9, 8\.5\]\.some/.test(modSrcPulito) && /splitTextToSize/.test(modSrcPulito), "PDF: si stringe il carattere finché sta in una pagina");
+  ok(/disegna\(doc, d, T, 11, logo\)/.test(modSrcPulito) && /splitTextToSize/.test(modSrcPulito) && /while \(vw > libero && fs > 6\)/.test(modSrcPulito) && /return \{ file: new File/.test(modSrcPulito) && /pagine: doc\.getNumberOfPages\(\)/.test(modSrcPulito), "PDF: corpo 11 pt a posizioni fisse come il Word; il valore troppo lungo va a capo o si rimpicciolisce; una pagina sola");
   ok(/"Scarica PDF"/.test(modSrcPulito) && /navigator\.canShare/.test(modSrcPulito) && /navigator\.share\(\{ files:/.test(modSrcPulito), "navigator.share con file, altrimenti «Scarica PDF»"); ok(/AbortError/.test(modSrcPulito), "l'annullamento di chi condivide non scarica niente");
   ok(/window\.print\(\)/.test(modSrcPulito) && /@page\{size:A4;margin:0\}/.test(readFileSync(join(root, "inventario/inv-foglio.css"), "utf8")), "Stampa = window.print() su un foglio A4 senza margini di pagina (i margini sono nel foglio)");
+});
+t("Inventario/modulo IDENTICO AL WORD (18/11): stesse frasi, etichette e puntini; senza versione né «1 di N»; piè solo le righe dell'ente; misure del Word", () => {
+  const css = readFileSync(join(root, "inventario/inv-foglio.css"), "utf8"), area = readFileSync(join(root, "inventario/inv-area.js"), "utf8"), inv = readFileSync(join(root, "i/inv.js"), "utf8");
+  const d = INV_MOD.datiModulo({ inventario: "Accademia Esempio", singolare: "Tastiera", modello: "M", codice: "TAS-003" }, null, { ente: "l'Associazione Esempio ETS", ente_breve: "Esempio", registro: "dell'associazione", intestazione: "·ESEMPIO·", piede: ["riga uno", "riga due", "riga tre"], versione: "v3 · 17/11/2026" }, {}), T = INV_MOD.testiModulo(d);
+  eq(INV_MOD.PUNTI, { data: 12, nome: 16, cognome: 17, corso: 29, codice: 6, strumento: 12, accessori: 13, luogo: 17, firma: 15 }, "numero di puntini per riga = quello del Word");
+  eq([T.nome, T.cognome, T.corso, T.codiceEt, T.strumentoEt, T.accessoriEt, T.luogoDataEt], ["Nome", "Cognome", "Corso / classe", "Codice sull'etichetta (es. TAS-003)", "Strumento e modello", "Accessori consegnati (alimentatore, custodia, bacchette, cavalletto…)", "Luogo e data"], "etichette identiche al Word, anche quando c'è il dato");
+  ok(T.apertura[0].t.includes("in data " + "…".repeat(12) + " l'Associazione Esempio ETS consegna "), "senza data: 12 puntini nell'apertura"); eq(T.piede, ["riga uno", "riga due"], "piè: le due righe dell'ente, niente altro");
+  ok(!/v3|17\/11\/2026|di 1|versione/i.test(INV_MOD.testoPiano(T)), "nessuna versione e nessun «1 di N» nel foglio");
+  eq(INV_MOD.puntini(3), "………", "puntini = U+2026 come nel Word");
+  ok(/font:11pt\/14\.4pt Georgia/.test(css) && /\.f-titolo\{font:700 13pt\/15pt Helvetica/.test(css) && /\.f-nome\{[^}]*font:400 21pt\/23\.2pt "Times New Roman"/.test(css) && /\.f-piede\{[^}]*font:400 8pt\/9\.6pt Helvetica/.test(css), "caratteri del Word: Georgia 11/14,4 pt, titolo Helvetica bold 13, intestazione Times 21, piè Helvetica 8");
+  ok(/\.f-filo\{[^}]*border-top:\.75pt solid var\(--acc\)/.test(css) && /\.f-corpo\{position:absolute;left:20mm;right:20mm/.test(css) && /\.f-p\.d6\{margin-bottom:6pt\}\.inv-foglio \.f-p\.d14\{margin-bottom:14pt\}/.test(css) && /\.f-p\{margin:0 0 10pt/.test(css), "filetto oro 0,75 pt, margini 20 mm, spazi dopo 6 / 10 / 14 pt");
+  ok(!/f-ver|\.f-piede\{[^}]*border-top/.test(css) && !/f-ver|T\.versione/.test(readFileSync(join(root, "inventario/inv-modulo.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "")), "né riga di versione né filetto sopra il piè");
+  ok(!/mod-versione|Versione del foglio/.test(area), "Gestione: via il campo «Versione del foglio» (il valore nel JSON resta, ignorato)");
+  ok(/\.f-w6\{min-width:53\.3pt\}/.test(css) && /\.f-w29\{min-width:257\.5pt\}/.test(css), "larghezza dei puntini per classe (la CSP non ammette stili in linea)");
+  ok(/fitto/.test(css) && !/style\.|setAttribute\("style"/.test(readFileSync(join(root, "inventario/inv-modulo.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "")), "nessuno stile in linea nel foglio");
 });
 t("Inventario/modulo (migrazione 0090): colonna modulo, salvataggio solo del proprietario, scheda dei membri con modulo; nessuna policy né funzione pubblica toccata", () => {
   ok(/alter table public\.inv_inventari add column if not exists modulo jsonb/.test(modSql) && /octet_length\(modulo::text\) <= 120000/.test(modSql), "colonna modulo jsonb con limite di dimensione");
@@ -36379,6 +36394,101 @@ t("Inventario/pagina del QR: UN solo pulsante «Inventario»; chi è abilitato l
   ok(!/"primario grande pieno"/.test(fPannello), "nel pannello non c'è un secondo primario (Consegna e Rientrato a contorno)");
   ok(/inserisci\(pannello\(null, cfg, ind, m, client, rigenera, ind\.scheda\)\);\s*var pub = document\.getElementById\("inv-pub"\); if \(pub && pub\.parentNode\) pub\.parentNode\.removeChild\(pub\);/.test(src), "il pulsante pubblico viene tolto solo quando nasce il pannello dei membri (non abilitato: resta)");
   eq((src.match(/"Inventario", "btn primario grande pieno/g) || []).length, 2, "due soli punti di costruzione (pubblico e membro), mai insieme");
+});
+
+t("Inventario/elenco ORIZZONTALE (18/11): A4 landscape solo per l'elenco, righe a capo contate a altezza, colonne in mm, margini ≥ 15 mm, le etichette restano verticali", () => {
+  const css = readFileSync(join(root, "inventario/inv-area.css"), "utf8"), js = readFileSync(join(root, "inventario/inv-area.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  ok(/\.foglio\.elenco\{width:297mm;height:210mm;padding:16mm 17mm 0/.test(css) && /\.foglio\{position:relative;width:210mm;height:297mm/.test(css), "foglio dell'elenco 297×210 mm; il foglio delle etichette resta 210×297");
+  ok(/@page\{size:A4 landscape;margin:0\}/.test(js) && /function paginaStampa\(orizzontale\)/.test(js) && /function disegna\(nodi\) \{ paginaStampa\(false\);/.test(js) && /paginaStampa\(true\); adattaFogli\(\);/.test(js), "l'orientamento è uno <style> che esiste solo nella vista elenco: ogni altra schermata (etichette, inventario) lo toglie");
+  ok(/\.piede-foglio\{[^}]*bottom:16mm/.test(css) && /padding:16mm 17mm 0/.test(css), "margini ≥ 15 mm: piè a 16 mm dal bordo, testa a 16 mm");
+  ok(/Hh = orizz \? 793\.7 : 1122\.52/.test(js) && /W = orizz \? 1122\.52 : 793\.7/.test(js), "anteprima a schermo in scala per entrambe le orientazioni (anche a 390 px)");
+  ok(/\.el-tab td\{[^}]*white-space:normal;overflow-wrap:anywhere/.test(css) && !/\.el-tab td\{[^}]*text-overflow:ellipsis/.test(css), "le celle vanno a capo: niente testo tagliato");
+  const E = INV_LIB.ELENCO, somma = (v) => v.reduce((x, y) => x + y, 0); eq(somma(E.colonne.con), 263, "colonne con note = 263 mm (297 − 2×17)"); eq(somma(E.colonne.senza), 263, "colonne senza note = 263 mm");
+  const mk = (n, mod) => Array.from({ length: n }, (_, i) => ({ codice: "TAS-" + String(i + 1).padStart(3, "0"), tipo: "TAS", modello: mod || "x", stato: "in_sede", note: "" }));
+  const corte = (a) => [a.codice, "Tastiera", a.modello, "In sede"], lunghe = (a) => [a.codice, "Tastiera", a.modello, "Consegnato a " + "Nome Cognome Esempio Molto Lungo, pianoforte 2B " .repeat(3)];
+  eq(INV_LIB.impaginaElenco(mk(22), corte, false).length, 1, "22 righe di una riga: un foglio"); eq(INV_LIB.impaginaElenco(mk(23), corte, false).length, 2, "la 23ª va sul foglio dopo");
+  ok(INV_LIB.impaginaElenco(mk(22), lunghe, false).length > 1, "righe che vanno a capo: meno righe per foglio (22 lunghe non stanno in un foglio)"); eq(INV_LIB.righeTesto(["TAS-001", "x", "x", "y".repeat(300)], false), Math.ceil(300 * E.mmCar / (E.colonne.senza[3] - E.cella)), "righe di testo = cella più lunga / larghezza colonna");
+  eq(INV_LIB.righeTesto(["a", "b", "c", "d"], false), 1, "celle corte: una riga");
+  const pg = INV_LIB.impaginaElenco(mk(40, "m"), lunghe, true); pg.forEach((f) => ok(f.reduce((m, a) => m + E.mmBase + E.mmRiga * INV_LIB.righeTesto(lunghe(a), true), 0) <= E.mmPagina + 0.01, "ogni foglio sta nell'altezza utile"));
+  eq(pg.reduce((n, f) => n + f.length, 0), 40, "nessuna riga persa né spezzata tra due fogli");
+});
+
+/* ═══ Inventario: tabella dell'area — cambio di stato → scheda, testi non tagliati, Elimina con conferma (18/11/2026) ═══ */
+const INV_SCH = invRequire(join(root, "inventario/inv-scheda.js"));
+t("Inventario/tabella: il cambio di stato sceglie la scheda con le stesse regole del telefono (pianoCambioStato)", () => {
+  const P = INV_PUB.pianoCambioStato, a = (stato, chi) => ({ stato, assegnato_a: chi || "" });
+  eq(P(a("in_sede"), "in_sede").tipo, "nulla", "stesso stato: niente");  eq(P(a("in_sede"), "boh").tipo, "nulla", "stato inventato: niente");
+  eq(P(a("in_sede"), "a_casa").tipo, "consegna", "In sede → A casa = consegna");
+  eq(P(a("a_casa", "Anna B."), "in_sede"), { tipo: "rientro", titolo: "Rientro di Anna B.", conferma: "Conferma rientro", poi: "" }, "A casa → In sede = rientro");
+  eq(P(a("in_riparazione", "Anna B."), "in_sede").poi, "in_sede", "rotta mentre era in prestito: dopo il rientro lo stato va rimesso «In sede»");
+  eq(P(a("in_sede"), "in_riparazione").tipo, "rottura", "→ In riparazione = rottura (storico)"); eq(P(a("a_casa", "X"), "in_riparazione").tipo, "rottura", "anche se è in prestito");
+  eq(P(a("in_sede"), "smarrito").tipo, "smarrimento", "→ Smarrito = smarrimento (storico)");
+  for (const da of ["in_riparazione", "smarrito", "dismesso"]) { const r = P(a(da), "a_casa"); eq(r.tipo, "blocco", "non si consegna da «" + da + "»"); ok(/prima «In sede»/.test(r.testo), "dice come fare"); }
+  eq(P(a("in_sede", "Anna B."), "a_casa").tipo, "blocco", "già assegnata: niente doppia consegna"); eq(P(a("smarrito"), "in_riparazione").tipo, "blocco", "smarrita non diventa «rotta» (come sul telefono)"); eq(P(a("dismesso"), "smarrito").tipo, "blocco", "dismessa non diventa «smarrita»");
+  for (const da of ["in_riparazione", "smarrito", "dismesso"]) eq(P(a(da), "in_sede").tipo, "diretto", "«" + da + "» → In sede = solo lo stato");
+  eq(P(a("in_sede"), "dismesso").tipo, "diretto", "→ Dismesso = solo lo stato"); eq(P(a("a_casa", "Anna B."), "dismesso").tipo, "blocco", "dismettere ciò che è in prestito: prima il rientro");
+  for (const [da, a2] of [["in_sede", "a_casa"], ["a_casa", "in_sede"], ["in_sede", "in_riparazione"], ["in_sede", "smarrito"], ["in_sede", "dismesso"]]) { const r = P(a(da, da === "a_casa" ? "X Y" : ""), a2); ok(r.tipo !== "blocco" && r.tipo !== "nulla" && r.conferma, da + "→" + a2 + ": c'è un pulsante di conferma"); }
+});
+t("Inventario/tabella: la scheda usa la stessa funzione del telefono; il menu non cambia lo stato; ogni cambio passa dalla conferma", () => {
+  const area = readFileSync(join(root, "inventario/inv-area.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, ""), sch = readFileSync(join(root, "inventario/inv-scheda.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  ok(/st\.addEventListener\("change", function \(\) \{\s*var nuovo = st\.value; st\.value = a\.stato;[^}]*INVScheda\.cambioStato\(ctxScheda\(\), a, nuovo,/.test(area), "il menu apre la scheda e rimette subito il valore di prima");
+  ok(!/st\.addEventListener\("change"[^\n]*salva\("stato"/.test(area) && !/salva\("stato"/.test(area), "il menu non salva più lo stato da solo");
+  ok(/if \(!o \|\| !o\.ok\) \{ errore\(o\); return; \}/.test(sch) && /S\.c\.rpc\("inv_movimento", args\)/.test(sch) && /argomentiMovimento\(S\.inv\.slug, a\.codice, tipoMov, aChi, F\.data\.value, nota\)/.test(sch), "i movimenti passano da inv_movimento (security definer), come sul telefono");
+  ok(/PUB\.pianoCambioStato\(a, nuovo\)/.test(sch) && /PUB\.erroreMov\(o\)/.test(sch) && /PUB\.campo\(/.test(sch) && /PUB\.segnalaErrore\(/.test(sch), "piano, errori e campi vengono da /i/inv.js (nessun duplicato)");
+  ok(/ok\.addEventListener\("click"/.test(sch) && /if \(inCorso\) return;/.test(sch) && /inCorso = true; ok\.disabled = true; no\.disabled = true;/.test(sch), "lo stato cambia solo al clic su «Conferma», una volta sola");
+  ok(/aggiornaStato\(nuovo\)/.test(sch) && /var dopo = P\.poi \? aggiornaStato\(P\.poi\)\.then\(/.test(sch) && /\.update\(\{ stato: val,/.test(sch), "solo i casi senza movimento (rimetti in sede, dismesso, dopo il rientro) scrivono la colonna stato");
+  ok(/if \(!F\.nome\.value\.trim\(\)\)[\s\S]*?"Scrivi il nome\."/.test(sch) && /"Scrivi il cognome\."/.test(sch), "consegna: nome e cognome obbligatori, come sul telefono");
+  ok(/MOD\.cartaModulo\(/.test(sch) && /tipoMov === "consegna"/.test(sch), "dopo la consegna compare il modulo di comodato");
+  ok(/function annulla\(\) \{ if \(chiuso\) return; w\.chiudi\(\); if \(opz\.annulla\) opz\.annulla\(\); \}/.test(sch) && /ev\.key === "Escape"/.test(sch), "Esc e «Annulla» chiudono e fanno tornare il menu");
+  ok(/role: opz\.allerta \? "alertdialog" : "dialog", "aria-modal": "true"/.test(sch) && /ev\.key !== "Tab"/.test(sch), "dialogo accessibile: ruolo, aria-modal, il Tab resta dentro");
+  eq(INV_SCH.argomentiMovimento("scuola", "TAS-001", "rientro", "chiunque", "2026-11-18", "n").p_a_chi, "", "rientro/rottura/smarrimento non mandano mai un nome");
+  eq(INV_SCH.argomentiMovimento("scuola", "TAS-001", "consegna", "Anna B.", "2026-11-18", "").p_a_chi, "Anna B.", "la consegna sì");
+  for (const f of ["inventario/inv-scheda.js", "i/inv.js"]) ok(!/innerHTML|outerHTML|insertAdjacentHTML|document\.write/.test(readFileSync(join(root, f), "utf8").replace(/\/\*[\s\S]*?\*\//g, "")), f + ": niente innerHTML");
+});
+t("Inventario/tabella: «Elimina» chiede conferma con un popup vero (non window.confirm), focus su «Annulla», anti doppio clic, testo onesto", () => {
+  const area = readFileSync(join(root, "inventario/inv-area.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, ""), sch = readFileSync(join(root, "inventario/inv-scheda.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  ok(/INVScheda\.elimina\(ctxScheda\(\), a\)/.test(area) && !/inv_articoli"\)\.delete\(\)/.test(area) && !/dataset\.chiedi|Sicuro\? Elimina/.test(area), "il pulsante della riga apre il popup, non cancella più da solo (via il vecchio «Sicuro?»)");
+  ok(!/\bconfirm\s*\(|window\.confirm|\balert\s*\(|\bprompt\s*\(/.test(area + sch), "mai window.confirm/alert/prompt");
+  ok(/no\.focus\(\);\s*\/\/ di serie su «Annulla»: Invio non elimina\s*return w;/.test(sch) && /id: "sch-elimina", text: "Elimina", disabled: true/.test(sch), "focus di serie su «Annulla»; «Elimina» nasce disattivato");
+  ok(/GUARDIA_MS = 600/.test(sch) && /armato: function \(\) \{ si\.disabled = false; \}/.test(sch) && /if \(!w\.armato\(\) \|\| inCorso\) return; inCorso = true; si\.disabled = true;/.test(sch), "guardia di 600 ms e blocco del secondo clic");
+  ok(/\.delete\(\)\.eq\("id", a\.id\)\.select\("id"\)/.test(sch) && /r\.data\.length !== 1/.test(sch), "si elimina solo se il database ha cancellato davvero una riga");
+  ok(/velo\.addEventListener\("mousedown", function \(ev\) \{ if \(ev\.target === velo && opz\.veloChiude && armato\)/.test(sch), "il clic sul velo annulla, ma non nei primi 600 ms");
+  const T = INV_SCH.testoElimina({ codice: "TAS-001", modello: "Mod", assegnato_a: "" }, "Tastiera"); eq(T.titolo, "Eliminare TAS-001?", "titolo col codice"); eq(T.oggetto, "Tastiera · Mod", "oggetto");
+  const tutto = T.righe.join(" "); ok(/per sempre/.test(tutto) && /storico/.test(tutto) && /non si può annullare/.test(tutto) && /non verrà riusato/.test(tutto) && /TAS-001/.test(tutto), "dice cosa si perde (scheda, nota, storico), che non si annulla e che il numero non si riusa");
+  eq(T.avviso, "", "senza assegnatario nessun avviso"); ok(/consegnato a Anna B\./.test(INV_SCH.testoElimina({ codice: "TAS-002", modello: "", assegnato_a: "Anna B." }, "Tastiera").avviso), "se risulta consegnato lo scrive");
+  const sql = readFileSync(join(root, "supabase/migrations/0085_inventario.sql"), "utf8"); ok(/articolo_id\s+uuid not null references public\.inv_articoli\(id\) on delete cascade/.test(sql) && /prossimo\s+integer not null default 1/.test(sql), "vero nel database: lo storico cade a cascata, il numero non si riusa (quello che il popup dice)");
+});
+t("Inventario/tabella: colonne in px, nessun testo importante tagliato, pulsanti di riga a capo, schede sotto i 960 px", () => {
+  const css = readFileSync(join(root, "inventario/inv-area.css"), "utf8"), html = readFileSync(join(root, "inventario/index.html"), "utf8");
+  ok(/\.oggetti col\.c-cod\{width:118px\}[^\n]*c-stato\{width:158px\}[^\n]*c-az\{width:176px\}/.test(css) && !/c-chi\{width:\d+%/.test(css) && /@media \(min-width:1200px\)\{[^\n]*c-az\{width:244px\}/.test(css), "colonne in px (la «Etichetta» e il menu di stato ci stanno interi)");
+  ok(!/\.oggetti td\.(tipo|chi)[^{]*\{[^}]*text-overflow:ellipsis/.test(css) && !/\.oggetti td\.chi (b|small)\{[^}]*white-space:nowrap/.test(css), "tipo e «Ce l'ha» vanno a capo invece di finire in puntini");
+  ok(/\.riga-az\{display:flex;flex-wrap:wrap;/.test(css) && /\.riga-az \.btn\{[^}]*white-space:nowrap/.test(css) && /\.etic-tag\{display:block;white-space:nowrap/.test(css), "pulsanti di riga a capo ma mai spezzati; «Etichetta da fare» intera");
+  ok(/@media \(max-width:960px\)\{[\s\S]*?\.oggetti thead\{display:none\}/.test(css) && /\.area\{max-width:1240px/.test(css), "sotto i 960 px elenco di schede; l'area sta larga 1240 px");
+  ok(/\.sch-velo\{position:fixed;inset:0;z-index:30/.test(css) && /\.scheda\{[^}]*max-height:calc\(100dvh - 24px\);overflow:auto/.test(css) && /@media \(max-width:720px\)\{\.sch-velo\{align-items:flex-start/.test(css) && /@media print\{\.sch-velo\{display:none!important\}/.test(css), "dialoghi: dentro lo schermo (anche con la tastiera), scroll interno, mai in stampa");
+  ok(/\.scheda \.inv-campo input\{[^}]*font-size:16px/.test(css), "campi a 16 px: iOS non zooma al tocco");
+  ok(/inv-scheda\.js\?v=1"/.test(html) && html.indexOf("inv-scheda.js") > html.indexOf("inv-lib.js") && html.indexOf("inv-scheda.js") < html.indexOf("inv-area.js"), "inv-scheda.js è caricato prima di inv-area.js");
+  ok(/inv-area\.js\?v=(1[2-9]|[2-9]\d)"/.test(html) && /inv-area\.css\?v=(9|\d\d)"/.test(html) && /\/i\/inv\.js\?v=([7-9]|\d\d)"/.test(html) && /inv\.js\?v=([7-9]|\d\d)"/.test(readFileSync(join(root, "i/index.html"), "utf8")), "?v= alzati (niente cache vecchia) in /inventario/ e in /i/");
+});
+
+t("Inventario/navigazione (18/11): tabella ↔ scheda sempre nella STESSA scheda del browser; «← Inventario» solo ai membri; Indietro coerente; ritorno con filtro e posizione", () => {
+  const area = readFileSync(join(root, "inventario/inv-area.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, ""), inv = readFileSync(join(root, "i/inv.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, ""), mod = readFileSync(join(root, "inventario/inv-modulo.js"), "utf8"), sch = readFileSync(join(root, "inventario/inv-scheda.js"), "utf8");
+  for (const [nome, src] of [["area", area], ["scheda del QR", inv], ["modulo", mod], ["dialoghi", sch]]) ok(!/target:\s*"_blank"|target="_blank"|_blank|window\.open\(/.test(src), nome + ": nessun link o pulsante apre una scheda nuova");
+  ok(/class: "btn piccolo", href: link, text: "Scheda"[^)]*onclick: function \(\) \{ salvaRitorno\(a\.codice\); \}/.test(area) && /text: a\.codice, "aria-label": "Apri la scheda di " \+ a\.codice, onclick: function \(\) \{ salvaRitorno\(a\.codice\); \}/.test(area), "codice e «Scheda» vanno alla scheda nella stessa scheda, ricordando dove si era");
+  eq(INV_PUB.linkAreaTabella("scuola"), "/inventario/?apri=scuola", "«← Inventario» riporta alla tabella dello stesso inventario"); eq(INV_PUB.linkAreaTabella("-x"), "", "slug non valido: nessun link"); eq(INV_PUB.linkAreaTabella("a/../b"), "", "niente percorsi");
+  ok(/inserisci\(pannello\(null, cfg, ind, m, client, rigenera, ind\.scheda\)\);\s*var pub = [^\n]*\n\s*var tab = linkAreaTabella\(ind\.slug\)/.test(inv), "«← Inventario» nasce solo dentro il ramo «membro abilitato» (anonimi e non abilitati: niente di nuovo)");
+  eq((inv.match(/id = "inv-torna"/g) || []).length, 1, "un solo punto di costruzione di «← Inventario»");
+  const fresco = { slug: "ava", t: 1000 }, adesso = 1000 + 60000;
+  ok(INV_PUB.tornaConIndietro(fresco, "ava", adesso, 3), "dalla tabella (stato salvato in questa scheda, stesso inventario, recente): «Indietro» — la tabella si riapre com'era e la cronologia non cresce");
+  ok(!INV_PUB.tornaConIndietro(null, "ava", adesso, 3) && !INV_PUB.tornaConIndietro(fresco, "altro", adesso, 3) && !INV_PUB.tornaConIndietro(fresco, "ava", 1000 + 31 * 60000, 3) && !INV_PUB.tornaConIndietro(fresco, "ava", adesso, 1) && !INV_PUB.tornaConIndietro({ slug: "ava" }, "ava", adesso, 3), "da un QR (niente stato), da un altro inventario, dopo 30 minuti o con cronologia vuota: link normale, nessun loop");
+  ok(/ev\.preventDefault\(\); root\.history\.back\(\)/.test(inv) && /ev\.metaKey \|\| ev\.ctrlKey \|\| ev\.shiftKey/.test(inv) && /st\.torna = true/.test(inv), "Indietro solo al clic semplice (Cmd/Ctrl-clic aprono come sempre); col link normale la tabella ripristina lo stesso");
+  const O = "https://stageplot.it", R = INV_LIB.ripristinaRitorno, st = { slug: "ava", t: 1000, y: 640, cod: "TAS-002", filtro: { tipo: "TAS", stato: "a_casa", testo: "anna", ordine: "stato" } }, ora = 1000 + 60000;
+  eq(R(st, "ava", ora, "back_forward"), { filtro: st.filtro, y: 640, cod: "TAS-002" }, "Indietro: ripristina filtro, ricerca, ordine, posizione e riga");
+  eq(R({ ...st, torna: true }, "ava", ora, "navigate").y, 640, "dal link «← Inventario» (torna:true): ripristina");
+  eq(R(st, "ava", ora, "navigate"), null, "apertura nuova (segnalibro, nuovo accesso): tabella pulita");
+  eq(R(st, "altro", ora, "back_forward"), null, "altro inventario: niente"); eq(R(st, "ava", 1000 + 31 * 60000, "back_forward"), null, "oltre 30 minuti: niente"); eq(R(null, "ava", ora, "back_forward"), null, "nessun dato: niente");
+  eq(R({ slug: "ava", t: 1000, y: "9e99", cod: "<img>", filtro: { tipo: "x'; drop", stato: "boh", testo: "t".repeat(500), ordine: "../" } }, "ava", ora, "back_forward"), { filtro: { tipo: "", stato: "", testo: "t".repeat(200), ordine: "codice" }, y: 100000, cod: "" }, "valori ripuliti: nel sessionStorage non ci si fida di niente");
+  ok(/sessionStorage\.removeItem\(CHIAVE_RITORNO\)/.test(area) && /pageshow/.test(area) && /ev\.persisted/.test(area) && /rit \? window\.scrollTo\(0, rit\.y\)|if \(rit\) \{ window\.scrollTo\(0, rit\.y\)/.test(area), "il ritorno vale una volta sola; con la pagina rimasta in cache non si ripristina niente");
+  ok(/\.inv-torna\{display:inline-flex[^}]*min-height:34px/.test(readFileSync(join(root, "i/inv.css"), "utf8")) && /@media print\{\.inv-torna\{display:none\}\}/.test(readFileSync(join(root, "i/inv.css"), "utf8")), "«← Inventario»: piccolo (34 px), mai in stampa");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");

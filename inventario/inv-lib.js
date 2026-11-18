@@ -120,12 +120,37 @@
       return confrontaCodice(a, b);
     });
   }
-  /* righe per foglio A4 dell'elenco (intestazione sulla prima riga di ogni foglio, margini ≥ 15 mm, piè a 16 mm dal bordo) */
-  var RIGHE_ELENCO = 34;
-  function impaginaElenco(articoli) {
-    var p = [];
-    for (var i = 0; i < (articoli || []).length; i += RIGHE_ELENCO) p.push(articoli.slice(i, i + RIGHE_ELENCO));
+  /* Elenco da stampare: foglio A4 ORIZZONTALE (297×210 mm; 18/11/2026: in verticale le scritte non ci stavano). Margini ≥ 15 mm, piè a 16 mm dal bordo.
+     Le righe vanno a capo (niente testo tagliato) e il foglio si riempie «a altezza»: ogni riga costa mmBase + mmRiga × (righe di testo), il foglio ne ammette mmPagina.
+     Con tutte le celle di una riga sola: 22 righe per foglio (RIGHE_ELENCO). Colonne in mm; senza note la colonna «Nota» sparisce e le altre si allargano. */
+  var ELENCO = { colonne: { con: [24, 32, 66, 80, 61], senza: [26, 40, 90, 107] }, mmCar: 1.65, cella: 2, mmBase: 2.8, mmRiga: 3.6, mmPagina: 146 };
+  var RIGHE_ELENCO = Math.floor(ELENCO.mmPagina / (ELENCO.mmBase + ELENCO.mmRiga));
+  /* quante righe di testo occupa una riga della tabella: la cella più lunga rispetto alla larghezza della sua colonna */
+  function righeTesto(celle, conNote) {
+    var w = conNote ? ELENCO.colonne.con : ELENCO.colonne.senza, n = 1;
+    (celle || []).forEach(function (t, i) { if (i >= w.length) return; var l = Math.ceil(String(t == null ? "" : t).length * ELENCO.mmCar / (w[i] - ELENCO.cella)); if (l > n) n = l; });
+    return n;
+  }
+  function mmRiga(celle, conNote) { return ELENCO.mmBase + ELENCO.mmRiga * righeTesto(celle, conNote); }
+  /* celle(a) → [codice, tipo, modello, dove, (nota)]; senza la funzione: righe tutte di una riga (RIGHE_ELENCO per foglio) */
+  function impaginaElenco(articoli, celle, conNote) {
+    var p = [], cur = [], usati = 0;
+    (articoli || []).forEach(function (a) {
+      var mm = typeof celle === "function" ? mmRiga(celle(a), !!conNote) : ELENCO.mmBase + ELENCO.mmRiga;
+      if (cur.length && usati + mm > ELENCO.mmPagina + 0.001) { p.push(cur); cur = []; usati = 0; }
+      cur.push(a); usati += mm;
+    });
+    if (cur.length) p.push(cur);
     return p.length ? p : [[]];
+  }
+  /* Ritorno dalla scheda alla tabella: cosa si ripristina (filtro, ordine, posizione, riga). Solo se è lo stesso inventario, entro 30 minuti, e si torna davvero dalla scheda:
+     Indietro del browser (tipoNav «back_forward») oppure il link «← Inventario» (che segna torna:true). Valori ripuliti: mai fidarsi di ciò che sta nel sessionStorage. */
+  function ripristinaRitorno(st, slug, ora, tipoNav) {
+    if (!st || typeof st !== "object" || st.slug !== slug || typeof st.t !== "number" || ora - st.t > 30 * 60 * 1000 || ora < st.t) return null;
+    if (tipoNav !== "back_forward" && st.torna !== true) return null;
+    var f = st.filtro && typeof st.filtro === "object" ? st.filtro : {}, t = function (v, m) { return typeof v === "string" ? v.slice(0, m) : ""; };
+    var ord = ["codice", "stato", "assegnato"].indexOf(f.ordine) >= 0 ? f.ordine : "codice";
+    return { filtro: { tipo: /^[A-Z]{2,5}$/.test(f.tipo || "") ? f.tipo : "", stato: statoOk(f.stato) ? f.stato : "", testo: t(f.testo, 200), ordine: ord }, y: Math.max(0, Math.min(100000, Math.round(+st.y) || 0)), cod: /^[A-Z]{2,5}-\d{3,6}$/.test(st.cod || "") ? st.cod : "" };
   }
   /* piè dell'elenco: «Ente · elenco di 27 oggetti · stampato il GG/MM/AAAA alle HH:MM» */
   function piedeElenco(ente, n, d, o) {
@@ -191,7 +216,7 @@
   /* testo sulla scheda di un oggetto: «Etichetta da fare» / «Etichetta fatta il 18/11/2026» */
   function etichettaStato(a) { return a && a.etichetta_fatta ? "Etichetta fatta il " + dataIt(a.etichetta_fatta) : a && a.stato === "dismesso" ? "" : "Etichetta da fare"; }
 
-  var L = { etichettaDaFare: etichettaDaFare, contaDaFare: contaDaFare, fraseDaEtichettare: fraseDaEtichettare, etichetteScelte: etichetteScelte, dasegnare: dasegnare, darimettere: darimettere, etichettaStato: etichettaStato, riepilogo: riepilogo, ceLha: ceLha, descrizioneStato: descrizioneStato, filtra: filtra, ordina: ordina, confrontaCodice: confrontaCodice, RIGHE_ELENCO: RIGHE_ELENCO, impaginaElenco: impaginaElenco, piedeElenco: piedeElenco, sintesi: sintesi, csvElenco: csvElenco, corpoCodice: corpoCodice, STATI: STATI, FOGLIO: FOGLIO, statoNome: statoNome, statoOk: statoOk, codice: codice, prefissoOk: prefissoOk, proponiPrefisso: proponiPrefisso,
+  var L = { etichettaDaFare: etichettaDaFare, contaDaFare: contaDaFare, fraseDaEtichettare: fraseDaEtichettare, etichetteScelte: etichetteScelte, dasegnare: dasegnare, darimettere: darimettere, etichettaStato: etichettaStato, riepilogo: riepilogo, ceLha: ceLha, descrizioneStato: descrizioneStato, filtra: filtra, ordina: ordina, confrontaCodice: confrontaCodice, RIGHE_ELENCO: RIGHE_ELENCO, ripristinaRitorno: ripristinaRitorno, ELENCO: ELENCO, righeTesto: righeTesto, impaginaElenco: impaginaElenco, piedeElenco: piedeElenco, sintesi: sintesi, csvElenco: csvElenco, corpoCodice: corpoCodice, STATI: STATI, FOGLIO: FOGLIO, statoNome: statoNome, statoOk: statoOk, codice: codice, prefissoOk: prefissoOk, proponiPrefisso: proponiPrefisso,
     frase: frase, conteggi: conteggi, cella: cella, csv: csv, dataIt: dataIt, perPagina: perPagina, origineX: origineX, impagina: impagina, posizione: posizione,
     giusto: giusto, data: data, ora: ora, intervallo: intervallo };
   root.INVLib = L;
