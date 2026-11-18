@@ -73,17 +73,14 @@
     return FOGLIO.alto + FOGLIO.righe * FOGLIO.eh + (FOGLIO.righe - 1) * FOGLIO.gap <= FOGLIO.h - FOGLIO.basso;
   }
   function data(d) { d = d || new Date(); return ("0" + d.getDate()).slice(-2) + "/" + ("0" + (d.getMonth() + 1)).slice(-2) + "/" + d.getFullYear(); }
+  /* «HH:MM» locale: data e ora di stampa stanno nel piè dei fogli dell'area inventario (18/11/2026: niente numero di versione) */
+  function ora(d) { d = d || new Date(); return ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2); }
   /* «TAS-001 … TAS-010» per il piè del foglio */
   function intervallo(codici) { return !codici.length ? "" : codici.length === 1 ? codici[0] : codici[0] + " … " + codici[codici.length - 1]; }
 
   /* corpo (pt) del codice sull'etichetta: grande, ma i codici lunghi (PERC-0012) devono stare nei 24 mm accanto al QR; carattere a spaziatura fissa ≈ 0,6 em */
   function corpoCodice(lunghezza) { var pt = FOGLIO.testo / (Math.max(1, lunghezza) * 0.6 * 0.3528); return Math.max(8, Math.min(17, Math.floor(pt * 10) / 10)); }
 
-  /* piè sinistro del foglio: la VERSIONE c'è sempre («vN · data» su ogni foglio stampato; versione nuova = numero nuovo) */
-  function piede(versione, ente, codici, d) {
-    var v = Math.max(1, Math.min(99, Math.floor(+versione) || 1));
-    return "v" + v + " · " + ente + " · " + intervallo(codici) + " · stampato il " + d;
-  }
 
   /* ---- Elenco completo (17/11/2026, richiesta di Diego): dove sono e a chi sono, con ricerca, ordinamento, stampa A4 e CSV ---- */
   /* «In sede» · «Consegnato a Nome dal 16/11/2026» · «In riparazione» …; senza i nomi (conNomi falso): «Consegnato dal 16/11/2026». */
@@ -130,10 +127,9 @@
     for (var i = 0; i < (articoli || []).length; i += RIGHE_ELENCO) p.push(articoli.slice(i, i + RIGHE_ELENCO));
     return p.length ? p : [[]];
   }
-  /* piè dell'elenco: «v1 · Ente · Elenco di 27 oggetti · stampato il GG/MM/AAAA» (la versione c'è sempre, come sulle etichette) */
-  function piedeElenco(versione, ente, n, d) {
-    var v = Math.max(1, Math.min(99, Math.floor(+versione) || 1));
-    return "v" + v + " · " + ente + " · elenco di " + n + (n === 1 ? " oggetto" : " oggetti") + " · stampato il " + d;
+  /* piè dell'elenco: «Ente · elenco di 27 oggetti · stampato il GG/MM/AAAA alle HH:MM» */
+  function piedeElenco(ente, n, d, o) {
+    return ente + " · elenco di " + n + (n === 1 ? " oggetto" : " oggetti") + " · stampato il " + d + " alle " + o;
   }
   /* sintesi per l'intestazione: «In sede 20 · Consegnato 6 · In riparazione 1» */
   function sintesi(articoli) {
@@ -176,9 +172,9 @@
     return { nome: nome, sotto: [corso, dal].filter(Boolean).join(" · ") };
   }
 
-  var L = { riepilogo: riepilogo, ceLha: ceLha, descrizioneStato: descrizioneStato, filtra: filtra, ordina: ordina, confrontaCodice: confrontaCodice, RIGHE_ELENCO: RIGHE_ELENCO, impaginaElenco: impaginaElenco, piedeElenco: piedeElenco, sintesi: sintesi, csvElenco: csvElenco, piede: piede, corpoCodice: corpoCodice, STATI: STATI, FOGLIO: FOGLIO, statoNome: statoNome, statoOk: statoOk, codice: codice, prefissoOk: prefissoOk, proponiPrefisso: proponiPrefisso,
+  var L = { riepilogo: riepilogo, ceLha: ceLha, descrizioneStato: descrizioneStato, filtra: filtra, ordina: ordina, confrontaCodice: confrontaCodice, RIGHE_ELENCO: RIGHE_ELENCO, impaginaElenco: impaginaElenco, piedeElenco: piedeElenco, sintesi: sintesi, csvElenco: csvElenco, corpoCodice: corpoCodice, STATI: STATI, FOGLIO: FOGLIO, statoNome: statoNome, statoOk: statoOk, codice: codice, prefissoOk: prefissoOk, proponiPrefisso: proponiPrefisso,
     frase: frase, conteggi: conteggi, cella: cella, csv: csv, dataIt: dataIt, perPagina: perPagina, origineX: origineX, impagina: impagina, posizione: posizione,
-    giusto: giusto, data: data, intervallo: intervallo };
+    giusto: giusto, data: data, ora: ora, intervallo: intervallo };
   root.INVLib = L;
   if (typeof module === "object" && module && module.exports) module.exports = L;
 })(typeof globalThis !== "undefined" ? globalThis : this);

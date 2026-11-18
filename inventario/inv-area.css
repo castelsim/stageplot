@@ -210,3 +210,5 @@ td.cod{font-family:var(--mono);font-weight:700;white-space:nowrap}
   .toast{display:none}
   .barra-sp{display:none}
 }
+/* senza il logo (18/11/2026) «Inventario» apre la barra: niente filetto a sinistra */
+.barra-sp .dove:first-child{border-left:0;padding-left:0;margin-left:0}

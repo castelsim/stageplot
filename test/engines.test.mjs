@@ -34087,9 +34087,9 @@ t("Inventario: foglio A4 di etichette — 21 per pagina, margine basso ≥ 15 mm
   const a = INV_LIB.posizione(0), b = INV_LIB.posizione(1), r = INV_LIB.posizione(3);
   eq(b.x - a.x, F.ew + F.gap, "passo orizzontale"); eq(r.y - a.y, F.eh + F.gap, "passo verticale"); eq(r.x, a.x, "a capo dopo 3");
   eq(INV_LIB.intervallo(["TAS-001", "TAS-005", "TAS-010"]), "TAS-001 … TAS-010", "intervallo nel piè"); eq(INV_LIB.data(new Date(2026, 10, 5)), "05/11/2026", "data gg/mm/aaaa");
-  eq(INV_LIB.piede(1, "Accademia Esempio", ["TAS-001", "TAS-010"], "16/11/2026"), "v1 · Accademia Esempio · TAS-001 … TAS-010 · stampato il 16/11/2026", "piè con versione, ente, intervallo e data");
-  eq(INV_LIB.piede(0, "A", ["X-001"], "d").startsWith("v1 "), true, "versione minima 1"); eq(INV_LIB.piede(500, "A", ["X-001"], "d").startsWith("v99 "), true, "versione massima 99"); eq(INV_LIB.piede("boh", "A", ["X-001"], "d").startsWith("v1 "), true, "versione non numerica = 1"); eq(INV_LIB.piede(-5, "A", ["X-001"], "d").startsWith("v1 "), true, "versione negativa = 1");
-  ok(/id: "versione"/.test(readFileSync(join(root, "inventario/inv-area.js"), "utf8")) && /L\.piede\(ver, S\.inv\.nome/.test(readFileSync(join(root, "inventario/inv-area.js"), "utf8")) && /L\.piede\(v, S\.inv\.nome/.test(readFileSync(join(root, "inventario/inv-area.js"), "utf8")), "l'area scrive la versione nel piè del foglio (all'apertura e quando la si cambia)");
+  eq(INV_LIB.piede, undefined, "il foglio ETICHETTE non ha più il piè con versione né data (18/11: si stampa, si taglia, si butta): solo «1 di N»");
+  eq(INV_LIB.ora(new Date(2026, 10, 18, 9, 5)), "09:05", "ora con zero iniziale"); eq(INV_LIB.ora(new Date(2026, 10, 18, 12, 40)), "12:40", "ora HH:MM");
+  { const a = readFileSync(join(root, "inventario/inv-area.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, ""); ok(!/id: "versione"|inv-ver|L\.piede\(/.test(a) && /L\.piedeElenco\(S\.inv\.nome/.test(a) && /L\.ora\(\)/.test(a) && /"beforeprint"/.test(a), "l'elenco scrive data e ora di stampa (apertura e «beforeprint»); etichette e elenco senza campo versione"); }
   eq(INV_LIB.corpoCodice(1), 17, "tetto a 17 pt"); eq(INV_LIB.corpoCodice(7), 16.1, "7 caratteri (TAS-001) nei 24 mm"); ok(INV_LIB.corpoCodice(7) <= 17 && INV_LIB.corpoCodice(9) < INV_LIB.corpoCodice(7) && INV_LIB.corpoCodice(20) >= 8, "il codice lungo rimpicciolisce ma resta leggibile");
 });
 t("Inventario: la pagina pubblica scarta ogni campo sconosciuto (mai note, assegnato, user_id, nomi) — scheda ed elenco", () => {
@@ -34163,12 +34163,12 @@ t("Inventario: elenco completo — stato leggibile («Consegnato a … dal …»
   eq(INV_LIB.filtra(A, { tipo: "TAS", stato: "a_casa", testo: "esempio" }, true).length, 1, "filtri insieme");
   eq(INV_LIB.sintesi(A), "In sede 1 · Consegnato 2 · In riparazione 1", "sintesi per l'intestazione");
 });
-t("Inventario: foglio dell'elenco — 34 righe per foglio, piè con versione e data, CSV dei mostrati con o senza nomi, area cablata", () => {
+t("Inventario: foglio dell'elenco — 34 righe per foglio, piè con data e ora (niente versione), CSV dei mostrati con o senza nomi, area cablata", () => {
   const molti = Array.from({ length: 70 }, (_, i) => ({ codice: "TAS-" + String(i + 1).padStart(3, "0"), tipo: "TAS", modello: "x", stato: "in_sede", note: "" }));
   const pg = INV_LIB.impaginaElenco(molti);
   eq(pg.length, 3, "70 oggetti = 3 fogli"); eq(pg[0].length, 34, "34 per foglio"); eq(pg[2].length, 2, "l'ultimo foglio ha il resto"); eq(INV_LIB.impaginaElenco([]).length, 1, "elenco vuoto: un foglio");
-  eq(INV_LIB.piedeElenco(2, "Accademia Esempio", 70, "17/11/2026"), "v2 · Accademia Esempio · elenco di 70 oggetti · stampato il 17/11/2026", "versione, ente, data");
-  ok(/^v1 /.test(INV_LIB.piedeElenco(0, "x", 1, "d")) && /elenco di 1 oggetto ·/.test(INV_LIB.piedeElenco(1, "x", 1, "d")), "versione minima 1; singolare");
+  eq(INV_LIB.piedeElenco("Accademia Esempio", 70, "17/11/2026", "12:40"), "Accademia Esempio · elenco di 70 oggetti · stampato il 17/11/2026 alle 12:40", "ente, numero, data e ora");
+  ok(!/^v\d/.test(INV_LIB.piedeElenco("x", 1, "d", "o")) && /elenco di 1 oggetto ·/.test(INV_LIB.piedeElenco("x", 1, "d", "o")), "niente versione; singolare");
   const T = [{ prefisso: "TAS", singolare: "Tastiera" }], B = [{ codice: "TAS-002", tipo: "TAS", modello: "=cmd", stato: "a_casa", note: "n", assegnato_a: "Allievo Esempio 2A", data_consegna: "2026-11-17" }, { codice: "TAS-001", tipo: "TAS", modello: "Y", stato: "in_sede", note: "" }];
   const senza = INV_LIB.csvElenco(T, B, false), con = INV_LIB.csvElenco(T, B, true);
   ok(!/Allievo|Esempio/.test(senza) && !/,n(\n|$)/.test(senza.split("\n")[1]) && !senza.includes("note"), "il CSV di serie non contiene né nomi né note"); eq(senza.split("\n")[2], "TAS-002,Tastiera,'=cmd,A casa,sì,17/11/2026", "di serie: consegnato = sì + data"); ok(con.includes("Allievo Esempio 2A,17/11/2026,n"), "con la spunta: assegnatario, data, nota"); eq(con.split("\n")[0], "codice,tipo,marca/modello,stato,assegnato a,dal,note", "intestazione con nomi");
@@ -34176,7 +34176,7 @@ t("Inventario: foglio dell'elenco — 34 righe per foglio, piè con versione e d
   const js = readFileSync(join(root, "inventario/inv-area.js"), "utf8"), css = readFileSync(join(root, "inventario/inv-area.css"), "utf8");
   ok(/id: "chkCsvNomi"/.test(js) && /L\.csvElenco\(S\.tipi, elenco, !!S\.csvNomi\)/.test(js), "il CSV dei mostrati segue la spunta (spenta di serie)"); ok(/id: "bElenco"/.test(js) && /vistaStampaElenco\(filtrati\(\)\)/.test(js) && /id: "bCsvElenco"/.test(js), "bottoni «Elenco da stampare» e «CSV dei mostrati» che seguono i filtri");
   ok(/function vistaStampaElenco\(elenco, conNomi\)/.test(js) && /conNomi = !!conNomi/.test(js), "i nomi sul foglio sono spenti di serie");
-  ok(/L\.piedeElenco\(ver, S\.inv\.nome/.test(js) && /\(i \+ 1\) \+ " di " \+ N/.test(js), "il foglio ha versione, data e «1 di N»");
+  ok(/L\.piedeElenco\(S\.inv\.nome/.test(js) && /\(i \+ 1\) \+ " di " \+ N/.test(js), "il foglio ha data e ora di stampa e «1 di N»");
   ok(/\.foglio\.elenco\{padding:16mm 17mm/.test(css) && /\.piede-foglio\{[^}]*bottom:16mm/.test(css), "margini ≥ 15 mm anche sul foglio dell'elenco");
   ok(/inv-area\.js\?v=([4-9]|\d\d)"/.test(readFileSync(join(root, "inventario/index.html"), "utf8")), "versione degli script alzata (niente cache vecchia)");
 });
@@ -34197,14 +34197,13 @@ t("Inventario: le etichette sul telefono — stessa correzione dell'elenco (cont
   const corpo = js.slice(js.indexOf("function vistaEtichette("), js.indexOf("/* ---------------------------------------------------------------- avvio */"));
   ok(corpo.length > 500 && /adattaFogli\(\);/.test(corpo), "la vista etichette adatta i fogli allo schermo con adattaFogli()");
   ok(!/marginLeft|marginBottom|window\.innerWidth/.test(corpo), "niente più margine sinistro negativo sulle etichette (spostava il foglio fuori dallo schermo)");
-  ok(/Stampa \(" \+ elenco\.length \+ " etichette, "/.test(corpo) && /id: "bStampa"/.test(corpo) && /id: "versione"/.test(corpo), "pulsante «Stampa» e campo «Versione» come prima");
+  ok(/Stampa \(" \+ elenco\.length \+ " etichette, "/.test(corpo) && /id: "bStampa"/.test(corpo) && !/id: "versione"/.test(corpo) && !/Versione del foglio/.test(corpo) && !/aumentalo/.test(corpo), "pulsante «Stampa» senza campo «Versione» né nota «aumentalo»");
 });
 t("Inventario/interfaccia L1: sp-base.css condiviso, barra del marchio statica e nascosta in stampa, cartellino, nessuno stile in linea nella pagina del QR (18/11)", () => {
   const idx = readFileSync(join(root, "i/index.html"), "utf8"), css = readFileSync(join(root, "i/inv.css"), "utf8"), base = readFileSync(join(root, "inventario/sp-base.css"), "utf8");
   ok(/href="\/inventario\/sp-base\.css\?v=\d+"/.test(idx) && idx.indexOf("sp-base.css") < idx.indexOf("inv.css"), "la pagina del QR carica sp-base.css (percorso assoluto, prima di inv.css)");
   ok(!/barra-sp|brand-full/.test(idx), "la pagina del QR non ha la barra col logo (18/11: il collegamento sta nel piè «Inventario gestito con stageplot.it»)");
-  const logoEditor = readFileSync(join(root, "index.template.html"), "utf8").match(/<svg class="brand-full"[\s\S]*?<\/svg>/)[0], logoPagina = readFileSync(join(root, "inventario/index.html"), "utf8").match(/<svg class="brand-full"[\s\S]*?<\/svg>/)[0];
-  ok(logoEditor === logoPagina, "il logo è identico a svg.brand-full dell'editor (index.template.html)");
+  ok(!/brand-full|class="marchio"/.test(readFileSync(join(root, "inventario/index.html"), "utf8")), "anche l'area /inventario/ è senza logo stageplot.it in alto (18/11)");
   ok(/@media print\{[^}]*\.barra-sp\{display:none\}/.test(css), "in stampa la barra del marchio non esce");
   ok(!/<style|style="/.test(idx), "nessun <style> né attributo style nella pagina del QR (CSP style-src 'self')");
   ok(/\.inv-cartellino\{[^}]*border:1\.5px dashed/.test(css), "cartellino col bordo tratteggiato (opzione A scelta da Simone)");
@@ -34223,7 +34222,7 @@ t("Inventario/interfaccia L1: sp-base.css condiviso, barra del marchio statica e
 t("Inventario/interfaccia L2: area /inventario/ — barra del marchio, sp-base.css, nessun :root locale, stampa intatta, nessuna tabella larga (18/11)", () => {
   const html = readFileSync(join(root, "inventario/index.html"), "utf8"), css = readFileSync(join(root, "inventario/inv-area.css"), "utf8");
   ok(/href="\/inventario\/sp-base\.css\?v=1"/.test(html) && html.indexOf("sp-base.css") < html.indexOf("inv-area.css"), "l'area carica sp-base.css (percorso assoluto) prima di inv-area.css");
-  ok(/<header class="barra-sp">[\s\S]*svg class="brand-full"[\s\S]*id="inv-lato"[\s\S]*<\/header>/.test(html) && html.indexOf("<header") < html.indexOf("<main"), "barra del marchio statica con logo e slot #inv-lato sopra il <main>");
+  ok(/<header class="barra-sp"><span class="dove">Inventario<\/span>[\s\S]*id="inv-lato"[\s\S]*<\/header>/.test(html) && !/brand-full|class="marchio"/.test(html) && html.indexOf("<header") < html.indexOf("<main"), "barra sottile SENZA logo (18/11) con «Inventario» e slot #inv-lato sopra il <main>");
   ok(!/innerHTML/.test(html.replace(/<!--[\s\S]*?-->/g, "")) && !/<style|\sstyle="/.test(html.replace(/<svg[\s\S]*?<\/svg>/g, "")), "nessuno stile in linea nell'HTML dell'area");
   ok(!/:root\{/.test(css), "i token stanno solo in sp-base.css");
   ok(/inv-area\.css\?v=([6-9]|\d\d)"/.test(html) && /inv-area\.js\?v=([8-9]|\d\d)"/.test(html) && /inv-lib\.js\?v=([4-9]|\d\d)"/.test(html) && /\/i\/inv\.js\?v=([5-9]|\d\d)"/.test(html), "?v= alzati su ogni file toccato (css, js, lib) e inv.js allineato alla pagina del QR");
