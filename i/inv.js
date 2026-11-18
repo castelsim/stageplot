@@ -105,10 +105,13 @@
     var r1 = el("div", "inv-riga1"); r1.appendChild(el("span", "inv-codice", d.codice));
     if (d.stato) r1.appendChild(el("span", "stato " + d.stato, STATI[d.stato]));
     c.appendChild(r1);
-    var q = el("p", "inv-quanti"); q.appendChild(el("span", "num", frase(d.totale, d.singolare, d.plurale)));
-    q.appendChild(link("/i/" + encodeURIComponent(ind.slug), "Elenco completo")); c.appendChild(q);
+    var q = el("p", "inv-quanti"); q.appendChild(el("span", "num", frase(d.totale, d.singolare, d.plurale))); c.appendChild(q);
     document.title = d.singolare + " n. " + d.numero + " · " + (d.inventario || "Inventario");
-    return [testa, c];
+    /* UN SOLO pulsante «Inventario» (18/11/2026): per tutti porta all'elenco pubblico (nessun nome); chi è abilitato lo trova nel pannello «Segreteria», dove porta all'elenco completo, e questo sparisce */
+    var pub = el("div", "inv-pub"); pub.id = "inv-pub";
+    var b = link("/i/" + encodeURIComponent(ind.slug), "Inventario", "btn primario grande pieno"); b.id = "inv-inventario"; pub.appendChild(b);
+    pub.appendChild(el("p", "inv-sub", "Elenco pubblico: codice e modello. Nessun nome."));
+    return [testa, c, pub];
   }
   function elenco(d, ind) {
     var testa = el("header", "inv-testa");
@@ -153,7 +156,7 @@
     var c = el("section", "inv-segr inv-riservato"); c.setAttribute("aria-label", "Riservato alla segreteria");
     var titolo = el("h2", "inv-sez", "Segreteria"); titolo.appendChild(el("small", "", "visibile solo a chi è abilitato")); c.appendChild(titolo);
     var vaElenco = linkAreaElenco(ind.slug);
-    if (vaElenco) { var tutto = link(vaElenco, "Tutto l’inventario", "btn pieno grande inv-tutto"); tutto.id = "inv-tutto"; c.appendChild(tutto); }
+    if (vaElenco) { var tutto = link(vaElenco, "Inventario", "btn primario grande pieno inv-tutto"); tutto.id = "inv-inventario"; c.appendChild(tutto); c.appendChild(el("p", "inv-sub", "Elenco completo, «Ce l’ha», stampa, etichette, CSV.")); }
     var blocco = el("div", "inv-blocco"), chi = el("div", "inv-chi");
     /* chi ce l'ha: il nome grande, sotto corso e data, poi note/accessori */
     var x = m.assegnato_a ? (MOD ? MOD.daAssegnato(m.assegnato_a) : { nome: m.assegnato_a, cognome: "", corso: "" }) : null;
@@ -247,13 +250,13 @@
       });
       f.nome.focus();
     }
-    /* azioni: un primario pieno, poi (se assegnato) il modulo a contorno, poi Rotto | Smarrito affiancati */
+    /* azioni (il solo primario della pagina è «Inventario», come nel mockup approvato 18/11): Consegna/Rientrato a tutta larghezza, poi (se assegnato) il modulo a contorno, poi Rotto | Smarrito affiancati */
     function b(txt, f, cls, dove) { var y = el("button", "btn " + (cls || ""), txt); y.type = "button"; y.addEventListener("click", f); (dove || bott).appendChild(y); return y; }
     var coppia = el("div", "coppia");
     if (m.assegnato_a) {
-      b("Rientrato", function () { modulo("rientro", "Rientro di " + m.assegnato_a, false, "Conferma rientro"); }, "primario grande pieno");
+      b("Rientrato", function () { modulo("rientro", "Rientro di " + m.assegnato_a, false, "Conferma rientro"); }, "grande pieno");
       if (MOD) b("Modulo di comodato", function () { apriModulo(riStampa(), "Chiudi"); }, "pieno").id = "inv-btn-modulo";
-    } else if (m.stato !== "dismesso" && m.stato !== "smarrito" && m.stato !== "in_riparazione") b("Consegna a…", function () { consegna(); }, "primario grande pieno");
+    } else if (m.stato !== "dismesso" && m.stato !== "smarrito" && m.stato !== "in_riparazione") b("Consegna a…", function () { consegna(); }, "grande pieno");
     if (m.stato !== "in_riparazione" && m.stato !== "dismesso" && m.stato !== "smarrito") b("Rotto", function () { modulo("rottura", "Segna come rotto", false, "Conferma"); }, "", coppia);
     if (m.stato !== "smarrito" && m.stato !== "dismesso") b("Smarrito", function () { modulo("smarrimento", "Segna come smarrito", false, "Conferma"); }, "", coppia);
     if (coppia.childNodes.length === 1) coppia.firstChild.classList.add("pieno");
@@ -290,6 +293,7 @@
           var m = pulisciMembro(r.data);
           if (!m) { var p = el("p", "inv-nota", "Accesso come " + testo((s.sessione.user || {}).email, 120) + ": non abilitato per questo inventario."); return inserisci(p); }
           inserisci(pannello(null, cfg, ind, m, client, rigenera, ind.scheda));
+          var pub = document.getElementById("inv-pub"); if (pub && pub.parentNode) pub.parentNode.removeChild(pub);   // un solo «Inventario»: quello della segreteria
         });
       });
     }).then(null, function () { inserisci(el("p", "inv-nota", "Accesso segreteria non disponibile ora.")); });

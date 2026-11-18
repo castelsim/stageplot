@@ -20,7 +20,6 @@ html,body{touch-action:manipulation}
 .inv-riga1{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .inv-codice{font-family:var(--mono);font-weight:700;font-size:30px;letter-spacing:.02em;line-height:1}
 .inv-quanti{margin-top:14px;padding-top:12px;border-top:1px solid var(--filo);display:flex;justify-content:space-between;align-items:baseline;gap:12px;font-size:15px;color:var(--testo-2)}
-.inv-quanti a{font-weight:600;white-space:nowrap}
 .inv-accesso{display:block;margin:22px auto 0;font:inherit;font-size:15px;font-weight:600;color:var(--testo-2);background:none;border:0;text-decoration:underline;text-underline-offset:3px;cursor:pointer;min-height:44px;padding:0 12px;border-radius:var(--r-md)}
 .inv-piede{margin-top:auto;padding-top:28px;text-align:center;font-size:13px;color:var(--testo-3)}
 .inv-piede a{color:var(--testo-3);font-weight:600;text-decoration:none}
@@ -46,7 +45,10 @@ html,body{touch-action:manipulation}
 .inv-segr{margin-top:34px}
 .inv-sez{font-size:22px;font-weight:700;letter-spacing:-.01em;margin-bottom:12px;display:flex;align-items:baseline;justify-content:space-between;gap:10px}
 .inv-sez small{font-size:13px;font-weight:400;letter-spacing:0;color:var(--testo-3);text-align:right}
-.inv-tutto{margin-bottom:12px}
+.inv-tutto{margin-bottom:4px}
+.inv-pub{margin-top:14px}
+.inv-sub{font-size:13px;color:var(--testo-3);text-align:center;margin:8px 0 12px}
+.inv-tutto+.inv-sub{margin-bottom:14px}
 .inv-blocco{background:var(--carta);border:1px solid var(--filo);border-radius:var(--r-lg);padding:18px}
 .inv-chiave{font-size:13px;color:var(--testo-3)}
 .inv-nome{font-size:21px;font-weight:700;line-height:1.25;margin-top:2px}
