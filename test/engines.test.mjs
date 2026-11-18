@@ -36381,5 +36381,62 @@ t("Inventario/pagina del QR: UN solo pulsante «Inventario»; chi è abilitato l
   eq((src.match(/"Inventario", "btn primario grande pieno/g) || []).length, 2, "due soli punti di costruzione (pubblico e membro), mai insieme");
 });
 
+/* ═══ Inventario: tabella dell'area — cambio di stato → scheda, testi non tagliati, Elimina con conferma (18/11/2026) ═══ */
+const INV_SCH = invRequire(join(root, "inventario/inv-scheda.js"));
+t("Inventario/tabella: il cambio di stato sceglie la scheda con le stesse regole del telefono (pianoCambioStato)", () => {
+  const P = INV_PUB.pianoCambioStato, a = (stato, chi) => ({ stato, assegnato_a: chi || "" });
+  eq(P(a("in_sede"), "in_sede").tipo, "nulla", "stesso stato: niente");  eq(P(a("in_sede"), "boh").tipo, "nulla", "stato inventato: niente");
+  eq(P(a("in_sede"), "a_casa").tipo, "consegna", "In sede → A casa = consegna");
+  eq(P(a("a_casa", "Anna B."), "in_sede"), { tipo: "rientro", titolo: "Rientro di Anna B.", conferma: "Conferma rientro", poi: "" }, "A casa → In sede = rientro");
+  eq(P(a("in_riparazione", "Anna B."), "in_sede").poi, "in_sede", "rotta mentre era in prestito: dopo il rientro lo stato va rimesso «In sede»");
+  eq(P(a("in_sede"), "in_riparazione").tipo, "rottura", "→ In riparazione = rottura (storico)"); eq(P(a("a_casa", "X"), "in_riparazione").tipo, "rottura", "anche se è in prestito");
+  eq(P(a("in_sede"), "smarrito").tipo, "smarrimento", "→ Smarrito = smarrimento (storico)");
+  for (const da of ["in_riparazione", "smarrito", "dismesso"]) { const r = P(a(da), "a_casa"); eq(r.tipo, "blocco", "non si consegna da «" + da + "»"); ok(/prima «In sede»/.test(r.testo), "dice come fare"); }
+  eq(P(a("in_sede", "Anna B."), "a_casa").tipo, "blocco", "già assegnata: niente doppia consegna"); eq(P(a("smarrito"), "in_riparazione").tipo, "blocco", "smarrita non diventa «rotta» (come sul telefono)"); eq(P(a("dismesso"), "smarrito").tipo, "blocco", "dismessa non diventa «smarrita»");
+  for (const da of ["in_riparazione", "smarrito", "dismesso"]) eq(P(a(da), "in_sede").tipo, "diretto", "«" + da + "» → In sede = solo lo stato");
+  eq(P(a("in_sede"), "dismesso").tipo, "diretto", "→ Dismesso = solo lo stato"); eq(P(a("a_casa", "Anna B."), "dismesso").tipo, "blocco", "dismettere ciò che è in prestito: prima il rientro");
+  for (const [da, a2] of [["in_sede", "a_casa"], ["a_casa", "in_sede"], ["in_sede", "in_riparazione"], ["in_sede", "smarrito"], ["in_sede", "dismesso"]]) { const r = P(a(da, da === "a_casa" ? "X Y" : ""), a2); ok(r.tipo !== "blocco" && r.tipo !== "nulla" && r.conferma, da + "→" + a2 + ": c'è un pulsante di conferma"); }
+});
+t("Inventario/tabella: la scheda usa la stessa funzione del telefono; il menu non cambia lo stato; ogni cambio passa dalla conferma", () => {
+  const area = readFileSync(join(root, "inventario/inv-area.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, ""), sch = readFileSync(join(root, "inventario/inv-scheda.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  ok(/st\.addEventListener\("change", function \(\) \{\s*var nuovo = st\.value; st\.value = a\.stato;[^}]*INVScheda\.cambioStato\(ctxScheda\(\), a, nuovo,/.test(area), "il menu apre la scheda e rimette subito il valore di prima");
+  ok(!/st\.addEventListener\("change"[^\n]*salva\("stato"/.test(area) && !/salva\("stato"/.test(area), "il menu non salva più lo stato da solo");
+  ok(/S\.c\.rpc\("inv_movimento", args\)/.test(sch) && /argomentiMovimento\(S\.inv\.slug, a\.codice, tipoMov, aChi, F\.data\.value, nota\)/.test(sch), "i movimenti passano da inv_movimento (security definer), come sul telefono");
+  ok(/PUB\.pianoCambioStato\(a, nuovo\)/.test(sch) && /PUB\.erroreMov\(o\)/.test(sch) && /PUB\.campo\(/.test(sch) && /PUB\.segnalaErrore\(/.test(sch), "piano, errori e campi vengono da /i/inv.js (nessun duplicato)");
+  ok(/ok\.addEventListener\("click"/.test(sch) && /if \(inCorso\) return;/.test(sch) && /inCorso = true; ok\.disabled = true; no\.disabled = true;/.test(sch), "lo stato cambia solo al clic su «Conferma», una volta sola");
+  ok(/aggiornaStato\(nuovo\)/.test(sch) && /aggiornaStato\(P\.poi\)/.test(sch) && /\.update\(\{ stato: val,/.test(sch), "solo i casi senza movimento (rimetti in sede, dismesso, dopo il rientro) scrivono la colonna stato");
+  ok(/if \(!F\.nome\.value\.trim\(\)\)[\s\S]*?"Scrivi il nome\."/.test(sch) && /"Scrivi il cognome\."/.test(sch), "consegna: nome e cognome obbligatori, come sul telefono");
+  ok(/MOD\.cartaModulo\(/.test(sch) && /tipoMov === "consegna"/.test(sch), "dopo la consegna compare il modulo di comodato");
+  ok(/function annulla\(\) \{ if \(chiuso\) return; w\.chiudi\(\); if \(opz\.annulla\) opz\.annulla\(\); \}/.test(sch) && /ev\.key === "Escape"/.test(sch), "Esc e «Annulla» chiudono e fanno tornare il menu");
+  ok(/role: opz\.allerta \? "alertdialog" : "dialog", "aria-modal": "true"/.test(sch) && /ev\.key !== "Tab"/.test(sch), "dialogo accessibile: ruolo, aria-modal, il Tab resta dentro");
+  eq(INV_SCH.argomentiMovimento("scuola", "TAS-001", "rientro", "chiunque", "2026-11-18", "n").p_a_chi, "", "rientro/rottura/smarrimento non mandano mai un nome");
+  eq(INV_SCH.argomentiMovimento("scuola", "TAS-001", "consegna", "Anna B.", "2026-11-18", "").p_a_chi, "Anna B.", "la consegna sì");
+  for (const f of ["inventario/inv-scheda.js", "i/inv.js"]) ok(!/innerHTML|outerHTML|insertAdjacentHTML|document\.write/.test(readFileSync(join(root, f), "utf8").replace(/\/\*[\s\S]*?\*\//g, "")), f + ": niente innerHTML");
+});
+t("Inventario/tabella: «Elimina» chiede conferma con un popup vero (non window.confirm), focus su «Annulla», anti doppio clic, testo onesto", () => {
+  const area = readFileSync(join(root, "inventario/inv-area.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, ""), sch = readFileSync(join(root, "inventario/inv-scheda.js"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  ok(/INVScheda\.elimina\(ctxScheda\(\), a\)/.test(area) && !/inv_articoli"\)\.delete\(\)/.test(area) && !/dataset\.chiedi|Sicuro\? Elimina/.test(area), "il pulsante della riga apre il popup, non cancella più da solo (via il vecchio «Sicuro?»)");
+  ok(!/\bconfirm\s*\(|window\.confirm|\balert\s*\(|\bprompt\s*\(/.test(area + sch), "mai window.confirm/alert/prompt");
+  ok(/no\.focus\(\);\s*\/\/ di serie su «Annulla»|no\.focus\(\);/.test(sch) && /id: "sch-elimina", text: "Elimina", disabled: true/.test(sch), "focus di serie su «Annulla»; «Elimina» nasce disattivato");
+  ok(/GUARDIA_MS = 600/.test(sch) && /armato: function \(\) \{ si\.disabled = false; \}/.test(sch) && /if \(!w\.armato\(\) \|\| inCorso\) return; inCorso = true; si\.disabled = true;/.test(sch), "guardia di 600 ms e blocco del secondo clic");
+  ok(/\.delete\(\)\.eq\("id", a\.id\)\.select\("id"\)/.test(sch) && /r\.data\.length !== 1/.test(sch), "si elimina solo se il database ha cancellato davvero una riga");
+  ok(/velo\.addEventListener\("mousedown", function \(ev\) \{ if \(ev\.target === velo && opz\.veloChiude && armato\)/.test(sch), "il clic sul velo annulla, ma non nei primi 600 ms");
+  const T = INV_SCH.testoElimina({ codice: "TAS-001", modello: "Mod", assegnato_a: "" }, "Tastiera"); eq(T.titolo, "Eliminare TAS-001?", "titolo col codice"); eq(T.oggetto, "Tastiera · Mod", "oggetto");
+  const tutto = T.righe.join(" "); ok(/per sempre/.test(tutto) && /storico/.test(tutto) && /non si può annullare/.test(tutto) && /non verrà riusato/.test(tutto) && /TAS-001/.test(tutto), "dice cosa si perde (scheda, nota, storico), che non si annulla e che il numero non si riusa");
+  eq(T.avviso, "", "senza assegnatario nessun avviso"); ok(/consegnato a Anna B\./.test(INV_SCH.testoElimina({ codice: "TAS-002", modello: "", assegnato_a: "Anna B." }, "Tastiera").avviso), "se risulta consegnato lo scrive");
+  const sql = readFileSync(join(root, "supabase/migrations/0085_inventario.sql"), "utf8"); ok(/articolo_id\s+uuid not null references public\.inv_articoli\(id\) on delete cascade/.test(sql) && /prossimo\s+integer not null default 1/.test(sql), "vero nel database: lo storico cade a cascata, il numero non si riusa (quello che il popup dice)");
+});
+t("Inventario/tabella: colonne in px, nessun testo importante tagliato, pulsanti di riga a capo, schede sotto i 960 px", () => {
+  const css = readFileSync(join(root, "inventario/inv-area.css"), "utf8"), html = readFileSync(join(root, "inventario/index.html"), "utf8");
+  ok(/\.oggetti col\.c-cod\{width:118px\}[^\n]*c-stato\{width:158px\}[^\n]*c-az\{width:176px\}/.test(css) && !/c-chi\{width:\d+%/.test(css) && /@media \(min-width:1200px\)\{[^\n]*c-az\{width:244px\}/.test(css), "colonne in px (la «Etichetta» e il menu di stato ci stanno interi)");
+  ok(!/\.oggetti td\.(tipo|chi)[^{]*\{[^}]*text-overflow:ellipsis/.test(css) && !/\.oggetti td\.chi (b|small)\{[^}]*white-space:nowrap/.test(css), "tipo e «Ce l'ha» vanno a capo invece di finire in puntini");
+  ok(/\.riga-az\{display:flex;flex-wrap:wrap;/.test(css) && /\.riga-az \.btn\{[^}]*white-space:nowrap/.test(css) && /\.etic-tag\{display:block;white-space:nowrap/.test(css), "pulsanti di riga a capo ma mai spezzati; «Etichetta da fare» intera");
+  ok(/@media \(max-width:960px\)\{[\s\S]*?\.oggetti thead\{display:none\}/.test(css) && /\.area\{max-width:1240px/.test(css), "sotto i 960 px elenco di schede; l'area sta larga 1240 px");
+  ok(/\.sch-velo\{position:fixed;inset:0;z-index:30/.test(css) && /\.scheda\{[^}]*max-height:calc\(100dvh - 24px\);overflow:auto/.test(css) && /@media \(max-width:720px\)\{\.sch-velo\{align-items:flex-start/.test(css) && /@media print\{\.sch-velo\{display:none!important\}/.test(css), "dialoghi: dentro lo schermo (anche con la tastiera), scroll interno, mai in stampa");
+  ok(/\.scheda \.inv-campo input\{[^}]*font-size:16px/.test(css), "campi a 16 px: iOS non zooma al tocco");
+  ok(/inv-scheda\.js\?v=1"/.test(html) && html.indexOf("inv-scheda.js") > html.indexOf("inv-lib.js") && html.indexOf("inv-scheda.js") < html.indexOf("inv-area.js"), "inv-scheda.js è caricato prima di inv-area.js");
+  ok(/inv-area\.js\?v=(1[2-9]|[2-9]\d)"/.test(html) && /inv-area\.css\?v=(9|\d\d)"/.test(html) && /\/i\/inv\.js\?v=([7-9]|\d\d)"/.test(html) && /inv\.js\?v=([7-9]|\d\d)"/.test(readFileSync(join(root, "i/index.html"), "utf8")), "?v= alzati (niente cache vecchia) in /inventario/ e in /i/");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

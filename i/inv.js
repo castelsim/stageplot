@@ -322,7 +322,38 @@
     giro();
   }
   function piede() { var p = el("p", "inv-piede", "Inventario gestito con "); p.appendChild(link("/", "stageplot.it")); return p; }
-  var P = { configura: configura, pulisci: pulisci, pulisciElenco: pulisciElenco, pulisciMembro: pulisciMembro, frase: frase, erroreMov: erroreMov, linkAreaElenco: linkAreaElenco, oggiIso: oggiIso, gmA: gmA, STATI: STATI, MOV: MOV };
+  /* ---- cambio di stato dalla tabella dell'area (/inventario/): decide QUALE scheda aprire, con le stesse regole del telefono ----
+     Parte pura (la prova Node). a = riga di inv_articoli {stato, assegnato_a}; nuovo = stato scelto nel menu.
+     Risultato: { tipo: "nulla" | "blocco" | "consegna" | "rientro" | "rottura" | "smarrimento" | "diretto", titolo, conferma, testo, poi }
+     - consegna/rientro/rottura/smarrimento → inv_movimento (stessa funzione, stessi controlli, storico); «poi: in_sede» = dopo il rientro lo stato va rimesso a mano
+     - diretto → solo la colonna stato (come prima: «In sede» da riparazione/smarrito/dismesso, e «Dismesso»), senza storico
+     - blocco → la scheda spiega perché non si può e come fare; nessun pulsante di conferma */
+  function pianoCambioStato(a, nuovo) {
+    var st = a && a.stato, chi = a && typeof a.assegnato_a === "string" ? a.assegnato_a.trim() : "", n = STATI[nuovo] ? nuovo : null;
+    if (!n || n === st) return { tipo: "nulla" };
+    function blocco(testo) { return { tipo: "blocco", titolo: STATI[n], testo: testo }; }
+    var fuori = st === "dismesso" || st === "smarrito" || st === "in_riparazione";
+    if (n === "a_casa") {
+      if (chi) return blocco("Ce l'ha già " + chi + ": segna prima il rientro.");
+      if (fuori) return blocco("Ora è «" + STATI[st] + "»: non si può consegnare. Rimettilo prima «In sede».");
+      return { tipo: "consegna", titolo: "Consegna", conferma: "Conferma consegna" };
+    }
+    if (n === "in_sede") {
+      if (chi) return { tipo: "rientro", titolo: "Rientro di " + chi, conferma: "Conferma rientro", poi: st === "a_casa" ? "" : "in_sede" };
+      return { tipo: "diretto", titolo: st === "smarrito" ? "Ritrovato: rimettilo in sede" : st === "in_riparazione" ? "Riparato: rimettilo in sede" : "Rimettilo in sede", conferma: "Rimetti in sede", testo: "Cambia solo lo stato in «In sede»." };
+    }
+    if (n === "in_riparazione") {
+      if (st === "dismesso" || st === "smarrito") return blocco("Ora è «" + STATI[st] + "»: rimettilo prima «In sede», poi segnalo rotto.");
+      return { tipo: "rottura", titolo: "Segna come rotto", conferma: "Conferma" };
+    }
+    if (n === "smarrito") {
+      if (st === "dismesso") return blocco("Ora è «Dismesso»: rimettilo prima «In sede».");
+      return { tipo: "smarrimento", titolo: "Segna come smarrito", conferma: "Conferma" };
+    }
+    if (chi) return blocco("Ce l'ha " + chi + ": segna prima il rientro, poi dismettilo.");
+    return { tipo: "diretto", titolo: "Dismetti l'oggetto", conferma: "Dismetti", testo: "Resta nell'elenco ma non viene più contato sulla pagina pubblica del QR. Potrai sempre rimetterlo «In sede»." };
+  }
+  var P = { pianoCambioStato: pianoCambioStato, campo: campo, segnalaErrore: segnalaErrore, togliErrore: togliErrore, configura: configura, pulisci: pulisci, pulisciElenco: pulisciElenco, pulisciMembro: pulisciMembro, frase: frase, erroreMov: erroreMov, linkAreaElenco: linkAreaElenco, oggiIso: oggiIso, gmA: gmA, STATI: STATI, MOV: MOV };
   root.INVPubblica = P;
   if (typeof module === "object" && module && module.exports) module.exports = P;
   else if (typeof document !== "undefined") { if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", avvia); else avvia(); }

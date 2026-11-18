@@ -311,6 +311,14 @@
     var c = document.getElementById("bCsvElenco"); if (c) { c.textContent = "CSV dei " + elenco.length + " mostrati"; c.disabled = !elenco.length; }
     var k = document.getElementById("conteggio"); if (k) k.textContent = frasePosti(elenco);
   }
+  /* contesto per inv-scheda.js: dati, client, testi condivisi col telefono; «fatto» rilegge la riga dal database e ridisegna senza perdere la posizione */
+  function ctxScheda() {
+    return { S: S, c: S.c, L: L, PUB: PUB, MOD: window.INVModulo, nomeTipo: nomeTipo, toast: toast,
+      rileggi: function (a) { return S.c.from("inv_articoli").select("*").eq("id", a.id).single().then(function (r) { if (r.error) throw r.error; Object.keys(r.data).forEach(function (k) { a[k] = r.data[k]; }); }); },
+      ridisegna: function () { var y = window.scrollY; vistaInventario(); window.scrollTo(0, y); },
+      fatto: function (a) { var y = window.scrollY, ric = this.rileggi(a), q = this; ric.then(function () { toast(a.codice + ": aggiornato."); }, function () { toast("Salvato: ricarica la pagina per vedere lo stato."); }).then(function () { vistaInventario(); window.scrollTo(0, y); }); },
+      eliminato: function (a) { S.articoli = S.articoli.filter(function (x) { return x.id !== a.id; }); delete S.sel[a.id]; toast(a.codice + " eliminato. Il numero non verrà riusato."); var y = window.scrollY; vistaInventario(); window.scrollTo(0, y); } };
+  }
   function righe(elenco) {
     return elenco.map(function (a) {
       var mod = h("input", { type: "text", class: "quieto", maxlength: "120", value: a.modello, "aria-label": "Modello di " + a.codice }), nota = h("input", { type: "text", class: "quieto", maxlength: "500", value: a.note, placeholder: "+ nota riservata", "aria-label": "Nota di " + a.codice });
@@ -321,14 +329,15 @@
         S.c.from("inv_articoli").update(o).eq("id", a.id).then(function (r) { if (r.error) { toast("Non salvato."); return; } a[col] = val; toast(a.codice + ": salvato."); });
       }
       mod.addEventListener("change", function () { salva("modello", mod.value.trim()); }); nota.addEventListener("change", function () { salva("note", nota.value.trim()); });
-      st.addEventListener("change", function () { st.className = "stato-sel " + st.value; salva("stato", st.value); });
+      /* il menu NON cambia lo stato: apre la scheda dello strumento (inv-scheda.js); lo stato cambia solo alla conferma, il menu torna subito al valore di prima */
+      st.addEventListener("change", function () {
+        var nuovo = st.value; st.value = a.stato; st.className = "stato-sel " + a.stato;
+        window.INVScheda.cambioStato(ctxScheda(), a, nuovo, function () { st.value = a.stato; st.className = "stato-sel " + a.stato; try { st.focus(); } catch (e) {} });
+      });
       var link = IND.link(S.inv.slug, a.codice, location.origin) + location.search;
       var aprirePag = h("a", { class: "btn piccolo", href: link, target: "_blank", rel: "noopener", text: "Scheda", "aria-label": "Scheda di " + a.codice });
       var etic = h("button", { class: "btn piccolo", type: "button", text: "Etichetta", "aria-label": "Etichetta di " + a.codice + " (" + (L.etichettaStato(a) || "dismesso") + ")", onclick: function () { vistaEtichette("scelti", [a.codice]); } });
-      var del = h("button", { class: "btn piccolo pericolo", type: "button", text: "Elimina", "aria-label": "Elimina " + a.codice, onclick: function () {
-        if (del.dataset.chiedi !== "1") { del.dataset.chiedi = "1"; del.textContent = "Sicuro? Elimina"; setTimeout(function () { del.dataset.chiedi = ""; del.textContent = "Elimina"; }, 4000); return; }
-        S.c.from("inv_articoli").delete().eq("id", a.id).then(function (r) { if (r.error) { toast("Non eliminato."); return; } S.articoli = S.articoli.filter(function (x) { return x.id !== a.id; }); toast(a.codice + " eliminato. Il numero non verrà riusato."); vistaInventario(); });
-      } });
+      var del = h("button", { class: "btn piccolo pericolo", type: "button", text: "Elimina", "aria-label": "Elimina " + a.codice, onclick: function () { window.INVScheda.elimina(ctxScheda(), a); } });
       var t = nomeTipo(a.tipo), prop = proprietario(), x = L.ceLha(a);
       var chi = h("td", { class: "chi" }, x.nome ? [h("b", { text: x.nome }), x.sotto ? h("small", { text: x.sotto }) : null] : x.sotto ? [h("small", { text: x.sotto })] : []);
       return h("tr", {}, [h("td", {}, [chk]), h("td", { class: "cod" }, [h("a", { href: link, target: "_blank", rel: "noopener", text: a.codice, "aria-label": "Apri la scheda di " + a.codice }), L.etichettaDaFare(a) ? h("small", { class: "etic-tag", text: "Etichetta da fare" }) : null]), h("td", { class: "tipo", text: t ? t.singolare : a.tipo }), h("td", {}, [mod]), h("td", {}, [st]), chi, h("td", {}, [nota]), h("td", {}, [h("div", { class: "riga-az" }, [aprirePag, etic, prop ? del : null])])]);

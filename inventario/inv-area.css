@@ -4,7 +4,7 @@
 *{box-sizing:border-box;margin:0;padding:0}[hidden]{display:none!important}
 html{-webkit-text-size-adjust:100%}
 body{background:var(--fondo);color:var(--inchiostro);font-family:var(--ui);font-size:16px;line-height:1.5;overflow-wrap:anywhere;-webkit-font-smoothing:antialiased}
-.area{max-width:1120px;margin:0 auto;padding:20px 16px max(64px,env(safe-area-inset-bottom))}
+.area{max-width:1240px;margin:0 auto;padding:20px 16px max(64px,env(safe-area-inset-bottom))}
 .carico{color:var(--testo-2);text-align:center;padding:56px 0}
 h1{font-size:30px;line-height:1.1;letter-spacing:-.02em;font-weight:700}
 h2{font-size:20px;line-height:1.25;letter-spacing:-.01em;margin:0 0 10px}
@@ -81,19 +81,21 @@ details.menu .tendina label{display:flex;gap:8px;align-items:flex-start;font-siz
 /* tabella degli oggetti (desktop): niente larghezza minima, colonne fisse; i campi «quieti» appaiono al passaggio e al focus */
 .oggetti{background:var(--carta);border:1px solid var(--filo);border-radius:var(--r-lg);overflow:hidden}
 .oggetti table{width:100%;min-width:0;table-layout:fixed;border-collapse:collapse;font-size:15px}
-.oggetti col.c-sel{width:44px}.oggetti col.c-cod{width:100px}.oggetti col.c-tipo{width:84px}.oggetti col.c-stato{width:158px}.oggetti col.c-chi{width:20%}.oggetti col.c-nota{width:14%}.oggetti col.c-az{width:150px}
+/* larghezze in px (prima % di una tabella stretta): nessun testo importante tagliato; sotto i 1200 px i pulsanti di riga vanno a capo, sotto i 960 la tabella diventa un elenco di schede */
+.oggetti col.c-sel{width:40px}.oggetti col.c-cod{width:118px}.oggetti col.c-tipo{width:112px}.oggetti col.c-stato{width:158px}.oggetti col.c-chi{width:120px}.oggetti col.c-nota{width:110px}.oggetti col.c-az{width:176px}
+@media (min-width:1200px){.oggetti col.c-chi{width:190px}.oggetti col.c-nota{width:140px}.oggetti col.c-az{width:244px}}
 .oggetti th{font-size:13px;font-weight:600;color:var(--testo-3);text-align:left;padding:10px;background:var(--fondo);border-bottom:1px solid var(--filo);white-space:nowrap}
 .oggetti th:nth-child(4),.oggetti th:nth-child(7){padding-left:18px}
-.oggetti td{padding:6px 10px;border-bottom:1px solid var(--filo);vertical-align:middle;overflow:hidden}
+.oggetti td{padding:6px 10px;border-bottom:1px solid var(--filo);vertical-align:middle}
 .oggetti tr:last-child td{border-bottom:0}
 .oggetti tbody tr:hover{background:color-mix(in srgb,var(--teal-tinta) 45%,transparent)}
 .oggetti td.cod{font-family:var(--mono);font-weight:700;white-space:nowrap}
 .oggetti td.cod a{color:inherit;text-decoration:none;display:inline-flex;align-items:center;min-height:36px}
 .oggetti td.cod a:hover{text-decoration:underline;text-underline-offset:3px}
-.oggetti td.tipo{color:var(--testo-2);white-space:nowrap;text-overflow:ellipsis}
+.oggetti td.tipo{color:var(--testo-2);font-size:14px;line-height:1.25;overflow-wrap:break-word}
 .oggetti td.chi{color:var(--inchiostro);line-height:1.3}
-.oggetti td.chi small{display:block;color:var(--testo-3);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.oggetti td.chi b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.oggetti td.chi small{display:block;color:var(--testo-3);font-size:13px;overflow-wrap:anywhere}
+.oggetti td.chi b{display:block;font-weight:600;overflow-wrap:anywhere}
 .oggetti input[type=checkbox]{width:20px;height:20px}
 input.quieto{font:inherit;font-size:15px;color:inherit;background:transparent;border:1px solid transparent;border-radius:6px;padding:5px 7px;width:100%;min-height:36px}
 input.quieto:hover{border-color:var(--filo)}
@@ -106,8 +108,8 @@ select.stato-sel.a_casa{border-color:var(--teal-tinta);background-color:var(--te
 select.stato-sel.in_riparazione{border-color:var(--warn-bd);background-color:var(--warn-bg);color:var(--warn)}
 select.stato-sel.smarrito{border-color:var(--bad-bd);background-color:var(--bad-bg);color:var(--bad)}
 select.stato-sel.dismesso{border-color:var(--filo);background-color:var(--muto-bg);color:var(--muto)}
-.riga-az{display:flex;gap:4px;justify-content:flex-end;white-space:nowrap}
-.riga-az .btn{min-height:36px;padding:4px 10px;font-size:14px;border-color:transparent;background:none;color:var(--testo-2)}
+.riga-az{display:flex;flex-wrap:wrap;gap:2px;justify-content:flex-end}
+.riga-az .btn{min-height:34px;padding:3px 8px;font-size:14px;white-space:nowrap;border-color:transparent;background:none;color:var(--testo-2)}
 .riga-az .btn:hover{background:var(--rialzo)}
 .riga-az .btn.pericolo{color:var(--bad)}
 
@@ -149,25 +151,6 @@ select.stato-sel.dismesso{border-color:var(--filo);background-color:var(--muto-b
   .strumenti{grid-template-columns:1fr 1fr 1fr;gap:8px}
   .strumenti .cerca{grid-column:1/-1}
   .strumenti select{font-size:14px;padding:8px;min-width:0;width:100%}
-  /* la stessa tabella diventa un elenco di schede (solo CSS) */
-  .oggetti thead{display:none}
-  .oggetti table,.oggetti tbody{display:block}
-  .oggetti tr{display:grid;grid-template-columns:30px auto 1fr auto;grid-template-areas:"sel cod tipo stato" "sel mod mod mod" "sel chi chi chi" "sel nota nota nota" "sel az az az";column-gap:8px;padding:12px 12px 8px;border-bottom:1px solid var(--filo)}
-  .oggetti tr:last-child{border-bottom:0}
-  .oggetti td{border:0;padding:0;overflow:visible}
-  .oggetti td:nth-child(1){grid-area:sel;padding-top:3px}
-  .oggetti td.cod{grid-area:cod;font-size:17px;align-self:center}
-  .oggetti td.tipo{grid-area:tipo;align-self:center;font-size:14px;min-width:0;overflow:hidden}
-  .oggetti td:nth-child(5){grid-area:stato;justify-self:end}
-  .oggetti td:nth-child(4){grid-area:mod;margin:4px -7px 0}
-  .oggetti td.chi{grid-area:chi;font-size:15px;padding:0 0 2px}
-  .oggetti td.chi:empty{display:none}
-  .oggetti td:nth-child(7){grid-area:nota;margin:0 -7px}
-  .oggetti td:nth-child(7) input.quieto::placeholder{color:var(--testo-3)}
-  .oggetti td:nth-child(7) input.quieto{font-size:14px;min-height:34px}
-  .oggetti td:nth-child(8){grid-area:az}
-  .riga-az{justify-content:flex-start;margin-left:-10px}
-  .riga-az .btn{min-height:44px;padding:4px 14px}
   .strumenti select{min-height:44px}
   .vista-barra{align-items:stretch}
   .vista-barra>.riga{width:100%}
@@ -213,7 +196,7 @@ td.cod{font-family:var(--mono);font-weight:700;white-space:nowrap}
 /* senza il logo (18/11/2026) «Inventario» apre la barra: niente filetto a sinistra */
 .barra-sp .dove:first-child{border-left:0;padding-left:0;margin-left:0}
 /* ---- etichette già fatte (18/11/2026): segno nell'elenco, contatore nel riepilogo, vista «Etichette» (piccola, senza scroll inutile) ---- */
-.etic-tag{display:block;font-size:11.5px;font-weight:600;line-height:1.2;color:var(--warn);font-family:var(--ui);margin-top:-4px;padding-bottom:3px}
+.etic-tag{display:block;white-space:nowrap;font-size:11.5px;font-weight:600;line-height:1.2;color:var(--warn);font-family:var(--ui);margin-top:-4px;padding-bottom:3px}
 .etic-conto{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:2px 8px 2px 14px;border-top:1px solid var(--filo);font-size:14px;font-weight:600;color:var(--warn)}
 .etic-modo{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
 .etic-modo .btn{min-height:34px;padding:3px 12px;font-size:14px}
@@ -232,3 +215,60 @@ td.cod{font-family:var(--mono);font-weight:700;white-space:nowrap}
 .etic-azioni .nota{margin:0;flex:1 1 220px;font-size:14px}
 .etic-stato{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:14px;color:var(--testo-2)}
 @media (max-width:640px){.etic-azioni .btn.primario{flex:1 1 100%}}
+
+/* sotto i 960 px la tabella diventa un elenco di schede (solo CSS) */
+@media (max-width:960px){
+  /* la stessa tabella diventa un elenco di schede (solo CSS) */
+  .oggetti thead{display:none}
+  .oggetti table,.oggetti tbody{display:block}
+  .oggetti tr{display:grid;grid-template-columns:30px auto 1fr auto;grid-template-areas:"sel cod tipo stato" "sel mod mod mod" "sel chi chi chi" "sel nota nota nota" "sel az az az";column-gap:8px;padding:12px 12px 8px;border-bottom:1px solid var(--filo)}
+  .oggetti tr:last-child{border-bottom:0}
+  .oggetti td{border:0;padding:0;overflow:visible}
+  .oggetti td:nth-child(1){grid-area:sel;padding-top:3px}
+  .oggetti td.cod{grid-area:cod;font-size:17px;align-self:center}
+  .oggetti td.tipo{grid-area:tipo;align-self:center;font-size:14px;min-width:0;overflow:hidden}
+  .oggetti td:nth-child(5){grid-area:stato;justify-self:end}
+  .oggetti td:nth-child(4){grid-area:mod;margin:4px -7px 0}
+  .oggetti td.chi{grid-area:chi;font-size:15px;padding:0 0 2px}
+  .oggetti td.chi:empty{display:none}
+  .oggetti td:nth-child(7){grid-area:nota;margin:0 -7px}
+  .oggetti td:nth-child(7) input.quieto::placeholder{color:var(--testo-3)}
+  .oggetti td:nth-child(7) input.quieto{font-size:14px;min-height:34px}
+  .oggetti td:nth-child(8){grid-area:az}
+  .riga-az{justify-content:flex-start;margin-left:-10px}
+  .riga-az .btn{min-height:44px;padding:4px 14px}
+}
+
+/* ---- dialoghi della tabella (inv-scheda.js, 18/11/2026): scheda del cambio di stato e popup «Elimina». Piccoli, con i token di stageplot.it ---- */
+html.sch-aperta{overflow:hidden}
+.sch-velo{position:fixed;inset:0;z-index:30;background:rgba(20,22,24,.5);display:flex;align-items:center;justify-content:center;padding:12px;overflow:auto;overscroll-behavior:contain}
+.scheda{background:var(--carta);color:var(--inchiostro);border:1px solid var(--filo);border-radius:var(--r-xl);box-shadow:var(--elev-2);width:min(420px,100%);max-height:calc(100vh - 24px);max-height:calc(100dvh - 24px);overflow:auto;padding:14px 16px 16px}
+.scheda.sch-piccola{width:min(380px,100%)}.scheda.sch-larga{width:min(520px,100%)}
+.sch-testa{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:6px}
+.sch-titolo{font-size:17px;line-height:1.25;margin:0;letter-spacing:-.01em}
+.sch-codice{font:13px var(--mono);color:var(--testo-3);flex:none}
+.sch-strum{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;justify-content:space-between;margin:2px 0 10px;padding:8px 10px;background:var(--fondo);border-radius:var(--r-md)}
+.sch-oggetto{font-size:14px;font-weight:600;min-width:0;overflow-wrap:anywhere;margin:0 0 6px}.sch-strum .sch-oggetto{margin:0}
+.sch-passo{display:inline-flex;align-items:center;gap:6px}.sch-freccia{color:var(--testo-3);font-size:13px}
+.sch-testo{font-size:14.5px;line-height:1.45;margin:0 0 8px}
+.sch-avviso{color:var(--warn);font-weight:600}
+.sch-nota{font-size:13px;color:var(--testo-3);margin:4px 0 8px}
+.sch-esito{color:var(--bad);font-weight:600;font-size:14px;margin:8px 0 0;min-height:1px}.sch-esito:empty{margin:0}
+.sch-azioni{display:flex;gap:8px;justify-content:flex-end;margin-top:12px}
+.sch-azioni .btn{min-height:40px;padding:6px 16px;font-size:15px}
+.btn.elimina-ok{background:var(--bad);border-color:var(--bad);color:var(--carta)}.btn.elimina-ok:hover{background:var(--bad);filter:brightness(.92)}
+.scheda .inv-griglia{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px 10px;margin-top:6px}.scheda .inv-griglia .tutta{grid-column:1/-1}
+.scheda .inv-campo{min-width:0}.scheda .inv-campo label{font-size:13px;margin-bottom:3px}.scheda .inv-campo label i{font-style:normal;color:var(--teal-forte)}
+.scheda .inv-campo input{display:block;width:100%;max-width:100%;min-width:0;-webkit-appearance:none;appearance:none;font:inherit;font-size:16px;color:var(--inchiostro);background:var(--carta);border:1px solid var(--filo-forte);border-radius:var(--r-md);padding:6px 10px;min-height:38px}
+.scheda .inv-campo input:focus{border-color:var(--teal);box-shadow:var(--anello);outline:none}
+.scheda .inv-campo input[type=date]{text-align:left;line-height:1.2}.scheda .inv-campo input[type=date]::-webkit-date-and-time-value{text-align:left;min-height:1.2em}
+.scheda .inv-campo.errore input{border-color:var(--bad)}.scheda .inv-aiuto{font-size:12.5px;color:var(--testo-3);margin-top:3px}.scheda .inv-campo.errore .inv-aiuto{color:var(--bad);font-weight:600}
+.scheda .inv-nota-in-piu{margin-top:8px}.scheda .inv-nota-in-piu summary{cursor:pointer;font-size:14px;font-weight:600;color:var(--teal-forte);list-style:none;min-height:32px;display:flex;align-items:center}
+.scheda .inv-nota-in-piu summary::-webkit-details-marker{display:none}
+/* carta del modulo di comodato (dopo la consegna), come sul telefono ma in scala piccola */
+.scheda .inv-carta{background:none;border:0;padding:0}.scheda .inv-form-testa{display:flex;align-items:baseline;justify-content:space-between;gap:10px}.scheda .inv-form-testa b{font-size:15px}.scheda .inv-form-testa span{font:13px var(--mono);color:var(--testo-3)}
+.scheda .inv-modulo-nota,.scheda .inv-nota{font-size:13px;color:var(--testo-3);margin:4px 0}
+.scheda .inv-modulo-bott{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.scheda .inv-modulo-bott .btn{min-height:40px;font-size:15px}.scheda .inv-modulo-bott .btn.testo{grid-column:1/-1}
+.scheda .inv-modulo-stato{min-height:1px;font-size:13px}.scheda .inv-esito{color:var(--bad);font-weight:600;font-size:13px}
+@media (max-width:720px){.sch-velo{align-items:flex-start;padding:8px}.scheda{max-height:calc(100dvh - 16px);padding:12px 14px 14px}}
+@media print{.sch-velo{display:none!important}}
