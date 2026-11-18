@@ -567,8 +567,9 @@
         <button class="btn" id="pLookApplyAll" style="border:none;background:none;color:var(--accent);font-size:11px;padding:2px 0;cursor:pointer;text-decoration:underline;white-space:nowrap" title="Applica questa scelta a tutto il progetto e usala per i nuovi elementi">Applica a tutti</button>
       </div>
       <div style="display:flex;gap:4px">
-        <button class="btn" id="pLookIll" style="flex:1;font-size:12px;padding:5px 2px" title="Il musicista che suona, in scala reale: la sedia fa parte della figura">Postazione</button>
-        <button class="btn" id="pLookSch" style="flex:1;font-size:12px;padding:5px 2px" title="Il solo strumento: sedia e leggio si aggiungono qui sotto se servono">Strumento solo</button>
+        <button class="btn" id="pLookIll" style="flex:1;font-size:12px;padding:5px 2px" title="Il musicista seduto, in scala reale: la sedia fa parte della figura">Seduto</button>
+        <button class="btn" id="pLookPie" style="flex:1;font-size:12px;padding:5px 2px" title="Il musicista in piedi, senza sedia">In piedi</button>
+        <button class="btn" id="pLookSch" style="flex:1;font-size:12px;padding:5px 2px" title="Il solo strumento: sedia e leggio si aggiungono qui sotto se servono">Strumento</button>
       </div>
     </div>
     <div id="pDiWrap" style="display:none;margin-bottom:10px">
@@ -1056,13 +1057,6 @@
       <div id="pModInfo" class="prop-hint"></div>
     </div>
     <div id="pPostaz" style="display:none;border-top:1px solid #eef0f2;margin-top:10px;padding-top:8px">
-      <div class="stpr-f" id="pPosaWrap" style="display:none"><label>Posizione</label>
-        <div class="chips" data-chips="pPosa">
-          <button type="button" data-v="seduto" title="Seduto: la figura con la sedia">Seduto</button>
-          <button type="button" data-v="piedi" title="In piedi: senza sedia, il sax appeso al collo">In piedi</button>
-        </div>
-        <select id="pPosa" hidden><option value="seduto">seduto</option><option value="piedi">in piedi</option></select>
-      </div>
       <div id="pFlags">
         <label class="chk" id="pSediaLbl"><input type="checkbox" id="pSedia"> Sedia</label>
         <label class="chk"><input type="checkbox" id="pLeggioCfg"> Leggio</label>
@@ -4339,7 +4333,7 @@ var TYPES = {
   djset:    {nome:"DJ set su tavolo", dim:"180×60", cat:"Band e backline", sub:"DJ ed elettronica", catalog:false, w:182,d:64, defLabel:"DJ",
              draw:function(it){ return drawLibFit("djset",it,182,64); }},
   /* --- archi (icone realistiche libreria + seduta chiara) --- */
-  vlnpost:  {nome:"Violino", dim:"postazione", cat:"Orchestra", sub:"Archi", w:100,d:105,
+  vlnpost:  {nome:"Violino", dim:"postazione", cat:"Orchestra", sub:"Archi", w:100,d:115,
              draw:function(it){ return station(it, libIcon('violino'), "vln1", true); }},
   violapost:{nome:"Viola", dim:"postazione", cat:"Orchestra", sub:"Archi", w:100,d:115,
              draw:function(it){ return station(it, libIcon('viola'), "vla", true); }},
@@ -5754,7 +5748,8 @@ var POSTAZ_ART = {
   flauto:"musFlauto", oboe:"musOboe", clarinetto:"musClarinetto", fagotto:"musFagotto",
   saxalto:"musSaxAlto", saxtenore:"musSaxTenore", saxbaritono:"musSaxBaritono"
 };
-/* POSA IN PIEDI (18/11/2026, Simone: «le versioni in piedi di quegli strumenti come NUOVE ICONE con l'opzione seduto / in piedi»): sax e violino.
+/* POSA IN PIEDI (18/11/2026, Simone: «le versioni in piedi di quegli strumenti come NUOVE ICONE con l'opzione seduto / in piedi»): sax, violino e tromba.
+   Si sceglie nel controllo «Disegno»: Seduto · In piedi · Strumento (solo lo strumento: la posa resta memorizzata ma non conta finché si disegna lo strumento).
    it.posa = "piedi" (assente = seduto, come i progetti già salvati). Stessa postazione, stesso tipo: cambiano solo il disegno
    (icona senza sedia), l'ingombro (s = singola, dbl = doppia con sep 90, come POSTAZ) e il conteggio delle sedie (nessuna).
    Il disegno seduto includeva la sedia: in piedi non c'è e il leggio, se acceso, sta davanti ai piedi (non sopra le scarpe):
@@ -5763,10 +5758,11 @@ var POSA_PIEDI = {
   vlnpost:{art:"musViolino1Piedi", art2:"musViolino2Piedi", s:[90,105], dbl:[170,105], sep:90},   /* violino I e II (vsec 2): stessa postazione, le doppie vln1x2/vln2x2/archi2leggio sono schemi e non cambiano */
   saxalto:{art:"musSaxAltoPiedi", s:[70,110], dbl:[150,110], sep:90},
   saxtenore:{art:"musSaxTenorePiedi", s:[60,108], dbl:[140,108], sep:90},
-  saxbaritono:{art:"musSaxBaritonoPiedi", s:[65,112], dbl:[145,112], sep:90}
+  saxbaritono:{art:"musSaxBaritonoPiedi", s:[65,112], dbl:[145,112], sep:90},
+  tromba:{art:"musTrombaPiedi", s:[70,118], dbl:[150,118], sep:90}   /* 60,4×83,4 + il leggio davanti ai piedi */
 };
 function artPiedi(it){ var P=it && POSA_PIEDI[it.type]; return P ? ((it.vsec===2 && P.art2) ? P.art2 : P.art) : null; }   /* icona in piedi: il violino II ha la sua */
-function inPiedi(it){ return !!it && it.posa==="piedi" && !!POSA_PIEDI[it.type]; }
+function inPiedi(it){ return !!it && it.posa==="piedi" && !!POSA_PIEDI[it.type] && it.look!=="schematico"; }   /* «Strumento»: la posa dorme, non si disegna né conta sedie */
 function postazOf(it){ return inPiedi(it) ? POSA_PIEDI[it.type] : POSTAZ[it.type]; }   /* misure della postazione secondo la posa */
 function postArt(it){
   if(!it || it.look==="schematico") return null;
@@ -22145,9 +22141,13 @@ function renderProps(){
   var _ab=document.getElementById("pAbbr"); _ab.value=it.abbr||""; _ab.placeholder=abbrOf({type:it.type,label:it.label})||"sigla";
   var lookw=document.getElementById("pLookWrap");   /* Unifica icone: toggle Aspetto per le postazioni con illustrazione */
   if(lookw){ var isArt=hasLookToggle(it); lookw.style.display=isArt?"block":"none";
-    if(isArt){ var ill=(it.look!=="schematico");
-      document.getElementById("pLookIll").className="btn"+(ill?" primary":"");
-      document.getElementById("pLookSch").className="btn"+(ill?"":" primary"); } }
+    if(isArt){ var dg=disegnoUi(it);   /* Seduto · In piedi · Strumento: un solo attivo; con più elementi diversi, nessuno */
+      document.getElementById("pLookIll").className="btn"+(dg.stato==="seduto"?" primary":"");
+      document.getElementById("pLookPie").className="btn"+(dg.stato==="piedi"?" primary":"");
+      document.getElementById("pLookSch").className="btn"+(dg.stato==="strumento"?" primary":"");
+      var _bp=document.getElementById("pLookPie"); _bp.disabled=!dg.piedi; _bp.setAttribute("aria-disabled", dg.piedi?"false":"true");
+      _bp.style.opacity=dg.piedi?"":"0.45"; _bp.style.cursor=dg.piedi?"":"not-allowed";
+      _bp.title=dg.piedi ? "Il musicista in piedi, senza sedia" : "Non ancora disponibile per questo strumento"; } }
   var hasChair = !!POSTAZ[it.type] && optSedia(it);
   document.getElementById("pLblPosWrap").style.display = hasChair ? "block" : "none";
   if(hasChair){
@@ -22225,9 +22225,6 @@ function renderProps(){
   var pp=document.getElementById("pPostaz"), cfg=sepCfg(it);
   var isPostaz=!!POSTAZ[it.type];
   pp.style.display = (isPostaz || cfg) ? "block" : "none";
-  var _pw=document.getElementById("pPosaWrap");   /* Seduto / In piedi: solo sax e violini (18/11/2026) */
-  if(_pw){ var _sx=!!POSA_PIEDI[it.type]; _pw.style.display=_sx?"":"none";
-    if(_sx){ var _pp=document.getElementById("pPosa"); _pp.value=inPiedi(it)?"piedi":"seduto"; try{ _pp.dispatchEvent(new Event("chips-sync")); }catch(e){} } }
   document.getElementById("pFlags").style.display = isPostaz ? "block" : "none";
   if(isPostaz){
     var dbl=it.doppia===true;
@@ -22867,8 +22864,9 @@ function lookReset(it, mode){
   if(mode==="schematico"){ it.sedia=false; it.leggio=false; }
   else { delete it.sedia; delete it.leggio; }   /* postazione: torna ai default del tipo (entrambi accesi) */
 }
-document.getElementById("pLookIll").addEventListener("click", function(){ mutSel(function(it){ lookCambia(it,"illustrato"); recalcItemDims(it); }); renderProps(); });   /* illustrato = default (non memorizzato); ricalcola footprint */
-document.getElementById("pLookSch").addEventListener("click", function(){ mutSel(function(it){ lookCambia(it,"schematico"); recalcItemDims(it); }); renderProps(); });
+document.getElementById("pLookIll").addEventListener("click", function(){ cambiaDisegnoSelezione("seduto"); });   /* seduto = illustrato di serie (non memorizzato); ricalcola footprint */
+document.getElementById("pLookPie").addEventListener("click", function(){ if(!this.disabled) cambiaDisegnoSelezione("piedi"); });
+document.getElementById("pLookSch").addEventListener("click", function(){ cambiaDisegnoSelezione("strumento"); });
 function setStereoSel(v){ mutSel(function(it){ var c=STEREO_TOGGLE[it.type]; if(!c) return; if(c.def===v) delete it.stereo; else it.stereo=v; }); __cabRes=null; save(); render(); renderProps(); }   /* uscita mono/stereo: memorizza solo l'override rispetto al default del tipo */
 document.getElementById("pStereoMono").addEventListener("click", function(){ setStereoSel(false); });
 document.getElementById("pStereoStereo").addEventListener("click", function(){ setStereoSel(true); });
@@ -22982,15 +22980,34 @@ function impostaPosa(it, piedi){
   if(piedi) it.posa="piedi"; else delete it.posa;
   recalcItemDims(it);
 }
-function cambiaPosaSelezione(piedi){
-  primaDiAgire();
-  var tutti=(state.items||[]).filter(function(x){ return selSet[x.id] && POSA_PIEDI[x.type]; });
-  if(!tutti.length){ var s=getSel(); if(s && POSA_PIEDI[s.type]) tutti=[s]; }
-  if(!tutti.length) return;
-  tutti.forEach(function(it){ impostaPosa(it, piedi); });
-  render(); save();
+/* DISEGNO: Seduto · In piedi · Strumento (18/11/2026, Simone: tre pulsanti nello stesso controllo, uno solo attivo).
+   seduto = la figura con la sedia (illustrato, senza posa) · piedi = it.posa:"piedi" (illustrato, senza sedia) · strumento = it.look:"schematico"
+   (il solo strumento). «Strumento» non cancella la posa: resta memorizzata e torna quando si rimette una figura (In piedi la riprende,
+   Seduto la toglie). Il busto resta fermo solo passando fra Seduto e In piedi; da Strumento non c'è un busto da seguire. */
+function disegnoStato(it){ if(!it || !hasLookToggle(it)) return null; if(it.look==="schematico") return "strumento"; return inPiedi(it) ? "piedi" : "seduto"; }
+function disegnoUi(it){   /* cosa mostrare: lo stato comune della selezione (misti: nessuno) e se «In piedi» c'è per almeno uno */
+  var g=selItems().filter(hasLookToggle); if(!g.length) g=[it];
+  var st=disegnoStato(g[0]); g.forEach(function(x){ if(disegnoStato(x)!==st) st=null; });
+  return {stato:st, piedi:g.some(function(x){ return !!POSA_PIEDI[x.type]; })};
 }
-document.getElementById("pPosa").addEventListener("change", function(){ cambiaPosaSelezione(this.value==="piedi"); });
+function impostaDisegno(it, v){
+  if(!hasLookToggle(it)) return;
+  var eraStrumento=(it.look==="schematico");
+  if(v==="strumento"){ if(!eraStrumento) lookCambia(it,"schematico"); recalcItemDims(it); return; }
+  if(v==="piedi" && !POSA_PIEDI[it.type]) return;   /* «In piedi» solo dove c'è l'icona */
+  if(eraStrumento) lookCambia(it,"illustrato");   /* rimette sedia e leggio ai default del tipo */
+  impostaPosa(it, v==="piedi");   /* sposta lo scarto del busto solo se la posa cambia davvero (una posa che dormiva in «Strumento» conta: il centro è ancora il suo) */
+  if(v==="seduto" && POSTAZ[it.type] && it.doppia!==true && it.sedia===false) delete it.sedia;   /* la sedia torna, e si conta (prima restava spenta: «Violinista in piedi» nato senza sedia) */
+  recalcItemDims(it);
+}
+function cambiaDisegnoSelezione(v){
+  primaDiAgire();
+  var tutti=selItems().filter(hasLookToggle);
+  if(!tutti.length){ var s=getSel(); if(s && hasLookToggle(s)) tutti=[s]; }
+  if(!tutti.length) return;
+  tutti.forEach(function(it){ impostaDisegno(it, v); });
+  render(); save(); renderProps();
+}
 document.getElementById("pDoppia").addEventListener("change", function(){ mutSel(function(it){
   it.doppia=document.getElementById("pDoppia").checked;
   var P=postazOf(it);
@@ -24969,9 +24986,9 @@ function ricordaRecenteCatalogo(k, nome, over){
       entries.push({nome:"Violinista in piedi", dim:"postazione senza sedia", icon:"vlnpost", action:function(){ addViolin(1, true); },
                     kw:"violino in piedi violinista in piedi violini in piedi violinisti in piedi violino senza sedia violinista senza sedia violino solista in piedi violinista solista"});
       /* SAX IN PIEDI (18/11/2026): «sax in piedi» trova il sax con la posa In piedi (senza sedia); il pannello dell'elemento ha Seduto / In piedi */
-      [["saxalto","Sax alto","sax alto contralto sassofono alto"],["saxtenore","Sax tenore","sax tenore sassofono tenore"],["saxbaritono","Sax baritono","sax baritono sassofono baritono"]].forEach(function(v){
+      [["saxalto","Sax alto","sax alto contralto sassofono alto"],["saxtenore","Sax tenore","sax tenore sassofono tenore"],["saxbaritono","Sax baritono","sax baritono sassofono baritono"],["tromba","Tromba","tromba trombetta trombettista trumpet"]].forEach(function(v){
         entries.push({k:v[0], nome:v[1]+" \u00b7 in piedi", over:{posa:"piedi"}, dim:"senza sedia",
-                      kw:v[2]+" sax in piedi sassofono in piedi sassofonista in piedi sax senza sedia sassofono senza sedia"});
+                      kw:v[2]+" "+(v[0]==="tromba" ? "tromba in piedi trombettista in piedi tromba senza sedia" : "sax in piedi sassofono in piedi sassofonista in piedi sax senza sedia sassofono senza sedia")});
       });
       /* LAPTOP SU TAVOLO (19/10/2026): una postazione unica — il tavolo e il Mac, in un gruppo (si spostano insieme) */
       addToGroup("DJ ed elettronica", makeActionBtn("Laptop su tavolo", "tavolo + Mac · postazione unica", "djset", aggiungiLaptopTavolo));
