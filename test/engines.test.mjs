@@ -4136,10 +4136,13 @@ t("la rotazione non salta a 0 mentre stai digitando", () => {
   ok(appjs.indexOf('if(el.value==="" || !isFinite(raw)) return;') > -1,
      "campo vuoto a metà digitazione: non deve ruotare l'elemento a 0");
 });
-t("il toggle si chiama «Postazione» / «Strumento solo», non più «Illustrato» / «Schematico»", () => {
+t("il controllo Disegno si chiama «Seduto» · «In piedi» · «Strumento», non più «Illustrato» / «Schematico» (18/11: prima «Postazione» / «Strumento solo»)", () => {
   const html = readFileSync(join(root, "app/index.html"), "utf8");
-  ok(html.indexOf(">Postazione</button>") > -1, "il primo bottone dice cosa disegna");
-  ok(html.indexOf(">Strumento solo</button>") > -1, "il secondo pure");
+  ok(html.indexOf(">Seduto</button>") > -1, "il primo bottone dice cosa disegna");
+  ok(html.indexOf(">In piedi</button>") > -1, "il secondo pure");
+  ok(html.indexOf(">Strumento</button>") > -1, "il terzo pure");
+  eq(html.indexOf(">Postazione</button>"), -1, "«Postazione» è diventato «Seduto»");
+  eq(html.indexOf(">Strumento solo</button>"), -1, "«Strumento solo» è diventato «Strumento»");
   eq(html.indexOf(">Illustrato</button>"), -1, "il vecchio nome descriveva lo stile, non il contenuto");
   eq(html.indexOf(">Schematico</button>"), -1);
 });
@@ -32012,8 +32015,9 @@ t("Postazione ↔ Strumento solo: lo stage piano tiene il musicista dalla stessa
   eq(gc.rot, 270, "il gran coda ha la tastiera dalla stessa parte nelle due viste: non si gira");
   const v = { type: "vlnpost", rot: 15, x: 300, y: 300, w: 100, d: 115 };
   A.lookCambia(v, "schematico"); eq(v.rot, 15, "un violino non si gira");
-  ok(/getElementById\("pLookIll"\)\.addEventListener\("click", function\(\)\{ mutSel\(function\(it\)\{ lookCambia\(it,"illustrato"\)/.test(appjs), "il pulsante Postazione usa lookCambia");
-  ok(/getElementById\("pLookSch"\)\.addEventListener\("click", function\(\)\{ mutSel\(function\(it\)\{ lookCambia\(it,"schematico"\)/.test(appjs), "il pulsante Strumento solo usa lookCambia");
+  ok(/getElementById\("pLookIll"\)\.addEventListener\("click", function\(\)\{ cambiaDisegnoSelezione\("seduto"\)/.test(appjs), "il pulsante Seduto passa da impostaDisegno");
+  ok(/getElementById\("pLookSch"\)\.addEventListener\("click", function\(\)\{ cambiaDisegnoSelezione\("strumento"\)/.test(appjs), "il pulsante Strumento passa da impostaDisegno");
+  ok(/function impostaDisegno[\s\S]{0,400}lookCambia\(it,"schematico"\)[\s\S]{0,400}lookCambia\(it,"illustrato"\)/.test(appjs), "e impostaDisegno usa lookCambia (il giro dello stage piano resta)");
   ok(/if\(hasLookToggle\(o\)\)\{ lookCambia\(o,lk\);/.test(appjs), "«Applica a tutti» usa lookCambia");
 });
 t("DI dello strumento: sempre dritta, e nasce in un punto libero accanto alla sorgente", () => {
@@ -36376,7 +36380,7 @@ t("sax in piedi (18/11): cambio posa su più sax selezionati (anche misti): solo
   eq(A.countAccessori().sedie, 5, "5 sedie da seduti");
   conIconePiedi((L) => {
     const prima = [al, te, ba, cl, fuori].map(i => [i.x, i.y, i.rot, i.label, i.leggio, i.sedia, i.ch, i.w, i.d]);
-    A.cambiaPosaSelezione(true);
+    A.cambiaDisegnoSelezione("piedi");
     eq([al.posa, te.posa, ba.posa], ["piedi", "piedi", "piedi"], "i tre sax diventano «in piedi»");
     ok(cl.posa === undefined && fuori.posa === undefined, "il clarinetto selezionato e il sax non selezionato restano come sono");
     eq([al.w, al.d, te.w, te.d, ba.w, ba.d], [70, 110, 60, 108, 65, 112], "ingombro della posa");
@@ -36385,11 +36389,11 @@ t("sax in piedi (18/11): cambio posa su più sax selezionati (anche misti): solo
     /* il centro dell'elemento segue il busto: scarto dc girato come l'elemento (tenore a 90°) */
     const dc = L.musSaxTenorePiedi.dc, r = Math.PI / 2;
     eq([te.x, te.y], [Math.round(500 + dc[0] * Math.cos(r) - dc[1] * Math.sin(r)), Math.round(200 + dc[0] * Math.sin(r) + dc[1] * Math.cos(r))], "il tenore ruotato si sposta dello scarto girato");
-    A.cambiaPosaSelezione(false);
+    A.cambiaDisegnoSelezione("seduto");
     ok([al, te, ba].every(i => i.posa === undefined && !("posa" in i)), "di nuovo seduti: il campo sparisce");
     eq([al, te, ba, cl, fuori].map(i => [i.x, i.y, i.rot, i.label, i.leggio, i.sedia, i.ch, i.w, i.d]), prima, "tutto com'era prima (posizione, ingombro, nomi)");
     eq(A.countAccessori().sedie, 5, "le sedie tornano");
-    A.cambiaPosaSelezione(false);
+    A.cambiaDisegnoSelezione("seduto");
     eq([al.x, al.y], [300, 200], "chiedere «seduto» a chi è già seduto non muove niente");
     A.impostaPosa(cl, true);
     ok(cl.posa === undefined && cl.x === 900 && cl.y === 200 && cl.w === prima[3][7], "un elemento che non è un sax non cambia mai posa né posto");
@@ -36408,22 +36412,22 @@ t("sax in piedi (18/11): postazione a 2 e dividi; niente sedie anche sul foglio 
   const g = A.TYPES.saxalto.draw(b);
   ok(typeof g === "string" && g.length > 0, "lo schematico si disegna lo stesso");
   const bSed = Object.assign({}, b); delete bSed.posa;
-  ok(g.length < A.TYPES.saxalto.draw(bSed).length, "schematico in piedi: senza il disegno della sedia (più corto di quello seduto)");
+  ok(g.length === A.TYPES.saxalto.draw(bSed).length, "Strumento: la posa dorme, lo schema si disegna come da seduto (con la sua sedia)");
   const cat = add("saxbaritono", 800, 300, { posa: "piedi" }), catCl = add("clarinetto", 900, 300, { posa: "piedi" });
   eq([cat.posa, cat.w, cat.d], ["piedi", 65, 112], "dal catalogo/ricerca (over posa) nasce in piedi, con l'ingombro della posa");
   ok(catCl.posa === undefined, "su un tipo che non è un sax la posa viene scartata");
-  eq(A.optSedia(b), false, "in piedi la sedia non esiste neanche nello schematico");
-  b.look = "illustrato"; eq(A.postArt(b), "musSaxAltoPiedi", "illustrato: l'icona in piedi");
+  eq(A.optSedia(b), true, "Strumento: la posa dorme, la sedia segue il suo flag");
+  b.look = "illustrato"; eq(A.postArt(b), "musSaxAltoPiedi", "figura: l'icona in piedi"); eq(A.optSedia(b), false, "in piedi la sedia non esiste");
   delete b.posa; eq(A.postArt(b), "musSaxAlto", "seduto: l'icona di sempre");
   b.posa = "piedi";
   A.state.items = [b]; eq(A.countAccessori().sedie, 0, "un solo sax in piedi: zero sedie (la riga «Sedie» del foglio per il teatro e il cartiglio leggono questo conteggio)");
 });
-t("sax in piedi (18/11): pannello «Posizione: Seduto / In piedi» come «Figura», ricerca «sax in piedi», disegno con e senza leggio", () => {
+t("sax in piedi (18/11): controllo Disegno a tre pulsanti (nessuna riga Posizione a parte), ricerca «sax in piedi», disegno con e senza leggio", () => {
   const html = readFileSync(join(root, "app/index.html"), "utf8");
-  ok(/id="pPosaWrap"/.test(html) && /data-chips="pPosa"/.test(html) && /<label>Posizione<\/label>/.test(html), "riga Posizione nel pannello");
-  ok(/data-v="seduto"[^>]*>Seduto</.test(html) && /data-v="piedi"[^>]*>In piedi</.test(html), "due scelte: Seduto, In piedi");
+  ok(!/id="pPosaWrap"/.test(html) && !/data-chips="pPosa"/.test(html) && !/<label>Posizione<\/label>/.test(html), "nessun doppione: la riga Posizione di Accessori non c'è più");
+  ok(/id="pLookIll"[^>]*>Seduto</.test(html) && /id="pLookPie"[^>]*>In piedi</.test(html) && /id="pLookSch"[^>]*>Strumento</.test(html), "tre pulsanti nello stesso controllo, nell'ordine Seduto · In piedi · Strumento");
   ok(/over:\{posa:"piedi"\}[\s\S]{0,200}sax in piedi/.test(appjs), "la ricerca «sax in piedi» porta al sax con la posa");
-  ok(/getElementById\("pPosa"\)\.addEventListener\("change", function\(\)\{ cambiaPosaSelezione\(this\.value==="piedi"\); \}\)/.test(appjs), "la scelta del pannello cambia la posa di tutta la selezione");
+  ok(/getElementById\("pLookPie"\)\.addEventListener\("click", function\(\)\{ if\(!this\.disabled\) cambiaDisegnoSelezione\("piedi"\); \}\)/.test(appjs), "«In piedi» cambia il disegno di tutta la selezione (se non è disabilitato)");
   conIconePiedi(() => {
     A.state.items = [];
     const a = add("saxalto", 300, 200); a.posa = "piedi"; A.recalcItemDims(a);
@@ -36446,7 +36450,7 @@ t("violino in piedi (18/11): stessa posa dei sax — icone I e II pulite, ingomb
   A.state.items = [];
   const v1 = add("vlnpost", 300, 200, { vsec: 1 }), v2 = add("vlnpost", 500, 200, { vsec: 2 });
   ok(v1.posa === undefined && v2.posa === undefined, "un violino nuovo è seduto, senza campo");
-  eq([v1.w, v1.d], [100, 105], "ingombro seduto di un violino nuovo: quello del catalogo, invariato (il ricalcolo alla riapertura lo porta a 100×115, come già oggi)"); eq(A.countAccessori().sedie, 2, "due sedie");
+  eq([v1.w, v1.d], [100, 115], "ingombro seduto di un violino nuovo = quello che avrebbe alla riapertura (TYPES allineato a POSTAZ, 18/11)"); eq(A.countAccessori().sedie, 2, "due sedie");
   v1.posa = "piedi"; v2.posa = "piedi"; A.recalcItemDims(v1); A.recalcItemDims(v2);
   eq([v1.w, v1.d, v2.w, v2.d], [90, 105, 90, 105], "ingombro in piedi");
   eq(A.countAccessori().sedie, 0, "in piedi: nessuna sedia");
@@ -36459,17 +36463,71 @@ t("violino in piedi (18/11): stessa posa dei sax — icone I e II pulite, ingomb
     A.state.items = [];
     const a = add("vlnpost", 300, 200, { vsec: 1 }), b = add("vlnpost", 500, 200, { vsec: 2 }), g = add("saxalto", 700, 200);
     a.rot = 180; A.selSet = {}; [a, b, g].forEach(i => { A.selSet[i.id] = true; }); A.sel = a.id;
-    A.cambiaPosaSelezione(true);
+    A.cambiaDisegnoSelezione("piedi");
     eq([a.posa, b.posa, g.posa], ["piedi", "piedi", "piedi"], "violini e sax insieme");
     const dc = L.musViolino1Piedi.dc;
     eq([a.x, a.y], [Math.round(300 + dc[0] * Math.cos(Math.PI) - dc[1] * Math.sin(Math.PI)), Math.round(200 + dc[0] * Math.sin(Math.PI) + dc[1] * Math.cos(Math.PI))], "il violino ruotato di 180° si sposta dello scarto girato");
-    A.cambiaPosaSelezione(false);
+    A.cambiaDisegnoSelezione("seduto");
     eq([a.x, a.y, b.x, b.y, g.x, g.y, a.w, a.d], [300, 200, 500, 200, 700, 200, 100, 115], "tornando seduti tutto com'era");
     const vp = add("vlnpost", 900, 200, { vsec: 1, posa: "piedi" }); ok(vp.posa === "piedi" && vp.w === 90, "dal catalogo/da script: nasce in piedi con l'ingombro della posa");
   });
   const html = readFileSync(join(root, "app/index.html"), "utf8");
   ok(/function addViolin\(sec, inPiedi\)\{[^}]*posa="piedi"/.test(appjs.replace(/\s+/g, " ").replace(/\{ var/g, "{ var")) || /if\(inPiedi===true\)\{ o\.sedia=false; o\.posa="piedi"; \}/.test(appjs), "«Violinista in piedi» del catalogo nasce con la posa In piedi (prima il disegno restava seduto)");
 });
+t("Disegno: Seduto · In piedi · Strumento (18/11): esclusivi, tromba in piedi, posa che dorme in Strumento, Seduto rimette e conta la sedia, In piedi spento dove non c'è l'icona", () => {
+  const L = iconeVere();
+  const tr = L.musTrombaPiedi; ok(tr && tr.body && Math.abs(tr.vb[2] - 60.4) < 0.2 && Math.abs(tr.vb[3] - 83.4) < 0.2, "musTrombaPiedi 60,4×83,4 come approvato (" + (tr && tr.vb) + ")");
+  ok(!/<(clipPath|mask|image|filter|use|style|linearGradient|radialGradient|text)\b|clip-path|transform=|class=|style=/.test(tr.body) && tr.body.length < 40000, "solo fill e path, peso contenuto (" + tr.body.length + ")");
+  conIconePiedi(() => {
+    A.LIB_ICONS.musTrombaPiedi = tr; A.LIB_ICONS.musTromba = L.musTromba;
+    A.state.items = []; A.selSet = {};
+    const sx = add("saxtenore", 400, 300), cl = add("clarinetto", 600, 300), tb = add("tromba", 800, 300);
+    A.selSet = {}; A.selSet[sx.id] = true; A.sel = sx.id;
+    eq(A.disegnoStato(sx), "seduto", "di serie: Seduto (nessun campo, come ieri)");
+    eq(A.disegnoUi(sx).piedi, true, "il sax ha «In piedi»"); A.selSet = {}; A.selSet[cl.id] = true; A.sel = cl.id; eq(A.disegnoUi(cl).piedi, false, "il clarinetto no: il pulsante resta ma spento");
+    A.selSet = {}; A.selSet[sx.id] = true; A.sel = sx.id;
+    A.cambiaDisegnoSelezione("piedi"); eq([A.disegnoStato(sx), sx.posa, sx.look], ["piedi", "piedi", undefined], "In piedi = posa, figura illustrata");
+    A.cambiaDisegnoSelezione("strumento"); eq([A.disegnoStato(sx), sx.posa, sx.look], ["strumento", "piedi", "schematico"], "Strumento = solo lo strumento; la posa resta memorizzata");
+    eq([sx.w, sx.d], [100, 108], "Strumento: ingombro da seduto (la posa dorme)");
+    eq(A.countAccessori().sedie >= 0, true, "premessa");
+    const xp = [sx.x, sx.y];
+    A.cambiaDisegnoSelezione("piedi"); eq([A.disegnoStato(sx), sx.look, sx.posa, sx.w, sx.d], ["piedi", "illustrato", "piedi", 60, 108], "da Strumento a In piedi: la posa memorizzata torna");
+    eq([sx.x, sx.y], xp, "la posa dormiva: nessun nuovo spostamento");
+    A.cambiaDisegnoSelezione("strumento"); A.cambiaDisegnoSelezione("seduto");
+    eq([A.disegnoStato(sx), sx.posa, sx.x, sx.y], ["seduto", undefined, 400, 300], "da Strumento a Seduto: la posa dormiente si toglie e il busto torna al suo posto (400,300)");
+    for (const m of ["seduto", "piedi", "strumento"]) { A.cambiaDisegnoSelezione(m); eq(["seduto", "piedi", "strumento"].filter(k => A.disegnoStato(sx) === k).length, 1, m + ": uno solo attivo"); }
+    /* selezione mista: i compatibili cambiano, gli altri no; lo stato è «nessuno» finché sono diversi */
+    A.selSet = {}; [sx, cl, tb].forEach(i => { A.selSet[i.id] = true; }); A.sel = sx.id;
+    A.cambiaDisegnoSelezione("seduto"); eq([A.disegnoStato(sx), A.disegnoStato(cl), A.disegnoStato(tb)], ["seduto", "seduto", "seduto"], "tutti Seduto");
+    eq(A.disegnoUi(sx).stato, "seduto", "stato comune = Seduto");
+    A.cambiaDisegnoSelezione("piedi"); eq([sx.posa, cl.posa, tb.posa], ["piedi", undefined, "piedi"], "In piedi: sax e tromba sì, il clarinetto (senza icona) no");
+    eq(A.disegnoUi(sx).stato, null, "misti (clarinetto Seduto, gli altri In piedi): nessun pulsante attivo");
+    eq(A.disegnoUi(sx).piedi, true, "In piedi resta attivo se almeno uno lo ha");
+    A.selSet = {}; A.selSet[cl.id] = true; A.sel = cl.id; A.cambiaDisegnoSelezione("piedi"); eq([cl.posa, cl.look], [undefined, undefined], "su un solo clarinetto In piedi non fa niente");
+    A.cambiaDisegnoSelezione("strumento"); A.cambiaDisegnoSelezione("piedi"); eq([cl.posa, cl.look, A.disegnoStato(cl)], [undefined, "schematico", "strumento"], "anche da Strumento: senza icona in piedi il clic non cambia niente (resta Strumento)");
+    A.cambiaDisegnoSelezione("seduto");
+    eq(A.postArt(tb), "musTrombaPiedi", "la tromba in piedi ha la sua icona");
+    eq([tb.w, tb.d], [70, 118], "ingombro della tromba in piedi");
+  });
+  /* «Violinista in piedi»: nasce senza sedia; Seduto la rimette E la conta, con l'ingombro di un violino nato seduto */
+  A.state.items = []; const nuovo = add("vlnpost", 300, 300, { vsec: 1 });
+  A.addViolin(1, true); const vp = A.state.items[A.state.items.length - 1];
+  eq([vp.posa, vp.sedia], ["piedi", false], "premessa: «Violinista in piedi» nasce In piedi, sedia:false");
+  A.selSet = {}; A.selSet[vp.id] = true; A.sel = vp.id; A.countAccessori();
+  const prima = A.countAccessori().sedie;
+  A.cambiaDisegnoSelezione("seduto");
+  eq([vp.posa, vp.sedia], [undefined, undefined], "Seduto: via la posa e la sedia torna al default (accesa)");
+  eq(A.countAccessori().sedie, prima + 1, "e la sedia si CONTA");
+  eq([vp.w, vp.d], [nuovo.w, nuovo.d], "ingombro = quello di un violino nato seduto");
+  /* retrocompatibilità: look assente = Seduto; look schematico = Strumento; nessun campo nuovo */
+  const vecchi = A.sanitizeItems([{ type: "vlnpost", x: 1, y: 2 }, { type: "vlnpost", x: 1, y: 2, look: "schematico" }, { type: "clarinetto", x: 1, y: 2, look: "schematico", posa: "piedi" }]);
+  eq(vecchi.map(i => A.disegnoStato(i)), ["seduto", "strumento", "strumento"], "progetti salvati: stati di oggi, nessun campo aggiunto");
+  ok(vecchi.every(i => i.posa === undefined), "nessuna posa dove non c'era (e scartata sui tipi senza icona)");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="pLookPie"[^>]*>In piedi</.test(html), "il pulsante In piedi c'è per tutti i tipi con il controllo");
+  ok(/_bp\.disabled=!dg\.piedi/.test(appjs) && /Non ancora disponibile per questo strumento/.test(appjs), "senza icona in piedi: pulsante disabilitato, grigio, con il tooltip");
+});
+
 /* ═══ Inventario: etichette già fatte + UN solo pulsante «Inventario» sulla pagina del QR (18/11/2026, migrazione 0091) ═══ */
 const eticSql = readFileSync(join(root, "supabase/migrations/0091_inventario_etichette.sql"), "utf8").replace(/--[^\n]*/g, "");
 const eticFn = (() => { const a = eticSql.indexOf("create or replace function public.inv_etichette_segna("), b = eticSql.indexOf("revoke all on function public.inv_etichette_segna", a); return eticSql.slice(a, b); })();
