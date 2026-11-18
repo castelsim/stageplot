@@ -36296,5 +36296,22 @@ t("Barra compatta «B solo quando il titolo è lungo» (18/11)", () => {
   ok(/aria-label="Condividi" title="Condividi con un link/.test(readFileSync(join(root, "app/index.html"), "utf8")), "Condividi ha l'etichetta accessibile anche senza scritta");
 });
 
+t("voci Maschile/Femminile (18/11): una selezione multipla, anche di tipi misti, cambia solo la figura", () => {
+  A.state.items = [];
+  const c = add("cantante", 300, 100), r1 = add("corista", 400, 100), r2 = add("corista", 500, 100), at = add("attore", 600, 100), cx = add("tastiera", 700, 100);
+  const prima = JSON.stringify([c, r1, r2, at].map(i => [i.x, i.y, i.rot, i.label, i.ch]));
+  A.selSet = {}; [c, r1, at, cx].forEach(i => { A.selSet[i.id] = true; }); A.sel = c.id;
+  A.cambiaSessoSelezione(true);
+  eq([c.donna, r1.donna, at.donna], [true, true, true], "le voci selezionate diventano femminili, anche di tipo diverso");
+  ok(r2.donna !== true, "la voce non selezionata resta com'è");
+  ok(cx.donna !== true, "uno strumento selezionato non è una voce: intatto");
+  eq(at.label, "Attrice 1", "Attore col nome automatico diventa Attrice");
+  eq(JSON.stringify([c, r1, r2, at].map(i => [i.x, i.y, i.rot, i.label, i.ch])).replace("Attrice 1", "Attore 1"), prima.replace(/"Attore \d+"/, '"Attore 1"'), "posizione, rotazione, nomi e canali invariati");
+  A.cambiaSessoSelezione(false);
+  eq([c.donna, r1.donna, at.donna], [false, false, false], "e si torna indietro");
+  eq(at.label, "Attore 1", "Attrice torna Attore");
+  ok(/id="pSesso"/.test(readFileSync(join(root, "app/index.html"), "utf8")) && /data-chips="pSesso"/.test(readFileSync(join(root, "app/index.html"), "utf8")), "il controllo è nel pannello");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
