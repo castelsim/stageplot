@@ -1056,6 +1056,13 @@
       <div id="pModInfo" class="prop-hint"></div>
     </div>
     <div id="pPostaz" style="display:none;border-top:1px solid #eef0f2;margin-top:10px;padding-top:8px">
+      <div class="stpr-f" id="pPosaWrap" style="display:none"><label>Posizione</label>
+        <div class="chips" data-chips="pPosa">
+          <button type="button" data-v="seduto" title="Seduto: la figura con la sedia">Seduto</button>
+          <button type="button" data-v="piedi" title="In piedi: senza sedia, il sax appeso al collo">In piedi</button>
+        </div>
+        <select id="pPosa" hidden><option value="seduto">seduto</option><option value="piedi">in piedi</option></select>
+      </div>
       <div id="pFlags">
         <label class="chk" id="pSediaLbl"><input type="checkbox" id="pSedia"> Sedia</label>
         <label class="chk"><input type="checkbox" id="pLeggioCfg"> Leggio</label>
@@ -3431,8 +3438,8 @@ function station(it, glyph, dblKind, realistic){
   var art = postArt(it);
   if(art){
     /* leggio davanti alla figura (verso il pubblico, +y) se attivo — l'illustrazione non lo include */
-    var ad = (TYPES[art] && TYPES[art].d) ? TYPES[art].d : 80;
-    var leg = (it.leggio!==false) ? '<g transform="translate(0,'+Math.round(ad*0.52)+')">'+leggioGlyph(0)+'</g>' : '';
+    var ad = (TYPES[art] && TYPES[art].d) ? TYPES[art].d : ((window.LIB_ICONS && LIB_ICONS[art] && LIB_ICONS[art].vb) ? LIB_ICONS[art].vb[3] : 80);
+    var leg = (it.leggio!==false) ? '<g transform="translate(0,'+(inPiedi(it) ? Math.round(ad/2+10) : Math.round(ad*0.52))+')">'+leggioGlyph(0)+'</g>' : '';   /* in piedi: davanti alle scarpe */
     if(it.doppia){
       var hx = it.sep ? it.sep/2 : 45;   /* 2 musicisti affiancati, ENTRAMBI verso il pubblico (non specchiati), */
       var conv = 12;                      /* leggermente convergenti verso il centro, come lo schematico */
@@ -3448,16 +3455,18 @@ function station(it, glyph, dblKind, realistic){
     if(/^(vln1|vln2|vla|vc|cb)$/.test(dblKind||"")) return realistic ? doubleStringPostLib(dblKind, half) : doubleStringPost(dblKind, half);
     var dx = half || 45, conv=12;   /* sedie convergenti verso il centro */
     /* destra prima (sotto), sinistra dopo (in primo piano) */
-    return '<g transform="translate('+dx+',0) rotate('+conv+')">'+seat(0)+glyph+'</g>'+
-      '<g transform="translate('+(-dx)+',0) rotate('+(-conv)+')">'+seat(0)+glyph+'</g>'+
+    var sdx=inPiedi(it)?seatNo:seat;   /* in piedi: niente sedia */
+    return '<g transform="translate('+dx+',0) rotate('+conv+')">'+sdx(0)+glyph+'</g>'+
+      '<g transform="translate('+(-dx)+',0) rotate('+(-conv)+')">'+sdx(0)+glyph+'</g>'+
       '<g transform="translate(0,38)">'+leggioGlyph(0)+'</g>';
   }
   /* archi singoli realistici: layout dedicato a scala reale (sedia/sgabello + strumento + leggio davanti) */
   var sk=realistic && strKeyOf(dblKind);
   if(sk) return archiStation(it, sk);
   /* postazione singola generica: glifo a scala reale + sedia + leggio */
-  return (it.sedia!==false?seat(0):'')+glyph+(it.leggio!==false?leggioGlyph(38):'');
+  return (it.sedia!==false && !inPiedi(it)?seat(0):'')+glyph+(it.leggio!==false?leggioGlyph(38):'');
 }
+function seatNo(){ return ''; }
 /* postazione a 2 con icone realistiche (archi): 2 sedute chiare + 2 strumenti + 1 leggio */
 /* archi a SCALA REALE: sedia/sgabello + strumento + leggio davanti. Il contrabbasso (grande) sta su sgabello
    ed è spostato a lato per non coprire stool e leggio. legY segue l'altezza reale dello strumento. */
@@ -5745,9 +5754,22 @@ var POSTAZ_ART = {
   flauto:"musFlauto", oboe:"musOboe", clarinetto:"musClarinetto", fagotto:"musFagotto",
   saxalto:"musSaxAlto", saxtenore:"musSaxTenore", saxbaritono:"musSaxBaritono"
 };
+/* SAX IN PIEDI (18/11/2026, Simone: «le 3 versioni in piedi di quegli strumenti come NUOVE ICONE con l'opzione seduto / in piedi»).
+   it.posa = "piedi" (assente = seduto, come i progetti già salvati). Stessa postazione, stesso tipo: cambiano solo il disegno
+   (icona senza sedia), l'ingombro (s = singola, dbl = doppia con sep 90, come POSTAZ) e il conteggio delle sedie (nessuna).
+   Il disegno seduto includeva la sedia: in piedi non c'è e il leggio, se acceso, sta davanti ai piedi (non sopra le scarpe):
+   la profondità comprende la figura (≈ 74-78 cm) più il leggio. */
+var SAX_PIEDI = {
+  saxalto:{art:"musSaxAltoPiedi", s:[70,110], dbl:[150,110], sep:90},
+  saxtenore:{art:"musSaxTenorePiedi", s:[60,108], dbl:[140,108], sep:90},
+  saxbaritono:{art:"musSaxBaritonoPiedi", s:[65,112], dbl:[145,112], sep:90}
+};
+function inPiedi(it){ return !!it && it.posa==="piedi" && !!SAX_PIEDI[it.type]; }
+function postazOf(it){ return inPiedi(it) ? SAX_PIEDI[it.type] : POSTAZ[it.type]; }   /* misure della postazione secondo la posa */
 function postArt(it){
   if(!it || it.look==="schematico") return null;
   if(it.type==="vlnpost" && it.vsec===2) return "musViolino2";   /* Violino II (vsec=2) = illustrazione dedicata */
+  if(inPiedi(it)) return SAX_PIEDI[it.type].art;
   return POSTAZ_ART[it.type] || null;
 }
 /* Unifica icone FASE 2 (15/07): tipi funzionali NON-postazione (batteria=COMP, chitarre=gtr, arpa,
@@ -5777,7 +5799,7 @@ function hasLookToggle(it){ return it && (!!POSTAZ_ART[it.type] || !!LOOK_ART[it
 function sepCfg(it){
   if(!it) return null;
   if(DOUBLE_TYPES[it.type]) return DOUBLE_TYPES[it.type];
-  if(POSTAZ[it.type] && it.doppia) return POSTAZ[it.type];
+  if(POSTAZ[it.type] && it.doppia) return postazOf(it);
   return null;
 }
 function sepToW(cfg, sep){ return Math.round(sep + (cfg.dbl[0]-cfg.sep)); }   /* larghezza ingombro dalla distanza */
@@ -6555,7 +6577,8 @@ function tastieraLeggioY(it, illustrato){
   var k = Math.min((it.w||c.bw)/c.bw, (it.d||c.bd)/c.bd);
   return Math.round((c.bordo*k + TASTIERA_LEGGIO_ARIA + 6)*10)/10;
 }   /* posizione leggio: davanti; offset dedicato per gli strumenti grandi/asimmetrici */
-function optSedia(it){ return (TYPES[it.type]&&TYPES[it.type].gtr) || !!VOCE[it.type] ? it.sedia===true : it.sedia!==false; }
+function optSedia(it){ if(inPiedi(it)) return false;   /* sax in piedi: nessuna sedia, né disegnata né contata */
+  return (TYPES[it.type]&&TYPES[it.type].gtr) || !!VOCE[it.type] ? it.sedia===true : it.sedia!==false; }
 function applyOptAll(key, val){
   selItems().forEach(function(it){
     if(key==="sedia"){ if(!supportsSedia(it)) return; it.sedia=val; if(TYPES[it.type]&&TYPES[it.type].gtr){ var sz=gtrSize(it,TYPES[it.type]); it.w=sz[0]; it.d=sz[1]; } }
@@ -10653,7 +10676,7 @@ function recalcItemDims(it){
   if(t.dir || it.type==="direttore"){ var ds=dirSize(it); it.w=ds[0]; it.d=ds[1]; return; }
   if(DOUBLE_TYPES[it.type]){ var cfgD=DOUBLE_TYPES[it.type]; if(it.sep==null) it.sep=defSepOf(it);
     it.sep=Math.max(minSepType(it.type), Math.min(300, it.sep)); it.w=sepToW(cfgD, it.sep); it.d=cfgD.dbl[1]; return; }
-  if(POSTAZ[it.type]){ var P=POSTAZ[it.type];
+  if(POSTAZ[it.type]){ var P=postazOf(it);
     if(it.doppia){ if(it.sep==null) it.sep=defSepOf(it); it.sep=Math.max(minSepOf(it), Math.min(300, it.sep)); it.w=sepToW(P, it.sep); it.d=P.dbl[1]; }
     else { it.w=P.s[0]; it.d=P.s[1]; }
     return; }
@@ -10675,7 +10698,8 @@ function sanitizeItems(arr){
     else if(o.type==="ostacolo" && ostacoloHPulita(o.h)) it.h=ostacoloHPulita(o.h);   /* ostacolo: quota opzionale */
     if(isHangStruct(it) && o.rig && typeof o.rig==="object") it.rig=rigPulita(o.rig);   /* americana/truss numerata (A4): {n?, h?} ripulito */
     if(Object.prototype.hasOwnProperty.call(COMP,o.type)) it.parts=o.parts?compClone(o.parts):compClone(COMP[o.type].defParts);
-    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","perChi","podio","sgab","grp","distOf","distType","aggancia","dimSide","lblSize","plCh","dvsPro","dvsNet","dvsSr","dvsLat","ifaceId","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","leggioDist","poltrona","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic","platea","fila","posto","settore","orOk","dAuto"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });   /* platea: passi e corridoio, ripuliti poi da normalizeLoadedItems; fila/posto/settore: posti numerati */
+    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","perChi","podio","sgab","grp","distOf","distType","aggancia","dimSide","lblSize","plCh","dvsPro","dvsNet","dvsSr","dvsLat","ifaceId","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","leggioDist","poltrona","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic","platea","fila","posto","settore","orOk","dAuto","posa"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
+    if(it.posa!=="piedi" || !SAX_PIEDI[it.type]) delete it.posa;   /* «piedi» solo per i sax: ogni altro valore = seduto (progetti vecchi, JSON a mano) */   /* platea: passi e corridoio, ripuliti poi da normalizeLoadedItems; fila/posto/settore: posti numerati */
     if(it.orOk!=null){ var _ok=Math.round(+it.orOk); if(isFinite(_ok)) it.orOk=_ok; else delete it.orOk; }   /* «È giusto così» sull'orientamento (15/11): la rotazione che l'utente ha confermato, numero intero */
     if(it.leggioDist!=null){ var _ld=leggioDist(it); if(_ld && leggioDistSupported(it)) it.leggioDist=_ld; else delete it.leggioDist; }   /* distanza del leggio: numero intero nei limiti, solo dove c'è un leggio da spostare; 0 = standard, non si scrive */
     postoSanifica(it);   /* posti numerati (06/10): tipi e lunghezze garantiti */
@@ -22199,11 +22223,14 @@ function renderProps(){
   var pp=document.getElementById("pPostaz"), cfg=sepCfg(it);
   var isPostaz=!!POSTAZ[it.type];
   pp.style.display = (isPostaz || cfg) ? "block" : "none";
+  var _pw=document.getElementById("pPosaWrap");   /* Seduto / In piedi: solo i sax (18/11/2026) */
+  if(_pw){ var _sx=!!SAX_PIEDI[it.type]; _pw.style.display=_sx?"":"none";
+    if(_sx){ var _pp=document.getElementById("pPosa"); _pp.value=inPiedi(it)?"piedi":"seduto"; try{ _pp.dispatchEvent(new Event("chips-sync")); }catch(e){} } }
   document.getElementById("pFlags").style.display = isPostaz ? "block" : "none";
   if(isPostaz){
     var dbl=it.doppia===true;
-    var _sl=document.getElementById("pSediaLbl"); if(_sl) _sl.style.display = illustrated ? "none" : "";   /* illustrato: la sedia è nella figura */
-    document.getElementById("pSedia").checked = it.sedia!==false; document.getElementById("pSedia").disabled=dbl;
+    var _sl=document.getElementById("pSediaLbl"); if(_sl) _sl.style.display = (illustrated || inPiedi(it)) ? "none" : "";   /* illustrato: la sedia è nella figura; sax in piedi: non c'è */
+    document.getElementById("pSedia").checked = optSedia(it); document.getElementById("pSedia").disabled=dbl || inPiedi(it);
     document.getElementById("pLeggioCfg").checked = it.leggio!==false; document.getElementById("pLeggioCfg").disabled=dbl;
     document.getElementById("pDoppia").checked = dbl;
   }
@@ -22942,9 +22969,29 @@ document.querySelectorAll(".chips[data-chips]").forEach(function(box){
 });
 document.getElementById("pSedia").addEventListener("change", function(){ mutSel(function(it){ it.sedia=document.getElementById("pSedia").checked; }); });
 document.getElementById("pLeggioCfg").addEventListener("change", function(){ mutSel(function(it){ it.leggio=document.getElementById("pLeggioCfg").checked; }); });
+/* Seduto / In piedi (18/11/2026): vale per TUTTI i sax selezionati (anche di tipi diversi), un solo passo di annulla. Il busto resta
+   dov'è: cambia l'icona e il suo centro si sposta (dc, misurato fra i due disegni), così l'elemento si sposta dello stesso scarto,
+   girato come l'elemento. Nome, canali, microfono, leggio e collegamenti restano. */
+function impostaPosaSax(it, piedi){
+  if(!SAX_PIEDI[it.type] || inPiedi(it)===piedi) return;
+  var da=window.LIB_ICONS && window.LIB_ICONS[SAX_PIEDI[it.type].art], dc=(da && da.dc) || [0,0], r=(it.rot||0)*Math.PI/180;
+  var sg=piedi?1:-1, dx=sg*dc[0], dy=sg*dc[1];
+  it.x=Math.round(it.x+dx*Math.cos(r)-dy*Math.sin(r)); it.y=Math.round(it.y+dx*Math.sin(r)+dy*Math.cos(r));
+  if(piedi) it.posa="piedi"; else delete it.posa;
+  recalcItemDims(it);
+}
+function cambiaPosaSelezione(piedi){
+  primaDiAgire();
+  var tutti=(state.items||[]).filter(function(x){ return selSet[x.id] && SAX_PIEDI[x.type]; });
+  if(!tutti.length){ var s=getSel(); if(s && SAX_PIEDI[s.type]) tutti=[s]; }
+  if(!tutti.length) return;
+  tutti.forEach(function(it){ impostaPosaSax(it, piedi); });
+  render(); save();
+}
+document.getElementById("pPosa").addEventListener("change", function(){ cambiaPosaSelezione(this.value==="piedi"); });
 document.getElementById("pDoppia").addEventListener("change", function(){ mutSel(function(it){
   it.doppia=document.getElementById("pDoppia").checked;
-  var P=POSTAZ[it.type];
+  var P=postazOf(it);
   if(P){
     if(it.doppia){ it.sep=Math.max(minSepOf(it), it.sep||minSepOf(it)); it.w=sepToW(P, it.sep); it.d=P.dbl[1]; }
     else { it.w=P.s[0]; it.d=P.s[1]; }
@@ -23209,9 +23256,10 @@ function splitDouble(){ primaDiAgire();
   else if(POSTAZ[it.type] && it.doppia) single=it.type;
   if(!single || !TYPES[single] || !POSTAZ[single]) return;
   var cfg=sepCfg(it), half=(it.sep||cfg.sep)/2, rot=(it.rot||0)*Math.PI/180;
-  var ox=Math.cos(rot)*half, oy=Math.sin(rot)*half, P=POSTAZ[single], base=it.label||"";
+  var ox=Math.cos(rot)*half, oy=Math.sin(rot)*half, P=postazOf(it), base=it.label||"";
   function mk(cx,cy,lab){ var o={id:uid(), type:single, x:Math.round(cx), y:Math.round(cy), rot:it.rot||0,
     w:P.s[0], d:P.s[1], label:lab||"", sedia:true, leggio:true, doppia:false};
+    if(inPiedi(it)) o.posa="piedi";
     if(it.grp) o.grp=it.grp; if(it.vsec!=null) o.vsec=it.vsec; return o; }
   /* mantieni i due nomi distinti della doppia (label / label2) */
   var a=mk(it.x-ox, it.y-oy, it.label||""), b=mk(it.x+ox, it.y+oy, it.label2 || (base?base+" b":""));
@@ -23226,7 +23274,7 @@ function splitPostaz(){
   var rot=(it.rot||0)*Math.PI/180, c=Math.cos(rot), s=Math.sin(rot), gid=grpLibero(), made=[];
   function place(type,dx,dy){ var T=TYPES[type]; if(!T) return; made.push({id:uid(),type:type,
     x:Math.round(it.x+dx*c-dy*s), y:Math.round(it.y+dx*s+dy*c), rot:it.rot||0, w:T.w, d:T.d, label:"", grp:gid}); }
-  var hadSedia=it.sedia!==false, hadLeggio=it.leggio!==false;
+  var hadSedia=it.sedia!==false && !inPiedi(it), hadLeggio=it.leggio!==false;   /* in piedi non c'è una sedia da staccare */
   it.sedia=false; it.leggio=false; it.doppia=false; it.grp=gid;   /* lo strumento resta in posizione, nudo */
   var isStool=STOOL_POSTAZ[it.type]!=null;
   if(hadSedia) place(isStool ? "sgabello" : "sedia", 0, isStool ? -26 : -22);
@@ -24261,7 +24309,8 @@ function applyDistribute(riser, template, n, eq){
         it={ id:uid(), type:type, rot:0, w:t.w, d:t.d, label:defaultLabel(type) };
         if(t.riser) it.h=t.h||40;
         if(KEYS_BENCH[type]) it.panca=true;
-        if(POSTAZ[type]){ it.sedia=template.sedia!==false; it.leggio=template.leggio!==false; it.doppia=false; it.sep=template.sep||defSepOf({type:type}); }
+        if(POSTAZ[type]){ it.sedia=template.sedia!==false; it.leggio=template.leggio!==false; it.doppia=false; it.sep=template.sep||defSepOf({type:type});
+          if(inPiedi(template)){ it.posa="piedi"; recalcItemDims(it); } }
         if(VOCE[type]){ it.mano=template.mano===true; it.leggio=template.leggio!==false; it.donna=template.donna===true; it.sedia=template.sedia===true; }
         if(COMP[type]){ it.parts=compClone(template.parts||COMP[type].defParts); if(COMP[type].size){ var sz=COMP[type].size(it); it.w=sz[0]; it.d=sz[1]; } }
         if(template.vsec!=null) it.vsec=template.vsec;
@@ -24917,6 +24966,11 @@ function ricordaRecenteCatalogo(k, nome, over){
       addToGroup("Archi", makeActionBtn("Violinista in piedi", "postazione senza sedia · Violino I", "vlnpost", function(){ addViolin(1, true); }));
       entries.push({nome:"Violinista in piedi", dim:"postazione senza sedia", icon:"vlnpost", action:function(){ addViolin(1, true); },
                     kw:"violino in piedi violinista in piedi violini in piedi violinisti in piedi violino senza sedia violinista senza sedia violino solista in piedi violinista solista"});
+      /* SAX IN PIEDI (18/11/2026): «sax in piedi» trova il sax con la posa In piedi (senza sedia); il pannello dell'elemento ha Seduto / In piedi */
+      [["saxalto","Sax alto","sax alto contralto sassofono alto"],["saxtenore","Sax tenore","sax tenore sassofono tenore"],["saxbaritono","Sax baritono","sax baritono sassofono baritono"]].forEach(function(v){
+        entries.push({k:v[0], nome:v[1]+" \u00b7 in piedi", over:{posa:"piedi"}, dim:"senza sedia",
+                      kw:v[2]+" sax in piedi sassofono in piedi sassofonista in piedi sax senza sedia sassofono senza sedia"});
+      });
       /* LAPTOP SU TAVOLO (19/10/2026): una postazione unica — il tavolo e il Mac, in un gruppo (si spostano insieme) */
       addToGroup("DJ ed elettronica", makeActionBtn("Laptop su tavolo", "tavolo + Mac · postazione unica", "djset", aggiungiLaptopTavolo));
       entries.push({nome:"Laptop su tavolo", dim:"tavolo + Mac · postazione unica", icon:"djset", action:aggiungiLaptopTavolo,
@@ -25544,6 +25598,7 @@ function addItem(type, over, silenzioso){   /* silenzioso (06/10/2026): crea e m
   if(COMP[type]){ it.parts=compClone(COMP[type].newParts||COMP[type].defParts); if(COMP[type].size){ var sz=COMP[type].size(it); it.w=sz[0]; it.d=sz[1]; } }   /* newParts: un elemento NUOVO può nascere più completo di come si riapre un progetto vecchio (percussioni, 13/10) */
   if(type==="miczone") it.zcol=micZoneFreeColor();   /* ogni zona nasce con un colore diverso */
   if(over) Object.keys(over).forEach(function(k){ it[k]=over[k]; });
+  if(it.posa!=null){ if(inPiedi(it)) recalcItemDims(it); else delete it.posa; }   /* sax in piedi dal catalogo/ricerca: ingombro della posa */
   if(type==="scala" && !(over && over.d!=null)) it.dAuto=+it.d;   /* nasce dal motore: la lunghezza segue i gradini finché l'utente non la cambia (16/11) */
   if(t.nomeF && it.donna===true && !(over && over.label!=null)){   /* Attrice, Tecnica: si numerano con la loro parola, non «Attore 3» */
     var _nF=(state.items||[]).reduce(function(m,o){ return (o.type===type && etichettaFemminile(o)) ? Math.max(m, +o.label.slice(t.nomeF.length+1)) : m; }, 0);
@@ -28613,7 +28668,8 @@ function placeOut(out, fitStage, clearFirst, force){
     else if(isCover(it) && o.h!=null) it.h=+o.h;   /* coperture: h opzionale (luce sotto) */
     else if(o.type==="ostacolo" && ostacoloHPulita(o.h)) it.h=ostacoloHPulita(o.h);   /* ostacolo: quota opzionale */
     if(o.parts){ it.parts=compClone(o.parts); if(COMP[o.type] && COMP[o.type].size){ var cz=COMP[o.type].size(it); it.w=cz[0]; it.d=cz[1]; } }
-    ["donna","hair","mano","leggio","sedia","doppia","sep","ampli","pedaliera","vsec","label2","perChi","podio","nomic","micMode","hw","ch","outCh","dimSide","rfChi","poltrona"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });   /* flag opzionali dal generatore (hw/ch/outCh = capacità stage box; dimSide = lato della misura pedana) */
+    ["donna","hair","mano","leggio","sedia","doppia","sep","ampli","pedaliera","vsec","label2","perChi","podio","nomic","micMode","hw","ch","outCh","dimSide","rfChi","poltrona","posa"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
+    if(it.posa!=="piedi" || !SAX_PIEDI[it.type]) delete it.posa; else recalcItemDims(it);   /* flag opzionali dal generatore (hw/ch/outCh = capacità stage box; dimSide = lato della misura pedana) */
     if(LEGGIO_DI_SERIE[o.type] && o.leggio==null) it.leggio=true;   /* modelli e organico: come dal catalogo */
     if(o.type==="scala") it.dAuto=+it.d;   /* nata dal motore, come da addItem (16/11) */
     return it;
@@ -31649,7 +31705,7 @@ function countAccessori(){
     var isStool = STOOL_POSTAZ[it.type]!=null;
     // sedie
     if(it.type==="sedia"||it.type==="sediabianca"||it.type==="sedialeggio") sedie++;
-    else if(POSTAZ[it.type] && it.sedia!==false && !isStool) sedie+=mult;
+    else if(POSTAZ[it.type] && it.sedia!==false && !isStool && !inPiedi(it)) sedie+=mult;
     else if(VOCE[it.type] && it.sedia===true && it.poltrona!==true) sedie++;   /* in poltrona: conta fra le poltrone */
     else if(t.gtr && it.sedia===true) sedie++;
     // leggii: contati fuori dal giro, con leggiiConteggio() (la stessa regola del cartiglio)
