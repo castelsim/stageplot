@@ -31750,6 +31750,55 @@ t("planimetria PDF: il PDF sintetico delle prove è un PDF valido a N pagine (ne
   const b = pdfSintetico({ pagine: [{ w: 842, h: 595 }, { w: 595, h: 842 }, { w: 842, h: 595, vuota: true }] }).toString("latin1");
   ok(b.startsWith("%PDF-1.4") && /\/Count 3/.test(b) && /startxref/.test(b) && /PIANTA DI PROVA/.test(b), "intestazione, 3 pagine, xref");
 });
+/* rilettura MERGE PR 169 (19/11/2026): il PDF a UNA pagina non entrava mai (il PNG reso tiene il nome «x.pdf» e tornava a pdf.js) */
+t("planimetria PDF: il PNG reso da una pagina si chiama ancora «pianta.pdf» ma è un'immagine; un PDF senza tipo si riconosce dal nome", () => {
+  eq(A.venueIsPdf({ type: "image/png", name: "pianta.pdf" }), false, "PNG col nome del PDF: immagine");
+  eq(A.venueIsPdf({ type: "", name: "Pianta.PDF" }), true, "tipo vuoto (alcuni sistemi): dal nome");
+  eq(A.venueIsPdf({ type: "application/octet-stream", name: "pianta.pdf" }), true, "tipo generico: dal nome");
+  eq(A.venueIsPdf({ type: "application/pdf", name: "" }), true);
+});
+ta("planimetria PDF: giro completo a UNA pagina col vero venueLoadFile — il PNG reso NON torna a pdf.js; un'immagine scelta dopo chiude il PDF; un PDF rotto chiude il suo worker", async () => {
+  const B = loadApp();
+  const el = {}; const mk = (id) => (el[id] = el[id] || { id, hidden: true, value: "1", textContent: "", getContext: () => ({ fillRect() {}, drawImage() {}, getImageData: () => ({ data: el.__dati }) }) });
+  const nero = new Uint8ClampedArray(4 * 40); for (let k = 3; k < nero.length; k += 4) nero[k] = 255;
+  const pag = (w, h) => ({ getViewport: ({ scale }) => ({ width: w * scale, height: h * scale }), render: () => ({ promise: Promise.resolve() }) });
+  const msg = [], letti = []; let pdfChiamate = 0;
+  B.document = { getElementById: mk, createElement: () => Object.assign(mk("cv" + Math.random()), { toBlob: (cb) => cb({ size: 5 }) }) };
+  B.File = function (parti, nome, o) { this.name = nome; this.type = o.type; this.size = 5; };
+  B.FileReader = function () { this.readAsDataURL = (f) => letti.push(f); };
+  B.__toast = (m, e) => msg.push([m, !!e]); el.__dati = nero;
+  const orig = B.venueLoadPdf; B.venueLoadPdf = (f) => { pdfChiamate++; return orig(f); };
+  const aspetta = () => new Promise((r) => setTimeout(r, 25));
+  const file = (nome) => ({ name: nome, type: "application/pdf", size: 1000, arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)) });
+  /* 1) una pagina: un solo passaggio da pdf.js, poi il PNG va al FileReader delle immagini */
+  B.pdfjsLib = { GlobalWorkerOptions: {}, getDocument: () => ({ promise: Promise.resolve({ numPages: 1, getPage: () => Promise.resolve(pag(842, 595)), destroy() {} }) }) };
+  B.venueLoadFile(file("una.pdf")); await aspetta();
+  eq(pdfChiamate, 1, "il PNG reso non torna a venueLoadPdf");
+  ok(letti.length === 1 && letti[0].type === "image/png" && letti[0].name === "una.pdf", "PNG letto come immagine: " + JSON.stringify(letti.map((f) => [f.type, f.name])));
+  ok(!msg.some((m) => m[1]), "nessun errore: " + JSON.stringify(msg));
+  /* 2) selettore aperto (3 pagine), poi un'immagine: il PDF si chiude e il selettore sparisce */
+  const d3 = { numPages: 3, getPage: () => Promise.resolve(pag(842, 595)), destroy() { this.chiuso = true; } };
+  B.pdfjsLib = { GlobalWorkerOptions: {}, getDocument: () => ({ promise: Promise.resolve(d3) }) };
+  B.venueLoadFile(file("tre.pdf")); await aspetta();
+  eq(el.venuePdfPick.hidden, false, "selettore aperto");
+  B.venueLoadFile({ name: "foto.png", type: "image/png", size: 10 });
+  ok(d3.chiuso === true && el.venuePdfPick.hidden === true && B.venuePdfDoc === null, "immagine scelta: PDF chiuso e selettore nascosto");
+  /* 3) PDF con password: la promessa fallisce e il compito di pdf.js (col suo worker) si distrugge */
+  let distrutto = false; msg.length = 0;
+  B.pdfjsLib = { GlobalWorkerOptions: {}, getDocument: () => ({ promise: Promise.reject({ name: "PasswordException" }), destroy() { distrutto = true; } }) };
+  B.venueLoadFile(file("chiuso.pdf")); await aspetta();
+  ok(distrutto && msg.some((m) => m[1] && /password/.test(m[0])), "worker chiuso e messaggio: " + JSON.stringify(msg));
+});
+ta("planimetria PDF: la resa ha il tetto di 2000 px anche per una pagina 20000×20000 pt (e 2000×4 per una striscia), su fondo bianco pieno", async () => {
+  const B = loadApp(); const fatti = [];
+  B.document = { createElement: () => { const c = { width: 0, height: 0 }; c.getContext = () => ({ set fillStyle(v) { c.fs = v; }, fillRect: (x, y, w, h) => fatti.push([c.fs, x, y, w, h]) }); return c; } };
+  const pdf = (w, h) => ({ getPage: () => Promise.resolve({ getViewport: ({ scale }) => ({ width: w * scale, height: h * scale }), render: () => ({ promise: Promise.resolve() }) }) });
+  const a = await B.venuePdfRender(pdf(20000, 20000), 1, 2000), b = await B.venuePdfRender(pdf(20000, 40), 1, 2000), c = await B.venuePdfRender(pdf(842, 595), 1, 160);
+  eq([a.width, a.height, b.width, b.height, c.width, c.height], [2000, 2000, 2000, 4, 160, 113]);
+  eq(fatti[0], ["#fff", 0, 0, 2000, 2000], "fondo bianco su tutto il canvas");
+  const tpl = readFileSync(join(root, "index.template.html"), "utf8");
+  ok(/getElementById\("venuePdfUse"\)[\s\S]{0,160}venuePdfUsa\(pdf,venuePdfPaginaScelta\(\),ctx\)/.test(tpl), "il bottone «Usa questa pagina» usa la pagina scelta");
+});
 
 await Promise.all(attese);
 

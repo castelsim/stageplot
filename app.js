@@ -35677,6 +35677,7 @@ function venueLoadFile(file){
   if(!file) return;
   if(custEditorAttivo()) return custEditorAvvisa();   /* «Crea elemento»: la planimetria finirebbe nel palco temporaneo (vale per bottone, trascinamento, incolla) */
   if(venueIsPdf(file)) return venueLoadPdf(file);     /* PDF (19/11/2026): si disegna una pagina in un canvas e poi si segue la strada delle immagini */
+  venuePdfChiudi();   /* un'immagine scelta mentre un PDF si legge o il selettore delle pagine è aperto: il PDF si lascia (non deve sovrascriverla dopo) */
   var request=++venueLoadSeq, requestEpoch=window.__docEpoch||0, requestVariant=String(activeVar||"");
   function stillCurrent(){
     return request===venueLoadSeq && requestEpoch===(window.__docEpoch||0) && requestVariant===String(activeVar||"");
@@ -35728,7 +35729,10 @@ function venueLoadFile(file){
 var VENUE_PDF_MAXBYTES=25*1024*1024;
 var venuePdfPromessa=null, venuePdfSeq=0, venuePdfDoc=null, venuePdfCtx=null, venuePdfThumbSeq=0;
 function venueIsPdf(file){
-  return !!file && (file.type==="application/pdf" || /\.pdf$/i.test(String(file.name||"")));
+  if(!file) return false;
+  var t=String(file.type||"");
+  if(/^image\//.test(t)) return false;   /* la pagina già resa (PNG) tiene il nome «pianta.pdf»: è un'immagine, non va riletta come PDF */
+  return t==="application/pdf" || /\.pdf$/i.test(String(file.name||""));
 }
 /* scala di resa: il lato lungo della pagina (in punti, 1 pt = 1/72") diventa VENUE_MAXSIDE pixel — il tetto
    che l'import delle immagini userebbe comunque: più pixel verrebbero buttati subito dopo. */
@@ -35793,10 +35797,13 @@ function venuePdfUsa(pdf,num,ctx){
     if(seq!==venuePdfSeq) return;
     var cg=cv.getContext("2d");
     if(venuePdfVuota(cg.getImageData(0,0,cv.width,cv.height).data)){
+      cv.width=cv.height=0;
       if(window.__toast) window.__toast("La pagina "+num+" del PDF è vuota.",true);
+      if(tot<=1) venuePdfChiudi();   /* una pagina sola: niente da scegliere, il documento (e il suo worker) si chiude */
       return;
     }
     cv.toBlob(function(blob){
+      cv.width=cv.height=0;   /* libera la memoria del canvas (Safari/iOS la conta a parte) */
       if(seq!==venuePdfSeq) return;
       if(!blob){ if(window.__toast) window.__toast("Impossibile convertire la pagina del PDF.",true); return; }
       venuePdfChiudi();
@@ -35810,6 +35817,7 @@ function venuePdfAnteprima(pdf,num,seq){
     if(my!==venuePdfThumbSeq||seq!==venuePdfSeq) return;
     var t=document.getElementById("venuePdfThumb"); if(!t) return;
     t.width=cv.width; t.height=cv.height; t.getContext("2d").drawImage(cv,0,0);
+    cv.width=cv.height=0;
   }).catch(function(){});
 }
 function venueLoadPdf(file){
@@ -35828,7 +35836,8 @@ function venueLoadPdf(file){
     return venueCaricaPdfJs().then(function(L){
       if(!ancora()) return;
       /* isEvalSupported:false → la CSP non ha 'unsafe-eval'; il PDF resta tutto nel browser */
-      return L.getDocument({data:new Uint8Array(buf), isEvalSupported:false}).promise.then(function(pdf){
+      var task=L.getDocument({data:new Uint8Array(buf), isEvalSupported:false});
+      return task.promise.then(function(pdf){
         if(!ancora()){ try{ pdf.destroy(); }catch(e){} return; }
         venuePdfDoc=pdf; venuePdfCtx=ctx;
         if(pdf.numPages<=1) return venuePdfUsa(pdf,1,ctx);
@@ -35837,7 +35846,7 @@ function venueLoadPdf(file){
         document.getElementById("venuePdfPickTxt").textContent="Il PDF ha "+pdf.numPages+" pagine: scegli quella della pianta.";
         inp.max=String(pdf.numPages); inp.value="1"; pick.hidden=false;
         venuePdfAnteprima(pdf,1,seq);
-      });
+      }, function(e){ try{ task.destroy(); }catch(_){} throw e; });   /* PDF rotto o con password: il worker si chiude comunque */
     });
   }).catch(function(e){
     if(!ancora()) return;
