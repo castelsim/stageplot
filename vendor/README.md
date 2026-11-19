@@ -116,3 +116,29 @@ malformato può innescare backtracking catastrofico nel parser, corretto in jsPD
 - **Se/quando si aggiorna:** pianificarlo separatamente con suite di regressione PDF (vettoriale +
   raster, multipagina, cartiglio, planimetria) prima del merge, e mantenere comunque le due
   barriere sopra (difesa in profondità).
+
+## pdfjs/ (pdf.min.js + pdf.worker.min.js)
+
+Importa un **PDF come sfondo della Planimetria** (19/11/2026): la pagina scelta si disegna in un canvas e da lì
+segue la strada delle immagini (ricompressione, scala a 2 punti, opacità, rotazione). Il PDF **non** viene salvato
+né caricato altrove: resta nel browser, nel progetto entra solo l'immagine. Caricata **on-demand** al primo PDF
+da `venueCaricaPdfJs()`; non è nel precache (1,4 MB): il service worker la tiene dopo il primo uso, offline da lì.
+La CSP non cambia: lo script e il worker sono di `'self'` (`worker-src` ricade su `script-src`); `isEvalSupported:false`
+perché la CSP non ha `'unsafe-eval'`.
+
+- **Pacchetto:** `pdfjs-dist` (Mozilla, Apache License 2.0; testo in `vendor/pdfjs/LICENSE.txt`)
+- **Versione:** 3.11.174 (ultima con build UMD classica; dalla 4.x i file sono moduli ES `.mjs`)
+- **Fonte:** `npm pack pdfjs-dist@3.11.174` → `build/pdf.min.js` e `build/pdf.worker.min.js`, senza modifiche
+- **Scaricato:** 2026-11-19
+- **SHA-256 `pdf.min.js`:** `5b5799e6f8c680663207ac5b42ee14eed2a406fa7af48f50c154f0c0b1566946`
+- **SHA-256 `pdf.worker.min.js`:** `feabdf309770ed24bba31a5467836cdc8cf639c705af27d52b585b041bb8527b`
+
+### Come aggiornare
+
+```
+npm pack pdfjs-dist@3.11.<NUOVA> && tar xzf pdfjs-dist-*.tgz package/build package/LICENSE
+cp package/build/pdf.min.js package/build/pdf.worker.min.js vendor/pdfjs/ && cp package/LICENSE vendor/pdfjs/LICENSE.txt
+shasum -a 256 vendor/pdfjs/*.js   # aggiorna gli hash qui sopra
+```
+
+Dopo: provare nel browser un PDF a una pagina, uno a più pagine, uno con password.

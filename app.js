@@ -35333,9 +35333,9 @@ function renderVenuePanel(){
   stepState("vstep2", !hasImg?"pending":(cal?"done":"active"));
   stepState("vstep3", hasImg?"active":"pending");
   var s1=document.getElementById("vstep1sub");
-  if(s1) s1.textContent = hasImg ? (v.name||"immagine caricata") : "La pianta del luogo (PNG o JPG)";
+  if(s1) s1.textContent = hasImg ? (v.name||"immagine caricata") : "La pianta del luogo (PNG, JPG o PDF)";
   var bi=document.getElementById("venueBtnImport");
-  if(bi){ bi.textContent = hasImg ? "Sostituisci immagine…" : "📥 Importa immagine"; bi.classList.toggle("primary", !hasImg); }
+  if(bi){ bi.textContent = hasImg ? "Sostituisci immagine o PDF…" : "📥 Immagine o PDF"; bi.classList.toggle("primary", !hasImg); }
   var s2=document.getElementById("vstep2sub");
   if(s2){
     if(!hasImg) s2.textContent="Prima importa l'immagine";
@@ -35676,6 +35676,8 @@ var venueLoadSeq=0;
 function venueLoadFile(file){
   if(!file) return;
   if(custEditorAttivo()) return custEditorAvvisa();   /* «Crea elemento»: la planimetria finirebbe nel palco temporaneo (vale per bottone, trascinamento, incolla) */
+  if(venueIsPdf(file)) return venueLoadPdf(file);     /* PDF (19/11/2026): si disegna una pagina in un canvas e poi si segue la strada delle immagini */
+  venuePdfChiudi();   /* un'immagine scelta mentre un PDF si legge o il selettore delle pagine è aperto: il PDF si lascia (non deve sovrascriverla dopo) */
   var request=++venueLoadSeq, requestEpoch=window.__docEpoch||0, requestVariant=String(activeVar||"");
   function stillCurrent(){
     return request===venueLoadSeq && requestEpoch===(window.__docEpoch||0) && requestVariant===String(activeVar||"");
@@ -35717,6 +35719,145 @@ function venueLoadFile(file){
   };
   rd.onerror=function(){ if(stillCurrent() && window.__toast) window.__toast("Impossibile leggere il file selezionato.",true); };
   rd.readAsDataURL(file);
+}
+
+/* ===== Planimetria da PDF (19/11/2026) =====
+   Il PDF non entra nel progetto: si renderizza UNA pagina in un canvas (pdf.js, self-hosted in
+   /vendor/pdfjs/, caricato al primo PDF) e il PNG ottenuto passa da venueLoadFile come ogni altra
+   immagine — stessa ricompressione, stessa scala a 2 punti, stesso salvataggio. Nessuna modifica
+   allo schema dei dati, a cloud, export o stampa. Il file non esce dal browser. */
+var VENUE_PDF_MAXBYTES=25*1024*1024;
+var venuePdfPromessa=null, venuePdfSeq=0, venuePdfDoc=null, venuePdfCtx=null, venuePdfThumbSeq=0;
+function venueIsPdf(file){
+  if(!file) return false;
+  var t=String(file.type||"");
+  if(/^image\//.test(t)) return false;   /* la pagina già resa (PNG) tiene il nome «pianta.pdf»: è un'immagine, non va riletta come PDF */
+  return t==="application/pdf" || /\.pdf$/i.test(String(file.name||""));
+}
+/* scala di resa: il lato lungo della pagina (in punti, 1 pt = 1/72") diventa VENUE_MAXSIDE pixel — il tetto
+   che l'import delle immagini userebbe comunque: più pixel verrebbero buttati subito dopo. */
+function venuePdfScale(wPt,hPt,lato){
+  var m=Math.max(Number(wPt)||0,Number(hPt)||0), L=lato||VENUE_MAXSIDE;
+  return m>0 ? L/m : 1;
+}
+/* «pianta.pdf», pagina 2 di 5 → «pianta.pdf · p. 2» (un PDF a una pagina resta col suo nome) */
+function venuePdfNome(nome,pag,tot){
+  var n=String(nome||"planimetria.pdf");
+  return tot>1 ? n+" · p. "+pag : n;
+}
+/* pagina vuota = tutti i pixel campionati bianchi (data = RGBA di getImageData) */
+function venuePdfVuota(data){
+  for(var i=0;i<data.length;i+=4*13){
+    if(data[i+3]>0 && (data[i]<250||data[i+1]<250||data[i+2]<250)) return false;
+  }
+  return true;
+}
+function venuePdfErrore(e){
+  var n=e&&e.name, m=String(e&&e.message||"");
+  if(n==="PasswordException") return "Il PDF è protetto da password: toglila e riprova.";
+  if(n==="InvalidPDFException"||n==="FormatError") return "Il file non è un PDF valido.";
+  if(n==="MissingPDFException") return "Il PDF non si trova più: riseleziona il file.";
+  if(/pdf\.js|libreria|caricare/i.test(m)) return m;
+  return "Impossibile leggere il PDF.";
+}
+function venueCaricaPdfJs(){
+  if(window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+  if(venuePdfPromessa) return venuePdfPromessa;
+  venuePdfPromessa=new Promise(function(res,rej){
+    var s=document.createElement("script"); s.src="/vendor/pdfjs/pdf.min.js"; s.async=true;
+    s.onload=function(){
+      var L=window.pdfjsLib;
+      if(L && L.GlobalWorkerOptions){ L.GlobalWorkerOptions.workerSrc="/vendor/pdfjs/pdf.worker.min.js"; res(L); }
+      else { venuePdfPromessa=null; rej(new Error("Libreria PDF non disponibile dopo il caricamento")); }
+    };
+    s.onerror=function(){ venuePdfPromessa=null; rej(new Error("Impossibile caricare la libreria PDF")); };
+    document.head.appendChild(s);
+  });
+  return venuePdfPromessa;
+}
+function venuePdfChiudi(){
+  venuePdfSeq++; venuePdfThumbSeq++;
+  if(venuePdfDoc){ try{ venuePdfDoc.destroy(); }catch(e){} venuePdfDoc=null; }
+  venuePdfCtx=null;
+  var p=document.getElementById("venuePdfPick"); if(p) p.hidden=true;
+}
+/* disegna la pagina in un canvas bianco (mai trasparente: sul palco coprirebbe in nero) */
+function venuePdfRender(pdf,num,lato){
+  return pdf.getPage(num).then(function(page){
+    var v0=page.getViewport({scale:1}), sc=venuePdfScale(v0.width,v0.height,lato), vp=page.getViewport({scale:sc});
+    var cv=document.createElement("canvas");
+    cv.width=Math.max(1,Math.round(vp.width)); cv.height=Math.max(1,Math.round(vp.height));
+    var cg=cv.getContext("2d"); cg.fillStyle="#fff"; cg.fillRect(0,0,cv.width,cv.height);
+    return page.render({canvasContext:cg,viewport:vp}).promise.then(function(){ return cv; });
+  });
+}
+function venuePdfUsa(pdf,num,ctx){
+  var tot=pdf.numPages, name=venuePdfNome(ctx.name,num,tot), seq=ctx.seq;
+  return venuePdfRender(pdf,num,VENUE_MAXSIDE).then(function(cv){
+    if(seq!==venuePdfSeq) return;
+    var cg=cv.getContext("2d");
+    if(venuePdfVuota(cg.getImageData(0,0,cv.width,cv.height).data)){
+      cv.width=cv.height=0;
+      if(window.__toast) window.__toast("La pagina "+num+" del PDF è vuota.",true);
+      if(tot<=1) venuePdfChiudi();   /* una pagina sola: niente da scegliere, il documento (e il suo worker) si chiude */
+      return;
+    }
+    cv.toBlob(function(blob){
+      cv.width=cv.height=0;   /* libera la memoria del canvas (Safari/iOS la conta a parte) */
+      if(seq!==venuePdfSeq) return;
+      if(!blob){ if(window.__toast) window.__toast("Impossibile convertire la pagina del PDF.",true); return; }
+      venuePdfChiudi();
+      venueLoadFile(new File([blob], name, {type:"image/png"}));   /* da qui è un'immagine come le altre */
+    },"image/png");
+  });
+}
+function venuePdfAnteprima(pdf,num,seq){
+  var my=++venuePdfThumbSeq;
+  venuePdfRender(pdf,num,160).then(function(cv){
+    if(my!==venuePdfThumbSeq||seq!==venuePdfSeq) return;
+    var t=document.getElementById("venuePdfThumb"); if(!t) return;
+    t.width=cv.width; t.height=cv.height; t.getContext("2d").drawImage(cv,0,0);
+    cv.width=cv.height=0;
+  }).catch(function(){});
+}
+function venueLoadPdf(file){
+  if(file.size>VENUE_PDF_MAXBYTES){
+    if(window.__toast) window.__toast("PDF troppo grande ("+fmtPeso(file.size)+"): il massimo è "+fmtPeso(VENUE_PDF_MAXBYTES)+".",true);
+    return;
+  }
+  venuePdfChiudi();
+  var seq=venuePdfSeq, epoch=window.__docEpoch||0, variante=String(activeVar||"");
+  function ancora(){ return seq===venuePdfSeq && epoch===(window.__docEpoch||0) && variante===String(activeVar||""); }
+  var ctx={name:String(file.name||"").slice(0,160), seq:seq};
+  if(window.__toast) window.__toast("Leggo il PDF…");
+  var leggi=file.arrayBuffer ? file.arrayBuffer() : new Promise(function(res,rej){ var r=new FileReader(); r.onload=function(){ res(r.result); }; r.onerror=function(){ rej(new Error("lettura")); }; r.readAsArrayBuffer(file); });
+  leggi.then(function(buf){
+    if(!ancora()) return;
+    return venueCaricaPdfJs().then(function(L){
+      if(!ancora()) return;
+      /* isEvalSupported:false → la CSP non ha 'unsafe-eval'; il PDF resta tutto nel browser */
+      var task=L.getDocument({data:new Uint8Array(buf), isEvalSupported:false});
+      return task.promise.then(function(pdf){
+        if(!ancora()){ try{ pdf.destroy(); }catch(e){} return; }
+        venuePdfDoc=pdf; venuePdfCtx=ctx;
+        if(pdf.numPages<=1) return venuePdfUsa(pdf,1,ctx);
+        var pick=document.getElementById("venuePdfPick"), inp=document.getElementById("venuePdfPage");
+        if(!pick||!inp) return venuePdfUsa(pdf,1,ctx);
+        document.getElementById("venuePdfPickTxt").textContent="Il PDF ha "+pdf.numPages+" pagine: scegli quella della pianta.";
+        inp.max=String(pdf.numPages); inp.value="1"; pick.hidden=false;
+        venuePdfAnteprima(pdf,1,seq);
+      }, function(e){ try{ task.destroy(); }catch(_){} throw e; });   /* PDF rotto o con password: il worker si chiude comunque */
+    });
+  }).catch(function(e){
+    if(!ancora()) return;
+    venuePdfChiudi();
+    if(window.__toast) window.__toast(venuePdfErrore(e),true);
+  });
+}
+function venuePdfPaginaScelta(){
+  var pdf=venuePdfDoc; if(!pdf) return 0;
+  var n=Math.round(+document.getElementById("venuePdfPage").value||1);
+  return Math.max(1,Math.min(pdf.numPages,n));
 }
 
 function venueSetRot(v){
@@ -35831,7 +35972,7 @@ document.getElementById("venueRealWApply").addEventListener("click", function(){
     if(!hasFiles(e)) return;
     e.preventDefault(); depth=0; mainEl.classList.remove("venue-dropping");
     var f=e.dataTransfer.files && e.dataTransfer.files[0];
-    if(f && /^image\//.test(f.type)){
+    if(f && (/^image\//.test(f.type) || venueIsPdf(f))){
       venueLoadFile(f);
       if(!stageEdit || stagePanelView!=="planimetria") toggleVenueEdit();   /* apre il pannello coi passi */
     }
@@ -35869,6 +36010,12 @@ document.getElementById("venueBtnLighten").addEventListener("click", venueLighte
 document.getElementById("venueBtnImport").addEventListener("click", function(){ document.getElementById("venueFile").click(); });
 document.getElementById("venueFile").addEventListener("change", function(e){ venueLoadFile(e.target.files&&e.target.files[0]); e.target.value=""; });
 document.getElementById("venueBtnReload").addEventListener("click", function(){ document.getElementById("venueFile").click(); });
+document.getElementById("venuePdfPage").addEventListener("input", function(){ if(venuePdfDoc) venuePdfAnteprima(venuePdfDoc,venuePdfPaginaScelta(),venuePdfSeq); });
+document.getElementById("venuePdfUse").addEventListener("click", function(){
+  var pdf=venuePdfDoc, ctx=venuePdfCtx; if(!pdf||!ctx) return;
+  venuePdfUsa(pdf,venuePdfPaginaScelta(),ctx).catch(function(e){ if(window.__toast) window.__toast(venuePdfErrore(e),true); });
+});
+document.getElementById("venuePdfCancel").addEventListener("click", venuePdfChiudi);
 document.getElementById("venueOpacity").addEventListener("input", function(){
   if(!state.venue) return; state.venue.opacity=+this.value;
   document.getElementById("venueOpacityVal").textContent=this.value+"%"; save(); render();
