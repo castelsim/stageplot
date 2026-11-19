@@ -473,9 +473,9 @@
                 <canvas id="venuePdfThumb" width="1" height="1" aria-label="Anteprima della pagina" style="max-width:96px;max-height:96px;border:1px solid var(--border);background:#fff;flex:0 0 auto"></canvas>
                 <label style="font-size:12px;color:var(--text-2)">Pagina <input type="number" id="venuePdfPage" min="1" step="1" value="1" aria-label="Numero della pagina del PDF" style="width:52px;border:1px solid var(--border);border-radius:7px;padding:4px;font-size:13px;text-align:center;background:var(--surface);color:var(--text)"></label>
               </div>
-              <div style="display:grid;grid-template-columns:1fr auto;gap:6px;margin-top:6px">
-                <button class="btn primary" id="venuePdfUse" style="width:auto;min-width:0;font-size:12px;padding:4px 6px;white-space:nowrap">Usa questa pagina</button>
-                <button class="btn" id="venuePdfCancel" style="width:auto;font-size:12px;padding:4px 8px">Annulla</button>
+              <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+                <button class="btn primary" id="venuePdfUse" style="flex:1 1 120px;width:auto;min-width:0;font-size:12px;padding:4px 6px">Usa questa pagina</button>
+                <button class="btn" id="venuePdfCancel" style="flex:0 1 auto;width:auto;min-width:0;font-size:12px;padding:4px 8px">Annulla</button>
               </div>
             </div>
             <div id="venueWeightRow" hidden style="margin-top:7px">
@@ -891,9 +891,9 @@
     </div>
     <!-- 14/11/2026: misure e altezze di una pedana con un clic (lotto A3 di MIGLIORARE). Solo scorciatoie sugli stessi campi L, P, h: niente dati nuovi. -->
     <div id="pPedRapide" style="display:none;margin-top:6px">
-      <div class="lbl-note" style="font-size:11px;margin:0 0 3px">Misura in metri (L × P)</div>
+      <div class="lbl-note" id="pPedMisLbl" style="font-size:11px;margin:0 0 3px">Misura in metri (L × P)</div>
       <div class="seg" id="pPedMis" role="group" aria-label="Misure della pedana"></div>
-      <div class="lbl-note" style="font-size:11px;margin:6px 0 3px">Altezza in cm</div>
+      <div class="lbl-note" id="pPedAltLbl" style="font-size:11px;margin:6px 0 3px">Altezza in cm</div>
       <div class="seg" id="pPedAlt" role="group" aria-label="Altezza della pedana"></div>
     </div>
     <!-- 15/11/2026 (S22): pedana la cui misura si conferma al sopralluogo → bordo tratteggiato e «da confermare» accanto alla quota -->
@@ -22353,7 +22353,7 @@ function renderProps(){
   var gzw=document.getElementById("pGazWrap");   /* gazebo: taglia preset (poi resize libero) */
   if(gzw){ var isGaz=!!GAZ_TYPES[it.type]; gzw.style.display=isGaz?"block":"none";
     if(isGaz){ var gsel=document.getElementById("pGaz"), gcur=it.w+"x"+it.d;
-      var gopts=GAZEBO_SIZES.map(function(sz){ return '<option value="'+sz[0]+'x'+sz[1]+'">'+gazLabel(sz[0],sz[1])+' m</option>'; });
+      var gopts=GAZEBO_SIZES.map(function(sz){ return '<option value="'+sz[0]+'x'+sz[1]+'">'+esc(uTxt(gazLabel(sz[0],sz[1])+' m'))+'</option>'; });
       if(!GAZEBO_SIZES.some(function(sz){ return sz[0]===it.w && sz[1]===it.d; })) gopts.unshift('<option value="'+gcur+'">'+gazLabel(it.w,it.d)+' m (personalizzata)</option>');
       gsel.innerHTML=gopts.join(""); gsel.value=gcur; } }
   var pp=document.getElementById("pPostaz"), cfg=sepCfg(it);
