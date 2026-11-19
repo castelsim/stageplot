@@ -36801,7 +36801,7 @@ t("split 1: ogni art/art2 di POSA_PIEDI sta in icons-piedi.js (vb, body, dc) e i
     ok(P[k] && P[k].vb && typeof P[k].body === "string" && P[k].body.length > 1000 && Array.isArray(P[k].dc), k + ": in icons-piedi.js con vb, body, dc");
     ok(!(k in G), k + ": NON in icons.js");
   });
-  eq(Object.keys(P).sort(), ks.slice().sort(), "icons-piedi.js contiene solo le chiavi di POSA_PIEDI");
+  eq(Object.keys(P).sort(), ks.concat(Object.values(A.SGAB_ALTO).map((x) => x.art)).sort(), "icons-piedi.js contiene solo le chiavi di POSA_PIEDI e le 4 figure su sgabello alto (SGAB_ALTO)");
   ok(G.percussionistaInPiedi && G.percussionistaInPiedi.body, "percussionistaInPiedi resta in icons.js (la usano sempre le percussioni)");
   ok(!Object.keys(G).some((k) => /Piedi$/.test(k) && k !== "percussionistaInPiedi"), "in icons.js nessun'altra chiave *Piedi");
   ok(readFileSync(join(root, "icons.js")).length < 2950000, "icons.js sotto i 2,95 MB (era 3,24)");
@@ -37245,6 +37245,7 @@ t("L4: seduto = come ieri; in piedi = ingombro della posa, zero sedie e sgabelli
     ok(!("posa" in a) && !("look" in a), tp + ": nuovo = niente posa né look"); eq([a.w, a.d], tp === "tastiera" ? [120, 36] : sed, tp + ": ingombro di sempre");
     if (tp === "tastiera") a.panca = true;
     const ca0 = A.countAccessori(), sg0 = ca0.sedie + ca0.sgabelli; if (tp === "musChitClassica") { a.sgab = true; } const sg1 = A.countAccessori().sgabelli;
+    if (tp === "musChitClassica") { delete a.sgab; }   /* con lo sgabello alto (lotto SGABELLO ALTO) la classica in piedi ha il suo sgabello: coperto dai test «sgabello alto» */
     a.posa = "piedi"; A.recalcItemDims(a);
     eq([a.w, a.d], s, tp + ": in piedi = misura della figura"); eq(A.inPiedi(a), true, tp + ": inPiedi"); eq(A.postArt(a), k, tp + ": la figura è " + k);
     { const c = A.countAccessori(); eq([c.sedie, c.sgabelli], [0, 0], tp + ": in piedi nessuna sedia né sgabello (seduto: " + sg0 + "/" + sg1 + ")"); }
@@ -37253,10 +37254,10 @@ t("L4: seduto = come ieri; in piedi = ingombro della posa, zero sedie e sgabelli
     ok(!A.pdfTotals({ tecnici: true, canali: false }).some(x => /sedut|sgabell/.test(x)), tp + ": il cartiglio non ha righe di sedute");
     const g = A.sanitizeItems([{ type: tp, x: 1, y: 2, posa: "piedi" }, { type: tp, x: 1, y: 2, posa: "boh" }]);
     eq(g.map(i => i.posa), ["piedi", undefined], tp + ": import: «piedi» sì, ogni altro valore = seduto"); eq([g[0].w, g[0].d], s, tp + ": l'ingombro in piedi si ricalcola all'import");
-    delete a.posa; A.recalcItemDims(a); eq([a.w, a.d], tp === "tastiera" ? [120, 36] : (tp === "musChitClassica" ? [87, 98] : sed), tp + ": tornato seduto, l'ingombro di prima");
+    delete a.posa; A.recalcItemDims(a); eq([a.w, a.d], tp === "tastiera" ? [120, 36] : sed, tp + ": tornato seduto, l'ingombro di prima");
     ok(!/"posa"/.test(JSON.stringify(a)), tp + ": seduto = nel JSON non c'è «posa»");
   }
-  A.state.items = []; const c = add("musChitClassica", 300, 300, { posa: "piedi", sgab: true }); eq([c.sgab, A.inPiedi(c), A.chitClSeduta(c), A.countAccessori().sgabelli], [true, true, "", 0], "classica in piedi: it.sgab dorme (resta nel dato, nessuna seduta, nessuno sgabello contato)");
+  A.state.items = []; const c = add("musChitClassica", 300, 300, { posa: "piedi", sgab: true }); eq([c.sgab, A.inPiedi(c), A.chitClSeduta(c), A.countAccessori().sgabelli], [true, true, "", 1], "classica in piedi con it.sgab: nessuna seduta (chitClSeduta vuota) e UNO sgabello alto contato, mai due (lotto SGABELLO ALTO)");
   delete c.posa; A.recalcItemDims(c); eq([A.chitClSeduta(c), A.countAccessori().sgabelli, c.d], ["sgabello", 1, 98], "e tornata seduta lo sgabello torna");
   A.state.items = []; const tm = add("musTimpani", 300, 300, { posa: "piedi" }); eq([tm.w, tm.d, A.countAccessori().sedie + A.countAccessori().sgabelli], [184, 112, 0], "timpani del musicista in piedi 184×112, nessuna sedia");
   const nt = add("timpani", 300, 300); eq(A.inPiedi(Object.assign({}, nt, { posa: "piedi" })), false, "gli schemi timpani* (set componibile) NON hanno la posa: solo musTimpani (raccomandazione del piano)");
@@ -37287,9 +37288,9 @@ t("L4: cambio posa con testa ferma a 0/90/180/270° — stage piano, classica (a
     A.state.items = []; const a = add(tp, 400, 300, { rot }); a.rot = rot; if (sgab) { a.sgab = true; A.recalcItemDims(a); }
     const prima = [a.x, a.y, a.rot, a.label, a.leggio, a.sedia, a.sgab, a.w, a.d]; A.selSet = {}; A.selSet[a.id] = true; A.sel = a.id;
     A.cambiaDisegnoSelezione("piedi");
-    const dc = L[L4[tp][0]].dc, m = rotM([dc[0], dc[1] + (sgab ? 5.5 : 0)], rot);
+    const dc = sgab ? L.musChitClassicaSgabAlto.dc : L[L4[tp][0]].dc, m = rotM([dc[0], dc[1] + (sgab ? 5.5 : 0)], rot);   /* da seduta su sgabello a In piedi su sgabello alto: dallo scarto −5,5 (figura più in basso) al dc dell'icona con lo sgabello */
     eq([a.x, a.y], [Math.round(prima[0] + m[0]), Math.round(prima[1] + m[1])], tp + (sgab ? " su sgabello" : "") + " a " + rot + "°: il busto resta fermo, l'elemento si sposta dello scarto girato");
-    eq([a.posa, a.rot, a.label, a.leggio], ["piedi", rot, prima[3], prima[4]], tp + ": in piedi, stessa rotazione, nome e leggio restano"); eq([a.w, a.d], L4[tp][3], tp + ": ingombro della posa");
+    eq([a.posa, a.rot, a.label, a.leggio], ["piedi", rot, prima[3], prima[4]], tp + ": in piedi, stessa rotazione, nome e leggio restano"); eq([a.w, a.d], sgab ? [87, 80] : L4[tp][3], tp + ": ingombro della posa (con sgabello alto: la misura del disegno)");
     A.cambiaDisegnoSelezione("seduto");
     eq([a.x, a.y, a.rot, a.label, a.leggio, a.sedia, a.sgab, a.w, a.d], prima, tp + " a " + rot + "°: seduto di nuovo = tutto com'era"); ok(!("posa" in a), tp + ": il campo sparisce");
   }
@@ -37382,6 +37383,110 @@ t("L4 (dalla rilettura di #165): «Dividi» con i musicisti in piedi non crea se
   A.state.items = []; const b = add("bassstand", 400, 300); b.ampli = true; const ma = A.itemMarkup(b); b.posa = "piedi"; A.recalcItemDims(b); const mb = A.itemMarkup(b);
   ok(ma.includes("translate(-43,-88) rotate(-30)") && mb.includes("translate(-43,-88) rotate(-30)"), "l'ampli del basso sta a (−43,−88) sia seduto sia in piedi: invariato, non è stato toccato");
   eq([A.look2Dims(Object.assign({}, b, { posa: undefined }))[1], A.look2Dims(b)[1]], [79, 45], "…mentre l'ingombro del basso è sceso da 79 a 45 cm: l'ampli resta più indietro");
+}));
+
+/* ═══ SGABELLO ALTO (19/11/2026): «Su sgabello» anche In piedi per chitarra elettrica, acustica, classica e basso ═══ */
+const SGB = {   /* tipo: [icona, larghezza, profondità, s, dc, ingombro in piedi senza sgabello, centro dello sgabello nel riquadro] */
+  gtstand: ["musChitElettricaSgabAlto", 88.02, 82.34, [88, 82], [-0.01, 2.58], [88, 52], [41.02, 44.96]],
+  gtacustica: ["musChitAcusticaSgabAlto", 86.01, 82.5, [86, 83], [0, 2.81], [86, 50], [38.01, 40.21]],
+  bassstand: ["musBassoSgabAlto", 96.8, 73.9, [97, 74], [0, 2.67], [97, 45], [37.57, 32.91]],
+  musChitClassica: ["musChitClassicaSgabAlto", 87.15, 79.88, [87, 80], [0.08, -0.41], [85, 68], [38, 47.03]]
+};
+const sgbIn = (tp, x, y, o) => { A.state.items = []; return add(tp, x || 400, y || 300, Object.assign({ posa: "piedi" }, o || {})); };
+t("sgabello alto: le 4 icone stanno solo in icons-piedi.js, col riquadro, il dc e lo sgabello (4 gambe + 4 cerchi) approvati; SGAB_ALTO = misura del disegno", () => {
+  const P = iconeFile("icons-piedi.js"), G = iconeFile("icons.js");
+  for (const [tp, [k, w, h, s, dc, , c]] of Object.entries(SGB)) {
+    const e = P[k]; ok(e && e.body, tp + ": manca " + k); ok(!(k in G), k + ": NON in icons.js");
+    ok(Math.abs(e.vb[2] - w) < 0.05 && Math.abs(e.vb[3] - h) < 0.05 && e.vb[0] === 0 && e.vb[1] === 0, k + ": riquadro " + w + "×" + h + " (" + e.vb + ")");
+    eq(e.dc, dc, k + ": scarto del centro (testa ferma)");
+    eq((e.body.match(/<line /g) || []).length, 4, k + ": 4 gambe dello sgabello"); eq((e.body.match(/<circle /g) || []).length, 4, k + ": 4 cerchi (poggiapiedi, seduta, interno, centro)");
+    const m = e.body.match(/<circle cx="([\d.]+)" cy="([\d.]+)" r="2.2"/); ok(m && Math.abs(+m[1] - c[0]) < 0.05 && Math.abs(+m[2] - c[1]) < 0.05, k + ": centro dello sgabello (" + (m && [m[1], m[2]]) + ") = " + c);
+    ok(!/<(clipPath|mask|image|filter|use|style|linearGradient|radialGradient|text)\b|clip-path|class=|style=|transform=/.test(e.body), k + ": niente clip, maschere, stili, trasformazioni");
+    eq(A.SGAB_ALTO[tp].art, k, tp + ": in SGAB_ALTO"); eq(A.SGAB_ALTO[tp].s, s, tp + ": ingombro con sgabello = misura del disegno");
+    eq(A.SGAB_ALTO[tp].s, [Math.round(e.vb[2]), Math.round(e.vb[3])], tp + ": s coincide con la vb arrotondata (misura di ripiego senza il file)");
+    ok(A.POSA_PIEDI[tp] && A.POSA_PIEDI[tp].art !== k, tp + ": l'icona in piedi di prima resta com'è");
+  }
+  eq(Object.keys(A.SGAB_ALTO).sort(), Object.keys(SGB).sort(), "solo i 4 strumenti con il disegno approvato (non fisarmonica, violino, ecc.)");
+  ok(A.piediChiavi().includes("musBassoSgabAlto") && A.piediChiavi().includes("musChitClassicaSgabAlto"), "il controllo del file (piediChiavi) conosce le figure su sgabello");
+});
+t("sgabello alto: ingombro con lo sgabello; default invariato (senza sgab = misure di oggi); figura giusta, sgabello nel disegno, nessuna sedia", () => conPiediTutte(() => {
+  for (const [tp, [k, , , s, , senza]] of Object.entries(SGB)) {
+    const a = sgbIn(tp);
+    eq([a.w, a.d, A.artPiedi(a), A.sgabAlto(a)], [senza[0], senza[1], A.POSA_PIEDI[tp].art, false], tp + ": in piedi senza sgab = come ieri");
+    a.sgab = true; A.recalcItemDims(a);
+    eq([a.w, a.d, A.artPiedi(a), A.sgabAlto(a)], [s[0], s[1], k, true], tp + ": con sgab = ingombro del disegno con lo sgabello, icona nuova");
+    ok(new RegExp(k + "_sgabello").test(A.itemMarkup(a)), tp + ": lo sgabello è nel disegno"); eq(A.postArt(a), k, tp + ": la figura da disegnare è quella su sgabello (nessuna sedia)");
+    const c = A.countAccessori(); eq([c.sedie, c.sgabelli], [0, 1], tp + ": nessuna sedia, UN solo sgabello");
+    const sed = add(tp, 100, 100); delete sed.posa; sed.sgab = tp === "musChitClassica" ? true : undefined; A.recalcItemDims(sed);
+    ok(!A.sgabAlto(sed), tp + ": da seduta non è mai «sgabello alto»");
+  }
+  A.state.items = []; const sx = add("saxalto", 100, 100, { posa: "piedi", sgab: true }); A.recalcItemDims(sx);
+  eq([A.sgabAlto(sx), A.countAccessori().sgabelli], [false, 0], "un sax con sgab (JSON a mano) non ha sgabello alto: solo i 4 strumenti");
+}));
+t("sgabello alto: spunta e cambio posa a testa ferma a 0/90/180/270° (acceso, spento, Seduto↔In piedi con sgabello); annulla = tutto com'era; il dato sgab resta", () => conPiediTutte((L) => {
+  for (const tp of Object.keys(SGB)) for (const rot of [0, 90, 180, 270]) {
+    const a = sgbIn(tp, 400, 300, { rot }); a.rot = rot; const p0 = [a.x, a.y, a.rot, a.w, a.d, a.label];
+    const dcP = L[A.POSA_PIEDI[tp].art].dc, dcS = L[SGB[tp][0]].dc, m = rotM([dcS[0] - dcP[0], dcS[1] - dcP[1]], rot);
+    A.selSet = {}; A.selSet[a.id] = true; A.sel = a.id;
+    A.impostaSgabAlto(a, true);
+    eq([a.x, a.y], [Math.round(p0[0] + m[0]), Math.round(p0[1] + m[1])], tp + " a " + rot + "°: acceso, la testa resta ferma (l'elemento si sposta dello scarto girato)");
+    eq([a.sgab, a.rot, a.label, a.w, a.d], [true, rot, p0[5], SGB[tp][3][0], SGB[tp][3][1]], tp + ": sgab, rotazione e nome");
+    A.impostaSgabAlto(a, false); eq([a.x, a.y, a.rot, a.w, a.d], p0.slice(0, 5), tp + " a " + rot + "°: spento = identico a prima"); ok(!("sgab" in a), tp + ": spento, il dato sparisce");
+    A.impostaSgabAlto(a, true); A.impostaSgabAlto(a, true); eq(a.sgab, true, tp + ": accendere due volte non sposta due volte"); const x1 = [a.x, a.y]; A.impostaSgabAlto(a, true); eq([a.x, a.y], x1, tp + ": idem");
+    A.cambiaDisegnoSelezione("seduto");
+    const sp = rotM([dcP[0], dcP[1] + (tp === "musChitClassica" ? 5.5 : 0)], rot), d = Math.hypot(a.x - (p0[0] - sp[0]), a.y - (p0[1] - sp[1])); ok(d <= 2.1, tp + " a " + rot + "°: In piedi su sgabello → Seduto = la stessa testa di In piedi senza sgabello → Seduto (±2 cm di arrotondamento, " + d.toFixed(1) + ")");
+    if (tp !== "musChitClassica") ok(!("sgab" in a) && !("posa" in a), tp + ": le chitarre non classiche dimenticano lo sgabello fuori da In piedi"); else eq([a.sgab, "posa" in a], [true, false], tp + ": la classica tiene sgab (è anche la sua seduta da seduta)");
+  }
+}));
+t("sgabello alto: sgabello ×1 per musicista (Stato, cartiglio, foglio per il teatro), mai doppio; classica da seduta su sgabello → In piedi non raddoppia; nessuna sedia", () => conPiediTutte(() => {
+  const g = (tp, x, y, o) => { add(tp, x, y); const it = A.state.items.filter(i => i.type === tp).pop(); Object.assign(it, o || {}); A.recalcItemDims(it); return it; };   /* addItem può restituire la DI: si cerca l'elemento per tipo */
+  A.state.items = []; const g0 = g("gtstand", 100, 100, { posa: "piedi", sgab: true });
+  eq(A.sgabelliDi(g0), [["alto", 1]], "gtstand: sgabelliDi = un sgabello alto");
+  eq(A.sgabelliTesto(A.state.items), ["1 sgabello alto"], "scritto «1 sgabello alto»");
+  g("bassstand", 200, 100, { posa: "piedi", sgab: true }); g("gtacustica", 300, 100, { posa: "piedi", sgab: true });
+  const cl = g("musChitClassica", 400, 100, { sgab: true });
+  eq(A.sgabelliDi(cl), [["generico", 1]], "classica seduta su sgabello: come sempre «sgabello»"); eq(A.countAccessori().sgabelli, 4, "3 sgabelli alti + 1 della classica seduta");
+  A.impostaDisegno(cl, "piedi"); eq([A.sgabelliDi(cl), A.countAccessori().sgabelli, A.countAccessori().sedie], [[["alto", 1]], 4, 0], "classica In piedi su sgabello alto: ancora UNO (non due), nessuna sedia");
+  eq(A.sgabelliTesto(A.state.items), ["4 sgabelli alti"], "4 sgabelli alti");
+  A.impostaDisegno(cl, "seduto"); eq(A.sgabelliDi(cl), [["generico", 1]], "classica di nuovo seduta: torna lo sgabello di sempre"); eq(A.countAccessori().sgabelli, 4, "il totale resta 4");
+  const sx = A.pdfTotals({ tecnici: true, canali: false }); ok(sx.some(x => /sgabell/.test(x)) && !sx.some(x => /0 sedie|0 sgabell/.test(x)), "cartiglio: la riga degli sgabelli c'è, nessun «0 sedie»");
+  const ft = A.foglioTeatroDati(new Date(2026, 10, 19)).sezioni.flatMap(s0 => s0.righe).find(r => r[0] === "Sgabelli"); ok(ft && /\b4\b/.test(ft[1]), "foglio per il teatro: la riga Sgabelli conta 4 (" + (ft && ft[1]) + ")");
+  A.state.items = []; const solo = add("gtstand", 100, 100, { posa: "piedi", sgab: true }); A.recalcItemDims(solo);
+  eq(A.foglioTeatroDati(new Date(2026, 10, 19)).sezioni.flatMap(s0 => s0.righe).find(r => r[0] === "Sgabelli")[1], "1 sgabello alto", "foglio per il teatro: «1 sgabello alto»");
+  eq(A.countAccessori().sedie, 0, "nessuna sedia");
+}));
+t("sgabello alto: la spunta «Su sgabello» c'è solo In piedi, per i 4 strumenti; classica = tre pulsanti e la tendina della seduta nascosta in piedi (coperto da test); altrove nascosta", () => conPiediTutte(() => {
+  for (const tp of Object.keys(SGB)) {
+    const a = sgbIn(tp); eq(A.sgabAltoDisp(a), true, tp + ": In piedi la spunta c'è");
+    A.impostaDisegno(a, "strumento"); eq(A.sgabAltoDisp(a), false, tp + ": «Strumento»: nascosta"); A.impostaDisegno(a, "seduto"); eq(A.sgabAltoDisp(a), false, tp + ": Seduto: nascosta (la classica ha la tendina Sedia/Sgabello)");
+    const u = A.disegnoUi(a); eq([u.piedi, u.seduto, u.strumento], [true, true, true], tp + ": i tre pulsanti Seduto · In piedi · Strumento restano");
+  }
+  for (const tp of ["saxalto", "tastiera", "stagepiano", "musTimpani", "musFisarmonica", "bassstand"]) { A.state.items = []; const a = add(tp, 100, 100); if (A.POSA_PIEDI[tp]) { a.posa = "piedi"; A.recalcItemDims(a); } if (tp !== "bassstand") eq(A.sgabAltoDisp(a), false, tp + ": spunta nascosta (nessun disegno su sgabello)"); }
+  const js = readFileSync(join(root, "app.js"), "utf8");
+  ok(/getElementById\("pSgabAltoWrap"\)\.style\.display=_sa\?"":"none"/.test(js) && /var _sa=sgabAltoDisp\(it\)/.test(js), "il pannello mostra la spunta solo se sgabAltoDisp(it)");
+  ok(/var clP = isCl && inPiedi\(it\);/.test(js) && /getElementById\("pSedutaWrap"\)\.style\.display = \(isCl&&!clP\) \? "" : "none"/.test(js), "classica in piedi: la tendina «Seduta» (Sedia · Sgabello · Niente) resta nascosta");
+  ok(/id="pSgabAltoWrap"[^>]*>\s*<input type="checkbox" id="pSgabAlto"> Su sgabello/.test(readFileSync(join(root, "app/index.html"), "utf8")), "la spunta «Su sgabello» è nel pannello Disegna come");
+  ok(/getElementById\("pSgabAlto"\)\.addEventListener\("change"[\s\S]{0,700}piediPrimaDiPosa/.test(js), "la spunta aspetta il file delle figure (come il cambio di posa)");
+}));
+t("sgabello alto: retrocompatibilità — progetti senza sgab/posa identici; sgab fuori posto ripulito all'import; JSON con sgab+posa dura", () => conPiediTutte(() => {
+  const g = A.sanitizeItems([
+    { type: "gtstand", x: 1, y: 2, sgab: true }, { type: "gtstand", x: 1, y: 2, posa: "piedi", sgab: true }, { type: "gtacustica", x: 1, y: 2, posa: "piedi", look: "schematico", sgab: true },
+    { type: "musChitClassica", x: 1, y: 2, sgab: true }, { type: "bassstand", x: 1, y: 2, posa: "piedi" }, { type: "saxalto", x: 1, y: 2, posa: "piedi", sgab: true }]);
+  eq(g.map(i => i.sgab), [undefined, true, undefined, true, undefined, true], "sgab: via sulle chitarre/basso non in piedi, resta In piedi e sulla classica (dato di sempre), il resto come prima");
+  A.state.items = g; g.forEach(i => A.recalcItemDims(i)); eq([g[1].w, g[1].d, g[3].w, g[3].d, g[4].w, g[4].d], [88, 82, 87, 98, 97, 45], "ingombri: con sgabello alto, classica seduta su sgabello (87×98 di sempre), basso in piedi senza");
+  const j = JSON.parse(A.stateToJSON ? A.stateToJSON() : JSON.stringify(A.state)); ok(j.items.some(i => i.sgab === true && i.posa === "piedi"), "il JSON salva sgab e posa");
+}));
+t("sgabello alto: export — senza l'icona su sgabello nel secondo file l'export si ferma (mai un PDF senza il musicista); con tutte parte; vale per le 4", () => conPiediTutte((L) => {
+  const prima = A.LIB_ICONS, st0 = A._piediStato;
+  try {
+    for (const [tp, [k]] of Object.entries(SGB)) {
+      const a = sgbIn(tp, 300, 200, { sgab: true }); A.recalcItemDims(a);
+      A.LIB_ICONS = Object.assign({}, L); A._piediStato = 2; eq(A.piediControllo(), true, tp + ": con la figura su sgabello l'export parte");
+      const meno = Object.assign({}, L); delete meno[k]; A.LIB_ICONS = meno; let e = null; try { A.piediControllo(); } catch (x) { e = x; }
+      ok(e && e.piedi === true, tp + ": senza " + k + " l'export si ferma"); eq(A.piediMancanti([a]).length, 1, tp + ": la figura mancante è quella su sgabello");
+      ok(A.itemMarkup(a).indexOf(k + "_sgabello") < 0 && A.postArt(a) === null, tp + ": senza il file a video niente figura (postArt nullo, nessuna icona seduta né sedia)");
+    }
+  } finally { A.LIB_ICONS = prima; A._piediStato = st0; A.state.items = []; }
 }));
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
