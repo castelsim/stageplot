@@ -18619,7 +18619,7 @@ t("il percussionista è IN PIEDI; lo sgabello si AGGIUNGE sotto la stessa figura
     const posti = (q) => A.percSlots(q).map((x) => x.k + ":" + x.x + "," + x.y).join(" ");
     eq(posti(Object.assign({}, A.parts(p), { stool: true })), posti(Object.assign({}, A.parts(p), { stool: false })), "congas, bongos e chi suona restano dove erano");
     const posto = A.percSlots(Object.assign({}, A.parts(p), { stool: true })).find((x) => x.seat);
-    ok(posto.hd >= -A.PERC_SGABELLO.dy + 20 && posto.hw >= 45, "l'ingombro comprende lo sgabello (raggio 20) e le braccia della figura: " + posto.hw + "×" + posto.hd);
+    ok(posto.hd >= -A.PERC_SGABELLO.dy + 20 && posto.hw >= A.PERC_IN_PIEDI.hw && posto.hw >= 37, "l'ingombro comprende lo sgabello (raggio 20) e le braccia della figura (PROPORZIONI 19/11: 37,3×29,6): " + posto.hw + "×" + posto.hd);
   });
 });
 
@@ -37051,7 +37051,7 @@ t("orchestra in piedi (L2): se la figura di un tipo nuovo manca nel secondo file
 
 /* ═══ L3 BAND e TIPI PROPRI in piedi (19/11/2026): basso, chitarra elettrica, chitarra acustica (LOOK_ART) · trombone basso, fisarmonica (tipi propri, solo posa) ═══ */
 const BAND = {   /* tipo: [icona, larghezza figura, profondità figura, s, dc approvato (analisi/2026-11-19_ICONE_PIEDI_PIANO/lib/INGOMBRI.md), ingombro seduto di oggi] */
-  bassstand: ["musBassoPiedi", 96.81, 44.74, [97, 45], [0, -11.91], [97, 79]], gtstand: ["musChitElettricaPiedi", 88.02, 51.76, [88, 52], [-0.01, -12.71], [88, 87]],
+  bassstand: ["musBassoPiedi", 111.04, 51.31, [111, 51], [0.092, -13.499], [110, 90]],   /* PROPORZIONI 19/11: ×1,147 sul disegno di prima (96,81×44,74), seduto ×1,14 (110,36×90,48); dc a testa ferma ricalcolato */ gtstand: ["musChitElettricaPiedi", 88.02, 51.76, [88, 52], [-0.01, -12.71], [88, 87]],
   gtacustica: ["musChitAcusticaPiedi", 86.01, 50.01, [86, 50], [0, -13.43], [86, 88]],
   musTromboneBasso: ["musTrombonePiedi", 58.78, 113.63, [59, 114], [1.11, 0.01], [61, 114]], musFisarmonica: ["musFisarmonicaPiedi", 82.22, 76.55, [82, 77], [0.01, -9.58], [82, 96]]
 };
@@ -37382,14 +37382,14 @@ t("L4 (dalla rilettura di #165): «Dividi» con i musicisti in piedi non crea se
   /* ampli del basso: NON cambia con la posa (domanda per Simone: con il basso in piedi sembra ~1 m dietro) */
   A.state.items = []; const b = add("bassstand", 400, 300); b.ampli = true; const ma = A.itemMarkup(b); b.posa = "piedi"; A.recalcItemDims(b); const mb = A.itemMarkup(b);
   ok(ma.includes("translate(-43,-88) rotate(-30)") && mb.includes("translate(-43,-88) rotate(-30)"), "l'ampli del basso sta a (−43,−88) sia seduto sia in piedi: invariato, non è stato toccato");
-  eq([A.look2Dims(Object.assign({}, b, { posa: undefined }))[1], A.look2Dims(b)[1]], [79, 45], "…mentre l'ingombro del basso è sceso da 79 a 45 cm: l'ampli resta più indietro");
+  eq([A.look2Dims(Object.assign({}, b, { posa: undefined }))[1], A.look2Dims(b)[1]], [90, 51], "…mentre l'ingombro del basso è sceso da 90 a 51 cm: l'ampli resta più indietro");
 }));
 
 /* ═══ SGABELLO ALTO (19/11/2026): «Su sgabello» anche In piedi per chitarra elettrica, acustica, classica e basso ═══ */
 const SGB = {   /* tipo: [icona, larghezza, profondità, s, dc, ingombro in piedi senza sgabello, centro dello sgabello nel riquadro] */
   gtstand: ["musChitElettricaSgabAlto", 88.02, 82.34, [88, 82], [-0.01, 2.58], [88, 52], [41.02, 44.96]],
   gtacustica: ["musChitAcusticaSgabAlto", 86.01, 82.5, [86, 83], [0, 2.81], [86, 50], [38.01, 40.21]],
-  bassstand: ["musBassoSgabAlto", 96.8, 73.9, [97, 74], [0, 2.67], [97, 45], [37.57, 32.91]],
+  bassstand: ["musBassoSgabAlto", 111.03, 84.77, [111, 85], [0.094, 3.226], [111, 51], [43.1, 37.74]],   /* PROPORZIONI 19/11: ×1,147 con lo sgabello (Ø41,3 per scelta di Simone) */
   musChitClassica: ["musChitClassicaSgabAlto", 87.15, 79.88, [87, 80], [0.08, -0.41], [85, 68], [38, 47.03]]
 };
 const sgbIn = (tp, x, y, o) => { A.state.items = []; return add(tp, x || 400, y || 300, Object.assign({ posa: "piedi" }, o || {})); };
@@ -37400,7 +37400,7 @@ t("sgabello alto: le 4 icone stanno solo in icons-piedi.js, col riquadro, il dc 
     ok(Math.abs(e.vb[2] - w) < 0.05 && Math.abs(e.vb[3] - h) < 0.05 && e.vb[0] === 0 && e.vb[1] === 0, k + ": riquadro " + w + "×" + h + " (" + e.vb + ")");
     eq(e.dc, dc, k + ": scarto del centro (testa ferma)");
     eq((e.body.match(/<line /g) || []).length, 4, k + ": 4 gambe dello sgabello"); eq((e.body.match(/<circle /g) || []).length, 4, k + ": 4 cerchi (poggiapiedi, seduta, interno, centro)");
-    const m = e.body.match(/<circle cx="([\d.]+)" cy="([\d.]+)" r="2.2"/); ok(m && Math.abs(+m[1] - c[0]) < 0.05 && Math.abs(+m[2] - c[1]) < 0.05, k + ": centro dello sgabello (" + (m && [m[1], m[2]]) + ") = " + c);
+    const m = e.body.match(new RegExp('<circle cx="([\\d.]+)" cy="([\\d.]+)" r="' + (tp === "bassstand" ? "2.52" : "2.2") + '"'));   /* il basso è ×1,147 anche nello sgabello: r 2,2 → 2,52 */ ok(m && Math.abs(+m[1] - c[0]) < 0.05 && Math.abs(+m[2] - c[1]) < 0.05, k + ": centro dello sgabello (" + (m && [m[1], m[2]]) + ") = " + c);
     ok(!/<(clipPath|mask|image|filter|use|style|linearGradient|radialGradient|text)\b|clip-path|class=|style=|transform=/.test(e.body), k + ": niente clip, maschere, stili, trasformazioni");
     eq(A.SGAB_ALTO[tp].art, k, tp + ": in SGAB_ALTO"); eq(A.SGAB_ALTO[tp].s, s, tp + ": ingombro con sgabello = misura del disegno");
     eq(A.SGAB_ALTO[tp].s, [Math.round(e.vb[2]), Math.round(e.vb[3])], tp + ": s coincide con la vb arrotondata (misura di ripiego senza il file)");
@@ -37473,7 +37473,7 @@ t("sgabello alto: retrocompatibilità — progetti senza sgab/posa identici; sga
     { type: "gtstand", x: 1, y: 2, sgab: true }, { type: "gtstand", x: 1, y: 2, posa: "piedi", sgab: true }, { type: "gtacustica", x: 1, y: 2, posa: "piedi", look: "schematico", sgab: true },
     { type: "musChitClassica", x: 1, y: 2, sgab: true }, { type: "bassstand", x: 1, y: 2, posa: "piedi" }, { type: "saxalto", x: 1, y: 2, posa: "piedi", sgab: true }]);
   eq(g.map(i => i.sgab), [undefined, true, undefined, true, undefined, true], "sgab: via sulle chitarre/basso non in piedi, resta In piedi e sulla classica (dato di sempre), il resto come prima");
-  A.state.items = g; g.forEach(i => A.recalcItemDims(i)); eq([g[1].w, g[1].d, g[3].w, g[3].d, g[4].w, g[4].d], [88, 82, 87, 98, 97, 45], "ingombri: con sgabello alto, classica seduta su sgabello (87×98 di sempre), basso in piedi senza");
+  A.state.items = g; g.forEach(i => A.recalcItemDims(i)); eq([g[1].w, g[1].d, g[3].w, g[3].d, g[4].w, g[4].d], [88, 82, 87, 98, 111, 51], "ingombri: con sgabello alto, classica seduta su sgabello (87×98 di sempre), basso in piedi senza");
   const j = JSON.parse(A.stateToJSON ? A.stateToJSON() : JSON.stringify(A.state)); ok(j.items.some(i => i.sgab === true && i.posa === "piedi"), "il JSON salva sgab e posa");
 }));
 t("sgabello alto: export — senza l'icona su sgabello nel secondo file l'export si ferma (mai un PDF senza il musicista); con tutte parte; vale per le 4", () => conPiediTutte((L) => {
@@ -37487,6 +37487,89 @@ t("sgabello alto: export — senza l'icona su sgabello nel secondo file l'export
       ok(A.itemMarkup(a).indexOf(k + "_sgabello") < 0 && A.postArt(a) === null, tp + ": senza il file a video niente figura (postArt nullo, nessuna icona seduta né sedia)");
     }
   } finally { A.LIB_ICONS = prima; A._piediStato = st0; A.state.items = []; }
+}));
+
+/* ═══ PROPORZIONI FIGURE (19/11/2026, Simone: «mantieni le dimensioni reali… il bassista rimpicciolito… la sedia più piccola… percussioni troppo grande») ═══
+   Le 4 icone sono i file di Simone (analisi/2026-11-19_ICONE_PROPORZIONI/svg/*_SIMONE.svg): basso seduto ×1,14 · basso in piedi e su sgabello alto ×1,147 (sgabello Ø41 per scelta sua) ·
+   percussionista in piedi ×0,819 (strumenti invariati). Ingombri e dc sono i valori VERI misurati dai disegni. */
+const PROP = {   /* tipo: icona, larghezza×profondità del disegno, s (arrotondata), dc a testa ferma (centro vb − centro capelli, in piedi meno seduto) */
+  piedi: ["musBassoPiedi", 111.04, 51.31, [111, 51], [0.092, -13.499]],
+  sgab: ["musBassoSgabAlto", 111.03, 84.77, [111, 85], [0.094, 3.226]]
+};
+const BASSO_SEDUTO = [110.36, 90.48];   /* musBasso in icons.js: ×1,14 su 96,8×79,37 */
+const testaRel = (e) => {   /* centro dei capelli (#050707, gruppo *_testa) meno il centro del riquadro; coordinate degli estremi dei segmenti (precisione ~0,2 cm) */
+  const g = e.body.slice(e.body.search(/<g id="[A-Za-z]+_testa">/)), cap = g.match(/<path fill="#050707"[^>]* d="([^"]+)"/)[1];
+  const n = cap.match(/[MLCZ][^MLCZ]*/g).map((c) => c.slice(1).trim().split(/[ ,]+/).map(Number)).filter((v) => v.length >= 2).map((v) => v.slice(-2));
+  const xs = n.map((v) => v[0]), ys = n.map((v) => v[1]);
+  return [(Math.min(...xs) + Math.max(...xs)) / 2 - e.vb[2] / 2, (Math.min(...ys) + Math.max(...ys)) / 2 - e.vb[3] / 2];
+};
+t("proporzioni: basso seduto ×1,14, in piedi e su sgabello ×1,147 — riquadri veri, s = misura del disegno, tipo musBasso allineato", () => conPiediTutte((L) => {
+  const G = iconeFile("icons.js"), P = iconeFile("icons-piedi.js");
+  ok(Math.abs(G.musBasso.vb[2] - BASSO_SEDUTO[0]) < 0.02 && Math.abs(G.musBasso.vb[3] - BASSO_SEDUTO[1]) < 0.02, "musBasso " + G.musBasso.vb);
+  ok(Math.abs(G.musBasso.vb[2] / 96.8 - 1.14) < 0.002 && Math.abs(G.musBasso.vb[3] / 79.37 - 1.14) < 0.002, "il basso seduto è ×1,14 sul disegno di prima (96,8×79,37)");
+  eq([A.TYPES.musBasso.w, A.TYPES.musBasso.d, A.TYPES.musBasso.dim], [110, 90, "110×90"], "il tipo musBasso ha la misura del disegno nuovo");
+  const b = add("bassstand", 300, 300); eq([b.w, b.d], [110, 90], "bassstand seduto: ingombro = disegno (110×90, era 97×79)");
+  eq(A.look2Dims(b), [110, 90], "look2Dims seduto");
+  ok(Math.abs(P.musBassoPiedi.vb[2] / 96.81 - 1.147) < 0.002 && Math.abs(P.musBassoPiedi.vb[3] / 44.74 - 1.147) < 0.002, "il basso in piedi è ×1,147 sul disegno di prima (96,81×44,74)");
+  ok(Math.abs(P.musBassoSgabAlto.vb[2] / 96.8 - 1.147) < 0.002 && Math.abs(P.musBassoSgabAlto.vb[3] / 73.9 - 1.147) < 0.002, "il basso su sgabello è ×1,147 sul disegno di prima (96,8×73,9)");
+  for (const [tp, [k, w, h, s, dc]] of Object.entries({ bassstand_piedi: PROP.piedi, bassstand_sgab: PROP.sgab })) {
+    const e = P[k]; ok(Math.abs(e.vb[2] - w) < 0.02 && Math.abs(e.vb[3] - h) < 0.02, k + ": riquadro " + e.vb); eq(e.dc, dc, k + ": dc");
+  }
+  eq(A.POSA_PIEDI.bassstand.s, [111, 51], "POSA_PIEDI.bassstand.s"); eq(A.SGAB_ALTO.bassstand.s, [111, 85], "SGAB_ALTO.bassstand.s");
+  const p = add("bassstand", 300, 300, { posa: "piedi" }); A.recalcItemDims(p); eq([p.w, p.d], [111, 51], "in piedi: 111×51 (era 97×45)");
+  p.sgab = true; A.recalcItemDims(p); eq([p.w, p.d], [111, 85], "su sgabello alto: 111×85 (era 97×74)");
+  eq([L.musBassoPiedi.vb[3] < L.musBassoSgabAlto.vb[3], L.musBassoSgabAlto.vb[3] < L.musBasso.vb[3]], [true, true], "seduto > su sgabello > in piedi, come prima");
+}));
+t("proporzioni: sgabello del basso Ø41 (seduta) e Ø47 (poggiapiedi) per scelta di Simone, +14,7 % sulle chitarre (Ø36/Ø41); ×1,147 anche nei tratti", () => {
+  const P = iconeFile("icons-piedi.js"), raggi = (e) => [...e.body.matchAll(/<circle [^>]*r="([\d.]+)"/g)].map((m) => +m[1]);
+  const r = raggi(P.musBassoSgabAlto), c = raggi(P.musChitElettricaSgabAlto);
+  eq(r.length, 4, "4 cerchi"); ok(Math.abs(2 * r[1] - 41.3) < 0.2 && Math.abs(2 * r[0] - 47.0) < 0.2, "basso: seduta Ø" + (2 * r[1]).toFixed(1) + ", poggiapiedi Ø" + (2 * r[0]).toFixed(1));
+  ok(Math.abs(2 * c[1] - 36) < 0.1 && Math.abs(2 * c[0] - 41) < 0.1, "chitarra elettrica: ancora Ø36 / Ø41 (" + (2 * c[1]) + " / " + (2 * c[0]) + ")");
+  ok(Math.abs(r[1] / c[1] - 1.147) < 0.01, "rapporto basso/chitarra " + (r[1] / c[1]).toFixed(3));
+});
+t("proporzioni: dc a testa ferma — la testa del basso resta ferma Seduto → In piedi → su sgabello a 0/90/180/270° (centro dei capelli misurato sulle icone, ±0,8 cm di arrotondamento)", () => conPiediTutte((L) => {
+  const th = (it, art, e) => { const o = testaRel(e), m = rotM(o, it.rot || 0); return [it.x + m[0], it.y + m[1]]; };
+  const d = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  for (const rot of [0, 90, 180, 270]) {
+    A.state.items = []; const it = add("bassstand", 400, 300, { rot }); it.rot = rot;
+    const h0 = th(it, null, L.musBasso);
+    A.impostaPosa(it, true); const h1 = th(it, null, L.musBassoPiedi);
+    ok(d(h0, h1) <= 0.8, rot + "°: Seduto → In piedi, la testa si sposta di " + d(h0, h1).toFixed(2) + " cm");
+    A.impostaSgabAlto(it, true); const h2 = th(it, null, L.musBassoSgabAlto);
+    ok(d(h0, h2) <= 1.4, rot + "°: → su sgabello alto, la testa si sposta di " + d(h0, h2).toFixed(2) + " cm");
+    A.impostaSgabAlto(it, false); A.impostaPosa(it, false); eq([it.x, it.y], [400, 300], rot + "°: andata e ritorno = posizione di partenza (nessun errore di 1 cm sui mezzi)");
+    /* il dc dell'icona è giusto col SEGNO: il centro si sposta di +dc (girato), con il segno opposto la testa salterebbe di ~27 cm */
+    const dcP = L.musBassoPiedi.dc, m = rotM(dcP, rot), j = th({ x: 400 + m[0], y: 300 + m[1], rot }, null, L.musBassoPiedi), k = th({ x: 400 - m[0], y: 300 - m[1], rot }, null, L.musBassoPiedi);
+    ok(d(h0, j) <= 0.35, rot + "°: col dc dell'icona la testa resta ferma (" + d(h0, j).toFixed(2) + " cm)"); ok(d(h0, k) > 20, rot + "°: col segno sbagliato salta di " + d(h0, k).toFixed(1) + " cm");
+  }
+}));
+t("proporzioni: basso — nessuna sedia o sgabello doppio: seduto UNA sedia nel disegno, in piedi nessuna, su sgabello UNO e nessuna sedia (conteggi e disegno)", () => conPiediTutte(() => {
+  A.state.items = []; const b = add("bassstand", 300, 300); b.sedia = true; A.recalcItemDims(b);
+  const mk = (it) => A.itemMarkup(it), n = (m, k) => (m.match(new RegExp(k, "g")) || []).length;
+  eq([n(mk(b), "musBasso_sedia"), A.countAccessori().sedie, A.countAccessori().sgabelli], [1, 1, 0], "seduto: una sedia (disegno e conteggio), niente sgabello");
+  A.impostaPosa(b, true);
+  eq([n(mk(b), "musBassoPiedi_"), n(mk(b), "sedia"), n(mk(b), "sgabello"), A.countAccessori().sedie, A.countAccessori().sgabelli], [n(mk(b), "musBassoPiedi_"), 0, 0, 0, 0], "in piedi: nessuna sedia né sgabello");
+  A.impostaSgabAlto(b, true);
+  eq([n(mk(b), "musBassoSgabAlto_sgabello"), n(mk(b), "_sedia"), A.countAccessori().sedie, A.countAccessori().sgabelli], [1, 0, 0, 1], "su sgabello alto: UN solo sgabello nel disegno e nel conteggio, nessuna sedia");
+  ok(n(mk(b), 'r="20.65"') === 1, "UNA sola seduta Ø41,3 nel disegno");
+}));
+t("proporzioni: percussionista in piedi ×0,819 attorno alla testa — riquadro, trasformazione, PERC_IN_PIEDI 37,3×29,6, strumenti e posti invariati, «Dividi» con le misure nuove", () => conIcone(["percussionistaInPiedi", "batteristaPersona", "sgabellobatt"], () => {
+  const G = iconeVere(), s = G.percussionistaInPiedi, m = s.body.match(/^<g transform="translate\(([\d.]+),([\d.]+)\) scale\(([\d.e-]+)\)">/);
+  ok(m, "inizia con translate + scale"); const [tx, ty, k] = [+m[1], +m[2], +m[3]];
+  ok(Math.abs(k - 0.35616 * 0.819) < 1e-4, "scala = 0,35616 × 0,819 (" + k + ")");
+  eq(s.vb, [37.36, 7.88, 89.6, 55.8], "riquadro = quello di prima scalato di 0,819 attorno alla testa");
+  ok(Math.abs(tx + 81.56 * 0.819 - 81.56) < 0.01 && Math.abs(ty + 15.49 * 0.819 - 15.49) < 0.01, "il centro della testa (81,56; 15,49) non si muove: " + tx + "," + ty);
+  ok(Math.abs(s.vb[2] / 109.4 - 0.819) < 0.002 && Math.abs(s.vb[3] / 68.1 - 0.819) < 0.002, "ingombro 74,6×59,2 cm (era 91,1×72,3 con contorno)");
+  eq([A.PERC_IN_PIEDI.hw, A.PERC_IN_PIEDI.hd], [37.3, 29.6], "PERC_IN_PIEDI da hw 45/hd 34 a hw 37,3/hd 29,6 (misura vera 74,6×59,2)");
+  reset(); const p = add("percussioni", 400, 400), pt = A.parts(p);
+  const sl = A.percSlots(Object.assign({}, pt, { stool: false, mus: true })).find((x) => x.seat);
+  eq([sl.hw, sl.hd], [37.3, 29.6], "il posto di chi suona senza sgabello: la figura");
+  const sg = A.percSlots(Object.assign({}, pt, { stool: true, mus: true })).find((x) => x.seat);
+  eq([sg.hw, sg.hd], [37.3, 58], "con lo sgabello: la figura in larghezza, lo sgabello (dy −38, r 20) in profondità");
+  const altri = A.percSlots(Object.assign({}, pt, { congas: 2, bongos: true })).filter((x) => !x.seat).map((x) => x.k + ":" + x.x + "," + x.y + "," + (x.r || "")).join(" ");
+  ok(/conga:\d+,\d+,16/.test(altri) && /bongos:-?\d+,-14/.test(altri), "conga Ø32 e bongos al loro posto, invariati: " + altri);
+  const pezzi = A.COMP.percussioni.explode(p), per = pezzi.find((x) => x.type === "percussionistaR");
+  eq([per.extra.w, per.extra.d], [74.6, 59.2], "«Dividi»: il percussionista 74,6×59,2");
 }));
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
