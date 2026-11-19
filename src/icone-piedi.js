@@ -17,6 +17,7 @@ var PIEDI_MSG_POSA="Figure in piedi non disponibili: controlla la connessione. I
 /* le chiavi che POSA_PIEDI chiede (art e art2 di ogni tipo) */
 function piediChiavi(){
   var ks=[]; Object.keys(POSA_PIEDI).forEach(function(t){ var P=POSA_PIEDI[t]; [P.art,P.art2].forEach(function(k){ if(k && ks.indexOf(k)<0) ks.push(k); }); });
+  Object.keys(SGAB_ALTO).forEach(function(t){ var k=SGAB_ALTO[t].art; if(k && ks.indexOf(k)<0) ks.push(k); });   /* le figure su sgabello alto (19/11) stanno nello stesso file */
   return ks;
 }
 function piediIconaOk(k){ var L=window.LIB_ICONS; return !!(k && L && L[k] && L[k].vb && typeof L[k].body==="string"); }
