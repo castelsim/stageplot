@@ -37,6 +37,8 @@ const INJECTIONS = [
   /* documento per l'estero (17/11/2026): lingua del documento IT/EN, unità m / ft-in, traduttore dei PDF; poi il dizionario inglese */
   { marker: "/*__DOCUMENTO_ESTERO__*/", file: "src/documento-estero.js" },
   { marker: "/*__DOCUMENTO_ESTERO_EN__*/", file: "src/documento-estero-en.js" },
+  /* icone «in piedi» (19/11/2026): secondo file pigro icons-piedi.js, attesa e stop dell'export (lotto L1 dello split di icons.js) */
+  { marker: "/*__ICONE_PIEDI__*/", file: "src/icone-piedi.js" },
 ];
 const PIANTA_PUBBLICA = "biglietteria/pianta-posti.js";
 function piantaPubblica() {

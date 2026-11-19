@@ -31,6 +31,7 @@ window.__onIconsReady = function(){ try{ window.__iconsLoaded=true;
     state.items.forEach(function(it){ if(typeof look2Art==="function" && look2Art(it)) recalcItemDims(it); });
   if(typeof refreshCatalogArt==="function") refreshCatalogArt();   /* anteprime del catalogo/ricerca: da schema a illustrazione */
   if(typeof render==="function") render();
+  if(typeof piediPrefetchQuiete==="function") piediPrefetchQuiete();   /* icons-piedi.js in quiete, una volta (src/icone-piedi.js) */
 }catch(_e){} };
 var _libN=0;
 var _pdfMode=false;   /* true SOLO in drawStageVector() (percorso svg2pdf) → singer/conductor geometrici; false nel percorso raster → icone reali */
@@ -796,7 +797,7 @@ function station(it, glyph, dblKind, realistic){
   var seat = realistic ? seatLight : chairSvg;
   if(it.doppia){
     var half = it.sep ? it.sep/2 : null;
-    if(/^(vln1|vln2|vla|vc|cb)$/.test(dblKind||"")) return realistic ? doubleStringPostLib(dblKind, half) : doubleStringPost(dblKind, half);
+    if(!inPiedi(it) && /^(vln1|vln2|vla|vc|cb)$/.test(dblKind||"")) return realistic ? doubleStringPostLib(dblKind, half) : doubleStringPost(dblKind, half);
     var dx = half || 45, conv=12;   /* sedie convergenti verso il centro */
     /* destra prima (sotto), sinistra dopo (in primo piano) */
     var sdx=inPiedi(it)?seatNo:seat;   /* in piedi: niente sedia */
@@ -806,7 +807,7 @@ function station(it, glyph, dblKind, realistic){
   }
   /* archi singoli realistici: layout dedicato a scala reale (sedia/sgabello + strumento + leggio davanti) */
   var sk=realistic && strKeyOf(dblKind);
-  if(sk) return archiStation(it, sk);
+  if(sk) return archiStation(it, sk);   /* in piedi senza il file (figura non ancora arrivata): lo strumento e il leggio, mai la sedia (archiStation) */
   /* postazione singola generica: glifo a scala reale + sedia + leggio */
   return (it.sedia!==false && !inPiedi(it)?seat(0):'')+glyph+(it.leggio!==false?leggioGlyph(38):'');
 }
@@ -826,7 +827,7 @@ function stringInstr(key){ return libIcon(key); }   /* scala reale (nessun ridim
 /* postazione singola arco (scala reale) */
 function archiStation(it, key){
   var cfg=STRING_CFG[key]||{legY:40,side:0};
-  var s = (it.sedia!==false ? stringSeat(cfg) : '');
+  var s = (it.sedia!==false && !inPiedi(it) ? stringSeat(cfg) : '');   /* in piedi: nessuna sedia (figura non ancora arrivata) */
   s += '<g transform="translate('+(cfg.side||0)+',0)">'+stringInstr(key)+'</g>';
   if(it.leggio!==false) s += '<g transform="translate(0,'+cfg.legY+')">'+leggioGlyph(0)+'</g>';
   return s;
@@ -3260,12 +3261,117 @@ var POSA_PIEDI = {
 function artPiedi(it){ var P=it && POSA_PIEDI[it.type]; return P ? ((it.vsec===2 && P.art2) ? P.art2 : P.art) : null; }   /* icona in piedi: il violino II ha la sua */
 function inPiedi(it){ return !!it && it.posa==="piedi" && !!POSA_PIEDI[it.type] && it.look!=="schematico"; }   /* «Strumento»: la posa dorme, non si disegna né conta sedie */
 function postazOf(it){ return inPiedi(it) ? POSA_PIEDI[it.type] : POSTAZ[it.type]; }   /* misure della postazione secondo la posa */
-function postArt(it){
+function postArtChiave(it){   /* la chiave dell'illustrazione della posa, ci sia o no il file: per i conteggi (non cambiano con l'arrivo di icons-piedi.js) */
   if(!it || it.look==="schematico") return null;
   if(inPiedi(it)) return artPiedi(it);   /* prima del Violino II: anche lui ha la sua icona in piedi */
   if(it.type==="vlnpost" && it.vsec===2) return "musViolino2";   /* Violino II (vsec=2) = illustrazione dedicata */
   return POSTAZ_ART[it.type] || null;
 }
+/* quella da DISEGNARE: la figura in piedi sta in icons-piedi.js (pigro, src/icone-piedi.js). Finché non c'è: null = solo lo strumento, MAI la figura seduta
+   né la sedia (station() non disegna sedie in piedi); intanto chiede il file. Gli export non passano di qui senza il file: lo aspettano. */
+function postArt(it){
+  var k=postArtChiave(it);
+  if(k && inPiedi(it) && !piediIconaOk(k)){ piediCarica(); return null; }
+  return k;
+}
+/* ── ICONE «IN PIEDI»: SECONDO FILE, CARICATO PIGRO (19/11/2026, lotto L1 dello split di icons.js) ─────────────────────────────
+   Le figure dei musicisti in piedi (ogni art/art2 di POSA_PIEDI) stanno in /icons-piedi.js e in nessun altro file: icons.js scende
+   di ~340 KB e cresce solo di ciò che non è «in piedi». Regola verificata da un test: nessuna chiave *Piedi di POSA_PIEDI in icons.js.
+   Sul modello di icons-pro.js (src/catalogo-pro.js), ma con una differenza che conta: per i modelli pro c'è un disegno a codice di
+   riserva, per le figure in piedi NO (libIconCon dà '' se la chiave manca = niente musicista). Perciò:
+   · a SCHERMO, finché il file non c'è, si disegna il solo strumento (postArt dà null): mai la figura seduta, mai la sedia;
+   · in USCITA (PDF, PNG, miniatura salvata) l'export ASPETTA il file (20 s) e, se non arriva, SI FERMA con un messaggio chiaro:
+     mai un PDF senza il musicista (piediEsportaAttendi + piediControllo, in catena PRIMA di ogni disegno);
+   · il cambio di posa (impostaPosa applica lo scarto dc dell'icona) aspetta il file: senza, il busto salterebbe di dc.
+   Si carica: all'apertura di un progetto con almeno una figura in piedi · al primo disegno di una figura in piedi · prima di un
+   cambio di posa · in quiete dopo l'avvio (non con rete assente o «risparmio dati»). Offline: sw.js lo tiene in PRECACHE. */
+var PIEDI_ICONE_URL="/icons-piedi.js", _piediStato=0;   /* 0 da caricare · 1 in arrivo · 2 arrivato · 3 errore (nuovo tentativo solo se lo chiede un export o un clic) */
+var PIEDI_ATTESA_EXPORT_MS=20000, PIEDI_ATTESA_POSA_MS=15000, PIEDI_ATTESA_MINIATURA_MS=3000;
+var PIEDI_MSG_PDF="Il PDF non è stato creato: le figure in piedi non sono arrivate. Controlla la connessione e riprova.";
+var PIEDI_MSG_PNG="Il PNG non è stato creato: le figure in piedi non sono arrivate. Controlla la connessione e riprova.";
+var PIEDI_MSG_POSA="Figure in piedi non disponibili: controlla la connessione. Il disegno non è cambiato.";
+/* le chiavi che POSA_PIEDI chiede (art e art2 di ogni tipo) */
+function piediChiavi(){
+  var ks=[]; Object.keys(POSA_PIEDI).forEach(function(t){ var P=POSA_PIEDI[t]; [P.art,P.art2].forEach(function(k){ if(k && ks.indexOf(k)<0) ks.push(k); }); });
+  return ks;
+}
+function piediIconaOk(k){ var L=window.LIB_ICONS; return !!(k && L && L[k] && L[k].vb && typeof L[k].body==="string"); }
+function piediFilePronto(){ return piediChiavi().every(piediIconaOk); }
+/* gli elementi in piedi la cui figura non c'è (ancora) */
+function piediMancanti(items){ return (items||[]).filter(function(it){ return inPiedi(it) && !piediIconaOk(artPiedi(it)); }); }
+function piediCarica(riprova){
+  if(_piediStato===1 || _piediStato===2) return false;
+  if(_piediStato===3 && !riprova) return false;
+  _piediStato=1;
+  try{
+    var sc=document.createElement("script"); sc.async=true; sc.src=PIEDI_ICONE_URL;
+    sc.onload=function(){ _piediStato=piediFilePronto() ? 2 : 3; };   /* arrivato ma senza le figure (file troncato) = errore */
+    sc.onerror=function(){ _piediStato=3; try{ if(sc.parentNode) sc.parentNode.removeChild(sc); }catch(e){} };
+    (document.head||document.documentElement).appendChild(sc);
+  }catch(e){ _piediStato=3; }
+  return true;
+}
+/* il progetto ha figure in piedi e il file non c'è: lo chiede (apertura di un progetto, disegno) */
+function piediCaricaSeServe(items){
+  if(_piediStato===1 || _piediStato===2) return false;
+  if(!(items||[]).some(inPiedi) || piediFilePronto()) return false;
+  return piediCarica();
+}
+/* aspetta che `ok()` diventi vero (di serie: il file c'è) al massimo `ms`; risolve true/false, mai rifiuta. Chiede il file anche dopo un errore. */
+function piediAttendi(ms, ok){
+  ok=ok||piediFilePronto;
+  return new Promise(function(res){
+    if(ok()) return res(true);
+    piediCarica(true);
+    var t0=Date.now(), max=(ms==null ? PIEDI_ATTESA_EXPORT_MS : ms);
+    (function giro(){
+      if(ok()) return res(true);
+      if(_piediStato===3 || (_piediStato===2) || Date.now()-t0>=max) return res(false);   /* errore, o arrivato senza ciò che serve: inutile aspettare */
+      setTimeout(giro,40);
+    })();
+  });
+}
+/* EXPORT: nessuna figura in piedi mancante → subito, zero richieste; se no aspetta il file e, se non arriva, RIFIUTA con un messaggio (e.piedi=true):
+   nessun PDF, nessun PNG. L'avviso «Carico le figure in piedi…» si vede solo se c'è davvero da aspettare. */
+function piediEsportaAttendi(ms, msg){
+  var mancano=function(){ return piediMancanti((typeof state==="object" && state && state.items) ? state.items : []); };
+  if(!mancano().length) return Promise.resolve(true);
+  try{ if(typeof showToast==="function") showToast("Carico le figure in piedi…"); }catch(e){}
+  return piediAttendi(ms==null ? PIEDI_ATTESA_EXPORT_MS : ms, function(){ return !mancano().length; }).then(function(ok){
+    if(!ok || mancano().length){ var e=new Error(msg||PIEDI_MSG_PDF); e.piedi=true; throw e; }
+    return true;
+  });
+}
+/* cintura e bretelle: subito prima di disegnare, ogni figura in piedi deve avere vb e body; se no stesso stop (sincrono) */
+function piediControllo(msg){
+  var m=piediMancanti((typeof state==="object" && state && state.items) ? state.items : []);
+  if(m.length){ var e=new Error(msg||PIEDI_MSG_PDF); e.piedi=true; throw e; }
+  return true;
+}
+/* prefetch in quiete: dopo l'arrivo di icons.js, una volta sola, senza rete assente né «risparmio dati». Spento con window.__piediPrefetch=false (banco di prova) */
+var _piediPrefetch=false;
+function piediPrefetchQuiete(){
+  if(_piediPrefetch || window.__piediPrefetch===false) return;
+  _piediPrefetch=true;
+  var vai=function(){
+    try{ if(navigator.onLine===false) return; var c=navigator.connection; if(c && c.saveData) return; }catch(e){}
+    piediCarica();
+  };
+  if(typeof requestIdleCallback==="function") requestIdleCallback(vai,{timeout:8000}); else setTimeout(vai,4000);
+}
+/* cambio di posa: le funzioni che applicano lo scarto dc aspettano il file. `fa` si esegue UNA volta, solo con il file arrivato;
+   senza, un avviso e nessuna modifica (mai dc=[0,0]). Il file c'è già → fa subito, in modo sincrono (come prima). */
+function piediPrimaDiPosa(fa, ms, ok){
+  ok=ok||piediFilePronto;
+  if(ok()){ return fa(); }
+  try{ if(typeof showToast==="function") showToast("Carico le figure in piedi…"); }catch(e){}
+  return piediAttendi(ms==null ? PIEDI_ATTESA_POSA_MS : ms, ok).then(function(ok){
+    if(ok){ return fa(); }
+    try{ if(typeof showToast==="function") showToast(PIEDI_MSG_POSA,"err"); }catch(e){}
+    return null;
+  });
+}
+
 /* Unifica icone FASE 2 (15/07): tipi funzionali NON-postazione (batteria=COMP, chitarre=gtr, arpa,
    direttore, piani, percussioni) → illustrazione musicista. Intercettati al render (t.draw), non in station(). */
 var LOOK_ART = {
@@ -8055,6 +8161,7 @@ function normalizeState(s){
   s=migrate(s);
   ["__proto__","prototype","constructor"].forEach(function(k){ if(Object.prototype.hasOwnProperty.call(s,k)) delete s[k]; });
   s.items=normalizeLoadedItems(s.items);
+  try{ piediCaricaSeServe(s.items); }catch(_e){}   /* progetto con figure in piedi: icons-piedi.js parte subito (non aspetta il primo disegno) */
   /* Se il file portava identificativi ripetuti, i collegamenti che ci puntavano non sono più
      ricostruibili: si dice, invece di lasciare l'utente davanti a un rack vuoto senza sapere perché.
      Il messaggio arriva dopo il disegno — durante il caricamento non c'è ancora niente da leggere. */
@@ -21680,7 +21787,15 @@ document.getElementById("pStereoMono").addEventListener("click", function(){ set
 document.getElementById("pStereoStereo").addEventListener("click", function(){ setStereoSel(true); });
 document.getElementById("pRamp").addEventListener("change", function(){ var v=this.value, cfg=RAMP_TYPES[v]; if(!cfg) return; mutSel(function(it){ if(it.type==="cableramp"){ it.rampType=v; it.w=cfg.w; it.d=cfg.d; } }); save(); render(); renderProps(); });   /* passacavi: cambio formato → dimensioni + n° canali */
 document.getElementById("pGaz").addEventListener("change", function(){ var p=this.value.split("x"), w=+p[0], d=+p[1]; if(!w||!d) return; mutSel(function(it){ if(GAZ_TYPES[it.type]){ it.w=w; it.d=d; } }); save(); render(); renderProps(); });   /* gazebo/tende: taglia preset */
-function applicaDisegnoATutti(it, vForzato){   /* applica il Disegno di «it» (Seduto · In piedi · Strumento) a tutto il progetto + lo fissa come predefinito dei nuovi elementi; «In piedi» solo dove l'icona c'è, gli altri Seduto; un solo passo di annulla. Restituisce il testo del toast */
+function applicaDisegnoATutti(it, vForzato){   /* con le figure in piedi non ancora arrivate aspetta il file (src/icone-piedi.js), poi applica; il toast di «Carico…» è il testo restituito */
+  var v=vForzato || disegnoStato(it);
+  if(v && posaMancaFile(v, state.items)){
+    piediPrimaDiPosa(function(){ var m=applicaDisegnoATuttiOra(it, vForzato); if(m && typeof toast==="function") toast(m); if(typeof syncDisegnoMenu==="function") syncDisegnoMenu(); }, null, function(){ return !posaMancaFile(v, state.items); });
+    return "";
+  }
+  return applicaDisegnoATuttiOra(it, vForzato);
+}
+function applicaDisegnoATuttiOra(it, vForzato){   /* applica il Disegno di «it» (Seduto · In piedi · Strumento) a tutto il progetto + lo fissa come predefinito dei nuovi elementi; «In piedi» solo dove l'icona c'è, gli altri Seduto; un solo passo di annulla. Restituisce il testo del toast */
   var v=vForzato || disegnoStato(it); if(!v) return "";
   if(v==="piedi" && !disegnoUi(null, state.items.filter(hasLookToggle)).piedi) return "";   /* «In piedi» senza icone: niente */
   primaDiAgire();
@@ -21830,10 +21945,20 @@ function impostaDisegno(it, v){
   if(v==="seduto" && POSTAZ[it.type] && it.doppia!==true && it.sedia===false) delete it.sedia;   /* la sedia torna, e si conta (prima restava spenta: «Violinista in piedi» nato senza sedia) */
   recalcItemDims(it);
 }
+/* il cambio di posa (Seduto ↔ In piedi) applica lo scarto dc dell'icona in piedi: serve icons-piedi.js (src/icone-piedi.js). Senza il file si aspetta (15 s);
+   se non arriva: avviso e NESSUNA modifica (mai dc=[0,0]: il busto salterebbe). «Strumento» non ne ha bisogno. */
+function posaMancaFile(v, items){ return (v==="piedi" || v==="seduto") && (items||[]).some(function(it){ return hasLookToggle(it) && POSA_PIEDI[it.type] && !piediIconaOk(artPiedi(it)); }); }
 function cambiaDisegnoSelezione(v){
-  primaDiAgire();
   var tutti=selItems().filter(hasLookToggle);
   if(!tutti.length){ var s=getSel(); if(s && hasLookToggle(s)) tutti=[s]; }
+  if(!tutti.length) return;
+  if(!posaMancaFile(v, tutti)) return cambiaDisegnoSelezioneOra(v);
+  piediPrimaDiPosa(function(){ cambiaDisegnoSelezioneOra(v, tutti); }, null, function(){ return !posaMancaFile(v, tutti); });   /* gli elementi di allora, anche se nel frattempo la selezione è cambiata */
+}
+function cambiaDisegnoSelezioneOra(v, lista){
+  primaDiAgire();
+  var tutti=lista || selItems().filter(hasLookToggle);
+  if(!lista && !tutti.length){ var s=getSel(); if(s && hasLookToggle(s)) tutti=[s]; }
   if(!tutti.length) return;
   tutti.forEach(function(it){ impostaDisegno(it, v); });
   render(); save(); renderProps();
@@ -30577,7 +30702,7 @@ function leggiiDiItem(it){
   var t=it && TYPES[it.type]; if(!t || it.type==="direttore") return 0;   /* il leggio tablet non ha leggioGlyph: nessun ramo lo conta */
   var n=0;
   if(it.type==="leggio"||it.type==="sedialeggio"||DOUBLE_TYPES[it.type]) n++;   /* le doppie del generatore hanno UN leggio, sempre */
-  else if(POSTAZ[it.type]) n+=((it.doppia && !postArt(it)) || it.leggio!==false) ? 1 : 0;   /* doppia = 1 leggio condiviso; nello schematico si disegna sempre */
+  else if(POSTAZ[it.type]) n+=((it.doppia && !postArtChiave(it)) || it.leggio!==false) ? 1 : 0;   /* doppia = 1 leggio condiviso; nello schematico si disegna sempre */
   else if(VOCE[it.type]) n+=(it.type==="corista" ? it.leggio!==false : (it.type==="cantante" ? !!it.leggio : it.leggio===true)) ? 1 : 0;   /* come i draw delle voci */
   else if(t.gtr) n+=it.leggio ? 1 : 0;
   else if(leggioDiParts(it)) n++;
@@ -41114,7 +41239,8 @@ function buildPdfDoc(paperKey, N, orient, header){
      spengono quando qui sotto ne disegniamo già di nostre — cioè su palco di un pezzo solo. */
   var scena={textK:pdfTextK(N), noBlockDims:pdfQuoteFuoriDalDisegno(box) && stageBlocks().length<2,
     areaFoglio:{x:L.drawX, y:L.drawY, w:L.drawW, h:L.drawH}};   /* fin dove arriva la planimetria: tutta l'area di disegno (pdfVenueLayer) */
-  return loadJsPDF().then(function(){ return (typeof proEsportaAttendi==="function") ? proEsportaAttendi() : null; }).then(function(){   /* 18/11: icone realistiche dei modelli (anche nei progetti esistenti): icons-pro.js al massimo 3 s, mai bloccante */
+  return loadJsPDF().then(function(){ return piediEsportaAttendi(); }).then(function(){ return (typeof proEsportaAttendi==="function") ? proEsportaAttendi() : null; }).then(function(){   /* 19/11: PRIMA di ogni disegno le figure in piedi devono esserci (fino a 20 s), se no l'export SI FERMA (src/icone-piedi.js). 18/11: icone realistiche dei modelli (anche nei progetti esistenti): icons-pro.js al massimo 3 s, mai bloccante */
+    piediControllo();   /* cintura e bretelle: ogni figura in piedi ha vb e body, se no stop (mai un PDF senza il musicista; il ripiego raster sotto non deve mai partire) */
     var jsPDF=window.jspdf.jsPDF;
     var doc=new jsPDF({orientation:L.orient, unit:"mm", format:paperKey, compress:true});
     /* --- PAG 1: planimetria in scala — sempre vettore (svg2pdf). Se sfora, ritaglia (box.vb) tenendo la scala --- */
@@ -41673,7 +41799,8 @@ function palcoEsterniPiano(doc, paperKey, scaleSel, orientSel, d){
   return best;
 }
 function buildPdfPalcoEsterni(paperKey, scaleSel, orientSel){
-  return loadJsPDF().then(function(){
+  return loadJsPDF().then(function(){ return piediEsportaAttendi(); }).then(function(){
+    piediControllo();   /* 19/11: figure in piedi o niente PDF */
     var jsPDF=window.jspdf.jsPDF, d=new Date();
     var P=palcoEsterniPiano(new jsPDF({orientation:"portrait", unit:"mm", format:"a4"}), paperKey, scaleSel, orientSel, d);
     if(!P) throw new Error("Il palco non entra nemmeno a 1:500 su "+paperKey.toUpperCase()+": cambia foglio o area nell'Esporta.");
@@ -41894,7 +42021,7 @@ function exportPdf(paperKey, scaleSel, orient, header){
     try{ rigaProgettoDopoPdf(); }catch(e){}         /* chi ha un account: dove resta il progetto (P2, una volta sola) */
     try{ parereSegna("pdf"); }catch(e){}            /* il primo PDF accende la domanda di parere nel box (P5) */
   }).catch(function(e){
-    info.className="mstatus err"; info.textContent="Errore: "+(e&&e.message||e); window.__pdfScope="full";
+    info.className="mstatus err"; info.textContent=(e&&e.piedi ? "" : "Errore: ")+(e&&e.message||e); window.__pdfScope="full";
   });
 }
 /* IL PNG NON DICEVA NIENTE (02/09). Si premeva «PNG» e per qualche secondo non succedeva
@@ -41926,6 +42053,14 @@ function exportPng(fatto){
   if(_pngInCorso){ if(window.__toast) window.__toast("PNG già in preparazione."); return false; }
   _pngInCorso=true;
   if(window.__toast) window.__toast("Preparo il PNG…");
+  /* 19/11: figure in piedi non ancora arrivate → il PNG aspetta icons-piedi.js (20 s) e, se non arriva, NON si crea (src/icone-piedi.js). Con tutto pronto: subito, come prima */
+  if(piediMancanti(state.items).length){
+    piediEsportaAttendi(null, PIEDI_MSG_PNG).then(function(){ exportPngCorpo(fine); }, function(e){ fine(); showToast(e&&e.message||PIEDI_MSG_PNG,"err"); });
+    return true;
+  }
+  return exportPngCorpo(fine);
+}
+function exportPngCorpo(fine){
   var PX=4000;
   var vbP=pngVbConPianta();   /* con la planimetria accesa il PNG si allarga attorno all'area per mostrarla */
   var dimP=vbP || sceneVbDefault();   /* le proporzioni del riquadro disegnato (area + scritte del palco), non della sola area */
@@ -41973,7 +42108,11 @@ function exportPng(fatto){
    ritagliato ai suoi bordi, con gli elementi sopra, SENZA etichette (niente nomi degli
    elementi, niente FONDO PALCO/PUBBLICO, niente quote). Riusa il flatten di exportPng
    (l'SVG col <style> non si carica come immagine altrimenti). */
-function genThumbnail(){
+function genThumbnail(){   /* 19/11: la miniatura salvata nel cloud non deve avere un musicista mancante: aspetta le figure in piedi (3 s); se non arrivano rifiuta e il progetto si salva senza miniatura */
+  if(!piediMancanti(state.items).length) return genThumbnailCorpo();
+  return piediEsportaAttendi(PIEDI_ATTESA_MINIATURA_MS).then(genThumbnailCorpo);
+}
+function genThumbnailCorpo(){
   return new Promise(function(resolve, reject){
     try {
       recalcStageBBox();

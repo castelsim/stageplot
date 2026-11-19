@@ -32,6 +32,7 @@ var PRECACHE = [
   "/app/",                     /* shell dell'editor (la root è la landing, servita dalla rete) */
   "/app.js",                   /* bundle JS dell'app (caricato defer) — serve offline */
   "/icons.js",                 /* libreria icone estratta dal monolite (caricata async) — serve offline */
+  "/icons-piedi.js",           /* figure dei musicisti in piedi (caricate pigre, l'export le aspetta) — la stampa offline le vuole */
   "/vendor/pdf.min.js",
   "/vendor/supabase.min.js",
   "/vendor/qrcode.min.js",
@@ -40,7 +41,7 @@ var PRECACHE = [
   "/manifest.webmanifest"
 ];
 /* i file che SONO l'editor: devono essere sempre quelli pubblicati per ultimi */
-var SHELL = { "/app/": 1, "/app.js": 1, "/icons.js": 1 };
+var SHELL = { "/app/": 1, "/app.js": 1, "/icons.js": 1, "/icons-piedi.js": 1 };
 /* quanto si aspetta la rete prima di aprire la copia salvata (rete lenta, locale senza campo) */
 var RETE_ATTESA_MS = 4000;
 
