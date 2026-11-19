@@ -21680,14 +21680,27 @@ document.getElementById("pStereoMono").addEventListener("click", function(){ set
 document.getElementById("pStereoStereo").addEventListener("click", function(){ setStereoSel(true); });
 document.getElementById("pRamp").addEventListener("change", function(){ var v=this.value, cfg=RAMP_TYPES[v]; if(!cfg) return; mutSel(function(it){ if(it.type==="cableramp"){ it.rampType=v; it.w=cfg.w; it.d=cfg.d; } }); save(); render(); renderProps(); });   /* passacavi: cambio formato → dimensioni + n° canali */
 document.getElementById("pGaz").addEventListener("change", function(){ var p=this.value.split("x"), w=+p[0], d=+p[1]; if(!w||!d) return; mutSel(function(it){ if(GAZ_TYPES[it.type]){ it.w=w; it.d=d; } }); save(); render(); renderProps(); });   /* gazebo/tende: taglia preset */
-function applicaDisegnoATutti(it){   /* applica il Disegno di «it» (Seduto · In piedi · Strumento) a tutto il progetto + lo fissa come predefinito dei nuovi elementi; «In piedi» solo dove l'icona c'è, gli altri Seduto; un solo passo di annulla. Restituisce il testo del toast */
-  var v=disegnoStato(it); if(!v) return "";
+function applicaDisegnoATutti(it, vForzato){   /* applica il Disegno di «it» (Seduto · In piedi · Strumento) a tutto il progetto + lo fissa come predefinito dei nuovi elementi; «In piedi» solo dove l'icona c'è, gli altri Seduto; un solo passo di annulla. Restituisce il testo del toast */
+  var v=vForzato || disegnoStato(it); if(!v) return "";
+  if(v==="piedi" && !disegnoUi(null, state.items.filter(hasLookToggle)).piedi) return "";   /* «In piedi» senza icone: niente */
   primaDiAgire();
   state.items.forEach(function(o){ if(hasLookToggle(o)) impostaDisegno(o, (v==="piedi" && !POSA_PIEDI[o.type]) ? "seduto" : v); });
   state.lookDefault = v==="strumento" ? "schematico" : "illustrato";
   render(); save();
-  return v==="strumento" ? "Tutto il progetto disegnato come «Strumento»" : v==="piedi" ? "Tutto il progetto disegnato «In piedi» (dove c'è), il resto «Seduto»" : "Tutto il progetto disegnato come «Seduto»";
+  return "Disegno di tutto il progetto: " + (v==="strumento" ? "«Strumento»" : v==="piedi" ? "«In piedi» (dove c'è), il resto «Seduto»" : "«Seduto»");
 }
+function syncDisegnoMenu(){   /* riga «Disegno di tutto il progetto» del menu (desktop e telefono): stato comune di TUTTO il progetto (misti: nessuno acceso), «In piedi» spento se nessuno ha l'icona */
+  var u=disegnoUi(null, state.items.filter(hasLookToggle));
+  Array.prototype.forEach.call(document.querySelectorAll(".dsg-seg [data-dsg]"), function(x){
+    var v=x.getAttribute("data-dsg"), on=(u.stato===v);
+    x.classList.toggle("on", on); x.setAttribute("aria-checked", on ? "true" : "false");
+    x.disabled = (v==="piedi" && !u.piedi);
+  });
+}
+window.syncDisegnoMenu=syncDisegnoMenu;
+Array.prototype.forEach.call(document.querySelectorAll(".dsg-seg [data-dsg]"), function(x){
+  x.addEventListener("click", function(){ if(x.disabled) return; var m=applicaDisegnoATutti(null, x.getAttribute("data-dsg")); if(m && typeof toast==="function") toast(m); syncDisegnoMenu(); });
+});
 document.getElementById("pLookApplyAll").addEventListener("click", function(){ var it=getSel(); if(!it) return; var m=applicaDisegnoATutti(it); if(m && typeof toast==="function") toast(m); });
 document.getElementById("pAbbr").addEventListener("input", function(){ var v=document.getElementById("pAbbr").value; mutSelSoon(function(it){ if(v.trim()) it.abbr=v; else delete it.abbr; }); });
 /* «Applica a tutti» faceva l'OPPOSTO in modalità Sigla: `if(m==="abbr") delete o.labelMode` spegneva
@@ -21801,8 +21814,9 @@ function impostaPosa(it, piedi){
    (il solo strumento). «Strumento» non cancella la posa: resta memorizzata e torna quando si rimette una figura (In piedi la riprende,
    Seduto la toglie). Il busto resta fermo solo passando fra Seduto e In piedi; da Strumento non c'è un busto da seguire. */
 function disegnoStato(it){ if(!it || !hasLookToggle(it)) return null; if(it.look==="schematico") return "strumento"; return inPiedi(it) ? "piedi" : "seduto"; }
-function disegnoUi(it){   /* cosa mostrare: lo stato comune della selezione (misti: nessuno) e se «In piedi» c'è per almeno uno */
-  var g=selItems().filter(hasLookToggle); if(!g.length) g=[it];
+function disegnoUi(it, gruppo){   /* cosa mostrare: lo stato comune della selezione (misti: nessuno) e se «In piedi» c'è per almeno uno */
+  var g=gruppo || selItems().filter(hasLookToggle); if(!g.length && it) g=[it];
+  if(!g.length) return {stato:null, piedi:false};
   var st=disegnoStato(g[0]); g.forEach(function(x){ if(disegnoStato(x)!==st) st=null; });
   return {stato:st, piedi:g.some(function(x){ return !!POSA_PIEDI[x.type]; })};
 }
@@ -25143,6 +25157,7 @@ function renderMobileList(){
     var rr=document.getElementById("mRotRow");
     if(rr) rr.setAttribute("aria-checked", vistaRuotataPref() ? "true" : "false");
     syncSnapSelects();
+    if(window.syncDisegnoMenu) window.syncDisegnoMenu();
   }
   window.renderMobileMenu=renderMobileMenu;
   function toggleMobileMenu(on){ if(!mSheet) return; if(on) renderMobileMenu(); mSheet.classList.toggle("open", on); bd.classList.toggle("show", !!on); syncDrawerA11y(); }
@@ -36337,6 +36352,7 @@ function pdfNomeFileTesto(){
     function open(){
       document.querySelectorAll(".hdrmenu").forEach(function(x){ x.hidden=true; });
       m.hidden=false;
+      if(menuId==="fileMenu" && window.syncDisegnoMenu) window.syncDisegnoMenu();
       var r=b.getBoundingClientRect();
       m.style.top=(r.bottom+4)+"px";
       var left=Math.min(r.left, window.innerWidth-m.offsetWidth-8);
