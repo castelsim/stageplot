@@ -4321,6 +4321,15 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
   <button class="tbar-ico" id="bUndo" title="Annulla (⌘Z)" aria-label="Annulla"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-1"/></svg></button>
   <button class="tbar-ico" id="bRedo" title="Ripeti (⇧⌘Z)" aria-label="Ripeti"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h1"/></svg></button>
   <button class="btn" id="bFit" title="Adatta lo zoom al palco"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><path d="M21 3l-7 7M3 21l7-7"/></svg><span class="hdr-lbl">Adatta</span></button>
+  <span class="snapwrap unitwrap" title="Unità delle misure: metri, piedi e pollici, o entrambe (si salva col progetto)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h18v8H3z"/><path d="M7 8v3M11 8v4M15 8v3M19 8v4"/></svg>
+    <select id="unitSel" aria-label="Unità delle misure">
+      <option value="m">m</option>
+      <option value="ft">ft-in</option>
+      <option value="both">m + ft</option>
+    </select>
+    <span class="snapchev" aria-hidden="true">▾</span>
+  </span>
   <span class="snapwrap" title="Aggancio: come si posizionano gli elementi quando li sposti — su una griglia regolare o liberi">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
     <select id="snapSel" aria-label="Aggancio alla griglia">
@@ -5957,6 +5966,7 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
   <div class="sh">Palco</div>
   <div class="mlist">
     <button class="mrow" data-act="palco"><span class="mrow-t">Misure e forma</span><span class="mrow-v" id="mMenuStage"></span></button>
+    <div class="mrow mrow-var" id="mUnitRow"><span class="mrow-t">Unità delle misure</span><select id="unitSelM" aria-label="Unità delle misure"><option value="m">metri</option><option value="ft">piedi e pollici</option><option value="both">m + ft-in</option></select></div>
     <div class="mrow mrow-col">
       <span class="mrow-t" id="mSnapLbl">Aggancio alla griglia</span>
       <div class="mseg" id="mSnap" role="radiogroup" aria-labelledby="mSnapLbl">

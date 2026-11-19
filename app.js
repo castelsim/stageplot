@@ -4683,6 +4683,8 @@ function cabTaglioUnita(){ return docUnita()==="ft" ? " ft" : " m"; }
 function niceBarFeet(N){ var c=[1,2,5,10,20,50,100], best=c[0]; c.forEach(function(f){ if(f*CM_PER_FT*10/N<=60) best=f; }); return best; }
 /* Pedane in piedi (lotto 7 di analisi/2026-11-16_CATALOGO_PRO): moduli da tour, misure esatte. */
 var PEDANA_MISURE_RAPIDE_FT=[{t:"8'×4'", w:8*CM_PER_FT, d:4*CM_PER_FT},{t:"8'×8'", w:8*CM_PER_FT, d:8*CM_PER_FT},{t:"4'×4'", w:4*CM_PER_FT, d:4*CM_PER_FT},{t:"8'×2'", w:8*CM_PER_FT, d:2*CM_PER_FT}];
+/* Aggancio in piedi (19/11/2026): 6", 1', 2', 3' in centimetri esatti. Le chiavi sono i valori di DOC_EXTRA.snap. */
+var DOC_SNAP_FT={ft6:6*CM_PER_IN, ft12:CM_PER_FT, ft24:2*CM_PER_FT, ft36:3*CM_PER_FT};
 var PEDANA_ALTEZZE_RAPIDE_FT=[{t:"8\"", h:8*CM_PER_IN},{t:"1'", h:CM_PER_FT},{t:"16\"", h:16*CM_PER_IN},{t:"2'", h:2*CM_PER_FT},{t:"3'", h:3*CM_PER_FT},{t:"4'", h:4*CM_PER_FT}];
 
 /* ── DATA ── «Nov 17, 2026»: il mese in lettere, mai 11/17/2026 (un europeo lo legge al contrario). Glossario § Unità e date. */
@@ -22312,28 +22314,47 @@ var snapMode = "25";   /* "0"=libero · "25"/"50"/"100"=griglia cm · "obj"=ogge
    viveva solo in memoria, e ogni ricarica — anche quella automatica dopo un aggiornamento dell'app — lo
    rimetteva a 25. Sta fra le chiavi di servizio del documento (DOC_EXTRA.snap, assente se 25), non nello
    stato della scena: cambiarlo non è lavoro sul disegno e non deve segnare «modificato dopo l'ultimo PDF». */
-function snapValido(v){ return v==="0"||v==="25"||v==="50"||v==="100"||v==="obj"; }   /* funzione, non var: va usata anche da chi apre un documento */
+function snapValido(v){ return v==="0"||v==="25"||v==="50"||v==="100"||v==="obj"||!!DOC_SNAP_FT[v]; }   /* funzione, non var: va usata anche da chi apre un documento */
 function snapDalDocumento(){ var v=DOC_EXTRA && DOC_EXTRA.snap; snapMode=snapValido(v) ? v : "25"; try{ syncSnapSelects(); }catch(e){} }   /* il menu si allinea quando c'è; aprire il documento non deve mai fallire per lui */
+/* Le voci dell'aggancio seguono l'unità del documento (19/11/2026): in piedi 6", 1', 2', 3' (passi esatti, DOC_SNAP_FT), altrimenti 25 cm, 50 cm, 1 m. */
+function snapOpzioni(){ return docUnita()==="ft" ? [["0","Libero"],["ft6","6\""],["ft12","1'"],["ft24","2'"],["ft36","3'"],["obj","Oggetti"]] : [["0","Libero"],["25","25 cm"],["50","50 cm"],["100","1 m"],["obj","Oggetti"]]; }
+function snapOpzioniScrivi(){
+  var o=snapOpzioni(), chiave=o.map(function(x){ return x[0]; }).join(",");
+  ["snapSel","snapSelM"].forEach(function(id){ var el=document.getElementById(id); if(!el || el.__snapChiave===chiave) return; el.__snapChiave=chiave;
+    el.innerHTML=o.map(function(x){ return '<option value="'+x[0]+'">'+x[1]+'</option>'; }).join(""); });
+  var m=document.getElementById("mSnap"); if(m && m.__snapChiave!==chiave){ m.__snapChiave=chiave;
+    m.innerHTML=o.map(function(x){ return '<button type="button" role="radio" data-snap="'+x[0]+'">'+x[1]+'</button>'; }).join(""); }
+}
+/* cambiando unità, l'aggancio passa al passo più vicino dell'altra unità: 25→1', 50→2', 100→3' e ritorno (6"→25, 1'→25, 2'→50, 3'→100) */
+function snapPerUnita(v, ft){ var aFt={"25":"ft12","50":"ft24","100":"ft36"}, aM={ft6:"25",ft12:"25",ft24:"50",ft36:"100"}; return ft ? (aFt[v]||v) : (aM[v]||v); }
+function snapImposta(v){ if(!snapValido(v)) return; snapMode=v; syncSnapSelects();
+  DOC_EXTRA=DOC_EXTRA||{}; if(v==="25") delete DOC_EXTRA.snap; else DOC_EXTRA.snap=v;
+  if(typeof persistLocalState==="function") persistLocalState();
+  if(window.scheduleCloudAutosave) scheduleCloudAutosave(); }
+/* UN solo punto che cambia l'unità: barra in alto, Menu del telefono ed Esporta. Scrive nel progetto, porta con sé l'aggancio e ridisegna. */
+function unitaCambia(v){
+  var prima=docUnita()==="ft"; docUnitaImposta(v); var ora=docUnita()==="ft";
+  if(prima!==ora) snapImposta(snapPerUnita(snapMode, ora));
+  save(); render(); try{ if(typeof renderProps==="function") renderProps(); }catch(_e){}
+  docEsteroSincronizza();
+}
 function syncSnapSelects(){
+  snapOpzioniScrivi();
+  if(!snapOpzioni().some(function(x){ return x[0]===snapMode; })) snapMode=snapPerUnita(snapMode, docUnita()==="ft");   /* aggancio in piedi su un progetto in metri (o il contrario): il passo più vicino, senza riscrivere il documento */
   var a=document.getElementById("snapSel"), b=document.getElementById("snapSelM");
   if(a) a.value=snapMode; if(b) b.value=snapMode;
-  /* sul telefono l'aggancio è una fila di cinque bottoni nel Menu (13/09): stesso stato, un solo punto che li allinea */
+  /* sul telefono l'aggancio è una fila di bottoni nel Menu (13/09): stesso stato, un solo punto che li allinea */
   Array.prototype.forEach.call(document.querySelectorAll("#mSnap [data-snap]"), function(x){
     var on=x.getAttribute("data-snap")===snapMode;
     x.classList.toggle("on", on); x.setAttribute("aria-checked", on ? "true" : "false");
   });
 }
 (function(){
-  var a=document.getElementById("snapSel"), b=document.getElementById("snapSelM");
-  function set(v){ if(!snapValido(v)) return; snapMode=v; syncSnapSelects();
-    DOC_EXTRA=DOC_EXTRA||{}; if(v==="25") delete DOC_EXTRA.snap; else DOC_EXTRA.snap=v;
-    if(typeof persistLocalState==="function") persistLocalState();
-    if(window.scheduleCloudAutosave) scheduleCloudAutosave(); }
-  if(a) a.addEventListener("change", function(){ set(this.value); });
-  if(b) b.addEventListener("change", function(){ set(this.value); });
-  Array.prototype.forEach.call(document.querySelectorAll("#mSnap [data-snap]"), function(x){
-    x.addEventListener("click", function(){ set(x.getAttribute("data-snap")); });
-  });
+  var a=document.getElementById("snapSel"), b=document.getElementById("snapSelM"), m=document.getElementById("mSnap");
+  if(a) a.addEventListener("change", function(){ snapImposta(this.value); });
+  if(b) b.addEventListener("change", function(){ snapImposta(this.value); });
+  if(m) m.addEventListener("click", function(e){ var x=e.target && e.target.closest ? e.target.closest("[data-snap]") : null; if(x) snapImposta(x.getAttribute("data-snap")); });   /* i bottoni si rifanno al cambio di unità: ascolto sul contenitore */
+  ["unitSel","unitSelM"].forEach(function(id){ var u=document.getElementById(id); if(u) u.addEventListener("change", function(){ unitaCambia(this.value); }); });
   syncSnapSelects();
 })();
 /* bottone "Nomi" globale rimosso: sostituito dal controllo nome per-elemento (labelMode full/abbr/hidden nel pannello dettagli). Il LOD auto (nascondi a scala minima) resta attivo di default via state.namesMode='auto'. */
@@ -23686,10 +23707,12 @@ document.getElementById("mW").addEventListener("change", function(){ applyStageW
 document.getElementById("mD").addEventListener("change", function(){ applyStageDepth(this.value); });
 /* `snapMode` è dichiarata più in alto, prima di syncSnapSelects (16/09) */
 function snapVal(){ if(window.__custEditor) return custAggancio ? custPasso() : 0;   /* «Crea elemento»: la griglia fine dell'editor */
+  if(DOC_SNAP_FT[snapMode]) return DOC_SNAP_FT[snapMode];   /* piedi (19/11/2026): 6", 1', 2', 3' esatti */
   var v=parseInt(snapMode,10); return (isNaN(v)||v<=0) ? 0 : v; }
 /* l'aggancio che vale adesso: nell'editor «Crea elemento» la griglia in cm (passo secondo lo zoom) o libero */
 function snapModeEff(){ return window.__custEditor ? (custAggancio ? "cust" : "0") : snapMode; }
-function snap(v){ var s=snapVal(); return s>0 ? Math.round(v/s)*s : Math.round(v); }
+function snapQ(v, s){ var r=Math.round(v/s)*s; return (s%1===0) ? r : Math.round(r*100)/100; }   /* passi in piedi (non interi): al centesimo di cm, senza 91.44000000000001 */
+function snap(v){ var s=snapVal(); return s>0 ? snapQ(v, s) : Math.round(v); }
 function placeCoord(v,e){ return (e && (e.metaKey||e.ctrlKey)) ? Math.round(v) : snap(v); }
 
 /* ===== Snap magnetico a lati e centri del palco ===== */
@@ -26043,7 +26066,7 @@ svg.addEventListener("pointermove", function(e){
   if(drag.mode==="cabseg"){   /* editing Max: trascina il LATO in perpendicolare; gli angoli si formano da soli */
     sp=svgPoint(e);
     var val=(drag.ori==="h") ? Math.round(sp.y) : Math.round(sp.x);
-    var gstep=snapVal(); if(gstep>0) val=Math.round(val/gstep)*gstep;   /* Align: snap del lato alla griglia (come Max) */
+    var gstep=snapVal(); if(gstep>0) val=snapQ(val, gstep);   /* Align: snap del lato alla griglia (come Max) */
     var WP=cabCleanPoly(cabMoveSeg(drag.fp0, drag.si, drag.ori, val));
     var ms=cabManual(drag.key); ms.pts=WP.slice(1,-1); drag.moved=true; __cabRes=null; redrawStageLayers();
     return;
@@ -26065,7 +26088,7 @@ svg.addEventListener("pointermove", function(e){
   if(drag.mode==="elecseg"){   /* linea elettrica: trascina il LATO in perpendicolare (come l'audio) */
     sp=svgPoint(e);
     var valE=(drag.ori==="h") ? Math.round(sp.y) : Math.round(sp.x);
-    var gstepE=snapVal(); if(gstepE>0) valE=Math.round(valE/gstepE)*gstepE;
+    var gstepE=snapVal(); if(gstepE>0) valE=snapQ(valE, gstepE);
     var WPE=cabCleanPoly(cabMoveSeg(drag.fp0, drag.si, drag.ori, valE));
     if(drag.key.indexOf("up:")===0){ state.elec.uplinks=state.elec.uplinks||{}; var ue=state.elec.uplinks[drag.key.slice(3)]||(state.elec.uplinks[drag.key.slice(3)]={}); ue.pts=WPE.slice(1,-1); }
     else { var msE=elecManual(drag.key); msE.pts=WPE.slice(1,-1); }
@@ -26080,7 +26103,7 @@ svg.addEventListener("pointermove", function(e){
   if(drag.mode==="mondseg"){   /* monitor digitale: trascina il LATO (come l'audio/elettrico) */
     sp=svgPoint(e);
     var valm=(drag.ori==="h") ? Math.round(sp.y) : Math.round(sp.x);
-    var gm=snapVal(); if(gm>0) valm=Math.round(valm/gm)*gm;
+    var gm=snapVal(); if(gm>0) valm=snapQ(valm, gm);
     var WPm=cabCleanPoly(cabMoveSeg(drag.fp0, drag.si, drag.ori, valm));
     mondManual(drag.key).pts=WPm.slice(1,-1); drag.moved=true; __mondRes=null; redrawStageLayers();
     return;
@@ -41813,6 +41836,8 @@ function renderDiffVersioni(){
 function docEsteroSincronizza(){
   var l=document.getElementById("pdfDocLingua"), u=document.getElementById("pdfDocUnita"), h=document.getElementById("pdfDocUnitaHint");
   if(l) l.value=docLingua(); if(u) u.value=docUnita();
+  ["unitSel","unitSelM"].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=docUnita(); });   /* barra in alto e Menu del telefono */
+  try{ syncSnapSelects(); }catch(_e){}   /* le voci dell'aggancio seguono l'unità */
   if(h) h.hidden=!(docEn() && docUnita()==="m");
 }
 (function(){
@@ -43006,8 +43031,8 @@ function pdfChannelPage(doc, L, paperKey){
   var docEsteroCambiato=function(){ save(); render(); try{ if(typeof renderProps==="function") renderProps(); }catch(_e){} docEsteroSincronizza(); refresh(); };
   var _dl=document.getElementById("pdfDocLingua"), _du=document.getElementById("pdfDocUnita"), _dft=document.getElementById("pdfDocUnitaFt");
   if(_dl) _dl.addEventListener("change", function(){ docLinguaImposta(_dl.value); docEsteroCambiato(); });
-  if(_du) _du.addEventListener("change", function(){ docUnitaImposta(_du.value); docEsteroCambiato(); });
-  if(_dft) _dft.addEventListener("click", function(){ docUnitaImposta("ft"); docEsteroCambiato(); });
+  if(_du) _du.addEventListener("change", function(){ unitaCambia(_du.value); refresh(); });
+  if(_dft) _dft.addEventListener("click", function(){ unitaCambia("ft"); refresh(); });
   var orgChk=document.getElementById("pdfOrganico");
   if(orgChk) orgChk.addEventListener("change", function(){
     if(orgChk.checked) state.pdfOrganico=true; else delete state.pdfOrganico;
