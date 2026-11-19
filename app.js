@@ -20402,6 +20402,14 @@ function renderProps(){
     document.getElementById("grpLeggioWrap").style.display = allLeggio ? "" : "none";
     if(allSedia) document.getElementById("grpSedia").checked = its.every(function(it){ return optSedia(it); });
     if(allLeggio) document.getElementById("grpLeggio").checked = its.every(function(it){ return it.leggio!==false; });
+    var _gl=its.filter(hasLookToggle), _glw=document.getElementById("grpLookWrap");   /* riga «Disegno»: stessi tre pulsanti del pannello singolo, su tutti i selezionati che li hanno */
+    if(_glw){ _glw.style.display=_gl.length?"block":"none";
+      if(_gl.length){ var _dg=disegnoUi(_gl[0]);
+        document.getElementById("grpLookIll").className="btn"+(_dg.stato==="seduto"?" primary":"");
+        document.getElementById("grpLookPie").className="btn"+(_dg.stato==="piedi"?" primary":"");
+        document.getElementById("grpLookSch").className="btn"+(_dg.stato==="strumento"?" primary":"");
+        var _gp=document.getElementById("grpLookPie"); _gp.disabled=!_dg.piedi; _gp.setAttribute("aria-disabled", _dg.piedi?"false":"true");
+        _gp.style.opacity=_dg.piedi?"":"0.45"; _gp.style.cursor=_dg.piedi?"":"not-allowed"; } }
     grpSepRender(its);   /* distanza tra i 2, se nella selezione ci sono postazioni a 2 */
     grpLegDistRender(its);   /* distanza leggio, se nella selezione ci sono leggii da spostare (05/11/2026) */
     /* --- batch STAGE BOX (Simone 21/07): input/uscite/modello per TUTTE le box selezionate insieme --- */
@@ -21664,12 +21672,23 @@ function lookReset(it, mode){
 document.getElementById("pLookIll").addEventListener("click", function(){ cambiaDisegnoSelezione("seduto"); });   /* seduto = illustrato di serie (non memorizzato); ricalcola footprint */
 document.getElementById("pLookPie").addEventListener("click", function(){ if(!this.disabled) cambiaDisegnoSelezione("piedi"); });
 document.getElementById("pLookSch").addEventListener("click", function(){ cambiaDisegnoSelezione("strumento"); });
+document.getElementById("grpLookIll").addEventListener("click", function(){ cambiaDisegnoSelezione("seduto"); });
+document.getElementById("grpLookPie").addEventListener("click", function(){ if(!this.disabled) cambiaDisegnoSelezione("piedi"); });
+document.getElementById("grpLookSch").addEventListener("click", function(){ cambiaDisegnoSelezione("strumento"); });
 function setStereoSel(v){ mutSel(function(it){ var c=STEREO_TOGGLE[it.type]; if(!c) return; if(c.def===v) delete it.stereo; else it.stereo=v; }); __cabRes=null; save(); render(); renderProps(); }   /* uscita mono/stereo: memorizza solo l'override rispetto al default del tipo */
 document.getElementById("pStereoMono").addEventListener("click", function(){ setStereoSel(false); });
 document.getElementById("pStereoStereo").addEventListener("click", function(){ setStereoSel(true); });
 document.getElementById("pRamp").addEventListener("change", function(){ var v=this.value, cfg=RAMP_TYPES[v]; if(!cfg) return; mutSel(function(it){ if(it.type==="cableramp"){ it.rampType=v; it.w=cfg.w; it.d=cfg.d; } }); save(); render(); renderProps(); });   /* passacavi: cambio formato → dimensioni + n° canali */
 document.getElementById("pGaz").addEventListener("change", function(){ var p=this.value.split("x"), w=+p[0], d=+p[1]; if(!w||!d) return; mutSel(function(it){ if(GAZ_TYPES[it.type]){ it.w=w; it.d=d; } }); save(); render(); renderProps(); });   /* gazebo/tende: taglia preset */
-document.getElementById("pLookApplyAll").addEventListener("click", function(){ var it=getSel(); if(!it) return; var lk=(it.look==="schematico")?"schematico":"illustrato"; state.lookDefault=lk; state.items.forEach(function(o){ if(hasLookToggle(o)){ lookCambia(o,lk); recalcItemDims(o); } }); render(); save(); if(typeof toast==="function") toast(lk==="schematico"?"Tutto il progetto disegnato come «Strumento solo»":"Tutto il progetto disegnato come «Postazione»"); });   /* B4: applica l'aspetto a tutti gli elementi + lo fissa come predefinito del progetto (nuovi elementi inclusi) */
+function applicaDisegnoATutti(it){   /* applica il Disegno di «it» (Seduto · In piedi · Strumento) a tutto il progetto + lo fissa come predefinito dei nuovi elementi; «In piedi» solo dove l'icona c'è, gli altri Seduto; un solo passo di annulla. Restituisce il testo del toast */
+  var v=disegnoStato(it); if(!v) return "";
+  primaDiAgire();
+  state.items.forEach(function(o){ if(hasLookToggle(o)) impostaDisegno(o, (v==="piedi" && !POSA_PIEDI[o.type]) ? "seduto" : v); });
+  state.lookDefault = v==="strumento" ? "schematico" : "illustrato";
+  render(); save();
+  return v==="strumento" ? "Tutto il progetto disegnato come «Strumento»" : v==="piedi" ? "Tutto il progetto disegnato «In piedi» (dove c'è), il resto «Seduto»" : "Tutto il progetto disegnato come «Seduto»";
+}
+document.getElementById("pLookApplyAll").addEventListener("click", function(){ var it=getSel(); if(!it) return; var m=applicaDisegnoATutti(it); if(m && typeof toast==="function") toast(m); });
 document.getElementById("pAbbr").addEventListener("input", function(){ var v=document.getElementById("pAbbr").value; mutSelSoon(function(it){ if(v.trim()) it.abbr=v; else delete it.abbr; }); });
 /* «Applica a tutti» faceva l'OPPOSTO in modalità Sigla: `if(m==="abbr") delete o.labelMode` spegneva
    la sigla su tutti gli elementi dello stesso tipo — compreso quello selezionato, che è anche lui in
@@ -24413,6 +24432,7 @@ function addItem(type, over, silenzioso){   /* silenzioso (06/10/2026): crea e m
   }
   if(COMP[type]){ it.parts=compClone(COMP[type].newParts||COMP[type].defParts); if(COMP[type].size){ var sz=COMP[type].size(it); it.w=sz[0]; it.d=sz[1]; } }   /* newParts: un elemento NUOVO può nascere più completo di come si riapre un progetto vecchio (percussioni, 13/10) */
   if(type==="miczone") it.zcol=micZoneFreeColor();   /* ogni zona nasce con un colore diverso */
+  if(over && over.posa==="piedi" && hasLookToggle(it)){ delete it.look; if(POSTAZ[type]) it.leggio=true; }   /* «Tromba · in piedi» vince sul predefinito «Strumento» del progetto: nasce in piedi, con la figura (la sedia non conta in piedi) */
   if(over) Object.keys(over).forEach(function(k){ it[k]=over[k]; });
   if(it.posa!=null){ if(inPiedi(it)) recalcItemDims(it); else delete it.posa; }   /* sax in piedi dal catalogo/ricerca: ingombro della posa */
   if(type==="scala" && !(over && over.d!=null)) it.dAuto=+it.d;   /* nasce dal motore: la lunghezza segue i gradini finché l'utente non la cambia (16/11) */

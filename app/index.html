@@ -24,7 +24,7 @@
      due release nello stesso giorno restano distinguibili in telemetria e supporto. In locale/dev
      resta il placeholder. La sentinella del VALORE è distinta dall'identificatore window.__BUILD_ID__
      così il sed della CI non tocca il nome della variabile. -->
-<script>window.__APP_VERSION__="2026.11.18";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
+<script>window.__APP_VERSION__="2026.11.19";window.__BUILD_ID__="__BUILD_SHA_PLACEHOLDER__";try{console.info("StagePlot "+window.__APP_VERSION__+" · build "+(window.__BUILD_ID__.indexOf("PLACEHOLDER")>=0?"dev":window.__BUILD_ID__));}catch(e){}</script>
 <script>/* Handler globale errori (audit R1): un'eccezione non gestita non deve lasciare l'UI muta.
   Log in console + un avviso discreto (throttled), rassicurando che il lavoro non è andato perso.
   Ignora il rumore: "Script error." cross-origin ed errori di caricamento risorse (img/script/link). */
@@ -5384,6 +5384,14 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
       <div class="hint" style="font-size:11px;color:var(--text-3);margin-bottom:4px">Applica a tutti gli elementi selezionati:</div>
       <label class="chk" id="grpSediaWrap"><input type="checkbox" id="grpSedia"> Sedia</label>
       <label class="chk" id="grpLeggioWrap"><input type="checkbox" id="grpLeggio"> Leggio</label>
+    </div>
+    <div id="grpLookWrap" style="display:none;margin-bottom:8px">
+      <div class="hint" style="font-size:11px;color:var(--text-3);margin-bottom:4px">Disegno</div>
+      <div style="display:flex;gap:4px">
+        <button class="btn" id="grpLookIll" style="flex:1;font-size:12px;padding:5px 2px" title="Il musicista seduto, in scala reale">Seduto</button>
+        <button class="btn" id="grpLookPie" style="flex:1;font-size:12px;padding:5px 2px" title="Il musicista in piedi, senza sedia">In piedi</button>
+        <button class="btn" id="grpLookSch" style="flex:1;font-size:12px;padding:5px 2px" title="Il solo strumento">Strumento</button>
+      </div>
     </div>
     <!-- Distanza leggio per TUTTI gli elementi selezionati che hanno un leggio (05/11/2026): stesso cursore del
          pannello singolo; valori diversi → «diversi», muovendolo diventano uguali. -->

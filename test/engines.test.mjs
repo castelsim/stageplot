@@ -32018,7 +32018,7 @@ t("Postazione ↔ Strumento solo: lo stage piano tiene il musicista dalla stessa
   ok(/getElementById\("pLookIll"\)\.addEventListener\("click", function\(\)\{ cambiaDisegnoSelezione\("seduto"\)/.test(appjs), "il pulsante Seduto passa da impostaDisegno");
   ok(/getElementById\("pLookSch"\)\.addEventListener\("click", function\(\)\{ cambiaDisegnoSelezione\("strumento"\)/.test(appjs), "il pulsante Strumento passa da impostaDisegno");
   ok(/function impostaDisegno[\s\S]{0,400}lookCambia\(it,"schematico"\)[\s\S]{0,400}lookCambia\(it,"illustrato"\)/.test(appjs), "e impostaDisegno usa lookCambia (il giro dello stage piano resta)");
-  ok(/if\(hasLookToggle\(o\)\)\{ lookCambia\(o,lk\);/.test(appjs), "«Applica a tutti» usa lookCambia");
+  ok(/function applicaDisegnoATutti[\s\S]{0,500}if\(hasLookToggle\(o\)\) impostaDisegno\(o,/.test(appjs), "«Applica a tutti» passa da impostaDisegno (che usa lookCambia)");
 });
 t("DI dello strumento: sempre dritta, e nasce in un punto libero accanto alla sorgente", () => {
   reset();
@@ -36686,6 +36686,51 @@ t("Inventario/navigazione (18/11): tabella ↔ scheda sempre nella STESSA scheda
   eq(R({ slug: "ava", t: 1000, y: "9e99", cod: "<img>", filtro: { tipo: "x'; drop", stato: "boh", testo: "t".repeat(500), ordine: "../" } }, "ava", ora, "back_forward"), { filtro: { tipo: "", stato: "", testo: "t".repeat(200), ordine: "codice" }, y: 100000, cod: "" }, "valori ripuliti: nel sessionStorage non ci si fida di niente");
   ok(/sessionStorage\.removeItem\(CHIAVE_RITORNO\)/.test(area) && /pageshow/.test(area) && /ev\.persisted/.test(area) && /rit \? window\.scrollTo\(0, rit\.y\)|if \(rit\) \{ window\.scrollTo\(0, rit\.y\)/.test(area), "il ritorno vale una volta sola; con la pagina rimasta in cache non si ripristina niente");
   ok(/\.inv-torna\{display:inline-flex[^}]*min-height:34px/.test(readFileSync(join(root, "i/inv.css"), "utf8")) && /@media print\{\.inv-torna\{display:none\}\}/.test(readFileSync(join(root, "i/inv.css"), "utf8")), "«← Inventario»: piccolo (34 px), mai in stampa");
+});
+
+/* Rifiniture #160 (19/11): «Applica a tutti» col Disegno nuovo, riga «Disegno» nel pannello di gruppo, «Tromba · in piedi» con tutto il progetto su «Strumento» */
+t("Applica a tutti (19/11): usa Seduto · In piedi · Strumento, «In piedi» solo dove c'è l'icona, un solo annulla, toast coi nomi nuovi", () => {
+  conIconePiedi(() => {
+    A.state.items = []; A.selSet = {}; A.state.lookDefault = "illustrato";
+    const sx = add("saxtenore", 400, 300), cl = add("clarinetto", 600, 300);
+    A.selSet = {}; A.selSet[sx.id] = true; A.sel = sx.id;
+    A.cambiaDisegnoSelezione("piedi");
+    const m = A.applicaDisegnoATutti(sx);
+    eq([A.disegnoStato(sx), A.disegnoStato(cl)], ["piedi", "seduto"], "In piedi dove c'è l'icona, Seduto dove non c'è (cl non resta in piedi né in Strumento)");
+    eq(A.state.lookDefault, "illustrato", "predefinito del progetto: figura");
+    ok(/In piedi/.test(m) && /Seduto/.test(m) && !/Strumento solo|Postazione/.test(m), "toast coi nomi nuovi: " + m);
+    A.selSet = {}; A.selSet[sx.id] = true; A.sel = sx.id; A.cambiaDisegnoSelezione("strumento");
+    const m2 = A.applicaDisegnoATutti(sx);
+    eq([A.disegnoStato(sx), A.disegnoStato(cl), A.state.lookDefault], ["strumento", "strumento", "schematico"], "Strumento a tutti + predefinito schematico");
+    ok(/«Strumento»/.test(m2) && !/solo/.test(m2), "toast Strumento: " + m2);
+    A.state.lookDefault = "illustrato";
+  });
+  ok(!/Strumento solo»":"Tutto il progetto/.test(appjs) && !/«Postazione»"\)/.test(appjs), "niente più i nomi vecchi nel toast");
+});
+t("Pannello di gruppo (19/11): riga «Disegno» con Seduto · In piedi · Strumento sui selezionati", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="grpLookWrap"/.test(html) && /id="grpLookIll"[^>]*>Seduto</.test(html) && /id="grpLookPie"[^>]*>In piedi</.test(html) && /id="grpLookSch"[^>]*>Strumento</.test(html), "i tre pulsanti nel pannello di gruppo");
+  ok(/getElementById\("grpLookIll"\)\.addEventListener\("click", function\(\)\{ cambiaDisegnoSelezione\("seduto"\)/.test(appjs.replace(/\s+/g, " ")) && /grpLookSch"\)\.addEventListener\("click", function\(\)\{ cambiaDisegnoSelezione\("strumento"\)/.test(appjs.replace(/\s+/g, " ")), "collegati a cambiaDisegnoSelezione");
+  conIconePiedi(() => {
+    A.state.items = []; A.selSet = {};
+    const a = add("saxtenore", 300, 200), b = add("saxalto", 500, 200);
+    A.selSet = {}; A.selSet[a.id] = true; A.selSet[b.id] = true; A.sel = a.id;
+    A.cambiaDisegnoSelezione("piedi");
+    eq([A.disegnoStato(a), A.disegnoStato(b)], ["piedi", "piedi"], "il gruppo va In piedi insieme");
+    eq(A.disegnoUi(a).stato, "piedi", "stato acceso del gruppo");
+    A.cambiaDisegnoSelezione("seduto");
+    eq([A.disegnoStato(a), A.disegnoStato(b)], ["seduto", "seduto"], "e torna Seduto");
+  });
+});
+t("«Tromba · in piedi» con progetto su «Strumento» (19/11): la voce del catalogo vince sul predefinito, le altre restano Strumento", () => {
+  conIconePiedi(() => {
+    const L = iconeVere(); A.LIB_ICONS.musTrombaPiedi = L.musTrombaPiedi; A.LIB_ICONS.musTromba = L.musTromba;
+    A.state.items = []; A.selSet = {}; A.state.lookDefault = "schematico";
+    const tp = add("tromba", 300, 300, { posa: "piedi" }), t2 = add("tromba", 500, 300);
+    eq([A.disegnoStato(tp), tp.posa], ["piedi", "piedi"], "nasce In piedi, non Strumento, e la posa non si cancella");
+    eq(A.disegnoStato(t2), "strumento", "senza la voce «in piedi» resta Strumento");
+    A.state.lookDefault = "illustrato";
+  });
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
