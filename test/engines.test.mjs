@@ -36796,7 +36796,7 @@ const norm = (s) => String(s).replace(/L\d+_/g, "L#_");   /* i prefissi degli id
 
 t("split 1: ogni art/art2 di POSA_PIEDI sta in icons-piedi.js (vb, body, dc) e in nessun altro file; percussionistaInPiedi resta in icons.js; icons.js è sceso", () => {
   const P = iconeFile("icons-piedi.js"), G = iconeFile("icons.js"), ks = chiaviPiedi();
-  eq(ks.length, 15, "15 figure: le 6 di L1 + le 9 dell orchestra (L2)");
+  eq(ks.length, 19, "19 figure: le 6 di L1 + le 9 dell orchestra (L2) + le 4 della band e dei tipi propri (L3: basso, chitarra elettrica, acustica, fisarmonica; il trombone basso usa quella del trombone)");
   ks.forEach((k) => {
     ok(P[k] && P[k].vb && typeof P[k].body === "string" && P[k].body.length > 1000 && Array.isArray(P[k].dc), k + ": in icons-piedi.js con vb, body, dc");
     ok(!(k in G), k + ": NON in icons.js");
@@ -37028,7 +37028,7 @@ t("orchestra in piedi (L2): la ricerca e il catalogo hanno la voce «· in piedi
     eq([a.posa, a.w, a.d], ["piedi", s[0], s[1]], tp + ": dal catalogo nasce in piedi con l'ingombro della posa");
     const g = A.TYPES[tp].draw(a);
     ok(new RegExp("L\\d+_" + k + "_").test(g), tp + ": disegna la figura in piedi");
-    ok(!/class="ic soft"|<circle[^>]*class="ic soft"/.test(g.replace(/<g transform="translate\(0,\d+\)">[\s\S]*?<\/g>$/, "")) || true, tp + ": disegnato");
+    ok(!/<rect class="ic soft"/.test(g.replace(/<g transform="translate\(0,\d+\)">[\s\S]*?<\/g>$/, "")), tp + ": nessuna sedia disegnata accanto alla figura in piedi");   /* L3: era un'asserzione vuota («|| true») */
     delete a.posa; ok(!new RegExp("L\\d+_" + k + "_").test(A.TYPES[tp].draw(a)), tp + ": seduto non compare la figura in piedi");
   }
   A.state.items = [];
@@ -37047,6 +37047,172 @@ t("orchestra in piedi (L2): se la figura di un tipo nuovo manca nel secondo file
     }
   } finally { A.LIB_ICONS = prima; A._piediStato = statoPrima; A.state.items = []; }
 });
+
+
+/* ═══ L3 BAND e TIPI PROPRI in piedi (19/11/2026): basso, chitarra elettrica, chitarra acustica (LOOK_ART) · trombone basso, fisarmonica (tipi propri, solo posa) ═══ */
+const BAND = {   /* tipo: [icona, larghezza figura, profondità figura, s, dc approvato (analisi/2026-11-19_ICONE_PIEDI_PIANO/lib/INGOMBRI.md), ingombro seduto di oggi] */
+  bassstand: ["musBassoPiedi", 96.81, 44.74, [97, 45], [0, -11.91], [97, 79]], gtstand: ["musChitElettricaPiedi", 88.02, 51.76, [88, 52], [-0.01, -12.71], [88, 87]],
+  gtacustica: ["musChitAcusticaPiedi", 86.01, 50.01, [86, 50], [0, -13.43], [86, 88]],
+  musTromboneBasso: ["musTrombonePiedi", 58.78, 113.63, [59, 114], [1.11, 0.01], [61, 114]], musFisarmonica: ["musFisarmonicaPiedi", 82.22, 76.55, [82, 77], [0.01, -9.58], [82, 96]]
+};
+const BAND_LOOK = ["bassstand", "gtstand", "gtacustica"], BAND_PROPRI = ["musTromboneBasso", "musFisarmonica"];
+t("band in piedi (L3): le 4 icone nuove (il trombone basso usa quella del trombone) sono pulite, col riquadro e lo scarto dc approvati, stanno solo in icons-piedi.js; POSA_PIEDI e ingombri", () => {
+  const P = iconeFile("icons-piedi.js"), G = iconeFile("icons.js");
+  for (const [tp, [k, w, h, s, dc, sed]] of Object.entries(BAND)) {
+    const e = P[k]; ok(e && e.body, tp + ": manca " + k); ok(!(k in G), k + ": NON in icons.js");
+    ok(Math.abs(e.vb[2] - w) < 0.05 && Math.abs(e.vb[3] - h) < 0.05 && e.vb[0] === 0 && e.vb[1] === 0, k + ": riquadro " + w + "×" + h + " (" + e.vb + ")");
+    eq(e.dc, dc, k + ": scarto del centro approvato");
+    ok(!/<(clipPath|mask|image|filter|use|style|linearGradient|radialGradient|text)\b|clip-path|transform=|class=|style=/.test(e.body), k + ": niente clip, maschere, trasformazioni, stili");
+    ok(!/[-\d]\.\d{3,}/.test(e.body.replace(/stroke-width="[^"]*"/g, "")), k + ": coordinate a 2 decimali");
+    eq(A.POSA_PIEDI[tp].art, k, tp + ": in POSA_PIEDI con la sua icona");
+    eq(A.POSA_PIEDI[tp].s, s, tp + ": ingombro = misura del disegno (senza leggio)");
+    eq(A.POSA_PIEDI[tp].s, [Math.round(e.vb[2]), Math.round(e.vb[3])], tp + ": s coincide con la vb arrotondata (è la misura di ripiego senza il file)");
+    ok(!A.POSA_PIEDI[tp].dbl, tp + ": nessuna doppia (non è una postazione con leggio)");
+  }
+  eq(Object.keys(A.POSA_SOLO).sort(), BAND_PROPRI.slice().sort(), "i tipi propri con la sola posa sono il trombone basso e la fisarmonica");
+  BAND_LOOK.forEach(tp => ok(A.LOOK_ART[tp] && !A.POSA_SOLO[tp], tp + ": LOOK_ART, ha anche «Strumento»"));
+  const L = iconeVere();   /* il dc del trombone basso vale solo se la sua icona seduta ha la stessa vb del trombone */
+  eq(L.musTromboneBasso.vb, L.musTrombone.vb, "trombone basso seduto = stesse misure del trombone (stesso dc)");
+});
+t("band in piedi (L3): seduto = come ieri; in piedi = ingombro della posa, zero sedie, JSON e import; «Strumento» fa dormire la posa", () => conPiediTutte(() => {
+  for (const [tp, [k, , , s, , sed]] of Object.entries(BAND)) {
+    A.state.items = [];
+    const a = add(tp, 400, 300);
+    ok(!("posa" in a), tp + ": nuovo = seduto, nessun campo"); eq([a.w, a.d], sed, tp + ": ingombro seduto di sempre");
+    if (BAND_LOOK.includes(tp)) a.sedia = true;
+    const ca0 = A.countAccessori(); if (BAND_LOOK.includes(tp)) eq(ca0.sedie, 1, tp + ": seduto con sedia = 1 sedia");
+    a.posa = "piedi"; A.recalcItemDims(a);
+    eq([a.w, a.d], s, tp + ": in piedi = misura del disegno"); eq(A.inPiedi(a), true, tp + ": inPiedi");
+    eq(A.countAccessori().sedie, 0, tp + ": in piedi zero sedie (anche con it.sedia=true)"); eq(A.optSedia(a), false, tp + ": optSedia falso");
+    ok(!/0 sedie|0 sedute/.test(JSON.stringify(A.pdfTotals({ tecnici: true, canali: false }))), tp + ": il cartiglio non dice «0 sedie»");
+    ok(!A.pdfTotals({ tecnici: true, canali: false }).some(x => /sedut/.test(x)), tp + ": il cartiglio non ha la riga sedute");
+    const g = A.sanitizeItems([{ type: tp, x: 1, y: 2, posa: "piedi" }, { type: tp, x: 1, y: 2, posa: "boh" }]);
+    eq(g.map(i => i.posa), ["piedi", undefined], tp + ": import: «piedi» sì, ogni altro valore = seduto"); eq([g[0].w, g[0].d], s, tp + ": l'ingombro in piedi si ricalcola all'import");
+    delete a.posa; A.recalcItemDims(a); ok(!("posa" in a), tp + ": tornato seduto, campo sparito");
+    eq([a.w, a.d], sed, tp + ": e ingombro seduto di nuovo quello di prima");
+    ok(!/"posa"/.test(JSON.stringify(a)), tp + ": seduto = nel JSON non c'è «posa»");
+  }
+  /* «Strumento»: la posa dorme (solo dove c'è un disegno schematico) */
+  for (const tp of BAND_LOOK) {
+    A.state.items = []; const a = add(tp, 300, 300, { posa: "piedi" }); eq(A.inPiedi(a), true, tp);
+    A.impostaDisegno(a, "strumento"); eq([a.look, a.posa, A.inPiedi(a)], ["schematico", "piedi", false], tp + ": «Strumento»: look schematico, la posa resta memorizzata ma non si disegna");
+    eq(A.look2Art(a), null, tp + ": nessuna figura in «Strumento»"); A.impostaDisegno(a, "piedi"); eq([a.look, A.inPiedi(a)], ["illustrato", true], tp + ": In piedi la riprende (rimette la figura)");
+  }
+  for (const tp of BAND_PROPRI) {
+    A.state.items = []; const a = add(tp, 300, 300, { posa: "piedi" });
+    eq([A.hasLookToggle(a), A.hasStrumento(a)], [true, false], tp + ": ha il controllo Disegno ma NON «Strumento»");
+    A.impostaDisegno(a, "strumento"); eq([a.look, A.inPiedi(a)], [undefined, true], tp + ": «Strumento» non fa niente (nessun disegno schematico)");
+    const u = A.disegnoUi(a); eq([u.piedi, u.strumento, u.stato], [true, false, "piedi"], tp + ": il controllo mostra solo Seduto · In piedi");
+  }
+  A.state.items = []; const solo = add("gtstand", 100, 100); eq(A.disegnoUi(solo).strumento, true, "le chitarre hanno anche «Strumento»");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/getElementById\("pLookSch"\)\.style\.display=dg\.strumento\?"":"none"/.test(appjs) && /getElementById\("grpLookSch"\)\.style\.display=_dg\.strumento\?"":"none"/.test(appjs), "il pulsante «Strumento» si nasconde (pannello singolo e di gruppo) dove non c'è");
+  ok(/id="pLookSch"/.test(html), "e il pulsante resta nel pannello");
+}));
+t("band in piedi (L3): predefinito «Strumento» del progetto: i tipi propri non lo ereditano; la voce «· in piedi» vince; «Applica a tutti» lascia in piedi chi non ha «Strumento»", () => conPiediTutte(() => {
+  A.state.items = []; A.state.lookDefault = "schematico";
+  try {
+    const f = add("musFisarmonica", 200, 200), tb = add("musTromboneBasso", 400, 200), gt = add("gtstand", 600, 200);
+    eq([f.look, tb.look, gt.look], [undefined, undefined, "schematico"], "i tipi propri non nascono «Strumento»: non ce l'hanno");
+    const gp = add("gtacustica", 800, 200, { posa: "piedi" }); eq([gp.look, gp.posa, A.inPiedi(gp)], [undefined, "piedi", true], "«Chitarra acustica · in piedi» vince sul predefinito del progetto");
+    A.state.items = []; const a = add("gtstand", 100, 100, { posa: "piedi" }), b = add("musFisarmonica", 300, 100, { posa: "piedi" }), c = add("bassstand", 500, 100);
+    A.applicaDisegnoATutti({ look: "schematico" }); A.impostaDisegno(a, "strumento"); A.impostaDisegno(b, "strumento"); A.impostaDisegno(c, "strumento");
+    eq([a.look, A.inPiedi(b), c.look], ["schematico", true, "schematico"], "«Strumento» a tutti: le chitarre sì, la fisarmonica resta com'era");
+  } finally { delete A.state.lookDefault; }
+}));
+t("band in piedi (L3): cambio posa con testa ferma a 0/90/180/270°, tutti e 5 insieme, annulla; il controllo «In piedi» si abilita da solo", () => conPiediTutte((L) => {
+  for (const rot of [0, 90, 180, 270]) {
+    A.state.items = [];
+    const its = Object.keys(BAND).map((tp, i) => add(tp, 200 + i * 150, 300, { rot }));
+    its.forEach(i => { i.rot = rot; });
+    const prima = its.map(i => [i.x, i.y, i.rot, i.label, i.leggio, i.sedia, i.w, i.d]);
+    A.selSet = {}; its.forEach(i => { A.selSet[i.id] = true; }); A.sel = its[0].id;
+    eq(A.disegnoUi(its[0]).piedi, true, "«In piedi» abilitato");
+    A.cambiaDisegnoSelezione("piedi");
+    its.forEach((it, i) => {
+      const dc = L[BAND[it.type][0]].dc, r = rot * Math.PI / 180;
+      eq([it.x, it.y], [Math.round(prima[i][0] + dc[0] * Math.cos(r) - dc[1] * Math.sin(r)), Math.round(prima[i][1] + dc[0] * Math.sin(r) + dc[1] * Math.cos(r))], it.type + " a " + rot + "°: il busto resta fermo, l'elemento si sposta dello scarto girato come lui");
+      eq(it.posa, "piedi", it.type + ": in piedi"); eq([it.label, it.leggio], [prima[i][3], prima[i][4]], it.type + ": nome e leggio restano");
+      eq([it.w, it.d], BAND[it.type][3], it.type + ": ingombro della posa");
+    });
+    A.cambiaDisegnoSelezione("seduto");
+    eq(its.map(i => [i.x, i.y, i.rot, i.label, i.leggio, i.sedia, i.w, i.d]), prima, "a " + rot + "°: seduti di nuovo = tutto com'era (posizione, ingombro, nomi)");
+    eq(its.every(i => !("posa" in i)), true, "il campo sparisce");
+  }
+}));
+t("band in piedi (L3): la testa non si sposta davvero — la testa dell'icona seduta e di quella in piedi coincidono una volta applicato dc (centro seduto + dc = centro in piedi)", () => {
+  const L = iconeVere();
+  for (const [tp, [k, , , , dc]] of Object.entries(BAND)) {
+    const sede = L[tp === "musTromboneBasso" ? "musTromboneBasso" : A.LOOK_ART[tp] || tp];
+    ok(sede && sede.vb && L[k].vb, tp + ": le due icone ci sono");
+    const dx = (L[k].vb[2] - sede.vb[2]) / 2, dy = (L[k].vb[3] - sede.vb[3]) / 2;   /* il centro non è il centro della testa: qui basta che dc sia dello stesso ordine della differenza dei riquadri */
+    ok(Math.abs(dc[0]) < 4 && Math.abs(dc[1]) < Math.abs(dy) + 14, tp + ": dc plausibile rispetto ai due riquadri (" + dc + " · " + [dx, dy].map(v => v.toFixed(1)) + ")");
+  }
+});
+t("band in piedi (L3): la ricerca e il catalogo hanno la voce «· in piedi»; «basso», «chitarra», «fisarmonica», «trombone basso» nudi restano alla voce di sempre; il disegno ha la figura, senza sedia", () => conPiediTutte(() => {
+  const NOMI = { bassstand: "Postazione basso elettrico", gtstand: "Postazione chitarra elettrica", gtacustica: "Postazione chitarra acustica", musTromboneBasso: "Trombone basso", musFisarmonica: "Fisarmonica musicista" };
+  for (const [tp, [k, , , s]] of Object.entries(BAND)) {
+    ok(new RegExp('\\["' + tp + '","' + NOMI[tp] + '","[^"]+"\\]').test(appjs), tp + ": voce «" + NOMI[tp] + " · in piedi» nella ricerca");
+    A.state.items = []; const a = add(tp, 400, 300, { posa: "piedi" });
+    eq([a.posa, a.w, a.d], ["piedi", s[0], s[1]], tp + ": dal catalogo nasce in piedi con l'ingombro della posa");
+    const g = A.TYPES[tp].draw(a), sc = BAND_LOOK.includes(tp) ? A.libIconScene(A.look2Art(a)) : g;
+    ok(new RegExp("L\\d+_" + k + "_").test(BAND_LOOK.includes(tp) ? sc : g), tp + ": disegna la figura in piedi");
+    const m = A.itemMarkup(a);
+    ok(new RegExp("L\\d+_" + k + "_").test(m), tp + ": nell'elemento sul palco c'è la figura in piedi");
+    ok(!/<rect class="ic soft"/.test(g.replace(/<g transform="translate\(0,\d+\)">[\s\S]*?<\/g>$/, "")) || BAND_LOOK.includes(tp), tp + ": nessuna sedia accanto alla figura");
+    delete a.posa; A.recalcItemDims(a); ok(!new RegExp("L\\d+_" + k + "_").test(A.itemMarkup(a)), tp + ": seduto non compare la figura in piedi");
+  }
+  A.state.items = [];
+  eq(A.TYPES.musFisarmonica.nome, "Fisarmonica musicista", "il nome del tipo non cambia"); eq(A.TYPES.musTromboneBasso.nome, "Trombone basso", "il nome del tipo non cambia");
+}));
+t("band in piedi (L3): pedaliera e leggio delle chitarre in piedi davanti alle punte, non alla distanza da seduto; il leggio del trombone basso +35 davanti; ampli come sempre", () => conPiediTutte(() => {
+  A.state.items = []; const g = add("gtstand", 300, 300, { posa: "piedi" });
+  const half = Math.round(A.look2Dims(g)[1] / 2);
+  eq(A.gtrPedY(g), half + 18, "pedaliera: mezza figura + 18"); g.leggio = true; eq(A.gtrLeggioY(g, "el"), half + 8, "leggio senza pedaliera: subito oltre i piedi");
+  g.pedaliera = true; eq(A.gtrLeggioY(g, "el"), half + 18 + 24, "leggio con pedaliera: oltre la pedaliera (+24 come da seduto)");
+  A.recalcItemDims(g); ok(g.d >= 2 * (half + 18 + 17) && g.d < 150, "ingombro con pedaliera in piedi: la copre ma non è quello da seduto (150): " + g.d); eq(g.w, 88, "larghezza della figura");
+  g.ampli = true; A.recalcItemDims(g); eq(g.w, 88, "ampli: larghezza ≥ 80, la figura è già 88");
+  const m = A.itemMarkup(g); ok(m.indexOf('translate(0,' + (half + 18) + ')') >= 0, "la pedaliera si disegna a mezza figura + 18");
+  delete g.posa; A.recalcItemDims(g); eq(A.gtrPedY(g), 72, "seduto: pedaliera dove stava (72)");
+  A.state.items = []; const tb = add("musTromboneBasso", 300, 300, { posa: "piedi" }); eq([tb.w, tb.d], [59, 114], "trombone basso in piedi senza leggio");
+  tb.leggio = true; A.recalcItemDims(tb); eq([tb.w, tb.d], [59, 149], "col leggio: +35 davanti, come il trombone (figura 113,6 → s 149)"); eq(A.leggioExtraY(tb), 57 + 10, "il leggio sta davanti ai piedi");
+  delete tb.posa; A.recalcItemDims(tb); eq([tb.w, tb.d], [61, 114], "tornato seduto: misure di sempre");
+  A.state.items = [];
+}));
+t("band in piedi (L3): la figura non è ancora arrivata → a schermo il solo strumento (mai la figura seduta né la sedia), ingombro e conteggi come con il file; l'export la aspetta", () => {
+  const L = iconeVere(), prima = A.LIB_ICONS, st0 = A._piediStato;
+  const senza = Object.assign({}, L); Object.values(BAND).forEach(([k]) => { delete senza[k]; });
+  try {
+    A.state.items = []; const its = Object.keys(BAND).map((tp, i) => add(tp, 200 + i * 150, 300, { posa: "piedi" }));
+    its.forEach((it, i) => { if (BAND_LOOK.includes(it.type)) it.sedia = true; });
+    A.LIB_ICONS = L; A._piediStato = 2; const con = its.map(i => [A.itemMarkup(i), i.w, i.d]), sed = A.countAccessori().sedie;
+    A.LIB_ICONS = senza; A._piediStato = 0;
+    its.forEach((it, i) => {
+      const k = BAND[it.type][0], m = A.itemMarkup(it);
+      ok(!new RegExp("L\\d+_" + k + "_").test(m), it.type + ": senza il file la figura in piedi non c'è");
+      if (BAND_LOOK.includes(it.type)) { ok(!new RegExp("L\\d+_" + A.LOOK_ART[it.type] + "_").test(m), it.type + ": e nemmeno la figura seduta"); ok(!/<rect class="ic soft"/.test(m), it.type + ": e nessuna sedia");
+        ok(m.includes(A.TYPES[it.type].draw(Object.assign({}, it, { sedia: false }))), it.type + ": al posto della figura il solo strumento (schema in piedi, senza sedia)"); }
+      else ok(/<rect[^>]*class="ic thin fGrey"/.test(m), it.type + ": al posto della figura un riquadro tratteggiato");
+      eq([it.w, it.d], BAND[it.type][3], it.type + ": ingombro quello della posa anche senza il file");
+    });
+    eq(A.countAccessori().sedie, sed, "conteggio sedie invariato (0)"); eq(sed, 0, "in piedi: 0 sedie");
+    let c = null; try { A.piediControllo(); } catch (e) { c = e; }
+    ok(c && c.piedi === true, "l'export si ferma finché mancano le figure in piedi");
+    A.LIB_ICONS = L; A._piediStato = 2; eq(A.piediControllo(), true, "con il file l'export può partire");
+    eq(its.map(i => [A.itemMarkup(i).length > 0, i.w, i.d]).map(x => [x[1], x[2]]), con.map(x => [x[1], x[2]]), "dopo l'arrivo: stessi ingombri");
+    Object.entries(BAND).forEach(([tp, [k]]) => {
+      const meno = Object.assign({}, L); delete meno[k]; A.LIB_ICONS = meno; let e = null; try { A.piediControllo(); } catch (x) { e = x; }
+      ok(e && e.piedi === true, tp + ": senza " + k + " nel secondo file l'export si ferma");
+    });
+  } finally { A.LIB_ICONS = prima; A._piediStato = st0; A.state.items = []; }
+});
+t("band in piedi (L3): le miniature del catalogo/ricerca delle voci «· in piedi» si disegnano (figura se c'è il file, schema se manca), senza errori", () => conPiediTutte((L) => {
+  for (const tp of Object.keys(BAND)) {
+    const m = A.miniSvg(tp, { posa: "piedi" }); ok(/^<svg/.test(m) && m.length > 200, tp + ": miniatura con il file");
+    const prima = A.LIB_ICONS; A.LIB_ICONS = Object.assign({}, L); delete A.LIB_ICONS[BAND[tp][0]]; A._piediStato = 0;
+    const m2 = A.miniSvg(tp, { posa: "piedi" }); ok(/^<svg/.test(m2) && !new RegExp(BAND[tp][0]).test(m2), tp + ": senza il file: lo schema, nessuna figura sbagliata"); A.LIB_ICONS = prima;
+  }
+}));
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
