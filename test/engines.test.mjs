@@ -37190,7 +37190,8 @@ t("band in piedi (L3): la figura non è ancora arrivata → a schermo il solo st
     its.forEach((it, i) => {
       const k = BAND[it.type][0], m = A.itemMarkup(it);
       ok(!new RegExp("L\\d+_" + k + "_").test(m), it.type + ": senza il file la figura in piedi non c'è");
-      if (BAND_LOOK.includes(it.type)) { ok(!new RegExp("L\\d+_" + A.LOOK_ART[it.type] + "_").test(m), it.type + ": e nemmeno la figura seduta"); ok(!/<rect class="ic soft"/.test(m), it.type + ": e nessuna sedia"); }
+      if (BAND_LOOK.includes(it.type)) { ok(!new RegExp("L\\d+_" + A.LOOK_ART[it.type] + "_").test(m), it.type + ": e nemmeno la figura seduta"); ok(!/<rect class="ic soft"/.test(m), it.type + ": e nessuna sedia");
+        ok(m.includes(A.TYPES[it.type].draw(Object.assign({}, it, { sedia: false }))), it.type + ": al posto della figura il solo strumento (schema in piedi, senza sedia)"); }
       else ok(/<rect[^>]*class="ic thin fGrey"/.test(m), it.type + ": al posto della figura un riquadro tratteggiato");
       eq([it.w, it.d], BAND[it.type][3], it.type + ": ingombro quello della posa anche senza il file");
     });
