@@ -9927,7 +9927,7 @@ t("l'aggancio alla griglia si salva col progetto, ma non conta come lavoro né c
     eq(A.snapMode, "25", "progetto senza snap (o nuovo) → 25 cm");
   } finally { A.DOC_EXTRA = prima; A.snapMode = snapPrima; }
   ok(/DOC_EXTRA=prepared\.extra\|\|\{\};\s*if\(typeof snapDalDocumento==="function"\) snapDalDocumento\(\);/.test(appjs), "aprire un documento rilegge lo snap");
-  ok(/function set\(v\)\{ if\(!snapValido\(v\)\) return;[\s\S]{0,200}DOC_EXTRA\.snap=v/.test(appjs), "cambiarlo lo scrive nel documento");
+  ok(/function snapImposta\(v\)\{ if\(!snapValido\(v\)\) return;[\s\S]{0,200}DOC_EXTRA\.snap=v/.test(appjs), "cambiarlo lo scrive nel documento");
   eq(/snap/.test(String(A.stateToJSON())), false, "non entra nello stato della scena (impronta del PDF invariata)");
 });
 
@@ -24677,7 +24677,7 @@ t("sul telefono il palco largo si gira, e il documento resta dritto", () => {
     A.viewRot = 0; A._sceneRuota = 0; A.isMobile = s0.m; A.innerWidth = s0.iw; A.innerHeight = s0.ih; A.localStorage = s0.ls;
   }
   /* render e' l'unico posto che accende _sceneRuota, e lo spegne anche se la scena fallisce */
-  ok(/_sceneRuota=viewRot;\n  var _scena; try\{ _scena=sceneMarkup\(\); \} finally \{ _sceneRuota=0; \}\n  svg\.innerHTML = viewRot \? '<g id="vrot" transform="rotate\(-90\)">'\+_scena\+'<\/g>' : _scena;/.test(appjs),
+  ok(/_sceneRuota=viewRot;\n  var _scena; try\{ _scena=sceneMarkup\(\); \} finally \{ _sceneRuota=0; \}\n(?:  if\(docUnita\(\)!=="m"\) _scena=docSvgUnita\(_scena\);[^\n]*\n)?  svg\.innerHTML = viewRot \? '<g id="vrot" transform="rotate\(-90\)">'\+_scena\+'<\/g>' : _scena;/.test(appjs),
      "la scena si gira dentro un gruppo, solo a schermo");
   eq((appjs.match(/_sceneRuota=viewRot/g) || []).length, 1, "e _sceneRuota si accende in un punto solo");
   /* il PDF e il PNG nascono da stageSceneSvg e buildExportSvg: non devono sapere niente della vista girata */
@@ -25327,7 +25327,7 @@ t("da telefono si possono scrivere data, ora e aggancio", () => {
   const opzHeader = [...html.slice(html.indexOf('id="snapSel"'), html.indexOf("</select>", html.indexOf('id="snapSel"'))).matchAll(/value="([^"]+)"/g)].map((m) => m[1]);
   const menuSnap = html.slice(html.indexOf('id="mSnap"'), html.indexOf("</div>", html.indexOf('id="mSnap"')));
   eq([...menuSnap.matchAll(/data-snap="([^"]+)"/g)].map((m) => m[1]), opzHeader, "l'aggancio del Menu ha le scelte dell'header");
-  ok(/querySelectorAll\("#mSnap \[data-snap\]"\)[\s\S]{0,160}classList\.toggle\("on", on\)/.test(appjs.slice(appjs.indexOf("function syncSnapSelects"), appjs.indexOf("function syncSnapSelects") + 600)),
+  ok(/querySelectorAll\("#mSnap \[data-snap\]"\)[\s\S]{0,160}classList\.toggle\("on", on\)/.test(appjs.slice(appjs.indexOf("function syncSnapSelects"), appjs.indexOf("function syncSnapSelects") + 1200)),
      "e si riallinea nello stesso punto dei due select");
   /* Lo stesso dato, non due copie che divergono. */
   ok(/function setData\(v\)\{ state\.evDate=v\|\|"";[\s\S]{0,120}edM\.value=state\.evDate/.test(appjs),
@@ -36218,7 +36218,7 @@ t("Estero: Esporta (menu Lingua del documento e Unità), PDF e anteprima collega
   ok(/<select id="pdfDocLingua"><option value="it" selected>Italiano<\/option><option value="en">English<\/option><\/select>/.test(src), "menu della lingua, di serie Italiano");
   ok(/<select id="pdfDocUnita"><option value="m" selected>metri \(m\)<\/option><option value="ft">piedi e pollici \(ft-in\)<\/option><option value="both">/.test(src), "menu delle unità, di serie metri");
   ok(/_dl\.addEventListener\("change", function\(\)\{ docLinguaImposta\(_dl\.value\); docEsteroCambiato\(\); \}\)/.test(src), "la lingua si scrive nel progetto");
-  ok(/_du\.addEventListener\("change", function\(\)\{ docUnitaImposta\(_du\.value\); docEsteroCambiato\(\); \}\)/.test(src), "le unità si scrivono nel progetto");
+  ok(/_du\.addEventListener\("change", function\(\)\{ unitaCambia\(_du\.value\); refresh\(\); \}\)/.test(src), "le unità si scrivono nel progetto (unitaCambia: unico punto, anche per la barra in alto)");
   ok(/docEsteroSincronizza\(\);   \/\* lingua e unità del documento/.test(src), "all'apertura dell'Esporta i menu leggono il progetto");
   ok(/return pdfLinguaDoc\(pdfTestoWinAnsiDoc\(pdfTestoNeroDoc\(d\)\)\);/.test(src), "ogni documento jsPDF passa dal traduttore");
   ok(/docCampoScrivi\("pW", it\.w, "cm"\);\s*docCampoScrivi\("pD", it\.d, "cm"\);\s*if\(t\.riser\) docCampoScrivi\("pH", it\.h, "h"\);/.test(src), "il pannello scrive L, P e h nell'unità del documento");
@@ -36230,6 +36230,70 @@ t("Estero: Esporta (menu Lingua del documento e Unità), PDF e anteprima collega
   ok(/>'\+docZona\("FONDO PALCO"\)\+'<\/text>/.test(src) && (src.match(/docZona\("PUBBLICO"\)/g) || []).length === 3, "fondo palco e pubblico in tutti e tre i disegni (schermo, PDF, anteprima)");
   conDoc("en", "m", () => { ok(!A.docUnita() !== "m", ""); });
   ok(!/state\.docUnits\s*=\s*"ft"/.test(src.replace(/state\.docUnits=v;|docUnitaImposta\("ft"\)/g, "")), "English propone i piedi, non li impone (nessuna assegnazione automatica)");
+});
+
+t("Unità nell'editor (19/11): interruttore in barra e nel Menu, un solo punto che cambia l'unità, aggancio in piedi", () => {
+  const html = readFileSync(join(root, "index.template.html"), "utf8");
+  ok(/<select id="unitSel" aria-label="Unità delle misure">\s*<option value="m">m<\/option>\s*<option value="ft">ft-in<\/option>\s*<option value="both">m \+ ft<\/option>/.test(html), "l'interruttore è nella barra dell'editor (visibile subito), con le tre unità");
+  ok(/id="unitSelM"/.test(html), "e nel Menu del telefono (la barra lì è nascosta)");
+  ok(/\["unitSel","unitSelM"\]\.forEach\(function\(id\)\{ var u=document\.getElementById\(id\); if\(u\) u\.addEventListener\("change", function\(\)\{ unitaCambia\(this\.value\); \}\); \}\);/.test(html), "i due menu chiamano unitaCambia");
+  ok(/function unitaCambia\(v\)\{[\s\S]{0,400}docUnitaImposta\(v\)[\s\S]{0,300}save\(\); render\(\)/.test(html), "unitaCambia scrive nel progetto (docUnitaImposta), salva e ridisegna");
+  ok(/_du\.addEventListener\("change", function\(\)\{ unitaCambia\(_du\.value\)/.test(html) && /_dft\.addEventListener\("click", function\(\)\{ unitaCambia\("ft"\)/.test(html), "resta anche in Esporta, sullo stesso punto");
+  conDoc(null, "ft", () => {
+    eq(A.snapOpzioni().map((x) => x[0]), ["0", "ft6", "ft12", "ft24", "ft36", "obj"], "in piedi l'aggancio ha 6\", 1', 2', 3'");
+    eq(A.snapOpzioni().map((x) => x[1]), ["Libero", '6"', "1'", "2'", "3'", "Oggetti"], "con le etichette in piedi");
+  });
+  eq(A.snapOpzioni().map((x) => x[1]), ["Libero", "25 cm", "50 cm", "1 m", "Oggetti"], "in metri com'è sempre");
+  eq([A.DOC_SNAP_FT.ft6, A.DOC_SNAP_FT.ft12, A.DOC_SNAP_FT.ft24, A.DOC_SNAP_FT.ft36].map((v) => +v.toFixed(2)), [15.24, 30.48, 60.96, 91.44], "i passi sono esatti (1 ft = 30,48 cm)");
+  eq([A.snapValido("ft12"), A.snapValido("ft99"), A.snapValido("25")], [true, false, true], "ft12 vale, ft99 no");
+  eq([A.snapPerUnita("25", true), A.snapPerUnita("50", true), A.snapPerUnita("100", true), A.snapPerUnita("0", true), A.snapPerUnita("obj", true)], ["ft12", "ft24", "ft36", "0", "obj"], "m → ft: il passo più vicino; libero e oggetti restano");
+  eq([A.snapPerUnita("ft6", false), A.snapPerUnita("ft12", false), A.snapPerUnita("ft24", false), A.snapPerUnita("ft36", false), A.snapPerUnita("0", false)], ["25", "25", "50", "100", "0"], "ft → m");
+  eq([A.snapQ(100, 30.48), A.snapQ(95, 30.48), A.snapQ(100, 25), A.snapQ(40, 25)], [91.44, 91.44, 100, 50], "snapQ: niente 91.44000000000001, e in cm interi resta intero");
+});
+
+t("Unità nell'editor: ogni «N m / N cm» dei testi dell'interfaccia passa da uTxt — nessuno sfugge in piedi, nulla cambia in metri", () => {
+  const sporco = /(^|[^\w'"×.,])\d+(?:[.,]\d+)?\s?(?:m|cm)\b(?![²\w'"])/;
+  const dims = []; Object.keys(A.TYPES).forEach((k) => { const d = A.TYPES[k].dim; if (typeof d === "string") dims.push(d); });
+  dims.push("Ingombro: 200×100 cm", "Ingombro: 65×81 cm · 3 elementi", "zona 2×1,2 m", "ISO 4043 · interno 1,60 × 1,60 m", "16:9 · telaio 4,27 m · piedi 1,5 m", "h 40 cm", "boccascena 10,00 m", "12 m", "65 cm", "Violino I 1 · 5,2 m", "palco 12×8 m · zoom 30 px/m");
+  ok(dims.length > 150, "ci sono le voci del catalogo da provare (" + dims.length + ")");
+  const sfuggiti = [];
+  conDoc(null, "ft", () => dims.forEach((d) => { const r = A.uTxt(d); if (sporco.test(r)) sfuggiti.push(d + " → " + r); }));
+  eq(sfuggiti.slice(0, 10), [], "in piedi nessuna misura metrica resta (" + sfuggiti.length + " sfuggite)");
+  const cambiate = []; conDoc(null, null, () => dims.forEach((d) => { if (A.uTxt(d) !== d) cambiate.push(d); }));
+  eq(cambiate, [], "in metri uTxt restituisce lo stesso identico testo (progetti esistenti come prima)");
+  conDoc(null, "both", () => dims.forEach((d) => { if (sporco.test(d)) { const r = A.uTxt(d); ok(/['"]/.test(r) || r === d, "entrambe: m e piedi insieme — " + d + " → " + r); } }));
+  conDoc(null, "ft", () => { eq(A.uTxt("Ingombro: 200×100 cm"), "Ingombro: 6' 7\" × 3' 3\"", "l'ingombro del pannello"); eq(A.uTxt("zona 2×1,2 m"), "zona 6' 7\" × 3' 11\"", "e le misure del catalogo"); eq(A.uTxt("h 40 cm"), "h 1' 4\"", "l'altezza"); eq(A.uTxt("65 cm"), "2' 2\"", "una misura sola"); eq(A.uTxt("Anna Rossi"), "Anna Rossi", "un testo senza misure non si tocca"); });
+  const svg = '<svg><text x="1">boccascena 10,00 m</text><text x="2">h 40 cm</text><text x="3">Mic 2 m</text><tspan>8 m</tspan><text>E-drums 1</text></svg>';
+  eq(A.docSvgUnita(svg), svg, "il disegno in metri è identico a prima");
+  conDoc(null, "ft", () => {
+    const r = A.docSvgUnita(svg);
+    ok(/boccascena 32' 10"/.test(r) && /h 1' 4"/.test(r) && />26' 3"</.test(r) && /E-drums 1/.test(r), "in piedi: boccascena, altezza e quota convertite, il resto no");
+    A.state.items.push({ id: 9901, type: "pedana", x: 0, y: 0, w: 100, d: 100, label: "Mic 2 m" });
+    ok(/Mic 2 m/.test(A.docSvgUnita(svg)), "un nome scritto dall'utente («Mic 2 m») non si converte mai");
+    A.state.items.pop();
+  });
+  ok(/if\(docUnita\(\)!=="m"\) _scena=docSvgUnita\(_scena\)/.test(readFileSync(join(root, "index.template.html"), "utf8")), "render() passa il disegno da docSvgUnita");
+});
+
+t("Unità nell'editor: i campi del pannello in piedi (6' 7\", mai 6.562), senza arrotondare i cm esistenti", () => {
+  conDoc(null, "ft", () => {
+    eq([A.docFtInTesto(243.84), A.docFtInTesto(200), A.docFtInTesto(100), A.docFtInTesto(40), A.docFtInTesto(1463.04), A.docFtInTesto(2.54), A.docFtInTesto(0)], ["8'", "6' 6.74\"", "3' 3.37\"", "1' 3.75\"", "48'", '1"', '0"'], "docFtInTesto: piedi e pollici, al centesimo di pollice");
+    eq(A.docFtInTesto(30.47), "1'", "11,996\" non diventa «0' 12\"» ma 1'");
+    [243.84, 200, 100, 40, 1463.04, 7, 1234.5, 91.44].forEach((cm) => { const c = A.parseLunghezza(A.docFtInTesto(cm), "cm"); ok(Math.abs(c - cm) <= 0.0127 + 1e-9, "andata e ritorno " + cm + " cm → " + A.docFtInTesto(cm) + " → " + c); });
+    const el = { value: "" };
+    A.docCampoPonne(el, 200, "cm"); eq(el.value, "6' 6.74\"", "pW 200 cm si scrive 6' 6.74\"");
+    A.docCampoPonne(el, 12, "m"); eq(el.value, "39' 4.44\"", "un campo in metri (12 m) in piedi");
+    A.docCampoPonne(el, "", "cm"); eq(el.value, "", "vuoto resta vuoto (rig senza altezza)");
+    eq([A.docCampoNativo({ value: "8' 6\"" }, "m"), A.docCampoNativo({ value: "8'" }, "cm"), A.docCampoNativo({ value: "96\"" }, "m"), A.docCampoNativo({ value: "24" }, "h"), A.docCampoNativo({ value: "2.5m" }, "m")].map((v) => +v.toFixed(4)), [2.5908, 243.84, 2.4384, 60.96, 2.5], "docCampoNativo: m per i campi in metri, cm per gli altri");
+    ok(Number.isNaN(A.docCampoNativo({ value: "abc" }, "cm")), "testo non valido → NaN (il codice usa il valore di prima)");
+  });
+  const m = { value: "" }; A.docCampoPonne(m, 8.5, "m", "8,5"); eq(m.value, "8,5", "in metri il campo scrive il testo di sempre");
+  A.docCampoPonne(m, 40, "h"); eq(m.value, 40, "e il numero di sempre");
+  eq([A.docCampoNativo({ value: "8.5" }, "m"), A.docCampoNativo({ value: "" }, "cm"), A.docCampoNativo({ value: "250" }, "cm")], [8.5, 0, 250], "in metri legge +value, identico a prima");
+  const html = readFileSync(join(root, "index.template.html"), "utf8");
+  ["frameW", "frameH", "frameX", "frameY", "blkH", "pRigH", "pMountH", "pAntH"].forEach((id) => ok(A.DOC_CAMPI_ETICHETTE && id in A.DOC_CAMPI_ETICHETTE, "il campo " + id + " cambia in piedi (testo, etichetta)"));
+  ok(/docCampoPonne\("frameW"/.test(html) && /docCampoNativo\("frameW","m"\)/.test(html) && /docCampoNativo\("pMountH","cm"\)/.test(html) && /docCampoPonne\("pRigH"/.test(html) && /docCampoNativo\(this,"h"\)/.test(html), "i gestori leggono e scrivono con gli stessi due helper");
+  ok(/if\(docUnita\(\)==="ft" && inp\.getAttribute\("type"\)==="text"\)/.test(html), "il pulsante +/− lavora sui piedi, non su parseFloat(\"8' 6\\\"\")");
 });
 
 t("Titolo lungo: troncamento al CENTRO, la versione resta visibile (17/11)", () => {
