@@ -5771,7 +5771,17 @@ var POSA_PIEDI = {
   saxalto:{art:"musSaxAltoPiedi", s:[70,110], dbl:[150,110], sep:90},
   saxtenore:{art:"musSaxTenorePiedi", s:[60,108], dbl:[140,108], sep:90},
   saxbaritono:{art:"musSaxBaritonoPiedi", s:[65,112], dbl:[145,112], sep:90},
-  tromba:{art:"musTrombaPiedi", s:[70,118], dbl:[150,118], sep:90}   /* 60,4×83,4 + il leggio davanti ai piedi */
+  tromba:{art:"musTrombaPiedi", s:[70,118], dbl:[150,118], sep:90},   /* 60,4×83,4 + il leggio davanti ai piedi */
+  /* L2 ORCHESTRA (19/11/2026): le altre postazioni a fiato e archi con leggio. s = larghezza della figura ai 5 cm sopra + 5, profondità + 35 (leggio davanti ai piedi); dbl = s0+80 */
+  clarinetto:{art:"musClarinettoPiedi", s:[65,115], dbl:[145,115], sep:90},   /* 58,5×80,4 */
+  flauto:{art:"musFlautoPiedi", s:[85,89], dbl:[165,89], sep:90},   /* 78,1×53,6 */
+  oboe:{art:"musOboePiedi", s:[70,125], dbl:[150,125], sep:90},   /* 61,0×90,4 */
+  fagotto:{art:"musFagottoPiedi", s:[105,107], dbl:[185,107], sep:90},   /* 99,3×71,9 */
+  corno:{art:"musCornoPiedi", s:[65,95], dbl:[145,95], sep:90},   /* 57,6×60,1 */
+  trombone:{art:"musTrombonePiedi", s:[65,149], dbl:[145,149], sep:90},   /* 58,8×113,6 (coulisse) */
+  tuba:{art:"musTubaPiedi", s:[75,114], dbl:[155,114], sep:90},   /* 69,9×78,8 */
+  violapost:{art:"musViolaPiedi", s:[90,106], dbl:[170,106], sep:90},   /* 84,0×71,0; le doppie violax2 non hanno la posa */
+  contrabbasso:{art:"musContrabbassoPiedi", s:[75,141], dbl:[155,141], sep:90}   /* 69,9×105,6 */
 };
 function artPiedi(it){ var P=it && POSA_PIEDI[it.type]; return P ? ((it.vsec===2 && P.art2) ? P.art2 : P.art) : null; }   /* icona in piedi: il violino II ha la sua */
 function inPiedi(it){ return !!it && it.posa==="piedi" && !!POSA_PIEDI[it.type] && it.look!=="schematico"; }   /* «Strumento»: la posa dorme, non si disegna né conta sedie */
@@ -25061,6 +25071,14 @@ function ricordaRecenteCatalogo(k, nome, over){
       [["saxalto","Sax alto","sax alto contralto sassofono alto"],["saxtenore","Sax tenore","sax tenore sassofono tenore"],["saxbaritono","Sax baritono","sax baritono sassofono baritono"],["tromba","Tromba","tromba trombetta trombettista trumpet"]].forEach(function(v){
         entries.push({k:v[0], nome:v[1]+" \u00b7 in piedi", over:{posa:"piedi"}, dim:"senza sedia",
                       kw:v[2]+" "+(v[0]==="tromba" ? "tromba in piedi trombettista in piedi tromba senza sedia" : "sax in piedi sassofono in piedi sassofonista in piedi sax senza sedia sassofono senza sedia")});
+      });
+      /* ORCHESTRA IN PIEDI (19/11/2026, lotto L2): stesse voci «· in piedi» per le altre postazioni con la figura in piedi */
+      [["clarinetto","Clarinetto","clarinetto clarinettista","clarinetto in piedi clarinettista in piedi clarinetto senza sedia"],["flauto","Flauto","flauto flautista traverso","flauto in piedi flautista in piedi flauto senza sedia"],
+       ["oboe","Oboe","oboe oboista","oboe in piedi oboista in piedi oboe senza sedia"],["fagotto","Fagotto","fagotto fagottista","fagotto in piedi fagottista in piedi fagotto senza sedia"],
+       ["corno","Corno","corno corno francese cornista","corno in piedi cornista in piedi corno senza sedia"],["trombone","Trombone","trombone trombonista","trombone in piedi trombonista in piedi trombone senza sedia"],
+       ["tuba","Tuba","tuba tubista","tuba in piedi tubista in piedi tuba senza sedia"],["violapost","Viola","viola violista","viola in piedi violista in piedi viola senza sedia"],
+       ["contrabbasso","Contrabbasso","contrabbasso contrabbassista","contrabbasso in piedi contrabbassista in piedi contrabbasso senza sedia"]].forEach(function(v){
+        entries.push({k:v[0], nome:v[1]+" \u00b7 in piedi", over:{posa:"piedi"}, dim:"senza sedia", kw:v[2]+" "+v[3]});
       });
       /* LAPTOP SU TAVOLO (19/10/2026): una postazione unica — il tavolo e il Mac, in un gruppo (si spostano insieme) */
       addToGroup("DJ ed elettronica", makeActionBtn("Laptop su tavolo", "tavolo + Mac · postazione unica", "djset", aggiungiLaptopTavolo));

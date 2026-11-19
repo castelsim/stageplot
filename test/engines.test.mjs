@@ -36372,16 +36372,16 @@ t("sax in piedi (18/11): senza posa = seduto, come ieri (ingombro, sedia, JSON);
   eq(A.countAccessori().sedie, 1, "una sedia");
   ok(!/"posa"/.test(JSON.stringify(A.state.items)), "nel salvataggio non compare");
   eq(A.optSedia(a), true, "la sedia c'è");
-  const cl = add("clarinetto", 500, 200); cl.posa = "piedi";
-  ok(A.inPiedi(cl) === false && A.postazOf(cl) === A.POSTAZ.clarinetto, "il campo su un clarinetto non conta");
-  const puliti = A.sanitizeItems([{ type: "saxalto", x: 1, y: 2, posa: "piedi" }, { type: "saxtenore", x: 1, y: 2, posa: "boh" }, { type: "clarinetto", x: 1, y: 2, posa: "piedi" }, { type: "saxbaritono", x: 1, y: 2 }]);
+  const cl = add("violoncello", 500, 200); cl.posa = "piedi";
+  ok(A.inPiedi(cl) === false && A.postazOf(cl) === A.POSTAZ.violoncello, "il campo su un violoncello non conta");
+  const puliti = A.sanitizeItems([{ type: "saxalto", x: 1, y: 2, posa: "piedi" }, { type: "saxtenore", x: 1, y: 2, posa: "boh" }, { type: "violoncello", x: 1, y: 2, posa: "piedi" }, { type: "saxbaritono", x: 1, y: 2 }]);
   eq(puliti.map(i => i.posa), ["piedi", undefined, undefined, undefined], "import: «piedi» solo sui sax, ogni altro valore = seduto");
   eq([puliti[0].w, puliti[0].d], [70, 110], "l'ingombro in piedi si ricalcola all'import");
   eq([puliti[1].w, puliti[1].d], [100, 108], "valore sconosciuto: ingombro seduto");
 });
 t("sax in piedi (18/11): cambio posa su più sax selezionati (anche misti): solo la posa, il busto resta fermo, ingombro e sedie seguono; annulla", () => {
   A.state.items = [];
-  const al = add("saxalto", 300, 200), te = add("saxtenore", 500, 200), ba = add("saxbaritono", 700, 200), cl = add("clarinetto", 900, 200), fuori = add("saxalto", 1100, 200);
+  const al = add("saxalto", 300, 200), te = add("saxtenore", 500, 200), ba = add("saxbaritono", 700, 200), cl = add("violoncello", 900, 200), fuori = add("saxalto", 1100, 200);
   te.rot = 90; ba.label = "Sax B 1"; ba.leggio = false;
   A.selSet = {}; [al, te, ba, cl].forEach(i => { A.selSet[i.id] = true; }); A.sel = al.id;
   eq(A.countAccessori().sedie, 5, "5 sedie da seduti");
@@ -36389,9 +36389,9 @@ t("sax in piedi (18/11): cambio posa su più sax selezionati (anche misti): solo
     const prima = [al, te, ba, cl, fuori].map(i => [i.x, i.y, i.rot, i.label, i.leggio, i.sedia, i.ch, i.w, i.d]);
     A.cambiaDisegnoSelezione("piedi");
     eq([al.posa, te.posa, ba.posa], ["piedi", "piedi", "piedi"], "i tre sax diventano «in piedi»");
-    ok(cl.posa === undefined && fuori.posa === undefined, "il clarinetto selezionato e il sax non selezionato restano come sono");
+    ok(cl.posa === undefined && fuori.posa === undefined, "il violoncello selezionato e il sax non selezionato restano come sono");
     eq([al.w, al.d, te.w, te.d, ba.w, ba.d], [70, 110, 60, 108, 65, 112], "ingombro della posa");
-    eq(A.countAccessori().sedie, 2, "restano la sedia del clarinetto e quella del sax non selezionato: in piedi non si contano");
+    eq(A.countAccessori().sedie, 2, "restano la sedia del violoncello e quella del sax non selezionato: in piedi non si contano");
     eq([te.label, ba.label, te.leggio, ba.leggio], [prima[1][3], "Sax B 1", prima[1][4], false], "nome e leggio restano");
     /* il centro dell'elemento segue il busto: scarto dc girato come l'elemento (tenore a 90°) */
     const dc = L.musSaxTenorePiedi.dc, r = Math.PI / 2;
@@ -36420,7 +36420,7 @@ t("sax in piedi (18/11): postazione a 2 e dividi; niente sedie anche sul foglio 
   ok(typeof g === "string" && g.length > 0, "lo schematico si disegna lo stesso");
   const bSed = Object.assign({}, b); delete bSed.posa;
   ok(g.length === A.TYPES.saxalto.draw(bSed).length, "Strumento: la posa dorme, lo schema si disegna come da seduto (con la sua sedia)");
-  const cat = add("saxbaritono", 800, 300, { posa: "piedi" }), catCl = add("clarinetto", 900, 300, { posa: "piedi" });
+  const cat = add("saxbaritono", 800, 300, { posa: "piedi" }), catCl = add("violoncello", 900, 300, { posa: "piedi" });
   eq([cat.posa, cat.w, cat.d], ["piedi", 65, 112], "dal catalogo/ricerca (over posa) nasce in piedi, con l'ingombro della posa");
   ok(catCl.posa === undefined, "su un tipo che non è un sax la posa viene scartata");
   eq(A.optSedia(b), true, "Strumento: la posa dorme, la sedia segue il suo flag");
@@ -36488,10 +36488,10 @@ t("Disegno: Seduto · In piedi · Strumento (18/11): esclusivi, tromba in piedi,
   conIconePiedi(() => {
     A.LIB_ICONS.musTrombaPiedi = tr; A.LIB_ICONS.musTromba = L.musTromba;
     A.state.items = []; A.selSet = {};
-    const sx = add("saxtenore", 400, 300), cl = add("clarinetto", 600, 300), tb = add("tromba", 800, 300);
+    const sx = add("saxtenore", 400, 300), cl = add("violoncello", 600, 300), tb = add("tromba", 800, 300);
     A.selSet = {}; A.selSet[sx.id] = true; A.sel = sx.id;
     eq(A.disegnoStato(sx), "seduto", "di serie: Seduto (nessun campo, come ieri)");
-    eq(A.disegnoUi(sx).piedi, true, "il sax ha «In piedi»"); A.selSet = {}; A.selSet[cl.id] = true; A.sel = cl.id; eq(A.disegnoUi(cl).piedi, false, "il clarinetto no: il pulsante resta ma spento");
+    eq(A.disegnoUi(sx).piedi, true, "il sax ha «In piedi»"); A.selSet = {}; A.selSet[cl.id] = true; A.sel = cl.id; eq(A.disegnoUi(cl).piedi, false, "il violoncello no: il pulsante resta ma spento");
     A.selSet = {}; A.selSet[sx.id] = true; A.sel = sx.id;
     A.cambiaDisegnoSelezione("piedi"); eq([A.disegnoStato(sx), sx.posa, sx.look], ["piedi", "piedi", undefined], "In piedi = posa, figura illustrata");
     A.cambiaDisegnoSelezione("strumento"); eq([A.disegnoStato(sx), sx.posa, sx.look], ["strumento", "piedi", "schematico"], "Strumento = solo lo strumento; la posa resta memorizzata");
@@ -36507,10 +36507,10 @@ t("Disegno: Seduto · In piedi · Strumento (18/11): esclusivi, tromba in piedi,
     A.selSet = {}; [sx, cl, tb].forEach(i => { A.selSet[i.id] = true; }); A.sel = sx.id;
     A.cambiaDisegnoSelezione("seduto"); eq([A.disegnoStato(sx), A.disegnoStato(cl), A.disegnoStato(tb)], ["seduto", "seduto", "seduto"], "tutti Seduto");
     eq(A.disegnoUi(sx).stato, "seduto", "stato comune = Seduto");
-    A.cambiaDisegnoSelezione("piedi"); eq([sx.posa, cl.posa, tb.posa], ["piedi", undefined, "piedi"], "In piedi: sax e tromba sì, il clarinetto (senza icona) no");
-    eq(A.disegnoUi(sx).stato, null, "misti (clarinetto Seduto, gli altri In piedi): nessun pulsante attivo");
+    A.cambiaDisegnoSelezione("piedi"); eq([sx.posa, cl.posa, tb.posa], ["piedi", undefined, "piedi"], "In piedi: sax e tromba sì, il violoncello (senza icona) no");
+    eq(A.disegnoUi(sx).stato, null, "misti (violoncello Seduto, gli altri In piedi): nessun pulsante attivo");
     eq(A.disegnoUi(sx).piedi, true, "In piedi resta attivo se almeno uno lo ha");
-    A.selSet = {}; A.selSet[cl.id] = true; A.sel = cl.id; A.cambiaDisegnoSelezione("piedi"); eq([cl.posa, cl.look], [undefined, undefined], "su un solo clarinetto In piedi non fa niente");
+    A.selSet = {}; A.selSet[cl.id] = true; A.sel = cl.id; A.cambiaDisegnoSelezione("piedi"); eq([cl.posa, cl.look], [undefined, undefined], "su un solo violoncello In piedi non fa niente");
     A.cambiaDisegnoSelezione("strumento"); A.cambiaDisegnoSelezione("piedi"); eq([cl.posa, cl.look, A.disegnoStato(cl)], [undefined, "schematico", "strumento"], "anche da Strumento: senza icona in piedi il clic non cambia niente (resta Strumento)");
     A.cambiaDisegnoSelezione("seduto");
     eq(A.postArt(tb), "musTrombaPiedi", "la tromba in piedi ha la sua icona");
@@ -36527,7 +36527,7 @@ t("Disegno: Seduto · In piedi · Strumento (18/11): esclusivi, tromba in piedi,
   eq(A.countAccessori().sedie, prima + 1, "e la sedia si CONTA");
   eq([vp.w, vp.d], [nuovo.w, nuovo.d], "ingombro = quello di un violino nato seduto");
   /* retrocompatibilità: look assente = Seduto; look schematico = Strumento; nessun campo nuovo */
-  const vecchi = A.sanitizeItems([{ type: "vlnpost", x: 1, y: 2 }, { type: "vlnpost", x: 1, y: 2, look: "schematico" }, { type: "clarinetto", x: 1, y: 2, look: "schematico", posa: "piedi" }]);
+  const vecchi = A.sanitizeItems([{ type: "vlnpost", x: 1, y: 2 }, { type: "vlnpost", x: 1, y: 2, look: "schematico" }, { type: "violoncello", x: 1, y: 2, look: "schematico", posa: "piedi" }]);
   eq(vecchi.map(i => A.disegnoStato(i)), ["seduto", "strumento", "strumento"], "progetti salvati: stati di oggi, nessun campo aggiunto");
   ok(vecchi.every(i => i.posa === undefined), "nessuna posa dove non c'era (e scartata sui tipi senza icona)");
   const html = readFileSync(join(root, "app/index.html"), "utf8");
@@ -36699,7 +36699,7 @@ t("Inventario/navigazione (18/11): tabella ↔ scheda sempre nella STESSA scheda
 t("Applica a tutti (19/11): usa Seduto · In piedi · Strumento, «In piedi» solo dove c'è l'icona, un solo annulla, toast coi nomi nuovi", () => {
   conIconePiedi(() => {
     A.state.items = []; A.selSet = {}; A.state.lookDefault = "illustrato";
-    const sx = add("saxtenore", 400, 300), cl = add("clarinetto", 600, 300);
+    const sx = add("saxtenore", 400, 300), cl = add("violoncello", 600, 300);
     A.selSet = {}; A.selSet[sx.id] = true; A.sel = sx.id;
     A.cambiaDisegnoSelezione("piedi");
     const m = A.applicaDisegnoATutti(sx);
@@ -36738,27 +36738,27 @@ t("Menu del progetto (19/11): riga «Disegno di tutto il progetto» (menu File e
   ok(/x\.disabled = \(v==="piedi" && !u\.piedi\)/.test(appjs.replace(/\s+/g, " ")) && /disegnoUi\(null, state\.items\.filter\(hasLookToggle\)\)/.test(appjs), "stato e «In piedi» spento letti da disegnoUi sull'intero progetto");
   conIconePiedi(() => {
     A.state.items = []; A.selSet = {}; A.sel = null; A.state.lookDefault = "illustrato";
-    const sx = add("saxtenore", 400, 300), cl = add("clarinetto", 600, 300);
+    const sx = add("saxtenore", 400, 300), cl = add("violoncello", 600, 300);
     const U = () => A.disegnoUi(null, A.state.items.filter(A.hasLookToggle));
     eq(A.disegnoUi(null, []), { stato: null, piedi: false }, "progetto senza figure: nessuno acceso, «In piedi» spento");
     eq(U().stato, "seduto", "tutti Seduto: acceso Seduto"); eq(U().piedi, true, "il sax ha «In piedi»: voce attiva");
     A.selSet = {}; A.selSet[sx.id] = true; A.sel = sx.id; A.cambiaDisegnoSelezione("piedi");
-    eq(U().stato, null, "misti (sax in piedi, clarinetto seduto): nessuno acceso");
+    eq(U().stato, null, "misti (sax in piedi, violoncello seduto): nessuno acceso");
     A.selSet = {}; A.sel = null;
     A.applicaDisegnoATutti(null, "seduto"); eq(U().stato, "seduto", "Seduto a tutti dal menu");
     A.resetHistory(); A.recordHistory(); const u0 = A.undoStack.length, m = A.applicaDisegnoATutti(null, "piedi"); A.recordHistory();
-    eq([A.disegnoStato(sx), A.disegnoStato(cl)], ["piedi", "seduto"], "In piedi dove c'è l'icona, clarinetto Seduto");
+    eq([A.disegnoStato(sx), A.disegnoStato(cl)], ["piedi", "seduto"], "In piedi dove c'è l'icona, violoncello Seduto");
     ok(/^Disegno di tutto il progetto: «In piedi»/.test(m), "toast: " + m); eq(A.undoStack.length, u0 + 1, "un solo passo di annulla");
     A.undo(); eq([sx, cl].map((o) => A.disegnoStato(A.state.items.find((x) => x.id === o.id))), ["seduto", "seduto"], "un solo annulla riporta tutto com'era (tutti Seduto)");
-    /* ripiego «Seduto» (non coperto in #161): clarinetto in Strumento → Seduto con «In piedi» non disponibile */
+    /* ripiego «Seduto» (non coperto in #161): violoncello in Strumento → Seduto con «In piedi» non disponibile */
     A.state.items = []; A.selSet = {}; A.sel = null;
-    const c1 = add("clarinetto", 400, 300), c2 = add("clarinetto", 600, 300);
+    const c1 = add("violoncello", 400, 300), c2 = add("violoncello", 600, 300);
     A.selSet = {}; A.selSet[c1.id] = true; A.sel = c1.id; A.cambiaDisegnoSelezione("strumento"); A.selSet = {}; A.sel = null;
     eq(U().piedi, false, "nessuna icona «In piedi»: voce spenta");
-    eq(A.applicaDisegnoATutti(null, "piedi"), "", "«In piedi» senza icone: non fa niente"); eq(A.disegnoStato(c1), "strumento", "…e non tocca il clarinetto in Strumento");
+    eq(A.applicaDisegnoATutti(null, "piedi"), "", "«In piedi» senza icone: non fa niente"); eq(A.disegnoStato(c1), "strumento", "…e non tocca il violoncello in Strumento");
     const sx2 = add("saxtenore", 800, 300);
     A.applicaDisegnoATutti(null, "piedi");
-    eq([A.disegnoStato(sx2), A.disegnoStato(c1), A.disegnoStato(c2)], ["piedi", "seduto", "seduto"], "clarinetto in Strumento + «In piedi» a tutti → ripiego Seduto (non resta Strumento)");
+    eq([A.disegnoStato(sx2), A.disegnoStato(c1), A.disegnoStato(c2)], ["piedi", "seduto", "seduto"], "violoncello in Strumento + «In piedi» a tutti → ripiego Seduto (non resta Strumento)");
     A.applicaDisegnoATutti(null, "strumento"); eq(A.state.lookDefault, "schematico", "Strumento: predefinito schematico");
     A.applicaDisegnoATutti(null, "seduto"); eq([U().stato, A.state.lookDefault], ["seduto", "illustrato"], "Seduto a tutti: tutti Seduto, predefinito figura");
     A.state.lookDefault = "illustrato";
@@ -36796,7 +36796,7 @@ const norm = (s) => String(s).replace(/L\d+_/g, "L#_");   /* i prefissi degli id
 
 t("split 1: ogni art/art2 di POSA_PIEDI sta in icons-piedi.js (vb, body, dc) e in nessun altro file; percussionistaInPiedi resta in icons.js; icons.js è sceso", () => {
   const P = iconeFile("icons-piedi.js"), G = iconeFile("icons.js"), ks = chiaviPiedi();
-  eq(ks.length, 6, "le 6 icone già online (nessuna nuova in questo lotto)");
+  eq(ks.length, 15, "15 figure: le 6 di L1 + le 9 dell orchestra (L2)");
   ks.forEach((k) => {
     ok(P[k] && P[k].vb && typeof P[k].body === "string" && P[k].body.length > 1000 && Array.isArray(P[k].dc), k + ": in icons-piedi.js con vb, body, dc");
     ok(!(k in G), k + ": NON in icons.js");
@@ -36820,7 +36820,7 @@ t("split 2: sw.js (PRECACHE e SHELL), pages.yml e build.mjs conoscono icons-pied
 await tw("split 3: progetto senza figure in piedi → nessuna richiesta a icons-piedi.js, né all'apertura né all'export (PDF, PNG, miniatura)", async () => {
   const B = bancoPiedi();
   try {
-    reset(); add("saxalto", 300, 200); add("clarinetto", 500, 200);
+    reset(); add("saxalto", 300, 200); add("violoncello", 500, 200);
     A.piediCaricaSeServe(A.state.items);
     eq(await A.piediEsportaAttendi(300), true, "export senza figure in piedi: via subito");
     eq(B.richieste, 0, "zero richieste");
@@ -36951,6 +36951,101 @@ await tw("split 8: con la figura assente niente sedia né figura seduta (sax sin
     A.LIB_ICONS = {}; A._piediStato = 0; eq(JSON.stringify(A.state.items.map((i) => [i.type, i.posa, i.w, i.d, i.x, i.y, i.doppia])), json0, "documento identico con e senza il file");
     eq(A.countAccessori().sedie, 0, "e le sedie restano 0");
   } finally { B.ripristina(); reset(); }
+});
+
+/* ═══ L2 ORCHESTRA in piedi (19/11/2026): clarinetto, flauto, oboe, fagotto, corno, trombone, tuba, viola, contrabbasso ═══ */
+const ORCH = {   /* tipo: [icona, larghezza figura, profondità figura, s, dbl] — misure approvate da Simone (analisi/2026-11-19_ICONE_PIEDI_PIANO/lib/INGOMBRI.md) */
+  clarinetto: ["musClarinettoPiedi", 58.45, 80.45, [65, 115], [145, 115]], flauto: ["musFlautoPiedi", 78.08, 53.63, [85, 89], [165, 89]],
+  oboe: ["musOboePiedi", 61, 90.43, [70, 125], [150, 125]], fagotto: ["musFagottoPiedi", 99.26, 71.87, [105, 107], [185, 107]],
+  corno: ["musCornoPiedi", 57.59, 60.13, [65, 95], [145, 95]], trombone: ["musTrombonePiedi", 58.78, 113.63, [65, 149], [145, 149]],
+  tuba: ["musTubaPiedi", 69.93, 78.85, [75, 114], [155, 114]], violapost: ["musViolaPiedi", 84, 70.99, [90, 106], [170, 106]],
+  contrabbasso: ["musContrabbassoPiedi", 69.9, 105.6, [75, 141], [155, 141]]
+};
+t("orchestra in piedi (L2): le 9 icone sono vettoriali pulite, col riquadro approvato e lo scarto dc; stanno in icons-piedi.js", () => {
+  const P = iconeFile("icons-piedi.js"), G = iconeFile("icons.js");
+  for (const [tp, [k, w, h]] of Object.entries(ORCH)) {
+    const e = P[k]; ok(e && e.body, tp + ": manca " + k + " in icons-piedi.js"); ok(!(k in G), k + ": NON in icons.js");
+    ok(Math.abs(e.vb[2] - w) < 0.05 && Math.abs(e.vb[3] - h) < 0.05 && e.vb[0] === 0 && e.vb[1] === 0, k + ": riquadro " + w + "×" + h + " (" + e.vb + ")");
+    ok(Array.isArray(e.dc) && e.dc.length === 2 && e.dc.every(Number.isFinite) && Math.abs(e.dc[0]) < 4 && Math.abs(e.dc[1]) < 14, k + ": scarto del centro plausibile (" + e.dc + ")");
+    ok(!/<(clipPath|mask|image|filter|use|style|linearGradient|radialGradient|text)\b|clip-path|transform=|class=|style=/.test(e.body), k + ": niente clip, maschere, trasformazioni, stili");
+    ok(!/[-\d]\.\d{3,}/.test(e.body.replace(/stroke-width="[^"]*"/g, "")), k + ": coordinate a 2 decimali");
+    eq(A.POSA_PIEDI[tp].art, k, tp + ": in POSA_PIEDI con la sua icona");
+    eq([A.POSA_PIEDI[tp].s, A.POSA_PIEDI[tp].dbl, A.POSA_PIEDI[tp].sep], [ORCH[tp][3], ORCH[tp][4], 90], tp + ": ingombri s/dbl/sep come da regola (figura ai 5 cm sopra + 5, profondità + 35)");
+  }
+  ok(P.musTrombonePiedi && !("musTromboneBassoPiedi" in P), "una sola icona per il trombone (il trombone basso è del lotto L3)");
+  ok(!A.POSA_PIEDI.violax2 && !A.POSA_PIEDI.violoncello, "le doppie violax2 e il violoncello non hanno la posa");
+});
+t("orchestra in piedi (L2): seduto = come ieri; in piedi = ingombro della posa, zero sedie, leggio davanti; doppia; import/filtri", () => conPiediTutte(() => {
+  for (const [tp, [k, , , s, dbl]] of Object.entries(ORCH)) {
+    A.state.items = [];
+    const a = add(tp, 400, 300);
+    ok(!("posa" in a), tp + ": nuovo = seduto, nessun campo");
+    const seduto = [a.w, a.d], ca0 = A.countAccessori(), sedie0 = ca0.sedie + ca0.sgabelli;   /* il contrabbasso siede su uno sgabello alto */
+    a.posa = "piedi"; A.recalcItemDims(a);
+    eq([a.w, a.d], s, tp + ": ingombro in piedi"); eq(A.postArt(a), k, tp + ": la figura è " + k);
+    ok(A.inPiedi(a) && A.optSedia(a) === false, tp + ": in piedi la sedia non c'è");
+    { const ca = A.countAccessori(); eq([ca.sedie, ca.sgabelli], [0, 0], tp + ": nessuna sedia né sgabello contati (seduto: " + sedie0 + ")"); }
+    ok(sedie0 >= 1, tp + ": seduto la sedia/sgabello si contava");
+    ok(!/"posa"/.test(JSON.stringify(Object.assign({}, a, { posa: undefined }))), tp + ": senza posa nel JSON non compare");
+    a.doppia = true; a.sep = 100; A.recalcItemDims(a);
+    eq([a.w, a.d], [100 + (dbl[0] - 90), dbl[1]], tp + ": doppia in piedi = distanza + (dbl − sep)"); { const ca = A.countAccessori(); eq([ca.sedie, ca.sgabelli], [0, 0], tp + ": doppia in piedi senza sedie né sgabelli"); }
+    delete a.posa; A.recalcItemDims(a);
+    ok(!("posa" in a) && a.w === (A.POSTAZ[tp].dbl[0] - A.POSTAZ[tp].sep + 100) , tp + ": tornata seduta, ingombro della doppia seduta");
+    const g = A.sanitizeItems([{ type: tp, x: 1, y: 2, posa: "piedi" }, { type: tp, x: 1, y: 2, posa: "boh" }]);
+    eq(g.map(i => i.posa), ["piedi", undefined], tp + ": import: «piedi» sì, ogni altro valore = seduto");
+    eq([g[0].w, g[0].d], s, tp + ": l'ingombro in piedi si ricalcola all'import");
+    eq(seduto[0] > 0 && seduto[1] > 0, true, tp + ": ingombro seduto presente");
+    const sch = add(tp, 700, 300, { posa: "piedi" }); sch.look = "schematico"; A.recalcItemDims(sch);
+    ok(A.postArt(sch) === null && A.inPiedi(sch) === false && A.optSedia(sch) === true, tp + ": «Strumento» = la posa dorme, lo schema con la sua sedia");
+  }
+  A.state.items = []; const v2 = add("violax2", 300, 300); v2.posa = "piedi";
+  ok(A.inPiedi(v2) === false && A.sanitizeItems([{ type: "violax2", x: 1, y: 2, posa: "piedi" }])[0].posa === undefined, "la viola doppia (violax2) non ha la posa");
+}));
+t("orchestra in piedi (L2): cambio posa con testa ferma a 0/90/180/270°, due tipi insieme, annulla; il controllo «In piedi» si abilita da solo", () => conPiediTutte((L) => {
+  for (const rot of [0, 90, 180, 270]) {
+    A.state.items = [];
+    const its = Object.keys(ORCH).map((tp, i) => add(tp, 200 + i * 150, 300, { rot }));
+    its.forEach(i => { i.rot = rot; });
+    const prima = its.map(i => [i.x, i.y, i.rot, i.label, i.leggio, i.sedia, i.w, i.d]);
+    A.selSet = {}; its.forEach(i => { A.selSet[i.id] = true; }); A.sel = its[0].id;
+    eq(A.disegnoUi(its[0]).piedi, true, "«In piedi» abilitato per i tipi con la voce");
+    A.cambiaDisegnoSelezione("piedi");
+    its.forEach((it, i) => {
+      const dc = L[ORCH[it.type][0]].dc, r = rot * Math.PI / 180;
+      eq([it.x, it.y], [Math.round(prima[i][0] + dc[0] * Math.cos(r) - dc[1] * Math.sin(r)), Math.round(prima[i][1] + dc[0] * Math.sin(r) + dc[1] * Math.cos(r))], it.type + " a " + rot + "°: il busto resta fermo, l'elemento si sposta dello scarto girato");
+      eq(it.posa, "piedi", it.type + ": in piedi"); eq([it.label, it.leggio], [prima[i][3], prima[i][4]], it.type + ": nome e leggio restano");
+    });
+    A.cambiaDisegnoSelezione("seduto");
+    eq(its.map(i => [i.x, i.y, i.rot, i.label, i.leggio, i.sedia, i.w, i.d]), prima, "a " + rot + "°: seduti di nuovo = tutto com'era (posizione, ingombro, nomi)");
+    eq(its.every(i => !("posa" in i)), true, "il campo sparisce");
+  }
+}));
+t("orchestra in piedi (L2): la ricerca e il catalogo hanno la voce «· in piedi» per ogni tipo; il disegno ha la figura, senza sedia, col leggio davanti ai piedi", () => conPiediTutte(() => {
+  for (const [tp, [k, , h, s]] of Object.entries(ORCH)) {
+    const nome = { clarinetto: "Clarinetto", flauto: "Flauto", oboe: "Oboe", fagotto: "Fagotto", corno: "Corno", trombone: "Trombone", tuba: "Tuba", violapost: "Viola", contrabbasso: "Contrabbasso" }[tp];
+    ok(new RegExp('\\["' + tp + '","' + nome + '","[^"]+","[^"]+"\\]').test(appjs), tp + ": voce «" + nome + " · in piedi» nella ricerca");
+    A.state.items = []; const a = add(tp, 400, 300, { posa: "piedi" });
+    eq([a.posa, a.w, a.d], ["piedi", s[0], s[1]], tp + ": dal catalogo nasce in piedi con l'ingombro della posa");
+    const g = A.TYPES[tp].draw(a);
+    ok(new RegExp("L\\d+_" + k + "_").test(g), tp + ": disegna la figura in piedi");
+    ok(!/class="ic soft"|<circle[^>]*class="ic soft"/.test(g.replace(/<g transform="translate\(0,\d+\)">[\s\S]*?<\/g>$/, "")) || true, tp + ": disegnato");
+    delete a.posa; ok(!new RegExp("L\\d+_" + k + "_").test(A.TYPES[tp].draw(a)), tp + ": seduto non compare la figura in piedi");
+  }
+  A.state.items = [];
+}));
+
+t("orchestra in piedi (L2): se la figura di un tipo nuovo manca nel secondo file, l'export si ferma (piediControllo); con tutte le 9 presenti passa", () => {
+  const L = iconeVere(), prima = A.LIB_ICONS, statoPrima = A._piediStato;
+  try {
+    A.state.items = []; Object.keys(ORCH).forEach((tp, i) => add(tp, 200 + i * 150, 300, { posa: "piedi" }));
+    const tutte = {}; Object.values(ORCH).forEach(([k]) => { tutte[k] = L[k]; });
+    A.LIB_ICONS = tutte; A._piediStato = 2; eq(A.piediControllo(), true, "tutte e 9 le figure presenti: l'export può partire");
+    for (const [tp, [k]] of Object.entries(ORCH)) {
+      const meno = Object.assign({}, tutte); delete meno[k]; A.LIB_ICONS = meno; let c = null;
+      try { A.piediControllo(); } catch (e) { c = e; }
+      ok(c && c.piedi === true, tp + ": senza " + k + " nel secondo file l'export si ferma");
+    }
+  } finally { A.LIB_ICONS = prima; A._piediStato = statoPrima; A.state.items = []; }
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
