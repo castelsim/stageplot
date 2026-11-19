@@ -14,6 +14,7 @@ import { dirname, join } from "node:path";
 import vm from "node:vm";
 import { inflateSync } from "node:zlib";   /* il testo dei PDF pubblicati sta in stream compressi */
 import { execFileSync } from "node:child_process";   /* per far controllare app.js al parser vero */
+import { pdfSintetico } from "./pdf-sintetico.mjs";   /* PDF finto per le prove della planimetria da PDF */
 import { createHash } from "node:crypto";   /* lo SHA-256 delle librerie in vendor/ (booleane, 20/10/2026) */
 import { datiDallaLanding } from "../ops/anteprima-social.mjs";   /* l'anteprima social si pesca dalla landing: qui si verifica che sia ancora quella */
 
@@ -31641,6 +31642,113 @@ taPdf("Estero: PDF in inglese e piedi — piè «1 of N», data in inglese, ness
   const tagli = en.join("\n").match(/\d+× \d+ ft/g) || [];
   ok(tagli.length > 0 && tagli.every((x) => [10, 15, 25, 50, 75, 100, 150, 200, 250, 300].indexOf(+x.split("× ")[1].split(" ")[0]) >= 0), "cavi per taglio solo ai tagli USA: " + tagli.join(", "));
   reset();
+});
+
+/* ===== Planimetria da PDF (19/11/2026): pdf.js self-hosted, pagina → canvas → PNG → stessa strada delle immagini ===== */
+t("planimetria PDF: pdf.js 3.11.174 è in vendor/pdfjs con licenza Apache-2.0, SHA-256 nel README, senza sourceMappingURL; NON nel precache (1,4 MB)", () => {
+  const f = (n) => readFileSync(join(root, "vendor/pdfjs/" + n));
+  const lib = f("pdf.min.js"), wk = f("pdf.worker.min.js");
+  ok(lib.length > 250000 && wk.length > 900000, "i due file ci sono");
+  ok(/Apache License, Version 2\.0/.test(lib.toString("utf8", 0, 1200)) && /Apache License/.test(f("LICENSE.txt").toString("utf8", 0, 400)), "intestazione e licenza");
+  ok(!/sourceMappingURL/.test(lib.toString("utf8")) && !/sourceMappingURL/.test(wk.toString("utf8")), "niente sourceMappingURL verso terzi");
+  const rd = readFileSync(join(root, "vendor/README.md"), "utf8"), sez = rd.slice(rd.indexOf("## pdfjs/"));
+  ok(rd.indexOf("## pdfjs/") > -1 && /3\.11\.174/.test(sez) && /Apache/.test(sez), "versione e licenza nel README");
+  for (const [n, b] of [["pdf.min.js", lib], ["pdf.worker.min.js", wk]]) {
+    const sha = createHash("sha256").update(b).digest("hex");
+    ok(sez.indexOf(sha) > -1, "lo SHA-256 di " + n + " nel README: " + sha);
+  }
+  ok(/PDF\.js\s*v?3\.11\.174|3\.11\.174/.test(lib.toString("utf8")), "la versione dichiarata è quella del file");
+  const sw = readFileSync(join(root, "sw.js"), "utf8"), pre = sw.slice(sw.indexOf("var PRECACHE = ["), sw.indexOf("];", sw.indexOf("var PRECACHE = [")));
+  eq(pre.indexOf("pdfjs") > -1, false, "non nel precache: il service worker la tiene dopo il primo uso");
+});
+t("planimetria PDF: riconoscimento, scala di resa (lato lungo = tetto dell'import), nome della pagina", () => {
+  eq([A.venueIsPdf({ type: "application/pdf", name: "x" }), A.venueIsPdf({ type: "", name: "Pianta.PDF" }), A.venueIsPdf({ type: "image/png", name: "pianta.png" }), A.venueIsPdf(null)], [true, true, false, false]);
+  eq(A.venuePdfScale(842, 595), 2000 / 842, "A4 orizzontale: 842 pt → 2000 px");
+  eq(A.venuePdfScale(595, 842), 2000 / 842, "vale per il lato lungo, in qualsiasi verso");
+  eq(A.venuePdfScale(100, 50, 160), 1.6, "anteprima: tetto 160 px");
+  eq(A.venuePdfScale(0, 0), 1, "pagina senza misure: scala 1");
+  eq([A.venuePdfNome("pianta.pdf", 1, 1), A.venuePdfNome("pianta.pdf", 3, 5), A.venuePdfNome("", 1, 1)], ["pianta.pdf", "pianta.pdf · p. 3", "planimetria.pdf"]);
+});
+t("planimetria PDF: pagina vuota = tutti i pixel bianchi (anche un solo tratto la rende non vuota); i messaggi d'errore sono chiari", () => {
+  const bianco = new Uint8ClampedArray(4 * 400).fill(255);
+  ok(A.venuePdfVuota(bianco), "tutta bianca = vuota");
+  const tratto = new Uint8ClampedArray(bianco); tratto[4 * 13 * 7] = 10; tratto[4 * 13 * 7 + 1] = 10; tratto[4 * 13 * 7 + 2] = 10;
+  eq(A.venuePdfVuota(tratto), false, "un pixel scuro campionato = non vuota");
+  eq(A.venuePdfVuota(new Uint8ClampedArray(4 * 400)), true, "tutta trasparente = vuota");
+  ok(/password/.test(A.venuePdfErrore({ name: "PasswordException" })), "protetto da password");
+  ok(/non è un PDF valido/.test(A.venuePdfErrore({ name: "InvalidPDFException" })), "file non valido");
+  ok(/Impossibile leggere il PDF/.test(A.venuePdfErrore(new Error("boh"))), "errore generico");
+  ok(/libreria PDF/.test(A.venuePdfErrore(new Error("Impossibile caricare la libreria PDF"))), "la libreria che non arriva si dice");
+});
+t("planimetria PDF: un PDF oltre 25 MB si rifiuta col peso nel messaggio, senza leggerlo; un PDF passa da venueLoadFile (bottone, trascinamento) e non dal ramo immagini", () => {
+  reset();
+  const msg = []; const tp = A.__toast; A.__toast = (m, e) => msg.push([m, !!e]);
+  try { A.venueLoadFile({ name: "grande.pdf", type: "application/pdf", size: 26 * 1024 * 1024 }); } finally { A.__toast = tp; }
+  ok(msg.length === 1 && msg[0][1] === true && /troppo grande/.test(msg[0][0]) && /25,0 MB/.test(msg[0][0]), "messaggio: " + JSON.stringify(msg));
+  eq(A.state.venue, null, "nessuna planimetria creata");
+  const tpl = readFileSync(join(root, "index.template.html"), "utf8");
+  ok(/if\(venueIsPdf\(file\)\) return venueLoadPdf\(file\);/.test(tpl), "venueLoadFile smista i PDF");
+  ok(/accept="image\/png,image\/jpeg,image\/webp,image\/gif,application\/pdf,\.pdf"/.test(tpl), "il campo file accetta i PDF");
+  ok(/\/\^image\\\/\/\.test\(f\.type\) \|\| venueIsPdf\(f\)/.test(tpl), "il trascinamento sul foglio accetta i PDF");
+});
+ta("planimetria PDF: venueCaricaPdfJs — un solo script da /vendor/pdfjs/, il worker è quello locale, errore o libreria assente: la promessa si azzera", () => {
+  const d0 = A.document, L0 = A.pdfjsLib, script = [], esiti = [];
+  try {
+    A.document = { createElement: () => ({}), head: { appendChild: (s) => script.push(s) } };
+    A.pdfjsLib = undefined; A.venuePdfPromessa = null;
+    const p1 = A.venueCaricaPdfJs(); eq(A.venueCaricaPdfJs(), p1, "una promessa sola finché si aspetta"); eq(script.length, 1);
+    eq(script[0].src, "/vendor/pdfjs/pdf.min.js");
+    script[0].onload(); eq(A.venuePdfPromessa, null, "caricato ma senza pdfjsLib: azzerata"); esiti.push(p1.then(() => "risolta", (e) => e.message));
+    const p2 = A.venueCaricaPdfJs(); script[1].onerror(); eq(A.venuePdfPromessa, null); esiti.push(p2.then(() => "risolta", (e) => e.message));
+    const p3 = A.venueCaricaPdfJs(); const lib = { GlobalWorkerOptions: {} }; A.pdfjsLib = lib; script[2].onload();
+    esiti.push(p3.then((L) => (L === lib && lib.GlobalWorkerOptions.workerSrc === "/vendor/pdfjs/pdf.worker.min.js" ? "risolta" : "altro")));
+  } finally { A.document = d0; A.pdfjsLib = L0; A.venuePdfPromessa = null; }
+  return Promise.all(esiti).then((v) => { ok(/non disponibile/.test(v[0]) && /Impossibile caricare/.test(v[1]), JSON.stringify(v)); eq(v[2], "risolta"); });
+});
+ta("planimetria PDF: PDF a più pagine → selettore (nessuna scelta automatica); a una pagina → PNG bianco passato a venueLoadFile con il nome del PDF; pagina vuota e PDF con password → messaggio", async () => {
+  /* istanza SEPARATA dell'app: il test aspetta (await) con document e File finti, e nel sandbox comune li vedrebbero i test sincroni degli altri */
+  const B = loadApp();
+  const d0 = B.document, L0 = B.pdfjsLib, F0 = B.File, lf0 = B.venueLoadFile, tp = B.__toast;
+  const el = {}; const mk = (id) => (el[id] = el[id] || { id, hidden: true, value: "1", textContent: "", getContext: () => ({ fillRect() {}, drawImage() {}, getImageData: () => ({ data: el.__dati }) }) });
+  const msg = [], caricati = [];
+  const pag = (w, h) => ({ getViewport: ({ scale }) => ({ width: w * scale, height: h * scale }), render: () => ({ promise: Promise.resolve() }) });
+  const doc = (n) => ({ numPages: n, getPage: () => Promise.resolve(pag(842, 595)), destroy() { this.chiuso = true; } });
+  const lib = (d, errore) => { const Lb = { GlobalWorkerOptions: {}, getDocument: (o) => { Lb.opz = o; return { promise: errore ? Promise.reject(errore) : Promise.resolve(d) }; } }; return Lb; };
+  const tratti = () => { const d = new Uint8ClampedArray(4 * 40); for (let k = 3; k < d.length; k += 4) d[k] = 255; return d; };   /* nero opaco = pagina con tratti */
+  const aspetta = () => new Promise((r) => setTimeout(r, 25));
+  const setup = (l) => {
+    B.document = { getElementById: mk, createElement: () => Object.assign(mk("cv" + Math.random()), { toBlob: (cb) => cb({ size: 5 }) }) };
+    B.pdfjsLib = l; B.File = function (parti, nome, o) { this.parti = parti; this.name = nome; this.type = o.type; };
+    B.venueLoadFile = (f) => caricati.push(f); B.__toast = (m, e) => msg.push([m, !!e]);
+    ["venuePdfPick", "venuePdfPickTxt", "venuePdfPage", "venuePdfThumb"].forEach(mk); el.venuePdfPick.hidden = true; el.__dati = new Uint8ClampedArray(4 * 40);
+  };
+  const file = (nome) => ({ name: nome, type: "application/pdf", size: 1000, arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)) });
+  try {
+    /* 1) 3 pagine: compare il selettore, niente import finché non si sceglie */
+    const l3 = lib(doc(3)); setup(l3); B.venueLoadPdf(file("pianta.pdf")); await aspetta();
+    eq(el.venuePdfPick.hidden, false, "selettore visibile"); ok(/3 pagine/.test(el.venuePdfPickTxt.textContent), el.venuePdfPickTxt.textContent); eq(caricati.length, 0, "non importa da sola");
+    eq(l3.opz.isEvalSupported, false, "pdf.js senza eval (la CSP non ha unsafe-eval)");
+    el.__dati = tratti();   /* pagina con tratti */
+    el.venuePdfPage.value = "2"; B.venuePdfDoc.numPages === 3 || (() => { throw new Error("doc non tenuto"); })();
+    eq(B.venuePdfPaginaScelta(), 2); el.venuePdfPage.value = "99"; eq(B.venuePdfPaginaScelta(), 3, "pagina oltre il massimo: l'ultima"); el.venuePdfPage.value = "2";
+    await B.venuePdfUsa(B.venuePdfDoc, 2, B.venuePdfCtx); await aspetta();
+    ok(caricati.length === 1 && caricati[0].type === "image/png" && caricati[0].name === "pianta.pdf · p. 2", "PNG col nome pagina: " + JSON.stringify(caricati.map((f) => [f.type, f.name])));
+    eq(el.venuePdfPick.hidden, true, "selettore chiuso dopo l'uso");
+    /* 2) una pagina: diretto, senza selettore */
+    caricati.length = 0; el.__dati = tratti();
+    setup(lib(doc(1))); el.__dati = tratti(); B.venueLoadPdf(file("una.pdf")); await aspetta();
+    ok(caricati.length === 1 && caricati[0].name === "una.pdf", "una pagina: importata subito col nome del file");
+    /* 3) pagina bianca: messaggio, nessuna immagine */
+    caricati.length = 0; msg.length = 0; setup(lib(doc(1))); el.__dati = new Uint8ClampedArray(4 * 40).fill(255); B.venueLoadPdf(file("vuota.pdf")); await aspetta();
+    ok(caricati.length === 0 && msg.some((m) => m[1] && /vuota/.test(m[0])), "pagina vuota: " + JSON.stringify(msg));
+    /* 4) password */
+    msg.length = 0; setup(lib(null, { name: "PasswordException", message: "No password given" })); B.venueLoadPdf(file("chiuso.pdf")); await aspetta();
+    ok(caricati.length === 0 && msg.some((m) => m[1] && /password/.test(m[0])), "password: " + JSON.stringify(msg));
+  } finally { B.document = d0; B.pdfjsLib = L0; B.File = F0; B.venueLoadFile = lf0; B.__toast = tp; B.venuePdfChiudi && 0; }
+});
+t("planimetria PDF: il PDF sintetico delle prove è un PDF valido a N pagine (nessun dato reale)", () => {
+  const b = pdfSintetico({ pagine: [{ w: 842, h: 595 }, { w: 595, h: 842 }, { w: 842, h: 595, vuota: true }] }).toString("latin1");
+  ok(b.startsWith("%PDF-1.4") && /\/Count 3/.test(b) && /startxref/.test(b) && /PIANTA DI PROVA/.test(b), "intestazione, 3 pagine, xref");
 });
 
 await Promise.all(attese);

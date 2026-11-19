@@ -4614,13 +4614,24 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
           <span class="vdot">1</span>
           <div class="vbody">
             <b>Importa l'immagine</b>
-            <small id="vstep1sub">La pianta del luogo (PNG o JPG)</small>
+            <small id="vstep1sub">La pianta del luogo (PNG, JPG o PDF)</small>
             <div id="venueReload" hidden>
               <b id="venueReloadName"></b>
               <button class="btn" id="venueBtnReload" style="width:100%;margin-top:4px">Ricarica immagine…</button>
             </div>
-            <input type="file" id="venueFile" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
-            <button class="btn primary" id="venueBtnImport" style="width:100%;margin-top:7px">📥 Importa immagine</button>
+            <input type="file" id="venueFile" accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,.pdf" hidden>
+            <button class="btn primary" id="venueBtnImport" style="width:100%;margin-top:7px">📥 Immagine o PDF</button>
+            <div id="venuePdfPick" hidden style="margin-top:7px;border:1px solid var(--border);border-radius:8px;padding:6px;background:var(--surface)">
+              <small id="venuePdfPickTxt" style="display:block;color:var(--text-2);font-size:12px"></small>
+              <div style="display:flex;gap:6px;align-items:center;margin-top:5px">
+                <canvas id="venuePdfThumb" width="1" height="1" aria-label="Anteprima della pagina" style="max-width:96px;max-height:96px;border:1px solid var(--border);background:#fff;flex:0 0 auto"></canvas>
+                <label style="font-size:12px;color:var(--text-2)">Pagina <input type="number" id="venuePdfPage" min="1" step="1" value="1" aria-label="Numero della pagina del PDF" style="width:52px;border:1px solid var(--border);border-radius:7px;padding:4px;font-size:13px;text-align:center;background:var(--surface);color:var(--text)"></label>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr auto;gap:6px;margin-top:6px">
+                <button class="btn primary" id="venuePdfUse" style="width:auto;min-width:0;font-size:12px;padding:4px 6px;white-space:nowrap">Usa questa pagina</button>
+                <button class="btn" id="venuePdfCancel" style="width:auto;font-size:12px;padding:4px 8px">Annulla</button>
+              </div>
+            </div>
             <div id="venueWeightRow" hidden style="margin-top:7px">
               <small id="venueWeightTxt" style="display:block;color:var(--text-2);font-size:12px"></small>
               <button class="btn" id="venueBtnLighten" style="width:100%;margin-top:4px">Alleggerisci immagine</button>
