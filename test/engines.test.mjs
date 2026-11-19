@@ -36254,7 +36254,7 @@ t("Unità nell'editor (19/11): interruttore in barra e nel Menu, un solo punto c
 t("Unità nell'editor: ogni «N m / N cm» dei testi dell'interfaccia passa da uTxt — nessuno sfugge in piedi, nulla cambia in metri", () => {
   const sporco = /(^|[^\w'"×.,])\d+(?:[.,]\d+)?\s?(?:m|cm)\b(?![²\w'"])/;
   const dims = []; Object.keys(A.TYPES).forEach((k) => { const d = A.TYPES[k].dim; if (typeof d === "string") dims.push(d); });
-  dims.push("Ingombro: 200×100 cm", "Ingombro: 65×81 cm · 3 elementi", "zona 2×1,2 m", "ISO 4043 · interno 1,60 × 1,60 m", "16:9 · telaio 4,27 m · piedi 1,5 m", "h 40 cm", "boccascena 10,00 m", "12 m", "65 cm", "Violino I 1 · 5,2 m", "palco 12×8 m · zoom 30 px/m");
+  dims.push("Ingombro: 200×100 cm", "Ingombro: 65×81 cm · 3 elementi", "zona 2×1,2 m", "ISO 4043 · interno 1,60 × 1,60 m", "16:9 · telaio 4,27 m · piedi 1,5 m", "h 40 cm", "boccascena 10,00 m", "12 m", "65 cm", "Violino I 1 · 5,2 m", "palco 12×8 m · zoom 30 px/m", "Palco 11 × 18,8 m");
   ok(dims.length > 150, "ci sono le voci del catalogo da provare (" + dims.length + ")");
   const sfuggiti = [];
   conDoc(null, "ft", () => dims.forEach((d) => { const r = A.uTxt(d); if (sporco.test(r)) sfuggiti.push(d + " → " + r); }));
@@ -36262,6 +36262,12 @@ t("Unità nell'editor: ogni «N m / N cm» dei testi dell'interfaccia passa da u
   const cambiate = []; conDoc(null, null, () => dims.forEach((d) => { if (A.uTxt(d) !== d) cambiate.push(d); }));
   eq(cambiate, [], "in metri uTxt restituisce lo stesso identico testo (progetti esistenti come prima)");
   conDoc(null, "both", () => dims.forEach((d) => { if (sporco.test(d)) { const r = A.uTxt(d); ok(/['"]/.test(r) || r === d, "entrambe: m e piedi insieme — " + d + " → " + r); } }));
+  /* rilettura #170: il testo del PDF passa più volte (misura, a capo, scrittura). Con «entrambe» il cartiglio diceva
+     «palco 12×13 m (39' 4" × 42' 8") (39' 4" × 42' 8") (39' 4" × 42' 8")» e «h 80 cm (2' 7") cm (2' 7")»: la conversione deve valere una volta sola */
+  ["both", "ft"].forEach((u) => conDoc(null, u, () => ["palco 12×13 m", "36 pedane: 1 da 2×1 h80, 6 da 2×1 h 60", "pedana 12×2 h80", "Ingombro: 200×100 cm · 3 elementi", "h 40 cm", "boccascena 10,00 m", "palco 12,5 × 8 m", "zona 2×1,2 m", "2 m"].forEach((x) => {
+    const una = A._docUnitaTesto(x); eq(A._docUnitaTesto(A._docUnitaTesto(una)), una, u + ": «" + x + "» convertito una volta sola, anche ripassandolo");
+  })));
+  conDoc(null, "both", () => { eq(A._docUnitaTesto("palco 12×13 m"), "palco 12×13 m (39' 4\" × 42' 8\")", "entrambe: l'area"); eq(A._docUnitaTesto("pedana 12×2 h80"), "pedana 12×2 h 80 cm (2' 7\")", "entrambe: l'altezza"); });
   conDoc(null, "ft", () => { eq(A.uTxt("Ingombro: 200×100 cm"), "Ingombro: 6' 7\" × 3' 3\"", "l'ingombro del pannello"); eq(A.uTxt("zona 2×1,2 m"), "zona 6' 7\" × 3' 11\"", "e le misure del catalogo"); eq(A.uTxt("h 40 cm"), "h 1' 4\"", "l'altezza"); eq(A.uTxt("65 cm"), "2' 2\"", "una misura sola"); eq(A.uTxt("Anna Rossi"), "Anna Rossi", "un testo senza misure non si tocca"); });
   const svg = '<svg><text x="1">boccascena 10,00 m</text><text x="2">h 40 cm</text><text x="3">Mic 2 m</text><tspan>8 m</tspan><text>E-drums 1</text></svg>';
   eq(A.docSvgUnita(svg), svg, "il disegno in metri è identico a prima");
@@ -36273,6 +36279,7 @@ t("Unità nell'editor: ogni «N m / N cm» dei testi dell'interfaccia passa da u
     A.state.items.pop();
   });
   ok(/if\(docUnita\(\)!=="m"\) _scena=docSvgUnita\(_scena\)/.test(readFileSync(join(root, "index.template.html"), "utf8")), "render() passa il disegno da docSvgUnita");
+  ok(/ss\.textContent=uTxt\("Palco "\+misurePalco\(\)\)/.test(readFileSync(join(root, "index.template.html"), "utf8")) && /txt\("mMenuStage", uTxt\(misurePalco\(\)\)\)/.test(readFileSync(join(root, "index.template.html"), "utf8")), "la misura del palco nella riga del telefono e nel Menu passa da uTxt (rilettura #170)");
 });
 
 t("Unità nell'editor: i campi del pannello in piedi (6' 7\", mai 6.562), senza arrotondare i cm esistenti", () => {
@@ -36286,7 +36293,34 @@ t("Unità nell'editor: i campi del pannello in piedi (6' 7\", mai 6.562), senza 
     A.docCampoPonne(el, "", "cm"); eq(el.value, "", "vuoto resta vuoto (rig senza altezza)");
     eq([A.docCampoNativo({ value: "8' 6\"" }, "m"), A.docCampoNativo({ value: "8'" }, "cm"), A.docCampoNativo({ value: "96\"" }, "m"), A.docCampoNativo({ value: "24" }, "h"), A.docCampoNativo({ value: "2.5m" }, "m")].map((v) => +v.toFixed(4)), [2.5908, 243.84, 2.4384, 60.96, 2.5], "docCampoNativo: m per i campi in metri, cm per gli altri");
     ok(Number.isNaN(A.docCampoNativo({ value: "abc" }, "cm")), "testo non valido → NaN (il codice usa il valore di prima)");
+    /* rilettura #170: X e Y dell'area di stampa sono spesso negativi (12 progetti del collaudo su 30): il campo scrive «-8' 5.18"»
+       e deve rileggerlo, altrimenti cambiando la larghezza X e Y tornavano a 0 */
+    [-257, -152, -284, -1121, -40].forEach((cm) => { const el2 = { value: "" }; A.docCampoPonne(el2, cm / 100, "m"); eq(Math.round(A.docCampoNativo(el2, "m") * 100), cm, "area: " + cm + " cm → «" + el2.value + "» → di nuovo " + cm); });
+    eq([A.docCampoNativo({ value: "-3' 6\"" }, "m"), A.docCampoNativo({ value: "− 1'" }, "cm"), A.docCampoNativo({ value: "-2.5m" }, "m")].map((v) => +v.toFixed(4)), [-1.0668, -30.48, -2.5], "il segno meno (anche «−») vale in piedi");
   });
+  ok(/redrawSelHandles\(\); break; \}[^\n]*\n  if\(window\.__unitaUi!==docUnita\(\)\)\{ window\.__unitaUi=docUnita\(\); try\{ docEsteroSincronizza\(\); \}catch\(_e\)\{\} \}[^\n]*\n  renderProps\(\);/.test(readFileSync(join(root, "index.template.html"), "utf8")),
+     "render() riallinea interruttore, aggancio e catalogo quando l'unità del progetto cambia (apertura, Annulla/Ripeti, scena), prima del pannello");
+  {   /* lo stesso, dal vivo: un progetto che arriva in piedi (apertura, Annulla) ridisegna e i menu si riallineano UNA volta */
+    const orig = A.docEsteroSincronizza, prima = A.__unitaUi; let n = 0;
+    A.docEsteroSincronizza = () => { n++; };
+    try {
+      A.__unitaUi = "m"; A.render(); eq(n, 0, "in metri, già allineato: niente");
+      conDoc(null, "ft", () => { A.render(); A.render(); });
+      eq(n, 1, "il progetto passa in piedi senza unitaCambia (apertura, Annulla): render riallinea una volta sola");
+      A.render(); eq(n, 2, "e di nuovo tornando in metri");
+    } finally { A.docEsteroSincronizza = orig; A.__unitaUi = prima; }
+  }
+  {   /* in piedi i campi diventano testo («8' 6"»); tornando in metri devono essere di nuovo numeri col loro passo, o «8' 6"» non si legge più */
+    const d = A.document, els = {};   /* il document della sandbox è un Proxy che non si lascia scrivere: se ne mette uno finto per il tempo del test */
+    const mk = () => { const a = { type: "number", step: "0.1" }; return { a, textContent: "", getAttribute: (k) => (k in a ? a[k] : null), setAttribute: (k, v) => { a[k] = String(v); }, removeAttribute: (k) => { delete a[k]; } }; };
+    A.document = { getElementById: (id) => els[id] || (els[id] = mk()), querySelector: () => null };
+    try {
+      conDoc(null, "ft", () => A.docCampoEtichette());
+      eq([els.frameX.a.type, els.blkH.a.type], ["text", "text"], "in piedi: campi di testo");
+      A.docCampoEtichette();
+      eq([els.frameX.a.type, els.frameX.a.step, els.blkH.a.type, "data-step-m" in els.frameX.a], ["number", "0.1", "number", false], "in metri: di nuovo number, col passo di prima");
+    } finally { A.document = d; }
+  }
   const m = { value: "" }; A.docCampoPonne(m, 8.5, "m", "8,5"); eq(m.value, "8,5", "in metri il campo scrive il testo di sempre");
   A.docCampoPonne(m, 40, "h"); eq(m.value, 40, "e il numero di sempre");
   eq([A.docCampoNativo({ value: "8.5" }, "m"), A.docCampoNativo({ value: "" }, "cm"), A.docCampoNativo({ value: "250" }, "cm")], [8.5, 0, 250], "in metri legge +value, identico a prima");

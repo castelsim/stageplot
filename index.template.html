@@ -21246,6 +21246,7 @@ function render(){
   svg.innerHTML = viewRot ? '<g id="vrot" transform="rotate(-90)">'+_scena+'</g>' : _scena;
   reindexItemNodes();
   aderisciSelezione(); for(var _fk in _selFit){ redrawSelHandles(); break; }   /* il riquadro sul disegno vero, e la maniglia sul riquadro (solo se c'è qualcosa di misurato) */
+  if(window.__unitaUi!==docUnita()){ window.__unitaUi=docUnita(); try{ docEsteroSincronizza(); }catch(_e){} }   /* l'unità cambia anche aprendo un progetto, con Annulla/Ripeti o cambiando scena: interruttore, aggancio e catalogo la seguono (rilettura #170) */
   renderProps();
   if(window.__catCustomAggiorna) window.__catCustomAggiorna();   /* «Elementi di questo progetto»: si rifà solo se i modelli sono cambiati */
   renderAccessoriCount();
@@ -24624,7 +24625,7 @@ function updateHeaderStage(){
   var b0=stageBlocks()[0];
   ["stW","mW"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=b0.w/100; });
   ["stD","mD"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=b0.d/100; });
-  var ss=document.getElementById("mStageSum"); if(ss) ss.textContent="Palco "+misurePalco();
+  var ss=document.getElementById("mStageSum"); if(ss) ss.textContent=uTxt("Palco "+misurePalco());   /* in piedi anche la riga del telefono (rilettura #170) */
 }
 /* «16 × 6,5 m»: le misure dell'ingombro totale, con l'unità una volta sola (barra alta e menu del telefono) */
 function misurePalco(w, d){
@@ -26576,7 +26577,7 @@ function renderMobileList(){
     txt("mMenuLuogo", state.luogo || "da scrivere");
     txt("mMenuData", dataEventoBreve() || "da scrivere");
     txt("mMenuScaletta", scalettaRigaBreve() || "da scrivere");
-    txt("mMenuStage", misurePalco());
+    txt("mMenuStage", uTxt(misurePalco()));
     var nf=FUNZIONI.filter(function(f){ return funzOn(f.id); }).length;
     txt("mMenuFunz", nf===0 ? "spente" : nf===FUNZIONI.length ? "tutte accese" : (nf+" di "+FUNZIONI.length));
     var th=document.getElementById("mThemeRow");

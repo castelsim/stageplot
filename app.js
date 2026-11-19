@@ -4809,11 +4809,11 @@ function _docUnitaTesto(s){
   var due=function(cm, orig){ return u==="ft" ? ftIn(cm) : orig+" ("+ftIn(cm)+")"; };
   s=s.replace(/(oltre|over)\s+50\s?m\b(!?)/g, function(_, o, e){ return o+" "+(u==="ft" ? "100 ft" : "50 m")+e; })
      .replace(/(oltre|over)\s+100\s?m\b/g, function(_, o){ return o+" "+(u==="ft" ? "300 ft" : "100 m"); });
-  s=s.replace(/(\d+(?:[.,]\d+)?)\s?[×x]\s?(\d+(?:[.,]\d+)?)\s?m\b(?![²\w])/g, function(all, a, b){
+  s=s.replace(/(\d+(?:[.,]\d+)?)\s?[×x]\s?(\d+(?:[.,]\d+)?)\s?m\b(?![²\w])(?!\s\(\d+['"])/g, function(all, a, b){   /* la guardia: con «entrambe» il testo passa più volte (misura, a capo, scrittura) e l'area non va raddoppiata (rilettura #170) */
     var f=ftIn(num(a)*100)+" × "+ftIn(num(b)*100); return u==="ft" ? f : all+" ("+f+")"; });
-  s=s.replace(/(\d+(?:[.,]\d+)?)\s?[×x]\s?(\d+(?:[.,]\d+)?)\s?cm\b/g, function(all, a, b){   /* «200×100 cm» (ingombro, 19/11/2026) */
+  s=s.replace(/(\d+(?:[.,]\d+)?)\s?[×x]\s?(\d+(?:[.,]\d+)?)\s?cm\b(?!\s\(\d+['"])/g, function(all, a, b){   /* «200×100 cm» (ingombro, 19/11/2026) */
     var f=ftIn(num(a))+" × "+ftIn(num(b)); return u==="ft" ? f : all+" ("+f+")"; });
-  s=s.replace(/(^|[\s(·])h\s?(\d+(?:[.,]\d+)?)(?:\s?cm\b)?(?![\d'"])(?!\s\(\d+['"])/g, function(all, pre, n){ return pre+"h "+(u==="ft" ? ftIn(num(n)) : n+" cm ("+ftIn(num(n))+")"); });
+  s=s.replace(/(^|[\s(·])h\s?(\d+(?:[.,]\d+)?)(?:\s?cm\b)?(?![\d'"])(?!\s\(\d+['"])(?!\s?cm\s\(\d+['"])/g, function(all, pre, n){ return pre+"h "+(u==="ft" ? ftIn(num(n)) : n+" cm ("+ftIn(num(n))+")"); });
   s=s.replace(/(^|[^\w'"×.,])(\d+(?:[.,]\d+)?)\s?(m|cm)\b(?![²\w'"])(?!\s\(\d+['"])(?!\s\/\s\d+\sft)/g, function(all, pre, n, un){   /* «10 m / 25 ft» (taglio con entrambe) resta com'è */
     return pre+due(num(n)*(un==="m" ? 100 : 1), n+" "+un); });
   return s;
@@ -4903,7 +4903,10 @@ function docFtInTesto(cm){
 function docCampoNativo(el, base){
   if(typeof el==="string") el=document.getElementById(el); if(!el) return NaN;
   if(docUnita()!=="ft") return +el.value;
-  var c=docCampoCm(el, base==="h" ? "h" : (base==="m" ? "m" : "cm")); if(c==null) return NaN;
+  /* il segno meno davanti (X e Y dell'area di stampa sono spesso negativi: «-8' 5.18"», che docFtInTesto scrive così) */
+  var s=String(el.value==null ? "" : el.value).trim(), neg=/^[-−]/.test(s);
+  var c=docCampoCm({value: neg ? s.replace(/^[-−]\s*/, "") : s}, base==="h" ? "h" : (base==="m" ? "m" : "cm")); if(c==null) return NaN;
+  if(neg) c=-c;
   return base==="m" ? c/100 : c;
 }
 function docCampoPonne(el, nativo, base, std){
@@ -20152,6 +20155,7 @@ function render(){
   svg.innerHTML = viewRot ? '<g id="vrot" transform="rotate(-90)">'+_scena+'</g>' : _scena;
   reindexItemNodes();
   aderisciSelezione(); for(var _fk in _selFit){ redrawSelHandles(); break; }   /* il riquadro sul disegno vero, e la maniglia sul riquadro (solo se c'è qualcosa di misurato) */
+  if(window.__unitaUi!==docUnita()){ window.__unitaUi=docUnita(); try{ docEsteroSincronizza(); }catch(_e){} }   /* l'unità cambia anche aprendo un progetto, con Annulla/Ripeti o cambiando scena: interruttore, aggancio e catalogo la seguono (rilettura #170) */
   renderProps();
   if(window.__catCustomAggiorna) window.__catCustomAggiorna();   /* «Elementi di questo progetto»: si rifà solo se i modelli sono cambiati */
   renderAccessoriCount();
@@ -23530,7 +23534,7 @@ function updateHeaderStage(){
   var b0=stageBlocks()[0];
   ["stW","mW"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=b0.w/100; });
   ["stD","mD"].forEach(function(id){ var e=document.getElementById(id); if(e && document.activeElement!==e) e.value=b0.d/100; });
-  var ss=document.getElementById("mStageSum"); if(ss) ss.textContent="Palco "+misurePalco();
+  var ss=document.getElementById("mStageSum"); if(ss) ss.textContent=uTxt("Palco "+misurePalco());   /* in piedi anche la riga del telefono (rilettura #170) */
 }
 /* «16 × 6,5 m»: le misure dell'ingombro totale, con l'unità una volta sola (barra alta e menu del telefono) */
 function misurePalco(w, d){
@@ -25482,7 +25486,7 @@ function renderMobileList(){
     txt("mMenuLuogo", state.luogo || "da scrivere");
     txt("mMenuData", dataEventoBreve() || "da scrivere");
     txt("mMenuScaletta", scalettaRigaBreve() || "da scrivere");
-    txt("mMenuStage", misurePalco());
+    txt("mMenuStage", uTxt(misurePalco()));
     var nf=FUNZIONI.filter(function(f){ return funzOn(f.id); }).length;
     txt("mMenuFunz", nf===0 ? "spente" : nf===FUNZIONI.length ? "tutte accese" : (nf+" di "+FUNZIONI.length));
     var th=document.getElementById("mThemeRow");
