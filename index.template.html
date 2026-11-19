@@ -4467,7 +4467,7 @@ var TYPES = {
         return k===1 ? sg : '<g transform="scale('+k+')">'+sg+'</g>';
       }
       return drawLibFit("musChitClassica",it,87,87); }},
-  musBasso: {catalog:false, nome:"Basso musicista", dim:"97×79", cat:"Band e backline", sub:"Chitarre e bassi", w:97,d:79, defLabel:"Basso", draw:function(it){ return drawLibFit("musBasso",it,97,79); }},
+  musBasso: {catalog:false, nome:"Basso musicista", dim:"110×90", cat:"Band e backline", sub:"Chitarre e bassi", w:110,d:90, defLabel:"Basso", draw:function(it){ return drawLibFit("musBasso",it,110,90); }},
   musFisarmonica: {nome:"Fisarmonica musicista", dim:"82×96", cat:"Band e backline", sub:"Tastiere e piani", w:82,d:96, defLabel:"Fis", draw:function(it){ return inPiedi(it) ? drawPiediFit(it) : drawLibFit("musFisarmonica",it,82,96); }},
   musDirettore: {catalog:false, nome:"Direttore musicista", dim:"90×114", cat:"Persone e voci", w:90,d:114, defLabel:"Dir", draw:function(it){ return drawLibFit("musDirettore",it,90,114); }},
   direttore:{nome:"Direttore", dim:"braccia aperte", cat:"Persone e voci", w:90,d:114, dir:true, defLabel:"M°",
@@ -5790,7 +5790,7 @@ var POSA_PIEDI = {
   violapost:{art:"musViolaPiedi", s:[90,106], dbl:[170,106], sep:90},   /* 84,0×71,0; le doppie violax2 non hanno la posa */
   contrabbasso:{art:"musContrabbassoPiedi", s:[75,141], dbl:[155,141], sep:90},   /* 69,9×105,6 */
   /* L3 BAND E TIPI PROPRI (19/11/2026): senza leggio nell'ingombro (s = misura del disegno, la stessa di look2Dims; un test li tiene uguali alla vb dell'icona) */
-  bassstand:{art:"musBassoPiedi", s:[97,45]},   /* 96,81×44,74 · LOOK_ART */
+  bassstand:{art:"musBassoPiedi", s:[111,51]},   /* 111,04×51,31 · LOOK_ART · proporzioni 19/11 (×1,147 sul disegno di prima, 96,81×44,74) */
   gtstand:{art:"musChitElettricaPiedi", s:[88,52]},   /* 88,02×51,76 · LOOK_ART */
   gtacustica:{art:"musChitAcusticaPiedi", s:[86,50]},   /* 86,01×50,01 · LOOK_ART */
   musTromboneBasso:{art:"musTrombonePiedi", s:[59,114]},   /* tipo proprio: stessa icona del trombone (stessa vb seduta 61×113,56); il leggio, se acceso, aggiunge 35 cm davanti */
@@ -5813,7 +5813,7 @@ var POSA_SOLO = { musTromboneBasso:1, musFisarmonica:1, musTimpani:1 };
 var SGAB_ALTO = {
   gtstand:{art:"musChitElettricaSgabAlto", s:[88,82]},
   gtacustica:{art:"musChitAcusticaSgabAlto", s:[86,83]},
-  bassstand:{art:"musBassoSgabAlto", s:[97,74]},
+  bassstand:{art:"musBassoSgabAlto", s:[111,85]},   /* 111,03×84,77: proporzioni 19/11, sgabello Ø41 (scelta di Simone, +14,7 % sulle chitarre) */
   musChitClassica:{art:"musChitClassicaSgabAlto", s:[87,80]}
 };
 function sgabAlto(it){ return !!it && it.sgab===true && !!SGAB_ALTO[it.type] && inPiedi(it); }   /* in piedi, su sgabello alto */
@@ -6329,7 +6329,7 @@ var PERC_BONGO={ hembra:12, macho:10 };   /* raggi cerchione: hembra 8½" ≈ Ø
    è quella seduta. Le misure sono in cm, l'origine è il centro di chi suona spostato di PERC_CHI. */
 var PERC_CHI={x:0, y:-42}, PERC_ARCO=60;
 var PERC_ANGOLI={ 1:[90], 2:[107,73], 3:[124,90,56] };   /* gradi: 90 = dritto davanti a lui; >90 = alla sua destra (x<0) */
-var PERC_IN_PIEDI={hw:45, hd:34};   /* ingombro della figura (braccia avanti), con o senza sgabello */
+var PERC_IN_PIEDI={hw:37.3, hd:29.6};   /* ingombro della figura (braccia avanti), con o senza sgabello */
 var PERC_SGABELLO={dy:-38, r:20};   /* lo sgabello (sgabellobatt, Ø40) dietro la figura, verso la sua schiena: a −22 la figura lo copriva tutto (05/11/2026) */
 function percSlots(p){
   var L=[], n=Math.max(0,Math.min(3,p.congas|0));
