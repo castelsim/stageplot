@@ -89,6 +89,10 @@ function cabTaglioUnita(){ return docUnita()==="ft" ? " ft" : " m"; }
 function niceBarFeet(N){ var c=[1,2,5,10,20,50,100], best=c[0]; c.forEach(function(f){ if(f*CM_PER_FT*10/N<=60) best=f; }); return best; }
 /* Pedane in piedi (lotto 7 di analisi/2026-11-16_CATALOGO_PRO): moduli da tour, misure esatte. */
 var PEDANA_MISURE_RAPIDE_FT=[{t:"8'×4'", w:8*CM_PER_FT, d:4*CM_PER_FT},{t:"8'×8'", w:8*CM_PER_FT, d:8*CM_PER_FT},{t:"4'×4'", w:4*CM_PER_FT, d:4*CM_PER_FT},{t:"8'×2'", w:8*CM_PER_FT, d:2*CM_PER_FT}];
+/* Aggancio in piedi (19/11/2026): 6", 1', 2', 3' in centimetri esatti. Le chiavi sono i valori di DOC_EXTRA.snap. */
+/* testi accanto ai campi (non sono la loro etichetta) */
+var DOC_CAMPI_SUFFISSI={pPedMisLbl:["Misura in metri (L × P)","Misura in piedi (L × P)"], pPedAltLbl:["Altezza in cm","Altezza in piedi e pollici"], pMountHU:["cm","ft-in"], pAntHU:["— metri da terra","— piedi da terra"]};
+var DOC_SNAP_FT={ft6:6*CM_PER_IN, ft12:CM_PER_FT, ft24:2*CM_PER_FT, ft36:3*CM_PER_FT};
 var PEDANA_ALTEZZE_RAPIDE_FT=[{t:"8\"", h:8*CM_PER_IN},{t:"1'", h:CM_PER_FT},{t:"16\"", h:16*CM_PER_IN},{t:"2'", h:2*CM_PER_FT},{t:"3'", h:3*CM_PER_FT},{t:"4'", h:4*CM_PER_FT}];
 
 /* ── DATA ── «Nov 17, 2026»: il mese in lettere, mai 11/17/2026 (un europeo lo legge al contrario). Glossario § Unità e date. */
@@ -211,9 +215,11 @@ function _docUnitaTesto(s){
   var due=function(cm, orig){ return u==="ft" ? ftIn(cm) : orig+" ("+ftIn(cm)+")"; };
   s=s.replace(/(oltre|over)\s+50\s?m\b(!?)/g, function(_, o, e){ return o+" "+(u==="ft" ? "100 ft" : "50 m")+e; })
      .replace(/(oltre|over)\s+100\s?m\b/g, function(_, o){ return o+" "+(u==="ft" ? "300 ft" : "100 m"); });
-  s=s.replace(/(\d+(?:[.,]\d+)?)\s?[×x]\s?(\d+(?:[.,]\d+)?)\s?m\b(?![²\w])/g, function(all, a, b){
+  s=s.replace(/(\d+(?:[.,]\d+)?)\s?[×x]\s?(\d+(?:[.,]\d+)?)\s?m\b(?![²\w])(?!\s\(\d+['"])/g, function(all, a, b){   /* la guardia: con «entrambe» il testo passa più volte (misura, a capo, scrittura) e l'area non va raddoppiata (rilettura #170) */
     var f=ftIn(num(a)*100)+" × "+ftIn(num(b)*100); return u==="ft" ? f : all+" ("+f+")"; });
-  s=s.replace(/(^|[\s(·])h\s?(\d+(?:[.,]\d+)?)(?:\s?cm\b)?(?![\d'"])(?!\s\(\d+['"])/g, function(all, pre, n){ return pre+"h "+(u==="ft" ? ftIn(num(n)) : n+" cm ("+ftIn(num(n))+")"); });
+  s=s.replace(/(\d+(?:[.,]\d+)?)\s?[×x]\s?(\d+(?:[.,]\d+)?)\s?cm\b(?!\s\(\d+['"])/g, function(all, a, b){   /* «200×100 cm» (ingombro, 19/11/2026) */
+    var f=ftIn(num(a))+" × "+ftIn(num(b)); return u==="ft" ? f : all+" ("+f+")"; });
+  s=s.replace(/(^|[\s(·])h\s?(\d+(?:[.,]\d+)?)(?:\s?cm\b)?(?![\d'"])(?!\s\(\d+['"])(?!\s?cm\s\(\d+['"])/g, function(all, pre, n){ return pre+"h "+(u==="ft" ? ftIn(num(n)) : n+" cm ("+ftIn(num(n))+")"); });
   s=s.replace(/(^|[^\w'"×.,])(\d+(?:[.,]\d+)?)\s?(m|cm)\b(?![²\w'"])(?!\s\(\d+['"])(?!\s\/\s\d+\sft)/g, function(all, pre, n, un){   /* «10 m / 25 ft» (taglio con entrambe) resta com'è */
     return pre+due(num(n)*(un==="m" ? 100 : 1), n+" "+un); });
   return s;
@@ -233,6 +239,22 @@ function docTesto(s){
   }
   if(u && !(core && U[core])) r=_docUnitaTesto(r);
   return r;
+}
+/* A SCHERMO (19/11/2026, lotto «unità nell'editor»): una funzione sola per le misure scritte dentro i testi dell'interfaccia. In metri restituisce il testo com'è
+   (progetti identici a prima); in piedi o in entrambe converte «2 m», «4×1,2 m», «h40», «25 cm» come sul PDF. Non traduce e non tocca i testi dell'utente. */
+/* le voci del catalogo (sottotitoli «2×1 m · …») seguono l'unità: il testo di partenza sta in data-u0 */
+function catalogoUnita(){ if(typeof document==="undefined" || !document.querySelectorAll) return;
+  Array.prototype.forEach.call(document.querySelectorAll("#catalog small[data-u0]"), function(el){ var t=uTxt(el.getAttribute("data-u0")); if(el.textContent!==t) el.textContent=t; }); }
+function uTxt(s){ return (typeof s==="string" && s && docUnita()!=="m") ? _docUnitaTesto(s) : s; }
+/* il disegno del palco a schermo: ogni <text>/<tspan> passa da uTxt, tranne le scritte dell'utente (nomi, note, titolo…) */
+function docSvgUnita(svg){
+  if(docUnita()==="m") return svg;
+  docUtenteRaccogli(); var U=__docUtente||{};
+  var un=function(t){ return t.replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&amp;/g,"&"); };
+  var es=function(t){ return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); };
+  return String(svg).replace(/(<(?:text|tspan)\b[^>]*>)([^<]+)(?=<)/g, function(all, a, t){
+    var raw=un(t), core=raw.trim(); if(!core || U[core] || !/\d/.test(core)) return all;
+    var r=_docUnitaTesto(raw); return r===raw ? all : a+es(r); });
 }
 /* il documento jsPDF: ogni testo scritto o misurato passa dalla traduzione (dopo, il filtro dei caratteri WinAnsi) */
 function pdfLinguaDoc(d){
@@ -261,21 +283,46 @@ function docSvgTesti(svg){
 /* ── CAMPI DEL PANNELLO IN PIEDI ── In piedi i campi mostrano piedi (lunghezze) o pollici (altezze) e si scrive anche «8'», «8' 6"», «96"».
    base: "cm" (campo in centimetri), "m" (campo in metri), "h" (altezza in centimetri). Il documento resta in centimetri, senza arrotondare
    le misure intere in pollici (8' = 243,84 cm); in metri tutto resta com'era. */
-var DOC_CAMPI_ETICHETTE={pW:["L (cm)","L (ft)"], pD:["P (cm)","P (ft)"], pH:["h (cm)","h (in)"], blkW:["Largh. (m)","Largh. (ft)"], blkD:["Prof. (m)","Prof. (ft)"], blkX:["X (m)","X (ft)"], blkY:["Y (m)","Y (ft)"]};
+var DOC_CAMPI_ETICHETTE={pW:["L (cm)","L (ft-in)"], pD:["P (cm)","P (ft-in)"], pH:["h (cm)","h (ft-in)"], frameW:["Larghezza (m)","Larghezza (ft-in)"], frameH:["Profondità (m)","Profondità (ft-in)"], frameX:["X (m)","X (ft-in)"], frameY:["Y (m)","Y (ft-in)"], blkH:["Altezza (cm)","Altezza (ft-in)"], pRigH:["Altezza (trim, cm)","Altezza (trim, ft-in)"], pMountH:null, pAntH:null, blkW:["Largh. (m)","Largh. (ft-in)"], blkD:["Prof. (m)","Prof. (ft-in)"], blkX:["X (m)","X (ft-in)"], blkY:["Y (m)","Y (ft-in)"]};
 function docCmEsatti(c){ var r=Math.round(c), inch=c/CM_PER_IN; return (Math.abs(c-r)>1e-6 && Math.abs(inch-Math.round(inch))<1e-6) ? Math.round(c*100)/100 : r; }
 function docCampoEtichette(){
   var ft=docUnita()==="ft";
+  Object.keys(DOC_CAMPI_SUFFISSI).forEach(function(id){ var e=document.getElementById(id); if(e) e.textContent=DOC_CAMPI_SUFFISSI[id][ft?1:0]; });
   Object.keys(DOC_CAMPI_ETICHETTE).forEach(function(id){
     var el=document.getElementById(id); if(!el || !el.getAttribute) return;
     var lb=document.querySelector ? document.querySelector('label[for="'+id+'"]') : null;
-    if(lb && typeof lb.textContent==="string") lb.textContent=DOC_CAMPI_ETICHETTE[id][ft?1:0];
+    if(lb && DOC_CAMPI_ETICHETTE[id] && typeof lb.textContent==="string") lb.textContent=DOC_CAMPI_ETICHETTE[id][ft?1:0];
     if(ft){ if(el.getAttribute("data-step-m")==null) el.setAttribute("data-step-m", el.getAttribute("step")||""); el.setAttribute("step", id==="pH" ? "1" : "0.5"); el.setAttribute("type","text"); el.setAttribute("inputmode","decimal"); }
     else if(el.getAttribute("data-step-m")!=null){ el.setAttribute("step", el.getAttribute("data-step-m")); el.removeAttribute("data-step-m"); el.setAttribute("type","number"); }
   });
 }
+/* Il valore di un campo in piedi, scritto come si legge sul disegno: «6' 7"», «8'», «1' 4"». Esatto fino al centesimo di pollice (2,54 cm → «1"», 250 cm → «8' 2.43"»):
+   non arrotonda al pollice, così riaprire il campo non sposta di nulla una misura in centimetri che non è un pollice intero. Si rilegge con parseLunghezza. */
+function docFtInTesto(cm){
+  var t=Math.round(Math.abs(+cm||0)/CM_PER_IN*100)/100, f=Math.floor(t/12+1e-9), i=Math.round((t-f*12)*100)/100;
+  if(i>=12){ f++; i=0; }
+  var iTxt=String(+i.toFixed(2));
+  return ((+cm||0)<0 ? "-" : "")+(f ? f+"'"+(i ? " "+iTxt+'"' : "") : iTxt+'"');
+}
+/* un campo del pannello con la misura NELL'UNITÀ DEL CODICE (19/11/2026): «m» (metri), «cm» o «h» (centimetri). In metri e in entrambe il campo resta com'era, un numero;
+   in piedi si scrive «8' 6"» e si legge anche «8'», «96"», «2.5m». docCampoNativo restituisce NaN se non è una misura. */
+function docCampoNativo(el, base){
+  if(typeof el==="string") el=document.getElementById(el); if(!el) return NaN;
+  if(docUnita()!=="ft") return +el.value;
+  /* il segno meno davanti (X e Y dell'area di stampa sono spesso negativi: «-8' 5.18"», che docFtInTesto scrive così) */
+  var s=String(el.value==null ? "" : el.value).trim(), neg=/^[-−]/.test(s);
+  var c=docCampoCm({value: neg ? s.replace(/^[-−]\s*/, "") : s}, base==="h" ? "h" : (base==="m" ? "m" : "cm")); if(c==null) return NaN;
+  if(neg) c=-c;
+  return base==="m" ? c/100 : c;
+}
+function docCampoPonne(el, nativo, base, std){
+  if(typeof el==="string") el=document.getElementById(el); if(!el) return;
+  if(docUnita()!=="ft" || nativo===""|| nativo==null || !isFinite(+nativo)){ el.value=(std!=null && docUnita()!=="ft") ? std : (nativo==null ? "" : nativo); return; }
+  el.value=docFtInTesto(base==="m" ? nativo*100 : +nativo);
+}
 function docCampoScrivi(id, cm, base){
   var el=document.getElementById(id); if(!el) return;
-  if(docUnita()==="ft"){ el.value=String(base==="h" ? +((+cm||0)/CM_PER_IN).toFixed(2) : +((+cm||0)/CM_PER_FT).toFixed(3)); return; }
+  if(docUnita()==="ft"){ el.value=docFtInTesto(cm); return; }   /* 19/11/2026: «6' 7"» invece di 6.562 */
   el.value = base==="m" ? (+cm||0)/100 : cm;
 }
 /* il valore del campo in centimetri; null se non è un numero */

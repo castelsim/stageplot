@@ -190,6 +190,7 @@
   .snapwrap>svg{width:16px;height:16px;flex:0 0 auto}
   .snapwrap select{appearance:none;-webkit-appearance:none;border:none;background:transparent;color:var(--text);
     font:600 13px var(--font-ui);cursor:pointer;outline:none;padding:0}
+  .unitwrap>svg{display:none}   /* l'interruttore delle unità si legge da solo («m», «ft-in»): niente icona, resta spazio al titolo e allo stato */
   .snapchev{color:var(--text-3);font-size:11px;pointer-events:none;margin-left:-2px}
   /* Sezione 4: controlli nativi (slider/checkbox/radio) col teal del brand */
   input[type=checkbox],input[type=radio]{accent-color:var(--accent)}   /* range: default browser, uniforme come il prototipo */
