@@ -6647,7 +6647,7 @@ t("poltrona nel PDF/PNG: disegno vettoriale anche in modalità PDF", () => {
 });
 /* 12/10, Simone guardando l'anteprima: «mi piacerebbe che fosse seduto la persona». Nella poltrona c'era la figura IN PIEDI
    delle voci (gambe dritte). Ora è una persona SEDUTA: il clarinettista di icons.js senza clarinetto né sedia. */
-function iconeVere() { const c = { window: {} }; vm.createContext(c); vm.runInContext(readFileSync(join(root, "icons.js"), "utf8"), c); return c.window.LIB_ICONS; }
+function iconeVere() { const c = { window: {} }; vm.createContext(c); vm.runInContext(readFileSync(join(root, "icons.js"), "utf8"), c); vm.runInContext(readFileSync(join(root, "icons-piedi.js"), "utf8"), c); return c.window.LIB_ICONS; }   /* 19/11: le figure in piedi stanno nel secondo file (icons-piedi.js) */
 function conIcone(chiavi, fn) {   /* nel sandbox LIB_ICONS è lo stub: si presta un oggetto con le icone vere, poi si rimette */
   const L = iconeVere(), prima = A.LIB_ICONS, presto = {};
   chiavi.forEach(k => { presto[k] = L[k]; });
@@ -32018,7 +32018,7 @@ t("Postazione ↔ Strumento solo: lo stage piano tiene il musicista dalla stessa
   ok(/getElementById\("pLookIll"\)\.addEventListener\("click", function\(\)\{ cambiaDisegnoSelezione\("seduto"\)/.test(appjs), "il pulsante Seduto passa da impostaDisegno");
   ok(/getElementById\("pLookSch"\)\.addEventListener\("click", function\(\)\{ cambiaDisegnoSelezione\("strumento"\)/.test(appjs), "il pulsante Strumento passa da impostaDisegno");
   ok(/function impostaDisegno[\s\S]{0,400}lookCambia\(it,"schematico"\)[\s\S]{0,400}lookCambia\(it,"illustrato"\)/.test(appjs), "e impostaDisegno usa lookCambia (il giro dello stage piano resta)");
-  ok(/function applicaDisegnoATutti[\s\S]{0,500}if\(hasLookToggle\(o\)\) impostaDisegno\(o,/.test(appjs), "«Applica a tutti» passa da impostaDisegno (che usa lookCambia)");
+  ok(/function applicaDisegnoATuttiOra[\s\S]{0,500}if\(hasLookToggle\(o\)\) impostaDisegno\(o,/.test(appjs), "«Applica a tutti» passa da impostaDisegno (che usa lookCambia)");
 });
 t("DI dello strumento: sempre dritta, e nasce in un punto libero accanto alla sorgente", () => {
   reset();
@@ -36229,7 +36229,7 @@ await (async () => {
   stato(0);
   t("Icone esistenti 9: l'export aspetta icons-pro.js (al massimo 3 s) solo se ci sono elementi riconosciuti; mai bloccante", () => {
     eq([a, b, c], [true, false, false], "arrivato → true, errore → false, in arrivo e tempo scaduto → false (si esporta col disegno di sempre)");
-    ok(/proEsportaAttendi\(\)\s*:\s*null\)\.then\(function\(\)\{\s*\/\*[^*]*\*\/\s*var jsPDF/.test(appjs) || /loadJsPDF\(\)\.then\(function\(\)\{ return \(typeof proEsportaAttendi/.test(appjs), "buildPdfDoc chiama proEsportaAttendi dopo loadJsPDF");
+    ok(/proEsportaAttendi\(\)\s*:\s*null\)\.then\(function\(\)\{\s*\/\*[^*]*\*\/\s*var jsPDF/.test(appjs) || /loadJsPDF\(\)\.then\(function\(\)\{ return \(typeof proEsportaAttendi/.test(appjs) || /piediEsportaAttendi\(\); \}\)\.then\(function\(\)\{ return \(typeof proEsportaAttendi/.test(appjs), "buildPdfDoc chiama proEsportaAttendi dopo loadJsPDF");
     ok(/proIconeAttendi\(3000\)/.test(appjs), "attesa massima 3 s");
     const prima = A.state; try { A.state = { items: [prova({ type: "mixer" })] }; eq(A.proHaIconeDaCaricare(A.state.items), false, "palco senza modelli"); const st0 = A._proIcoStato; A.proEsportaAttendi(); eq(A._proIcoStato, st0, "senza modelli non aspetta e non scarica niente");
       A.state = { items: [prova({ type: "dm3", w: 32, d: 46 })] }; eq(A.proHaIconeDaCaricare(A.state.items), true, "con una DM3 riconosciuta sì"); } finally { A.state = prima; A._proIcoStato = 0; }
@@ -36337,6 +36337,13 @@ t("voci Maschile/Femminile (18/11): una selezione multipla, anche di tipi misti,
 
 /* ═══ Sax in piedi (18/11/2026): it.posa = "piedi" · tre icone nuove · nessuna sedia in piedi · progetti vecchi identici ═══ */
 const SAX3 = ["saxalto", "saxtenore", "saxbaritono"];
+/* 19/11 (split di icons.js): nel sandbox LIB_ICONS è lo stub; per i test che ne hanno bisogno si presta un oggetto con TUTTE le figure (sedute e in piedi) che icons.js e icons-piedi.js danno insieme */
+function conPiediTutte(fn) {
+  const L = iconeVere(), prima = A.LIB_ICONS, presto = {};
+  Object.keys(L).forEach(k => { presto[k] = L[k]; });
+  A.LIB_ICONS = presto;
+  try { return fn(L); } finally { A.LIB_ICONS = prima; }
+}
 function conIconePiedi(fn) {   /* nel sandbox LIB_ICONS è lo stub: si presta un oggetto con le icone vere dei sax (seduti e in piedi) */
   const L = iconeVere(), prima = A.LIB_ICONS, presto = {};
   ["musSaxAlto", "musSaxTenore", "musSaxBaritono", "musSaxAltoPiedi", "musSaxTenorePiedi", "musSaxBaritonoPiedi"].forEach(k => { presto[k] = L[k]; });
@@ -36399,7 +36406,7 @@ t("sax in piedi (18/11): cambio posa su più sax selezionati (anche misti): solo
     ok(cl.posa === undefined && cl.x === 900 && cl.y === 200 && cl.w === prima[3][7], "un elemento che non è un sax non cambia mai posa né posto");
   });
 });
-t("sax in piedi (18/11): postazione a 2 e dividi; niente sedie anche sul foglio per il teatro; sedie dello schematico", () => {
+t("sax in piedi (18/11): postazione a 2 e dividi; niente sedie anche sul foglio per il teatro; sedie dello schematico", () => conPiediTutte(() => {
   A.state.items = [];
   const a = add("saxtenore", 400, 300); a.posa = "piedi"; a.doppia = true; a.sep = 100; A.recalcItemDims(a);
   eq([a.w, a.d], [100 + (140 - 90), 108], "doppia in piedi: larghezza = distanza + (dbl − sep)");
@@ -36421,7 +36428,7 @@ t("sax in piedi (18/11): postazione a 2 e dividi; niente sedie anche sul foglio 
   delete b.posa; eq(A.postArt(b), "musSaxAlto", "seduto: l'icona di sempre");
   b.posa = "piedi";
   A.state.items = [b]; eq(A.countAccessori().sedie, 0, "un solo sax in piedi: zero sedie (la riga «Sedie» del foglio per il teatro e il cartiglio leggono questo conteggio)");
-});
+}));
 t("sax in piedi (18/11): controllo Disegno a tre pulsanti (nessuna riga Posizione a parte), ricerca «sax in piedi», disegno con e senza leggio", () => {
   const html = readFileSync(join(root, "app/index.html"), "utf8");
   ok(!/id="pPosaWrap"/.test(html) && !/data-chips="pPosa"/.test(html) && !/<label>Posizione<\/label>/.test(html), "nessun doppione: la riga Posizione di Accessori non c'è più");
@@ -36438,7 +36445,7 @@ t("sax in piedi (18/11): controllo Disegno a tre pulsanti (nessuna riga Posizion
   });
 });
 
-t("violino in piedi (18/11): stessa posa dei sax — icone I e II pulite, ingombro, nessuna sedia, doppie a schema invariate, «Violinista in piedi» con l'icona vera", () => {
+t("violino in piedi (18/11): stessa posa dei sax — icone I e II pulite, ingombro, nessuna sedia, doppie a schema invariate, «Violinista in piedi» con l'icona vera", () => conPiediTutte(() => {
   const L = iconeVere();
   for (const k of ["musViolino1Piedi", "musViolino2Piedi"]) {
     const e = L[k]; ok(e && e.body, "manca " + k);
@@ -36473,8 +36480,8 @@ t("violino in piedi (18/11): stessa posa dei sax — icone I e II pulite, ingomb
   });
   const html = readFileSync(join(root, "app/index.html"), "utf8");
   ok(/function addViolin\(sec, inPiedi\)\{[^}]*posa="piedi"/.test(appjs.replace(/\s+/g, " ").replace(/\{ var/g, "{ var")) || /if\(inPiedi===true\)\{ o\.sedia=false; o\.posa="piedi"; \}/.test(appjs), "«Violinista in piedi» del catalogo nasce con la posa In piedi (prima il disegno restava seduto)");
-});
-t("Disegno: Seduto · In piedi · Strumento (18/11): esclusivi, tromba in piedi, posa che dorme in Strumento, Seduto rimette e conta la sedia, In piedi spento dove non c'è l'icona", () => {
+}));
+t("Disegno: Seduto · In piedi · Strumento (18/11): esclusivi, tromba in piedi, posa che dorme in Strumento, Seduto rimette e conta la sedia, In piedi spento dove non c'è l'icona", () => conPiediTutte(() => {
   const L = iconeVere();
   const tr = L.musTrombaPiedi; ok(tr && tr.body && Math.abs(tr.vb[2] - 60.4) < 0.2 && Math.abs(tr.vb[3] - 83.4) < 0.2, "musTrombaPiedi 60,4×83,4 come approvato (" + (tr && tr.vb) + ")");
   ok(!/<(clipPath|mask|image|filter|use|style|linearGradient|radialGradient|text)\b|clip-path|transform=|class=|style=/.test(tr.body) && tr.body.length < 40000, "solo fill e path, peso contenuto (" + tr.body.length + ")");
@@ -36526,7 +36533,7 @@ t("Disegno: Seduto · In piedi · Strumento (18/11): esclusivi, tromba in piedi,
   const html = readFileSync(join(root, "app/index.html"), "utf8");
   ok(/id="pLookPie"[^>]*>In piedi</.test(html), "il pulsante In piedi c'è per tutti i tipi con il controllo");
   ok(/_bp\.disabled=!dg\.piedi/.test(appjs) && /Non ancora disponibile per questo strumento/.test(appjs), "senza icona in piedi: pulsante disabilitato, grigio, con il tooltip");
-});
+}));
 
 /* ═══ Inventario: etichette già fatte + UN solo pulsante «Inventario» sulla pagina del QR (18/11/2026, migrazione 0091) ═══ */
 const eticSql = readFileSync(join(root, "supabase/migrations/0091_inventario_etichette.sql"), "utf8").replace(/--[^\n]*/g, "");
@@ -36766,6 +36773,184 @@ t("«Tromba · in piedi» con progetto su «Strumento» (19/11): la voce del cat
     eq(A.disegnoStato(t2), "strumento", "senza la voce «in piedi» resta Strumento");
     A.state.lookDefault = "illustrato";
   });
+});
+
+/* ═══ SPLIT di icons.js (19/11/2026, lotto L1): le figure in piedi stanno in icons-piedi.js, caricato pigro; l'export le aspetta e, senza, si ferma ═══ */
+console.log("\nSplit icons.js · icone in piedi:");
+function iconeFile(nome) { const c = { window: {} }; vm.createContext(c); vm.runInContext(readFileSync(join(root, nome), "utf8"), c); return c.window.LIB_ICONS; }
+const chiaviPiedi = () => { const ks = []; Object.values(A.POSA_PIEDI).forEach(P => [P.art, P.art2].forEach(k => { if (k && !ks.includes(k)) ks.push(k); })); return ks; };
+/* un test che aspetta (le promesse del banco non si sovrappongono: uno alla volta, top-level await) */
+async function tw(name, fn) { try { await fn(); pass++; console.log("  ✓ " + name); } catch (e) { fail++; console.log("  ✗ " + name + "\n      " + e.message); } }
+const attesa = (ms) => new Promise((r) => setTimeout(r, ms));
+/* il banco: document che cattura lo <script> chiesto, timer veri; restituisce il ripristino */
+function bancoPiedi() {
+  const d0 = A.document, st0 = A.setTimeout, B = { richieste: 0, script: null };
+  A.document = new Proxy(d0, { get: (t, k) => k === "createElement" ? (tag) => { if (tag === "script") { B.richieste++; B.script = {}; return B.script; } return t[k](tag); } : k === "head" ? { appendChild: () => {} } : t[k] });
+  A.setTimeout = (f, ms) => setTimeout(f, ms);
+  A.window.__piediPrefetch = false; A._piediStato = 0; A.LIB_ICONS = {};
+  B.ripristina = () => { A.document = d0; A.setTimeout = st0; A._piediStato = 0; A.LIB_ICONS = {}; };
+  return B;
+}
+const sassofono = (x = 300, y = 200) => { const a = add("saxalto", x, y); a.posa = "piedi"; A.recalcItemDims(a); return a; };
+const norm = (s) => String(s).replace(/L\d+_/g, "L#_");   /* i prefissi degli id delle icone contano le chiamate */
+
+t("split 1: ogni art/art2 di POSA_PIEDI sta in icons-piedi.js (vb, body, dc) e in nessun altro file; percussionistaInPiedi resta in icons.js; icons.js è sceso", () => {
+  const P = iconeFile("icons-piedi.js"), G = iconeFile("icons.js"), ks = chiaviPiedi();
+  eq(ks.length, 6, "le 6 icone già online (nessuna nuova in questo lotto)");
+  ks.forEach((k) => {
+    ok(P[k] && P[k].vb && typeof P[k].body === "string" && P[k].body.length > 1000 && Array.isArray(P[k].dc), k + ": in icons-piedi.js con vb, body, dc");
+    ok(!(k in G), k + ": NON in icons.js");
+  });
+  eq(Object.keys(P).sort(), ks.slice().sort(), "icons-piedi.js contiene solo le chiavi di POSA_PIEDI");
+  ok(G.percussionistaInPiedi && G.percussionistaInPiedi.body, "percussionistaInPiedi resta in icons.js (la usano sempre le percussioni)");
+  ok(!Object.keys(G).some((k) => /Piedi$/.test(k) && k !== "percussionistaInPiedi"), "in icons.js nessun'altra chiave *Piedi");
+  ok(readFileSync(join(root, "icons.js")).length < 2950000, "icons.js sotto i 2,95 MB (era 3,24)");
+  ok(/window\.__iconsPiediLoaded\s*=\s*true;\s*\n?if \(typeof window\.__onIconsReady === "function"\) window\.__onIconsReady\(\);\s*$/.test(readFileSync(join(root, "icons-piedi.js"), "utf8")), "il file chiude con __onIconsReady (ridisegna all'arrivo)");
+});
+t("split 2: sw.js (PRECACHE e SHELL), pages.yml e build.mjs conoscono icons-piedi.js", () => {
+  const sw = readFileSync(join(root, "sw.js"), "utf8");
+  ok(/var PRECACHE = \[[\s\S]*?"\/icons-piedi\.js"[\s\S]*?\];/.test(sw), "PRECACHE: offline la stampa con figure in piedi funziona dalla seconda visita");
+  ok(/var SHELL = \{[^}]*"\/icons-piedi\.js": 1/.test(sw), "SHELL: rete prima, sempre allineato ad app.js");
+  const yml = readFileSync(join(root, ".github/workflows/pages.yml"), "utf8");
+  ok(/rsync[\s\S]*?\sicons-piedi\.js\s/.test(yml), "pages.yml: icons-piedi.js fra i file pubblicati (dimenticarlo = 404 online)");
+  ok(/PIEDI_ICONE_URL="\/icons-piedi\.js"/.test(appjs), "app.js punta a /icons-piedi.js");
+  ok(/\/\*__ICONE_PIEDI__\*\/[^]*?src\/icone-piedi\.js/.test(readFileSync(join(root, "build.mjs"), "utf8")), "build.mjs inietta src/icone-piedi.js");
+  ok(!/icons-piedi\.js/.test(readFileSync(join(root, "app/index.html"), "utf8")), "la pagina non carica icons-piedi.js in partenza");
+});
+await tw("split 3: progetto senza figure in piedi → nessuna richiesta a icons-piedi.js, né all'apertura né all'export (PDF, PNG, miniatura)", async () => {
+  const B = bancoPiedi();
+  try {
+    reset(); add("saxalto", 300, 200); add("clarinetto", 500, 200);
+    A.piediCaricaSeServe(A.state.items);
+    eq(await A.piediEsportaAttendi(300), true, "export senza figure in piedi: via subito");
+    eq(B.richieste, 0, "zero richieste");
+    eq(A._piediStato, 0, "stato intatto");
+  } finally { B.ripristina(); }
+});
+await tw("split 4: il progetto con un sax in piedi chiede il file all'apertura; l'export ASPETTA, parte all'arrivo; errore → rifiutato con il messaggio, mai un PDF", async () => {
+  const B = bancoPiedi(), L = iconeFile("icons-piedi.js");
+  try {
+    reset(); const a = sassofono();
+    A.piediCaricaSeServe(A.state.items); eq(B.richieste, 1, "all'apertura il file parte");
+    let fatto = false; const p = A.piediEsportaAttendi(3000).then(() => { fatto = true; });
+    await attesa(150); ok(!fatto, "senza il file l'export resta in attesa"); eq(B.richieste, 1, "una richiesta sola");
+    A.LIB_ICONS.musSaxAltoPiedi = L.musSaxAltoPiedi; B.script.onload(); await p; ok(fatto, "arrivo simulato → l'export parte");
+    /* errore */
+    A.LIB_ICONS = {}; A._piediStato = 0; B.richieste = 0;
+    let errore = null; const q = A.piediEsportaAttendi(3000).catch((e) => { errore = e; });
+    await attesa(100); B.script.onerror(); await q;
+    ok(errore && errore.piedi === true && /Il PDF non è stato creato: le figure in piedi non sono arrivate/.test(errore.message), "onerror → export rifiutato con il messaggio chiaro");
+    eq(A._piediStato, 3, "stato errore");
+    /* nuovo tentativo permesso quando lo chiede un export (non a ogni render) */
+    A.postArt(a); eq(B.richieste, 1, "il render non ritenta dopo un errore (la richiesta è quella dell'export)");
+    B.richieste = 0; let e2 = null; const r = A.piediEsportaAttendi(300).catch((e) => { e2 = e; }); await attesa(20); eq(B.richieste, 1, "un export dopo un errore riprova"); await r; ok(e2 && e2.piedi, "e se non arriva (tempo scaduto) si ferma");
+    ok(/PIEDI_ATTESA_EXPORT_MS=20000/.test(appjs), "l'attesa dell'export è di 20 s");
+  } finally { B.ripristina(); }
+});
+await tw("split 5: buildPdfDoc con la figura mancante: jsPDF e il disegno MAI chiamati, nessun ripiego raster; con la figura presente il PDF si fa", async () => {
+  const B = bancoPiedi(), L = iconeFile("icons-piedi.js"), prima = { j: A.jspdf, l: A.loadJsPDF, d: A.drawStageVector, r: A.pdfRipiegoRaster, pg: A.__pdfPages };
+  let costruiti = 0, disegni = 0, raster = 0; const Base = jsPdfFinto();
+  A.jspdf = { jsPDF: function (o) { costruiti++; return new Base(o); } }; A.loadJsPDF = () => Promise.resolve();
+  A.drawStageVector = () => { disegni++; return Promise.resolve(); }; A.pdfRipiegoRaster = () => { raster++; return Promise.resolve(); }; A.__pdfPages = {};
+  try {
+    reset(); sassofono(); A.state.items.push(Object.assign({}, A.state.items[0]));   /* un sax in piedi (il secondo è solo un doppione di forma) */
+    A.state.items.pop();
+    let errore = null; const p = A.buildPdfDoc("a3", 50, "landscape", "").catch((e) => { errore = e; });
+    await attesa(100); B.script.onerror(); await p;
+    ok(errore && errore.piedi === true, "il PDF è rifiutato: " + (errore && errore.message));
+    eq([costruiti, disegni, raster], [0, 0, 0], "jsPDF mai costruito, nessun disegno, nessun ripiego raster");
+    /* il file arriva mentre il PDF aspetta: il PDF parte (prova che l'attesa c'è, non solo il controllo finale) */
+    A.LIB_ICONS = {}; A._piediStato = 0; costruiti = 0; disegni = 0;
+    const attende = A.buildPdfDoc("a3", 50, "landscape", ""); await attesa(120);
+    eq(costruiti, 0, "in attesa: jsPDF non ancora costruito"); A.LIB_ICONS.musSaxAltoPiedi = L.musSaxAltoPiedi; B.script.onload();
+    const doc0 = await attende; ok(doc0 && costruiti === 1 && disegni >= 1, "arrivato il file, il PDF si fa");
+    costruiti = 0; disegni = 0;
+    /* con la figura presente */
+    A.LIB_ICONS = { musSaxAltoPiedi: L.musSaxAltoPiedi }; A._piediStato = 2;
+    const doc = await A.buildPdfDoc("a3", 50, "landscape", "");
+    ok(doc && costruiti === 1 && disegni >= 1, "figura presente: il PDF si fa (jsPDF " + costruiti + ", disegni " + disegni + ")");
+    /* cintura e bretelle: anche se l'attesa dicesse «tutto a posto» (guasto), il controllo sincrono subito prima di jsPDF ferma il PDF */
+    A.LIB_ICONS = {}; A._piediStato = 3; costruiti = 0; disegni = 0; raster = 0; const att0 = A.piediEsportaAttendi; A.piediEsportaAttendi = () => Promise.resolve(true);
+    let e3 = null; try { await A.buildPdfDoc("a3", 50, "landscape", ""); } catch (e) { e3 = e; } finally { A.piediEsportaAttendi = att0; }
+    ok(e3 && e3.piedi === true && costruiti === 0 && disegni === 0 && raster === 0, "attesa bypassata: il controllo finale ferma lo stesso il PDF, nessun ripiego raster");
+    /* il controllo finale, da solo (cintura e bretelle) */
+    A.LIB_ICONS = {}; let c = null; try { A.piediControllo(); } catch (e) { c = e; }
+    ok(c && c.piedi === true, "piediControllo ferma se una figura in piedi non ha vb e body");
+    A.LIB_ICONS = { musSaxAltoPiedi: { vb: [0, 0, 1, 1] } }; c = null; try { A.piediControllo(); } catch (e) { c = e; }
+    ok(c && c.piedi === true, "…anche con vb ma senza body");
+  } finally { A.jspdf = prima.j; A.loadJsPDF = prima.l; A.drawStageVector = prima.d; A.pdfRipiegoRaster = prima.r; A.__pdfPages = prima.pg; B.ripristina(); reset(); }
+});
+await tw("split 6: PNG e miniatura con la figura mancante: non si creano, il bottone torna vivo; palco esterni e foglio come il PDF", async () => {
+  const B = bancoPiedi(), s0 = A.stageSceneSvg, sv0 = A.showToast; let scene = 0, toast = [];
+  A.stageSceneSvg = () => { scene++; return "<svg></svg>"; }; A.showToast = (m) => { toast.push(m); };
+  try {
+    reset(); sassofono();
+    const r = A.exportPng(); eq(r, true, "il PNG parte (in attesa)");
+    await attesa(100); B.script.onerror(); await attesa(120);
+    eq(scene, 0, "nessuna scena disegnata: niente PNG"); eq(A._pngInCorso, false, "il bottone torna vivo");
+    ok(toast.some((m) => /Il PNG non è stato creato: le figure in piedi/.test(m)), "messaggio chiaro: " + toast.join(" | "));
+    A.LIB_ICONS = {}; A._piediStato = 0; B.richieste = 0;
+    let errore = null; const g = A.genThumbnail().catch((e) => { errore = e; }); await attesa(60); B.script.onerror(); await g;
+    ok(errore && errore.piedi, "la miniatura salvata nel cloud non si fa (il progetto si salva senza)");
+    ok(/function buildPdfPalcoEsterni\(paperKey, scaleSel, orientSel\)\{\s*return loadJsPDF\(\)\.then\(function\(\)\{ return piediEsportaAttendi\(\); \}\)\.then\(function\(\)\{\s*piediControllo\(\);/.test(appjs), "anche il PDF «palco per gli esterni» aspetta e controlla");
+  } finally { A.stageSceneSvg = s0; A.showToast = sv0; B.ripristina(); reset(); }
+});
+await tw("split 7: cambio posa con il file non arrivato = identico a con il file già caricato (dc una volta sola, un solo passo di annulla); se non arriva nessuna modifica", async () => {
+  const L = iconeFile("icons-piedi.js"), G = iconeFile("icons.js");
+  const sel = (a) => { A.selSet = {}; A.selSet[a.id] = true; A.sel = a.id; };
+  const pa0 = A.primaDiAgire; let passi = 0; A.primaDiAgire = () => { passi++; return pa0(); };
+  const B0 = bancoPiedi();
+  try {
+    /* riferimento: file già carico */
+    reset(); A.LIB_ICONS = { musSaxTenore: G.musSaxTenore, musSaxTenorePiedi: L.musSaxTenorePiedi }; const r = add("saxtenore", 400, 300); sel(r);
+    passi = 0; A.cambiaDisegnoSelezione("piedi"); const rif = [r.posa, r.x, r.y, r.w, r.d]; eq(passi, 1, "riferimento: un passo"); ok(rif[1] !== 400 || rif[2] !== 300, "il busto si è spostato di dc (altrimenti il confronto non prova niente)");
+    /* file non arrivato */
+    reset(); A.LIB_ICONS = { musSaxTenore: G.musSaxTenore }; A._piediStato = 0; const a = add("saxtenore", 400, 300); sel(a);
+    passi = 0; A.cambiaDisegnoSelezione("piedi");
+    eq([a.posa, a.x, a.y], [undefined, 400, 300], "in attesa: nessuna modifica, niente dc=[0,0]"); eq(passi, 0, "nessun passo di annulla ancora");
+    await attesa(100); A.LIB_ICONS.musSaxTenorePiedi = L.musSaxTenorePiedi; B0.script.onload(); await attesa(150);
+    eq([a.posa, a.x, a.y, a.w, a.d], rif, "arrivato il file: posizione e misure identiche al riferimento"); eq(passi, 1, "un solo passo di annulla");
+    /* non arriva */
+    reset(); A.LIB_ICONS = { musSaxTenore: G.musSaxTenore }; A._piediStato = 0; const b = add("saxtenore", 400, 300); sel(b); passi = 0;
+    A.cambiaDisegnoSelezione("piedi"); await attesa(80); B0.script.onerror(); await attesa(120);
+    eq([b.posa, b.x, b.y, passi], [undefined, 400, 300, 0], "file non arrivato: l'elemento non cambia");
+    /* ritorno In piedi → Seduto: serve ancora il file (dc) */
+    reset(); A.LIB_ICONS = { musSaxTenore: G.musSaxTenore }; A._piediStato = 0; const c = add("saxtenore", 400, 300, { posa: "piedi" }); sel(c); A.cambiaDisegnoSelezione("seduto"); eq(c.posa, "piedi", "Seduto senza il file: in attesa (il busto salterebbe)");
+    await attesa(80); B0.script.onerror(); await attesa(100);
+  } finally { A.primaDiAgire = pa0; B0.ripristina(); reset(); }
+});
+await tw("split 8: con la figura assente niente sedia né figura seduta (sax singolo e doppio, violino singolo e doppio), conteggi uguali a con il file; progetto salvato identico dopo l'arrivo", async () => {
+  const B = bancoPiedi(), L = iconeFile("icons-piedi.js"), G = iconeFile("icons.js");
+  try {
+    reset(); const sx = sassofono(300, 200), sd = sassofono(500, 200); sd.doppia = true; sd.sep = 100; A.recalcItemDims(sd);
+    const v1 = add("vlnpost", 300, 400, { vsec: 1 }); v1.posa = "piedi"; A.recalcItemDims(v1);
+    const v2 = add("vlnpost", 500, 400, { vsec: 2 }); v2.posa = "piedi"; v2.doppia = true; v2.sep = 90; A.recalcItemDims(v2);
+    const sedie = A.countAccessori().sedie, tutti = [sx, sd, v1, v2];
+    eq(sedie, 0, "in piedi: zero sedie");
+    tutti.forEach((it) => {
+      eq(A.postArt(it), null, it.type + ": senza il file nessuna figura (mai la seduta)");
+      ok(A.postArtChiave(it) && /Piedi$/.test(A.postArtChiave(it)), it.type + ": la chiave resta quella in piedi (per i conteggi)");
+    });
+    const senza = tutti.map((it) => norm(A.TYPES[it.type].draw(it)));
+    const strumenti = tutti.map((it) => norm(A.TYPES[it.type].draw(Object.assign({}, it, { look: "schematico", sedia: false }))));
+    senza.forEach((s, i) => {
+      ok(!/class="ic soft"|width="46" height="46"/.test(s.replace(/<g transform="translate\(0,\d+\)">[\s\S]*?<\/g>$/, "")) || tutti[i].type === "vlnpost", tutti[i].type + ": nessuna sedia disegnata");
+      if (!tutti[i].doppia) eq(s, strumenti[i], tutti[i].type + ": il solo strumento + leggio, senza sedia");   /* il doppio ignora il flag sedia nello schematico: qui basta che non ci siano sedie */
+    });
+    ok(!/<rect class="ic soft"/.test(senza[1]), "sax doppio: nessuna sedia (seduto ne avrebbe 2)");
+    eq(A.countAccessori().sedie, sedie, "conteggio sedie invariato");
+    sd.leggio = false; const leggiiSenza = A.countAccessori().leggii; A.LIB_ICONS = Object.assign({}, G, L); A._piediStato = 2;
+    eq(A.countAccessori().leggii, leggiiSenza, "doppia in piedi senza leggio: i leggii contati sono gli stessi con e senza il file"); A.LIB_ICONS = {}; A._piediStato = 0; sd.leggio = true;
+    /* arrivo: la figura c'è, il disegno diventa quello di un progetto con il file già caricato */
+    A.LIB_ICONS = Object.assign({}, G, L); A._piediStato = 2;
+    const con = tutti.map((it) => norm(A.TYPES[it.type].draw(it)));
+    con.forEach((s, i) => { ok(s !== senza[i], tutti[i].type + ": col file arrivato la figura c'è"); ok(s.length > senza[i].length + 1000, "e pesa come una figura"); });
+    eq(A.postArt(sx), "musSaxAltoPiedi", "sax: icona in piedi"); eq([A.postArt(v1), A.postArt(v2)], ["musViolino1Piedi", "musViolino2Piedi"], "violini: le loro");
+    /* il JSON del progetto non cambia con l'arrivo del file */
+    const json0 = JSON.stringify(A.state.items.map((i) => [i.type, i.posa, i.w, i.d, i.x, i.y, i.doppia]));
+    A.LIB_ICONS = {}; A._piediStato = 0; eq(JSON.stringify(A.state.items.map((i) => [i.type, i.posa, i.w, i.d, i.x, i.y, i.doppia])), json0, "documento identico con e senza il file");
+    eq(A.countAccessori().sedie, 0, "e le sedie restano 0");
+  } finally { B.ripristina(); reset(); }
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
