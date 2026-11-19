@@ -5159,7 +5159,7 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
       </div>
       <div id="pMountHWrap" style="display:none;margin-top:7px">
         <label for="pMountH">Altezza del punto luce</label>
-        <div class="row"><span><input type="number" id="pMountH" min="20" max="1200" step="10" inputmode="numeric"> <small class="lbl-note">cm</small></span></div>
+        <div class="row"><span><input type="number" id="pMountH" min="20" max="1200" step="10" inputmode="numeric"> <small class="lbl-note" id="pMountHU">cm</small></span></div>
       </div>
       <div id="pMountHangWrap" style="display:none;margin-top:7px">
         <div id="pMountStruct" class="prop-hint"></div>
@@ -5355,7 +5355,7 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
       <div id="pAntKv" style="font-size:11px;color:var(--text-2);margin:2px 0 6px"></div>
       <div id="pAntAngRow"><label for="pAntAng">Angolo di copertura</label><select id="pAntAng">
         <option value="70">70° (direttiva stretta)</option><option value="90">90° (direttiva)</option><option value="100">100° (paddle larga)</option><option value="360">Omnidirezionale</option></select></div>
-      <label for="pAntH">Altezza <small style="color:var(--text-3);font-weight:400">— metri da terra</small></label>
+      <label for="pAntH">Altezza <small id="pAntHU" style="color:var(--text-3);font-weight:400">— metri da terra</small></label>
       <input id="pAntH" type="number" min="0" max="10" step="0.5" placeholder="2.5">
       <div style="font-size:11px;color:var(--text-3);margin-top:2px">La direzione del cono segue la rotazione dell'antenna.</div>
     </div>

@@ -4684,6 +4684,8 @@ function niceBarFeet(N){ var c=[1,2,5,10,20,50,100], best=c[0]; c.forEach(functi
 /* Pedane in piedi (lotto 7 di analisi/2026-11-16_CATALOGO_PRO): moduli da tour, misure esatte. */
 var PEDANA_MISURE_RAPIDE_FT=[{t:"8'×4'", w:8*CM_PER_FT, d:4*CM_PER_FT},{t:"8'×8'", w:8*CM_PER_FT, d:8*CM_PER_FT},{t:"4'×4'", w:4*CM_PER_FT, d:4*CM_PER_FT},{t:"8'×2'", w:8*CM_PER_FT, d:2*CM_PER_FT}];
 /* Aggancio in piedi (19/11/2026): 6", 1', 2', 3' in centimetri esatti. Le chiavi sono i valori di DOC_EXTRA.snap. */
+/* testi accanto ai campi (non sono la loro etichetta) */
+var DOC_CAMPI_SUFFISSI={pMountHU:["cm","ft-in"], pAntHU:["— metri da terra","— piedi da terra"]};
 var DOC_SNAP_FT={ft6:6*CM_PER_IN, ft12:CM_PER_FT, ft24:2*CM_PER_FT, ft36:3*CM_PER_FT};
 var PEDANA_ALTEZZE_RAPIDE_FT=[{t:"8\"", h:8*CM_PER_IN},{t:"1'", h:CM_PER_FT},{t:"16\"", h:16*CM_PER_IN},{t:"2'", h:2*CM_PER_FT},{t:"3'", h:3*CM_PER_FT},{t:"4'", h:4*CM_PER_FT}];
 
@@ -4809,6 +4811,8 @@ function _docUnitaTesto(s){
      .replace(/(oltre|over)\s+100\s?m\b/g, function(_, o){ return o+" "+(u==="ft" ? "300 ft" : "100 m"); });
   s=s.replace(/(\d+(?:[.,]\d+)?)\s?[×x]\s?(\d+(?:[.,]\d+)?)\s?m\b(?![²\w])/g, function(all, a, b){
     var f=ftIn(num(a)*100)+" × "+ftIn(num(b)*100); return u==="ft" ? f : all+" ("+f+")"; });
+  s=s.replace(/(\d+(?:[.,]\d+)?)\s?[×x]\s?(\d+(?:[.,]\d+)?)\s?cm\b/g, function(all, a, b){   /* «200×100 cm» (ingombro, 19/11/2026) */
+    var f=ftIn(num(a))+" × "+ftIn(num(b)); return u==="ft" ? f : all+" ("+f+")"; });
   s=s.replace(/(^|[\s(·])h\s?(\d+(?:[.,]\d+)?)(?:\s?cm\b)?(?![\d'"])(?!\s\(\d+['"])/g, function(all, pre, n){ return pre+"h "+(u==="ft" ? ftIn(num(n)) : n+" cm ("+ftIn(num(n))+")"); });
   s=s.replace(/(^|[^\w'"×.,])(\d+(?:[.,]\d+)?)\s?(m|cm)\b(?![²\w'"])(?!\s\(\d+['"])(?!\s\/\s\d+\sft)/g, function(all, pre, n, un){   /* «10 m / 25 ft» (taglio con entrambe) resta com'è */
     return pre+due(num(n)*(un==="m" ? 100 : 1), n+" "+un); });
@@ -4829,6 +4833,22 @@ function docTesto(s){
   }
   if(u && !(core && U[core])) r=_docUnitaTesto(r);
   return r;
+}
+/* A SCHERMO (19/11/2026, lotto «unità nell'editor»): una funzione sola per le misure scritte dentro i testi dell'interfaccia. In metri restituisce il testo com'è
+   (progetti identici a prima); in piedi o in entrambe converte «2 m», «4×1,2 m», «h40», «25 cm» come sul PDF. Non traduce e non tocca i testi dell'utente. */
+/* le voci del catalogo (sottotitoli «2×1 m · …») seguono l'unità: il testo di partenza sta in data-u0 */
+function catalogoUnita(){ if(typeof document==="undefined" || !document.querySelectorAll) return;
+  Array.prototype.forEach.call(document.querySelectorAll("#catalog small[data-u0]"), function(el){ var t=uTxt(el.getAttribute("data-u0")); if(el.textContent!==t) el.textContent=t; }); }
+function uTxt(s){ return (typeof s==="string" && s && docUnita()!=="m") ? _docUnitaTesto(s) : s; }
+/* il disegno del palco a schermo: ogni <text>/<tspan> passa da uTxt, tranne le scritte dell'utente (nomi, note, titolo…) */
+function docSvgUnita(svg){
+  if(docUnita()==="m") return svg;
+  docUtenteRaccogli(); var U=__docUtente||{};
+  var un=function(t){ return t.replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&amp;/g,"&"); };
+  var es=function(t){ return String(t).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); };
+  return String(svg).replace(/(<(?:text|tspan)\b[^>]*>)([^<]+)(?=<)/g, function(all, a, t){
+    var raw=un(t), core=raw.trim(); if(!core || U[core] || !/\d/.test(core)) return all;
+    var r=_docUnitaTesto(raw); return r===raw ? all : a+es(r); });
 }
 /* il documento jsPDF: ogni testo scritto o misurato passa dalla traduzione (dopo, il filtro dei caratteri WinAnsi) */
 function pdfLinguaDoc(d){
@@ -4857,21 +4877,43 @@ function docSvgTesti(svg){
 /* ── CAMPI DEL PANNELLO IN PIEDI ── In piedi i campi mostrano piedi (lunghezze) o pollici (altezze) e si scrive anche «8'», «8' 6"», «96"».
    base: "cm" (campo in centimetri), "m" (campo in metri), "h" (altezza in centimetri). Il documento resta in centimetri, senza arrotondare
    le misure intere in pollici (8' = 243,84 cm); in metri tutto resta com'era. */
-var DOC_CAMPI_ETICHETTE={pW:["L (cm)","L (ft)"], pD:["P (cm)","P (ft)"], pH:["h (cm)","h (in)"], blkW:["Largh. (m)","Largh. (ft)"], blkD:["Prof. (m)","Prof. (ft)"], blkX:["X (m)","X (ft)"], blkY:["Y (m)","Y (ft)"]};
+var DOC_CAMPI_ETICHETTE={pW:["L (cm)","L (ft-in)"], pD:["P (cm)","P (ft-in)"], pH:["h (cm)","h (ft-in)"], frameW:["Larghezza (m)","Larghezza (ft-in)"], frameH:["Profondità (m)","Profondità (ft-in)"], frameX:["X (m)","X (ft-in)"], frameY:["Y (m)","Y (ft-in)"], blkH:["Altezza (cm)","Altezza (ft-in)"], pRigH:["Altezza (trim, cm)","Altezza (trim, ft-in)"], pMountH:null, pAntH:null, blkW:["Largh. (m)","Largh. (ft-in)"], blkD:["Prof. (m)","Prof. (ft-in)"], blkX:["X (m)","X (ft-in)"], blkY:["Y (m)","Y (ft-in)"]};
 function docCmEsatti(c){ var r=Math.round(c), inch=c/CM_PER_IN; return (Math.abs(c-r)>1e-6 && Math.abs(inch-Math.round(inch))<1e-6) ? Math.round(c*100)/100 : r; }
 function docCampoEtichette(){
   var ft=docUnita()==="ft";
+  Object.keys(DOC_CAMPI_SUFFISSI).forEach(function(id){ var e=document.getElementById(id); if(e) e.textContent=DOC_CAMPI_SUFFISSI[id][ft?1:0]; });
   Object.keys(DOC_CAMPI_ETICHETTE).forEach(function(id){
     var el=document.getElementById(id); if(!el || !el.getAttribute) return;
     var lb=document.querySelector ? document.querySelector('label[for="'+id+'"]') : null;
-    if(lb && typeof lb.textContent==="string") lb.textContent=DOC_CAMPI_ETICHETTE[id][ft?1:0];
+    if(lb && DOC_CAMPI_ETICHETTE[id] && typeof lb.textContent==="string") lb.textContent=DOC_CAMPI_ETICHETTE[id][ft?1:0];
     if(ft){ if(el.getAttribute("data-step-m")==null) el.setAttribute("data-step-m", el.getAttribute("step")||""); el.setAttribute("step", id==="pH" ? "1" : "0.5"); el.setAttribute("type","text"); el.setAttribute("inputmode","decimal"); }
     else if(el.getAttribute("data-step-m")!=null){ el.setAttribute("step", el.getAttribute("data-step-m")); el.removeAttribute("data-step-m"); el.setAttribute("type","number"); }
   });
 }
+/* Il valore di un campo in piedi, scritto come si legge sul disegno: «6' 7"», «8'», «1' 4"». Esatto fino al centesimo di pollice (2,54 cm → «1"», 250 cm → «8' 2.43"»):
+   non arrotonda al pollice, così riaprire il campo non sposta di nulla una misura in centimetri che non è un pollice intero. Si rilegge con parseLunghezza. */
+function docFtInTesto(cm){
+  var t=Math.round(Math.abs(+cm||0)/CM_PER_IN*100)/100, f=Math.floor(t/12+1e-9), i=Math.round((t-f*12)*100)/100;
+  if(i>=12){ f++; i=0; }
+  var iTxt=String(+i.toFixed(2));
+  return ((+cm||0)<0 ? "-" : "")+(f ? f+"'"+(i ? " "+iTxt+'"' : "") : iTxt+'"');
+}
+/* un campo del pannello con la misura NELL'UNITÀ DEL CODICE (19/11/2026): «m» (metri), «cm» o «h» (centimetri). In metri e in entrambe il campo resta com'era, un numero;
+   in piedi si scrive «8' 6"» e si legge anche «8'», «96"», «2.5m». docCampoNativo restituisce NaN se non è una misura. */
+function docCampoNativo(el, base){
+  if(typeof el==="string") el=document.getElementById(el); if(!el) return NaN;
+  if(docUnita()!=="ft") return +el.value;
+  var c=docCampoCm(el, base==="h" ? "h" : (base==="m" ? "m" : "cm")); if(c==null) return NaN;
+  return base==="m" ? c/100 : c;
+}
+function docCampoPonne(el, nativo, base, std){
+  if(typeof el==="string") el=document.getElementById(el); if(!el) return;
+  if(docUnita()!=="ft" || nativo===""|| nativo==null || !isFinite(+nativo)){ el.value=(std!=null && docUnita()!=="ft") ? std : (nativo==null ? "" : nativo); return; }
+  el.value=docFtInTesto(base==="m" ? nativo*100 : +nativo);
+}
 function docCampoScrivi(id, cm, base){
   var el=document.getElementById(id); if(!el) return;
-  if(docUnita()==="ft"){ el.value=String(base==="h" ? +((+cm||0)/CM_PER_IN).toFixed(2) : +((+cm||0)/CM_PER_FT).toFixed(3)); return; }
+  if(docUnita()==="ft"){ el.value=docFtInTesto(cm); return; }   /* 19/11/2026: «6' 7"» invece di 6.562 */
   el.value = base==="m" ? (+cm||0)/100 : cm;
 }
 /* il valore del campo in centimetri; null se non è un numero */
@@ -20106,6 +20148,7 @@ function render(){
      nell'export (che chiama sceneMarkup/itemMarkup per conto suo, con `_sceneRuota` a zero) */
   _sceneRuota=viewRot;
   var _scena; try{ _scena=sceneMarkup(); } finally { _sceneRuota=0; }
+  if(docUnita()!=="m") _scena=docSvgUnita(_scena);   /* in piedi (19/11/2026): anche le scritte del disegno che nascono in metri (boccascena, h N cm, lunghezze…) */
   svg.innerHTML = viewRot ? '<g id="vrot" transform="rotate(-90)">'+_scena+'</g>' : _scena;
   reindexItemNodes();
   aderisciSelezione(); for(var _fk in _selFit){ redrawSelHandles(); break; }   /* il riquadro sul disegno vero, e la maniglia sul riquadro (solo se c'è qualcosa di misurato) */
@@ -20127,7 +20170,7 @@ function render(){
      dell'editor, si ingrandiscono attorno al loro centro fino a 9 px; il testo in sé non cambia, quindi
      PDF e PNG (che hanno un loro SVG e la loro scala, pdfTextK) restano come sono. */
   document.getElementById("scaleInfo").textContent =
-    (custEditorAttivo() ? "elemento "+custMisura(state.stage.w, state.stage.d) : "palco "+adattaM(state.stage.w)+"×"+adattaM(state.stage.d)+" m"+stageHeightNote())+" · zoom "+ppm.toFixed(0)+" px/m";
+    uTxt((custEditorAttivo() ? "elemento "+custMisura(state.stage.w, state.stage.d) : "palco "+adattaM(state.stage.w)+"×"+adattaM(state.stage.d)+" m"+stageHeightNote())+" · zoom "+(docUnita()==="ft" ? (ppm*CM_PER_FT/100).toFixed(0)+" px/ft" : ppm.toFixed(0)+" px/m"));
   /* sp_onboarded = "ha già piazzato qualcosa almeno una volta": tiene spenta la finestra di benvenuto */
   if(state.items.length>0){ try{ localStorage.setItem("sp_onboarded","1"); }catch(e){} }
   /* C (ciclo #3): a palco vuoto + non loggato, non mostrare l'indicatore di salvataggio — niente rumore al primo impatto */
@@ -21085,7 +21128,7 @@ function renderProps(){
       Array.prototype.forEach.call(document.querySelectorAll("#pMountMode [data-mnt]"), function(b){
         b.className="adv-btn"+(b.getAttribute("data-mnt")===mo?" on":""); });
       document.getElementById("pMountHWrap").style.display = (mo==="floor") ? "none" : "block";
-      document.getElementById("pMountH").value = mountHOf(it);
+      docCampoPonne("pMountH", mountHOf(it), "cm");
       var hangW=document.getElementById("pMountHangWrap");
       hangW.style.display = (mo==="hung") ? "block" : "none";
       if(mo==="hung"){
@@ -21105,7 +21148,7 @@ function renderProps(){
       document.getElementById("pRigBody").style.display = rg ? "block" : "none";
       if(rg){
         var rn=document.getElementById("pRigN"); rn.value=rg.n||""; rn.placeholder=rigNumero(it);
-        document.getElementById("pRigH").value=rg.h||"";
+        docCampoPonne("pRigH", rg.h||"", "cm");
         var rl=document.getElementById("pRigLen");
         if(!rl.children.length) RIG_LUNGHEZZE.forEach(function(cm){ var b=document.createElement("button"); b.type="button"; b.className="adv-btn"; b.setAttribute("data-len",cm); b.textContent=String(cm/100).replace(".",","); rl.appendChild(b); });
         Array.prototype.forEach.call(rl.children, function(b){ b.className="adv-btn"+(+b.getAttribute("data-len")===Math.round(it.w)?" on":""); });
@@ -21234,7 +21277,7 @@ function renderProps(){
   if(cfg){ sw.style.display="block"; var sv=Math.max(minSepOf(it), it.sep || defSepOf(it));
     document.getElementById("pSep").min = minSepOf(it);
     document.getElementById("pSep").value = sv;
-    var _sv=document.getElementById("pSepVal"); if(_sv) _sv.textContent = sv+" cm"; }
+    var _sv=document.getElementById("pSepVal"); if(_sv) _sv.textContent = uTxt(sv+" cm"); }
   else sw.style.display="none";
   var pv=document.getElementById("pVoce"), isVoce=!!VOCE[it.type];
   pv.style.display = isVoce ? "block" : "none";
@@ -21321,7 +21364,7 @@ function renderProps(){
     if(comp.name){ document.getElementById("selNome").textContent = comp.name(it); setPeekName(comp.name(it)); }
     if(kitMuted){
       document.getElementById("pCompCtl").innerHTML =
-        '<div class="comp-dim">Ingombro: '+it.w+'×'+it.d+' cm</div>'+
+        '<div class="comp-dim">'+esc(uTxt('Ingombro: '+it.w+'×'+it.d+' cm'))+'</div>'+
         '<div class="hint" style="font-size:12px;line-height:1.45">L\'illustrazione mostra un musicista generico. Per configurare i pezzi e vederli nel dettaglio, passa ad <b>Aspetto → Schematico</b> qui sopra.</div>'+
         '<button type="button" class="btn" id="pKitToSchem" style="width:100%;margin-top:6px;font-size:12px;padding:6px 2px">Configura in dettaglio (Schematico)</button>';
       var kb=document.getElementById("pKitToSchem"); if(kb) kb.onclick=function(){ mutSel(function(x){ x.look="schematico"; }); renderProps(); };
@@ -21396,8 +21439,8 @@ function renderProps(){
     document.getElementById("pAntAngRow").style.display = (db && db.ang) ? "none" : "block";   /* antenna di catalogo senza angolo di scheda: l'angolo si sceglie a mano */
     var a=document.getElementById("pAntAng"); a.value=String(it.antAng||90);
     a.onchange=function(){ it.antAng=+a.value; save(); render(); };
-    var h=document.getElementById("pAntH"); h.value=(it.antH!=null?it.antH:"");
-    h.onchange=function(){ var v=parseFloat(h.value); if(isFinite(v)&&v>0) it.antH=v; else delete it.antH; save(); }; })();
+    var h=document.getElementById("pAntH"); docCampoPonne(h, (it.antH!=null?it.antH:""), "m");
+    h.onchange=function(){ var v=(docUnita()==="ft" ? docCampoNativo(h,"m") : parseFloat(h.value)); if(isFinite(v)&&v>0) it.antH=v; else delete it.antH; save(); }; })();
   (function(){ var ps=document.getElementById("pProScheda"); if(!ps) return;   /* catalogo pro, lotto 2: la scheda del modello in una riga (misure, peso, consumo, U, fonte) */
     var m=(it && it.pro && typeof proModelOf==="function") ? proModelOf(it) : null;
     if(!m || m.kind==="console" || m.kind==="stagebox"){ ps.style.display="none"; return; }
@@ -21449,7 +21492,7 @@ function buildCompCtl(comp, it, only){
   var p=parts(it);
   var dimEl=document.createElement("div"); dimEl.className="comp-dim";        /* ingombro reale, come nel prototipo */
   var nPz = comp.explode ? comp.explode(it).length : 0;
-  dimEl.textContent="Ingombro: "+it.w+"\u00d7"+it.d+" cm"+(nPz?" \u00b7 "+nPz+" elementi":"");
+  dimEl.textContent=uTxt("Ingombro: "+it.w+"\u00d7"+it.d+" cm"+(nPz?" \u00b7 "+nPz+" elementi":""));
   box.appendChild(dimEl);
   if(comp.presets){                                  /* DS v2.1: chips preset (scelte esclusive) */
     var pr=document.createElement("div"); pr.className="chips"; pr.style.margin="2px 0 10px";
@@ -22113,7 +22156,7 @@ function applySep(doSave){
   render(); if(doSave) save();
 }
 document.getElementById("pSep").addEventListener("input", function(){
-  var _sv=document.getElementById("pSepVal"); if(_sv) _sv.textContent = (this.value||"")+" cm";   /* il numero segue il cursore, come Dimensione */
+  var _sv=document.getElementById("pSepVal"); if(_sv) _sv.textContent = uTxt((this.value||"")+" cm");   /* il numero segue il cursore, come Dimensione */
   applySep(false);
 });
 document.getElementById("pSep").addEventListener("change", function(){ applySep(true); });
@@ -22150,7 +22193,7 @@ function grpSepRender(its){
   r.min=st.min; r.value=st.lo;
   r.classList.toggle("misto", st.misto);
   var sc=grpSepScritta(st);
-  if(o) o.textContent=sc.val; if(h) h.textContent=sc.nota;
+  if(o) o.textContent=uTxt(sc.val); if(h) h.textContent=uTxt(sc.nota);
 }
 /* le parole del cursore di gruppo: i centimetri o «diversi», e a chi si applica */
 function grpSepScritta(st){
@@ -22170,7 +22213,7 @@ function grpSepApply(doSave, val){   /* val: dai test; dall'interfaccia è il va
 }
 document.getElementById("grpSep").addEventListener("input", function(){
   grpSepTrascina=true; this.classList.remove("misto");
-  var o=document.getElementById("grpSepVal"); if(o) o.textContent=(this.value||"")+" cm";   /* il numero segue il cursore */
+  var o=document.getElementById("grpSepVal"); if(o) o.textContent=uTxt((this.value||"")+" cm");   /* il numero segue il cursore */
   grpSepApply(false);
 });
 document.getElementById("grpSep").addEventListener("change", function(){ grpSepApply(true); });
@@ -22515,7 +22558,7 @@ document.getElementById("pMountMode").addEventListener("click", function(e){
   render(); renderProps(); save();
 });
 document.getElementById("pMountH").addEventListener("change", function(){
-  var v=+document.getElementById("pMountH").value;
+  var v=docCampoNativo("pMountH","cm");
   mutSel(function(it){ if(isMountable(it)) mountSet(it, {h:isFinite(v)?Math.max(MOUNT_H_MIN,Math.min(MOUNT_H_MAX,Math.round(v))):null}); });
   render(); renderProps(); save();
 });
@@ -22538,6 +22581,7 @@ document.getElementById("pRigN").addEventListener("change", function(){
 });
 document.getElementById("pRigH").addEventListener("change", function(){
   var v=document.getElementById("pRigH").value;
+  if(docUnita()==="ft"){ var _c=docCampoNativo("pRigH","cm"); v=isFinite(_c) ? String(_c) : ""; }   /* in piedi: il valore resta in cm */
   mutSel(function(it){ if(rigOf(it)) rigImposta(it, {h:v}); });
   renderProps();
 });
@@ -23905,7 +23949,7 @@ function ricordaRecenteCatalogo(k, nome, over){
     var shownDim = dim || TYPES[k].dim;
     b.dataset.miniK=k;                                            /* per rigenerare l'anteprima quando arrivano le illustrazioni */
     if(over) b.dataset.miniOver=JSON.stringify(over);
-    b.innerHTML = miniSvg(k, over)+'<span>'+esc(nome)+(shownDim?'<small>'+esc(shownDim)+'</small>':'')+'</span>';
+    b.innerHTML = miniSvg(k, over)+'<span>'+esc(nome)+(shownDim?'<small data-u0="'+esc(shownDim)+'">'+esc(uTxt(shownDim))+'</small>':'')+'</span>';
     b.addEventListener("click", function(){ addItem(k, rotPosaCatalogo(k, over?JSON.parse(JSON.stringify(over)):undefined)); ricordaRecenteCatalogo(k, nome, over); renderRecenti(); catCompactSoon(); });
     b.draggable=true;   /* desktop: trascina sul palco per posizionarlo dove vuoi */
     b.addEventListener("dragstart", function(e){
@@ -23920,7 +23964,7 @@ function ricordaRecenteCatalogo(k, nome, over){
   function makeActionBtn(nome, dim, iconType, action, iconHtml){
     var b=document.createElement("button");
     b.dataset.ess="1";   /* le azioni (Violino I/II, Blocco palco, liste…) sono sempre essenziali */
-    b.innerHTML = (iconHtml||miniSvg(iconType||"vln1x2"))+'<span>'+esc(nome)+(dim?'<small>'+esc(dim)+'</small>':'')+'</span>';
+    b.innerHTML = (iconHtml||miniSvg(iconType||"vln1x2"))+'<span>'+esc(nome)+(dim?'<small data-u0="'+esc(dim)+'">'+esc(uTxt(dim))+'</small>':'')+'</span>';
     b.addEventListener("click", function(){ closeMobileDrawers(); action(); });   /* mobile: chiudi il catalogo, poi mostra il modale/azione */
     return b;
   }
@@ -26769,7 +26813,7 @@ function renderStagePanel(){
      significa nulla (è lui a definire l'origine). Si mostrano solo per i blocchi aggiunti, dove servono
      ad allineare con precisione una passerella o un'ala. */
   var _xy=document.getElementById("blkXYRow"); if(_xy) _xy.style.display = (selBlock===0 ? "none" : "");
-  document.getElementById("blkH").value=r.h||0;
+  docCampoPonne("blkH", r.h||0, "h");
   var _dt=document.getElementById("blkDaTerra"); if(_dt) _dt.checked=quotaDaTerraOn();
   var fw=document.getElementById("blkFlatWrap"), isSemi=(r.shape==="semi");
   fw.style.display=isSemi?"":"none";
@@ -27060,7 +27104,7 @@ document.getElementById("bResetBlock").addEventListener("click", function(){
 });
 document.getElementById("blkH").addEventListener("change", function(){
   var b=stageBlocks(); if(selBlock==null||!b[selBlock]) return;
-  b[selBlock].h=Math.max(0,Math.round(+this.value||0)); render(); save();
+  b[selBlock].h=Math.max(0,Math.round(docCampoNativo(this,"h")||0)); render(); save();
 });
 document.getElementById("blkFlat").addEventListener("change", function(){
   var b=stageBlocks(); if(selBlock==null||!b[selBlock]) return;
@@ -27071,6 +27115,13 @@ document.addEventListener("click", function(e){
   var b = e.target.closest && e.target.closest(".stpr-b"); if(!b) return;
   var id=b.getAttribute("data-stp"), dir=parseInt(b.getAttribute("data-dir"),10)||1;
   var inp=document.getElementById(id); if(!inp) return;
+  if(docUnita()==="ft" && inp.getAttribute("type")==="text"){   /* in piedi (19/11/2026): il campo è «8' 6"», non un numero; passo 1' (2" per l'altezza) */
+    var _base=(id==="blkH") ? "h" : "m", _cm=docCampoCm(inp, _base); if(_cm==null) _cm=0;
+    var _mn=parseFloat(inp.getAttribute("min")), _mx=parseFloat(inp.getAttribute("max"));
+    _cm+=dir*(id==="blkH" ? 2*CM_PER_IN : CM_PER_FT);
+    if(!isNaN(_mn)) _cm=Math.max(id==="blkH" ? _mn : _mn*100, _cm); if(!isNaN(_mx)) _cm=Math.min(id==="blkH" ? _mx : _mx*100, _cm);
+    inp.value=docFtInTesto(_cm); inp.dispatchEvent(new Event("change",{bubbles:true})); return;
+  }
   var step = (id==="blkH") ? 10 : 0.5;
   var v=(parseFloat(inp.value)||0) + dir*step;
   var mn=parseFloat(inp.getAttribute("min")); if(!isNaN(mn)) v=Math.max(mn,v);
@@ -33924,7 +33975,7 @@ function monPuntaPannello(it){
   w.style.display="";
   if(document.activeElement===sel) return;
   var voci=(it.type==="sidefill" ? ['<option value="centro">Centro del palco</option>'] : []).concat(pers.map(function(p){
-    return '<option value="'+p.id+'">'+esc(p.nome)+' · '+(monDistanza(it,p)/100).toFixed(1).replace(".",",")+' m</option>'; }));
+    return '<option value="'+p.id+'">'+esc(p.nome)+esc(uTxt(' · '+(monDistanza(it,p)/100).toFixed(1).replace(".",",")+' m'))+'</option>'; }));
   sel.innerHTML=voci.join("");
   sel.selectedIndex=0;
 }
@@ -35522,11 +35573,12 @@ function renderFramePanel(){
   {
     /* i quattro campi vanno riempiti SEMPRE che il pannello sia visibile: aperti dal menu Esporta
        (saveAsOpen, senza editing) restavano vuoti e sembrava che l'area non esistesse */
+    docCampoEtichette();   /* in piedi (19/11/2026): i campi dell'area diventano testo PRIMA di scriverci «8' 6"» */
     var f=state.printFrame||frameStageRect();
-    document.getElementById("frameW").value=fmtMnum(f.w);
-    document.getElementById("frameH").value=fmtMnum(f.h);
-    document.getElementById("frameX").value=fmtMnum(f.x);
-    document.getElementById("frameY").value=fmtMnum(f.y);
+    docCampoPonne("frameW", f.w/100, "m", fmtMnum(f.w));
+    docCampoPonne("frameH", f.h/100, "m", fmtMnum(f.h));
+    docCampoPonne("frameX", f.x/100, "m", fmtMnum(f.x));
+    docCampoPonne("frameY", f.y/100, "m", fmtMnum(f.y));
   }
 }
 /* ===== Versioni salvate ===== */
@@ -35673,9 +35725,9 @@ function resizeFrame(drag, sp){
     /* Leggere PRIMA di attivare: activateFrameEdit() ridisegna il pannello e riscrive i quattro campi
        dai valori correnti dell'area — chiamandolo per primo il numero appena digitato veniva
        sovrascritto e la modifica andava persa (bug 27/07: "il primo valore che scrivi non conta"). */
-    var w=Math.max(0.5, +document.getElementById("frameW").value||0.5);
-    var h=Math.max(0.5, +document.getElementById("frameH").value||0.5);
-    var x=+document.getElementById("frameX").value||0, y=+document.getElementById("frameY").value||0;
+    var w=Math.max(0.5, docCampoNativo("frameW","m")||0.5);
+    var h=Math.max(0.5, docCampoNativo("frameH","m")||0.5);
+    var x=docCampoNativo("frameX","m")||0, y=docCampoNativo("frameY","m")||0;
     activateFrameEdit();
     state.printFrame={x:Math.round(x*100), y:Math.round(y*100), w:Math.round(w*100), h:Math.round(h*100)};
     save(); render(); renderFramePanel();   /* rimette nei campi i valori normalizzati (arrotondati, minimi) */
@@ -41838,6 +41890,7 @@ function docEsteroSincronizza(){
   if(l) l.value=docLingua(); if(u) u.value=docUnita();
   ["unitSel","unitSelM"].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=docUnita(); });   /* barra in alto e Menu del telefono */
   try{ syncSnapSelects(); }catch(_e){}   /* le voci dell'aggancio seguono l'unità */
+  try{ catalogoUnita(); }catch(_e){}   /* e i sottotitoli del catalogo */
   if(h) h.hidden=!(docEn() && docUnita()==="m");
 }
 (function(){
