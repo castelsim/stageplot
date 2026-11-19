@@ -36722,6 +36722,41 @@ t("Pannello di gruppo (19/11): riga «Disegno» con Seduto · In piedi · Strume
     eq([A.disegnoStato(a), A.disegnoStato(b)], ["seduto", "seduto"], "e torna Seduto");
   });
 });
+/* «Applica a tutti» nel menu del progetto (19/11): Seduto · In piedi · Strumento, desktop e telefono */
+t("Menu del progetto (19/11): riga «Disegno di tutto il progetto» (menu File e menu del telefono), stato da disegnoUi, «In piedi» spento senza icona, un solo annulla, ripiego Seduto", () => {
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  const fm = html.slice(html.indexOf('id="fileMenu"'), html.indexOf('id="helpMenu"')), mm = html.slice(html.indexOf('id="mActions"'), html.indexOf('id="mActions"') + 6000);
+  for (const [nome, z] of [["menu File", fm], ["menu del telefono", mm]]) ok(/Disegno di tutto il progetto/.test(z) && /data-dsg="seduto">Seduto</.test(z) && /data-dsg="piedi">In piedi</.test(z) && /data-dsg="strumento">Strumento</.test(z), nome + ": tre voci «Disegno di tutto il progetto»");
+  ok(/applicaDisegnoATutti\(null, x\.getAttribute\("data-dsg"\)\)/.test(appjs.replace(/\s+/g, " ")), "le voci chiamano applicaDisegnoATutti");
+  ok(/x\.disabled = \(v==="piedi" && !u\.piedi\)/.test(appjs.replace(/\s+/g, " ")) && /disegnoUi\(null, state\.items\.filter\(hasLookToggle\)\)/.test(appjs), "stato e «In piedi» spento letti da disegnoUi sull'intero progetto");
+  conIconePiedi(() => {
+    A.state.items = []; A.selSet = {}; A.sel = null; A.state.lookDefault = "illustrato";
+    const sx = add("saxtenore", 400, 300), cl = add("clarinetto", 600, 300);
+    const U = () => A.disegnoUi(null, A.state.items.filter(A.hasLookToggle));
+    eq(A.disegnoUi(null, []), { stato: null, piedi: false }, "progetto senza figure: nessuno acceso, «In piedi» spento");
+    eq(U().stato, "seduto", "tutti Seduto: acceso Seduto"); eq(U().piedi, true, "il sax ha «In piedi»: voce attiva");
+    A.selSet = {}; A.selSet[sx.id] = true; A.sel = sx.id; A.cambiaDisegnoSelezione("piedi");
+    eq(U().stato, null, "misti (sax in piedi, clarinetto seduto): nessuno acceso");
+    A.selSet = {}; A.sel = null;
+    A.applicaDisegnoATutti(null, "seduto"); eq(U().stato, "seduto", "Seduto a tutti dal menu");
+    A.resetHistory(); A.recordHistory(); const u0 = A.undoStack.length, m = A.applicaDisegnoATutti(null, "piedi"); A.recordHistory();
+    eq([A.disegnoStato(sx), A.disegnoStato(cl)], ["piedi", "seduto"], "In piedi dove c'è l'icona, clarinetto Seduto");
+    ok(/^Disegno di tutto il progetto: «In piedi»/.test(m), "toast: " + m); eq(A.undoStack.length, u0 + 1, "un solo passo di annulla");
+    A.undo(); eq([sx, cl].map((o) => A.disegnoStato(A.state.items.find((x) => x.id === o.id))), ["seduto", "seduto"], "un solo annulla riporta tutto com'era (tutti Seduto)");
+    /* ripiego «Seduto» (non coperto in #161): clarinetto in Strumento → Seduto con «In piedi» non disponibile */
+    A.state.items = []; A.selSet = {}; A.sel = null;
+    const c1 = add("clarinetto", 400, 300), c2 = add("clarinetto", 600, 300);
+    A.selSet = {}; A.selSet[c1.id] = true; A.sel = c1.id; A.cambiaDisegnoSelezione("strumento"); A.selSet = {}; A.sel = null;
+    eq(U().piedi, false, "nessuna icona «In piedi»: voce spenta");
+    eq(A.applicaDisegnoATutti(null, "piedi"), "", "«In piedi» senza icone: non fa niente"); eq(A.disegnoStato(c1), "strumento", "…e non tocca il clarinetto in Strumento");
+    const sx2 = add("saxtenore", 800, 300);
+    A.applicaDisegnoATutti(null, "piedi");
+    eq([A.disegnoStato(sx2), A.disegnoStato(c1), A.disegnoStato(c2)], ["piedi", "seduto", "seduto"], "clarinetto in Strumento + «In piedi» a tutti → ripiego Seduto (non resta Strumento)");
+    A.applicaDisegnoATutti(null, "strumento"); eq(A.state.lookDefault, "schematico", "Strumento: predefinito schematico");
+    A.applicaDisegnoATutti(null, "seduto"); eq([U().stato, A.state.lookDefault], ["seduto", "illustrato"], "Seduto a tutti: tutti Seduto, predefinito figura");
+    A.state.lookDefault = "illustrato";
+  });
+});
 t("«Tromba · in piedi» con progetto su «Strumento» (19/11): la voce del catalogo vince sul predefinito, le altre restano Strumento", () => {
   conIconePiedi(() => {
     const L = iconeVere(); A.LIB_ICONS.musTrombaPiedi = L.musTrombaPiedi; A.LIB_ICONS.musTromba = L.musTromba;

@@ -383,6 +383,13 @@
   .hdrmenu .mi:hover{background:var(--accent-tint)}
   body.dark .hdrmenu .mi:hover{background:#222b38}
   .hdrmenu .mi .kbd{margin-left:auto;color:var(--text-3);font:11px var(--font-mono)}
+  .hdrmenu .dsg-row{padding:6px 10px 8px}
+  .hdrmenu .dsg-t{display:block;font:600 11px var(--font-ui);color:var(--text-2);margin-bottom:4px}
+  .dsg-seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border:1px solid var(--border-strong);border-radius:6px;overflow:hidden}
+  .dsg-seg button{margin:0;padding:5px 4px;border:0;border-left:1px solid var(--border-strong);border-radius:0;background:var(--surface);font:500 12px var(--font-ui);color:var(--text);cursor:pointer}
+  .dsg-seg button:first-child{border-left:0}
+  .dsg-seg button.on{background:var(--accent);color:#fff}
+  .dsg-seg button:disabled{opacity:.4;cursor:default}
   .hdrmenu hr{border:0;border-top:1px solid var(--border);margin:5px 4px}
   /* A′: il feedback vive nel menu "?" — il fab in basso a destra sparisce (elemento resta come proxy) */
   #fbTrigger{display:none !important}
@@ -3441,6 +3448,9 @@ body.venue-calib #vistaBanner{display:none}
   #mActions .mseg{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border:1px solid var(--border-strong);border-radius:8px;overflow:hidden}
   #mActions .mseg button{min-height:44px;margin:0;padding:0 2px;border:0;border-left:1px solid var(--border-strong);border-radius:0;background:var(--surface);font:600 14px var(--font-ui);color:var(--text);cursor:pointer}
   #mActions .mseg button:first-child{border-left:0}
+  #mActions .dsg-seg{grid-template-columns:repeat(3,minmax(0,1fr))}
+  #mActions .mrow-dsg{padding-top:8px;padding-bottom:8px;gap:5px}
+  #mActions .dsg-seg button{min-height:36px;font:600 13px var(--font-ui)}
   #mActions .mseg button.on{background:var(--accent);color:#fff}
   #mActions .mswitch{flex:0 0 auto;position:relative;width:48px;height:28px;border-radius:999px;background:var(--border-strong);transition:background .15s var(--ease)}
   #mActions .mswitch::after{content:"";position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:999px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s var(--ease)}
@@ -4370,6 +4380,8 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
   <hr>
   <button class="mi" data-file="save"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Salva<span class="kbd">⌘S</span></button>
   <button class="mi" data-file="variant-new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="8.5" y="14" width="7" height="7" rx="1"/><path d="M6.5 10v2M17.5 10v2M12 12v2"/></svg>Nuova variante (scena)</button>
+  <hr>
+  <div class="dsg-row"><span class="dsg-t" id="dsgTD">Disegno di tutto il progetto</span><div class="dsg-seg" role="radiogroup" aria-labelledby="dsgTD"><button type="button" role="radio" data-dsg="seduto">Seduto</button><button type="button" role="radio" data-dsg="piedi">In piedi</button><button type="button" role="radio" data-dsg="strumento">Strumento</button></div></div>
   <hr>
   <button class="mi" data-file="funzioni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h10M20 6h0M4 12h4M12 12h8M4 18h12"/><circle cx="17" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>Funzioni avanzate…</button>
 </div>
@@ -5922,6 +5934,7 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
     <p class="mrow-nota">Variante = la stessa serata con un'altra disposizione. Un altro progetto: «Duplica» in I miei progetti.</p>
     <button class="mrow" data-act="share"><span class="mrow-t">Condividi</span></button>
     <button class="mrow" data-act="new"><span class="mrow-t">Nuovo progetto</span></button>
+    <div class="mrow mrow-col mrow-dsg"><span class="mrow-t" id="dsgTM">Disegno di tutto il progetto</span><div class="mseg dsg-seg" role="radiogroup" aria-labelledby="dsgTM"><button type="button" role="radio" data-dsg="seduto">Seduto</button><button type="button" role="radio" data-dsg="piedi">In piedi</button><button type="button" role="radio" data-dsg="strumento">Strumento</button></div></div>
   </div>
   <div class="sh">Evento</div>
   <div class="mlist">
