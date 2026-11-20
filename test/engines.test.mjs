@@ -38401,9 +38401,48 @@ t("PNG centrato (f): palco 1250×1335 non quadrato, area con origine non zero e 
   reset();
 });
 t("PNG centrato (g): exportPngCorpo usa il riquadro centrato (desktop e iPhone: stessa funzione)", () => {
-  ok(/var vbP=pngVbCentrato\(\);/.test(appjs) && /stageSceneSvg\(vbP\)/.test(appjs), "l'export PNG parte da pngVbCentrato");
+  ok(/var vbP=pngVbCentrato\(\)/.test(appjs) && /stageSceneSvg\(vbP\)/.test(appjs), "l'export PNG parte da pngVbCentrato");
   ok(!/stageSceneSvg\(vbP \|\| undefined\)/.test(appjs), "non resta la vecchia strada decentrata");
   ok((appjs.match(/exportPngCorpo\(/g) || []).length === 3, "un solo corpo dell'export, chiamato da exportPng (due rami): " + (appjs.match(/exportPngCorpo\(/g) || []).length);
+});
+
+/* PNG con la riga «vN · data» in basso a destra (20/11/2026): la riga sta in una fascia nuova, il riquadro cresce simmetrico, il palco resta al centro */
+function pngConRiga(W, D, versione) {
+  palcoPng(W, D); if (versione) A.state.versione = versione;
+  const base = A.pngVbCentrato(), riga = A.pngRigaVersione(), vb = A.pngVbConRiga(base, riga);
+  return { base, riga, vb, svg: A.pngSvgConRiga(A.stageSceneSvg(vb), base, vb, riga) };
+}
+const rigaTxt = (svg) => { const m = svg.match(/<text x="([-\d.]+)" y="([-\d.]+)" text-anchor="end" font-size="([\d.]+)"[^>]*data-png-versione="1">([^<]*)<\/text>/); return m && { x: +m[1], y: +m[2], fs: +m[3], t: m[4] }; };
+t("PNG riga versione (a): con la versione c'è «vN · GG/MM/AAAA» (formato del piè), senza versione nessuna riga e riquadro di oggi", () => {
+  const r = pngConRiga(800, 500, 4), x = rigaTxt(r.svg), d = new Date(), p = (n) => String(n).padStart(2, "0");
+  eq(x && x.t, "v4 · " + p(d.getDate()) + "/" + p(d.getMonth() + 1) + "/" + d.getFullYear(), "testo esatto");
+  eq(r.riga, A.versioneEtichetta(), "stessa etichetta del piè");
+  const s = pngConRiga(800, 500, 0);
+  eq(s.riga, "", "senza versione nessuna etichetta"); ok(!rigaTxt(s.svg) && !/data-png-versione/.test(s.svg), "nessuna riga nell'SVG"); eq(s.vb, s.base, "riquadro identico a oggi"); eq(s.vb, { x: -80, y: -80, w: 960, h: 660 }, "come prima");
+  reset();
+});
+t("PNG riga versione (b): in basso a destra, dentro il riquadro, piccola, sotto FONDO PALCO/PUBBLICO e disegno", () => {
+  const r = pngConRiga(800, 500, 4), x = rigaTxt(r.svg), vb = r.vb, L = Math.max(vb.w, vb.h);
+  ok(x.x <= vb.x + vb.w && x.x > vb.x + vb.w * 0.5, "a destra: " + x.x + " in " + JSON.stringify(vb));
+  ok(x.y <= vb.y + vb.h && x.y > vb.y + vb.h * 0.9, "in basso: " + x.y);
+  ok(x.fs / L >= 0.011 && x.fs / L <= 0.015, "altezza 1,2-1,5 % del lato lungo: " + x.fs / L);
+  const larg = x.t.length * 0.62 * x.fs; ok(x.x - larg >= vb.x, "il testo sta dentro a sinistra");
+  ok(x.y - x.fs > r.base.y + r.base.h, "sotto tutto il contenuto del riquadro di base (nessuna sovrapposizione): " + (x.y - x.fs) + " > " + (r.base.y + r.base.h));
+  pngSenzaTagli(vb, 800, 500, "con la riga");
+  reset();
+});
+t("PNG riga versione (c): il centro del palco resta al centro (±0,5 px) anche con pianta, area scelta e fuori palco", () => {
+  const PX = 4000;
+  const chk = (W, D, msg) => { const r = A.pngVbConRiga(A.pngVbCentrato(), A.pngRigaVersione()), sc = PX / Math.max(r.w, r.h); ok(Math.abs((W / 2 - r.x) * sc - r.w * sc / 2) <= 0.5 && Math.abs((D / 2 - r.y) * sc - r.h * sc / 2) <= 0.5, msg + ": centro spostato " + JSON.stringify(r)); };
+  palcoPng(800, 500); A.state.versione = 4; chk(800, 500, "senza pianta");
+  A.state.printFrame = { x: -300, y: -100, w: 1800, h: 900 }; chk(800, 500, "area più grande");
+  A.state.printFrame = null; A.state.venue = A.normalizeVenue({ name: "p.png", x: 1900, y: -400, w: 2400, h: 1500, rot: 0, opacity: 40, enabled: true, locked: true, _dataUrl: PIANTA_B64, _imgW: 1500, _imgH: 1000 }); chk(800, 500, "con pianta");
+  reset();
+});
+t("PNG riga versione (d): sceneVbDefault e pngVbCentrato non cambiano con la versione; exportPngCorpo usa la riga", () => {
+  palcoPng(800, 500); const a = A.sceneVbDefault(), b = A.pngVbCentrato(); A.state.versione = 4;
+  eq(A.sceneVbDefault(), a, "sceneVbDefault invariata"); eq(A.pngVbCentrato(), b, "pngVbCentrato invariata"); reset();
+  ok(/riga=pngRigaVersione\(\)/.test(appjs) && /pngVbConRiga\(vbP, riga\)/.test(appjs) && /pngSvgConRiga\(stageSceneSvg\(vbP\), vbBase, vbP, riga\)/.test(appjs), "l'export PNG usa la riga (desktop e iPhone: stessa funzione)");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
