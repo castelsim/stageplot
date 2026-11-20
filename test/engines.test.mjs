@@ -38089,11 +38089,12 @@ t("TASTIERE IN PIEDI: default Strumento (nessun campo nuovo), In piedi = it.posa
     A.impostaDisegno(dop, "piedi"); A.impostaDisegno(moog, "piedi");
     eq(dop.posa, "piedi", "doppia in piedi"); eq(moog.posa, "piedi", "Moog in piedi");
     eq([dop.w, dop.d, moog.w, moog.d], w0, "misure dello strumento invariate");
-    eq(dop.panca, false, "in piedi la panca si spegne"); ok(panca0 !== undefined || true);
+    eq(dop.panca, panca0, "it.panca non viene toccata"); ok(!A.hasPanca(dop), "in piedi nessuna panca (hasPanca falso)");
     ok(!("look" in dop) && !("look" in moog), "mai it.look");
     eq((A.sceneMarkup().match(/class="tast-fig"/g) || []).length, 2, "due figure disegnate");
     eq(A.disegnoStato(dop), "piedi", "stato In piedi");
-    A.impostaDisegno(dop, "seduto"); ok(!("posa" in dop) && A.disegnoStato(dop) === "strumento", "ogni altra scelta = Strumento");
+    A.impostaDisegno(dop, "seduto"); ok(!("posa" in dop) && A.disegnoStato(dop) === "strumento", "ogni altra scelta = Strumento"); ok(A.hasPanca(dop), "tornata Strumento: la panca c'è di nuovo, come prima");
+    { const x = add("doppiatastiera", 300, 200); x.posa = "piedi"; ok(!A.hasPanca(x), "posa scritta direttamente (JSON, catalogo, generatore): niente panca lo stesso"); delete x.posa; }
     A.impostaDisegno(moog, "strumento"); ok(!("posa" in moog), "Strumento toglie la posa");
     ok(!A.sceneMarkup().includes("tast-fig"), "tornati Strumento: nessuna figura");
     eq(dop.type, "doppiatastiera", "il tipo non cambia (canali, watt, rider come prima)");

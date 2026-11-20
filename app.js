@@ -13002,7 +13002,7 @@ var KEYS_BENCH = { grancoda:1, mezzacoda:1, pianoverticale:1, stagepiano:1, dopp
 /* tastiere con lo sgabello A SCELTA, spento di partenza (13/10/2026, Simone: «voglio che ci sia anche
    l'opzione sgabello»). Spento perché le tastiere già disegnate non si trovino uno sgabello in più nel rider. */
 var KEYS_BENCH_OPT = { tastiera:1 };
-function hasPanca(it){ return !!it && !inPiedi(it) && ((KEYS_BENCH[it.type] && it.panca!==false) || (KEYS_BENCH_OPT[it.type] && it.panca===true)); }
+function hasPanca(it){ return !!it && !inPiedi(it) && !tastFig(it) && ((KEYS_BENCH[it.type] && it.panca!==false) || (KEYS_BENCH_OPT[it.type] && it.panca===true)); }
 /* TIPI DI SGABELLO — qui, PRIMA del catalogo che li legge all'avvio (16/09, Simone: «dobbiamo distinguere i vari tipi di sgabelli, per esempio per
    contrabbassi, per batteria, per piano e tastiere»; poi «aggiungi anche sgabello alto per chi canta
    seduto»). Un solo elemento «Sgabello» col suo Tipo, non cinque voci di catalogo. Chi allestisce deve
@@ -22197,8 +22197,8 @@ function disegnoUi(it, gruppo){   /* cosa mostrare: lo stato comune della selezi
 }
 /* tastiera semplice: In piedi o «Strumento» (= com'era, Seduto vale lo stesso); mai it.look */
 function impostaDisegnoTast(it, v){ impostaPosa(it, v==="piedi"); recalcItemDims(it); }
-/* doppia tastiera e Moog: In piedi = it.posa:"piedi" (il tastierista dietro lo strumento); ogni altra scelta = Strumento (nessuna posa, mai it.look). Senza sedia: la panca si spegne entrando in piedi. Ingombro e posizione dello strumento non cambiano. */
-function impostaDisegnoFig(it, v){ if(v==="piedi"){ it.posa="piedi"; if(KEYS_BENCH[it.type]) it.panca=false; } else delete it.posa; }
+/* doppia tastiera e Moog: In piedi = it.posa:"piedi" (il tastierista dietro lo strumento); ogni altra scelta = Strumento (nessuna posa, mai it.look). Senza sedia: hasPanca è falso in piedi (it.panca resta com'è). Ingombro e posizione dello strumento non cambiano. */
+function impostaDisegnoFig(it, v){ if(v==="piedi"){ it.posa="piedi"; } else delete it.posa; }   /* la panca NON si tocca: hasPanca la ignora in piedi (tornando a «Strumento» ricompare com'era; vale anche per JSON, catalogo e generatore) */
 function impostaDisegno(it, v){
   if(!hasLookToggle(it)) return;
   if(TAST_FIG[it.type]) return impostaDisegnoFig(it, v);
