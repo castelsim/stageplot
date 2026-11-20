@@ -17,13 +17,14 @@ var PIEDI_MSG_POSA="Figure in piedi non disponibili: controlla la connessione. I
 /* le chiavi che POSA_PIEDI chiede (art e art2 di ogni tipo) */
 function piediChiavi(){
   var ks=[]; Object.keys(POSA_PIEDI).forEach(function(t){ var P=POSA_PIEDI[t]; [P.art,P.art2].forEach(function(k){ if(k && ks.indexOf(k)<0) ks.push(k); }); });
+  ks.push(TAST_FIG_ART);   /* il tastierista dietro doppia tastiera e Moog (20/11): nello stesso file */
   Object.keys(SGAB_ALTO).forEach(function(t){ var k=SGAB_ALTO[t].art; if(k && ks.indexOf(k)<0) ks.push(k); });   /* le figure su sgabello alto (19/11) stanno nello stesso file */
   return ks;
 }
 function piediIconaOk(k){ var L=window.LIB_ICONS; return !!(k && L && L[k] && L[k].vb && typeof L[k].body==="string"); }
 function piediFilePronto(){ return piediChiavi().every(piediIconaOk); }
 /* gli elementi in piedi la cui figura non c'è (ancora) */
-function piediMancanti(items){ return (items||[]).filter(function(it){ return inPiedi(it) && !piediIconaOk(artPiedi(it)); }); }
+function piediMancanti(items){ return (items||[]).filter(function(it){ return (inPiedi(it) && !piediIconaOk(artPiedi(it))) || (tastFig(it) && !piediIconaOk(TAST_FIG_ART)); }); }
 function piediCarica(riprova){
   if(_piediStato===1 || _piediStato===2) return false;
   if(_piediStato===3 && !riprova) return false;
@@ -39,7 +40,7 @@ function piediCarica(riprova){
 /* il progetto ha figure in piedi e il file non c'è: lo chiede (apertura di un progetto, disegno) */
 function piediCaricaSeServe(items){
   if(_piediStato===1 || _piediStato===2) return false;
-  if(!(items||[]).some(inPiedi) || piediFilePronto()) return false;
+  if(!(items||[]).some(function(it){ return inPiedi(it) || tastFig(it); }) || piediFilePronto()) return false;
   return piediCarica();
 }
 /* aspetta che `ok()` diventi vero (di serie: il file c'è) al massimo `ms`; risolve true/false, mai rifiuta. Chiede il file anche dopo un errore. */

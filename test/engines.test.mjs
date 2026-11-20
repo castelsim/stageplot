@@ -37223,7 +37223,7 @@ t("split 1: ogni art/art2 di POSA_PIEDI sta in icons-piedi.js (vb, body, dc) e i
     ok(P[k] && P[k].vb && typeof P[k].body === "string" && P[k].body.length > 1000 && Array.isArray(P[k].dc), k + ": in icons-piedi.js con vb, body, dc");
     ok(!(k in G), k + ": NON in icons.js");
   });
-  eq(Object.keys(P).sort(), ks.concat(Object.values(A.SGAB_ALTO).map((x) => x.art)).sort(), "icons-piedi.js contiene solo le chiavi di POSA_PIEDI e le 4 figure su sgabello alto (SGAB_ALTO)");
+  eq(Object.keys(P).sort(), ks.concat(Object.values(A.SGAB_ALTO).map((x) => x.art)).concat([A.TAST_FIG_ART]).sort(), "icons-piedi.js contiene solo le chiavi di POSA_PIEDI, le 4 figure su sgabello alto (SGAB_ALTO) e il tastierista solo (TAST_FIG_ART)");
   ok(G.percussionistaInPiedi && G.percussionistaInPiedi.body, "percussionistaInPiedi resta in icons.js (la usano sempre le percussioni)");
   ok(!Object.keys(G).some((k) => /Piedi$/.test(k) && k !== "percussionistaInPiedi"), "in icons.js nessun'altra chiave *Piedi");
   ok(readFileSync(join(root, "icons.js")).length < 2950000, "icons.js sotto i 2,95 MB (era 3,24)");
@@ -38072,6 +38072,71 @@ t("lucchetto: il glifo c'è a schermo ma NON nell'export (PDF/PNG) per i tipi nu
   const pe = { id: "gp", type: "pedana", x: 300, y: 200, rot: 0, w: 200, d: 150, label: "P", locked: true };
   A.state.items.push(pe); A.selSet = {};
   ok(A.sceneMarkup({ espandi: true }).includes("riser-lock"), "pedana: comportamento di sempre (glifo anche in export)");
+});
+
+/* ═══ TASTIERISTA IN PIEDI DIETRO doppia tastiera e Moog (20/11/2026, lotto corto) ═══ */
+t("TASTIERE IN PIEDI: default Strumento (nessun campo nuovo), In piedi = it.posa:\"piedi\" dietro lo strumento; misure, panca e tipo come prima; figura solo a posa attiva", () => {
+  const prima = A.LIB_ICONS;
+  A.LIB_ICONS = { musTastieristaSolo: { vb: [0, 0, 118, 87.11], body: "<g id=\"f\"/>", dc: [0, 0] }, doppiatastiera: { vb: [0, 0, 105, 50], body: "<g/>" }, moogsub37: { vb: [0, 0, 67.9, 37.5], body: "<g/>" } };
+  try {
+    reset();
+    const dop = add("doppiatastiera", 400, 300), moog = add("moogsub37", 700, 300);
+    ok(!("posa" in dop) && !("posa" in moog) && !("look" in dop) && !("look" in moog), "nasce senza posa né look: i progetti salvati restano identici");
+    eq(A.disegnoStato(dop), "strumento", "doppia: stato Strumento"); eq(A.disegnoStato(moog), "strumento", "Moog: stato Strumento");
+    ok(A.hasLookToggle(dop) && A.hasLookToggle(moog) && A.hasStrumento(dop) && A.hasLookToggle({ type: "organohammond" }) === false, "il controllo c'è per i due tipi e NON per organo, piano verticale, celesta, clavicembalo (lotto dopo)");
+    ok(!A.sceneMarkup().includes("tast-fig"), "senza posa nessuna figura");
+    const w0 = [dop.w, dop.d, moog.w, moog.d], panca0 = dop.panca;
+    A.impostaDisegno(dop, "piedi"); A.impostaDisegno(moog, "piedi");
+    eq(dop.posa, "piedi", "doppia in piedi"); eq(moog.posa, "piedi", "Moog in piedi");
+    eq([dop.w, dop.d, moog.w, moog.d], w0, "misure dello strumento invariate");
+    eq(dop.panca, false, "in piedi la panca si spegne"); ok(panca0 !== undefined || true);
+    ok(!("look" in dop) && !("look" in moog), "mai it.look");
+    eq((A.sceneMarkup().match(/class="tast-fig"/g) || []).length, 2, "due figure disegnate");
+    eq(A.disegnoStato(dop), "piedi", "stato In piedi");
+    A.impostaDisegno(dop, "seduto"); ok(!("posa" in dop) && A.disegnoStato(dop) === "strumento", "ogni altra scelta = Strumento");
+    A.impostaDisegno(moog, "strumento"); ok(!("posa" in moog), "Strumento toglie la posa");
+    ok(!A.sceneMarkup().includes("tast-fig"), "tornati Strumento: nessuna figura");
+    eq(dop.type, "doppiatastiera", "il tipo non cambia (canali, watt, rider come prima)");
+  } finally { A.LIB_ICONS = prima; reset(); }
+});
+t("TASTIERE IN PIEDI: ORIENTAMENTO — il tastierista sta dal lato dei tasti e guarda lo strumento, per le 5 rotazioni (0/90/180/270/305), doppia e Moog", () => {
+  const prima = A.LIB_ICONS;
+  A.LIB_ICONS = { musTastieristaSolo: { vb: [0, 0, 118, 87.11], body: "<g id=\"f\"/>", dc: [0, 0] }, doppiatastiera: { vb: [0, 0, 105, 50], body: "<g/>" }, moogsub37: { vb: [0, 0, 67.9, 37.5], body: "<g/>" } };
+  /* lato dei tasti a rot 0, verificato sulle icone (anteprima_rotazioni_v2 / crea_rot0): doppia a +y, Moog a −y */
+  const TASTI = { doppiatastiera: 1, moogsub37: -1 }, IH = { doppiatastiera: 50, moogsub37: 37.5 };
+  try {
+    for (const type of Object.keys(TASTI)) for (const rot of [0, 90, 180, 270, 305]) {
+      reset(); const it = add(type, 500, 400); it.rot = rot; A.impostaDisegno(it, "piedi");
+      const mk = A.sceneMarkup(), m = mk.match(/class="tast-fig"[^>]*transform="translate\(0,(-?[\d.]+)\) rotate\((\d+)\)"/);
+      ok(m, type + " " + rot + ": figura presente"); const Y = +m[1], R = +m[2] * Math.PI / 180;
+      const face = [-Math.sin(R), Math.cos(R)];   /* la figura nasce con le mani verso +y */
+      ok(Math.sign(Y) === TASTI[type], type + " " + rot + ": il tastierista sta sul lato dei tasti");
+      ok(face[0] * 0 + face[1] * Y < 0, type + " " + rot + ": guarda lo strumento (verso il centro), mai di spalle");
+      const a = rot * Math.PI / 180, wf = (v) => [v[0] * Math.cos(a) - v[1] * Math.sin(a), v[0] * Math.sin(a) + v[1] * Math.cos(a)];
+      const pos = wf([0, Y]), fw = wf(face);
+      ok(fw[0] * pos[0] + fw[1] * pos[1] < 0, type + " " + rot + ": nel mondo guarda verso lo strumento, la testa non si inverte");
+      const k = Math.min(it.w / (type === "doppiatastiera" ? 105 : 68), it.d / (type === "doppiatastiera" ? 50 : 38));
+      ok(Math.abs(Math.abs(Y) - (IH[type] * k / 2 + 11.35)) < 0.01, type + " " + rot + ": mani sopra la tastiera (centro figura a 11,35 cm dal bordo, come nell'icona #166)");
+    }
+  } finally { A.LIB_ICONS = prima; reset(); }
+});
+t("TASTIERE IN PIEDI: ingombro (itemAabb) e ripulitura — strumento invariato senza posa; con posa si allunga dal lato dei tasti; posa ammessa solo per i due tipi", () => {
+  reset();
+  const dop = add("doppiatastiera", 400, 300), org = add("organohammond", 700, 300);
+  const b0 = JSON.stringify(A.itemAabb(dop, 0));
+  dop.posa = "piedi"; const b1 = A.itemAabb(dop, 0);
+  ok(b1.y1 > JSON.parse(b0).y1 + 20 && b1.y0 === JSON.parse(b0).y0, "doppia a rot 0: l'ingombro cresce verso +y (lato dei tasti), non verso il fondo");
+  dop.rot = 180; const b2 = A.itemAabb(dop, 0); ok(b2.y0 < JSON.parse(b0).y0 - 20, "girata di 180°: cresce verso −y");
+  delete dop.posa; eq(JSON.stringify(A.itemAabb(dop, 0)), b0, "senza posa: identico a prima");
+  const out = A.sanitizeItems([{ id: "a", type: "doppiatastiera", x: 1, y: 1, w: 125, d: 78, posa: "piedi" }, { id: "b", type: "moogsub37", x: 1, y: 1, w: 68, d: 38, posa: "piedi" }, { id: "c", type: "organohammond", x: 1, y: 1, w: 100, d: 60, posa: "piedi" }, { id: "d", type: "doppiatastiera", x: 1, y: 1, w: 125, d: 78, posa: "seduto" }]);
+  eq(out.map((x) => x.posa), ["piedi", "piedi", undefined, undefined], "import: «piedi» resta sui due tipi, sparisce sugli altri e sui valori strani");
+  reset();
+});
+t("TASTIERE IN PIEDI: l'export aspetta il file della figura (piediMancanti) e la chiave sta in piediChiavi", () => {
+  reset(); const dop = add("doppiatastiera", 400, 300); dop.posa = "piedi";
+  const prima = A.LIB_ICONS; A.LIB_ICONS = {};
+  try { eq(A.piediMancanti(A.state.items).length, 1, "figura mancante = l'export si ferma (mai un PDF senza il tastierista)"); ok(A.piediChiavi().includes("musTastieristaSolo"), "piediChiavi la chiede"); }
+  finally { A.LIB_ICONS = prima; reset(); }
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
