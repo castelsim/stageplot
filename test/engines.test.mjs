@@ -3844,8 +3844,8 @@ t("Pedane: lati ruotati e decimali italiani, l'altezza di serie vale 40, a terra
   const senzaH = add("pedana", 300, 300, { w: 200, d: 100 }); delete senzaH.h;
   eq(A.pedaneTesto(), "1 pedana 2×1 h40", "senza altezza: 40, come la quota nel disegno");
   reset();
-  add("pedana", 300, 300, { h: 0 }); add("scala", 300, 450); add("parapetto", 500, 300); add("rampa", 700, 300); add("pedanacoro", 500, 600);
-  eq(A.pedaneTesto(), "", "h0, scale, parapetti, rampe e pedane coro non entrano");
+  add("pedana", 300, 300, { h: 0 }); add("scala", 300, 450); add("parapetto", 500, 300); add("rampa", 700, 300); add("pedanacoro", 500, 600, { h: 0 });
+  eq(A.pedaneTesto(), "", "h0, scale, parapetti e rampe non entrano (la pedana coro con h0 nemmeno)");
   eq(A.pdfTotals({ tecnici: false }).filter((x) => /pedan/.test(x)), [], "e il cartiglio tace");
   reset();
 });
@@ -5537,7 +5537,7 @@ t("Misure in uscita: il menu «Stile delle misure» nell'Esporta, il campo del p
   reset(); const st = JSON.parse(JSON.stringify(A.state)); ["mx", "xh", "mt"].forEach((v) => { st.misureStile = v; eq(A.normalizeState(st).misureStile, v, v + " resta"); }); st.misureStile = "std"; ok(!("misureStile" in A.normalizeState(st)), "«std» è il default: non si salva"); st.misureStile = "altro"; ok(!("misureStile" in A.normalizeState(st)), "sconosciuto: via");
   /* nessuno dei punti di stampa scrive più la misura per conto suo */
   /* 17/11/2026 (documento per l'estero): al centimetro anche per le pedane in piedi (243,84 cm → «2.44»); con le misure intere il testo è lo stesso di prima */
-  ok(/pedQuotaTesto\(it, misPedana\(it\.w, it\.d, it\.h, \(\+\(it\.w\/100\)\.toFixed\(2\)\)\+'×'\+\(\+\(it\.d\/100\)\.toFixed\(2\)\)\+' m · h'\+\(\+\(\+it\.h\)\.toFixed\(1\)\)\)\+quotaDaTerraTesto\(it\)/.test(appjs), "etichetta della pedana sul disegno");
+  ok(/pedQuotaTesto\(it, misPedana\(it\.w, it\.d, it\.h, misN\(it\.w\)\+'×'\+misN\(it\.d\)\+' m · h'\+\(\+\(\+it\.h\)\.toFixed\(1\)\)\)\+quotaDaTerraTesto\(it\)/.test(appjs), "etichetta della pedana sul disegno");
   ok(/return misPedana\(g\.L, g\.P, g\.h, m\(g\.L\)\+"×"\+m\(g\.P\)\+" h"\+g\.h\)/.test(appjs), "legenda del cartiglio e materiali");
   ok(/return misQuota\(h, 'h'\+h\)\+' · '\+n/.test(appjs), "quota della scala"); ok(/return m\[h\]\+" "\+misQuota\(h\); \}\)\.join\(" · "\)/.test(appjs), "moduli 2×1 dei materiali");
   ok(/return \(docEn\(\) \? "stage " : "palco "\)\+misArea\(A\.w, A\.h, /.test(appjs) && /palco '\+misArea\(W, D, adattaM\(W\)\+'×'\+adattaM\(D\)\+' m'\)\+stageHeightNote\(\)/.test(appjs), "area del palco nel cartiglio e nell'intestazione"); ok(/misQuota\(h, "h "\+h\+" cm"\)/.test(appjs), "altezza del palco");
@@ -5554,7 +5554,7 @@ t("Nascondi misura pedane: full/h/none globale + dimSide none per-pedana; liste 
   A.state.pedMisure = "none"; ok(!/class="lbl sub"[^>]*>[^<]*(h60|8×2)/.test(lbl(p1)), "none: nessuna misura nel disegno: " + lbl(p1)); ok(!/null|undefined|NaN/.test(lbl(p1)), "none: nessun testo spurio"); eq(lbl(p1).includes('class="lbl sub"'), false, "none: nemmeno un <text> di quota"); eq(liste(), l0, "none: liste e legenda intatte");
   A.state.pedMisure = "ciao"; eq(A.pedMisureModo(), "full", "valore sconosciuto = full");
   delete A.state.pedMisure; eq(lbl(p1), std, "tornando al default: identico carattere per carattere");
-  p1.dimSide = "none"; ok(!/8×2|h60/.test(lbl(p1)) && /2\.5×1 m · h40/.test(lbl(p2)), "dimSide none: solo quella pedana, l'altra resta"); eq(liste(), l0, "dimSide none: liste intatte");
+  p1.dimSide = "none"; ok(!/8×2|h60/.test(lbl(p1)) && /2,5×1 m · h40/.test(lbl(p2)), "dimSide none: solo quella pedana, l'altra resta"); eq(liste(), l0, "dimSide none: liste intatte");
   A.state.pedMisure = "h"; ok(!/h60/.test(lbl(p1)) && />h40</.test(lbl(p2)), "dimSide none vince sul globale h"); delete p1.dimSide;
   reset();
 });
@@ -21824,7 +21824,7 @@ t("modelli spenti: il primo avvio apre «Quanto è grande il tuo palco?», non i
   ok(!/wl\.hidden=false/.test(ramoSpento), "e il benvenuto non si apre");
   ok(/\} else if\(!deep && !seen\)\{[\s\S]{0,900}wl\.hidden=false;/.test(blocco), "il vecchio ramo (benvenuto) resta, solo per quando i modelli si riaccendono");
   /* la finestra #stageSize è quella di prima, e chi ha già un lavoro non la rivede */
-  ok(/function maybeAskStageSize\(explicit\)\{[\s\S]{0,400}isFreshBlankProject\(explicit\)\) return;\s*showStageSizeModal\(\);/.test(appjs), "maybeAskStageSize si apre solo su progetto nuovo e vuoto");
+  ok(/function maybeAskStageSize\(explicit\)\{[\s\S]{0,400}isFreshBlankProject\(explicit\)\) return;(?:\s*try\{ unitaIniziali\(\); \}catch\(_e\)\{\}[^\n]*)?\s*showStageSizeModal\(\);/.test(appjs), "maybeAskStageSize si apre solo su progetto nuovo e vuoto");
   ok(/localStorage\.setItem\("sp_welcome","1"\)/.test(appjs.slice(appjs.indexOf("function confirm()"), appjs.indexOf("function confirm()") + 900)), "sp_welcome si scrive come prima quando si misura il palco");
 });
 
@@ -38072,6 +38072,71 @@ t("lucchetto: il glifo c'è a schermo ma NON nell'export (PDF/PNG) per i tipi nu
   const pe = { id: "gp", type: "pedana", x: 300, y: 200, rot: 0, w: 200, d: 150, label: "P", locked: true };
   A.state.items.push(pe); A.selSet = {};
   ok(A.sceneMarkup({ espandi: true }).includes("riser-lock"), "pedana: comportamento di sempre (glifo anche in export)");
+});
+
+/* ═══ Residui «nascondi misura» + pedana coro in legenda + unità di partenza dalla lingua (21/11/2026) ═══ */
+t("Ostacolo con h: «Nessuna» (globale o dimSide none) toglie L×P ma lascia «h N»; senza h niente; pedane invariate", () => {
+  reset();
+  const lbl = (it) => { A._lblSink = []; A.itemMarkup(it); const l = A._lblSink.join(""); A._lblSink = null; return l; };
+  const o = add("ostacolo", 300, 300, { w: 100, d: 100, h: 250 }), p = add("pedana", 600, 300, { w: 200, d: 100, h: 60 });
+  ok(/1×1 m · h250 cm/.test(lbl(o)), "di serie: misura intera: " + lbl(o));
+  A.state.pedMisure = "none";
+  ok(/>h250<|>h 250/.test(lbl(o)) && !/1×1/.test(lbl(o)), "globale none: resta h250, via la L×P: " + lbl(o));
+  ok(!/class="lbl sub"[^>]*>[^<]*(h60|2×1)/.test(lbl(p)), "globale none: la pedana resta senza misura");
+  delete A.state.pedMisure; o.dimSide = "none";
+  ok(/>h250</.test(lbl(o)) && !/1×1/.test(lbl(o)), "dimSide none sull'ostacolo: resta h250: " + lbl(o));
+  delete o.h; ok(!/class="lbl sub"/.test(lbl(o)), "senza h (campo svuotato) nessuna quota");
+  o.h = 250; delete o.dimSide; A.state.pedMisure = "h"; ok(/>h250</.test(lbl(o)), "modo h: invariato"); delete A.state.pedMisure;
+});
+t("Pedana coro: virgola decimale nell'etichetta, nella legenda e nel foglio teatro; gruppi propri; moduli 2×1 invariati", () => {
+  reset();
+  const lbl = (it) => { A._lblSink = []; A.itemMarkup(it); const l = A._lblSink.join(""); A._lblSink = null; return l; };
+  const c = add("pedanacoro", 300, 300, { w: 400, d: 120, h: 20 });
+  ok(/4×1,2 m · h20/.test(lbl(c)) && !/1\.2/.test(lbl(c)), "etichetta con la virgola: " + lbl(c));
+  eq(A.pedaneTesto(), "1 pedana 4×1,2 h20 (coro)", "in legenda, marcata (coro)");
+  add("pedana", 600, 300, { w: 400, d: 120, h: 20 });
+  eq(A.pedaneLegenda().map((g) => !!g.coro).sort(), [false, true], "gruppi separati");
+  eq(A.pedaneLegenda().length, 2, "stessa misura e altezza di una pedana normale: due gruppi");
+  ok(/2 pedane: .*4×1,2 h20.*\(coro\)/.test(A.pedaneTesto()), "frase: " + A.pedaneTesto());
+  A.state.docUnits = "ft"; ok(/\(coro\)/.test(A.pedaneTesto()) && /'/.test(A.pedaneTesto()), "in piedi: " + A.pedaneTesto()); delete A.state.docUnits;
+  const mat = A.materialiPedane(); ok(/\(coro\)/.test(mat) && /moduli 2×1: 3 h20$/.test(mat), "materiali: coro in frase, moduli solo della pedana vera (4,8 m² → 3): " + mat);
+  reset(); add("pedanacoro", 300, 300, { w: 400, d: 150 });
+  A.state.rider = A.state.rider || {}; eq(A.distintaPalco(), null, "la distinta non conta le coro come moduli");
+  reset(); add("pedana", 300, 300, { w: 400, d: 200, h: 60 }); eq(A.pedaneTesto(), "1 pedana 4×2 h60", "senza coro: identico a prima");
+});
+t("Pedane con misure decimali: virgola in italiano, punto nei documenti in inglese (etichetta, legenda; metri e m+ft)", () => {
+  reset();
+  const lbl = (it) => { A._lblSink = []; A.itemMarkup(it); const l = A._lblSink.join(""); A._lblSink = null; return l; };
+  const p = add("pedana", 300, 300, { w: 250, d: 100, h: 40 }), c = add("pedanacoro", 700, 300, { w: 400, d: 120, h: 20 });
+  ok(/2,5×1 m/.test(lbl(p)) && !/2\.5/.test(lbl(p)), "it: virgola (come ostacolo, legenda, palco): " + lbl(p));
+  A.state.docLang = "en";
+  ok(/2\.5×1 m/.test(lbl(p)) && !/2,5/.test(lbl(p)), "en: punto, come prima: " + lbl(p));
+  ok(/4×1\.2 m/.test(lbl(c)) && !/1,2/.test(lbl(c)), "en: pedana coro col punto: " + lbl(c));
+  ok(!/\d,\d/.test(A.pedaneTesto()), "en: legenda col punto: " + A.pedaneTesto());
+  A.state.docUnits = "both"; ok(/2\.5×1 m/.test(lbl(p)) && /\(/.test(lbl(p)) && !/\d,\d/.test(lbl(p)), "en m+ft: punto e piedi: " + lbl(p));
+  delete A.state.docLang; ok(/2,5×1 m/.test(lbl(p)), "it m+ft: virgola: " + lbl(p)); delete A.state.docUnits;
+  A.state.misureStile = "mt"; ok(/mt 2,5 x 1 x h 0,40/.test(lbl(p)), "stile mt in italiano: invariato: " + lbl(p));
+  A.state.docLang = "en"; ok(/mt 2\.5 x 1 x h 0\.40/.test(lbl(p)), "stile mt in inglese: punto: " + lbl(p));
+  delete A.state.docLang; delete A.state.misureStile;
+});
+t("Unità di partenza dalla lingua del browser: en-US ft, en-CA/fr-CA proposta, altre nessun cambiamento", () => {
+  const prova = (langs, mem) => { reset(); delete A.state.docUnits; const st = {}; if (mem !== undefined) st.unita_ca = mem;
+    A.localStorage = { getItem: (k) => (k === "sp_unitaCA" && "v" in (st.m = st.m || { v: mem }) ? mem ?? null : null), setItem: (k, v) => { st.salvato = v; mem = v; }, removeItem() {} };
+    const r = A.unitaIniziali(langs); return { r, u: A.state.docUnits, salvato: st.salvato }; };
+  eq(prova(["en-US", "en"]).u, "ft", "en-US → ft"); eq(prova(["en-US"]).r, "ft", "esito ft");
+  eq(prova(["en-GB"]).u, undefined, "en-GB: metri"); eq(prova(["it-IT"]).u, undefined, "it-IT: metri"); eq(prova(["fr-FR"]).u, undefined, "fr-FR: metri");
+  eq(prova([]).u, undefined, "lista vuota: metri"); eq(prova(undefined === 1 ? [] : ["de-DE", "en-US"]).u, undefined, "conta la PRIMA lingua");
+  const ca = prova(["en-CA"]); eq([ca.r, ca.u, ca.salvato], ["ask", undefined, "chiesto"], "en-CA: chiede, non impone, ricorda di aver chiesto");
+  eq(prova(["fr-CA"]).r, "ask", "fr-CA chiede"); eq(prova(["en-CA"], "chiesto").r, null, "già chiesto: mai più"); eq(prova(["en-CA"], "m").r, null, "scelto metri: mai più");
+  eq(prova(["en-CA"], "ft").u, "ft", "scelto piedi: i nuovi partono in piedi");
+  reset(); A.state.docUnits = "both"; eq(A.unitaIniziali(["en-US"]), null, "progetto che ha già un'unità: intatto"); eq(A.state.docUnits, "both", "both resta");
+  reset(); A.localStorage = { getItem() { throw new Error("blocked"); }, setItem() { throw new Error("blocked"); }, removeItem() {} };
+  eq(A.unitaIniziali(["en-CA"]), null, "storage bloccato: niente proposta ripetuta"); eq(A.unitaIniziali(["en-US"]), "ft", "en-US funziona anche senza storage");
+  A.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
+  eq(A.unitaPerLingue(["EN_us"]), "ft", "maiuscole e underscore");
+  /* solo progetti NUOVI: l'hook sta nel controllo del progetto vuoto, non nell'apertura di un salvato */
+  ok(/function maybeAskStageSize\(explicit\)\{[\s\S]*?if\(!isFreshBlankProject\(explicit\)\) return;\s*try\{ unitaIniziali\(\); \}catch\(_e\)\{\}/.test(appjs), "unitaIniziali dopo isFreshBlankProject");
+  ok((appjs.match(/unitaIniziali\(/g) || []).length === 2, "una sola chiamata (più la definizione): nessun altro punto cambia le unità");
 });
 
 /* ═══ TASTIERISTA IN PIEDI DIETRO doppia tastiera e Moog (20/11/2026, lotto corto) ═══ */

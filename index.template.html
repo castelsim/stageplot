@@ -8301,7 +8301,7 @@ window.addEventListener("storage",function(e){
    Una chiave nuova va aggiunta qui: il test «ogni chiave scritta dall'app è classificata» la cerca. */
 var USCITA_SEGNALE="sp_uscita";
 var USCITA_TIENI_LOCAL={stageplot_theme:1, sp_welcome:1, sp_onboarded:1, sp_dragHint:1, sp_funzioni:1, sp_props_pro:1,
-  sp_exportNudge:1, sp_rigaProgetto:1, sp_parere:1, sp_catRecenti:1, sp_advListe:1, sp_assPos:1, sp_noAssunzioni:1, sp_rail:1, sp_vistaRuotata:1};
+  sp_exportNudge:1, sp_rigaProgetto:1, sp_parere:1, sp_catRecenti:1, sp_advListe:1, sp_assPos:1, sp_noAssunzioni:1, sp_rail:1, sp_vistaRuotata:1, sp_unitaCA:1};
 var USCITA_TIENI_SESSION={sp_loginPrompt:1};
 function uscitaChiaveDaCancellare(k, area){
   k=String(k||"");
@@ -15565,7 +15565,7 @@ function itemMarkup(it){
   if(it.leggio===true && leggioExtra(it)) s += '<g transform="translate(0,'+leggioExtraY(it)+')'+(leggioExtraY(it)<0?' rotate(180)':'')+'">'+leggioGlyph(0)+'</g>';   /* leggio generico: arpa, piani, organi, percussioni, mallet… (off di default, davanti allo strumento) */
   _leggioDistOn = 0;   /* finiti gli accessori: nessun altro leggioGlyph (anteprime, catalogo, leggio a sé) eredita la distanza */
   if(t.riser || it.type==="scala" || ostacoloConH(it)){                  /* quota pedana sul lato scelto/auto (più visibile); la scala dice altezza e gradini (11/11), di serie sopra */
-    var dimT=t.riser ? pedQuotaTesto(it, misPedana(it.w, it.d, it.h, (+(it.w/100).toFixed(2))+'×'+(+(it.d/100).toFixed(2))+' m · h'+(+(+it.h).toFixed(1)))+quotaDaTerraTesto(it)+misuraDaConfTesto(it)) : (it.type==="ostacolo" ? pedQuotaTesto(it, misPedana(it.w, it.d, it.h, misN(it.w)+'×'+misN(it.d)+' m · h'+Math.round(it.h)+' cm')) : scalaQuota(it)), rside=(t.riser||it.type==="ostacolo") ? riserDimSide(it) : scalaDimSide(it), roff=12, rdx=0, rdy=0, ranc='middle', rtr='', rang=0;
+    var dimT=t.riser ? pedQuotaTesto(it, misPedana(it.w, it.d, it.h, misN(it.w)+'×'+misN(it.d)+' m · h'+(+(+it.h).toFixed(1)))+quotaDaTerraTesto(it)+misuraDaConfTesto(it)) : (it.type==="ostacolo" ? pedQuotaTesto(it, misPedana(it.w, it.d, it.h, misN(it.w)+'×'+misN(it.d)+' m · h'+Math.round(it.h)+' cm')) : scalaQuota(it)), rside=(t.riser||it.type==="ostacolo") ? riserDimSide(it) : scalaDimSide(it), roff=12, rdx=0, rdy=0, ranc='middle', rtr='', rang=0;
     if(dimT===null){ /* misura nascosta (20/11): solo il disegno, le liste la tengono */ }
     else if(rside==="top"){ rdy=-(it.d/2)-roff; }
     else if(rside==="bottom"){ rdy=(it.d/2)+roff+9; }
@@ -15859,8 +15859,10 @@ function misQuota(h, std){
    (schermo, PDF, PNG): liste, legenda, rider e fogli leggono w/d/h dai dati e restano intatti. Ritorna null = niente <text>. */
 function pedMisureModo(){ var m=state && state.pedMisure; return (m==="h" || m==="none") ? m : "full"; }
 function pedQuotaTesto(it, completo){
-  if(it.dimSide==="none") return null;
   var m=pedMisureModo();
+  /* ostacolo con altezza (21/11/2026): «Nessuna» toglie la misura L×P ma la quota «h N» resta (è l'unico posto in cui l'altezza si legge nel disegno); per toglierla si svuota il campo h */
+  if(it.type==="ostacolo" && ostacoloConH(it) && (it.dimSide==="none" || m==="none")) return misQuota(it.h, "h"+(+(+it.h||0).toFixed(1)));
+  if(it.dimSide==="none") return null;
   if(m==="none") return null;
   /* «solo altezza» toglie la pianta, non le avvertenze sull'altezza: quota da terra (se accesa) e «da confermare» restano (rilettura merge 20/11) */
   if(m==="h") return misQuota(it.h, "h"+(+(+it.h||0).toFixed(1)))+((TYPES[it.type]||{}).riser ? quotaDaTerraTesto(it)+misuraDaConfTesto(it) : "");
@@ -15868,8 +15870,10 @@ function pedQuotaTesto(it, completo){
 }
 /* pedana lunghezza × profondità × altezza (cm) */
 function misPedana(w, d, h, std){
-  if(docUnita()!=="m"){ var _ft=ftIn(w)+" × "+ftIn(d)+" · h "+ftIn(+h||0); return docUnita()==="ft" ? _ft : _misPedanaM(w, d, h, std)+" ("+_ft+")"; }   /* piedi (17/11/2026) */
-  return _misPedanaM(w, d, h, std);
+  /* il testo metrico nasce con la virgola (misN, it-IT): in un documento in inglese esce col punto, come docLen/docArea (21/11/2026) */
+  var mm=function(s){ return docEn() ? String(s).replace(/(\d),(\d)/g,"$1.$2") : s; };
+  if(docUnita()!=="m"){ var _ft=ftIn(w)+" × "+ftIn(d)+" · h "+ftIn(+h||0); return docUnita()==="ft" ? _ft : mm(_misPedanaM(w, d, h, std))+" ("+_ft+")"; }   /* piedi (17/11/2026) */
+  return mm(_misPedanaM(w, d, h, std));
 }
 function _misPedanaM(w, d, h, std){
   var st=misureStile(); if(st==="std") return std;
@@ -19607,10 +19611,10 @@ function pedanaH(it){ var T=TYPES[it.type]||{}; return (it.h!=null && isFinite(+
 function pedaneLegenda(items){
   var gruppi={}, ordine=[];
   (items||state.items||[]).forEach(function(it){
-    if(it.type!=="pedana") return;
+    if(it.type!=="pedana" && it.type!=="pedanacoro") return;   /* pedana coro inclusa dal 21/11/2026 (riser:true), in gruppi propri «(coro)» */
     var h=pedanaH(it); if(!(h>0)) return;
-    var a=Math.round(+it.w||0), b=Math.round(+it.d||0), L=Math.max(a,b), P=Math.min(a,b), bs=quotaDaTerraOn() ? quotaPianoDi(it) : 0, k=L+"x"+P+"x"+h+(bs>0 ? "@"+bs : "");
-    if(!gruppi[k]){ gruppi[k]={L:L, P:P, h:h, n:0, base:bs}; ordine.push(k); }
+    var co=it.type==="pedanacoro", a=Math.round(+it.w||0), b=Math.round(+it.d||0), L=Math.max(a,b), P=Math.min(a,b), bs=quotaDaTerraOn() ? quotaPianoDi(it) : 0, k=(co ? "c" : "")+L+"x"+P+"x"+h+(bs>0 ? "@"+bs : "");
+    if(!gruppi[k]){ gruppi[k]={L:L, P:P, h:h, n:0, base:bs}; if(co) gruppi[k].coro=true; ordine.push(k); }
     gruppi[k].n++;
   });
   return ordine.map(function(k){ return gruppi[k]; }).sort(function(x,y){ return (y.base+y.h)-(x.base+x.h) || y.h-x.h || (y.L*y.P)-(x.L*x.P) || y.L-x.L; });
@@ -19648,7 +19652,7 @@ function quotaDaTerraTesto(it){
 function palcoQuotaMax(){ var m=0; stageBlocks().forEach(function(b){ m=Math.max(m,+b.h||0); }); return m; }
 function pedanaSigla(g){
   var m=function(cm){ return (cm/100).toLocaleString("it-IT",{maximumFractionDigits:2}); };
-  return misPedana(g.L, g.P, g.h, m(g.L)+"×"+m(g.P)+" h"+g.h)+((g.base>0 && quotaDaTerraOn()) ? " (da terra "+(g.base+g.h)+")" : "");
+  return misPedana(g.L, g.P, g.h, m(g.L)+"×"+m(g.P)+" h"+g.h)+((g.base>0 && quotaDaTerraOn()) ? " (da terra "+(g.base+g.h)+")" : "")+(g.coro ? " (coro)" : "");
 }
 function pedaneTesto(items){
   var gr=pedaneLegenda(items); if(!gr.length) return "";
@@ -42112,8 +42116,9 @@ function materialiPedane(items){
   var t="Pedane: "+pedaneTesto(items);
   var sc=(items||[]).filter(function(x){ return x.type==="scala"; }).length;
   if(sc) t+=", con "+sc+(sc===1?" scaletta":" scalette");
-  if(gr.some(function(g){ return g.L*g.P!==20000; })){   /* i palchisti contano i moduli 2×1, non le pedane intere */
-    var m={}; gr.forEach(function(g){ m[g.h]=(m[g.h]||0)+g.n*Math.ceil(g.L*g.P/20000); });
+  var grM=gr.filter(function(g){ return !g.coro; });   /* le pedane coro (21/11) stanno nella frase, non nei moduli 2×1 */
+  if(grM.some(function(g){ return g.L*g.P!==20000; })){   /* i palchisti contano i moduli 2×1, non le pedane intere */
+    var m={}; grM.forEach(function(g){ m[g.h]=(m[g.h]||0)+g.n*Math.ceil(g.L*g.P/20000); });
     t+=" · moduli 2×1: "+Object.keys(m).map(Number).sort(function(a,b){ return a-b; }).map(function(h){ return m[h]+" "+misQuota(h); }).join(" · ");
   }
   return t;
@@ -42125,7 +42130,7 @@ function materialiPedane(items){
    Opzione del rider (`state.rider.distintaPalco`, spenta di serie: i documenti esistenti restano identici). Fonte unica: pedaneLegenda. */
 function distintaPalco(items){
   items=items||state.items||[];
-  var gr=pedaneLegenda(items), righe=[], m={}, tot=0, tondi=0;
+  var gr=pedaneLegenda(items).filter(function(g){ return !g.coro; }), righe=[], m={}, tot=0, tondi=0;   /* le pedane coro (gradoni) non sono moduli 2×1 */
   gr.forEach(function(g){ var n=g.n*Math.ceil(g.L*g.P/20000); m[g.h]=(m[g.h]||0)+n; tot+=n; if((g.L*g.P)%20000) tondi+=g.n; });
   if(tot) righe.push("Distinta palco: "+tot+" moduli 2×1 · "+Object.keys(m).map(Number).sort(function(a,b){ return a-b; }).map(function(h){ return m[h]+" "+misQuota(h); }).join(" · "));
   if(tondi) righe.push("Moduli arrotondati per eccesso su "+tondi+(tondi===1?" pedana":" pedane")+" di misura non multipla di 2×1.");
@@ -43515,9 +43520,10 @@ function foglioTeatroDati(d){
   /* pedane e scalette */
   var grad=foglioGradini(items), resto=items.filter(function(x){ return grad.indexOf(x)<0; });
   var gr=pedaneLegenda(resto), p=[];
-  gr.forEach(function(g){ p.push([g.n+(g.n===1?" pedana":" pedane"), m(g.L)+"×"+m(g.P)+" m · altezza "+g.h+" cm"+((g.base>0 && quotaDaTerraOn()) ? " ("+(g.base+g.h)+" cm da terra)" : "")]); });
-  if(gr.length){
-    var mq={}, tot=0, tondi=0; gr.forEach(function(g){ var k=g.n*Math.ceil(g.L*g.P/20000); mq[g.h]=(mq[g.h]||0)+k; tot+=k; if((g.L*g.P)%20000) tondi+=g.n; });
+  gr.forEach(function(g){ p.push([g.n+(g.n===1?" pedana":" pedane")+(g.coro ? " coro" : ""), m(g.L)+"×"+m(g.P)+" m · altezza "+g.h+" cm"+((g.base>0 && quotaDaTerraOn()) ? " ("+(g.base+g.h)+" cm da terra)" : "")]); });
+  var grM=gr.filter(function(g){ return !g.coro; });
+  if(grM.length){
+    var mq={}, tot=0, tondi=0; grM.forEach(function(g){ var k=g.n*Math.ceil(g.L*g.P/20000); mq[g.h]=(mq[g.h]||0)+k; tot+=k; if((g.L*g.P)%20000) tondi+=g.n; });
     p.push(["Moduli 2×1 m", tot+" in tutto · "+Object.keys(mq).map(Number).sort(function(a,b){ return a-b; }).map(function(h){ return mq[h]+" da "+h+" cm"; }).join(" · ")+(tondi ? " (arrotondati per eccesso su "+tondi+(tondi===1?" pedana":" pedane")+" di misura non multipla)" : "")]);
   }
   var dc=resto.filter(function(x){ return x.type==="pedana" && x.misuraDaConf===true; }).length;
@@ -45525,12 +45531,44 @@ function showStageSizeModal(){
   m.hidden=false; __stageSizeOpen=true;
   setTimeout(function(){ try{ wIn.focus(); wIn.select(); }catch(_e){} }, 0);
 }
+/* UNITÀ DI PARTENZA PER I PROGETTI NUOVI (21/11/2026, Simone: «mettilo in coda»). Solo un progetto NUOVO e vuoto (lo stesso controllo delle misure del palco:
+   mai un progetto salvato, importato o aperto da link/copia) e solo se non ha già un'unità. Dalla lingua PREFERITA del browser (`navigator.languages[0]`,
+   non dal fuso orario): en-US → piedi e pollici di serie; en-CA e fr-CA (Canada, misto) → una riga discreta «Usare piedi e pollici?» una sola volta, la
+   risposta si ricorda sul dispositivo (`sp_unitaCA`: «ft» = sempre piedi dai nuovi progetti, «m» = metri, niente più domande). Ogni altra lingua
+   (en-GB compresa), lista vuota o storage bloccato: nessun cambiamento, metri come sempre. Torna "ft" | "ask" | null (cosa ha deciso la lingua). */
+function unitaPerLingue(langs){
+  var l=(langs && langs.length) ? String(langs[0]||"").toLowerCase().replace("_","-") : "";
+  return l==="en-us" ? "ft" : ((l==="en-ca" || l==="fr-ca") ? "ask" : null);
+}
+function unitaLingueBrowser(){ try{ return (navigator.languages && navigator.languages.length) ? Array.prototype.slice.call(navigator.languages) : (navigator.language ? [navigator.language] : []); }catch(_e){ return []; } }
+function unitaPropostaMostra(){
+  var old=document.getElementById("unitaProposta"); if(old) old.remove();
+  var d=document.createElement("div"); d.id="unitaProposta"; d.setAttribute("role","status");
+  d.style.cssText="position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:9999;max-width:calc(100vw - 32px);background:var(--n-900);color:#fff;padding:8px 12px;border-radius:10px;font-size:13px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:center";
+  var t=document.createElement("span"); t.textContent="Usare piedi e pollici?"; d.appendChild(t);
+  function bt(label, v){ var b=document.createElement("button"); b.type="button"; b.className="toast-act toast-go"; b.textContent=label;
+    b.addEventListener("click", function(){ d.remove(); try{ localStorage.setItem("sp_unitaCA", v); }catch(_e){} if(v==="ft") unitaCambia("ft"); }); d.appendChild(b); }
+  bt("Sì","ft"); bt("No, metri","m");
+  document.body.appendChild(d);
+}
+function unitaIniziali(langs){
+  if(!state || state.docUnits) return null;
+  var m=unitaPerLingue(langs===undefined ? unitaLingueBrowser() : langs);
+  if(m==="ft"){ unitaCambia("ft"); return "ft"; }
+  if(m==="ask"){
+    var mem=null; try{ mem=localStorage.getItem("sp_unitaCA"); }catch(_e){}
+    if(mem==="ft"){ unitaCambia("ft"); return "ft"; }
+    if(mem===null){ try{ localStorage.setItem("sp_unitaCA","chiesto"); }catch(_e){ return null; } unitaPropostaMostra(); return "ask"; }   /* senza storage non si chiede ogni volta */
+  }
+  return null;
+}
 function maybeAskStageSize(explicit){
   if(__stageSizeOpen) return;
   if(!explicit && window.__orcApertura) return;   /* sta per arrivare un progetto dal cloud (Orchestre, ?p=): non chiedere le misure sopra di esso */
   var wl=document.getElementById("welcome");
   if(!explicit && wl && !wl.hidden) return;   /* welcome aperto: sarà lui a incatenare la richiesta alla chiusura */
   if(!isFreshBlankProject(explicit)) return;
+  try{ unitaIniziali(); }catch(_e){}   /* progetto nuovo e vuoto: unità di partenza dalla lingua del browser (en-US → piedi) */
   showStageSizeModal();
 }
 (function(){
