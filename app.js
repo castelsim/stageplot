@@ -13999,7 +13999,8 @@ function pedQuotaTesto(it, completo){
   if(it.dimSide==="none") return null;
   var m=pedMisureModo();
   if(m==="none") return null;
-  if(m==="h") return misQuota(it.h, "h"+(+(+it.h||0).toFixed(1)));
+  /* «solo altezza» toglie la pianta, non le avvertenze sull'altezza: quota da terra (se accesa) e «da confermare» restano (rilettura merge 20/11) */
+  if(m==="h") return misQuota(it.h, "h"+(+(+it.h||0).toFixed(1)))+((TYPES[it.type]||{}).riser ? quotaDaTerraTesto(it)+misuraDaConfTesto(it) : "");
   return completo;
 }
 /* pedana lunghezza × profondità × altezza (cm) */

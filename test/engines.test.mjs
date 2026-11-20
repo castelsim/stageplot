@@ -5565,7 +5565,12 @@ t("Nascondi misura pedane: «solo altezza» con le unità del documento (ft-in, 
   A.state.docUnits = "both"; ok(/h40 \(1' 4"\)/.test(lbl(p2)), "m+ft: «h40 (1' 4\")»: " + lbl(p2));
   delete A.state.docUnits; A.state.misureStile = "mx"; ok(/>40cm</.test(lbl(p2)), "stile mx: «40cm»"); delete A.state.misureStile;
   A.state.pedMisure = "none"; A.state.docUnits = "ft"; ok(!/1' 4"/.test(lbl(p2)), "none anche in piedi");
-  delete A.state.docUnits; reset();
+  delete A.state.docUnits;
+  /* rilettura merge 20/11: «solo altezza» tiene le avvertenze sull'altezza (da confermare, quota da terra accesa), toglie solo la pianta */
+  A.state.pedMisure = "h"; p2.misuraDaConf = true; ok(/>h40 · da confermare</.test(lbl(p2)), "h: «· da confermare» resta: " + lbl(p2)); delete p2.misuraDaConf;
+  A.state.quoteDaTerra = true; ok(/>h40 \(da terra 150\)</.test(lbl(p2)), "h: «(da terra …)» resta se accesa: " + lbl(p2));
+  const ost = add("ostacolo", 1000, 600, { w: 60, d: 60, h: 300 }); ok(/>h300</.test(lbl(ost)), "h: l'ostacolo resta senza code: " + lbl(ost));
+  reset();
 });
 t("Nascondi misura pedane: salvataggio/riapertura (campo valido, sconosciuto cancellato, dimSide none resta) e cablaggio UI", () => {
   reset(); const st = JSON.parse(JSON.stringify(A.state));
