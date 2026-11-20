@@ -18675,7 +18675,7 @@ function quotaDaTerraTesto(it){
 function palcoQuotaMax(){ var m=0; stageBlocks().forEach(function(b){ m=Math.max(m,+b.h||0); }); return m; }
 function pedanaSigla(g){
   var m=function(cm){ return (cm/100).toLocaleString("it-IT",{maximumFractionDigits:2}); };
-  return misPedana(g.L, g.P, g.h, m(g.L)+"×"+m(g.P)+" h"+g.h)+(g.arco && g.s>0 ? " (sp. "+docLen(g.s, m(g.s)+" m")+")" : "")+((g.base>0 && quotaDaTerraOn()) ? " (da terra "+(g.base+g.h)+")" : "")+(g.coro ? " (coro)" : "");
+  return misPedana(g.L, g.P, g.h, m(g.L)+"×"+m(g.P)+" h"+g.h)+(g.arco && g.s>0 ? " ("+(docEn() ? "width " : "sp. ")+docLen(g.s, m(g.s)+" m")+")" : "")+((g.base>0 && quotaDaTerraOn()) ? " (da terra "+(g.base+g.h)+")" : "")+(g.coro ? " (coro)" : "");
 }
 function pedaneTesto(items){
   var gr=pedaneLegenda(items); if(!gr.length) return "";

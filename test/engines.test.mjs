@@ -38667,7 +38667,7 @@ t("Pedana ad arco: legenda, piè «N pedane», foglio teatro, distinta e materia
   reset(); add("pedanaarco", 800, 500, { w: 600, d: 150, h: 40 }); const r1 = A.riassuntoDocumento(); reset(); add("pedana", 800, 500, { w: 600, d: 150, h: 40 }); const r2 = A.riassuntoDocumento();
   ok(JSON.stringify(r1.ped) !== JSON.stringify(r2.ped), "storico: arco e rettangolo 6×1,5 sono voci diverse: " + JSON.stringify(r1.ped) + " ≠ " + JSON.stringify(r2.ped));
   ok(/ad arco 6×1,5 h40/.test(A.riassuntoDiff(r2, r1).join(" | ")), "il confronto fra versioni lo dice: " + A.riassuntoDiff(r2, r1).join(" | "));
-  reset(); add("pedanaarco", 800, 500, { w: 760, d: 229.3, h: 60, spess: 120 }); A.state.docLang = "en"; const eno = A.docTesto(A.pedaneTesto()); ok(/1 curved riser 7\.6×2\.29 h60/.test(eno) && /width 1\.2 m/.test(eno), "inglese: " + eno); delete A.state.docLang;
+  reset(); add("pedanaarco", 800, 500, { w: 760, d: 229.3, h: 60, spess: 120 }); A.state.docLang = "en"; const eno = A.docTesto(A.pedaneTesto()); ok(/1 curved riser 7\.6×2\.29 h60/.test(eno) && /width 1\.2 m/.test(eno), "inglese: " + eno); A.state.docUnits = "both"; const enb = A.docTesto(A.pedaneTesto()); ok(/\(width 1\.2 m \(3' 11"\)\)/.test(enb) && !/sp\./.test(enb), "inglese con metri e piedi: niente «sp.» italiano: " + enb); delete A.state.docUnits; delete A.state.docLang;
 });
 t("Pedana ad arco: salvataggio e riapertura — `spess` solo sulla pedana ad arco e > 0; progetti senza arco identici", () => {
   reset();
