@@ -32306,7 +32306,7 @@ t("punta verso: il comando è nel pannello, nel gruppo Disegno, e parla da solo"
    veri gli utenti li girano già a mano (aste 62 su 83 a 180°, doppie tastiere 7 su 7): i disegni non si toccano, nascono girati. */
 t("posati dal catalogo, tastiere/pad/computer/pedaliera/asta nascono col musicista verso il pubblico", () => {
   reset();
-  for (const ty of ["tastiera", "doppiatastiera", "celesta", "pianoverticale", "spdsx", "laptop", "pedaliera", "astamic"])
+  for (const ty of ["doppiatastiera", "celesta", "pianoverticale", "spdsx", "laptop", "pedaliera", "astamic"])
     eq(A.rotPosaCatalogo(ty, {}).rot, 180, ty + " a 180°");
   for (const ty of ["wedge", "gtstand", "batteria", "grancoda", "cantante", "vlnpost"])
     ok(A.rotPosaCatalogo(ty, {}).rot == null, ty + ": nessuna rotazione imposta");
@@ -32316,7 +32316,8 @@ t("posati dal catalogo, tastiere/pad/computer/pedaliera/asta nascono col musicis
   eq(A.rotPosaCatalogo("stagepiano", {}).rot, 180, "progetto disegnato tutto «Strumento solo»: girato");
   A.state.lookDefault = undefined;
   eq(A.rotPosaCatalogo("tastiera", { rot: 90 }).rot, 90, "una rotazione già decisa (es. aggancio) resta");
-  ok(A.rotPosaCatalogo("tastiera", undefined).rot === 180, "anche senza over");
+  ok(A.rotPosaCatalogo("tastiera", undefined).rot == null && A.rotPosaCatalogo("tastiera", undefined).fig === true, "la Tastiera dal catalogo (20/11/2026) nasce col tastierista: nessun giro, tasti verso il pubblico (vedi test «TASTIERISTA»)");
+  eq(A.rotPosaCatalogo("tastiera", { look: "schematico" }).rot, 180, "Tastiera «Strumento»: girata, i tasti verso chi suona");
   /* i quattro punti di posa dal catalogo: clic, recenti, ricerca veloce, trascinamento */
   const usi = appjs.match(/addItem\([a-z.]+, *rotPosaCatalogo\(/g) || [];
   eq(usi.length, 4, "clic, recenti, ricerca veloce e trascinamento passano da rotPosaCatalogo");
@@ -37660,6 +37661,24 @@ t("L4: le 3 icone nuove stanno solo in icons-piedi.js, col riquadro e lo scarto 
   eq(A.POSA_PIEDI.tastiera.dc, [0, -26.55], "tastiera semplice: dc proprio (tiene ferma la tastiera)");
   ok(A.TAST_PIEDI.tastiera && !A.TAST_PIEDI.stagepiano && A.LOOK_ART.stagepiano && !A.LOOK_ART.tastiera, "la tastiera semplice non entra in LOOK_ART (i progetti esistenti non diventano «illustrati»)");
 });
+t("TASTIERISTA 20/11: la «Tastiera» dal catalogo nasce col tastierista (come lo stage piano); le salvate restano solo strumento", () => conPiediTutte(() => {
+  A.state.items = [];
+  const n = A.addItem("tastiera", A.rotPosaCatalogo("tastiera", { x: 300, y: 300 }), true); A.recalcItemDims(n);
+  eq([n.fig, n.rot || 0, n.w, n.d, A.disegnoStato(n), A.look2Art(n)], [true, 0, 132, 117, "seduto", "musTastiera"], "nuova dal catalogo: figura seduta 132×117 a 0° (verso il pubblico), come lo stage piano");
+  const sp = A.addItem("stagepiano", A.rotPosaCatalogo("stagepiano", { x: 500, y: 300 }), true); A.recalcItemDims(sp);
+  eq([n.w, n.d, n.rot || 0, A.look2Art(n)], [sp.w, sp.d, sp.rot || 0, A.look2Art(sp)], "uguale allo stage piano (misura, rotazione, icona)");
+  const v = A.addItem("tastiera", { x: 100, y: 100, rot: 180 }, true); A.recalcItemDims(v);
+  eq([v.fig, v.w, v.d, v.rot, A.disegnoStato(v), A.look2Art(v)], [undefined, 120, 36, 180, "strumento", null], "addItem diretto (progetti salvati, generatori) = solo strumento di sempre");
+  const g = A.sanitizeItems([{ type: "tastiera", x: 1, y: 2, rot: 180 }]); eq([g[0].fig, A.look2Art(g[0])], [undefined, null], "import di una tastiera salvata: invariata");
+  const sj = JSON.parse(JSON.stringify(n)); eq(A.sanitizeItems([sj])[0].fig, true, "il flag fig sopravvive a salvataggio e import");
+  { const n2 = A.addItem("tastiera", A.rotPosaCatalogo("tastiera", { x: 300, y: 300 }), true), s2 = A.addItem("stagepiano", A.rotPosaCatalogo("stagepiano", { x: 300, y: 300 }), true);
+    for (const q of [n2, s2]) { q.x = 300; q.y = 300; A.recalcItemDims(q); A.impostaDisegno(q, "piedi"); A.recalcItemDims(q); }
+    eq([n2.x, n2.y], [s2.x, s2.y], "Seduto → In piedi: la testa resta ferma, identico allo stage piano (dc dell'icona, non quello della tastiera semplice)"); }
+  A.impostaDisegno(n, "strumento"); A.recalcItemDims(n); eq([n.look, n.rot, n.w, n.d], ["schematico", 180, 120, 36], "Strumento: il disegno di sempre, girato (tasti verso chi suona)");
+  A.impostaDisegno(n, "piedi"); A.recalcItemDims(n); eq([A.inPiedi(n), n.rot || 0, n.w, n.d, A.look2Art(n)], [true, 0, 118, 87, "musTastieraPiedi"], "In piedi: la figura in piedi, verso il pubblico");
+  A.impostaDisegno(n, "seduto"); A.recalcItemDims(n); eq([A.disegnoStato(n), n.rot || 0, n.w, n.d], ["seduto", 0, 132, 117], "e di nuovo Seduto");
+  ok(A.usaDaPiuY("tastiera", "illustrato") === true && A.usaDaPiuY("tastiera", "illustrato", true) === false && A.usaDaPiuY("tastiera", "schematico", true) === true, "orientamento: senza fig sempre 180°, con fig solo in «Strumento»");
+}));
 t("L4: seduto = come ieri; in piedi = ingombro della posa, zero sedie e sgabelli, nessun «0 sedie»; JSON e import", () => conPiediTutte(() => {
   for (const [tp, [k, , , s, sed]] of Object.entries(L4)) {
     A.state.items = []; const a = add(tp, 400, 300);
@@ -37735,7 +37754,7 @@ t("L4 «Nota da #161»: una voce «· in piedi» non nasce girata di 180° (nemm
         A.state.items = []; const a = add(tp, 300, 300, A.rotPosaCatalogo(tp, { posa: "piedi" }));
         eq([a.rot, a.posa, A.inPiedi(a), a.w, a.d, "look" in a], [0, "piedi", true, 118, 87, false], tp + " · in piedi (lookDefault " + ld + "): rot 0, in piedi, senza look");
         A.state.items = []; const b = add(tp, 300, 300, A.rotPosaCatalogo(tp, undefined));
-        eq(b.rot, (tp === "tastiera" || ld === "schematico") ? 180 : 0, tp + " nudo (lookDefault " + ld + "): come prima della L4");
+        eq(b.rot, ld === "schematico" ? 180 : 0, tp + " nudo (lookDefault " + ld + "): come prima della L4");
       }
     } finally { delete A.state.lookDefault; }
   }
