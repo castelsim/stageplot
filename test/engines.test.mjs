@@ -37678,6 +37678,9 @@ t("TASTIERISTA 20/11: la «Tastiera» dal catalogo nasce col tastierista (come l
   A.impostaDisegno(n, "piedi"); A.recalcItemDims(n); eq([A.inPiedi(n), n.rot || 0, n.w, n.d, A.look2Art(n)], [true, 0, 118, 87, "musTastieraPiedi"], "In piedi: la figura in piedi, verso il pubblico");
   A.impostaDisegno(n, "seduto"); A.recalcItemDims(n); eq([A.disegnoStato(n), n.rot || 0, n.w, n.d], ["seduto", 0, 132, 117], "e di nuovo Seduto");
   ok(A.usaDaPiuY("tastiera", "illustrato") === true && A.usaDaPiuY("tastiera", "illustrato", true) === false && A.usaDaPiuY("tastiera", "schematico", true) === true, "orientamento: senza fig sempre 180°, con fig solo in «Strumento»");
+  { const nn = A.addItem("tastiera", A.rotPosaCatalogo("tastiera", { x: 300, y: 300 }), true), vv = A.addItem("tastiera", { x: 100, y: 100, rot: 180 }, true), sp2 = A.addItem("stagepiano", A.rotPosaCatalogo("stagepiano", { x: 500, y: 300 }), true);
+    eq([A.orientBase(nn), A.orientBase(vv), A.orientBase(nn) === A.orientBase(sp2)], [0, 180, true], "controllo orientamento: la Tastiera nuova seduta non è segnata «girata» (0°, come lo stage piano); la salvata resta 180°");
+    nn.look = "schematico"; eq(A.orientBase(nn), 180, "controllo orientamento: la Tastiera nuova in «Strumento» è a 180°"); }
 }));
 t("L4: seduto = come ieri; in piedi = ingombro della posa, zero sedie e sgabelli, nessun «0 sedie»; JSON e import", () => conPiediTutte(() => {
   for (const [tp, [k, , , s, sed]] of Object.entries(L4)) {
