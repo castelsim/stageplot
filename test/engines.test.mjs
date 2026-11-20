@@ -31889,6 +31889,9 @@ ta("planimetria PDF selettore: frecce con limiti, ← → Invio Esc, cambio rapi
   /* Esc = annulla: libera tutto, non importa niente */
   eq(B.venuePdfTasto(ev("Escape")), true); ok(d2.chiuso && B.venuePdfDoc === null && el.venuePdfPick.hidden === true && caricati.length === 0, "Esc: chiuso e niente importato");
   eq(B.venuePdfTasto(ev("ArrowRight")), false, "a selettore chiuso i tasti non si intercettano");
+  /* documento caricato ma selettore NON visibile (PDF a 1 pagina in resa): Invio/Esc/frecce restano dell'editor */
+  { const dd = mkDoc(1); B.venuePdfDoc = dd; el.venuePdfPick.hidden = true;
+    ok(["Enter", "Escape", "ArrowLeft", "ArrowRight"].every((k) => B.venuePdfTasto(ev(k)) === false), "doc presente ma selettore nascosto: nessun tasto rubato"); eq(caricati.length, 0); B.venuePdfDoc = null; }
   /* le rese ancora in corso all'annullamento vengono annullate */
   const d3 = mkDoc(4); B.pdfjsLib = { GlobalWorkerOptions: {}, getDocument: () => ({ promise: Promise.resolve(d3) }) }; rese.length = 0;
   B.venueLoadPdf(file("terza.pdf")); await aspetta(); B.venuePdfChiudi(); ok(rese.length === 1 && rese[0].annullata, "Annulla durante la resa: annullata");

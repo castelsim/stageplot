@@ -36984,7 +36984,9 @@ function venuePdfChiudi(){
   var pdf=venuePdfDoc; venuePdfDoc=null; venuePdfCtx=null;
   if(pdf){ try{ pdf.cleanup&&pdf.cleanup(); }catch(e){} try{ pdf.destroy(); }catch(e){} }   /* destroy chiude anche il worker */
   var t=document.getElementById("venuePdfThumb"); if(t){ t.width=0; t.height=0; }   /* libera i pixel dell'anteprima */
-  var p=document.getElementById("venuePdfPick"); if(p) p.hidden=true;
+  var p=document.getElementById("venuePdfPick");
+  if(p&&!p.hidden){ p.hidden=true; var bi=document.getElementById("venueBtnImport"); if(bi&&bi.focus&&p.contains(document.activeElement)){ try{ bi.focus({preventScroll:true}); }catch(e){} } }   /* il focus torna al bottone «Immagine o PDF» */
+  else if(p) p.hidden=true;
 }
 /* disegna la pagina in un canvas bianco (mai trasparente: sul palco coprirebbe in nero) */
 function venuePdfRender(pdf,num,lato,onTask){
@@ -37045,7 +37047,8 @@ function venuePdfVai(n){
 }
 /* tastiera nel selettore: ← → pagine, Invio usa, Esc annulla (in cattura: l'editor sotto non deve muovere nulla) */
 function venuePdfTasto(e){
-  if(!venuePdfDoc) return false;
+  var pk=document.getElementById("venuePdfPick");
+  if(!venuePdfDoc||!pk||pk.hidden) return false;   /* solo a selettore VISIBILE: altrimenti (PDF a 1 pagina in resa, selettore chiuso) i tasti restano dell'editor */
   var k=e.key, tg=e.target&&e.target.tagName, dentro=(tg==="INPUT");
   if(k==="ArrowLeft"&&!dentro) venuePdfVai(venuePdfPaginaScelta()-1);
   else if(k==="ArrowRight"&&!dentro) venuePdfVai(venuePdfPaginaScelta()+1);
