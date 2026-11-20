@@ -6614,6 +6614,7 @@ t("ricerca v2: «parziale» solo con almeno due parole, parole giuste e il 50 % 
   eq(A.__spSearch("foobarbaz mixer").length, 0, "una parola giusta ma corta rispetto al resto non basta (5 lettere su 14)");
   eq(A.__spSearch("zzzzzz mixer").length, 0, "stessa cosa: non si inventa");
   eq(A.__spSearch("ottoxyz").length, 0, "una parola sola non passa mai per il «parziale»");
+  eq(A.__spSearch("wedgw monitor qqqqq").length, 0, "il «parziale» si fida solo di parole scritte giuste: «wedgw» (refuso) più una parola sconosciuta non passa");   /* mutante M3 della rilettura 20/11 */
   eq(A.__qaSearch("channel list").length, 0, "la finestrella del doppio clic non inventa elementi da «channel»: nessun refuso dentro il parziale");
 });
 t("ricerca v2: le stringhe del 20/11 che NON hanno risposta restano senza (lacune vere o digitazioni a metà)", () => {
