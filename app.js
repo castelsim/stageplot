@@ -2509,6 +2509,10 @@ var SEARCH_ALIAS = {
   tromba:"tpt trp trumpet", corno:"hrn horn", tuba:"tba", fagotto:"fg",
   violapost:"vla", violoncello:"vc vlc cello", contrabbasso:"db cb upright", arpa:"harp",
   consolaluci:"lx light desk", parluci:"lx", dimmerluci:"lx", dimmerport:"lx dimmer", dimmerddp610:"lx dimmer", testamobile:"lx", sagomatore:"lx",
+  /* dalle ricerche senza risultato del 20/11/2026 (solo verso oggetti che esistono): «macchina da fumo» e «fog», «quinta laterale» / «quinte», «diai» */
+  fumomachine:"fogger nebbiogeno nebbia smoke", fumoz1500:"fogger nebbiogeno nebbia smoke",
+  quinta:"quinte laterali laterale teatrale", quintanum:"quinte teatrale",
+  dimono:"diai dibox direct scatola iniezione",
 };
 /* 05/10, dai giri degli utenti (analisi/workaround/2026-10-05.md): parole cercate davvero senza risultato,
    o scritte a mano su un elemento preso al posto di quello giusto. Tabella a parte e AGGIUNTA in coda:
@@ -21748,36 +21752,75 @@ function ricDistanza(a,b,max){   /* distanza di Damerau-Levenshtein (lettere sca
   }
   return prec[lb];
 }
-function ricCostoParola(t, parole){   /* quanto costa far coincidere una parola scritta con una delle parole dell'elemento (-1 = non coincide) */
-  var best=-1, tol=t.length>=9 ? 2 : (t.length>=4 ? 1 : 0), i, w, c;
+/* La parola scritta vs le parole dell'elemento (-1 = non coincide). Sotto le 3 lettere solo la parola intera (con «pa» o «fx» ogni
+   parola che comincia così sarebbe buona); da 3 in su basta l'inizio; da 4 un refuso, da 8 due. La prima lettera deve coincidere. */
+var _ricCW={};   /* costo (token, parola) già calcolato in QUESTA ricerca: le stesse parole ricorrono in centinaia di voci */
+function ricCostoParola(t, parole){
+  var best=-1, tol=t.length>=8 ? 2 : (t.length>=4 ? 1 : 0), i, w, c, m;
+  if(t.length<3){ return parole.indexOf(t)>-1 ? 0 : -1; }
+  m=_ricCW[t]||(_ricCW[t]={});
   for(i=0;i<parole.length;i++){
-    w=parole[i];
-    if(w.indexOf(t)===0) return 0;   /* è l'inizio di una parola: «eme» → «emergenza» */
-    if(!tol || w.charAt(0)!==t.charAt(0)) continue;
-    c=ricDistanza(t, w, tol);
-    if(c>tol && t.length>=5 && w.length>t.length) c=ricDistanza(t, w.slice(0,t.length), tol);   /* refuso nella parola scritta a metà: «chiter» → «chitarra» */
-    if(c<=tol && (best<0 || c<best)) best=c;
+    w=parole[i]; c=m[w];
+    if(c===undefined){
+      if(w.indexOf(t)===0) c=0;   /* è l'inizio di una parola: «eme» → «emergenza» */
+      else if(!tol || w.charAt(0)!==t.charAt(0)) c=-1;
+      else {
+        c=ricDistanza(t, w, tol);
+        if(c>tol && t.length>=5 && w.length>t.length) c=ricDistanza(t, w.slice(0,t.length), tol);   /* refuso nella parola scritta a metà: «chiter» → «chitarra» */
+        if(c>tol) c=-1;
+      }
+      m[w]=c;
+    }
+    if(c===0) return 0;
+    if(c>0 && (best<0 || c<best)) best=c;
   }
   return best;
 }
+/* Parole che nella ricerca non contano («macchina da fumo», «quinta la»): articoli e preposizioni. Se la query è fatta solo di queste, restano. */
+var RIC_VUOTE={da:1,di:1,del:1,della:1,dello:1,dei:1,degli:1,delle:1,il:1,lo:1,la:1,le:1,i:1,gli:1,un:1,una:1,uno:1,a:1,al:1,e:1,ed:1,per:1,con:1,in:1,su:1,che:1};
+var _ricParole={};   /* le parole di ogni testo si dividono una volta sola: il catalogo ha centinaia di voci e la ricerca gira a ogni lettera */
+function ricParole(s){ s=String(s||""); var p=_ricParole[s]; if(!p){ p=s.split(/[^a-z0-9]+/).filter(Boolean); if(s.length<400) _ricParole[s]=p; } return p; }
 /* `testi`: le stringhe già deaccentate su cui cercare (una per elemento); `nomi`: i soli nomi, parallelo a `testi`.
+   Tre livelli, dal più preciso:
+   1. «parole»: ogni parola scritta è l'INIZIO di una parola dell'elemento, in qualunque ordine («fumo macchina», «piano fort» → pianoforte);
+   2. «refuso»: come sopra ma con un refuso (distanza 1, 2 sulle parole lunghe) e/o parole spezzate da riunire («fu mo» → «fumo»);
+   3. «parziale»: solo se nessun elemento le contiene TUTTE: le voci che ne hanno almeno il 50 % delle lettere, e una parola di 5 o più
+      («quinta laterale» → Quinta; «allen heath s 500» → i mixer Allen & Heath). Mai da una parola sola.
    Una parola che somiglia a una parola del NOME pesa il suo scarto (0 o 1); se somiglia solo a un alias o alla categoria pesa 4 + lo scarto:
-   «batteira» dà la Batteria prima del Tavolo percussioni. Restano solo i risultati a non più di 1 dal migliore: pochi e pertinenti. */
+   «batteira» dà la Batteria prima del Tavolo percussioni. Restano solo i risultati a non più di 1 dal migliore (livelli 1-2).
+   Il risultato è l'elenco degli indici; `.tipo` dice il livello. */
 function ricercaPerSomiglianza(query, testi, nomi){
-  var tk=_deacc(String(query||"").trim()).split(/[^a-z0-9]+/).filter(Boolean), out=[];
+  _ricCW={};
+  var tutti=_deacc(String(query||"").trim()).split(/[^a-z0-9]+/).filter(Boolean), out=[], tk=tutti.filter(function(w){ return !RIC_VUOTE[w]; });
+  out.tipo="parole";
+  if(!tk.length) tk=tutti;
   if(!tk.length) return out;
+  var lettere=0; tk.forEach(function(w){ if(w.length>1) lettere+=w.length; });
+  var parz=[], bestParz=0;
   testi.forEach(function(h, idx){
-    var parole=String(h||"").split(/[^a-z0-9]+/).filter(Boolean), pn=String((nomi&&nomi[idx])||"").split(/[^a-z0-9]+/).filter(Boolean), tot=0, i, c;
-    for(i=0;i<tk.length;i++){
-      c=ricCostoParola(tk[i], pn);
-      if(c<0){ c=ricCostoParola(tk[i], parole); if(c<0) return; c+=4; }
-      tot+=c;
+    var parole=ricParole(h), pn=ricParole((nomi&&nomi[idx])||""), tot=0, peso=0, maxw=0, mancano=0, unito=false, inesatto=false, i=0, c, cj, c2, costo=function(t){
+      var r=ricCostoParola(t, pn); if(r>=0) return r; r=ricCostoParola(t, parole); return r<0 ? -1 : r+4; };
+    while(i<tk.length){
+      c=costo(tk[i]); cj=-1; c2=-1;
+      if(i+1<tk.length){ c2=costo(tk[i+1]); cj=costo(tk[i]+tk[i+1]); if(cj>=0 && cj%4>0) cj=-1; }   /* due parole si riuniscono solo se la somma è l'INIZIO di una parola (niente refusi sopra le unioni) */
+      if(cj>=0 && (c<0 || c2<0 || (cj<=c && tk[i].length<=3 && tk[i+1].length<=3))){ tot+=cj-(c===0 ? 0.25 : 0); peso+=tk[i].length+tk[i+1].length;   /* se una delle due parole è già nel NOME, quell'elemento passa avanti (piano fort → Piano gran coda, non Coro) */
+         maxw=Math.max(maxw, tk[i].length+tk[i+1].length); unito=true; i+=2; }
+      else if(c>=0){ tot+=c; peso+=tk[i].length; if(c%4===0) maxw=Math.max(maxw, tk[i].length); else inesatto=true; i++; }   /* il livello «parziale» si fida solo di parole scritte giuste */
+      else { if(tk[i].length>1) mancano++; i++; }   /* una lettera sola è rumore («quinta ò»): non conta come parola mancante */
     }
-    out.push({i:idx, c:tot, n:String((nomi&&nomi[idx])||"")});
+    if(!peso) return;
+    if(!mancano){ out.push({i:idx, c:tot+(unito?0.5:0), n:String((nomi&&nomi[idx])||"")}); return; }
+    if(!inesatto && peso>=lettere*0.5 && maxw>=5){ parz.push({i:idx, c:tot-peso*10, n:String((nomi&&nomi[idx])||"")}); }
   });
+  if(!out.length){
+    if(tk.length<2 || !parz.length) return out;
+    parz.sort(function(a,b){ return (a.c-b.c) || a.n.localeCompare(b.n) || (a.i-b.i); });
+    var r=parz.map(function(x){ return x.i; }); r.tipo="parziale"; return r;
+  }
   out.sort(function(a,b){ return (a.c-b.c) || a.n.localeCompare(b.n) || (a.i-b.i); });
-  var best=out.length ? out[0].c : 0;
-  return out.filter(function(x){ return x.c<=best+1; }).map(function(x){ return x.i; });
+  var best=out[0].c, res=out.filter(function(x){ return x.c<=best+1; }).map(function(x){ return x.i; });
+  res.tipo=(best%4===0) ? "parole" : "refuso";   /* 0 e 4 (parola trovata fra gli alias) = scritta giusta; il resto = refuso o parole riunite */
+  return res;
 }
 function proAbbrName(name){ name=_deacc(name); for(var i=0;i<ABBR_PRO.length;i++){ if(name.indexOf(ABBR_PRO[i][0])>=0) return ABBR_PRO[i][1]; } return null; }
 /* fallback quando nessuna sigla di settore corrisponde: iniziali / troncamento, tenendo il numero finale */
@@ -24475,10 +24518,10 @@ function ricordaRecenteCatalogo(k, nome, over){
      lo ospitava era stata rimossa. Resta nell'indice: si scrive "audit" (o verifica, controlla,
      manca…) nella ricerca del catalogo e compare, cliccabile come prima. */
   var AUDIT_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true"><circle cx="16" cy="16" r="11" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M11 16.5l3.2 3.2L21 12.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  entries.push({nome:"Palco", dim:"blocchi, misure e altezze", icon:"pedana", action:toggleStageEdit, noQuick:true,
+  entries.push({nome:"Palco", fn:true, dim:"blocchi, misure e altezze", icon:"pedana", action:toggleStageEdit, noQuick:true,
                 kw:"palco stage forma del palco blocchi misure altezza semicerchio pedana pedane praticabile"});   /* cercando "pedana" si arriva qui, dove le pedane si fanno davvero */
-  entries.push({nome:"Planimetria", dim:"immagine di sfondo", action:toggleVenueEdit, iconHtml:MAP_ICON, noQuick:true});
-  entries.push({nome:"Audit progetto", dim:"controlla se manca qualcosa", action:toggleAuditView, iconHtml:AUDIT_ICON, kw:"audit controlla verifica diagnostica analisi problemi manca prontezza checklist errori avvisi punteggio", noQuick:true});
+  entries.push({nome:"Planimetria", fn:true, dim:"immagine di sfondo", action:toggleVenueEdit, iconHtml:MAP_ICON, noQuick:true});
+  entries.push({nome:"Audit progetto", fn:true, dim:"controlla se manca qualcosa", action:toggleAuditView, iconHtml:AUDIT_ICON, kw:"audit controlla verifica diagnostica analisi problemi manca prontezza checklist errori avvisi punteggio", noQuick:true});
   /* Comandi cercati per nome (25/09, dalle ricerche senza risultati degli utenti): «espo» e
      «freque» non trovavano niente. Chi scrive nella ricerca non sempre vuole un oggetto: a volte
      cerca una FUNZIONE, e se non la trova lì non sa dove altro guardarla. */
@@ -24486,7 +24529,7 @@ function ricordaRecenteCatalogo(k, nome, over){
      direttore) avrebbe tirato fuori Esporta. La condivisione ha già il suo pulsante nella barra. */
   var EXPORT_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M19 4H9a2 2 0 0 0-2 2v20a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V10z"/><path d="M19 4v6h6"/><path d="M16 14v9M12.5 19.5 16 23l3.5-3.5"/></svg>';
   var RF_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M16 17v11"/><circle cx="16" cy="15" r="2"/><path d="M11.5 10.5a6.4 6.4 0 0 0 0 9M20.5 10.5a6.4 6.4 0 0 1 0 9M7.5 6.5a12 12 0 0 0 0 17M24.5 6.5a12 12 0 0 1 0 17"/></svg>';
-  entries.push({nome:"Esporta", dim:"PDF, PNG, CSV per la console", noQuick:true, iconHtml:EXPORT_ICON,
+  entries.push({nome:"Esporta", fn:true, qaPrimo:"stampa stampare", dim:"PDF, PNG, CSV per la console", noQuick:true, iconHtml:EXPORT_ICON,
                 action:function(){ var b=document.getElementById("bExportHdr"); if(b) b.click(); },
                 kw:"esporta esportare export pdf png stampa stampare scarica scaricare rider manda inviare"});
   /* Le liste e le varianti cercate per nome (revisione 25/09): «channel list», «input list», «lista
@@ -24494,15 +24537,15 @@ function ricordaRecenteCatalogo(k, nome, over){
      «monitor» resta dei wedge (qaCede): la Monitor list si trova con «monitor list», «lista monitor». */
   var LISTA_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M11 9h14M11 16h14M11 23h14"/><circle cx="6.5" cy="9" r="1.2"/><circle cx="6.5" cy="16" r="1.2"/><circle cx="6.5" cy="23" r="1.2"/></svg>';
   var VAR_ICON='<svg class="mini" viewBox="0 0 32 32" width="32" height="32" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="4" y="4" width="10" height="10" rx="1.5"/><rect x="18" y="4" width="10" height="10" rx="1.5"/><rect x="11" y="18" width="10" height="10" rx="1.5"/></svg>';
-  entries.push({nome:"Channel list", dim:"gli ingressi, per il service", noQuick:true, iconHtml:LISTA_ICON, action:function(){ apriListaDaRicerca("cabin"); },
+  entries.push({nome:"Channel list", fn:true, dim:"gli ingressi, per il service", noQuick:true, iconHtml:LISTA_ICON, action:function(){ apriListaDaRicerca("cabin"); },
                 kw:"channel list input list lista canali lista ingressi ingressi canali patch list"});
-  entries.push({nome:"Monitor list", dim:"le mandate degli ascolti", noQuick:true, iconHtml:LISTA_ICON, action:function(){ apriListaDaRicerca("cabout"); },
+  entries.push({nome:"Monitor list", fn:true, dim:"le mandate degli ascolti", noQuick:true, iconHtml:LISTA_ICON, action:function(){ apriListaDaRicerca("cabout"); },
                 kw:"monitor list output list lista monitor lista uscite mandate mix ascolti", qaCede:"monitor"});
-  entries.push({nome:"Scaletta", dim:"brani in ordine, con le durate", noQuick:true, iconHtml:LISTA_ICON, action:function(){ if(!scalettaEdit) toggleScaletta(); },
+  entries.push({nome:"Scaletta", fn:true, dim:"brani in ordine, con le durate", noQuick:true, iconHtml:LISTA_ICON, action:function(){ if(!scalettaEdit) toggleScaletta(); },
                 kw:"scaletta setlist set list brani canzoni pezzi ordine durata durate pausa bis intro cambio palco"});
-  entries.push({nome:"Nuova variante", dim:"copia della scena attiva, da cambiare", noQuick:true, iconHtml:VAR_ICON, action:function(){ if(typeof createVariant==="function") createVariant(); },
+  entries.push({nome:"Nuova variante", fn:true, dim:"copia della scena attiva, da cambiare", noQuick:true, iconHtml:VAR_ICON, action:function(){ if(typeof createVariant==="function") createVariant(); },
                 kw:"variante varianti scena scene versione alternativa seconda formazione"});
-  entries.push({nome:"Importa organico", dim:"da una riga o da Excel, con anteprima", noQuick:true, iconHtml:LISTA_ICON, action:function(){ orgImportApri(); },
+  entries.push({nome:"Importa organico", fn:true, dim:"da una riga o da Excel, con anteprima", noQuick:true, iconHtml:LISTA_ICON, action:function(){ orgImportApri(); },
                 kw:"importa importare incolla organico orchestra formazione foglio convocazione csv excel archi formula sezioni"});   /* G1 fase 2 (13/11): fuori dal menu File, che resta essenziale */
   /* CORO DAL CATALOGO (15/11/2026, segnalazione anonima «manca una immagine del coro»): cercando «coro» uscivano
      un microfono, una pedana liscia e il singolo corista, mentre il coro INTERO (file per sezione, gradoni,
@@ -24511,8 +24554,33 @@ function ricordaRecenteCatalogo(k, nome, over){
   entries.push({nome:"Coro", dim:"quante voci per sezione, su gradoni, con pianoforte", noQuick:true, iconHtml:miniSvg("corista", {donna:true}),
                 action:function(){ chiediOrganico("coro", function(scelte){ coroDaCatalogo(scelte); }); },
                 kw:"coro cori coristi choir chorus gruppo vocale voci soprani contralti tenori bassi gradinata gradinate gradoni sezioni organico del coro"});
-  entries.push({nome:"Frequenze radio (RF)", dim:"si scrivono su ogni radiomic e in-ear", noQuick:true, iconHtml:RF_ICON, action:openRfFreq,
+  entries.push({nome:"Frequenze radio (RF)", fn:true, dim:"si scrivono su ogni radiomic e in-ear", noQuick:true, iconHtml:RF_ICON, action:openRfFreq,
                 kw:"frequenza frequenze radiofrequenza radiofrequenze radio radiomicrofoni banda mhz lista rf"});
+  /* FUNZIONI COME BERSAGLI DELLA RICERCA (20/11/2026, decisione di Simone: «le ricerche senza risultati sono la bussola»): chi scrive
+     «salva», «piedi», «accedi», «luogo» non cerca un oggetto ma una funzione. Ogni riga APRE la funzione con il gestore che c'è già
+     (nessuna logica copiata) e dice «Funzione ·» davanti al sottotitolo. Nessun «Esporta JSON»: la ricerca non lo propone. */
+  function fnClick(id){ return function(){ var b=document.getElementById(id); if(b) b.click(); }; }
+  function fnEntry(nome, dim, icon, action, kw, primo){ entries.push({nome:nome, dim:dim, noQuick:true, fn:true, iconHtml:icon, action:action, kw:kw, qaPrimo:primo}); }
+  fnEntry("Unità di misura", "metri ⇄ piedi e pollici", LISTA_ICON, function(){ unitaCambia(docUnita()==="ft" ? "m" : "ft"); ["unitSel","unitSelM"].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=docUnita(); }); },
+          "unita misure metri piedi pollici ft feet inches metrico imperiale conversione", "unita metri pollici");   /* «piedi» resta dei musicisti in piedi */
+  fnEntry("Salva e accedi", "I miei progetti, salvataggio online con Google", LISTA_ICON, fnClick("bCloud"),
+          "salva salvare salvataggio accedi accesso login entra registrati account google cloud progetti miei online sincronizza");
+  fnEntry("Condividi", "un link: chi lo apre vede il palco e le liste", EXPORT_ICON, fnClick("bShareHdr"),
+          "condividi condividere link manda invia mostra collega");
+  fnEntry("Luogo, data e ora", "i dati dell'evento", LISTA_ICON, function(){ if(!eventoEdit) toggleEvento(); },
+          "luogo data ora evento serata locale teatro indirizzo orario soundcheck");
+  fnEntry("Punti di ripristino", "tornare a una versione precedente", LISTA_ICON, function(){ toggleVersionEdit(); },
+          "ripristino ripristina versioni cronologia storico backup recupera indietro annulla precedente");
+  fnEntry("Area di stampa", "quale parte del palco esce sul foglio", EXPORT_ICON, function(){ if(!frameEdit) toggleFrameEdit(); },
+          "area stampa cornice inquadratura ritaglio margini");
+  fnEntry("Funzioni avanzate", "connessioni e liste tecniche: input, cavi, corrente", LISTA_ICON, function(){ funzApriFinestra(); },
+          "funzioni avanzate connessioni cavi corrente cablaggio liste tecniche collegamenti");
+  fnEntry("Nuovo progetto", "un palco vuoto o da un modello", LISTA_ICON, function(){ if(window.openNewDialog) window.openNewDialog(); else fnClick("bNew")(); },
+          "nuovo progetto nuova pagina modello vuoto ricomincia");
+  fnEntry("Guida", "cos'è uno stage plot e come si usa", LISTA_ICON, function(){ var h=document.querySelector('#helpMenu [data-help="learn"]'); if(h) h.click(); },
+          "guida aiuto istruzioni come si usa tutorial help impara");
+  fnEntry("Tema chiaro / scuro", "cambia l'aspetto dell'editor", LISTA_ICON, fnClick("bTheme"),
+          "tema scuro chiaro dark light notte aspetto colori modalita");
   ["metro"].forEach(function(k){
     pin.appendChild(makeBtn(k, TYPES[k].nome)); entries.push({k:k,nome:TYPES[k].nome});
   });
@@ -24628,12 +24696,14 @@ function ricordaRecenteCatalogo(k, nome, over){
     m.sort(function(a,b){ return (a._rank-b._rank) || a._nname.localeCompare(b._nname); });
     if(!m.length){   /* niente di esatto: per somiglianza (refusi), ma solo fra le voci che la ricerca esatta avrebbe potuto dare */
       var cand=entries.filter(function(e){ return !(e.custNo && custEditorAttivo()) && !(e.custIngresso && !custIngressiAttivi()); });
-      m=ricercaPerSomiglianza(nq, cand.map(function(e){ return e._kw; }), cand.map(function(e){ return e._nname; })).slice(0,12).map(function(i){ return cand[i]; });
-      m.simili=m.length>0;
+      var sim=ricercaPerSomiglianza(nq, cand.map(function(e){ return e._kw; }), cand.map(function(e){ return e._nname; }));
+      m=sim.slice(0,12).map(function(i){ return cand[i]; });
+      m.simili=m.length>0; m.tipo=m.length ? sim.tipo : "";   /* parole · refuso · parziale (vedi ricercaPerSomiglianza) */
     }
     return m;
   }
   window.__spSearch=function(query){ return searchMatches(query).map(function(e){ return {k:e.k||null, nome:e.nome}; }); };
+  window.__spTipo=function(query){ return searchMatches(query).tipo||""; };   /* il livello della ricerca tollerante: "" = esatta */
   window.__spSimili=function(query){ return searchMatches(query).simili===true; };   /* superficie pura per i test */
 
   var __noResTimer=null, __lastNoRes="";   /* search_no_results: 1 solo evento per query, quando l'utente si ferma */
@@ -24662,9 +24732,10 @@ function ricordaRecenteCatalogo(k, nome, over){
       crealoBtn(results, cerca, false);
       if(q.length>=2 && q!==__lastNoRes){ __noResTimer=setTimeout(function(){ __lastNoRes=q; try{ track("search_no_results",{q:q.slice(0,40)}); }catch(e){} }, 900); }   /* cosa cercano gli utenti e non trovano (segnale per il catalogo) */
       return; }
-    if(matched.simili){ var nota=document.createElement("div"); nota.className="simili-nota"; nota.textContent="Nessun risultato esatto per «"+cerca.trim()+"»: ecco i più simili"; results.appendChild(nota); }   /* refuso: non è la stessa cosa di una ricerca che trova */
+    if(matched.simili){ var nota=document.createElement("div"); nota.className="simili-nota"; nota.textContent="Nessun risultato esatto per «"+cerca.trim()+"»: ecco i più simili"; results.appendChild(nota); }
+    if(matched.tipo==="parziale" && q.length>=2 && q!==__lastNoRes){ __noResTimer=setTimeout(function(){ __lastNoRes=q; try{ track("search_no_results",{q:q.slice(0,40), from:"parziale"}); }catch(e){} }, 900); }   /* trovato solo per una parte delle parole: la parte che manca è una lacuna vera (la colonna `from` la distingue dai refusi, che non si registrano: hanno trovato) */   /* refuso: non è la stessa cosa di una ricerca che trova */
     matched.forEach(function(e){
-      var b=e.action ? makeActionBtn(e.nome, e.dim, e.icon||"vln1x2", e.action, e.iconHtml) : makeBtn(e.k, e.nome, e.over, e.dim);
+      var b=e.action ? makeActionBtn(e.nome, e.fn ? "Funzione · "+e.dim : e.dim, e.icon||"vln1x2", e.action, e.iconHtml) : makeBtn(e.k, e.nome, e.over, e.dim);
       if(e.telDim) telefonoDice(b, e.telDim);   /* «Crea elemento»: sul telefono dice che si fa dal computer */
       results.appendChild(b);
     });
