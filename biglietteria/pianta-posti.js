@@ -77,7 +77,7 @@ function bglPianta(st){
   var blocchi=(st.stage && st.stage.blocks && st.stage.blocks.length) ? st.stage.blocks : [{x:0,y:0,w:(st.stage&&st.stage.w)||1200,d:(st.stage&&st.stage.d)||800}];
   var palco=blocchi.slice(0,16).map(function(b){ return (b.shape==="semi" ? bglSemiPoligono(b) : blockCorners(b)).map(R); });
   var pedane=items.filter(function(it){ return piantaPedana(it.type); }).slice(0,200)
-    .map(function(it){ return itemCorners(it).map(R); });
+    .map(function(it){ return piantaPedanaPoligono(it).map(R); });
   var sedie=seats.map(function(it){
     var p=R([it.x,it.y]), w=Math.max(10,Math.min(300,Math.round(+it.w||piantaSediaMisure().w))), d=Math.max(10,Math.min(300,Math.round(+it.d||piantaSediaMisure().d)));
     return {it:it, x:p[0], y:p[1], w:w, d:d, rot:rotNorm((+it.rot||0)+gradi)};
@@ -114,7 +114,36 @@ function bglProblemiPianta(p){
 function bglSenzaNumero(st){ st=st||(typeof state!=="undefined" ? state : null); if(!st) return 0; return (st.items||[]).filter(function(it){ return postoTipo(it) && !postoNumerato(it); }).length; }
 /* I tipi che la foto disegna come pedane: gli stessi che nel catalogo dell'editor hanno `riser:true`
    (un test confronta questa funzione con TYPES: un tipo pedana nuovo va aggiunto qui). */
-function piantaPedana(type){ return type==="pedana" || type==="pedanacoro"; }
+function piantaPedana(type){ return type==="pedana" || type==="pedanacoro" || type==="pedanaarco"; }
+/* ═══ PEDANA AD ARCO (20/11/2026) — la geometria, qui perché la usano due: l'editor e la pianta dei posti della biglietteria ═══
+   Un segmento di cerchio: `w` = CORDA (il lato dritto, in alto a rotazione 0), `d` = FRECCIA (dalla corda al punto più lontano; mai oltre mezza
+   corda: il semicerchio), il lato bombato guarda il pubblico (in basso a rotazione 0). Origine al centro del riquadro corda×freccia. `spess`
+   (opzionale, cm; assente/0 = PIENO) = FASCIA curva: il settore tra l'arco esterno e un arco concentrico `spess` più dentro, TAGLIATO SUI RAGGI
+   (come i moduli curvi di un coro). `w`/`d` sono sempre corda e freccia dell'arco ESTERNO: con la fascia i tagli radiali cadono oltre la corda,
+   quindi il disegno esce dal riquadro corda×freccia sul lato del fondo (l'ingombro vero lo dà `arcoBoxLocale`, mai il rettangolo).
+   Il raggio interno non scende sotto 30 cm (o mezzo raggio se l'arco è piccolo): `sMax` è lo spessore massimo, `s` quello usato. */
+function arcoGeom(w, d, spess){
+  var c=Math.max(1,+w||0), f=Math.min(Math.max(1,+d||0), c/2), R=(c*c/4+f*f)/(2*f);
+  var half=Math.asin(Math.min(1,(c/2)/R)), yApex=f/2, cy=yApex-R, y0=yApex-f;
+  var sMax=Math.max(0, R-Math.min(30, R/2)), s=Math.max(0, Math.min(+spess||0, sMax));
+  return { c:c, d:f, f:f, R:R, half:half, cy:cy, y0:y0, yApex:yApex, s:s, sMax:sMax, r2:R-s };
+}
+/* il riquadro VERO della figura nel suo riferimento locale (x0,x1,y0,y1): per la pedana piena è corda×freccia, per la fascia il fondo
+   sale fino ai punti interni dei tagli radiali (y = cy + r2·cos(semi-angolo)); a destra e a sinistra restano gli estremi della corda */
+function arcoBoxLocale(g){
+  var top=g.s>0 ? g.cy+g.r2*Math.cos(g.half) : g.y0;
+  return { x0:-g.c/2, x1:g.c/2, y0:Math.min(top, g.y0), y1:g.yApex };
+}
+/* il contorno come poligono in coordinate MONDO (posizione e rotazione dell'elemento): 24 vertici sull'arco esterno, e per la fascia altri 24 su
+   quello interno percorso al contrario — 48 al massimo, sotto il limite di 64 della pianta pubblicata */
+function arcoPoligono(it){
+  var g=arcoGeom(it.w, it.d, it.spess), N=24, loc=[], i, th, a=(+it.rot||0)*Math.PI/180, co=Math.cos(a), si=Math.sin(a);
+  for(i=0;i<N;i++){ th=-g.half+2*g.half*i/(N-1); loc.push([g.R*Math.sin(th), g.cy+g.R*Math.cos(th)]); }
+  if(g.s>0) for(i=N-1;i>=0;i--){ th=-g.half+2*g.half*i/(N-1); loc.push([g.r2*Math.sin(th), g.cy+g.r2*Math.cos(th)]); }
+  return loc.map(function(p){ return [it.x+p[0]*co-p[1]*si, it.y+p[0]*si+p[1]*co]; });
+}
+/* gli angoli di una pedana per la pianta: il rettangolo w×d, oppure il contorno vero dell'arco */
+function piantaPedanaPoligono(it){ return it.type==="pedanaarco" ? arcoPoligono(it) : itemCorners(it); }
 /* Le misure della sedia del pubblico quando l'elemento non le ha (le stesse di TYPES.sediapubblico) */
 function piantaSediaMisure(){ return {w:50, d:53}; }
 /* Le varianti (scene) di un documento salvato: [{id, nome, attiva}]. Un progetto «piatto» (versioni vecchie) ha una
@@ -279,7 +308,7 @@ function piantaPostiModulo(){
     postoSanifica:postoSanifica, postoVerso:postoVerso, postiVerso:postiVerso, hasPts:hasPts, blockCorners:blockCorners,
     itemCorners:itemCorners, bglChiave:bglChiave, bglPostoNome:bglPostoNome, bglPostiNomi:bglPostiNomi,
     bglSemiPoligono:bglSemiPoligono, bglPianta:bglPianta, bglProblemiPianta:bglProblemiPianta, bglSenzaNumero:bglSenzaNumero,
-    piantaPedana:piantaPedana, piantaSediaMisure:piantaSediaMisure, piantaVarianti:piantaVarianti,
+    piantaPedana:piantaPedana, arcoGeom:arcoGeom, arcoBoxLocale:arcoBoxLocale, arcoPoligono:arcoPoligono, piantaPedanaPoligono:piantaPedanaPoligono, piantaSediaMisure:piantaSediaMisure, piantaVarianti:piantaVarianti,
     piantaStatoDaDocumento:piantaStatoDaDocumento, piantaDaDocumento:piantaDaDocumento,
     piantaTolleranze:piantaTolleranze, piantaAllinea:piantaAllinea, piantaPorta:piantaPorta, piantaConfronta:piantaConfronta,
     piantaRiassunto:piantaRiassunto};

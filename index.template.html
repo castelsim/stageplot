@@ -873,6 +873,7 @@
       <span><label for="pD">P (cm)</label><input type="number" id="pD" min="10" step="5"></span>
       <span id="pHwrap"><label for="pH">h (cm)</label><input type="number" id="pH" min="0" step="10"></span>
       <span id="pSpessWrap" style="display:none"><label for="pSpess">Spessore (cm)</label><input type="number" id="pSpess" min="0" step="5" placeholder="0 = pieno"></span>
+      <div class="hint" id="pArcoNota" style="display:none;flex:0 0 100%;width:100%;font-size:11px;line-height:1.35;color:var(--text-2);margin:2px 0 0"></div>
     </div>
     <!-- 16/11/2026, icone approvate: punto di appendimento, carico e portata SCRITTI (mai calcolati). Carico oltre la portata = segno rosso. -->
     <div class="row" id="pPtWrap" style="display:none">
@@ -2774,24 +2775,38 @@ function riserSvg(w,d,locked,daConf){
   return s;
 }
 /* ═══ PEDANA AD ARCO (20/11/2026, richiesta di uno stage manager di tour: palchi con pedane curve) ═══
-   Un segmento di cerchio: `w` = CORDA (il lato dritto, in alto a rotazione 0), `d` = FRECCIA (l'altezza dell'arco, dalla corda al punto più
-   lontano); il lato bombato guarda il pubblico (in basso a rotazione 0). Sta tutto nel rettangolo w×d: ingombro, clic, maniglie, rotazione,
-   lucchetto e aggancio delle pedane lavorano su quel rettangolo come per ogni pedana. Freccia massima = metà corda (semicerchio): oltre, si
-   disegna il semicerchio (`arcoGeom` la limita, la quota dice quella vera). `spess` opzionale (cm, assente/0 = PIENO): se > 0 è una FASCIA
-   curva, cioè il settore tra l'arco esterno e un arco concentrico `spess` più dentro, tagliato sugli stessi raggi (come i moduli curvi del coro). */
-function arcoGeom(w, d, spess){
-  var c=Math.max(1,+w||0), D=Math.max(1,+d||0), f=Math.min(D, c/2), R=(c*c/4+f*f)/(2*f);
-  var half=Math.asin(Math.min(1,(c/2)/R)), yApex=D/2, cy=yApex-R, y0=yApex-f;
-  var s=Math.max(0, Math.min(+spess||0, R));
-  return { c:c, d:D, f:f, R:R, half:half, cy:cy, y0:y0, yApex:yApex, s:s, r2:R-s };
+   La geometria (arcoGeom, arcoBoxLocale, arcoPoligono) sta in src/pianta-posti.js: la usa anche la pianta dei posti della biglietteria.
+   `w` = CORDA e `d` = FRECCIA dell'arco ESTERNO; il lato bombato guarda il pubblico. Con `spess` > 0 la figura è una FASCIA tagliata sui RAGGI
+   e ESCE dal riquadro w×d sul lato del fondo: l'ingombro VERO (AABB, selezione, fit, PNG, stampa, aggancio, «fuori dal palco», clic) è quello
+   di `arcoAabb`/`arcoBoxLocale`, non il rettangolo. Per la pedana piena (spess 0) i due coincidono. */
+/* AABB ESATTO della figura ruotata, in coordinate mondo: i vertici (estremi dei due archi) più i punti degli archi dove la direzione del mondo
+   x/y li tocca (angoli r, r±90°, r+180° se cadono dentro l'arco); niente approssimazione col rettangolo ruotato */
+function arcoAabb(it, pad){
+  var g=arcoGeom(it.w, it.d, it.spess), r=((+it.rot||0)%360)*Math.PI/180, co=Math.cos(r), si=Math.sin(r), pts=[], P=(pad||0);
+  var cand=[r, r+Math.PI/2, r+Math.PI, r-Math.PI/2].map(function(t){ return Math.atan2(Math.sin(t), Math.cos(t)); });
+  function arco(rad){
+    pts.push([-rad*Math.sin(g.half), g.cy+rad*Math.cos(g.half)], [rad*Math.sin(g.half), g.cy+rad*Math.cos(g.half)]);
+    cand.forEach(function(t){ if(t>=-g.half && t<=g.half) pts.push([rad*Math.sin(t), g.cy+rad*Math.cos(t)]); });
+  }
+  arco(g.R); if(g.s>0) arco(g.r2);
+  var x0=Infinity, x1=-Infinity, y0=Infinity, y1=-Infinity;
+  pts.forEach(function(p){ var X=it.x+p[0]*co-p[1]*si, Y=it.y+p[0]*si+p[1]*co; x0=Math.min(x0,X); x1=Math.max(x1,X); y0=Math.min(y0,Y); y1=Math.max(y1,Y); });
+  return {x0:x0-P, x1:x1+P, y0:y0-P, y1:y1+P};
 }
 function arcoPath(g){
   var n=function(v){ return +v.toFixed(2); }, hc=g.c/2;
   var p='M '+n(-hc)+' '+n(g.y0)+' A '+n(g.R)+' '+n(g.R)+' 0 0 0 '+n(hc)+' '+n(g.y0);
   if(!(g.s>0)) return p+' Z';
   var sx=g.r2*Math.sin(g.half), sy=g.cy+g.r2*Math.cos(g.half);
-  if(g.r2<0.5) return p+' L 0 '+n(g.cy)+' Z';   /* fascia spessa quanto il raggio: è un settore pieno */
   return p+' L '+n(sx)+' '+n(sy)+' A '+n(g.r2)+' '+n(g.r2)+' 0 0 1 '+n(-sx)+' '+n(sy)+' Z';
+}
+/* coerenza dei campi di una pedana ad arco: la freccia mai oltre mezza corda (il semicerchio), lo spessore mai oltre il massimo (raggio interno ≥ 30 cm);
+   spessore 0 o assente = pedana piena. Si applica a ogni scrittura (pannello, maniglie, caricamento): quello che si legge è quello che è disegnato */
+function arcoNormalizza(it){
+  if(!it || it.type!=="pedanaarco") return it;
+  it.d=Math.min(+it.d||0, (+it.w||0)/2);
+  if(it.spess!=null){ var g=arcoGeom(it.w, it.d, it.spess); if(g.s>0) it.spess=Math.round(g.s*100)/100; else delete it.spess; }
+  return it;
 }
 function riserArcoSvg(it){
   var g=arcoGeom(it.w, it.d, it.spess), locked=it.locked===true;
@@ -4119,7 +4134,7 @@ var TYPES = {
              draw:function(it){ var s=bar(0,0,it.w,it.d,'ic fFloor',2), n=3, step=it.d/n;
                for(var i=1;i<n;i++){ s+=lin(-it.w/2,-it.d/2+i*step,it.w/2,-it.d/2+i*step,'ic'); }
                return s; }},
-  pedanaarco:{nome:"Pedana ad arco", dim:"corda 6 m · freccia 1,5 m", cat:"Palco e strutture", alias:"arco curva curvata semicerchio mezzaluna segmento settore fascia pedana ad arco coro archi gradone", w:600,d:150, resizable:true, z:0, riser:true,
+  pedanaarco:{nome:"Pedana ad arco", dim:"corda 6 m · freccia 1,5 m", cat:"Palco e strutture", alias:"arco curva curvata semicerchio mezzaluna segmento settore fascia pedana ad arco riser praticabile coro archi gradone", w:600,d:150, resizable:true, z:0, riser:true,
              draw:function(it){ return riserArcoSvg(it); }},
   sgabello: {nome:"Sgabello", dim:"Ø38", cat:"Palco e strutture", w:40,d:40, z:1.5,
              draw:function(){ var s=circ(0,0,19,'ic fBlack')+circ(0,0,13,'ic thin fBlack');
@@ -10897,6 +10912,7 @@ function sanitizeItems(arr){
     if(Object.prototype.hasOwnProperty.call(COMP,o.type)) it.parts=o.parts?compClone(o.parts):compClone(COMP[o.type].defParts);
     ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","perChi","podio","sgab","grp","distOf","distType","aggancia","dimSide","lblSize","plCh","dvsPro","dvsNet","dvsSr","dvsLat","ifaceId","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","leggioDist","poltrona","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic","platea","fila","posto","settore","orOk","dAuto","fig","posa","spess"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
     if(it.spess!=null){ var _sp=Math.round((+it.spess)*100)/100; if(it.type==="pedanaarco" && isFinite(_sp) && _sp>0) it.spess=_sp; else delete it.spess; }   /* spessore della fascia ad arco (20/11/2026): solo sulla pedana ad arco, > 0; assente = pieno */
+    if(it.type==="pedanaarco") arcoNormalizza(it);   /* freccia ≤ mezza corda, spessore ≤ massimo: anche per i file scritti a mano */
     if(it.type!=="tastiera" || it.fig!==true) delete it.fig;   /* fig: solo la Tastiera nata col tastierista (20/11/2026) */
     if(it.posa!=="piedi" || !(POSA_PIEDI[it.type] || TAST_FIG[it.type])) delete it.posa;   /* «piedi» solo per i sax: ogni altro valore = seduto (progetti vecchi, JSON a mano) */
     if(it.sgab!=null && SGAB_ALTO[it.type] && it.type!=="musChitClassica" && !(it.posa==="piedi" && it.look!=="schematico")) delete it.sgab;   /* lo sgabello alto delle chitarre non classiche esiste solo In piedi: altrove sarebbe uno sgabello nello schema senza essere contato */   /* platea: passi e corridoio, ripuliti poi da normalizeLoadedItems; fila/posto/settore: posti numerati */
@@ -11011,7 +11027,7 @@ function fuoriPalcoEquivoco(){
    doppio di quello a 1:100); con la seconda riga (label2) e la riga del montaggio; tutto girato con l'elemento. */
 function ingombroStampa(it, k){
   k=k>0 ? k : 1;
-  var g=adattaIngombro(it), t=TYPES[it.type]||{}, r={x0:it.x-g.hw, y0:it.y-g.hd, x1:it.x+g.hw, y1:it.y+g.hd};
+  var t=TYPES[it.type]||{}, r=ingombroMondo(it);
   var fsz=lblSizeOf(it), _ltq=lblTesti(it), t1=_ltq[0], t2=_ltq[1];
   if(t.innerLabel || GAZ_TYPES[it.type] || !(fsz>0) || (!t1 && !t2)) return r;
   var fk=fsz*k, w=Math.max(lblTextW(t1, fk), lblTextW(t2, fk)), ly=lblBaseY(it, fk), sopra=lblSopraDi(it);
@@ -11034,8 +11050,8 @@ function elementiOltreIlBordo(){
   var W=state.stage.w, D=state.stage.d, e=1;
   return (state.items||[]).filter(function(it){
     if(!it || FUORI_OK[it.type] || it.avvertenza || it.rackId) return false;
-    var g=adattaIngombro(it);
-    return it.x-g.hw < -e || it.y-g.hd < -e || it.x+g.hw > W+e || it.y+g.hd > D+e;
+    var g=ingombroMondo(it);
+    return g.x0 < -e || g.y0 < -e || g.x1 > W+e || g.y1 > D+e;
   });
 }
 var FUORI_ARIA=30;   /* cm d'aria oltre il nome di chi sta fuori, solo dal lato in cui allarga il riquadro */
@@ -11095,7 +11111,14 @@ function palcoCheContieneTutto(){
 var ADATTA_LIVELLI=[{aria:10,stretta:0},{aria:0,stretta:0},{aria:0,stretta:0.1},{aria:0,stretta:0.2},{aria:0,stretta:0.3}];
 var ADATTA_FONDI={ tappeto:1, tavolo:1, tavolopercussioni:1, flightcase:1, pedanacoro:1, podio:1 };
 var ADATTA_SEGNI={ forma:1, metro:1, miczone:1, testo:1 };
+/* l'ingombro ESATTO nel mondo (x0,y0,x1,y1): per ogni elemento il rettangolo ruotato di adattaIngombro, per la pedana ad arco la figura vera
+   (con la fascia, che sporge dal rettangolo corda×freccia) */
+function ingombroMondo(it){
+  if(it.type==="pedanaarco") return arcoAabb(it,0);
+  var g=adattaIngombro(it); return {x0:it.x-g.hw, y0:it.y-g.hd, x1:it.x+g.hw, y1:it.y+g.hd};
+}
 function adattaIngombro(it){
+  if(it.type==="pedanaarco"){ var _ab=arcoAabb(it,0); return { hw:Math.max(it.x-_ab.x0, _ab.x1-it.x), hd:Math.max(it.y-_ab.y0, _ab.y1-it.y) }; }   /* semi-misure simmetriche che CONTENGONO la figura (gli algoritmi di layout le vogliono simmetriche) */
   var t=TYPES[it.type]||{}, w=it.w||t.w||60, d=it.d||t.d||60, a=(it.rot||0)*Math.PI/180;
   var c=Math.abs(Math.cos(a)), s=Math.abs(Math.sin(a));
   return { hw:(w*c+d*s)/2, hd:(w*s+d*c)/2 };
@@ -15551,11 +15574,14 @@ function itemMarkup(it){
   var bw = _pv.w/2 + selMargine(it), bh = _pv.d/2 + selMargine(it);   /* riquadro selezione aderente all'ingombro reale */
   var isOut = isOutsideStage(it);
   var attrId=esc(it.id);
+  var _arcoG = it.type==="pedanaarco" ? arcoGeom(it.w, it.d, it.spess) : null, _arcoB = _arcoG ? arcoBoxLocale(_arcoG) : null;   /* arco: riquadro e clic sulla figura vera */
   var s = '<g class="item'+(isOut?' nofloor':'')+(selSet[it.id]?' selected':'')+'" data-id="'+attrId+'" transform="translate('+it.x+' '+it.y+')">';
   s += '<g transform="rotate('+(it.rot||0)+')">';
-  s += '<rect class="hit" x="'+(-hw)+'" y="'+(-hd)+'" width="'+(2*hw)+'" height="'+(2*hd)+'"/>';
+  if(_arcoG) s += '<path class="hit" d="'+arcoPath(_arcoG)+'" style="stroke:rgba(0,0,0,0);stroke-width:16px;stroke-linejoin:round"/>';   /* clic sulla pedana (anche sulla fascia), non sul rettangolo che la contiene; vuoto = passa a ciò che sta sotto */
+  else s += '<rect class="hit" x="'+(-hw)+'" y="'+(-hd)+'" width="'+(2*hw)+'" height="'+(2*hd)+'"/>';
   /* data-fitpad: la mezza linea delle forme dell'editor, che getBBox non conta (aderisciRiquadro la aggiunge) */
-  if(it.type!=="miczone") s += '<rect class="selbox" x="'+(-bw-3)+'" y="'+(-bh-3)+'" width="'+(2*bw+6)+'" height="'+(2*bh+6)+'" rx="10"'+((_cs && it.k!=="text" && +it.sw>0) ? ' data-fitpad="'+(+it.sw/2)+'"' : '')+'/>';
+  if(_arcoB) s += '<rect class="selbox" x="'+(_arcoB.x0-selMargine(it)-3)+'" y="'+(_arcoB.y0-selMargine(it)-3)+'" width="'+(_arcoB.x1-_arcoB.x0+2*selMargine(it)+6)+'" height="'+(_arcoB.y1-_arcoB.y0+2*selMargine(it)+6)+'" rx="10"/>';
+  else if(it.type!=="miczone") s += '<rect class="selbox" x="'+(-bw-3)+'" y="'+(-bh-3)+'" width="'+(2*bw+6)+'" height="'+(2*bh+6)+'" rx="10"'+((_cs && it.k!=="text" && +it.sw>0) ? ' data-fitpad="'+(+it.sw/2)+'"' : '')+'/>';
   var _arteDa = s.length;   /* da qui in poi è il DISEGNO: lo si misura per mettere il nome a filo (lblBaseY) */   /* DS v2.2: outline aderente e arrotondata come il prototipo — le zone mic NIENTE box (il poligono tratteggiato + vertici bastano, Simone 14/07) */
   /* MODIFICATORE (softbox &co.): l'ingombro in pianta è suo, ma l'apparecchio va disegnato con le
      SUE misure, arretrato di mezza sporgenza — altrimenti i draw dei nove userebbero un it.w/it.d
@@ -15607,7 +15633,7 @@ function itemMarkup(it){
     var dimT=t.riser ? pedQuotaTesto(it, misPedana(it.w, it.d, it.h, misN(it.w)+'×'+misN(it.d)+' m · h'+(+(+it.h).toFixed(1)))+quotaDaTerraTesto(it)+misuraDaConfTesto(it)) : (it.type==="ostacolo" ? pedQuotaTesto(it, misPedana(it.w, it.d, it.h, misN(it.w)+'×'+misN(it.d)+' m · h'+Math.round(it.h)+' cm')) : scalaQuota(it)), rside=(t.riser||it.type==="ostacolo") ? riserDimSide(it) : scalaDimSide(it), roff=12, rdx=0, rdy=0, ranc='middle', rtr='', rang=0;
     if(it.type==='pedanaarco') dimT=pedQuotaTesto(it, arcoQuotaTesto(it)+quotaDaTerraTesto(it)+misuraDaConfTesto(it));   /* pedana ad arco (20/11/2026): «arco corda × freccia · h» */
     if(dimT===null){ /* misura nascosta (20/11): solo il disegno, le liste la tengono */ }
-    else if(rside==="top"){ rdy=-(it.d/2)-roff; }
+    else if(rside==="top"){ rdy=(_arcoB ? _arcoB.y0 : -(it.d/2))-roff; }   /* ad arco con fascia: la quota sopra la figura vera (la fascia sporge dal rettangolo) */
     else if(rside==="bottom"){ rdy=(it.d/2)+roff+9; }
     else if(rside==="left"){ rdx=-(it.w/2)-roff; ranc='middle'; rang=-90; }   /* ruotata, legge lungo il lato sx */
     else { rdx=(it.w/2)+roff; ranc='middle'; rang=90; }                       /* ruotata, lato dx */
@@ -15781,6 +15807,7 @@ function selHandlesMarkup(){
   var _pv = (typeof proVista==="function") ? proVista(it) : it;   /* 18/11: misura disegnata (modello certo con misura di scheda) */
   var bw = _pv.w/2 + selMargine(it), bh = _pv.d/2 + selMargine(it);   /* stesso riquadro aderente del selbox: le maniglie ci stanno sopra */
   var _fit=_selFit[it.id], topY=_fit ? _fit.y1 : -bh;     /* bordo alto del riquadro misurato sul disegno (26/09) */
+  if(it.type==="pedanaarco" && !_fit){ var _ab2=arcoBoxLocale(arcoGeom(it.w, it.d, it.spess)); topY=_ab2.y0-selMargine(it); }   /* arco: la maniglia di rotazione sopra la figura vera (la fascia sporge) */
   topY=selCimaManiglie(it, t, topY, bh);
   var s='';
   /* maniglia di rotazione: appare sopra l'elemento quando è l'unico selezionato */
@@ -19651,8 +19678,13 @@ function pedanaH(it){ var T=TYPES[it.type]||{}; return (it.h!=null && isFinite(+
 function pedaneLegenda(items){
   var gruppi={}, ordine=[];
   (items||state.items||[]).forEach(function(it){
-    if(it.type!=="pedana" && it.type!=="pedanacoro") return;   /* pedana coro inclusa dal 21/11/2026 (riser:true), in gruppi propri «(coro)» */
+    if(it.type!=="pedana" && it.type!=="pedanacoro" && it.type!=="pedanaarco") return;   /* pedana coro inclusa dal 21/11/2026 (riser:true), in gruppi propri «(coro)»; ad arco dal 20/11/2026, in gruppi propri «ad arco» */
     var h=pedanaH(it); if(!(h>0)) return;
+    if(it.type==="pedanaarco"){   /* L = corda, P = freccia (mai scambiate: non è un rettangolo), s = spessore della fascia (0 = piena) */
+      var ga=arcoGeom(it.w, it.d, it.spess), bsa=quotaDaTerraOn() ? quotaPianoDi(it) : 0, ka="a"+Math.round(ga.c)+"x"+Math.round(ga.f)+"s"+Math.round(ga.s)+"x"+h+(bsa>0 ? "@"+bsa : "");
+      if(!gruppi[ka]){ gruppi[ka]={L:Math.round(ga.c), P:Math.round(ga.f), h:h, n:0, base:bsa, arco:true, s:Math.round(ga.s)}; ordine.push(ka); }
+      gruppi[ka].n++; return;
+    }
     var co=it.type==="pedanacoro", a=Math.round(+it.w||0), b=Math.round(+it.d||0), L=Math.max(a,b), P=Math.min(a,b), bs=quotaDaTerraOn() ? quotaPianoDi(it) : 0, k=(co ? "c" : "")+L+"x"+P+"x"+h+(bs>0 ? "@"+bs : "");
     if(!gruppi[k]){ gruppi[k]={L:L, P:P, h:h, n:0, base:bs}; if(co) gruppi[k].coro=true; ordine.push(k); }
     gruppi[k].n++;
@@ -19692,14 +19724,14 @@ function quotaDaTerraTesto(it){
 function palcoQuotaMax(){ var m=0; stageBlocks().forEach(function(b){ m=Math.max(m,+b.h||0); }); return m; }
 function pedanaSigla(g){
   var m=function(cm){ return (cm/100).toLocaleString("it-IT",{maximumFractionDigits:2}); };
-  return misPedana(g.L, g.P, g.h, m(g.L)+"×"+m(g.P)+" h"+g.h)+((g.base>0 && quotaDaTerraOn()) ? " (da terra "+(g.base+g.h)+")" : "")+(g.coro ? " (coro)" : "");
+  return misPedana(g.L, g.P, g.h, m(g.L)+"×"+m(g.P)+" h"+g.h)+(g.arco && g.s>0 ? " (sp. "+docLen(g.s, m(g.s)+" m")+")" : "")+((g.base>0 && quotaDaTerraOn()) ? " (da terra "+(g.base+g.h)+")" : "")+(g.coro ? " (coro)" : "");
 }
 function pedaneTesto(items){
   var gr=pedaneLegenda(items); if(!gr.length) return "";
   var tot=gr.reduce(function(s,g){ return s+g.n; },0);
   var ph=(quotaDaTerraOn() && palcoQuotaMax()>0) ? "Palco h"+palcoQuotaMax()+" · " : "";
-  if(gr.length===1 && tot===1) return ph+"1 pedana "+pedanaSigla(gr[0]);
-  return ph+tot+(tot===1?" pedana: ":" pedane: ")+gr.map(function(g){ return g.n+" da "+pedanaSigla(g); }).join(", ");
+  if(gr.length===1 && tot===1) return ph+"1 pedana "+(gr[0].arco ? "ad arco " : "")+pedanaSigla(gr[0]);   /* ad arco: «corda×freccia», mai «da L×P» di un rettangolo */
+  return ph+tot+(tot===1?" pedana: ":" pedane: ")+gr.map(function(g){ return g.n+(g.arco ? " ad arco " : " da ")+pedanaSigla(g); }).join(", ");
 }
 /* GRADINI DELLA SCALA (11/11/2026; segnalazione CONCERTI del 05/11: «perché disegni molti più gradini di quelli
    che in realtà ci sono»). Alzata di 20 cm (i livelli delle gradinate d'orchestra scendono così: 60 → 40 → 20),
@@ -19772,6 +19804,7 @@ function scalaDimSide(it){
 }
 function scalaQuota(it){ var h=scalaH(it), n=scalaGradini(h); return misQuota(h, 'h'+h)+' · '+n+(n===1?' gradino':' gradini'); }
 function itemAabb(it, pad){
+  if(it.type==="pedanaarco") return arcoAabb(it, pad||0);   /* ingombro VERO della figura (fascia compresa), non il rettangolo corda×freccia */
   var T=TYPES[it.type]||{}, w=+(it.w||T.w||0), d=+(it.d||T.d||0), r=((+it.rot||0)%360)*Math.PI/180;
   if(tastFig(it)){   /* strumento + tastierista dietro: il rettangolo locale si allunga dal lato dei tasti, poi si gira come l'elemento */
     var g=tastFigGeom(it), ya=-d/2, yb=d/2, hx=Math.max(w/2,TAST_FIG_LARG/2);
@@ -22470,10 +22503,16 @@ function renderProps(){
   }
   (function(){   /* PEDANA AD ARCO (20/11/2026): L e P si chiamano Corda e Freccia, e c'è lo Spessore (vuoto = pieno) */
     var wr=document.getElementById("pSpessWrap"); if(!wr) return;
-    var arc=(it.type==="pedanaarco"); wr.style.display=arc ? "" : "none"; if(!arc) return;
+    var arc=(it.type==="pedanaarco"); wr.style.display=arc ? "" : "none"; var _nt0=document.getElementById("pArcoNota"); if(_nt0 && !arc) _nt0.style.display="none"; if(!arc) return;
     var ft=docUnita()==="ft", lw=document.querySelector('label[for="pW"]'), ld=document.querySelector('label[for="pD"]');
     if(lw) lw.textContent=ft ? "Corda (ft-in)" : "Corda (cm)"; if(ld) ld.textContent=ft ? "Freccia (ft-in)" : "Freccia (cm)";
     if(it.spess>0) docCampoScrivi("pSpess", it.spess, "cm"); else document.getElementById("pSpess").value="";
+    var _g=arcoGeom(it.w, it.d, it.spess), _b=arcoBoxLocale(_g), _sp=Math.max(0, _g.y0-_b.y0), _nt=document.getElementById("pArcoNota");
+    if(_nt){
+      var _L=function(cm){ return docLen(cm, misN(cm)+" m"); };
+      _nt.style.display=""; _nt.textContent="Corda e freccia sono quelle dell'arco esterno (freccia al massimo mezza corda: "+_L(_g.c/2)+"). Spessore: da 0 (pedana piena) a "+_L(_g.sMax)+"."
+        +(_g.s>0 ? " Ingombro vero "+_L(_b.x1-_b.x0)+" × "+_L(_b.y1-_b.y0)+(_sp>0.5 ? ": la fascia sporge di "+_L(_sp)+" oltre la corda." : ".") : "");
+    }
   })();
   (function(){
     var box=document.getElementById("pPedRapide"); if(!box) return;
@@ -23311,9 +23350,9 @@ document.getElementById("pDiFor").addEventListener("change", function(e){
 document.getElementById("pDiType").addEventListener("click", function(e){ var b=e.target.closest("button[data-v]"); if(!b) return; mutSel(function(it){ it.diType=b.getAttribute("data-v"); it.diTypeUtente=true; __cabRes=null; }); });
 document.getElementById("pDiMultiN").addEventListener("click", function(e){ var b=e.target.closest("button[data-v]"); if(!b) return; mutSel(function(it){ it.diMultiCh=+b.getAttribute("data-v"); __cabRes=null; }); });
 document.getElementById("pDiSchema").addEventListener("change", function(){ var v=document.getElementById("pDiSchema").checked; mutSel(function(it){ it.diSchema=v; }); });
-document.getElementById("pW").addEventListener("change", function(){ mutSel(function(it){ it.w=Math.max(10,docCampoCm("pW","cm")||it.w); if(it.type==="platea") plateaDaMisure(it, it.w, it.d); if(it.type==="pedanaarco") it.d=Math.min(it.d, it.w/2); }); renderProps(); });
-document.getElementById("pD").addEventListener("change", function(){ mutSel(function(it){ it.d=Math.max(10,docCampoCm("pD","cm")||it.d); if(it.type==="platea") plateaDaMisure(it, it.w, it.d); if(it.type==="pedanaarco") it.d=Math.min(it.d, it.w/2); }); renderProps(); });
-document.getElementById("pSpess").addEventListener("change", function(){ mutSel(function(it){ if(it.type!=="pedanaarco") return; var v=docCampoCm("pSpess","cm"); if(v>0) it.spess=Math.round(v*100)/100; else delete it.spess; }); renderProps(); });   /* spessore della pedana ad arco: vuoto/0 = pieno */
+document.getElementById("pW").addEventListener("change", function(){ mutSel(function(it){ it.w=Math.max(10,docCampoCm("pW","cm")||it.w); if(it.type==="platea") plateaDaMisure(it, it.w, it.d); if(it.type==="pedanaarco") arcoNormalizza(it); }); renderProps(); });
+document.getElementById("pD").addEventListener("change", function(){ mutSel(function(it){ it.d=Math.max(10,docCampoCm("pD","cm")||it.d); if(it.type==="platea") plateaDaMisure(it, it.w, it.d); if(it.type==="pedanaarco") arcoNormalizza(it); }); renderProps(); });
+document.getElementById("pSpess").addEventListener("change", function(){ mutSel(function(it){ if(it.type!=="pedanaarco") return; var v=docCampoCm("pSpess","cm"); if(v>0) it.spess=Math.round(v*100)/100; else delete it.spess; arcoNormalizza(it); }); renderProps(); });   /* spessore della pedana ad arco: vuoto/0 = pieno */
 /* PLATEA (06/10/2026): file, sedie, passi e corridoio — ogni campo rifà le misure (plateaImposta) */
 [["pPlFile","file"],["pPlSedie","sedie"],["pPlPasso","passo"],["pPlPassoFile","passoFile"],["pPlCorrW","corridoio"]].forEach(function(f){
   var el=document.getElementById(f[0]); if(!el || !el.addEventListener) return;
@@ -25092,6 +25131,11 @@ function magneticSnap(dragItems, ddx, ddy){
     var it=state.items.find(function(i){return i.id===d.id;}); if(!it) return;
     if(!isRiser(it)) allRisers=false;
     var px=d.x0+ddx, py=d.y0+ddy;
+    if(it.type==="pedanaarco"){   /* pedana ad arco: l'ingombro VERO (la fascia sporge dal rettangolo), spostato nella posizione proposta */
+      var _ab=arcoAabb(it,0);
+      minX=Math.min(minX,px+_ab.x0-it.x); maxX=Math.max(maxX,px+_ab.x1-it.x);
+      minY=Math.min(minY,py+_ab.y0-it.y); maxY=Math.max(maxY,py+_ab.y1-it.y); return;
+    }
     var rot=(it.rot||0)*Math.PI/180;
     var c=Math.abs(Math.cos(rot)), s=Math.abs(Math.sin(rot));
     var hw=it.w/2*c + it.d/2*s;
@@ -25131,6 +25175,11 @@ function objectSnap(dragItems, ddx, ddy){
   dragItems.forEach(function(d){
     var it=state.items.find(function(i){return i.id===d.id;}); if(!it) return;
     var px=d.x0+ddx, py=d.y0+ddy;
+    if(it.type==="pedanaarco"){
+      var _ab=arcoAabb(it,0);
+      minX=Math.min(minX,px+_ab.x0-it.x); maxX=Math.max(maxX,px+_ab.x1-it.x);
+      minY=Math.min(minY,py+_ab.y0-it.y); maxY=Math.max(maxY,py+_ab.y1-it.y); return;
+    }
     var rot=(it.rot||0)*Math.PI/180, c=Math.abs(Math.cos(rot)), s=Math.abs(Math.sin(rot));
     var hw=it.w/2*c+it.d/2*s, hd=it.w/2*s+it.d/2*c;
     minX=Math.min(minX,px-hw); maxX=Math.max(maxX,px+hw);
@@ -25141,6 +25190,7 @@ function objectSnap(dragItems, ddx, ddy){
   var xT=[0,W/2,W], yT=[0,D/2,D];
   state.items.forEach(function(it){
     if(dragIds[it.id]) return;
+    if(it.type==="pedanaarco"){ var _ab=arcoAabb(it,0); xT.push(_ab.x0, it.x, _ab.x1); yT.push(_ab.y0, it.y, _ab.y1); return; }
     var rot=(it.rot||0)*Math.PI/180, c=Math.abs(Math.cos(rot)), s=Math.abs(Math.sin(rot));
     var hw=it.w/2*c+it.d/2*s, hd=it.w/2*s+it.d/2*c;
     xT.push(it.x-hw, it.x, it.x+hw);
@@ -27590,6 +27640,7 @@ svg.addEventListener("pointermove", function(e){
       if(grid){ nw=snap(nw); nd=snap(nd); }
       rzit.w=nw; rzit.d=nd;
       if(rzit.type==="cableramp"){ var rcfg=RAMP_TYPES[rzit.rampType||"midi"]; if(!rcfg.end){ nw=Math.max(rcfg.w, Math.round(nw/rcfg.w)*rcfg.w); nd=rcfg.d; rzit.w=nw; rzit.d=nd; } }   /* passacavi: lunghezza a scatti di 1 modulo, larghezza fissa per formato */
+      if(rzit.type==="pedanaarco"){ var _nd0=nd; nd=Math.min(nd, nw/2); rzit.d=nd; if(nd!==_nd0 && sgy===0) sgy=1; }   /* pedana ad arco: freccia mai oltre mezza corda (il semicerchio); la corda, sul lato alto, resta ferma */
       if(rzit.type==="parapetto"){ nd=TYPES.parapetto.d; rzit.d=nd; }   /* parapetto pedana: si estende solo in lunghezza, spessore fisso (8 cm) */
       if(rzit.type==="platea"){ plateaDaMisure(rzit, nw, nd); nw=rzit.w; nd=rzit.d; }   /* platea: a scatti di una sedia e di una fila (06/10/2026) */
       var shx=sgx*(nw-drag.w0)/2, shy=sgy*(nd-drag.d0)/2;   /* shift calcolato sui valori (eventualmente) snappati → lato opposto davvero fermo */
@@ -27609,6 +27660,7 @@ svg.addEventListener("pointermove", function(e){
         if(ed.indexOf("b")>=0){var rbe=rzit.y+nd/2,rdt=rD-rbe;if(Math.abs(rdt)<rT){nd+=rdt;rzit.y+=rdt/2;rzit.d=nd;rsg.push({x1:-40,y1:rD,x2:rW+40,y2:rD,cls:'snap-guide'});}}
         if(ed.indexOf("t")>=0){var rte=rzit.y-nd/2,rdt=-rte;if(Math.abs(rdt)<rT){nd+=rdt;rzit.y-=rdt/2;rzit.d=nd;rsg.push({x1:-40,y1:0,x2:rW+40,y2:0,cls:'snap-guide'});}}
       }
+      if(rzit.type==="pedanaarco") arcoNormalizza(rzit);   /* il magnete al bordo non porta mai la freccia oltre il semicerchio, né lo spessore oltre il massimo */
       drag.moved=true; redrawItemNode(rzit); renderSnapGuides(rsg); if(rzCust) custDisegnaAggancio(rzCust);   /* aggiornamento parziale: rigenera solo il nodo ridimensionato, poi le guide di snap */
     }
   } else if(drag.mode==="metroend"){        /* metro: il capo trascinato segue il cursore, l'altro resta fermo */
@@ -28046,6 +28098,7 @@ function contentBounds(){
     var rot=(it.rot||0)*Math.PI/180, c=Math.abs(Math.cos(rot)), s=Math.abs(Math.sin(rot));
     var w=it.w||0, d=it.d||0, hw=(w*c+d*s)/2, hd=(w*s+d*c)/2;
     var ax0=it.x-hw, ax1=it.x+hw, ay0=it.y-hd, ay1=it.y+hd;
+    if(it.type==="pedanaarco"){ var _ab=arcoAabb(it,0); ax0=_ab.x0; ax1=_ab.x1; ay0=_ab.y0; ay1=_ab.y1; }   /* pedana ad arco: la figura vera, la fascia sporge dal rettangolo */
     /* tieni dentro anche l'etichetta (sotto l'elemento), così non viene tagliata ai bordi */
     var fs=(it.lblSize==null)?14:it.lblSize;
     var lab=(it.label||it.label2) && fs>0;       /* etichetta nascosta (size 0) non occupa spazio */
@@ -28133,7 +28186,7 @@ function renderStagePanel(){
      palco (il suo pannello ha misura/altezza/parapetto), stessa casa di palco e blocchi. */
   (state.items||[]).filter(function(x){ var t=TYPES[x.type]; return t && t.riser; }).forEach(function(pd,pi){
     var pb=document.createElement("button"); pb.type="button"; pb.className="blkchip";
-    pb.textContent="Pedana "+(pi+1)+" · "+fmtM(pd.w)+"×"+fmtM(pd.d);
+    pb.textContent=(pd.type==="pedanaarco" ? "Pedana ad arco " : "Pedana ")+(pi+1)+" · "+fmtM(pd.w)+"×"+fmtM(pd.d);
     pb.title="Seleziona la pedana sul palco (misura, altezza, parapetto nel suo pannello)";
     pb.addEventListener("click", function(){ selBlock=null; selectOne(pd.id); renderStagePanel(); render(); ensureVisible(); });   /* si resta in modalità palco: è lì che le pedane si modificano */
     list.appendChild(pb);
@@ -39061,8 +39114,8 @@ function fuoriPalcoNomi(list){
   return n.length>1 ? n.slice(0,-1).join(", ")+" e "+n[n.length-1] : (n[0]||"");
 }
 function corpoDentro(it, r){
-  var g=adattaIngombro(it), e=1;
-  return it.x-g.hw>=r.x-e && it.y-g.hd>=r.y-e && it.x+g.hw<=r.x+r.w+e && it.y+g.hd<=r.y+r.h+e;
+  var g=ingombroMondo(it), e=1;
+  return g.x0>=r.x-e && g.y0>=r.y-e && g.x1<=r.x+r.w+e && g.y1<=r.y+r.h+e;
 }
 /* chi si disegna oltre il bordo del palco e sul foglio a 1:N non c'è tutto */
 function fuoriDalFoglio(N, paperKey, orient, cartH){
@@ -42087,6 +42140,7 @@ function riderData(){
   function cnt(t){ return items.filter(function(x){ return x.type===t; }).length; }
   var pedane=items.filter(function(x){ return TYPES[x.type] && TYPES[x.type].riser; }).map(function(x){
     var T=TYPES[x.type];
+    if(x.type==="pedanaarco"){ var ga=arcoGeom(x.w||T.w, x.d||T.d, x.spess); return { arco:true, w:ga.c, d:ga.f, s:ga.s, h:x.h||T.h||40 }; }   /* ad arco: corda, freccia e spessore in cm (il testo li scrive per intero, mai «7,6×2,3 m» di un rettangolo) */
     return { w:Math.round((x.w||T.w)/10)/10, d:Math.round((x.d||T.d)/10)/10, h:x.h||T.h||40 }; });   /* px→m (100px=1m, 1 decimale) */
   var D=(typeof riderDefaults==="function")?riderDefaults():RIDER_DEFAULTS;
   var pick=function(k){ return (r[k]!=null && String(r[k]).trim()!=="") ? r[k] : D[k]; };
@@ -42206,7 +42260,10 @@ function riderMonitorText(m){
 }
 function riderPedaneText(pedane){
   if(!pedane.length) return "nessuna pedana";   /* «—» accanto al peso sembrava una riga lasciata a metà */
-  var g={}, order=[]; pedane.forEach(function(p){ var k=p.w+"×"+p.d+" m · h"+p.h+" cm"; if(g[k]==null){g[k]=0;order.push(k);} g[k]++; });
+  var g={}, order=[]; pedane.forEach(function(p){
+    var k=p.arco ? "ad arco "+misN(p.w)+"×"+misN(p.d)+" m"+(p.s>0 ? " · sp. "+misN(p.s)+" m" : "")+" · h"+p.h+" cm"   /* ad arco: «corda×freccia» (+ spessore) */
+                 : p.w+"×"+p.d+" m · h"+p.h+" cm";
+    if(g[k]==null){g[k]=0;order.push(k);} g[k]++; });
   return order.map(function(k){ return g[k]+"× pedana "+k; }).join(" · ");
 }
 /* ═══ MATERIALI RICHIESTI (12/11/2026, specifica S5 dalla posta di produzione) ═══
@@ -42249,7 +42306,7 @@ function materialiPedane(items){
   var t="Pedane: "+pedaneTesto(items);
   var sc=(items||[]).filter(function(x){ return x.type==="scala"; }).length;
   if(sc) t+=", con "+sc+(sc===1?" scaletta":" scalette");
-  var grM=gr.filter(function(g){ return !g.coro; });   /* le pedane coro (21/11) stanno nella frase, non nei moduli 2×1 */
+  var grM=gr.filter(function(g){ return !g.coro && !g.arco; });   /* le pedane coro (21/11) e quelle ad arco (20/11) stanno nella frase, non nei moduli 2×1 */
   if(grM.some(function(g){ return g.L*g.P!==20000; })){   /* i palchisti contano i moduli 2×1, non le pedane intere */
     var m={}; grM.forEach(function(g){ m[g.h]=(m[g.h]||0)+g.n*Math.ceil(g.L*g.P/20000); });
     t+=" · moduli 2×1: "+Object.keys(m).map(Number).sort(function(a,b){ return a-b; }).map(function(h){ return m[h]+" "+misQuota(h); }).join(" · ");
@@ -42263,10 +42320,12 @@ function materialiPedane(items){
    Opzione del rider (`state.rider.distintaPalco`, spenta di serie: i documenti esistenti restano identici). Fonte unica: pedaneLegenda. */
 function distintaPalco(items){
   items=items||state.items||[];
-  var gr=pedaneLegenda(items).filter(function(g){ return !g.coro; }), righe=[], m={}, tot=0, tondi=0;   /* le pedane coro (gradoni) non sono moduli 2×1 */
+  var gr=pedaneLegenda(items).filter(function(g){ return !g.coro && !g.arco; }), righe=[], m={}, tot=0, tondi=0;   /* le pedane coro (gradoni) e quelle ad arco (forma curva) non sono moduli 2×1 */
+  var nArco=pedaneLegenda(items).filter(function(g){ return g.arco; }).reduce(function(a,g){ return a+g.n; }, 0);
   gr.forEach(function(g){ var n=g.n*Math.ceil(g.L*g.P/20000); m[g.h]=(m[g.h]||0)+n; tot+=n; if((g.L*g.P)%20000) tondi+=g.n; });
   if(tot) righe.push("Distinta palco: "+tot+" moduli 2×1 · "+Object.keys(m).map(Number).sort(function(a,b){ return a-b; }).map(function(h){ return m[h]+" "+misQuota(h); }).join(" · "));
   if(tondi) righe.push("Moduli arrotondati per eccesso su "+tondi+(tondi===1?" pedana":" pedane")+" di misura non multipla di 2×1.");
+  if(nArco) righe.push(nArco+(nArco===1?" pedana ad arco":" pedane ad arco")+": forma curva, fuori dai moduli 2×1.");
   var acc=[], sc=items.filter(function(x){ return x.type==="scala"; });
   if(sc.length){
     var gg={}; sc.forEach(function(x){ var n=scalaGradini(scalaH(x)); gg[n]=(gg[n]||0)+1; });
@@ -43141,7 +43200,7 @@ function riassuntoDocumento(){
   var el={}, ped={}, mic={}, can=0, mix=0;
   (state.items||[]).forEach(function(it){
     var T=TYPES[it.type]; if(!T) return;
-    if(T.riser){ var k=Math.round(+it.w||T.w)+"x"+Math.round(+it.d||T.d)+"x"+pedanaH(it); ped[k]=(ped[k]||0)+1; return; }
+    if(T.riser){ var k=Math.round(+it.w||T.w)+"x"+Math.round(+it.d||T.d)+"x"+pedanaH(it); if(it.type==="pedanaarco"){ var _ga=arcoGeom(it.w||T.w, it.d||T.d, it.spess); k=Math.round(_ga.c)+"x"+Math.round(_ga.f)+"x"+pedanaH(it)+"a"+Math.round(_ga.s); } ped[k]=(ped[k]||0)+1; return; }   /* ad arco: «WxDxHaS» (S = spessore, 0 = piena), per non confonderla con un rettangolo uguale */
     el[it.type]=(el[it.type]||0)+1;
   });
   var rows=[]; try{ rows=patchList().rows; }catch(_e){}
@@ -43204,7 +43263,7 @@ function storicoPrecedente(){
   return best;
 }
 function diffMetri(cm){ return String(+(cm/100).toFixed(2)).replace(".",","); }
-function diffPedanaEtichetta(k){ var m=String(k).split("x"); return diffMetri(+m[0])+"×"+diffMetri(+m[1])+" h"+m[2]; }
+function diffPedanaEtichetta(k){ var ar=/^(\d+)x(\d+)x(.+)a(\d+)$/.exec(String(k)); if(ar) return "ad arco "+diffMetri(+ar[1])+"×"+diffMetri(+ar[2])+" h"+ar[3]+(+ar[4]>0 ? " sp. "+diffMetri(+ar[4]) : ""); var m=String(k).split("x"); return diffMetri(+m[0])+"×"+diffMetri(+m[1])+" h"+m[2]; }
 function riassuntoDiff(a, b){
   var righe=[]; a=a||{}; b=b||{};
   if(a.pal && b.pal && (a.pal[0]!==b.pal[0] || a.pal[1]!==b.pal[1])) righe.push("Palco: "+diffMetri(a.pal[0])+"×"+diffMetri(a.pal[1])+" → "+diffMetri(b.pal[0])+"×"+diffMetri(b.pal[1])+" m");
@@ -43653,12 +43712,17 @@ function foglioTeatroDati(d){
   /* pedane e scalette */
   var grad=foglioGradini(items), resto=items.filter(function(x){ return grad.indexOf(x)<0; });
   var gr=pedaneLegenda(resto), p=[];
-  gr.forEach(function(g){ p.push([g.n+(g.n===1?" pedana":" pedane")+(g.coro ? " coro" : ""), m(g.L)+"×"+m(g.P)+" m · altezza "+g.h+" cm"+((g.base>0 && quotaDaTerraOn()) ? " ("+(g.base+g.h)+" cm da terra)" : "")]); });
-  var grM=gr.filter(function(g){ return !g.coro; });
+  gr.forEach(function(g){
+    if(g.arco){   /* ad arco: corda × freccia (+ spessore), mai il rettangolo che la contiene */
+      p.push([g.n+(g.n===1?" pedana ad arco":" pedane ad arco"), m(g.L)+"×"+m(g.P)+" m corda × freccia"+(g.s>0 ? " · spessore "+m(g.s)+" m" : "")+" · altezza "+g.h+" cm"+((g.base>0 && quotaDaTerraOn()) ? " ("+(g.base+g.h)+" cm da terra)" : "")]); return; }
+    p.push([g.n+(g.n===1?" pedana":" pedane")+(g.coro ? " coro" : ""), m(g.L)+"×"+m(g.P)+" m · altezza "+g.h+" cm"+((g.base>0 && quotaDaTerraOn()) ? " ("+(g.base+g.h)+" cm da terra)" : "")]); });
+  var grM=gr.filter(function(g){ return !g.coro && !g.arco; });
   if(grM.length){
     var mq={}, tot=0, tondi=0; grM.forEach(function(g){ var k=g.n*Math.ceil(g.L*g.P/20000); mq[g.h]=(mq[g.h]||0)+k; tot+=k; if((g.L*g.P)%20000) tondi+=g.n; });
     p.push(["Moduli 2×1 m", tot+" in tutto · "+Object.keys(mq).map(Number).sort(function(a,b){ return a-b; }).map(function(h){ return mq[h]+" da "+h+" cm"; }).join(" · ")+(tondi ? " (arrotondati per eccesso su "+tondi+(tondi===1?" pedana":" pedane")+" di misura non multipla)" : "")]);
   }
+  var nA=gr.filter(function(g){ return g.arco; }).reduce(function(a,g){ return a+g.n; }, 0);
+  if(nA) p.push(["Pedane ad arco", nA+" in tutto, forma curva: non sono moduli 2×1"]);
   var dc=resto.filter(function(x){ return x.type==="pedana" && x.misuraDaConf===true; }).length;
   if(dc) p.push(["Da confermare", dc+(dc===1?" pedana con misura":" pedane con misura")+" da verificare al sopralluogo"]);
   var scr=[], scale=items.filter(function(x){ return x.type==="scala"; });

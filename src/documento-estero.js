@@ -180,6 +180,14 @@ var _docEnNome=function(x){ var e=docEnEtichetta(x); return e==null ? x : e; };
 var DOC_EN_REGOLE=[[/^Sorgente senza destinazione: (.+) \(ingressi palco esauriti\)(?: — (?:aggiungi una stage box vicino alla regia e marcala come «lato mixer», poi collegali lì a mano\.|collegali a mano alla stage box del mixer \((\w+)\)\.))?$/,
     function(all, n, b){ return "Source with no destination: "+_docEnNome(n)+" (stage inputs used up)"+(/ — aggiungi/.test(all) ? " — add a stage box near FOH, mark it as “mixer side”, then patch them there by hand." : (b ? " — patch them by hand to the mixer stage box ("+b+")." : "")); }],
   [/^evento (.+)$/, "show $1"], [/^(\d+) da (\d.*)$/, "$1 at $2"], [/^(\d+) pedana (\d.*)$/, "$1 riser $2"], [/^(\d+) pedane (\d.*)$/, "$1 risers $2"], [/^pedana (\d.*)$/, "riser $1"],
+  /* pedana ad arco (20/11/2026): corda × freccia (+ spessore della fascia), mai la misura di un rettangolo */
+  [/^(\d+)× pedana (\d[^·:()]*)$/, "$1× riser $2"],   /* una pedana rettangolare accanto a un arco: il rider non ha più l'intera frase a dizionario */
+    [/^(\d+)× pedana ad arco (\d[^·:()]*)$/, "$1× curved riser $2"], [/^(\d+) pedana ad arco (\d[^·:()]*)$/, "$1 curved riser $2"], [/^(\d+) ad arco (\d[^·:()]*)$/, "$1 curved at $2"],
+  [/^sp\. (\d[^·:()]*)$/, "width $1"], [/^spessore (\d[^·:()]*)$/, "width $1"], [/^(\d[^·:()]*) corda × freccia$/, "$1 chord × rise"],
+  [/^(\d+) pedana ad arco$/, "$1 curved riser"], [/^(\d+) pedane ad arco$/, "$1 curved risers"], [/^Pedane ad arco$/, "Curved risers"],
+  [/^(\d+) in tutto, forma curva: non sono moduli 2×1$/, "$1 in total, curved shape: not 2×1 modules"],
+  [/^(\d+) (pedana|pedane) ad arco: forma curva, fuori dai moduli 2×1\.$/, function(all, n){ return n+(+n===1 ? " curved riser" : " curved risers")+": curved shape, outside the 2×1 modules."; }],
+ 
   [/^altezza (\d.*)$/, "height $1"], [/^disegnato (\d.*)$/, "drawn $1"], [/^(\d+) in tutto$/, "$1 total"]];
 function _docEnRegola(s){ for(var j=0;j<DOC_EN_REGOLE.length;j++){ if(DOC_EN_REGOLE[j][0].test(s)) return s.replace(DOC_EN_REGOLE[j][0], DOC_EN_REGOLE[j][1]); } return null; }
 function _docEnTrad(s){
