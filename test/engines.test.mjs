@@ -38104,6 +38104,21 @@ t("Pedana coro: virgola decimale nell'etichetta, nella legenda e nel foglio teat
   A.state.rider = A.state.rider || {}; eq(A.distintaPalco(), null, "la distinta non conta le coro come moduli");
   reset(); add("pedana", 300, 300, { w: 400, d: 200, h: 60 }); eq(A.pedaneTesto(), "1 pedana 4×2 h60", "senza coro: identico a prima");
 });
+t("Pedane con misure decimali: virgola in italiano, punto nei documenti in inglese (etichetta, legenda; metri e m+ft)", () => {
+  reset();
+  const lbl = (it) => { A._lblSink = []; A.itemMarkup(it); const l = A._lblSink.join(""); A._lblSink = null; return l; };
+  const p = add("pedana", 300, 300, { w: 250, d: 100, h: 40 }), c = add("pedanacoro", 700, 300, { w: 400, d: 120, h: 20 });
+  ok(/2,5×1 m/.test(lbl(p)) && !/2\.5/.test(lbl(p)), "it: virgola (come ostacolo, legenda, palco): " + lbl(p));
+  A.state.docLang = "en";
+  ok(/2\.5×1 m/.test(lbl(p)) && !/2,5/.test(lbl(p)), "en: punto, come prima: " + lbl(p));
+  ok(/4×1\.2 m/.test(lbl(c)) && !/1,2/.test(lbl(c)), "en: pedana coro col punto: " + lbl(c));
+  ok(!/\d,\d/.test(A.pedaneTesto()), "en: legenda col punto: " + A.pedaneTesto());
+  A.state.docUnits = "both"; ok(/2\.5×1 m/.test(lbl(p)) && /\(/.test(lbl(p)) && !/\d,\d/.test(lbl(p)), "en m+ft: punto e piedi: " + lbl(p));
+  delete A.state.docLang; ok(/2,5×1 m/.test(lbl(p)), "it m+ft: virgola: " + lbl(p)); delete A.state.docUnits;
+  A.state.misureStile = "mt"; ok(/mt 2,5 x 1 x h 0,40/.test(lbl(p)), "stile mt in italiano: invariato: " + lbl(p));
+  A.state.docLang = "en"; ok(/mt 2\.5 x 1 x h 0\.40/.test(lbl(p)), "stile mt in inglese: punto: " + lbl(p));
+  delete A.state.docLang; delete A.state.misureStile;
+});
 t("Unità di partenza dalla lingua del browser: en-US ft, en-CA/fr-CA proposta, altre nessun cambiamento", () => {
   const prova = (langs, mem) => { reset(); delete A.state.docUnits; const st = {}; if (mem !== undefined) st.unita_ca = mem;
     A.localStorage = { getItem: (k) => (k === "sp_unitaCA" && "v" in (st.m = st.m || { v: mem }) ? mem ?? null : null), setItem: (k, v) => { st.salvato = v; mem = v; }, removeItem() {} };

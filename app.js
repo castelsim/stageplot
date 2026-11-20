@@ -14062,8 +14062,10 @@ function pedQuotaTesto(it, completo){
 }
 /* pedana lunghezza × profondità × altezza (cm) */
 function misPedana(w, d, h, std){
-  if(docUnita()!=="m"){ var _ft=ftIn(w)+" × "+ftIn(d)+" · h "+ftIn(+h||0); return docUnita()==="ft" ? _ft : _misPedanaM(w, d, h, std)+" ("+_ft+")"; }   /* piedi (17/11/2026) */
-  return _misPedanaM(w, d, h, std);
+  /* il testo metrico nasce con la virgola (misN, it-IT): in un documento in inglese esce col punto, come docLen/docArea (21/11/2026) */
+  var mm=function(s){ return docEn() ? String(s).replace(/(\d),(\d)/g,"$1.$2") : s; };
+  if(docUnita()!=="m"){ var _ft=ftIn(w)+" × "+ftIn(d)+" · h "+ftIn(+h||0); return docUnita()==="ft" ? _ft : mm(_misPedanaM(w, d, h, std))+" ("+_ft+")"; }   /* piedi (17/11/2026) */
+  return mm(_misPedanaM(w, d, h, std));
 }
 function _misPedanaM(w, d, h, std){
   var st=misureStile(); if(st==="std") return std;
