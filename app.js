@@ -5978,7 +5978,7 @@ function markLocalConflict(){
        progetto vero si crea alla chiusura dell'editor (custRipristina), e non va perso per sempre (revisione finale, I4) */
     if(custEditorAttivo()) __custVersioneRinviata=_nomeConfl;
     else try{ if(typeof saveVersion==="function") saveVersion(_nomeConfl,true); }catch(_recoveryErr){}
-    if(window.__toast) window.__toast("Un'altra scheda ha modificato questo progetto. Salvataggio sospeso: esporta questa versione o ricarica prima di continuare.",true);
+    if(window.__toast) window.__toast("Un'altra scheda ha modificato questo progetto. Salvataggio sospeso: ricarica la pagina prima di continuare.",true);
   }
 }
 function projectContentSig(data,venueSig){
@@ -6393,8 +6393,8 @@ function stageVenueImg(){
     }catch(_e2){}
     venueStageFailedSig=sig||null;
     if(window.__toast) window.__toast(e&&e.name==="QuotaExceededError"
-      ?"Planimetria troppo pesante per la copia offline. L’ultima copia completa sul dispositivo resta intatta; esporta il progetto o usa il cloud."
-      :"Impossibile salvare la planimetria offline. L’ultima copia completa sul dispositivo resta intatta; esporta il progetto o usa il cloud.", true);
+      ?"Planimetria troppo pesante per la copia offline. L’ultima copia completa sul dispositivo resta intatta; accedi per salvare il progetto online."
+      :"Impossibile salvare la planimetria offline. L’ultima copia completa sul dispositivo resta intatta; accedi per salvare il progetto online.", true);
     return false;
   }
 }
@@ -36429,7 +36429,7 @@ document.getElementById("bNew").addEventListener("click", function(){
     return false;
   }) : chiedi ? confirmDialog({
     icon:"info", title:"Nuovo stage plot?",
-    message:"L'editor viene azzerato per ricominciare da un palco vuoto. I progetti che hai salvato (cloud o «I miei progetti») NON vengono eliminati e restano al loro posto. Se il lavoro aperto non è salvato, esportalo o salvalo prima: verrà chiuso.",
+    message:"L'editor viene azzerato per ricominciare da un palco vuoto. I progetti che hai salvato (cloud o «I miei progetti») NON vengono eliminati e restano al loro posto. Se il lavoro aperto non è salvato online, salvalo prima: verrà chiuso.",
     confirmText:"Azzera e ricomincia"
   }) : Promise.resolve(true)).then(function(ok){
     if(!ok) return;
@@ -43902,7 +43902,7 @@ function gallery(){
     }catch(initialErr){
       setTimeout(function(){ freezeSession(initialErr&&initialErr.code==="VENUE_TOO_LARGE"
         ?"planimetrie oltre il limite di salvataggio":"documento oltre il limite di salvataggio",
-        "Questo progetto supera i limiti della consulenza: esportalo prima di chiudere."); },0);
+        "Questo progetto supera i limiti della consulenza: alleggerisci le planimetrie prima di chiudere."); },0);
     }
     var prev=window.__rtBroadcast;
     window.__consultDirty=function(){ if(conflict) return; dirty=true; retryStep=0; clearTimeout(retryT); retryT=null; clearTimeout(t); t=setTimeout(doSave,2000); };
@@ -44839,7 +44839,7 @@ function maybeAskStageSize(explicit){
 
   function renderModal(){
     if(!bodyEl) return;
-    if(!sb){ bodyEl.innerHTML='<p style="margin:0;color:var(--text-2)">Il modulo cloud non è disponibile (connessione assente). Puoi continuare a usare il tool e salvare i progetti come file .json.</p>'; return; }
+    if(!sb){ bodyEl.innerHTML='<p style="margin:0;color:var(--text-2)">Il modulo cloud non è disponibile (connessione assente). Puoi continuare a usare il tool: il progetto resta su questo dispositivo finché la connessione non torna.</p>'; return; }
     if(!cloudUser){
       bodyEl.innerHTML=
         '<p style="margin:0 0 14px;color:var(--text-2);line-height:1.5">Accedi per salvare i tuoi stage plot online e ritrovarli da qualsiasi dispositivo. Il login è facoltativo: il tool funziona anche senza.</p>'+

@@ -22354,6 +22354,7 @@ t("audit del 15/09: il file del progetto è per chi ha l'account, e l'account di
   ok(!/saveJson/.test(appjs) && !/Esporta JSON/.test(appjs) && !/data-j="exp"/.test(appjs), "20/11: il progetto non si scarica più (nessun pulsante, voce di ricerca o ramo del menu)");
   ok(/window\.__devEsportaProgetto=function\(\)\{/.test(appjs) && !/__devEsportaProgetto[^;]*addEventListener/.test(appjs), "la funzione di sviluppo resta, solo da console");
   ok(!/label:"Scarica copia"/.test(appjs) && !/viewExport/.test(appjs) && !/Esporta recupero/.test(appjs), "nessun «Scarica copia» né «Esporta recupero» nei messaggi");
+  ok(!/esport(a|alo|are) (questa versione|il progetto|subito il progetto)|esportalo (o|prima)|come file \.json|Scarica una copia completa del progetto|scarica il progetto o ricarica/i.test(appjs), "20/11: nessun testo promette più di esportare o scaricare il progetto (le promesse false erano 5 dopo il primo giro)");
   ok(/data-j="imp"/.test(appjs) && /Importa JSON/.test(appjs), "Importa JSON resta dietro la ricerca «json»");
   ok(/getElementById\("importJson"\)\.addEventListener\("click", function\(\)\{ if\(!window\.jsonSoloCollegati\(\)\) return;/.test(appjs), "e anche aprirlo");
   const sb = appjs.slice(appjs.indexOf("function shareBadge(mode){"), appjs.indexOf("function shareBadge(mode){") + 1400);
