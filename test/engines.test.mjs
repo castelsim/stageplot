@@ -6591,6 +6591,73 @@ t("ricerca tollerante: i refusi si segnalano come «simili»", () => {
   ok(A.__spSimili("basso") === false, "«basso» è esatta");
   ok(A.__spSimili("qqqq") === false, "senza risultati non è «simile»");
 });
+/* ---- Ricerca tollerante v2 (20/11/2026): le 23 ricerche senza risultato del 20/11, ognuna con l'esito ATTESO dichiarato ---- */
+t("ricerca v2: parole di collegamento, ordine libero e parole spezzate («macchina da fumo», «fu mo», «piano fort»)", () => {
+  const primoK = (q) => (A.__spSearch(q)[0] || {}).k;
+  ok(searchKeys("macchina da fumo").indexOf("fumomachine") > -1, "«macchina da fumo»: il «da» non deve bloccare la Macchina del fumo");
+  eq(A.__spTipo("macchina da fumo"), "parole", "«macchina da fumo»: parole scritte giuste, niente refuso");
+  ok(searchKeys("macchina da fu mo").indexOf("fumomachine") > -1, "«macchina da fu mo»: «fu mo» si riunisce in «fumo»");
+  ok(searchKeys("fumo macchina").indexOf("fumomachine") > -1, "ordine delle parole libero");
+  ok(searchKeys("piano fort").indexOf("grancoda") > -1, "«piano fort» (digitazione a metà): i pianoforti");
+  eq(primoK("quinta la"), "quinta", "«quinta la»: il «la» è una parola vuota");
+  eq(primoK("quinta ò"), "quinta", "«quinta ò»: una lettera sola è rumore");
+  eq(primoK("quinta laterale"), "quinta", "«quinta laterale»");
+  ok(searchKeys("quinte").indexOf("quinta") > -1, "«quinte» (plurale) trova la Quinta");
+  eq(primoK("diai"), "dimono", "«diai» → DI box"); eq(primoK("di box"), "dimono", "«di box» → DI box");
+  eq(primoK("allen heath s 500"), "dlives5", "«allen heath s 500»: «s 500» si riunisce in «s500» e prende il dLive S5000");
+  ok(A.__spSearch("allen heath s 500").length === 1, "…e solo quello");
+});
+t("ricerca v2: «parziale» solo con almeno due parole, parole giuste e il 50 % delle lettere", () => {
+  eq(A.__spTipo("allen eh"), "parziale", "«allen eh»: «eh» non è una parola: restano i mixer Allen & Heath");
+  ok(A.__spSearch("allen eh").every((r) => /Allen/.test(r.nome)), "«allen eh»: solo Allen & Heath: " + JSON.stringify(A.__spSearch("allen eh").map((r) => r.nome)));
+  eq(A.__spTipo("pianista do"), "parziale"); ok(searchKeys("pianista do").indexOf("grancoda") > -1, "«pianista do» → pianoforti");
+  eq(A.__spSearch("foobarbaz mixer").length, 0, "una parola giusta ma corta rispetto al resto non basta (5 lettere su 14)");
+  eq(A.__spSearch("zzzzzz mixer").length, 0, "stessa cosa: non si inventa");
+  eq(A.__spSearch("ottoxyz").length, 0, "una parola sola non passa mai per il «parziale»");
+  eq(A.__spSearch("wedgw monitor qqqqq").length, 0, "il «parziale» si fida solo di parole scritte giuste: «wedgw» (refuso) più una parola sconosciuta non passa");   /* mutante M3 della rilettura 20/11 */
+  eq(A.__qaSearch("channel list").length, 0, "la finestrella del doppio clic non inventa elementi da «channel»: nessun refuso dentro il parziale");
+});
+t("ricerca v2: le stringhe del 20/11 che NON hanno risposta restano senza (lacune vere o digitazioni a metà)", () => {
+  for (const q of ["qu8n", "qa", "qiont", "trousse", "paa", "teeete", "esuscit", "irr", "faceled", "freds", "el 600", "ottt", "coleg", "lucchetto"])
+    eq(A.__spSearch(q).length, 0, "«" + q + "»: nessun risultato inventato");
+});
+t("ricerca v2: le FUNZIONI sono bersagli («espo», «freque», «salva», «accedi», «unità», «luogo», «ripristino»…)", () => {
+  const nome1 = (q) => (A.__spSearch(q)[0] || {}).nome;
+  eq(nome1("espo"), "Esporta"); eq(nome1("pdf"), "Esporta"); eq(nome1("stampa"), "Esporta", "«stampa»: Esporta prima di Area di stampa");
+  eq(nome1("freque"), "Frequenze radio (RF)"); eq(nome1("rider"), "Esporta");
+  eq(nome1("salva"), "Salva e accedi"); eq(nome1("accedi"), "Salva e accedi"); eq(nome1("login"), "Salva e accedi");
+  eq(nome1("unità"), "Unità di misura"); eq(nome1("metri"), "Unità di misura"); eq(nome1("pollici"), "Unità di misura");
+  eq(nome1("luogo"), "Luogo, data e ora"); eq(nome1("ripristino"), "Punti di ripristino"); eq(nome1("guida"), "Guida");
+  eq(nome1("condividi"), "Condividi"); eq(nome1("tema scuro"), "Tema chiaro / scuro"); eq(nome1("nuovo progetto"), "Nuovo progetto");
+  const fn = A.__catEntries.filter((e) => e.fn);
+  ok(fn.length >= 18, "funzioni in ricerca: " + fn.length);
+  ok(fn.every((e) => typeof e.action === "function" && e.noQuick === true), "ogni funzione ha il suo gestore e non entra nella finestrella del doppio clic");
+  ok(!A.__catEntries.some((e) => /json/i.test(e.nome + " " + (e.kw || ""))), "«Esporta JSON» non è fra le funzioni cercabili");
+  ok(/Funzione · /.test(appjs) && /e\.fn \? "Funzione · "/.test(appjs), "la riga dice «Funzione ·» davanti al sottotitolo");
+  eq(A.__qaSearch("espo").length, 0, "le funzioni non compaiono nel doppio clic sul palco");
+});
+t("ricerca v2: soglie (parole di 8 lettere = 2 refusi), parole vuote, unioni solo esatte", () => {
+  const f = A.ricercaPerSomiglianza;
+  eq(f("strumntazone", ["strumentazione"], ["strumentazione"]).length, 1, "12 lettere, 2 refusi: ok");
+  eq(f("macchina da fumo", ["macchina del fumo"], ["macchina del fumo"]), [0], "«da» non conta");
+  eq(f("da", ["da"], ["da"]), [0], "una query fatta solo di parole vuote resta com'è");
+  eq(f("fu mo", ["fumo"], ["fumo"]), [0], "parole spezzate si riuniscono");
+  eq(f("fu mx", ["fumo"], ["fumo"]), [], "…ma un refuso dentro l'unione NON si perdona");
+  eq(f("pa", ["pa"], ["pa"]), [0], "due lettere: solo la parola intera"); eq(f("pa", ["palco"], ["palco"]), [], "…mai l'inizio");
+  eq(f("batteria cassettonato", ["batteria"], ["batteria"]).length, 0, "sotto il 50 % delle lettere (8 su 20): niente");
+  eq(f("batteria cass", ["batteria"], ["batteria"]).length, 1, "9 lettere su 13: il «parziale» c'è");
+  eq(f("batteria cass", ["batteria"], ["batteria"]).tipo, "parziale");
+});
+t("ricerca v2: prestazioni (centinaia di voci, < 5 ms a digitazione) e il log distingue i parziali", () => {
+  const qs = ["piano fort", "macchina da fu mo", "allen heath s 500", "quinta laterale", "wedgw", "zxqwv", "channel list", "freque", "pianista do", "batteira"];
+  for (const q of qs) A.__spSearch(q);   /* a caldo */
+  const t0 = process.hrtime.bigint(); let n = 0;
+  for (let r = 0; r < 20; r++) for (const q of qs) { A.__spSearch(q + (r % 2 ? "" : "x")); n++; }
+  const ms = Number(process.hrtime.bigint() - t0) / 1e6 / n;
+  ok(ms < 5, "troppo lenta: " + ms.toFixed(2) + " ms a ricerca (catalogo " + A.__catEntries.length + " voci)");
+  ok(/track\("search_no_results",\{q:q\.slice\(0,40\), from:"parziale"\}\)/.test(appjs), "il «parziale» si registra con from:\"parziale\" (nessuna colonna nuova)");
+  ok(!/track\("search_fuzzy"/.test(appjs), "nessun evento nuovo: la whitelist del database non lo ammette (serve una migration, proposta a parte)");
+});
 t("ricerca: liste e varianti si trovano per nome", () => {
   const primo = (q) => (A.__spSearch(q)[0] || {}).nome;
   for (const q of ["channel list", "input list", "lista canali", "channel"]) eq(primo(q), "Channel list", q);
