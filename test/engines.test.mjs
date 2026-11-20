@@ -31760,6 +31760,23 @@ t("planimetria da PDF (20/11): scala fino a 4096 px con tetto d'area, limiti sep
   eq(A.venueNeedsCompression(png, 4096, 2896, { maxSide: 4096, maxBytes: A.VENUE_PDF_IMGBYTES }), true, "PDF oltre il peso massimo: si ricomprime");
   ok(A.VENUE_PDF_IMGBYTES > A.VENUE_MAXBYTES && A.VENUE_PDF_IMGBYTES <= 2 * 1024 * 1024, "peso da PDF 1,5 MB (cloud 15 MB)");
 });
+t("planimetria da PDF (20/11, rilettura #174): se a 4096 px il peso non entra nel tetto si scende a 3072, 2560 e infine al comportamento di sempre (2000 px, JPEG)", () => {
+  const d0 = A.document;
+  const mk = (webp) => ({ createElement: () => ({ width: 0, height: 0, getContext: () => ({ drawImage() {}, getImageData: () => ({ data: new Uint8ClampedArray(160).fill(255) }) }),
+    toDataURL(tipo) { const t = (tipo === "image/webp" && !webp) ? "image/png" : tipo; return "data:" + t + ";base64," + "A".repeat(this.width * 700); } }) });   /* ≈ 525 byte per pixel di larghezza */
+  const lim = { maxSide: 4096, maxBytes: A.VENUE_PDF_IMGBYTES };
+  try {
+    A.document = mk(true);
+    const g = A.venueRecompress({}, 4096, 2896, "data:image/png;base64," + "A".repeat(7000000), lim);
+    eq([g.w, A.venueDataUrlBytes(g.durl) <= A.VENUE_PDF_IMGBYTES], [2560, true], "4096 (2,1 MB) e 3072 (1,6 MB) sopra il tetto → 2560 entra");
+    A.document = mk(false);   /* Safari: niente WebP in canvas */
+    const h = A.venueRecompress({}, 4096, 2896, "data:image/png;base64," + "A".repeat(7000000), lim);
+    eq([h.w, /^data:image\/jpeg/.test(h.durl)], [2000, true], "senza WebP: 2000 px JPEG come prima del 4096");
+    A.document = mk(true);
+    const k = A.venueRecompress({}, 4096, 2896, "data:image/png;base64," + "A".repeat(7000000), null);
+    eq(k.w, 2000, "immagine normale (senza limiti da PDF): 2000 px come sempre");
+  } finally { A.document = d0; }
+});
 ta("planimetria da PDF (20/11): resa a 4096 px; se toBlob/canvas falliscono ripiega a 2048; limiti passati a venueLoadFile", async () => {
   const B = loadApp();
   const d0 = B.document, L0 = B.pdfjsLib, F0 = B.File, lf0 = B.venueLoadFile, tp = B.__toast;

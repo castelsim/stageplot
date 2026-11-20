@@ -4492,7 +4492,19 @@ function venueHasAlpha(cg,w,h){
 }
 /* Ridimensiona (se serve) e prova più codifiche, tenendo la più leggera. WebP prima del JPEG:
    su un disegno al tratto il JPEG lascia aloni attorno alle linee. */
+/* Da PDF il peso massimo è un limite vero (la copia offline tiene vecchia+nuova planimetria: quota ≈5M caratteri; 20/11, rilettura #174):
+   se a 4096 px non entra (disegno denso; Safari non ha WebP in canvas) si scende a 3072, 2560 e infine al comportamento di sempre
+   (2000 px, 600 KB, anche JPEG). Le immagini normali (senza lim) passano di qui senza cambiare. */
 function venueRecompress(img,iw,ih,source,lim){
+  if(!(lim&&lim.maxBytes)) return venueRecompress1(img,iw,ih,source,lim);
+  var lati=[lim.maxSide,3072,2560].filter(function(L,i,a){ return L<=lim.maxSide && a.indexOf(L)===i; }), got=null, k;
+  for(k=0;k<lati.length;k++){
+    got=venueRecompress1(img,iw,ih,source,{maxSide:lati[k],maxBytes:lim.maxBytes});
+    if(got && venueDataUrlBytes(got.durl)<=lim.maxBytes) return got;
+  }
+  return venueRecompress1(img,iw,ih,source,null);
+}
+function venueRecompress1(img,iw,ih,source,lim){
   if(typeof document==="undefined"||!document.createElement) return null;
   var ms=(lim&&lim.maxSide)||VENUE_MAXSIDE, mb=(lim&&lim.maxBytes)||0;
   var maxs=Math.max(iw,ih), sc=(maxs>ms&&maxs>0)?ms/maxs:1;
@@ -6350,6 +6362,16 @@ function stageVenueImg(){
     venueStageFailedSig=null;
     return {sig:sig,key:key,changed:sig!==venuePersistedSig||key!==venuePersistedKey};
   }catch(e){
+    /* Quota piena: i blob di planimetrie sostituite restano finché non gira lo sweep (avvio / «Alleggerisci»). Con le piante da PDF
+       più pesanti (fino a 1,5 MB) bastano due sostituzioni per riempire l'archivio: si liberano gli orfani (mai la copia
+       persistita né quelle delle versioni) e si riprova UNA volta (20/11, rilettura #174). */
+    try{
+      if(key && sweepVenueBlobs()>0){
+        localStorage.setItem(key, JSON.stringify(compactVenueImageBundle(bundle)));
+        venueStageFailedSig=null;
+        return {sig:sig,key:key,changed:sig!==venuePersistedSig||key!==venuePersistedKey};
+      }
+    }catch(_e2){}
     venueStageFailedSig=sig||null;
     if(window.__toast) window.__toast(e&&e.name==="QuotaExceededError"
       ?"Planimetria troppo pesante per la copia offline. L’ultima copia completa sul dispositivo resta intatta; esporta il progetto o usa il cloud."
