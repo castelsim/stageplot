@@ -31747,6 +31747,48 @@ ta("planimetria PDF: venueCaricaPdfJs — un solo script da /vendor/pdfjs/, il w
   } finally { A.document = d0; A.pdfjsLib = L0; A.venuePdfPromessa = null; }
   return Promise.all(esiti).then((v) => { ok(/non disponibile/.test(v[0]) && /Impossibile caricare/.test(v[1]), JSON.stringify(v)); eq(v[2], "risolta"); });
 });
+t("planimetria da PDF (20/11): scala fino a 4096 px con tetto d'area, limiti separati per le immagini", () => {
+  eq([A.VENUE_PDF_MAXSIDE, A.VENUE_PDF_FALLBACKSIDE, A.VENUE_MAXSIDE], [4096, 2048, 2000], "tetti: PDF 4096 (ripiego 2048), immagini ancora 2000");
+  eq(A.venuePdfScale(842, 595, 4096, 12e6), 4096 / 842, "A4: lato 4096, area 6,0 Mpx ≤ 12");
+  const q = A.venuePdfScale(1000, 900, 4096, 12e6);
+  ok(Math.abs(1000 * q * 900 * q - 12e6) < 1, "pagina quasi quadrata: l'area si ferma a 12 Mpx");
+  ok(1000 * q < 4096, "…riducendo il lato");
+  eq(A.venuePdfScale(842, 595), 2000 / 842, "senza tetto d'area e lato: come prima");
+  const png = "data:image/png;base64," + "A".repeat(3000000);   /* ≈ 2,2 MB */
+  eq(A.venueNeedsCompression("data:image/png;base64,AAAA", 3000, 2000), true, "immagine 3000 px: oltre il tetto 2000");
+  eq(A.venueNeedsCompression("data:image/png;base64,AAAA", 4096, 2896, { maxSide: 4096, maxBytes: A.VENUE_PDF_IMGBYTES }), false, "PDF 4096 px leggero: nessuna ricompressione");
+  eq(A.venueNeedsCompression(png, 4096, 2896, { maxSide: 4096, maxBytes: A.VENUE_PDF_IMGBYTES }), true, "PDF oltre il peso massimo: si ricomprime");
+  ok(A.VENUE_PDF_IMGBYTES > A.VENUE_MAXBYTES && A.VENUE_PDF_IMGBYTES <= 2 * 1024 * 1024, "peso da PDF 1,5 MB (cloud 15 MB)");
+});
+ta("planimetria da PDF (20/11): resa a 4096 px; se toBlob/canvas falliscono ripiega a 2048; limiti passati a venueLoadFile", async () => {
+  const B = loadApp();
+  const d0 = B.document, L0 = B.pdfjsLib, F0 = B.File, lf0 = B.venueLoadFile, tp = B.__toast;
+  const larg = [], caricati = [], msg = []; let modo = "ok";
+  const dati = new Uint8ClampedArray(4 * 40); for (let k = 3; k < dati.length; k += 4) dati[k] = 255;
+  const el = {}; const mk = (id) => (el[id] = el[id] || { id, hidden: true, value: "1", textContent: "", getContext: () => ({ fillRect() {}, drawImage() {}, getImageData: () => ({ data: dati }) }) });
+  const pag = { getViewport: ({ scale }) => ({ width: 842 * scale, height: 595 * scale }), render: () => ({ promise: Promise.resolve() }) };
+  const doc = { numPages: 1, getPage: () => Promise.resolve(pag), destroy() {} };
+  B.document = { getElementById: mk, createElement: () => Object.assign(mk("cv" + Math.random()), { toBlob(cb) { larg.push(this.width); (modo === "ok" || this.width <= 2048) ? cb({ size: 5 }) : (modo === "nullo" ? cb(null) : (() => { throw new Error("canvas troppo grande"); })()); } }) };
+  B.pdfjsLib = { GlobalWorkerOptions: {}, getDocument: () => ({ promise: Promise.resolve(doc) }) };
+  B.File = function (parti, nome, o) { this.name = nome; this.type = o.type; };
+  B.venueLoadFile = (f, lim) => caricati.push([f, lim]); B.__toast = (m, e) => msg.push([m, !!e]);
+  ["venuePdfPick", "venuePdfPickTxt", "venuePdfPage", "venuePdfThumb"].forEach(mk);
+  const aspetta = () => new Promise((r) => setTimeout(r, 25));
+  const file = { name: "p.pdf", type: "application/pdf", size: 1000, arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)) };
+  try {
+    B.venueLoadPdf(file); await aspetta();
+    eq(larg, [4096], "una sola resa, lato lungo 4096"); eq(caricati[0][1], { maxSide: 4096, maxBytes: B.VENUE_PDF_IMGBYTES }, "limiti del PDF passati");
+    larg.length = 0; caricati.length = 0; modo = "nullo"; B.venueLoadPdf(file); await aspetta();
+    eq(larg, [4096, 2048], "toBlob nullo: ripiego a 2048"); eq(caricati.length, 1); eq(caricati[0][1].maxSide, 2048, "limite di lato 2048 dopo il ripiego");
+    larg.length = 0; caricati.length = 0; modo = "eccezione"; B.venueLoadPdf(file); await aspetta();
+    eq(larg, [4096, 2048], "toBlob che lancia: ripiego a 2048"); eq(caricati[0][1].maxSide, 2048);
+    /* anche il ripiego fallisce → messaggio esistente, nessuna immagine */
+    larg.length = 0; caricati.length = 0; msg.length = 0; modo = "nullo";
+    B.document.createElement = () => Object.assign(mk("cv" + Math.random()), { toBlob(cb) { larg.push(this.width); cb(null); } });
+    B.venueLoadPdf(file); await aspetta();
+    eq(larg, [4096, 2048]); ok(caricati.length === 0 && msg.some((m) => m[1] && /Impossibile convertire/.test(m[0])), "errore già esistente: " + JSON.stringify(msg));
+  } finally { B.document = d0; B.pdfjsLib = L0; B.File = F0; B.venueLoadFile = lf0; B.__toast = tp; }
+});
 ta("planimetria PDF: PDF a più pagine → selettore (nessuna scelta automatica); a una pagina → PNG bianco passato a venueLoadFile con il nome del PDF; pagina vuota e PDF con password → messaggio", async () => {
   /* istanza SEPARATA dell'app: il test aspetta (await) con document e File finti, e nel sandbox comune li vedrebbero i test sincroni degli altri */
   const B = loadApp();

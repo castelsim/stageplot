@@ -6883,13 +6883,18 @@ function venueStorageKey(sig){ return LS_KEY_VENUE+"."+venueDataHash(sig).replac
    0,5. Il 03/08/2026 una planimetria del genere ha riempito l'archivio del browser e reso
    impossibile aprire qualsiasi progetto. Si decide sul peso, e i pixel restano un secondo limite. */
 var VENUE_MAXSIDE=2000, VENUE_MAXBYTES=600*1024, VENUE_MINGAIN=0.25;
+/* Pianta DA PDF (20/11/2026): è un disegno vettoriale, a 2000 px un palco di 19 m dà ≈14 mm/pixel e le
+   scritte sfumano. Si rende fino a 4096 px sul lato lungo (area ≤ 12 Mpx: il canvas massimo di Safari/iOS
+   è ≈16,7 Mpx) e si tiene un peso fino a 1,5 MB (il limite del cloud è 15 MB). Le immagini (JPG/PNG/...) restano a 2000. */
+var VENUE_PDF_MAXSIDE=4096, VENUE_PDF_FALLBACKSIDE=2048, VENUE_PDF_MAXAREA=12e6, VENUE_PDF_IMGBYTES=1536*1024;
 function venueDataUrlBytes(durl){
   var s=String(durl||""), i=s.indexOf(","); if(i<0) return 0;
   var b64=s.slice(i+1), pad=(b64.slice(-2).match(/=/g)||[]).length;
   return Math.max(0, Math.floor(b64.length*3/4)-pad);
 }
-function venueNeedsCompression(durl,iw,ih){
-  return Math.max(Number(iw)||0,Number(ih)||0)>VENUE_MAXSIDE || venueDataUrlBytes(durl)>VENUE_MAXBYTES;
+function venueNeedsCompression(durl,iw,ih,lim){
+  var ms=(lim&&lim.maxSide)||VENUE_MAXSIDE, mb=(lim&&lim.maxBytes)||VENUE_MAXBYTES;
+  return Math.max(Number(iw)||0,Number(ih)||0)>ms || venueDataUrlBytes(durl)>mb;
 }
 /* Fra i candidati vince il più leggero, ma solo se il guadagno ripaga la perdita di qualità:
    ricomprimere un disegno tecnico per limare il 5% non ha senso. null = tieni l'originale. */
@@ -6920,9 +6925,10 @@ function venueHasAlpha(cg,w,h){
 }
 /* Ridimensiona (se serve) e prova più codifiche, tenendo la più leggera. WebP prima del JPEG:
    su un disegno al tratto il JPEG lascia aloni attorno alle linee. */
-function venueRecompress(img,iw,ih,source){
+function venueRecompress(img,iw,ih,source,lim){
   if(typeof document==="undefined"||!document.createElement) return null;
-  var maxs=Math.max(iw,ih), sc=(maxs>VENUE_MAXSIDE&&maxs>0)?VENUE_MAXSIDE/maxs:1;
+  var ms=(lim&&lim.maxSide)||VENUE_MAXSIDE, mb=(lim&&lim.maxBytes)||0;
+  var maxs=Math.max(iw,ih), sc=(maxs>ms&&maxs>0)?ms/maxs:1;
   var cw=Math.max(1,Math.round(iw*sc)), ch=Math.max(1,Math.round(ih*sc));
   var cv=document.createElement("canvas"); if(!cv) return null;
   cv.width=cw; cv.height=ch;
@@ -6931,7 +6937,8 @@ function venueRecompress(img,iw,ih,source){
   /* Safari non ha WebP in canvas (toDataURL torna un PNG): lì resta il JPEG, che però non può
      portare la trasparenza — un PNG trasparente su Safari resta quindi com'è, ed è giusto così. */
   var formati=[["image/webp",0.92],["image/webp",0.82]];
-  if(!venueHasAlpha(cg,cw,ch)) formati.push(["image/jpeg",0.85]);
+  if(mb) formati=[["image/webp",0.97],["image/webp",0.92],["image/webp",0.85]];   /* disegno da PDF: qualità alta prima, niente JPEG (aloni sulle linee sottili) */
+  else if(!venueHasAlpha(cg,cw,ch)) formati.push(["image/jpeg",0.85]);
   var cands=[];
   formati.forEach(function(f){
     try{
@@ -6941,6 +6948,10 @@ function venueRecompress(img,iw,ih,source){
     }catch(e){}
   });
   if(!cands.length) return null;
+  if(mb){   /* il più nitido che sta nel peso massimo (candidati in ordine di qualità); se nessuno ci sta, il più leggero */
+    var dentro=cands.filter(function(c){ return venueDataUrlBytes(c.durl)<=mb; });
+    if(dentro.length) return dentro[0];
+  }
   var best=venuePickSmallest(cands,venueDataUrlBytes(source));
   /* col solo ridimensionamento i pixel cambiano comunque: va applicato anche senza guadagno di peso */
   return best || (sc<1 ? cands[0] : null);
@@ -36875,7 +36886,7 @@ document.getElementById("frameSavePng").addEventListener("click", function(){ en
 document.getElementById("frameSaveCsv").addEventListener("click", function(){ if(window.openCsvExport) window.openCsvExport(); });
 
 var venueLoadSeq=0;
-function venueLoadFile(file){
+function venueLoadFile(file,lim){
   if(!file) return;
   if(custEditorAttivo()) return custEditorAvvisa();   /* «Crea elemento»: la planimetria finirebbe nel palco temporaneo (vale per bottone, trascinamento, incolla) */
   if(venueIsPdf(file)) return venueLoadPdf(file);     /* PDF (19/11/2026): si disegna una pagina in un canvas e poi si segue la strada delle immagini */
@@ -36896,8 +36907,8 @@ function venueLoadFile(file){
          salvabile (quota localStorage, payload cloud). La soglia di solo-pixel lasciava passare
          intatte le scansioni pesanti — vedi venueNeedsCompression. */
       var iw=img.naturalWidth, ih=img.naturalHeight, durl=source;
-      if(venueNeedsCompression(source,iw,ih)){
-        var got=venueRecompress(img,iw,ih,source);
+      if(venueNeedsCompression(source,iw,ih,lim)){
+        var got=venueRecompress(img,iw,ih,source,lim);
         if(got){
           var primaKB=Math.round(venueDataUrlBytes(source)/1024), dopoKB=Math.round(venueDataUrlBytes(got.durl)/1024);
           durl=got.durl; iw=got.w; ih=got.h;
@@ -36939,9 +36950,13 @@ function venueIsPdf(file){
 }
 /* scala di resa: il lato lungo della pagina (in punti, 1 pt = 1/72") diventa VENUE_MAXSIDE pixel — il tetto
    che l'import delle immagini userebbe comunque: più pixel verrebbero buttati subito dopo. */
-function venuePdfScale(wPt,hPt,lato){
+function venuePdfScale(wPt,hPt,lato,areaMax){
   var m=Math.max(Number(wPt)||0,Number(hPt)||0), L=lato||VENUE_MAXSIDE;
-  return m>0 ? L/m : 1;
+  if(!(m>0)) return 1;
+  var sc=L/m, w=Number(wPt)||0, h=Number(hPt)||0;
+  /* pagina molto «quadrata»: a 4096 sul lato lungo l'area supererebbe il tetto → si riduce il lato */
+  if(areaMax>0 && w>0 && h>0 && w*h*sc*sc>areaMax) sc=Math.sqrt(areaMax/(w*h));
+  return sc;
 }
 /* «pianta.pdf», pagina 2 di 5 → «pianta.pdf · p. 2» (un PDF a una pagina resta col suo nome) */
 function venuePdfNome(nome,pag,tot){
@@ -36989,9 +37004,9 @@ function venuePdfChiudi(){
   else if(p) p.hidden=true;
 }
 /* disegna la pagina in un canvas bianco (mai trasparente: sul palco coprirebbe in nero) */
-function venuePdfRender(pdf,num,lato,onTask){
+function venuePdfRender(pdf,num,lato,onTask,areaMax){
   return pdf.getPage(num).then(function(page){
-    var v0=page.getViewport({scale:1}), sc=venuePdfScale(v0.width,v0.height,lato), vp=page.getViewport({scale:sc});
+    var v0=page.getViewport({scale:1}), sc=venuePdfScale(v0.width,v0.height,lato,areaMax), vp=page.getViewport({scale:sc});
     var cv=document.createElement("canvas");
     cv.width=Math.max(1,Math.round(vp.width)); cv.height=Math.max(1,Math.round(vp.height));
     var cg=cv.getContext("2d"); cg.fillStyle="#fff"; cg.fillRect(0,0,cv.width,cv.height);
@@ -37002,22 +37017,32 @@ function venuePdfRender(pdf,num,lato,onTask){
 }
 function venuePdfUsa(pdf,num,ctx){
   var tot=pdf.numPages, name=venuePdfNome(ctx.name,num,tot), seq=ctx.seq;
-  return venuePdfRender(pdf,num,VENUE_MAXSIDE).then(function(cv){
-    if(seq!==venuePdfSeq) return;
-    var cg=cv.getContext("2d");
-    if(venuePdfVuota(cg.getImageData(0,0,cv.width,cv.height).data)){
-      cv.width=cv.height=0;
+  var limiti={maxSide:VENUE_PDF_MAXSIDE,maxBytes:VENUE_PDF_IMGBYTES};
+  /* resa a un dato lato → {cv,blob} oppure null se il canvas o toBlob falliscono (iOS/memoria) */
+  function rendi(lato){
+    return venuePdfRender(pdf,num,lato,null,VENUE_PDF_MAXAREA).then(function(cv){
+      if(seq!==venuePdfSeq){ cv.width=cv.height=0; return {annullato:true}; }
+      var cg=cv.getContext("2d");
+      if(venuePdfVuota(cg.getImageData(0,0,cv.width,cv.height).data)){ cv.width=cv.height=0; return {vuota:true}; }
+      return new Promise(function(res){
+        var finito=false, fine=function(b){ if(finito) return; finito=true; cv.width=cv.height=0; res(b?{blob:b}:null); };   /* libera il canvas (Safari/iOS lo conta a parte) */
+        try{ cv.toBlob(fine,"image/png"); }catch(e){ fine(null); }
+      });
+    }).catch(function(){ return null; });
+  }
+  return rendi(VENUE_PDF_MAXSIDE).then(function(r){
+    if(r===null && seq===venuePdfSeq) return rendi(VENUE_PDF_FALLBACKSIDE).then(function(r2){ if(r2) limiti={maxSide:VENUE_PDF_FALLBACKSIDE,maxBytes:VENUE_PDF_IMGBYTES}; return r2; });
+    return r;
+  }).then(function(r){
+    if(seq!==venuePdfSeq || (r&&r.annullato)) return;
+    if(r&&r.vuota){
       if(window.__toast) window.__toast("La pagina "+num+" del PDF è vuota.",true);
       if(tot<=1) venuePdfChiudi();   /* una pagina sola: niente da scegliere, il documento (e il suo worker) si chiude */
       return;
     }
-    cv.toBlob(function(blob){
-      cv.width=cv.height=0;   /* libera la memoria del canvas (Safari/iOS la conta a parte) */
-      if(seq!==venuePdfSeq) return;
-      if(!blob){ if(window.__toast) window.__toast("Impossibile convertire la pagina del PDF.",true); return; }
-      venuePdfChiudi();
-      venueLoadFile(new File([blob], name, {type:"image/png"}));   /* da qui è un'immagine come le altre */
-    },"image/png");
+    if(!r){ if(window.__toast) window.__toast("Impossibile convertire la pagina del PDF.",true); return; }
+    venuePdfChiudi();
+    venueLoadFile(new File([r.blob], name, {type:"image/png"}), limiti);   /* da qui è un'immagine come le altre, coi limiti del PDF */
   });
 }
 /* anteprima grande della pagina `num`: l'ultima richiesta vince, la resa precedente si annulla */
