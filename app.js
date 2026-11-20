@@ -42681,6 +42681,22 @@ function pngVbConPianta(){
   if(x0>=base.x && y0>=base.y && x1<=base.x+base.w && y1<=base.y+base.h) return null;
   return {x:x0, y:y0, w:x1-x0, h:y1-y0};
 }
+/* PNG CON IL PALCO SEMPRE AL CENTRO (20/11/2026, Simone: «voglio che il palco sia sempre centrale. Possiamo anche
+   includere più del palco se selezioniamo un'area più grande, ma il palco deve essere sempre al centro»).
+   Con la planimetria accesa il riquadro cresceva solo dove la pianta arriva: palco in basso a sinistra, legenda e
+   scritte da una parte sola (margini 109/454/454/80 cm). Il contenuto da mostrare è come prima (riquadro del disegno,
+   o area scelta a mano, + la pianta fin dove pngVbConPianta la concede); ora il riquadro è reso SIMMETRICO attorno al
+   centro del palco: mezza larghezza e mezza altezza = la distanza maggiore fra il centro e i due bordi del contenuto.
+   Dal lato più corto compare spazio vuoto: è voluto. Le proporzioni seguono il contenuto (nessuna regola nuova: il
+   lato lungo resta a 4000 px). Solo PNG: sceneVbDefault e i PDF non cambiano. */
+function pngVbCentrato(){
+  var v=pngVbConPianta() || sceneVbDefault();
+  recalcStageBBox();
+  var cx=state.stage.w/2, cy=state.stage.d/2;
+  var hw=Math.max(cx-v.x, v.x+v.w-cx), hh=Math.max(cy-v.y, v.y+v.h-cy);
+  if(!(hw>0) || !(hh>0)) return v;
+  return {x:cx-hw, y:cy-hh, w:2*hw, h:2*hh};
+}
 function exportPng(fatto){
   if(custEditorAttivo()){ custEditorAvvisa(); return false; }   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo: niente export */
   function fine(){ _pngInCorso=false; if(typeof fatto==="function") fatto(); }
@@ -42696,11 +42712,11 @@ function exportPng(fatto){
 }
 function exportPngCorpo(fine){
   var PX=4000;
-  var vbP=pngVbConPianta();   /* con la planimetria accesa il PNG si allarga attorno all'area per mostrarla */
-  var dimP=vbP || sceneVbDefault();   /* le proporzioni del riquadro disegnato (area + scritte del palco), non della sola area */
+  var vbP=pngVbCentrato();   /* il palco al centro dell'immagine; con la planimetria accesa il riquadro si allarga attorno al palco, simmetrico */
+  var dimP=vbP;   /* le proporzioni del riquadro disegnato (area + scritte del palco + pianta), non della sola area */
   var sc=PX/Math.max(dimP.w,dimP.h);
   var pxW=Math.round(dimP.w*sc), pxH=Math.round(dimP.h*sc);
-  var svgStr=stageSceneSvg(vbP || undefined);
+  var svgStr=stageSceneSvg(vbP);
   svgStr=svgStr.replace(/^<svg /,'<svg width="'+pxW+'" height="'+pxH+'" ');
   var host=document.createElement("div");
   host.style.cssText="position:fixed;left:-99999px;top:0;width:0;height:0;overflow:hidden;opacity:0;pointer-events:none";
