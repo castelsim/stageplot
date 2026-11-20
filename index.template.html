@@ -5831,10 +5831,12 @@ function tastSolo(it){ return !!it && !!TAST_PIEDI[it.type] && !it.fig; }
    misure, canali, watt e rider restano quelli dello strumento (stesso tipo, stesso posto): la figura non è un posto in più. lato = lato locale (asse y) dei tasti, dove sta il musicista (doppia +y, Moog −y: verificato
    sulle icone a rot 0); la figura guarda lo strumento e segue la rotazione dell'elemento. fw/fd = misura con cui il draw adatta l'icona (drawLibFit), ih = altezza dell'icona: servono a trovare il bordo dei tasti.
    Mani sopra la tastiera: relazione misurata su musTastieraPiedi (bordo tastiera y 54,9, dita y 64,1, centro figura 43,55 → il centro figura sta a 11,35 cm dal bordo dello strumento). */
-var TAST_FIG = { doppiatastiera:{lato:1, fw:105, fd:50, ih:50}, moogsub37:{lato:-1, fw:68, fd:38, ih:37.5} };
+var TAST_FIG = { doppiatastiera:{lato:1, fw:105, fd:50, ih:50}, moogsub37:{lato:-1, fw:68, fd:38, ih:37.5}, organohammond:{lato:1, fw:125, fd:65, ih:65, ke:53} };
+/* organohammond (20/11/2026, 4 tipi): l'icona (B3, 125×65) ha SOTTO la tastiera la barra e i piedi (fino a 63,7): ke = dove finisce la cornice della tastiera inferiore, dal sorgente dell'icona (rect «case» y 1,5 + h 51,5 = 53 cm dall'alto; i tasti finiscono a 50);
+   senza ke il bordo è quello dell'icona (doppia e Moog). Organo a canne, piano verticale, celesta e clavicembalo NON hanno la posa «in piedi»: si suonano seduti (console con pedaliera e panca; tasti a altezza di seduta). */
 var TAST_FIG_ART = "musTastieristaSolo", TAST_FIG_PRIMA = 11.35, TAST_FIG_FONDO = 52.35, TAST_FIG_LARG = 54;   /* FONDO = quanto la figura sporge dal bordo dei tasti; LARG = larghezza della figura */
 function tastFig(it){ return !!it && !!TAST_FIG[it.type] && it.posa==="piedi"; }
-function tastFigGeom(it){ var T=TAST_FIG[it.type], k=Math.min((+it.w||T.fw)/T.fw,(+it.d||T.fd)/T.fd), edge=T.ih*k/2; return {lato:T.lato, y:T.lato*(edge+TAST_FIG_PRIMA), far:edge+TAST_FIG_FONDO}; }
+function tastFigGeom(it){ var T=TAST_FIG[it.type], k=Math.min((+it.w||T.fw)/T.fw,(+it.d||T.fd)/T.fd), edge=(T.ke==null)?T.ih*k/2:(T.ke-T.ih/2)*k; return {lato:T.lato, y:T.lato*(edge+TAST_FIG_PRIMA), far:edge+TAST_FIG_FONDO}; }
 function tastFigSvg(it){
   if(!tastFig(it)) return "";
   if(!piediIconaOk(TAST_FIG_ART)){ piediCarica(); return ""; }   /* figura non ancora arrivata (solo a schermo; l'export la aspetta): il solo strumento */

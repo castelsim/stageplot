@@ -38275,7 +38275,8 @@ t("TASTIERE IN PIEDI: default Strumento (nessun campo nuovo), In piedi = it.posa
     const dop = add("doppiatastiera", 400, 300), moog = add("moogsub37", 700, 300);
     ok(!("posa" in dop) && !("posa" in moog) && !("look" in dop) && !("look" in moog), "nasce senza posa né look: i progetti salvati restano identici");
     eq(A.disegnoStato(dop), "strumento", "doppia: stato Strumento"); eq(A.disegnoStato(moog), "strumento", "Moog: stato Strumento");
-    ok(A.hasLookToggle(dop) && A.hasLookToggle(moog) && A.hasStrumento(dop) && A.hasLookToggle({ type: "organohammond" }) === false, "il controllo c'è per i due tipi e NON per organo, piano verticale, celesta, clavicembalo (lotto dopo)");
+    ok(A.hasLookToggle(dop) && A.hasLookToggle(moog) && A.hasStrumento(dop) && A.hasLookToggle({ type: "organohammond" }) === true, "il controllo c'è per doppia, Moog e Hammond");
+    for (const tp of ["organoconsole", "pianoverticale", "celesta", "clavicembalo"]) ok(A.hasLookToggle({ type: tp }) === false, tp + ": si suona seduto, nessun controllo In piedi (giudizio 20/11)");
     ok(!A.sceneMarkup().includes("tast-fig"), "senza posa nessuna figura");
     const w0 = [dop.w, dop.d, moog.w, moog.d], panca0 = dop.panca;
     A.impostaDisegno(dop, "piedi"); A.impostaDisegno(moog, "piedi");
@@ -38313,7 +38314,7 @@ t("TASTIERE IN PIEDI: ORIENTAMENTO — il tastierista sta dal lato dei tasti e g
     }
   } finally { A.LIB_ICONS = prima; reset(); }
 });
-t("TASTIERE IN PIEDI: ingombro (itemAabb) e ripulitura — strumento invariato senza posa; con posa si allunga dal lato dei tasti; posa ammessa solo per i due tipi", () => {
+t("TASTIERE IN PIEDI: ingombro (itemAabb) e ripulitura — strumento invariato senza posa; con posa si allunga dal lato dei tasti; posa ammessa solo per i tipi che la prevedono", () => {
   reset();
   const dop = add("doppiatastiera", 400, 300), org = add("organohammond", 700, 300);
   const b0 = JSON.stringify(A.itemAabb(dop, 0));
@@ -38321,9 +38322,45 @@ t("TASTIERE IN PIEDI: ingombro (itemAabb) e ripulitura — strumento invariato s
   ok(b1.y1 > JSON.parse(b0).y1 + 20 && b1.y0 === JSON.parse(b0).y0, "doppia a rot 0: l'ingombro cresce verso +y (lato dei tasti), non verso il fondo");
   dop.rot = 180; const b2 = A.itemAabb(dop, 0); ok(b2.y0 < JSON.parse(b0).y0 - 20, "girata di 180°: cresce verso −y");
   delete dop.posa; eq(JSON.stringify(A.itemAabb(dop, 0)), b0, "senza posa: identico a prima");
-  const out = A.sanitizeItems([{ id: "a", type: "doppiatastiera", x: 1, y: 1, w: 125, d: 78, posa: "piedi" }, { id: "b", type: "moogsub37", x: 1, y: 1, w: 68, d: 38, posa: "piedi" }, { id: "c", type: "organohammond", x: 1, y: 1, w: 100, d: 60, posa: "piedi" }, { id: "d", type: "doppiatastiera", x: 1, y: 1, w: 125, d: 78, posa: "seduto" }]);
-  eq(out.map((x) => x.posa), ["piedi", "piedi", undefined, undefined], "import: «piedi» resta sui due tipi, sparisce sugli altri e sui valori strani");
+  const out = A.sanitizeItems([{ id: "a", type: "doppiatastiera", x: 1, y: 1, w: 125, d: 78, posa: "piedi" }, { id: "b", type: "moogsub37", x: 1, y: 1, w: 68, d: 38, posa: "piedi" }, { id: "c", type: "celesta", x: 1, y: 1, w: 100, d: 60, posa: "piedi" }, { id: "d", type: "doppiatastiera", x: 1, y: 1, w: 125, d: 78, posa: "seduto" }]);
+  eq(out.map((x) => x.posa), ["piedi", "piedi", undefined, undefined], "import: «piedi» resta sui tipi che la prevedono, sparisce sugli altri e sui valori strani");
   reset();
+});
+t("TASTIERE IN PIEDI (4 tipi, 20/11): HAMMOND — orientamento sull'ICONA VERA e figura sul bordo dei tasti per 5 rotazioni; organo a canne, piano verticale, celesta e clavicembalo NON hanno la posa", () => {
+  const prima = A.LIB_ICONS;
+  /* geometria dall'icona VERA (icons.js): a rot 0 i tasti dell'Hammond sono a +y; la cornice finisce a y=53 (ke) e i tasti a 50 */
+  const icons = readFileSync(join(root, "icons.js"), "utf8"), i0 = icons.indexOf('"organohammond":{"vb"'), body = icons.slice(i0, i0 + 9000);
+  const vb = JSON.parse(body.slice(body.indexOf("[") , body.indexOf("]") + 1));
+  const bodyP = body.replace(/\\"/g, '"'), rects = (cls) => [...bodyP.matchAll(new RegExp('<rect class="organohammond_' + cls + '" x="([\\d.]+)" y="([\\d.]+)" width="([\\d.]+)" height="([\\d.]+)"', "g"))].map((m) => ({ y0: +m[2], y1: +m[2] + +m[4] }));
+  const bianchi = rects("white"), tasti0 = Math.min(...bianchi.map((r) => r.y0)), tasti1 = Math.max(...bianchi.map((r) => r.y1));
+  const caso = rects("case").find((r) => r.y0 === 1.5), cassa1 = caso && caso.y1;
+  ok(tasti0 > vb[3] / 2 - 5 && tasti1 > vb[3] / 2, "icona vera: i tasti dell'Hammond stanno nella metà +y (lato del tastierista = +y)");
+  eq(cassa1, A.TAST_FIG.organohammond.ke, "ke = bordo della cassa sul lato tasti, preso dal sorgente dell'icona");
+  ok(A.TAST_FIG.organohammond.lato === 1 && tasti1 < A.TAST_FIG.organohammond.ke && tasti1 > A.TAST_FIG.organohammond.ke - 6, "i tasti finiscono pochi cm prima del bordo (come doppia e Moog)");
+  A.LIB_ICONS = { musTastieristaSolo: { vb: [0, 0, 118, 87.11], body: "<g id=\"f\"/>", dc: [0, 0] }, organohammond: { vb: [0, 0, 125, 65], body: "<g/>" } };
+  try {
+    for (const rot of [0, 90, 180, 270, 305]) for (const dim of [[125, 65], [100, 52]]) {
+      reset(); const it = add("organohammond", 500, 400); it.rot = rot; it.w = dim[0]; it.d = dim[1]; A.impostaDisegno(it, "piedi");
+      const m = A.sceneMarkup().match(/class="tast-fig"[^>]*transform="translate\(0,(-?[\d.]+)\) rotate\((\d+)\)"/);
+      ok(m, "Hammond " + rot + ": figura presente"); const Y = +m[1], R = +m[2] * Math.PI / 180, face = [-Math.sin(R), Math.cos(R)];
+      ok(Y > 0, "Hammond " + rot + ": sul lato dei tasti (+y locale)"); ok(face[1] * Y < 0, "Hammond " + rot + ": guarda lo strumento");
+      const a = rot * Math.PI / 180, wf = (v) => [v[0] * Math.cos(a) - v[1] * Math.sin(a), v[0] * Math.sin(a) + v[1] * Math.cos(a)], pos = wf([0, Y]), fw = wf(face);
+      ok(fw[0] * pos[0] + fw[1] * pos[1] < 0, "Hammond " + rot + ": nel mondo guarda verso lo strumento, mai di spalle");
+      const k = Math.min(dim[0] / 125, dim[1] / 65);
+      ok(Math.abs(Y - ((53 - 32.5) * k + 11.35)) < 0.01, "Hammond " + rot + " " + dim + ": centro figura a 11,35 cm dal bordo della cassa sul lato tasti (non dall'altezza dell'icona)");
+    }
+    reset(); const h = add("organohammond", 500, 400), w0 = [h.w, h.d], tipo = h.type;
+    ok(!("posa" in h) && A.disegnoStato(h) === "strumento" && !A.sceneMarkup().includes("tast-fig"), "default Strumento: nessuna posa, nessuna figura");
+    A.impostaDisegno(h, "piedi"); eq([h.w, h.d], w0, "misure invariate"); eq(h.type, tipo, "tipo invariato (canali, watt, rider)");
+    ok(!A.hasPanca(h) && A.disegnoStato(h) === "piedi", "in piedi: stato In piedi, nessuna panca");
+    A.impostaDisegno(h, "strumento"); ok(!("posa" in h) && !A.sceneMarkup().includes("tast-fig"), "Strumento toglie la posa");
+    const b0 = JSON.stringify(A.itemAabb(h, 0)); h.posa = "piedi"; const b1 = A.itemAabb(h, 0); ok(b1.y1 > JSON.parse(b0).y1 + 20, "ingombro: cresce verso +y"); delete h.posa;
+    for (const tp of ["organoconsole", "pianoverticale", "celesta", "clavicembalo"]) {
+      reset(); const x = add(tp, 400, 300); x.posa = "piedi";
+      ok(A.hasLookToggle(x) === false && !A.sceneMarkup().includes("tast-fig"), tp + ": nessun controllo e nessuna figura anche con posa scritta a mano");
+      eq(A.sanitizeItems([{ id: "q", type: tp, x: 1, y: 1, w: 100, d: 60, posa: "piedi" }])[0].posa, undefined, tp + ": la posa viene ripulita all'import");
+    }
+  } finally { A.LIB_ICONS = prima; reset(); }
 });
 t("TASTIERE IN PIEDI: l'export aspetta il file della figura (piediMancanti) e la chiave sta in piediChiavi", () => {
   reset(); const dop = add("doppiatastiera", 400, 300); dop.posa = "piedi";
