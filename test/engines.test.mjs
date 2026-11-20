@@ -38662,7 +38662,7 @@ t("Pedana ad arco: legenda, piè «N pedane», foglio teatro, distinta e materia
   const f = A.foglioTeatroDati(new Date(2026, 10, 20)), riga = (f.sezioni.find((s) => s.t === "Pedane e scalette") || { righe: [] }).righe;
   ok(riga.some((r) => r[0] === "2 pedane ad arco" && /^7,6×2,29 m corda × freccia · spessore 1,2 m · altezza 60 cm$/.test(r[1])), "foglio teatro: corda × freccia + spessore: " + JSON.stringify(riga));
   ok(riga.some((r) => r[0] === "Pedane ad arco" && /2 in tutto, forma curva/.test(r[1])) && riga.some((r) => /Moduli 2×1 m/.test(r[0]) && /^4 in tutto/.test(r[1])), "foglio teatro: moduli solo dal rettangolare, archi a parte");
-  ok(!/pedane ad arco/.test(A.materialiPedane().replace(/pedane: [^·]*/, "")) && /moduli 2×1: 4 /.test(A.materialiPedane()) || !/moduli 2×1/.test(A.materialiPedane()), "materiali: nessun modulo dall'arco: " + A.materialiPedane());
+  ok(/ · moduli 2×1: 4 h40$/.test(A.materialiPedane()), "materiali: moduli 2×1 solo dalla pedana rettangolare (4×2 = 4 h40), mai dagli archi: " + A.materialiPedane());
   /* storico delle versioni: un arco non è un rettangolo con le stesse misure */
   reset(); add("pedanaarco", 800, 500, { w: 600, d: 150, h: 40 }); const r1 = A.riassuntoDocumento(); reset(); add("pedana", 800, 500, { w: 600, d: 150, h: 40 }); const r2 = A.riassuntoDocumento();
   ok(JSON.stringify(r1.ped) !== JSON.stringify(r2.ped), "storico: arco e rettangolo 6×1,5 sono voci diverse: " + JSON.stringify(r1.ped) + " ≠ " + JSON.stringify(r2.ped));
