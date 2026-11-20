@@ -43781,6 +43781,25 @@ function pngVbCentrato(){
   if(!(hw>0) || !(hh>0)) return v;
   return {x:cx-hw, y:cy-hh, w:2*hw, h:2*hh};
 }
+/* PNG CON LA RIGA DELLA VERSIONE (20/11/2026, Simone: la regola «versione su ogni foglio» vale anche per il PNG, che esporta solo il disegno).
+   «vN · GG/MM/AAAA» (stessa etichetta del piè: versioneEtichetta, quindi stessi campi del nome del file), piccola, in basso a destra DENTRO
+   l'immagine. Senza versione: nessuna riga, PNG di oggi. Per non toccare mai il disegno la riga sta in una fascia nuova sotto il contenuto:
+   il riquadro cresce di una fascia sopra e una sotto (simmetrico: il centro del palco non si sposta). Solo PNG: PDF, stampe e sceneVbDefault invariati. */
+var PNG_RIGA_ALTEZZA=0.013;   /* altezza del testo = 1,3 % del lato lungo del riquadro */
+function pngRigaVersione(){ return versioneEtichetta(); }
+function pngRigaMisure(vb){ var th=PNG_RIGA_ALTEZZA*Math.max(vb.w,vb.h); return {th:th, fascia:2.4*th, margine:0.9*th}; }
+function pngVbConRiga(vb, riga){
+  if(!riga) return vb;
+  var m=pngRigaMisure(vb);
+  return {x:vb.x, y:vb.y-m.fascia, w:vb.w, h:vb.h+2*m.fascia};
+}
+/* vbBase = il riquadro prima della fascia (da lì si misura il testo); svgStr = l'SVG già nel riquadro con la fascia */
+function pngSvgConRiga(svgStr, vbBase, vbFinale, riga){
+  if(!riga) return svgStr;
+  var m=pngRigaMisure(vbBase), x=vbFinale.x+vbFinale.w-m.margine, y=vbFinale.y+vbFinale.h-m.margine;
+  var t='<text x="'+x.toFixed(2)+'" y="'+y.toFixed(2)+'" text-anchor="end" font-size="'+m.th.toFixed(2)+'" fill="#1c1c1c" font-family="-apple-system,Segoe UI,sans-serif" data-png-versione="1">'+esc(riga)+'</text>';
+  return svgStr.replace(/<\/svg>\s*$/, t+'</svg>');
+}
 function exportPng(fatto){
   if(custEditorAttivo()){ custEditorAvvisa(); return false; }   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo: niente export */
   function fine(){ _pngInCorso=false; if(typeof fatto==="function") fatto(); }
@@ -43796,11 +43815,12 @@ function exportPng(fatto){
 }
 function exportPngCorpo(fine){
   var PX=4000;
-  var vbP=pngVbCentrato();   /* il palco al centro dell'immagine; con la planimetria accesa il riquadro si allarga attorno al palco, simmetrico */
+  var vbP=pngVbCentrato(), vbBase=vbP, riga=pngRigaVersione();   /* il palco al centro dell'immagine; con la planimetria accesa il riquadro si allarga attorno al palco, simmetrico */
+  vbP=pngVbConRiga(vbP, riga);   /* con la versione: fascia sopra e sotto, centro invariato */
   var dimP=vbP;   /* le proporzioni del riquadro disegnato (area + scritte del palco + pianta), non della sola area */
   var sc=PX/Math.max(dimP.w,dimP.h);
   var pxW=Math.round(dimP.w*sc), pxH=Math.round(dimP.h*sc);
-  var svgStr=stageSceneSvg(vbP);
+  var svgStr=pngSvgConRiga(stageSceneSvg(vbP), vbBase, vbP, riga);
   svgStr=svgStr.replace(/^<svg /,'<svg width="'+pxW+'" height="'+pxH+'" ');
   var host=document.createElement("div");
   host.style.cssText="position:fixed;left:-99999px;top:0;width:0;height:0;overflow:hidden;opacity:0;pointer-events:none";
