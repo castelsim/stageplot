@@ -5075,6 +5075,7 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
         <button type="button" data-v="bottom">Sotto</button>
         <button type="button" data-v="left">Sx</button>
         <button type="button" data-v="right">Dx</button>
+        <button type="button" data-v="none" id="pDimSideNone">Nessuna</button>
       </div>
       <select id="pDimSide" hidden>
         <option value="auto">Automatico (lato visibile)</option>
@@ -5082,6 +5083,7 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
         <option value="bottom">Sotto</option>
         <option value="left">Sinistra</option>
         <option value="right">Destra</option>
+        <option value="none">Nessuna (nascosta nel disegno)</option>
       </select>
     </div>
     <div id="pKeysWrap" style="display:none"><label class="chk"><input type="checkbox" id="pPanca"> Sgabello</label></div>
@@ -6732,6 +6734,8 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
         </div>
         <div id="pdfMisStileRow"><label for="pdfMisStile">Stile delle misure <small class="lbl-note">— pedane, quote e palco, in tutte le pagine</small></label>
           <select id="pdfMisStile"><option value="std" selected>12 × 2 m · h40 (come sempre)</option><option value="mx">12mX2mX40cm</option><option value="xh">12x2 H40</option><option value="mt">mt 12 x 2 x h 0,40</option></select></div>
+        <div id="pdfPedMisRow"><label for="pdfPedMis">Misura accanto alle pedane <small class="lbl-note">— solo nel disegno; elenchi e legenda restano completi</small></label>
+          <select id="pdfPedMis"><option value="full" selected>Misura intera (come sempre)</option><option value="h">Solo altezza</option><option value="none">Nessuna</option></select></div>
         <!-- DOCUMENTO PER L'ESTERO (17/11/2026): due scelte del progetto, salvate nel progetto e uguali in tutte le scene. Di serie Italiano e metri. -->
         <div id="pdfDocLinguaRow"><label for="pdfDocLingua">Lingua del documento <small class="lbl-note">— tutto ciò che esce nei PDF, anche il palco per esterni</small></label>
           <select id="pdfDocLingua"><option value="it" selected>Italiano</option><option value="en">English</option></select></div>
