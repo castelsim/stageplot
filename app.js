@@ -13668,7 +13668,7 @@ function itemMarkup(it){
   if(_md) _drawn='<g transform="translate(0 '+_md.dy.toFixed(1)+')">'+_drawn+'</g>';
   s += it.mir ? '<g transform="scale(-1,1)">'+_drawn+'</g>' : _drawn;   /* specchia SOLO l'arte (hit/selbox/etichetta restano) */
   if(_md) s += '<g transform="translate(0 '+_md.modY.toFixed(1)+')">'+modOverSvg(it)+'</g>';   /* il softbox davanti: simmetrico, non lo tocca lo specchio */
-  if(it.locked===true && isLockable(it) && !LOCK_GLYPH_SELF[it.type]){
+  if(it.locked===true && isLockable(it) && !LOCK_GLYPH_SELF[it.type] && (!LOCK_GLYPH_SCHERMO[it.type] || _lblSchermo)){
     /* La soglia di riserLockGlyph (70×50) nasce per le pedane piccole, dove il lucchetto finirebbe
        addosso alla barra d'angolo. Su una BARRA — americana, truss: 200×30 — quella soglia lo
        toglieva del tutto, e l'elemento bloccato non si distingueva da uno libero. Sulle barre il
@@ -19819,15 +19819,33 @@ function isRiser(it){ return !!(it && TYPES[it.type] && TYPES[it.type].riser); }
    strutture che portano i fari, dove il gesto sbagliato non sposta solo loro ma tutto il carico.
    Il metro non regge niente ma è una quota: presa una volta, si muove solo per sbaglio. */
 var LOCKABLE={ tappeto:1, forma:1, miczone:1, metro:1,
-  tavolo:1, tavolopercussioni:1, podio:1, pedanacoro:1, flightcase:1, americana:1, truss:1 };   /* il tavolo percussioni è IL piano d'appoggio della categoria: ci si posano sopra i piccoli (30/07) */
+  tavolo:1, tavolopercussioni:1, podio:1, pedanacoro:1, flightcase:1, americana:1, truss:1,
+  custom:1, custshape:1, testo:1, scala:1, parapetto:1, ostacolo:1 };   /* 20/11/2026: «Crea elemento», testo, scala, parapetto, ostacolo — i gruppi di quote sopra il palco rubavano il doppio clic */   /* il tavolo percussioni è IL piano d'appoggio della categoria: ci si posano sopra i piccoli (30/07) */
 /* Chi il lucchettino se lo disegna dentro il proprio draw; per tutti gli altri lo mette renderItem. */
-var LOCK_GLYPH_SELF={ pedana:1, tappeto:1, forma:1, miczone:1, metro:1 };
-function isLockable(it){ return !!(it && (isRiser(it) || LOCKABLE[it.type]===1)); }
+var LOCK_GLYPH_SELF={ pedana:1, tappeto:1, forma:1, miczone:1, metro:1, custshape:1 };   /* i pezzi di «Crea elemento» non hanno il glifo: sta sulla base */
+/* Glifo SOLO a schermo (mai in PDF/PNG: nei fogli un lucchetto sopra una quota non serve a nessuno) */
+var LOCK_GLYPH_SCHERMO={ custom:1, testo:1, scala:1, parapetto:1, ostacolo:1 };
+function isLockable(it){
+  if(!it) return false;
+  if(it.type==="custshape" && typeof custEditorAttivo==="function" && custEditorAttivo()) return false;   /* nell'editor di «Crea elemento» i pezzi si disegnano: mai lucchetto lì */
+  return !!(isRiser(it) || LOCKABLE[it.type]===1);
+}
 var LOCK_NAMES={ tappeto:"il tappeto", forma:"la forma", miczone:"la zona", metro:"il metro",
   tavolo:"il tavolo", tavolopercussioni:"il tavolo", podio:"il podio", pedanacoro:"la pedana", flightcase:"il flight case",
-  americana:"l’americana", truss:"la truss" };
+  americana:"l’americana", truss:"la truss",
+  custom:"l’elemento", custshape:"il pezzo", testo:"il testo", scala:"la scala", parapetto:"il parapetto", ostacolo:"l’ostacolo" };
 function lockNameOf(it){ return isRiser(it) ? "la pedana" : (it && LOCK_NAMES[it.type]) || "l’elemento"; }
 function itemEditable(it){ return !(it && it.locked===true && isLockable(it)); }   /* col lucchetto chiuso resta dov'è */
+/* Il lucchetto di un elemento di un GRUPPO (`grp`: «Crea elemento» = base + pezzi, o un blocco di quote) vale per tutto il gruppo:
+   si alterna per l'insieme partendo dallo stato di chi è stato toccato. Chi non è bloccabile nel gruppo resta com'è. */
+function lockToggle(it, voluto){
+  if(!it || !isLockable(it)) return false;
+  var chiudi = (voluto==null) ? it.locked!==true : !!voluto;
+  var tutti = it.grp ? (state.items||[]).filter(function(x){ return x.grp===it.grp && isLockable(x); }) : [it];
+  if(tutti.indexOf(it)<0) tutti.push(it);
+  tutti.forEach(function(x){ if(chiudi) x.locked=true; else delete x.locked; });
+  return chiudi;
+}
 /* NOTA sull'elemento (30/07): quello che il disegno non sa dire. Nata dal tavolo percussioni — i
    piccoli (shaker, claves, güiro) a 20 cm in pianta sono pallini invisibili, ma il service deve
    sapere che ci sono — e poi vale per tutti: «ampli fornito dalla band», «piano da accordare». */
@@ -21238,6 +21256,10 @@ function renderProps(){
     var w=document.getElementById("pPedConfWrap"), c=document.getElementById("pPedConf"); if(!w||!c) return;
     var ok=(it.type==="pedana" && !it.locked); w.style.display=ok?"block":"none"; c.checked=(it.misuraDaConf===true);
   })();
+  (function(){   /* «Blocca» nel pannello (20/11): lo stesso lucchetto della maniglia */
+    var w=document.getElementById("pBloccaWrap"), c=document.getElementById("pBlocca"); if(!w||!c) return;
+    var ok=isLockable(it) && !window.__projLocked; w.style.display=ok?"block":"none"; c.checked=(it.locked===true);
+  })();
   var _zw=document.getElementById("pZonaWrap"); if(_zw) _zw.style.display = pedanaPareZona(it) ? "block" : "none";   /* suggerimento zona (19/10/2026) */
   var isGazCover=!!GAZ_TYPES[it.type];   /* coperture: stesso controllo "Lato" dei riser, ma per l'etichetta unica */
   document.getElementById("pDimSideWrap").style.display = (t.riser||isGazCover) ? "block" : "none";
@@ -21969,6 +21991,7 @@ document.getElementById("pLblApplyType").addEventListener("click", function(){ v
     if(m==="abbr" && ab && o.id!==it.id) o.abbr=ab;   /* la sigla scritta a mano si propaga davvero */
   });
   render(); save(); });   /* C: applica la modalità nome a tutti gli elementi dello stesso tipo */
+(function(){ var c=document.getElementById("pBlocca"); if(c) c.addEventListener("change", function(){ var id=sel; var it=(state.items||[]).filter(function(x){ return x.id===id; })[0]; if(!it) return; lockToggle(it, c.checked); save(); render(); renderProps(); }); })();
 (function(){ var c=document.getElementById("pPedConf"); if(c) c.addEventListener("change", function(){ var v=c.checked; mutSel(function(it){ if(it.type!=="pedana"||it.locked) return; if(v) it.misuraDaConf=true; else delete it.misuraDaConf; }); renderProps(); }); })();
 document.getElementById("pDimSide").addEventListener("change", function(){ var v=document.getElementById("pDimSide").value; mutSel(function(it){ it.dimSide=v; }); });
 /* il select "pBy" non esiste più: «Fornito da» sta nella channel list (26/08) */
@@ -25750,7 +25773,7 @@ svg.addEventListener("pointerdown", function(e){
       return;
     }
     var _dcIt0=dcId ? (state.items||[]).filter(function(i){ return i.id===dcId; })[0] : null;
-    if(_dcIt0 && isLockable(_dcIt0) && _dcIt0.locked===true && !isMobile()){
+    if(_dcIt0 && isLockable(_dcIt0) && _dcIt0.locked===true && !isMobile()){   /* anche custom/custshape/testo/scala/parapetto/ostacolo dal 20/11 */
       /* fondo col lucchetto chiuso (pedana, tappeto, forma): il doppio clic lo attraversa e apre la
          ricerca rapida, così ci si posa sopra un elemento senza prima sbloccarlo (Simone 27/07;
          tappeti e forme dal 29/07 — nella forma bloccata anche il testo si riscrive da sbloccata) */
@@ -25905,7 +25928,7 @@ svg.addEventListener("pointerdown", function(e){
   if(lkh){                                  /* lucchetto della pedana: apre e chiude, non trascina nulla */
     e.preventDefault();
     var _lid=lkh.getAttribute("data-id"), _lit=(state.items||[]).filter(function(x){ return x.id===_lid; })[0];
-    if(_lit){ if(_lit.locked) delete _lit.locked; else _lit.locked=true; save(); render(); renderProps(); }
+    if(_lit){ lockToggle(_lit); save(); render(); renderProps(); }
     return;
   }
   /* MANIGLIE (ridimensionamento e rotazione) PRIMA di tutto: sono un gesto esplicito su un elemento
