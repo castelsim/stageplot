@@ -38332,5 +38332,79 @@ t("TASTIERE IN PIEDI: l'export aspetta il file della figura (piediMancanti) e la
   finally { A.LIB_ICONS = prima; reset(); }
 });
 
+/* PNG con il palco SEMPRE al centro (20/11/2026, Simone: «il palco deve essere sempre al centro»). Causa: con la
+   planimetria accesa il riquadro del PNG cresceva solo dove la pianta arriva (palco in basso a sinistra, margini
+   109/454/454/80 cm) e con un'area scelta a mano o chi sta fuori dal palco restava decentrato. pngVbCentrato rende
+   il riquadro simmetrico attorno al centro del palco; sceneVbDefault e i PDF non cambiano. */
+function palcoPng(W, D) { reset(); A.state.stage = { w: W, d: D, blocks: [{ x: 0, y: 0, w: W, d: D }] }; A.recalcStageBBox(); }
+function pngCentro(vb, W, D, msg) {
+  const cx = vb.x + vb.w / 2, cy = vb.y + vb.h / 2;
+  ok(Math.abs(cx - W / 2) < 1e-6 && Math.abs(cy - D / 2) < 1e-6, msg + ": il centro del PNG è " + cx + "," + cy + " invece di " + W / 2 + "," + D / 2 + " (" + JSON.stringify(vb) + ")");
+}
+/* niente tagliato: palco intero, FONDO PALCO e PUBBLICO (scritte) dentro il riquadro, il riquadro scritto nell'SVG è lo stesso */
+function pngSenzaTagli(vb, W, D, msg) {
+  ok(vb.x <= 0 && vb.y <= 0 && vb.x + vb.w >= W && vb.y + vb.h >= D, msg + ": il palco non è intero nel PNG " + JSON.stringify(vb));
+  const svg = A.stageSceneSvg(vb), sv = svg.match(/<svg [^>]*viewBox="([-\d.]+) ([-\d.]+) ([\d.]+) ([\d.]+)"/);
+  eq(sv && sv.slice(1).map(Number), [vb.x, vb.y, vb.w, vb.h], msg + ": viewBox dell'SVG");
+  const z = [...svg.matchAll(/x="([-\d.]+)" y="([-\d.]+)">(FONDO PALCO|PUBBLICO)</g)];
+  eq(z.map((m) => m[3]), ["FONDO PALCO", "PUBBLICO"], msg + ": le scritte del palco ci sono");
+  z.forEach((m) => ok(+m[2] - 16 >= vb.y && +m[2] + 6 <= vb.y + vb.h && +m[1] - 120 >= vb.x && +m[1] + 120 <= vb.x + vb.w, msg + ": «" + m[3] + "» tagliata (" + m[1] + "," + m[2] + ") in " + JSON.stringify(vb)));
+}
+t("PNG centrato (a): senza pianta il centro del palco è il centro dell'immagine, come sempre", () => {
+  palcoPng(800, 500);
+  const vb = A.pngVbCentrato();
+  eq(vb, { x: -80, y: -80, w: 960, h: 660 }, "senza pianta il PNG è quello di sempre (80 cm per lato)");
+  pngCentro(vb, 800, 500, "senza pianta"); pngSenzaTagli(vb, 800, 500, "senza pianta");
+  reset();
+});
+t("PNG centrato (b): pianta più grande a destra e in alto, il palco resta al centro", () => {
+  palcoPng(800, 500); A.state.venue = A.normalizeVenue({ name: "p.png", x: 1900, y: -400, w: 2400, h: 1500, rot: 0, opacity: 40, enabled: true, locked: true, _dataUrl: PIANTA_B64, _imgW: 1500, _imgH: 1000 });
+  A.state.printFrame = A.frameStageRect();
+  const prima = A.pngVbConPianta();
+  ok(prima && Math.abs(prima.x + prima.w / 2 - 400) > 100, "prova valida: il riquadro con la sola pianta NON è centrato " + JSON.stringify(prima));
+  const vb = A.pngVbCentrato();
+  pngCentro(vb, 800, 500, "pianta a destra e in alto");
+  ok(vb.x <= prima.x && vb.y <= prima.y && vb.x + vb.w >= prima.x + prima.w && vb.y + vb.h >= prima.y + prima.h, "la pianta concessa è dentro: " + JSON.stringify([prima, vb]));
+  pngSenzaTagli(vb, 800, 500, "pianta a destra e in alto");
+  reset();
+});
+t("PNG centrato (c): pianta più grande da tutti i lati, centro invariato", () => {
+  conPianta({ x: 400, y: 250, w: 3000, h: 2000 }); A.state.stage = { w: 800, d: 500, blocks: [{ x: 0, y: 0, w: 800, d: 500 }] }; A.state.printFrame = A.frameStageRect();
+  const vb = A.pngVbCentrato();
+  pngCentro(vb, 800, 500, "pianta da tutti i lati"); pngSenzaTagli(vb, 800, 500, "pianta da tutti i lati");
+  /* la pianta c'è da tutte le parti: un quarto del lato lungo del riquadro (960 → 240 cm) oltre il riquadro di base (-80), per parte */
+  eq(vb, { x: -320, y: -320, w: 1440, h: 1140 }, "un quarto del lato lungo per parte, simmetrico");
+  reset();
+});
+t("PNG centrato (d): area di stampa più grande del palco (e decentrata), il palco resta al centro", () => {
+  palcoPng(800, 500); A.state.printFrame = { x: -300, y: -100, w: 1800, h: 900 };   /* più grande, e spostata a destra e in basso */
+  const vb = A.pngVbCentrato();
+  pngCentro(vb, 800, 500, "area più grande"); pngSenzaTagli(vb, 800, 500, "area più grande");
+  const F = A.sceneVbDefault();
+  ok(vb.x <= F.x && vb.y <= F.y && vb.x + vb.w >= F.x + F.w && vb.y + vb.h >= F.y + F.h, "l'area scelta c'è tutta: " + JSON.stringify([F, vb]));
+  eq(A.sceneVbDefault(), F, "sceneVbDefault non è toccata (i PDF restano com'erano)");
+  /* area + pianta insieme */
+  A.state.venue = A.normalizeVenue({ name: "p.png", x: 1700, y: 900, w: 1800, h: 1200, rot: 0, opacity: 40, enabled: true, locked: true, _dataUrl: PIANTA_B64, _imgW: 1500, _imgH: 1000 });
+  const v2 = A.pngVbCentrato(); pngCentro(v2, 800, 500, "area e pianta"); pngSenzaTagli(v2, 800, 500, "area e pianta");
+  ok(v2.w >= vb.w && v2.h >= vb.h, "con la pianta in più il riquadro non si restringe");
+  reset();
+});
+t("PNG centrato (f): palco 1250×1335 non quadrato, area con origine non zero e chi sta fuori dal palco", () => {
+  palcoPng(1250, 1335);
+  eq(A.pngVbCentrato(), { x: -80, y: -80, w: 1410, h: 1495 }, "palco non quadrato, senza pianta");
+  A.state.printFrame = { x: -700, y: 400, w: 2400, h: 1200 };   /* origine non zero, taglia il palco in alto */
+  const vb = A.pngVbCentrato(); pngCentro(vb, 1250, 1335, "origine non zero");
+  const F = A.sceneVbDefault(); ok(vb.x <= F.x && vb.y <= F.y && vb.x + vb.w >= F.x + F.w && vb.y + vb.h >= F.y + F.h, "l'area scelta c'è tutta " + JSON.stringify([F, vb]));
+  A.state.printFrame = null; add("sub18", 1900, 300, { label: "SUB IN PLATEA" }); A.__cabRes = null;
+  const v2 = A.pngVbCentrato(); pngCentro(v2, 1250, 1335, "cassa fuori dal palco a destra");
+  ok(v2.x + v2.w > 1900, "e la cassa fuori dal palco c'è: " + JSON.stringify(v2));
+  reset();
+});
+t("PNG centrato (g): exportPngCorpo usa il riquadro centrato (desktop e iPhone: stessa funzione)", () => {
+  ok(/var vbP=pngVbCentrato\(\);/.test(appjs) && /stageSceneSvg\(vbP\)/.test(appjs), "l'export PNG parte da pngVbCentrato");
+  ok(!/stageSceneSvg\(vbP \|\| undefined\)/.test(appjs), "non resta la vecchia strada decentrata");
+  ok((appjs.match(/exportPngCorpo\(/g) || []).length === 3, "un solo corpo dell'export, chiamato da exportPng (due rami): " + (appjs.match(/exportPngCorpo\(/g) || []).length);
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
