@@ -37827,5 +37827,64 @@ t("proporzioni: percussionista in piedi ×0,819 attorno alla testa — riquadro,
   eq([per.extra.w, per.extra.d], [74.6, 59.2], "«Dividi»: il percussionista 74,6×59,2");
 }));
 
+/* LUCCHETTO sugli elementi che coprono il palco (20/11/2026): «Crea elemento», testo, scala, parapetto, ostacolo.
+   Segnalazione di Simone: un gruppo di quote sopra il palco rubava il doppio clic (non partiva la ricerca rapida). */
+const TIPI_LOCK_NUOVI = ["custom", "custshape", "testo", "scala", "parapetto", "ostacolo"];
+t("lucchetto: custom, custshape, testo, scala, parapetto, ostacolo si bloccano (non si spostano) e il doppio clic li attraversa", () => {
+  for (const tipo of TIPI_LOCK_NUOVI) {
+    reset();
+    const it = { id: "lk" + tipo, type: tipo, x: 300, y: 200, rot: 0, w: 100, d: 40, label: "Quota" };
+    A.state.items.push(it);
+    ok(A.isLockable(it), tipo + ": bloccabile");
+    ok(A.itemEditable(it), tipo + ": libero di default (stesso comportamento di prima)");
+    ok(A.lockToggle(it) === true && it.locked === true, tipo + ": lockToggle chiude");
+    ok(!A.itemEditable(it), tipo + ": chiuso non si sposta");
+    A.selectOne(it.id);
+    ok(A.selHandlesMarkup().includes('class="lock-handle on"'), tipo + ": la maniglia lucchetto c'è, chiusa");
+    ok(A.lockToggle(it) === false && !("locked" in it), tipo + ": lockToggle riapre e toglie il campo");
+  }
+  /* il ramo del doppio clic: un elemento bloccabile e chiuso apre la ricerca rapida (nessun tipo escluso a mano) */
+  const dc = appjs.slice(appjs.indexOf("var _dcIt0="), appjs.indexOf("var _dcIt0=") + 1200);
+  ok(/isLockable\(_dcIt0\) && _dcIt0\.locked===true[\s\S]*openQuickAdd\(svgPoint\(e\)/.test(dc), "il doppio clic su un bloccabile chiuso apre openQuickAdd");
+});
+t("lucchetto: un gruppo (grp) si blocca e si sblocca tutto insieme; «Crea elemento» = base + pezzi", () => {
+  reset();
+  const base = { id: "b1", type: "custom", x: 300, y: 200, rot: 0, w: 120, d: 80, grp: "g9", label: "Tavolo" };
+  const p1 = { id: "p1", type: "custshape", x: 300, y: 200, rot: 0, w: 40, d: 40, grp: "g9" };
+  const p2 = { id: "p2", type: "custshape", x: 340, y: 200, rot: 0, w: 40, d: 40, grp: "g9" };
+  const fuori = { id: "f1", type: "testo", x: 600, y: 200, rot: 0, w: 100, d: 40, grp: "altro", label: "x" };
+  A.state.items.push(base, p1, p2, fuori);
+  A.lockToggle(p1);   /* toccato un pezzo: si chiude tutto il gruppo */
+  ok(base.locked && p1.locked && p2.locked, "base e pezzi chiusi");
+  ok(!fuori.locked, "un altro gruppo non è toccato");
+  A.lockToggle(base);   /* riaperto dalla base: si riapre tutto */
+  ok(!base.locked && !p1.locked && !p2.locked, "base e pezzi riaperti");
+});
+t("lucchetto: `locked` si salva e si riapre col progetto; i progetti senza lucchetto restano identici", () => {
+  reset();
+  const a = { id: "s1", type: "testo", x: 300, y: 200, rot: 0, w: 100, d: 40, label: "Quota", locked: true };
+  const b = { id: "s2", type: "scala", x: 500, y: 200, rot: 0, w: 60, d: 90 };
+  A.state.items.push(a, b);
+  const back = A.normalizeState(JSON.parse(A.stateToJSON()));
+  const ra = back.items.find((x) => x.id === "s1"), rb = back.items.find((x) => x.id === "s2");
+  ok(ra && ra.locked === true, "locked sopravvive a salva/riapri");
+  ok(rb && !("locked" in rb), "senza lucchetto: nessun campo aggiunto");
+});
+t("lucchetto: il glifo c'è a schermo ma NON nell'export (PDF/PNG) per i tipi nuovi; pedane invariate", () => {
+  for (const tipo of ["custom", "testo", "scala", "parapetto", "ostacolo"]) {
+    reset();
+    const it = { id: "g" + tipo, type: tipo, x: 300, y: 200, rot: 0, w: 120, d: 80, label: "Q", locked: true };
+    A.state.items.push(it);
+    A.selSet = {};
+    const sch = A.sceneMarkup({}), exp = A.sceneMarkup({ espandi: true });
+    ok(sch.includes("riser-lock"), tipo + ": glifo a schermo");
+    ok(!exp.includes("riser-lock"), tipo + ": niente glifo in export");
+  }
+  reset();
+  const pe = { id: "gp", type: "pedana", x: 300, y: 200, rot: 0, w: 200, d: 150, label: "P", locked: true };
+  A.state.items.push(pe); A.selSet = {};
+  ok(A.sceneMarkup({ espandi: true }).includes("riser-lock"), "pedana: comportamento di sempre (glifo anche in export)");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
