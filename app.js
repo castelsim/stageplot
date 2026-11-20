@@ -24558,7 +24558,7 @@ function ricordaRecenteCatalogo(k, nome, over){
                 kw:"frequenza frequenze radiofrequenza radiofrequenze radio radiomicrofoni banda mhz lista rf"});
   /* FUNZIONI COME BERSAGLI DELLA RICERCA (20/11/2026, decisione di Simone: «le ricerche senza risultati sono la bussola»): chi scrive
      «salva», «piedi», «accedi», «luogo» non cerca un oggetto ma una funzione. Ogni riga APRE la funzione con il gestore che c'è già
-     (nessuna logica copiata) e dice «Funzione ·» davanti al sottotitolo. Nessun «Esporta JSON»: la ricerca non lo propone. */
+     (nessuna logica copiata) e dice «Funzione ·» davanti al sottotitolo. Il progetto non si scarica più: la ricerca non propone nessun file. */
   function fnClick(id){ return function(){ var b=document.getElementById(id); if(b) b.click(); }; }
   function fnEntry(nome, dim, icon, action, kw, primo){ entries.push({nome:nome, dim:dim, noQuick:true, fn:true, iconHtml:icon, action:action, kw:kw, qaPrimo:primo}); }
   fnEntry("Unità di misura", "metri ⇄ piedi e pollici", LISTA_ICON, function(){ unitaCambia(docUnita()==="ft" ? "m" : "ft"); ["unitSel","unitSelM"].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=docUnita(); }); },
