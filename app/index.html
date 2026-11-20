@@ -4631,17 +4631,6 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
             </div>
             <input type="file" id="venueFile" accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,.pdf" hidden>
             <button class="btn primary" id="venueBtnImport" style="width:100%;margin-top:7px">📥 Immagine o PDF</button>
-            <div id="venuePdfPick" hidden style="margin-top:7px;border:1px solid var(--border);border-radius:8px;padding:6px;background:var(--surface)">
-              <small id="venuePdfPickTxt" style="display:block;color:var(--text-2);font-size:12px"></small>
-              <div style="display:flex;gap:6px;align-items:center;margin-top:5px">
-                <canvas id="venuePdfThumb" width="1" height="1" aria-label="Anteprima della pagina" style="max-width:96px;max-height:96px;border:1px solid var(--border);background:#fff;flex:0 0 auto"></canvas>
-                <label style="font-size:12px;color:var(--text-2)">Pagina <input type="number" id="venuePdfPage" min="1" step="1" value="1" aria-label="Numero della pagina del PDF" style="width:52px;border:1px solid var(--border);border-radius:7px;padding:4px;font-size:13px;text-align:center;background:var(--surface);color:var(--text)"></label>
-              </div>
-              <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
-                <button class="btn primary" id="venuePdfUse" style="flex:1 1 120px;width:auto;min-width:0;font-size:12px;padding:4px 6px">Usa questa pagina</button>
-                <button class="btn" id="venuePdfCancel" style="flex:0 1 auto;width:auto;min-width:0;font-size:12px;padding:4px 8px">Annulla</button>
-              </div>
-            </div>
             <div id="venueWeightRow" hidden style="margin-top:7px">
               <small id="venueWeightTxt" style="display:block;color:var(--text-2);font-size:12px"></small>
               <button class="btn" id="venueBtnLighten" style="width:100%;margin-top:4px">Alleggerisci immagine</button>
@@ -6931,6 +6920,25 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
 </section>
 
 <!-- ===================== CLOUD (Supabase: login Google opzionale + salvataggio online) ===================== -->
+<!-- Scelta della pagina di un PDF come planimetria (20/11/2026): anteprima grande, frecce ‹ ›, ← → Invio Esc -->
+<div class="modal" id="venuePdfPick" hidden style="z-index:400" role="dialog" aria-modal="true" aria-label="Scegli la pagina del PDF">
+  <div class="mcard" style="width:560px;max-width:96vw;padding:10px">
+    <small id="venuePdfPickTxt" style="display:block;color:var(--text-2);font-size:12px"></small>
+    <div style="height:min(56vh,420px);margin-top:6px;border:1px solid var(--border);border-radius:8px;background:#fff;overflow:hidden">
+      <canvas id="venuePdfThumb" width="1" height="1" aria-label="Anteprima della pagina" style="display:block;width:100%;height:100%;object-fit:contain"></canvas>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center;justify-content:center;margin-top:7px;font-size:12px;color:var(--text-2)">
+      <button class="btn" id="venuePdfPrev" aria-label="Pagina precedente" style="width:auto;min-width:0;font-size:14px;padding:2px 12px">‹</button>
+      <label>Pagina <input type="number" id="venuePdfPage" min="1" step="1" value="1" aria-label="Numero della pagina del PDF" style="width:52px;border:1px solid var(--border);border-radius:7px;padding:4px;font-size:13px;text-align:center;background:var(--surface);color:var(--text)"> di <span id="venuePdfTot">1</span></label>
+      <button class="btn" id="venuePdfNext" aria-label="Pagina successiva" style="width:auto;min-width:0;font-size:14px;padding:2px 12px">›</button>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:8px;justify-content:flex-end">
+      <button class="btn" id="venuePdfCancel" style="width:auto;min-width:0;font-size:12px;padding:4px 10px">Annulla</button>
+      <button class="btn primary" id="venuePdfUse" style="width:auto;min-width:0;font-size:12px;padding:4px 10px">Usa questa pagina</button>
+    </div>
+  </div>
+</div>
+
 <div id="cloudModal" style="position:fixed;inset:0;z-index:200;background:rgba(15,23,42,.55);display:none;align-items:center;justify-content:center;padding:18px">
   <div style="background:var(--surface);color:var(--text);max-width:520px;width:100%;max-height:88vh;overflow:auto;border-radius:var(--r-xl);box-shadow:var(--elev-4);font-family:var(--font-ui)">
     <div style="display:flex;align-items:center;gap:9px;padding:15px 18px;border-bottom:1px solid var(--border)">

@@ -467,17 +467,6 @@
             </div>
             <input type="file" id="venueFile" accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,.pdf" hidden>
             <button class="btn primary" id="venueBtnImport" style="width:100%;margin-top:7px">📥 Immagine o PDF</button>
-            <div id="venuePdfPick" hidden style="margin-top:7px;border:1px solid var(--border);border-radius:8px;padding:6px;background:var(--surface)">
-              <small id="venuePdfPickTxt" style="display:block;color:var(--text-2);font-size:12px"></small>
-              <div style="display:flex;gap:6px;align-items:center;margin-top:5px">
-                <canvas id="venuePdfThumb" width="1" height="1" aria-label="Anteprima della pagina" style="max-width:96px;max-height:96px;border:1px solid var(--border);background:#fff;flex:0 0 auto"></canvas>
-                <label style="font-size:12px;color:var(--text-2)">Pagina <input type="number" id="venuePdfPage" min="1" step="1" value="1" aria-label="Numero della pagina del PDF" style="width:52px;border:1px solid var(--border);border-radius:7px;padding:4px;font-size:13px;text-align:center;background:var(--surface);color:var(--text)"></label>
-              </div>
-              <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
-                <button class="btn primary" id="venuePdfUse" style="flex:1 1 120px;width:auto;min-width:0;font-size:12px;padding:4px 6px">Usa questa pagina</button>
-                <button class="btn" id="venuePdfCancel" style="flex:0 1 auto;width:auto;min-width:0;font-size:12px;padding:4px 8px">Annulla</button>
-              </div>
-            </div>
             <div id="venueWeightRow" hidden style="margin-top:7px">
               <small id="venueWeightTxt" style="display:block;color:var(--text-2);font-size:12px"></small>
               <button class="btn" id="venueBtnLighten" style="width:100%;margin-top:4px">Alleggerisci immagine</button>
@@ -36940,7 +36929,8 @@ function venueLoadFile(file){
    immagine — stessa ricompressione, stessa scala a 2 punti, stesso salvataggio. Nessuna modifica
    allo schema dei dati, a cloud, export o stampa. Il file non esce dal browser. */
 var VENUE_PDF_MAXBYTES=25*1024*1024;
-var venuePdfPromessa=null, venuePdfSeq=0, venuePdfDoc=null, venuePdfCtx=null, venuePdfThumbSeq=0;
+var venuePdfPromessa=null, venuePdfSeq=0, venuePdfDoc=null, venuePdfCtx=null, venuePdfThumbSeq=0, venuePdfTask=null;
+var VENUE_PDF_PREVIEWSIDE=1100;   /* anteprima grande: basta meno del tetto dell'import (2000) */
 function venueIsPdf(file){
   if(!file) return false;
   var t=String(file.type||"");
@@ -36990,18 +36980,22 @@ function venueCaricaPdfJs(){
 }
 function venuePdfChiudi(){
   venuePdfSeq++; venuePdfThumbSeq++;
-  if(venuePdfDoc){ try{ venuePdfDoc.destroy(); }catch(e){} venuePdfDoc=null; }
-  venuePdfCtx=null;
+  if(venuePdfTask){ try{ venuePdfTask.cancel(); }catch(e){} venuePdfTask=null; }
+  var pdf=venuePdfDoc; venuePdfDoc=null; venuePdfCtx=null;
+  if(pdf){ try{ pdf.cleanup&&pdf.cleanup(); }catch(e){} try{ pdf.destroy(); }catch(e){} }   /* destroy chiude anche il worker */
+  var t=document.getElementById("venuePdfThumb"); if(t){ t.width=0; t.height=0; }   /* libera i pixel dell'anteprima */
   var p=document.getElementById("venuePdfPick"); if(p) p.hidden=true;
 }
 /* disegna la pagina in un canvas bianco (mai trasparente: sul palco coprirebbe in nero) */
-function venuePdfRender(pdf,num,lato){
+function venuePdfRender(pdf,num,lato,onTask){
   return pdf.getPage(num).then(function(page){
     var v0=page.getViewport({scale:1}), sc=venuePdfScale(v0.width,v0.height,lato), vp=page.getViewport({scale:sc});
     var cv=document.createElement("canvas");
     cv.width=Math.max(1,Math.round(vp.width)); cv.height=Math.max(1,Math.round(vp.height));
     var cg=cv.getContext("2d"); cg.fillStyle="#fff"; cg.fillRect(0,0,cv.width,cv.height);
-    return page.render({canvasContext:cg,viewport:vp}).promise.then(function(){ return cv; });
+    var task=page.render({canvasContext:cg,viewport:vp});
+    if(onTask) onTask(task);
+    return task.promise.then(function(){ try{ page.cleanup&&page.cleanup(); }catch(e){} return cv; });
   });
 }
 function venuePdfUsa(pdf,num,ctx){
@@ -37024,14 +37018,47 @@ function venuePdfUsa(pdf,num,ctx){
     },"image/png");
   });
 }
+/* anteprima grande della pagina `num`: l'ultima richiesta vince, la resa precedente si annulla */
 function venuePdfAnteprima(pdf,num,seq){
   var my=++venuePdfThumbSeq;
-  venuePdfRender(pdf,num,160).then(function(cv){
-    if(my!==venuePdfThumbSeq||seq!==venuePdfSeq) return;
-    var t=document.getElementById("venuePdfThumb"); if(!t) return;
+  if(venuePdfTask){ try{ venuePdfTask.cancel(); }catch(e){} venuePdfTask=null; }
+  venuePdfRender(pdf,num,VENUE_PDF_PREVIEWSIDE,function(task){
+    if(my!==venuePdfThumbSeq||seq!==venuePdfSeq){ try{ task.cancel(); }catch(e){} return; }   /* nel frattempo è arrivata un'altra richiesta (o il selettore è chiuso): non si disegna nemmeno */
+    venuePdfTask=task;
+  }).then(function(cv){
+    if(my!==venuePdfThumbSeq||seq!==venuePdfSeq){ cv.width=cv.height=0; return; }
+    venuePdfTask=null;
+    var t=document.getElementById("venuePdfThumb"); if(!t){ cv.width=cv.height=0; return; }
     t.width=cv.width; t.height=cv.height; t.getContext("2d").drawImage(cv,0,0);
     cv.width=cv.height=0;
   }).catch(function(){});
+}
+/* pagina `n` (1..numPages): aggiorna campo, «di N», frecce e anteprima */
+function venuePdfVai(n){
+  var pdf=venuePdfDoc; if(!pdf) return 0;
+  n=Math.max(1,Math.min(pdf.numPages,Math.round(+n||1)));
+  document.getElementById("venuePdfPage").value=String(n);
+  document.getElementById("venuePdfPrev").disabled=(n<=1);
+  document.getElementById("venuePdfNext").disabled=(n>=pdf.numPages);
+  venuePdfAnteprima(pdf,n,venuePdfSeq);
+  return n;
+}
+/* tastiera nel selettore: ← → pagine, Invio usa, Esc annulla (in cattura: l'editor sotto non deve muovere nulla) */
+function venuePdfTasto(e){
+  if(!venuePdfDoc) return false;
+  var k=e.key, tg=e.target&&e.target.tagName, dentro=(tg==="INPUT");
+  if(k==="ArrowLeft"&&!dentro) venuePdfVai(venuePdfPaginaScelta()-1);
+  else if(k==="ArrowRight"&&!dentro) venuePdfVai(venuePdfPaginaScelta()+1);
+  else if(k==="Escape") venuePdfChiudi();
+  else if(k==="Enter"&&!(tg==="BUTTON"&&e.target.id==="venuePdfCancel")) venuePdfConferma();   /* Invio = usa questa pagina (anche su ‹ ›, «Usa» e nel campo; preventDefault evita il doppio invio); su «Annulla» annulla il bottone */
+  else return false;
+  if(e.preventDefault) e.preventDefault();
+  if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+  return true;
+}
+function venuePdfConferma(){
+  var pdf=venuePdfDoc, ctx=venuePdfCtx; if(!pdf||!ctx) return;
+  venuePdfUsa(pdf,venuePdfPaginaScelta(),ctx).catch(function(e){ if(window.__toast) window.__toast(venuePdfErrore(e),true); });
 }
 function venueLoadPdf(file){
   if(file.size>VENUE_PDF_MAXBYTES){
@@ -37057,8 +37084,9 @@ function venueLoadPdf(file){
         var pick=document.getElementById("venuePdfPick"), inp=document.getElementById("venuePdfPage");
         if(!pick||!inp) return venuePdfUsa(pdf,1,ctx);
         document.getElementById("venuePdfPickTxt").textContent="Il PDF ha "+pdf.numPages+" pagine: scegli quella della pianta.";
-        inp.max=String(pdf.numPages); inp.value="1"; pick.hidden=false;
-        venuePdfAnteprima(pdf,1,seq);
+        inp.max=String(pdf.numPages); document.getElementById("venuePdfTot").textContent=String(pdf.numPages); pick.hidden=false;
+        venuePdfVai(1);
+        var u=document.getElementById("venuePdfUse"); if(u&&u.focus) u.focus();   /* il focus esce dal campo numerico: ← → funzionano subito */
       }, function(e){ try{ task.destroy(); }catch(_){} throw e; });   /* PDF rotto o con password: il worker si chiude comunque */
     });
   }).catch(function(e){
@@ -37223,11 +37251,11 @@ document.getElementById("venueBtnLighten").addEventListener("click", venueLighte
 document.getElementById("venueBtnImport").addEventListener("click", function(){ document.getElementById("venueFile").click(); });
 document.getElementById("venueFile").addEventListener("change", function(e){ venueLoadFile(e.target.files&&e.target.files[0]); e.target.value=""; });
 document.getElementById("venueBtnReload").addEventListener("click", function(){ document.getElementById("venueFile").click(); });
-document.getElementById("venuePdfPage").addEventListener("input", function(){ if(venuePdfDoc) venuePdfAnteprima(venuePdfDoc,venuePdfPaginaScelta(),venuePdfSeq); });
-document.getElementById("venuePdfUse").addEventListener("click", function(){
-  var pdf=venuePdfDoc, ctx=venuePdfCtx; if(!pdf||!ctx) return;
-  venuePdfUsa(pdf,venuePdfPaginaScelta(),ctx).catch(function(e){ if(window.__toast) window.__toast(venuePdfErrore(e),true); });
-});
+document.getElementById("venuePdfPage").addEventListener("input", function(){ if(venuePdfDoc) venuePdfVai(venuePdfPaginaScelta()); });
+document.getElementById("venuePdfPrev").addEventListener("click", function(){ venuePdfVai(venuePdfPaginaScelta()-1); });
+document.getElementById("venuePdfNext").addEventListener("click", function(){ venuePdfVai(venuePdfPaginaScelta()+1); });
+document.getElementById("venuePdfUse").addEventListener("click", venuePdfConferma);
+document.addEventListener("keydown", venuePdfTasto, true);
 document.getElementById("venuePdfCancel").addEventListener("click", venuePdfChiudi);
 document.getElementById("venueOpacity").addEventListener("input", function(){
   if(!state.venue) return; state.venue.opacity=+this.value;
@@ -45593,6 +45621,25 @@ function maybeAskStageSize(explicit){
 </section>
 
 <!-- ===================== CLOUD (Supabase: login Google opzionale + salvataggio online) ===================== -->
+<!-- Scelta della pagina di un PDF come planimetria (20/11/2026): anteprima grande, frecce ‹ ›, ← → Invio Esc -->
+<div class="modal" id="venuePdfPick" hidden style="z-index:400" role="dialog" aria-modal="true" aria-label="Scegli la pagina del PDF">
+  <div class="mcard" style="width:560px;max-width:96vw;padding:10px">
+    <small id="venuePdfPickTxt" style="display:block;color:var(--text-2);font-size:12px"></small>
+    <div style="height:min(56vh,420px);margin-top:6px;border:1px solid var(--border);border-radius:8px;background:#fff;overflow:hidden">
+      <canvas id="venuePdfThumb" width="1" height="1" aria-label="Anteprima della pagina" style="display:block;width:100%;height:100%;object-fit:contain"></canvas>
+    </div>
+    <div style="display:flex;gap:6px;align-items:center;justify-content:center;margin-top:7px;font-size:12px;color:var(--text-2)">
+      <button class="btn" id="venuePdfPrev" aria-label="Pagina precedente" style="width:auto;min-width:0;font-size:14px;padding:2px 12px">‹</button>
+      <label>Pagina <input type="number" id="venuePdfPage" min="1" step="1" value="1" aria-label="Numero della pagina del PDF" style="width:52px;border:1px solid var(--border);border-radius:7px;padding:4px;font-size:13px;text-align:center;background:var(--surface);color:var(--text)"> di <span id="venuePdfTot">1</span></label>
+      <button class="btn" id="venuePdfNext" aria-label="Pagina successiva" style="width:auto;min-width:0;font-size:14px;padding:2px 12px">›</button>
+    </div>
+    <div style="display:flex;gap:6px;margin-top:8px;justify-content:flex-end">
+      <button class="btn" id="venuePdfCancel" style="width:auto;min-width:0;font-size:12px;padding:4px 10px">Annulla</button>
+      <button class="btn primary" id="venuePdfUse" style="width:auto;min-width:0;font-size:12px;padding:4px 10px">Usa questa pagina</button>
+    </div>
+  </div>
+</div>
+
 <div id="cloudModal" style="position:fixed;inset:0;z-index:200;background:rgba(15,23,42,.55);display:none;align-items:center;justify-content:center;padding:18px">
   <div style="background:var(--surface);color:var(--text);max-width:520px;width:100%;max-height:88vh;overflow:auto;border-radius:var(--r-xl);box-shadow:var(--elev-4);font-family:var(--font-ui)">
     <div style="display:flex;align-items:center;gap:9px;padding:15px 18px;border-bottom:1px solid var(--border)">
