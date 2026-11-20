@@ -180,6 +180,14 @@ var _docEnNome=function(x){ var e=docEnEtichetta(x); return e==null ? x : e; };
 var DOC_EN_REGOLE=[[/^Sorgente senza destinazione: (.+) \(ingressi palco esauriti\)(?: — (?:aggiungi una stage box vicino alla regia e marcala come «lato mixer», poi collegali lì a mano\.|collegali a mano alla stage box del mixer \((\w+)\)\.))?$/,
     function(all, n, b){ return "Source with no destination: "+_docEnNome(n)+" (stage inputs used up)"+(/ — aggiungi/.test(all) ? " — add a stage box near FOH, mark it as “mixer side”, then patch them there by hand." : (b ? " — patch them by hand to the mixer stage box ("+b+")." : "")); }],
   [/^evento (.+)$/, "show $1"], [/^(\d+) da (\d.*)$/, "$1 at $2"], [/^(\d+) pedana (\d.*)$/, "$1 riser $2"], [/^(\d+) pedane (\d.*)$/, "$1 risers $2"], [/^pedana (\d.*)$/, "riser $1"],
+  /* pedana ad arco (20/11/2026): corda × freccia (+ spessore della fascia), mai la misura di un rettangolo */
+  [/^(\d+)× pedana (\d[^·:()]*)$/, "$1× riser $2"],   /* una pedana rettangolare accanto a un arco: il rider non ha più l'intera frase a dizionario */
+    [/^(\d+)× pedana ad arco (\d[^·:()]*)$/, "$1× curved riser $2"], [/^(\d+) pedana ad arco (\d[^·:()]*)$/, "$1 curved riser $2"], [/^(\d+) ad arco (\d[^·:()]*)$/, "$1 curved at $2"],
+  [/^sp\. (\d[^·:()]*)$/, "width $1"], [/^spessore (\d[^·:()]*)$/, "width $1"], [/^(\d[^·:()]*) corda × freccia$/, "$1 chord × rise"],
+  [/^(\d+) pedana ad arco$/, "$1 curved riser"], [/^(\d+) pedane ad arco$/, "$1 curved risers"], [/^Pedane ad arco$/, "Curved risers"],
+  [/^(\d+) in tutto, forma curva: non sono moduli 2×1$/, "$1 in total, curved shape: not 2×1 modules"],
+  [/^(\d+) (pedana|pedane) ad arco: forma curva, fuori dai moduli 2×1\.$/, function(all, n){ return n+(+n===1 ? " curved riser" : " curved risers")+": curved shape, outside the 2×1 modules."; }],
+ 
   [/^altezza (\d.*)$/, "height $1"], [/^disegnato (\d.*)$/, "drawn $1"], [/^(\d+) in tutto$/, "$1 total"]];
 function _docEnRegola(s){ for(var j=0;j<DOC_EN_REGOLE.length;j++){ if(DOC_EN_REGOLE[j][0].test(s)) return s.replace(DOC_EN_REGOLE[j][0], DOC_EN_REGOLE[j][1]); } return null; }
 function _docEnTrad(s){
@@ -283,7 +291,7 @@ function docSvgTesti(svg){
 /* ── CAMPI DEL PANNELLO IN PIEDI ── In piedi i campi mostrano piedi (lunghezze) o pollici (altezze) e si scrive anche «8'», «8' 6"», «96"».
    base: "cm" (campo in centimetri), "m" (campo in metri), "h" (altezza in centimetri). Il documento resta in centimetri, senza arrotondare
    le misure intere in pollici (8' = 243,84 cm); in metri tutto resta com'era. */
-var DOC_CAMPI_ETICHETTE={pW:["L (cm)","L (ft-in)"], pD:["P (cm)","P (ft-in)"], pH:["h (cm)","h (ft-in)"], frameW:["Larghezza (m)","Larghezza (ft-in)"], frameH:["Profondità (m)","Profondità (ft-in)"], frameX:["X (m)","X (ft-in)"], frameY:["Y (m)","Y (ft-in)"], blkH:["Altezza (cm)","Altezza (ft-in)"], pRigH:["Altezza (trim, cm)","Altezza (trim, ft-in)"], pMountH:null, pAntH:null, blkW:["Largh. (m)","Largh. (ft-in)"], blkD:["Prof. (m)","Prof. (ft-in)"], blkX:["X (m)","X (ft-in)"], blkY:["Y (m)","Y (ft-in)"]};
+var DOC_CAMPI_ETICHETTE={pW:["L (cm)","L (ft-in)"], pD:["P (cm)","P (ft-in)"], pH:["h (cm)","h (ft-in)"], pSpess:["Spessore (cm)","Spessore (ft-in)"], frameW:["Larghezza (m)","Larghezza (ft-in)"], frameH:["Profondità (m)","Profondità (ft-in)"], frameX:["X (m)","X (ft-in)"], frameY:["Y (m)","Y (ft-in)"], blkH:["Altezza (cm)","Altezza (ft-in)"], pRigH:["Altezza (trim, cm)","Altezza (trim, ft-in)"], pMountH:null, pAntH:null, blkW:["Largh. (m)","Largh. (ft-in)"], blkD:["Prof. (m)","Prof. (ft-in)"], blkX:["X (m)","X (ft-in)"], blkY:["Y (m)","Y (ft-in)"]};
 function docCmEsatti(c){ var r=Math.round(c), inch=c/CM_PER_IN; return (Math.abs(c-r)>1e-6 && Math.abs(inch-Math.round(inch))<1e-6) ? Math.round(c*100)/100 : r; }
 function docCampoEtichette(){
   var ft=docUnita()==="ft";

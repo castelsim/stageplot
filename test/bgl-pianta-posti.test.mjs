@@ -16,7 +16,7 @@ export const FUNZIONI = ["postoTipo", "postoNumerato", "postoSettore", "postoNom
   "postiVerso", "hasPts", "blockCorners", "itemCorners", "bglChiave", "bglPostoNome", "bglPostiNomi", "bglSemiPoligono",
   "bglPianta", "bglProblemiPianta", "bglSenzaNumero", "piantaPedana", "piantaSediaMisure", "piantaVarianti",
   "piantaStatoDaDocumento", "piantaDaDocumento", "piantaTolleranze", "piantaAllinea", "piantaPorta", "piantaConfronta",
-  "piantaRiassunto"];
+  "piantaRiassunto", "arcoGeom", "arcoBoxLocale", "arcoPoligono", "piantaPedanaPoligono"];
 
 /* una platea inventata: 2 file da 6 sedie sotto un palco, una pedana, una sedia senza numero; `gradi` gira tutto */
 function scena({ gradi = 0, semi = false } = {}) {
@@ -55,6 +55,43 @@ test("pedane e sedia del pubblico: le stesse del catalogo dell'editor (TYPES)", 
   const riser = Object.keys(A.TYPES).filter((k) => A.TYPES[k].riser).sort();
   assert.deepEqual(Object.keys(A.TYPES).filter((k) => PP.piantaPedana(k)).sort(), riser, "un tipo pedana nuovo va aggiunto in piantaPedana");
   assert.deepEqual(PP.piantaSediaMisure(), { w: A.TYPES.sediapubblico.w, d: A.TYPES.sediapubblico.d });
+});
+
+/* area di un poligono (formula dei lacci) */
+const areaPoli = (P) => Math.abs(P.reduce((a, p, i) => { const q = P[(i + 1) % P.length]; return a + p[0] * q[1] - q[0] * p[1]; }, 0)) / 2;
+test("pedana ad arco nella pianta posti: il CONTORNO vero (poligono ≤ 64 vertici), non il rettangolo corda×freccia", () => {
+  assert.ok(PP.piantaPedana("pedanaarco"), "pedanaarco è una pedana della foto");
+  const base = scena();
+  base.items.push({ id: "arco", type: "pedanaarco", x: 600, y: 150, rot: 0, w: 760, d: 229.3, h: 40, label: "" });
+  A.loadDoc(j(documento([{ id: "V1", name: "Platea", state: base }])));
+  const foto = j(A.bglPianta(A.state)), poli = foto.pedane;
+  assert.equal(poli.length, 2, "la pedana rettangolare e l'arco");
+  const arco = poli.find((p) => p.length > 4);
+  assert.ok(arco && arco.length >= 20 && arco.length <= 64, "contorno ad arco: tanti vertici, mai più di 64 (limite del server): " + (arco && arco.length));
+  assert.equal(poli.find((p) => p.length === 4).length, 4, "la pedana rettangolare resta un rettangolo");
+  /* area: segmento circolare vero = R²/2·(2θ − sin 2θ) con R, θ da corda e freccia */
+  const g = PP.arcoGeom(760, 229.3, 0), vera = g.R * g.R / 2 * (2 * g.half - Math.sin(2 * g.half)), got = areaPoli(arco);
+  assert.ok(Math.abs(got - vera) / vera < 0.005, "area del poligono = area del segmento circolare (" + got.toFixed(0) + " vs " + vera.toFixed(0) + ")");
+  assert.ok(vera < 760 * 229.3 * 0.8, "…e non quella del rettangolo (" + (760 * 229.3) + ")");
+  /* la stessa foto dal documento salvato (l'area della biglietteria) */
+  assert.deepEqual(j(PP.piantaDaDocumento(JSON.parse(A.docToJSON()), "V1")), foto, "dal progetto salvato esce la stessa foto");
+  /* fascia: contorno chiuso con l'arco interno, area = settore anulare; e girata di 90° */
+  [0, 90].forEach((rot) => {
+    const f = scena(); f.items.push({ id: "arco", type: "pedanaarco", x: 600, y: 150, rot, w: 600, d: 150, h: 40, spess: 120, label: "" });
+    A.loadDoc(j(documento([{ id: "V1", name: "Platea", state: f }])));
+    const p = j(A.bglPianta(A.state)).pedane.find((q) => q.length > 4), G = PP.arcoGeom(600, 150, 120);
+    assert.ok(p.length <= 64 && p.length > 24, "fascia: 48 vertici");
+    const sett = (G.R * G.R - G.r2 * G.r2) * G.half;   /* settore anulare: (R² − r²)·θ */
+    assert.ok(Math.abs(areaPoli(p) - sett) / sett < 0.005, rot + "°: area = settore anulare (" + areaPoli(p).toFixed(0) + " vs " + sett.toFixed(0) + ")");
+    const [x0, x1, y0, y1] = [0, 1].flatMap((k) => [Math.min(...p.map((q) => q[k])), Math.max(...p.map((q) => q[k]))]);
+    const B = PP.arcoBoxLocale(G); const w = rot === 0 ? B.x1 - B.x0 : B.y1 - B.y0, h = rot === 0 ? B.y1 - B.y0 : B.x1 - B.x0;
+    assert.ok(Math.abs((x1 - x0) - w) < 4 && Math.abs((y1 - y0) - h) < 4, rot + "°: il bbox del poligono = ingombro vero (" + (x1 - x0).toFixed(0) + "×" + (y1 - y0).toFixed(0) + " vs " + w.toFixed(0) + "×" + h.toFixed(0) + ")");
+  });
+  /* il confronto «la sala è cambiata»: un arco che cambia freccia cambia la pianta */
+  const f1 = scena(), f2 = scena(); f1.items.push({ id: "arco", type: "pedanaarco", x: 600, y: 150, w: 600, d: 100, h: 40, label: "" }); f2.items.push({ id: "arco", type: "pedanaarco", x: 600, y: 150, w: 600, d: 200, h: 40, label: "" });
+  A.loadDoc(j(documento([{ id: "V1", name: "Platea", state: f1 }]))); const A1 = j(A.bglPianta(A.state));
+  A.loadDoc(j(documento([{ id: "V1", name: "Platea", state: f2 }]))); const A2 = j(A.bglPianta(A.state));
+  assert.notDeepEqual(A1.pedane, A2.pedane, "freccia diversa = foto diversa");
 });
 
 test("dal documento salvato la stessa foto dell'editor: varianti, semicerchio, scena girata di 37°", () => {
