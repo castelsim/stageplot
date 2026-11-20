@@ -283,7 +283,7 @@ function docSvgTesti(svg){
 /* ── CAMPI DEL PANNELLO IN PIEDI ── In piedi i campi mostrano piedi (lunghezze) o pollici (altezze) e si scrive anche «8'», «8' 6"», «96"».
    base: "cm" (campo in centimetri), "m" (campo in metri), "h" (altezza in centimetri). Il documento resta in centimetri, senza arrotondare
    le misure intere in pollici (8' = 243,84 cm); in metri tutto resta com'era. */
-var DOC_CAMPI_ETICHETTE={pW:["L (cm)","L (ft-in)"], pD:["P (cm)","P (ft-in)"], pH:["h (cm)","h (ft-in)"], frameW:["Larghezza (m)","Larghezza (ft-in)"], frameH:["Profondità (m)","Profondità (ft-in)"], frameX:["X (m)","X (ft-in)"], frameY:["Y (m)","Y (ft-in)"], blkH:["Altezza (cm)","Altezza (ft-in)"], pRigH:["Altezza (trim, cm)","Altezza (trim, ft-in)"], pMountH:null, pAntH:null, blkW:["Largh. (m)","Largh. (ft-in)"], blkD:["Prof. (m)","Prof. (ft-in)"], blkX:["X (m)","X (ft-in)"], blkY:["Y (m)","Y (ft-in)"]};
+var DOC_CAMPI_ETICHETTE={pW:["L (cm)","L (ft-in)"], pD:["P (cm)","P (ft-in)"], pH:["h (cm)","h (ft-in)"], pSpess:["Spessore (cm)","Spessore (ft-in)"], frameW:["Larghezza (m)","Larghezza (ft-in)"], frameH:["Profondità (m)","Profondità (ft-in)"], frameX:["X (m)","X (ft-in)"], frameY:["Y (m)","Y (ft-in)"], blkH:["Altezza (cm)","Altezza (ft-in)"], pRigH:["Altezza (trim, cm)","Altezza (trim, ft-in)"], pMountH:null, pAntH:null, blkW:["Largh. (m)","Largh. (ft-in)"], blkD:["Prof. (m)","Prof. (ft-in)"], blkX:["X (m)","X (ft-in)"], blkY:["Y (m)","Y (ft-in)"]};
 function docCmEsatti(c){ var r=Math.round(c), inch=c/CM_PER_IN; return (Math.abs(c-r)>1e-6 && Math.abs(inch-Math.round(inch))<1e-6) ? Math.round(c*100)/100 : r; }
 function docCampoEtichette(){
   var ft=docUnita()==="ft";

@@ -872,6 +872,7 @@
       <span><label for="pW">L (cm)</label><input type="number" id="pW" min="10" step="5"></span>
       <span><label for="pD">P (cm)</label><input type="number" id="pD" min="10" step="5"></span>
       <span id="pHwrap"><label for="pH">h (cm)</label><input type="number" id="pH" min="0" step="10"></span>
+      <span id="pSpessWrap" style="display:none"><label for="pSpess">Spessore (cm)</label><input type="number" id="pSpess" min="0" step="5" placeholder="0 = pieno"></span>
     </div>
     <!-- 16/11/2026, icone approvate: punto di appendimento, carico e portata SCRITTI (mai calcolati). Carico oltre la portata = segno rosso. -->
     <div class="row" id="pPtWrap" style="display:none">
@@ -2772,6 +2773,36 @@ function riserSvg(w,d,locked,daConf){
   if(locked) s+=riserLockGlyph(w2,d2);
   return s;
 }
+/* ═══ PEDANA AD ARCO (20/11/2026, richiesta di uno stage manager di tour: palchi con pedane curve) ═══
+   Un segmento di cerchio: `w` = CORDA (il lato dritto, in alto a rotazione 0), `d` = FRECCIA (l'altezza dell'arco, dalla corda al punto più
+   lontano); il lato bombato guarda il pubblico (in basso a rotazione 0). Sta tutto nel rettangolo w×d: ingombro, clic, maniglie, rotazione,
+   lucchetto e aggancio delle pedane lavorano su quel rettangolo come per ogni pedana. Freccia massima = metà corda (semicerchio): oltre, si
+   disegna il semicerchio (`arcoGeom` la limita, la quota dice quella vera). `spess` opzionale (cm, assente/0 = PIENO): se > 0 è una FASCIA
+   curva, cioè il settore tra l'arco esterno e un arco concentrico `spess` più dentro, tagliato sugli stessi raggi (come i moduli curvi del coro). */
+function arcoGeom(w, d, spess){
+  var c=Math.max(1,+w||0), D=Math.max(1,+d||0), f=Math.min(D, c/2), R=(c*c/4+f*f)/(2*f);
+  var half=Math.asin(Math.min(1,(c/2)/R)), yApex=D/2, cy=yApex-R, y0=yApex-f;
+  var s=Math.max(0, Math.min(+spess||0, R));
+  return { c:c, d:D, f:f, R:R, half:half, cy:cy, y0:y0, yApex:yApex, s:s, r2:R-s };
+}
+function arcoPath(g){
+  var n=function(v){ return +v.toFixed(2); }, hc=g.c/2;
+  var p='M '+n(-hc)+' '+n(g.y0)+' A '+n(g.R)+' '+n(g.R)+' 0 0 0 '+n(hc)+' '+n(g.y0);
+  if(!(g.s>0)) return p+' Z';
+  var sx=g.r2*Math.sin(g.half), sy=g.cy+g.r2*Math.cos(g.half);
+  if(g.r2<0.5) return p+' L 0 '+n(g.cy)+' Z';   /* fascia spessa quanto il raggio: è un settore pieno */
+  return p+' L '+n(sx)+' '+n(sy)+' A '+n(g.r2)+' '+n(g.r2)+' 0 0 1 '+n(-sx)+' '+n(sy)+' Z';
+}
+function riserArcoSvg(it){
+  var g=arcoGeom(it.w, it.d, it.spess), locked=it.locked===true;
+  var s='<path class="ic fFloor'+(locked?" riser-fixed":"")+'" d="'+arcoPath(g)+'"/>';
+  if(locked && g.c>=70 && g.f>=50) s+=lockGlyphAt(0, (g.s>0 ? g.cy+g.R-g.s/2 : (g.y0+g.yApex)/2)-2);   /* sull'asse, dentro la figura */
+  return s;
+}
+function arcoQuotaTesto(it){
+  var g=arcoGeom(it.w, it.d, it.spess), h=(+it.h||0);
+  return (docEn()?"arc ":"arco ")+misPedana(g.c, g.f, h, misN(g.c)+'×'+misN(g.f)+' m · h'+(+h.toFixed(1)))+(g.s>0 ? " · "+(docEn()?"width ":"sp. ")+docLen(g.s, misN(g.s)+" m") : "");
+}
 /* Lucchettino dentro l'angolo in alto a destra. Su pedane piccole starebbe addosso alla barra
    d'angolo: sotto i 70×50 cm si tace, il bordo marcato basta.
    `where` serve alle FORME (29/07), dove l'angolo del riquadro cade fuori dalla figura — in un
@@ -4088,6 +4119,8 @@ var TYPES = {
              draw:function(it){ var s=bar(0,0,it.w,it.d,'ic fFloor',2), n=3, step=it.d/n;
                for(var i=1;i<n;i++){ s+=lin(-it.w/2,-it.d/2+i*step,it.w/2,-it.d/2+i*step,'ic'); }
                return s; }},
+  pedanaarco:{nome:"Pedana ad arco", dim:"corda 6 m · freccia 1,5 m", cat:"Palco e strutture", alias:"arco curva curvata semicerchio mezzaluna segmento settore fascia pedana ad arco coro archi gradone", w:600,d:150, resizable:true, z:0, riser:true,
+             draw:function(it){ return riserArcoSvg(it); }},
   sgabello: {nome:"Sgabello", dim:"Ø38", cat:"Palco e strutture", w:40,d:40, z:1.5,
              draw:function(){ var s=circ(0,0,19,'ic fBlack')+circ(0,0,13,'ic thin fBlack');
                [[1,1],[1,-1],[-1,1],[-1,-1]].forEach(function(c){ s+=circ(c[0]*11.5,c[1]*11.5,1.8,'dotS'); });
@@ -10862,7 +10895,8 @@ function sanitizeItems(arr){
     else if(o.type==="ostacolo" && ostacoloHPulita(o.h)) it.h=ostacoloHPulita(o.h);   /* ostacolo: quota opzionale */
     if(isHangStruct(it) && o.rig && typeof o.rig==="object") it.rig=rigPulita(o.rig);   /* americana/truss numerata (A4): {n?, h?} ripulito */
     if(Object.prototype.hasOwnProperty.call(COMP,o.type)) it.parts=o.parts?compClone(o.parts):compClone(COMP[o.type].defParts);
-    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","perChi","podio","sgab","grp","distOf","distType","aggancia","dimSide","lblSize","plCh","dvsPro","dvsNet","dvsSr","dvsLat","ifaceId","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","leggioDist","poltrona","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic","platea","fila","posto","settore","orOk","dAuto","fig","posa"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
+    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","perChi","podio","sgab","grp","distOf","distType","aggancia","dimSide","lblSize","plCh","dvsPro","dvsNet","dvsSr","dvsLat","ifaceId","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","leggioDist","poltrona","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic","platea","fila","posto","settore","orOk","dAuto","fig","posa","spess"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
+    if(it.spess!=null){ var _sp=Math.round((+it.spess)*100)/100; if(it.type==="pedanaarco" && isFinite(_sp) && _sp>0) it.spess=_sp; else delete it.spess; }   /* spessore della fascia ad arco (20/11/2026): solo sulla pedana ad arco, > 0; assente = pieno */
     if(it.type!=="tastiera" || it.fig!==true) delete it.fig;   /* fig: solo la Tastiera nata col tastierista (20/11/2026) */
     if(it.posa!=="piedi" || !(POSA_PIEDI[it.type] || TAST_FIG[it.type])) delete it.posa;   /* «piedi» solo per i sax: ogni altro valore = seduto (progetti vecchi, JSON a mano) */
     if(it.sgab!=null && SGAB_ALTO[it.type] && it.type!=="musChitClassica" && !(it.posa==="piedi" && it.look!=="schematico")) delete it.sgab;   /* lo sgabello alto delle chitarre non classiche esiste solo In piedi: altrove sarebbe uno sgabello nello schema senza essere contato */   /* platea: passi e corridoio, ripuliti poi da normalizeLoadedItems; fila/posto/settore: posti numerati */
@@ -15571,6 +15605,7 @@ function itemMarkup(it){
   _leggioDistOn = 0;   /* finiti gli accessori: nessun altro leggioGlyph (anteprime, catalogo, leggio a sé) eredita la distanza */
   if(t.riser || it.type==="scala" || ostacoloConH(it)){                  /* quota pedana sul lato scelto/auto (più visibile); la scala dice altezza e gradini (11/11), di serie sopra */
     var dimT=t.riser ? pedQuotaTesto(it, misPedana(it.w, it.d, it.h, misN(it.w)+'×'+misN(it.d)+' m · h'+(+(+it.h).toFixed(1)))+quotaDaTerraTesto(it)+misuraDaConfTesto(it)) : (it.type==="ostacolo" ? pedQuotaTesto(it, misPedana(it.w, it.d, it.h, misN(it.w)+'×'+misN(it.d)+' m · h'+Math.round(it.h)+' cm')) : scalaQuota(it)), rside=(t.riser||it.type==="ostacolo") ? riserDimSide(it) : scalaDimSide(it), roff=12, rdx=0, rdy=0, ranc='middle', rtr='', rang=0;
+    if(it.type==='pedanaarco') dimT=pedQuotaTesto(it, arcoQuotaTesto(it)+quotaDaTerraTesto(it)+misuraDaConfTesto(it));   /* pedana ad arco (20/11/2026): «arco corda × freccia · h» */
     if(dimT===null){ /* misura nascosta (20/11): solo il disegno, le liste la tengono */ }
     else if(rside==="top"){ rdy=-(it.d/2)-roff; }
     else if(rside==="bottom"){ rdy=(it.d/2)+roff+9; }
@@ -20992,7 +21027,7 @@ var LOCKABLE={ tappeto:1, forma:1, miczone:1, metro:1,
   tavolo:1, tavolopercussioni:1, podio:1, pedanacoro:1, flightcase:1, americana:1, truss:1,
   custom:1, testo:1, scala:1, parapetto:1, ostacolo:1 };   /* 20/11/2026: «Crea elemento», testo, scala, parapetto, ostacolo — i gruppi di quote sopra il palco rubavano il doppio clic */   /* il tavolo percussioni è IL piano d'appoggio della categoria: ci si posano sopra i piccoli (30/07) */
 /* Chi il lucchettino se lo disegna dentro il proprio draw; per tutti gli altri lo mette renderItem. */
-var LOCK_GLYPH_SELF={ pedana:1, tappeto:1, forma:1, miczone:1, metro:1 };
+var LOCK_GLYPH_SELF={ pedana:1, pedanaarco:1, tappeto:1, forma:1, miczone:1, metro:1 };
 /* Glifo SOLO a schermo (mai in PDF/PNG: nei fogli un lucchetto sopra una quota non serve a nessuno) */
 var LOCK_GLYPH_SCHERMO={ custom:1, testo:1, scala:1, parapetto:1, ostacolo:1 };
 function isLockable(it){
@@ -22433,6 +22468,13 @@ function renderProps(){
     else if(isCover(it)) document.getElementById("pH").value = coverH(it);
     else if(it.type==="ostacolo") document.getElementById("pH").value = ostacoloConH(it) ? it.h : "";   /* vuoto = nessuna quota */
   }
+  (function(){   /* PEDANA AD ARCO (20/11/2026): L e P si chiamano Corda e Freccia, e c'è lo Spessore (vuoto = pieno) */
+    var wr=document.getElementById("pSpessWrap"); if(!wr) return;
+    var arc=(it.type==="pedanaarco"); wr.style.display=arc ? "" : "none"; if(!arc) return;
+    var ft=docUnita()==="ft", lw=document.querySelector('label[for="pW"]'), ld=document.querySelector('label[for="pD"]');
+    if(lw) lw.textContent=ft ? "Corda (ft-in)" : "Corda (cm)"; if(ld) ld.textContent=ft ? "Freccia (ft-in)" : "Freccia (cm)";
+    if(it.spess>0) docCampoScrivi("pSpess", it.spess, "cm"); else document.getElementById("pSpess").value="";
+  })();
   (function(){
     var box=document.getElementById("pPedRapide"); if(!box) return;
     var r=pedanaRapide(it); box.style.display = (r && !it.locked) ? "block" : "none";
@@ -23269,8 +23311,9 @@ document.getElementById("pDiFor").addEventListener("change", function(e){
 document.getElementById("pDiType").addEventListener("click", function(e){ var b=e.target.closest("button[data-v]"); if(!b) return; mutSel(function(it){ it.diType=b.getAttribute("data-v"); it.diTypeUtente=true; __cabRes=null; }); });
 document.getElementById("pDiMultiN").addEventListener("click", function(e){ var b=e.target.closest("button[data-v]"); if(!b) return; mutSel(function(it){ it.diMultiCh=+b.getAttribute("data-v"); __cabRes=null; }); });
 document.getElementById("pDiSchema").addEventListener("change", function(){ var v=document.getElementById("pDiSchema").checked; mutSel(function(it){ it.diSchema=v; }); });
-document.getElementById("pW").addEventListener("change", function(){ mutSel(function(it){ it.w=Math.max(10,docCampoCm("pW","cm")||it.w); if(it.type==="platea") plateaDaMisure(it, it.w, it.d); }); renderProps(); });
-document.getElementById("pD").addEventListener("change", function(){ mutSel(function(it){ it.d=Math.max(10,docCampoCm("pD","cm")||it.d); if(it.type==="platea") plateaDaMisure(it, it.w, it.d); }); renderProps(); });
+document.getElementById("pW").addEventListener("change", function(){ mutSel(function(it){ it.w=Math.max(10,docCampoCm("pW","cm")||it.w); if(it.type==="platea") plateaDaMisure(it, it.w, it.d); if(it.type==="pedanaarco") it.d=Math.min(it.d, it.w/2); }); renderProps(); });
+document.getElementById("pD").addEventListener("change", function(){ mutSel(function(it){ it.d=Math.max(10,docCampoCm("pD","cm")||it.d); if(it.type==="platea") plateaDaMisure(it, it.w, it.d); if(it.type==="pedanaarco") it.d=Math.min(it.d, it.w/2); }); renderProps(); });
+document.getElementById("pSpess").addEventListener("change", function(){ mutSel(function(it){ if(it.type!=="pedanaarco") return; var v=docCampoCm("pSpess","cm"); if(v>0) it.spess=Math.round(v*100)/100; else delete it.spess; }); renderProps(); });   /* spessore della pedana ad arco: vuoto/0 = pieno */
 /* PLATEA (06/10/2026): file, sedie, passi e corridoio — ogni campo rifà le misure (plateaImposta) */
 [["pPlFile","file"],["pPlSedie","sedie"],["pPlPasso","passo"],["pPlPassoFile","passoFile"],["pPlCorrW","corridoio"]].forEach(function(f){
   var el=document.getElementById(f[0]); if(!el || !el.addEventListener) return;
@@ -25320,6 +25363,7 @@ function ricordaRecenteCatalogo(k, nome, over){
         entries.push({k:"pedana",nome:nome,over:over,dim:pz[0],kw:"pedana pedane praticabile praticabili americana modulo riser area rialzata"});
       });
       if(TYPES.pedanacoro){ addToGroup("Pedane e gradoni", makeBtn("pedanacoro", TYPES.pedanacoro.nome)); entries.push({k:"pedanacoro",nome:TYPES.pedanacoro.nome}); }
+      if(TYPES.pedanaarco){ addToGroup("Pedane e gradoni", makeBtn("pedanaarco", TYPES.pedanaarco.nome)); entries.push({k:"pedanaarco",nome:TYPES.pedanaarco.nome}); }   /* 20/11/2026 */
       /* FORME: un solo tipo, sei porte d'ingresso — cercando "cerchio" o "triangolo" si trova la voce
          giusta, e nel pannello la forma si cambia senza cancellare l'elemento. */
       /* AREA CON NOME (06/10/2026): la prima delle «Forme e note», perché è quella che si cercava facendo

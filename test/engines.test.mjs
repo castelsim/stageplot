@@ -38481,6 +38481,113 @@ t("PNG riga versione (d): sceneVbDefault e pngVbCentrato non cambiano con la ver
   eq(A.sceneVbDefault(), a, "sceneVbDefault invariata"); eq(A.pngVbCentrato(), b, "pngVbCentrato invariata"); reset();
   ok(/riga=pngRigaVersione\(\)/.test(appjs) && /pngVbConRiga\(vbP, riga\)/.test(appjs) && /pngSvgConRiga\(stageSceneSvg\(vbP\), vbBase, vbP, riga\)/.test(appjs), "l'export PNG usa la riga (desktop e iPhone: stessa funzione)");
 });
+const arcoNear = (a, b, e, m) => ok(Math.abs(a - b) <= e, (m || "") + ": " + a + " ≈ " + b);
+/* ═══ PEDANA AD ARCO (20/11/2026) ═══ */
+/* centro di un arco SVG a partire dai due estremi (algoritmo standard della specifica SVG, F.6.5): indipendente da arcoGeom, è la VERIFICA del disegno vero */
+function svgArcCentro(x1, y1, x2, y2, r, large, sweep) {
+  const dx = (x1 - x2) / 2, dy = (y1 - y2) / 2, q = (dx * dx + dy * dy);
+  const k = Math.sqrt(Math.max(0, (r * r - q) / q)) * (large !== sweep ? 1 : -1);   /* + se fA ≠ fS, − se uguali */
+  return { x: k * dy + (x1 + x2) / 2, y: -k * dx + (y1 + y2) / 2 };
+}
+function arcoLeggi(d) {   /* «M x y A r r 0 L S x y [L x y A r r 0 L S x y] Z» → pezzi */
+  const n = (d.match(/-?\d+(?:\.\d+)?/g) || []).map(Number), nodo = { M: [n[0], n[1]], A1: { r: n[2], large: n[5], sweep: n[6], to: [n[7], n[8]] } };   /* A rx ry rot large sweep x y */
+  if (/ L /.test(d) && n.length >= 18) { nodo.L = [n[9], n[10]]; nodo.A2 = { r: n[11], large: n[14], sweep: n[15], to: [n[16], n[17]] }; }
+  else if (/ L /.test(d)) nodo.L = [n[9], n[10]];
+  return nodo;
+}
+const arcoD = (it) => { const m = A.itemMarkup(it).match(/<path class="ic fFloor[^"]*" d="([^"]+)"/); return m ? m[1] : null; };
+const arcoQ = (it) => { const m = arcoLbl(it).match(/class="lbl sub"[^>]*>([^<]*)</); return m ? m[1] : null; };
+const arcoLbl = (it) => { A._lblSink = []; A.itemMarkup(it); const l = A._lblSink.join(""); A._lblSink = null; return l; };
+t("Pedana ad arco: geometria — raggio, semi-angolo, centro sopra la corda, freccia limitata a mezza corda", () => {
+  reset();
+  [[600, 150], [760, 229.3], [400, 60], [300, 150], [500, 900]].forEach(([c, d]) => {
+    const g = A.arcoGeom(c, d, 0), f = Math.min(d, c / 2);
+    arcoNear(g.f, f, 1e-9, "freccia = min(d, c/2)");
+    arcoNear(g.R, (c * c / 4 + f * f) / (2 * f), 1e-9, "R = (c²/4 + f²)/2f");
+    arcoNear(Math.hypot(c / 2, g.y0 - g.cy), g.R, 1e-6, "gli estremi della corda stanno sul cerchio");
+    arcoNear(g.yApex - g.cy, g.R, 1e-9, "il punto più lontano sta sul cerchio, sotto il centro");
+    arcoNear(g.yApex - g.y0, f, 1e-9, "dalla corda al punto più lontano = la freccia");
+    arcoNear(Math.sin(g.half) * g.R, c / 2, 1e-6, "semi-angolo: R·sin(θ) = c/2");
+    ok(g.cy <= g.y0 + 1e-9, "il centro sta dalla parte della corda (arco ≤ semicerchio)");
+  });
+  arcoNear(A.arcoGeom(600, 150, 0).R, 375, 1e-9, "600×150 → R 375");
+  arcoNear(A.arcoGeom(600, 400, 0).half, Math.PI / 2, 1e-9, "freccia oltre mezza corda: semicerchio (90°)");
+  arcoNear(A.arcoGeom(600, 150, 9999).s, A.arcoGeom(600, 150, 0).R, 1e-9, "spessore mai oltre il raggio");
+});
+t("Pedana ad arco: il disegno vero — il lato bombato guarda il pubblico (in basso a rotazione 0), dentro il riquadro w×d, pieno e fascia", () => {
+  reset();
+  [[600, 150, 0], [600, 150, 120], [760, 229.3, 45], [400, 200, 0], [300, 60, 20]].forEach(([c, d, sp]) => {
+    const it = add("pedanaarco", 800, 500, sp ? { w: c, d, spess: sp } : { w: c, d }), g = A.arcoGeom(c, d, sp), p = arcoLeggi(arcoD(it));
+    arcoNear(p.M[0], -c / 2, 0.01, "parte dall'estremo sinistro della corda"); arcoNear(p.M[1], g.y0, 0.01, "…alla quota della corda");
+    arcoNear(p.A1.to[0], c / 2, 0.01, "arco esterno fino all'estremo destro"); arcoNear(p.A1.r, g.R, 0.01, "raggio esterno");
+    eq([p.A1.large, p.A1.sweep], [0, 0], "arco minore, senso antiorario sullo schermo: passa SOTTO la corda");
+    const C = svgArcCentro(p.M[0], p.M[1], p.A1.to[0], p.A1.to[1], p.A1.r, p.A1.large, p.A1.sweep);
+    arcoNear(C.x, 0, 0.05, "centro sull'asse"); arcoNear(C.y, g.cy, 0.05, "il centro del cerchio disegnato sta SOPRA la corda (verso il fondo): l'arco bomba verso il pubblico");
+    arcoNear(C.y + p.A1.r, d / 2, 0.05, "il punto più lontano tocca il bordo inferiore del riquadro (+d/2)");
+    if (sp) {
+      arcoNear(p.A2.r, g.R - sp, 0.01, "raggio interno = R − spessore"); eq([p.A2.large, p.A2.sweep], [0, 1], "arco interno percorso al contrario");
+      const C2 = svgArcCentro(p.L[0], p.L[1], p.A2.to[0], p.A2.to[1], p.A2.r, p.A2.large, p.A2.sweep);
+      arcoNear(C2.x, C.x, 0.05, "concentrico (x)"); arcoNear(C2.y, C.y, 0.05, "concentrico (y)");
+      arcoNear(Math.atan2(p.L[0], p.L[1] - C.y), g.half, 1e-3, "taglio sul raggio dell'estremo (destro): stesso angolo dell'arco esterno");
+      arcoNear(p.A2.to[0], -p.L[0], 0.01, "simmetrica"); arcoNear(p.A2.to[1], p.L[1], 0.01, "simmetrica (y)");
+    }
+    const xs = [], ys = [];   /* campioni dell'arco esterno: tutti dentro il riquadro w×d */
+    for (let i = 0; i <= 40; i++) { const a = -g.half + (2 * g.half) * i / 40, x = g.R * Math.sin(a), y = g.cy + g.R * Math.cos(a); xs.push(x); ys.push(y); }
+    ok(xs.every((x) => Math.abs(x) <= c / 2 + 1e-6) && ys.every((y) => y >= -d / 2 - 1e-6 && y <= d / 2 + 1e-6), c + "×" + d + ": dentro il riquadro");
+  });
+});
+t("Pedana ad arco: verso giusto con tutte le rotazioni — il punto più lontano della curva guarda dove deve (0° pubblico, poi ruota con la pedana)", () => {
+  reset();
+  [0, 45, 90, 135, 180, 270, 305].forEach((rot) => {
+    const it = add("pedanaarco", 800, 500, { w: 600, d: 150, rot }), g = A.arcoGeom(600, 150, 0), r = rot * Math.PI / 180;
+    const apex = { x: -(g.yApex) * Math.sin(r), y: g.yApex * Math.cos(r) }, cen = { x: -(g.cy) * Math.sin(r), y: g.cy * Math.cos(r) };
+    const dir = { x: apex.x - cen.x, y: apex.y - cen.y };   /* da dove sta il centro verso il punto più lontano, nel mondo */
+    arcoNear(dir.x, -g.R * Math.sin(r), 1e-6, rot + "°: componente x"); arcoNear(dir.y, g.R * Math.cos(r), 1e-6, rot + "°: componente y");
+    if (rot === 0) ok(dir.y > 0 && Math.abs(dir.x) < 1e-9, "0°: bombato in basso (verso il pubblico)");
+    if (rot === 180) ok(dir.y < 0, "180°: bombato in alto (verso il fondo)");
+    if (rot === 90) ok(dir.x < 0, "90°: la rotazione dell'app è oraria sullo schermo (come ogni pedana)");
+    ok(A.itemMarkup(it).indexOf('rotate(' + rot + ')') > -1, rot + "°: il disegno ruota con l'elemento (stesso gruppo di ogni pedana)");
+    const bb = A.itemAabb(it, 0), c = Math.abs(Math.cos(r)), s = Math.abs(Math.sin(r));
+    arcoNear(bb.x1 - bb.x0, 600 * c + 150 * s, 1e-6, "ingombro: larghezza"); arcoNear(bb.y1 - bb.y0, 600 * s + 150 * c, 1e-6, "ingombro: altezza");
+  });
+});
+t("Pedana ad arco: quota «arco corda×freccia · h», fascia, unità, nascondi misura (#172), lucchetto (#171/#179)", () => {
+  reset();
+  const a = add("pedanaarco", 800, 500, { w: 760, d: 229.3, h: 60 });
+  eq(arcoQ(a), "arco 7,6×2,29 m · h60", "quota in metri con virgola");
+  a.spess = 120; eq(arcoQ(a), "arco 7,6×2,29 m · h60 · sp. 1,2 m", "fascia: spessore in quota");
+  A.state.docUnits = "ft"; ok(/arco .*' .*h .*· sp\. /.test(arcoLbl(a).replace(/<[^>]+>/g, "")) && /'/.test(arcoLbl(a)), "in piedi: " + arcoLbl(a)); delete A.state.docUnits;
+  A.state.docLang = "en"; ok(/>arc 7\.6×2\.29 m · h60 · width 1\.2 m</.test(arcoLbl(a)), "inglese: punto e «arc»: " + arcoLbl(a)); delete A.state.docLang;
+  const b = add("pedanaarco", 400, 300, { w: 600, d: 600, h: 40 });
+  ok(/>arco 6×3 m · h40</.test(arcoLbl(b)), "freccia oltre mezza corda: la quota dice quella disegnata (3 m): " + arcoLbl(b));
+  A.state.pedMisure = "h"; eq(arcoQ(b), "h40", "solo altezza"); A.state.pedMisure = "none"; ok(!/<text/.test(arcoLbl(b)), "nessuna scritta"); delete A.state.pedMisure;
+  b.dimSide = "none"; ok(!/<text/.test(arcoLbl(b)), "dimSide none: nessuna scritta"); delete b.dimSide;
+  ok(/riser-fixed/.test(A.itemMarkup(add("pedanaarco", 100, 100, { w: 600, d: 150, locked: true }))) && /riser-lock/.test(A.itemMarkup(add("pedanaarco", 100, 400, { w: 600, d: 150, locked: true }))), "bloccata: bordo marcato e lucchettino");
+  ok(!/riser-lock/.test(A.itemMarkup(add("pedanaarco", 100, 700, { w: 600, d: 150 }))), "libera: senza lucchetto");
+  ok(A.isLockable(a) && A.isRiser(a), "bloccabile come ogni pedana"); eq(A.itemEditable(Object.assign({}, a, { locked: true })), false, "bloccata = ferma");
+  const bl = add("pedanaarco", 1200, 500, { w: 600, d: 150, locked: true }); ok(A.itemMarkup(bl).split("riser-lock").length === 2, "un solo lucchettino (non due)");
+});
+t("Pedana ad arco: salvataggio e riapertura — `spess` solo sulla pedana ad arco e > 0; progetti senza arco identici", () => {
+  reset();
+  const san = (o) => A.sanitizeItems([Object.assign({ id: "z1", x: 10, y: 10, w: 600, d: 150, h: 20 }, o)])[0];
+  eq(san({ type: "pedanaarco", spess: 120 }).spess, 120, "spessore valido resta");
+  eq("spess" in san({ type: "pedanaarco" }), false, "senza spessore: nessun campo (pieno, come di serie)");
+  eq("spess" in san({ type: "pedanaarco", spess: 0 }), false, "0 = pieno: non si scrive"); eq("spess" in san({ type: "pedanaarco", spess: -5 }), false, "negativo via");
+  eq("spess" in san({ type: "pedanaarco", spess: "abc" }), false, "testo via"); eq("spess" in san({ type: "pedana", spess: 50 }), false, "su un'altra pedana via");
+  eq(san({ type: "pedanaarco" }).h, 20, "altezza conservata"); eq(san({ type: "pedanaarco", w: 0, d: 0 }).w, 600, "misure di serie se mancano");
+  const a = add("pedanaarco", 800, 500, { spess: 90 }); eq([a.w, a.d, a.h], [600, 150, 40], "catalogo: 6 m, freccia 1,5 m, h40 di serie");
+  const dopo = JSON.parse(JSON.stringify(A.state)); const n = A.normalizeState(dopo); ok(n.items.some((x) => x.type === "pedanaarco" && x.spess === 90), "il progetto la ricorda dopo salva/riapri");
+  reset(); add("pedana", 300, 300, { w: 400, d: 200, h: 60 }); const s0 = JSON.stringify(A.state.items);
+  ok(!/spess|pedanaarco/.test(s0), "una pedana normale non guadagna campi"); eq(A.pedaneTesto(), "1 pedana 4×2 h60", "elenchi e legenda delle pedane invariati");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="pSpess"[^>]*min="0"/.test(html) && /id="pSpessWrap" style="display:none"/.test(html), "campo Spessore nel pannello, nascosto di serie");
+  ok(/getElementById\("pSpess"\)\.addEventListener\("change"[^]*?delete it\.spess/.test(appjs), "il campo scrive/toglie spess");
+  ok(/it\.d=Math\.min\(it\.d, it\.w\/2\)/.test(appjs), "campi Corda/Freccia: freccia mai oltre mezza corda");
+  ok(/pSpess:\["Spessore \(cm\)","Spessore \(ft-in\)"\]/.test(readFileSync(join(root, "src/documento-estero.js"), "utf8")), "il campo segue le unità in piedi");
+  ok(A.TYPES.pedanaarco && A.TYPES.pedanaarco.riser === true && A.TYPES.pedanaarco.resizable === true, "è una pedana a tutti gli effetti (riser, ridimensionabile)");
+  ok(/makeBtn\("pedanaarco"/.test(appjs), "sta nel catalogo, fra le pedane");
+  reset();
+});
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
