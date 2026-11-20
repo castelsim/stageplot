@@ -22072,7 +22072,7 @@ t("niente di quello che è uscito dal menu è diventato irraggiungibile", () => 
   ok(/openRequestAnswer\(r\.id\)/.test(appjs), "e «Vedi risposta» la apre davvero");
   ok(/id="mpEmpty"/.test(html), "Palco vuoto: scelta dentro la finestra «Nuovo…»");
   ok(/mpEmpty[\s\S]{0,300}proxyClick\("bNew"\)/.test(appjs), "e azzera davvero");
-  ok(/data-j="imp"/.test(appjs) && /data-j="exp"/.test(appjs), "Apri/Scarica progetto: restano dietro «json» nella ricerca");
+  ok(/data-j="imp"/.test(appjs) && !/data-j="exp"/.test(appjs), "Apri progetto resta dietro «json» nella ricerca; lo scarico (tolto il 20/11) no");
   ok(/class="cloudDup"/.test(appjs), "Crea una copia: Duplica in «I miei progetti»");
   /* le sole ETICHETTE del menu: il commento che spiega il taglio nomina le voci tolte, e cercarle
      nel blocco intero farebbe fallire il test sulla propria motivazione */
@@ -22349,12 +22349,18 @@ t("audit del 15/09: il file del progetto è per chi ha l'account, e l'account di
   const landing = readFileSync(join(root, "index.html"), "utf8");
   const g = appjs.slice(appjs.indexOf("function jsonSoloCollegati(){"), appjs.indexOf("function jsonSoloCollegati(){") + 520);
   ok(/if\(C && C\.user && C\.user\(\)\) return true;/.test(g) && /getElementById\("bCloud"\)/.test(g), "da collegati passa, altrimenti porta al login");
-  ok(/getElementById\("saveJson"\)\.addEventListener\("click", function\(\)\{\s*if\(!window\.jsonSoloCollegati\(\)\) return;/.test(appjs), "scaricare il progetto chiede l'account");
+  const shell = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(!/saveJson|viewExport|Esporta JSON|Esporta recupero/.test(shell), "nemmeno nel markup dell'app");
+  ok(!/saveJson/.test(appjs) && !/Esporta JSON/.test(appjs) && !/data-j="exp"/.test(appjs), "20/11: il progetto non si scarica più (nessun pulsante, voce di ricerca o ramo del menu)");
+  ok(/window\.__devEsportaProgetto=function\(\)\{/.test(appjs) && !/__devEsportaProgetto[^;]*addEventListener/.test(appjs), "la funzione di sviluppo resta, solo da console");
+  ok(!/label:"Scarica copia"/.test(appjs) && !/viewExport/.test(appjs) && !/Esporta recupero/.test(appjs), "nessun «Scarica copia» né «Esporta recupero» nei messaggi");
+  ok(!/esport(a|alo|are) (questa versione|il progetto|subito il progetto)|esportalo (o|prima)|come file \.json|Scarica una copia completa del progetto|scarica il progetto o ricarica/i.test(appjs), "20/11: nessun testo promette più di esportare o scaricare il progetto (le promesse false erano 5 dopo il primo giro)");
+  ok(/data-j="imp"/.test(appjs) && /Importa JSON/.test(appjs), "Importa JSON resta dietro la ricerca «json»");
   ok(/getElementById\("importJson"\)\.addEventListener\("click", function\(\)\{ if\(!window\.jsonSoloCollegati\(\)\) return;/.test(appjs), "e anche aprirlo");
   const sb = appjs.slice(appjs.indexOf("function shareBadge(mode){"), appjs.indexOf("function shareBadge(mode){") + 1400);
   ok(/if\(tx && mode==="istantanea"\)\{/.test(sb) && /cta\.id="shareLogin"/.test(sb), "senza account la condivisione invita ad accedere");
   ok(/sempre aggiornato/.test(sb.slice(sb.indexOf('cta.id="shareLogin"'))), "e dice cosa cambia");
-  ok(/Salvato su questo dispositivo\. Accedi per ritrovarlo su computer e telefono\./.test(appjs), "il salvataggio locale dice il vantaggio");
+  ok(/Salvato solo su questo browser\. Accedi per salvarlo online e ritrovarlo su computer e telefono\./.test(appjs), "il salvataggio locale dice che è solo qui e il vantaggio di accedere");
   ok(/mode==="offline-warn"\)\{ cls\+=" invito";/.test(appjs) && /el\.classList\.contains\("invito"\)\) document\.getElementById\("bCloud"\)\.click\(\)/.test(appjs), "e la pastiglia porta al login");
   /* revisione 25/09: con «nudge» la pastiglia ereditava lo stile del riquadro Produzione (.nudge: margine
      12, padding 8×11) e diventava 398×33 px — la barra sbordava di 378 px a 1512 e copriva Annulla,
@@ -25749,7 +25755,7 @@ t("la versione salvata a mano dice quando non è stata salvata", () => {
     eq(A.saveNamedVersion("prova"), false, "e saveNamedVersion lo riporta:");
     ok(messaggi.length === 1 && messaggi[0].err === true, "l'utente lo viene a sapere");
     /* Non basta dire che è andata male: il messaggio porta il gesto che salva il lavoro. */
-    ok(messaggi[0].az && typeof messaggi[0].az.run === "function", "e offre di scaricare una copia");
+    ok(!messaggi[0].az && /Accedi/.test(messaggi[0].m), "e porta al salvataggio online (niente più scarico del file)");
   });
   /* Il nome NON si cancella dopo un fallimento: chi riprova non deve ridigitarlo. */
   const h = appjs.slice(appjs.indexOf('document.getElementById("versSave")'), appjs.indexOf('document.getElementById("versSave")') + 400);

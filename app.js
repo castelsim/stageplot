@@ -5486,8 +5486,7 @@ function deleteVariant(id){ if(custEditorAttivo()){ custEditorAvvisa(); return f
   var punto=false;
   try{ punto = typeof saveVersion==="function" && saveVersion("Prima di eliminare «"+((VARIANTS[idx]||{}).name||"scena")+"»",true)===true; }catch(_delVerErr){ punto=false; }
   if(!punto){
-    if(window.__toast) window.__toast("Punto di ripristino non creato: la scena resta al suo posto.", true,
-      {label:"Scarica copia", run:function(){ if(typeof downloadProjectCopy==="function") downloadProjectCopy(); }});
+    if(window.__toast) window.__toast("Punto di ripristino non creato: la scena resta al suo posto.", true);
     return false;
   }
   var wasActive=(id===activeVar); VARIANTS.splice(idx,1);
@@ -5979,7 +5978,7 @@ function markLocalConflict(){
        progetto vero si crea alla chiusura dell'editor (custRipristina), e non va perso per sempre (revisione finale, I4) */
     if(custEditorAttivo()) __custVersioneRinviata=_nomeConfl;
     else try{ if(typeof saveVersion==="function") saveVersion(_nomeConfl,true); }catch(_recoveryErr){}
-    if(window.__toast) window.__toast("Un'altra scheda ha modificato questo progetto. Salvataggio sospeso: esporta questa versione o ricarica prima di continuare.",true);
+    if(window.__toast) window.__toast("Un'altra scheda ha modificato questo progetto. Salvataggio sospeso: ricarica la pagina prima di continuare.",true);
   }
 }
 function projectContentSig(data,venueSig){
@@ -6144,7 +6143,7 @@ function persistLocalState(forceLockedMetadata){
        potrebbe essere diventata autorevole tra la stage write e questo fallimento del root. */
     window.__localStorageUnavailable=true;
     if(!__localSaveWarned){ __localSaveWarned=true;
-      try{ if(window.setDocState) window.setDocState("local-error"); if(window.__toast) window.__toast("Salvataggio sul dispositivo non disponibile. Esporta il progetto o verifica lo spazio libero.",true); }catch(_e){}
+      try{ if(window.setDocState) window.setDocState("local-error"); if(window.__toast) window.__toast("Salvataggio sul dispositivo non disponibile. Accedi per salvare il progetto online o libera spazio nel browser.",true); }catch(_e){}
     }
     return false;   /* non aggiornare MAI associazione/revisione se il documento non è stato scritto */
   }
@@ -6394,8 +6393,8 @@ function stageVenueImg(){
     }catch(_e2){}
     venueStageFailedSig=sig||null;
     if(window.__toast) window.__toast(e&&e.name==="QuotaExceededError"
-      ?"Planimetria troppo pesante per la copia offline. L’ultima copia completa sul dispositivo resta intatta; esporta il progetto o usa il cloud."
-      :"Impossibile salvare la planimetria offline. L’ultima copia completa sul dispositivo resta intatta; esporta il progetto o usa il cloud.", true);
+      ?"Planimetria troppo pesante per la copia offline. L’ultima copia completa sul dispositivo resta intatta; accedi per salvare il progetto online."
+      :"Impossibile salvare la planimetria offline. L’ultima copia completa sul dispositivo resta intatta; accedi per salvare il progetto online.", true);
     return false;
   }
 }
@@ -6570,7 +6569,7 @@ function setDocState(mode){
   else if(mode==="blocked"){ cls+=" warn"; html=CHIP_SVG.warn+"Documento incompatibile — salvataggio sospeso"; htmlM=CHIP_SVG.warn+"Salvataggio sospeso"; }
   else if(mode==="local-error"){ cls+=" warn"; html=CHIP_SVG.warn+"Salvataggio sul dispositivo non disponibile"; htmlM=CHIP_SVG.warn+"Memoria non disponibile"; }
   else if(mode==="error"){ cls+=" warn"; html=CHIP_SVG.warn+"Salvataggio interrotto — riprovo da solo"; htmlM=CHIP_SVG.warn+"Riprovo…"; }   /* ciclo 12: ora il retry avviene davvero */
-  else if(mode==="conflict"){ cls+=" warn"; html=CHIP_SVG.warn+"Aperto in un'altra scheda — salvataggio sospeso, scarica il progetto o ricarica"; htmlM=CHIP_SVG.warn+"Altra scheda — non salvo"; }   /* «scegli come continuare» prometteva una scelta che non compare da nessuna parte: la pastiglia dice le due vie vere (06/08) */
+  else if(mode==="conflict"){ cls+=" warn"; html=CHIP_SVG.warn+"Aperto in un'altra scheda — salvataggio sospeso, ricarica la pagina"; htmlM=CHIP_SVG.warn+"Altra scheda — non salvo"; }   /* «scegli come continuare» prometteva una scelta che non compare da nessuna parte: la pastiglia dice le due vie vere (06/08) */
   else if(mode==="locked"){ cls+=" warn"; html=CHIP_SVG.warn+"Progetto bloccato — le modifiche restano su questo dispositivo"; htmlM=CHIP_SVG.warn+"Bloccato — non salvo online"; }   /* il lucchetto ferma l'autosave: senza questo la pastiglia restava su «Salvataggio…» per sempre */
   else { html=CHIP_SVG.ok+"Salvato sul dispositivo"; htmlM=CHIP_SVG.ok+"Salvato"; }
   /* il testo in uno <span> suo: quando la barra è stretta la pastiglia si restringe (flex-shrink) e deve
@@ -24617,10 +24616,8 @@ function ricordaRecenteCatalogo(k, nome, over){
     wrap.style.display="none"; pin.style.display="none"; cc.style.display="none"; rec.style.display="none"; results.style.display="block";   /* le azioni pinnate ricompaiono nei risultati se pertinenti (niente doppione) */
     if(q==="json"){   /* escape-hatch tecnica: solo con "json" ESATTO. Non è una categoria né un elemento del palco. */
       results.innerHTML='<div class="json-tools">'
-        +'<button type="button" class="btn json-act" data-j="exp"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><path d="M12 15V3"/></svg>Esporta JSON</button>'
         +'<button type="button" class="btn json-act" data-j="imp"><svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><path d="M12 3v12"/></svg>Importa JSON</button>'
-        +'<div class="json-note">Funzione tecnica per backup, migrazione o supporto'+((window.__cloud && window.__cloud.user && window.__cloud.user()) ? '.' : ': serve l\'account.')+'</div></div>';
-      results.querySelector('[data-j="exp"]').addEventListener("click", function(){ document.getElementById("saveJson").click(); });
+        +'<div class="json-note">Apre un progetto da file'+((window.__cloud && window.__cloud.user && window.__cloud.user()) ? '.' : ': serve l\'account.')+'</div></div>';
       results.querySelector('[data-j="imp"]').addEventListener("click", function(){ document.getElementById("bHdrImport").click(); });
       return;
     }
@@ -25642,7 +25639,6 @@ function renderMobileList(){
       if(a==="var-del"){ confirmDeleteVariant(activeVar); return; }
       if(a==="var-diff"){ if(window.toggleMobileMenu) window.toggleMobileMenu(false); apriConfrontoVarianti(); return; }
       if(a==="import") document.getElementById("bHdrImport").click();
-      else if(a==="download") proxy("saveJson");
       else if(a==="cloud" || a==="account") proxy("bCloud");
       else if(a==="share") proxy("bShare");
       else if(a==="guida" || a==="feedback"){ var h=document.querySelector('#helpMenu [data-help="'+(a==="guida"?"learn":"feedback")+'"]'); if(h) h.click(); }
@@ -28910,10 +28906,10 @@ function guardDocumentReplacement(options,action){
     if(!current()) return;
     if(custEditorAttivo()){ custEditorAvvisa(); return; }   /* l'editor si è aperto mentre la conferma era a schermo */
     if(window.__localConflict){
-      abort("Un'altra scheda ha modificato il progetto. Esporta questa versione o ricarica prima di sostituirla."); return;
+      abort("Un'altra scheda ha modificato il progetto. Ricarica la pagina prima di sostituirlo."); return;
     }
     if(window.__docLoadBlocked && !options.allowBlockedDiscard){
-      abort("Il documento locale non è compatibile: non verrà sostituito. Esportalo o usa esplicitamente File → Nuovo."); return;
+      abort("Il documento locale non è compatibile: non verrà sostituito. Usa esplicitamente File → Nuovo."); return;
     }
     if(meaningful){
       var recoveryName="Prima di "+String(options.reason||"cambiare progetto").slice(0,80);
@@ -28927,19 +28923,12 @@ function guardDocumentReplacement(options,action){
      archivio pieno per una planimetria da 8,3 MB). La copia su file è la stessa rete di sicurezza
      del punto di recupero — solo fuori dal browser — quindi dopo il download si può procedere. */
   function offerDownloadInstead(){
-    var ask={icon:"warn", title:"Niente spazio per il punto di recupero",
-      message:"L'archivio del browser è pieno. Scarica una copia completa del progetto aperto — planimetria inclusa — e si prosegue con quella come rete di sicurezza.",
-      confirmText:"Scarica e continua"};
-    if(typeof window.confirmDialog!=="function"){
-      abort("Impossibile creare il punto di recupero. Esporta il progetto prima di sostituirlo."); return;
-    }
-    window.confirmDialog(ask).then(function(ok){
-      if(!ok||!current()) return;
-      if(!downloadProjectCopy()){
-        abort("Impossibile creare il punto di recupero e nemmeno scaricare la copia. Libera spazio nel browser prima di continuare."); return;
-      }
-      finishReplacement();
-    });
+    /* Niente più scarico del progetto: la rete di sicurezza è il cloud. Con l'account si prosegue
+       (finishReplacement porta prima le modifiche online e, se non riesce, si ferma); senza account
+       il browser è pieno e l'unica via è salvare online. */
+    var C=window.__cloud;
+    if(C&&C.user&&C.user()){ finishReplacement(); return; }
+    abort("L'archivio del browser è pieno: accedi per salvare il progetto online, poi riprova.");
   }
   function finishReplacement(){
     if(!current()) return;
@@ -28973,7 +28962,7 @@ function beginNewDocument(initialState,options){
   if(!options.skipRecovery && hasMeaningfulDocument()){
     var recoveryName="Prima di "+String(options.reason||"nuovo progetto").slice(0,80);
     if(!(typeof saveVersion==="function" && saveVersion(recoveryName,true))){
-      if(window.__toast) window.__toast("Impossibile creare il punto di recupero. Esporta il progetto prima di sostituirlo.",true);
+      if(window.__toast) window.__toast("Impossibile creare il punto di recupero: accedi per salvare il progetto online, poi riprova.",true);
       return false;
     }
   }
@@ -35751,8 +35740,7 @@ function saveVersion(name,includeImages){
 function saveNamedVersion(nome){
   var fatto=false;
   try{ fatto = saveVersion(nome)!==false; }catch(_snvErr){ fatto=false; }
-  if(!fatto && window.__toast) window.__toast("Versione non salvata: sul dispositivo non c'è spazio.", true,
-    {label:"Scarica copia", run:function(){ if(typeof downloadProjectCopy==="function") downloadProjectCopy(); }});
+  if(!fatto && window.__toast) window.__toast("Versione non salvata: sul dispositivo non c'è spazio. Accedi per salvare il progetto online.", true);
   return fatto;
 }
 function deleteVersion(idx){
@@ -36420,7 +36408,7 @@ window.confirmDialog=confirmDialog;
 document.getElementById("bNew").addEventListener("click", function(){
   if(custEditorAttivo()) return custEditorAvvisa();   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo */
   if(window.__consultMode){
-    if(window.__toast) window.__toast("Durante la consulenza non puoi sostituire il progetto. Usa Esporta recupero se ti serve una copia.",true);
+    if(window.__toast) window.__toast("Durante la consulenza non puoi sostituire il progetto. Ricarica la pagina per ripartire dall'ultima versione salvata.",true);
     return;
   }
   /* Conferma solo se c'è davvero qualcosa da perdere (13/08): su un palco ancora vuoto l'avviso
@@ -36441,7 +36429,7 @@ document.getElementById("bNew").addEventListener("click", function(){
     return false;
   }) : chiedi ? confirmDialog({
     icon:"info", title:"Nuovo stage plot?",
-    message:"L'editor viene azzerato per ricominciare da un palco vuoto. I progetti che hai salvato (cloud o «I miei progetti») NON vengono eliminati e restano al loro posto. Se il lavoro aperto non è salvato, esportalo o salvalo prima: verrà chiuso.",
+    message:"L'editor viene azzerato per ricominciare da un palco vuoto. I progetti che hai salvato (cloud o «I miei progetti») NON vengono eliminati e restano al loro posto. Se il lavoro aperto non è salvato online, salvalo prima: verrà chiuso.",
     confirmText:"Azzera e ricomincia"
   }) : Promise.resolve(true)).then(function(ok){
     if(!ok) return;
@@ -37046,14 +37034,14 @@ function pdfNomeFileTesto(){
         if(ok) window.__toast(localOk?"✓ Salvato sul dispositivo e sul cloud.":"✓ Salvato sul cloud; la copia locale non è disponibile.",!localOk);
         else window.__toast(localOk
           ?"Salvataggio cloud non riuscito: il progetto resta sul dispositivo."
-          :"Salvataggio non riuscito né sul dispositivo né sul cloud. Esporta subito il progetto.",true);
+          :"Salvataggio non riuscito né sul dispositivo né sul cloud. Non chiudere la pagina e riprova.",true);
       });
     } else {
       /* non loggato: al primo salvataggio della sessione mostra il popup login; poi ripiega sul toast soft */
       if(!(window.maybeLoginPromptOnSave && window.maybeLoginPromptOnSave(localOk)) && window.__toast){
         window.__toast(localOk
-          ?"Salvato su questo dispositivo. Accedi per ritrovarlo su computer e telefono."
-          :"Salvataggio sul dispositivo non riuscito. Esporta subito il progetto.",!localOk);
+          ?"Salvato solo su questo browser. Accedi per salvarlo online e ritrovarlo su computer e telefono."
+          :"Salvataggio sul dispositivo non riuscito. Accedi per salvare il progetto online.",!localOk);
       }
     }
   }
@@ -37134,7 +37122,7 @@ function pdfNomeFileTesto(){
     var rd=window.__respData, Cx=window.__cloud, ux=Cx&&Cx.user&&Cx.user(), px=Cx&&Cx.currentId&&Cx.currentId();
     return rd&&ux&&rd.userId===ux.id&&rd.projectId===px?rd:null;
   };
-  /* frameSaveJson rimosso (A′): il download del progetto vive in File → Scarica file progetto */
+  /* frameSaveJson rimosso (A′); dal 20/11/2026 il progetto non si scarica più (solo online con account): vedi window.__devEsportaProgetto */
   /* Export come modale: chiusura con X e click sullo sfondo */
   (function(){
     function closeExp(){ saveAsOpen=false; frameEdit=false; renderFramePanel(); render(); }
@@ -37214,29 +37202,28 @@ function pdfNomeFileTesto(){
      restano per tutti: sono i documenti da usare, non il progetto da portarsi via. */
   function jsonSoloCollegati(){
     var C=window.__cloud; if(C && C.user && C.user()) return true;
-    if(window.__toast) window.__toast("Il file del progetto è per chi ha l'account: accedi e ritrovi i tuoi progetti su computer e telefono.");
+    if(window.__toast) window.__toast("Aprire un file di progetto è per chi ha l'account: accedi e ritrovi i tuoi progetti su computer e telefono.");
     var b=document.getElementById("bCloud"); if(b) b.click();
     return false;
   }
   window.jsonSoloCollegati=jsonSoloCollegati;
-  document.getElementById("saveJson").addEventListener("click", function(){
-    if(!window.jsonSoloCollegati()) return;
+  /* FUNZIONE DI SVILUPPO (20/11/2026, decisione di Simone: «l'unico modo per salvare è online»): nessun pulsante, nessuna voce
+     di menu o ricerca. Richiamabile solo da console / dagli script nostri: window.__devEsportaProgetto(). */
+  window.__devEsportaProgetto=function(){
     if(custEditorAttivo()) return custEditorAvvisa();   /* editor «Crea elemento» aperto: lo stato vivo è il palco temporaneo */
     var name=((state.titolo||state.luogo||"stageplot").replace(/[^\w\-]+/g,"_").replace(/^_+|_+$/g,"").slice(0,40)||"stageplot")+".json";
     var data=docToJSONFull();   /* T6: export = documento intero (tutte le varianti); l'attiva porta la planimetria (_dataUrl), nessun limite di dimensione */
     if(typeof window.showSaveFilePicker==="function" && !isMobile()){   /* apre il selettore "dove salvare" */
       window.showSaveFilePicker({ suggestedName:name, types:[{description:"Progetto Stage Plot", accept:{"application/json":[".json"]}}] })
-        .then(function(h){ return h.createWritable().then(function(w){ return w.write(data).then(function(){ return w.close(); }); }).then(function(){ io("✓ Progetto salvato sul dispositivo."); track("export",{format:"stageplot"}); maybeLoginNudge(); }); })
+        .then(function(h){ return h.createWritable().then(function(w){ return w.write(data).then(function(){ return w.close(); }); }).then(function(){ io("✓ Progetto salvato sul dispositivo."); }); })
         .catch(function(e){ if(e && e.name==="AbortError"){ io("Salvataggio annullato."); return; }
-          var url=URL.createObjectURL(new Blob([data],{type:"application/json"})); dl(url,name); setTimeout(function(){ URL.revokeObjectURL(url); },3000); io("✓ Progetto salvato: "+name); track("export",{format:"stageplot"}); maybeLoginNudge(); });
+          var url=URL.createObjectURL(new Blob([data],{type:"application/json"})); dl(url,name); setTimeout(function(){ URL.revokeObjectURL(url); },3000); io("✓ Progetto salvato: "+name); });
       return;
     }
     var url=URL.createObjectURL(new Blob([data],{type:"application/json"}));
     dl(url,name); setTimeout(function(){ URL.revokeObjectURL(url); },3000);
     io("✓ Progetto salvato: "+name);
-    track("export",{format:"stageplot"});
-    maybeLoginNudge();
-  });
+  };
   document.getElementById("importJson").addEventListener("click", function(){ if(!window.jsonSoloCollegati()) return; document.getElementById("importFile").click(); });
   document.getElementById("importFile").addEventListener("change", function(e){
     var f=e.target.files && e.target.files[0]; e.target.value="";
@@ -43796,7 +43783,7 @@ function gallery(){
     document.body.classList.add("livesession");
     var rl=document.getElementById("viewRole"); if(rl) rl.textContent="Progetto non caricato";
     var m=document.getElementById("viewMeta"); if(m) m.textContent="";
-    ["viewSave","viewCopy","viewBadge","viewStatus","viewExport"].forEach(function(id){
+    ["viewSave","viewCopy","viewBadge","viewStatus"].forEach(function(id){
       var el=document.getElementById(id); if(el) el.hidden=true;
     });
     var pres=document.getElementById("viewPresence"); if(pres) pres.textContent="";
@@ -43818,8 +43805,6 @@ function gallery(){
   }
   function setupAutosave(sb, token, initialRevision){
     var sv=document.getElementById("viewSave");
-    var recoveryExport=document.getElementById("viewExport");
-    if(recoveryExport) recoveryExport.addEventListener("click",function(){ var b=document.getElementById("saveJson"); if(b) b.click(); });
     var t=null, retryT=null, retryStep=0, retryDelays=[3000,10000,30000,60000], inFlight=false, dirty=false, conflict=false;
     var expectedRevision=(typeof initialRevision==="string"&&initialRevision)?initialRevision:null;
     var confirmedSnapshot=null, confirmedVenueSnapshot=null;
@@ -43850,13 +43835,12 @@ function gallery(){
         saveVersion("Recupero consulenza "+new Date().toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"}),true); }catch(e){}
       window.__projLocked=true; document.body.classList.add("proj-ro","consult-conflict");
       if(sv) sv.disabled=true;
-      if(recoveryExport) recoveryExport.hidden=false;
       meta((message||"salvataggio sospeso")+(backed
         ?" · recupero locale creato; ricarica per riallinearti"
-        :" · NON ricaricare: esporta subito File → Scarica progetto"));
+        :" · NON ricaricare: riprova «Salva ora» e controlla la connessione"));
       if(window.__toast) window.__toast(toastMessage||(backed
         ?"Salvataggio sospeso. È stato creato un punto di recupero locale."
-        :"Recupero locale non disponibile: non ricaricare la pagina; esporta subito il progetto."),true);
+        :"Recupero locale non disponibile: non ricaricare la pagina; riprova «Salva ora» appena torna la connessione."),true);
     }
     function doSave(){
       if(conflict){ meta("conflitto — ricarica la sessione"); return; }
@@ -43865,7 +43849,7 @@ function gallery(){
       try{ payload=capture(); }
       catch(e){
         freezeSession(e&&e.code==="VENUE_TOO_LARGE"?"planimetrie oltre il limite di salvataggio":"documento oltre il limite di salvataggio",
-          "Il progetto è troppo grande per l’autosalvataggio della consulenza. Esportalo prima di chiudere.");
+          "Il progetto è troppo grande per l’autosalvataggio della consulenza. Alleggerisci le planimetrie prima di chiudere.");
         return;
       }
       if(payload.snapshot===confirmedSnapshot){ dirty=false; retryStep=0; clearTimeout(retryT); retryT=null; meta("salvato"); return; }
@@ -43918,7 +43902,7 @@ function gallery(){
     }catch(initialErr){
       setTimeout(function(){ freezeSession(initialErr&&initialErr.code==="VENUE_TOO_LARGE"
         ?"planimetrie oltre il limite di salvataggio":"documento oltre il limite di salvataggio",
-        "Questo progetto supera i limiti della consulenza: esportalo prima di chiudere."); },0);
+        "Questo progetto supera i limiti della consulenza: alleggerisci le planimetrie prima di chiudere."); },0);
     }
     var prev=window.__rtBroadcast;
     window.__consultDirty=function(){ if(conflict) return; dirty=true; retryStep=0; clearTimeout(retryT); retryT=null; clearTimeout(t); t=setTimeout(doSave,2000); };
@@ -44705,7 +44689,7 @@ function maybeAskStageSize(explicit){
          non sostituire il lavoro locale. */
       var backed=false;
       try{ backed=typeof saveVersion==="function" && saveVersion("Prima dell'aggiornamento "+new Date().toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"}),true); }catch(e){}
-      if(!backed){ toast("Impossibile creare il punto di recupero locale. Esporta il progetto prima di caricare la versione cloud.",true); return; }
+      if(!backed){ toast("Impossibile creare il punto di recupero locale. Libera spazio nel browser prima di caricare la versione cloud.",true); return; }
       var conflictId=cloudCurrentId, conflictEpoch=window.__docEpoch||0;
       var conflictSnapshot=docToJSON(), conflictVenueSig=venueImageBundleSig();
       sb.from("stageplot_projects").select("data,title,updated_at,venue_image,is_locked").eq("id",conflictId).single().then(function(r){
@@ -44855,7 +44839,7 @@ function maybeAskStageSize(explicit){
 
   function renderModal(){
     if(!bodyEl) return;
-    if(!sb){ bodyEl.innerHTML='<p style="margin:0;color:var(--text-2)">Il modulo cloud non è disponibile (connessione assente). Puoi continuare a usare il tool e salvare i progetti come file .json.</p>'; return; }
+    if(!sb){ bodyEl.innerHTML='<p style="margin:0;color:var(--text-2)">Il modulo cloud non è disponibile (connessione assente). Puoi continuare a usare il tool: il progetto resta su questo dispositivo finché la connessione non torna.</p>'; return; }
     if(!cloudUser){
       bodyEl.innerHTML=
         '<p style="margin:0 0 14px;color:var(--text-2);line-height:1.5">Accedi per salvare i tuoi stage plot online e ritrovarli da qualsiasi dispositivo. Il login è facoltativo: il tool funziona anche senza.</p>'+

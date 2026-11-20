@@ -4248,7 +4248,7 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
 <script defer src="/vendor/supabase.min.js"></script><!-- supabase-js 2.110.0 self-hosted (audit S4); vedi vendor/README.md -->
 </head>
 <body>
-<div id="viewBar"><a class="vb-brand" href="/app/" target="_blank" rel="noopener" title="Crea il tuo stage plot gratis su stageplot.it">stageplot.it<span class="vb-cta">crea il tuo gratis →</span></a><strong id="viewRole">Sola lettura</strong><span class="vb-badge" id="viewBadge" hidden>Sola lettura</span><span class="vb-status" id="viewStatus" hidden></span><span id="viewMeta"></span><span id="viewToggle"><button id="vtPlot" type="button" class="vt-on">Stage plot</button><button id="vtChan" type="button">Channel list</button></span><span id="viewPresence" style="margin-left:auto"></span><button id="viewExport" hidden>Esporta recupero</button><button id="viewSave" hidden>Salva ora</button><button id="viewCopy" hidden>Crea una copia</button></div>
+<div id="viewBar"><a class="vb-brand" href="/app/" target="_blank" rel="noopener" title="Crea il tuo stage plot gratis su stageplot.it">stageplot.it<span class="vb-cta">crea il tuo gratis →</span></a><strong id="viewRole">Sola lettura</strong><span class="vb-badge" id="viewBadge" hidden>Sola lettura</span><span class="vb-status" id="viewStatus" hidden></span><span id="viewMeta"></span><span id="viewToggle"><button id="vtPlot" type="button" class="vt-on">Stage plot</button><button id="vtChan" type="button">Channel list</button></span><span id="viewPresence" style="margin-left:auto"></span><button id="viewSave" hidden>Salva ora</button><button id="viewCopy" hidden>Crea una copia</button></div>
 <div id="viewLists" aria-live="polite"></div><!-- T3: liste tecniche nel link condiviso (Input/Monitor/Carichi/RF/Backline) -->
 <!-- Il documento condiviso non è arrivato: prende il posto del disegno. Un palco vuoto disegnato bene
      si legge come «il gruppo non ha bisogno di niente», ed è la cosa peggiore da far credere a un
@@ -4379,7 +4379,7 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
   <!-- MENU ESSENZIALE (13/08, decisione Simone): 17 voci → 5. Fuori tutto ciò che era già a un clic
        altrove — export PDF/PNG/CSV (il pulsante «Esporta» e la sua finestra), Condividi (pulsante
        primario), Rinomina (il campo titolo è qui accanto), Crea una copia (Duplica in «I miei
-       progetti»), Apri/Scarica progetto (restano dietro `json` nella ricerca, funzione tecnica).
+       progetti»), Apri progetto da file (resta dietro `json` nella ricerca; lo scarico del progetto è stato tolto il 20/11).
        «Nuovo da modello» è confluito nel dialogo di «Nuovo»; Richieste e Produzione sono aree di
        lavoro e sono uscite verso l'elemento e l'header; i Punti di ripristino vivono ora in
        «I miei progetti», accanto alle altre azioni sul progetto. -->
@@ -6319,7 +6319,6 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
       <div id="shareStatus" style="font-size:12px;color:var(--accent);min-height:14px;margin-top:8px"></div>
     </div>
     <!-- elementi nascosti usati dal pannello laterale -->
-    <button id="saveJson" hidden></button>
     <button id="importJson" hidden></button>
     <input type="file" id="importFile" accept="application/json,.json" hidden>
     <div id="ioStatus" hidden></div>
