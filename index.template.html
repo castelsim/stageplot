@@ -911,6 +911,7 @@
         <button type="button" data-v="bottom">Sotto</button>
         <button type="button" data-v="left">Sx</button>
         <button type="button" data-v="right">Dx</button>
+        <button type="button" data-v="none" id="pDimSideNone">Nessuna</button>
       </div>
       <select id="pDimSide" hidden>
         <option value="auto">Automatico (lato visibile)</option>
@@ -918,6 +919,7 @@
         <option value="bottom">Sotto</option>
         <option value="left">Sinistra</option>
         <option value="right">Destra</option>
+        <option value="none">Nessuna (nascosta nel disegno)</option>
       </select>
     </div>
     <div id="pKeysWrap" style="display:none"><label class="chk"><input type="checkbox" id="pPanca"> Sgabello</label></div>
@@ -2568,6 +2570,8 @@
         </div>
         <div id="pdfMisStileRow"><label for="pdfMisStile">Stile delle misure <small class="lbl-note">— pedane, quote e palco, in tutte le pagine</small></label>
           <select id="pdfMisStile"><option value="std" selected>12 × 2 m · h40 (come sempre)</option><option value="mx">12mX2mX40cm</option><option value="xh">12x2 H40</option><option value="mt">mt 12 x 2 x h 0,40</option></select></div>
+        <div id="pdfPedMisRow"><label for="pdfPedMis">Misura accanto alle pedane <small class="lbl-note">— solo nel disegno; elenchi e legenda restano completi</small></label>
+          <select id="pdfPedMis"><option value="full" selected>Misura intera (come sempre)</option><option value="h">Solo altezza</option><option value="none">Nessuna</option></select></div>
         <!-- DOCUMENTO PER L'ESTERO (17/11/2026): due scelte del progetto, salvate nel progetto e uguali in tutte le scene. Di serie Italiano e metri. -->
         <div id="pdfDocLinguaRow"><label for="pdfDocLingua">Lingua del documento <small class="lbl-note">— tutto ciò che esce nei PDF, anche il palco per esterni</small></label>
           <select id="pdfDocLingua"><option value="it" selected>Italiano</option><option value="en">English</option></select></div>
@@ -7034,7 +7038,7 @@ function nextVariantName(){ var n=0; VARIANTS.forEach(function(v){ var m=/^Varia
    nelle altre. */
 /*__DOCUMENTO_ESTERO__*/
 /*__DOCUMENTO_ESTERO_EN__*/
-var CAMPI_DOCUMENTO=["docLang","docUnits","allegatiRichiesti","dotazioni","misureStile","pdfOrganico","quoteDaTerra","organicoOrdine","titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","versione","statoDoc","latiTeatro","sonorizzazione","orari","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
+var CAMPI_DOCUMENTO=["docLang","docUnits","allegatiRichiesti","dotazioni","misureStile","pedMisure","pdfOrganico","quoteDaTerra","organicoOrdine","titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","versione","statoDoc","latiTeatro","sonorizzazione","orari","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
 function propagaCampiDocumento(v){
   var src=v&&v.state; if(!src) return;
   VARIANTS.forEach(function(o){
@@ -10477,6 +10481,7 @@ function normalizeState(s){
   s.dotazioni=dotazioniPulite(s.dotazioni); if(!s.dotazioni) delete s.dotazioni;   /* «Disponibili: N» per materiale e fornitore (S20, 15/11): solo se l'utente li scrive */
   s.allegatiRichiesti=allegatiPuliti(s.allegatiRichiesti); if(!s.allegatiRichiesti) delete s.allegatiRichiesti;   /* «Allegati richiesti» (S14, 13/11): solo se l'utente li usa */
   if(s.misureStile!=="mx" && s.misureStile!=="xh" && s.misureStile!=="mt") delete s.misureStile;   /* stile di scrittura delle misure in uscita (13/11): assente = «12 × 2 m · h40», come sempre */
+  if(s.pedMisure!=="h" && s.pedMisure!=="none") delete s.pedMisure;   /* misura scritta accanto alle pedane nel disegno (20/11): assente = intera, come sempre */
   if(s.organicoOrdine!=="voci" && s.organicoOrdine!=="partitura") delete s.organicoOrdine;   /* ordine delle sezioni del foglio Organico (13/11): assente = Fiati prima */
   if(s.pdfPesi!==true) delete s.pdfPesi;   /* kg nel PDF: solo un true esplicito li accende (06/10/2026) */
   var _vers=(typeof s.versione==="number"||typeof s.versione==="string") ? +s.versione : NaN;   /* versione del documento (12/11): intero 1-999, altrimenti assente */
@@ -15517,13 +15522,14 @@ function itemMarkup(it){
   if(it.leggio===true && leggioExtra(it)) s += '<g transform="translate(0,'+leggioExtraY(it)+')'+(leggioExtraY(it)<0?' rotate(180)':'')+'">'+leggioGlyph(0)+'</g>';   /* leggio generico: arpa, piani, organi, percussioni, mallet… (off di default, davanti allo strumento) */
   _leggioDistOn = 0;   /* finiti gli accessori: nessun altro leggioGlyph (anteprime, catalogo, leggio a sé) eredita la distanza */
   if(t.riser || it.type==="scala" || ostacoloConH(it)){                  /* quota pedana sul lato scelto/auto (più visibile); la scala dice altezza e gradini (11/11), di serie sopra */
-    var dimT=t.riser ? misPedana(it.w, it.d, it.h, (+(it.w/100).toFixed(2))+'×'+(+(it.d/100).toFixed(2))+' m · h'+(+(+it.h).toFixed(1)))+quotaDaTerraTesto(it)+misuraDaConfTesto(it) : (it.type==="ostacolo" ? misPedana(it.w, it.d, it.h, misN(it.w)+'×'+misN(it.d)+' m · h'+Math.round(it.h)+' cm') : scalaQuota(it)), rside=(t.riser||it.type==="ostacolo") ? riserDimSide(it) : scalaDimSide(it), roff=12, rdx=0, rdy=0, ranc='middle', rtr='', rang=0;
-    if(rside==="top"){ rdy=-(it.d/2)-roff; }
+    var dimT=t.riser ? pedQuotaTesto(it, misPedana(it.w, it.d, it.h, (+(it.w/100).toFixed(2))+'×'+(+(it.d/100).toFixed(2))+' m · h'+(+(+it.h).toFixed(1)))+quotaDaTerraTesto(it)+misuraDaConfTesto(it)) : (it.type==="ostacolo" ? pedQuotaTesto(it, misPedana(it.w, it.d, it.h, misN(it.w)+'×'+misN(it.d)+' m · h'+Math.round(it.h)+' cm')) : scalaQuota(it)), rside=(t.riser||it.type==="ostacolo") ? riserDimSide(it) : scalaDimSide(it), roff=12, rdx=0, rdy=0, ranc='middle', rtr='', rang=0;
+    if(dimT===null){ /* misura nascosta (20/11): solo il disegno, le liste la tengono */ }
+    else if(rside==="top"){ rdy=-(it.d/2)-roff; }
     else if(rside==="bottom"){ rdy=(it.d/2)+roff+9; }
     else if(rside==="left"){ rdx=-(it.w/2)-roff; ranc='middle'; rang=-90; }   /* ruotata, legge lungo il lato sx */
     else { rdx=(it.w/2)+roff; ranc='middle'; rang=90; }                       /* ruotata, lato dx */
     rtr=lblCapTr(!_sceneRuota && lblCapovolto((it.rot||0)+rang), rang, rdx, rdy, 12);   /* 06/10: la quota non si capovolge con la pedana girata */
-    lb += '<text class="lbl sub" x="'+rdx+'" y="'+rdy+'" text-anchor="'+ranc+'"'+rtr+'>'+dimT+'</text>';
+    if(dimT!==null) lb += '<text class="lbl sub" x="'+rdx+'" y="'+rdy+'" text-anchor="'+ranc+'"'+rtr+'>'+dimT+'</text>';
   }
   if(rigOf(it) && rigVisibile()){   /* americana numerata (A4): «A3 · +7,50 m · 180 kg», sopra la barra (il nome e i fari stanno sotto) */
     var rgy=-(it.d/2)-6, rgtr=lblCapTr(!_sceneRuota && lblCapovolto(it.rot||0), 0, 0, rgy, 12);
@@ -15626,7 +15632,7 @@ function itemMarkup(it){
   if(GAZ_TYPES[it.type] && it.labelMode!=='hidden'){
     var gzsz=(it.lblSize==null)?14:it.lblSize;
     if(gzsz>0){
-      var gzT=gazStructLabel(it), gzs=(it.dimSide&&it.dimSide!=='auto')?it.dimSide:'top', goff=13, gdx=0, gdy=0, gtr='', gang=0;
+      var gzT=gazStructLabel(it), gzs=(it.dimSide&&it.dimSide!=='auto'&&it.dimSide!=='none')?it.dimSide:'top', goff=13, gdx=0, gdy=0, gtr='', gang=0;
       if(gzs==='top'){ gdy=-(it.d/2)-goff; }
       else if(gzs==='bottom'){ gdy=(it.d/2)+goff+gzsz*0.6; }
       else if(gzs==='left'){ gdx=-(it.w/2)-goff; gang=-90; }
@@ -15804,6 +15810,18 @@ function misQuota(h, std){
   var st=misureStile(), h0=+h||0; h=Math.round(h0);
   var r=st==="mx" ? h+"cm" : (st==="xh" ? "H"+h : (st==="mt" ? "h "+misMetri2(h) : (std!=null ? std : "h"+h)));
   return docUnita()==="m" ? r : docQuotaH(h0, r);   /* piedi (17/11/2026): «h 1' 4"», o «h40 (1' 4")» con entrambe */
+}
+/* MISURA NASCOSTA NEL DISEGNO (20/11/2026, stage manager di un tour): `state.pedMisure` = «full» (assente, come sempre) · «h» (solo l'altezza, nelle
+   unità del documento) · «none» (nessuna scritta). `dimSide:"none"` sulla singola pedana vince sul globale. Cambia solo la scritta nel disegno
+   (schermo, PDF, PNG): liste, legenda, rider e fogli leggono w/d/h dai dati e restano intatti. Ritorna null = niente <text>. */
+function pedMisureModo(){ var m=state && state.pedMisure; return (m==="h" || m==="none") ? m : "full"; }
+function pedQuotaTesto(it, completo){
+  if(it.dimSide==="none") return null;
+  var m=pedMisureModo();
+  if(m==="none") return null;
+  /* «solo altezza» toglie la pianta, non le avvertenze sull'altezza: quota da terra (se accesa) e «da confermare» restano (rilettura merge 20/11) */
+  if(m==="h") return misQuota(it.h, "h"+(+(+it.h||0).toFixed(1)))+((TYPES[it.type]||{}).riser ? quotaDaTerraTesto(it)+misuraDaConfTesto(it) : "");
+  return completo;
 }
 /* pedana lunghezza × profondità × altezza (cm) */
 function misPedana(w, d, h, std){
@@ -22356,6 +22374,7 @@ function renderProps(){
   var isGazCover=!!GAZ_TYPES[it.type];   /* coperture: stesso controllo "Lato" dei riser, ma per l'etichetta unica */
   document.getElementById("pDimSideWrap").style.display = (t.riser||isGazCover) ? "block" : "none";
   document.getElementById("pDimSideLbl").textContent = isGazCover ? "Lato etichetta" : "Lato quota";
+  var _qn=document.getElementById("pDimSideNone"); if(_qn) _qn.style.display=isGazCover?"none":"";   /* «Nessuna»: solo per le pedane (20/11) */
   if(t.riser||isGazCover){ var _qs=document.getElementById("pDimSide"); _qs.value = it.dimSide || (isGazCover?"top":"auto"); _qs.dispatchEvent(new Event("chips-sync")); }   /* riallinea le chips senza passare da change (che salverebbe) */
   var isKeys=!!(KEYS_BENCH[it.type] || KEYS_BENCH_OPT[it.type]);
   /* in ASPETTO ILLUSTRATO gli accessori "inglobati" nella figura (sedia, sgabello) non hanno senso come toggle
@@ -43013,6 +43032,13 @@ function docEsteroSincronizza(){
   if(h) h.hidden=!(docEn() && docUnita()==="m");
 }
 (function(){
+  var f=document.getElementById("pdfPedMis"); if(!f) return;
+  f.addEventListener("change", function(){
+    if(f.value==="h" || f.value==="none") state.pedMisure=f.value; else delete state.pedMisure;
+    save(); render(); try{ if(typeof refresh==="function") refresh(); }catch(_e){}
+  });
+})();
+(function(){
   var f=document.getElementById("pdfMisStile"); if(!f) return;
   f.addEventListener("change", function(){
     if(f.value==="mx" || f.value==="xh" || f.value==="mt") state.misureStile=f.value; else delete state.misureStile;
@@ -44219,6 +44245,7 @@ function pdfChannelPage(doc, L, paperKey){
     if(pesiChk) pesiChk.checked=(state.pdfPesi===true);
     if(orgChk) orgChk.checked=pdfOrganicoOn();
     var msSel=document.getElementById("pdfMisStile"); if(msSel) msSel.value=misureStile();
+    var pmSel=document.getElementById("pdfPedMis"); if(pmSel) pmSel.value=pedMisureModo();
     docEsteroSincronizza();   /* lingua e unità del documento (17/11/2026) */
     header.value=(typeof pdfHeaderPropose==="function") ? pdfHeaderPropose(state, pdfHeaderAccount()) : (state.pdfHeader||"");
     pdfHeaderSavedLine();

@@ -98,6 +98,7 @@ function reset() {
   delete A.state.dotazioni;   /* «Disponibili: N» (S20, 15/11): solo se l'utente li scrive */
   delete A.state.allegatiRichiesti;   /* «Allegati richiesti» (13/11, S14): solo se l'utente li usa */
   delete A.state.misureStile;   /* stile delle misure in uscita (13/11): assente = come sempre */
+  delete A.state.pedMisure;   /* misura accanto alle pedane (20/11): assente = intera */
   delete A.state.docLang; delete A.state.docUnits;   /* lingua e unità del documento (17/11/2026): assenti = italiano e metri */
   delete A.state.organicoOrdine;   /* ordine delle sezioni dell'organico (13/11): assente = Fiati prima */
   delete A.state.storico;   /* storico delle versioni (13/11, S10): si scrive solo esportando; un test che esporta non deve lasciarlo ai successivi */
@@ -5437,7 +5438,7 @@ t("Quota da terra: opzione nel pannello del blocco, documento (non della scena),
   ok(/var _dt=document\.getElementById\("blkDaTerra"\); if\(_dt\) _dt\.checked=quotaDaTerraOn\(\);/.test(appjs), "la casella mostra il valore del progetto");
   ok(/var CAMPI_DOCUMENTO=\[[^\]]*"quoteDaTerra"/.test(appjs), "è un campo del documento (uguale in tutte le varianti)");
   reset(); const st = JSON.parse(JSON.stringify(A.state)); st.quoteDaTerra = "si"; ok(!("quoteDaTerra" in A.normalizeState(st)), "solo un true esplicito la accende"); st.quoteDaTerra = true; eq(A.normalizeState(st).quoteDaTerra, true, "true resta");
-  ok(/\+quotaDaTerraTesto\(it\)\+misuraDaConfTesto\(it\) : \(it\.type===\"ostacolo\" \? misPedana\([^)]*\)[^:]*: scalaQuota\(it\)\)/.test(appjs), "l'etichetta della pedana la scrive");
+  ok(/\+quotaDaTerraTesto\(it\)\+misuraDaConfTesto\(it\)\) : \(it\.type===\"ostacolo\" \? pedQuotaTesto\(it, misPedana\([^)]*\)[^:]*: scalaQuota\(it\)\)/.test(appjs), "l'etichetta della pedana la scrive");
   const f0 = A.firmaPdf(A.state); A.state.quoteDaTerra = true; ok(A.firmaPdf(A.state) !== f0, "è contenuto del documento: cambia l'impronta (il PDF cambia davvero)"); reset();
 });
 /* ═══ Controlli di coerenza 2 (13/11/2026, S14) ═══ */
@@ -5536,10 +5537,51 @@ t("Misure in uscita: il menu «Stile delle misure» nell'Esporta, il campo del p
   reset(); const st = JSON.parse(JSON.stringify(A.state)); ["mx", "xh", "mt"].forEach((v) => { st.misureStile = v; eq(A.normalizeState(st).misureStile, v, v + " resta"); }); st.misureStile = "std"; ok(!("misureStile" in A.normalizeState(st)), "«std» è il default: non si salva"); st.misureStile = "altro"; ok(!("misureStile" in A.normalizeState(st)), "sconosciuto: via");
   /* nessuno dei punti di stampa scrive più la misura per conto suo */
   /* 17/11/2026 (documento per l'estero): al centimetro anche per le pedane in piedi (243,84 cm → «2.44»); con le misure intere il testo è lo stesso di prima */
-  ok(/misPedana\(it\.w, it\.d, it\.h, \(\+\(it\.w\/100\)\.toFixed\(2\)\)\+'×'\+\(\+\(it\.d\/100\)\.toFixed\(2\)\)\+' m · h'\+\(\+\(\+it\.h\)\.toFixed\(1\)\)\)\+quotaDaTerraTesto\(it\)/.test(appjs), "etichetta della pedana sul disegno");
+  ok(/pedQuotaTesto\(it, misPedana\(it\.w, it\.d, it\.h, \(\+\(it\.w\/100\)\.toFixed\(2\)\)\+'×'\+\(\+\(it\.d\/100\)\.toFixed\(2\)\)\+' m · h'\+\(\+\(\+it\.h\)\.toFixed\(1\)\)\)\+quotaDaTerraTesto\(it\)/.test(appjs), "etichetta della pedana sul disegno");
   ok(/return misPedana\(g\.L, g\.P, g\.h, m\(g\.L\)\+"×"\+m\(g\.P\)\+" h"\+g\.h\)/.test(appjs), "legenda del cartiglio e materiali");
   ok(/return misQuota\(h, 'h'\+h\)\+' · '\+n/.test(appjs), "quota della scala"); ok(/return m\[h\]\+" "\+misQuota\(h\); \}\)\.join\(" · "\)/.test(appjs), "moduli 2×1 dei materiali");
   ok(/return \(docEn\(\) \? "stage " : "palco "\)\+misArea\(A\.w, A\.h, /.test(appjs) && /palco '\+misArea\(W, D, adattaM\(W\)\+'×'\+adattaM\(D\)\+' m'\)\+stageHeightNote\(\)/.test(appjs), "area del palco nel cartiglio e nell'intestazione"); ok(/misQuota\(h, "h "\+h\+" cm"\)/.test(appjs), "altezza del palco");
+});
+/* ═══ Misura accanto alla pedana: intera / solo altezza / nessuna (20/11/2026, richiesta di uno stage manager di tour) ═══ */
+t("Nascondi misura pedane: full/h/none globale + dimSide none per-pedana; liste e legenda INTATTE; default identico", () => {
+  msFix(); const [p1, p2] = A.state.items.filter((x) => x.type === "pedana");
+  const lbl = (it) => { A._lblSink = []; A.itemMarkup(it); const l = A._lblSink.join(""); A._lblSink = null; return l; };
+  const liste = () => JSON.stringify({ leg: A.pedaneTesto(), mat: A.materialiPedane(), sig: A.state.items.map((x) => A.pedanaSigla ? A.pedanaSigla(x) : "") });
+  const std = lbl(p1), l0 = liste();
+  ok(/8×2 m · h60/.test(std), "di serie: misura intera: " + std);
+  eq(A.pedMisureModo(), "full", "default full");
+  A.state.pedMisure = "h"; ok(/class="lbl sub"[^>]*>h60</.test(lbl(p1)) && !/8×2/.test(lbl(p1)), "h: solo «h60»: " + lbl(p1)); eq(liste(), l0, "h: liste e legenda intatte");
+  A.state.pedMisure = "none"; ok(!/class="lbl sub"[^>]*>[^<]*(h60|8×2)/.test(lbl(p1)), "none: nessuna misura nel disegno: " + lbl(p1)); ok(!/null|undefined|NaN/.test(lbl(p1)), "none: nessun testo spurio"); eq(lbl(p1).includes('class="lbl sub"'), false, "none: nemmeno un <text> di quota"); eq(liste(), l0, "none: liste e legenda intatte");
+  A.state.pedMisure = "ciao"; eq(A.pedMisureModo(), "full", "valore sconosciuto = full");
+  delete A.state.pedMisure; eq(lbl(p1), std, "tornando al default: identico carattere per carattere");
+  p1.dimSide = "none"; ok(!/8×2|h60/.test(lbl(p1)) && /2\.5×1 m · h40/.test(lbl(p2)), "dimSide none: solo quella pedana, l'altra resta"); eq(liste(), l0, "dimSide none: liste intatte");
+  A.state.pedMisure = "h"; ok(!/h60/.test(lbl(p1)) && />h40</.test(lbl(p2)), "dimSide none vince sul globale h"); delete p1.dimSide;
+  reset();
+});
+t("Nascondi misura pedane: «solo altezza» con le unità del documento (ft-in, m+ft) e stile misure", () => {
+  msFix(); const p2 = A.state.items.filter((x) => x.type === "pedana")[1];
+  const lbl = (it) => { A._lblSink = []; A.itemMarkup(it); const l = A._lblSink.join(""); A._lblSink = null; return l; };
+  A.state.pedMisure = "h"; A.state.docUnits = "ft"; ok(/>h 1' 4"</.test(lbl(p2)), "ft: «h 1' 4\"»: " + lbl(p2));
+  A.state.docUnits = "both"; ok(/h40 \(1' 4"\)/.test(lbl(p2)), "m+ft: «h40 (1' 4\")»: " + lbl(p2));
+  delete A.state.docUnits; A.state.misureStile = "mx"; ok(/>40cm</.test(lbl(p2)), "stile mx: «40cm»"); delete A.state.misureStile;
+  A.state.pedMisure = "none"; A.state.docUnits = "ft"; ok(!/1' 4"/.test(lbl(p2)), "none anche in piedi");
+  delete A.state.docUnits;
+  /* rilettura merge 20/11: «solo altezza» tiene le avvertenze sull'altezza (da confermare, quota da terra accesa), toglie solo la pianta */
+  A.state.pedMisure = "h"; p2.misuraDaConf = true; ok(/>h40 · da confermare</.test(lbl(p2)), "h: «· da confermare» resta: " + lbl(p2)); delete p2.misuraDaConf;
+  A.state.quoteDaTerra = true; ok(/>h40 \(da terra 150\)</.test(lbl(p2)), "h: «(da terra …)» resta se accesa: " + lbl(p2));
+  const ost = add("ostacolo", 1000, 600, { w: 60, d: 60, h: 300 }); ok(/>h300</.test(lbl(ost)), "h: l'ostacolo resta senza code: " + lbl(ost));
+  reset();
+});
+t("Nascondi misura pedane: salvataggio/riapertura (campo valido, sconosciuto cancellato, dimSide none resta) e cablaggio UI", () => {
+  reset(); const st = JSON.parse(JSON.stringify(A.state));
+  ["h", "none"].forEach((v) => { st.pedMisure = v; eq(A.normalizeState(st).pedMisure, v, v + " resta"); });
+  st.pedMisure = "full"; ok(!("pedMisure" in A.normalizeState(st)), "full non si salva"); st.pedMisure = "x"; ok(!("pedMisure" in A.normalizeState(st)), "sconosciuto via");
+  ok(/var CAMPI_DOCUMENTO=\[[^\]]*"pedMisure"/.test(appjs), "campo del documento (uguale in tutte le scene)");
+  const it = { id: "q1", type: "pedana", x: 100, y: 100, w: 200, d: 100, h: 40, dimSide: "none" };
+  eq(A.sanitizeItems([it])[0].dimSide, "none", "dimSide none sopravvive alla sanitizzazione");
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/<select id="pdfPedMis">.*value="h".*value="none"/.test(html) && /data-v="none" id="pDimSideNone">Nessuna/.test(html), "select nell'Esporta e chip «Nessuna»");
+  reset();
 });
 t("Output list: bus console -> porte out (auto consecutive, pin, conflitti, mai duplicati)", () => {
   reset();
