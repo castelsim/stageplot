@@ -31831,6 +31831,71 @@ ta("planimetria PDF: giro completo a UNA pagina col vero venueLoadFile — il PN
   B.venueLoadFile(file("chiuso.pdf")); await aspetta();
   ok(distrutto && msg.some((m) => m[1] && /password/.test(m[0])), "worker chiuso e messaggio: " + JSON.stringify(msg));
 });
+/* selettore pagine PDF (20/11/2026): frecce, tastiera, anteprima grande senza gare, pulizia dopo la scelta */
+ta("planimetria PDF selettore: frecce con limiti, ← → Invio Esc, cambio rapido senza gare (vince l'ultima, le rese vecchie si annullano), pulizia totale dopo la scelta e secondo import", async () => {
+  const B = loadApp();
+  const el = {}; const mk = (id) => (el[id] = el[id] || { id, hidden: true, value: "1", disabled: false, textContent: "", width: 1, height: 1, getContext: () => ({ fillRect() {}, drawImage() { el.disegni = (el.disegni || 0) + 1; el.ultimo = el.__richiesta; }, getImageData: () => ({ data: el.__dati }) }) });
+  const nero = new Uint8ClampedArray(4 * 40); for (let k = 3; k < nero.length; k += 4) nero[k] = 255;
+  const rese = [];   /* una per ogni render: { pag, lato, annullata, risolvi } */
+  const mkDoc = (n) => ({ numPages: n, chiamate: { cleanup: 0, destroy: 0 }, cleanup() { this.chiamate.cleanup++; }, destroy() { this.chiamate.destroy++; this.chiuso = true; },
+    getPage: (num) => Promise.resolve({ getViewport: ({ scale }) => ({ width: 842 * scale, height: 595 * scale }), cleanup() {},
+      render: ({ canvasContext }) => { const r = { pag: num, annullata: false }; r.promise = new Promise((ok_, ko) => { r.risolvi = () => { el.__richiesta = num; ok_(); }; r.cancel = () => { r.annullata = true; if (!el.__nonRifiuta) ko(new Error("RenderingCancelled")); }; }); rese.push(r); return { promise: r.promise, cancel: r.cancel }; } }) });
+  const caricati = [], msg = [];
+  B.document = { getElementById: mk, createElement: () => Object.assign(mk("cv" + Math.random()), { toBlob: (cb) => cb({ size: 5 }) }), addEventListener() {} };
+  B.File = function (parti, nome, o) { this.name = nome; this.type = o.type; };
+  B.venueLoadFile = (f) => caricati.push(f); B.__toast = (m, e) => msg.push([m, !!e]); el.__dati = nero;
+  const aspetta = () => new Promise((r) => setTimeout(r, 20));
+  const file = (nome) => ({ name: nome, type: "application/pdf", size: 1000, arrayBuffer: () => Promise.resolve(new ArrayBuffer(8)) });
+  const d1 = mkDoc(12); B.pdfjsLib = { GlobalWorkerOptions: {}, getDocument: () => ({ promise: Promise.resolve(d1) }) };
+  B.venueLoadPdf(file("pianta.pdf")); await aspetta();
+  eq(el.venuePdfPick.hidden, false, "selettore aperto"); eq(el.venuePdfTot.textContent, "12", "«di 12»");
+  eq([el.venuePdfPage.value, el.venuePdfPrev.disabled, el.venuePdfNext.disabled], ["1", true, false], "pagina 1: indietro spento");
+  ok(rese.length === 1 && rese[0].pag === 1, "si rende solo la pagina visualizzata");
+  /* frecce e limiti */
+  eq(B.venuePdfVai(B.venuePdfPaginaScelta() + 1), 2); eq(el.venuePdfPrev.disabled, false);
+  eq(B.venuePdfVai(0), 1, "sotto la prima: la prima"); eq(B.venuePdfVai(99), 12, "oltre l'ultima: l'ultima"); eq([el.venuePdfNext.disabled, el.venuePdfPrev.disabled], [true, false], "ultima: avanti spento");
+  eq(B.venuePdfVai(+el.venuePdfPage.value + 1), 12, "freccia avanti sull'ultima: resta lì");
+  /* tastiera */
+  B.venuePdfVai(5); const ev = (key, tg) => { const e = { key, target: { tagName: tg || "BODY" }, fermato: 0, preventDefault() { this.pd = 1; }, stopImmediatePropagation() { this.fermato++; } }; return e; };
+  let e = ev("ArrowRight"); ok(B.venuePdfTasto(e) && el.venuePdfPage.value === "6" && e.fermato === 1 && e.pd, "→ avanti e l'editor non lo riceve");
+  e = ev("ArrowLeft"); B.venuePdfTasto(e); eq(el.venuePdfPage.value, "5", "← indietro");
+  e = ev("ArrowRight", "INPUT"); eq(B.venuePdfTasto(e), false, "nel campo numerico le frecce muovono il cursore"); eq(el.venuePdfPage.value, "5");
+  e = ev("Enter", "BUTTON"); e.target.id = "venuePdfCancel"; eq(B.venuePdfTasto(e), false, "Invio su «Annulla»: lo gestisce il bottone");
+  e = ev("Enter", "BUTTON"); e.target.id = "venuePdfUse"; ok(B.venuePdfTasto(e) && e.pd, "Invio su «Usa»: si usa la pagina e si ferma il clic nativo (niente doppio invio)");
+  await aspetta(); rese[rese.length - 1].risolvi(); await aspetta(); await aspetta(); caricati.length = 0; B.venuePdfVai; /* il documento è stato chiuso dall'uso: lo si riapre */
+  B.venueLoadPdf(file("pianta.pdf")); await aspetta(); B.venuePdfVai(5);
+  eq(B.venuePdfTasto(ev("x")), false, "altri tasti ignorati");
+  /* cambio rapido: 3 richieste di fila, le vecchie annullate, risolvendo in ordine inverso disegna solo l'ultima */
+  await aspetta(); rese.length = 0; el.disegni = 0; B.venuePdfVai(7); B.venuePdfVai(8); B.venuePdfVai(9); await aspetta();
+  eq(rese.map((r) => r.pag), [7, 8, 9], "una resa per richiesta, mai tutte le pagine");
+  eq(rese.map((r) => r.annullata), [true, true, false], "le rese vecchie sono annullate");
+  rese[2].risolvi(); await aspetta(); eq([el.disegni, el.ultimo], [1, 9], "disegnata solo la 9");
+  /* gara pura: una resa vecchia che si risolve comunque dopo non sovrascrive */
+  el.__nonRifiuta = true; /* una resa annullata che finisce comunque non deve disegnare */ rese.length = 0; el.disegni = 0; B.venuePdfVai(3); await aspetta(); B.venuePdfVai(4); await aspetta(); rese[1].risolvi(); await aspetta(); rese[0].risolvi(); await aspetta();
+  eq([el.disegni, el.ultimo], [1, 4], "l'ultima richiesta vince");
+  eq(rese.every((r) => r.pag <= 4) && rese.length === 2, true); el.__nonRifiuta = false;
+  /* scelta: Invio, pulizia totale */
+  B.venuePdfVai(6); await aspetta(); const resaScelta = rese[rese.length - 1]; resaScelta.risolvi(); await aspetta();
+  e = ev("Enter"); ok(B.venuePdfTasto(e), "Invio = usa questa pagina");
+  await aspetta(); const ultima = rese[rese.length - 1]; ultima.risolvi(); await aspetta(); await aspetta();
+  ok(caricati.length === 1 && caricati[0].name === "pianta.pdf · p. 6", "pagina 6 importata: " + JSON.stringify(caricati.map((f) => f.name)));
+  ok(d1.chiamate.destroy >= 1 && d1.chiamate.cleanup >= 1, "documento ripulito e distrutto (worker chiuso): " + JSON.stringify(d1.chiamate));
+  ok(B.venuePdfDoc === null && B.venuePdfCtx === null && B.venuePdfTask === null, "nessun riferimento a pdf.js, al contesto o alle rese");
+  eq([el.venuePdfThumb.width, el.venuePdfThumb.height, el.venuePdfPick.hidden], [0, 0, true], "anteprima azzerata e selettore chiuso");
+  /* secondo import: funziona da zero */
+  const d2 = mkDoc(3); B.pdfjsLib = { GlobalWorkerOptions: {}, getDocument: () => ({ promise: Promise.resolve(d2) }) }; caricati.length = 0;
+  B.venueLoadPdf(file("altra.pdf")); await aspetta();
+  eq([el.venuePdfPick.hidden, el.venuePdfTot.textContent, el.venuePdfPage.value, el.venuePdfPrev.disabled], [false, "3", "1", true], "secondo import: selettore da pagina 1");
+  /* Esc = annulla: libera tutto, non importa niente */
+  eq(B.venuePdfTasto(ev("Escape")), true); ok(d2.chiuso && B.venuePdfDoc === null && el.venuePdfPick.hidden === true && caricati.length === 0, "Esc: chiuso e niente importato");
+  eq(B.venuePdfTasto(ev("ArrowRight")), false, "a selettore chiuso i tasti non si intercettano");
+  /* documento caricato ma selettore NON visibile (PDF a 1 pagina in resa): Invio/Esc/frecce restano dell'editor */
+  { const dd = mkDoc(1); B.venuePdfDoc = dd; el.venuePdfPick.hidden = true;
+    ok(["Enter", "Escape", "ArrowLeft", "ArrowRight"].every((k) => B.venuePdfTasto(ev(k)) === false), "doc presente ma selettore nascosto: nessun tasto rubato"); eq(caricati.length, 0); B.venuePdfDoc = null; }
+  /* le rese ancora in corso all'annullamento vengono annullate */
+  const d3 = mkDoc(4); B.pdfjsLib = { GlobalWorkerOptions: {}, getDocument: () => ({ promise: Promise.resolve(d3) }) }; rese.length = 0;
+  B.venueLoadPdf(file("terza.pdf")); await aspetta(); B.venuePdfChiudi(); ok(rese.length === 1 && rese[0].annullata, "Annulla durante la resa: annullata");
+});
 ta("planimetria PDF: la resa ha il tetto di 2000 px anche per una pagina 20000×20000 pt (e 2000×4 per una striscia), su fondo bianco pieno", async () => {
   const B = loadApp(); const fatti = [];
   B.document = { createElement: () => { const c = { width: 0, height: 0 }; c.getContext = () => ({ set fillStyle(v) { c.fs = v; }, fillRect: (x, y, w, h) => fatti.push([c.fs, x, y, w, h]) }); return c; } };
@@ -31839,7 +31904,7 @@ ta("planimetria PDF: la resa ha il tetto di 2000 px anche per una pagina 20000×
   eq([a.width, a.height, b.width, b.height, c.width, c.height], [2000, 2000, 2000, 4, 160, 113]);
   eq(fatti[0], ["#fff", 0, 0, 2000, 2000], "fondo bianco su tutto il canvas");
   const tpl = readFileSync(join(root, "index.template.html"), "utf8");
-  ok(/getElementById\("venuePdfUse"\)[\s\S]{0,160}venuePdfUsa\(pdf,venuePdfPaginaScelta\(\),ctx\)/.test(tpl), "il bottone «Usa questa pagina» usa la pagina scelta");
+  ok(/getElementById\("venuePdfUse"\)\.addEventListener\("click", venuePdfConferma\)/.test(tpl) && /function venuePdfConferma\(\)\{[\s\S]{0,160}venuePdfUsa\(pdf,venuePdfPaginaScelta\(\),ctx\)/.test(tpl), "il bottone «Usa questa pagina» usa la pagina scelta");
 });
 
 await Promise.all(attese);

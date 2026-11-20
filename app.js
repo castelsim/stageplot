@@ -35844,7 +35844,8 @@ function venueLoadFile(file){
    immagine — stessa ricompressione, stessa scala a 2 punti, stesso salvataggio. Nessuna modifica
    allo schema dei dati, a cloud, export o stampa. Il file non esce dal browser. */
 var VENUE_PDF_MAXBYTES=25*1024*1024;
-var venuePdfPromessa=null, venuePdfSeq=0, venuePdfDoc=null, venuePdfCtx=null, venuePdfThumbSeq=0;
+var venuePdfPromessa=null, venuePdfSeq=0, venuePdfDoc=null, venuePdfCtx=null, venuePdfThumbSeq=0, venuePdfTask=null;
+var VENUE_PDF_PREVIEWSIDE=1100;   /* anteprima grande: basta meno del tetto dell'import (2000) */
 function venueIsPdf(file){
   if(!file) return false;
   var t=String(file.type||"");
@@ -35894,18 +35895,24 @@ function venueCaricaPdfJs(){
 }
 function venuePdfChiudi(){
   venuePdfSeq++; venuePdfThumbSeq++;
-  if(venuePdfDoc){ try{ venuePdfDoc.destroy(); }catch(e){} venuePdfDoc=null; }
-  venuePdfCtx=null;
-  var p=document.getElementById("venuePdfPick"); if(p) p.hidden=true;
+  if(venuePdfTask){ try{ venuePdfTask.cancel(); }catch(e){} venuePdfTask=null; }
+  var pdf=venuePdfDoc; venuePdfDoc=null; venuePdfCtx=null;
+  if(pdf){ try{ pdf.cleanup&&pdf.cleanup(); }catch(e){} try{ pdf.destroy(); }catch(e){} }   /* destroy chiude anche il worker */
+  var t=document.getElementById("venuePdfThumb"); if(t){ t.width=0; t.height=0; }   /* libera i pixel dell'anteprima */
+  var p=document.getElementById("venuePdfPick");
+  if(p&&!p.hidden){ p.hidden=true; var bi=document.getElementById("venueBtnImport"); if(bi&&bi.focus&&p.contains(document.activeElement)){ try{ bi.focus({preventScroll:true}); }catch(e){} } }   /* il focus torna al bottone «Immagine o PDF» */
+  else if(p) p.hidden=true;
 }
 /* disegna la pagina in un canvas bianco (mai trasparente: sul palco coprirebbe in nero) */
-function venuePdfRender(pdf,num,lato){
+function venuePdfRender(pdf,num,lato,onTask){
   return pdf.getPage(num).then(function(page){
     var v0=page.getViewport({scale:1}), sc=venuePdfScale(v0.width,v0.height,lato), vp=page.getViewport({scale:sc});
     var cv=document.createElement("canvas");
     cv.width=Math.max(1,Math.round(vp.width)); cv.height=Math.max(1,Math.round(vp.height));
     var cg=cv.getContext("2d"); cg.fillStyle="#fff"; cg.fillRect(0,0,cv.width,cv.height);
-    return page.render({canvasContext:cg,viewport:vp}).promise.then(function(){ return cv; });
+    var task=page.render({canvasContext:cg,viewport:vp});
+    if(onTask) onTask(task);
+    return task.promise.then(function(){ try{ page.cleanup&&page.cleanup(); }catch(e){} return cv; });
   });
 }
 function venuePdfUsa(pdf,num,ctx){
@@ -35928,14 +35935,48 @@ function venuePdfUsa(pdf,num,ctx){
     },"image/png");
   });
 }
+/* anteprima grande della pagina `num`: l'ultima richiesta vince, la resa precedente si annulla */
 function venuePdfAnteprima(pdf,num,seq){
   var my=++venuePdfThumbSeq;
-  venuePdfRender(pdf,num,160).then(function(cv){
-    if(my!==venuePdfThumbSeq||seq!==venuePdfSeq) return;
-    var t=document.getElementById("venuePdfThumb"); if(!t) return;
+  if(venuePdfTask){ try{ venuePdfTask.cancel(); }catch(e){} venuePdfTask=null; }
+  venuePdfRender(pdf,num,VENUE_PDF_PREVIEWSIDE,function(task){
+    if(my!==venuePdfThumbSeq||seq!==venuePdfSeq){ try{ task.cancel(); }catch(e){} return; }   /* nel frattempo è arrivata un'altra richiesta (o il selettore è chiuso): non si disegna nemmeno */
+    venuePdfTask=task;
+  }).then(function(cv){
+    if(my!==venuePdfThumbSeq||seq!==venuePdfSeq){ cv.width=cv.height=0; return; }
+    venuePdfTask=null;
+    var t=document.getElementById("venuePdfThumb"); if(!t){ cv.width=cv.height=0; return; }
     t.width=cv.width; t.height=cv.height; t.getContext("2d").drawImage(cv,0,0);
     cv.width=cv.height=0;
   }).catch(function(){});
+}
+/* pagina `n` (1..numPages): aggiorna campo, «di N», frecce e anteprima */
+function venuePdfVai(n){
+  var pdf=venuePdfDoc; if(!pdf) return 0;
+  n=Math.max(1,Math.min(pdf.numPages,Math.round(+n||1)));
+  document.getElementById("venuePdfPage").value=String(n);
+  document.getElementById("venuePdfPrev").disabled=(n<=1);
+  document.getElementById("venuePdfNext").disabled=(n>=pdf.numPages);
+  venuePdfAnteprima(pdf,n,venuePdfSeq);
+  return n;
+}
+/* tastiera nel selettore: ← → pagine, Invio usa, Esc annulla (in cattura: l'editor sotto non deve muovere nulla) */
+function venuePdfTasto(e){
+  var pk=document.getElementById("venuePdfPick");
+  if(!venuePdfDoc||!pk||pk.hidden) return false;   /* solo a selettore VISIBILE: altrimenti (PDF a 1 pagina in resa, selettore chiuso) i tasti restano dell'editor */
+  var k=e.key, tg=e.target&&e.target.tagName, dentro=(tg==="INPUT");
+  if(k==="ArrowLeft"&&!dentro) venuePdfVai(venuePdfPaginaScelta()-1);
+  else if(k==="ArrowRight"&&!dentro) venuePdfVai(venuePdfPaginaScelta()+1);
+  else if(k==="Escape") venuePdfChiudi();
+  else if(k==="Enter"&&!(tg==="BUTTON"&&e.target.id==="venuePdfCancel")) venuePdfConferma();   /* Invio = usa questa pagina (anche su ‹ ›, «Usa» e nel campo; preventDefault evita il doppio invio); su «Annulla» annulla il bottone */
+  else return false;
+  if(e.preventDefault) e.preventDefault();
+  if(e.stopImmediatePropagation) e.stopImmediatePropagation();
+  return true;
+}
+function venuePdfConferma(){
+  var pdf=venuePdfDoc, ctx=venuePdfCtx; if(!pdf||!ctx) return;
+  venuePdfUsa(pdf,venuePdfPaginaScelta(),ctx).catch(function(e){ if(window.__toast) window.__toast(venuePdfErrore(e),true); });
 }
 function venueLoadPdf(file){
   if(file.size>VENUE_PDF_MAXBYTES){
@@ -35961,8 +36002,9 @@ function venueLoadPdf(file){
         var pick=document.getElementById("venuePdfPick"), inp=document.getElementById("venuePdfPage");
         if(!pick||!inp) return venuePdfUsa(pdf,1,ctx);
         document.getElementById("venuePdfPickTxt").textContent="Il PDF ha "+pdf.numPages+" pagine: scegli quella della pianta.";
-        inp.max=String(pdf.numPages); inp.value="1"; pick.hidden=false;
-        venuePdfAnteprima(pdf,1,seq);
+        inp.max=String(pdf.numPages); document.getElementById("venuePdfTot").textContent=String(pdf.numPages); pick.hidden=false;
+        venuePdfVai(1);
+        var u=document.getElementById("venuePdfUse"); if(u&&u.focus) u.focus();   /* il focus esce dal campo numerico: ← → funzionano subito */
       }, function(e){ try{ task.destroy(); }catch(_){} throw e; });   /* PDF rotto o con password: il worker si chiude comunque */
     });
   }).catch(function(e){
@@ -36127,11 +36169,11 @@ document.getElementById("venueBtnLighten").addEventListener("click", venueLighte
 document.getElementById("venueBtnImport").addEventListener("click", function(){ document.getElementById("venueFile").click(); });
 document.getElementById("venueFile").addEventListener("change", function(e){ venueLoadFile(e.target.files&&e.target.files[0]); e.target.value=""; });
 document.getElementById("venueBtnReload").addEventListener("click", function(){ document.getElementById("venueFile").click(); });
-document.getElementById("venuePdfPage").addEventListener("input", function(){ if(venuePdfDoc) venuePdfAnteprima(venuePdfDoc,venuePdfPaginaScelta(),venuePdfSeq); });
-document.getElementById("venuePdfUse").addEventListener("click", function(){
-  var pdf=venuePdfDoc, ctx=venuePdfCtx; if(!pdf||!ctx) return;
-  venuePdfUsa(pdf,venuePdfPaginaScelta(),ctx).catch(function(e){ if(window.__toast) window.__toast(venuePdfErrore(e),true); });
-});
+document.getElementById("venuePdfPage").addEventListener("input", function(){ if(venuePdfDoc) venuePdfVai(venuePdfPaginaScelta()); });
+document.getElementById("venuePdfPrev").addEventListener("click", function(){ venuePdfVai(venuePdfPaginaScelta()-1); });
+document.getElementById("venuePdfNext").addEventListener("click", function(){ venuePdfVai(venuePdfPaginaScelta()+1); });
+document.getElementById("venuePdfUse").addEventListener("click", venuePdfConferma);
+document.addEventListener("keydown", venuePdfTasto, true);
 document.getElementById("venuePdfCancel").addEventListener("click", venuePdfChiudi);
 document.getElementById("venueOpacity").addEventListener("input", function(){
   if(!state.venue) return; state.venue.opacity=+this.value;
