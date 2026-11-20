@@ -5819,6 +5819,10 @@ var POSA_PIEDI = {
 };
 /* tastiere senza figura seduta: «Strumento» è il disegno di sempre (nessun it.look), In piedi aggiunge il tastierista e gira l'elemento di 180° (il musicista sta a −y, la tastiera a +y) */
 var TAST_PIEDI = { tastiera:1 };
+/* «Tastiera» dal catalogo con il tastierista (Simone 20/11/2026, opzione A): it.fig=true la fa comportare COME LO STAGE PIANO (figura seduta musTastiera, Seduto · In piedi · Strumento).
+   Le tastiere già salvate non hanno fig: restano «solo strumento» (tastSolo), identiche a prima. */
+function tastSolo(it){ return !!it && !!TAST_PIEDI[it.type] && !it.fig; }
+function lookArtOf(it){ return (it && LOOK_ART[it.type]) || ((it && it.type==="tastiera" && it.fig) ? "musTastiera" : null); }
 /* tipi propri (disegno fisso con drawLibFit, nessun aspetto «Strumento»): il controllo Disegno mostra SOLO Seduto · In piedi */
 var POSA_SOLO = { musTromboneBasso:1, musFisarmonica:1, musTimpani:1 };
 /* SGABELLO ALTO (19/11/2026, Simone: «la spunta Su sgabello anche con In piedi»): per i 4 strumenti con il disegno approvato (chitarra elettrica, acustica, classica, basso) la figura in piedi può stare
@@ -5864,8 +5868,8 @@ var LOOK_ART = {
 var DRAW_LOOK = { musChitClassica:1 };   /* il suo draw sa disegnare sia illustrato sia schematico */
 /* illustrazione da disegnare al posto dello schema per i tipi Fase 2 in aspetto illustrato (default) */
 function look2Art(it){   /* in piedi: la figura in piedi (chiave di icons-piedi.js, ci sia o no il file: chi disegna controlla piediIconaOk) */
-  if(!it || it.look==="schematico" || (!LOOK_ART[it.type] && !TAST_PIEDI[it.type])) return null;
-  return inPiedi(it) ? artPiedi(it) : (LOOK_ART[it.type] || null);
+  if(!it || it.look==="schematico" || (!lookArtOf(it) && !tastSolo(it))) return null;
+  return inPiedi(it) ? artPiedi(it) : lookArtOf(it);
 }
 /* Fase 2 illustrato: il footprint (w/d) = dimensioni dell'illustrazione a scala reale, così il riquadro
    di selezione e le collisioni combaciano con ciò che si vede. In schematico si usano le dims del tipo.
@@ -5881,7 +5885,7 @@ function hasLookToggle(it){ return it && (!!POSTAZ_ART[it.type] || !!TAST_PIEDI[
 /* l'aspetto «Strumento» (solo lo strumento) esiste dove c'è un disegno schematico: non per i tipi propri, che hanno solo la posa */
 function hasStrumento(it){ return hasLookToggle(it) && !POSA_SOLO[it.type]; }
 /* lo «Strumento» di chi non ha una figura seduta (TAST_PIEDI) non scrive mai it.look: è il disegno di sempre */
-function lookScrive(it){ return hasStrumento(it) && !TAST_PIEDI[it.type]; }
+function lookScrive(it){ return hasStrumento(it) && !tastSolo(it); }
 /* config "distanza tra i 2" per l'item selezionato (doppia da flag o tipo ×2 del modale) */
 function sepCfg(it){
   if(!it) return null;
@@ -10797,7 +10801,7 @@ function recalcItemDims(it){
     else if(it.w===Ps.s[0] && (it.d===Ps.s[1] || it.d===Ps.s[1]+35)){ it.w=t.w; it.d=t.d; }
     return;
   }
-  if(TAST_PIEDI[it.type] && !inPiedi(it)){ var Pt=POSA_PIEDI[it.type]; if(it.w===Pt.s[0] && it.d===Pt.s[1]){ it.w=t.w; it.d=t.d; } }   /* tornata «Strumento»: la misura di sempre, se nessuno l'ha cambiata a mano */
+  if(tastSolo(it) && !inPiedi(it)){ var Pt=POSA_PIEDI[it.type]; if(it.w===Pt.s[0] && it.d===Pt.s[1]){ it.w=t.w; it.d=t.d; } }   /* tornata «Strumento»: la misura di sempre, se nessuno l'ha cambiata a mano */
   var ld=look2Dims(it); if(ld){ it.w=ld[0]; it.d=ld[1];
     if(t.gtr){ if(it.ampli) it.w=Math.max(it.w,80);
       if(it.pedaliera) it.d = inPiedi(it) ? Math.max(it.d, 2*(gtrPedY(it)+17)) : Math.max(it.d, it.sedia!==false?150:130); }   /* in piedi: la pedaliera davanti alle punte (mezza pedaliera = 15 + 2) */   /* chitarra illustrata: includi ampli (larghezza) e pedaliera (profondità) nel footprint */
@@ -10810,7 +10814,7 @@ function recalcItemDims(it){
      dell'illustrazione col musicista, 132×117 invece di 138×42: nessun ramo qui sotto lo rimetteva.
      Si rimette il tipo solo se la misura è ancora quella dell'illustrazione, cioè se nessuno l'ha
      cambiata a mano (visto il 12/10 preparando le anteprime del catalogo). */
-  if(LOOK_ART[it.type] && !t.gtr && window.LIB_ICONS){ var _ie=window.LIB_ICONS[LOOK_ART[it.type]];
+  if(lookArtOf(it) && !t.gtr && window.LIB_ICONS){ var _ie=window.LIB_ICONS[lookArtOf(it)];
     if(_ie && _ie.vb && it.w===Math.round(_ie.vb[2]) && it.d===Math.round(_ie.vb[3])){ it.w=t.w; it.d=t.d; return; } }
   if(t.gtr){ var g=gtrSize(it,t); it.w=g[0]; it.d=g[1]; return; }
   if(t.dir || it.type==="direttore"){ var ds=dirSize(it); it.w=ds[0]; it.d=ds[1]; return; }
@@ -10838,7 +10842,8 @@ function sanitizeItems(arr){
     else if(o.type==="ostacolo" && ostacoloHPulita(o.h)) it.h=ostacoloHPulita(o.h);   /* ostacolo: quota opzionale */
     if(isHangStruct(it) && o.rig && typeof o.rig==="object") it.rig=rigPulita(o.rig);   /* americana/truss numerata (A4): {n?, h?} ripulito */
     if(Object.prototype.hasOwnProperty.call(COMP,o.type)) it.parts=o.parts?compClone(o.parts):compClone(COMP[o.type].defParts);
-    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","perChi","podio","sgab","grp","distOf","distType","aggancia","dimSide","lblSize","plCh","dvsPro","dvsNet","dvsSr","dvsLat","ifaceId","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","leggioDist","poltrona","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic","platea","fila","posto","settore","orOk","dAuto","posa"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
+    ["sedia","leggio","doppia","sep","ampli","pedaliera","donna","mano","nomic","micMode","z","vsec","label2","perChi","podio","sgab","grp","distOf","distType","aggancia","dimSide","lblSize","plCh","dvsPro","dvsNet","dvsSr","dvsLat","ifaceId","panca","flat","lblAbove","labelMode","abbr","opacity","zoneMic","zoneName","look","mir","rampType","stereo","miking","mic","micType","lucetta","leggioDist","poltrona","diCh","diType","diSchema","diMultiCh","diLook","micPos","balOut","pedXlr","ampMic","ampDi","strMic","tapLine","_chain","shape","shapeStyle","fill","align","headMic","platea","fila","posto","settore","orOk","dAuto","fig","posa"].forEach(function(k){ if(o[k]!=null) it[k]=o[k]; });
+    if(it.type!=="tastiera" || it.fig!==true) delete it.fig;   /* fig: solo la Tastiera nata col tastierista (20/11/2026) */
     if(it.posa!=="piedi" || !POSA_PIEDI[it.type]) delete it.posa;   /* «piedi» solo per i sax: ogni altro valore = seduto (progetti vecchi, JSON a mano) */
     if(it.sgab!=null && SGAB_ALTO[it.type] && it.type!=="musChitClassica" && !(it.posa==="piedi" && it.look!=="schematico")) delete it.sgab;   /* lo sgabello alto delle chitarre non classiche esiste solo In piedi: altrove sarebbe uno sgabello nello schema senza essere contato */   /* platea: passi e corridoio, ripuliti poi da normalizeLoadedItems; fila/posto/settore: posti numerati */
     if(it.orOk!=null){ var _ok=Math.round(+it.orOk); if(isFinite(_ok)) it.orOk=_ok; else delete it.orOk; }   /* «È giusto così» sull'orientamento (15/11): la rotazione che l'utente ha confermato, numero intero */
@@ -22401,7 +22406,7 @@ function renderProps(){
   var isKeys=!!(KEYS_BENCH[it.type] || KEYS_BENCH_OPT[it.type]);
   /* in ASPETTO ILLUSTRATO gli accessori "inglobati" nella figura (sedia, sgabello) non hanno senso come toggle
      (la figura li include già) → li nascondo. Il leggio degli archi invece lo disegno a parte → resta. */
-  var illustrated = hasLookToggle(it) && it.look!=="schematico" && !(TAST_PIEDI[it.type] && !inPiedi(it));   /* la tastiera semplice «Strumento» ha ancora il suo sgabello a scelta */
+  var illustrated = hasLookToggle(it) && it.look!=="schematico" && !(tastSolo(it) && !inPiedi(it));   /* la tastiera semplice «Strumento» ha ancora il suo sgabello a scelta */
   document.getElementById("pKeysWrap").style.display = (isKeys && !illustrated) ? "block" : "none";
   if(isKeys) document.getElementById("pPanca").checked = hasPanca(it);
   var sgw=document.getElementById("pSgabWrap");
@@ -23216,7 +23221,7 @@ document.getElementById("pLeggioCfg").addEventListener("change", function(){ mut
 function impostaPosa(it, piedi){
   if(!POSA_PIEDI[it.type] || inPiedi(it)===piedi) return;
   var oA=posaOfs(it);   /* dove sta il centro dell'elemento rispetto alla figura seduta, prima (testa ferma) */
-  var gira=!!TAST_PIEDI[it.type], rot0=(it.rot||0)+((gira && piedi) ? 180 : 0), r=rot0*Math.PI/180;   /* chi non ha la figura seduta: il tastierista sta a −y, lo strumento solo a +y → +180° passando alla posa, e dc si gira con la rotazione nuova */
+  var gira=tastSolo(it), rot0=(it.rot||0)+((gira && piedi) ? 180 : 0), r=rot0*Math.PI/180;   /* chi non ha la figura seduta: il tastierista sta a −y, lo strumento solo a +y → +180° passando alla posa, e dc si gira con la rotazione nuova */
   if(piedi) it.posa="piedi"; else delete it.posa;
   var oB=posaOfs(it), dx=oB[0]-oA[0], dy=oB[1]-oA[1];   /* classica su sgabello da seduta: la figura sta 5,5 cm più in basso (CHITCL_SGAB.figY), vedi posaOfs */
   it.x=Math.round(it.x+dx*Math.cos(r)-dy*Math.sin(r)); it.y=Math.round(it.y+dx*Math.sin(r)+dy*Math.cos(r));
@@ -23226,7 +23231,7 @@ function impostaPosa(it, piedi){
 /* Dove sta il centro dell'elemento rispetto al centro della figura SEDUTA (stessa testa, cm, nel sistema dell'icona): serve a tenere ferma la testa quando cambia la posa o la spunta «Su sgabello».
    Seduto: 0 (classica su sgabello da seduta: −5,5, la figura sta più in basso); In piedi: dc dell'icona (tastiera semplice: il suo dc); In piedi su sgabello alto: dc dell'icona con lo sgabello. */
 function posaOfs(it){
-  if(inPiedi(it)){ var da=window.LIB_ICONS && window.LIB_ICONS[artPiedi(it)], P=POSA_PIEDI[it.type]; return (!sgabAlto(it) && P.dc) || (da && da.dc) || [0,0]; }
+  if(inPiedi(it)){ var da=window.LIB_ICONS && window.LIB_ICONS[artPiedi(it)], P=POSA_PIEDI[it.type]; return (!sgabAlto(it) && !it.fig && P.dc) || (da && da.dc) || [0,0]; }
   return (it.type==="musChitClassica" && it.sgab===true) ? [0,-5.5] : [0,0];
 }
 /* «Su sgabello» con In piedi: accende/spegne it.sgab tenendo ferma la testa (l'icona cambia e il suo centro si sposta di dc), un solo passo di annulla a carico di chi chiama. Le tre chitarre non classiche
@@ -23243,18 +23248,18 @@ function impostaSgabAlto(it, on){
    seduto = la figura con la sedia (illustrato, senza posa) · piedi = it.posa:"piedi" (illustrato, senza sedia) · strumento = it.look:"schematico"
    (il solo strumento). «Strumento» non cancella la posa: resta memorizzata e torna quando si rimette una figura (In piedi la riprende,
    Seduto la toglie). Il busto resta fermo solo passando fra Seduto e In piedi; da Strumento non c'è un busto da seguire. */
-function disegnoStato(it){ if(!it || !hasLookToggle(it)) return null; if(TAST_PIEDI[it.type]) return inPiedi(it) ? "piedi" : "strumento"; if(it.look==="schematico") return "strumento"; return inPiedi(it) ? "piedi" : "seduto"; }
+function disegnoStato(it){ if(!it || !hasLookToggle(it)) return null; if(tastSolo(it)) return inPiedi(it) ? "piedi" : "strumento"; if(it.look==="schematico") return "strumento"; return inPiedi(it) ? "piedi" : "seduto"; }
 function disegnoUi(it, gruppo){   /* cosa mostrare: lo stato comune della selezione (misti: nessuno) e se «In piedi» c'è per almeno uno */
   var g=gruppo || selItems().filter(hasLookToggle); if(!g.length && it) g=[it];
   if(!g.length) return {stato:null, piedi:false};
   var st=disegnoStato(g[0]); g.forEach(function(x){ if(disegnoStato(x)!==st) st=null; });
-  return {stato:st, piedi:g.some(function(x){ return !!POSA_PIEDI[x.type]; }), strumento:g.some(hasStrumento), seduto:g.some(function(x){ return !TAST_PIEDI[x.type]; })};   /* seduto: la tastiera semplice non ha una figura seduta (il suo «Strumento» è il disegno di sempre) */   /* strumento: i tipi propri (trombone basso, fisarmonica) hanno solo Seduto · In piedi */
+  return {stato:st, piedi:g.some(function(x){ return !!POSA_PIEDI[x.type]; }), strumento:g.some(hasStrumento), seduto:g.some(function(x){ return !tastSolo(x); })};   /* seduto: la tastiera semplice non ha una figura seduta (il suo «Strumento» è il disegno di sempre) */   /* strumento: i tipi propri (trombone basso, fisarmonica) hanno solo Seduto · In piedi */
 }
 /* tastiera semplice: In piedi o «Strumento» (= com'era, Seduto vale lo stesso); mai it.look */
 function impostaDisegnoTast(it, v){ impostaPosa(it, v==="piedi"); recalcItemDims(it); }
 function impostaDisegno(it, v){
   if(!hasLookToggle(it)) return;
-  if(TAST_PIEDI[it.type]) return impostaDisegnoTast(it, v);
+  if(tastSolo(it)) return impostaDisegnoTast(it, v);
   var eraStrumento=(it.look==="schematico");
   if(v==="strumento"){ if(!hasStrumento(it)) return;   /* i tipi propri (trombone basso, fisarmonica) non hanno il solo strumento */
     if(!eraStrumento) lookCambia(it,"schematico");
@@ -25059,6 +25064,7 @@ function miniSvg(k, over, pad){
      schema visto dall'alto, e la voce non si riconosceva (Simone 26/07). Come nel render dell'item:
      illustrazione al posto dello schema, e footprint = dimensioni dell'illustrazione. Gli accessori
      (ampli/pedaliera/leggio) restano fuori dalla miniatura: il sottotitolo della voce li elenca già. */
+  if(k==="tastiera" && it.fig==null) it.fig=true;   /* la voce di catalogo mostra la Tastiera col tastierista */
   var _la=(typeof look2Art==="function") ? look2Art(it) : null;
   if(_la && inPiedi(it) && !piediIconaOk(_la)) _la=null;   /* figura in piedi non ancora arrivata: lo schema, si rigenera quando il file arriva */
   if(_la){ var _ld=look2Dims(it); if(_ld){ it.w=_ld[0]; it.d=_ld[1]; } else _la=null; }   /* icons.js non ancora caricato → schema, si rigenera a __onIconsReady */
@@ -25076,7 +25082,7 @@ function refreshCatalogArt(){
     if(typeof _qaIcoCache==="object" && _qaIcoCache) Object.keys(_qaIcoCache).forEach(function(k){ delete _qaIcoCache[k]; });
     var bs=document.querySelectorAll("#catalog button[data-mini-k]");
     for(var i=0;i<bs.length;i++){
-      var b=bs[i], k=b.dataset.miniK; if(!k || !LOOK_ART[k]) continue;
+      var b=bs[i], k=b.dataset.miniK; if(!k || (!LOOK_ART[k] && k!=="tastiera")) continue;
       var over=null; try{ over=b.dataset.miniOver?JSON.parse(b.dataset.miniOver):null; }catch(_e){}
       var svg=b.querySelector("svg.mini"); if(!svg) continue;
       var tmp=document.createElement("div"); tmp.innerHTML=miniSvg(k, over);
@@ -25887,12 +25893,13 @@ function instrSeats(type){ var base=instrBase(type), n=0;
    piano «strumento solo» 14 su 14 fra 135° e 180°) e girarli li capovolgerebbe tutti. Si girano gli elementi NUOVI posati
    dal catalogo. Lo stage piano solo in «Strumento solo»: in «Postazione» il musicista è già a −y. */
 var USA_DA_PIU_Y = { tastiera:1, doppiatastiera:1, celesta:1, pianoverticale:1, spdsx:1, laptop:1, pedaliera:1, astamic:1, stagepiano:"solo" };
-function usaDaPiuY(type, look){ var v=USA_DA_PIU_Y[type]; return v==="solo" ? look==="schematico" : !!v; }
+function usaDaPiuY(type, look, fig){ var v=USA_DA_PIU_Y[type]; if(type==="tastiera" && fig) v="solo"; return v==="solo" ? look==="schematico" : !!v; }
 function rotPosaCatalogo(type, over){
   over=over||{};
+  if(type==="tastiera" && over.fig==null) over.fig=true;   /* dal catalogo la Tastiera nasce col tastierista (20/11/2026); i progetti salvati non cambiano */
   if(over.rot==null && !(over.posa==="piedi" && POSA_PIEDI[type])){   /* «· in piedi»: il tastierista sta a −y, nessun giro di 180° (la voce «Stage piano · in piedi» non nasce girata) */
     var look=over.look || ((state.lookDefault==="schematico" && hasStrumento({type:type})) ? "schematico" : "illustrato");
-    if(usaDaPiuY(type, look)) over.rot=180;
+    if(usaDaPiuY(type, look, over.fig)) over.rot=180;
   }
   return over;
 }
@@ -25901,7 +25908,7 @@ function rotPosaCatalogo(type, over){
 function lookCambia(it, mode){
   var prima=(it.look==="schematico")?"schematico":"illustrato";
   it.look=mode;
-  if(prima!==mode && usaDaPiuY(it.type,"schematico")!==usaDaPiuY(it.type,"illustrato")) it.rot=(((it.rot||0)+180)%360+360)%360;
+  if(prima!==mode && usaDaPiuY(it.type,"schematico",it.fig)!==usaDaPiuY(it.type,"illustrato",it.fig)) it.rot=(((it.rot||0)+180)%360+360)%360;
   lookReset(it, mode);
 }
 function addItem(type, over, silenzioso){   /* silenzioso (06/10/2026): crea e mette nello stato, ma non disegna, non salva e non seleziona — lo usa chi ne posa molti in un colpo (anello di altoparlanti) e salva UNA volta */
@@ -25917,6 +25924,7 @@ function addItem(type, over, silenzioso){   /* silenzioso (06/10/2026): crea e m
   if(DOUBLE_TYPES[type]){ it.sep=defSepOf({type:type}); it.w=sepToW(DOUBLE_TYPES[type], it.sep); it.d=DOUBLE_TYPES[type].dbl[1]; }
   if(t.dir){ it.podio=false; it.leggio=true; }
   if(LEGGIO_DI_SERIE[type]) it.leggio=true;   /* l'arpa nasce col suo leggio (Simone 20/10/2026) */
+  if(type==="tastiera" && over && over.fig) it.fig=true;
   if(state.lookDefault==="schematico" && lookScrive(it)) it.look="schematico";   /* B4: eredita l'aspetto predefinito del progetto */
   var _ld0=look2Dims(it); if(_ld0){ it.w=_ld0[0]; it.d=_ld0[1]; }   /* Fase 2 illustrato (default): footprint = illustrazione */
   if(autoNumbered(type)){   /* nome progressivo: Flauto 1, Flauto 2, … (doppie = 2 nomi) */
@@ -35190,6 +35198,7 @@ function orientBase(it){
   if(!it || it.rackId || it.avvertenza || OR_ACCESSORI[it.type]) return null;   /* il direttore non è in nessuna tabella: resta fuori da solo */
   var ty=it.type, schem=(it.look==="schematico");
   var v=OR_PIU_Y_EXTRA[ty]; if(v==null) v=USA_DA_PIU_Y[ty];
+  if(ty==="tastiera" && it.fig) v="solo";
   if(v) return (v==="solo" ? schem : true) ? 180 : 0;
   if(VOCE[ty]) return 0;
   if(POSTAZ[ty] || DOUBLE_TYPES[ty]) return (!schem || it.sedia) ? 0 : null;   /* «strumento solo» senza sedia: nessuna figura */
