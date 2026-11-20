@@ -38023,8 +38023,8 @@ t("proporzioni: percussionista in piedi ×0,819 attorno alla testa — riquadro,
 
 /* LUCCHETTO sugli elementi che coprono il palco (20/11/2026): «Crea elemento», testo, scala, parapetto, ostacolo.
    Segnalazione di Simone: un gruppo di quote sopra il palco rubava il doppio clic (non partiva la ricerca rapida). */
-const TIPI_LOCK_NUOVI = ["custom", "custshape", "testo", "scala", "parapetto", "ostacolo"];
-t("lucchetto: custom, custshape, testo, scala, parapetto, ostacolo si bloccano (non si spostano) e il doppio clic li attraversa", () => {
+const TIPI_LOCK_NUOVI = ["custom", "testo", "scala", "parapetto", "ostacolo"];
+t("lucchetto: custom, testo, scala, parapetto, ostacolo si bloccano (non si spostano) e il doppio clic li attraversa", () => {
   for (const tipo of TIPI_LOCK_NUOVI) {
     reset();
     const it = { id: "lk" + tipo, type: tipo, x: 300, y: 200, rot: 0, w: 100, d: 40, label: "Quota" };
@@ -38041,18 +38041,72 @@ t("lucchetto: custom, custshape, testo, scala, parapetto, ostacolo si bloccano (
   const dc = appjs.slice(appjs.indexOf("var _dcIt0="), appjs.indexOf("var _dcIt0=") + 1200);
   ok(/isLockable\(_dcIt0\) && _dcIt0\.locked===true[\s\S]*openQuickAdd\(svgPoint\(e\)/.test(dc), "il doppio clic su un bloccabile chiuso apre openQuickAdd");
 });
-t("lucchetto: un gruppo (grp) si blocca e si sblocca tutto insieme; «Crea elemento» = base + pezzi", () => {
+t("lucchetto: un gruppo (grp) si blocca e si sblocca tutto insieme (maniglia); i pezzi veri di «Crea elemento» seguono la base", () => {
   reset();
   const base = { id: "b1", type: "custom", x: 300, y: 200, rot: 0, w: 120, d: 80, grp: "g9", label: "Tavolo" };
-  const p1 = { id: "p1", type: "custshape", x: 300, y: 200, rot: 0, w: 40, d: 40, grp: "g9" };
-  const p2 = { id: "p2", type: "custshape", x: 340, y: 200, rot: 0, w: 40, d: 40, grp: "g9" };
+  const p1 = { id: "p1", type: "mic", x: 300, y: 200, rot: 0, w: 40, d: 40, grp: "g9" };
   const fuori = { id: "f1", type: "testo", x: 600, y: 200, rot: 0, w: 100, d: 40, grp: "altro", label: "x" };
-  A.state.items.push(base, p1, p2, fuori);
-  A.lockToggle(p1);   /* toccato un pezzo: si chiude tutto il gruppo */
-  ok(base.locked && p1.locked && p2.locked, "base e pezzi chiusi");
-  ok(!fuori.locked, "un altro gruppo non è toccato");
-  A.lockToggle(base);   /* riaperto dalla base: si riapre tutto */
-  ok(!base.locked && !p1.locked && !p2.locked, "base e pezzi riaperti");
+  const q1 = { id: "q1", type: "testo", x: 600, y: 300, rot: 0, w: 100, d: 40, grp: "g5", label: "a" };
+  const q2 = { id: "q2", type: "metro", x: 700, y: 300, rot: 0, w: 100, d: 40, grp: "g5" };
+  A.state.items.push(base, p1, fuori, q1, q2);
+  ok(A.itemEditable(p1), "base libera: il pezzo si muove");
+  A.lockToggle(q1);   /* toccato un elemento del blocco di quote: si chiude tutto il blocco */
+  ok(q1.locked && q2.locked, "blocco di quote chiuso");
+  ok(!fuori.locked && !base.locked, "un altro gruppo non è toccato");
+  A.lockToggle(base);
+  ok(base.locked === true && !("locked" in p1), "il pezzo vero (microfono) non porta il campo locked: nessuna migrazione");
+  ok(!A.itemEditable(p1), "base chiusa: il pezzo vero sta fermo");
+  A.lockToggle(base);
+  ok(A.itemEditable(p1), "base riaperta: il pezzo si muove di nuovo");
+});
+t("lucchetto: custshape NON è bloccabile (esiste solo nell'editor «Crea elemento»)", () => {
+  reset();
+  const c = { id: "cs1", type: "custshape", x: 300, y: 200, rot: 0, w: 40, d: 40, grp: "g1" };
+  A.state.items.push(c);
+  eq(A.isLockable(c), false, "custshape: niente lucchetto");
+  eq(A.lockToggle(c), false, "lockToggle non fa nulla");
+  ok(!("locked" in c), "nessun campo aggiunto");
+});
+t("lucchetto, pannelli: stato (spunta/a metà), riga visibile, lockImposta sulla selezione", () => {
+  reset();
+  const a = { id: "m1", type: "testo", x: 300, y: 200, rot: 0, w: 100, d: 40, grp: "g1", label: "a" };
+  const b = { id: "m2", type: "scala", x: 400, y: 200, rot: 0, w: 60, d: 90, grp: "g1" };
+  const mic = { id: "m3", type: "mic", x: 500, y: 200, rot: 0, w: 20, d: 20, grp: "g1" };
+  A.state.items.push(a, b, mic);
+  eq(A.lockStato([a, b]), "nessuno", "nessuno chiuso");
+  eq(A.lockStato([mic]), null, "un elemento non bloccabile: niente riga");
+  ok(A.lockRigaVisibile([a, mic]) === true, "riga visibile se almeno uno è bloccabile");
+  ok(A.lockRigaVisibile([mic]) === false, "riga nascosta se nessuno è bloccabile");
+  A.lockImposta([a], true);
+  eq(A.lockStato([a, b]), "misto", "uno su due: a metà");
+  eq(A.lockStato([a, b, mic]), "misto", "il non bloccabile non conta");
+  ok(a.locked === true && !("locked" in b), "lockImposta tocca solo la selezione, il resto del gruppo no");
+  eq(A.lockImposta([a, b, mic], true), 2, "chiude i 2 bloccabili, il microfono no");
+  eq(A.lockStato([a, b]), "tutti", "tutti chiusi");
+  A.lockImposta([a, b], false);
+  ok(!("locked" in a) && !("locked" in b), "riaperti: il campo sparisce");
+  A.lockImposta([a], false); ok(!("locked" in a), "riaprire un libero non aggiunge campi");
+  A.window.__projLocked = true;
+  try { ok(A.lockRigaVisibile([a]) === false, "progetto in sola lettura: riga nascosta"); }
+  finally { A.window.__projLocked = false; }
+  /* collegamenti nel sorgente: spunta = tutti (non al contrario), voluto passato, pannello multiplo agganciato */
+  ok(/c\.checked=\(lockStato\(\[it\]\)==="tutti"\)/.test(appjs), "pannello singolo: spunta = chiuso");
+  ok(/lockImposta\(\[it\], c\.checked\)/.test(appjs), "pannello singolo: usa la spunta");
+  ok(/c\.checked=\(st==="tutti"\); c\.indeterminate=\(st==="misto"\)/.test(appjs), "pannello multiplo: spunta e «a metà»");
+  ok(/lockImposta\(its, g\.checked\)/.test(appjs), "pannello multiplo: usa la spunta");
+});
+t("lucchetto: il tasto r (rotateSel) non ruota ciò che è chiuso; Canc resta come per le pedane", () => {
+  reset();
+  const a = { id: "r1", type: "testo", x: 300, y: 200, rot: 0, w: 100, d: 40, label: "a", locked: true };
+  const b = { id: "r2", type: "testo", x: 500, y: 200, rot: 0, w: 100, d: 40, label: "b" };
+  A.state.items.push(a, b);
+  A.selectOne("r1");
+  eq(A.rotateSel(15), false, "bloccato: nessuna rotazione");
+  eq(a.rot, 0, "rot invariata");
+  A.selSet = { r1: true, r2: true };
+  A.rotateSel(15);
+  eq([a.rot, b.rot], [0, 15], "selezione mista: ruota solo il libero");
+  A.selectOne("r2"); eq(A.rotateSel(15), true, "libero: ruota");
 });
 t("lucchetto: `locked` si salva e si riapre col progetto; i progetti senza lucchetto restano identici", () => {
   reset();
