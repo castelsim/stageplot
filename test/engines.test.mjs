@@ -2799,7 +2799,7 @@ t("platea: non si specchia (il cartellino «60 posti» uscirebbe a rovescio)", (
   ok(!("mir" in s.items[0]), "e da un file arriva dritta");
 });
 t("platea: la maniglia non la fa agganciare al bordo del palco fuori dalle sue caselle", () => {
-  ok(/if\(!grid && drag\.rot===0 && rzit\.type!=="platea"\)\{/.test(appjs), "il magnete al bordo durante il ridimensionamento salta la platea");
+  ok(/if\(!rzObj && !grid && drag\.rot===0 && rzit\.type!=="platea"\)\{/.test(appjs), "il magnete al bordo durante il ridimensionamento salta la platea");
 });
 
 console.log("\nT2 — rider tecnico generato dai dati:");
@@ -38689,6 +38689,58 @@ t("Pedana ad arco: salvataggio e riapertura — `spess` solo sulla pedana ad arc
   ok(/makeBtn\("pedanaarco"/.test(appjs), "sta nel catalogo, fra le pedane");
   ok(/riser praticabile/.test(A.TYPES.pedanaarco.alias) && /\bpedana\b/.test(A.TYPES.pedanaarco.alias), "ricerca: «riser», «pedana», «praticabile» trovano l'arco");
   reset();
+});
+
+t("Snap «Oggetti» nel ridimensionamento con le maniglie (21/11/2026): il lato mosso aggancia gli altri elementi, anche l'arco (ingombro vero), tutte le maniglie e le rotazioni ortogonali", () => {
+  const stage = () => { A.state.stage = { w: 3000, d: 2400, blocks: [{ x: 0, y: 0, w: 3000, d: 2400 }] }; };
+  const box = (it) => { if (it.type === "pedanaarco") return A.arcoAabb(it, 0); const r = (it.rot || 0) * Math.PI / 180, c = Math.abs(Math.cos(r)), s = Math.abs(Math.sin(r)), hw = it.w / 2 * c + it.d / 2 * s, hd = it.w / 2 * s + it.d / 2 * c; return { x0: it.x - hw, x1: it.x + hw, y0: it.y - hd, y1: it.y + hd }; };
+  const lati = (b) => [b.x0, b.x1, b.y0, b.y1];
+  const boxRett = (it) => lati((() => { const r = (it.rot || 0) * Math.PI / 180, c = Math.abs(Math.cos(r)), s = Math.abs(Math.sin(r)), hw = it.w / 2 * c + it.d / 2 * s, hd = it.w / 2 * s + it.d / 2 * c; return { x0: it.x - hw, x1: it.x + hw, y0: it.y - hd, y1: it.y + hd }; })());   /* il rettangolo locale w×d: è quello che la maniglia tiene fermo sul lato opposto (la fascia dell'arco ha i tagli radiali oltre la corda, il suo ingombro vero cambia anche dall'altra parte) */
+  /* gesto: allunga di dl (cm) dal lato `edge` come il gestore (misure → posa col lato opposto fermo), poi il passo di snap; un bersaglio (pedana del coro) a `off` cm oltre il lato mosso */
+  function gesto(tipo, over, rotDeg, edge, dl, off, modo) {
+    reset(); stage(); A.snapMode = modo || "obj";
+    const it = add(tipo, 800, 700, Object.assign({ rot: rotDeg }, over)), sgx = edge.includes("r") ? 1 : edge.includes("l") ? -1 : 0, sgy = edge.includes("b") ? 1 : edge.includes("t") ? -1 : 0;
+    const drag = { x0: it.x, y0: it.y, w0: it.w, d0: it.d, rot: rotDeg * Math.PI / 180 }, b0 = lati(box(it)), b0it = { x: it.x, y: it.y, w: it.w, d: it.d, rot: it.rot };
+    let nw = it.w + (sgx ? dl : 0), nd = it.d + (sgy ? dl : 0); if (tipo === "pedanaarco") nd = Math.min(nd, nw / 2);
+    A.resizePose(it, drag, nw, nd, sgx, sgy);
+    const b1 = lati(box(it)); let k = 0; b1.forEach((v, i) => { if (Math.abs(v - b0[i]) > Math.abs(b1[k] - b0[k]) + 1e-9) k = i; });   /* il lato che si è mosso di più = il lato mosso */
+    const dir = Math.sign(b1[k] - b0[k]) || 1, tv = b1[k] + off * dir, gx = k < 2;
+    const tg = add("pedanacoro", gx ? tv + 60 * dir : 1500, gx ? 1600 : tv + 60 * dir, { w: 120, d: 120, h: 20 });
+    const prima = lati(box(it)), r = A.resizeSnapStep(it, drag, edge, sgx, sgy, nw, nd, false, false);
+    return { it, k, tv, b0, b0it, b1, dopo: lati(box(it)), prima, r, tg };
+  }
+  const casi = [["pedana", { w: 300, d: 150, h: 40 }], ["pedanaarco", { w: 400, d: 120, h: 40 }], ["pedanaarco", { w: 400, d: 120, h: 40, spess: 60 }]];
+  let n = 0;
+  casi.forEach(([tipo, over]) => [0, 90, 180, 270].forEach((rot) => ["l", "r", "t", "b"].forEach((edge) => {
+    const g = gesto(tipo, over, rot, edge, 30, 7), nome = tipo + (over.spess ? "+fascia" : "") + " rot" + rot + " maniglia " + edge;
+    arcoNear(g.dopo[g.k], g.tv, 0.02, nome + ": il lato mosso si aggancia al bordo del bersaglio");
+    arcoNear(boxRett(g.it)[g.k ^ 1], boxRett(g.b0it)[g.k ^ 1], 0.02, nome + ": il lato opposto (del rettangolo corda×freccia) resta fermo");
+    eq(g.r.guides.length, 1, nome + ": una guida"); eq(g.it.w === g.r.nw && g.it.d === g.r.nd, true, nome + ": nw/nd restituiti = misure dell'elemento");
+    if (tipo === "pedanaarco") { ok(g.it.d <= g.it.w / 2 + 1e-6, nome + ": freccia ≤ mezza corda"); const gg = A.arcoGeom(g.it.w, g.it.d, g.it.spess); ok(!(g.it.spess > 0) || Math.abs(gg.s - g.it.spess) < 1e-6, nome + ": spessore entro il massimo"); }
+    n++;
+  })));
+  eq(n, 48, "tre tipi × 4 rotazioni × 4 maniglie");
+  /* fuori soglia: nessuno snap, la posa resta quella del gesto */
+  ["pedana", "pedanaarco"].forEach((tipo) => { const g = gesto(tipo, tipo === "pedana" ? { w: 300, d: 150, h: 40 } : { w: 400, d: 120, h: 40, spess: 60 }, 0, "r", 30, 25); g.dopo.forEach((v, i) => arcoNear(v, g.prima[i], 1e-9, tipo + ": a 25 cm niente snap (lato " + i + ")")); eq(g.r.guides.length, 0, tipo + ": nessuna guida"); });
+  /* vincolo freccia ≤ mezza corda anche in snap: corda 400, freccia 195, bersaglio a 12 cm oltre → d diventerebbe 207 > 200 → niente snap su quell'asse */
+  { const g = gesto("pedanaarco", { w: 400, d: 195, h: 40 }, 0, "b", 0, 12); ok(g.it.d <= 200 + 1e-6, "freccia rifiutata oltre mezza corda: d=" + g.it.d); arcoNear(g.it.d, 195, 1e-9, "…e resta com'era"); eq(g.r.guides.length, 0, "…senza guida"); }
+  /* stringere la corda con la freccia già a metà: lo snap non deve lasciare d > w/2 */
+  { const g = gesto("pedanaarco", { w: 420, d: 205, h: 40 }, 0, "r", -10, 8); ok(g.it.d <= g.it.w / 2 + 1e-6, "corda stretta: d ≤ w/2 (w=" + g.it.w + ", d=" + g.it.d + ")"); arcoNear(g.it.w, 410, 1e-9, "…lo snap non l'ha ristretta"); }
+  /* il minimo (20 cm) non si scavalca: bersaglio 5 cm oltre il gesto (verso l'interno) */
+  { const g = gesto("pedana", { w: 300, d: 150, h: 40 }, 0, "r", -270, 5); ok(g.it.w >= 20, "minimo 20 cm rispettato: w=" + g.it.w); }
+  /* invariati: palco a rot 0 (come prima); senza «Oggetti» nessun aggancio agli oggetti; tipi esclusi e rotazioni oblique → nessun intervento */
+  reset(); A.state.stage = { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] }; A.snapMode = "obj";
+  { const r0 = add("pedana", 1000, 400, { w: 300, d: 150, h: 40 }), dr = { x0: 1000, y0: 400, w0: 300, d0: 150, rot: 0 }; A.resizePose(r0, dr, 342, 150, 1, 0); const o = A.resizeSnapStep(r0, dr, "r", 1, 0, 342, 150, false, false);
+    arcoNear(r0.x + r0.w / 2, 1200, 1e-9, "bordo destro del palco (rot 0): si aggancia"); arcoNear(r0.x - r0.w / 2, 850, 1e-9, "lato sinistro fermo"); eq(o.guides.length, 1, "una guida"); }
+  { reset(); A.state.stage = { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] }; A.snapMode = "0"; add("pedana", 600, 300, { w: 200, d: 100, h: 20 });
+    const r1 = add("pedana", 900, 300, { w: 300, d: 100, h: 20 }), dr = { x0: 900, y0: 300, w0: 300, d0: 100, rot: 0 }; A.resizePose(r1, dr, 303, 100, -1, 0); const L0 = r1.x - r1.w / 2;
+    A.resizeSnapStep(r1, dr, "l", -1, 0, 303, 100, false, false); arcoNear(r1.x - r1.w / 2, L0, 1e-9, "senza «Oggetti» il lato non aggancia gli oggetti"); }
+  { reset(); A.state.stage = { w: 1200, d: 800, blocks: [{ x: 0, y: 0, w: 1200, d: 800 }] }; A.snapMode = "obj"; const p = add("platea", 600, 400, {}); const dr = { x0: p.x, y0: p.y, w0: p.w, d0: p.d, rot: 0 };
+    eq(A.resizeObjSnap(p, dr, 1, 0, p.w, p.d), null, "platea: nessun intervento (caselle)"); const q = add("pedana", 600, 400, { w: 300, d: 150, h: 40 }); const d2 = { x0: 600, y0: 400, w0: 300, d0: 150, rot: 45 * Math.PI / 180 };
+    eq(A.resizeObjSnap(q, d2, 1, 0, 300, 150), null, "rotazione 45°: nessun intervento (come il palco)"); }
+  /* cablaggio: il gestore delle maniglie passa dal passo di snap, prima di arcoNormalizza */
+  ok(/drag\.mode==="itemresize"[^]*?resizeSnapStep\(rzit, drag, ed, sgx, sgy, nw, nd, grid, !!rzCust\)[^]*?arcoNormalizza\(rzit\)/.test(appjs), "il ridimensionamento chiama resizeSnapStep, poi arcoNormalizza");
+  A.snapMode = "25"; reset();
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");

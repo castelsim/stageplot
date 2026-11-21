@@ -25187,15 +25187,7 @@ function objectSnap(dragItems, ddx, ddy){
   });
   var cx=(minX+maxX)/2, cy=(minY+maxY)/2;
   /* candidati dai bordi degli altri item + bordi e centro palco */
-  var xT=[0,W/2,W], yT=[0,D/2,D];
-  state.items.forEach(function(it){
-    if(dragIds[it.id]) return;
-    if(it.type==="pedanaarco"){ var _ab=arcoAabb(it,0); xT.push(_ab.x0, it.x, _ab.x1); yT.push(_ab.y0, it.y, _ab.y1); return; }
-    var rot=(it.rot||0)*Math.PI/180, c=Math.abs(Math.cos(rot)), s=Math.abs(Math.sin(rot));
-    var hw=it.w/2*c+it.d/2*s, hd=it.w/2*s+it.d/2*c;
-    xT.push(it.x-hw, it.x, it.x+hw);
-    yT.push(it.y-hd, it.y, it.y+hd);
-  });
+  var _tg=objSnapTargets(dragIds), xT=_tg.x, yT=_tg.y;
   /* per ogni lato/centro del gruppo trascinato, cerca il candidato più vicino */
   var xFaces=[[minX,''],[cx,'center'],[maxX,'']];
   var yFaces=[[minY,''],[cy,'center'],[maxY,'']];
@@ -25207,6 +25199,68 @@ function objectSnap(dragItems, ddx, ddy){
   if(xSnap) guides.push({x1:xSnap.val,y1:-pad,x2:xSnap.val,y2:D+pad,cls:'snap-guide '+xSnap.cls});
   if(ySnap) guides.push({x1:-pad,y1:ySnap.val,x2:W+pad,y2:ySnap.val,cls:'snap-guide '+ySnap.cls});
   return {sdx:sdx,sdy:sdy,guides:guides};
+}
+/* bersagli dello snap «Oggetti»: bordi e centro del palco + bordi e centro (AABB) di ogni altro elemento; la pedana ad arco con la figura VERA */
+function objSnapTargets(skipIds){
+  var W=state.stage.w, D=state.stage.d, xT=[0,W/2,W], yT=[0,D/2,D];
+  state.items.forEach(function(it){
+    if(skipIds[it.id]) return;
+    if(it.type==="pedanaarco"){ var _ab=arcoAabb(it,0); xT.push(_ab.x0, it.x, _ab.x1); yT.push(_ab.y0, it.y, _ab.y1); return; }
+    var rot=(it.rot||0)*Math.PI/180, c=Math.abs(Math.cos(rot)), s=Math.abs(Math.sin(rot));
+    var hw=it.w/2*c+it.d/2*s, hd=it.w/2*s+it.d/2*c;
+    xT.push(it.x-hw, it.x, it.x+hw);
+    yT.push(it.y-hd, it.y, it.y+hd);
+  });
+  return {x:xT, y:yT};
+}
+/* SNAP «Oggetti» DURANTE IL RIDIMENSIONAMENTO (21/11/2026, segnalazione utente: la maniglia di una pedana ad arco non agganciava il lato di un'altra pedana).
+   Il lato MOSSO dalla maniglia (nel mondo, a rotazione 0/90/180/270) si aggancia ai bordi/centri degli altri elementi e al palco, come per lo spostamento;
+   il lato opposto resta fermo. Si misura l'ingombro VERO (arcoAabb per l'arco, anche con spessore: il lato non cresce 1:1 con la misura, si itera).
+   Se lo snap porterebbe sotto il minimo o la freccia oltre mezza corda, per quell'asse non si aggancia. null = non applicabile (altre rotazioni, tipi con vincoli propri). */
+function resizePose(it, drag, nw, nd, sgx, sgy){
+  var cc=Math.cos(drag.rot), ss=Math.sin(drag.rot), shx=sgx*(nw-drag.w0)/2, shy=sgy*(nd-drag.d0)/2;
+  it.w=nw; it.d=nd; it.x=drag.x0+(shx*cc-shy*ss); it.y=drag.y0+(shx*ss+shy*cc);
+}
+function resizeObjSnap(it, drag, sgx, sgy, nw, nd){
+  if(it.type==="platea"||it.type==="custshape"||it.type==="cableramp"||it.type==="metro") return null;
+  var q=drag.rot*2/Math.PI; if(Math.abs(q-Math.round(q))>1e-6) return null;
+  var cc=Math.round(Math.cos(drag.rot)), ss=Math.round(Math.sin(drag.rot)), W=state.stage.w, D=state.stage.d, ids={}, guides=[], pad=Math.round(Math.max(W,D)*0.06);
+  ids[it.id]=true; var tg=objSnapTargets(ids);
+  function aabb(){ if(it.type==="pedanaarco") return arcoAabb(it,0); var r=(it.rot||0)*Math.PI/180, c=Math.abs(Math.cos(r)), s=Math.abs(Math.sin(r)), hw=it.w/2*c+it.d/2*s, hd=it.w/2*s+it.d/2*c; return {x0:it.x-hw, x1:it.x+hw, y0:it.y-hd, y1:it.y+hd}; }
+  [0,1].forEach(function(ax){
+    var sg=ax===0?sgx:sgy; if(!sg) return;
+    if(ax===1 && it.type==="parapetto") return;   /* spessore fisso */
+    var ox=ax===0?sg*cc:-sg*ss, oy=ax===0?sg*ss:sg*cc, gx=Math.abs(ox)>0.5, sgn=gx?ox:oy, tgt=gx?tg.x:tg.y;   /* direzione del lato mosso nel mondo */
+    function lato(){ var b=aabb(); return gx ? (sgn>0?b.x1:b.x0) : (sgn>0?b.y1:b.y0); }
+    var v=lato(), best=null, bd=SNAP_T+1;
+    tgt.forEach(function(t){ var dd=Math.abs(v-t); if(dd<bd){ bd=dd; best=t; } });
+    if(best==null) return;
+    var n0=ax===0?nw:nd, n=n0;
+    for(var k=0;k<8;k++){
+      n+=(best-lato())*sgn;
+      if(ax===0) resizePose(it,drag,n,it.d,sgx,sgy); else resizePose(it,drag,it.w,n,sgx,sgy);
+      if(Math.abs(best-lato())<0.01) break;
+    }
+    var ok=Math.abs(best-lato())<0.5 && n>=20 && !(it.type==="pedanaarco" && it.d>it.w/2+1e-6);
+    if(!ok){ if(ax===0) resizePose(it,drag,n0,it.d,sgx,sgy); else resizePose(it,drag,it.w,n0,sgx,sgy); return; }
+    guides.push(gx ? {x1:best,y1:-pad,x2:best,y2:D+pad,cls:'snap-guide'} : {x1:-pad,y1:best,x2:W+pad,y2:best,cls:'snap-guide'});
+  });
+  return {guides:guides};
+}
+/* il passo di snap di un ridimensionamento con le maniglie: nw/nd = misure già calcolate (e snappate alla griglia se grid), l'elemento è già nella posa corrispondente.
+   Modalità «Oggetti»: resizeObjSnap (palco + elementi, tutte le rotazioni ortogonali); altrimenti, e per i tipi esclusi, il magnete al bordo palco di sempre (solo rot 0). */
+function resizeSnapStep(rzit, drag, ed, sgx, sgy, nw, nd, grid, rzCust){
+  var rsg=[];
+  var rzObj=(!grid && !rzCust && snapModeEff()==="obj") ? resizeObjSnap(rzit, drag, sgx, sgy, nw, nd) : null;
+  if(rzObj){ nw=rzit.w; nd=rzit.d; rsg=rzObj.guides; }
+  if(!rzObj && !grid && drag.rot===0 && rzit.type!=="platea"){   /* platea: il magnete al bordo la lascerebbe fuori dalle sue caselle (una sedia in meno) */
+        var rW=state.stage.w,rD=state.stage.d,rT=custEditorAttivo()?hSize(8):SNAP_T;
+        if(ed.indexOf("r")>=0){var rre=rzit.x+nw/2,rdt=rW-rre;if(Math.abs(rdt)<rT){nw+=rdt;rzit.x+=rdt/2;rzit.w=nw;rsg.push({x1:rW,y1:-40,x2:rW,y2:rD+40,cls:'snap-guide'});}}
+        if(ed.indexOf("l")>=0){var rle=rzit.x-nw/2,rdt=-rle;if(Math.abs(rdt)<rT){nw+=rdt;rzit.x-=rdt/2;rzit.w=nw;rsg.push({x1:0,y1:-40,x2:0,y2:rD+40,cls:'snap-guide'});}}
+        if(ed.indexOf("b")>=0){var rbe=rzit.y+nd/2,rdt=rD-rbe;if(Math.abs(rdt)<rT){nd+=rdt;rzit.y+=rdt/2;rzit.d=nd;rsg.push({x1:-40,y1:rD,x2:rW+40,y2:rD,cls:'snap-guide'});}}
+        if(ed.indexOf("t")>=0){var rte=rzit.y-nd/2,rdt=-rte;if(Math.abs(rdt)<rT){nd+=rdt;rzit.y-=rdt/2;rzit.d=nd;rsg.push({x1:-40,y1:0,x2:rW+40,y2:0,cls:'snap-guide'});}}
+      }
+  return {nw:nw, nd:nd, guides:rsg};
 }
 function renderSnapGuides(guides){
   var NS='http://www.w3.org/2000/svg';
@@ -27653,13 +27707,7 @@ svg.addEventListener("pointermove", function(e){
       /* snap magnetico a bordo palco durante resize (solo rot=0, no griglia) */
       var rsg=[], rzCust=custRidimensionaAggancio(drag, rzit, ed, e);   /* «Crea elemento»: il lato aggancia gli altri (Tappa A) */
       if(rzCust){ nw=rzit.w; nd=rzit.d; }
-      if(!grid && drag.rot===0 && rzit.type!=="platea"){   /* platea: il magnete al bordo la lascerebbe fuori dalle sue caselle (una sedia in meno) */
-        var rW=state.stage.w,rD=state.stage.d,rT=custEditorAttivo()?hSize(8):SNAP_T;
-        if(ed.indexOf("r")>=0){var rre=rzit.x+nw/2,rdt=rW-rre;if(Math.abs(rdt)<rT){nw+=rdt;rzit.x+=rdt/2;rzit.w=nw;rsg.push({x1:rW,y1:-40,x2:rW,y2:rD+40,cls:'snap-guide'});}}
-        if(ed.indexOf("l")>=0){var rle=rzit.x-nw/2,rdt=-rle;if(Math.abs(rdt)<rT){nw+=rdt;rzit.x-=rdt/2;rzit.w=nw;rsg.push({x1:0,y1:-40,x2:0,y2:rD+40,cls:'snap-guide'});}}
-        if(ed.indexOf("b")>=0){var rbe=rzit.y+nd/2,rdt=rD-rbe;if(Math.abs(rdt)<rT){nd+=rdt;rzit.y+=rdt/2;rzit.d=nd;rsg.push({x1:-40,y1:rD,x2:rW+40,y2:rD,cls:'snap-guide'});}}
-        if(ed.indexOf("t")>=0){var rte=rzit.y-nd/2,rdt=-rte;if(Math.abs(rdt)<rT){nd+=rdt;rzit.y-=rdt/2;rzit.d=nd;rsg.push({x1:-40,y1:0,x2:rW+40,y2:0,cls:'snap-guide'});}}
-      }
+      var rsn=resizeSnapStep(rzit, drag, ed, sgx, sgy, nw, nd, grid, !!rzCust); nw=rsn.nw; nd=rsn.nd; rsg=rsn.guides;   /* snap del lato mosso: palco (sempre a rot 0) e, in modalità «Oggetti», gli altri elementi */
       if(rzit.type==="pedanaarco") arcoNormalizza(rzit);   /* il magnete al bordo non porta mai la freccia oltre il semicerchio, né lo spessore oltre il massimo */
       drag.moved=true; redrawItemNode(rzit); renderSnapGuides(rsg); if(rzCust) custDisegnaAggancio(rzCust);   /* aggiornamento parziale: rigenera solo il nodo ridimensionato, poi le guide di snap */
     }
