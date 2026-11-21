@@ -13985,7 +13985,7 @@ function itemMarkup(it){
       else if(gzs==='bottom'){ gdy=(it.d/2)+goff+gzsz*0.6; }
       else if(gzs==='left'){ gdx=-(it.w/2)-goff; gang=-90; }
       else { gdx=(it.w/2)+goff; gang=90; }
-      gtr=lblCapTr(!_sceneRuota && lblCapovolto((it.rot||0)+gang), gang, gdx, gdy, gzsz);   /* 06/10: come i nomi, non si capovolge */
+      gtr=lblCapTr(!_sceneRuota && lblCapovolto((it.rot||0)+gang), gang, gdx, gdy, gzsz, true);   /* 06/10: come i nomi, non si capovolge. 21/11: «unico» = UN rotate (svg2pdf non ne compone due: con la scritta a sx/dx e il capovolgimento finiva lontana dalla copertura nel PDF) */
       lb += '<text class="lbl" x="'+gdx+'" y="'+gdy+'" text-anchor="middle" style="font-size:'+gzsz+'px"'+gtr+'>'+esc(gzT)+'</text>';
     }
   }
