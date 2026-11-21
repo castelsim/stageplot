@@ -38797,5 +38797,53 @@ t("quota pedana ruotata: sta vicino al lato giusto per 5 rotazioni × 4 lati, pe
   reset();
 });
 
+/* ETICHETTA DELLE COPERTURE, NEL PDF (21/11/2026). Stesso difetto di #186 sulle coperture (gazebo33, tenda63, pma) con la scritta a sinistra o a destra
+   (gang ±90) e un capovolgimento (rot + gang tra 90° e 270°): rotate(±90 x y) rotate(180 x y') di fila, che svg2pdf non compone → nel PDF la scritta
+   finiva a ~2 m dalla copertura o fuori pagina. Ora è UN rotate solo (lblCapTr con «unico»). Schermo, telefono, PNG: stesso moto di prima. */
+const etichettaCopertura = (it) => {   /* la scritta unica della copertura: ancora nel riferimento della copertura, angolo totale sul foglio */
+  A.selSet = {}; A._lblSink = []; A.itemMarkup(it); const lb = A._lblSink.join(""); A._lblSink = null;
+  const m = /<text class="lbl" x="(-?[\d.]+)" y="(-?[\d.]+)" text-anchor="middle" style="font-size:[\d.]+px"((?: transform="[^"]*")?)((?: data-cap="1")?)>[^<]*×[^<]*<\/text>/.exec(lb);
+  if (!m) return null;
+  const tf = (/transform="([^"]*)"/.exec(m[3]) || [])[1] || "", [lx, ly] = tfApplica(tf, +m[1], +m[2]), r = (it.rot || 0) * Math.PI / 180;
+  const angoli = [...tf.matchAll(/rotate\((-?[\d.]+)/g)].map((o) => +o[1]), tot = (it.rot || 0) + angoli.reduce((a, b) => a + b, 0);
+  return { tf, n: angoli.length, cap: m[4] !== "", ox: +m[1], oy: +m[2], lx, ly, tot, wx: it.x + Math.cos(r) * lx - Math.sin(r) * ly, wy: it.y + Math.sin(r) * lx + Math.cos(r) * ly };
+};
+t("etichetta delle coperture: sinistra/destra × 5 rotazioni × 3 tipi → UN solo rotate, stesso moto delle due rotazioni, dritta e vicina alla copertura", () => {
+  const prove = []; let capovolti = 0;
+  for (const tipo of ["gazebo33", "tenda63", "pma"]) for (const rot of [0, 90, 180, 270, 35]) for (const lato of ["left", "right"]) {
+    reset(); A.state.stage = { w: 1600, d: 1000, blocks: [{ x: 0, y: 0, w: 1600, d: 1000 }] };
+    const it = add(tipo, 700, 400, { w: 300, d: 200, rot, dimSide: lato }), q = etichettaCopertura(it), nome = `${tipo} rot ${rot} ${lato}`;
+    ok(q, nome + ": l'etichetta c'è"); if (!q) continue;
+    ok(q.n <= 1, `${nome}: al più un rotate (${q.tf})`);
+    const gang = lato === "left" ? -90 : 90, flip = A.lblCapovolto(rot + gang);
+    if (flip) { capovolti++; ok(q.cap && q.n === 1, `${nome}: capovolta = un rotate e data-cap (${q.tf})`);
+      /* stesso moto delle due rotazioni: rotate(gang x y) rotate(180 x cy), per 4 punti del testo */
+      const due = `rotate(${gang} ${q.ox} ${q.oy}) rotate(180 ${q.ox} ${Math.round((q.oy - 14 * 0.36) * 10) / 10})`;
+      for (const [px, py] of [[q.ox, q.oy], [q.ox + 30, q.oy - 7], [q.ox - 40, q.oy + 5], [0, 0]]) {
+        const a = tfApplica(q.tf, px, py), b = tfApplica(due, px, py);
+        ok(Math.abs(a[0] - b[0]) < 0.05 && Math.abs(a[1] - b[1]) < 0.05, `${nome}: (${px},${py}) → ${a.map((v) => v.toFixed(2))} ≠ due rotate ${b.map((v) => v.toFixed(2))}`); } }
+    /* dritta: l'angolo totale sul foglio non è mai capovolto (a 90°/270° si legge di lato, come sempre) */
+    ok(!A.lblCapovolto(q.tot), `${nome}: testo dritto sul foglio (angolo ${q.tot})`);
+    /* vicina: nel riferimento della copertura subito fuori dal lato scelto; sul palco a pochi cm dal rettangolo ruotato */
+    const w2 = 150, d2 = 100, fuori = lato === "left" ? -w2 - q.lx : q.lx - w2;
+    ok(fuori > 0 && fuori < 25, `${nome}: a ${fuori.toFixed(1)} cm dal lato (0 < d < 25), tf ${q.tf}`);
+    const r = rot * Math.PI / 180, dx = q.wx - it.x, dy = q.wy - it.y, ux = Math.cos(r) * dx + Math.sin(r) * dy, uy = -Math.sin(r) * dx + Math.cos(r) * dy;
+    const dist = Math.hypot(Math.max(Math.abs(ux) - w2, 0), Math.max(Math.abs(uy) - d2, 0));
+    ok(dist > 0 && dist < 25, `${nome}: nel palco a ${dist.toFixed(1)} cm dalla copertura ruotata`);
+    prove.push(nome);
+  }
+  eq(prove.length, 30, "tutte le 30 combinazioni provate"); ok(capovolti >= 9, "i casi con capovolgimento ci sono davvero (" + capovolti + ")");
+  reset();
+});
+t("etichetta delle coperture: sopra e sotto (nessun gang) invariate, nome della doppia e quota pedana come prima", () => {
+  for (const tipo of ["gazebo33", "tenda63", "pma"]) for (const rot of [0, 90, 180, 270, 35]) for (const lato of ["top", "bottom"]) {
+    reset(); const it = add(tipo, 700, 400, { w: 300, d: 200, rot, dimSide: lato }), q = etichettaCopertura(it);
+    ok(q && q.n <= 1, `${tipo} rot ${rot} ${lato}: al più un rotate (${q && q.tf})`);
+    eq(q.tf, A.lblCapTr(A.lblCapovolto(rot), 0, q.ox, q.oy, 14).replace(/^ transform="|" data-cap="1"$|"$/g, ""), `${tipo} rot ${rot} ${lato}: identica a prima (solo capovolgimento, senza angolo)`); }
+  eq(A.lblCapTr(true, 12, 5, 7, 12), ' transform="rotate(12 5 7) rotate(180 5 2.7)" data-cap="1"', "i nomi delle doppie (±12°, senza «unico»): invariati");
+  ok(/gtr=lblCapTr\([^;]*gzsz, true\)/.test(appjs), "il sorgente della copertura passa «unico»");
+  reset();
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
