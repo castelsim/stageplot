@@ -28806,7 +28806,7 @@ t("nome leggibile: vale anche per la quota della pedana (sopra/sotto), la riga d
   ok(/transform="rotate\(180 /.test(quota(ped(180, "bottom"))), "pedana a 180°, quota sotto: si rigira");
   ok(!/transform=/.test(quota(ped(0, "top"))), "pedana a 0°: la quota com'era");
   ok(!/transform="rotate\(\-?90 [-\d.]+ [-\d.]+\) rotate\(180/.test(quota(ped(180, "left"))), "pedana a 180°, quota a sinistra: già di lato, non si tocca (270° sullo schermo)");
-  ok(/rotate\(90 [-\d.]+ [-\d.]+\) rotate\(180 /.test(quota(ped(90, "right"))), "pedana a 90°, quota a destra: 90+90 = 180°, si rigira");
+  ok(/^<text[^>]*transform="rotate\(-90 [-\d.]+ [-\d.]+\)" data-cap="1"/.test(quota(ped(90, "right"))), "pedana a 90°, quota a destra: 90+90 = 180°, si rigira (21/11: con UN solo rotate, -90 = 90+180, che svg2pdf legge giusto)");
   const dbl = lbOf({ id: "d180", type: "vln1x2", x: 400, y: 300, rot: 180, w: 120, d: 70, label: "Violino 1", label2: "Violino 2", doppia: true });
   const tr = [...dbl.matchAll(/<text class="lbl"[^>]*transform="([^"]*)"/g)].map((m) => m[1]);
   eq(tr.length, 2, "i due nomi della doppia hanno la loro trasformazione");
@@ -38741,6 +38741,60 @@ t("Snap «Oggetti» nel ridimensionamento con le maniglie (21/11/2026): il lato 
   /* cablaggio: il gestore delle maniglie passa dal passo di snap, prima di arcoNormalizza */
   ok(/drag\.mode==="itemresize"[^]*?resizeSnapStep\(rzit, drag, ed, sgx, sgy, nw, nd, grid, !!rzCust\)[^]*?arcoNormalizza\(rzit\)/.test(appjs), "il ridimensionamento chiama resizeSnapStep, poi arcoNormalizza");
   A.snapMode = "25"; reset();
+});
+
+/* QUOTA DELLA PEDANA RUOTATA, NEL PDF (21/11/2026). svg2pdf non compone due rotate(a cx cy) di fila: la quota di una pedana
+   (o di una scala) a 90°/270°, che porta rotate(±90 x y) rotate(180 x y') per non capovolgersi, finiva nel PDF a un lato
+   di distanza dalla figura (a schermo no). Ora il capovolgimento + la rotazione della quota sono UN rotate solo, stesso moto. */
+const tfApplica = (tf, px, py) => {   /* come un motore SVG: la lista si legge da sinistra (esterno) a destra (interno): si applica da destra */
+  const ops = [...String(tf || "").matchAll(/rotate\((-?[\d.]+)(?: (-?[\d.]+) (-?[\d.]+))?\)/g)].reverse();
+  for (const o of ops) { const a = +o[1] * Math.PI / 180, cx = +(o[2] || 0), cy = +(o[3] || 0), c = Math.cos(a), sn = Math.sin(a), dx = px - cx, dy = py - cy;
+    px = cx + c * dx - sn * dy; py = cy + sn * dx + c * dy; }
+  return [px, py];
+};
+const quotaMondo = (it) => {   /* ancora della scritta di quota in coordinate di palco (gruppo: translate(x y) rotate(rot) → text transform) */
+  A.selSet = {}; A._lblSink = []; A.itemMarkup(it); const lb = A._lblSink.join(""); A._lblSink = null;
+  const m = /<text class="lbl sub" x="(-?[\d.]+)" y="(-?[\d.]+)"[^>]*?(?: transform="([^"]*)")?(?: data-cap="1")?[^>]*>/.exec(lb);
+  if (!m) return null;
+  const [lx, ly] = tfApplica(m[3], +m[1], +m[2]), r = (it.rot || 0) * Math.PI / 180;
+  return { tf: m[3] || "", cap: /data-cap="1"/.test(m[0]), lx, ly, wx: it.x + Math.cos(r) * lx - Math.sin(r) * ly, wy: it.y + Math.sin(r) * lx + Math.cos(r) * ly };
+};
+t("quota pedana ruotata: UN solo rotate (svg2pdf non ne compone due) e lo stesso moto delle due rotazioni", () => {
+  for (const [ang, x, y] of [[90, 132, 0], [-90, -132, 0], [90, 140.5, -35], [12, -40, 74.28], [-12, 40, 74.28], [35, 10, 20], [270, 0, 0]]) {
+    const due = ` transform="rotate(${ang} ${x} ${y}) rotate(180 ${x} ${Math.round((y - 12 * 0.36) * 10) / 10})"`;
+    const uno = A.lblCapTr(true, ang, x, y, 12, true);
+    eq((uno.match(/rotate\(/g) || []).length, 1, "ang " + ang + ": un solo rotate (" + uno + ")");
+    ok(/data-cap="1"/.test(uno), "ang " + ang + ": il segno data-cap resta (la passata anti-sovrapposizione non lo sposta)");
+    const tf1 = /transform="([^"]*)"/.exec(uno)[1], tf2 = /transform="([^"]*)"/.exec(due)[1];
+    for (const [px, py] of [[x, y], [x + 30, y - 7], [x - 55, y + 20], [0, 0]]) {
+      const a = tfApplica(tf1, px, py), b = tfApplica(tf2, px, py);
+      ok(Math.abs(a[0] - b[0]) < 0.05 && Math.abs(a[1] - b[1]) < 0.05, `ang ${ang}: (${px},${py}) → ${a.map((v) => v.toFixed(2))} ≠ due rotate ${b.map((v) => v.toFixed(2))}`);
+    }
+  }
+  eq(A.lblCapTr(true, 0, 5, 7, 12), ' transform="rotate(180 5 2.7)" data-cap="1"', "senza angolo: invariato (nomi capovolti, rig, metro)");
+  eq(A.lblCapTr(true, 12, 5, 7, 12), ' transform="rotate(12 5 7) rotate(180 5 2.7)" data-cap="1"', "i nomi delle doppie (senza «unico»): invariati, come oggi in PDF");
+  eq(A.lblCapTr(false, 90, 132, 0, 12), ' transform="rotate(90 132 0)"', "non capovolto: invariato");
+  eq(A.lblCapTr(false, 0, 0, 0, 12), "", "dritto: niente transform");
+  ok((A.lblCapTr(true, 180, 5, 7, 12, true).match(/rotate\(/g) || []).length === 2, "180° (matrice singolare): resta com'era, mai un NaN");
+});
+t("quota pedana ruotata: sta vicino al lato giusto per 5 rotazioni × 4 lati, pedana e arco, un solo rotate", () => {
+  reset(); A.state.stage = { w: 1600, d: 1000, blocks: [{ x: 0, y: 0, w: 1600, d: 1000 }] };
+  const prove = [];
+  for (const tipo of ["pedana", "pedanaarco"]) for (const rot of [0, 90, 180, 270, 35]) for (const lato of ["top", "bottom", "left", "right"]) {
+    reset(); const it = add(tipo, 700, 400, { w: 240, d: 120, h: 40, rot, dimSide: lato });
+    const q = quotaMondo(it); ok(q, `${tipo} rot ${rot} ${lato}: la quota c'è`); if (!q) continue;
+    ok((q.tf.match(/rotate\(/g) || []).length <= 1, `${tipo} rot ${rot} ${lato}: un solo rotate (${q.tf})`);
+    /* nel riferimento della pedana (quello che il disegno ruota): la scritta è subito fuori dal lato scelto, mai lontana */
+    const w2 = 120, d2 = 60, fuori = { right: q.lx - w2, left: -w2 - q.lx, bottom: q.ly - d2, top: -d2 - q.ly }[lato];
+    ok(fuori > 0 && fuori < 25, `${tipo} rot ${rot} ${lato}: a ${fuori.toFixed(1)} cm dal lato (0 < d < 25), tf ${q.tf}`);
+    /* e sul foglio, cioè in coordinate di palco: a pochi cm dal rettangolo ruotato, non a un lato di distanza */
+    const r = rot * Math.PI / 180, dx = q.wx - it.x, dy = q.wy - it.y, ux = Math.cos(r) * dx + Math.sin(r) * dy, uy = -Math.sin(r) * dx + Math.cos(r) * dy;
+    const dist = Math.hypot(Math.max(Math.abs(ux) - w2, 0), Math.max(Math.abs(uy) - d2, 0));
+    ok(dist > 0 && dist < 25, `${tipo} rot ${rot} ${lato}: nel palco a ${dist.toFixed(1)} cm dalla figura ruotata`);
+    prove.push(rot + lato);
+  }
+  eq(prove.length, 40, "tutte le 40 combinazioni provate");
+  reset();
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
