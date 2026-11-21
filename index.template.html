@@ -15372,8 +15372,20 @@ function lblCapovolto(ang){
 }
 /* transform di un testo: la sua inclinazione propria (ang, attorno a x,y) e, se capovolto, il mezzo giro
    attorno al centro delle lettere (baseline − 0,36 corpo). Vuoto se non serve niente. */
-function lblCapTr(flip, ang, x, y, corpo){
+/* rotate(ang x y) seguito da rotate(180 qx qy) = UN rotate di ang+180 attorno a un centro c: (I+R)c = p + R(2q−p). Null se ang è 180° (matrice singolare). */
+function lblCapUnico(ang, x, y, qx, qy){
+  var a=ang*Math.PI/180, co=Math.cos(a), si=Math.sin(a), det=2+2*co; if(Math.abs(det)<1e-6) return null;
+  var vx=2*qx-x, vy=2*qy-y, tx=x+co*vx-si*vy, ty=y+si*vx+co*vy;
+  var cx=((1+co)*tx+si*ty)/det, cy2=(-si*tx+(1+co)*ty)/det, th=((ang+180)%360+360)%360; if(th>180) th-=360;
+  var r=function(v){ return Math.round(v*100)/100; };
+  return 'rotate('+th+' '+r(cx)+' '+r(cy2)+')';
+}
+function lblCapTr(flip, ang, x, y, corpo, unico){
   var cy=Math.round((y-corpo*0.36)*10)/10, s=ang ? 'rotate('+ang+' '+x+' '+y+')' : '';
+  if(flip && ang && unico){   /* QUOTA LONTANA NEL PDF (21/11/2026): svg2pdf non compone due rotate(a cx cy) di fila e porta il testo fuori posto
+                        (la quota di una pedana a 90°/270° finiva a un lato di distanza dalla figura). Stesso movimento, un solo rotate. Solo per la quota (unico=true): i nomi delle doppie, con ±12°, in PDF vanno già bene e restano com'erano. */
+    var f1=lblCapUnico(ang, x, y, x, cy); if(f1) return ' transform="'+f1+'" data-cap="1"';
+  }
   if(flip) s += (s?' ':'')+'rotate(180 '+x+' '+cy+')';
   /* data-cap (revisione 06/10/2026): con l'elemento girato di 180° il nome sta, sul foglio, SOPRA il disegno, e
      la passata anti-sovrapposizione del PDF (nudgeLabelsInDom) sposta i nomi in GIÙ: lo spingeva dentro il suo
@@ -15637,7 +15649,7 @@ function itemMarkup(it){
     else if(rside==="bottom"){ rdy=(it.d/2)+roff+9; }
     else if(rside==="left"){ rdx=-(it.w/2)-roff; ranc='middle'; rang=-90; }   /* ruotata, legge lungo il lato sx */
     else { rdx=(it.w/2)+roff; ranc='middle'; rang=90; }                       /* ruotata, lato dx */
-    rtr=lblCapTr(!_sceneRuota && lblCapovolto((it.rot||0)+rang), rang, rdx, rdy, 12);   /* 06/10: la quota non si capovolge con la pedana girata */
+    rtr=lblCapTr(!_sceneRuota && lblCapovolto((it.rot||0)+rang), rang, rdx, rdy, 12, true);   /* 06/10: la quota non si capovolge con la pedana girata */
     if(dimT!==null) lb += '<text class="lbl sub" x="'+rdx+'" y="'+rdy+'" text-anchor="'+ranc+'"'+rtr+'>'+dimT+'</text>';
   }
   if(rigOf(it) && rigVisibile()){   /* americana numerata (A4): «A3 · +7,50 m · 180 kg», sopra la barra (il nome e i fari stanno sotto) */
