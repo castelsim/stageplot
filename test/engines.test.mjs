@@ -39475,6 +39475,8 @@ t("vista L1: la vista non entra nel progetto salvato e il selettore ha tre voci,
   ok(/id="vlSel"[^>]*hidden/.test(templ), "il selettore nasce nascosto");
   eq((templ.match(/data-vl="(palco|luci|tutto)"/g) || []).length, 3, "tre voci: Palco · Luci e truss · Tutto");
   ok(/vl-sm\{display:inline\}/.test(stylesCss) && /vl-lg\{display:none\}/.test(stylesCss), "su telefono tre parole corte");
+  ok(/\.vl-sel\{position:absolute;bottom:12px;right:12px/.test(stylesCss) && !/\.vl-sel\{[^}]*top:/.test(stylesCss), "selettore in BASSO a destra (in alto lo coprivano nota «PDF in scala» e banner Connessioni)");
+  ok(/\.vl-sel\{bottom:72px\}/.test(stylesCss), "su telefono sopra il pulsante «Adatta»");
 });
 t("vista L1: cambiando vista ciò che non si può più prendere esce dalla selezione", () => {
   const F = luciFixture();
@@ -39498,6 +39500,50 @@ t("vista L1: nelle viste nuove la forma sta SOTTO ai musicisti (anche se salvata
   A.vistaLivelli = "luci";
   const l0 = A.sceneMarkup(); ok(pos(l0, F.forma) > -1 && pos(l0, F.forma) < pos(l0, F.bat), "Luci: la forma è il fondo di tutto");
   A.vistaLivelli = "tutto";
+});
+
+t("vista L1 (correzioni 22/11) D1: nelle viste nuove l'ordine è pedane → superfici (forma, tappeto) → resto; «Tutto» resta quello salvato", () => {
+  const F = luciFixture();
+  const ped = piazza("pedana", 300, 300), tap = piazza("tappeto", 300, 300);   // tappeto sopra la pedana della batteria
+  F.bat.x = 300; F.bat.y = 300;
+  const pos = (mk, it) => mk.indexOf('data-id="' + it.id + '"');
+  A.vistaLivelli = "tutto";
+  const t0 = A.sceneMarkup(); const salvato = t0;
+  ok(pos(t0, tap) > pos(t0, ped), "Tutto: il tappeto sopra la pedana, come salvato");
+  for (const v of ["palco", "luci"]) {
+    A.vistaLivelli = v;
+    const m = A.sceneMarkup();
+    ok(pos(m, ped) > -1 && pos(m, ped) < pos(m, tap), v + ": la pedana SOTTO al tappeto (il tappeto non sparisce sotto la pedana)");
+    ok(pos(m, tap) < pos(m, F.forma) || pos(m, F.forma) < pos(m, tap), v + ": entrambe presenti");
+    ok(pos(m, ped) < pos(m, F.forma), v + ": la pedana sotto anche alla forma");
+    ok(pos(m, tap) < pos(m, F.bat), v + ": il tappeto sotto la batteria");
+  }
+  A.vistaLivelli = "tutto"; eq(A.sceneMarkup(), salvato, "tornando a «Tutto» il disegno è byte per byte quello di prima");
+});
+t("vista L1 (correzioni 22/11) D2: le etichette delle richieste luci non restano senza fari (vista «Palco», occhio Luci spento)", () => {
+  const F = luciFixture();
+  A.state.lights.rows = [{ id: "r1", items: [F.f1.id, F.f2.id], fn: "frontale", color: "ambra", n: 2 }];
+  A.vistaLivelli = "tutto";
+  ok(/id="layLightsLab"/.test(A.sceneMarkup()), "in «Tutto» l'etichetta c'è");
+  A.vistaLivelli = "luci"; ok(/id="layLightsLab"/.test(A.sceneMarkup()), "in «Luci e truss» c'è");
+  A.vistaLivelli = "palco"; ok(!/id="layLightsLab"/.test(A.sceneMarkup()), "in «Palco» a schermo non c'è: i fari non si disegnano");
+  ok(/id="layLightsLab"/.test(A.sceneMarkup({ espandi: true })), "ma PDF/PNG la tengono (export invariato)");
+  A.vistaLivelli = "tutto";
+  A.lightsLayerUI.vis = false;
+  ok(!/id="layLightsLab"/.test(A.sceneMarkup()), "occhio Luci spento: niente etichette a schermo");
+  A.lightsLayerUI.vis = true; A.vistaLivelli = "tutto";
+});
+t("vista L1 (correzioni 22/11) T: un faro A TERRA sopra una truss NON viene appeso da ridisegno, vistaSync o caricamento", () => {
+  const F = luciFixture();
+  const tr = piazza("truss", 300, 650), g = piazza("testamobile", tr.x + 10, tr.y);
+  eq(A.mountModeOf(g), "floor", "parte a terra");
+  const prima = JSON.stringify([g.x, g.y, g.mount || null]);
+  A.vistaSync(); A.vistaSync(); try { A.render(); } catch (e) {} 
+  eq(A.mountModeOf(g), "floor", "dopo vistaSync/render: montaggio invariato");
+  eq(JSON.stringify([g.x, g.y, g.mount || null]), prima, "posizione, quota e montaggio invariati");
+  const caricato = A.normalizeState(JSON.parse(A.stateToJSON()));
+  const g2 = caricato.items.find(x => x.id === g.id);
+  eq(JSON.stringify([g2.x, g2.y, g2.mount || null]), prima, "dopo il caricamento del progetto: invariato");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");

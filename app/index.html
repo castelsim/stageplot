@@ -4261,7 +4261,7 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
 .prod-prog-off{color:var(--text-3);font-weight:600}
 .prod-prog-row small{font-size:12px;color:var(--text-2);line-height:1.4}
 
-/* ── VISTA A UN TOCCO: Palco · Luci e truss · Tutto (lotto 1 Luci, 22/11/2026) ───────────────────────
+/* ── VISTA A UN TOCCO: Palco · Luci e truss · Tutto (lotto 1 Luci, 22/11/2026; spostato in BASSO a destra il 22/11 sera: in alto lo coprivano la nota «PDF in scala» e il banner Connessioni) ──
    Solo schermo: PDF e PNG si costruiscono con sceneMarkup({espandi}) che ignora la vista. Il palco sotto
    «Luci» sta al 22 % e non si prende; le truss in «Palco» sono tratteggiate, di riferimento, non si prendono. */
 .vista-bg{opacity:.22}
@@ -4269,16 +4269,16 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
 #layStage.vista-bg-stage{opacity:.22}
 .vista-rif{opacity:.6}
 .vista-rif *{stroke-dasharray:6 4;pointer-events:none !important}
-.vl-sel{position:absolute;top:12px;right:12px;z-index:5;display:inline-flex;gap:2px;padding:3px;margin:0;border:1px solid var(--border);border-radius:999px;background:var(--surface);box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.vl-sel{position:absolute;bottom:12px;right:12px;z-index:5;display:inline-flex;gap:2px;padding:3px;margin:0;border:1px solid var(--border);border-radius:999px;background:var(--surface);box-shadow:0 2px 8px rgba(0,0,0,.08)}
 .vl-sel[hidden]{display:none}
 .vl-sel button{border:0;background:transparent;color:var(--text);font:600 13px var(--font-ui);padding:0 12px;min-height:30px;border-radius:999px;cursor:pointer;white-space:nowrap}
 .vl-sel button.on{background:var(--accent);color:#fff}
 .vl-sel .vl-sm{display:none}
-main .m-rotchip:not([hidden]) ~ .vl-sel{top:56px}
 @media (max-width:880px){
   .vl-sel button{min-height:44px;padding:0 10px;font-size:12px}
   .vl-sel .vl-lg{display:none}
   .vl-sel .vl-sm{display:inline}
+  .vl-sel{bottom:72px}   /* sopra il pulsante «Adatta» (48 px + 12 + 12): in basso a destra, mai sotto banner e nota in alto */
 }
 </style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->

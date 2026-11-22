@@ -21241,12 +21241,13 @@ function connessioniVisibili(esporta){
 }
 function overlayLayerMarkup(esporta){
   var cavi = connessioniVisibili(esporta);
-  return (cavi ? cablingMarkup()+netMarkup() : '')+rfMarkup(esporta)+(cavi ? elecMarkup()+monDigMarkup() : '')+lightsLabelsMarkup()+(cavi ? cableLegendMarkup() : '')+sectionLegendMarkup()+stageBlocksOverlay()+frameMarkup()+portsMarkup()+mzMicHitMarkup();
+  return (cavi ? cablingMarkup()+netMarkup() : '')+rfMarkup(esporta)+(cavi ? elecMarkup()+monDigMarkup() : '')+lightsLabelsMarkup(esporta)+(cavi ? cableLegendMarkup() : '')+sectionLegendMarkup()+stageBlocksOverlay()+frameMarkup()+portsMarkup()+mzMicHitMarkup();
 }
 /* Le etichette delle richieste luci, al posto dei cartelli scritti a mano. Seguono l'occhio
    del layer: spegnere le Luci le spegne insieme alle icone, come per ogni altro reparto. */
-function lightsLabelsMarkup(){
-  if(!lightsLayerUI.vis && !stageLayerUI.vis) return "";
+function lightsLabelsMarkup(esporta){
+  if(!lightsLayerUI.vis) return "";   /* occhio Luci spento: niente scritte senza i fari (anche nel PNG) */
+  if(!esporta && !window.__cabStatic && vistaAttiva()==="palco") return "";   /* vista «Palco» a schermo: i fari non ci sono, le loro scritte nemmeno (il PDF le tiene) */
   var labs=(typeof lightsLabels==="function")?lightsLabels():[];
   if(!labs.length) return "";
   return '<g id="layLightsLab" class="lights-lab">'+labs.map(function(L){
@@ -21377,7 +21378,7 @@ function sceneMarkup(opts){
   var soloSplit = anySolo();
   /* itemEyeShown è ora una funzione di modulo (sopra): la stessa regola serve anche al marquee.
      Il perimetro del palco (layStage) non si spegne mai: è il foglio, non un layer. */
-  var items='', zones='', bgItems='', lbls='', bgLbls='', vistaBg='', vistaBgL='', vistaBgS='', vistaSup='';
+  var items='', zones='', bgItems='', lbls='', bgLbls='', vistaBg='', vistaBgL='', vistaBgS='', vistaBgP='', vistaSup='', vistaPed='';
   var _vistaSch=!(opts && opts.espandi);   /* PDF e PNG escono sempre con la vista «Tutto» */
   /* .42 e non .15 (SP-06, 06/09): a .15 il contesto era un fantasma, e «fuoco» finiva per somigliare
      a «isolamento» — cioè il bottone S non distingueva più niente da quello che faceva già il clic
@@ -21413,16 +21414,16 @@ function sceneMarkup(opts){
     else if(isCover(it)) m='<g class="cover-item">'+m+'</g>';
     else if(TYPES[it.type] && TYPES[it.type].riser) m='<g class="riser-item"'+showAttr+'>'+m+'</g>';   /* pedane: parte del palco, si toccano solo in modalità "Palco e pedane" */
     else m='<g class="st-item'+(luciReparto(it) ? ' luci-item' : '')+(_vr==="rif" ? ' vista-rif' : '')+'"'+showAttr+'>'+m+'</g>';
-    if(_vr==="bg"){ if(vistaSuperficie(it)) vistaBgS += m; else vistaBg += m; vistaBgL += _lbm; return; }   /* vista «Luci»: il palco sta sotto, sbiadito e non si prende (la superficie più sotto di tutti) */
-    if(_vistaSch && !soloSplit && vistaSuperficie(it) && vistaAttiva()==="palco"){ vistaSup += m; lbls += _lbm; return; }   /* vista «Palco»: la forma sotto i musicisti */
+    if(_vr==="bg"){ if(isRiser(it)) vistaBgP += m; else if(vistaSuperficie(it)) vistaBgS += m; else vistaBg += m; vistaBgL += _lbm; return; }   /* vista «Luci»: il palco sta sotto, sbiadito e non si prende (la superficie più sotto di tutti) */
+    if(_vistaSch && !soloSplit && (vistaSuperficie(it) || isRiser(it)) && vistaAttiva()==="palco"){ if(isRiser(it)) vistaPed += m; else vistaSup += m; lbls += _lbm; return; }   /* vista «Palco»: pedane → forma e tappeto → il resto (un tappeto su una pedana non sparisce) */
     if(soloSplit && !itemInSoloLayer(it)){ if(layerSoloMode==="iso") return;   /* S = isolamento: il resto sparisce */
       if(_soloPed) pedCtx += m; else bgItems += m;
       bgLbls += _lbm; }
     else { if(pedCtx){ items += _pedCtxG(pedCtx); pedCtx=''; } items += m; lbls += _lbm; }
   });
   if(pedCtx) items += _pedCtxG(pedCtx);
-  if(vistaSup) items = vistaSup+items;
-  if(vistaBg || vistaBgS){ items = '<g class="vista-bg">'+vistaBgS+vistaBg+'</g>'+items; lbls = '<g class="vista-bg">'+vistaBgL+'</g>'+lbls; }
+  if(vistaSup || vistaPed) items = vistaPed+vistaSup+items;
+  if(vistaBg || vistaBgS || vistaBgP){ items = '<g class="vista-bg">'+vistaBgP+vistaBgS+vistaBg+'</g>'+items; lbls = '<g class="vista-bg">'+vistaBgL+'</g>'+lbls; }
   if(soloSplit && bgItems) items = '<g class="solo-bg" style="opacity:'+_bgOp+'">'+bgItems+'</g>'+items;
   if(soloSplit && bgLbls) lbls = '<g class="solo-bg" style="opacity:'+_bgOp+'">'+bgLbls+'</g>'+lbls;
   /* vis dei layer meta INCORPORATA nel markup: render() è chiamato ovunque e un gruppo "nudo"
