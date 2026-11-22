@@ -7171,8 +7171,11 @@ t("colore di truss, tendaggi e linea del sipario (elenco chiuso, `tinta`): solo 
     { id: "a7", type: "lineasipario", tinta: "nero", ...base },
     { id: "a8", type: "lineasipario", tinta: "bianco", ...base },
     { id: "a9", type: "americana", tinta: ["nero"], ...base },
-    { id: "b1", type: "quinta", tinta: "nero", ...base }]);
-  eq(out.map((x) => x.tinta), ["nero", undefined, undefined, "rosso", undefined, undefined, "nero", undefined, undefined, undefined], "all'apertura: tiene solo i valori dell'elenco del tipo e diversi dal colore di serie");
+    { id: "b1", type: "quinta", tinta: "nero", ...base },
+    { id: "b2", type: "truss", tinta: null, ...base },
+    { id: "b3", type: "fondale", tinta: "", ...base }]);
+  eq(out.map((x) => x.tinta), ["nero", undefined, undefined, "rosso", undefined, undefined, "nero", undefined, undefined, undefined, undefined, undefined], "all'apertura: tiene solo i valori dell'elenco del tipo e diversi dal colore di serie");
+  eq(out.filter((x) => "tinta" in x).length, 3, "all'apertura: la chiave `tinta` sparisce del tutto (anche null o vuota), resta solo sui 3 colori validi");
   /* 4. salva e riapri: `tinta` si conserva (round-trip JSON), e il progetto senza tinta non ne guadagna */
   A.state.items = A.normalizeLoadedItems([{ id: "t1", type: "truss", tinta: "nero", ...base }, { id: "t2", type: "fondale", tinta: "grigio", ...base }, { id: "t3", type: "lineasipario", tinta: "nero", ...base }, { id: "t4", type: "truss", ...base }]);
   const json = A.docToJSON();

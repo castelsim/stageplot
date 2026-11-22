@@ -10425,7 +10425,7 @@ function normalizeLoadedItems(arr){
         if(!_mt.mode && _mt.h==null && !_mt.safety && !_mt.note) delete it.mount;
       }
     }
-    if(it.tinta!=null){ var _tl=tinteDi(it.type); if(!_tl || typeof it.tinta!=="string" || _tl.indexOf(it.tinta)<1) delete it.tinta; }   /* colore di truss/tendaggi/linea: fuori elenco, o uguale a quello di serie → via */
+    if(it.tinta!==undefined){ var _tl=tinteDi(it.type); if(!_tl || typeof it.tinta!=="string" || _tl.indexOf(it.tinta)<1) delete it.tinta; }   /* colore di truss/tendaggi/linea: fuori elenco (anche null), o uguale a quello di serie → via */
     if(it.rug!=null && (it.type!=="tappeto" || (it.rug!=="nero" && it.rug!=="bianco"))) delete it.rug;   /* tappeto: colore fuori elenco → rosso di serie, mai markup arbitrario */
     if(it.type==="forma"){   /* forma: valori fuori elenco → si torna al default, mai markup arbitrario */
       if(it.fill!=null && !/^#[0-9a-f]{6}$/i.test(String(it.fill))) delete it.fill;
