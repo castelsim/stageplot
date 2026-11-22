@@ -684,6 +684,11 @@
         <button type="button" class="adv-btn" data-rug="bianco" title="Tappeto danza bianco">Bianco</button>
       </div>
     </div>
+    <!-- COLORE di truss, tendaggi e linea del sipario (elenco chiuso per tipo, come il tappeto). I pulsanti si ricostruiscono da tinteDi() in renderProps. -->
+    <div id="pTintaWrap" class="prop-card" style="display:none;margin-top:8px">
+      <div class="prop-card__head">Colore</div>
+      <div class="seg" role="group" aria-label="Colore" id="pTintaSeg"></div>
+    </div>
     <div id="pAlignWrap" style="display:none;margin-top:8px">
       <label>Allineamento</label>
       <div class="seg" role="group" aria-label="Allineamento del testo">
@@ -3986,11 +3991,11 @@ var TYPES = {
   cabregia: {nome:"Cabina regia", dim:"300×250", cat:"Sicurezza e site", w:300,d:250,
              draw:function(it){ return drawLibFit("cabregia",it,300,250); }},
   truss40: {nome:"Truss 40 (quadra)", dim:"40×200", cat:"Rigging e strutture", w:40,d:200, resizable:true,
-             draw:function(it){ return trussTop(it,'x'); }},
+             draw:function(it){ return trussTop(it,'x','truss40'); }},
   trusstri: {nome:"Truss triangolare", dim:"29×200", cat:"Rigging e strutture", w:29,d:200, resizable:true,
-             draw:function(it){ return trussTop(it,'zig'); }},
+             draw:function(it){ return trussTop(it,'zig','trusstri'); }},
   trussladder: {nome:"Truss ladder", dim:"bi-tubo 29×200", cat:"Rigging e strutture", w:29,d:200, resizable:true,
-             draw:function(it){ return trussTop(it,'ladder'); }},
+             draw:function(it){ return trussTop(it,'ladder','trussladder'); }},
   cornerL29: {nome:"Corner L 29", dim:"29×29", cat:"Rigging e strutture", w:29,d:29,
              draw:function(it){ return drawLibFit("cornerL29",it,29,29); }},
   cornerT29: {nome:"Corner T 29", dim:"29×29", cat:"Rigging e strutture", w:29,d:29,
@@ -4105,13 +4110,19 @@ var TYPES = {
                for(var x=-it.w/2+16;x<it.w/2-4;x+=32) s+=lin(x,-hd+1.5,x,hd-1.5,'ic thin');
                return s; }},
   fondale:  {nome:"Fondale", dim:"backdrop 600×20", cat:"Palco e strutture", w:600,d:20, resizable:true, z:1,
-             draw:function(it){ return bar(0,0,it.w,it.d,'ic fBlack',2)+
+             draw:function(it){ var tt=tintaOf(it,"fondale");
+               if(tt!=="nero") return bar(0,0,it.w,it.d,'ic tt-'+tt,2)+
+                 '<path class="ic vuoto thin tt-piega-'+tt+'" d="M '+(-it.w/2+16)+',0 C '+(-it.w/2+60)+',-10 '+(-it.w/2+100)+',10 '+(-it.w/2+144)+',0" />'+
+                 '<text class="lbl sub" y="28">BACKDROP · '+TENDA_NOME[tt]+'</text>';
+               return bar(0,0,it.w,it.d,'ic fBlack',2)+
                '<path class="ic thin" fill="none" d="M '+(-it.w/2+16)+',0 C '+(-it.w/2+60)+',-10 '+(-it.w/2+100)+',10 '+(-it.w/2+144)+',0" />'+
                '<text class="lbl sub" y="28">BACKDROP</text>'; }},
   quinta:   {nome:"Quinta", dim:"laterale 120×20", cat:"Palco e strutture", w:120,d:20, resizable:true, z:1,
-             draw:function(it){ return bar(0,0,it.w,it.d,'ic fBlack',2)+lin(-it.w/2+12,0,it.w/2-12,0,'sil'); }},
+             draw:function(it){ var tt=tintaOf(it,"quinta");
+               if(tt!=="nero") return bar(0,0,it.w,it.d,'ic tt-'+tt,2)+lin(-it.w/2+12,0,it.w/2-12,0,'ic thin tt-piega-'+tt);
+               return bar(0,0,it.w,it.d,'ic fBlack',2)+lin(-it.w/2+12,0,it.w/2-12,0,'sil'); }},
   truss:    {nome:"Truss a terra", dim:"200×30", cat:"Palco e strutture", w:200,d:30, resizable:true, z:1,
-             draw:function(it){ return trussTop(it,'x'); }},
+             draw:function(it){ return trussTop(it,'x','truss'); }},
   transenna:{nome:"Transenna", dim:"200×25", cat:"Palco e strutture", w:200,d:25, resizable:true, z:2,
              draw:function(it){ return drawLibFit("transenna",it,200,40); }},
   tappeto:  {nome:"Tappeto", dim:"2×1,6 m", cat:"Palco e strutture", w:200,d:160, resizable:true, z:1,
@@ -4942,8 +4953,9 @@ var TYPES = {
   hazer:      {nome:"Hazer", dim:"40×30", cat:"Luci", w:40,d:30,
     draw:function(it){ return bar(0,0,it.w,it.d,'ic fGrey',3)+circ(0,-2,8,'ic thin')+lin(-4,6,4,6,'ic thin'); }},
   americana:  {nome:"Americana", dim:"200×30", cat:"Luci", w:200,d:30, resizable:true, z:1,
-    draw:function(it){ var s=bar(0,0,it.w,it.d,'ic dash',2);
-      for(var x=-it.w/2+18;x<it.w/2;x+=36){ s+=lin(x,-it.d/2,x+18,it.d/2,'ic thin'); s+=lin(x,it.d/2,x+18,-it.d/2,'ic thin'); }
+    draw:function(it){ var nera=(tintaOf(it,"americana")==="nero"), ct=nera?'ic thin tt-trama':'ic thin';   /* nera: piena e scura, contorno sempre tratteggiato */
+      var s=bar(0,0,it.w,it.d,nera?'ic dash tt-corpo':'ic dash',2);
+      for(var x=-it.w/2+18;x<it.w/2;x+=36){ s+=lin(x,-it.d/2,x+18,it.d/2,ct); s+=lin(x,it.d/2,x+18,-it.d/2,ct); }
       return s; }},
   dm3: {nome:"Yamaha DM3", dim:"32×46", cat:"Regia e console", sub:"Yamaha", w:32,d:46,
     draw:function(it){ return drawLibFit("dm3",it,32,46); }},
@@ -6076,21 +6088,44 @@ function parts(it){
 }
 /* lista pezzi della batteria in coord. glifo (pre-scala 1.32) derivata dalle parti scelte */
 /* ── Batteria realistica (libreria icone, 03/07/2026): slot in cm reali, pezzi = LIB_ICONS ── */
-function trussTop(it, kind){
+/* COLORE (tinta) di truss, tendaggi e linea del sipario, 18/11/2026: elenco CHIUSO per tipo, il primo è il colore di
+   serie (= il disegno di sempre, mai memorizzato). Come il tappeto (`rug`): un valore fuori elenco o su un tipo che non
+   lo prevede si cancella all'apertura, mai markup arbitrario. È una function e non una var: serve anche al boot. */
+function tinteDi(type){
+  switch(type){
+    case "truss": case "truss40": case "trusstri": case "trussladder": case "americana": return ["argento","nero"];
+    case "fondale": case "quinta": return ["nero","rosso","grigio","bianco"];
+    case "lineasipario": return ["rosso","nero"];
+  }
+  return null;
+}
+function tintaOf(it, type){ var l=it && tinteDi(type||it.type);   /* `type` = il tipo di chi disegna (draw può ricevere un oggetto senza type) */ if(!l) return null; return (typeof it.tinta==="string" && l.indexOf(it.tinta)>0) ? it.tinta : l[0]; }
+function trussTop(it, kind, tipo){
   var w=it.w, d=it.d, horiz=(w>=d);
   var L=horiz?w:d, W=horiz?d:w;
   var railH=Math.max(W*0.16,1.6);
+  var nera=(tintaOf(it, tipo||it.type||"truss")==="nero");   /* truss nera verniciata: corpo scuro, traliccio chiaro (leggibile anche in bianco e nero) */
+  var cR=nera?"ic tt-rail":"ic", cT=nera?"ic thin tt-trama":"ic thin", cN=nera?"ic tt-nodo":"ic";
   function px(a,c){ return horiz?a:c; } function py(a,c){ return horiz?c:a; }
   var s="";
-  if(horiz){ s+=bar(0,-W/2+railH/2,L,railH,"ic",railH/2); s+=bar(0,W/2-railH/2,L,railH,"ic",railH/2); }
-  else { s+=bar(-W/2+railH/2,0,railH,L,"ic",railH/2); s+=bar(W/2-railH/2,0,railH,L,"ic",railH/2); }
+  if(nera) s+=bar(0,0,horiz?L:W,horiz?W:L,"ic tt-corpo",railH/2);
+  if(horiz){ s+=bar(0,-W/2+railH/2,L,railH,cR,railH/2); s+=bar(0,W/2-railH/2,L,railH,cR,railH/2); }
+  else { s+=bar(-W/2+railH/2,0,railH,L,cR,railH/2); s+=bar(W/2-railH/2,0,railH,L,cR,railH/2); }
   var aT=-W/2+railH, aB=W/2-railH, step=Math.max(W*0.95,16), a, a2;
-  if(kind==="ladder"){ for(a=-L/2+step/2;a<L/2;a+=step){ s+=lin(px(a,aT),py(a,aT),px(a,aB),py(a,aB),"ic thin"); } }
-  else if(kind==="zig"){ var up=true; for(a=-L/2;a<L/2-0.1;a+=step){ a2=Math.min(a+step,L/2); var c1=up?aB:aT,c2=up?aT:aB; s+=lin(px(a,c1),py(a,c1),px(a2,c2),py(a2,c2),"ic thin"); up=!up; } }
-  else { for(a=-L/2;a<L/2-0.1;a+=step){ a2=Math.min(a+step,L/2); s+=lin(px(a,aT),py(a,aT),px(a2,aB),py(a2,aB),"ic thin"); s+=lin(px(a,aB),py(a,aB),px(a2,aT),py(a2,aT),"ic thin"); } }
-  [[-L/2,-W/2],[-L/2,W/2],[L/2,-W/2],[L/2,W/2]].forEach(function(e){ s+=circ(px(e[0],e[1]),py(e[0],e[1]),railH*0.75,"ic"); });
+  if(kind==="ladder"){ for(a=-L/2+step/2;a<L/2;a+=step){ s+=lin(px(a,aT),py(a,aT),px(a,aB),py(a,aB),cT); } }
+  else if(kind==="zig"){ var up=true; for(a=-L/2;a<L/2-0.1;a+=step){ a2=Math.min(a+step,L/2); var c1=up?aB:aT,c2=up?aT:aB; s+=lin(px(a,c1),py(a,c1),px(a2,c2),py(a2,c2),cT); up=!up; } }
+  else { for(a=-L/2;a<L/2-0.1;a+=step){ a2=Math.min(a+step,L/2); s+=lin(px(a,aT),py(a,aT),px(a2,aB),py(a2,aB),cT); s+=lin(px(a,aB),py(a,aB),px(a2,aT),py(a2,aT),cT); } }
+  [[-L/2,-W/2],[-L/2,W/2],[L/2,-W/2],[L/2,W/2]].forEach(function(e){ s+=circ(px(e[0],e[1]),py(e[0],e[1]),railH*0.75,cN); });
   return s;
 }
+/* tendaggi: il fondale ha anche il nome del colore nella scritta quando non è quello di serie (in stampa in bianco e nero
+   rosso e nero si somigliano); il traduttore dei PDF in inglese lo trova nel dizionario (DOC_EN, più sotto). */
+var TENDA_NOME={rosso:"ROSSO", grigio:"GRIGIO", bianco:"BIANCO"};
+/* pulsanti del pannello «Colore»: per famiglia (chiave = elenco del tipo), [etichetta, title] */
+var TINTA_ETICHETTE={
+  "argento|nero":{argento:["Argento","Truss in alluminio, il colore di serie"], nero:["Nera","Truss nera verniciata"]},
+  "nero|rosso|grigio|bianco":{nero:["Nero","Tendaggio nero, il colore di serie"], rosso:["Rosso","Tendaggio rosso"], grigio:["Grigio","Tendaggio grigio"], bianco:["Bianco","Tendaggio bianco"]},
+  "rosso|nero":{rosso:["Rossa","Linea rossa, il colore di serie"], nero:["Nera","Linea nera: si legge meglio in stampa in bianco e nero"]}};
 /* Stagebox generica: dimensioni dai canali (Simone, dal campo 18/07): una ciabatta 8 in / 0 out è una
    scatoletta, non un rack. Solo tra i due default (mai sopra le scelte manuali/modello). Idempotente. */
 /* ===== Stage box: il pannello È i canali reali (Simone 25/07) =====
@@ -7160,6 +7195,7 @@ function nextVariantName(){ var n=0; VARIANTS.forEach(function(v){ var m=/^Varia
    nelle altre. */
 /*__DOCUMENTO_ESTERO__*/
 /*__DOCUMENTO_ESTERO_EN__*/
+DOC_EN["BACKDROP · ROSSO"]="BACKDROP · RED"; DOC_EN["BACKDROP · GRIGIO"]="BACKDROP · GREY"; DOC_EN["BACKDROP · BIANCO"]="BACKDROP · WHITE";   /* colore del fondale (18/11): il dizionario generato non lo conosce */
 var CAMPI_DOCUMENTO=["docLang","docUnits","allegatiRichiesti","dotazioni","misureStile","pedMisure","pdfOrganico","quoteDaTerra","organicoOrdine","titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","versione","statoDoc","latiTeatro","sonorizzazione","orari","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
 function propagaCampiDocumento(v){
   var src=v&&v.state; if(!src) return;
@@ -10389,6 +10425,7 @@ function normalizeLoadedItems(arr){
         if(!_mt.mode && _mt.h==null && !_mt.safety && !_mt.note) delete it.mount;
       }
     }
+    if(it.tinta!==undefined){ var _tl=tinteDi(it.type); if(!_tl || typeof it.tinta!=="string" || _tl.indexOf(it.tinta)<1) delete it.tinta; }   /* colore di truss/tendaggi/linea: fuori elenco (anche null), o uguale a quello di serie → via */
     if(it.rug!=null && (it.type!=="tappeto" || (it.rug!=="nero" && it.rug!=="bianco"))) delete it.rug;   /* tappeto: colore fuori elenco → rosso di serie, mai markup arbitrario */
     if(it.type==="forma"){   /* forma: valori fuori elenco → si torna al default, mai markup arbitrario */
       if(it.fill!=null && !/^#[0-9a-f]{6}$/i.test(String(it.fill))) delete it.fill;
@@ -15655,7 +15692,8 @@ function itemMarkup(it){
        glifo sta al centro dell'altezza, vicino al capo destro, dove c'è posto.
        Va DOPO l'arte: messo prima, il disegno dell'elemento se lo mangiava. */
     if(bh*2>=50) s += riserLockGlyph(bw, bh);
-    else if(bw*2>=44) s += lockGlyphAt(bw-11, 0);
+    else if(bw*2>=44){ var _lkN=(tintaOf(it)==="nero");   /* truss/americana NERA bloccata: il lucchetto scuro sparirebbe sul corpo scuro → chiaro con alone scuro (22/11/2026) */
+      s += _lkN ? lockGlyphAt(bw-11, 0, "#f3f4f6").replace('class="riser-lock"','class="riser-lock su-nero"') : lockGlyphAt(bw-11, 0); }
   }
   var _hm=headMicOf(it);
   if(_hm){   /* microfono voce del musicista: l'archetto si indossa, gli altri stanno davanti alla bocca */
@@ -22181,6 +22219,21 @@ function renderProps(){
     rgw.style.display = isRug ? "block" : "none";
     if(isRug){ var rc=rugColoreOf(it); rgw.querySelectorAll("[data-rug]").forEach(function(b){ b.classList.toggle("on", b.getAttribute("data-rug")===rc); }); }
   }
+  var tiw=document.getElementById("pTintaWrap");   /* COLORE di truss, tendaggi, linea del sipario: solo se TUTTA la selezione è della stessa famiglia */
+  if(tiw){
+    var tFam=tinteDi(it.type), tSel=selItems(); if(!tSel.length) tSel=[it];
+    var tOk=!!tFam && tSel.every(function(x){ var l=tinteDi(x.type); return !!l && l.join("|")===tFam.join("|"); });
+    tiw.style.display = tOk ? "block" : "none";
+    if(tOk){
+      var tSeg=document.getElementById("pTintaSeg"), tKey=tFam.join("|");
+      if(tSeg.getAttribute("data-fam")!==tKey){
+        tSeg.setAttribute("data-fam", tKey);
+        tSeg.innerHTML=tFam.map(function(v){ var e=TINTA_ETICHETTE[tKey][v];
+          return '<button type="button" class="adv-btn" data-tinta="'+v+'" title="'+esc(e[1])+'">'+esc(e[0])+'</button>'; }).join("");
+      }
+      var tc=tintaOf(it); tSeg.querySelectorAll("[data-tinta]").forEach(function(b){ b.classList.toggle("on", b.getAttribute("data-tinta")===tc); });
+    }
+  }
   var isTxt = it.type==="testo";
   var inner = isTxt || it.type==="forma";   /* si scrive dentro l'elemento: niente Intero/Sigla, il testo è quello che si vede */
   document.getElementById("pLabelWrap").style.display = inner ? "none" : "block";
@@ -23224,6 +23277,19 @@ document.getElementById("pLblSizeAllYes").addEventListener("click", function(){
     var v=b.getAttribute("data-rug");
     mutSelAll(function(it){ if(it.type!=="tappeto") return; if(v==="nero" || v==="bianco") it.rug=v; else delete it.rug; });   /* il rosso, di serie, non si memorizza */
     renderProps();
+  });
+})();
+(function(){   /* COLORE di truss, tendaggi e linea del sipario: vale per ogni elemento compatibile della selezione (gli altri non si toccano) */
+  var wrap=document.getElementById("pTintaWrap"); if(!wrap) return;
+  wrap.addEventListener("click", function(e){
+    var b=e.target.closest("[data-tinta]"); if(!b) return;
+    var v=b.getAttribute("data-tinta");
+    primaDiAgire();   /* un solo passo di Annulla per tutta la selezione, come mutSelAll */
+    var tutti=selItems(); if(!tutti.length){ var s0=getSel(); if(s0) tutti=[s0]; }
+    var n=0;
+    tutti.forEach(function(it){ var l=tinteDi(it.type); if(!l || l.indexOf(v)<0) return; n++; if(v===l[0]) delete it.tinta; else it.tinta=v; });   /* il colore di serie non si memorizza */
+    if(!n) return;
+    render(); save(); renderProps();
   });
 })();
 (function(){   /* FORMA: geometria, stile, colore, ordine */
@@ -24292,7 +24358,7 @@ document.getElementById("grpMirror").addEventListener("click", mirrorSel);
   group("Appendimento", "carico e portata scritti", ["pPtWrap"]);   /* icone approvate 16/11: come l'americana, solo con «Opzioni complete» */
   group("Dettagli tecnici", null, ["pIfaceWrap","pCompIfaceWrap","pModelWrap","pLocInWrap","pUsoWrap","pBmWrap","pLmWrap","pModWrap","pWattWrap","pRfWrap","pPmWrap"]);   /* la richiesta di setup NON e' un dettaglio tecnico: e' un'azione verso una persona, e sta con la persona */
   group("Nota", "quello che il disegno non dice", ["pNoMicWrap","pNoteWrap"]);   /* «Nessun microfono» scritto nel file: sempre in vista, non dietro «Mostra tutte le opzioni» */
-  group("Disegno", null, ["pLookWrap","pDims","pDimSideWrap","pShapeWrap","pRugWrap","pPuntaWrap","pRotRow",
+  group("Disegno", null, ["pLookWrap","pDims","pDimSideWrap","pShapeWrap","pRugWrap","pTintaWrap","pPuntaWrap","pRotRow",
         "pLblSizeWrap","pLblSizeAll","pAlignWrap","pTxtColorWrap","pLblPosWrap"]);
 
   /* ── TELEFONO: le cose da scrivania stanno dietro un bottone (02/09, Simone: «da telefono

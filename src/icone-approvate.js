@@ -112,10 +112,10 @@ var _IA_PRESE={ presa16:[16,3,false,false], presa16r:[16,5,false,false], presa32
       return s; }};
   TYPES.lineasipario={nome:"Linea zero", dim:"linea del sipario · zero delle quote", cat:"Palco e strutture", w:1000, d:12, resizable:true, z:2, noLabel:true,
     alias:"linea del sipario sipario zero quote boccascena tenda",
-    draw:function(it){ var W=it.w;
-      return '<line x1="'+_iaR(-W/2)+'" y1="0" x2="'+_iaR(W/2)+'" y2="0" stroke="#7f1d1d" stroke-width="3"/>'
-        +'<line x1="'+_iaR(-W/2)+'" y1="5" x2="'+_iaR(W/2)+'" y2="5" stroke="#7f1d1d" stroke-width="1" stroke-dasharray="3 4"/>'
-        +_iaT(_iaR(W/2-6), -8, "LINEA DEL SIPARIO · 0,00", 11, "#7f1d1d", 600, "end"); }};
+    draw:function(it){ var W=it.w, c=(tintaOf(it,"lineasipario")==="nero") ? "#111827" : "#7f1d1d";   /* rossa di serie, nera a scelta (si legge meglio in bianco e nero) */
+      return '<line x1="'+_iaR(-W/2)+'" y1="0" x2="'+_iaR(W/2)+'" y2="0" stroke="'+c+'" stroke-width="3"/>'
+        +'<line x1="'+_iaR(-W/2)+'" y1="5" x2="'+_iaR(W/2)+'" y2="5" stroke="'+c+'" stroke-width="1" stroke-dasharray="3 4"/>'
+        +_iaT(_iaR(W/2-6), -8, "LINEA DEL SIPARIO · 0,00", 11, c, 600, "end"); }};
   TYPES.lineacentro={nome:"Linea di centro (CL)", dim:"tratto-punto", cat:"Palco e strutture", w:30, d:800, resizable:true, z:2, noLabel:true,
     alias:"linea di centro centro palco cl center line asse mezzeria",
     draw:function(it){ var D=it.d, s='<line x1="0" y1="'+_iaR(-D/2+28)+'" x2="0" y2="'+_iaR(D/2-28)+'" stroke="#1f2937" stroke-width="1.4" stroke-dasharray="24 6 4 6"/>';
