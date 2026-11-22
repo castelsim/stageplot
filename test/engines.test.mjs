@@ -7119,6 +7119,92 @@ t("tappeto: colore del telo (rosso di serie, nero, bianco), solo valori dell'ele
   ok(stylesCss.indexOf(".rug.rug-nero{") > -1 && stylesCss.indexOf(".rug.rug-bianco{") > -1, "i due colori arrivano dal CSS (nitidi a ogni scala, PDF compreso)");
   ok(appjs.indexOf('id="pRugWrap"') > -1 || appjs.indexOf("pRugWrap") > -1, "il pannello Tappeto esiste");
 });
+t("colore di truss, tendaggi e linea del sipario (elenco chiuso, `tinta`): solo se non di serie, ripulito all'apertura, round-trip", () => {
+  reset();
+    const sha = (s) => createHash("sha1").update(s).digest("hex");
+  /* 1. senza `tinta` il disegno è IDENTICO a prima (impronte prese dal codice di main, 18/11/2026) */
+  const PRIMA = {
+  "truss{\"w\":200,\"d\":30}": "70fd8042ad7d4e89755c36a90e1e8a02f38b5e20",
+  "truss{\"w\":30,\"d\":200}": "f85fbffd7a13008f1df71314c78c3a2d639ec66a",
+  "truss40{\"w\":200,\"d\":40}": "f7b6f6dac2a85d6540f7d7effd5e035aa4175a9c",
+  "trusstri{\"w\":200,\"d\":29}": "0d2345e9a149b4d31af1a370e9f4525f3d6425e6",
+  "trussladder{\"w\":200,\"d\":29}": "0ea4941112b53c5ad8f12899e7bce78f1ea52eb8",
+  "americana{\"w\":200,\"d\":30}": "3eac2665c7ce5d0485d296ce973d9255e0f11436",
+  "fondale{\"w\":600,\"d\":20}": "2dc2cc346aa38c2a6c4605d3f80a5f8fc712bf50",
+  "quinta{\"w\":120,\"d\":20}": "f59ca3cb99cb75b87f671c5e3183718f29f54761",
+  "lineasipario{\"w\":1000,\"d\":12}": "20601c5c5828877a267e2e9c4fc470ee01f044f9"
+};
+  const dis = (tipo, o) => A.TYPES[tipo].draw(Object.assign({ type: tipo }, o));
+  for (const k of Object.keys(PRIMA)) {
+    const tipo = k.replace(/\{.*/, ""), o = JSON.parse(k.slice(tipo.length));
+    eq(sha(dis(tipo, o)), PRIMA[k], "senza tinta, " + tipo + " " + JSON.stringify(o) + ": disegno identico a prima");
+    eq(sha(dis(tipo, Object.assign({ tinta: "argento" }, o))) === PRIMA[k] || ["fondale", "quinta", "lineasipario"].includes(tipo), true, "il valore di serie scritto a mano non cambia il disegno");
+  }
+  /* 2. colori attesi */
+  const nera = dis("truss", { w: 200, d: 30, tinta: "nero" });
+  ok(nera.includes("tt-corpo") && nera.includes("tt-rail") && nera.includes("tt-trama"), "truss nera: corpo scuro, correnti scuri, traliccio chiaro");
+  ok(!dis("truss", { w: 200, d: 30 }).includes("tt-"), "truss di serie: nessuna classe nuova");
+  for (const tipo of ["truss40", "trusstri", "trussladder"]) ok(dis(tipo, { w: 200, d: 30, tinta: "nero" }).includes("tt-trama"), tipo + " nera");
+  const am = dis("americana", { w: 200, d: 30, tinta: "nero" });
+  ok(/class="ic dash tt-corpo"/.test(am) && am.includes("tt-trama"), "americana nera: contorno tratteggiato, corpo pieno, traliccio chiaro");
+  for (const [c, nome] of [["rosso", "ROSSO"], ["grigio", "GRIGIO"], ["bianco", "BIANCO"]]) {
+    const f = dis("fondale", { w: 600, d: 20, tinta: c });
+    ok(f.includes('class="ic tt-' + c + '"') && f.includes(">BACKDROP · " + nome + "<"), "fondale " + c + ": colore e scritta col nome");
+    ok(dis("quinta", { w: 120, d: 20, tinta: c }).includes('class="ic tt-' + c + '"'), "quinta " + c);
+  }
+  ok(dis("fondale", { w: 600, d: 20, tinta: "nero" }).includes(">BACKDROP<"), "fondale nero (di serie): la scritta di sempre");
+  ok(dis("lineasipario", { w: 1000, d: 12, tinta: "nero" }).split("#111827").length === 4 && !dis("lineasipario", { w: 1000, d: 12, tinta: "nero" }).includes("#7f1d1d"), "linea del sipario nera: linee e scritta");
+  ok(dis("lineasipario", { w: 1000, d: 12 }).includes("#7f1d1d") && !dis("lineasipario", { w: 1000, d: 12 }).includes("#111827"), "linea del sipario di serie: rosso scuro");
+  eq(dis("fondale", { w: 600, d: 20, tinta: "x\" onload=\"1" }).includes("onload"), false, "valore fuori elenco: mai nel markup");
+  ok(stylesCss.includes(".ic.tt-rosso{") && stylesCss.includes(".ic.tt-grigio{") && stylesCss.includes(".ic.tt-bianco{") && stylesCss.includes(".ic.tt-rail{"), "i colori arrivano dal CSS (PDF compreso)");
+  /* traduzione del documento in inglese */
+  ok(appjs.includes('DOC_EN["BACKDROP · ROSSO"]="BACKDROP · RED"') && appjs.includes('"BACKDROP · GRIGIO"]="BACKDROP · GREY"') && appjs.includes('"BACKDROP · BIANCO"]="BACKDROP · WHITE"'), "scritta del fondale tradotta: RED / GREY / WHITE");
+  /* 3. apertura: ripulito se fuori elenco, sul tipo sbagliato, o uguale al colore di serie */
+  const base = { x: 1, y: 1, w: 200, d: 30 };
+  const out = A.normalizeLoadedItems([
+    { id: "a1", type: "truss", tinta: "nero", ...base },
+    { id: "a2", type: "truss", tinta: "argento", ...base },
+    { id: "a3", type: "truss", tinta: "rosso", ...base },
+    { id: "a4", type: "fondale", tinta: "rosso", ...base },
+    { id: "a5", type: "fondale", tinta: "<script>", ...base },
+    { id: "a6", type: "pedana", tinta: "nero", ...base },
+    { id: "a7", type: "lineasipario", tinta: "nero", ...base },
+    { id: "a8", type: "lineasipario", tinta: "bianco", ...base },
+    { id: "a9", type: "americana", tinta: ["nero"], ...base },
+    { id: "b1", type: "quinta", tinta: "nero", ...base }]);
+  eq(out.map((x) => x.tinta), ["nero", undefined, undefined, "rosso", undefined, undefined, "nero", undefined, undefined, undefined], "all'apertura: tiene solo i valori dell'elenco del tipo e diversi dal colore di serie");
+  /* 4. salva e riapri: `tinta` si conserva (round-trip JSON), e il progetto senza tinta non ne guadagna */
+  A.state.items = A.normalizeLoadedItems([{ id: "t1", type: "truss", tinta: "nero", ...base }, { id: "t2", type: "fondale", tinta: "grigio", ...base }, { id: "t3", type: "lineasipario", tinta: "nero", ...base }, { id: "t4", type: "truss", ...base }]);
+  const json = A.docToJSON();
+  A.loadDoc(JSON.parse(json));
+  eq(A.state.items.map((x) => x.tinta), ["nero", "grigio", "nero", undefined], "round-trip esporta/importa JSON: la tinta resta, dove non c'era non compare");
+  ok(!/"tinta":"argento"/.test(json), "il colore di serie non viene mai scritto nel file");
+  /* 5. il pannello e il gestore (il markup sta nella shell, il codice in app.js) */
+  const shellHtml = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(shellHtml.includes('id="pTintaWrap"') && shellHtml.includes('id="pTintaSeg"'), "il gruppo «Colore» esiste nella shell");
+  ok(appjs.includes("[data-tinta]") && appjs.includes("TINTA_ETICHETTE"), "il gestore dei pulsanti esiste");
+  ok(/group\("Disegno", null, \[[^\]]*"pTintaWrap"/.test(appjs), "sta nel gruppo Disegno del pannello (su iPhone: scheda Disegno, niente scroll)");
+  ok(appjs.includes('tintaOf(it)==="nero"') && appjs.includes('class="riser-lock su-nero"') && stylesCss.includes(".riser-lock.su-nero{stroke:#111827"), "truss e americana NERE bloccate: lucchetto chiaro con alone scuro (su scuro sparirebbe)");
+  /* 6. il colore è sempre dell'elenco del tipo; ogni voce di ogni elenco ha la sua etichetta sul pulsante */
+  for (const tipo of ["truss", "truss40", "trusstri", "trussladder", "americana", "fondale", "quinta", "lineasipario"]) {
+    const l = A.tinteDi(tipo); ok(Array.isArray(l) && l.length >= 2, tipo + ": elenco chiuso");
+    const ET = A.TINTA_ETICHETTE[l.join("|")]; ok(!!ET, tipo + ": pulsanti definiti");
+    const ATTESE = { truss: ["Argento", "Nera"], americana: ["Argento", "Nera"], fondale: ["Nero", "Rosso", "Grigio", "Bianco"], quinta: ["Nero", "Rosso", "Grigio", "Bianco"], lineasipario: ["Rossa", "Nera"] };
+    l.forEach((v, i) => { ok(ET[v] && ET[v][1].length > 5, tipo + ": pulsante «" + v + "» con spiegazione"); if (ATTESE[tipo]) eq(ET[v][0], ATTESE[tipo][i], tipo + ": etichetta del pulsante «" + v + "»"); });
+    eq(A.tintaOf({ tinta: l[1] }, tipo), l[1], tipo + ": il colore scelto è letto");
+    eq(A.tintaOf({}, tipo), l[0], tipo + ": senza scelta, il colore di serie");
+    eq(A.tintaOf({ tinta: "viola" }, tipo), l[0], tipo + ": colore fuori elenco, il colore di serie");
+  }
+  eq(A.tinteDi("pedana"), null, "gli altri tipi non hanno colore");
+  eq(A.tintaOf({ tinta: "nero" }, "pedana"), null, "un tipo senza elenco non legge la tinta");
+  /* 7. in stampa in bianco e nero le tinte restano distinguibili: luminanza dei riempimenti nel CSS */
+  const luminanza = (hex) => { if (hex.length === 4) hex = "#" + [1, 2, 3].map((i) => hex[i] + hex[i]).join(""); const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4))); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+  const riempimento = (sel) => { const i = stylesCss.indexOf(sel + "{fill:"); ok(i > -1, "CSS " + sel); return luminanza(stylesCss.slice(i + sel.length + 6).match(/^#[0-9a-f]{3,6}/)[0]); };
+  const Lm = { nero: 0.01, rosso: riempimento(".ic.tt-rosso"), grigio: riempimento(".ic.tt-grigio"), bianco: riempimento(".ic.tt-bianco") };
+  ok(Lm.nero < Lm.rosso && Lm.rosso < Lm.grigio && Lm.grigio < Lm.bianco, "tendaggi: nero < rosso < grigio < bianco in luminanza (distinguibili anche in bianco e nero)");
+  ok(Lm.rosso - Lm.nero > 0.06 && Lm.grigio - Lm.rosso > 0.15 && Lm.bianco - Lm.grigio > 0.3, "tendaggi: distanze di tono sufficienti in bianco e nero");
+  ok(riempimento(".ic.tt-corpo") < 0.1, "truss nera: corpo scuro");
+});
 t("la forma bloccata: bordo piu' marcato, colore suo, lucchetto DENTRO la figura", () => {
   reset();
   const libera = A.TYPES.forma.draw({ w: 200, d: 140, shape: "circle", fill: "#b45309" });
