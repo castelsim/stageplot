@@ -3715,14 +3715,174 @@ t("A2: la pedana ruotata si misura ruotata", () => {
   reset();
 });
 
+/* ═══ SCALA SUL PALCO ALTO (22/11/2026, segnalazione 884bfdc9 di Simone: «la scaletta nella realtà ha più gradini»).
+   Una scala palco–platea appoggiata al bordo di un palco alto 145 cm diceva «h40 · 2 gradini»: contavano solo le pedane. ═══ */
+function conPalco(blocchi, fn) { const st0 = A.state.stage; A.state.stage = { w: 1250, d: 1335, blocks: blocchi }; try { fn(); } finally { A.state.stage = st0; } }
+t("Scala: appoggiata al bordo di un palco con altezza, sale quanto il palco (145 → 8 gradini, non «h40 · 2»)", () => {
+  reset();
+  conPalco([{ x: 0, y: 0, w: 1250, d: 1005, h: 145 }, { x: 298, y: 1005, w: 655, d: 100, h: 145 }, { x: 298, y: 1105, w: 655, d: 230 }], () => {
+    const s = add("scala", 913, 1220, { w: 75, d: 230 });   /* il caso di Simone: sotto il bordo del blocco alto 145, dentro il blocco senza altezza */
+    eq(A.scalaH(s), 145, "altezza del palco"); eq(A.scalaGradini(A.scalaH(s)), 8, "145/18 → 8 gradini (alzata 18,1 cm)");
+    eq(A.scalaQuota(s), "h145 · 8 gradini", "la quota dice altezza e gradini");
+  });
+});
+t("Scala: il palco conta solo se la scala gli sta FUORI e lo tocca; blocco senza altezza, lontananza e pedana più alta", () => {
+  reset();
+  conPalco([{ x: 0, y: 0, w: 1000, d: 600, h: 120 }], () => {
+    const fuori = add("scala", 500, 640, { w: 60, d: 90 });   /* y 595-685: tocca il bordo (y 600) da fuori */
+    eq(A.scalaH(fuori), 120, "fuori e a contatto: vale il palco");
+    const lontana = add("scala", 500, 900, { w: 60, d: 90 }); eq(A.scalaH(lontana), 40, "lontana dal palco: come sempre 40");
+    const sopra = add("scala", 500, 300, { w: 60, d: 90 }); eq(A.scalaH(sopra), 40, "con il centro SUL palco la scala non prende l'altezza del palco (sale a una pedana, non dal pavimento)");
+    add("pedana", 500, 300, { w: 300, d: 200, h: 60 }); eq(A.scalaH(sopra), 60, "sul palco, sale quanto la pedana che tocca");
+    const alta = add("scala", 900, 640, { w: 60, d: 90 }); add("pedana", 900, 700, { w: 100, d: 100, h: 160 });
+    eq(A.scalaH(alta), 160, "palco e pedana a contatto: vale la più alta");
+  });
+  reset();
+  conPalco([{ x: 0, y: 0, w: 1000, d: 600 }], () => { const s = add("scala", 500, 640, { w: 60, d: 90 }); eq(A.scalaH(s), 40, "palco senza altezza dichiarata: 40 come prima"); });
+  reset();
+});
+/* ═══ SLIDER «DIMENSIONE» (22/11/2026, segnalazione 0a3770b6: «su alcuni oggetti come le pedane lo slider dimensione non modifica
+   nulla») e DOPPIO CLIC = VALORE DI SERIE (29128172). Il cursore «Dimensione» è il corpo del NOME: se il nome non si disegna,
+   non compare. Verità di terreno su TUTTI i tipi del catalogo × stati del nome: analisi/2026-11-22_SLIDER_SCALA/slider_dim.mjs. ═══
+*/
+t("Slider Dimensione: compare solo se il nome si disegna (pedana senza nome no, con nome sì, Nascosto no)", () => {
+  reset();
+  const ped = add("pedana", 300, 300, { h: 40 });
+  eq(A.lblSizeAgisce(ped), false, "pedana senza nome: il cursore non cambierebbe niente");
+  ped.label = "Archi"; eq(A.lblSizeAgisce(ped), true, "pedana con nome");
+  ped.labelMode = "hidden"; eq(A.lblSizeAgisce(ped), false, "nome nascosto");
+  ped.labelMode = "abbr"; eq(A.lblSizeAgisce(ped), true, "sigla: si vede");
+  const cl = add("clarinetto", 500, 300, {}); eq(A.lblSizeAgisce(cl), true, "strumento col nome di serie");
+  cl.label = ""; eq(A.lblSizeAgisce(cl), false, "nome cancellato");
+  const tx = add("testo", 700, 300, {}); eq(A.lblSizeAgisce(tx), true, "testo libero con il suo testo"); tx.label = "  "; eq(A.lblSizeAgisce(tx), false, "testo vuoto");
+  const fo = add("forma", 900, 300, { label: "" }); eq(A.lblSizeAgisce(fo), false, "forma senza testo"); fo.label = "Zona"; eq(A.lblSizeAgisce(fo), true, "forma col testo");
+  const gz = add("gazebo33", 1100, 300, {}); eq(A.lblSizeAgisce(gz), true, "copertura: scritta unica"); gz.labelMode = "hidden"; eq(A.lblSizeAgisce(gz), false, "copertura con nome nascosto");
+  eq(A.lblSizeAgisce(null), false, "nessun elemento");
+  reset();
+});
+t("Slider Dimensione: i simboli col nome dentro a corpo fisso non hanno il cursore (FOH, punto di appendimento, quinta numerata, forma dell'elemento)", () => {
+  reset();
+  for (const tipo of ["foh", "puntoapp", "quintanum", "custshape"]) { const e = add(tipo, 300, 300, { label: "Prova" }); eq(A.lblSizeAgisce(e), false, tipo); }
+  eq(Object.keys(A.LBL_SIZE_FISSA).sort(), ["custshape", "foh", "puntoapp", "quintanum"], "l'elenco dei corpi fissi");
+  /* ogni altro tipo del catalogo, col nome scritto e visibile, ha il cursore: un tipo nuovo con nome dentro va deciso da chi lo aggiunge */
+  const dentro = Object.keys(A.TYPES).filter((k) => A.TYPES[k].innerLabel && !A.LBL_SIZE_FISSA[k]).sort();
+  eq(dentro, ["forma", "metro", "testo"], "tipi col nome dentro che usano il corpo: se ne nasce uno, il test chiede di decidere");
+  const senza = []; for (const k of Object.keys(A.TYPES)) { if (A.LBL_SIZE_FISSA[k]) continue; const e = add(k, 300, 300, { label: "Prova" }); e.labelMode = undefined; if (!A.lblSizeAgisce(e)) senza.push(k); }
+  eq(senza, [], "tipi con un nome scritto per cui il cursore non comparirebbe");
+  reset();
+});
+t("Doppio clic sugli slider: ogni slider del pannello ha il suo valore di serie, i valori sono quelli di nascita", () => {
+  reset();
+  eq(A.sliderSerie("pRot", null), 0, "rotazione"); eq(A.sliderSerie("pShapeOp", null), 100, "opacità forma"); eq(A.sliderSerie("pZoneOp", null), 18, "opacità zona");
+  eq(A.sliderSerie("pLegDist", null), 0, "distanza leggio"); eq(A.sliderSerie("pPlCh", null), 2, "tracce");
+  eq([A.sliderSerie("grpLegDist"), A.sliderSerie("grpSep"), A.sliderSerie("grpLblSize"), A.sliderSerie("grpDistEq")], [0, 90, 14, 100], "pannello multiplo");
+  const cl = add("clarinetto", 300, 300, {}); eq(A.sliderSerie("pLblSize", cl), 14, "nome di uno strumento");
+  const ar = add("forma", 600, 300, { label: "Zona", shapeStyle: "area" }); eq(A.sliderSerie("pLblSize", ar), A.AREA_LBL, "nome di un'area: il corpo grande di partenza");
+  const fo = add("forma", 900, 300, { label: "x", shapeStyle: "outline" }); eq(A.sliderSerie("pLblSize", fo), 14, "forma non area");
+  const tx = add("testo", 1200, 300, {}); eq(A.sliderSerie("pLblSize", tx), null, "testo libero: nasce in proporzione alla casella, niente valore di serie");
+  eq(A.sliderSerie("pSep", null), null, "senza elemento nessun valore");
+  const vl = add("violapost", 300, 700, {}); eq(A.sliderSerie("pSep", vl), A.defSepOf(vl), "distanza dei due musicisti: quella di serie della postazione");
+  eq(A.sliderSerie("inesistente", cl), null, "slider sconosciuto");
+  reset();
+});
+t("Doppio clic sugli slider: il ripristino segue le strade del trascinamento (input poi change), rispetta i limiti, non fa niente se è già al valore", () => {
+  const ev = []; const prima = A.Event; A.Event = function (tipo) { this.type = tipo; };
+  try {
+    const mk = (value, min, max) => ({ value: String(value), min: String(min), max: String(max), dispatchEvent(e) { ev.push(e.type); } });
+    let el = mk(55, 0, 180); eq(A.sliderRipristina(el, 0), true, "ripristinato"); eq([el.value, ev.splice(0)], [0, ["input", "change"]], "valore e passi: input poi change");
+    el = mk(0, -180, 180); eq(A.sliderRipristina(el, 0), false, "già al valore di serie: niente eventi, niente passo di Annulla"); eq(ev.splice(0), [], "nessun evento");
+    el = mk(10, 0, 34); A.sliderRipristina(el, 90); eq(el.value, 34, "oltre il massimo: al massimo"); ev.splice(0);
+    el = mk(10, 5, 34); A.sliderRipristina(el, 1); eq(el.value, 5, "sotto il minimo: al minimo"); ev.splice(0);
+    el = mk(30, 0, 34); eq(A.sliderRipristina(el, null), false, "senza valore di serie non si tocca"); eq(el.value, "30", "invariato"); eq(A.sliderRipristina(null, 5), false, "senza elemento");
+  } finally { A.Event = prima; }
+});
+t("Doppio clic sugli slider (sorgente): ogni cursore del pannello dichiara il valore di serie, o sta in un elenco di eccezioni", () => {
+  const html = readFileSync(join(root, "index.template.html"), "utf8");
+  const ids = [...html.matchAll(/<input\b[^>]*\btype="range"[^>]*>/g)].map((m) => (m[0].match(/\bid="([A-Za-z0-9_]+)"/) || [])[1]).filter(Boolean);
+  ok(ids.length >= 12, "trovati i cursori: " + ids.length);
+  const senza = ids.filter((id) => !(id in A.SLIDER_SERIE) && !(id in A.SLIDER_SENZA_SERIE));
+  eq(senza, [], "cursori senza valore di serie né eccezione dichiarata");
+  eq(Object.keys(A.SLIDER_SENZA_SERIE).sort(), ["venueOpacity", "venueRot"], "eccezioni: i cursori della planimetria");
+  ok(Object.keys(A.SLIDER_SERIE).every((id) => ids.includes(id)), "ogni valore di serie è di un cursore che esiste");
+});
+
+/* ═══ LUNGHEZZA REALE DELLA SCALA (22/11/2026, Simone: «è una vista dall'alto, un gradino ha una certa larghezza»). Una scala disegnata a mano
+   lunga 83 cm con 6 gradini ha pedate di 14 cm. Niente cambia da solo (mai una misura salvata): il pannello lo dice oltre il 10 % di scarto
+   da gradini × 30 cm e un pulsante scrive la lunghezza vera, con la stessa formula del motore. ═══ */
+const estremoPedana = (s) => { const r = ((+s.rot || 0) % 360) * Math.PI / 180; return [s.x + Math.sin(r) * s.d / 2, s.y - Math.cos(r) * s.d / 2]; };   /* il lato −y locale */
+t("Scala: «Lunghezza reale» compare solo oltre il 10 % di scarto da gradini × 30 cm", () => {
+  reset();
+  add("pedana", 400, 300, { h: 40 });                      /* x 300-500, y 250-350 */
+  const s = add("scala", 400, 395); delete s.dAuto;        /* scala «salvata»: la misura è dell'utente */
+  eq(A.scalaGradini(A.scalaH(s)), 2, "h40: 2 gradini, lunghezza giusta 60");
+  [60, 63, 66].forEach((d) => { s.d = d; eq(A.scalaReale(s), null, d + " cm: entro il 10 % (66 = limite), niente riga"); });
+  s.d = 67; ok(A.scalaReale(s) && A.scalaReale(s).L === 60, "67 cm: oltre il 10 %, la riga c'è");
+  s.d = 54; eq(A.scalaReale(s), null, "54 cm = −10 %: limite"); s.d = 53; ok(A.scalaReale(s), "53 cm: la riga c'è");
+  s.d = 90; const r = A.scalaReale(s); eq([r.n, r.L, r.d, r.pedata], [2, 60, 90, 45], "90 cm per 2 gradini: pedata 45");
+  ok(/2 gradini da .*= .*; questa è .*\(pedata .*\)/.test(A.scalaRealeTesto(r)), "testo: " + A.scalaRealeTesto(r));
+  eq(A.scalaReale(add("pedana", 900, 900, {})), null, "non è una scala: niente riga");
+});
+t("Scala: «Lunghezza reale» scrive n × 30 col lato pedana FERMO (a 0°, 90°, 35°), mette dAuto e da lì segue l'altezza", () => {
+  [0, 90, 270, 35].forEach((rot) => {
+    reset();
+    const ped = add("pedana", 400, 300, { h: 100 });       /* h100 → 6 gradini → 180 cm */
+    const s = add("scala", 400, 395, { w: 80 }); delete s.dAuto; Object.assign(s, { d: 83.2, rot, x: 400, y: 395 });
+    if (A.scalaH(s) !== 100) { s.x = 400 + (rot === 90 ? 110 : rot === 270 ? -110 : 0); s.y = rot === 90 || rot === 270 ? 300 : 395; }   /* appoggiata alla pedana comunque */
+    const h = A.scalaH(s);
+    const prima = estremoPedana(s), n = A.scalaGradini(h);
+    eq(A.scalaRealeApplica([s]), 1, "una scala cambiata (rot " + rot + ", h" + h + ")");
+    eq(s.d, n * 30, "lunghezza = n × 30"); eq(s.dAuto, n * 30, "dAuto = la lunghezza scritta (da qui segue i gradini)");
+    const dopo = estremoPedana(s); ok(Math.abs(prima[0] - dopo[0]) < 0.05 && Math.abs(prima[1] - dopo[1]) < 0.05, "il lato pedana resta fermo a rot " + rot + ": " + prima + " → " + dopo);
+    eq(A.scalaReale(s), null, "dopo il clic la riga sparisce");
+  });
+  reset();
+  const ped = add("pedana", 400, 300, { h: 100 }), s = add("scala", 400, 395); delete s.dAuto; s.d = 83;
+  A.scalaRealeApplica([s]); ped.h = 40; A.scaleAdegua(); eq(s.d, 60, "dopo il clic la scala segue l'altezza della pedana (h40 → 60)");
+});
+t("Scala: «Lunghezza reale» fa ESATTAMENTE quello che farebbe il motore (stessa formula di scalaAdegua)", () => {
+  reset();
+  add("pedana", 400, 300, { h: 60 });
+  const a = add("scala", 400, 395), b = add("scala", 400, 395);   /* a: del motore (dAuto); b: a mano, stessa misura */
+  Object.assign(a, { d: 50, dAuto: 50, rot: 35 }); delete b.dAuto; Object.assign(b, { d: 50, rot: 35 });
+  A.scalaAdegua(a); A.scalaRealeApplica([b]);
+  eq([b.d, b.x, b.y, b.dAuto], [a.d, a.x, a.y, a.dAuto], "stessi d, x, y e dAuto");
+});
+t("Scala: «Lunghezza reale» esclude le scale bloccate e, sulla selezione multipla, cambia solo quelle lontane dal valore", () => {
+  reset();
+  add("pedana", 400, 300, { h: 40, w: 600 });
+  const x1 = add("scala", 200, 395), x2 = add("scala", 400, 395), x3 = add("scala", 600, 395);
+  [x1, x2, x3].forEach((s) => delete s.dAuto);
+  x1.d = 83; x2.d = 60; x3.d = 100;                        /* giusta: x2 */
+  x3.locked = true; eq(A.scalaReale(x3), null, "bloccata: nessuna riga"); eq(A.scalaRealeApplica([x3]), 0, "bloccata: non si tocca"); eq(x3.d, 100, "lunghezza invariata");
+  x3.locked = false; eq(A.scalaRealeApplica([x1, x2, x3]), 2, "multipla: due scale cambiate, quella già giusta no");
+  eq([x1.d, x2.d, x3.d, x2.dAuto], [60, 60, 60, undefined], "x2 non è stata toccata (niente dAuto messo a caso)");
+  eq(A.scalaRealeApplica([x1, x2, x3]), 0, "seconda volta: niente da fare");
+  eq(A.scalaRealeApplica(null), 0, "senza selezione: 0");
+});
+t("Scala: «Lunghezza reale» è solo nel pannello: nessun avviso dell'audit, nessuna scala cambia da sola al render", () => {
+  reset();
+  add("pedana", 400, 300, { h: 100 });
+  const s = add("scala", 400, 395); delete s.dAuto; s.d = 83;
+  const av = JSON.stringify(A.auditEngine().findings.map((f) => f.rule || f.msg).sort());
+  A.scaleAdegua(); A.render && A.render();
+  eq(s.d, 83, "render e motore non toccano una scala a mano");
+  ok(!/pedata|lunghezza reale/i.test(av), "nessun avviso sulla pedata: " + av);
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="pScalaRealeWrap"/.test(html) && /id="bScalaReale"[^>]*>Lunghezza reale</.test(html) && /id="grpScalaRealeWrap"/.test(html) && /id="bGrpScalaReale"[^>]*>Adegua tutte le scale</.test(html), "i due pulsanti sono nella pagina");
+  ok(/style="font-size:11px;margin:0 0 4px"/.test(html.slice(html.indexOf('id="pScalaRealeTxt"') - 60, html.indexOf('id="pScalaRealeTxt"') + 80)), "testo piccolo (11 px), una riga");
+});
+
 /* ═══ GRADINI DELLA SCALA (11/11/2026, segnalazione CONCERTI del 05/11): «perché disegni molti più gradini di
    quelli che in realtà ci sono». Alzata ~20 cm; la scala prende l'altezza della pedana che tocca. ═══ */
-t("Scala: gradini = altezza della pedana / 20 cm (h40 = 2, h60 = 3), mai meno di 1", () => {
+t("Scala: gradini = altezza della pedana / 18 cm (h20 = 1, h40 = 2, h60 = 3), mai meno di 1", () => {
   eq(A.scalaGradini(40), 2, "h40"); eq(A.scalaGradini(60), 3, "h60"); eq(A.scalaGradini(20), 1, "h20");
-  eq(A.scalaGradini(100), 5, "h100"); eq(A.scalaGradini(10), 1, "sotto 20 cm: uno");
+  eq(A.scalaGradini(100), 6, "h100: alzata 16,7 cm (Simone 22/11: l'alzata vera, non 20)"); eq(A.scalaGradini(10), 1, "sotto 20 cm: uno");
   eq(A.scalaGradini(0), 1, "zero: uno"); eq(A.scalaGradini(NaN), 2, "altezza ignota: come una pedana di serie (h40)");
   ok(A.scalaGradini(400) <= 12, "tetto: oltre non si disegna");
-  eq(A.scalaGradini(50), 3, "h50: a metà si arrotonda per eccesso"); eq(A.scalaGradini(30), 2, "h30: 1,5 alzate → 2"); eq(A.scalaGradini(35), 2, "h35");
+  eq(A.scalaGradini(50), 3, "h50"); eq(A.scalaGradini(30), 2, "h30: 1,7 alzate → 2"); eq(A.scalaGradini(35), 2, "h35");
+  /* ALZATA 18 cm (22/11): i valori storici non si muovono, sopra h100 cambia */
+  eq([20, 40, 60, 50, 80].map((h) => A.scalaGradini(h)), [1, 2, 3, 3, 4], "h20/40/60/50/80 come con 20 cm");
+  eq([145, 120, 100, 45, 65].map((h) => A.scalaGradini(h)), [8, 7, 6, 3, 4], "h145 = 8 (esempio di Simone), h120 = 7, h100 = 6");
 });
 t("Scala: l'altezza è quella della pedana che la tocca (la più alta se sono più d'una), 40 se non ne tocca", () => {
   reset();
@@ -3743,7 +3903,7 @@ t("Scala: l'altezza è quella della pedana che la tocca (la più alta se sono pi
   reset();
 });
 t("Scala: la lunghezza è gradini × pedata 30 cm (h40 → 60, h60 → 90), la larghezza non cambia (Simone, Padova 13/11)", () => {
-  eq([20, 40, 60, 80, 100].map((h) => A.scalaLunghezza(h)), [30, 60, 90, 120, 150], "lunghezze per altezza");
+  eq([20, 40, 60, 80, 100].map((h) => A.scalaLunghezza(h)), [30, 60, 90, 120, 180], "lunghezze per altezza (h100 = 6 gradini con l'alzata di 18 cm, 22/11)");
   eq([A.scalaLunghezza(NaN), A.scalaLunghezza(0), A.scalaLunghezza(10), A.scalaLunghezza(400)], [60, 30, 30, 360], "altezza ignota = h40; minimo 1 gradino; tetto 12 gradini");
   eq(A.SCALA_PEDATA_CM, 30, "pedata");
   reset();
@@ -3789,10 +3949,10 @@ t("Scala: il disegno ha tanti riquadri quanti i gradini (h40 → 2, h60 → 3), 
   const pd = A.state.items.find((x) => x.type === "pedana"); pd.h = 40;
   eq(righe(A.TYPES.scala.draw(s)), 2 - 1 + 1, "h40: 2 gradini = 1 separatore + la freccia");
   pd.h = 100;
-  eq(righe(A.TYPES.scala.draw(s)), 5 - 1 + 1, "h100: 5 gradini");
+  eq(righe(A.TYPES.scala.draw(s)), 6 - 1 + 1, "h100: 6 gradini");
   /* cartiglio: la quota accanto alla scala dice altezza e gradini, come quella della pedana */
   A._lblSink = []; A.itemMarkup(s); const lb = A._lblSink.join(""); A._lblSink = null;
-  ok(/h100 · 5 gradini/.test(lb), "quota della scala: " + lb.slice(0, 300));
+  ok(/h100 · 6 gradini/.test(lb), "quota della scala: " + lb.slice(0, 300));
   /* di lato, ruotata: dalla parte con più spazio (la scala a x 400 su un palco di 1200 ha più spazio a destra) */
   const quotaLato = (m) => (m.match(/<text class="lbl sub" x="(-?[\d.]+)" y="0"[^>]*>h\d+ · /) || [])[1];
   eq(+quotaLato(lb), 30 + 12, "di serie a destra: mezza larghezza 30 + 12");
@@ -33403,7 +33563,7 @@ t("Pedana: le scorciatoie ci sono nel pannello e la scala segue l'altezza", () =
   const p = add("pedana", 400, 300, { h: 40 }), s = add("scala", 400, 395);
   Object.assign(s, { d: 90, dAuto: 90, y: 395 });
   A.pedanaApplicaRapida(p, { h: 100 }); A.scaleAdegua();
-  eq(s.d, 150, "h100: 5 gradini da 30 cm");
+  eq(s.d, 180, "h100: 6 gradini da 30 cm");
 });
 
 /* ---- OSTACOLO con quota (15/11/2026, S19) ---- */
