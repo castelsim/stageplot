@@ -2876,6 +2876,37 @@ function barraLedSvg(it){
       +'<circle cx="'+r2(k*(W/2-kn*0.45))+'" cy="0" r="'+r2(Math.min(1,D*0.2))+'" fill="#8d9298" stroke="#2a2c30" stroke-width="0.08"/>'; });
   return s2;
 }
+/* FRESNEL LED Briteq BT-THEATRE 200TW (richiesta di un tecnico di teatro, 30/10/2026: «BT-Theatre 200W», il Fresnel che lui chiama «PC»).
+   Misure dal DISEGNO QUOTATO del manuale d'uso del produttore (pag. 12/12): lira 223 mm di larghezza, 350 mm di lunghezza con le
+   bandiere (330 senza), 392 mm di altezza; 7,25 kg con le bandiere, 105 W max (2 LED da 100 W, 2800 + 6000 K), zoom 12°–56° [CERTO].
+   Le quote interne (corpo ~15,5 cm di larghezza, manopola di messa a fuoco dietro, lira a ~16,7 cm dal retro) sono lette dal
+   disegno in scala [DEDOTTO]. In pianta: retro in alto (−y), fronte con le 8 bandiere in basso (+y). Niente scritte né marchi. */
+function btTheatreSvg(it){
+  var g='#2b2d31', k='#0f1012', y='#1d2024';
+  var s='<rect x="-1.6" y="-17.5" width="3.2" height="3.6" rx="0.5" fill="#8d9298" stroke="#2a2c30" stroke-width="0.1"/>'   /* manopola dietro */
+    +'<rect x="-7.75" y="-14.1" width="15.5" height="26.8" rx="1.1" fill="'+g+'" stroke="'+k+'" stroke-width="0.14"/>'   /* corpo */
+    +'<rect x="-7.75" y="-14.1" width="15.5" height="4.2" rx="0.8" fill="#212328" stroke="'+k+'" stroke-width="0.1"/>'     /* vano elettronica */
+    +'<path d="M -5.2 -8.4 V 10.8 M -2.6 -8.4 V 10.8 M 0 -8.4 V 10.8 M 2.6 -8.4 V 10.8 M 5.2 -8.4 V 10.8" stroke="#0c0d0e" stroke-width="0.3" fill="none"/>'  /* alette */
+    +'<rect x="-8.6" y="12.7" width="17.2" height="4.8" rx="0.5" fill="#34373c" stroke="'+k+'" stroke-width="0.14"/>'      /* portafiltri + bandiere */
+    +'<path d="M -8.6 15.1 H 8.6 M 0 12.7 V 17.5" stroke="'+k+'" stroke-width="0.1" fill="none"/>';
+  s+='<rect x="-11.15" y="-2.5" width="22.3" height="3.4" rx="0.9" fill="'+y+'" stroke="#000" stroke-width="0.1"/>';            /* lira: l'arco passa sopra il corpo */
+  [-1,1].forEach(function(q){ s+='<circle cx="'+(q*9.65)+'" cy="-0.8" r="1.5" fill="#8d9298" stroke="#2a2c30" stroke-width="0.1"/>'; });   /* manopole della lira: dentro i 22,3 cm della lira (9,65 + r 1,5 = 11,15) */
+  return s;
+}
+/* CATENA DI LED SU FILO («lucciole», richiesta di un tecnico di teatro, mail del 30/10/2026: «LED puntiformi su filo di rame»).
+   Elemento GENERICO e PARAMETRICO in lunghezza: senza marca né modello (non c'è una scheda tecnica unica; la risposta del tecnico è
+   una categoria di prodotto). Passo fra i LED ~10 cm (catene da 2 m / 20 LED, 5 m / 50, 10 m / 100) e alimentatore a bassa tensione
+   a un'estremità [DEDOTTO: valori tipici del prodotto]. Il filo è disegnato dritto: sul palco si posa come si vuole. */
+function catenaLedSvg(it){
+  var W=Math.max(40,it.w||200), r2=function(v){ return Math.round(v*100)/100; }, n=Math.max(4,Math.round(W/10));
+  /* LUNGHEZZA e ingombro (3 cm) sono veri; filo (7 mm) e LED (Ø 2,4 cm) sono INGRANDITI di proposito: alla scala di stampa
+     (1:50 su A3 → 1 cm = 0,2 mm; 1:100 su A4 → 0,1 mm) un filo e un LED veri non si vedrebbero. Tutto dentro i 3 cm di d. */
+  var x0=-W/2, s='<path d="M '+r2(x0+3.6)+' 0 H '+r2(W/2)+'" stroke="#b87333" stroke-width="0.7" stroke-linecap="round" fill="none"/>'
+    +'<rect x="'+r2(x0)+'" y="-1.5" width="3.6" height="3" rx="0.5" fill="#2b2d31" stroke="#0f1012" stroke-width="0.14"/>';
+  for(var i=1;i<=n;i++){ var cx=x0+3.6+(W-3.6)*i/(n+0.5);
+    s+='<circle cx="'+r2(cx)+'" cy="0" r="1.2" fill="#f6d365" stroke="#6b5310" stroke-width="0.25"/>'; }
+  return s;
+}
 /* SPLITTER DMX (richiesta di un tecnico di teatro, 28/10/2026): elemento GENERICO con ingressi e uscite variabili
    (it.dmxIn 1–4, it.dmxOut 1–16; predefiniti 1 e 8). Formato rack 19" 1U come tutti gli splitter da 4 uscite in su:
    larghezza fissa 483 mm, cambia solo la profondità (134–200 mm). Riferimento: Eurolite DMX Split 8X, 483×145×44,5 mm
@@ -4727,6 +4758,12 @@ var TYPES = {
   barraled:  {nome:"Barra LED RGB", dim:"109×7 · 24 W", cat:"Luci", w:109,d:7, resizable:true,
     alias:"barra led rgb led bar batten ribalta led barra luce rgbw eurolite bar 12 lunghezza regolabile",
     draw:function(it){ return barraLedSvg(it); }},
+  bttheatre200:{nome:"Briteq BT-Theatre 200", dim:"22×35 · 105 W", cat:"Luci", w:22.3,d:35,   /* 223×350 mm = quote del manuale; assorbe 105 W max (i «200 W» sono la sorgente LED, non il consumo) */
+    alias:"briteq bt theatre bt-theatre 200 200w 200tw fresnel led teatro pc teatrale bandiere zoom faro luci led luce led",
+    draw:function(it){ return btTheatreSvg(it); }},
+  catenaled:  {nome:"Catena di LED su filo", dim:"200×3 · ~5 W", cat:"Luci", w:200,d:3, resizable:true,   /* generica, senza marca: ~5 W = STIMA di una catena tipica con alimentatore a bassa tensione (3–6 W), si corregge dal pannello */
+    alias:"catena led su filo lucciole lucciola lucciole led luci led luce led catena di luci catene di luci led puntiformi filo di rame luci fata fairy lights stringa led piccole luci di scena dimmer",
+    draw:function(it){ return catenaLedSvg(it); }},
   /* LUCCIOLA LED (richiesta di un tecnico di teatro, 28/10/2026): ipotesi da confermare = Spotlight «Serie Lucciola», pinspot LED 30 W dimmerabile da rete (SUPERLUT LED 30, 18×16×22 cm, ottica PMMA Ø70 mm; datasheet «Architectural line» 29/05/2024). Quote senza assi etichettati: la costruzione è [DEDOTTO]. */
   lucciola:   {nome:"Lucciola LED", dim:"18×16 · 30 W · pinspot", cat:"Luci", w:18,d:16,
     alias:"lucciola lucciole pinspot led mini spot piccola luce di scena spotlight superlut dimmer teatro",
@@ -5230,7 +5267,7 @@ var WATT = {
   mixer:80,
   amprack:2500,
   consolaluci:100, testamobile:350, parluci:150, sagomatore:400,   /* il dimmer NON e' qui: assorbe quello che porta, e lo somma il motore (29/07) */
-  pcled:200, ribaltaled:242, barraled:24, dmxsplit:5, fumoz1500:1500, hazerhz400:470,
+  pcled:200, bttheatre200:105, catenaled:5, ribaltaled:242, barraled:24, dmxsplit:5, fumoz1500:1500, hazerhz400:470,
   lucciola:30, sagomatoreled:200, ribaltaalogena:2000, stroboatomic:740, parslimpar:96, testaspot360x:211, followroxie:286,
     /* da scheda tecnica: PC HY LED 200 = 200 W, Solo Edge 3 = 242 W, LED BAR-12 = 24 W, DMX Split 8X = 5 W */
   farope:500, fresnel:500,   /* alogeni: lampada 300/500 W, il default e' il massimo — si abbassa dal pannello */
@@ -5516,7 +5553,7 @@ function equipName(it){ if(!it||!it.modelData) return null; var d=it.modelData;
 var EQUIP_CATS_BY_TYPE={ dimono:["di"], distereo:["di"],
   /* fari: il modello reale sta sul faro, non su tutta la categoria Luci — console, dimmer e macchine
      del fumo non hanno un catalogo di «fari» da cui scegliere (Simone 29/07) */
-  farope:["faro"], fresnel:["faro"], pcled:["faro"], ribaltaled:["faro"], barraled:["faro"], lucciola:["faro"], sagomatoreled:["faro"], ribaltaalogena:["faro"], stroboatomic:["faro"], parslimpar:["faro"], testaspot360x:["faro"], followroxie:["faro"], parluci:["faro"], sagomatore:["faro"], testamobile:["faro"], followspot:["faro"],
+  farope:["faro"], fresnel:["faro"], pcled:["faro"], bttheatre200:["faro"], catenaled:["faro"], ribaltaled:["faro"], barraled:["faro"], lucciola:["faro"], sagomatoreled:["faro"], ribaltaalogena:["faro"], stroboatomic:["faro"], parslimpar:["faro"], testaspot360x:["faro"], followroxie:["faro"], parluci:["faro"], sagomatore:["faro"], testamobile:["faro"], followspot:["faro"],
   /* anche la luce continua da studio porta un modello reale, e la categoria del DB prodotti è la stessa
      dei fari: un apparecchio è un apparecchio, e chi noleggia scrive marca+modello sul rider */
   ledcob:["faro"], ledmono:["faro"], ledpanel:["faro"], ledflex:["faro"], ledtube:["faro"],
@@ -5611,7 +5648,7 @@ var WEIGHT = {
   stagebox:9, splitter:10, multicore:12, rack2u:15, rack4u:25, amprack:60,
   /* luci */
   consolaluci:12, dimmerluci:40, testamobile:25, parluci:8, sagomatore:15, followspot:30, farope:6, fresnel:6,
-  dimmerport:2, pcled:7.5, ribaltaled:10, barraled:2.85, dmxsplit:2.2, etccs40:4.33, fumoz1500:13.3, hazerhz400:18.5, sagomatoreled:11.5, ribaltaalogena:5.35, dimmerddp610:12, stroboatomic:7.8, parslimpar:3.3, testaspot360x:11.4, followroxie:28.5,   /* kg di targa: DDS-405 2, PC HY LED 200 7,5, Solo Edge 3 10, LED BAR-12 2,85, Split 8X 2,22 */
+  dimmerport:2, pcled:7.5, bttheatre200:7.25, ribaltaled:10, barraled:2.85, dmxsplit:2.2, etccs40:4.33, fumoz1500:13.3, hazerhz400:18.5, sagomatoreled:11.5, ribaltaalogena:5.35, dimmerddp610:12, stroboatomic:7.8, parslimpar:3.3, testaspot360x:11.4, followroxie:28.5,   /* kg di targa: DDS-405 2, PC HY LED 200 7,5, Solo Edge 3 10, LED BAR-12 2,85, Split 8X 2,22 */
   strobo:8, fumomachine:15, hazer:12, torrefaro:60,
   /* luce continua studio/video: peso dell'apparecchio di riferimento della categoria, arrotondato
      (LS 300d II testa ~3,2 · amaran 300c ~2,9 · Astra 6X ~3,2 · F22c telo+driver ~2 · Titan Tube 1,35 ·
@@ -9502,6 +9539,8 @@ var LIGHT_GEAR={
   farope:     {sing:"faro PC",               plur:"fari PC"},
   fresnel:    {sing:"fresnel",               plur:"fresnel"},
   pcled:      {sing:"PC LED",                plur:"PC LED"},
+  bttheatre200:{sing:"Fresnel LED Briteq BT-THEATRE 200", plur:"Fresnel LED Briteq BT-THEATRE 200"},
+  catenaled:  {sing:"catena di LED su filo", plur:"catene di LED su filo"},
   ribaltaled: {sing:"ribalta LED",           plur:"ribalte LED"},
   barraled:   {sing:"barra LED RGB",         plur:"barre LED RGB"},
   fumoz1500:  {sing:"macchina del fumo", plur:"macchine del fumo"},

@@ -31511,6 +31511,89 @@ t("luci teatro: tipi, misure, potenza e peso di targa, rider", () => {
   const cerca = (q) => Object.keys(A.TYPES).filter((k) => ((A.TYPES[k].nome || "") + " " + (A.TYPES[k].alias || "")).toLowerCase().indexOf(q) > -1);
   ok(cerca("ribalta").indexOf("ribaltaled") > -1 && cerca("splitter dmx").indexOf("dmxsplit") > -1 && cerca("pc led").indexOf("pcled") > -1, "si trovano con le parole del mestiere");
 });
+/* ====== MONOPOLI (22/11/2026): Briteq BT-Theatre 200 e catena di LED su filo («lucciole») ======
+   Fonti: manuale Briteq BT-THEATRE 200TW (B06030) pag. 11/12 «Power consumption (max) 105 Watts», «Weight 7,25 kg (including barndoor)»
+   e pag. 12/12 disegno quotato 223 mm (lira) · 350 mm con bandiere (330 senza) · 392 mm. La catena è GENERICA: ~5 W è una STIMA dichiarata. */
+const bboxSvg = (svg) => {   /* ingombro geometrico (senza spessore dei tratti) di rect, circle e path M/H/V di un disegno del catalogo */
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity; const els = [];
+  const px = (x) => { x0 = Math.min(x0, x); x1 = Math.max(x1, x); }, py = (y) => { y0 = Math.min(y0, y); y1 = Math.max(y1, y); };
+  (svg.match(/<rect [^>]*>/g) || []).forEach((r) => { const g = (n) => parseFloat((r.match(new RegExp(" " + n + '="([-0-9.]+)"')) || [0, "0"])[1]); const e = { x: g("x"), y: g("y"), w: g("width"), h: g("height") }; els.push(e); px(e.x); px(e.x + e.w); py(e.y); py(e.y + e.h); });
+  (svg.match(/<circle [^>]*>/g) || []).forEach((c) => { const g = (n) => parseFloat(c.match(new RegExp(" " + n + '="([-0-9.]+)"'))[1]); px(g("cx") - g("r")); px(g("cx") + g("r")); py(g("cy") - g("r")); py(g("cy") + g("r")); });
+  (svg.match(/ d="[^"]+"/g) || []).forEach((d) => { let cx = 0, cy = 0; (d.match(/[MHV]\s*[-0-9.]+(?:\s+[-0-9.]+)?/g) || []).forEach((c) => { const n = c.slice(1).trim().split(/\s+/).map(Number); if (c[0] === "M") { cx = n[0]; cy = n[1]; } else if (c[0] === "H") cx = n[0]; else cy = n[0]; px(cx); py(cy); }); });
+  return { x0, x1, y0, y1, w: x1 - x0, h: y1 - y0, els };
+};
+t("Monopoli: BT-Theatre 200 e catena LED — catalogo, misure del manuale, potenza (105 W max / ~5 W stima), peso, nomi, lista luci, inglese", () => {
+  ["bttheatre200", "catenaled"].forEach((k) => { ok(A.TYPES[k] && A.TYPES[k].cat === "Luci", k + ": manca nel catalogo luci"); ok(A.lightsIsGear(k) && A.LIGHT_GEAR[k].plur, k + ": entra nella lista luci"); ok(A.hasWatt(k), k + ": ha i watt"); ok(A.EQUIP_CATS_BY_TYPE[k] && A.EQUIP_CATS_BY_TYPE[k][0] === "faro", k + ": come gli altri fari"); });
+  eq([A.TYPES.bttheatre200.w, A.TYPES.bttheatre200.d], [22.3, 35], "223 mm di lira × 350 mm con le bandiere (disegno quotato del manuale)");
+  eq(A.TYPES.bttheatre200.nome, "Briteq BT-Theatre 200", "nome corto: l'etichetta sul palco non deve essere più larga di tre icone");
+  eq(A.TYPES.bttheatre200.dim, "22×35 · 105 W"); eq([A.TYPES.catenaled.w, A.TYPES.catenaled.d, A.TYPES.catenaled.resizable], [200, 3, true]);
+  ok(/~5 W/.test(A.TYPES.catenaled.dim), "la potenza della catena è dichiarata stima (~)");
+  reset();
+  eq(A.wattOf(add("bttheatre200", 300, 300)), 105, "105 W max da manuale (NON i 200 W della sorgente LED)");
+  eq(A.wattOf(add("catenaled", 300, 500)), 5, "catena: ~5 W di stima");
+  eq(A.WEIGHT.bttheatre200, 7.25, "7,25 kg con le bandiere"); eq(A.WEIGHT.catenaled, undefined, "la catena generica non ha un peso di targa: nessun numero inventato");
+  eq(A.LIGHT_GEAR.bttheatre200.plur, "Fresnel LED Briteq BT-THEATRE 200", "il rider scrive marca e modello da noleggiare");
+  eq([A.LIGHT_GEAR.catenaled.sing, A.LIGHT_GEAR.catenaled.plur], ["catena di LED su filo", "catene di LED su filo"]);
+  eq([A.DOC_EN_TIPI.bttheatre200.nome, A.DOC_EN_TIPI.catenaled.nome], ["Briteq BT-Theatre 200 LED Fresnel", "LED string lights (fairy lights)"], "nomi in inglese");
+  A.state.docLang = "en";
+  eq([A.docTesto("Briteq BT-Theatre 200"), A.docTesto("Catena di LED su filo")], ["BT-Theatre 200 LED Fresnel", "LED string lights"], "etichette sul palco in inglese");
+  delete A.state.docLang;
+});
+t("Monopoli: ricerca — «bt theatre», «briteq», «lucciole», «luci led», «catena di luci»… trovano i due oggetti (catalogo e doppio clic)", () => {
+  const trova = (q, k) => { ok(searchKeys(q).indexOf(k) > -1, "catalogo: «" + q + "» non trova " + k + ": " + JSON.stringify(searchKeys(q))); ok(qaKeys(q).indexOf(k) > -1, "doppio clic: «" + q + "» non trova " + k); };
+  ["bt theatre", "bt-theatre", "briteq", "bt theatre 200w", "luci led", "fresnel led", "200w"].forEach((q) => trova(q, "bttheatre200"));
+  ["lucciole", "lucciole led", "luci led", "catena di luci", "catena led", "led su filo", "filo di rame", "fairy lights"].forEach((q) => trova(q, "catenaled"));
+  ok(searchKeys("lucciole").indexOf("lucciola") > -1, "la Lucciola LED (pinspot) resta trovabile con «lucciole»");
+});
+t("Monopoli: geometria del BT-Theatre — ingombro 22,3×35 cm esatto, fronte (bandiere) a +y, manopola di fuoco dietro, e il fronte guarda dove deve a 0/90/180/270", () => {
+  const svg = A.TYPES.bttheatre200.draw({ type: "bttheatre200", w: 22.3, d: 35 }), b = bboxSvg(svg);
+  ok(Math.abs(b.w - 22.3) < 0.01 && Math.abs(b.h - 35) < 0.01, "il disegno è " + b.w.toFixed(2) + "×" + b.h.toFixed(2) + " cm, non 22,3×35 (manuale)");
+  ok(b.y1 > 0 && Math.abs(b.y0 + 17.5) < 0.01 && Math.abs(b.y1 - 17.5) < 0.01 && Math.abs(b.x0 + 11.15) < 0.01 && Math.abs(b.x1 - 11.15) < 0.01, "centrato sull'origine: x ±11,15 · y ±17,5");
+  const fronte = b.els.filter((e) => Math.abs(e.y + e.h - 17.5) < 0.01), retro = b.els.filter((e) => Math.abs(e.y + 17.5) < 0.01);
+  ok(fronte.length === 1 && fronte[0].w > 15, "a +y (fronte) c'è il portafiltri/bandiere, largo come il corpo");
+  ok(retro.length === 1 && retro[0].w < 5, "a −y (retro) c'è solo la piccola manopola di messa a fuoco");
+  const cen = (e) => [e.x + e.w / 2, e.y + e.h / 2], dir0 = [cen(fronte[0])[0] - cen(retro[0])[0], cen(fronte[0])[1] - cen(retro[0])[1]];
+  const atteso = { 0: [0, 1], 90: [-1, 0], 180: [0, -1], 270: [1, 0] };   /* rotate(r) SVG: (x,y)→(x·cos−y·sin, x·sin+y·cos); a 0° il fascio va verso il pubblico (giù), come PC e fresnel */
+  reset();
+  [0, 90, 180, 270].forEach((r) => {
+    const it = add("bttheatre200", 400, 300, { rot: r }), m = A.sceneMarkup(), g = m.slice(m.indexOf('data-id="' + it.id + '"')), rr = parseFloat((g.match(/transform="rotate\(([-0-9.]+)\)"/) || [0, "NaN"])[1]);
+    eq(rr, r, "rot " + r + ": il disegno è girato di " + r + "°");
+    const a = r * Math.PI / 180, wx = dir0[0] * Math.cos(a) - dir0[1] * Math.sin(a), wy = dir0[0] * Math.sin(a) + dir0[1] * Math.cos(a), n = Math.hypot(wx, wy);
+    eq([Math.round(wx / n), Math.round(wy / n)], atteso[r], "rot " + r + ": il fronte (bandiere) guarda da un'altra parte");
+    const bb = A.itemAabb(it, 0), W = bb.x1 - bb.x0, H = bb.y1 - bb.y0;
+    const [aw, ah] = r % 180 === 0 ? [W, H] : [H, W]; ok(Math.abs(aw - 22.3) < 1e-6 && Math.abs(ah - 35) < 1e-6, "rot " + r + ": l'ingombro del codice (clic, snap, fuori palco) è 22,3×35 girato: " + aw + "×" + ah);
+  });
+});
+t("Monopoli: geometria della catena — lunghezza vera, un LED ogni ~10 cm, tutto dentro 3 cm di d, connettore a sinistra, girata a 0/90/180/270", () => {
+  const dr = (w) => A.TYPES.catenaled.draw({ type: "catenaled", w, d: 3 });
+  [[200, 20], [100, 10], [500, 50], [20, 4]].forEach(([w, n]) => {
+    const svg = dr(w), b = bboxSvg(svg), W = Math.max(40, w);
+    eq((svg.match(/<circle/g) || []).length, n, "w " + w + ": un LED ogni ~10 cm (minimo 4)");
+    ok(Math.abs(b.x0 + W / 2) < 0.01 && b.x1 <= W / 2 + 0.01 && b.x1 > W / 2 - 8, "w " + w + ": da −W/2 a +W/2 (la lunghezza è quella scelta)");
+    ok(b.y0 >= -1.5 && b.y1 <= 1.5, "w " + w + ": dentro i 3 cm di ingombro, y " + b.y0 + ".." + b.y1);
+    const conn = b.els.filter((e) => Math.abs(e.x + W / 2) < 0.01); ok(conn.length === 1 && conn[0].w < 5, "w " + w + ": alimentatore a sinistra (x = −W/2)");
+  });
+  reset();
+  [0, 90, 180, 270].forEach((r) => { const it = add("catenaled", 500, 300, { rot: r }), bb = A.itemAabb(it, 0);
+    eq(r % 180 === 0 ? [bb.x1 - bb.x0, bb.y1 - bb.y0] : [bb.y1 - bb.y0, bb.x1 - bb.x0], [200, 3], "rot " + r + ": ingombro 200×3 girato"); });
+  ok(!/<text|<image|href=|<title/.test(dr(200) + A.TYPES.bttheatre200.draw({})), "solo vettoriale, senza scritte né raster");
+});
+t("Monopoli: rider, carichi elettrici, scena PDF — i due tipi contano giusto e non sporcano gli altri totali", () => {
+  reset();
+  add("bttheatre200", 300, 300); add("bttheatre200", 400, 300, { rot: 90 }); add("catenaled", 300, 500); add("pcled", 600, 300);
+  const loads = A.electricEngine().loads; eq(loads.map((l) => l.w).sort((a, b) => a - b), [5, 105, 105, 200], "carichi: 2×105 + 5 stima + PC LED 200");
+  eq(A.electricEngine().totW, 415, "totale 415 W");
+  A.state.lights = A.lightsFromItems(A.state.items);
+  const rows = A.state.lights.rows.map((r) => [r.gear, r.n]).sort(); eq(rows, [["bttheatre200", 2], ["catenaled", 1], ["pcled", 1]], "righe luci per tipo");
+  const rd = A.lightsRiderText(A.state.lights);
+  ok(rd.indexOf("n.2 Fresnel LED Briteq BT-THEATRE 200.") > -1 && rd.indexOf("n.1 catena di LED su filo.") > -1 && rd.indexOf("n.1 PC LED.") > -1, "rider luci: " + rd);
+  const svg = A.stageSceneSvg(null, {});
+  ok(!/NaN|undefined/.test(svg), "la scena del PDF non ha NaN");
+  eq([(svg.match(/Briteq BT-Theatre 200/g) || []).length, (svg.match(/Catena di LED su filo/g) || []).length], [2, 1], "etichette sul foglio: 2 BT-Theatre, 1 catena");
+  eq([0, 90].map((r) => (svg.match(new RegExp('transform="rotate\\(' + r + '\\)"', "g")) || []).length > 0), [true, true], "il PDF contiene le rotazioni dei fari");
+  reset(); add("pcled", 300, 300);
+  eq(A.electricEngine().totW, 200, "senza i nuovi tipi, il totale di un PC LED è quello di sempre");
+});
 t("luci teatro: il dimmer portatile ha 4 canali, 16 A monofase, e porta le luci come il rack", () => {
   reset();
   eq(A.DIMMER_DEF.dimmerport, 4, "4 canali di default (DDS-405)"); eq(A.DIMMER_DEF.dimmerluci, 12, "il rack resta a 12");
