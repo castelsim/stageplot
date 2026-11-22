@@ -39629,5 +39629,44 @@ t("I18N L1: nome del file in inglese («of», «landscape», «Final») solo se 
   reset(); A.state.docLang = "en"; A.state.statoDoc = "definitivo"; eq(A.nomeConStato(A.nomeConStato("a.pdf")), "a-final.pdf", "doppio passaggio: lo stato non si raddoppia"); delete A.state.statoDoc; reset();
 });
 
+/* ───────── I18N L1, correzioni dopo la rilettura della PR #193 (22/11/2026): D1, D2, M9, ricerca ───────── */
+t("I18N L1 (D1): in ITALIANO un titolo con «Final» / «Preliminary» ha comunque il suo «-definitivo» / «-provvisorio» — stage plot, palco, foglio teatro, con e senza versione", () => {
+  const d = new Date(2026, 10, 12);
+  const nomi = (titolo, st, ver) => { reset(); delete A.state.docLang; A.state.titolo = titolo; if (ver) A.state.versione = ver; else delete A.state.versione; if (st) A.state.statoDoc = st; else delete A.state.statoDoc;
+    const r = [A.nomeConStato(A.nomeFilePdf("a3", 50, "landscape", d)), A.nomeConStato(A.palcoEsterniNomeFile(d)), A.nomeConStato(A.foglioTeatroNomeFile(d)), A.nomeConStato(A.fileName() + ".png")]; reset(); return r; };
+  eq(nomi("Grand Final Gala", "definitivo", 0), ["grand-final-gala-definitivo.pdf", "grand-final-gala - palco-definitivo.pdf", "Grand Final Gala - foglio teatro-definitivo.pdf", "grand-final-gala-definitivo.png"], "«Final» nel titolo, senza versione: lo stato c'è (come su main)");
+  eq(nomi("Preliminary Round", "provvisorio", 0), ["preliminary-round-provvisorio.pdf", "preliminary-round - palco-provvisorio.pdf", "Preliminary Round - foglio teatro-provvisorio.pdf", "preliminary-round-provvisorio.png"], "«Preliminary» nel titolo, senza versione");
+  eq(nomi("Grand Final Gala", "definitivo", 2), ["Grand Final Gala - v2 del 12-11-2026 - Definitivo - A3 orizz 1-50.pdf", "Grand Final Gala - v2 del 12-11-2026 - Definitivo - palco.pdf", "Grand Final Gala - v2 del 12-11-2026 - Definitivo - foglio teatro.pdf", "grand-final-gala-definitivo.png"], "con la versione lo stato resta quello scritto dal nome");
+  eq(nomi("Grand Final Gala", null, 0), ["grand-final-gala.pdf", "grand-final-gala - palco.pdf", "Grand Final Gala - foglio teatro.pdf", "grand-final-gala.png"], "senza stato: nessun suffisso");
+});
+t("I18N L1 (D2): in English, senza versione e con uno stato, anche «palco» e «foglio teatro» escono tradotti («stage», «venue sheet»)", () => {
+  const nomi = (st) => { reset(); A.state.docLang = "en"; A.state.titolo = "Concerto"; delete A.state.versione; delete A.state.statoDoc; if (st) A.state.statoDoc = st; const d = new Date(2026, 10, 12);
+    const r = [A.nomeConStato(A.palcoEsterniNomeFile(d)), A.nomeConStato(A.foglioTeatroNomeFile(d)), A.nomeConStato(A.nomeFilePdf("a3", 50, "landscape", d))]; delete A.state.statoDoc; reset(); return r; };
+  eq(nomi("definitivo"), ["concerto - stage-final.pdf", "Concerto - venue sheet-final.pdf", "concerto-final.pdf"], "Definitivo → final, una volta sola anche passando due volte da nomeConStato");
+  eq(nomi("provvisorio"), ["concerto - stage-preliminary.pdf", "Concerto - venue sheet-preliminary.pdf", "concerto-preliminary.pdf"], "Provvisorio → preliminary");
+  eq(nomi(null), ["concerto - stage.pdf", "Concerto - venue sheet.pdf", "concerto.pdf"], "senza stato come prima");
+});
+t("I18N L1 (M9): Esporta mostra «Come l'app» quando la lingua non è scelta e «Italiano» solo se scelto — barra e Menu mostrano sempre la lingua in uso", () => {
+  const els = {}; ["pdfDocLingua", "pdfDocUnita", "pdfDocUnitaHint", "docLangSel", "docLangSelM", "docChip", "unitSel", "unitSelM"].forEach((id) => { els[id] = { value: "?", hidden: false }; });
+  const doc0 = A.document; A.document = { body: { classList: { contains: () => false } }, getElementById: (id) => els[id] || null, querySelectorAll: () => [] };
+  try {
+    reset(); A.docEsteroSincronizza(); eq([els.pdfDocLingua.value, els.docLangSel.value, els.docChip.hidden], ["", "it", true], "campo assente: Esporta «Come l'app» (valore vuoto), barra «it», avviso nascosto");
+    A.docLinguaImposta("it"); A.docEsteroSincronizza(); eq([els.pdfDocLingua.value, els.docLangSel.value], ["it", "it"], "«Italiano» scelto: Esporta mostra «it»");
+    A.docLinguaImposta("en"); A.docEsteroSincronizza(); eq([els.pdfDocLingua.value, els.docLangSelM.value, els.docChip.hidden], ["en", "en", false], "English: tutto «en», avviso visibile");
+  } finally { A.document = doc0; reset(); }
+});
+t("I18N L1 (ricerca): «keyboard» dà per prima la Tastiera, «bs» non trova più «Site obstacle», il nome inglese si trova a inizio parola e le parole italiane restano come su main", () => {
+  [A.__qaSearch, A.__spSearch].forEach((f, i) => {
+    const via = i ? "barra del catalogo" : "doppio clic";
+    eq(f("keyboard")[0].k, "tastiera", "«keyboard» → la tastiera (non l'ampli), " + via);
+    ok(f("bs").length > 0 && f("bs").every((r) => r.k !== "ostacolo"), "«bs» non porta «Site obstacle» in nessuna posizione (l'inglese conta solo a inizio parola), " + via);
+    ok(f("stacle").every((r) => r.k !== "ostacolo"), "«stacle» (a metà di «obstacle») non lo trova, " + via);
+    ok(f("obstacle").some((r) => r.k === "ostacolo") && f("obsta").some((r) => r.k === "ostacolo"), "«obstacle» e «obsta» (inizio parola) lo trovano, " + via);
+    ok(f("basso").slice(0, 5).every((r) => r.k !== "fagotto"), "«basso» (italiano) non tira avanti il «Bassoon», " + via);
+    eq(f("basso").slice(0, 2).map((r) => r.k), ["bassstand", "bassstand"], "«basso» come su main, " + via);
+  });
+  eq(A.__spSearch("bs").slice(0, 5).map((r) => r.k), ["bassstand", "bassstand", "substg", "substg", "substg"], "«bs» nella barra: i primi 5 identici a main");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

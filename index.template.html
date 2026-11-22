@@ -26196,7 +26196,8 @@ function ricordaRecenteCatalogo(k, nome, over){
   entries.forEach(function(e){ if(!e.k && CUST_NO_RICERCA[e.nome]) e.custNo=true; });
   function indicizza(e){   /* anche per le voci che arrivano dopo (gli elementi di questo progetto) */
     var t=e.k?TYPES[e.k]:null;
-    var strong=[e.nome, e.dim, e.kw, e.k, t&&t.nome, t&&t.alias, qaEnNome(e.k)];   /* come l'utente chiama l'elemento (anche in inglese: stessa fonte del documento) */
+    var strong=[e.nome, e.dim, e.kw, e.k, t&&t.nome, t&&t.alias];   /* come l'utente chiama l'elemento */
+    e._en=_deacc(qaEnNome(e.k));   /* il nome inglese (stessa fonte del documento) sta FUORI dall'indice a sottostringa: conta solo a inizio parola e in qaEnRank, così «bs» non trova «Site oBStacle» (D, 22/11) */
     var weak=[t&&t.cat, t&&t.sub, e.k&&subOf(e.k)];                 /* dove sta nel catalogo */
     e._nname=_deacc(e.nome);
     e._kwStrong=_deacc(strong.filter(Boolean).join(" "));
@@ -26260,7 +26261,7 @@ function ricordaRecenteCatalogo(k, nome, over){
   function searchMatches(query){
     var nq=_deacc(String(query||"").trim());
     if(!nq) return [];
-    var m=entries.filter(function(e){ return e._kw.indexOf(nq)>-1 && !(e.custNo && custEditorAttivo()) && !(e.custIngresso && !custIngressiAttivi()); });   /* substring su nome+categoria+alias; ogni entry una sola volta → nessun duplicato */
+    var m=entries.filter(function(e){ return (e._kw.indexOf(nq)>-1 || qaWordStart(e._en, nq)) && !(e.custNo && custEditorAttivo()) && !(e.custIngresso && !custIngressiAttivi()); });   /* substring su nome+categoria+alias; ogni entry una sola volta → nessun duplicato */
     /* STESSO ordinamento della finestrella del doppio clic (qaSearch): nome che inizia con la query →
        query a inizio parola nel nome → a inizio parola in un campo forte → a metà parola → sola
        categoria. Prima la barra guardava solo "il nome contiene la query", e cercando "kb" (tastiere)
@@ -26273,6 +26274,7 @@ function ricordaRecenteCatalogo(k, nome, over){
          della finestrella del doppio clic, e invece una query ceduta là continuava a essere vinta
          qui. Si vedeva su «monitor»: nel quick-add usciva il wedge, nella barra l'Hub monitoraggio
          (11/08). Due copie della stessa regola divergono sempre: ora la seconda copia c'è. */
+      e._rank=qaEnRank(e._en, nq, e._rank);
       if(qaHaParola(e._cede,nq)) e._rank=6;
       if(qaHaParola(e._secondo,nq)) e._rank=-0.5;
       if(qaHaParola(e._primo,nq)) e._rank=-1;
@@ -26280,7 +26282,7 @@ function ricordaRecenteCatalogo(k, nome, over){
     m.sort(function(a,b){ return (a._rank-b._rank) || a._nname.localeCompare(b._nname); });
     if(!m.length){   /* niente di esatto: per somiglianza (refusi), ma solo fra le voci che la ricerca esatta avrebbe potuto dare */
       var cand=entries.filter(function(e){ return !(e.custNo && custEditorAttivo()) && !(e.custIngresso && !custIngressiAttivi()); });
-      var sim=ricercaPerSomiglianza(nq, cand.map(function(e){ return e._kw; }), cand.map(function(e){ return e._nname; }));
+      var sim=ricercaPerSomiglianza(nq, cand.map(function(e){ return e._kw+" "+e._en; }), cand.map(function(e){ return e._nname; }));
       m=sim.slice(0,12).map(function(i){ return cand[i]; });
       m.simili=m.length>0; m.tipo=m.length ? sim.tipo : "";   /* parole · refuso · parziale (vedi ricercaPerSomiglianza) */
     }
@@ -26671,7 +26673,7 @@ function closeQuickAdd(){ var b=document.getElementById("quickAdd"); if(b) b.rem
    chiave tecnica, alias: l'utente sta nominando proprio quell'elemento). Con un indice unico
    "stagebox" perdeva gli Stage box 8/16/24 — nome con lo spazio, quindi pari merito con tutti i
    vicini di sottocategoria e fuori dai primi 8. */
-var _qaOpts=null, _qaName=null, _qaStrong=null, _qaAll=null, _qaCede=null, _qaPrimo=null, _qaSecondo=null, _qaSrc=false;
+var _qaOpts=null, _qaName=null, _qaStrong=null, _qaAll=null, _qaEn=null, _qaCede=null, _qaPrimo=null, _qaSecondo=null, _qaSrc=false;
 /* `qaCede` e `qaPrimo` stanno sul tipo o sulla singola voce di catalogo (uno sgabello ha cinque voci,
    una sola cede «voce»). `qaPrimo` è il contrario di `qaCede`: la query esatta che l'elemento PRENDE
    davanti a tutti (rango -1), per quando il nome giusto perde col tie-break alfabetico. */
@@ -26691,17 +26693,23 @@ function qaCat(e){ return (e.k && TYPES[e.k] && TYPES[e.k].cat) || e.qaCat || (e
    «bassoon», «lighting truss», «stairs» trovano l'elemento anche senza un alias scritto a mano (22/11/2026, L1 internazionalizzazione).
    Solo il NOME esteso: le sigle dell'etichetta («Bsn», «Cb», «MIX») sarebbero sottostringhe di mezzo catalogo («bs» deve dare il basso). */
 function qaEnNome(k){ var en=(k && typeof DOC_EN_TIPI!=="undefined") ? DOC_EN_TIPI[k] : null; return (en && en.nome) || ""; }
+/* il nome inglese nel rango: UGUALE alla query → davanti a chi ha solo l'alias («keyboard» = la Tastiera, non l'ampli); altrimenti, se comincia una parola, come «a inizio parola in un campo forte» (2: ciò che faceva prima, quando stava nell'indice forte); mai a metà parola («bs» ≠ «Site oBStacle»). Non lo si porta più su: «basso» è una parola italiana e non deve tirare avanti «Bassoon». */
+function qaEnRank(en, q, r){
+  if(!en || !qaWordStart(en, q)) return r;
+  return en===q ? Math.min(r, -0.25) : Math.min(r, 2);
+}
 function qaIndex(){
   var src=(window.__catEntries && window.__catEntries.length) ? window.__catEntries : null;
   if(_qaOpts && _qaSrc===src) return;   /* cache: l'indice del catalogo si costruisce una volta sola */
   _qaSrc=src;
   _qaOpts=(src || Object.keys(TYPES).filter(function(t){ return TYPES[t].catalog!==false; }).map(function(t){ return {k:t, nome:TYPES[t].nome}; }))
     .filter(function(e){ return !e.noQuick; });   /* #15: la ricerca rapida suggerisce solo ELEMENTI, non le liste/azioni (e gli elementi di questo progetto) */
-  _qaName=[]; _qaStrong=[]; _qaAll=[]; _qaCede=[]; _qaPrimo=[]; _qaSecondo=[];
+  _qaName=[]; _qaStrong=[]; _qaAll=[]; _qaEn=[]; _qaCede=[]; _qaPrimo=[]; _qaSecondo=[];
   _qaOpts.forEach(function(e){
     var t=e.k?TYPES[e.k]:null;
     var nome=_deacc(e.nome||"");
-    var strong=[nome, e.dim, e.kw, e.k, t&&t.nome, t&&t.alias, qaEnNome(e.k)];      /* come l'utente chiama l'elemento (anche in inglese) */
+    var strong=[nome, e.dim, e.kw, e.k, t&&t.nome, t&&t.alias];      /* come l'utente chiama l'elemento */
+    _qaEn.push(_deacc(qaEnNome(e.k)));   /* il nome inglese: solo a inizio parola (vedi qaEnRank) */
     var weak=[t&&t.cat, t&&t.sub, e.k&&subOf(e.k)];                  /* dove sta nel catalogo */
     _qaName.push(nome);
     _qaStrong.push(_deacc(strong.filter(Boolean).join(" ")));
@@ -26727,7 +26735,7 @@ function qaSearch(q){
   function catW(e){ return /Sicurezza|Palco|Luci|Video|Dispositivi|Site|Rigging/i.test(qaCat(e))?1:0; }
   var hit=[];
   for(var i=0;i<_qaOpts.length;i++){
-    if(_qaAll[i].indexOf(q)===-1) continue;
+    if(_qaAll[i].indexOf(q)===-1 && !qaWordStart(_qaEn[i], q)) continue;
     if(_qaOpts[i].custNo && custEditorAttivo()) continue;   /* dentro l'editor non si posa un elemento del progetto */
     var n=_qaName[i], s=_qaStrong[i], r;
     if(n.indexOf(q)===0) r=0;
@@ -26736,6 +26744,7 @@ function qaSearch(q){
     else if(n.indexOf(q)>-1) r=3;
     else if(s.indexOf(q)>-1) r=4;
     else r=5;
+    r=qaEnRank(_qaEn[i], q, r);
     /* `qaCede`: query che l'elemento LASCIA a chi le aveva già, anche se per nome vincerebbe.
        Serve quando un nome nuovo copre per intero una query storica altrui: "flex" era del LED
        flessibile prima che esistesse il Flexaton. Va in CODA (6, dietro anche a chi matcha solo
@@ -26750,7 +26759,7 @@ function qaSearch(q){
   hit.sort(function(a,b){ return (a.r-b.r) || (catW(a.e)-catW(b.e)) || a.n.localeCompare(b.n); });
   if(!hit.length){   /* niente di esatto: per somiglianza (refusi), come nella barra del catalogo */
     var ok=[]; for(var k=0;k<_qaOpts.length;k++) if(!(_qaOpts[k].custNo && custEditorAttivo())) ok.push(k);
-    return ricercaPerSomiglianza(q, ok.map(function(k){ return _qaAll[k]; }), ok.map(function(k){ return _qaName[k]; })).slice(0,8).map(function(i){ return _qaOpts[ok[i]]; });
+    return ricercaPerSomiglianza(q, ok.map(function(k){ return _qaAll[k]+" "+_qaEn[k]; }), ok.map(function(k){ return _qaName[k]; })).slice(0,8).map(function(i){ return _qaOpts[ok[i]]; });
   }
   return hit.slice(0,8).map(function(x){ return x.e; });
 }
@@ -38430,7 +38439,7 @@ function nomeConStato(name, sep){ return docNomeFile(nomeConStatoIt(name, sep));
 function nomeConStatoIt(name, sep){
   var e=statoDocEtichetta(); if(!e) return name;
   var _n=String(name).toLowerCase();
-  if(_n.indexOf(e.toLowerCase())>=0 || new RegExp("\\b"+(e==="Definitivo" ? "final" : "preliminary")+"\\b").test(_n)) return name;
+  if(_n.indexOf(e.toLowerCase())>=0 || (docEn() && new RegExp("\\b"+(e==="Definitivo" ? "final" : "preliminary")+"\\b").test(_n))) return name;   /* «final/preliminary» conta come stato già scritto SOLO in English (D1, 22/11): in italiano un titolo «Grand Final Gala» deve avere comunque il suo «-definitivo» */
   var m=/(\.[a-z0-9]+)$/i.exec(name), ext=m?m[1]:"", base=m?name.slice(0,-ext.length):name;
   return base+(sep||"-")+(sep===" - "?e:e.toLowerCase())+ext;
 }
@@ -44997,7 +45006,7 @@ function pdfChannelPage(doc, L, paperKey){
   }
   /* «Pesi (kg)»: spenta di serie, si salva nel progetto (vedi pdfPesiOn) */
   /* lingua e unità del documento (17/11/2026): si salvano nel progetto (CAMPI_DOCUMENTO, tutte le scene) e l'anteprima si rifà */
-  var docEsteroCambiato=function(){ save(); render(); try{ if(typeof renderProps==="function") renderProps(); }catch(_e){} docEsteroSincronizza(); refresh(); };   /* ora anche Esporta passa da docLinguaCambia sotto */
+  var docEsteroCambiato=function(){ save(); render(); try{ if(typeof renderProps==="function") renderProps(); }catch(_e){} docEsteroSincronizza(); refresh(); };   /* Esporta ha il suo menu a tre voci («Come l'app» / Italiano / English): scrive con docLinguaImposta e passa da qui; barra e Menu del telefono passano da docLinguaCambia (stesso effetto) */
   var _dl=document.getElementById("pdfDocLingua"), _du=document.getElementById("pdfDocUnita"), _dft=document.getElementById("pdfDocUnitaFt");
   if(_dl) _dl.addEventListener("change", function(){ docLinguaImposta(_dl.value); docEsteroCambiato(); });   /* "" = come l'app (campo assente), "it" esplicito, "en" */
   if(_du) _du.addEventListener("change", function(){ unitaCambia(_du.value); refresh(); });
