@@ -18838,6 +18838,14 @@ function scalaH(it){
   (state.items||[]).forEach(function(r){
     if(r===it || !(TYPES[r.type] && TYPES[r.type].riser)) return;
     if(aabbTocca(a,itemAabb(r,15))) best=Math.max(best,pedanaH(r)); });
+  /* IL PALCO HA LA SUA ALTEZZA (22/11/2026, segnalazione 884bfdc9 di Simone: «la scaletta nella realtà ha più
+     gradini»). Una scala palco–platea appoggiata al bordo di un palco alto 145 cm diceva «h40 · 2 gradini»: il
+     palco non contava, solo le pedane. Ora vale anche il blocco del palco con la sua altezza (`h`), ma solo se la
+     scala gli sta FUORI (il centro è oltre il bordo): una scala sul palco che sale a una pedana sale quanto la pedana. */
+  stageBlocks().forEach(function(b){
+    var bh=+b.h; if(!(bh>0)) return;
+    if(it.x>=b.x && it.x<=b.x+b.w && it.y>=b.y && it.y<=b.y+b.d) return;
+    if(aabbTocca(a,{x0:b.x-15, x1:b.x+b.w+15, y0:b.y-15, y1:b.y+b.d+15})) best=Math.max(best,bh); });
   return best>0 ? best : 40;
 }
 /* la quota sta di LATO (ruotata come quella delle pedane), dalla parte con più spazio: sopra finirebbe dentro la pedana a cui
@@ -21195,6 +21203,7 @@ function renderProps(){
   document.getElementById("pLblModeWrap").style.display = inner ? "none" : "block";
   document.getElementById("pLblSizeName").textContent = inner ? "Dimensione testo" : "Dimensione";
   document.getElementById("pLblSize").max = lblSizeMax(it.type);   /* prima del valore: il browser taglierebbe al massimo vecchio */
+  document.getElementById("pLblSizeWrap").style.display = lblSizeAgisce(it) ? "" : "none";   /* 22/11: un cursore che non cambia niente non si mostra (pedane senza nome: segnalazione 0a3770b6) */
   document.getElementById("pTxtColorWrap").style.display = (isTxt || it.type==="forma") ? "block" : "none";
   var alw=document.getElementById("pAlignWrap");   /* allineamento: testo libero e testo dentro la forma */
   if(alw){
@@ -22178,6 +22187,49 @@ document.getElementById("pLblSize").addEventListener("change", function(){ var i
    esistono altri elementi dello stesso tipo con una dimensione diversa da quella appena scelta. */
 var _lblSizeAsk=null;   /* id dell'elemento su cui si è appena cambiata la dimensione: runtime, non si salva */
 function lblSizeOf(it){ return (it && it.lblSize!=null) ? +it.lblSize : 14; }
+/* QUANDO LO SLIDER «DIMENSIONE» AGISCE (22/11/2026, segnalazione 0a3770b6 di Simone: «su alcuni oggetti come le pedane lo slider
+   dimensione non modifica nulla»). È il corpo del NOME dell'elemento: se il nome non si disegna, il cursore non cambia niente.
+   Succedeva per tutti gli elementi senza nome di serie (pedane, prese, linee, uscite…) finché non se ne scriveva uno, e per
+   Nascosto; e per i simboli col nome dentro a corpo fisso (FOH, punto di appendimento, quinta numerata). */
+var LBL_SIZE_FISSA = { foh:1, puntoapp:1, quintanum:1, custshape:1 };
+function lblSizeAgisce(it){
+  if(!it) return false;
+  if(LBL_SIZE_FISSA[it.type]) return false;
+  if(it.type==="metro") return true;   /* la misura del metro ha il suo corpo */
+  if(GAZ_TYPES[it.type]) return it.labelMode!=="hidden";   /* la scritta unica delle coperture; Nascosto la toglie */
+  if(it.type==="testo" || it.type==="forma") return !!String(it.label||"").trim();   /* il testo dentro la casella o la forma: senza testo, niente da ingrandire */
+  var l=lblTesti(it);   /* Nascosto: il testo è già vuoto */ return !!(l[0] || l[1]);
+}
+/* DOPPIO CLIC SU UNO SLIDER = VALORE DI SERIE (22/11/2026, segnalazione 29128172 di Simone). Il valore di serie è quello con cui
+   l'elemento nasce (o il valore che l'app assume quando il campo manca). Slider senza un valore di serie sensato (il corpo del
+   testo libero, che nasce in proporzione alla sua casella) non si toccano. Solo con il mouse: sul telefono niente doppio tocco. */
+function lblSizeSerie(it){
+  if(!it || it.type==="testo") return null;
+  if(it.type==="forma" && it.shapeStyle==="area") return AREA_LBL;
+  return 14;
+}
+var SLIDER_SERIE = {
+  pRot:0, pLblSize:function(it){ return lblSizeSerie(it); }, pShapeOp:100, pZoneOp:18, pLegDist:0,
+  pSep:function(it){ return it ? defSepOf(it) : null; }, pPlCh:function(){ return COMP_CH_DEF; },
+  grpLegDist:0, grpSep:90, grpLblSize:14, grpDistEq:100 };
+/* gli slider fuori dal pannello delle proprietà (planimetria) restano com'erano: lo dice il test sorgente, così un cursore nuovo
+   non nasce senza che qualcuno abbia deciso il suo valore di serie */
+var SLIDER_SENZA_SERIE = { venueOpacity:1, venueRot:1 };
+function sliderSerie(id, it){ var f=SLIDER_SERIE[id]; var v = typeof f==="function" ? f(it) : f; return (v==null || !isFinite(+v)) ? null : +v; }
+function sliderRipristina(el, v){
+  if(!el || v==null) return false;
+  var lo=+el.min, hi=+el.max; if(isFinite(lo) && v<lo) v=lo; if(isFinite(hi) && hi>0 && v>hi) v=hi;
+  if(+el.value===v) return false;
+  el.value=v;
+  el.dispatchEvent(new Event("input",{bubbles:true})); el.dispatchEvent(new Event("change",{bubbles:true}));   /* stesse strade del trascinamento: un solo passo di Annulla, salvataggio e disegno come sempre */
+  return true;
+}
+Object.keys(SLIDER_SERIE).forEach(function(id){
+  var el=document.getElementById(id); if(!el || !el.addEventListener) return;
+  el.addEventListener("dblclick", function(){
+    if(!(window.matchMedia && matchMedia("(hover: hover) and (pointer: fine)").matches)) return;   /* touch: nessun gesto in più */
+    sliderRipristina(el, sliderSerie(id, getSel())); });
+});
 function lblSizeSiblings(it){
   if(!it || !TYPES[it.type]) return [];
   var v=lblSizeOf(it);

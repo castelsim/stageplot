@@ -3715,6 +3715,97 @@ t("A2: la pedana ruotata si misura ruotata", () => {
   reset();
 });
 
+/* ═══ SCALA SUL PALCO ALTO (22/11/2026, segnalazione 884bfdc9 di Simone: «la scaletta nella realtà ha più gradini»).
+   Una scala palco–platea appoggiata al bordo di un palco alto 145 cm diceva «h40 · 2 gradini»: contavano solo le pedane. ═══ */
+function conPalco(blocchi, fn) { const st0 = A.state.stage; A.state.stage = { w: 1250, d: 1335, blocks: blocchi }; try { fn(); } finally { A.state.stage = st0; } }
+t("Scala: appoggiata al bordo di un palco con altezza, sale quanto il palco (145 → 7 gradini, non «h40 · 2»)", () => {
+  reset();
+  conPalco([{ x: 0, y: 0, w: 1250, d: 1005, h: 145 }, { x: 298, y: 1005, w: 655, d: 100, h: 145 }, { x: 298, y: 1105, w: 655, d: 230 }], () => {
+    const s = add("scala", 913, 1220, { w: 75, d: 230 });   /* il caso di Simone: sotto il bordo del blocco alto 145, dentro il blocco senza altezza */
+    eq(A.scalaH(s), 145, "altezza del palco"); eq(A.scalaGradini(A.scalaH(s)), 7, "145/20 → 7 gradini");
+    eq(A.scalaQuota(s), "h145 · 7 gradini", "la quota dice altezza e gradini");
+  });
+});
+t("Scala: il palco conta solo se la scala gli sta FUORI e lo tocca; blocco senza altezza, lontananza e pedana più alta", () => {
+  reset();
+  conPalco([{ x: 0, y: 0, w: 1000, d: 600, h: 120 }], () => {
+    const fuori = add("scala", 500, 640, { w: 60, d: 90 });   /* y 595-685: tocca il bordo (y 600) da fuori */
+    eq(A.scalaH(fuori), 120, "fuori e a contatto: vale il palco");
+    const lontana = add("scala", 500, 900, { w: 60, d: 90 }); eq(A.scalaH(lontana), 40, "lontana dal palco: come sempre 40");
+    const sopra = add("scala", 500, 300, { w: 60, d: 90 }); eq(A.scalaH(sopra), 40, "con il centro SUL palco la scala non prende l'altezza del palco (sale a una pedana, non dal pavimento)");
+    add("pedana", 500, 300, { w: 300, d: 200, h: 60 }); eq(A.scalaH(sopra), 60, "sul palco, sale quanto la pedana che tocca");
+    const alta = add("scala", 900, 640, { w: 60, d: 90 }); add("pedana", 900, 700, { w: 100, d: 100, h: 160 });
+    eq(A.scalaH(alta), 160, "palco e pedana a contatto: vale la più alta");
+  });
+  reset();
+  conPalco([{ x: 0, y: 0, w: 1000, d: 600 }], () => { const s = add("scala", 500, 640, { w: 60, d: 90 }); eq(A.scalaH(s), 40, "palco senza altezza dichiarata: 40 come prima"); });
+  reset();
+});
+/* ═══ SLIDER «DIMENSIONE» (22/11/2026, segnalazione 0a3770b6: «su alcuni oggetti come le pedane lo slider dimensione non modifica
+   nulla») e DOPPIO CLIC = VALORE DI SERIE (29128172). Il cursore «Dimensione» è il corpo del NOME: se il nome non si disegna,
+   non compare. Verità di terreno su TUTTI i tipi del catalogo × stati del nome: analisi/2026-11-22_SLIDER_SCALA/slider_dim.mjs. ═══
+*/
+t("Slider Dimensione: compare solo se il nome si disegna (pedana senza nome no, con nome sì, Nascosto no)", () => {
+  reset();
+  const ped = add("pedana", 300, 300, { h: 40 });
+  eq(A.lblSizeAgisce(ped), false, "pedana senza nome: il cursore non cambierebbe niente");
+  ped.label = "Archi"; eq(A.lblSizeAgisce(ped), true, "pedana con nome");
+  ped.labelMode = "hidden"; eq(A.lblSizeAgisce(ped), false, "nome nascosto");
+  ped.labelMode = "abbr"; eq(A.lblSizeAgisce(ped), true, "sigla: si vede");
+  const cl = add("clarinetto", 500, 300, {}); eq(A.lblSizeAgisce(cl), true, "strumento col nome di serie");
+  cl.label = ""; eq(A.lblSizeAgisce(cl), false, "nome cancellato");
+  const tx = add("testo", 700, 300, {}); eq(A.lblSizeAgisce(tx), true, "testo libero con il suo testo"); tx.label = "  "; eq(A.lblSizeAgisce(tx), false, "testo vuoto");
+  const fo = add("forma", 900, 300, { label: "" }); eq(A.lblSizeAgisce(fo), false, "forma senza testo"); fo.label = "Zona"; eq(A.lblSizeAgisce(fo), true, "forma col testo");
+  const gz = add("gazebo33", 1100, 300, {}); eq(A.lblSizeAgisce(gz), true, "copertura: scritta unica"); gz.labelMode = "hidden"; eq(A.lblSizeAgisce(gz), false, "copertura con nome nascosto");
+  eq(A.lblSizeAgisce(null), false, "nessun elemento");
+  reset();
+});
+t("Slider Dimensione: i simboli col nome dentro a corpo fisso non hanno il cursore (FOH, punto di appendimento, quinta numerata, forma dell'elemento)", () => {
+  reset();
+  for (const tipo of ["foh", "puntoapp", "quintanum", "custshape"]) { const e = add(tipo, 300, 300, { label: "Prova" }); eq(A.lblSizeAgisce(e), false, tipo); }
+  eq(Object.keys(A.LBL_SIZE_FISSA).sort(), ["custshape", "foh", "puntoapp", "quintanum"], "l'elenco dei corpi fissi");
+  /* ogni altro tipo del catalogo, col nome scritto e visibile, ha il cursore: un tipo nuovo con nome dentro va deciso da chi lo aggiunge */
+  const dentro = Object.keys(A.TYPES).filter((k) => A.TYPES[k].innerLabel && !A.LBL_SIZE_FISSA[k]).sort();
+  eq(dentro, ["forma", "metro", "testo"], "tipi col nome dentro che usano il corpo: se ne nasce uno, il test chiede di decidere");
+  const senza = []; for (const k of Object.keys(A.TYPES)) { if (A.LBL_SIZE_FISSA[k]) continue; const e = add(k, 300, 300, { label: "Prova" }); e.labelMode = undefined; if (!A.lblSizeAgisce(e)) senza.push(k); }
+  eq(senza, [], "tipi con un nome scritto per cui il cursore non comparirebbe");
+  reset();
+});
+t("Doppio clic sugli slider: ogni slider del pannello ha il suo valore di serie, i valori sono quelli di nascita", () => {
+  reset();
+  eq(A.sliderSerie("pRot", null), 0, "rotazione"); eq(A.sliderSerie("pShapeOp", null), 100, "opacità forma"); eq(A.sliderSerie("pZoneOp", null), 18, "opacità zona");
+  eq(A.sliderSerie("pLegDist", null), 0, "distanza leggio"); eq(A.sliderSerie("pPlCh", null), 2, "tracce");
+  eq([A.sliderSerie("grpLegDist"), A.sliderSerie("grpSep"), A.sliderSerie("grpLblSize"), A.sliderSerie("grpDistEq")], [0, 90, 14, 100], "pannello multiplo");
+  const cl = add("clarinetto", 300, 300, {}); eq(A.sliderSerie("pLblSize", cl), 14, "nome di uno strumento");
+  const ar = add("forma", 600, 300, { label: "Zona", shapeStyle: "area" }); eq(A.sliderSerie("pLblSize", ar), A.AREA_LBL, "nome di un'area: il corpo grande di partenza");
+  const fo = add("forma", 900, 300, { label: "x", shapeStyle: "outline" }); eq(A.sliderSerie("pLblSize", fo), 14, "forma non area");
+  const tx = add("testo", 1200, 300, {}); eq(A.sliderSerie("pLblSize", tx), null, "testo libero: nasce in proporzione alla casella, niente valore di serie");
+  eq(A.sliderSerie("pSep", null), null, "senza elemento nessun valore");
+  const vl = add("violapost", 300, 700, {}); eq(A.sliderSerie("pSep", vl), A.defSepOf(vl), "distanza dei due musicisti: quella di serie della postazione");
+  eq(A.sliderSerie("inesistente", cl), null, "slider sconosciuto");
+  reset();
+});
+t("Doppio clic sugli slider: il ripristino segue le strade del trascinamento (input poi change), rispetta i limiti, non fa niente se è già al valore", () => {
+  const ev = []; const prima = A.Event; A.Event = function (tipo) { this.type = tipo; };
+  try {
+    const mk = (value, min, max) => ({ value: String(value), min: String(min), max: String(max), dispatchEvent(e) { ev.push(e.type); } });
+    let el = mk(55, 0, 180); eq(A.sliderRipristina(el, 0), true, "ripristinato"); eq([el.value, ev.splice(0)], [0, ["input", "change"]], "valore e passi: input poi change");
+    el = mk(0, -180, 180); eq(A.sliderRipristina(el, 0), false, "già al valore di serie: niente eventi, niente passo di Annulla"); eq(ev.splice(0), [], "nessun evento");
+    el = mk(10, 0, 34); A.sliderRipristina(el, 90); eq(el.value, 34, "oltre il massimo: al massimo"); ev.splice(0);
+    el = mk(10, 5, 34); A.sliderRipristina(el, 1); eq(el.value, 5, "sotto il minimo: al minimo"); ev.splice(0);
+    el = mk(30, 0, 34); eq(A.sliderRipristina(el, null), false, "senza valore di serie non si tocca"); eq(el.value, "30", "invariato"); eq(A.sliderRipristina(null, 5), false, "senza elemento");
+  } finally { A.Event = prima; }
+});
+t("Doppio clic sugli slider (sorgente): ogni cursore del pannello dichiara il valore di serie, o sta in un elenco di eccezioni", () => {
+  const html = readFileSync(join(root, "index.template.html"), "utf8");
+  const ids = [...html.matchAll(/<input\b[^>]*\btype="range"[^>]*>/g)].map((m) => (m[0].match(/\bid="([A-Za-z0-9_]+)"/) || [])[1]).filter(Boolean);
+  ok(ids.length >= 12, "trovati i cursori: " + ids.length);
+  const senza = ids.filter((id) => !(id in A.SLIDER_SERIE) && !(id in A.SLIDER_SENZA_SERIE));
+  eq(senza, [], "cursori senza valore di serie né eccezione dichiarata");
+  eq(Object.keys(A.SLIDER_SENZA_SERIE).sort(), ["venueOpacity", "venueRot"], "eccezioni: i cursori della planimetria");
+  ok(Object.keys(A.SLIDER_SERIE).every((id) => ids.includes(id)), "ogni valore di serie è di un cursore che esiste");
+});
+
 /* ═══ GRADINI DELLA SCALA (11/11/2026, segnalazione CONCERTI del 05/11): «perché disegni molti più gradini di
    quelli che in realtà ci sono». Alzata ~20 cm; la scala prende l'altezza della pedana che tocca. ═══ */
 t("Scala: gradini = altezza della pedana / 20 cm (h40 = 2, h60 = 3), mai meno di 1", () => {
