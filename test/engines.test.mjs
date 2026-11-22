@@ -39275,5 +39275,276 @@ t("cm: misure in metri al centimetro (18,96 m, 2,29 m), i multipli di 10 cm rest
   eq([A.misN(1896), A.misMetri2(229)], ["18,96", "2,29"], "cartiglio e pedane erano già al centimetro");
 });
 
+/* ═══ LAYER LOTTO 1 — «Le Luci obbediscono» + «Vista a un tocco» (22/11/2026) ═══ */
+console.log("\nLayer Luci, lotto 1 (22/11/2026):");
+function piazza(type, x, y) { const it = A.addItem(type); it.x = x; it.y = y; return it; }   // senza posizione esplicita: niente aggancio «appeso» del rilascio
+function luciFixture() {
+  reset();
+  A.resetMetaLayersUI();
+  const forma = piazza("forma", 600, 400);   // forma grande: nell'originale stava SOPRA ai musicisti
+  const bat = piazza("batteria", 300, 300);
+  const pia = piazza("stagepiano", 500, 300);
+  const bas = piazza("contrabbasso", 700, 300);
+  const tr = piazza("truss", 600, 100);
+  const am = piazza("americana", 600, 200);
+  const f1 = piazza("testamobile", 600, 100);
+  const f2 = piazza("parluci", 500, 200);
+  const f3 = piazza("testamobile", 800, 600);
+  return { forma, bat, pia, bas, tr, am, f1, f2, f3 };
+}
+t("luci L1: truss e americane sono entrambe del reparto Luci; il Solo Palco non mostra più le truss", () => {
+  const F = luciFixture();
+  for (const k of ["tr", "am", "f1", "f2"]) ok(A.luciReparto(F[k]), k + " è Luci");
+  for (const k of ["bat", "pia", "bas", "forma"]) ok(!A.luciReparto(F[k]), k + " NON è Luci");
+  ok(!A.palcoStruttura(F.tr), "la truss non è più «struttura del Palco»");
+  eq(A.layerFgItem("stage", F.tr), false, "Solo Palco: truss fuori");
+  eq(A.layerFgItem("luci", F.tr), true, "Solo Luci: truss dentro");
+  eq(A.layerFgItem("luci", F.am), true, "Solo Luci: americana dentro");
+  ok(A.palcoStruttura(add("quinta", 100, 100)), "quinta e fondale restano del Palco");
+});
+t("luci L1: l'occhio Luci nasconde fari E strutture; l'occhio Musicisti e quello del Palco non lo scavalcano", () => {
+  const F = luciFixture();
+  A.lightsLayerUI.vis = false;
+  for (const k of ["tr", "am", "f1", "f2"]) eq(A.itemEyeShown(F[k]), false, k + " nascosto");
+  eq(A.itemEyeShown(F.bat), true, "la batteria resta");
+  eq(A.itemPickable(F.f1), false, "non si prende ciò che non si vede");
+  const mk = A.sceneMarkup();
+  ok(/class="st-item luci-item" display="none"/.test(mk), "nel disegno il gruppo dei fari è display=none");
+  A.lightsLayerUI.vis = true;
+  for (const k of ["tr", "am", "f1"]) eq(A.itemEyeShown(F[k]), true, k + " torna visibile");
+  A.resetMetaLayersUI();
+});
+t("luci L1: il lucchetto Luci blocca clic e riquadro su fari e strutture (non sui musicisti) e passa alle maniglie", () => {
+  const F = luciFixture();
+  A.lightsLayerUI.lock = true;
+  for (const k of ["tr", "am", "f1", "f2"]) eq(A.itemPickable(F[k]), false, k + " bloccato");
+  eq(A.itemPickable(F.bat), true, "la batteria si prende ancora");
+  A.lightsLayerUI.lock = false;
+  eq(A.itemPickable(F.f1), true, "sbloccato");
+  A.selectOne(F.f1.id);
+  ok(/class="sel-handles st-item luci-item"/.test(A.selHandlesMarkup()), "le maniglie portano la classe del reparto");
+  ok(/body\.luci-lock \.luci-item\{pointer-events:none\}/.test(stylesCss), "esiste la regola CSS del lucchetto (non esisteva)");
+  ok(/class="st-item luci-item"/.test(A.sceneMarkup()), "il gruppo del faro porta luci-item");
+});
+t("luci L1: S e fuoco della riga Luci sopravvivono a pruneSolo e isolano fari e strutture", () => {
+  const F = luciFixture();
+  A.layerSoloUI = { luci: true };
+  A.pruneSolo();
+  eq(!!A.layerSoloUI.luci, true, "il solo Luci non si annulla più al primo ridisegno");
+  eq(A.itemInSoloLayer(F.tr), true, "truss a fuoco");
+  eq(A.itemInSoloLayer(F.am), true, "americana a fuoco");
+  eq(A.itemInSoloLayer(F.bat), false, "batteria fuori");
+  eq(A.itemPickable(F.bat), false, "sotto il solo Luci il palco non si prende");
+  eq(A.itemPickable(F.f1), true, "i fari sì");
+  A.state.items = A.state.items.filter(x => !A.luciReparto(x));
+  A.pruneSolo();
+  eq(!!A.layerSoloUI.luci, false, "senza fari né strutture il solo decade");
+  A.layerSoloUI = {};
+});
+t("luci L1: la riga Luci compare col numero dei fari SENZA «attiva»; senza fari resta la riga-invito", () => {
+  const F = luciFixture();
+  eq((A.state.lights.rows || []).length, 0, "nessuna richiesta scritta");
+  const L = A.layerRegistry().find(x => x.id === "luci");
+  eq(L.engineOn, true, "riga normale, con S, occhio e lucchetto");
+  eq(A.layerSummary(L), "3", "numero dei fari disegnati (truss e americana non contano)");
+  reset();
+  const L2 = A.layerRegistry().find(x => x.id === "luci");
+  eq(L2.engineOn, false, "palco senza luci: invito «attiva» come prima");
+  add("americana", 300, 300);
+  eq(A.layerRegistry().find(x => x.id === "luci").engineOn, false, "una sola americana non è un faro");
+});
+t("luci L1: «appeso a T…» — nuovi rilasci su/accanto a una struttura; oltre 30 cm, stativo, progetti già fatti: niente", () => {
+  const F = luciFixture();
+  const tr = piazza("truss", 300, 650);   // lontana dalle altre strutture
+  const a = piazza("testamobile", tr.x + 10, tr.y);
+  eq(A.mountModeOf(a), "floor", "nasce a terra");
+  const st = A.luceAggancia(a);
+  eq(st && st.id, tr.id, "agganciato alla truss");
+  eq(A.mountModeOf(a), "hung", "appeso");
+  eq(A.hangSupportOf(a) && A.hangSupportOf(a).id, tr.id, "hangSupportOf la trova");
+  // a 25 cm dal bordo: va sopra la struttura (asse locale), poi è appeso
+  const b = piazza("parluci", tr.x, tr.y + tr.d / 2 + 25);
+  ok(A.luceAggancia(b), "entro 30 cm si aggancia");
+  ok(Math.abs(b.y - tr.y) <= tr.d / 2 + 1, "portato sopra la struttura, dentro il suo spessore");
+  eq(A.mountModeOf(b), "hung", "appeso");
+  // a 45 cm: niente
+  const c = piazza("parluci", tr.x, tr.y + tr.d / 2 + 45); const cy = c.y;
+  eq(A.luceAggancia(c), null, "oltre 30 cm: nessun aggancio");
+  eq([A.mountModeOf(c), c.y, c.mount], ["floor", cy, undefined], "il faro non si muove e non cambia");
+  // su stativo scelto a mano: resta
+  const d = piazza("parluci", tr.x + 30, tr.y); A.mountSet(d, { mode: "stand", h: 250 });
+  eq(A.luceAggancia(d), null, "uno stativo scelto a mano non si tocca");
+  eq(A.mountModeOf(d), "stand", "resta su stativo");
+  // un musicista non è mai agganciato
+  eq(A.luceAggancia(F.bat), null, "solo apparecchi luce");
+  // progetto GIÀ fatto: un faro a terra sopra la truss resta a terra (nessuna funzione di caricamento lo riscrive)
+  const e = piazza("parluci", tr.x - 50, tr.y);
+  A.sceneMarkup(); A.layerRegistry(); A.itemEyeShown(e); A.pruneSolo();
+  eq([A.mountModeOf(e), e.mount], ["floor", undefined], "mai riscritto dal solo disegno");
+  // rilascio vero: tutto il gruppo insieme alla truss → nessun aggancio (i fari appesi seguono la struttura)
+  const g = piazza("parluci", tr.x + 90, tr.y + 10);
+  eq(A.luceAgganciaDopoRilascio([tr.id, g.id]), 0, "se si sposta anche la struttura non si ri-aggancia nulla");
+  eq(A.luceAgganciaDopoRilascio([g.id]), 1, "rilasciato da solo sulla truss: appeso");
+  // struttura ruotata di 90°: l'aggancio rispetta la rotazione
+  const tr2 = piazza("truss", 1000, 400); tr2.rot = 90;
+  const h = piazza("parluci", tr2.x + tr2.d / 2 + 20, tr2.y + 5);
+  ok(A.luceAggancia(h), "truss ruotata: aggancio dal lato giusto");
+  eq(A.hangSupportOf(h).id, tr2.id, "sostenuto dalla truss ruotata");
+  // dal catalogo con posizione esplicita
+  const n = add("parluci", tr.x - 120, tr.y);
+  eq(A.mountModeOf(n), "hung", "posato dal catalogo su una truss: appeso");
+});
+t("vista L1: «Palco» nasconde i fari e lascia le truss tratteggiate di riferimento; il palco si prende, truss e fari no", () => {
+  const F = luciFixture();
+  A.vistaLivelli = "palco";
+  eq(A.vistaRuolo(F.f1), "hide"); eq(A.vistaRuolo(F.f2), "hide");
+  eq(A.vistaRuolo(F.tr), "rif"); eq(A.vistaRuolo(F.am), "rif");
+  for (const k of ["bat", "pia", "bas", "forma"]) eq(A.vistaRuolo(F[k]), "", k + " normale");
+  for (const k of ["bat", "pia", "bas", "forma"]) eq(A.itemPickable(F[k]), true, k + " si prende");
+  for (const k of ["f1", "f2", "tr", "am"]) eq(A.itemPickable(F[k]), false, k + " NON si prende");
+  const mk = A.sceneMarkup();
+  ok(!new RegExp('data-id="' + F.f1.id + '"').test(mk), "il faro non è disegnato");
+  ok(/class="st-item luci-item vista-rif"/.test(mk), "la truss è marcata di riferimento");
+  ok(/\.vista-rif \*\{stroke-dasharray:6 4;pointer-events:none !important\}/.test(stylesCss), "tratteggiata e non cliccabile");
+  eq(A.itemLiveOnStage(F.tr), false, "niente maniglie sulle truss di riferimento");
+  A.vistaLivelli = "tutto";
+});
+t("vista L1: «Luci e truss» mette il palco sotto, sbiadito e NON cliccabile; fari e strutture sopra e selezionabili", () => {
+  const F = luciFixture();
+  A.vistaLivelli = "luci";
+  for (const k of ["bat", "pia", "bas", "forma"]) { eq(A.vistaRuolo(F[k]), "bg", k); eq(A.itemPickable(F[k]), false, k + " non si prende"); eq(A.itemLiveOnStage(F[k]), false, k + " niente maniglie"); }
+  for (const k of ["f1", "f2", "tr", "am"]) { eq(A.vistaRuolo(F[k]), "", k); eq(A.itemPickable(F[k]), true, k + " si prende"); }
+  const mk = A.sceneMarkup();
+  const i0 = mk.indexOf('<g id="layItems">'), ib = mk.indexOf('class="vista-bg"', i0), ifaro = mk.indexOf('data-id="' + F.f1.id + '"', i0);
+  ok(ib > i0 && ifaro > ib, "il palco sbiadito sta PRIMA (sotto) di fari e strutture");
+  ok(/id="layStage" class="vista-bg-stage"/.test(mk), "anche la superficie del palco è sbiadita");
+  ok(/\.vista-bg,\.vista-bg \*\{pointer-events:none !important\}/.test(stylesCss) && /\.vista-bg\{opacity:\.22\}/.test(stylesCss), "22 % e non cliccabile");
+  // riquadro: prende solo fari/strutture
+  const dentro = A.state.items.filter(x => A.itemPickable(x)).map(x => x.type).sort();
+  eq(dentro, ["americana", "parluci", "testamobile", "testamobile", "truss"], "gli elementi prendibili sono solo i Luci");
+  A.vistaLivelli = "tutto";
+});
+t("vista L1: «Tutto» è identico a oggi; PDF/PNG (espandi) escono identici in OGNI vista; musicisti con la STESSA rotazione in tutte le viste", () => {
+  const F = luciFixture();
+  A.selSet = {}; A.sel = null;   // l'export parte sempre senza selezione (nessuna maniglia nel file)
+  A.vistaLivelli = "tutto";
+  const base = A.sceneMarkup(), baseEsp = A.sceneMarkup({ espandi: true });
+  ok(!/vista-(bg|rif)/.test(base), "«Tutto»: nessun marcatore di vista nel disegno");
+  for (const v of ["palco", "luci", "tutto"]) { A.vistaLivelli = v; const e2 = A.sceneMarkup({ espandi: true }); let d = 0; while (d < e2.length && e2[d] === baseEsp[d]) d++; ok(e2 === baseEsp, "export identico con vista " + v + " — differenza a " + d + ": «" + baseEsp.slice(d - 40, d + 80) + "» vs «" + e2.slice(d - 40, d + 80) + "»"); }
+  A.vistaLivelli = "tutto"; eq(A.sceneMarkup(), base, "tornando a «Tutto» il disegno è byte per byte quello di prima");
+  // orientamento: per ogni rotazione di ogni musicista/strumento il gruppo disegnato nella vista Luci è IDENTICO a quello di «Tutto»
+  const gruppo = (mk, id) => {   // il <g class="mus-item"> che contiene l'elemento, con tag bilanciati
+    const p = mk.indexOf('data-id="' + id + '"'); const i = mk.lastIndexOf('<g class="mus-item"', p);
+    let d = 0, k = i; const re = /<g[\s>]|<\/g>/g; re.lastIndex = i;
+    for (let m; (m = re.exec(mk)); ) { d += m[0] === "</g>" ? -1 : 1; if (d === 0) { k = m.index + 4; break; } }
+    return mk.slice(i, k);
+  };
+  for (const k of ["bat", "pia", "bas"]) for (let r = 0; r < 360; r += 45) {
+    F[k].rot = r;
+    A.vistaLivelli = "tutto"; const g0 = gruppo(A.sceneMarkup(), F[k].id);
+    A.vistaLivelli = "luci"; const g1 = gruppo(A.sceneMarkup(), F[k].id); A.vistaLivelli = "tutto";
+    ok(g0.length > 50 && /rotate\(/.test(g0) || r === 0, k + " " + r + ": gruppo trovato");
+    ok(g0 === g1, k + " ruotato " + r + "°: stesso identico disegno nella vista Luci (mai girato verso il fondale)");
+  }
+  F.bat.rot = 0; F.pia.rot = 0; F.bas.rot = 0;
+});
+t("vista L1: compare solo con fari o strutture; si azzera col progetto; l'elemento nuovo non resta invisibile", () => {
+  luciFixture();
+  A.vistaLivelli = "luci"; eq(A.vistaAttiva(), "luci");
+  reset(); add("batteria", 100, 100);
+  eq(A.haLuciTruss(), false, "senza luci né strutture la vista non esiste");
+  eq(A.vistaAttiva(), "tutto", "anche se lo stato diceva «luci»");
+  A.vistaSync(); eq(A.vistaLivelli, "tutto", "e si riporta a «Tutto» da sola");
+  luciFixture(); A.vistaLivelli = "luci"; A.lightsLayerUI.lock = true;
+  A.resetMetaLayersUI();
+  eq([A.vistaLivelli, A.lightsLayerUI.lock, A.lightsLayerUI.vis], ["tutto", false, true], "progetto nuovo: vista, lucchetto e occhio Luci di serie");
+  // elemento non prendibile in questa vista → si torna a «Tutto»
+  A.vistaLivelli = "luci";
+  const nuovo = A.addItem("cantante", { x: 100, y: 100 });
+  eq(A.vistaLivelli, "tutto", "un cantante aggiunto nella vista Luci riporta a «Tutto»");
+  eq(A.itemPickable(nuovo), true, "e si prende");
+  A.vistaLivelli = "tutto";
+});
+t("vista L1: la vista non entra nel progetto salvato e il selettore ha tre voci, solo schermo", () => {
+  const F = luciFixture();
+  const prima = JSON.stringify(A.state);
+  A.vistaLivelli = "luci"; A.vistaImposta("palco"); A.vistaImposta("luci");
+  eq(JSON.stringify(A.state), prima, "nessun campo nuovo nel progetto");
+  A.vistaImposta("tutto");
+  const templ = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="vlSel"[^>]*hidden/.test(templ), "il selettore nasce nascosto");
+  eq((templ.match(/data-vl="(palco|luci|tutto)"/g) || []).length, 3, "tre voci: Palco · Luci e truss · Tutto");
+  ok(/vl-sm\{display:inline\}/.test(stylesCss) && /vl-lg\{display:none\}/.test(stylesCss), "su telefono tre parole corte");
+  ok(/\.vl-sel\{position:absolute;bottom:12px;right:12px/.test(stylesCss) && !/\.vl-sel\{[^}]*top:/.test(stylesCss), "selettore in BASSO a destra (in alto lo coprivano nota «PDF in scala» e banner Connessioni)");
+  ok(/\.vl-sel\{bottom:72px\}/.test(stylesCss), "su telefono sopra il pulsante «Adatta»");
+});
+t("vista L1: cambiando vista ciò che non si può più prendere esce dalla selezione", () => {
+  const F = luciFixture();
+  A.selSet = {}; A.selSet[F.bat.id] = true; A.selSet[F.f1.id] = true; A.sel = F.bat.id;
+  A.vistaImposta("luci");
+  eq(Object.keys(A.selSet), [F.f1.id], "la batteria esce dalla selezione, il faro resta");
+  eq(A.sel, F.f1.id);
+  A.vistaImposta("palco");
+  eq(Object.keys(A.selSet), [], "in «Palco» non resta più nulla di prendibile selezionato");
+  A.vistaImposta("tutto");
+});
+
+t("vista L1: nelle viste nuove la forma sta SOTTO ai musicisti (anche se salvata sopra); in «Tutto» resta l'ordine salvato", () => {
+  const F = luciFixture();
+  F.forma.z = 5; F.bat.z = 0;   // come nel progetto vero: forma sopra la batteria
+  const pos = (mk, it) => mk.indexOf('data-id="' + it.id + '"');
+  A.vistaLivelli = "tutto";
+  const t0 = A.sceneMarkup(); ok(pos(t0, F.forma) > pos(t0, F.bat), "Tutto: la forma sopra la batteria, come salvato");
+  A.vistaLivelli = "palco";
+  const p0 = A.sceneMarkup(); ok(pos(p0, F.forma) > -1 && pos(p0, F.forma) < pos(p0, F.bat), "Palco: la forma sotto la batteria, così il clic prende la batteria");
+  A.vistaLivelli = "luci";
+  const l0 = A.sceneMarkup(); ok(pos(l0, F.forma) > -1 && pos(l0, F.forma) < pos(l0, F.bat), "Luci: la forma è il fondo di tutto");
+  A.vistaLivelli = "tutto";
+});
+
+t("vista L1 (correzioni 22/11) D1: nelle viste nuove l'ordine è pedane → superfici (forma, tappeto) → resto; «Tutto» resta quello salvato", () => {
+  const F = luciFixture();
+  const ped = piazza("pedana", 300, 300), tap = piazza("tappeto", 300, 300);   // tappeto sopra la pedana della batteria
+  F.bat.x = 300; F.bat.y = 300;
+  const pos = (mk, it) => mk.indexOf('data-id="' + it.id + '"');
+  A.vistaLivelli = "tutto";
+  const t0 = A.sceneMarkup(); const salvato = t0;
+  ok(pos(t0, tap) > pos(t0, ped), "Tutto: il tappeto sopra la pedana, come salvato");
+  for (const v of ["palco", "luci"]) {
+    A.vistaLivelli = v;
+    const m = A.sceneMarkup();
+    ok(pos(m, ped) > -1 && pos(m, ped) < pos(m, tap), v + ": la pedana SOTTO al tappeto (il tappeto non sparisce sotto la pedana)");
+    ok(pos(m, tap) < pos(m, F.forma) || pos(m, F.forma) < pos(m, tap), v + ": entrambe presenti");
+    ok(pos(m, ped) < pos(m, F.forma), v + ": la pedana sotto anche alla forma");
+    ok(pos(m, tap) < pos(m, F.bat), v + ": il tappeto sotto la batteria");
+  }
+  A.vistaLivelli = "tutto"; eq(A.sceneMarkup(), salvato, "tornando a «Tutto» il disegno è byte per byte quello di prima");
+});
+t("vista L1 (correzioni 22/11) D2: le etichette delle richieste luci non restano senza fari (vista «Palco», occhio Luci spento)", () => {
+  const F = luciFixture();
+  A.state.lights.rows = [{ id: "r1", items: [F.f1.id, F.f2.id], fn: "frontale", color: "ambra", n: 2 }];
+  A.vistaLivelli = "tutto";
+  ok(/id="layLightsLab"/.test(A.sceneMarkup()), "in «Tutto» l'etichetta c'è");
+  A.vistaLivelli = "luci"; ok(/id="layLightsLab"/.test(A.sceneMarkup()), "in «Luci e truss» c'è");
+  A.vistaLivelli = "palco"; ok(!/id="layLightsLab"/.test(A.sceneMarkup()), "in «Palco» a schermo non c'è: i fari non si disegnano");
+  ok(/id="layLightsLab"/.test(A.sceneMarkup({ espandi: true })), "ma PDF/PNG la tengono (export invariato)");
+  A.vistaLivelli = "tutto";
+  A.lightsLayerUI.vis = false;
+  ok(!/id="layLightsLab"/.test(A.sceneMarkup()), "occhio Luci spento: niente etichette a schermo");
+  A.lightsLayerUI.vis = true; A.vistaLivelli = "tutto";
+});
+t("vista L1 (correzioni 22/11) T: un faro A TERRA sopra una truss NON viene appeso da ridisegno, vistaSync o caricamento", () => {
+  const F = luciFixture();
+  const tr = piazza("truss", 300, 650), g = piazza("testamobile", tr.x + 10, tr.y);
+  eq(A.mountModeOf(g), "floor", "parte a terra");
+  const prima = JSON.stringify([g.x, g.y, g.mount || null]);
+  A.vistaSync(); A.vistaSync(); try { A.render(); } catch (e) {} 
+  eq(A.mountModeOf(g), "floor", "dopo vistaSync/render: montaggio invariato");
+  eq(JSON.stringify([g.x, g.y, g.mount || null]), prima, "posizione, quota e montaggio invariati");
+  const caricato = A.normalizeState(JSON.parse(A.stateToJSON()));
+  const g2 = caricato.items.find(x => x.id === g.id);
+  eq(JSON.stringify([g2.x, g2.y, g2.mount || null]), prima, "dopo il caricamento del progetto: invariato");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
