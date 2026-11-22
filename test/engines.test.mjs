@@ -3718,12 +3718,12 @@ t("A2: la pedana ruotata si misura ruotata", () => {
 /* ═══ SCALA SUL PALCO ALTO (22/11/2026, segnalazione 884bfdc9 di Simone: «la scaletta nella realtà ha più gradini»).
    Una scala palco–platea appoggiata al bordo di un palco alto 145 cm diceva «h40 · 2 gradini»: contavano solo le pedane. ═══ */
 function conPalco(blocchi, fn) { const st0 = A.state.stage; A.state.stage = { w: 1250, d: 1335, blocks: blocchi }; try { fn(); } finally { A.state.stage = st0; } }
-t("Scala: appoggiata al bordo di un palco con altezza, sale quanto il palco (145 → 7 gradini, non «h40 · 2»)", () => {
+t("Scala: appoggiata al bordo di un palco con altezza, sale quanto il palco (145 → 8 gradini, non «h40 · 2»)", () => {
   reset();
   conPalco([{ x: 0, y: 0, w: 1250, d: 1005, h: 145 }, { x: 298, y: 1005, w: 655, d: 100, h: 145 }, { x: 298, y: 1105, w: 655, d: 230 }], () => {
     const s = add("scala", 913, 1220, { w: 75, d: 230 });   /* il caso di Simone: sotto il bordo del blocco alto 145, dentro il blocco senza altezza */
-    eq(A.scalaH(s), 145, "altezza del palco"); eq(A.scalaGradini(A.scalaH(s)), 7, "145/20 → 7 gradini");
-    eq(A.scalaQuota(s), "h145 · 7 gradini", "la quota dice altezza e gradini");
+    eq(A.scalaH(s), 145, "altezza del palco"); eq(A.scalaGradini(A.scalaH(s)), 8, "145/18 → 8 gradini (alzata 18,1 cm)");
+    eq(A.scalaQuota(s), "h145 · 8 gradini", "la quota dice altezza e gradini");
   });
 });
 t("Scala: il palco conta solo se la scala gli sta FUORI e lo tocca; blocco senza altezza, lontananza e pedana più alta", () => {
@@ -3808,12 +3808,15 @@ t("Doppio clic sugli slider (sorgente): ogni cursore del pannello dichiara il va
 
 /* ═══ GRADINI DELLA SCALA (11/11/2026, segnalazione CONCERTI del 05/11): «perché disegni molti più gradini di
    quelli che in realtà ci sono». Alzata ~20 cm; la scala prende l'altezza della pedana che tocca. ═══ */
-t("Scala: gradini = altezza della pedana / 20 cm (h40 = 2, h60 = 3), mai meno di 1", () => {
+t("Scala: gradini = altezza della pedana / 18 cm (h20 = 1, h40 = 2, h60 = 3), mai meno di 1", () => {
   eq(A.scalaGradini(40), 2, "h40"); eq(A.scalaGradini(60), 3, "h60"); eq(A.scalaGradini(20), 1, "h20");
-  eq(A.scalaGradini(100), 5, "h100"); eq(A.scalaGradini(10), 1, "sotto 20 cm: uno");
+  eq(A.scalaGradini(100), 6, "h100: alzata 16,7 cm (Simone 22/11: l'alzata vera, non 20)"); eq(A.scalaGradini(10), 1, "sotto 20 cm: uno");
   eq(A.scalaGradini(0), 1, "zero: uno"); eq(A.scalaGradini(NaN), 2, "altezza ignota: come una pedana di serie (h40)");
   ok(A.scalaGradini(400) <= 12, "tetto: oltre non si disegna");
-  eq(A.scalaGradini(50), 3, "h50: a metà si arrotonda per eccesso"); eq(A.scalaGradini(30), 2, "h30: 1,5 alzate → 2"); eq(A.scalaGradini(35), 2, "h35");
+  eq(A.scalaGradini(50), 3, "h50"); eq(A.scalaGradini(30), 2, "h30: 1,7 alzate → 2"); eq(A.scalaGradini(35), 2, "h35");
+  /* ALZATA 18 cm (22/11): i valori storici non si muovono, sopra h100 cambia */
+  eq([20, 40, 60, 50, 80].map((h) => A.scalaGradini(h)), [1, 2, 3, 3, 4], "h20/40/60/50/80 come con 20 cm");
+  eq([145, 120, 100, 45, 65].map((h) => A.scalaGradini(h)), [8, 7, 6, 3, 4], "h145 = 8 (esempio di Simone), h120 = 7, h100 = 6");
 });
 t("Scala: l'altezza è quella della pedana che la tocca (la più alta se sono più d'una), 40 se non ne tocca", () => {
   reset();
@@ -3834,7 +3837,7 @@ t("Scala: l'altezza è quella della pedana che la tocca (la più alta se sono pi
   reset();
 });
 t("Scala: la lunghezza è gradini × pedata 30 cm (h40 → 60, h60 → 90), la larghezza non cambia (Simone, Padova 13/11)", () => {
-  eq([20, 40, 60, 80, 100].map((h) => A.scalaLunghezza(h)), [30, 60, 90, 120, 150], "lunghezze per altezza");
+  eq([20, 40, 60, 80, 100].map((h) => A.scalaLunghezza(h)), [30, 60, 90, 120, 180], "lunghezze per altezza (h100 = 6 gradini con l'alzata di 18 cm, 22/11)");
   eq([A.scalaLunghezza(NaN), A.scalaLunghezza(0), A.scalaLunghezza(10), A.scalaLunghezza(400)], [60, 30, 30, 360], "altezza ignota = h40; minimo 1 gradino; tetto 12 gradini");
   eq(A.SCALA_PEDATA_CM, 30, "pedata");
   reset();
@@ -3880,10 +3883,10 @@ t("Scala: il disegno ha tanti riquadri quanti i gradini (h40 → 2, h60 → 3), 
   const pd = A.state.items.find((x) => x.type === "pedana"); pd.h = 40;
   eq(righe(A.TYPES.scala.draw(s)), 2 - 1 + 1, "h40: 2 gradini = 1 separatore + la freccia");
   pd.h = 100;
-  eq(righe(A.TYPES.scala.draw(s)), 5 - 1 + 1, "h100: 5 gradini");
+  eq(righe(A.TYPES.scala.draw(s)), 6 - 1 + 1, "h100: 6 gradini");
   /* cartiglio: la quota accanto alla scala dice altezza e gradini, come quella della pedana */
   A._lblSink = []; A.itemMarkup(s); const lb = A._lblSink.join(""); A._lblSink = null;
-  ok(/h100 · 5 gradini/.test(lb), "quota della scala: " + lb.slice(0, 300));
+  ok(/h100 · 6 gradini/.test(lb), "quota della scala: " + lb.slice(0, 300));
   /* di lato, ruotata: dalla parte con più spazio (la scala a x 400 su un palco di 1200 ha più spazio a destra) */
   const quotaLato = (m) => (m.match(/<text class="lbl sub" x="(-?[\d.]+)" y="0"[^>]*>h\d+ · /) || [])[1];
   eq(+quotaLato(lb), 30 + 12, "di serie a destra: mezza larghezza 30 + 12");
@@ -33494,7 +33497,7 @@ t("Pedana: le scorciatoie ci sono nel pannello e la scala segue l'altezza", () =
   const p = add("pedana", 400, 300, { h: 40 }), s = add("scala", 400, 395);
   Object.assign(s, { d: 90, dAuto: 90, y: 395 });
   A.pedanaApplicaRapida(p, { h: 100 }); A.scaleAdegua();
-  eq(s.d, 150, "h100: 5 gradini da 30 cm");
+  eq(s.d, 180, "h100: 6 gradini da 30 cm");
 });
 
 /* ---- OSTACOLO con quota (15/11/2026, S19) ---- */

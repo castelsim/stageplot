@@ -18781,8 +18781,10 @@ function pedaneTesto(items){
    che in realtà ci sono»). Alzata di 20 cm (i livelli delle gradinate d'orchestra scendono così: 60 → 40 → 20),
    quindi h40 = 2 gradini, h60 = 3. La scala non ha un'altezza sua: prende quella della pedana che tocca
    (la più alta, se ne tocca più d'una), come l'avviso di pedaneSicurezza; senza pedane vicine vale 40, l'altezza
-   di una pedana di serie. Se la scala fosse fornita dal teatro con altri gradini, è un caso a parte (non c'è ancora). */
-var SCALA_ALZATA_CM=20, SCALA_GRADINI_MAX=12;
+   di una pedana di serie. Se la scala fosse fornita dal teatro con altri gradini, è un caso a parte (non c'è ancora).
+   ALZATA 18 cm (22/11/2026, Simone: «come quella reale se possibile»; una scaletta vera ha l'alzata tra 17 e 20 cm): i valori
+   storici restano h20 = 1, h40 = 2, h60 = 3 (e h50 = 3, h80 = 4); sopra cambia: h100 = 6 (alzata 16,7), h145 = 8 (18,1). */
+var SCALA_ALZATA_CM=18, SCALA_GRADINI_MAX=12;
 /* LUNGHEZZA PROPORZIONATA (13/11/2026; Simone sullo stage plot di Padova: «in base al numero di scalini la scaletta sarà più o meno grande:
    se sono due gradini non può essere lunga come quella da 3»). Lunghezza = gradini × pedata; pedata 30 cm (proposta KB del 05/11/2026
    `pedane.scale.gradini-coerenti`: pedata 30, h60 → 3 gradini → 90 cm; è anche la misura di serie «60×90»). La larghezza non cambia.
