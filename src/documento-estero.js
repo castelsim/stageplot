@@ -1,6 +1,6 @@
 /* ═══ DOCUMENTO PER L'ESTERO (17/11/2026, lotto «estero»: lacune P1 n. 5 e 6 dal caso di uno stage manager in tour negli USA) ═══
    Due scelte del PROGETTO (non dell'interfaccia), salvate nel documento e uguali in tutte le scene (CAMPI_DOCUMENTO):
-   - state.docLang  : "en" = documento in inglese. Assente = italiano, com'è sempre stato.
+   - state.docLang  : "en" = documento in inglese; "it" = italiano scelto a mano (22/11/2026, L1); assente = «come l'app», che oggi è italiano, com'è sempre stato.
    - state.docUnits : "ft" = piedi e pollici, "both" = metri e piedi. Assente = metri, com'è sempre stato.
    Un progetto che non le ha esce identico a prima: ogni funzione qui restituisce il testo di sempre se docLang/docUnits mancano.
 
@@ -24,8 +24,25 @@ function docLingua(){ return (typeof state!=="undefined" && state && state.docLa
 function docUnita(){ var u=(typeof state!=="undefined" && state) ? state.docUnits : null; return (u==="ft" || u==="both") ? u : "m"; }
 function docEn(){ return docLingua()==="en"; }
 function docAttivo(){ return docEn() || docUnita()!=="m"; }
-function docLinguaImposta(v){ if(v==="en") state.docLang="en"; else delete state.docLang; }
+/* La scelta salvata: "en", "it" (esplicita) o "" (campo assente = come l'app). docLingua() resta quella che conta per i testi. */
+function docLinguaScelta(){ var v=(typeof state!=="undefined" && state) ? state.docLang : null; return (v==="en" || v==="it") ? v : ""; }
+function docLinguaImposta(v){ if(v==="en" || v==="it") state.docLang=v; else delete state.docLang; }
 function docUnitaImposta(v){ if(v==="ft" || v==="both") state.docUnits=v; else delete state.docUnits; }
+
+/* NOME DEL FILE in inglese (22/11/2026, L1): «… - v3 del 12-11-2026 - A3 orizz 1-50.pdf» → «… - v3 of 12-11-2026 - A3 landscape 1-50.pdf», stato e suffissi dei documenti.
+   Si applica solo se il documento è in English; la data resta numerica (i file system rifiutano le virgole di «Nov 12, 2026»); il titolo scritto dall'utente non si tocca. */
+var DOC_NOME_SUFFISSI={"cablaggio-audio":"audio-cabling","da-definire":"to-be-defined","responsabilita":"responsibilities","lista-carichi":"load-list","note":"notes","rete":"network","alimentazioni":"power","luci":"lighting","lista-rf":"rf-list","piano-elettrico":"power-plan","organico":"lineup"};
+function docNomeFile(n){
+  if(!docEn()) return n;
+  n=String(n)
+    .replace(/( - v\d+) del (\d{2}-\d{2}-\d{4})/, "$1 of $2")
+    .replace(/( [A-Z]\d) orizz( \d+-\d+)/, "$1 landscape$2").replace(/( [A-Z]\d) vert( \d+-\d+)/, "$1 portrait$2")
+    .replace(/ - palco\.pdf$/, " - stage.pdf").replace(/ - foglio teatro\.pdf$/, " - venue sheet.pdf")
+    .replace(/-(cablaggio-audio|da-definire|responsabilita|lista-carichi|note|rete|alimentazioni|luci|lista-rf|piano-elettrico|organico)((?:-definitivo|-provvisorio)?\.pdf)$/, function(all, k, coda){ return "-"+DOC_NOME_SUFFISSI[k]+coda; })
+    .replace(/\b(D)efinitivo\b/g, function(_, c){ return c==="D" ? "Final" : "final"; }).replace(/\bdefinitivo\b/g, "final")
+    .replace(/\bProvvisorio\b/g, "Preliminary").replace(/\bprovvisorio\b/g, "preliminary");
+  return n;
+}
 
 /* ── UNITÀ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────
    Il documento resta in centimetri. 1 ft = 30,48 cm e 1 in = 2,54 cm ESATTI: una pedana 8'×4' è 243,84 × 121,92 cm e non si
@@ -190,7 +207,13 @@ var DOC_EN_REGOLE=[[/^Sorgente senza destinazione: (.+) \(ingressi palco esaurit
  
   [/^altezza (\d.*)$/, "height $1"], [/^disegnato (\d.*)$/, "drawn $1"], [/^(\d+) in tutto$/, "$1 total"]];
 function _docEnRegola(s){ for(var j=0;j<DOC_EN_REGOLE.length;j++){ if(DOC_EN_REGOLE[j][0].test(s)) return s.replace(DOC_EN_REGOLE[j][0], DOC_EN_REGOLE[j][1]); } return null; }
-function _docEnTrad(s){
+/* PLURALI delle aste (22/11/2026, L1): il dizionario traduce «# asta giraffa» con «# boom stand» e il numero entra dopo: con N≠1 serve «3 boom stands».
+   Si corregge a valle, sul testo già inglese e solo se è cambiato (un testo dell'utente non si tocca); idempotente («boom stands» non ricade nella regola). */
+var DOC_EN_PLURALI={"boom stand":"boom stands","short boom/clip":"short booms/clips","short boom":"short booms","straight stand":"straight stands","tall boom":"tall booms","headset":"headsets","clip":"clips"};
+var DOC_EN_PLURALI_RE=/(^|[^\w.,])(\d+)(×? )(boom stand|short boom\/clip|short boom|straight stand|tall boom|headset|clip)(?![\w\/])/g;
+function docEnPlurali(t){ return t.replace(DOC_EN_PLURALI_RE, function(all, pre, n, sep, nome){ return +n===1 ? all : pre+n+sep+DOC_EN_PLURALI[nome]; }); }
+function _docEnTrad(s){ var r=_docEnTradBase(s); return r===s ? r : docEnPlurali(r); }
+function _docEnTradBase(s){
   if(DOC_EN.hasOwnProperty(s)) return DOC_EN[s];   /* chiavi con gli spazi in testa (« — stampare a 100%…») */
   var lead=/^\s*/.exec(s)[0], trail=/\s*$/.exec(s)[0], core=s.slice(lead.length, s.length-trail.length);
   if(!core) return s;

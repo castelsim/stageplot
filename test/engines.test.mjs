@@ -36787,7 +36787,7 @@ t("Estero: in piedi quote, pedane, palco, griglia, barra di scala e cavi ai tagl
 });
 t("Estero: Esporta (menu Lingua del documento e Unità), PDF e anteprima collegati", () => {
   const src = readFileSync(join(root, "index.template.html"), "utf8");
-  ok(/<select id="pdfDocLingua"><option value="it" selected>Italiano<\/option><option value="en">English<\/option><\/select>/.test(src), "menu della lingua, di serie Italiano");
+  ok(/<select id="pdfDocLingua"><option value="" selected>Come l'app · Italiano<\/option><option value="it">Italiano<\/option><option value="en">English<\/option><\/select>/.test(src), "menu della lingua, di serie «Come l'app» (campo assente), poi Italiano e English");
   ok(/<select id="pdfDocUnita"><option value="m" selected>metri \(m\)<\/option><option value="ft">piedi e pollici \(ft-in\)<\/option><option value="both">/.test(src), "menu delle unità, di serie metri");
   ok(/_dl\.addEventListener\("change", function\(\)\{ docLinguaImposta\(_dl\.value\); docEsteroCambiato\(\); \}\)/.test(src), "la lingua si scrive nel progetto");
   ok(/_du\.addEventListener\("change", function\(\)\{ unitaCambia\(_du\.value\); refresh\(\); \}\)/.test(src), "le unità si scrivono nel progetto (unitaCambia: unico punto, anche per la barra in alto)");
@@ -39544,6 +39544,89 @@ t("vista L1 (correzioni 22/11) T: un faro A TERRA sopra una truss NON viene appe
   const caricato = A.normalizeState(JSON.parse(A.stateToJSON()));
   const g2 = caricato.items.find(x => x.id === g.id);
   eq(JSON.stringify([g2.x, g2.y, g2.mount || null]), prima, "dopo il caricamento del progetto: invariato");
+});
+
+/* ───────── I18N L1 (22/11/2026): «italiano con l'estero» — ricerca coi nomi inglesi, copertura del dizionario, lingua del documento visibile e «it» esplicito, residui P2 ───────── */
+console.log("\nI18N L1 (22/11/2026):");
+t("I18N L1: OGNI tipo del catalogo ha il nome inglese (DOC_EN_TIPI) — un tipo nuovo non nasce senza", () => {
+  const manca = Object.keys(A.TYPES).filter((k) => !(A.DOC_EN_TIPI[k] && typeof A.DOC_EN_TIPI[k].nome === "string" && A.DOC_EN_TIPI[k].nome.trim()));
+  eq(manca, [], "tipi senza nome inglese: " + manca.join(", ") + " (aggiungili a COWORK/STAGEPLOT/analisi/2026-11-17_ESTERO/tipi_en.json e a src/documento-estero-en.js)");
+  eq([A.DOC_EN_TIPI.pedanaarco.nome, A.DOC_EN_TIPI.nodofibra.nome, A.DOC_EN_TIPI.rfcomb.nome], ["Curved riser", "Fiber node", "In-ear combiner"], "i tre tipi che mancavano");
+  /* e la loro etichetta automatica si traduce nel documento in English */
+  conDoc("en", null, () => { eq(A.docEnEtichetta(A.defaultLabel("nodofibra")), "FIBER", "«FIBRA» → «FIBER»"); });
+});
+t("I18N L1: la ricerca trova per il NOME INGLESE (barra del catalogo e doppio clic), stessa fonte del documento", () => {
+  const primo = (q, f) => (f(q)[0] || {}).k;
+  [["double bass", "contrabbasso"], ["bassoon", "fagotto"], ["lighting truss", "americana"], ["stairs", "scala"], ["harpsichord", "clavicembalo"], ["music stand", "leggio"], ["curved riser", "pedanaarco"], ["fiber node", "nodofibra"]].forEach(([q, k]) => {
+    eq(primo(q, A.__qaSearch), k, "doppio clic: «" + q + "»");
+    eq(primo(q, A.__spSearch), k, "barra del catalogo: «" + q + "»");
+    ok(A.__qaSearch(q).length > 0 && A.__spSearch(q).length > 0, "«" + q + "» trova qualcosa in entrambe");
+  });
+});
+t("I18N L1: casi ambigui del glossario — «stairs» non è il dimmer, «leg» è la quinta (non il leggio), «legg» resta il leggio", () => {
+  ok(!A.__qaSearch("stairs").some((r) => r.k === "dimmerport"), "«stairs» non propone il dimmer (prima, per somiglianza, sì)"); ok(!A.__spSearch("stairs").some((r) => r.k === "dimmerport"), "…né la barra del catalogo");
+  ["stairs", "stair"].forEach((q) => ok(A.__qaSearch(q).some((r) => r.k === "scala"), "«" + q + "» propone la scala"));   /* «stair» a metà parola trova anche il marchio Stairville: va bene, la scala c'è */
+  eq(A.__qaSearch("leg")[0].k, "quinta", "«leg» (quinta di teatro): la quinta per prima");
+  ok(A.__qaSearch("leg").some((r) => r.k === "leggio"), "…e il leggio resta fra i suggerimenti");
+  eq(A.__qaSearch("legg")[0].k, "leggio", "«legg» è chi sta scrivendo «leggio»: il leggio");
+  eq(A.__spSearch("leg")[0].k, "quinta", "stessa regola nella barra del catalogo");
+  ok(A.__qaSearch("double bass").every((r) => r.k !== "bassamp"), "«double bass» non porta l'ampli del basso");
+  ok(A.__qaSearch("spia").some((r) => r.k === "wedge") && A.__qaSearch("wedge")[0].k === "wedge", "spia / wedge: il wedge");
+  eq(A.__qaSearch("monitor")[0].k, "wedge", "«monitor» (come oggi): il wedge per primo, non la lista");
+  /* «bass» da solo resta com'era (ampli e posti del basso elettrico): la scelta è scritta nel rapporto */
+  eq(A.__qaSearch("bass")[0].k, "bassamp", "«bass» invariato");
+  eq(A.__qaSearch("bs")[0].k !== "fagotto", true, "le sigle dell'etichetta («Bsn») NON entrano nell'indice: «bs» non dà il fagotto");
+});
+t("I18N L1: docLang «it» ESPLICITO è accettato e salvato; assente = «come l'app»; stampe italiane identiche", () => {
+  reset();
+  eq(A.docLinguaScelta(), "", "di serie: campo assente");
+  const s = { stage: { w: 800, d: 600 }, items: [], docLang: "it" }; A.normalizeState(s); eq(s.docLang, "it", "«it» non viene più cancellato");
+  const s2 = { stage: { w: 800, d: 600 }, items: [], docLang: "fr" }; A.normalizeState(s2); ok(!("docLang" in s2), "un valore sconosciuto sì");
+  A.docLinguaImposta("it"); eq([A.state.docLang, A.docLinguaScelta(), A.docLingua(), A.docEn(), A.docAttivo()], ["it", "it", "it", false, false], "scelto «Italiano»: salvato, ma il documento è quello di sempre");
+  const j = JSON.parse(A.docToJSON()); const st = j.variants ? j.variants[0].state : j; eq(st.docLang, "it", "si salva nel progetto");
+  A.loadDoc(j); eq(A.docLinguaScelta(), "it", "e si riapre");
+  A.docLinguaImposta(""); ok(!("docLang" in A.state), "«Come l'app»: il campo sparisce (nessuna migrazione)"); eq(A.docLinguaScelta(), "", "…e la scelta torna vuota");
+  A.docLinguaImposta("en"); eq(A.docLingua(), "en", "English"); A.docLinguaImposta("xx"); ok(!("docLang" in A.state), "un valore strano = come l'app");
+  reset();
+  /* con «it» esplicito i testi italiani escono IDENTICI a quelli senza campo (nessuna traduzione, nessuna unità diversa) */
+  const nomi = ["Batteria", "Chitarra elettrica", "Scala accesso"];
+  const senza = nomi.map((n) => A.docEtichetta ? A.docEtichetta(n) : n);
+  A.docLinguaImposta("it"); const con = nomi.map((n) => A.docEtichetta ? A.docEtichetta(n) : n);
+  eq(con, senza, "etichette uguali con «it» esplicito e senza campo"); reset();
+});
+t("I18N L1: la lingua del documento si TROVA — riga nel Menu del telefono sopra le unità, selettore in barra accanto alle unità, avviso sul palco, tutto da UN punto", () => {
+  const src = readFileSync(join(root, "index.template.html"), "utf8"), css = readFileSync(join(root, "src/styles.css"), "utf8");
+  ok(src.indexOf('id="mDocLangRow"') > -1 && src.indexOf('id="mDocLangRow"') < src.indexOf('id="mUnitRow"'), "nel Menu del telefono la lingua sta SOPRA le unità");
+  ok(/id="mDocLangRow"[^\n]*Lingua del documento<small class="mrow-s">Document language<\/small>[^\n]*id="docLangSelM"[^\n]*<option value="it">Italiano<\/option><option value="en">English<\/option>/.test(src), "riga «Lingua del documento / Document language» con Italiano e English");
+  const iU = src.indexOf('id="unitSel"'), iL = src.indexOf('id="docLangSel"'), iS = src.indexOf('id="snapSel"');
+  ok(iU > -1 && iL > iU && iL < iS, "in barra il selettore sta vicino alle unità (subito dopo)");
+  ok(/id="docChip" role="status" hidden/.test(src) && /Documento in English/.test(src), "avviso piccolo sul palco, nascosto di serie");
+  ok(/["']docLangSel["'],\s*["']docLangSelM["']\]\.forEach\(function\(id\)\{ var u=document\.getElementById\(id\); if\(u\) u\.addEventListener\("change", function\(\)\{ docLinguaCambia\(this\.value\); \}\)/.test(src), "barra e Menu scrivono dallo stesso punto (docLinguaCambia)");
+  ok(/function docLinguaCambia\(v\)\{\s*docLinguaImposta\(v\);\s*save\(\); render\(\);/.test(src), "docLinguaCambia scrive nel progetto e ridisegna il palco");
+  ok(/var _ch=document\.getElementById\("docChip"\); if\(_ch\) _ch\.hidden=!docEn\(\);/.test(src), "l'avviso compare solo se il documento è in inglese");
+  ok(/if\(window\.__docLinguaUi!==docLinguaScelta\(\)\)/.test(src), "apertura di un progetto, Annulla/Ripeti e cambio scena riallineano selettori e avviso");
+  ok(/\.doc-chip:not\(\[hidden\]\)\{[^}]*pointer-events:none/.test(css) && /#mRotChip:not\(\[hidden\]\) ~ \.doc-chip/.test(css), "l'avviso non intercetta i clic e non copre la pastiglia «Vista girata»");
+  ok(!/id="appLangSel|Lingua dell'app/.test(src), "il selettore dell'APP non compare (arriva in L4)");
+});
+t("I18N L1: plurali inglesi delle aste («3 boom stands»), singolare invariato, testi dell'utente intatti", () => {
+  conDoc("en", null, () => {
+    eq(A._docEnTrad("Aste: 3× asta giraffa, 1× asta dritta, 2× asta bassa"), "Stands: 3× boom stands, 1× straight stand, 2× short booms", "elenco con ×");
+    eq(A._docEnTrad("Supporti microfonici: 4 asta giraffa · 1 asta bassa · 2 clip / pinza"), "Mic stands: 4 boom stands · 1 short boom · 2 clips", "elenco con numero e spazio");
+    eq(A._docEnTrad("3× asta giraffa"), "3× boom stands", "riga singola"); eq(A._docEnTrad("1× asta giraffa"), "1× boom stand", "uno resta singolare");
+    eq(A.docEnPlurali(A.docEnPlurali("3× boom stands")), "3× boom stands", "idempotente");
+    eq(A.docEnPlurali("Mic h 1.5 boom stand"), "Mic h 1.5 boom stand", "il numero non è quello davanti: niente");
+  });
+  conDoc("it", null, () => { eq(A.docEn(), false, "con «it» esplicito il traduttore non gira: i testi italiani restano quelli di sempre"); });
+});
+t("I18N L1: nome del file in inglese («of», «landscape», «Final») solo se il documento è in English; italiano identico", () => {
+  const d = new Date(2026, 10, 12);
+  const giro = (lang, st) => { reset(); delete A.state.statoDoc; delete A.state.docLang; A.state.titolo = "Concerto Finale v3"; A.state.versione = 3; if (lang) A.state.docLang = lang; if (st) A.state.statoDoc = st;
+    const r = [A.nomeConStato(A.nomeFilePdf("a3", 50, "landscape", d)), A.nomeConStato(A.palcoEsterniNomeFile(d)), A.nomeConStato(A.foglioTeatroNomeFile(d)), A.nomeConStato("x-lista-carichi.pdf"), A.nomeConStato("x.png")]; reset(); return r; };
+  eq(giro(null, null), ["Concerto Finale - v3 del 12-11-2026 - A3 orizz 1-50.pdf", "Concerto Finale - v3 del 12-11-2026 - palco.pdf", "Concerto Finale - v3 del 12-11-2026 - foglio teatro.pdf", "x-lista-carichi.pdf", "x.png"], "italiano: i nomi di sempre");
+  eq(giro("it", "definitivo"), ["Concerto Finale - v3 del 12-11-2026 - Definitivo - A3 orizz 1-50.pdf", "Concerto Finale - v3 del 12-11-2026 - Definitivo - palco.pdf", "Concerto Finale - v3 del 12-11-2026 - Definitivo - foglio teatro.pdf", "x-lista-carichi-definitivo.pdf", "x-definitivo.png"], "«it» esplicito: uguale, con lo stato in italiano");
+  eq(giro("en", null), ["Concerto Finale - v3 of 12-11-2026 - A3 landscape 1-50.pdf", "Concerto Finale - v3 of 12-11-2026 - stage.pdf", "Concerto Finale - v3 of 12-11-2026 - venue sheet.pdf", "x-load-list.pdf", "x.png"], "English: il titolo («Finale») resta com'è scritto");
+  eq(giro("en", "provvisorio"), ["Concerto Finale - v3 of 12-11-2026 - Preliminary - A3 landscape 1-50.pdf", "Concerto Finale - v3 of 12-11-2026 - Preliminary - stage.pdf", "Concerto Finale - v3 of 12-11-2026 - Preliminary - venue sheet.pdf", "x-load-list-preliminary.pdf", "x-preliminary.png"], "English con stato: una volta sola, anche passando due volte da nomeConStato");
+  reset(); A.state.docLang = "en"; A.state.statoDoc = "definitivo"; eq(A.nomeConStato(A.nomeConStato("a.pdf")), "a-final.pdf", "doppio passaggio: lo stato non si raddoppia"); delete A.state.statoDoc; reset();
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
