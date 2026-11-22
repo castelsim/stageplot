@@ -3806,6 +3806,72 @@ t("Doppio clic sugli slider (sorgente): ogni cursore del pannello dichiara il va
   ok(Object.keys(A.SLIDER_SERIE).every((id) => ids.includes(id)), "ogni valore di serie è di un cursore che esiste");
 });
 
+/* ═══ LUNGHEZZA REALE DELLA SCALA (22/11/2026, Simone: «è una vista dall'alto, un gradino ha una certa larghezza»). Una scala disegnata a mano
+   lunga 83 cm con 6 gradini ha pedate di 14 cm. Niente cambia da solo (mai una misura salvata): il pannello lo dice oltre il 10 % di scarto
+   da gradini × 30 cm e un pulsante scrive la lunghezza vera, con la stessa formula del motore. ═══ */
+const estremoPedana = (s) => { const r = ((+s.rot || 0) % 360) * Math.PI / 180; return [s.x + Math.sin(r) * s.d / 2, s.y - Math.cos(r) * s.d / 2]; };   /* il lato −y locale */
+t("Scala: «Lunghezza reale» compare solo oltre il 10 % di scarto da gradini × 30 cm", () => {
+  reset();
+  add("pedana", 400, 300, { h: 40 });                      /* x 300-500, y 250-350 */
+  const s = add("scala", 400, 395); delete s.dAuto;        /* scala «salvata»: la misura è dell'utente */
+  eq(A.scalaGradini(A.scalaH(s)), 2, "h40: 2 gradini, lunghezza giusta 60");
+  [60, 63, 66].forEach((d) => { s.d = d; eq(A.scalaReale(s), null, d + " cm: entro il 10 % (66 = limite), niente riga"); });
+  s.d = 67; ok(A.scalaReale(s) && A.scalaReale(s).L === 60, "67 cm: oltre il 10 %, la riga c'è");
+  s.d = 54; eq(A.scalaReale(s), null, "54 cm = −10 %: limite"); s.d = 53; ok(A.scalaReale(s), "53 cm: la riga c'è");
+  s.d = 90; const r = A.scalaReale(s); eq([r.n, r.L, r.d, r.pedata], [2, 60, 90, 45], "90 cm per 2 gradini: pedata 45");
+  ok(/2 gradini da .*= .*; questa è .*\(pedata .*\)/.test(A.scalaRealeTesto(r)), "testo: " + A.scalaRealeTesto(r));
+  eq(A.scalaReale(add("pedana", 900, 900, {})), null, "non è una scala: niente riga");
+});
+t("Scala: «Lunghezza reale» scrive n × 30 col lato pedana FERMO (a 0°, 90°, 35°), mette dAuto e da lì segue l'altezza", () => {
+  [0, 90, 270, 35].forEach((rot) => {
+    reset();
+    const ped = add("pedana", 400, 300, { h: 100 });       /* h100 → 6 gradini → 180 cm */
+    const s = add("scala", 400, 395, { w: 80 }); delete s.dAuto; Object.assign(s, { d: 83.2, rot, x: 400, y: 395 });
+    if (A.scalaH(s) !== 100) { s.x = 400 + (rot === 90 ? 110 : rot === 270 ? -110 : 0); s.y = rot === 90 || rot === 270 ? 300 : 395; }   /* appoggiata alla pedana comunque */
+    const h = A.scalaH(s);
+    const prima = estremoPedana(s), n = A.scalaGradini(h);
+    eq(A.scalaRealeApplica([s]), 1, "una scala cambiata (rot " + rot + ", h" + h + ")");
+    eq(s.d, n * 30, "lunghezza = n × 30"); eq(s.dAuto, n * 30, "dAuto = la lunghezza scritta (da qui segue i gradini)");
+    const dopo = estremoPedana(s); ok(Math.abs(prima[0] - dopo[0]) < 0.05 && Math.abs(prima[1] - dopo[1]) < 0.05, "il lato pedana resta fermo a rot " + rot + ": " + prima + " → " + dopo);
+    eq(A.scalaReale(s), null, "dopo il clic la riga sparisce");
+  });
+  reset();
+  const ped = add("pedana", 400, 300, { h: 100 }), s = add("scala", 400, 395); delete s.dAuto; s.d = 83;
+  A.scalaRealeApplica([s]); ped.h = 40; A.scaleAdegua(); eq(s.d, 60, "dopo il clic la scala segue l'altezza della pedana (h40 → 60)");
+});
+t("Scala: «Lunghezza reale» fa ESATTAMENTE quello che farebbe il motore (stessa formula di scalaAdegua)", () => {
+  reset();
+  add("pedana", 400, 300, { h: 60 });
+  const a = add("scala", 400, 395), b = add("scala", 400, 395);   /* a: del motore (dAuto); b: a mano, stessa misura */
+  Object.assign(a, { d: 50, dAuto: 50, rot: 35 }); delete b.dAuto; Object.assign(b, { d: 50, rot: 35 });
+  A.scalaAdegua(a); A.scalaRealeApplica([b]);
+  eq([b.d, b.x, b.y, b.dAuto], [a.d, a.x, a.y, a.dAuto], "stessi d, x, y e dAuto");
+});
+t("Scala: «Lunghezza reale» esclude le scale bloccate e, sulla selezione multipla, cambia solo quelle lontane dal valore", () => {
+  reset();
+  add("pedana", 400, 300, { h: 40, w: 600 });
+  const x1 = add("scala", 200, 395), x2 = add("scala", 400, 395), x3 = add("scala", 600, 395);
+  [x1, x2, x3].forEach((s) => delete s.dAuto);
+  x1.d = 83; x2.d = 60; x3.d = 100;                        /* giusta: x2 */
+  x3.locked = true; eq(A.scalaReale(x3), null, "bloccata: nessuna riga"); eq(A.scalaRealeApplica([x3]), 0, "bloccata: non si tocca"); eq(x3.d, 100, "lunghezza invariata");
+  x3.locked = false; eq(A.scalaRealeApplica([x1, x2, x3]), 2, "multipla: due scale cambiate, quella già giusta no");
+  eq([x1.d, x2.d, x3.d, x2.dAuto], [60, 60, 60, undefined], "x2 non è stata toccata (niente dAuto messo a caso)");
+  eq(A.scalaRealeApplica([x1, x2, x3]), 0, "seconda volta: niente da fare");
+  eq(A.scalaRealeApplica(null), 0, "senza selezione: 0");
+});
+t("Scala: «Lunghezza reale» è solo nel pannello: nessun avviso dell'audit, nessuna scala cambia da sola al render", () => {
+  reset();
+  add("pedana", 400, 300, { h: 100 });
+  const s = add("scala", 400, 395); delete s.dAuto; s.d = 83;
+  const av = JSON.stringify(A.auditEngine().findings.map((f) => f.rule || f.msg).sort());
+  A.scaleAdegua(); A.render && A.render();
+  eq(s.d, 83, "render e motore non toccano una scala a mano");
+  ok(!/pedata|lunghezza reale/i.test(av), "nessun avviso sulla pedata: " + av);
+  const html = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(/id="pScalaRealeWrap"/.test(html) && /id="bScalaReale"[^>]*>Lunghezza reale</.test(html) && /id="grpScalaRealeWrap"/.test(html) && /id="bGrpScalaReale"[^>]*>Adegua tutte le scale</.test(html), "i due pulsanti sono nella pagina");
+  ok(/style="font-size:11px;margin:0 0 4px"/.test(html.slice(html.indexOf('id="pScalaRealeTxt"') - 60, html.indexOf('id="pScalaRealeTxt"') + 80)), "testo piccolo (11 px), una riga");
+});
+
 /* ═══ GRADINI DELLA SCALA (11/11/2026, segnalazione CONCERTI del 05/11): «perché disegni molti più gradini di
    quelli che in realtà ci sono». Alzata ~20 cm; la scala prende l'altezza della pedana che tocca. ═══ */
 t("Scala: gradini = altezza della pedana / 18 cm (h20 = 1, h40 = 2, h60 = 3), mai meno di 1", () => {

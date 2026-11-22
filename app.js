@@ -18829,9 +18829,33 @@ function scalaAdegua(it){
   var L=scalaLunghezza(scalaH(it)), d=+it.d||(TYPES.scala&&TYPES.scala.d)||90;   /* senza `d` nel documento vale la misura di serie */
   if(it.d!=null && Math.abs(+it.d-(+it.dAuto))>0.5) return false;   /* l'utente l'ha cambiata a mano: vince lui */
   if(Math.abs(d-L)<0.5){ it.dAuto=L; return false; }
-  var r=((+it.rot||0)%360)*Math.PI/180, ux=-Math.sin(r), uy=Math.cos(r), k=(L-d)/2;   /* −y locale fermo: il centro si sposta di (L−d)/2 lungo +y */
-  it.d=L; it.dAuto=L; it.x=Math.round((it.x+ux*k)*100)/100; it.y=Math.round((it.y+uy*k)*100)/100;
+  scalaImpostaLunghezza(it, L, d);
   return true;
+}
+/* scrive la lunghezza L tenendo fermo il lato pedana (−y locale): il centro si sposta di (L−d)/2 lungo +y. Un solo posto per la
+   formula: la usano il motore (`scalaAdegua`) e il pulsante «Lunghezza reale» (22/11/2026), così fanno sempre lo stesso gesto. */
+function scalaImpostaLunghezza(it, L, d){
+  var r=((+it.rot||0)%360)*Math.PI/180, ux=-Math.sin(r), uy=Math.cos(r), k=(L-d)/2;
+  it.d=L; it.dAuto=L; it.x=Math.round((it.x+ux*k)*100)/100; it.y=Math.round((it.y+uy*k)*100)/100;
+}
+/* LUNGHEZZA REALE A UN CLIC (22/11/2026, Simone sullo stage plot con tre scale di lunghezze diverse: «è una vista dall'alto, un
+   gradino ha una certa larghezza»). In pianta ogni pedata è lunghezza/gradini: una scala disegnata a mano lunga 83 cm con 6 gradini
+   ha pedate di 14 cm, irreali. Il motore non tocca MAI le misure dell'utente (16/11, Valdagno): quindi nessuna scala cambia da sola;
+   il pannello lo dice (solo oltre il 10 % di scarto da gradini × 30 cm) e il pulsante scrive la lunghezza vera con la stessa formula
+   del motore, mettendo `dAuto`: da lì la scala segue l'altezza come le scale nuove. Le scale bloccate (lucchetto) non si toccano. */
+var SCALA_REALE_SOGLIA=0.10;
+function scalaReale(it){
+  if(!it || it.type!=="scala" || it.locked) return null;
+  var n=scalaGradini(scalaH(it)), L=n*SCALA_PEDATA_CM, d=+it.d||(TYPES.scala&&TYPES.scala.d)||90;
+  if(Math.abs(d-L)<=L*SCALA_REALE_SOGLIA) return null;
+  return { n:n, L:L, d:d, pedata:d/n };
+}
+function scalaRealeApplica(its){   /* → quante scale ha cambiato; chi chiama fa primaDiAgire() prima e render()+save() dopo (un solo Annulla) */
+  var c=0; (its||[]).forEach(function(it){ var r=scalaReale(it); if(!r) return; scalaImpostaLunghezza(it, r.L, r.d); c++; }); return c;
+}
+function scalaRealeTesto(r){
+  var L=function(cm){ return docLen(cm, misN(cm)+" m"); };
+  return r.n+(r.n===1?" gradino":" gradini")+" da "+L(SCALA_PEDATA_CM)+" = "+L(r.L)+"; questa è "+L(r.d)+" (pedata "+L(r.pedata)+")";
 }
 function scaleAdegua(){ var n=0; (state.items||[]).forEach(function(it){ if(it.type==="scala" && !it.locked && scalaAdegua(it)) n++; }); return n; }
 function scalaGradini(h){ h=+h; if(!isFinite(h)) h=40; return Math.max(1, Math.min(SCALA_GRADINI_MAX, Math.round(h/SCALA_ALZATA_CM))); }
@@ -20984,6 +21008,11 @@ function renderProps(){
         _gp.style.opacity=_dg.piedi?"":"0.45"; _gp.style.cursor=_dg.piedi?"":"not-allowed"; } }
     grpSepRender(its);   /* distanza tra i 2, se nella selezione ci sono postazioni a 2 */
     grpLegDistRender(its);   /* distanza leggio, se nella selezione ci sono leggii da spostare (05/11/2026) */
+    (function(){   /* «Adegua tutte le scale» (22/11): solo le scale selezionate, non bloccate, lontane da gradini × 30 cm */
+      var w=document.getElementById("grpScalaRealeWrap"); if(!w) return;
+      var da=its.filter(function(x){ return scalaReale(x); }); w.style.display = da.length ? "block" : "none";
+      if(da.length) document.getElementById("grpScalaRealeTxt").textContent = da.length===1 ? "1 scala non ha la pedata reale (30 cm)." : da.length+" scale non hanno la pedata reale (30 cm).";
+    })();
     /* --- batch STAGE BOX (Simone 21/07): input/uscite/modello per TUTTE le box selezionate insieme --- */
     var gsb=document.getElementById("grpSbWrap");
     if(gsb){ var boxes=its.filter(cabIsBox);
@@ -21599,6 +21628,11 @@ function renderProps(){
     }
     riempi("pPedMis", r.misure, function(o){ return {w:o.w, d:o.d}; });
     riempi("pPedAlt", r.altezze, function(o){ return {h:o.h}; });
+  })();
+  (function(){   /* «Lunghezza reale» (22/11): solo se la scala è lontana da gradini × 30 cm */
+    var w=document.getElementById("pScalaRealeWrap"); if(!w) return;
+    var r=scalaReale(it); w.style.display = r ? "block" : "none";
+    if(r) document.getElementById("pScalaRealeTxt").textContent=scalaRealeTesto(r);
   })();
   (function(){
     var w=document.getElementById("pPedConfWrap"), c=document.getElementById("pPedConf"); if(!w||!c) return;
@@ -22231,6 +22265,14 @@ Object.keys(SLIDER_SERIE).forEach(function(id){
   el.addEventListener("dblclick", function(){
     if(!(window.matchMedia && matchMedia("(hover: hover) and (pointer: fine)").matches)) return;   /* touch: nessun gesto in più */
     sliderRipristina(el, sliderSerie(id, getSel())); });
+});
+document.getElementById("bScalaReale").addEventListener("click", function(){
+  var it=getSel(); if(!it || !scalaReale(it)) return;
+  primaDiAgire(); scalaRealeApplica([it]); render(); save();   /* un solo passo di Annulla */
+});
+document.getElementById("bGrpScalaReale").addEventListener("click", function(){
+  var its=selItems().filter(function(x){ return scalaReale(x); }); if(!its.length) return;
+  primaDiAgire(); scalaRealeApplica(its); render(); save();
 });
 function lblSizeSiblings(it){
   if(!it || !TYPES[it.type]) return [];
