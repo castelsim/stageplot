@@ -11097,11 +11097,11 @@ const metroLinee = (mk) => [...mk.matchAll(/<line class="ic" x1="([-\d.]+)" y1="
   .map(m => m.slice(1).map(Number)).filter(l => l[1] === 0 && l[3] === 0);   /* solo i pezzi sull'asse, non i trattini */
 const metroFrecce = (mk) => [...mk.matchAll(/<path class="ic fill metro-fr" d="M ([-\d.]+) ([-\d.]+) L ([-\d.]+) ([-\d.]+) L ([-\d.]+) ([-\d.]+) Z"\/>/g)]
   .map(m => m.slice(1).map(Number));
-t("metro: la misura è al centimetro (3,45 m, non 3,5 m) e fmtM resta com'era per palco e pedane", () => {
+t("metro: la misura è al centimetro (3,45 m, non 3,5 m); fmtM (palco, pedane) dal 22/11 anche: 3,45 m, ma i multipli di 10 cm restano com'erano", () => {
   eq(A.fmtMetro(345), "3,45 m"); eq(A.fmtMetro(350), "3,5 m"); eq(A.fmtMetro(300), "3 m");
   eq(A.fmtMetro(1234), "12,34 m"); eq(A.fmtMetro(5), "0,05 m"); eq(A.fmtMetro(344.6), "3,45 m", "mezzo centimetro: si arrotonda al cm");
   eq(metroTesto(metroDraw()).txt, "3,45 m", "il metro disegna la misura al centimetro");
-  eq(A.fmtM(345), "3,5 m", "fmtM (palco, pedane, avvisi) non cambia");
+  eq([A.fmtM(345), A.fmtM(350), A.fmtM(300), A.fmtM(1896), A.fmtM(229)], ["3,45 m", "3,5 m", "3 m", "18,96 m", "2,29 m"], "fmtM al centimetro (22/11/2026); 3,5 e 3 come prima");
 });
 t("metro: niente riquadro bianco col bordo grigio, numero sull'asse e linea interrotta più larga del testo", () => {
   const mk = metroDraw();
@@ -25743,7 +25743,7 @@ t("il palco misura lo stesso in tutti i posti dove è scritto", () => {
   ok(/fmtM\(s\.w\|\|0\)/.test(fn) && /fmtM\(s\.d\|\|0\)/.test(fn), "usa fmtM, come il pannello");
   ok(!/Math\.round\(\(s\.[wd]\|\|0\)\/100\)/.test(fn), "niente più arrotondamento all'intero");
   /* fmtM tiene un decimale e non ne inventa: 6,5 resta 6,5 e 6 non diventa «6,0». */
-  ok(/maximumFractionDigits:1/.test(appjs), "un decimale quando serve, nessuno quando non serve");
+  ok(/function mCm\(cm\)\{[^}]*maximumFractionDigits:2/.test(appjs), "fino a due cifre quando servono (il centimetro), nessuna quando non servono (22/11/2026)");
 });
 
 console.log("\nTipografia e controlli (02/09):");
@@ -36652,14 +36652,14 @@ t("Unità nell'editor (19/11): interruttore in barra e nel Menu, un solo punto c
   ok(/function unitaCambia\(v\)\{[\s\S]{0,400}docUnitaImposta\(v\)[\s\S]{0,300}save\(\); render\(\)/.test(html), "unitaCambia scrive nel progetto (docUnitaImposta), salva e ridisegna");
   ok(/_du\.addEventListener\("change", function\(\)\{ unitaCambia\(_du\.value\)/.test(html) && /_dft\.addEventListener\("click", function\(\)\{ unitaCambia\("ft"\)/.test(html), "resta anche in Esporta, sullo stesso punto");
   conDoc(null, "ft", () => {
-    eq(A.snapOpzioni().map((x) => x[0]), ["0", "ft6", "ft12", "ft24", "ft36", "obj"], "in piedi l'aggancio ha 6\", 1', 2', 3'");
-    eq(A.snapOpzioni().map((x) => x[1]), ["Libero", '6"', "1'", "2'", "3'", "Oggetti"], "con le etichette in piedi");
+    eq(A.snapOpzioni().map((x) => x[0]), ["0", "ft1", "ft3", "ft6", "ft12", "ft24", "ft36", "obj"], "in piedi l'aggancio ha 1\", 3\" (fini, 22/11), 6\", 1', 2', 3'");
+    eq(A.snapOpzioni().map((x) => x[1]), ["Libero", '1"', '3"', '6"', "1'", "2'", "3'", "Oggetti"], "con le etichette in piedi");
   });
-  eq(A.snapOpzioni().map((x) => x[1]), ["Libero", "25 cm", "50 cm", "1 m", "Oggetti"], "in metri com'è sempre");
+  eq(A.snapOpzioni().map((x) => x[1]), ["Libero", "1 cm", "5 cm", "10 cm", "25 cm", "50 cm", "1 m", "Oggetti"], "in metri: i passi fini 1, 5, 10 cm (22/11) e poi quelli di sempre");
   eq([A.DOC_SNAP_FT.ft6, A.DOC_SNAP_FT.ft12, A.DOC_SNAP_FT.ft24, A.DOC_SNAP_FT.ft36].map((v) => +v.toFixed(2)), [15.24, 30.48, 60.96, 91.44], "i passi sono esatti (1 ft = 30,48 cm)");
   eq([A.snapValido("ft12"), A.snapValido("ft99"), A.snapValido("25")], [true, false, true], "ft12 vale, ft99 no");
-  eq([A.snapPerUnita("25", true), A.snapPerUnita("50", true), A.snapPerUnita("100", true), A.snapPerUnita("0", true), A.snapPerUnita("obj", true)], ["ft12", "ft24", "ft36", "0", "obj"], "m → ft: il passo più vicino; libero e oggetti restano");
-  eq([A.snapPerUnita("ft6", false), A.snapPerUnita("ft12", false), A.snapPerUnita("ft24", false), A.snapPerUnita("ft36", false), A.snapPerUnita("0", false)], ["25", "25", "50", "100", "0"], "ft → m");
+  eq([A.snapPerUnita("25", true), A.snapPerUnita("50", true), A.snapPerUnita("100", true), A.snapPerUnita("0", true), A.snapPerUnita("obj", true), A.snapPerUnita("1", true), A.snapPerUnita("5", true), A.snapPerUnita("10", true)], ["ft12", "ft24", "ft36", "0", "obj", "ft1", "ft3", "ft3"], "m → ft: il passo più vicino; libero e oggetti restano");
+  eq([A.snapPerUnita("ft6", false), A.snapPerUnita("ft12", false), A.snapPerUnita("ft24", false), A.snapPerUnita("ft36", false), A.snapPerUnita("0", false), A.snapPerUnita("ft1", false), A.snapPerUnita("ft3", false)], ["25", "25", "50", "100", "0", "1", "5"], "ft → m");
   eq([A.snapQ(100, 30.48), A.snapQ(95, 30.48), A.snapQ(100, 25), A.snapQ(40, 25)], [91.44, 91.44, 100, 50], "snapQ: niente 91.44000000000001, e in cm interi resta intero");
 });
 
@@ -39015,6 +39015,104 @@ t("etichetta delle coperture: sopra e sotto (nessun gang) invariate, nome della 
   eq(A.lblCapTr(true, 12, 5, 7, 12), ' transform="rotate(12 5 7) rotate(180 5 2.7)" data-cap="1"', "i nomi delle doppie (±12°, senza «unico»): invariati");
   ok(/gtr=lblCapTr\([^;]*gzsz, true\)/.test(appjs), "il sorgente della copertura passa «unico»");
   reset();
+});
+
+
+console.log("\nPrecisione al centimetro (22/11/2026):");
+const tplCm = readFileSync(join(root, "index.template.html"), "utf8");
+t("cm: griglia fine nel menu (1, 5, 10 cm; in piedi 1″ e 3″), valore di serie INVARIATO (25 cm), nessuna migrazione", () => {
+  eq(A.snapOpzioni().map((x) => x[0]), ["0", "1", "5", "10", "25", "50", "100", "obj"], "menu in metri: i passi fini davanti, quelli di sempre dopo");
+  eq(A.snapMode, "25", "si parte ancora da 25 cm");
+  ok(/var snapMode = "25";/.test(appjs) && /snapMode=snapValido\(v\) \? v : "25"/.test(appjs), "serie 25 cm e ripiego a 25 per i valori non validi");
+  eq(["0", "1", "5", "10", "25", "50", "100", "obj", "ft1", "ft3", "ft6", "ft12", "ft24", "ft36"].map(A.snapValido), Array(14).fill(true), "tutti i passi validi");
+  eq(["2", "3", "15", "ft2", ""].map(A.snapValido), Array(5).fill(false), "i valori che non sono nel menu no");
+  const prima = A.snapMode;
+  try {
+    const passi = { "0": 0, "1": 1, "5": 5, "10": 10, "25": 25, "50": 50, "100": 100, ft1: 2.54, ft3: 7.62 };
+    for (const k of Object.keys(passi)) { A.snapMode = k; eq(+A.snapVal().toFixed(2), passi[k], "passo di «" + k + "»"); }
+    A.snapMode = "1"; eq([A.snap(123.4), A.snap(123.6), A.snap(0.4)], [123, 124, 0], "1 cm: centimetro intero");
+    A.snapMode = "5"; eq([A.snap(123.4), A.snap(126)], [125, 125], "5 cm");
+    A.snapMode = "10"; eq([A.snap(123.4), A.snap(126)], [120, 130], "10 cm");
+    A.snapMode = "25"; eq(A.snap(123.4), 125, "25 cm come sempre");
+  } finally { A.snapMode = prima; }
+  eq([A.snapPerUnita("1", true), A.snapPerUnita("5", true), A.snapPerUnita("ft1", false), A.snapPerUnita("ft3", false)], ["ft1", "ft3", "1", "5"], "cambio unità: i passi fini seguono");
+  conDoc(null, "ft", () => { eq(A.snapOpzioni().map((x) => x[1]).slice(0, 3), ["Libero", '1"', '3"'], "in piedi 1″ e 3″"); });
+});
+t("cm: con un passo fine il magnete al bordo del palco (15 cm) non ruba l'aggancio; con i passi grandi resta come sempre", () => {
+  const prima = A.snapMode; A.__custEditor = false;   /* nel sandbox una chiave mancante di window vale «qualcosa» (proxy): la si dichiara */
+  try {
+    const attesi = { "0": false, "1": true, "5": true, "10": true, "25": false, "50": false, "100": false, obj: false, ft1: true, ft3: true, ft6: false, ft12: false, ft24: false, ft36: false };
+    for (const k of Object.keys(attesi)) { A.snapMode = k; eq(A.snapFine(), attesi[k], "snapFine con «" + k + "»"); }
+    A.snapMode = "1"; A.__custEditor = true;
+    ok(!A.snapFine(), "nell'editor «Crea elemento» il magnete resta com'era (decide l'editor)");
+  } finally { A.snapMode = prima; A.__custEditor = false; }
+  ok(/\(sm!=="0" && !snapFine\(\)\) \? magneticSnap\(drag\.items,ddx,ddy\)/.test(appjs), "lo spostamento chiama il magnete del palco solo senza passo fine");
+  ok(/sm==="obj" \? objectSnap\(drag\.items,ddx,ddy\)/.test(appjs), "«Oggetti» resta la modalità degli oggetti: l'aggancio agli oggetti lo sceglie l'utente nel menu");
+  eq(A.SNAP_T, 15, "soglia del magnete invariata (15 cm)");
+});
+t("cm: i vertici di «Crea elemento» sul palco seguono la griglia scelta (Libero/1 cm/1″ → 1; 5 cm/3″ → 5; 10 cm → 10; passi grandi → 5 come prima)", () => {
+  const prima = A.snapMode;
+  try {
+    const att = { "0": 1, "1": 1, ft1: 1, "5": 5, ft3: 5, "10": 10, "25": 5, "50": 5, "100": 5, obj: 5, ft6: 5, ft12: 5 };
+    for (const k of Object.keys(att)) { A.snapMode = k; eq(A.custPassoPalco(), att[k], "passo dei vertici con «" + k + "»"); }
+    A.snapMode = "1"; eq([A.custAgganciaPalco(123.4), A.custAgganciaPalco(123.6)], [123, 124], "a 1 cm");
+    A.snapMode = "25"; eq([A.custAgganciaPalco(123.4), A.custAgganciaPalco(122)], [125, 120], "con 25 cm i vertici restano a 5 (invariato)");
+    A.snapMode = "10"; eq(A.custAgganciaPalco(123.4), 120, "a 10 cm");
+    A.snapMode = "25"; eq(A.custAgganciaPalco(123.4, { metaKey: true }), 123, "⌘/Ctrl: sempre 1 cm");
+  } finally { A.snapMode = prima; }
+});
+t("cm: nell'editor «Crea elemento» l'aggancio segue il passo fine del menu, ma la griglia DISEGNATA resta quella dello zoom (mai una riga per centimetro)", () => {
+  const prima = A.snapMode;
+  try {
+    for (const [k, v] of [["1", 1], ["ft1", 1], ["5", 5], ["ft3", 5], ["10", 10]]) { A.snapMode = k; eq(A.custPasso(), v, "custPasso con «" + k + "»"); }
+  } finally { A.snapMode = prima; }
+  ok(/function custPassoGriglia\(\)\{ return custPassoDa\(cmPerPx\(\)\); \}/.test(appjs), "la griglia disegnata segue solo lo zoom");
+  const sup = appjs.slice(appjs.indexOf("function custSuperficieMarkup"), appjs.indexOf("function custRighelloMarkup"));
+  ok(/g=custPassoGriglia\(\)/.test(sup) && !/custPasso\(\)/.test(sup), "il foglio disegna con custPassoGriglia");
+  const rig = appjs.slice(appjs.indexOf("function custRighelloMarkup"), appjs.indexOf("function custAggiornaGriglia"));
+  ok(/g=custPassoGriglia\(\)/.test(rig) && !/custPasso\(\)/.test(rig), "il righello pure");
+});
+t("cm: ridimensionando con un passo fine il centro NON si aggancia (il lato opposto resta fermo al centimetro); con i passi grandi come sempre", () => {
+  const prima = A.snapMode;
+  try {
+    for (const [m, ex, attesa] of [["1", 603.5, 603.5], ["5", 603.5, 603.5], ["10", 603.5, 603.5], ["25", 603.5, 600], ["50", 603.5, 600]]) {
+      A.snapMode = m; const it = { type: "pedana", x: ex, y: 500.4 };
+      A.custRidimensionaCentro(it, true);
+      eq(it.x, attesa, "centro con «" + m + "»");
+    }
+    A.snapMode = "1"; const j = { x: 603.5, y: 1.5 }; eq(A.custRidimensionaCentro(j, true), false, "con 1 cm non tocca nulla (ritorna false)");
+    A.snapMode = "25"; const k = { type: "pedana", x: 603.5, y: 1.5 }; eq(A.custRidimensionaCentro(k, true), true, "con 25 cm aggancia come prima");
+  } finally { A.snapMode = prima; }
+});
+t("cm: la griglia visiva del palco non si disegna a 1 cm (resta 50 cm / 1 m) qualunque sia il passo scelto", () => {
+  const prima = A.snapMode, st = A.state.stage;
+  try {
+    reset(); A.state.stage = { w: 1896, d: 1000, blocks: [{ x: 0, y: 0, w: 1896, d: 1000 }] };
+    for (const k of ["0", "1", "5", "10", "25"]) {
+      A.snapMode = k; const g = A.gridMarkup(), xs = [...g.matchAll(/x1="([\d.]+)" y1="0"/g)].map((m) => +m[1]);
+      ok(xs.length > 0 && xs.length < 40 && xs.every((x) => x % 50 === 0), "con «" + k + "»: " + xs.length + " linee verticali, tutte a multipli di 50 cm");
+    }
+  } finally { A.snapMode = prima; reset(); }
+});
+t("cm: frecce = 5 cm, Maiusc 25 cm, Opzione/Alt 1 cm; dichiarato nell'aiuto e nell'aria-label; Alt+clic (duplica) non si tocca", () => {
+  ok(/step = e\.altKey \? 1 : \(e\.shiftKey\?25:5\)/.test(appjs), "passo delle frecce: Alt 1, Maiusc 25, altrimenti 5");
+  ok(/if\(e\.altKey\)\{ e\.preventDefault\(\); _selPrima=Object\.keys\(selSet\); if\(duplicateSel\(true/.test(appjs), "Alt+clic duplica ancora");
+  ok(/con Opzione o Alt 1 cm/.test(tplCm), "l'aria-label dell'area di lavoro lo dice");
+  ok(/Come posiziono un elemento al centimetro\?/.test(tplCm) && /<kbd>Opzione<\/kbd> \(Alt su Windows\) di <b>1 cm<\/b>/.test(tplCm), "la guida ha la voce");
+  /* in «Crea elemento» (contorno) le frecce erano già a 1 cm e Maiusc 10: invariate */
+  ok(/var st=e\.shiftKey \? 10 : 1;/.test(appjs), "contorno: 1 cm, Maiusc 10 (invariato)");
+});
+t("cm: i campi L, P, h e Spessore accettano il centimetro (step 1); il valore libero non salta a 5", () => {
+  for (const id of ["pW", "pD", "pH", "pSpess"]) ok(new RegExp('id="' + id + '" min="\\d+" step="1"').test(tplCm), id + ": step 1");
+  ok(/it\.w=Math\.max\(10,docCampoCm\("pW","cm"\)\|\|it\.w\)/.test(appjs), "L: scrive il valore del campo senza arrotondarlo");
+  ok(!/id="pW"[^>]*step="5"/.test(tplCm) && !/id="pD"[^>]*step="5"/.test(tplCm), "niente più step 5 su L e P");
+});
+t("cm: misure in metri al centimetro (18,96 m, 2,29 m), i multipli di 10 cm restano com'erano (3,5 · 3 · 1,5)", () => {
+  eq([A.mCm(1896), A.mCm(229), A.mCm(760), A.mCm(1000), A.mCm(350)], ["18,96", "2,29", "7,6", "10", "3,5"], "mCm: fino a 2 cifre, senza zeri finali");
+  eq([A.fmtM(1896), A.fmtM(229), A.fmtM(760), A.fmtM(1000)], ["18,96 m", "2,29 m", "7,6 m", "10 m"], "fmtM");
+  eq([A.misurePalco(1896, 1000), A.misurePalco(1600, 650)], ["18,96 × 10 m", "16 × 6,5 m"], "barra alta e menu del telefono");
+  eq([A.mUnaDec(150), A.mUnaDec(100), A.mUnaDec(123), A.mUnaDec(120)], ["1,5", "1,0", "1,23", "1,2"], "passacavi: una cifra come sempre, due solo se serve il centimetro");
+  eq([A.misN(1896), A.misMetri2(229)], ["18,96", "2,29"], "cartiglio e pedane erano già al centimetro");
 });
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");

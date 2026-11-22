@@ -1068,7 +1068,7 @@ function drawCableRamp(it){
     s+='<path fill="none" stroke="'+BLK+'" stroke-width="2.5" d="M '+xs+','+yT+' l 6,'+(d*0.28).toFixed(1)+' l -12,'+(d*0.44).toFixed(1)+' l 6,'+(d*0.28).toFixed(1)+'"/>'; }
   s+='<line x1="'+xL+'" y1="'+(yT+d*0.38)+'" x2="'+xL+'" y2="'+(yB-d*0.38)+'" stroke="'+YEL+'" stroke-width="3"/>';
   s+='<line x1="'+xR+'" y1="'+(yT+d*0.38)+'" x2="'+xR+'" y2="'+(yB-d*0.38)+'" stroke="'+YEL+'" stroke-width="3"/>';
-  if(n>1) s+='<text x="0" y="'+(yT-6)+'" text-anchor="middle" font-size="18" font-weight="700" fill="#1c1c1c" font-family="-apple-system,Segoe UI,sans-serif">'+((w/100).toFixed(1)).replace(".",",")+' m</text>';   /* lunghezza reale della tratta sul palco (non il n° moduli) */
+  if(n>1) s+='<text x="0" y="'+(yT-6)+'" text-anchor="middle" font-size="18" font-weight="700" fill="#1c1c1c" font-family="-apple-system,Segoe UI,sans-serif">'+mUnaDec(w)+' m</text>';   /* lunghezza reale della tratta sul palco (non il n° moduli) */
   return s;
 }
 /* n° moduli di una tratta di passacavi (per etichetta/STATO/rider) */
@@ -4845,10 +4845,10 @@ function cabTaglioUnita(){ return docUnita()==="ft" ? " ft" : " m"; }
 function niceBarFeet(N){ var c=[1,2,5,10,20,50,100], best=c[0]; c.forEach(function(f){ if(f*CM_PER_FT*10/N<=60) best=f; }); return best; }
 /* Pedane in piedi (lotto 7 di analisi/2026-11-16_CATALOGO_PRO): moduli da tour, misure esatte. */
 var PEDANA_MISURE_RAPIDE_FT=[{t:"8'×4'", w:8*CM_PER_FT, d:4*CM_PER_FT},{t:"8'×8'", w:8*CM_PER_FT, d:8*CM_PER_FT},{t:"4'×4'", w:4*CM_PER_FT, d:4*CM_PER_FT},{t:"8'×2'", w:8*CM_PER_FT, d:2*CM_PER_FT}];
-/* Aggancio in piedi (19/11/2026): 6", 1', 2', 3' in centimetri esatti. Le chiavi sono i valori di DOC_EXTRA.snap. */
+/* Aggancio in piedi (19/11/2026): 6", 1', 2', 3' in centimetri esatti; dal 22/11 anche 1" e 3" (passi fini). Le chiavi sono i valori di DOC_EXTRA.snap. */
 /* testi accanto ai campi (non sono la loro etichetta) */
 var DOC_CAMPI_SUFFISSI={pPedMisLbl:["Misura in metri (L × P)","Misura in piedi (L × P)"], pPedAltLbl:["Altezza in cm","Altezza in piedi e pollici"], pMountHU:["cm","ft-in"], pAntHU:["— metri da terra","— piedi da terra"]};
-var DOC_SNAP_FT={ft6:6*CM_PER_IN, ft12:CM_PER_FT, ft24:2*CM_PER_FT, ft36:3*CM_PER_FT};
+var DOC_SNAP_FT={ft1:CM_PER_IN, ft3:3*CM_PER_IN, ft6:6*CM_PER_IN, ft12:CM_PER_FT, ft24:2*CM_PER_FT, ft36:3*CM_PER_FT};
 var PEDANA_ALTEZZE_RAPIDE_FT=[{t:"8\"", h:8*CM_PER_IN},{t:"1'", h:CM_PER_FT},{t:"16\"", h:16*CM_PER_IN},{t:"2'", h:2*CM_PER_FT},{t:"3'", h:3*CM_PER_FT},{t:"4'", h:4*CM_PER_FT}];
 
 /* ── DATA ── «Nov 17, 2026»: il mese in lettere, mai 11/17/2026 (un europeo lo legge al contrario). Glossario § Unità e date. */
@@ -10979,12 +10979,16 @@ function custMetri(cm){ return (Math.round(cm)/100).toFixed(2).replace(".",",");
 function custMisura(w, d){ return custMetri(w)+" × "+custMetri(d)+" m"; }
 /* passo della griglia: circa 8 px di schermo, arrotondato al passo più vicino fra 1, 5 e 10 cm */
 function custPassoDa(k){ var v=(isFinite(k) && k>0 ? k : 1)*8, best=1; [5,10].forEach(function(s){ if(Math.abs(s-v)<Math.abs(best-v)) best=s; }); return best; }
-function custPasso(){ return custPassoDa(cmPerPx()); }
+function custPassoGriglia(){ return custPassoDa(cmPerPx()); }   /* la griglia DISEGNATA segue solo lo zoom: mai una riga per centimetro */
+/* il passo di AGGANCIO dei vertici: con una griglia fine scelta nel menu (1, 5, 10 cm; 1" e 3") vale quella, qualunque sia lo zoom (22/11/2026); altrimenti segue lo zoom come sempre */
+function custPasso(){ var m=snapMode; return (m==="1"||m==="ft1") ? 1 : ((m==="5"||m==="ft3") ? 5 : (m==="10" ? 10 : custPassoGriglia())); }
 /* aggancio dentro l'editor (⌘/Ctrl = libero, al centimetro) */
 function custAggancia(v, e){ var s=(custAggancio && !(e && (e.metaKey||e.ctrlKey))) ? custPasso() : 1; return Math.round(v/s)*s; }
+/* il passo dei vertici sul palco vero segue la griglia scelta (22/11/2026): Libero, 1 cm e 1" → 1 cm; 5 cm e 3" → 5; 10 cm → 10; con i passi grandi (25 cm, 50 cm, 1 m, piedi, Oggetti) 5 cm come sempre */
+function custPassoPalco(){ var m=snapMode; return (m==="0"||m==="1"||m==="ft1") ? 1 : (m==="10" ? 10 : 5); }
 /* aggancio del rettangolo sul palco vero: 5 cm (gli elementi si misurano al centimetro, i 25 cm del palco sono troppi);
    libero al centimetro con l'aggancio su «Libero» o tenendo ⌘/Ctrl */
-function custAgganciaPalco(v, e){ var s=(snapMode==="0" || (e && (e.metaKey||e.ctrlKey))) ? 1 : 5; return Math.round(v/s)*s; }
+function custAgganciaPalco(v, e){ var s=(e && (e.metaKey||e.ctrlKey)) ? 1 : custPassoPalco(); return Math.round(v/s)*s; }
 /* il rettangolo sta sul palco (spec: «massima il palco»): i capi si fermano ai bordi */
 function custSulPalco(p){ var S=state.stage; return {x:Math.max(0, Math.min(+S.w||0, p.x)), y:Math.max(0, Math.min(+S.d||0, p.y))}; }
 /* tipi che non sono un pezzo di un oggetto: zone dei microfoni panoramici, metri, blocchi di platea */
@@ -12046,7 +12050,7 @@ function custTestoModifica(id, nuovo){
 
 /* ---------- 4. la superficie: foglio, griglia in cm, righello ---------- */
 function custSuperficieMarkup(){
-  var W=+state.stage.w||0, D=+state.stage.d||0, g=custPasso(), M=g*10, s='', x, y;
+  var W=+state.stage.w||0, D=+state.stage.d||0, g=custPassoGriglia(), M=g*10, s='', x, y;
   custGrigliaFirma=g+":"+cmPerPx().toFixed(3);
   s+='<rect class="cust-sup" x="0" y="0" width="'+W+'" height="'+D+'"/>';
   if(W/g+D/g<=1600){
@@ -12062,7 +12066,7 @@ function custSuperficieMarkup(){
 /* righello in alto e a sinistra: tacche ogni 10 passi, numeri in cm a una distanza leggibile (≥ 44 px). Sta nel livello
    SOPRA gli elementi (layOverlay): un pezzo più grande della superficie non copre i numeri. */
 function custRighelloMarkup(){
-  var W=+state.stage.w||0, D=+state.stage.d||0, g=custPasso(), M=g*10, s='', x, y;
+  var W=+state.stage.w||0, D=+state.stage.d||0, g=custPassoGriglia(), M=g*10, s='', x, y;
   var k=cmPerPx(), fs=hSize(10.5), t=hSize(5), lab=M; while(lab/k<44) lab*=(String(lab).charAt(0)==="1" ? 5 : 2);
   s+='<g class="cust-righello" font-size="'+fs+'" stroke-width="'+hSize(3)+'">';
   for(x=0; x<=W+0.001; x+=M){ s+='<line x1="'+x+'" y1="0" x2="'+x+'" y2="'+(-t*(x%lab===0?1.6:1))+'"/>'; if(x%lab===0) s+='<text x="'+x+'" y="'+(-t*2.2)+'" text-anchor="middle">'+x+'</text>'; }
@@ -12073,7 +12077,8 @@ function custRighelloMarkup(){
 /* lo zoom cambia il passo e la misura dei numeri del righello: si ridisegna solo il foglio */
 function custAggiornaGriglia(){
   if(!custEditorAttivo()) return;
-  if(custPasso()+":"+cmPerPx().toFixed(3)===custGrigliaFirma) return;
+  var pl0=custEl("custPassoLbl"); if(pl0) pl0.textContent=custPasso()+" cm";
+  if(custPassoGriglia()+":"+cmPerPx().toFixed(3)===custGrigliaFirma) return;
   var l=document.getElementById("layStage"), o=document.getElementById("layOverlay");
   if(l) setSvgInner(l, custSuperficieMarkup()); if(o) setSvgInner(o, mzMicHitMarkup()+custRighelloMarkup());
   var pl=custEl("custPassoLbl"); if(pl) pl.textContent=custPasso()+" cm";
@@ -12335,7 +12340,7 @@ function custCapoRilascio(){
 /* ridimensionando: le misure vanno alla griglia, il centro sì sul palco vero, NO nell'editor (arrotondarlo spostava di
    mezzo centimetro il lato che deve restare fermo) */
 function custRidimensionaCentro(it, grid){
-  if(!grid || (custEditorAttivo() && it.type==="custshape")) return false;
+  if(!grid || snapFine() || (custEditorAttivo() && it.type==="custshape")) return false;   /* passo fine (22/11/2026): il centro non si aggancia, il lato opposto resta davvero fermo al centimetro */
   it.x=snap(it.x); it.y=snap(it.y); return true;
 }
 /* ridimensionando una forma non ruotata nell'editor: il lato che si muove aggancia gli altri. → {guide} o null */
@@ -14269,7 +14274,11 @@ function _misAreaM(w, d, std){
 }
 function cartAreaTxt(A){ var n=function(cm){ return (cm/100).toLocaleString("it-IT",{maximumFractionDigits:2}); };
   return (docEn() ? "stage " : "palco ")+misArea(A.w, A.h, n(A.w)+"×"+n(A.h)+" m"); }
-function fmtM(cm){ var std=(cm/100).toLocaleString("it-IT",{maximumFractionDigits:1})+" m"; return docAttivo() ? docLen(cm, std) : std; }   /* piedi e punto decimale (17/11/2026) */
+/* Misure in metri al CENTIMETRO (22/11/2026): prima una cifra («18,96 m» si leggeva «19 m», 2,29 → «2,3»). Ora fino a due cifre senza zeri finali (come misN e il cartiglio); i multipli di 10 cm restano com'erano. */
+function mCm(cm){ return ((+cm||0)/100).toLocaleString("it-IT",{maximumFractionDigits:2}); }
+/* lunghezze scritte con una cifra («1,5 m», «2,0 m»): resta così per i multipli di 10 cm, due cifre solo se serve il centimetro */
+function mUnaDec(cm){ var v=(+cm||0)/100, c=Math.round(+cm||0); return (c%10===0 ? v.toFixed(1) : v.toFixed(2)).replace(".",","); }
+function fmtM(cm){ var std=mCm(cm)+" m"; return docAttivo() ? docLen(cm, std) : std; }   /* piedi e punto decimale (17/11/2026) */
 /* PORTA IN PRIMO PIANO / IN FONDO (26/08, segnalazione). Il comando c'era solo per le forme libere,
    e per giunta non faceva quello che prometteva: «Sopra» scriveva un 3 fisso — due elementi «sopra»
    restavano nell'ordine d'inserimento — e «Sotto» cancellava il valore, cioè tornava al default del
@@ -22771,10 +22780,11 @@ var snapMode = "25";   /* "0"=libero · "25"/"50"/"100"=griglia cm · "obj"=ogge
    viveva solo in memoria, e ogni ricarica — anche quella automatica dopo un aggiornamento dell'app — lo
    rimetteva a 25. Sta fra le chiavi di servizio del documento (DOC_EXTRA.snap, assente se 25), non nello
    stato della scena: cambiarlo non è lavoro sul disegno e non deve segnare «modificato dopo l'ultimo PDF». */
-function snapValido(v){ return v==="0"||v==="25"||v==="50"||v==="100"||v==="obj"||!!DOC_SNAP_FT[v]; }   /* funzione, non var: va usata anche da chi apre un documento */
+function snapValido(v){ return v==="0"||v==="1"||v==="5"||v==="10"||v==="25"||v==="50"||v==="100"||v==="obj"||!!DOC_SNAP_FT[v]; }   /* funzione, non var: va usata anche da chi apre un documento */
 function snapDalDocumento(){ var v=DOC_EXTRA && DOC_EXTRA.snap; snapMode=snapValido(v) ? v : "25"; try{ syncSnapSelects(); }catch(e){} }   /* il menu si allinea quando c'è; aprire il documento non deve mai fallire per lui */
 /* Le voci dell'aggancio seguono l'unità del documento (19/11/2026): in piedi 6", 1', 2', 3' (passi esatti, DOC_SNAP_FT), altrimenti 25 cm, 50 cm, 1 m. */
-function snapOpzioni(){ return docUnita()==="ft" ? [["0","Libero"],["ft6","6\""],["ft12","1'"],["ft24","2'"],["ft36","3'"],["obj","Oggetti"]] : [["0","Libero"],["25","25 cm"],["50","50 cm"],["100","1 m"],["obj","Oggetti"]]; }
+/* Precisione al centimetro (22/11/2026): in testa i passi fini 1, 5, 10 cm (in piedi 1" e 3"); il passo di serie resta 25 cm / 1'. «Libero» = senza griglia (a cm interi nello spostamento, continuo nel ridimensionamento). */
+function snapOpzioni(){ return docUnita()==="ft" ? [["0","Libero"],["ft1","1\""],["ft3","3\""],["ft6","6\""],["ft12","1'"],["ft24","2'"],["ft36","3'"],["obj","Oggetti"]] : [["0","Libero"],["1","1 cm"],["5","5 cm"],["10","10 cm"],["25","25 cm"],["50","50 cm"],["100","1 m"],["obj","Oggetti"]]; }
 function snapOpzioniScrivi(){
   var o=snapOpzioni(), chiave=o.map(function(x){ return x[0]; }).join(",");
   ["snapSel","snapSelM"].forEach(function(id){ var el=document.getElementById(id); if(!el || el.__snapChiave===chiave) return; el.__snapChiave=chiave;
@@ -22782,9 +22792,9 @@ function snapOpzioniScrivi(){
   var m=document.getElementById("mSnap"); if(m && m.__snapChiave!==chiave){ m.__snapChiave=chiave;
     m.innerHTML=o.map(function(x){ return '<button type="button" role="radio" data-snap="'+x[0]+'">'+x[1]+'</button>'; }).join(""); }
 }
-/* cambiando unità, l'aggancio passa al passo più vicino dell'altra unità: 25→1', 50→2', 100→3' e ritorno (6"→25, 1'→25, 2'→50, 3'→100) */
-function snapPerUnita(v, ft){ var aFt={"25":"ft12","50":"ft24","100":"ft36"}, aM={ft6:"25",ft12:"25",ft24:"50",ft36:"100"}; return ft ? (aFt[v]||v) : (aM[v]||v); }
-function snapImposta(v){ if(!snapValido(v)) return; snapMode=v; syncSnapSelects();
+/* cambiando unità, l'aggancio passa al passo più vicino dell'altra unità: 1→1", 5 e 10→3", 25→1', 50→2', 100→3' e ritorno (1"→1, 3"→5, 6"→25, 1'→25, 2'→50, 3'→100) */
+function snapPerUnita(v, ft){ var aFt={"1":"ft1","5":"ft3","10":"ft3","25":"ft12","50":"ft24","100":"ft36"}, aM={ft1:"1",ft3:"5",ft6:"25",ft12:"25",ft24:"50",ft36:"100"}; return ft ? (aFt[v]||v) : (aM[v]||v); }
+function snapImposta(v){ if(!snapValido(v)) return; snapMode=v; syncSnapSelects(); try{ custAggiornaGriglia(); }catch(_e){}
   DOC_EXTRA=DOC_EXTRA||{}; if(v==="25") delete DOC_EXTRA.snap; else DOC_EXTRA.snap=v;
   if(typeof persistLocalState==="function") persistLocalState();
   if(window.scheduleCloudAutosave) scheduleCloudAutosave(); }
@@ -23948,7 +23958,7 @@ function updateHeaderStage(){
 }
 /* «16 × 6,5 m»: le misure dell'ingombro totale, con l'unità una volta sola (barra alta e menu del telefono) */
 function misurePalco(w, d){
-  function n(cm){ return ((+cm||0)/100).toLocaleString("it-IT",{maximumFractionDigits:1}); }
+  function n(cm){ return mCm(cm); }
   if(w==null){ w=state.stage.w; d=state.stage.d; }   /* senza argomenti, quello aperto; con, quello di un modello */
   return n(w)+" × "+n(d)+" m";
 }
@@ -24169,6 +24179,8 @@ function snapVal(){ if(window.__custEditor) return custAggancio ? custPasso() : 
   var v=parseInt(snapMode,10); return (isNaN(v)||v<=0) ? 0 : v; }
 /* l'aggancio che vale adesso: nell'editor «Crea elemento» la griglia in cm (passo secondo lo zoom) o libero */
 function snapModeEff(){ return window.__custEditor ? (custAggancio ? "cust" : "0") : snapMode; }
+/* passo fine (≤ 10 cm: 1, 5, 10 cm; 1" e 3"): l'utente posiziona al centimetro, il magnete al bordo del palco (15 cm) non deve rubare l'aggancio. Nell'editor «Crea elemento» il magnete resta com'era. */
+function snapFine(){ if(window.__custEditor) return false; var s=snapVal(); return s>0 && s<=10; }
 function snapQ(v, s){ var r=Math.round(v/s)*s; return (s%1===0) ? r : Math.round(r*100)/100; }   /* passi in piedi (non interi): al centesimo di cm, senza 91.44000000000001 */
 function snap(v){ var s=snapVal(); return s>0 ? snapQ(v, s) : Math.round(v); }
 function placeCoord(v,e){ return (e && (e.metaKey||e.ctrlKey)) ? Math.round(v) : snap(v); }
@@ -26690,7 +26702,7 @@ svg.addEventListener("pointermove", function(e){
     var sm=snapModeEff();
     var magnet = freeMove ? {sdx:0,sdy:0,guides:[]}
       : sm==="obj" ? objectSnap(drag.items,ddx,ddy)
-      : sm!=="0"   ? magneticSnap(drag.items,ddx,ddy)
+      : (sm!=="0" && !snapFine()) ? magneticSnap(drag.items,ddx,ddy)
       : {sdx:0,sdy:0,guides:[]};
     renderSnapGuides(magnet.guides);
     drag.items.forEach(function(d){
@@ -27978,7 +27990,7 @@ document.addEventListener("keydown", function(e){
   if((e.metaKey||e.ctrlKey) && (e.key==="v"||e.key==="V")){ e.preventDefault(); pasteClip(); return; }  /* Cmd/Ctrl+V incolla */
   if((e.metaKey||e.ctrlKey) && (e.key==="x"||e.key==="X")){ e.preventDefault(); if(getSel()){ copySel(); deleteSel(); } return; }   /* Cmd/Ctrl+X taglia */
   if((e.key==="a"||e.key==="A") && !e.metaKey && !e.ctrlKey){ e.preventDefault(); fit(); return; }   /* "a" → adatta la vista al contenuto (palco + elementi, anche fuori palco), come il bottone Adatta */
-  var it=getSel(), step = e.shiftKey?25:5;
+  var it=getSel(), step = e.altKey ? 1 : (e.shiftKey?25:5);   /* frecce: 5 cm · Maiusc 25 cm · Opzione/Alt 1 cm (22/11/2026) */
   /* Esc chiude UN livello per volta: se sopra il palco c'è ancora qualcosa di aperto (una finestra
      che ha già i suoi gestori, o un menu), il palco sotto non si tocca — prima lo stesso Esc chiudeva
      la finestra E deselezionava E azzerava la ricerca nel catalogo, tre stati in un colpo (06/08). */
@@ -35658,7 +35670,7 @@ function renderInspectorB(){
     });
     var _ramp=(state.items||[]).filter(function(it){ return it.type==="cableramp"; });
     if(_ramp.length){ var _rmod=_ramp.reduce(function(a,it){ return a+rampModules(it); },0), _rlen=_ramp.reduce(function(a,it){ return a+(it.w||0); },0);
-      s+=ir("Passacavi", _rmod+" moduli · "+(_rlen/100).toFixed(1).replace(".",",")+" m"); }   /* il service sa quanti pezzi servono */
+      s+=ir("Passacavi", _rmod+" moduli · "+mUnaDec(_rlen)+" m"); }   /* il service sa quanti pezzi servono */
     var _cov=(state.items||[]).filter(isCover);
     if(_cov.length){ var _covA=_cov.reduce(function(a,it){ return a+(it.w/100)*(it.d/100); },0);
       s+=ir("Coperture", _cov.length+" · "+(Math.round(_covA*10)/10).toString().replace(".",",")+" m² a terra"); }   /* gazebo/tende/copertura: quante strutture + superficie */
@@ -39020,7 +39032,7 @@ function loadListPdf(shared){
       var _mx=doc.splitTextToSize("W = assorbimento tipico. Massimo = PA e monitor a piena potenza (1/3), circa il doppio della stima: su questo si dimensionano presa e generatore. "+elecDisclaimer(elecAmbiente(state)), 178); doc.text(_mx, M, y); y+=_mx.length*3.6+1; }
     var _rmp=(state.items||[]).filter(function(it){ return it.type==="cableramp"; });   /* passacavi: il service sa quanti moduli servono */
     if(_rmp.length){ var _rm=_rmp.reduce(function(a,it){ return a+rampModules(it); },0), _rl=_rmp.reduce(function(a,it){ return a+(it.w||0); },0);
-      y+=4; doc.setFont("helvetica","bold"); doc.setFontSize(9.5); doc.setTextColor("#111827"); doc.text("Passacavi: "+_rm+" moduli · "+(_rl/100).toFixed(1).replace(".",",")+" m", M, y); y+=6; }
+      y+=4; doc.setFont("helvetica","bold"); doc.setFontSize(9.5); doc.setTextColor("#111827"); doc.text("Passacavi: "+_rm+" moduli · "+mUnaDec(_rl)+" m", M, y); y+=6; }
     if(shared) return;
     pdfCredit(doc);
     if(window.__loadPdfTest){ window.__loadPdfTest={name:fileName()+"-lista-carichi.pdf", pages:doc.getNumberOfPages(), rows:pl.rows.length}; return; }
@@ -41443,7 +41455,7 @@ function distintaPalco(items){
     acc.push((sc.length===1?"1 scaletta":sc.length+" scalette")+" ("+Object.keys(gg).map(Number).sort(function(a,b){ return a-b; }).map(function(n){ return gg[n]+" da "+n+(n===1?" gradino":" gradini"); }).join(", ")+")");
   }
   var pa=items.filter(function(x){ return x.type==="parapetto"; });
-  if(pa.length){ var cm=0; pa.forEach(function(x){ cm+=Math.max(+x.w||0,+x.d||0); }); acc.push("parapetto "+(cm/100).toLocaleString("it-IT",{maximumFractionDigits:1})+" m ("+pa.length+(pa.length===1?" elemento":" elementi")+")"); }
+  if(pa.length){ var cm=0; pa.forEach(function(x){ cm+=Math.max(+x.w||0,+x.d||0); }); acc.push("parapetto "+mCm(cm)+" m ("+pa.length+(pa.length===1?" elemento":" elementi")+")"); }
   var ra=items.filter(function(x){ return x.type==="rampa"; }).length; if(ra) acc.push(ra+(ra===1?" rampa":" rampe"));
   if(acc.length) righe.push("Accessori: "+acc.join(" · "));
   return righe.length ? {righe:righe, testo:righe.join("\n")} : null;
@@ -42848,7 +42860,7 @@ function foglioTeatroDati(d){
   }
   if(scr.length) p.push(["Scalette di salita", scr.join(" · ")]);
   var pa=items.filter(function(x){ return x.type==="parapetto"; });
-  if(pa.length){ var cm=0; pa.forEach(function(x){ cm+=Math.max(+x.w||0,+x.d||0); }); p.push(["Parapetti", (cm/100).toLocaleString("it-IT",{maximumFractionDigits:1})+" m in "+pa.length+(pa.length===1?" elemento":" elementi")]); }
+  if(pa.length){ var cm=0; pa.forEach(function(x){ cm+=Math.max(+x.w||0,+x.d||0); }); p.push(["Parapetti", mCm(cm)+" m in "+pa.length+(pa.length===1?" elemento":" elementi")]); }
   var ra=items.filter(function(x){ return x.type==="rampa"; }).length; if(ra) p.push(["Rampe", String(ra)]);
   if(p.length) sez.push({t:"Pedane e scalette", righe:p});
   /* corrente */

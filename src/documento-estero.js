@@ -89,10 +89,10 @@ function cabTaglioUnita(){ return docUnita()==="ft" ? " ft" : " m"; }
 function niceBarFeet(N){ var c=[1,2,5,10,20,50,100], best=c[0]; c.forEach(function(f){ if(f*CM_PER_FT*10/N<=60) best=f; }); return best; }
 /* Pedane in piedi (lotto 7 di analisi/2026-11-16_CATALOGO_PRO): moduli da tour, misure esatte. */
 var PEDANA_MISURE_RAPIDE_FT=[{t:"8'×4'", w:8*CM_PER_FT, d:4*CM_PER_FT},{t:"8'×8'", w:8*CM_PER_FT, d:8*CM_PER_FT},{t:"4'×4'", w:4*CM_PER_FT, d:4*CM_PER_FT},{t:"8'×2'", w:8*CM_PER_FT, d:2*CM_PER_FT}];
-/* Aggancio in piedi (19/11/2026): 6", 1', 2', 3' in centimetri esatti. Le chiavi sono i valori di DOC_EXTRA.snap. */
+/* Aggancio in piedi (19/11/2026): 6", 1', 2', 3' in centimetri esatti; dal 22/11 anche 1" e 3" (passi fini). Le chiavi sono i valori di DOC_EXTRA.snap. */
 /* testi accanto ai campi (non sono la loro etichetta) */
 var DOC_CAMPI_SUFFISSI={pPedMisLbl:["Misura in metri (L × P)","Misura in piedi (L × P)"], pPedAltLbl:["Altezza in cm","Altezza in piedi e pollici"], pMountHU:["cm","ft-in"], pAntHU:["— metri da terra","— piedi da terra"]};
-var DOC_SNAP_FT={ft6:6*CM_PER_IN, ft12:CM_PER_FT, ft24:2*CM_PER_FT, ft36:3*CM_PER_FT};
+var DOC_SNAP_FT={ft1:CM_PER_IN, ft3:3*CM_PER_IN, ft6:6*CM_PER_IN, ft12:CM_PER_FT, ft24:2*CM_PER_FT, ft36:3*CM_PER_FT};
 var PEDANA_ALTEZZE_RAPIDE_FT=[{t:"8\"", h:8*CM_PER_IN},{t:"1'", h:CM_PER_FT},{t:"16\"", h:16*CM_PER_IN},{t:"2'", h:2*CM_PER_FT},{t:"3'", h:3*CM_PER_FT},{t:"4'", h:4*CM_PER_FT}];
 
 /* ── DATA ── «Nov 17, 2026»: il mese in lettere, mai 11/17/2026 (un europeo lo legge al contrario). Glossario § Unità e date. */

@@ -3389,6 +3389,10 @@ body.venue-calib #vistaBanner{display:none}
   #mActions .mrow-dsg{padding-top:8px;padding-bottom:8px;gap:5px}
   #mActions .dsg-seg button{min-height:36px;font:600 13px var(--font-ui)}
   #mActions .mseg button.on{background:var(--accent);color:#fff}
+  /* aggancio con 8 voci (22/11/2026: 1, 5, 10 cm davanti): due file da 4 invece di 5+3, stessa altezza dei bottoni, niente scroll */
+  #mActions #mSnap{grid-template-columns:repeat(4,minmax(0,1fr))}
+  #mActions #mSnap button:nth-child(4n+1){border-left:0}
+  #mActions #mSnap button:nth-child(n+5){border-top:1px solid var(--border-strong)}
   #mActions .mswitch{flex:0 0 auto;position:relative;width:48px;height:28px;border-radius:999px;background:var(--border-strong);transition:background .15s var(--ease)}
   #mActions .mswitch::after{content:"";position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:999px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s var(--ease)}
   #mActions .mrow[aria-checked="true"] .mswitch{background:var(--accent)}
