@@ -7369,6 +7369,87 @@ var MOUNT_SAFETY=[["present","Presente"],["unspecified","Da verificare"],["missi
 var HANG_STRUCT={ americana:1, truss:1, tiro:1 };   /* tiro della sala (16/11): numerato come le americane, con la T */              /* strutture a cui si appende: barra luci e truss */
 function isMountable(it){ return !!(it && lightsIsGear(it.type)); }   /* gli apparecchi del reparto luci */
 function isHangStruct(it){ return !!(it && HANG_STRUCT[it.type]===1); }
+/* ===== LIVELLO LUCI SUL DISEGNO (lotto 1, 22/11/2026) =====================================
+   Il reparto Luci = apparecchi + STRUTTURE a cui si appendono (truss, americane, tiri) + regia + dimmer.
+   Prima le truss stavano nel Palco e le americane nelle Luci: la riga «Luci» non comandava né le une né
+   le altre. Regola unica e semplice: TUTTE le strutture sono Luci; il Palco è la superficie (pedane,
+   tappeti, scale, quinte, fondale, transenne). Il «Solo Palco» non mostra più le truss. */
+function luciReparto(it){ return !!it && (lightsIsGear(it.type) || isHangStruct(it) || !!LIGHT_DESKS[it.type] || !!DIMMER_DEF[it.type]); }
+function luciBloccata(it){ return !!(lightsLayerUI && lightsLayerUI.lock && luciReparto(it)); }
+/* VISTA A UN TOCCO: Palco · Luci e truss · Tutto. È un modo di VEDERE e di prendere, non un dato: non si
+   salva nel progetto, non entra in PDF e PNG (sceneMarkup con espandi la ignora), si azzera a ogni
+   progetto. Compare solo se ci sono fari o strutture. */
+var vistaLivelli="tutto";
+function haLuciTruss(){ return (state.items||[]).some(function(x){ return lightsIsGear(x.type) || isHangStruct(x); }); }
+function vistaAttiva(){ return ((vistaLivelli==="palco" || vistaLivelli==="luci") && haLuciTruss()) ? vistaLivelli : "tutto"; }
+/* ruolo di un elemento nella vista: "" = normale e selezionabile · "bg" = sotto, sbiadito, non si prende ·
+   "hide" = nascosto · "rif" = riferimento tratteggiato, non si prende */
+function vistaRuolo(it){
+  var v=vistaAttiva(); if(v==="tutto" || !it) return "";
+  var lu=luciReparto(it);
+  if(v==="luci") return lu ? "" : (it.type==="miczone" ? "" : "bg");
+  return lu ? (isHangStruct(it) ? "rif" : "hide") : "";
+}
+/* Superficie piatta sopra cui si sta (forma, tappeto): nelle viste NUOVE si disegna sempre SOTTO a chi ci sta sopra,
+   qualunque sia l'ordine salvato (nel progetto di U02 una forma lilla 10×7 m copriva batteria e piano: il clic
+   prendeva la forma). In «Tutto» l'ordine resta quello salvato, come oggi. */
+function vistaSuperficie(it){ return !!it && (it.type==="forma" || it.type==="tappeto"); }
+function vistaSync(){
+  if(!haLuciTruss()) vistaLivelli="tutto";
+  var box=(typeof document!=="undefined") && document.getElementById ? document.getElementById("vlSel") : null;
+  if(!box) return;
+  var vis=haLuciTruss(), v=vistaAttiva();
+  box.hidden=!vis;
+  Array.prototype.forEach.call(box.querySelectorAll("button[data-vl]"), function(b){
+    var on=b.getAttribute("data-vl")===v; b.classList.toggle("on",on); b.setAttribute("aria-pressed", on?"true":"false"); });
+}
+function vistaImposta(v){
+  if(v!=="palco" && v!=="luci") v="tutto";
+  if(vistaLivelli===v) return;
+  vistaLivelli=v;
+  /* ciò che la nuova vista non fa prendere esce dalla selezione: niente maniglie a mezz'aria */
+  Object.keys(selSet||{}).forEach(function(id){ var it=(state.items||[]).find(function(x){ return x.id===id; }); if(it && vistaRuolo(it)) delete selSet[id]; });
+  var cur=(state.items||[]).find(function(x){ return x.id===sel; }); if(!cur || vistaRuolo(cur)) sel=Object.keys(selSet||{})[0]||null;
+  render();
+  if(typeof renderProps==="function") renderProps();
+}
+(function(){ var box=document.getElementById("vlSel"); if(!box) return;
+  box.addEventListener("click", function(e){ var b=e.target.closest ? e.target.closest("button[data-vl]") : null; if(!b) return; e.stopPropagation(); vistaImposta(b.getAttribute("data-vl")); });
+})();
+/* FARO LASCIATO SU UNA STRUTTURA = «appeso a T…» (lotto 1, 22/11). Solo sui NUOVI rilasci (fine trascinamento,
+   catalogo): un progetto già fatto non viene mai riscritto. Vale per un faro «a terra» lasciato dentro la
+   struttura o a non più di 30 cm dal suo bordo; oltre il bordo lo porta sopra la struttura, così hangSupportOf
+   (che cerca la struttura sotto il faro) lo trova. Un faro su stativo scelto a mano resta com'è. */
+var LUCE_AGGANCIO_CM=30;
+function luceAggancia(it){
+  if(!it || !isMountable(it) || mountModeOf(it)!=="floor") return null;
+  var best=null, bd=1e9;
+  (state.items||[]).forEach(function(s){
+    if(!isHangStruct(s) || s===it) return;
+    var rot=(s.rot||0)*Math.PI/180, cos=Math.cos(-rot), sin=Math.sin(-rot);
+    var dx=it.x-s.x, dy=it.y-s.y, lx=dx*cos-dy*sin, ly=dx*sin+dy*cos;
+    var ex=Math.max(Math.abs(lx)-s.w/2,0), ey=Math.max(Math.abs(ly)-s.d/2,0), d=Math.hypot(ex,ey);
+    if(d<=LUCE_AGGANCIO_CM && d<bd){ bd=d; best={s:s,lx:lx,ly:ly,cos:cos,sin:sin,rot:rot}; }
+  });
+  if(!best) return null;
+  var s=best.s, nx=Math.max(-s.w/2,Math.min(s.w/2,best.lx)), ny=Math.max(-s.d/2,Math.min(s.d/2,best.ly));
+  if(nx!==best.lx || ny!==best.ly){   /* fuori dal bordo ma entro 30 cm: sopra la struttura, nel suo asse */
+    var c=Math.cos(best.rot), sn=Math.sin(best.rot);
+    it.x=Math.round(s.x+nx*c-ny*sn); it.y=Math.round(s.y+nx*sn+ny*c);
+  }
+  var h=(rigOf(s) && rigOf(s).h) ? rigOf(s).h : MOUNT_H_DEF.hung;
+  mountSet(it, {mode:"hung", h:h});
+  return hangSupportOf(it) || s;
+}
+function luceAppesaNome(st){ var r=rigOf(st), n=r ? rigEtichetta(st).split(" · ")[0] : ""; return n || (st.label||"").trim() || TYPES[st.type].nome; }
+function luceAgganciaDopoRilascio(ids){
+  var its=(ids||[]).map(function(id){ return (state.items||[]).find(function(x){ return x.id===id; }); }).filter(Boolean);
+  if(its.some(isHangStruct)) return 0;   /* si muove anche la struttura: i fari restano dove stavano rispetto a lei */
+  var n=0, nome="";
+  its.forEach(function(it){ var st=luceAggancia(it); if(st){ n++; nome=luceAppesaNome(st); } });
+  if(n && typeof showToast==="function") showToast((n===1?"Faro appeso a ":n+" fari appesi a ")+nome, "ok");
+  return n;
+}
 function mountModeOf(it){
   var m=it && it.mount && it.mount.mode;
   return (m==="stand"||m==="hung") ? m : "floor";      /* default e migrazione: a terra, senza spostare niente */
@@ -14202,7 +14283,7 @@ function selHandlesMarkup(){
   /* stessa classe di reparto che il gruppo dell'elemento riceve in sceneMarkup: i lucchetti dei layer
      (body.mus-lock, body.cover-lock) valgono anche qui, altrimenti uscendo dal gruppo le maniglie
      resterebbero afferrabili su un reparto chiuso a chiave. */
-  var fam = it.type==="miczone" ? "mz-item" : musLayerItem(it.type) ? "mus-item" : isCover(it) ? "cover-item" : (t.riser ? "riser-item" : "st-item");
+  var fam = it.type==="miczone" ? "mz-item" : musLayerItem(it.type) ? "mus-item" : isCover(it) ? "cover-item" : (t.riser ? "riser-item" : (luciReparto(it) ? "st-item luci-item" : "st-item"));
   return '<g class="sel-handles '+fam+'" transform="translate('+it.x+' '+it.y+') rotate('+(it.rot||0)+')">'+s+'</g>';
 }
 /* L'elemento è davvero sul palco e manovrabile? Stesse esclusioni di sceneMarkup (rack, occhio del
@@ -14211,6 +14292,7 @@ function selHandlesMarkup(){
    stavano dentro il suo gruppo; ora che vivono in un layer proprio va detto qui. */
 function itemLiveOnStage(it){
   if(!it || it.rackId) return false;
+  if(vistaRuolo(it)) return false;
   if(isCover(it) && !coverLayerUI.vis && !soloOn("cover")) return false;
   if(it.type==="miczone" && !layerShown("miczone")) return false;
   if(anySolo()){ if(!itemInSoloLayer(it)) return false; }   /* sotto solo si lavora solo sul layer in solo: il resto è contesto (.solo-bg non si clicca; sotto «Solo pedane» si prende, ma prenderlo spegne la vista) */
@@ -20113,6 +20195,7 @@ function itemEyeShown(it){
      non spariscono»). Col Palco acceso l'OR del 21/07 lo rendeva muto: il tooltip diceva «Nascondi
      Musicisti nel disegno» e non nascondeva niente. A Palco spento l'occhio acceso li mostra ancora. */
   if(!musLayerUI.vis && musLayerItem(it.type)) return false;
+  if(!lightsLayerUI.vis && luciReparto(it)) return false;   /* anche l'occhio delle LUCI è un veto: fari e strutture spariscono davvero (lotto 1, 22/11) */
   if(stageLayerUI.vis) return true;   /* Palco = tutto */
   if(musLayerUI.vis && musLayerItem(it.type)) return true;
   var ids=["cabin","cabout","mond","elec"];
@@ -20199,6 +20282,8 @@ function noteDot(it){ return noteOf(it) ? '<tspan class="lbl-dot"> •</tspan>' 
    nella vista delle pedane prende le pedane, non chi ci sta sopra. I solo dei layer restano com'erano. */
 function itemPickable(it, opz){
   if(!it || it.rackId) return false;
+  if(luciBloccata(it)) return false;   /* lucchetto Luci: né clic né riquadro (lotto 1) */
+  if(vistaRuolo(it)) return false;     /* vista Palco/Luci: ciò che è sotto o solo di riferimento non si prende */
 
   if(isCover(it) && !coverLayerUI.vis && !soloOn("cover")) return false;
   if(anySolo() && !(opz && opz.esce && soloOn("pedane"))) return itemInSoloLayer(it);
@@ -20223,7 +20308,8 @@ function sceneMarkup(opts){
   var soloSplit = anySolo();
   /* itemEyeShown è ora una funzione di modulo (sopra): la stessa regola serve anche al marquee.
      Il perimetro del palco (layStage) non si spegne mai: è il foglio, non un layer. */
-  var items='', zones='', bgItems='', lbls='', bgLbls='';
+  var items='', zones='', bgItems='', lbls='', bgLbls='', vistaBg='', vistaBgL='', vistaBgS='', vistaSup='';
+  var _vistaSch=!(opts && opts.espandi);   /* PDF e PNG escono sempre con la vista «Tutto» */
   /* .42 e non .15 (SP-06, 06/09): a .15 il contesto era un fantasma, e «fuoco» finiva per somigliare
      a «isolamento» — cioè il bottone S non distingueva più niente da quello che faceva già il clic
      sulla riga. Misurato a video: a .42 le spie si leggono ancora, coi loro nomi, e restano
@@ -20246,6 +20332,8 @@ function sceneMarkup(opts){
     if(it.rackId){ var _rk=_racks[it.rackId]; if(_rk){ it.x=_rk.x; it.y=_rk.y; } return; }   /* nel rack: vive col rack, i cavi partono da lì; non disegnato né cliccabile */
     if(isCover(it) && !coverLayerUI.vis && !soloOn("cover")) return;   /* layer Coperture, occhio OFF: nascoste sul canvas (niente disegno né area-click) — restano in PDF/salvataggio */
     if(it.type==="miczone"){ zones += itemMarkup(it); return; }
+    var _vr=_vistaSch ? vistaRuolo(it) : "";
+    if(_vr==="hide") return;   /* vista «Palco»: i fari non si disegnano */
     var _dotId=techDotSoloId();
     _lblSink=[]; var m, _lbm;
     try{ m=(_dotId && itemInSoloLayer(it) && techDotItem(it, _dotId)) ? sectionDotMarkup(it) : itemMarkup(it);   /* layer tecnici: musicisti (audio) / carichi (power) → punti sezione */
@@ -20255,13 +20343,17 @@ function sceneMarkup(opts){
     if(musLayerItem(it.type)) m='<g class="mus-item"'+showAttr+'>'+m+'</g>';   /* classi per i lock (body.mus-lock ecc.) */
     else if(isCover(it)) m='<g class="cover-item">'+m+'</g>';
     else if(TYPES[it.type] && TYPES[it.type].riser) m='<g class="riser-item"'+showAttr+'>'+m+'</g>';   /* pedane: parte del palco, si toccano solo in modalità "Palco e pedane" */
-    else m='<g class="st-item"'+showAttr+'>'+m+'</g>';
+    else m='<g class="st-item'+(luciReparto(it) ? ' luci-item' : '')+(_vr==="rif" ? ' vista-rif' : '')+'"'+showAttr+'>'+m+'</g>';
+    if(_vr==="bg"){ if(vistaSuperficie(it)) vistaBgS += m; else vistaBg += m; vistaBgL += _lbm; return; }   /* vista «Luci»: il palco sta sotto, sbiadito e non si prende (la superficie più sotto di tutti) */
+    if(_vistaSch && !soloSplit && vistaSuperficie(it) && vistaAttiva()==="palco"){ vistaSup += m; lbls += _lbm; return; }   /* vista «Palco»: la forma sotto i musicisti */
     if(soloSplit && !itemInSoloLayer(it)){ if(layerSoloMode==="iso") return;   /* S = isolamento: il resto sparisce */
       if(_soloPed) pedCtx += m; else bgItems += m;
       bgLbls += _lbm; }
     else { if(pedCtx){ items += _pedCtxG(pedCtx); pedCtx=''; } items += m; lbls += _lbm; }
   });
   if(pedCtx) items += _pedCtxG(pedCtx);
+  if(vistaSup) items = vistaSup+items;
+  if(vistaBg || vistaBgS){ items = '<g class="vista-bg">'+vistaBgS+vistaBg+'</g>'+items; lbls = '<g class="vista-bg">'+vistaBgL+'</g>'+lbls; }
   if(soloSplit && bgItems) items = '<g class="solo-bg" style="opacity:'+_bgOp+'">'+bgItems+'</g>'+items;
   if(soloSplit && bgLbls) lbls = '<g class="solo-bg" style="opacity:'+_bgOp+'">'+bgLbls+'</g>'+lbls;
   /* vis dei layer meta INCORPORATA nel markup: render() è chiamato ovunque e un gruppo "nudo"
@@ -20271,7 +20363,7 @@ function sceneMarkup(opts){
   var _defs=sceneArtDefs(); _sceneArt=null;   /* i <defs> vanno PRIMA di chi li usa e la raccolta finisce qui */
   return _defs+
          '<g id="layVenue">'+venue+'</g>'+
-         '<g id="layStage"'+(soloPiantaPiena() && !(opts && opts.espandi) ? ' class="solo-pianta"' : '')+'>'+(_cust ? custSuperficieMarkup() : stageLayerMarkup())+'</g>'+   /* «Solo planimetria»: del palco resta il perimetro (src/styles.css) */
+         '<g id="layStage"'+(function(){ var c=[]; if(soloPiantaPiena() && _vistaSch) c.push("solo-pianta"); if(_vistaSch && vistaAttiva()==="luci") c.push("vista-bg-stage"); return c.length ? ' class="'+c.join(" ")+'"' : ''; })()+'>'+(_cust ? custSuperficieMarkup() : stageLayerMarkup())+'</g>'+   /* «Solo planimetria»: del palco resta il perimetro (src/styles.css) */
          '<g id="layMicZones"'+mzAttr+'>'+zones+'</g>'+
          '<g id="layItems">'+items+'</g>'+
          '<g id="layLbl" style="pointer-events:none">'+lbls+'</g>'+   /* i nomi sopra tutti gli elementi (revisione 25/09); trasparenti ai clic */
@@ -20494,7 +20586,7 @@ function syncItemLbl(it){
 function lblShowAttr(it){ return isCover(it) ? '' : ((soloMostra(it) || itemEyeShown(it)) ? '' : ' display="none"'); }
 function render(){
   soloPedaneAuto();   /* «Solo pedane» si accende da solo quando la mano seleziona sole pedane (29/09) */
-  pruneSolo();   /* niente solo fantasma su layer disattivati */
+  pruneSolo(); vistaSync();   /* niente solo fantasma; vista a un tocco */
   try{ scaleAdegua(); }catch(_e){}   /* la lunghezza della scala segue i gradini (13/11) */
   diSyncAll();   /* gli accessori legati (DI) seguono il loro strumento: posizione da offset locale + rotazione */
   if(typeof renderStatusUI==="function") renderStatusUI();   /* T5: badge/stato in header (chiamato dopo il full-load → PROJECT_STATUSES definito) */
@@ -25420,6 +25512,8 @@ function addItem(type, over, silenzioso){   /* silenzioso (06/10/2026): crea e m
   try{ if(typeof diUsesBox==="function" && diUsesBox(it)) diApply(it, {quiet:true}); }catch(_e){}
   if(silenzioso) return it;
   if(type==="dimono" && !(over && over.diFor)){ try{ diAgganciaAllaPosa(it); }catch(_e){} }   /* DI posata a mano accanto a uno strumento senza DI: se è l'unico, la lega (19/10/2026) */
+  if(over && over.x!=null){ var _st=luceAggancia(it); if(_st && typeof showToast==="function") showToast("Faro appeso a "+luceAppesaNome(_st), "ok"); }   /* posato (drag-drop) su una struttura */
+  if(vistaAttiva()!=="tutto" && vistaRuolo(it)) vistaLivelli="tutto";   /* l'elemento nuovo non si vedrebbe/prenderebbe in questa vista: si torna a «Tutto» */
   selectOne(it.id); render(); save(); ensureVisible();
   /* Layer v2 (21/07): CABLAGGIO AUTOMATICO — appena sul palco ci sono stage box e sorgenti, il
      cablaggio si collega da solo (niente bottoni, niente gesti da scoprire). Solo sugli inserimenti
@@ -27186,6 +27280,7 @@ svg.addEventListener("pointerup", function(e){
   if(drag && drag.mode==="item" && drag.moved){
     if(e.shiftKey && selIds().length===1) cabTryInsertAt(svgPoint(e), getSel());   /* Shift al rilascio sopra un cavo = inserisci nel percorso (stile Max) */
     (state.items||[]).forEach(function(x){ if(x.diFor && selSet[x.id]) diSaveOff(x); });   /* DI trascinata a mano: da ora sta li', anche quando lo strumento si sposta */
+    luceAgganciaDopoRilascio(selIds());   /* faro lasciato su una truss/americana: «appeso a T…» (solo nuovi rilasci) */
     renderSnapGuides([]); render(); save(); ensureVisible(); }
   else if(drag && drag.mode==="marquee"){
     var r=drag.rect;
@@ -31610,7 +31705,8 @@ function layerRegistry(){
        un rider muto su metà dello spettacolo, e l'invito è l'unico modo di dirlo senza urlare. */
     { id:"luci", name:"Luci", color:LAYER_COLORS.luci,
       active:true,
-      engineOn:!!(state.lights && state.lights.rows && state.lights.rows.length),
+      /* la riga c'è e comanda il disegno anche senza «attiva» se ci sono fari disegnati (lotto 1, 22/11) */
+      engineOn:!!(state.lights && state.lights.rows && state.lights.rows.length) || fariDisegnati()>0,
       activate:function(){ lightsActivate(); },
       visible:lightsLayerUI.vis, setVisible:function(v){ lightsLayerUI.vis=v; render(); },
       lockable:true, locked:lightsLayerUI.lock,
@@ -31798,7 +31894,7 @@ function layerFgItem(id, it){
     case "elec":   return !!(it.type==="corrente" || elecIsDistro(it) || elecIsGen(it) || wattOf(it)>0);
     case "mus":    return musLayerItem(it.type);   /* layer Musicisti: persone + strumenti suonati */
     case "cover":  return isCover(it);                 /* layer Coperture: gazebo/tende/copertura palco */
-    case "luci":   return lightsIsGear(it.type) || it.type==="americana" || !!LIGHT_DESKS[it.type] || !!DIMMER_DEF[it.type];   /* la vista Luci mostra anche struttura e regia: chi monta le vuole tutte insieme */
+    case "luci":   return luciReparto(it);   /* la vista Luci mostra anche struttura e regia: chi monta le vuole tutte insieme */
     /* Il SOLO del Palco mostra il palco e le pedane, non tutto (16/09, Simone: «lista palco in solo deve
        mostrare solo palco e pedane»). Prima era true — «Palco = tutto» — e il solo non isolava niente.
        L'occhio del Palco resta la vista d'insieme (itemEyeShown non passa di qui). */
@@ -31954,7 +32050,8 @@ function aggiornaAgganciaPedane(){
 })();
 /* Cosa è «palco e pedane»: le pedane (anche coro e riser) e ciò che fa la superficie e i suoi bordi.
    Non sedie, leggii, sgabelli, musicisti, strumenti, tecnica, forme e testi. */
-var PALCO_STRUTTURA = {tappeto:1, scala:1, rampa:1, parapetto:1, fondale:1, quinta:1, truss:1, transenna:1, catwalk:1};
+/* le truss NON sono più qui (lotto 1, 22/11): sono strutture del reparto Luci, come le americane (luciReparto) */
+var PALCO_STRUTTURA = {tappeto:1, scala:1, rampa:1, parapetto:1, fondale:1, quinta:1, transenna:1, catwalk:1};
 function palcoStruttura(it){ return !!(it && (isRiser(it) || PALCO_STRUTTURA[it.type])); }
 function itemInSoloLayer(it){
   for(var id in layerSoloUI){ if(layerSoloUI[id] && layerFgItem(id, it)) return true; }
@@ -31976,6 +32073,7 @@ function pruneSolo(){
               elec:!!(state.elec&&state.elec.on),
               miczone:(state.items||[]).some(function(x){return x.type==="miczone";}),
               mus:(state.items||[]).some(function(x){return musLayerItem(x.type);}),
+              luci:(state.items||[]).some(luciReparto),   /* S e fuoco della riga Luci non si annullano più al primo ridisegno (lotto 1, 22/11) */
               cover:(state.items||[]).some(isCover),
               venue:!!(state.venue&&state.venue._dataUrl) && (!soloPiantaPannello || pannelloPiantaAperto()),   /* accesa dal pannello: vive col pannello (vedi soloPlanimetria) */
               stage:true,
@@ -31986,7 +32084,8 @@ function pruneSolo(){
 function resetMetaLayersUI(){ stageLayerUI={vis:true,op:100,lock:false}; micLayerUI={vis:true,op:100,lock:false};
   musLayerUI={vis:true,op:100,lock:false};
   layerSoloUI={};
-  document.body.classList.remove("stage-lock","miczone-lock","mus-lock"); }
+  lightsLayerUI={vis:true, op:100, lock:false}; vistaLivelli="tutto";   /* occhio/lucchetto Luci e vista a un tocco: stato della pagina, tornano di serie con un progetto nuovo */
+  document.body.classList.remove("stage-lock","miczone-lock","mus-lock","luci-lock"); }
 var layerOpen=true;
 var selLayer=null;   /* id del layer la cui riga e' "aperta" (mostra lo slider opacita'). Clic sulla riga fa toggle. */
 /* Riga UNICA con tutto inline (richiesta Simone): dot + nome + slider opacita' + occhio + lucchetto +
@@ -32047,7 +32146,7 @@ function layerSummary(L){
     if(L.id==="miczone"){ var z=(state.items||[]).filter(function(x){ return x.type==="miczone"; }).length; return z?String(z):""; }
     if(L.id==="cover"){ var cv=(state.items||[]).filter(isCover).length; return cv?String(cv):""; }
     /* Luci: il numero che il tecnico cerca è quanti APPARECCHI gli stai chiedendo, non quante righe */
-    if(L.id==="luci"){ var lw=((state.lights&&state.lights.rows)||[]).reduce(function(a,r){ return a+(r.n||0); },0); return lw?String(lw):""; }
+    if(L.id==="luci"){ var lw=((state.lights&&state.lights.rows)||[]).reduce(function(a,r){ return a+(r.n||0); },0); if(!lw) lw=fariDisegnati(); return lw?String(lw):""; }
   }catch(e){}
   return "";
 }
@@ -32306,6 +32405,7 @@ function renderStatoRider(rows){
    proprio nel dato che il tecnico viene a leggere. Qui la quantità sta a sinistra, la
    funzione sopra per intero, apparecchio e posizione sotto in secondaria. */
 function lightsRows(){ return (state.lights && state.lights.rows) || []; }
+function fariDisegnati(){ return (state.items||[]).filter(function(x){ return lightsIsGear(x.type); }).length; }
 function lightsActivate(){
   if(!state.lights) state.lights={rows:[],blackout:null,mood:""};
   if(!state.lights.rows.length){
@@ -32341,7 +32441,11 @@ function renderLightsList(){
   if(no) no.setAttribute("aria-pressed", L.blackout===false ? "true" : "false");
   var host=document.getElementById("lightsRows"); if(!host) return;
   var rows=lightsRows();
-  if(!rows.length){ host.innerHTML='<div class="lights-empty">Nessuna richiesta luci.</div>'; return; }
+  if(!rows.length){
+    var _nd=fariDisegnati();
+    host.innerHTML='<div class="lights-empty">Nessuna richiesta luci.'+(_nd?' <button type="button" class="adv-btn" id="lightsDaDisegnati">Crea la lista dai '+_nd+' apparecchi disegnati</button>':'')+'</div>';
+    var _bd=document.getElementById("lightsDaDisegnati"); if(_bd) _bd.addEventListener("click", function(e){ e.stopPropagation(); lightsActivate(); });
+    return; }
   var alive={}; (state.items||[]).forEach(function(it){ alive[it.id]=1; });
   host.innerHTML='<div class="lights-list">'+rows.map(function(r){
     var shown=(r.items||[]).filter(function(id){ return alive[id]; }).length;
