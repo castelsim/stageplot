@@ -167,6 +167,13 @@
     </select>
     <span class="snapchev" aria-hidden="true">▾</span>
   </span>
+  <span class="snapwrap unitwrap" id="docLangWrap" title="Lingua del documento · Document language: nomi sul palco e PDF (si salva col progetto)">
+    <select id="docLangSel" aria-label="Lingua del documento · Document language">
+      <option value="it">Doc IT</option>
+      <option value="en">Doc EN</option>
+    </select>
+    <span class="snapchev" aria-hidden="true">▾</span>
+  </span>
   <span class="snapwrap" title="Aggancio: come si posizionano gli elementi quando li sposti — su una griglia regolare o liberi">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
     <select id="snapSel" aria-label="Aggancio alla griglia">
@@ -255,6 +262,8 @@
 <div id="venueCalibBanner" hidden></div>
 <div id="vistaBanner" hidden></div>
 <!-- Vista a un tocco (lotto 1 Luci, 22/11): compare solo se il progetto ha fari o strutture. Stato della pagina, mai nel progetto. -->
+<!-- Avviso piccolo (22/11, L1 i18n): il documento non è in italiano, quindi il palco mostra i nomi come usciranno nei PDF. Stato del progetto, mai scritto nel disegno. -->
+<div class="doc-chip" id="docChip" role="status" hidden title="Il disegno mostra i nomi come usciranno nei PDF · The drawing shows names as they will print"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.8 3 2.8 15 0 18M12 3c-2.8 3-2.8 15 0 18"/></svg><span id="docChipTxt">Documento in English</span></div>
 <div class="vl-sel" id="vlSel" role="group" aria-label="Vista del disegno" hidden>
   <button type="button" data-vl="palco" aria-pressed="false" title="Palco: i fari spariscono, le truss restano tratteggiate di riferimento">Palco</button>
   <button type="button" data-vl="luci" aria-pressed="false" title="Luci e truss: il palco sta sotto, sbiadito, e non si prende"><span class="vl-lg">Luci e truss</span><span class="vl-sm">Luci</span></button>
@@ -1818,6 +1827,7 @@
   <div class="sh">Palco</div>
   <div class="mlist">
     <button class="mrow" data-act="palco"><span class="mrow-t">Misure e forma</span><span class="mrow-v" id="mMenuStage"></span></button>
+    <div class="mrow mrow-var" id="mDocLangRow"><span class="mrow-t">Lingua del documento<small class="mrow-s">Document language</small></span><select id="docLangSelM" aria-label="Lingua del documento · Document language"><option value="it">Italiano</option><option value="en">English</option></select></div>
     <div class="mrow mrow-var" id="mUnitRow"><span class="mrow-t">Unità delle misure</span><select id="unitSelM" aria-label="Unità delle misure"><option value="m">metri</option><option value="ft">piedi e pollici</option><option value="both">m + ft-in</option></select></div>
     <div class="mrow mrow-col">
       <span class="mrow-t" id="mSnapLbl">Aggancio alla griglia</span>
@@ -2585,7 +2595,7 @@
           <select id="pdfPedMis"><option value="full" selected>Misura intera (come sempre)</option><option value="h">Solo altezza</option><option value="none">Nessuna</option></select></div>
         <!-- DOCUMENTO PER L'ESTERO (17/11/2026): due scelte del progetto, salvate nel progetto e uguali in tutte le scene. Di serie Italiano e metri. -->
         <div id="pdfDocLinguaRow"><label for="pdfDocLingua">Lingua del documento <small class="lbl-note">— tutto ciò che esce nei PDF, anche il palco per esterni</small></label>
-          <select id="pdfDocLingua"><option value="it" selected>Italiano</option><option value="en">English</option></select></div>
+          <select id="pdfDocLingua"><option value="" selected>Come l'app · Italiano</option><option value="it">Italiano</option><option value="en">English</option></select></div>
         <div id="pdfDocUnitaRow"><label for="pdfDocUnita">Unità delle misure <small class="lbl-note">— quote, griglia, pedane, palco, cavi</small></label>
           <select id="pdfDocUnita"><option value="m" selected>metri (m)</option><option value="ft">piedi e pollici (ft-in)</option><option value="both">entrambe: m (ft-in)</option></select></div>
         <div class="hdr-saved" id="pdfDocUnitaHint" hidden>Per una squadra americana di solito servono piedi e pollici. <button type="button" class="btn" id="pdfDocUnitaFt">Usa ft-in</button></div>
@@ -4132,7 +4142,7 @@ var TYPES = {
                return bar(0,0,it.w,it.d,'ic fBlack',2)+
                '<path class="ic thin" fill="none" d="M '+(-it.w/2+16)+',0 C '+(-it.w/2+60)+',-10 '+(-it.w/2+100)+',10 '+(-it.w/2+144)+',0" />'+
                '<text class="lbl sub" y="28">BACKDROP</text>'; }},
-  quinta:   {nome:"Quinta", dim:"laterale 120×20", cat:"Palco e strutture", w:120,d:20, resizable:true, z:1,
+  quinta:   {nome:"Quinta", dim:"laterale 120×20", cat:"Palco e strutture", qaPrimo:"leg", w:120,d:20, resizable:true, z:1,
              draw:function(it){ var tt=tintaOf(it,"quinta");
                if(tt!=="nero") return bar(0,0,it.w,it.d,'ic tt-'+tt,2)+lin(-it.w/2+12,0,it.w/2-12,0,'ic thin tt-piega-'+tt);
                return bar(0,0,it.w,it.d,'ic fBlack',2)+lin(-it.w/2+12,0,it.w/2-12,0,'sil'); }},
@@ -10739,7 +10749,7 @@ function normalizeState(s){
   s.pdfHeader = (typeof s.pdfHeader==="string") ? s.pdfHeader.slice(0,120) : "";   /* riferimento nel cartiglio (export), persistente */
   if(s.sonorizzazione!=="acustico" && s.sonorizzazione!=="misto") delete s.sonorizzazione;   /* sonorizzazione (12/11): assente = amplificato, com'è sempre stato; esiste solo se scelta */
   if(s.orari && typeof s.orari==="object"){ var _or=orariNorm(s.orari); if(Object.keys(_or).length) s.orari=_or; else delete s.orari; } else delete s.orari;   /* orari (12/11): solo voci valide, «HH:MM»; assente se vuoto */
-  if(s.docLang!=="en") delete s.docLang;   /* lingua del documento (17/11/2026): solo "en" esiste, assente = italiano */
+  if(s.docLang!=="en" && s.docLang!=="it") delete s.docLang;   /* lingua del documento (17/11/2026): "en"; dal 22/11 anche "it" esplicito; assente = come l'app (oggi italiano) */
   if(s.docUnits!=="ft" && s.docUnits!=="both") delete s.docUnits;   /* unità del documento (17/11/2026): "ft" o "both", assente = metri */
   if(s.latiTeatro!==true) delete s.latiTeatro;   /* giardino e corte: spenti di serie, solo un true esplicito li accende (12/11/2026) */
   if(s.pdfOrganico!==true) delete s.pdfOrganico;   /* «Organico: N + M» nel cartiglio (13/11): solo un true esplicito la accende */
@@ -21671,7 +21681,7 @@ function render(){
   svg.innerHTML = viewRot ? '<g id="vrot" transform="rotate(-90)">'+_scena+'</g>' : _scena;
   reindexItemNodes();
   aderisciSelezione(); for(var _fk in _selFit){ redrawSelHandles(); break; }   /* il riquadro sul disegno vero, e la maniglia sul riquadro (solo se c'è qualcosa di misurato) */
-  if(window.__unitaUi!==docUnita()){ window.__unitaUi=docUnita(); try{ docEsteroSincronizza(); }catch(_e){} }   /* l'unità cambia anche aprendo un progetto, con Annulla/Ripeti o cambiando scena: interruttore, aggancio e catalogo la seguono (rilettura #170) */
+  if(window.__unitaUi!==docUnita()){ window.__unitaUi=docUnita(); try{ docEsteroSincronizza(); }catch(_e){} }   /* l'unità cambia anche aprendo un progetto, con Annulla/Ripeti o cambiando scena: interruttori, avviso, aggancio e catalogo la seguono (rilettura #170) */   if(window.__docLinguaUi!==docLinguaScelta()){ window.__docLinguaUi=docLinguaScelta(); try{ docEsteroSincronizza(); }catch(_e){} }   /* 22/11 (L1 i18n): la lingua del documento come l'unità: aprendo un progetto, Annulla/Ripeti, cambio scena aggiornano selettori e avviso */
   renderProps();
   if(window.__catCustomAggiorna) window.__catCustomAggiorna();   /* «Elementi di questo progetto»: si rifà solo se i modelli sono cambiati */
   renderAccessoriCount();
@@ -24063,6 +24073,12 @@ function unitaCambia(v){
   save(); render(); try{ if(typeof renderProps==="function") renderProps(); }catch(_e){}
   docEsteroSincronizza();
 }
+/* UN solo punto che cambia la lingua del documento: barra in alto, Menu del telefono ed Esporta. Scrive nel progetto e ridisegna il palco (anteprima del PDF). */
+function docLinguaCambia(v){
+  docLinguaImposta(v);
+  save(); render(); try{ if(typeof renderProps==="function") renderProps(); }catch(_e){}
+  docEsteroSincronizza();
+}
 function syncSnapSelects(){
   snapOpzioniScrivi();
   if(!snapOpzioni().some(function(x){ return x[0]===snapMode; })) snapMode=snapPerUnita(snapMode, docUnita()==="ft");   /* aggancio in piedi su un progetto in metri (o il contrario): il passo più vicino, senza riscrivere il documento */
@@ -24080,6 +24096,7 @@ function syncSnapSelects(){
   if(b) b.addEventListener("change", function(){ snapImposta(this.value); });
   if(m) m.addEventListener("click", function(e){ var x=e.target && e.target.closest ? e.target.closest("[data-snap]") : null; if(x) snapImposta(x.getAttribute("data-snap")); });   /* i bottoni si rifanno al cambio di unità: ascolto sul contenitore */
   ["unitSel","unitSelM"].forEach(function(id){ var u=document.getElementById(id); if(u) u.addEventListener("change", function(){ unitaCambia(this.value); }); });
+  ["docLangSel","docLangSelM"].forEach(function(id){ var u=document.getElementById(id); if(u) u.addEventListener("change", function(){ docLinguaCambia(this.value); }); });   /* lingua del documento: stesso punto della barra, del Menu e di Esporta (22/11, L1) */
   syncSnapSelects();
 })();
 /* bottone "Nomi" globale rimosso: sostituito dal controllo nome per-elemento (labelMode full/abbr/hidden nel pannello dettagli). Il LOD auto (nascondi a scala minima) resta attivo di default via state.namesMode='auto'. */
@@ -26180,6 +26197,7 @@ function ricordaRecenteCatalogo(k, nome, over){
   function indicizza(e){   /* anche per le voci che arrivano dopo (gli elementi di questo progetto) */
     var t=e.k?TYPES[e.k]:null;
     var strong=[e.nome, e.dim, e.kw, e.k, t&&t.nome, t&&t.alias];   /* come l'utente chiama l'elemento */
+    e._en=_deacc(qaEnNome(e.k));   /* il nome inglese (stessa fonte del documento) sta FUORI dall'indice a sottostringa: conta solo a inizio parola e in qaEnRank, così «bs» non trova «Site oBStacle» (D, 22/11) */
     var weak=[t&&t.cat, t&&t.sub, e.k&&subOf(e.k)];                 /* dove sta nel catalogo */
     e._nname=_deacc(e.nome);
     e._kwStrong=_deacc(strong.filter(Boolean).join(" "));
@@ -26243,7 +26261,7 @@ function ricordaRecenteCatalogo(k, nome, over){
   function searchMatches(query){
     var nq=_deacc(String(query||"").trim());
     if(!nq) return [];
-    var m=entries.filter(function(e){ return e._kw.indexOf(nq)>-1 && !(e.custNo && custEditorAttivo()) && !(e.custIngresso && !custIngressiAttivi()); });   /* substring su nome+categoria+alias; ogni entry una sola volta → nessun duplicato */
+    var m=entries.filter(function(e){ return (e._kw.indexOf(nq)>-1 || qaWordStart(e._en, nq)) && !(e.custNo && custEditorAttivo()) && !(e.custIngresso && !custIngressiAttivi()); });   /* substring su nome+categoria+alias; ogni entry una sola volta → nessun duplicato */
     /* STESSO ordinamento della finestrella del doppio clic (qaSearch): nome che inizia con la query →
        query a inizio parola nel nome → a inizio parola in un campo forte → a metà parola → sola
        categoria. Prima la barra guardava solo "il nome contiene la query", e cercando "kb" (tastiere)
@@ -26256,6 +26274,7 @@ function ricordaRecenteCatalogo(k, nome, over){
          della finestrella del doppio clic, e invece una query ceduta là continuava a essere vinta
          qui. Si vedeva su «monitor»: nel quick-add usciva il wedge, nella barra l'Hub monitoraggio
          (11/08). Due copie della stessa regola divergono sempre: ora la seconda copia c'è. */
+      e._rank=qaEnRank(e._en, nq, e._rank);
       if(qaHaParola(e._cede,nq)) e._rank=6;
       if(qaHaParola(e._secondo,nq)) e._rank=-0.5;
       if(qaHaParola(e._primo,nq)) e._rank=-1;
@@ -26263,7 +26282,7 @@ function ricordaRecenteCatalogo(k, nome, over){
     m.sort(function(a,b){ return (a._rank-b._rank) || a._nname.localeCompare(b._nname); });
     if(!m.length){   /* niente di esatto: per somiglianza (refusi), ma solo fra le voci che la ricerca esatta avrebbe potuto dare */
       var cand=entries.filter(function(e){ return !(e.custNo && custEditorAttivo()) && !(e.custIngresso && !custIngressiAttivi()); });
-      var sim=ricercaPerSomiglianza(nq, cand.map(function(e){ return e._kw; }), cand.map(function(e){ return e._nname; }));
+      var sim=ricercaPerSomiglianza(nq, cand.map(function(e){ return e._kw+" "+e._en; }), cand.map(function(e){ return e._nname; }));
       m=sim.slice(0,12).map(function(i){ return cand[i]; });
       m.simili=m.length>0; m.tipo=m.length ? sim.tipo : "";   /* parole · refuso · parziale (vedi ricercaPerSomiglianza) */
     }
@@ -26654,7 +26673,7 @@ function closeQuickAdd(){ var b=document.getElementById("quickAdd"); if(b) b.rem
    chiave tecnica, alias: l'utente sta nominando proprio quell'elemento). Con un indice unico
    "stagebox" perdeva gli Stage box 8/16/24 — nome con lo spazio, quindi pari merito con tutti i
    vicini di sottocategoria e fuori dai primi 8. */
-var _qaOpts=null, _qaName=null, _qaStrong=null, _qaAll=null, _qaCede=null, _qaPrimo=null, _qaSecondo=null, _qaSrc=false;
+var _qaOpts=null, _qaName=null, _qaStrong=null, _qaAll=null, _qaEn=null, _qaCede=null, _qaPrimo=null, _qaSecondo=null, _qaSrc=false;
 /* `qaCede` e `qaPrimo` stanno sul tipo o sulla singola voce di catalogo (uno sgabello ha cinque voci,
    una sola cede «voce»). `qaPrimo` è il contrario di `qaCede`: la query esatta che l'elemento PRENDE
    davanti a tutti (rango -1), per quando il nome giusto perde col tie-break alfabetico. */
@@ -26670,17 +26689,27 @@ function qaHaParola(lista,q){
   return (" "+lista+" ").indexOf(" "+q+" ")>-1;
 }
 function qaCat(e){ return (e.k && TYPES[e.k] && TYPES[e.k].cat) || e.qaCat || (e.dim||""); }
+/* Nome INGLESE del tipo, dalla stessa fonte del documento in English (DOC_EN_TIPI, «una modifica sola»): «double bass»,
+   «bassoon», «lighting truss», «stairs» trovano l'elemento anche senza un alias scritto a mano (22/11/2026, L1 internazionalizzazione).
+   Solo il NOME esteso: le sigle dell'etichetta («Bsn», «Cb», «MIX») sarebbero sottostringhe di mezzo catalogo («bs» deve dare il basso). */
+function qaEnNome(k){ var en=(k && typeof DOC_EN_TIPI!=="undefined") ? DOC_EN_TIPI[k] : null; return (en && en.nome) || ""; }
+/* il nome inglese nel rango: UGUALE alla query → davanti a chi ha solo l'alias («keyboard» = la Tastiera, non l'ampli); altrimenti, se comincia una parola, come «a inizio parola in un campo forte» (2: ciò che faceva prima, quando stava nell'indice forte); mai a metà parola («bs» ≠ «Site oBStacle»). Non lo si porta più su: «basso» è una parola italiana e non deve tirare avanti «Bassoon». */
+function qaEnRank(en, q, r){
+  if(!en || !qaWordStart(en, q)) return r;
+  return en===q ? Math.min(r, -0.25) : Math.min(r, 2);
+}
 function qaIndex(){
   var src=(window.__catEntries && window.__catEntries.length) ? window.__catEntries : null;
   if(_qaOpts && _qaSrc===src) return;   /* cache: l'indice del catalogo si costruisce una volta sola */
   _qaSrc=src;
   _qaOpts=(src || Object.keys(TYPES).filter(function(t){ return TYPES[t].catalog!==false; }).map(function(t){ return {k:t, nome:TYPES[t].nome}; }))
     .filter(function(e){ return !e.noQuick; });   /* #15: la ricerca rapida suggerisce solo ELEMENTI, non le liste/azioni (e gli elementi di questo progetto) */
-  _qaName=[]; _qaStrong=[]; _qaAll=[]; _qaCede=[]; _qaPrimo=[]; _qaSecondo=[];
+  _qaName=[]; _qaStrong=[]; _qaAll=[]; _qaEn=[]; _qaCede=[]; _qaPrimo=[]; _qaSecondo=[];
   _qaOpts.forEach(function(e){
     var t=e.k?TYPES[e.k]:null;
     var nome=_deacc(e.nome||"");
     var strong=[nome, e.dim, e.kw, e.k, t&&t.nome, t&&t.alias];      /* come l'utente chiama l'elemento */
+    _qaEn.push(_deacc(qaEnNome(e.k)));   /* il nome inglese: solo a inizio parola (vedi qaEnRank) */
     var weak=[t&&t.cat, t&&t.sub, e.k&&subOf(e.k)];                  /* dove sta nel catalogo */
     _qaName.push(nome);
     _qaStrong.push(_deacc(strong.filter(Boolean).join(" ")));
@@ -26706,7 +26735,7 @@ function qaSearch(q){
   function catW(e){ return /Sicurezza|Palco|Luci|Video|Dispositivi|Site|Rigging/i.test(qaCat(e))?1:0; }
   var hit=[];
   for(var i=0;i<_qaOpts.length;i++){
-    if(_qaAll[i].indexOf(q)===-1) continue;
+    if(_qaAll[i].indexOf(q)===-1 && !qaWordStart(_qaEn[i], q)) continue;
     if(_qaOpts[i].custNo && custEditorAttivo()) continue;   /* dentro l'editor non si posa un elemento del progetto */
     var n=_qaName[i], s=_qaStrong[i], r;
     if(n.indexOf(q)===0) r=0;
@@ -26715,6 +26744,7 @@ function qaSearch(q){
     else if(n.indexOf(q)>-1) r=3;
     else if(s.indexOf(q)>-1) r=4;
     else r=5;
+    r=qaEnRank(_qaEn[i], q, r);
     /* `qaCede`: query che l'elemento LASCIA a chi le aveva già, anche se per nome vincerebbe.
        Serve quando un nome nuovo copre per intero una query storica altrui: "flex" era del LED
        flessibile prima che esistesse il Flexaton. Va in CODA (6, dietro anche a chi matcha solo
@@ -26729,7 +26759,7 @@ function qaSearch(q){
   hit.sort(function(a,b){ return (a.r-b.r) || (catW(a.e)-catW(b.e)) || a.n.localeCompare(b.n); });
   if(!hit.length){   /* niente di esatto: per somiglianza (refusi), come nella barra del catalogo */
     var ok=[]; for(var k=0;k<_qaOpts.length;k++) if(!(_qaOpts[k].custNo && custEditorAttivo())) ok.push(k);
-    return ricercaPerSomiglianza(q, ok.map(function(k){ return _qaAll[k]; }), ok.map(function(k){ return _qaName[k]; })).slice(0,8).map(function(i){ return _qaOpts[ok[i]]; });
+    return ricercaPerSomiglianza(q, ok.map(function(k){ return _qaAll[k]+" "+_qaEn[k]; }), ok.map(function(k){ return _qaName[k]; })).slice(0,8).map(function(i){ return _qaOpts[ok[i]]; });
   }
   return hit.slice(0,8).map(function(x){ return x.e; });
 }
@@ -38405,9 +38435,11 @@ function statoDocImposta(v){
   saveSoon();
 }
 /* aggiunge «-Definitivo» al nome di un file che non lo porta già (i nomi con versione lo scrivono da sé) */
-function nomeConStato(name, sep){
+function nomeConStato(name, sep){ return docNomeFile(nomeConStatoIt(name, sep)); }   /* in English il nome esce inglese (docNomeFile, 22/11); lo stato si riconosce in entrambe le lingue, così passarci due volte non lo raddoppia */
+function nomeConStatoIt(name, sep){
   var e=statoDocEtichetta(); if(!e) return name;
-  if(String(name).toLowerCase().indexOf(e.toLowerCase())>=0) return name;
+  var _n=String(name).toLowerCase();
+  if(_n.indexOf(e.toLowerCase())>=0 || (docEn() && new RegExp("\\b"+(e==="Definitivo" ? "final" : "preliminary")+"\\b").test(_n))) return name;   /* «final/preliminary» conta come stato già scritto SOLO in English (D1, 22/11): in italiano un titolo «Grand Final Gala» deve avere comunque il suo «-definitivo» */
   var m=/(\.[a-z0-9]+)$/i.exec(name), ext=m?m[1]:"", base=m?name.slice(0,-ext.length):name;
   return base+(sep||"-")+(sep===" - "?e:e.toLowerCase())+ext;
 }
@@ -38431,7 +38463,7 @@ function pdfNomeFileTesto(){
       var p=document.getElementById("pdfPaper"), h=document.getElementById("pdfHeader");
       if(p && p.value){
         var sc=pdfScaleValue(), hv=h?h.value:"", o=pdfOrientValue(p.value, sc, hv), N=resolveScale(p.value, sc, o, cartHFor(hv, p.value, o));
-        if(N) return nomeFilePdf(p.value, N, o);
+        if(N) return docNomeFile(nomeFilePdf(p.value, N, o));   /* la promessa è il nome che esce davvero (inglese se il documento lo è) */
       }
     }
   }catch(_e){}
@@ -43729,7 +43761,9 @@ function renderDiffVersioni(){
 /* lingua e unità del documento (17/11/2026): il menu scrive nel progetto; English PROPONE i piedi, non li impone */
 function docEsteroSincronizza(){
   var l=document.getElementById("pdfDocLingua"), u=document.getElementById("pdfDocUnita"), h=document.getElementById("pdfDocUnitaHint");
-  if(l) l.value=docLingua(); if(u) u.value=docUnita();
+  if(l) l.value=docLinguaScelta(); if(u) u.value=docUnita();   /* Esporta: «come l'app» (assente) / Italiano / English */
+  ["docLangSel","docLangSelM"].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=docLingua(); });   /* barra in alto e Menu del telefono */
+  var _ch=document.getElementById("docChip"); if(_ch) _ch.hidden=!docEn();   /* avviso sul palco: solo se il documento non è italiano */
   ["unitSel","unitSelM"].forEach(function(id){ var e=document.getElementById(id); if(e) e.value=docUnita(); });   /* barra in alto e Menu del telefono */
   try{ syncSnapSelects(); }catch(_e){}   /* le voci dell'aggancio seguono l'unità */
   try{ catalogoUnita(); }catch(_e){}   /* e i sottotitoli del catalogo */
@@ -44972,9 +45006,9 @@ function pdfChannelPage(doc, L, paperKey){
   }
   /* «Pesi (kg)»: spenta di serie, si salva nel progetto (vedi pdfPesiOn) */
   /* lingua e unità del documento (17/11/2026): si salvano nel progetto (CAMPI_DOCUMENTO, tutte le scene) e l'anteprima si rifà */
-  var docEsteroCambiato=function(){ save(); render(); try{ if(typeof renderProps==="function") renderProps(); }catch(_e){} docEsteroSincronizza(); refresh(); };
+  var docEsteroCambiato=function(){ save(); render(); try{ if(typeof renderProps==="function") renderProps(); }catch(_e){} docEsteroSincronizza(); refresh(); };   /* Esporta ha il suo menu a tre voci («Come l'app» / Italiano / English): scrive con docLinguaImposta e passa da qui; barra e Menu del telefono passano da docLinguaCambia (stesso effetto) */
   var _dl=document.getElementById("pdfDocLingua"), _du=document.getElementById("pdfDocUnita"), _dft=document.getElementById("pdfDocUnitaFt");
-  if(_dl) _dl.addEventListener("change", function(){ docLinguaImposta(_dl.value); docEsteroCambiato(); });
+  if(_dl) _dl.addEventListener("change", function(){ docLinguaImposta(_dl.value); docEsteroCambiato(); });   /* "" = come l'app (campo assente), "it" esplicito, "en" */
   if(_du) _du.addEventListener("change", function(){ unitaCambia(_du.value); refresh(); });
   if(_dft) _dft.addEventListener("click", function(){ unitaCambia("ft"); refresh(); });
   var orgChk=document.getElementById("pdfOrganico");

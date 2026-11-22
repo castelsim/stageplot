@@ -4280,6 +4280,14 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
   .vl-sel .vl-sm{display:inline}
   .vl-sel{bottom:72px}   /* sopra il pulsante «Adatta» (48 px + 12 + 12): in basso a destra, mai sotto banner e nota in alto */
 }
+
+/* ── LINGUA DEL DOCUMENTO VISIBILE (22/11/2026, L1 internazionalizzazione) ─────────────────────────────────
+   Il «Document language» sotto il titolo nel Menu usa il già esistente .mrow-s; qui l'avviso piccolo sul palco quando il documento non è italiano. */
+.doc-chip{display:none}
+.doc-chip:not([hidden]){display:inline-flex;position:absolute;left:12px;top:12px;z-index:4;align-items:center;gap:5px;min-height:26px;margin:0;padding:0 10px;
+  border:1px solid var(--border);border-radius:999px;background:var(--surface);font:600 12px var(--font-ui);color:var(--text-2);box-shadow:0 1px 4px rgba(0,0,0,.06);pointer-events:none}
+.doc-chip svg{width:14px;height:14px;flex:0 0 auto;color:var(--accent)}
+#mRotChip:not([hidden]) ~ .doc-chip:not([hidden]){top:56px}   /* sul telefono la pastiglia «Vista girata» sta già in alto a sinistra */
 </style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->
 <script async src="/icons.js"></script>
@@ -4371,6 +4379,13 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
     </select>
     <span class="snapchev" aria-hidden="true">▾</span>
   </span>
+  <span class="snapwrap unitwrap" id="docLangWrap" title="Lingua del documento · Document language: nomi sul palco e PDF (si salva col progetto)">
+    <select id="docLangSel" aria-label="Lingua del documento · Document language">
+      <option value="it">Doc IT</option>
+      <option value="en">Doc EN</option>
+    </select>
+    <span class="snapchev" aria-hidden="true">▾</span>
+  </span>
   <span class="snapwrap" title="Aggancio: come si posizionano gli elementi quando li sposti — su una griglia regolare o liberi">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
     <select id="snapSel" aria-label="Aggancio alla griglia">
@@ -4459,6 +4474,8 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
 <div id="venueCalibBanner" hidden></div>
 <div id="vistaBanner" hidden></div>
 <!-- Vista a un tocco (lotto 1 Luci, 22/11): compare solo se il progetto ha fari o strutture. Stato della pagina, mai nel progetto. -->
+<!-- Avviso piccolo (22/11, L1 i18n): il documento non è in italiano, quindi il palco mostra i nomi come usciranno nei PDF. Stato del progetto, mai scritto nel disegno. -->
+<div class="doc-chip" id="docChip" role="status" hidden title="Il disegno mostra i nomi come usciranno nei PDF · The drawing shows names as they will print"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.8 3 2.8 15 0 18M12 3c-2.8 3-2.8 15 0 18"/></svg><span id="docChipTxt">Documento in English</span></div>
 <div class="vl-sel" id="vlSel" role="group" aria-label="Vista del disegno" hidden>
   <button type="button" data-vl="palco" aria-pressed="false" title="Palco: i fari spariscono, le truss restano tratteggiate di riferimento">Palco</button>
   <button type="button" data-vl="luci" aria-pressed="false" title="Luci e truss: il palco sta sotto, sbiadito, e non si prende"><span class="vl-lg">Luci e truss</span><span class="vl-sm">Luci</span></button>
@@ -6022,6 +6039,7 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
   <div class="sh">Palco</div>
   <div class="mlist">
     <button class="mrow" data-act="palco"><span class="mrow-t">Misure e forma</span><span class="mrow-v" id="mMenuStage"></span></button>
+    <div class="mrow mrow-var" id="mDocLangRow"><span class="mrow-t">Lingua del documento<small class="mrow-s">Document language</small></span><select id="docLangSelM" aria-label="Lingua del documento · Document language"><option value="it">Italiano</option><option value="en">English</option></select></div>
     <div class="mrow mrow-var" id="mUnitRow"><span class="mrow-t">Unità delle misure</span><select id="unitSelM" aria-label="Unità delle misure"><option value="m">metri</option><option value="ft">piedi e pollici</option><option value="both">m + ft-in</option></select></div>
     <div class="mrow mrow-col">
       <span class="mrow-t" id="mSnapLbl">Aggancio alla griglia</span>
@@ -6789,7 +6807,7 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
           <select id="pdfPedMis"><option value="full" selected>Misura intera (come sempre)</option><option value="h">Solo altezza</option><option value="none">Nessuna</option></select></div>
         <!-- DOCUMENTO PER L'ESTERO (17/11/2026): due scelte del progetto, salvate nel progetto e uguali in tutte le scene. Di serie Italiano e metri. -->
         <div id="pdfDocLinguaRow"><label for="pdfDocLingua">Lingua del documento <small class="lbl-note">— tutto ciò che esce nei PDF, anche il palco per esterni</small></label>
-          <select id="pdfDocLingua"><option value="it" selected>Italiano</option><option value="en">English</option></select></div>
+          <select id="pdfDocLingua"><option value="" selected>Come l'app · Italiano</option><option value="it">Italiano</option><option value="en">English</option></select></div>
         <div id="pdfDocUnitaRow"><label for="pdfDocUnita">Unità delle misure <small class="lbl-note">— quote, griglia, pedane, palco, cavi</small></label>
           <select id="pdfDocUnita"><option value="m" selected>metri (m)</option><option value="ft">piedi e pollici (ft-in)</option><option value="both">entrambe: m (ft-in)</option></select></div>
         <div class="hdr-saved" id="pdfDocUnitaHint" hidden>Per una squadra americana di solito servono piedi e pollici. <button type="button" class="btn" id="pdfDocUnitaFt">Usa ft-in</button></div>
