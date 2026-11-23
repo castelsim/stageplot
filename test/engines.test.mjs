@@ -9438,7 +9438,7 @@ t("nel PDF il dettaglio non dipende dallo zoom dello schermo", () => {
      di 6000 ha tagliato a metà `window.__scenePrint=_keepPrint` e il test è diventato rosso senza
      che il codice fosse cambiato. Un test che misura la lunghezza del sorgente invece del suo
      contenuto è un allarme che suona da solo. */
-  const _i = appjs.indexOf("function stageSceneSvg");
+  const _i = appjs.indexOf("function stageSceneSvgDisegna");   /* il corpo vero: stageSceneSvg è il suo involucro try/finally (lotto 2) */
   const _f = appjs.indexOf("\nfunction ", _i + 1);
   const fn = appjs.slice(_i, _f > -1 ? _f : undefined);
   const iFlag = fn.indexOf("window.__scenePrint=true"), iItems = fn.indexOf("sortedItems().forEach");
@@ -21060,7 +21060,7 @@ t("Pacchetto: i documenti proposti sono le pillole che il progetto ha davvero (o
   A.state.tipoEvento = "concerto";
   const appT = readFileSync(join(root, "app.js"), "utf8");
   ok(/window\.__pdfChiaviTecniche=function\(\)\{ try\{ return pdfComputeTechPages\(\)\.map\(function\(p\)\{ return p\.key; \}\)/.test(appT), "la lista viene dalle pillole dell'Esporta (pdfComputeTechPages)");
-  ok(/var docs=pacchettoDocumenti\(chiavi, \(typeof scalettaList==="function" && scalettaList\(\)\.count>0\), \(state\.items\|\|\[\]\)\.length>0\)/.test(appT), "la finestrella usa la stessa funzione");
+  ok(/var docs=pacchettoDocumenti\(chiavi, \(typeof scalettaList==="function" && scalettaList\(\)\.count>0\), \(state\.items\|\|\[\]\)\.length>0, luciFogliDisponibili\(\)\)/.test(appT), "la finestrella usa la stessa funzione");
   eq(["inputlist", "outputlist", "monitorlist", "rf"].map((k) => A.pdfPaginaSoloAudio(k)), [true, true, true, true], "in acustico (#66) queste pillole non ci sono, quindi non entrano nel pacchetto");
   eq(A.pdfPaginaSoloAudio("organico"), false, "l'organico non è una pagina audio");
   reset();
@@ -21117,7 +21117,7 @@ t("Pacchetto: pulsante e finestrella nell'Esporta, ogni documento col suo PDF, c
   ok(["pkgModal", "pkgNome", "pkgLista", "pkgVariante", "pkgVersioneHint", "pkgEsempio", "pkgErr", "pkgGo", "pkgAnnulla"].every((id) => h.indexOf('id="' + id + '"') > -1), "la finestrella: nome, lista, variante, suggerimento versione, esempio, errore, pulsanti");
   ok(/if\(zp\) zp\.addEventListener\("click", function\(\)\{ pacchettoApri\(\); \}\);/.test(a) && /if\(pg\) pg\.addEventListener\("click", function\(\)\{ pdfGateErrori\(pacchettoCrea\); \}\);/.test(a), "apre la finestrella; «Crea» passa dal gate sugli errori critici");
   ok(/pdfGateErrori\(run\);/.test(a) && /function pdfGateErrori\(run\)\{/.test(a), "e il gate è lo stesso dell'Esporta PDF");
-  ok(/if\(chiave==="stageplot"\)\{\s*window\.__pdfPages=\{\}; window\.__pdfScaletta=false;\s*return buildPdfDoc\(ctx\.paper, ctx\.N, ctx\.orient, ctx\.header\)\.then\(function\(doc\)\{ ripristina\(\); return doc; \}, function\(e\)\{ ripristina\(\); throw e; \}\);/.test(a), "lo stage plot è il disegno col cartiglio, senza liste né scaletta, e le impostazioni dell'Esporta tornano com'erano");
+  ok(/if\(chiave==="stageplot" \|\| chiave==="piantapalco" \|\| chiave==="piantaluci"\)\{[^\n]*\n\s*window\.__pdfPages=\{\}; window\.__pdfScaletta=false;\s*return buildPdfDoc\(ctx\.paper, ctx\.N, ctx\.orient, ctx\.header, chiave==="piantapalco" \? "palco" : chiave==="piantaluci" \? "luci" : null\)\.then\(function\(doc\)\{ ripristina\(\); return doc; \}, function\(e\)\{ ripristina\(\); throw e; \}\);/.test(a), "lo stage plot è il disegno col cartiglio, senza liste né scaletta, e le impostazioni dell'Esporta tornano com'erano");
   ok(/inputlist:function\(\)\{ patchListServicePdf\(doc, \{perPagina:ctx\.perPagina===48\?48:32\}\); \}, outputlist:function\(\)\{ outputListPdf\(doc\); \}, rider:function\(\)\{ riderPdf\(doc\); \},\s*organico:function\(\)\{ organicoPdf\(doc\); \}, backline:function\(\)\{ backlineListPdf\(doc\); \}, lightslist:function\(\)\{ lightsListPdf\(doc\); \}, scaletta:function\(\)\{ scalettaPdf\(doc\); \}/.test(a), "channel list in formato Service (32 o 48 per pagina), output list, rider, organico, backline, lista luci, scaletta");
   ok(/F\[chiave\]\(\);\s*if\(doc\.getNumberOfPages\(\)<2\) throw new Error\([^)]*\);\s*doc\.deletePage\(1\); pdfCredit\(doc\);/.test(a), "pagina vuota di partenza tolta, «1 di N» e versione su ogni foglio (pdfCredit)");
   ok(/ctx=\{paper:paper, N:N, orient:orient, header:header, perPagina:\(window\.__pdfListaFmt && window\.__pdfListaFmt\.perPagina===48\) \? 48 : 32\}/.test(a), "foglio, scala e pagine 32/48 come scelti nell'Esporta");
@@ -30221,7 +30221,7 @@ t("Esporta: la casella della scaletta c'è solo con almeno una voce, e parte SPE
   ok(/scChk\.checked = false;/.test(f) && /window\.__pdfScaletta = false;/.test(f), "spenta di partenza anche con la scaletta scritta");
   ok(!/scChk\.checked = d\.count>0/.test(f), "non si accende più da sola");
   ok(/function _pdfExportModalCore\(\)\{[^}]*?pdfScalettaInit\(\); pdfQrInit\(\);/.test(appjs), "e si rifà a ogni apertura (la scelta non si ricorda)");
-  ok(/if\(window\.__pdfScaletta===true\) scalettaPdf\(doc\);/.test(appjs), "il PDF segue la casella");
+  ok(/if\(window\.__pdfScaletta===true && !scena\.foglio\) scalettaPdf\(doc\);/.test(appjs), "il PDF segue la casella");
 });
 
 /* La libreria del QR è quella della finestra Condividi, servita da /vendor/: qui si carica nel sandbox. */
@@ -39825,6 +39825,124 @@ t("corrente del totale: trifase = A PER FASE (W/690), monofase invariato W/230 (
   reset(); A.state.elec.mode = "manual"; add("wedge", 500, 600); A.__elecRes = null;
   const r2 = A.riderAlimentazioneText(A.riderData().elettrico);
   ok(!/per fase/.test(r2) && / A\./.test(r2) || !/per fase/.test(r2), "wedge monofase: invariato: " + r2);
+  reset();
+});
+
+/* ═══ LAYER LOTTO 2 — fogli per reparto nel Pacchetto (23/11/2026) ═══ */
+console.log("\nFogli per reparto, lotto 2 (23/11/2026):");
+function foglioFixture() {
+  reset();
+  A.resetMetaLayersUI();
+  const mus = piazza("batteria", 600, 400);
+  const tF = piazza("truss", 600, 100); tF.w = 800;     // fondo
+  const tP = piazza("truss", 600, 600); tP.w = 800;     // verso il pubblico
+  const fari = [];
+  [800, 400, 600].forEach((x) => { const f = piazza("parluci", x, 100); A.mountSet(f, { mode: "hung" }); fari.push(f); });   // sul fondo, scritti in disordine
+  const g = piazza("testamobile", 500, 600); A.mountSet(g, { mode: "hung" });                // sulla truss del pubblico
+  const terra = piazza("parluci", 100, 300);                                                   // a terra fuori da ogni struttura
+  const stativo = piazza("parluci", 1000, 300); A.mountSet(stativo, { mode: "stand" });
+  const vecchio = piazza("parluci", 700, 600);                                                 // «a terra» sotto la truss (progetti vecchi): resta F, non è appeso
+  return { mus, tF, tP, fari, g, terra, stativo, vecchio };
+}
+t("fogli L2: numeri dei fari — struttura dal pubblico, fari da sinistra a destra guardando dalla platea, geometria e non montaggio", () => {
+  const F = foglioFixture();
+  const N = A.luciNumeri();
+  eq([N.mappa[F.tP.id], N.mappa[F.tF.id]], ["T1", "T2"], "T1 = la truss più vicina al pubblico");
+  eq(F.fari.map((f) => N.mappa[f.id]), ["T2.3", "T2.1", "T2.2"], "sul fondo: 400→T2.1, 600→T2.2, 800→T2.3");
+  eq(N.mappa[F.g.id], "T1.1", "sul fronte c'è solo il faro appeso");
+  eq([N.mappa[F.terra.id], N.mappa[F.vecchio.id], N.mappa[F.stativo.id]], ["F.1", "F.2", "S.1"], "a terra = F anche se sta sotto una truss («vecchio», x 700, sotto T1); su stativo = S");
+  eq(N.righe.map((r) => r.code), ["T1.1", "T2.1", "T2.2", "T2.3", "S.1", "F.1", "F.2"], "l'elenco: strutture dal pubblico, poi stativi e terra");
+  ok(N.righe.every((r) => !(/^T\d/.test(r.code) && r.montaggio === "A terra")), "nessuna riga «T… · A terra»: la riga non si contraddice");
+  ok(!(F.mus.id in N.mappa), "i musicisti non hanno numero");
+  F.tP.rig = { h: 650 }; eq(A.luciNumeri().mappa[F.g.id], "A1.1", "una struttura numerata dall'utente tiene il suo numero (A1)");
+  F.tP.rig = { n: "LX2" }; eq(A.luciNumeri().mappa[F.g.id], "LX2.1", "…o il suo nome a mano");
+  reset();
+});
+t("fogli L2: il foglio «palco» non ha né fari né strutture, il foglio «luci» li ha a piena resa col numero e il resto in grigio tenue", () => {
+  const F = foglioFixture();
+  const base = A.stageSceneSvg(null, {});
+  const idDi = (svg, it) => svg.includes('data-id="' + it.id + '"');
+  for (const it of [F.tF, F.tP, F.g, F.terra, F.stativo]) ok(idDi(base, it), "il disegno di sempre li ha");
+  const palco = A.stageSceneSvg(null, { foglio: "palco" });
+  for (const it of [F.tF, F.tP, F.g, F.terra, F.stativo, F.vecchio, ...F.fari]) ok(!idDi(palco, it), "il foglio palco non ha " + it.type);
+  ok(idDi(palco, F.mus), "il foglio palco ha il musicista");
+  const luci = A.stageSceneSvg(null, { foglio: "luci" });
+  for (const it of [F.tF, F.tP, F.g, F.terra, F.stativo, ...F.fari]) ok(idDi(luci, it), "il foglio luci ha " + it.type);
+  for (const c of [">T2.1<", ">T2.3<", ">T1.1<", ">S.1<", ">F.1<", ">F.2<", ">T1<", ">T2<"]) ok(luci.includes(c), "scritto sul disegno: " + c);
+  ok(new RegExp('x="' + (-(F.tF.w / 2) - 8) + '"[^>]*text-anchor="end"[^>]*>T2<').test(luci), "la sigla della struttura sta all'estremità sinistra della barra, fuori dal traliccio");
+  ok(!/appeso 4 m|stativo 2,5 m/.test(luci), "sul foglio luci il montaggio sta nell'elenco, non sul disegno");
+  const iM = luci.indexOf('data-id="' + F.mus.id + '"'), iOp = luci.lastIndexOf('opacity:0.25', iM);
+  ok(iM > 0 && iOp > 0 && iOp > luci.lastIndexOf('opacity:0.3', iM), "il musicista sta nel gruppo al 25 %");
+  const gruppoSfumato = luci.slice(iOp, luci.indexOf("</g>", luci.indexOf('data-id="' + F.mus.id + '"')));
+  for (const it of [F.tF, F.g, F.terra]) ok(!gruppoSfumato.includes('data-id="' + it.id + '"'), it.type + " non è nel gruppo sfumato");
+  eq(A.stageSceneSvg(null, {}), base, "dopo i fogli il disegno di sempre è byte per byte quello di prima (nessuno stato resta acceso)");
+  eq(A.stageSceneSvg(null, { foglio: null }), base, "foglio nullo = disegno di sempre");
+  reset();
+});
+t("fogli L2: la pagina «Vista: Luci» del PDF sfuma il resto, non i fari (prima sfumava tutto)", () => {
+  const F = foglioFixture();
+  const v = A.stageSceneSvg(null, { focus: "luci" });
+  const iM = v.indexOf('data-id="' + F.mus.id + '"'), iOp = v.lastIndexOf('opacity:0.3', iM);
+  ok(iOp > 0, "il musicista è sfumato");
+  const gruppo = v.slice(iOp, v.indexOf("</g>", iM));
+  for (const it of [F.tF, F.g, F.terra, F.stativo]) ok(v.includes('data-id="' + it.id + '"') && !gruppo.includes('data-id="' + it.id + '"'), it.type + " resta pieno");
+  reset();
+});
+t("fogli L2: Pacchetto — «pianta palco» e «pianta luci» solo con fari o truss, dopo lo stage plot; i documenti di prima restano uguali", () => {
+  const nomi = (k, sc, pal, luci) => A.pacchettoDocumenti(k, sc, pal, luci).map((d) => d.chiave);
+  eq(nomi(["rider"], false, true, true), ["stageplot", "piantapalco", "piantaluci", "rider"], "con luci: i due fogli subito dopo lo stage plot");
+  eq(nomi(["rider"], false, true, false), ["stageplot", "rider"], "senza luci: niente fogli luci vuoti né doppioni del palco");
+  eq(nomi(["rider"], false, true), ["stageplot", "rider"], "quarto argomento assente = senza luci (chiamate di prima)");
+  eq(nomi([], false, false, true), [], "palco vuoto: niente");
+  eq(A.pacchettoDocumenti([], false, true, true).map((d) => d.nome), ["stage plot", "pianta palco", "pianta luci"], "i nomi nei file: «pianta palco» e «pianta luci»");
+  eq(A.pacchettoNomeFile("pianta luci", { data: "20261201", versione: 3, nome: "Teatro Esempio" }), "20261201 v3 pianta luci Teatro Esempio", "lo schema dei service");
+  foglioFixture(); ok(A.luciFogliDisponibili(), "con fari e truss i fogli si offrono");
+  reset(); piazza("batteria", 300, 300); ok(!A.luciFogliDisponibili(), "senza fari né truss no");
+  reset(); piazza("parluci", 300, 300); ok(A.luciFogliDisponibili(), "con soli fari sì");
+  reset();
+});
+
+t("fogli L2 (rilettura): ordine lungo una truss ruotata, fasce di y, nomi doppi, ripristino delle globali, elenco con «…»", () => {
+  // truss a 90° e 270°: i fari spostati di ±2 cm in x non cambiano l'ordine (si conta sull'asse della struttura)
+  for (const rot of [90, 270]) {
+    reset();
+    const tr = piazza("truss", 800, 400); tr.rot = rot; tr.w = 600;
+    const ys = [150, 300, 450, 650];
+    const f = ys.map((y, i) => { const it = piazza("parluci", 800 + (i % 2 ? 2 : -2), y); A.mountSet(it, { mode: "hung" }); return it; });
+    ok(f.every((it) => A.hangSupportOf(it) === tr), "i fari sono appesi alla truss a " + rot + "°");
+    const m = A.luciNumeri().mappa;
+    eq(f.map((it) => m[it.id]), ["T1.4", "T1.3", "T1.2", "T1.1"], "truss a " + rot + "°: dal pubblico (y grande) verso il fondo, a prescindere dai ±2 cm di x");
+  }
+  // truss ruotata di 180°: da sinistra a destra come a 0°
+  reset();
+  const t180 = piazza("truss", 600, 300); t180.rot = 180; t180.w = 600;
+  const f180 = [300, 500, 700].map((x) => { const it = piazza("parluci", x, 300); A.mountSet(it, { mode: "hung" }); return it; });
+  eq(f180.map((it) => A.luciNumeri().mappa[it.id]), ["T1.1", "T1.2", "T1.3"], "a 180°: x crescente, come a 0°");
+  // due strutture quasi alla stessa y: l'ordine non dipende da 1 cm
+  reset();
+  const a = piazza("truss", 300, 150), b = piazza("truss", 900, 151);
+  let m = A.luciNumeri().mappa; eq([m[a.id], m[b.id]], ["T1", "T2"], "y 150 e 151: da sinistra a destra, T1 a sinistra");
+  b.y = 149; m = A.luciNumeri().mappa; eq([m[a.id], m[b.id]], ["T1", "T2"], "y 150 e 149: idem");
+  b.y = 400; m = A.luciNumeri().mappa; eq([m[b.id], m[a.id]], ["T1", "T2"], "y molto diverse: dal pubblico");
+  // nome a mano uguale su due strutture: il secondo tiene il nome e ai fari un suffisso; la sigla va a sinistra della barra, non sopra la sua etichetta
+  reset();
+  const x1 = piazza("americana", 300, 150), x2 = piazza("americana", 900, 150); x1.rig = { n: "LX1" }; x2.rig = { n: "LX1" };
+  const g1 = piazza("parluci", 300, 150), g2 = piazza("parluci", 900, 150); A.mountSet(g1, { mode: "hung" }); A.mountSet(g2, { mode: "hung" });
+  m = A.luciNumeri().mappa;
+  eq([m[g1.id], m[g2.id]], ["LX1.1", "LX1-2.1"], "due «LX1»: i fari non si confondono");
+  ok(!(x1.id in m) && (x2.id in m), "la sigla si scrive solo per la seconda (la prima ha già la sua etichetta sopra la barra)");
+  // il ripristino delle globali dopo un'eccezione nel disegno (se restassero accese l'editor scriverebbe i numeri al posto dei nomi)
+  reset();
+  const tt = piazza("truss", 500, 100), ff = piazza("parluci", 500, 100); A.mountSet(ff, { mode: "hung" });
+  const prima = A.stageSceneSvg(null, {});
+  const _im = A.itemMarkup; let n = 0;
+  A.itemMarkup = function (it) { if (++n === 2) throw new Error("rotto"); return _im(it); };
+  let lanciato = false; try { A.stageSceneSvg(null, { foglio: "luci" }); } catch (e) { lanciato = true; } finally { A.itemMarkup = _im; }
+  ok(lanciato, "con un elemento che fa lanciare il disegno, lancia (la prova ha senso)");
+  eq(A._luciCodici, null, "_luciCodici rimessa SUBITO dopo l'eccezione (l'editor a schermo non passa da stageSceneSvg: se restasse accesa scriverebbe i numeri al posto dei nomi)");
+  eq(A._foglioSenzaLuci, false, "_foglioSenzaLuci rimessa subito dopo l'eccezione");
+  eq(A.stageSceneSvg(null, {}), prima, "dopo l'eccezione il disegno di sempre non ha numeri né filtri");
+  ok(/cut=function\(t, w\)\{[^\n]*\\u2026/.test(readFileSync(join(root, "app.js"), "utf8")), "nell'elenco i nomi troppo lunghi finiscono con «…»");
   reset();
 });
 
