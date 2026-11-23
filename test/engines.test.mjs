@@ -8057,6 +8057,9 @@ t("distanza leggio: il cursore nel pannello c'è, con «Standard» e per tutta l
   const htmlApp = readFileSync(join(root, "app/index.html"), "utf8");
   ok(/id="pLegDist" min="-30" max="60"/.test(htmlApp) && /id="pLegDistReset"/.test(htmlApp) && /id="grpLegDist"/.test(htmlApp), "cursore singolo, reset e cursore di gruppo nel markup");
   eq(A.leggioDistScritta(0), "dallo strumento", "0 = la distanza standard");
+  { const h = readFileSync(join(root, "app/index.html"), "utf8");   /* 23/11: etichetta su una riga, «dallo strumento» non più sotto il cursore a standard */
+    ok(/<label for="pLegDist">Distanza leggio<\/label>/.test(h) && /id="pLegDistNota" class="prop-hint"><\/span>/.test(h), "etichetta breve e nota vuota di partenza");
+    ok(/id="pLegDist"[^>]*aria-label="Distanza del leggio dal corpo dello strumento"/.test(h), "il significato sta nell'aria-label"); }
   eq(A.leggioDistScritta(-12), "più vicino allo strumento", "negativo = più vicino");
   eq(A.leggioDistScritta(20), "più lontano dallo strumento", "positivo = più lontano");
   eq([A.leggioDistNum(0), A.leggioDistNum(15), A.leggioDistNum(-8)], ["standard", "+15 cm", "\u22128 cm"], "il numero accanto al cursore");

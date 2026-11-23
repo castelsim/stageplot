@@ -946,9 +946,9 @@
          capisce guardando il leggio che si muove. 0 = la posizione standard di quello strumento. -->
     <div id="pLegDistWrap" class="legdist" style="display:none">
       <div class="sldrow"><label for="pLegDist">Distanza leggio</label>
-        <input type="range" id="pLegDist" min="-30" max="60" step="1" value="0" aria-describedby="pLegDistNota">
+        <input type="range" id="pLegDist" min="-30" max="60" step="1" value="0" aria-describedby="pLegDistNota" title="Distanza del leggio dal corpo dello strumento" aria-label="Distanza del leggio dal corpo dello strumento">
         <output id="pLegDistVal" for="pLegDist">standard</output></div>
-      <div class="legdist__nota"><span id="pLegDistNota" class="prop-hint">dallo strumento</span>
+      <div class="legdist__nota"><span id="pLegDistNota" class="prop-hint"></span>
         <button type="button" class="legdist__reset" id="pLegDistReset" hidden>Standard</button></div>
     </div>
     <!-- RICHIESTA SETUP: il tecnico chiede al musicista com'è fatta la sua postazione. La risposta
@@ -24268,8 +24268,11 @@ function leggioDistRender(it){
 function leggioDistScrivi(pre, v, misto){
   var o=document.getElementById(pre+"LegDistVal"), n=document.getElementById(pre==="p"?"pLegDistNota":"grpLegDistHint"), r=document.getElementById(pre+"LegDistReset");
   if(o) o.textContent = misto ? "diversi" : leggioDistNum(v);
-  if(n && pre==="p") n.textContent = leggioDistScritta(v);
+  /* a «standard» la nota «dallo strumento» non serve e, sotto il cursore, si leggeva come parte dell'etichetta
+     («Distanza leggio dallo strumento» spezzata su due righe, 23/11/2026): il significato sta nel title/aria-label del cursore */
+  if(n && pre==="p"){ n.textContent = v===0 ? "" : leggioDistScritta(v); }
   if(r) r.hidden = !misto && v===0;
+  if(n && pre==="p" && n.parentNode) n.parentNode.style.display = (v===0 && r && r.hidden) ? "none" : "";
 }
 function legDistApplySel(doSave, val, its){   /* val/its: dai test; dall'interfaccia valore del cursore e selezione */
   primaDiAgire();

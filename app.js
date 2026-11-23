@@ -23177,8 +23177,11 @@ function leggioDistRender(it){
 function leggioDistScrivi(pre, v, misto){
   var o=document.getElementById(pre+"LegDistVal"), n=document.getElementById(pre==="p"?"pLegDistNota":"grpLegDistHint"), r=document.getElementById(pre+"LegDistReset");
   if(o) o.textContent = misto ? "diversi" : leggioDistNum(v);
-  if(n && pre==="p") n.textContent = leggioDistScritta(v);
+  /* a «standard» la nota «dallo strumento» non serve e, sotto il cursore, si leggeva come parte dell'etichetta
+     («Distanza leggio dallo strumento» spezzata su due righe, 23/11/2026): il significato sta nel title/aria-label del cursore */
+  if(n && pre==="p"){ n.textContent = v===0 ? "" : leggioDistScritta(v); }
   if(r) r.hidden = !misto && v===0;
+  if(n && pre==="p" && n.parentNode) n.parentNode.style.display = (v===0 && r && r.hidden) ? "none" : "";
 }
 function legDistApplySel(doSave, val, its){   /* val/its: dai test; dall'interfaccia valore del cursore e selezione */
   primaDiAgire();
