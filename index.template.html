@@ -19052,7 +19052,7 @@ function elecConnOf(it, a, ov){
 function elecMargin(){ return 0.2; }
 function elecKW(w){ return (w/1000).toFixed(1).replace(".",",")+" kW"; }
 /* Corrente del totale (23/11/2026): in trifase la corrente utile è quella PER FASE, W/(230·3): 21,4 kW erano «93 A», che a chi legge fa pensare a quadri da 32 A troppo piccoli; sono ~31 A per fase. Monofase invariato (W/230). Solo testo: i W e i carichi non cambiano. */
-function elecAmpTot(totW, trifase){ return trifase ? "~"+Math.round(totW/(ELEC_VOLT*3))+" A per fase" : Math.round(totW/ELEC_VOLT)+" A"; }
+function elecAmpTot(totW, trifase){ if(!trifase) return Math.round(totW/ELEC_VOLT)+" A"; var f=Math.round(totW/(ELEC_VOLT*3)); return f<1 ? "<1 A per fase" : "~"+f+" A per fase"; }
 function elecSupplyPoint(){
   var sp=state.elec&&state.elec.supply, W=state.stage.w, D=state.stage.d;
   var gen=(state.items||[]).filter(elecIsGen)[0];

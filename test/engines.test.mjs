@@ -39671,7 +39671,10 @@ t("I18N L1 (ricerca): «keyboard» dà per prima la Tastiera, «bs» non trova p
 t("corrente del totale: trifase = A PER FASE (W/690), monofase invariato W/230 (23/11/2026)", () => {
   eq(A.elecAmpTot(21350, true), "~31 A per fase", "21,35 kW trifase");
   eq(A.elecAmpTot(21350, false), "93 A", "monofase: W/230 come prima");
-  eq(A.elecAmpTot(0, true), "~0 A per fase", "zero");
+  eq(A.elecAmpTot(60, true), "<1 A per fase", "60 W: arrotonda a 0 → <1");
+  eq(A.elecAmpTot(344, true), "<1 A per fase", "344 W: ancora 0");
+  eq(A.elecAmpTot(345, true), "~1 A per fase", "345 W: 1");
+  eq(A.elecAmpTot(60, false), "0 A", "monofase invariato");
   reset(); A.state.elec.mode = "manual"; A.state.elec.phase3 = true;
   add("distro32", 600, 700); add("rack4u", 500, 600); add("rack4u", 700, 600); A.__elecRes = null;
   const e = A.riderData().elettrico, r = A.riderAlimentazioneText(e);
