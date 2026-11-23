@@ -40252,7 +40252,7 @@ function docFintoPL() {   // jsPDF finto: registra testi e pagine, misura 1,6 mm
   const d = { pagine: 1, testi: [] };
   d.internal = { pageSize: { getWidth: () => 210, getHeight: () => 297 } };
   for (const k of ["setFont", "setFontSize", "setTextColor", "setFillColor", "setDrawColor", "setLineWidth", "rect", "line", "setPage"]) d[k] = () => d;
-  d.text = (tx, x, y) => { for (const r of [].concat(tx)) d.testi.push({ t: String(r), x, y, p: d.pagine }); return d; };
+  d.text = (tx, x, y, o) => { for (const r of [].concat(tx)) d.testi.push({ t: String(r), x, y, p: d.pagine, a: o && o.align }); return d; };
   d.addPage = () => { d.pagine++; return d; };
   d.getNumberOfPages = () => d.pagine;
   d.getTextWidth = (s) => String(s).length * 1.6;
@@ -40350,6 +40350,31 @@ t("programma luci L3: una posizione con tante righe continua sulla pagina dopo, 
   ok(d.pagine >= 2, "più pagine: " + d.pagine);
   ok(d.testi.every((r) => r.y <= 282.1), "nessuna riga sotto il margine di 15 mm");
   ok(d.testi.filter((r) => /^1×$/.test(r.t)).length === 70, "tutte le 70 righe stampate");
+  reset();
+});
+t("programma luci L3 (rilettura): righe mai sopra il piè (fondo 272), pagina 2 da y ≥ 22, «(segue)» ripetuto", () => {
+  reset(); const tr = piazza("truss", 600, 100); tr.w = 900;
+  for (let i = 0; i < 70; i++) { const f = piazza("parluci", 200 + i * 8, 100); A.mountSet(f, { mode: "hung" }); f.watt = 100 + i; }
+  const d = docFintoPL(); A.programmaLuciPdf(d);
+  ok(d.pagine >= 3, "più pagine (la 1 del finto è la vuota che il flusso cancella)");
+  ok(d.testi.every((r) => r.y <= 272.01), "nessun testo oltre 272 mm (il piè sta a 280,8): max " + Math.max(...d.testi.map((r) => r.y)));
+  ok(d.testi.filter((r) => r.p > 2).every((r) => r.y >= 22), "dalla seconda pagina vera niente sopra 22 mm");
+  ok(d.testi.some((r) => r.p === 3 && /\(segue\)/.test(r.t)), "la posizione che continua ripete la testata «(segue)»");
+  reset();
+});
+t("programma luci L3 (rilettura): nome lungo della posizione non tocca il testo a destra; nota «*» solo se scritta", () => {
+  reset(); const tr = piazza("truss", 600, 100); tr.w = 900; tr.label = "Truss principale di proscenio con un nome lunghissimo che non finisce più e continua ancora";
+  const orig = A.wattOf; const xs = [];
+  for (let i = 0; i < 12; i++) { const f = piazza("parluci", 200 + i * 20, 100); A.mountSet(f, { mode: "hung" }); xs.push(f); }
+  A.wattOf = (it) => (xs.includes(it) ? 0 : orig(it));
+  try {
+    const d = docFintoPL(); A.programmaLuciPdf(d);
+    const dx = d.testi.find((r) => r.a === "right" && /senza W/.test(r.t) && /^12 ·/.test(r.t));
+    ok(dx, "testo a destra della testata");
+    const sx = d.testi.find((r) => r.y === dx.y && r.a !== "right" && r.x === 16);
+    ok(sx && sx.x + sx.t.length * 1.6 < dx.x - dx.t.length * 1.6, "il nome (" + sx.t.length + " car.) finisce prima del testo a destra");
+    ok(!d.testi.some((r) => /^\* /.test(r.t)), "nessun «*» scritto = nessuna nota a piè");
+  } finally { A.wattOf = orig; }
   reset();
 });
 t("programma luci L3: PDF in inglese — testi e kW con il punto", () => {

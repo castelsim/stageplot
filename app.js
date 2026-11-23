@@ -7616,7 +7616,7 @@ function programmaLuciPdf(doc){
   var kW=function(w){ var s=(w/1000).toFixed(1); return (en ? s : s.replace(".",","))+" kW"; };
   var wTxt=function(w){ return w==null ? "—" : String(Math.round(w))+" W"; };
   var totTxt=function(o){ return o.n+" "+L(o.n===1?"apparecchio":"apparecchi", o.n===1?"fixture":"fixtures")+" · "+kW(o.w)+(o.senzaW ? " · "+o.senzaW+" "+L("senza W","without W") : ""); };
-  var M=16, R=194, FONDO=282, y;
+  var M=16, R=194, FONDO=272, y, stella=false;   /* FONDO = quello degli altri fogli (ph-25): sotto stanno «1 di N · vN · data» e il credito a 280,8 mm */
   var cQ=M, cA=M+13, cN=M+88, cW=R-22, cT=R;
   doc.addPage("a4","portrait");
   doc.setFillColor("#0d9488"); doc.rect(0,0,210,14,"F");
@@ -7626,7 +7626,7 @@ function programmaLuciPdf(doc){
   if(state.titolo||state.luogo){ doc.setTextColor("#111827"); doc.setFont("helvetica","bold"); doc.setFontSize(12); y=pdfTitoloLuogo(doc, M, y, 8); }
   doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#555555");
   if(D.tot.n){ doc.text(totTxt(D.tot), M, y); y+=8; }
-  function nuova(){ doc.addPage("a4","portrait"); y=18; }
+  function nuova(){ doc.addPage("a4","portrait"); y=22; }
   function testaColonne(){
     doc.setFont("helvetica","bold"); doc.setFontSize(8.5); doc.setTextColor("#0b7a70");
     doc.text(L("Q.tà","Qty"), cQ, y); doc.text(L("APPARECCHIO","FIXTURE"), cA, y); doc.text(L("NUMERI","NUMBERS"), cN, y);
@@ -7641,18 +7641,24 @@ function programmaLuciPdf(doc){
   if(D.posizioni.length) testaColonne();
   D.posizioni.forEach(function(p){
     var nome=p.tipo==="struttura" ? docTesto(p.pos) : p.tipo==="S" ? L("su stativo","on stands") : p.tipo==="F" ? L("a terra","on the floor") : L("appeso, senza struttura","hung, no truss");
+    var dx=p.n+" · "+kW(p.w)+(p.senzaW ? " + "+p.senzaW+" "+L("senza W","without W") : "");
+    /* testata della posizione: il nome si tronca prima del testo a destra (mai sovrapposti); nelle pagine di seguito «(segue)» */
+    function intesta(segue){
+      doc.setFont("helvetica","bold"); doc.setFontSize(10);
+      var wd=doc.getTextWidth(dx), lim=(R-wd-4)-M, suf=segue ? " ("+L("segue","cont.")+")" : "", t=nome+suf;
+      if(doc.getTextWidth(t)>lim){ var b=nome; while(b.length>1 && doc.getTextWidth(b+"…"+suf)>lim) b=b.slice(0,-1); t=b+"…"+suf; }
+      doc.setFillColor("#e6f4f1"); doc.rect(M-1, y-4.4, R-M+2, 6.4, "F");
+      doc.setTextColor("#111827"); doc.text(t, M, y); doc.text(dx, R, y, {align:"right"}); y+=6.2;
+    }
     if(y+14>FONDO){ nuova(); testaColonne(); }
-    doc.setFillColor("#e6f4f1"); doc.rect(M-1, y-4.4, R-M+2, 6.4, "F");
-    doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor("#111827");
-    doc.text(doc.splitTextToSize(nome, cT-cA-2)[0], M, y);
-    doc.text(p.n+" · "+kW(p.w)+(p.senzaW ? " + "+p.senzaW+" "+L("senza W","without W") : ""), cT, y, {align:"right"}); y+=6.2;
+    intesta(false);
     p.righe.forEach(function(r){
       var ap=docTesto(r.nome)+(r.tipo ? " ("+docTesto(r.tipo)+")" : "");
       var al=doc.splitTextToSize(ap, cN-cA-3), nl=doc.splitTextToSize(numeri(r.codici), cW-cN-14), nr=Math.max(al.length, nl.length);
-      if(y+(nr-1)*4.2>FONDO){ nuova(); testaColonne(); }
+      if(y+(nr-1)*4.2>FONDO){ nuova(); testaColonne(); intesta(true); }
       doc.setFont("helvetica","normal"); doc.setFontSize(9.5); doc.setTextColor("#111827");
       doc.text(r.q+"×", cQ, y); doc.text(al, cA, y); doc.text(nl, cN, y);
-      doc.text(wTxt(r.w), cW, y, {align:"right"}); doc.text(r.senzaW===r.q ? "—" : wTxt(r.wTot)+(r.senzaW ? "*" : ""), cT, y, {align:"right"});
+      doc.text(wTxt(r.w), cW, y, {align:"right"}); doc.text(r.senzaW===r.q ? "—" : wTxt(r.wTot), cT, y, {align:"right"});
       y+=5.2+(nr-1)*4.2;
     });
     y+=2.5;
@@ -7673,17 +7679,17 @@ function programmaLuciPdf(doc){
     doc.setFont("helvetica","bold"); doc.setFontSize(12); doc.setTextColor("#111827"); doc.text(L("Distinta truss","Truss list"), M, y); y+=7;
     testa();
     D.truss.forEach(function(s){
-      if(y>FONDO){ nuova(); testa(); }
+      if(y+5.4>FONDO){ nuova(); testa(); }
       doc.setFont("helvetica","bold"); doc.setFontSize(9.5); doc.setTextColor("#111827"); doc.text(s.code, cs[0], y);
       doc.setFont("helvetica","normal");
       var nm=docTesto(s.tipo)+(s.nome ? " · "+docTesto(s.nome) : "");
       doc.text(doc.splitTextToSize(nm, cs[2]-cs[1]-3)[0], cs[1], y);
       doc.text(docLen(s.lungCm), cs[2], y); doc.text(s.h ? docTesto(rigTrimTesto(s.h)) : "—", cs[3], y);
-      doc.text(String(s.n), cs[4], y, {align:"right"}); doc.text(s.n ? (s.senzaW===s.n ? "—" : kW(s.w).replace(" kW","")+(s.senzaW ? "*" : "")) : "0", cs[5], y, {align:"right"});
+      doc.text(String(s.n), cs[4], y, {align:"right"}); doc.text(s.n ? (s.senzaW===s.n ? "—" : kW(s.w).replace(" kW","")+(s.senzaW ? (stella=true,"*") : "")) : "0", cs[5], y, {align:"right"});
       y+=5.4;
     });
-    if(D.posizioni.some(function(p){ return p.senzaW; })){
-      y+=2; doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor("#555555");
+    if(stella){
+      y+=2; if(y>FONDO){ nuova(); } doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.setTextColor("#555555");
       doc.text(L("* senza i W degli apparecchi di cui la potenza non è nota","* excludes fixtures whose power is not known"), M, y);
     }
   }
