@@ -3260,10 +3260,21 @@ function elecPotenza(R){
     }
   }
   var piccolo = maxW<=ELEC_PRESE[0].w*ELEC_PRESA_FILL;
-  return { tipW:tipW, maxW:maxW, picco:maxW>tipW, kva:maxW/1000/0.8, prese:prese, oltre:oltre,
+  /* GENERATORE GIÀ SUL PALCO (23/11/2026): non si chiede ciò che c'è. Si confronta il carico con la potenza nominale del generatore del catalogo
+     (kVA × fattore di potenza, dichiarato come ipotesi): stessa sorgente e stesso 0,8 dell'avviso «sottodimensionato» del motore. */
+  var gen=null; try{ var sp0=elecSupplyPoint(); if(sp0 && sp0.kind==="gen" && sp0.kva) gen=sp0; }catch(_e){}
+  var genTxt="", genInfo=null;
+  if(gen && maxW>0){
+    var genW=gen.kva*1000*ELEC_COSFI, pc=function(w){ return Math.round(w/genW*100)+" %"; };
+    genInfo={kva:gen.kva, kw:genW/1000, pctTip:tipW/genW, pctMax:maxW/genW, sopra:maxW>genW};
+    genTxt="Generatore sul palco: "+gen.kva+" kVA (circa "+elecKW(genW)+" con fattore di potenza "+String(ELEC_COSFI).replace(".",",")+", ipotesi). "
+      +(maxW>tipW ? "Carico tipico "+elecKW(tipW)+" = "+pc(tipW)+", massimo "+elecKW(maxW)+" = "+pc(maxW) : "Carico "+elecKW(tipW)+" = "+pc(tipW))+"."
+      +(genInfo.sopra ? " Il massimo supera la potenza del generatore." : "");
+  }
+  return { tipW:tipW, maxW:maxW, picco:maxW>tipW, kva:maxW/1000/0.8, prese:prese, oltre:oltre, genTxt:genTxt, gen:genInfo,
            oltreTxt: oltre ? "Nel caso peggiore servono circa "+elecKW(maxW)+", più di quanto reggono i quadri dichiarati ("+elecKW(oltre)+"): verifica con il service." : "",
-           preseTxt:prese.map(elecPresaTxt).join(" e "),
-           genKva: piccolo ? null : elecGenKva(maxW) };   /* una presa da 16 A basta: il generatore non si nomina */
+           preseTxt: genTxt ? "" : prese.map(elecPresaTxt).join(" e "),
+           genKva: (piccolo || genTxt) ? null : elecGenKva(maxW) };   /* una presa da 16 A basta: il generatore non si nomina */
 }
 /* Chi porta il quadro non è un dato del progetto: finché nessuno lo dice, si scrive che è aperto, con UNA frase
    sola in rider, lista carichi e audit (decisione di Simone, 08/11: nessuna ipotesi su service o organizzazione).
@@ -18050,6 +18061,12 @@ function cabAlign(){
 /* ===== CABLAGGIO ELETTRICO — motore (carichi → distro → alimentazione, bilanciamento fasi) =====
    Stesso principio del cablaggio audio: dati (WATT reali) → calcolo → layer → report. */
 var ELEC_VOLT=230;
+/* CARICO LEGGIBILE (23/11/2026). Fattore di potenza dei generatori: ipotesi dichiarata (il costruttore non lo dà per il noleggio), la stessa
+   dell'avviso «generatore sottodimensionato» e della taglia consigliata (0,8). Una costante, scritta nel testo come «ipotesi». */
+var ELEC_COSFI=0.8;
+/* Oggetti ATTIVI (a spina) di cui il catalogo non conosce il consumo: nei carichi non compaiono (il motore prende solo wattOf>0) e il totale
+   sembrava completo. Non si inventano W: si dice che esistono. I passivi (truss, transenne, mojobar…) valgono 0 W giusto e non stanno qui. */
+var ELEC_SENZA_W={confidence:1, stagebox:1, netswitch:1, rxrf:1, wlrack:1};
 /* Soglie sotto le quali l'Audit tace (27/07, dall'audit d'uso). Un duo acustico — due canali e un ampli
    da 200 W in una presa — prendeva «Da rivedere» con un errore critico, perché le regole erano tarate
    su una produzione media applicata a qualunque progetto. Sotto queste soglie stage box, quadro
@@ -18112,6 +18129,33 @@ function elecMargin(){ return 0.2; }
 function elecKW(w){ return (w/1000).toFixed(1).replace(".",",")+" kW"; }
 /* Corrente del totale (23/11/2026): in trifase la corrente utile è quella PER FASE, W/(230·3): 21,4 kW erano «93 A», che a chi legge fa pensare a quadri da 32 A troppo piccoli; sono ~31 A per fase. Monofase invariato (W/230). Solo testo: i W e i carichi non cambiano. */
 function elecAmpTot(totW, trifase){ if(!trifase) return Math.round(totW/ELEC_VOLT)+" A"; var f=Math.round(totW/(ELEC_VOLT*3)); return f<1 ? "<1 A per fase" : "~"+f+" A per fase"; }
+/* Gli oggetti attivi senza consumo noto, in una frase sola per pannello, lista carichi, piano elettrico, rider e anteprima. */
+function elecSenzaWTxt(R){
+  var sw=(R&&R.senzaW)||[]; if(!sw.length) return "";
+  var cnt={}, ord=[];
+  sw.forEach(function(it){ var n=(TYPES[it.type]||{}).nome||it.type; if(!cnt[n]){ cnt[n]=0; ord.push(n); } cnt[n]++; });
+  return "Senza consumo noto, non compresi nei totali ("+sw.length+(sw.length===1?" oggetto":" oggetti")+"): "+ord.map(function(n){ return n+" ×"+cnt[n]; }).join(", ");
+}
+/* Le righe di testo sotto la barra della lista carichi (pannello): una per cosa, ognuna con la sua etichetta `k`.
+   - gen: generatore sul palco → si confronta il carico con la sua potenza (niente prese da chiedere);
+   - presa: senza generatore, come prima («Da chiedere…»);
+   - stima / quadri: in modo manuale, finché i carichi non sono collegati, il totale c'è già (dal catalogo) e i quadri mostrano solo ciò che è collegato. */
+function elecPannelloRighe(R){
+  var P=elecPotenza(R), out=[];
+  if(P.genTxt) out.push({k:"gen", t:P.genTxt, warn:!!(P.gen && P.gen.sopra)});
+  else if(P.preseTxt) out.push({k:"presa", t:"Da chiedere: "+P.preseTxt+(P.picco?" · tipico "+elecKW(P.tipW)+", massimo "+elecKW(P.maxW):"")+(P.genKva?" · generatore ≥ "+P.genKva+" kVA":"")});
+  if(P.oltreTxt) out.push({k:"oltre", t:"⚠ "+P.oltreTxt, warn:true});
+  var sw=elecSenzaWTxt(R); if(sw) out.push({k:"senzaw", t:sw});
+  var pend=(R&&R.pending)||[];
+  if(pend.length){
+    var pw=pend.reduce(function(a,l){ return a+l.w; },0);
+    out.push({k:"stima", t:"Totale stimato dal catalogo: "+elecKW(R.totW)+" tipico"+(P.picco?" (massimo "+elecKW(P.maxW)+")":"")+" · "+elecAmpTot(R.totW, R.phase3)
+      +" · da collegare: "+elecKW(pw)+" ("+pend.length+(pend.length===1?" carico":" carichi")+"). I quadri mostrano solo ciò che è già collegato."});
+    var dq=(R.distros||[]).filter(function(d){ return !(d.it && d.it.type==="ciabatta"); });
+    if(dq.length) out.push({k:"quadri", t:"Per quadro: "+dq.map(function(d){ return d.letter+" ("+d.a+" A) "+elecKW(d.loadW)+" collegati"; }).join(" · ")});
+  }
+  return out;
+}
 function elecSupplyPoint(){
   var sp=state.elec&&state.elec.supply, W=state.stage.w, D=state.stage.d;
   var gen=(state.items||[]).filter(elecIsGen)[0];
@@ -18500,7 +18544,9 @@ function electricEngine(){
       ? {lvl:"err", msg:pendingE.length+" carichi da collegare, ma "+(_troppo.length===1?"uno non ci sta":_troppo.length+" non ci stanno")+" su nessun quadro: il più libero ha "+Math.max(0,_capLibera).toFixed(0)+" A liberi. Aggiungi un quadro con più portata o dividi i carichi."}
       : {lvl:"info", msg:pendingE.length+" carichi da collegare: seleziona l'elemento e trascina dal pallino ambra a un distro."});
   }
-  return {loads:loads, distros:distros, loadLinks:loadLinks, feeds:feeds, uplinks:uplinks, unassigned:unassigned, pending:pendingE, supply:supply,
+  /* attivi senza consumo noto: fuori dai totali, ma si dicono (23/11/2026) */
+  var senzaW=(state.items||[]).filter(function(it){ return ELEC_SENZA_W[it.type] && !elecIsDistro(it) && !elecIsGen(it) && !(wattOf(it)>0); });
+  return {loads:loads, distros:distros, loadLinks:loadLinks, feeds:feeds, uplinks:uplinks, unassigned:unassigned, pending:pendingE, supply:supply, senzaW:senzaW,
           upPend:upPend,   /* ciabatte/distro con carico ma senza linea verso il quadro: la lista deve dirlo (31/07) */
           totW:totW, totA:totA, capW:capW, phase3:ph3, issues:issues};
 }
@@ -35714,7 +35760,7 @@ function renderLoadPanel(){
   if(!loadOpen) return;
   var host=document.getElementById("loadRows");
   var pl=loadList(), R=pl.R;
-  if(!pl.rows.length){ host.innerHTML='<div class="patch-empty">Nessun carico elettrico sul palco: aggiungi ampli, rack, luci.</div>'; return; }
+  if(!pl.rows.length){ var _swv=elecSenzaWTxt(R); host.innerHTML='<div class="patch-empty">Nessun carico elettrico sul palco: aggiungi ampli, rack, luci.</div>'+(_swv?'<div class="load-presa" style="margin:6px 2px;font-size:12px;line-height:1.35;color:var(--text-2)">'+esc(_swv)+'</div>':""); return; }
   host.innerHTML="";
   /* ANTEPRIMA POWER (Simone 29/07) — la stessa grammatica dell'Input: una barra sola in cima, una
      riga per carico (numero · nome · dove si attacca · azione) e il comando principale sempre
@@ -35748,12 +35794,14 @@ function renderLoadPanel(){
     bar.appendChild(cs); }
   host.appendChild(bar);
   /* A1: cosa chiedere all'organizzazione, dimensionato sul massimo. Una riga, solo se c'è da dire. */
-  var P=elecPotenza(R);
-  if(P.preseTxt){ var pr=document.createElement("div"); pr.className="load-presa"; pr.style.cssText="margin:6px 2px;font-size:12px;line-height:1.35;color:var(--text-2)";
-    pr.textContent="Da chiedere: "+P.preseTxt+(P.picco?" · tipico "+elecKW(P.tipW)+", massimo "+elecKW(P.maxW):"")+(P.genKva?" · generatore ≥ "+P.genKva+" kVA":"");
-    pr.title="Presa e generatore si dimensionano sul massimo: PA e monitor a piena potenza (1/3) assorbono circa il doppio del tipico. Stima: verifica con il service o con un elettricista.";
-    host.appendChild(pr); }
-  if(P.oltreTxt){ var po=document.createElement("div"); po.className="load-presa"; po.style.cssText="margin:0 2px 6px;font-size:12px;line-height:1.35;color:var(--warning)"; po.textContent="⚠ "+P.oltreTxt; host.appendChild(po); }
+  elecPannelloRighe(R).forEach(function(r){
+    var d=document.createElement("div"); d.className="load-presa"; d.dataset.k=r.k;
+    d.style.cssText="margin:6px 2px;font-size:12px;line-height:1.35;color:"+(r.warn?"var(--warning)":"var(--text-2)");
+    d.textContent=r.t;
+    if(r.k==="presa") d.title="Presa e generatore si dimensionano sul massimo: PA e monitor a piena potenza (1/3) assorbono circa il doppio del tipico. Stima: verifica con il service o con un elettricista.";
+    else if(r.k==="gen") d.title="Potenza nominale del generatore del catalogo × fattore di potenza 0,8 (ipotesi). Il massimo conta PA e monitor a piena potenza (1/3). Stima: verifica con il noleggiatore.";
+    else if(r.k==="stima") d.title="Stima dai consumi tipici del catalogo: il carico per quadro e per fase compare quando colleghi i carichi (pallino ambra → quadro).";
+    host.appendChild(d); });
 
   pl.rows.forEach(function(r){
     var lid=r.loadId||"";
@@ -39381,7 +39429,9 @@ function loadListPdf(shared){
     var P=elecPotenza(R);
     y=pdfACapo(doc, (P.picco?"Totale tipico: "+elecKW(R.totW)+" · massimo "+elecKW(P.maxW):"Totale: "+elecKW(R.totW))+" · "+elecAmpTot(R.totW, R.phase3)+"   ·   "+elecQuadriRiga(state, R), M, y, 178, 5);
     /* A1: la presa da chiedere, dimensionata sul massimo, sotto il totale */
-    if(P.preseTxt){ doc.setFontSize(8.5); y=pdfACapo(doc, "Da chiedere: "+P.preseTxt+(P.genKva?" · con un generatore almeno "+P.genKva+" kVA":""), M, y, 178, 3.8)-0.8; }
+    if(P.genTxt){ doc.setFontSize(8.5); y=pdfACapo(doc, P.genTxt, M, y, 178, 3.8)-0.8; }
+    else if(P.preseTxt){ doc.setFontSize(8.5); y=pdfACapo(doc, "Da chiedere: "+P.preseTxt+(P.genKva?" · con un generatore almeno "+P.genKva+" kVA":""), M, y, 178, 3.8)-0.8; }
+    var _swL=elecSenzaWTxt(R); if(_swL){ doc.setFontSize(8.5); y=pdfACapo(doc, _swL, M, y, 178, 3.8)-0.8; }
     y+=3;
     var _testaTab=null;
     function trow(a,b,c,d,e,bold,color,lastColor){ if(y>274){ doc.addPage(); y=18; if(_testaTab){ var _t=_testaTab; _testaTab=null; _t(); _testaTab=_t; } } doc.setFont("helvetica", bold?"bold":"normal"); doc.setFontSize(9); doc.setTextColor(color||"#111827"); doc.text(String(a),cols[0],y); doc.text(String(b),cols[1],y); doc.text(String(c),cols[2],y); doc.text(String(d),cols[3],y);
@@ -40315,8 +40365,11 @@ function elecReportPdf(shared){
     var P=elecPotenza(R);
     line((P.picco?"Assorbimento tipico: ":"Potenza totale: ")+elecKW(R.totW)+"  ·  "+elecAmpTot(R.totW, R.phase3)+"  ("+(R.phase3?"trifase":"monofase")+")"
       +(P.picco?"  ·  massimo: "+elecKW(P.maxW)+" (audio a piena potenza)":""), 10, false, null, 5);
-    if(P.preseTxt) line("Da chiedere: "+P.preseTxt+", a non più di 10 m dal palco", 10, false, null, 5);
-    if(P.genKva) line("Generatore consigliato: almeno "+P.genKva+" kVA (da confermare con il noleggiatore)", 10, false, null, 5);
+    if(P.genTxt) line(P.genTxt, 10, false, null, 5);
+    else {
+      if(P.preseTxt) line("Da chiedere: "+P.preseTxt+", a non più di 10 m dal palco", 10, false, null, 5);
+      if(P.genKva) line("Generatore consigliato: almeno "+P.genKva+" kVA (da confermare con il noleggiatore)", 10, false, null, 5);
+    }
     if(P.oltreTxt) line(P.oltreTxt, 9.5, true, "#b45309", 5);
     if(R.supply) line("Alimentazione: "+R.supply.name+(R.supply.kva?" ("+R.supply.kva+" kVA)":""), 10, false, null, 5);
     R.distros.forEach(function(d){ line("Distro "+d.letter+": "+d.name+"  "+(d.loadW/1000).toFixed(1).replace(".",",")+" kW / "+d.a+" A"+(d.auto?" (proposto)":"")+"   ·   L1/L2/L3 = "+d.phLoad.slice(0,d.ph).map(function(x){return x.toFixed(0);}).join("/")+" A", 9.5, false, null, 4.8); });
@@ -40325,6 +40378,9 @@ function elecReportPdf(shared){
     line("Dettaglio carichi", 12, true, "#b45309", 6);
     R.loadLinks.forEach(function(l){ line((l.load.it.label||TYPES[l.load.it.type].nome)+"  ->  Distro "+l.distro.letter+" L"+(l.phase+1)+"   ("+l.load.w+" W · "+l.load.a.toFixed(1)+" A"+(l.cee?" · CEE":"")+")", 9, false, null, 4.6); });
     R.unassigned.forEach(function(l){ line((l.it.label||TYPES[l.it.type].nome)+"  ->  SENZA DISTRO ("+l.w+" W)", 9, true, "#dc2626", 4.6); });
+    if(R.pending && R.pending.length){ var _pw=R.pending.reduce(function(a,l){ return a+l.w; },0);
+      line("Da collegare: "+R.pending.length+(R.pending.length===1?" carico":" carichi")+" ("+elecKW(_pw)+" stimati dal catalogo): i quadri mostrano solo ciò che è già collegato.", 9, false, "#b45309", 4.6); }
+    var _swR=elecSenzaWTxt(R); if(_swR) line(_swR, 9, false, "#6b7280", 4.6);
     y+=4;
     line("Criticità", 12, true, "#b45309", 6);
     if(R.issues.length) R.issues.forEach(function(i){ line("• "+i.msg, 9, i.lvl==="err", i.lvl==="err"?"#dc2626":(i.lvl==="warn"?"#b45309":"#6b7280"), 4.6); });
@@ -41323,7 +41379,7 @@ function pdfListConfig(){
       cols:[{h:"#",num:1,f:function(r){return r.n;}},{h:"Mix",f:function(r){return r.mix;}},{h:"Tipo",f:function(r){return r.tipo+(r.stereo?" · st":"");}},{h:"Monitor",f:function(r){return r.name;}},{h:"Uscita",f:function(r){return r.patch;},warn:function(r){return !r.box;}}] },
     loadlist:{ title:"Lista carichi", color:"#d97706", data:(typeof loadList==="function"?loadList:null),
       sub:function(d){ if(!d.R) return ""; var P=elecPotenza(d.R);
-        return (P.picco?"Totale tipico "+elecKW(d.R.totW)+" · massimo "+elecKW(P.maxW):"Totale "+elecKW(d.R.totW)+" · "+elecAmpTot(d.R.totW, d.R.phase3))+(P.preseTxt?" · da chiedere: "+P.preseTxt:"")+" · "+elecQuadriRiga(state, d.R); },
+        return (P.picco?"Totale tipico "+elecKW(d.R.totW)+" · massimo "+elecKW(P.maxW):"Totale "+elecKW(d.R.totW)+" · "+elecAmpTot(d.R.totW, d.R.phase3))+(P.genTxt?" · "+P.genTxt:(P.preseTxt?" · da chiedere: "+P.preseTxt:""))+" · "+elecQuadriRiga(state, d.R)+(elecSenzaWTxt(d.R)?" · "+elecSenzaWTxt(d.R):""); },
       cols:[{h:"#",num:1,f:function(r){return r.n;}},{h:"Carico",f:function(r){return r.name;}},{h:"W",num:1,f:function(r){return r.w;}},{h:"Fonte W",f:function(r){return wattFonteBreve(r.fonte)||"—";}},{h:"A",num:1,f:function(r){return r.a.toFixed(1);}},{h:"Distro / fase",f:function(r){return r.ok?(r.distro+" / "+r.phase):"— senza distro";},warn:function(r){return !r.ok;}}] },
     backline:{ title:"Backline", color:"#0d9488", data:(typeof backlineList==="function"?backlineList:null),
       sub:function(d){ return d.totItems+" element"+(d.totItems===1?"o":"i")+(d.byService?" · "+d.byService+" da Service":""); },
@@ -41671,7 +41727,7 @@ function riderData(){
                multiprese:(E.distros||[]).length-_quadri.length,
                /* «trifase» solo se c'è davvero un quadro trifase: phase3 nasce vero di default, e il rider scriveva «distribuzione trifase» accanto a «1 presa 16 A monofase» per un wedge (analisi esterna 08/11) */
                fasi:_quadri.some(function(d){ return !d.auto && d.ph===3; }), quadroFrase:elecQuadroFrase(state,_quadri.length),
-               maxW:P.maxW, preseTxt:P.preseTxt, genKva:P.genKva, oltreTxt:P.oltreTxt, ambiente:elecAmbiente(state) }; }catch(_e){ return null; } })(),
+               maxW:P.maxW, preseTxt:P.preseTxt, genKva:P.genKva, oltreTxt:P.oltreTxt, genTxt:P.genTxt, senzaWTxt:elecSenzaWTxt(E), ambiente:elecAmbiente(state) }; }catch(_e){ return null; } })(),
     note: r.note||"",
     camerini: (typeof r.camerini==="string") ? r.camerini : "", parcheggi: (typeof r.parcheggi==="string") ? r.parcheggi : ""   /* S6: testo libero, vuoto = la sezione non esce (niente cifre inventate) */
   };
@@ -41746,9 +41802,10 @@ function riderAlimentazioneText(e){
   var _quadro = e.quadroFrase!=null ? e.quadroFrase : (e.distro.length?"":ELEC_QUADRO_APERTO);   /* senza il dato (chi chiama con un riassunto vecchio): come un progetto senza risposta */
   return pot+
     (e.distro.length?" · quadri: "+e.distro.join(", "):"")+(e.multiprese?" · "+e.multiprese+(e.multiprese===1?" multipresa":" multiprese"):"")+(e.fasi?" · distribuzione trifase":"")+". "+
-    (e.preseTxt ? "Servono "+e.preseTxt+", a uso esclusivo e a non più di 10 m dal palco. " : "Presa di corrente disponibile a bordo palco. ")+
+    (e.genTxt ? e.genTxt+" " : (e.preseTxt ? "Servono "+e.preseTxt+", a uso esclusivo e a non più di 10 m dal palco. " : "Presa di corrente disponibile a bordo palco. "))+
     (e.oltreTxt ? e.oltreTxt+" " : "")+
-    (e.genKva ? "Con un generatore: almeno "+e.genKva+" kVA, da confermare con il noleggiatore. " : "")+
+    (!e.genTxt && e.genKva ? "Con un generatore: almeno "+e.genKva+" kVA, da confermare con il noleggiatore. " : "")+
+    (e.senzaWTxt ? e.senzaWTxt+". " : "")+
     (_quadro?_quadro+". ":"")+"Tutte le linee di palco protette da interruttore differenziale 30 mA (HSE GS50 / CEI 64-8), prolunghe completamente svolte, ciabatte multipresa e non adattatori multipli. "+
     elecDisclaimer(e.ambiente);   /* e.ambiente: dal luogo del progetto (assente = non noto, frase di prima) */
 }
