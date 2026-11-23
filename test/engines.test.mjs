@@ -23410,7 +23410,10 @@ t("Esporta V1: un solo bottone primario («Scarica PDF»); le altre uscite stann
   const m = _modaleV1(), foot = _fra(m, 'class="pdf-exp-foot"', 'id="pdfInvitoSalva"');
   eq((foot.match(/class="btn primary"/g) || []).length, 1, "un solo primario nel piede");
   ok(/class="btn primary" id="pdfGo">Scarica PDF</.test(foot), "il primario dice «Scarica PDF»");
-  ok(/id="pdfAltriBtn"[^>]*aria-haspopup/.test(foot) && /id="pdfAltriBtn"[^>]*aria-expanded="false"/.test(foot) && /aria-controls="pdfAltriMenu"/.test(foot), "bottone «Altri file» con aria-haspopup, aria-expanded, aria-controls");
+  ok(/id="pdfAltriBtn"[^>]*aria-expanded="false"/.test(foot) && /aria-controls="pdfAltriMenu"/.test(foot), "bottone «Altri file» con aria-expanded e aria-controls");
+  /* RIFINITURA 24/11: è un gruppo di bottoni (role="group", si naviga con Tab), non un menu a frecce: aria-haspopup="true" promette role=menu e sarebbe incoerente */
+  ok(!/id="pdfAltriBtn"[^>]*aria-haspopup/.test(foot), "il bottone NON dichiara aria-haspopup (il gruppo non è un role=menu)");
+  ok(/id="pdfAltriMenu"[^>]*role="group"/.test(foot) && !/role="menu(item)?"/.test(_fra(foot, 'id="pdfAltriMenu"')), "il gruppo resta role=group, senza finti menuitem");
   const menu = _fra(foot, 'id="pdfAltriMenu"');
   ok(/id="pdfAltriMenu"[^>]*hidden/.test(foot), "il gruppo è chiuso di serie");
   ["pdfEsterni", "pdfTeatro", "pdfAltZip", "pdfAltPng", "pdfAltCsv"].forEach((id) => {
@@ -23430,6 +23433,17 @@ t("Esporta V1: il menu «Altri file» si apre/chiude, Esc lo chiude PRIMA della 
   ok(/window\.__pdfAltriChiudi\s*=/.test(h), "si può chiudere dall'apertura della finestra");
   const ap = appjs.slice(appjs.indexOf("function _pdfExportModalCore"), appjs.indexOf("function _pdfExportModalCore") + 3500);
   ok(/__pdfAltriChiudi/.test(ap), "ogni apertura dell'Esporta parte col menu chiuso");
+});
+t("Esporta rifiniture: avvisi compatti (titolo sempre, «Dettagli» da 2 avvisi in su) e piè senza «·» iniziale (il separatore sta nello stile)", () => {
+  const i = appjs.indexOf("function esportaCompattaAvvisi");
+  ok(i > -1, "esiste esportaCompattaAvvisi");
+  const h = appjs.slice(i, i + 700);
+  ok(/pdfPrimaDi/.test(h) && /pdfFuoriPalco/.test(h) && /n>=2/.test(h) && /px-compatti/.test(h), "conta Prima di esportare + righe dei fuori palco e mette px-compatti da 2 in su");
+  ok(/px-det-b/.test(appjs) && /aria-expanded/.test(appjs.slice(appjs.indexOf("function pdfAvvisoDettagli"), appjs.indexOf("function pdfAvvisoDettagli") + 700)), "il «Dettagli» è un bottone con aria-expanded");
+  ok(/\.px-compatti \.px-det:not\(\.aperto\)\{display:none\}/.test(stylesCss), "in modo compatto i dettagli si nascondono, salvo aperti");
+  ok(!/\.px-compatti[^{]*\{[^}]*display:none[^}]*\}/.test(stylesCss.replace(/\.px-compatti \.px-det:not\(\.aperto\)\{display:none\}/, "")), "e niente altro viene nascosto dal modo compatto (nessun avviso perso)");
+  ok(/class="px-fuori"/.test(appjs) && /\.px-fuori::before\{content:" \\00b7/.test(stylesCss), "il piè mette il «·» come stile sul solo desktop");
+  eq(A.pdfInfoFuori.length >= 0, true, "pdfInfoFuori resta com'era (il separatore lo toglie il chiamante)");
 });
 t("Esporta V1: «Altre opzioni» conta le opzioni cambiate (pdfAltreCambiate) senza contare i valori di serie", () => {
   const base = { stato: "", lingua: "", unita: "m", orient: "auto", stile: "std", famCol: false, pedMis: "full", organico: false, pesi: false, header: "", area: false, scaletta: false, qr: false, allegati: 0 };

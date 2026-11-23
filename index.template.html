@@ -2642,7 +2642,7 @@
       <div class="pdf-exp-actions">
         <!-- ALTRI FILE (23/11/2026, V1): le uscite secondarie in UN gruppo, con le stesse funzioni di prima. Ogni voce dice cosa scarica. -->
         <div class="pdf-altri">
-          <button type="button" class="btn" id="pdfAltriBtn" aria-haspopup="true" aria-expanded="false" aria-controls="pdfAltriMenu">Altri file <span aria-hidden="true">▾</span></button>
+          <button type="button" class="btn" id="pdfAltriBtn" aria-expanded="false" aria-controls="pdfAltriMenu">Altri file <span aria-hidden="true">▾</span></button>
           <div class="pdf-altri-menu" id="pdfAltriMenu" role="group" aria-label="Altri file da scaricare" hidden>
             <!-- PALCO PER ESTERNI (16/11/2026, M-078): solo il disegno con la fascia «titolo · luogo · Stage plot vN · data»; è ciò che si manda a teatro, service, Diego. Scarica SUBITO un PDF. -->
             <div class="pdf-altri-voce" id="pdfEsterniBox">
@@ -45194,7 +45194,9 @@ function pdfChannelPage(doc, L, paperKey){
         _prop=_pr;   /* i pulsanti si collegano a fine ramo: ogni «info.innerHTML+=» li ricrea */
       }
       /* chi sta fuori dal palco si stampa, e con «Adatta al foglio» può costare una scala: dirlo (14/10) */
-      info.innerHTML+=esc(pdfInfoFuori(paper.value, pdfScaleValue(), _or, _cartH));
+      /* RIFINITURA 24/11: il « · » iniziale lega la frase a «Scala risultante…», che su telefono è nascosta: il separatore sta nello stile (::before), non nel testo */
+      var _fu=pdfInfoFuori(paper.value, pdfScaleValue(), _or, _cartH);
+      if(_fu) info.innerHTML+='<span class="px-fuori">'+esc(_fu.replace(/^\s*·\s*/,""))+'</span>';
       var _a3=pdfConsiglioA3(paper.value, pdfScaleValue(), header.value);
       if(_a3){
         info.className="mstatus warn";
@@ -45208,6 +45210,7 @@ function pdfChannelPage(doc, L, paperKey){
       if(_bf && _prop) _bf.onclick=function(){ var c=document.querySelector('[data-chips="pdfPaper"] button[data-v="'+_prop.foglio+'"]'); if(c) c.click(); };
     }
     renderFuoriPalco();   /* foglio, scala e verso decidono chi resta fuori dal foglio (14/10) */
+    esportaCompattaAvvisi();
     renderPreview();
   }
   window.__esportaRiaggiorna=refresh;   /* V1 (23/11): chi scrive il nome fuori dal blocco (setEventInputs) ridisegna l'anteprima */
@@ -45231,6 +45234,22 @@ function pdfChannelPage(doc, L, paperKey){
      parla solo di due cose (fuoriPalcoEsporta): chi il foglio lo perde davvero (area scelta o scala fissa), col suo
      rimedio che non tocca mai il palco; e l'equivoco sul rettangolo, con la stessa regola dell'audit, dicendo che
      palco ne esce. Se non c'è niente da dire, non c'è nemmeno l'avviso. */
+  /* AVVISI COMPATTI (24/11): un avviso solo si legge per intero; da due in su (Prima di esportare + elementi fuori dal palco, o le due righe dei fuori palco)
+     ognuno mostra il titolo e un «Dettagli» che apre il resto, così «Altre opzioni», l'anteprima e «Scarica PDF» restano in vista senza scorrere. */
+  window.__pdfAvvAperti=window.__pdfAvvAperti||{};
+  function pdfAvvisoDettagli(riga, det, chiave){
+    var bt=document.createElement("button"); bt.type="button"; bt.className="px-det-b"; bt.setAttribute("aria-controls", det.id);
+    function mostra(){ var ap=!!window.__pdfAvvAperti[chiave]; det.classList.toggle("aperto", ap); bt.setAttribute("aria-expanded", ap?"true":"false"); bt.textContent=ap?"Meno":"Dettagli"; }
+    bt.addEventListener("click", function(){ window.__pdfAvvAperti[chiave]=!window.__pdfAvvAperti[chiave]; mostra(); });
+    mostra(); riga.appendChild(bt);
+  }
+  function esportaCompattaAvvisi(){
+    var m=document.querySelector("#pdfModal .pdf-export"); if(!m) return;
+    var pd=document.getElementById("pdfPrimaDi"), fp=document.getElementById("pdfFuoriPalco");
+    var n=(pd && !pd.hidden ? 1 : 0) + (fp && !fp.hidden ? fp.children.length : 0);
+    m.classList.toggle("px-compatti", n>=2);
+  }
+  window.__esportaCompattaAvvisi=esportaCompattaAvvisi;
   function renderFuoriPalco(){
     var box=document.getElementById("pdfFuoriPalco"); if(!box) return;
     box.innerHTML="";
@@ -45242,7 +45261,13 @@ function pdfChannelPage(doc, L, paperKey){
     function riga(titolo, testo, etichetta, id, fai){
       var d=document.createElement("div"); if(box.firstChild) d.style.marginTop="8px";
       var b=document.createElement("b"); b.textContent=titolo; d.appendChild(b);
-      d.appendChild(document.createTextNode(testo.slice(titolo.length)+" "));
+      /* RIFINITURA 24/11: con 2 o più avvisi in vista (esportaCompattaAvvisi) il resto del testo si ripiega dietro «Dettagli»: il titolo e il rimedio restano sempre in vista, niente si perde */
+      var _rest=testo.slice(titolo.length);
+      if(_rest.trim()){
+        var dt=document.createElement("span"); dt.className="px-det"; dt.id="pdfFuoriDet"+box.children.length; dt.textContent=_rest;
+        d.appendChild(dt); d.appendChild(document.createTextNode(" "));
+        pdfAvvisoDettagli(d, dt, "fuori"+box.children.length);
+      } else d.appendChild(document.createTextNode(" "));
       if(etichetta){
         var fix=document.createElement("button");
         fix.type="button"; fix.className="btn"; fix.id=id; fix.textContent=etichetta;
@@ -45323,11 +45348,11 @@ function pdfChannelPage(doc, L, paperKey){
     var box=document.getElementById("pdfPrimaDi"); if(!box) return;
     box.innerHTML="";
     var L=[]; try{ L=controlliPrimaDelExport(); }catch(_e){}
-    if(!L.length){ box.hidden=true; return; }
+    if(!L.length){ box.hidden=true; esportaCompattaAvvisi(); return; }
     box.hidden=false; box.className="nudge warn pdf-prima";
     var b=document.createElement("b"); b.textContent="Prima di esportare: "+(L.length===1?"1 cosa da guardare":L.length+" cose da guardare");
     box.appendChild(b);
-    var ul=document.createElement("ul");
+    var ul=document.createElement("ul"); ul.className="px-det"; ul.id="pdfPrimaDiElenco";
     L.forEach(function(x){
       var li=document.createElement("li");
       if(x.itemId!=null){
@@ -45337,7 +45362,9 @@ function pdfChannelPage(doc, L, paperKey){
       } else li.textContent=x.testo;
       ul.appendChild(li);
     });
+    box.appendChild(document.createTextNode(" ")); pdfAvvisoDettagli(box, ul, "prima");
     box.appendChild(ul);
+    esportaCompattaAvvisi();
   }
   window.__renderPrimaDelExport=renderPrimaDelExport;   /* il titolo si può correggere dentro l'Esporta: la striscia si aggiorna (setEventInputs) */
   function renderProdInline(){

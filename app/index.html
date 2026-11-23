@@ -4424,6 +4424,25 @@ body.dark .pdf-export .pdf-exp-foot .mstatus.warn{background:#2a2412;border-colo
 /* niente elementi schiacciati: se non c'è posto, è il corpo della finestra a scorrere (mai «Altre opzioni» tagliata a metà) */
 .pdf-export .pdf-exp-side>*{flex-shrink:0}
 @media(max-width:720px){ .pdf-export .pdf-sc b{font-size:12px;white-space:nowrap} }
+
+/* RIFINITURE ESPORTA (24/11): avvisi compatti. Da 2 avvisi in su (classe px-compatti, messa da esportaCompattaAvvisi) il resto del testo sta dietro «Dettagli». */
+.pdf-export .px-det-b{display:none;font:inherit;font-size:12px;font-weight:600;color:var(--accent-strong);background:none;border:0;padding:2px 4px;margin-left:2px;text-decoration:underline;cursor:pointer;min-height:0}
+.pdf-export .px-det-b:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.pdf-export.px-compatti .px-det-b{display:inline}
+.pdf-export.px-compatti #pdfFuoriPalco,.pdf-export.px-compatti #pdfPrimaDi{font-size:12px;line-height:1.3}
+.pdf-export.px-compatti #pdfFuoriPalco{padding:6px 10px}
+.pdf-export.px-compatti #pdfFuoriPalco>div+div{margin-top:4px !important}
+.pdf-export.px-compatti #pdfFuoriPalco .btn{min-height:0;padding:2px 9px;font-size:12px}
+.pdf-export.px-compatti .px-det:not(.aperto){display:none}
+body.dark .pdf-export .px-det-b{color:#6fd3c6}
+/* il piè: «comprende chi sta fuori…» — il «·» è lo stile, e su telefono (dove «Scala risultante» è nascosta) la frase parte da sola */
+.pdf-export .px-fuori::before{content:" \00b7  "}
+@media(max-width:720px){
+  .pdf-export .px-fuori{display:block}
+  .pdf-export .px-fuori::before{content:none}
+  .pdf-export .px-fuori::first-letter{text-transform:uppercase}
+}
+.pdf-export.px-compatti .pdf-exp-side{gap:6px}
 </style>
 <!-- Libreria icone SVG (~1,7 MB) estratta dal monolite e caricata ASYNC per l'LCP: non blocca il primo render; popola LIB_ICONS e fa re-render quando arriva -->
 <script async src="/icons.js"></script>
@@ -6990,7 +7009,7 @@ body.dark .pdf-export .pdf-exp-foot .mstatus.warn{background:#2a2412;border-colo
       <div class="pdf-exp-actions">
         <!-- ALTRI FILE (23/11/2026, V1): le uscite secondarie in UN gruppo, con le stesse funzioni di prima. Ogni voce dice cosa scarica. -->
         <div class="pdf-altri">
-          <button type="button" class="btn" id="pdfAltriBtn" aria-haspopup="true" aria-expanded="false" aria-controls="pdfAltriMenu">Altri file <span aria-hidden="true">▾</span></button>
+          <button type="button" class="btn" id="pdfAltriBtn" aria-expanded="false" aria-controls="pdfAltriMenu">Altri file <span aria-hidden="true">▾</span></button>
           <div class="pdf-altri-menu" id="pdfAltriMenu" role="group" aria-label="Altri file da scaricare" hidden>
             <!-- PALCO PER ESTERNI (16/11/2026, M-078): solo il disegno con la fascia «titolo · luogo · Stage plot vN · data»; è ciò che si manda a teatro, service, Diego. Scarica SUBITO un PDF. -->
             <div class="pdf-altri-voce" id="pdfEsterniBox">
