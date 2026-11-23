@@ -7368,6 +7368,38 @@ t("colore di truss, tendaggi e linea del sipario (elenco chiuso, `tinta`): solo 
   ok(Lm.rosso - Lm.nero > 0.06 && Lm.grigio - Lm.rosso > 0.15 && Lm.bianco - Lm.grigio > 0.3, "tendaggi: distanze di tono sufficienti in bianco e nero");
   ok(riempimento(".ic.tt-corpo") < 0.1, "truss nera: corpo scuro");
 });
+t("colore per famiglia (23/11): opzione di progetto spenta di serie, alone sotto fari, spie e stage box", () => {
+  reset();
+  const tipi = { luci: ["parluci", "testamobile", "farope", "fresnel", "pcled", "barraled"], monitor: ["wedge", "sidefill", "drumfill"], stagebox: ["stagebox", "substg"] };
+  const fuori = ["consolaluci", "dimmerluci", "etccs40", "americana", "truss", "mixer", "rack", "pedana", "chitarra"];
+  /* spento (di serie): nessun elemento ha una famiglia, nessun alone */
+  delete A.state.coloreFamiglie;
+  Object.values(tipi).flat().concat(fuori).forEach((x) => { eq(A.famColoreDi({ type: x }), null, x + ": spento, nessuna famiglia"); eq(A.famColoreAlone({ type: x }, 20, 20), "", x + ": spento, nessun alone"); });
+  /* acceso */
+  A.state.coloreFamiglie = true;
+  Object.entries(tipi).forEach(([f, l]) => l.forEach((x) => { eq(A.famColoreDi({ type: x }), f, x + " → " + f); ok(A.famColoreAlone({ type: x }, 20, 30).includes('class="famcol fam-' + f + '"'), x + ": alone della famiglia"); }));
+  fuori.forEach((x) => eq(A.famColoreDi({ type: x }), null, x + ": non è di nessuna famiglia (console, dimmer, strutture, il resto non cambia)"));
+  ok(A.famColoreAlone({ type: "wedge" }, 60, 52).includes('x="-34"') && A.famColoreAlone({ type: "wedge" }, 60, 52).includes('width="68"'), "l'alone segue l'ingombro con 4 cm di margine");
+  /* salvataggio: solo un true esplicito si tiene */
+  const base = { x: 0, y: 0 };
+  A.state.items = A.normalizeLoadedItems([{ id: "p1", type: "parluci", ...base }]);
+  const stDi = (j) => j.variants.find((v) => v.id === j.active).state;   /* il file è una busta: le opzioni stanno nello stato di ogni variante */
+  const j = JSON.parse(A.docToJSON()); eq(stDi(j).coloreFamiglie, true, "acceso: nel file, nello stato della variante");
+  A.loadDoc(j); eq(A.state.coloreFamiglie, true, "riaperto: ancora acceso");
+  for (const v of ["si", 1, "true", null, [], {}, false, 0]) { const m = JSON.parse(A.docToJSON()); m.variants.forEach((x) => { x.state.coloreFamiglie = v; }); A.loadDoc(m); ok(!("coloreFamiglie" in A.state), "valore " + JSON.stringify(v) + ": ripulito"); }
+  delete A.state.coloreFamiglie; ok(!("coloreFamiglie" in stDi(JSON.parse(A.docToJSON()))), "spento: la chiave non compare nel file (i progetti esistenti non cambiano)");
+  ok(A.CAMPI_DOCUMENTO.includes("coloreFamiglie"), "è un campo del documento: vale per tutte le varianti");
+  /* il controllo e il CSS */
+  const shellHtml = readFileSync(join(root, "app/index.html"), "utf8");
+  ok(shellHtml.includes('id="pdfFamCol"'), "il controllo «Colore per famiglia» esiste nella shell (Esporta)");
+  ok(appjs.includes("state.coloreFamiglie===true) s += famColoreAlone"), "l'alone è disegnato prima dell'arte");
+  const lum = (hex) => { const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4)); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+  const fill = (f) => { const m = stylesCss.match(new RegExp("\\.famcol\\.fam-" + f + "\\{fill:(#[0-9a-f]{6})")); ok(!!m, "CSS fam-" + f); return lum(m[1]); };
+  const Lf = { luci: fill("luci"), stagebox: fill("stagebox"), monitor: fill("monitor") };
+  ok(new Set([Lf.luci, Lf.stagebox, Lf.monitor].map((v) => v.toFixed(2))).size === 3, "tre luminosità diverse (luci " + Lf.luci.toFixed(2) + ", stage box " + Lf.stagebox.toFixed(2) + ", spie " + Lf.monitor.toFixed(2) + ")");
+  const dash = (f) => (stylesCss.match(new RegExp("\\.famcol\\.fam-" + f + "\\{[^}]*stroke-dasharray:([^;}]+)")) || [, "pieno"])[1];
+  ok(new Set(["luci", "monitor", "stagebox"].map(dash)).size === 3, "tre tratti diversi (pieno, trattini, punti): si distinguono anche in bianco e nero");
+});
 t("la forma bloccata: bordo piu' marcato, colore suo, lucchetto DENTRO la figura", () => {
   reset();
   const libera = A.TYPES.forma.draw({ w: 200, d: 140, shape: "circle", fill: "#b45309" });

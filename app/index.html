@@ -1543,6 +1543,11 @@
   .ic.thin.tt-piega-rosso{stroke:rgba(255,255,255,.7)}
   .ic.thin.tt-piega-grigio{stroke:#4b5563}
   .ic.thin.tt-piega-bianco{stroke:#6b7280}
+  /* COLORE PER FAMIGLIA (23/11/2026): alone sotto fari / spie / stage box. Luminosità e tratto diversi per leggersi in bianco e nero e con il daltonismo. */
+  .famcol{stroke-width:2.2;pointer-events:none}
+  .famcol.fam-luci{fill:#fcd34d;stroke:#92400e}
+  .famcol.fam-monitor{fill:#bfdbfe;stroke:#1d4ed8;stroke-dasharray:9 5}
+  .famcol.fam-stagebox{fill:#bbf7d0;stroke:#166534;stroke-dasharray:2 4;stroke-linecap:round}
   .plex{fill:rgba(165,196,222,.18);stroke:#7f96a8;stroke-width:2;stroke-linejoin:round}
   .lbl{font-size:14px;fill:#111827;text-anchor:middle;font-weight:600;paint-order:stroke;stroke:#fff;stroke-width:3;stroke-linejoin:round;stroke-linecap:round}
   /* Orchestre: chi c'è sul posto, sotto l'etichetta della postazione (solo schermo) */
@@ -6803,6 +6808,7 @@ body.dark .cfm-ico.neutro{background:#12333a;color:#7dd3c8}
         </div>
         <div id="pdfMisStileRow"><label for="pdfMisStile">Stile delle misure <small class="lbl-note">— pedane, quote e palco, in tutte le pagine</small></label>
           <select id="pdfMisStile"><option value="std" selected>12 × 2 m · h40 (come sempre)</option><option value="mx">12mX2mX40cm</option><option value="xh">12x2 H40</option><option value="mt">mt 12 x 2 x h 0,40</option></select></div>
+        <label class="chk" id="pdfFamColRow" title="Sotto fari, spie e stage box compare un alone colorato (fari gialli, spie azzurre, stage box verdi), con un tratto diverso per ogni famiglia: si legge anche in bianco e nero."><input type="checkbox" id="pdfFamCol"> Colore per famiglia <small class="lbl-note">— fari, spie, stage box; anche nei PDF</small></label>
         <div id="pdfPedMisRow"><label for="pdfPedMis">Misura accanto alle pedane <small class="lbl-note">— solo nel disegno; elenchi e legenda restano completi</small></label>
           <select id="pdfPedMis"><option value="full" selected>Misura intera (come sempre)</option><option value="h">Solo altezza</option><option value="none">Nessuna</option></select></div>
         <!-- DOCUMENTO PER L'ESTERO (17/11/2026): due scelte del progetto, salvate nel progetto e uguali in tutte le scene. Di serie Italiano e metri. -->

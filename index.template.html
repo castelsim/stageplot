@@ -2591,6 +2591,7 @@
         </div>
         <div id="pdfMisStileRow"><label for="pdfMisStile">Stile delle misure <small class="lbl-note">— pedane, quote e palco, in tutte le pagine</small></label>
           <select id="pdfMisStile"><option value="std" selected>12 × 2 m · h40 (come sempre)</option><option value="mx">12mX2mX40cm</option><option value="xh">12x2 H40</option><option value="mt">mt 12 x 2 x h 0,40</option></select></div>
+        <label class="chk" id="pdfFamColRow" title="Sotto fari, spie e stage box compare un alone colorato (fari gialli, spie azzurre, stage box verdi), con un tratto diverso per ogni famiglia: si legge anche in bianco e nero."><input type="checkbox" id="pdfFamCol"> Colore per famiglia <small class="lbl-note">— fari, spie, stage box; anche nei PDF</small></label>
         <div id="pdfPedMisRow"><label for="pdfPedMis">Misura accanto alle pedane <small class="lbl-note">— solo nel disegno; elenchi e legenda restano completi</small></label>
           <select id="pdfPedMis"><option value="full" selected>Misura intera (come sempre)</option><option value="h">Solo altezza</option><option value="none">Nessuna</option></select></div>
         <!-- DOCUMENTO PER L'ESTERO (17/11/2026): due scelte del progetto, salvate nel progetto e uguali in tutte le scene. Di serie Italiano e metri. -->
@@ -6162,6 +6163,24 @@ var TINTA_ETICHETTE={
   "argento|nero":{argento:["Argento","Truss in alluminio, il colore di serie"], nero:["Nera","Truss nera verniciata"]},
   "nero|rosso|grigio|bianco":{nero:["Nero","Tendaggio nero, il colore di serie"], rosso:["Rosso","Tendaggio rosso"], grigio:["Grigio","Tendaggio grigio"], bianco:["Bianco","Tendaggio bianco"]},
   "rosso|nero":{rosso:["Rossa","Linea rossa, il colore di serie"], nero:["Nera","Linea nera: si legge meglio in stampa in bianco e nero"]}};
+/* COLORE PER FAMIGLIA (23/11/2026, richiesta di un tecnico: «luci gialle, monitor, stage box verde»): opzione di PROGETTO, spenta di
+   serie (`state.coloreFamiglie`, solo un true esplicito la accende: i progetti esistenti e i loro PDF restano identici). Accesa,
+   sotto fari, spie e stage box compare un ALONE colorato che segue l'ingombro: il disegno dell'elemento non si tocca. Il colore
+   non basta da solo (stampa spesso in bianco e nero, daltonismo): ogni famiglia ha anche un tratto diverso (luci pieno, spie a
+   trattini, stage box a punti) e una luminosità diversa (giallo chiaro, azzurro medio, verde scuro). */
+function famColoreDi(it){
+  if(!it || !state || state.coloreFamiglie!==true) return null;
+  var t=it.type;
+  if(t==="wedge" || t==="sidefill" || t==="drumfill") return "monitor";
+  if(t==="stagebox" || t==="substg") return "stagebox";
+  if(lightsIsGear(t) && !isHangStruct(it) && !LIGHT_DESKS[t] && !DIMMER_DEF[t]) return "luci";
+  return null;
+}
+function famColoreAlone(it, w, d){
+  var f=famColoreDi(it); if(!f) return "";
+  var m=4, r=function(v){ return Math.round(v*100)/100; };
+  return '<rect class="famcol fam-'+f+'" x="'+r(-w/2-m)+'" y="'+r(-d/2-m)+'" width="'+r(w+2*m)+'" height="'+r(d+2*m)+'" rx="'+(m+3)+'"/>';
+}
 /* Stagebox generica: dimensioni dai canali (Simone, dal campo 18/07): una ciabatta 8 in / 0 out è una
    scatoletta, non un rack. Solo tra i due default (mai sopra le scelte manuali/modello). Idempotente. */
 /* ===== Stage box: il pannello È i canali reali (Simone 25/07) =====
@@ -7232,7 +7251,7 @@ function nextVariantName(){ var n=0; VARIANTS.forEach(function(v){ var m=/^Varia
 /*__DOCUMENTO_ESTERO__*/
 /*__DOCUMENTO_ESTERO_EN__*/
 DOC_EN["BACKDROP · ROSSO"]="BACKDROP · RED"; DOC_EN["BACKDROP · GRIGIO"]="BACKDROP · GREY"; DOC_EN["BACKDROP · BIANCO"]="BACKDROP · WHITE";   /* colore del fondale (18/11): il dizionario generato non lo conosce */
-var CAMPI_DOCUMENTO=["docLang","docUnits","allegatiRichiesti","dotazioni","misureStile","pedMisure","pdfOrganico","quoteDaTerra","organicoOrdine","titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","versione","statoDoc","latiTeatro","sonorizzazione","orari","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
+var CAMPI_DOCUMENTO=["docLang","docUnits","allegatiRichiesti","dotazioni","misureStile","pedMisure","pdfOrganico","quoteDaTerra","coloreFamiglie","organicoOrdine","titolo","luogo","evDate","evTime","tipoEvento","techContact","contacts","pdfHeader","pdfPesi","versione","statoDoc","latiTeatro","sonorizzazione","orari","scaletta","customModels"];   /* pdfPesi (06/10/2026): i kg nel PDF valgono per tutto il documento · scaletta (10/10): i brani sono della serata, non della scena · customModels (13/10): i modelli dell'elemento personalizzato sono del progetto, uguali in ogni scena (assente se vuoto) */
 function propagaCampiDocumento(v){
   var src=v&&v.state; if(!src) return;
   VARIANTS.forEach(function(o){
@@ -10855,6 +10874,7 @@ function normalizeState(s){
   if(s.docUnits!=="ft" && s.docUnits!=="both") delete s.docUnits;   /* unità del documento (17/11/2026): "ft" o "both", assente = metri */
   if(s.latiTeatro!==true) delete s.latiTeatro;   /* giardino e corte: spenti di serie, solo un true esplicito li accende (12/11/2026) */
   if(s.pdfOrganico!==true) delete s.pdfOrganico;   /* «Organico: N + M» nel cartiglio (13/11): solo un true esplicito la accende */
+  if(s.coloreFamiglie!==true) delete s.coloreFamiglie;   /* colore per famiglia (23/11): solo un true esplicito lo accende */
   if(s.quoteDaTerra!==true) delete s.quoteDaTerra;   /* quote delle pedane «da terra» (13/11): solo un true esplicito le accende */
   s.dotazioni=dotazioniPulite(s.dotazioni); if(!s.dotazioni) delete s.dotazioni;   /* «Disponibili: N» per materiale e fornitore (S20, 15/11): solo se l'utente li scrive */
   s.allegatiRichiesti=allegatiPuliti(s.allegatiRichiesti); if(!s.allegatiRichiesti) delete s.allegatiRichiesti;   /* «Allegati richiesti» (S14, 13/11): solo se l'utente li usa */
@@ -15914,6 +15934,7 @@ function itemMarkup(it){
   if(_la && inPiedi(it) && !piediIconaOk(_la)){ piediCarica(); _la=null; _pm=true; }   /* figura in piedi non ancora arrivata (solo a schermo; l'export la aspetta): il solo strumento, mai la figura seduta né la sedia */
   var _bi=_md?_md.it:it, _drawn=_la?libIconScene(_la):t.draw(_pm?Object.assign({},_bi,{sedia:false}):_bi);   /* Fase 2: aspetto illustrato → illustrazione musicista invece dello schema */
   if(_md) _drawn='<g transform="translate(0 '+_md.dy.toFixed(1)+')">'+_drawn+'</g>';
+  if(state.coloreFamiglie===true) s += famColoreAlone(it, _pv.w, _pv.d);   /* colore per famiglia (23/11): l'alone sta SOTTO l'arte */
   s += it.mir ? '<g transform="scale(-1,1)">'+_drawn+'</g>' : _drawn;   /* specchia SOLO l'arte (hit/selbox/etichetta restano) */
   if(tastFig(it)){ var _tfg=tastFigGeom(it); s += tastFigSvg(it) + '<rect class="hit" x="'+(-TAST_FIG_LARG/2)+'" y="'+(_tfg.lato>0?0:-_tfg.far.toFixed(1))+'" width="'+TAST_FIG_LARG+'" height="'+_tfg.far.toFixed(1)+'"/>'; }   /* tastierista in piedi dietro lo strumento: sopra l'arte (mani sui tasti) e area di clic */
   if(_md) s += '<g transform="translate(0 '+_md.modY.toFixed(1)+')">'+modOverSvg(it)+'</g>';   /* il softbox davanti: simmetrico, non lo tocca lo specchio */
@@ -43971,6 +43992,14 @@ function docEsteroSincronizza(){
   });
 })();
 (function(){
+  var c=document.getElementById("pdfFamCol"); if(!c) return;
+  c.addEventListener("change", function(){
+    primaDiAgire();
+    if(c.checked) state.coloreFamiglie=true; else delete state.coloreFamiglie;
+    save(); render(); try{ if(typeof refresh==="function") refresh(); }catch(_e){}
+  });
+})();
+(function(){
   var f=document.getElementById("pdfMisStile"); if(!f) return;
   f.addEventListener("change", function(){
     if(f.value==="mx" || f.value==="xh" || f.value==="mt") state.misureStile=f.value; else delete state.misureStile;
@@ -45220,6 +45249,7 @@ function pdfChannelPage(doc, L, paperKey){
     if(pesiChk) pesiChk.checked=(state.pdfPesi===true);
     if(orgChk) orgChk.checked=pdfOrganicoOn();
     var msSel=document.getElementById("pdfMisStile"); if(msSel) msSel.value=misureStile();
+    var fcChk=document.getElementById("pdfFamCol"); if(fcChk) fcChk.checked=(state.coloreFamiglie===true);
     var pmSel=document.getElementById("pdfPedMis"); if(pmSel) pmSel.value=pedMisureModo();
     docEsteroSincronizza();   /* lingua e unità del documento (17/11/2026) */
     header.value=(typeof pdfHeaderPropose==="function") ? pdfHeaderPropose(state, pdfHeaderAccount()) : (state.pdfHeader||"");

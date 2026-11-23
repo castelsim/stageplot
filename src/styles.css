@@ -1465,6 +1465,11 @@
   .ic.thin.tt-piega-rosso{stroke:rgba(255,255,255,.7)}
   .ic.thin.tt-piega-grigio{stroke:#4b5563}
   .ic.thin.tt-piega-bianco{stroke:#6b7280}
+  /* COLORE PER FAMIGLIA (23/11/2026): alone sotto fari / spie / stage box. Luminosità e tratto diversi per leggersi in bianco e nero e con il daltonismo. */
+  .famcol{stroke-width:2.2;pointer-events:none}
+  .famcol.fam-luci{fill:#fcd34d;stroke:#92400e}
+  .famcol.fam-monitor{fill:#bfdbfe;stroke:#1d4ed8;stroke-dasharray:9 5}
+  .famcol.fam-stagebox{fill:#bbf7d0;stroke:#166534;stroke-dasharray:2 4;stroke-linecap:round}
   .plex{fill:rgba(165,196,222,.18);stroke:#7f96a8;stroke-width:2;stroke-linejoin:round}
   .lbl{font-size:14px;fill:#111827;text-anchor:middle;font-weight:600;paint-order:stroke;stroke:#fff;stroke-width:3;stroke-linejoin:round;stroke-linecap:round}
   /* Orchestre: chi c'è sul posto, sotto l'etichetta della postazione (solo schermo) */
