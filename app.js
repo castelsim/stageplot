@@ -8445,7 +8445,31 @@ function pdfRigaRiepilogo(paperKey, N, nPagine, d, corta){
   var v=versioneNumero();
   if(v){ p.push("v"+v); p.push(corta ? dataGgMmAaaa(d||new Date(),"/").slice(0,5) : dataGgMmAaaa(d||new Date(),"/")); }
   var st=statoDocEtichetta(); if(st) p.push(st);
+  /* Lingua e unità del documento (V1, 23/11): si dicono SOLO quando non sono quelle di serie, così la riga di sempre non cambia */
+  if(typeof docLingua==="function" && docLingua()==="en") p.push("English");
+  if(typeof docUnita==="function"){ var _u=docUnita(); if(_u==="ft") p.push("ft-in"); else if(_u==="both") p.push("m (ft-in)"); }
   return p.join(" \u00b7 ");
+}
+/* QUANTE OPZIONI DI «ALTRE OPZIONI» SONO DIVERSE DA QUELLE DI SERIE (23/11/2026, Esporta V1): il numero accanto a «Altre opzioni»,
+   perché chi non le apre sa comunque che qualcosa è cambiato. Funzione pura: `o` porta i valori letti dai controlli. Un riferimento di soli
+   spazi non conta; l'area stampata conta solo se scelta a mano. */
+function pdfAltreCambiate(o){
+  o=o||{}; var n=0;
+  if(o.stato) n++;
+  if(o.lingua==="en") n++;
+  if(o.unita && o.unita!=="m") n++;
+  if(o.orient && o.orient!=="auto") n++;
+  if(o.stile && o.stile!=="std") n++;
+  if(o.famCol) n++;
+  if(o.pedMis && o.pedMis!=="full") n++;
+  if(o.organico) n++;
+  if(o.pesi) n++;
+  if(o.header && String(o.header).trim()) n++;
+  if(o.area) n++;
+  if(o.scaletta) n++;
+  if(o.qr) n++;
+  if(o.allegati>0) n++;
+  return n;
 }
 /* Inviti mirati per il nudge: elemento regia presente + sistema NON ancora dichiarato → domanda concreta.
    Mai assumere la risposta: la domanda porta l'utente a dichiararla nel Controllo tecnico. */
@@ -23711,7 +23735,7 @@ function proRegistra(b, funz, testoAcceso, testoSpento){
   b.addEventListener("click", function(){ var c={}; c[funz]=!funzOn(funz); funzImposta(c); });
   proSyncTesti();
 }
-proRegistra(document.getElementById("pdfProBtn"), "esporta", "Meno opzioni", "Altre opzioni");
+proRegistra(document.getElementById("pdfProBtn"), "esporta", "Nascondi le opzioni da tecnico", "Opzioni da tecnico");
 proRegistra(document.getElementById("stageAdvMob"), "opzioni", "Nascondi le opzioni tecniche", "Opzioni tecniche");
 document.getElementById("pMirror").addEventListener("click", mirrorSel);
 document.getElementById("grpMirror").addEventListener("click", mirrorSel);
@@ -24489,6 +24513,8 @@ function setEventInputs(){
   if(typeof renderEvChip==="function") renderEvChip();
   if(typeof titoloVisAggiorna==="function") titoloVisAggiorna();   /* titolo lungo: troncamento al centro (17/11) */
   if(window.__renderPrimaDelExport) window.__renderPrimaDelExport();   /* la striscia «Prima di esportare» segue titolo e luogo (12/11) */
+  /* V1 (23/11): il nome si vede nel cartiglio dell'anteprima mentre si scrive; solo con l'Esporta aperta, e senza salvare niente */
+  try{ var _pm=document.getElementById("pdfModal"); if(_pm && !_pm.hidden && window.__esportaRiaggiorna) window.__esportaRiaggiorna(); }catch(_e){}
 }
 TITLE_INPUTS.forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input", function(){ state.titolo=this.value; setEventInputs(); saveSoon(); }); });
 ["luogo","luogoEv","evLuogo"].forEach(function(id){ var e=document.getElementById(id); if(e) e.addEventListener("input", function(){ state.luogo=this.value; setEventInputs(); saveSoon(); }); });
@@ -41342,6 +41368,13 @@ function venueFoglioSvg(area, ix, iy, vb, mmPerCm){
   var m; try{ m=venueMarkup(); } finally { window.__scenePrint=keep; }
   return '<svg x="'+area.x+'" y="'+area.y+'" width="'+area.w+'" height="'+area.h+'" viewBox="'+w.x+' '+w.y+' '+w.w+' '+w.h+'" preserveAspectRatio="none">'+m+'</svg>';
 }
+/* Il piè dell'anteprima (V1, 23/11): «1 di N» al centro e, accanto, «v3 · 23/11/2026 · Definitivo» come pdfCredit. SOLO anteprima: il PDF non passa di qui. */
+function pdfPreviewPie(L, n){
+  var y=(L.ph-16.2), ver=pieDocumentoEtichetta(), pg="1 di "+n;
+  var w=pg.length*1.55;   /* larghezza approssimata del «1 di N» a 3 mm di corpo, per affiancare la versione senza sovrapporla */
+  return '<text x="'+(L.pw/2)+'" y="'+y+'" font-size="3" fill="#6b7280" text-anchor="middle">'+pg+'</text>'+
+    (ver ? '<text x="'+(L.pw/2+w/2+2)+'" y="'+y+'" font-size="3" fill="#6b7280">'+esc(ver)+'</text>' : '');
+}
 /* anteprima del foglio (SVG, mm) — rispecchia il layout del PDF: planimetria + quote + cartiglio */
 /* l'anteprima dell'Esporta dice le stesse cose del PDF anche in inglese e in piedi (17/11/2026): stessi testi, stesso traduttore */
 function pdfPreviewSvg(paperKey, N, orient, header, opts){ var svg=_pdfPreviewSvgIt(paperKey, N, orient, header, opts); return docAttivo() ? docSvgTesti(svg) : svg; }
@@ -41397,6 +41430,7 @@ function _pdfPreviewSvgIt(paperKey, N, orient, header, opts){
     /* il formato del foglio, come nel PDF: l'anteprima deve dire le stesse cose del file che uscirà */
     '<text x="'+(L.pw-L.M)+'" y="'+(cy+15)+'" font-size="3.6" font-weight="700" fill="#111827" text-anchor="end">'+esc(paperLabel(L.paper, L.orient))+'</text>'+
     '<text x="'+(L.pw-15.5)+'" y="'+(L.ph-16.2)+'" font-size="2.3" fill="#9ca3af" text-anchor="end">Creato con stageplot.it</text>'+
+    pdfPreviewPie(L, opts.nPag||1)+   /* «1 di N · vN · data · stato», come pdfCredit nel PDF (V1, 23/11): versione e stato si vedono nel foglio */
     (opts.pageLabel ? '<text x="'+L.M+'" y="8.5" font-size="6.4" font-weight="800" letter-spacing="0.4" fill="#111827">'+esc(opts.pageLabel)+'</text>' : '')+
     '</svg>';
 }
@@ -43006,6 +43040,7 @@ function docEsteroSincronizza(){
   f.addEventListener("change", function(){
     if(f.value==="h" || f.value==="none") state.pedMisure=f.value; else delete state.pedMisure;
     save(); render(); try{ if(typeof refresh==="function") refresh(); }catch(_e){}
+    try{ var _pm=document.getElementById("pdfModal"); if(_pm && !_pm.hidden && window.__esportaRiaggiorna) window.__esportaRiaggiorna(); }catch(_e){}   /* V1 (23/11): l'anteprima dell'Esporta segue la scelta */
   });
 })();
 (function(){
@@ -43014,6 +43049,7 @@ function docEsteroSincronizza(){
     primaDiAgire();
     if(c.checked) state.coloreFamiglie=true; else delete state.coloreFamiglie;
     save(); render(); try{ if(typeof refresh==="function") refresh(); }catch(_e){}
+    try{ var _pm=document.getElementById("pdfModal"); if(_pm && !_pm.hidden && window.__esportaRiaggiorna) window.__esportaRiaggiorna(); }catch(_e){}   /* V1 (23/11): l'anteprima dell'Esporta segue la scelta */
   });
 })();
 (function(){
@@ -43021,6 +43057,7 @@ function docEsteroSincronizza(){
   f.addEventListener("change", function(){
     if(f.value==="mx" || f.value==="xh" || f.value==="mt") state.misureStile=f.value; else delete state.misureStile;
     save(); render(); try{ if(typeof refresh==="function") refresh(); }catch(_e){}
+    try{ var _pm=document.getElementById("pdfModal"); if(_pm && !_pm.hidden && window.__esportaRiaggiorna) window.__esportaRiaggiorna(); }catch(_e){}   /* V1 (23/11): l'anteprima dell'Esporta segue la scelta */
   });
 })();
 (function(){
@@ -43795,8 +43832,8 @@ function pdfChannelPage(doc, L, paperKey){
        try/catch che avvolge renderPreview se lo mangiava in silenzio — l'anteprima restava vuota
        senza dire niente. Si riscrive tutto il contenuto, stile compreso. */
     var STILE = (r===d) ? "" : '<style>:host{display:flex;align-items:center;justify-content:center;width:100%}'
-      + 'svg{max-height:46vh;width:auto;max-width:100%;border-radius:3px}'
-      + '@media(max-width:880px){svg{max-height:34vh}}</style>';
+      + 'svg{max-height:var(--px-prev-h,46vh);width:auto;max-width:100%;border-radius:3px}'   /* V1 (23/11): l'altezza la decide la finestra (--px-prev-h); senza, come prima */
+      + '@media(max-width:880px){svg{max-height:var(--px-prev-h,34vh)}}</style>';
     return { set innerHTML(v){ r.innerHTML = STILE + v; } };
   }
   /* Le due scelte in cima alla finestra: evidenziata quella che descrive la selezione, riepilogo delle pagine
@@ -43838,10 +43875,40 @@ function pdfChannelPage(doc, L, paperKey){
     if(el.textContent!==txt) el.textContent=txt;
     el.hidden=!txt;
   }
+  /* «Altre opzioni» (V1, 23/11): il contatore delle opzioni diverse da quelle di serie, letto dai controlli veri. Solo schermo. */
+  function pdfRenderAltre(){
+    var n=document.getElementById("pdfAltreN"); if(!n) return;
+    var v=function(id){ var e=document.getElementById(id); return e ? e.value : ""; };
+    var c=function(id){ var e=document.getElementById(id); return !!(e && e.checked); };
+    var ar=document.getElementById("pdfAreaRow");
+    var cnt=0; try{
+      cnt=pdfAltreCambiate({ stato:v("pdfStatoDoc"), lingua:docLingua(), unita:docUnita(), orient:v("pdfOrient"), stile:v("pdfMisStile"), famCol:c("pdfFamCol"), pedMis:v("pdfPedMis"),
+        organico:c("pdfOrganico"), pesi:c("pdfPesi"), header:v("pdfHeader"), area:!!(ar && ar.classList.contains("in-uso")),
+        scaletta:c("pdfScaletta"), qr:c("pdfQr"), allegati:document.querySelectorAll("#pdfAllegatiLista li").length });
+    }catch(_e){}
+    n.textContent=cnt ? (cnt===1 ? "1 cambiata" : cnt+" cambiate") : ""; n.hidden=!cnt;
+  }
+  /* «Altri file» (V1, 23/11): il menu delle uscite secondarie. Si apre dal bottone, si chiude con un clic fuori o su una voce, con Esc
+     (PRIMA della finestra: la finestra resta aperta) e a ogni apertura dell'Esporta. Le voci hanno i gestori di sempre. */
+  function pdfAltriInit(){
+    var btn=document.getElementById("pdfAltriBtn"), menu=document.getElementById("pdfAltriMenu"); if(!btn || !menu) return;
+    function chiudi(){ if(menu.hidden) return false; menu.hidden=true; btn.setAttribute("aria-expanded","false"); return true; }
+    function apri(){ menu.hidden=false; btn.setAttribute("aria-expanded","true"); var f=menu.querySelector("button:not([disabled])"); if(f){ try{ f.focus({preventScroll:true}); }catch(_e){} } }
+    window.__pdfAltriChiudi=chiudi;
+    btn.addEventListener("click", function(ev){ ev.stopPropagation(); if(menu.hidden) apri(); else chiudi(); });
+    menu.addEventListener("click", function(ev){ if(ev.target.closest && ev.target.closest("button")) setTimeout(chiudi, 0); });   /* dopo il gestore della voce */
+    document.addEventListener("click", function(ev){ if(!menu.hidden && !(btn.contains(ev.target) || menu.contains(ev.target))) chiudi(); });
+    var pm=document.getElementById("pdfModal");
+    if(pm) pm.addEventListener("keydown", function(ev){
+      if(ev.key==="Escape" && !menu.hidden){ ev.stopPropagation(); ev.preventDefault(); chiudi(); try{ btn.focus({preventScroll:true}); }catch(_e){} }
+    }, true);
+  }
+  pdfAltriInit();
   function renderPreview(){
     var host=document.getElementById("pdfPreview"); if(!host) return;
     pdfRenderScelte();   /* riepilogo e scelta seguono ogni cambio (pillole, scaletta, avviso «Aggiungi») */
     pdfRenderRiga();
+    pdfRenderAltre();
     /* stessa altezza di cartiglio di refresh() e dell'export: senza, l'anteprima poteva disegnare a
        una scala e la riga di stato dichiararne un'altra */
     var _or=pdfOrientValue(paper.value, pdfScaleValue(), header.value);   /* «auto» risolto: l'anteprima mostra il foglio che uscirà */
@@ -43854,7 +43921,7 @@ function pdfChannelPage(doc, L, paperKey){
         var lh=(typeof viewerHtmlFor==="function") ? viewerHtmlFor(p.key) : null;
         host.innerHTML = lh || '<div class="pdf-sheet-ph"><svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5h16M4 10h16M4 15h10M4 20h10"/></svg><div class="pdf-sheet-ph-t">'+esc(p.title)+'</div><div class="pdf-sheet-ph-s">Pagina di testo — nel PDF esportato</div></div>';
       }
-      else ombraAnteprima(host).innerHTML = pdfPreviewSvg(paper.value, N, _or, header.value, {focus:p.focus, pageLabel:(p.focus&&p.focus!=="clean")?p.title.toUpperCase():""});
+      else ombraAnteprima(host).innerHTML = pdfPreviewSvg(paper.value, N, _or, header.value, {focus:p.focus, nPag:pages.length, pageLabel:(p.focus&&p.focus!=="clean")?p.title.toUpperCase():""});
     }catch(e){}
     var lbl=document.getElementById("pdfPageLabel"); if(lbl) lbl.textContent="Pag "+(prevIdx+1)+"/"+pages.length+" · "+p.title;
     var pv=document.getElementById("pdfPrev"), nx=document.getElementById("pdfNext");
@@ -43873,7 +43940,7 @@ function pdfChannelPage(doc, L, paperKey){
       var _A=printArea(), mmW=Math.round(_A.w*10/N), mmH=Math.round(_A.h*10/N);
       var box=pdfStageBox(N, paper.value, _or, _cartH);
       info.className="mstatus"+(box.cropped?" warn":"");
-      info.innerHTML="Scala risultante <b>1:"+N+"</b> · disegno "+mmW+"×"+mmH+" mm su "+paper.value.toUpperCase()+" "+oTxt+
+      info.innerHTML="<span class=\"px-scala\">Scala risultante <b>1:"+N+"</b> · disegno "+mmW+"×"+mmH+" mm su "+paper.value.toUpperCase()+" "+oTxt+"</span>"+   /* V1: su telefono la riga in alto già dice foglio e scala */
         (box.cropped? " — più grande del foglio: <b>verrà stampata la parte centrale che ci sta</b>, sempre in scala." : "");
       var _prop=null;
       if(box.cropped && scl.value!=="auto"){
@@ -43901,6 +43968,7 @@ function pdfChannelPage(doc, L, paperKey){
     renderFuoriPalco();   /* foglio, scala e verso decidono chi resta fuori dal foglio (14/10) */
     renderPreview();
   }
+  window.__esportaRiaggiorna=refresh;   /* V1 (23/11): chi scrive il nome fuori dal blocco (setEventInputs) ridisegna l'anteprima */
   /* Pagine del RIDER TECNICO disponibili per QUESTO progetto (ciclo 11, proposta Simone):
      le LISTE seguono i DATI (esistono appena metti sorgenti/monitor/carichi, senza dover attivare il layer);
      le MAPPE dei cavi seguono i LAYER attivi (sono il lavoro di cablaggio). Ognuna è selezionabile. */
@@ -44170,7 +44238,7 @@ function pdfChannelPage(doc, L, paperKey){
     /* Sopra «Altre opzioni», non fra le pillole: nell'Esporta base le pillole sono nascoste, e chi
        esporta dalla base è proprio chi non sa di dover aggiungere la lista. */
     if(!el){ el=document.createElement("div"); el.id="pdfInMissing"; el.className="pdf-inmissing";
-      var pro=document.getElementById("pdfProBtn");
+      var pro=document.getElementById("pdfAltre") || document.getElementById("pdfProBtn");   /* V1: fuori dal <details> chiuso, in vista */
       if(pro && pro.parentNode) pro.parentNode.insertBefore(el, pro); else host.parentNode.insertBefore(el, host.nextSibling); }
     el.innerHTML=""; el.hidden=false;
     var sp=document.createElement("span"); sp.textContent="Channel list ("+n+" canal"+(n===1?"e":"i")+") non inclusa.";
@@ -44428,6 +44496,7 @@ function pdfChannelPage(doc, L, paperKey){
   });
   function _pdfExportModalCore(){ modal.hidden=false; prevIdx=0;
     var _ann=document.getElementById("pdfCancel"); if(_ann) _ann.textContent="Annulla";   /* dopo un export era diventato «Chiudi» */
+    if(window.__pdfAltriChiudi) window.__pdfAltriChiudi();   /* V1: «Altri file» parte sempre chiuso */
     invitoSalvaNascondi();   /* l'invito vale per l'export appena fatto: riaprendo la finestra non resta lì */
     rigaProgettoNascondi();  /* idem la riga «dove resta il progetto» (P2) */
     pdfScalettaInit(); pdfQrInit();   /* scaletta spuntata se c'è; QR sempre spento all'apertura (10/10) */
