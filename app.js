@@ -7406,45 +7406,51 @@ function luciBloccata(it){ return !!(lightsLayerUI && lightsLayerUI.lock && luci
    come riferimento, numeri dei fari sul disegno e in una lista). Compaiono SOLO se il progetto ha fari o truss.
    NUMERI: struttura = il suo numero se è numerata (rig: «A3»), altrimenti T1, T2… (A1… per le americane) dal
    pubblico verso il fondo; faro = struttura + «.» + posto da sinistra a destra guardando dalla platea («T2.3»).
-   Chi sta sulla struttura lo dice la GEOMETRIA (come per il montaggio «appeso»): un faro dentro il rettangolo
-   di una truss è su quella truss, anche se il suo montaggio dice «a terra» (i progetti vecchi non lo dicono mai).
-   Su stativo = S.n, a terra fuori da ogni struttura = F.n, «appeso» senza struttura sotto = H.n. */
-function strutturaSotto(it){
-  var found=null;
-  (state.items||[]).forEach(function(s){
-    if(found || !isHangStruct(s)) return;
-    var rot=(s.rot||0)*Math.PI/180, cos=Math.cos(-rot), sin=Math.sin(-rot);
-    var dx=it.x-s.x, dy=it.y-s.y, lx=dx*cos-dy*sin, ly=dx*sin+dy*cos;
-    if(Math.abs(lx)<=s.w/2 && Math.abs(ly)<=s.d/2+10) found=s;
-  });
-  return found;
-}
+   Un faro sta su una struttura solo se è APPESO (hangSupportOf, la regola del peso e di «Faro appeso a…»): a terra,
+   anche sotto una truss, è F.n. Su stativo = S.n, «appeso» senza struttura sotto = H.n. Lungo una struttura ruotata
+   i fari si contano sul suo asse (vedi `chiave`). */
 function luciNumeri(){
   var items=state.items||[];
-  var ord=items.filter(isHangStruct).sort(function(a,b){ return ((b.y||0)-(a.y||0)) || ((a.x||0)-(b.x||0)) || (String(a.id)<String(b.id)?-1:1); });
+  /* strutture dal pubblico (y grande) al fondo; strutture a meno di 50 cm di y nella stessa fascia, poi da sinistra a destra: 1 cm di differenza non le scambia */
+  var ord=items.filter(isHangStruct).sort(function(a,b){
+    var fa=Math.round((a.y||0)/50), fb=Math.round((b.y||0)/50);
+    return (fb-fa) || ((a.x||0)-(b.x||0)) || ((b.y||0)-(a.y||0)) || (String(a.id)<String(b.id)?-1:1); });
   var usati={}, cod={}, cnt={}, mappa={};
-  ord.forEach(function(s){ if(!rigOf(s)) return; var c=rigEtichetta(s).split(" · ")[0]; if(c && !usati[c]){ cod[s.id]=c; usati[c]=1; } });
+  ord.forEach(function(s){ if(!rigOf(s)) return; var c=rigEtichetta(s).split(" · ")[0]; if(!c) return;
+    if(!usati[c]){ cod[s.id]=c; usati[c]=1; return; }
+    /* nome a mano uguale a un altro: si tiene il nome dell'utente e ai suoi fari si dà un suffisso («LX1-2.1»); la sigla va a sinistra della barra, non sopra la sua etichetta */
+    var n=2; while(usati[c+"-"+n]) n++; cod[s.id]=c+"-"+n; usati[cod[s.id]]=1; mappa[s.id]=cod[s.id];
+  });
   ord.forEach(function(s){
     if(cod[s.id]) return;
     var p=(s.type==="americana") ? "A" : "T", n=(cnt[p]||0)+1; while(usati[p+n]) n++;
     cnt[p]=n; cod[s.id]=p+n; usati[p+n]=1; mappa[s.id]=p+n;   /* solo le non numerate: le altre il loro numero lo scrivono già */
   });
   var gruppi={}, ordineG=[];
-  function gr(k, code, pos){ if(!gruppi[k]){ gruppi[k]={code:code, pos:pos, fari:[]}; ordineG.push(k); } return gruppi[k]; }
+  function gr(k, code, pos, st){ if(!gruppi[k]){ gruppi[k]={code:code, pos:pos, st:st||null, fari:[]}; ordineG.push(k); } return gruppi[k]; }
   ord.forEach(function(s){ var r=rigOf(s), h=r ? rigHPulita(r.h) : 0, nm=(s.label||"").trim();
-    gr("s:"+s.id, cod[s.id], cod[s.id]+(nm && nm!==cod[s.id] ? " · "+nm : "")+(h ? " · "+rigTrimTesto(h) : "")); });
+    gr("s:"+s.id, cod[s.id], cod[s.id]+(nm && nm!==cod[s.id] ? " · "+nm : "")+(h ? " · "+rigTrimTesto(h) : ""), s); });
   gr("S","S","su stativo"); gr("F","F","a terra"); gr("H","H","appeso, senza struttura");
+  /* Un faro sta su una struttura SOLO se è appeso (hangSupportOf: la stessa regola del peso e di «Faro appeso a…»).
+     A terra anche se sotto una truss = F.n; su stativo = S.n; «appeso» ma senza struttura sotto = H.n. */
   items.filter(isMountable).forEach(function(f){
-    var s=strutturaSotto(f), mo=mountModeOf(f);
-    if(s && mo!=="stand") gruppi["s:"+s.id].fari.push(f);
+    var mo=mountModeOf(f), s=(mo==="hung") ? hangSupportOf(f) : null;
+    if(s) gruppi["s:"+s.id].fari.push(f);
     else if(mo==="stand") gruppi.S.fari.push(f);
     else if(mo==="hung") gruppi.H.fari.push(f);
     else gruppi.F.fari.push(f);
   });
+  /* Verso lungo la struttura (qualunque rotazione, 90 e 270 come 0 e 180): proiezione sul suo asse; se la barra è più
+     orizzontale che verticale da sinistra a destra guardando dalla platea (x crescente), altrimenti dal pubblico verso il fondo (y decrescente). */
+  function chiave(s, f){
+    var r=(s.rot||0)*Math.PI/180, ux=Math.cos(r), uy=Math.sin(r), p=(f.x-s.x)*ux+(f.y-s.y)*uy;
+    return Math.abs(ux)>=Math.abs(uy) ? p*(ux<0?-1:1) : -p*(uy<0?-1:1);
+  }
   var righe=[];
   ordineG.forEach(function(k){
     var g=gruppi[k];
-    g.fari.sort(function(a,b){ return ((a.x||0)-(b.x||0)) || ((a.y||0)-(b.y||0)) || (String(a.id)<String(b.id)?-1:1); });
+    if(g.st) g.fari.sort(function(a,b){ return (chiave(g.st,a)-chiave(g.st,b)) || (String(a.id)<String(b.id)?-1:1); });
+    else g.fari.sort(function(a,b){ return ((a.x||0)-(b.x||0)) || ((a.y||0)-(b.y||0)) || (String(a.id)<String(b.id)?-1:1); });
     g.fari.forEach(function(f, i){
       var code=g.code+"."+(i+1), mo=mountModeOf(f);
       mappa[f.id]=code;
@@ -7477,7 +7483,7 @@ function luciElencoPdf(doc, L, paperKey){
     if(y>fondo){ testa(false); doc.setFont("helvetica","normal"); }
     doc.setFontSize(9.5); doc.setTextColor(17,24,39);
     doc.setFont("helvetica","bold"); doc.text(r.code, col[0], y); doc.setFont("helvetica","normal");
-    var cut=function(t, w){ t=String(t); while(t.length>1 && doc.getTextWidth(t)>w) t=t.slice(0,-1); return t; };
+    var cut=function(t, w){ t=String(t); if(doc.getTextWidth(t)<=w) return t; while(t.length>1 && doc.getTextWidth(t+"\u2026")>w) t=t.slice(0,-1); return t+"\u2026"; };
     doc.text(cut(r.apparecchio, col[2]-col[1]-3), col[1], y);
     doc.text(cut(r.pos, col[3]-col[2]-3), col[2], y);
     doc.text(cut(r.montaggio, pw-M-col[3]), col[3], y);
@@ -14168,9 +14174,9 @@ function itemMarkup(it){
     var rgy=-(it.d/2)-6, rgtr=lblCapTr(!_sceneRuota && lblCapovolto(it.rot||0), 0, 0, rgy, 12);
     lb += '<text class="lbl sub rig-et" x="0" y="'+rgy+'" text-anchor="middle"'+rgtr+'>'+esc(rigEtichetta(it))+'</text>';
   }
-  if(_luciCodici && _luciCodici[it.id] && isHangStruct(it)){   /* foglio luci: la sigla della struttura (T2) sopra la barra, i fari sotto */
-    var cgy=-(it.d/2)-6, cgtr=lblCapTr(!_sceneRuota && lblCapovolto(it.rot||0), 0, 0, cgy, 12);
-    lb += '<text class="lbl sub rig-et" x="0" y="'+cgy+'" text-anchor="middle"'+cgtr+'>'+esc(_luciCodici[it.id])+'</text>';
+  if(_luciCodici && _luciCodici[it.id] && isHangStruct(it)){   /* foglio luci: la sigla della struttura (T2) a sinistra della barra, i fari sotto */
+    var _cap2=!_sceneRuota && lblCapovolto(it.rot||0), cgx=-(it.w/2)-8, cgy=4, cgtr=lblCapTr(_cap2, 0, cgx, cgy, 12);   /* all'estremità sinistra della barra, fuori dal traliccio (capovolta: ancora dall'altro lato, il testo si rigira e resta fuori) */
+    lb += '<text class="lbl sub rig-et" x="'+cgx+'" y="'+cgy+'" text-anchor="'+(_cap2 ? 'start' : 'end')+'"'+cgtr+'>'+esc(_luciCodici[it.id])+'</text>';
   }
   var _lblOrig = null;   /* perno del corpo minimo a schermo (lblScalaAttorno): null = l'ancora del primo testo */
   var _lc = !!(_luciCodici && _luciCodici[it.id]);   /* foglio luci: il numero si scrive sempre, anche se il nome era nascosto */
@@ -22341,7 +22347,7 @@ function nomiDoppia(l){ var m=String(l||"").match(NOME_INTERVALLO); if(!m) retur
 /* I due testi del nome di un elemento (palco e PDF). In SIGLA una postazione doppia col nome a intervallo e il secondo nome
    vuoto dà una sigla per musicista («Cb 1» / «Cb 2»); a nome intero resta il testo scritto dall'utente. */
 function lblTesti(it){
-  if(_luciCodici && _luciCodici[it.id]) return isHangStruct(it) ? ["",""] : [_luciCodici[it.id], ""];   /* la sigla della struttura va sopra la barra (itemMarkup), non sotto: lì stanno i numeri dei suoi fari */   /* foglio luci: al posto del nome, il numero (T2.3) */
+  if(_luciCodici && _luciCodici[it.id]) return isHangStruct(it) ? ["",""] : [_luciCodici[it.id], ""];   /* la sigla della struttura va a sinistra della barra (itemMarkup), non sotto: lì stanno i numeri dei suoi fari */   /* foglio luci: al posto del nome, il numero (T2.3) */
   var isDbl = it.doppia===true || !!DOUBLE_TYPES[it.type];
   var due = (isDbl && !it.label2 && it.labelMode==="abbr" && !it.abbr) ? nomiDoppia(it.label) : null;
   if(due) return [abbrOf({type:it.type, label:due[0]}), abbrOf({type:it.type, label:due[1]})];
@@ -38772,14 +38778,19 @@ function venueInStampa(){
   return !!(v && v.enabled!==false && safeVenueDataUrl(v._dataUrl));
 }
 function stageSceneSvg(cropVb, opts){
-  if(vistaDiLavoro()) return senzaVisteDiLavoro(function(){ return stageSceneSvg(cropVb, opts); });   /* né nel PDF: vedi senzaVisteDiLavoro */
+  /* FOGLI PER REPARTO (lotto 2): le globali dei numeri/del filtro si accendono qui e si rimettono SEMPRE, anche se il disegno lancia: se restassero accese l'editor mostrerebbe i numeri al posto dei nomi */
+  var f=opts && (opts.foglio==="palco" || opts.foglio==="luci") ? opts.foglio : null, k1=_luciCodici, k2=_foglioSenzaLuci;
+  _luciCodici = f==="luci" ? luciNumeri().mappa : null; _foglioSenzaLuci = f==="palco";
+  try{ return stageSceneSvgDisegna(cropVb, opts); } finally { _luciCodici=k1; _foglioSenzaLuci=k2; }
+}
+function stageSceneSvgDisegna(cropVb, opts){
+  if(vistaDiLavoro()) return senzaVisteDiLavoro(function(){ return stageSceneSvgDisegna(cropVb, opts); });   /* né nel PDF: vedi senzaVisteDiLavoro */
   opts=opts||{}; var focus=opts.focus||null;   /* null | clean | cabin | cabout | mond | cabaudio(legacy: i 3 audio fusi) | elec | sectionmic */
   recalcStageBBox();
   var A=printArea();
   /* FOGLI PER REPARTO (lotto 2): opts.foglio = "palco" (senza fari e strutture) | "luci" (fari e strutture a piena resa, il resto sfumato, numeri sui fari).
      Le due globali servono già al calcolo degli sposta-nomi (lblNudges), e si rimettono com'erano in fondo. */
-  var foglio=(opts.foglio==="palco" || opts.foglio==="luci") ? opts.foglio : null, _keepLuci=_luciCodici, _keepEscl=_foglioSenzaLuci;
-  _luciCodici = foglio==="luci" ? luciNumeri().mappa : null; _foglioSenzaLuci = foglio==="palco";
+  var foglio=(opts.foglio==="palco" || opts.foglio==="luci") ? opts.foglio : null;   /* le due globali le accende e le spegne stageSceneSvg (try/finally) */
   /* cropVb (opzionale): finestra ritagliata quando il disegno non entra nel foglio — si stampa solo la
      parte centrale che ci sta, sempre in scala. Senza cropVb = scena intera (area + margine quote). */
   var vb=cropVb || sceneVbDefault();
@@ -38885,7 +38896,7 @@ function stageSceneSvg(cropVb, opts){
     body = stageFloorMarkup()+dims+zones+zoneGroup+bgGroup+fgItems+fgLbls+audioCab+elecCab;
   }
   window.__scenePrint=_keepPrint;   /* fine del disegno per la stampa: si torna alle regole dello schermo */
-  window.__sceneTextK=_keepK; window.__lblNudge=_keepNudge; _luciCodici=_keepLuci; _foglioSenzaLuci=_keepEscl;
+  window.__sceneTextK=_keepK; window.__lblNudge=_keepNudge;
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="'+vb.x+' '+vb.y+' '+vb.w+' '+vb.h+'">'+
     '<style>'+scaleSvgTextHalos(scaleSvgFonts(css, opts.textK), opts.textK)+'</style>'+DEFS+
     (opts.piantaASe ? '' : '<rect x="'+vb.x+'" y="'+vb.y+'" width="'+vb.w+'" height="'+vb.h+'" fill="#ffffff"/>')+   /* nel PDF il foglio è già bianco, e il rettangolo coprirebbe la pianta disegnata sotto */
