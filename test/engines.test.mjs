@@ -40080,11 +40080,11 @@ t("fogli L2: la pagina «Vista: Luci» del PDF sfuma il resto, non i fari (prima
 });
 t("fogli L2: Pacchetto — «pianta palco» e «pianta luci» solo con fari o truss, dopo lo stage plot; i documenti di prima restano uguali", () => {
   const nomi = (k, sc, pal, luci) => A.pacchettoDocumenti(k, sc, pal, luci).map((d) => d.chiave);
-  eq(nomi(["rider"], false, true, true), ["stageplot", "piantapalco", "piantaluci", "rider"], "con luci: i due fogli subito dopo lo stage plot");
+  eq(nomi(["rider"], false, true, true), ["stageplot", "piantapalco", "piantaluci", "programmaluci", "rider"], "con luci: i due fogli subito dopo lo stage plot, poi il programma luci (lotto 3)");
   eq(nomi(["rider"], false, true, false), ["stageplot", "rider"], "senza luci: niente fogli luci vuoti né doppioni del palco");
   eq(nomi(["rider"], false, true), ["stageplot", "rider"], "quarto argomento assente = senza luci (chiamate di prima)");
   eq(nomi([], false, false, true), [], "palco vuoto: niente");
-  eq(A.pacchettoDocumenti([], false, true, true).map((d) => d.nome), ["stage plot", "pianta palco", "pianta luci"], "i nomi nei file: «pianta palco» e «pianta luci»");
+  eq(A.pacchettoDocumenti([], false, true, true).map((d) => d.nome), ["stage plot", "pianta palco", "pianta luci", "programma luci"], "i nomi nei file: «pianta palco», «pianta luci», «programma luci»");
   eq(A.pacchettoNomeFile("pianta luci", { data: "20261201", versione: 3, nome: "Teatro Esempio" }), "20261201 v3 pianta luci Teatro Esempio", "lo schema dei service");
   foglioFixture(); ok(A.luciFogliDisponibili(), "con fari e truss i fogli si offrono");
   reset(); piazza("batteria", 300, 300); ok(!A.luciFogliDisponibili(), "senza fari né truss no");
@@ -40248,6 +40248,149 @@ t("fogli L2 (rilettura): ordine lungo una truss ruotata, fasce di y, nomi doppi,
     ok(/if \(error\) console\.error\("contatore uso:"/.test(idx), "RPC mancante (migrazione non applicata): errore registrato, risposta 204");
   });
 }
+
+/* ═══ LAYER LOTTO 3 — Programma luci (24/11/2026) ═══ */
+console.log("\nProgramma luci, lotto 3 (24/11/2026):");
+function docFintoPL() {   // jsPDF finto: registra testi e pagine, misura 1,6 mm per carattere
+  const d = { pagine: 1, testi: [] };
+  d.internal = { pageSize: { getWidth: () => 210, getHeight: () => 297 } };
+  for (const k of ["setFont", "setFontSize", "setTextColor", "setFillColor", "setDrawColor", "setLineWidth", "rect", "line", "setPage"]) d[k] = () => d;
+  d.text = (tx, x, y, o) => { for (const r of [].concat(tx)) d.testi.push({ t: String(r), x, y, p: d.pagine, a: o && o.align }); return d; };
+  d.addPage = () => { d.pagine++; return d; };
+  d.getNumberOfPages = () => d.pagine;
+  d.getTextWidth = (s) => String(s).length * 1.6;
+  d.splitTextToSize = (s, w) => { const out = []; let r = ""; for (const wd of String(s).split(" ")) { if ((r + " " + wd).length * 1.6 > w && r) { out.push(r); r = wd; } else r = r ? r + " " + wd : wd; } if (r) out.push(r); return out; };
+  return d;
+}
+function programmaFixture() {
+  reset(); A.resetMetaLayersUI();
+  const tF = piazza("truss", 600, 100); tF.w = 800;
+  const tP = piazza("truss", 600, 600); tP.w = 600; tP.label = "Frontale";
+  const fari = [];
+  [400, 600, 800].forEach((x) => { const f = piazza("parluci", x, 100); A.mountSet(f, { mode: "hung" }); f.watt = 200; fari.push(f); });
+  const g = piazza("testamobile", 500, 600); A.mountSet(g, { mode: "hung" }); g.watt = 300;
+  const terra = piazza("parluci", 100, 300); terra.watt = 150;
+  const stativo = piazza("parluci", 1000, 300); A.mountSet(stativo, { mode: "stand" }); stativo.watt = 150;
+  return { tF, tP, fari, g, terra, stativo };
+}
+t("programma luci L3: conteggio e W per posizione, totale generale, numeri uguali al foglio luci", () => {
+  const F = programmaFixture();
+  const D = A.programmaLuciDati(), N = A.luciNumeri();
+  eq(D.posizioni.map((p) => [p.code, p.n, p.w]), [["T1", 1, 300], ["T2", 3, 600], ["S", 1, 150], ["F", 1, 150]], "posizioni: T1 (1 faro, 300 W), T2 (3, 600 W), stativo, terra");
+  eq(D.tot, { n: 6, w: 1200, senzaW: 0 }, "totale generale: 6 apparecchi, 1200 W");
+  const t2 = D.posizioni.find((p) => p.code === "T2");
+  eq(t2.righe.length, 1, "3 par uguali = una riga");
+  eq([t2.righe[0].q, t2.righe[0].w, t2.righe[0].wTot], [3, 200, 600], "3 × 200 W = 600 W");
+  eq(t2.righe[0].codici, ["T2.1", "T2.2", "T2.3"], "i numeri sono quelli del disegno");
+  for (const p of D.posizioni) for (const r of p.righe) for (const c of r.codici) ok(Object.values(N.mappa).includes(c), "numero " + c + " presente nel disegno");
+  eq(D.posizioni.reduce((a, p) => a + p.n, 0), D.tot.n, "somma delle posizioni = totale");
+  reset();
+});
+t("programma luci L3: potenza ignota = «—», mai zero né inventata; il totale la dichiara", () => {
+  programmaFixture();
+  const x = piazza("parluci", 1200, 300);
+  const orig = A.wattOf; A.wattOf = (it) => (it === x ? 0 : orig(it));
+  try {
+    const D = A.programmaLuciDati();
+    const f = D.posizioni.find((p) => p.code === "F"), riga = f.righe.find((r) => r.codici.includes("F.2"));
+    eq([riga.w, riga.wTot, riga.senzaW], [null, 0, 1], "faro senza W: w nullo, nessun zero scritto");
+    eq([D.tot.n, D.tot.w, D.tot.senzaW], [7, 1200, 1], "il totale somma solo i W noti e conta quelli senza");
+    const doc = docFintoPL(); A.programmaLuciPdf(doc);
+    const tx = doc.testi.map((r) => r.t);
+    ok(tx.includes("—"), "nel PDF: «—» dove la potenza non è nota");
+    ok(!/(^|\n)0 W($|\n)/.test(tx) && !doc.testi.some((r) => r.t === "0 W"), "mai «0 W» per un apparecchio senza potenza");
+    ok(tx.some((r) => /1,2 kW/.test(r) && /1 senza W/.test(r)), "totale con l'avviso «1 senza W»: " + tx.join("|"));
+  } finally { A.wattOf = orig; }
+  reset();
+});
+t("programma luci L3: distinta truss — lunghezza, altezza, fari e kW per struttura", () => {
+  const F = programmaFixture(); F.tF.rig = { h: 650 };
+  const D = A.programmaLuciDati();
+  eq(D.truss.map((s) => [s.code, s.lungCm, s.n, s.w]), [["T1", 600, 1, 300], ["A1", 800, 3, 600]], "T1 6 m con 1 faro; la struttura con l'altezza scritta è «numerata» (A1, come nel foglio luci), 8 m con 3");
+  eq(D.truss.find((s) => s.code === "T1").nome, "Frontale", "nome dato dall'utente");
+  eq(D.truss.find((s) => s.code === "A1").h, 650, "altezza di trim se scritta");
+  eq(D.truss.find((s) => s.code === "T1").h, 0, "altezza assente = 0, non inventata");
+  F.tF.label = A.TYPES[F.tF.type].nome; eq(A.programmaLuciDati().truss.find((x) => x.code === "A1").nome, "", "nome uguale al tipo = non si ripete");
+  F.tP.rot = 90; eq(A.programmaLuciDati().truss.find((s) => s.code === "T1").lungCm, 600, "la lunghezza è quella della barra anche ruotata");
+  reset();
+});
+t("programma luci L3: struttura senza fari compare nella distinta con 0 fari; senza luci nessun dato", () => {
+  reset(); piazza("truss", 600, 100);
+  const D = A.programmaLuciDati();
+  eq([D.posizioni.length, D.tot.n, D.truss.length, D.truss[0].n], [0, 0, 1, 0], "solo truss: distinta sì, posizioni no");
+  reset(); piazza("batteria", 300, 300);
+  const E = A.programmaLuciDati();
+  eq([E.posizioni.length, E.truss.length, E.tot.n], [0, 0, 0], "senza luci niente");
+  reset();
+});
+t("programma luci L3: Pacchetto — voce solo con fari o truss, dopo la pianta luci; gli altri documenti non cambiano", () => {
+  const nomi = (k, sc, pal, luci) => A.pacchettoDocumenti(k, sc, pal, luci).map((d) => d.chiave);
+  eq(nomi(["rider"], false, true, true), ["stageplot", "piantapalco", "piantaluci", "programmaluci", "rider"], "con luci: dopo la pianta luci");
+  eq(nomi(["rider"], false, true, false), ["stageplot", "rider"], "senza luci: identico a prima");
+  eq(nomi(["rider"], false, true), ["stageplot", "rider"], "argomento assente = senza luci");
+  eq(A.pacchettoDocumenti([], false, true, true).map((d) => d.nome), ["stage plot", "pianta palco", "pianta luci", "programma luci"], "nome del file: «programma luci»");
+  ok(/programmaluci/.test(A.pacchettoProduci.toString()), "pacchettoProduci sa produrlo");
+});
+t("programma luci L3: PDF — testate, righe, totali, distinta; dentro i margini ≥15 mm, più pagine se serve", () => {
+  programmaFixture();
+  const doc = docFintoPL(); A.programmaLuciPdf(doc);
+  const tx = doc.testi.map((r) => r.t).join("\n");
+  ok(/Programma luci/.test(tx), "titolo");
+  ok(/T2/.test(tx) && /T2\.1/.test(tx) && /T2\.3/.test(tx), "posizione e numeri");
+  ok(/Totale/.test(tx) && /1,2 kW/.test(tx), "totale generale in kW");
+  ok(/Distinta truss/i.test(tx) && /8 m/.test(tx), "distinta con lunghezza");
+  ok(doc.testi.every((r) => r.x >= 15.9 && r.y <= 297 - 15), "nessun testo oltre i margini");
+  for (let i = 0; i < 40; i++) { const tr = piazza("truss", 100 + i * 20, 100 + i * 60); tr.w = 300; const f = piazza("parluci", tr.x, tr.y); A.mountSet(f, { mode: "hung" }); f.watt = 100; }
+  const d2 = docFintoPL(); A.programmaLuciPdf(d2);
+  ok(d2.pagine > 1, "con molte posizioni il foglio continua: pagine " + d2.pagine);
+  ok(d2.testi.every((r) => r.y <= 282.1), "mai sotto il margine di 15 mm");
+  reset();
+});
+t("programma luci L3: una posizione con tante righe continua sulla pagina dopo, senza uscire dal margine", () => {
+  reset(); const tr = piazza("truss", 600, 100); tr.w = 900;
+  for (let i = 0; i < 70; i++) { const f = piazza("parluci", 200 + i * 8, 100); A.mountSet(f, { mode: "hung" }); f.watt = 100 + i; }
+  const d = docFintoPL(); A.programmaLuciPdf(d);
+  ok(d.pagine >= 2, "più pagine: " + d.pagine);
+  ok(d.testi.every((r) => r.y <= 282.1), "nessuna riga sotto il margine di 15 mm");
+  ok(d.testi.filter((r) => /^1×$/.test(r.t)).length === 70, "tutte le 70 righe stampate");
+  reset();
+});
+t("programma luci L3 (rilettura): righe mai sopra il piè (fondo 272), pagina 2 da y ≥ 22, «(segue)» ripetuto", () => {
+  reset(); const tr = piazza("truss", 600, 100); tr.w = 900;
+  for (let i = 0; i < 70; i++) { const f = piazza("parluci", 200 + i * 8, 100); A.mountSet(f, { mode: "hung" }); f.watt = 100 + i; }
+  const d = docFintoPL(); A.programmaLuciPdf(d);
+  ok(d.pagine >= 3, "più pagine (la 1 del finto è la vuota che il flusso cancella)");
+  ok(d.testi.every((r) => r.y <= 272.01), "nessun testo oltre 272 mm (il piè sta a 280,8): max " + Math.max(...d.testi.map((r) => r.y)));
+  ok(d.testi.filter((r) => r.p > 2).every((r) => r.y >= 22), "dalla seconda pagina vera niente sopra 22 mm");
+  ok(d.testi.some((r) => r.p === 3 && /\(segue\)/.test(r.t)), "la posizione che continua ripete la testata «(segue)»");
+  reset();
+});
+t("programma luci L3 (rilettura): nome lungo della posizione non tocca il testo a destra; nota «*» solo se scritta", () => {
+  reset(); const tr = piazza("truss", 600, 100); tr.w = 900; tr.label = "Truss principale di proscenio con un nome lunghissimo che non finisce più e continua ancora";
+  const orig = A.wattOf; const xs = [];
+  for (let i = 0; i < 12; i++) { const f = piazza("parluci", 200 + i * 20, 100); A.mountSet(f, { mode: "hung" }); xs.push(f); }
+  A.wattOf = (it) => (xs.includes(it) ? 0 : orig(it));
+  try {
+    const d = docFintoPL(); A.programmaLuciPdf(d);
+    const dx = d.testi.find((r) => r.a === "right" && /senza W/.test(r.t) && /^12 ·/.test(r.t));
+    ok(dx, "testo a destra della testata");
+    const sx = d.testi.find((r) => r.y === dx.y && r.a !== "right" && r.x === 16);
+    ok(sx && sx.x + sx.t.length * 1.6 < dx.x - dx.t.length * 1.6, "il nome (" + sx.t.length + " car.) finisce prima del testo a destra");
+    ok(!d.testi.some((r) => /^\* /.test(r.t)), "nessun «*» scritto = nessuna nota a piè");
+  } finally { A.wattOf = orig; }
+  reset();
+});
+t("programma luci L3: PDF in inglese — testi e kW con il punto", () => {
+  programmaFixture(); A.state.docLang = "en";
+  try {
+    const doc = docFintoPL(); A.programmaLuciPdf(doc);
+    const tx = doc.testi.map((r) => r.t).join("\n");
+    ok(/Lighting schedule/.test(tx) && /Truss list/.test(tx) && /Total/.test(tx), "titoli in inglese: " + tx.slice(0, 200));
+    ok(/1\.2 kW/.test(tx) && !/1,2 kW/.test(tx), "kW con il punto");
+    ok(!/Programma luci|Distinta truss|Totale/.test(tx), "nessun testo italiano");
+  } finally { delete A.state.docLang; }
+  reset();
+});
 
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
