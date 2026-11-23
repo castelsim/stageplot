@@ -38832,6 +38832,41 @@ function pdfNomiPt(N){ var n=+N; if(!isFinite(n) || n<=0) return 0; return 140*p
 var NOMI_PT_MIN=6, NOMI_PT_BUONI=7;
 /* Consiglio A3: solo con la scala automatica (con una scala fissa il foglio non cambia i nomi), solo da A4,
    e solo se l'A3 li porta davvero sopra NOMI_PT_BUONI — un consiglio che non aiuta non si dà. */
+/* ===== Esporta: RICORDA L'ULTIMO FORMATO SCELTO (decisione di Simone 23/11/2026) =====
+   L'A4 resta di serie. Il formato si ricorda nella MEMORIA LOCALE del browser (chiave sp_pdfFormato), mai nello
+   stato del progetto: così il file salvato, la firma del PDF e gli output restano identici (nessuna migrazione).
+   Forma: {"last":"a3","doc":{"<id progetto>":"a3"}}. All'apertura: quello scelto per QUESTO progetto, se no
+   l'ultimo scelto in assoluto (progetto nuovo), se no A4. Memoria assente, illeggibile o non valida → A4. */
+var PDF_FORMATO_KEY="sp_pdfFormato";
+function pdfFormatoMem(raw){
+  var m=null; try{ m=JSON.parse(raw); }catch(e){}
+  if(!m || typeof m!=="object" || Array.isArray(m)) m={};
+  if(!m.doc || typeof m.doc!=="object" || Array.isArray(m.doc)) m.doc={};
+  return m;
+}
+function pdfFormatoValido(f){ return f==="a4" || f==="a3" || f==="a2"; }
+function pdfFormatoLeggi(raw, docId){
+  var m=pdfFormatoMem(raw), k=String(docId||"local");
+  if(pdfFormatoValido(m.doc[k])) return m.doc[k];
+  if(pdfFormatoValido(m.last)) return m.last;
+  return "a4";
+}
+function pdfFormatoScrivi(raw, docId, f){
+  if(!pdfFormatoValido(f)) return raw;
+  var m=pdfFormatoMem(raw); m.last=f; m.doc[String(docId||"local")]=f;
+  var ks=Object.keys(m.doc); if(ks.length>60) ks.slice(0,ks.length-60).forEach(function(k){ delete m.doc[k]; });   /* niente memoria che cresce per sempre */
+  return JSON.stringify({last:m.last, doc:m.doc});
+}
+function pdfFormatoDocId(){ try{ var C=window.__cloud; return (C && typeof C.currentId==="function" && C.currentId()) || "local"; }catch(e){ return "local"; } }
+function pdfFormatoApplica(){
+  var sel=document.getElementById("pdfPaper"); if(!sel) return;
+  var raw=null; try{ raw=localStorage.getItem(PDF_FORMATO_KEY); }catch(e){}
+  var f=pdfFormatoLeggi(raw, pdfFormatoDocId());
+  if(sel.value!==f){ sel.value=f; sel.dispatchEvent(new Event("chips-sync")); }   /* solo l'evidenziazione: refresh() lo chiama l'apertura */
+}
+function pdfFormatoRicorda(f){
+  try{ var raw=localStorage.getItem(PDF_FORMATO_KEY); localStorage.setItem(PDF_FORMATO_KEY, pdfFormatoScrivi(raw, pdfFormatoDocId(), f)); }catch(e){}
+}
 function pdfConsiglioA3(paperKey, scaleSel, header){
   if(scaleSel!=="auto" || paperKey!=="a4") return null;
   var o4=pdfOrientValue("a4", scaleSel, header), N4=resolveScale("a4", scaleSel, o4, cartHFor(header, "a4", o4));
@@ -44642,6 +44677,7 @@ function pdfChannelPage(doc, L, paperKey){
     renderPdfUltimo();
     renderPrimaDelExport();   /* «Prima di esportare» (12/11) */
     pdfHeaderInit();
+    if(!(allowStartupScenario && /pdfui=a[234]/.test(location.search))) pdfFormatoApplica();   /* ricorda l'ultimo formato (23/11); ?pdfui= di collaudo resta com'era */
     refresh();
     pdfUpdateTechNote();
     /* Il fuoco iniziale (esportaFuocoIniziale): mai sul bottone dell'avviso, mai su un campo di testo col dito. */
@@ -44666,6 +44702,8 @@ document.getElementById("bPdf").addEventListener("click", function(){ if(window.
   modal.addEventListener("click", function(e){ if(e.target===modal) modal.hidden=true; });
   document.addEventListener("keydown", function(e){ if(!modal.hidden && e.key==="Escape") modal.hidden=true; });
   paper.addEventListener("change", refresh); scl.addEventListener("change", refresh);
+  var _chipsFoglio=document.querySelector('[data-chips="pdfPaper"]');   /* si ricorda solo la scelta fatta con un clic (anche «Passa ad A3»), non i cambi da codice */
+  if(_chipsFoglio) _chipsFoglio.addEventListener("click", function(e){ var b=e.target.closest("button"); if(b) pdfFormatoRicorda(b.dataset.v); });
   document.getElementById("pdfScaleCustom").addEventListener("input", refresh);   /* M-scala: aggiorna la preview mentre digiti la scala custom */
   /* …e SOLO qui il valore viene riportato nei limiti: uscendo dal campo, o premendo Invio. Farlo a
      ogni tasto rendeva impossibile scrivere «150», perché la prima cifra veniva già corretta in «10». */
