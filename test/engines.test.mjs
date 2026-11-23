@@ -40392,5 +40392,22 @@ t("programma luci L3: PDF in inglese — testi e kW con il punto", () => {
   reset();
 });
 
+t("Esporta: ricorda l'ultimo formato scelto (per progetto, poi l'ultimo, riserva A4)", () => {
+  eq(A.pdfFormatoLeggi(null, "p1"), "a4", "memoria vuota → A4");
+  eq(A.pdfFormatoLeggi("{rotto", "p1"), "a4", "memoria illeggibile → A4");
+  eq(A.pdfFormatoLeggi('{"last":"a9","doc":{"p1":"a7"}}', "p1"), "a4", "valori non validi → A4");
+  let m = A.pdfFormatoScrivi(null, "p1", "a3");
+  eq(A.pdfFormatoLeggi(m, "p1"), "a3", "il progetto che l'ha scelto lo ritrova");
+  eq(A.pdfFormatoLeggi(m, "p2"), "a3", "un progetto nuovo parte dall'ultimo scelto");
+  m = A.pdfFormatoScrivi(m, "p2", "a4");
+  eq(A.pdfFormatoLeggi(m, "p1"), "a3", "p1 resta A3 anche dopo che p2 sceglie A4");
+  eq(A.pdfFormatoLeggi(m, "p2"), "a4", "p2 A4");
+  eq(A.pdfFormatoLeggi(m, "p3"), "a4", "il nuovo p3 prende l'ultimo scelto (A4)");
+  eq(A.pdfFormatoLeggi(A.pdfFormatoScrivi(m, "", "a2"), ""), "a2", "progetto senza id: chiave locale");
+  eq(A.pdfFormatoScrivi(m, "p1", "zz"), m, "formato non valido: memoria invariata");
+  const mm = JSON.parse(A.pdfFormatoScrivi(null, "x", "a3")); ok(Object.keys(mm).sort().join() === "doc,last", "forma della memoria");
+  ok(/sp_pdfFormato/.test(appjs) && /pdfFormatoApplica\(\)/.test(appjs), "la finestra lo applica all'apertura");
+});
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);
