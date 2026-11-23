@@ -9,7 +9,7 @@
 
 import { createClient } from "jsr:@supabase/supabase-js@2.108.2";
 import { corsHeaders } from "../_shared/cors.ts";
-import { validaColpo } from "../_shared/landing-metrics.ts";
+import { eUso, validaColpo, validaUso } from "../_shared/landing-metrics.ts";
 import { serviceRoleKey } from "../_shared/service-role-key.ts";
 import { clientIp } from "../_shared/feedback-limits.ts";
 
@@ -34,8 +34,12 @@ Deno.serve(async (req) => {
 
   try {
     const payload = await req.json().catch(() => null);
-    const v = validaColpo(payload);
-    if (!v.ok) return fine(400);
+    // Due famiglie, stesso cancello: i colpi della landing e le misure d'uso dell'editor (0093).
+    const uso = eUso(payload);
+    const vu = uso ? validaUso(payload) : null;
+    const v = uso ? null : validaColpo(payload);
+    if (vu && !vu.ok) return fine(400);
+    if (v && !v.ok) return fine(400);
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -65,6 +69,18 @@ Deno.serve(async (req) => {
       else if (typeof tot === "number" && tot > TETTO_GLOBALE_ORA) return fine(429);
     }
 
+    if (vu && vu.ok) {
+      // se la migration 0093 non è ancora applicata l'RPC non esiste: si registra l'errore e si esce 204
+      const { error } = await supabase.rpc("uso_counter_hit", {
+        p_event: vu.value.event,
+        p_lang: vu.value.lang,
+        p_device: vu.value.device,
+        p_account: vu.value.account,
+      });
+      if (error) console.error("contatore uso:", error.message);
+      return fine();
+    }
+    if (!v || !v.ok) return fine(400);
     const { error } = await supabase.rpc("landing_counter_hit", {
       p_event: v.value.event,
       p_source: v.value.source,
