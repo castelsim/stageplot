@@ -20830,8 +20830,11 @@ t("la privacy racconta i conteggi, e la data lo dice", () => {
   ok(/Conteggi della pagina iniziale/.test(p), "c'è la sezione sui conteggi");
   ok(/aggregat/i.test(p) && /nessun cookie/i.test(p), "dice che sono aggregati e senza cookie");
   ok(/Do Not Track/.test(p), "dichiara il rispetto del Do Not Track");
-  ok(/impronta anonima \(hash\) dell'indirizzo IP/.test(p), "dichiara l'impronta dell'IP per il rate limit");
-  ok(/Ultimo aggiornamento: 9 ottobre 2026/.test(p), "la data dell'ultimo aggiornamento è quella giusta (09/10: sezione 9, Analisi vocale)");
+  ok(/impronta \(hash\) non reversibile dell'indirizzo IP/.test(p) && !/impronta anonima/.test(p), "dichiara l'impronta dell'IP per il rate limit");
+  ok(/Ultimo aggiornamento: 23 novembre 2026/.test(p), "la data dell'ultimo aggiornamento è quella giusta (23/11: conteggi d'uso dell'editor)");
+  ok(/Conteggi d'uso dell'editor/.test(p) && /lingua principale del browser/.test(p) && /sessionStorage/.test(p), "c'è la sezione sui conteggi d'uso dell'editor");
+  ok(!/gli eventi d'uso non vengono inviati\./.test(p) && !/Gli eventi d'uso descritti sotto vengono inviati soltanto dopo l'accesso\./.test(p), "le frasi assolute sugli eventi d'uso sono riscritte (righe 56 e 65)");
+  ok(/in questa versione lo strumento non registra eventi d'uso/.test(p), "la riga sulla voce (programma separato) resta com'è");
   ok(/id="voce"/.test(p) && /L'audio resta sul tuo computer/.test(p), "c'è la sezione Analisi vocale: l'audio non lascia il computer");
   ok(!/senza accesso non si attivano autenticazione, salvataggio cloud o statistiche d'uso/.test(p),
     "la frase che ora sarebbe falsa non c'è più");
