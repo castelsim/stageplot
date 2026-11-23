@@ -11006,9 +11006,28 @@ function load(){
   } else { venueImgCache=Object.create(null); venuePersistedSig=""; venuePersistedKey=null; }
   if(!window.__docLoadBlocked && raw && !window.__bootVenueUnavailable){
     try{
-      var actualContentSig=projectContentSig(JSON.parse(docToJSON()),venueImageBundleSig());
-      if(window.__bootContentSig&&actualContentSig!==window.__bootContentSig) window.__bootCloudPending=true;
-      if(window.__bootCloudSigKnown&&actualContentSig!==window.__bootCloudSig) window.__bootCloudPending=true;
+      var venueSigBoot=venueImageBundleSig();
+      var actualContentSig=projectContentSig(JSON.parse(docToJSON()),venueSigBoot);
+      /* 23/11/2026 «aprire /app/ ricarica e risalva progetti»: la firma è un hash del documento NORMALIZZATO dal codice
+         che l'ha scritta. Dopo un aggiornamento che cambia la normalizzazione, il documento salvato (identico a ciò che
+         l'utente aveva) risultava «diverso» e veniva riscritto online senza nessuna modifica dell'utente. Se il testo
+         salvato è esattamente quello di cui la firma memorizzata è l'impronta (nessuno l'ha toccato) e il progetto
+         era allineato al cloud (firma locale = firma cloud), la differenza viene solo dal
+         codice: si ribasano le firme sul codice nuovo senza segnare «da salvare». Una modifica vera ha sempre armato
+         cloudPending prima del commit locale (persistLocalState). */
+      var soloCodice=false;
+      try{
+        if(window.__bootCloudSigKnown && window.__bootContentSig && window.__bootContentSig===window.__bootCloudSig
+           && actualContentSig!==window.__bootContentSig){
+          var rawCopy=JSON.parse(raw); delete rawCopy._local;
+          soloCodice = projectContentSig(rawCopy,venueSigBoot)===window.__bootContentSig;
+        }
+      }catch(_e){ soloCodice=false; }
+      if(soloCodice){ window.__bootCloudSig=actualContentSig; }
+      else {
+        if(window.__bootContentSig&&actualContentSig!==window.__bootContentSig) window.__bootCloudPending=true;
+        if(window.__bootCloudSigKnown&&actualContentSig!==window.__bootCloudSig) window.__bootCloudPending=true;
+      }
       window.__bootContentSig=actualContentSig;
     }catch(_e){}
   }

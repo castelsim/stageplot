@@ -33052,6 +33052,57 @@ t("la cronologia non sposta le chiavi: chi riapre il progetto dallo spazio local
   }
 });
 
+/* 23/11/2026 «aprire /app/ nel suo conto ricarica e risalva progetti»: la firma è l'hash del documento NORMALIZZATO dal
+   codice che l'ha scritta. Dopo un aggiornamento che cambia la normalizzazione, il documento salvato (che l'utente non ha
+   toccato) risultava «diverso» e al primo avvio veniva riscritto online (PATCH, updated_at nuovo). */
+t("aggiornamento del codice (normalizzazione diversa): il progetto non toccato non si riscrive online al ricarico; una modifica vera sì", () => {
+  const before = A.docToJSON(), oldStorage = A.localStorage, oldCloud = A.__cloud, oldDocument = A.document;
+  const old = { dirty: A._cloudDirty, saving: A._cloudSaving, pend: A.__bootCloudPending, sig: A.__bootCloudSig, known: A.__bootCloudSigKnown, conflict: A.__localConflict };
+  const store = new Map();
+  const firma = (r) => { const c = JSON.parse(JSON.stringify(r)); delete c._local; return A.projectContentSig(c, A.venueImageBundleSig()); };
+  /* scrive lo spazio locale come un'altra versione del codice: documento «vecchio» (senza mond/printFrame, con un campo
+     che il normalizzatore nuovo toglie) e firme calcolate su QUEL testo */
+  const scrivi = (r, { pending = false, toccato = false } = {}) => {
+    const v = r.variants ? r.variants[0].state : r;
+    delete v.mond; delete v.printFrame; v.itemsVecchio = 1;
+    const sig = firma(r);
+    r._local.cloudSig = sig; r._local.contentSig = sig; r._local.cloudPending = pending;
+    if (toccato) v.titolo = "toccato da fuori";   /* testo cambiato DOPO la firma: nessuno ha aggiornato i metadati */
+    store.set(A.LS_KEY, JSON.stringify(r));
+  };
+  try {
+    reset();
+    A.loadDoc(JSON.parse(A.docToJSON()));
+    A.localStorage = { getItem: (k) => store.has(k) ? store.get(k) : null, setItem: (k, v) => store.set(k, v), removeItem: (k) => store.delete(k) };
+    A.__cloud = { currentId: () => "progetto-A", currentRev: () => "rev-1", user: () => ({ id: "utente-prova" }) };
+    A.document = { body: { classList: { contains: () => false } }, getElementById: () => null };
+    A.__localConflict = false; A._cloudDirty = false; A._cloudSaving = false; A.__bootCloudPending = false;
+    A.recordHistory();
+    A.__bootCloudSig = A.projectContentSig(JSON.parse(A.docToJSON()), A.venueImageBundleSig()); A.__bootCloudSigKnown = true;
+    eq(A.persistLocalState(), true, "spazio locale scritto");
+    const base = JSON.parse(store.get(A.LS_KEY));
+    /* (1) solo il codice è cambiato: niente «da salvare» */
+    scrivi(JSON.parse(JSON.stringify(base)));
+    A._cloudDirty = false; A.load();
+    eq(A.__bootCloudPending, false, "codice nuovo, progetto non toccato: non segnato da salvare");
+    eq(A._cloudDirty, false, "e nessun salvataggio online armato");
+    eq(A.__bootCloudSig, A.__bootContentSig, "le firme sono ribasate sul codice nuovo (restano allineate al cloud)");
+    /* (2) modifica vera in sospeso (flag armato dal salvataggio locale): si scrive */
+    scrivi(JSON.parse(JSON.stringify(base)), { pending: true });
+    A._cloudDirty = false; A.load();
+    eq(A.__bootCloudPending, true, "modifica vera in sospeso: resta da salvare");
+    /* (3) testo locale cambiato senza aggiornare i metadati: si scrive come prima */
+    scrivi(JSON.parse(JSON.stringify(base)), { toccato: true });
+    A._cloudDirty = false; A.load();
+    eq(A.__bootCloudPending, true, "testo locale diverso dall'impronta memorizzata: resta da salvare");
+  } finally {
+    A.localStorage = oldStorage; A.__cloud = oldCloud; A.document = oldDocument;
+    A._cloudDirty = old.dirty; A._cloudSaving = old.saving; A.__bootCloudPending = old.pend; A.__bootCloudSig = old.sig;
+    A.__bootCloudSigKnown = old.known; A.__localConflict = old.conflict;
+    A.loadDoc(JSON.parse(before)); reset();
+  }
+});
+
 t("documento identico all'ultima versione online: niente scrittura (updated_at resta, l'altra scheda non va in conflitto)", () => {
   const before = A.docToJSON(), oldSig = A.__bootCloudSig, oldKnown = A.__bootCloudSigKnown, oldPend = A.__bootCloudPending;
   try {
