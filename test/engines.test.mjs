@@ -21902,6 +21902,98 @@ const pdfRigheLunghe = (doc, M = 16) => pdfTesti(doc).filter((x) => x.x === M &&
 const docACapo = () => Object.assign(jsPdfFinto()({ format: "a4", orientation: "portrait" }), { roundedRect() {} });
 const FRASE_LUNGA = "Una frase che da sola non ci sta su una riga del foglio A4, perché è fatta apposta per essere molto più lunga di quello che la pagina può contenere in larghezza.";
 
+/* ═══ CARICO ELETTRICO LEGGIBILE (23/11/2026, lotto S, da una segnalazione di un utente anonimo) ═══════════════
+   1) con il generatore già sul palco niente «Da chiedere: prese CEE… generatore ≥ N kVA»: il carico si confronta con la sua potenza;
+   2) gli oggetti attivi senza consumo noto (gobbo, stage box) non spariscono: riga «senza consumo noto», mai un totale falsamente completo;
+   3) in modo manuale, prima dei cavi, il totale stimato dal catalogo e i kW per quadro si vedono, etichettati «stimato». */
+function caricoScena(conGen) {
+  reset(); A.state.elec.on = true; A.state.elec.mode = "manual";
+  if (conGen) add(conGen, 100, 700);
+  add("distro32", 600, 700);
+  add("amprack", 300, 300); add("amprack", 500, 300);          /* 2 × 2500 W */
+  add("testamobile", 200, 100); add("testamobile", 400, 100);  /* 2 × 350 W */
+  A.__elecRes = null;
+}
+t("carico leggibile: con gen60 sul palco il pannello e il rider non chiedono prese né generatore", () => {
+  caricoScena("gen60");
+  const P = A.elecPotenza();
+  ok(P.maxW > 0 && P.tipW === 5700, "carichi: tipico " + P.tipW);
+  eq(P.preseTxt, "", "niente prese da chiedere con il generatore sul palco");
+  eq(P.genKva, null, "niente «generatore ≥ N kVA» da chiedere");
+  ok(/^Generatore sul palco: 60 kVA \(circa 48,0 kW con fattore di potenza 0,8, ipotesi\)\. Carico tipico 5,7 kW = 12 %, massimo /.test(P.genTxt), "testo: " + P.genTxt);
+  ok(/ = \d+ %\.$/.test(P.genTxt) && !/supera/.test(P.genTxt), "sotto la potenza del generatore: nessun avviso: " + P.genTxt);
+  const rid = A.riderAlimentazioneText(A.riderData().elettrico);
+  ok(rid.includes(P.genTxt), "il rider dice la stessa frase:\n" + rid);
+  ok(!/Servono|almeno \d+ kVA|Presa di corrente disponibile/.test(rid), "il rider non chiede ciò che c'è già:\n" + rid);
+  const d1 = docACapo(); A.elecReportPdf(d1); const t1 = pdfTesti(d1).map((x) => x.t).join(" ");
+  ok(t1.includes("Generatore sul palco: 60 kVA") && !/Da chiedere|Generatore consigliato/.test(t1), "piano elettrico:\n" + t1);
+  const d2 = docACapo(); A.loadListPdf(d2); const t2 = pdfTesti(d2).map((x) => x.t).join(" ");
+  ok(t2.includes("Generatore sul palco: 60 kVA") && !/Da chiedere/.test(t2), "lista carichi:\n" + t2);
+  ok(pdfRigheLunghe(d1).length === 0 && pdfRigheLunghe(d2).length === 0, "righe che non vanno a capo");
+  ok(!/cos\?|φ/.test(t1 + t2 + rid), "niente «φ» nei PDF (Helvetica)");
+  const righe = A.elecPannelloRighe(A.elecResult(true));
+  ok(righe.some((r) => r.k === "gen" && r.t === P.genTxt) && !righe.some((r) => /Da chiedere/.test(r.t)), "pannello: " + JSON.stringify(righe));
+  reset();
+});
+t("carico leggibile: generatore troppo piccolo = lo dice; senza generatore tutto come prima", () => {
+  caricoScena("gen20");
+  for (let i = 0; i < 5; i++) add("amprack", 100 + i * 100, 400);   /* massimo ben oltre 16 kW */
+  A.__elecRes = null;
+  const P = A.elecPotenza();
+  ok(P.maxW > 16000, "massimo " + P.maxW);
+  ok(/Il massimo supera la potenza del generatore\.$/.test(P.genTxt) && P.gen.sopra === true, "sopra: " + P.genTxt);
+  caricoScena(null);
+  const Q = A.elecPotenza();
+  eq(Q.genTxt, "", "senza generatore niente frase");
+  ok(Q.preseTxt && /^1 presa CEE/.test(Q.preseTxt), "senza generatore resta la presa da chiedere: " + Q.preseTxt);
+  const rid = A.riderAlimentazioneText(A.riderData().elettrico);
+  ok(/Servono 1 presa CEE/.test(rid), "rider come prima:\n" + rid);
+  reset();
+});
+t("carico leggibile: gobbo e stage box senza W compaiono come «senza consumo noto», fuori dai totali", () => {
+  caricoScena(null);
+  const tip0 = A.elecPotenza().tipW;
+  add("confidence", 700, 100); add("confidence", 900, 100); add("stagebox", 800, 500);
+  add("truss", 100, 50);   /* passivo: 0 W giusto, non va nell'elenco */
+  A.__elecRes = null;
+  const R = A.elecResult(true);
+  eq(A.elecPotenza(R).tipW, tip0, "i totali non cambiano: nessun W inventato");
+  eq(R.senzaW.length, 3, "tre oggetti senza consumo noto, il truss no");
+  eq(A.elecSenzaWTxt(R), "Senza consumo noto, non compresi nei totali (3 oggetti): Gobbo / confidence monitor ×2, Stagebox ×1", "testo");
+  const rid = A.riderAlimentazioneText(A.riderData().elettrico);
+  ok(rid.includes("Senza consumo noto, non compresi nei totali (3 oggetti)"), "rider:\n" + rid);
+  const d1 = docACapo(); A.elecReportPdf(d1); const t1 = pdfTesti(d1).map((x) => x.t).join(" ");
+  const d2 = docACapo(); A.loadListPdf(d2); const t2 = pdfTesti(d2).map((x) => x.t).join(" ");
+  ok(t1.includes("Gobbo / confidence monitor ×2") && t2.includes("Gobbo / confidence monitor ×2"), "piano elettrico e lista carichi");
+  ok(/Senza consumo noto/.test(A.listPreviewHtml("loadlist")), "anteprima e link condiviso");
+  ok(A.elecPannelloRighe(R).some((r) => r.k === "senzaw"), "pannello");
+  /* un valore scritto a mano lo fa entrare nei carichi e lo toglie dall'elenco */
+  const g = A.state.items.find((i) => i.type === "confidence"); g.watt = 120; A.__elecRes = null;
+  const R2 = A.elecResult(true);
+  eq(R2.senzaW.length, 2, "con i W scritti a mano esce dall'elenco");
+  eq(A.elecPotenza(R2).tipW, tip0 + 120, "ed entra nel totale");
+  reset();
+});
+t("carico leggibile: in manuale, prima dei cavi, totale stimato dal catalogo e kW per quadro", () => {
+  caricoScena(null);
+  const R = A.elecResult(true);
+  ok(R.pending.length === 4, "4 carichi da collegare: " + R.pending.length);
+  const righe = A.elecPannelloRighe(R);
+  const s = righe.find((r) => r.k === "stima");
+  ok(s && /^Totale stimato dal catalogo: 5,7 kW tipico /.test(s.t) && /per fase/.test(s.t) && /da collegare: 5,7 kW \(4 carichi\)/.test(s.t), "stima: " + (s && s.t));
+  const q = righe.find((r) => r.k === "quadri");
+  ok(q && /Q1 \(32 A\) 0,0 kW collegati/.test(q.t), "per quadro: " + (q && q.t));
+  /* collegato un carico a mano, il quadro lo conta e il resto è ancora da collegare */
+  const d = A.state.items.find((i) => i.type === "distro32"), l = A.state.items.find((i) => i.type === "amprack");
+  A.state.elec.manual[l.id] = { distro: d.id }; A.__elecRes = null;
+  const q2 = A.elecPannelloRighe(A.elecResult(true)).find((r) => r.k === "quadri");
+  ok(q2 && /Q1 \(32 A\) 2,5 kW collegati/.test(q2.t), "dopo il collegamento: " + (q2 && q2.t));
+  /* tutto collegato o auto: nessuna riga di stima */
+  A.state.elec.mode = "auto"; A.__elecRes = null;
+  ok(!A.elecPannelloRighe(A.elecResult(true)).some((r) => r.k === "stima"), "in auto niente stima");
+  reset();
+});
+
 t("PDF, a capo: pdfACapo spezza, cambia pagina e non perde parole", () => {
   const doc = docACapo();
   const y = A.pdfACapo(doc, FRASE_LUNGA, 16, 22, 178, 5);
