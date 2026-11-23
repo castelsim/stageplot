@@ -1,5 +1,5 @@
 import { assertEquals } from "jsr:@std/assert@1";
-import { normalizzaProvenienza, validaColpo } from "./landing-metrics.ts";
+import { eUso, normalizzaProvenienza, validaColpo, validaUso } from "./landing-metrics.ts";
 
 Deno.test("una visita senza bottone è valida", () => {
   const r = validaColpo({ event: "view", ref: "" });
@@ -66,4 +66,25 @@ Deno.test("arrivo dal link del PDF esportato: «pdf»; un host qualunque col nom
   assertEquals(normalizzaProvenienza("utm:pdf"), "pdf");
   assertEquals(normalizzaProvenienza("pdf.example.com"), "altro");
   assertEquals(normalizzaProvenienza("utm:altro"), "altro");
+});
+
+Deno.test("uso: un evento dell'editor con valori dell'elenco è valido", () => {
+  const r = validaUso({ event: "pdf_esportato", lang: "de", device: "telefono", account: "no" });
+  assertEquals(r.ok, true);
+  assertEquals(eUso({ event: "editor_aperto" }), true);
+  assertEquals(eUso({ event: "view" }), false);
+});
+
+Deno.test("uso: lingua, dispositivo, account o evento fuori elenco = rifiutati", () => {
+  const base = { event: "editor_aperto", lang: "it", device: "computer", account: "si" };
+  assertEquals(validaUso(base).ok, true);
+  assertEquals(validaUso({ ...base, lang: "pt" }).ok, false);        // niente lingue libere: solo il bucket
+  assertEquals(validaUso({ ...base, lang: "it-IT" }).ok, false);
+  assertEquals(validaUso({ ...base, device: "tablet" }).ok, false);
+  assertEquals(validaUso({ ...base, account: "x@y.it" }).ok, false);
+  assertEquals(validaUso({ ...base, event: "export" }).ok, false);
+  assertEquals(validaUso({ ...base, id: "abc" }).ok, true);          // campi in più ignorati, mai salvati
+  const r = validaUso({ ...base, id: "abc" });
+  if (r.ok) assertEquals(Object.keys(r.value).sort(), ["account", "device", "event", "lang"]);
+  assertEquals(validaUso(null).ok, false);
 });

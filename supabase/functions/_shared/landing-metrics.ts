@@ -81,3 +81,34 @@ export function validaColpo(payload: unknown): { ok: true; value: Colpo } | { ok
 
   return { ok: true, value: { event: evento, source, ref: normalizzaProvenienza(p.ref) } };
 }
+
+// ---------------------------------------------------------------------------------------------
+// Misure anonime d'uso dell'editor (23/11/2026, studio ORIZZONTE 01, mossa 1).
+// Stessa regola della landing: dal client entrano solo parole di un elenco chiuso, il giorno lo
+// mette il server, niente IP/user agent/identificatori. Contatore giornaliero per
+// evento × lingua × dispositivo × account (sì/no = c'è una sessione salvata, non chi sia).
+// Chi aggiunge un valore deve toccare anche il CHECK della migration 0093.
+
+export const EVENTI_USO = ["editor_aperto", "pdf_esportato", "png_esportato", "progetto_condiviso"] as const;
+export const LINGUE_USO = ["it", "en", "de", "fr", "es", "altro"] as const;
+export const DISPOSITIVI_USO = ["telefono", "computer"] as const;
+export const ACCOUNT_USO = ["si", "no"] as const;
+
+export type ColpoUso = { event: string; lang: string; device: string; account: string };
+
+/** true se il payload è un evento d'uso dell'editor (si valida con validaUso, non con validaColpo). */
+export function eUso(payload: unknown): boolean {
+  return !!payload && typeof payload === "object" &&
+    (EVENTI_USO as readonly string[]).includes((payload as Record<string, unknown>).event as string);
+}
+
+export function validaUso(payload: unknown): { ok: true; value: ColpoUso } | { ok: false; error: string } {
+  if (!payload || typeof payload !== "object") return { ok: false, error: "payload" };
+  const p = payload as Record<string, unknown>;
+  const dentro = (v: unknown, elenco: readonly string[]) => typeof v === "string" && elenco.includes(v);
+  if (!dentro(p.event, EVENTI_USO)) return { ok: false, error: "evento" };
+  if (!dentro(p.lang, LINGUE_USO)) return { ok: false, error: "lingua" };
+  if (!dentro(p.device, DISPOSITIVI_USO)) return { ok: false, error: "dispositivo" };
+  if (!dentro(p.account, ACCOUNT_USO)) return { ok: false, error: "account" };
+  return { ok: true, value: { event: p.event as string, lang: p.lang as string, device: p.device as string, account: p.account as string } };
+}

@@ -39984,5 +39984,118 @@ t("fogli L2 (rilettura): ordine lungo una truss ruotata, fasce di y, nomi doppi,
   reset();
 });
 
+
+/* ===== Misure anonime d'uso (23/11/2026, ORIZZONTE 01 mossa 1) ===== */
+{
+  const appSrc = readFileSync(join(root, "app.js"), "utf8");
+  const mig93 = readFileSync(join(root, "supabase/migrations/0093_uso_counters.sql"), "utf8");
+  const tsUso = readFileSync(join(root, "supabase/functions/_shared/landing-metrics.ts"), "utf8");
+  /* esegue usoConta VERA con un ambiente finto e dice cosa è partito */
+  const giroUso = (event, props, amb = {}) => {
+    const inviati = [], salvati = {}, sess = amb.sess || {}, loc = amb.loc || {};
+    const sal = ["location", "navigator", "sessionStorage", "localStorage", "fetch", "Blob", "foreignDoc", "isMobile"].map((k) => [k, A[k]]);
+    A.location = { hostname: "stageplot.it", search: "", ...(amb.location || {}) };
+    A.navigator = { languages: amb.lingue || ["it-IT", "en"], language: "it-IT", doNotTrack: "0", webdriver: false, userAgent: "x",
+      sendBeacon: amb.beaconRotto ? () => { throw new Error("beacon"); } : (u, b) => { inviati.push({ u, b: b.parts }); return true; }, ...(amb.navigator || {}) };
+    A.sessionStorage = amb.senzaSessione ? { getItem() { throw new Error("no"); }, setItem() { throw new Error("no"); } }
+      : { getItem: (k) => sess[k] ?? null, setItem: (k, v) => { sess[k] = v; } };
+    A.localStorage = { get length() { return Object.keys(loc).length; }, key: (i) => Object.keys(loc)[i], getItem: (k) => loc[k] ?? null, setItem() {}, removeItem() {} };
+    A.fetch = (u, o) => { if (amb.retePerPrima) return Promise.reject(new Error("rete")); inviati.push({ u, b: [o.body] }); return Promise.resolve(); };
+    A.Blob = function (parts) { this.parts = parts; };
+    A.foreignDoc = () => !!amb.altrui;
+    A.isMobile = () => !!amb.mobile;
+    try { A.usoConta(event, props); } finally { sal.forEach(([k, v]) => { A[k] = v; }); }
+    return inviati.map((x) => JSON.parse(x.b[0]));
+  };
+  const resetVisti = () => { A.__usoVisti = {}; };
+
+  t("misure uso: apertura dell'editor = un colpo con SOLO i quattro bucket, nessun altro campo", () => {
+    resetVisti();
+    const r = giroUso("app_open", { from: "hero" }, { lingue: ["de-AT"], mobile: true });
+    eq(r, [{ event: "editor_aperto", lang: "de", device: "telefono", account: "no" }], "corpo esatto");
+    eq(Object.keys(r[0]).sort(), ["account", "device", "event", "lang"], "nessun identificativo, nessun testo libero");
+  });
+  t("misure uso: lingue fuori elenco → «altro»; account «si» solo con sessione salvata", () => {
+    resetVisti(); eq(giroUso("app_open", {}, { lingue: ["pt-BR"] })[0].lang, "altro", "portoghese → altro");
+    resetVisti(); eq(giroUso("app_open", {}, { lingue: [] , navigator: { languages: [], language: "" } })[0].lang, "altro", "lingua assente → altro");
+    resetVisti(); eq(giroUso("app_open", {}, { lingue: ["fr"], loc: { "sb-abc-auth-token": "{…}" } })[0].account, "si", "sessione salvata");
+    resetVisti(); eq(giroUso("app_open", {}, { loc: { sp_altro: "1" } })[0].account, "no", "altre chiavi non contano");
+  });
+  t("misure uso: PDF, PNG, condivisione; zip e altri formati no", () => {
+    resetVisti(); eq(giroUso("export", { format: "pdf" })[0].event, "pdf_esportato");
+    resetVisti(); eq(giroUso("export", { format: "pdf-foglio-teatro" })[0].event, "pdf_esportato", "ogni PDF vale come PDF");
+    resetVisti(); eq(giroUso("export", { format: "png" })[0].event, "png_esportato");
+    resetVisti(); eq(giroUso("share_created", {})[0].event, "progetto_condiviso");
+    resetVisti(); eq(giroUso("export", { format: "zip" }), [], "zip non si conta");
+    resetVisti(); eq(giroUso("search_no_results", { q: "chitarra" }), [], "gli altri eventi non passano di qui");
+    resetVisti(); eq(giroUso("login_success", {}), [], "il login non si conta");
+  });
+  t("misure uso: una volta sola per scheda e per evento (ricarica, secondo PDF)", () => {
+    resetVisti(); const sess = {};
+    eq(giroUso("export", { format: "pdf" }, { sess }).length, 1, "primo PDF");
+    eq(giroUso("export", { format: "pdf-palco-esterni" }, { sess }).length, 0, "secondo PDF della scheda: niente");
+    eq(giroUso("export", { format: "png" }, { sess }).length, 1, "ma il PNG è un altro evento");
+    resetVisti(); eq(giroUso("export", { format: "pdf" }, { sess }).length, 0, "ricarica della pagina: il segno in sessionStorage tiene");
+    resetVisti(); eq(giroUso("export", { format: "pdf" }, { sess: {} }).length, 1, "scheda nuova: si conta di nuovo");
+  });
+  t("misure uso: senza sessionStorage non si conta due volte nella stessa pagina", () => {
+    resetVisti();
+    eq(giroUso("export", { format: "pdf" }, { senzaSessione: true }).length, 1);
+    eq(giroUso("export", { format: "pdf" }, { senzaSessione: true }).length, 0, "il segno in memoria regge");
+  });
+  t("misure uso: non si conta fuori da stageplot.it, con DNT, fondatore, automazione, vista/consulenza", () => {
+    resetVisti(); eq(giroUso("app_open", {}, { location: { hostname: "localhost" } }), [], "in locale");
+    resetVisti(); eq(giroUso("app_open", {}, { location: { hostname: "stageplot.it.evil.com" } }), [], "dominio simile");
+    resetVisti(); eq(giroUso("app_open", {}, { navigator: { doNotTrack: "1" } }), [], "Do Not Track");
+    resetVisti(); eq(giroUso("app_open", {}, { loc: { sp_founder: "1" } }), [], "il browser del fondatore");
+    resetVisti(); eq(giroUso("app_open", {}, { navigator: { webdriver: true } }), [], "automazione");
+    resetVisti(); eq(giroUso("app_open", {}, { altrui: true }), [], "progetto altrui / vista");
+    resetVisti(); eq(giroUso("app_open", {}, { location: { search: "?view=abc" } }), [], "link di sola vista");
+  });
+  t("misure uso: se rete o beacon falliscono l'editor non cambia (nessuna eccezione, nessun rifiuto non gestito)", () => {
+    resetVisti();
+    giroUso("app_open", {}, { beaconRotto: true, retePerPrima: true });   /* se lanciasse, il test sarebbe rosso */
+    resetVisti();
+    giroUso("app_open", {}, { navigator: { sendBeacon: () => false }, retePerPrima: true });
+    ok(true);
+    const f = appSrc.slice(appSrc.indexOf("function usoConta("), appSrc.indexOf("window.usoConta=usoConta"));
+    ok(/r\.catch\(function\(\)\{\}\)/.test(f), "il rifiuto della fetch è assorbito (nessun unhandledrejection)");
+    ok(f.trim().endsWith("}"), "funzione chiusa");
+    ok(!/await|XMLHttpRequest|cookie/i.test(f), "né attese né cookie");
+  });
+  t("misure uso: nessun cookie né storage persistente nuovo, nessun IP/user agent nel corpo", () => {
+    const f = appSrc.slice(appSrc.indexOf("function usoLingua("), appSrc.indexOf("window.usoConta=usoConta"));
+    ok(!/document\.cookie/.test(f), "nessun cookie");
+    ok(!/localStorage\.setItem|indexedDB/.test(f), "nessuna scrittura persistente (solo sessionStorage)");
+    ok(!/userAgent|platform|screen\.|innerWidth|timezone|crypto|randomUUID|sp_sid/.test(f), "niente fingerprint né l'id di sessione degli eventi");
+  });
+  t("misure uso: il punto di aggancio è in track() dopo i controlli, e share_created", () => {
+    const tr = appSrc.slice(appSrc.indexOf("function track(event, props){"), appSrc.indexOf("window.track=track;"));
+    ok(tr.indexOf("foreignDoc()") > -1 && tr.indexOf("usoConta(event, props)") > tr.indexOf("foreignDoc()"), "dopo il controllo di vista/consulenza");
+    ok(/try\{ window\.usoConta\("share_created"\); \}catch/.test(appSrc), "condivisione agganciata, dentro try");
+  });
+  t("misure uso: elenchi uguali in client, validazione server e CHECK del database", () => {
+    const nomi = (src) => [...src.matchAll(/"(editor_aperto|pdf_esportato|png_esportato|progetto_condiviso)"/g)].map((m) => m[1]);
+    const clientEv = new Set(nomi(appSrc.slice(appSrc.indexOf("function usoNome("), appSrc.indexOf("function usoCorpo("))));
+    const serverEv = new Set(nomi((tsUso.match(/EVENTI_USO = \[([^\]]*)\]/) || [])[1] || ""));
+    const dbEv = new Set([...((mig93.match(/event in \(([^)]*)\)/) || [])[1] || "").matchAll(/'(\w+)'/g)].map((m) => m[1]));
+    eq([...clientEv].sort(), [...serverEv].sort(), "client = server");
+    eq([...serverEv].sort(), [...dbEv].sort(), "server = database");
+    const lingue = (src, re) => [...((src.match(re) || [])[1] || "").matchAll(/["'](\w+)["']/g)].map((m) => m[1]).sort();
+    eq(lingue(tsUso, /LINGUE_USO = \[([^\]]*)\]/), lingue(mig93, /lang in \(([^)]*)\)/), "lingue server = database");
+    eq(lingue(appSrc, /function usoLingua\(lingue\)\{\s*var elenco=\[([^\]]*)\]/).concat("altro").sort(), lingue(mig93, /lang in \(([^)]*)\)/), "lingue client (+altro) = database");
+  });
+  t("misure uso: la migrazione non apre porte (RLS, nessuna policy, funzione solo service_role, nessun IP)", () => {
+    ok(/alter table public\.uso_counters\s+enable row level security/.test(mig93), "RLS attiva");
+    ok(!/create policy/i.test(mig93), "nessuna policy: il browser non scrive");
+    ok(/revoke execute on function public\.uso_counter_hit\(text, text, text, text\) from public, anon, authenticated/.test(mig93), "revoca ad anon/authenticated");
+    ok(/grant execute on function public\.uso_counter_hit\(text, text, text, text\)\s+to service_role/.test(mig93), "solo service_role");
+    ok(!/\b(ip|user_agent|session_id|user_id|email)\b\s+(text|uuid|inet)/i.test(mig93), "nessuna colonna identificativa");
+    const idx = readFileSync(join(root, "supabase/functions/track-landing/index.ts"), "utf8");
+    ok(/uso_counter_hit/.test(idx) && /validaUso/.test(idx), "la funzione instrada le misure d'uso");
+    ok(/if \(error\) console\.error\("contatore uso:"/.test(idx), "RPC mancante (migrazione non applicata): errore registrato, risposta 204");
+  });
+}
+
 console.log("\n" + (fail === 0 ? "✓ TUTTI VERDI" : "✗ " + fail + " FALLITI") + " — " + pass + " passati, " + fail + " falliti.");
 process.exit(fail === 0 ? 0 : 1);

@@ -6170,11 +6170,74 @@ function track(event, props){
   try{ if(event==="export") exportNudgeSegna("fatto"); }catch(e){}   /* chi esporta ha trovato il pulsante: l'invito non serve più */
   try{
     if(/[?&](view|export)=/.test(location.search) || foreignDoc()) return;
+    usoConta(event, props);   /* contatore aggregato anonimo, fire-and-forget: mai un errore, mai un ritardo */
     __evtQ.push({ event:event, props:props||{} });
     if(window.__flushEvents) window.__flushEvents();
   }catch(e){}
 }
 window.track=track;
+/* ===== Misure anonime d'uso (23/11/2026, studio ORIZZONTE 01, mossa 1) =====
+   Due domande a cui oggi non si risponde: di chi apre l'editor, quanti esportano un PDF (conversione), e in che
+   lingua è il browser (per scegliere la seconda lingua dai dati, non a sensazione). Anche SENZA account.
+   Manda a track-landing (la stessa funzione del contatore della home) QUATTRO parole dall'elenco chiuso:
+   evento · lingua (it/en/de/fr/es/altro) · dispositivo (telefono/computer) · account (si/no = c'è una sessione
+   salvata). Il server incrementa un contatore GIORNALIERO: nessuna riga per persona, nessun IP, nessun user agent,
+   nessun identificatore, nessun cookie. Il browser non scrive nel database (resta chiusa la porta della 0026).
+   Una sola volta per scheda e per evento: il segno sta in sessionStorage (muore con la scheda) e in memoria.
+   Non si conta: fuori da stageplot.it, con «Do Not Track», con il segno del fondatore, in automazione
+   (navigator.webdriver), in vista/consulenza. Se la rete o il server falliscono non succede niente.
+   (Niente var a livello di modulo: tutto dentro le funzioni, così non dipende dall'ordine di avvio.) */
+function usoLingua(lingue){
+  var elenco=["it","en","de","fr","es"];
+  var l=(lingue&&lingue[0])||"";
+  l=String(l).toLowerCase().split(/[-_]/)[0];
+  return elenco.indexOf(l)>-1 ? l : "altro";
+}
+function usoNome(event,props){
+  if(event==="app_open") return "editor_aperto";
+  if(event==="share_created") return "progetto_condiviso";
+  if(event==="export"){
+    var f=String((props&&props.format)||"");
+    if(f.indexOf("pdf")===0) return "pdf_esportato";   /* pdf, pdf-palco-esterni, pdf-foglio-teatro: il PRIMO della scheda */
+    if(f==="png") return "png_esportato";
+  }
+  return "";
+}
+/* puro: dato l'ambiente decide se contare e cosa mandare (null = niente) */
+function usoCorpo(event,props,amb){
+  amb=amb||{};
+  var nome=usoNome(event,props); if(!nome) return null;
+  if(amb.host!=="stageplot.it" || amb.dnt || amb.founder || amb.webdriver || amb.altrui || amb.visto) return null;
+  return { event:nome, lang:usoLingua(amb.lingue), device:amb.mobile?"telefono":"computer", account:amb.account?"si":"no" };
+}
+function usoConta(event,props){
+  try{
+    var nome=usoNome(event,props); if(!nome) return;
+    var USO_API="https://vsodplqkuvnsdiikvmjb.supabase.co/functions/v1/track-landing";
+    var vistiMem=(window.__usoVisti=window.__usoVisti||{});
+    var chiave="sp_uso_"+nome, visto=!!vistiMem[nome];
+    try{ if(sessionStorage.getItem(chiave)==="1") visto=true; }catch(e){}
+    var founder=false; try{ founder=localStorage.getItem("sp_founder")==="1"; }catch(e){}
+    var account=false;
+    try{ for(var i=0;i<localStorage.length;i++){ if(/^sb-.+-auth-token/.test(localStorage.key(i)||"")){ account=true; break; } } }catch(e){}
+    var corpo=usoCorpo(event,props,{
+      host:location.hostname, dnt:(navigator.doNotTrack==="1"||window.doNotTrack==="1"), founder:founder,
+      webdriver:!!navigator.webdriver, altrui:foreignDoc()||/[?&](view|export)=/.test(location.search), visto:visto,
+      lingue:(navigator.languages&&navigator.languages.length)?navigator.languages:[navigator.language||""],
+      mobile:(typeof isMobile==="function")?isMobile():false, account:account });
+    if(!corpo) return;
+    vistiMem[nome]=true;
+    try{ sessionStorage.setItem(chiave,"1"); }catch(e){}
+    var testo=JSON.stringify(corpo);
+    /* text/plain di proposito: con application/json servirebbe una preflight, che sendBeacon non sa fare */
+    try{
+      if(navigator.sendBeacon && navigator.sendBeacon(USO_API, new Blob([testo],{type:"text/plain;charset=UTF-8"}))) return;
+      var r=fetch(USO_API,{method:"POST",body:testo,keepalive:true,headers:{"Content-Type":"text/plain;charset=UTF-8"}});
+      if(r && r.catch) r.catch(function(){});
+    }catch(e){}
+  }catch(e){}
+}
+window.usoConta=usoConta;
 /* «Esporta si fa notare una volta sola» (14/11/2026, dai punti d'abbandono: 10 iscritti su 25 costruiscono un palco
    vero, mediana 45 elementi, e non esportano mai). È un INVITO, come il banner dei cavi: non apre niente, non copre il
    palco, non è un popup. Regole:
@@ -46644,7 +46707,7 @@ function maybeAskStageSize(explicit){
       var tok=tokenCondivisione();
       if(!tok){ toast("Questo browser non sa generare un link sicuro: aggiornalo."); cb(null); return; }
       updateProjectMetadataCas(id,{share_token:tok},"updated_at,share_token",function(data){
-        if(data){ window.__sendEvent({event:"share_created",props:{}}); cb(data.share_token||tok); }
+        if(data){ window.__sendEvent({event:"share_created",props:{}}); try{ window.usoConta("share_created"); }catch(_u){} cb(data.share_token||tok); }
         else cb(null);
       },r.data&&r.data.updated_at);
     });
